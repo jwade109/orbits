@@ -83,8 +83,8 @@ fn redraw_fps(mut query: Query<&mut Text, With<DebugReadout>>, debug: Res<DebugI
 }
 
 fn keyboard_input(keys: Res<ButtonInput<KeyCode>>) {
-    for key in keys.get_pressed() {
-        dbg!(key);
+    for _key in keys.get_pressed() {
+        // dbg!(key);
     }
 }
 

@@ -1,7 +1,6 @@
 use core::f32;
 
 use bevy::color::palettes::basic::*;
-use bevy::math::VectorSpace;
 use bevy::prelude::*;
 
 pub struct SpaceshipPlugin {}
@@ -22,7 +21,7 @@ enum TurnState {
     Right,
 }
 
-#[derive(Component, Default)]
+#[derive(Component, Default, Clone, Copy)]
 struct Spaceship {
     position: Vec2,
     velocity: Vec2,
@@ -47,6 +46,66 @@ impl Spaceship {
 
     fn pointing(&self) -> Vec2 {
         Vec2::from_angle(self.rotation)
+    }
+
+    fn step(&mut self, dt: f32) {
+        let vel = self.velocity;
+        self.position += vel * dt;
+        self.velocity *= f32::exp(-dt / 4.0);
+        self.rotation += self.angular_velocity * dt;
+        self.angular_velocity *= f32::exp(-dt / 8.0);
+
+        let angular_accel = match self.turning {
+            TurnState::Left => 6.0,
+            TurnState::Right => -6.0,
+            TurnState::None => 0.0,
+        };
+
+        self.angular_velocity += angular_accel * dt;
+
+        let linear_accel: Vec2 = match self.thrusting {
+            true => 400.0 * self.pointing(),
+            false => Vec2::ZERO,
+        };
+
+        self.velocity += linear_accel * dt;
+    }
+
+    fn predict(self, dt: f32, n: u32, m: u32) -> [Vec<Vec2>; 4] {
+        let mut coasting = self;
+        let mut no_turning = self;
+        let mut left_turning: Spaceship = self;
+        let mut right_turning = self;
+
+        coasting.thrusting = false;
+
+        no_turning.turning = TurnState::None;
+        left_turning.turning = TurnState::Left;
+        right_turning.turning = TurnState::Right;
+
+        no_turning.thrusting = true;
+        left_turning.thrusting = true;
+        right_turning.thrusting = true;
+
+        let sim = |turning: TurnState, thrusting: bool, iters: u32| -> Vec<Vec2> {
+            let mut spaceship = self;
+            spaceship.turning = turning;
+            spaceship.thrusting = thrusting;
+            (0..iters)
+                .map(|_| {
+                    let p = spaceship.position;
+                    spaceship.step(dt);
+                    p
+                })
+                .collect()
+        };
+
+        [
+            sim(TurnState::None, false, n),
+            sim(TurnState::None, true, n),
+            sim(TurnState::Left, true, m),
+            sim(TurnState::Right, true, m),
+        ]
     }
 }
 
@@ -123,6 +182,12 @@ fn render_spaceship(time: Res<Time>, mut gizmos: Gizmos, query: Query<&Spaceship
                 gizmos.arc_2d(iso, -arc_angle, radius, WHITE);
             }
             _ => (),
+        }
+
+        let predictions: [Vec<Vec2>; 4] = sp.predict(0.05, 60, 20);
+
+        for (p, c) in predictions.into_iter().zip([GRAY, BLUE, RED, GREEN]) {
+            gizmos.linestrip_2d(p, c);
         }
     }
 }

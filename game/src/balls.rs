@@ -1,5 +1,6 @@
-use bevy::prelude::*;
 use bevy::color::palettes::basic::*;
+use bevy::math::NormedVectorSpace;
+use bevy::prelude::*;
 use rand::Rng;
 
 pub struct BallsPlugin;
@@ -11,9 +12,9 @@ fn rand(min: f32, max: f32) -> f32 {
 impl Plugin for BallsPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup);
-        app.add_systems(Update, draw);
+        app.add_systems(Update, draw_balls);
         app.add_systems(FixedUpdate, update_balls);
-        app.add_systems(FixedUpdate, despawn_collisions);
+        app.add_systems(FixedUpdate, handle_collisions);
     }
 }
 
@@ -25,9 +26,13 @@ struct Ball {
 }
 
 impl Ball {
-    fn intersects(self: Self, other: Self) -> bool {
+    fn intersects(&self, other: &Self) -> bool {
         let d = self.pos.distance(other.pos);
         d < self.radius + other.radius
+    }
+
+    fn mass(&self) -> f32 {
+        self.radius * self.radius * 10.0
     }
 }
 
@@ -37,15 +42,18 @@ struct Collision {
     e2: Entity,
 }
 
-fn get_balls<'a>(col: &Collision, balls: &Query<&Ball>) -> Option<(Ball, Ball)> {
-    let b1 = balls.get(col.e1).ok();
-    let b2 = balls.get(col.e2).ok();
+fn elastic_collision(b1: &Ball, b2: &Ball) -> (Vec2, Vec2) {
+    let msum = b1.mass() + b2.mass();
+    let dv = b2.vel - b1.vel;
+    let ds = b2.pos - b1.pos;
 
-    match (b1, b2) {
-        (Some(x), Some(y)) => Some((*x, *y)),
-        _ => None,
-    }
+    let v1p = b1.vel - ((2.0 * b2.mass() / msum) * dv.dot(ds) / ds.norm_squared()) * -ds;
+    let v2p = b2.vel - ((2.0 * b1.mass() / msum) * dv.dot(ds) / ds.norm_squared()) * ds;
+
+    (v1p, v2p)
 }
+
+const BALL_VELOCITY_UPPER_BOUND: f32 = 100.0;
 
 fn setup(mut commands: Commands, window: Query<&Window>) {
     commands.spawn(Camera2d);
@@ -57,39 +65,24 @@ fn setup(mut commands: Commands, window: Query<&Window>) {
     let h = window.single().height();
     let w = window.single().width();
 
-    (0..50).for_each(|_| {
+    (0..100).for_each(|_| {
         let b = Ball {
             pos: Vec2::new(rand(-w / 2.0, w / 2.0), rand(-h / 2.0, h / 2.0)),
-            vel: Vec2::new(rand(-300.0, 300.0), rand(-300.0, 300.0)),
-            radius: rand(5.0, 40.0),
+            vel: Vec2::new(rand(-1.0, 1.0), rand(-1.0, 1.0)) * BALL_VELOCITY_UPPER_BOUND,
+            radius: rand(5.0, 30.0),
         };
         commands.spawn(b);
     })
 }
 
-fn draw(mut gizmos: Gizmos, balls: Query<&Ball>, col: Query<&Collision>) {
+fn draw_balls(mut gizmos: Gizmos, balls: Query<&Ball>) {
     for ball in balls.iter() {
         let iso = Isometry2d::new(ball.pos, 0.0.into());
         gizmos.circle_2d(iso, ball.radius, WHITE);
     }
-    for c in col.iter() {
-        let p1 = if let Ok(b1) = balls.get(c.e1) {
-            b1.pos
-        } else {
-            continue;
-        };
-
-        let p2 = if let Ok(b2) = balls.get(c.e2) {
-            b2.pos
-        } else {
-            continue;
-        };
-
-        gizmos.line_2d(p1, p2, RED);
-    }
 }
 
-const GRAVITY : f32 = 0.0;
+const GRAVITY: f32 = 0.0;
 
 fn update_balls(
     mut commands: Commands,
@@ -131,24 +124,30 @@ fn update_balls(
 
     for (e1, b1) in balls.iter() {
         for (e2, b2) in balls.iter() {
-            let d = b1.pos.distance(b2.pos);
-            if d < b1.radius + b2.radius && d > 0.0 {
+            if e1 >= e2 {
+                continue;
+            }
+            let ds = b2.pos - b1.pos;
+            let dv = b2.vel - b1.vel;
+
+            if b1.intersects(b2) && ds.dot(dv) < 0.0 {
                 commands.spawn(Collision { e1, e2 });
             }
         }
     }
 }
 
-fn despawn_collisions(
+fn handle_collisions(
     mut command: Commands,
-    balls: Query<&Ball>,
+    mut balls: Query<&mut Ball>,
     col: Query<(Entity, &Collision)>,
 ) {
     for (e, c) in col.iter() {
-        if let Some((b1, b2)) = get_balls(c, &balls) {
-            if !b1.intersects(b2) {
-                command.entity(e).despawn();
-            }
+        if let Ok(mut balls) = balls.get_many_mut([c.e1, c.e2]) {
+            let (v1p, v2p) = elastic_collision(&balls[0], &balls[1]);
+            balls[0].vel = v1p;
+            balls[1].vel = v2p;
         }
+        command.entity(e).despawn();
     }
 }
