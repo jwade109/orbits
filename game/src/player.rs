@@ -32,6 +32,9 @@ struct Spaceship {
     turning: TurnState,
 }
 
+#[derive(Component)]
+struct PlayerShip {}
+
 impl Spaceship {
     fn at_position(pos: Vec2) -> Self {
         Spaceship {
@@ -110,32 +113,14 @@ impl Spaceship {
 }
 
 fn spawn_spaceship(mut commands: Commands) {
-    commands.spawn(Spaceship::at_position((200.0, 200.0).into()));
+    commands.spawn((Spaceship::at_position((0.0, 0.0).into()), PlayerShip {}));
+    commands.spawn(Spaceship::at_position((100.0, 100.0).into()));
 }
 
 fn update_spaceship(time: Res<Time>, mut query: Query<&mut Spaceship>) {
     let dt: f32 = time.delta().as_secs_f32();
     for mut sp in query.iter_mut() {
-        let vel = sp.velocity;
-        sp.position += vel * dt;
-        sp.velocity *= f32::exp(-dt / 4.0);
-        sp.rotation += sp.angular_velocity * dt;
-        sp.angular_velocity *= f32::exp(-dt / 8.0);
-
-        let angular_accel = match sp.turning {
-            TurnState::Left => 6.0,
-            TurnState::Right => -6.0,
-            TurnState::None => 0.0,
-        };
-
-        sp.angular_velocity += angular_accel * dt;
-
-        let linear_accel = match sp.thrusting {
-            true => 400.0 * sp.pointing(),
-            false => Vec2::ZERO,
-        };
-
-        sp.velocity += linear_accel * dt;
+        sp.step(dt);
     }
 }
 
@@ -192,7 +177,7 @@ fn render_spaceship(time: Res<Time>, mut gizmos: Gizmos, query: Query<&Spaceship
     }
 }
 
-fn keyboard_input(keys: Res<ButtonInput<KeyCode>>, mut query: Query<&mut Spaceship>) {
+fn keyboard_input(keys: Res<ButtonInput<KeyCode>>, mut query: Query<&mut Spaceship, With<PlayerShip>>) {
     let mut thrusting = false;
     let mut turning = TurnState::None;
 
