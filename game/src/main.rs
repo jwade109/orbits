@@ -4,6 +4,7 @@ use bevy::prelude::*;
 mod balls;
 mod debug;
 mod player;
+mod bounded;
 
 fn main() {
     App::new()

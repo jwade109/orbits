@@ -1,6 +1,7 @@
 use core::f32;
 
 use bevy::color::palettes::basic::*;
+use bevy::math::bounding::Aabb2d;
 use bevy::prelude::*;
 
 pub struct SpaceshipPlugin {}
@@ -112,6 +113,15 @@ impl Spaceship {
     }
 }
 
+impl crate::bounded::Bounded2d for Spaceship {
+    fn aabb(&self) -> Aabb2d {
+        Aabb2d {
+            min: self.position + Vec2::ZERO,
+            max: self.position + Vec2::new(100.0, 100.0),
+        }
+    }
+}
+
 fn spawn_spaceship(mut commands: Commands) {
     commands.spawn((Spaceship::at_position((0.0, 0.0).into()), PlayerShip {}));
     commands.spawn(Spaceship::at_position((100.0, 100.0).into()));
@@ -129,6 +139,17 @@ fn render_spaceship(time: Res<Time>, mut gizmos: Gizmos, query: Query<&Spaceship
         let pointing = sp.pointing() * 20.0;
         let left = Vec2::from_angle(std::f32::consts::PI * 0.8).rotate(pointing);
         let right = Vec2::from_angle(-std::f32::consts::PI * 0.8).rotate(pointing);
+
+        let iso = Isometry2d::new(
+            sp.position,
+            (sp.rotation - std::f32::consts::PI / 2.0).into(),
+        );
+
+        gizmos.rect_2d(
+            Isometry2d::from_translation(sp.position),
+            Vec2::new(100.0, 100.0),
+            GRAY,
+        );
 
         gizmos.linestrip_2d(
             [
@@ -152,10 +173,6 @@ fn render_spaceship(time: Res<Time>, mut gizmos: Gizmos, query: Query<&Spaceship
             );
         }
 
-        let iso = Isometry2d::new(
-            sp.position,
-            (sp.rotation - std::f32::consts::PI / 2.0).into(),
-        );
         let arc_angle = std::f32::consts::PI / 3.0;
         let radius = 40.0;
 
@@ -177,7 +194,10 @@ fn render_spaceship(time: Res<Time>, mut gizmos: Gizmos, query: Query<&Spaceship
     }
 }
 
-fn keyboard_input(keys: Res<ButtonInput<KeyCode>>, mut query: Query<&mut Spaceship, With<PlayerShip>>) {
+fn keyboard_input(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut query: Query<&mut Spaceship, With<PlayerShip>>,
+) {
     let mut thrusting = false;
     let mut turning = TurnState::None;
 
