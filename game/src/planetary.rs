@@ -239,14 +239,14 @@ fn draw_orbiters(mut gizmos: Gizmos, query: Query<&Orbiter>, pq: Query<&Planet>)
     let planets: Vec<&Planet> = pq.iter().collect();
     for orbiter in query.iter() {
         let contr = orbiter.contribution(&planets);
+        let b: f32 = contr.powi(2);
         let color = if orbiter.on_escape {
             RED
         } else {
-            let b: f32 = contr.powf(0.6);
             Srgba {
-                red: 1.0,
-                blue: 1.0,
-                green: 1.0 - b,
+                red: 1.0 - b,
+                blue: 1.0 - b,
+                green: 1.0,
                 alpha: 1.0,
             }
         };
@@ -273,7 +273,7 @@ fn draw_orbiters(mut gizmos: Gizmos, query: Query<&Orbiter>, pq: Query<&Planet>)
         }
 
         let iso = Isometry2d::from_translation(orbiter.pos);
-        gizmos.circle_2d(iso, 6.0, color);
+        gizmos.circle_2d(iso, 7.0 + b * 6.0, color);
 
         if let Some(orb) = KeplerOrbit::from_pv(orbiter.pos, orbiter.vel, planets[0]) {
             draw_orbit(orb, &mut gizmos, contr.clamp(0.02, 1.0));
@@ -370,7 +370,7 @@ fn update_collisions(mut commands: Commands, time: Res<Time>, query: Query<(Enti
 
 fn despawn_escaped(mut commands: Commands, query: Query<(Entity, &Orbiter)>) {
     for (e, orbiter) in query.iter() {
-        if orbiter.on_escape && orbiter.pos.length() > 10000.0 {
+        if orbiter.pos.length() > 13000.0 {
             commands.entity(e).despawn();
         }
     }
@@ -380,19 +380,19 @@ fn keyboard_input(keys: Res<ButtonInput<KeyCode>>, mut config: ResMut<PlanetaryC
     for key in keys.get_pressed() {
         match key {
             KeyCode::ArrowDown | KeyCode::KeyS => {
-                config.sim_speed = f32::clamp(config.sim_speed - 0.05, 0.0, 20.0);
+                config.sim_speed = f32::clamp(config.sim_speed - 0.05, 0.0, 50.0);
                 dbg!(config.sim_speed);
             }
             KeyCode::ArrowUp | KeyCode::KeyW => {
-                config.sim_speed = f32::clamp(config.sim_speed + 0.05, 0.0, 20.0);
+                config.sim_speed = f32::clamp(config.sim_speed + 0.05, 0.0, 50.0);
                 dbg!(config.sim_speed);
             }
             KeyCode::ArrowLeft | KeyCode::KeyA => {
-                config.sim_speed = f32::clamp(config.sim_speed - 1.0, 0.0, 20.0);
+                config.sim_speed = f32::clamp(config.sim_speed - 1.0, 0.0, 50.0);
                 dbg!(config.sim_speed);
             }
             KeyCode::ArrowRight | KeyCode::KeyD => {
-                config.sim_speed = f32::clamp(config.sim_speed + 1.0, 0.0, 20.0);
+                config.sim_speed = f32::clamp(config.sim_speed + 1.0, 0.0, 50.0);
                 dbg!(config.sim_speed);
             }
             _ => (),
