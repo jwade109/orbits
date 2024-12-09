@@ -1,13 +1,9 @@
 use bevy::color::palettes::basic::*;
 use bevy::math::NormedVectorSpace;
 use bevy::prelude::*;
-use rand::Rng;
+use crate::util::rand;
 
 pub struct BallsPlugin;
-
-fn rand(min: f32, max: f32) -> f32 {
-    rand::thread_rng().gen_range(min..max)
-}
 
 impl Plugin for BallsPlugin {
     fn build(&self, app: &mut App) {
@@ -56,7 +52,6 @@ fn elastic_collision(b1: &Ball, b2: &Ball) -> (Vec2, Vec2) {
 const BALL_VELOCITY_UPPER_BOUND: f32 = 100.0;
 
 fn setup(mut commands: Commands, window: Query<&Window>) {
-    commands.spawn(Camera2d);
 
     if window.is_empty() {
         return;
