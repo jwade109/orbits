@@ -1,3 +1,4 @@
+use bevy::color::palettes::css::ORANGE;
 use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::input::ButtonState;
 use bevy::prelude::*;
@@ -26,7 +27,12 @@ impl Plugin for DebugPlugin {
         app.add_systems(Startup, spawn_debug_readout);
         app.add_systems(
             Update,
-            (update_fps_count, redraw_fps, keyboard_input, text_input),
+            (
+                update_fps_count,
+                redraw_fps,
+                keyboard_input,
+                text_input,
+            ),
         );
     }
 }
@@ -46,7 +52,7 @@ fn spawn_debug_readout(mut commands: Commands) {
             left: Val::Px(5.0),
             top: Val::Px(5.0),
             ..default()
-        }
+        },
     ));
     commands.spawn((
         Text::new(""),
@@ -56,7 +62,7 @@ fn spawn_debug_readout(mut commands: Commands) {
             left: Val::Px(5.0),
             bottom: Val::Px(5.0),
             ..default()
-        }
+        },
     ));
     commands.insert_resource(DebugInfo::default());
 }
@@ -117,8 +123,7 @@ fn text_input(
         }
     }
 
-    if string.len() > 30
-    {
+    if string.len() > 30 {
         string.clear()
     }
 
