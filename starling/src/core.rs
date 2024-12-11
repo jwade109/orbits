@@ -1,7 +1,6 @@
 use bevy::math::Vec2;
-use bevy_ecs::entity::Entity;
-use std::time::Duration;
 use rand::Rng;
+use std::time::Duration;
 
 pub fn rand(min: f32, max: f32) -> f32 {
     rand::thread_rng().gen_range(min..max)
@@ -210,16 +209,16 @@ impl NBodyPropagator {
 #[derive(Debug, Copy, Clone)]
 pub struct KeplerPropagator {
     pub epoch: Duration,
-    pub primary: Entity,
+    pub primary: ObjectId,
     pub orbit: Orbit,
 }
 
 impl KeplerPropagator {
-    pub fn from_pv(epoch: Duration, pos: Vec2, vel: Vec2, body: Body, e: Entity) -> Self {
+    pub fn from_pv(epoch: Duration, pos: Vec2, vel: Vec2, body: Body, parent: ObjectId) -> Self {
         let orbit = Orbit::from_pv(pos, vel, body);
         KeplerPropagator {
             epoch,
-            primary: e,
+            primary: parent,
             orbit,
         }
     }
@@ -274,35 +273,128 @@ impl Propagator {
             Propagator::Fixed(_) => Vec2::ZERO,
         }
     }
+
+    pub fn orbit(&self) -> Option<Orbit> {
+        match self {
+            Propagator::NBody(nb) => Some(Orbit::from_pv(nb.pos, nb.vel, EARTH.0)),
+            Propagator::Kepler(k) => Some(k.orbit),
+            Propagator::Fixed(_) => None,
+        }
+    }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum ObjectClass {
-    Body(Body),
-    Orbiter,
-}
-
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct ObjectId(i64);
 
 #[derive(Debug, Clone, Copy)]
-pub struct Object {
+pub struct MasslessObject {
     pub id: ObjectId,
-    pub class: ObjectClass,
+    pub prop: Propagator,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct MassiveObject {
+    pub id: ObjectId,
+    pub body: Body,
     pub prop: Propagator,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct OrbitalSystem {
-    pub objects: Vec<Object>,
+    pub epoch: Duration,
+    pub massless: Vec<MasslessObject>,
+    pub massive: Vec<MassiveObject>,
     next_id: i64,
 }
 
 impl OrbitalSystem {
-    pub fn add_object(&mut self, class: ObjectClass, prop: Propagator) -> ObjectId {
+    pub fn add_massless(&mut self, prop: Propagator) -> ObjectId {
         let id = ObjectId(self.next_id);
         self.next_id += 1;
-        self.objects.push(Object { id, class, prop });
+        self.massless.push(MasslessObject { id, prop });
         id
+    }
+
+    pub fn add_massive(&mut self, body: Body, prop: Propagator) -> ObjectId {
+        let id = ObjectId(self.next_id);
+        self.next_id += 1;
+        self.massive.push(MassiveObject { id, body, prop });
+        id
+    }
+
+    pub fn get_global_position(&self, o: ObjectId) -> Option<Vec2> {
+        let prop_lookup = |prop: &Propagator| -> Option<Vec2> {
+            return match prop {
+                Propagator::Fixed(p) => Some(*p),
+                Propagator::NBody(nb) => Some(nb.pos),
+                Propagator::Kepler(k) => match self.get_global_position(k.primary) {
+                    Some(p) => Some(p + prop.pos()),
+                    None => None,
+                },
+            };
+        };
+
+        if let Some(m) = self.lookup_massive(o) {
+            return prop_lookup(&m.prop);
+        } else if let Some(m) = self.lookup_massless(o) {
+            return prop_lookup(&m.prop);
+        } else {
+            None
+        }
+    }
+
+    pub fn get_dominant_object(&self, pos: Vec2) -> Option<MassiveObject> {
+        self.massive
+            .iter()
+            .map(|m| {
+                (
+                    m,
+                    self.get_global_position(m.id)
+                        .map(|c| gravity_accel(m.body, c, pos).length_squared())
+                        .unwrap_or(0.0),
+                )
+            })
+            .max_by(|(_, l), (_, r)| l.total_cmp(&r))
+            .map(|(m, _)| *m)
+    }
+
+    pub fn lookup_massless(&self, o: ObjectId) -> Option<MasslessObject> {
+        self.massless.iter().find(|m| m.id == o).map(|m| *m)
+    }
+
+    pub fn lookup_massive(&self, o: ObjectId) -> Option<MassiveObject> {
+        self.massive.iter().find(|m| m.id == o).map(|m| *m)
+    }
+
+    pub fn propagate_to(&mut self, epoch: Duration) {
+        let old_bodies = self.bodies();
+        for massive in &mut self.massive {
+            let other_bodies: Vec<(Vec2, Body)> = old_bodies
+                .clone()
+                .into_iter()
+                .filter(|(p, _)| p.distance(massive.prop.pos()) > 0.0)
+                .collect::<Vec<_>>();
+
+            match &mut massive.prop {
+                Propagator::NBody(nb) => nb.propagate_to(&other_bodies, epoch),
+                Propagator::Kepler(k) => k.propagate_to(epoch),
+                Propagator::Fixed(_) => (),
+            }
+        }
+        let new_bodies = self.bodies();
+        for massless in &mut self.massless {
+            match &mut massless.prop {
+                Propagator::NBody(nb) => nb.propagate_to(&new_bodies, epoch),
+                Propagator::Kepler(k) => k.propagate_to(epoch),
+                Propagator::Fixed(_) => (),
+            }
+        }
+    }
+
+    fn bodies(&self) -> Vec<(Vec2, Body)> {
+        self.massive
+            .iter()
+            .map(|o| (o.prop.pos(), o.body))
+            .collect()
     }
 }

@@ -14,11 +14,11 @@ struct DebugInfo {
     last_fps: Option<f32>,
 }
 
-#[derive(Component)]
+#[derive(Event)]
 pub struct DebugLog
 {
-    message: String,
-    stamp: Duration
+    pub message: String,
+    pub stamp: Duration
 }
 
 impl DebugInfo {
@@ -73,6 +73,7 @@ fn spawn_debug_readout(mut commands: Commands) {
         },
     ));
     commands.insert_resource(DebugInfo::default());
+    commands.insert_resource(Events::<DebugLog>::default());
 }
 
 fn update_fps_count(time: Res<Time>, mut debug: ResMut<DebugInfo>) {
@@ -86,12 +87,18 @@ fn update_fps_count(time: Res<Time>, mut debug: ResMut<DebugInfo>) {
     debug.elapsed_time += time.delta().as_secs_f32();
 }
 
-fn redraw_fps(mut query: Query<&mut Text, With<DebugReadout>>, debug: Res<DebugInfo>) {
+fn redraw_fps(mut query: Query<&mut Text, With<DebugReadout>>, debug: Res<DebugInfo>, mut evt: EventReader<DebugLog>) {
+    let mut logs = String::new();
+    for e in evt.read()
+    {
+        logs.push_str(&format!("\n{}", e.message));
+    }
     for mut t in query.iter_mut() {
         *t = Text::new(format!(
-            "{:0.2} fps\n{} frames",
+            "{:0.2} fps\n{} frames{}",
             debug.last_fps.unwrap_or(0.0),
-            debug.total_frames
+            debug.total_frames,
+            logs
         ));
     }
 }

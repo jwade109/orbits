@@ -1,50 +1,29 @@
-use starling::core::{rand, randvec};
 use bevy::color::palettes::basic::*;
 use bevy::color::palettes::css::ORANGE;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 use std::time::Duration;
 
+use crate::debug::DebugLog;
+
 use starling::core::*;
+use starling::examples::*;
 
 pub struct PlanetaryPlugin;
 
 impl Plugin for PlanetaryPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_planet);
-        app.add_systems(
-            Update,
-            (
-                draw_orbiters,
-                draw_collisions,
-                draw_planets,
-                keyboard_input,
-                scroll_events,
-                draw_all_propagators,
-            ),
-        );
+        app.add_systems(Startup, init_system);
+        app.add_systems(Update, (draw_orbital_system, keyboard_input, scroll_events));
         app.add_systems(
             FixedUpdate,
-            (
-                propagate_bodies,
-                propagate_orbiters,
-                collide_orbiters,
-                update_collisions,
-                despawn_escaped,
-                update_sim_time,
-            ),
+            (propagate_system, update_collisions, update_sim_time),
         );
     }
 }
 
-#[derive(Resource, Default)]
+#[derive(Debug, Resource, Default)]
 struct SimTime(Duration);
-
-#[derive(Component, Copy, Clone, Debug)]
-struct BodyC(Body);
-
-#[derive(Component, Clone)]
-struct Orbiter {}
 
 #[derive(Component, Clone, Copy)]
 struct Collision {
@@ -96,7 +75,7 @@ struct PlanetaryState {
     sim_speed: f32,
     show_orbits: bool,
     paused: bool,
-    system: OrbitalSystem
+    system: OrbitalSystem,
 }
 
 impl Default for PlanetaryState {
@@ -105,145 +84,89 @@ impl Default for PlanetaryState {
             sim_speed: 15.0,
             show_orbits: true,
             paused: false,
-            system: OrbitalSystem::default()
+            system: earth_moon_example_one(),
         }
     }
 }
 
-fn to_bundle(b: (Body, Propagator)) -> (BodyC, PropagatorC) {
-    (BodyC(b.0), PropagatorC(b.1))
-}
-
-fn spawn_planet(mut commands: Commands) {
-
+fn init_system(mut commands: Commands) {
     commands.insert_resource(PlanetaryState::default());
     commands.insert_resource(SimTime::default());
-    let e = commands.spawn(to_bundle(EARTH)).id();
-    let l = commands.spawn(to_bundle(LUNA)).id();
-
-    for _ in 0..6 {
-        commands.spawn((
-            Orbiter {},
-            PropagatorC(Propagator::Kepler(KeplerPropagator {
-                epoch: Duration::default(),
-                primary: e,
-                orbit: Orbit {
-                    eccentricity: rand(0.2, 0.8),
-                    semi_major_axis: rand(600.0, 2600.0),
-                    arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
-                    true_anomaly: rand(0.0, std::f32::consts::PI * 2.0),
-                    body: EARTH.0,
-                },
-            })),
-        ));
-    }
-
-    for _ in 0..3 {
-        commands.spawn((
-            Orbiter {},
-            PropagatorC(Propagator::NBody(NBodyPropagator {
-                epoch: Duration::default(),
-                pos: randvec(600.0, 1800.0).into(),
-                vel: randvec(50.0, 100.0).into(),
-            })),
-        ));
-    }
-
-    for _ in 0..2 {
-        commands.spawn((
-            Orbiter {},
-            PropagatorC(Propagator::Kepler(KeplerPropagator {
-                epoch: Duration::default(),
-                primary: l,
-                orbit: Orbit {
-                    eccentricity: rand(0.2, 0.5),
-                    semi_major_axis: rand(100.0, 400.0),
-                    arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
-                    true_anomaly: rand(0.0, std::f32::consts::PI * 2.0),
-                    body: LUNA.0,
-                },
-            })),
-        ));
-    }
 }
 
-fn draw_planets(mut gizmos: Gizmos, query: Query<(&PropagatorC, &BodyC)>) {
-    for (PropagatorC(prop), BodyC(body)) in query.iter() {
-        let iso = Isometry2d::from_translation(prop.pos());
-        gizmos.circle_2d(iso, body.radius, WHITE);
+fn send_log(evt: &mut EventWriter<DebugLog>, message: &str) {
+    let log = DebugLog {
+        message: message.into(),
+        stamp: Duration::default(),
+    };
+    evt.send(log);
+}
+
+fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
+    for object in state.system.massive.iter() {
+        let iso = Isometry2d::from_translation(object.prop.pos());
+        gizmos.circle_2d(iso, object.body.radius, WHITE);
         gizmos.circle_2d(
             iso,
-            body.soi,
+            object.body.soi,
             Srgba {
                 alpha: 0.3,
                 ..ORANGE
             },
         );
 
-        let orb: Orbit = Orbit::from_pv(prop.pos(), prop.vel(), EARTH.0);
+        let orb: Orbit = Orbit::from_pv(object.prop.pos(), object.prop.vel(), EARTH.0);
         draw_orbit((0.0, 0.0).into(), orb, &mut gizmos, 0.6, GRAY);
     }
-}
 
-fn draw_all_propagators(mut gizmos: Gizmos, query: Query<&PropagatorC>) {
-    for PropagatorC(prop) in query.iter() {
-        let pos: Option<Vec2> = match prop {
-            Propagator::Fixed(p) => Some(*p),
-            Propagator::NBody(nb) => Some(nb.pos),
-            Propagator::Kepler(k) => query
-                .get(k.primary)
-                .ok()
-                .map(|PropagatorC(p)| prop.pos() + p.pos()),
-        };
-
-        if let Some(p) = pos {
-            gizmos.circle_2d(
-                Isometry2d::from_translation(p),
-                120.0,
-                Srgba { alpha: 0.05, ..RED },
-            );
+    for object in state.system.massless.iter() {
+        if let Some(pos) = state.system.get_global_position(object.id) {
+            if let Some(other) = state
+                .system
+                .get_dominant_object(pos)
+                .map(|o| state.system.get_global_position(o.id))
+                .flatten()
+            {
+                gizmos.line_2d(
+                    pos,
+                    other,
+                    Srgba {
+                        alpha: 0.2,
+                        ..ORANGE
+                    },
+                );
+            }
         }
-    }
-}
 
-fn draw_orbiters(
-    mut gizmos: Gizmos,
-    query: Query<&PropagatorC, With<Orbiter>>,
-    pq: Query<(&BodyC, &PropagatorC)>,
-    config: Res<PlanetaryState>,
-) {
-    for PropagatorC(prop) in query.iter() {
-        match prop {
+        match object.prop {
             Propagator::Fixed(p) => {
                 let color: Srgba = RED;
-                let iso: Isometry2d = Isometry2d::from_translation(*p);
+                let iso: Isometry2d = Isometry2d::from_translation(p);
                 gizmos.circle_2d(iso, 20.0, color);
             }
             Propagator::NBody(nb) => {
                 let color: Srgba = WHITE;
                 let iso: Isometry2d = Isometry2d::from_translation(nb.pos);
                 gizmos.circle_2d(iso, 12.0, color);
-                if config.show_orbits {
+                if state.show_orbits {
                     let orb = Orbit::from_pv(nb.pos, nb.vel, EARTH.0);
                     draw_orbit(Vec2::ZERO, orb, &mut gizmos, 0.05, WHITE);
                 }
             }
             Propagator::Kepler(k) => {
-                if let Some((_, PropagatorC(parent))) = pq.get(k.primary).ok() {
+                if let Some(parent) = state.system.lookup_massive(k.primary) {
                     let color: Srgba = ORANGE;
-                    let iso: Isometry2d = Isometry2d::from_translation(prop.pos() + parent.pos());
+                    let iso: Isometry2d =
+                        Isometry2d::from_translation(object.prop.pos() + parent.prop.pos());
                     gizmos.circle_2d(iso, 12.0, color);
-                    if config.show_orbits {
-                        draw_orbit(parent.pos(), k.orbit, &mut gizmos, 0.05, WHITE);
+                    if state.show_orbits {
+                        draw_orbit(parent.prop.pos(), k.orbit, &mut gizmos, 0.05, WHITE);
                     }
                 }
             }
         }
     }
 }
-
-#[derive(Component, Debug, Copy, Clone)]
-struct PropagatorC(Propagator);
 
 fn update_sim_time(time: Res<Time>, mut simtime: ResMut<SimTime>, config: Res<PlanetaryState>) {
     if config.paused {
@@ -253,119 +176,15 @@ fn update_sim_time(time: Res<Time>, mut simtime: ResMut<SimTime>, config: Res<Pl
     *dur = *dur + Duration::from_nanos((time.delta().as_nanos() as f32 * config.sim_speed) as u64);
 }
 
-fn propagate_orbiters(
-    time: Res<SimTime>,
-    mut pq: Query<&mut PropagatorC, Without<BodyC>>,
-    bq: Query<(&PropagatorC, &BodyC)>,
-) {
+fn propagate_system(time: Res<SimTime>, mut state: ResMut<PlanetaryState>) {
     let SimTime(t) = *time;
-    let bodies: Vec<(Vec2, Body)> = bq
-        .into_iter()
-        .map(|(PropagatorC(p), BodyC(b))| (p.pos(), *b))
-        .collect();
-
-    pq.iter_mut().for_each(|mut p| {
-        let PropagatorC(prop) = p.as_mut();
-        match prop {
-            Propagator::Kepler(k) => {
-                k.propagate_to(t);
-            }
-            Propagator::NBody(nb) => {
-                nb.propagate_to(&bodies, t);
-            }
-            &mut Propagator::Fixed(_) => (),
-        }
-    });
-}
-
-fn propagate_bodies(time: Res<SimTime>, mut query: Query<(&mut PropagatorC, &BodyC)>) {
-    let SimTime(t) = *time;
-
-    let bodies: Vec<(Vec2, Body)> = query
-        .into_iter()
-        .map(|(PropagatorC(p), BodyC(b))| (p.pos(), *b))
-        .collect();
-
-    query.iter_mut().for_each(|(mut p, _)| {
-        let PropagatorC(current_prop) = p.as_mut();
-        let other_bodies = bodies
-            .clone()
-            .into_iter()
-            .filter(|(p, _)| p.distance(current_prop.pos()) > 0.0)
-            .collect::<Vec<_>>();
-
-        match current_prop {
-            Propagator::NBody(nb) => nb.propagate_to(&other_bodies, t),
-            Propagator::Fixed(_) => (),
-            Propagator::Kepler(k) => k.propagate_to(t),
-        }
-    })
-}
-
-fn collide_orbiters(
-    time: Res<Time>,
-    mut commands: Commands,
-    oq: Query<(Entity, &PropagatorC), With<Orbiter>>,
-    pq: Query<(Entity, &PropagatorC, &BodyC), Without<Orbiter>>,
-) {
-    let bodies: Vec<(Entity, Vec2, Body)> = pq
-        .into_iter()
-        .map(|(e, PropagatorC(p), BodyC(b))| (e, p.pos(), *b))
-        .collect();
-
-    for (oe, PropagatorC(prop)) in oq.iter() {
-        if let Some((hit_entity, hit_entity_pos)) = bodies
-            .iter()
-            .map(|(pe, c, b)| {
-                let r = prop.pos() - c;
-                if r.length_squared() < b.radius * b.radius {
-                    return Some((pe, c));
-                }
-                None
-            })
-            .filter(|e| e.is_some())
-            .map(|e| e.unwrap())
-            .next()
-        {
-            commands.entity(oe).despawn();
-            commands.spawn(Collision {
-                pos: prop.pos() - hit_entity_pos,
-                relative_to: *hit_entity,
-                expiry_time: time.elapsed_secs() + 3.0,
-            });
-        }
-    }
-}
-
-fn draw_collisions(
-    mut gizmos: Gizmos,
-    query: Query<&Collision>,
-    planets: Query<&PropagatorC, With<BodyC>>,
-) {
-    for col in query.iter() {
-        if let Some(PropagatorC(p)) = planets.get(col.relative_to).ok() {
-            let s = 9.0;
-            let ne = Vec2::new(s, s);
-            let nw = Vec2::new(-s, s);
-            let p = p.pos() + col.pos;
-            gizmos.line_2d(p - ne, p + ne, RED);
-            gizmos.line_2d(p - nw, p + nw, RED);
-        }
-    }
+    state.system.propagate_to(t);
 }
 
 fn update_collisions(mut commands: Commands, time: Res<Time>, query: Query<(Entity, &Collision)>) {
     let t = time.elapsed_secs();
     for (e, col) in query.iter() {
         if col.expiry_time < t {
-            commands.entity(e).despawn();
-        }
-    }
-}
-
-fn despawn_escaped(mut commands: Commands, query: Query<(Entity, &PropagatorC), With<Orbiter>>) {
-    for (e, PropagatorC(prop)) in query.iter() {
-        if prop.pos().length() > 15000.0 {
             commands.entity(e).despawn();
         }
     }
