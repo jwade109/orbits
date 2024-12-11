@@ -48,6 +48,16 @@ fn draw_orbit(origin: Vec2, orb: Orbit, gizmos: &mut Gizmos, alpha: f32, base_co
         ..base_color
     };
 
+    {
+        let root = orb.pos() + origin;
+        let t1 = root + orb.normal() * 60.0;
+        let t2 = root + orb.tangent() * 60.0;
+        let t3 = root + orb.prograde() * 100.0;
+        gizmos.line_2d(root, t1, GREEN);
+        gizmos.line_2d(root, t2, GREEN);
+        gizmos.line_2d(root, t3, PURPLE);
+    }
+
     let b = orb.semi_major_axis * (1.0 - orb.eccentricity.powi(2)).sqrt();
     let center: Vec2 = origin + (orb.periapsis() + orb.apoapsis()) / 2.0;
     let iso = Isometry2d::new(center, orb.arg_periapsis.into());
@@ -115,30 +125,15 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
     }
 
     for object in state.system.objects.iter() {
-        if let Some(pos) = state.system.get_global_position(object.id) {
-            if let Some(dominant) = state
-                .system
-                .get_dominant_object(pos)
-            {
-                if let Some(other_pos) = state.system.get_global_position(dominant.id)
-                {
-                    gizmos.line_2d(
-                        pos,
-                        other_pos,
-                        Srgba {
-                            alpha: 0.2,
-                            ..ORANGE
-                        },
-                    );
-                }
-            }
-        }
 
         match object.prop {
-            Propagator::Fixed(p) => {
+            Propagator::Fixed(_, _) => {
                 let color: Srgba = RED;
-                let iso: Isometry2d = Isometry2d::from_translation(p);
-                gizmos.circle_2d(iso, 20.0, color);
+                if let Some(gp) = state.system.global_pos(object.prop)
+                {
+                    let iso: Isometry2d = Isometry2d::from_translation(gp);
+                    gizmos.circle_2d(iso, 20.0, color);
+                }
             }
             Propagator::NBody(nb) => {
                 let color: Srgba = WHITE;
