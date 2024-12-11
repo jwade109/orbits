@@ -1,7 +1,6 @@
 
 use bevy::prelude::*;
 
-mod util;
 mod balls;
 mod debug;
 mod player;

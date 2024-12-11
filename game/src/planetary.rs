@@ -1,13 +1,41 @@
-use crate::util::{rand, randvec};
+use starling::core::{rand, randvec};
 use bevy::color::palettes::basic::*;
-use bevy::color::palettes::css::{LIGHT_BLUE, ORANGE};
+use bevy::color::palettes::css::ORANGE;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 use std::time::Duration;
 
-use starling::*;
+use starling::core::*;
 
-// ORBIT PROPAGATION AND N-BODY SIMULATION
+pub struct PlanetaryPlugin;
+
+impl Plugin for PlanetaryPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, spawn_planet);
+        app.add_systems(
+            Update,
+            (
+                draw_orbiters,
+                draw_collisions,
+                draw_planets,
+                keyboard_input,
+                scroll_events,
+                draw_all_propagators,
+            ),
+        );
+        app.add_systems(
+            FixedUpdate,
+            (
+                propagate_bodies,
+                propagate_orbiters,
+                collide_orbiters,
+                update_collisions,
+                despawn_escaped,
+                update_sim_time,
+            ),
+        );
+    }
+}
 
 #[derive(Resource, Default)]
 struct SimTime(Duration);
@@ -24,8 +52,6 @@ struct Collision {
     relative_to: Entity,
     expiry_time: f32,
 }
-
-// DRAWING STUFF
 
 fn draw_orbit(origin: Vec2, orb: Orbit, gizmos: &mut Gizmos, alpha: f32, base_color: Srgba) {
     if orb.eccentricity >= 1.0 {
@@ -65,51 +91,21 @@ fn draw_orbit(origin: Vec2, orb: Orbit, gizmos: &mut Gizmos, alpha: f32, base_co
     );
 }
 
-pub struct PlanetaryPlugin;
-
-impl Plugin for PlanetaryPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_planet);
-        app.add_systems(
-            Update,
-            (
-                draw_orbiters,
-                draw_collisions,
-                draw_planets,
-                keyboard_input,
-                scroll_events,
-                draw_all_propagators,
-            ),
-        );
-        app.add_systems(
-            FixedUpdate,
-            (
-                propagate_bodies,
-                propagate_orbiters,
-                collide_orbiters,
-                update_collisions,
-                despawn_escaped,
-                update_sim_time,
-            ),
-        );
-    }
-}
-
-const MAX_ORBITERS: usize = 10;
-
 #[derive(Resource)]
-struct PlanetaryConfig {
+struct PlanetaryState {
     sim_speed: f32,
     show_orbits: bool,
     paused: bool,
+    system: OrbitalSystem
 }
 
-impl Default for PlanetaryConfig {
+impl Default for PlanetaryState {
     fn default() -> Self {
-        PlanetaryConfig {
+        PlanetaryState {
             sim_speed: 15.0,
             show_orbits: true,
             paused: false,
+            system: OrbitalSystem::default()
         }
     }
 }
@@ -119,10 +115,11 @@ fn to_bundle(b: (Body, Propagator)) -> (BodyC, PropagatorC) {
 }
 
 fn spawn_planet(mut commands: Commands) {
-    commands.insert_resource(PlanetaryConfig::default());
+
+    commands.insert_resource(PlanetaryState::default());
     commands.insert_resource(SimTime::default());
-    let e = commands.spawn(to_bundle(Body::earth())).id();
-    let l = commands.spawn(to_bundle(Body::luna())).id();
+    let e = commands.spawn(to_bundle(EARTH)).id();
+    let l = commands.spawn(to_bundle(LUNA)).id();
 
     for _ in 0..6 {
         commands.spawn((
@@ -135,7 +132,7 @@ fn spawn_planet(mut commands: Commands) {
                     semi_major_axis: rand(600.0, 2600.0),
                     arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
                     true_anomaly: rand(0.0, std::f32::consts::PI * 2.0),
-                    body: Body::earth().0,
+                    body: EARTH.0,
                 },
             })),
         ));
@@ -163,7 +160,7 @@ fn spawn_planet(mut commands: Commands) {
                     semi_major_axis: rand(100.0, 400.0),
                     arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
                     true_anomaly: rand(0.0, std::f32::consts::PI * 2.0),
-                    body: Body::luna().0,
+                    body: LUNA.0,
                 },
             })),
         ));
@@ -183,7 +180,7 @@ fn draw_planets(mut gizmos: Gizmos, query: Query<(&PropagatorC, &BodyC)>) {
             },
         );
 
-        let orb: Orbit = Orbit::from_pv(prop.pos(), prop.vel(), Body::earth().0);
+        let orb: Orbit = Orbit::from_pv(prop.pos(), prop.vel(), EARTH.0);
         draw_orbit((0.0, 0.0).into(), orb, &mut gizmos, 0.6, GRAY);
     }
 }
@@ -213,7 +210,7 @@ fn draw_orbiters(
     mut gizmos: Gizmos,
     query: Query<&PropagatorC, With<Orbiter>>,
     pq: Query<(&BodyC, &PropagatorC)>,
-    config: Res<PlanetaryConfig>,
+    config: Res<PlanetaryState>,
 ) {
     for PropagatorC(prop) in query.iter() {
         match prop {
@@ -227,8 +224,8 @@ fn draw_orbiters(
                 let iso: Isometry2d = Isometry2d::from_translation(nb.pos);
                 gizmos.circle_2d(iso, 12.0, color);
                 if config.show_orbits {
-                    let orb = Orbit::from_pv(nb.pos, nb.vel, Body::earth().0);
-                    draw_orbit(Vec2::ZERO, orb, &mut gizmos, 0.2, LIGHT_BLUE);
+                    let orb = Orbit::from_pv(nb.pos, nb.vel, EARTH.0);
+                    draw_orbit(Vec2::ZERO, orb, &mut gizmos, 0.05, WHITE);
                 }
             }
             Propagator::Kepler(k) => {
@@ -237,7 +234,7 @@ fn draw_orbiters(
                     let iso: Isometry2d = Isometry2d::from_translation(prop.pos() + parent.pos());
                     gizmos.circle_2d(iso, 12.0, color);
                     if config.show_orbits {
-                        draw_orbit(parent.pos(), k.orbit, &mut gizmos, 0.02, WHITE);
+                        draw_orbit(parent.pos(), k.orbit, &mut gizmos, 0.05, WHITE);
                     }
                 }
             }
@@ -248,7 +245,7 @@ fn draw_orbiters(
 #[derive(Component, Debug, Copy, Clone)]
 struct PropagatorC(Propagator);
 
-fn update_sim_time(time: Res<Time>, mut simtime: ResMut<SimTime>, config: Res<PlanetaryConfig>) {
+fn update_sim_time(time: Res<Time>, mut simtime: ResMut<SimTime>, config: Res<PlanetaryState>) {
     if config.paused {
         return;
     }
@@ -374,7 +371,7 @@ fn despawn_escaped(mut commands: Commands, query: Query<(Entity, &PropagatorC), 
     }
 }
 
-fn keyboard_input(keys: Res<ButtonInput<KeyCode>>, mut config: ResMut<PlanetaryConfig>) {
+fn keyboard_input(keys: Res<ButtonInput<KeyCode>>, mut config: ResMut<PlanetaryState>) {
     for key in keys.get_pressed() {
         match key {
             KeyCode::ArrowDown => {

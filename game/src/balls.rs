@@ -1,7 +1,8 @@
 use bevy::color::palettes::basic::*;
 use bevy::math::NormedVectorSpace;
 use bevy::prelude::*;
-use crate::util::rand;
+
+use starling::core::rand;
 
 pub struct BallsPlugin;
 
