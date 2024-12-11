@@ -1,6 +1,6 @@
 use crate::util::{rand, randvec};
 use bevy::color::palettes::basic::*;
-use bevy::color::palettes::css::ORANGE;
+use bevy::color::palettes::css::{LIGHT_BLUE, ORANGE};
 use bevy::input::mouse::MouseWheel;
 use bevy::math::VectorSpace;
 use bevy::prelude::*;
@@ -16,29 +16,76 @@ struct Orbit {
     semi_major_axis: f32,
     arg_periapsis: f32,
     true_anomaly: f32,
-    mu: f32,
+    body: Body,
 }
 
 #[derive(Resource, Default)]
 struct SimTime(Duration);
 
+fn anomaly_e2m(ecc: f32, eccentric_anomaly: f32) -> f32 {
+    eccentric_anomaly - ecc * f32::sin(eccentric_anomaly)
+}
+
+fn anomaly_m2e(ecc: f32, mean_anomaly: f32) -> Option<f32> {
+    let max_error = 1E-6;
+    let max_iters = 1000;
+
+    let mut e = mean_anomaly;
+
+    for _ in 0..max_iters {
+        e = e - (mean_anomaly - e + ecc * e.sin()) / (ecc * e.cos() - 1.0);
+        if (mean_anomaly - e + ecc * e.sin()).abs() < max_error {
+            return Some(e);
+        }
+    }
+
+    None
+}
+
+fn anomaly_t2e(ecc: f32, true_anomaly: f32) -> f32 {
+    f32::atan2(
+        f32::sin(true_anomaly) * (1.0 - ecc.powi(2)).sqrt(),
+        f32::cos(true_anomaly) + ecc,
+    )
+}
+
+fn anomaly_e2t(ecc: f32, eccentric_enomaly: f32) -> f32 {
+    f32::atan2(
+        f32::sin(eccentric_enomaly) * (1.0 - ecc.powi(2)).sqrt(),
+        f32::cos(eccentric_enomaly) - ecc,
+    )
+}
+
+fn anomaly_t2m(ecc: f32, true_anomaly: f32) -> f32 {
+    anomaly_e2m(ecc, anomaly_t2e(ecc, true_anomaly))
+}
+
+fn anomaly_m2t(ecc: f32, mean_anomaly: f32) -> Option<f32> {
+    anomaly_m2e(ecc, mean_anomaly).map(|e| anomaly_e2t(ecc, e))
+}
+
 impl Orbit {
-    fn from_pv(r: Vec2, v: Vec2, mass: f32) -> Self {
-        let mu = mass * GRAVITATIONAL_CONSTANT;
+    fn from_pv(r: Vec2, v: Vec2, body: Body) -> Self {
         let r3 = r.extend(0.0);
         let v3 = v.extend(0.0);
         let h = r3.cross(v3);
-        let e = v3.cross(h) / mu - r3 / r3.length();
+        let e = v3.cross(h) / body.mu() - r3 / r3.length();
         let arg_periapsis: f32 = f32::atan2(e.y, e.x);
-        let semi_major_axis: f32 = h.length_squared() / (mu * (1.0 - e.length_squared()));
-        let true_anomaly = f32::acos(e.dot(r3) / (e.length() * r3.length()));
+        let semi_major_axis: f32 = h.length_squared() / (body.mu() * (1.0 - e.length_squared()));
+        let mut true_anomaly = f32::acos(e.dot(r3) / (e.length() * r3.length()));
+        if r3.dot(v3) < 0.0 {
+            true_anomaly = 2.0 * std::f32::consts::PI - true_anomaly;
+        }
+        if h.z < 0.0 {
+            true_anomaly *= -1.0;
+        }
 
         Orbit {
             eccentricity: e.length(),
             semi_major_axis,
             arg_periapsis,
             true_anomaly,
-            mu,
+            body,
         }
     }
 
@@ -48,7 +95,8 @@ impl Orbit {
     }
 
     fn period(&self) -> Duration {
-        let t = 2.0 * std::f32::consts::PI * (self.semi_major_axis.powi(3) / (self.mu)).sqrt();
+        let t =
+            2.0 * std::f32::consts::PI * (self.semi_major_axis.powi(3) / (self.body.mu())).sqrt();
         Duration::from_secs_f32(t)
     }
 
@@ -76,6 +124,14 @@ impl Orbit {
     fn apoapsis(&self) -> Vec2 {
         self.position_at(std::f32::consts::PI)
     }
+
+    fn mean_motion(&self) -> f32 {
+        (self.body.mu() / self.semi_major_axis.powi(3)).sqrt()
+    }
+
+    fn mean_anomaly(&self) -> f32 {
+        anomaly_t2m(self.eccentricity, self.true_anomaly)
+    }
 }
 
 #[derive(Component, Copy, Clone, Debug)]
@@ -84,6 +140,12 @@ struct Body {
     radius: f32,
     mass: f32,
     soi: f32,
+}
+
+impl Body {
+    fn mu(&self) -> f32 {
+        self.mass * GRAVITATIONAL_CONSTANT
+    }
 }
 
 fn gravity_accel(body: Body, body_center: Vec2, sample: Vec2) -> Vec2 {
@@ -106,7 +168,7 @@ struct Collision {
 
 // DRAWING STUFF
 
-fn draw_orbit(orb: Orbit, gizmos: &mut Gizmos, alpha: f32) {
+fn draw_orbit(origin: Vec2, orb: Orbit, gizmos: &mut Gizmos, alpha: f32, base_color: Srgba) {
     if orb.eccentricity >= 1.0 {
         let n_points = 30;
         let theta_inf = f32::acos(-1.0 / orb.eccentricity);
@@ -117,14 +179,31 @@ fn draw_orbit(orb: Orbit, gizmos: &mut Gizmos, alpha: f32) {
         gizmos.linestrip_2d(points, Srgba { alpha, ..RED })
     }
 
-    let color = Srgba { alpha, ..GRAY };
+    let color = Srgba {
+        alpha,
+        ..base_color
+    };
 
     let b = orb.semi_major_axis * (1.0 - orb.eccentricity.powi(2)).sqrt();
-    let center = (orb.periapsis() + orb.apoapsis()) / 2.0;
+    let center: Vec2 = origin + (orb.periapsis() + orb.apoapsis()) / 2.0;
     let iso = Isometry2d::new(center, orb.arg_periapsis.into());
     gizmos
         .ellipse_2d(iso, Vec2::new(orb.semi_major_axis, b), color)
         .resolution(orb.semi_major_axis.clamp(3.0, 200.0) as u32);
+
+    let line_start = origin + orb.pos().normalize() * (orb.body.radius + 5.0);
+
+    gizmos.line_2d(line_start, origin + orb.pos(), color);
+    gizmos.circle_2d(
+        Isometry2d::from_translation(origin + orb.periapsis()),
+        2.0,
+        Srgba { alpha, ..RED },
+    );
+    gizmos.circle_2d(
+        Isometry2d::from_translation(origin + orb.apoapsis()),
+        2.0,
+        Srgba { alpha, ..WHITE },
+    );
 }
 
 impl Body {
@@ -193,48 +272,69 @@ const MAX_ORBITERS: usize = 10;
 struct PlanetaryConfig {
     sim_speed: f32,
     show_orbits: bool,
-    paused: bool
+    paused: bool,
 }
 
 impl Default for PlanetaryConfig {
     fn default() -> Self {
         PlanetaryConfig {
             sim_speed: 15.0,
-            show_orbits: false,
-            paused: false
+            show_orbits: true,
+            paused: false,
         }
     }
 }
 
 fn spawn_planet(mut commands: Commands) {
-    commands.spawn(Body::luna());
     commands.insert_resource(PlanetaryConfig::default());
     commands.insert_resource(SimTime::default());
     let e = commands.spawn(Body::earth()).id();
+    let l = commands.spawn(Body::luna()).id();
 
-    commands.spawn((
-        Orbiter {},
-        Propagator::Kepler(KeplerPropagator {
-            epoch: Duration::default(),
-            primary: e,
-            orbit: Orbit {
-                eccentricity: 0.5,
-                semi_major_axis: 2000.0,
-                arg_periapsis: 0.2,
-                true_anomaly: 0.4,
-                mu: Body::earth().0.mass * GRAVITATIONAL_CONSTANT,
-            },
-        }),
-    ));
+    for _ in 0..6 {
+        commands.spawn((
+            Orbiter {},
+            Propagator::Kepler(KeplerPropagator {
+                epoch: Duration::default(),
+                primary: e,
+                orbit: Orbit {
+                    eccentricity: rand(0.2, 0.8),
+                    semi_major_axis: rand(600.0, 2600.0),
+                    arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
+                    true_anomaly: rand(0.0, std::f32::consts::PI * 2.0),
+                    body: Body::earth().0,
+                },
+            }),
+        ));
+    }
 
-    commands.spawn((
-        Orbiter {},
-        Propagator::NBody(NBodyPropagator {
-            epoch: Duration::default(),
-            pos: (400.0, 600.0).into(),
-            vel: (-100.0, 30.0).into(),
-        }),
-    ));
+    for _ in 0..3 {
+        commands.spawn((
+            Orbiter {},
+            Propagator::NBody(NBodyPropagator {
+                epoch: Duration::default(),
+                pos: randvec(600.0, 1800.0).into(),
+                vel: randvec(50.0, 100.0).into(),
+            }),
+        ));
+    }
+
+    for _ in 0..2 {
+        commands.spawn((
+            Orbiter {},
+            Propagator::Kepler(KeplerPropagator {
+                epoch: Duration::default(),
+                primary: l,
+                orbit: Orbit {
+                    eccentricity: rand(0.2, 0.5),
+                    semi_major_axis: rand(100.0, 400.0),
+                    arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
+                    true_anomaly: rand(0.0, std::f32::consts::PI * 2.0),
+                    body: Body::luna().0,
+                },
+            }),
+        ));
+    }
 }
 
 fn draw_planets(mut gizmos: Gizmos, query: Query<(&Propagator, &Body)>) {
@@ -250,30 +350,40 @@ fn draw_planets(mut gizmos: Gizmos, query: Query<(&Propagator, &Body)>) {
             },
         );
 
-        let earth = Body::earth().0;
-        let orb: Orbit = Orbit::from_pv(prop.pos(), prop.vel(), earth.mass);
-        draw_orbit(orb, &mut gizmos, 0.6);
+        let orb: Orbit = Orbit::from_pv(prop.pos(), prop.vel(), Body::earth().0);
+        draw_orbit((0.0, 0.0).into(), orb, &mut gizmos, 0.6, GRAY);
     }
 }
 
 fn draw_all_propagators(mut gizmos: Gizmos, query: Query<&Propagator>) {
     for prop in query.iter() {
-        gizmos.circle_2d(
-            Isometry2d::from_translation(prop.pos()),
-            120.0,
-            Srgba { alpha: 0.05, ..RED },
-        );
+        let pos: Option<Vec2> = match prop {
+            Propagator::Fixed(p) => Some(*p),
+            Propagator::NBody(nb) => Some(nb.pos),
+            Propagator::Kepler(k) => {
+                query.get(k.primary).ok().map(|p| {
+                    prop.pos() + p.pos()
+                })
+            }
+        };
+
+        if let Some(p) = pos
+        {
+            gizmos.circle_2d(
+                Isometry2d::from_translation(p),
+                120.0,
+                Srgba { alpha: 0.05, ..RED },
+            );
+        }
     }
 }
 
 fn draw_orbiters(
     mut gizmos: Gizmos,
     query: Query<&Propagator, With<Orbiter>>,
-    pq: Query<&Body>,
+    pq: Query<(&Body, &Propagator)>,
     config: Res<PlanetaryConfig>,
 ) {
-    let planets: Vec<&Body> = pq.iter().collect();
-
     for prop in query.iter() {
         match prop {
             Propagator::Fixed(p) => {
@@ -286,16 +396,18 @@ fn draw_orbiters(
                 let iso: Isometry2d = Isometry2d::from_translation(nb.pos);
                 gizmos.circle_2d(iso, 12.0, color);
                 if config.show_orbits {
-                    let orb = Orbit::from_pv(nb.pos, nb.vel, Body::earth().0.mass);
-                    draw_orbit(orb, &mut gizmos, 0.03);
+                    let orb = Orbit::from_pv(nb.pos, nb.vel, Body::earth().0);
+                    draw_orbit(Vec2::ZERO, orb, &mut gizmos, 0.2, LIGHT_BLUE);
                 }
             }
             Propagator::Kepler(k) => {
-                let color: Srgba = ORANGE;
-                let iso: Isometry2d = Isometry2d::from_translation(prop.pos());
-                gizmos.circle_2d(iso, 12.0, color);
-                if config.show_orbits {
-                    draw_orbit(k.orbit, &mut gizmos, 0.2);
+                if let Some((_, parent)) = pq.get(k.primary).ok() {
+                    let color: Srgba = ORANGE;
+                    let iso: Isometry2d = Isometry2d::from_translation(prop.pos() + parent.pos());
+                    gizmos.circle_2d(iso, 12.0, color);
+                    if config.show_orbits {
+                        draw_orbit(parent.pos(), k.orbit, &mut gizmos, 0.02, WHITE);
+                    }
                 }
             }
         }
@@ -311,7 +423,7 @@ struct KeplerPropagator {
 
 impl KeplerPropagator {
     fn from_pv(epoch: Duration, pos: Vec2, vel: Vec2, body: Body, e: Entity) -> Self {
-        let orbit = Orbit::from_pv(pos, vel, body.mass);
+        let orbit = Orbit::from_pv(pos, vel, body);
         KeplerPropagator {
             epoch,
             primary: e,
@@ -319,15 +431,17 @@ impl KeplerPropagator {
         }
     }
 
-    fn propagate_to(&mut self, epoch: Duration)
-    {
+    fn propagate_to(&mut self, epoch: Duration) {
         let delta = epoch - self.epoch;
 
-        let period = self.orbit.period();
+        if delta == Duration::default() {
+            return;
+        }
 
-        let revs = delta.as_secs_f32() / period.as_secs_f32();
-        let du = revs * 2.0 * std::f32::consts::PI;
-        self.orbit.true_anomaly += du;
+        let n = self.orbit.mean_motion();
+        let m = self.orbit.mean_anomaly();
+        let m2 = m + delta.as_secs_f32() * n;
+        self.orbit.true_anomaly = anomaly_m2t(self.orbit.eccentricity, m2).unwrap();
         self.epoch = epoch;
     }
 }
@@ -344,7 +458,7 @@ impl NBodyPropagator {
         let delta_time = epoch - self.epoch;
         let dt = delta_time.as_secs_f32();
 
-        let steps_per_minute = self.vel.length().clamp(2.0, 2000.0);
+        let steps_per_minute = self.vel.length().clamp(2.0, 10000.0);
         let steps = (steps_per_minute * dt).clamp(5.0, 10000.0) as u32;
 
         (0..steps).for_each(|_| {
@@ -539,20 +653,24 @@ fn despawn_escaped(mut commands: Commands, query: Query<(Entity, &Propagator), W
 fn keyboard_input(keys: Res<ButtonInput<KeyCode>>, mut config: ResMut<PlanetaryConfig>) {
     for key in keys.get_pressed() {
         match key {
-            KeyCode::ArrowDown | KeyCode::KeyS => {
-                config.sim_speed = f32::clamp(config.sim_speed - 0.01, 0.0, 200.0);
+            KeyCode::ArrowDown => {
+                config.sim_speed = f32::clamp(config.sim_speed - 0.01, 0.0, 1200.0);
                 dbg!(config.sim_speed);
             }
-            KeyCode::ArrowUp | KeyCode::KeyW => {
-                config.sim_speed = f32::clamp(config.sim_speed + 0.01, 0.0, 200.0);
+            KeyCode::ArrowUp => {
+                config.sim_speed = f32::clamp(config.sim_speed + 0.01, 0.0, 1200.0);
                 dbg!(config.sim_speed);
             }
-            KeyCode::ArrowLeft | KeyCode::KeyA => {
-                config.sim_speed = f32::clamp(config.sim_speed - 1.0, 0.0, 200.0);
+            KeyCode::ArrowLeft => {
+                config.sim_speed = f32::clamp(config.sim_speed - 1.0, 0.0, 1200.0);
                 dbg!(config.sim_speed);
             }
-            KeyCode::ArrowRight | KeyCode::KeyD => {
-                config.sim_speed = f32::clamp(config.sim_speed + 1.0, 0.0, 200.0);
+            KeyCode::ArrowRight => {
+                config.sim_speed = f32::clamp(config.sim_speed + 1.0, 0.0, 1200.0);
+                dbg!(config.sim_speed);
+            }
+            KeyCode::Period => {
+                config.sim_speed = 1.0;
                 dbg!(config.sim_speed);
             }
             _ => {

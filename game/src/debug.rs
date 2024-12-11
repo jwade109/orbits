@@ -2,6 +2,7 @@ use bevy::color::palettes::css::ORANGE;
 use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::input::ButtonState;
 use bevy::prelude::*;
+use std::time::Duration;
 
 pub struct DebugPlugin {}
 
@@ -11,6 +12,13 @@ struct DebugInfo {
     elapsed_time: f32,
     total_frames: u32,
     last_fps: Option<f32>,
+}
+
+#[derive(Component)]
+pub struct DebugLog
+{
+    message: String,
+    stamp: Duration
 }
 
 impl DebugInfo {
