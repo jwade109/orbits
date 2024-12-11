@@ -5,11 +5,11 @@ use std::time::Duration;
 pub fn earth_moon_example_one() -> OrbitalSystem {
     let mut system = OrbitalSystem::default();
 
-    let e = system.add_massive(EARTH.0, EARTH.1);
-    let l = system.add_massive(LUNA.0, LUNA.1);
+    let e = system.add_object(EARTH.1, Some(EARTH.0));
+    let l = system.add_object(LUNA.1, Some(LUNA.0));
 
     for _ in 0..6 {
-        system.add_massless(Propagator::Kepler(KeplerPropagator {
+        system.add_object(Propagator::Kepler(KeplerPropagator {
             epoch: Duration::default(),
             primary: e,
             orbit: Orbit {
@@ -19,19 +19,19 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
                 true_anomaly: rand(0.0, std::f32::consts::PI * 2.0),
                 body: EARTH.0,
             },
-        }));
+        }), None);
     }
 
     for _ in 0..3 {
-        system.add_massless(Propagator::NBody(NBodyPropagator {
+        system.add_object(Propagator::NBody(NBodyPropagator {
             epoch: Duration::default(),
             pos: randvec(600.0, 1800.0).into(),
             vel: randvec(50.0, 100.0).into(),
-        }));
+        }), None);
     }
 
     for _ in 0..2 {
-        system.add_massless(Propagator::Kepler(KeplerPropagator {
+        system.add_object(Propagator::Kepler(KeplerPropagator {
             epoch: Duration::default(),
             primary: l,
             orbit: Orbit {
@@ -41,15 +41,15 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
                 true_anomaly: rand(0.0, std::f32::consts::PI * 2.0),
                 body: LUNA.0,
             },
-        }));
+        }), None);
     }
 
     for _ in 0..4 {
-        system.add_massless(Propagator::NBody(NBodyPropagator {
+        system.add_object(Propagator::NBody(NBodyPropagator {
             epoch: Duration::default(),
             pos: randvec(7000.0, 8000.0).into(),
             vel: randvec(10.0, 15.0).into(),
-        }));
+        }), None);
     }
 
     system
@@ -58,24 +58,24 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
 pub fn n_body_stability() -> OrbitalSystem {
     let mut system: OrbitalSystem = OrbitalSystem::default();
 
-    let e = system.add_massive(EARTH.0, EARTH.1);
+    let e = system.add_object(EARTH.1, Some(EARTH.0));
 
     let pos = Vec2::new(7500.0, 0.0);
     let vel = Vec2::new(0.0, 15.0);
 
     let orbit = Orbit::from_pv(pos, vel, EARTH.0);
 
-    system.add_massless(Propagator::Kepler(KeplerPropagator {
+    system.add_object(Propagator::Kepler(KeplerPropagator {
         epoch: Duration::default(),
         primary: e,
         orbit,
-    }));
+    }), None);
 
-    system.add_massless(Propagator::NBody(NBodyPropagator {
+    system.add_object(Propagator::NBody(NBodyPropagator {
         epoch: Duration::default(),
         pos,
         vel,
-    }));
+    }), None);
 
     system
 }

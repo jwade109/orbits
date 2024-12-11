@@ -147,3 +147,11 @@ fn text_input(
         txt.push_str(&string);
     }
 }
+
+pub fn send_log(evt: &mut EventWriter<DebugLog>, message: &str) {
+    let log = DebugLog {
+        message: message.into(),
+        stamp: Duration::default(),
+    };
+    evt.send(log);
+}

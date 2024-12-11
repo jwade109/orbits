@@ -94,47 +94,43 @@ fn init_system(mut commands: Commands) {
     commands.insert_resource(SimTime::default());
 }
 
-fn send_log(evt: &mut EventWriter<DebugLog>, message: &str) {
-    let log = DebugLog {
-        message: message.into(),
-        stamp: Duration::default(),
-    };
-    evt.send(log);
-}
-
 fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
-    for object in state.system.massive.iter() {
-        let iso = Isometry2d::from_translation(object.prop.pos());
-        gizmos.circle_2d(iso, object.body.radius, WHITE);
-        gizmos.circle_2d(
-            iso,
-            object.body.soi,
-            Srgba {
-                alpha: 0.3,
-                ..ORANGE
-            },
-        );
+    for object in state.system.objects.iter() {
+        if let Some(body) = object.body
+        {
+            let iso = Isometry2d::from_translation(object.prop.pos());
+            gizmos.circle_2d(iso, body.radius, WHITE);
+            gizmos.circle_2d(
+                iso,
+                body.soi,
+                Srgba {
+                    alpha: 0.3,
+                    ..ORANGE
+                },
+            );
 
-        let orb: Orbit = Orbit::from_pv(object.prop.pos(), object.prop.vel(), EARTH.0);
-        draw_orbit((0.0, 0.0).into(), orb, &mut gizmos, 0.6, GRAY);
+            let orb: Orbit = Orbit::from_pv(object.prop.pos(), object.prop.vel(), EARTH.0);
+            draw_orbit((0.0, 0.0).into(), orb, &mut gizmos, 0.6, GRAY);
+        }
     }
 
-    for object in state.system.massless.iter() {
+    for object in state.system.objects.iter() {
         if let Some(pos) = state.system.get_global_position(object.id) {
-            if let Some(other) = state
+            if let Some(dominant) = state
                 .system
                 .get_dominant_object(pos)
-                .map(|o| state.system.get_global_position(o.id))
-                .flatten()
             {
-                gizmos.line_2d(
-                    pos,
-                    other,
-                    Srgba {
-                        alpha: 0.2,
-                        ..ORANGE
-                    },
-                );
+                if let Some(other_pos) = state.system.get_global_position(dominant.id)
+                {
+                    gizmos.line_2d(
+                        pos,
+                        other_pos,
+                        Srgba {
+                            alpha: 0.2,
+                            ..ORANGE
+                        },
+                    );
+                }
             }
         }
 
@@ -154,7 +150,7 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
                 }
             }
             Propagator::Kepler(k) => {
-                if let Some(parent) = state.system.lookup_massive(k.primary) {
+                if let Some(parent) = state.system.lookup(k.primary) {
                     let color: Srgba = ORANGE;
                     let iso: Isometry2d =
                         Isometry2d::from_translation(object.prop.pos() + parent.prop.pos());
@@ -166,6 +162,7 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
             }
         }
     }
+
 }
 
 fn update_sim_time(time: Res<Time>, mut simtime: ResMut<SimTime>, config: Res<PlanetaryState>) {

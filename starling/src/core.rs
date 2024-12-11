@@ -2,6 +2,8 @@ use bevy::math::Vec2;
 use rand::Rng;
 use std::time::Duration;
 
+use crate::transforms::*;
+
 pub fn rand(min: f32, max: f32) -> f32 {
     rand::thread_rng().gen_range(min..max)
 }
@@ -192,8 +194,12 @@ impl NBodyPropagator {
         let steps_per_minute = self.vel.length().clamp(2.0, 10000.0);
         let steps = (steps_per_minute * dt).clamp(5.0, 10000.0) as u32;
 
+        let others = bodies.iter().filter(|(c, _)| {
+            *c != self.pos
+        }).collect::<Vec<_>>();
+
         (0..steps).for_each(|_| {
-            let a: Vec2 = bodies
+            let a: Vec2 = others
                 .iter()
                 .map(|(c, b)| -> Vec2 { gravity_accel(*b, *c, self.pos) })
                 .sum();
@@ -238,6 +244,16 @@ impl KeplerPropagator {
     }
 }
 
+pub trait Propagate {
+    fn epoch(&self) -> Duration;
+
+    fn pos(&self) -> Vec2;
+
+    fn vel(&self) -> Vec2;
+
+    fn propagate_to(&mut self, epoch: Duration, state: &OrbitalSystem);
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum Propagator {
     Fixed(Vec2),
@@ -250,30 +266,6 @@ impl Propagator {
         Propagator::Fixed(pos)
     }
 
-    pub fn epoch(&self) -> Duration {
-        match self {
-            Propagator::NBody(nb) => nb.epoch,
-            Propagator::Kepler(_) => todo!(),
-            Propagator::Fixed(_) => Duration::default(),
-        }
-    }
-
-    pub fn pos(&self) -> Vec2 {
-        match self {
-            Propagator::NBody(nb) => nb.pos,
-            Propagator::Kepler(k) => k.orbit.pos(),
-            Propagator::Fixed(p) => *p,
-        }
-    }
-
-    pub fn vel(&self) -> Vec2 {
-        match self {
-            Propagator::NBody(nb) => nb.vel,
-            Propagator::Kepler(k) => k.orbit.vel(),
-            Propagator::Fixed(_) => Vec2::ZERO,
-        }
-    }
-
     pub fn orbit(&self) -> Option<Orbit> {
         match self {
             Propagator::NBody(nb) => Some(Orbit::from_pv(nb.pos, nb.vel, EARTH.0)),
@@ -283,42 +275,64 @@ impl Propagator {
     }
 }
 
+impl Propagate for Propagator {
+
+    fn propagate_to(&mut self, epoch: Duration, state: &OrbitalSystem) {
+        let bodies = state.bodies();
+        match self {
+            Propagator::NBody(nb) => nb.propagate_to(&bodies, epoch),
+            Propagator::Kepler(k) => k.propagate_to(epoch),
+            Propagator::Fixed(_) => (),
+        };
+    }
+
+    fn epoch(&self) -> Duration {
+        match self {
+            Propagator::NBody(nb) => nb.epoch,
+            Propagator::Kepler(_) => todo!(),
+            Propagator::Fixed(_) => Duration::default(),
+        }
+    }
+
+    fn pos(&self) -> Vec2 {
+        match self {
+            Propagator::NBody(nb) => nb.pos,
+            Propagator::Kepler(k) => k.orbit.pos(),
+            Propagator::Fixed(p) => *p,
+        }
+    }
+
+    fn vel(&self) -> Vec2 {
+        match self {
+            Propagator::NBody(nb) => nb.vel,
+            Propagator::Kepler(k) => k.orbit.vel(),
+            Propagator::Fixed(_) => Vec2::ZERO,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct ObjectId(i64);
 
 #[derive(Debug, Clone, Copy)]
-pub struct MasslessObject {
+pub struct Object {
     pub id: ObjectId,
     pub prop: Propagator,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct MassiveObject {
-    pub id: ObjectId,
-    pub body: Body,
-    pub prop: Propagator,
+    pub body: Option<Body>
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct OrbitalSystem {
     pub epoch: Duration,
-    pub massless: Vec<MasslessObject>,
-    pub massive: Vec<MassiveObject>,
+    pub objects: Vec<Object>,
     next_id: i64,
 }
 
 impl OrbitalSystem {
-    pub fn add_massless(&mut self, prop: Propagator) -> ObjectId {
+    pub fn add_object(&mut self, prop: Propagator, body: Option<Body>) -> ObjectId {
         let id = ObjectId(self.next_id);
         self.next_id += 1;
-        self.massless.push(MasslessObject { id, prop });
-        id
-    }
-
-    pub fn add_massive(&mut self, body: Body, prop: Propagator) -> ObjectId {
-        let id = ObjectId(self.next_id);
-        self.next_id += 1;
-        self.massive.push(MassiveObject { id, body, prop });
+        self.objects.push(Object { id, prop, body });
         id
     }
 
@@ -334,23 +348,22 @@ impl OrbitalSystem {
             };
         };
 
-        if let Some(m) = self.lookup_massive(o) {
-            return prop_lookup(&m.prop);
-        } else if let Some(m) = self.lookup_massless(o) {
+        if let Some(m) = self.lookup(o) {
             return prop_lookup(&m.prop);
         } else {
             None
         }
     }
 
-    pub fn get_dominant_object(&self, pos: Vec2) -> Option<MassiveObject> {
-        self.massive
+    pub fn get_dominant_object(&self, pos: Vec2) -> Option<Object> {
+        self.objects
             .iter()
+            .filter(|m| m.body.is_some())
             .map(|m| {
                 (
                     m,
                     self.get_global_position(m.id)
-                        .map(|c| gravity_accel(m.body, c, pos).length_squared())
+                        .map(|c| gravity_accel(m.body.unwrap(), c, pos).length_squared())
                         .unwrap_or(0.0),
                 )
             })
@@ -358,43 +371,22 @@ impl OrbitalSystem {
             .map(|(m, _)| *m)
     }
 
-    pub fn lookup_massless(&self, o: ObjectId) -> Option<MasslessObject> {
-        self.massless.iter().find(|m| m.id == o).map(|m| *m)
-    }
-
-    pub fn lookup_massive(&self, o: ObjectId) -> Option<MassiveObject> {
-        self.massive.iter().find(|m| m.id == o).map(|m| *m)
+    pub fn lookup(&self, o: ObjectId) -> Option<Object> {
+        self.objects.iter().find(|m| m.id == o).map(|m| *m)
     }
 
     pub fn propagate_to(&mut self, epoch: Duration) {
-        let old_bodies = self.bodies();
-        for massive in &mut self.massive {
-            let other_bodies: Vec<(Vec2, Body)> = old_bodies
-                .clone()
-                .into_iter()
-                .filter(|(p, _)| p.distance(massive.prop.pos()) > 0.0)
-                .collect::<Vec<_>>();
-
-            match &mut massive.prop {
-                Propagator::NBody(nb) => nb.propagate_to(&other_bodies, epoch),
-                Propagator::Kepler(k) => k.propagate_to(epoch),
-                Propagator::Fixed(_) => (),
-            }
-        }
-        let new_bodies = self.bodies();
-        for massless in &mut self.massless {
-            match &mut massless.prop {
-                Propagator::NBody(nb) => nb.propagate_to(&new_bodies, epoch),
-                Propagator::Kepler(k) => k.propagate_to(epoch),
-                Propagator::Fixed(_) => (),
-            }
+        let copy = self.clone();
+        for m in self.objects.iter_mut() {
+            m.prop.propagate_to(epoch, &copy);
         }
     }
 
     fn bodies(&self) -> Vec<(Vec2, Body)> {
-        self.massive
+        self.objects
             .iter()
-            .map(|o| (o.prop.pos(), o.body))
+            .filter(|o| o.body.is_some())
+            .map(|o| (o.prop.pos(), o.body.unwrap()))
             .collect()
     }
 }
