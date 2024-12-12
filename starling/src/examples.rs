@@ -8,7 +8,7 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
     let e = system.add_object(EARTH.1, Some(EARTH.0));
     let l = system.add_object(LUNA.1, Some(LUNA.0));
 
-    for _ in 0..50 {
+    for _ in 0..4 {
         system.add_object(
             Propagator::Kepler(KeplerPropagator {
                 epoch: Duration::default(),
@@ -18,6 +18,7 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
                     semi_major_axis: rand(600.0, 2600.0),
                     arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
                     true_anomaly: rand(0.0, std::f32::consts::PI * 2.0),
+                    retrograde: rand(0.0, 1.0) < 0.3,
                     body: EARTH.0,
                 },
             }),
@@ -30,7 +31,7 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
             Propagator::NBody(NBodyPropagator {
                 epoch: Duration::default(),
                 pos: randvec(600.0, 1800.0).into(),
-                vel: randvec(50.0, 100.0).into(),
+                vel: randvec(80.0, 120.0).into(),
             }),
             None,
         );
@@ -46,6 +47,7 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
                     semi_major_axis: rand(100.0, 400.0),
                     arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
                     true_anomaly: rand(0.0, std::f32::consts::PI * 2.0),
+                    retrograde: rand(0.0, 1.0) < 0.3,
                     body: LUNA.0,
                 },
             }),
@@ -53,7 +55,7 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
         );
     }
 
-    for _ in 0..4 {
+    for _ in 0..8 {
         system.add_object(
             Propagator::NBody(NBodyPropagator {
                 epoch: Duration::default(),
@@ -64,7 +66,9 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
         );
     }
 
-    system.add_object(Propagator::Fixed((400.0, 300.0).into(), Some(l)), None);
+    dbg!(&system.objects);
+
+    system.add_object(Propagator::Fixed((100.0, 100.0).into(), Some(l)), None);
 
     system
 }
@@ -75,7 +79,7 @@ pub fn n_body_stability() -> OrbitalSystem {
     let e = system.add_object(EARTH.1, Some(EARTH.0));
 
     let pos = Vec2::new(7500.0, 0.0);
-    let vel = Vec2::new(0.0, 15.0);
+    let vel = Vec2::new(0.0, 7.0);
 
     let orbit = Orbit::from_pv(pos, vel, EARTH.0);
 

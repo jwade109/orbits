@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+approx = "0.5.1"
 bevy = "0.15.0"
 bevy_ecs = "0.15.0"
 rand = "0.8.5"

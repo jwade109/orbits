@@ -8,6 +8,7 @@ use crate::debug::DebugLog;
 
 use starling::core::*;
 use starling::examples::*;
+use starling::tests::*;
 
 pub struct PlanetaryPlugin;
 
@@ -52,7 +53,7 @@ fn draw_orbit(origin: Vec2, orb: Orbit, gizmos: &mut Gizmos, alpha: f32, base_co
         let root = orb.pos() + origin;
         let t1 = root + orb.normal() * 60.0;
         let t2 = root + orb.tangent() * 60.0;
-        let t3 = root + orb.prograde() * 100.0;
+        let t3 = root + orb.vel() * 3.0;
         gizmos.line_2d(root, t1, GREEN);
         gizmos.line_2d(root, t2, GREEN);
         gizmos.line_2d(root, t3, PURPLE);
@@ -78,6 +79,15 @@ fn draw_orbit(origin: Vec2, orb: Orbit, gizmos: &mut Gizmos, alpha: f32, base_co
         2.0,
         Srgba { alpha, ..WHITE },
     );
+
+    if orb.retrograde
+    {
+        gizmos.circle_2d(
+            Isometry2d::from_translation(origin + orb.pos()),
+            80.0,
+            Srgba { ..PURPLE },
+        );
+    }
 }
 
 #[derive(Resource)]
@@ -91,7 +101,7 @@ struct PlanetaryState {
 impl Default for PlanetaryState {
     fn default() -> Self {
         PlanetaryState {
-            sim_speed: 15.0,
+            sim_speed: 0.0,
             show_orbits: true,
             paused: false,
             system: earth_moon_example_one(),
@@ -140,8 +150,13 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
                 let iso: Isometry2d = Isometry2d::from_translation(nb.pos);
                 gizmos.circle_2d(iso, 12.0, color);
                 if state.show_orbits {
-                    let orb = Orbit::from_pv(nb.pos, nb.vel, EARTH.0);
-                    draw_orbit(Vec2::ZERO, orb, &mut gizmos, 0.05, WHITE);
+                    let pos = state.system.global_pos(object.prop);
+                    let vel = state.system.global_vel(object.prop);
+                    if let (Some(p), Some(v)) = (pos, vel)
+                    {
+                        let orb = Orbit::from_pv(p, v, EARTH.0);
+                        draw_orbit(Vec2::ZERO, orb, &mut gizmos, 0.05, WHITE);
+                    }
                 }
             }
             Propagator::Kepler(k) => {
@@ -170,6 +185,31 @@ fn update_sim_time(time: Res<Time>, mut simtime: ResMut<SimTime>, config: Res<Pl
 
 fn propagate_system(time: Res<SimTime>, mut state: ResMut<PlanetaryState>) {
     let SimTime(t) = *time;
+
+    for object in state.system.objects.clone()
+    {
+        if object.body.is_some() || state.system.objects.len() >= 1400 {
+            continue;
+        }
+
+        if rand(0.0, 1.0) < 0.99
+        {
+            continue;
+        }
+
+        let pos = state.system.global_pos(object.prop);
+        let vel = state.system.global_vel(object.prop);
+        if let (Some(p), Some(v)) = (pos, vel)
+        {
+            let new_prop = Propagator::NBody(NBodyPropagator {
+                epoch: object.prop.epoch(),
+                pos: p,
+                vel: v
+            });
+            state.system.add_object(new_prop, None);
+        }
+    }
+
     state.system.propagate_to(t);
 }
 

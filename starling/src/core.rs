@@ -75,6 +75,7 @@ pub struct Orbit {
     pub semi_major_axis: f32,
     pub arg_periapsis: f32,
     pub true_anomaly: f32,
+    pub retrograde: bool,
     pub body: Body,
 }
 
@@ -90,15 +91,13 @@ impl Orbit {
         if r3.dot(v3) < 0.0 {
             true_anomaly = 2.0 * std::f32::consts::PI - true_anomaly;
         }
-        if h.z < 0.0 {
-            true_anomaly *= -1.0;
-        }
 
         Orbit {
             eccentricity: e.length(),
             semi_major_axis,
             arg_periapsis,
             true_anomaly,
+            retrograde: h.z < 0.0,
             body,
         }
     }
@@ -117,7 +116,8 @@ impl Orbit {
     }
 
     pub fn flight_path_angle_at(&self, true_anomaly: f32) -> f32 {
-        -(self.eccentricity * true_anomaly.sin()).atan2(1.0 + self.eccentricity * true_anomaly.cos())
+        -(self.eccentricity * true_anomaly.sin())
+            .atan2(1.0 + self.eccentricity * true_anomaly.cos())
     }
 
     pub fn tangent(&self) -> Vec2 {
@@ -126,7 +126,11 @@ impl Orbit {
 
     pub fn tangent_at(&self, true_anomaly: f32) -> Vec2 {
         let n = self.normal_at(true_anomaly);
-        Vec2::from_angle(std::f32::consts::PI / 2.0).rotate(n)
+        let angle = match self.retrograde {
+            true => -std::f32::consts::PI / 2.0,
+            false => std::f32::consts::PI / 2.0,
+        };
+        Vec2::from_angle(angle).rotate(n)
     }
 
     pub fn normal(&self) -> Vec2 {
@@ -166,7 +170,11 @@ impl Orbit {
 
     pub fn position_at(&self, true_anomaly: f32) -> Vec2 {
         let r = self.radius_at(true_anomaly);
-        Vec2::from_angle(true_anomaly + self.arg_periapsis) * r
+        let angle = match self.retrograde {
+            false => true_anomaly,
+            true => -true_anomaly,
+        };
+        Vec2::from_angle(angle + self.arg_periapsis) * r
     }
 
     pub fn velocity_at(&self, true_anomaly: f32) -> Vec2 {
@@ -178,7 +186,7 @@ impl Orbit {
             / (1.0 + self.eccentricity * true_anomaly.cos());
         let n = self.normal_at(true_anomaly);
         let t = self.tangent_at(true_anomaly);
-        v * (n * cosfpa + t * sinfpa)
+        v * (t * cosfpa + n * sinfpa)
     }
 
     pub fn periapsis(&self) -> Vec2 {
@@ -239,8 +247,7 @@ impl NBodyPropagator {
         let delta_time = epoch - self.epoch;
         let dt = delta_time.as_secs_f32();
 
-        let steps_per_minute = self.vel.length().clamp(2.0, 10000.0);
-        let steps = (steps_per_minute * dt).clamp(5.0, 10000.0) as u32;
+        let steps = delta_time.as_millis();
 
         let others = bodies
             .iter()
@@ -317,12 +324,16 @@ impl Propagator {
         Propagator::Fixed(pos, None)
     }
 
-    pub fn orbit(&self) -> Option<Orbit> {
-        match self {
-            Propagator::NBody(nb) => Some(Orbit::from_pv(nb.pos, nb.vel, EARTH.0)),
-            Propagator::Kepler(k) => Some(k.orbit),
-            Propagator::Fixed(_, _) => None,
-        }
+    pub fn kepler(epoch: Duration, orbit: Orbit, primary: ObjectId) -> Self {
+        Propagator::Kepler(KeplerPropagator {
+            epoch,
+            primary,
+            orbit,
+        })
+    }
+
+    pub fn nbody(epoch: Duration, pos: Vec2, vel: Vec2) -> Self {
+        Propagator::NBody(NBodyPropagator { epoch, pos, vel })
     }
 }
 
