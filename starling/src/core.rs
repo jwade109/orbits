@@ -102,6 +102,10 @@ impl Orbit {
         }
     }
 
+    pub fn from_apses(per: Vec2, apo: Vec2, ta: f32) -> Self {
+        todo!()
+    }
+
     pub fn prograde(&self) -> Vec2 {
         self.prograde_at(self.true_anomaly)
     }
@@ -208,6 +212,9 @@ impl Orbit {
 
 pub fn gravity_accel(body: Body, body_center: Vec2, sample: Vec2) -> Vec2 {
     let r: Vec2 = body_center - sample;
+    if r.length_squared() < body.radius.powi(2) {
+        return Vec2::ZERO;
+    }
     let rsq = r.length_squared().clamp(body.radius.powi(2), std::f32::MAX);
     let a = GRAVITATIONAL_CONSTANT * body.mass / rsq;
     a * r.normalize()
@@ -247,7 +254,7 @@ impl NBodyPropagator {
         let delta_time = epoch - self.epoch;
         let dt = delta_time.as_secs_f32();
 
-        let steps = delta_time.as_millis();
+        let steps = delta_time.as_millis() / 10;
 
         let others = bodies
             .iter()
@@ -381,7 +388,7 @@ impl Propagate for Propagator {
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct ObjectId(i64);
+pub struct ObjectId(pub i64);
 
 #[derive(Debug, Clone, Copy)]
 pub struct Object {
@@ -441,4 +448,81 @@ impl OrbitalSystem {
             .map(|o| (o.prop.pos(), o.body.unwrap()))
             .collect()
     }
+
+    pub fn gravity_at(&self, pos: Vec2) -> Vec2 {
+        self.bodies().iter().map(|(c, b)| {
+            gravity_accel(*b, *c, pos)
+        })
+        .sum()
+    }
+
+    pub fn potential_at(&self, pos: Vec2) -> f32 {
+        self.bodies().iter().map(|(c, b)| {
+            let r = (c - pos).length();
+            if r < b.radius
+            {
+                return 0.0;
+            }
+            -b.mu() / r
+        })
+        .sum()
+    }
+
+    pub fn primary_body_at(&self, pos: Vec2) -> Option<ObjectId> {
+        let mut ret = None;
+        let mut max_grav = f32::MIN;
+        for obj in self.objects.iter()
+        {
+            if let (Some(body), Some(c)) = (obj.body, self.global_pos(obj.prop))
+            {
+                let g = gravity_accel(body, c, pos).length_squared();
+                if max_grav < g
+                {
+                    max_grav = g;
+                    ret = Some(obj.id);
+                }
+            }
+        }
+        ret
+    }
+}
+
+pub fn generate_square_lattice(center: Vec2, w: i32, step: usize) -> Vec<Vec2> {
+    let mut ret = vec![];
+    for x in (-w..w).step_by(step) {
+        for y in (-w..w).step_by(step) {
+            ret.push(center + Vec2::new(x as f32, y as f32));
+        }
+    }
+    ret
+}
+
+pub fn generate_circular_log_lattice(center: Vec2, rmin: f32, rmax: f32) -> Vec<Vec2> {
+    // this isn't actually log, but I'm lazy
+    let mut ret = vec![];
+
+    let mut r = rmin;
+    let mut dr = 30.0;
+
+    while r < rmax
+    {
+        let circ = 2.0 * std::f32::consts::PI * r;
+        let mut pts = (circ / dr).ceil() as u32;
+        while pts % 8 > 0
+        {
+            pts += 1; // yeah this is stupid
+        }
+        for i in 0..pts
+        {
+            let a = 2.0 * std::f32::consts::PI * i as f32 / pts as f32;
+            let x = a.cos();
+            let y = a.sin();
+            ret.push(center + Vec2::new(x, y) * r);
+        }
+
+        r += dr;
+        dr *= 1.1;
+    }
+
+    ret
 }

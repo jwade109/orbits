@@ -66,7 +66,27 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
         );
     }
 
-    dbg!(&system.objects);
+    system.add_object(
+        Propagator::nbody(
+            Duration::default(),
+            (7500.0, 3000.0).into(),
+            (30.0, -10.0).into(),
+        ),
+        Some(Body {
+            radius: 10.0,
+            mass: 2.5,
+            soi: 300.0,
+        }),
+    );
+
+    system.add_object(
+        Propagator::nbody(
+            Duration::default(),
+            (7500.0, 2920.0).into(),
+            (48.0, -10.0).into(),
+        ),
+        None,
+    );
 
     system.add_object(Propagator::Fixed((100.0, 100.0).into(), Some(l)), None);
 

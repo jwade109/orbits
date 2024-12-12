@@ -4,11 +4,8 @@ use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 use std::time::Duration;
 
-use crate::debug::DebugLog;
-
 use starling::core::*;
 use starling::examples::*;
-use starling::tests::*;
 
 pub struct PlanetaryPlugin;
 
@@ -79,21 +76,15 @@ fn draw_orbit(origin: Vec2, orb: Orbit, gizmos: &mut Gizmos, alpha: f32, base_co
         2.0,
         Srgba { alpha, ..WHITE },
     );
-
-    if orb.retrograde
-    {
-        gizmos.circle_2d(
-            Isometry2d::from_translation(origin + orb.pos()),
-            80.0,
-            Srgba { ..PURPLE },
-        );
-    }
 }
 
 #[derive(Resource)]
 struct PlanetaryState {
     sim_speed: f32,
     show_orbits: bool,
+    show_potential_field: bool,
+    show_gravity_field: bool,
+    show_primary_body: bool,
     paused: bool,
     system: OrbitalSystem,
 }
@@ -103,6 +94,9 @@ impl Default for PlanetaryState {
         PlanetaryState {
             sim_speed: 0.0,
             show_orbits: true,
+            show_potential_field: false,
+            show_gravity_field: false,
+            show_primary_body: false,
             paused: false,
             system: earth_moon_example_one(),
         }
@@ -116,8 +110,7 @@ fn init_system(mut commands: Commands) {
 
 fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
     for object in state.system.objects.iter() {
-        if let Some(body) = object.body
-        {
+        if let Some(body) = object.body {
             let iso = Isometry2d::from_translation(object.prop.pos());
             gizmos.circle_2d(iso, body.radius, WHITE);
             gizmos.circle_2d(
@@ -135,12 +128,10 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
     }
 
     for object in state.system.objects.iter() {
-
         match object.prop {
             Propagator::Fixed(_, _) => {
                 let color: Srgba = RED;
-                if let Some(gp) = state.system.global_pos(object.prop)
-                {
+                if let Some(gp) = state.system.global_pos(object.prop) {
                     let iso: Isometry2d = Isometry2d::from_translation(gp);
                     gizmos.circle_2d(iso, 20.0, color);
                 }
@@ -152,8 +143,7 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
                 if state.show_orbits {
                     let pos = state.system.global_pos(object.prop);
                     let vel = state.system.global_vel(object.prop);
-                    if let (Some(p), Some(v)) = (pos, vel)
-                    {
+                    if let (Some(p), Some(v)) = (pos, vel) {
                         let orb = Orbit::from_pv(p, v, EARTH.0);
                         draw_orbit(Vec2::ZERO, orb, &mut gizmos, 0.05, WHITE);
                     }
@@ -173,6 +163,68 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
         }
     }
 
+    let mut lattice = vec![]; // generate_square_lattice(Vec2::ZERO, 10000, 200);
+
+    for obj in state.system.objects.iter() {
+        if let Some(body) = obj.body {
+            if let Some(center) = state.system.global_pos(obj.prop) {
+                let minilat = generate_circular_log_lattice(center, body.radius + 5.0, body.soi);
+                lattice.extend(minilat);
+            }
+        }
+    }
+
+    let gravity = lattice.iter().map(|p| state.system.gravity_at(*p));
+    let potential = lattice.iter().map(|p| state.system.potential_at(*p));
+    let primary = lattice.iter().map(|p| state.system.primary_body_at(*p));
+    let max_potential = state.system.potential_at((500.0, 500.0).into());
+
+    if state.show_gravity_field {
+        for (g, p) in gravity.zip(&lattice) {
+            let l = g.length().clamp(0.0, 50.0);
+            if l > 1.0 {
+                let tip = p + g.normalize() * l;
+                gizmos.line_2d(*p, tip, GRAY);
+            }
+        }
+    }
+    if state.show_potential_field {
+        for (pot, p) in potential.zip(&lattice) {
+            let r = (((pot / max_potential * 5.0) as u32) as f32 / 5.0).sqrt();
+            let color = Srgba {
+                red: r,
+                green: 0.0,
+                blue: 1.0 - r,
+                alpha: 0.7,
+            };
+
+            let dx = Vec2::new(20.0, 0.0);
+            let dy = Vec2::new(0.0, 20.0);
+
+            gizmos.line_2d(p - dx, p + dx, color);
+            gizmos.line_2d(p - dy, p + dy, color);
+        }
+    }
+    if state.show_primary_body {
+        for (prim, p) in primary.zip(&lattice) {
+            if let Some(ObjectId(id)) = prim
+            {
+                let r = id as f32;
+                let color = Srgba {
+                    red: r,
+                    blue: 0.0,
+                    green: 1.0 - r,
+                    alpha: 0.7,
+                };
+
+                let dx = Vec2::new(20.0, 0.0);
+                let dy = Vec2::new(0.0, 20.0);
+
+                gizmos.line_2d(p - dx, p + dx, color);
+                gizmos.line_2d(p - dy, p + dy, color);
+            }
+        }
+    }
 }
 
 fn update_sim_time(time: Res<Time>, mut simtime: ResMut<SimTime>, config: Res<PlanetaryState>) {
@@ -185,30 +237,6 @@ fn update_sim_time(time: Res<Time>, mut simtime: ResMut<SimTime>, config: Res<Pl
 
 fn propagate_system(time: Res<SimTime>, mut state: ResMut<PlanetaryState>) {
     let SimTime(t) = *time;
-
-    for object in state.system.objects.clone()
-    {
-        if object.body.is_some() || state.system.objects.len() >= 1400 {
-            continue;
-        }
-
-        if rand(0.0, 1.0) < 0.99
-        {
-            continue;
-        }
-
-        let pos = state.system.global_pos(object.prop);
-        let vel = state.system.global_vel(object.prop);
-        if let (Some(p), Some(v)) = (pos, vel)
-        {
-            let new_prop = Propagator::NBody(NBodyPropagator {
-                epoch: object.prop.epoch(),
-                pos: p,
-                vel: v
-            });
-            state.system.add_object(new_prop, None);
-        }
-    }
 
     state.system.propagate_to(t);
 }
@@ -253,6 +281,15 @@ fn keyboard_input(keys: Res<ButtonInput<KeyCode>>, mut config: ResMut<PlanetaryS
 
     if keys.just_pressed(KeyCode::KeyO) {
         config.show_orbits = !config.show_orbits;
+    }
+    if keys.just_pressed(KeyCode::KeyG) {
+        config.show_gravity_field = !config.show_gravity_field;
+    }
+    if keys.just_pressed(KeyCode::KeyP) {
+        config.show_potential_field = !config.show_potential_field;
+    }
+    if keys.just_pressed(KeyCode::KeyB) {
+        config.show_primary_body = !config.show_primary_body;
     }
     if keys.just_pressed(KeyCode::Space) {
         config.paused = !config.paused;
