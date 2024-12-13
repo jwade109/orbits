@@ -212,9 +212,6 @@ impl Orbit {
 
 pub fn gravity_accel(body: Body, body_center: Vec2, sample: Vec2) -> Vec2 {
     let r: Vec2 = body_center - sample;
-    if r.length_squared() < body.radius.powi(2) {
-        return Vec2::ZERO;
-    }
     let rsq = r.length_squared().clamp(body.radius.powi(2), std::f32::MAX);
     let a = GRAVITATIONAL_CONSTANT * body.mass / rsq;
     a * r.normalize()
@@ -404,6 +401,12 @@ pub struct OrbitalSystem {
     next_id: i64,
 }
 
+#[derive(Debug, Clone, Copy, Default)]
+pub struct PV {
+    pub pos: Vec2,
+    pub vel: Vec2,
+}
+
 impl OrbitalSystem {
     pub fn add_object(&mut self, prop: Propagator, body: Option<Body>) -> ObjectId {
         let id = ObjectId(self.next_id);
@@ -414,6 +417,22 @@ impl OrbitalSystem {
 
     pub fn lookup(&self, o: ObjectId) -> Option<Object> {
         self.objects.iter().find(|m| m.id == o).map(|m| *m)
+    }
+
+    pub fn global_transform(&self, prop: impl Propagate) -> Option<PV> {
+        if let Some(rel) = prop.relative_to() {
+            let obj = self.lookup(rel)?;
+            let rel = self.global_transform(obj.prop)?;
+            Some(PV {
+                pos: prop.pos() + rel.pos,
+                vel: prop.vel() + rel.vel,
+            })
+        } else {
+            Some(PV {
+                pos: prop.pos(),
+                vel: prop.vel(),
+            })
+        }
     }
 
     pub fn global_pos(&self, prop: impl Propagate) -> Option<Vec2> {
@@ -450,36 +469,38 @@ impl OrbitalSystem {
     }
 
     pub fn gravity_at(&self, pos: Vec2) -> Vec2 {
-        self.bodies().iter().map(|(c, b)| {
-            gravity_accel(*b, *c, pos)
-        })
-        .sum()
+        self.bodies()
+            .iter()
+            .map(|(c, b)| gravity_accel(*b, *c, pos))
+            .sum()
     }
 
     pub fn potential_at(&self, pos: Vec2) -> f32 {
-        self.bodies().iter().map(|(c, b)| {
-            let r = (c - pos).length();
-            if r < b.radius
-            {
-                return 0.0;
-            }
-            -b.mu() / r
-        })
-        .sum()
+        self.bodies()
+            .iter()
+            .map(|(c, b)| {
+                let r = (c - pos).length();
+                if r < b.radius {
+                    return 0.0;
+                }
+                -b.mu() / r
+            })
+            .sum()
     }
 
-    pub fn primary_body_at(&self, pos: Vec2) -> Option<ObjectId> {
+    pub fn primary_body_at(&self, pos: Vec2, exclude: Option<ObjectId>) -> Option<Object> {
         let mut ret = None;
         let mut max_grav = f32::MIN;
-        for obj in self.objects.iter()
-        {
-            if let (Some(body), Some(c)) = (obj.body, self.global_pos(obj.prop))
+        for obj in self.objects.iter() {
+            if Some(obj.id) == exclude
             {
+                continue;
+            }
+            if let (Some(body), Some(c)) = (obj.body, self.global_pos(obj.prop)) {
                 let g = gravity_accel(body, c, pos).length_squared();
-                if max_grav < g
-                {
+                if max_grav < g {
                     max_grav = g;
-                    ret = Some(obj.id);
+                    ret = Some(*obj);
                 }
             }
         }
@@ -504,16 +525,13 @@ pub fn generate_circular_log_lattice(center: Vec2, rmin: f32, rmax: f32) -> Vec<
     let mut r = rmin;
     let mut dr = 30.0;
 
-    while r < rmax
-    {
+    while r < rmax {
         let circ = 2.0 * std::f32::consts::PI * r;
         let mut pts = (circ / dr).ceil() as u32;
-        while pts % 8 > 0
-        {
+        while pts % 8 > 0 {
             pts += 1; // yeah this is stupid
         }
-        for i in 0..pts
-        {
+        for i in 0..pts {
             let a = 2.0 * std::f32::consts::PI * i as f32 / pts as f32;
             let x = a.cos();
             let y = a.sin();

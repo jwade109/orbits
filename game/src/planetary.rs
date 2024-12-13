@@ -121,9 +121,6 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
                     ..ORANGE
                 },
             );
-
-            let orb: Orbit = Orbit::from_pv(object.prop.pos(), object.prop.vel(), EARTH.0);
-            draw_orbit((0.0, 0.0).into(), orb, &mut gizmos, 0.6, GRAY);
         }
     }
 
@@ -141,11 +138,22 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
                 let iso: Isometry2d = Isometry2d::from_translation(nb.pos);
                 gizmos.circle_2d(iso, 12.0, color);
                 if state.show_orbits {
-                    let pos = state.system.global_pos(object.prop);
-                    let vel = state.system.global_vel(object.prop);
-                    if let (Some(p), Some(v)) = (pos, vel) {
-                        let orb = Orbit::from_pv(p, v, EARTH.0);
-                        draw_orbit(Vec2::ZERO, orb, &mut gizmos, 0.05, WHITE);
+                    let child_pv = state.system.global_transform(object.prop);
+                    let parent_object = child_pv
+                        .map(|p| state.system.primary_body_at(p.pos, Some(object.id)))
+                        .flatten();
+                    let parent_pv = parent_object
+                        .map(|o| state.system.global_transform(o.prop))
+                        .flatten();
+                    let parent_body = parent_object.map(|o| o.body).flatten();
+
+                    if let (Some(child_pv), Some(parent_pv), Some(parent_body)) =
+                        (child_pv, parent_pv, parent_body)
+                    {
+                        let rpos = child_pv.pos - parent_pv.pos;
+                        let rvel = child_pv.vel - parent_pv.vel;
+                        let orb: Orbit = Orbit::from_pv(rpos, rvel, parent_body);
+                        draw_orbit(parent_pv.pos, orb, &mut gizmos, 0.6, GRAY);
                     }
                 }
             }
@@ -176,7 +184,9 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
 
     let gravity = lattice.iter().map(|p| state.system.gravity_at(*p));
     let potential = lattice.iter().map(|p| state.system.potential_at(*p));
-    let primary = lattice.iter().map(|p| state.system.primary_body_at(*p));
+    let primary = lattice
+        .iter()
+        .map(|p| state.system.primary_body_at(*p, None));
     let max_potential = state.system.potential_at((500.0, 500.0).into());
 
     if state.show_gravity_field {
@@ -207,21 +217,17 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
     }
     if state.show_primary_body {
         for (prim, p) in primary.zip(&lattice) {
-            if let Some(ObjectId(id)) = prim
-            {
-                let r = id as f32;
-                let color = Srgba {
-                    red: r,
-                    blue: 0.0,
-                    green: 1.0 - r,
-                    alpha: 0.7,
-                };
-
-                let dx = Vec2::new(20.0, 0.0);
-                let dy = Vec2::new(0.0, 20.0);
-
-                gizmos.line_2d(p - dx, p + dx, color);
-                gizmos.line_2d(p - dy, p + dy, color);
+            if let Some(oid) = prim {
+                if let Some(d) = state.system.global_pos(oid.prop) {
+                    gizmos.line_2d(
+                        *p,
+                        d,
+                        Srgba {
+                            alpha: 0.02,
+                            ..GRAY
+                        },
+                    );
+                }
             }
         }
     }

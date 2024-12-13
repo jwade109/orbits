@@ -88,7 +88,7 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
         None,
     );
 
-    system.add_object(Propagator::Fixed((100.0, 100.0).into(), Some(l)), None);
+    // system.add_object(Propagator::Fixed((100.0, 100.0).into(), Some(l)), None);
 
     system
 }
@@ -119,6 +119,27 @@ pub fn n_body_stability() -> OrbitalSystem {
             vel,
         }),
         None,
+    );
+
+    system
+}
+
+pub fn simple_two_body() -> OrbitalSystem {
+    let mut system = OrbitalSystem::default();
+
+    let body = Body {
+        mass: 500.0,
+        radius: 50.0,
+        soi: 10000.0,
+    };
+
+    system.add_object(
+        Propagator::nbody(Duration::default(), (400.0, 0.0).into(), (0.0, 40.0).into()),
+        Some(body),
+    );
+    system.add_object(
+        Propagator::nbody(Duration::default(), (-400.0, 0.0).into(), (0.0, -40.0).into()),
+        Some(body),
     );
 
     system
