@@ -251,7 +251,7 @@ impl NBodyPropagator {
         let delta_time = epoch - self.epoch;
         let dt = delta_time.as_secs_f32();
 
-        let steps = delta_time.as_millis() / 10;
+        let steps = delta_time.as_millis() / 1;
 
         let others = bodies
             .iter()
@@ -455,9 +455,45 @@ impl OrbitalSystem {
 
     pub fn propagate_to(&mut self, epoch: Duration) {
         let copy = self.clone();
+        self.epoch = epoch;
         for m in self.objects.iter_mut() {
             m.prop.propagate_to(epoch, &copy);
         }
+
+        let objects = self.bodies();
+
+        let to_remove: Vec<_> = self
+            .objects
+            .iter()
+            .map(|o| {
+                (
+                    self.global_pos(o.prop)
+                        .map(|p| {
+                            p.length() > 20000.0
+                                || objects.iter().any(|(c, b)| {
+                                    let d2 = p.distance_squared(*c);
+                                    if d2 == 0.0 {
+                                        return false;
+                                    }
+                                    d2 < b.radius.powi(2)
+                                })
+                        })
+                        .unwrap_or(true),
+                    o.id,
+                )
+            })
+            .filter_map(
+                |(intersects, oid)| {
+                    if intersects {
+                        Some(oid)
+                    } else {
+                        None
+                    }
+                },
+            )
+            .collect();
+
+        self.objects.retain(|o| !to_remove.contains(&o.id));
     }
 
     fn bodies(&self) -> Vec<(Vec2, Body)> {
@@ -492,8 +528,7 @@ impl OrbitalSystem {
         let mut ret = None;
         let mut max_grav = f32::MIN;
         for obj in self.objects.iter() {
-            if Some(obj.id) == exclude
-            {
+            if Some(obj.id) == exclude {
                 continue;
             }
             if let (Some(body), Some(c)) = (obj.body, self.global_pos(obj.prop)) {

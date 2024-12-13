@@ -26,7 +26,7 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
         );
     }
 
-    for _ in 0..3 {
+    for _ in 0..60 {
         system.add_object(
             Propagator::NBody(NBodyPropagator {
                 epoch: Duration::default(),

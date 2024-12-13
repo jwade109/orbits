@@ -7,6 +7,8 @@ use std::time::Duration;
 use starling::core::*;
 use starling::examples::*;
 
+use crate::debug::*;
+
 pub struct PlanetaryPlugin;
 
 impl Plugin for PlanetaryPlugin {
@@ -17,6 +19,7 @@ impl Plugin for PlanetaryPlugin {
             FixedUpdate,
             (propagate_system, update_collisions, update_sim_time),
         );
+        app.add_systems(Update, log_system_info);
     }
 }
 
@@ -38,7 +41,7 @@ fn draw_orbit(origin: Vec2, orb: Orbit, gizmos: &mut Gizmos, alpha: f32, base_co
             .map(|i| 0.98 * theta_inf * i as f32 / n_points as f32)
             .map(|t| orb.position_at(t))
             .collect();
-        gizmos.linestrip_2d(points, Srgba { alpha, ..RED })
+        gizmos.linestrip_2d(points, Srgba { alpha: 0.05, ..RED })
     }
 
     let color = Srgba {
@@ -92,12 +95,12 @@ struct PlanetaryState {
 impl Default for PlanetaryState {
     fn default() -> Self {
         PlanetaryState {
-            sim_speed: 0.0,
+            sim_speed: 1.0,
             show_orbits: true,
             show_potential_field: false,
             show_gravity_field: false,
             show_primary_body: false,
-            paused: false,
+            paused: true,
             system: earth_moon_example_one(),
         }
     }
@@ -247,6 +250,30 @@ fn propagate_system(time: Res<SimTime>, mut state: ResMut<PlanetaryState>) {
     state.system.propagate_to(t);
 }
 
+fn log_system_info(state: Res<PlanetaryState>, mut evt: EventWriter<DebugLog>) {
+    send_log(
+        &mut evt,
+        &format!("Epoch: {:0.2}", state.system.epoch.as_secs_f32()),
+    );
+    if state.paused {
+        send_log(&mut evt, "Paused");
+    }
+    send_log(&mut evt, &format!("Sim speed: {:0.2}", state.sim_speed));
+    send_log(&mut evt, &format!("Show (o)orbits: {}", state.show_orbits));
+    send_log(
+        &mut evt,
+        &format!("Show (p)otential: {}", state.show_potential_field),
+    );
+    send_log(
+        &mut evt,
+        &format!("Show (g)ravity: {}", state.show_gravity_field),
+    );
+    send_log(
+        &mut evt,
+        &format!("Show primary (b)ody: {}", state.show_primary_body),
+    );
+}
+
 fn update_collisions(mut commands: Commands, time: Res<Time>, query: Query<(Entity, &Collision)>) {
     let t = time.elapsed_secs();
     for (e, col) in query.iter() {
@@ -256,7 +283,12 @@ fn update_collisions(mut commands: Commands, time: Res<Time>, query: Query<(Enti
     }
 }
 
-fn keyboard_input(keys: Res<ButtonInput<KeyCode>>, mut config: ResMut<PlanetaryState>) {
+fn keyboard_input(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut config: ResMut<PlanetaryState>,
+    mut time: ResMut<SimTime>,
+    mut exit: ResMut<Events<bevy::app::AppExit>>,
+) {
     for key in keys.get_pressed() {
         match key {
             KeyCode::ArrowDown => {
@@ -299,6 +331,15 @@ fn keyboard_input(keys: Res<ButtonInput<KeyCode>>, mut config: ResMut<PlanetaryS
     }
     if keys.just_pressed(KeyCode::Space) {
         config.paused = !config.paused;
+    }
+    if keys.just_pressed(KeyCode::KeyS) {
+        config.paused = true;
+        let e = config.system.epoch + Duration::from_millis(100);
+        *time = SimTime(e);
+        config.system.propagate_to(e)
+    }
+    if keys.just_pressed(KeyCode::Escape) {
+        exit.send(bevy::app::AppExit::Success);
     }
 }
 
