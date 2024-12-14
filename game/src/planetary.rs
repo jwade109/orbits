@@ -39,7 +39,7 @@ fn draw_orbit(origin: Vec2, orb: Orbit, gizmos: &mut Gizmos, alpha: f32, base_co
         let theta_inf = f32::acos(-1.0 / orb.eccentricity);
         let points: Vec<_> = (-n_points..n_points)
             .map(|i| 0.98 * theta_inf * i as f32 / n_points as f32)
-            .map(|t| orb.position_at(t))
+            .map(|t| origin + orb.position_at(t))
             .collect();
         gizmos.linestrip_2d(points, Srgba { alpha: 0.05, ..RED })
     }
@@ -66,9 +66,10 @@ fn draw_orbit(origin: Vec2, orb: Orbit, gizmos: &mut Gizmos, alpha: f32, base_co
         .ellipse_2d(iso, Vec2::new(orb.semi_major_axis, b), color)
         .resolution(orb.semi_major_axis.clamp(3.0, 200.0) as u32);
 
-    let line_start = origin + orb.pos().normalize() * (orb.body.radius + 5.0);
+    // let line_start = origin + orb.pos().normalize() * (orb.body.radius + 5.0);
 
-    gizmos.line_2d(line_start, origin + orb.pos(), color);
+    // gizmos.line_2d(line_start, origin + orb.pos(), color);
+
     gizmos.circle_2d(
         Isometry2d::from_translation(origin + orb.periapsis()),
         2.0,
@@ -220,17 +221,16 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
     }
     if state.show_primary_body {
         for (prim, p) in primary.zip(&lattice) {
-            if let Some(oid) = prim {
-                if let Some(d) = state.system.global_pos(oid.prop) {
-                    gizmos.line_2d(
-                        *p,
-                        d,
-                        Srgba {
-                            alpha: 0.02,
-                            ..GRAY
-                        },
-                    );
-                }
+            if let Some(d) = prim.map(|o| state.system.global_pos(o.prop)).flatten() {
+                let u = (d - p).normalize();
+                gizmos.line_2d(
+                    *p,
+                    p + u * 30.0,
+                    Srgba {
+                        alpha: 0.02,
+                        ..GRAY
+                    },
+                );
             }
         }
     }

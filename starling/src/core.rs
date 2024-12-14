@@ -525,21 +525,25 @@ impl OrbitalSystem {
     }
 
     pub fn primary_body_at(&self, pos: Vec2, exclude: Option<ObjectId>) -> Option<Object> {
-        let mut ret = None;
-        let mut max_grav = f32::MIN;
-        for obj in self.objects.iter() {
-            if Some(obj.id) == exclude {
-                continue;
-            }
-            if let (Some(body), Some(c)) = (obj.body, self.global_pos(obj.prop)) {
-                let g = gravity_accel(body, c, pos).length_squared();
-                if max_grav < g {
-                    max_grav = g;
-                    ret = Some(*obj);
+        let mut ret = self
+            .objects
+            .iter()
+            .filter_map(|o| {
+                if Some(o.id) == exclude {
+                    return None;
                 }
-            }
-        }
-        ret
+                let soi = o.body?.soi;
+                let bpos = self.global_pos(o.prop)?;
+                let d = bpos.distance(pos);
+                if d > soi {
+                    return None;
+                }
+                Some((*o, soi))
+            })
+            .collect::<Vec<_>>();
+
+        ret.sort_by(|(_, l), (_, r)| l.partial_cmp(r).unwrap());
+        ret.first().map(|(o, _)| *o)
     }
 }
 
