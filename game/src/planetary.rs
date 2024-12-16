@@ -253,7 +253,8 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
     for obj in state.system.objects.iter() {
         if let Some(body) = obj.body {
             if let Some(center) = state.system.global_pos(&obj.prop) {
-                let minilat = generate_circular_log_lattice(center, body.radius + 5.0, body.soi);
+                let minilat =
+                    generate_circular_log_lattice(center, body.radius + 5.0, body.soi * 2.0);
                 lattice.extend(minilat);
             }
         }
@@ -267,12 +268,18 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
     let max_potential = state.system.potential_at((500.0, 500.0).into());
 
     if state.show_gravity_field {
-        for (g, p) in gravity.zip(&lattice) {
-            let l = g.length().clamp(0.0, 50.0);
-            if l > 1.0 {
-                let tip = p + g.normalize() * l;
-                gizmos.line_2d(*p, tip, GRAY);
-            }
+        for (grav, p) in gravity.zip(&lattice) {
+            let a = grav.angle_to(Vec2::X);
+            let r = 0.5 * a.cos() + 0.5;
+            let g = 0.5 * a.sin() + 0.5;
+            let color = Srgba {
+                red: r,
+                green: g,
+                blue: 1.0,
+                alpha: 0.8,
+            };
+            draw_square(&mut gizmos, *p, 10.0, color);
+            gizmos.line_2d(*p, p + grav.normalize() * 15.0, color);
         }
     }
     if state.show_potential_field {
@@ -284,12 +291,7 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
                 blue: 1.0 - r,
                 alpha: 0.7,
             };
-
-            let dx = Vec2::new(20.0, 0.0);
-            let dy = Vec2::new(0.0, 20.0);
-
-            gizmos.line_2d(p - dx, p + dx, color);
-            gizmos.line_2d(p - dy, p + dy, color);
+            draw_square(&mut gizmos, *p, 20.0, color);
         }
     }
     if state.show_primary_body {
