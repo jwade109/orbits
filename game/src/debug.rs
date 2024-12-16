@@ -15,11 +15,13 @@ struct DebugInfo {
 }
 
 #[derive(Event)]
-pub struct DebugLog
-{
+pub struct DebugLog {
     pub message: String,
-    pub stamp: Duration
+    pub stamp: Duration,
 }
+
+#[derive(Event, Debug, Clone)]
+pub struct DebugCommand(pub Vec<String>);
 
 impl DebugInfo {
     fn framerate(&self) -> Option<f32> {
@@ -35,12 +37,7 @@ impl Plugin for DebugPlugin {
         app.add_systems(Startup, spawn_debug_readout);
         app.add_systems(
             Update,
-            (
-                update_fps_count,
-                redraw_fps,
-                keyboard_input,
-                text_input,
-            ),
+            (update_fps_count, redraw_fps, keyboard_input, text_input),
         );
     }
 }
@@ -74,6 +71,7 @@ fn spawn_debug_readout(mut commands: Commands) {
     ));
     commands.insert_resource(DebugInfo::default());
     commands.insert_resource(Events::<DebugLog>::default());
+    commands.insert_resource(Events::<DebugCommand>::default());
 }
 
 fn update_fps_count(time: Res<Time>, mut debug: ResMut<DebugInfo>) {
@@ -87,10 +85,13 @@ fn update_fps_count(time: Res<Time>, mut debug: ResMut<DebugInfo>) {
     debug.elapsed_time += time.delta().as_secs_f32();
 }
 
-fn redraw_fps(mut query: Query<&mut Text, With<DebugReadout>>, debug: Res<DebugInfo>, mut evt: EventReader<DebugLog>) {
+fn redraw_fps(
+    mut query: Query<&mut Text, With<DebugReadout>>,
+    debug: Res<DebugInfo>,
+    mut evt: EventReader<DebugLog>,
+) {
     let mut logs = String::new();
-    for e in evt.read()
-    {
+    for e in evt.read() {
         logs.push_str(&format!("\n{}", e.message));
     }
     for mut t in query.iter_mut() {
@@ -113,6 +114,7 @@ fn text_input(
     mut events: EventReader<KeyboardInput>,
     mut query: Query<&mut Text, With<DebugKeyInput>>,
     mut string: Local<String>,
+    mut evt: EventWriter<DebugCommand>,
 ) {
     for ev in events.read() {
         if ev.state == ButtonState::Released {
@@ -120,6 +122,9 @@ fn text_input(
         }
         match &ev.logical_key {
             Key::Enter => {
+                evt.send(DebugCommand(
+                    string.split(" ").map(|s| s.to_string()).collect(),
+                ));
                 string.clear();
             }
             Key::Backspace => {

@@ -138,9 +138,77 @@ pub fn simple_two_body() -> OrbitalSystem {
         Some(body),
     );
     system.add_object(
-        Propagator::nbody(Duration::default(), (-400.0, 0.0).into(), (0.0, -40.0).into()),
+        Propagator::nbody(
+            Duration::default(),
+            (-400.0, 0.0).into(),
+            (0.0, -40.0).into(),
+        ),
         Some(body),
     );
 
     system
+}
+
+pub fn sun_jupiter_lagrange() -> OrbitalSystem {
+    let mut system = OrbitalSystem::default();
+
+    let sun = Body {
+        mass: 1000.0,
+        radius: 100.0,
+        soi: 100000.0,
+    };
+
+    let jupiter = Body {
+        mass: sun.mass * 0.000954588,
+        radius: 20.0,
+        soi: 500.0,
+    };
+
+    let jupiter_orbit = Orbit {
+        eccentricity: 0.0,
+        arg_periapsis: 0.0,
+        semi_major_axis: 5000.0,
+        body: sun,
+        true_anomaly: 0.0,
+        retrograde: false,
+    };
+
+    let s = system.add_object(Propagator::fixed_at(Vec2::ZERO), Some(sun));
+
+    system.add_object(
+        Propagator::kepler(Duration::default(), jupiter_orbit, s),
+        Some(jupiter),
+    );
+
+    for _ in 0..600 {
+        let r = randvec(4000.0, 6000.0);
+        let v = Vec2::from_angle(std::f32::consts::PI / 2.0).rotate(r.normalize()) * jupiter_orbit.vel().length();
+        let prop = Propagator::nbody(Duration::default(), r, v);
+        system.add_object(prop, None);
+    }
+
+    // let l4 = Vec2::from_angle(std::f32::consts::PI / 3.0).rotate(jupiter_orbit.pos());
+    // let l5 = Vec2::from_angle(-std::f32::consts::PI / 3.0).rotate(jupiter_orbit.pos());
+    // let l4v = Vec2::from_angle(std::f32::consts::PI / 3.0).rotate(jupiter_orbit.vel());
+    // let l5v = Vec2::from_angle(-std::f32::consts::PI / 3.0).rotate(jupiter_orbit.vel());
+
+    // for _ in 0..100 {
+    //     let r = l4 + randvec(0.0, 10.0);
+    //     let v = l4v + randvec(0.0, 1.0);
+    //     let prop = Propagator::nbody(Duration::default(), r, v);
+    //     system.add_object(prop, None);
+    // }
+
+    // for _ in 0..100 {
+    //     let r = l5 + randvec(0.0, 10.0);
+    //     let v = l5v + randvec(0.0, 1.0);
+    //     let prop = Propagator::nbody(Duration::default(), r, v);
+    //     system.add_object(prop, None);
+    // }
+
+    system
+}
+
+pub fn default_example() -> OrbitalSystem {
+    earth_moon_example_one()
 }

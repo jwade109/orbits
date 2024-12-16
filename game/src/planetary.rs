@@ -2,6 +2,7 @@ use bevy::color::palettes::basic::*;
 use bevy::color::palettes::css::ORANGE;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
+use bevy::sprite::Anchor;
 use std::time::Duration;
 
 use starling::core::*;
@@ -17,9 +18,9 @@ impl Plugin for PlanetaryPlugin {
         app.add_systems(Update, (draw_orbital_system, keyboard_input, scroll_events));
         app.add_systems(
             FixedUpdate,
-            (propagate_system, update_collisions, update_sim_time),
+            (propagate_system, update_sim_time, drop_expired_entities),
         );
-        app.add_systems(Update, log_system_info);
+        app.add_systems(Update, (log_system_info, update_camera, draw_event_markers));
     }
 }
 
@@ -27,10 +28,43 @@ impl Plugin for PlanetaryPlugin {
 struct SimTime(Duration);
 
 #[derive(Component, Clone, Copy)]
-struct Collision {
+struct Expires {
+    expiry: Duration,
+}
+
+#[derive(Component, Clone)]
+struct EventMarker {
     pos: Vec2,
-    relative_to: Entity,
-    expiry_time: f32,
+    offset: Vec2,
+    relative_to: Option<ObjectId>,
+}
+
+fn draw_event_markers(
+    mut gizmos: Gizmos,
+    mut query: Query<(&EventMarker, &mut Transform)>,
+    state: Res<PlanetaryState>,
+) {
+    for (event, mut tf) in query.iter_mut() {
+        if let Some(pv) = state.system.transform_from_id(event.relative_to) {
+            let p = pv.pos + event.pos;
+            tf.translation = (p + event.offset).extend(0.0);
+            draw_square(&mut gizmos, p, 20.0, WHITE);
+            gizmos.line_2d(p, p + event.offset, WHITE);
+        }
+    }
+}
+
+fn drop_expired_entities(
+    time: Res<Time>,
+    mut commands: Commands,
+    query: Query<(Entity, &Expires)>,
+) {
+    let t = time.elapsed();
+    for (e, exp) in query.iter() {
+        if exp.expiry < t {
+            commands.entity(e).despawn();
+        }
+    }
 }
 
 fn draw_orbit(origin: Vec2, orb: Orbit, gizmos: &mut Gizmos, alpha: f32, base_color: Srgba) {
@@ -49,15 +83,15 @@ fn draw_orbit(origin: Vec2, orb: Orbit, gizmos: &mut Gizmos, alpha: f32, base_co
         ..base_color
     };
 
-    {
-        let root = orb.pos() + origin;
-        let t1 = root + orb.normal() * 60.0;
-        let t2 = root + orb.tangent() * 60.0;
-        let t3 = root + orb.vel() * 3.0;
-        gizmos.line_2d(root, t1, GREEN);
-        gizmos.line_2d(root, t2, GREEN);
-        gizmos.line_2d(root, t3, PURPLE);
-    }
+    // {
+    //     let root = orb.pos() + origin;
+    //     let t1 = root + orb.normal() * 60.0;
+    //     let t2 = root + orb.tangent() * 60.0;
+    //     let t3 = root + orb.vel() * 3.0;
+    //     gizmos.line_2d(root, t1, GREEN);
+    //     gizmos.line_2d(root, t2, GREEN);
+    //     gizmos.line_2d(root, t3, PURPLE);
+    // }
 
     let b = orb.semi_major_axis * (1.0 - orb.eccentricity.powi(2)).sqrt();
     let center: Vec2 = origin + (orb.periapsis() + orb.apoapsis()) / 2.0;
@@ -67,7 +101,6 @@ fn draw_orbit(origin: Vec2, orb: Orbit, gizmos: &mut Gizmos, alpha: f32, base_co
         .resolution(orb.semi_major_axis.clamp(3.0, 200.0) as u32);
 
     // let line_start = origin + orb.pos().normalize() * (orb.body.radius + 5.0);
-
     // gizmos.line_2d(line_start, origin + orb.pos(), color);
 
     gizmos.circle_2d(
@@ -75,11 +108,14 @@ fn draw_orbit(origin: Vec2, orb: Orbit, gizmos: &mut Gizmos, alpha: f32, base_co
         2.0,
         Srgba { alpha, ..RED },
     );
-    gizmos.circle_2d(
-        Isometry2d::from_translation(origin + orb.apoapsis()),
-        2.0,
-        Srgba { alpha, ..WHITE },
-    );
+
+    if orb.eccentricity < 1.0 {
+        gizmos.circle_2d(
+            Isometry2d::from_translation(origin + orb.apoapsis()),
+            2.0,
+            Srgba { alpha, ..WHITE },
+        );
+    }
 }
 
 #[derive(Resource)]
@@ -91,6 +127,8 @@ struct PlanetaryState {
     show_primary_body: bool,
     paused: bool,
     system: OrbitalSystem,
+    backup: Option<OrbitalSystem>,
+    focus_object: ObjectId,
 }
 
 impl Default for PlanetaryState {
@@ -102,7 +140,9 @@ impl Default for PlanetaryState {
             show_gravity_field: false,
             show_primary_body: false,
             paused: true,
-            system: earth_moon_example_one(),
+            system: default_example(),
+            focus_object: ObjectId(0),
+            backup: None
         }
     }
 }
@@ -112,7 +152,34 @@ fn init_system(mut commands: Commands) {
     commands.insert_resource(SimTime::default());
 }
 
+fn draw_x(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
+    let dx = Vec2::new(size, 0.0);
+    let dy = Vec2::new(0.0, size);
+    gizmos.line_2d(p - dx, p + dx, color);
+    gizmos.line_2d(p - dy, p + dy, color);
+}
+
+fn draw_square(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
+    gizmos.rect_2d(
+        Isometry2d::from_translation(p),
+        Vec2::new(size, size),
+        color,
+    );
+}
+
 fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
+    if let Some(p) = state.system.transform_from_id(Some(state.focus_object)) {
+        let s = 400.0;
+        let color = Srgba {
+            alpha: 0.02,
+            ..ORANGE
+        };
+        let d1 = Vec2::new(s, s);
+        let d2 = Vec2::new(-s, s);
+        gizmos.line_2d(p.pos - d1, p.pos + d1, color);
+        gizmos.line_2d(p.pos - d2, p.pos + d2, color);
+    }
+
     for object in state.system.objects.iter() {
         if let Some(body) = object.body {
             let iso = Isometry2d::from_translation(object.prop.pos());
@@ -129,49 +196,39 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
     }
 
     for object in state.system.objects.iter() {
-        match object.prop {
-            Propagator::Fixed(_, _) => {
-                let color: Srgba = RED;
-                if let Some(gp) = state.system.global_pos(object.prop) {
-                    let iso: Isometry2d = Isometry2d::from_translation(gp);
-                    gizmos.circle_2d(iso, 20.0, color);
-                }
+        match (object.prop, state.system.global_transform(object.prop)) {
+            (Propagator::Fixed(_, _), Some(pv)) => {
+                draw_x(&mut gizmos, pv.pos, 14.0, RED);
             }
-            Propagator::NBody(nb) => {
-                let color: Srgba = WHITE;
-                let iso: Isometry2d = Isometry2d::from_translation(nb.pos);
-                gizmos.circle_2d(iso, 12.0, color);
-                if state.show_orbits {
-                    let child_pv = state.system.global_transform(object.prop);
-                    let parent_object = child_pv
-                        .map(|p| state.system.primary_body_at(p.pos, Some(object.id)))
-                        .flatten();
-                    let parent_pv = parent_object
+            (Propagator::NBody(nb), Some(pv)) => {
+                draw_square(&mut gizmos, nb.pos, 9.0, WHITE);
+                if state.show_orbits || state.focus_object == object.id {
+                    let parent_object = state.system.primary_body_at(pv.pos, Some(object.id));
+                    let parent_pv: Option<PV> = parent_object
                         .map(|o| state.system.global_transform(o.prop))
                         .flatten();
                     let parent_body = parent_object.map(|o| o.body).flatten();
 
-                    if let (Some(child_pv), Some(parent_pv), Some(parent_body)) =
-                        (child_pv, parent_pv, parent_body)
-                    {
-                        let rpos = child_pv.pos - parent_pv.pos;
-                        let rvel = child_pv.vel - parent_pv.vel;
+                    if let (Some(parent_pv), Some(parent_body)) = (parent_pv, parent_body) {
+                        let rpos = pv.pos - parent_pv.pos;
+                        let rvel = pv.vel - parent_pv.vel;
                         let orb: Orbit = Orbit::from_pv(rpos, rvel, parent_body);
-                        draw_orbit(parent_pv.pos, orb, &mut gizmos, 0.6, GRAY);
+                        draw_orbit(parent_pv.pos, orb, &mut gizmos, 0.2, GRAY);
                     }
                 }
             }
-            Propagator::Kepler(k) => {
+            (Propagator::Kepler(k), Some(pv)) => {
                 if let Some(parent) = state.system.lookup(k.primary) {
                     let color: Srgba = ORANGE;
-                    let iso: Isometry2d =
-                        Isometry2d::from_translation(object.prop.pos() + parent.prop.pos());
-                    gizmos.circle_2d(iso, 12.0, color);
-                    if state.show_orbits {
-                        draw_orbit(parent.prop.pos(), k.orbit, &mut gizmos, 0.05, WHITE);
+                    draw_square(&mut gizmos, pv.pos, 9.0, color);
+                    if state.show_orbits || state.focus_object == object.id {
+                        if let Some(parent_pv) = state.system.global_pos(parent.prop) {
+                            draw_orbit(parent_pv, k.orbit, &mut gizmos, 0.2, GRAY);
+                        }
                     }
                 }
             }
+            (_, None) => (),
         }
     }
 
@@ -244,10 +301,22 @@ fn update_sim_time(time: Res<Time>, mut simtime: ResMut<SimTime>, config: Res<Pl
     *dur = *dur + Duration::from_nanos((time.delta().as_nanos() as f32 * config.sim_speed) as u64);
 }
 
-fn propagate_system(time: Res<SimTime>, mut state: ResMut<PlanetaryState>) {
-    let SimTime(t) = *time;
+fn propagate_system(
+    mut commands: Commands,
+    time: Res<Time>,
+    simtime: Res<SimTime>,
+    mut state: ResMut<PlanetaryState>,
+) {
+    let SimTime(t) = *simtime;
 
-    state.system.propagate_to(t);
+    while state.system.epoch < t {
+        let e = state.system.epoch + Duration::from_millis(100);
+        let events = state.system.propagate_to(e);
+        let expiry = time.elapsed() + Duration::from_secs(5);
+        for evt in events.iter() {
+            commands.spawn(make_event_marker(evt.1, expiry));
+        }
+    }
 }
 
 fn log_system_info(state: Res<PlanetaryState>, mut evt: EventWriter<DebugLog>) {
@@ -255,6 +324,7 @@ fn log_system_info(state: Res<PlanetaryState>, mut evt: EventWriter<DebugLog>) {
         &mut evt,
         &format!("Epoch: {:0.2}", state.system.epoch.as_secs_f32()),
     );
+    send_log(&mut evt, &format!("{} objects", state.system.objects.len()));
     if state.paused {
         send_log(&mut evt, "Paused");
     }
@@ -272,48 +342,89 @@ fn log_system_info(state: Res<PlanetaryState>, mut evt: EventWriter<DebugLog>) {
         &mut evt,
         &format!("Show primary (b)ody: {}", state.show_primary_body),
     );
-}
+    send_log(
+        &mut evt,
+        &format!("Tracked object: {:?}", state.focus_object),
+    );
 
-fn update_collisions(mut commands: Commands, time: Res<Time>, query: Query<(Entity, &Collision)>) {
-    let t = time.elapsed_secs();
-    for (e, col) in query.iter() {
-        if col.expiry_time < t {
-            commands.entity(e).despawn();
-        }
+    if let Some(obj) = state.system.lookup(state.focus_object) {
+        send_log(&mut evt, &format!("{:#?}", obj));
     }
 }
 
+fn make_event_marker(
+    event: OrbitalEvent,
+    expiry: Duration,
+) -> (EventMarker, Expires, Text2d, Transform, TextFont, Anchor) {
+    let (text, pos, rel) = match event {
+        OrbitalEvent::Collision(pos, ego, obj) => {
+            let ObjectId(a) = ego;
+            let ObjectId(b) = obj.unwrap_or(ObjectId(-1));
+            (format!("COLLISION({}, {})", a, b), pos, obj)
+        }
+        OrbitalEvent::Escaped(pos, ego) => {
+            let ObjectId(a) = ego;
+            (format!("ESCAPED({})", a), pos, None)
+        }
+        OrbitalEvent::LookupFailure(ego) => {
+            let ObjectId(a) = ego;
+            (format!("LOOKUPFAILURE({})", a), Vec2::ZERO, None)
+        }
+    };
+    let pi = std::f32::consts::PI;
+    let angle = rand(0.0, pi * 2.0);
+    let offset = Vec2::from_angle(angle).rotate(Vec2::X * 400.0);
+    let font = TextFont {
+        font_size: 25.0,
+        ..default()
+    };
+
+    let anchor = if offset.y > 0.0 {
+        Anchor::BottomCenter
+    } else {
+        Anchor::TopCenter
+    };
+
+    (
+        EventMarker {
+            pos,
+            offset,
+            relative_to: rel,
+        },
+        Expires { expiry },
+        Text2d(text.to_string()),
+        Transform::from_translation((pos + offset).extend(0.0)),
+        font,
+        anchor,
+    )
+}
+
 fn keyboard_input(
+    mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
     mut config: ResMut<PlanetaryState>,
-    mut time: ResMut<SimTime>,
+    mut simtime: ResMut<SimTime>,
+    time: Res<Time>,
     mut exit: ResMut<Events<bevy::app::AppExit>>,
 ) {
     for key in keys.get_pressed() {
         match key {
             KeyCode::ArrowDown => {
                 config.sim_speed = f32::clamp(config.sim_speed - 0.01, 0.0, 1200.0);
-                dbg!(config.sim_speed);
             }
             KeyCode::ArrowUp => {
                 config.sim_speed = f32::clamp(config.sim_speed + 0.01, 0.0, 1200.0);
-                dbg!(config.sim_speed);
             }
             KeyCode::ArrowLeft => {
                 config.sim_speed = f32::clamp(config.sim_speed - 1.0, 0.0, 1200.0);
-                dbg!(config.sim_speed);
             }
             KeyCode::ArrowRight => {
                 config.sim_speed = f32::clamp(config.sim_speed + 1.0, 0.0, 1200.0);
-                dbg!(config.sim_speed);
             }
             KeyCode::Period => {
                 config.sim_speed = 1.0;
-                dbg!(config.sim_speed);
             }
-            _ => {
-                dbg!(key);
-            }
+            _ => (),
         }
     }
 
@@ -329,14 +440,58 @@ fn keyboard_input(
     if keys.just_pressed(KeyCode::KeyB) {
         config.show_primary_body = !config.show_primary_body;
     }
+    if keys.just_pressed(KeyCode::KeyM) {
+        let ObjectId(mut id) = config.focus_object;
+        id += 1;
+        while !config.system.has_object(ObjectId(id)) && id < config.system.objects.len() as i64 {
+            id += 1
+        }
+        config.focus_object = ObjectId(id);
+    }
+    if keys.just_pressed(KeyCode::KeyN) {
+        let ObjectId(mut id) = config.focus_object;
+        id -= 1;
+        while !config.system.has_object(ObjectId(id)) && id >= 0 {
+            id -= 1
+        }
+        config.focus_object = ObjectId(id);
+    }
     if keys.just_pressed(KeyCode::Space) {
         config.paused = !config.paused;
     }
     if keys.just_pressed(KeyCode::KeyS) {
         config.paused = true;
         let e = config.system.epoch + Duration::from_millis(100);
-        *time = SimTime(e);
-        config.system.propagate_to(e)
+        *simtime = SimTime(e);
+        let events = config.system.propagate_to(e);
+        let expiry = time.elapsed() + Duration::from_secs(5);
+        for evt in events.iter() {
+            commands.spawn(make_event_marker(evt.1, expiry));
+        }
+    }
+    if keys.just_pressed(KeyCode::KeyR) {
+        config.backup = None;
+        config.system = default_example();
+        *simtime = SimTime(config.system.epoch);
+    }
+    if keys.just_pressed(KeyCode::KeyJ) {
+        config.backup = None;
+        config.system = sun_jupiter_lagrange();
+        *simtime = SimTime(config.system.epoch);
+    }
+    if keys.just_pressed(KeyCode::KeyE) {
+        config.backup = None;
+        config.system = earth_moon_example_one();
+        *simtime = SimTime(config.system.epoch);
+    }
+    if keys.just_pressed(KeyCode::KeyK) {
+        config.backup = Some(config.system.clone());
+    }
+    if keys.just_pressed(KeyCode::KeyL) {
+        if let Some(sys) = &config.backup {
+            config.system = sys.clone();
+            *simtime = SimTime(config.system.epoch);
+        }
     }
     if keys.just_pressed(KeyCode::Escape) {
         exit.send(bevy::app::AppExit::Success);
@@ -362,5 +517,18 @@ fn scroll_events(
             }
             _ => (),
         }
+    }
+}
+
+fn update_camera(mut query: Query<&mut Transform, With<Camera>>, state: Res<PlanetaryState>) {
+    let mut tf = query.single_mut();
+
+    if let Some(p) = state
+        .system
+        .lookup(state.focus_object)
+        .map(|o| state.system.global_pos(o.prop))
+        .flatten()
+    {
+        *tf = tf.with_translation(p.extend(0.0));
     }
 }

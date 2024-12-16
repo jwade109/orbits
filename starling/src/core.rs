@@ -247,21 +247,21 @@ pub struct NBodyPropagator {
 }
 
 impl NBodyPropagator {
-    pub fn propagate_to(&mut self, bodies: &[(Vec2, Body)], epoch: Duration) {
+    pub fn propagate_to(&mut self, bodies: &[(ObjectId, Vec2, Body)], epoch: Duration) {
         let delta_time = epoch - self.epoch;
         let dt = delta_time.as_secs_f32();
 
-        let steps = delta_time.as_millis() / 1;
+        let steps = delta_time.as_millis() / 10;
 
         let others = bodies
             .iter()
-            .filter(|(c, _)| *c != self.pos)
+            .filter(|(_, c, _)| *c != self.pos)
             .collect::<Vec<_>>();
 
         (0..steps).for_each(|_| {
             let a: Vec2 = others
                 .iter()
-                .map(|(c, b)| -> Vec2 { gravity_accel(*b, *c, self.pos) })
+                .map(|(_, c, b)| -> Vec2 { gravity_accel(*b, *c, self.pos) })
                 .sum();
 
             self.vel += a * dt / steps as f32;
@@ -407,6 +407,13 @@ pub struct PV {
     pub vel: Vec2,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum OrbitalEvent {
+    LookupFailure(ObjectId),
+    Collision(Vec2, ObjectId, Option<ObjectId>),
+    Escaped(Vec2, ObjectId),
+}
+
 impl OrbitalSystem {
     pub fn add_object(&mut self, prop: Propagator, body: Option<Body>) -> ObjectId {
         let id = ObjectId(self.next_id);
@@ -415,8 +422,24 @@ impl OrbitalSystem {
         id
     }
 
+    pub fn has_object(&self, id: ObjectId) -> bool {
+        self.objects.iter().find(|o| o.id == id).is_some()
+    }
+
     pub fn lookup(&self, o: ObjectId) -> Option<Object> {
         self.objects.iter().find(|m| m.id == o).map(|m| *m)
+    }
+
+    pub fn transform_from_id(&self, id: Option<ObjectId>) -> Option<PV> {
+        if let Some(i) = id
+        {
+            let obj = self.lookup(i)?;
+            self.global_transform(obj.prop)
+        }
+        else
+        {
+            Some(PV::default())
+        }
     }
 
     pub fn global_transform(&self, prop: impl Propagate) -> Option<PV> {
@@ -453,68 +476,74 @@ impl OrbitalSystem {
         }
     }
 
-    pub fn propagate_to(&mut self, epoch: Duration) {
+    pub fn propagate_to(&mut self, epoch: Duration) -> Vec<(Object, OrbitalEvent)> {
         let copy = self.clone();
         self.epoch = epoch;
         for m in self.objects.iter_mut() {
             m.prop.propagate_to(epoch, &copy);
         }
 
-        let objects = self.bodies();
+        let bodies = self.bodies();
 
-        let to_remove: Vec<_> = self
+        let remove_with_reason = |o: &Object| -> Option<OrbitalEvent> {
+            let gp = match self.global_pos(o.prop) {
+                Some(p) => p,
+                None => return Some(OrbitalEvent::LookupFailure(o.id)),
+            };
+
+            if gp.length_squared() > 20000.0 * 20000.0 {
+                return Some(OrbitalEvent::Escaped(gp, o.id));
+            }
+
+            let mut collided = bodies.iter().filter(|b| {
+                let d = b.1.distance_squared(gp);
+                d != 0.0 && d < b.2.radius.powi(2)
+            });
+
+            if let Some(c) = collided.next() {
+                let delta: Vec2 = gp - c.1;
+                return Some(OrbitalEvent::Collision(delta, o.id, Some(c.0)));
+            }
+
+            None
+        };
+
+        let to_remove = self
             .objects
             .iter()
-            .map(|o| {
-                (
-                    self.global_pos(o.prop)
-                        .map(|p| {
-                            p.length() > 20000.0
-                                || objects.iter().any(|(c, b)| {
-                                    let d2 = p.distance_squared(*c);
-                                    if d2 == 0.0 {
-                                        return false;
-                                    }
-                                    d2 < b.radius.powi(2)
-                                })
-                        })
-                        .unwrap_or(true),
-                    o.id,
-                )
+            .filter_map(|o| match remove_with_reason(o) {
+                Some(r) => Some((*o, r)),
+                None => None,
             })
-            .filter_map(
-                |(intersects, oid)| {
-                    if intersects {
-                        Some(oid)
-                    } else {
-                        None
-                    }
-                },
-            )
-            .collect();
+            .collect::<Vec<_>>();
 
-        self.objects.retain(|o| !to_remove.contains(&o.id));
+        let ids_to_remove = to_remove.iter().map(|(o, _)| o.id).collect::<Vec<_>>();
+
+        self.objects.retain(|o| !ids_to_remove.contains(&o.id));
+
+        to_remove
     }
 
-    fn bodies(&self) -> Vec<(Vec2, Body)> {
+    fn bodies(&self) -> Vec<(ObjectId, Vec2, Body)> {
+        // TODO this doesn't use global position!
         self.objects
             .iter()
             .filter(|o| o.body.is_some())
-            .map(|o| (o.prop.pos(), o.body.unwrap()))
+            .map(|o| (o.id, o.prop.pos(), o.body.unwrap()))
             .collect()
     }
 
     pub fn gravity_at(&self, pos: Vec2) -> Vec2 {
         self.bodies()
             .iter()
-            .map(|(c, b)| gravity_accel(*b, *c, pos))
+            .map(|(_, c, b)| gravity_accel(*b, *c, pos))
             .sum()
     }
 
     pub fn potential_at(&self, pos: Vec2) -> f32 {
         self.bodies()
             .iter()
-            .map(|(c, b)| {
+            .map(|(_, c, b)| {
                 let r = (c - pos).length();
                 if r < b.radius {
                     return 0.0;
