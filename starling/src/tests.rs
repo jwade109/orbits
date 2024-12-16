@@ -1,6 +1,7 @@
 #![allow(unused)]
 
 use crate::core::*;
+use crate::examples::*;
 use approx::assert_relative_eq;
 use bevy::math::Vec2;
 use std::time::Duration;
@@ -56,4 +57,28 @@ pub fn test_scenario_one() -> OrbitalSystem {
     ), None);
 
     system
+}
+
+#[test]
+fn propagation_equality()
+{
+    let mut s1 = earth_moon_example_one();
+    let mut s2 = s1.clone();
+
+    let mut s1_events = vec![];
+    let mut s2_events = vec![];
+
+    for _ in 0..100 {
+        s1_events.extend(s1.propagate(Duration::from_secs(10)));
+    }
+
+    for _ in 0..1000 {
+        s2_events.extend(s2.propagate(Duration::from_secs(1)));
+    }
+
+    assert_eq!(s1.epoch, Duration::from_secs(1000));
+    assert_eq!(s2.epoch, Duration::from_secs(1000));
+
+    assert_eq!(s1_events.len(), s2_events.len());
+    assert_eq!(s1.objects.len(), s2.objects.len());
 }

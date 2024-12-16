@@ -142,7 +142,7 @@ impl Default for PlanetaryState {
             paused: true,
             system: default_example(),
             focus_object: ObjectId(0),
-            backup: None
+            backup: None,
         }
     }
 }
@@ -168,6 +168,12 @@ fn draw_square(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
 }
 
 fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
+    {
+        let b = state.system.barycenter();
+        gizmos.circle_2d(Isometry2d::from_translation(b), 6.0, PURPLE);
+        draw_x(&mut gizmos, b, 8.0, PURPLE);
+    }
+
     if let Some(p) = state.system.transform_from_id(Some(state.focus_object)) {
         let s = 400.0;
         let color = Srgba {
@@ -196,21 +202,31 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
     }
 
     for object in state.system.objects.iter() {
-        match (object.prop, state.system.global_transform(object.prop)) {
+        match (&object.prop, state.system.global_transform(&object.prop)) {
             (Propagator::Fixed(_, _), Some(pv)) => {
                 draw_x(&mut gizmos, pv.pos, 14.0, RED);
             }
             (Propagator::NBody(nb), Some(pv)) => {
                 draw_square(&mut gizmos, nb.pos, 9.0, WHITE);
+
+                if state.focus_object == object.id {
+                    let color = Srgba { alpha: 0.2, ..RED };
+                    nb.history
+                        .iter()
+                        .for_each(|p| draw_square(&mut gizmos, *p, 2.0, color));
+                    gizmos.linestrip_2d(nb.history.clone(), color);
+                }
+
                 if state.show_orbits || state.focus_object == object.id {
                     let parent_object = state.system.primary_body_at(pv.pos, Some(object.id));
                     let parent_pv: Option<PV> = parent_object
-                        .map(|o| state.system.global_transform(o.prop))
+                        .clone()
+                        .map(|o| state.system.global_transform(&o.prop))
                         .flatten();
                     let parent_body = parent_object.map(|o| o.body).flatten();
 
                     if let (Some(parent_pv), Some(parent_body)) = (parent_pv, parent_body) {
-                        let rpos = pv.pos - parent_pv.pos;
+                        let rpos: Vec2 = pv.pos - parent_pv.pos;
                         let rvel = pv.vel - parent_pv.vel;
                         let orb: Orbit = Orbit::from_pv(rpos, rvel, parent_body);
                         draw_orbit(parent_pv.pos, orb, &mut gizmos, 0.2, GRAY);
@@ -222,7 +238,7 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
                     let color: Srgba = ORANGE;
                     draw_square(&mut gizmos, pv.pos, 9.0, color);
                     if state.show_orbits || state.focus_object == object.id {
-                        if let Some(parent_pv) = state.system.global_pos(parent.prop) {
+                        if let Some(parent_pv) = state.system.global_pos(&parent.prop) {
                             draw_orbit(parent_pv, k.orbit, &mut gizmos, 0.2, GRAY);
                         }
                     }
@@ -236,7 +252,7 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
 
     for obj in state.system.objects.iter() {
         if let Some(body) = obj.body {
-            if let Some(center) = state.system.global_pos(obj.prop) {
+            if let Some(center) = state.system.global_pos(&obj.prop) {
                 let minilat = generate_circular_log_lattice(center, body.radius + 5.0, body.soi);
                 lattice.extend(minilat);
             }
@@ -278,7 +294,7 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
     }
     if state.show_primary_body {
         for (prim, p) in primary.zip(&lattice) {
-            if let Some(d) = prim.map(|o| state.system.global_pos(o.prop)).flatten() {
+            if let Some(d) = prim.map(|o| state.system.global_pos(&o.prop)).flatten() {
                 let u = (d - p).normalize();
                 gizmos.line_2d(
                     *p,
@@ -371,9 +387,7 @@ fn make_event_marker(
             (format!("LOOKUPFAILURE({})", a), Vec2::ZERO, None)
         }
     };
-    let pi = std::f32::consts::PI;
-    let angle = rand(0.0, pi * 2.0);
-    let offset = Vec2::from_angle(angle).rotate(Vec2::X * 400.0);
+    let offset = randvec(300.0, 500.0);
     let font = TextFont {
         font_size: 25.0,
         ..default()
@@ -484,6 +498,11 @@ fn keyboard_input(
         config.system = earth_moon_example_one();
         *simtime = SimTime(config.system.epoch);
     }
+    if keys.just_pressed(KeyCode::KeyU) {
+        config.backup = None;
+        config.system = n_body_stability();
+        *simtime = SimTime(config.system.epoch);
+    }
     if keys.just_pressed(KeyCode::KeyK) {
         config.backup = Some(config.system.clone());
     }
@@ -526,7 +545,7 @@ fn update_camera(mut query: Query<&mut Transform, With<Camera>>, state: Res<Plan
     if let Some(p) = state
         .system
         .lookup(state.focus_object)
-        .map(|o| state.system.global_pos(o.prop))
+        .map(|o| state.system.global_pos(&o.prop))
         .flatten()
     {
         *tf = tf.with_translation(p.extend(0.0));

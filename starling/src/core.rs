@@ -236,22 +236,34 @@ pub const LUNA: (Body, Propagator) = (
         epoch: Duration::new(0, 0),
         pos: Vec2::new(-3800.0, 0.0),
         vel: Vec2::new(0.0, -58.0),
+        history: vec![],
     }),
 );
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct NBodyPropagator {
     pub epoch: Duration,
     pub pos: Vec2,
     pub vel: Vec2,
+    pub history: Vec<Vec2>,
 }
 
 impl NBodyPropagator {
+    pub fn new(pos: Vec2, vel: Vec2) -> Self {
+        NBodyPropagator {
+            pos,
+            vel,
+            ..NBodyPropagator::default()
+        }
+    }
+
     pub fn propagate_to(&mut self, bodies: &[(ObjectId, Vec2, Body)], epoch: Duration) {
         let delta_time = epoch - self.epoch;
         let dt = delta_time.as_secs_f32();
 
-        let steps = delta_time.as_millis() / 10;
+        self.history.clear();
+
+        let steps = (delta_time.as_secs_f32() * self.vel.length()).ceil() as u32;
 
         let others = bodies
             .iter()
@@ -266,6 +278,8 @@ impl NBodyPropagator {
 
             self.vel += a * dt / steps as f32;
             self.pos += self.vel * dt / steps as f32;
+
+            self.history.push(self.pos);
         });
 
         self.epoch = epoch;
@@ -316,7 +330,7 @@ pub trait Propagate {
     fn propagate_to(&mut self, epoch: Duration, state: &OrbitalSystem);
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum Propagator {
     Fixed(Vec2, Option<ObjectId>),
     NBody(NBodyPropagator),
@@ -337,7 +351,12 @@ impl Propagator {
     }
 
     pub fn nbody(epoch: Duration, pos: Vec2, vel: Vec2) -> Self {
-        Propagator::NBody(NBodyPropagator { epoch, pos, vel })
+        Propagator::NBody(NBodyPropagator {
+            epoch,
+            pos,
+            vel,
+            history: vec![],
+        })
     }
 }
 
@@ -387,7 +406,7 @@ impl Propagate for Propagator {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct ObjectId(pub i64);
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Object {
     pub id: ObjectId,
     pub prop: Propagator,
@@ -427,25 +446,22 @@ impl OrbitalSystem {
     }
 
     pub fn lookup(&self, o: ObjectId) -> Option<Object> {
-        self.objects.iter().find(|m| m.id == o).map(|m| *m)
+        self.objects.iter().find(|m| m.id == o).map(|m| m.clone())
     }
 
     pub fn transform_from_id(&self, id: Option<ObjectId>) -> Option<PV> {
-        if let Some(i) = id
-        {
+        if let Some(i) = id {
             let obj = self.lookup(i)?;
-            self.global_transform(obj.prop)
-        }
-        else
-        {
+            self.global_transform(&obj.prop)
+        } else {
             Some(PV::default())
         }
     }
 
-    pub fn global_transform(&self, prop: impl Propagate) -> Option<PV> {
+    pub fn global_transform(&self, prop: &impl Propagate) -> Option<PV> {
         if let Some(rel) = prop.relative_to() {
             let obj = self.lookup(rel)?;
-            let rel = self.global_transform(obj.prop)?;
+            let rel = self.global_transform(&obj.prop)?;
             Some(PV {
                 pos: prop.pos() + rel.pos,
                 vel: prop.vel() + rel.vel,
@@ -458,22 +474,26 @@ impl OrbitalSystem {
         }
     }
 
-    pub fn global_pos(&self, prop: impl Propagate) -> Option<Vec2> {
+    pub fn global_pos(&self, prop: &impl Propagate) -> Option<Vec2> {
         if let Some(rel) = prop.relative_to() {
             let obj = self.lookup(rel)?;
-            Some(prop.pos() + self.global_pos(obj.prop)?)
+            Some(prop.pos() + self.global_pos(&obj.prop)?)
         } else {
             Some(prop.pos())
         }
     }
 
-    pub fn global_vel(&self, prop: impl Propagate) -> Option<Vec2> {
+    pub fn global_vel(&self, prop: &impl Propagate) -> Option<Vec2> {
         if let Some(rel) = prop.relative_to() {
             let obj = self.lookup(rel)?;
-            Some(prop.vel() + self.global_vel(obj.prop)?)
+            Some(prop.vel() + self.global_vel(&obj.prop)?)
         } else {
             Some(prop.vel())
         }
+    }
+
+    pub fn propagate(&mut self, dt: Duration) -> Vec<(Object, OrbitalEvent)> {
+        self.propagate_to(self.epoch + dt)
     }
 
     pub fn propagate_to(&mut self, epoch: Duration) -> Vec<(Object, OrbitalEvent)> {
@@ -486,7 +506,7 @@ impl OrbitalSystem {
         let bodies = self.bodies();
 
         let remove_with_reason = |o: &Object| -> Option<OrbitalEvent> {
-            let gp = match self.global_pos(o.prop) {
+            let gp = match self.global_pos(&o.prop) {
                 Some(p) => p,
                 None => return Some(OrbitalEvent::LookupFailure(o.id)),
             };
@@ -512,7 +532,7 @@ impl OrbitalSystem {
             .objects
             .iter()
             .filter_map(|o| match remove_with_reason(o) {
-                Some(r) => Some((*o, r)),
+                Some(r) => Some((o.clone(), r)),
                 None => None,
             })
             .collect::<Vec<_>>();
@@ -562,17 +582,23 @@ impl OrbitalSystem {
                     return None;
                 }
                 let soi = o.body?.soi;
-                let bpos = self.global_pos(o.prop)?;
+                let bpos = self.global_pos(&o.prop)?;
                 let d = bpos.distance(pos);
                 if d > soi {
                     return None;
                 }
-                Some((*o, soi))
+                Some((o.clone(), soi))
             })
             .collect::<Vec<_>>();
 
         ret.sort_by(|(_, l), (_, r)| l.partial_cmp(r).unwrap());
-        ret.first().map(|(o, _)| *o)
+        ret.first().map(|(o, _)| o.clone())
+    }
+
+    pub fn barycenter(&self) -> Vec2 {
+        let bodies = self.bodies();
+        let total_mass: f32 = bodies.iter().map(|(_, _, b)| b.mass).sum();
+        bodies.iter().map(|(_, p, b)| p * b.mass).sum::<Vec2>() / total_mass
     }
 }
 

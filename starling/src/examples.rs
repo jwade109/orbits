@@ -2,6 +2,9 @@ use crate::core::*;
 use bevy::math::Vec2;
 use std::time::Duration;
 
+#[cfg(test)]
+use approx::assert_relative_eq;
+
 pub fn earth_moon_example_one() -> OrbitalSystem {
     let mut system = OrbitalSystem::default();
 
@@ -32,6 +35,7 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
                 epoch: Duration::default(),
                 pos: randvec(600.0, 1800.0).into(),
                 vel: randvec(80.0, 120.0).into(),
+                history: vec![],
             }),
             None,
         );
@@ -61,6 +65,7 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
                 epoch: Duration::default(),
                 pos: randvec(7000.0, 8000.0).into(),
                 vel: randvec(10.0, 15.0).into(),
+                history: vec![],
             }),
             None,
         );
@@ -117,11 +122,29 @@ pub fn n_body_stability() -> OrbitalSystem {
             epoch: Duration::default(),
             pos,
             vel,
+            history: vec![],
         }),
         None,
     );
 
     system
+}
+
+#[test]
+pub fn n_body_accuracy() {
+    let mut system = n_body_stability();
+
+    // roughly one orbital period for test bodies
+    let events = system.propagate_to(Duration::from_secs(425));
+
+    dbg!(&events);
+    assert_eq!(events.len(), 0);
+
+    let pv1 = system.transform_from_id(Some(ObjectId(1))).unwrap();
+
+    let pv2 = system.transform_from_id(Some(ObjectId(2))).unwrap();
+
+    assert_relative_eq!(pv1.pos.distance(pv2.pos), 285.06125);
 }
 
 pub fn simple_two_body() -> OrbitalSystem {
