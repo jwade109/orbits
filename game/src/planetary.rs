@@ -139,7 +139,7 @@ impl Default for PlanetaryState {
             show_potential_field: false,
             show_gravity_field: false,
             show_primary_body: false,
-            paused: true,
+            paused: false,
             system: default_example(),
             focus_object: ObjectId(0),
             backup: None,
@@ -296,16 +296,21 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
     }
     if state.show_primary_body {
         for (prim, p) in primary.zip(&lattice) {
-            if let Some(d) = prim.map(|o| state.system.global_pos(&o.prop)).flatten() {
-                let u = (d - p).normalize();
-                gizmos.line_2d(
-                    *p,
-                    p + u * 30.0,
-                    Srgba {
-                        alpha: 0.02,
-                        ..GRAY
-                    },
-                );
+            if let (Some(pr), Some(d)) = (
+                prim.clone(),
+                prim.map(|o| state.system.global_pos(&o.prop)).flatten(),
+            ) {
+                let r = 0.5 * (d.x / 1000.0).cos() + 0.5;
+                let g = 0.5 * (d.y / 1000.0).sin() + 0.5;
+                let ObjectId(id) = pr.id;
+                let b = 0.5 * (id as f32).cos() + 0.5;
+                let color = Srgba {
+                    red: r,
+                    green: g,
+                    blue: b,
+                    alpha: 1.0,
+                };
+                draw_square(&mut gizmos, *p, 10.0, color);
             }
         }
     }

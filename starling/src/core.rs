@@ -102,8 +102,15 @@ impl Orbit {
         }
     }
 
-    pub fn from_apses(per: Vec2, apo: Vec2, ta: f32) -> Self {
-        todo!()
+    pub fn circular(radius: f32, ta: f32, body: Body) -> Self {
+        Orbit {
+            eccentricity: 0.0,
+            semi_major_axis: radius,
+            arg_periapsis: 0.0,
+            true_anomaly: ta,
+            retrograde: false,
+            body
+        }
     }
 
     pub fn prograde(&self) -> Vec2 {
@@ -202,7 +209,7 @@ impl Orbit {
     }
 
     pub fn mean_motion(&self) -> f32 {
-        (self.body.mu() / self.semi_major_axis.powi(3)).sqrt()
+        (self.body.mu() / self.semi_major_axis.abs().powi(3)).sqrt()
     }
 
     pub fn mean_anomaly(&self) -> f32 {
@@ -310,10 +317,24 @@ impl KeplerPropagator {
             return;
         }
 
+        if self.orbit.eccentricity >= 1.0
+        {
+            // TODO for hyperbolic orbits
+            self.orbit.true_anomaly += 0.1 * delta.as_secs_f32();
+            self.epoch = epoch;
+            return;
+        }
+
         let n = self.orbit.mean_motion();
         let m = self.orbit.mean_anomaly();
         let m2 = m + delta.as_secs_f32() * n;
-        self.orbit.true_anomaly = anomaly_m2t(self.orbit.eccentricity, m2).unwrap();
+        if let Some(t) = anomaly_m2t(self.orbit.eccentricity, m2) {
+            self.orbit.true_anomaly = t;
+        }
+        else
+        {
+            self.orbit.true_anomaly += 0.1 * delta.as_secs_f32();
+        }
         self.epoch = epoch;
     }
 }
@@ -449,6 +470,14 @@ impl OrbitalSystem {
         self.objects.iter().find(|m| m.id == o).map(|m| m.clone())
     }
 
+    pub fn lookup_ref(&self, o: ObjectId) -> Option<&Object> {
+        self.objects.iter().find(|m| m.id == o)
+    }
+
+    pub fn lookup_mut(&mut self, o: ObjectId) -> Option<&mut Object> {
+        self.objects.iter_mut().find(|m| m.id == o)
+    }
+
     pub fn transform_from_id(&self, id: Option<ObjectId>) -> Option<PV> {
         if let Some(i) = id {
             let obj = self.lookup(i)?;
@@ -502,6 +531,8 @@ impl OrbitalSystem {
         for m in self.objects.iter_mut() {
             m.prop.propagate_to(epoch, &copy);
         }
+
+        self.reparent_patched_conics();
 
         let bodies = self.bodies();
 
@@ -599,6 +630,44 @@ impl OrbitalSystem {
         let bodies = self.bodies();
         let total_mass: f32 = bodies.iter().map(|(_, _, b)| b.mass).sum();
         bodies.iter().map(|(_, p, b)| p * b.mass).sum::<Vec2>() / total_mass
+    }
+
+    pub fn reparent_patched_conics(&mut self) {
+        let mut new_kepler = vec![];
+        for obj in self.objects.iter() {
+            match &obj.prop {
+                Propagator::Kepler(k) => {
+                    let child_pv = self.global_transform(&obj.prop).unwrap();
+                    let primary_maybe = self.primary_body_at(child_pv.pos, Some(obj.id));
+                    if primary_maybe.is_none()
+                    {
+                        continue;
+                    }
+                    let primary = primary_maybe.unwrap();
+                    if primary.id == k.primary {
+                        continue;
+                    }
+                    let body = primary.body.unwrap();
+                    let primary_pv = self.global_transform(&primary.prop).unwrap();
+                    // TODO math operators for PV?
+                    let ds = child_pv.pos - primary_pv.pos;
+                    let dv = child_pv.vel - primary_pv.vel;
+                    let orbit = Orbit::from_pv(ds, dv, body);
+                    let mut new_prop = *k;
+                    new_prop.orbit = orbit;
+                    new_prop.primary = primary.id;
+                    new_kepler.push((obj.id, new_prop));
+                }
+                _ => (),
+            };
+        }
+
+        for (id, prop) in new_kepler.iter() {
+            if let Some(obj) = self.lookup_mut(*id)
+            {
+                obj.prop = Propagator::Kepler(*prop);
+            }
+        }
     }
 }
 

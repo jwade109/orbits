@@ -205,7 +205,8 @@ pub fn sun_jupiter_lagrange() -> OrbitalSystem {
 
     for _ in 0..600 {
         let r = randvec(4000.0, 6000.0);
-        let v = Vec2::from_angle(std::f32::consts::PI / 2.0).rotate(r.normalize()) * jupiter_orbit.vel().length();
+        let v = Vec2::from_angle(std::f32::consts::PI / 2.0).rotate(r.normalize())
+            * jupiter_orbit.vel().length();
         let prop = Propagator::nbody(Duration::default(), r, v);
         system.add_object(prop, None);
     }
@@ -232,6 +233,35 @@ pub fn sun_jupiter_lagrange() -> OrbitalSystem {
     system
 }
 
+pub fn patched_conics_scenario() -> OrbitalSystem {
+    let mut system = OrbitalSystem::default();
+
+    let e = system.add_object(EARTH.1, Some(EARTH.0));
+
+    system.add_object(
+        Propagator::kepler(
+            Duration::default(),
+            Orbit::circular(5000.0, 0.0, EARTH.0),
+            e,
+        ),
+        Some(LUNA.0),
+    );
+
+    for _ in 0..30 {
+        let r = randvec(200.0, 201.0);
+        let v = Vec2::from_angle(std::f32::consts::PI / 2.0)
+            .rotate(r)
+            .normalize()
+            * 340.0;
+        system.add_object(
+            Propagator::kepler(Duration::default(), Orbit::from_pv(r, v, EARTH.0), e),
+            None,
+        );
+    }
+
+    system
+}
+
 pub fn default_example() -> OrbitalSystem {
-    earth_moon_example_one()
+    patched_conics_scenario()
 }
