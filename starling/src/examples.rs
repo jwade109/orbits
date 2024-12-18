@@ -1,9 +1,32 @@
 use crate::core::*;
+use crate::propagator::*;
 use bevy::math::Vec2;
 use std::time::Duration;
 
 #[cfg(test)]
 use approx::assert_relative_eq;
+
+pub const EARTH: (Body, Vec2) = (
+    Body {
+        radius: 63.0,
+        mass: 1000.0,
+        soi: 15000.0,
+    },
+    Vec2::ZERO,
+);
+
+pub const LUNA: (Body, NBodyPropagator) = (
+    Body {
+        radius: 22.0,
+        mass: 10.0,
+        soi: 800.0,
+    },
+    NBodyPropagator {
+        pos: Vec2::new(-3800.0, 0.0),
+        vel: Vec2::new(0.0, -58.0),
+        steps: 0,
+    },
+);
 
 pub fn earth_moon_example_one() -> OrbitalSystem {
     let mut system = OrbitalSystem::default();
@@ -13,10 +36,8 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
 
     for _ in 0..4 {
         system.add_object(
-            Propagator::Kepler(KeplerPropagator {
-                epoch: Duration::default(),
-                primary: e,
-                orbit: Orbit {
+            KeplerPropagator::new(
+                Orbit {
                     eccentricity: rand(0.2, 0.8),
                     semi_major_axis: rand(600.0, 2600.0),
                     arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
@@ -24,29 +45,23 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
                     retrograde: rand(0.0, 1.0) < 0.3,
                     body: EARTH.0,
                 },
-            }),
+                e,
+            ),
             None,
         );
     }
 
     for _ in 0..60 {
         system.add_object(
-            Propagator::NBody(NBodyPropagator {
-                epoch: Duration::default(),
-                pos: randvec(600.0, 1800.0).into(),
-                vel: randvec(80.0, 120.0).into(),
-                history: vec![],
-            }),
+            NBodyPropagator::new(randvec(600.0, 1800.0), randvec(80.0, 120.0)),
             None,
         );
     }
 
     for _ in 0..5 {
         system.add_object(
-            Propagator::Kepler(KeplerPropagator {
-                epoch: Duration::default(),
-                primary: l,
-                orbit: Orbit {
+            KeplerPropagator::new(
+                Orbit {
                     eccentricity: rand(0.2, 0.5),
                     semi_major_axis: rand(100.0, 400.0),
                     arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
@@ -54,46 +69,25 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
                     retrograde: rand(0.0, 1.0) < 0.3,
                     body: LUNA.0,
                 },
-            }),
+                l,
+            ),
             None,
         );
     }
 
     for _ in 0..8 {
         system.add_object(
-            Propagator::NBody(NBodyPropagator {
-                epoch: Duration::default(),
-                pos: randvec(7000.0, 8000.0).into(),
-                vel: randvec(10.0, 15.0).into(),
-                history: vec![],
-            }),
+            NBodyPropagator::new(randvec(7000.0, 8000.0), randvec(10.0, 15.0)),
             None,
         );
     }
 
     system.add_object(
-        Propagator::nbody(
-            Duration::default(),
-            (7500.0, 3000.0).into(),
-            (30.0, -10.0).into(),
-        ),
-        Some(Body {
-            radius: 10.0,
-            mass: 2.5,
-            soi: 300.0,
-        }),
+        NBodyPropagator::new((7500.0, 3000.0), (30.0, -10.0)),
+        Some(Body::new(10.0, 2.5, 300.0)),
     );
 
-    system.add_object(
-        Propagator::nbody(
-            Duration::default(),
-            (7500.0, 2920.0).into(),
-            (48.0, -10.0).into(),
-        ),
-        None,
-    );
-
-    // system.add_object(Propagator::Fixed((100.0, 100.0).into(), Some(l)), None);
+    system.add_object(NBodyPropagator::new((7500.0, 2920.0), (48.0, -10.0)), None);
 
     system
 }
@@ -103,29 +97,17 @@ pub fn n_body_stability() -> OrbitalSystem {
 
     let e = system.add_object(EARTH.1, Some(EARTH.0));
 
-    let pos = Vec2::new(7500.0, 0.0);
-    let vel = Vec2::new(0.0, 7.0);
+    let mut add_test = |p: Vec2, v: Vec2| {
+        let orbit = Orbit::from_pv(p, v, EARTH.0);
 
-    let orbit = Orbit::from_pv(pos, vel, EARTH.0);
+        system.add_object(KeplerPropagator::new(orbit, e), None);
+        system.add_object(NBodyPropagator::new(p, v), None);
+    };
 
-    system.add_object(
-        Propagator::Kepler(KeplerPropagator {
-            epoch: Duration::default(),
-            primary: e,
-            orbit,
-        }),
-        None,
-    );
-
-    system.add_object(
-        Propagator::NBody(NBodyPropagator {
-            epoch: Duration::default(),
-            pos,
-            vel,
-            history: vec![],
-        }),
-        None,
-    );
+    add_test((7500.0, 0.0).into(), (0.0, 7.0).into());
+    add_test((6000.0, 0.0).into(), (0.0, 12.0).into());
+    add_test((5000.0, 0.0).into(), (0.0, 20.0).into());
+    add_test((3000.0, 0.0).into(), (0.0, 40.0).into());
 
     system
 }
@@ -134,40 +116,31 @@ pub fn n_body_stability() -> OrbitalSystem {
 pub fn n_body_accuracy() {
     let mut system = n_body_stability();
 
+    let mut events = vec![];
     // roughly one orbital period for test bodies
-    let events = system.propagate_to(Duration::from_secs(425));
+    while system.epoch < Duration::from_secs(425) {
+        events.extend(system.step());
+    }
 
-    dbg!(&events);
     assert_eq!(events.len(), 0);
 
     let pv1 = system.transform_from_id(Some(ObjectId(1))).unwrap();
-
     let pv2 = system.transform_from_id(Some(ObjectId(2))).unwrap();
 
-    assert_relative_eq!(pv1.pos.distance(pv2.pos), 285.06125);
+    assert_relative_eq!(pv1.pos.distance(pv2.pos), 2.0157008);
 }
 
 pub fn simple_two_body() -> OrbitalSystem {
     let mut system = OrbitalSystem::default();
 
-    let body = Body {
+    let b = Some(Body {
         mass: 500.0,
         radius: 50.0,
         soi: 10000.0,
-    };
+    });
 
-    system.add_object(
-        Propagator::nbody(Duration::default(), (400.0, 0.0).into(), (0.0, 40.0).into()),
-        Some(body),
-    );
-    system.add_object(
-        Propagator::nbody(
-            Duration::default(),
-            (-400.0, 0.0).into(),
-            (0.0, -40.0).into(),
-        ),
-        Some(body),
-    );
+    system.add_object(NBodyPropagator::new((400.0, 0.0), (0.0, 40.0)), b);
+    system.add_object(NBodyPropagator::new((-400.0, 0.0), (0.0, -40.0)), b);
 
     system
 }
@@ -196,39 +169,16 @@ pub fn sun_jupiter_lagrange() -> OrbitalSystem {
         retrograde: false,
     };
 
-    let s = system.add_object(Propagator::fixed_at(Vec2::ZERO), Some(sun));
+    let s = system.add_object(Vec2::ZERO, Some(sun));
 
-    system.add_object(
-        Propagator::kepler(Duration::default(), jupiter_orbit, s),
-        Some(jupiter),
-    );
+    system.add_object(KeplerPropagator::new(jupiter_orbit, s), Some(jupiter));
 
     for _ in 0..600 {
         let r = randvec(4000.0, 6000.0);
         let v = Vec2::from_angle(std::f32::consts::PI / 2.0).rotate(r.normalize())
             * jupiter_orbit.vel().length();
-        let prop = Propagator::nbody(Duration::default(), r, v);
-        system.add_object(prop, None);
+        system.add_object(NBodyPropagator::new(r, v), None);
     }
-
-    // let l4 = Vec2::from_angle(std::f32::consts::PI / 3.0).rotate(jupiter_orbit.pos());
-    // let l5 = Vec2::from_angle(-std::f32::consts::PI / 3.0).rotate(jupiter_orbit.pos());
-    // let l4v = Vec2::from_angle(std::f32::consts::PI / 3.0).rotate(jupiter_orbit.vel());
-    // let l5v = Vec2::from_angle(-std::f32::consts::PI / 3.0).rotate(jupiter_orbit.vel());
-
-    // for _ in 0..100 {
-    //     let r = l4 + randvec(0.0, 10.0);
-    //     let v = l4v + randvec(0.0, 1.0);
-    //     let prop = Propagator::nbody(Duration::default(), r, v);
-    //     system.add_object(prop, None);
-    // }
-
-    // for _ in 0..100 {
-    //     let r = l5 + randvec(0.0, 10.0);
-    //     let v = l5v + randvec(0.0, 1.0);
-    //     let prop = Propagator::nbody(Duration::default(), r, v);
-    //     system.add_object(prop, None);
-    // }
 
     system
 }
@@ -239,11 +189,7 @@ pub fn patched_conics_scenario() -> OrbitalSystem {
     let e = system.add_object(EARTH.1, Some(EARTH.0));
 
     system.add_object(
-        Propagator::kepler(
-            Duration::default(),
-            Orbit::circular(5000.0, 0.0, EARTH.0),
-            e,
-        ),
+        KeplerPropagator::new(Orbit::circular(5000.0, 0.0, EARTH.0), e),
         Some(LUNA.0),
     );
 
@@ -254,7 +200,7 @@ pub fn patched_conics_scenario() -> OrbitalSystem {
             .normalize()
             * 340.0;
         system.add_object(
-            Propagator::kepler(Duration::default(), Orbit::from_pv(r, v, EARTH.0), e),
+            KeplerPropagator::new(Orbit::from_pv(r, v, EARTH.0), e),
             None,
         );
     }

@@ -7,6 +7,7 @@ use std::time::Duration;
 
 use starling::core::*;
 use starling::examples::*;
+use starling::propagator::*;
 
 use crate::debug::*;
 
@@ -208,15 +209,6 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
             }
             (Propagator::NBody(nb), Some(pv)) => {
                 draw_square(&mut gizmos, nb.pos, 9.0, WHITE);
-
-                if state.focus_object == object.id {
-                    let color = Srgba { alpha: 0.2, ..RED };
-                    nb.history
-                        .iter()
-                        .for_each(|p| draw_square(&mut gizmos, *p, 2.0, color));
-                    gizmos.linestrip_2d(nb.history.clone(), color);
-                }
-
                 if state.show_orbits || state.focus_object == object.id {
                     let parent_object = state.system.primary_body_at(pv.pos, Some(object.id));
                     let parent_pv: Option<PV> = parent_object
@@ -238,8 +230,8 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
                     let color: Srgba = ORANGE;
                     draw_square(&mut gizmos, pv.pos, 9.0, color);
                     if state.show_orbits || state.focus_object == object.id {
-                        if let Some(parent_pv) = state.system.global_pos(&parent.prop) {
-                            draw_orbit(parent_pv, k.orbit, &mut gizmos, 0.2, GRAY);
+                        if let Some(parent_pv) = state.system.global_transform(&parent.prop) {
+                            draw_orbit(parent_pv.pos, k.orbit, &mut gizmos, 0.2, GRAY);
                         }
                     }
                 }
@@ -252,9 +244,9 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
 
     for obj in state.system.objects.iter() {
         if let Some(body) = obj.body {
-            if let Some(center) = state.system.global_pos(&obj.prop) {
+            if let Some(center) = state.system.global_transform(&obj.prop) {
                 let minilat =
-                    generate_circular_log_lattice(center, body.radius + 5.0, body.soi * 2.0);
+                    generate_circular_log_lattice(center.pos, body.radius + 5.0, body.soi * 2.0);
                 lattice.extend(minilat);
             }
         }
@@ -298,10 +290,11 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
         for (prim, p) in primary.zip(&lattice) {
             if let (Some(pr), Some(d)) = (
                 prim.clone(),
-                prim.map(|o| state.system.global_pos(&o.prop)).flatten(),
+                prim.map(|o| state.system.global_transform(&o.prop))
+                    .flatten(),
             ) {
-                let r = 0.5 * (d.x / 1000.0).cos() + 0.5;
-                let g = 0.5 * (d.y / 1000.0).sin() + 0.5;
+                let r = 0.5 * (d.pos.x / 1000.0).cos() + 0.5;
+                let g = 0.5 * (d.pos.y / 1000.0).sin() + 0.5;
                 let ObjectId(id) = pr.id;
                 let b = 0.5 * (id as f32).cos() + 0.5;
                 let color = Srgba {
@@ -333,8 +326,7 @@ fn propagate_system(
     let SimTime(t) = *simtime;
 
     while state.system.epoch < t {
-        let e = state.system.epoch + Duration::from_millis(100);
-        let events = state.system.propagate_to(e);
+        let events = state.system.step();
         let expiry = time.elapsed() + Duration::from_secs(5);
         for evt in events.iter() {
             commands.spawn(make_event_marker(evt.1, expiry));
@@ -347,6 +339,7 @@ fn log_system_info(state: Res<PlanetaryState>, mut evt: EventWriter<DebugLog>) {
         &mut evt,
         &format!("Epoch: {:0.2}", state.system.epoch.as_secs_f32()),
     );
+    send_log(&mut evt, &format!("Iteration: {}", state.system.iter));
     send_log(&mut evt, &format!("{} objects", state.system.objects.len()));
     if state.paused {
         send_log(&mut evt, "Paused");
@@ -370,7 +363,7 @@ fn log_system_info(state: Res<PlanetaryState>, mut evt: EventWriter<DebugLog>) {
         &format!("Tracked object: {:?}", state.focus_object),
     );
 
-    if let Some(obj) = state.system.lookup(state.focus_object) {
+    if let Some(obj) = state.system.lookup_ref(state.focus_object) {
         send_log(&mut evt, &format!("{:#?}", obj));
     }
 }
@@ -380,6 +373,10 @@ fn make_event_marker(
     expiry: Duration,
 ) -> (EventMarker, Expires, Text2d, Transform, TextFont, Anchor) {
     let (text, pos, rel) = match event {
+        OrbitalEvent::NumericalError(ego) => {
+            let ObjectId(a) = ego;
+            (format!("NUMERROR({})", a), Vec2::ZERO, None)
+        }
         OrbitalEvent::Collision(pos, ego, obj) => {
             let ObjectId(a) = ego;
             let ObjectId(b) = obj.unwrap_or(ObjectId(-1));
@@ -484,7 +481,7 @@ fn keyboard_input(
         config.paused = true;
         let e = config.system.epoch + Duration::from_millis(100);
         *simtime = SimTime(e);
-        let events = config.system.propagate_to(e);
+        let events = config.system.step();
         let expiry = time.elapsed() + Duration::from_secs(5);
         for evt in events.iter() {
             commands.spawn(make_event_marker(evt.1, expiry));
@@ -552,9 +549,9 @@ fn update_camera(mut query: Query<&mut Transform, With<Camera>>, state: Res<Plan
     if let Some(p) = state
         .system
         .lookup(state.focus_object)
-        .map(|o| state.system.global_pos(&o.prop))
+        .map(|o| state.system.global_transform(&o.prop))
         .flatten()
     {
-        *tf = tf.with_translation(p.extend(0.0));
+        *tf = tf.with_translation(p.pos.extend(0.0));
     }
 }

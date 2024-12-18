@@ -2,6 +2,7 @@
 
 use crate::core::*;
 use crate::examples::*;
+use crate::propagator::*;
 use approx::assert_relative_eq;
 use bevy::math::Vec2;
 use std::time::Duration;
@@ -35,49 +36,49 @@ fn orbit_construction() {
     assert_eq!(o1.true_anomaly, o1_f);
     assert_eq!(o2.true_anomaly, std::f32::consts::PI * 2.0 - o1_f);
 
-    assert_relative_eq!(o1.pos().x, o2.pos().x, epsilon=0.01);
-    assert_relative_eq!(o1.pos().y, o2.pos().y, epsilon=0.01);
+    assert_relative_eq!(o1.pos().x, o2.pos().x, epsilon = 0.01);
+    assert_relative_eq!(o1.pos().y, o2.pos().y, epsilon = 0.01);
 }
 
 pub fn test_scenario_one() -> OrbitalSystem {
     let mut system = OrbitalSystem::default();
 
-    let rid = system.add_object(Propagator::fixed_at(Vec2::ZERO), Some(TEST_BODY));
+    let rid = system.add_object(Vec2::ZERO, Some(TEST_BODY));
 
-    system.add_object(Propagator::kepler(
-        Duration::default(),
-        Orbit::from_pv(TEST_POSITION, TEST_VELOCITY, TEST_BODY),
-        rid,
-    ), None);
+    system.add_object(
+        KeplerPropagator::new(Orbit::from_pv(TEST_POSITION, TEST_VELOCITY, TEST_BODY), rid),
+        None,
+    );
 
-    system.add_object(Propagator::kepler(
-        Duration::default(),
-        Orbit::from_pv(TEST_POSITION, -TEST_VELOCITY, TEST_BODY),
-        rid,
-    ), None);
+    system.add_object(
+        KeplerPropagator::new(
+            Orbit::from_pv(TEST_POSITION, -TEST_VELOCITY, TEST_BODY),
+            rid,
+        ),
+        None,
+    );
 
     system
 }
 
 #[test]
-fn propagation_equality()
-{
+fn propagation_equality() {
     let mut s1 = earth_moon_example_one();
     let mut s2 = s1.clone();
 
     let mut s1_events = vec![];
     let mut s2_events = vec![];
 
-    for _ in 0..100 {
-        s1_events.extend(s1.propagate(Duration::from_secs(10)));
+    for _ in 0..1000 {
+        s1_events.extend(s1.step());
     }
 
     for _ in 0..1000 {
-        s2_events.extend(s2.propagate(Duration::from_secs(1)));
+        s2_events.extend(s2.step());
     }
 
-    assert_eq!(s1.epoch, Duration::from_secs(1000));
-    assert_eq!(s2.epoch, Duration::from_secs(1000));
+    assert_eq!(s1.epoch, Duration::from_secs(100));
+    assert_eq!(s2.epoch, Duration::from_secs(100));
 
     assert_eq!(s1_events.len(), s2_events.len());
     assert_eq!(s1.objects.len(), s2.objects.len());

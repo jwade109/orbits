@@ -1,3 +1,4 @@
+use crate::propagator::*;
 use bevy::math::Vec2;
 use rand::Rng;
 use std::time::Duration;
@@ -64,6 +65,10 @@ pub struct Body {
 }
 
 impl Body {
+    pub fn new(radius: f32, mass: f32, soi: f32) -> Self {
+        Body { radius, mass, soi }
+    }
+
     pub fn mu(&self) -> f32 {
         self.mass * GRAVITATIONAL_CONSTANT
     }
@@ -80,9 +85,16 @@ pub struct Orbit {
 }
 
 impl Orbit {
-    pub fn from_pv(r: Vec2, v: Vec2, body: Body) -> Self {
-        let r3 = r.extend(0.0);
-        let v3 = v.extend(0.0);
+    pub fn is_nan(&self) -> bool {
+        self.eccentricity.is_nan()
+            || self.semi_major_axis.is_nan()
+            || self.arg_periapsis.is_nan()
+            || self.true_anomaly.is_nan()
+    }
+
+    pub fn from_pv(r: impl Into<Vec2>, v: impl Into<Vec2>, body: Body) -> Self {
+        let r3 = r.into().extend(0.0);
+        let v3 = v.into().extend(0.0);
         let h = r3.cross(v3);
         let e = v3.cross(h) / body.mu() - r3 / r3.length();
         let arg_periapsis: f32 = f32::atan2(e.y, e.x);
@@ -109,7 +121,7 @@ impl Orbit {
             arg_periapsis: 0.0,
             true_anomaly: ta,
             retrograde: false,
-            body
+            body,
         }
     }
 
@@ -224,206 +236,6 @@ pub fn gravity_accel(body: Body, body_center: Vec2, sample: Vec2) -> Vec2 {
     a * r.normalize()
 }
 
-pub const EARTH: (Body, Propagator) = (
-    Body {
-        radius: 63.0,
-        mass: 1000.0,
-        soi: 15000.0,
-    },
-    Propagator::Fixed(Vec2::ZERO, None),
-);
-
-pub const LUNA: (Body, Propagator) = (
-    Body {
-        radius: 22.0,
-        mass: 10.0,
-        soi: 800.0,
-    },
-    Propagator::NBody(NBodyPropagator {
-        epoch: Duration::new(0, 0),
-        pos: Vec2::new(-3800.0, 0.0),
-        vel: Vec2::new(0.0, -58.0),
-        history: vec![],
-    }),
-);
-
-#[derive(Debug, Clone, Default)]
-pub struct NBodyPropagator {
-    pub epoch: Duration,
-    pub pos: Vec2,
-    pub vel: Vec2,
-    pub history: Vec<Vec2>,
-}
-
-impl NBodyPropagator {
-    pub fn new(pos: Vec2, vel: Vec2) -> Self {
-        NBodyPropagator {
-            pos,
-            vel,
-            ..NBodyPropagator::default()
-        }
-    }
-
-    pub fn propagate_to(&mut self, bodies: &[(ObjectId, Vec2, Body)], epoch: Duration) {
-        let delta_time = epoch - self.epoch;
-        let dt = delta_time.as_secs_f32();
-
-        self.history.clear();
-
-        let steps = (delta_time.as_secs_f32() * self.vel.length()).ceil() as u32;
-
-        let others = bodies
-            .iter()
-            .filter(|(_, c, _)| *c != self.pos)
-            .collect::<Vec<_>>();
-
-        (0..steps).for_each(|_| {
-            let a: Vec2 = others
-                .iter()
-                .map(|(_, c, b)| -> Vec2 { gravity_accel(*b, *c, self.pos) })
-                .sum();
-
-            self.vel += a * dt / steps as f32;
-            self.pos += self.vel * dt / steps as f32;
-
-            self.history.push(self.pos);
-        });
-
-        self.epoch = epoch;
-    }
-}
-
-#[derive(Debug, Copy, Clone)]
-pub struct KeplerPropagator {
-    pub epoch: Duration,
-    pub primary: ObjectId,
-    pub orbit: Orbit,
-}
-
-impl KeplerPropagator {
-    pub fn from_pv(epoch: Duration, pos: Vec2, vel: Vec2, body: Body, parent: ObjectId) -> Self {
-        let orbit = Orbit::from_pv(pos, vel, body);
-        KeplerPropagator {
-            epoch,
-            primary: parent,
-            orbit,
-        }
-    }
-
-    pub fn propagate_to(&mut self, epoch: Duration) {
-        let delta = epoch - self.epoch;
-
-        if delta == Duration::default() {
-            return;
-        }
-
-        if self.orbit.eccentricity >= 1.0
-        {
-            // TODO for hyperbolic orbits
-            self.orbit.true_anomaly += 0.1 * delta.as_secs_f32();
-            self.epoch = epoch;
-            return;
-        }
-
-        let n = self.orbit.mean_motion();
-        let m = self.orbit.mean_anomaly();
-        let m2 = m + delta.as_secs_f32() * n;
-        if let Some(t) = anomaly_m2t(self.orbit.eccentricity, m2) {
-            self.orbit.true_anomaly = t;
-        }
-        else
-        {
-            self.orbit.true_anomaly += 0.1 * delta.as_secs_f32();
-        }
-        self.epoch = epoch;
-    }
-}
-
-pub trait Propagate {
-    fn epoch(&self) -> Duration;
-
-    fn pos(&self) -> Vec2;
-
-    fn vel(&self) -> Vec2;
-
-    fn relative_to(&self) -> Option<ObjectId>;
-
-    fn propagate_to(&mut self, epoch: Duration, state: &OrbitalSystem);
-}
-
-#[derive(Debug, Clone)]
-pub enum Propagator {
-    Fixed(Vec2, Option<ObjectId>),
-    NBody(NBodyPropagator),
-    Kepler(KeplerPropagator),
-}
-
-impl Propagator {
-    pub fn fixed_at(pos: Vec2) -> Self {
-        Propagator::Fixed(pos, None)
-    }
-
-    pub fn kepler(epoch: Duration, orbit: Orbit, primary: ObjectId) -> Self {
-        Propagator::Kepler(KeplerPropagator {
-            epoch,
-            primary,
-            orbit,
-        })
-    }
-
-    pub fn nbody(epoch: Duration, pos: Vec2, vel: Vec2) -> Self {
-        Propagator::NBody(NBodyPropagator {
-            epoch,
-            pos,
-            vel,
-            history: vec![],
-        })
-    }
-}
-
-impl Propagate for Propagator {
-    fn propagate_to(&mut self, epoch: Duration, state: &OrbitalSystem) {
-        let bodies = state.bodies();
-        match self {
-            Propagator::NBody(nb) => nb.propagate_to(&bodies, epoch),
-            Propagator::Kepler(k) => k.propagate_to(epoch),
-            Propagator::Fixed(_, _) => (),
-        };
-    }
-
-    fn relative_to(&self) -> Option<ObjectId> {
-        match self {
-            Propagator::NBody(_) => None,
-            Propagator::Kepler(k) => Some(k.primary),
-            Propagator::Fixed(_, o) => *o,
-        }
-    }
-
-    fn epoch(&self) -> Duration {
-        match self {
-            Propagator::NBody(nb) => nb.epoch,
-            Propagator::Kepler(k) => k.epoch,
-            Propagator::Fixed(_, _) => Duration::default(),
-        }
-    }
-
-    fn pos(&self) -> Vec2 {
-        match self {
-            Propagator::NBody(nb) => nb.pos,
-            Propagator::Kepler(k) => k.orbit.pos(),
-            Propagator::Fixed(p, _) => *p,
-        }
-    }
-
-    fn vel(&self) -> Vec2 {
-        match self {
-            Propagator::NBody(nb) => nb.vel,
-            Propagator::Kepler(k) => k.orbit.vel(),
-            Propagator::Fixed(_, _) => Vec2::ZERO,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct ObjectId(pub i64);
 
@@ -434,11 +246,25 @@ pub struct Object {
     pub body: Option<Body>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct OrbitalSystem {
+    pub iter: usize,
     pub epoch: Duration,
     pub objects: Vec<Object>,
     next_id: i64,
+    stepsize: Duration,
+}
+
+impl Default for OrbitalSystem {
+    fn default() -> Self {
+        OrbitalSystem {
+            iter: 0,
+            epoch: Duration::default(),
+            objects: Vec::default(),
+            next_id: 0,
+            stepsize: Duration::from_millis(100),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -450,15 +276,20 @@ pub struct PV {
 #[derive(Debug, Clone, Copy)]
 pub enum OrbitalEvent {
     LookupFailure(ObjectId),
+    NumericalError(ObjectId),
     Collision(Vec2, ObjectId, Option<ObjectId>),
     Escaped(Vec2, ObjectId),
 }
 
 impl OrbitalSystem {
-    pub fn add_object(&mut self, prop: Propagator, body: Option<Body>) -> ObjectId {
+    pub fn add_object(&mut self, prop: impl Into<Propagator>, body: Option<Body>) -> ObjectId {
         let id = ObjectId(self.next_id);
         self.next_id += 1;
-        self.objects.push(Object { id, prop, body });
+        self.objects.push(Object {
+            id,
+            prop: prop.into(),
+            body,
+        });
         id
     }
 
@@ -503,56 +334,46 @@ impl OrbitalSystem {
         }
     }
 
-    pub fn global_pos(&self, prop: &impl Propagate) -> Option<Vec2> {
-        if let Some(rel) = prop.relative_to() {
-            let obj = self.lookup(rel)?;
-            Some(prop.pos() + self.global_pos(&obj.prop)?)
-        } else {
-            Some(prop.pos())
-        }
+    pub fn step(&mut self) -> Vec<(Object, OrbitalEvent)> {
+        self.iter += 1;
+        self.propagate_to(self.epoch + self.stepsize)
     }
 
-    pub fn global_vel(&self, prop: &impl Propagate) -> Option<Vec2> {
-        if let Some(rel) = prop.relative_to() {
-            let obj = self.lookup(rel)?;
-            Some(prop.vel() + self.global_vel(&obj.prop)?)
-        } else {
-            Some(prop.vel())
-        }
-    }
-
-    pub fn propagate(&mut self, dt: Duration) -> Vec<(Object, OrbitalEvent)> {
-        self.propagate_to(self.epoch + dt)
-    }
-
-    pub fn propagate_to(&mut self, epoch: Duration) -> Vec<(Object, OrbitalEvent)> {
+    fn propagate_to(&mut self, epoch: Duration) -> Vec<(Object, OrbitalEvent)> {
         let copy = self.clone();
-        self.epoch = epoch;
         for m in self.objects.iter_mut() {
-            m.prop.propagate_to(epoch, &copy);
+            m.prop.propagate(epoch - self.epoch, &copy);
         }
+
+        self.epoch = epoch;
 
         self.reparent_patched_conics();
 
         let bodies = self.bodies();
 
         let remove_with_reason = |o: &Object| -> Option<OrbitalEvent> {
-            let gp = match self.global_pos(&o.prop) {
+            if let Propagator::Kepler(k) = o.prop {
+                if k.orbit.is_nan() {
+                    return Some(OrbitalEvent::NumericalError(o.id));
+                }
+            }
+
+            let gp = match self.global_transform(&o.prop) {
                 Some(p) => p,
                 None => return Some(OrbitalEvent::LookupFailure(o.id)),
             };
 
-            if gp.length_squared() > 20000.0 * 20000.0 {
-                return Some(OrbitalEvent::Escaped(gp, o.id));
+            if gp.pos.length_squared() > 20000.0 * 20000.0 {
+                return Some(OrbitalEvent::Escaped(gp.pos, o.id));
             }
 
             let mut collided = bodies.iter().filter(|b| {
-                let d = b.1.distance_squared(gp);
+                let d = b.1.distance_squared(gp.pos);
                 d != 0.0 && d < b.2.radius.powi(2)
             });
 
             if let Some(c) = collided.next() {
-                let delta: Vec2 = gp - c.1;
+                let delta: Vec2 = gp.pos - c.1;
                 return Some(OrbitalEvent::Collision(delta, o.id, Some(c.0)));
             }
 
@@ -575,7 +396,7 @@ impl OrbitalSystem {
         to_remove
     }
 
-    fn bodies(&self) -> Vec<(ObjectId, Vec2, Body)> {
+    pub fn bodies(&self) -> Vec<(ObjectId, Vec2, Body)> {
         // TODO this doesn't use global position!
         self.objects
             .iter()
@@ -613,8 +434,8 @@ impl OrbitalSystem {
                     return None;
                 }
                 let soi = o.body?.soi;
-                let bpos = self.global_pos(&o.prop)?;
-                let d = bpos.distance(pos);
+                let bpos = self.global_transform(&o.prop)?;
+                let d = bpos.pos.distance(pos);
                 if d > soi {
                     return None;
                 }
@@ -639,8 +460,7 @@ impl OrbitalSystem {
                 Propagator::Kepler(k) => {
                     let child_pv = self.global_transform(&obj.prop).unwrap();
                     let primary_maybe = self.primary_body_at(child_pv.pos, Some(obj.id));
-                    if primary_maybe.is_none()
-                    {
+                    if primary_maybe.is_none() {
                         continue;
                     }
                     let primary = primary_maybe.unwrap();
@@ -663,9 +483,8 @@ impl OrbitalSystem {
         }
 
         for (id, prop) in new_kepler.iter() {
-            if let Some(obj) = self.lookup_mut(*id)
-            {
-                obj.prop = Propagator::Kepler(*prop);
+            if let Some(obj) = self.lookup_mut(*id) {
+                obj.prop = (*prop).into();
             }
         }
     }
