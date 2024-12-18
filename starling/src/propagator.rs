@@ -70,9 +70,9 @@ impl NBodyPropagator {
     }
 
     pub fn propagate(&mut self, bodies: &[(ObjectId, Vec2, Body)], delta: Duration) {
-        let dt = delta.as_secs_f32();
 
         self.steps = (delta.as_secs_f32() * self.vel.length() / 3.0).ceil() as u32;
+        let dt = delta.as_secs_f32() / self.steps as f32;
 
         let others = bodies
             .iter()
@@ -87,12 +87,24 @@ impl NBodyPropagator {
         };
 
         (0..self.steps).for_each(|_| {
-            let a = compute_a_at(self.pos);
-            // leapfrog integration
-            let v_half = self.vel + a * 0.5 * dt / self.steps as f32;
-            self.pos += v_half * dt / self.steps as f32;
-            let a_2 = compute_a_at(self.pos);
-            self.vel = v_half + a_2 * 0.5 * dt / self.steps as f32;
+            #[cfg(any())]
+            {
+                // velocity verlet integration
+                let a = compute_a_at(self.pos);
+                self.pos += self.vel * dt + 0.5 * a * dt * dt;
+                let a2 = compute_a_at(self.pos);
+                self.vel += 0.5 * (a + a2) * dt;
+            }
+
+            #[cfg(all())]
+            {
+                // synchronized leapfrog integration
+                let a = compute_a_at(self.pos);
+                let v_half = self.vel + a * 0.5 * dt as f32;
+                self.pos += v_half * dt as f32;
+                let a2 = compute_a_at(self.pos);
+                self.vel = v_half + a2 * 0.5 * dt as f32;
+            }
         });
     }
 }
