@@ -95,19 +95,21 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
 pub fn n_body_stability() -> OrbitalSystem {
     let mut system: OrbitalSystem = OrbitalSystem::default();
 
-    let e = system.add_object(EARTH.1, Some(EARTH.0));
+    let origin = Vec2::new(-2000.0, 0.0);
+    let e = system.add_object(origin, Some(EARTH.0));
 
     let mut add_test = |p: Vec2, v: Vec2| {
         let orbit = Orbit::from_pv(p, v, EARTH.0);
 
         system.add_object(KeplerPropagator::new(orbit, e), None);
-        system.add_object(NBodyPropagator::new(p, v), None);
+        system.add_object(NBodyPropagator::new(origin + p, v), None);
     };
 
     add_test((7500.0, 0.0).into(), (0.0, 7.0).into());
     add_test((6000.0, 0.0).into(), (0.0, 12.0).into());
     add_test((5000.0, 0.0).into(), (0.0, 20.0).into());
     add_test((3000.0, 0.0).into(), (0.0, 40.0).into());
+    add_test((700.0, 0.0).into(), (0.0, 60.0).into());
 
     system
 }
@@ -147,6 +149,8 @@ pub fn simple_two_body() -> OrbitalSystem {
 
 pub fn sun_jupiter_lagrange() -> OrbitalSystem {
     let mut system = OrbitalSystem::default();
+
+    system.stepsize = Duration::from_secs(5);
 
     let sun = Body {
         mass: 1000.0,
@@ -203,6 +207,7 @@ pub fn patched_conics_scenario() -> OrbitalSystem {
             KeplerPropagator::new(Orbit::from_pv(r, v, EARTH.0), e),
             None,
         );
+        system.add_object(NBodyPropagator::new(r, v), None);
     }
 
     system

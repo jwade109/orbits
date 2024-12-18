@@ -7,6 +7,7 @@ use std::time::Duration;
 
 use starling::core::*;
 use starling::examples::*;
+use starling::planning::*;
 use starling::propagator::*;
 
 use crate::debug::*;
@@ -99,7 +100,7 @@ fn draw_orbit(origin: Vec2, orb: Orbit, gizmos: &mut Gizmos, alpha: f32, base_co
     let iso = Isometry2d::new(center, orb.arg_periapsis.into());
     gizmos
         .ellipse_2d(iso, Vec2::new(orb.semi_major_axis, b), color)
-        .resolution(orb.semi_major_axis.clamp(3.0, 200.0) as u32);
+        .resolution(orb.semi_major_axis.clamp(3.0, 40.0) as u32);
 
     // let line_start = origin + orb.pos().normalize() * (orb.body.radius + 5.0);
     // gizmos.line_2d(line_start, origin + orb.pos(), color);
@@ -130,6 +131,7 @@ struct PlanetaryState {
     system: OrbitalSystem,
     backup: Option<OrbitalSystem>,
     focus_object: ObjectId,
+    follow_object: bool,
 }
 
 impl Default for PlanetaryState {
@@ -144,6 +146,7 @@ impl Default for PlanetaryState {
             system: default_example(),
             focus_object: ObjectId(0),
             backup: None,
+            follow_object: false,
         }
     }
 }
@@ -173,6 +176,14 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
         let b = state.system.barycenter();
         gizmos.circle_2d(Isometry2d::from_translation(b), 6.0, PURPLE);
         draw_x(&mut gizmos, b, 8.0, PURPLE);
+    }
+
+    {
+        let (pos, abridged) = get_future_positions(&state.system, state.focus_object, 2000);
+        if abridged && !pos.is_empty() {
+            draw_x(&mut gizmos, *pos.last().unwrap(), 16.0, ORANGE);
+        }
+        gizmos.linestrip_2d(pos, ORANGE);
     }
 
     if let Some(p) = state.system.transform_from_id(Some(state.focus_object)) {
@@ -362,6 +373,10 @@ fn log_system_info(state: Res<PlanetaryState>, mut evt: EventWriter<DebugLog>) {
         &mut evt,
         &format!("Tracked object: {:?}", state.focus_object),
     );
+    send_log(
+        &mut evt,
+        &format!("Follow tracked: {:?}", state.follow_object),
+    );
 
     if let Some(obj) = state.system.lookup_ref(state.focus_object) {
         send_log(&mut evt, &format!("{:#?}", obj));
@@ -446,6 +461,24 @@ fn keyboard_input(
         }
     }
 
+    if keys.just_pressed(KeyCode::KeyM) || keys.all_pressed([KeyCode::KeyM, KeyCode::ShiftLeft]) {
+        let ObjectId(max) = config.system.max_id().unwrap_or(ObjectId(0));
+        let ObjectId(mut id) = config.focus_object;
+        id += 1;
+        while !config.system.has_object(ObjectId(id)) && id < max {
+            id += 1
+        }
+        config.focus_object = ObjectId(id.min(max));
+    }
+    if keys.just_pressed(KeyCode::KeyN) || keys.all_pressed([KeyCode::KeyN, KeyCode::ShiftLeft]) {
+        let ObjectId(min) = config.system.min_id().unwrap_or(ObjectId(0));
+        let ObjectId(mut id) = config.focus_object;
+        id -= 1;
+        while !config.system.has_object(ObjectId(id)) && id > min {
+            id -= 1;
+        }
+        config.focus_object = ObjectId(id.max(min));
+    }
     if keys.just_pressed(KeyCode::KeyO) {
         config.show_orbits = !config.show_orbits;
     }
@@ -458,21 +491,8 @@ fn keyboard_input(
     if keys.just_pressed(KeyCode::KeyB) {
         config.show_primary_body = !config.show_primary_body;
     }
-    if keys.just_pressed(KeyCode::KeyM) {
-        let ObjectId(mut id) = config.focus_object;
-        id += 1;
-        while !config.system.has_object(ObjectId(id)) && id < config.system.objects.len() as i64 {
-            id += 1
-        }
-        config.focus_object = ObjectId(id);
-    }
-    if keys.just_pressed(KeyCode::KeyN) {
-        let ObjectId(mut id) = config.focus_object;
-        id -= 1;
-        while !config.system.has_object(ObjectId(id)) && id >= 0 {
-            id -= 1
-        }
-        config.focus_object = ObjectId(id);
+    if keys.just_pressed(KeyCode::KeyF) {
+        config.follow_object = !config.follow_object;
     }
     if keys.just_pressed(KeyCode::Space) {
         config.paused = !config.paused;
@@ -505,6 +525,11 @@ fn keyboard_input(
     if keys.just_pressed(KeyCode::KeyU) {
         config.backup = None;
         config.system = n_body_stability();
+        *simtime = SimTime(config.system.epoch);
+    }
+    if keys.just_pressed(KeyCode::KeyY) {
+        config.backup = None;
+        config.system = patched_conics_scenario();
         *simtime = SimTime(config.system.epoch);
     }
     if keys.just_pressed(KeyCode::KeyK) {
@@ -545,6 +570,11 @@ fn scroll_events(
 
 fn update_camera(mut query: Query<&mut Transform, With<Camera>>, state: Res<PlanetaryState>) {
     let mut tf = query.single_mut();
+
+    if !state.follow_object {
+        *tf = tf.with_translation(Vec3::ZERO);
+        return;
+    }
 
     if let Some(p) = state
         .system

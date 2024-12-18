@@ -236,7 +236,7 @@ pub fn gravity_accel(body: Body, body_center: Vec2, sample: Vec2) -> Vec2 {
     a * r.normalize()
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ObjectId(pub i64);
 
 #[derive(Debug, Clone)]
@@ -252,7 +252,7 @@ pub struct OrbitalSystem {
     pub epoch: Duration,
     pub objects: Vec<Object>,
     next_id: i64,
-    stepsize: Duration,
+    pub stepsize: Duration,
 }
 
 impl Default for OrbitalSystem {
@@ -295,6 +295,14 @@ impl OrbitalSystem {
 
     pub fn has_object(&self, id: ObjectId) -> bool {
         self.objects.iter().find(|o| o.id == id).is_some()
+    }
+
+    pub fn min_id(&self) -> Option<ObjectId> {
+        self.objects.iter().map(|o| o.id).min()
+    }
+
+    pub fn max_id(&self) -> Option<ObjectId> {
+        self.objects.iter().map(|o| o.id).max()
     }
 
     pub fn lookup(&self, o: ObjectId) -> Option<Object> {
@@ -397,11 +405,9 @@ impl OrbitalSystem {
     }
 
     pub fn bodies(&self) -> Vec<(ObjectId, Vec2, Body)> {
-        // TODO this doesn't use global position!
         self.objects
             .iter()
-            .filter(|o| o.body.is_some())
-            .map(|o| (o.id, o.prop.pos(), o.body.unwrap()))
+            .filter_map(|o| Some((o.id, self.global_transform(&o.prop)?.pos, o.body?)))
             .collect()
     }
 
@@ -454,33 +460,27 @@ impl OrbitalSystem {
     }
 
     pub fn reparent_patched_conics(&mut self) {
-        let mut new_kepler = vec![];
-        for obj in self.objects.iter() {
+        let new_kepler: Vec<_> = self.objects.iter().filter_map(|obj| {
             match &obj.prop {
                 Propagator::Kepler(k) => {
-                    let child_pv = self.global_transform(&obj.prop).unwrap();
-                    let primary_maybe = self.primary_body_at(child_pv.pos, Some(obj.id));
-                    if primary_maybe.is_none() {
-                        continue;
-                    }
-                    let primary = primary_maybe.unwrap();
+                    let child_pv = self.global_transform(&obj.prop)?;
+                    let primary = self.primary_body_at(child_pv.pos, Some(obj.id))?;
                     if primary.id == k.primary {
-                        continue;
+                        return None;
                     }
-                    let body = primary.body.unwrap();
-                    let primary_pv = self.global_transform(&primary.prop).unwrap();
+                    let primary_pv = self.global_transform(&primary.prop)?;
                     // TODO math operators for PV?
                     let ds = child_pv.pos - primary_pv.pos;
                     let dv = child_pv.vel - primary_pv.vel;
-                    let orbit = Orbit::from_pv(ds, dv, body);
+                    let orbit = Orbit::from_pv(ds, dv, primary.body?);
                     let mut new_prop = *k;
                     new_prop.orbit = orbit;
                     new_prop.primary = primary.id;
-                    new_kepler.push((obj.id, new_prop));
+                    Some((obj.id, new_prop))
                 }
-                _ => (),
-            };
-        }
+                _ => None,
+            }
+        }).collect();
 
         for (id, prop) in new_kepler.iter() {
             if let Some(obj) = self.lookup_mut(*id) {
