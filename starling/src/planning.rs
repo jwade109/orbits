@@ -23,3 +23,8 @@ pub fn get_future_positions(
     let abridged = positions.len() < steps;
     (positions, abridged)
 }
+
+pub struct Controller {
+    pub target: ObjectId,
+    pub accel: Vec2
+}

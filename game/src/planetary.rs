@@ -439,23 +439,57 @@ fn keyboard_input(
 ) {
     for key in keys.get_pressed() {
         match key {
-            KeyCode::ArrowDown => {
-                config.sim_speed = f32::clamp(config.sim_speed - 0.01, 0.0, 1200.0);
+            KeyCode::KeyQ => {
+                config.sim_speed = f32::clamp(config.sim_speed - 0.1, 0.0, 2000.0);
             }
-            KeyCode::ArrowUp => {
-                config.sim_speed = f32::clamp(config.sim_speed + 0.01, 0.0, 1200.0);
+            KeyCode::KeyW => {
+                config.sim_speed = f32::clamp(config.sim_speed + 0.1, 0.0, 2000.0);
             }
-            KeyCode::ArrowLeft => {
-                config.sim_speed = f32::clamp(config.sim_speed - 1.0, 0.0, 1200.0);
-            }
-            KeyCode::ArrowRight => {
-                config.sim_speed = f32::clamp(config.sim_speed + 1.0, 0.0, 1200.0);
-            }
+            // KeyCode::ArrowLeft => {
+            //     config.sim_speed = f32::clamp(config.sim_speed - 1.0, 0.0, 1200.0);
+            // }
+            // KeyCode::ArrowRight => {
+            //     config.sim_speed = f32::clamp(config.sim_speed + 1.0, 0.0, 1200.0);
+            // }
             KeyCode::Period => {
                 config.sim_speed = 1.0;
             }
             _ => (),
         }
+    }
+
+    let mut process_arrow_key = |key: KeyCode| {
+
+        let dv = 0.01 * match key {
+            KeyCode::ArrowLeft => -Vec2::X,
+            KeyCode::ArrowRight => Vec2::X,
+            KeyCode::ArrowUp => Vec2::Y,
+            KeyCode::ArrowDown => -Vec2::Y,
+            _ => return,
+        };
+
+        let id = config.focus_object;
+        let pvo = config.system.transform_from_id(Some(id));
+        if let (Some(obj), Some(mut pv)) = (config.system.lookup_mut(id), pvo) {
+            pv.vel += dv;
+            obj.prop = NBodyPropagator::new(pv.pos, pv.vel).into();
+        }
+    };
+
+    if keys.pressed(KeyCode::ArrowLeft) {
+        process_arrow_key(KeyCode::ArrowLeft);
+    }
+
+    if keys.pressed(KeyCode::ArrowRight) {
+        process_arrow_key(KeyCode::ArrowRight);
+    }
+
+    if keys.pressed(KeyCode::ArrowUp) {
+        process_arrow_key(KeyCode::ArrowUp);
+    }
+
+    if keys.pressed(KeyCode::ArrowDown) {
+        process_arrow_key(KeyCode::ArrowDown);
     }
 
     if keys.just_pressed(KeyCode::KeyM) || keys.all_pressed([KeyCode::KeyM, KeyCode::ShiftLeft]) {

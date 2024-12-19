@@ -150,8 +150,6 @@ pub fn simple_two_body() -> OrbitalSystem {
 pub fn sun_jupiter_lagrange() -> OrbitalSystem {
     let mut system = OrbitalSystem::default();
 
-    system.stepsize = Duration::from_secs(5);
-
     let sun = Body {
         mass: 1000.0,
         radius: 100.0,

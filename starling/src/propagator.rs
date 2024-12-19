@@ -71,7 +71,7 @@ impl NBodyPropagator {
 
     pub fn propagate(&mut self, bodies: &[(ObjectId, Vec2, Body)], delta: Duration) {
 
-        self.steps = (delta.as_secs_f32() * self.vel.length() / 3.0).ceil() as u32;
+        self.steps = 1; // (delta.as_secs_f32() * self.vel.length() / 3.0).ceil() as u32;
         let dt = delta.as_secs_f32() / self.steps as f32;
 
         let others = bodies
