@@ -22,12 +22,17 @@ impl Plugin for PlanetaryPlugin {
             FixedUpdate,
             (propagate_system, update_sim_time, drop_expired_entities),
         );
-        app.add_systems(Update, (log_system_info, update_camera, draw_event_markers));
+        app.add_systems(
+            Update,
+            (
+                log_system_info,
+                update_camera,
+                draw_event_markers,
+                process_commands,
+            ),
+        );
     }
 }
-
-#[derive(Debug, Resource, Default)]
-struct SimTime(Duration);
 
 #[derive(Component, Clone, Copy)]
 struct Expires {
@@ -122,6 +127,7 @@ fn draw_orbit(origin: Vec2, orb: Orbit, gizmos: &mut Gizmos, alpha: f32, base_co
 
 #[derive(Resource)]
 struct PlanetaryState {
+    sim_time: Duration,
     sim_speed: f32,
     show_orbits: bool,
     show_potential_field: bool,
@@ -137,6 +143,7 @@ struct PlanetaryState {
 impl Default for PlanetaryState {
     fn default() -> Self {
         PlanetaryState {
+            sim_time: Duration::default(),
             sim_speed: 1.0,
             show_orbits: true,
             show_potential_field: false,
@@ -153,7 +160,6 @@ impl Default for PlanetaryState {
 
 fn init_system(mut commands: Commands) {
     commands.insert_resource(PlanetaryState::default());
-    commands.insert_resource(SimTime::default());
 }
 
 fn draw_x(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
@@ -320,23 +326,16 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
     }
 }
 
-fn update_sim_time(time: Res<Time>, mut simtime: ResMut<SimTime>, config: Res<PlanetaryState>) {
+fn update_sim_time(time: Res<Time>, mut config: ResMut<PlanetaryState>) {
     if config.paused {
         return;
     }
-    let SimTime(dur) = simtime.as_mut();
-    *dur = *dur + Duration::from_nanos((time.delta().as_nanos() as f32 * config.sim_speed) as u64);
+    let sp = config.sim_speed;
+    config.sim_time += Duration::from_nanos((time.delta().as_nanos() as f32 * sp) as u64);
 }
 
-fn propagate_system(
-    mut commands: Commands,
-    time: Res<Time>,
-    simtime: Res<SimTime>,
-    mut state: ResMut<PlanetaryState>,
-) {
-    let SimTime(t) = *simtime;
-
-    while state.system.epoch < t {
+fn propagate_system(mut commands: Commands, time: Res<Time>, mut state: ResMut<PlanetaryState>) {
+    while state.system.epoch < state.sim_time {
         let events = state.system.step();
         let expiry = time.elapsed() + Duration::from_secs(5);
         for evt in events.iter() {
@@ -369,6 +368,7 @@ fn log_system_info(state: Res<PlanetaryState>, mut evt: EventWriter<DebugLog>) {
         &mut evt,
         &format!("Show primary (b)ody: {}", state.show_primary_body),
     );
+    send_log(&mut evt, &format!("Units: {:#?}", state.system.units));
     send_log(
         &mut evt,
         &format!("Tracked object: {:?}", state.focus_object),
@@ -433,11 +433,8 @@ fn make_event_marker(
 }
 
 fn keyboard_input(
-    mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
     mut config: ResMut<PlanetaryState>,
-    mut simtime: ResMut<SimTime>,
-    time: Res<Time>,
     mut exit: ResMut<Events<bevy::app::AppExit>>,
 ) {
     for key in keys.get_pressed() {
@@ -479,58 +476,8 @@ fn keyboard_input(
         }
         config.focus_object = ObjectId(id.max(min));
     }
-    if keys.just_pressed(KeyCode::KeyO) {
-        config.show_orbits = !config.show_orbits;
-    }
-    if keys.just_pressed(KeyCode::KeyG) {
-        config.show_gravity_field = !config.show_gravity_field;
-    }
-    if keys.just_pressed(KeyCode::KeyP) {
-        config.show_potential_field = !config.show_potential_field;
-    }
-    if keys.just_pressed(KeyCode::KeyB) {
-        config.show_primary_body = !config.show_primary_body;
-    }
-    if keys.just_pressed(KeyCode::KeyF) {
-        config.follow_object = !config.follow_object;
-    }
     if keys.just_pressed(KeyCode::Space) {
         config.paused = !config.paused;
-    }
-    if keys.just_pressed(KeyCode::KeyS) {
-        config.paused = true;
-        let e = config.system.epoch + Duration::from_millis(100);
-        *simtime = SimTime(e);
-        let events = config.system.step();
-        let expiry = time.elapsed() + Duration::from_secs(5);
-        for evt in events.iter() {
-            commands.spawn(make_event_marker(evt.1, expiry));
-        }
-    }
-    if keys.just_pressed(KeyCode::KeyR) {
-        config.backup = None;
-        config.system = default_example();
-        *simtime = SimTime(config.system.epoch);
-    }
-    if keys.just_pressed(KeyCode::KeyJ) {
-        config.backup = None;
-        config.system = sun_jupiter_lagrange();
-        *simtime = SimTime(config.system.epoch);
-    }
-    if keys.just_pressed(KeyCode::KeyE) {
-        config.backup = None;
-        config.system = earth_moon_example_one();
-        *simtime = SimTime(config.system.epoch);
-    }
-    if keys.just_pressed(KeyCode::KeyU) {
-        config.backup = None;
-        config.system = n_body_stability();
-        *simtime = SimTime(config.system.epoch);
-    }
-    if keys.just_pressed(KeyCode::KeyY) {
-        config.backup = None;
-        config.system = patched_conics_scenario();
-        *simtime = SimTime(config.system.epoch);
     }
     if keys.just_pressed(KeyCode::KeyK) {
         config.backup = Some(config.system.clone());
@@ -538,11 +485,82 @@ fn keyboard_input(
     if keys.just_pressed(KeyCode::KeyL) {
         if let Some(sys) = &config.backup {
             config.system = sys.clone();
-            *simtime = SimTime(config.system.epoch);
+            config.sim_time = config.system.epoch;
         }
     }
     if keys.just_pressed(KeyCode::Escape) {
         exit.send(bevy::app::AppExit::Success);
+    }
+}
+
+fn load_new_scenario(state: &mut PlanetaryState, new_system: OrbitalSystem) {
+    state.backup = Some(new_system.clone());
+    state.system = new_system;
+    state.sim_time = Duration::default();
+}
+
+fn on_command(
+    commands: &mut Commands,
+    time: &Res<Time>,
+    state: &mut PlanetaryState,
+    cmd: &Vec<String>,
+) {
+    dbg!(cmd);
+
+    let starts_with = |s: &'static str| -> bool { cmd.first() == Some(&s.to_string()) };
+
+    if starts_with("load") {
+        let system = match cmd.get(1).map(|s| s.as_str()) {
+            Some("earth") => earth_moon_example_one(),
+            Some("moon") => patched_conics_scenario(),
+            Some("jupiter") => sun_jupiter_lagrange(),
+            Some("stability") => n_body_stability(),
+            _ => {
+                return;
+            }
+        };
+        load_new_scenario(state, system);
+    } else if starts_with("toggle") {
+        match cmd.get(1).map(|s| s.as_str()) {
+            Some("gravity") => {
+                state.show_gravity_field = !state.show_gravity_field;
+            }
+            Some("potential") => {
+                state.show_potential_field = !state.show_potential_field;
+            }
+            Some("primary") => {
+                state.show_primary_body = !state.show_primary_body;
+            }
+            Some("orbit") => {
+                state.show_orbits = !state.show_orbits;
+            }
+            Some("follow") => {
+                state.follow_object = !state.follow_object;
+            }
+            _ => {
+                return;
+            }
+        }
+    } else if starts_with("s") {
+        state.paused = true;
+        let e = state.system.epoch + Duration::from_millis(100);
+        state.sim_time = e;
+        let events = state.system.step();
+        let expiry = time.elapsed() + Duration::from_secs(5);
+        for evt in events.iter() {
+            commands.spawn(make_event_marker(evt.1, expiry));
+        }
+    }
+}
+
+fn process_commands(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut evts: EventReader<DebugCommand>,
+    mut state: ResMut<PlanetaryState>,
+) {
+    for DebugCommand(e) in evts.read() {
+        on_command(&mut commands, &time, &mut state, e);
     }
 }
 

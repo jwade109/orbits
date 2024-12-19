@@ -1,4 +1,5 @@
 use crate::propagator::*;
+use crate::canonical::*;
 use bevy::math::Vec2;
 use rand::Rng;
 use std::time::Duration;
@@ -253,6 +254,7 @@ pub struct OrbitalSystem {
     pub objects: Vec<Object>,
     next_id: i64,
     pub stepsize: Duration,
+    pub units: CanonicalUnits,
 }
 
 impl Default for OrbitalSystem {
@@ -263,6 +265,7 @@ impl Default for OrbitalSystem {
             objects: Vec::default(),
             next_id: 0,
             stepsize: Duration::from_millis(100),
+            units: earth_moon_canonical_units(),
         }
     }
 }

@@ -149,7 +149,9 @@ fn text_input(
 
     for mut txt in query.iter_mut() {
         txt.clear();
+        txt.push_str("> ");
         txt.push_str(&string);
+        txt.push('_');
     }
 }
 
