@@ -211,6 +211,20 @@ pub fn patched_conics_scenario() -> OrbitalSystem {
     system
 }
 
+pub fn playground() -> OrbitalSystem {
+    let mut system = OrbitalSystem::default();
+
+    system.add_object(Vec2::ZERO, Some(EARTH.0));
+
+    system.add_object(Vec2::new(400.0, 300.0), Some(EARTH.0));
+
+    system.add_object(Vec2::new(-500.0, 200.0), Some(EARTH.0));
+
+    system.add_object(NBodyPropagator::new((0.0, -500.0), (130.0, 0.0)), None);
+
+    system
+}
+
 pub fn default_example() -> OrbitalSystem {
-    patched_conics_scenario()
+    playground()
 }

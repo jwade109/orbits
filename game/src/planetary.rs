@@ -549,6 +549,7 @@ fn on_command(
             Some("moon") => patched_conics_scenario(),
             Some("jupiter") => sun_jupiter_lagrange(),
             Some("stability") => n_body_stability(),
+            Some("playground") => playground(),
             _ => {
                 return;
             }
