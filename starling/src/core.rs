@@ -1,7 +1,8 @@
-use crate::propagator::*;
 use crate::canonical::*;
+use crate::propagator::*;
 use bevy::math::Vec2;
 use rand::Rng;
+use std::ops::Add;
 use std::time::Duration;
 
 pub fn rand(min: f32, max: f32) -> f32 {
@@ -184,12 +185,11 @@ impl Orbit {
         Duration::from_secs_f32(t)
     }
 
-    pub fn pos(&self) -> Vec2 {
-        self.position_at(self.true_anomaly)
-    }
-
-    pub fn vel(&self) -> Vec2 {
-        self.velocity_at(self.true_anomaly)
+    pub fn pv(&self) -> PV {
+        PV::new(
+            self.position_at(self.true_anomaly),
+            self.velocity_at(self.true_anomaly),
+        )
     }
 
     pub fn position_at(&self, true_anomaly: f32) -> Vec2 {
@@ -276,6 +276,22 @@ pub struct PV {
     pub vel: Vec2,
 }
 
+impl PV {
+    pub fn new(pos: impl Into<Vec2>, vel: impl Into<Vec2>) -> Self {
+        PV {
+            pos: pos.into(),
+            vel: vel.into(),
+        }
+    }
+}
+
+impl Add for PV {
+    type Output = Self;
+    fn add(self, other: Self) -> Self {
+        PV::new(self.pos + other.pos, self.vel + other.vel)
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum OrbitalEvent {
     LookupFailure(ObjectId),
@@ -333,15 +349,9 @@ impl OrbitalSystem {
         if let Some(rel) = prop.relative_to() {
             let obj = self.lookup(rel)?;
             let rel = self.global_transform(&obj.prop)?;
-            Some(PV {
-                pos: prop.pos() + rel.pos,
-                vel: prop.vel() + rel.vel,
-            })
+            Some(prop.pv() + rel)
         } else {
-            Some(PV {
-                pos: prop.pos(),
-                vel: prop.vel(),
-            })
+            Some(prop.pv())
         }
     }
 
@@ -463,27 +473,31 @@ impl OrbitalSystem {
     }
 
     pub fn reparent_patched_conics(&mut self) {
-        let new_kepler: Vec<_> = self.objects.iter().filter_map(|obj| {
-            match &obj.prop {
-                Propagator::Kepler(k) => {
-                    let child_pv = self.global_transform(&obj.prop)?;
-                    let primary = self.primary_body_at(child_pv.pos, Some(obj.id))?;
-                    if primary.id == k.primary {
-                        return None;
+        let new_kepler: Vec<_> = self
+            .objects
+            .iter()
+            .filter_map(|obj| {
+                match &obj.prop {
+                    Propagator::Kepler(k) => {
+                        let child_pv = self.global_transform(&obj.prop)?;
+                        let primary = self.primary_body_at(child_pv.pos, Some(obj.id))?;
+                        if primary.id == k.primary {
+                            return None;
+                        }
+                        let primary_pv = self.global_transform(&primary.prop)?;
+                        // TODO math operators for PV?
+                        let ds = child_pv.pos - primary_pv.pos;
+                        let dv = child_pv.vel - primary_pv.vel;
+                        let orbit = Orbit::from_pv(ds, dv, primary.body?);
+                        let mut new_prop = *k;
+                        new_prop.orbit = orbit;
+                        new_prop.primary = primary.id;
+                        Some((obj.id, new_prop))
                     }
-                    let primary_pv = self.global_transform(&primary.prop)?;
-                    // TODO math operators for PV?
-                    let ds = child_pv.pos - primary_pv.pos;
-                    let dv = child_pv.vel - primary_pv.vel;
-                    let orbit = Orbit::from_pv(ds, dv, primary.body?);
-                    let mut new_prop = *k;
-                    new_prop.orbit = orbit;
-                    new_prop.primary = primary.id;
-                    Some((obj.id, new_prop))
+                    _ => None,
                 }
-                _ => None,
-            }
-        }).collect();
+            })
+            .collect();
 
         for (id, prop) in new_kepler.iter() {
             if let Some(obj) = self.lookup_mut(*id) {

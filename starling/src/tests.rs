@@ -36,8 +36,8 @@ fn orbit_construction() {
     assert_eq!(o1.true_anomaly, o1_f);
     assert_eq!(o2.true_anomaly, std::f32::consts::PI * 2.0 - o1_f);
 
-    assert_relative_eq!(o1.pos().x, o2.pos().x, epsilon = 0.01);
-    assert_relative_eq!(o1.pos().y, o2.pos().y, epsilon = 0.01);
+    assert_relative_eq!(o1.pv().pos.x, o2.pv().pos.x, epsilon = 0.01);
+    assert_relative_eq!(o1.pv().pos.y, o2.pv().pos.y, epsilon = 0.01);
 }
 
 pub fn test_scenario_one() -> OrbitalSystem {

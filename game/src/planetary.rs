@@ -206,7 +206,7 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
 
     for object in state.system.objects.iter() {
         if let Some(body) = object.body {
-            let iso = Isometry2d::from_translation(object.prop.pos());
+            let iso = Isometry2d::from_translation(object.prop.pv().pos);
             gizmos.circle_2d(iso, body.radius, WHITE);
             gizmos.circle_2d(
                 iso,
@@ -459,14 +459,14 @@ fn keyboard_input(
     }
 
     let mut process_arrow_key = |key: KeyCode| {
-
-        let dv = 0.01 * match key {
-            KeyCode::ArrowLeft => -Vec2::X,
-            KeyCode::ArrowRight => Vec2::X,
-            KeyCode::ArrowUp => Vec2::Y,
-            KeyCode::ArrowDown => -Vec2::Y,
-            _ => return,
-        };
+        let dv = 0.01
+            * match key {
+                KeyCode::ArrowLeft => -Vec2::X,
+                KeyCode::ArrowRight => Vec2::X,
+                KeyCode::ArrowUp => Vec2::Y,
+                KeyCode::ArrowDown => -Vec2::Y,
+                _ => return,
+            };
 
         let id = config.focus_object;
         let pvo = config.system.transform_from_id(Some(id));

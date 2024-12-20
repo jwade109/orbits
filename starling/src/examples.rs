@@ -24,7 +24,6 @@ pub const LUNA: (Body, NBodyPropagator) = (
     NBodyPropagator {
         pos: Vec2::new(-3800.0, 0.0),
         vel: Vec2::new(0.0, -58.0),
-        steps: 0,
     },
 );
 
@@ -178,7 +177,7 @@ pub fn sun_jupiter_lagrange() -> OrbitalSystem {
     for _ in 0..600 {
         let r = randvec(4000.0, 6000.0);
         let v = Vec2::from_angle(std::f32::consts::PI / 2.0).rotate(r.normalize())
-            * jupiter_orbit.vel().length();
+            * jupiter_orbit.pv().vel.length();
         system.add_object(NBodyPropagator::new(r, v), None);
     }
 

@@ -1,22 +1,35 @@
 use crate::core::*;
 use bevy::math::Vec2;
-use std::time::Duration;
+use std::{collections::VecDeque, time::Duration};
 
 pub trait Propagate {
-    fn pos(&self) -> Vec2;
-
-    fn vel(&self) -> Vec2;
+    fn pv(&self) -> PV;
 
     fn relative_to(&self) -> Option<ObjectId>;
 
     fn propagate(&mut self, delta: Duration, state: &OrbitalSystem);
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum Propagator {
     Fixed(Vec2, Option<ObjectId>),
     NBody(NBodyPropagator),
     Kepler(KeplerPropagator),
+}
+
+#[derive(Debug, Clone)]
+struct PropagatorBuffer {
+    buffer: VecDeque<Propagator>,
+}
+
+impl PropagatorBuffer {
+    fn pv_at(&self, stamp: Duration) -> Option<PV> {
+        todo!()
+    }
+
+    fn propagate_to(&mut self, stamp: Duration) {
+        todo!()
+    }
 }
 
 impl Propagate for Propagator {
@@ -36,28 +49,19 @@ impl Propagate for Propagator {
         }
     }
 
-    fn pos(&self) -> Vec2 {
+    fn pv(&self) -> PV {
         match self {
-            Propagator::NBody(nb) => nb.pos,
-            Propagator::Kepler(k) => k.orbit.pos(),
-            Propagator::Fixed(p, _) => *p,
-        }
-    }
-
-    fn vel(&self) -> Vec2 {
-        match self {
-            Propagator::NBody(nb) => nb.vel,
-            Propagator::Kepler(k) => k.orbit.vel(),
-            Propagator::Fixed(_, _) => Vec2::ZERO,
+            Propagator::NBody(nb) => nb.pv(),
+            Propagator::Kepler(k) => k.orbit.pv(),
+            Propagator::Fixed(p, _) => PV::new(*p, Vec2::ZERO),
         }
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct NBodyPropagator {
     pub pos: Vec2,
     pub vel: Vec2,
-    pub steps: u32,
 }
 
 impl NBodyPropagator {
@@ -69,10 +73,13 @@ impl NBodyPropagator {
         }
     }
 
-    pub fn propagate(&mut self, bodies: &[(ObjectId, Vec2, Body)], delta: Duration) {
+    pub fn pv(&self) -> PV {
+        PV::new(self.pos, self.vel)
+    }
 
-        self.steps = 1; // (delta.as_secs_f32() * self.vel.length() / 3.0).ceil() as u32;
-        let dt = delta.as_secs_f32() / self.steps as f32;
+    pub fn propagate(&mut self, bodies: &[(ObjectId, Vec2, Body)], delta: Duration) {
+        let steps = 10; // (delta.as_secs_f32() * self.vel.length() / 3.0).ceil() as u32;
+        let dt = delta.as_secs_f32() / steps as f32;
 
         let others = bodies
             .iter()
@@ -86,7 +93,7 @@ impl NBodyPropagator {
                 .sum()
         };
 
-        (0..self.steps).for_each(|_| {
+        (0..steps).for_each(|_| {
             #[cfg(any())]
             {
                 // velocity verlet integration
