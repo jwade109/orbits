@@ -1,6 +1,5 @@
 use crate::core::*;
 use bevy::math::Vec2;
-use std::time::Duration;
 
 fn get_minimal_system(system: &OrbitalSystem, id: ObjectId) -> OrbitalSystem {
     let mut copy = system.clone();
@@ -22,9 +21,4 @@ pub fn get_future_positions(
         .collect();
     let abridged = positions.len() < steps;
     (positions, abridged)
-}
-
-pub struct Controller {
-    pub target: ObjectId,
-    pub accel: Vec2
 }

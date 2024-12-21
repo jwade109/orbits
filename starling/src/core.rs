@@ -243,8 +243,27 @@ pub struct ObjectId(pub i64);
 #[derive(Debug, Clone)]
 pub struct Object {
     pub id: ObjectId,
+    pub timestep: Duration,
+    pub primary: Option<ObjectId>,
     pub prop: Propagator,
     pub body: Option<Body>,
+}
+
+impl Object {
+    pub fn new(
+        id: ObjectId,
+        prop: impl Into<Propagator>,
+        body: Option<Body>,
+        ts: Duration,
+    ) -> Self {
+        Object {
+            id,
+            timestep: ts,
+            primary: None,
+            prop: prop.into(),
+            body,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -304,11 +323,16 @@ impl OrbitalSystem {
     pub fn add_object(&mut self, prop: impl Into<Propagator>, body: Option<Body>) -> ObjectId {
         let id = ObjectId(self.next_id);
         self.next_id += 1;
-        self.objects.push(Object {
-            id,
-            prop: prop.into(),
-            body,
-        });
+
+        let p = prop.into();
+
+        let timedelta = match &p {
+            Propagator::NBody(_) => Duration::from_millis(100),
+            Propagator::Fixed(_, _) => Duration::from_secs(30),
+            Propagator::Kepler(_) => Duration::from_secs(10),
+        };
+
+        self.objects.push(Object::new(id, p, body, timedelta));
         id
     }
 
@@ -363,7 +387,7 @@ impl OrbitalSystem {
     fn propagate_to(&mut self, epoch: Duration) -> Vec<(Object, OrbitalEvent)> {
         let copy = self.clone();
         for m in self.objects.iter_mut() {
-            m.prop.propagate(epoch - self.epoch, &copy);
+            m.prop.propagate_to(epoch, &copy);
         }
 
         self.epoch = epoch;
