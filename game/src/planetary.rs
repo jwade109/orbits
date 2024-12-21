@@ -436,23 +436,22 @@ fn keyboard_input(
     keys: Res<ButtonInput<KeyCode>>,
     mut config: ResMut<PlanetaryState>,
     mut exit: ResMut<Events<bevy::app::AppExit>>,
+    cstate: Res<CommandsState>,
 ) {
-    for key in keys.get_pressed() {
+    if cstate.active {
+        return;
+    }
+
+    for key in keys.get_just_pressed() {
         match key {
-            KeyCode::KeyQ => {
-                config.sim_speed = f32::clamp(config.sim_speed - 0.1, 0.0, 2000.0);
-            }
-            KeyCode::KeyW => {
-                config.sim_speed = f32::clamp(config.sim_speed + 0.1, 0.0, 2000.0);
-            }
-            // KeyCode::ArrowLeft => {
-            //     config.sim_speed = f32::clamp(config.sim_speed - 1.0, 0.0, 1200.0);
-            // }
-            // KeyCode::ArrowRight => {
-            //     config.sim_speed = f32::clamp(config.sim_speed + 1.0, 0.0, 1200.0);
-            // }
             KeyCode::Period => {
-                config.sim_speed = 1.0;
+                config.sim_speed = f32::clamp(config.sim_speed * 10.0, 0.0, 1000.0);
+            }
+            KeyCode::Comma => {
+                config.sim_speed = f32::clamp(config.sim_speed / 10.0, 0.0, 2000.0);
+            }
+            KeyCode::KeyF => {
+                config.follow_object = !config.follow_object;
             }
             _ => (),
         }
@@ -471,6 +470,9 @@ fn keyboard_input(
         let id = config.focus_object;
         let pvo = config.system.transform_from_id(Some(id));
         if let (Some(obj), Some(mut pv)) = (config.system.lookup_mut(id), pvo) {
+            if let Propagator::Fixed(_, _) = obj.prop {
+                return;
+            }
             pv.vel += dv;
             obj.prop = NBodyPropagator::new(pv.pos, pv.vel).into();
         }
@@ -513,15 +515,6 @@ fn keyboard_input(
     if keys.just_pressed(KeyCode::Space) {
         config.paused = !config.paused;
     }
-    if keys.just_pressed(KeyCode::KeyK) {
-        config.backup = Some(config.system.clone());
-    }
-    if keys.just_pressed(KeyCode::KeyL) {
-        if let Some(sys) = &config.backup {
-            config.system = sys.clone();
-            config.sim_time = config.system.epoch;
-        }
-    }
     if keys.just_pressed(KeyCode::Escape) {
         exit.send(bevy::app::AppExit::Success);
     }
@@ -539,8 +532,6 @@ fn on_command(
     state: &mut PlanetaryState,
     cmd: &Vec<String>,
 ) {
-    dbg!(cmd);
-
     let starts_with = |s: &'static str| -> bool { cmd.first() == Some(&s.to_string()) };
 
     if starts_with("load") {
@@ -569,9 +560,6 @@ fn on_command(
             Some("orbit") => {
                 state.show_orbits = !state.show_orbits;
             }
-            Some("follow") => {
-                state.follow_object = !state.follow_object;
-            }
             _ => {
                 return;
             }
@@ -585,6 +573,13 @@ fn on_command(
         for evt in events.iter() {
             commands.spawn(make_event_marker(evt.1, expiry));
         }
+    } else if starts_with("restore") {
+        if let Some(sys) = &state.backup {
+            state.system = sys.clone();
+            state.sim_time = state.system.epoch;
+        }
+    } else if starts_with("save") {
+        state.backup = Some(state.system.clone());
     }
 }
 
@@ -594,8 +589,8 @@ fn process_commands(
     mut evts: EventReader<DebugCommand>,
     mut state: ResMut<PlanetaryState>,
 ) {
-    for DebugCommand(e) in evts.read() {
-        on_command(&mut commands, &time, &mut state, e);
+    for DebugCommand(cmd) in evts.read() {
+        on_command(&mut commands, &time, &mut state, cmd);
     }
 }
 

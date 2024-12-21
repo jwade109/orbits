@@ -94,6 +94,15 @@ impl NBodyPropagator {
         };
 
         (0..steps).for_each(|_| {
+
+            #[cfg(any())]
+            {
+                // euler integration
+                let a = compute_a_at(self.pos);
+                self.vel += a * dt;
+                self.pos += self.vel * dt;
+            }
+
             #[cfg(any())]
             {
                 // velocity verlet integration

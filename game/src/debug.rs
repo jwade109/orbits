@@ -72,6 +72,7 @@ fn spawn_debug_readout(mut commands: Commands) {
     commands.insert_resource(DebugInfo::default());
     commands.insert_resource(Events::<DebugLog>::default());
     commands.insert_resource(Events::<DebugCommand>::default());
+    commands.insert_resource(CommandsState::default());
 }
 
 fn update_fps_count(time: Res<Time>, mut debug: ResMut<DebugInfo>) {
@@ -110,10 +111,16 @@ fn keyboard_input(keys: Res<ButtonInput<KeyCode>>) {
     }
 }
 
+#[derive(Resource, Default)]
+pub struct CommandsState {
+    pub text: String,
+    pub active: bool,
+}
+
 fn text_input(
     mut events: EventReader<KeyboardInput>,
     mut query: Query<&mut Text, With<DebugKeyInput>>,
-    mut string: Local<String>,
+    mut cstate: ResMut<CommandsState>,
     mut evt: EventWriter<DebugCommand>,
 ) {
     for ev in events.read() {
@@ -122,35 +129,38 @@ fn text_input(
         }
         match &ev.logical_key {
             Key::Enter => {
-                evt.send(DebugCommand(
-                    string.split(" ").map(|s| s.to_string()).collect(),
-                ));
-                string.clear();
+                if cstate.active {
+                    evt.send(DebugCommand(
+                        cstate.text[1..].split(" ").map(|s| s.to_string()).collect(),
+                    ));
+                    cstate.active = false;
+                }
+                cstate.text.clear();
             }
             Key::Backspace => {
-                string.pop();
+                cstate.text.pop();
             }
             Key::Space => {
-                string.push(' ');
+                cstate.text.push(' ');
             }
             Key::Character(input) => {
                 if input.chars().any(|c| c.is_control()) {
                     continue;
                 }
-                string.push_str(&input);
+                cstate.text.push_str(&input);
             }
             _ => (),
         }
     }
 
-    if string.len() > 30 {
-        string.clear()
+    cstate.active = Some(':') == cstate.text.chars().nth(0);
+    if !cstate.active {
+        cstate.text.clear()
     }
 
     for mut txt in query.iter_mut() {
         txt.clear();
-        txt.push_str("> ");
-        txt.push_str(&string);
+        txt.push_str(&cstate.text);
         txt.push('_');
     }
 }
