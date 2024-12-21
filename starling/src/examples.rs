@@ -23,6 +23,7 @@ pub const LUNA: (Body, NBodyPropagator) = (
     },
     NBodyPropagator {
         epoch: Duration::new(0, 0),
+        dt: Duration::from_millis(100),
         pos: Vec2::new(-3800.0, 0.0),
         vel: Vec2::new(0.0, -58.0),
     },

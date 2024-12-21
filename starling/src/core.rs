@@ -243,22 +243,15 @@ pub struct ObjectId(pub i64);
 #[derive(Debug, Clone)]
 pub struct Object {
     pub id: ObjectId,
-    pub timestep: Duration,
     pub primary: Option<ObjectId>,
     pub prop: Propagator,
     pub body: Option<Body>,
 }
 
 impl Object {
-    pub fn new(
-        id: ObjectId,
-        prop: impl Into<Propagator>,
-        body: Option<Body>,
-        ts: Duration,
-    ) -> Self {
+    pub fn new(id: ObjectId, prop: impl Into<Propagator>, body: Option<Body>) -> Self {
         Object {
             id,
-            timestep: ts,
             primary: None,
             prop: prop.into(),
             body,
@@ -323,16 +316,7 @@ impl OrbitalSystem {
     pub fn add_object(&mut self, prop: impl Into<Propagator>, body: Option<Body>) -> ObjectId {
         let id = ObjectId(self.next_id);
         self.next_id += 1;
-
-        let p = prop.into();
-
-        let timedelta = match &p {
-            Propagator::NBody(_) => Duration::from_millis(100),
-            Propagator::Fixed(_, _) => Duration::from_secs(30),
-            Propagator::Kepler(_) => Duration::from_secs(10),
-        };
-
-        self.objects.push(Object::new(id, p, body, timedelta));
+        self.objects.push(Object::new(id, prop, body));
         id
     }
 

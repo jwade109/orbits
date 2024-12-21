@@ -71,6 +71,7 @@ impl Propagate for Propagator {
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NBodyPropagator {
     pub epoch: Duration,
+    pub dt: Duration,
     pub pos: Vec2,
     pub vel: Vec2,
 }
@@ -79,6 +80,7 @@ impl NBodyPropagator {
     pub fn new(epoch: Duration, pos: impl Into<Vec2>, vel: impl Into<Vec2>) -> Self {
         NBodyPropagator {
             epoch,
+            dt: Duration::from_millis(100),
             pos: pos.into(),
             vel: vel.into(),
         }
@@ -86,9 +88,10 @@ impl NBodyPropagator {
 
     pub fn initial(pos: impl Into<Vec2>, vel: impl Into<Vec2>) -> Self {
         NBodyPropagator {
+            epoch: Duration::default(),
+            dt: Duration::from_millis(100),
             pos: pos.into(),
             vel: vel.into(),
-            ..NBodyPropagator::default()
         }
     }
 
@@ -100,10 +103,9 @@ impl NBodyPropagator {
         self.epoch
     }
 
-    pub fn propagate_to(&mut self, bodies: &[(ObjectId, Vec2, Body)], epoch: Duration) {
-        let delta = epoch - self.epoch;
-        let steps = 10; // (delta.as_secs_f32() * self.vel.length() / 3.0).ceil() as u32;
-        let dt = delta.as_secs_f32() / steps as f32;
+    pub fn step(&mut self, bodies: &[(ObjectId, Vec2, Body)]) {
+        let steps = 1; // (delta.as_secs_f32() * self.vel.length() / 3.0).ceil() as u32;
+        let dt = self.dt.as_secs_f32() / steps as f32;
 
         let others = bodies
             .iter()
@@ -146,7 +148,13 @@ impl NBodyPropagator {
             }
         });
 
-        self.epoch = epoch;
+        self.epoch += self.dt;
+    }
+
+    pub fn propagate_to(&mut self, bodies: &[(ObjectId, Vec2, Body)], epoch: Duration) {
+        while self.epoch < epoch {
+            self.step(&bodies);
+        }
     }
 }
 
@@ -180,11 +188,7 @@ impl KeplerPropagator {
     }
 
     pub fn propagate_to(&mut self, epoch: Duration) {
-        let delta = self.epoch - epoch;
-        if delta == Duration::default() {
-            return;
-        }
-
+        let delta = epoch - self.epoch;
         let n = self.orbit.mean_motion();
         let m = self.orbit.mean_anomaly();
         let m2 = m + delta.as_secs_f32() * n;

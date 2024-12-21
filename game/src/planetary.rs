@@ -458,7 +458,7 @@ fn keyboard_input(
     }
 
     let mut process_arrow_key = |key: KeyCode| {
-        let dv = 0.01
+        let dv = 0.1
             * match key {
                 KeyCode::ArrowLeft => -Vec2::X,
                 KeyCode::ArrowRight => Vec2::X,
