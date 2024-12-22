@@ -1,4 +1,5 @@
 use crate::core::*;
+use crate::orbit::*;
 use bevy::math::Vec2;
 use std::{collections::VecDeque, time::Duration};
 
@@ -6,6 +7,8 @@ pub trait Propagate {
     fn pv(&self) -> PV;
 
     fn epoch(&self) -> Duration;
+
+    fn next(&self, state: &OrbitalSystem) -> Self;
 
     fn relative_to(&self) -> Option<ObjectId>;
 
@@ -19,17 +22,30 @@ pub enum Propagator {
     Kepler(KeplerPropagator),
 }
 
-#[derive(Debug, Clone)]
-struct PropagatorBuffer {
-    buffer: VecDeque<Propagator>,
-}
+#[derive(Debug, Clone, Default)]
+pub struct PropagatorBuffer(pub VecDeque<Propagator>);
 
 impl PropagatorBuffer {
-    fn pv_at(&self, stamp: Duration) -> Option<PV> {
-        todo!()
+    pub fn pv_at(&self, stamp: Duration, system: &OrbitalSystem) -> Option<PV> {
+        if stamp == self.trange()?.1 {
+            let prop = self.0.back()?;
+            return system.global_transform(prop);
+        }
+        let i1 = self.0.iter().position(|e| e.epoch() > stamp)?;
+        let l = self.0.get(i1 - 1)?;
+        let r = self.0.get(i1)?;
+        let p1 = system.global_transform(l)?;
+        let p2 = system.global_transform(r)?;
+        let s = (stamp - l.epoch()).as_secs_f32() / (r.epoch() - l.epoch()).as_secs_f32();
+        Some(p1.lerp(&p2, s))
     }
 
-    fn propagate_to(&mut self, stamp: Duration) {
+    pub fn trange(&self) -> Option<(Duration, Duration)> {
+        let (f, l) = self.0.front().zip(self.0.back())?;
+        Some((f.epoch(), l.epoch()))
+    }
+
+    pub fn request_until(&mut self, stamp: Duration) {
         todo!()
     }
 }
@@ -41,6 +57,14 @@ impl Propagate for Propagator {
             Propagator::Kepler(k) => k.propagate_to(epoch),
             Propagator::Fixed(_, _) => (),
         };
+    }
+
+    fn next(&self, state: &OrbitalSystem) -> Self {
+        match self {
+            Propagator::NBody(nb) => Propagator::NBody(nb.next(&state.bodies())),
+            Propagator::Kepler(k) => Propagator::Kepler(k.next()),
+            Propagator::Fixed(_, _) => *self,
+        }
     }
 
     fn epoch(&self) -> Duration {
@@ -101,6 +125,12 @@ impl NBodyPropagator {
 
     pub fn epoch(&self) -> Duration {
         self.epoch
+    }
+
+    pub fn next(&self, bodies: &[(ObjectId, Vec2, Body)]) -> Self {
+        let mut copy = *self;
+        copy.step(bodies);
+        copy
     }
 
     pub fn step(&mut self, bodies: &[(ObjectId, Vec2, Body)]) {
@@ -194,6 +224,12 @@ impl KeplerPropagator {
         let m2 = m + delta.as_secs_f32() * n;
         self.orbit.true_anomaly = anomaly_m2t(self.orbit.eccentricity, m2).unwrap_or(f32::NAN);
         self.epoch = epoch;
+    }
+
+    pub fn next(&self) -> Self {
+        let mut copy = *self;
+        copy.propagate_to(copy.epoch + Duration::from_millis(50));
+        copy
     }
 }
 

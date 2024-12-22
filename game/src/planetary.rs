@@ -7,6 +7,7 @@ use std::time::Duration;
 
 use starling::core::*;
 use starling::examples::*;
+use starling::orbit::*;
 use starling::planning::*;
 use starling::propagator::*;
 
@@ -177,6 +178,16 @@ fn draw_square(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     );
 }
 
+fn draw_propagator_state(
+    gizmos: &mut Gizmos,
+    prop: &Propagator,
+    system: &OrbitalSystem,
+) -> Option<()> {
+    let gp = system.global_transform(prop)?;
+    draw_square(gizmos, gp.pos, 10.0, ORANGE);
+    Some(())
+}
+
 fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
     {
         let b = state.system.barycenter();
@@ -204,6 +215,23 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
         gizmos.line_2d(p.pos - d2, p.pos + d2, color);
     }
 
+    // draw propagator history
+    for object in state.system.objects.iter() {
+        for h in object.history.0.iter() {
+            draw_propagator_state(&mut gizmos, h, &state.system);
+        }
+
+        if let Some(p) = object.history.trange() {
+            let stamps = [p.1, p.0, (p.1 + p.0) / 2];
+            for stamp in stamps {
+                if let Some(pv) = object.history.pv_at(stamp, &state.system) {
+                    draw_x(&mut gizmos, pv.pos, 20.0, RED);
+                }
+            }
+        }
+    }
+
+    // draw planetary bodies
     for object in state.system.objects.iter() {
         if let Some(body) = object.body {
             let iso = Isometry2d::from_translation(object.prop.pv().pos);

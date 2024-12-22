@@ -1,5 +1,6 @@
 use crate::core::*;
 use crate::propagator::*;
+use crate::orbit::*;
 use bevy::math::Vec2;
 use std::time::Duration;
 
