@@ -18,7 +18,7 @@ pub struct PlanetaryPlugin;
 impl Plugin for PlanetaryPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, init_system);
-        app.add_systems(Update, (draw_orbital_system, keyboard_input, scroll_events));
+        app.add_systems(Update, (draw_orbital_system, keyboard_input, handle_zoom));
         app.add_systems(
             FixedUpdate,
             (propagate_system, update_sim_time, drop_expired_entities),
@@ -139,6 +139,7 @@ struct PlanetaryState {
     backup: Option<OrbitalSystem>,
     focus_object: ObjectId,
     follow_object: bool,
+    target_scale: f32,
 }
 
 impl Default for PlanetaryState {
@@ -155,6 +156,7 @@ impl Default for PlanetaryState {
             focus_object: ObjectId(0),
             backup: None,
             follow_object: false,
+            target_scale: 4.0,
         }
     }
 }
@@ -178,131 +180,58 @@ fn draw_square(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     );
 }
 
-fn draw_propagator_state(
-    gizmos: &mut Gizmos,
-    prop: &Propagator,
-    system: &OrbitalSystem,
-) -> Option<()> {
-    let gp = system.global_transform(prop)?;
-    draw_square(gizmos, gp.pos, 10.0, ORANGE);
-    Some(())
+fn draw_circle(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
+    gizmos.circle_2d(Isometry2d::from_translation(p), size, color);
+}
+
+fn draw_orbital_frame(mut gizmos: &mut Gizmos, frame: &OrbitalFrame) {
+    for (_, pv, body) in frame.objects.iter() {
+        if let Some(b) = body {
+            draw_circle(&mut gizmos, pv.pos, b.radius, WHITE);
+            draw_circle(&mut gizmos, pv.pos, b.radius * 0.95, WHITE);
+            draw_circle(&mut gizmos, pv.pos, b.soi, ORANGE);
+        } else {
+            draw_square(&mut gizmos, pv.pos, 10.0, WHITE);
+        }
+    }
 }
 
 fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
-    {
-        let b = state.system.barycenter();
-        gizmos.circle_2d(Isometry2d::from_translation(b), 6.0, PURPLE);
-        draw_x(&mut gizmos, b, 8.0, PURPLE);
-    }
+    let frame = state.system.frame();
+
+    draw_orbital_frame(&mut gizmos, &frame);
 
     {
-        let (pos, abridged) = get_future_positions(&state.system, state.focus_object, 2000);
-        if abridged && !pos.is_empty() {
-            draw_x(&mut gizmos, *pos.last().unwrap(), 16.0, ORANGE);
-        }
-        gizmos.linestrip_2d(pos, ORANGE);
+        let p = frame.barycenter();
+        draw_circle(&mut gizmos, p, 6.0, PURPLE);
+        draw_x(&mut gizmos, p, 8.0, PURPLE);
     }
 
-    if let Some(p) = state.system.transform_from_id(Some(state.focus_object)) {
-        let s = 400.0;
-        let color = Srgba {
-            alpha: 0.02,
-            ..ORANGE
-        };
-        let d1 = Vec2::new(s, s);
-        let d2 = Vec2::new(-s, s);
-        gizmos.line_2d(p.pos - d1, p.pos + d1, color);
-        gizmos.line_2d(p.pos - d2, p.pos + d2, color);
-    }
-
-    // draw propagator history
-    for object in state.system.objects.iter() {
-        for h in object.history.0.iter() {
-            draw_propagator_state(&mut gizmos, h, &state.system);
-        }
-
-        if let Some(p) = object.history.trange() {
-            let stamps = [p.1, p.0, (p.1 + p.0) / 2];
-            for stamp in stamps {
-                if let Some(pv) = object.history.pv_at(stamp, &state.system) {
-                    draw_x(&mut gizmos, pv.pos, 20.0, RED);
-                }
-            }
-        }
-    }
-
-    // draw planetary bodies
-    for object in state.system.objects.iter() {
-        if let Some(body) = object.body {
-            let iso = Isometry2d::from_translation(object.prop.pv().pos);
-            gizmos.circle_2d(iso, body.radius, WHITE);
-            gizmos.circle_2d(
-                iso,
-                body.soi,
-                Srgba {
-                    alpha: 0.3,
-                    ..ORANGE
-                },
-            );
-        }
-    }
-
-    for object in state.system.objects.iter() {
-        match (&object.prop, state.system.global_transform(&object.prop)) {
-            (Propagator::Fixed(_, _), Some(pv)) => {
-                draw_x(&mut gizmos, pv.pos, 14.0, RED);
-            }
-            (Propagator::NBody(nb), Some(pv)) => {
-                draw_square(&mut gizmos, nb.pos, 9.0, WHITE);
-                if state.show_orbits || state.focus_object == object.id {
-                    let parent_object = state.system.primary_body_at(pv.pos, Some(object.id));
-                    let parent_pv: Option<PV> = parent_object
-                        .clone()
-                        .map(|o| state.system.global_transform(&o.prop))
-                        .flatten();
-                    let parent_body = parent_object.map(|o| o.body).flatten();
-
-                    if let (Some(parent_pv), Some(parent_body)) = (parent_pv, parent_body) {
-                        let rpos: Vec2 = pv.pos - parent_pv.pos;
-                        let rvel = pv.vel - parent_pv.vel;
-                        let orb: Orbit = Orbit::from_pv(rpos, rvel, parent_body);
-                        draw_orbit(parent_pv.pos, orb, &mut gizmos, 0.2, GRAY);
-                    }
-                }
-            }
-            (Propagator::Kepler(k), Some(pv)) => {
-                if let Some(parent) = state.system.lookup(k.primary) {
-                    let color: Srgba = ORANGE;
-                    draw_square(&mut gizmos, pv.pos, 9.0, color);
-                    if state.show_orbits || state.focus_object == object.id {
-                        if let Some(parent_pv) = state.system.global_transform(&parent.prop) {
-                            draw_orbit(parent_pv.pos, k.orbit, &mut gizmos, 0.2, GRAY);
-                        }
-                    }
-                }
-            }
-            (_, None) => (),
-        }
+    if let Some((_, pv, _)) = frame.lookup(state.focus_object) {
+        draw_x(
+            &mut gizmos,
+            pv.pos,
+            5000.0,
+            Srgba {
+                alpha: 0.05,
+                ..GRAY
+            },
+        );
     }
 
     let mut lattice = vec![]; // generate_square_lattice(Vec2::ZERO, 10000, 200);
 
-    for obj in state.system.objects.iter() {
-        if let Some(body) = obj.body {
-            if let Some(center) = state.system.global_transform(&obj.prop) {
-                let minilat =
-                    generate_circular_log_lattice(center.pos, body.radius + 5.0, body.soi * 2.0);
-                lattice.extend(minilat);
-            }
+    for (_, pv, body) in frame.objects.iter() {
+        if let Some(b) = body {
+            let minilat = generate_circular_log_lattice(pv.pos, b.radius + 5.0, b.soi * 2.0);
+            lattice.extend(minilat);
         }
     }
 
-    let gravity = lattice.iter().map(|p| state.system.gravity_at(*p));
-    let potential = lattice.iter().map(|p| state.system.potential_at(*p));
-    let primary = lattice
-        .iter()
-        .map(|p| state.system.primary_body_at(*p, None));
-    let max_potential = state.system.potential_at((500.0, 500.0).into());
+    let gravity = lattice.iter().map(|p| frame.gravity_at(*p));
+    let potential = lattice.iter().map(|p| frame.potential_at(*p));
+    let primary = lattice.iter().map(|p| frame.primary_body_at(*p, None));
+    let max_potential = frame.potential_at((500.0, 500.0).into());
 
     if state.show_gravity_field {
         for (grav, p) in gravity.zip(&lattice) {
@@ -333,14 +262,12 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
     }
     if state.show_primary_body {
         for (prim, p) in primary.zip(&lattice) {
-            if let (Some(pr), Some(d)) = (
-                prim.clone(),
-                prim.map(|o| state.system.global_transform(&o.prop))
-                    .flatten(),
-            ) {
-                let r = 0.5 * (d.pos.x / 1000.0).cos() + 0.5;
-                let g = 0.5 * (d.pos.y / 1000.0).sin() + 0.5;
-                let ObjectId(id) = pr.id;
+            if let (Some(pr), Some((_, pv, _))) =
+                (prim.clone(), prim.map(|o| frame.lookup(o)).flatten())
+            {
+                let r = 0.5 * (pv.pos.x / 1000.0).cos() + 0.5;
+                let g = 0.5 * (pv.pos.y / 1000.0).sin() + 0.5;
+                let ObjectId(id) = pr;
                 let b = 0.5 * (id as f32).cos() + 0.5;
                 let color = Srgba {
                     red: r,
@@ -373,12 +300,13 @@ fn propagate_system(mut commands: Commands, time: Res<Time>, mut state: ResMut<P
 }
 
 fn log_system_info(state: Res<PlanetaryState>, mut evt: EventWriter<DebugLog>) {
+    let frame = state.system.frame();
+
     send_log(
         &mut evt,
-        &format!("Epoch: {:0.2}", state.system.epoch.as_secs_f32()),
+        &format!("Epoch: {:0.2}", frame.epoch.as_secs_f32()),
     );
-    send_log(&mut evt, &format!("Iteration: {}", state.system.iter));
-    send_log(&mut evt, &format!("{} objects", state.system.objects.len()));
+    send_log(&mut evt, &format!("{} objects", frame.objects.len()));
     if state.paused {
         send_log(&mut evt, "Paused");
     }
@@ -406,7 +334,7 @@ fn log_system_info(state: Res<PlanetaryState>, mut evt: EventWriter<DebugLog>) {
         &format!("Follow tracked: {:?}", state.follow_object),
     );
 
-    if let Some(obj) = state.system.lookup_ref(state.focus_object) {
+    if let Some(obj) = frame.lookup(state.focus_object) {
         send_log(&mut evt, &format!("{:#?}", obj));
     }
 }
@@ -480,6 +408,12 @@ fn keyboard_input(
             }
             KeyCode::KeyF => {
                 config.follow_object = !config.follow_object;
+            }
+            KeyCode::Equal => {
+                config.target_scale /= 1.5;
+            }
+            KeyCode::Minus => {
+                config.target_scale *= 1.5;
             }
             _ => (),
         }
@@ -622,26 +556,10 @@ fn process_commands(
     }
 }
 
-fn scroll_events(
-    mut evr_scroll: EventReader<MouseWheel>,
-    mut transforms: Query<&mut Transform, With<Camera>>,
-) {
-    use bevy::input::mouse::MouseScrollUnit;
-
-    let mut transform = transforms.single_mut();
-
-    for ev in evr_scroll.read() {
-        match ev.unit {
-            MouseScrollUnit::Line => {
-                if ev.y > 0.0 {
-                    transform.scale /= 1.1;
-                } else {
-                    transform.scale *= 1.1;
-                }
-            }
-            _ => (),
-        }
-    }
+fn handle_zoom(state: Res<PlanetaryState>, mut tf: Query<&mut Transform, With<Camera>>) {
+    let mut transform = tf.single_mut();
+    let ds = (state.target_scale - transform.scale) * 0.2;
+    transform.scale += ds;
 }
 
 fn update_camera(mut query: Query<&mut Transform, With<Camera>>, state: Res<PlanetaryState>) {

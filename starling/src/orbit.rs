@@ -1,6 +1,6 @@
+use crate::core::*;
 use bevy::math::Vec2;
 use std::time::Duration;
-use crate::core::*;
 
 pub fn anomaly_e2m(ecc: f32, eccentric_anomaly: f32) -> f32 {
     eccentric_anomaly - ecc * f32::sin(eccentric_anomaly)

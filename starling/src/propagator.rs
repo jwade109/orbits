@@ -8,11 +8,13 @@ pub trait Propagate {
 
     fn epoch(&self) -> Duration;
 
-    fn next(&self, state: &OrbitalSystem) -> Self;
+    fn is_ok(&self) -> bool;
+
+    fn next(&self, state: &OrbitalFrame) -> Self;
 
     fn relative_to(&self) -> Option<ObjectId>;
 
-    fn propagate_to(&mut self, epoch: Duration, state: &OrbitalSystem);
+    fn propagate_to(&mut self, epoch: Duration, state: &OrbitalFrame);
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -25,43 +27,51 @@ pub enum Propagator {
 #[derive(Debug, Clone, Default)]
 pub struct PropagatorBuffer(pub VecDeque<Propagator>);
 
-impl PropagatorBuffer {
-    pub fn pv_at(&self, stamp: Duration, system: &OrbitalSystem) -> Option<PV> {
-        if stamp == self.trange()?.1 {
-            let prop = self.0.back()?;
-            return system.global_transform(prop);
-        }
-        let i1 = self.0.iter().position(|e| e.epoch() > stamp)?;
-        let l = self.0.get(i1 - 1)?;
-        let r = self.0.get(i1)?;
-        let p1 = system.global_transform(l)?;
-        let p2 = system.global_transform(r)?;
-        let s = (stamp - l.epoch()).as_secs_f32() / (r.epoch() - l.epoch()).as_secs_f32();
-        Some(p1.lerp(&p2, s))
-    }
+// impl PropagatorBuffer {
+//     pub fn pv_at(&self, stamp: Duration, frame: &OrbitalFrame) -> Option<PV> {
+//         if stamp == self.trange()?.1 {
+//             let prop = self.0.back()?;
+//             return frame.global_transform(prop);
+//         }
+//         let i1 = self.0.iter().position(|e| e.epoch() > stamp)?;
+//         let l = self.0.get(i1 - 1)?;
+//         let r = self.0.get(i1)?;
+//         let p1 = system.
+//         let p2 = system.global_transform(r)?;
+//         let s = (stamp - l.epoch()).as_secs_f32() / (r.epoch() - l.epoch()).as_secs_f32();
+//         Some(p1.lerp(&p2, s))
+//     }
 
-    pub fn trange(&self) -> Option<(Duration, Duration)> {
-        let (f, l) = self.0.front().zip(self.0.back())?;
-        Some((f.epoch(), l.epoch()))
-    }
+//     pub fn trange(&self) -> Option<(Duration, Duration)> {
+//         let (f, l) = self.0.front().zip(self.0.back())?;
+//         Some((f.epoch(), l.epoch()))
+//     }
 
-    pub fn request_until(&mut self, stamp: Duration) {
-        todo!()
-    }
-}
+//     pub fn request_until(&mut self, stamp: Duration) {
+//         todo!()
+//     }
+// }
 
 impl Propagate for Propagator {
-    fn propagate_to(&mut self, epoch: Duration, state: &OrbitalSystem) {
+    fn is_ok(&self) -> bool {
         match self {
-            Propagator::NBody(nb) => nb.propagate_to(&state.bodies(), epoch),
+            Propagator::NBody(nb) => !nb.is_nan(),
+            Propagator::Kepler(k) => !k.orbit.is_nan(),
+            Propagator::Fixed(_, _) => true,
+        }
+    }
+
+    fn propagate_to(&mut self, epoch: Duration, frame: &OrbitalFrame) {
+        match self {
+            Propagator::NBody(nb) => nb.propagate_to(&frame, epoch),
             Propagator::Kepler(k) => k.propagate_to(epoch),
             Propagator::Fixed(_, _) => (),
         };
     }
 
-    fn next(&self, state: &OrbitalSystem) -> Self {
+    fn next(&self, frame: &OrbitalFrame) -> Self {
         match self {
-            Propagator::NBody(nb) => Propagator::NBody(nb.next(&state.bodies())),
+            Propagator::NBody(nb) => Propagator::NBody(nb.next(frame)),
             Propagator::Kepler(k) => Propagator::Kepler(k.next()),
             Propagator::Fixed(_, _) => *self,
         }
@@ -127,25 +137,35 @@ impl NBodyPropagator {
         self.epoch
     }
 
-    pub fn next(&self, bodies: &[(ObjectId, Vec2, Body)]) -> Self {
+    pub fn next(&self, frame: &OrbitalFrame) -> Self {
         let mut copy = *self;
-        copy.step(bodies);
+        copy.step(frame);
         copy
     }
 
-    pub fn step(&mut self, bodies: &[(ObjectId, Vec2, Body)]) {
+    pub fn is_nan(&self) -> bool {
+        self.pos.is_nan() || self.vel.is_nan()
+    }
+
+    pub fn step(&mut self, frame: &OrbitalFrame) {
         let steps = 1; // (delta.as_secs_f32() * self.vel.length() / 3.0).ceil() as u32;
         let dt = self.dt.as_secs_f32() / steps as f32;
 
-        let others = bodies
+        let others: Vec<_> = frame
+            .objects
             .iter()
-            .filter(|(_, c, _)| *c != self.pos)
-            .collect::<Vec<_>>();
+            .filter_map(|(_, c, b)| {
+                if c.pos.distance(self.pos) == 0.0 {
+                    return None;
+                }
+                Some((c, (*b)?))
+            })
+            .collect();
 
         let compute_a_at = |p: Vec2| -> Vec2 {
             others
                 .iter()
-                .map(|(_, c, b)| -> Vec2 { gravity_accel(*b, *c, p) })
+                .map(|(c, b)| -> Vec2 { gravity_accel(*b, c.pos, p) })
                 .sum()
         };
 
@@ -181,9 +201,9 @@ impl NBodyPropagator {
         self.epoch += self.dt;
     }
 
-    pub fn propagate_to(&mut self, bodies: &[(ObjectId, Vec2, Body)], epoch: Duration) {
+    pub fn propagate_to(&mut self, frame: &OrbitalFrame, epoch: Duration) {
         while self.epoch < epoch {
-            self.step(&bodies);
+            self.step(frame);
         }
     }
 }

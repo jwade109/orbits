@@ -231,5 +231,5 @@ pub fn playground() -> OrbitalSystem {
 }
 
 pub fn default_example() -> OrbitalSystem {
-    playground()
+    earth_moon_example_one()
 }
