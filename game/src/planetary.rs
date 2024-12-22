@@ -1,6 +1,5 @@
 use bevy::color::palettes::basic::*;
 use bevy::color::palettes::css::ORANGE;
-use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 use std::time::Duration;
@@ -52,13 +51,18 @@ fn draw_event_markers(
     mut query: Query<(&EventMarker, &mut Transform)>,
     state: Res<PlanetaryState>,
 ) {
+    let frame = state.system.frame();
+
     for (event, mut tf) in query.iter_mut() {
-        if let Some(pv) = state.system.transform_from_id(event.relative_to) {
-            let p = pv.pos + event.pos;
-            tf.translation = (p + event.offset).extend(0.0);
-            draw_square(&mut gizmos, p, 20.0, WHITE);
-            gizmos.line_2d(p, p + event.offset, WHITE);
-        }
+        let relpos = match event.relative_to.map(|id| frame.lookup(id)).flatten() {
+            Some((_, pv, _)) => pv.pos,
+            None => Vec2::ZERO,
+        };
+
+        let p = relpos + event.pos;
+        tf.translation = (p + event.offset).extend(0.0);
+        draw_square(&mut gizmos, p, 20.0, WHITE);
+        gizmos.line_2d(p, p + event.offset, WHITE);
     }
 }
 
@@ -197,6 +201,16 @@ fn draw_orbital_frame(mut gizmos: &mut Gizmos, frame: &OrbitalFrame) {
 }
 
 fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
+    gizmos.grid_2d(
+        Isometry2d::default(),
+        (100, 100).into(),
+        (400.0, 400.0).into(),
+        Srgba {
+            alpha: 0.03,
+            ..GRAY
+        },
+    );
+
     let frame = state.system.frame();
 
     draw_orbital_frame(&mut gizmos, &frame);
@@ -217,6 +231,15 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
                 ..GRAY
             },
         );
+
+        let (pos, hit) = get_future_pvs(&state.system, state.focus_object, 1000);
+        for (i, p) in pos.iter().enumerate() {
+            if i + 1 == pos.len() && hit {
+                draw_x(&mut gizmos, p.pos, 20.0, ORANGE);
+            } else {
+                draw_square(&mut gizmos, p.pos, 5.0, ORANGE);
+            }
+        }
     }
 
     let mut lattice = vec![]; // generate_square_lattice(Vec2::ZERO, 10000, 200);
@@ -430,8 +453,10 @@ fn keyboard_input(
             };
 
         let id = config.focus_object;
-        let pvo = config.system.transform_from_id(Some(id));
-        if let (Some(obj), Some(mut pv)) = (config.system.lookup_mut(id), pvo) {
+        let frame = config.system.frame();
+        let obj = config.system.lookup_mut(id);
+        let pvo = frame.lookup(id);
+        if let Some((obj, (_, mut pv, _))) = obj.zip(pvo) {
             if let Propagator::Fixed(_, _) = obj.prop {
                 return;
             }
@@ -570,12 +595,9 @@ fn update_camera(mut query: Query<&mut Transform, With<Camera>>, state: Res<Plan
         return;
     }
 
-    if let Some(p) = state
-        .system
-        .lookup(state.focus_object)
-        .map(|o| state.system.global_transform(&o.prop))
-        .flatten()
-    {
-        *tf = tf.with_translation(p.pos.extend(0.0));
+    let frame = state.system.frame();
+
+    if let Some((_, pv, _)) = frame.lookup(state.focus_object) {
+        *tf = tf.with_translation(pv.pos.extend(0.0));
     }
 }

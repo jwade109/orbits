@@ -1,6 +1,6 @@
 use crate::core::*;
-use crate::propagator::*;
 use crate::orbit::*;
+use crate::propagator::*;
 use bevy::math::Vec2;
 use std::time::Duration;
 
@@ -131,8 +131,10 @@ pub fn n_body_accuracy() {
 
     assert_eq!(events.len(), 0);
 
-    let pv1 = system.transform_from_id(Some(ObjectId(1))).unwrap();
-    let pv2 = system.transform_from_id(Some(ObjectId(2))).unwrap();
+    let frame = system.frame();
+
+    let (_, pv1, _) = frame.lookup(ObjectId(1)).unwrap();
+    let (_, pv2, _) = frame.lookup(ObjectId(2)).unwrap();
 
     assert_relative_eq!(pv1.pos.distance(pv2.pos), 2.023654, max_relative = 1.0);
 }

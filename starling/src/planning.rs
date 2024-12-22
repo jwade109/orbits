@@ -1,5 +1,4 @@
 use crate::core::*;
-use bevy::math::Vec2;
 
 fn get_minimal_system(system: &OrbitalSystem, id: ObjectId) -> OrbitalSystem {
     let mut copy = system.clone();
@@ -7,16 +6,13 @@ fn get_minimal_system(system: &OrbitalSystem, id: ObjectId) -> OrbitalSystem {
     copy
 }
 
-pub fn get_future_positions(
-    system: &OrbitalSystem,
-    id: ObjectId,
-    steps: usize,
-) -> (Vec<Vec2>, bool) {
+pub fn get_future_pvs(system: &OrbitalSystem, id: ObjectId, steps: usize) -> (Vec<PV>, bool) {
     let mut minimal = get_minimal_system(system, id);
     let positions: Vec<_> = (0..steps)
         .filter_map(|_| {
             minimal.step();
-            Some(minimal.transform_from_id(Some(id))?.pos)
+            let frame = minimal.frame();
+            Some(frame.lookup(id)?.1)
         })
         .collect();
     let abridged = positions.len() < steps;

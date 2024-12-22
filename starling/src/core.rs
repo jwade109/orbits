@@ -26,7 +26,7 @@ pub struct Object {
     pub primary: Option<ObjectId>,
     pub prop: Propagator,
     pub body: Option<Body>,
-    // pub history: PropagatorBuffer,
+    pub history: PropagatorBuffer,
 }
 
 impl Object {
@@ -36,7 +36,7 @@ impl Object {
             primary: None,
             prop: prop.into(),
             body,
-            // history: PropagatorBuffer::default(),
+            history: PropagatorBuffer::default(),
         }
     }
 }
@@ -200,24 +200,11 @@ impl OrbitalSystem {
         self.objects.iter().find(|m| m.id == o).map(|m| m.clone())
     }
 
-    pub fn lookup_ref(&self, o: ObjectId) -> Option<&Object> {
-        self.objects.iter().find(|m| m.id == o)
-    }
-
     pub fn lookup_mut(&mut self, o: ObjectId) -> Option<&mut Object> {
         self.objects.iter_mut().find(|m| m.id == o)
     }
 
-    pub fn transform_from_id(&self, id: Option<ObjectId>) -> Option<PV> {
-        if let Some(i) = id {
-            let obj = self.lookup(i)?;
-            self.global_transform(&obj.prop)
-        } else {
-            Some(PV::default())
-        }
-    }
-
-    pub fn global_transform(&self, prop: &impl Propagate) -> Option<PV> {
+    fn global_transform(&self, prop: &impl Propagate) -> Option<PV> {
         if let Some(rel) = prop.relative_to() {
             let obj = self.lookup(rel)?;
             let rel = self.global_transform(&obj.prop)?;
@@ -235,12 +222,12 @@ impl OrbitalSystem {
     fn propagate_to(&mut self, epoch: Duration) -> Vec<(Object, OrbitalEvent)> {
         let copy = self.frame();
         for m in self.objects.iter_mut() {
-            // let old = m.prop;
+            let old = m.prop;
             m.prop.propagate_to(epoch, &copy);
-            // m.history.0.push_back(old);
-            // if m.history.0.len() > 20 {
-            //     m.history.0.pop_front();
-            // }
+            m.history.0.push_back(old);
+            if m.history.0.len() > 20 {
+                m.history.0.pop_front();
+            }
         }
 
         self.epoch = epoch;
