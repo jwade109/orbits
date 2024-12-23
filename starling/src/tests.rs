@@ -1,5 +1,7 @@
 #![allow(unused)]
 
+extern crate test;
+
 use crate::core::*;
 use crate::examples::*;
 use crate::orbit::*;
@@ -7,6 +9,7 @@ use crate::propagator::*;
 use approx::assert_relative_eq;
 use bevy::math::Vec2;
 use std::time::Duration;
+use test::Bencher;
 
 const TEST_BODY: Body = Body {
     mass: 1000.0,
@@ -70,17 +73,41 @@ fn propagation_equality() {
     let mut s1_events = vec![];
     let mut s2_events = vec![];
 
-    for _ in 0..1000 {
-        s1_events.extend(s1.propagate_to(Duration::from_secs(100)));
+    for _ in 0..10 {
+        s1_events.extend(s1.propagate(Duration::from_secs(100)));
     }
 
-    for _ in 0..1000 {
-        s2_events.extend(s2.propagate_to(Duration::from_secs(100)));
+    for _ in 0..100 {
+        s2_events.extend(s2.propagate(Duration::from_secs(10)));
     }
 
-    assert_eq!(s1.epoch, Duration::from_secs(100));
-    assert_eq!(s2.epoch, Duration::from_secs(100));
+    assert_eq!(s1.epoch, Duration::from_secs(1000));
+    assert_eq!(s2.epoch, Duration::from_secs(1000));
 
     assert_eq!(s1_events.len(), s2_events.len());
     assert_eq!(s1.objects.len(), s2.objects.len());
+}
+
+#[bench]
+fn propagate_jupiter_3_seconds(b: &mut Bencher) {
+    b.iter(|| {
+        let mut system = sun_jupiter_lagrange();
+        system.propagate_to(Duration::from_secs(3));
+    });
+}
+
+#[bench]
+fn propagate_jupiter_1_second(b: &mut Bencher) {
+    b.iter(|| {
+        let mut system = sun_jupiter_lagrange();
+        system.propagate_to(Duration::from_secs(1));
+    });
+}
+
+#[bench]
+fn propagate_earth_10_seconds(b: &mut Bencher) {
+    b.iter(|| {
+        let mut system = earth_moon_example_one();
+        system.propagate_to(Duration::from_secs(10));
+    });
 }

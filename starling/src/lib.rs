@@ -1,3 +1,6 @@
+
+#![feature(test)]
+
 pub mod core;
 pub mod orbit;
 pub mod propagator;

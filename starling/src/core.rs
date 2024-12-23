@@ -4,7 +4,7 @@ use crate::propagator::*;
 use bevy::math::Vec2;
 use rand::Rng;
 use std::collections::VecDeque;
-use std::ops::Add;
+use std::ops::{Add, Sub};
 use std::time::Duration;
 
 pub fn rand(min: f32, max: f32) -> f32 {
@@ -48,6 +48,7 @@ pub struct OrbitalSystem {
     next_id: i64,
 }
 
+#[derive(Default, Clone)]
 pub struct OrbitalFrame {
     pub epoch: Duration,
     pub objects: Vec<(ObjectId, PV, Option<Body>)>,
@@ -151,6 +152,13 @@ impl Add for PV {
     }
 }
 
+impl Sub for PV {
+    type Output = Self;
+    fn sub(self, other: Self) -> Self {
+        PV::new(self.pos - other.pos, self.vel - other.vel)
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum OrbitalEvent {
     LookupFailure(ObjectId),
@@ -178,6 +186,22 @@ impl OrbitalSystem {
                 .objects
                 .iter()
                 .filter_map(|o| Some((o.id, self.global_transform_at(o, stamp)?, o.body)))
+                .collect(),
+        }
+    }
+
+    pub fn body_frame(&self, stamp: Duration) -> OrbitalFrame {
+        OrbitalFrame {
+            epoch: self.epoch,
+            objects: self
+                .objects
+                .iter()
+                .filter_map(|o| {
+                    if o.body.is_none() {
+                        return None;
+                    }
+                    Some((o.id, self.global_transform_at(o, stamp)?, o.body))
+                })
                 .collect(),
         }
     }
@@ -217,24 +241,47 @@ impl OrbitalSystem {
         }
     }
 
+    fn get_next_prop_state(&self, min_epoch: Duration) -> Option<(ObjectId, Propagator)> {
+        let (oldest, epoch) = self
+            .objects
+            .iter()
+            .filter_map(|o| {
+                let tr = o.history.trange()?;
+                Some((o, tr.1))
+            })
+            .min_by_key(|o| o.1)?;
+
+        if epoch > min_epoch {
+            return None;
+        }
+
+        let state = self.body_frame(epoch);
+        let prop = oldest.history.0.back()?.next(&state, oldest.id);
+        Some((oldest.id, prop))
+    }
+
+    pub fn propagate(&mut self, dur: Duration) -> Vec<(Object, OrbitalEvent)> {
+        self.propagate_to(self.epoch + dur)
+    }
+
     pub fn propagate_to(&mut self, epoch: Duration) -> Vec<(Object, OrbitalEvent)> {
-        let copy = self.frame(self.epoch);
-        for m in self.objects.iter_mut() {
-            while m.history.0.back().unwrap().epoch() < epoch {
-                let old_prop = m.history.0.back().expect("Empty history").clone();
-                let new_prop = old_prop.next(&copy, m.id);
-                m.history.0.push_back(new_prop);
-                if m.history.0.len() > 20 {
-                    m.history.0.pop_front();
-                }
-            }
+        loop {
+            let (id, prop) = match self.get_next_prop_state(epoch) {
+                Some(p) => p,
+                None => break,
+            };
+
+            let obj = match self.lookup_mut(id) {
+                Some(o) => o,
+                None => break,
+            };
+
+            obj.history.0.push_back(prop);
         }
 
         self.epoch = epoch;
-
-        // self.reparent_patched_conics();
-
-        let bodies = copy.bodies();
+        let curr = self.current_frame();
+        let bodies = curr.bodies();
 
         let remove_with_reason = |o: &Object| -> Option<OrbitalEvent> {
             for prop in o.history.0.iter() {
@@ -243,7 +290,7 @@ impl OrbitalSystem {
                 }
             }
 
-            let gp = match copy.objects.iter().find(|(oid, _, _)| *oid == o.id) {
+            let gp = match curr.objects.iter().find(|(oid, _, _)| *oid == o.id) {
                 Some((_, pv, _)) => pv,
                 None => return Some(OrbitalEvent::LookupFailure(o.id)),
             };
