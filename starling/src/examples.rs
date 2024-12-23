@@ -1,7 +1,6 @@
 use crate::core::*;
 use crate::propagator::*;
 use bevy::math::Vec2;
-use std::time::Duration;
 
 #[cfg(test)]
 use approx::assert_relative_eq;
@@ -22,7 +21,6 @@ pub const LUNA: (Body, NBodyPropagator) = (
         soi: 800.0,
     },
     NBodyPropagator {
-        epoch: Duration::new(0, 0),
         pos: Vec2::new(-3800.0, 0.0),
         vel: Vec2::new(0.0, -58.0),
     },

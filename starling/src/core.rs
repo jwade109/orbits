@@ -243,8 +243,6 @@ pub struct ObjectId(pub i64);
 #[derive(Debug, Clone)]
 pub struct Object {
     pub id: ObjectId,
-    pub timestep: Duration,
-    pub primary: Option<ObjectId>,
     pub prop: Propagator,
     pub body: Option<Body>,
 }
@@ -258,8 +256,6 @@ impl Object {
     ) -> Self {
         Object {
             id,
-            timestep: ts,
-            primary: None,
             prop: prop.into(),
             body,
         }
@@ -379,20 +375,25 @@ impl OrbitalSystem {
         }
     }
 
-    pub fn step(&mut self) -> Vec<(Object, OrbitalEvent)> {
-        self.iter += 1;
-        self.propagate_to(self.epoch + self.stepsize)
+    pub fn step_until(&mut self, epoch: Duration) -> Vec<(Object, OrbitalEvent)> {
+        let mut ret = vec![];
+        while self.epoch < epoch {
+            let events = self.step();
+            ret.extend(events);
+        }
+        ret
     }
 
-    fn propagate_to(&mut self, epoch: Duration) -> Vec<(Object, OrbitalEvent)> {
-        let copy = self.clone();
+    pub fn step(&mut self) -> Vec<(Object, OrbitalEvent)> {
+        self.iter += 1;
+        let old = self.clone();
         for m in self.objects.iter_mut() {
-            m.prop.propagate_to(epoch, &copy);
+            m.prop.step(self.stepsize, &old);
         }
 
-        self.epoch = epoch;
+        self.epoch += self.stepsize;
 
-        self.reparent_patched_conics();
+        // self.reparent_patched_conics();
 
         let bodies = self.bodies();
 

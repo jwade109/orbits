@@ -458,7 +458,7 @@ fn keyboard_input(
     }
 
     let mut process_arrow_key = |key: KeyCode| {
-        let dv = 0.01
+        let dv = 0.1
             * match key {
                 KeyCode::ArrowLeft => -Vec2::X,
                 KeyCode::ArrowRight => Vec2::X,
@@ -474,7 +474,7 @@ fn keyboard_input(
                 return;
             }
             pv.vel += dv;
-            obj.prop = NBodyPropagator::new(obj.prop.epoch(), pv.pos, pv.vel).into();
+            obj.prop = NBodyPropagator::new(pv.pos, pv.vel).into();
         }
     };
 
