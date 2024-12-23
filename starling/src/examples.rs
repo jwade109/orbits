@@ -24,7 +24,7 @@ pub const LUNA: (Body, NBodyPropagator) = (
     },
     NBodyPropagator {
         epoch: Duration::new(0, 0),
-        dt: Duration::from_millis(100),
+        dt: NBODY_DT,
         pos: Vec2::new(-3800.0, 0.0),
         vel: Vec2::new(0.0, -58.0),
     },
@@ -131,7 +131,7 @@ pub fn n_body_accuracy() {
 
     assert_eq!(events.len(), 0);
 
-    let frame = system.frame();
+    let frame = system.frame(system.epoch);
 
     let (_, pv1, _) = frame.lookup(ObjectId(1)).unwrap();
     let (_, pv2, _) = frame.lookup(ObjectId(2)).unwrap();

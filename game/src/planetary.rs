@@ -51,7 +51,7 @@ fn draw_event_markers(
     mut query: Query<(&EventMarker, &mut Transform)>,
     state: Res<PlanetaryState>,
 ) {
-    let frame = state.system.frame();
+    let frame = state.system.current_frame();
 
     for (event, mut tf) in query.iter_mut() {
         let relpos = match event.relative_to.map(|id| frame.lookup(id)).flatten() {
@@ -110,24 +110,7 @@ fn draw_orbit(origin: Vec2, orb: Orbit, gizmos: &mut Gizmos, alpha: f32, base_co
     let iso = Isometry2d::new(center, orb.arg_periapsis.into());
     gizmos
         .ellipse_2d(iso, Vec2::new(orb.semi_major_axis, b), color)
-        .resolution(orb.semi_major_axis.clamp(3.0, 40.0) as u32);
-
-    // let line_start = origin + orb.pos().normalize() * (orb.body.radius + 5.0);
-    // gizmos.line_2d(line_start, origin + orb.pos(), color);
-
-    gizmos.circle_2d(
-        Isometry2d::from_translation(origin + orb.periapsis()),
-        2.0,
-        Srgba { alpha, ..RED },
-    );
-
-    if orb.eccentricity < 1.0 {
-        gizmos.circle_2d(
-            Isometry2d::from_translation(origin + orb.apoapsis()),
-            2.0,
-            Srgba { alpha, ..WHITE },
-        );
-    }
+        .resolution(orb.semi_major_axis.clamp(3.0, 200.0) as u32);
 }
 
 #[derive(Resource)]
@@ -204,14 +187,30 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
     gizmos.grid_2d(
         Isometry2d::default(),
         (100, 100).into(),
-        (400.0, 400.0).into(),
+        (500.0, 500.0).into(),
         Srgba {
-            alpha: 0.03,
+            alpha: 0.02,
             ..GRAY
         },
     );
 
-    let frame = state.system.frame();
+    let frame = state.system.current_frame();
+
+    {
+        for obj in state.system.objects.iter() {
+            let dy = 3.0;
+            for h in obj.history.0.iter() {
+                let dt = h.epoch().as_secs_f32() - state.sim_time.as_secs_f32();
+                let p = Vec2::new(dt * 100.0, obj.id.0 as f32 * dy);
+                gizmos.line_2d(p, p + Vec2::Y * dy * 0.6, RED);
+            }
+            if let Some(_) = frame.lookup(obj.id) {
+                let dt = frame.epoch.as_secs_f32() - state.sim_time.as_secs_f32();
+                let p = Vec2::new(dt * 100.0, obj.id.0 as f32 * dy);
+                gizmos.line_2d(p, p + Vec2::Y * dy * 0.7, ORANGE);
+            }
+        }
+    }
 
     draw_orbital_frame(&mut gizmos, &frame);
 
@@ -232,14 +231,14 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
             },
         );
 
-        let (pos, hit) = get_future_pvs(&state.system, state.focus_object, 1000);
-        for (i, p) in pos.iter().enumerate() {
-            if i + 1 == pos.len() && hit {
-                draw_x(&mut gizmos, p.pos, 20.0, ORANGE);
-            } else {
-                draw_square(&mut gizmos, p.pos, 5.0, ORANGE);
-            }
-        }
+        // let (pos, hit) = get_future_pvs(&state.system, state.focus_object, 1000);
+        // for (i, p) in pos.iter().enumerate() {
+        //     if i + 1 == pos.len() && hit {
+        //         draw_x(&mut gizmos, p.pos, 20.0, ORANGE);
+        //     } else {
+        //         draw_square(&mut gizmos, p.pos, 5.0, ORANGE);
+        //     }
+        // }
     }
 
     let mut lattice = vec![]; // generate_square_lattice(Vec2::ZERO, 10000, 200);
@@ -313,17 +312,16 @@ fn update_sim_time(time: Res<Time>, mut config: ResMut<PlanetaryState>) {
 }
 
 fn propagate_system(mut commands: Commands, time: Res<Time>, mut state: ResMut<PlanetaryState>) {
-    while state.system.epoch < state.sim_time {
-        let events = state.system.step();
-        let expiry = time.elapsed() + Duration::from_secs(5);
-        for evt in events.iter() {
-            commands.spawn(make_event_marker(evt.1, expiry));
-        }
+    let e = state.sim_time;
+    let events = state.system.propagate_to(e);
+    let expiry = time.elapsed() + Duration::from_secs(5);
+    for evt in events.iter() {
+        commands.spawn(make_event_marker(evt.1, expiry));
     }
 }
 
 fn log_system_info(state: Res<PlanetaryState>, mut evt: EventWriter<DebugLog>) {
-    let frame = state.system.frame();
+    let frame = state.system.current_frame();
 
     send_log(
         &mut evt,
@@ -347,7 +345,6 @@ fn log_system_info(state: Res<PlanetaryState>, mut evt: EventWriter<DebugLog>) {
         &mut evt,
         &format!("Show primary (b)ody: {}", state.show_primary_body),
     );
-    send_log(&mut evt, &format!("Units: {:#?}", state.system.units));
     send_log(
         &mut evt,
         &format!("Tracked object: {:?}", state.focus_object),
@@ -397,6 +394,8 @@ fn make_event_marker(
         Anchor::TopCenter
     };
 
+    dbg!(event);
+
     (
         EventMarker {
             pos,
@@ -442,44 +441,44 @@ fn keyboard_input(
         }
     }
 
-    let mut process_arrow_key = |key: KeyCode| {
-        let dv = 0.1
-            * match key {
-                KeyCode::ArrowLeft => -Vec2::X,
-                KeyCode::ArrowRight => Vec2::X,
-                KeyCode::ArrowUp => Vec2::Y,
-                KeyCode::ArrowDown => -Vec2::Y,
-                _ => return,
-            };
+    // let mut process_arrow_key = |key: KeyCode| {
+    //     let dv = 0.1
+    //         * match key {
+    //             KeyCode::ArrowLeft => -Vec2::X,
+    //             KeyCode::ArrowRight => Vec2::X,
+    //             KeyCode::ArrowUp => Vec2::Y,
+    //             KeyCode::ArrowDown => -Vec2::Y,
+    //             _ => return,
+    //         };
 
-        let id = config.focus_object;
-        let frame = config.system.frame();
-        let obj = config.system.lookup_mut(id);
-        let pvo = frame.lookup(id);
-        if let Some((obj, (_, mut pv, _))) = obj.zip(pvo) {
-            if let Propagator::Fixed(_, _) = obj.prop {
-                return;
-            }
-            pv.vel += dv;
-            obj.prop = NBodyPropagator::new(obj.prop.epoch(), pv.pos, pv.vel).into();
-        }
-    };
+    //     let id = config.focus_object;
+    //     let frame = config.system.frame(config.system.epoch);
+    //     let obj = config.system.lookup_mut(id);
+    //     let pvo = frame.lookup(id);
+    //     if let Some((obj, (_, mut pv, _))) = obj.zip(pvo) {
+    //         if let Propagator::Fixed(_, _) = obj.prop {
+    //             return;
+    //         }
+    //         pv.vel += dv;
+    //         obj.prop = NBodyPropagator::new(obj.prop.epoch(), pv.pos, pv.vel).into();
+    //     }
+    // };
 
-    if keys.pressed(KeyCode::ArrowLeft) {
-        process_arrow_key(KeyCode::ArrowLeft);
-    }
+    // if keys.pressed(KeyCode::ArrowLeft) {
+    //     process_arrow_key(KeyCode::ArrowLeft);
+    // }
 
-    if keys.pressed(KeyCode::ArrowRight) {
-        process_arrow_key(KeyCode::ArrowRight);
-    }
+    // if keys.pressed(KeyCode::ArrowRight) {
+    //     process_arrow_key(KeyCode::ArrowRight);
+    // }
 
-    if keys.pressed(KeyCode::ArrowUp) {
-        process_arrow_key(KeyCode::ArrowUp);
-    }
+    // if keys.pressed(KeyCode::ArrowUp) {
+    //     process_arrow_key(KeyCode::ArrowUp);
+    // }
 
-    if keys.pressed(KeyCode::ArrowDown) {
-        process_arrow_key(KeyCode::ArrowDown);
-    }
+    // if keys.pressed(KeyCode::ArrowDown) {
+    //     process_arrow_key(KeyCode::ArrowDown);
+    // }
 
     if keys.just_pressed(KeyCode::KeyM) || keys.all_pressed([KeyCode::KeyM, KeyCode::ShiftLeft]) {
         let ObjectId(max) = config.system.max_id().unwrap_or(ObjectId(0));
@@ -551,15 +550,6 @@ fn on_command(
                 return;
             }
         }
-    } else if starts_with("s") {
-        state.paused = true;
-        let e = state.system.epoch + Duration::from_millis(100);
-        state.sim_time = e;
-        let events = state.system.step();
-        let expiry = time.elapsed() + Duration::from_secs(5);
-        for evt in events.iter() {
-            commands.spawn(make_event_marker(evt.1, expiry));
-        }
     } else if starts_with("restore") {
         if let Some(sys) = &state.backup {
             state.system = sys.clone();
@@ -595,7 +585,7 @@ fn update_camera(mut query: Query<&mut Transform, With<Camera>>, state: Res<Plan
         return;
     }
 
-    let frame = state.system.frame();
+    let frame = state.system.current_frame();
 
     if let Some((_, pv, _)) = frame.lookup(state.focus_object) {
         *tf = tf.with_translation(pv.pos.extend(0.0));

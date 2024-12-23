@@ -3,6 +3,8 @@ use crate::orbit::*;
 use bevy::math::Vec2;
 use std::{collections::VecDeque, time::Duration};
 
+pub const NBODY_DT: Duration = Duration::from_millis(10);
+
 pub trait Propagate {
     fn pv(&self) -> PV;
 
@@ -10,16 +12,14 @@ pub trait Propagate {
 
     fn is_ok(&self) -> bool;
 
-    fn next(&self, state: &OrbitalFrame) -> Self;
+    fn next(&self, state: &OrbitalFrame, self_id: ObjectId) -> Self;
 
     fn relative_to(&self) -> Option<ObjectId>;
-
-    fn propagate_to(&mut self, epoch: Duration, state: &OrbitalFrame);
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum Propagator {
-    Fixed(Vec2, Option<ObjectId>),
+    Fixed(Duration, Vec2, Option<ObjectId>),
     NBody(NBodyPropagator),
     Kepler(KeplerPropagator),
 }
@@ -27,53 +27,47 @@ pub enum Propagator {
 #[derive(Debug, Clone, Default)]
 pub struct PropagatorBuffer(pub VecDeque<Propagator>);
 
-// impl PropagatorBuffer {
-//     pub fn pv_at(&self, stamp: Duration, frame: &OrbitalFrame) -> Option<PV> {
-//         if stamp == self.trange()?.1 {
-//             let prop = self.0.back()?;
-//             return frame.global_transform(prop);
-//         }
-//         let i1 = self.0.iter().position(|e| e.epoch() > stamp)?;
-//         let l = self.0.get(i1 - 1)?;
-//         let r = self.0.get(i1)?;
-//         let p1 = system.
-//         let p2 = system.global_transform(r)?;
-//         let s = (stamp - l.epoch()).as_secs_f32() / (r.epoch() - l.epoch()).as_secs_f32();
-//         Some(p1.lerp(&p2, s))
-//     }
+impl PropagatorBuffer {
+    pub fn pv_at(&self, stamp: Duration) -> Option<(PV, Option<ObjectId>)> {
+        if stamp == self.trange()?.1 {
+            let prop = self.0.back()?;
+            return Some((prop.pv(), prop.relative_to()));
+        }
+        let i1 = self.0.iter().position(|e| e.epoch() > stamp)?;
+        let l = self.0.get(i1 - 1)?;
+        let r = self.0.get(i1)?;
+        let p1 = l.pv();
+        let p2 = r.pv();
+        let t1 = l.epoch();
+        let t2 = r.epoch();
+        let s = (stamp - t1).as_secs_f32() / (t2 - t1).as_secs_f32();
+        Some((p1.lerp(&p2, s), l.relative_to()))
+    }
 
-//     pub fn trange(&self) -> Option<(Duration, Duration)> {
-//         let (f, l) = self.0.front().zip(self.0.back())?;
-//         Some((f.epoch(), l.epoch()))
-//     }
+    pub fn trange(&self) -> Option<(Duration, Duration)> {
+        let (f, l) = self.0.front().zip(self.0.back())?;
+        Some((f.epoch(), l.epoch()))
+    }
 
-//     pub fn request_until(&mut self, stamp: Duration) {
-//         todo!()
-//     }
-// }
+    pub fn request_until(&mut self, stamp: Duration) {
+        todo!()
+    }
+}
 
 impl Propagate for Propagator {
     fn is_ok(&self) -> bool {
         match self {
             Propagator::NBody(nb) => !nb.is_nan(),
             Propagator::Kepler(k) => !k.orbit.is_nan(),
-            Propagator::Fixed(_, _) => true,
+            Propagator::Fixed(_, _, _) => true,
         }
     }
 
-    fn propagate_to(&mut self, epoch: Duration, frame: &OrbitalFrame) {
+    fn next(&self, frame: &OrbitalFrame, self_id: ObjectId) -> Self {
         match self {
-            Propagator::NBody(nb) => nb.propagate_to(&frame, epoch),
-            Propagator::Kepler(k) => k.propagate_to(epoch),
-            Propagator::Fixed(_, _) => (),
-        };
-    }
-
-    fn next(&self, frame: &OrbitalFrame) -> Self {
-        match self {
-            Propagator::NBody(nb) => Propagator::NBody(nb.next(frame)),
+            Propagator::NBody(nb) => Propagator::NBody(nb.next(frame, self_id)),
             Propagator::Kepler(k) => Propagator::Kepler(k.next()),
-            Propagator::Fixed(_, _) => *self,
+            Propagator::Fixed(t, p, r) => Propagator::Fixed(*t + Duration::from_secs(1), *p, *r),
         }
     }
 
@@ -81,7 +75,7 @@ impl Propagate for Propagator {
         match self {
             Propagator::NBody(n) => n.epoch(),
             Propagator::Kepler(k) => k.epoch(),
-            Propagator::Fixed(_, o) => Duration::default(),
+            Propagator::Fixed(t, _, _) => *t,
         }
     }
 
@@ -89,7 +83,7 @@ impl Propagate for Propagator {
         match self {
             Propagator::NBody(_) => None,
             Propagator::Kepler(k) => Some(k.primary),
-            Propagator::Fixed(_, o) => *o,
+            Propagator::Fixed(_, _, o) => *o,
         }
     }
 
@@ -97,7 +91,7 @@ impl Propagate for Propagator {
         match self {
             Propagator::NBody(nb) => nb.pv(),
             Propagator::Kepler(k) => k.orbit.pv(),
-            Propagator::Fixed(p, _) => PV::new(*p, Vec2::ZERO),
+            Propagator::Fixed(_, p, _) => PV::new(*p, Vec2::ZERO),
         }
     }
 }
@@ -114,7 +108,7 @@ impl NBodyPropagator {
     pub fn new(epoch: Duration, pos: impl Into<Vec2>, vel: impl Into<Vec2>) -> Self {
         NBodyPropagator {
             epoch,
-            dt: Duration::from_millis(100),
+            dt: NBODY_DT,
             pos: pos.into(),
             vel: vel.into(),
         }
@@ -123,7 +117,7 @@ impl NBodyPropagator {
     pub fn initial(pos: impl Into<Vec2>, vel: impl Into<Vec2>) -> Self {
         NBodyPropagator {
             epoch: Duration::default(),
-            dt: Duration::from_millis(100),
+            dt: NBODY_DT,
             pos: pos.into(),
             vel: vel.into(),
         }
@@ -137,9 +131,9 @@ impl NBodyPropagator {
         self.epoch
     }
 
-    pub fn next(&self, frame: &OrbitalFrame) -> Self {
+    pub fn next(&self, frame: &OrbitalFrame, self_id: ObjectId) -> Self {
         let mut copy = *self;
-        copy.step(frame);
+        copy.step(frame, self_id);
         copy
     }
 
@@ -147,15 +141,14 @@ impl NBodyPropagator {
         self.pos.is_nan() || self.vel.is_nan()
     }
 
-    pub fn step(&mut self, frame: &OrbitalFrame) {
-        let steps = 1; // (delta.as_secs_f32() * self.vel.length() / 3.0).ceil() as u32;
-        let dt = self.dt.as_secs_f32() / steps as f32;
+    fn step(&mut self, frame: &OrbitalFrame, self_id: ObjectId) {
+        let dt = self.dt.as_secs_f32() as f32;
 
         let others: Vec<_> = frame
             .objects
             .iter()
-            .filter_map(|(_, c, b)| {
-                if c.pos.distance(self.pos) == 0.0 {
+            .filter_map(|(id, c, b)| {
+                if *id == self_id {
                     return None;
                 }
                 Some((c, (*b)?))
@@ -169,43 +162,41 @@ impl NBodyPropagator {
                 .sum()
         };
 
-        (0..steps).for_each(|_| {
-            #[cfg(any())]
-            {
-                // euler integration
-                let a = compute_a_at(self.pos);
-                self.vel += a * dt;
-                self.pos += self.vel * dt;
-            }
+        #[cfg(any())]
+        {
+            // euler integration
+            let a = compute_a_at(self.pos);
+            self.vel += a * dt;
+            self.pos += self.vel * dt;
+        }
 
-            #[cfg(any())]
-            {
-                // velocity verlet integration
-                let a = compute_a_at(self.pos);
-                self.pos += self.vel * dt + 0.5 * a * dt * dt;
-                let a2 = compute_a_at(self.pos);
-                self.vel += 0.5 * (a + a2) * dt;
-            }
+        #[cfg(any())]
+        {
+            // velocity verlet integration
+            let a = compute_a_at(self.pos);
+            self.pos += self.vel * dt + 0.5 * a * dt * dt;
+            let a2 = compute_a_at(self.pos);
+            self.vel += 0.5 * (a + a2) * dt;
+        }
 
-            #[cfg(all())]
-            {
-                // synchronized leapfrog integration
-                let a = compute_a_at(self.pos);
-                let v_half = self.vel + a * 0.5 * dt as f32;
-                self.pos += v_half * dt as f32;
-                let a2 = compute_a_at(self.pos);
-                self.vel = v_half + a2 * 0.5 * dt as f32;
-            }
-        });
+        #[cfg(all())]
+        {
+            // synchronized leapfrog integration
+            let a = compute_a_at(self.pos);
+            let v_half = self.vel + a * 0.5 * dt as f32;
+            self.pos += v_half * dt as f32;
+            let a2 = compute_a_at(self.pos);
+            self.vel = v_half + a2 * 0.5 * dt as f32;
+        }
 
         self.epoch += self.dt;
     }
 
-    pub fn propagate_to(&mut self, frame: &OrbitalFrame, epoch: Duration) {
-        while self.epoch < epoch {
-            self.step(frame);
-        }
-    }
+    // pub fn propagate_to(&mut self, frame: &OrbitalFrame, epoch: Duration) {
+    //     while self.epoch < epoch {
+    //         self.step(frame);
+    //     }
+    // }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -237,7 +228,7 @@ impl KeplerPropagator {
         }
     }
 
-    pub fn propagate_to(&mut self, epoch: Duration) {
+    fn shimmy_to(&mut self, epoch: Duration) {
         let delta = epoch - self.epoch;
         let n = self.orbit.mean_motion();
         let m = self.orbit.mean_anomaly();
@@ -248,7 +239,7 @@ impl KeplerPropagator {
 
     pub fn next(&self) -> Self {
         let mut copy = *self;
-        copy.propagate_to(copy.epoch + Duration::from_millis(50));
+        copy.shimmy_to(copy.epoch + Duration::from_millis(50));
         copy
     }
 }
@@ -267,6 +258,6 @@ impl From<NBodyPropagator> for Propagator {
 
 impl From<Vec2> for Propagator {
     fn from(x: Vec2) -> Propagator {
-        Propagator::Fixed(x, None)
+        Propagator::Fixed(Duration::default(), x, None)
     }
 }

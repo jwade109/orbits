@@ -23,8 +23,8 @@ pub struct ObjectId(pub i64);
 #[derive(Debug, Clone)]
 pub struct Object {
     pub id: ObjectId,
-    pub primary: Option<ObjectId>,
-    pub prop: Propagator,
+    // pub primary: Option<ObjectId>,
+    // pub prop: Propagator,
     pub body: Option<Body>,
     pub history: PropagatorBuffer,
 }
@@ -33,22 +33,19 @@ impl Object {
     pub fn new(id: ObjectId, prop: impl Into<Propagator>, body: Option<Body>) -> Self {
         Object {
             id,
-            primary: None,
-            prop: prop.into(),
+            // primary: None,
+            // prop: prop.into(),
             body,
-            history: PropagatorBuffer::default(),
+            history: PropagatorBuffer(VecDeque::from([prop.into()])),
         }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct OrbitalSystem {
-    pub iter: usize,
     pub epoch: Duration,
     pub objects: Vec<Object>,
     next_id: i64,
-    pub stepsize: Duration,
-    pub units: CanonicalUnits,
 }
 
 pub struct OrbitalFrame {
@@ -118,12 +115,9 @@ impl OrbitalFrame {
 impl Default for OrbitalSystem {
     fn default() -> Self {
         OrbitalSystem {
-            iter: 0,
             epoch: Duration::default(),
             objects: Vec::default(),
             next_id: 0,
-            stepsize: Duration::from_millis(100),
-            units: earth_moon_canonical_units(),
         }
     }
 }
@@ -173,13 +167,17 @@ impl OrbitalSystem {
         id
     }
 
-    pub fn frame(&self) -> OrbitalFrame {
+    pub fn current_frame(&self) -> OrbitalFrame {
+        self.frame(self.epoch)
+    }
+
+    pub fn frame(&self, stamp: Duration) -> OrbitalFrame {
         OrbitalFrame {
             epoch: self.epoch,
             objects: self
                 .objects
                 .iter()
-                .filter_map(|o| Some((o.id, self.global_transform(&o.prop)?, o.body)))
+                .filter_map(|o| Some((o.id, self.global_transform_at(o, stamp)?, o.body)))
                 .collect(),
         }
     }
@@ -200,33 +198,40 @@ impl OrbitalSystem {
         self.objects.iter().find(|m| m.id == o).map(|m| m.clone())
     }
 
+    pub fn lookup_ref(&self, o: ObjectId) -> Option<&Object> {
+        self.objects.iter().find(|m| m.id == o)
+    }
+
     pub fn lookup_mut(&mut self, o: ObjectId) -> Option<&mut Object> {
         self.objects.iter_mut().find(|m| m.id == o)
     }
 
-    fn global_transform(&self, prop: &impl Propagate) -> Option<PV> {
-        if let Some(rel) = prop.relative_to() {
-            let obj = self.lookup(rel)?;
-            let rel = self.global_transform(&obj.prop)?;
-            Some(prop.pv() + rel)
+    fn global_transform_at(&self, object: &Object, stamp: Duration) -> Option<PV> {
+        let (pv, relopt) = object.history.pv_at(stamp)?;
+        if let Some(rel) = relopt {
+            let obj = self.lookup_ref(rel)?;
+            let rel = self.global_transform_at(obj, stamp)?;
+            Some(pv + rel)
         } else {
-            Some(prop.pv())
+            Some(pv)
         }
     }
 
-    pub fn step(&mut self) -> Vec<(Object, OrbitalEvent)> {
-        self.iter += 1;
-        self.propagate_to(self.epoch + self.stepsize)
-    }
-
-    fn propagate_to(&mut self, epoch: Duration) -> Vec<(Object, OrbitalEvent)> {
-        let copy = self.frame();
+    pub fn propagate_to(&mut self, epoch: Duration) -> Vec<(Object, OrbitalEvent)> {
+        let copy = self.frame(self.epoch);
         for m in self.objects.iter_mut() {
-            let old = m.prop;
-            m.prop.propagate_to(epoch, &copy);
-            m.history.0.push_back(old);
-            if m.history.0.len() > 20 {
-                m.history.0.pop_front();
+            while m.history.0.back().unwrap().epoch() < epoch {
+                let old_prop = m.history.0.back().expect("Empty history").clone();
+                let new_prop = old_prop.next(&copy, m.id);
+                if !new_prop.is_ok() {
+                    dbg!(old_prop);
+                    dbg!(new_prop);
+                    panic!();
+                }
+                m.history.0.push_back(new_prop);
+                if m.history.0.len() > 20 {
+                    m.history.0.pop_front();
+                }
             }
         }
 
@@ -237,8 +242,10 @@ impl OrbitalSystem {
         let bodies = copy.bodies();
 
         let remove_with_reason = |o: &Object| -> Option<OrbitalEvent> {
-            if !o.prop.is_ok() {
-                return Some(OrbitalEvent::NumericalError(o.id));
+            for prop in o.history.0.iter() {
+                if !prop.is_ok() {
+                    return Some(OrbitalEvent::NumericalError(o.id));
+                }
             }
 
             let gp = match copy.objects.iter().find(|(oid, _, _)| *oid == o.id) {
