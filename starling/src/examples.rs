@@ -123,11 +123,8 @@ pub fn n_body_stability() -> OrbitalSystem {
 pub fn n_body_accuracy() {
     let mut system = n_body_stability();
 
-    let mut events = vec![];
     // roughly one orbital period for test bodies
-    while system.epoch < Duration::from_secs(425) {
-        events.extend(system.step());
-    }
+    let events = system.propagate_to(Duration::from_secs(425));
 
     assert_eq!(events.len(), 0);
 

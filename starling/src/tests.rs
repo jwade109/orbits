@@ -1,8 +1,8 @@
 #![allow(unused)]
 
 use crate::core::*;
-use crate::orbit::*;
 use crate::examples::*;
+use crate::orbit::*;
 use crate::propagator::*;
 use approx::assert_relative_eq;
 use bevy::math::Vec2;
@@ -71,11 +71,11 @@ fn propagation_equality() {
     let mut s2_events = vec![];
 
     for _ in 0..1000 {
-        s1_events.extend(s1.step());
+        s1_events.extend(s1.propagate_to(Duration::from_secs(100)));
     }
 
     for _ in 0..1000 {
-        s2_events.extend(s2.step());
+        s2_events.extend(s2.propagate_to(Duration::from_secs(100)));
     }
 
     assert_eq!(s1.epoch, Duration::from_secs(100));
