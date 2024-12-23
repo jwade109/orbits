@@ -142,7 +142,7 @@ impl NBodyPropagator {
     }
 
     fn step(&mut self, frame: &OrbitalFrame, self_id: ObjectId) {
-        let dt = self.dt.as_secs_f32() as f32;
+        let dt = 1.0 / self.vel.length().clamp(5.0, 300.0);
 
         let others: Vec<_> = frame
             .objects
@@ -189,7 +189,7 @@ impl NBodyPropagator {
             self.vel = v_half + a2 * 0.5 * dt as f32;
         }
 
-        self.epoch += self.dt;
+        self.epoch += Duration::from_secs_f32(dt);
     }
 
     // pub fn propagate_to(&mut self, frame: &OrbitalFrame, epoch: Duration) {

@@ -199,14 +199,19 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
     {
         for obj in state.system.objects.iter() {
             let dy = 3.0;
+            let y = (obj.id.0 - state.focus_object.0) as f32 * dy;
             for h in obj.history.0.iter() {
                 let dt = h.epoch().as_secs_f32() - state.sim_time.as_secs_f32();
-                let p = Vec2::new(dt * 100.0, obj.id.0 as f32 * dy);
-                gizmos.line_2d(p, p + Vec2::Y * dy * 0.6, RED);
+                let p = Vec2::new(dt * 100.0, y);
+                let color = match obj.id == state.focus_object {
+                    true => WHITE,
+                    false => RED,
+                };
+                gizmos.line_2d(p, p + Vec2::Y * dy * 0.6, color);
             }
             if let Some(_) = frame.lookup(obj.id) {
                 let dt = frame.epoch.as_secs_f32() - state.sim_time.as_secs_f32();
-                let p = Vec2::new(dt * 100.0, obj.id.0 as f32 * dy);
+                let p = Vec2::new(dt * 100.0, y);
                 gizmos.line_2d(p, p + Vec2::Y * dy * 0.7, ORANGE);
             }
         }

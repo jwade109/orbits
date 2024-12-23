@@ -223,11 +223,6 @@ impl OrbitalSystem {
             while m.history.0.back().unwrap().epoch() < epoch {
                 let old_prop = m.history.0.back().expect("Empty history").clone();
                 let new_prop = old_prop.next(&copy, m.id);
-                if !new_prop.is_ok() {
-                    dbg!(old_prop);
-                    dbg!(new_prop);
-                    panic!();
-                }
                 m.history.0.push_back(new_prop);
                 if m.history.0.len() > 20 {
                     m.history.0.pop_front();
