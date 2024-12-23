@@ -9,6 +9,3 @@ bevy = "0.15.0"
 bevy_ecs = "0.15.0"
 rand = "0.8.5"
 uom = "0.36.0"
-
-[unstable]
-unstable-options = true

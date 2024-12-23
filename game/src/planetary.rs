@@ -183,18 +183,7 @@ fn draw_orbital_frame(mut gizmos: &mut Gizmos, frame: &OrbitalFrame) {
     }
 }
 
-fn draw_focus_orbit(gizmos: &mut Gizmos, frame: &OrbitalFrame, id: ObjectId) -> Option<()> {
-    let (_, pv, _) = frame.lookup(id)?;
-    let primary = frame.primary_body_at(pv.pos, Some(id))?;
-    let (_, pvp, bp) = frame.lookup(primary)?;
-    let rel = pv - pvp;
-    let orbit = Orbit::from_pv(rel.pos, rel.vel, bp?);
-    draw_orbit(pvp.pos, orbit, gizmos, 0.1, WHITE);
-    Some(())
-}
-
 fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
-
     gizmos.grid_2d(
         Isometry2d::default(),
         (100, 100).into(),
@@ -207,9 +196,7 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
 
     let frame = state.system.current_frame();
 
-    draw_focus_orbit(&mut gizmos, &frame, state.focus_object);
-
-    if false {
+    {
         for obj in state.system.objects.iter() {
             let dy = 3.0;
             let y = (obj.id.0 - state.focus_object.0) as f32 * dy;
@@ -373,9 +360,7 @@ fn log_system_info(state: Res<PlanetaryState>, mut evt: EventWriter<DebugLog>) {
     );
 
     if let Some(obj) = frame.lookup(state.focus_object) {
-        send_log(&mut evt, &format!("PV: {:#?}\nBody: {:#?}", obj.1, obj.2));
-        let primary = frame.primary_body_at(obj.1.pos, Some(obj.0));
-        send_log(&mut evt, &format!("Primary: {:?}", primary));
+        send_log(&mut evt, &format!("{:#?}", obj));
     }
 }
 
@@ -598,16 +583,16 @@ fn handle_zoom(state: Res<PlanetaryState>, mut tf: Query<&mut Transform, With<Ca
 }
 
 fn update_camera(mut query: Query<&mut Transform, With<Camera>>, state: Res<PlanetaryState>) {
-    // let mut tf = query.single_mut();
+    let mut tf = query.single_mut();
 
-    // if !state.follow_object {
-    //     *tf = tf.with_translation(Vec3::ZERO);
-    //     return;
-    // }
+    if !state.follow_object {
+        *tf = tf.with_translation(Vec3::ZERO);
+        return;
+    }
 
-    // let frame = state.system.current_frame();
+    let frame = state.system.current_frame();
 
-    // if let Some((_, pv, _)) = frame.lookup(state.focus_object) {
-    //     *tf = tf.with_translation(pv.pos.extend(0.0));
-    // }
+    if let Some((_, pv, _)) = frame.lookup(state.focus_object) {
+        *tf = tf.with_translation(pv.pos.extend(0.0));
+    }
 }
