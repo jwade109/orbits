@@ -17,7 +17,7 @@ pub struct PlanetaryPlugin;
 impl Plugin for PlanetaryPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, init_system);
-        app.add_systems(Update, (draw_orbital_system, keyboard_input, scroll_events));
+        app.add_systems(Update, (draw_orbital_system, keyboard_input, handle_zoom));
         app.add_systems(
             FixedUpdate,
             (propagate_system, update_sim_time, drop_expired_entities),
@@ -105,10 +105,7 @@ fn draw_orbit(origin: Vec2, orb: Orbit, gizmos: &mut Gizmos, alpha: f32, base_co
     let iso = Isometry2d::new(center, orb.arg_periapsis.into());
     gizmos
         .ellipse_2d(iso, Vec2::new(orb.semi_major_axis, b), color)
-        .resolution(orb.semi_major_axis.clamp(3.0, 40.0) as u32);
-
-    // let line_start = origin + orb.pos().normalize() * (orb.body.radius + 5.0);
-    // gizmos.line_2d(line_start, origin + orb.pos(), color);
+        .resolution(orb.semi_major_axis.clamp(3.0, 200.0) as u32);
 
     gizmos.circle_2d(
         Isometry2d::from_translation(origin + orb.periapsis()),
@@ -138,6 +135,7 @@ struct PlanetaryState {
     backup: Option<OrbitalSystem>,
     focus_object: ObjectId,
     follow_object: bool,
+    target_scale: f32,
 }
 
 impl Default for PlanetaryState {
@@ -154,6 +152,7 @@ impl Default for PlanetaryState {
             focus_object: ObjectId(0),
             backup: None,
             follow_object: false,
+            target_scale: 4.0,
         }
     }
 }
@@ -175,6 +174,10 @@ fn draw_square(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
         Vec2::new(size, size),
         color,
     );
+}
+
+fn draw_circle(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
+    gizmos.circle_2d(Isometry2d::from_translation(p), size, color);
 }
 
 fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
@@ -453,6 +456,17 @@ fn keyboard_input(
             KeyCode::KeyF => {
                 config.follow_object = !config.follow_object;
             }
+            KeyCode::Equal => {
+                config.target_scale /= 1.5;
+            }
+            KeyCode::Minus => {
+                config.target_scale *= 1.5;
+            }
+            KeyCode::KeyS => {
+                config.paused = true;
+                config.system.step();
+                config.sim_time = config.system.epoch;
+            }
             _ => (),
         }
     }
@@ -594,26 +608,10 @@ fn process_commands(
     }
 }
 
-fn scroll_events(
-    mut evr_scroll: EventReader<MouseWheel>,
-    mut transforms: Query<&mut Transform, With<Camera>>,
-) {
-    use bevy::input::mouse::MouseScrollUnit;
-
-    let mut transform = transforms.single_mut();
-
-    for ev in evr_scroll.read() {
-        match ev.unit {
-            MouseScrollUnit::Line => {
-                if ev.y > 0.0 {
-                    transform.scale /= 1.1;
-                } else {
-                    transform.scale *= 1.1;
-                }
-            }
-            _ => (),
-        }
-    }
+fn handle_zoom(state: Res<PlanetaryState>, mut tf: Query<&mut Transform, With<Camera>>) {
+    let mut transform = tf.single_mut();
+    let ds = (state.target_scale - transform.scale) * 0.2;
+    transform.scale += ds;
 }
 
 fn update_camera(mut query: Query<&mut Transform, With<Camera>>, state: Res<PlanetaryState>) {
