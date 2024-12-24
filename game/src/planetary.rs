@@ -109,14 +109,14 @@ fn draw_orbit(origin: Vec2, orb: Orbit, gizmos: &mut Gizmos, alpha: f32, base_co
 
     gizmos.circle_2d(
         Isometry2d::from_translation(origin + orb.periapsis()),
-        2.0,
+        4.0,
         Srgba { alpha, ..RED },
     );
 
     if orb.eccentricity < 1.0 {
         gizmos.circle_2d(
             Isometry2d::from_translation(origin + orb.apoapsis()),
-            2.0,
+            4.0,
             Srgba { alpha, ..WHITE },
         );
     }
@@ -182,17 +182,17 @@ fn draw_circle(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
 
 fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
     {
-        let b = state.system.barycenter();
+        let (b, _) = state.system.barycenter();
         gizmos.circle_2d(Isometry2d::from_translation(b), 6.0, PURPLE);
         draw_x(&mut gizmos, b, 8.0, PURPLE);
     }
 
     {
-        let (pos, abridged) = get_future_positions(&state.system, state.focus_object, 2000);
-        if abridged && !pos.is_empty() {
-            draw_x(&mut gizmos, *pos.last().unwrap(), 16.0, ORANGE);
-        }
-        gizmos.linestrip_2d(pos, ORANGE);
+        // let (pos, abridged) = get_future_positions(&state.system, state.focus_object, 2000);
+        // if abridged && !pos.is_empty() {
+        //     draw_x(&mut gizmos, *pos.last().unwrap(), 16.0, ORANGE);
+        // }
+        // gizmos.linestrip_2d(pos, ORANGE);
     }
 
     if let Some(p) = state.system.transform_from_id(Some(state.focus_object)) {
@@ -230,19 +230,22 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
             (Propagator::NBody(nb), Some(pv)) => {
                 draw_square(&mut gizmos, nb.pos, 9.0, WHITE);
                 if state.show_orbits || state.focus_object == object.id {
-                    let parent_object = state.system.primary_body_at(pv.pos, Some(object.id));
-                    let parent_pv: Option<PV> = parent_object
-                        .clone()
-                        .map(|o| state.system.global_transform(&o.prop))
-                        .flatten();
-                    let parent_body = parent_object.map(|o| o.body).flatten();
+                    let (_, mass) = state.system.barycenter();
+                    let orbit = Orbit::from_pv(pv.pos, pv.vel, mass);
+                    draw_orbit(Vec2::ZERO, orbit, &mut gizmos, 0.2, GRAY);
+                    // let parent_object = state.system.primary_body_at(pv.pos, Some(object.id));
+                    // let parent_pv: Option<PV> = parent_object
+                    //     .clone()
+                    //     .map(|o| state.system.global_transform(&o.prop))
+                    //     .flatten();
+                    // let parent_body = parent_object.map(|o| o.body).flatten();
 
-                    if let (Some(parent_pv), Some(parent_body)) = (parent_pv, parent_body) {
-                        let rpos: Vec2 = pv.pos - parent_pv.pos;
-                        let rvel = pv.vel - parent_pv.vel;
-                        let orb: Orbit = Orbit::from_pv(rpos, rvel, parent_body);
-                        draw_orbit(parent_pv.pos, orb, &mut gizmos, 0.2, GRAY);
-                    }
+                    // if let (Some(parent_pv), Some(parent_body)) = (parent_pv, parent_body) {
+                    //     let rpos: Vec2 = pv.pos - parent_pv.pos;
+                    //     let rvel = pv.vel - parent_pv.vel;
+                    //     let orb: Orbit = Orbit::from_pv(rpos, rvel, parent_body.mass);
+                    //     draw_orbit(parent_pv.pos, orb, &mut gizmos, 0.2, GRAY);
+                    // }
                 }
             }
             (Propagator::Kepler(k), Some(pv)) => {
@@ -472,7 +475,7 @@ fn keyboard_input(
     }
 
     let mut process_arrow_key = |key: KeyCode| {
-        let dv = 0.1
+        let dv = 2.0
             * match key {
                 KeyCode::ArrowLeft => -Vec2::X,
                 KeyCode::ArrowRight => Vec2::X,

@@ -1,4 +1,5 @@
 use crate::canonical::*;
+use crate::control::*;
 use crate::propagator::*;
 use bevy::math::Vec2;
 use rand::Rng;
@@ -13,6 +14,10 @@ pub fn randvec(min: f32, max: f32) -> Vec2 {
     let rot = Vec2::from_angle(rand(0.0, std::f32::consts::PI * 2.0));
     let mag = rand(min, max);
     rot.rotate(Vec2::new(mag, 0.0))
+}
+
+pub fn rotate(v: Vec2, angle: f32) -> Vec2 {
+    Vec2::from_angle(angle).rotate(v)
 }
 
 pub fn anomaly_e2m(ecc: f32, eccentric_anomaly: f32) -> f32 {
@@ -70,10 +75,6 @@ impl Body {
     pub fn new(radius: f32, mass: f32, soi: f32) -> Self {
         Body { radius, mass, soi }
     }
-
-    pub fn mu(&self) -> f32 {
-        self.mass * GRAVITATIONAL_CONSTANT
-    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -83,7 +84,7 @@ pub struct Orbit {
     pub arg_periapsis: f32,
     pub true_anomaly: f32,
     pub retrograde: bool,
-    pub body: Body,
+    pub primary_mass: f32,
 }
 
 impl Orbit {
@@ -94,13 +95,14 @@ impl Orbit {
             || self.true_anomaly.is_nan()
     }
 
-    pub fn from_pv(r: impl Into<Vec2>, v: impl Into<Vec2>, body: Body) -> Self {
+    pub fn from_pv(r: impl Into<Vec2>, v: impl Into<Vec2>, mass: f32) -> Self {
+        let mu = mass * GRAVITATIONAL_CONSTANT;
         let r3 = r.into().extend(0.0);
         let v3 = v.into().extend(0.0);
         let h = r3.cross(v3);
-        let e = v3.cross(h) / body.mu() - r3 / r3.length();
+        let e = v3.cross(h) / mu - r3 / r3.length();
         let arg_periapsis: f32 = f32::atan2(e.y, e.x);
-        let semi_major_axis: f32 = h.length_squared() / (body.mu() * (1.0 - e.length_squared()));
+        let semi_major_axis: f32 = h.length_squared() / (mu * (1.0 - e.length_squared()));
         let mut true_anomaly = f32::acos(e.dot(r3) / (e.length() * r3.length()));
         if r3.dot(v3) < 0.0 {
             true_anomaly = 2.0 * std::f32::consts::PI - true_anomaly;
@@ -112,18 +114,18 @@ impl Orbit {
             arg_periapsis,
             true_anomaly,
             retrograde: h.z < 0.0,
-            body,
+            primary_mass: mass,
         }
     }
 
-    pub fn circular(radius: f32, ta: f32, body: Body) -> Self {
+    pub fn circular(radius: f32, ta: f32, mass: f32) -> Self {
         Orbit {
             eccentricity: 0.0,
             semi_major_axis: radius,
             arg_periapsis: 0.0,
             true_anomaly: ta,
             retrograde: false,
-            body,
+            primary_mass: mass,
         }
     }
 
@@ -171,7 +173,7 @@ impl Orbit {
     }
 
     pub fn angular_momentum(&self) -> f32 {
-        (self.body.mu() * self.semi_latus_rectum()).sqrt()
+        (self.mu() * self.semi_latus_rectum()).sqrt()
     }
 
     pub fn radius_at(&self, true_anomaly: f32) -> f32 {
@@ -180,8 +182,7 @@ impl Orbit {
     }
 
     pub fn period(&self) -> Duration {
-        let t =
-            2.0 * std::f32::consts::PI * (self.semi_major_axis.powi(3) / (self.body.mu())).sqrt();
+        let t = 2.0 * std::f32::consts::PI * (self.semi_major_axis.powi(3) / (self.mu())).sqrt();
         Duration::from_secs_f32(t)
     }
 
@@ -203,7 +204,7 @@ impl Orbit {
 
     pub fn velocity_at(&self, true_anomaly: f32) -> Vec2 {
         let r = self.radius_at(true_anomaly);
-        let v = (self.body.mu() * (2.0 / r - 1.0 / self.semi_major_axis)).sqrt();
+        let v = (self.mu() * (2.0 / r - 1.0 / self.semi_major_axis)).sqrt();
         let h = self.angular_momentum();
         let cosfpa = h / (r * v);
         let sinfpa = cosfpa * self.eccentricity * true_anomaly.sin()
@@ -222,11 +223,15 @@ impl Orbit {
     }
 
     pub fn mean_motion(&self) -> f32 {
-        (self.body.mu() / self.semi_major_axis.abs().powi(3)).sqrt()
+        (self.mu() / self.semi_major_axis.abs().powi(3)).sqrt()
     }
 
     pub fn mean_anomaly(&self) -> f32 {
         anomaly_t2m(self.eccentricity, self.true_anomaly)
+    }
+
+    pub fn mu(&self) -> f32 {
+        GRAVITATIONAL_CONSTANT * self.primary_mass
     }
 }
 
@@ -375,20 +380,13 @@ impl OrbitalSystem {
         }
     }
 
-    pub fn step_until(&mut self, epoch: Duration) -> Vec<(Object, OrbitalEvent)> {
-        let mut ret = vec![];
-        while self.epoch < epoch {
-            let events = self.step();
-            ret.extend(events);
-        }
-        ret
-    }
-
     pub fn step(&mut self) -> Vec<(Object, OrbitalEvent)> {
         self.iter += 1;
         let old = self.clone();
+        let c = Controller { id: ObjectId(1) };
         for m in self.objects.iter_mut() {
-            m.prop.step(self.stepsize, &old);
+            let forcing = c.control(&old, m).unwrap_or(Vec2::ZERO);
+            m.prop.step(self.stepsize, forcing, &old);
         }
 
         self.epoch += self.stepsize;
@@ -464,7 +462,7 @@ impl OrbitalSystem {
                 if r < b.radius {
                     return 0.0;
                 }
-                -b.mu() / r
+                -(b.mass * GRAVITATIONAL_CONSTANT) / r
             })
             .sum()
     }
@@ -491,10 +489,13 @@ impl OrbitalSystem {
         ret.first().map(|(o, _)| o.clone())
     }
 
-    pub fn barycenter(&self) -> Vec2 {
+    pub fn barycenter(&self) -> (Vec2, f32) {
         let bodies = self.bodies();
         let total_mass: f32 = bodies.iter().map(|(_, _, b)| b.mass).sum();
-        bodies.iter().map(|(_, p, b)| p * b.mass).sum::<Vec2>() / total_mass
+        (
+            bodies.iter().map(|(_, p, b)| p * b.mass).sum::<Vec2>() / total_mass,
+            total_mass,
+        )
     }
 
     pub fn reparent_patched_conics(&mut self) {
@@ -513,7 +514,7 @@ impl OrbitalSystem {
                         // TODO math operators for PV?
                         let ds = child_pv.pos - primary_pv.pos;
                         let dv = child_pv.vel - primary_pv.vel;
-                        let orbit = Orbit::from_pv(ds, dv, primary.body?);
+                        let orbit = Orbit::from_pv(ds, dv, primary.body?.mass);
                         let mut new_prop = *k;
                         new_prop.orbit = orbit;
                         new_prop.primary = primary.id;

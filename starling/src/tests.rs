@@ -18,8 +18,8 @@ const TEST_VELOCITY: Vec2 = Vec2::new(-200.0, 0.0);
 
 #[test]
 fn orbit_construction() {
-    let o1 = Orbit::from_pv(TEST_POSITION, TEST_VELOCITY, TEST_BODY);
-    let o2 = Orbit::from_pv(TEST_POSITION, -TEST_VELOCITY, TEST_BODY);
+    let o1 = Orbit::from_pv(TEST_POSITION, TEST_VELOCITY, TEST_BODY.mass);
+    let o2 = Orbit::from_pv(TEST_POSITION, -TEST_VELOCITY, TEST_BODY.mass);
 
     let true_h = TEST_POSITION.extend(0.0).cross(TEST_VELOCITY.extend(0.0)).z;
 
@@ -46,13 +46,16 @@ pub fn test_scenario_one() -> OrbitalSystem {
     let rid = system.add_object(Vec2::ZERO, Some(TEST_BODY));
 
     system.add_object(
-        KeplerPropagator::new(Orbit::from_pv(TEST_POSITION, TEST_VELOCITY, TEST_BODY), rid),
+        KeplerPropagator::new(
+            Orbit::from_pv(TEST_POSITION, TEST_VELOCITY, TEST_BODY.mass),
+            rid,
+        ),
         None,
     );
 
     system.add_object(
         KeplerPropagator::new(
-            Orbit::from_pv(TEST_POSITION, -TEST_VELOCITY, TEST_BODY),
+            Orbit::from_pv(TEST_POSITION, -TEST_VELOCITY, TEST_BODY.mass),
             rid,
         ),
         None,
