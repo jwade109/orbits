@@ -16,7 +16,7 @@ impl Controller {
 
         let (_, mass) = system.barycenter();
 
-        let pv = system.global_transform(&object.prop)?;
+        let pv = system.global_transform(&object.prop, system.epoch)?;
         let orbit = Orbit::from_pv(pv.pos, pv.vel, mass);
 
         dbg!(orbit);

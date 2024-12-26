@@ -52,7 +52,10 @@ fn draw_event_markers(
     state: Res<PlanetaryState>,
 ) {
     for (event, mut tf) in query.iter_mut() {
-        if let Some(pv) = state.system.transform_from_id(event.relative_to) {
+        if let Some(pv) = state
+            .system
+            .transform_from_id(event.relative_to, state.system.epoch)
+        {
             let p = pv.pos + event.pos;
             tf.translation = (p + event.offset).extend(0.0);
             draw_square(&mut gizmos, p, 20.0, WHITE);
@@ -181,21 +184,18 @@ fn draw_circle(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
 }
 
 fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
+    let stamp = state.system.epoch;
+
     {
         let (b, _) = state.system.barycenter();
         gizmos.circle_2d(Isometry2d::from_translation(b), 6.0, PURPLE);
         draw_x(&mut gizmos, b, 8.0, PURPLE);
     }
 
+    if let Some(p) = state
+        .system
+        .transform_from_id(Some(state.focus_object), state.system.epoch)
     {
-        // let (pos, abridged) = get_future_positions(&state.system, state.focus_object, 2000);
-        // if abridged && !pos.is_empty() {
-        //     draw_x(&mut gizmos, *pos.last().unwrap(), 16.0, ORANGE);
-        // }
-        // gizmos.linestrip_2d(pos, ORANGE);
-    }
-
-    if let Some(p) = state.system.transform_from_id(Some(state.focus_object)) {
         let s = 400.0;
         let color = Srgba {
             alpha: 0.02,
@@ -208,8 +208,8 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
     }
 
     for object in state.system.objects.iter() {
-        if let Some(body) = object.body {
-            let iso = Isometry2d::from_translation(object.prop.pv().pos);
+        if let Some((body, pv)) = object.body.zip(object.prop.pv_at(stamp)) {
+            let iso = Isometry2d::from_translation(pv.pos);
             gizmos.circle_2d(iso, body.radius, WHITE);
             gizmos.circle_2d(
                 iso,
@@ -223,7 +223,10 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
     }
 
     for object in state.system.objects.iter() {
-        match (&object.prop, state.system.global_transform(&object.prop)) {
+        match (
+            &object.prop,
+            state.system.global_transform(&object.prop, stamp),
+        ) {
             (Propagator::Fixed(_, _), Some(pv)) => {
                 draw_x(&mut gizmos, pv.pos, 14.0, RED);
             }
@@ -232,7 +235,8 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
                     let color: Srgba = ORANGE;
                     draw_square(&mut gizmos, pv.pos, 9.0, color);
                     if state.show_orbits || state.focus_object == object.id {
-                        if let Some(parent_pv) = state.system.global_transform(&parent.prop) {
+                        if let Some(parent_pv) = state.system.global_transform(&parent.prop, stamp)
+                        {
                             draw_orbit(parent_pv.pos, k.orbit, &mut gizmos, 0.2, GRAY);
                         }
                     }
@@ -246,7 +250,7 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
 
     for obj in state.system.objects.iter() {
         if let Some(body) = obj.body {
-            if let Some(center) = state.system.global_transform(&obj.prop) {
+            if let Some(center) = state.system.global_transform(&obj.prop, stamp) {
                 let minilat =
                     generate_circular_log_lattice(center.pos, body.radius + 5.0, body.soi * 2.0);
                 lattice.extend(minilat);
@@ -292,7 +296,7 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
         for (prim, p) in primary.zip(&lattice) {
             if let (Some(pr), Some(d)) = (
                 prim.clone(),
-                prim.map(|o| state.system.global_transform(&o.prop))
+                prim.map(|o| state.system.global_transform(&o.prop, stamp))
                     .flatten(),
             ) {
                 let r = 0.5 * (d.pos.x / 1000.0).cos() + 0.5;
@@ -568,7 +572,7 @@ fn update_camera(mut query: Query<&mut Transform, With<Camera>>, state: Res<Plan
     if let Some(p) = state
         .system
         .lookup(state.focus_object)
-        .map(|o| state.system.global_transform(&o.prop))
+        .map(|o| state.system.global_transform(&o.prop, state.system.epoch))
         .flatten()
     {
         *tf = tf.with_translation(p.pos.extend(0.0));

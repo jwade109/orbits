@@ -1,5 +1,4 @@
 use crate::canonical::*;
-use crate::control::*;
 use crate::propagator::*;
 use bevy::math::Vec2;
 use rand::Rng;
@@ -186,10 +185,26 @@ impl Orbit {
         Duration::from_secs_f32(t)
     }
 
-    pub fn pv(&self) -> PV {
+    pub fn ta_at_time(&self, mut stamp: Duration) -> f32 {
+        let p = self.period();
+        while stamp > p {
+            stamp -= p;
+        }
+        let n = self.mean_motion();
+        let m = self.mean_anomaly();
+        let m2 = m + stamp.as_secs_f32() * n;
+        anomaly_m2t(self.eccentricity, m2).unwrap_or(f32::NAN)
+    }
+
+    pub fn pv_at_time(&self, stamp: Duration) -> PV {
+        let ta = self.ta_at_time(stamp);
+        self.pv_at(ta)
+    }
+
+    pub fn pv_at(&self, true_anomaly: f32) -> PV {
         PV::new(
-            self.position_at(self.true_anomaly),
-            self.velocity_at(self.true_anomaly),
+            self.position_at(true_anomaly),
+            self.velocity_at(true_anomaly),
         )
     }
 
@@ -253,12 +268,7 @@ pub struct Object {
 }
 
 impl Object {
-    pub fn new(
-        id: ObjectId,
-        prop: impl Into<Propagator>,
-        body: Option<Body>,
-        ts: Duration,
-    ) -> Self {
+    pub fn new(id: ObjectId, prop: impl Into<Propagator>, body: Option<Body>) -> Self {
         Object {
             id,
             prop: prop.into(),
@@ -327,12 +337,7 @@ impl OrbitalSystem {
 
         let p = prop.into();
 
-        let timedelta = match &p {
-            Propagator::Fixed(_, _) => Duration::from_secs(30),
-            Propagator::Kepler(_) => Duration::from_secs(10),
-        };
-
-        self.objects.push(Object::new(id, p, body, timedelta));
+        self.objects.push(Object::new(id, p, body));
         id
     }
 
@@ -360,81 +365,77 @@ impl OrbitalSystem {
         self.objects.iter_mut().find(|m| m.id == o)
     }
 
-    pub fn transform_from_id(&self, id: Option<ObjectId>) -> Option<PV> {
+    pub fn transform_from_id(&self, id: Option<ObjectId>, stamp: Duration) -> Option<PV> {
         if let Some(i) = id {
             let obj = self.lookup(i)?;
-            self.global_transform(&obj.prop)
+            self.global_transform(&obj.prop, stamp)
         } else {
             Some(PV::default())
         }
     }
 
-    pub fn global_transform(&self, prop: &impl Propagate) -> Option<PV> {
+    pub fn global_transform(&self, prop: &impl Propagate, stamp: Duration) -> Option<PV> {
         if let Some(rel) = prop.relative_to() {
             let obj = self.lookup(rel)?;
-            let rel = self.global_transform(&obj.prop)?;
-            Some(prop.pv() + rel)
+            let rel = self.global_transform(&obj.prop, stamp)?;
+            Some(prop.pv_at(stamp)? + rel)
         } else {
-            Some(prop.pv())
+            Some(prop.pv_at(stamp)?)
         }
     }
 
     pub fn step(&mut self) -> Vec<(Object, OrbitalEvent)> {
         self.iter += 1;
-        let old = self.clone();
-        let c = Controller { id: ObjectId(1) };
-        for m in self.objects.iter_mut() {
-            let forcing = c.control(&old, m).unwrap_or(Vec2::ZERO);
-            m.prop.step(self.stepsize, forcing, &old);
-        }
 
         self.epoch += self.stepsize;
 
         // self.reparent_patched_conics();
 
-        let bodies = self.bodies();
+        // let bodies = self.bodies();
 
-        let remove_with_reason = |o: &Object| -> Option<OrbitalEvent> {
-            if let Propagator::Kepler(k) = o.prop {
-                if k.orbit.is_nan() {
-                    return Some(OrbitalEvent::NumericalError(o.id));
-                }
-            }
+        let to_remove = vec![];
 
-            let gp = match self.global_transform(&o.prop) {
-                Some(p) => p,
-                None => return Some(OrbitalEvent::LookupFailure(o.id)),
-            };
+        // let remove_with_reason = |o: &Object| -> Option<OrbitalEvent> {
+        //     if let Propagator::Kepler(k) = o.prop {
+        //         if k.orbit.is_nan() {
+        //             return Some(OrbitalEvent::NumericalError(o.id));
+        //         }
+        //     }
 
-            if gp.pos.length_squared() > 20000.0 * 20000.0 {
-                return Some(OrbitalEvent::Escaped(gp.pos, o.id));
-            }
+        //     let gp = match self.global_transform(&o.prop, self.epoch) {
+        //         Some(p) => p,
+        //         None => return Some(OrbitalEvent::LookupFailure(o.id)),
+        //     };
 
-            let mut collided = bodies.iter().filter(|b| {
-                let d = b.1.distance_squared(gp.pos);
-                d != 0.0 && d < b.2.radius.powi(2)
-            });
+        //     if gp.pos.length_squared() > 20000.0 * 20000.0 {
+        //         return Some(OrbitalEvent::Escaped(gp.pos, o.id));
+        //     }
 
-            if let Some(c) = collided.next() {
-                let delta: Vec2 = gp.pos - c.1;
-                return Some(OrbitalEvent::Collision(delta, o.id, Some(c.0)));
-            }
+        //     let mut collided = bodies.iter().filter(|b| {
+        //         let d = b.1.distance_squared(gp.pos);
+        //         d != 0.0 && d < b.2.radius.powi(2)
+        //     });
 
-            None
-        };
+        //     if let Some(c) = collided.next() {
+        //         let delta: Vec2 = gp.pos - c.1;
+        //         return Some(OrbitalEvent::Collision(delta, o.id, Some(c.0)));
+        //     }
 
-        let to_remove = self
-            .objects
-            .iter()
-            .filter_map(|o| match remove_with_reason(o) {
-                Some(r) => Some((o.clone(), r)),
-                None => None,
-            })
-            .collect::<Vec<_>>();
+        //     None
+        // };
 
-        let ids_to_remove = to_remove.iter().map(|(o, _)| o.id).collect::<Vec<_>>();
+        // let to_remove = self
+        //     .objects
+        //     .iter()
+        //     .filter_map(|o| match remove_with_reason(o) {
+        //         Some(r) => Some((o.clone(), r)),
+        //         None => None,
+        //     })
+        //     .collect::<Vec<_>>();
 
-        self.objects.retain(|o| !ids_to_remove.contains(&o.id));
+        // let ids_to_remove = to_remove.iter().map(|(o, _)| o.id).collect::<Vec<_>>();
+
+        // self.objects.retain(|o| !ids_to_remove.contains(&o.id));
 
         to_remove
     }
@@ -442,7 +443,13 @@ impl OrbitalSystem {
     pub fn bodies(&self) -> Vec<(ObjectId, Vec2, Body)> {
         self.objects
             .iter()
-            .filter_map(|o| Some((o.id, self.global_transform(&o.prop)?.pos, o.body?)))
+            .filter_map(|o| {
+                Some((
+                    o.id,
+                    self.global_transform(&o.prop, self.epoch)?.pos,
+                    o.body?,
+                ))
+            })
             .collect()
     }
 
@@ -475,7 +482,7 @@ impl OrbitalSystem {
                     return None;
                 }
                 let soi = o.body?.soi;
-                let bpos = self.global_transform(&o.prop)?;
+                let bpos = self.global_transform(&o.prop, self.epoch)?;
                 let d = bpos.pos.distance(pos);
                 if d > soi {
                     return None;
@@ -504,12 +511,12 @@ impl OrbitalSystem {
             .filter_map(|obj| {
                 match &obj.prop {
                     Propagator::Kepler(k) => {
-                        let child_pv = self.global_transform(&obj.prop)?;
+                        let child_pv = self.global_transform(&obj.prop, self.epoch)?;
                         let primary = self.primary_body_at(child_pv.pos, Some(obj.id))?;
                         if primary.id == k.primary {
                             return None;
                         }
-                        let primary_pv = self.global_transform(&primary.prop)?;
+                        let primary_pv = self.global_transform(&primary.prop, self.epoch)?;
                         // TODO math operators for PV?
                         let ds = child_pv.pos - primary_pv.pos;
                         let dv = child_pv.vel - primary_pv.vel;

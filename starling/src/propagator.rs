@@ -3,11 +3,9 @@ use bevy::math::Vec2;
 use std::time::Duration;
 
 pub trait Propagate {
-    fn pv(&self) -> PV;
-
     fn relative_to(&self) -> Option<ObjectId>;
 
-    fn step(&mut self, epoch: Duration, forcing: Vec2, state: &OrbitalSystem);
+    fn pv_at(&self, stamp: Duration) -> Option<PV>;
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -17,24 +15,17 @@ pub enum Propagator {
 }
 
 impl Propagate for Propagator {
-    fn step(&mut self, dt: Duration, forcing: Vec2, state: &OrbitalSystem) {
+    fn pv_at(&self, stamp: Duration) -> Option<PV> {
         match self {
-            Propagator::Kepler(k) => k.step(dt, forcing),
-            Propagator::Fixed(_, _) => (),
-        };
+            Propagator::Kepler(k) => Some(k.orbit.pv_at_time(stamp)),
+            Propagator::Fixed(p, _) => Some(PV::new(*p, Vec2::ZERO)),
+        }
     }
 
     fn relative_to(&self) -> Option<ObjectId> {
         match self {
             Propagator::Kepler(k) => Some(k.primary),
             Propagator::Fixed(_, o) => *o,
-        }
-    }
-
-    fn pv(&self) -> PV {
-        match self {
-            Propagator::Kepler(k) => k.orbit.pv(),
-            Propagator::Fixed(p, _) => PV::new(*p, Vec2::ZERO),
         }
     }
 }
@@ -66,23 +57,6 @@ impl KeplerPropagator {
             primary,
             orbit,
         }
-    }
-
-    pub fn step(&mut self, dt: Duration, forcing: Vec2) {
-        if dt == Duration::default() {
-            return;
-        }
-
-        if forcing != Vec2::ZERO {
-            let mut pv = self.orbit.pv();
-            pv.vel += forcing * dt.as_secs_f32();
-            self.orbit = Orbit::from_pv(pv.pos, pv.vel, self.orbit.primary_mass);
-        }
-
-        let n = self.orbit.mean_motion();
-        let m = self.orbit.mean_anomaly();
-        let m2 = m + dt.as_secs_f32() * n;
-        self.orbit.true_anomaly = anomaly_m2t(self.orbit.eccentricity, m2).unwrap_or(f32::NAN);
     }
 }
 
