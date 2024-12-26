@@ -25,7 +25,7 @@ pub fn get_minimum_approach(
         d1.total_cmp(&d2)
     })?;
 
-    let tol = Duration::from_millis(2);
+    let tol = Duration::from_micros(30);
     if end - start < tol {
         return Some(min);
     }
@@ -40,6 +40,19 @@ pub fn get_minimum_approach(
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct ApproachEvent {
+    pub stamp: Duration,
+    pub a: (ObjectId, PV),
+    pub b: (ObjectId, PV),
+}
+
+impl ApproachEvent {
+    pub fn dist(&self) -> f32 {
+        self.a.1.pos.distance(self.b.1.pos)
+    }
+}
+
 pub fn get_approach_info(
     system: &OrbitalSystem,
     a: ObjectId,
@@ -47,7 +60,7 @@ pub fn get_approach_info(
     start: Duration,
     end: Duration,
     radius: f32,
-) -> Option<Vec<(PVS, PVS)>> {
+) -> Option<Vec<ApproachEvent>> {
     let pa = get_future_positions(system, a, start, end, 50);
     let pb = get_future_positions(system, b, start, end, 50);
 
@@ -75,6 +88,11 @@ pub fn get_approach_info(
             } else {
                 None
             }
+        })
+        .map(|e| ApproachEvent {
+            stamp: e.0.stamp,
+            a: (a, e.0.pv),
+            b: (a, e.1.pv),
         })
         .collect();
 

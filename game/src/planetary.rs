@@ -1,6 +1,5 @@
 use bevy::color::palettes::basic::*;
 use bevy::color::palettes::css::ORANGE;
-use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 use std::time::Duration;
@@ -252,13 +251,13 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
             state.secondary_object,
             start,
             end,
-            500.0,
+            2000.0,
         ) {
-            for a in dist.iter() {
-                draw_circle(&mut gizmos, a.0.pv.pos, 200.0, ORANGE);
-                draw_circle(&mut gizmos, a.0.pv.pos, 30.0, ORANGE);
-                draw_circle(&mut gizmos, a.1.pv.pos, 200.0, BLUE);
-                draw_circle(&mut gizmos, a.1.pv.pos, 30.0, BLUE);
+            for evt in dist.iter() {
+                draw_circle(&mut gizmos, evt.a.1.pos, 200.0, ORANGE);
+                draw_circle(&mut gizmos, evt.a.1.pos, 30.0, ORANGE);
+                draw_circle(&mut gizmos, evt.b.1.pos, 200.0, BLUE);
+                draw_circle(&mut gizmos, evt.b.1.pos, 30.0, BLUE);
             }
         }
     }
@@ -525,10 +524,10 @@ fn keyboard_input(
     for key in keys.get_just_pressed() {
         match key {
             KeyCode::Period => {
-                config.sim_speed = f32::clamp(config.sim_speed * 10.0, 0.0, 1000.0);
+                config.sim_speed = f32::clamp(config.sim_speed * 10.0, 0.01, 1000.0);
             }
             KeyCode::Comma => {
-                config.sim_speed = f32::clamp(config.sim_speed / 10.0, 0.0, 2000.0);
+                config.sim_speed = f32::clamp(config.sim_speed / 10.0, 0.01, 2000.0);
             }
             KeyCode::KeyF => {
                 config.camera_switch = true;
@@ -623,14 +622,18 @@ fn on_command(
         }
     } else if starts_with("save") {
         state.backup = Some(state.system.clone());
-    } else if starts_with("primary") {
+    } else if starts_with("pri") {
         if let Some(n) = cmd.get(1).map(|s| s.parse::<i64>().ok()).flatten() {
             state.primary_object = ObjectId(n)
         }
-    } else if starts_with("secondary") {
+    } else if starts_with("sec") {
         if let Some(n) = cmd.get(1).map(|s| s.parse::<i64>().ok()).flatten() {
             state.secondary_object = ObjectId(n)
         }
+    } else if starts_with("swap") {
+        let x = state.primary_object;
+        state.primary_object = state.secondary_object;
+        state.secondary_object = x;
     }
 }
 

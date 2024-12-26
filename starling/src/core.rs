@@ -1,9 +1,11 @@
 use crate::canonical::*;
+use crate::planning::*;
 use crate::propagator::*;
 use bevy::math::Vec2;
 use rand::Rng;
 use std::ops::Add;
 use std::time::Duration;
+use std::collections::HashMap;
 
 pub fn rand(min: f32, max: f32) -> f32 {
     rand::thread_rng().gen_range(min..max)
@@ -237,6 +239,9 @@ pub fn gravity_accel(body: Body, body_center: Vec2, sample: Vec2) -> Vec2 {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ObjectId(pub i64);
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub struct EventId(pub i64);
+
 #[derive(Debug, Clone)]
 pub struct Object {
     pub id: ObjectId,
@@ -261,6 +266,7 @@ pub struct OrbitalSystem {
     pub objects: Vec<Object>,
     next_id: i64,
     pub units: CanonicalUnits,
+    pub events: HashMap<EventId, ApproachEvent>,
 }
 
 impl Default for OrbitalSystem {
@@ -271,6 +277,7 @@ impl Default for OrbitalSystem {
             objects: Vec::default(),
             next_id: 0,
             units: earth_moon_canonical_units(),
+            events: HashMap::default(),
         }
     }
 }
