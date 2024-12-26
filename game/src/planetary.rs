@@ -227,27 +227,6 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
             (Propagator::Fixed(_, _), Some(pv)) => {
                 draw_x(&mut gizmos, pv.pos, 14.0, RED);
             }
-            (Propagator::NBody(nb), Some(pv)) => {
-                draw_square(&mut gizmos, nb.pos, 9.0, WHITE);
-                if state.show_orbits || state.focus_object == object.id {
-                    let (_, mass) = state.system.barycenter();
-                    let orbit = Orbit::from_pv(pv.pos, pv.vel, mass);
-                    draw_orbit(Vec2::ZERO, orbit, &mut gizmos, 0.2, GRAY);
-                    // let parent_object = state.system.primary_body_at(pv.pos, Some(object.id));
-                    // let parent_pv: Option<PV> = parent_object
-                    //     .clone()
-                    //     .map(|o| state.system.global_transform(&o.prop))
-                    //     .flatten();
-                    // let parent_body = parent_object.map(|o| o.body).flatten();
-
-                    // if let (Some(parent_pv), Some(parent_body)) = (parent_pv, parent_body) {
-                    //     let rpos: Vec2 = pv.pos - parent_pv.pos;
-                    //     let rvel = pv.vel - parent_pv.vel;
-                    //     let orb: Orbit = Orbit::from_pv(rpos, rvel, parent_body.mass);
-                    //     draw_orbit(parent_pv.pos, orb, &mut gizmos, 0.2, GRAY);
-                    // }
-                }
-            }
             (Propagator::Kepler(k), Some(pv)) => {
                 if let Some(parent) = state.system.lookup(k.primary) {
                     let color: Srgba = ORANGE;
@@ -474,43 +453,6 @@ fn keyboard_input(
         }
     }
 
-    let mut process_arrow_key = |key: KeyCode| {
-        let dv = 2.0
-            * match key {
-                KeyCode::ArrowLeft => -Vec2::X,
-                KeyCode::ArrowRight => Vec2::X,
-                KeyCode::ArrowUp => Vec2::Y,
-                KeyCode::ArrowDown => -Vec2::Y,
-                _ => return,
-            };
-
-        let id = config.focus_object;
-        let pvo = config.system.transform_from_id(Some(id));
-        if let (Some(obj), Some(mut pv)) = (config.system.lookup_mut(id), pvo) {
-            if let Propagator::Fixed(_, _) = obj.prop {
-                return;
-            }
-            pv.vel += dv;
-            obj.prop = NBodyPropagator::new(pv.pos, pv.vel).into();
-        }
-    };
-
-    if keys.pressed(KeyCode::ArrowLeft) {
-        process_arrow_key(KeyCode::ArrowLeft);
-    }
-
-    if keys.pressed(KeyCode::ArrowRight) {
-        process_arrow_key(KeyCode::ArrowRight);
-    }
-
-    if keys.pressed(KeyCode::ArrowUp) {
-        process_arrow_key(KeyCode::ArrowUp);
-    }
-
-    if keys.pressed(KeyCode::ArrowDown) {
-        process_arrow_key(KeyCode::ArrowDown);
-    }
-
     if keys.just_pressed(KeyCode::KeyM) || keys.all_pressed([KeyCode::KeyM, KeyCode::ShiftLeft]) {
         let ObjectId(max) = config.system.max_id().unwrap_or(ObjectId(0));
         let ObjectId(mut id) = config.focus_object;
@@ -556,8 +498,6 @@ fn on_command(
             Some("earth") => earth_moon_example_one(),
             Some("moon") => patched_conics_scenario(),
             Some("jupiter") => sun_jupiter_lagrange(),
-            Some("stability") => n_body_stability(),
-            Some("playground") => playground(),
             _ => {
                 return;
             }

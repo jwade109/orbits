@@ -5,34 +5,20 @@ use bevy::math::Vec2;
 #[cfg(test)]
 use approx::assert_relative_eq;
 
-pub const EARTH: (Body, Vec2) = (
-    Body {
-        radius: 63.0,
-        mass: 1000.0,
-        soi: 15000.0,
-    },
-    Vec2::ZERO,
-);
+pub const EARTH: (Body, Vec2) = (Body::new(63.0, 1000.0, 15000.0), Vec2::ZERO);
 
-pub const LUNA: (Body, NBodyPropagator) = (
-    Body {
-        radius: 22.0,
-        mass: 10.0,
-        soi: 800.0,
-    },
-    NBodyPropagator {
-        pos: Vec2::new(-3800.0, 0.0),
-        vel: Vec2::new(0.0, -58.0),
-    },
+pub const LUNA: (Body, Orbit) = (
+    Body::new(22.0, 10.0, 800.0),
+    Orbit::circular(3800.0, 0.0, EARTH.0.mass),
 );
 
 pub fn earth_moon_example_one() -> OrbitalSystem {
     let mut system = OrbitalSystem::default();
 
     let e = system.add_object(EARTH.1, Some(EARTH.0));
-    let l = system.add_object(LUNA.1, Some(LUNA.0));
+    let l = system.add_object(KeplerPropagator::new(LUNA.1, e), Some(LUNA.0));
 
-    for _ in 0..4 {
+    for _ in 0..50 {
         system.add_object(
             KeplerPropagator::new(
                 Orbit {
@@ -45,13 +31,6 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
                 },
                 e,
             ),
-            None,
-        );
-    }
-
-    for _ in 0..60 {
-        system.add_object(
-            NBodyPropagator::initial(randvec(600.0, 1800.0), randvec(80.0, 120.0)),
             None,
         );
     }
@@ -72,78 +51,6 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
             None,
         );
     }
-
-    for _ in 0..8 {
-        system.add_object(
-            NBodyPropagator::initial(randvec(7000.0, 8000.0), randvec(10.0, 15.0)),
-            None,
-        );
-    }
-
-    system.add_object(
-        NBodyPropagator::initial((7500.0, 3000.0), (30.0, -10.0)),
-        Some(Body::new(10.0, 2.5, 300.0)),
-    );
-
-    system.add_object(
-        NBodyPropagator::initial((7500.0, 2920.0), (48.0, -10.0)),
-        None,
-    );
-
-    system
-}
-
-pub fn n_body_stability() -> OrbitalSystem {
-    let mut system: OrbitalSystem = OrbitalSystem::default();
-
-    let origin = Vec2::new(-2000.0, 0.0);
-    let e = system.add_object(origin, Some(EARTH.0));
-
-    let mut add_test = |p: Vec2, v: Vec2| {
-        let orbit = Orbit::from_pv(p, v, EARTH.0.mass);
-
-        system.add_object(KeplerPropagator::new(orbit, e), None);
-        system.add_object(NBodyPropagator::initial(origin + p, v), None);
-    };
-
-    add_test((7500.0, 0.0).into(), (0.0, 7.0).into());
-    add_test((6000.0, 0.0).into(), (0.0, 12.0).into());
-    add_test((5000.0, 0.0).into(), (0.0, 20.0).into());
-    add_test((3000.0, 0.0).into(), (0.0, 40.0).into());
-    add_test((700.0, 0.0).into(), (0.0, 60.0).into());
-
-    system
-}
-
-#[test]
-pub fn n_body_accuracy() {
-    let mut system = n_body_stability();
-
-    let mut events = vec![];
-    // roughly one orbital period for test bodies
-    while system.epoch < Duration::from_secs(425) {
-        events.extend(system.step());
-    }
-
-    assert_eq!(events.len(), 0);
-
-    let pv1 = system.transform_from_id(Some(ObjectId(1))).unwrap();
-    let pv2 = system.transform_from_id(Some(ObjectId(2))).unwrap();
-
-    assert_relative_eq!(pv1.pos.distance(pv2.pos), 2.023654, max_relative = 1.0);
-}
-
-pub fn simple_two_body() -> OrbitalSystem {
-    let mut system = OrbitalSystem::default();
-
-    let b = Some(Body {
-        mass: 500.0,
-        radius: 50.0,
-        soi: 10000.0,
-    });
-
-    system.add_object(NBodyPropagator::initial((400.0, 0.0), (0.0, 40.0)), b);
-    system.add_object(NBodyPropagator::initial((-400.0, 0.0), (0.0, -40.0)), b);
 
     system
 }
@@ -177,10 +84,9 @@ pub fn sun_jupiter_lagrange() -> OrbitalSystem {
     system.add_object(KeplerPropagator::new(jupiter_orbit, s), Some(jupiter));
 
     for _ in 0..600 {
-        let r = randvec(4000.0, 6000.0);
-        let v = Vec2::from_angle(std::f32::consts::PI / 2.0).rotate(r.normalize())
-            * jupiter_orbit.pv().vel.length();
-        system.add_object(NBodyPropagator::initial(r, v), None);
+        let r = rand(4000.0, 6000.0);
+        let orbit = Orbit::circular(r, 0.0, sun.mass);
+        system.add_object(KeplerPropagator::new(orbit, s), None);
     }
 
     system
@@ -206,26 +112,11 @@ pub fn patched_conics_scenario() -> OrbitalSystem {
             KeplerPropagator::new(Orbit::from_pv(r, v, EARTH.0.mass), e),
             None,
         );
-        system.add_object(NBodyPropagator::initial(r, v), None);
     }
 
     system
 }
 
-pub fn playground() -> OrbitalSystem {
-    let mut system = OrbitalSystem::default();
-
-    system.add_object(Vec2::ZERO, Some(EARTH.0));
-
-    // system.add_object(Vec2::new(400.0, 300.0), Some(EARTH.0));
-
-    // system.add_object(Vec2::new(-500.0, 200.0), Some(EARTH.0));
-
-    system.add_object(NBodyPropagator::initial((0.0, -500.0), (130.0, 0.0)), None);
-
-    system
-}
-
 pub fn default_example() -> OrbitalSystem {
-    playground()
+    earth_moon_example_one()
 }

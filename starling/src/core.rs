@@ -72,7 +72,7 @@ pub struct Body {
 }
 
 impl Body {
-    pub fn new(radius: f32, mass: f32, soi: f32) -> Self {
+    pub const fn new(radius: f32, mass: f32, soi: f32) -> Self {
         Body { radius, mass, soi }
     }
 }
@@ -118,7 +118,7 @@ impl Orbit {
         }
     }
 
-    pub fn circular(radius: f32, ta: f32, mass: f32) -> Self {
+    pub const fn circular(radius: f32, ta: f32, mass: f32) -> Self {
         Orbit {
             eccentricity: 0.0,
             semi_major_axis: radius,
@@ -328,7 +328,6 @@ impl OrbitalSystem {
         let p = prop.into();
 
         let timedelta = match &p {
-            Propagator::NBody(_) => Duration::from_millis(100),
             Propagator::Fixed(_, _) => Duration::from_secs(30),
             Propagator::Kepler(_) => Duration::from_secs(10),
         };
