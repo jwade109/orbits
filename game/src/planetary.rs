@@ -140,6 +140,8 @@ struct PlanetaryState {
     secondary_object: ObjectId,
     follow_object: bool,
     target_scale: f32,
+    camera_easing: Vec2,
+    camera_switch: bool,
 }
 
 impl Default for PlanetaryState {
@@ -158,6 +160,8 @@ impl Default for PlanetaryState {
             backup: None,
             follow_object: false,
             target_scale: 4.0,
+            camera_easing: Vec2::ZERO,
+            camera_switch: false,
         }
     }
 }
@@ -188,15 +192,15 @@ fn draw_circle(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
 fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
     let stamp = state.system.epoch;
 
-    gizmos.grid_2d(
-        Isometry2d::from_translation(Vec2::ZERO),
-        (100, 100).into(),
-        (500.0, 500.0).into(),
-        Srgba {
-            alpha: 0.003,
-            ..GRAY
-        },
-    );
+    // gizmos.grid_2d(
+    //     Isometry2d::from_translation(Vec2::ZERO),
+    //     (100, 100).into(),
+    //     (500.0, 500.0).into(),
+    //     Srgba {
+    //         alpha: 0.003,
+    //         ..GRAY
+    //     },
+    // );
 
     {
         let (b, _) = state.system.barycenter();
@@ -228,7 +232,7 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
 
     {
         let start = state.system.epoch;
-        let end = start + Duration::from_secs(50);
+        let end = start + Duration::from_secs(100);
         let pos: Vec<_> =
             get_future_positions(&state.system, state.primary_object, start, end, 500)
                 .iter()
@@ -248,10 +252,13 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
             state.secondary_object,
             start,
             end,
+            500.0,
         ) {
             for a in dist.iter() {
-                draw_circle(&mut gizmos, a.0.pv.pos, a.2 / 20.0, ORANGE);
-                draw_circle(&mut gizmos, a.1.pv.pos, a.2 / 20.0, BLUE);
+                draw_circle(&mut gizmos, a.0.pv.pos, 200.0, ORANGE);
+                draw_circle(&mut gizmos, a.0.pv.pos, 30.0, ORANGE);
+                draw_circle(&mut gizmos, a.1.pv.pos, 200.0, BLUE);
+                draw_circle(&mut gizmos, a.1.pv.pos, 30.0, BLUE);
             }
         }
     }
@@ -272,12 +279,13 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
     }
 
     for object in state.system.objects.iter() {
-        match (
+        let pv = match (
             &object.prop,
             state.system.global_transform(&object.prop, stamp),
         ) {
             (Propagator::Fixed(_, _), Some(pv)) => {
                 draw_x(&mut gizmos, pv.pos, 14.0, RED);
+                Some(pv)
             }
             (Propagator::Kepler(k), Some(pv)) => {
                 if let Some(parent) = state.system.lookup(k.primary) {
@@ -290,8 +298,24 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
                         }
                     }
                 }
+                Some(pv)
             }
-            (_, None) => (),
+            (_, None) => None,
+        };
+
+        if let Some(p) = pv {
+            let s = 250.0;
+            let lower = (p.pos / s).floor() * s;
+            let upper = lower + Vec2::new(s, s);
+            let iso = Isometry2d::from_translation((upper + lower) / 2.0);
+            gizmos.rect_2d(
+                iso,
+                (s, s).into(),
+                Srgba {
+                    alpha: 0.02,
+                    ..GRAY
+                },
+            );
         }
     }
 
@@ -507,7 +531,7 @@ fn keyboard_input(
                 config.sim_speed = f32::clamp(config.sim_speed / 10.0, 0.0, 2000.0);
             }
             KeyCode::KeyF => {
-                config.follow_object = !config.follow_object;
+                config.camera_switch = true;
             }
             KeyCode::Equal => {
                 config.target_scale /= 1.5;
@@ -627,20 +651,36 @@ fn handle_zoom(state: Res<PlanetaryState>, mut tf: Query<&mut Transform, With<Ca
     transform.scale += ds;
 }
 
-fn update_camera(mut query: Query<&mut Transform, With<Camera>>, state: Res<PlanetaryState>) {
+fn update_camera(
+    mut query: Query<&mut Transform, With<Camera>>,
+    mut state: ResMut<PlanetaryState>,
+) {
     let mut tf = query.single_mut();
 
-    if !state.follow_object {
-        *tf = tf.with_translation(Vec3::ZERO);
-        return;
+    if state.camera_switch {
+        state.follow_object = !state.follow_object;
     }
 
-    if let Some(p) = state
-        .system
-        .lookup(state.primary_object)
-        .map(|o| state.system.global_transform(&o.prop, state.system.epoch))
-        .flatten()
-    {
-        *tf = tf.with_translation(p.pos.extend(0.0));
+    let current_pos = tf.translation.xy();
+
+    let target_pos = if state.follow_object {
+        state
+            .system
+            .lookup(state.primary_object)
+            .map(|o| state.system.global_transform(&o.prop, state.system.epoch))
+            .flatten()
+            .map(|p| p.pos)
+            .unwrap_or(Vec2::ZERO)
+    } else {
+        Vec2::ZERO
+    };
+
+    if state.camera_switch {
+        state.camera_easing = current_pos - target_pos;
     }
+
+    state.camera_switch = false;
+
+    *tf = tf.with_translation((target_pos + state.camera_easing).extend(0.0));
+    state.camera_easing *= 0.85;
 }

@@ -18,7 +18,7 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
     let e = system.add_object(EARTH.1, Some(EARTH.0));
     let l = system.add_object(KeplerPropagator::new(LUNA.1, e), Some(LUNA.0));
 
-    for _ in 0..50 {
+    for _ in 0..140 {
         system.add_object(
             KeplerPropagator::new(
                 Orbit {
