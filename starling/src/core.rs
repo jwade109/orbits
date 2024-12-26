@@ -81,17 +81,13 @@ pub struct Orbit {
     pub eccentricity: f32,
     pub semi_major_axis: f32,
     pub arg_periapsis: f32,
-    pub true_anomaly: f32,
     pub retrograde: bool,
     pub primary_mass: f32,
 }
 
 impl Orbit {
     pub fn is_nan(&self) -> bool {
-        self.eccentricity.is_nan()
-            || self.semi_major_axis.is_nan()
-            || self.arg_periapsis.is_nan()
-            || self.true_anomaly.is_nan()
+        self.eccentricity.is_nan() || self.semi_major_axis.is_nan() || self.arg_periapsis.is_nan()
     }
 
     pub fn from_pv(r: impl Into<Vec2>, v: impl Into<Vec2>, mass: f32) -> Self {
@@ -111,7 +107,6 @@ impl Orbit {
             eccentricity: e.length(),
             semi_major_axis,
             arg_periapsis,
-            true_anomaly,
             retrograde: h.z < 0.0,
             primary_mass: mass,
         }
@@ -122,14 +117,9 @@ impl Orbit {
             eccentricity: 0.0,
             semi_major_axis: radius,
             arg_periapsis: 0.0,
-            true_anomaly: ta,
             retrograde: false,
             primary_mass: mass,
         }
-    }
-
-    pub fn prograde(&self) -> Vec2 {
-        self.prograde_at(self.true_anomaly)
     }
 
     pub fn prograde_at(&self, true_anomaly: f32) -> Vec2 {
@@ -137,17 +127,9 @@ impl Orbit {
         Vec2::from_angle(fpa).rotate(self.tangent_at(true_anomaly))
     }
 
-    pub fn flight_path_angle(&self) -> f32 {
-        self.flight_path_angle_at(self.true_anomaly)
-    }
-
     pub fn flight_path_angle_at(&self, true_anomaly: f32) -> f32 {
         -(self.eccentricity * true_anomaly.sin())
             .atan2(1.0 + self.eccentricity * true_anomaly.cos())
-    }
-
-    pub fn tangent(&self) -> Vec2 {
-        self.tangent_at(self.true_anomaly)
     }
 
     pub fn tangent_at(&self, true_anomaly: f32) -> Vec2 {
@@ -157,10 +139,6 @@ impl Orbit {
             false => std::f32::consts::PI / 2.0,
         };
         Vec2::from_angle(angle).rotate(n)
-    }
-
-    pub fn normal(&self) -> Vec2 {
-        self.normal_at(self.true_anomaly)
     }
 
     pub fn normal_at(&self, true_anomaly: f32) -> Vec2 {
@@ -191,9 +169,8 @@ impl Orbit {
             stamp -= p;
         }
         let n = self.mean_motion();
-        let m = self.mean_anomaly();
-        let m2 = m + stamp.as_secs_f32() * n;
-        anomaly_m2t(self.eccentricity, m2).unwrap_or(f32::NAN)
+        let m = stamp.as_secs_f32() * n;
+        anomaly_m2t(self.eccentricity, m).unwrap_or(f32::NAN)
     }
 
     pub fn pv_at_time(&self, stamp: Duration) -> PV {
@@ -241,8 +218,8 @@ impl Orbit {
         (self.mu() / self.semi_major_axis.abs().powi(3)).sqrt()
     }
 
-    pub fn mean_anomaly(&self) -> f32 {
-        anomaly_t2m(self.eccentricity, self.true_anomaly)
+    pub fn mean_anomaly_at(&self, true_anomaly: f32) -> f32 {
+        anomaly_t2m(self.eccentricity, true_anomaly)
     }
 
     pub fn mu(&self) -> f32 {
@@ -283,7 +260,6 @@ pub struct OrbitalSystem {
     pub epoch: Duration,
     pub objects: Vec<Object>,
     next_id: i64,
-    pub stepsize: Duration,
     pub units: CanonicalUnits,
 }
 
@@ -294,7 +270,6 @@ impl Default for OrbitalSystem {
             epoch: Duration::default(),
             objects: Vec::default(),
             next_id: 0,
-            stepsize: Duration::from_millis(100),
             units: earth_moon_canonical_units(),
         }
     }
@@ -382,62 +357,6 @@ impl OrbitalSystem {
         } else {
             Some(prop.pv_at(stamp)?)
         }
-    }
-
-    pub fn step(&mut self) -> Vec<(Object, OrbitalEvent)> {
-        self.iter += 1;
-
-        self.epoch += self.stepsize;
-
-        // self.reparent_patched_conics();
-
-        // let bodies = self.bodies();
-
-        let to_remove = vec![];
-
-        // let remove_with_reason = |o: &Object| -> Option<OrbitalEvent> {
-        //     if let Propagator::Kepler(k) = o.prop {
-        //         if k.orbit.is_nan() {
-        //             return Some(OrbitalEvent::NumericalError(o.id));
-        //         }
-        //     }
-
-        //     let gp = match self.global_transform(&o.prop, self.epoch) {
-        //         Some(p) => p,
-        //         None => return Some(OrbitalEvent::LookupFailure(o.id)),
-        //     };
-
-        //     if gp.pos.length_squared() > 20000.0 * 20000.0 {
-        //         return Some(OrbitalEvent::Escaped(gp.pos, o.id));
-        //     }
-
-        //     let mut collided = bodies.iter().filter(|b| {
-        //         let d = b.1.distance_squared(gp.pos);
-        //         d != 0.0 && d < b.2.radius.powi(2)
-        //     });
-
-        //     if let Some(c) = collided.next() {
-        //         let delta: Vec2 = gp.pos - c.1;
-        //         return Some(OrbitalEvent::Collision(delta, o.id, Some(c.0)));
-        //     }
-
-        //     None
-        // };
-
-        // let to_remove = self
-        //     .objects
-        //     .iter()
-        //     .filter_map(|o| match remove_with_reason(o) {
-        //         Some(r) => Some((o.clone(), r)),
-        //         None => None,
-        //     })
-        //     .collect::<Vec<_>>();
-
-        // let ids_to_remove = to_remove.iter().map(|(o, _)| o.id).collect::<Vec<_>>();
-
-        // self.objects.retain(|o| !ids_to_remove.contains(&o.id));
-
-        to_remove
     }
 
     pub fn bodies(&self) -> Vec<(ObjectId, Vec2, Body)> {
@@ -574,4 +493,15 @@ pub fn generate_circular_log_lattice(center: Vec2, rmin: f32, rmax: f32) -> Vec<
     }
 
     ret
+}
+
+pub fn synodic_period(t1: Duration, t2: Duration) -> Option<Duration> {
+    if t1 == t2 {
+        return None;
+    }
+
+    let s1 = t1.as_secs_f32();
+    let s2 = t2.as_secs_f32();
+
+    Some(Duration::from_secs_f32(s1 * s2 / (s2 - s1).abs()))
 }

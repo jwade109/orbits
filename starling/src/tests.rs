@@ -31,13 +31,15 @@ fn orbit_construction() {
     assert!(o1.angular_momentum() > 0.0);
     assert!(o2.retrograde);
 
+    let t = o1.period() * 0.7;
+
     let o1_f = 4.197201;
 
-    assert_eq!(o1.true_anomaly, o1_f);
-    assert_eq!(o2.true_anomaly, std::f32::consts::PI * 2.0 - o1_f);
+    assert_eq!(o1.ta_at_time(t), o1_f);
+    assert_eq!(o2.ta_at_time(t), std::f32::consts::PI * 2.0 - o1_f);
 
-    assert_relative_eq!(o1.pv().pos.x, o2.pv().pos.x, epsilon = 0.01);
-    assert_relative_eq!(o1.pv().pos.y, o2.pv().pos.y, epsilon = 0.01);
+    assert_relative_eq!(o1.pv_at(t).pos.x, o2.pv_at(t).pos.x, epsilon = 0.01);
+    assert_relative_eq!(o1.pv_at(t).pos.y, o2.pv_at(t).pos.y, epsilon = 0.01);
 }
 
 pub fn test_scenario_one() -> OrbitalSystem {

@@ -136,7 +136,8 @@ struct PlanetaryState {
     paused: bool,
     system: OrbitalSystem,
     backup: Option<OrbitalSystem>,
-    focus_object: ObjectId,
+    primary_object: ObjectId,
+    secondary_object: ObjectId,
     follow_object: bool,
     target_scale: f32,
 }
@@ -152,7 +153,8 @@ impl Default for PlanetaryState {
             show_primary_body: false,
             paused: false,
             system: default_example(),
-            focus_object: ObjectId(0),
+            primary_object: ObjectId(10),
+            secondary_object: ObjectId(20),
             backup: None,
             follow_object: false,
             target_scale: 4.0,
@@ -186,6 +188,16 @@ fn draw_circle(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
 fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
     let stamp = state.system.epoch;
 
+    gizmos.grid_2d(
+        Isometry2d::from_translation(Vec2::ZERO),
+        (100, 100).into(),
+        (500.0, 500.0).into(),
+        Srgba {
+            alpha: 0.003,
+            ..GRAY
+        },
+    );
+
     {
         let (b, _) = state.system.barycenter();
         gizmos.circle_2d(Isometry2d::from_translation(b), 6.0, PURPLE);
@@ -194,17 +206,54 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
 
     if let Some(p) = state
         .system
-        .transform_from_id(Some(state.focus_object), state.system.epoch)
+        .transform_from_id(Some(state.primary_object), state.system.epoch)
     {
-        let s = 400.0;
-        let color = Srgba {
-            alpha: 0.02,
-            ..ORANGE
-        };
-        let d1 = Vec2::new(s, s);
-        let d2 = Vec2::new(-s, s);
-        gizmos.line_2d(p.pos - d1, p.pos + d1, color);
-        gizmos.line_2d(p.pos - d2, p.pos + d2, color);
+        draw_square(
+            &mut gizmos,
+            p.pos,
+            80.0,
+            Srgba {
+                alpha: 0.3,
+                ..ORANGE
+            },
+        );
+    }
+
+    if let Some(p) = state
+        .system
+        .transform_from_id(Some(state.secondary_object), state.system.epoch)
+    {
+        draw_square(&mut gizmos, p.pos, 75.0, Srgba { alpha: 0.3, ..BLUE });
+    }
+
+    {
+        let start = state.system.epoch;
+        let end = start + Duration::from_secs(50);
+        let pos: Vec<_> =
+            get_future_positions(&state.system, state.primary_object, start, end, 500)
+                .iter()
+                .map(|pvs| pvs.pv.pos)
+                .collect();
+        gizmos.linestrip_2d(pos, ORANGE);
+        let pos: Vec<_> =
+            get_future_positions(&state.system, state.secondary_object, start, end, 500)
+                .iter()
+                .map(|pvs| pvs.pv.pos)
+                .collect();
+        gizmos.linestrip_2d(pos, BLUE);
+
+        if let Some(dist) = get_approach_info(
+            &state.system,
+            state.primary_object,
+            state.secondary_object,
+            start,
+            end,
+        ) {
+            for a in dist.iter() {
+                draw_circle(&mut gizmos, a.0.pv.pos, a.2 / 20.0, ORANGE);
+                draw_circle(&mut gizmos, a.1.pv.pos, a.2 / 20.0, BLUE);
+            }
+        }
     }
 
     for object in state.system.objects.iter() {
@@ -234,7 +283,7 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
                 if let Some(parent) = state.system.lookup(k.primary) {
                     let color: Srgba = ORANGE;
                     draw_square(&mut gizmos, pv.pos, 9.0, color);
-                    if state.show_orbits || state.focus_object == object.id {
+                    if state.show_orbits || state.primary_object == object.id {
                         if let Some(parent_pv) = state.system.global_transform(&parent.prop, stamp)
                         {
                             draw_orbit(parent_pv.pos, k.orbit, &mut gizmos, 0.2, GRAY);
@@ -324,13 +373,14 @@ fn update_sim_time(time: Res<Time>, mut config: ResMut<PlanetaryState>) {
 }
 
 fn propagate_system(mut commands: Commands, time: Res<Time>, mut state: ResMut<PlanetaryState>) {
-    while state.system.epoch < state.sim_time {
-        let events = state.system.step();
-        let expiry = time.elapsed() + Duration::from_secs(5);
-        for evt in events.iter() {
-            commands.spawn(make_event_marker(evt.1, expiry));
-        }
-    }
+    state.system.epoch = state.sim_time;
+    // while state.system.epoch < state.sim_time {
+    //     let events = state.system.step();
+    //     let expiry = time.elapsed() + Duration::from_secs(5);
+    //     for evt in events.iter() {
+    //         commands.spawn(make_event_marker(evt.1, expiry));
+    //     }
+    // }
 }
 
 fn log_system_info(state: Res<PlanetaryState>, mut evt: EventWriter<DebugLog>) {
@@ -338,7 +388,7 @@ fn log_system_info(state: Res<PlanetaryState>, mut evt: EventWriter<DebugLog>) {
         &mut evt,
         &format!("Epoch: {:0.2}", state.system.epoch.as_secs_f32()),
     );
-    send_log(&mut evt, &format!("Iteration: {}", state.system.iter));
+    send_log(&mut evt, &format!("Scale: {:0.3}", state.target_scale));
     send_log(&mut evt, &format!("{} objects", state.system.objects.len()));
     if state.paused {
         send_log(&mut evt, "Paused");
@@ -358,17 +408,34 @@ fn log_system_info(state: Res<PlanetaryState>, mut evt: EventWriter<DebugLog>) {
         &format!("Show primary (b)ody: {}", state.show_primary_body),
     );
     send_log(&mut evt, &format!("Units: {:#?}", state.system.units));
+    send_log(&mut evt, &format!("Primary: {:?}", state.primary_object));
     send_log(
         &mut evt,
-        &format!("Tracked object: {:?}", state.focus_object),
+        &format!("Secondary: {:?}", state.secondary_object),
     );
     send_log(
         &mut evt,
         &format!("Follow tracked: {:?}", state.follow_object),
     );
 
-    if let Some(obj) = state.system.lookup_ref(state.focus_object) {
+    if let Some(obj) = state.system.lookup_ref(state.primary_object) {
         send_log(&mut evt, &format!("{:#?}", obj));
+    }
+
+    if let Some((pri, sec)) = state
+        .system
+        .lookup_ref(state.primary_object)
+        .zip(state.system.lookup_ref(state.secondary_object))
+    {
+        match (pri.prop, sec.prop) {
+            (Propagator::Kepler(k1), Propagator::Kepler(k2)) => {
+                let p1 = k1.orbit.period();
+                let p2 = k2.orbit.period();
+                let syn = synodic_period(p1, p2);
+                send_log(&mut evt, &format!("Synodic period: {:?}", syn));
+            }
+            _ => (),
+        }
     }
 }
 
@@ -450,7 +517,7 @@ fn keyboard_input(
             }
             KeyCode::KeyS => {
                 config.paused = true;
-                config.system.step();
+                config.system.epoch += Duration::from_millis(10);
                 config.sim_time = config.system.epoch;
             }
             _ => (),
@@ -459,21 +526,21 @@ fn keyboard_input(
 
     if keys.just_pressed(KeyCode::KeyM) || keys.all_pressed([KeyCode::KeyM, KeyCode::ShiftLeft]) {
         let ObjectId(max) = config.system.max_id().unwrap_or(ObjectId(0));
-        let ObjectId(mut id) = config.focus_object;
+        let ObjectId(mut id) = config.primary_object;
         id += 1;
         while !config.system.has_object(ObjectId(id)) && id < max {
             id += 1
         }
-        config.focus_object = ObjectId(id.min(max));
+        config.primary_object = ObjectId(id.min(max));
     }
     if keys.just_pressed(KeyCode::KeyN) || keys.all_pressed([KeyCode::KeyN, KeyCode::ShiftLeft]) {
         let ObjectId(min) = config.system.min_id().unwrap_or(ObjectId(0));
-        let ObjectId(mut id) = config.focus_object;
+        let ObjectId(mut id) = config.primary_object;
         id -= 1;
         while !config.system.has_object(ObjectId(id)) && id > min {
             id -= 1;
         }
-        config.focus_object = ObjectId(id.max(min));
+        config.primary_object = ObjectId(id.max(min));
     }
     if keys.just_pressed(KeyCode::Space) {
         config.paused = !config.paused;
@@ -525,15 +592,6 @@ fn on_command(
                 return;
             }
         }
-    } else if starts_with("s") {
-        state.paused = true;
-        let e = state.system.epoch + Duration::from_millis(100);
-        state.sim_time = e;
-        let events = state.system.step();
-        let expiry = time.elapsed() + Duration::from_secs(5);
-        for evt in events.iter() {
-            commands.spawn(make_event_marker(evt.1, expiry));
-        }
     } else if starts_with("restore") {
         if let Some(sys) = &state.backup {
             state.system = sys.clone();
@@ -541,6 +599,14 @@ fn on_command(
         }
     } else if starts_with("save") {
         state.backup = Some(state.system.clone());
+    } else if starts_with("primary") {
+        if let Some(n) = cmd.get(1).map(|s| s.parse::<i64>().ok()).flatten() {
+            state.primary_object = ObjectId(n)
+        }
+    } else if starts_with("secondary") {
+        if let Some(n) = cmd.get(1).map(|s| s.parse::<i64>().ok()).flatten() {
+            state.secondary_object = ObjectId(n)
+        }
     }
 }
 
@@ -571,7 +637,7 @@ fn update_camera(mut query: Query<&mut Transform, With<Camera>>, state: Res<Plan
 
     if let Some(p) = state
         .system
-        .lookup(state.focus_object)
+        .lookup(state.primary_object)
         .map(|o| state.system.global_transform(&o.prop, state.system.epoch))
         .flatten()
     {

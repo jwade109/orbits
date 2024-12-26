@@ -25,7 +25,6 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
                     eccentricity: rand(0.2, 0.8),
                     semi_major_axis: rand(600.0, 2600.0),
                     arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
-                    true_anomaly: rand(0.0, std::f32::consts::PI * 2.0),
                     retrograde: rand(0.0, 1.0) < 0.3,
                     primary_mass: EARTH.0.mass,
                 },
@@ -42,7 +41,6 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
                     eccentricity: rand(0.2, 0.5),
                     semi_major_axis: rand(100.0, 400.0),
                     arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
-                    true_anomaly: rand(0.0, std::f32::consts::PI * 2.0),
                     retrograde: rand(0.0, 1.0) < 0.3,
                     primary_mass: LUNA.0.mass,
                 },
@@ -74,7 +72,6 @@ pub fn sun_jupiter_lagrange() -> OrbitalSystem {
         eccentricity: 0.0,
         arg_periapsis: 0.0,
         semi_major_axis: 5000.0,
-        true_anomaly: 0.0,
         retrograde: false,
         primary_mass: sun.mass,
     };
