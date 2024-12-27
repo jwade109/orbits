@@ -266,7 +266,7 @@ pub struct OrbitalSystem {
     pub objects: Vec<Object>,
     next_id: i64,
     pub units: CanonicalUnits,
-    pub events: HashMap<EventId, ApproachEvent>,
+    pub events: HashMap<EventId, EncounterEvent>,
 }
 
 impl Default for OrbitalSystem {

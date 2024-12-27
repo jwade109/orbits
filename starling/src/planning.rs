@@ -8,49 +8,56 @@ pub struct PVS {
     pub pv: PV,
 }
 
-pub fn get_minimum_approach(
+fn to_distances<'a>(a: &'a [PVS], b: &'a [PVS]) -> Vec<(&'a PVS, &'a PVS, f32)> {
+    a.into_iter()
+        .zip(b.into_iter())
+        .map(|e| (e.0, e.1, e.0.pv.pos.distance(e.1.pv.pos)))
+        .collect()
+}
+
+pub fn get_time_at_separation(
     system: &OrbitalSystem,
     a: ObjectId,
     b: ObjectId,
     start: Duration,
     end: Duration,
+    radius: f32,
 ) -> Option<(PVS, PVS)> {
-    // assuming there is one global minimum in this time range
-    let pa = get_future_positions(system, a, start, end, 20);
-    let pb = get_future_positions(system, b, start, end, 20);
+    // assuming d(start) < d(target) < d(end)
+    //       or d(start) > d(target) > d(end)
+    let pa = get_future_positions(system, a, start, end, 3);
+    let pb = get_future_positions(system, b, start, end, 3);
 
-    let min = pa.into_iter().zip(pb.into_iter()).min_by(|e1, e2| {
-        let d1 = e1.0.pv.pos.distance_squared(e1.1.pv.pos);
-        let d2 = e2.0.pv.pos.distance_squared(e2.1.pv.pos);
-        d1.total_cmp(&d2)
-    })?;
+    let distances = to_distances(&pa, &pb);
 
-    let tol = Duration::from_micros(30);
-    if end - start < tol {
-        return Some(min);
+    let e1 = distances.get(0)?;
+    let e2 = distances.get(1)?;
+    let e3 = distances.get(2)?;
+
+    let tol = 0.05;
+
+    if (e1.2 - e3.2).abs() < tol {
+        let e = distances.get(1)?;
+        return Some((*e.0, *e.1));
     }
 
-    let mid = (end + start) / 2;
-
-    // recurse!
-    if min.0.stamp < mid {
-        get_minimum_approach(system, a, b, start, mid)
+    let mid = e2.0.stamp;
+    if (e1.2 <= radius && radius <= e2.2) || (e1.2 >= radius && radius >= e2.2) {
+        // between e1.2 and e2.2, one way or the other
+        get_time_at_separation(system, a, b, start, mid, radius)
     } else {
-        get_minimum_approach(system, a, b, mid, end)
+        // between e2.2 and r3
+        get_time_at_separation(system, a, b, mid, end, radius)
     }
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct ApproachEvent {
-    pub stamp: Duration,
-    pub a: (ObjectId, PV),
-    pub b: (ObjectId, PV),
-}
-
-impl ApproachEvent {
-    pub fn dist(&self) -> f32 {
-        self.a.1.pos.distance(self.b.1.pos)
-    }
+pub struct EncounterEvent {
+    pub start: Duration,
+    pub end: Duration,
+    pub a: ObjectId,
+    pub b: ObjectId,
+    pub threshold: f32,
 }
 
 pub fn get_approach_info(
@@ -60,43 +67,27 @@ pub fn get_approach_info(
     start: Duration,
     end: Duration,
     radius: f32,
-) -> Option<Vec<ApproachEvent>> {
-    let pa = get_future_positions(system, a, start, end, 50);
-    let pb = get_future_positions(system, b, start, end, 50);
+) -> Vec<(PVS, PVS)> {
+    let pa = get_future_positions(system, a, start, end, 100);
+    let pb = get_future_positions(system, b, start, end, 100);
 
-    let distances: Vec<_> = pa
-        .into_iter()
-        .zip(pb.into_iter())
-        .map(|e| (e.0, e.1, e.0.pv.pos.distance(e.1.pv.pos)))
-        .collect();
+    let distances = to_distances(&pa, &pb);
 
-    let min_approaches = distances
-        .windows(3)
+    return distances
+        .windows(2)
         .filter_map(|e| {
             let r1 = e[0].2;
             let r2 = e[1].2;
-            let r3 = e[2].2;
-
-            if r2 > radius {
-                return None;
+            if (r1 > radius && r2 <= radius)
+                || (r1 >= radius && r2 < radius)
+                || (r1 < radius && r2 >= radius)
+                || (r1 <= radius && r2 > radius)
+            {
+                return get_time_at_separation(&system, a, b, e[0].0.stamp, e[1].0.stamp, radius);
             }
-
-            if r1 > r2 && r2 < r3 {
-                let t1 = e[0].0.stamp;
-                let t2 = e[2].0.stamp;
-                get_minimum_approach(system, a, b, t1, t2)
-            } else {
-                None
-            }
+            None
         })
-        .map(|e| ApproachEvent {
-            stamp: e.0.stamp,
-            a: (a, e.0.pv),
-            b: (a, e.1.pv),
-        })
-        .collect();
-
-    Some(min_approaches)
+        .collect::<Vec<_>>();
 }
 
 pub fn get_future_positions(

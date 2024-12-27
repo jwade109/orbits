@@ -245,20 +245,20 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
                 .collect();
         gizmos.linestrip_2d(pos, BLUE);
 
-        if let Some(dist) = get_approach_info(
+        let approach = get_approach_info(
             &state.system,
             state.primary_object,
             state.secondary_object,
             start,
             end,
-            2000.0,
-        ) {
-            for evt in dist.iter() {
-                draw_circle(&mut gizmos, evt.a.1.pos, 200.0, ORANGE);
-                draw_circle(&mut gizmos, evt.a.1.pos, 30.0, ORANGE);
-                draw_circle(&mut gizmos, evt.b.1.pos, 200.0, BLUE);
-                draw_circle(&mut gizmos, evt.b.1.pos, 30.0, BLUE);
-            }
+            800.0,
+        );
+        for evt in approach.iter() {
+            draw_circle(&mut gizmos, evt.0.pv.pos, 200.0, ORANGE);
+            draw_x(&mut gizmos, evt.0.pv.pos, 30.0, ORANGE);
+            draw_circle(&mut gizmos, evt.1.pv.pos, 200.0, BLUE);
+            draw_x(&mut gizmos, evt.1.pv.pos, 30.0, BLUE);
+            gizmos.line_2d(evt.0.pv.pos, evt.1.pv.pos, WHITE);
         }
     }
 
@@ -266,14 +266,16 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
         if let Some((body, pv)) = object.body.zip(object.prop.pv_at(stamp)) {
             let iso = Isometry2d::from_translation(pv.pos);
             gizmos.circle_2d(iso, body.radius, WHITE);
-            gizmos.circle_2d(
-                iso,
-                body.soi,
-                Srgba {
-                    alpha: 0.3,
-                    ..ORANGE
-                },
-            );
+            gizmos
+                .circle_2d(
+                    iso,
+                    body.soi,
+                    Srgba {
+                        alpha: 0.3,
+                        ..ORANGE
+                    },
+                )
+                .resolution(200);
         }
     }
 
@@ -288,7 +290,7 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
             }
             (Propagator::Kepler(k), Some(pv)) => {
                 if let Some(parent) = state.system.lookup(k.primary) {
-                    let color: Srgba = ORANGE;
+                    let color: Srgba = WHITE;
                     draw_square(&mut gizmos, pv.pos, 9.0, color);
                     if state.show_orbits || state.primary_object == object.id {
                         if let Some(parent_pv) = state.system.global_transform(&parent.prop, stamp)
