@@ -276,6 +276,23 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
                     },
                 )
                 .resolution(200);
+
+            // shadows for this body
+            let angle = state.sim_time.as_secs_f32() / 1000.0;
+            let u = rotate(Vec2::X, angle);
+            let color = Srgba {
+                alpha: 0.004,
+                ..GRAY
+            };
+            let steps = 50;
+            for i in 0..steps {
+                let y = (i as f32 / (steps - 1) as f32) * 2.0 - 1.0;
+                let xoff = Vec2::X * body.radius * (1.0 - y.powi(2)).sqrt();
+                let yoff = Vec2::Y * y * body.radius;
+                let start = pv.pos + rotate(xoff + yoff, angle);
+                let end = start + u * 10000.0;
+                gizmos.line_2d(start, end, color);
+            }
         }
     }
 
