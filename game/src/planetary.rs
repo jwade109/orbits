@@ -142,14 +142,14 @@ impl Default for PlanetaryState {
     fn default() -> Self {
         PlanetaryState {
             sim_time: Duration::default(),
-            sim_speed: 1.0,
+            sim_speed: 0.1,
             show_orbits: true,
             show_potential_field: false,
             show_gravity_field: false,
             show_primary_body: false,
             paused: false,
             system: default_example(),
-            focus_object: ObjectId(0),
+            focus_object: ObjectId(4),
             backup: None,
             follow_object: false,
             target_scale: 4.0,
@@ -211,14 +211,14 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
         if let Some(body) = object.body {
             let iso = Isometry2d::from_translation(object.prop.pv().pos);
             gizmos.circle_2d(iso, body.radius, WHITE);
-            gizmos.circle_2d(
-                iso,
-                body.soi,
-                Srgba {
-                    alpha: 0.3,
-                    ..ORANGE
-                },
-            );
+            // gizmos.circle_2d(
+            //     iso,
+            //     body.soi,
+            //     Srgba {
+            //         alpha: 0.3,
+            //         ..ORANGE
+            //     },
+            // );
         }
     }
 
@@ -229,21 +229,6 @@ fn draw_orbital_system(mut gizmos: Gizmos, state: Res<PlanetaryState>) {
             }
             (Propagator::NBody(nb), Some(pv)) => {
                 draw_square(&mut gizmos, nb.pos, 9.0, WHITE);
-                if state.show_orbits || state.focus_object == object.id {
-                    let parent_object = state.system.primary_body_at(pv.pos, Some(object.id));
-                    let parent_pv: Option<PV> = parent_object
-                        .clone()
-                        .map(|o| state.system.global_transform(&o.prop))
-                        .flatten();
-                    let parent_body = parent_object.map(|o| o.body).flatten();
-
-                    if let (Some(parent_pv), Some(parent_body)) = (parent_pv, parent_body) {
-                        let rpos: Vec2 = pv.pos - parent_pv.pos;
-                        let rvel = pv.vel - parent_pv.vel;
-                        let orb: Orbit = Orbit::from_pv(rpos, rvel, parent_body);
-                        draw_orbit(parent_pv.pos, orb, &mut gizmos, 0.2, GRAY);
-                    }
-                }
             }
             (Propagator::Kepler(k), Some(pv)) => {
                 if let Some(parent) = state.system.lookup(k.primary) {
@@ -348,41 +333,23 @@ fn propagate_system(mut commands: Commands, time: Res<Time>, mut state: ResMut<P
 }
 
 fn log_system_info(state: Res<PlanetaryState>, mut evt: EventWriter<DebugLog>) {
-    send_log(
-        &mut evt,
-        &format!("Epoch: {:0.2}", state.system.epoch.as_secs_f32()),
-    );
-    send_log(&mut evt, &format!("Iteration: {}", state.system.iter));
-    send_log(&mut evt, &format!("{} objects", state.system.objects.len()));
-    if state.paused {
-        send_log(&mut evt, "Paused");
-    }
-    send_log(&mut evt, &format!("Sim speed: {:0.2}", state.sim_speed));
-    send_log(&mut evt, &format!("Show (o)orbits: {}", state.show_orbits));
-    send_log(
-        &mut evt,
-        &format!("Show (p)otential: {}", state.show_potential_field),
-    );
-    send_log(
-        &mut evt,
-        &format!("Show (g)ravity: {}", state.show_gravity_field),
-    );
-    send_log(
-        &mut evt,
-        &format!("Show primary (b)ody: {}", state.show_primary_body),
-    );
-    send_log(&mut evt, &format!("Units: {:#?}", state.system.units));
-    send_log(
-        &mut evt,
-        &format!("Tracked object: {:?}", state.focus_object),
-    );
-    send_log(
-        &mut evt,
-        &format!("Follow tracked: {:?}", state.follow_object),
-    );
+    send_log(&mut evt, "\nUse the arrow keys to steer the spacecraft");
+    send_log(&mut evt, "[space] pause the game");
+    send_log(&mut evt, "[+/-] zoom in and out");
+    send_log(&mut evt, "[>] increase time acceleration");
+    send_log(&mut evt, "[<] decrease time acceleration");
+    send_log(&mut evt, "");
 
-    if let Some(obj) = state.system.lookup_ref(state.focus_object) {
-        send_log(&mut evt, &format!("{:#?}", obj));
+    send_log(
+        &mut evt,
+        &format!("Simulation speed: {:0.2}", state.sim_speed),
+    );
+    if state.paused {
+        send_log(&mut evt, "Paused (press space to unpause)")
+    }
+
+    if state.system.objects.len() < 5 {
+        send_log(&mut evt, "\nYou crashed! Press [R] to reset")
     }
 }
 
@@ -448,10 +415,10 @@ fn keyboard_input(
     for key in keys.get_just_pressed() {
         match key {
             KeyCode::Period => {
-                config.sim_speed = f32::clamp(config.sim_speed * 10.0, 0.0, 1000.0);
+                config.sim_speed = f32::clamp(config.sim_speed * 10.0, 0.1, 10.0);
             }
             KeyCode::Comma => {
-                config.sim_speed = f32::clamp(config.sim_speed / 10.0, 0.0, 2000.0);
+                config.sim_speed = f32::clamp(config.sim_speed / 10.0, 0.1, 10.0);
             }
             KeyCode::KeyF => {
                 config.follow_object = !config.follow_object;
@@ -461,6 +428,11 @@ fn keyboard_input(
             }
             KeyCode::Minus => {
                 config.target_scale *= 1.5;
+            }
+            KeyCode::KeyR => {
+                config.system = playground();
+                config.sim_time = Duration::default();
+                config.sim_speed = 0.1;
             }
             KeyCode::KeyS => {
                 config.paused = true;
@@ -472,14 +444,13 @@ fn keyboard_input(
     }
 
     let mut process_arrow_key = |key: KeyCode| {
-        let dv = 0.1
-            * match key {
-                KeyCode::ArrowLeft => -Vec2::X,
-                KeyCode::ArrowRight => Vec2::X,
-                KeyCode::ArrowUp => Vec2::Y,
-                KeyCode::ArrowDown => -Vec2::Y,
-                _ => return,
-            };
+        let dv = match key {
+            KeyCode::ArrowLeft => -Vec2::X,
+            KeyCode::ArrowRight => Vec2::X,
+            KeyCode::ArrowUp => Vec2::Y,
+            KeyCode::ArrowDown => -Vec2::Y,
+            _ => return,
+        };
 
         let id = config.focus_object;
         let pvo = config.system.transform_from_id(Some(id));
@@ -508,27 +479,10 @@ fn keyboard_input(
         process_arrow_key(KeyCode::ArrowDown);
     }
 
-    if keys.just_pressed(KeyCode::KeyM) || keys.all_pressed([KeyCode::KeyM, KeyCode::ShiftLeft]) {
-        let ObjectId(max) = config.system.max_id().unwrap_or(ObjectId(0));
-        let ObjectId(mut id) = config.focus_object;
-        id += 1;
-        while !config.system.has_object(ObjectId(id)) && id < max {
-            id += 1
-        }
-        config.focus_object = ObjectId(id.min(max));
-    }
-    if keys.just_pressed(KeyCode::KeyN) || keys.all_pressed([KeyCode::KeyN, KeyCode::ShiftLeft]) {
-        let ObjectId(min) = config.system.min_id().unwrap_or(ObjectId(0));
-        let ObjectId(mut id) = config.focus_object;
-        id -= 1;
-        while !config.system.has_object(ObjectId(id)) && id > min {
-            id -= 1;
-        }
-        config.focus_object = ObjectId(id.max(min));
-    }
     if keys.just_pressed(KeyCode::Space) {
         config.paused = !config.paused;
     }
+
     if keys.just_pressed(KeyCode::Escape) {
         exit.send(bevy::app::AppExit::Success);
     }

@@ -221,6 +221,8 @@ pub fn playground() -> OrbitalSystem {
 
     system.add_object(Vec2::new(-500.0, 200.0), Some(EARTH.0));
 
+    system.add_object(Vec2::new(2000.0, 1000.0), Some(LUNA.0));
+
     system.add_object(NBodyPropagator::initial((0.0, -500.0), (130.0, 0.0)), None);
 
     system
