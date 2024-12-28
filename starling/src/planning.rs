@@ -108,3 +108,34 @@ pub fn get_future_positions(
         })
         .collect()
 }
+
+#[derive(Debug, Clone, Copy)]
+pub enum EncounterDir {
+    Enter,
+    Exit,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SepTracker {
+    previous: Option<(Duration, f32)>,
+    current: Option<(Duration, f32)>,
+}
+
+impl SepTracker {
+    pub fn update(&mut self, stamp: Duration, sep: f32) {
+        self.previous = self.current;
+        self.current = Some((stamp, sep));
+    }
+
+    pub fn crosses(&self, sep: f32) -> Option<(EncounterDir, (Duration, f32), (Duration, f32))> {
+        let p = self.previous?;
+        let c = self.current?;
+        if p.1 <= sep && sep <= c.1 {
+            Some((EncounterDir::Exit, p, c))
+        } else if p.1 >= sep && sep >= c.1 {
+            Some((EncounterDir::Enter, p, c))
+        } else {
+            None
+        }
+    }
+}

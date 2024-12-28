@@ -1,4 +1,6 @@
 use bevy::prelude::*;
+use starling::planning::EncounterDir;
+use starling::planning::SepTracker;
 use std::time::Duration;
 
 use starling::core::*;
@@ -13,13 +15,40 @@ impl Plugin for PlanetaryPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, init_system);
         app.add_systems(Update, (draw, keyboard_input, handle_zoom));
-        app.add_systems(FixedUpdate, propagate_system);
+        app.add_systems(FixedUpdate, (propagate_system, draw_separation_tracker));
         app.add_systems(Update, (log_system_info, update_camera, process_commands));
     }
 }
 
 fn draw(gizmos: Gizmos, res: Res<GameState>) {
     draw_orbital_system(gizmos, res)
+}
+
+fn draw_separation_tracker(gizmos: Gizmos, mut state: ResMut<GameState>) {
+    let a = state.primary_object;
+    let b = state.secondary_object;
+
+    let t = state.system.epoch;
+
+    let pva = match state.system.transform_from_id(Some(a), t) {
+        Some(p) => p,
+        _ => return,
+    };
+    let pvb = match state.system.transform_from_id(Some(b), t) {
+        Some(p) => p,
+        _ => return,
+    };
+
+    let sep = pva.pos.distance(pvb.pos);
+
+    state.tracker.update(t, sep);
+
+    if let Some(d) = state.tracker.crosses(800.0) {
+        state.sim_speed = match d.0 {
+            EncounterDir::Enter => 10.0,
+            _ => 100.0,
+        };
+    }
 }
 
 #[derive(Resource)]
@@ -39,6 +68,8 @@ pub struct GameState {
     pub target_scale: f32,
     pub camera_easing: Vec2,
     pub camera_switch: bool,
+
+    pub tracker: SepTracker,
 }
 
 impl Default for GameState {
@@ -59,6 +90,7 @@ impl Default for GameState {
             target_scale: 4.0,
             camera_easing: Vec2::ZERO,
             camera_switch: false,
+            tracker: SepTracker::default(),
         }
     }
 }
