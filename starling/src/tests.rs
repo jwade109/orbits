@@ -65,26 +65,3 @@ pub fn test_scenario_one() -> OrbitalSystem {
 
     system
 }
-
-#[test]
-fn propagation_equality() {
-    let mut s1 = earth_moon_example_one();
-    let mut s2 = s1.clone();
-
-    let mut s1_events = vec![];
-    let mut s2_events = vec![];
-
-    for _ in 0..1000 {
-        s1_events.extend(s1.step());
-    }
-
-    for _ in 0..1000 {
-        s2_events.extend(s2.step());
-    }
-
-    assert_eq!(s1.epoch, Duration::from_secs(100));
-    assert_eq!(s2.epoch, Duration::from_secs(100));
-
-    assert_eq!(s1_events.len(), s2_events.len());
-    assert_eq!(s1.objects.len(), s2.objects.len());
-}

@@ -6,6 +6,7 @@ mod debug;
 mod player;
 mod bounded;
 mod planetary;
+mod drawing;
 
 fn main() {
     App::new()

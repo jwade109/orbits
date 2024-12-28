@@ -1,8 +1,6 @@
-use bevy::color::palettes::css::ORANGE;
 use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::input::ButtonState;
 use bevy::prelude::*;
-use std::time::Duration;
 
 pub struct DebugPlugin {}
 
@@ -17,7 +15,6 @@ struct DebugInfo {
 #[derive(Event)]
 pub struct DebugLog {
     pub message: String,
-    pub stamp: Duration,
 }
 
 #[derive(Event, Debug, Clone)]
@@ -168,7 +165,6 @@ fn text_input(
 pub fn send_log(evt: &mut EventWriter<DebugLog>, message: &str) {
     let log = DebugLog {
         message: message.into(),
-        stamp: Duration::default(),
     };
     evt.send(log);
 }

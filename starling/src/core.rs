@@ -1,11 +1,10 @@
-use crate::canonical::*;
 use crate::planning::*;
 use crate::propagator::*;
 use bevy::math::Vec2;
 use rand::Rng;
+use std::collections::HashMap;
 use std::ops::Add;
 use std::time::Duration;
-use std::collections::HashMap;
 
 pub fn rand(min: f32, max: f32) -> f32 {
     rand::thread_rng().gen_range(min..max)
@@ -261,23 +260,17 @@ impl Object {
 
 #[derive(Debug, Clone)]
 pub struct OrbitalSystem {
-    pub iter: usize,
     pub epoch: Duration,
     pub objects: Vec<Object>,
     next_id: i64,
-    pub units: CanonicalUnits,
-    pub events: HashMap<EventId, EncounterEvent>,
 }
 
 impl Default for OrbitalSystem {
     fn default() -> Self {
         OrbitalSystem {
-            iter: 0,
             epoch: Duration::default(),
             objects: Vec::default(),
             next_id: 0,
-            units: earth_moon_canonical_units(),
-            events: HashMap::default(),
         }
     }
 }
@@ -302,14 +295,6 @@ impl Add for PV {
     fn add(self, other: Self) -> Self {
         PV::new(self.pos + other.pos, self.vel + other.vel)
     }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum OrbitalEvent {
-    LookupFailure(ObjectId),
-    NumericalError(ObjectId),
-    Collision(Vec2, ObjectId, Option<ObjectId>),
-    Escaped(Vec2, ObjectId),
 }
 
 impl OrbitalSystem {
@@ -429,40 +414,6 @@ impl OrbitalSystem {
             total_mass,
         )
     }
-
-    pub fn reparent_patched_conics(&mut self) {
-        let new_kepler: Vec<_> = self
-            .objects
-            .iter()
-            .filter_map(|obj| {
-                match &obj.prop {
-                    Propagator::Kepler(k) => {
-                        let child_pv = self.global_transform(&obj.prop, self.epoch)?;
-                        let primary = self.primary_body_at(child_pv.pos, Some(obj.id))?;
-                        if primary.id == k.primary {
-                            return None;
-                        }
-                        let primary_pv = self.global_transform(&primary.prop, self.epoch)?;
-                        // TODO math operators for PV?
-                        let ds = child_pv.pos - primary_pv.pos;
-                        let dv = child_pv.vel - primary_pv.vel;
-                        let orbit = Orbit::from_pv(ds, dv, primary.body?.mass);
-                        let mut new_prop = *k;
-                        new_prop.orbit = orbit;
-                        new_prop.primary = primary.id;
-                        Some((obj.id, new_prop))
-                    }
-                    _ => None,
-                }
-            })
-            .collect();
-
-        for (id, prop) in new_kepler.iter() {
-            if let Some(obj) = self.lookup_mut(*id) {
-                obj.prop = (*prop).into();
-            }
-        }
-    }
 }
 
 pub fn generate_square_lattice(center: Vec2, w: i32, step: usize) -> Vec<Vec2> {
@@ -502,13 +453,10 @@ pub fn generate_circular_log_lattice(center: Vec2, rmin: f32, rmax: f32) -> Vec<
     ret
 }
 
-pub fn synodic_period(t1: Duration, t2: Duration) -> Option<Duration> {
+pub fn synodic_period(t1: f32, t2: f32) -> Option<f32> {
     if t1 == t2 {
-        return None;
+        None
+    } else {
+        Some(t1 * t2 / (t2 - t1).abs())
     }
-
-    let s1 = t1.as_secs_f32();
-    let s2 = t2.as_secs_f32();
-
-    Some(Duration::from_secs_f32(s1 * s2 / (s2 - s1).abs()))
 }
