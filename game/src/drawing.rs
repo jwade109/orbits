@@ -2,6 +2,8 @@ use bevy::color::palettes::basic::*;
 use bevy::color::palettes::css::ORANGE;
 use bevy::prelude::*;
 use starling::core::*;
+use starling::examples::*;
+use starling::orbit::*;
 use starling::planning::*;
 use starling::propagator::*;
 
@@ -184,6 +186,11 @@ pub fn draw_orbital_system(mut gizmos: Gizmos, state: Res<GameState>) {
         }
     }
 
+    let moon_orbit = match state.system.lookup_ref(ObjectId(1)).unwrap().prop {
+        Propagator::Kepler(k) => k.orbit,
+        _ => panic!(),
+    };
+
     for object in state.system.objects.iter() {
         let pv = match (
             &object.prop,
@@ -200,7 +207,14 @@ pub fn draw_orbital_system(mut gizmos: Gizmos, state: Res<GameState>) {
                     if state.show_orbits || state.primary_object == object.id {
                         if let Some(parent_pv) = state.system.global_transform(&parent.prop, stamp)
                         {
-                            draw_orbit(parent_pv.pos, k.orbit, &mut gizmos, 0.2, GRAY);
+                            let color = if can_intersect_soi(&moon_orbit, &k.orbit, LUNA.0.soi) {
+                                BLUE
+                            } else if will_hit_body(&k.orbit, EARTH.0.radius) {
+                                RED
+                            } else {
+                                GRAY
+                            };
+                            draw_orbit(parent_pv.pos, k.orbit, &mut gizmos, 0.2, color);
                         }
                     }
                 }

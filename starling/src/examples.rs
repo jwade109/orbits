@@ -1,4 +1,5 @@
 use crate::core::*;
+use crate::orbit::*;
 use crate::propagator::*;
 use bevy::math::Vec2;
 
@@ -18,12 +19,28 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
     let e = system.add_object(EARTH.1, Some(EARTH.0));
     let l = system.add_object(KeplerPropagator::new(LUNA.1, e), Some(LUNA.0));
 
-    for _ in 0..140 {
+    for _ in 0..200 {
         system.add_object(
             KeplerPropagator::new(
                 Orbit {
-                    eccentricity: rand(0.2, 0.8),
-                    semi_major_axis: rand(600.0, 2600.0),
+                    eccentricity: rand(0.1, 0.8),
+                    semi_major_axis: rand(50.0, 2600.0),
+                    arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
+                    retrograde: rand(0.0, 1.0) < 0.3,
+                    primary_mass: EARTH.0.mass,
+                },
+                e,
+            ),
+            None,
+        );
+    }
+
+    for _ in 0..100 {
+        system.add_object(
+            KeplerPropagator::new(
+                Orbit {
+                    eccentricity: rand(0.1, 0.5),
+                    semi_major_axis: rand(5000.0, 9000.0),
                     arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
                     retrograde: rand(0.0, 1.0) < 0.3,
                     primary_mass: EARTH.0.mass,

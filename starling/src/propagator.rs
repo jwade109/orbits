@@ -1,6 +1,7 @@
 use crate::core::*;
 use bevy::math::Vec2;
 use std::time::Duration;
+use crate::orbit::*;
 
 pub trait Propagate {
     fn relative_to(&self) -> Option<ObjectId>;

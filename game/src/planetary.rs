@@ -42,13 +42,6 @@ fn draw_separation_tracker(gizmos: Gizmos, mut state: ResMut<GameState>) {
     let sep = pva.pos.distance(pvb.pos);
 
     state.tracker.update(t, sep);
-
-    if let Some(d) = state.tracker.crosses(800.0) {
-        state.sim_speed = match d.0 {
-            EncounterDir::Enter => 10.0,
-            _ => 100.0,
-        };
-    }
 }
 
 #[derive(Resource)]

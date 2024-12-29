@@ -6,6 +6,7 @@ use crate::propagator::*;
 use approx::assert_relative_eq;
 use bevy::math::Vec2;
 use std::time::Duration;
+use crate::orbit::*;
 
 const TEST_BODY: Body = Body {
     mass: 1000.0,
