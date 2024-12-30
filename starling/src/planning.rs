@@ -103,7 +103,7 @@ pub fn get_future_positions(
             let t = start + i as u32 * dur / (steps - 1) as u32;
             Some(PVS {
                 stamp: t,
-                pv: system.transform_from_id(Some(id), t)?,
+                pv: system.transform_from_id(id, t)?,
             })
         })
         .collect()

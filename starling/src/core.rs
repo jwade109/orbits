@@ -1,4 +1,3 @@
-use crate::propagator::*;
 use crate::orbit::*;
 use bevy::math::Vec2;
 use rand::Rng;
@@ -35,33 +34,32 @@ pub struct EventId(pub i64);
 #[derive(Debug, Clone)]
 pub struct Object {
     pub id: ObjectId,
-    pub prop: Propagator,
-    pub body: Option<Body>,
+    pub orbit: Orbit,
 }
 
 impl Object {
-    pub fn new(id: ObjectId, prop: impl Into<Propagator>, body: Option<Body>) -> Self {
-        Object {
-            id,
-            prop: prop.into(),
-            body,
-        }
+    pub fn new(id: ObjectId, orbit: Orbit) -> Self {
+        Object { id, orbit }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct OrbitalSystem {
+    pub primary: Body,
     pub epoch: Duration,
     pub objects: Vec<Object>,
     next_id: i64,
+    pub subsystems: Vec<(Orbit, OrbitalSystem)>,
 }
 
-impl Default for OrbitalSystem {
-    fn default() -> Self {
+impl OrbitalSystem {
+    pub fn new(body: Body) -> Self {
         OrbitalSystem {
+            primary: body,
             epoch: Duration::default(),
             objects: Vec::default(),
             next_id: 0,
+            subsystems: vec![],
         }
     }
 }
@@ -89,13 +87,11 @@ impl Add for PV {
 }
 
 impl OrbitalSystem {
-    pub fn add_object(&mut self, prop: impl Into<Propagator>, body: Option<Body>) -> ObjectId {
+    pub fn add_object(&mut self, orbit: Orbit) -> ObjectId {
         let id = ObjectId(self.next_id);
         self.next_id += 1;
 
-        let p = prop.into();
-
-        self.objects.push(Object::new(id, p, body));
+        self.objects.push(Object::new(id, orbit));
         id
     }
 
@@ -123,88 +119,59 @@ impl OrbitalSystem {
         self.objects.iter_mut().find(|m| m.id == o)
     }
 
-    pub fn transform_from_id(&self, id: Option<ObjectId>, stamp: Duration) -> Option<PV> {
-        if let Some(i) = id {
-            let obj = self.lookup(i)?;
-            self.global_transform(&obj.prop, stamp)
-        } else {
-            Some(PV::default())
-        }
+    pub fn transform_from_id(&self, id: ObjectId, stamp: Duration) -> Option<PV> {
+        let obj = self.lookup_ref(id)?;
+        let pv = obj.orbit.pv_at_time(stamp);
+        Some(pv)
     }
 
-    pub fn global_transform(&self, prop: &impl Propagate, stamp: Duration) -> Option<PV> {
-        if let Some(rel) = prop.relative_to() {
-            let obj = self.lookup(rel)?;
-            let rel = self.global_transform(&obj.prop, stamp)?;
-            Some(prop.pv_at(stamp)? + rel)
-        } else {
-            Some(prop.pv_at(stamp)?)
-        }
-    }
+    // pub fn gravity_at(&self, pos: Vec2) -> Vec2 {
+    //     self.bodies()
+    //         .iter()
+    //         .map(|(_, c, b)| gravity_accel(*b, *c, pos))
+    //         .sum()
+    // }
 
-    pub fn bodies(&self) -> Vec<(ObjectId, Vec2, Body)> {
-        self.objects
-            .iter()
-            .filter_map(|o| {
-                Some((
-                    o.id,
-                    self.global_transform(&o.prop, self.epoch)?.pos,
-                    o.body?,
-                ))
-            })
-            .collect()
-    }
+    // pub fn potential_at(&self, pos: Vec2) -> f32 {
+    //     self.bodies()
+    //         .iter()
+    //         .map(|(_, c, b)| {
+    //             let r = (c - pos).length();
+    //             if r < b.radius {
+    //                 return 0.0;
+    //             }
+    //             -(b.mass * GRAVITATIONAL_CONSTANT) / r
+    //         })
+    //         .sum()
+    // }
 
-    pub fn gravity_at(&self, pos: Vec2) -> Vec2 {
-        self.bodies()
-            .iter()
-            .map(|(_, c, b)| gravity_accel(*b, *c, pos))
-            .sum()
-    }
+    // pub fn primary_body_at(&self, pos: Vec2, exclude: Option<ObjectId>) -> Option<Object> {
+    //     let mut ret = self
+    //         .objects
+    //         .iter()
+    //         .filter_map(|o| {
+    //             if Some(o.id) == exclude {
+    //                 return None;
+    //             }
+    //             let soi = o.body?.soi;
+    //             let bpos = self.global_transform(&o.prop, self.epoch)?;
+    //             let d = bpos.pos.distance(pos);
+    //             if d > soi {
+    //                 return None;
+    //             }
+    //             Some((o.clone(), soi))
+    //         })
+    //         .collect::<Vec<_>>();
 
-    pub fn potential_at(&self, pos: Vec2) -> f32 {
-        self.bodies()
-            .iter()
-            .map(|(_, c, b)| {
-                let r = (c - pos).length();
-                if r < b.radius {
-                    return 0.0;
-                }
-                -(b.mass * GRAVITATIONAL_CONSTANT) / r
-            })
-            .sum()
-    }
+    //     ret.sort_by(|(_, l), (_, r)| l.partial_cmp(r).unwrap());
+    //     ret.first().map(|(o, _)| o.clone())
+    // }
 
-    pub fn primary_body_at(&self, pos: Vec2, exclude: Option<ObjectId>) -> Option<Object> {
-        let mut ret = self
-            .objects
-            .iter()
-            .filter_map(|o| {
-                if Some(o.id) == exclude {
-                    return None;
-                }
-                let soi = o.body?.soi;
-                let bpos = self.global_transform(&o.prop, self.epoch)?;
-                let d = bpos.pos.distance(pos);
-                if d > soi {
-                    return None;
-                }
-                Some((o.clone(), soi))
-            })
-            .collect::<Vec<_>>();
+    // pub fn barycenter(&self) -> (Vec2, f32) {
+    //     let bodies = self.bodies();
+    //     let total_mass: f32 = self.subsystems.iter().map(|(_, subsys)| subsys.barycenter());
 
-        ret.sort_by(|(_, l), (_, r)| l.partial_cmp(r).unwrap());
-        ret.first().map(|(o, _)| o.clone())
-    }
-
-    pub fn barycenter(&self) -> (Vec2, f32) {
-        let bodies = self.bodies();
-        let total_mass: f32 = bodies.iter().map(|(_, _, b)| b.mass).sum();
-        (
-            bodies.iter().map(|(_, p, b)| p * b.mass).sum::<Vec2>() / total_mass,
-            total_mass,
-        )
-    }
+    // }
 }
 
 pub fn generate_square_lattice(center: Vec2, w: i32, step: usize) -> Vec<Vec2> {

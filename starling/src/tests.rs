@@ -2,7 +2,6 @@
 
 use crate::core::*;
 use crate::examples::*;
-use crate::propagator::*;
 use approx::assert_relative_eq;
 use bevy::math::Vec2;
 use std::time::Duration;
@@ -44,25 +43,25 @@ fn orbit_construction() {
 }
 
 pub fn test_scenario_one() -> OrbitalSystem {
-    let mut system = OrbitalSystem::default();
+    let mut system = OrbitalSystem::new(EARTH);
 
-    let rid = system.add_object(Vec2::ZERO, Some(TEST_BODY));
+    // let rid = system.add_object(Vec2::ZERO, Some(TEST_BODY));
 
-    system.add_object(
-        KeplerPropagator::new(
-            Orbit::from_pv(TEST_POSITION, TEST_VELOCITY, TEST_BODY.mass),
-            rid,
-        ),
-        None,
-    );
+    // system.add_object(
+    //     KeplerPropagator::new(
+    //         Orbit::from_pv(TEST_POSITION, TEST_VELOCITY, TEST_BODY.mass),
+    //         rid,
+    //     ),
+    //     None,
+    // );
 
-    system.add_object(
-        KeplerPropagator::new(
-            Orbit::from_pv(TEST_POSITION, -TEST_VELOCITY, TEST_BODY.mass),
-            rid,
-        ),
-        None,
-    );
+    // system.add_object(
+    //     KeplerPropagator::new(
+    //         Orbit::from_pv(TEST_POSITION, -TEST_VELOCITY, TEST_BODY.mass),
+    //         rid,
+    //     ),
+    //     None,
+    // );
 
     system
 }

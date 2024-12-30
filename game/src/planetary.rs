@@ -21,7 +21,7 @@ impl Plugin for PlanetaryPlugin {
 }
 
 fn draw(gizmos: Gizmos, res: Res<GameState>) {
-    draw_orbital_system(gizmos, res)
+    draw_game_state(gizmos, res)
 }
 
 fn draw_separation_tracker(gizmos: Gizmos, mut state: ResMut<GameState>) {
@@ -30,11 +30,11 @@ fn draw_separation_tracker(gizmos: Gizmos, mut state: ResMut<GameState>) {
 
     let t = state.system.epoch;
 
-    let pva = match state.system.transform_from_id(Some(a), t) {
+    let pva = match state.system.transform_from_id(a, t) {
         Some(p) => p,
         _ => return,
     };
-    let pvb = match state.system.transform_from_id(Some(b), t) {
+    let pvb = match state.system.transform_from_id(b, t) {
         Some(p) => p,
         _ => return,
     };
@@ -99,6 +99,10 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     let sp = state.sim_speed;
     state.sim_time += Duration::from_nanos((time.delta().as_nanos() as f32 * sp) as u64);
     state.system.epoch = state.sim_time;
+    let s = state.system.epoch;
+    for sys in state.system.subsystems.iter_mut() {
+        sys.1.epoch = s;
+    }
 }
 
 fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
@@ -285,9 +289,7 @@ fn update_camera(mut query: Query<&mut Transform, With<Camera>>, mut state: ResM
     let target_pos = if state.follow_object {
         state
             .system
-            .lookup(state.primary_object)
-            .map(|o| state.system.global_transform(&o.prop, state.system.epoch))
-            .flatten()
+            .transform_from_id(state.primary_object, state.system.epoch)
             .map(|p| p.pos)
             .unwrap_or(Vec2::ZERO)
     } else {
