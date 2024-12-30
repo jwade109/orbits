@@ -131,28 +131,19 @@ impl OrbitalSystem {
         Some(orbit.pv_at_time(stamp))
     }
 
-    // pub fn gravity_at(&self, pos: Vec2) -> Vec2 {
-    //     self.bodies()
-    //         .iter()
-    //         .map(|(_, c, b)| gravity_accel(*b, *c, pos))
-    //         .sum()
-    // }
-
-    // pub fn potential_at(&self, pos: Vec2) -> f32 {
-    //     self.bodies()
-    //         .iter()
-    //         .map(|(_, c, b)| {
-    //             let r = (c - pos).length();
-    //             if r < b.radius {
-    //                 return 0.0;
-    //             }
-    //             -(b.mass * GRAVITATIONAL_CONSTANT) / r
-    //         })
-    //         .sum()
-    // }
+    pub fn potential_at(&self, pos: Vec2, stamp: Duration) -> f32 {
+        let r = pos.length().clamp(10.0, std::f32::MAX);
+        let mut ret = -(self.primary.mass * GRAVITATIONAL_CONSTANT) / r;
+        for (_, orbit, sys) in &self.subsystems {
+            let pv = orbit.pv_at_time(stamp);
+            ret += sys.potential_at(pos - pv.pos, stamp);
+        }
+        ret
+    }
 
     pub fn barycenter(&self) -> (Vec2, f32) {
         (Vec2::ZERO, self.primary.mass)
+        // TODO sum subsystems
     }
 }
 

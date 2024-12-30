@@ -88,6 +88,8 @@ pub fn draw_orbital_system(
     stamp: Duration,
     origin: Vec2,
 ) {
+    draw_scalar_field(gizmos, sys, origin);
+
     draw_circle(gizmos, origin, sys.primary.radius, WHITE);
     for (a, ds) in [(1.0, 1.0), (0.3, 0.98), (0.1, 0.95)] {
         draw_circle(gizmos, origin, sys.primary.soi * ds, alpha(ORANGE, a));
@@ -103,13 +105,26 @@ pub fn draw_orbital_system(
         let pv = orbit.pv_at_time(stamp);
         let color: Srgba = WHITE;
         draw_square(gizmos, origin + pv.pos, 9.0, color);
-        draw_orbit(origin, orbit, gizmos, 0.05, GRAY);
+        // draw_orbit(origin, orbit, gizmos, 0.05, GRAY);
     }
 
     for (_, orbit, subsys) in sys.subsystems.iter() {
         draw_orbit(origin, orbit, gizmos, 0.1, WHITE);
         let pv = orbit.pv_at_time(stamp);
         draw_orbital_system(gizmos, subsys, stamp, origin + pv.pos);
+    }
+}
+
+pub fn draw_scalar_field(gizmos: &mut Gizmos, sys: &OrbitalSystem, origin: Vec2) {
+    for y in (-1000..1000).step_by(10) {
+        let pts: Vec<Vec2> = (-1000..1000)
+            .step_by(10)
+            .map(|x| {
+                let p1 = Vec2::new(x as f32, y as f32);
+                let z = sys.potential_at(p1, sys.epoch);
+                origin + p1 + Vec2::Y * -(-z).sqrt()
+            }).collect();
+        gizmos.linestrip_2d(pts, alpha(WHITE, 0.1));
     }
 }
 
