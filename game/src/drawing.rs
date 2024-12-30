@@ -2,10 +2,8 @@ use bevy::color::palettes::basic::*;
 use bevy::color::palettes::css::ORANGE;
 use bevy::prelude::*;
 use starling::core::*;
-use starling::examples::*;
 use starling::orbit::*;
 use starling::planning::*;
-use starling::propagator::*;
 
 use std::time::Duration;
 
@@ -33,7 +31,7 @@ pub fn draw_square(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
 pub fn draw_circle(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     gizmos
         .circle_2d(Isometry2d::from_translation(p), size, color)
-        .resolution((size / 10.0).clamp(20.0, 1000.0) as u32);
+        .resolution(200);
 }
 
 pub fn draw_orbit(origin: Vec2, orb: &Orbit, gizmos: &mut Gizmos, alpha: f32, base_color: Srgba) {
@@ -95,20 +93,20 @@ pub fn draw_orbital_system(
         draw_circle(gizmos, origin, sys.primary.soi * ds, alpha(ORANGE, a));
     }
 
-    // {
-    //     let (b, _) = sys.barycenter();
-    //     gizmos.circle_2d(Isometry2d::from_translation(origin + b), 6.0, PURPLE);
-    //     draw_x(&mut gizmos, b, 8.0, PURPLE);
-    // }
-
-    for object in &sys.objects {
-        let pv = object.orbit.pv_at_time(stamp);
-        let color: Srgba = WHITE;
-        draw_square(gizmos, origin + pv.pos, 9.0, color);
-        draw_orbit(origin, &object.orbit, gizmos, 0.05, GRAY);
+    {
+        let (b, _) = sys.barycenter();
+        gizmos.circle_2d(Isometry2d::from_translation(origin + b), 6.0, PURPLE);
+        draw_x(gizmos, b, 8.0, PURPLE);
     }
 
-    for (orbit, subsys) in sys.subsystems.iter() {
+    for (_, orbit) in &sys.objects {
+        let pv = orbit.pv_at_time(stamp);
+        let color: Srgba = WHITE;
+        draw_square(gizmos, origin + pv.pos, 9.0, color);
+        draw_orbit(origin, orbit, gizmos, 0.05, GRAY);
+    }
+
+    for (_, orbit, subsys) in sys.subsystems.iter() {
         draw_orbit(origin, orbit, gizmos, 0.1, WHITE);
         let pv = orbit.pv_at_time(stamp);
         draw_orbital_system(gizmos, subsys, stamp, origin + pv.pos);
@@ -219,11 +217,6 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     //     }
     // }
 
-    // let moon_orbit = match state.system.lookup_ref(ObjectId(1)).unwrap().prop {
-    //     Propagator::Kepler(k) => k.orbit,
-    //     _ => panic!(),
-    // };
-
     // let mut lattice = vec![]; // generate_square_lattice(Vec2::ZERO, 10000, 200);
 
     // for obj in state.system.objects.iter() {
@@ -238,9 +231,6 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
 
     // let gravity = lattice.iter().map(|p| state.system.gravity_at(*p));
     // let potential = lattice.iter().map(|p| state.system.potential_at(*p));
-    // let primary = lattice
-    //     .iter()
-    //     .map(|p| state.system.primary_body_at(*p, None));
     // let max_potential = state.system.potential_at((500.0, 500.0).into());
 
     // if state.show_gravity_field {
@@ -268,27 +258,6 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     //             alpha: 0.7,
     //         };
     //         draw_square(&mut gizmos, *p, 20.0, color);
-    //     }
-    // }
-    // if state.show_primary_body {
-    //     for (prim, p) in primary.zip(&lattice) {
-    //         if let (Some(pr), Some(d)) = (
-    //             prim.clone(),
-    //             prim.map(|o| state.system.global_transform(&o.prop, stamp))
-    //                 .flatten(),
-    //         ) {
-    //             let r = 0.5 * (d.pos.x / 1000.0).cos() + 0.5;
-    //             let g = 0.5 * (d.pos.y / 1000.0).sin() + 0.5;
-    //             let ObjectId(id) = pr.id;
-    //             let b = 0.5 * (id as f32).cos() + 0.5;
-    //             let color = Srgba {
-    //                 red: r,
-    //                 green: g,
-    //                 blue: b,
-    //                 alpha: 1.0,
-    //             };
-    //             draw_square(&mut gizmos, *p, 10.0, color);
-    //         }
     //     }
     // }
 }

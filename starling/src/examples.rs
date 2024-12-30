@@ -47,41 +47,63 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
         });
     }
 
-    system.subsystems.push((LUNA.1, subsys));
+    system.add_subsystem(LUNA.1, subsys);
+
+    let asteroid = (
+        Body::new(10.0, 2.0, 60.0),
+        Orbit {
+            eccentricity: 0.2,
+            semi_major_axis: LUNA.1.semi_major_axis * 2.0,
+            arg_periapsis: 0.4,
+            retrograde: false,
+            primary_mass: EARTH.mass,
+        },
+    );
+
+    system.add_subsystem(asteroid.1, OrbitalSystem::new(asteroid.0));
 
     system
 }
 
 pub fn sun_jupiter_lagrange() -> OrbitalSystem {
-    let mut system = OrbitalSystem::new(Body {
+    let sun = Body {
         mass: 1000.0,
         radius: 100.0,
         soi: 100000.0,
-    });
+    };
 
-    // let jupiter = Body {
-    //     mass: sun.mass * 0.000954588,
-    //     radius: 20.0,
-    //     soi: 500.0,
-    // };
+    let mut system: OrbitalSystem = OrbitalSystem::new(sun);
 
-    // let jupiter_orbit = Orbit {
-    //     eccentricity: 0.0,
-    //     arg_periapsis: 0.0,
-    //     semi_major_axis: 5000.0,
-    //     retrograde: false,
-    //     primary_mass: sun.mass,
-    // };
+    let jupiter = Body {
+        mass: sun.mass * 0.000954588,
+        radius: 20.0,
+        soi: 500.0,
+    };
+
+    let jupiter_orbit = Orbit {
+        eccentricity: 0.0,
+        arg_periapsis: 0.0,
+        semi_major_axis: 5000.0,
+        retrograde: false,
+        primary_mass: sun.mass,
+    };
+
+    system.add_subsystem(jupiter_orbit, OrbitalSystem::new(jupiter));
 
     // let s = system.add_object(Vec2::ZERO, Some(sun));
 
     // system.add_object(KeplerPropagator::new(jupiter_orbit, s), Some(jupiter));
 
-    // for _ in 0..600 {
-    //     let r = rand(4000.0, 6000.0);
-    //     let orbit = Orbit::circular(r, 0.0, sun.mass);
-    //     system.add_object(KeplerPropagator::new(orbit, s), None);
-    // }
+    for _ in 0..600 {
+        let orbit = Orbit {
+            eccentricity: rand(0.0, 0.3),
+            semi_major_axis: rand(4000.0, 6000.0),
+            arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
+            retrograde: false,
+            primary_mass: sun.mass,
+        };
+        system.add_object(orbit);
+    }
 
     system
 }

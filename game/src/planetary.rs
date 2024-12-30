@@ -51,7 +51,6 @@ pub struct GameState {
     pub show_orbits: bool,
     pub show_potential_field: bool,
     pub show_gravity_field: bool,
-    pub show_primary_body: bool,
     pub paused: bool,
     pub system: OrbitalSystem,
     pub backup: Option<OrbitalSystem>,
@@ -73,7 +72,6 @@ impl Default for GameState {
             show_orbits: true,
             show_potential_field: false,
             show_gravity_field: false,
-            show_primary_body: false,
             paused: false,
             system: default_example(),
             primary_object: ObjectId(10),
@@ -100,8 +98,8 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     state.sim_time += Duration::from_nanos((time.delta().as_nanos() as f32 * sp) as u64);
     state.system.epoch = state.sim_time;
     let s = state.system.epoch;
-    for sys in state.system.subsystems.iter_mut() {
-        sys.1.epoch = s;
+    for (_, _, sys) in state.system.subsystems.iter_mut() {
+        sys.epoch = s;
     }
 }
 
@@ -125,11 +123,14 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         &mut evt,
         &format!("Show (g)ravity: {}", state.show_gravity_field),
     );
+    send_log(&mut evt, &format!("Primary: {:?}", state.primary_object));
     send_log(
         &mut evt,
-        &format!("Show primary (b)ody: {}", state.show_primary_body),
+        &format!(
+            "Object type: {:?}",
+            state.system.otype(state.primary_object)
+        ),
     );
-    send_log(&mut evt, &format!("Primary: {:?}", state.primary_object));
     send_log(
         &mut evt,
         &format!("Secondary: {:?}", state.secondary_object),
@@ -139,7 +140,7 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         &format!("Follow tracked: {:?}", state.follow_object),
     );
 
-    if let Some(obj) = state.system.lookup_ref(state.primary_object) {
+    if let Some(obj) = state.system.lookup(state.primary_object) {
         send_log(&mut evt, &format!("{:#?}", obj));
     }
 }
@@ -181,22 +182,12 @@ fn keyboard_input(
     }
 
     if keys.just_pressed(KeyCode::KeyM) || keys.all_pressed([KeyCode::KeyM, KeyCode::ShiftLeft]) {
-        let ObjectId(max) = state.system.max_id().unwrap_or(ObjectId(0));
-        let ObjectId(mut id) = state.primary_object;
-        id += 1;
-        while !state.system.has_object(ObjectId(id)) && id < max {
-            id += 1
-        }
-        state.primary_object = ObjectId(id.min(max));
+        let i = state.primary_object.0;
+        state.primary_object = ObjectId(i + 1);
     }
     if keys.just_pressed(KeyCode::KeyN) || keys.all_pressed([KeyCode::KeyN, KeyCode::ShiftLeft]) {
-        let ObjectId(min) = state.system.min_id().unwrap_or(ObjectId(0));
-        let ObjectId(mut id) = state.primary_object;
-        id -= 1;
-        while !state.system.has_object(ObjectId(id)) && id > min {
-            id -= 1;
-        }
-        state.primary_object = ObjectId(id.max(min));
+        let i = state.primary_object.0;
+        state.primary_object = ObjectId(i - 1);
     }
     if keys.just_pressed(KeyCode::Space) {
         state.paused = !state.paused;
@@ -232,9 +223,6 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
             }
             Some("potential") => {
                 state.show_potential_field = !state.show_potential_field;
-            }
-            Some("primary") => {
-                state.show_primary_body = !state.show_primary_body;
             }
             Some("orbit") => {
                 state.show_orbits = !state.show_orbits;

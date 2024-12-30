@@ -32,24 +32,12 @@ pub struct ObjectId(pub i64);
 pub struct EventId(pub i64);
 
 #[derive(Debug, Clone)]
-pub struct Object {
-    pub id: ObjectId,
-    pub orbit: Orbit,
-}
-
-impl Object {
-    pub fn new(id: ObjectId, orbit: Orbit) -> Self {
-        Object { id, orbit }
-    }
-}
-
-#[derive(Debug, Clone)]
 pub struct OrbitalSystem {
     pub primary: Body,
     pub epoch: Duration,
-    pub objects: Vec<Object>,
+    pub objects: Vec<(ObjectId, Orbit)>,
     next_id: i64,
-    pub subsystems: Vec<(Orbit, OrbitalSystem)>,
+    pub subsystems: Vec<(ObjectId, Orbit, OrbitalSystem)>,
 }
 
 impl OrbitalSystem {
@@ -86,43 +74,61 @@ impl Add for PV {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum ObjectType {
+    Orbiter,
+    System,
+}
+
 impl OrbitalSystem {
     pub fn add_object(&mut self, orbit: Orbit) -> ObjectId {
         let id = ObjectId(self.next_id);
         self.next_id += 1;
+        self.objects.push((id, orbit));
+        id
+    }
 
-        self.objects.push(Object::new(id, orbit));
+    pub fn add_subsystem(&mut self, orbit: Orbit, subsys: OrbitalSystem) -> ObjectId {
+        let id = ObjectId(self.next_id);
+        self.next_id += 1;
+        self.subsystems.push((id, orbit, subsys));
         id
     }
 
     pub fn has_object(&self, id: ObjectId) -> bool {
-        self.objects.iter().find(|o| o.id == id).is_some()
+        self.objects.iter().find(|o| o.0 == id).is_some()
     }
 
-    pub fn min_id(&self) -> Option<ObjectId> {
-        self.objects.iter().map(|o| o.id).min()
+    pub fn otype(&self, o: ObjectId) -> Option<ObjectType> {
+        if self.lookup_orbiter(o).is_some() {
+            Some(ObjectType::Orbiter)
+        } else if self.lookup_system(o).is_some() {
+            Some(ObjectType::System)
+        } else {
+            None
+        }
     }
 
-    pub fn max_id(&self) -> Option<ObjectId> {
-        self.objects.iter().map(|o| o.id).max()
+    fn lookup_orbiter(&self, o: ObjectId) -> Option<&Orbit> {
+        self.objects
+            .iter()
+            .find_map(|(id, orbit)| if *id == o { Some(orbit) } else { None })
     }
 
-    pub fn lookup(&self, o: ObjectId) -> Option<Object> {
-        self.objects.iter().find(|m| m.id == o).map(|m| m.clone())
+    fn lookup_system(&self, o: ObjectId) -> Option<(&Orbit, &OrbitalSystem)> {
+        self.subsystems
+            .iter()
+            .find_map(|(id, orbit, sys)| if *id == o { Some((orbit, sys)) } else { None })
     }
 
-    pub fn lookup_ref(&self, o: ObjectId) -> Option<&Object> {
-        self.objects.iter().find(|m| m.id == o)
-    }
-
-    pub fn lookup_mut(&mut self, o: ObjectId) -> Option<&mut Object> {
-        self.objects.iter_mut().find(|m| m.id == o)
+    pub fn lookup(&self, o: ObjectId) -> Option<&Orbit> {
+        self.lookup_orbiter(o)
+            .or_else(|| Some(self.lookup_system(o)?.0))
     }
 
     pub fn transform_from_id(&self, id: ObjectId, stamp: Duration) -> Option<PV> {
-        let obj = self.lookup_ref(id)?;
-        let pv = obj.orbit.pv_at_time(stamp);
-        Some(pv)
+        let orbit = self.lookup(id)?;
+        Some(orbit.pv_at_time(stamp))
     }
 
     // pub fn gravity_at(&self, pos: Vec2) -> Vec2 {
@@ -145,33 +151,9 @@ impl OrbitalSystem {
     //         .sum()
     // }
 
-    // pub fn primary_body_at(&self, pos: Vec2, exclude: Option<ObjectId>) -> Option<Object> {
-    //     let mut ret = self
-    //         .objects
-    //         .iter()
-    //         .filter_map(|o| {
-    //             if Some(o.id) == exclude {
-    //                 return None;
-    //             }
-    //             let soi = o.body?.soi;
-    //             let bpos = self.global_transform(&o.prop, self.epoch)?;
-    //             let d = bpos.pos.distance(pos);
-    //             if d > soi {
-    //                 return None;
-    //             }
-    //             Some((o.clone(), soi))
-    //         })
-    //         .collect::<Vec<_>>();
-
-    //     ret.sort_by(|(_, l), (_, r)| l.partial_cmp(r).unwrap());
-    //     ret.first().map(|(o, _)| o.clone())
-    // }
-
-    // pub fn barycenter(&self) -> (Vec2, f32) {
-    //     let bodies = self.bodies();
-    //     let total_mass: f32 = self.subsystems.iter().map(|(_, subsys)| subsys.barycenter());
-
-    // }
+    pub fn barycenter(&self) -> (Vec2, f32) {
+        (Vec2::ZERO, self.primary.mass)
+    }
 }
 
 pub fn generate_square_lattice(center: Vec2, w: i32, step: usize) -> Vec<Vec2> {
