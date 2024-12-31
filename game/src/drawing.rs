@@ -34,21 +34,18 @@ pub fn draw_circle(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
         .resolution(200);
 }
 
-pub fn draw_orbit(origin: Vec2, orb: &Orbit, gizmos: &mut Gizmos, alpha: f32, base_color: Srgba) {
+pub fn draw_orbit(origin: Vec2, orb: &Orbit, gizmos: &mut Gizmos, a: f32, base_color: Srgba) {
     if orb.eccentricity >= 1.0 {
-        let n_points = 30;
-        let theta_inf = f32::acos(-1.0 / orb.eccentricity);
-        let points: Vec<_> = (-n_points..n_points)
-            .map(|i| 0.98 * theta_inf * i as f32 / n_points as f32)
-            .map(|t| origin + orb.position_at(t))
+        let n_points = 60;
+        let range = 0.98 * hyperbolic_range_ta(orb.eccentricity);
+        let points: Vec<_> = (0..n_points)
+            .map(|i| {
+                let t = (i as f32 / (n_points - 1) as f32) * 2.0 - 1.0;
+                origin + orb.position_at(t * range)
+            })
             .collect();
-        gizmos.linestrip_2d(points, Srgba { alpha: 0.05, ..RED })
+        gizmos.linestrip_2d(points, alpha(base_color, a))
     }
-
-    let color = Srgba {
-        alpha,
-        ..base_color
-    };
 
     // {
     //     let root = orb.pos() + origin;
@@ -64,20 +61,20 @@ pub fn draw_orbit(origin: Vec2, orb: &Orbit, gizmos: &mut Gizmos, alpha: f32, ba
     let center: Vec2 = origin + (orb.periapsis() + orb.apoapsis()) / 2.0;
     let iso = Isometry2d::new(center, orb.arg_periapsis.into());
     gizmos
-        .ellipse_2d(iso, Vec2::new(orb.semi_major_axis, b), color)
+        .ellipse_2d(iso, Vec2::new(orb.semi_major_axis, b), alpha(base_color, a))
         .resolution(orb.semi_major_axis.clamp(40.0, 200.0) as u32);
 
     gizmos.circle_2d(
         Isometry2d::from_translation(origin + orb.periapsis()),
         4.0,
-        Srgba { alpha, ..RED },
+        alpha(RED, a),
     );
 
     if orb.eccentricity < 1.0 {
         gizmos.circle_2d(
             Isometry2d::from_translation(origin + orb.apoapsis()),
             4.0,
-            Srgba { alpha, ..WHITE },
+            alpha(WHITE, a),
         );
     }
 }

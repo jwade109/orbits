@@ -44,6 +44,10 @@ pub fn anomaly_m2t(ecc: f32, mean_anomaly: f32) -> Option<f32> {
     anomaly_m2e(ecc, mean_anomaly).map(|e| anomaly_e2t(ecc, e))
 }
 
+pub fn hyperbolic_range_ta(ecc: f32) -> f32 {
+    (-1.0 / ecc).acos()
+}
+
 pub const GRAVITATIONAL_CONSTANT: f32 = 12000.0;
 
 #[derive(Debug, Clone, Copy)]
@@ -66,6 +70,7 @@ pub struct Orbit {
     pub arg_periapsis: f32,
     pub retrograde: bool,
     pub primary_mass: f32,
+    pub true_anomaly_at_epoch: f32,
 }
 
 impl Orbit {
@@ -92,6 +97,7 @@ impl Orbit {
             arg_periapsis,
             retrograde: h.z < 0.0,
             primary_mass: mass,
+            true_anomaly_at_epoch: true_anomaly,
         }
     }
 
@@ -102,6 +108,7 @@ impl Orbit {
             arg_periapsis: 0.0,
             retrograde: false,
             primary_mass: mass,
+            true_anomaly_at_epoch: ta,
         }
     }
 
@@ -129,6 +136,9 @@ impl Orbit {
     }
 
     pub fn semi_latus_rectum(&self) -> f32 {
+        if self.eccentricity == 1.0 {
+            return 2.0 * self.semi_major_axis;
+        }
         self.semi_major_axis * (1.0 - self.eccentricity.powi(2))
     }
 
@@ -137,6 +147,11 @@ impl Orbit {
     }
 
     pub fn radius_at(&self, true_anomaly: f32) -> f32 {
+        if self.eccentricity == 1.0 {
+            let h = self.angular_momentum();
+            let mu = self.mu();
+            return (h.powi(2) / mu) * 1.0 / (1.0 + true_anomaly.cos());
+        }
         self.semi_major_axis * (1.0 - self.eccentricity.powi(2))
             / (1.0 + self.eccentricity * f32::cos(true_anomaly))
     }
@@ -152,7 +167,8 @@ impl Orbit {
             stamp -= p;
         }
         let n = self.mean_motion();
-        let m = stamp.as_secs_f32() * n;
+        let m0 = anomaly_t2m(self.eccentricity, self.true_anomaly_at_epoch);
+        let m = stamp.as_secs_f32() * n + m0;
         anomaly_m2t(self.eccentricity, m).unwrap_or(f32::NAN)
     }
 

@@ -24,6 +24,18 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
             arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
             retrograde: rand(0.0, 1.0) < 0.3,
             primary_mass: EARTH.mass,
+            true_anomaly_at_epoch: rand(0.0, std::f32::consts::PI * 2.0),
+        });
+    }
+
+    for ecc in (90..120).step_by(2) {
+        system.add_object(Orbit {
+            eccentricity: ecc as f32 / 100.0,
+            semi_major_axis: 5000.0,
+            arg_periapsis: 4.0,
+            retrograde: false,
+            primary_mass: EARTH.mass,
+            true_anomaly_at_epoch: 0.0,
         });
     }
 
@@ -34,6 +46,7 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
             arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
             retrograde: rand(0.0, 1.0) < 0.3,
             primary_mass: EARTH.mass,
+            true_anomaly_at_epoch: rand(0.0, std::f32::consts::PI * 2.0),
         });
     }
 
@@ -46,6 +59,7 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
             arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
             retrograde: rand(0.0, 1.0) < 0.3,
             primary_mass: LUNA.0.mass,
+            true_anomaly_at_epoch: rand(0.0, std::f32::consts::PI * 2.0),
         });
     }
 
@@ -59,6 +73,7 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
             arg_periapsis: 0.4,
             retrograde: false,
             primary_mass: EARTH.mass,
+            true_anomaly_at_epoch: rand(0.0, std::f32::consts::PI * 2.0),
         },
     );
 
@@ -92,6 +107,7 @@ pub fn sun_jupiter_lagrange() -> OrbitalSystem {
         semi_major_axis: 5000.0,
         retrograde: false,
         primary_mass: sun.mass,
+        true_anomaly_at_epoch: rand(0.0, std::f32::consts::PI * 2.0),
     };
 
     system.add_subsystem(jupiter_orbit, OrbitalSystem::new(jupiter));
@@ -107,6 +123,7 @@ pub fn sun_jupiter_lagrange() -> OrbitalSystem {
             arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
             retrograde: false,
             primary_mass: sun.mass,
+            true_anomaly_at_epoch: rand(0.0, std::f32::consts::PI * 2.0),
         };
         system.add_object(orbit);
     }
