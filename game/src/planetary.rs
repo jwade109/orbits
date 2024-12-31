@@ -143,6 +143,10 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
     if let Some(obj) = state.system.lookup(state.primary_object) {
         send_log(&mut evt, &format!("{:#?}", obj));
     }
+
+    if let Some(dat) = state.system.lookup_metadata(state.primary_object) {
+        send_log(&mut evt, &format!("{:#?}", dat));
+    }
 }
 
 fn keyboard_input(

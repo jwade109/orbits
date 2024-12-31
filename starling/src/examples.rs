@@ -15,6 +15,8 @@ pub const LUNA: (Body, Orbit) = (
 pub fn earth_moon_example_one() -> OrbitalSystem {
     let mut system = OrbitalSystem::new(EARTH);
 
+    system.add_object(Orbit::circular(EARTH.radius * 1.1, 0.0, EARTH.mass));
+
     for _ in 0..200 {
         system.add_object(Orbit {
             eccentricity: rand(0.1, 0.8),
@@ -60,7 +62,11 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
         },
     );
 
-    system.add_subsystem(asteroid.1, OrbitalSystem::new(asteroid.0));
+    let mut ast = OrbitalSystem::new(asteroid.0);
+
+    ast.add_object(Orbit::circular(13.0, 0.0, asteroid.0.mass));
+
+    system.add_subsystem(asteroid.1, ast);
 
     system
 }

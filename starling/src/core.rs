@@ -38,18 +38,7 @@ pub struct OrbitalSystem {
     pub objects: Vec<(ObjectId, Orbit)>,
     next_id: i64,
     pub subsystems: Vec<(ObjectId, Orbit, OrbitalSystem)>,
-}
-
-impl OrbitalSystem {
-    pub fn new(body: Body) -> Self {
-        OrbitalSystem {
-            primary: body,
-            epoch: Duration::default(),
-            objects: Vec::default(),
-            next_id: 0,
-            subsystems: vec![],
-        }
-    }
+    metadata: Vec<ObjectMetadata>,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -80,11 +69,38 @@ pub enum ObjectType {
     System,
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum OrbitStability {
+    Unknown,
+    Perpetual,
+    OnEscape(Option<Duration>),
+    SubOrbital(Option<Duration>),
+    MightEncounter(Option<Duration>),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ObjectMetadata {
+    pub id: ObjectId,
+    pub stability: OrbitStability,
+}
+
 impl OrbitalSystem {
+    pub fn new(body: Body) -> Self {
+        OrbitalSystem {
+            primary: body,
+            epoch: Duration::default(),
+            objects: Vec::default(),
+            next_id: 0,
+            subsystems: vec![],
+            metadata: vec![],
+        }
+    }
+
     pub fn add_object(&mut self, orbit: Orbit) -> ObjectId {
         let id = ObjectId(self.next_id);
         self.next_id += 1;
         self.objects.push((id, orbit));
+        self.calculate_metadata();
         id
     }
 
@@ -92,6 +108,7 @@ impl OrbitalSystem {
         let id = ObjectId(self.next_id);
         self.next_id += 1;
         self.subsystems.push((id, orbit, subsys));
+        self.calculate_metadata();
         id
     }
 
@@ -126,6 +143,10 @@ impl OrbitalSystem {
             .or_else(|| Some(self.lookup_system(o)?.0))
     }
 
+    pub fn lookup_metadata(&self, o: ObjectId) -> Option<&ObjectMetadata> {
+        self.metadata.iter().find(|dat| dat.id == o)
+    }
+
     pub fn transform_from_id(&self, id: ObjectId, stamp: Duration) -> Option<PV> {
         let orbit = self.lookup(id)?;
         Some(orbit.pv_at_time(stamp))
@@ -144,6 +165,26 @@ impl OrbitalSystem {
     pub fn barycenter(&self) -> (Vec2, f32) {
         (Vec2::ZERO, self.primary.mass)
         // TODO sum subsystems
+    }
+
+    pub fn calculate_metadata(&mut self) {
+        self.metadata.clear();
+
+        for (id, orbit) in &self.objects {
+            let might_encounter = self
+                .subsystems
+                .iter()
+                .any(|(_, sysorb, sys)| can_intersect_soi(orbit, sysorb, sys.primary.soi));
+
+            let stability = if might_encounter {
+                OrbitStability::MightEncounter(None)
+            } else if will_hit_body(orbit, self.primary.radius) {
+                OrbitStability::SubOrbital(None)
+            } else {
+                OrbitStability::Perpetual
+            };
+            self.metadata.push(ObjectMetadata { id: *id, stability });
+        }
     }
 }
 
