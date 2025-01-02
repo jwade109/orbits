@@ -1,10 +1,10 @@
 use crate::core::*;
 use bevy::math::Vec2;
-use std::time::Duration;
+use chrono::TimeDelta;
 
 #[derive(Debug, Copy, Clone)]
 pub struct PVS {
-    pub stamp: Duration,
+    pub stamp: TimeDelta,
     pub pv: PV,
 }
 
@@ -19,8 +19,8 @@ pub fn get_time_at_separation(
     system: &OrbitalSystem,
     a: ObjectId,
     b: ObjectId,
-    start: Duration,
-    end: Duration,
+    start: TimeDelta,
+    end: TimeDelta,
     radius: f32,
 ) -> Option<(PVS, PVS)> {
     // assuming d(start) < d(target) < d(end)
@@ -53,8 +53,8 @@ pub fn get_time_at_separation(
 
 #[derive(Debug, Clone, Copy)]
 pub struct EncounterEvent {
-    pub start: Duration,
-    pub end: Duration,
+    pub start: TimeDelta,
+    pub end: TimeDelta,
     pub a: ObjectId,
     pub b: ObjectId,
     pub threshold: f32,
@@ -64,8 +64,8 @@ pub fn get_approach_info(
     system: &OrbitalSystem,
     a: ObjectId,
     b: ObjectId,
-    start: Duration,
-    end: Duration,
+    start: TimeDelta,
+    end: TimeDelta,
     radius: f32,
 ) -> Vec<(PVS, PVS)> {
     let pa = get_future_positions(system, a, start, end, 100);
@@ -93,14 +93,18 @@ pub fn get_approach_info(
 pub fn get_future_positions(
     system: &OrbitalSystem,
     id: ObjectId,
-    start: Duration,
-    end: Duration,
+    start: TimeDelta,
+    end: TimeDelta,
     steps: usize,
 ) -> Vec<PVS> {
-    let dur = end - start;
+    let dur_nanos = match (end - start).num_nanoseconds() {
+        Some(d) => d,
+        None => return vec![],
+    };
     (0..steps)
         .filter_map(|i| {
-            let t = start + i as u32 * dur / (steps - 1) as u32;
+            let s = i as f32 / (steps - 1) as f32;
+            let t = start + TimeDelta::nanoseconds((dur_nanos as f32 * s) as i64);
             Some(PVS {
                 stamp: t,
                 pv: system.transform_from_id(id, t)?,
@@ -117,17 +121,17 @@ pub enum EncounterDir {
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct SepTracker {
-    previous: Option<(Duration, f32)>,
-    current: Option<(Duration, f32)>,
+    previous: Option<(TimeDelta, f32)>,
+    current: Option<(TimeDelta, f32)>,
 }
 
 impl SepTracker {
-    pub fn update(&mut self, stamp: Duration, sep: f32) {
+    pub fn update(&mut self, stamp: TimeDelta, sep: f32) {
         self.previous = self.current;
         self.current = Some((stamp, sep));
     }
 
-    pub fn crosses(&self, sep: f32) -> Option<(EncounterDir, (Duration, f32), (Duration, f32))> {
+    pub fn crosses(&self, sep: f32) -> Option<(EncounterDir, (TimeDelta, f32), (TimeDelta, f32))> {
         let p = self.previous?;
         let c = self.current?;
         if p.1 <= sep && sep <= c.1 {

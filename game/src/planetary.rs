@@ -1,10 +1,10 @@
 use bevy::prelude::*;
-use starling::planning::EncounterDir;
-use starling::planning::SepTracker;
-use std::time::Duration;
+use chrono::TimeDelta;
+use starling::planning::*;
 
 use starling::core::*;
 use starling::examples::*;
+use starling::orbit::*;
 
 use crate::debug::*;
 use crate::drawing::*;
@@ -46,7 +46,7 @@ fn draw_separation_tracker(gizmos: Gizmos, mut state: ResMut<GameState>) {
 
 #[derive(Resource)]
 pub struct GameState {
-    pub sim_time: Duration,
+    pub sim_time: TimeDelta,
     pub sim_speed: f32,
     pub show_orbits: bool,
     pub show_potential_field: bool,
@@ -68,7 +68,7 @@ pub struct GameState {
 impl Default for GameState {
     fn default() -> Self {
         GameState {
-            sim_time: Duration::default(),
+            sim_time: TimeDelta::default(),
             sim_speed: 1.0,
             show_orbits: true,
             show_potential_field: false,
@@ -97,7 +97,7 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
         return;
     }
     let sp = state.sim_speed;
-    state.sim_time += Duration::from_nanos((time.delta().as_nanos() as f32 * sp) as u64);
+    state.sim_time += TimeDelta::nanoseconds((time.delta().as_nanos() as f32 * sp) as i64);
     state.system.epoch = state.sim_time;
     let s = state.system.epoch;
     for (_, _, sys) in state.system.subsystems.iter_mut() {
@@ -106,10 +106,7 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
 }
 
 fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
-    send_log(
-        &mut evt,
-        &format!("Epoch: {:0.2}", state.system.epoch.as_secs_f32()),
-    );
+    send_log(&mut evt, &format!("Epoch: {:?}", state.system.epoch));
     send_log(&mut evt, &format!("Scale: {:0.3}", state.target_scale));
     send_log(&mut evt, &format!("{} objects", state.system.objects.len()));
     if state.paused {
@@ -144,6 +141,16 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
 
     if let Some(obj) = state.system.lookup(state.primary_object) {
         send_log(&mut evt, &format!("{:#?}", obj));
+        let ta = obj.ta_at_time(state.system.epoch);
+        let ea = true_to_eccentric(ta, obj.eccentricity);
+        let ma = eccentric_to_mean(ea, obj.eccentricity);
+        send_log(
+            &mut evt,
+            &format!(
+                "True anomaly: {:?}\nEcc anomaly: {:?}\nMean anomaly: {:?}",
+                ta, ea, ma
+            ),
+        );
     }
 
     if let Some(dat) = state.system.lookup_metadata(state.primary_object) {
@@ -180,7 +187,7 @@ fn keyboard_input(
             }
             KeyCode::KeyS => {
                 state.paused = true;
-                state.system.epoch += Duration::from_millis(10);
+                state.system.epoch += TimeDelta::new(0, 1000000).unwrap();
                 state.sim_time = state.system.epoch;
             }
             _ => (),
@@ -206,7 +213,7 @@ fn keyboard_input(
 fn load_new_scenario(state: &mut GameState, new_system: OrbitalSystem) {
     state.backup = Some(new_system.clone());
     state.system = new_system;
-    state.sim_time = Duration::default();
+    state.sim_time = TimeDelta::default();
 }
 
 fn on_command(state: &mut GameState, cmd: &Vec<String>) {

@@ -2,7 +2,7 @@ use crate::orbit::*;
 use bevy::math::Vec2;
 use rand::Rng;
 use std::ops::Add;
-use std::time::Duration;
+use chrono::TimeDelta;
 
 pub fn rand(min: f32, max: f32) -> f32 {
     rand::thread_rng().gen_range(min..max)
@@ -34,7 +34,7 @@ pub struct EventId(pub i64);
 #[derive(Debug, Clone)]
 pub struct OrbitalSystem {
     pub primary: Body,
-    pub epoch: Duration,
+    pub epoch: TimeDelta,
     pub objects: Vec<(ObjectId, Orbit)>,
     next_id: i64,
     pub subsystems: Vec<(ObjectId, Orbit, OrbitalSystem)>,
@@ -73,9 +73,9 @@ pub enum ObjectType {
 pub enum OrbitStability {
     Unknown,
     Perpetual,
-    OnEscape(Option<Duration>),
-    SubOrbital(Option<Duration>),
-    MightEncounter(Option<Duration>),
+    OnEscape(Option<TimeDelta>),
+    SubOrbital(Option<TimeDelta>),
+    MightEncounter(Option<TimeDelta>),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -88,7 +88,7 @@ impl OrbitalSystem {
     pub fn new(body: Body) -> Self {
         OrbitalSystem {
             primary: body,
-            epoch: Duration::default(),
+            epoch: TimeDelta::default(),
             objects: Vec::default(),
             next_id: 0,
             subsystems: vec![],
@@ -147,12 +147,12 @@ impl OrbitalSystem {
         self.metadata.iter().find(|dat| dat.id == o)
     }
 
-    pub fn transform_from_id(&self, id: ObjectId, stamp: Duration) -> Option<PV> {
+    pub fn transform_from_id(&self, id: ObjectId, stamp: TimeDelta) -> Option<PV> {
         let orbit = self.lookup(id)?;
         Some(orbit.pv_at_time(stamp))
     }
 
-    pub fn potential_at(&self, pos: Vec2, stamp: Duration) -> f32 {
+    pub fn potential_at(&self, pos: Vec2, stamp: TimeDelta) -> f32 {
         let r = pos.length().clamp(10.0, std::f32::MAX);
         let mut ret = -(self.primary.mass * GRAVITATIONAL_CONSTANT) / r;
         for (_, orbit, sys) in &self.subsystems {

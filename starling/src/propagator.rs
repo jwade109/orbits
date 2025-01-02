@@ -1,12 +1,12 @@
 use crate::core::*;
 use bevy::math::Vec2;
-use std::time::Duration;
+use chrono::TimeDelta;
 use crate::orbit::*;
 
 pub trait Propagate {
     fn relative_to(&self) -> Option<ObjectId>;
 
-    fn pv_at(&self, stamp: Duration) -> Option<PV>;
+    fn pv_at(&self, stamp: TimeDelta) -> Option<PV>;
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -16,7 +16,7 @@ pub enum Propagator {
 }
 
 impl Propagate for Propagator {
-    fn pv_at(&self, stamp: Duration) -> Option<PV> {
+    fn pv_at(&self, stamp: TimeDelta) -> Option<PV> {
         match self {
             Propagator::Kepler(k) => Some(k.orbit.pv_at_time(stamp)),
             Propagator::Fixed(p, _) => Some(PV::new(*p, Vec2::ZERO)),
@@ -33,7 +33,7 @@ impl Propagate for Propagator {
 
 #[derive(Debug, Copy, Clone)]
 pub struct KeplerPropagator {
-    pub epoch: Duration,
+    pub epoch: TimeDelta,
     pub primary: ObjectId,
     pub orbit: Orbit,
 }
@@ -41,20 +41,20 @@ pub struct KeplerPropagator {
 impl KeplerPropagator {
     pub fn new(orbit: Orbit, primary: ObjectId) -> Self {
         KeplerPropagator {
-            epoch: Duration::default(),
+            epoch: TimeDelta::default(),
             primary,
             orbit,
         }
     }
 
-    pub fn epoch(&self) -> Duration {
+    pub fn epoch(&self) -> TimeDelta {
         self.epoch
     }
 
     pub fn from_pv(pos: Vec2, vel: Vec2, mass: f32, primary: ObjectId) -> Self {
         let orbit = Orbit::from_pv(pos, vel, mass);
         KeplerPropagator {
-            epoch: Duration::default(),
+            epoch: TimeDelta::default(),
             primary,
             orbit,
         }

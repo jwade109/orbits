@@ -1,47 +1,9 @@
 use crate::core::PV;
 use bevy::math::Vec2;
-use std::time::Duration;
+use chrono::TimeDelta;
 
-pub fn anomaly_e2m(ecc: f32, eccentric_anomaly: f32) -> f32 {
-    eccentric_anomaly - ecc * f32::sin(eccentric_anomaly)
-}
-
-pub fn anomaly_m2e(ecc: f32, mean_anomaly: f32) -> Option<f32> {
-    let max_error = 1E-6;
-    let max_iters = 1000;
-
-    let mut e = mean_anomaly;
-
-    for _ in 0..max_iters {
-        e = e - (mean_anomaly - e + ecc * e.sin()) / (ecc * e.cos() - 1.0);
-        if (mean_anomaly - e + ecc * e.sin()).abs() < max_error {
-            return Some(e);
-        }
-    }
-
-    None
-}
-
-pub fn anomaly_t2e(ecc: f32, true_anomaly: f32) -> f32 {
-    f32::atan2(
-        f32::sin(true_anomaly) * (1.0 - ecc.powi(2)).sqrt(),
-        f32::cos(true_anomaly) + ecc,
-    )
-}
-
-pub fn anomaly_e2t(ecc: f32, eccentric_enomaly: f32) -> f32 {
-    f32::atan2(
-        f32::sin(eccentric_enomaly) * (1.0 - ecc.powi(2)).sqrt(),
-        f32::cos(eccentric_enomaly) - ecc,
-    )
-}
-
-pub fn anomaly_t2m(ecc: f32, true_anomaly: f32) -> f32 {
-    anomaly_e2m(ecc, anomaly_t2e(ecc, true_anomaly))
-}
-
-pub fn anomaly_m2t(ecc: f32, mean_anomaly: f32) -> Option<f32> {
-    anomaly_m2e(ecc, mean_anomaly).map(|e| anomaly_e2t(ecc, e))
+pub fn as_seconds(td: TimeDelta) -> f32 {
+    td.num_seconds() as f32 + td.subsec_nanos() as f32 / 1.0E9
 }
 
 pub fn hyperbolic_range_ta(ecc: f32) -> f32 {
@@ -59,17 +21,93 @@ pub enum Anomaly {
     Hyperbolic(f32),
 }
 
+impl Anomaly {
+    pub fn with_ecc(ecc: f32, ta: f32) -> Self {
+        if ecc > 1.0 {
+            Anomaly::Hyperbolic(ta)
+        } else if ecc == 1.0 {
+            Anomaly::Parabolic(ta)
+        } else {
+            Anomaly::Elliptical(ta)
+        }
+    }
+
+    pub fn as_f32(&self) -> f32 {
+        match self {
+            Anomaly::Elliptical(v) => *v,
+            Anomaly::Parabolic(v) => *v,
+            Anomaly::Hyperbolic(v) => *v,
+        }
+    }
+}
+
 pub fn true_to_eccentric(true_anomaly: Anomaly, ecc: f32) -> Anomaly {
     match true_anomaly {
         Anomaly::Elliptical(v) => Anomaly::Elliptical(f32::atan2(
             v.sin() * (1.0 - ecc.powi(2)).sqrt(),
             v.cos() + ecc,
         )),
-        Anomaly::Hyperbolic(v) => Anomaly::Hyperbolic(f32::atan2(
-            f32::sin(v) * (1.0 - ecc.powi(2)).sqrt(),
-            f32::cos(v) + ecc,
-        )),
+        Anomaly::Hyperbolic(v) => {
+            Anomaly::Hyperbolic(((ecc + v.cos()) / (1. + ecc * v.cos())).acosh())
+        }
         Anomaly::Parabolic(v) => Anomaly::Parabolic((v / 2.0).tan()),
+    }
+}
+
+pub fn eccentric_to_mean(eccentric_anomaly: Anomaly, ecc: f32) -> Anomaly {
+    match eccentric_anomaly {
+        Anomaly::Elliptical(v) => Anomaly::Elliptical(v - ecc * v.sin()),
+        Anomaly::Hyperbolic(v) => Anomaly::Hyperbolic(ecc * v.sinh() - v),
+        Anomaly::Parabolic(v) => Anomaly::Parabolic(v + v.powi(3) / 3.0),
+    }
+}
+
+pub fn mean_to_eccentric(mean_anomaly: Anomaly, ecc: f32) -> Option<Anomaly> {
+    match mean_anomaly {
+        Anomaly::Elliptical(v) => {
+            let max_error = 1E-6;
+            let max_iters = 1000;
+
+            let mut e = v;
+
+            for _ in 0..max_iters {
+                e = e - (v - e + ecc * e.sin()) / (ecc * e.cos() - 1.0);
+                if (v - e + ecc * e.sin()).abs() < max_error {
+                    return Some(Anomaly::Elliptical(e));
+                }
+            }
+
+            None
+        }
+        Anomaly::Hyperbolic(v) => {
+            let max_error = 1E-6;
+            let max_iters = 1000;
+
+            let mut e = v;
+
+            for _ in 0..max_iters {
+                e = e + (v + e - ecc * e.sinh()) / (ecc * e.cosh() - 1.0);
+                if (v + e - ecc * e.sinh()).abs() < max_error {
+                    return Some(Anomaly::Hyperbolic(e));
+                }
+            }
+
+            Some(Anomaly::Hyperbolic(e))
+        }
+        Anomaly::Parabolic(_) => Some(Anomaly::Parabolic(0.0)),
+    }
+}
+
+pub fn eccentric_to_true(eccentric_anomaly: Anomaly, ecc: f32) -> Anomaly {
+    match eccentric_anomaly {
+        Anomaly::Elliptical(v) => Anomaly::Elliptical(f32::atan2(
+            f32::sin(v) * (1.0 - ecc.powi(2)).sqrt(),
+            f32::cos(v) - ecc,
+        )),
+        Anomaly::Parabolic(_) => Anomaly::Parabolic(0.0),
+        Anomaly::Hyperbolic(v) => Anomaly::Hyperbolic(
+            2.0 * (((ecc + 1.0) / (ecc - 1.0)).sqrt() * (v / 2.0).tanh()).atan(),
+        ),
     }
 }
 
@@ -181,29 +219,38 @@ impl Orbit {
             / (1.0 + self.eccentricity * f32::cos(true_anomaly))
     }
 
-    pub fn period(&self) -> Option<Duration> {
+    pub fn period(&self) -> Option<TimeDelta> {
         if self.eccentricity >= 1.0 {
             return None;
         }
         let t = 2.0 * std::f32::consts::PI * (self.semi_major_axis.powi(3) / (self.mu())).sqrt();
-        Duration::try_from_secs_f32(t).ok()
+        TimeDelta::new(t.floor() as i64, ((t % 1.0) * 1E9) as u32)
     }
 
-    pub fn ta_at_time(&self, mut stamp: Duration) -> f32 {
+    pub fn ta_at_time(&self, mut stamp: TimeDelta) -> Anomaly {
         if let Some(p) = self.period() {
             while stamp > p {
                 stamp -= p;
             }
         }
         let n = self.mean_motion();
-        let m0 = anomaly_t2m(self.eccentricity, self.true_anomaly_at_epoch);
-        let m = stamp.as_secs_f32() * n + m0;
-        anomaly_m2t(self.eccentricity, m).unwrap_or(0.0)
+
+        let m0 = {
+            let ta0 = Anomaly::with_ecc(self.eccentricity, self.true_anomaly_at_epoch);
+            let e0 = true_to_eccentric(ta0, self.eccentricity);
+            eccentric_to_mean(e0, self.eccentricity)
+        };
+        let ta = (|| {
+            let m = Anomaly::with_ecc(self.eccentricity, as_seconds(stamp) * n + m0.as_f32());
+            let e = mean_to_eccentric(m, self.eccentricity)?;
+            Some(eccentric_to_true(e, self.eccentricity))
+        })();
+        Anomaly::with_ecc(self.eccentricity, ta.map_or(0.356, |a| a.as_f32()))
     }
 
-    pub fn pv_at_time(&self, stamp: Duration) -> PV {
+    pub fn pv_at_time(&self, stamp: TimeDelta) -> PV {
         let ta = self.ta_at_time(stamp);
-        self.pv_at(ta)
+        self.pv_at(ta.as_f32())
     }
 
     pub fn pv_at(&self, true_anomaly: f32) -> PV {
@@ -252,10 +299,6 @@ impl Orbit {
 
     pub fn mean_motion(&self) -> f32 {
         (self.mu() / self.semi_major_axis.abs().powi(3)).sqrt()
-    }
-
-    pub fn mean_anomaly_at(&self, true_anomaly: f32) -> f32 {
-        anomaly_t2m(self.eccentricity, true_anomaly)
     }
 
     pub fn mu(&self) -> f32 {

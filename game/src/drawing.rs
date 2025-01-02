@@ -5,7 +5,7 @@ use starling::core::*;
 use starling::orbit::*;
 use starling::planning::*;
 
-use std::time::Duration;
+use chrono::TimeDelta;
 
 use crate::planetary::GameState;
 
@@ -98,7 +98,7 @@ pub fn draw_globe(gizmos: &mut Gizmos, p: Vec2, radius: f32, color: Srgba) {
 pub fn draw_orbital_system(
     gizmos: &mut Gizmos,
     sys: &OrbitalSystem,
-    stamp: Duration,
+    stamp: TimeDelta,
     origin: Vec2,
     scale: f32,
 ) {
@@ -205,18 +205,23 @@ pub fn draw_scalar_field_v2(
     }
 }
 
-pub fn draw_shadows(gizmos: &mut Gizmos, origin: Vec2, radius: f32, stamp: Duration) {
-    let angle = stamp.as_secs_f32() / 1000.0;
+pub fn draw_shadows(gizmos: &mut Gizmos, origin: Vec2, radius: f32, stamp: TimeDelta) {
+    let angle = as_seconds(stamp) / 1000.0;
     let u = rotate(Vec2::X, angle);
-    let color = alpha(BLACK, 0.01);
-    let steps = 20;
+    let steps = radius.ceil() as u32;
+    let jmax = 50;
     for i in 0..steps {
         let y = (i as f32 / (steps - 1) as f32) * 2.0 - 1.0;
         let xoff = Vec2::X * radius * (1.0 - y.powi(2)).sqrt();
         let yoff = Vec2::Y * y * radius;
         let start = origin + rotate(xoff + yoff, angle);
-        let end = start + u * 20000.0;
-        gizmos.line_2d(start, end, color);
+        let delta = u * 2000.0;
+        for j in 0..jmax {
+            let s = start + delta * j as f32;
+            let e = start + delta * (j + 1) as f32;
+            let a = 0.25 * ((jmax - j) as f32 / jmax as f32).powi(4);
+            gizmos.line_2d(s, e, alpha(BLACK, a));
+        }
     }
 }
 
@@ -261,7 +266,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
 
     // {
     //     let start = state.system.epoch;
-    //     let end = start + Duration::from_secs(100);
+    //     let end = start + TimeDelta::from_secs(100);
     //     let pos: Vec<_> =
     //         get_future_positions(&state.system, state.primary_object, start, end, 500)
     //             .iter()

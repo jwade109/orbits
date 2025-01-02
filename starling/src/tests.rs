@@ -4,7 +4,7 @@ use crate::core::*;
 use crate::examples::*;
 use approx::assert_relative_eq;
 use bevy::math::Vec2;
-use std::time::Duration;
+use chrono::TimeDelta;
 use crate::orbit::*;
 
 const TEST_BODY: Body = Body {
