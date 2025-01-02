@@ -48,6 +48,31 @@ pub fn hyperbolic_range_ta(ecc: f32) -> f32 {
     (-1.0 / ecc).acos()
 }
 
+// https://www.bogan.ca/orbits/kepler/orbteqtn.html
+// https://space.stackexchange.com/questions/27602/what-is-hyperbolic-eccentric-anomaly-f
+// https://orbital-mechanics.space/time-since-periapsis-and-keplers-equation/universal-variables.html
+
+#[derive(Debug, Clone, Copy)]
+pub enum Anomaly {
+    Elliptical(f32),
+    Parabolic(f32),
+    Hyperbolic(f32),
+}
+
+pub fn true_to_eccentric(true_anomaly: Anomaly, ecc: f32) -> Anomaly {
+    match true_anomaly {
+        Anomaly::Elliptical(v) => Anomaly::Elliptical(f32::atan2(
+            v.sin() * (1.0 - ecc.powi(2)).sqrt(),
+            v.cos() + ecc,
+        )),
+        Anomaly::Hyperbolic(v) => Anomaly::Hyperbolic(f32::atan2(
+            f32::sin(v) * (1.0 - ecc.powi(2)).sqrt(),
+            f32::cos(v) + ecc,
+        )),
+        Anomaly::Parabolic(v) => Anomaly::Parabolic((v / 2.0).tan()),
+    }
+}
+
 pub const GRAVITATIONAL_CONSTANT: f32 = 12000.0;
 
 #[derive(Debug, Clone, Copy)]
@@ -156,20 +181,24 @@ impl Orbit {
             / (1.0 + self.eccentricity * f32::cos(true_anomaly))
     }
 
-    pub fn period(&self) -> Duration {
+    pub fn period(&self) -> Option<Duration> {
+        if self.eccentricity >= 1.0 {
+            return None;
+        }
         let t = 2.0 * std::f32::consts::PI * (self.semi_major_axis.powi(3) / (self.mu())).sqrt();
-        Duration::from_secs_f32(t)
+        Duration::try_from_secs_f32(t).ok()
     }
 
     pub fn ta_at_time(&self, mut stamp: Duration) -> f32 {
-        let p = self.period();
-        while stamp > p {
-            stamp -= p;
+        if let Some(p) = self.period() {
+            while stamp > p {
+                stamp -= p;
+            }
         }
         let n = self.mean_motion();
         let m0 = anomaly_t2m(self.eccentricity, self.true_anomaly_at_epoch);
         let m = stamp.as_secs_f32() * n + m0;
-        anomaly_m2t(self.eccentricity, m).unwrap_or(f32::NAN)
+        anomaly_m2t(self.eccentricity, m).unwrap_or(0.0)
     }
 
     pub fn pv_at_time(&self, stamp: Duration) -> PV {

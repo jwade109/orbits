@@ -60,6 +60,7 @@ pub struct GameState {
     pub target_scale: f32,
     pub camera_easing: Vec2,
     pub camera_switch: bool,
+    pub draw_levels: Vec<i32>,
 
     pub tracker: SepTracker,
 }
@@ -81,6 +82,7 @@ impl Default for GameState {
             target_scale: 4.0,
             camera_easing: Vec2::ZERO,
             camera_switch: false,
+            draw_levels: (-5000..=-3000).step_by(200).collect(),
             tracker: SepTracker::default(),
         }
     }
@@ -254,6 +256,12 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
         let x = state.primary_object;
         state.primary_object = state.secondary_object;
         state.secondary_object = x;
+    } else if starts_with("level") {
+        state.draw_levels = cmd
+            .iter()
+            .skip(1)
+            .filter_map(|s| Some(-(s.parse::<i32>().ok()?)))
+            .collect();
     }
 }
 

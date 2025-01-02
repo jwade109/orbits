@@ -62,7 +62,7 @@ pub fn draw_orbit(origin: Vec2, orb: &Orbit, gizmos: &mut Gizmos, a: f32, base_c
     let iso = Isometry2d::new(center, orb.arg_periapsis.into());
     gizmos
         .ellipse_2d(iso, Vec2::new(orb.semi_major_axis, b), alpha(base_color, a))
-        .resolution(orb.semi_major_axis.clamp(40.0, 200.0) as u32);
+        .resolution(orb.semi_major_axis.clamp(40.0, 300.0) as u32);
 
     gizmos.circle_2d(
         Isometry2d::from_translation(origin + orb.periapsis()),
@@ -149,11 +149,66 @@ pub fn draw_scalar_field(gizmos: &mut Gizmos, sys: &OrbitalSystem, origin: Vec2)
     }
 }
 
+pub fn draw_scalar_field_cell(
+    gizmos: &mut Gizmos,
+    sys: &OrbitalSystem,
+    origin: Vec2,
+    center: Vec2,
+    step: f32,
+    levels: &[i32],
+) {
+    let bl = center + Vec2::new(-step / 2.0, -step / 2.0);
+    let br = center + Vec2::new(step / 2.0, -step / 2.0);
+    let tl = center + Vec2::new(-step / 2.0, step / 2.0);
+    let tr = center + Vec2::new(step / 2.0, step / 2.0);
+
+    let pot: Vec<(Vec2, f32)> = [bl, br, tr, tl]
+        .iter()
+        .map(|p| (*p, sys.potential_at(*p, sys.epoch)))
+        .collect();
+
+    for level in levels {
+        let mut pts = vec![];
+
+        for i in 0..4 {
+            let p1 = pot[i].0;
+            let z1 = pot[i].1;
+            let p2 = pot[(i + 1) % 4].0;
+            let z2 = pot[(i + 1) % 4].1;
+
+            let l = *level as f32;
+
+            if z1 > l && z2 < l || z1 < l && z2 > l {
+                let t = (l - z1) / (z2 - z1);
+                let d = origin + p1.lerp(p2, t);
+                pts.push(d);
+            }
+        }
+
+        gizmos.linestrip_2d(pts, GREEN);
+    }
+}
+
+pub fn draw_scalar_field_v2(
+    gizmos: &mut Gizmos,
+    sys: &OrbitalSystem,
+    origin: Vec2,
+    levels: &[i32],
+) {
+    let step = 200;
+    for y in (-4000..=4000).step_by(step) {
+        for x in (-4000..=4000).step_by(step) {
+            let p = Vec2::new(x as f32, y as f32);
+            draw_scalar_field_cell(gizmos, sys, origin, p, step as f32, levels);
+            draw_square(gizmos, origin + p, step as f32, alpha(WHITE, 0.01));
+        }
+    }
+}
+
 pub fn draw_shadows(gizmos: &mut Gizmos, origin: Vec2, radius: f32, stamp: Duration) {
     let angle = stamp.as_secs_f32() / 1000.0;
     let u = rotate(Vec2::X, angle);
-    let start_color = alpha(GRAY, 0.004);
-    let end_color = alpha(BLACK, 1.0);
+    let color = alpha(BLACK, 0.01);
     let steps = 20;
     for i in 0..steps {
         let y = (i as f32 / (steps - 1) as f32) * 2.0 - 1.0;
@@ -161,12 +216,14 @@ pub fn draw_shadows(gizmos: &mut Gizmos, origin: Vec2, radius: f32, stamp: Durat
         let yoff = Vec2::Y * y * radius;
         let start = origin + rotate(xoff + yoff, angle);
         let end = start + u * 20000.0;
-        gizmos.line_2d(start, end, start_color);
+        gizmos.line_2d(start, end, color);
     }
 }
 
 pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     let stamp = state.system.epoch;
+
+    draw_scalar_field_v2(&mut gizmos, &state.system, Vec2::ZERO, &state.draw_levels);
 
     draw_orbital_system(
         &mut gizmos,

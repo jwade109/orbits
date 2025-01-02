@@ -28,15 +28,13 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
         });
     }
 
-    for ecc in (90..120).step_by(2) {
-        system.add_object(Orbit {
-            eccentricity: ecc as f32 / 100.0,
-            semi_major_axis: 5000.0,
-            arg_periapsis: 4.0,
-            retrograde: false,
-            primary_mass: EARTH.mass,
-            true_anomaly_at_epoch: 0.0,
-        });
+    for vel in 40..100 {
+        for i in 0..10 {
+            let r = Vec2::new(3000.0, 0.0);
+            let v = Vec2::new(0.0, vel as f32 + i as f32 / 10.0);
+            let o = Orbit::from_pv(r, v, EARTH.mass);
+            system.add_object(o);
+        }
     }
 
     for _ in 0..100 {
