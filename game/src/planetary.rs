@@ -82,7 +82,10 @@ impl Default for GameState {
             target_scale: 4.0,
             camera_easing: Vec2::ZERO,
             camera_switch: false,
-            draw_levels: (-5000..=-3000).step_by(200).collect(),
+            draw_levels: (-70000..=-10000)
+                .step_by(10000)
+                .chain((-5000..-3000).step_by(250))
+                .collect(),
             tracker: SepTracker::default(),
         }
     }
@@ -138,6 +141,7 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         &mut evt,
         &format!("Follow tracked: {:?}", state.follow_object),
     );
+    send_log(&mut evt, &format!("Levels: {:#?}", state.draw_levels));
 
     if let Some(obj) = state.system.lookup(state.primary_object) {
         send_log(&mut evt, &format!("{:#?}", obj));
@@ -264,11 +268,15 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
         state.primary_object = state.secondary_object;
         state.secondary_object = x;
     } else if starts_with("level") {
-        state.draw_levels = cmd
-            .iter()
-            .skip(1)
-            .filter_map(|s| Some(-(s.parse::<i32>().ok()?)))
-            .collect();
+        if Some(&"clear".to_string()) == cmd.get(1) {
+            state.draw_levels.clear();
+        } else {
+            state.draw_levels.extend(
+                cmd.iter()
+                    .skip(1)
+                    .filter_map(|s| Some(-(s.parse::<i32>().ok()?))),
+            );
+        }
     }
 }
 

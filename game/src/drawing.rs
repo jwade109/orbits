@@ -152,11 +152,35 @@ pub fn draw_scalar_field(gizmos: &mut Gizmos, sys: &OrbitalSystem, origin: Vec2)
 pub fn draw_scalar_field_cell(
     gizmos: &mut Gizmos,
     sys: &OrbitalSystem,
-    origin: Vec2,
     center: Vec2,
     step: f32,
     levels: &[i32],
+    expanded: bool,
 ) {
+    if !expanded {
+        let d = sys
+            .subsystems
+            .iter()
+            .map(|(_, o, _)| (o.pv_at_time(sys.epoch).pos.distance(center) * 1000.0) as u32)
+            .min()
+            .unwrap();
+        if d < 600000 || center.length() < 600.0 {
+            let n: i32 = 4;
+            let substep = step / n as f32;
+            for i in 0..n {
+                for j in 0..n {
+                    let x = (i - 1) as f32 / n as f32 * substep * n as f32 - substep * 0.5;
+                    let y = (j - 1) as f32 / n as f32 * substep * n as f32 - substep * 0.5;
+                    let p = center + Vec2::new(x, y);
+                    draw_scalar_field_cell(gizmos, sys, p, substep, levels, true);
+                }
+            }
+            return;
+        }
+    }
+
+    draw_square(gizmos, center, step as f32, alpha(WHITE, 0.01));
+
     let bl = center + Vec2::new(-step / 2.0, -step / 2.0);
     let br = center + Vec2::new(step / 2.0, -step / 2.0);
     let tl = center + Vec2::new(-step / 2.0, step / 2.0);
@@ -180,7 +204,7 @@ pub fn draw_scalar_field_cell(
 
             if z1 > l && z2 < l || z1 < l && z2 > l {
                 let t = (l - z1) / (z2 - z1);
-                let d = origin + p1.lerp(p2, t);
+                let d = p1.lerp(p2, t);
                 pts.push(d);
             }
         }
@@ -189,18 +213,12 @@ pub fn draw_scalar_field_cell(
     }
 }
 
-pub fn draw_scalar_field_v2(
-    gizmos: &mut Gizmos,
-    sys: &OrbitalSystem,
-    origin: Vec2,
-    levels: &[i32],
-) {
-    let step = 200;
+pub fn draw_scalar_field_v2(gizmos: &mut Gizmos, sys: &OrbitalSystem, levels: &[i32]) {
+    let step = 250;
     for y in (-4000..=4000).step_by(step) {
         for x in (-4000..=4000).step_by(step) {
             let p = Vec2::new(x as f32, y as f32);
-            draw_scalar_field_cell(gizmos, sys, origin, p, step as f32, levels);
-            draw_square(gizmos, origin + p, step as f32, alpha(WHITE, 0.01));
+            draw_scalar_field_cell(gizmos, sys, p, step as f32, levels, false);
         }
     }
 }
@@ -228,7 +246,7 @@ pub fn draw_shadows(gizmos: &mut Gizmos, origin: Vec2, radius: f32, stamp: TimeD
 pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     let stamp = state.system.epoch;
 
-    draw_scalar_field_v2(&mut gizmos, &state.system, Vec2::ZERO, &state.draw_levels);
+    draw_scalar_field_v2(&mut gizmos, &state.system, &state.draw_levels);
 
     draw_orbital_system(
         &mut gizmos,
