@@ -55,9 +55,23 @@ pub fn true_to_eccentric(true_anomaly: Anomaly, ecc: f32) -> Anomaly {
     }
 }
 
+fn bhaskara_sin_approx(x: f64) -> f64 {
+    let pi = std::f64::consts::PI;
+    let xp = x.abs();
+    let res = 16.0 * xp / (5.0 * pi.powi(2) / (pi - x) - 4.0 * xp);
+    if x > 0.0 {
+        res
+    } else {
+        -res
+    }
+}
+
 pub fn eccentric_to_mean(eccentric_anomaly: Anomaly, ecc: f32) -> Anomaly {
     match eccentric_anomaly {
         Anomaly::Elliptical(v) => Anomaly::Elliptical(v - ecc * v.sin()),
+        // Anomaly::Elliptical(v) => {
+        //     Anomaly::Elliptical(v - ecc * bhaskara_sin_approx(v as f64) as f32)
+        // }
         Anomaly::Hyperbolic(v) => Anomaly::Hyperbolic(ecc * v.sinh() - v),
         Anomaly::Parabolic(v) => Anomaly::Parabolic(v + v.powi(3) / 3.0),
     }

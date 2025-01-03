@@ -100,6 +100,7 @@ pub fn draw_orbital_system(
     stamp: TimeDelta,
     origin: Vec2,
     scale: f32,
+    show_orbits: bool,
 ) {
     draw_shadows(gizmos, origin, sys.primary.radius, stamp);
     draw_globe(gizmos, origin, sys.primary.radius, WHITE);
@@ -117,7 +118,9 @@ pub fn draw_orbital_system(
         let pv = orbit.pv_at_time(stamp);
         let color: Srgba = WHITE;
         draw_square(gizmos, origin + pv.pos, (9.0 * scale).min(9.0), color);
-        draw_orbit(origin, orbit, gizmos, 0.05, GRAY);
+        if show_orbits {
+            draw_orbit(origin, orbit, gizmos, 0.05, GRAY);
+        }
     }
 
     for (_, orbit, subsys) in sys.subsystems.iter() {
@@ -130,7 +133,7 @@ pub fn draw_orbital_system(
         draw_orbit(origin, &o, gizmos, 0.3, RED);
 
         let pv = orbit.pv_at_time(stamp);
-        draw_orbital_system(gizmos, subsys, stamp, origin + pv.pos, scale);
+        draw_orbital_system(gizmos, subsys, stamp, origin + pv.pos, scale, show_orbits);
     }
 }
 
@@ -245,7 +248,9 @@ pub fn draw_shadows(gizmos: &mut Gizmos, origin: Vec2, radius: f32, stamp: TimeD
 pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     let stamp = state.system.epoch;
 
-    draw_scalar_field_v2(&mut gizmos, &state.system, &state.draw_levels);
+    if state.show_potential_field {
+        draw_scalar_field_v2(&mut gizmos, &state.system, &state.draw_levels);
+    }
 
     draw_orbital_system(
         &mut gizmos,
@@ -253,6 +258,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         stamp,
         Vec2::ZERO,
         state.target_scale,
+        state.show_orbits,
     );
 
     gizmos.grid_2d(

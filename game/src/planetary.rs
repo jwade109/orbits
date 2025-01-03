@@ -1,10 +1,13 @@
+use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 use chrono::TimeDelta;
-use starling::planning::*;
+
+use bevy_egui::{egui, EguiContexts, EguiPlugin};
 
 use starling::core::*;
 use starling::examples::*;
 use starling::orbit::*;
+use starling::planning::*;
 
 use crate::debug::*;
 use crate::drawing::*;
@@ -16,8 +19,65 @@ impl Plugin for PlanetaryPlugin {
         app.add_systems(Startup, init_system);
         app.add_systems(Update, (draw, keyboard_input, handle_zoom));
         app.add_systems(FixedUpdate, (propagate_system, draw_separation_tracker));
-        app.add_systems(Update, (log_system_info, update_camera, process_commands));
+        app.add_systems(
+            Update,
+            (
+                log_system_info,
+                update_camera,
+                process_commands,
+                scroll_events,
+            ),
+        );
+        app.add_plugins(EguiPlugin).add_systems(Update, ui_system);
     }
+}
+
+fn ui_system(mut contexts: EguiContexts, mut state: ResMut<GameState>) {
+    egui::Window::new("Settings").show(contexts.ctx_mut(), |ui| {
+        if state.paused {
+            if ui.add(egui::Button::new("Unpause")).clicked() {
+                state.paused = false;
+            }
+        } else {
+            if ui.add(egui::Button::new("Pause")).clicked() {
+                state.paused = true;
+            }
+        }
+
+        ui.add_space(10.0);
+        ui.add(egui::Label::new("Sim Speed"));
+        ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
+            for speed in [0.01, 0.1, 1.0, 10.0, 100.0, 1000.0] {
+                let en = state.sim_speed != speed;
+                let button = egui::Button::new(format!("{:0.2}", speed));
+                if ui.add_enabled(en, button).clicked() {
+                    state.sim_speed = speed;
+                }
+            }
+        });
+
+        ui.add_space(10.0);
+        if ui.add(egui::Button::new("Toggle Follow")).clicked() {
+            state.camera_switch = true;
+        }
+        if ui.add(egui::Button::new("Toggle Orbits")).clicked() {
+            state.show_orbits = !state.show_orbits;
+        }
+        if ui.add(egui::Button::new("Toggle Potential")).clicked() {
+            state.show_potential_field = !state.show_potential_field;
+        }
+
+        ui.add_space(10.0);
+        ui.add(egui::Label::new("Scenarios"));
+        ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
+            if ui.add(egui::Button::new("Earth-Moon")).clicked() {
+                load_new_scenario(&mut state, earth_moon_example_one());
+            }
+            if ui.add(egui::Button::new("Moon")).clicked() {
+                load_new_scenario(&mut state, just_the_moon());
+            }
+        });
+    });
 }
 
 fn draw(gizmos: Gizmos, res: Res<GameState>) {
@@ -50,7 +110,6 @@ pub struct GameState {
     pub sim_speed: f32,
     pub show_orbits: bool,
     pub show_potential_field: bool,
-    pub show_gravity_field: bool,
     pub paused: bool,
     pub system: OrbitalSystem,
     pub backup: Option<OrbitalSystem>,
@@ -72,7 +131,6 @@ impl Default for GameState {
             sim_speed: 1.0,
             show_orbits: true,
             show_potential_field: false,
-            show_gravity_field: false,
             paused: false,
             system: default_example(),
             primary_object: ObjectId(10),
@@ -219,6 +277,7 @@ fn keyboard_input(
 
 fn load_new_scenario(state: &mut GameState, new_system: OrbitalSystem) {
     state.backup = Some(new_system.clone());
+    state.target_scale = 0.001 * new_system.primary.soi;
     state.system = new_system;
     state.sim_time = TimeDelta::default();
 }
@@ -237,9 +296,6 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
         load_new_scenario(state, system);
     } else if starts_with("toggle") {
         match cmd.get(1).map(|s| s.as_str()) {
-            Some("gravity") => {
-                state.show_gravity_field = !state.show_gravity_field;
-            }
             Some("potential") => {
                 state.show_potential_field = !state.show_potential_field;
             }
@@ -321,4 +377,14 @@ fn update_camera(mut query: Query<&mut Transform, With<Camera>>, mut state: ResM
 
     *tf = tf.with_translation((target_pos + state.camera_easing).extend(0.0));
     state.camera_easing *= 0.85;
+}
+
+fn scroll_events(mut evr_scroll: EventReader<MouseWheel>, mut state: ResMut<GameState>) {
+    for ev in evr_scroll.read() {
+        if ev.y > 0.0 {
+            state.target_scale /= 1.5;
+        } else {
+            state.target_scale *= 1.5;
+        }
+    }
 }

@@ -13,6 +13,28 @@ pub const LUNA: (Body, Orbit) = (
     Orbit::circular(3800.0, 0.0, EARTH.mass, TimeDelta::zero()),
 );
 
+pub fn just_the_moon() -> OrbitalSystem {
+
+    let mut subsys = OrbitalSystem::new(LUNA.0);
+    let mut id = ObjectIdTracker::new();
+
+    for _ in 0..5 {
+        subsys.add_object(
+            id.next(),
+            Orbit {
+                eccentricity: rand(0.2, 0.5),
+                semi_major_axis: rand(100.0, 400.0),
+                arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
+                retrograde: rand(0.0, 1.0) < 0.3,
+                primary_mass: LUNA.0.mass,
+                time_at_periapsis: TimeDelta::zero(),
+            },
+        );
+    }
+
+    subsys
+}
+
 pub fn earth_moon_example_one() -> OrbitalSystem {
     let mut system = OrbitalSystem::new(EARTH);
 
@@ -37,13 +59,11 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
         );
     }
 
-    for vel in 40..100 {
-        for i in 0..10 {
-            let r = Vec2::new(3000.0, 0.0);
-            let v = Vec2::new(0.0, vel as f32 + i as f32 / 10.0);
-            let o = Orbit::from_pv(r, v, EARTH.mass, TimeDelta::zero());
-            system.add_object(id.next(), o);
-        }
+    for vel in 400..1000 {
+        let r = Vec2::new(3000.0, 0.0);
+        let v = rotate(Vec2::X * vel as f32 / 10.0, std::f32::consts::PI / 2.1);
+        let o = Orbit::from_pv(r, v, EARTH.mass, TimeDelta::zero());
+        system.add_object(id.next(), o);
     }
 
     for _ in 0..100 {
