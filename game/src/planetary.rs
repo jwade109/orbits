@@ -76,6 +76,9 @@ fn ui_system(mut contexts: EguiContexts, mut state: ResMut<GameState>) {
             if ui.add(egui::Button::new("Moon")).clicked() {
                 load_new_scenario(&mut state, just_the_moon());
             }
+            if ui.add(egui::Button::new("Jupiter")).clicked() {
+                load_new_scenario(&mut state, sun_jupiter_lagrange());
+            }
         });
     });
 }
