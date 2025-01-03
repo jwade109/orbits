@@ -1,6 +1,7 @@
 use crate::core::*;
 use crate::orbit::*;
 use bevy::math::Vec2;
+use chrono::TimeDelta;
 
 #[cfg(test)]
 use approx::assert_relative_eq;
@@ -9,59 +10,76 @@ pub const EARTH: Body = Body::new(63.0, 1000.0, 15000.0);
 
 pub const LUNA: (Body, Orbit) = (
     Body::new(22.0, 10.0, 800.0),
-    Orbit::circular(3800.0, 0.0, EARTH.mass),
+    Orbit::circular(3800.0, 0.0, EARTH.mass, TimeDelta::zero()),
 );
 
 pub fn earth_moon_example_one() -> OrbitalSystem {
     let mut system = OrbitalSystem::new(EARTH);
 
-    system.add_object(Orbit::circular(EARTH.radius * 1.1, 0.0, EARTH.mass));
+    let mut id = ObjectIdTracker::new();
+
+    system.add_object(
+        id.next(),
+        Orbit::circular(EARTH.radius * 1.1, 0.0, EARTH.mass, TimeDelta::zero()),
+    );
 
     for _ in 0..200 {
-        system.add_object(Orbit {
-            eccentricity: rand(0.1, 0.8),
-            semi_major_axis: rand(50.0, 2600.0),
-            arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
-            retrograde: rand(0.0, 1.0) < 0.3,
-            primary_mass: EARTH.mass,
-            true_anomaly_at_epoch: rand(0.0, std::f32::consts::PI * 2.0),
-        });
+        system.add_object(
+            id.next(),
+            Orbit {
+                eccentricity: rand(0.1, 0.8),
+                semi_major_axis: rand(50.0, 2600.0),
+                arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
+                retrograde: rand(0.0, 1.0) < 0.3,
+                primary_mass: EARTH.mass,
+                true_anomaly_at_epoch: rand(0.0, std::f32::consts::PI * 2.0),
+                epoch: TimeDelta::zero(),
+            },
+        );
     }
 
     for vel in 40..100 {
         for i in 0..10 {
             let r = Vec2::new(3000.0, 0.0);
             let v = Vec2::new(0.0, vel as f32 + i as f32 / 10.0);
-            let o = Orbit::from_pv(r, v, EARTH.mass);
-            system.add_object(o);
+            let o = Orbit::from_pv(r, v, EARTH.mass, TimeDelta::zero());
+            system.add_object(id.next(), o);
         }
     }
 
     for _ in 0..100 {
-        system.add_object(Orbit {
-            eccentricity: rand(0.1, 0.5),
-            semi_major_axis: rand(5000.0, 9000.0),
-            arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
-            retrograde: rand(0.0, 1.0) < 0.3,
-            primary_mass: EARTH.mass,
-            true_anomaly_at_epoch: rand(0.0, std::f32::consts::PI * 2.0),
-        });
+        system.add_object(
+            id.next(),
+            Orbit {
+                eccentricity: rand(0.1, 0.5),
+                semi_major_axis: rand(5000.0, 9000.0),
+                arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
+                retrograde: rand(0.0, 1.0) < 0.3,
+                primary_mass: EARTH.mass,
+                true_anomaly_at_epoch: rand(0.0, std::f32::consts::PI * 2.0),
+                epoch: TimeDelta::zero(),
+            },
+        );
     }
 
     let mut subsys = OrbitalSystem::new(LUNA.0);
 
     for _ in 0..5 {
-        subsys.add_object(Orbit {
-            eccentricity: rand(0.2, 0.5),
-            semi_major_axis: rand(100.0, 400.0),
-            arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
-            retrograde: rand(0.0, 1.0) < 0.3,
-            primary_mass: LUNA.0.mass,
-            true_anomaly_at_epoch: rand(0.0, std::f32::consts::PI * 2.0),
-        });
+        subsys.add_object(
+            id.next(),
+            Orbit {
+                eccentricity: rand(0.2, 0.5),
+                semi_major_axis: rand(100.0, 400.0),
+                arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
+                retrograde: rand(0.0, 1.0) < 0.3,
+                primary_mass: LUNA.0.mass,
+                true_anomaly_at_epoch: rand(0.0, std::f32::consts::PI * 2.0),
+                epoch: TimeDelta::zero(),
+            },
+        );
     }
 
-    system.add_subsystem(LUNA.1, subsys);
+    system.add_subsystem(id.next(), LUNA.1, subsys);
 
     let asteroid = (
         Body::new(10.0, 2.0, 60.0),
@@ -72,14 +90,18 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
             retrograde: false,
             primary_mass: EARTH.mass,
             true_anomaly_at_epoch: rand(0.0, std::f32::consts::PI * 2.0),
+            epoch: TimeDelta::zero(),
         },
     );
 
     let mut ast = OrbitalSystem::new(asteroid.0);
 
-    ast.add_object(Orbit::circular(13.0, 0.0, asteroid.0.mass));
+    ast.add_object(
+        id.next(),
+        Orbit::circular(13.0, 0.0, asteroid.0.mass, TimeDelta::zero()),
+    );
 
-    system.add_subsystem(asteroid.1, ast);
+    system.add_subsystem(id.next(), asteroid.1, ast);
 
     system
 }
@@ -92,6 +114,8 @@ pub fn sun_jupiter_lagrange() -> OrbitalSystem {
     };
 
     let mut system: OrbitalSystem = OrbitalSystem::new(sun);
+
+    let mut id = ObjectIdTracker::new();
 
     let jupiter = Body {
         mass: sun.mass * 0.000954588,
@@ -106,9 +130,10 @@ pub fn sun_jupiter_lagrange() -> OrbitalSystem {
         retrograde: false,
         primary_mass: sun.mass,
         true_anomaly_at_epoch: rand(0.0, std::f32::consts::PI * 2.0),
+        epoch: TimeDelta::zero(),
     };
 
-    system.add_subsystem(jupiter_orbit, OrbitalSystem::new(jupiter));
+    system.add_subsystem(id.next(), jupiter_orbit, OrbitalSystem::new(jupiter));
 
     // let s = system.add_object(Vec2::ZERO, Some(sun));
 
@@ -122,34 +147,10 @@ pub fn sun_jupiter_lagrange() -> OrbitalSystem {
             retrograde: false,
             primary_mass: sun.mass,
             true_anomaly_at_epoch: rand(0.0, std::f32::consts::PI * 2.0),
+            epoch: TimeDelta::zero(),
         };
-        system.add_object(orbit);
+        system.add_object(id.next(), orbit);
     }
-
-    system
-}
-
-pub fn patched_conics_scenario() -> OrbitalSystem {
-    let mut system = OrbitalSystem::new(EARTH);
-
-    // let e = system.add_object(EARTH.1, Some(EARTH.0));
-
-    // system.add_object(
-    //     KeplerPropagator::new(Orbit::circular(5000.0, 0.0, EARTH.0.mass), e),
-    //     Some(LUNA.0),
-    // );
-
-    // for _ in 0..30 {
-    //     let r = randvec(200.0, 201.0);
-    //     let v = Vec2::from_angle(std::f32::consts::PI / 2.0)
-    //         .rotate(r)
-    //         .normalize()
-    //         * 340.0;
-    //     system.add_object(
-    //         KeplerPropagator::new(Orbit::from_pv(r, v, EARTH.0.mass), e),
-    //         None,
-    //     );
-    // }
 
     system
 }

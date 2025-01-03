@@ -134,6 +134,7 @@ pub struct Orbit {
     pub retrograde: bool,
     pub primary_mass: f32,
     pub true_anomaly_at_epoch: f32,
+    pub epoch: TimeDelta,
 }
 
 impl Orbit {
@@ -141,7 +142,7 @@ impl Orbit {
         self.eccentricity.is_nan() || self.semi_major_axis.is_nan() || self.arg_periapsis.is_nan()
     }
 
-    pub fn from_pv(r: impl Into<Vec2>, v: impl Into<Vec2>, mass: f32) -> Self {
+    pub fn from_pv(r: impl Into<Vec2>, v: impl Into<Vec2>, mass: f32, epoch: TimeDelta) -> Self {
         let mu = mass * GRAVITATIONAL_CONSTANT;
         let r3 = r.into().extend(0.0);
         let v3 = v.into().extend(0.0);
@@ -161,10 +162,11 @@ impl Orbit {
             retrograde: h.z < 0.0,
             primary_mass: mass,
             true_anomaly_at_epoch: true_anomaly,
+            epoch,
         }
     }
 
-    pub const fn circular(radius: f32, ta: f32, mass: f32) -> Self {
+    pub const fn circular(radius: f32, ta: f32, mass: f32, epoch: TimeDelta) -> Self {
         Orbit {
             eccentricity: 0.0,
             semi_major_axis: radius,
@@ -172,6 +174,7 @@ impl Orbit {
             retrograde: false,
             primary_mass: mass,
             true_anomaly_at_epoch: ta,
+            epoch,
         }
     }
 
@@ -241,7 +244,10 @@ impl Orbit {
             eccentric_to_mean(e0, self.eccentricity)
         };
         let ta = (|| {
-            let m = Anomaly::with_ecc(self.eccentricity, as_seconds(stamp) * n + m0.as_f32());
+            let m = Anomaly::with_ecc(
+                self.eccentricity,
+                as_seconds(stamp - self.epoch) * n + m0.as_f32(),
+            );
             let e = mean_to_eccentric(m, self.eccentricity)?;
             Some(eccentric_to_true(e, self.eccentricity))
         })();

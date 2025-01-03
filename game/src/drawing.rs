@@ -3,7 +3,6 @@ use bevy::color::palettes::css::ORANGE;
 use bevy::prelude::*;
 use starling::core::*;
 use starling::orbit::*;
-use starling::planning::*;
 
 use chrono::TimeDelta;
 
@@ -270,48 +269,15 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         (state.primary_object, ORANGE, 80.0),
         (state.secondary_object, BLUE, 75.0),
     ] {
-        if let Some(orbit) = state.system.lookup(id) {
-            let pv = orbit.pv_at_time(stamp);
-            draw_orbit(Vec2::ZERO, orbit, &mut gizmos, 1.0, color);
+        if let Some((orbit, origin)) = state.system.lookup_subsystem(id) {
+            let p = orbit.pv_at_time(stamp) + origin;
+            draw_orbit(origin.pos, orbit, &mut gizmos, 1.0, color);
             draw_square(
                 &mut gizmos,
-                pv.pos,
+                p.pos,
                 (size * state.target_scale).min(size),
                 alpha(color, 0.7),
             );
         }
     }
-
-    // {
-    //     let start = state.system.epoch;
-    //     let end = start + TimeDelta::from_secs(100);
-    //     let pos: Vec<_> =
-    //         get_future_positions(&state.system, state.primary_object, start, end, 500)
-    //             .iter()
-    //             .map(|pvs| pvs.pv.pos)
-    //             .collect();
-    //     gizmos.linestrip_2d(pos, ORANGE);
-    //     let pos: Vec<_> =
-    //         get_future_positions(&state.system, state.secondary_object, start, end, 500)
-    //             .iter()
-    //             .map(|pvs| pvs.pv.pos)
-    //             .collect();
-    //     gizmos.linestrip_2d(pos, BLUE);
-
-    //     let approach = get_approach_info(
-    //         &state.system,
-    //         state.primary_object,
-    //         state.secondary_object,
-    //         start,
-    //         end,
-    //         800.0,
-    //     );
-    //     for evt in approach.iter() {
-    //         draw_circle(&mut gizmos, evt.0.pv.pos, 200.0, ORANGE);
-    //         draw_x(&mut gizmos, evt.0.pv.pos, 30.0, ORANGE);
-    //         draw_circle(&mut gizmos, evt.1.pv.pos, 200.0, BLUE);
-    //         draw_x(&mut gizmos, evt.1.pv.pos, 30.0, BLUE);
-    //         gizmos.line_2d(evt.0.pv.pos, evt.1.pv.pos, WHITE);
-    //     }
-    // }
 }

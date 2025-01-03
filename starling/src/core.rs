@@ -1,8 +1,8 @@
 use crate::orbit::*;
 use bevy::math::Vec2;
-use rand::Rng;
-use std::ops::Add;
 use chrono::TimeDelta;
+use rand::Rng;
+use std::ops::{Add, Sub};
 
 pub fn rand(min: f32, max: f32) -> f32 {
     rand::thread_rng().gen_range(min..max)
@@ -36,7 +36,6 @@ pub struct OrbitalSystem {
     pub primary: Body,
     pub epoch: TimeDelta,
     pub objects: Vec<(ObjectId, Orbit)>,
-    next_id: i64,
     pub subsystems: Vec<(ObjectId, Orbit, OrbitalSystem)>,
     metadata: Vec<ObjectMetadata>,
 }
@@ -48,6 +47,13 @@ pub struct PV {
 }
 
 impl PV {
+    pub fn zero() -> Self {
+        PV {
+            pos: Vec2::ZERO,
+            vel: Vec2::ZERO,
+        }
+    }
+
     pub fn new(pos: impl Into<Vec2>, vel: impl Into<Vec2>) -> Self {
         PV {
             pos: pos.into(),
@@ -60,6 +66,13 @@ impl Add for PV {
     type Output = Self;
     fn add(self, other: Self) -> Self {
         PV::new(self.pos + other.pos, self.vel + other.vel)
+    }
+}
+
+impl Sub for PV {
+    type Output = Self;
+    fn sub(self, other: Self) -> Self {
+        PV::new(self.pos - other.pos, self.vel - other.vel)
     }
 }
 
@@ -84,29 +97,43 @@ pub struct ObjectMetadata {
     pub stability: OrbitStability,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct ObjectIdTracker(ObjectId);
+
+impl ObjectIdTracker {
+    pub fn new() -> Self {
+        ObjectIdTracker(ObjectId(0))
+    }
+
+    pub fn next(&mut self) -> ObjectId {
+        let ret = self.0;
+        self.0 .0 += 1;
+        ret
+    }
+}
+
 impl OrbitalSystem {
     pub fn new(body: Body) -> Self {
         OrbitalSystem {
             primary: body,
             epoch: TimeDelta::default(),
             objects: Vec::default(),
-            next_id: 0,
             subsystems: vec![],
             metadata: vec![],
         }
     }
 
-    pub fn add_object(&mut self, orbit: Orbit) -> ObjectId {
-        let id = ObjectId(self.next_id);
-        self.next_id += 1;
+    pub fn add_object(&mut self, id: ObjectId, orbit: Orbit) -> ObjectId {
         self.objects.push((id, orbit));
         self.calculate_metadata();
         id
     }
 
-    pub fn add_subsystem(&mut self, orbit: Orbit, subsys: OrbitalSystem) -> ObjectId {
-        let id = ObjectId(self.next_id);
-        self.next_id += 1;
+    pub fn remove_object(&mut self, id: ObjectId) {
+        self.objects.retain(|(o, _)| *o != id)
+    }
+
+    pub fn add_subsystem(&mut self, id: ObjectId, orbit: Orbit, subsys: OrbitalSystem) -> ObjectId {
         self.subsystems.push((id, orbit, subsys));
         self.calculate_metadata();
         id
@@ -143,13 +170,31 @@ impl OrbitalSystem {
             .or_else(|| Some(self.lookup_system(o)?.0))
     }
 
+    fn lookup_subsystem_internal(&self, o: ObjectId, wrt: PV) -> Option<(&Orbit, PV)> {
+        if let Some(o) = self.lookup(o) {
+            return Some((o, wrt));
+        }
+
+        self.subsystems
+            .iter()
+            .filter_map(|(_, orbit, sys)| {
+                let pv = orbit.pv_at_time(self.epoch);
+                sys.lookup_subsystem_internal(o, wrt + pv)
+            })
+            .next()
+    }
+
+    pub fn lookup_subsystem(&self, o: ObjectId) -> Option<(&Orbit, PV)> {
+        self.lookup_subsystem_internal(o, PV::zero())
+    }
+
     pub fn lookup_metadata(&self, o: ObjectId) -> Option<&ObjectMetadata> {
         self.metadata.iter().find(|dat| dat.id == o)
     }
 
     pub fn transform_from_id(&self, id: ObjectId, stamp: TimeDelta) -> Option<PV> {
-        let orbit = self.lookup(id)?;
-        Some(orbit.pv_at_time(stamp))
+        let (orbit, wrt) = self.lookup_subsystem(id)?;
+        Some(orbit.pv_at_time(stamp) + wrt)
     }
 
     pub fn potential_at(&self, pos: Vec2, stamp: TimeDelta) -> f32 {

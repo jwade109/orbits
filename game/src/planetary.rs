@@ -116,15 +116,6 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         send_log(&mut evt, "Paused");
     }
     send_log(&mut evt, &format!("Sim speed: {:0.2}", state.sim_speed));
-    send_log(&mut evt, &format!("Show (o)orbits: {}", state.show_orbits));
-    send_log(
-        &mut evt,
-        &format!("Show (p)otential: {}", state.show_potential_field),
-    );
-    send_log(
-        &mut evt,
-        &format!("Show (g)ravity: {}", state.show_gravity_field),
-    );
     send_log(&mut evt, &format!("Primary: {:?}", state.primary_object));
     send_log(
         &mut evt,
@@ -143,7 +134,7 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
     );
     send_log(&mut evt, &format!("Levels: {:#?}", state.draw_levels));
 
-    if let Some(obj) = state.system.lookup(state.primary_object) {
+    if let Some((obj, _)) = state.system.lookup_subsystem(state.primary_object) {
         send_log(&mut evt, &format!("{:#?}", obj));
         let ta = obj.ta_at_time(state.system.epoch);
         let ea = true_to_eccentric(ta, obj.eccentricity);
@@ -226,7 +217,6 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
     if starts_with("load") {
         let system = match cmd.get(1).map(|s| s.as_str()) {
             Some("earth") => earth_moon_example_one(),
-            Some("moon") => patched_conics_scenario(),
             Some("jupiter") => sun_jupiter_lagrange(),
             _ => {
                 return;
