@@ -32,8 +32,7 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
                 arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
                 retrograde: rand(0.0, 1.0) < 0.3,
                 primary_mass: EARTH.mass,
-                true_anomaly_at_epoch: rand(0.0, std::f32::consts::PI * 2.0),
-                epoch: TimeDelta::zero(),
+                time_at_periapsis: TimeDelta::zero(),
             },
         );
     }
@@ -56,8 +55,7 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
                 arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
                 retrograde: rand(0.0, 1.0) < 0.3,
                 primary_mass: EARTH.mass,
-                true_anomaly_at_epoch: rand(0.0, std::f32::consts::PI * 2.0),
-                epoch: TimeDelta::zero(),
+                time_at_periapsis: TimeDelta::zero(),
             },
         );
     }
@@ -73,8 +71,7 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
                 arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
                 retrograde: rand(0.0, 1.0) < 0.3,
                 primary_mass: LUNA.0.mass,
-                true_anomaly_at_epoch: rand(0.0, std::f32::consts::PI * 2.0),
-                epoch: TimeDelta::zero(),
+                time_at_periapsis: TimeDelta::zero(),
             },
         );
     }
@@ -89,8 +86,7 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
             arg_periapsis: 0.4,
             retrograde: false,
             primary_mass: EARTH.mass,
-            true_anomaly_at_epoch: rand(0.0, std::f32::consts::PI * 2.0),
-            epoch: TimeDelta::zero(),
+            time_at_periapsis: TimeDelta::zero(),
         },
     );
 
@@ -129,8 +125,7 @@ pub fn sun_jupiter_lagrange() -> OrbitalSystem {
         semi_major_axis: 5000.0,
         retrograde: false,
         primary_mass: sun.mass,
-        true_anomaly_at_epoch: rand(0.0, std::f32::consts::PI * 2.0),
-        epoch: TimeDelta::zero(),
+        time_at_periapsis: TimeDelta::zero(),
     };
 
     system.add_subsystem(id.next(), jupiter_orbit, OrbitalSystem::new(jupiter));
@@ -146,12 +141,20 @@ pub fn sun_jupiter_lagrange() -> OrbitalSystem {
             arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
             retrograde: false,
             primary_mass: sun.mass,
-            true_anomaly_at_epoch: rand(0.0, std::f32::consts::PI * 2.0),
-            epoch: TimeDelta::zero(),
+            time_at_periapsis: TimeDelta::zero(),
         };
         system.add_object(id.next(), orbit);
     }
 
+    system
+}
+
+pub fn small_example() -> OrbitalSystem {
+    let mut system: OrbitalSystem = OrbitalSystem::new(EARTH);
+    system.add_object(
+        ObjectId(0),
+        Orbit::circular(5000.0, 0.0, EARTH.mass, TimeDelta::zero()),
+    );
     system
 }
 

@@ -162,7 +162,7 @@ pub fn draw_scalar_field_cell(
             .iter()
             .map(|(_, o, _)| (o.pv_at_time(sys.epoch).pos.distance(center) * 1000.0) as u32)
             .min()
-            .unwrap();
+            .unwrap_or(10000000);
         if d < 600000 || center.length() < 600.0 {
             let n: i32 = 4;
             let substep = step / n as f32;

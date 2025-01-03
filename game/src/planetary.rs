@@ -139,13 +139,25 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         let ta = obj.ta_at_time(state.system.epoch);
         let ea = true_to_eccentric(ta, obj.eccentricity);
         let ma = eccentric_to_mean(ea, obj.eccentricity);
+
+        let mm = obj.mean_motion();
+
+        let dt = ma.as_f32() / mm;
+
         send_log(
             &mut evt,
             &format!(
-                "True anomaly: {:?}\nEcc anomaly: {:?}\nMean anomaly: {:?}",
-                ta, ea, ma
+                "True anomaly: {:?}\nEcc anomaly: {:?}\nMean anomaly: {:?}\nTP: {:0.3}",
+                ta, ea, ma, dt
             ),
         );
+
+        send_log(
+            &mut evt,
+            &format!("Next p: {:?}", obj.t_next_p(state.system.epoch)),
+        );
+
+        send_log(&mut evt, &format!("Period: {:?}", obj.period()));
     }
 
     if let Some(dat) = state.system.lookup_metadata(state.primary_object) {
@@ -166,10 +178,10 @@ fn keyboard_input(
     for key in keys.get_just_pressed() {
         match key {
             KeyCode::Period => {
-                state.sim_speed = f32::clamp(state.sim_speed * 10.0, 0.01, 1000.0);
+                state.sim_speed = f32::clamp(state.sim_speed * 10.0, 0.01, 10000.0);
             }
             KeyCode::Comma => {
-                state.sim_speed = f32::clamp(state.sim_speed / 10.0, 0.01, 2000.0);
+                state.sim_speed = f32::clamp(state.sim_speed / 10.0, 0.01, 10000.0);
             }
             KeyCode::KeyF => {
                 state.camera_switch = true;
