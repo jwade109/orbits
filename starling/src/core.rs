@@ -123,20 +123,18 @@ impl OrbitalSystem {
         }
     }
 
-    pub fn add_object(&mut self, id: ObjectId, orbit: Orbit) -> ObjectId {
+    pub fn add_object(&mut self, id: ObjectId, orbit: Orbit) {
         self.objects.push((id, orbit));
         self.calculate_metadata();
-        id
     }
 
     pub fn remove_object(&mut self, id: ObjectId) {
         self.objects.retain(|(o, _)| *o != id)
     }
 
-    pub fn add_subsystem(&mut self, id: ObjectId, orbit: Orbit, subsys: OrbitalSystem) -> ObjectId {
+    pub fn add_subsystem(&mut self, id: ObjectId, orbit: Orbit, subsys: OrbitalSystem) {
         self.subsystems.push((id, orbit, subsys));
         self.calculate_metadata();
-        id
     }
 
     pub fn has_object(&self, id: ObjectId) -> bool {
@@ -230,6 +228,69 @@ impl OrbitalSystem {
             };
             self.metadata.push(ObjectMetadata { id: *id, stability });
         }
+    }
+
+    pub fn rebalance(&mut self) {
+        self.eject_escaped();
+        self.reparent();
+    }
+
+    pub fn eject_escaped(&mut self) -> Vec<(ObjectId, PV)> {
+        let ejecta = self
+            .subsystems
+            .iter_mut()
+            .map(|(_, orb, s)| {
+                let syspv = orb.pv_at_time(self.epoch);
+                s.eject_escaped()
+                    .iter()
+                    .map(|(id, pv)| (*id, *pv + syspv))
+                    .collect::<Vec<_>>()
+            })
+            .flatten()
+            .collect::<Vec<_>>();
+
+        for (id, pv) in ejecta {
+            let orbit = Orbit::from_pv(pv.pos, pv.vel, self.primary.mass, self.epoch);
+            self.add_object(id, orbit);
+        }
+
+        let mut ret = vec![];
+        self.objects.retain(|(id, orbit)| -> bool {
+            let pv = orbit.pv_at_time(self.epoch);
+            let keep = pv.pos.length_squared() <= self.primary.soi.powi(2);
+            if !keep {
+                ret.push((*id, orbit.pv_at_time(self.epoch)));
+            }
+            keep
+        });
+        ret
+    }
+
+    pub fn reparent(&mut self) {
+        // TODO fix this!
+        let mut to_remove = vec![];
+        for (id, orbit) in &mut self.objects {
+            let pv = orbit.pv_at_time(self.epoch);
+            let new = self
+                .subsystems
+                .iter_mut()
+                .filter_map(|(sysid, sysorb, sys)| {
+                    let syspv = sysorb.pv_at_time(self.epoch);
+                    let rel = pv - syspv;
+                    if rel.pos.length_squared() < sys.primary.soi.powi(2) * 0.98 {
+                        Some((sys, rel))
+                    } else {
+                        None
+                    }
+                })
+                .next();
+            if let Some((nsys, rel)) = new {
+                let neworb = Orbit::from_pv(rel.pos, rel.vel, nsys.primary.mass, self.epoch);
+                nsys.add_object(*id, neworb);
+                to_remove.push(*id);
+            }
+        }
+        self.objects.retain(|(id, _)| !to_remove.contains(id));
     }
 }
 

@@ -22,6 +22,10 @@ pub enum Anomaly {
     Hyperbolic(f32),
 }
 
+fn wrap_pi_npi(x: f32) -> f32 {
+    f32::atan2(x.sin(), x.cos())
+}
+
 impl Anomaly {
     pub fn with_ecc(ecc: f32, ta: f32) -> Self {
         if ecc > 1.0 {
@@ -29,7 +33,7 @@ impl Anomaly {
         } else if ecc == 1.0 {
             Anomaly::Parabolic(ta)
         } else {
-            Anomaly::Elliptical(ta)
+            Anomaly::Elliptical(wrap_pi_npi(ta))
         }
     }
 
@@ -169,7 +173,7 @@ impl Orbit {
         let arg_periapsis: f32 = f32::atan2(e.y, e.x);
         let semi_major_axis: f32 = h.length_squared() / (mu * (1.0 - e.length_squared()));
         let mut true_anomaly = f32::acos(e.dot(r3) / (e.length() * r3.length()));
-        if r3.dot(v3) < 0.0 {
+        if r3.dot(v3) < 0.0 && e.length() < 1.0 {
             true_anomaly = 2.0 * std::f32::consts::PI - true_anomaly;
         }
 
@@ -179,12 +183,13 @@ impl Orbit {
         let ea = true_to_eccentric(ta, e.length());
         let ma = eccentric_to_mean(ea, e.length());
 
-        let dt = ma.as_f32() / mm;
+        let dt = TimeDelta::nanoseconds((ma.as_f32() / mm * 1E9) as i64);
 
-        let time_at_periapsis = if dt > 0.0 {
-            epoch - TimeDelta::nanoseconds((dt * 1E9) as i64)
+        // TODO this is definitely crap
+        let time_at_periapsis = if h.z >= 0.0 {
+            epoch - dt
         } else {
-            epoch + TimeDelta::nanoseconds((dt * 1E9) as i64)
+            epoch + dt
         };
 
         Orbit {

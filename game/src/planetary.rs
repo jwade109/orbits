@@ -28,60 +28,126 @@ impl Plugin for PlanetaryPlugin {
                 scroll_events,
             ),
         );
-        app.add_plugins(EguiPlugin).add_systems(Update, ui_system);
+        // app.add_plugins(EguiPlugin).add_systems(Update, ui_system);
     }
 }
 
-fn ui_system(mut contexts: EguiContexts, mut state: ResMut<GameState>) {
-    egui::Window::new("Settings").show(contexts.ctx_mut(), |ui| {
-        if state.paused {
-            if ui.add(egui::Button::new("Unpause")).clicked() {
-                state.paused = false;
-            }
-        } else {
-            if ui.add(egui::Button::new("Pause")).clicked() {
-                state.paused = true;
-            }
-        }
+// fn ui_system(mut contexts: EguiContexts, mut state: ResMut<GameState>) {
+//     egui::Window::new("Settings")
+//         .resizable(true)
+//         .show(contexts.ctx_mut(), |ui| {
+//             if state.paused {
+//                 if ui.add(egui::Button::new("Unpause")).clicked() {
+//                     state.paused = false;
+//                 }
+//             } else {
+//                 if ui.add(egui::Button::new("Pause")).clicked() {
+//                     state.paused = true;
+//                 }
+//             }
 
-        ui.add_space(10.0);
-        ui.add(egui::Label::new("Sim Speed"));
-        ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
-            for speed in [0.01, 0.1, 1.0, 10.0, 100.0, 1000.0] {
-                let en = state.sim_speed != speed;
-                let button = egui::Button::new(format!("{:0.2}", speed));
-                if ui.add_enabled(en, button).clicked() {
-                    state.sim_speed = speed;
-                }
-            }
-        });
+//             ui.add_space(10.0);
+//             ui.add(egui::Label::new("Sim Speed"));
+//             ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
+//                 for speed in [0.01, 0.1, 1.0, 10.0, 100.0, 1000.0] {
+//                     let en = state.sim_speed != speed;
+//                     let button = egui::Button::new(format!("{:0.2}", speed));
+//                     if ui.add_enabled(en, button).clicked() {
+//                         state.sim_speed = speed;
+//                     }
+//                 }
+//             });
 
-        ui.add_space(10.0);
-        if ui.add(egui::Button::new("Toggle Follow")).clicked() {
-            state.camera_switch = true;
-        }
-        if ui.add(egui::Button::new("Toggle Orbits")).clicked() {
-            state.show_orbits = !state.show_orbits;
-        }
-        if ui.add(egui::Button::new("Toggle Potential")).clicked() {
-            state.show_potential_field = !state.show_potential_field;
-        }
+//             ui.add_space(10.0);
+//             if ui.add(egui::Button::new("Toggle Follow")).clicked() {
+//                 state.camera_switch = true;
+//             }
+//             if ui.add(egui::Button::new("Toggle Orbits")).clicked() {
+//                 state.show_orbits = !state.show_orbits;
+//             }
+//             if ui.add(egui::Button::new("Toggle Potential")).clicked() {
+//                 state.show_potential_field = !state.show_potential_field;
+//             }
 
-        ui.add_space(10.0);
-        ui.add(egui::Label::new("Scenarios"));
-        ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
-            if ui.add(egui::Button::new("Earth-Moon")).clicked() {
-                load_new_scenario(&mut state, earth_moon_example_one());
-            }
-            if ui.add(egui::Button::new("Moon")).clicked() {
-                load_new_scenario(&mut state, just_the_moon());
-            }
-            if ui.add(egui::Button::new("Jupiter")).clicked() {
-                load_new_scenario(&mut state, sun_jupiter_lagrange());
-            }
-        });
-    });
-}
+//             ui.add_space(10.0);
+//             ui.add(egui::Label::new("Scenarios"));
+//             ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
+//                 if ui.add(egui::Button::new("Earth-Moon")).clicked() {
+//                     load_new_scenario(&mut state, earth_moon_example_one());
+//                 }
+//                 if ui.add(egui::Button::new("Moon")).clicked() {
+//                     load_new_scenario(&mut state, just_the_moon());
+//                 }
+//                 if ui.add(egui::Button::new("Jupiter")).clicked() {
+//                     load_new_scenario(&mut state, sun_jupiter_lagrange());
+//                 }
+//             });
+
+//             ui.add_space(10.0);
+//             ui.add(egui::Label::new(format!(
+//                 "Primary ({})",
+//                 state.primary_object.0
+//             )));
+//             ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
+//                 if ui.add(egui::Button::new("<<<")).clicked() {
+//                     state.primary_object.0 -= 100;
+//                 }
+//                 if ui.add(egui::Button::new("<<")).clicked() {
+//                     state.primary_object.0 -= 10;
+//                 }
+//                 if ui.add(egui::Button::new("<")).clicked() {
+//                     state.primary_object.0 -= 1;
+//                 }
+//                 if ui.add(egui::Button::new(">")).clicked() {
+//                     state.primary_object.0 += 1;
+//                 }
+//                 if ui.add(egui::Button::new(">>")).clicked() {
+//                     state.primary_object.0 += 10;
+//                 }
+//                 if ui.add(egui::Button::new(">>>")).clicked() {
+//                     state.primary_object.0 += 100;
+//                 }
+//             });
+
+//             ui.add_space(10.0);
+//             ui.add(egui::Label::new(format!(
+//                 "Secondary ({})",
+//                 state.secondary_object.0
+//             )));
+//             ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
+//                 if ui.add(egui::Button::new("<<<")).clicked() {
+//                     state.secondary_object.0 -= 100;
+//                 }
+//                 if ui.add(egui::Button::new("<<")).clicked() {
+//                     state.secondary_object.0 -= 10;
+//                 }
+//                 if ui.add(egui::Button::new("<")).clicked() {
+//                     state.secondary_object.0 -= 1;
+//                 }
+//                 if ui.add(egui::Button::new(">")).clicked() {
+//                     state.secondary_object.0 += 1;
+//                 }
+//                 if ui.add(egui::Button::new(">>")).clicked() {
+//                     state.secondary_object.0 += 10;
+//                 }
+//                 if ui.add(egui::Button::new(">>>")).clicked() {
+//                     state.secondary_object.0 += 100;
+//                 }
+//             });
+
+//             ui.add_space(20.0);
+//             ui.heading("Orbital Info");
+//             ui.add_space(10.0);
+//             if let Some((orbit, _)) = state.system.lookup_subsystem(state.primary_object) {
+//                 ui.add(egui::Label::new(format!(
+//                     "Epoch: {:?}\nOrbit: {:#?}",
+//                     state.system.epoch, orbit
+//                 )));
+//             }
+
+//             ui.allocate_space(ui.available_size());
+//         });
+// }
 
 fn draw(gizmos: Gizmos, res: Res<GameState>) {
     draw_game_state(gizmos, res)
@@ -154,6 +220,8 @@ impl Default for GameState {
 
 fn init_system(mut commands: Commands) {
     commands.insert_resource(GameState::default());
+    let s = 0.02;
+    commands.insert_resource(ClearColor(Color::linear_rgb(s, s, s)));
 }
 
 fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
@@ -167,6 +235,7 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     for (_, _, sys) in state.system.subsystems.iter_mut() {
         sys.epoch = s;
     }
+    state.system.rebalance();
 }
 
 fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
@@ -193,7 +262,6 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         &mut evt,
         &format!("Follow tracked: {:?}", state.follow_object),
     );
-    send_log(&mut evt, &format!("Levels: {:#?}", state.draw_levels));
 
     if let Some((obj, _)) = state.system.lookup_subsystem(state.primary_object) {
         send_log(&mut evt, &format!("{:#?}", obj));
@@ -291,6 +359,7 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
     if starts_with("load") {
         let system = match cmd.get(1).map(|s| s.as_str()) {
             Some("earth") => earth_moon_example_one(),
+            Some("earth2") => earth_moon_example_two(),
             Some("jupiter") => sun_jupiter_lagrange(),
             _ => {
                 return;
