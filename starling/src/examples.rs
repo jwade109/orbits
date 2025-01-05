@@ -221,10 +221,7 @@ pub fn consistency_example() -> OrbitalSystem {
                     EARTH.mass,
                     TimeDelta::zero(),
                 );
-                let pcalc = o.pv_at_time(TimeDelta::zero());
-                if pcalc.pos.distance(pos) <= 10.0 {
-                    orbits.push(o);
-                };
+                orbits.push(o);
             }
         }
     }

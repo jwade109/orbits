@@ -18,6 +18,25 @@ pub fn rotate(v: Vec2, angle: f32) -> Vec2 {
     Vec2::from_angle(angle).rotate(v)
 }
 
+pub fn lerp(a: f32, b: f32, t: f32) -> f32 {
+    a + (b - a) * t
+}
+
+pub fn linspace(a: f32, b: f32, n: usize) -> Vec<f32> {
+    if n < 2 {
+        return vec![a];
+    }
+    if n == 2 {
+        return vec![a, b];
+    }
+    (0..n)
+        .map(|i| {
+            let t = i as f32 / (n - 1) as f32;
+            lerp(a, b, t)
+        })
+        .collect()
+}
+
 pub fn gravity_accel(body: Body, body_center: Vec2, sample: Vec2) -> Vec2 {
     let r: Vec2 = body_center - sample;
     let rsq = r.length_squared().clamp(body.radius.powi(2), std::f32::MAX);
