@@ -261,15 +261,15 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         state.show_orbits,
     );
 
-    gizmos.grid_2d(
-        Isometry2d::from_translation(Vec2::ZERO),
-        (100, 100).into(),
-        (500.0, 500.0).into(),
-        Srgba {
-            alpha: 0.003,
-            ..GRAY
-        },
-    );
+    // gizmos.grid_2d(
+    //     Isometry2d::from_translation(Vec2::ZERO),
+    //     (100, 100).into(),
+    //     (500.0, 500.0).into(),
+    //     Srgba {
+    //         alpha: 0.0001,
+    //         ..GRAY
+    //     },
+    // );
 
     for (id, color, size) in [
         (state.primary_object, ORANGE, 80.0),

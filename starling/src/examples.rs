@@ -211,10 +211,10 @@ pub fn consistency_example() -> OrbitalSystem {
 
     let r = 1000.0 * Vec2::X;
     let v0 = Vec2::new(0.0, 30.0);
-    for angle in [1.9] {
+    for angle in [0.6] {
         let pos = rotate(r, angle);
-        for vx in (-200..=200).step_by(5) {
-            for vy in (-200..=200).step_by(5) {
+        for vx in (-200..=200).step_by(10) {
+            for vy in (-200..=200).step_by(10) {
                 let o = Orbit::from_pv(
                     pos,
                     v0 + Vec2::new(vx as f32, vy as f32),

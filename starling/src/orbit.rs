@@ -196,14 +196,25 @@ impl Orbit {
             epoch - dt
         };
 
-        Orbit {
+        let mut o = Orbit {
             eccentricity: e.length(),
             semi_major_axis,
             arg_periapsis,
             retrograde: h.z < 0.0,
             primary_mass: mass,
             time_at_periapsis,
+        };
+
+        let pcalc = o.pv_at_time(epoch);
+        if pcalc.pos.distance(Vec2::new(r3.x, r3.y)) > 20.0 {
+            o.time_at_periapsis = if e.length() > 1.0 && h.z < 0.0 {
+                epoch - dt
+            } else {
+                epoch + dt
+            };
         }
+
+        o
     }
 
     pub const fn circular(radius: f32, mass: f32, epoch: TimeDelta, retrograde: bool) -> Self {
