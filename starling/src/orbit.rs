@@ -85,7 +85,7 @@ pub fn mean_to_eccentric(mean_anomaly: Anomaly, ecc: f32) -> Option<Anomaly> {
     match mean_anomaly {
         Anomaly::Elliptical(v) => {
             let max_error = 1E-6;
-            let max_iters = 1000;
+            let max_iters = 30;
 
             let mut e = v;
 
@@ -100,7 +100,7 @@ pub fn mean_to_eccentric(mean_anomaly: Anomaly, ecc: f32) -> Option<Anomaly> {
         }
         Anomaly::Hyperbolic(v) => {
             let max_error = 1E-6;
-            let max_iters = 1000;
+            let max_iters = 30;
 
             let mut e = v;
 
@@ -173,8 +173,12 @@ impl Orbit {
         let arg_periapsis: f32 = f32::atan2(e.y, e.x);
         let semi_major_axis: f32 = h.length_squared() / (mu * (1.0 - e.length_squared()));
         let mut true_anomaly = f32::acos(e.dot(r3) / (e.length() * r3.length()));
-        if r3.dot(v3) < 0.0 && e.length() < 1.0 {
-            true_anomaly = 2.0 * std::f32::consts::PI - true_anomaly;
+        if r3.dot(v3) < 0.0 {
+            true_anomaly = if e.length() < 1.0 {
+                2.0 * std::f32::consts::PI - true_anomaly
+            } else {
+                -true_anomaly
+            };
         }
 
         let mm = mean_motion(mu, semi_major_axis);
@@ -186,10 +190,10 @@ impl Orbit {
         let dt = TimeDelta::nanoseconds((ma.as_f32() / mm * 1E9) as i64);
 
         // TODO this is definitely crap
-        let time_at_periapsis = if h.z >= 0.0 {
-            epoch - dt
-        } else {
+        let time_at_periapsis = if e.length() > 1.0 && h.z < 0.0 {
             epoch + dt
+        } else {
+            epoch - dt
         };
 
         Orbit {
@@ -202,12 +206,12 @@ impl Orbit {
         }
     }
 
-    pub const fn circular(radius: f32, ta: f32, mass: f32, epoch: TimeDelta) -> Self {
+    pub const fn circular(radius: f32, mass: f32, epoch: TimeDelta, retrograde: bool) -> Self {
         Orbit {
             eccentricity: 0.0,
             semi_major_axis: radius,
             arg_periapsis: 0.0,
-            retrograde: false,
+            retrograde,
             primary_mass: mass,
             time_at_periapsis: epoch,
         }
@@ -266,16 +270,7 @@ impl Orbit {
     }
 
     pub fn ta_at_time(&self, stamp: TimeDelta) -> Anomaly {
-        let mut dt = stamp - self.time_at_periapsis;
-        if let Some(p) = self.period() {
-            while dt < TimeDelta::zero() {
-                dt += p;
-            }
-            while dt > p / 2 {
-                dt -= p;
-            }
-        }
-
+        let dt = stamp - self.time_at_periapsis;
         let ta = (|| {
             let n = self.mean_motion();
             let m = Anomaly::with_ecc(self.eccentricity, as_seconds(dt) * n);
@@ -345,9 +340,9 @@ impl Orbit {
     pub fn t_next_p(&self, current: TimeDelta) -> Option<TimeDelta> {
         let p = self.period()?;
         let mut t = self.time_at_periapsis;
-        while t < current {
-            t += p;
-        }
+        // while t < current {
+        //     t += p;
+        // }
         Some(t)
     }
 }

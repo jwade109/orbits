@@ -1,6 +1,7 @@
 use crate::core::*;
 use crate::orbit::*;
 use bevy::math::Vec2;
+use bevy::time::Time;
 use chrono::TimeDelta;
 
 #[cfg(test)]
@@ -10,7 +11,7 @@ pub const EARTH: Body = Body::new(63.0, 1000.0, 15000.0);
 
 pub const LUNA: (Body, Orbit) = (
     Body::new(22.0, 10.0, 800.0),
-    Orbit::circular(3800.0, 0.0, EARTH.mass, TimeDelta::seconds(-40)),
+    Orbit::circular(3800.0, EARTH.mass, TimeDelta::seconds(-40), false),
 );
 
 pub fn just_the_moon() -> OrbitalSystem {
@@ -43,7 +44,7 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
 
     system.add_object(
         id.next(),
-        Orbit::circular(EARTH.radius * 1.1, 0.0, EARTH.mass, TimeDelta::zero()),
+        Orbit::circular(EARTH.radius * 1.1, EARTH.mass, TimeDelta::zero(), false),
     );
 
     // for _ in 0..200 {
@@ -118,7 +119,7 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
 
     // ast.add_object(
     //     id.next(),
-    //     Orbit::circular(13.0, 0.0, asteroid.0.mass, TimeDelta::zero()),
+    //     Orbit::circular(13.0, asteroid.0.mass, TimeDelta::zero()),
     // );
 
     // system.add_subsystem(id.next(), asteroid.1, ast);
@@ -133,7 +134,7 @@ pub fn earth_moon_example_two() -> OrbitalSystem {
 
     system.add_object(
         id.next(),
-        Orbit::circular(EARTH.radius * 1.1, 0.0, EARTH.mass, TimeDelta::zero()),
+        Orbit::circular(EARTH.radius * 1.1, EARTH.mass, TimeDelta::zero(), false),
     );
 
     for vel in (180..200).step_by(2) {
@@ -202,15 +203,49 @@ pub fn sun_jupiter_lagrange() -> OrbitalSystem {
     system
 }
 
-pub fn small_example() -> OrbitalSystem {
+pub fn consistency_example() -> OrbitalSystem {
     let mut system: OrbitalSystem = OrbitalSystem::new(EARTH);
-    system.add_object(
-        ObjectId(0),
-        Orbit::circular(5000.0, 0.0, EARTH.mass, TimeDelta::zero()),
-    );
+    let mut ids = ObjectIdTracker::new();
+
+    let mut orbits = vec![];
+
+    let r = 1000.0 * Vec2::X;
+    let v0 = Vec2::new(0.0, 30.0);
+    for angle in [1.9] {
+        let pos = rotate(r, angle);
+        for vx in (-200..=200).step_by(5) {
+            for vy in (-200..=200).step_by(5) {
+                let o = Orbit::from_pv(
+                    pos,
+                    v0 + Vec2::new(vx as f32, vy as f32),
+                    EARTH.mass,
+                    TimeDelta::zero(),
+                );
+                let pcalc = o.pv_at_time(TimeDelta::zero());
+                if pcalc.pos.distance(pos) <= 10.0 {
+                    orbits.push(o);
+                };
+            }
+        }
+    }
+
+    // for r in [Vec2::new(-800.0, -500.0), Vec2::new(800.0, 400.0)] {
+    //     for vx in (-200..=200).step_by(100) {
+    //         for vy in (-200..=200).step_by(100) {
+    //             let v = Vec2::new(vx as f32, vy as f32);
+    //             let orbit = Orbit::from_pv(r, v, EARTH.mass, TimeDelta::zero());
+    //             orbits.push(orbit);
+    //         }
+    //     }
+    // }
+
+    for orbit in orbits {
+        system.add_object(ids.next(), orbit);
+    }
+
     system
 }
 
 pub fn default_example() -> OrbitalSystem {
-    earth_moon_example_one()
+    consistency_example()
 }

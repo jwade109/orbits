@@ -231,8 +231,24 @@ impl OrbitalSystem {
     }
 
     pub fn rebalance(&mut self) {
+        self.remove_collided();
         self.eject_escaped();
         self.reparent();
+    }
+
+    pub fn remove_collided(&mut self) {
+        for (_, _, subsys) in &mut self.subsystems {
+            subsys.remove_collided();
+        }
+
+        self.objects.retain(|(_, orbit)| {
+            if orbit.periapsis_r() > self.primary.radius {
+                return true;
+            }
+            let pv = orbit.pv_at_time(self.epoch);
+            let r2 = pv.pos.length_squared();
+            r2 > self.primary.radius.powi(2)
+        });
     }
 
     pub fn eject_escaped(&mut self) -> Vec<(ObjectId, PV)> {
@@ -256,6 +272,9 @@ impl OrbitalSystem {
 
         let mut ret = vec![];
         self.objects.retain(|(id, orbit)| -> bool {
+            if orbit.eccentricity < 1.0 && orbit.apoapsis_r() < self.primary.soi {
+                return true;
+            }
             let pv = orbit.pv_at_time(self.epoch);
             let keep = pv.pos.length_squared() <= self.primary.soi.powi(2);
             if !keep {

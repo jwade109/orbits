@@ -202,9 +202,9 @@ impl Default for GameState {
             show_potential_field: false,
             paused: false,
             system: default_example(),
-            primary_object: ObjectId(10),
-            secondary_object: ObjectId(20),
-            backup: None,
+            primary_object: ObjectId(-1),
+            secondary_object: ObjectId(-1),
+            backup: Some(default_example()),
             follow_object: false,
             target_scale: 4.0,
             camera_easing: Vec2::ZERO,
@@ -268,6 +268,9 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         let ta = obj.ta_at_time(state.system.epoch);
         let ea = true_to_eccentric(ta, obj.eccentricity);
         let ma = eccentric_to_mean(ea, obj.eccentricity);
+        let ea2 = mean_to_eccentric(ma, obj.eccentricity)
+            .unwrap_or(Anomaly::with_ecc(obj.eccentricity, 0.3777));
+        let ta2 = eccentric_to_true(ea2, obj.eccentricity);
 
         let mm = obj.mean_motion();
 
@@ -276,8 +279,8 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         send_log(
             &mut evt,
             &format!(
-                "True anomaly: {:?}\nEcc anomaly: {:?}\nMean anomaly: {:?}\nTP: {:0.3}",
-                ta, ea, ma, dt
+                "TA: {:?}\nEA: {:?}\nMA: {:?}\nEA: {:?}\nTA: {:?}\nTP: {:0.3}",
+                ta, ea, ma, ea2, ta2, dt
             ),
         );
 
@@ -406,6 +409,29 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
                     .skip(1)
                     .filter_map(|s| Some(-(s.parse::<i32>().ok()?))),
             );
+        }
+    } else if starts_with("remove") {
+        if let Some(n) = cmd.get(1).map(|s| s.parse::<i64>().ok()).flatten() {
+            state.system.remove_object(ObjectId(n));
+        }
+    } else if starts_with("spawn") {
+        dbg!(cmd);
+        if let Some(coords) = cmd
+            .get(1..5)
+            .map(|strs| {
+                strs.iter()
+                    .map(|s| s.parse::<f32>().ok())
+                    .collect::<Option<Vec<_>>>()
+            })
+            .flatten()
+        {
+            let r = Vec2::new(coords[0], coords[1]);
+            let v = Vec2::new(coords[2], coords[3]);
+            let orbit = Orbit::from_pv(r, v, state.system.primary.mass, state.system.epoch);
+            println!("New object: {:?}", orbit);
+            let id = ObjectId(as_seconds(state.system.epoch) as i64 + 1000);
+            state.primary_object = id;
+            state.system.add_object(id, orbit);
         }
     }
 }

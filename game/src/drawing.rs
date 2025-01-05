@@ -36,7 +36,7 @@ pub fn draw_circle(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
 pub fn draw_orbit(origin: Vec2, orb: &Orbit, gizmos: &mut Gizmos, a: f32, base_color: Srgba) {
     if orb.eccentricity >= 1.0 {
         let n_points = 60;
-        let range = 0.98 * hyperbolic_range_ta(orb.eccentricity);
+        let range = 0.999 * hyperbolic_range_ta(orb.eccentricity);
         let points: Vec<_> = (0..n_points)
             .map(|i| {
                 let t = (i as f32 / (n_points - 1) as f32) * 2.0 - 1.0;
