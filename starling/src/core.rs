@@ -108,8 +108,12 @@ impl Mul<i64> for Nanotime {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ObjectId(pub i64);
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
-pub struct EventId(pub i64);
+impl Add for ObjectId {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self {
+        Self(self.0 + rhs.0)
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct OrbitalSystem {
@@ -117,6 +121,7 @@ pub struct OrbitalSystem {
     pub epoch: Nanotime,
     pub objects: Vec<(ObjectId, Orbit)>,
     pub subsystems: Vec<(ObjectId, Orbit, OrbitalSystem)>,
+    pub high_water_mark: ObjectId,
     metadata: Vec<ObjectMetadata>,
 }
 
@@ -200,12 +205,14 @@ impl OrbitalSystem {
             objects: Vec::default(),
             subsystems: vec![],
             metadata: vec![],
+            high_water_mark: ObjectId(0),
         }
     }
 
     pub fn add_object(&mut self, id: ObjectId, orbit: Orbit) {
         self.objects.push((id, orbit));
         self.calculate_metadata();
+        self.high_water_mark.0 = self.high_water_mark.0.max(id.0)
     }
 
     pub fn remove_object(&mut self, id: ObjectId) {
@@ -215,6 +222,7 @@ impl OrbitalSystem {
     pub fn add_subsystem(&mut self, id: ObjectId, orbit: Orbit, subsys: OrbitalSystem) {
         self.subsystems.push((id, orbit, subsys));
         self.calculate_metadata();
+        self.high_water_mark.0 = self.high_water_mark.0.max(id.0)
     }
 
     pub fn has_object(&self, id: ObjectId) -> bool {

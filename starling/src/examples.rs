@@ -45,19 +45,19 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
         Orbit::circular(EARTH.radius * 1.1, EARTH.mass, Nanotime::default(), false),
     );
 
-    // for _ in 0..200 {
-    //     system.add_object(
-    //         id.next(),
-    //         Orbit {
-    //             eccentricity: rand(0.1, 0.8),
-    //             semi_major_axis: rand(50.0, 2600.0),
-    //             arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
-    //             retrograde: rand(0.0, 1.0) < 0.3,
-    //             primary_mass: EARTH.mass,
-    //             time_at_periapsis: Nanotime::default(),
-    //         },
-    //     );
-    // }
+    for _ in 0..200 {
+        system.add_object(
+            id.next(),
+            Orbit {
+                eccentricity: rand(0.1, 0.8),
+                semi_major_axis: rand(50.0, 2600.0),
+                arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
+                retrograde: rand(0.0, 1.0) < 0.3,
+                primary_mass: EARTH.mass,
+                time_at_periapsis: Nanotime::default(),
+            },
+        );
+    }
 
     for vel in 400..1000 {
         let r = Vec2::new(2000.0, 0.0);
@@ -69,35 +69,35 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
         system.add_object(id.next(), o);
     }
 
-    // for _ in 0..100 {
-    //     system.add_object(
-    //         id.next(),
-    //         Orbit {
-    //             eccentricity: rand(0.1, 0.5),
-    //             semi_major_axis: rand(5000.0, 9000.0),
-    //             arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
-    //             retrograde: rand(0.0, 1.0) < 0.3,
-    //             primary_mass: EARTH.mass,
-    //             time_at_periapsis: Nanotime::default(),
-    //         },
-    //     );
-    // }
+    for _ in 0..100 {
+        system.add_object(
+            id.next(),
+            Orbit {
+                eccentricity: rand(0.1, 0.5),
+                semi_major_axis: rand(5000.0, 9000.0),
+                arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
+                retrograde: rand(0.0, 1.0) < 0.3,
+                primary_mass: EARTH.mass,
+                time_at_periapsis: Nanotime::default(),
+            },
+        );
+    }
 
     let mut subsys = OrbitalSystem::new(LUNA.0);
 
-    // for _ in 0..5 {
-    //     subsys.add_object(
-    //         id.next(),
-    //         Orbit {
-    //             eccentricity: rand(0.2, 0.5),
-    //             semi_major_axis: rand(100.0, 400.0),
-    //             arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
-    //             retrograde: rand(0.0, 1.0) < 0.3,
-    //             primary_mass: LUNA.0.mass,
-    //             time_at_periapsis: Nanotime::default(),
-    //         },
-    //     );
-    // }
+    for _ in 0..5 {
+        subsys.add_object(
+            id.next(),
+            Orbit {
+                eccentricity: rand(0.2, 0.5),
+                semi_major_axis: rand(100.0, 400.0),
+                arg_periapsis: rand(0.0, std::f32::consts::PI * 2.0),
+                retrograde: rand(0.0, 1.0) < 0.3,
+                primary_mass: LUNA.0.mass,
+                time_at_periapsis: Nanotime::default(),
+            },
+        );
+    }
 
     system.add_subsystem(luna_id, LUNA.1, subsys);
 
@@ -117,7 +117,7 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
 
     // ast.add_object(
     //     id.next(),
-    //     Orbit::circular(13.0, asteroid.0.mass, Nanotime::default()),
+    //     Orbit::circular(13.0, asteroid.0.mass, Nanotime::default(), false),
     // );
 
     // system.add_subsystem(id.next(), asteroid.1, ast);
@@ -224,16 +224,6 @@ pub fn consistency_example() -> OrbitalSystem {
         }
     }
 
-    // for r in [Vec2::new(-800.0, -500.0), Vec2::new(800.0, 400.0)] {
-    //     for vx in (-200..=200).step_by(100) {
-    //         for vy in (-200..=200).step_by(100) {
-    //             let v = Vec2::new(vx as f32, vy as f32);
-    //             let orbit = Orbit::from_pv(r, v, EARTH.mass, Nanotime::default());
-    //             orbits.push(orbit);
-    //         }
-    //     }
-    // }
-
     for orbit in orbits {
         system.add_object(ids.next(), orbit);
     }
@@ -241,6 +231,13 @@ pub fn consistency_example() -> OrbitalSystem {
     system
 }
 
+pub fn single_hyperbolic() -> OrbitalSystem {
+    let mut system: OrbitalSystem = OrbitalSystem::new(EARTH);
+    let orbit = Orbit::from_pv((400.0, 0.0), (0.0, 260.0), EARTH.mass, Nanotime(0));
+    system.add_object(ObjectId(0), orbit);
+    system
+}
+
 pub fn default_example() -> OrbitalSystem {
-    consistency_example()
+    earth_moon_example_one()
 }

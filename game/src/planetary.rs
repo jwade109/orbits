@@ -432,10 +432,12 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
             let v = Vec2::new(coords[2], coords[3]);
             let orbit = Orbit::from_pv(r, v, state.system.primary.mass, state.system.epoch);
             println!("New object: {:?}", orbit);
-            let id = ObjectId(as_seconds(state.system.epoch) as i64 + 1000);
+            let id = ObjectId(1) + state.system.high_water_mark;
             state.primary_object = id;
             state.system.add_object(id, orbit);
         }
+    } else if starts_with("clear") {
+        state.system.objects.clear();
     }
 }
 

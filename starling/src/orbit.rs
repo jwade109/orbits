@@ -262,6 +262,10 @@ impl Orbit {
         self.semi_major_axis * (1.0 - self.eccentricity.powi(2))
     }
 
+    pub fn semi_minor_axis(&self) -> f32 {
+        (self.semi_major_axis.abs() * self.semi_latus_rectum().abs()).sqrt()
+    }
+
     pub fn angular_momentum(&self) -> f32 {
         (self.mu() * self.semi_latus_rectum()).sqrt()
     }
@@ -368,6 +372,34 @@ impl Orbit {
         let p = self.period()?;
         let n = self.orbit_number(current)?;
         Some(p * (n + 1) + self.time_at_periapsis)
+    }
+
+    pub fn focii(&self) -> [Vec2; 2] {
+        let p = self.periapsis();
+        let a = self.apoapsis();
+        let c = (a + p) / 2.0;
+        let u = (a - p).normalize();
+        let d = self.semi_major_axis * self.eccentricity;
+        [c + u * d, c - u * d]
+    }
+
+    pub fn center(&self) -> Vec2 {
+        let p = self.periapsis();
+        let a = self.apoapsis();
+        (a + p) / 2.0
+    }
+
+    pub fn asymptotes(&self) -> Option<(Vec2, Vec2)> {
+        if self.eccentricity < 1.0 {
+            return None;
+        }
+        let u = self.periapsis().normalize();
+        let b = self.semi_minor_axis();
+
+        let ua = Vec2::new(self.semi_major_axis, b);
+        let ub = Vec2::new(self.semi_major_axis, -b);
+
+        Some((u.rotate(ua), u.rotate(ub)))
     }
 }
 

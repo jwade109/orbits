@@ -38,7 +38,7 @@ pub fn draw_orbit(
     gizmos: &mut Gizmos,
     a: f32,
     base_color: Srgba,
-    draw_vectors: bool,
+    detailed: bool,
 ) {
     if orb.eccentricity >= 1.0 {
         let n_points = 60;
@@ -49,27 +49,39 @@ pub fn draw_orbit(
                 origin + orb.position_at(t * range)
             })
             .collect();
-        gizmos.linestrip_2d(points, alpha(base_color, a))
+        gizmos.linestrip_2d(points, alpha(base_color, a));
+    } else {
+        let b = orb.semi_major_axis * (1.0 - orb.eccentricity.powi(2)).sqrt();
+        let center: Vec2 = origin + (orb.periapsis() + orb.apoapsis()) / 2.0;
+        let iso = Isometry2d::new(center, orb.arg_periapsis.into());
+        gizmos
+            .ellipse_2d(iso, Vec2::new(orb.semi_major_axis, b), alpha(base_color, a))
+            .resolution(orb.semi_major_axis.clamp(40.0, 300.0) as u32);
     }
 
-    if draw_vectors {
-        let ta = orb.ta_at_time(stamp).as_f32();
-        let root = orb.position_at(ta) + origin;
-        let t1 = root + orb.normal_at(ta) * 60.0;
-        let t2 = root + orb.tangent_at(ta) * 60.0;
-        let t3 = root + orb.velocity_at(ta) * 3.0;
-        gizmos.line_2d(root, t1, GREEN);
-        gizmos.line_2d(root, Vec2::ZERO, alpha(GREEN, 0.4));
-        gizmos.line_2d(root, t2, GREEN);
-        gizmos.line_2d(root, t3, PURPLE);
+    if !detailed {
+        return;
     }
 
-    let b = orb.semi_major_axis * (1.0 - orb.eccentricity.powi(2)).sqrt();
-    let center: Vec2 = origin + (orb.periapsis() + orb.apoapsis()) / 2.0;
-    let iso = Isometry2d::new(center, orb.arg_periapsis.into());
-    gizmos
-        .ellipse_2d(iso, Vec2::new(orb.semi_major_axis, b), alpha(base_color, a))
-        .resolution(orb.semi_major_axis.clamp(40.0, 300.0) as u32);
+    let focii = orb.focii();
+    draw_x(gizmos, focii[0], 20.0, WHITE);
+    draw_circle(gizmos, focii[1], 15.0, WHITE);
+    if let Some((ua, la)) = orb.asymptotes() {
+        let c = orb.center();
+        for asym in [ua, la] {
+            gizmos.line_2d(c, c + asym * 100.0, alpha(WHITE, 0.04));
+        }
+    }
+
+    let ta = orb.ta_at_time(stamp).as_f32();
+    let root = orb.position_at(ta) + origin;
+    let t1 = root + orb.normal_at(ta) * 60.0;
+    let t2 = root + orb.tangent_at(ta) * 60.0;
+    let t3 = root + orb.velocity_at(ta) * 3.0;
+    gizmos.line_2d(root, t1, GREEN);
+    gizmos.line_2d(root, Vec2::ZERO, alpha(GREEN, 0.4));
+    gizmos.line_2d(root, t2, GREEN);
+    gizmos.line_2d(root, t3, PURPLE);
 
     gizmos.circle_2d(
         Isometry2d::from_translation(origin + orb.periapsis()),
