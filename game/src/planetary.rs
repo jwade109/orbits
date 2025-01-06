@@ -1,8 +1,7 @@
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
-use chrono::TimeDelta;
 
-use bevy_egui::{egui, EguiContexts, EguiPlugin};
+// use bevy_egui::{egui, EguiContexts, EguiPlugin};
 
 use starling::core::*;
 use starling::examples::*;
@@ -175,7 +174,7 @@ fn draw_separation_tracker(gizmos: Gizmos, mut state: ResMut<GameState>) {
 
 #[derive(Resource)]
 pub struct GameState {
-    pub sim_time: TimeDelta,
+    pub sim_time: Nanotime,
     pub sim_speed: f32,
     pub show_orbits: bool,
     pub show_potential_field: bool,
@@ -196,7 +195,7 @@ pub struct GameState {
 impl Default for GameState {
     fn default() -> Self {
         GameState {
-            sim_time: TimeDelta::default(),
+            sim_time: Nanotime(0),
             sim_speed: 1.0,
             show_orbits: true,
             show_potential_field: false,
@@ -229,7 +228,7 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
         return;
     }
     let sp = state.sim_speed;
-    state.sim_time += TimeDelta::nanoseconds((time.delta().as_nanos() as f32 * sp) as i64);
+    state.sim_time += Nanotime((time.delta().as_nanos() as f32 * sp) as i64);
     state.system.epoch = state.sim_time;
     let s = state.system.epoch;
     for (_, _, sys) in state.system.subsystems.iter_mut() {
@@ -290,6 +289,10 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         );
 
         send_log(&mut evt, &format!("Period: {:?}", obj.period()));
+        send_log(
+            &mut evt,
+            &format!("Orbit count: {:?}", obj.orbit_number(state.system.epoch)),
+        );
     }
 
     if let Some(dat) = state.system.lookup_metadata(state.primary_object) {
@@ -326,7 +329,7 @@ fn keyboard_input(
             }
             KeyCode::KeyS => {
                 state.paused = true;
-                state.system.epoch += TimeDelta::new(0, 1000000).unwrap();
+                state.system.epoch.0 += 1000000;
                 state.sim_time = state.system.epoch;
             }
             _ => (),
@@ -353,7 +356,7 @@ fn load_new_scenario(state: &mut GameState, new_system: OrbitalSystem) {
     state.backup = Some(new_system.clone());
     state.target_scale = 0.001 * new_system.primary.soi;
     state.system = new_system;
-    state.sim_time = TimeDelta::default();
+    state.sim_time = Nanotime::default();
 }
 
 fn on_command(state: &mut GameState, cmd: &Vec<String>) {

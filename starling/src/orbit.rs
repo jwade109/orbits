@@ -1,11 +1,11 @@
-use crate::core::PV;
+use crate::core::*;
 use bevy::math::Vec2;
-use chrono::TimeDelta;
 
 pub const PI: f32 = std::f32::consts::PI;
 
-pub fn as_seconds(td: TimeDelta) -> f32 {
-    td.num_seconds() as f32 + td.subsec_nanos() as f32 / 1.0E9
+pub fn as_seconds(t: Nanotime) -> f32 {
+    let ns = 1000000000;
+    (t.0 / ns) as f32 + (t.0 % ns) as f32 / ns as f32
 }
 
 pub fn hyperbolic_range_ta(ecc: f32) -> f32 {
@@ -85,10 +85,14 @@ pub fn eccentric_to_mean(eccentric_anomaly: Anomaly, ecc: f32) -> Anomaly {
 pub fn mean_to_eccentric(mean_anomaly: Anomaly, ecc: f32) -> Option<Anomaly> {
     match mean_anomaly {
         Anomaly::Elliptical(v) => {
-            let max_error = 1E-6;
-            let max_iters = 50;
+            let max_error = 1E-4;
+            let max_iters = 40;
 
-            let mut e = v;
+            let mut e = match (v > 0.0, ecc > 0.8) {
+                (true, true) => PI,
+                (false, true) => -PI,
+                (_, false) => v,
+            };
 
             for _ in 0..max_iters {
                 e = e - (v - e + ecc * e.sin()) / (ecc * e.cos() - 1.0);
@@ -97,11 +101,11 @@ pub fn mean_to_eccentric(mean_anomaly: Anomaly, ecc: f32) -> Option<Anomaly> {
                 }
             }
 
-            Some(Anomaly::Elliptical(e))
+            None
         }
         Anomaly::Parabolic(v) | Anomaly::Hyperbolic(v) => {
-            let max_error = 1E-6;
-            let max_iters = 50;
+            let max_error = 1E-4;
+            let max_iters = 40;
 
             let mut e = v;
 
@@ -112,7 +116,7 @@ pub fn mean_to_eccentric(mean_anomaly: Anomaly, ecc: f32) -> Option<Anomaly> {
                 }
             }
 
-            Some(Anomaly::Hyperbolic(e))
+            None
         }
     }
 }
@@ -156,7 +160,7 @@ pub struct Orbit {
     pub arg_periapsis: f32,
     pub retrograde: bool,
     pub primary_mass: f32,
-    pub time_at_periapsis: TimeDelta,
+    pub time_at_periapsis: Nanotime,
 }
 
 impl Orbit {
@@ -164,7 +168,7 @@ impl Orbit {
         self.eccentricity.is_nan() || self.semi_major_axis.is_nan() || self.arg_periapsis.is_nan()
     }
 
-    pub fn from_pv(r: impl Into<Vec2>, v: impl Into<Vec2>, mass: f32, epoch: TimeDelta) -> Self {
+    pub fn from_pv(r: impl Into<Vec2>, v: impl Into<Vec2>, mass: f32, epoch: Nanotime) -> Self {
         let mu = mass * GRAVITATIONAL_CONSTANT;
         let r3 = r.into().extend(0.0);
         let v3 = v.into().extend(0.0);
@@ -187,7 +191,7 @@ impl Orbit {
         let ea = true_to_eccentric(ta, e.length());
         let ma = eccentric_to_mean(ea, e.length());
 
-        let dt = TimeDelta::nanoseconds((ma.as_f32() / mm * 1E9) as i64);
+        let dt = Nanotime((ma.as_f32() / mm * 1E9) as i64);
 
         // TODO this is definitely crap
         let time_at_periapsis = if e.length() > 1.0 && h.z < 0.0 {
@@ -217,7 +221,7 @@ impl Orbit {
         o
     }
 
-    pub const fn circular(radius: f32, mass: f32, epoch: TimeDelta, retrograde: bool) -> Self {
+    pub const fn circular(radius: f32, mass: f32, epoch: Nanotime, retrograde: bool) -> Self {
         Orbit {
             eccentricity: 0.0,
             semi_major_axis: radius,
@@ -272,26 +276,31 @@ impl Orbit {
             / (1.0 + self.eccentricity * f32::cos(true_anomaly))
     }
 
-    pub fn period(&self) -> Option<TimeDelta> {
+    pub fn period(&self) -> Option<Nanotime> {
         if self.eccentricity >= 1.0 {
             return None;
         }
         let t = 2.0 * PI / self.mean_motion();
-        Some(TimeDelta::nanoseconds((t * 1E9) as i64))
+        Some(Nanotime((t * 1E9) as i64))
     }
 
-    pub fn ta_at_time(&self, stamp: TimeDelta) -> Anomaly {
+    pub fn ma_at_time(&self, stamp: Nanotime) -> Anomaly {
         let dt = stamp - self.time_at_periapsis;
-        let ta = (|| {
-            let n = self.mean_motion();
-            let m = Anomaly::with_ecc(self.eccentricity, as_seconds(dt) * n);
-            let e = mean_to_eccentric(m, self.eccentricity)?;
-            Some(eccentric_to_true(e, self.eccentricity))
-        })();
-        Anomaly::with_ecc(self.eccentricity, ta.map_or(0.356, |a| a.as_f32()))
+        let n = self.mean_motion();
+        Anomaly::with_ecc(self.eccentricity, as_seconds(dt) * n)
     }
 
-    pub fn pv_at_time(&self, stamp: TimeDelta) -> PV {
+    pub fn ea_at_time(&self, stamp: Nanotime) -> Anomaly {
+        let m = self.ma_at_time(stamp);
+        mean_to_eccentric(m, self.eccentricity).unwrap_or(Anomaly::with_ecc(self.eccentricity, 0.0))
+    }
+
+    pub fn ta_at_time(&self, stamp: Nanotime) -> Anomaly {
+        let e = self.ea_at_time(stamp);
+        eccentric_to_true(e, self.eccentricity)
+    }
+
+    pub fn pv_at_time(&self, stamp: Nanotime) -> PV {
         let ta = self.ta_at_time(stamp);
         self.pv_at(ta.as_f32())
     }
@@ -348,13 +357,17 @@ impl Orbit {
         GRAVITATIONAL_CONSTANT * self.primary_mass
     }
 
-    pub fn t_next_p(&self, current: TimeDelta) -> Option<TimeDelta> {
+    pub fn orbit_number(&self, stamp: Nanotime) -> Option<i64> {
         let p = self.period()?;
-        let mut t = self.time_at_periapsis;
-        // while t < current {
-        //     t += p;
-        // }
-        Some(t)
+        let dt = stamp - self.time_at_periapsis;
+        let n = dt.0 / p.0;
+        Some(if dt.0 < 0 { n - 1 } else { n })
+    }
+
+    pub fn t_next_p(&self, current: Nanotime) -> Option<Nanotime> {
+        let p = self.period()?;
+        let n = self.orbit_number(current)?;
+        Some(p * (n + 1) + self.time_at_periapsis)
     }
 }
 

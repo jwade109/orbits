@@ -1,4 +1,5 @@
 use starling::core::*;
+use starling::examples::EARTH;
 use starling::orbit::*;
 
 fn write_csv(filename: &str, signals: &[(&str, &[f32])]) -> Result<(), Box<dyn std::error::Error>> {
@@ -26,7 +27,7 @@ fn write_csv(filename: &str, signals: &[(&str, &[f32])]) -> Result<(), Box<dyn s
     Ok(())
 }
 
-fn apply(x: &Vec<f32>, func: impl Fn(f32) -> f32) -> Vec<f32> {
+fn apply<T: Copy, R>(x: &Vec<T>, func: impl Fn(T) -> R) -> Vec<R> {
     x.iter().map(|x| func(*x)).collect()
 }
 
@@ -55,39 +56,60 @@ fn export_sin_approx() -> Result<(), Box<dyn std::error::Error>> {
     )
 }
 
-fn export_anomaly_conversions() -> Result<(), Box<dyn std::error::Error>> {
-    let ecc = 0.8;
+// fn export_anomaly_conversions() -> Result<(), Box<dyn std::error::Error>> {
+//     let ea = linspace(-PI, PI, 2000);
+//     let mut signals = vec![("ea", ea.clone())];
 
-    let ta = linspace(-2.0 * PI, 2.0 * PI, 2000);
-    let ea = apply(&ta, |x| {
-        true_to_eccentric(Anomaly::with_ecc(ecc, x), ecc).as_f32()
-    });
-    let ma = apply(&ea, |x| {
-        eccentric_to_mean(Anomaly::with_ecc(ecc, x), ecc).as_f32()
-    });
-    let ea2 = apply(&ma, |x| {
-        mean_to_eccentric(Anomaly::with_ecc(ecc, x), ecc)
-            .unwrap()
-            .as_f32()
-    });
-    let ta2 = apply(&ea2, |x| {
-        eccentric_to_true(Anomaly::with_ecc(ecc, x), ecc).as_f32()
-    });
+//     for ecc in [0.2, 0.6, 0.9, 0.999, 0.9999] {
+//         let ma = apply(&ea, |x| {
+//             eccentric_to_mean(Anomaly::with_ecc(ecc, x), ecc).as_f32()
+//         });
+//         let ea2 = apply(&ma, |x| {
+//             mean_to_eccentric(Anomaly::with_ecc(ecc, x), ecc)
+//                 .map(|x| x.as_f32())
+//                 .unwrap_or(f32::NAN)
+//         });
+
+//         let name = format!("ea({})", ecc);
+
+//         signals.push((name, ea2));
+//     }
+
+//     write_csv("anomaly.csv", &signals)
+// }
+
+fn export_orbit_position() -> Result<(), Box<dyn std::error::Error>> {
+    let orbit = Orbit::from_pv((400.0, 0.0), (0.0, 300.0), EARTH.mass, Nanotime::secs(5));
+
+    let a = 200;
+
+    let ftime = linspace(a as f32, -a as f32, 10000);
+    let nt = apply(&ftime, |x| orbit.time_at_periapsis + Nanotime::secs_f32(x));
+
+    let pos = apply(&nt, |x| orbit.pv_at_time(x).pos);
+    let ta = apply(&nt, |x| orbit.ta_at_time(x).as_f32());
+    let ea = apply(&nt, |x| orbit.ea_at_time(x).as_f32());
+    let ma = apply(&nt, |x| orbit.ma_at_time(x).as_f32());
+
+    let x = apply(&pos, |x| x.x);
+    let y = apply(&pos, |x| x.y);
+    let r = apply(&pos, |x| x.length());
 
     write_csv(
-        "anomaly.csv",
+        "orbit.csv",
         &[
+            ("t", &ftime),
             ("ta", &ta),
             ("ea", &ea),
             ("ma", &ma),
-            ("ea2", &ea2),
-            ("ta2", &ta2),
+            ("r", &r),
         ],
     )
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     export_sin_approx()?;
-    export_anomaly_conversions()?;
+    // export_anomaly_conversions()?;
+    export_orbit_position()?;
     Ok(())
 }

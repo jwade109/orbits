@@ -4,8 +4,6 @@ use bevy::prelude::*;
 use starling::core::*;
 use starling::orbit::*;
 
-use chrono::TimeDelta;
-
 use crate::planetary::GameState;
 
 pub fn alpha(color: Srgba, a: f32) -> Srgba {
@@ -33,7 +31,15 @@ pub fn draw_circle(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
         .resolution(200);
 }
 
-pub fn draw_orbit(origin: Vec2, orb: &Orbit, gizmos: &mut Gizmos, a: f32, base_color: Srgba) {
+pub fn draw_orbit(
+    origin: Vec2,
+    stamp: Nanotime,
+    orb: &Orbit,
+    gizmos: &mut Gizmos,
+    a: f32,
+    base_color: Srgba,
+    draw_vectors: bool,
+) {
     if orb.eccentricity >= 1.0 {
         let n_points = 60;
         let range = 0.999 * hyperbolic_range_ta(orb.eccentricity);
@@ -46,15 +52,17 @@ pub fn draw_orbit(origin: Vec2, orb: &Orbit, gizmos: &mut Gizmos, a: f32, base_c
         gizmos.linestrip_2d(points, alpha(base_color, a))
     }
 
-    // {
-    //     let root = orb.pos() + origin;
-    //     let t1 = root + orb.normal() * 60.0;
-    //     let t2 = root + orb.tangent() * 60.0;
-    //     let t3 = root + orb.vel() * 3.0;
-    //     gizmos.line_2d(root, t1, GREEN);
-    //     gizmos.line_2d(root, t2, GREEN);
-    //     gizmos.line_2d(root, t3, PURPLE);
-    // }
+    if draw_vectors {
+        let ta = orb.ta_at_time(stamp).as_f32();
+        let root = orb.position_at(ta) + origin;
+        let t1 = root + orb.normal_at(ta) * 60.0;
+        let t2 = root + orb.tangent_at(ta) * 60.0;
+        let t3 = root + orb.velocity_at(ta) * 3.0;
+        gizmos.line_2d(root, t1, GREEN);
+        gizmos.line_2d(root, Vec2::ZERO, alpha(GREEN, 0.4));
+        gizmos.line_2d(root, t2, GREEN);
+        gizmos.line_2d(root, t3, PURPLE);
+    }
 
     let b = orb.semi_major_axis * (1.0 - orb.eccentricity.powi(2)).sqrt();
     let center: Vec2 = origin + (orb.periapsis() + orb.apoapsis()) / 2.0;
@@ -97,7 +105,7 @@ pub fn draw_globe(gizmos: &mut Gizmos, p: Vec2, radius: f32, color: Srgba) {
 pub fn draw_orbital_system(
     gizmos: &mut Gizmos,
     sys: &OrbitalSystem,
-    stamp: TimeDelta,
+    stamp: Nanotime,
     origin: Vec2,
     scale: f32,
     show_orbits: bool,
@@ -119,18 +127,18 @@ pub fn draw_orbital_system(
         let color: Srgba = WHITE;
         draw_square(gizmos, origin + pv.pos, (9.0 * scale).min(9.0), color);
         if show_orbits {
-            draw_orbit(origin, orbit, gizmos, 0.05, GRAY);
+            draw_orbit(origin, stamp, orbit, gizmos, 0.05, GRAY, false);
         }
     }
 
     for (_, orbit, subsys) in sys.subsystems.iter() {
-        draw_orbit(origin, orbit, gizmos, 0.1, WHITE);
+        draw_orbit(origin, stamp, orbit, gizmos, 0.1, WHITE, false);
 
         let mut o = *orbit;
         o.semi_major_axis -= subsys.primary.soi;
-        draw_orbit(origin, &o, gizmos, 0.3, RED);
+        draw_orbit(origin, stamp, &o, gizmos, 0.3, RED, false);
         o.semi_major_axis += 2.0 * subsys.primary.soi;
-        draw_orbit(origin, &o, gizmos, 0.3, RED);
+        draw_orbit(origin, stamp, &o, gizmos, 0.3, RED, false);
 
         let pv = orbit.pv_at_time(stamp);
         draw_orbital_system(gizmos, subsys, stamp, origin + pv.pos, scale, show_orbits);
@@ -225,7 +233,7 @@ pub fn draw_scalar_field_v2(gizmos: &mut Gizmos, sys: &OrbitalSystem, levels: &[
     }
 }
 
-pub fn draw_shadows(gizmos: &mut Gizmos, origin: Vec2, radius: f32, stamp: TimeDelta) {
+pub fn draw_shadows(gizmos: &mut Gizmos, origin: Vec2, radius: f32, stamp: Nanotime) {
     let angle = as_seconds(stamp) / 1000.0;
     let u = rotate(Vec2::X, angle);
     let steps = radius.ceil() as u32;
@@ -277,7 +285,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     ] {
         if let Some((orbit, origin)) = state.system.lookup_subsystem(id) {
             let p = orbit.pv_at_time(stamp) + origin;
-            draw_orbit(origin.pos, orbit, &mut gizmos, 1.0, color);
+            draw_orbit(origin.pos, stamp, orbit, &mut gizmos, 1.0, color, true);
             draw_square(
                 &mut gizmos,
                 p.pos,

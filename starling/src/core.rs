@@ -1,8 +1,7 @@
 use crate::orbit::*;
 use bevy::math::Vec2;
-use chrono::TimeDelta;
 use rand::Rng;
-use std::ops::{Add, Sub};
+use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
 
 pub fn rand(min: f32, max: f32) -> f32 {
     rand::thread_rng().gen_range(min..max)
@@ -44,6 +43,68 @@ pub fn gravity_accel(body: Body, body_center: Vec2, sample: Vec2) -> Vec2 {
     a * r.normalize()
 }
 
+#[derive(Clone, Copy, Default)]
+pub struct Nanotime(pub i64);
+
+impl Nanotime {
+    const PER_SEC: i64 = 1000000000;
+
+    pub fn to_secs(&self) -> f32 {
+        self.0 as f32 / Nanotime::PER_SEC as f32
+    }
+
+    pub fn to_parts(&self) -> (i64, i64) {
+        (self.0 % Nanotime::PER_SEC, self.0 / Nanotime::PER_SEC)
+    }
+
+    pub fn secs(s: i64) -> Self {
+        Nanotime(s * Nanotime::PER_SEC)
+    }
+
+    pub fn secs_f32(s: f32) -> Self {
+        Nanotime((s * Nanotime::PER_SEC as f32) as i64)
+    }
+}
+
+impl core::fmt::Debug for Nanotime {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}.{:09}", self.0 / 1000000000, self.0 % 1000000000)
+    }
+}
+
+impl Add for Nanotime {
+    type Output = Self;
+    fn add(self, other: Self) -> Self {
+        Nanotime(self.0 + other.0)
+    }
+}
+
+impl AddAssign for Nanotime {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 += rhs.0
+    }
+}
+
+impl Sub for Nanotime {
+    type Output = Self;
+    fn sub(self, other: Self) -> Self {
+        Nanotime(self.0 - other.0)
+    }
+}
+
+impl SubAssign for Nanotime {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.0 -= rhs.0
+    }
+}
+
+impl Mul<i64> for Nanotime {
+    type Output = Self;
+    fn mul(self, rhs: i64) -> Self {
+        Self(self.0 * rhs)
+    }
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ObjectId(pub i64);
 
@@ -53,7 +114,7 @@ pub struct EventId(pub i64);
 #[derive(Debug, Clone)]
 pub struct OrbitalSystem {
     pub primary: Body,
-    pub epoch: TimeDelta,
+    pub epoch: Nanotime,
     pub objects: Vec<(ObjectId, Orbit)>,
     pub subsystems: Vec<(ObjectId, Orbit, OrbitalSystem)>,
     metadata: Vec<ObjectMetadata>,
@@ -105,9 +166,9 @@ pub enum ObjectType {
 pub enum OrbitStability {
     Unknown,
     Perpetual,
-    OnEscape(Option<TimeDelta>),
-    SubOrbital(Option<TimeDelta>),
-    MightEncounter(Option<TimeDelta>),
+    OnEscape(Option<Nanotime>),
+    SubOrbital(Option<Nanotime>),
+    MightEncounter(Option<Nanotime>),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -135,7 +196,7 @@ impl OrbitalSystem {
     pub fn new(body: Body) -> Self {
         OrbitalSystem {
             primary: body,
-            epoch: TimeDelta::default(),
+            epoch: Nanotime::default(),
             objects: Vec::default(),
             subsystems: vec![],
             metadata: vec![],
@@ -209,12 +270,12 @@ impl OrbitalSystem {
         self.metadata.iter().find(|dat| dat.id == o)
     }
 
-    pub fn transform_from_id(&self, id: ObjectId, stamp: TimeDelta) -> Option<PV> {
+    pub fn transform_from_id(&self, id: ObjectId, stamp: Nanotime) -> Option<PV> {
         let (orbit, wrt) = self.lookup_subsystem(id)?;
         Some(orbit.pv_at_time(stamp) + wrt)
     }
 
-    pub fn potential_at(&self, pos: Vec2, stamp: TimeDelta) -> f32 {
+    pub fn potential_at(&self, pos: Vec2, stamp: Nanotime) -> f32 {
         let r = pos.length().clamp(10.0, std::f32::MAX);
         let mut ret = -(self.primary.mass * GRAVITATIONAL_CONSTANT) / r;
         for (_, orbit, sys) in &self.subsystems {
