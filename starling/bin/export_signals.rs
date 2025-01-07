@@ -79,9 +79,9 @@ fn export_sin_approx() -> Result<(), Box<dyn std::error::Error>> {
 // }
 
 fn export_orbit_position() -> Result<(), Box<dyn std::error::Error>> {
-    let orbit = Orbit::from_pv((400.0, 0.0), (0.0, 300.0), EARTH.mass, Nanotime::secs(5));
+    let orbit = Orbit::from_pv((400.0, 0.0), (0.0, 180.0), EARTH.mass, Nanotime::secs(5));
 
-    let a = 200;
+    let a = 1000;
 
     let ftime = linspace(a as f32, -a as f32, 10000);
     let nt = apply(&ftime, |x| orbit.time_at_periapsis + Nanotime::secs_f32(x));

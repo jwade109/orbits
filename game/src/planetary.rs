@@ -1,4 +1,5 @@
 use bevy::input::mouse::MouseWheel;
+use bevy::math::VectorSpace;
 use bevy::prelude::*;
 
 // use bevy_egui::{egui, EguiContexts, EguiPlugin};
@@ -17,7 +18,7 @@ impl Plugin for PlanetaryPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, init_system);
         app.add_systems(Update, (draw, keyboard_input, handle_zoom));
-        app.add_systems(FixedUpdate, (propagate_system, draw_separation_tracker));
+        app.add_systems(FixedUpdate, propagate_system);
         app.add_systems(
             Update,
             (
@@ -152,30 +153,10 @@ fn draw(gizmos: Gizmos, res: Res<GameState>) {
     draw_game_state(gizmos, res)
 }
 
-fn draw_separation_tracker(gizmos: Gizmos, mut state: ResMut<GameState>) {
-    let a = state.primary_object;
-    let b = state.secondary_object;
-
-    let t = state.system.epoch;
-
-    let pva = match state.system.transform_from_id(a, t) {
-        Some(p) => p,
-        _ => return,
-    };
-    let pvb = match state.system.transform_from_id(b, t) {
-        Some(p) => p,
-        _ => return,
-    };
-
-    let sep = pva.pos.distance(pvb.pos);
-
-    state.tracker.update(t, sep);
-}
-
 #[derive(Resource)]
 pub struct GameState {
     pub sim_time: Nanotime,
-    pub sim_speed: f32,
+    pub sim_speed: i32,
     pub show_orbits: bool,
     pub show_potential_field: bool,
     pub paused: bool,
@@ -183,36 +164,37 @@ pub struct GameState {
     pub backup: Option<OrbitalSystem>,
     pub primary_object: ObjectId,
     pub secondary_object: ObjectId,
-    pub follow_object: bool,
+    pub follow_cursor: bool,
     pub target_scale: f32,
+    pub actual_scale: f32,
     pub camera_easing: Vec2,
     pub camera_switch: bool,
     pub draw_levels: Vec<i32>,
-
-    pub tracker: SepTracker,
+    pub cursor: Vec2,
 }
 
 impl Default for GameState {
     fn default() -> Self {
         GameState {
             sim_time: Nanotime(0),
-            sim_speed: 1.0,
-            show_orbits: true,
+            sim_speed: 0,
+            show_orbits: false,
             show_potential_field: false,
             paused: false,
             system: default_example(),
             primary_object: ObjectId(-1),
             secondary_object: ObjectId(-1),
             backup: Some(default_example()),
-            follow_object: false,
+            follow_cursor: false,
             target_scale: 4.0,
+            actual_scale: 4.0,
             camera_easing: Vec2::ZERO,
             camera_switch: false,
             draw_levels: (-70000..=-10000)
                 .step_by(10000)
                 .chain((-5000..-3000).step_by(250))
                 .collect(),
-            tracker: SepTracker::default(),
+            cursor: Vec2::ZERO,
         }
     }
 }
@@ -227,7 +209,7 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     if state.paused {
         return;
     }
-    let sp = state.sim_speed;
+    let sp = 10.0f32.powi(state.sim_speed);
     state.sim_time += Nanotime((time.delta().as_nanos() as f32 * sp) as i64);
     state.system.epoch = state.sim_time;
     let s = state.system.epoch;
@@ -239,12 +221,12 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
 
 fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
     send_log(&mut evt, &format!("Epoch: {:?}", state.system.epoch));
-    send_log(&mut evt, &format!("Scale: {:0.3}", state.target_scale));
+    send_log(&mut evt, &format!("Scale: {:0.3}", state.actual_scale));
     send_log(&mut evt, &format!("{} objects", state.system.objects.len()));
     if state.paused {
         send_log(&mut evt, "Paused");
     }
-    send_log(&mut evt, &format!("Sim speed: {:0.2}", state.sim_speed));
+    send_log(&mut evt, &format!("Sim speed: 10^{}", state.sim_speed));
     send_log(&mut evt, &format!("Primary: {:?}", state.primary_object));
     send_log(
         &mut evt,
@@ -259,7 +241,7 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
     );
     send_log(
         &mut evt,
-        &format!("Follow tracked: {:?}", state.follow_object),
+        &format!("Follow tracked: {:?}", state.follow_cursor),
     );
 
     if let Some((obj, _)) = state.system.lookup_subsystem(state.primary_object) {
@@ -285,6 +267,11 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
 
         send_log(
             &mut evt,
+            &format!("Consistent: {}", obj.is_consistent(state.system.epoch)),
+        );
+
+        send_log(
+            &mut evt,
             &format!("Next p: {:?}", obj.t_next_p(state.system.epoch)),
         );
 
@@ -305,6 +292,7 @@ fn keyboard_input(
     mut state: ResMut<GameState>,
     mut exit: ResMut<Events<bevy::app::AppExit>>,
     cstate: Res<CommandsState>,
+    time: Res<Time>,
 ) {
     if cstate.active {
         return;
@@ -313,10 +301,10 @@ fn keyboard_input(
     for key in keys.get_just_pressed() {
         match key {
             KeyCode::Period => {
-                state.sim_speed = f32::clamp(state.sim_speed * 10.0, 0.01, 10000.0);
+                state.sim_speed = i32::clamp(state.sim_speed + 1, -6, 4);
             }
             KeyCode::Comma => {
-                state.sim_speed = f32::clamp(state.sim_speed / 10.0, 0.01, 10000.0);
+                state.sim_speed = i32::clamp(state.sim_speed - 1, -6, 4);
             }
             KeyCode::KeyF => {
                 state.camera_switch = true;
@@ -334,6 +322,22 @@ fn keyboard_input(
             }
             _ => (),
         }
+    }
+
+    let dt = time.delta().as_secs_f32();
+    let cursor_rate = 500.0 * state.actual_scale;
+
+    if keys.pressed(KeyCode::ArrowLeft) {
+        state.cursor.x -= cursor_rate * dt;
+    }
+    if keys.pressed(KeyCode::ArrowRight) {
+        state.cursor.x += cursor_rate * dt;
+    }
+    if keys.pressed(KeyCode::ArrowUp) {
+        state.cursor.y += cursor_rate * dt;
+    }
+    if keys.pressed(KeyCode::ArrowDown) {
+        state.cursor.y -= cursor_rate * dt;
     }
 
     if keys.just_pressed(KeyCode::KeyM) || keys.all_pressed([KeyCode::KeyM, KeyCode::ShiftLeft]) {
@@ -438,6 +442,20 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
         }
     } else if starts_with("clear") {
         state.system.objects.clear();
+    } else if starts_with("near") {
+        let id = state
+            .system
+            .objects
+            .iter()
+            .map(|(id, orbit)| {
+                let pos = orbit.pv_at_time(state.sim_time).pos;
+                let d = pos.distance(state.cursor);
+                (*id, d)
+            })
+            .min_by(|(_, d1), (_, d2)| d1.total_cmp(d2));
+        if let Some((id, _)) = id {
+            state.primary_object = id;
+        }
     }
 }
 
@@ -447,27 +465,29 @@ fn process_commands(mut evts: EventReader<DebugCommand>, mut state: ResMut<GameS
     }
 }
 
-fn handle_zoom(state: Res<GameState>, mut tf: Query<&mut Transform, With<Camera>>) {
+fn handle_zoom(mut state: ResMut<GameState>, mut tf: Query<&mut Transform, With<Camera>>) {
     let mut transform = tf.single_mut();
-    let ds = (state.target_scale - transform.scale) * 0.2;
+    let ds = (state.target_scale - transform.scale) * 0.1;
     transform.scale += ds;
+    state.actual_scale = transform.scale.x;
 }
 
 fn update_camera(mut query: Query<&mut Transform, With<Camera>>, mut state: ResMut<GameState>) {
     let mut tf = query.single_mut();
 
     if state.camera_switch {
-        state.follow_object = !state.follow_object;
+        state.follow_cursor = !state.follow_cursor;
     }
 
     let current_pos = tf.translation.xy();
 
-    let target_pos = if state.follow_object {
-        state
-            .system
-            .transform_from_id(state.primary_object, state.system.epoch)
-            .map(|p| p.pos)
-            .unwrap_or(Vec2::ZERO)
+    let target_pos = if state.follow_cursor {
+        state.cursor
+        // state
+        //     .system
+        //     .transform_from_id(state.primary_object, state.system.epoch)
+        //     .map(|p| p.pos)
+        //     .unwrap_or(Vec2::ZERO)
     } else {
         Vec2::ZERO
     };

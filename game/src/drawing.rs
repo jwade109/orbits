@@ -136,7 +136,20 @@ pub fn draw_orbital_system(
 
     for (_, orbit) in &sys.objects {
         let pv = orbit.pv_at_time(stamp);
-        let color: Srgba = WHITE;
+        let near_parabolic = (orbit.eccentricity - 1.0).abs() < 0.01;
+        let color = if !orbit.is_consistent(stamp) {
+            if near_parabolic {
+                PURPLE
+            } else {
+                RED
+            }
+        } else {
+            if near_parabolic {
+                YELLOW
+            } else {
+                WHITE
+            }
+        };
         draw_square(gizmos, origin + pv.pos, (9.0 * scale).min(9.0), color);
         if show_orbits {
             draw_orbit(origin, stamp, orbit, gizmos, 0.05, GRAY, false);
@@ -272,12 +285,15 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         draw_scalar_field_v2(&mut gizmos, &state.system, &state.draw_levels);
     }
 
+    draw_square(&mut gizmos, state.cursor, 18.0 * state.actual_scale, ORANGE);
+    draw_x(&mut gizmos, state.cursor, 7.0 * state.actual_scale, ORANGE);
+
     draw_orbital_system(
         &mut gizmos,
         &state.system,
         stamp,
         Vec2::ZERO,
-        state.target_scale,
+        state.actual_scale,
         state.show_orbits,
     );
 
@@ -301,7 +317,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
             draw_square(
                 &mut gizmos,
                 p.pos,
-                (size * state.target_scale).min(size),
+                (size * state.actual_scale).min(size),
                 alpha(color, 0.7),
             );
         }

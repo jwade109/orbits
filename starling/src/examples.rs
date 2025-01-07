@@ -239,5 +239,5 @@ pub fn single_hyperbolic() -> OrbitalSystem {
 }
 
 pub fn default_example() -> OrbitalSystem {
-    earth_moon_example_one()
+    consistency_example()
 }

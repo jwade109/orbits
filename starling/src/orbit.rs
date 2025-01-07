@@ -107,7 +107,7 @@ pub fn mean_to_eccentric(mean_anomaly: Anomaly, ecc: f32) -> Option<Anomaly> {
             let max_error = 1E-4;
             let max_iters = 40;
 
-            let mut e = v;
+            let mut e = v.abs().sqrt() * v.signum();
 
             for _ in 0..max_iters {
                 e = e + (v + e - ecc * e.sinh()) / (ecc * e.cosh() - 1.0);
@@ -209,6 +209,7 @@ impl Orbit {
             time_at_periapsis,
         };
 
+        // TODO mega turbo crap
         let pcalc = o.pv_at_time(epoch);
         if pcalc.pos.distance(Vec2::new(r3.x, r3.y)) > 20.0 {
             o.time_at_periapsis = if e.length() > 1.0 && h.z < 0.0 {
@@ -400,6 +401,18 @@ impl Orbit {
         let ub = Vec2::new(self.semi_major_axis, -b);
 
         Some((u.rotate(ua), u.rotate(ub)))
+    }
+
+    pub fn is_consistent(&self, stamp: Nanotime) -> bool {
+        let ta = self.ta_at_time(stamp);
+        let ea = true_to_eccentric(ta, self.eccentricity);
+        let ma = eccentric_to_mean(ea, self.eccentricity);
+        let ea2 = match mean_to_eccentric(ma, self.eccentricity) {
+            Some(e) => e,
+            None => return false,
+        };
+        let ta2 = eccentric_to_true(ea2, self.eccentricity);
+        (ta.as_f32() - ta2.as_f32()).abs() < 1E-3
     }
 }
 
