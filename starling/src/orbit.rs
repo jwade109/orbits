@@ -55,7 +55,8 @@ pub fn true_to_eccentric(true_anomaly: Anomaly, ecc: f32) -> Anomaly {
             2.0 * term.atan()
         }),
         Anomaly::Hyperbolic(v) => {
-            Anomaly::Hyperbolic(((ecc + v.cos()) / (1. + ecc * v.cos())).acosh())
+            let x = ((ecc + v.cos()) / (1. + ecc * v.cos())).acosh();
+            Anomaly::Hyperbolic(x.abs() * v.signum())
         }
         Anomaly::Parabolic(v) => Anomaly::Parabolic((v / 2.0).tan()),
     }

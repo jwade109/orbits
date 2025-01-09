@@ -17,17 +17,10 @@ pub struct PlanetaryPlugin;
 impl Plugin for PlanetaryPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, init_system);
-        app.add_systems(Update, (draw, keyboard_input, handle_zoom));
+        app.add_systems(Update, (draw, handle_zoom));
+        app.add_systems(Update, (update_camera, keyboard_input).chain());
         app.add_systems(FixedUpdate, propagate_system);
-        app.add_systems(
-            Update,
-            (
-                log_system_info,
-                update_camera,
-                process_commands,
-                scroll_events,
-            ),
-        );
+        app.add_systems(Update, (log_system_info, process_commands, scroll_events));
         // app.add_plugins(EguiPlugin).add_systems(Update, ui_system);
     }
 }
