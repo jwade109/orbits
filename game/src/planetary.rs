@@ -134,7 +134,7 @@ impl Plugin for PlanetaryPlugin {
 //             if let Some((orbit, _)) = state.system.lookup_subsystem(state.primary_object) {
 //                 ui.add(egui::Label::new(format!(
 //                     "Epoch: {:?}\nOrbit: {:#?}",
-//                     state.system.epoch, orbit
+//                     state.sim_time, orbit
 //                 )));
 //             }
 
@@ -154,7 +154,7 @@ pub struct GameState {
     pub show_potential_field: bool,
     pub paused: bool,
     pub system: OrbitalSystem,
-    pub backup: Option<OrbitalSystem>,
+    pub backup: Option<(OrbitalSystem, Nanotime)>,
     pub primary_object: ObjectId,
     pub secondary_object: ObjectId,
     pub follow_cursor: bool,
@@ -177,7 +177,7 @@ impl Default for GameState {
             system: default_example(),
             primary_object: ObjectId(-1),
             secondary_object: ObjectId(-1),
-            backup: Some(default_example()),
+            backup: Some((default_example(), Nanotime::default())),
             follow_cursor: false,
             target_scale: 4.0,
             actual_scale: 4.0,
@@ -204,16 +204,12 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     }
     let sp = 10.0f32.powi(state.sim_speed);
     state.sim_time += Nanotime((time.delta().as_nanos() as f32 * sp) as i64);
-    state.system.epoch = state.sim_time;
-    let s = state.system.epoch;
-    for (_, _, sys) in state.system.subsystems.iter_mut() {
-        sys.epoch = s;
-    }
-    state.system.rebalance();
+    let s = state.sim_time;
+    state.system.rebalance(s);
 }
 
 fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
-    send_log(&mut evt, &format!("Epoch: {:?}", state.system.epoch));
+    send_log(&mut evt, &format!("Epoch: {:?}", state.sim_time));
     send_log(&mut evt, &format!("Scale: {:0.3}", state.actual_scale));
     send_log(&mut evt, &format!("{} objects", state.system.objects.len()));
     if state.paused {
@@ -237,9 +233,14 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         &format!("Follow tracked: {:?}", state.follow_cursor),
     );
 
-    if let Some((obj, _)) = state.system.lookup_subsystem(state.primary_object) {
+    if let Some((obj, _)) = state
+        .system
+        .lookup_subsystem(state.primary_object, state.sim_time)
+    {
+        let pv = obj.pv_at_time(state.sim_time);
         send_log(&mut evt, &format!("{:#?}", obj));
-        let ta = obj.ta_at_time(state.system.epoch);
+        send_log(&mut evt, &format!("{:#?}", pv));
+        let ta = obj.ta_at_time(state.sim_time);
         let ea = true_to_eccentric(ta, obj.eccentricity);
         let ma = eccentric_to_mean(ea, obj.eccentricity);
         let ea2 = mean_to_eccentric(ma, obj.eccentricity)
@@ -260,18 +261,18 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
 
         send_log(
             &mut evt,
-            &format!("Consistent: {}", obj.is_consistent(state.system.epoch)),
+            &format!("Consistent: {}", obj.is_consistent(state.sim_time)),
         );
 
         send_log(
             &mut evt,
-            &format!("Next p: {:?}", obj.t_next_p(state.system.epoch)),
+            &format!("Next p: {:?}", obj.t_next_p(state.sim_time)),
         );
 
         send_log(&mut evt, &format!("Period: {:?}", obj.period()));
         send_log(
             &mut evt,
-            &format!("Orbit count: {:?}", obj.orbit_number(state.system.epoch)),
+            &format!("Orbit count: {:?}", obj.orbit_number(state.sim_time)),
         );
     }
 
@@ -310,8 +311,7 @@ fn keyboard_input(
             }
             KeyCode::KeyS => {
                 state.paused = true;
-                state.system.epoch.0 += 1000000;
-                state.sim_time = state.system.epoch;
+                state.sim_time.0 += 1000000;
             }
             _ => (),
         }
@@ -350,7 +350,7 @@ fn keyboard_input(
 }
 
 fn load_new_scenario(state: &mut GameState, new_system: OrbitalSystem) {
-    state.backup = Some(new_system.clone());
+    state.backup = Some((new_system.clone(), Nanotime::default()));
     state.target_scale = 0.001 * new_system.primary.soi;
     state.system = new_system;
     state.sim_time = Nanotime::default();
@@ -382,12 +382,12 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
             }
         }
     } else if starts_with("restore") {
-        if let Some(sys) = &state.backup {
+        if let Some((sys, time)) = &state.backup {
             state.system = sys.clone();
-            state.sim_time = state.system.epoch;
+            state.sim_time = *time;
         }
     } else if starts_with("save") {
-        state.backup = Some(state.system.clone());
+        state.backup = Some((state.system.clone(), state.sim_time));
     } else if starts_with("pri") {
         if let Some(n) = cmd.get(1).map(|s| s.parse::<i64>().ok()).flatten() {
             state.primary_object = ObjectId(n)
@@ -427,7 +427,7 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
         {
             let r = Vec2::new(coords[0], coords[1]);
             let v = Vec2::new(coords[2], coords[3]);
-            let orbit = Orbit::from_pv(r, v, state.system.primary.mass, state.system.epoch);
+            let orbit = Orbit::from_pv(r, v, state.system.primary.mass, state.sim_time);
             println!("New object: {:?}", orbit);
             let id = ObjectId(1) + state.system.high_water_mark;
             state.primary_object = id;
@@ -478,7 +478,7 @@ fn update_camera(mut query: Query<&mut Transform, With<Camera>>, mut state: ResM
         state.cursor
         // state
         //     .system
-        //     .transform_from_id(state.primary_object, state.system.epoch)
+        //     .transform_from_id(state.primary_object, state.sim_time)
         //     .map(|p| p.pos)
         //     .unwrap_or(Vec2::ZERO)
     } else {

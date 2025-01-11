@@ -118,7 +118,7 @@ impl Add for ObjectId {
 #[derive(Debug, Clone)]
 pub struct OrbitalSystem {
     pub primary: Body,
-    pub epoch: Nanotime,
+    // pub epoch: Nanotime,
     pub objects: Vec<(ObjectId, Orbit)>,
     pub subsystems: Vec<(ObjectId, Orbit, OrbitalSystem)>,
     pub high_water_mark: ObjectId,
@@ -201,7 +201,6 @@ impl OrbitalSystem {
     pub fn new(body: Body) -> Self {
         OrbitalSystem {
             primary: body,
-            epoch: Nanotime::default(),
             objects: Vec::default(),
             subsystems: vec![],
             metadata: vec![],
@@ -256,7 +255,12 @@ impl OrbitalSystem {
             .or_else(|| Some(self.lookup_system(o)?.0))
     }
 
-    fn lookup_subsystem_internal(&self, o: ObjectId, wrt: PV) -> Option<(&Orbit, PV)> {
+    fn lookup_subsystem_internal(
+        &self,
+        o: ObjectId,
+        stamp: Nanotime,
+        wrt: PV,
+    ) -> Option<(&Orbit, PV)> {
         if let Some(o) = self.lookup(o) {
             return Some((o, wrt));
         }
@@ -264,14 +268,14 @@ impl OrbitalSystem {
         self.subsystems
             .iter()
             .filter_map(|(_, orbit, sys)| {
-                let pv = orbit.pv_at_time(self.epoch);
-                sys.lookup_subsystem_internal(o, wrt + pv)
+                let pv = orbit.pv_at_time(stamp);
+                sys.lookup_subsystem_internal(o, stamp, wrt + pv)
             })
             .next()
     }
 
-    pub fn lookup_subsystem(&self, o: ObjectId) -> Option<(&Orbit, PV)> {
-        self.lookup_subsystem_internal(o, PV::zero())
+    pub fn lookup_subsystem(&self, o: ObjectId, stamp: Nanotime) -> Option<(&Orbit, PV)> {
+        self.lookup_subsystem_internal(o, stamp, PV::zero())
     }
 
     pub fn lookup_metadata(&self, o: ObjectId) -> Option<&ObjectMetadata> {
@@ -279,7 +283,7 @@ impl OrbitalSystem {
     }
 
     pub fn transform_from_id(&self, id: ObjectId, stamp: Nanotime) -> Option<PV> {
-        let (orbit, wrt) = self.lookup_subsystem(id)?;
+        let (orbit, wrt) = self.lookup_subsystem(id, stamp)?;
         Some(orbit.pv_at_time(stamp) + wrt)
     }
 
@@ -318,34 +322,34 @@ impl OrbitalSystem {
         }
     }
 
-    pub fn rebalance(&mut self) {
-        self.remove_collided();
-        self.eject_escaped();
-        self.reparent();
+    pub fn rebalance(&mut self, stamp: Nanotime) {
+        self.remove_collided(stamp);
+        self.eject_escaped(stamp);
+        self.reparent(stamp);
     }
 
-    pub fn remove_collided(&mut self) {
+    pub fn remove_collided(&mut self, stamp: Nanotime) {
         for (_, _, subsys) in &mut self.subsystems {
-            subsys.remove_collided();
+            subsys.remove_collided(stamp);
         }
 
         self.objects.retain(|(_, orbit)| {
             if orbit.periapsis_r() > self.primary.radius {
                 return true;
             }
-            let pv = orbit.pv_at_time(self.epoch);
+            let pv = orbit.pv_at_time(stamp);
             let r2 = pv.pos.length_squared();
             r2 > self.primary.radius.powi(2)
         });
     }
 
-    pub fn eject_escaped(&mut self) -> Vec<(ObjectId, PV)> {
+    pub fn eject_escaped(&mut self, stamp: Nanotime) -> Vec<(ObjectId, PV)> {
         let ejecta = self
             .subsystems
             .iter_mut()
             .map(|(_, orb, s)| {
-                let syspv = orb.pv_at_time(self.epoch);
-                s.eject_escaped()
+                let syspv = orb.pv_at_time(stamp);
+                s.eject_escaped(stamp)
                     .iter()
                     .map(|(id, pv)| (*id, *pv + syspv))
                     .collect::<Vec<_>>()
@@ -354,7 +358,7 @@ impl OrbitalSystem {
             .collect::<Vec<_>>();
 
         for (id, pv) in ejecta {
-            let orbit = Orbit::from_pv(pv.pos, pv.vel, self.primary.mass, self.epoch);
+            let orbit = Orbit::from_pv(pv.pos, pv.vel, self.primary.mass, stamp);
             self.add_object(id, orbit);
         }
 
@@ -363,28 +367,28 @@ impl OrbitalSystem {
             if orbit.eccentricity < 1.0 && orbit.apoapsis_r() < self.primary.soi {
                 return true;
             }
-            let pv = orbit.pv_at_time(self.epoch);
+            let pv = orbit.pv_at_time(stamp);
             let keep = pv.pos.length_squared() <= self.primary.soi.powi(2);
             if !keep {
-                ret.push((*id, orbit.pv_at_time(self.epoch)));
+                ret.push((*id, orbit.pv_at_time(stamp)));
             }
             keep
         });
         ret
     }
 
-    pub fn reparent(&mut self) {
+    pub fn reparent(&mut self, stamp: Nanotime) {
         // TODO fix this!
         let mut to_remove = vec![];
         for (id, orbit) in &mut self.objects {
-            let pv = orbit.pv_at_time(self.epoch);
+            let pv = orbit.pv_at_time(stamp);
             let new = self
                 .subsystems
                 .iter_mut()
                 .filter_map(|(sysid, sysorb, sys)| {
-                    let syspv = sysorb.pv_at_time(self.epoch);
+                    let syspv = sysorb.pv_at_time(stamp);
                     let rel = pv - syspv;
-                    if rel.pos.length_squared() < sys.primary.soi.powi(2) * 0.98 {
+                    if rel.pos.length_squared() < sys.primary.soi.powi(2) {
                         Some((sys, rel))
                     } else {
                         None
@@ -392,7 +396,7 @@ impl OrbitalSystem {
                 })
                 .next();
             if let Some((nsys, rel)) = new {
-                let neworb = Orbit::from_pv(rel.pos, rel.vel, nsys.primary.mass, self.epoch);
+                let neworb = Orbit::from_pv(rel.pos, rel.vel, nsys.primary.mass, stamp);
                 nsys.add_object(*id, neworb);
                 to_remove.push(*id);
             }

@@ -3,6 +3,7 @@ use bevy::color::palettes::css::ORANGE;
 use bevy::prelude::*;
 use starling::core::*;
 use starling::orbit::*;
+use starling::planning::get_future_positions;
 
 use crate::planetary::GameState;
 
@@ -170,13 +171,13 @@ pub fn draw_orbital_system(
     }
 }
 
-pub fn draw_scalar_field(gizmos: &mut Gizmos, sys: &OrbitalSystem, origin: Vec2) {
+pub fn draw_scalar_field(gizmos: &mut Gizmos, sys: &OrbitalSystem, origin: Vec2, stamp: Nanotime) {
     for y in (-1000..1000).step_by(10) {
         let pts: Vec<Vec2> = (-1000..1000)
             .step_by(10)
             .map(|x| {
                 let p1 = Vec2::new(x as f32, y as f32);
-                let z = sys.potential_at(p1, sys.epoch);
+                let z = sys.potential_at(p1, stamp);
                 origin + p1 + Vec2::Y * -(-z).sqrt()
             })
             .collect();
@@ -187,6 +188,7 @@ pub fn draw_scalar_field(gizmos: &mut Gizmos, sys: &OrbitalSystem, origin: Vec2)
 pub fn draw_scalar_field_cell(
     gizmos: &mut Gizmos,
     sys: &OrbitalSystem,
+    stamp: Nanotime,
     center: Vec2,
     step: f32,
     levels: &[i32],
@@ -196,7 +198,7 @@ pub fn draw_scalar_field_cell(
         let d = sys
             .subsystems
             .iter()
-            .map(|(_, o, _)| (o.pv_at_time(sys.epoch).pos.distance(center) * 1000.0) as u32)
+            .map(|(_, o, _)| (o.pv_at_time(stamp).pos.distance(center) * 1000.0) as u32)
             .min()
             .unwrap_or(10000000);
         if d < 600000 || center.length() < 600.0 {
@@ -207,7 +209,7 @@ pub fn draw_scalar_field_cell(
                     let x = (i - 1) as f32 / n as f32 * substep * n as f32 - substep * 0.5;
                     let y = (j - 1) as f32 / n as f32 * substep * n as f32 - substep * 0.5;
                     let p = center + Vec2::new(x, y);
-                    draw_scalar_field_cell(gizmos, sys, p, substep, levels, true);
+                    draw_scalar_field_cell(gizmos, sys, stamp, p, substep, levels, true);
                 }
             }
             return;
@@ -223,7 +225,7 @@ pub fn draw_scalar_field_cell(
 
     let pot: Vec<(Vec2, f32)> = [bl, br, tr, tl]
         .iter()
-        .map(|p| (*p, sys.potential_at(*p, sys.epoch)))
+        .map(|p| (*p, sys.potential_at(*p, stamp)))
         .collect();
 
     for level in levels {
@@ -248,12 +250,12 @@ pub fn draw_scalar_field_cell(
     }
 }
 
-pub fn draw_scalar_field_v2(gizmos: &mut Gizmos, sys: &OrbitalSystem, levels: &[i32]) {
+pub fn draw_scalar_field_v2(gizmos: &mut Gizmos, sys: &OrbitalSystem, stamp: Nanotime, levels: &[i32]) {
     let step = 250;
     for y in (-4000..=4000).step_by(step) {
         for x in (-4000..=4000).step_by(step) {
             let p = Vec2::new(x as f32, y as f32);
-            draw_scalar_field_cell(gizmos, sys, p, step as f32, levels, false);
+            draw_scalar_field_cell(gizmos, sys, stamp, p, step as f32, levels, false);
         }
     }
 }
@@ -279,10 +281,10 @@ pub fn draw_shadows(gizmos: &mut Gizmos, origin: Vec2, radius: f32, stamp: Nanot
 }
 
 pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
-    let stamp = state.system.epoch;
+    let stamp = state.sim_time;
 
     if state.show_potential_field {
-        draw_scalar_field_v2(&mut gizmos, &state.system, &state.draw_levels);
+        draw_scalar_field_v2(&mut gizmos, &state.system, stamp, &state.draw_levels);
     }
 
     draw_square(&mut gizmos, state.cursor, 18.0 * state.actual_scale, ORANGE);
@@ -311,7 +313,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         (state.primary_object, ORANGE, 80.0),
         (state.secondary_object, BLUE, 75.0),
     ] {
-        if let Some((orbit, origin)) = state.system.lookup_subsystem(id) {
+        if let Some((orbit, origin)) = state.system.lookup_subsystem(id, stamp) {
             let p = orbit.pv_at_time(stamp) + origin;
             draw_orbit(origin.pos, stamp, orbit, &mut gizmos, 1.0, color, true);
             draw_square(
@@ -321,5 +323,9 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
                 alpha(color, 0.7),
             );
         }
+
+        let pvs = get_future_positions(&state.system, state.primary_object, state.sim_time, state.sim_time + Nanotime::secs(30), 1000);
+        let pos = pvs.iter().map(|p| p.pv.pos).collect::<Vec<_>>();
+        gizmos.linestrip_2d(pos, color);
     }
 }
