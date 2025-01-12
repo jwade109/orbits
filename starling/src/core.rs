@@ -88,13 +88,15 @@ impl AddAssign for Nanotime {
 impl Sub for Nanotime {
     type Output = Self;
     fn sub(self, other: Self) -> Self {
-        Nanotime(self.0 - other.0)
+        // TODO disallow wrapping?
+        Nanotime(self.0.wrapping_sub(other.0))
     }
 }
 
 impl SubAssign for Nanotime {
     fn sub_assign(&mut self, rhs: Self) {
-        self.0 -= rhs.0
+        let res = self.sub(rhs);
+        *self = res;
     }
 }
 
