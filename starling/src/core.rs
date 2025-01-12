@@ -107,6 +107,13 @@ impl Mul<i64> for Nanotime {
     }
 }
 
+impl Mul<f32> for Nanotime {
+    type Output = Self;
+    fn mul(self, rhs: f32) -> Self {
+        Self((self.0 as f32 * rhs) as i64)
+    }
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ObjectId(pub i64);
 

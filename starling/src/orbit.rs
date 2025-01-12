@@ -24,7 +24,7 @@ pub enum Anomaly {
     Hyperbolic(f32),
 }
 
-fn wrap_pi_npi(x: f32) -> f32 {
+pub fn wrap_pi_npi(x: f32) -> f32 {
     f32::atan2(x.sin(), x.cos())
 }
 
