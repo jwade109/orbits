@@ -1,5 +1,4 @@
 use bevy::input::mouse::MouseWheel;
-use bevy::math::VectorSpace;
 use bevy::prelude::*;
 
 // use bevy_egui::{egui, EguiContexts, EguiPlugin};
@@ -17,10 +16,21 @@ pub struct PlanetaryPlugin;
 impl Plugin for PlanetaryPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, init_system);
-        app.add_systems(Update, (draw, handle_zoom));
-        app.add_systems(Update, (update_camera, keyboard_input).chain());
+        app.add_systems(
+            Update,
+            (
+                keyboard_input,
+                mouse_button_input,
+                handle_zoom,
+                scroll_events,
+                update_cursor,
+                update_camera,
+                draw,
+            )
+                .chain(),
+        );
         app.add_systems(FixedUpdate, propagate_system);
-        app.add_systems(Update, (log_system_info, process_commands, scroll_events));
+        app.add_systems(Update, (log_system_info, process_commands));
         // app.add_plugins(EguiPlugin).add_systems(Update, ui_system);
     }
 }
@@ -79,26 +89,26 @@ impl Plugin for PlanetaryPlugin {
 //             ui.add_space(10.0);
 //             ui.add(egui::Label::new(format!(
 //                 "Primary ({})",
-//                 state.primary_object.0
+//                 state.primary().0
 //             )));
 //             ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
 //                 if ui.add(egui::Button::new("<<<")).clicked() {
-//                     state.primary_object.0 -= 100;
+//                     state.primary().0 -= 100;
 //                 }
 //                 if ui.add(egui::Button::new("<<")).clicked() {
-//                     state.primary_object.0 -= 10;
+//                     state.primary().0 -= 10;
 //                 }
 //                 if ui.add(egui::Button::new("<")).clicked() {
-//                     state.primary_object.0 -= 1;
+//                     state.primary().0 -= 1;
 //                 }
 //                 if ui.add(egui::Button::new(">")).clicked() {
-//                     state.primary_object.0 += 1;
+//                     state.primary().0 += 1;
 //                 }
 //                 if ui.add(egui::Button::new(">>")).clicked() {
-//                     state.primary_object.0 += 10;
+//                     state.primary().0 += 10;
 //                 }
 //                 if ui.add(egui::Button::new(">>>")).clicked() {
-//                     state.primary_object.0 += 100;
+//                     state.primary().0 += 100;
 //                 }
 //             });
 
@@ -131,7 +141,7 @@ impl Plugin for PlanetaryPlugin {
 //             ui.add_space(20.0);
 //             ui.heading("Orbital Info");
 //             ui.add_space(10.0);
-//             if let Some((orbit, _)) = state.system.lookup_subsystem(state.primary_object) {
+//             if let Some((orbit, _)) = state.system.lookup_subsystem(state.primary()) {
 //                 ui.add(egui::Label::new(format!(
 //                     "Epoch: {:?}\nOrbit: {:#?}",
 //                     state.sim_time, orbit
@@ -155,8 +165,7 @@ pub struct GameState {
     pub paused: bool,
     pub system: OrbitalSystem,
     pub backup: Option<(OrbitalSystem, Nanotime)>,
-    pub primary_object: ObjectId,
-    pub secondary_object: ObjectId,
+    pub tracks: Vec<ObjectId>,
     pub follow_cursor: bool,
     pub target_scale: f32,
     pub actual_scale: f32,
@@ -164,6 +173,31 @@ pub struct GameState {
     pub camera_switch: bool,
     pub draw_levels: Vec<i32>,
     pub cursor: Vec2,
+    pub center: Vec2,
+    pub mouse_screen_pos: Option<Vec2>,
+    pub window_dims: Vec2,
+}
+
+impl GameState {
+    pub fn game_bounds(&self) -> AABB {
+        AABB::from_center(self.center, self.window_dims * self.actual_scale)
+    }
+
+    pub fn window_bounds(&self) -> AABB {
+        AABB(Vec2::ZERO, self.window_dims)
+    }
+
+    pub fn primary(&self) -> ObjectId {
+        *self.tracks.first().unwrap_or(&ObjectId(-1))
+    }
+
+    pub fn toggle_track(&mut self, id: ObjectId) {
+        if self.tracks.contains(&id) {
+            self.tracks.retain(|e| *e != id);
+        } else {
+            self.tracks.push(id);
+        }
+    }
 }
 
 impl Default for GameState {
@@ -175,8 +209,7 @@ impl Default for GameState {
             show_potential_field: false,
             paused: false,
             system: default_example(),
-            primary_object: ObjectId(-1),
-            secondary_object: ObjectId(-1),
+            tracks: Vec::default(),
             backup: Some((default_example(), Nanotime::default())),
             follow_cursor: false,
             target_scale: 4.0,
@@ -188,6 +221,9 @@ impl Default for GameState {
                 .chain((-5000..-3000).step_by(250))
                 .collect(),
             cursor: Vec2::ZERO,
+            center: Vec2::ZERO,
+            mouse_screen_pos: None,
+            window_dims: Vec2::ZERO,
         }
     }
 }
@@ -209,6 +245,7 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
 }
 
 fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
+    send_log(&mut evt, &format!("Tracks: {:?}", state.tracks));
     send_log(&mut evt, &format!("Epoch: {:?}", state.sim_time));
     send_log(&mut evt, &format!("Scale: {:0.3}", state.actual_scale));
     send_log(&mut evt, &format!("{} objects", state.system.objects.len()));
@@ -216,17 +253,9 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         send_log(&mut evt, "Paused");
     }
     send_log(&mut evt, &format!("Sim speed: 10^{}", state.sim_speed));
-    send_log(&mut evt, &format!("Primary: {:?}", state.primary_object));
     send_log(
         &mut evt,
-        &format!(
-            "Object type: {:?}",
-            state.system.otype(state.primary_object)
-        ),
-    );
-    send_log(
-        &mut evt,
-        &format!("Secondary: {:?}", state.secondary_object),
+        &format!("Object type: {:?}", state.system.otype(state.primary())),
     );
     send_log(
         &mut evt,
@@ -235,7 +264,7 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
 
     if let Some((obj, _)) = state
         .system
-        .lookup_subsystem(state.primary_object, state.sim_time)
+        .lookup_subsystem(state.primary(), state.sim_time)
     {
         let pv = obj.pv_at_time(state.sim_time);
         send_log(&mut evt, &format!("{:#?}", obj));
@@ -276,7 +305,7 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         );
     }
 
-    if let Some(dat) = state.system.lookup_metadata(state.primary_object) {
+    if let Some(dat) = state.system.lookup_metadata(state.primary()) {
         send_log(&mut evt, &format!("{:#?}", dat));
     }
 }
@@ -309,10 +338,6 @@ fn keyboard_input(
             KeyCode::Minus => {
                 state.target_scale *= 1.5;
             }
-            KeyCode::KeyS => {
-                state.paused = true;
-                state.sim_time.0 += 1000000;
-            }
             _ => (),
         }
     }
@@ -320,26 +345,17 @@ fn keyboard_input(
     let dt = time.delta().as_secs_f32();
     let cursor_rate = 500.0 * state.actual_scale;
 
-    if keys.pressed(KeyCode::ArrowLeft) {
+    if keys.pressed(KeyCode::ArrowLeft) || keys.pressed(KeyCode::KeyA) {
         state.cursor.x -= cursor_rate * dt;
     }
-    if keys.pressed(KeyCode::ArrowRight) {
+    if keys.pressed(KeyCode::ArrowRight) || keys.pressed(KeyCode::KeyD) {
         state.cursor.x += cursor_rate * dt;
     }
-    if keys.pressed(KeyCode::ArrowUp) {
+    if keys.pressed(KeyCode::ArrowUp) || keys.pressed(KeyCode::KeyW) {
         state.cursor.y += cursor_rate * dt;
     }
-    if keys.pressed(KeyCode::ArrowDown) {
+    if keys.pressed(KeyCode::ArrowDown) || keys.pressed(KeyCode::KeyS) {
         state.cursor.y -= cursor_rate * dt;
-    }
-
-    if keys.just_pressed(KeyCode::KeyM) || keys.all_pressed([KeyCode::KeyM, KeyCode::ShiftLeft]) {
-        let i = state.primary_object.0;
-        state.primary_object = ObjectId(i + 1);
-    }
-    if keys.just_pressed(KeyCode::KeyN) || keys.all_pressed([KeyCode::KeyN, KeyCode::ShiftLeft]) {
-        let i = state.primary_object.0;
-        state.primary_object = ObjectId(i - 1);
     }
     if keys.just_pressed(KeyCode::Space) {
         state.paused = !state.paused;
@@ -347,6 +363,37 @@ fn keyboard_input(
     if keys.just_pressed(KeyCode::Escape) {
         exit.send(bevy::app::AppExit::Success);
     }
+}
+
+fn mouse_button_input(buttons: Res<ButtonInput<MouseButton>>) {
+    if buttons.just_pressed(MouseButton::Left) {
+        // Left button was pressed
+    }
+    if buttons.just_released(MouseButton::Left) {
+        // Left Button was released
+    }
+    if buttons.pressed(MouseButton::Right) {
+        // Right Button is being held down
+    }
+    // we can check multiple at once with `.any_*`
+    if buttons.any_just_pressed([MouseButton::Left, MouseButton::Middle]) {
+        // Either the left or the middle (wheel) button was just pressed
+    }
+}
+
+fn update_cursor(
+    mut state: ResMut<GameState>,
+    q: Query<&Window, With<bevy::window::PrimaryWindow>>,
+) {
+    let (w, p) = match q.get_single() {
+        Ok(w) => (w, w.cursor_position()),
+        Err(_) => {
+            state.mouse_screen_pos = None;
+            return;
+        }
+    };
+    state.mouse_screen_pos = p.map(|p| Vec2::new(p.x, w.height() - p.y));
+    state.window_dims = Vec2::new(w.width(), w.height());
 }
 
 fn load_new_scenario(state: &mut GameState, new_system: OrbitalSystem) {
@@ -361,6 +408,7 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
 
     if starts_with("load") {
         let system = match cmd.get(1).map(|s| s.as_str()) {
+            Some("grid") => consistency_example(),
             Some("earth") => earth_moon_example_one(),
             Some("earth2") => earth_moon_example_two(),
             Some("jupiter") => sun_jupiter_lagrange(),
@@ -388,18 +436,13 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
         }
     } else if starts_with("save") {
         state.backup = Some((state.system.clone(), state.sim_time));
-    } else if starts_with("pri") {
-        if let Some(n) = cmd.get(1).map(|s| s.parse::<i64>().ok()).flatten() {
-            state.primary_object = ObjectId(n)
+    } else if starts_with("track") {
+        for n in cmd.iter().skip(1).filter_map(|s| s.parse::<i64>().ok()) {
+            let id = ObjectId(n);
+            state.toggle_track(id);
         }
-    } else if starts_with("sec") {
-        if let Some(n) = cmd.get(1).map(|s| s.parse::<i64>().ok()).flatten() {
-            state.secondary_object = ObjectId(n)
-        }
-    } else if starts_with("swap") {
-        let x = state.primary_object;
-        state.primary_object = state.secondary_object;
-        state.secondary_object = x;
+    } else if starts_with("untrack") {
+        state.tracks.clear();
     } else if starts_with("level") {
         if Some(&"clear".to_string()) == cmd.get(1) {
             state.draw_levels.clear();
@@ -430,25 +473,11 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
             let orbit = Orbit::from_pv(r, v, state.system.primary.mass, state.sim_time);
             println!("New object: {:?}", orbit);
             let id = ObjectId(1) + state.system.high_water_mark;
-            state.primary_object = id;
+            state.toggle_track(id);
             state.system.add_object(id, orbit);
         }
     } else if starts_with("clear") {
         state.system.objects.clear();
-    } else if starts_with("near") {
-        let id = state
-            .system
-            .objects
-            .iter()
-            .map(|(id, orbit)| {
-                let pos = orbit.pv_at_time(state.sim_time).pos;
-                let d = pos.distance(state.cursor);
-                (*id, d)
-            })
-            .min_by(|(_, d1), (_, d2)| d1.total_cmp(d2));
-        if let Some((id, _)) = id {
-            state.primary_object = id;
-        }
     }
 }
 
@@ -478,7 +507,7 @@ fn update_camera(mut query: Query<&mut Transform, With<Camera>>, mut state: ResM
         state.cursor
         // state
         //     .system
-        //     .transform_from_id(state.primary_object, state.sim_time)
+        //     .transform_from_id(state.primary(), state.sim_time)
         //     .map(|p| p.pos)
         //     .unwrap_or(Vec2::ZERO)
     } else {
@@ -491,16 +520,18 @@ fn update_camera(mut query: Query<&mut Transform, With<Camera>>, mut state: ResM
 
     state.camera_switch = false;
 
-    *tf = tf.with_translation((target_pos + state.camera_easing).extend(0.0));
+    state.center = target_pos + state.camera_easing;
+
+    *tf = tf.with_translation(state.center.extend(0.0));
     state.camera_easing *= 0.85;
 }
 
 fn scroll_events(mut evr_scroll: EventReader<MouseWheel>, mut state: ResMut<GameState>) {
     for ev in evr_scroll.read() {
         if ev.y > 0.0 {
-            state.target_scale /= 1.5;
+            state.target_scale /= 1.1;
         } else {
-            state.target_scale *= 1.5;
+            state.target_scale *= 1.1;
         }
     }
 }

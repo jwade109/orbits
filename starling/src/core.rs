@@ -1,7 +1,7 @@
 use crate::orbit::*;
 use bevy::math::Vec2;
 use rand::Rng;
-use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
 
 pub fn rand(min: f32, max: f32) -> f32 {
     rand::thread_rng().gen_range(min..max)
@@ -43,11 +43,12 @@ pub fn gravity_accel(body: Body, body_center: Vec2, sample: Vec2) -> Vec2 {
     a * r.normalize()
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Nanotime(pub i64);
 
 impl Nanotime {
     const PER_SEC: i64 = 1000000000;
+    const PER_MILLI: i64 = 1000000;
 
     pub fn to_secs(&self) -> f32 {
         self.0 as f32 / Nanotime::PER_SEC as f32
@@ -59,6 +60,10 @@ impl Nanotime {
 
     pub fn secs(s: i64) -> Self {
         Nanotime(s * Nanotime::PER_SEC)
+    }
+
+    pub fn millis(ms: i64) -> Self {
+        Nanotime(ms * Nanotime::PER_MILLI)
     }
 
     pub fn secs_f32(s: f32) -> Self {
@@ -111,6 +116,13 @@ impl Mul<f32> for Nanotime {
     type Output = Self;
     fn mul(self, rhs: f32) -> Self {
         Self((self.0 as f32 * rhs) as i64)
+    }
+}
+
+impl Div<i64> for Nanotime {
+    type Output = Self;
+    fn div(self, rhs: i64) -> Self {
+        Self(self.0 / rhs)
     }
 }
 
@@ -170,7 +182,7 @@ impl Sub for PV {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ObjectType {
     Orbiter,
     System,
@@ -456,5 +468,39 @@ pub fn synodic_period(t1: f32, t2: f32) -> Option<f32> {
         None
     } else {
         Some(t1 * t2 / (t2 - t1).abs())
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct AABB(pub Vec2, pub Vec2);
+
+impl AABB {
+    pub fn from_center(c: Vec2, span: Vec2) -> Self {
+        let low = c - span / 2.0;
+        let hi = c + span / 2.0;
+        Self(low, hi)
+    }
+
+    pub fn center(&self) -> Vec2 {
+        (self.0 + self.1) / 2.0
+    }
+
+    pub fn span(&self) -> Vec2 {
+        self.1 - self.0
+    }
+
+    pub fn to_uniform(&self, p: Vec2) -> Vec2 {
+        let u = p - self.0;
+        let s = self.span();
+        u / s
+    }
+
+    pub fn from_uniform(&self, u: Vec2) -> Vec2 {
+        u * self.span() + self.0
+    }
+
+    pub fn map(from: Self, to: Self, p: Vec2) -> Vec2 {
+        let u = from.to_uniform(p);
+        to.from_uniform(u)
     }
 }

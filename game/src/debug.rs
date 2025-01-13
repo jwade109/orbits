@@ -55,6 +55,13 @@ fn spawn_debug_readout(mut commands: Commands) {
             top: Val::Px(5.0),
             ..default()
         },
+        TextColor(
+            Srgba {
+                alpha: 0.1,
+                ..bevy::color::palettes::basic::WHITE
+            }
+            .into(),
+        ),
     ));
     commands.spawn((
         Text::new(""),

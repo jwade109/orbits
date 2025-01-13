@@ -3,7 +3,7 @@ use bevy::color::palettes::css::ORANGE;
 use bevy::prelude::*;
 use starling::core::*;
 use starling::orbit::*;
-use starling::planning::get_future_positions;
+use starling::planning::*;
 
 use crate::planetary::GameState;
 
@@ -30,6 +30,14 @@ pub fn draw_circle(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     gizmos
         .circle_2d(Isometry2d::from_translation(p), size, color)
         .resolution(200);
+}
+
+pub fn draw_aabb(gizmos: &mut Gizmos, aabb: AABB, color: Srgba) {
+    gizmos.rect_2d(
+        Isometry2d::from_translation(aabb.center()),
+        aabb.span(),
+        color,
+    );
 }
 
 pub fn draw_orbit(
@@ -250,7 +258,12 @@ pub fn draw_scalar_field_cell(
     }
 }
 
-pub fn draw_scalar_field_v2(gizmos: &mut Gizmos, sys: &OrbitalSystem, stamp: Nanotime, levels: &[i32]) {
+pub fn draw_scalar_field_v2(
+    gizmos: &mut Gizmos,
+    sys: &OrbitalSystem,
+    stamp: Nanotime,
+    levels: &[i32],
+) {
     let step = 250;
     for y in (-4000..=4000).step_by(step) {
         for x in (-4000..=4000).step_by(step) {
@@ -287,6 +300,18 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         draw_scalar_field_v2(&mut gizmos, &state.system, stamp, &state.draw_levels);
     }
 
+    if let Some(p) = state.mouse_screen_pos {
+        draw_circle(&mut gizmos, p, 3.0 * state.actual_scale, RED);
+        let gb = state.game_bounds();
+        let wb = state.window_bounds();
+        let pg = AABB::map(wb, gb, p);
+        draw_circle(&mut gizmos, pg, 6.0 * state.actual_scale, RED);
+    }
+
+    draw_aabb(&mut gizmos, state.game_bounds(), GREEN);
+    draw_aabb(&mut gizmos, state.window_bounds(), PURPLE);
+
+    draw_square(&mut gizmos, state.center, 3.0 * state.actual_scale, ORANGE);
     draw_square(&mut gizmos, state.cursor, 18.0 * state.actual_scale, ORANGE);
     draw_x(&mut gizmos, state.cursor, 7.0 * state.actual_scale, ORANGE);
 
@@ -309,23 +334,35 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     //     },
     // );
 
-    for (id, color, size) in [
-        (state.primary_object, ORANGE, 80.0),
-        (state.secondary_object, BLUE, 75.0),
-    ] {
-        if let Some((orbit, origin)) = state.system.lookup_subsystem(id, stamp) {
+    for id in &state.tracks {
+        let color = ORANGE;
+        let size = 70.0;
+        let period = if let Some((orbit, origin)) = state.system.lookup_subsystem(*id, stamp) {
             let p = orbit.pv_at_time(stamp) + origin;
-            draw_orbit(origin.pos, stamp, orbit, &mut gizmos, 1.0, color, true);
+            // draw_orbit(origin.pos, stamp, orbit, &mut gizmos, 1.0, color, true);
             draw_square(
                 &mut gizmos,
                 p.pos,
                 (size * state.actual_scale).min(size),
                 alpha(color, 0.7),
             );
-        }
 
-        let pvs = get_future_positions(&state.system, state.primary_object, state.sim_time, state.sim_time + Nanotime::secs(30), 1000);
-        let pos = pvs.iter().map(|p| p.pv.pos).collect::<Vec<_>>();
-        gizmos.linestrip_2d(pos, color);
+            orbit.period()
+        } else {
+            None
+        };
+
+        if let Some((pos, t)) = get_future_path(
+            &state.system,
+            *id,
+            state.sim_time,
+            state.sim_time + period.unwrap_or(Nanotime::secs(30)),
+            Nanotime::millis(50),
+        ) {
+            if let Some(p) = t.is_some().then(|| pos.last()).flatten() {
+                draw_circle(&mut gizmos, *p, 10.0, color);
+            }
+            gizmos.linestrip_2d(pos, color);
+        }
     }
 }
