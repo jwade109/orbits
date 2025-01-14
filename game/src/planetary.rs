@@ -1,12 +1,9 @@
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 
-// use bevy_egui::{egui, EguiContexts, EguiPlugin};
-
 use starling::core::*;
 use starling::examples::*;
 use starling::orbit::*;
-use starling::planning::*;
 
 use crate::debug::*;
 use crate::drawing::*;
@@ -191,6 +188,12 @@ impl GameState {
         *self.tracks.first().unwrap_or(&ObjectId(-1))
     }
 
+    pub fn mouse_pos(&self) -> Option<Vec2> {
+        let gb = self.game_bounds();
+        let wb = self.window_bounds();
+        Some(AABB::map(wb, gb, self.mouse_screen_pos?))
+    }
+
     pub fn toggle_track(&mut self, id: ObjectId) {
         if self.tracks.contains(&id) {
             self.tracks.retain(|e| *e != id);
@@ -280,13 +283,13 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
 
         let dt = ma.as_f32() / mm;
 
-        send_log(
-            &mut evt,
-            &format!(
-                "TA: {:?}\nEA: {:?}\nMA: {:?}\nEA: {:?}\nTA: {:?}\nTP: {:0.3}",
-                ta, ea, ma, ea2, ta2, dt
-            ),
-        );
+        // send_log(
+        //     &mut evt,
+        //     &format!(
+        //         "TA: {:?}\nEA: {:?}\nMA: {:?}\nEA: {:?}\nTA: {:?}\nTP: {:0.3}",
+        //         ta, ea, ma, ea2, ta2, dt
+        //     ),
+        // );
 
         send_log(
             &mut evt,
@@ -303,10 +306,6 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
             &mut evt,
             &format!("Orbit count: {:?}", obj.orbit_number(state.sim_time)),
         );
-    }
-
-    if let Some(dat) = state.system.lookup_metadata(state.primary()) {
-        send_log(&mut evt, &format!("{:#?}", dat));
     }
 }
 
@@ -489,7 +488,7 @@ fn process_commands(mut evts: EventReader<DebugCommand>, mut state: ResMut<GameS
 
 fn handle_zoom(mut state: ResMut<GameState>, mut tf: Query<&mut Transform, With<Camera>>) {
     let mut transform = tf.single_mut();
-    let ds = (state.target_scale - transform.scale) * 0.1;
+    let ds = (state.target_scale - transform.scale) * 0.2;
     transform.scale += ds;
     state.actual_scale = transform.scale.x;
 }

@@ -1,4 +1,4 @@
-use crate::orbit::*;
+use crate::{orbit::*, planning::get_future_path};
 use bevy::math::Vec2;
 use rand::Rng;
 use std::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
@@ -47,8 +47,8 @@ pub fn gravity_accel(body: Body, body_center: Vec2, sample: Vec2) -> Vec2 {
 pub struct Nanotime(pub i64);
 
 impl Nanotime {
-    const PER_SEC: i64 = 1000000000;
-    const PER_MILLI: i64 = 1000000;
+    pub const PER_SEC: i64 = 1000000000;
+    pub const PER_MILLI: i64 = 1000000;
 
     pub fn to_secs(&self) -> f32 {
         self.0 as f32 / Nanotime::PER_SEC as f32
@@ -68,6 +68,14 @@ impl Nanotime {
 
     pub fn secs_f32(s: f32) -> Self {
         Nanotime((s * Nanotime::PER_SEC as f32) as i64)
+    }
+
+    pub fn ceil(&self, order: i64) -> Self {
+        Self((self.0 + order) - (self.0 % order))
+    }
+
+    pub fn floor(&self, order: i64) -> Self {
+        Self(self.0 - (self.0 % order))
     }
 }
 
@@ -143,7 +151,6 @@ pub struct OrbitalSystem {
     pub objects: Vec<(ObjectId, Orbit)>,
     pub subsystems: Vec<(ObjectId, Orbit, OrbitalSystem)>,
     pub high_water_mark: ObjectId,
-    metadata: Vec<ObjectMetadata>,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -188,21 +195,6 @@ pub enum ObjectType {
     System,
 }
 
-#[derive(Debug, Copy, Clone)]
-pub enum OrbitStability {
-    Unknown,
-    Perpetual,
-    OnEscape(Option<Nanotime>),
-    SubOrbital(Option<Nanotime>),
-    MightEncounter(Option<Nanotime>),
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct ObjectMetadata {
-    pub id: ObjectId,
-    pub stability: OrbitStability,
-}
-
 #[derive(Debug, Clone, Copy)]
 pub struct ObjectIdTracker(ObjectId);
 
@@ -224,14 +216,12 @@ impl OrbitalSystem {
             primary: body,
             objects: Vec::default(),
             subsystems: vec![],
-            metadata: vec![],
             high_water_mark: ObjectId(0),
         }
     }
 
     pub fn add_object(&mut self, id: ObjectId, orbit: Orbit) {
         self.objects.push((id, orbit));
-        self.calculate_metadata();
         self.high_water_mark.0 = self.high_water_mark.0.max(id.0)
     }
 
@@ -241,7 +231,6 @@ impl OrbitalSystem {
 
     pub fn add_subsystem(&mut self, id: ObjectId, orbit: Orbit, subsys: OrbitalSystem) {
         self.subsystems.push((id, orbit, subsys));
-        self.calculate_metadata();
         self.high_water_mark.0 = self.high_water_mark.0.max(id.0)
     }
 
@@ -299,10 +288,6 @@ impl OrbitalSystem {
         self.lookup_subsystem_internal(o, stamp, PV::zero())
     }
 
-    pub fn lookup_metadata(&self, o: ObjectId) -> Option<&ObjectMetadata> {
-        self.metadata.iter().find(|dat| dat.id == o)
-    }
-
     pub fn transform_from_id(&self, id: ObjectId, stamp: Nanotime) -> Option<PV> {
         let (orbit, wrt) = self.lookup_subsystem(id, stamp)?;
         Some(orbit.pv_at_time(stamp) + wrt)
@@ -321,26 +306,6 @@ impl OrbitalSystem {
     pub fn barycenter(&self) -> (Vec2, f32) {
         (Vec2::ZERO, self.primary.mass)
         // TODO sum subsystems
-    }
-
-    pub fn calculate_metadata(&mut self) {
-        self.metadata.clear();
-
-        for (id, orbit) in &self.objects {
-            let might_encounter = self
-                .subsystems
-                .iter()
-                .any(|(_, sysorb, sys)| can_intersect_soi(orbit, sysorb, sys.primary.soi));
-
-            let stability = if might_encounter {
-                OrbitStability::MightEncounter(None)
-            } else if will_hit_body(orbit, self.primary.radius) {
-                OrbitStability::SubOrbital(None)
-            } else {
-                OrbitStability::Perpetual
-            };
-            self.metadata.push(ObjectMetadata { id: *id, stability });
-        }
     }
 
     pub fn rebalance(&mut self, stamp: Nanotime) {

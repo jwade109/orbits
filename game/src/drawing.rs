@@ -300,29 +300,28 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         draw_scalar_field_v2(&mut gizmos, &state.system, stamp, &state.draw_levels);
     }
 
-    if let Some(p) = state.mouse_screen_pos {
+    if let Some(p) = state.mouse_pos() {
         draw_circle(&mut gizmos, p, 3.0 * state.actual_scale, RED);
-        let gb = state.game_bounds();
-        let wb = state.window_bounds();
-        let pg = AABB::map(wb, gb, p);
-        draw_circle(&mut gizmos, pg, 6.0 * state.actual_scale, RED);
     }
-
-    draw_aabb(&mut gizmos, state.game_bounds(), GREEN);
-    draw_aabb(&mut gizmos, state.window_bounds(), PURPLE);
 
     draw_square(&mut gizmos, state.center, 3.0 * state.actual_scale, ORANGE);
     draw_square(&mut gizmos, state.cursor, 18.0 * state.actual_scale, ORANGE);
     draw_x(&mut gizmos, state.cursor, 7.0 * state.actual_scale, ORANGE);
 
-    draw_orbital_system(
-        &mut gizmos,
-        &state.system,
+    for t in [
         stamp,
-        Vec2::ZERO,
-        state.actual_scale,
-        state.show_orbits,
-    );
+        stamp.ceil(Nanotime::PER_MILLI * 10),
+        stamp.floor(Nanotime::PER_MILLI * 10),
+    ] {
+        draw_orbital_system(
+            &mut gizmos,
+            &state.system,
+            t,
+            Vec2::ZERO,
+            state.actual_scale,
+            state.show_orbits,
+        );
+    }
 
     // gizmos.grid_2d(
     //     Isometry2d::from_translation(Vec2::ZERO),
@@ -351,18 +350,5 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         } else {
             None
         };
-
-        if let Some((pos, t)) = get_future_path(
-            &state.system,
-            *id,
-            state.sim_time,
-            state.sim_time + period.unwrap_or(Nanotime::secs(30)),
-            Nanotime::millis(50),
-        ) {
-            if let Some(p) = t.is_some().then(|| pos.last()).flatten() {
-                draw_circle(&mut gizmos, *p, 10.0, color);
-            }
-            gizmos.linestrip_2d(pos, color);
-        }
     }
 }
