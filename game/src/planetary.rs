@@ -173,6 +173,7 @@ pub struct GameState {
     pub center: Vec2,
     pub mouse_screen_pos: Option<Vec2>,
     pub window_dims: Vec2,
+    pub events: Vec<OrbitalEvent>,
 }
 
 impl GameState {
@@ -208,11 +209,11 @@ impl Default for GameState {
         GameState {
             sim_time: Nanotime(0),
             sim_speed: 0,
-            show_orbits: false,
+            show_orbits: true,
             show_potential_field: false,
             paused: false,
             system: default_example(),
-            tracks: Vec::default(),
+            tracks: Vec::new(),
             backup: Some((default_example(), Nanotime::default())),
             follow_cursor: false,
             target_scale: 4.0,
@@ -227,6 +228,7 @@ impl Default for GameState {
             center: Vec2::ZERO,
             mouse_screen_pos: None,
             window_dims: Vec2::ZERO,
+            events: Vec::new(),
         }
     }
 }
@@ -244,7 +246,20 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     let sp = 10.0f32.powi(state.sim_speed);
     state.sim_time += Nanotime((time.delta().as_nanos() as f32 * sp) as i64);
     let s = state.sim_time;
-    state.system.rebalance(s);
+    // state.system.rebalance(s);
+    let mut to_apply = vec![];
+    state.events.retain(|e| {
+        if e.stamp <= s {
+            to_apply.push(*e);
+            false
+        } else {
+            true
+        }
+    });
+
+    for e in to_apply {
+        state.system.apply(e);
+    }
 }
 
 fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
@@ -265,10 +280,10 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         &format!("Follow tracked: {:?}", state.follow_cursor),
     );
 
-    if let Some((obj, _)) = state
-        .system
-        .lookup_subsystem(state.primary(), state.sim_time)
-    {
+    send_log(&mut evt, &format!("Events: {}", state.events.len()));
+    send_log(&mut evt, &format!("{:#?}", state.events.first()));
+
+    if let Some(obj) = state.system.lookup(state.primary()) {
         let pv = obj.pv_at_time(state.sim_time);
         send_log(&mut evt, &format!("{:#?}", obj));
         send_log(&mut evt, &format!("{:#?}", pv));
@@ -410,6 +425,7 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
             Some("grid") => consistency_example(),
             Some("earth") => earth_moon_example_one(),
             Some("earth2") => earth_moon_example_two(),
+            Some("moon") => just_the_moon(),
             Some("jupiter") => sun_jupiter_lagrange(),
             _ => {
                 return;
@@ -477,6 +493,16 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
         }
     } else if starts_with("clear") {
         state.system.objects.clear();
+    } else if starts_with("maneuver") {
+        (|| -> Option<()> {
+            let id = ObjectId(cmd.get(1)?.parse().ok()?);
+            let dx = cmd.get(2)?.parse::<f32>().ok()?;
+            let dy = cmd.get(3)?.parse::<f32>().ok()?;
+            let t = state.sim_time + Nanotime::secs(2);
+            let evt = OrbitalEvent::maneuver(id, Vec2::new(dx, dy), t);
+            state.events.push(evt);
+            Some(())
+        })();
     }
 }
 
@@ -504,11 +530,6 @@ fn update_camera(mut query: Query<&mut Transform, With<Camera>>, mut state: ResM
 
     let target_pos = if state.follow_cursor {
         state.cursor
-        // state
-        //     .system
-        //     .transform_from_id(state.primary(), state.sim_time)
-        //     .map(|p| p.pos)
-        //     .unwrap_or(Vec2::ZERO)
     } else {
         Vec2::ZERO
     };

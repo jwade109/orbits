@@ -1,5 +1,5 @@
 use crate::{orbit::*, planning::get_future_path};
-use bevy::math::Vec2;
+use bevy::{math::Vec2, utils::tracing::Event};
 use rand::Rng;
 use std::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
 
@@ -147,7 +147,6 @@ impl Add for ObjectId {
 #[derive(Debug, Clone)]
 pub struct OrbitalSystem {
     pub primary: Body,
-    // pub epoch: Nanotime,
     pub objects: Vec<(ObjectId, Orbit)>,
     pub subsystems: Vec<(ObjectId, Orbit, OrbitalSystem)>,
     pub high_water_mark: ObjectId,
@@ -210,6 +209,55 @@ impl ObjectIdTracker {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct OrbitalEvent {
+    pub target: ObjectId,
+    pub stamp: Nanotime,
+    pub etype: EventType,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum EventType {
+    Collide,
+    Escape,
+    Encounter(ObjectId),
+    Maneuver(Vec2),
+}
+
+impl OrbitalEvent {
+    pub fn collision(target: ObjectId, stamp: Nanotime) -> Self {
+        OrbitalEvent {
+            target,
+            stamp,
+            etype: EventType::Collide,
+        }
+    }
+
+    pub fn escape(target: ObjectId, stamp: Nanotime) -> Self {
+        OrbitalEvent {
+            target,
+            stamp,
+            etype: EventType::Escape,
+        }
+    }
+
+    pub fn encounter(target: ObjectId, body: ObjectId, stamp: Nanotime) -> Self {
+        OrbitalEvent {
+            target,
+            stamp,
+            etype: EventType::Encounter(body),
+        }
+    }
+
+    pub fn maneuver(target: ObjectId, dv: Vec2, stamp: Nanotime) -> Self {
+        OrbitalEvent {
+            target,
+            stamp,
+            etype: EventType::Maneuver(dv),
+        }
+    }
+}
+
 impl OrbitalSystem {
     pub fn new(body: Body) -> Self {
         OrbitalSystem {
@@ -218,6 +266,32 @@ impl OrbitalSystem {
             subsystems: vec![],
             high_water_mark: ObjectId(0),
         }
+    }
+
+    pub fn apply(&mut self, event: OrbitalEvent) -> Option<()> {
+        match event.etype {
+            EventType::Collide => {
+                self.remove_object(event.target);
+            }
+            EventType::Escape => {
+                // TODO, this should emit the object
+                self.remove_object(event.target);
+            }
+            EventType::Encounter(pri) => {
+                // TODO!
+                // let (_, spv) = self.lookup_subsystem(pri, event.stamp)?;
+                // let pv = self.lookup_orbiter(event.target)?.pv_at_time(event.stamp);
+                // let rel = pv - spv;
+            }
+            EventType::Maneuver(dv) => {
+                let dpv = PV::new(Vec2::ZERO, dv);
+                let m = self.primary.mass;
+                let orbit = self.lookup_orbiter_mut(event.target)?;
+                let pv = orbit.pv_at_time(event.stamp) + dpv;
+                *orbit = Orbit::from_pv(pv.pos, pv.vel, m, event.stamp);
+            }
+        };
+        Some(())
     }
 
     pub fn add_object(&mut self, id: ObjectId, orbit: Orbit) {
@@ -265,32 +339,10 @@ impl OrbitalSystem {
             .or_else(|| Some(self.lookup_system(o)?.0))
     }
 
-    fn lookup_subsystem_internal(
-        &self,
-        o: ObjectId,
-        stamp: Nanotime,
-        wrt: PV,
-    ) -> Option<(&Orbit, PV)> {
-        if let Some(o) = self.lookup(o) {
-            return Some((o, wrt));
-        }
-
-        self.subsystems
-            .iter()
-            .filter_map(|(_, orbit, sys)| {
-                let pv = orbit.pv_at_time(stamp);
-                sys.lookup_subsystem_internal(o, stamp, wrt + pv)
-            })
-            .next()
-    }
-
-    pub fn lookup_subsystem(&self, o: ObjectId, stamp: Nanotime) -> Option<(&Orbit, PV)> {
-        self.lookup_subsystem_internal(o, stamp, PV::zero())
-    }
-
-    pub fn transform_from_id(&self, id: ObjectId, stamp: Nanotime) -> Option<PV> {
-        let (orbit, wrt) = self.lookup_subsystem(id, stamp)?;
-        Some(orbit.pv_at_time(stamp) + wrt)
+    fn lookup_orbiter_mut(&mut self, o: ObjectId) -> Option<&mut Orbit> {
+        self.objects
+            .iter_mut()
+            .find_map(|(id, orbit)| if *id == o { Some(orbit) } else { None })
     }
 
     pub fn potential_at(&self, pos: Vec2, stamp: Nanotime) -> f32 {
@@ -388,51 +440,6 @@ impl OrbitalSystem {
             }
         }
         self.objects.retain(|(id, _)| !to_remove.contains(id));
-    }
-}
-
-pub fn generate_square_lattice(center: Vec2, w: i32, step: usize) -> Vec<Vec2> {
-    let mut ret = vec![];
-    for x in (-w..w).step_by(step) {
-        for y in (-w..w).step_by(step) {
-            ret.push(center + Vec2::new(x as f32, y as f32));
-        }
-    }
-    ret
-}
-
-pub fn generate_circular_log_lattice(center: Vec2, rmin: f32, rmax: f32) -> Vec<Vec2> {
-    // this isn't actually log, but I'm lazy
-    let mut ret = vec![];
-
-    let mut r = rmin;
-    let mut dr = 30.0;
-
-    while r < rmax {
-        let circ = 2.0 * std::f32::consts::PI * r;
-        let mut pts = (circ / dr).ceil() as u32;
-        while pts % 8 > 0 {
-            pts += 1; // yeah this is stupid
-        }
-        for i in 0..pts {
-            let a = 2.0 * std::f32::consts::PI * i as f32 / pts as f32;
-            let x = a.cos();
-            let y = a.sin();
-            ret.push(center + Vec2::new(x, y) * r);
-        }
-
-        r += dr;
-        dr *= 1.1;
-    }
-
-    ret
-}
-
-pub fn synodic_period(t1: f32, t2: f32) -> Option<f32> {
-    if t1 == t2 {
-        None
-    } else {
-        Some(t1 * t2 / (t2 - t1).abs())
     }
 }
 

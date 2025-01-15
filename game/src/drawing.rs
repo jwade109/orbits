@@ -308,47 +308,46 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     draw_square(&mut gizmos, state.cursor, 18.0 * state.actual_scale, ORANGE);
     draw_x(&mut gizmos, state.cursor, 7.0 * state.actual_scale, ORANGE);
 
-    for t in [
+    draw_orbital_system(
+        &mut gizmos,
+        &state.system,
         stamp,
-        stamp.ceil(Nanotime::PER_MILLI * 10),
-        stamp.floor(Nanotime::PER_MILLI * 10),
-    ] {
-        draw_orbital_system(
-            &mut gizmos,
-            &state.system,
-            t,
-            Vec2::ZERO,
-            state.actual_scale,
-            state.show_orbits,
-        );
-    }
+        Vec2::ZERO,
+        state.actual_scale,
+        state.show_orbits,
+    );
 
-    // gizmos.grid_2d(
-    //     Isometry2d::from_translation(Vec2::ZERO),
-    //     (100, 100).into(),
-    //     (500.0, 500.0).into(),
-    //     Srgba {
-    //         alpha: 0.0001,
-    //         ..GRAY
-    //     },
-    // );
+    _ = state
+        .events
+        .iter()
+        .filter_map(|e| {
+            let orbit = state.system.lookup(e.target)?;
+            let pv = orbit.pv_at_time(e.stamp);
+            let color = match e.etype {
+                EventType::Collide => RED,
+                EventType::Encounter(_) => ORANGE,
+                EventType::Escape => BLUE,
+                EventType::Maneuver(_) => PURPLE,
+            };
+            draw_circle(&mut gizmos, pv.pos, 10.0, alpha(color, 0.5));
+            draw_circle(&mut gizmos, pv.pos, 3.0, alpha(color, 0.5));
+            Some(())
+        })
+        .collect::<Vec<_>>();
 
     for id in &state.tracks {
+        let origin = PV::zero(); // TODO
         let color = ORANGE;
         let size = 70.0;
-        let period = if let Some((orbit, origin)) = state.system.lookup_subsystem(*id, stamp) {
+        if let Some(orbit) = state.system.lookup(*id) {
             let p = orbit.pv_at_time(stamp) + origin;
-            // draw_orbit(origin.pos, stamp, orbit, &mut gizmos, 1.0, color, true);
+            draw_orbit(origin.pos, stamp, orbit, &mut gizmos, 1.0, color, true);
             draw_square(
                 &mut gizmos,
                 p.pos,
                 (size * state.actual_scale).min(size),
                 alpha(color, 0.7),
             );
-
-            orbit.period()
-        } else {
-            None
-        };
+        }
     }
 }
