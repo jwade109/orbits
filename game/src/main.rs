@@ -1,10 +1,7 @@
 
 use bevy::prelude::*;
 
-mod balls;
 mod debug;
-mod player;
-mod bounded;
 mod planetary;
 mod drawing;
 

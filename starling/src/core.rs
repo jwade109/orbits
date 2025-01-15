@@ -458,6 +458,12 @@ impl AABB {
         Self(low, hi)
     }
 
+    pub fn from_arbitrary(a: Vec2, b: Vec2) -> Self {
+        let low = Vec2::new(a.x.min(b.x), a.y.min(b.y));
+        let hi = Vec2::new(a.x.max(b.x), a.y.max(b.y));
+        Self(low, hi)
+    }
+
     pub fn center(&self) -> Vec2 {
         (self.0 + self.1) / 2.0
     }

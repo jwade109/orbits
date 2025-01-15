@@ -72,13 +72,15 @@ pub fn draw_orbit(
         return;
     }
 
-    let focii = orb.focii();
-    draw_x(gizmos, focii[0], 20.0, WHITE);
-    draw_circle(gizmos, focii[1], 15.0, WHITE);
-    if let Some((ua, la)) = orb.asymptotes() {
-        let c = orb.center();
-        for asym in [ua, la] {
-            gizmos.line_2d(c, c + asym * 100.0, alpha(WHITE, 0.04));
+    if orb.eccentricity >= 1.0 {
+        let focii = orb.focii();
+        draw_x(gizmos, focii[0], 20.0, WHITE);
+        draw_circle(gizmos, focii[1], 15.0, WHITE);
+        if let Some((ua, la)) = orb.asymptotes() {
+            let c = orb.center();
+            for asym in [ua, la] {
+                gizmos.line_2d(c, c + asym * 100.0, alpha(WHITE, 0.04));
+            }
         }
     }
 
@@ -130,6 +132,7 @@ pub fn draw_orbital_system(
     origin: Vec2,
     scale: f32,
     show_orbits: bool,
+    show_barycenter: bool,
 ) {
     draw_shadows(gizmos, origin, sys.primary.radius, stamp);
     draw_globe(gizmos, origin, sys.primary.radius, WHITE);
@@ -137,7 +140,7 @@ pub fn draw_orbital_system(
         draw_circle(gizmos, origin, sys.primary.soi * ds, alpha(ORANGE, a));
     }
 
-    {
+    if show_barycenter {
         let (b, _) = sys.barycenter();
         gizmos.circle_2d(Isometry2d::from_translation(origin + b), 6.0, PURPLE);
         draw_x(gizmos, b, 8.0, PURPLE);
@@ -175,7 +178,15 @@ pub fn draw_orbital_system(
         draw_orbit(origin, stamp, &o, gizmos, 0.3, RED, false);
 
         let pv = orbit.pv_at_time(stamp);
-        draw_orbital_system(gizmos, subsys, stamp, origin + pv.pos, scale, show_orbits);
+        draw_orbital_system(
+            gizmos,
+            subsys,
+            stamp,
+            origin + pv.pos,
+            scale,
+            show_orbits,
+            false,
+        );
     }
 }
 
@@ -304,9 +315,13 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         draw_circle(&mut gizmos, p, 3.0 * state.actual_scale, RED);
     }
 
-    draw_square(&mut gizmos, state.center, 3.0 * state.actual_scale, ORANGE);
-    draw_square(&mut gizmos, state.cursor, 18.0 * state.actual_scale, ORANGE);
-    draw_x(&mut gizmos, state.cursor, 7.0 * state.actual_scale, ORANGE);
+    if let Some(p) = state.mouse_down_pos() {
+        draw_circle(&mut gizmos, p, 2.0 * state.actual_scale, RED);
+    }
+
+    if let Some(a) = state.selection_region() {
+        draw_aabb(&mut gizmos, a, RED);
+    }
 
     draw_orbital_system(
         &mut gizmos,
@@ -315,6 +330,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         Vec2::ZERO,
         state.actual_scale,
         state.show_orbits,
+        false,
     );
 
     _ = state
@@ -329,8 +345,18 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
                 EventType::Escape => BLUE,
                 EventType::Maneuver(_) => PURPLE,
             };
-            draw_circle(&mut gizmos, pv.pos, 10.0, alpha(color, 0.5));
-            draw_circle(&mut gizmos, pv.pos, 3.0, alpha(color, 0.5));
+            draw_circle(
+                &mut gizmos,
+                pv.pos,
+                10.0 * state.actual_scale,
+                alpha(color, 0.5),
+            );
+            draw_circle(
+                &mut gizmos,
+                pv.pos,
+                3.0 * state.actual_scale,
+                alpha(color, 0.5),
+            );
             Some(())
         })
         .collect::<Vec<_>>();

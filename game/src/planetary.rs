@@ -163,7 +163,6 @@ pub struct GameState {
     pub system: OrbitalSystem,
     pub backup: Option<(OrbitalSystem, Nanotime)>,
     pub tracks: Vec<ObjectId>,
-    pub follow_cursor: bool,
     pub target_scale: f32,
     pub actual_scale: f32,
     pub camera_easing: Vec2,
@@ -172,6 +171,7 @@ pub struct GameState {
     pub cursor: Vec2,
     pub center: Vec2,
     pub mouse_screen_pos: Option<Vec2>,
+    pub mouse_down_pos: Option<Vec2>,
     pub window_dims: Vec2,
     pub events: Vec<OrbitalEvent>,
 }
@@ -195,6 +195,17 @@ impl GameState {
         Some(AABB::map(wb, gb, self.mouse_screen_pos?))
     }
 
+    pub fn mouse_down_pos(&self) -> Option<Vec2> {
+        let p = self.mouse_down_pos?;
+        let gb = self.game_bounds();
+        let wb = self.window_bounds();
+        Some(AABB::map(wb, gb, p))
+    }
+
+    pub fn selection_region(&self) -> Option<AABB> {
+        Some(AABB::from_arbitrary(self.mouse_pos()?, self.mouse_down_pos()?))
+    }
+
     pub fn toggle_track(&mut self, id: ObjectId) {
         if self.tracks.contains(&id) {
             self.tracks.retain(|e| *e != id);
@@ -215,7 +226,6 @@ impl Default for GameState {
             system: default_example(),
             tracks: Vec::new(),
             backup: Some((default_example(), Nanotime::default())),
-            follow_cursor: false,
             target_scale: 4.0,
             actual_scale: 4.0,
             camera_easing: Vec2::ZERO,
@@ -227,8 +237,12 @@ impl Default for GameState {
             cursor: Vec2::ZERO,
             center: Vec2::ZERO,
             mouse_screen_pos: None,
+            mouse_down_pos: None,
             window_dims: Vec2::ZERO,
-            events: Vec::new(),
+            events: (3000..5000).step_by(10).map(|i| {
+                let t = Nanotime::millis(i);
+                OrbitalEvent::maneuver(ObjectId(2), Vec2::new(0.0, -0.03), t)
+            }).collect()
         }
     }
 }
@@ -274,10 +288,6 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
     send_log(
         &mut evt,
         &format!("Object type: {:?}", state.system.otype(state.primary())),
-    );
-    send_log(
-        &mut evt,
-        &format!("Follow tracked: {:?}", state.follow_cursor),
     );
 
     send_log(&mut evt, &format!("Events: {}", state.events.len()));
@@ -357,7 +367,7 @@ fn keyboard_input(
     }
 
     let dt = time.delta().as_secs_f32();
-    let cursor_rate = 500.0 * state.actual_scale;
+    let cursor_rate = 1400.0 * state.actual_scale;
 
     if keys.pressed(KeyCode::ArrowLeft) || keys.pressed(KeyCode::KeyA) {
         state.cursor.x -= cursor_rate * dt;
@@ -379,12 +389,12 @@ fn keyboard_input(
     }
 }
 
-fn mouse_button_input(buttons: Res<ButtonInput<MouseButton>>) {
+fn mouse_button_input(buttons: Res<ButtonInput<MouseButton>>, mut state: ResMut<GameState>) {
     if buttons.just_pressed(MouseButton::Left) {
-        // Left button was pressed
+        state.mouse_down_pos = state.mouse_screen_pos;
     }
     if buttons.just_released(MouseButton::Left) {
-        // Left Button was released
+        state.mouse_down_pos = None;
     }
     if buttons.pressed(MouseButton::Right) {
         // Right Button is being held down
@@ -496,9 +506,9 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
     } else if starts_with("maneuver") {
         (|| -> Option<()> {
             let id = ObjectId(cmd.get(1)?.parse().ok()?);
-            let dx = cmd.get(2)?.parse::<f32>().ok()?;
-            let dy = cmd.get(3)?.parse::<f32>().ok()?;
-            let t = state.sim_time + Nanotime::secs(2);
+            let t = Nanotime::secs_f32(cmd.get(2)?.parse().ok()?);
+            let dx = cmd.get(3)?.parse::<f32>().ok()?;
+            let dy = cmd.get(4)?.parse::<f32>().ok()?;
             let evt = OrbitalEvent::maneuver(id, Vec2::new(dx, dy), t);
             state.events.push(evt);
             Some(())
@@ -514,7 +524,7 @@ fn process_commands(mut evts: EventReader<DebugCommand>, mut state: ResMut<GameS
 
 fn handle_zoom(mut state: ResMut<GameState>, mut tf: Query<&mut Transform, With<Camera>>) {
     let mut transform = tf.single_mut();
-    let ds = (state.target_scale - transform.scale) * 0.2;
+    let ds = (state.target_scale - transform.scale) * 0.5;
     transform.scale += ds;
     state.actual_scale = transform.scale.x;
 }
@@ -522,17 +532,9 @@ fn handle_zoom(mut state: ResMut<GameState>, mut tf: Query<&mut Transform, With<
 fn update_camera(mut query: Query<&mut Transform, With<Camera>>, mut state: ResMut<GameState>) {
     let mut tf = query.single_mut();
 
-    if state.camera_switch {
-        state.follow_cursor = !state.follow_cursor;
-    }
-
     let current_pos = tf.translation.xy();
 
-    let target_pos = if state.follow_cursor {
-        state.cursor
-    } else {
-        Vec2::ZERO
-    };
+    let target_pos = state.cursor;
 
     if state.camera_switch {
         state.camera_easing = current_pos - target_pos;
@@ -549,9 +551,9 @@ fn update_camera(mut query: Query<&mut Transform, With<Camera>>, mut state: ResM
 fn scroll_events(mut evr_scroll: EventReader<MouseWheel>, mut state: ResMut<GameState>) {
     for ev in evr_scroll.read() {
         if ev.y > 0.0 {
-            state.target_scale /= 1.1;
+            state.target_scale /= 1.3;
         } else {
-            state.target_scale *= 1.1;
+            state.target_scale *= 1.3;
         }
     }
 }
