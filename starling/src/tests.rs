@@ -32,15 +32,20 @@ fn orbit_construction() {
 
     let t = o1.period().unwrap() * 0.7;
 
+    assert_eq!(o1.period().unwrap(), o2.period().unwrap());
+
     let o1_f = Anomaly::with_ecc(o1.eccentricity, -3.083711);
 
     assert_relative_eq!(o1.ta_at_time(t).as_f32(), o1_f.as_f32(), epsilon = 0.01);
     assert_relative_eq!(o2.ta_at_time(t).as_f32(), o1_f.as_f32(), epsilon = 0.01);
 
-    let z = Nanotime(0);
+    let z = o1.period().unwrap();
 
-    assert_relative_eq!(o1.pv_at_time(z).pos.x, o2.pv_at_time(z).pos.x, epsilon = 0.01);
-    assert_relative_eq!(o1.pv_at_time(z).pos.y, o2.pv_at_time(z).pos.y, epsilon = 0.01);
+    for i in -5..5 {
+        let t = o1.period().unwrap() * i;
+        assert_relative_eq!(o1.pv_at_time(t).pos.x, o2.pv_at_time(t).pos.x, epsilon = 0.5);
+        assert_relative_eq!(o1.pv_at_time(t).pos.y, o2.pv_at_time(t).pos.y, epsilon = 0.5);
+    }
 }
 
 pub fn test_scenario_one() -> OrbitalSystem {

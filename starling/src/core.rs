@@ -81,7 +81,12 @@ impl Nanotime {
 
 impl core::fmt::Debug for Nanotime {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}.{:09}", self.0 / 1000000000, self.0 % 1000000000)
+        let disp = self.0.abs();
+        if self.0 >= 0 {
+            write!(f, "{}.{:09}", disp / 1000000000, disp % 1000000000)
+        } else {
+            write!(f, "-{}.{:09}", disp / 1000000000, disp % 1000000000)
+        }
     }
 }
 
