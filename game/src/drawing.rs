@@ -335,33 +335,44 @@ pub fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) {
 }
 
 pub fn draw_tracked_objects(gizmos: &mut Gizmos, state: &GameState) {
-    let mut plist = Vec::new();
-    for id in &state.track_list {
-        let origin = PV::zero(); // TODO
-        let color = ORANGE;
-        let size = 70.0;
-        if let Some(pv) = state.system.pv(*id, state.sim_time) {
-            // draw_orbit(
-            //     origin.pos,
-            //     state.sim_time,
-            //     &obj.orbit,
-            //     gizmos,
-            //     1.0,
-            //     color,
-            //     true,
-            // );
-            draw_square(
-                gizmos,
-                pv.pos,
-                (size * state.actual_scale).min(size),
-                alpha(color, 0.7),
-            );
-            plist.push(pv.pos);
+    for dt in (-30..=0).step_by(2) {
+        let mut plist = Vec::new();
+        let t = Nanotime::secs(dt);
+        for id in &state.track_list {
+            let origin = PV::zero(); // TODO
+            let color = ORANGE;
+            let size = 70.0;
+            if let Some(pv) = state.system.pv(*id, state.sim_time + t) {
+                // draw_orbit(
+                //     origin.pos,
+                //     state.sim_time,
+                //     &obj.orbit,
+                //     gizmos,
+                //     1.0,
+                //     color,
+                //     true,
+                // );
+                if dt == 0 {
+                    draw_square(
+                        gizmos,
+                        pv.pos,
+                        (size * state.actual_scale).min(size),
+                        alpha(color, 0.7),
+                    );
+                }
+                plist.push(pv.pos);
+            }
         }
-    }
 
-    if let Some(a) = AABB::from_list(&plist) {
-        draw_aabb(gizmos, a.padded(60.0), GRAY);
+        if let Some(aabb) = AABB::from_list(&plist) {
+            let a = if dt == 0 {
+                1.0
+            } else {
+                0.3 * (1.0 + dt as f32 / 30.0).powi(2)
+            };
+            let color = alpha(GRAY, a);
+            draw_aabb(gizmos, aabb.padded(60.0), color);
+        }
     }
 }
 
