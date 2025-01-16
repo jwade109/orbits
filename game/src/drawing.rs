@@ -3,7 +3,6 @@ use bevy::color::palettes::css::ORANGE;
 use bevy::prelude::*;
 use starling::core::*;
 use starling::orbit::*;
-use starling::planning::*;
 
 use crate::planetary::GameState;
 
@@ -146,10 +145,10 @@ pub fn draw_orbital_system(
         draw_x(gizmos, b, 8.0, PURPLE);
     }
 
-    for (_, orbit) in &sys.objects {
-        let pv = orbit.pv_at_time(stamp);
-        let near_parabolic = (orbit.eccentricity - 1.0).abs() < 0.01;
-        let color = if !orbit.is_consistent(stamp) {
+    for obj in &sys.objects {
+        let pv = obj.orbit.pv_at_time(stamp);
+        let near_parabolic = (obj.orbit.eccentricity - 1.0).abs() < 0.01;
+        let color = if !obj.orbit.is_consistent(stamp) {
             if near_parabolic {
                 PURPLE
             } else {
@@ -164,20 +163,20 @@ pub fn draw_orbital_system(
         };
         draw_square(gizmos, origin + pv.pos, (9.0 * scale).min(9.0), color);
         if show_orbits {
-            draw_orbit(origin, stamp, orbit, gizmos, 0.05, GRAY, false);
+            draw_orbit(origin, stamp, &obj.orbit, gizmos, 0.05, GRAY, false);
         }
     }
 
-    for (_, orbit, subsys) in sys.subsystems.iter() {
-        draw_orbit(origin, stamp, orbit, gizmos, 0.1, WHITE, false);
+    for (obj, subsys) in sys.subsystems.iter() {
+        draw_orbit(origin, stamp, &obj.orbit, gizmos, 0.1, WHITE, false);
 
-        let mut o = *orbit;
+        let mut o = obj.orbit;
         o.semi_major_axis -= subsys.primary.soi;
         draw_orbit(origin, stamp, &o, gizmos, 0.3, RED, false);
         o.semi_major_axis += 2.0 * subsys.primary.soi;
         draw_orbit(origin, stamp, &o, gizmos, 0.3, RED, false);
 
-        let pv = orbit.pv_at_time(stamp);
+        let pv = obj.orbit.pv_at_time(stamp);
         draw_orbital_system(
             gizmos,
             subsys,
@@ -217,7 +216,7 @@ pub fn draw_scalar_field_cell(
         let d = sys
             .subsystems
             .iter()
-            .map(|(_, o, _)| (o.pv_at_time(stamp).pos.distance(center) * 1000.0) as u32)
+            .map(|(obj, _)| (obj.orbit.pv_at_time(stamp).pos.distance(center) * 1000.0) as u32)
             .min()
             .unwrap_or(10000000);
         if d < 600000 || center.length() < 600.0 {
@@ -304,6 +303,70 @@ pub fn draw_shadows(gizmos: &mut Gizmos, origin: Vec2, radius: f32, stamp: Nanot
     }
 }
 
+pub fn draw_event(
+    gizmos: &mut Gizmos,
+    event: &OrbitalEvent,
+    sys: &OrbitalSystem,
+    scale: f32,
+) -> Option<()> {
+    let obj = sys.lookup(event.target)?;
+    let pv = obj.orbit.pv_at_time(event.stamp);
+    let color = match event.etype {
+        EventType::Collide => RED,
+        EventType::Encounter(_) => ORANGE,
+        EventType::Escape => BLUE,
+        EventType::Maneuver(_) => PURPLE,
+    };
+    draw_circle(gizmos, pv.pos, 10.0 * scale, alpha(color, 0.5));
+    draw_circle(gizmos, pv.pos, 3.0 * scale, alpha(color, 0.5));
+    Some(())
+}
+
+pub fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) {
+    _ = state
+        .highlighted_list
+        .iter()
+        .filter_map(|id| {
+            let obj = state.system.lookup(*id)?;
+            let pos = obj.orbit.pv_at_time(state.sim_time).pos;
+            draw_circle(gizmos, pos, 20.0, GRAY);
+            Some(())
+        })
+        .collect::<Vec<_>>();
+}
+
+pub fn draw_tracked_objects(gizmos: &mut Gizmos, state: &GameState) {
+    let mut plist = Vec::new();
+    for id in &state.track_list {
+        let origin = PV::zero(); // TODO
+        let color = ORANGE;
+        let size = 70.0;
+        if let Some(obj) = state.system.lookup(*id) {
+            let p = obj.orbit.pv_at_time(state.sim_time) + origin;
+            draw_orbit(
+                origin.pos,
+                state.sim_time,
+                &obj.orbit,
+                gizmos,
+                1.0,
+                color,
+                true,
+            );
+            draw_square(
+                gizmos,
+                p.pos,
+                (size * state.actual_scale).min(size),
+                alpha(color, 0.7),
+            );
+            plist.push(p.pos);
+        }
+    }
+
+    if let Some(a) = AABB::from_list(&plist) {
+        draw_aabb(gizmos, a.padded(60.0), GRAY);
+    }
+}
+
 pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     let stamp = state.sim_time;
 
@@ -320,7 +383,8 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     }
 
     if let Some(a) = state.selection_region() {
-        draw_aabb(&mut gizmos, a, RED);
+        let color = if state.right_click { RED } else { GREEN };
+        draw_aabb(&mut gizmos, a, color);
     }
 
     draw_orbital_system(
@@ -333,47 +397,13 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         false,
     );
 
-    _ = state
-        .events
-        .iter()
-        .filter_map(|e| {
-            let orbit = state.system.lookup(e.target)?;
-            let pv = orbit.pv_at_time(e.stamp);
-            let color = match e.etype {
-                EventType::Collide => RED,
-                EventType::Encounter(_) => ORANGE,
-                EventType::Escape => BLUE,
-                EventType::Maneuver(_) => PURPLE,
-            };
-            draw_circle(
-                &mut gizmos,
-                pv.pos,
-                10.0 * state.actual_scale,
-                alpha(color, 0.5),
-            );
-            draw_circle(
-                &mut gizmos,
-                pv.pos,
-                3.0 * state.actual_scale,
-                alpha(color, 0.5),
-            );
-            Some(())
-        })
-        .collect::<Vec<_>>();
+    draw_highlighted_objects(&mut gizmos, &state);
 
-    for id in &state.tracks {
-        let origin = PV::zero(); // TODO
-        let color = ORANGE;
-        let size = 70.0;
-        if let Some(orbit) = state.system.lookup(*id) {
-            let p = orbit.pv_at_time(stamp) + origin;
-            draw_orbit(origin.pos, stamp, orbit, &mut gizmos, 1.0, color, true);
-            draw_square(
-                &mut gizmos,
-                p.pos,
-                (size * state.actual_scale).min(size),
-                alpha(color, 0.7),
-            );
+    for obj in &state.system.objects {
+        for event in &obj.events {
+            draw_event(&mut gizmos, event, &state.system, state.actual_scale);
         }
     }
+
+    draw_tracked_objects(&mut gizmos, &state);
 }

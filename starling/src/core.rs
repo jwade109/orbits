@@ -150,10 +150,29 @@ impl Add for ObjectId {
 }
 
 #[derive(Debug, Clone)]
+pub struct Object {
+    pub id: ObjectId,
+    pub orbit: Orbit,
+    pub events: Vec<OrbitalEvent>,
+    pub computed_until: Option<Nanotime>,
+}
+
+impl Object {
+    pub fn new(id: ObjectId, orbit: Orbit) -> Self {
+        Object {
+            id,
+            orbit,
+            events: Vec::new(),
+            computed_until: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct OrbitalSystem {
     pub primary: Body,
-    pub objects: Vec<(ObjectId, Orbit)>,
-    pub subsystems: Vec<(ObjectId, Orbit, OrbitalSystem)>,
+    pub objects: Vec<Object>,
+    pub subsystems: Vec<(Object, OrbitalSystem)>,
     pub high_water_mark: ObjectId,
 }
 
@@ -291,30 +310,30 @@ impl OrbitalSystem {
             EventType::Maneuver(dv) => {
                 let dpv = PV::new(Vec2::ZERO, dv);
                 let m = self.primary.mass;
-                let orbit = self.lookup_orbiter_mut(event.target)?;
-                let pv = orbit.pv_at_time(event.stamp) + dpv;
-                *orbit = Orbit::from_pv(pv.pos, pv.vel, m, event.stamp);
+                let obj = self.lookup_orbiter_mut(event.target)?;
+                let pv = obj.orbit.pv_at_time(event.stamp) + dpv;
+                obj.orbit = Orbit::from_pv(pv.pos, pv.vel, m, event.stamp);
             }
         };
         Some(())
     }
 
     pub fn add_object(&mut self, id: ObjectId, orbit: Orbit) {
-        self.objects.push((id, orbit));
+        self.objects.push(Object::new(id, orbit));
         self.high_water_mark.0 = self.high_water_mark.0.max(id.0)
     }
 
     pub fn remove_object(&mut self, id: ObjectId) {
-        self.objects.retain(|(o, _)| *o != id)
+        self.objects.retain(|obj| obj.id != id)
     }
 
     pub fn add_subsystem(&mut self, id: ObjectId, orbit: Orbit, subsys: OrbitalSystem) {
-        self.subsystems.push((id, orbit, subsys));
+        self.subsystems.push((Object::new(id, orbit), subsys));
         self.high_water_mark.0 = self.high_water_mark.0.max(id.0)
     }
 
     pub fn has_object(&self, id: ObjectId) -> bool {
-        self.objects.iter().find(|o| o.0 == id).is_some()
+        self.objects.iter().find(|obj| obj.id == id).is_some()
     }
 
     pub fn otype(&self, o: ObjectId) -> Option<ObjectType> {
@@ -327,34 +346,34 @@ impl OrbitalSystem {
         }
     }
 
-    fn lookup_orbiter(&self, o: ObjectId) -> Option<&Orbit> {
+    fn lookup_orbiter(&self, o: ObjectId) -> Option<&Object> {
         self.objects
             .iter()
-            .find_map(|(id, orbit)| if *id == o { Some(orbit) } else { None })
+            .find_map(|obj| if obj.id == o { Some(obj) } else { None })
     }
 
-    fn lookup_system(&self, o: ObjectId) -> Option<(&Orbit, &OrbitalSystem)> {
+    fn lookup_system(&self, o: ObjectId) -> Option<(&Object, &OrbitalSystem)> {
         self.subsystems
             .iter()
-            .find_map(|(id, orbit, sys)| if *id == o { Some((orbit, sys)) } else { None })
+            .find_map(|(obj, sys)| if obj.id == o { Some((obj, sys)) } else { None })
     }
 
-    pub fn lookup(&self, o: ObjectId) -> Option<&Orbit> {
+    pub fn lookup(&self, o: ObjectId) -> Option<&Object> {
         self.lookup_orbiter(o)
             .or_else(|| Some(self.lookup_system(o)?.0))
     }
 
-    fn lookup_orbiter_mut(&mut self, o: ObjectId) -> Option<&mut Orbit> {
+    pub fn lookup_orbiter_mut(&mut self, o: ObjectId) -> Option<&mut Object> {
         self.objects
             .iter_mut()
-            .find_map(|(id, orbit)| if *id == o { Some(orbit) } else { None })
+            .find_map(|obj| if obj.id == o { Some(obj) } else { None })
     }
 
     pub fn potential_at(&self, pos: Vec2, stamp: Nanotime) -> f32 {
         let r = pos.length().clamp(10.0, std::f32::MAX);
         let mut ret = -(self.primary.mass * GRAVITATIONAL_CONSTANT) / r;
-        for (_, orbit, sys) in &self.subsystems {
-            let pv = orbit.pv_at_time(stamp);
+        for (obj, sys) in &self.subsystems {
+            let pv = obj.orbit.pv_at_time(stamp);
             ret += sys.potential_at(pos - pv.pos, stamp);
         }
         ret
@@ -363,88 +382,6 @@ impl OrbitalSystem {
     pub fn barycenter(&self) -> (Vec2, f32) {
         (Vec2::ZERO, self.primary.mass)
         // TODO sum subsystems
-    }
-
-    pub fn rebalance(&mut self, stamp: Nanotime) {
-        self.remove_collided(stamp);
-        self.eject_escaped(stamp);
-        self.reparent(stamp);
-    }
-
-    pub fn remove_collided(&mut self, stamp: Nanotime) {
-        for (_, _, subsys) in &mut self.subsystems {
-            subsys.remove_collided(stamp);
-        }
-
-        self.objects.retain(|(_, orbit)| {
-            if orbit.periapsis_r() > self.primary.radius {
-                return true;
-            }
-            let pv = orbit.pv_at_time(stamp);
-            let r2 = pv.pos.length_squared();
-            r2 > self.primary.radius.powi(2)
-        });
-    }
-
-    pub fn eject_escaped(&mut self, stamp: Nanotime) -> Vec<(ObjectId, PV)> {
-        let ejecta = self
-            .subsystems
-            .iter_mut()
-            .map(|(_, orb, s)| {
-                let syspv = orb.pv_at_time(stamp);
-                s.eject_escaped(stamp)
-                    .iter()
-                    .map(|(id, pv)| (*id, *pv + syspv))
-                    .collect::<Vec<_>>()
-            })
-            .flatten()
-            .collect::<Vec<_>>();
-
-        for (id, pv) in ejecta {
-            let orbit = Orbit::from_pv(pv.pos, pv.vel, self.primary.mass, stamp);
-            self.add_object(id, orbit);
-        }
-
-        let mut ret = vec![];
-        self.objects.retain(|(id, orbit)| -> bool {
-            if orbit.eccentricity < 1.0 && orbit.apoapsis_r() < self.primary.soi {
-                return true;
-            }
-            let pv = orbit.pv_at_time(stamp);
-            let keep = pv.pos.length_squared() <= self.primary.soi.powi(2);
-            if !keep {
-                ret.push((*id, orbit.pv_at_time(stamp)));
-            }
-            keep
-        });
-        ret
-    }
-
-    pub fn reparent(&mut self, stamp: Nanotime) {
-        // TODO fix this!
-        let mut to_remove = vec![];
-        for (id, orbit) in &mut self.objects {
-            let pv = orbit.pv_at_time(stamp);
-            let new = self
-                .subsystems
-                .iter_mut()
-                .filter_map(|(sysid, sysorb, sys)| {
-                    let syspv = sysorb.pv_at_time(stamp);
-                    let rel = pv - syspv;
-                    if rel.pos.length_squared() < sys.primary.soi.powi(2) {
-                        Some((sys, rel))
-                    } else {
-                        None
-                    }
-                })
-                .next();
-            if let Some((nsys, rel)) = new {
-                let neworb = Orbit::from_pv(rel.pos, rel.vel, nsys.primary.mass, stamp);
-                nsys.add_object(*id, neworb);
-                to_remove.push(*id);
-            }
-        }
-        self.objects.retain(|(id, _)| !to_remove.contains(id));
     }
 }
 
@@ -464,6 +401,27 @@ impl AABB {
         Self(low, hi)
     }
 
+    pub fn from_list(plist: &[Vec2]) -> Option<Self> {
+        let p0 = plist.get(0)?;
+        let mut ret = AABB(*p0, *p0);
+        for p in plist {
+            ret.include(*p)
+        }
+        Some(ret)
+    }
+
+    pub fn padded(&self, padding: f32) -> Self {
+        let d = Vec2::new(padding, padding);
+        AABB(self.0 - d, self.1 + d)
+    }
+
+    pub fn include(&mut self, p: Vec2) {
+        self.0.x = self.0.x.min(p.x);
+        self.0.y = self.0.y.min(p.y);
+        self.1.x = self.1.x.max(p.x);
+        self.1.y = self.1.y.max(p.y);
+    }
+
     pub fn center(&self) -> Vec2 {
         (self.0 + self.1) / 2.0
     }
@@ -472,18 +430,23 @@ impl AABB {
         self.1 - self.0
     }
 
-    pub fn to_uniform(&self, p: Vec2) -> Vec2 {
+    pub fn to_normalized(&self, p: Vec2) -> Vec2 {
         let u = p - self.0;
         let s = self.span();
         u / s
     }
 
-    pub fn from_uniform(&self, u: Vec2) -> Vec2 {
+    pub fn from_normalized(&self, u: Vec2) -> Vec2 {
         u * self.span() + self.0
     }
 
     pub fn map(from: Self, to: Self, p: Vec2) -> Vec2 {
-        let u = from.to_uniform(p);
-        to.from_uniform(u)
+        let u = from.to_normalized(p);
+        to.from_normalized(u)
+    }
+
+    pub fn contains(&self, p: Vec2) -> bool {
+        let u = self.to_normalized(p);
+        0.0 <= u.x && u.x <= 1.0 && 0.0 <= u.y && u.y <= 1.0
     }
 }

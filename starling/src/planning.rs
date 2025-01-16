@@ -51,39 +51,39 @@ pub fn get_future_path(
     }
 
     let mut t = start;
-    let orbit = sys.lookup(id)?;
+    let obj = sys.lookup(id)?;
     let mut ret = vec![];
     while t < end {
-        let pos = orbit.pv_at_time(t).pos;
+        let pos = obj.orbit.pv_at_time(t).pos;
 
         if pos.length() < sys.primary.radius {
             let tend = binary_search(t - dt, t, Nanotime(100), |s: Nanotime| {
-                orbit.pv_at_time(s).pos.length() > sys.primary.radius
+                obj.orbit.pv_at_time(s).pos.length() > sys.primary.radius
             });
-            let pend = orbit.pv_at_time(tend.unwrap_or(t)).pos;
+            let pend = obj.orbit.pv_at_time(tend.unwrap_or(t)).pos;
             ret.push(pend);
             return Some((ret, tend));
         }
 
         if pos.length() > sys.primary.soi {
             let tend = binary_search(t - dt, t, Nanotime(100), |s: Nanotime| {
-                orbit.pv_at_time(s).pos.length() < sys.primary.soi
+                obj.orbit.pv_at_time(s).pos.length() < sys.primary.soi
             });
-            let pend = orbit.pv_at_time(tend.unwrap_or(t)).pos;
+            let pend = obj.orbit.pv_at_time(tend.unwrap_or(t)).pos;
             ret.push(pend);
             return Some((ret, tend));
         }
 
-        for (_, sorb, ss) in &sys.subsystems {
-            let spos = sorb.pv_at_time(t).pos;
+        for (obj, ss) in &sys.subsystems {
+            let spos = obj.orbit.pv_at_time(t).pos;
             let d = pos.distance(spos);
             if d < ss.primary.soi {
                 let tend = binary_search(t - dt, t, Nanotime(100), |s: Nanotime| {
-                    let p1 = orbit.pv_at_time(s).pos;
-                    let p2 = sorb.pv_at_time(s).pos;
+                    let p1 = obj.orbit.pv_at_time(s).pos;
+                    let p2 = obj.orbit.pv_at_time(s).pos;
                     p1.distance(p2) > ss.primary.soi
                 });
-                let pend = orbit.pv_at_time(tend.unwrap_or(t)).pos;
+                let pend = obj.orbit.pv_at_time(tend.unwrap_or(t)).pos;
                 ret.push(pend);
                 return Some((ret, tend));
             }

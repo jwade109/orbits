@@ -59,15 +59,15 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
         );
     }
 
-    for vel in 400..1000 {
-        let r = Vec2::new(2000.0, 0.0);
-        let v = rotate(
-            Vec2::X * vel as f32 / 10.0,
-            std::f32::consts::PI / (if vel < 700 { 1.9 } else { 2.1 }),
-        );
-        let o = Orbit::from_pv(r, v, EARTH.mass, Nanotime::default());
-        system.add_object(id.next(), o);
-    }
+    // for vel in 400..1000 {
+    //     let r = Vec2::new(2000.0, 0.0);
+    //     let v = rotate(
+    //         Vec2::X * vel as f32 / 10.0,
+    //         std::f32::consts::PI / (if vel < 700 { 1.9 } else { 2.1 }),
+    //     );
+    //     let o = Orbit::from_pv(r, v, EARTH.mass, Nanotime::default());
+    //     system.add_object(id.next(), o);
+    // }
 
     for _ in 0..100 {
         system.add_object(
@@ -239,5 +239,5 @@ pub fn single_hyperbolic() -> OrbitalSystem {
 }
 
 pub fn default_example() -> OrbitalSystem {
-    just_the_moon()
+    earth_moon_example_one()
 }

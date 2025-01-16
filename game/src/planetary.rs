@@ -162,7 +162,8 @@ pub struct GameState {
     pub paused: bool,
     pub system: OrbitalSystem,
     pub backup: Option<(OrbitalSystem, Nanotime)>,
-    pub tracks: Vec<ObjectId>,
+    pub track_list: Vec<ObjectId>,
+    pub highlighted_list: Vec<ObjectId>,
     pub target_scale: f32,
     pub actual_scale: f32,
     pub camera_easing: Vec2,
@@ -172,8 +173,8 @@ pub struct GameState {
     pub center: Vec2,
     pub mouse_screen_pos: Option<Vec2>,
     pub mouse_down_pos: Option<Vec2>,
+    pub right_click: bool,
     pub window_dims: Vec2,
-    pub events: Vec<OrbitalEvent>,
 }
 
 impl GameState {
@@ -186,7 +187,7 @@ impl GameState {
     }
 
     pub fn primary(&self) -> ObjectId {
-        *self.tracks.first().unwrap_or(&ObjectId(-1))
+        *self.track_list.first().unwrap_or(&ObjectId(-1))
     }
 
     pub fn mouse_pos(&self) -> Option<Vec2> {
@@ -203,14 +204,17 @@ impl GameState {
     }
 
     pub fn selection_region(&self) -> Option<AABB> {
-        Some(AABB::from_arbitrary(self.mouse_pos()?, self.mouse_down_pos()?))
+        Some(AABB::from_arbitrary(
+            self.mouse_pos()?,
+            self.mouse_down_pos()?,
+        ))
     }
 
     pub fn toggle_track(&mut self, id: ObjectId) {
-        if self.tracks.contains(&id) {
-            self.tracks.retain(|e| *e != id);
+        if self.track_list.contains(&id) {
+            self.track_list.retain(|e| *e != id);
         } else {
-            self.tracks.push(id);
+            self.track_list.push(id);
         }
     }
 }
@@ -224,7 +228,8 @@ impl Default for GameState {
             show_potential_field: false,
             paused: false,
             system: default_example(),
-            tracks: Vec::new(),
+            track_list: Vec::new(),
+            highlighted_list: Vec::new(),
             backup: Some((default_example(), Nanotime::default())),
             target_scale: 4.0,
             actual_scale: 4.0,
@@ -238,11 +243,8 @@ impl Default for GameState {
             center: Vec2::ZERO,
             mouse_screen_pos: None,
             mouse_down_pos: None,
+            right_click: false,
             window_dims: Vec2::ZERO,
-            events: (3000..5000).step_by(10).map(|i| {
-                let t = Nanotime::millis(i);
-                OrbitalEvent::maneuver(ObjectId(2), Vec2::new(0.0, -0.03), t)
-            }).collect()
         }
     }
 }
@@ -259,52 +261,84 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     }
     let sp = 10.0f32.powi(state.sim_speed);
     state.sim_time += Nanotime((time.delta().as_nanos() as f32 * sp) as i64);
-    let s = state.sim_time;
-    // state.system.rebalance(s);
-    let mut to_apply = vec![];
-    state.events.retain(|e| {
-        if e.stamp <= s {
-            to_apply.push(*e);
-            false
-        } else {
-            true
-        }
-    });
 
+    let s = state.sim_time;
+    let mut to_apply = vec![];
+    for obj in &mut state.system.objects {
+        obj.events.retain(|e| {
+            if e.stamp <= s {
+                to_apply.push(*e);
+                false
+            } else {
+                true
+            }
+        })
+    }
     for e in to_apply {
         state.system.apply(e);
+    }
+
+    if let Some(a) = state.selection_region() {
+        state.highlighted_list = state
+            .system
+            .objects
+            .iter()
+            .filter_map(|obj| {
+                let pos = obj.orbit.pv_at_time(state.sim_time).pos;
+                a.contains(pos).then(|| obj.id)
+            })
+            .collect();
+    } else {
+        state.highlighted_list.clear();
+    }
+}
+
+fn sim_speed_str(speed: i32) -> String {
+    if speed == 0 {
+        ">".to_owned()
+    } else if speed > 0 {
+        (0..speed.abs() * 2).map(|_| '>').collect()
+    } else {
+        (0..speed.abs() * 2).map(|_| '<').collect()
     }
 }
 
 fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
-    send_log(&mut evt, &format!("Tracks: {:?}", state.tracks));
+    send_log(&mut evt, &format!("Tracks: {:?}", state.track_list));
     send_log(&mut evt, &format!("Epoch: {:?}", state.sim_time));
     send_log(&mut evt, &format!("Scale: {:0.3}", state.actual_scale));
     send_log(&mut evt, &format!("{} objects", state.system.objects.len()));
     if state.paused {
         send_log(&mut evt, "Paused");
     }
-    send_log(&mut evt, &format!("Sim speed: 10^{}", state.sim_speed));
+    send_log(
+        &mut evt,
+        &format!(
+            "Sim speed: 10^{} [{}]",
+            state.sim_speed,
+            sim_speed_str(state.sim_speed)
+        ),
+    );
     send_log(
         &mut evt,
         &format!("Object type: {:?}", state.system.otype(state.primary())),
     );
 
-    send_log(&mut evt, &format!("Events: {}", state.events.len()));
-    send_log(&mut evt, &format!("{:#?}", state.events.first()));
-
     if let Some(obj) = state.system.lookup(state.primary()) {
-        let pv = obj.pv_at_time(state.sim_time);
+        send_log(&mut evt, &format!("Events: {}", obj.events.len()));
+        send_log(&mut evt, &format!("{:#?}", obj.events.first()));
+
+        let pv = obj.orbit.pv_at_time(state.sim_time);
         send_log(&mut evt, &format!("{:#?}", obj));
         send_log(&mut evt, &format!("{:#?}", pv));
-        let ta = obj.ta_at_time(state.sim_time);
-        let ea = true_to_eccentric(ta, obj.eccentricity);
-        let ma = eccentric_to_mean(ea, obj.eccentricity);
-        let ea2 = mean_to_eccentric(ma, obj.eccentricity)
-            .unwrap_or(Anomaly::with_ecc(obj.eccentricity, 0.3777));
-        let ta2 = eccentric_to_true(ea2, obj.eccentricity);
+        let ta = obj.orbit.ta_at_time(state.sim_time);
+        let ea = true_to_eccentric(ta, obj.orbit.eccentricity);
+        let ma = eccentric_to_mean(ea, obj.orbit.eccentricity);
+        let ea2 = mean_to_eccentric(ma, obj.orbit.eccentricity)
+            .unwrap_or(Anomaly::with_ecc(obj.orbit.eccentricity, 0.3777));
+        let ta2 = eccentric_to_true(ea2, obj.orbit.eccentricity);
 
-        let mm = obj.mean_motion();
+        let mm = obj.orbit.mean_motion();
 
         let dt = ma.as_f32() / mm;
 
@@ -318,18 +352,18 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
 
         send_log(
             &mut evt,
-            &format!("Consistent: {}", obj.is_consistent(state.sim_time)),
+            &format!("Consistent: {}", obj.orbit.is_consistent(state.sim_time)),
         );
 
         send_log(
             &mut evt,
-            &format!("Next p: {:?}", obj.t_next_p(state.sim_time)),
+            &format!("Next p: {:?}", obj.orbit.t_next_p(state.sim_time)),
         );
 
-        send_log(&mut evt, &format!("Period: {:?}", obj.period()));
+        send_log(&mut evt, &format!("Period: {:?}", obj.orbit.period()));
         send_log(
             &mut evt,
-            &format!("Orbit count: {:?}", obj.orbit_number(state.sim_time)),
+            &format!("Orbit count: {:?}", obj.orbit.orbit_number(state.sim_time)),
         );
     }
 }
@@ -392,12 +426,25 @@ fn keyboard_input(
 fn mouse_button_input(buttons: Res<ButtonInput<MouseButton>>, mut state: ResMut<GameState>) {
     if buttons.just_pressed(MouseButton::Left) {
         state.mouse_down_pos = state.mouse_screen_pos;
+        state.right_click = false;
     }
-    if buttons.just_released(MouseButton::Left) {
+    if buttons.just_pressed(MouseButton::Right) {
+        state.mouse_down_pos = state.mouse_screen_pos;
+        state.right_click = true;
+    }
+    if buttons.any_just_released([MouseButton::Left, MouseButton::Right]) {
         state.mouse_down_pos = None;
-    }
-    if buttons.pressed(MouseButton::Right) {
-        // Right Button is being held down
+        let hl = state.highlighted_list.clone();
+        if state.right_click {
+            state.track_list.retain(|id| !hl.contains(&id));
+        } else {
+            for hl in state.highlighted_list.clone() {
+                if !state.track_list.contains(&hl) {
+                    state.track_list.push(hl);
+                }
+            }
+        }
+        state.right_click = false;
     }
     // we can check multiple at once with `.any_*`
     if buttons.any_just_pressed([MouseButton::Left, MouseButton::Middle]) {
@@ -467,7 +514,7 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
             state.toggle_track(id);
         }
     } else if starts_with("untrack") {
-        state.tracks.clear();
+        state.track_list.clear();
     } else if starts_with("level") {
         if Some(&"clear".to_string()) == cmd.get(1) {
             state.draw_levels.clear();
@@ -510,7 +557,8 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
             let dx = cmd.get(3)?.parse::<f32>().ok()?;
             let dy = cmd.get(4)?.parse::<f32>().ok()?;
             let evt = OrbitalEvent::maneuver(id, Vec2::new(dx, dy), t);
-            state.events.push(evt);
+            let obj = state.system.lookup_orbiter_mut(id)?;
+            obj.events.push(evt);
             Some(())
         })();
     }
@@ -548,12 +596,26 @@ fn update_camera(mut query: Query<&mut Transform, With<Camera>>, mut state: ResM
     state.camera_easing *= 0.85;
 }
 
-fn scroll_events(mut evr_scroll: EventReader<MouseWheel>, mut state: ResMut<GameState>) {
-    for ev in evr_scroll.read() {
-        if ev.y > 0.0 {
-            state.target_scale /= 1.3;
-        } else {
-            state.target_scale *= 1.3;
+fn scroll_events(
+    mut evr_scroll: EventReader<MouseWheel>,
+    keys: Res<ButtonInput<KeyCode>>,
+    mut state: ResMut<GameState>,
+) {
+    if keys.pressed(KeyCode::ShiftLeft) {
+        for ev in evr_scroll.read() {
+            if ev.y > 0.0 {
+                state.sim_speed = i32::clamp(state.sim_speed + 1, -6, 4);
+            } else {
+                state.sim_speed = i32::clamp(state.sim_speed - 1, -6, 4);
+            }
+        }
+    } else {
+        for ev in evr_scroll.read() {
+            if ev.y > 0.0 {
+                state.target_scale /= 1.3;
+            } else {
+                state.target_scale *= 1.3;
+            }
         }
     }
 }
