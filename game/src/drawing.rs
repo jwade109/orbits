@@ -327,8 +327,7 @@ pub fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) {
         .highlighted_list
         .iter()
         .filter_map(|id| {
-            let obj = state.system.lookup(*id)?;
-            let pos = obj.orbit.pv_at_time(state.sim_time).pos;
+            let pos = state.system.pv(*id, state.sim_time)?.pos;
             draw_circle(gizmos, pos, 20.0, GRAY);
             Some(())
         })
@@ -341,24 +340,23 @@ pub fn draw_tracked_objects(gizmos: &mut Gizmos, state: &GameState) {
         let origin = PV::zero(); // TODO
         let color = ORANGE;
         let size = 70.0;
-        if let Some(obj) = state.system.lookup(*id) {
-            let p = obj.orbit.pv_at_time(state.sim_time) + origin;
-            draw_orbit(
-                origin.pos,
-                state.sim_time,
-                &obj.orbit,
-                gizmos,
-                1.0,
-                color,
-                true,
-            );
+        if let Some(pv) = state.system.pv(*id, state.sim_time) {
+            // draw_orbit(
+            //     origin.pos,
+            //     state.sim_time,
+            //     &obj.orbit,
+            //     gizmos,
+            //     1.0,
+            //     color,
+            //     true,
+            // );
             draw_square(
                 gizmos,
-                p.pos,
+                pv.pos,
                 (size * state.actual_scale).min(size),
                 alpha(color, 0.7),
             );
-            plist.push(p.pos);
+            plist.push(pv.pos);
         }
     }
 

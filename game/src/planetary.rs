@@ -281,11 +281,11 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     if let Some(a) = state.selection_region() {
         state.highlighted_list = state
             .system
-            .objects
+            .ids()
             .iter()
-            .filter_map(|obj| {
-                let pos = obj.orbit.pv_at_time(state.sim_time).pos;
-                a.contains(pos).then(|| obj.id)
+            .filter_map(|id| {
+                let pos = state.system.pv(*id, state.sim_time)?.pos;
+                a.contains(pos).then(|| *id)
             })
             .collect();
     } else {

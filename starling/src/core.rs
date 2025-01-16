@@ -336,6 +336,14 @@ impl OrbitalSystem {
         self.objects.iter().find(|obj| obj.id == id).is_some()
     }
 
+    pub fn ids(&self) -> Vec<ObjectId> {
+        let mut ret: Vec<ObjectId> = self.objects.iter().map(|obj| obj.id).collect();
+        for (_, sys) in &self.subsystems {
+            ret.extend_from_slice(&sys.ids());
+        }
+        ret
+    }
+
     pub fn otype(&self, o: ObjectId) -> Option<ObjectType> {
         if self.lookup_orbiter(o).is_some() {
             Some(ObjectType::Orbiter)
@@ -359,6 +367,12 @@ impl OrbitalSystem {
     }
 
     pub fn lookup(&self, o: ObjectId) -> Option<&Object> {
+        for (_, sys) in &self.subsystems {
+            let obj = sys.lookup(o);
+            if obj.is_some() {
+                return obj;
+            }
+        }
         self.lookup_orbiter(o)
             .or_else(|| Some(self.lookup_system(o)?.0))
     }
@@ -382,6 +396,23 @@ impl OrbitalSystem {
     pub fn barycenter(&self) -> (Vec2, f32) {
         (Vec2::ZERO, self.primary.mass)
         // TODO sum subsystems
+    }
+
+    fn pv_inner(&self, id: ObjectId, stamp: Nanotime, wrt: PV) -> Option<PV> {
+        for (obj, sys) in &self.subsystems {
+            let wrt = obj.orbit.pv_at_time(stamp);
+            let pv = sys.pv_inner(id, stamp, wrt);
+            if pv.is_some() {
+                return pv;
+            }
+        }
+
+        let obj = self.lookup(id)?;
+        Some(obj.orbit.pv_at_time(stamp) + wrt)
+    }
+
+    pub fn pv(&self, id: ObjectId, stamp: Nanotime) -> Option<PV> {
+        self.pv_inner(id, stamp, PV::zero())
     }
 }
 
