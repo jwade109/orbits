@@ -101,26 +101,26 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
 
     system.add_subsystem(luna_id, LUNA.1, subsys);
 
-    // let asteroid = (
-    //     Body::new(10.0, 2.0, 60.0),
-    //     Orbit {
-    //         eccentricity: 0.2,
-    //         semi_major_axis: LUNA.1.semi_major_axis * 2.0,
-    //         arg_periapsis: 0.4,
-    //         retrograde: false,
-    //         primary_mass: EARTH.mass,
-    //         time_at_periapsis: Nanotime::default(),
-    //     },
-    // );
+    let asteroid = (
+        Body::new(10.0, 2.0, 60.0),
+        Orbit {
+            eccentricity: 0.2,
+            semi_major_axis: LUNA.1.semi_major_axis * 2.0,
+            arg_periapsis: 0.4,
+            retrograde: false,
+            primary_mass: EARTH.mass,
+            time_at_periapsis: Nanotime::default(),
+        },
+    );
 
-    // let mut ast = OrbitalSystem::new(asteroid.0);
+    let mut ast = OrbitalSystem::new(asteroid.0);
 
-    // ast.add_object(
-    //     id.next(),
-    //     Orbit::circular(13.0, asteroid.0.mass, Nanotime::default(), false),
-    // );
+    ast.add_object(
+        id.next(),
+        Orbit::circular(13.0, asteroid.0.mass, Nanotime::default(), false),
+    );
 
-    // system.add_subsystem(id.next(), asteroid.1, ast);
+    system.add_subsystem(id.next(), asteroid.1, ast);
 
     system
 }

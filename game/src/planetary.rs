@@ -174,7 +174,6 @@ pub struct GameState {
     pub center: Vec2,
     pub mouse_screen_pos: Option<Vec2>,
     pub mouse_down_pos: Option<Vec2>,
-    pub right_click: bool,
     pub window_dims: Vec2,
 }
 
@@ -244,7 +243,6 @@ impl Default for GameState {
             center: Vec2::ZERO,
             mouse_screen_pos: None,
             mouse_down_pos: None,
-            right_click: false,
             window_dims: Vec2::ZERO,
         }
     }
@@ -292,6 +290,10 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     } else {
         state.highlighted_list.clear();
     }
+
+    let mut track_list = state.track_list.clone();
+    track_list.retain(|o| state.system.lookup(*o).is_some());
+    state.track_list = track_list;
 }
 
 fn sim_speed_str(speed: i32) -> String {
@@ -394,6 +396,9 @@ fn keyboard_input(
             KeyCode::Minus => {
                 state.target_scale *= 1.5;
             }
+            KeyCode::KeyP => {
+                run_physics_predictions(&mut state);
+            }
             _ => (),
         }
     }
@@ -421,33 +426,71 @@ fn keyboard_input(
     }
 }
 
-fn mouse_button_input(buttons: Res<ButtonInput<MouseButton>>, mut state: ResMut<GameState>) {
+fn mouse_button_input(
+    buttons: Res<ButtonInput<MouseButton>>,
+    keys: Res<ButtonInput<KeyCode>>,
+    mut state: ResMut<GameState>,
+) {
     if buttons.just_pressed(MouseButton::Left) {
         state.mouse_down_pos = state.mouse_screen_pos;
-        state.right_click = false;
     }
-    if buttons.just_pressed(MouseButton::Right) {
-        state.mouse_down_pos = state.mouse_screen_pos;
-        state.right_click = true;
-    }
-    if buttons.any_just_released([MouseButton::Left, MouseButton::Right]) {
+    if buttons.just_released(MouseButton::Left) {
         state.mouse_down_pos = None;
-        let hl = state.highlighted_list.clone();
-        if state.right_click {
-            state.track_list.retain(|id| !hl.contains(&id));
-        } else {
-            for hl in state.highlighted_list.clone() {
-                if !state.track_list.contains(&hl) {
-                    state.track_list.push(hl);
-                }
-            }
+        if !keys.pressed(KeyCode::ShiftLeft) {
+            state.track_list.clear();
         }
-        state.right_click = false;
+        for hl in state.highlighted_list.clone() {
+            state.toggle_track(hl);
+        }
     }
     // we can check multiple at once with `.any_*`
     if buttons.any_just_pressed([MouseButton::Left, MouseButton::Middle]) {
         // Either the left or the middle (wheel) button was just pressed
     }
+}
+
+fn run_physics_predictions(state: &mut GameState) {
+    _ = state
+        .track_list
+        .iter()
+        .filter_map(|id| {
+            let obj = state.system.lookup(*id)?;
+
+            if !obj.events.is_empty() {
+                return None;
+            }
+
+            let start = obj
+                .computed_until
+                .unwrap_or(state.sim_time)
+                .max(state.sim_time);
+            let end = start + Nanotime::secs(100);
+
+            let future = get_future_path(&state.system, *id, start, end);
+
+            let (pos, crashtime) = match future {
+                Err(_) => {
+                    println!("Prediction failed: {}, {:?}", *id, future);
+                    return None;
+                }
+                Ok((pos, crashtime)) => (pos, crashtime),
+            };
+
+            let object = state.system.lookup_orbiter_mut(*id)?;
+
+            if let Some(crash) = crashtime {
+                let e: OrbitalEvent = OrbitalEvent::collision(*id, crash);
+                object.events.push(e);
+                object.computed_until = Some(e.stamp);
+                object.sample_points.extend_from_slice(&pos);
+            } else {
+                object.computed_until = Some(end);
+                object.sample_points.clear();
+            }
+
+            Some(())
+        })
+        .collect::<Vec<_>>();
 }
 
 fn update_cursor(
@@ -558,32 +601,6 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
             obj.events.push(evt);
             Some(())
         })();
-    } else if starts_with("predict") {
-        _ = state
-            .track_list
-            .iter()
-            .filter_map(|id| {
-                let obj = state.system.lookup(*id)?;
-                let start = obj.computed_until.unwrap_or(state.sim_time);
-                let end = start + Nanotime::secs(100);
-                let dt = Nanotime::millis(100);
-
-                if let Some(crash) = get_future_path(&state.system, *id, start, end, dt)
-                    .map(|e| e.1)
-                    .flatten()
-                {
-                    let object = state.system.lookup_orbiter_mut(*id)?;
-                    let e: OrbitalEvent = OrbitalEvent::collision(*id, crash);
-                    object.events.push(e);
-                    object.computed_until = Some(e.stamp);
-                } else {
-                    let object = state.system.lookup_orbiter_mut(*id)?;
-                    object.computed_until = Some(end);
-                }
-
-                Some(())
-            })
-            .collect::<Vec<_>>();
     }
 }
 

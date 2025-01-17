@@ -163,7 +163,9 @@ pub fn draw_orbital_system(
         };
         draw_square(gizmos, origin + pv.pos, (9.0 * scale).min(9.0), color);
         if show_orbits {
-            draw_orbit(origin, stamp, &obj.orbit, gizmos, 0.05, GRAY, false);
+            let color = if obj.events.is_empty() { GRAY } else { PURPLE };
+            let a = if obj.events.is_empty() { 0.05 } else { 0.4 };
+            draw_orbit(origin, stamp, &obj.orbit, gizmos, a, color, false);
         }
     }
 
@@ -335,44 +337,39 @@ pub fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) {
 }
 
 pub fn draw_tracked_objects(gizmos: &mut Gizmos, state: &GameState) {
-    for dt in (-30..=0).step_by(2) {
-        let mut plist = Vec::new();
-        let t = Nanotime::secs(dt);
-        for id in &state.track_list {
-            let origin = PV::zero(); // TODO
-            let color = ORANGE;
-            let size = 70.0;
-            if let Some(pv) = state.system.pv(*id, state.sim_time + t) {
-                // draw_orbit(
-                //     origin.pos,
-                //     state.sim_time,
-                //     &obj.orbit,
-                //     gizmos,
-                //     1.0,
-                //     color,
-                //     true,
-                // );
-                if dt == 0 {
-                    draw_square(
-                        gizmos,
-                        pv.pos,
-                        (size * state.actual_scale).min(size),
-                        alpha(color, 0.7),
-                    );
-                }
-                plist.push(pv.pos);
+    let origin = PV::zero(); // TODO
+    let color = ORANGE;
+    let size = 70.0;
+    let plist = state
+        .track_list
+        .iter()
+        .filter_map(|id| {
+            let pv = state.system.pv(*id, state.sim_time)?;
+            let obj = state.system.lookup(*id)?;
+            if state.track_list.len() < 10 {
+                draw_orbit(
+                    origin.pos,
+                    state.sim_time,
+                    &obj.orbit,
+                    gizmos,
+                    0.3,
+                    color,
+                    true,
+                );
             }
-        }
+            draw_square(
+                gizmos,
+                pv.pos,
+                (size * state.actual_scale).min(size),
+                alpha(color, 0.7),
+            );
+            Some(pv.pos)
+            // plist.push(pv.pos);
+        })
+        .collect::<Vec<_>>();
 
-        if let Some(aabb) = AABB::from_list(&plist) {
-            let a = if dt == 0 {
-                1.0
-            } else {
-                0.3 * (1.0 + dt as f32 / 30.0).powi(2)
-            };
-            let color = alpha(GRAY, a);
-            draw_aabb(gizmos, aabb.padded(60.0), color);
-        }
+    if let Some(aabb) = AABB::from_list(&plist) {
+        draw_aabb(gizmos, aabb.padded(60.0), GRAY);
     }
 }
 
@@ -392,8 +389,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     }
 
     if let Some(a) = state.selection_region() {
-        let color = if state.right_click { RED } else { GREEN };
-        draw_aabb(&mut gizmos, a, color);
+        draw_aabb(&mut gizmos, a, RED);
     }
 
     draw_orbital_system(
@@ -405,6 +401,24 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         state.show_orbits,
         false,
     );
+
+    _ = state
+        .system
+        .ids()
+        .iter()
+        .filter_map(|id| {
+            let obj = state.system.lookup(*id)?;
+            for pos in &obj.sample_points {
+                draw_x(
+                    &mut gizmos,
+                    *pos,
+                    3.0 * state.target_scale,
+                    alpha(ORANGE, 0.7),
+                );
+            }
+            Some(())
+        })
+        .collect::<Vec<_>>();
 
     draw_highlighted_objects(&mut gizmos, &state);
 

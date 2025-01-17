@@ -1,5 +1,5 @@
-use crate::{orbit::*, planning::get_future_path};
-use bevy::{math::Vec2, utils::tracing::Event};
+use crate::orbit::*;
+use bevy::math::Vec2;
 use rand::Rng;
 use std::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
 
@@ -149,12 +149,19 @@ impl Add for ObjectId {
     }
 }
 
+impl std::fmt::Display for ObjectId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "#{}", self.0)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Object {
     pub id: ObjectId,
     pub orbit: Orbit,
     pub events: Vec<OrbitalEvent>,
     pub computed_until: Option<Nanotime>,
+    pub sample_points: Vec<Vec2>,
 }
 
 impl Object {
@@ -164,6 +171,7 @@ impl Object {
             orbit,
             events: Vec::new(),
             computed_until: None,
+            sample_points: Vec::new(),
         }
     }
 }
