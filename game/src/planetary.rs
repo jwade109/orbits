@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use starling::core::*;
 use starling::examples::*;
 use starling::orbit::*;
+use starling::planning::*;
 
 use crate::debug::*;
 use crate::drawing::*;
@@ -325,9 +326,6 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
     );
 
     if let Some(obj) = state.system.lookup(state.primary()) {
-        send_log(&mut evt, &format!("Events: {}", obj.events.len()));
-        send_log(&mut evt, &format!("{:#?}", obj.events.first()));
-
         let pv = obj.orbit.pv_at_time(state.sim_time);
         send_log(&mut evt, &format!("{:#?}", obj));
         send_log(&mut evt, &format!("{:#?}", pv));
@@ -543,8 +541,7 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
             let r = Vec2::new(coords[0], coords[1]);
             let v = Vec2::new(coords[2], coords[3]);
             let orbit = Orbit::from_pv(r, v, state.system.primary.mass, state.sim_time);
-            println!("New object: {:?}", orbit);
-            let id = ObjectId(1) + state.system.high_water_mark;
+            let id = ObjectId((rand(0.0, 1.0) * 10000.0 + 1000.0) as i64);
             state.toggle_track(id);
             state.system.add_object(id, orbit);
         }
@@ -561,6 +558,32 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
             obj.events.push(evt);
             Some(())
         })();
+    } else if starts_with("predict") {
+        _ = state
+            .track_list
+            .iter()
+            .filter_map(|id| {
+                let obj = state.system.lookup(*id)?;
+                let start = obj.computed_until.unwrap_or(state.sim_time);
+                let end = start + Nanotime::secs(100);
+                let dt = Nanotime::millis(100);
+
+                if let Some(crash) = get_future_path(&state.system, *id, start, end, dt)
+                    .map(|e| e.1)
+                    .flatten()
+                {
+                    let object = state.system.lookup_orbiter_mut(*id)?;
+                    let e: OrbitalEvent = OrbitalEvent::collision(*id, crash);
+                    object.events.push(e);
+                    object.computed_until = Some(e.stamp);
+                } else {
+                    let object = state.system.lookup_orbiter_mut(*id)?;
+                    object.computed_until = Some(end);
+                }
+
+                Some(())
+            })
+            .collect::<Vec<_>>();
     }
 }
 

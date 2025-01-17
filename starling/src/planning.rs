@@ -57,7 +57,7 @@ pub fn get_future_path(
         let pos = obj.orbit.pv_at_time(t).pos;
 
         if pos.length() < sys.primary.radius {
-            let tend = binary_search(t - dt, t, Nanotime(100), |s: Nanotime| {
+            let tend = binary_search(t - dt, t, Nanotime(5), |s: Nanotime| {
                 obj.orbit.pv_at_time(s).pos.length() > sys.primary.radius
             });
             let pend = obj.orbit.pv_at_time(tend.unwrap_or(t)).pos;
@@ -66,7 +66,7 @@ pub fn get_future_path(
         }
 
         if pos.length() > sys.primary.soi {
-            let tend = binary_search(t - dt, t, Nanotime(100), |s: Nanotime| {
+            let tend = binary_search(t - dt, t, Nanotime(5), |s: Nanotime| {
                 obj.orbit.pv_at_time(s).pos.length() < sys.primary.soi
             });
             let pend = obj.orbit.pv_at_time(tend.unwrap_or(t)).pos;
@@ -78,7 +78,7 @@ pub fn get_future_path(
             let spos = obj.orbit.pv_at_time(t).pos;
             let d = pos.distance(spos);
             if d < ss.primary.soi {
-                let tend = binary_search(t - dt, t, Nanotime(100), |s: Nanotime| {
+                let tend = binary_search(t - dt, t, Nanotime(5), |s: Nanotime| {
                     let p1 = obj.orbit.pv_at_time(s).pos;
                     let p2 = obj.orbit.pv_at_time(s).pos;
                     p1.distance(p2) > ss.primary.soi
