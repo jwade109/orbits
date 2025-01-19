@@ -591,16 +591,15 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
     } else if starts_with("clear") {
         state.system.objects.clear();
     } else if starts_with("maneuver") {
-        (|| -> Option<()> {
-            let id = ObjectId(cmd.get(1)?.parse().ok()?);
-            let t = Nanotime::secs_f32(cmd.get(2)?.parse().ok()?);
-            let dx = cmd.get(3)?.parse::<f32>().ok()?;
-            let dy = cmd.get(4)?.parse::<f32>().ok()?;
-            let evt = OrbitalEvent::maneuver(id, Vec2::new(dx, dy), t);
-            let obj = state.system.lookup_orbiter_mut(id)?;
+        _ = state.track_list.iter().filter_map(|id| {
+            let t = Nanotime::secs_f32(cmd.get(1)?.parse().ok()?);
+            let dx = cmd.get(2)?.parse::<f32>().ok()?;
+            let dy = cmd.get(3)?.parse::<f32>().ok()?;
+            let evt = OrbitalEvent::maneuver(*id, Vec2::new(dx, dy), t);
+            let obj = state.system.lookup_orbiter_mut(*id)?;
             obj.events.push(evt);
             Some(())
-        })();
+        }).collect::<Vec<_>>();
     }
 }
 

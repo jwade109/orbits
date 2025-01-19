@@ -321,6 +321,8 @@ impl OrbitalSystem {
                 let obj = self.lookup_orbiter_mut(event.target)?;
                 let pv = obj.orbit.pv_at_time(event.stamp) + dpv;
                 obj.orbit = Orbit::from_pv(pv.pos, pv.vel, m, event.stamp);
+                obj.computed_until = None;
+                obj.events.clear();
             }
         };
         Some(())
