@@ -146,6 +146,12 @@ pub fn draw_orbital_system(
     }
 
     for obj in &sys.objects {
+        if let Some(event) = obj.event {
+            draw_event(gizmos, &event, &sys, scale, origin);
+        }
+    }
+
+    for obj in &sys.objects {
         let pv = obj.orbit.pv_at_time(stamp);
         let near_parabolic = (obj.orbit.eccentricity - 1.0).abs() < 0.01;
         let color = if !obj.orbit.is_consistent(stamp) {
@@ -295,6 +301,7 @@ pub fn draw_event(
     event: &OrbitalEvent,
     sys: &OrbitalSystem,
     scale: f32,
+    origin: Vec2,
 ) -> Option<()> {
     let pv = sys.lookup(event.target, event.stamp)?.pv();
     let color = match event.etype {
@@ -303,8 +310,8 @@ pub fn draw_event(
         EventType::Escape => TEAL,
         EventType::Maneuver(_) => PURPLE,
     };
-    draw_circle(gizmos, pv.pos, 10.0 * scale, alpha(color, 0.5));
-    draw_circle(gizmos, pv.pos, 3.0 * scale, alpha(color, 0.5));
+    draw_circle(gizmos, pv.pos + origin, 10.0 * scale, alpha(color, 0.5));
+    draw_circle(gizmos, pv.pos + origin, 3.0 * scale, alpha(color, 0.5));
     Some(())
 }
 
@@ -384,12 +391,6 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     );
 
     draw_highlighted_objects(&mut gizmos, &state);
-
-    for obj in &state.system.objects {
-        if let Some(event) = obj.event {
-            draw_event(&mut gizmos, &event, &state.system, state.actual_scale);
-        }
-    }
 
     draw_tracked_objects(&mut gizmos, &state);
 }

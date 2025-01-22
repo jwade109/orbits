@@ -144,14 +144,8 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     }
 
     let s = state.sim_time;
-    let mut to_apply = vec![];
-    for obj in &mut state.system.objects {
-        let e = obj.take_event(s);
-        e.map(|e| to_apply.push(e));
-    }
-    for e in to_apply {
-        state.system.apply(e);
-    }
+    state.system.propagate_to(s);
+    run_physics_predictions(&mut state.system, s);
 
     if let Some(a) = state.selection_region() {
         state.highlighted_list = state
@@ -286,9 +280,6 @@ fn keyboard_input(
             KeyCode::Minus => {
                 state.target_scale *= 1.5;
             }
-            KeyCode::KeyP => {
-                run_physics_predictions(&mut state);
-            }
             _ => (),
         }
     }
@@ -339,12 +330,25 @@ fn mouse_button_input(
     }
 }
 
-fn run_physics_predictions(state: &mut GameState) {
-    _ = state
-        .track_list
+fn run_physics_predictions(sys: &mut OrbitalSystem, stamp: Nanotime) {
+    for (_, subsys) in &mut sys.subsystems {
+        run_physics_predictions(subsys, stamp);
+    }
+
+    let physics_dur = Nanotime::secs(1000);
+    let minimum_dur = Nanotime::secs(100);
+
+    let mut run_this_step = 2;
+
+    let ids = sys.ids();
+    _ = ids
         .iter()
         .filter_map(|id| {
-            let lup = state.system.lookup(*id, state.sim_time)?;
+            if run_this_step == 0 {
+                return None;
+            }
+
+            let lup = sys.lookup(*id, stamp)?;
 
             if lup.object.event.is_some() {
                 return None;
@@ -352,15 +356,19 @@ fn run_physics_predictions(state: &mut GameState) {
 
             let start = match lup.object.horizon {
                 PhysicsHorizon::Finite(t) => t,
-                PhysicsHorizon::None => state.sim_time,
+                PhysicsHorizon::None => stamp,
                 PhysicsHorizon::Perpetual => {
                     return None;
                 }
             };
 
-            let end = start + Nanotime::secs(100);
+            let end = start + physics_dur;
 
-            let future = get_future_path(&state.system, *id, start, end);
+            if stamp + minimum_dur < start {
+                return None;
+            }
+
+            let future = get_future_path(&sys, *id, start, end);
 
             let event = match future {
                 Err(_) => {
@@ -370,7 +378,7 @@ fn run_physics_predictions(state: &mut GameState) {
                 Ok(event) => event,
             };
 
-            let object = state.system.lookup_orbiter_mut(*id)?;
+            let object = sys.lookup_orbiter_mut(*id)?;
 
             if let Some((t, e)) = event {
                 let e = OrbitalEvent::new(*id, t, e);
@@ -379,6 +387,8 @@ fn run_physics_predictions(state: &mut GameState) {
             } else {
                 object.horizon = PhysicsHorizon::Finite(end);
             }
+
+            run_this_step -= 1;
 
             Some(())
         })
@@ -490,6 +500,11 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
                 let t = Nanotime::secs_f32(cmd.get(1)?.parse().ok()?);
                 let dx = cmd.get(2)?.parse::<f32>().ok()?;
                 let dy = cmd.get(3)?.parse::<f32>().ok()?;
+                let t = if t == Nanotime(0) {
+                    state.sim_time + Nanotime::millis(2)
+                } else {
+                    t
+                };
                 let evt = OrbitalEvent::maneuver(*id, Vec2::new(dx, dy), t);
                 let obj = state.system.lookup_orbiter_mut(*id)?;
                 obj.event = Some(evt);

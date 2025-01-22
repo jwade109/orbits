@@ -388,13 +388,32 @@ impl OrbitalSystem {
         Some(())
     }
 
+    pub fn propagate_to(&mut self, stamp: Nanotime) {
+        for (_, subsys) in &mut self.subsystems {
+            subsys.propagate_to(stamp);
+        }
+
+        let mut to_apply = vec![];
+        for obj in &mut self.objects {
+            let e = obj.take_event(stamp);
+            e.map(|e| to_apply.push(e));
+        }
+
+        for e in to_apply {
+            self.apply(e);
+        }
+    }
+
     pub fn add_object(&mut self, id: ObjectId, orbit: Orbit) {
         self.objects.push(Object::new(id, orbit));
         self.high_water_mark.0 = self.high_water_mark.0.max(id.0)
     }
 
     pub fn remove_object(&mut self, id: ObjectId) {
-        self.objects.retain(|obj| obj.id != id)
+        self.objects.retain(|obj| obj.id != id);
+        for (_, sys) in &mut self.subsystems {
+            sys.remove_object(id);
+        }
     }
 
     pub fn add_subsystem(&mut self, id: ObjectId, orbit: Orbit, subsys: OrbitalSystem) {
