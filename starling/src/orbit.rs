@@ -272,6 +272,16 @@ impl Orbit {
         (self.mu() * self.semi_latus_rectum()).sqrt()
     }
 
+    pub fn radius_at_angle(&self, angle: f32) -> f32 {
+        let ta = angle - self.arg_periapsis;
+        self.radius_at(ta)
+    }
+
+    pub fn position_at_angle(&self, angle: f32) -> Vec2 {
+        let ta = angle - self.arg_periapsis;
+        self.position_at(ta)
+    }
+
     pub fn radius_at(&self, true_anomaly: f32) -> f32 {
         if self.eccentricity == 1.0 {
             let h = self.angular_momentum();
@@ -366,7 +376,7 @@ impl Orbit {
     pub fn orbit_number(&self, stamp: Nanotime) -> Option<i64> {
         let p = self.period()?;
         let dt = stamp - self.time_at_periapsis;
-        let n = dt.0 / p.0;
+        let n = dt.0.checked_div(p.0)?;
         Some(if dt.0 < 0 { n - 1 } else { n })
     }
 
@@ -439,4 +449,23 @@ pub fn can_intersect_soi(o1: &Orbit, o2: &Orbit, soi: f32) -> bool {
 
 pub fn will_hit_body(o: &Orbit, radius: f32) -> bool {
     o.periapsis_r() <= radius
+}
+
+pub fn to_aabbs(o: &Orbit) -> Vec<AABB> {
+    let n = 30;
+
+    let mut ret = Vec::new();
+    let pos = (0..n)
+        .map(|i| {
+            let ta = 2.0 * PI * i as f32 / (n as f32 - 1.0);
+            o.position_at(ta)
+        })
+        .collect::<Vec<_>>();
+
+    for p in pos.windows(2) {
+        let aabb = AABB::from_arbitrary(p[0], p[1]).padded(4.0);
+        ret.push(aabb);
+    }
+
+    ret
 }

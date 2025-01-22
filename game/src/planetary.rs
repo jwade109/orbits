@@ -33,123 +33,6 @@ impl Plugin for PlanetaryPlugin {
     }
 }
 
-// fn ui_system(mut contexts: EguiContexts, mut state: ResMut<GameState>) {
-//     egui::Window::new("Settings")
-//         .resizable(true)
-//         .show(contexts.ctx_mut(), |ui| {
-//             if state.paused {
-//                 if ui.add(egui::Button::new("Unpause")).clicked() {
-//                     state.paused = false;
-//                 }
-//             } else {
-//                 if ui.add(egui::Button::new("Pause")).clicked() {
-//                     state.paused = true;
-//                 }
-//             }
-
-//             ui.add_space(10.0);
-//             ui.add(egui::Label::new("Sim Speed"));
-//             ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
-//                 for speed in [0.01, 0.1, 1.0, 10.0, 100.0, 1000.0] {
-//                     let en = state.sim_speed != speed;
-//                     let button = egui::Button::new(format!("{:0.2}", speed));
-//                     if ui.add_enabled(en, button).clicked() {
-//                         state.sim_speed = speed;
-//                     }
-//                 }
-//             });
-
-//             ui.add_space(10.0);
-//             if ui.add(egui::Button::new("Toggle Follow")).clicked() {
-//                 state.camera_switch = true;
-//             }
-//             if ui.add(egui::Button::new("Toggle Orbits")).clicked() {
-//                 state.show_orbits = !state.show_orbits;
-//             }
-//             if ui.add(egui::Button::new("Toggle Potential")).clicked() {
-//                 state.show_potential_field = !state.show_potential_field;
-//             }
-
-//             ui.add_space(10.0);
-//             ui.add(egui::Label::new("Scenarios"));
-//             ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
-//                 if ui.add(egui::Button::new("Earth-Moon")).clicked() {
-//                     load_new_scenario(&mut state, earth_moon_example_one());
-//                 }
-//                 if ui.add(egui::Button::new("Moon")).clicked() {
-//                     load_new_scenario(&mut state, just_the_moon());
-//                 }
-//                 if ui.add(egui::Button::new("Jupiter")).clicked() {
-//                     load_new_scenario(&mut state, sun_jupiter_lagrange());
-//                 }
-//             });
-
-//             ui.add_space(10.0);
-//             ui.add(egui::Label::new(format!(
-//                 "Primary ({})",
-//                 state.primary().0
-//             )));
-//             ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
-//                 if ui.add(egui::Button::new("<<<")).clicked() {
-//                     state.primary().0 -= 100;
-//                 }
-//                 if ui.add(egui::Button::new("<<")).clicked() {
-//                     state.primary().0 -= 10;
-//                 }
-//                 if ui.add(egui::Button::new("<")).clicked() {
-//                     state.primary().0 -= 1;
-//                 }
-//                 if ui.add(egui::Button::new(">")).clicked() {
-//                     state.primary().0 += 1;
-//                 }
-//                 if ui.add(egui::Button::new(">>")).clicked() {
-//                     state.primary().0 += 10;
-//                 }
-//                 if ui.add(egui::Button::new(">>>")).clicked() {
-//                     state.primary().0 += 100;
-//                 }
-//             });
-
-//             ui.add_space(10.0);
-//             ui.add(egui::Label::new(format!(
-//                 "Secondary ({})",
-//                 state.secondary_object.0
-//             )));
-//             ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
-//                 if ui.add(egui::Button::new("<<<")).clicked() {
-//                     state.secondary_object.0 -= 100;
-//                 }
-//                 if ui.add(egui::Button::new("<<")).clicked() {
-//                     state.secondary_object.0 -= 10;
-//                 }
-//                 if ui.add(egui::Button::new("<")).clicked() {
-//                     state.secondary_object.0 -= 1;
-//                 }
-//                 if ui.add(egui::Button::new(">")).clicked() {
-//                     state.secondary_object.0 += 1;
-//                 }
-//                 if ui.add(egui::Button::new(">>")).clicked() {
-//                     state.secondary_object.0 += 10;
-//                 }
-//                 if ui.add(egui::Button::new(">>>")).clicked() {
-//                     state.secondary_object.0 += 100;
-//                 }
-//             });
-
-//             ui.add_space(20.0);
-//             ui.heading("Orbital Info");
-//             ui.add_space(10.0);
-//             if let Some((orbit, _)) = state.system.lookup_subsystem(state.primary()) {
-//                 ui.add(egui::Label::new(format!(
-//                     "Epoch: {:?}\nOrbit: {:#?}",
-//                     state.sim_time, orbit
-//                 )));
-//             }
-
-//             ui.allocate_space(ui.available_size());
-//         });
-// }
-
 fn draw(gizmos: Gizmos, res: Res<GameState>) {
     draw_game_state(gizmos, res)
 }
@@ -255,23 +138,16 @@ fn init_system(mut commands: Commands) {
 }
 
 fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
-    if state.paused {
-        return;
+    if !state.paused {
+        let sp = 10.0f32.powi(state.sim_speed);
+        state.sim_time += Nanotime((time.delta().as_nanos() as f32 * sp) as i64);
     }
-    let sp = 10.0f32.powi(state.sim_speed);
-    state.sim_time += Nanotime((time.delta().as_nanos() as f32 * sp) as i64);
 
     let s = state.sim_time;
     let mut to_apply = vec![];
     for obj in &mut state.system.objects {
-        obj.events.retain(|e| {
-            if e.stamp <= s {
-                to_apply.push(*e);
-                false
-            } else {
-                true
-            }
-        })
+        let e = obj.take_event(s);
+        e.map(|e| to_apply.push(e));
     }
     for e in to_apply {
         state.system.apply(e);
@@ -283,8 +159,8 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
             .ids()
             .iter()
             .filter_map(|id| {
-                let pos = state.system.pv(*id, state.sim_time)?.pos;
-                a.contains(pos).then(|| *id)
+                let pv = state.system.lookup(*id, state.sim_time)?.pv();
+                a.contains(pv.pos).then(|| *id)
             })
             .collect();
     } else {
@@ -292,7 +168,7 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     }
 
     let mut track_list = state.track_list.clone();
-    track_list.retain(|o| state.system.lookup(*o).is_some());
+    track_list.retain(|o| state.system.lookup(*o, state.sim_time).is_some());
     state.track_list = track_list;
 }
 
@@ -307,7 +183,11 @@ fn sim_speed_str(speed: i32) -> String {
 }
 
 fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
-    send_log(&mut evt, &format!("Tracks: {:?}", state.track_list));
+    if state.track_list.len() > 15 {
+        send_log(&mut evt, &format!("Tracks: lots of em"));
+    } else {
+        send_log(&mut evt, &format!("Tracks: {:?}", state.track_list));
+    }
     send_log(&mut evt, &format!("Epoch: {:?}", state.sim_time));
     send_log(&mut evt, &format!("Scale: {:0.3}", state.actual_scale));
     send_log(&mut evt, &format!("{} objects", state.system.objects.len()));
@@ -322,25 +202,26 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
             sim_speed_str(state.sim_speed)
         ),
     );
-    send_log(
-        &mut evt,
-        &format!("Object type: {:?}", state.system.otype(state.primary())),
-    );
 
-    if let Some(obj) = state.system.lookup(state.primary()) {
-        let pv = obj.orbit.pv_at_time(state.sim_time);
-        send_log(&mut evt, &format!("{:#?}", obj));
-        send_log(&mut evt, &format!("{:#?}", pv));
-        let ta = obj.orbit.ta_at_time(state.sim_time);
-        let ea = true_to_eccentric(ta, obj.orbit.eccentricity);
-        let ma = eccentric_to_mean(ea, obj.orbit.eccentricity);
-        let ea2 = mean_to_eccentric(ma, obj.orbit.eccentricity)
-            .unwrap_or(Anomaly::with_ecc(obj.orbit.eccentricity, 0.3777));
-        let ta2 = eccentric_to_true(ea2, obj.orbit.eccentricity);
+    if let Some(lup) = state.system.lookup(state.primary(), state.sim_time) {
+        send_log(&mut evt, &format!("{:#?}", lup.object));
+        send_log(&mut evt, &format!("LO: {}", lup.local_pv));
+        send_log(&mut evt, &format!("GL: {}", lup.frame_pv));
 
-        let mm = obj.orbit.mean_motion();
+        if let Some(b) = lup.body {
+            send_log(&mut evt, &format!("BD: {:?}", b));
+        }
 
-        let dt = ma.as_f32() / mm;
+        // let ta = obj.orbit.ta_at_time(state.sim_time);
+        // let ea = true_to_eccentric(ta, obj.orbit.eccentricity);
+        // let ma = eccentric_to_mean(ea, obj.orbit.eccentricity);
+        // let ea2 = mean_to_eccentric(ma, obj.orbit.eccentricity)
+        //     .unwrap_or(Anomaly::with_ecc(obj.orbit.eccentricity, 0.3777));
+        // let ta2 = eccentric_to_true(ea2, obj.orbit.eccentricity);
+
+        // let mm = obj.orbit.mean_motion();
+
+        // let dt = ma.as_f32() / mm;
 
         // send_log(
         //     &mut evt,
@@ -352,18 +233,27 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
 
         send_log(
             &mut evt,
-            &format!("Consistent: {}", obj.orbit.is_consistent(state.sim_time)),
+            &format!(
+                "Consistent: {}",
+                lup.object.orbit.is_consistent(state.sim_time)
+            ),
         );
 
         send_log(
             &mut evt,
-            &format!("Next p: {:?}", obj.orbit.t_next_p(state.sim_time)),
+            &format!("Next p: {:?}", lup.object.orbit.t_next_p(state.sim_time)),
         );
 
-        send_log(&mut evt, &format!("Period: {:?}", obj.orbit.period()));
         send_log(
             &mut evt,
-            &format!("Orbit count: {:?}", obj.orbit.orbit_number(state.sim_time)),
+            &format!("Period: {:?}", lup.object.orbit.period()),
+        );
+        send_log(
+            &mut evt,
+            &format!(
+                "Orbit count: {:?}",
+                lup.object.orbit.orbit_number(state.sim_time)
+            ),
         );
     }
 }
@@ -454,38 +344,40 @@ fn run_physics_predictions(state: &mut GameState) {
         .track_list
         .iter()
         .filter_map(|id| {
-            let obj = state.system.lookup(*id)?;
+            let lup = state.system.lookup(*id, state.sim_time)?;
 
-            if !obj.events.is_empty() {
+            if lup.object.event.is_some() {
                 return None;
             }
 
-            let start = obj
-                .computed_until
-                .unwrap_or(state.sim_time)
-                .max(state.sim_time);
+            let start = match lup.object.horizon {
+                PhysicsHorizon::Finite(t) => t,
+                PhysicsHorizon::None => state.sim_time,
+                PhysicsHorizon::Perpetual => {
+                    return None;
+                }
+            };
+
             let end = start + Nanotime::secs(100);
 
             let future = get_future_path(&state.system, *id, start, end);
 
-            let (pos, crashtime) = match future {
+            let event = match future {
                 Err(_) => {
                     println!("Prediction failed: {}, {:?}", *id, future);
                     return None;
                 }
-                Ok((pos, crashtime)) => (pos, crashtime),
+                Ok(event) => event,
             };
 
             let object = state.system.lookup_orbiter_mut(*id)?;
 
-            if let Some(crash) = crashtime {
-                let e: OrbitalEvent = OrbitalEvent::collision(*id, crash);
-                object.events.push(e);
-                object.computed_until = Some(e.stamp);
-                object.sample_points.extend_from_slice(&pos);
+            if let Some((t, e)) = event {
+                let e = OrbitalEvent::new(*id, t, e);
+                object.event = Some(e);
+                object.horizon = PhysicsHorizon::Finite(t);
             } else {
-                object.computed_until = Some(end);
-                object.sample_points.clear();
+                object.horizon = PhysicsHorizon::Finite(end);
             }
 
             Some(())
@@ -566,10 +458,10 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
                     .filter_map(|s| Some(-(s.parse::<i32>().ok()?))),
             );
         }
-    } else if starts_with("remove") {
-        if let Some(n) = cmd.get(1).map(|s| s.parse::<i64>().ok()).flatten() {
-            state.system.remove_object(ObjectId(n));
-        }
+    } else if starts_with("rm") {
+        state.track_list.iter().for_each(|i| {
+            state.system.remove_object(*i);
+        });
     } else if starts_with("spawn") {
         dbg!(cmd);
         if let Some(coords) = cmd
@@ -591,15 +483,19 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
     } else if starts_with("clear") {
         state.system.objects.clear();
     } else if starts_with("maneuver") {
-        _ = state.track_list.iter().filter_map(|id| {
-            let t = Nanotime::secs_f32(cmd.get(1)?.parse().ok()?);
-            let dx = cmd.get(2)?.parse::<f32>().ok()?;
-            let dy = cmd.get(3)?.parse::<f32>().ok()?;
-            let evt = OrbitalEvent::maneuver(*id, Vec2::new(dx, dy), t);
-            let obj = state.system.lookup_orbiter_mut(*id)?;
-            obj.events.push(evt);
-            Some(())
-        }).collect::<Vec<_>>();
+        _ = state
+            .track_list
+            .iter()
+            .filter_map(|id| {
+                let t = Nanotime::secs_f32(cmd.get(1)?.parse().ok()?);
+                let dx = cmd.get(2)?.parse::<f32>().ok()?;
+                let dy = cmd.get(3)?.parse::<f32>().ok()?;
+                let evt = OrbitalEvent::maneuver(*id, Vec2::new(dx, dy), t);
+                let obj = state.system.lookup_orbiter_mut(*id)?;
+                obj.event = Some(evt);
+                Some(())
+            })
+            .collect::<Vec<_>>();
     }
 }
 

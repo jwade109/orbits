@@ -62,9 +62,16 @@ pub fn draw_orbit(
         let b = orb.semi_major_axis * (1.0 - orb.eccentricity.powi(2)).sqrt();
         let center: Vec2 = origin + (orb.periapsis() + orb.apoapsis()) / 2.0;
         let iso = Isometry2d::new(center, orb.arg_periapsis.into());
+
+        let res = if detailed {
+            1000
+        } else {
+            orb.semi_major_axis.clamp(40.0, 300.0) as u32
+        };
+
         gizmos
             .ellipse_2d(iso, Vec2::new(orb.semi_major_axis, b), alpha(base_color, a))
-            .resolution(orb.semi_major_axis.clamp(40.0, 300.0) as u32);
+            .resolution(res);
     }
 
     if !detailed {
@@ -89,7 +96,7 @@ pub fn draw_orbit(
     let t2 = root + orb.tangent_at(ta) * 60.0;
     let t3 = root + orb.velocity_at(ta) * 3.0;
     gizmos.line_2d(root, t1, GREEN);
-    gizmos.line_2d(root, Vec2::ZERO, alpha(GREEN, 0.4));
+    gizmos.line_2d(root, origin, alpha(GREEN, 0.4));
     gizmos.line_2d(root, t2, GREEN);
     gizmos.line_2d(root, t3, PURPLE);
 
@@ -131,18 +138,11 @@ pub fn draw_orbital_system(
     origin: Vec2,
     scale: f32,
     show_orbits: bool,
-    show_barycenter: bool,
 ) {
     draw_shadows(gizmos, origin, sys.primary.radius, stamp);
     draw_globe(gizmos, origin, sys.primary.radius, WHITE);
     for (a, ds) in [(1.0, 1.0), (0.3, 0.98), (0.1, 0.95)] {
         draw_circle(gizmos, origin, sys.primary.soi * ds, alpha(ORANGE, a));
-    }
-
-    if show_barycenter {
-        let (b, _) = sys.barycenter();
-        gizmos.circle_2d(Isometry2d::from_translation(origin + b), 6.0, PURPLE);
-        draw_x(gizmos, b, 8.0, PURPLE);
     }
 
     for obj in &sys.objects {
@@ -161,33 +161,18 @@ pub fn draw_orbital_system(
                 WHITE
             }
         };
-        draw_square(gizmos, origin + pv.pos, (9.0 * scale).min(9.0), color);
+        draw_circle(gizmos, origin + pv.pos, (3.0 * scale).min(3.0), color);
         if show_orbits {
-            let color = if obj.events.is_empty() { GRAY } else { PURPLE };
-            let a = if obj.events.is_empty() { 0.05 } else { 0.4 };
+            let color = if obj.event.is_none() { GRAY } else { PURPLE };
+            let a = if obj.event.is_none() { 0.05 } else { 0.4 };
             draw_orbit(origin, stamp, &obj.orbit, gizmos, a, color, false);
         }
     }
 
     for (obj, subsys) in sys.subsystems.iter() {
         draw_orbit(origin, stamp, &obj.orbit, gizmos, 0.1, WHITE, false);
-
-        let mut o = obj.orbit;
-        o.semi_major_axis -= subsys.primary.soi;
-        draw_orbit(origin, stamp, &o, gizmos, 0.3, RED, false);
-        o.semi_major_axis += 2.0 * subsys.primary.soi;
-        draw_orbit(origin, stamp, &o, gizmos, 0.3, RED, false);
-
         let pv = obj.orbit.pv_at_time(stamp);
-        draw_orbital_system(
-            gizmos,
-            subsys,
-            stamp,
-            origin + pv.pos,
-            scale,
-            show_orbits,
-            false,
-        );
+        draw_orbital_system(gizmos, subsys, stamp, origin + pv.pos, scale, show_orbits);
     }
 }
 
@@ -311,12 +296,11 @@ pub fn draw_event(
     sys: &OrbitalSystem,
     scale: f32,
 ) -> Option<()> {
-    let obj = sys.lookup(event.target)?;
-    let pv = obj.orbit.pv_at_time(event.stamp);
+    let pv = sys.lookup(event.target, event.stamp)?.pv();
     let color = match event.etype {
         EventType::Collide => RED,
-        EventType::Encounter(_) => ORANGE,
-        EventType::Escape => BLUE,
+        EventType::Encounter(_) => GREEN,
+        EventType::Escape => TEAL,
         EventType::Maneuver(_) => PURPLE,
     };
     draw_circle(gizmos, pv.pos, 10.0 * scale, alpha(color, 0.5));
@@ -329,42 +313,40 @@ pub fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) {
         .highlighted_list
         .iter()
         .filter_map(|id| {
-            let pos = state.system.pv(*id, state.sim_time)?.pos;
-            draw_circle(gizmos, pos, 20.0, GRAY);
+            let pv = state.system.lookup(*id, state.sim_time)?.pv();
+            draw_circle(gizmos, pv.pos, 20.0 * state.actual_scale, GRAY);
             Some(())
         })
         .collect::<Vec<_>>();
 }
 
 pub fn draw_tracked_objects(gizmos: &mut Gizmos, state: &GameState) {
-    let origin = PV::zero(); // TODO
     let color = ORANGE;
     let size = 70.0;
     let plist = state
         .track_list
         .iter()
         .filter_map(|id| {
-            let pv = state.system.pv(*id, state.sim_time)?;
-            let obj = state.system.lookup(*id)?;
+            let lup = state.system.lookup(*id, state.sim_time)?;
             if state.track_list.len() < 10 {
                 draw_orbit(
-                    origin.pos,
+                    lup.frame_pv.pos,
                     state.sim_time,
-                    &obj.orbit,
+                    &lup.object.orbit,
                     gizmos,
                     0.3,
                     color,
                     true,
                 );
             }
+            let p = (lup.local_pv + lup.frame_pv).pos;
             draw_square(
                 gizmos,
-                pv.pos,
+                p,
                 (size * state.actual_scale).min(size),
                 alpha(color, 0.7),
             );
-            Some(pv.pos)
-            // plist.push(pv.pos);
+            Some(p)
         })
         .collect::<Vec<_>>();
 
@@ -399,32 +381,13 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         Vec2::ZERO,
         state.actual_scale,
         state.show_orbits,
-        false,
     );
-
-    _ = state
-        .system
-        .ids()
-        .iter()
-        .filter_map(|id| {
-            let obj = state.system.lookup(*id)?;
-            for pos in &obj.sample_points {
-                draw_x(
-                    &mut gizmos,
-                    *pos,
-                    3.0 * state.target_scale,
-                    alpha(ORANGE, 0.7),
-                );
-            }
-            Some(())
-        })
-        .collect::<Vec<_>>();
 
     draw_highlighted_objects(&mut gizmos, &state);
 
     for obj in &state.system.objects {
-        for event in &obj.events {
-            draw_event(&mut gizmos, event, &state.system, state.actual_scale);
+        if let Some(event) = obj.event {
+            draw_event(&mut gizmos, &event, &state.system, state.actual_scale);
         }
     }
 

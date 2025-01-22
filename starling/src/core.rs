@@ -139,15 +139,8 @@ impl Div<i64> for Nanotime {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ObjectId(pub i64);
-
-impl Add for ObjectId {
-    type Output = Self;
-    fn add(self, rhs: Self) -> Self {
-        Self(self.0 + rhs.0)
-    }
-}
 
 impl std::fmt::Display for ObjectId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -155,13 +148,25 @@ impl std::fmt::Display for ObjectId {
     }
 }
 
-#[derive(Debug, Clone)]
+impl std::fmt::Debug for ObjectId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "#{}", self.0)
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum PhysicsHorizon {
+    None,
+    Perpetual,
+    Finite(Nanotime),
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct Object {
     pub id: ObjectId,
     pub orbit: Orbit,
-    pub events: Vec<OrbitalEvent>,
-    pub computed_until: Option<Nanotime>,
-    pub sample_points: Vec<Vec2>,
+    pub event: Option<OrbitalEvent>,
+    pub horizon: PhysicsHorizon,
 }
 
 impl Object {
@@ -169,9 +174,28 @@ impl Object {
         Object {
             id,
             orbit,
-            events: Vec::new(),
-            computed_until: None,
-            sample_points: Vec::new(),
+            event: None,
+            horizon: PhysicsHorizon::None,
+        }
+    }
+
+    pub fn has_update(&self, stamp: Nanotime) -> bool {
+        self.event.map_or(false, |e| e.stamp <= stamp)
+    }
+
+    pub fn take_event(&mut self, stamp: Nanotime) -> Option<OrbitalEvent> {
+        if self.has_update(stamp) {
+            self.event.take()
+        } else {
+            None
+        }
+    }
+
+    pub fn horizon(&self) -> Option<Nanotime> {
+        if let PhysicsHorizon::Finite(t) = self.horizon {
+            Some(t)
+        } else {
+            None
         }
     }
 }
@@ -203,6 +227,16 @@ impl PV {
             pos: pos.into(),
             vel: vel.into(),
         }
+    }
+}
+
+impl std::fmt::Display for PV {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "P({:0.3}, {:0.3}) V({:0.3}, {:0.3})",
+            self.pos.x, self.pos.y, self.vel.x, self.vel.y
+        )
     }
 }
 
@@ -257,6 +291,14 @@ pub enum EventType {
 }
 
 impl OrbitalEvent {
+    pub fn new(target: ObjectId, stamp: Nanotime, etype: EventType) -> Self {
+        OrbitalEvent {
+            target,
+            stamp,
+            etype,
+        }
+    }
+
     pub fn collision(target: ObjectId, stamp: Nanotime) -> Self {
         OrbitalEvent {
             target,
@@ -290,6 +332,20 @@ impl OrbitalEvent {
     }
 }
 
+pub struct ObjectLookup {
+    pub object: Object,
+    pub local_pv: PV,
+    pub frame_pv: PV,
+    pub otype: ObjectType,
+    pub body: Option<Body>,
+}
+
+impl ObjectLookup {
+    pub fn pv(&self) -> PV {
+        self.local_pv + self.frame_pv
+    }
+}
+
 impl OrbitalSystem {
     pub fn new(body: Body) -> Self {
         OrbitalSystem {
@@ -310,10 +366,14 @@ impl OrbitalSystem {
                 self.remove_object(event.target);
             }
             EventType::Encounter(pri) => {
-                // TODO!
-                // let (_, spv) = self.lookup_subsystem(pri, event.stamp)?;
-                // let pv = self.lookup_orbiter(event.target)?.pv_at_time(event.stamp);
-                // let rel = pv - spv;
+                let l1 = self.lookup(pri, event.stamp)?;
+                let b = l1.body?;
+                let l2 = self.lookup(event.target, event.stamp)?;
+                let d = l2.pv() - l1.pv();
+                let orbit = Orbit::from_pv(d.pos, d.vel, b.mass, event.stamp);
+                self.remove_object(event.target);
+                let (_, sys) = self.subsystems.iter_mut().find(|(obj, _)| obj.id == pri)?;
+                sys.add_object(event.target, orbit)
             }
             EventType::Maneuver(dv) => {
                 let dpv = PV::new(Vec2::ZERO, dv);
@@ -321,8 +381,8 @@ impl OrbitalSystem {
                 let obj = self.lookup_orbiter_mut(event.target)?;
                 let pv = obj.orbit.pv_at_time(event.stamp) + dpv;
                 obj.orbit = Orbit::from_pv(pv.pos, pv.vel, m, event.stamp);
-                obj.computed_until = None;
-                obj.events.clear();
+                obj.horizon = PhysicsHorizon::None;
+                obj.event = None;
             }
         };
         Some(())
@@ -342,49 +402,62 @@ impl OrbitalSystem {
         self.high_water_mark.0 = self.high_water_mark.0.max(id.0)
     }
 
-    pub fn has_object(&self, id: ObjectId) -> bool {
-        self.objects.iter().find(|obj| obj.id == id).is_some()
-    }
-
     pub fn ids(&self) -> Vec<ObjectId> {
         let mut ret: Vec<ObjectId> = self.objects.iter().map(|obj| obj.id).collect();
-        for (_, sys) in &self.subsystems {
+        for (obj, sys) in &self.subsystems {
+            ret.push(obj.id);
             ret.extend_from_slice(&sys.ids());
         }
         ret
     }
 
-    pub fn otype(&self, o: ObjectId) -> Option<ObjectType> {
-        if self.lookup_orbiter(o).is_some() {
-            Some(ObjectType::Orbiter)
-        } else if self.lookup_system(o).is_some() {
-            Some(ObjectType::System)
-        } else {
-            None
-        }
+    fn lookup_inner(&self, id: ObjectId, stamp: Nanotime, frame_pv: PV) -> Option<ObjectLookup> {
+        let find_subsys = || {
+            self.subsystems.iter().find_map(|(o, sys)| {
+                if o.id != id {
+                    return None;
+                }
+
+                let local_pv = o.orbit.pv_at_time(stamp);
+
+                Some(ObjectLookup {
+                    object: *o,
+                    local_pv,
+                    frame_pv,
+                    otype: ObjectType::System,
+                    body: Some(sys.primary),
+                })
+            })
+        };
+
+        let find_object = || {
+            self.objects.iter().find_map(|o| {
+                if o.id != id {
+                    return None;
+                }
+
+                Some(ObjectLookup {
+                    object: *o,
+                    local_pv: o.orbit.pv_at_time(stamp),
+                    frame_pv,
+                    otype: ObjectType::Orbiter,
+                    body: None,
+                })
+            })
+        };
+
+        let find_recurse = || {
+            self.subsystems.iter().find_map(|(o, sys)| {
+                let pv = o.orbit.pv_at_time(stamp) + frame_pv;
+                sys.lookup_inner(id, stamp, pv)
+            })
+        };
+
+        find_subsys().or_else(find_object).or_else(find_recurse)
     }
 
-    fn lookup_orbiter(&self, o: ObjectId) -> Option<&Object> {
-        self.objects
-            .iter()
-            .find_map(|obj| if obj.id == o { Some(obj) } else { None })
-    }
-
-    fn lookup_system(&self, o: ObjectId) -> Option<(&Object, &OrbitalSystem)> {
-        self.subsystems
-            .iter()
-            .find_map(|(obj, sys)| if obj.id == o { Some((obj, sys)) } else { None })
-    }
-
-    pub fn lookup(&self, o: ObjectId) -> Option<&Object> {
-        for (_, sys) in &self.subsystems {
-            let obj = sys.lookup(o);
-            if obj.is_some() {
-                return obj;
-            }
-        }
-        self.lookup_orbiter(o)
-            .or_else(|| Some(self.lookup_system(o)?.0))
+    pub fn lookup(&self, id: ObjectId, stamp: Nanotime) -> Option<ObjectLookup> {
+        self.lookup_inner(id, stamp, PV::zero())
     }
 
     pub fn lookup_orbiter_mut(&mut self, o: ObjectId) -> Option<&mut Object> {
@@ -401,28 +474,6 @@ impl OrbitalSystem {
             ret += sys.potential_at(pos - pv.pos, stamp);
         }
         ret
-    }
-
-    pub fn barycenter(&self) -> (Vec2, f32) {
-        (Vec2::ZERO, self.primary.mass)
-        // TODO sum subsystems
-    }
-
-    fn pv_inner(&self, id: ObjectId, stamp: Nanotime, wrt: PV) -> Option<PV> {
-        for (obj, sys) in &self.subsystems {
-            let wrt = obj.orbit.pv_at_time(stamp);
-            let pv = sys.pv_inner(id, stamp, wrt);
-            if pv.is_some() {
-                return pv;
-            }
-        }
-
-        let obj = self.lookup(id)?;
-        Some(obj.orbit.pv_at_time(stamp) + wrt)
-    }
-
-    pub fn pv(&self, id: ObjectId, stamp: Nanotime) -> Option<PV> {
-        self.pv_inner(id, stamp, PV::zero())
     }
 }
 
