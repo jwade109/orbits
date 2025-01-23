@@ -168,7 +168,7 @@ pub fn draw_orbital_system(
             }
         };
         draw_circle(gizmos, origin + pv.pos, (3.0 * scale).min(3.0), color);
-        if show_orbits {
+        if show_orbits || obj.event.is_some() {
             let color = if obj.event.is_none() { GRAY } else { PURPLE };
             let a = if obj.event.is_none() { 0.05 } else { 0.4 };
             draw_orbit(origin, stamp, &obj.orbit, gizmos, a, color, false);
@@ -330,7 +330,7 @@ pub fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) {
 pub fn draw_tracked_objects(gizmos: &mut Gizmos, state: &GameState) {
     let color = ORANGE;
     let size = 70.0;
-    let plist = state
+    _ = state
         .track_list
         .iter()
         .filter_map(|id| {
@@ -357,8 +357,8 @@ pub fn draw_tracked_objects(gizmos: &mut Gizmos, state: &GameState) {
         })
         .collect::<Vec<_>>();
 
-    if let Some(aabb) = AABB::from_list(&plist) {
-        draw_aabb(gizmos, aabb.padded(60.0), GRAY);
+    if let Some(aabb) = state.tracked_aabb() {
+        draw_aabb(gizmos, aabb, GRAY);
     }
 }
 

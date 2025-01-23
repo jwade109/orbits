@@ -29,12 +29,48 @@ impl Plugin for PlanetaryPlugin {
         );
         app.add_systems(FixedUpdate, propagate_system);
         app.add_systems(Update, (log_system_info, process_commands));
-        // app.add_plugins(EguiPlugin).add_systems(Update, ui_system);
     }
 }
 
 fn draw(gizmos: Gizmos, res: Res<GameState>) {
     draw_game_state(gizmos, res)
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum CameraTracking {
+    TrackingTracks,
+    TrackingCursor,
+    Freewheeling,
+}
+
+#[derive(Debug)]
+struct CameraState {
+    pub center: Vec2,
+    easing_lpf: f32,
+    state: CameraTracking,
+}
+
+impl CameraState {
+    fn track(&mut self, pos: Vec2, state: CameraTracking) {
+        if self.state != state {
+            self.easing_lpf = 0.1;
+        }
+
+        // let center = aabb.center();
+        self.center += (pos - self.center) * self.easing_lpf;
+        self.easing_lpf += (1.0 - self.easing_lpf) * 0.01;
+        self.state = state;
+    }
+}
+
+impl Default for CameraState {
+    fn default() -> Self {
+        Self {
+            center: Vec2::ZERO,
+            easing_lpf: 0.1,
+            state: CameraTracking::Freewheeling,
+        }
+    }
 }
 
 #[derive(Resource)]
@@ -51,10 +87,10 @@ pub struct GameState {
     pub target_scale: f32,
     pub actual_scale: f32,
     pub camera_easing: Vec2,
-    pub camera_switch: bool,
     pub draw_levels: Vec<i32>,
     pub cursor: Vec2,
-    pub center: Vec2,
+    pub camera: CameraState,
+    pub follow: bool,
     pub mouse_screen_pos: Option<Vec2>,
     pub mouse_down_pos: Option<Vec2>,
     pub window_dims: Vec2,
@@ -62,7 +98,7 @@ pub struct GameState {
 
 impl GameState {
     pub fn game_bounds(&self) -> AABB {
-        AABB::from_center(self.center, self.window_dims * self.actual_scale)
+        AABB::from_center(self.camera.center, self.window_dims * self.actual_scale)
     }
 
     pub fn window_bounds(&self) -> AABB {
@@ -100,6 +136,15 @@ impl GameState {
             self.track_list.push(id);
         }
     }
+
+    pub fn tracked_aabb(&self) -> Option<AABB> {
+        let pos = self
+            .track_list
+            .iter()
+            .filter_map(|id| Some(self.system.lookup(*id, self.sim_time)?.pv().pos))
+            .collect::<Vec<_>>();
+        AABB::from_list(&pos).map(|aabb| aabb.padded(60.0))
+    }
 }
 
 impl Default for GameState {
@@ -117,13 +162,13 @@ impl Default for GameState {
             target_scale: 4.0,
             actual_scale: 4.0,
             camera_easing: Vec2::ZERO,
-            camera_switch: false,
             draw_levels: (-70000..=-10000)
                 .step_by(10000)
                 .chain((-5000..-3000).step_by(250))
                 .collect(),
             cursor: Vec2::ZERO,
-            center: Vec2::ZERO,
+            camera: CameraState::default(),
+            follow: false,
             mouse_screen_pos: None,
             mouse_down_pos: None,
             window_dims: Vec2::ZERO,
@@ -145,7 +190,6 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
 
     let s = state.sim_time;
     state.system.propagate_to(s);
-    run_physics_predictions(&mut state.system, s);
 
     if let Some(a) = state.selection_region() {
         state.highlighted_list = state
@@ -177,6 +221,7 @@ fn sim_speed_str(speed: i32) -> String {
 }
 
 fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
+    send_log(&mut evt, &format!("Camera: {:?}", state.camera));
     if state.track_list.len() > 15 {
         send_log(&mut evt, &format!("Tracks: lots of em"));
     } else {
@@ -272,7 +317,10 @@ fn keyboard_input(
                 state.sim_speed = i32::clamp(state.sim_speed - 1, -6, 4);
             }
             KeyCode::KeyF => {
-                state.camera_switch = true;
+                state.follow = !state.follow;
+                if state.follow {
+                    state.camera.easing_lpf = 0.1;
+                }
             }
             KeyCode::Equal => {
                 state.target_scale /= 1.5;
@@ -289,15 +337,19 @@ fn keyboard_input(
 
     if keys.pressed(KeyCode::ArrowLeft) || keys.pressed(KeyCode::KeyA) {
         state.cursor.x -= cursor_rate * dt;
+        state.follow = false;
     }
     if keys.pressed(KeyCode::ArrowRight) || keys.pressed(KeyCode::KeyD) {
         state.cursor.x += cursor_rate * dt;
+        state.follow = false;
     }
     if keys.pressed(KeyCode::ArrowUp) || keys.pressed(KeyCode::KeyW) {
         state.cursor.y += cursor_rate * dt;
+        state.follow = false;
     }
     if keys.pressed(KeyCode::ArrowDown) || keys.pressed(KeyCode::KeyS) {
         state.cursor.y -= cursor_rate * dt;
+        state.follow = false;
     }
     if keys.just_pressed(KeyCode::Space) {
         state.paused = !state.paused;
@@ -323,76 +375,12 @@ fn mouse_button_input(
         for hl in state.highlighted_list.clone() {
             state.toggle_track(hl);
         }
+        state.camera.state = CameraTracking::Freewheeling;
     }
     // we can check multiple at once with `.any_*`
     if buttons.any_just_pressed([MouseButton::Left, MouseButton::Middle]) {
         // Either the left or the middle (wheel) button was just pressed
     }
-}
-
-fn run_physics_predictions(sys: &mut OrbitalSystem, stamp: Nanotime) {
-    for (_, subsys) in &mut sys.subsystems {
-        run_physics_predictions(subsys, stamp);
-    }
-
-    let physics_dur = Nanotime::secs(1000);
-    let minimum_dur = Nanotime::secs(100);
-
-    let mut run_this_step = 2;
-
-    let ids = sys.ids();
-    _ = ids
-        .iter()
-        .filter_map(|id| {
-            if run_this_step == 0 {
-                return None;
-            }
-
-            let lup = sys.lookup(*id, stamp)?;
-
-            if lup.object.event.is_some() {
-                return None;
-            }
-
-            let start = match lup.object.horizon {
-                PhysicsHorizon::Finite(t) => t,
-                PhysicsHorizon::None => stamp,
-                PhysicsHorizon::Perpetual => {
-                    return None;
-                }
-            };
-
-            let end = start + physics_dur;
-
-            if stamp + minimum_dur < start {
-                return None;
-            }
-
-            let future = get_future_path(&sys, *id, start, end);
-
-            let event = match future {
-                Err(_) => {
-                    println!("Prediction failed: {}, {:?}", *id, future);
-                    return None;
-                }
-                Ok(event) => event,
-            };
-
-            let object = sys.lookup_orbiter_mut(*id)?;
-
-            if let Some((t, e)) = event {
-                let e = OrbitalEvent::new(*id, t, e);
-                object.event = Some(e);
-                object.horizon = PhysicsHorizon::Finite(t);
-            } else {
-                object.horizon = PhysicsHorizon::Finite(end);
-            }
-
-            run_this_step -= 1;
-
-            Some(())
-        })
-        .collect::<Vec<_>>();
 }
 
 fn update_cursor(
@@ -488,7 +476,7 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
             let orbit = Orbit::from_pv(r, v, state.system.primary.mass, state.sim_time);
             let id = ObjectId((rand(0.0, 1.0) * 10000.0 + 1000.0) as i64);
             state.toggle_track(id);
-            state.system.add_object(id, orbit);
+            state.system.add_object(id, orbit, state.sim_time);
         }
     } else if starts_with("clear") {
         state.system.objects.clear();
@@ -497,17 +485,14 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
             .track_list
             .iter()
             .filter_map(|id| {
-                let t = Nanotime::secs_f32(cmd.get(1)?.parse().ok()?);
+                let dt = Nanotime::secs_f32(cmd.get(1)?.parse().ok()?);
                 let dx = cmd.get(2)?.parse::<f32>().ok()?;
                 let dy = cmd.get(3)?.parse::<f32>().ok()?;
-                let t = if t == Nanotime(0) {
-                    state.sim_time + Nanotime::millis(2)
-                } else {
-                    t
-                };
+                let t = state.sim_time + dt;
                 let evt = OrbitalEvent::maneuver(*id, Vec2::new(dx, dy), t);
                 let obj = state.system.lookup_orbiter_mut(*id)?;
                 obj.event = Some(evt);
+                obj.propagator.freeze(evt.stamp);
                 Some(())
             })
             .collect::<Vec<_>>();
@@ -530,19 +515,22 @@ fn handle_zoom(mut state: ResMut<GameState>, mut tf: Query<&mut Transform, With<
 fn update_camera(mut query: Query<&mut Transform, With<Camera>>, mut state: ResMut<GameState>) {
     let mut tf = query.single_mut();
 
-    let current_pos = tf.translation.xy();
-
-    let target_pos = state.cursor;
-
-    if state.camera_switch {
-        state.camera_easing = current_pos - target_pos;
+    if state.follow {
+        if let Some(a) = state.tracked_aabb() {
+            state
+                .camera
+                .track(a.center(), CameraTracking::TrackingTracks);
+            state.cursor = state.camera.center;
+        } else {
+            let s = state.cursor;
+            state.camera.track(s, CameraTracking::Freewheeling);
+        }
+    } else {
+        let s = state.cursor;
+        state.camera.track(s, CameraTracking::TrackingCursor)
     }
 
-    state.camera_switch = false;
-
-    state.center = target_pos + state.camera_easing;
-
-    *tf = tf.with_translation(state.center.extend(0.0));
+    *tf = tf.with_translation(state.camera.center.extend(0.0));
     state.camera_easing *= 0.85;
 }
 

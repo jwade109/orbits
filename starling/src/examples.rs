@@ -27,6 +27,7 @@ pub fn just_the_moon() -> OrbitalSystem {
                 primary_mass: LUNA.0.mass,
                 time_at_periapsis: Nanotime::default(),
             },
+            Nanotime(0),
         );
     }
 
@@ -43,6 +44,7 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
     system.add_object(
         id.next(),
         Orbit::circular(EARTH.radius * 1.1, EARTH.mass, Nanotime::default(), false),
+        Nanotime(0),
     );
 
     for _ in 0..200 {
@@ -56,6 +58,7 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
                 primary_mass: EARTH.mass,
                 time_at_periapsis: Nanotime::default(),
             },
+            Nanotime(0),
         );
     }
 
@@ -80,6 +83,7 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
                 primary_mass: EARTH.mass,
                 time_at_periapsis: Nanotime::default(),
             },
+            Nanotime(0),
         );
     }
 
@@ -96,10 +100,11 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
                 primary_mass: LUNA.0.mass,
                 time_at_periapsis: Nanotime::default(),
             },
+            Nanotime(0),
         );
     }
 
-    system.add_subsystem(luna_id, LUNA.1, subsys);
+    system.add_subsystem(luna_id, LUNA.1, Nanotime(0), subsys);
 
     let asteroid = (
         Body::new(10.0, 2.0, 60.0),
@@ -118,9 +123,10 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
     ast.add_object(
         id.next(),
         Orbit::circular(13.0, asteroid.0.mass, Nanotime::default(), false),
+        Nanotime(0),
     );
 
-    system.add_subsystem(id.next(), asteroid.1, ast);
+    system.add_subsystem(id.next(), asteroid.1, Nanotime(0), ast);
 
     system
 }
@@ -133,6 +139,7 @@ pub fn earth_moon_example_two() -> OrbitalSystem {
     system.add_object(
         id.next(),
         Orbit::circular(EARTH.radius * 1.1, EARTH.mass, Nanotime::default(), false),
+        Nanotime(0),
     );
 
     for vel in (180..200).step_by(2) {
@@ -145,11 +152,12 @@ pub fn earth_moon_example_two() -> OrbitalSystem {
                 EARTH.mass,
                 Nanotime::default(),
             ),
+            Nanotime(0),
         );
     }
 
     let subsys = OrbitalSystem::new(LUNA.0);
-    system.add_subsystem(id.next(), LUNA.1, subsys);
+    system.add_subsystem(id.next(), LUNA.1, Nanotime(0), subsys);
 
     system
 }
@@ -180,7 +188,12 @@ pub fn sun_jupiter_lagrange() -> OrbitalSystem {
         time_at_periapsis: Nanotime::default(),
     };
 
-    system.add_subsystem(id.next(), jupiter_orbit, OrbitalSystem::new(jupiter));
+    system.add_subsystem(
+        id.next(),
+        jupiter_orbit,
+        Nanotime(0),
+        OrbitalSystem::new(jupiter),
+    );
 
     // let s = system.add_object(Vec2::ZERO, Some(sun));
 
@@ -195,7 +208,7 @@ pub fn sun_jupiter_lagrange() -> OrbitalSystem {
             primary_mass: sun.mass,
             time_at_periapsis: Nanotime::default(),
         };
-        system.add_object(id.next(), orbit);
+        system.add_object(id.next(), orbit, Nanotime(0));
     }
 
     system
@@ -225,7 +238,7 @@ pub fn consistency_example() -> OrbitalSystem {
     }
 
     for orbit in orbits {
-        system.add_object(ids.next(), orbit);
+        system.add_object(ids.next(), orbit, Nanotime(0));
     }
 
     system
@@ -234,7 +247,7 @@ pub fn consistency_example() -> OrbitalSystem {
 pub fn single_hyperbolic() -> OrbitalSystem {
     let mut system: OrbitalSystem = OrbitalSystem::new(EARTH);
     let orbit = Orbit::from_pv((400.0, 0.0), (0.0, 260.0), EARTH.mass, Nanotime(0));
-    system.add_object(ObjectId(0), orbit);
+    system.add_object(ObjectId(0), orbit, Nanotime(0));
     system
 }
 

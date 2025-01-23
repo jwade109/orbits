@@ -1,4 +1,5 @@
 use crate::orbit::*;
+use crate::planning::*;
 use bevy::math::Vec2;
 use rand::Rng;
 use std::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
@@ -155,27 +156,20 @@ impl std::fmt::Debug for ObjectId {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum PhysicsHorizon {
-    None,
-    Perpetual,
-    Finite(Nanotime),
-}
-
-#[derive(Debug, Clone, Copy)]
 pub struct Object {
     pub id: ObjectId,
     pub orbit: Orbit,
     pub event: Option<OrbitalEvent>,
-    pub horizon: PhysicsHorizon,
+    pub propagator: Propagator,
 }
 
 impl Object {
-    pub fn new(id: ObjectId, orbit: Orbit) -> Self {
+    pub fn new(id: ObjectId, orbit: Orbit, stamp: Nanotime) -> Self {
         Object {
             id,
             orbit,
             event: None,
-            horizon: PhysicsHorizon::None,
+            propagator: Propagator::new(stamp),
         }
     }
 
@@ -185,15 +179,8 @@ impl Object {
 
     pub fn take_event(&mut self, stamp: Nanotime) -> Option<OrbitalEvent> {
         if self.has_update(stamp) {
+            self.propagator.reset(stamp);
             self.event.take()
-        } else {
-            None
-        }
-    }
-
-    pub fn horizon(&self) -> Option<Nanotime> {
-        if let PhysicsHorizon::Finite(t) = self.horizon {
-            Some(t)
         } else {
             None
         }
@@ -205,7 +192,6 @@ pub struct OrbitalSystem {
     pub primary: Body,
     pub objects: Vec<Object>,
     pub subsystems: Vec<(Object, OrbitalSystem)>,
-    pub high_water_mark: ObjectId,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -332,6 +318,7 @@ impl OrbitalEvent {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct ObjectLookup {
     pub object: Object,
     pub local_pv: PV,
@@ -352,18 +339,18 @@ impl OrbitalSystem {
             primary: body,
             objects: Vec::default(),
             subsystems: vec![],
-            high_water_mark: ObjectId(0),
         }
     }
 
-    pub fn apply(&mut self, event: OrbitalEvent) -> Option<()> {
+    pub fn apply(&mut self, event: OrbitalEvent) -> Option<ObjectLookup> {
         match event.etype {
             EventType::Collide => {
                 self.remove_object(event.target);
             }
             EventType::Escape => {
-                // TODO, this should emit the object
+                let lup = self.lookup(event.target, event.stamp)?;
                 self.remove_object(event.target);
+                return Some(lup);
             }
             EventType::Encounter(pri) => {
                 let l1 = self.lookup(pri, event.stamp)?;
@@ -373,7 +360,7 @@ impl OrbitalSystem {
                 let orbit = Orbit::from_pv(d.pos, d.vel, b.mass, event.stamp);
                 self.remove_object(event.target);
                 let (_, sys) = self.subsystems.iter_mut().find(|(obj, _)| obj.id == pri)?;
-                sys.add_object(event.target, orbit)
+                sys.add_object(event.target, orbit, event.stamp)
             }
             EventType::Maneuver(dv) => {
                 let dpv = PV::new(Vec2::ZERO, dv);
@@ -381,16 +368,27 @@ impl OrbitalSystem {
                 let obj = self.lookup_orbiter_mut(event.target)?;
                 let pv = obj.orbit.pv_at_time(event.stamp) + dpv;
                 obj.orbit = Orbit::from_pv(pv.pos, pv.vel, m, event.stamp);
-                obj.horizon = PhysicsHorizon::None;
                 obj.event = None;
             }
         };
-        Some(())
+        None
     }
 
-    pub fn propagate_to(&mut self, stamp: Nanotime) {
-        for (_, subsys) in &mut self.subsystems {
-            subsys.propagate_to(stamp);
+    pub fn propagate_to(&mut self, stamp: Nanotime) -> Vec<ObjectLookup> {
+        let mut orbits_to_add = vec![];
+
+        for (obj, subsys) in &mut self.subsystems {
+            let lups = subsys.propagate_to(stamp);
+            let pvsys = obj.orbit.pv_at_time(stamp);
+            for lup in lups {
+                let pv = pvsys + lup.pv();
+                let orbit = Orbit::from_pv(pv.pos, pv.vel, self.primary.mass, stamp);
+                orbits_to_add.push((lup.object.id, orbit));
+            }
+        }
+
+        for (id, orbit) in orbits_to_add {
+            self.add_object(id, orbit, stamp)
         }
 
         let mut to_apply = vec![];
@@ -399,26 +397,69 @@ impl OrbitalSystem {
             e.map(|e| to_apply.push(e));
         }
 
+        let mut ret = vec![];
         for e in to_apply {
-            self.apply(e);
+            let lup = self.apply(e);
+            if let Some(lup) = lup {
+                ret.push(lup);
+            }
         }
+
+        let bodies = self
+            .subsystems
+            .iter()
+            .map(|(obj, sys)| (obj.id, obj.orbit, sys.primary.soi))
+            .collect::<Vec<_>>();
+
+        for obj in &mut self.objects {
+            while !obj.propagator.calculated_to(stamp + Nanotime::secs(200)) {
+                let res =
+                    obj.propagator
+                        .next(&obj.orbit, self.primary.radius, self.primary.soi, &bodies);
+                match res {
+                    Err(e) => {
+                        dbg!(e);
+                    }
+                    Ok(Some((t, e))) => {
+                        let event = OrbitalEvent::new(obj.id, t, e);
+                        obj.event = Some(event);
+                    }
+                    _ => (),
+                }
+            }
+        }
+
+        ret
     }
 
-    pub fn add_object(&mut self, id: ObjectId, orbit: Orbit) {
-        self.objects.push(Object::new(id, orbit));
-        self.high_water_mark.0 = self.high_water_mark.0.max(id.0)
+    pub fn add_object(&mut self, id: ObjectId, orbit: Orbit, stamp: Nanotime) {
+        self.objects.push(Object::new(id, orbit, stamp));
     }
 
-    pub fn remove_object(&mut self, id: ObjectId) {
-        self.objects.retain(|obj| obj.id != id);
+    pub fn remove_object(&mut self, id: ObjectId) -> Option<Object> {
+        if let Some(i) = self.objects.iter().position(|o| o.id == id) {
+            return Some(self.objects.swap_remove(i));
+        }
+
         for (_, sys) in &mut self.subsystems {
-            sys.remove_object(id);
+            let x = sys.remove_object(id);
+            if x.is_some() {
+                return x;
+            }
         }
+
+        None
     }
 
-    pub fn add_subsystem(&mut self, id: ObjectId, orbit: Orbit, subsys: OrbitalSystem) {
-        self.subsystems.push((Object::new(id, orbit), subsys));
-        self.high_water_mark.0 = self.high_water_mark.0.max(id.0)
+    pub fn add_subsystem(
+        &mut self,
+        id: ObjectId,
+        orbit: Orbit,
+        stamp: Nanotime,
+        subsys: OrbitalSystem,
+    ) {
+        self.subsystems
+            .push((Object::new(id, orbit, stamp), subsys));
     }
 
     pub fn ids(&self) -> Vec<ObjectId> {
