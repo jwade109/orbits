@@ -94,6 +94,7 @@ pub struct GameState {
     pub mouse_screen_pos: Option<Vec2>,
     pub mouse_down_pos: Option<Vec2>,
     pub window_dims: Vec2,
+    pub control_points: Vec<Vec2>,
 }
 
 impl GameState {
@@ -172,6 +173,7 @@ impl Default for GameState {
             mouse_screen_pos: None,
             mouse_down_pos: None,
             window_dims: Vec2::ZERO,
+            control_points: Vec::new(),
         }
     }
 }
@@ -366,6 +368,14 @@ fn mouse_button_input(
 ) {
     if buttons.just_pressed(MouseButton::Left) {
         state.mouse_down_pos = state.mouse_screen_pos;
+    }
+    if buttons.just_pressed(MouseButton::Right) {
+        if let Some(p) = state.mouse_pos() {
+            state.control_points.push(p);
+            if state.control_points.len() > 3 {
+                state.control_points.remove(0);
+            }
+        }
     }
     if buttons.just_released(MouseButton::Left) {
         state.mouse_down_pos = None;

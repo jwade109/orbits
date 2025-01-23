@@ -365,6 +365,17 @@ pub fn draw_tracked_objects(gizmos: &mut Gizmos, state: &GameState) {
 pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     let stamp = state.sim_time;
 
+    for p in &state.control_points {
+        draw_circle(&mut gizmos, *p, 10.0 * state.actual_scale, RED);
+        draw_square(&mut gizmos, *p, 6.0 * state.actual_scale, ORANGE);
+    }
+
+    if let Some(p) = state.control_points.get(0..3) {
+        if let Some(o) = Orbit::from_points(p[0], p[1], p[2], state.system.primary.mass) {
+            draw_orbit(Vec2::ZERO, stamp, &o, &mut gizmos, 0.8, RED, true);
+        }
+    }
+
     if state.show_potential_field {
         draw_scalar_field_v2(&mut gizmos, &state.system, stamp, &state.draw_levels);
     }
