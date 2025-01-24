@@ -1,22 +1,38 @@
 use crate::core::*;
-use crate::orbit::Orbit;
+use crate::orbit::*;
 use bevy::math::Vec2;
 
 #[derive(Debug, Clone, Copy)]
-pub enum ConvergeError {
-    Initial((Nanotime, bool), (Nanotime, bool)),
-    Final((Nanotime, bool), (Nanotime, bool)),
+pub enum ConvergeError<T> {
+    Initial((T, bool), (T, bool)),
+    Final((T, bool), (T, bool)),
     MaxIter,
 }
 
+pub trait BinarySearchKey
+where
+    Self: Copy + std::ops::Sub<Output = Self> + std::ops::Add<Output = Self>,
+    Self: std::cmp::PartialOrd,
+    Self: std::ops::Mul<f32, Output = Self>,
+{
+}
+
+impl<T> BinarySearchKey for T
+where
+    T: Copy + std::ops::Sub<Output = T> + std::ops::Add<Output = T>,
+    T: std::cmp::PartialOrd,
+    T: std::ops::Mul<f32, Output = T>,
+{
+}
+
 // determines timestamp where condition goes from true to false
-pub fn binary_search_recurse(
-    start: (Nanotime, bool),
-    end: (Nanotime, bool),
-    tol: Nanotime,
-    cond: impl Fn(Nanotime) -> bool,
+pub fn binary_search_recurse<T: BinarySearchKey>(
+    start: (T, bool),
+    end: (T, bool),
+    tol: T,
+    cond: impl Fn(T) -> bool,
     remaining: usize,
-) -> Result<Nanotime, ConvergeError> {
+) -> Result<T, ConvergeError<T>> {
     if remaining == 0 {
         return Err(ConvergeError::MaxIter);
     }
@@ -25,7 +41,7 @@ pub fn binary_search_recurse(
         return Ok(end.0);
     }
 
-    let midpoint = start.0 + (end.0 - start.0) / 2;
+    let midpoint = start.0 + (end.0 - start.0) * 0.5;
     let a = start.1;
     let b = cond(midpoint);
     let c = end.1;
@@ -41,26 +57,26 @@ pub fn binary_search_recurse(
     }
 }
 
-pub fn binary_search(
-    start: Nanotime,
-    end: Nanotime,
-    tol: Nanotime,
+pub fn binary_search<T: BinarySearchKey>(
+    start: T,
+    end: T,
+    tol: T,
     max_iters: usize,
-    cond: impl Fn(Nanotime) -> bool,
-) -> Result<Nanotime, ConvergeError> {
+    cond: impl Fn(T) -> bool,
+) -> Result<T, ConvergeError<T>> {
     let a = cond(start);
     let c = cond(end);
     binary_search_recurse((start, a), (end, c), tol, cond, max_iters)
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum PredictError {
+pub enum PredictError<T: BinarySearchKey> {
     BadType,
     Lookup,
     BadTimeDelta,
-    Collision(ConvergeError),
-    Escape(ConvergeError),
-    Encounter(ConvergeError),
+    Collision(ConvergeError<T>),
+    Escape(ConvergeError<T>),
+    Encounter(ConvergeError<T>),
 }
 
 fn mutual_separation(o1: &Orbit, o2: &Orbit, t: Nanotime) -> f32 {
@@ -69,11 +85,12 @@ fn mutual_separation(o1: &Orbit, o2: &Orbit, t: Nanotime) -> f32 {
     p1.distance(p2)
 }
 
-fn search_condition(
-    t1: Nanotime,
-    t2: Nanotime,
-    cond: impl Fn(Nanotime) -> bool,
-) -> Result<Option<Nanotime>, ConvergeError> {
+fn search_condition<T: BinarySearchKey>(
+    t1: T,
+    t2: T,
+    tol: T,
+    cond: impl Fn(T) -> bool,
+) -> Result<Option<T>, ConvergeError<T>> {
     let a = cond(t1);
     if !a {
         return Ok(None);
@@ -82,7 +99,7 @@ fn search_condition(
     if b {
         return Ok(None);
     }
-    binary_search(t1, t2, Nanotime(5), 100, cond).map(|t| Some(t))
+    binary_search::<T>(t1, t2, tol, 100, cond).map(|t| Some(t))
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -121,10 +138,12 @@ impl Propagator {
         radius: f32,
         soi: f32,
         bodies: &[(ObjectId, Orbit, f32)],
-    ) -> Result<Option<(Nanotime, EventType)>, PredictError> {
+    ) -> Result<Option<(Nanotime, EventType)>, PredictError<Nanotime>> {
         if self.finished {
             return Ok(None);
         }
+
+        let tol = Nanotime(5);
 
         let can_hit_planet = ego.periapsis_r() <= radius;
         let can_escape = ego.eccentricity >= 1.0 || ego.apoapsis_r() >= soi;
@@ -167,11 +186,11 @@ impl Propagator {
         if can_hit_planet {
             if !above_planet(t1) {
                 self.finished = true;
-                return Ok(Some((t1, EventType::Collide)))
+                return Ok(Some((t1, EventType::Collide)));
             }
 
-            if let Some(t) =
-                search_condition(t1, t2, above_planet).map_err(|e| PredictError::Collision(e))?
+            if let Some(t) = search_condition::<Nanotime>(t1, t2, tol, above_planet)
+                .map_err(|e| PredictError::Collision(e))?
             {
                 self.finished = true;
                 return Ok(Some((t, EventType::Collide)));
@@ -179,8 +198,8 @@ impl Propagator {
         }
 
         if can_escape {
-            if let Some(t) =
-                search_condition(t1, t2, escape_soi).map_err(|e| PredictError::Escape(e))?
+            if let Some(t) = search_condition::<Nanotime>(t1, t2, tol, escape_soi)
+                .map_err(|e| PredictError::Escape(e))?
             {
                 self.finished = true;
                 return Ok(Some((t, EventType::Escape)));
@@ -191,8 +210,8 @@ impl Propagator {
             for i in 0..bodies.len() {
                 let cond = encounter_nth(i);
                 let id = bodies[i].0;
-                if let Some(t) =
-                    search_condition(t1, t2, cond).map_err(|e| PredictError::Encounter(e))?
+                if let Some(t) = search_condition::<Nanotime>(t1, t2, tol, cond)
+                    .map_err(|e| PredictError::Encounter(e))?
                 {
                     self.finished = true;
                     return Ok(Some((t, EventType::Encounter(id))));
@@ -202,4 +221,49 @@ impl Propagator {
 
         Ok(None)
     }
+}
+
+pub fn find_intersections(
+    o1: &Orbit,
+    o2: &Orbit,
+) -> Result<Option<(f32, f32)>, ConvergeError<f32>> {
+    let n = 100;
+    let sample_angles = (0..n).map(|i| 2.0 * PI * i as f32 / n as f32);
+
+    let radii = sample_angles
+        .map(|a| {
+            let r1 = o1.radius_at_angle(a);
+            let r2 = o2.radius_at_angle(a);
+            (a, r1, r2)
+        })
+        .collect::<Vec<_>>();
+
+    let c1 = |a: f32| {
+        let r1 = o1.radius_at_angle(a);
+        let r2 = o2.radius_at_angle(a);
+        r1 > r2
+    };
+
+    let c2 = |a: f32| {
+        let r1 = o1.radius_at_angle(a);
+        let r2 = o2.radius_at_angle(a);
+        r1 < r2
+    };
+
+    let mut ret1 = None;
+    let mut ret2 = None;
+
+    // TODO you can calculate the second angle from the first with the
+    // power of math; this is inefficient and lazy
+
+    for ((a0, _, _), (a1, _, _)) in radii.windows(2).map(|r| (r[0], r[1])) {
+        if let Some(a) = search_condition(a0, a1, 1E-4, c1)? {
+            ret1 = Some(a);
+        }
+        if let Some(a) = search_condition(a0, a1, 1E-4, c2)? {
+            ret2 = Some(a);
+        }
+    }
+
+    Ok(ret1.zip(ret2))
 }

@@ -500,7 +500,7 @@ impl OrbitalSystem {
 
                 Some(ObjectLookup {
                     object: *o,
-                    level: level + 1,
+                    level,
                     local_pv,
                     frame_pv,
                     otype: ObjectType::System,

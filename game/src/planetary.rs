@@ -44,7 +44,7 @@ enum CameraTracking {
 }
 
 #[derive(Debug)]
-struct CameraState {
+pub struct CameraState {
     pub center: Vec2,
     easing_lpf: f32,
     state: CameraTracking,
@@ -86,7 +86,6 @@ pub struct GameState {
     pub highlighted_list: Vec<ObjectId>,
     pub target_scale: f32,
     pub actual_scale: f32,
-    pub camera_easing: Vec2,
     pub draw_levels: Vec<i32>,
     pub cursor: Vec2,
     pub camera: CameraState,
@@ -163,7 +162,6 @@ impl Default for GameState {
             backup: Some((default_example(), Nanotime::default())),
             target_scale: 4.0,
             actual_scale: 4.0,
-            camera_easing: Vec2::ZERO,
             draw_levels: (-70000..=-10000)
                 .step_by(10000)
                 .chain((-5000..-3000).step_by(250))
@@ -539,7 +537,6 @@ fn update_camera(mut query: Query<&mut Transform, With<Camera>>, mut state: ResM
     }
 
     *tf = tf.with_translation(state.camera.center.extend(0.0));
-    state.camera_easing *= 0.85;
 }
 
 fn scroll_events(

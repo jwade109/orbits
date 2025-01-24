@@ -3,6 +3,7 @@ use bevy::color::palettes::css::ORANGE;
 use bevy::prelude::*;
 use starling::core::*;
 use starling::orbit::*;
+use starling::planning::*;
 
 use crate::planetary::GameState;
 
@@ -407,6 +408,25 @@ pub fn draw_tracked_objects(gizmos: &mut Gizmos, state: &GameState) {
                     until,
                 );
                 draw_nested_global_orbit(gizmos, &state.system, state.sim_time, *id, true);
+
+                if lup.level == 0 {
+                    if let Some(t) = state.target_orbit {
+                        let inter = find_intersections(&lup.object.orbit, &t);
+                        match inter {
+                            Ok(Some((a1, a2))) => {
+                                for a in [a1, a2] {
+                                    let r = t.radius_at_angle(a);
+                                    let pos = rotate(Vec2::X * r, a);
+                                    draw_circle(gizmos, pos, 10.0 * state.actual_scale, GREEN);
+                                }
+                            }
+                            Err(e) => {
+                                dbg!(e);
+                            }
+                            _ => (),
+                        }
+                    }
+                }
             }
             let p = (lup.local_pv + lup.frame_pv).pos;
             draw_square(
