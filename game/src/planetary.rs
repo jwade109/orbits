@@ -95,6 +95,7 @@ pub struct GameState {
     pub mouse_down_pos: Option<Vec2>,
     pub window_dims: Vec2,
     pub control_points: Vec<Vec2>,
+    pub target_orbit: Option<Orbit>,
 }
 
 impl GameState {
@@ -174,6 +175,7 @@ impl Default for GameState {
             mouse_down_pos: None,
             window_dims: Vec2::ZERO,
             control_points: Vec::new(),
+            target_orbit: None,
         }
     }
 }
@@ -243,6 +245,10 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
             sim_speed_str(state.sim_speed)
         ),
     );
+
+    if let Some(o) = state.target_orbit {
+        send_log(&mut evt, &format!("Target: {:#?}", o));
+    }
 
     if let Some(lup) = state.system.lookup(state.primary(), state.sim_time) {
         send_log(&mut evt, &format!("{:#?}", lup.object));
@@ -375,6 +381,10 @@ fn mouse_button_input(
             if state.control_points.len() > 3 {
                 state.control_points.remove(0);
             }
+        }
+
+        if let Some(p) = state.control_points.get(0..3) {
+            state.target_orbit = Orbit::from_points(p[0], p[1], p[2], state.system.primary.mass);
         }
     }
     if buttons.just_released(MouseButton::Left) {

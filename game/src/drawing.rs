@@ -47,8 +47,24 @@ pub fn draw_orbit(
     a: f32,
     base_color: Srgba,
     detailed: bool,
+    until: Option<Nanotime>,
 ) {
     if orb.eccentricity >= 1.0 {
+        if let Some(until) = until {
+            let dt = until - stamp;
+            if dt <= Nanotime(0) {
+                return;
+            }
+
+            let n = 100;
+            let pos = (0..=n).map(|i| {
+                let t = stamp + dt * i / n;
+                orb.pv_at_time(t).pos + origin
+            });
+            gizmos.linestrip_2d(pos, alpha(base_color, a));
+            return;
+        }
+
         let n_points = 60;
         let range = 0.999 * hyperbolic_range_ta(orb.eccentricity);
         let points: Vec<_> = (0..n_points)
@@ -169,14 +185,13 @@ pub fn draw_orbital_system(
         };
         draw_circle(gizmos, origin + pv.pos, (3.0 * scale).min(3.0), color);
         if show_orbits || obj.event.is_some() {
-            let color = if obj.event.is_none() { GRAY } else { PURPLE };
-            let a = if obj.event.is_none() { 0.05 } else { 0.4 };
-            draw_orbit(origin, stamp, &obj.orbit, gizmos, a, color, false);
+            let until = obj.event.map(|e| e.stamp);
+            draw_orbit(origin, stamp, &obj.orbit, gizmos, 0.05, GRAY, false, until);
         }
     }
 
     for (obj, subsys) in sys.subsystems.iter() {
-        draw_orbit(origin, stamp, &obj.orbit, gizmos, 0.1, WHITE, false);
+        draw_orbit(origin, stamp, &obj.orbit, gizmos, 0.1, WHITE, false, None);
         let pv = obj.orbit.pv_at_time(stamp);
         draw_orbital_system(gizmos, subsys, stamp, origin + pv.pos, scale, show_orbits);
     }
@@ -327,6 +342,48 @@ pub fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) {
         .collect::<Vec<_>>();
 }
 
+pub fn draw_nested_global_orbit(
+    gizmos: &mut Gizmos,
+    sys: &OrbitalSystem,
+    stamp: Nanotime,
+    id: ObjectId,
+    focus: bool,
+) -> Option<()> {
+    let lup = sys.lookup(id, stamp)?;
+    if lup.level == 0 {
+        return None;
+    }
+    let will_escape = lup
+        .object
+        .event
+        .map(|e| e.etype == EventType::Escape)
+        .unwrap_or(false);
+
+    if !will_escape {
+        return None;
+    }
+
+    let pv = lup.pv();
+    let (color, a) = match focus {
+        true => (ORANGE, 0.3),
+        false => (GRAY, 0.1),
+    };
+    let orbit = Orbit::from_pv(pv.pos, pv.vel, sys.primary.mass, stamp);
+    draw_orbit(Vec2::ZERO, stamp, &orbit, gizmos, a, color, false, None);
+    Some(())
+}
+
+pub fn draw_nested_global_orbits(gizmos: &mut Gizmos, state: &GameState) {
+    _ = state
+        .system
+        .ids()
+        .iter()
+        .filter_map(|id| {
+            draw_nested_global_orbit(gizmos, &state.system, state.sim_time, *id, false)
+        })
+        .collect::<Vec<_>>();
+}
+
 pub fn draw_tracked_objects(gizmos: &mut Gizmos, state: &GameState) {
     let color = ORANGE;
     let size = 70.0;
@@ -335,6 +392,9 @@ pub fn draw_tracked_objects(gizmos: &mut Gizmos, state: &GameState) {
         .iter()
         .filter_map(|id| {
             let lup = state.system.lookup(*id, state.sim_time)?;
+
+            let until = lup.object.event.map(|e| e.stamp);
+
             if state.track_list.len() < 10 {
                 draw_orbit(
                     lup.frame_pv.pos,
@@ -344,7 +404,9 @@ pub fn draw_tracked_objects(gizmos: &mut Gizmos, state: &GameState) {
                     0.3,
                     color,
                     true,
+                    until,
                 );
+                draw_nested_global_orbit(gizmos, &state.system, state.sim_time, *id, true);
             }
             let p = (lup.local_pv + lup.frame_pv).pos;
             draw_square(
@@ -370,10 +432,8 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         draw_square(&mut gizmos, *p, 6.0 * state.actual_scale, ORANGE);
     }
 
-    if let Some(p) = state.control_points.get(0..3) {
-        if let Some(o) = Orbit::from_points(p[0], p[1], p[2], state.system.primary.mass) {
-            draw_orbit(Vec2::ZERO, stamp, &o, &mut gizmos, 0.8, RED, true);
-        }
+    if let Some(o) = state.target_orbit {
+        draw_orbit(Vec2::ZERO, stamp, &o, &mut gizmos, 0.5, RED, true, None);
     }
 
     if state.show_potential_field {
@@ -400,6 +460,8 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         state.actual_scale,
         state.show_orbits,
     );
+
+    draw_nested_global_orbits(&mut gizmos, &state);
 
     draw_highlighted_objects(&mut gizmos, &state);
 

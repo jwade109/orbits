@@ -276,6 +276,17 @@ pub enum EventType {
     Maneuver(Vec2),
 }
 
+impl PartialEq for EventType {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (EventType::Collide, EventType::Collide) => true,
+            (EventType::Escape, EventType::Escape) => true,
+            (EventType::Encounter(o), EventType::Encounter(p)) => o == p,
+            _ => false,
+        }
+    }
+}
+
 impl OrbitalEvent {
     pub fn new(target: ObjectId, stamp: Nanotime, etype: EventType) -> Self {
         OrbitalEvent {
@@ -321,6 +332,7 @@ impl OrbitalEvent {
 #[derive(Debug, Clone, Copy)]
 pub struct ObjectLookup {
     pub object: Object,
+    pub level: u32,
     pub local_pv: PV,
     pub frame_pv: PV,
     pub otype: ObjectType,
@@ -471,7 +483,13 @@ impl OrbitalSystem {
         ret
     }
 
-    fn lookup_inner(&self, id: ObjectId, stamp: Nanotime, frame_pv: PV) -> Option<ObjectLookup> {
+    fn lookup_inner(
+        &self,
+        id: ObjectId,
+        stamp: Nanotime,
+        frame_pv: PV,
+        level: u32,
+    ) -> Option<ObjectLookup> {
         let find_subsys = || {
             self.subsystems.iter().find_map(|(o, sys)| {
                 if o.id != id {
@@ -482,6 +500,7 @@ impl OrbitalSystem {
 
                 Some(ObjectLookup {
                     object: *o,
+                    level: level + 1,
                     local_pv,
                     frame_pv,
                     otype: ObjectType::System,
@@ -498,6 +517,7 @@ impl OrbitalSystem {
 
                 Some(ObjectLookup {
                     object: *o,
+                    level,
                     local_pv: o.orbit.pv_at_time(stamp),
                     frame_pv,
                     otype: ObjectType::Orbiter,
@@ -509,7 +529,7 @@ impl OrbitalSystem {
         let find_recurse = || {
             self.subsystems.iter().find_map(|(o, sys)| {
                 let pv = o.orbit.pv_at_time(stamp) + frame_pv;
-                sys.lookup_inner(id, stamp, pv)
+                sys.lookup_inner(id, stamp, pv, level + 1)
             })
         };
 
@@ -517,7 +537,7 @@ impl OrbitalSystem {
     }
 
     pub fn lookup(&self, id: ObjectId, stamp: Nanotime) -> Option<ObjectLookup> {
-        self.lookup_inner(id, stamp, PV::zero())
+        self.lookup_inner(id, stamp, PV::zero(), 0)
     }
 
     pub fn lookup_orbiter_mut(&mut self, o: ObjectId) -> Option<&mut Object> {
