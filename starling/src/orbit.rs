@@ -309,7 +309,7 @@ impl Orbit {
     }
 
     pub fn ma_at_time(&self, stamp: Nanotime) -> Anomaly {
-        let dt = stamp - self.time_at_periapsis;
+        let dt = stamp - self.t_last_p(stamp).unwrap_or(self.time_at_periapsis);
         let n = self.mean_motion();
         Anomaly::with_ecc(self.eccentricity, as_seconds(dt) * n)
     }
@@ -381,6 +381,13 @@ impl Orbit {
         GRAVITATIONAL_CONSTANT * self.primary_mass
     }
 
+    pub fn normalize(&mut self, stamp: Nanotime) -> Option<()> {
+        let num = self.orbit_number(stamp)?;
+        let p = self.period()?;
+        self.time_at_periapsis += p * num;
+        Some(())
+    }
+
     pub fn orbit_number(&self, stamp: Nanotime) -> Option<i64> {
         let p = self.period()?;
         let dt = stamp - self.time_at_periapsis;
@@ -392,6 +399,12 @@ impl Orbit {
         let p = self.period()?;
         let n = self.orbit_number(current)?;
         Some(p * (n + 1) + self.time_at_periapsis)
+    }
+
+    pub fn t_last_p(&self, current: Nanotime) -> Option<Nanotime> {
+        let p = self.period()?;
+        let n = self.orbit_number(current)?;
+        Some(p * n + self.time_at_periapsis)
     }
 
     pub fn focii(&self) -> [Vec2; 2] {

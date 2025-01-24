@@ -147,7 +147,7 @@ impl Propagator {
 
         self.stamp = t2;
 
-        let hit_planet = |t: Nanotime| {
+        let above_planet = |t: Nanotime| {
             let pos = ego.pv_at_time(t).pos;
             pos.length() > radius
         };
@@ -165,8 +165,13 @@ impl Propagator {
         };
 
         if can_hit_planet {
+            if !above_planet(t1) {
+                self.finished = true;
+                return Ok(Some((t1, EventType::Collide)))
+            }
+
             if let Some(t) =
-                search_condition(t1, t2, hit_planet).map_err(|e| PredictError::Collision(e))?
+                search_condition(t1, t2, above_planet).map_err(|e| PredictError::Collision(e))?
             {
                 self.finished = true;
                 return Ok(Some((t, EventType::Collide)));

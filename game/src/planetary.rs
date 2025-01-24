@@ -481,19 +481,7 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
             state.system.remove_object(*i);
         });
     } else if starts_with("spawn") {
-        dbg!(cmd);
-        if let Some(coords) = cmd
-            .get(1..5)
-            .map(|strs| {
-                strs.iter()
-                    .map(|s| s.parse::<f32>().ok())
-                    .collect::<Option<Vec<_>>>()
-            })
-            .flatten()
-        {
-            let r = Vec2::new(coords[0], coords[1]);
-            let v = Vec2::new(coords[2], coords[3]);
-            let orbit = Orbit::from_pv(r, v, state.system.primary.mass, state.sim_time);
+        if let Some(orbit) = state.target_orbit {
             let id = ObjectId((rand(0.0, 1.0) * 10000.0 + 1000.0) as i64);
             state.toggle_track(id);
             state.system.add_object(id, orbit, state.sim_time);
