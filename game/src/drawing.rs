@@ -184,8 +184,8 @@ pub fn draw_orbital_system(
                 WHITE
             }
         };
-        draw_circle(gizmos, origin + pv.pos, (3.0 * scale).min(3.0), color);
-        if show_orbits || obj.event.is_some() {
+        draw_circle(gizmos, origin + pv.pos, (4.0 * scale).min(10.0), color);
+        if show_orbits {
             let until = obj.event.map(|e| e.stamp);
             draw_orbit(origin, stamp, &obj.orbit, gizmos, 0.05, GRAY, false, until);
         }
@@ -410,7 +410,7 @@ pub fn draw_tracked_objects(gizmos: &mut Gizmos, state: &GameState) {
                 draw_nested_global_orbit(gizmos, &state.system, state.sim_time, *id, true);
 
                 if lup.level == 0 {
-                    if let Some(t) = state.target_orbit {
+                    if let Some(t) = state.target_orbit() {
                         let inter = find_intersections(&lup.object.orbit, &t);
                         match inter {
                             Ok(Some((a1, a2))) => {
@@ -428,14 +428,14 @@ pub fn draw_tracked_objects(gizmos: &mut Gizmos, state: &GameState) {
                     }
                 }
             }
-            let p = (lup.local_pv + lup.frame_pv).pos;
+            let pv = lup.pv();
             draw_square(
                 gizmos,
-                p,
+                pv.pos,
                 (size * state.actual_scale).min(size),
                 alpha(color, 0.7),
             );
-            Some(p)
+            Some(pv.pos)
         })
         .collect::<Vec<_>>();
 
@@ -448,12 +448,11 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     let stamp = state.sim_time;
 
     for p in &state.control_points {
-        draw_circle(&mut gizmos, *p, 10.0 * state.actual_scale, RED);
-        draw_square(&mut gizmos, *p, 6.0 * state.actual_scale, ORANGE);
+        draw_circle(&mut gizmos, *p, 6.0 * state.actual_scale, alpha(GRAY, 0.4));
     }
 
-    if let Some(o) = state.target_orbit {
-        draw_orbit(Vec2::ZERO, stamp, &o, &mut gizmos, 0.5, RED, true, None);
+    if let Some(o) = state.target_orbit() {
+        draw_orbit(Vec2::ZERO, stamp, &o, &mut gizmos, 0.1, RED, false, None);
     }
 
     if state.show_potential_field {

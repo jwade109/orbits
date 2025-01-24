@@ -94,7 +94,6 @@ pub struct GameState {
     pub mouse_down_pos: Option<Vec2>,
     pub window_dims: Vec2,
     pub control_points: Vec<Vec2>,
-    pub target_orbit: Option<Orbit>,
 }
 
 impl GameState {
@@ -134,7 +133,7 @@ impl GameState {
         if self.track_list.contains(&id) {
             self.track_list.retain(|e| *e != id);
         } else {
-            self.track_list.push(id);
+            self.track_list.insert(0, id);
         }
     }
 
@@ -145,6 +144,40 @@ impl GameState {
             .filter_map(|id| Some(self.system.lookup(*id, self.sim_time)?.pv().pos))
             .collect::<Vec<_>>();
         AABB::from_list(&pos).map(|aabb| aabb.padded(60.0))
+    }
+
+    pub fn target_orbit(&self) -> Option<Orbit> {
+        let p1 = self.control_points.get(0);
+        let p2 = self.control_points.get(1).map(|e| *e).or(self.mouse_pos());
+
+        if let Some((p1, p2)) = p1.zip(p2) {
+            if p1.distance(p2) < 10.0 {
+                return None;
+            }
+
+            Some(Orbit::from_pv(
+                *p1,
+                (p2 - p1) / 10.0,
+                self.system.primary.mass,
+                self.sim_time,
+            ))
+        } else {
+            None
+        }
+    }
+
+    pub fn spawn_new(&mut self) {
+        if let Some(orbit) = self.target_orbit() {
+            let id = ObjectId((rand(0.0, 1.0) * 10000.0 + 1000.0) as i64);
+            self.toggle_track(id);
+            self.system.add_object(id, orbit, self.sim_time);
+        }
+    }
+
+    pub fn delete_objects(&mut self) {
+        self.track_list.iter().for_each(|i| {
+            self.system.remove_object(*i);
+        });
     }
 }
 
@@ -173,7 +206,6 @@ impl Default for GameState {
             mouse_down_pos: None,
             window_dims: Vec2::ZERO,
             control_points: Vec::new(),
-            target_orbit: None,
         }
     }
 }
@@ -244,7 +276,7 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         ),
     );
 
-    if let Some(o) = state.target_orbit {
+    if let Some(o) = state.target_orbit() {
         send_log(&mut evt, &format!("Target: {:#?}", o));
     }
 
@@ -328,6 +360,12 @@ fn keyboard_input(
                     state.camera.easing_lpf = 0.1;
                 }
             }
+            KeyCode::Delete => {
+                state.delete_objects();
+            }
+            KeyCode::KeyH => {
+                state.spawn_new();
+            }
             KeyCode::Equal => {
                 state.target_scale /= 1.5;
             }
@@ -374,24 +412,33 @@ fn mouse_button_input(
         state.mouse_down_pos = state.mouse_screen_pos;
     }
     if buttons.just_pressed(MouseButton::Right) {
+        state.control_points.clear();
         if let Some(p) = state.mouse_pos() {
             state.control_points.push(p);
-            if state.control_points.len() > 3 {
-                state.control_points.remove(0);
-            }
         }
-
-        if let Some(p) = state.control_points.get(0..3) {
-            state.target_orbit = Orbit::from_points(p[0], p[1], p[2], state.system.primary.mass);
+    }
+    if buttons.just_released(MouseButton::Right) {
+        if let Some(p) = state.mouse_pos() {
+            state.control_points.push(p);
         }
     }
     if buttons.just_released(MouseButton::Left) {
         state.mouse_down_pos = None;
-        if !keys.pressed(KeyCode::ShiftLeft) {
+        let hl = state.highlighted_list.clone();
+        if keys.pressed(KeyCode::ShiftLeft) {
+            // add to track list
+            for h in hl {
+                if !state.track_list.contains(&h) {
+                    state.track_list.push(h);
+                }
+            }
+        } else if keys.pressed(KeyCode::KeyX) {
+            // remove from track list
+            state.track_list.retain(|id| !hl.contains(id))
+        } else {
+            // start from scratch
             state.track_list.clear();
-        }
-        for hl in state.highlighted_list.clone() {
-            state.toggle_track(hl);
+            state.track_list = hl;
         }
         state.camera.state = CameraTracking::Freewheeling;
     }
@@ -475,15 +522,9 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
             );
         }
     } else if starts_with("rm") {
-        state.track_list.iter().for_each(|i| {
-            state.system.remove_object(*i);
-        });
+        state.delete_objects();
     } else if starts_with("spawn") {
-        if let Some(orbit) = state.target_orbit {
-            let id = ObjectId((rand(0.0, 1.0) * 10000.0 + 1000.0) as i64);
-            state.toggle_track(id);
-            state.system.add_object(id, orbit, state.sim_time);
-        }
+        state.spawn_new();
     } else if starts_with("clear") {
         state.system.objects.clear();
     } else if starts_with("maneuver") {

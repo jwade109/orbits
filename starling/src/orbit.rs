@@ -223,14 +223,6 @@ impl Orbit {
         o
     }
 
-    pub fn from_points(p1: Vec2, p2: Vec2, p3: Vec2, mass: f32) -> Option<Self> {
-        let r1 = p1.length();
-        let r2 = p2.length();
-        let r3 = p3.length();
-        let r = (r1 + r2 + r3) / 3.0;
-        Some(Orbit::circular(r, mass, Nanotime(0), false))
-    }
-
     pub const fn circular(radius: f32, mass: f32, epoch: Nanotime, retrograde: bool) -> Self {
         Orbit {
             eccentricity: 0.0,

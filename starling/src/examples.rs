@@ -62,16 +62,6 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
         );
     }
 
-    // for vel in 400..1000 {
-    //     let r = Vec2::new(2000.0, 0.0);
-    //     let v = rotate(
-    //         Vec2::X * vel as f32 / 10.0,
-    //         std::f32::consts::PI / (if vel < 700 { 1.9 } else { 2.1 }),
-    //     );
-    //     let o = Orbit::from_pv(r, v, EARTH.mass, Nanotime::default());
-    //     system.add_object(id.next(), o);
-    // }
-
     for _ in 0..100 {
         system.add_object(
             id.next(),
@@ -194,10 +184,6 @@ pub fn sun_jupiter_lagrange() -> OrbitalSystem {
         Nanotime(0),
         OrbitalSystem::new(jupiter),
     );
-
-    // let s = system.add_object(Vec2::ZERO, Some(sun));
-
-    // system.add_object(KeplerPropagator::new(jupiter_orbit, s), Some(jupiter));
 
     for _ in 0..600 {
         let orbit = Orbit {
