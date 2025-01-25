@@ -81,6 +81,7 @@ pub struct GameState {
     pub show_potential_field: bool,
     pub paused: bool,
     pub system: OrbitalSystem,
+    pub maneuvers: Vec<(ObjectId, Vec2, Nanotime)>,
     pub backup: Option<(OrbitalSystem, Nanotime)>,
     pub track_list: Vec<ObjectId>,
     pub highlighted_list: Vec<ObjectId>,
@@ -155,9 +156,11 @@ impl GameState {
                 return None;
             }
 
+            let v = (self.system.primary.mass * GRAVITATIONAL_CONSTANT / p1.length()).sqrt();
+
             Some(Orbit::from_pv(
                 *p1,
-                (p2 - p1) / 10.0,
+                (p2 - p1) * v / p1.length(),
                 self.system.primary.mass,
                 self.sim_time,
             ))
@@ -179,6 +182,10 @@ impl GameState {
             self.system.remove_object(*i);
         });
     }
+
+    pub fn register_maneuver(&mut self, id: ObjectId, dv: Vec2, stamp: Nanotime) {
+        self.maneuvers.push((id, dv, stamp));
+    }
 }
 
 impl Default for GameState {
@@ -190,6 +197,7 @@ impl Default for GameState {
             show_potential_field: false,
             paused: false,
             system: default_example(),
+            maneuvers: Vec::new(),
             track_list: Vec::new(),
             highlighted_list: Vec::new(),
             backup: Some((default_example(), Nanotime::default())),
@@ -224,6 +232,22 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
 
     let s = state.sim_time;
     state.system.propagate_to(s);
+
+    {
+        let mut to_apply = vec![];
+        state.maneuvers.retain(|(id, dv, t)| {
+            let apply = *t <= s;
+            if apply {
+                let man = OrbitalEvent::maneuver(*id, *dv, *t);
+                to_apply.push(man);
+            }
+            !apply
+        });
+
+        for e in to_apply {
+            state.system.apply(e);
+        }
+    }
 
     if let Some(a) = state.selection_region() {
         state.highlighted_list = state
@@ -528,18 +552,15 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
     } else if starts_with("clear") {
         state.system.objects.clear();
     } else if starts_with("maneuver") {
-        _ = state
-            .track_list
+        let tl = state.track_list.clone();
+        _ = tl
             .iter()
             .filter_map(|id| {
                 let dt = Nanotime::secs_f32(cmd.get(1)?.parse().ok()?);
                 let dx = cmd.get(2)?.parse::<f32>().ok()?;
                 let dy = cmd.get(3)?.parse::<f32>().ok()?;
                 let t = state.sim_time + dt;
-                let evt = OrbitalEvent::maneuver(*id, Vec2::new(dx, dy), t);
-                let obj = state.system.lookup_orbiter_mut(*id)?;
-                obj.event = Some(evt);
-                obj.propagator.freeze(evt.stamp);
+                state.register_maneuver(*id, Vec2::new(dx, dy), t);
                 Some(())
             })
             .collect::<Vec<_>>();

@@ -214,6 +214,14 @@ impl PV {
             vel: vel.into(),
         }
     }
+
+    pub fn pos(pos: impl Into<Vec2>) -> Self {
+        PV::new(pos, Vec2::ZERO)
+    }
+
+    pub fn vel(vel: impl Into<Vec2>) -> Self {
+        PV::new(Vec2::ZERO, vel)
+    }
 }
 
 impl std::fmt::Display for PV {
@@ -375,12 +383,12 @@ impl OrbitalSystem {
                 sys.add_object(event.target, orbit, event.stamp)
             }
             EventType::Maneuver(dv) => {
+                let lup = self.lookup(event.target, event.stamp)?;
                 let dpv = PV::new(Vec2::ZERO, dv);
-                let m = self.primary.mass;
-                let obj = self.lookup_orbiter_mut(event.target)?;
-                let pv = obj.orbit.pv_at_time(event.stamp) + dpv;
-                obj.orbit = Orbit::from_pv(pv.pos, pv.vel, m, event.stamp);
-                obj.event = None;
+                let pv = lup.pv() + dpv;
+                let orbit = Orbit::from_pv(pv.pos, pv.vel, self.primary.mass, event.stamp);
+                self.remove_object(event.target);
+                self.add_object(event.target, orbit, event.stamp);
             }
         };
         None
