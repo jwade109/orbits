@@ -1,5 +1,6 @@
 use crate::orbit::*;
 use crate::planning::*;
+use crate::pv::PV;
 use bevy::math::Vec2;
 use rand::Rng;
 use std::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
@@ -158,94 +159,34 @@ impl std::fmt::Debug for ObjectId {
 #[derive(Debug, Clone, Copy)]
 pub struct Object {
     pub id: ObjectId,
+    pub parent: ObjectId,
     pub orbit: Orbit,
-    pub event: Option<OrbitalEvent>,
     pub propagator: Propagator,
 }
 
 impl Object {
-    pub fn new(id: ObjectId, orbit: Orbit, stamp: Nanotime) -> Self {
+    pub fn new(id: ObjectId, parent: ObjectId, orbit: Orbit, stamp: Nanotime) -> Self {
         Object {
             id,
+            parent,
             orbit,
-            event: None,
             propagator: Propagator::new(stamp),
         }
     }
 
-    pub fn has_update(&self, stamp: Nanotime) -> bool {
-        self.event.map_or(false, |e| e.stamp <= stamp)
-    }
-
-    pub fn take_event(&mut self, stamp: Nanotime) -> Option<OrbitalEvent> {
-        if self.has_update(stamp) {
-            self.propagator.reset(stamp);
-            self.event.take()
-        } else {
-            None
+    pub fn next(&self, planet: &Planet, event: OrbitalEvent) -> Option<Object> {
+        let mut o = *self;
+        match event.etype {
+            EventType::Maneuver(dv) => {
+                let (body, _) = planet.lookup(self.parent, event.stamp)?;
+                let pv = self.orbit.pv_at_time(event.stamp);
+                let new_pv = pv + PV::vel(dv);
+                let orbit = Orbit::from_pv(new_pv.pos, new_pv.vel, body.mass, event.stamp);
+                o.orbit = orbit;
+            }
+            _ => (),
         }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct OrbitalSystem {
-    pub id: ObjectId,
-    pub primary: Body,
-    pub objects: Vec<Object>,
-    pub subsystems: Vec<(Object, OrbitalSystem)>,
-}
-
-#[derive(Debug, Clone, Copy, Default)]
-pub struct PV {
-    pub pos: Vec2,
-    pub vel: Vec2,
-}
-
-impl PV {
-    pub fn zero() -> Self {
-        PV {
-            pos: Vec2::ZERO,
-            vel: Vec2::ZERO,
-        }
-    }
-
-    pub fn new(pos: impl Into<Vec2>, vel: impl Into<Vec2>) -> Self {
-        PV {
-            pos: pos.into(),
-            vel: vel.into(),
-        }
-    }
-
-    pub fn pos(pos: impl Into<Vec2>) -> Self {
-        PV::new(pos, Vec2::ZERO)
-    }
-
-    pub fn vel(vel: impl Into<Vec2>) -> Self {
-        PV::new(Vec2::ZERO, vel)
-    }
-}
-
-impl std::fmt::Display for PV {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "P({:0.3}, {:0.3}) V({:0.3}, {:0.3})",
-            self.pos.x, self.pos.y, self.vel.x, self.vel.y
-        )
-    }
-}
-
-impl Add for PV {
-    type Output = Self;
-    fn add(self, other: Self) -> Self {
-        PV::new(self.pos + other.pos, self.vel + other.vel)
-    }
-}
-
-impl Sub for PV {
-    type Output = Self;
-    fn sub(self, other: Self) -> Self {
-        PV::new(self.pos - other.pos, self.vel - other.vel)
+        Some(o)
     }
 }
 
@@ -338,7 +279,7 @@ impl OrbitalEvent {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct ObjectLookup {
     pub object: Object,
     pub level: u32,
@@ -355,13 +296,60 @@ impl ObjectLookup {
     }
 }
 
-impl OrbitalSystem {
-    pub fn new(id: ObjectId, body: Body) -> Self {
-        OrbitalSystem {
+#[derive(Debug, Clone)]
+pub struct OrbitalTree {
+    pub objects: Vec<Object>,
+    pub events: Vec<OrbitalEvent>,
+    pub system: Planet,
+}
+
+#[derive(Debug, Clone)]
+pub struct Planet {
+    pub id: ObjectId,
+    pub primary: Body,
+    pub subsystems: Vec<(Orbit, Planet)>,
+}
+
+impl Planet {
+    pub fn new(id: ObjectId, primary: Body) -> Self {
+        Planet {
             id,
-            primary: body,
-            objects: Vec::default(),
+            primary,
             subsystems: vec![],
+        }
+    }
+
+    pub fn orbit(&mut self, orbit: Orbit, planet: Planet) {
+        self.subsystems.push((orbit, planet));
+    }
+
+    fn lookup_inner(&self, id: ObjectId, stamp: Nanotime, wrt: PV) -> Option<(Body, PV)> {
+        if self.id == id {
+            return Some((self.primary, wrt));
+        }
+
+        for (orbit, pl) in &self.subsystems {
+            let pv = orbit.pv_at_time(stamp);
+            let ret = pl.lookup_inner(id, stamp, wrt + pv);
+            if let Some(r) = ret {
+                return Some(r);
+            }
+        }
+
+        None
+    }
+
+    pub fn lookup(&self, id: ObjectId, stamp: Nanotime) -> Option<(Body, PV)> {
+        self.lookup_inner(id, stamp, PV::zero())
+    }
+}
+
+impl OrbitalTree {
+    pub fn new(system: &Planet) -> Self {
+        OrbitalTree {
+            objects: vec![],
+            events: vec![],
+            system: system.clone(),
         }
     }
 
@@ -376,243 +364,130 @@ impl OrbitalSystem {
                 return Some(lup);
             }
             EventType::Encounter(pri) => {
-                let l1 = self.lookup(pri, event.stamp)?;
-                let b = l1.body?;
-                let l2 = self.lookup(event.target, event.stamp)?;
-                let d = l2.pv() - l1.pv();
-                let orbit = Orbit::from_pv(d.pos, d.vel, b.mass, event.stamp);
-                self.remove_object(event.target);
-                let (_, sys) = self.subsystems.iter_mut().find(|(obj, _)| obj.id == pri)?;
-                sys.add_object(event.target, orbit, event.stamp)
+                // let l1 = self.lookup(pri, event.stamp)?;
+                // let b = l1.body?;
+                // let l2 = self.lookup(event.target, event.stamp)?;
+                // let d = l2.pv() - l1.pv();
+                // let orbit = Orbit::from_pv(d.pos, d.vel, b.mass, event.stamp);
+                // self.remove_object(event.target);
+                // let (_, sys) = self.subsystems.iter_mut().find(|(obj, _)| obj.id == pri)?;
+                // sys.add_object(event.target, orbit, event.stamp)
             }
             EventType::Maneuver(dv) => {
-                let lup = self.lookup(event.target, event.stamp)?;
-                let dpv = PV::new(Vec2::ZERO, dv);
-                let pv = lup.pv() + dpv;
-                let orbit = Orbit::from_pv(pv.pos, pv.vel, self.primary.mass, event.stamp);
-                self.remove_object(event.target);
-                self.add_object(event.target, orbit, event.stamp);
+                // let lup = self.lookup(event.target, event.stamp)?;
+                // let dpv = PV::new(Vec2::ZERO, dv);
+                // let pv = lup.pv() + dpv;
+                // let orbit = Orbit::from_pv(pv.pos, pv.vel, self.system.primary.mass, event.stamp);
+                // self.remove_object(event.target);
+                // self.add_object(event.target, orbit, event.stamp);
             }
         };
         None
     }
 
-    pub fn propagate_to(&mut self, stamp: Nanotime) -> Vec<ObjectLookup> {
-        let mut orbits_to_add = vec![];
+    pub fn propagate_to(&mut self, stamp: Nanotime) {
+        // let mut orbits_to_add = vec![];
 
-        for (obj, subsys) in &mut self.subsystems {
-            let lups = subsys.propagate_to(stamp);
-            let pvsys = obj.orbit.pv_at_time(stamp);
-            for lup in lups {
-                let pv = pvsys + lup.pv();
-                let orbit = Orbit::from_pv(pv.pos, pv.vel, self.primary.mass, stamp);
-                orbits_to_add.push((lup.object.id, orbit));
-            }
-        }
+        // for (orb, subsys) in &mut self.subsystems {
+        //     let lups = subsys.propagate_to(stamp);
+        //     let pvsys = orb.pv_at_time(stamp);
+        //     for lup in lups {
+        //         let pv = pvsys + lup.pv();
+        //         let orbit = Orbit::from_pv(pv.pos, pv.vel, self.primary.mass, stamp);
+        //         orbits_to_add.push((lup.object.id, orbit));
+        //     }
+        // }
 
-        for (id, orbit) in orbits_to_add {
-            self.add_object(id, orbit, stamp)
-        }
+        // for (id, orbit) in orbits_to_add {
+        //     self.add_object(id, orbit, stamp)
+        // }
 
-        let mut to_apply = vec![];
-        for obj in &mut self.objects {
-            let e = obj.take_event(stamp);
-            e.map(|e| to_apply.push(e));
-        }
+        // let mut to_apply = vec![];
+        // for obj in &mut self.objects {
+        //     let e = obj.take_event(stamp);
+        //     e.map(|e| to_apply.push(e));
+        // }
 
-        let mut ret = vec![];
-        for e in to_apply {
-            let lup = self.apply(e);
-            if let Some(lup) = lup {
-                ret.push(lup);
-            }
-        }
+        // let mut ret = vec![];
+        // for e in to_apply {
+        //     let lup = self.apply(e);
+        //     if let Some(lup) = lup {
+        //         ret.push(lup);
+        //     }
+        // }
+
+        self.events.retain(|e| e.stamp > stamp);
 
         let bodies = self
+            .system
             .subsystems
             .iter()
-            .map(|(obj, sys)| (obj.id, obj.orbit, sys.primary.soi))
+            .map(|(orbit, pl)| (pl.id, *orbit, pl.primary.soi))
             .collect::<Vec<_>>();
 
         for obj in &mut self.objects {
             while !obj.propagator.calculated_to(stamp + Nanotime::secs(200)) {
-                let res =
-                    obj.propagator
-                        .next(&obj.orbit, self.primary.radius, self.primary.soi, &bodies);
+                let res = obj.propagator.next(
+                    &obj.orbit,
+                    self.system.primary.radius,
+                    self.system.primary.soi,
+                    &bodies,
+                );
                 match res {
                     Err(e) => {
                         dbg!(e);
                     }
                     Ok(Some((t, e))) => {
                         let event = OrbitalEvent::new(obj.id, t, e);
-                        obj.event = Some(event);
+                        self.events.push(event);
                     }
                     _ => (),
                 }
             }
         }
 
-        ret
+        self.events.sort_by_key(|e| e.stamp);
+
+        // ret
     }
 
-    pub fn add_object(&mut self, id: ObjectId, orbit: Orbit, stamp: Nanotime) {
-        self.objects.push(Object::new(id, orbit, stamp));
+    pub fn add_object(&mut self, id: ObjectId, parent: ObjectId, orbit: Orbit, stamp: Nanotime) {
+        self.objects.push(Object::new(id, parent, orbit, stamp));
     }
 
-    pub fn remove_object(&mut self, id: ObjectId) -> Option<Object> {
-        if let Some(i) = self.objects.iter().position(|o| o.id == id) {
-            return Some(self.objects.swap_remove(i));
-        }
-
-        for (_, sys) in &mut self.subsystems {
-            let x = sys.remove_object(id);
-            if x.is_some() {
-                return x;
-            }
-        }
-
-        None
-    }
-
-    pub fn add_subsystem(&mut self, orb: Orbit, t: Nanotime, sys: OrbitalSystem) {
-        self.subsystems.push((Object::new(sys.id, orb, t), sys));
-    }
-
-    pub fn ids(&self) -> Vec<ObjectId> {
-        let mut ret: Vec<ObjectId> = self.objects.iter().map(|obj| obj.id).collect();
-        for (obj, sys) in &self.subsystems {
-            ret.push(obj.id);
-            ret.extend_from_slice(&sys.ids());
-        }
-        ret
-    }
-
-    fn lookup_inner(&self, id: ObjectId, t: Nanotime, fr_pv: PV, l: u32) -> Option<ObjectLookup> {
-        let find_subsys = || {
-            self.subsystems.iter().find_map(|(o, sys)| {
-                if o.id != id {
-                    return None;
-                }
-
-                let local_pv = o.orbit.pv_at_time(t);
-
-                Some(ObjectLookup {
-                    object: *o,
-                    level: l,
-                    local_pv,
-                    frame_pv: fr_pv,
-                    otype: ObjectType::System,
-                    parent: self.id,
-                    body: Some(sys.primary),
-                })
-            })
-        };
-
-        let find_object = || {
-            self.objects.iter().find_map(|o| {
-                if o.id != id {
-                    return None;
-                }
-
-                Some(ObjectLookup {
-                    object: *o,
-                    level: l,
-                    local_pv: o.orbit.pv_at_time(t),
-                    frame_pv: fr_pv,
-                    otype: ObjectType::Orbiter,
-                    parent: self.id,
-                    body: None,
-                })
-            })
-        };
-
-        let find_recurse = || {
-            self.subsystems.iter().find_map(|(o, sys)| {
-                let pv = o.orbit.pv_at_time(t) + fr_pv;
-                sys.lookup_inner(id, t, pv, l + 1)
-            })
-        };
-
-        find_subsys().or_else(find_object).or_else(find_recurse)
+    pub fn remove_object(&mut self, id: ObjectId) -> Option<()> {
+        self.objects
+            .remove(self.objects.iter().position(|o| o.id == id)?);
+        Some(())
     }
 
     pub fn lookup(&self, id: ObjectId, stamp: Nanotime) -> Option<ObjectLookup> {
-        self.lookup_inner(id, stamp, PV::zero(), 0)
+        self.objects.iter().find_map(|o| {
+            if o.id != id {
+                return None;
+            }
+
+            let (_, frame_pv) = self.system.lookup(o.parent, stamp)?;
+
+            Some(ObjectLookup {
+                object: *o,
+                level: 0,
+                local_pv: o.orbit.pv_at_time(stamp),
+                frame_pv,
+                otype: ObjectType::Orbiter,
+                parent: ObjectId(0),
+                body: None,
+            })
+        })
     }
 }
 
-pub fn potential_at(system: &OrbitalSystem, pos: Vec2, stamp: Nanotime) -> f32 {
+pub fn potential_at(planet: &Planet, pos: Vec2, stamp: Nanotime) -> f32 {
     let r = pos.length().clamp(10.0, std::f32::MAX);
-    let mut ret = -(system.primary.mass * GRAVITATIONAL_CONSTANT) / r;
-    for (obj, sys) in &system.subsystems {
-        let pv = obj.orbit.pv_at_time(stamp);
-        ret += potential_at(sys, pos - pv.pos, stamp);
+    let mut ret = -(planet.primary.mass * GRAVITATIONAL_CONSTANT) / r;
+    for (orbit, pl) in &planet.subsystems {
+        let pv = orbit.pv_at_time(stamp);
+        ret += potential_at(pl, pos - pv.pos, stamp);
     }
     ret
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct AABB(pub Vec2, pub Vec2);
-
-impl AABB {
-    pub fn from_center(c: Vec2, span: Vec2) -> Self {
-        let low = c - span / 2.0;
-        let hi = c + span / 2.0;
-        Self(low, hi)
-    }
-
-    pub fn from_arbitrary(a: Vec2, b: Vec2) -> Self {
-        let low = Vec2::new(a.x.min(b.x), a.y.min(b.y));
-        let hi = Vec2::new(a.x.max(b.x), a.y.max(b.y));
-        Self(low, hi)
-    }
-
-    pub fn from_list(plist: &[Vec2]) -> Option<Self> {
-        let p0 = plist.get(0)?;
-        let mut ret = AABB(*p0, *p0);
-        for p in plist {
-            ret.include(*p)
-        }
-        Some(ret)
-    }
-
-    pub fn padded(&self, padding: f32) -> Self {
-        let d = Vec2::new(padding, padding);
-        AABB(self.0 - d, self.1 + d)
-    }
-
-    pub fn include(&mut self, p: Vec2) {
-        self.0.x = self.0.x.min(p.x);
-        self.0.y = self.0.y.min(p.y);
-        self.1.x = self.1.x.max(p.x);
-        self.1.y = self.1.y.max(p.y);
-    }
-
-    pub fn center(&self) -> Vec2 {
-        (self.0 + self.1) / 2.0
-    }
-
-    pub fn span(&self) -> Vec2 {
-        self.1 - self.0
-    }
-
-    pub fn to_normalized(&self, p: Vec2) -> Vec2 {
-        let u = p - self.0;
-        let s = self.span();
-        u / s
-    }
-
-    pub fn from_normalized(&self, u: Vec2) -> Vec2 {
-        u * self.span() + self.0
-    }
-
-    pub fn map(from: Self, to: Self, p: Vec2) -> Vec2 {
-        let u = from.to_normalized(p);
-        to.from_normalized(u)
-    }
-
-    pub fn contains(&self, p: Vec2) -> bool {
-        let u = self.to_normalized(p);
-        0.0 <= u.x && u.x <= 1.0 && 0.0 <= u.y && u.y <= 1.0
-    }
 }

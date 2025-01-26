@@ -56,8 +56,8 @@ fn orbit_construction() {
     }
 }
 
-pub fn test_scenario_one() -> OrbitalSystem {
-    let mut system = OrbitalSystem::new(ObjectId(0), EARTH);
+pub fn test_scenario_one() -> Planet {
+    let mut system = Planet::new(ObjectId(0), EARTH);
 
     // let rid = system.add_object(Vec2::ZERO, Some(TEST_BODY));
 

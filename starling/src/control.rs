@@ -6,7 +6,7 @@
 // }
 
 // impl Controller {
-//     pub fn control(&self, system: &OrbitalSystem, object: &Object) -> Option<Vec2> {
+//     pub fn control(&self, system: &Planet, object: &Object) -> Option<Vec2> {
 //         if object.id != self.id {
 //             return None;
 //         }

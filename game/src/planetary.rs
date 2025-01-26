@@ -1,6 +1,7 @@
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 
+use starling::aabb::AABB;
 use starling::core::*;
 use starling::examples::*;
 use starling::orbit::*;
@@ -80,10 +81,9 @@ pub struct GameState {
     pub show_orbits: bool,
     pub show_potential_field: bool,
     pub paused: bool,
-    pub system: OrbitalSystem,
+    pub system: OrbitalTree,
     pub ids: ObjectIdTracker,
-    pub maneuvers: Vec<(ObjectId, Vec2, Nanotime)>,
-    pub backup: Option<(OrbitalSystem, ObjectIdTracker, Nanotime)>,
+    pub backup: Option<(OrbitalTree, ObjectIdTracker, Nanotime)>,
     pub track_list: Vec<ObjectId>,
     pub highlighted_list: Vec<ObjectId>,
     pub target_scale: f32,
@@ -157,12 +157,12 @@ impl GameState {
                 return None;
             }
 
-            let v = (self.system.primary.mass * GRAVITATIONAL_CONSTANT / p1.length()).sqrt();
+            let v = (self.system.system.primary.mass * GRAVITATIONAL_CONSTANT / p1.length()).sqrt();
 
             Some(Orbit::from_pv(
                 *p1,
                 (p2 - p1) * v / p1.length(),
-                self.system.primary.mass,
+                self.system.system.primary.mass,
                 self.sim_time,
             ))
         } else {
@@ -171,11 +171,24 @@ impl GameState {
     }
 
     pub fn spawn_new(&mut self) {
-        if let Some(orbit) = self.target_orbit() {
+        let t = self.target_orbit().or_else(|| {
+            let lup = self.system.lookup(self.primary(), self.sim_time)?;
+            if lup.level == 0 {
+                Some(lup.object.orbit)
+            } else {
+                None
+            }
+        });
+
+        if let Some(orbit) = t {
             let id = self.ids.next();
             self.toggle_track(id);
-            self.system
-                .add_object(id, orbit.random_nudge(self.sim_time, 1.0), self.sim_time);
+            self.system.add_object(
+                id,
+                self.system.system.id,
+                orbit.random_nudge(self.sim_time, 1.0),
+                self.sim_time,
+            );
         }
     }
 
@@ -186,7 +199,8 @@ impl GameState {
     }
 
     pub fn register_maneuver(&mut self, id: ObjectId, dv: Vec2, stamp: Nanotime) {
-        self.maneuvers.push((id, dv, stamp));
+        let e = OrbitalEvent::maneuver(id, dv, stamp);
+        self.system.events.push(e);
     }
 }
 
@@ -201,10 +215,9 @@ impl Default for GameState {
             paused: false,
             system: system.clone(),
             ids,
-            maneuvers: Vec::new(),
             track_list: Vec::new(),
             highlighted_list: Vec::new(),
-            backup: Some((system, ids, Nanotime::default())),
+            backup: Some((system, ids, Nanotime(0))),
             target_scale: 4.0,
             actual_scale: 4.0,
             draw_levels: (-70000..=-10000)
@@ -237,30 +250,14 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     let s = state.sim_time;
     state.system.propagate_to(s);
 
-    {
-        let mut to_apply = vec![];
-        state.maneuvers.retain(|(id, dv, t)| {
-            let apply = *t <= s;
-            if apply {
-                let man = OrbitalEvent::maneuver(*id, *dv, *t);
-                to_apply.push(man);
-            }
-            !apply
-        });
-
-        for e in to_apply {
-            state.system.apply(e);
-        }
-    }
-
     if let Some(a) = state.selection_region() {
         state.highlighted_list = state
             .system
-            .ids()
+            .objects
             .iter()
-            .filter_map(|id| {
-                let pv = state.system.lookup(*id, state.sim_time)?.pv();
-                a.contains(pv.pos).then(|| *id)
+            .filter_map(|o| {
+                let pv = state.system.lookup(o.id, state.sim_time)?.pv();
+                a.contains(pv.pos).then(|| o.id)
             })
             .collect();
     } else {
@@ -343,6 +340,10 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
             ),
         );
     }
+
+    for e in &state.system.events {
+        send_log(&mut evt, &format!("- {:?}", e));
+    }
 }
 
 fn keyboard_input(
@@ -359,10 +360,10 @@ fn keyboard_input(
     for key in keys.get_just_pressed() {
         match key {
             KeyCode::Period => {
-                state.sim_speed = i32::clamp(state.sim_speed + 1, -6, 4);
+                state.sim_speed = i32::clamp(state.sim_speed + 1, -10, 4);
             }
             KeyCode::Comma => {
-                state.sim_speed = i32::clamp(state.sim_speed - 1, -6, 4);
+                state.sim_speed = i32::clamp(state.sim_speed - 1, -10, 4);
             }
             KeyCode::KeyF => {
                 state.follow = !state.follow;
@@ -473,11 +474,11 @@ fn update_cursor(
     state.window_dims = Vec2::new(w.width(), w.height());
 }
 
-fn load_new_scenario(state: &mut GameState, new_system: OrbitalSystem, ids: ObjectIdTracker) {
-    state.backup = Some((new_system.clone(), ids, Nanotime::default()));
-    state.target_scale = 0.001 * new_system.primary.soi;
-    state.system = new_system;
-    state.sim_time = Nanotime::default();
+fn load_new_scenario(state: &mut GameState, tree: OrbitalTree, ids: ObjectIdTracker) {
+    state.backup = Some((tree.clone(), ids, Nanotime(0)));
+    state.target_scale = 0.001 * tree.system.primary.soi;
+    state.system = tree;
+    state.sim_time = Nanotime(0);
 }
 
 fn on_command(state: &mut GameState, cmd: &Vec<String>) {
@@ -594,9 +595,9 @@ fn scroll_events(
     if keys.pressed(KeyCode::ShiftLeft) {
         for ev in evr_scroll.read() {
             if ev.y > 0.0 {
-                state.sim_speed = i32::clamp(state.sim_speed + 1, -6, 4);
+                state.sim_speed = i32::clamp(state.sim_speed + 1, -10, 4);
             } else {
-                state.sim_speed = i32::clamp(state.sim_speed - 1, -6, 4);
+                state.sim_speed = i32::clamp(state.sim_speed - 1, -10, 4);
             }
         }
     } else {

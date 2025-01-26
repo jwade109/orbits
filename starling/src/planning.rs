@@ -185,6 +185,7 @@ impl Propagator {
 
         if can_hit_planet {
             if !above_planet(t1) {
+                self.stamp = t1;
                 self.finished = true;
                 return Ok(Some((t1, EventType::Collide)));
             }
@@ -192,6 +193,7 @@ impl Propagator {
             if let Some(t) = search_condition::<Nanotime>(t1, t2, tol, above_planet)
                 .map_err(|e| PredictError::Collision(e))?
             {
+                self.stamp = t;
                 self.finished = true;
                 return Ok(Some((t, EventType::Collide)));
             }
@@ -201,6 +203,7 @@ impl Propagator {
             if let Some(t) = search_condition::<Nanotime>(t1, t2, tol, escape_soi)
                 .map_err(|e| PredictError::Escape(e))?
             {
+                self.stamp = t;
                 self.finished = true;
                 return Ok(Some((t, EventType::Escape)));
             }
@@ -213,6 +216,7 @@ impl Propagator {
                 if let Some(t) = search_condition::<Nanotime>(t1, t2, tol, cond)
                     .map_err(|e| PredictError::Encounter(e))?
                 {
+                    self.stamp = t;
                     self.finished = true;
                     return Ok(Some((t, EventType::Encounter(id))));
                 }

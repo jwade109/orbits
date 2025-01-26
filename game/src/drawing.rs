@@ -1,6 +1,7 @@
 use bevy::color::palettes::basic::*;
 use bevy::color::palettes::css::ORANGE;
 use bevy::prelude::*;
+use starling::aabb::AABB;
 use starling::core::*;
 use starling::orbit::*;
 use starling::planning::*;
@@ -148,73 +149,75 @@ pub fn draw_globe(gizmos: &mut Gizmos, p: Vec2, radius: f32, color: Srgba) {
     }
 }
 
-pub fn draw_orbital_system(
-    gizmos: &mut Gizmos,
-    sys: &OrbitalSystem,
-    stamp: Nanotime,
-    origin: Vec2,
-    scale: f32,
-    show_orbits: bool,
-) {
-    draw_shadows(gizmos, origin, sys.primary.radius, stamp);
-    draw_globe(gizmos, origin, sys.primary.radius, WHITE);
+pub fn draw_planets(gizmos: &mut Gizmos, planet: &Planet, stamp: Nanotime, origin: Vec2) {
+    draw_shadows(gizmos, origin, planet.primary.radius, stamp);
+    draw_globe(gizmos, origin, planet.primary.radius, WHITE);
     for (a, ds) in [(1.0, 1.0), (0.3, 0.98), (0.1, 0.95)] {
-        draw_circle(gizmos, origin, sys.primary.soi * ds, alpha(ORANGE, a));
+        draw_circle(gizmos, origin, planet.primary.soi * ds, alpha(ORANGE, a));
     }
 
-    for obj in &sys.objects {
-        if let Some(event) = obj.event {
-            draw_event(gizmos, &event, &sys, scale, origin);
-        }
-    }
-
-    for obj in &sys.objects {
-        let pv = obj.orbit.pv_at_time(stamp);
-        let near_parabolic = (obj.orbit.eccentricity - 1.0).abs() < 0.01;
-        let color = if !obj.orbit.is_consistent(stamp) {
-            if near_parabolic {
-                PURPLE
-            } else {
-                RED
-            }
-        } else {
-            if near_parabolic {
-                YELLOW
-            } else {
-                WHITE
-            }
-        };
-        draw_circle(gizmos, origin + pv.pos, (4.0 * scale).min(10.0), color);
-        if show_orbits {
-            let until = obj.event.map(|e| e.stamp);
-            draw_orbit(origin, stamp, &obj.orbit, gizmos, 0.05, GRAY, false, until);
-        }
-    }
-
-    for (obj, subsys) in sys.subsystems.iter() {
-        draw_orbit(origin, stamp, &obj.orbit, gizmos, 0.1, WHITE, false, None);
-        let pv = obj.orbit.pv_at_time(stamp);
-        draw_orbital_system(gizmos, subsys, stamp, origin + pv.pos, scale, show_orbits);
+    for (orbit, pl) in &planet.subsystems {
+        let pv = orbit.pv_at_time(stamp);
+        draw_orbit(origin, stamp, orbit, gizmos, 0.4, GRAY, false, None);
+        draw_planets(gizmos, pl, stamp, origin + pv.pos)
     }
 }
 
-pub fn draw_scalar_field(gizmos: &mut Gizmos, sys: &OrbitalSystem, origin: Vec2, stamp: Nanotime) {
-    for y in (-1000..1000).step_by(10) {
-        let pts: Vec<Vec2> = (-1000..1000)
-            .step_by(10)
-            .map(|x| {
-                let p1 = Vec2::new(x as f32, y as f32);
-                let z = potential_at(sys, p1, stamp);
-                origin + p1 + Vec2::Y * -(-z).sqrt()
-            })
-            .collect();
-        gizmos.linestrip_2d(pts, alpha(WHITE, 0.1));
+pub fn draw_orbital_system(
+    gizmos: &mut Gizmos,
+    sys: &OrbitalTree,
+    stamp: Nanotime,
+    scale: f32,
+    show_orbits: bool,
+) {
+    draw_planets(gizmos, &sys.system, stamp, Vec2::ZERO);
+
+    for evt in &sys.events {
+        draw_event(gizmos, &evt, &sys, scale);
     }
+
+    _ = sys
+        .objects
+        .iter()
+        .filter_map(|obj| {
+            let lup = sys.lookup(obj.id, stamp)?;
+            let near_parabolic = (obj.orbit.eccentricity - 1.0).abs() < 0.01;
+            let color = if !obj.orbit.is_consistent(stamp) {
+                if near_parabolic {
+                    PURPLE
+                } else {
+                    RED
+                }
+            } else {
+                if near_parabolic {
+                    YELLOW
+                } else {
+                    WHITE
+                }
+            };
+            draw_circle(gizmos, lup.pv().pos, (4.0 * scale).min(10.0), color);
+            if show_orbits {
+                let until = None; // obj.event.map(|e| e.stamp);
+                draw_orbit(
+                    lup.frame_pv.pos,
+                    stamp,
+                    &obj.orbit,
+                    gizmos,
+                    0.05,
+                    GRAY,
+                    false,
+                    until,
+                );
+            }
+
+            Some(())
+        })
+        .collect::<Vec<_>>();
 }
 
 pub fn draw_scalar_field_cell(
     gizmos: &mut Gizmos,
-    sys: &OrbitalSystem,
+    planet: &Planet,
     stamp: Nanotime,
     center: Vec2,
     step: f32,
@@ -222,10 +225,10 @@ pub fn draw_scalar_field_cell(
     expanded: bool,
 ) {
     if !expanded {
-        let d = sys
+        let d = planet
             .subsystems
             .iter()
-            .map(|(obj, _)| (obj.orbit.pv_at_time(stamp).pos.distance(center) * 1000.0) as u32)
+            .map(|(orbit, pl)| (orbit.pv_at_time(stamp).pos.distance(center) * 1000.0) as u32)
             .min()
             .unwrap_or(10000000);
         if d < 600000 || center.length() < 600.0 {
@@ -236,7 +239,7 @@ pub fn draw_scalar_field_cell(
                     let x = (i - 1) as f32 / n as f32 * substep * n as f32 - substep * 0.5;
                     let y = (j - 1) as f32 / n as f32 * substep * n as f32 - substep * 0.5;
                     let p = center + Vec2::new(x, y);
-                    draw_scalar_field_cell(gizmos, sys, stamp, p, substep, levels, true);
+                    draw_scalar_field_cell(gizmos, planet, stamp, p, substep, levels, true);
                 }
             }
             return;
@@ -252,7 +255,7 @@ pub fn draw_scalar_field_cell(
 
     let pot: Vec<(Vec2, f32)> = [bl, br, tr, tl]
         .iter()
-        .map(|p| (*p, potential_at(sys, *p, stamp)))
+        .map(|p| (*p, potential_at(&planet, *p, stamp)))
         .collect();
 
     for level in levels {
@@ -277,17 +280,12 @@ pub fn draw_scalar_field_cell(
     }
 }
 
-pub fn draw_scalar_field_v2(
-    gizmos: &mut Gizmos,
-    sys: &OrbitalSystem,
-    stamp: Nanotime,
-    levels: &[i32],
-) {
+pub fn draw_scalar_field_v2(gizmos: &mut Gizmos, planet: &Planet, stamp: Nanotime, levels: &[i32]) {
     let step = 250;
     for y in (-4000..=4000).step_by(step) {
         for x in (-4000..=4000).step_by(step) {
             let p = Vec2::new(x as f32, y as f32);
-            draw_scalar_field_cell(gizmos, sys, stamp, p, step as f32, levels, false);
+            draw_scalar_field_cell(gizmos, planet, stamp, p, step as f32, levels, false);
         }
     }
 }
@@ -315,9 +313,8 @@ pub fn draw_shadows(gizmos: &mut Gizmos, origin: Vec2, radius: f32, stamp: Nanot
 pub fn draw_event(
     gizmos: &mut Gizmos,
     event: &OrbitalEvent,
-    sys: &OrbitalSystem,
+    sys: &OrbitalTree,
     scale: f32,
-    origin: Vec2,
 ) -> Option<()> {
     let pv = sys.lookup(event.target, event.stamp)?.pv();
     let color = match event.etype {
@@ -326,8 +323,8 @@ pub fn draw_event(
         EventType::Escape => TEAL,
         EventType::Maneuver(_) => PURPLE,
     };
-    draw_circle(gizmos, pv.pos + origin, 10.0 * scale, alpha(color, 0.5));
-    draw_circle(gizmos, pv.pos + origin, 3.0 * scale, alpha(color, 0.5));
+    draw_circle(gizmos, pv.pos, 10.0 * scale, alpha(color, 0.5));
+    draw_circle(gizmos, pv.pos, 3.0 * scale, alpha(color, 0.5));
     Some(())
 }
 
@@ -343,47 +340,47 @@ pub fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) {
         .collect::<Vec<_>>();
 }
 
-pub fn draw_nested_global_orbit(
-    gizmos: &mut Gizmos,
-    sys: &OrbitalSystem,
-    stamp: Nanotime,
-    id: ObjectId,
-    focus: bool,
-) -> Option<()> {
-    let lup = sys.lookup(id, stamp)?;
-    if lup.level == 0 {
-        return None;
-    }
-    let will_escape = lup
-        .object
-        .event
-        .map(|e| e.etype == EventType::Escape)
-        .unwrap_or(false);
+// pub fn draw_nested_global_orbit(
+//     gizmos: &mut Gizmos,
+//     sys: &Planet,
+//     stamp: Nanotime,
+//     id: ObjectId,
+//     focus: bool,
+// ) -> Option<()> {
+//     let lup = sys.lookup(id, stamp)?;
+//     if lup.level == 0 {
+//         return None;
+//     }
+//     let will_escape = lup
+//         .object
+//         .event
+//         .map(|e| e.etype == EventType::Escape)
+//         .unwrap_or(false);
 
-    if !will_escape {
-        return None;
-    }
+//     if !will_escape {
+//         return None;
+//     }
 
-    let pv = lup.pv();
-    let (color, a) = match focus {
-        true => (ORANGE, 0.3),
-        false => (GRAY, 0.1),
-    };
-    let orbit = Orbit::from_pv(pv.pos, pv.vel, sys.primary.mass, stamp);
-    draw_orbit(Vec2::ZERO, stamp, &orbit, gizmos, a, color, false, None);
-    Some(())
-}
+//     let pv = lup.pv();
+//     let (color, a) = match focus {
+//         true => (ORANGE, 0.3),
+//         false => (GRAY, 0.1),
+//     };
+//     let orbit = Orbit::from_pv(pv.pos, pv.vel, sys.primary.mass, stamp);
+//     draw_orbit(Vec2::ZERO, stamp, &orbit, gizmos, a, color, false, None);
+//     Some(())
+// }
 
-pub fn draw_nested_global_orbits(gizmos: &mut Gizmos, state: &GameState) {
-    _ = state
-        .system
-        .ids()
-        .iter()
-        .filter_map(|id| {
-            draw_nested_global_orbit(gizmos, &state.system, state.sim_time, *id, false)
-        })
-        .collect::<Vec<_>>();
-}
+// pub fn draw_nested_global_orbits(gizmos: &mut Gizmos, state: &GameState) {
+//     _ = state
+//         .system
+//         .ids()
+//         .iter()
+//         .filter_map(|id| {
+//             draw_nested_global_orbit(gizmos, &state.system, state.sim_time, *id, false)
+//         })
+//         .collect::<Vec<_>>();
+// }
 
 pub fn draw_tracked_objects(gizmos: &mut Gizmos, state: &GameState) {
     let color = ORANGE;
@@ -394,7 +391,7 @@ pub fn draw_tracked_objects(gizmos: &mut Gizmos, state: &GameState) {
         .filter_map(|id| {
             let lup = state.system.lookup(*id, state.sim_time)?;
 
-            let until = lup.object.event.map(|e| e.stamp);
+            let until = None; // lup.object.event.map(|e| e.stamp);
 
             if state.track_list.len() < 10 {
                 draw_orbit(
@@ -407,7 +404,7 @@ pub fn draw_tracked_objects(gizmos: &mut Gizmos, state: &GameState) {
                     true,
                     until,
                 );
-                draw_nested_global_orbit(gizmos, &state.system, state.sim_time, *id, true);
+                // draw_nested_global_orbit(gizmos, &state.system, state.sim_time, *id, true);
 
                 if lup.level == 0 {
                     if let Some(t) = state.target_orbit() {
@@ -456,7 +453,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     }
 
     if state.show_potential_field {
-        draw_scalar_field_v2(&mut gizmos, &state.system, stamp, &state.draw_levels);
+        draw_scalar_field_v2(&mut gizmos, &state.system.system, stamp, &state.draw_levels);
     }
 
     if let Some(p) = state.mouse_pos() {
@@ -475,12 +472,44 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         &mut gizmos,
         &state.system,
         stamp,
-        Vec2::ZERO,
         state.actual_scale,
         state.show_orbits,
     );
 
-    draw_nested_global_orbits(&mut gizmos, &state);
+    // draw_nested_global_orbits(&mut gizmos, &state);
+
+    {
+        _ = state
+            .system
+            .objects
+            .iter()
+            .filter_map(|o| {
+                let events = state
+                    .system
+                    .events
+                    .iter()
+                    .filter(|e| e.target == o.id)
+                    .collect::<Vec<_>>();
+                let mut n = Some(*o);
+                for evt in events {
+                    n = n.map(|n| n.next(&state.system.system, *evt)).flatten();
+                    if let Some(n) = n {
+                        draw_orbit(
+                            Vec2::ZERO,
+                            stamp,
+                            &n.orbit,
+                            &mut gizmos,
+                            0.6,
+                            PURPLE,
+                            false,
+                            None,
+                        );
+                    }
+                }
+                Some(())
+            })
+            .collect::<Vec<_>>();
+    }
 
     draw_highlighted_objects(&mut gizmos, &state);
 
