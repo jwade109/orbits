@@ -204,7 +204,7 @@ pub fn draw_scalar_field(gizmos: &mut Gizmos, sys: &OrbitalSystem, origin: Vec2,
             .step_by(10)
             .map(|x| {
                 let p1 = Vec2::new(x as f32, y as f32);
-                let z = sys.potential_at(p1, stamp);
+                let z = potential_at(sys, p1, stamp);
                 origin + p1 + Vec2::Y * -(-z).sqrt()
             })
             .collect();
@@ -252,7 +252,7 @@ pub fn draw_scalar_field_cell(
 
     let pot: Vec<(Vec2, f32)> = [bl, br, tr, tl]
         .iter()
-        .map(|p| (*p, sys.potential_at(*p, stamp)))
+        .map(|p| (*p, potential_at(sys, *p, stamp)))
         .collect();
 
     for level in levels {

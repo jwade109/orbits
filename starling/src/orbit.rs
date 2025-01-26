@@ -438,6 +438,13 @@ impl Orbit {
         let ta2 = eccentric_to_true(ea2, self.eccentricity);
         (ta.as_f32() - ta2.as_f32()).abs() < 1E-3
     }
+
+    pub fn random_nudge(&self, t: Nanotime, spread: f32) -> Self {
+        let dx = randvec(0.01, spread * 10.0);
+        let dv = randvec(0.01, spread);
+        let pv = self.pv_at_time(t) + PV::new(dx, dv);
+        Orbit::from_pv(pv.pos, pv.vel, self.primary_mass, t)
+    }
 }
 
 pub fn can_intersect(o1: &Orbit, o2: &Orbit) -> bool {

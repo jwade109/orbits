@@ -189,6 +189,7 @@ impl Object {
 
 #[derive(Debug, Clone)]
 pub struct OrbitalSystem {
+    pub id: ObjectId,
     pub primary: Body,
     pub objects: Vec<Object>,
     pub subsystems: Vec<(Object, OrbitalSystem)>,
@@ -344,6 +345,7 @@ pub struct ObjectLookup {
     pub local_pv: PV,
     pub frame_pv: PV,
     pub otype: ObjectType,
+    pub parent: ObjectId,
     pub body: Option<Body>,
 }
 
@@ -354,8 +356,9 @@ impl ObjectLookup {
 }
 
 impl OrbitalSystem {
-    pub fn new(body: Body) -> Self {
+    pub fn new(id: ObjectId, body: Body) -> Self {
         OrbitalSystem {
+            id,
             primary: body,
             objects: Vec::default(),
             subsystems: vec![],
@@ -471,15 +474,8 @@ impl OrbitalSystem {
         None
     }
 
-    pub fn add_subsystem(
-        &mut self,
-        id: ObjectId,
-        orbit: Orbit,
-        stamp: Nanotime,
-        subsys: OrbitalSystem,
-    ) {
-        self.subsystems
-            .push((Object::new(id, orbit, stamp), subsys));
+    pub fn add_subsystem(&mut self, orb: Orbit, t: Nanotime, sys: OrbitalSystem) {
+        self.subsystems.push((Object::new(sys.id, orb, t), sys));
     }
 
     pub fn ids(&self) -> Vec<ObjectId> {
@@ -491,27 +487,22 @@ impl OrbitalSystem {
         ret
     }
 
-    fn lookup_inner(
-        &self,
-        id: ObjectId,
-        stamp: Nanotime,
-        frame_pv: PV,
-        level: u32,
-    ) -> Option<ObjectLookup> {
+    fn lookup_inner(&self, id: ObjectId, t: Nanotime, fr_pv: PV, l: u32) -> Option<ObjectLookup> {
         let find_subsys = || {
             self.subsystems.iter().find_map(|(o, sys)| {
                 if o.id != id {
                     return None;
                 }
 
-                let local_pv = o.orbit.pv_at_time(stamp);
+                let local_pv = o.orbit.pv_at_time(t);
 
                 Some(ObjectLookup {
                     object: *o,
-                    level,
+                    level: l,
                     local_pv,
-                    frame_pv,
+                    frame_pv: fr_pv,
                     otype: ObjectType::System,
+                    parent: self.id,
                     body: Some(sys.primary),
                 })
             })
@@ -525,10 +516,11 @@ impl OrbitalSystem {
 
                 Some(ObjectLookup {
                     object: *o,
-                    level,
-                    local_pv: o.orbit.pv_at_time(stamp),
-                    frame_pv,
+                    level: l,
+                    local_pv: o.orbit.pv_at_time(t),
+                    frame_pv: fr_pv,
                     otype: ObjectType::Orbiter,
+                    parent: self.id,
                     body: None,
                 })
             })
@@ -536,8 +528,8 @@ impl OrbitalSystem {
 
         let find_recurse = || {
             self.subsystems.iter().find_map(|(o, sys)| {
-                let pv = o.orbit.pv_at_time(stamp) + frame_pv;
-                sys.lookup_inner(id, stamp, pv, level + 1)
+                let pv = o.orbit.pv_at_time(t) + fr_pv;
+                sys.lookup_inner(id, t, pv, l + 1)
             })
         };
 
@@ -547,22 +539,16 @@ impl OrbitalSystem {
     pub fn lookup(&self, id: ObjectId, stamp: Nanotime) -> Option<ObjectLookup> {
         self.lookup_inner(id, stamp, PV::zero(), 0)
     }
+}
 
-    pub fn lookup_orbiter_mut(&mut self, o: ObjectId) -> Option<&mut Object> {
-        self.objects
-            .iter_mut()
-            .find_map(|obj| if obj.id == o { Some(obj) } else { None })
+pub fn potential_at(system: &OrbitalSystem, pos: Vec2, stamp: Nanotime) -> f32 {
+    let r = pos.length().clamp(10.0, std::f32::MAX);
+    let mut ret = -(system.primary.mass * GRAVITATIONAL_CONSTANT) / r;
+    for (obj, sys) in &system.subsystems {
+        let pv = obj.orbit.pv_at_time(stamp);
+        ret += potential_at(sys, pos - pv.pos, stamp);
     }
-
-    pub fn potential_at(&self, pos: Vec2, stamp: Nanotime) -> f32 {
-        let r = pos.length().clamp(10.0, std::f32::MAX);
-        let mut ret = -(self.primary.mass * GRAVITATIONAL_CONSTANT) / r;
-        for (obj, sys) in &self.subsystems {
-            let pv = obj.orbit.pv_at_time(stamp);
-            ret += sys.potential_at(pos - pv.pos, stamp);
-        }
-        ret
-    }
+    ret
 }
 
 #[derive(Debug, Clone, Copy)]

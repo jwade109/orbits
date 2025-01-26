@@ -81,8 +81,9 @@ pub struct GameState {
     pub show_potential_field: bool,
     pub paused: bool,
     pub system: OrbitalSystem,
+    pub ids: ObjectIdTracker,
     pub maneuvers: Vec<(ObjectId, Vec2, Nanotime)>,
-    pub backup: Option<(OrbitalSystem, Nanotime)>,
+    pub backup: Option<(OrbitalSystem, ObjectIdTracker, Nanotime)>,
     pub track_list: Vec<ObjectId>,
     pub highlighted_list: Vec<ObjectId>,
     pub target_scale: f32,
@@ -171,9 +172,10 @@ impl GameState {
 
     pub fn spawn_new(&mut self) {
         if let Some(orbit) = self.target_orbit() {
-            let id = ObjectId((rand(0.0, 1.0) * 10000.0 + 1000.0) as i64);
+            let id = self.ids.next();
             self.toggle_track(id);
-            self.system.add_object(id, orbit, self.sim_time);
+            self.system
+                .add_object(id, orbit.random_nudge(self.sim_time, 1.0), self.sim_time);
         }
     }
 
@@ -190,17 +192,19 @@ impl GameState {
 
 impl Default for GameState {
     fn default() -> Self {
+        let (system, ids) = default_example();
         GameState {
             sim_time: Nanotime(0),
             sim_speed: 0,
             show_orbits: true,
             show_potential_field: false,
             paused: false,
-            system: default_example(),
+            system: system.clone(),
+            ids,
             maneuvers: Vec::new(),
             track_list: Vec::new(),
             highlighted_list: Vec::new(),
-            backup: Some((default_example(), Nanotime::default())),
+            backup: Some((system, ids, Nanotime::default())),
             target_scale: 4.0,
             actual_scale: 4.0,
             draw_levels: (-70000..=-10000)
@@ -308,29 +312,11 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         send_log(&mut evt, &format!("{:#?}", lup.object));
         send_log(&mut evt, &format!("LO: {}", lup.local_pv));
         send_log(&mut evt, &format!("GL: {}", lup.frame_pv));
+        send_log(&mut evt, &format!("Parent: {}", lup.parent));
 
         if let Some(b) = lup.body {
             send_log(&mut evt, &format!("BD: {:?}", b));
         }
-
-        // let ta = obj.orbit.ta_at_time(state.sim_time);
-        // let ea = true_to_eccentric(ta, obj.orbit.eccentricity);
-        // let ma = eccentric_to_mean(ea, obj.orbit.eccentricity);
-        // let ea2 = mean_to_eccentric(ma, obj.orbit.eccentricity)
-        //     .unwrap_or(Anomaly::with_ecc(obj.orbit.eccentricity, 0.3777));
-        // let ta2 = eccentric_to_true(ea2, obj.orbit.eccentricity);
-
-        // let mm = obj.orbit.mean_motion();
-
-        // let dt = ma.as_f32() / mm;
-
-        // send_log(
-        //     &mut evt,
-        //     &format!(
-        //         "TA: {:?}\nEA: {:?}\nMA: {:?}\nEA: {:?}\nTA: {:?}\nTP: {:0.3}",
-        //         ta, ea, ma, ea2, ta2, dt
-        //     ),
-        // );
 
         send_log(
             &mut evt,
@@ -487,8 +473,8 @@ fn update_cursor(
     state.window_dims = Vec2::new(w.width(), w.height());
 }
 
-fn load_new_scenario(state: &mut GameState, new_system: OrbitalSystem) {
-    state.backup = Some((new_system.clone(), Nanotime::default()));
+fn load_new_scenario(state: &mut GameState, new_system: OrbitalSystem, ids: ObjectIdTracker) {
+    state.backup = Some((new_system.clone(), ids, Nanotime::default()));
     state.target_scale = 0.001 * new_system.primary.soi;
     state.system = new_system;
     state.sim_time = Nanotime::default();
@@ -498,7 +484,7 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
     let starts_with = |s: &'static str| -> bool { cmd.first() == Some(&s.to_string()) };
 
     if starts_with("load") {
-        let system = match cmd.get(1).map(|s| s.as_str()) {
+        let (system, ids) = match cmd.get(1).map(|s| s.as_str()) {
             Some("grid") => consistency_example(),
             Some("earth") => earth_moon_example_one(),
             Some("earth2") => earth_moon_example_two(),
@@ -508,7 +494,7 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
                 return;
             }
         };
-        load_new_scenario(state, system);
+        load_new_scenario(state, system, ids);
     } else if starts_with("toggle") {
         match cmd.get(1).map(|s| s.as_str()) {
             Some("potential") => {
@@ -522,12 +508,13 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
             }
         }
     } else if starts_with("restore") {
-        if let Some((sys, time)) = &state.backup {
+        if let Some((sys, ids, time)) = &state.backup {
             state.system = sys.clone();
             state.sim_time = *time;
+            state.ids = *ids;
         }
     } else if starts_with("save") {
-        state.backup = Some((state.system.clone(), state.sim_time));
+        state.backup = Some((state.system.clone(), state.ids, state.sim_time));
     } else if starts_with("track") {
         for n in cmd.iter().skip(1).filter_map(|s| s.parse::<i64>().ok()) {
             let id = ObjectId(n);
@@ -549,8 +536,6 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
         state.delete_objects();
     } else if starts_with("spawn") {
         state.spawn_new();
-    } else if starts_with("clear") {
-        state.system.objects.clear();
     } else if starts_with("maneuver") {
         let tl = state.track_list.clone();
         _ = tl

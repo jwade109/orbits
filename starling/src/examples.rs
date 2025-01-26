@@ -12,12 +12,12 @@ pub const LUNA: (Body, Orbit) = (
     Orbit::circular(3800.0, EARTH.mass, Nanotime(-40 * 1000000000), false),
 );
 
-pub fn just_the_moon() -> OrbitalSystem {
-    let mut subsys = OrbitalSystem::new(LUNA.0);
+pub fn just_the_moon() -> (OrbitalSystem, ObjectIdTracker) {
     let mut id = ObjectIdTracker::new();
+    let mut system = OrbitalSystem::new(id.next(), LUNA.0);
 
     for _ in 0..5 {
-        subsys.add_object(
+        system.add_object(
             id.next(),
             Orbit {
                 eccentricity: rand(0.2, 0.5),
@@ -31,15 +31,13 @@ pub fn just_the_moon() -> OrbitalSystem {
         );
     }
 
-    subsys
+    (system, id)
 }
 
-pub fn earth_moon_example_one() -> OrbitalSystem {
-    let mut system = OrbitalSystem::new(EARTH);
-
+pub fn earth_moon_example_one() -> (OrbitalSystem, ObjectIdTracker) {
     let mut id = ObjectIdTracker::new();
 
-    let luna_id = id.next();
+    let mut system = OrbitalSystem::new(id.next(), EARTH);
 
     system.add_object(
         id.next(),
@@ -77,7 +75,7 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
         );
     }
 
-    let mut subsys = OrbitalSystem::new(LUNA.0);
+    let mut subsys = OrbitalSystem::new(id.next(), LUNA.0);
 
     for _ in 0..5 {
         subsys.add_object(
@@ -94,7 +92,7 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
         );
     }
 
-    system.add_subsystem(luna_id, LUNA.1, Nanotime(0), subsys);
+    system.add_subsystem(LUNA.1, Nanotime(0), subsys);
 
     let asteroid = (
         Body::new(10.0, 2.0, 60.0),
@@ -108,7 +106,7 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
         },
     );
 
-    let mut ast = OrbitalSystem::new(asteroid.0);
+    let mut ast = OrbitalSystem::new(id.next(), asteroid.0);
 
     ast.add_object(
         id.next(),
@@ -116,15 +114,14 @@ pub fn earth_moon_example_one() -> OrbitalSystem {
         Nanotime(0),
     );
 
-    system.add_subsystem(id.next(), asteroid.1, Nanotime(0), ast);
+    system.add_subsystem(asteroid.1, Nanotime(0), ast);
 
-    system
+    (system, id)
 }
 
-pub fn earth_moon_example_two() -> OrbitalSystem {
-    let mut system = OrbitalSystem::new(EARTH);
-
+pub fn earth_moon_example_two() -> (OrbitalSystem, ObjectIdTracker) {
     let mut id = ObjectIdTracker::new();
+    let mut system = OrbitalSystem::new(id.next(), EARTH);
 
     system.add_object(
         id.next(),
@@ -146,22 +143,23 @@ pub fn earth_moon_example_two() -> OrbitalSystem {
         );
     }
 
-    let subsys = OrbitalSystem::new(LUNA.0);
-    system.add_subsystem(id.next(), LUNA.1, Nanotime(0), subsys);
+    let subsys = OrbitalSystem::new(id.next(), LUNA.0);
 
-    system
+    system.add_subsystem(LUNA.1, Nanotime(0), subsys);
+
+    (system, id)
 }
 
-pub fn sun_jupiter_lagrange() -> OrbitalSystem {
+pub fn sun_jupiter_lagrange() -> (OrbitalSystem, ObjectIdTracker) {
     let sun = Body {
         mass: 1000.0,
         radius: 100.0,
         soi: 100000.0,
     };
 
-    let mut system: OrbitalSystem = OrbitalSystem::new(sun);
-
     let mut id = ObjectIdTracker::new();
+
+    let mut system: OrbitalSystem = OrbitalSystem::new(id.next(), sun);
 
     let jupiter = Body {
         mass: sun.mass * 0.000954588,
@@ -179,10 +177,9 @@ pub fn sun_jupiter_lagrange() -> OrbitalSystem {
     };
 
     system.add_subsystem(
-        id.next(),
         jupiter_orbit,
         Nanotime(0),
-        OrbitalSystem::new(jupiter),
+        OrbitalSystem::new(id.next(), jupiter),
     );
 
     for _ in 0..600 {
@@ -197,12 +194,13 @@ pub fn sun_jupiter_lagrange() -> OrbitalSystem {
         system.add_object(id.next(), orbit, Nanotime(0));
     }
 
-    system
+    (system, id)
 }
 
-pub fn consistency_example() -> OrbitalSystem {
-    let mut system: OrbitalSystem = OrbitalSystem::new(EARTH);
-    let mut ids = ObjectIdTracker::new();
+pub fn consistency_example() -> (OrbitalSystem, ObjectIdTracker) {
+    let mut id = ObjectIdTracker::new();
+
+    let mut system: OrbitalSystem = OrbitalSystem::new(id.next(), EARTH);
 
     let mut orbits = vec![];
 
@@ -224,19 +222,20 @@ pub fn consistency_example() -> OrbitalSystem {
     }
 
     for orbit in orbits {
-        system.add_object(ids.next(), orbit, Nanotime(0));
+        system.add_object(id.next(), orbit, Nanotime(0));
     }
 
-    system
+    (system, id)
 }
 
-pub fn single_hyperbolic() -> OrbitalSystem {
-    let mut system: OrbitalSystem = OrbitalSystem::new(EARTH);
+pub fn single_hyperbolic() -> (OrbitalSystem, ObjectIdTracker) {
+    let mut id = ObjectIdTracker::new();
+    let mut system: OrbitalSystem = OrbitalSystem::new(id.next(), EARTH);
     let orbit = Orbit::from_pv((400.0, 0.0), (0.0, 260.0), EARTH.mass, Nanotime(0));
-    system.add_object(ObjectId(0), orbit, Nanotime(0));
-    system
+    system.add_object(id.next(), orbit, Nanotime(0));
+    (system, id)
 }
 
-pub fn default_example() -> OrbitalSystem {
+pub fn default_example() -> (OrbitalSystem, ObjectIdTracker) {
     earth_moon_example_one()
 }

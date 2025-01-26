@@ -2,9 +2,9 @@
 
 use crate::core::*;
 use crate::examples::*;
+use crate::orbit::*;
 use approx::assert_relative_eq;
 use bevy::math::Vec2;
-use crate::orbit::*;
 
 const TEST_BODY: Body = Body {
     mass: 1000.0,
@@ -43,13 +43,21 @@ fn orbit_construction() {
 
     for i in -5..5 {
         let t = o1.period().unwrap() * i;
-        assert_relative_eq!(o1.pv_at_time(t).pos.x, o2.pv_at_time(t).pos.x, epsilon = 0.5);
-        assert_relative_eq!(o1.pv_at_time(t).pos.y, o2.pv_at_time(t).pos.y, epsilon = 0.5);
+        assert_relative_eq!(
+            o1.pv_at_time(t).pos.x,
+            o2.pv_at_time(t).pos.x,
+            epsilon = 0.5
+        );
+        assert_relative_eq!(
+            o1.pv_at_time(t).pos.y,
+            o2.pv_at_time(t).pos.y,
+            epsilon = 0.5
+        );
     }
 }
 
 pub fn test_scenario_one() -> OrbitalSystem {
-    let mut system = OrbitalSystem::new(EARTH);
+    let mut system = OrbitalSystem::new(ObjectId(0), EARTH);
 
     // let rid = system.add_object(Vec2::ZERO, Some(TEST_BODY));
 
