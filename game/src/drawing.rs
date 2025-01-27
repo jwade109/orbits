@@ -161,13 +161,13 @@ pub fn draw_object(
     show_orbits: bool,
     tracked: bool,
 ) -> Option<()> {
-    let (_, parent_pv, _) = planets.lookup(obj.parent, stamp)?;
-    let color = orbit_color_mapping(&obj.orbit, stamp);
-    let pv = parent_pv + obj.orbit.pv_at_time(stamp);
+    let (_, parent_pv, _, _) = planets.lookup(obj.parent, stamp)?;
+    let color = orbit_color_mapping(&obj.prop.orbit, stamp);
+    let pv = parent_pv + obj.prop.orbit.pv_at_time(stamp);
     draw_circle(gizmos, pv.pos, (4.0 * scale).min(10.0), color);
     let (a, color) = if tracked { (0.2, ORANGE) } else { (0.05, GRAY) };
     if show_orbits {
-        draw_orbit(parent_pv.pos, stamp, &obj.orbit, gizmos, a, color, false);
+        draw_orbit(parent_pv.pos, stamp, &obj.prop.orbit, gizmos, a, color, false);
     }
     if tracked {
         draw_square(gizmos, pv.pos, (70.0 * scale).min(70.0), alpha(color, 0.7));
@@ -180,10 +180,10 @@ pub fn draw_object(
             match next {
                 Ok((e, nobj)) => {
                     let color = ORBIT_COLORS[i];
-                    let (_, pv, _) = planets.lookup(nobj.parent, stamp)?;
-                    let p = nobj.orbit.pv_at_time(e.stamp).pos;
+                    let (_, pv, _, _) = planets.lookup(nobj.parent, stamp)?;
+                    let p = nobj.prop.orbit.pv_at_time(e.stamp).pos;
                     draw_event(gizmos, &e, p, scale);
-                    draw_orbit(pv.pos, stamp, &nobj.orbit, gizmos, 0.6, color, false);
+                    draw_orbit(pv.pos, stamp, &nobj.prop.orbit, gizmos, 0.6, color, false);
                     cursor = nobj;
                 }
                 _ => break,

@@ -22,8 +22,7 @@ impl std::fmt::Debug for ObjectId {
 pub struct Object {
     pub id: ObjectId,
     pub parent: ObjectId,
-    pub orbit: Orbit,
-    pub propagator: Propagator,
+    pub prop: Propagator,
     pub events: std::collections::VecDeque<OrbitalEvent>,
 }
 
@@ -40,14 +39,13 @@ impl Object {
         Object {
             id,
             parent,
-            orbit,
-            propagator: Propagator::new(stamp),
+            prop: Propagator::new(orbit, stamp),
             events: std::collections::VecDeque::new(),
         }
     }
 
     pub fn valid_until(&mut self) -> Nanotime {
-        self.propagator.stamp()
+        self.prop.stamp()
     }
 
     pub fn add_event(&mut self, event: OrbitalEvent) {
@@ -55,15 +53,20 @@ impl Object {
         self.events.push_back(event);
     }
 
-    pub fn propagate_to(&mut self, stamp: Nanotime, planets: &Planet) {
-        while self.valid_until() < stamp && !self.events.is_empty() {
-            match self.next(planets) {
-                Ok((_, o)) => {
-                    *self = o;
-                }
-                Err(_) => break,
-            }
+    pub fn propagate_to(&mut self, stamp: Nanotime, planets: &Planet) -> Option<()> {
+        let (_, _, _, pl) = planets.lookup(self.parent, stamp)?;
+
+        let bodies = pl
+            .subsystems
+            .iter()
+            .map(|(orbit, pl)| (pl.id, *orbit, pl.primary.soi))
+            .collect::<Vec<_>>();
+
+        while !self.prop.calculated_to(stamp) {
+            let _ = self.prop.next(pl.primary.radius, pl.primary.soi, &bodies);
         }
+
+        Some(())
     }
 
     pub fn next(&self, planet: &Planet) -> Result<(OrbitalEvent, Object), BadObjectNextState> {
@@ -74,45 +77,45 @@ impl Object {
             .ok_or(BadObjectNextState::NoNextState)?;
         match event.etype {
             EventType::Maneuver(dv) => {
-                let (body, _, _) = planet
+                let (body, _, _, _) = planet
                     .lookup(self.parent, event.stamp)
                     .ok_or(BadObjectNextState::Lookup)?;
-                let pv = o.orbit.pv_at_time(event.stamp);
+                let pv = o.prop.orbit.pv_at_time(event.stamp);
                 let new_pv = pv + PV::vel(dv);
                 let orbit = Orbit::from_pv(new_pv, body.mass, event.stamp);
-                o.orbit = orbit;
-                o.propagator.reset(event.stamp);
+                o.prop.orbit = orbit;
+                o.prop.reset(event.stamp);
                 Ok((event, o))
             }
             EventType::Encounter(id) => {
-                let (new_body, new_pv, _) = planet
+                let (new_body, new_pv, _, _) = planet
                     .lookup(id, event.stamp)
                     .ok_or(BadObjectNextState::Lookup)?;
-                let (_, old_pv, _) = planet
+                let (_, old_pv, _, _) = planet
                     .lookup(self.parent, event.stamp)
                     .ok_or(BadObjectNextState::Lookup)?;
-                let ego = self.orbit.pv_at_time(event.stamp) + old_pv;
+                let ego = self.prop.orbit.pv_at_time(event.stamp) + old_pv;
                 let d = ego - new_pv;
                 let orbit = Orbit::from_pv(d, new_body.mass, event.stamp);
-                o.orbit = orbit;
+                o.prop.orbit = orbit;
                 o.parent = id;
-                o.propagator.reset(event.stamp);
+                o.prop.reset(event.stamp);
                 Ok((event, o))
             }
             EventType::Escape => {
-                let (_, old_frame_pv, reparent_id) = planet
+                let (_, old_frame_pv, reparent_id, _) = planet
                     .lookup(self.parent, event.stamp)
                     .ok_or(BadObjectNextState::Lookup)?;
                 let reparent = reparent_id.ok_or(BadObjectNextState::Err)?;
-                let (new_body, new_frame_pv, _) = planet
+                let (new_body, new_frame_pv, _, _) = planet
                     .lookup(reparent, event.stamp)
                     .ok_or(BadObjectNextState::Lookup)?;
-                let pv = self.orbit.pv_at_time(event.stamp);
+                let pv = self.prop.orbit.pv_at_time(event.stamp);
                 let d = pv + old_frame_pv - new_frame_pv;
                 let orbit = Orbit::from_pv(d, new_body.mass, event.stamp);
-                o.orbit = orbit;
+                o.prop.orbit = orbit;
                 o.parent = reparent;
-                o.propagator.reset(event.stamp);
+                o.prop.reset(event.stamp);
                 Ok((event, o))
             }
             EventType::Collide => Err(BadObjectNextState::NoNextState),

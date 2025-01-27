@@ -105,56 +105,63 @@ fn search_condition<T: BinarySearchKey>(
 
 #[derive(Debug, Clone, Copy)]
 pub struct Propagator {
-    stamp: Nanotime,
-    dt: Nanotime,
-    finished: bool,
+    pub orbit: Orbit,
+    pub start: Nanotime,
+    pub end: Nanotime,
+    pub dt: Nanotime,
+    pub finished: bool,
+    pub event: Option<EventType>,
 }
 
 impl Propagator {
-    pub fn new(stamp: Nanotime) -> Self {
+    pub fn new(orbit: Orbit, stamp: Nanotime) -> Self {
         Propagator {
-            stamp,
+            orbit,
+            start: stamp,
+            end: stamp,
             dt: Nanotime(0),
             finished: false,
+            event: None,
         }
     }
 
     pub fn stamp(&self) -> Nanotime {
-        self.stamp
+        self.end
     }
 
     pub fn calculated_to(&self, stamp: Nanotime) -> bool {
-        return self.finished || self.stamp >= stamp;
+        return self.finished || self.end >= stamp;
     }
 
     pub fn reset(&mut self, stamp: Nanotime) {
         self.finished = false;
-        self.stamp = stamp;
+        self.end = stamp;
     }
 
     pub fn freeze(&mut self, stamp: Nanotime) {
         self.finished = true;
-        self.stamp = stamp;
+        self.end = stamp;
     }
 
     pub fn next(
         &mut self,
-        ego: &Orbit,
         radius: f32,
         soi: f32,
         bodies: &[(ObjectId, Orbit, f32)],
-    ) -> Result<Option<(Nanotime, EventType)>, PredictError<Nanotime>> {
+    ) -> Result<(), PredictError<Nanotime>> {
         if self.finished {
-            return Ok(None);
+            return Ok(());
         }
 
         let tol = Nanotime(5);
+
+        let ego = self.orbit;
 
         let can_hit_planet = ego.periapsis_r() <= radius;
         let can_escape = ego.eccentricity >= 1.0 || ego.apoapsis_r() >= soi;
         let near_planet = bodies
             .iter()
-            .any(|(_, orb, soi)| mutual_separation(ego, orb, self.stamp) < soi * 3.0);
+            .any(|(_, orb, soi)| mutual_separation(&ego, orb, self.stamp()) < soi * 3.0);
 
         self.dt = if can_hit_planet {
             Nanotime::millis(20)
@@ -166,10 +173,10 @@ impl Propagator {
             Nanotime::secs(5)
         };
 
-        let t1 = self.stamp;
-        let t2 = self.stamp + self.dt;
+        let t1 = self.end;
+        let t2 = self.end + self.dt;
 
-        self.stamp = t2;
+        self.end = t2;
 
         let above_planet = |t: Nanotime| {
             let pos = ego.pv_at_time(t).pos;
@@ -190,17 +197,19 @@ impl Propagator {
 
         if can_hit_planet {
             if !above_planet(t1) {
-                self.stamp = t1;
+                self.end = t1;
                 self.finished = true;
-                return Ok(Some((t1, EventType::Collide)));
+                self.event = Some(EventType::Collide);
+                return Ok(());
             }
 
             if let Some(t) = search_condition::<Nanotime>(t1, t2, tol, above_planet)
                 .map_err(|e| PredictError::Collision(e))?
             {
-                self.stamp = t;
+                self.end = t;
                 self.finished = true;
-                return Ok(Some((t, EventType::Collide)));
+                self.event = Some(EventType::Collide);
+                return Ok(());
             }
         }
 
@@ -208,9 +217,10 @@ impl Propagator {
             if let Some(t) = search_condition::<Nanotime>(t1, t2, tol, escape_soi)
                 .map_err(|e| PredictError::Escape(e))?
             {
-                self.stamp = t;
+                self.end = t;
                 self.finished = true;
-                return Ok(Some((t, EventType::Escape)));
+                self.event = Some(EventType::Escape);
+                return Ok(());
             }
         }
 
@@ -221,14 +231,15 @@ impl Propagator {
                 if let Some(t) = search_condition::<Nanotime>(t1, t2, tol, cond)
                     .map_err(|e| PredictError::Encounter(e))?
                 {
-                    self.stamp = t;
+                    self.end = t;
                     self.finished = true;
-                    return Ok(Some((t, EventType::Encounter(id))));
+                    self.event = Some(EventType::Encounter(id));
+                    return Ok(());
                 }
             }
         }
 
-        Ok(None)
+        Ok(())
     }
 }
 

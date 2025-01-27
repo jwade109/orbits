@@ -174,7 +174,7 @@ impl GameState {
         let t = self.target_orbit().or_else(|| {
             let lup = self.system.lookup(self.primary(), self.sim_time)?;
             if lup.level == 0 {
-                Some(lup.object.orbit)
+                Some(lup.object.prop.orbit)
             } else {
                 None
             }
@@ -252,7 +252,8 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     }
 
     let s = state.sim_time;
-    state.system.propagate_to(s);
+    let t = s + Nanotime::secs(60);
+    state.system.propagate_to(t);
 
     if let Some(a) = state.selection_region() {
         state.highlighted_list = state
@@ -310,8 +311,8 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
     }
 
     if let Some(lup) = state.system.lookup(state.primary(), state.sim_time) {
-        send_log(&mut evt, &format!("{:#?}", lup.object.orbit));
-        send_log(&mut evt, &format!("{:#?}", lup.object.propagator));
+        send_log(&mut evt, &format!("{:#?}", lup.object.prop.orbit));
+        send_log(&mut evt, &format!("{:#?}", lup.object.prop));
         send_log(&mut evt, &format!("LO: {}", lup.local_pv));
         send_log(&mut evt, &format!("GL: {}", lup.frame_pv));
         send_log(&mut evt, &format!("Parent: {}", lup.parent));
@@ -324,24 +325,24 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
             &mut evt,
             &format!(
                 "Consistent: {}",
-                lup.object.orbit.is_consistent(state.sim_time)
+                lup.object.prop.orbit.is_consistent(state.sim_time)
             ),
         );
 
         send_log(
             &mut evt,
-            &format!("Next p: {:?}", lup.object.orbit.t_next_p(state.sim_time)),
+            &format!("Next p: {:?}", lup.object.prop.orbit.t_next_p(state.sim_time)),
         );
 
         send_log(
             &mut evt,
-            &format!("Period: {:?}", lup.object.orbit.period()),
+            &format!("Period: {:?}", lup.object.prop.orbit.period()),
         );
         send_log(
             &mut evt,
             &format!(
                 "Orbit count: {:?}",
-                lup.object.orbit.orbit_number(state.sim_time)
+                lup.object.prop.orbit.orbit_number(state.sim_time)
             ),
         );
 
