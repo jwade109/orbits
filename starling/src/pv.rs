@@ -53,3 +53,17 @@ impl std::ops::Sub for PV {
         PV::new(self.pos - other.pos, self.vel - other.vel)
     }
 }
+
+impl Into<PV> for ((f32, f32), (f32, f32)) {
+    fn into(self) -> PV {
+        let r: Vec2 = self.0.into();
+        let v: Vec2 = self.1.into();
+        PV::new(r, v)
+    }
+}
+
+impl Into<PV> for (Vec2, Vec2) {
+    fn into(self) -> PV {
+        PV::new(self.0, self.1)
+    }
+}

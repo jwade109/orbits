@@ -171,10 +171,11 @@ impl Orbit {
         self.eccentricity.is_nan() || self.semi_major_axis.is_nan() || self.arg_periapsis.is_nan()
     }
 
-    pub fn from_pv(r: impl Into<Vec2>, v: impl Into<Vec2>, mass: f32, epoch: Nanotime) -> Self {
+    pub fn from_pv(pv: impl Into<PV>, mass: f32, epoch: Nanotime) -> Self {
         let mu = mass * GRAVITATIONAL_CONSTANT;
-        let r3 = r.into().extend(0.0);
-        let v3 = v.into().extend(0.0);
+        let pv: PV = pv.into();
+        let r3 = pv.pos.extend(0.0);
+        let v3 = pv.vel.extend(0.0);
         let h = r3.cross(v3);
         let e = v3.cross(h) / mu - r3 / r3.length();
         let arg_periapsis: f32 = f32::atan2(e.y, e.x);
@@ -445,7 +446,7 @@ impl Orbit {
         let dx = randvec(0.01, spread * 10.0);
         let dv = randvec(0.01, spread);
         let pv = self.pv_at_time(t) + PV::new(dx, dv);
-        Orbit::from_pv(pv.pos, pv.vel, self.primary_mass, t)
+        Orbit::from_pv(pv, self.primary_mass, t)
     }
 }
 

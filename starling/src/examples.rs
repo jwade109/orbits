@@ -145,8 +145,10 @@ pub fn earth_moon_example_two() -> (OrbitalTree, ObjectIdTracker) {
             id.next(),
             earth.id,
             Orbit::from_pv(
-                rotate(Vec2::Y * -600.0, angle),
-                rotate(Vec2::X * vel as f32, angle),
+                (
+                    rotate(Vec2::Y * -600.0, angle),
+                    rotate(Vec2::X * vel as f32, angle),
+                ),
                 EARTH.mass,
                 Nanotime(0),
             ),
@@ -217,8 +219,7 @@ pub fn consistency_example() -> (OrbitalTree, ObjectIdTracker) {
         for vx in (-200..=200).step_by(10) {
             for vy in (-200..=200).step_by(10) {
                 let o = Orbit::from_pv(
-                    pos,
-                    v0 + Vec2::new(vx as f32, vy as f32),
+                    (pos, v0 + Vec2::new(vx as f32, vy as f32)),
                     EARTH.mass,
                     Nanotime(0),
                 );
@@ -240,7 +241,7 @@ pub fn single_hyperbolic() -> (OrbitalTree, ObjectIdTracker) {
     let mut id = ObjectIdTracker::new();
     let earth: Planet = Planet::new(id.next(), EARTH);
     let mut tree = OrbitalTree::new(&earth);
-    let orbit = Orbit::from_pv((400.0, 0.0), (0.0, 260.0), EARTH.mass, Nanotime(0));
+    let orbit = Orbit::from_pv(((400.0, 0.0), (0.0, 260.0)), EARTH.mass, Nanotime(0));
     tree.add_object(id.next(), earth.id, orbit, Nanotime(0));
     (tree, id)
 }

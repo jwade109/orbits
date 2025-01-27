@@ -5,6 +5,7 @@ use starling::aabb::AABB;
 use starling::core::*;
 use starling::examples::*;
 use starling::orbit::*;
+use starling::orbiter::*;
 use starling::planning::*;
 
 use crate::debug::*;
@@ -160,8 +161,7 @@ impl GameState {
             let v = (self.system.system.primary.mass * GRAVITATIONAL_CONSTANT / p1.length()).sqrt();
 
             Some(Orbit::from_pv(
-                *p1,
-                (p2 - p1) * v / p1.length(),
+                (*p1, (p2 - p1) * v / p1.length()),
                 self.system.system.primary.mass,
                 self.sim_time,
             ))
@@ -200,7 +200,11 @@ impl GameState {
 
     pub fn register_maneuver(&mut self, id: ObjectId, dv: Vec2, stamp: Nanotime) {
         let e = OrbitalEvent::maneuver(id, dv, stamp);
-        self.system.events.push(e);
+
+        let obj: Option<&mut Object> = self.system.objects.iter_mut().find(|o| o.id == id);
+        if let Some(o) = obj {
+            o.add_event(e);
+        }
     }
 }
 
@@ -306,7 +310,8 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
     }
 
     if let Some(lup) = state.system.lookup(state.primary(), state.sim_time) {
-        send_log(&mut evt, &format!("{:#?}", lup.object));
+        send_log(&mut evt, &format!("{:#?}", lup.object.orbit));
+        send_log(&mut evt, &format!("{:#?}", lup.object.propagator));
         send_log(&mut evt, &format!("LO: {}", lup.local_pv));
         send_log(&mut evt, &format!("GL: {}", lup.frame_pv));
         send_log(&mut evt, &format!("Parent: {}", lup.parent));
@@ -339,10 +344,10 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
                 lup.object.orbit.orbit_number(state.sim_time)
             ),
         );
-    }
 
-    for e in &state.system.events {
-        send_log(&mut evt, &format!("- {:?}", e));
+        for e in lup.object.events {
+            send_log(&mut evt, &format!("- {:?}", e));
+        }
     }
 }
 

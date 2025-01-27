@@ -1,5 +1,6 @@
 use crate::core::*;
 use crate::orbit::*;
+use crate::orbiter::*;
 use bevy::math::Vec2;
 
 #[derive(Debug, Clone, Copy)]
@@ -116,6 +117,10 @@ impl Propagator {
             dt: Nanotime(0),
             finished: false,
         }
+    }
+
+    pub fn stamp(&self) -> Nanotime {
+        self.stamp
     }
 
     pub fn calculated_to(&self, stamp: Nanotime) -> bool {
