@@ -1,6 +1,7 @@
 use crate::core::*;
 use crate::orbit::*;
 use crate::orbiter::*;
+use crate::pv::PV;
 use bevy::math::Vec2;
 
 #[derive(Debug, Clone, Copy)]
@@ -127,6 +128,14 @@ impl Propagator {
         }
     }
 
+    pub fn is_active(&self, stamp: Nanotime) -> bool {
+        self.start <= stamp && stamp <= self.end
+    }
+
+    pub fn pv(&self, stamp: Nanotime) -> Option<PV> {
+        self.is_active(stamp).then(|| self.orbit.pv_at_time(stamp))
+    }
+
     pub fn stamp(&self) -> Nanotime {
         self.end
     }
@@ -143,6 +152,20 @@ impl Propagator {
     pub fn freeze(&mut self, stamp: Nanotime) {
         self.finished = true;
         self.end = stamp;
+    }
+
+    pub fn next_prop(&self) -> Option<Propagator> {
+        if Some(EventType::Collide) == self.event {
+            None
+        } else if Some(EventType::Escape) == self.event {
+            None
+        } else {
+            let pv = self.orbit.pv_at_time(self.end);
+            let vmax = pv.vel.length();
+            let dv = PV::vel(randvec(vmax * 0.06, vmax * 0.3));
+            let orbit = Orbit::from_pv(pv + dv, self.orbit.primary_mass, self.end);
+            Some(Propagator::new(self.parent, orbit, self.end))
+        }
     }
 
     pub fn next(
@@ -208,6 +231,10 @@ impl Propagator {
             if let Some(t) = search_condition::<Nanotime>(t1, t2, tol, above_planet)
                 .map_err(|e| PredictError::Collision(e))?
             {
+                if t - self.start < Nanotime::millis(10) {
+                    self.end = t2;
+                    return Ok(());
+                }
                 self.end = t;
                 self.finished = true;
                 self.event = Some(EventType::Collide);
@@ -219,6 +246,10 @@ impl Propagator {
             if let Some(t) = search_condition::<Nanotime>(t1, t2, tol, escape_soi)
                 .map_err(|e| PredictError::Escape(e))?
             {
+                if t - self.start < Nanotime::millis(10) {
+                    self.end = t2;
+                    return Ok(());
+                }
                 self.end = t;
                 self.finished = true;
                 self.event = Some(EventType::Escape);
@@ -233,6 +264,10 @@ impl Propagator {
                 if let Some(t) = search_condition::<Nanotime>(t1, t2, tol, cond)
                     .map_err(|e| PredictError::Encounter(e))?
                 {
+                    if t - self.start < Nanotime::millis(10) {
+                        self.end = t2;
+                        return Ok(());
+                    }
                     self.end = t;
                     self.finished = true;
                     self.event = Some(EventType::Encounter(id));

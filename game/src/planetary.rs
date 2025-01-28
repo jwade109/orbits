@@ -97,6 +97,7 @@ pub struct GameState {
     pub mouse_down_pos: Option<Vec2>,
     pub window_dims: Vec2,
     pub control_points: Vec<Vec2>,
+    pub hide_debug: bool,
 }
 
 impl GameState {
@@ -174,7 +175,7 @@ impl GameState {
         let t = self.target_orbit().or_else(|| {
             let lup = self.system.orbiter_lookup(self.primary(), self.sim_time)?;
             if lup.level == 0 {
-                Some(lup.object.prop.orbit)
+                Some(lup.object.propagator_at(self.sim_time)?.orbit)
             } else {
                 None
             }
@@ -231,6 +232,7 @@ impl Default for GameState {
             mouse_down_pos: None,
             window_dims: Vec2::ZERO,
             control_points: Vec::new(),
+            hide_debug: false,
         }
     }
 }
@@ -248,8 +250,7 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     }
 
     let s = state.sim_time;
-    let t = s + Nanotime::secs(60);
-    state.system.propagate_to(t);
+    state.system.propagate_to(s);
 
     if let Some(a) = state.selection_region() {
         state.highlighted_list = state
@@ -281,6 +282,11 @@ fn sim_speed_str(speed: i32) -> String {
 }
 
 fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
+
+    if state.hide_debug {
+        return;
+    }
+
     send_log(&mut evt, &format!("Camera: {:?}", state.camera));
     if state.track_list.len() > 15 {
         send_log(&mut evt, &format!("Tracks: lots of em"));
@@ -302,13 +308,14 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         ),
     );
 
+    let prop_count: usize = state.system.objects.iter().map(|o| o.props().len()).sum();
+    send_log(&mut evt, &format!("Propagators: {}", prop_count));
+
     if let Some(o) = state.target_orbit() {
         send_log(&mut evt, &format!("Target: {:#?}", o));
     }
 
     if let Some(lup) = state.system.orbiter_lookup(state.primary(), state.sim_time) {
-        send_log(&mut evt, &format!("{:#?}", lup.object.prop.orbit));
-        send_log(&mut evt, &format!("{:#?}", lup.object.prop));
         send_log(&mut evt, &format!("LO: {}", lup.local_pv));
         send_log(&mut evt, &format!("GL: {}", lup.frame_pv));
         send_log(&mut evt, &format!("Parent: {}", lup.parent));
@@ -317,30 +324,32 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
             send_log(&mut evt, &format!("BD: {:?}", b));
         }
 
-        send_log(
-            &mut evt,
-            &format!(
-                "Consistent: {}",
-                lup.object.prop.orbit.is_consistent(state.sim_time)
-            ),
-        );
+        for prop in lup.object.props() {
+            send_log(
+                &mut evt,
+                &format!(
+                    "- [{:?}, {:?}, {}, {:?}]",
+                    prop.start, prop.end, prop.finished, prop.event
+                ),
+            );
+        }
 
-        send_log(
-            &mut evt,
-            &format!("Next p: {:?}", lup.object.prop.orbit.t_next_p(state.sim_time)),
-        );
-
-        send_log(
-            &mut evt,
-            &format!("Period: {:?}", lup.object.prop.orbit.period()),
-        );
-        send_log(
-            &mut evt,
-            &format!(
-                "Orbit count: {:?}",
-                lup.object.prop.orbit.orbit_number(state.sim_time)
-            ),
-        );
+        if let Some(prop) = lup.object.propagator_at(state.sim_time) {
+            send_log(&mut evt, &format!("{:#?}", prop));
+            send_log(
+                &mut evt,
+                &format!("Consistent: {}", prop.orbit.is_consistent(state.sim_time)),
+            );
+            send_log(
+                &mut evt,
+                &format!("Next p: {:?}", prop.orbit.t_next_p(state.sim_time)),
+            );
+            send_log(&mut evt, &format!("Period: {:?}", prop.orbit.period()));
+            send_log(
+                &mut evt,
+                &format!("Orbit count: {:?}", prop.orbit.orbit_number(state.sim_time)),
+            );
+        }
     }
 }
 
@@ -373,6 +382,9 @@ fn keyboard_input(
                 state.delete_objects();
             }
             KeyCode::KeyH => {
+                state.hide_debug = !state.hide_debug;
+            }
+            KeyCode::KeyK => {
                 state.spawn_new();
             }
             KeyCode::Equal => {

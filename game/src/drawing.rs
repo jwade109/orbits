@@ -148,9 +148,7 @@ pub fn draw_planets(gizmos: &mut Gizmos, planet: &Planet, stamp: Nanotime, origi
     }
 }
 
-const NUM_FUTURE_ORBITS: usize = 4;
-
-const ORBIT_COLORS: [Srgba; NUM_FUTURE_ORBITS] = [TEAL, RED, GREEN, YELLOW];
+const ORBIT_COLORS: [Srgba; 5] = [ORANGE, TEAL, RED, GREEN, YELLOW];
 
 fn draw_propagator(
     gizmos: &mut Gizmos,
@@ -160,24 +158,36 @@ fn draw_propagator(
     scale: f32,
     show_orbits: bool,
     tracked: bool,
+    color: Srgba,
 ) -> Option<()> {
     let (_, parent_pv, _, _) = planets.lookup(prop.parent, stamp)?;
-    let color = orbit_color_mapping(&prop.orbit, stamp);
 
-    let pv = parent_pv + prop.orbit.pv_at_time(stamp);
-
-    let pv_start = parent_pv + prop.orbit.pv_at_time(prop.start);
-    let pv_end = parent_pv + prop.orbit.pv_at_time(prop.end);
-
-    draw_circle(gizmos, pv.pos, (4.0 * scale).min(10.0), color);
-
-    let (a, color) = if tracked { (0.2, ORANGE) } else { (0.05, GRAY) };
+    let (a, color) = if tracked { (0.6, color) } else { (0.05, GRAY) };
     if show_orbits {
         draw_orbit(parent_pv.pos, stamp, &prop.orbit, gizmos, a, color, false);
     }
+
+    let pv = prop.pv(stamp).map(|p| p + parent_pv);
+
+    let pv_start = parent_pv + prop.pv(prop.start)?;
+    let pv_end = parent_pv + prop.pv(prop.end)?;
+
+    if let Some(pv) = pv {
+        let color = orbit_color_mapping(&prop.orbit, stamp);
+        let size = (4.0 * scale).min(10.0);
+        if prop.finished {
+            // TODO make these the same size!
+            draw_square(gizmos, pv.pos, size * 2.5, color);
+        } else {
+            draw_circle(gizmos, pv.pos, size, color);
+        }
+        if tracked {
+            draw_square(gizmos, pv.pos, (70.0 * scale).min(70.0), alpha(color, 0.7));
+        }
+    }
+
     if tracked {
-        draw_square(gizmos, pv.pos, (70.0 * scale).min(70.0), alpha(color, 0.7));
-        draw_circle(gizmos, pv_start.pos, 7.0 * scale, GREEN);
+        draw_circle(gizmos, pv_start.pos, 5.0 * scale, GREEN);
         draw_circle(
             gizmos,
             pv_end.pos,
@@ -197,8 +207,32 @@ pub fn draw_object(
     show_orbits: bool,
     tracked: bool,
 ) -> Option<()> {
-    for prop in [obj.prop] {
-        draw_propagator(gizmos, planets, &prop, stamp, scale, show_orbits, tracked);
+    if tracked {
+        for (i, prop) in obj.props().iter().enumerate() {
+            let color = ORBIT_COLORS[i % ORBIT_COLORS.len()];
+            draw_propagator(
+                gizmos,
+                planets,
+                &prop,
+                stamp,
+                scale,
+                show_orbits,
+                tracked,
+                color,
+            );
+        }
+    } else {
+        let prop = obj.propagator_at(stamp)?;
+        draw_propagator(
+            gizmos,
+            planets,
+            prop,
+            stamp,
+            scale,
+            show_orbits,
+            tracked,
+            ORANGE,
+        );
     }
     Some(())
 }

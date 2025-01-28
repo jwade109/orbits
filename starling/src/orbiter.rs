@@ -2,6 +2,7 @@ use crate::core::*;
 use crate::orbit::*;
 use crate::planning::*;
 use crate::pv::PV;
+use std::collections::VecDeque;
 
 #[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ObjectId(pub i64);
@@ -21,7 +22,7 @@ impl std::fmt::Debug for ObjectId {
 #[derive(Debug, Clone)]
 pub struct Object {
     pub id: ObjectId,
-    pub prop: Propagator,
+    props: VecDeque<Propagator>,
 }
 
 #[derive(Debug, Clone)]
@@ -36,25 +37,44 @@ impl Object {
     pub fn new(id: ObjectId, parent: ObjectId, orbit: Orbit, stamp: Nanotime) -> Self {
         Object {
             id,
-            prop: Propagator::new(parent, orbit, stamp),
+            props: vec![Propagator::new(parent, orbit, stamp)].into(),
         }
     }
 
-    pub fn valid_until(&mut self) -> Nanotime {
-        self.prop.stamp()
+    pub fn propagator_at(&self, stamp: Nanotime) -> Option<&Propagator> {
+        self.props.iter().find(|p| p.is_active(stamp))
+    }
+
+    pub fn props(&self) -> &VecDeque<Propagator> {
+        &self.props
     }
 
     pub fn propagate_to(&mut self, stamp: Nanotime, planets: &Planet) -> Option<()> {
-        let (_, _, _, pl) = planets.lookup(self.prop.parent, stamp)?;
+        while self.props.len() > 1 && self.props[0].end < stamp {
+            self.props.pop_front();
+        }
 
-        let bodies = pl
-            .subsystems
-            .iter()
-            .map(|(orbit, pl)| (pl.id, *orbit, pl.primary.soi))
-            .collect::<Vec<_>>();
+        let sim_buffer = Nanotime::secs(1000);
 
-        while !self.prop.calculated_to(stamp) {
-            let _ = self.prop.next(pl.primary.radius, pl.primary.soi, &bodies);
+        let prop = self.props.iter().last()?;
+
+        if prop.finished {
+            if let Some(next) = prop.next_prop() {
+                self.props.push_back(next);
+            }
+        }
+
+        let prop = self.props.iter_mut().last()?;
+
+        while !prop.calculated_to(stamp + sim_buffer) {
+            let (_, _, _, pl) = planets.lookup(prop.parent, stamp)?;
+            let bodies = pl
+                .subsystems
+                .iter()
+                .map(|(orbit, pl)| (pl.id, *orbit, pl.primary.soi))
+                .collect::<Vec<_>>();
+
+            let _ = prop.next(pl.primary.radius, pl.primary.soi, &bodies);
         }
 
         Some(())

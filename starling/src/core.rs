@@ -296,7 +296,11 @@ impl Planet {
         None
     }
 
-    pub fn lookup(&self, id: ObjectId, stamp: Nanotime) -> Option<(Body, PV, Option<ObjectId>, &Planet)> {
+    pub fn lookup(
+        &self,
+        id: ObjectId,
+        stamp: Nanotime,
+    ) -> Option<(Body, PV, Option<ObjectId>, &Planet)> {
         self.lookup_inner(id, stamp, PV::zero(), None)
     }
 }
@@ -331,12 +335,14 @@ impl OrbitalTree {
                 return None;
             }
 
-            let (_, frame_pv, _, _) = self.system.lookup(o.prop.parent, stamp)?;
+            let prop = o.propagator_at(stamp)?;
+
+            let (_, frame_pv, _, _) = self.system.lookup(prop.parent, stamp)?;
 
             Some(ObjectLookup {
                 object: o.clone(),
                 level: 0,
-                local_pv: o.prop.orbit.pv_at_time(stamp),
+                local_pv: prop.pv(stamp)?,
                 frame_pv,
                 otype: ObjectType::Orbiter,
                 parent: ObjectId(0),
