@@ -105,6 +105,7 @@ fn search_condition<T: BinarySearchKey>(
 
 #[derive(Debug, Clone, Copy)]
 pub struct Propagator {
+    pub parent: ObjectId,
     pub orbit: Orbit,
     pub start: Nanotime,
     pub end: Nanotime,
@@ -114,8 +115,9 @@ pub struct Propagator {
 }
 
 impl Propagator {
-    pub fn new(orbit: Orbit, stamp: Nanotime) -> Self {
+    pub fn new(parent: ObjectId, orbit: Orbit, stamp: Nanotime) -> Self {
         Propagator {
+            parent,
             orbit,
             start: stamp,
             end: stamp,

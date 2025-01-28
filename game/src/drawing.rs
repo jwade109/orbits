@@ -152,6 +152,42 @@ const NUM_FUTURE_ORBITS: usize = 4;
 
 const ORBIT_COLORS: [Srgba; NUM_FUTURE_ORBITS] = [TEAL, RED, GREEN, YELLOW];
 
+fn draw_propagator(
+    gizmos: &mut Gizmos,
+    planets: &Planet,
+    prop: &Propagator,
+    stamp: Nanotime,
+    scale: f32,
+    show_orbits: bool,
+    tracked: bool,
+) -> Option<()> {
+    let (_, parent_pv, _, _) = planets.lookup(prop.parent, stamp)?;
+    let color = orbit_color_mapping(&prop.orbit, stamp);
+
+    let pv = parent_pv + prop.orbit.pv_at_time(stamp);
+
+    let pv_start = parent_pv + prop.orbit.pv_at_time(prop.start);
+    let pv_end = parent_pv + prop.orbit.pv_at_time(prop.end);
+
+    draw_circle(gizmos, pv.pos, (4.0 * scale).min(10.0), color);
+
+    let (a, color) = if tracked { (0.2, ORANGE) } else { (0.05, GRAY) };
+    if show_orbits {
+        draw_orbit(parent_pv.pos, stamp, &prop.orbit, gizmos, a, color, false);
+    }
+    if tracked {
+        draw_square(gizmos, pv.pos, (70.0 * scale).min(70.0), alpha(color, 0.7));
+        draw_circle(gizmos, pv_start.pos, 7.0 * scale, GREEN);
+        draw_circle(
+            gizmos,
+            pv_end.pos,
+            7.0 * scale,
+            if prop.finished { RED } else { TEAL },
+        );
+    }
+    Some(())
+}
+
 pub fn draw_object(
     gizmos: &mut Gizmos,
     planets: &Planet,
@@ -161,36 +197,9 @@ pub fn draw_object(
     show_orbits: bool,
     tracked: bool,
 ) -> Option<()> {
-    let (_, parent_pv, _, _) = planets.lookup(obj.parent, stamp)?;
-    let color = orbit_color_mapping(&obj.prop.orbit, stamp);
-    let pv = parent_pv + obj.prop.orbit.pv_at_time(stamp);
-    draw_circle(gizmos, pv.pos, (4.0 * scale).min(10.0), color);
-    let (a, color) = if tracked { (0.2, ORANGE) } else { (0.05, GRAY) };
-    if show_orbits {
-        draw_orbit(parent_pv.pos, stamp, &obj.prop.orbit, gizmos, a, color, false);
+    for prop in [obj.prop] {
+        draw_propagator(gizmos, planets, &prop, stamp, scale, show_orbits, tracked);
     }
-    if tracked {
-        draw_square(gizmos, pv.pos, (70.0 * scale).min(70.0), alpha(color, 0.7));
-    }
-
-    if tracked {
-        let mut cursor = obj.clone();
-        for i in 0..NUM_FUTURE_ORBITS {
-            let next = cursor.next(&planets);
-            match next {
-                Ok((e, nobj)) => {
-                    let color = ORBIT_COLORS[i];
-                    let (_, pv, _, _) = planets.lookup(nobj.parent, stamp)?;
-                    let p = nobj.prop.orbit.pv_at_time(e.stamp).pos;
-                    draw_event(gizmos, &e, p, scale);
-                    draw_orbit(pv.pos, stamp, &nobj.prop.orbit, gizmos, 0.6, color, false);
-                    cursor = nobj;
-                }
-                _ => break,
-            };
-        }
-    }
-
     Some(())
 }
 
@@ -350,7 +359,7 @@ pub fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) {
         .highlighted_list
         .iter()
         .filter_map(|id| {
-            let pv = state.system.lookup(*id, state.sim_time)?.pv();
+            let pv = state.system.orbiter_lookup(*id, state.sim_time)?.pv();
             draw_circle(gizmos, pv.pos, 20.0 * state.actual_scale, GRAY);
             Some(())
         })

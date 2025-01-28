@@ -144,7 +144,7 @@ impl GameState {
         let pos = self
             .track_list
             .iter()
-            .filter_map(|id| Some(self.system.lookup(*id, self.sim_time)?.pv().pos))
+            .filter_map(|id| Some(self.system.orbiter_lookup(*id, self.sim_time)?.pv().pos))
             .collect::<Vec<_>>();
         AABB::from_list(&pos).map(|aabb| aabb.padded(60.0))
     }
@@ -172,7 +172,7 @@ impl GameState {
 
     pub fn spawn_new(&mut self) {
         let t = self.target_orbit().or_else(|| {
-            let lup = self.system.lookup(self.primary(), self.sim_time)?;
+            let lup = self.system.orbiter_lookup(self.primary(), self.sim_time)?;
             if lup.level == 0 {
                 Some(lup.object.prop.orbit)
             } else {
@@ -200,11 +200,7 @@ impl GameState {
 
     pub fn register_maneuver(&mut self, id: ObjectId, dv: Vec2, stamp: Nanotime) {
         let e = OrbitalEvent::maneuver(id, dv, stamp);
-
-        let obj: Option<&mut Object> = self.system.objects.iter_mut().find(|o| o.id == id);
-        if let Some(o) = obj {
-            o.add_event(e);
-        }
+        todo!()
     }
 }
 
@@ -261,7 +257,7 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
             .objects
             .iter()
             .filter_map(|o| {
-                let pv = state.system.lookup(o.id, state.sim_time)?.pv();
+                let pv = state.system.orbiter_lookup(o.id, state.sim_time)?.pv();
                 a.contains(pv.pos).then(|| o.id)
             })
             .collect();
@@ -270,7 +266,7 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     }
 
     let mut track_list = state.track_list.clone();
-    track_list.retain(|o| state.system.lookup(*o, state.sim_time).is_some());
+    track_list.retain(|o| state.system.orbiter_lookup(*o, state.sim_time).is_some());
     state.track_list = track_list;
 }
 
@@ -310,7 +306,7 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         send_log(&mut evt, &format!("Target: {:#?}", o));
     }
 
-    if let Some(lup) = state.system.lookup(state.primary(), state.sim_time) {
+    if let Some(lup) = state.system.orbiter_lookup(state.primary(), state.sim_time) {
         send_log(&mut evt, &format!("{:#?}", lup.object.prop.orbit));
         send_log(&mut evt, &format!("{:#?}", lup.object.prop));
         send_log(&mut evt, &format!("LO: {}", lup.local_pv));
@@ -345,10 +341,6 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
                 lup.object.prop.orbit.orbit_number(state.sim_time)
             ),
         );
-
-        for e in lup.object.events {
-            send_log(&mut evt, &format!("- {:?}", e));
-        }
     }
 }
 

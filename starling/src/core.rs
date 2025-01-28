@@ -325,13 +325,13 @@ impl OrbitalTree {
         Some(())
     }
 
-    pub fn lookup(&self, id: ObjectId, stamp: Nanotime) -> Option<ObjectLookup> {
+    pub fn orbiter_lookup(&self, id: ObjectId, stamp: Nanotime) -> Option<ObjectLookup> {
         self.objects.iter().find_map(|o| {
             if o.id != id {
                 return None;
             }
 
-            let (_, frame_pv, _, _) = self.system.lookup(o.parent, stamp)?;
+            let (_, frame_pv, _, _) = self.system.lookup(o.prop.parent, stamp)?;
 
             Some(ObjectLookup {
                 object: o.clone(),
