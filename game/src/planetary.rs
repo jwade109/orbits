@@ -78,6 +78,7 @@ impl Default for CameraState {
 #[derive(Resource)]
 pub struct GameState {
     pub sim_time: Nanotime,
+    pub physics_duration: Nanotime,
     pub sim_speed: i32,
     pub show_orbits: bool,
     pub show_potential_field: bool,
@@ -200,8 +201,10 @@ impl GameState {
     }
 
     pub fn register_maneuver(&mut self, id: ObjectId, dv: Vec2, stamp: Nanotime) {
-        let e = OrbitalEvent::maneuver(id, dv, stamp);
-        todo!()
+        let obj = self.system.objects.iter_mut().find(|o| o.id == id);
+        if let Some(obj) = obj {
+            obj.add_maneuver(stamp, Maneuver::AxisAligned(dv));
+        }
     }
 }
 
@@ -210,6 +213,7 @@ impl Default for GameState {
         let (system, ids) = default_example();
         GameState {
             sim_time: Nanotime(0),
+            physics_duration: Nanotime::secs(10),
             sim_speed: 0,
             show_orbits: true,
             show_potential_field: false,
@@ -250,7 +254,8 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     }
 
     let s = state.sim_time;
-    state.system.propagate_to(s);
+    let dur = state.physics_duration;
+    state.system.propagate_to(s, dur);
 
     if let Some(a) = state.selection_region() {
         state.highlighted_list = state
@@ -282,7 +287,6 @@ fn sim_speed_str(speed: i32) -> String {
 }
 
 fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
-
     if state.hide_debug {
         return;
     }
@@ -294,6 +298,7 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         send_log(&mut evt, &format!("Tracks: {:?}", state.track_list));
     }
     send_log(&mut evt, &format!("Epoch: {:?}", state.sim_time));
+    send_log(&mut evt, &format!("Physics: {:?}", state.physics_duration));
     send_log(&mut evt, &format!("Scale: {:0.3}", state.actual_scale));
     send_log(&mut evt, &format!("{} objects", state.system.objects.len()));
     if state.paused {
@@ -316,6 +321,11 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
     }
 
     if let Some(lup) = state.system.orbiter_lookup(state.primary(), state.sim_time) {
+
+        for man in lup.object.maneuvers() {
+            send_log(&mut evt, &format!("> [{:?}, {:?}]", man.0, man.1));
+        }
+
         send_log(&mut evt, &format!("LO: {}", lup.local_pv));
         send_log(&mut evt, &format!("GL: {}", lup.frame_pv));
         send_log(&mut evt, &format!("Parent: {}", lup.parent));
@@ -547,6 +557,10 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
         state.delete_objects();
     } else if starts_with("spawn") {
         state.spawn_new();
+    } else if starts_with("physics") {
+        if let Some(d) = cmd.get(1).map(|s| s.parse::<f32>().ok()).flatten() {
+            state.physics_duration = Nanotime::secs_f32(d);
+        }
     } else if starts_with("maneuver") {
         let tl = state.track_list.clone();
         _ = tl

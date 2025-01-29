@@ -175,7 +175,7 @@ pub enum EventType {
     Collide,
     Escape,
     Encounter(ObjectId),
-    Maneuver(Vec2),
+    Maneuver(Maneuver),
 }
 
 impl PartialEq for EventType {
@@ -222,11 +222,11 @@ impl OrbitalEvent {
         }
     }
 
-    pub fn maneuver(target: ObjectId, dv: Vec2, stamp: Nanotime) -> Self {
+    pub fn maneuver(target: ObjectId, man: Maneuver, stamp: Nanotime) -> Self {
         OrbitalEvent {
             target,
             stamp,
-            etype: EventType::Maneuver(dv),
+            etype: EventType::Maneuver(man),
         }
     }
 }
@@ -313,9 +313,9 @@ impl OrbitalTree {
         }
     }
 
-    pub fn propagate_to(&mut self, stamp: Nanotime) {
+    pub fn propagate_to(&mut self, stamp: Nanotime, future_dur: Nanotime) {
         for obj in &mut self.objects {
-            obj.propagate_to(stamp, &self.system);
+            obj.propagate_to(stamp, future_dur, &self.system);
         }
     }
 

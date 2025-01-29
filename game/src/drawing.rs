@@ -187,12 +187,12 @@ fn draw_propagator(
     }
 
     if tracked {
-        draw_circle(gizmos, pv_start.pos, 5.0 * scale, GREEN);
+        draw_circle(gizmos, pv_start.pos, 4.0 * scale, TEAL);
         draw_circle(
             gizmos,
             pv_end.pos,
-            7.0 * scale,
-            if prop.finished { RED } else { TEAL },
+            if prop.finished { 4.0 } else { 7.0 } * scale,
+            TEAL,
         );
     }
     Some(())

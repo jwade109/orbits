@@ -154,17 +154,38 @@ impl Propagator {
         self.end = stamp;
     }
 
-    pub fn next_prop(&self) -> Option<Propagator> {
-        if Some(EventType::Collide) == self.event {
-            None
-        } else if Some(EventType::Escape) == self.event {
-            None
-        } else {
-            let pv = self.orbit.pv_at_time(self.end);
-            let vmax = pv.vel.length();
-            let dv = PV::vel(randvec(vmax * 0.06, vmax * 0.3));
-            let orbit = Orbit::from_pv(pv + dv, self.orbit.primary_mass, self.end);
-            Some(Propagator::new(self.parent, orbit, self.end))
+    pub fn next_prop(&self, planets: &Planet) -> Option<Propagator> {
+        let e = self.event?;
+
+        match e {
+            EventType::Collide => None,
+            EventType::Escape => {
+                let cur = planets.lookup(self.parent, self.end)?;
+                let reparent = cur.2?;
+                let new = planets.lookup(reparent, self.end)?;
+
+                let pv = self.orbit.pv_at_time(self.end);
+                let dv = cur.1 - new.1;
+                let orbit = Orbit::from_pv(pv + dv, new.0.mass, self.end);
+                Some(Propagator::new(reparent, orbit, self.end))
+            }
+            EventType::Encounter(id) => {
+                let cur = planets.lookup(self.parent, self.end)?;
+                let new = planets.lookup(id, self.end)?;
+
+                let pv = self.orbit.pv_at_time(self.end);
+                let dv = cur.1 - new.1;
+                let orbit = Orbit::from_pv(pv + dv, new.0.mass, self.end);
+                Some(Propagator::new(id, orbit, self.end))
+            }
+            EventType::Maneuver(man) => {
+                let pv = self.orbit.pv_at_time(self.end);
+                let dv = match man {
+                    Maneuver::AxisAligned(dv) => dv,
+                };
+                let orbit = Orbit::from_pv(pv + PV::vel(dv), self.orbit.primary_mass, self.end);
+                Some(Propagator::new(self.parent, orbit, self.end))
+            }
         }
     }
 
@@ -173,6 +194,7 @@ impl Propagator {
         radius: f32,
         soi: f32,
         bodies: &[(ObjectId, Orbit, f32)],
+        maneuvers: &[(Nanotime, Maneuver)],
     ) -> Result<(), PredictError<Nanotime>> {
         if self.finished {
             return Ok(());
@@ -202,6 +224,14 @@ impl Propagator {
         let t2 = self.end + self.dt;
 
         self.end = t2;
+
+        let man = maneuvers.iter().find(|m| t1 < m.0 && m.0 <= t2);
+        if let Some(man) = man {
+            self.end = man.0;
+            self.finished = true;
+            self.event = Some(EventType::Maneuver(man.1));
+            return Ok(());
+        }
 
         let above_planet = |t: Nanotime| {
             let pos = ego.pv_at_time(t).pos;
