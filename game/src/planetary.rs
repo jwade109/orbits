@@ -213,7 +213,7 @@ impl Default for GameState {
         let (system, ids) = default_example();
         GameState {
             sim_time: Nanotime(0),
-            physics_duration: Nanotime::secs(10),
+            physics_duration: Nanotime::secs(500),
             sim_speed: 0,
             show_orbits: true,
             show_potential_field: false,

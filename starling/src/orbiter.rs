@@ -1,6 +1,8 @@
 use crate::core::*;
 use crate::orbit::*;
 use crate::planning::*;
+use crate::pv::PV;
+
 use bevy::math::Vec2;
 use std::collections::VecDeque;
 
@@ -46,6 +48,12 @@ impl Object {
             props: vec![Propagator::new(parent, orbit, stamp)],
             maneuvers: Vec::new(),
         }
+    }
+
+    pub fn pv(&self, stamp: Nanotime, planets: &Planet) -> Option<PV> {
+        let prop = self.propagator_at(stamp)?;
+        let (_, pv, _, _) = planets.lookup(prop.parent, stamp)?;
+        Some(prop.orbit.pv_at_time(stamp) + pv)
     }
 
     pub fn propagator_at(&self, stamp: Nanotime) -> Option<&Propagator> {
@@ -112,54 +120,4 @@ impl Object {
 
         Some(())
     }
-
-    // pub fn next(&self, planet: &Planet) -> Result<(OrbitalEvent, Object), BadObjectNextState> {
-    //     let mut o = self.clone();
-    //     let event = o.pop_front().ok_or(BadObjectNextState::NoNextState)?;
-    //     match event.etype {
-    //         EventType::Maneuver(dv) => {
-    //             let (body, _, _, _) = planet
-    //                 .lookup(self.prop.parent, event.stamp)
-    //                 .ok_or(BadObjectNextState::Lookup)?;
-    //             let pv = o.prop.orbit.pv_at_time(event.stamp);
-    //             let new_pv = pv + PV::vel(dv);
-    //             let orbit = Orbit::from_pv(new_pv, body.mass, event.stamp);
-    //             o.prop.orbit = orbit;
-    //             o.prop.reset(event.stamp);
-    //             Ok((event, o))
-    //         }
-    //         EventType::Encounter(id) => {
-    //             let (new_body, new_pv, _, _) = planet
-    //                 .lookup(id, event.stamp)
-    //                 .ok_or(BadObjectNextState::Lookup)?;
-    //             let (_, old_pv, _, _) = planet
-    //                 .lookup(self.prop.parent, event.stamp)
-    //                 .ok_or(BadObjectNextState::Lookup)?;
-    //             let ego = self.prop.orbit.pv_at_time(event.stamp) + old_pv;
-    //             let d = ego - new_pv;
-    //             let orbit = Orbit::from_pv(d, new_body.mass, event.stamp);
-    //             o.prop.orbit = orbit;
-    //             o.prop.parent = id;
-    //             o.prop.reset(event.stamp);
-    //             Ok((event, o))
-    //         }
-    //         EventType::Escape => {
-    //             let (_, old_frame_pv, reparent_id, _) = planet
-    //                 .lookup(self.prop.parent, event.stamp)
-    //                 .ok_or(BadObjectNextState::Lookup)?;
-    //             let reparent = reparent_id.ok_or(BadObjectNextState::Err)?;
-    //             let (new_body, new_frame_pv, _, _) = planet
-    //                 .lookup(reparent, event.stamp)
-    //                 .ok_or(BadObjectNextState::Lookup)?;
-    //             let pv = self.prop.orbit.pv_at_time(event.stamp);
-    //             let d = pv + old_frame_pv - new_frame_pv;
-    //             let orbit = Orbit::from_pv(d, new_body.mass, event.stamp);
-    //             o.prop.orbit = orbit;
-    //             o.prop.parent = reparent;
-    //             o.prop.reset(event.stamp);
-    //             Ok((event, o))
-    //         }
-    //         EventType::Collide => Err(BadObjectNextState::NoNextState),
-    //     }
-    // }
 }

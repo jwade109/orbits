@@ -187,6 +187,10 @@ fn draw_propagator(
     }
 
     if tracked {
+        if let Some(e) = prop.event {
+            draw_event(gizmos, &e, pv_end.pos, scale);
+        }
+
         draw_circle(gizmos, pv_start.pos, 4.0 * scale, TEAL);
         draw_circle(
             gizmos,
@@ -377,8 +381,8 @@ pub fn draw_shadows(gizmos: &mut Gizmos, origin: Vec2, radius: f32, stamp: Nanot
     }
 }
 
-pub fn draw_event(gizmos: &mut Gizmos, event: &OrbitalEvent, p: Vec2, scale: f32) {
-    let color = match event.etype {
+pub fn draw_event(gizmos: &mut Gizmos, event: &EventType, p: Vec2, scale: f32) {
+    let color = match event {
         EventType::Collide => RED,
         EventType::Encounter(_) => GREEN,
         EventType::Escape => TEAL,
