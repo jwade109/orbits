@@ -315,8 +315,10 @@ impl OrbitalTree {
 
     pub fn propagate_to(&mut self, stamp: Nanotime, future_dur: Nanotime) {
         for obj in &mut self.objects {
-            obj.propagate_to(stamp, future_dur, &self.system);
+            let _ = obj.propagate_to(stamp, future_dur, &self.system);
         }
+
+        self.objects.retain(|o| o.propagator_at(stamp).is_some());
     }
 
     pub fn add_object(&mut self, id: ObjectId, parent: ObjectId, orbit: Orbit, stamp: Nanotime) {

@@ -4,7 +4,6 @@ use crate::planning::*;
 use crate::pv::PV;
 
 use bevy::math::Vec2;
-use std::collections::VecDeque;
 
 #[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ObjectId(pub i64);
@@ -30,7 +29,6 @@ pub enum Maneuver {
 pub struct Object {
     pub id: ObjectId,
     props: Vec<Propagator>,
-    maneuvers: Vec<(Nanotime, Maneuver)>,
 }
 
 #[derive(Debug, Clone)]
@@ -46,8 +44,20 @@ impl Object {
         Object {
             id,
             props: vec![Propagator::new(parent, orbit, stamp)],
-            maneuvers: Vec::new(),
         }
+    }
+
+    pub fn dv(&mut self, stamp: Nanotime, dv: Vec2) -> Option<()> {
+        let (new_orbit, parent) = {
+            let prop = self.propagator_at(stamp)?;
+            let pv = prop.orbit.pv_at_time(stamp) + PV::vel(dv);
+            let orbit = Orbit::from_pv(pv, prop.orbit.primary_mass, stamp);
+            (orbit, prop.parent)
+        };
+        self.props.clear();
+        let new_prop = Propagator::new(parent, new_orbit, stamp);
+        self.props.push(new_prop);
+        Some(())
     }
 
     pub fn pv(&self, stamp: Nanotime, planets: &Planet) -> Option<PV> {
@@ -64,60 +74,50 @@ impl Object {
         &self.props
     }
 
-    pub fn maneuvers(&self) -> &Vec<(Nanotime, Maneuver)> {
-        &self.maneuvers
-    }
-
-    pub fn add_maneuver(&mut self, stamp: Nanotime, man: Maneuver) -> Option<()> {
-        self.maneuvers.push((stamp, man));
-        self.maneuvers.sort_by_key(|e| e.0);
-        self.props.retain(|p| {
-            let fully_after = p.start > stamp;
-            !fully_after
-        });
-
-        for prop in &mut self.props {
-            if prop.start <= stamp && prop.end > stamp {
-                prop.end = stamp;
-                prop.finished = true;
-                prop.event = Some(EventType::Maneuver(man));
-            }
-        }
-
-        Some(())
-    }
-
     pub fn propagate_to(
         &mut self,
         stamp: Nanotime,
         future_dur: Nanotime,
         planets: &Planet,
-    ) -> Option<()> {
+    ) -> Result<(), PredictError<Nanotime>> {
         while self.props.len() > 1 && self.props[0].end < stamp {
             self.props.remove(0);
         }
 
-        let prop = self.props.iter().last()?;
+        let t = stamp + future_dur;
 
-        if prop.finished {
-            if let Some(next) = prop.next_prop(planets) {
-                self.props.push(next);
-            }
-        }
+        loop {
+            let len = self.props.len();
+            let prop = self.props.iter_mut().last().ok_or(PredictError::Lookup)?;
 
-        let prop = self.props.iter_mut().last()?;
+            // dbg!(len, prop.start, prop.end, prop.finished, t, prop.calculated_to(t));
 
-        while !prop.calculated_to(stamp + future_dur) {
-            let (_, _, _, pl) = planets.lookup(prop.parent, stamp)?;
+            let (_, _, _, pl) = planets
+                .lookup(prop.parent, stamp)
+                .ok_or(PredictError::Lookup)?;
             let bodies = pl
                 .subsystems
                 .iter()
                 .map(|(orbit, pl)| (pl.id, *orbit, pl.primary.soi))
                 .collect::<Vec<_>>();
 
-            let _ = prop.next(pl.primary.radius, pl.primary.soi, &bodies, &self.maneuvers);
+            while !prop.calculated_to(t) {
+                prop.next(pl.primary.radius, pl.primary.soi, &bodies)?;
+            }
+
+            if prop.end >= t {
+                break;
+            }
+
+            if prop.finished {
+                if let Some(next) = prop.next_prop(planets) {
+                    self.props.push(next);
+                } else {
+                    break;
+                }
+            }
         }
 
-        Some(())
+        Ok(())
     }
 }

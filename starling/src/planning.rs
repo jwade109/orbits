@@ -194,7 +194,6 @@ impl Propagator {
         radius: f32,
         soi: f32,
         bodies: &[(ObjectId, Orbit, f32)],
-        maneuvers: &[(Nanotime, Maneuver)],
     ) -> Result<(), PredictError<Nanotime>> {
         if self.finished {
             return Ok(());
@@ -206,32 +205,31 @@ impl Propagator {
 
         let can_hit_planet = ego.periapsis_r() <= radius;
         let can_escape = ego.eccentricity >= 1.0 || ego.apoapsis_r() >= soi;
-        let near_planet = bodies
+        let near_body = bodies
             .iter()
             .any(|(_, orb, soi)| mutual_separation(&ego, orb, self.stamp()) < soi * 3.0);
 
         self.dt = if can_hit_planet {
-            Nanotime::millis(20)
+            Nanotime::secs(1)
         } else if can_escape {
             Nanotime::secs(2)
-        } else if near_planet {
+        } else if near_body {
             Nanotime::millis(500)
         } else {
             Nanotime::secs(5)
         };
 
         let t1 = self.end;
-        let t2 = self.end + self.dt;
+        let mut t2 = self.end + self.dt;
+
+        if can_hit_planet{
+            let p = self.orbit.t_next_p(t1);
+            if let Some(p) = p {
+                t2 = t2.min(p)
+            }
+        }
 
         self.end = t2;
-
-        let man = maneuvers.iter().find(|m| t1 < m.0 && m.0 <= t2);
-        if let Some(man) = man {
-            self.end = man.0;
-            self.finished = true;
-            self.event = Some(EventType::Maneuver(man.1));
-            return Ok(());
-        }
 
         let above_planet = |t: Nanotime| {
             let pos = ego.pv_at_time(t).pos;
@@ -287,7 +285,7 @@ impl Propagator {
             }
         }
 
-        if near_planet {
+        if near_body {
             for i in 0..bodies.len() {
                 let cond = encounter_nth(i);
                 let id = bodies[i].0;

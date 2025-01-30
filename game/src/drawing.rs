@@ -159,6 +159,7 @@ fn draw_propagator(
     show_orbits: bool,
     tracked: bool,
     color: Srgba,
+    duty_cycle: bool,
 ) -> Option<()> {
     let (_, parent_pv, _, _) = planets.lookup(prop.parent, stamp)?;
 
@@ -168,9 +169,6 @@ fn draw_propagator(
     }
 
     let pv = prop.pv(stamp).map(|p| p + parent_pv);
-
-    let pv_start = parent_pv + prop.pv(prop.start)?;
-    let pv_end = parent_pv + prop.pv(prop.end)?;
 
     if let Some(pv) = pv {
         let color = orbit_color_mapping(&prop.orbit, stamp);
@@ -187,17 +185,14 @@ fn draw_propagator(
     }
 
     if tracked {
+        let pv_end = parent_pv + prop.pv(prop.end)?;
         if let Some(e) = prop.event {
-            draw_event(gizmos, &e, pv_end.pos, scale);
+            draw_event(gizmos, planets, &e, prop.end, pv_end.pos, scale, duty_cycle);
         }
 
-        draw_circle(gizmos, pv_start.pos, 4.0 * scale, TEAL);
-        draw_circle(
-            gizmos,
-            pv_end.pos,
-            if prop.finished { 4.0 } else { 7.0 } * scale,
-            TEAL,
-        );
+        if !prop.finished {
+            draw_circle(gizmos, pv_end.pos, 5.0, TEAL);
+        }
     }
     Some(())
 }
@@ -210,6 +205,7 @@ pub fn draw_object(
     scale: f32,
     show_orbits: bool,
     tracked: bool,
+    duty_cycle: bool,
 ) -> Option<()> {
     if tracked {
         for (i, prop) in obj.props().iter().enumerate() {
@@ -223,6 +219,7 @@ pub fn draw_object(
                 show_orbits,
                 tracked,
                 color,
+                duty_cycle,
             );
         }
     } else {
@@ -236,6 +233,7 @@ pub fn draw_object(
             show_orbits,
             tracked,
             ORANGE,
+            duty_cycle,
         );
     }
     Some(())
@@ -265,6 +263,7 @@ pub fn draw_orbital_system(
     scale: f32,
     show_orbits: bool,
     track_list: &Vec<ObjectId>,
+    duty_cycle: bool,
 ) {
     draw_planets(gizmos, &sys.system, stamp, Vec2::ZERO);
 
@@ -281,6 +280,7 @@ pub fn draw_orbital_system(
                 scale,
                 show_orbits,
                 is_tracked,
+                duty_cycle,
             );
         })
         .collect::<Vec<_>>();
@@ -381,15 +381,32 @@ pub fn draw_shadows(gizmos: &mut Gizmos, origin: Vec2, radius: f32, stamp: Nanot
     }
 }
 
-pub fn draw_event(gizmos: &mut Gizmos, event: &EventType, p: Vec2, scale: f32) {
-    let color = match event {
-        EventType::Collide => RED,
-        EventType::Encounter(_) => GREEN,
-        EventType::Escape => TEAL,
-        EventType::Maneuver(_) => PURPLE,
+pub fn draw_event(
+    gizmos: &mut Gizmos,
+    planets: &Planet,
+    event: &EventType,
+    stamp: Nanotime,
+    p: Vec2,
+    scale: f32,
+    duty_cycle: bool,
+) -> Option<()> {
+    let (draw, color) = match event {
+        EventType::Collide => (duty_cycle, RED),
+        EventType::Encounter(_) => (true, GREEN),
+        EventType::Escape => (true, TEAL),
+        EventType::Maneuver(_) => (true, PURPLE),
     };
-    draw_circle(gizmos, p, 10.0 * scale, alpha(color, 0.5));
-    draw_circle(gizmos, p, 3.0 * scale, alpha(color, 0.5));
+
+    if let EventType::Encounter(id) = event {
+        let (body, pv, _, _) = planets.lookup(*id, stamp)?;
+        draw_circle(gizmos, pv.pos, body.soi, alpha(ORANGE, 0.2));
+    }
+
+    if draw {
+        draw_circle(gizmos, p, 15.0 * scale, alpha(color, 0.8));
+        draw_circle(gizmos, p, 6.0 * scale, alpha(color, 0.8));
+    }
+    Some(())
 }
 
 pub fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) {
@@ -438,6 +455,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         state.actual_scale,
         state.show_orbits,
         &state.track_list,
+        state.duty_cycle_high,
     );
 
     draw_highlighted_objects(&mut gizmos, &state);

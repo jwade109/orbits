@@ -25,12 +25,13 @@ impl Plugin for PlanetaryPlugin {
                 scroll_events,
                 update_cursor,
                 update_camera,
+                propagate_system,
                 draw,
+                log_system_info,
+                process_commands,
             )
                 .chain(),
         );
-        app.add_systems(FixedUpdate, propagate_system);
-        app.add_systems(Update, (log_system_info, process_commands));
     }
 }
 
@@ -58,7 +59,6 @@ impl CameraState {
             self.easing_lpf = 0.1;
         }
 
-        // let center = aabb.center();
         self.center += (pos - self.center) * self.easing_lpf;
         self.easing_lpf += (1.0 - self.easing_lpf) * 0.01;
         self.state = state;
@@ -79,6 +79,7 @@ impl Default for CameraState {
 pub struct GameState {
     pub sim_time: Nanotime,
     pub physics_duration: Nanotime,
+    pub focus_physics_duration: Nanotime,
     pub sim_speed: i32,
     pub show_orbits: bool,
     pub show_potential_field: bool,
@@ -99,6 +100,7 @@ pub struct GameState {
     pub window_dims: Vec2,
     pub control_points: Vec<Vec2>,
     pub hide_debug: bool,
+    pub duty_cycle_high: bool,
 }
 
 impl GameState {
@@ -200,10 +202,27 @@ impl GameState {
         });
     }
 
-    pub fn register_maneuver(&mut self, id: ObjectId, dv: Vec2, stamp: Nanotime) {
-        let obj = self.system.objects.iter_mut().find(|o| o.id == id);
-        if let Some(obj) = obj {
-            obj.add_maneuver(stamp, Maneuver::AxisAligned(dv));
+    pub fn primary_object_mut(&mut self) -> Option<&mut Object> {
+        let pri = self.primary();
+        self.system.objects.iter_mut().find(|o| o.id == pri)
+    }
+
+    pub fn do_maneuver(&mut self, dv: Vec2, dt: f32) -> Option<()> {
+        if self.paused {
+            return Some(());
+        }
+        let s = self.sim_time;
+        let d = self.focus_physics_duration;
+        let p = self.system.system.clone();
+        let obj = self.primary_object_mut()?;
+        obj.dv(s, dv);
+        let res = obj.propagate_to(s, d, &p);
+        match res {
+            Ok(_) => Some(()),
+            Err(p) => {
+                dbg!(p);
+                None
+            }
         }
     }
 }
@@ -213,7 +232,8 @@ impl Default for GameState {
         let (system, ids) = default_example();
         GameState {
             sim_time: Nanotime(0),
-            physics_duration: Nanotime::secs(500),
+            physics_duration: Nanotime::secs(30),
+            focus_physics_duration: Nanotime::secs(2000),
             sim_speed: 0,
             show_orbits: true,
             show_potential_field: false,
@@ -237,6 +257,7 @@ impl Default for GameState {
             window_dims: Vec2::ZERO,
             control_points: Vec::new(),
             hide_debug: false,
+            duty_cycle_high: false,
         }
     }
 }
@@ -253,9 +274,31 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
         state.sim_time += Nanotime((time.delta().as_nanos() as f32 * sp) as i64);
     }
 
+    state.duty_cycle_high = time.elapsed().as_millis() % 1000 < 500;
+
     let s = state.sim_time;
     let dur = state.physics_duration;
+    let dur2 = state.focus_physics_duration;
     state.system.propagate_to(s, dur);
+    let planets = &state.system.system.clone();
+
+    for id in state.track_list.clone() {
+        state
+            .system
+            .objects
+            .iter_mut()
+            .find(|o| o.id == id)
+            .map(|o| {
+                let res = o.propagate_to(s, dur2, planets);
+                match res {
+                    Ok(_) => Some(()),
+                    Err(p) => {
+                        dbg!(p);
+                        None
+                    }
+                }
+            });
+    }
 
     if let Some(a) = state.selection_region() {
         state.highlighted_list = state
@@ -321,11 +364,6 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
     }
 
     if let Some(lup) = state.system.orbiter_lookup(state.primary(), state.sim_time) {
-
-        for man in lup.object.maneuvers() {
-            send_log(&mut evt, &format!("> [{:?}, {:?}]", man.0, man.1));
-        }
-
         send_log(&mut evt, &format!("LO: {}", lup.local_pv));
         send_log(&mut evt, &format!("GL: {}", lup.frame_pv));
         send_log(&mut evt, &format!("Parent: {}", lup.parent));
@@ -410,22 +448,41 @@ fn keyboard_input(
     let dt = time.delta().as_secs_f32();
     let cursor_rate = 1400.0 * state.actual_scale;
 
-    if keys.pressed(KeyCode::ArrowLeft) || keys.pressed(KeyCode::KeyA) {
-        state.cursor.x -= cursor_rate * dt;
-        state.follow = false;
-    }
-    if keys.pressed(KeyCode::ArrowRight) || keys.pressed(KeyCode::KeyD) {
-        state.cursor.x += cursor_rate * dt;
-        state.follow = false;
-    }
-    if keys.pressed(KeyCode::ArrowUp) || keys.pressed(KeyCode::KeyW) {
+    let dv = 0.03;
+
+    if keys.pressed(KeyCode::KeyW) {
         state.cursor.y += cursor_rate * dt;
         state.follow = false;
     }
-    if keys.pressed(KeyCode::ArrowDown) || keys.pressed(KeyCode::KeyS) {
+    if keys.pressed(KeyCode::KeyA) {
+        state.cursor.x -= cursor_rate * dt;
+        state.follow = false;
+    }
+    if keys.pressed(KeyCode::KeyD) {
+        state.cursor.x += cursor_rate * dt;
+        state.follow = false;
+    }
+    if keys.pressed(KeyCode::KeyS) {
         state.cursor.y -= cursor_rate * dt;
         state.follow = false;
     }
+
+    if keys.pressed(KeyCode::ArrowUp) {
+        state.do_maneuver(Vec2::Y * dv, time.elapsed_secs());
+    }
+
+    if keys.pressed(KeyCode::ArrowDown) {
+        state.do_maneuver(-Vec2::Y * dv, time.elapsed_secs());
+    }
+
+    if keys.pressed(KeyCode::ArrowLeft) {
+        state.do_maneuver(-Vec2::X * dv, time.elapsed_secs());
+    }
+
+    if keys.pressed(KeyCode::ArrowRight) {
+        state.do_maneuver(Vec2::X * dv, time.elapsed_secs());
+    }
+
     if keys.just_pressed(KeyCode::Space) {
         state.paused = !state.paused;
     }
@@ -557,23 +614,19 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
         state.delete_objects();
     } else if starts_with("spawn") {
         state.spawn_new();
-    } else if starts_with("physics") {
-        if let Some(d) = cmd.get(1).map(|s| s.parse::<f32>().ok()).flatten() {
-            state.physics_duration = Nanotime::secs_f32(d);
-        }
-    } else if starts_with("maneuver") {
-        let tl = state.track_list.clone();
-        _ = tl
-            .iter()
-            .filter_map(|id| {
-                let dt = Nanotime::secs_f32(cmd.get(1)?.parse().ok()?);
-                let dx = cmd.get(2)?.parse::<f32>().ok()?;
-                let dy = cmd.get(3)?.parse::<f32>().ok()?;
-                let t = state.sim_time + dt;
-                state.register_maneuver(*id, Vec2::new(dx, dy), t);
-                Some(())
-            })
-            .collect::<Vec<_>>();
+        // } else if starts_with("maneuver") {
+        //     let tl = state.track_list.clone();
+        //     _ = tl
+        //         .iter()
+        //         .filter_map(|id| {
+        //             let dt = Nanotime::secs_f32(cmd.get(1)?.parse().ok()?);
+        //             let dx = cmd.get(2)?.parse::<f32>().ok()?;
+        //             let dy = cmd.get(3)?.parse::<f32>().ok()?;
+        //             let t = state.sim_time + dt;
+        //             state.register_maneuver(*id, Vec2::new(dx, dy), t);
+        //             Some(())
+        //         })
+        //         .collect::<Vec<_>>();
     }
 }
 

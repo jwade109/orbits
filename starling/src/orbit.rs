@@ -1,5 +1,5 @@
-use crate::core::*;
 use crate::aabb::AABB;
+use crate::core::*;
 use crate::pv::PV;
 use bevy::math::Vec2;
 
@@ -391,6 +391,9 @@ impl Orbit {
     }
 
     pub fn t_next_p(&self, current: Nanotime) -> Option<Nanotime> {
+        if self.eccentricity >= 1.0 {
+            return (self.time_at_periapsis >= current).then(|| self.time_at_periapsis);
+        }
         let p = self.period()?;
         let n = self.orbit_number(current)?;
         Some(p * (n + 1) + self.time_at_periapsis)
