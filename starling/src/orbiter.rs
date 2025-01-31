@@ -26,7 +26,7 @@ pub enum Maneuver {
 }
 
 #[derive(Debug, Clone)]
-pub struct Object {
+pub struct Orbiter {
     pub id: ObjectId,
     props: Vec<Propagator>,
 }
@@ -39,9 +39,9 @@ pub enum BadObjectNextState {
     Err,
 }
 
-impl Object {
+impl Orbiter {
     pub fn new(id: ObjectId, parent: ObjectId, orbit: Orbit, stamp: Nanotime) -> Self {
-        Object {
+        Orbiter {
             id,
             props: vec![Propagator::new(parent, orbit, stamp)],
         }
@@ -66,12 +66,30 @@ impl Object {
         Some(prop.orbit.pv_at_time(stamp) + pv)
     }
 
+    pub fn pvl(&self, stamp: Nanotime) -> Option<PV> {
+        let prop = self.propagator_at(stamp)?;
+        Some(prop.orbit.pv_at_time(stamp))
+    }
+
     pub fn propagator_at(&self, stamp: Nanotime) -> Option<&Propagator> {
         self.props.iter().find(|p| p.is_active(stamp))
     }
 
     pub fn props(&self) -> &Vec<Propagator> {
         &self.props
+    }
+
+    pub fn will_collide(&self) -> bool {
+        self.props.iter().any(|p| match p.event {
+            Some(EventType::Collide(_)) => true,
+            _ => false,
+        })
+    }
+
+    pub fn has_error(&self) -> bool {
+        self.props
+            .iter()
+            .any(|p| p.event == Some(EventType::NumericalError))
     }
 
     pub fn propagate_to(
@@ -87,10 +105,7 @@ impl Object {
         let t = stamp + future_dur;
 
         loop {
-            let len = self.props.len();
             let prop = self.props.iter_mut().last().ok_or(PredictError::Lookup)?;
-
-            // dbg!(len, prop.start, prop.end, prop.finished, t, prop.calculated_to(t));
 
             let (_, _, _, pl) = planets
                 .lookup(prop.parent, stamp)

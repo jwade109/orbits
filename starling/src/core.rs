@@ -164,76 +164,28 @@ impl ObjectIdTracker {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct OrbitalEvent {
-    pub target: ObjectId,
-    pub stamp: Nanotime,
-    pub etype: EventType,
-}
-
-#[derive(Debug, Clone, Copy)]
 pub enum EventType {
-    Collide,
-    Escape,
+    Collide(ObjectId),
+    Escape(ObjectId),
     Encounter(ObjectId),
     Maneuver(Maneuver),
+    NumericalError,
 }
 
 impl PartialEq for EventType {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (EventType::Collide, EventType::Collide) => true,
-            (EventType::Escape, EventType::Escape) => true,
+            (EventType::Collide(o), EventType::Collide(p)) => o == p,
+            (EventType::Escape(o), EventType::Escape(p)) => o == p,
             (EventType::Encounter(o), EventType::Encounter(p)) => o == p,
             _ => false,
         }
     }
 }
 
-impl OrbitalEvent {
-    pub fn new(target: ObjectId, stamp: Nanotime, etype: EventType) -> Self {
-        OrbitalEvent {
-            target,
-            stamp,
-            etype,
-        }
-    }
-
-    pub fn collision(target: ObjectId, stamp: Nanotime) -> Self {
-        OrbitalEvent {
-            target,
-            stamp,
-            etype: EventType::Collide,
-        }
-    }
-
-    pub fn escape(target: ObjectId, stamp: Nanotime) -> Self {
-        OrbitalEvent {
-            target,
-            stamp,
-            etype: EventType::Escape,
-        }
-    }
-
-    pub fn encounter(target: ObjectId, body: ObjectId, stamp: Nanotime) -> Self {
-        OrbitalEvent {
-            target,
-            stamp,
-            etype: EventType::Encounter(body),
-        }
-    }
-
-    pub fn maneuver(target: ObjectId, man: Maneuver, stamp: Nanotime) -> Self {
-        OrbitalEvent {
-            target,
-            stamp,
-            etype: EventType::Maneuver(man),
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct ObjectLookup {
-    pub object: Object,
+    pub object: Orbiter,
     pub level: u32,
     pub local_pv: PV,
     pub frame_pv: PV,
@@ -250,7 +202,7 @@ impl ObjectLookup {
 
 #[derive(Debug, Clone)]
 pub struct OrbitalTree {
-    pub objects: Vec<Object>,
+    pub objects: Vec<Orbiter>,
     pub system: Planet,
 }
 
@@ -324,7 +276,7 @@ impl OrbitalTree {
     }
 
     pub fn add_object(&mut self, id: ObjectId, parent: ObjectId, orbit: Orbit, stamp: Nanotime) {
-        self.objects.push(Object::new(id, parent, orbit, stamp));
+        self.objects.push(Orbiter::new(id, parent, orbit, stamp));
     }
 
     pub fn remove_object(&mut self, id: ObjectId) -> Option<()> {

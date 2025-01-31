@@ -2,7 +2,6 @@ use crate::core::*;
 use crate::orbit::*;
 use crate::orbiter::*;
 use crate::pv::PV;
-use bevy::math::Vec2;
 
 #[derive(Debug, Clone, Copy)]
 pub enum ConvergeError<T> {
@@ -158,8 +157,9 @@ impl Propagator {
         let e = self.event?;
 
         match e {
-            EventType::Collide => None,
-            EventType::Escape => {
+            EventType::Collide(_) => None,
+            EventType::NumericalError => None,
+            EventType::Escape(_) => {
                 let cur = planets.lookup(self.parent, self.end)?;
                 let reparent = cur.2?;
                 let new = planets.lookup(reparent, self.end)?;
@@ -222,7 +222,7 @@ impl Propagator {
         let t1 = self.end;
         let mut t2 = self.end + self.dt;
 
-        if can_hit_planet{
+        if can_hit_planet {
             let p = self.orbit.t_next_p(t1);
             if let Some(p) = p {
                 t2 = t2.min(p)
@@ -230,6 +230,18 @@ impl Propagator {
         }
 
         self.end = t2;
+
+        let p1 = self.orbit.pv_at_time(t1);
+        let p2 = self.orbit.pv_at_time(t2);
+        let d = p1.pos.distance(p2.pos);
+        let v = p1.vel.length();
+
+        if d > v * 3.0 * self.dt.to_secs() {
+            self.end = t1;
+            self.finished = true;
+            self.event = Some(EventType::NumericalError);
+            return Ok(());
+        }
 
         let above_planet = |t: Nanotime| {
             let pos = ego.pv_at_time(t).pos;
@@ -252,7 +264,7 @@ impl Propagator {
             if !above_planet(t1) {
                 self.end = t1;
                 self.finished = true;
-                self.event = Some(EventType::Collide);
+                self.event = Some(EventType::Collide(self.parent));
                 return Ok(());
             }
 
@@ -265,7 +277,7 @@ impl Propagator {
                 }
                 self.end = t;
                 self.finished = true;
-                self.event = Some(EventType::Collide);
+                self.event = Some(EventType::Collide(self.parent));
                 return Ok(());
             }
         }
@@ -280,7 +292,7 @@ impl Propagator {
                 }
                 self.end = t;
                 self.finished = true;
-                self.event = Some(EventType::Escape);
+                self.event = Some(EventType::Escape(self.parent));
                 return Ok(());
             }
         }

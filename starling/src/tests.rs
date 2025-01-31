@@ -18,8 +18,8 @@ const TEST_VELOCITY: Vec2 = Vec2::new(-200.0, 0.0);
 
 #[test]
 fn orbit_construction() {
-    let o1 = Orbit::from_pv(TEST_POSITION, TEST_VELOCITY, TEST_BODY.mass, Nanotime(0));
-    let o2 = Orbit::from_pv(TEST_POSITION, -TEST_VELOCITY, TEST_BODY.mass, Nanotime(0));
+    let o1 = Orbit::from_pv((TEST_POSITION, TEST_VELOCITY), TEST_BODY.mass, Nanotime(0));
+    let o2 = Orbit::from_pv((TEST_POSITION, -TEST_VELOCITY), TEST_BODY.mass, Nanotime(0));
 
     let true_h = TEST_POSITION.extend(0.0).cross(TEST_VELOCITY.extend(0.0)).z;
 

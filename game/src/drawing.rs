@@ -47,7 +47,6 @@ pub fn draw_orbit(
     stamp: Nanotime,
     orb: &Orbit,
     gizmos: &mut Gizmos,
-    a: f32,
     color: Srgba,
     detailed: bool,
 ) {
@@ -60,7 +59,7 @@ pub fn draw_orbit(
                 origin + orb.position_at(t * range)
             })
             .collect();
-        gizmos.linestrip_2d(points, alpha(color, a));
+        gizmos.linestrip_2d(points, color);
     } else {
         let b = orb.semi_major_axis * (1.0 - orb.eccentricity.powi(2)).sqrt();
         let center: Vec2 = origin + (orb.periapsis() + orb.apoapsis()) / 2.0;
@@ -73,7 +72,7 @@ pub fn draw_orbit(
         };
 
         gizmos
-            .ellipse_2d(iso, Vec2::new(orb.semi_major_axis, b), alpha(color, a))
+            .ellipse_2d(iso, Vec2::new(orb.semi_major_axis, b), color)
             .resolution(res);
     }
 
@@ -102,20 +101,6 @@ pub fn draw_orbit(
     gizmos.line_2d(root, origin, alpha(GREEN, 0.4));
     gizmos.line_2d(root, t2, GREEN);
     gizmos.line_2d(root, t3, PURPLE);
-
-    gizmos.circle_2d(
-        Isometry2d::from_translation(origin + orb.periapsis()),
-        4.0,
-        alpha(RED, a),
-    );
-
-    if orb.eccentricity < 1.0 {
-        gizmos.circle_2d(
-            Isometry2d::from_translation(origin + orb.apoapsis()),
-            4.0,
-            alpha(WHITE, a),
-        );
-    }
 }
 
 pub fn draw_globe(gizmos: &mut Gizmos, p: Vec2, radius: f32, color: Srgba) {
@@ -143,12 +128,10 @@ pub fn draw_planets(gizmos: &mut Gizmos, planet: &Planet, stamp: Nanotime, origi
 
     for (orbit, pl) in &planet.subsystems {
         let pv = orbit.pv_at_time(stamp);
-        draw_orbit(origin, stamp, orbit, gizmos, 0.4, GRAY, false);
+        draw_orbit(origin, stamp, orbit, gizmos, alpha(GRAY, 0.4), false);
         draw_planets(gizmos, pl, stamp, origin + pv.pos)
     }
 }
-
-const ORBIT_COLORS: [Srgba; 5] = [ORANGE, TEAL, RED, GREEN, YELLOW];
 
 fn draw_propagator(
     gizmos: &mut Gizmos,
@@ -156,35 +139,14 @@ fn draw_propagator(
     prop: &Propagator,
     stamp: Nanotime,
     scale: f32,
-    show_orbits: bool,
-    tracked: bool,
+    with_event: bool,
     color: Srgba,
     duty_cycle: bool,
 ) -> Option<()> {
     let (_, parent_pv, _, _) = planets.lookup(prop.parent, stamp)?;
 
-    let (a, color) = if tracked { (0.6, color) } else { (0.05, GRAY) };
-    if show_orbits {
-        draw_orbit(parent_pv.pos, stamp, &prop.orbit, gizmos, a, color, false);
-    }
-
-    let pv = prop.pv(stamp).map(|p| p + parent_pv);
-
-    if let Some(pv) = pv {
-        let color = orbit_color_mapping(&prop.orbit, stamp);
-        let size = (4.0 * scale).min(10.0);
-        if prop.finished {
-            // TODO make these the same size!
-            draw_square(gizmos, pv.pos, size * 2.5, color);
-        } else {
-            draw_circle(gizmos, pv.pos, size, color);
-        }
-        if tracked {
-            draw_square(gizmos, pv.pos, (70.0 * scale).min(70.0), alpha(color, 0.7));
-        }
-    }
-
-    if tracked {
+    draw_orbit(parent_pv.pos, stamp, &prop.orbit, gizmos, color, false);
+    if with_event {
         let pv_end = parent_pv + prop.pv(prop.end)?;
         if let Some(e) = prop.event {
             draw_event(gizmos, planets, &e, prop.end, pv_end.pos, scale, duty_cycle);
@@ -196,41 +158,54 @@ fn draw_propagator(
 pub fn draw_object(
     gizmos: &mut Gizmos,
     planets: &Planet,
-    obj: &Object,
+    obj: &Orbiter,
     stamp: Nanotime,
     scale: f32,
     show_orbits: bool,
     tracked: bool,
     duty_cycle: bool,
 ) -> Option<()> {
+    let pv = obj.pv(stamp, planets)?;
+
+    let size = (4.0 * scale).min(10.0);
+    draw_circle(gizmos, pv.pos, size, WHITE);
+    if tracked {
+        draw_square(gizmos, pv.pos, (70.0 * scale).min(70.0), alpha(ORANGE, 0.7));
+    }
+    if duty_cycle && obj.will_collide() {
+        draw_circle(gizmos, pv.pos, size + 10.0 * scale, RED);
+        draw_circle(gizmos, pv.pos, size + 16.0 * scale, RED);
+    }
+    if duty_cycle && obj.has_error() {
+        draw_circle(gizmos, pv.pos, size + 10.0 * scale, YELLOW);
+        draw_circle(gizmos, pv.pos, size + 16.0 * scale, YELLOW);
+    }
+
     if tracked {
         for (i, prop) in obj.props().iter().enumerate() {
-            let color = ORBIT_COLORS[i % ORBIT_COLORS.len()];
+            let color = if i == 0 {
+                ORANGE
+            } else {
+                alpha(TEAL, (1.0 - i as f32 * 0.3).max(0.0))
+            };
             draw_propagator(
-                gizmos,
-                planets,
-                &prop,
-                stamp,
-                scale,
-                show_orbits,
-                tracked,
-                color,
-                duty_cycle,
+                gizmos, planets, &prop, stamp, scale, true, color, duty_cycle,
             );
         }
     } else {
-        let prop = obj.propagator_at(stamp)?;
-        draw_propagator(
-            gizmos,
-            planets,
-            prop,
-            stamp,
-            scale,
-            show_orbits,
-            tracked,
-            ORANGE,
-            duty_cycle,
-        );
+        if show_orbits {
+            let prop = obj.propagator_at(stamp)?;
+            draw_propagator(
+                gizmos,
+                planets,
+                prop,
+                stamp,
+                scale,
+                false,
+                alpha(GRAY, 0.02),
+                duty_cycle,
+            );
+        }
     }
     Some(())
 }
@@ -387,9 +362,10 @@ pub fn draw_event(
     duty_cycle: bool,
 ) -> Option<()> {
     let (draw, color) = match event {
-        EventType::Collide => (duty_cycle, RED),
+        EventType::Collide(_) => (duty_cycle, RED),
+        EventType::NumericalError => (duty_cycle, YELLOW),
         EventType::Encounter(_) => (true, GREEN),
-        EventType::Escape => (true, TEAL),
+        EventType::Escape(_) => (true, TEAL),
         EventType::Maneuver(_) => (true, PURPLE),
     };
 
@@ -425,7 +401,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     }
 
     if let Some(o) = state.target_orbit() {
-        draw_orbit(Vec2::ZERO, stamp, &o, &mut gizmos, 0.1, RED, false);
+        draw_orbit(Vec2::ZERO, stamp, &o, &mut gizmos, alpha(RED, 0.2), false);
     }
 
     if state.show_potential_field {

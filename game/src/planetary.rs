@@ -27,6 +27,7 @@ impl Plugin for PlanetaryPlugin {
                 scroll_events,
                 update_cursor,
                 propagate_system,
+                manage_orbiter_labels,
                 update_text,
                 update_camera,
                 draw,
@@ -40,52 +41,85 @@ fn init_system(mut commands: Commands) {
     commands.insert_resource(GameState::default());
     let s = 0.02;
     commands.insert_resource(ClearColor(Color::linear_rgb(s, s, s)));
-    commands.spawn((
-        Text2d::new("Hello!"),
-        FollowObject,
-        bevy::sprite::Anchor::TopLeft,
-    ));
+}
+
+fn manage_orbiter_labels(
+    mut commands: Commands,
+    state: Res<GameState>,
+    text: Query<(Entity, &FollowObject)>,
+) {
+    for tid in &state.track_list {
+        let has_txt = text.iter().any(|(_, f)| f.0 == *tid);
+        if !has_txt {
+            commands.spawn((
+                Text2d::new(""),
+                FollowObject(*tid),
+                bevy::sprite::Anchor::TopLeft,
+            ));
+        }
+    }
+
+    for (e, f) in text.iter() {
+        if !state.track_list.contains(&f.0) {
+            commands.entity(e).despawn();
+        }
+    }
 }
 
 fn update_text(res: Res<GameState>, mut text: Query<(&mut Transform, &mut Text2d, &FollowObject)>) {
     let scale = res.actual_scale.min(1.0);
-    let id = res.primary();
-    let (mut tr, mut text, follow) = text.single_mut();
-    let obj = res.system.objects.iter().find(|o| o.id == id);
-    let pv = obj
-        .map(|o| o.pv(res.sim_time, &res.system.system))
-        .flatten();
-    let prop = obj.map(|o| o.propagator_at(res.sim_time)).flatten();
-    let lup = prop
-        .map(|o| res.system.system.lookup(o.parent, res.sim_time))
-        .flatten();
-    if let (Some(pv), Some(obj), Some((_, _, _, parent))) = (pv, obj, lup) {
-        let will_crash = obj
-            .props()
-            .iter()
-            .any(|p| p.event == Some(EventType::Collide));
+    let _ = text
+        .iter_mut()
+        .filter_map(|(mut tr, mut text, follow)| {
+            let id = follow.0;
+            let obj = res.system.objects.iter().find(|o| o.id == id)?;
+            let pvl = obj.pvl(res.sim_time)?;
+            let pv = obj.pv(res.sim_time, &res.system.system)?;
+            let prop = obj.propagator_at(res.sim_time)?;
+            let (_, _, _, parent) = res.system.system.lookup(prop.parent, res.sim_time)?;
+            let warn_str = if obj.will_collide() && res.duty_cycle_high {
+                " COLLISION IMMINENT"
+            } else {
+                ""
+            };
 
-        let warn_str = if will_crash && res.duty_cycle_high {
-            " COLLISION IMMINENT"
-        } else {
-            ""
-        };
+            let event_lines = obj
+                .props()
+                .iter()
+                .filter_map(|p| {
+                    let dt = (p.end - res.sim_time).to_secs();
+                    if let Some(e) = p.event {
+                        Some(format!("\n{:?} in {:0.1}s", e, dt))
+                    } else {
+                        Some(format!("\nC {:0.1}s {:0.2}s", dt, p.dt.to_secs()))
+                    }
+                })
+                .collect::<String>();
 
-        let txt = format!(
-            "{:?}{}\nOrbiting {}\nP {:0.2}, {:0.2}\nV {:0.2}\nS {}",
-            id,
-            warn_str,
-            parent.name,
-            pv.pos.x,
-            pv.pos.y,
-            pv.vel.length(),
-            obj.props().len()
-        );
+            let p_line = obj
+                .propagator_at(res.sim_time)
+                .map(|p| p.orbit.t_next_p(res.sim_time))
+                .flatten()
+                .map(|nt| format!("\nP {:0.1}s", (nt - res.sim_time).to_secs()))
+                .unwrap_or("".into());
 
-        tr.translation = (pv.pos + Vec2::new(40.0 * scale, 40.0 * scale)).extend(0.0);
-        tr.scale = Vec3::new(scale, scale, scale);
-        *text = txt.into();
-    }
+            let txt = format!(
+                "{:?}{}\nOrbiting {}{}\nA {:0.2}\nV {:0.2}{}",
+                id,
+                warn_str,
+                parent.name,
+                p_line,
+                pvl.pos.length(),
+                pvl.vel.length(),
+                event_lines,
+            );
+
+            tr.translation = (pv.pos + Vec2::new(40.0 * scale, 40.0 * scale)).extend(0.0);
+            tr.scale = Vec3::new(scale, scale, scale);
+            *text = txt.into();
+            Some(())
+        })
+        .collect::<Vec<_>>();
 }
 
 fn draw(gizmos: Gizmos, res: Res<GameState>) {
@@ -100,7 +134,7 @@ enum CameraTracking {
 }
 
 #[derive(Component)]
-struct FollowObject;
+struct FollowObject(ObjectId);
 
 #[derive(Debug)]
 pub struct CameraState {
@@ -135,7 +169,6 @@ impl Default for CameraState {
 pub struct GameState {
     pub sim_time: Nanotime,
     pub physics_duration: Nanotime,
-    pub focus_physics_duration: Nanotime,
     pub sim_speed: i32,
     pub show_orbits: bool,
     pub show_potential_field: bool,
@@ -258,17 +291,17 @@ impl GameState {
         });
     }
 
-    pub fn primary_object_mut(&mut self) -> Option<&mut Object> {
+    pub fn primary_object_mut(&mut self) -> Option<&mut Orbiter> {
         let pri = self.primary();
         self.system.objects.iter_mut().find(|o| o.id == pri)
     }
 
-    pub fn do_maneuver(&mut self, dv: Vec2, dt: f32) -> Option<()> {
+    pub fn do_maneuver(&mut self, dv: Vec2) -> Option<()> {
         if self.paused {
             return Some(());
         }
         let s = self.sim_time;
-        let d = self.focus_physics_duration;
+        let d = self.physics_duration;
         let p = self.system.system.clone();
         let obj = self.primary_object_mut()?;
         obj.dv(s, dv);
@@ -288,8 +321,7 @@ impl Default for GameState {
         let (system, ids) = default_example();
         GameState {
             sim_time: Nanotime(0),
-            physics_duration: Nanotime::secs(30),
-            focus_physics_duration: Nanotime::secs(2000),
+            physics_duration: Nanotime::secs(500),
             sim_speed: 0,
             show_orbits: true,
             show_potential_field: false,
@@ -327,28 +359,8 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     state.duty_cycle_high = time.elapsed().as_millis() % 1000 < 500;
 
     let s = state.sim_time;
-    let dur = state.physics_duration;
-    let dur2 = state.focus_physics_duration;
-    state.system.propagate_to(s, dur);
-    let planets = &state.system.system.clone();
-
-    for id in state.track_list.clone() {
-        state
-            .system
-            .objects
-            .iter_mut()
-            .find(|o| o.id == id)
-            .map(|o| {
-                let res = o.propagate_to(s, dur2, planets);
-                match res {
-                    Ok(_) => Some(()),
-                    Err(p) => {
-                        dbg!(p);
-                        None
-                    }
-                }
-            });
-    }
+    let d = state.physics_duration;
+    state.system.propagate_to(s, d);
 
     if let Some(a) = state.selection_region() {
         state.highlighted_list = state
@@ -409,15 +421,7 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
     let prop_count: usize = state.system.objects.iter().map(|o| o.props().len()).sum();
     send_log(&mut evt, &format!("Propagators: {}", prop_count));
 
-    if let Some(o) = state.target_orbit() {
-        send_log(&mut evt, &format!("Target: {:#?}", o));
-    }
-
     if let Some(lup) = state.system.orbiter_lookup(state.primary(), state.sim_time) {
-        send_log(&mut evt, &format!("LO: {}", lup.local_pv));
-        send_log(&mut evt, &format!("GL: {}", lup.frame_pv));
-        send_log(&mut evt, &format!("Parent: {}", lup.parent));
-
         if let Some(b) = lup.body {
             send_log(&mut evt, &format!("BD: {:?}", b));
         }
@@ -498,7 +502,11 @@ fn keyboard_input(
     let dt = time.delta().as_secs_f32();
     let cursor_rate = 1400.0 * state.actual_scale;
 
-    let dv = 0.03;
+    let dv = if keys.pressed(KeyCode::ControlLeft) {
+        0.002
+    } else {
+        0.03
+    };
 
     if keys.pressed(KeyCode::KeyW) {
         state.cursor.y += cursor_rate * dt;
@@ -518,19 +526,19 @@ fn keyboard_input(
     }
 
     if keys.pressed(KeyCode::ArrowUp) {
-        state.do_maneuver(Vec2::Y * dv, time.elapsed_secs());
+        state.do_maneuver(Vec2::Y * dv);
     }
 
     if keys.pressed(KeyCode::ArrowDown) {
-        state.do_maneuver(-Vec2::Y * dv, time.elapsed_secs());
+        state.do_maneuver(-Vec2::Y * dv);
     }
 
     if keys.pressed(KeyCode::ArrowLeft) {
-        state.do_maneuver(-Vec2::X * dv, time.elapsed_secs());
+        state.do_maneuver(-Vec2::X * dv);
     }
 
     if keys.pressed(KeyCode::ArrowRight) {
-        state.do_maneuver(Vec2::X * dv, time.elapsed_secs());
+        state.do_maneuver(Vec2::X * dv);
     }
 
     if keys.just_pressed(KeyCode::Space) {
