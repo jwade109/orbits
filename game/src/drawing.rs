@@ -189,10 +189,6 @@ fn draw_propagator(
         if let Some(e) = prop.event {
             draw_event(gizmos, planets, &e, prop.end, pv_end.pos, scale, duty_cycle);
         }
-
-        if !prop.finished {
-            draw_circle(gizmos, pv_end.pos, 5.0, TEAL);
-        }
     }
     Some(())
 }

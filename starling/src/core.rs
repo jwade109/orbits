@@ -257,14 +257,16 @@ pub struct OrbitalTree {
 #[derive(Debug, Clone)]
 pub struct Planet {
     pub id: ObjectId,
+    pub name: String,
     pub primary: Body,
     pub subsystems: Vec<(Orbit, Planet)>,
 }
 
 impl Planet {
-    pub fn new(id: ObjectId, primary: Body) -> Self {
+    pub fn new(id: ObjectId, name: impl Into<String>, primary: Body) -> Self {
         Planet {
             id,
+            name: name.into(),
             primary,
             subsystems: vec![],
         }

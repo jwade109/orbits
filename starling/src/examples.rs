@@ -17,7 +17,7 @@ pub fn just_the_moon() -> (OrbitalTree, ObjectIdTracker) {
 
     let moon_id = id.next();
 
-    let mut tree = OrbitalTree::new(&Planet::new(moon_id, LUNA.0));
+    let mut tree = OrbitalTree::new(&Planet::new(moon_id, "Luna", LUNA.0));
 
     for _ in 0..5 {
         tree.add_object(
@@ -41,9 +41,9 @@ pub fn just_the_moon() -> (OrbitalTree, ObjectIdTracker) {
 pub fn earth_moon_example_one() -> (OrbitalTree, ObjectIdTracker) {
     let mut id = ObjectIdTracker::new();
 
-    let mut earth = Planet::new(id.next(), EARTH);
-    let luna = Planet::new(id.next(), LUNA.0);
-    let ast = Planet::new(id.next(), Body::new(10.0, 2.0, 60.0));
+    let mut earth = Planet::new(id.next(), "Earth", EARTH);
+    let luna = Planet::new(id.next(), "Luna", LUNA.0);
+    let ast = Planet::new(id.next(), "Asteroid", Body::new(10.0, 2.0, 60.0));
 
     earth.orbit(LUNA.1, luna.clone());
     earth.orbit(
@@ -132,8 +132,8 @@ pub fn earth_moon_example_one() -> (OrbitalTree, ObjectIdTracker) {
 
 pub fn earth_moon_example_two() -> (OrbitalTree, ObjectIdTracker) {
     let mut id = ObjectIdTracker::new();
-    let mut earth = Planet::new(id.next(), EARTH);
-    let luna = Planet::new(id.next(), LUNA.0);
+    let mut earth = Planet::new(id.next(), "Earth", EARTH);
+    let luna = Planet::new(id.next(), "Luna", LUNA.0);
 
     earth.orbit(LUNA.1, luna);
 
@@ -164,6 +164,7 @@ pub fn sun_jupiter_lagrange() -> (OrbitalTree, ObjectIdTracker) {
 
     let mut sun: Planet = Planet::new(
         id.next(),
+        "Sol",
         Body {
             mass: 1000.0,
             radius: 100.0,
@@ -186,7 +187,7 @@ pub fn sun_jupiter_lagrange() -> (OrbitalTree, ObjectIdTracker) {
         time_at_periapsis: Nanotime(0),
     };
 
-    sun.orbit(jupiter_orbit, Planet::new(id.next(), jupiter));
+    sun.orbit(jupiter_orbit, Planet::new(id.next(), "Jupiter", jupiter));
 
     let mut tree = OrbitalTree::new(&sun);
 
@@ -208,7 +209,7 @@ pub fn sun_jupiter_lagrange() -> (OrbitalTree, ObjectIdTracker) {
 pub fn consistency_example() -> (OrbitalTree, ObjectIdTracker) {
     let mut id = ObjectIdTracker::new();
 
-    let earth = Planet::new(id.next(), EARTH);
+    let earth = Planet::new(id.next(), "Earth", EARTH);
 
     let mut orbits = vec![];
 
@@ -239,7 +240,7 @@ pub fn consistency_example() -> (OrbitalTree, ObjectIdTracker) {
 
 pub fn single_hyperbolic() -> (OrbitalTree, ObjectIdTracker) {
     let mut id = ObjectIdTracker::new();
-    let earth: Planet = Planet::new(id.next(), EARTH);
+    let earth: Planet = Planet::new(id.next(), "Earth", EARTH);
     let mut tree = OrbitalTree::new(&earth);
     let orbit = Orbit::from_pv(((400.0, 0.0), (0.0, 260.0)), EARTH.mass, Nanotime(0));
     tree.add_object(id.next(), earth.id, orbit, Nanotime(0));

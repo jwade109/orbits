@@ -19,19 +19,72 @@ impl Plugin for PlanetaryPlugin {
         app.add_systems(
             Update,
             (
+                log_system_info,
+                process_commands,
                 keyboard_input,
                 mouse_button_input,
                 handle_zoom,
                 scroll_events,
                 update_cursor,
-                update_camera,
                 propagate_system,
+                update_text,
+                update_camera,
                 draw,
-                log_system_info,
-                process_commands,
             )
                 .chain(),
         );
+    }
+}
+
+fn init_system(mut commands: Commands) {
+    commands.insert_resource(GameState::default());
+    let s = 0.02;
+    commands.insert_resource(ClearColor(Color::linear_rgb(s, s, s)));
+    commands.spawn((
+        Text2d::new("Hello!"),
+        FollowObject,
+        bevy::sprite::Anchor::TopLeft,
+    ));
+}
+
+fn update_text(res: Res<GameState>, mut text: Query<(&mut Transform, &mut Text2d, &FollowObject)>) {
+    let scale = res.actual_scale.min(1.0);
+    let id = res.primary();
+    let (mut tr, mut text, follow) = text.single_mut();
+    let obj = res.system.objects.iter().find(|o| o.id == id);
+    let pv = obj
+        .map(|o| o.pv(res.sim_time, &res.system.system))
+        .flatten();
+    let prop = obj.map(|o| o.propagator_at(res.sim_time)).flatten();
+    let lup = prop
+        .map(|o| res.system.system.lookup(o.parent, res.sim_time))
+        .flatten();
+    if let (Some(pv), Some(obj), Some((_, _, _, parent))) = (pv, obj, lup) {
+        let will_crash = obj
+            .props()
+            .iter()
+            .any(|p| p.event == Some(EventType::Collide));
+
+        let warn_str = if will_crash && res.duty_cycle_high {
+            " COLLISION IMMINENT"
+        } else {
+            ""
+        };
+
+        let txt = format!(
+            "{:?}{}\nOrbiting {}\nP {:0.2}, {:0.2}\nV {:0.2}\nS {}",
+            id,
+            warn_str,
+            parent.name,
+            pv.pos.x,
+            pv.pos.y,
+            pv.vel.length(),
+            obj.props().len()
+        );
+
+        tr.translation = (pv.pos + Vec2::new(40.0 * scale, 40.0 * scale)).extend(0.0);
+        tr.scale = Vec3::new(scale, scale, scale);
+        *text = txt.into();
     }
 }
 
@@ -45,6 +98,9 @@ enum CameraTracking {
     TrackingCursor,
     Freewheeling,
 }
+
+#[derive(Component)]
+struct FollowObject;
 
 #[derive(Debug)]
 pub struct CameraState {
@@ -260,12 +316,6 @@ impl Default for GameState {
             duty_cycle_high: false,
         }
     }
-}
-
-fn init_system(mut commands: Commands) {
-    commands.insert_resource(GameState::default());
-    let s = 0.02;
-    commands.insert_resource(ClearColor(Color::linear_rgb(s, s, s)));
 }
 
 fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {

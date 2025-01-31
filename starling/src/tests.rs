@@ -1,9 +1,9 @@
 #![allow(unused)]
 
 use crate::core::*;
-use crate::orbiter::*;
 use crate::examples::*;
 use crate::orbit::*;
+use crate::orbiter::*;
 use approx::assert_relative_eq;
 use bevy::math::Vec2;
 
@@ -58,7 +58,7 @@ fn orbit_construction() {
 }
 
 pub fn test_scenario_one() -> Planet {
-    let mut system = Planet::new(ObjectId(0), EARTH);
+    let mut system = Planet::new(ObjectId(0), "Earth", EARTH);
 
     // let rid = system.add_object(Vec2::ZERO, Some(TEST_BODY));
 
