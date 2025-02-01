@@ -194,11 +194,11 @@ pub struct GameState {
 
 impl GameState {
     pub fn game_bounds(&self) -> AABB {
-        AABB::from_center(self.camera.center, self.window_dims * self.actual_scale)
+        AABB::new(self.camera.center, self.window_dims * self.actual_scale)
     }
 
     pub fn window_bounds(&self) -> AABB {
-        AABB(Vec2::ZERO, self.window_dims)
+        AABB::new(self.window_dims / 2.0, self.window_dims)
     }
 
     pub fn primary(&self) -> ObjectId {
@@ -708,7 +708,7 @@ fn update_camera(mut query: Query<&mut Transform, With<Camera>>, mut state: ResM
         if let Some(a) = state.tracked_aabb() {
             state
                 .camera
-                .track(a.center(), CameraTracking::TrackingTracks);
+                .track(a.center, CameraTracking::TrackingTracks);
             state.cursor = state.camera.center;
         } else {
             let s = state.cursor;

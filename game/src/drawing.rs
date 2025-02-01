@@ -1,7 +1,7 @@
 use bevy::color::palettes::basic::*;
 use bevy::color::palettes::css::ORANGE;
 use bevy::prelude::*;
-use starling::aabb::AABB;
+use starling::aabb::{AABB, OBB};
 use starling::core::*;
 use starling::orbit::*;
 use starling::orbiter::*;
@@ -36,8 +36,8 @@ pub fn draw_circle(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
 
 pub fn draw_aabb(gizmos: &mut Gizmos, aabb: AABB, color: Srgba) {
     gizmos.rect_2d(
-        Isometry2d::from_translation(aabb.center()),
-        aabb.span(),
+        Isometry2d::from_translation(aabb.center),
+        aabb.span,
         color,
     );
 }
