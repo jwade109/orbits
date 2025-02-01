@@ -35,11 +35,15 @@ pub fn draw_circle(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
 }
 
 pub fn draw_aabb(gizmos: &mut Gizmos, aabb: AABB, color: Srgba) {
-    gizmos.rect_2d(
-        Isometry2d::from_translation(aabb.center),
-        aabb.span,
-        color,
-    );
+    draw_x(gizmos, aabb.center, 30.0, color);
+    gizmos.rect_2d(Isometry2d::from_translation(aabb.center), aabb.span, color);
+}
+
+pub fn draw_obb(gizmos: &mut Gizmos, obb: OBB, color: Srgba) {
+    draw_x(gizmos, obb.0.center, 30.0, color);
+    let mut corners = obb.corners().to_vec();
+    corners.push(*corners.get(0).unwrap());
+    gizmos.linestrip_2d(corners, color);
 }
 
 pub fn draw_orbit(

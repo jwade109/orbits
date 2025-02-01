@@ -85,7 +85,12 @@ impl AABB {
     }
 
     pub fn scale(&self, scalar: f32) -> Self {
-        AABB::new(self.center, self.span * scalar)
+        AABB::new(self.center * scalar, self.span * scalar)
+    }
+
+    pub fn rotate_about(&self, p: Vec2, angle: f32) -> OBB {
+        let d = rotate(self.center - p, angle) + p;
+        OBB::new(AABB::new(d, self.span), angle)
     }
 }
 
@@ -96,7 +101,7 @@ impl From<((f32, f32), (f32, f32))> for AABB {
 }
 
 #[derive(Debug, Default, Clone, Copy)]
-pub struct OBB(AABB, f32);
+pub struct OBB(pub AABB, pub f32);
 
 impl OBB {
     pub fn new(aabb: impl Into<AABB>, angle: f32) -> Self {
@@ -104,7 +109,7 @@ impl OBB {
     }
 
     pub fn offset(&self, d: Vec2) -> Self {
-        OBB(self.0.offset(d), self.1)
+        OBB::new(AABB::new(self.0.center + d, self.0.span), self.1)
     }
 
     pub fn corners(&self) -> [Vec2; 4] {
@@ -116,5 +121,16 @@ impl OBB {
         }
 
         corners
+    }
+
+    pub fn project_onto(&self, axis: Vec2) -> (Vec2, Vec2) {
+        let x = self.corners().map(|e| e.dot(axis.normalize_or_zero()));
+
+        let cmp = |f: &&f32, y: &&f32| f.total_cmp(y);
+
+        let min = x.iter().min_by(cmp).unwrap();
+        let max = x.iter().max_by(cmp).unwrap();
+
+        (min * axis, max * axis)
     }
 }
