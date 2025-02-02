@@ -62,6 +62,14 @@ impl RigidBody {
         self.angular_rate *= (-dt / 4.0).exp();
     }
 
+    fn mass(&self) -> f32 {
+        self.body.len() as f32
+    }
+
+    fn moi(&self) -> f32 {
+        2000.0
+    }
+
     fn body(&self) -> Vec<OBB> {
         self.body
             .iter()
@@ -119,21 +127,16 @@ fn draw_rigid_body(gizmos: &mut Gizmos, craft: &RigidBody) {
     draw_aabb(gizmos, craft.aabb(), GRAY);
 
     for b in &craft.body() {
-        draw_obb(gizmos, *b, TEAL);
+        draw_obb(gizmos, b, TEAL);
+    }
+}
 
-        let a = 0.2;
-        let a1 = rotate(Vec2::X, a);
-        let a2 = rotate(a1, PI / 2.0);
-        let a3 = rotate(Vec2::X, PI * 0.3);
-        for (axis, color) in [(a1, ORANGE), (a2, TEAL), (a3, RED)] {
-            let (p1, p2) = b.project_onto(axis);
-            gizmos.line_2d(p1, p2, color);
-            draw_circle(gizmos, p1, 15.0, color);
-            draw_circle(gizmos, p2, 15.0, color);
-
-            for c in b.corners() {
-                let p = c.project_onto(axis);
-                gizmos.line_2d(c, p, alpha(GRAY, 0.03));
+fn do_intersection(gizmos: &mut Gizmos, r1: &RigidBody, r2: &RigidBody) {
+    for b1 in r1.body() {
+        for b2 in r2.body() {
+            if b1.intersects(b2) {
+                draw_obb(gizmos, &b1, RED);
+                draw_obb(gizmos, &b2, PURPLE);
             }
         }
     }
@@ -142,6 +145,16 @@ fn draw_rigid_body(gizmos: &mut Gizmos, craft: &RigidBody) {
 fn draw(mut gizmos: Gizmos, state: Res<CraftState>) {
     draw_rigid_body(&mut gizmos, &state.c1);
     draw_rigid_body(&mut gizmos, &state.c2);
+
+    do_intersection(&mut gizmos, &state.c1, &state.c2);
+}
+
+fn apply_vehicle_fixed_force(craft: &mut RigidBody, dt: f32, force: Vec2, lever: Vec2) {
+    let force = rotate(force, craft.angle);
+    let torque = lever.extend(0.0).cross(force.extend(0.0)).z;
+
+    craft.pv.vel += force / craft.mass() * dt;
+    craft.angular_rate += torque / craft.moi() * dt;
 }
 
 fn update_keys(keys: Res<ButtonInput<KeyCode>>, mut state: ResMut<CraftState>, time: Res<Time>) {
@@ -160,6 +173,10 @@ fn update_keys(keys: Res<ButtonInput<KeyCode>>, mut state: ResMut<CraftState>, t
     }
     if keys.pressed(KeyCode::KeyS) {
         state.c1.pv.vel -= dv;
+    }
+
+    if keys.pressed(KeyCode::KeyT) {
+        apply_vehicle_fixed_force(&mut state.c1, dt, Vec2::X * 4000.0, Vec2::ZERO);
     }
 
     let dv = rotate(Vec2::X, state.c2.angle) * 700.0 * dt;

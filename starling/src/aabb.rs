@@ -100,6 +100,10 @@ impl From<((f32, f32), (f32, f32))> for AABB {
     }
 }
 
+pub fn range_intersects(a: (f32, f32), b: (f32, f32)) -> bool {
+    (a.0 <= b.0 && b.0 <= a.1) || (b.0 <= a.0 && a.0 <= b.1)
+}
+
 #[derive(Debug, Default, Clone, Copy)]
 pub struct OBB(pub AABB, pub f32);
 
@@ -123,7 +127,11 @@ impl OBB {
         corners
     }
 
-    pub fn project_onto(&self, axis: Vec2) -> (Vec2, Vec2) {
+    pub fn axes(&self) -> (Vec2, Vec2) {
+        (rotate(Vec2::X, self.1), rotate(Vec2::Y, self.1))
+    }
+
+    pub fn project_onto(&self, axis: Vec2) -> (f32, f32) {
         let x = self.corners().map(|e| e.dot(axis.normalize_or_zero()));
 
         let cmp = |f: &&f32, y: &&f32| f.total_cmp(y);
@@ -131,6 +139,17 @@ impl OBB {
         let min = x.iter().min_by(cmp).unwrap();
         let max = x.iter().max_by(cmp).unwrap();
 
-        (min * axis, max * axis)
+        (*min, *max)
+    }
+
+    pub fn intersects(&self, other: OBB) -> bool {
+        let a1 = self.axes();
+        let a2 = other.axes();
+
+        [a1.0, a1.1, a2.0, a2.1].into_iter().all(|axis| {
+            let range_a = self.project_onto(axis);
+            let range_b = other.project_onto(axis);
+            return range_intersects(range_a, range_b);
+        })
     }
 }
