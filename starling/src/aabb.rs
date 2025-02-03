@@ -152,4 +152,10 @@ impl OBB {
             return range_intersects(range_a, range_b);
         })
     }
+
+    pub fn contains(&self, p: Vec2) -> bool {
+        let d = p - self.0.center;
+        let t = rotate(d, -self.1) + self.0.center;
+        self.0.contains(t)
+    }
 }

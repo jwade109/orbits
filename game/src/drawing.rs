@@ -35,7 +35,6 @@ pub fn draw_circle(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
 }
 
 pub fn draw_aabb(gizmos: &mut Gizmos, aabb: AABB, color: Srgba) {
-    draw_x(gizmos, aabb.center, 30.0, color);
     gizmos.rect_2d(Isometry2d::from_translation(aabb.center), aabb.span, color);
 }
 
