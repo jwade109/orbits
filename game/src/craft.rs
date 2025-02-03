@@ -18,7 +18,7 @@ impl Plugin for CraftPlugin {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 struct RigidBody {
     pv: PV,
     angle: f32,
@@ -26,7 +26,7 @@ struct RigidBody {
     body: Vec<AABB>,
 }
 
-fn rigid_body_mesh(scale: f32) -> Vec<AABB> {
+fn satellite_body(scale: f32) -> Vec<AABB> {
     vec![
         // body
         AABB::from_arbitrary((-100.0, -100.0), (0.0, 0.0)),
@@ -50,12 +50,12 @@ fn rigid_body_mesh(scale: f32) -> Vec<AABB> {
 }
 
 impl RigidBody {
-    fn new(pv: impl Into<PV>) -> Self {
+    fn new(pv: impl Into<PV>, body: Vec<AABB>) -> Self {
         RigidBody {
             pv: pv.into(),
             angle: rand(0.0, PI * 2.0),
             angular_rate: 0.0,
-            body: rigid_body_mesh(6.0),
+            body,
         }
     }
 
@@ -101,15 +101,26 @@ impl RigidBody {
 
 #[derive(Resource)]
 struct CraftState {
-    c1: RigidBody,
-    c2: RigidBody,
+    bodies: Vec<RigidBody>,
+    collisions: Vec<CollisionInfo>,
 }
 
 impl Default for CraftState {
     fn default() -> Self {
         CraftState {
-            c1: RigidBody::new(((-1500.0, 20.0), (0.0, 0.0))),
-            c2: RigidBody::new(((1500.0, -30.0), (0.0, 0.0))),
+            bodies: vec![
+                RigidBody::new(((-1500.0, 20.0), (0.0, 0.0)), satellite_body(4.0)),
+                RigidBody::new(((1500.0, -30.0), (0.0, 0.0)), satellite_body(3.6)),
+                RigidBody::new(
+                    PV::zero(),
+                    vec![AABB::from_arbitrary((-200.0, -200.0), (200.0, 200.0))],
+                ),
+                RigidBody::new(
+                    ((0.0, 900.0), (0.0, 0.0)),
+                    vec![AABB::from_arbitrary((-150.0, -150.0), (150.0, 150.0))],
+                ),
+            ],
+            collisions: vec![],
         }
     }
 }
@@ -118,35 +129,31 @@ fn init_system(mut commands: Commands) {
     commands.insert_resource(CraftState::default());
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 struct CollisionInfo {
-    part1: usize,
-    part2: usize,
-    b1: PV,
-    b2: PV,
+    b1: (usize, usize, PV),
+    b2: (usize, usize, PV),
 }
 
-fn collision_info(r1: &RigidBody, r2: &RigidBody) -> Option<CollisionInfo> {
-    for (i, b1) in r1.body().into_iter().enumerate() {
-        for (j, b2) in r2.body().into_iter().enumerate() {
+fn collision_info(r1: (usize, &RigidBody), r2: (usize, &RigidBody)) -> Option<CollisionInfo> {
+    for (i, b1) in r1.1.body().into_iter().enumerate() {
+        for (j, b2) in r2.1.body().into_iter().enumerate() {
             if b1.intersects(b2) {
                 let p1 = b1.0.center;
                 let p2 = b2.0.center;
-                let v1 = r1.vel(p1 - r1.pv.pos);
-                let v2 = r2.vel(p2 - r2.pv.pos);
+                let v1 = r1.1.vel(p1 - r1.1.pv.pos);
+                let v2 = r2.1.vel(p2 - r2.1.pv.pos);
 
                 let d = p1 - p2;
                 let v = v1 - v2;
 
-                if d.dot(v) > 0.05 {
+                if d.dot(v) > 5.0 {
                     continue;
                 }
 
                 return Some(CollisionInfo {
-                    part1: i,
-                    part2: j,
-                    b1: PV::new(p1, v1),
-                    b2: PV::new(p2, v2),
+                    b1: (r1.0, i, PV::new(p1, v1)),
+                    b2: (r2.0, j, PV::new(p2, v2)),
                 });
             }
         }
@@ -156,17 +163,34 @@ fn collision_info(r1: &RigidBody, r2: &RigidBody) -> Option<CollisionInfo> {
 
 fn update(mut state: ResMut<CraftState>, time: Res<Time>) {
     let dt = time.delta_secs();
-    state.c1.update(dt);
-    state.c2.update(dt);
 
-    for _ in 0..10 {
-        if let Some(ci) = collision_info(&state.c1, &state.c2) {
-            let dv = ci.b1.vel.distance(ci.b2.vel);
-            let f = (ci.b1.pos - ci.b2.pos).normalize_or_zero() * dv * 5.0;
-            apply_world_force(&mut state.c1, dt, f, ci.b1.pos);
-            apply_world_force(&mut state.c2, dt, -f, ci.b2.pos);
+    for body in &mut state.bodies {
+        body.update(dt);
+    }
+
+    let mut cols = vec![];
+
+    for (i, b1) in state.bodies.iter().enumerate() {
+        for (j, b2) in state.bodies.iter().enumerate() {
+            if i <= j {
+                continue;
+            }
+            if let Some(ci) = collision_info((i, b1), (j, b2)) {
+                cols.push(ci);
+            }
         }
     }
+
+    for col in &cols {
+        let bid1 = col.b1.0;
+        let bid2 = col.b2.0;
+        let dv = col.b1.2.vel.distance(col.b2.2.vel);
+        let f = (col.b1.2.pos - col.b2.2.pos).normalize_or_zero() * dv * 20.0;
+        apply_world_force(&mut state.bodies[bid1], dt, f, col.b1.2.pos);
+        apply_world_force(&mut state.bodies[bid2], dt, -f, col.b2.2.pos);
+    }
+
+    state.collisions = cols;
 }
 
 fn integer_lattice_around(p: Vec2, w: i32, step: usize) -> Vec<Vec2> {
@@ -206,35 +230,39 @@ fn draw_rigid_body(gizmos: &mut Gizmos, craft: &RigidBody) {
     }
 }
 
-fn draw_intersections(gizmos: &mut Gizmos, r1: &RigidBody, r2: &RigidBody) {
-    for b1 in r1.body() {
-        for b2 in r2.body() {
-            if b1.intersects(b2) {
-                draw_obb(gizmos, &b1, RED);
-                draw_obb(gizmos, &b2, PURPLE);
-            }
-        }
-    }
-}
-
 fn draw(mut gizmos: Gizmos, state: Res<CraftState>) {
-    draw_rigid_body(&mut gizmos, &state.c1);
-    draw_rigid_body(&mut gizmos, &state.c2);
-
-    let b1 = state.c1.body();
-    let b2 = state.c2.body();
+    for b in &state.bodies {
+        draw_rigid_body(&mut gizmos, &b);
+    }
 
     for p in integer_lattice_around(Vec2::ZERO, 8000, 150) {
-        if b1.iter().chain(b2.iter()).all(|b: &OBB| !b.contains(p)) {
+        if state
+            .bodies
+            .iter()
+            .map(|b| b.body())
+            .flatten()
+            .all(|b: OBB| !b.contains(p))
+        {
             draw_square(&mut gizmos, p, 3.0, GRAY);
         }
     }
 
-    if let Some(info) = collision_info(&state.c1, &state.c2) {
-        gizmos.line_2d(info.b1.pos, info.b2.pos, RED);
+    for ci in &state.collisions {
+        let b1 = &state.bodies[ci.b1.0];
+        let b2 = &state.bodies[ci.b2.0];
+
+        let o1 = b1.body()[ci.b1.1];
+        let o2 = b2.body()[ci.b2.1];
+
+        draw_obb(&mut gizmos, &o1, RED);
+        draw_obb(&mut gizmos, &o2, RED);
     }
 
-    draw_intersections(&mut gizmos, &state.c1, &state.c2);
+    // if let Some(info) = collision_info(&state.c1, &state.c2) {
+    //     gizmos.line_2d(info.b1.pos, info.b2.pos, RED);
+    // }
+
+    // draw_intersections(&mut gizmos, &state.c1, &state.c2);
 }
 
 fn apply_world_force(craft: &mut RigidBody, dt: f32, force: Vec2, location: Vec2) {
@@ -244,32 +272,41 @@ fn apply_world_force(craft: &mut RigidBody, dt: f32, force: Vec2, location: Vec2
     craft.angular_rate += torque / craft.moi() * dt;
 }
 
+struct KeyMapping {
+    forward: KeyCode,
+    back: KeyCode,
+    left: KeyCode,
+    right: KeyCode,
+    turn_left: KeyCode,
+    turn_right: KeyCode,
+}
+
 fn do_rcs_commands(
     craft: &mut RigidBody,
     dt: f32,
     keys: &Res<ButtonInput<KeyCode>>,
-    keymapping: [KeyCode; 6],
+    keymapping: &KeyMapping,
 ) {
     let dv = rotate(Vec2::X, craft.angle) * 700.0 * dt;
-    let ds = rotate(dv, PI / 2.0);
+    // let ds = rotate(dv, PI / 2.0);
     let da = 2.0 * dt;
 
-    if keys.pressed(keymapping[0]) {
+    if keys.pressed(keymapping.forward) {
         craft.pv.vel += dv;
     }
-    if keys.pressed(keymapping[1]) {
-        craft.pv.vel += ds;
-    }
-    if keys.pressed(keymapping[2]) {
+    // if keys.pressed(keymapping.left) {
+    //     craft.pv.vel += ds;
+    // }
+    if keys.pressed(keymapping.back) {
         craft.pv.vel -= dv;
     }
-    if keys.pressed(keymapping[3]) {
-        craft.pv.vel -= ds;
-    }
-    if keys.pressed(keymapping[4]) {
+    // if keys.pressed(keymapping.right) {
+    //     craft.pv.vel -= ds;
+    // }
+    if keys.pressed(keymapping.turn_left) {
         craft.angular_rate += da;
     }
-    if keys.pressed(keymapping[5]) {
+    if keys.pressed(keymapping.turn_right) {
         craft.angular_rate -= da;
     }
 }
@@ -278,30 +315,34 @@ fn update_keys(keys: Res<ButtonInput<KeyCode>>, mut state: ResMut<CraftState>, t
     let dt = time.delta_secs();
 
     do_rcs_commands(
-        &mut state.c1,
+        &mut state.bodies[0],
         dt,
         &keys,
-        [
-            KeyCode::KeyW,
-            KeyCode::KeyA,
-            KeyCode::KeyS,
-            KeyCode::KeyD,
-            KeyCode::KeyQ,
-            KeyCode::KeyE,
-        ],
+        &KeyMapping {
+            forward: KeyCode::KeyW,
+            back: KeyCode::KeyS,
+            left: KeyCode::KeyQ,
+            right: KeyCode::KeyE,
+            turn_left: KeyCode::KeyA,
+            turn_right: KeyCode::KeyD,
+        },
     );
 
+    if keys.just_pressed(KeyCode::KeyR) {
+        *state = CraftState::default();
+    }
+
     do_rcs_commands(
-        &mut state.c2,
+        &mut state.bodies[1],
         dt,
         &keys,
-        [
-            KeyCode::KeyI,
-            KeyCode::KeyJ,
-            KeyCode::KeyK,
-            KeyCode::KeyL,
-            KeyCode::KeyU,
-            KeyCode::KeyO,
-        ],
+        &KeyMapping {
+            forward: KeyCode::KeyI,
+            back: KeyCode::KeyK,
+            left: KeyCode::KeyU,
+            right: KeyCode::KeyO,
+            turn_left: KeyCode::KeyJ,
+            turn_right: KeyCode::KeyL,
+        },
     );
 }
