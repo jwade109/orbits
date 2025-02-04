@@ -4,6 +4,7 @@ mod craft;
 mod debug;
 mod drawing;
 mod planetary;
+mod camera_controls;
 
 fn main() {
     App::new()

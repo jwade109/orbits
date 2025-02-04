@@ -1,13 +1,14 @@
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
 
 use starling::aabb::AABB;
 use starling::core::*;
 use starling::examples::*;
 use starling::orbit::*;
 use starling::orbiter::*;
-use starling::planning::*;
 
+use crate::camera_controls::*;
 use crate::debug::*;
 use crate::drawing::*;
 
@@ -23,13 +24,9 @@ impl Plugin for PlanetaryPlugin {
                 process_commands,
                 keyboard_input,
                 mouse_button_input,
-                handle_zoom,
-                scroll_events,
-                update_cursor,
                 propagate_system,
                 manage_orbiter_labels,
                 update_text,
-                update_camera,
                 draw,
             )
                 .chain(),
@@ -67,7 +64,7 @@ fn manage_orbiter_labels(
 }
 
 fn update_text(res: Res<GameState>, mut text: Query<(&mut Transform, &mut Text2d, &FollowObject)>) {
-    let scale = res.actual_scale.min(1.0);
+    let scale = res.camera.actual_scale.min(1.0);
     let _ = text
         .iter_mut()
         .filter_map(|(mut tr, mut text, follow)| {
@@ -123,47 +120,11 @@ fn update_text(res: Res<GameState>, mut text: Query<(&mut Transform, &mut Text2d
 }
 
 fn draw(gizmos: Gizmos, res: Res<GameState>) {
-    draw_game_state(gizmos, res)
-}
-
-#[derive(Debug, PartialEq, Eq)]
-enum CameraTracking {
-    TrackingTracks,
-    TrackingCursor,
-    Freewheeling,
+    draw_game_state(gizmos, &res)
 }
 
 #[derive(Component)]
 struct FollowObject(ObjectId);
-
-#[derive(Debug)]
-pub struct CameraState {
-    pub center: Vec2,
-    easing_lpf: f32,
-    state: CameraTracking,
-}
-
-impl CameraState {
-    fn track(&mut self, pos: Vec2, state: CameraTracking) {
-        if self.state != state {
-            self.easing_lpf = 0.1;
-        }
-
-        self.center += (pos - self.center) * self.easing_lpf;
-        self.easing_lpf += (1.0 - self.easing_lpf) * 0.01;
-        self.state = state;
-    }
-}
-
-impl Default for CameraState {
-    fn default() -> Self {
-        Self {
-            center: Vec2::ZERO,
-            easing_lpf: 0.1,
-            state: CameraTracking::Freewheeling,
-        }
-    }
-}
 
 #[derive(Resource)]
 pub struct GameState {
@@ -178,51 +139,16 @@ pub struct GameState {
     pub backup: Option<(OrbitalTree, ObjectIdTracker, Nanotime)>,
     pub track_list: Vec<ObjectId>,
     pub highlighted_list: Vec<ObjectId>,
-    pub target_scale: f32,
-    pub actual_scale: f32,
     pub draw_levels: Vec<i32>,
-    pub cursor: Vec2,
     pub camera: CameraState,
-    pub follow: bool,
-    pub mouse_screen_pos: Option<Vec2>,
-    pub mouse_down_pos: Option<Vec2>,
-    pub window_dims: Vec2,
     pub control_points: Vec<Vec2>,
     pub hide_debug: bool,
     pub duty_cycle_high: bool,
 }
 
 impl GameState {
-    pub fn game_bounds(&self) -> AABB {
-        AABB::new(self.camera.center, self.window_dims * self.actual_scale)
-    }
-
-    pub fn window_bounds(&self) -> AABB {
-        AABB::new(self.window_dims / 2.0, self.window_dims)
-    }
-
     pub fn primary(&self) -> ObjectId {
         *self.track_list.first().unwrap_or(&ObjectId(-1))
-    }
-
-    pub fn mouse_pos(&self) -> Option<Vec2> {
-        let gb = self.game_bounds();
-        let wb = self.window_bounds();
-        Some(AABB::map(wb, gb, self.mouse_screen_pos?))
-    }
-
-    pub fn mouse_down_pos(&self) -> Option<Vec2> {
-        let p = self.mouse_down_pos?;
-        let gb = self.game_bounds();
-        let wb = self.window_bounds();
-        Some(AABB::map(wb, gb, p))
-    }
-
-    pub fn selection_region(&self) -> Option<AABB> {
-        Some(AABB::from_arbitrary(
-            self.mouse_pos()?,
-            self.mouse_down_pos()?,
-        ))
     }
 
     pub fn toggle_track(&mut self, id: ObjectId) {
@@ -244,7 +170,11 @@ impl GameState {
 
     pub fn target_orbit(&self) -> Option<Orbit> {
         let p1 = self.control_points.get(0);
-        let p2 = self.control_points.get(1).map(|e| *e).or(self.mouse_pos());
+        let p2 = self
+            .control_points
+            .get(1)
+            .map(|e| *e)
+            .or(self.camera.mouse_pos());
 
         if let Some((p1, p2)) = p1.zip(p2) {
             if p1.distance(p2) < 10.0 {
@@ -331,18 +261,11 @@ impl Default for GameState {
             track_list: Vec::new(),
             highlighted_list: Vec::new(),
             backup: Some((system, ids, Nanotime(0))),
-            target_scale: 4.0,
-            actual_scale: 4.0,
             draw_levels: (-70000..=-10000)
                 .step_by(10000)
                 .chain((-5000..-3000).step_by(250))
                 .collect(),
-            cursor: Vec2::ZERO,
             camera: CameraState::default(),
-            follow: false,
-            mouse_screen_pos: None,
-            mouse_down_pos: None,
-            window_dims: Vec2::ZERO,
             control_points: Vec::new(),
             hide_debug: false,
             duty_cycle_high: false,
@@ -362,7 +285,7 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     let d = state.physics_duration;
     state.system.propagate_to(s, d);
 
-    if let Some(a) = state.selection_region() {
+    if let Some(a) = state.camera.selection_region() {
         state.highlighted_list = state
             .system
             .objects
@@ -396,7 +319,7 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         return;
     }
 
-    send_log(&mut evt, &format!("Camera: {:?}", state.camera));
+    send_log(&mut evt, &format!("Camera: {:#?}", state.camera));
     if state.track_list.len() > 15 {
         send_log(&mut evt, &format!("Tracks: lots of em"));
     } else {
@@ -404,7 +327,10 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
     }
     send_log(&mut evt, &format!("Epoch: {:?}", state.sim_time));
     send_log(&mut evt, &format!("Physics: {:?}", state.physics_duration));
-    send_log(&mut evt, &format!("Scale: {:0.3}", state.actual_scale));
+    send_log(
+        &mut evt,
+        &format!("Scale: {:0.3}", state.camera.actual_scale),
+    );
     send_log(&mut evt, &format!("{} objects", state.system.objects.len()));
     if state.paused {
         send_log(&mut evt, "Paused");
@@ -455,16 +381,31 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
     }
 }
 
+// I dislike bevy and so I'm lumping all input events into a single function
+// because I am ungovernable
 fn keyboard_input(
     keys: Res<ButtonInput<KeyCode>>,
+    scroll: EventReader<MouseWheel>,
     mut state: ResMut<GameState>,
     mut exit: ResMut<Events<bevy::app::AppExit>>,
     cstate: Res<CommandsState>,
     time: Res<Time>,
+    buttons: Res<ButtonInput<MouseButton>>,
+    query: Query<&mut Transform, With<Camera>>,
+    windows: Query<&Window, With<PrimaryWindow>>,
 ) {
     if cstate.active {
         return;
     }
+
+    state.camera.on_keys(&keys, time.delta_secs());
+    if !keys.pressed(KeyCode::ShiftLeft) {
+        state.camera.on_scroll(scroll);
+    }
+    state.camera.on_mouse_click(&buttons);
+    state.camera.on_mouse_move(windows);
+
+    update_camera_transform(query, &mut state.camera);
 
     for key in keys.get_just_pressed() {
         match key {
@@ -473,12 +414,6 @@ fn keyboard_input(
             }
             KeyCode::Comma => {
                 state.sim_speed = i32::clamp(state.sim_speed - 1, -10, 4);
-            }
-            KeyCode::KeyF => {
-                state.follow = !state.follow;
-                if state.follow {
-                    state.camera.easing_lpf = 0.1;
-                }
             }
             KeyCode::Delete => {
                 state.delete_objects();
@@ -489,41 +424,15 @@ fn keyboard_input(
             KeyCode::KeyK => {
                 state.spawn_new();
             }
-            KeyCode::Equal => {
-                state.target_scale /= 1.5;
-            }
-            KeyCode::Minus => {
-                state.target_scale *= 1.5;
-            }
             _ => (),
         }
     }
-
-    let dt = time.delta().as_secs_f32();
-    let cursor_rate = 1400.0 * state.actual_scale;
 
     let dv = if keys.pressed(KeyCode::ControlLeft) {
         0.002
     } else {
         0.03
     };
-
-    if keys.pressed(KeyCode::KeyW) {
-        state.cursor.y += cursor_rate * dt;
-        state.follow = false;
-    }
-    if keys.pressed(KeyCode::KeyA) {
-        state.cursor.x -= cursor_rate * dt;
-        state.follow = false;
-    }
-    if keys.pressed(KeyCode::KeyD) {
-        state.cursor.x += cursor_rate * dt;
-        state.follow = false;
-    }
-    if keys.pressed(KeyCode::KeyS) {
-        state.cursor.y -= cursor_rate * dt;
-        state.follow = false;
-    }
 
     if keys.pressed(KeyCode::ArrowUp) {
         state.do_maneuver(Vec2::Y * dv);
@@ -554,22 +463,18 @@ fn mouse_button_input(
     keys: Res<ButtonInput<KeyCode>>,
     mut state: ResMut<GameState>,
 ) {
-    if buttons.just_pressed(MouseButton::Left) {
-        state.mouse_down_pos = state.mouse_screen_pos;
-    }
     if buttons.just_pressed(MouseButton::Right) {
         state.control_points.clear();
-        if let Some(p) = state.mouse_pos() {
+        if let Some(p) = state.camera.mouse_pos() {
             state.control_points.push(p);
         }
     }
     if buttons.just_released(MouseButton::Right) {
-        if let Some(p) = state.mouse_pos() {
+        if let Some(p) = state.camera.mouse_pos() {
             state.control_points.push(p);
         }
     }
     if buttons.just_released(MouseButton::Left) {
-        state.mouse_down_pos = None;
         let hl = state.highlighted_list.clone();
         if keys.pressed(KeyCode::ShiftLeft) {
             // add to track list
@@ -586,32 +491,12 @@ fn mouse_button_input(
             state.track_list.clear();
             state.track_list = hl;
         }
-        state.camera.state = CameraTracking::Freewheeling;
     }
-    // we can check multiple at once with `.any_*`
-    if buttons.any_just_pressed([MouseButton::Left, MouseButton::Middle]) {
-        // Either the left or the middle (wheel) button was just pressed
-    }
-}
-
-fn update_cursor(
-    mut state: ResMut<GameState>,
-    q: Query<&Window, With<bevy::window::PrimaryWindow>>,
-) {
-    let (w, p) = match q.get_single() {
-        Ok(w) => (w, w.cursor_position()),
-        Err(_) => {
-            state.mouse_screen_pos = None;
-            return;
-        }
-    };
-    state.mouse_screen_pos = p.map(|p| Vec2::new(p.x, w.height() - p.y));
-    state.window_dims = Vec2::new(w.width(), w.height());
 }
 
 fn load_new_scenario(state: &mut GameState, tree: OrbitalTree, ids: ObjectIdTracker) {
     state.backup = Some((tree.clone(), ids, Nanotime(0)));
-    state.target_scale = 0.001 * tree.system.primary.soi;
+    state.camera.target_scale = 0.001 * tree.system.primary.soi;
     state.system = tree;
     state.sim_time = Nanotime(0);
 }
@@ -672,76 +557,11 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
         state.delete_objects();
     } else if starts_with("spawn") {
         state.spawn_new();
-        // } else if starts_with("maneuver") {
-        //     let tl = state.track_list.clone();
-        //     _ = tl
-        //         .iter()
-        //         .filter_map(|id| {
-        //             let dt = Nanotime::secs_f32(cmd.get(1)?.parse().ok()?);
-        //             let dx = cmd.get(2)?.parse::<f32>().ok()?;
-        //             let dy = cmd.get(3)?.parse::<f32>().ok()?;
-        //             let t = state.sim_time + dt;
-        //             state.register_maneuver(*id, Vec2::new(dx, dy), t);
-        //             Some(())
-        //         })
-        //         .collect::<Vec<_>>();
     }
 }
 
 fn process_commands(mut evts: EventReader<DebugCommand>, mut state: ResMut<GameState>) {
     for DebugCommand(cmd) in evts.read() {
         on_command(&mut state, cmd);
-    }
-}
-
-fn handle_zoom(mut state: ResMut<GameState>, mut tf: Query<&mut Transform, With<Camera>>) {
-    let mut transform = tf.single_mut();
-    let ds = (state.target_scale - transform.scale) * 0.5;
-    transform.scale += ds;
-    state.actual_scale = transform.scale.x;
-}
-
-fn update_camera(mut query: Query<&mut Transform, With<Camera>>, mut state: ResMut<GameState>) {
-    let mut tf = query.single_mut();
-
-    if state.follow {
-        if let Some(a) = state.tracked_aabb() {
-            state
-                .camera
-                .track(a.center, CameraTracking::TrackingTracks);
-            state.cursor = state.camera.center;
-        } else {
-            let s = state.cursor;
-            state.camera.track(s, CameraTracking::Freewheeling);
-        }
-    } else {
-        let s = state.cursor;
-        state.camera.track(s, CameraTracking::TrackingCursor)
-    }
-
-    *tf = tf.with_translation(state.camera.center.extend(0.0));
-}
-
-fn scroll_events(
-    mut evr_scroll: EventReader<MouseWheel>,
-    keys: Res<ButtonInput<KeyCode>>,
-    mut state: ResMut<GameState>,
-) {
-    if keys.pressed(KeyCode::ShiftLeft) {
-        for ev in evr_scroll.read() {
-            if ev.y > 0.0 {
-                state.sim_speed = i32::clamp(state.sim_speed + 1, -10, 4);
-            } else {
-                state.sim_speed = i32::clamp(state.sim_speed - 1, -10, 4);
-            }
-        }
-    } else {
-        for ev in evr_scroll.read() {
-            if ev.y > 0.0 {
-                state.target_scale /= 1.3;
-            } else {
-                state.target_scale *= 1.3;
-            }
-        }
     }
 }

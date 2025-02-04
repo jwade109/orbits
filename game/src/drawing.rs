@@ -7,6 +7,7 @@ use starling::orbit::*;
 use starling::orbiter::*;
 use starling::planning::*;
 
+use crate::camera_controls::CameraState;
 use crate::planetary::GameState;
 
 pub fn alpha(color: Srgba, a: f32) -> Srgba {
@@ -390,17 +391,36 @@ pub fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) {
         .iter()
         .filter_map(|id| {
             let pv = state.system.orbiter_lookup(*id, state.sim_time)?.pv();
-            draw_circle(gizmos, pv.pos, 20.0 * state.actual_scale, GRAY);
+            draw_circle(gizmos, pv.pos, 20.0 * state.camera.actual_scale, GRAY);
             Some(())
         })
         .collect::<Vec<_>>();
 }
 
-pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
+pub fn draw_camera_controls(gizmos: &mut Gizmos, cam: &CameraState) {
+    if let Some(p) = cam.mouse_pos() {
+        draw_circle(gizmos, p, 3.0 * cam.actual_scale, RED);
+    }
+
+    if let Some(p) = cam.mouse_down_pos() {
+        draw_circle(gizmos, p, 2.0 * cam.actual_scale, RED);
+    }
+
+    if let Some(a) = cam.selection_region() {
+        draw_aabb(gizmos, a, RED);
+    }
+}
+
+pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
     let stamp = state.sim_time;
 
     for p in &state.control_points {
-        draw_circle(&mut gizmos, *p, 6.0 * state.actual_scale, alpha(GRAY, 0.4));
+        draw_circle(
+            &mut gizmos,
+            *p,
+            6.0 * state.camera.actual_scale,
+            alpha(GRAY, 0.4),
+        );
     }
 
     if let Some(o) = state.target_orbit() {
@@ -411,23 +431,13 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         draw_scalar_field_v2(&mut gizmos, &state.system.system, stamp, &state.draw_levels);
     }
 
-    if let Some(p) = state.mouse_pos() {
-        draw_circle(&mut gizmos, p, 3.0 * state.actual_scale, RED);
-    }
-
-    if let Some(p) = state.mouse_down_pos() {
-        draw_circle(&mut gizmos, p, 2.0 * state.actual_scale, RED);
-    }
-
-    if let Some(a) = state.selection_region() {
-        draw_aabb(&mut gizmos, a, RED);
-    }
+    draw_camera_controls(&mut gizmos, &state.camera);
 
     draw_orbital_system(
         &mut gizmos,
         &state.system,
         stamp,
-        state.actual_scale,
+        state.camera.actual_scale,
         state.show_orbits,
         &state.track_list,
         state.duty_cycle_high,

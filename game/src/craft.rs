@@ -2,6 +2,7 @@ use bevy::color::palettes::basic::*;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 
+use crate::camera_controls::*;
 use crate::drawing::*;
 use starling::aabb::*;
 use starling::orbit::PI;
@@ -14,7 +15,10 @@ pub struct CraftPlugin;
 impl Plugin for CraftPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, init_system);
-        app.add_systems(Update, (update_keys, update, draw).chain());
+        app.add_systems(
+            Update,
+            (update_keys, handle_viewport_input, update, draw).chain(),
+        );
     }
 }
 
@@ -103,6 +107,7 @@ impl RigidBody {
 struct CraftState {
     bodies: Vec<RigidBody>,
     collisions: Vec<CollisionInfo>,
+    camera: CameraState,
 }
 
 impl Default for CraftState {
@@ -121,6 +126,7 @@ impl Default for CraftState {
                 ),
             ],
             collisions: vec![],
+            camera: CameraState::default(),
         }
     }
 }
@@ -218,6 +224,8 @@ fn draw_rigid_body(gizmos: &mut Gizmos, craft: &RigidBody) {
 }
 
 fn draw(mut gizmos: Gizmos, state: Res<CraftState>) {
+    draw_camera_controls(&mut gizmos, &state.camera);
+
     for b in &state.bodies {
         draw_rigid_body(&mut gizmos, &b);
     }
@@ -316,4 +324,23 @@ fn update_keys(keys: Res<ButtonInput<KeyCode>>, mut state: ResMut<CraftState>, t
             turn_right: KeyCode::KeyL,
         },
     );
+}
+
+fn handle_viewport_input(
+    keys: Res<ButtonInput<KeyCode>>,
+    scroll: EventReader<bevy::input::mouse::MouseWheel>,
+    mut state: ResMut<CraftState>,
+    time: Res<Time>,
+    buttons: Res<ButtonInput<MouseButton>>,
+    query: Query<&mut Transform, With<Camera>>,
+    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
+) {
+    state.camera.on_keys(&keys, time.delta_secs());
+    if !keys.pressed(KeyCode::ShiftLeft) {
+        state.camera.on_scroll(scroll);
+    }
+    state.camera.on_mouse_click(&buttons);
+    state.camera.on_mouse_move(windows);
+
+    update_camera_transform(query, &mut state.camera);
 }
