@@ -142,7 +142,7 @@ impl OBB {
         (*min, *max)
     }
 
-    pub fn intersects(&self, other: OBB) -> bool {
+    pub fn _intersects(&self, other: OBB) -> bool {
         let a1 = self.axes();
         let a2 = other.axes();
 
@@ -151,6 +151,20 @@ impl OBB {
             let range_b = other.project_onto(axis);
             return range_intersects(range_a, range_b);
         })
+    }
+
+    pub fn intersects(&self, other: OBB) -> Option<Vec2> {
+        for c in self.corners() {
+            if other.contains(c) {
+                return Some(c);
+            }
+        }
+        for c in other.corners() {
+            if self.contains(c) {
+                return Some(c);
+            }
+        }
+        None
     }
 
     pub fn contains(&self, p: Vec2) -> bool {

@@ -131,6 +131,7 @@ fn init_system(mut commands: Commands) {
 
 #[derive(Debug, Clone, Copy)]
 struct CollisionInfo {
+    location: Vec2,
     b1: (usize, usize, PV),
     b2: (usize, usize, PV),
 }
@@ -138,20 +139,21 @@ struct CollisionInfo {
 fn collision_info(r1: (usize, &RigidBody), r2: (usize, &RigidBody)) -> Option<CollisionInfo> {
     for (i, b1) in r1.1.body().into_iter().enumerate() {
         for (j, b2) in r2.1.body().into_iter().enumerate() {
-            if b1.intersects(b2) {
+            if let Some(p) = b1.intersects(b2) {
                 let p1 = b1.0.center;
                 let p2 = b2.0.center;
-                let v1 = r1.1.vel(p1 - r1.1.pv.pos);
-                let v2 = r2.1.vel(p2 - r2.1.pv.pos);
+                let v1 = r1.1.vel(p - r1.1.pv.pos);
+                let v2 = r2.1.vel(p - r2.1.pv.pos);
 
                 let d = p1 - p2;
                 let v = v1 - v2;
 
-                if d.dot(v) > 5.0 {
+                if d.dot(v) > 0.0 {
                     continue;
                 }
 
                 return Some(CollisionInfo {
+                    location: p,
                     b1: (r1.0, i, PV::new(p1, v1)),
                     b2: (r2.0, j, PV::new(p2, v2)),
                 });
@@ -186,26 +188,11 @@ fn update(mut state: ResMut<CraftState>, time: Res<Time>) {
         let bid2 = col.b2.0;
         let dv = col.b1.2.vel.distance(col.b2.2.vel);
         let f = (col.b1.2.pos - col.b2.2.pos).normalize_or_zero() * dv * 20.0;
-        apply_world_force(&mut state.bodies[bid1], dt, f, col.b1.2.pos);
-        apply_world_force(&mut state.bodies[bid2], dt, -f, col.b2.2.pos);
+        apply_world_force(&mut state.bodies[bid1], dt, f, col.location);
+        apply_world_force(&mut state.bodies[bid2], dt, -f, col.location);
     }
 
     state.collisions = cols;
-}
-
-fn integer_lattice_around(p: Vec2, w: i32, step: usize) -> Vec<Vec2> {
-    let pf = Vec2::new(
-        ((p.x / step as f32) as i32 * step as i32) as f32,
-        ((p.y / step as f32) as i32 * step as i32) as f32,
-    );
-
-    let mut ret = vec![];
-    for x in (-w..=w).step_by(step) {
-        for y in (-w..=w).step_by(step) {
-            ret.push(Vec2::new(x as f32, y as f32) + pf)
-        }
-    }
-    ret
 }
 
 fn draw_rigid_body(gizmos: &mut Gizmos, craft: &RigidBody) {
@@ -235,18 +222,6 @@ fn draw(mut gizmos: Gizmos, state: Res<CraftState>) {
         draw_rigid_body(&mut gizmos, &b);
     }
 
-    for p in integer_lattice_around(Vec2::ZERO, 8000, 150) {
-        if state
-            .bodies
-            .iter()
-            .map(|b| b.body())
-            .flatten()
-            .all(|b: OBB| !b.contains(p))
-        {
-            draw_square(&mut gizmos, p, 3.0, GRAY);
-        }
-    }
-
     for ci in &state.collisions {
         let b1 = &state.bodies[ci.b1.0];
         let b2 = &state.bodies[ci.b2.0];
@@ -256,13 +231,9 @@ fn draw(mut gizmos: Gizmos, state: Res<CraftState>) {
 
         draw_obb(&mut gizmos, &o1, RED);
         draw_obb(&mut gizmos, &o2, RED);
+
+        draw_circle(&mut gizmos, ci.location, 100.0, RED);
     }
-
-    // if let Some(info) = collision_info(&state.c1, &state.c2) {
-    //     gizmos.line_2d(info.b1.pos, info.b2.pos, RED);
-    // }
-
-    // draw_intersections(&mut gizmos, &state.c1, &state.c2);
 }
 
 fn apply_world_force(craft: &mut RigidBody, dt: f32, force: Vec2, location: Vec2) {
