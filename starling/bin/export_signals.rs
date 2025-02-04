@@ -79,7 +79,7 @@ fn export_sin_approx() -> Result<(), Box<dyn std::error::Error>> {
 // }
 
 fn export_orbit_position() -> Result<(), Box<dyn std::error::Error>> {
-    let orbit = Orbit::from_pv((400.0, 0.0), (0.0, 180.0), EARTH.mass, Nanotime::secs(5));
+    let orbit = Orbit::from_pv(((400.0, 0.0), (0.0, 180.0)), EARTH.mass, Nanotime::secs(5));
 
     let a = 1000;
 
@@ -91,8 +91,8 @@ fn export_orbit_position() -> Result<(), Box<dyn std::error::Error>> {
     let ea = apply(&nt, |x| orbit.ea_at_time(x).as_f32());
     let ma = apply(&nt, |x| orbit.ma_at_time(x).as_f32());
 
-    let x = apply(&pos, |x| x.x);
-    let y = apply(&pos, |x| x.y);
+    let _x = apply(&pos, |x| x.x);
+    let _y = apply(&pos, |x| x.y);
     let r = apply(&pos, |x| x.length());
 
     write_csv(

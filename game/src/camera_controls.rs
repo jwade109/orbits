@@ -6,7 +6,7 @@ use starling::aabb::AABB;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum CameraTracking {
-    ExternalTrack,
+    // ExternalTrack,
     TrackingCursor,
     Freewheeling,
 }

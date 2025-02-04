@@ -3,9 +3,11 @@ use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 
 use crate::camera_controls::*;
+use crate::debug::*;
 use crate::drawing::*;
 use starling::aabb::*;
 use starling::orbit::PI;
+use starling::orbiter::ObjectId;
 use starling::pv::PV;
 
 use starling::core::{rand, rotate};
@@ -17,13 +19,21 @@ impl Plugin for CraftPlugin {
         app.add_systems(Startup, init_system);
         app.add_systems(
             Update,
-            (update_keys, handle_viewport_input, update, draw).chain(),
+            (
+                update_keys,
+                handle_viewport_input,
+                update,
+                log_system_info,
+                draw,
+            )
+                .chain(),
         );
     }
 }
 
 #[derive(Default, Debug, Clone)]
 struct RigidBody {
+    id: ObjectId,
     pv: PV,
     angle: f32,
     angular_rate: f32,
@@ -54,8 +64,9 @@ fn satellite_body(scale: f32) -> Vec<AABB> {
 }
 
 impl RigidBody {
-    fn new(pv: impl Into<PV>, body: Vec<AABB>) -> Self {
+    fn new(id: ObjectId, pv: impl Into<PV>, body: Vec<AABB>) -> Self {
         RigidBody {
+            id,
             pv: pv.into(),
             angle: rand(0.0, PI * 2.0),
             angular_rate: 0.0,
@@ -76,11 +87,11 @@ impl RigidBody {
 
     fn vel(&self, pos: Vec2) -> Vec2 {
         let ang = Vec3::new(0.0, 0.0, self.angular_rate);
-        ang.cross(pos.extend(0.0)).xy() + self.pv.vel
+        ang.cross((pos - self.pv.pos).extend(0.0)).xy() + self.pv.vel
     }
 
     fn moi(&self) -> f32 {
-        200000.0
+        30000.0 * self.body.len() as f32
     }
 
     fn body(&self) -> Vec<OBB> {
@@ -108,25 +119,49 @@ struct CraftState {
     bodies: Vec<RigidBody>,
     collisions: Vec<CollisionInfo>,
     camera: CameraState,
+    track_list: Vec<ObjectId>,
+    highlighted: Vec<ObjectId>,
+}
+
+impl CraftState {
+    fn lookup(&self, id: ObjectId) -> Option<&RigidBody> {
+        self.bodies.iter().find(|b| b.id == id)
+    }
+
+    fn lookup_mut(&mut self, id: ObjectId) -> Option<&mut RigidBody> {
+        self.bodies.iter_mut().find(|b| b.id == id)
+    }
 }
 
 impl Default for CraftState {
     fn default() -> Self {
         CraftState {
             bodies: vec![
-                RigidBody::new(((-1500.0, 20.0), (0.0, 0.0)), satellite_body(4.0)),
-                RigidBody::new(((1500.0, -30.0), (0.0, 0.0)), satellite_body(3.6)),
                 RigidBody::new(
+                    ObjectId(0),
+                    ((-1500.0, 20.0), (0.0, 0.0)),
+                    satellite_body(4.0),
+                ),
+                RigidBody::new(
+                    ObjectId(1),
+                    ((1500.0, -30.0), (0.0, 0.0)),
+                    satellite_body(3.6),
+                ),
+                RigidBody::new(
+                    ObjectId(2),
                     PV::zero(),
                     vec![AABB::from_arbitrary((-200.0, -200.0), (200.0, 200.0))],
                 ),
                 RigidBody::new(
+                    ObjectId(3),
                     ((0.0, 900.0), (0.0, 0.0)),
                     vec![AABB::from_arbitrary((-150.0, -150.0), (150.0, 150.0))],
                 ),
             ],
             collisions: vec![],
             camera: CameraState::default(),
+            track_list: vec![],
+            highlighted: vec![],
         }
     }
 }
@@ -138,18 +173,18 @@ fn init_system(mut commands: Commands) {
 #[derive(Debug, Clone, Copy)]
 struct CollisionInfo {
     location: Vec2,
-    b1: (usize, usize, PV),
-    b2: (usize, usize, PV),
+    b1: (ObjectId, usize, PV),
+    b2: (ObjectId, usize, PV),
 }
 
-fn collision_info(r1: (usize, &RigidBody), r2: (usize, &RigidBody)) -> Option<CollisionInfo> {
-    for (i, b1) in r1.1.body().into_iter().enumerate() {
-        for (j, b2) in r2.1.body().into_iter().enumerate() {
+fn collision_info(r1: &RigidBody, r2: &RigidBody) -> Option<CollisionInfo> {
+    for (i, b1) in r1.body().into_iter().enumerate() {
+        for (j, b2) in r2.body().into_iter().enumerate() {
             if let Some(p) = b1.intersects(b2) {
                 let p1 = b1.0.center;
                 let p2 = b2.0.center;
-                let v1 = r1.1.vel(p - r1.1.pv.pos);
-                let v2 = r2.1.vel(p - r2.1.pv.pos);
+                let v1 = r1.vel(p);
+                let v2 = r2.vel(p);
 
                 let d = p1 - p2;
                 let v = v1 - v2;
@@ -160,8 +195,8 @@ fn collision_info(r1: (usize, &RigidBody), r2: (usize, &RigidBody)) -> Option<Co
 
                 return Some(CollisionInfo {
                     location: p,
-                    b1: (r1.0, i, PV::new(p1, v1)),
-                    b2: (r2.0, j, PV::new(p2, v2)),
+                    b1: (r1.id, i, PV::new(p1, v1)),
+                    b2: (r2.id, j, PV::new(p2, v2)),
                 });
             }
         }
@@ -183,7 +218,7 @@ fn update(mut state: ResMut<CraftState>, time: Res<Time>) {
             if i <= j {
                 continue;
             }
-            if let Some(ci) = collision_info((i, b1), (j, b2)) {
+            if let Some(ci) = collision_info(b1, b2) {
                 cols.push(ci);
             }
         }
@@ -194,17 +229,36 @@ fn update(mut state: ResMut<CraftState>, time: Res<Time>) {
         let bid2 = col.b2.0;
         let dv = col.b1.2.vel.distance(col.b2.2.vel);
         let f = (col.b1.2.pos - col.b2.2.pos).normalize_or_zero() * dv * 20.0;
-        apply_world_force(&mut state.bodies[bid1], dt, f, col.location);
-        apply_world_force(&mut state.bodies[bid2], dt, -f, col.location);
+        apply_world_force(state.lookup_mut(bid1).unwrap(), dt, f, col.location);
+        apply_world_force(state.lookup_mut(bid2).unwrap(), dt, -f, col.location);
     }
 
     state.collisions = cols;
+
+    state.highlighted.clear();
+    if let Some(a) = state.camera.selection_region() {
+        let oa = OBB::new(a, 0.0);
+        state.highlighted = state
+            .bodies
+            .iter()
+            .filter_map(|b| {
+                let inter = b.body().into_iter().any(|ob| ob._intersects(oa));
+                inter.then(|| b.id)
+            })
+            .collect();
+    }
+
+    for id in state.highlighted.clone() {
+        if !state.track_list.contains(&id) {
+            state.track_list.push(id);
+        }
+    }
 }
 
-fn draw_rigid_body(gizmos: &mut Gizmos, craft: &RigidBody) {
+fn draw_rigid_body(gizmos: &mut Gizmos, craft: &RigidBody, color: Srgba) {
     let body = craft.body();
 
-    draw_circle(gizmos, craft.pv.pos, 30.0, WHITE);
+    draw_circle(gizmos, craft.pv.pos, 30.0, color);
     gizmos.line_2d(craft.pv.pos, craft.pv.pos + craft.pv.vel * 5.0, PURPLE);
     let u = rotate(Vec2::X, craft.angle);
     gizmos.line_2d(craft.pv.pos, craft.pv.pos + u * 1000.0, GREEN);
@@ -212,12 +266,12 @@ fn draw_rigid_body(gizmos: &mut Gizmos, craft: &RigidBody) {
     draw_aabb(gizmos, craft.aabb(), alpha(GRAY, 0.1));
 
     for b in &body {
-        draw_obb(gizmos, b, WHITE);
+        draw_obb(gizmos, b, color);
     }
 
     for b in &body {
         for p in b.corners() {
-            let v = craft.vel(p - craft.pv.pos);
+            let v = craft.vel(p);
             gizmos.line_2d(p, p + v, alpha(ORANGE, 0.2));
         }
     }
@@ -227,12 +281,12 @@ fn draw(mut gizmos: Gizmos, state: Res<CraftState>) {
     draw_camera_controls(&mut gizmos, &state.camera);
 
     for b in &state.bodies {
-        draw_rigid_body(&mut gizmos, &b);
+        draw_rigid_body(&mut gizmos, &b, WHITE);
     }
 
     for ci in &state.collisions {
-        let b1 = &state.bodies[ci.b1.0];
-        let b2 = &state.bodies[ci.b2.0];
+        let b1 = &state.lookup(ci.b1.0).unwrap();
+        let b2 = &state.lookup(ci.b2.0).unwrap();
 
         let o1 = b1.body()[ci.b1.1];
         let o2 = b2.body()[ci.b2.1];
@@ -241,6 +295,12 @@ fn draw(mut gizmos: Gizmos, state: Res<CraftState>) {
         draw_obb(&mut gizmos, &o2, RED);
 
         draw_circle(&mut gizmos, ci.location, 100.0, RED);
+    }
+
+    for id in &state.highlighted {
+        if let Some(obj) = state.lookup(*id) {
+            draw_rigid_body(&mut gizmos, obj, ORANGE);
+        }
     }
 }
 
@@ -263,25 +323,25 @@ struct KeyMapping {
 fn do_rcs_commands(
     craft: &mut RigidBody,
     dt: f32,
-    keys: &Res<ButtonInput<KeyCode>>,
+    keys: &ButtonInput<KeyCode>,
     keymapping: &KeyMapping,
 ) {
     let dv = rotate(Vec2::X, craft.angle) * 700.0 * dt;
-    // let ds = rotate(dv, PI / 2.0);
+    let ds = rotate(dv, PI / 2.0);
     let da = 2.0 * dt;
 
     if keys.pressed(keymapping.forward) {
         craft.pv.vel += dv;
     }
-    // if keys.pressed(keymapping.left) {
-    //     craft.pv.vel += ds;
-    // }
+    if keys.pressed(keymapping.left) {
+        craft.pv.vel += ds;
+    }
     if keys.pressed(keymapping.back) {
         craft.pv.vel -= dv;
     }
-    // if keys.pressed(keymapping.right) {
-    //     craft.pv.vel -= ds;
-    // }
+    if keys.pressed(keymapping.right) {
+        craft.pv.vel -= ds;
+    }
     if keys.pressed(keymapping.turn_left) {
         craft.angular_rate += da;
     }
@@ -292,20 +352,6 @@ fn do_rcs_commands(
 
 fn update_keys(keys: Res<ButtonInput<KeyCode>>, mut state: ResMut<CraftState>, time: Res<Time>) {
     let dt = time.delta_secs();
-
-    do_rcs_commands(
-        &mut state.bodies[0],
-        dt,
-        &keys,
-        &KeyMapping {
-            forward: KeyCode::KeyW,
-            back: KeyCode::KeyS,
-            left: KeyCode::KeyQ,
-            right: KeyCode::KeyE,
-            turn_left: KeyCode::KeyA,
-            turn_right: KeyCode::KeyD,
-        },
-    );
 
     if keys.just_pressed(KeyCode::KeyR) {
         *state = CraftState::default();
@@ -343,4 +389,9 @@ fn handle_viewport_input(
     state.camera.on_mouse_move(windows);
 
     update_camera_transform(query, &mut state.camera);
+}
+
+fn log_system_info(state: Res<CraftState>, mut evt: EventWriter<DebugLog>) {
+    send_log(&mut evt, &format!("Tracked: {:?}", state.track_list));
+    send_log(&mut evt, &format!("Highlighted: {:?}", state.highlighted));
 }

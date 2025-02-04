@@ -159,7 +159,7 @@ impl GameState {
         }
     }
 
-    pub fn tracked_aabb(&self) -> Option<AABB> {
+    pub fn _tracked_aabb(&self) -> Option<AABB> {
         let pos = self
             .track_list
             .iter()

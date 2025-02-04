@@ -214,22 +214,22 @@ pub fn draw_object(
     Some(())
 }
 
-fn orbit_color_mapping(orbit: &Orbit, stamp: Nanotime) -> Srgba {
-    let near_parabolic = (orbit.eccentricity - 1.0).abs() < 0.01;
-    if !orbit.is_consistent(stamp) {
-        if near_parabolic {
-            PURPLE
-        } else {
-            RED
-        }
-    } else {
-        if near_parabolic {
-            YELLOW
-        } else {
-            WHITE
-        }
-    }
-}
+// fn orbit_color_mapping(orbit: &Orbit, stamp: Nanotime) -> Srgba {
+//     let near_parabolic = (orbit.eccentricity - 1.0).abs() < 0.01;
+//     if !orbit.is_consistent(stamp) {
+//         if near_parabolic {
+//             PURPLE
+//         } else {
+//             RED
+//         }
+//     } else {
+//         if near_parabolic {
+//             YELLOW
+//         } else {
+//             WHITE
+//         }
+//     }
+// }
 
 pub fn draw_orbital_system(
     gizmos: &mut Gizmos,
