@@ -1,6 +1,6 @@
 use bevy::math::Vec2;
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct PV {
     pub pos: Vec2,
     pub vel: Vec2,

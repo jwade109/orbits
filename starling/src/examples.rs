@@ -2,9 +2,6 @@ use crate::core::*;
 use crate::orbit::*;
 use bevy::math::Vec2;
 
-#[cfg(test)]
-use approx::assert_relative_eq;
-
 pub const EARTH: Body = Body::new(63.0, 1000.0, 15000.0);
 
 pub const LUNA: (Body, Orbit) = (
