@@ -56,6 +56,10 @@ impl Nanotime {
         self.0 as f32 / Nanotime::PER_SEC as f32
     }
 
+    pub fn to_secs_f64(&self) -> f64 {
+        self.0 as f64 / Nanotime::PER_SEC as f64
+    }
+
     pub fn to_parts(&self) -> (i64, i64) {
         (self.0 % Nanotime::PER_SEC, self.0 / Nanotime::PER_SEC)
     }

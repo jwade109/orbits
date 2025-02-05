@@ -3578,6 +3578,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rootfinder"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "607e64e4328a40ebba2863906db25ef960f591768fb0f11f7ba893ad1c21f33b"
+dependencies = [
+ "once_cell",
+]
+
+[[package]]
 name = "roxmltree"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3782,6 +3791,7 @@ dependencies = [
  "chrono",
  "csv",
  "rand",
+ "rootfinder",
  "uom",
 ]
 

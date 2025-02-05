@@ -84,6 +84,15 @@ pub fn draw_orbit(
         return;
     }
 
+    // {
+    //     let n = 30;
+    //     for i in 0..n {
+    //         let a = i as f32 / n as f32 * PI * 2.0;
+    //         let p = orb.position_at(a);
+    //         draw_x(gizmos, origin + p, 30.0, WHITE);
+    //     }
+    // }
+
     if orb.eccentricity >= 1.0 {
         let focii = orb.focii();
         draw_x(gizmos, focii[0], 20.0, WHITE);
@@ -146,10 +155,11 @@ fn draw_propagator(
     with_event: bool,
     color: Srgba,
     duty_cycle: bool,
+    detailed: bool,
 ) -> Option<()> {
     let (_, parent_pv, _, _) = planets.lookup(prop.parent, stamp)?;
 
-    draw_orbit(parent_pv.pos, stamp, &prop.orbit, gizmos, color, false);
+    draw_orbit(parent_pv.pos, stamp, &prop.orbit, gizmos, color, detailed);
     if with_event {
         let pv_end = parent_pv + prop.pv(prop.end)?;
         if let Some(e) = prop.event {
@@ -193,7 +203,7 @@ pub fn draw_object(
                 alpha(TEAL, (1.0 - i as f32 * 0.3).max(0.0))
             };
             draw_propagator(
-                gizmos, planets, &prop, stamp, scale, true, color, duty_cycle,
+                gizmos, planets, &prop, stamp, scale, true, color, duty_cycle, true,
             );
         }
     } else {
@@ -208,6 +218,7 @@ pub fn draw_object(
                 false,
                 alpha(GRAY, 0.02),
                 duty_cycle,
+                false,
             );
         }
     }

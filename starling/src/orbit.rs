@@ -495,3 +495,118 @@ pub fn to_aabbs(o: &Orbit) -> Vec<AABB> {
 
     ret
 }
+
+// https://orbital-mechanics.space/time-since-periapsis-and-keplers-equation/universal-variables.html
+
+// 2nd stumpff function
+// aka C(z)
+fn stumpff_2(z: f64) -> f64 {
+    if z > 0.0 {
+        (1.0 - z.sqrt().cos()) / z
+    } else if z < 0.0 {
+        ((-z).sqrt().cosh() - 1.0) / -z
+    } else {
+        0.5
+    }
+}
+
+// 3rd stumpff function
+// aka S(z)
+fn stumpff_3(z: f64) -> f64 {
+    if z > 0.0 {
+        (z.sqrt() - z.sqrt().sin()) / z.powf(1.5)
+    } else if z < 0.0 {
+        ((-z).sqrt().sinh() - (-z).sqrt()) / (-z).powf(1.5)
+    } else {
+        1.0 / 6.0
+    }
+}
+
+fn universal_kepler(chi: f64, r_0: f64, v_r0: f64, alpha: f64, delta_t: f64, mu: f64) -> f64 {
+    let z = alpha * chi.powi(2);
+    let first_term = r_0 * v_r0 / mu.sqrt() * chi.powi(2) * stumpff_2(z);
+    let second_term = (1.0 - alpha * r_0) * chi.powi(2) * stumpff_3(z);
+    let third_term = r_0 * chi;
+    let fourth_term = mu.sqrt() * delta_t;
+    first_term + second_term + third_term - fourth_term
+}
+
+fn d_universal_d_chi(chi: f64, r_0: f64, v_r0: f64, alpha: f64, mu: f64) -> f64 {
+    let z = alpha * chi.powi(2);
+    let first_term = r_0 * v_r0 / mu.sqrt() * chi * (1.0 - z * stumpff_3(z));
+    let second_term = (1.0 - alpha * r_0) * chi.powi(2) * stumpff_2(z);
+    let third_term = r_0;
+    first_term + second_term + third_term
+}
+
+// https://orbital-mechanics.space/time-since-periapsis-and-keplers-equation/universal-lagrange-coefficients-example.html
+fn universal_lagrange_example(
+    initial: PV,
+    tof: Nanotime,
+    mu: f64,
+) -> Result<PV, rootfinder::SolverError> {
+    let vec_r_0 = initial.pos;
+    let vec_v_0 = initial.vel;
+
+    let r_0 = vec_r_0.length() as f64;
+    let v_r0 = vec_v_0.dot(vec_r_0) as f64 / r_0;
+
+    dbg!(r_0, v_r0);
+
+    let alpha = 2.0 / r_0 - vec_v_0.dot(vec_v_0) as f64 / mu;
+
+    dbg!(alpha);
+
+    let delta_t = tof.to_secs_f64();
+    let chi_0 = mu.sqrt() * alpha.abs() * delta_t;
+
+    let chi = rootfinder::root_newton(
+        &|x| universal_kepler(x, r_0, v_r0, alpha, delta_t, mu).into(),
+        &|x| d_universal_d_chi(x, r_0, v_r0, alpha, mu).into(),
+        chi_0,
+        None,
+        None,
+    )?;
+
+    dbg!(chi);
+
+    let z = alpha * chi.powi(2);
+    let f = 1.0 - chi.powi(2) / r_0 * stumpff_2(z);
+    let g = delta_t - chi.powi(3) / mu.sqrt() * stumpff_3(z);
+
+    let vec_r = f as f32 * vec_r_0 + g as f32 * vec_v_0;
+    let r = vec_r.dot(vec_r).sqrt() as f64;
+
+    dbg!(vec_r);
+    dbg!(r);
+
+    let fdot = chi * mu.sqrt() / (r * r_0) * (z * stumpff_3(z) - 1.0);
+    let gdot = 1.0 - chi.powi(2) / r * stumpff_2(z);
+
+    let vec_v = fdot as f32 * vec_r_0 + gdot as f32 * vec_v_0;
+    let v = vec_v.dot(vec_v).sqrt() as f64;
+
+    dbg!(vec_v, v);
+
+    Ok(PV::new(vec_r, vec_v))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn universal_lagrange_example() {
+        let vec_r_0 = Vec2::new(7000.0, -12124.0);
+        let vec_v_0 = Vec2::new(2.6679, 4.6210);
+        let mu = 3.986004418E5_f64;
+
+        let initial = PV::new(vec_r_0, vec_v_0);
+
+        let tof = Nanotime::secs(3600);
+
+        let res = super::universal_lagrange_example(initial, tof, mu);
+
+        dbg!(res);
+    }
+}
