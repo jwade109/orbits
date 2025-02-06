@@ -7,6 +7,7 @@ use starling::core::*;
 use starling::examples::*;
 use starling::orbit::*;
 use starling::orbiter::*;
+use starling::pv::PV;
 
 use crate::camera_controls::*;
 use crate::debug::*;
@@ -166,6 +167,31 @@ impl GameState {
             .filter_map(|id| Some(self.system.orbiter_lookup(*id, self.sim_time)?.pv().pos))
             .collect::<Vec<_>>();
         AABB::from_list(&pos).map(|aabb| aabb.padded(60.0))
+    }
+
+    pub fn test_points(&self) -> Option<Vec<Vec2>> {
+        let p1 = self.control_points.get(0);
+        let p2 = self
+            .control_points
+            .get(1)
+            .map(|e| *e)
+            .or(self.camera.mouse_pos());
+
+        if let Some((p1, p2)) = p1.zip(p2) {
+            let mu = self.system.system.primary.mass * GRAVITATIONAL_CONSTANT;
+            let v = (mu / p1.length()).sqrt();
+            let pv = PV::new(*p1, (p2 - p1) * v / p1.length());
+
+            return (-400..=400)
+                .map(|i| {
+                    let t = Nanotime::secs(i);
+                    let p = universal_lagrange(pv, t, mu);
+                    p.map(|e| e.pos)
+                })
+                .collect::<Option<Vec<_>>>();
+        }
+
+        None
     }
 
     pub fn target_orbit(&self) -> Option<Orbit> {

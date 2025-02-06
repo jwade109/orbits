@@ -28,6 +28,14 @@ impl PV {
     pub fn vel(vel: impl Into<Vec2>) -> Self {
         PV::new(Vec2::ZERO, vel)
     }
+
+    pub fn filter_nan(&self) -> Option<Self> {
+        if self.pos.is_nan() || self.pos.is_nan() {
+            None
+        } else {
+            Some(*self)
+        }
+    }
 }
 
 impl std::fmt::Display for PV {

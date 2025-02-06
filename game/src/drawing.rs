@@ -46,14 +46,7 @@ pub fn draw_obb(gizmos: &mut Gizmos, obb: &OBB, color: Srgba) {
     gizmos.linestrip_2d(corners, color);
 }
 
-pub fn draw_orbit(
-    origin: Vec2,
-    stamp: Nanotime,
-    orb: &Orbit,
-    gizmos: &mut Gizmos,
-    color: Srgba,
-    detailed: bool,
-) {
+pub fn draw_orbit(gizmos: &mut Gizmos, orb: &Orbit, origin: Vec2, color: Srgba) {
     if orb.eccentricity >= 1.0 {
         let n_points = 60;
         let range = 0.999 * hyperbolic_range_ta(orb.eccentricity);
@@ -69,51 +62,38 @@ pub fn draw_orbit(
         let center: Vec2 = origin + (orb.periapsis() + orb.apoapsis()) / 2.0;
         let iso = Isometry2d::new(center, orb.arg_periapsis.into());
 
-        let res = if detailed {
-            1000
-        } else {
-            orb.semi_major_axis.clamp(40.0, 300.0) as u32
-        };
+        let res = orb.semi_major_axis.clamp(40.0, 300.0) as u32;
 
         gizmos
             .ellipse_2d(iso, Vec2::new(orb.semi_major_axis, b), color)
             .resolution(res);
     }
 
-    if !detailed {
-        return;
-    }
+    // if !detailed {
+    //     return;
+    // }
 
-    // {
-    //     let n = 30;
-    //     for i in 0..n {
-    //         let a = i as f32 / n as f32 * PI * 2.0;
-    //         let p = orb.position_at(a);
-    //         draw_x(gizmos, origin + p, 30.0, WHITE);
+    // if orb.eccentricity >= 1.0 {
+    //     let focii = orb.focii();
+    //     draw_x(gizmos, focii[0], 20.0, WHITE);
+    //     draw_circle(gizmos, focii[1], 15.0, WHITE);
+    //     if let Some((ua, la)) = orb.asymptotes() {
+    //         let c = orb.center();
+    //         for asym in [ua, la] {
+    //             gizmos.line_2d(c, c + asym * 100.0, alpha(WHITE, 0.04));
+    //         }
     //     }
     // }
 
-    if orb.eccentricity >= 1.0 {
-        let focii = orb.focii();
-        draw_x(gizmos, focii[0], 20.0, WHITE);
-        draw_circle(gizmos, focii[1], 15.0, WHITE);
-        if let Some((ua, la)) = orb.asymptotes() {
-            let c = orb.center();
-            for asym in [ua, la] {
-                gizmos.line_2d(c, c + asym * 100.0, alpha(WHITE, 0.04));
-            }
-        }
-    }
-
-    let ta = orb.ta_at_time(stamp).as_f32();
-    let root = orb.position_at(ta) + origin;
-    let t1 = root + orb.normal_at(ta) * 60.0;
-    let t2 = root + orb.tangent_at(ta) * 60.0;
-    let t3 = root + orb.velocity_at(ta) * 3.0;
-    gizmos.line_2d(root, t1, GREEN);
-    gizmos.line_2d(root, origin, alpha(GREEN, 0.4));
-    gizmos.line_2d(root, t2, GREEN);
-    gizmos.line_2d(root, t3, PURPLE);
+    // let ta = orb.ta_at_time(stamp).as_f32();
+    // let root = orb.position_at(ta) + origin;
+    // let t1 = root + orb.normal_at(ta) * 60.0;
+    // let t2 = root + orb.tangent_at(ta) * 60.0;
+    // let t3 = root + orb.velocity_at(ta) * 3.0;
+    // gizmos.line_2d(root, t1, GREEN);
+    // gizmos.line_2d(root, origin, alpha(GREEN, 0.4));
+    // gizmos.line_2d(root, t2, GREEN);
+    // gizmos.line_2d(root, t3, PURPLE);
 }
 
 pub fn draw_globe(gizmos: &mut Gizmos, p: Vec2, radius: f32, color: Srgba) {
@@ -141,7 +121,7 @@ pub fn draw_planets(gizmos: &mut Gizmos, planet: &Planet, stamp: Nanotime, origi
 
     for (orbit, pl) in &planet.subsystems {
         let pv = orbit.pv_at_time(stamp);
-        draw_orbit(origin, stamp, orbit, gizmos, alpha(GRAY, 0.4), false);
+        draw_orbit(gizmos, orbit, origin, alpha(GRAY, 0.4));
         draw_planets(gizmos, pl, stamp, origin + pv.pos)
     }
 }
@@ -159,7 +139,7 @@ fn draw_propagator(
 ) -> Option<()> {
     let (_, parent_pv, _, _) = planets.lookup(prop.parent, stamp)?;
 
-    draw_orbit(parent_pv.pos, stamp, &prop.orbit, gizmos, color, detailed);
+    draw_orbit(gizmos, &prop.orbit, parent_pv.pos, color);
     if with_event {
         let pv_end = parent_pv + prop.pv(prop.end)?;
         if let Some(e) = prop.event {
@@ -434,8 +414,14 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
         );
     }
 
+    state.test_points().map(|v| {
+        for p in v {
+            draw_x(&mut gizmos, p, 50.0, WHITE);
+        }
+    });
+
     if let Some(o) = state.target_orbit() {
-        draw_orbit(Vec2::ZERO, stamp, &o, &mut gizmos, alpha(RED, 0.2), false);
+        draw_orbit(&mut gizmos, &o, Vec2::ZERO, alpha(RED, 0.2));
     }
 
     if state.show_potential_field {
