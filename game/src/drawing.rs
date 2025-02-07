@@ -135,7 +135,6 @@ fn draw_propagator(
     with_event: bool,
     color: Srgba,
     duty_cycle: bool,
-    detailed: bool,
 ) -> Option<()> {
     let (_, parent_pv, _, _) = planets.lookup(prop.parent, stamp)?;
 
@@ -183,7 +182,7 @@ pub fn draw_object(
                 alpha(TEAL, (1.0 - i as f32 * 0.3).max(0.0))
             };
             draw_propagator(
-                gizmos, planets, &prop, stamp, scale, true, color, duty_cycle, true,
+                gizmos, planets, &prop, stamp, scale, true, color, duty_cycle,
             );
         }
     } else {
@@ -198,29 +197,11 @@ pub fn draw_object(
                 false,
                 alpha(GRAY, 0.02),
                 duty_cycle,
-                false,
             );
         }
     }
     Some(())
 }
-
-// fn orbit_color_mapping(orbit: &Orbit, stamp: Nanotime) -> Srgba {
-//     let near_parabolic = (orbit.eccentricity - 1.0).abs() < 0.01;
-//     if !orbit.is_consistent(stamp) {
-//         if near_parabolic {
-//             PURPLE
-//         } else {
-//             RED
-//         }
-//     } else {
-//         if near_parabolic {
-//             YELLOW
-//         } else {
-//             WHITE
-//         }
-//     }
-// }
 
 pub fn draw_orbital_system(
     gizmos: &mut Gizmos,
@@ -415,9 +396,10 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
     }
 
     state.test_points().map(|v| {
-        for p in v {
-            draw_x(&mut gizmos, p, 50.0, WHITE);
+        for p in &v {
+            draw_x(&mut gizmos, *p, 50.0, WHITE);
         }
+        gizmos.linestrip_2d(v, PURPLE);
     });
 
     if let Some(o) = state.target_orbit() {

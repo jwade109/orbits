@@ -182,13 +182,15 @@ impl GameState {
             let v = (mu / p1.length()).sqrt();
             let pv = PV::new(*p1, (p2 - p1) * v / p1.length());
 
-            return (-400..=400)
-                .map(|i| {
-                    let t = Nanotime::secs(i);
-                    let p = universal_lagrange(pv, t, mu);
-                    p.map(|e| e.pos)
-                })
-                .collect::<Option<Vec<_>>>();
+            return Some(
+                (-2000..=2000)
+                    .filter_map(|i| {
+                        let t = Nanotime::secs(i);
+                        let p = universal_lagrange(pv, t, mu);
+                        p.map(|pv| pv.pos).ok()
+                    })
+                    .collect::<Vec<_>>(),
+            );
         }
 
         None
@@ -277,7 +279,7 @@ impl Default for GameState {
         let (system, ids) = default_example();
         GameState {
             sim_time: Nanotime(0),
-            physics_duration: Nanotime::secs(500),
+            physics_duration: Nanotime::secs(60),
             sim_speed: 0,
             show_orbits: true,
             show_potential_field: false,
@@ -392,10 +394,6 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
             send_log(&mut evt, &format!("{:#?}", prop));
             send_log(
                 &mut evt,
-                &format!("Consistent: {}", prop.orbit.is_consistent(state.sim_time)),
-            );
-            send_log(
-                &mut evt,
                 &format!("Next p: {:?}", prop.orbit.t_next_p(state.sim_time)),
             );
             send_log(&mut evt, &format!("Period: {:?}", prop.orbit.period()));
@@ -456,6 +454,8 @@ fn keyboard_input(
 
     let dv = if keys.pressed(KeyCode::ControlLeft) {
         0.002
+    } else if keys.pressed(KeyCode::ShiftLeft) {
+        0.5
     } else {
         0.03
     };

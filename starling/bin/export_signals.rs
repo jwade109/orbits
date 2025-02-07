@@ -87,9 +87,6 @@ fn export_orbit_position() -> Result<(), Box<dyn std::error::Error>> {
     let nt = apply(&ftime, |x| orbit.time_at_periapsis + Nanotime::secs_f32(x));
 
     let pos = apply(&nt, |x| orbit.pv_at_time(x).pos);
-    let ta = apply(&nt, |x| orbit.ta_at_time(x).as_f32());
-    let ea = apply(&nt, |x| orbit.ea_at_time(x).as_f32());
-    let ma = apply(&nt, |x| orbit.ma_at_time(x).as_f32());
 
     let _x = apply(&pos, |x| x.x);
     let _y = apply(&pos, |x| x.y);
@@ -99,9 +96,6 @@ fn export_orbit_position() -> Result<(), Box<dyn std::error::Error>> {
         "orbit.csv",
         &[
             ("t", &ftime),
-            ("ta", &ta),
-            ("ea", &ea),
-            ("ma", &ma),
             ("r", &r),
         ],
     )

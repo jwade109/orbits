@@ -104,7 +104,7 @@ impl Orbiter {
 
         let t = stamp + future_dur;
 
-        loop {
+        for _ in 0..10 {
             let prop = self.props.iter_mut().last().ok_or(PredictError::Lookup)?;
 
             let (_, _, _, pl) = planets
@@ -121,18 +121,18 @@ impl Orbiter {
             }
 
             if prop.end >= t {
-                break;
+                return Ok(());
             }
 
             if prop.finished {
                 if let Some(next) = prop.next_prop(planets) {
                     self.props.push(next);
                 } else {
-                    break;
+                    return Ok(());
                 }
             }
         }
 
-        Ok(())
+        Err(PredictError::BadTimeDelta)
     }
 }

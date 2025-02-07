@@ -231,8 +231,20 @@ impl Propagator {
 
         self.end = t2;
 
-        let p1 = self.orbit.pv_at_time(t1);
-        let p2 = self.orbit.pv_at_time(t2);
+        let (p1, p2) = match self
+            .orbit
+            .pv_at_time_fallible(t1)
+            .zip(self.orbit.pv_at_time_fallible(t2))
+        {
+            Some((p1, p2)) => (p1, p2),
+            None => {
+                self.end = t1;
+                self.finished = true;
+                self.event = Some(EventType::NumericalError);
+                return Ok(());
+            }
+        };
+
         let d = p1.pos.distance(p2.pos);
         let v = p1.vel.length();
 

@@ -164,6 +164,8 @@ pub struct Orbit {
     pub retrograde: bool,
     pub primary_mass: f32,
     pub time_at_periapsis: Nanotime,
+    pub initial: PV,
+    pub epoch: Nanotime,
 }
 
 impl Orbit {
@@ -211,6 +213,8 @@ impl Orbit {
             retrograde: h.z < 0.0,
             primary_mass: mass,
             time_at_periapsis,
+            initial: pv,
+            epoch,
         };
 
         // TODO mega turbo crap
@@ -226,7 +230,9 @@ impl Orbit {
         o
     }
 
-    pub const fn circular(radius: f32, mass: f32, epoch: Nanotime, retrograde: bool) -> Self {
+    pub fn circular(radius: f32, mass: f32, epoch: Nanotime, retrograde: bool) -> Self {
+        let p = Vec2::new(radius, 0.0);
+        let v = Vec2::new(0.0, (mass * GRAVITATIONAL_CONSTANT / radius).sqrt());
         Orbit {
             eccentricity: 0.0,
             semi_major_axis: radius,
@@ -234,6 +240,8 @@ impl Orbit {
             retrograde,
             primary_mass: mass,
             time_at_periapsis: epoch,
+            initial: PV::new(p, v),
+            epoch,
         }
     }
 
@@ -303,32 +311,23 @@ impl Orbit {
         Some(Nanotime((t * 1E9) as i64))
     }
 
-    pub fn ma_at_time(&self, stamp: Nanotime) -> Anomaly {
-        let dt = stamp - self.t_last_p(stamp).unwrap_or(self.time_at_periapsis);
-        let n = self.mean_motion();
-        Anomaly::with_ecc(self.eccentricity, as_seconds(dt) * n)
-    }
-
-    pub fn ea_at_time(&self, stamp: Nanotime) -> Anomaly {
-        let m = self.ma_at_time(stamp);
-        mean_to_eccentric(m, self.eccentricity).unwrap_or(Anomaly::with_ecc(self.eccentricity, 0.0))
-    }
-
-    pub fn ta_at_time(&self, stamp: Nanotime) -> Anomaly {
-        let e = self.ea_at_time(stamp);
-        eccentric_to_true(e, self.eccentricity)
-    }
-
+    #[deprecated]
     pub fn pv_at_time(&self, stamp: Nanotime) -> PV {
-        let ta = self.ta_at_time(stamp);
-        self.pv_at(ta.as_f32())
+        universal_lagrange(
+            self.initial,
+            stamp - self.epoch,
+            self.primary_mass * GRAVITATIONAL_CONSTANT,
+        )
+        .unwrap_or(PV::zero())
     }
 
-    pub fn pv_at(&self, true_anomaly: f32) -> PV {
-        PV::new(
-            self.position_at(true_anomaly),
-            self.velocity_at(true_anomaly),
+    pub fn pv_at_time_fallible(&self, stamp: Nanotime) -> Option<PV> {
+        universal_lagrange(
+            self.initial,
+            stamp - self.epoch,
+            self.primary_mass * GRAVITATIONAL_CONSTANT,
         )
+        .ok()
     }
 
     pub fn position_at(&self, true_anomaly: f32) -> Vec2 {
@@ -414,12 +413,6 @@ impl Orbit {
         [c + u * d, c - u * d]
     }
 
-    pub fn center(&self) -> Vec2 {
-        let p = self.periapsis();
-        let a = self.apoapsis();
-        (a + p) / 2.0
-    }
-
     pub fn asymptotes(&self) -> Option<(Vec2, Vec2)> {
         if self.eccentricity < 1.0 {
             return None;
@@ -433,67 +426,12 @@ impl Orbit {
         Some((u.rotate(ua), u.rotate(ub)))
     }
 
-    pub fn is_consistent(&self, stamp: Nanotime) -> bool {
-        let ta = self.ta_at_time(stamp);
-        let ea = true_to_eccentric(ta, self.eccentricity);
-        let ma = eccentric_to_mean(ea, self.eccentricity);
-        let ea2 = match mean_to_eccentric(ma, self.eccentricity) {
-            Some(e) => e,
-            None => return false,
-        };
-        let ta2 = eccentric_to_true(ea2, self.eccentricity);
-        (ta.as_f32() - ta2.as_f32()).abs() < 1E-3
-    }
-
     pub fn random_nudge(&self, t: Nanotime, spread: f32) -> Self {
         let dx = randvec(0.01, spread * 10.0);
         let dv = randvec(0.01, spread);
         let pv = self.pv_at_time(t) + PV::new(dx, dv);
         Orbit::from_pv(pv, self.primary_mass, t)
     }
-}
-
-pub fn can_intersect(o1: &Orbit, o2: &Orbit) -> bool {
-    if o1.periapsis_r() > o2.apoapsis_r() {
-        false
-    } else if o1.apoapsis_r() < o2.periapsis_r() {
-        false
-    } else {
-        true
-    }
-}
-
-pub fn can_intersect_soi(o1: &Orbit, o2: &Orbit, soi: f32) -> bool {
-    if o1.periapsis_r() > o2.apoapsis_r() + soi {
-        false
-    } else if o1.apoapsis_r() + soi < o2.periapsis_r() {
-        false
-    } else {
-        true
-    }
-}
-
-pub fn will_hit_body(o: &Orbit, radius: f32) -> bool {
-    o.periapsis_r() <= radius
-}
-
-pub fn to_aabbs(o: &Orbit) -> Vec<AABB> {
-    let n = 30;
-
-    let mut ret = Vec::new();
-    let pos = (0..n)
-        .map(|i| {
-            let ta = 2.0 * PI * i as f32 / (n as f32 - 1.0);
-            o.position_at(ta)
-        })
-        .collect::<Vec<_>>();
-
-    for p in pos.windows(2) {
-        let aabb = AABB::from_arbitrary(p[0], p[1]).padded(4.0);
-        ret.push(aabb);
-    }
-
-    ret
 }
 
 // https://orbital-mechanics.space/time-since-periapsis-and-keplers-equation/universal-variables.html
@@ -539,8 +477,14 @@ fn d_universal_d_chi(chi: f32, r_0: f32, v_r0: f32, alpha: f32, mu: f32) -> f32 
     first_term + second_term + third_term
 }
 
+#[derive(Debug)]
+pub enum ULError {
+    Solve(rootfinder::SolverError),
+    NaN(f32),
+}
+
 // https://orbital-mechanics.space/time-since-periapsis-and-keplers-equation/universal-lagrange-coefficients-example.html
-pub fn universal_lagrange(initial: impl Into<PV>, tof: Nanotime, mu: f32) -> Option<PV> {
+pub fn universal_lagrange(initial: impl Into<PV>, tof: Nanotime, mu: f32) -> Result<PV, ULError> {
     let initial = initial.into();
     let vec_r_0 = initial.pos;
     let vec_v_0 = initial.vel;
@@ -560,7 +504,11 @@ pub fn universal_lagrange(initial: impl Into<PV>, tof: Nanotime, mu: f32) -> Opt
         None,
         None,
     )
-    .ok()? as f32;
+    .map_err(|e| ULError::Solve(e))? as f32;
+
+    if chi.is_nan() {
+        return Err(ULError::NaN(delta_t));
+    }
 
     let z = alpha * chi.powi(2);
     let f = 1.0 - chi.powi(2) / r_0 * stumpff_2(z);
@@ -574,7 +522,7 @@ pub fn universal_lagrange(initial: impl Into<PV>, tof: Nanotime, mu: f32) -> Opt
 
     let vec_v = fdot * vec_r_0 + gdot * vec_v_0;
 
-    PV::new(vec_r, vec_v).filter_nan()
+    PV::new(vec_r, vec_v).filter_nan().ok_or(ULError::NaN(0.0))
 }
 
 #[cfg(test)]
@@ -622,14 +570,7 @@ mod tests {
         assert!(o1.angular_momentum() > 0.0);
         assert!(o2.retrograde);
 
-        let t = o1.period().unwrap() * 0.7;
-
         assert_eq!(o1.period().unwrap(), o2.period().unwrap());
-
-        let o1_f = Anomaly::with_ecc(o1.eccentricity, -3.083711);
-
-        assert_relative_eq!(o1.ta_at_time(t).as_f32(), o1_f.as_f32(), epsilon = 0.01);
-        assert_relative_eq!(o2.ta_at_time(t).as_f32(), o1_f.as_f32(), epsilon = 0.01);
 
         for i in -5..5 {
             let t = o1.period().unwrap() * i;
