@@ -203,21 +203,27 @@ impl Propagator {
 
         let ego = self.orbit;
 
-        let can_hit_planet = ego.periapsis_r() <= radius;
-        let can_escape = ego.eccentricity >= 1.0 || ego.apoapsis_r() >= soi;
-        let near_body = bodies
-            .iter()
-            .any(|(_, orb, soi)| mutual_separation(&ego, orb, self.stamp()) < soi * 3.0);
+        self.dt = Nanotime::secs(1);
 
-        self.dt = if can_hit_planet {
-            Nanotime::secs(1)
-        } else if can_escape {
-            Nanotime::secs(2)
-        } else if near_body {
-            Nanotime::millis(500)
-        } else {
-            Nanotime::secs(5)
-        };
+        let can_hit_planet = false;
+        let can_escape = false;
+        let near_body = false;
+
+        // let can_hit_planet = ego.periapsis_r() <= radius;
+        // let can_escape = ego.eccentricity >= 1.0 || ego.apoapsis_r() >= soi;
+        // let near_body = bodies
+        //     .iter()
+        //     .any(|(_, orb, soi)| mutual_separation(&ego, orb, self.stamp()) < soi * 3.0);
+
+        // self.dt = if can_hit_planet {
+        //     Nanotime::secs(1)
+        // } else if can_escape {
+        //     Nanotime::secs(2)
+        // } else if near_body {
+        //     Nanotime::millis(500)
+        // } else {
+        //     Nanotime::secs(5)
+        // };
 
         let t1 = self.end;
         let mut t2 = self.end + self.dt;
@@ -231,29 +237,19 @@ impl Propagator {
 
         self.end = t2;
 
-        let (p1, p2) = match self
+        match self
             .orbit
             .pv_at_time_fallible(t1)
             .zip(self.orbit.pv_at_time_fallible(t2))
         {
-            Some((p1, p2)) => (p1, p2),
             None => {
                 self.end = t1;
                 self.finished = true;
                 self.event = Some(EventType::NumericalError);
                 return Ok(());
             }
+            _ => (),
         };
-
-        let d = p1.pos.distance(p2.pos);
-        let v = p1.vel.length();
-
-        if d > v * 3.0 * self.dt.to_secs() {
-            self.end = t1;
-            self.finished = true;
-            self.event = Some(EventType::NumericalError);
-            return Ok(());
-        }
 
         let above_planet = |t: Nanotime| {
             let pos = ego.pv_at_time(t).pos;

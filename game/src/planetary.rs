@@ -178,6 +178,10 @@ impl GameState {
             .or(self.camera.mouse_pos());
 
         if let Some((p1, p2)) = p1.zip(p2) {
+            if *p1 == p2 {
+                return None;
+            }
+
             let mu = self.system.system.primary.mass * GRAVITATIONAL_CONSTANT;
             let v = (mu / p1.length()).sqrt();
             let pv = PV::new(*p1, (p2 - p1) * v / p1.length());
@@ -460,20 +464,26 @@ fn keyboard_input(
         0.03
     };
 
+    let mut man = Vec2::ZERO;
+
     if keys.pressed(KeyCode::ArrowUp) {
-        state.do_maneuver(Vec2::Y * dv);
+        man += Vec2::Y * dv;
     }
 
     if keys.pressed(KeyCode::ArrowDown) {
-        state.do_maneuver(-Vec2::Y * dv);
+        man -= Vec2::Y * dv;
     }
 
     if keys.pressed(KeyCode::ArrowLeft) {
-        state.do_maneuver(-Vec2::X * dv);
+        man -= Vec2::X * dv;
     }
 
     if keys.pressed(KeyCode::ArrowRight) {
-        state.do_maneuver(Vec2::X * dv);
+        man += Vec2::X * dv;
+    }
+
+    if man != Vec2::ZERO {
+        state.do_maneuver(man);
     }
 
     if keys.just_pressed(KeyCode::Space) {

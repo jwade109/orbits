@@ -1,5 +1,6 @@
 use crate::aabb::AABB;
 use crate::core::*;
+use crate::planning::binary_search;
 use crate::pv::PV;
 use bevy::math::Vec2;
 
@@ -376,13 +377,6 @@ impl Orbit {
         GRAVITATIONAL_CONSTANT * self.primary_mass
     }
 
-    pub fn normalize(&mut self, stamp: Nanotime) -> Option<()> {
-        let num = self.orbit_number(stamp)?;
-        let p = self.period()?;
-        self.time_at_periapsis += p * num;
-        Some(())
-    }
-
     pub fn orbit_number(&self, stamp: Nanotime) -> Option<i64> {
         let p = self.period()?;
         let dt = stamp - self.time_at_periapsis;
@@ -485,15 +479,22 @@ pub enum ULError {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct ULData {
-    pub pv: PV,
-    pub alpha: f32,
-    pub chi_0: f32,
-    pub chi: f32,
+pub struct LangrangeCoefficients {
     pub f: f32,
     pub g: f32,
     pub fdot: f32,
     pub gdot: f32,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct ULData {
+    pub tof: Nanotime,
+    pub pv: PV,
+    pub alpha: f32,
+    pub chi_0: f32,
+    pub chi: f32,
+    pub z: f32,
+    pub lc: LangrangeCoefficients,
 }
 
 // https://orbital-mechanics.space/time-since-periapsis-and-keplers-equation/universal-lagrange-coefficients-example.html
@@ -516,15 +517,44 @@ pub fn universal_lagrange(
 
     let chi = rootfinder::root_bisection(
         &|x| universal_kepler(x as f32, r_0, v_r0, alpha, delta_t, mu).into(),
-        rootfinder::Interval::new(0.5 * chi_0 as f64, 1.5 * chi_0 as f64),
+        rootfinder::Interval::new(-999999.99, 999999.99),
         None,
         None,
     )
     .map_err(|_| ULError::Solve)? as f32;
 
-    if chi.is_nan() {
-        return Err(ULError::NaN);
-    }
+    let z = alpha * chi.powi(2);
+
+    let (f, g, fdot, gdot) = lagrange_coefficients(initial, chi, mu, tof);
+
+    let pv = lagrange_pv(initial, f, g, fdot, gdot);
+
+    Ok(ULData {
+        tof,
+        pv,
+        alpha,
+        chi_0,
+        chi,
+        z,
+        lc: LangrangeCoefficients { f, g, fdot, gdot },
+    })
+}
+
+pub fn lagrange_coefficients(
+    initial: impl Into<PV>,
+    chi: f32,
+    mu: f32,
+    dt: Nanotime,
+) -> (f32, f32, f32, f32) {
+    let initial = initial.into();
+    let vec_r_0 = initial.pos;
+    let vec_v_0 = initial.vel;
+
+    let r_0 = vec_r_0.length();
+
+    let alpha = 2.0 / r_0 - vec_v_0.dot(vec_v_0) / mu;
+
+    let delta_t = dt.to_secs();
 
     let z = alpha * chi.powi(2);
     let f = 1.0 - chi.powi(2) / r_0 * stumpff_2(z);
@@ -536,20 +566,23 @@ pub fn universal_lagrange(
     let fdot = chi * mu.sqrt() / (r * r_0) * (z * stumpff_3(z) - 1.0);
     let gdot = 1.0 - chi.powi(2) / r * stumpff_2(z);
 
-    let vec_v = fdot * vec_r_0 + gdot * vec_v_0;
+    (f, g, fdot, gdot)
+}
 
-    let pv = PV::new(vec_r, vec_v).filter_nan().ok_or(ULError::NaN)?;
+pub fn lagrange_pv(initial: impl Into<PV>, f: f32, g: f32, fdot: f32, gdot: f32) -> PV {
+    let initial = initial.into();
+    let vec_r = f * initial.pos + g * initial.vel;
+    let vec_v = fdot * initial.pos + gdot * initial.vel;
+    PV::new(vec_r, vec_v)
+}
 
-    Ok(ULData {
-        pv,
-        alpha,
-        chi_0,
-        chi,
-        f,
-        g,
-        fdot,
-        gdot,
-    })
+pub fn export_orbit_data(orbit: &Orbit, filename: &str) -> Result<(), ()> {
+    let orbit_data_path = "orbit_data/";
+    std::fs::create_dir_all(&orbit_data_path).map_err(|_| ())?;
+
+
+
+    Ok(())
 }
 
 #[cfg(test)]

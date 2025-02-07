@@ -60,51 +60,58 @@ fn export_sin_approx() -> Result<(), Box<dyn std::error::Error>> {
 fn export_orbit_position() -> Result<(), Box<dyn std::error::Error>> {
     let earth = make_earth();
 
-    let initial = PV::new((400.0, 0.0), (100.0, 10.0));
+    let initial = PV::new(randvec(100.0, 500.0), randvec(100.0, 400.0));
 
-    let a = 10;
+    // let initial = PV::new((293.74924, -161.09222), (320.1136, 18.492138));
+    // let initial = PV::new((-259.96744, -195.29225), (-290.76135, 159.96176));
 
-    let ftime = linspace(a as f32, -a as f32, 10000);
+    dbg!(initial);
 
-    // let (t_crazy, data_crazy) = (|| {
-    //     for t in &ftime {
-    //         let t = Nanotime::secs_f32(*t);
-    //         if let Ok(data) = universal_lagrange(initial, t, earth.mu()) {
-    //             if data.pv.pos.length() > 1000.0 {
-    //                 return Some((t, data));
-    //             }
-    //         }
-    //     }
-    //     None
-    // })()
-    // .unwrap();
+    let a = 20;
 
-    // let a = 100;
-    // let ftime = linspace(a as f32, -a as f32, 100000);
+    let ftime = linspace(a as f32, -a as f32, 100000);
 
     let nt = apply(&ftime, |x| Nanotime::secs_f32(x));
 
-    // let func = apply(&ftime, |x| {
-    //     universal_kepler(
-    //         x,
-    //         initial.pos.length(),
-    //         initial.vel.dot(initial.pos) / initial.pos.length(),
-    //         data_crazy.alpha,
-    //         t_crazy.to_secs(),
-    //         earth.mu(),
-    //     )
-    // });
-
     let data = apply(&nt, |x| universal_lagrange(initial, x, earth.mu()));
+
+    dbg!(data[0]);
 
     let x = apply(&data, |x| x.map(|d| d.pv.pos.x).unwrap_or(f32::NAN));
     let y = apply(&data, |x| x.map(|d| d.pv.pos.y).unwrap_or(f32::NAN));
-    let alpha = apply(&data, |x| x.map(|d| d.chi_0).unwrap_or(f32::NAN));
-    let chi_0 = apply(&data, |x| x.map(|d| d.chi_0).unwrap_or(f32::NAN));
-    let chi = apply(&data, |x| x.map(|d| d.chi).unwrap_or(f32::NAN));
-    // let g = apply(&data, |x| x.map(|d| d.g).unwrap_or(f32::NAN));
+    let vx = apply(&data, |x| x.map(|d| d.pv.vel.x).unwrap_or(f32::NAN));
+    let vy = apply(&data, |x| x.map(|d| d.pv.vel.y).unwrap_or(f32::NAN));
+    let r = apply(&data, |x| x.map(|d| d.pv.pos.length()).unwrap_or(f32::NAN));
+    let z = apply(&data, |x| x.map(|d| d.z).unwrap_or(f32::NAN));
 
-    write_csv("orbit.csv", &[("t", &ftime), ("x", &x), ("y", &y)])
+    let f = apply(&data, |x| x.map(|d| d.lc.f).unwrap_or(f32::NAN));
+    let g = apply(&data, |x| x.map(|d| d.lc.g).unwrap_or(f32::NAN));
+    let fdot = apply(&data, |x| x.map(|d| d.lc.fdot).unwrap_or(f32::NAN));
+    let gdot = apply(&data, |x| x.map(|d| d.lc.gdot).unwrap_or(f32::NAN));
+
+    write_csv(
+        "orbit.csv",
+        &[
+            ("t", &ftime),
+            ("x", &x),
+            ("y", &y),
+            ("vx", &vx),
+            ("vy", &vy),
+            ("r", &r),
+            ("z", &z),
+        ],
+    )?;
+
+    write_csv(
+        "lagrange.csv",
+        &[
+            ("t", &ftime),
+            ("f", &f),
+            ("g", &g),
+            ("fdot", &fdot),
+            ("gdot", &gdot),
+        ],
+    )
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
