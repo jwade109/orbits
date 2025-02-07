@@ -1,6 +1,7 @@
 use starling::core::*;
-use starling::examples::EARTH;
+use starling::examples::make_earth;
 use starling::orbit::*;
+use starling::pv::PV;
 
 fn write_csv(filename: &str, signals: &[(&str, &[f32])]) -> Result<(), Box<dyn std::error::Error>> {
     let mut writer = csv::Writer::from_path(filename)?;
@@ -56,49 +57,54 @@ fn export_sin_approx() -> Result<(), Box<dyn std::error::Error>> {
     )
 }
 
-// fn export_anomaly_conversions() -> Result<(), Box<dyn std::error::Error>> {
-//     let ea = linspace(-PI, PI, 2000);
-//     let mut signals = vec![("ea", ea.clone())];
-
-//     for ecc in [0.2, 0.6, 0.9, 0.999, 0.9999] {
-//         let ma = apply(&ea, |x| {
-//             eccentric_to_mean(Anomaly::with_ecc(ecc, x), ecc).as_f32()
-//         });
-//         let ea2 = apply(&ma, |x| {
-//             mean_to_eccentric(Anomaly::with_ecc(ecc, x), ecc)
-//                 .map(|x| x.as_f32())
-//                 .unwrap_or(f32::NAN)
-//         });
-
-//         let name = format!("ea({})", ecc);
-
-//         signals.push((name, ea2));
-//     }
-
-//     write_csv("anomaly.csv", &signals)
-// }
-
 fn export_orbit_position() -> Result<(), Box<dyn std::error::Error>> {
-    let orbit = Orbit::from_pv(((400.0, 0.0), (0.0, 180.0)), EARTH.mass, Nanotime::secs(5));
+    let earth = make_earth();
 
-    let a = 1000;
+    let initial = PV::new((400.0, 0.0), (100.0, 10.0));
+
+    let a = 10;
 
     let ftime = linspace(a as f32, -a as f32, 10000);
-    let nt = apply(&ftime, |x| orbit.time_at_periapsis + Nanotime::secs_f32(x));
 
-    let pos = apply(&nt, |x| orbit.pv_at_time(x).pos);
+    // let (t_crazy, data_crazy) = (|| {
+    //     for t in &ftime {
+    //         let t = Nanotime::secs_f32(*t);
+    //         if let Ok(data) = universal_lagrange(initial, t, earth.mu()) {
+    //             if data.pv.pos.length() > 1000.0 {
+    //                 return Some((t, data));
+    //             }
+    //         }
+    //     }
+    //     None
+    // })()
+    // .unwrap();
 
-    let _x = apply(&pos, |x| x.x);
-    let _y = apply(&pos, |x| x.y);
-    let r = apply(&pos, |x| x.length());
+    // let a = 100;
+    // let ftime = linspace(a as f32, -a as f32, 100000);
 
-    write_csv(
-        "orbit.csv",
-        &[
-            ("t", &ftime),
-            ("r", &r),
-        ],
-    )
+    let nt = apply(&ftime, |x| Nanotime::secs_f32(x));
+
+    // let func = apply(&ftime, |x| {
+    //     universal_kepler(
+    //         x,
+    //         initial.pos.length(),
+    //         initial.vel.dot(initial.pos) / initial.pos.length(),
+    //         data_crazy.alpha,
+    //         t_crazy.to_secs(),
+    //         earth.mu(),
+    //     )
+    // });
+
+    let data = apply(&nt, |x| universal_lagrange(initial, x, earth.mu()));
+
+    let x = apply(&data, |x| x.map(|d| d.pv.pos.x).unwrap_or(f32::NAN));
+    let y = apply(&data, |x| x.map(|d| d.pv.pos.y).unwrap_or(f32::NAN));
+    let alpha = apply(&data, |x| x.map(|d| d.chi_0).unwrap_or(f32::NAN));
+    let chi_0 = apply(&data, |x| x.map(|d| d.chi_0).unwrap_or(f32::NAN));
+    let chi = apply(&data, |x| x.map(|d| d.chi).unwrap_or(f32::NAN));
+    // let g = apply(&data, |x| x.map(|d| d.g).unwrap_or(f32::NAN));
+
+    write_csv("orbit.csv", &[("t", &ftime), ("x", &x), ("y", &y)])
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

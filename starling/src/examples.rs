@@ -2,11 +2,11 @@ use crate::core::*;
 use crate::orbit::*;
 use bevy::math::Vec2;
 
-fn make_earth() -> Body {
+pub fn make_earth() -> Body {
     Body::new(63.0, 1000.0, 15000.0)
 }
 
-fn make_luna() -> (Body, Orbit) {
+pub fn make_luna() -> (Body, Orbit) {
     (
         Body::new(22.0, 10.0, 800.0),
         Orbit::circular(3800.0, make_earth().mass, Nanotime(-40 * 1000000000), false),

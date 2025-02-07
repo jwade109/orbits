@@ -154,6 +154,10 @@ impl Body {
     pub const fn new(radius: f32, mass: f32, soi: f32) -> Self {
         Body { radius, mass, soi }
     }
+
+    pub fn mu(&self) -> f32 {
+        self.mass * GRAVITATIONAL_CONSTANT
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -169,10 +173,6 @@ pub struct Orbit {
 }
 
 impl Orbit {
-    pub fn is_nan(&self) -> bool {
-        self.eccentricity.is_nan() || self.semi_major_axis.is_nan() || self.arg_periapsis.is_nan()
-    }
-
     pub fn from_pv(pv: impl Into<PV>, mass: f32, epoch: Nanotime) -> Self {
         let mu = mass * GRAVITATIONAL_CONSTANT;
         let pv: PV = pv.into();
@@ -311,13 +311,13 @@ impl Orbit {
         Some(Nanotime((t * 1E9) as i64))
     }
 
-    #[deprecated]
     pub fn pv_at_time(&self, stamp: Nanotime) -> PV {
         universal_lagrange(
             self.initial,
             stamp - self.epoch,
             self.primary_mass * GRAVITATIONAL_CONSTANT,
         )
+        .map(|t| t.pv)
         .unwrap_or(PV::zero())
     }
 
@@ -327,6 +327,7 @@ impl Orbit {
             stamp - self.epoch,
             self.primary_mass * GRAVITATIONAL_CONSTANT,
         )
+        .map(|t| t.pv)
         .ok()
     }
 
@@ -438,7 +439,7 @@ impl Orbit {
 
 // 2nd stumpff function
 // aka C(z)
-fn stumpff_2(z: f32) -> f32 {
+pub fn stumpff_2(z: f32) -> f32 {
     if z > 0.0 {
         (1.0 - z.sqrt().cos()) / z
     } else if z < 0.0 {
@@ -450,7 +451,7 @@ fn stumpff_2(z: f32) -> f32 {
 
 // 3rd stumpff function
 // aka S(z)
-fn stumpff_3(z: f32) -> f32 {
+pub fn stumpff_3(z: f32) -> f32 {
     if z > 0.0 {
         (z.sqrt() - z.sqrt().sin()) / z.powf(1.5)
     } else if z < 0.0 {
@@ -460,7 +461,7 @@ fn stumpff_3(z: f32) -> f32 {
     }
 }
 
-fn universal_kepler(chi: f32, r_0: f32, v_r0: f32, alpha: f32, delta_t: f32, mu: f32) -> f32 {
+pub fn universal_kepler(chi: f32, r_0: f32, v_r0: f32, alpha: f32, delta_t: f32, mu: f32) -> f32 {
     let z = alpha * chi.powi(2);
     let first_term = r_0 * v_r0 / mu.sqrt() * chi.powi(2) * stumpff_2(z);
     let second_term = (1.0 - alpha * r_0) * chi.powi(3) * stumpff_3(z);
@@ -477,14 +478,30 @@ fn d_universal_d_chi(chi: f32, r_0: f32, v_r0: f32, alpha: f32, mu: f32) -> f32 
     first_term + second_term + third_term
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum ULError {
-    Solve(rootfinder::SolverError),
-    NaN(f32),
+    Solve,
+    NaN,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct ULData {
+    pub pv: PV,
+    pub alpha: f32,
+    pub chi_0: f32,
+    pub chi: f32,
+    pub f: f32,
+    pub g: f32,
+    pub fdot: f32,
+    pub gdot: f32,
 }
 
 // https://orbital-mechanics.space/time-since-periapsis-and-keplers-equation/universal-lagrange-coefficients-example.html
-pub fn universal_lagrange(initial: impl Into<PV>, tof: Nanotime, mu: f32) -> Result<PV, ULError> {
+pub fn universal_lagrange(
+    initial: impl Into<PV>,
+    tof: Nanotime,
+    mu: f32,
+) -> Result<ULData, ULError> {
     let initial = initial.into();
     let vec_r_0 = initial.pos;
     let vec_v_0 = initial.vel;
@@ -497,17 +514,16 @@ pub fn universal_lagrange(initial: impl Into<PV>, tof: Nanotime, mu: f32) -> Res
     let delta_t = tof.to_secs();
     let chi_0: f32 = mu.sqrt() * alpha.abs() * delta_t;
 
-    let chi = rootfinder::root_newton(
+    let chi = rootfinder::root_bisection(
         &|x| universal_kepler(x as f32, r_0, v_r0, alpha, delta_t, mu).into(),
-        &|x| d_universal_d_chi(x as f32, r_0, v_r0, alpha, mu).into(),
-        chi_0 as f64,
+        rootfinder::Interval::new(0.5 * chi_0 as f64, 1.5 * chi_0 as f64),
         None,
         None,
     )
-    .map_err(|e| ULError::Solve(e))? as f32;
+    .map_err(|_| ULError::Solve)? as f32;
 
     if chi.is_nan() {
-        return Err(ULError::NaN(delta_t));
+        return Err(ULError::NaN);
     }
 
     let z = alpha * chi.powi(2);
@@ -522,7 +538,18 @@ pub fn universal_lagrange(initial: impl Into<PV>, tof: Nanotime, mu: f32) -> Res
 
     let vec_v = fdot * vec_r_0 + gdot * vec_v_0;
 
-    PV::new(vec_r, vec_v).filter_nan().ok_or(ULError::NaN(0.0))
+    let pv = PV::new(vec_r, vec_v).filter_nan().ok_or(ULError::NaN)?;
+
+    Ok(ULData {
+        pv,
+        alpha,
+        chi_0,
+        chi,
+        f,
+        g,
+        fdot,
+        gdot,
+    })
 }
 
 #[cfg(test)]
@@ -542,7 +569,7 @@ mod tests {
 
         assert!(res.is_ok());
         assert_eq!(
-            res.unwrap(),
+            res.unwrap().0,
             PV::new((-3297.797, 7413.380), (-8.298, -0.964))
         );
     }

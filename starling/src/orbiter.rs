@@ -116,8 +116,15 @@ impl Orbiter {
                 .map(|(orbit, pl)| (pl.id, *orbit, pl.primary.soi))
                 .collect::<Vec<_>>();
 
-            while !prop.calculated_to(t) {
+            let mut iter = 0;
+
+            while !prop.calculated_to(t) && iter < 5000 {
                 prop.next(pl.primary.radius, pl.primary.soi, &bodies)?;
+                iter += 1;
+            }
+
+            if iter == 5000 {
+                return Err(PredictError::BadType);
             }
 
             if prop.end >= t {
