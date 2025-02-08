@@ -3,6 +3,8 @@ use starling::examples::make_earth;
 use starling::orbit::*;
 use starling::pv::*;
 
+use std::path::Path;
+
 fn export_sin_approx() -> Result<(), Box<dyn std::error::Error>> {
     let x = linspace(-4.0 * PI, 4.0 * PI, 2000);
     let sinx = apply(&x, |x| x.sin());
@@ -18,7 +20,7 @@ fn export_sin_approx() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     write_csv(
-        "sin_approx.csv",
+        Path::new("sin_approx.csv"),
         &[
             ("x", &x),
             ("sinx", &sinx),
@@ -35,7 +37,7 @@ fn export_orbit_position() -> Result<(), Box<dyn std::error::Error>> {
 
     let orbit = Orbit::from_pv(initial, earth.mass, Nanotime(0));
 
-    _ = export_orbit_data(&orbit, "orbit.csv");
+    _ = export_orbit_data(&orbit, Path::new("orbit.csv"));
 
     Ok(())
 }

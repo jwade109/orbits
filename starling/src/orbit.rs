@@ -576,20 +576,18 @@ pub fn lagrange_pv(initial: impl Into<PV>, coeff: &LangrangeCoefficients) -> PV 
     PV::new(vec_r, vec_v)
 }
 
-pub fn export_orbit_data(orbit: &Orbit, filename: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let orbit_data_path = "orbit_data/";
+pub fn export_orbit_data(orbit: &Orbit, filename: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+    let orbit_data_path = std::path::Path::new("orbit_data/");
     std::fs::create_dir_all(&orbit_data_path)?;
 
-    let initial = PV::new(randvec(100.0, 500.0), randvec(100.0, 400.0));
+    let a = orbit.period().unwrap_or(Nanotime::secs(30)).to_secs();
 
-    let a = 20;
-
-    let ftime = linspace(a as f32, -a as f32, 100000);
+    let ftime = linspace(-a, a, 100000);
 
     let nt = apply(&ftime, |x| Nanotime::secs_f32(x));
 
     let data = apply(&nt, |x| {
-        universal_lagrange(initial, x, orbit.primary_mass * GRAVITATIONAL_CONSTANT)
+        universal_lagrange(orbit.initial, x, orbit.primary_mass * GRAVITATIONAL_CONSTANT)
     });
 
     let x = apply(&data, |x| x.map(|d| d.pv.pos.x).unwrap_or(f32::NAN));
@@ -604,7 +602,7 @@ pub fn export_orbit_data(orbit: &Orbit, filename: &str) -> Result<(), Box<dyn st
     let gdot = apply(&data, |x| x.map(|d| d.lc.gdot).unwrap_or(f32::NAN));
 
     write_csv(
-        filename,
+        &orbit_data_path.join(filename),
         &[
             ("t", &ftime),
             ("x", &x),

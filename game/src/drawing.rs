@@ -397,7 +397,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
 
     state.test_points().map(|v| {
         for p in &v {
-            draw_x(&mut gizmos, *p, 50.0, WHITE);
+            draw_square(&mut gizmos, *p, 6.0 * state.camera.actual_scale, WHITE);
         }
         gizmos.linestrip_2d(v, PURPLE);
     });

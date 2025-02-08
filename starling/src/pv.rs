@@ -82,7 +82,7 @@ pub fn apply<T: Copy, R>(x: &Vec<T>, func: impl Fn(T) -> R) -> Vec<R> {
     x.iter().map(|x| func(*x)).collect()
 }
 
-pub fn write_csv(filename: &str, signals: &[(&str, &[f32])]) -> Result<(), Box<dyn std::error::Error>> {
+pub fn write_csv(filename: &std::path::Path, signals: &[(&str, &[f32])]) -> Result<(), Box<dyn std::error::Error>> {
     let mut writer = csv::Writer::from_path(filename)?;
 
     let titles = signals.iter().map(|s| s.0);

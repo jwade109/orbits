@@ -203,27 +203,21 @@ impl Propagator {
 
         let ego = self.orbit;
 
-        self.dt = Nanotime::secs(1);
+        let can_hit_planet = ego.periapsis_r() <= radius;
+        let can_escape = ego.eccentricity >= 1.0 || ego.apoapsis_r() >= soi;
+        let near_body = bodies
+            .iter()
+            .any(|(_, orb, soi)| mutual_separation(&ego, orb, self.stamp()) < soi * 3.0);
 
-        let can_hit_planet = false;
-        let can_escape = false;
-        let near_body = false;
-
-        // let can_hit_planet = ego.periapsis_r() <= radius;
-        // let can_escape = ego.eccentricity >= 1.0 || ego.apoapsis_r() >= soi;
-        // let near_body = bodies
-        //     .iter()
-        //     .any(|(_, orb, soi)| mutual_separation(&ego, orb, self.stamp()) < soi * 3.0);
-
-        // self.dt = if can_hit_planet {
-        //     Nanotime::secs(1)
-        // } else if can_escape {
-        //     Nanotime::secs(2)
-        // } else if near_body {
-        //     Nanotime::millis(500)
-        // } else {
-        //     Nanotime::secs(5)
-        // };
+        self.dt = if can_hit_planet {
+            Nanotime::secs(1)
+        } else if can_escape {
+            Nanotime::secs(2)
+        } else if near_body {
+            Nanotime::millis(500)
+        } else {
+            Nanotime::secs(5)
+        };
 
         let t1 = self.end;
         let mut t2 = self.end + self.dt;

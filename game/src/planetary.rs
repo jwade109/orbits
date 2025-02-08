@@ -187,7 +187,7 @@ impl GameState {
             let pv = PV::new(*p1, (p2 - p1) * v / p1.length());
 
             return Some(
-                (-2000..=2000)
+                (-500..=500)
                     .filter_map(|i| {
                         let t = Nanotime::secs(i);
                         let p = universal_lagrange(pv, t, mu);
@@ -351,7 +351,6 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         return;
     }
 
-    send_log(&mut evt, &format!("Camera: {:#?}", state.camera));
     if state.track_list.len() > 15 {
         send_log(&mut evt, &format!("Tracks: lots of em"));
     } else {
@@ -593,6 +592,17 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
         state.delete_objects();
     } else if starts_with("spawn") {
         state.spawn_new();
+    } else if starts_with("export") {
+        if let Some(orbit) = state.target_orbit() {
+            let filename = format!("orbit-{:?}", state.sim_time);
+            let filename = std::path::Path::new(&filename);
+            match export_orbit_data(&orbit, filename) {
+                Ok(_) => println!("Exported orbit data to {}", filename.display()),
+                Err(e) => println!("Failed to export: {:?}", e),
+            }
+        } else {
+            println!("No orbit to export.");
+        }
     }
 }
 
