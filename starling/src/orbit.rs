@@ -1,7 +1,7 @@
 use crate::aabb::AABB;
 use crate::core::*;
 use crate::planning::binary_search;
-use crate::pv::PV;
+use crate::pv::*;
 use bevy::math::Vec2;
 
 pub const PI: f32 = std::f32::consts::PI;
@@ -525,9 +525,9 @@ pub fn universal_lagrange(
 
     let z = alpha * chi.powi(2);
 
-    let (f, g, fdot, gdot) = lagrange_coefficients(initial, chi, mu, tof);
+    let lcoeffs = lagrange_coefficients(initial, chi, mu, tof);
 
-    let pv = lagrange_pv(initial, f, g, fdot, gdot);
+    let pv = lagrange_pv(initial, &lcoeffs);
 
     Ok(ULData {
         tof,
@@ -536,7 +536,7 @@ pub fn universal_lagrange(
         chi_0,
         chi,
         z,
-        lc: LangrangeCoefficients { f, g, fdot, gdot },
+        lc: lcoeffs,
     })
 }
 
@@ -545,7 +545,7 @@ pub fn lagrange_coefficients(
     chi: f32,
     mu: f32,
     dt: Nanotime,
-) -> (f32, f32, f32, f32) {
+) -> LangrangeCoefficients {
     let initial = initial.into();
     let vec_r_0 = initial.pos;
     let vec_v_0 = initial.vel;
@@ -566,23 +566,59 @@ pub fn lagrange_coefficients(
     let fdot = chi * mu.sqrt() / (r * r_0) * (z * stumpff_3(z) - 1.0);
     let gdot = 1.0 - chi.powi(2) / r * stumpff_2(z);
 
-    (f, g, fdot, gdot)
+    LangrangeCoefficients { f, g, fdot, gdot }
 }
 
-pub fn lagrange_pv(initial: impl Into<PV>, f: f32, g: f32, fdot: f32, gdot: f32) -> PV {
+pub fn lagrange_pv(initial: impl Into<PV>, coeff: &LangrangeCoefficients) -> PV {
     let initial = initial.into();
-    let vec_r = f * initial.pos + g * initial.vel;
-    let vec_v = fdot * initial.pos + gdot * initial.vel;
+    let vec_r = coeff.f * initial.pos + coeff.g * initial.vel;
+    let vec_v = coeff.fdot * initial.pos + coeff.gdot * initial.vel;
     PV::new(vec_r, vec_v)
 }
 
-pub fn export_orbit_data(orbit: &Orbit, filename: &str) -> Result<(), ()> {
+pub fn export_orbit_data(orbit: &Orbit, filename: &str) -> Result<(), Box<dyn std::error::Error>> {
     let orbit_data_path = "orbit_data/";
-    std::fs::create_dir_all(&orbit_data_path).map_err(|_| ())?;
+    std::fs::create_dir_all(&orbit_data_path)?;
 
+    let initial = PV::new(randvec(100.0, 500.0), randvec(100.0, 400.0));
 
+    let a = 20;
 
-    Ok(())
+    let ftime = linspace(a as f32, -a as f32, 100000);
+
+    let nt = apply(&ftime, |x| Nanotime::secs_f32(x));
+
+    let data = apply(&nt, |x| {
+        universal_lagrange(initial, x, orbit.primary_mass * GRAVITATIONAL_CONSTANT)
+    });
+
+    let x = apply(&data, |x| x.map(|d| d.pv.pos.x).unwrap_or(f32::NAN));
+    let y = apply(&data, |x| x.map(|d| d.pv.pos.y).unwrap_or(f32::NAN));
+    let vx = apply(&data, |x| x.map(|d| d.pv.vel.x).unwrap_or(f32::NAN));
+    let vy = apply(&data, |x| x.map(|d| d.pv.vel.y).unwrap_or(f32::NAN));
+    let r = apply(&data, |x| x.map(|d| d.pv.pos.length()).unwrap_or(f32::NAN));
+    let z = apply(&data, |x| x.map(|d| d.z).unwrap_or(f32::NAN));
+    let f = apply(&data, |x| x.map(|d| d.lc.f).unwrap_or(f32::NAN));
+    let g = apply(&data, |x| x.map(|d| d.lc.g).unwrap_or(f32::NAN));
+    let fdot = apply(&data, |x| x.map(|d| d.lc.fdot).unwrap_or(f32::NAN));
+    let gdot = apply(&data, |x| x.map(|d| d.lc.gdot).unwrap_or(f32::NAN));
+
+    write_csv(
+        filename,
+        &[
+            ("t", &ftime),
+            ("x", &x),
+            ("y", &y),
+            ("vx", &vx),
+            ("vy", &vy),
+            ("r", &r),
+            ("z", &z),
+            ("f", &f),
+            ("g", &g),
+            ("fdot", &fdot),
+            ("gdot", &gdot),
+        ],
+    )
 }
 
 #[cfg(test)]
@@ -598,27 +634,20 @@ mod tests {
 
         let tof = Nanotime::secs(3600);
 
-        let res = super::universal_lagrange((vec_r_0, vec_v_0), tof, mu);
+        let res = super::universal_lagrange((vec_r_0, vec_v_0), tof, mu).unwrap();
 
-        assert!(res.is_ok());
-        assert_eq!(
-            res.unwrap().0,
-            PV::new((-3297.797, 7413.380), (-8.298, -0.964))
-        );
+        assert_eq!(res.pv, PV::new((-3297.7869, 7413.3867), (-8.297602, -0.9640651)));
     }
 
     #[test]
     fn orbit_construction() {
         const TEST_POSITION: Vec2 = Vec2::new(500.0, 300.0);
         const TEST_VELOCITY: Vec2 = Vec2::new(-200.0, 0.0);
-        const TEST_BODY: Body = Body {
-            mass: 1000.0,
-            radius: 50.0,
-            soi: f32::MAX,
-        };
 
-        let o1 = Orbit::from_pv((TEST_POSITION, TEST_VELOCITY), TEST_BODY.mass, Nanotime(0));
-        let o2 = Orbit::from_pv((TEST_POSITION, -TEST_VELOCITY), TEST_BODY.mass, Nanotime(0));
+        let mass = 1000.0;
+
+        let o1 = Orbit::from_pv((TEST_POSITION, TEST_VELOCITY), mass, Nanotime(0));
+        let o2 = Orbit::from_pv((TEST_POSITION, -TEST_VELOCITY), mass, Nanotime(0));
 
         let true_h = TEST_POSITION.extend(0.0).cross(TEST_VELOCITY.extend(0.0)).z;
 
