@@ -166,7 +166,7 @@ impl Propagator {
 
                 let pv = self.orbit.pv_at_time(self.end);
                 let dv = cur.1 - new.1;
-                let orbit = Orbit::from_pv(pv + dv, new.0.mass, self.end);
+                let orbit = Orbit::from_pv(pv + dv, new.0.mass, self.end)?;
                 Some(Propagator::new(reparent, orbit, self.end))
             }
             EventType::Encounter(id) => {
@@ -175,7 +175,7 @@ impl Propagator {
 
                 let pv = self.orbit.pv_at_time(self.end);
                 let dv = cur.1 - new.1;
-                let orbit = Orbit::from_pv(pv + dv, new.0.mass, self.end);
+                let orbit = Orbit::from_pv(pv + dv, new.0.mass, self.end)?;
                 Some(Propagator::new(id, orbit, self.end))
             }
             EventType::Maneuver(man) => {
@@ -183,7 +183,7 @@ impl Propagator {
                 let dv = match man {
                     Maneuver::AxisAligned(dv) => dv,
                 };
-                let orbit = Orbit::from_pv(pv + PV::vel(dv), self.orbit.primary_mass, self.end);
+                let orbit = Orbit::from_pv(pv + PV::vel(dv), self.orbit.primary_mass, self.end)?;
                 Some(Propagator::new(self.parent, orbit, self.end))
             }
         }
@@ -203,7 +203,8 @@ impl Propagator {
 
         let ego = self.orbit;
 
-        let can_hit_planet = ego.periapsis_r() <= radius;
+        // TODO fix -- planet collision is kind of broken?
+        let can_hit_planet = false; // = ego.periapsis_r() <= radius;
         let can_escape = ego.eccentricity >= 1.0 || ego.apoapsis_r() >= soi;
         let near_body = bodies
             .iter()

@@ -174,7 +174,7 @@ pub struct Orbit {
 }
 
 impl Orbit {
-    pub fn from_pv(pv: impl Into<PV>, mass: f32, epoch: Nanotime) -> Self {
+    pub fn from_pv(pv: impl Into<PV>, mass: f32, epoch: Nanotime) -> Option<Self> {
         let mu = mass * GRAVITATIONAL_CONSTANT;
         let pv: PV = pv.into();
         let r3 = pv.pos.extend(0.0);
@@ -228,7 +228,17 @@ impl Orbit {
             };
         }
 
-        o
+        if o.pv_at_time(epoch).filter_nan().is_none() {
+            println!("Orbit returned NaN PV: {pv:?}\n  {o:?}");
+            return None;
+        }
+
+        if e.is_nan() {
+            println!("Bad orbit: {pv}");
+            return None;
+        }
+
+        Some(o)
     }
 
     pub fn circular(radius: f32, mass: f32, epoch: Nanotime, retrograde: bool) -> Self {
@@ -420,19 +430,13 @@ impl Orbit {
 
         Some((u.rotate(ua), u.rotate(ub)))
     }
-
-    pub fn random_nudge(&self, t: Nanotime, spread: f32) -> Self {
-        let dx = randvec(0.01, spread * 10.0);
-        let dv = randvec(0.01, spread);
-        let pv = self.pv_at_time(t) + PV::new(dx, dv);
-        Orbit::from_pv(pv, self.primary_mass, t)
-    }
 }
 
 // https://orbital-mechanics.space/time-since-periapsis-and-keplers-equation/universal-variables.html
 
 // 2nd stumpff function
 // aka C(z)
+#[deprecated]
 pub fn stumpff_2(z: f32) -> f32 {
     if z > 0.0 {
         (1.0 - z.sqrt().cos()) / z
@@ -443,8 +447,22 @@ pub fn stumpff_2(z: f32) -> f32 {
     }
 }
 
+// 2nd stumpff function
+// aka C(z)
+pub fn stumpff_2_prec(z: f32) -> f32 {
+    let midwidth = 0.01;
+    if z > midwidth {
+        (1.0 - z.sqrt().cos()) / z
+    } else if z < -midwidth {
+        ((-z).sqrt().cosh() - 1.0) / -z
+    } else {
+        0.5 - 0.04 * z
+    }
+}
+
 // 3rd stumpff function
 // aka S(z)
+#[deprecated]
 pub fn stumpff_3(z: f32) -> f32 {
     if z > 0.0 {
         (z.sqrt() - z.sqrt().sin()) / z.powf(1.5)
@@ -452,6 +470,19 @@ pub fn stumpff_3(z: f32) -> f32 {
         ((-z).sqrt().sinh() - (-z).sqrt()) / (-z).powf(1.5)
     } else {
         1.0 / 6.0
+    }
+}
+
+// 3rd stumpff function
+// aka S(z)
+pub fn stumpff_3_prec(z: f32) -> f32 {
+    let midwidth = 0.01;
+    if z > midwidth {
+        (z.sqrt() - z.sqrt().sin()) / z.powf(1.5)
+    } else if z < -midwidth {
+        ((-z).sqrt().sinh() - (-z).sqrt()) / (-z).powf(1.5)
+    } else {
+        -0.00833 * z + 1.0 / 6.0
     }
 }
 
@@ -480,6 +511,8 @@ pub enum ULError {
 
 #[derive(Debug, Copy, Clone)]
 pub struct LangrangeCoefficients {
+    pub s2: f32,
+    pub s3: f32,
     pub f: f32,
     pub g: f32,
     pub fdot: f32,
@@ -557,16 +590,27 @@ pub fn lagrange_coefficients(
     let delta_t = dt.to_secs();
 
     let z = alpha * chi.powi(2);
-    let f = 1.0 - chi.powi(2) / r_0 * stumpff_2(z);
-    let g = delta_t - chi.powi(3) / mu.sqrt() * stumpff_3(z);
+
+    let s2 = stumpff_2(z);
+    let s3 = stumpff_3(z);
+
+    let f = 1.0 - chi.powi(2) / r_0 * s2;
+    let g = delta_t - chi.powi(3) / mu.sqrt() * s3;
 
     let vec_r = f * vec_r_0 + g * vec_v_0;
     let r = vec_r.length();
 
-    let fdot = chi * mu.sqrt() / (r * r_0) * (z * stumpff_3(z) - 1.0);
-    let gdot = 1.0 - chi.powi(2) / r * stumpff_2(z);
+    let fdot = chi * mu.sqrt() / (r * r_0) * (z * s3 - 1.0);
+    let gdot = 1.0 - chi.powi(2) / r * s2;
 
-    LangrangeCoefficients { f, g, fdot, gdot }
+    LangrangeCoefficients {
+        s2,
+        s3,
+        f,
+        g,
+        fdot,
+        gdot,
+    }
 }
 
 pub fn lagrange_pv(initial: impl Into<PV>, coeff: &LangrangeCoefficients) -> PV {
@@ -576,7 +620,10 @@ pub fn lagrange_pv(initial: impl Into<PV>, coeff: &LangrangeCoefficients) -> PV 
     PV::new(vec_r, vec_v)
 }
 
-pub fn export_orbit_data(orbit: &Orbit, filename: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+pub fn export_orbit_data(
+    orbit: &Orbit,
+    filename: &std::path::Path,
+) -> Result<(), Box<dyn std::error::Error>> {
     let orbit_data_path = std::path::Path::new("orbit_data/");
     std::fs::create_dir_all(&orbit_data_path)?;
 
@@ -587,7 +634,11 @@ pub fn export_orbit_data(orbit: &Orbit, filename: &std::path::Path) -> Result<()
     let nt = apply(&ftime, |x| Nanotime::secs_f32(x));
 
     let data = apply(&nt, |x| {
-        universal_lagrange(orbit.initial, x, orbit.primary_mass * GRAVITATIONAL_CONSTANT)
+        universal_lagrange(
+            orbit.initial,
+            x,
+            orbit.primary_mass * GRAVITATIONAL_CONSTANT,
+        )
     });
 
     let x = apply(&data, |x| x.map(|d| d.pv.pos.x).unwrap_or(f32::NAN));
@@ -634,7 +685,19 @@ mod tests {
 
         let res = super::universal_lagrange((vec_r_0, vec_v_0), tof, mu).unwrap();
 
-        assert_eq!(res.pv, PV::new((-3297.7869, 7413.3867), (-8.297602, -0.9640651)));
+        assert_eq!(
+            res.pv,
+            PV::new((-3297.7869, 7413.3867), (-8.297602, -0.9640651))
+        );
+    }
+
+    #[test]
+    fn stupid_nan_hunting() {
+        let pv = PV::new((677.94434, -1662.8911), (72.930145, 53.23593));
+
+        let res = universal_lagrange(pv, Nanotime(0), 1000.0);
+
+        dbg!(res);
     }
 
     #[test]
@@ -644,8 +707,8 @@ mod tests {
 
         let mass = 1000.0;
 
-        let o1 = Orbit::from_pv((TEST_POSITION, TEST_VELOCITY), mass, Nanotime(0));
-        let o2 = Orbit::from_pv((TEST_POSITION, -TEST_VELOCITY), mass, Nanotime(0));
+        let o1 = Orbit::from_pv((TEST_POSITION, TEST_VELOCITY), mass, Nanotime(0)).unwrap();
+        let o2 = Orbit::from_pv((TEST_POSITION, -TEST_VELOCITY), mass, Nanotime(0)).unwrap();
 
         let true_h = TEST_POSITION.extend(0.0).cross(TEST_VELOCITY.extend(0.0)).z;
 

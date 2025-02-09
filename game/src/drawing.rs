@@ -328,6 +328,19 @@ pub fn draw_shadows(gizmos: &mut Gizmos, origin: Vec2, radius: f32, stamp: Nanot
     }
 }
 
+pub fn draw_event_marker_at(gizmos: &mut Gizmos, event: &EventType, p: Vec2, scale: f32) {
+    let color = match event {
+        EventType::Collide(_) => RED,
+        EventType::NumericalError => YELLOW,
+        EventType::Encounter(_) => GREEN,
+        EventType::Escape(_) => TEAL,
+        EventType::Maneuver(_) => PURPLE,
+    };
+
+    draw_circle(gizmos, p, 15.0 * scale, alpha(color, 0.8));
+    draw_circle(gizmos, p, 6.0 * scale, alpha(color, 0.8));
+}
+
 pub fn draw_event(
     gizmos: &mut Gizmos,
     planets: &Planet,
@@ -337,12 +350,10 @@ pub fn draw_event(
     scale: f32,
     duty_cycle: bool,
 ) -> Option<()> {
-    let (draw, color) = match event {
-        EventType::Collide(_) => (duty_cycle, RED),
-        EventType::NumericalError => (duty_cycle, YELLOW),
-        EventType::Encounter(_) => (true, GREEN),
-        EventType::Escape(_) => (true, TEAL),
-        EventType::Maneuver(_) => (true, PURPLE),
+    let draw = match event {
+        EventType::Collide(_) => duty_cycle,
+        EventType::NumericalError => duty_cycle,
+        _ => true,
     };
 
     if let EventType::Encounter(id) = event {
@@ -351,8 +362,7 @@ pub fn draw_event(
     }
 
     if draw {
-        draw_circle(gizmos, p, 15.0 * scale, alpha(color, 0.8));
-        draw_circle(gizmos, p, 6.0 * scale, alpha(color, 0.8));
+        draw_event_marker_at(gizmos, event, p, scale);
     }
     Some(())
 }
@@ -401,6 +411,14 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
         }
         gizmos.linestrip_2d(v, PURPLE);
     });
+
+    for (_, ri) in &state.removed_objects {
+        let anim_dur = Nanotime::secs(1);
+        let tstart = ri.stamp - anim_dur;
+        let tanim = state.sim_time % anim_dur + tstart;
+        let p = ri.orbit.pv_at_time(tanim);
+        draw_event_marker_at(&mut gizmos, &ri.reason, p.pos, state.camera.actual_scale);
+    }
 
     if let Some(o) = state.target_orbit() {
         draw_orbit(&mut gizmos, &o, Vec2::ZERO, alpha(RED, 0.2));

@@ -51,7 +51,7 @@ impl Orbiter {
         let (new_orbit, parent) = {
             let prop = self.propagator_at(stamp)?;
             let pv = prop.orbit.pv_at_time(stamp) + PV::vel(dv);
-            let orbit = Orbit::from_pv(pv, prop.orbit.primary_mass, stamp);
+            let orbit = Orbit::from_pv(pv, prop.orbit.primary_mass, stamp)?;
             (orbit, prop.parent)
         };
         self.props.clear();

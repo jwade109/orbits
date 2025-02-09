@@ -3,7 +3,7 @@ use crate::orbiter::*;
 use crate::pv::PV;
 use bevy::math::Vec2;
 use rand::Rng;
-use std::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Div, Mul, Rem, Sub, SubAssign};
 
 pub fn rand(min: f32, max: f32) -> f32 {
     rand::thread_rng().gen_range(min..max)
@@ -145,6 +145,13 @@ impl Div<i64> for Nanotime {
     }
 }
 
+impl Rem<Nanotime> for Nanotime {
+    type Output = Self;
+    fn rem(self, rhs: Nanotime) -> Self::Output {
+        Nanotime(self.0 % rhs.0)
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ObjectType {
     Orbiter,
@@ -262,6 +269,13 @@ impl Planet {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct RemovalInfo {
+    pub stamp: Nanotime,
+    pub reason: EventType,
+    pub orbit: Orbit,
+}
+
 impl OrbitalTree {
     pub fn new(system: &Planet) -> Self {
         OrbitalTree {
@@ -270,12 +284,32 @@ impl OrbitalTree {
         }
     }
 
-    pub fn propagate_to(&mut self, stamp: Nanotime, future_dur: Nanotime) {
+    pub fn propagate_to(
+        &mut self,
+        stamp: Nanotime,
+        future_dur: Nanotime,
+    ) -> Vec<(ObjectId, Option<RemovalInfo>)> {
         for obj in &mut self.objects {
             let _ = obj.propagate_to(stamp, future_dur, &self.system);
         }
 
-        self.objects.retain(|o| o.propagator_at(stamp).is_some());
+        let mut info = vec![];
+
+        self.objects.retain(|o| {
+            if o.propagator_at(stamp).is_none() {
+                let reason = o.props().last().map(|p| RemovalInfo {
+                    stamp: p.end,
+                    reason: p.event.unwrap_or(EventType::NumericalError),
+                    orbit: p.orbit,
+                });
+                info.push((o.id, reason));
+                false
+            } else {
+                true
+            }
+        });
+
+        info
     }
 
     pub fn add_object(&mut self, id: ObjectId, parent: ObjectId, orbit: Orbit, stamp: Nanotime) {

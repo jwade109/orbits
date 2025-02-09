@@ -137,6 +137,7 @@ pub struct GameState {
     pub paused: bool,
     pub system: OrbitalTree,
     pub ids: ObjectIdTracker,
+    pub removed_objects: Vec<(ObjectId, RemovalInfo)>,
     pub backup: Option<(OrbitalTree, ObjectIdTracker, Nanotime)>,
     pub track_list: Vec<ObjectId>,
     pub highlighted_list: Vec<ObjectId>,
@@ -215,11 +216,11 @@ impl GameState {
 
             let v = (self.system.system.primary.mass * GRAVITATIONAL_CONSTANT / p1.length()).sqrt();
 
-            Some(Orbit::from_pv(
+            Orbit::from_pv(
                 (*p1, (p2 - p1) * v / p1.length()),
                 self.system.system.primary.mass,
                 self.sim_time,
-            ))
+            )
         } else {
             None
         }
@@ -238,12 +239,8 @@ impl GameState {
         if let Some(orbit) = t {
             let id = self.ids.next();
             self.toggle_track(id);
-            self.system.add_object(
-                id,
-                self.system.system.id,
-                orbit.random_nudge(self.sim_time, 1.0),
-                self.sim_time,
-            );
+            self.system
+                .add_object(id, self.system.system.id, orbit, self.sim_time);
         }
     }
 
@@ -290,6 +287,7 @@ impl Default for GameState {
             paused: false,
             system: system.clone(),
             ids,
+            removed_objects: Vec::new(),
             track_list: Vec::new(),
             highlighted_list: Vec::new(),
             backup: Some((system, ids, Nanotime(0))),
@@ -315,7 +313,13 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
 
     let s = state.sim_time;
     let d = state.physics_duration;
-    state.system.propagate_to(s, d);
+    let info = state.system.propagate_to(s, d);
+
+    for (id, ri) in &info {
+        if let Some(ri) = ri {
+            state.removed_objects.push((*id, *ri));
+        }
+    }
 
     if let Some(a) = state.camera.selection_region() {
         state.highlighted_list = state

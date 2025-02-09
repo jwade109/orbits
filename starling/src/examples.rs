@@ -25,8 +25,7 @@ pub fn just_the_moon() -> (OrbitalTree, ObjectIdTracker) {
         tree.add_object(
             id.next(),
             moon_id,
-            Orbit::circular(rand(200.0, 400.0), luna.primary.mass, Nanotime(0), false)
-                .random_nudge(Nanotime(0), 2.0),
+            Orbit::circular(rand(200.0, 400.0), luna.primary.mass, Nanotime(0), false),
             Nanotime(0),
         );
     }
@@ -67,37 +66,28 @@ pub fn earth_moon_example_one() -> (OrbitalTree, ObjectIdTracker) {
     );
 
     for _ in 0..200 {
-        tree.add_object(
-            id.next(),
-            earth.id,
-            {
-                let r = randvec(700.0, 2400.0);
-                let v = randvec(45.0, 70.0);
-                Orbit::from_pv((r, v), earth.primary.mass, Nanotime(0))
-            },
-            Nanotime(0),
-        );
+        let r = randvec(700.0, 2400.0);
+        let v = randvec(45.0, 70.0);
+        let o = Orbit::from_pv((r, v), earth.primary.mass, Nanotime(0));
+        if let Some(o) = o {
+            tree.add_object(id.next(), earth.id, o, Nanotime(0));
+        }
     }
 
     for _ in 0..100 {
-        tree.add_object(
-            id.next(),
-            earth.id,
-            {
-                let r = randvec(5000.0, 9000.0);
-                let v = randvec(30.0, 70.0);
-                Orbit::from_pv((r, v), earth.primary.mass, Nanotime(0))
-            },
-            Nanotime(0),
-        );
+        let r = randvec(5000.0, 9000.0);
+        let v = randvec(30.0, 70.0);
+        let o = Orbit::from_pv((r, v), earth.primary.mass, Nanotime(0));
+        if let Some(o) = o {
+            tree.add_object(id.next(), earth.id, o, Nanotime(0));
+        }
     }
 
     for _ in 0..5 {
         tree.add_object(
             id.next(),
             luna.id,
-            Orbit::circular(rand(200.0, 400.0), luna.primary.mass, Nanotime(0), false)
-                .random_nudge(Nanotime(0), 2.0),
+            Orbit::circular(rand(200.0, 400.0), luna.primary.mass, Nanotime(0), false),
             Nanotime(0),
         );
     }
@@ -133,7 +123,8 @@ pub fn earth_moon_example_two() -> (OrbitalTree, ObjectIdTracker) {
                 ),
                 make_earth().mass,
                 Nanotime(0),
-            ),
+            )
+            .unwrap(),
             Nanotime(0),
         );
     }
@@ -168,8 +159,7 @@ pub fn sun_jupiter_lagrange() -> (OrbitalTree, ObjectIdTracker) {
 
     for _ in 0..600 {
         let radius = rand(4000.0, 6000.0);
-        let orbit = Orbit::circular(radius, sun.primary.mass, Nanotime(0), false)
-            .random_nudge(Nanotime(0), 0.1);
+        let orbit = Orbit::circular(radius, sun.primary.mass, Nanotime(0), false);
         tree.add_object(id.next(), sun.id, orbit, Nanotime(0));
     }
 
@@ -193,7 +183,8 @@ pub fn consistency_example() -> (OrbitalTree, ObjectIdTracker) {
                     (pos, v0 + Vec2::new(vx as f32, vy as f32)),
                     make_earth().mass,
                     Nanotime(0),
-                );
+                )
+                .unwrap();
                 orbits.push(o);
             }
         }
@@ -212,7 +203,8 @@ pub fn single_hyperbolic() -> (OrbitalTree, ObjectIdTracker) {
     let mut id = ObjectIdTracker::new();
     let earth: Planet = Planet::new(id.next(), "Earth", make_earth());
     let mut tree = OrbitalTree::new(&earth);
-    let orbit = Orbit::from_pv(((400.0, 0.0), (0.0, 260.0)), make_earth().mass, Nanotime(0));
+    let orbit =
+        Orbit::from_pv(((400.0, 0.0), (0.0, 260.0)), make_earth().mass, Nanotime(0)).unwrap();
     tree.add_object(id.next(), earth.id, orbit, Nanotime(0));
     (tree, id)
 }
