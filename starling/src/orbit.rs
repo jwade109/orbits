@@ -175,7 +175,6 @@ pub struct Orbit {
 
 impl Orbit {
     pub fn from_pv(pv: impl Into<PV>, mass: f32, epoch: Nanotime) -> Option<Self> {
-
         let mu = mass * GRAVITATIONAL_CONSTANT;
         let pv: PV = pv.into();
 
@@ -232,7 +231,10 @@ impl Orbit {
             };
         }
 
-        if o.pv_at_time(epoch).filter_nan().is_none() {
+        if o.pv_at_time(epoch + Nanotime::secs(1))
+            .filter_nan()
+            .is_none()
+        {
             println!("Orbit returned NaN PV: {pv:?}\n  {o:?}");
             return None;
         }
