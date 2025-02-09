@@ -36,6 +36,7 @@ pub enum BadObjectNextState {
     Lookup,
     Removed,
     NoNextState,
+    BadOrbit,
     Err,
 }
 
@@ -132,10 +133,22 @@ impl Orbiter {
             }
 
             if prop.finished {
-                if let Some(next) = prop.next_prop(planets) {
-                    self.props.push(next);
-                } else {
-                    return Ok(());
+                match prop.next_prop(planets) {
+                    Ok(None) => {
+                        return Ok(());
+                    }
+                    Ok(Some(next)) => {
+                        self.props.push(next);
+                    }
+                    Err(_) => {
+                        let mut p = *prop;
+                        p.start = prop.end;
+                        p.end = prop.end;
+                        p.finished = true;
+                        p.event = Some(EventType::NumericalError);
+                        self.props.push(p);
+                        return Ok(());
+                    }
                 }
             }
         }

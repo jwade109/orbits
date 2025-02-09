@@ -183,9 +183,10 @@ pub fn consistency_example() -> (OrbitalTree, ObjectIdTracker) {
                     (pos, v0 + Vec2::new(vx as f32, vy as f32)),
                     make_earth().mass,
                     Nanotime(0),
-                )
-                .unwrap();
-                orbits.push(o);
+                );
+                if let Some(o) = o {
+                    orbits.push(o);
+                }
             }
         }
     }

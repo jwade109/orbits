@@ -436,20 +436,7 @@ impl Orbit {
 
 // 2nd stumpff function
 // aka C(z)
-#[deprecated]
 pub fn stumpff_2(z: f32) -> f32 {
-    if z > 0.0 {
-        (1.0 - z.sqrt().cos()) / z
-    } else if z < 0.0 {
-        ((-z).sqrt().cosh() - 1.0) / -z
-    } else {
-        0.5
-    }
-}
-
-// 2nd stumpff function
-// aka C(z)
-pub fn stumpff_2_prec(z: f32) -> f32 {
     let midwidth = 0.01;
     if z > midwidth {
         (1.0 - z.sqrt().cos()) / z
@@ -462,20 +449,7 @@ pub fn stumpff_2_prec(z: f32) -> f32 {
 
 // 3rd stumpff function
 // aka S(z)
-#[deprecated]
 pub fn stumpff_3(z: f32) -> f32 {
-    if z > 0.0 {
-        (z.sqrt() - z.sqrt().sin()) / z.powf(1.5)
-    } else if z < 0.0 {
-        ((-z).sqrt().sinh() - (-z).sqrt()) / (-z).powf(1.5)
-    } else {
-        1.0 / 6.0
-    }
-}
-
-// 3rd stumpff function
-// aka S(z)
-pub fn stumpff_3_prec(z: f32) -> f32 {
     let midwidth = 0.01;
     if z > midwidth {
         (z.sqrt() - z.sqrt().sin()) / z.powf(1.5)
@@ -550,7 +524,7 @@ pub fn universal_lagrange(
 
     let chi = rootfinder::root_bisection(
         &|x| universal_kepler(x as f32, r_0, v_r0, alpha, delta_t, mu).into(),
-        rootfinder::Interval::new(-999999.99, 999999.99),
+        rootfinder::Interval::new(-9999999.99, 9999999.99),
         None,
         None,
     )
@@ -692,10 +666,31 @@ mod tests {
     }
 
     #[test]
-    fn stupid_nan_hunting() {
-        let pv = PV::new((677.94434, -1662.8911), (72.930145, 53.23593));
+    fn stumpff() {
+        assert_eq!(stumpff_2(-20.0), 2.1388736);
+        assert_eq!(stumpff_2(-5.0), 0.74633473);
+        assert_eq!(stumpff_2(-1.0), 0.5430807);
+        assert_eq!(stumpff_2(-1E-6), 0.50000006);
+        assert_eq!(stumpff_2(-1E-12), 0.5);
+        assert_eq!(stumpff_2(0.0), 0.5);
+        assert_eq!(stumpff_2(1E-12), 0.5);
+        assert_eq!(stumpff_2(1E-6), 0.49999997);
+        assert_eq!(stumpff_2(1.0), 0.45969772);
+        assert_eq!(stumpff_2(5.0), 0.32345456);
+        assert_eq!(stumpff_2(20.0), 0.061897416);
 
-        let res = universal_lagrange(pv, Nanotime(0), 1000.0);
+        assert_eq!(stumpff_3(-20.0), 0.43931928);
+        assert_eq!(stumpff_3(-1E-12), 0.16666667);
+        assert_eq!(stumpff_3(0.0), 0.16666667);
+        assert_eq!(stumpff_3(1E-12), 0.16666667);
+        assert_eq!(stumpff_3(20.0), 0.060859215);
+    }
+
+    #[test]
+    fn bingus() {
+        let pv = PV::new((-4246.739, 1152.7261), (-10.610792, 80.369736));
+
+        let res = super::universal_lagrange(pv, Nanotime(0), 1000.0);
 
         dbg!(res);
     }

@@ -46,13 +46,11 @@ fn export_stumpff_functions() -> Result<(), Box<dyn std::error::Error>> {
     let x = linspace(-0.3, 0.3, 500000);
 
     let s2 = apply(&x, |x| stumpff_2(x));
-    let s2c = apply(&x, |x| stumpff_2_prec(x));
     let s3 = apply(&x, |x| stumpff_3(x));
-    let s3c = apply(&x, |x| stumpff_3_prec(x));
 
     write_csv(
         Path::new("stumpff.csv"),
-        &[("x", &x), ("s2", &s2), ("s2c", &s2c), ("s3", &s3), ("s3c", &s3c)],
+        &[("x", &x), ("s2", &s2), ("s3", &s3)],
     )
 }
 

@@ -153,38 +153,55 @@ impl Propagator {
         self.end = stamp;
     }
 
-    pub fn next_prop(&self, planets: &Planet) -> Option<Propagator> {
-        let e = self.event?;
+    pub fn next_prop(&self, planets: &Planet) -> Result<Option<Propagator>, BadObjectNextState> {
+        let e = match self.event {
+            Some(e) => e,
+            None => return Ok(None),
+        };
 
         match e {
-            EventType::Collide(_) => None,
-            EventType::NumericalError => None,
+            EventType::Collide(_) => Ok(None),
+            EventType::NumericalError => Ok(None),
             EventType::Escape(_) => {
-                let cur = planets.lookup(self.parent, self.end)?;
-                let reparent = cur.2?;
-                let new = planets.lookup(reparent, self.end)?;
+                let cur = planets
+                    .lookup(self.parent, self.end)
+                    .ok_or(BadObjectNextState::Lookup)?;
+                let reparent = match cur.2 {
+                    Some(id) => id,
+                    None => return Ok(None),
+                };
+                let new = planets
+                    .lookup(reparent, self.end)
+                    .ok_or(BadObjectNextState::Lookup)?;
 
                 let pv = self.orbit.pv_at_time(self.end);
                 let dv = cur.1 - new.1;
-                let orbit = Orbit::from_pv(pv + dv, new.0.mass, self.end)?;
-                Some(Propagator::new(reparent, orbit, self.end))
+                let orbit = Orbit::from_pv(pv + dv, new.0.mass, self.end)
+                    .ok_or(BadObjectNextState::BadOrbit)?;
+                Ok(Some(Propagator::new(reparent, orbit, self.end)))
             }
             EventType::Encounter(id) => {
-                let cur = planets.lookup(self.parent, self.end)?;
-                let new = planets.lookup(id, self.end)?;
+                let cur = planets
+                    .lookup(self.parent, self.end)
+                    .ok_or(BadObjectNextState::Lookup)?;
+                let new = planets
+                    .lookup(id, self.end)
+                    .ok_or(BadObjectNextState::Lookup)?;
 
                 let pv = self.orbit.pv_at_time(self.end);
                 let dv = cur.1 - new.1;
-                let orbit = Orbit::from_pv(pv + dv, new.0.mass, self.end)?;
-                Some(Propagator::new(id, orbit, self.end))
+                let orbit = Orbit::from_pv(pv + dv, new.0.mass, self.end)
+                    .ok_or(BadObjectNextState::BadOrbit)?;
+                Ok(Some(Propagator::new(id, orbit, self.end)))
             }
             EventType::Maneuver(man) => {
                 let pv = self.orbit.pv_at_time(self.end);
                 let dv = match man {
                     Maneuver::AxisAligned(dv) => dv,
                 };
-                let orbit = Orbit::from_pv(pv + PV::vel(dv), self.orbit.primary_mass, self.end)?;
-                Some(Propagator::new(self.parent, orbit, self.end))
+                let orbit = Orbit::from_pv(pv + PV::vel(dv), self.orbit.primary_mass, self.end)
+                    .ok_or(BadObjectNextState::BadOrbit)?;
+                Ok(Some(Propagator::new(self.parent, orbit, self.end)))
             }
         }
     }
@@ -204,7 +221,7 @@ impl Propagator {
         let ego = self.orbit;
 
         // TODO fix -- planet collision is kind of broken?
-        let can_hit_planet = false; // = ego.periapsis_r() <= radius;
+        let can_hit_planet = ego.periapsis_r() <= radius;
         let can_escape = ego.eccentricity >= 1.0 || ego.apoapsis_r() >= soi;
         let near_body = bodies
             .iter()

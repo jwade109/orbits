@@ -321,6 +321,10 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
         }
     }
 
+    state
+        .removed_objects
+        .retain(|(_, ri)| ri.stamp > s - Nanotime::secs(10));
+
     if let Some(a) = state.camera.selection_region() {
         state.highlighted_list = state
             .system
