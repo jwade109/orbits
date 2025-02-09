@@ -75,6 +75,7 @@ pub enum PredictError<T: BinarySearchKey> {
     BadType,
     Lookup,
     BadTimeDelta,
+    TooManyIterations,
     Collision(ConvergeError<T>),
     Escape(ConvergeError<T>),
     Encounter(ConvergeError<T>),

@@ -125,7 +125,7 @@ impl Orbiter {
             }
 
             if iter == 5000 {
-                return Err(PredictError::BadType);
+                return Err(PredictError::TooManyIterations);
             }
 
             if prop.end >= t {

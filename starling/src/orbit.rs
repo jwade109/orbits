@@ -175,8 +175,12 @@ pub struct Orbit {
 
 impl Orbit {
     pub fn from_pv(pv: impl Into<PV>, mass: f32, epoch: Nanotime) -> Option<Self> {
+
         let mu = mass * GRAVITATIONAL_CONSTANT;
         let pv: PV = pv.into();
+
+        pv.filter_nan()?;
+
         let r3 = pv.pos.extend(0.0);
         let v3 = pv.vel.extend(0.0);
         let h = r3.cross(v3);
@@ -469,13 +473,13 @@ pub fn universal_kepler(chi: f32, r_0: f32, v_r0: f32, alpha: f32, delta_t: f32,
     first_term + second_term + third_term - fourth_term
 }
 
-fn d_universal_d_chi(chi: f32, r_0: f32, v_r0: f32, alpha: f32, mu: f32) -> f32 {
-    let z = alpha * chi.powi(2);
-    let first_term = r_0 * v_r0 / mu.sqrt() * chi * (1.0 - z * stumpff_3(z));
-    let second_term = (1.0 - alpha * r_0) * chi.powi(2) * stumpff_2(z);
-    let third_term = r_0;
-    first_term + second_term + third_term
-}
+// fn d_universal_d_chi(chi: f32, r_0: f32, v_r0: f32, alpha: f32, mu: f32) -> f32 {
+//     let z = alpha * chi.powi(2);
+//     let first_term = r_0 * v_r0 / mu.sqrt() * chi * (1.0 - z * stumpff_3(z));
+//     let second_term = (1.0 - alpha * r_0) * chi.powi(2) * stumpff_2(z);
+//     let third_term = r_0;
+//     first_term + second_term + third_term
+// }
 
 #[derive(Debug, Clone, Copy)]
 pub enum ULError {
@@ -522,13 +526,17 @@ pub fn universal_lagrange(
     let delta_t = tof.to_secs();
     let chi_0: f32 = mu.sqrt() * alpha.abs() * delta_t;
 
-    let chi = rootfinder::root_bisection(
-        &|x| universal_kepler(x as f32, r_0, v_r0, alpha, delta_t, mu).into(),
-        rootfinder::Interval::new(-9999999.99, 9999999.99),
-        None,
-        None,
-    )
-    .map_err(|_| ULError::Solve)? as f32;
+    let chi = if tof == Nanotime(0) {
+        0.0
+    } else {
+        rootfinder::root_bisection(
+            &|x| universal_kepler(x as f32, r_0, v_r0, alpha, delta_t, mu).into(),
+            rootfinder::Interval::new(-999999.99, 999999.99),
+            None,
+            None,
+        )
+        .map_err(|_| ULError::Solve)? as f32
+    };
 
     let z = alpha * chi.powi(2);
 
@@ -684,15 +692,6 @@ mod tests {
         assert_eq!(stumpff_3(0.0), 0.16666667);
         assert_eq!(stumpff_3(1E-12), 0.16666667);
         assert_eq!(stumpff_3(20.0), 0.060859215);
-    }
-
-    #[test]
-    fn bingus() {
-        let pv = PV::new((-4246.739, 1152.7261), (-10.610792, 80.369736));
-
-        let res = super::universal_lagrange(pv, Nanotime(0), 1000.0);
-
-        dbg!(res);
     }
 
     #[test]
