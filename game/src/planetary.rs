@@ -137,7 +137,6 @@ pub struct GameState {
     pub paused: bool,
     pub system: OrbitalTree,
     pub ids: ObjectIdTracker,
-    pub removed_objects: Vec<(ObjectId, RemovalInfo)>,
     pub backup: Option<(OrbitalTree, ObjectIdTracker, Nanotime)>,
     pub track_list: Vec<ObjectId>,
     pub highlighted_list: Vec<ObjectId>,
@@ -161,44 +160,13 @@ impl GameState {
         }
     }
 
-    pub fn _tracked_aabb(&self) -> Option<AABB> {
+    pub fn tracked_aabb(&self) -> Option<AABB> {
         let pos = self
             .track_list
             .iter()
             .filter_map(|id| Some(self.system.orbiter_lookup(*id, self.sim_time)?.pv().pos))
             .collect::<Vec<_>>();
         AABB::from_list(&pos).map(|aabb| aabb.padded(60.0))
-    }
-
-    pub fn test_points(&self) -> Option<Vec<Vec2>> {
-        let p1 = self.control_points.get(0);
-        let p2 = self
-            .control_points
-            .get(1)
-            .map(|e| *e)
-            .or(self.camera.mouse_pos());
-
-        if let Some((p1, p2)) = p1.zip(p2) {
-            if *p1 == p2 {
-                return None;
-            }
-
-            let mu = self.system.system.primary.mass * GRAVITATIONAL_CONSTANT;
-            let v = (mu / p1.length()).sqrt();
-            let pv = PV::new(*p1, (p2 - p1) * v / p1.length());
-
-            return Some(
-                (-500..=500)
-                    .filter_map(|i| {
-                        let t = Nanotime::secs(i);
-                        let p = universal_lagrange(pv, t, mu);
-                        p.map(|data| data.pv.pos).ok()
-                    })
-                    .collect::<Vec<_>>(),
-            );
-        }
-
-        None
     }
 
     pub fn target_orbit(&self) -> Option<Orbit> {
@@ -214,11 +182,11 @@ impl GameState {
                 return None;
             }
 
-            let v = (self.system.system.primary.mass * GRAVITATIONAL_CONSTANT / p1.length()).sqrt();
+            let v = (self.system.system.body.mass * GRAVITATIONAL_CONSTANT / p1.length()).sqrt();
 
             Orbit::from_pv(
                 (*p1, (p2 - p1) * v / p1.length()),
-                self.system.system.primary.mass,
+                self.system.system.body,
                 self.sim_time,
             )
         } else {
@@ -280,14 +248,13 @@ impl Default for GameState {
         let (system, ids) = default_example();
         GameState {
             sim_time: Nanotime(0),
-            physics_duration: Nanotime::secs(500),
+            physics_duration: Nanotime::secs(120),
             sim_speed: 0,
-            show_orbits: true,
+            show_orbits: false,
             show_potential_field: false,
             paused: false,
             system: system.clone(),
             ids,
-            removed_objects: Vec::new(),
             track_list: Vec::new(),
             highlighted_list: Vec::new(),
             backup: Some((system, ids, Nanotime(0))),
@@ -313,17 +280,7 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
 
     let s = state.sim_time;
     let d = state.physics_duration;
-    let info = state.system.propagate_to(s, d);
-
-    for (id, ri) in &info {
-        if let Some(ri) = ri {
-            state.removed_objects.push((*id, *ri));
-        }
-    }
-
-    state
-        .removed_objects
-        .retain(|(_, ri)| ri.stamp > s - Nanotime::secs(10));
+    let _info = state.system.propagate_to(s, d);
 
     if let Some(a) = state.camera.selection_region() {
         state.highlighted_list = state
@@ -539,7 +496,7 @@ fn mouse_button_input(
 
 fn load_new_scenario(state: &mut GameState, tree: OrbitalTree, ids: ObjectIdTracker) {
     state.backup = Some((tree.clone(), ids, Nanotime(0)));
-    state.camera.target_scale = 0.001 * tree.system.primary.soi;
+    state.camera.target_scale = 0.001 * tree.system.body.soi;
     state.system = tree;
     state.sim_time = Nanotime(0);
 }

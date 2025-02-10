@@ -112,11 +112,11 @@ pub fn draw_globe(gizmos: &mut Gizmos, p: Vec2, radius: f32, color: Srgba) {
     }
 }
 
-pub fn draw_planets(gizmos: &mut Gizmos, planet: &Planet, stamp: Nanotime, origin: Vec2) {
-    draw_shadows(gizmos, origin, planet.primary.radius, stamp);
-    draw_globe(gizmos, origin, planet.primary.radius, WHITE);
+pub fn draw_planets(gizmos: &mut Gizmos, planet: &PlanetarySystem, stamp: Nanotime, origin: Vec2) {
+    draw_shadows(gizmos, origin, planet.body.radius, stamp);
+    draw_globe(gizmos, origin, planet.body.radius, WHITE);
     for (a, ds) in [(1.0, 1.0), (0.3, 0.98), (0.1, 0.95)] {
-        draw_circle(gizmos, origin, planet.primary.soi * ds, alpha(ORANGE, a));
+        draw_circle(gizmos, origin, planet.body.soi * ds, alpha(ORANGE, a));
     }
 
     for (orbit, pl) in &planet.subsystems {
@@ -128,7 +128,7 @@ pub fn draw_planets(gizmos: &mut Gizmos, planet: &Planet, stamp: Nanotime, origi
 
 fn draw_propagator(
     gizmos: &mut Gizmos,
-    planets: &Planet,
+    planets: &PlanetarySystem,
     prop: &Propagator,
     stamp: Nanotime,
     scale: f32,
@@ -150,7 +150,7 @@ fn draw_propagator(
 
 pub fn draw_object(
     gizmos: &mut Gizmos,
-    planets: &Planet,
+    planets: &PlanetarySystem,
     obj: &Orbiter,
     stamp: Nanotime,
     scale: f32,
@@ -163,7 +163,7 @@ pub fn draw_object(
     let size = (4.0 * scale).min(10.0);
     draw_circle(gizmos, pv.pos, size, WHITE);
     if tracked {
-        draw_square(gizmos, pv.pos, (70.0 * scale).min(70.0), alpha(ORANGE, 0.7));
+        draw_square(gizmos, pv.pos, (70.0 * scale).min(70.0), alpha(WHITE, 0.7));
     }
     if duty_cycle && obj.will_collide() {
         draw_circle(gizmos, pv.pos, size + 10.0 * scale, RED);
@@ -175,6 +175,11 @@ pub fn draw_object(
     }
 
     if tracked {
+        if let Some((pvl, pv)) = obj.pvl(stamp).zip(obj.pv(stamp, planets)) {
+            let prograde = pvl.vel.normalize_or(Vec2::ZERO) * 200.0 * scale.min(2.0);
+            gizmos.line_2d(pv.pos, pv.pos + prograde, RED);
+        }
+
         for (i, prop) in obj.props().iter().enumerate() {
             let color = if i == 0 {
                 ORANGE
@@ -235,7 +240,7 @@ pub fn draw_orbital_system(
 
 pub fn draw_scalar_field_cell(
     gizmos: &mut Gizmos,
-    planet: &Planet,
+    planet: &PlanetarySystem,
     stamp: Nanotime,
     center: Vec2,
     step: f32,
@@ -298,7 +303,12 @@ pub fn draw_scalar_field_cell(
     }
 }
 
-pub fn draw_scalar_field_v2(gizmos: &mut Gizmos, planet: &Planet, stamp: Nanotime, levels: &[i32]) {
+pub fn draw_scalar_field_v2(
+    gizmos: &mut Gizmos,
+    planet: &PlanetarySystem,
+    stamp: Nanotime,
+    levels: &[i32],
+) {
     let step = 250;
     for y in (-4000..=4000).step_by(step) {
         for x in (-4000..=4000).step_by(step) {
@@ -343,7 +353,7 @@ pub fn draw_event_marker_at(gizmos: &mut Gizmos, event: &EventType, p: Vec2, sca
 
 pub fn draw_event(
     gizmos: &mut Gizmos,
-    planets: &Planet,
+    planets: &PlanetarySystem,
     event: &EventType,
     stamp: Nanotime,
     p: Vec2,
@@ -405,19 +415,8 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
         );
     }
 
-    state.test_points().map(|v| {
-        for p in &v {
-            draw_square(&mut gizmos, *p, 6.0 * state.camera.actual_scale, WHITE);
-        }
-        gizmos.linestrip_2d(v, PURPLE);
-    });
-
-    for (_, ri) in &state.removed_objects {
-        let anim_dur = Nanotime::secs(1);
-        let tstart = ri.stamp - anim_dur;
-        let tanim = state.sim_time % anim_dur + tstart;
-        let p = ri.orbit.pv_at_time(tanim);
-        draw_event_marker_at(&mut gizmos, &ri.reason, p.pos, state.camera.actual_scale);
+    if let Some(aabb) = state.tracked_aabb() {
+        draw_aabb(&mut gizmos, aabb.padded(50.0), alpha(GRAY, 0.03));
     }
 
     if let Some(o) = state.target_orbit() {

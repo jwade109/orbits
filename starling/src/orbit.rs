@@ -167,15 +167,13 @@ pub struct Orbit {
     pub semi_major_axis: f32,
     pub arg_periapsis: f32,
     pub retrograde: bool,
-    pub primary_mass: f32,
-    pub time_at_periapsis: Nanotime,
+    pub body: Body,
     pub initial: PV,
     pub epoch: Nanotime,
 }
 
 impl Orbit {
-    pub fn from_pv(pv: impl Into<PV>, mass: f32, epoch: Nanotime) -> Option<Self> {
-        let mu = mass * GRAVITATIONAL_CONSTANT;
+    pub fn from_pv(pv: impl Into<PV>, body: Body, epoch: Nanotime) -> Option<Self> {
         let pv: PV = pv.into();
 
         pv.filter_nan()?;
@@ -183,9 +181,9 @@ impl Orbit {
         let r3 = pv.pos.extend(0.0);
         let v3 = pv.vel.extend(0.0);
         let h = r3.cross(v3);
-        let e = v3.cross(h) / mu - r3 / r3.length();
+        let e = v3.cross(h) / body.mu() - r3 / r3.length();
         let arg_periapsis: f32 = f32::atan2(e.y, e.x);
-        let semi_major_axis: f32 = h.length_squared() / (mu * (1.0 - e.length_squared()));
+        let semi_major_axis: f32 = h.length_squared() / (body.mu() * (1.0 - e.length_squared()));
         let mut true_anomaly = f32::acos(e.dot(r3) / (e.length() * r3.length()));
         if r3.dot(v3) < 0.0 {
             true_anomaly = if e.length() < 1.0 {
@@ -195,7 +193,7 @@ impl Orbit {
             };
         }
 
-        let mm = mean_motion(mu, semi_major_axis);
+        let mm = mean_motion(body.mu(), semi_major_axis);
 
         let ta = Anomaly::with_ecc(e.length(), true_anomaly);
         let ea = true_to_eccentric(ta, e.length());
@@ -203,33 +201,15 @@ impl Orbit {
 
         let dt = Nanotime((ma.as_f32() / mm * 1E9) as i64);
 
-        // TODO this is definitely crap
-        let time_at_periapsis = if e.length() > 1.0 && h.z < 0.0 {
-            epoch + dt
-        } else {
-            epoch - dt
-        };
-
-        let mut o = Orbit {
+        let o = Orbit {
             eccentricity: e.length(),
             semi_major_axis,
             arg_periapsis,
             retrograde: h.z < 0.0,
-            primary_mass: mass,
-            time_at_periapsis,
+            body,
             initial: pv,
             epoch,
         };
-
-        // TODO mega turbo crap
-        let pcalc = o.pv_at_time(epoch);
-        if pcalc.pos.distance(Vec2::new(r3.x, r3.y)) > 20.0 {
-            o.time_at_periapsis = if e.length() > 1.0 && h.z < 0.0 {
-                epoch - dt
-            } else {
-                epoch + dt
-            };
-        }
 
         if o.pv_at_time(epoch + Nanotime::secs(1))
             .filter_nan()
@@ -247,16 +227,15 @@ impl Orbit {
         Some(o)
     }
 
-    pub fn circular(radius: f32, mass: f32, epoch: Nanotime, retrograde: bool) -> Self {
+    pub fn circular(radius: f32, body: Body, epoch: Nanotime, retrograde: bool) -> Self {
         let p = Vec2::new(radius, 0.0);
-        let v = Vec2::new(0.0, (mass * GRAVITATIONAL_CONSTANT / radius).sqrt());
+        let v = Vec2::new(0.0, (body.mu() / radius).sqrt());
         Orbit {
             eccentricity: 0.0,
             semi_major_axis: radius,
             arg_periapsis: 0.0,
             retrograde,
-            primary_mass: mass,
-            time_at_periapsis: epoch,
+            body,
             initial: PV::new(p, v),
             epoch,
         }
@@ -297,7 +276,7 @@ impl Orbit {
     }
 
     pub fn angular_momentum(&self) -> f32 {
-        (self.mu() * self.semi_latus_rectum()).sqrt()
+        (self.body.mu() * self.semi_latus_rectum()).sqrt()
     }
 
     pub fn radius_at_angle(&self, angle: f32) -> f32 {
@@ -313,7 +292,7 @@ impl Orbit {
     pub fn radius_at(&self, true_anomaly: f32) -> f32 {
         if self.eccentricity == 1.0 {
             let h = self.angular_momentum();
-            let mu = self.mu();
+            let mu = self.body.mu();
             return (h.powi(2) / mu) * 1.0 / (1.0 + true_anomaly.cos());
         }
         self.semi_major_axis * (1.0 - self.eccentricity.powi(2))
@@ -329,23 +308,15 @@ impl Orbit {
     }
 
     pub fn pv_at_time(&self, stamp: Nanotime) -> PV {
-        universal_lagrange(
-            self.initial,
-            stamp - self.epoch,
-            self.primary_mass * GRAVITATIONAL_CONSTANT,
-        )
-        .map(|t| t.pv)
-        .unwrap_or(PV::zero())
+        universal_lagrange(self.initial, stamp - self.epoch, self.body.mu())
+            .map(|t| t.pv)
+            .unwrap_or(PV::zero())
     }
 
     pub fn pv_at_time_fallible(&self, stamp: Nanotime) -> Option<PV> {
-        universal_lagrange(
-            self.initial,
-            stamp - self.epoch,
-            self.primary_mass * GRAVITATIONAL_CONSTANT,
-        )
-        .map(|t| t.pv)
-        .ok()
+        universal_lagrange(self.initial, stamp - self.epoch, self.body.mu())
+            .map(|t| t.pv)
+            .ok()
     }
 
     pub fn position_at(&self, true_anomaly: f32) -> Vec2 {
@@ -359,7 +330,7 @@ impl Orbit {
 
     pub fn velocity_at(&self, true_anomaly: f32) -> Vec2 {
         let r = self.radius_at(true_anomaly);
-        let v = (self.mu() * (2.0 / r - 1.0 / self.semi_major_axis)).sqrt();
+        let v = (self.body.mu() * (2.0 / r - 1.0 / self.semi_major_axis)).sqrt();
         let h = self.angular_momentum();
         let cosfpa = h / (r * v);
         let sinfpa = cosfpa * self.eccentricity * true_anomaly.sin()
@@ -386,42 +357,31 @@ impl Orbit {
     }
 
     pub fn mean_motion(&self) -> f32 {
-        (self.mu() / self.semi_major_axis.abs().powi(3)).sqrt()
-    }
-
-    pub fn mu(&self) -> f32 {
-        GRAVITATIONAL_CONSTANT * self.primary_mass
+        (self.body.mu() / self.semi_major_axis.abs().powi(3)).sqrt()
     }
 
     pub fn orbit_number(&self, stamp: Nanotime) -> Option<i64> {
         let p = self.period()?;
-        let dt = stamp - self.time_at_periapsis;
+        let dt = stamp - self.epoch;
         let n = dt.0.checked_div(p.0)?;
         Some(if dt.0 < 0 { n - 1 } else { n })
     }
 
     pub fn t_next_p(&self, current: Nanotime) -> Option<Nanotime> {
-        if self.eccentricity >= 1.0 {
-            return (self.time_at_periapsis >= current).then(|| self.time_at_periapsis);
-        }
-        let p = self.period()?;
-        let n = self.orbit_number(current)?;
-        Some(p * (n + 1) + self.time_at_periapsis)
+        None
+        // if self.eccentricity >= 1.0 {
+        //     return (self.time_at_periapsis >= current).then(|| self.time_at_periapsis);
+        // }
+        // let p = self.period()?;
+        // let n = self.orbit_number(current)?;
+        // Some(p * (n + 1) + self.time_at_periapsis)
     }
 
     pub fn t_last_p(&self, current: Nanotime) -> Option<Nanotime> {
-        let p = self.period()?;
-        let n = self.orbit_number(current)?;
-        Some(p * n + self.time_at_periapsis)
-    }
-
-    pub fn focii(&self) -> [Vec2; 2] {
-        let p = self.periapsis();
-        let a = self.apoapsis();
-        let c = (a + p) / 2.0;
-        let u = (a - p).normalize();
-        let d = self.semi_major_axis * self.eccentricity;
-        [c + u * d, c - u * d]
+        None
+        // let p = self.period()?;
+        // let n = self.orbit_number(current)?;
+        // Some(p * n + self.time_at_periapsis)
     }
 
     pub fn asymptotes(&self) -> Option<(Vec2, Vec2)> {
@@ -474,14 +434,6 @@ pub fn universal_kepler(chi: f32, r_0: f32, v_r0: f32, alpha: f32, delta_t: f32,
     let fourth_term = mu.sqrt() * delta_t;
     first_term + second_term + third_term - fourth_term
 }
-
-// fn d_universal_d_chi(chi: f32, r_0: f32, v_r0: f32, alpha: f32, mu: f32) -> f32 {
-//     let z = alpha * chi.powi(2);
-//     let first_term = r_0 * v_r0 / mu.sqrt() * chi * (1.0 - z * stumpff_3(z));
-//     let second_term = (1.0 - alpha * r_0) * chi.powi(2) * stumpff_2(z);
-//     let third_term = r_0;
-//     first_term + second_term + third_term
-// }
 
 #[derive(Debug, Clone, Copy)]
 pub enum ULError {
@@ -618,11 +570,7 @@ pub fn export_orbit_data(
     let nt = apply(&ftime, |x| Nanotime::secs_f32(x));
 
     let data = apply(&nt, |x| {
-        universal_lagrange(
-            orbit.initial,
-            x,
-            orbit.primary_mass * GRAVITATIONAL_CONSTANT,
-        )
+        universal_lagrange(orbit.initial, x, orbit.body.mu())
     });
 
     let x = apply(&data, |x| x.map(|d| d.pv.pos.x).unwrap_or(f32::NAN));

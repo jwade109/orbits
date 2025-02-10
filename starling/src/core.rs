@@ -213,29 +213,29 @@ impl ObjectLookup {
 #[derive(Debug, Clone)]
 pub struct OrbitalTree {
     pub objects: Vec<Orbiter>,
-    pub system: Planet,
+    pub system: PlanetarySystem,
 }
 
 #[derive(Debug, Clone)]
-pub struct Planet {
+pub struct PlanetarySystem {
     pub id: ObjectId,
     pub name: String,
-    pub primary: Body,
-    pub subsystems: Vec<(Orbit, Planet)>,
+    pub body: Body,
+    pub subsystems: Vec<(Orbit, PlanetarySystem)>,
 }
 
-impl Planet {
-    pub fn new(id: ObjectId, name: impl Into<String>, primary: Body) -> Self {
-        Planet {
+impl PlanetarySystem {
+    pub fn new(id: ObjectId, name: impl Into<String>, body: Body) -> Self {
+        PlanetarySystem {
             id,
             name: name.into(),
-            primary,
+            body,
             subsystems: vec![],
         }
     }
 
-    pub fn orbit(&mut self, orbit: Orbit, planet: Planet) {
-        self.subsystems.push((orbit, planet));
+    pub fn orbit(&mut self, orbit: Orbit, planets: PlanetarySystem) {
+        self.subsystems.push((orbit, planets));
     }
 
     fn lookup_inner(
@@ -244,9 +244,9 @@ impl Planet {
         stamp: Nanotime,
         wrt: PV,
         parent_id: Option<ObjectId>,
-    ) -> Option<(Body, PV, Option<ObjectId>, &Planet)> {
+    ) -> Option<(Body, PV, Option<ObjectId>, &PlanetarySystem)> {
         if self.id == id {
-            return Some((self.primary, wrt, parent_id, self));
+            return Some((self.body, wrt, parent_id, self));
         }
 
         for (orbit, pl) in &self.subsystems {
@@ -264,7 +264,7 @@ impl Planet {
         &self,
         id: ObjectId,
         stamp: Nanotime,
-    ) -> Option<(Body, PV, Option<ObjectId>, &Planet)> {
+    ) -> Option<(Body, PV, Option<ObjectId>, &PlanetarySystem)> {
         self.lookup_inner(id, stamp, PV::zero(), None)
     }
 }
@@ -277,7 +277,7 @@ pub struct RemovalInfo {
 }
 
 impl OrbitalTree {
-    pub fn new(system: &Planet) -> Self {
+    pub fn new(system: &PlanetarySystem) -> Self {
         OrbitalTree {
             objects: vec![],
             system: system.clone(),
@@ -345,9 +345,9 @@ impl OrbitalTree {
     }
 }
 
-pub fn potential_at(planet: &Planet, pos: Vec2, stamp: Nanotime) -> f32 {
+pub fn potential_at(planet: &PlanetarySystem, pos: Vec2, stamp: Nanotime) -> f32 {
     let r = pos.length().clamp(10.0, std::f32::MAX);
-    let mut ret = -(planet.primary.mass * GRAVITATIONAL_CONSTANT) / r;
+    let mut ret = -(planet.body.mass * GRAVITATIONAL_CONSTANT) / r;
     for (orbit, pl) in &planet.subsystems {
         let pv = orbit.pv_at_time(stamp);
         ret += potential_at(pl, pos - pv.pos, stamp);

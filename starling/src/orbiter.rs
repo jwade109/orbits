@@ -52,7 +52,7 @@ impl Orbiter {
         let (new_orbit, parent) = {
             let prop = self.propagator_at(stamp)?;
             let pv = prop.orbit.pv_at_time(stamp) + PV::vel(dv);
-            let orbit = Orbit::from_pv(pv, prop.orbit.primary_mass, stamp)?;
+            let orbit = Orbit::from_pv(pv, prop.orbit.body, stamp)?;
             (orbit, prop.parent)
         };
         self.props.clear();
@@ -61,7 +61,7 @@ impl Orbiter {
         Some(())
     }
 
-    pub fn pv(&self, stamp: Nanotime, planets: &Planet) -> Option<PV> {
+    pub fn pv(&self, stamp: Nanotime, planets: &PlanetarySystem) -> Option<PV> {
         let prop = self.propagator_at(stamp)?;
         let (_, pv, _, _) = planets.lookup(prop.parent, stamp)?;
         Some(prop.orbit.pv_at_time(stamp) + pv)
@@ -97,7 +97,7 @@ impl Orbiter {
         &mut self,
         stamp: Nanotime,
         future_dur: Nanotime,
-        planets: &Planet,
+        planets: &PlanetarySystem,
     ) -> Result<(), PredictError<Nanotime>> {
         while self.props.len() > 1 && self.props[0].end < stamp {
             self.props.remove(0);
@@ -114,13 +114,13 @@ impl Orbiter {
             let bodies = pl
                 .subsystems
                 .iter()
-                .map(|(orbit, pl)| (pl.id, *orbit, pl.primary.soi))
+                .map(|(orbit, pl)| (pl.id, *orbit, pl.body.soi))
                 .collect::<Vec<_>>();
 
             let mut iter = 0;
 
             while !prop.calculated_to(t) && iter < 5000 {
-                prop.next(pl.primary.radius, pl.primary.soi, &bodies)?;
+                prop.next(pl.body.radius, pl.body.soi, &bodies)?;
                 iter += 1;
             }
 
