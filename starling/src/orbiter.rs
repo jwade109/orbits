@@ -105,7 +105,9 @@ impl Orbiter {
 
         let t = stamp + future_dur;
 
-        for _ in 0..10 {
+        let max_iters = 500;
+
+        for _ in 0..max_iters {
             let prop = self.props.iter_mut().last().ok_or(PredictError::Lookup)?;
 
             let (_, _, _, pl) = planets
@@ -117,15 +119,8 @@ impl Orbiter {
                 .map(|(orbit, pl)| (pl.id, *orbit, pl.body.soi))
                 .collect::<Vec<_>>();
 
-            let mut iter = 0;
-
-            while !prop.calculated_to(t) && iter < 5000 {
-                prop.next(pl.body.radius, pl.body.soi, &bodies)?;
-                iter += 1;
-            }
-
-            if iter == 5000 {
-                return Err(PredictError::TooManyIterations);
+            while !prop.calculated_to(t) {
+                prop.next(&bodies)?;
             }
 
             if prop.end >= t {
@@ -153,6 +148,6 @@ impl Orbiter {
             }
         }
 
-        Err(PredictError::BadTimeDelta)
+        Err(PredictError::TooManyIterations)
     }
 }

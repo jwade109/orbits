@@ -14,11 +14,17 @@ pub fn alpha(color: Srgba, a: f32) -> Srgba {
     Srgba { alpha: a, ..color }
 }
 
-pub fn draw_x(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
+pub fn draw_cross(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     let dx = Vec2::new(size, 0.0);
     let dy = Vec2::new(0.0, size);
     gizmos.line_2d(p - dx, p + dx, color);
     gizmos.line_2d(p - dy, p + dy, color);
+}
+
+pub fn draw_x(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
+    let s = size / 2.0;
+    gizmos.line_2d(p + Vec2::new(-s, -s), p + Vec2::new(s, s), color);
+    gizmos.line_2d(p + Vec2::new(s, -s), p + Vec2::new(-s, s), color);
 }
 
 pub fn draw_square(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
@@ -40,7 +46,7 @@ pub fn draw_aabb(gizmos: &mut Gizmos, aabb: AABB, color: Srgba) {
 }
 
 pub fn draw_obb(gizmos: &mut Gizmos, obb: &OBB, color: Srgba) {
-    draw_x(gizmos, obb.0.center, 30.0, color);
+    draw_cross(gizmos, obb.0.center, 30.0, color);
     let mut corners = obb.corners().to_vec();
     corners.push(*corners.get(0).unwrap());
     gizmos.linestrip_2d(corners, color);
@@ -75,7 +81,7 @@ pub fn draw_orbit(gizmos: &mut Gizmos, orb: &Orbit, origin: Vec2, color: Srgba) 
 
     // if orb.eccentricity >= 1.0 {
     //     let focii = orb.focii();
-    //     draw_x(gizmos, focii[0], 20.0, WHITE);
+    //     draw_cross(gizmos, focii[0], 20.0, WHITE);
     //     draw_circle(gizmos, focii[1], 15.0, WHITE);
     //     if let Some((ua, la)) = orb.asymptotes() {
     //         let c = orb.center();
@@ -182,7 +188,7 @@ pub fn draw_object(
 
         for (i, prop) in obj.props().iter().enumerate() {
             let color = if i == 0 {
-                ORANGE
+                alpha(ORANGE, 0.3)
             } else {
                 alpha(TEAL, (1.0 - i as f32 * 0.3).max(0.0))
             };
@@ -338,9 +344,26 @@ pub fn draw_shadows(gizmos: &mut Gizmos, origin: Vec2, radius: f32, stamp: Nanot
     }
 }
 
-pub fn draw_event_marker_at(gizmos: &mut Gizmos, event: &EventType, p: Vec2, scale: f32) {
+pub fn draw_event_marker_at(
+    gizmos: &mut Gizmos,
+    event: &EventType,
+    p: Vec2,
+    scale: f32,
+    duty_cycle: bool,
+) {
+    if !duty_cycle {
+        match event {
+            EventType::NumericalError => return,
+            EventType::Collide(_) => return,
+            _ => (),
+        }
+    }
+
     let color = match event {
-        EventType::Collide(_) => RED,
+        EventType::Collide(_) => {
+            draw_x(gizmos, p, 40.0 * scale, RED);
+            return;
+        }
         EventType::NumericalError => YELLOW,
         EventType::Encounter(_) => GREEN,
         EventType::Escape(_) => TEAL,
@@ -360,20 +383,11 @@ pub fn draw_event(
     scale: f32,
     duty_cycle: bool,
 ) -> Option<()> {
-    let draw = match event {
-        EventType::Collide(_) => duty_cycle,
-        EventType::NumericalError => duty_cycle,
-        _ => true,
-    };
-
     if let EventType::Encounter(id) = event {
         let (body, pv, _, _) = planets.lookup(*id, stamp)?;
         draw_circle(gizmos, pv.pos, body.soi, alpha(ORANGE, 0.2));
     }
-
-    if draw {
-        draw_event_marker_at(gizmos, event, p, scale);
-    }
+    draw_event_marker_at(gizmos, event, p, scale, duty_cycle);
     Some(())
 }
 
@@ -403,6 +417,33 @@ pub fn draw_camera_controls(gizmos: &mut Gizmos, cam: &CameraState) {
     }
 }
 
+pub fn draw_event_animation(
+    gizmos: &mut Gizmos,
+    system: &OrbitalTree,
+    id: ObjectId,
+    stamp: Nanotime,
+    scale: f32,
+    duty_cycle: bool,
+) -> Option<()> {
+    let obj = system.objects.iter().find(|o| o.id == id)?;
+    let p = obj.props().last()?;
+    let mut t = stamp;
+    while t < p.end {
+        let pv = obj.pv(t, &system.system)?;
+        draw_square(gizmos, pv.pos, 11.0 * scale.min(1.0), alpha(WHITE, 0.6));
+        t += Nanotime::secs(1);
+    }
+    for prop in obj.props() {
+        let pv = obj.pv(prop.end, &system.system)?;
+        if let Some(e) = prop.event {
+            draw_event_marker_at(gizmos, &e, pv.pos, scale, duty_cycle);
+        }
+    }
+    let pv = obj.pv(p.end, &system.system)?;
+    draw_square(gizmos, pv.pos, 13.0 * scale.min(1.0), alpha(RED, 0.8));
+    Some(())
+}
+
 pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
     let stamp = state.sim_time;
 
@@ -425,6 +466,17 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
 
     if state.show_potential_field {
         draw_scalar_field_v2(&mut gizmos, &state.system.system, stamp, &state.draw_levels);
+    }
+
+    for id in &state.track_list {
+        draw_event_animation(
+            &mut gizmos,
+            &state.system,
+            *id,
+            state.sim_time,
+            state.camera.actual_scale,
+            state.duty_cycle_high,
+        );
     }
 
     draw_camera_controls(&mut gizmos, &state.camera);

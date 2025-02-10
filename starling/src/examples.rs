@@ -38,7 +38,7 @@ pub fn earth_moon_example_one() -> (OrbitalTree, ObjectIdTracker) {
 
     let mut earth = PlanetarySystem::new(id.next(), "Earth", make_earth());
     let luna = PlanetarySystem::new(id.next(), "Luna", make_luna().0);
-    let ast = PlanetarySystem::new(id.next(), "Asteroid", Body::new(10.0, 2.0, 60.0));
+    let ast = PlanetarySystem::new(id.next(), "Asteroid", Body::new(6.0, 2.0, 200.0));
 
     earth.orbit(make_luna().1, luna.clone());
     earth.orbit(

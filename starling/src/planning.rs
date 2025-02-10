@@ -212,8 +212,6 @@ impl Propagator {
 
     pub fn next(
         &mut self,
-        radius: f32,
-        soi: f32,
         bodies: &[(ObjectId, Orbit, f32)],
     ) -> Result<(), PredictError<Nanotime>> {
         if self.finished {
@@ -226,8 +224,8 @@ impl Propagator {
 
         let alt = ego.pv_at_time(self.end).pos.length();
 
-        let might_hit_planet = ego.periapsis_r() <= radius && alt < ego.body.radius * 20.0;
-        let can_escape = ego.eccentricity >= 1.0 || ego.apoapsis_r() >= soi;
+        let might_hit_planet = ego.periapsis_r() <= ego.body.radius && alt < ego.body.radius * 20.0;
+        let can_escape = ego.eccentricity >= 1.0 || ego.apoapsis_r() >= ego.body.soi;
         let near_body = bodies
             .iter()
             .any(|(_, orb, soi)| mutual_separation(&ego, orb, self.stamp()) < soi * 3.0);
@@ -263,12 +261,12 @@ impl Propagator {
 
         let above_planet = |t: Nanotime| {
             let pos = ego.pv_at_time(t).pos;
-            pos.length() > radius
+            pos.length() > ego.body.radius
         };
 
         let escape_soi = |t: Nanotime| {
             let pos = ego.pv_at_time(t).pos;
-            pos.length() < soi
+            pos.length() < ego.body.soi
         };
 
         let encounter_nth = |i: usize| {

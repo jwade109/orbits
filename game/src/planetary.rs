@@ -352,8 +352,8 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
             send_log(
                 &mut evt,
                 &format!(
-                    "- [{:?}, {:?}, {}, {:?}]",
-                    prop.start, prop.end, prop.finished, prop.event
+                    "- [{:?}, {:?}, {}, {:?}, {:?}]",
+                    prop.start, prop.end, prop.finished, prop.event, prop.dt
                 ),
             );
         }

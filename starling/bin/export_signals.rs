@@ -35,7 +35,7 @@ fn export_orbit_position() -> Result<(), Box<dyn std::error::Error>> {
 
     let initial = PV::new(randvec(100.0, 500.0), randvec(100.0, 400.0));
 
-    let orbit = Orbit::from_pv(initial, earth.mass, Nanotime(0)).unwrap();
+    let orbit = Orbit::from_pv(initial, earth, Nanotime(0)).unwrap();
 
     _ = export_orbit_data(&orbit, Path::new("orbit.csv"));
 
