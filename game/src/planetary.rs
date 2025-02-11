@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
 use starling::aabb::AABB;
+use starling::control::*;
 use starling::core::*;
 use starling::examples::*;
 use starling::orbit::*;
@@ -145,6 +146,7 @@ pub struct GameState {
     pub control_points: Vec<Vec2>,
     pub hide_debug: bool,
     pub duty_cycle_high: bool,
+    pub controllers: Vec<Controller>,
 }
 
 impl GameState {
@@ -266,6 +268,7 @@ impl Default for GameState {
             control_points: Vec::new(),
             hide_debug: false,
             duty_cycle_high: false,
+            controllers: vec![Controller::avoid(ObjectId(12))],
         }
     }
 }
@@ -281,6 +284,47 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     let s = state.sim_time;
     let d = state.physics_duration;
     let _info = state.system.propagate_to(s, d);
+
+    let mut new_ctrls = vec![];
+    for obj in &state.system.objects {
+        if state
+            .controllers
+            .iter()
+            .find(|c| c.target() == obj.id)
+            .is_none()
+        {
+            let c = Controller::avoid(obj.id);
+            new_ctrls.push(c);
+        }
+    }
+
+    let active_ctrls = state
+        .system
+        .objects
+        .iter()
+        .map(|obj| obj.id)
+        .collect::<Vec<_>>();
+
+    state
+        .controllers
+        .retain(|c| active_ctrls.contains(&c.target()));
+
+    state.controllers.extend_from_slice(&new_ctrls);
+
+    let system = state.system.clone(); // TODO shitty
+    let mut mans = vec![];
+    for ctrl in &mut state.controllers {
+        let dv = ctrl.update(&system, s);
+        if let Some(dv) = dv {
+            mans.push((ctrl.target(), dv));
+        }
+    }
+
+    for man in &mans {
+        if let Some(obj) = state.system.objects.iter_mut().find(|o| o.id == man.0) {
+            obj.dv(s, man.1);
+        }
+    }
 
     if let Some(a) = state.camera.selection_region() {
         state.highlighted_list = state
@@ -339,6 +383,14 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
             sim_speed_str(state.sim_speed)
         ),
     );
+
+    send_log(&mut evt, &format!("Ctlrs: {}", state.controllers.len()));
+
+    for ctrl in &state.controllers {
+        if ctrl.last().is_some() {
+            send_log(&mut evt, &format!(" - {}", ctrl));
+        }
+    }
 
     let prop_count: usize = state.system.objects.iter().map(|o| o.props().len()).sum();
     send_log(&mut evt, &format!("Propagators: {}", prop_count));

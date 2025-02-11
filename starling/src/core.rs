@@ -19,6 +19,10 @@ pub fn rotate(v: Vec2, angle: f32) -> Vec2 {
     Vec2::from_angle(angle).rotate(v)
 }
 
+pub fn cross2d(a: Vec2, b: Vec2) -> f32 {
+    a.extend(0.0).cross(b.extend(0.0)).z
+}
+
 pub fn lerp(a: f32, b: f32, t: f32) -> f32 {
     a + (b - a) * t
 }

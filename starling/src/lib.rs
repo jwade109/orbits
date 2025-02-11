@@ -5,4 +5,5 @@ pub mod orbiter;
 pub mod orbit;
 pub mod planning;
 pub mod canonical;
+pub mod control;
 pub mod examples;

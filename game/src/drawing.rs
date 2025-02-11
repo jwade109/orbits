@@ -2,6 +2,7 @@ use bevy::color::palettes::basic::*;
 use bevy::color::palettes::css::ORANGE;
 use bevy::prelude::*;
 use starling::aabb::{AABB, OBB};
+use starling::control::Controller;
 use starling::core::*;
 use starling::orbit::*;
 use starling::orbiter::*;
@@ -417,6 +418,21 @@ pub fn draw_camera_controls(gizmos: &mut Gizmos, cam: &CameraState) {
     }
 }
 
+pub fn draw_controllers(
+    gizmos: &mut Gizmos,
+    system: &OrbitalTree,
+    ctrl: &Controller,
+    stamp: Nanotime,
+) -> Option<()> {
+    if !ctrl.last().is_some() {
+        return None;
+    }
+    let obj = system.objects.iter().find(|o| o.id == ctrl.target())?;
+    let pv = obj.pv(stamp, &system.system)?;
+    draw_circle(gizmos, pv.pos, 60.0, TEAL);
+    Some(())
+}
+
 pub fn draw_event_animation(
     gizmos: &mut Gizmos,
     system: &OrbitalTree,
@@ -466,6 +482,10 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
 
     if state.show_potential_field {
         draw_scalar_field_v2(&mut gizmos, &state.system.system, stamp, &state.draw_levels);
+    }
+
+    for ctrl in &state.controllers {
+        draw_controllers(&mut gizmos, &state.system, ctrl, state.sim_time);
     }
 
     for id in &state.track_list {
