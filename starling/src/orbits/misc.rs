@@ -75,23 +75,23 @@ mod tests {
 
     #[test]
     fn stumpff() {
-        assert_eq!(stumpff_2(-20.0), 2.1388736);
-        assert_eq!(stumpff_2(-5.0), 0.74633473);
-        assert_eq!(stumpff_2(-1.0), 0.5430807);
-        assert_eq!(stumpff_2(-1E-6), 0.50000006);
-        assert_eq!(stumpff_2(-1E-12), 0.5);
-        assert_eq!(stumpff_2(0.0), 0.5);
-        assert_eq!(stumpff_2(1E-12), 0.5);
-        assert_eq!(stumpff_2(1E-6), 0.49999997);
-        assert_eq!(stumpff_2(1.0), 0.45969772);
-        assert_eq!(stumpff_2(5.0), 0.32345456);
-        assert_eq!(stumpff_2(20.0), 0.061897416);
+        assert_relative_eq!(stumpff_2(-20.0), 2.1388736);
+        assert_relative_eq!(stumpff_2(-5.0), 0.74633473);
+        assert_relative_eq!(stumpff_2(-1.0), 0.5430807);
+        assert_relative_eq!(stumpff_2(-1E-6), 0.50000006);
+        assert_relative_eq!(stumpff_2(-1E-12), 0.5);
+        assert_relative_eq!(stumpff_2(0.0), 0.5);
+        assert_relative_eq!(stumpff_2(1E-12), 0.5);
+        assert_relative_eq!(stumpff_2(1E-6), 0.49999997);
+        assert_relative_eq!(stumpff_2(1.0), 0.45969772);
+        assert_relative_eq!(stumpff_2(5.0), 0.32345456);
+        assert_relative_eq!(stumpff_2(20.0), 0.061897416);
 
-        assert_eq!(stumpff_3(-20.0), 0.43931928);
-        assert_eq!(stumpff_3(-1E-12), 0.16666667);
-        assert_eq!(stumpff_3(0.0), 0.16666667);
-        assert_eq!(stumpff_3(1E-12), 0.16666667);
-        assert_eq!(stumpff_3(20.0), 0.060859215);
+        assert_relative_eq!(stumpff_3(-20.0), 0.43931928);
+        assert_relative_eq!(stumpff_3(-1E-12), 0.16666667);
+        assert_relative_eq!(stumpff_3(0.0), 0.16666667);
+        assert_relative_eq!(stumpff_3(1E-12), 0.16666667);
+        assert_relative_eq!(stumpff_3(20.0), 0.060859215);
     }
 
     #[test]
