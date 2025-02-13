@@ -116,7 +116,7 @@ impl Orbiter {
             let bodies = pl
                 .subsystems
                 .iter()
-                .map(|(orbit, pl)| (pl.id, *orbit, pl.body.soi))
+                .map(|(orbit, pl)| (pl.id, orbit, pl.body.soi))
                 .collect::<Vec<_>>();
 
             while !prop.calculated_to(t) {
@@ -136,7 +136,7 @@ impl Orbiter {
                         self.props.push(next);
                     }
                     Err(_) => {
-                        let mut p = *prop;
+                        let mut p = prop.clone();
                         p.start = prop.end;
                         p.end = prop.end;
                         p.finished = true;

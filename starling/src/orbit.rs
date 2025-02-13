@@ -3,66 +3,16 @@ use crate::core::*;
 use crate::planning::binary_search;
 use crate::pv::*;
 use bevy::math::Vec2;
+use splines::{Interpolation, Key, Spline};
 
 pub const PI: f32 = std::f32::consts::PI;
-
-pub fn as_seconds(t: Nanotime) -> f32 {
-    let ns = 1000000000;
-    (t.0 / ns) as f32 + (t.0 % ns) as f32 / ns as f32
-}
 
 pub fn hyperbolic_range_ta(ecc: f32) -> f32 {
     (-1.0 / ecc).acos()
 }
 
-// https://www.bogan.ca/orbits/kepler/orbteqtn.html
-// https://space.stackexchange.com/questions/27602/what-is-hyperbolic-eccentric-anomaly-f
-// https://orbital-mechanics.space/time-since-periapsis-and-keplers-equation/universal-variables.html
-// http://datagenetics.com/blog/july12019/index.html
-
-#[derive(Debug, Clone, Copy)]
-pub enum Anomaly {
-    Elliptical(f32),
-    Parabolic(f32),
-    Hyperbolic(f32),
-}
-
 pub fn wrap_pi_npi(x: f32) -> f32 {
     f32::atan2(x.sin(), x.cos())
-}
-
-impl Anomaly {
-    pub fn with_ecc(ecc: f32, anomaly: f32) -> Self {
-        if ecc > 1.0 {
-            Anomaly::Hyperbolic(anomaly)
-        } else if ecc == 1.0 {
-            Anomaly::Parabolic(anomaly)
-        } else {
-            Anomaly::Elliptical(wrap_pi_npi(anomaly))
-        }
-    }
-
-    pub fn as_f32(&self) -> f32 {
-        match self {
-            Anomaly::Elliptical(v) => *v,
-            Anomaly::Parabolic(v) => *v,
-            Anomaly::Hyperbolic(v) => *v,
-        }
-    }
-}
-
-pub fn true_to_eccentric(true_anomaly: Anomaly, ecc: f32) -> Anomaly {
-    match true_anomaly {
-        Anomaly::Elliptical(v) => Anomaly::Elliptical({
-            let term = f32::sqrt((1. - ecc) / (1. + ecc)) * f32::tan(0.5 * v);
-            2.0 * term.atan()
-        }),
-        Anomaly::Hyperbolic(v) => {
-            let x = ((ecc + v.cos()) / (1. + ecc * v.cos())).acosh();
-            Anomaly::Hyperbolic(x.abs() * v.signum())
-        }
-        Anomaly::Parabolic(v) => Anomaly::Parabolic((v / 2.0).tan()),
-    }
 }
 
 pub fn bhaskara_sin_approx(x: f32) -> f32 {
@@ -73,73 +23,6 @@ pub fn bhaskara_sin_approx(x: f32) -> f32 {
     } else {
         -res
     }
-}
-
-pub fn eccentric_to_mean(eccentric_anomaly: Anomaly, ecc: f32) -> Anomaly {
-    match eccentric_anomaly {
-        Anomaly::Elliptical(v) => Anomaly::Elliptical(v - ecc * v.sin()),
-        // Anomaly::Elliptical(v) => {
-        //     Anomaly::Elliptical(v - ecc * bhaskara_sin_approx(v as f64) as f32)
-        // }
-        Anomaly::Hyperbolic(v) => Anomaly::Hyperbolic(ecc * v.sinh() - v),
-        Anomaly::Parabolic(v) => Anomaly::Parabolic(v + v.powi(3) / 3.0),
-    }
-}
-
-pub fn mean_to_eccentric(mean_anomaly: Anomaly, ecc: f32) -> Option<Anomaly> {
-    match mean_anomaly {
-        Anomaly::Elliptical(v) => {
-            let max_error = 1E-4;
-            let max_iters = 40;
-
-            let mut e = match (v > 0.0, ecc > 0.8) {
-                (true, true) => PI,
-                (false, true) => -PI,
-                (_, false) => v,
-            };
-
-            for _ in 0..max_iters {
-                e = e - (v - e + ecc * e.sin()) / (ecc * e.cos() - 1.0);
-                if (v - e + ecc * e.sin()).abs() < max_error {
-                    return Some(Anomaly::Elliptical(e));
-                }
-            }
-
-            None
-        }
-        Anomaly::Parabolic(v) | Anomaly::Hyperbolic(v) => {
-            let max_error = 1E-4;
-            let max_iters = 40;
-
-            let mut e = v.abs().sqrt() * v.signum();
-
-            for _ in 0..max_iters {
-                e = e + (v + e - ecc * e.sinh()) / (ecc * e.cosh() - 1.0);
-                if (v + e - ecc * e.sinh()).abs() < max_error {
-                    return Some(Anomaly::Hyperbolic(e));
-                }
-            }
-
-            None
-        }
-    }
-}
-
-pub fn eccentric_to_true(eccentric_anomaly: Anomaly, ecc: f32) -> Anomaly {
-    match eccentric_anomaly {
-        Anomaly::Elliptical(v) => Anomaly::Elliptical(f32::atan2(
-            f32::sin(v) * (1.0 - ecc.powi(2)).sqrt(),
-            f32::cos(v) - ecc,
-        )),
-        Anomaly::Parabolic(_) => Anomaly::Parabolic(0.0),
-        Anomaly::Hyperbolic(v) => Anomaly::Hyperbolic(
-            2.0 * (((ecc + 1.0) / (ecc - 1.0)).sqrt() * (v / 2.0).tanh()).atan(),
-        ),
-    }
-}
-
-pub fn mean_motion(mu: f32, sma: f32) -> f32 {
-    (mu / sma.abs().powi(3)).sqrt()
 }
 
 pub const GRAVITATIONAL_CONSTANT: f32 = 12000.0;
@@ -161,15 +44,17 @@ impl Body {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Orbit {
     pub eccentricity: f32,
     pub semi_major_axis: f32,
     pub arg_periapsis: f32,
+    pub alpha: f32,
     pub retrograde: bool,
     pub body: Body,
     pub initial: PV,
     pub epoch: Nanotime,
+    spline: Option<ChiSpline>,
 }
 
 impl Orbit {
@@ -193,15 +78,7 @@ impl Orbit {
             };
         }
 
-        let mm = mean_motion(body.mu(), semi_major_axis);
-
-        let ta = Anomaly::with_ecc(e.length(), true_anomaly);
-        let ea = true_to_eccentric(ta, e.length());
-        let ma = eccentric_to_mean(ea, e.length());
-
-        let dt = Nanotime((ma.as_f32() / mm * 1E9) as i64);
-
-        let o = Orbit {
+        let mut o = Orbit {
             eccentricity: e.length(),
             semi_major_axis,
             arg_periapsis,
@@ -209,7 +86,17 @@ impl Orbit {
             body,
             initial: pv,
             epoch,
+            spline: None,
         };
+
+        let spline = generate_chi_spline(
+            o.initial,
+            o.body.mu(),
+            o.period().unwrap_or(Nanotime::secs(500)),
+        )
+        .ok()?;
+
+        o.spline = Some(spline);
 
         if o.pv_at_time(epoch + Nanotime::secs(1))
             .filter_nan()
@@ -238,6 +125,7 @@ impl Orbit {
             body,
             initial: PV::new(p, v),
             epoch,
+            spline: None,
         }
     }
 
@@ -308,15 +196,25 @@ impl Orbit {
     }
 
     pub fn pv_at_time(&self, stamp: Nanotime) -> PV {
-        universal_lagrange(self.initial, stamp - self.epoch, self.body.mu())
-            .map(|t| t.pv)
-            .unwrap_or(PV::zero())
+        universal_lagrange(
+            self.initial,
+            stamp - self.epoch,
+            self.body.mu(),
+            self.spline.as_ref(),
+        )
+        .map(|t| t.pv)
+        .unwrap_or(PV::zero())
     }
 
     pub fn pv_at_time_fallible(&self, stamp: Nanotime) -> Option<PV> {
-        universal_lagrange(self.initial, stamp - self.epoch, self.body.mu())
-            .map(|t| t.pv)
-            .ok()
+        universal_lagrange(
+            self.initial,
+            stamp - self.epoch,
+            self.body.mu(),
+            self.spline.as_ref(),
+        )
+        .map(|t| t.pv)
+        .ok()
     }
 
     pub fn position_at(&self, true_anomaly: f32) -> Vec2 {
@@ -467,6 +365,7 @@ pub fn universal_lagrange(
     initial: impl Into<PV>,
     tof: Nanotime,
     mu: f32,
+    chi_spline: Option<&Spline<f32, f32>>,
 ) -> Result<ULData, ULError> {
     let initial = initial.into();
     let vec_r_0 = initial.pos;
@@ -482,6 +381,8 @@ pub fn universal_lagrange(
 
     let chi = if tof == Nanotime(0) {
         0.0
+    } else if let Some(c) = chi_spline.map(|cs| cs.sample(delta_t)).flatten() {
+        c
     } else {
         rootfinder::root_bisection(
             &|x| universal_kepler(x as f32, r_0, v_r0, alpha, delta_t, mu).into(),
@@ -570,7 +471,7 @@ pub fn export_orbit_data(
     let nt = apply(&ftime, |x| Nanotime::secs_f32(x));
 
     let data = apply(&nt, |x| {
-        universal_lagrange(orbit.initial, x, orbit.body.mu())
+        universal_lagrange(orbit.initial, x, orbit.body.mu(), None)
     });
 
     let x = apply(&data, |x| x.map(|d| d.pv.pos.x).unwrap_or(f32::NAN));
@@ -602,6 +503,34 @@ pub fn export_orbit_data(
     )
 }
 
+pub fn tspace(start: Nanotime, end: Nanotime, nsamples: u32) -> Vec<Nanotime> {
+    let dt = (end - start) / nsamples as i64;
+    (0..nsamples).map(|i| start + dt * i as i64).collect()
+}
+
+type ChiSpline = Spline<f32, f32>;
+
+pub fn generate_chi_spline(
+    pv: impl Into<PV>,
+    mu: f32,
+    duration: Nanotime,
+) -> Result<ChiSpline, ULError> {
+    let tsample = tspace(Nanotime(0), duration, 500);
+    let pv = pv.into();
+    let x = tsample
+        .to_vec()
+        .iter()
+        .map(|t| {
+            let data = universal_lagrange(pv, *t, mu, None)?;
+            let t = t.to_secs();
+            let key = Key::new(t, data.chi, Interpolation::Linear);
+            Ok(key)
+        })
+        .collect::<Result<Vec<_>, ULError>>()?;
+
+    Ok(Spline::from_vec(x))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -615,7 +544,7 @@ mod tests {
 
         let tof = Nanotime::secs(3600);
 
-        let res = super::universal_lagrange((vec_r_0, vec_v_0), tof, mu).unwrap();
+        let res = super::universal_lagrange((vec_r_0, vec_v_0), tof, mu, None).unwrap();
 
         assert_eq!(
             res.pv,

@@ -200,7 +200,7 @@ impl GameState {
         let t = self.target_orbit().or_else(|| {
             let lup = self.system.orbiter_lookup(self.primary(), self.sim_time)?;
             if lup.level == 0 {
-                Some(lup.object.propagator_at(self.sim_time)?.orbit)
+                Some(lup.object.propagator_at(self.sim_time)?.orbit.clone())
             } else {
                 None
             }
@@ -411,7 +411,6 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         }
 
         if let Some(prop) = lup.object.propagator_at(state.sim_time) {
-            send_log(&mut evt, &format!("{:#?}", prop));
             send_log(
                 &mut evt,
                 &format!("Next p: {:?}", prop.orbit.t_next_p(state.sim_time)),

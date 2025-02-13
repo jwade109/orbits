@@ -326,7 +326,7 @@ pub fn draw_scalar_field_v2(
 }
 
 pub fn draw_shadows(gizmos: &mut Gizmos, origin: Vec2, radius: f32, stamp: Nanotime) {
-    let angle = as_seconds(stamp) / 1000.0;
+    let angle = stamp.to_secs() / 1000.0;
     let u = rotate(Vec2::X, angle);
     let steps = radius.ceil() as u32;
     let jmax = 50;

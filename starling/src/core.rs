@@ -273,7 +273,7 @@ impl PlanetarySystem {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct RemovalInfo {
     pub stamp: Nanotime,
     pub reason: EventType,
@@ -304,7 +304,7 @@ impl OrbitalTree {
                 let reason = o.props().last().map(|p| RemovalInfo {
                     stamp: p.end,
                     reason: p.event.unwrap_or(EventType::NumericalError),
-                    orbit: p.orbit,
+                    orbit: p.orbit.clone(),
                 });
                 info.push((o.id, reason));
                 false

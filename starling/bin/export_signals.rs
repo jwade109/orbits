@@ -74,11 +74,53 @@ fn write_univ_kepler() -> Result<(), Box<dyn std::error::Error>> {
     )
 }
 
+fn write_chi_spline() -> Result<(), Box<dyn std::error::Error>> {
+    let pv = PV::new((500.0, 200.0), (-11.0, 60.0));
+    let orbit = Orbit::from_pv(pv, make_earth(), Nanotime(0)).unwrap();
+
+    let spline = generate_chi_spline(
+        pv,
+        make_earth().mu(),
+        orbit.period().unwrap_or(Nanotime::secs(500)),
+    )
+    .unwrap();
+
+    let start = spline.keys().first().unwrap().t;
+    let end = spline.keys().last().unwrap().t;
+
+    let teval = linspace(start, end, 10000);
+
+    let spline = apply(&teval, |t| spline.sample(t).unwrap_or(f32::NAN));
+
+    let data = apply(&teval, |t| {
+        universal_lagrange(orbit.initial, Nanotime::secs_f32(t), orbit.body.mu(), None).unwrap()
+    });
+
+    let actual = apply(&data, |d| d.chi);
+
+    let error = spline
+        .iter()
+        .zip(actual.iter())
+        .map(|(a, b)| b - a)
+        .collect::<Vec<_>>();
+
+    write_csv(
+        std::path::Path::new("spline.csv"),
+        &[
+            ("t", &teval),
+            ("spline", &spline),
+            ("actual", &actual),
+            ("error", &error),
+        ],
+    )
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // export_sin_approx()?;
     // export_anomaly_conversions()?;
     // export_orbit_position()?;
     // export_stumpff_functions()?;
     write_univ_kepler()?;
+    write_chi_spline()?;
     Ok(())
 }

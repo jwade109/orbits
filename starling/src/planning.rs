@@ -63,7 +63,7 @@ pub fn binary_search<T: BinarySearchKey>(
     end: T,
     tol: T,
     max_iters: usize,
-    cond: impl Fn(T) -> bool,
+    cond: &impl Fn(T) -> bool,
 ) -> Result<T, ConvergeError<T>> {
     let a = cond(start);
     let c = cond(end);
@@ -91,7 +91,7 @@ fn search_condition<T: BinarySearchKey>(
     t1: T,
     t2: T,
     tol: T,
-    cond: impl Fn(T) -> bool,
+    cond: &impl Fn(T) -> bool,
 ) -> Result<Option<T>, ConvergeError<T>> {
     let a = cond(t1);
     if !a {
@@ -104,7 +104,7 @@ fn search_condition<T: BinarySearchKey>(
     binary_search::<T>(t1, t2, tol, 100, cond).map(|t| Some(t))
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Propagator {
     pub parent: ObjectId,
     pub orbit: Orbit,
@@ -212,7 +212,7 @@ impl Propagator {
 
     pub fn next(
         &mut self,
-        bodies: &[(ObjectId, Orbit, f32)],
+        bodies: &[(ObjectId, &Orbit, f32)],
     ) -> Result<(), PredictError<Nanotime>> {
         if self.finished {
             return Ok(());
@@ -220,15 +220,15 @@ impl Propagator {
 
         let tol = Nanotime(5);
 
-        let ego = self.orbit;
+        let alt = self.orbit.pv_at_time(self.end).pos.length();
 
-        let alt = ego.pv_at_time(self.end).pos.length();
-
-        let might_hit_planet = ego.periapsis_r() <= ego.body.radius && alt < ego.body.radius * 20.0;
-        let can_escape = ego.eccentricity >= 1.0 || ego.apoapsis_r() >= ego.body.soi;
+        let might_hit_planet = self.orbit.periapsis_r() <= self.orbit.body.radius
+            && alt < self.orbit.body.radius * 20.0;
+        let can_escape =
+            self.orbit.eccentricity >= 1.0 || self.orbit.apoapsis_r() >= self.orbit.body.soi;
         let near_body = bodies
             .iter()
-            .any(|(_, orb, soi)| mutual_separation(&ego, orb, self.stamp()) < soi * 3.0);
+            .any(|(_, orb, soi)| mutual_separation(&self.orbit, orb, self.stamp()) < soi * 3.0);
 
         self.dt = if might_hit_planet {
             Nanotime::millis(20)
@@ -260,20 +260,13 @@ impl Propagator {
         };
 
         let above_planet = |t: Nanotime| {
-            let pos = ego.pv_at_time(t).pos;
-            pos.length() > ego.body.radius
+            let pos = self.orbit.pv_at_time(t).pos;
+            pos.length() > self.orbit.body.radius
         };
 
         let escape_soi = |t: Nanotime| {
-            let pos = ego.pv_at_time(t).pos;
-            pos.length() < ego.body.soi
-        };
-
-        let encounter_nth = |i: usize| {
-            move |t: Nanotime| {
-                let (_, orbit, soi) = bodies[i];
-                mutual_separation(&ego, &orbit, t) > soi
-            }
+            let pos = self.orbit.pv_at_time(t).pos;
+            pos.length() < self.orbit.body.soi
         };
 
         if might_hit_planet {
@@ -284,7 +277,7 @@ impl Propagator {
                 return Ok(());
             }
 
-            if let Some(t) = search_condition::<Nanotime>(t1, t2, tol, above_planet)
+            if let Some(t) = search_condition::<Nanotime>(t1, t2, tol, &above_planet)
                 .map_err(|e| PredictError::Collision(e))?
             {
                 if t - self.start < Nanotime::millis(10) {
@@ -299,7 +292,7 @@ impl Propagator {
         }
 
         if can_escape {
-            if let Some(t) = search_condition::<Nanotime>(t1, t2, tol, escape_soi)
+            if let Some(t) = search_condition::<Nanotime>(t1, t2, tol, &escape_soi)
                 .map_err(|e| PredictError::Escape(e))?
             {
                 if t - self.start < Nanotime::millis(10) {
@@ -315,9 +308,10 @@ impl Propagator {
 
         if near_body {
             for i in 0..bodies.len() {
-                let cond = encounter_nth(i);
+                let (_, orbit, soi) = bodies[i];
+                let cond = separation_with(&self.orbit, orbit, soi);
                 let id = bodies[i].0;
-                if let Some(t) = search_condition::<Nanotime>(t1, t2, tol, cond)
+                if let Some(t) = search_condition::<Nanotime>(t1, t2, tol, &cond)
                     .map_err(|e| PredictError::Encounter(e))?
                 {
                     if t - self.start < Nanotime::millis(10) {
@@ -334,6 +328,14 @@ impl Propagator {
 
         Ok(())
     }
+}
+
+pub fn separation_with<'a>(
+    ego: &'a Orbit,
+    planet: &'a Orbit,
+    soi: f32,
+) -> impl Fn(Nanotime) -> bool + use<'a> {
+    move |t: Nanotime| mutual_separation(ego, planet, t) > soi
 }
 
 pub fn find_intersections(
@@ -370,10 +372,10 @@ pub fn find_intersections(
     // power of math; this is inefficient and lazy
 
     for ((a0, _, _), (a1, _, _)) in radii.windows(2).map(|r| (r[0], r[1])) {
-        if let Some(a) = search_condition(a0, a1, 1E-4, c1)? {
+        if let Some(a) = search_condition(a0, a1, 1E-4, &c1)? {
             ret1 = Some(a);
         }
-        if let Some(a) = search_condition(a0, a1, 1E-4, c2)? {
+        if let Some(a) = search_condition(a0, a1, 1E-4, &c2)? {
             ret2 = Some(a);
         }
     }
