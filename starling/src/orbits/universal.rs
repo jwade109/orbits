@@ -1,6 +1,5 @@
 use crate::pv::PV;
 use crate::core::Nanotime;
-use glam::f32::Vec2;
 use splines::{Interpolation, Key, Spline};
 
 // https://orbital-mechanics.space/time-since-periapsis-and-keplers-equation/universal-variables.html

@@ -65,7 +65,7 @@ impl SparseOrbit {
             };
         }
 
-        let mut o = SparseOrbit {
+        let o = SparseOrbit {
             eccentricity: e.length(),
             semi_major_axis,
             arg_periapsis,

@@ -1,8 +1,7 @@
 use crate::core::*;
-use crate::orbits::sparse_orbit::{Body, SparseOrbit};
-use crate::orbits::universal::{stumpff_2, stumpff_3, universal_lagrange, ULError};
+use crate::orbits::sparse_orbit::SparseOrbit;
+use crate::orbits::universal::universal_lagrange;
 use crate::pv::*;
-use splines::{Interpolation, Key, Spline};
 
 pub fn export_orbit_data(
     orbit: &SparseOrbit,
@@ -54,6 +53,9 @@ pub fn export_orbit_data(
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
+    use glam::f32::Vec2;
+    use crate::orbits::sparse_orbit::Body;
+    use crate::orbits::universal::*;
 
     #[test]
     fn universal_lagrange_example() {
