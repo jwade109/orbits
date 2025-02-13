@@ -1,4 +1,4 @@
-use bevy::math::Vec2;
+use glam::f32::Vec2;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct PV {

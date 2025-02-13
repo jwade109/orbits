@@ -1,7 +1,7 @@
-use crate::orbit::*;
 use crate::orbiter::*;
+use crate::orbits::sparse_orbit::{Body, SparseOrbit};
 use crate::pv::PV;
-use bevy::math::Vec2;
+use glam::f32::Vec2;
 use rand::Rng;
 use std::ops::{Add, AddAssign, Div, Mul, Rem, Sub, SubAssign};
 
@@ -45,7 +45,7 @@ pub fn linspace(a: f32, b: f32, n: usize) -> Vec<f32> {
 pub fn gravity_accel(body: Body, body_center: Vec2, sample: Vec2) -> Vec2 {
     let r: Vec2 = body_center - sample;
     let rsq = r.length_squared().clamp(body.radius.powi(2), std::f32::MAX);
-    let a = GRAVITATIONAL_CONSTANT * body.mass / rsq;
+    let a = body.mu() / rsq;
     a * r.normalize()
 }
 
@@ -225,7 +225,7 @@ pub struct PlanetarySystem {
     pub id: ObjectId,
     pub name: String,
     pub body: Body,
-    pub subsystems: Vec<(Orbit, PlanetarySystem)>,
+    pub subsystems: Vec<(SparseOrbit, PlanetarySystem)>,
 }
 
 impl PlanetarySystem {
@@ -238,7 +238,7 @@ impl PlanetarySystem {
         }
     }
 
-    pub fn orbit(&mut self, orbit: Orbit, planets: PlanetarySystem) {
+    pub fn orbit(&mut self, orbit: SparseOrbit, planets: PlanetarySystem) {
         self.subsystems.push((orbit, planets));
     }
 
@@ -277,7 +277,7 @@ impl PlanetarySystem {
 pub struct RemovalInfo {
     pub stamp: Nanotime,
     pub reason: EventType,
-    pub orbit: Orbit,
+    pub orbit: SparseOrbit,
 }
 
 impl OrbitalTree {
@@ -316,7 +316,13 @@ impl OrbitalTree {
         info
     }
 
-    pub fn add_object(&mut self, id: ObjectId, parent: ObjectId, orbit: Orbit, stamp: Nanotime) {
+    pub fn add_object(
+        &mut self,
+        id: ObjectId,
+        parent: ObjectId,
+        orbit: SparseOrbit,
+        stamp: Nanotime,
+    ) {
         self.objects.push(Orbiter::new(id, parent, orbit, stamp));
     }
 
@@ -351,7 +357,7 @@ impl OrbitalTree {
 
 pub fn potential_at(planet: &PlanetarySystem, pos: Vec2, stamp: Nanotime) -> f32 {
     let r = pos.length().clamp(10.0, std::f32::MAX);
-    let mut ret = -(planet.body.mass * GRAVITATIONAL_CONSTANT) / r;
+    let mut ret = -planet.body.mu() / r;
     for (orbit, pl) in &planet.subsystems {
         let pv = orbit.pv_at_time(stamp);
         ret += potential_at(pl, pos - pv.pos, stamp);

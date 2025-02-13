@@ -1,6 +1,6 @@
 use crate::core::*;
-use crate::orbit::*;
 use crate::orbiter::*;
+use crate::orbits::sparse_orbit::{PI, SparseOrbit};
 use crate::pv::PV;
 
 #[derive(Debug, Clone, Copy)]
@@ -81,7 +81,7 @@ pub enum PredictError<T: BinarySearchKey> {
     Encounter(ConvergeError<T>),
 }
 
-fn mutual_separation(o1: &Orbit, o2: &Orbit, t: Nanotime) -> f32 {
+fn mutual_separation(o1: &SparseOrbit, o2: &SparseOrbit, t: Nanotime) -> f32 {
     let p1 = o1.pv_at_time(t).pos;
     let p2 = o2.pv_at_time(t).pos;
     p1.distance(p2)
@@ -107,7 +107,7 @@ fn search_condition<T: BinarySearchKey>(
 #[derive(Debug, Clone)]
 pub struct Propagator {
     pub parent: ObjectId,
-    pub orbit: Orbit,
+    pub orbit: SparseOrbit,
     pub start: Nanotime,
     pub end: Nanotime,
     pub dt: Nanotime,
@@ -116,7 +116,7 @@ pub struct Propagator {
 }
 
 impl Propagator {
-    pub fn new(parent: ObjectId, orbit: Orbit, stamp: Nanotime) -> Self {
+    pub fn new(parent: ObjectId, orbit: SparseOrbit, stamp: Nanotime) -> Self {
         Propagator {
             parent,
             orbit,
@@ -180,8 +180,8 @@ impl Propagator {
 
                 let pv = self.orbit.pv_at_time(self.end);
                 let dv = cur.1 - new.1;
-                let orbit =
-                    Orbit::from_pv(pv + dv, new.0, self.end).ok_or(BadObjectNextState::BadOrbit)?;
+                let orbit = SparseOrbit::from_pv(pv + dv, new.0, self.end)
+                    .ok_or(BadObjectNextState::BadOrbit)?;
                 Ok(Some(Propagator::new(reparent, orbit, self.end)))
             }
             EventType::Encounter(id) => {
@@ -194,8 +194,8 @@ impl Propagator {
 
                 let pv = self.orbit.pv_at_time(self.end);
                 let dv = cur.1 - new.1;
-                let orbit =
-                    Orbit::from_pv(pv + dv, new.0, self.end).ok_or(BadObjectNextState::BadOrbit)?;
+                let orbit = SparseOrbit::from_pv(pv + dv, new.0, self.end)
+                    .ok_or(BadObjectNextState::BadOrbit)?;
                 Ok(Some(Propagator::new(id, orbit, self.end)))
             }
             EventType::Maneuver(man) => {
@@ -203,7 +203,7 @@ impl Propagator {
                 let dv = match man {
                     Maneuver::AxisAligned(dv) => dv,
                 };
-                let orbit = Orbit::from_pv(pv + PV::vel(dv), self.orbit.body, self.end)
+                let orbit = SparseOrbit::from_pv(pv + PV::vel(dv), self.orbit.body, self.end)
                     .ok_or(BadObjectNextState::BadOrbit)?;
                 Ok(Some(Propagator::new(self.parent, orbit, self.end)))
             }
@@ -212,7 +212,7 @@ impl Propagator {
 
     pub fn next(
         &mut self,
-        bodies: &[(ObjectId, &Orbit, f32)],
+        bodies: &[(ObjectId, &SparseOrbit, f32)],
     ) -> Result<(), PredictError<Nanotime>> {
         if self.finished {
             return Ok(());
@@ -331,16 +331,16 @@ impl Propagator {
 }
 
 pub fn separation_with<'a>(
-    ego: &'a Orbit,
-    planet: &'a Orbit,
+    ego: &'a SparseOrbit,
+    planet: &'a SparseOrbit,
     soi: f32,
 ) -> impl Fn(Nanotime) -> bool + use<'a> {
     move |t: Nanotime| mutual_separation(ego, planet, t) > soi
 }
 
 pub fn find_intersections(
-    o1: &Orbit,
-    o2: &Orbit,
+    o1: &SparseOrbit,
+    o2: &SparseOrbit,
 ) -> Result<Option<(f32, f32)>, ConvergeError<f32>> {
     let n = 100;
     let sample_angles = (0..n).map(|i| 2.0 * PI * i as f32 / n as f32);

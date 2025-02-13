@@ -4,8 +4,8 @@ use bevy::prelude::*;
 use starling::aabb::{AABB, OBB};
 use starling::control::Controller;
 use starling::core::*;
-use starling::orbit::*;
 use starling::orbiter::*;
+use starling::orbits::sparse_orbit::*;
 use starling::planning::*;
 
 use crate::camera_controls::CameraState;
@@ -53,7 +53,7 @@ pub fn draw_obb(gizmos: &mut Gizmos, obb: &OBB, color: Srgba) {
     gizmos.linestrip_2d(corners, color);
 }
 
-pub fn draw_orbit(gizmos: &mut Gizmos, orb: &Orbit, origin: Vec2, color: Srgba) {
+pub fn draw_orbit(gizmos: &mut Gizmos, orb: &SparseOrbit, origin: Vec2, color: Srgba) {
     if orb.eccentricity >= 1.0 {
         let n_points = 60;
         let range = 0.999 * hyperbolic_range_ta(orb.eccentricity);

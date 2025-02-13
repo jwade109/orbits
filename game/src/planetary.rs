@@ -6,9 +6,9 @@ use starling::aabb::AABB;
 use starling::control::*;
 use starling::core::*;
 use starling::examples::*;
-use starling::orbit::*;
 use starling::orbiter::*;
-use starling::pv::PV;
+use starling::orbits::misc::export_orbit_data;
+use starling::orbits::sparse_orbit::*;
 
 use crate::camera_controls::*;
 use crate::debug::*;
@@ -171,7 +171,7 @@ impl GameState {
         AABB::from_list(&pos).map(|aabb| aabb.padded(60.0))
     }
 
-    pub fn target_orbit(&self) -> Option<Orbit> {
+    pub fn target_orbit(&self) -> Option<SparseOrbit> {
         let p1 = self.control_points.get(0);
         let p2 = self
             .control_points
@@ -184,9 +184,9 @@ impl GameState {
                 return None;
             }
 
-            let v = (self.system.system.body.mass * GRAVITATIONAL_CONSTANT / p1.length()).sqrt();
+            let v = (self.system.system.body.mu() / p1.length()).sqrt();
 
-            Orbit::from_pv(
+            SparseOrbit::from_pv(
                 (*p1, (p2 - p1) * v / p1.length()),
                 self.system.system.body,
                 self.sim_time,
@@ -200,7 +200,7 @@ impl GameState {
         let t = self.target_orbit().or_else(|| {
             let lup = self.system.orbiter_lookup(self.primary(), self.sim_time)?;
             if lup.level == 0 {
-                Some(lup.object.propagator_at(self.sim_time)?.orbit.clone())
+                Some(lup.object.propagator_at(self.sim_time)?.orbit)
             } else {
                 None
             }
@@ -285,46 +285,46 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     let d = state.physics_duration;
     let _info = state.system.propagate_to(s, d);
 
-    let mut new_ctrls = vec![];
-    for obj in &state.system.objects {
-        if state
-            .controllers
-            .iter()
-            .find(|c| c.target() == obj.id)
-            .is_none()
-        {
-            let c = Controller::avoid(obj.id);
-            new_ctrls.push(c);
-        }
-    }
+    // let mut new_ctrls = vec![];
+    // for obj in &state.system.objects {
+    //     if state
+    //         .controllers
+    //         .iter()
+    //         .find(|c| c.target() == obj.id)
+    //         .is_none()
+    //     {
+    //         let c = Controller::avoid(obj.id);
+    //         new_ctrls.push(c);
+    //     }
+    // }
 
-    let active_ctrls = state
-        .system
-        .objects
-        .iter()
-        .map(|obj| obj.id)
-        .collect::<Vec<_>>();
+    // let active_ctrls = state
+    //     .system
+    //     .objects
+    //     .iter()
+    //     .map(|obj| obj.id)
+    //     .collect::<Vec<_>>();
 
-    state
-        .controllers
-        .retain(|c| active_ctrls.contains(&c.target()));
+    // state
+    //     .controllers
+    //     .retain(|c| active_ctrls.contains(&c.target()));
 
-    state.controllers.extend_from_slice(&new_ctrls);
+    // state.controllers.extend_from_slice(&new_ctrls);
 
-    let system = state.system.clone(); // TODO shitty
-    let mut mans = vec![];
-    for ctrl in &mut state.controllers {
-        let dv = ctrl.update(&system, s);
-        if let Some(dv) = dv {
-            mans.push((ctrl.target(), dv));
-        }
-    }
+    // let system = state.system.clone(); // TODO shitty
+    // let mut mans = vec![];
+    // for ctrl in &mut state.controllers {
+    //     let dv = ctrl.update(&system, s);
+    //     if let Some(dv) = dv {
+    //         mans.push((ctrl.target(), dv));
+    //     }
+    // }
 
-    for man in &mans {
-        if let Some(obj) = state.system.objects.iter_mut().find(|o| o.id == man.0) {
-            obj.dv(s, man.1);
-        }
-    }
+    // for man in &mans {
+    //     if let Some(obj) = state.system.objects.iter_mut().find(|o| o.id == man.0) {
+    //         obj.dv(s, man.1);
+    //     }
+    // }
 
     if let Some(a) = state.camera.selection_region() {
         state.highlighted_list = state
@@ -411,6 +411,7 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         }
 
         if let Some(prop) = lup.object.propagator_at(state.sim_time) {
+            send_log(&mut evt, &format!("{:#?}", prop));
             send_log(
                 &mut evt,
                 &format!("Next p: {:?}", prop.orbit.t_next_p(state.sim_time)),

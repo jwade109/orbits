@@ -6,7 +6,7 @@ use crate::camera_controls::*;
 use crate::debug::*;
 use crate::drawing::*;
 use starling::aabb::*;
-use starling::orbit::PI;
+use starling::orbits::sparse_orbit::PI;
 use starling::orbiter::ObjectId;
 use starling::pv::PV;
 

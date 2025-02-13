@@ -1,9 +1,9 @@
 use crate::core::*;
-use crate::orbit::*;
+use crate::orbits::sparse_orbit::SparseOrbit;
 use crate::planning::*;
 use crate::pv::PV;
 
-use bevy::math::Vec2;
+use glam::f32::Vec2;
 
 #[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ObjectId(pub i64);
@@ -41,7 +41,7 @@ pub enum BadObjectNextState {
 }
 
 impl Orbiter {
-    pub fn new(id: ObjectId, parent: ObjectId, orbit: Orbit, stamp: Nanotime) -> Self {
+    pub fn new(id: ObjectId, parent: ObjectId, orbit: SparseOrbit, stamp: Nanotime) -> Self {
         Orbiter {
             id,
             props: vec![Propagator::new(parent, orbit, stamp)],
@@ -52,7 +52,7 @@ impl Orbiter {
         let (new_orbit, parent) = {
             let prop = self.propagator_at(stamp)?;
             let pv = prop.orbit.pv_at_time(stamp) + PV::vel(dv);
-            let orbit = Orbit::from_pv(pv, prop.orbit.body, stamp)?;
+            let orbit = SparseOrbit::from_pv(pv, prop.orbit.body, stamp)?;
             (orbit, prop.parent)
         };
         self.props.clear();

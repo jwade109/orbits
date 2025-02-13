@@ -1,5 +1,5 @@
 use crate::core::rotate;
-use bevy::math::Vec2;
+use glam::f32::Vec2;
 
 #[derive(Default, Debug, Clone, Copy)]
 pub struct AABB {

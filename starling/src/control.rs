@@ -1,13 +1,13 @@
-use crate::core::{cross2d, rotate, Nanotime, OrbitalTree, PlanetarySystem};
-use crate::orbit::{Orbit, PI};
+use crate::orbits::sparse_orbit::{SparseOrbit, PI};
+use crate::core::{cross2d, rotate, Nanotime, OrbitalTree};
 use crate::orbiter::{ObjectId, Orbiter};
-use bevy::math::Vec2;
+use glam::f32::Vec2;
 
 #[derive(Debug, Clone)]
 enum ControllerMode {
     Idle,
     AvoidCollisions,
-    Hohmann(Orbit),
+    Hohmann(SparseOrbit),
 }
 
 #[derive(Debug, Clone)]
@@ -26,7 +26,7 @@ impl Controller {
         }
     }
 
-    pub fn hohmann(target: ObjectId, orbit: Orbit) -> Self {
+    pub fn hohmann(target: ObjectId, orbit: SparseOrbit) -> Self {
         Controller {
             target,
             mode: ControllerMode::Hohmann(orbit),
@@ -83,7 +83,7 @@ fn avoid_collisions_update_loop(orbiter: &Orbiter, stamp: Nanotime) -> Option<Ve
 
     let p = orbiter.pvl(stamp)?;
 
-    let strength = 0.06;
+    let strength = 0.13;
     let dir = if cross2d(p.pos, p.vel) >= 0.0 {
         1.0
     } else {

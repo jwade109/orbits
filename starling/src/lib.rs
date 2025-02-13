@@ -2,7 +2,7 @@ pub mod pv;
 pub mod aabb;
 pub mod core;
 pub mod orbiter;
-pub mod orbit;
+pub mod orbits;
 pub mod planning;
 pub mod canonical;
 pub mod control;

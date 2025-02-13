@@ -3962,11 +3962,11 @@ name = "starling"
 version = "0.1.0"
 dependencies = [
  "approx",
- "bevy",
  "bevy_ecs",
  "chrono",
  "criterion",
  "csv",
+ "glam",
  "rand",
  "rootfinder",
  "splines",
