@@ -7,6 +7,7 @@ use starling::core::*;
 use starling::orbiter::*;
 use starling::orbits::sparse_orbit::*;
 use starling::planning::*;
+use starling::pv::PV;
 
 use crate::camera_controls::CameraState;
 use crate::planetary::GameState;
@@ -40,6 +41,12 @@ pub fn draw_circle(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     gizmos
         .circle_2d(Isometry2d::from_translation(p), size, color)
         .resolution(200);
+}
+
+pub fn draw_velocity_vec(gizmos: &mut Gizmos, pv: PV, length: f32, color: Srgba) {
+    let p1 = pv.pos;
+    let p2 = pv.pos + pv.vel.normalize_or_zero() * length;
+    gizmos.line_2d(p1, p2, color);
 }
 
 pub fn draw_aabb(gizmos: &mut Gizmos, aabb: AABB, color: Srgba) {
@@ -460,6 +467,29 @@ pub fn draw_event_animation(
     Some(())
 }
 
+pub fn draw_maneuver_plan(gizmos: &mut Gizmos, state: &GameState, id: ObjectId) -> Option<()> {
+    let to = state.target_orbit()?;
+    let pr = state
+        .system
+        .objects
+        .iter()
+        .find(|o| o.id == id)?
+        .propagator_at(state.sim_time)?
+        .orbit;
+
+    let plan = generate_maneuver_plan(&pr, &to, state.sim_time)?;
+
+    for node in &plan.nodes {
+        for pv in [node.before, node.after] {
+            draw_circle(gizmos, pv.pos, 10.0 * state.camera.actual_scale, YELLOW);
+            draw_velocity_vec(gizmos, pv, 60.0 * state.camera.actual_scale, PURPLE);
+        }
+        draw_orbit(gizmos, &node.orbit, Vec2::ZERO, alpha(YELLOW, 0.2));
+    }
+
+    Some(())
+}
+
 pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
     let stamp = state.sim_time;
 
@@ -478,6 +508,15 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
 
     if let Some(o) = state.target_orbit() {
         draw_orbit(&mut gizmos, &o, Vec2::ZERO, alpha(RED, 0.2));
+        if let Some(test) = state.camera.mouse_pos() {
+            for (p, d) in [o.nearest_along_track(test), o.nearest(test)] {
+                let color = alpha(if d >= 0.0 { RED } else { TEAL }, 0.5);
+                let size = 7.0 * state.camera.actual_scale.min(1.0);
+                draw_circle(&mut gizmos, p.pos, size, color);
+                draw_velocity_vec(&mut gizmos, p, 40.0 * state.camera.actual_scale, color);
+                gizmos.line_2d(Vec2::ZERO, p.pos, color);
+            }
+        }
     }
 
     if state.show_potential_field {
@@ -488,15 +527,17 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
         draw_controllers(&mut gizmos, &state.system, ctrl, state.sim_time);
     }
 
-    for id in &state.track_list {
-        draw_event_animation(
-            &mut gizmos,
-            &state.system,
-            *id,
-            state.sim_time,
-            state.camera.actual_scale,
-            state.duty_cycle_high,
-        );
+    if state.show_animations {
+        for id in &state.track_list {
+            draw_event_animation(
+                &mut gizmos,
+                &state.system,
+                *id,
+                state.sim_time,
+                state.camera.actual_scale,
+                state.duty_cycle_high,
+            );
+        }
     }
 
     draw_camera_controls(&mut gizmos, &state.camera);
@@ -512,4 +553,8 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
     );
 
     draw_highlighted_objects(&mut gizmos, &state);
+
+    for id in &state.track_list {
+        draw_maneuver_plan(&mut gizmos, &state, *id);
+    }
 }

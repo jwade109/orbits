@@ -62,6 +62,13 @@ impl std::ops::Sub for PV {
     }
 }
 
+impl std::ops::Div<f32> for PV {
+    type Output = Self;
+    fn div(self, rhs: f32) -> Self::Output {
+        PV::new(self.pos / rhs, self.vel / rhs)
+    }
+}
+
 impl Into<PV> for ((f32, f32), (f32, f32)) {
     fn into(self) -> PV {
         let r: Vec2 = self.0.into();
@@ -82,7 +89,10 @@ pub fn apply<T: Copy, R>(x: &Vec<T>, func: impl Fn(T) -> R) -> Vec<R> {
     x.iter().map(|x| func(*x)).collect()
 }
 
-pub fn write_csv(filename: &std::path::Path, signals: &[(&str, &[f32])]) -> Result<(), Box<dyn std::error::Error>> {
+pub fn write_csv(
+    filename: &std::path::Path,
+    signals: &[(&str, &[f32])],
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut writer = csv::Writer::from_path(filename)?;
 
     let titles = signals.iter().map(|s| s.0);

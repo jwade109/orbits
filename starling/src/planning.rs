@@ -1,7 +1,9 @@
 use crate::core::*;
 use crate::orbiter::*;
-use crate::orbits::sparse_orbit::{PI, SparseOrbit};
+use crate::orbits::sparse_orbit::SparseOrbit;
+use crate::orbits::universal::tspace;
 use crate::pv::PV;
+use glam::f32::Vec2;
 
 #[derive(Debug, Clone, Copy)]
 pub enum ConvergeError<T> {
@@ -338,47 +340,77 @@ pub fn separation_with<'a>(
     move |t: Nanotime| mutual_separation(ego, planet, t) > soi
 }
 
-pub fn find_intersections(
-    o1: &SparseOrbit,
-    o2: &SparseOrbit,
-) -> Result<Option<(f32, f32)>, ConvergeError<f32>> {
+pub fn get_next_intersection(
+    stamp: Nanotime,
+    eval: &SparseOrbit,
+    target: &SparseOrbit,
+) -> Result<Option<(Nanotime, PV)>, ConvergeError<Nanotime>> {
     let n = 100;
-    let sample_angles = (0..n).map(|i| 2.0 * PI * i as f32 / n as f32);
+    let period = eval.period_or(Nanotime::secs(500));
+    let teval = tspace(stamp, stamp + period, n);
 
-    let radii = sample_angles
-        .map(|a| {
-            let r1 = o1.radius_at_angle(a);
-            let r2 = o2.radius_at_angle(a);
-            (a, r1, r2)
-        })
-        .collect::<Vec<_>>();
-
-    let c1 = |a: f32| {
-        let r1 = o1.radius_at_angle(a);
-        let r2 = o2.radius_at_angle(a);
-        r1 > r2
+    let signed_distance_at = |t: Nanotime| {
+        let pcurr = eval.pv_at_time(t);
+        target.nearest_along_track(pcurr.pos)
     };
 
-    let c2 = |a: f32| {
-        let r1 = o1.radius_at_angle(a);
-        let r2 = o2.radius_at_angle(a);
-        r1 < r2
+    let initial_sign = signed_distance_at(stamp).1 > 0.0;
+
+    let condition = |t: Nanotime| {
+        let (_, d) = signed_distance_at(t);
+        let cur = d > 0.0;
+        cur == initial_sign
     };
 
-    let mut ret1 = None;
-    let mut ret2 = None;
-
-    // TODO you can calculate the second angle from the first with the
-    // power of math; this is inefficient and lazy
-
-    for ((a0, _, _), (a1, _, _)) in radii.windows(2).map(|r| (r[0], r[1])) {
-        if let Some(a) = search_condition(a0, a1, 1E-4, &c1)? {
-            ret1 = Some(a);
-        }
-        if let Some(a) = search_condition(a0, a1, 1E-4, &c2)? {
-            ret2 = Some(a);
+    for ts in teval.windows(2) {
+        let t1 = ts[0];
+        let t2 = ts[1];
+        let t = search_condition(t1, t2, Nanotime(500), &condition)?;
+        if let Some(t) = t {
+            let (pv, _) = signed_distance_at(t);
+            return Ok(Some((t, pv)));
         }
     }
 
-    Ok(ret1.zip(ret2))
+    return Ok(None);
+}
+
+#[derive(Debug, Clone)]
+pub struct ManeuverPlan {
+    pub nodes: Vec<ManeuverNode>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ManeuverNode {
+    pub stamp: Nanotime,
+    pub before: PV,
+    pub after: PV,
+    pub orbit: SparseOrbit,
+}
+
+impl ManeuverNode {
+    pub fn dv(&self) -> Vec2 {
+        self.after.vel - self.before.vel
+    }
+}
+
+pub fn generate_maneuver_plan(
+    current: &SparseOrbit,
+    destination: &SparseOrbit,
+    now: Nanotime,
+) -> Option<ManeuverPlan> {
+    let x = get_next_intersection(now, current, destination)
+        .ok()?
+        .map(|(t, pvf)| {
+            let pvi = current.pv_at_time(t);
+            Some(ManeuverNode {
+                stamp: t,
+                before: pvi,
+                after: pvf,
+                orbit: SparseOrbit::from_pv(pvf, current.body, t)?,
+            })
+        })
+        .flatten()?;
+
+    Some(ManeuverPlan { nodes: vec![x] })
 }

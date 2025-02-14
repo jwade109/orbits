@@ -66,6 +66,7 @@ pub struct ULData {
     pub lc: LangrangeCoefficients,
 }
 
+// https://en.wikipedia.org/wiki/Universal_variable_formulation
 // https://orbital-mechanics.space/time-since-periapsis-and-keplers-equation/universal-lagrange-coefficients-example.html
 pub fn universal_lagrange(
     initial: impl Into<PV>,

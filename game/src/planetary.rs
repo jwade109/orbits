@@ -135,6 +135,7 @@ pub struct GameState {
     pub sim_speed: i32,
     pub show_orbits: bool,
     pub show_potential_field: bool,
+    pub show_animations: bool,
     pub paused: bool,
     pub system: OrbitalTree,
     pub ids: ObjectIdTracker,
@@ -254,6 +255,7 @@ impl Default for GameState {
             sim_speed: 0,
             show_orbits: false,
             show_potential_field: false,
+            show_animations: false,
             paused: false,
             system: system.clone(),
             ids,
@@ -575,6 +577,9 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
             }
             Some("orbit") => {
                 state.show_orbits = !state.show_orbits;
+            }
+            Some("animate") => {
+                state.show_animations = !state.show_animations;
             }
             _ => {
                 return;

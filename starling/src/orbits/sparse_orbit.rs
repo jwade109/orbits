@@ -148,9 +148,15 @@ impl SparseOrbit {
         self.radius_at(ta)
     }
 
-    pub fn position_at_angle(&self, angle: f32) -> Vec2 {
-        let ta = angle - self.arg_periapsis;
-        self.position_at(ta)
+    pub fn pv_at_angle(&self, angle: f32) -> PV {
+        let ta = if self.retrograde {
+            -angle + self.arg_periapsis
+        } else {
+            angle - self.arg_periapsis
+        };
+        let pos = self.position_at(ta);
+        let vel = self.velocity_at(ta);
+        PV::new(pos, vel)
     }
 
     pub fn radius_at(&self, true_anomaly: f32) -> f32 {
@@ -169,6 +175,10 @@ impl SparseOrbit {
         }
         let t = 2.0 * PI / self.mean_motion();
         Some(Nanotime((t * 1E9) as i64))
+    }
+
+    pub fn period_or(&self, fallback: Nanotime) -> Nanotime {
+        self.period().unwrap_or(fallback)
     }
 
     pub fn pv_at_time(&self, stamp: Nanotime) -> PV {
@@ -259,5 +269,36 @@ impl SparseOrbit {
         let ub = Vec2::new(self.semi_major_axis, -b);
 
         Some((u.rotate(ua), u.rotate(ub)))
+    }
+
+    pub fn nearest_along_track(&self, pos: Vec2) -> (PV, f32) {
+        let angle = -pos.angle_to(Vec2::X);
+        let p = self.pv_at_angle(angle);
+        let d = p.pos.distance(pos);
+        if p.pos.length() > pos.length() {
+            (p, -d)
+        } else {
+            (p, d)
+        }
+    }
+
+    pub fn nearest(&self, pos: Vec2) -> (PV, f32) {
+        let (mut ret, mut dist) = self.nearest_along_track(pos);
+        let sign = dist.signum();
+        let mut test_pos = pos;
+        for _ in 0..4 {
+            let (pv, d) = self.nearest_along_track(test_pos);
+            let u = match pv.vel.try_normalize() {
+                Some(u) => u,
+                None => return (pv, d),
+            };
+            let diff = pos - pv.pos;
+            let mag = diff.dot(u);
+            test_pos = pv.pos + mag * u;
+            dist = d;
+            ret = pv;
+        }
+
+        (ret, dist.abs() * sign)
     }
 }
