@@ -67,9 +67,12 @@ fn manage_orbiter_labels(
 
 fn update_text(res: Res<GameState>, mut text: Query<(&mut Transform, &mut Text2d, &FollowObject)>) {
     let scale = res.camera.actual_scale.min(1.0);
+    let zoomed_out = scale == 1.0;
+    let mut height = -40.0;
     let _ = text
         .iter_mut()
-        .filter_map(|(mut tr, mut text, follow)| {
+        .enumerate()
+        .filter_map(|(i, (mut tr, mut text, follow))| {
             let id = follow.0;
             let obj = res.system.objects.iter().find(|o| o.id == id)?;
             let pvl = obj.pvl(res.sim_time)?;
@@ -78,6 +81,8 @@ fn update_text(res: Res<GameState>, mut text: Query<(&mut Transform, &mut Text2d
             let (_, _, _, parent) = res.system.system.lookup(prop.parent, res.sim_time)?;
             let warn_str = if obj.will_collide() && res.duty_cycle_high {
                 " COLLISION IMMINENT"
+            } else if id == res.primary() {
+                " PRIMARY"
             } else {
                 ""
             };
@@ -113,9 +118,22 @@ fn update_text(res: Res<GameState>, mut text: Query<(&mut Transform, &mut Text2d
                 event_lines,
             );
 
-            tr.translation = (pv.pos + Vec2::new(40.0 * scale, 40.0 * scale)).extend(0.0);
-            tr.scale = Vec3::new(scale, scale, scale);
+            let window = res.camera.game_bounds();
+            let n = txt.lines().collect::<Vec<_>>().len();
             *text = txt.into();
+
+            if zoomed_out || !window.contains(pv.pos) {
+                let s = res.camera.actual_scale;
+                let h = 23.0 * (n + 1) as f32;
+                let ur =
+                    window.center + window.span / 2.0 + Vec2::new(-300.0, height) * s;
+                height -= h;
+                tr.translation = ur.extend(0.0);
+                tr.scale = Vec3::new(s, s, s);
+            } else {
+                tr.translation = (pv.pos + Vec2::new(40.0 * scale, 40.0 * scale)).extend(0.0);
+                tr.scale = Vec3::new(scale, scale, scale);
+            }
             Some(())
         })
         .collect::<Vec<_>>();
@@ -392,6 +410,19 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         if ctrl.last().is_some() {
             send_log(&mut evt, &format!(" - {}", ctrl));
         }
+    }
+
+    if let Some(to) = state.target_orbit() {
+        send_log(
+            &mut evt,
+            &format!(
+                "Target orbit: type={:?}, sub={}, esc={}\n{:#?}",
+                to.class(),
+                to.is_suborbital(),
+                to.will_escape(),
+                to
+            ),
+        );
     }
 
     let prop_count: usize = state.system.objects.iter().map(|o| o.props().len()).sum();

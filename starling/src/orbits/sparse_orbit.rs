@@ -37,7 +37,6 @@ pub struct SparseOrbit {
     pub eccentricity: f32,
     pub semi_major_axis: f32,
     pub arg_periapsis: f32,
-    // pub alpha: f32,
     pub retrograde: bool,
     pub body: Body,
     pub initial: PV,
@@ -102,6 +101,37 @@ impl SparseOrbit {
             body,
             initial: PV::new(p, v),
             epoch,
+        }
+    }
+
+    pub fn is_suborbital(&self) -> bool {
+        self.periapsis_r() < self.body.radius
+    }
+
+    pub fn will_escape(&self) -> bool {
+        match self.class() {
+            OrbitClass::Parabolic | OrbitClass::Hyperbolic => true,
+            _ => self.apoapsis_r() > self.body.soi,
+        }
+    }
+
+    pub fn class(&self) -> OrbitClass {
+        if self.eccentricity == 0.0 {
+            OrbitClass::Circular
+        } else if self.eccentricity < 0.2 {
+            OrbitClass::NearCircular
+        } else if self.eccentricity < 0.9 {
+            OrbitClass::Elliptical
+        } else if self.eccentricity < 1.0 {
+            if self.eccentricity > 0.97 && self.is_suborbital() {
+                OrbitClass::VeryThin
+            } else {
+                OrbitClass::HighlyElliptical
+            }
+        } else if self.eccentricity == 1.0 {
+            OrbitClass::Parabolic
+        } else {
+            OrbitClass::Hyperbolic
         }
     }
 
@@ -301,4 +331,15 @@ impl SparseOrbit {
 
         (ret, dist.abs() * sign)
     }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum OrbitClass {
+    Circular,
+    NearCircular,
+    Elliptical,
+    HighlyElliptical,
+    Parabolic,
+    Hyperbolic,
+    VeryThin,
 }
