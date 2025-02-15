@@ -52,10 +52,10 @@ pub fn export_orbit_data(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
-    use glam::f32::Vec2;
     use crate::orbits::sparse_orbit::Body;
     use crate::orbits::universal::*;
+    use approx::assert_relative_eq;
+    use glam::f32::Vec2;
 
     #[test]
     fn universal_lagrange_example() {
@@ -92,6 +92,18 @@ mod tests {
         assert_relative_eq!(stumpff_3(0.0), 0.16666667);
         assert_relative_eq!(stumpff_3(1E-12), 0.16666667);
         assert_relative_eq!(stumpff_3(20.0), 0.060859215);
+    }
+
+    #[test]
+    fn bad_orbit() {
+        let pv = PV::new((825.33563, 564.6425), (200.0, 230.0));
+        let body = Body {
+            radius: 63.0,
+            mass: 1000.0,
+            soi: 15000.0,
+        };
+        let orbit = SparseOrbit::from_pv(pv, body, Nanotime(0));
+        dbg!(orbit);
     }
 
     #[test]

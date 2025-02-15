@@ -89,7 +89,7 @@ fn mutual_separation(o1: &SparseOrbit, o2: &SparseOrbit, t: Nanotime) -> f32 {
     p1.distance(p2)
 }
 
-fn search_condition<T: BinarySearchKey>(
+pub fn search_condition<T: BinarySearchKey>(
     t1: T,
     t2: T,
     tol: T,

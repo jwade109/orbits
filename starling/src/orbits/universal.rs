@@ -1,5 +1,6 @@
-use crate::pv::PV;
 use crate::core::Nanotime;
+use crate::planning::search_condition;
+use crate::pv::PV;
 use splines::{Interpolation, Key, Spline};
 
 // https://orbital-mechanics.space/time-since-periapsis-and-keplers-equation/universal-variables.html
@@ -90,7 +91,7 @@ pub fn universal_lagrange(
     } else {
         rootfinder::root_bisection(
             &|x| universal_kepler(x as f32, r_0, v_r0, alpha, delta_t, mu).into(),
-            rootfinder::Interval::new(-999999.99, 999999.99),
+            rootfinder::Interval::new(-9999.99, 9999.99),
             None,
             None,
         )

@@ -108,13 +108,14 @@ fn update_text(res: Res<GameState>, mut text: Query<(&mut Transform, &mut Text2d
                 .unwrap_or("".into());
 
             let txt = format!(
-                "{:?}{}\nOrbiting {}{}\nA {:0.2}\nV {:0.2}{}",
+                "{:?}{}\nOrbiting {}{}\nA {:0.1} V {:0.1}\n{:?}{}",
                 id,
                 warn_str,
                 parent.name,
                 p_line,
                 pvl.pos.length(),
                 pvl.vel.length(),
+                prop.orbit.class(),
                 event_lines,
             );
 
