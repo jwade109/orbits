@@ -1,6 +1,6 @@
 use crate::core::*;
 use crate::orbiter::*;
-use crate::orbits::sparse_orbit::SparseOrbit;
+use crate::orbits::sparse_orbit::{OrbitClass, SparseOrbit};
 use crate::orbits::universal::tspace;
 use crate::pv::PV;
 use glam::f32::Vec2;
@@ -399,18 +399,45 @@ pub fn generate_maneuver_plan(
     destination: &SparseOrbit,
     now: Nanotime,
 ) -> Option<ManeuverPlan> {
-    let x = get_next_intersection(now, current, destination)
-        .ok()?
-        .map(|(t, pvf)| {
-            let pvi = current.pv_at_time(t);
-            Some(ManeuverNode {
-                stamp: t,
-                before: pvi,
-                after: pvf,
-                orbit: SparseOrbit::from_pv(pvf, current.body, t)?,
-            })
-        })
-        .flatten()?;
+    match current.class() {
+        OrbitClass::Circular | OrbitClass::NearCircular => (),
+        _ => return None,
+    }
+    match destination.class() {
+        OrbitClass::Circular | OrbitClass::NearCircular => (),
+        _ => return None,
+    }
 
-    Some(ManeuverPlan { nodes: vec![x] })
+    let r1 = current.semi_major_axis;
+    let r2 = destination.semi_major_axis;
+    let mu = current.body.mu();
+    let dv1 = (mu / r1).sqrt() * ((2.0 * r2 / (r1 + r2)).sqrt() - 1.0);
+
+    let t = current.t_next_p(now)?;
+
+    let before = current.pv_at_time(t);
+    let prograde = before.vel.normalize_or_zero();
+    let after = before + PV::vel(prograde * dv1);
+
+    let node = ManeuverNode {
+        stamp: t,
+        before,
+        after,
+        orbit: SparseOrbit::from_pv(after, current.body, t)?,
+    };
+
+    // let x = get_next_intersection(now, current, destination)
+    //     .ok()?
+    //     .map(|(t, pvf)| {
+    //         let pvi = current.pv_at_time(t);
+    //         Some(ManeuverNode {
+    //             stamp: t,
+    //             before: pvi,
+    //             after: pvf,
+    //             orbit: SparseOrbit::from_pv(pvf, current.body, t)?,
+    //         })
+    //     })
+    //     .flatten()?;
+
+    Some(ManeuverPlan { nodes: vec![node] })
 }

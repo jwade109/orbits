@@ -14,6 +14,68 @@ pub fn wrap_pi_npi(x: f32) -> f32 {
 }
 
 #[derive(Debug, Clone, Copy)]
+pub enum Anomaly {
+    Elliptical(f32),
+    Parabolic(f32),
+    Hyperbolic(f32),
+}
+
+impl Anomaly {
+    pub fn with_ecc(ecc: f32, anomaly: f32) -> Self {
+        if ecc > 1.0 {
+            Anomaly::Hyperbolic(anomaly)
+        } else if ecc == 1.0 {
+            Anomaly::Parabolic(anomaly)
+        } else {
+            Anomaly::Elliptical(wrap_pi_npi(anomaly))
+        }
+    }
+
+    pub fn as_f32(&self) -> f32 {
+        match self {
+            Anomaly::Elliptical(v) => *v,
+            Anomaly::Parabolic(v) => *v,
+            Anomaly::Hyperbolic(v) => *v,
+        }
+    }
+}
+
+pub fn true_to_eccentric(true_anomaly: Anomaly, ecc: f32) -> Anomaly {
+    match true_anomaly {
+        Anomaly::Elliptical(v) => Anomaly::Elliptical({
+            let term = f32::sqrt((1. - ecc) / (1. + ecc)) * f32::tan(0.5 * v);
+            2.0 * term.atan()
+        }),
+        Anomaly::Hyperbolic(v) => {
+            let x = ((ecc + v.cos()) / (1. + ecc * v.cos())).acosh();
+            Anomaly::Hyperbolic(x.abs() * v.signum())
+        }
+        Anomaly::Parabolic(v) => Anomaly::Parabolic((v / 2.0).tan()),
+    }
+}
+
+pub fn bhaskara_sin_approx(x: f32) -> f32 {
+    let xp = x.abs();
+    let res = 16.0 * xp * (PI - xp) / (5.0 * PI.powi(2) - 4.0 * xp * (PI - xp));
+    if x > 0.0 {
+        res
+    } else {
+        -res
+    }
+}
+
+pub fn eccentric_to_mean(eccentric_anomaly: Anomaly, ecc: f32) -> Anomaly {
+    match eccentric_anomaly {
+        Anomaly::Elliptical(v) => Anomaly::Elliptical(v - ecc * v.sin()),
+        // Anomaly::Elliptical(v) => {
+        //     Anomaly::Elliptical(v - ecc * bhaskara_sin_approx(v as f64) as f32)
+        // }
+        Anomaly::Hyperbolic(v) => Anomaly::Hyperbolic(ecc * v.sinh() - v),
+        Anomaly::Parabolic(v) => Anomaly::Parabolic(v + v.powi(3) / 3.0),
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct Body {
     pub radius: f32,
     pub mass: f32,
@@ -57,15 +119,27 @@ impl SparseOrbit {
         let arg_periapsis: f32 = f32::atan2(e.y, e.x);
         let semi_major_axis: f32 = h.length_squared() / (body.mu() * (1.0 - e.length_squared()));
 
-        let mean_anomaly = {
-            let data = ULData::new(pv, Nanotime(0), body.mu());
-            let sol = data.solve()?;
-            let inner = sol.chi * body.mu().sqrt() / h.z;
-            1.0 / 6.0 * inner.powi(3) + 0.5 + inner
-        };
+        let mut true_anomaly = f32::acos(e.dot(r3) / (e.length() * r3.length()));
+        if r3.dot(v3) < 0.0 {
+            true_anomaly = if e.length() < 1.0 {
+                2.0 * PI - true_anomaly
+            } else {
+                -true_anomaly
+            };
+        }
 
-        let mean_motion = (body.mu() / semi_major_axis.abs().powi(3)).sqrt();
-        let p_tof = Nanotime::secs_f32(mean_anomaly / mean_motion);
+        let true_anomaly = Anomaly::with_ecc(e.length(), true_anomaly);
+
+        let time_at_periapsis = {
+            if e.length() > 0.95 {
+                None
+            } else {
+                let eccentric_anomaly = true_to_eccentric(true_anomaly, e.length());
+                let mean_anomaly = eccentric_to_mean(eccentric_anomaly, e.length());
+                let mean_motion = (body.mu() / semi_major_axis.abs().powi(3)).sqrt();
+                Some(epoch - Nanotime::secs_f32(mean_anomaly.as_f32() / mean_motion))
+            }
+        };
 
         let o = SparseOrbit {
             eccentricity: e.length(),
@@ -75,7 +149,7 @@ impl SparseOrbit {
             body,
             initial: pv,
             epoch,
-            time_at_periapsis: Some(epoch - p_tof),
+            time_at_periapsis,
         };
 
         if o.pv_at_time_fallible(epoch + Nanotime::secs(1)).is_none() {
