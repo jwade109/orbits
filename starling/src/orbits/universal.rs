@@ -1,7 +1,8 @@
 use crate::core::Nanotime;
-use crate::planning::search_condition;
 use crate::pv::PV;
 use splines::{Interpolation, Key, Spline};
+
+// https://www.coursesidekick.com/mathematics/441994
 
 // https://orbital-mechanics.space/time-since-periapsis-and-keplers-equation/universal-variables.html
 

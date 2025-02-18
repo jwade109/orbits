@@ -501,19 +501,19 @@ pub fn draw_maneuver_plan(gizmos: &mut Gizmos, state: &GameState, id: ObjectId) 
 pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
     let stamp = state.sim_time;
 
-    if let Some(pv) = state.cursor_pv() {
-        let tof = stamp;
-        let data = ULData::new(pv, tof, state.system.system.body.mu());
-        let func = |x| data.universal_kepler(x);
-        draw_function(
-            &mut gizmos,
-            |x| func(x) as f32,
-            -500.0,
-            500.0,
-            &state.camera,
-            RED,
-        );
-    }
+    // if let Some(pv) = state.cursor_pv() {
+    //     let tof = stamp;
+    //     let data = ULData::new(pv, tof, state.system.system.body.mu());
+    //     let func = |x| data.universal_kepler(x);
+    //     draw_function(
+    //         &mut gizmos,
+    //         |x| func(x) as f32,
+    //         -500.0,
+    //         500.0,
+    //         &state.camera,
+    //         RED,
+    //     );
+    // }
 
     for p in &state.control_points {
         draw_circle(

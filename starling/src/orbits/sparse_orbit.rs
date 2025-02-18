@@ -41,6 +41,7 @@ pub struct SparseOrbit {
     pub body: Body,
     pub initial: PV,
     pub epoch: Nanotime,
+    pub time_at_periapsis: Option<Nanotime>,
 }
 
 impl SparseOrbit {
@@ -55,14 +56,16 @@ impl SparseOrbit {
         let e = v3.cross(h) / body.mu() - r3 / r3.length();
         let arg_periapsis: f32 = f32::atan2(e.y, e.x);
         let semi_major_axis: f32 = h.length_squared() / (body.mu() * (1.0 - e.length_squared()));
-        let mut true_anomaly = f32::acos(e.dot(r3) / (e.length() * r3.length()));
-        if r3.dot(v3) < 0.0 {
-            true_anomaly = if e.length() < 1.0 {
-                2.0 * PI - true_anomaly
-            } else {
-                -true_anomaly
-            };
-        }
+
+        let mean_anomaly = {
+            let data = ULData::new(pv, Nanotime(0), body.mu());
+            let sol = data.solve()?;
+            let inner = sol.chi * body.mu().sqrt() / h.z;
+            1.0 / 6.0 * inner.powi(3) + 0.5 + inner
+        };
+
+        let mean_motion = (body.mu() / semi_major_axis.abs().powi(3)).sqrt();
+        let p_tof = Nanotime::secs_f32(mean_anomaly / mean_motion);
 
         let o = SparseOrbit {
             eccentricity: e.length(),
@@ -72,6 +75,7 @@ impl SparseOrbit {
             body,
             initial: pv,
             epoch,
+            time_at_periapsis: Some(epoch - p_tof),
         };
 
         if o.pv_at_time_fallible(epoch + Nanotime::secs(1)).is_none() {
@@ -98,6 +102,7 @@ impl SparseOrbit {
             body,
             initial: PV::new(p, v),
             epoch,
+            time_at_periapsis: None,
         }
     }
 
@@ -213,7 +218,8 @@ impl SparseOrbit {
     }
 
     pub fn pv_at_time_fallible(&self, stamp: Nanotime) -> Option<PV> {
-        universal_lagrange(self.initial, stamp - self.epoch, self.body.mu())
+        let tof = stamp - self.epoch;
+        universal_lagrange(self.initial, tof, self.body.mu())
             .1
             .map(|t| t.pv.filter_numerr())
             .flatten()
@@ -262,22 +268,22 @@ impl SparseOrbit {
 
     pub fn orbit_number(&self, stamp: Nanotime) -> Option<i64> {
         let p = self.period()?;
-        let dt = stamp - self.epoch;
+        let dt = stamp - self.time_at_periapsis?;
         let n = dt.0.checked_div(p.0)?;
         Some(if dt.0 < 0 { n - 1 } else { n })
     }
 
     pub fn t_next_p(&self, current: Nanotime) -> Option<Nanotime> {
-        None
-        // if self.eccentricity >= 1.0 {
-        //     return (self.time_at_periapsis >= current).then(|| self.time_at_periapsis);
-        // }
-        // let p = self.period()?;
-        // let n = self.orbit_number(current)?;
-        // Some(p * (n + 1) + self.time_at_periapsis)
+        let tp = self.time_at_periapsis?;
+        if self.eccentricity >= 1.0 {
+            return (tp >= current).then(|| tp);
+        }
+        let p = self.period()?;
+        let n = self.orbit_number(current)?;
+        Some(p * (n + 1) + tp)
     }
 
-    pub fn t_last_p(&self, current: Nanotime) -> Option<Nanotime> {
+    pub fn t_last_p(&self, _current: Nanotime) -> Option<Nanotime> {
         None
         // let p = self.period()?;
         // let n = self.orbit_number(current)?;

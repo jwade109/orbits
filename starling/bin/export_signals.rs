@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use starling::core::*;
 use starling::examples::make_earth;
 use starling::orbits::misc::export_orbit_data;

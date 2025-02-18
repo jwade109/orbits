@@ -72,8 +72,7 @@ fn update_text(res: Res<GameState>, mut text: Query<(&mut Transform, &mut Text2d
     let mut height = -40.0;
     let _ = text
         .iter_mut()
-        .enumerate()
-        .filter_map(|(i, (mut tr, mut text, follow))| {
+        .filter_map(|(mut tr, mut text, follow)| {
             let id = follow.0;
             let obj = res.system.objects.iter().find(|o| o.id == id)?;
             let pvl = obj.pvl(res.sim_time)?;
