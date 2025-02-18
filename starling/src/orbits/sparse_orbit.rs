@@ -47,7 +47,7 @@ impl SparseOrbit {
     pub fn from_pv(pv: impl Into<PV>, body: Body, epoch: Nanotime) -> Option<Self> {
         let pv: PV = pv.into();
 
-        pv.filter_nan()?;
+        pv.filter_numerr()?;
 
         let r3 = pv.pos.extend(0.0);
         let v3 = pv.vel.extend(0.0);
@@ -74,11 +74,8 @@ impl SparseOrbit {
             epoch,
         };
 
-        if o.pv_at_time(epoch + Nanotime::secs(1))
-            .filter_nan()
-            .is_none()
-        {
-            println!("SparseOrbit returned NaN PV: {pv:?}\n  {o:?}");
+        if o.pv_at_time_fallible(epoch + Nanotime::secs(1)).is_none() {
+            println!("SparseOrbit returned bad PV: {pv:?}\n  {o:?}");
             return None;
         }
 
@@ -212,15 +209,14 @@ impl SparseOrbit {
     }
 
     pub fn pv_at_time(&self, stamp: Nanotime) -> PV {
-        universal_lagrange(self.initial, stamp - self.epoch, self.body.mu())
-            .map(|t| t.pv)
-            .unwrap_or(PV::zero())
+        self.pv_at_time_fallible(stamp).unwrap_or(PV::zero())
     }
 
     pub fn pv_at_time_fallible(&self, stamp: Nanotime) -> Option<PV> {
         universal_lagrange(self.initial, stamp - self.epoch, self.body.mu())
-            .map(|t| t.pv)
-            .ok()
+            .1
+            .map(|t| t.pv.filter_numerr())
+            .flatten()
     }
 
     pub fn position_at(&self, true_anomaly: f32) -> Vec2 {

@@ -6,6 +6,7 @@ use starling::control::Controller;
 use starling::core::*;
 use starling::orbiter::*;
 use starling::orbits::sparse_orbit::*;
+use starling::orbits::universal::*;
 use starling::planning::*;
 use starling::pv::PV;
 
@@ -82,32 +83,39 @@ pub fn draw_orbit(gizmos: &mut Gizmos, orb: &SparseOrbit, origin: Vec2, color: S
             .ellipse_2d(iso, Vec2::new(orb.semi_major_axis, b), color)
             .resolution(res);
     }
+}
 
-    // if !detailed {
-    //     return;
-    // }
-
-    // if orb.eccentricity >= 1.0 {
-    //     let focii = orb.focii();
-    //     draw_cross(gizmos, focii[0], 20.0, WHITE);
-    //     draw_circle(gizmos, focii[1], 15.0, WHITE);
-    //     if let Some((ua, la)) = orb.asymptotes() {
-    //         let c = orb.center();
-    //         for asym in [ua, la] {
-    //             gizmos.line_2d(c, c + asym * 100.0, alpha(WHITE, 0.04));
-    //         }
-    //     }
-    // }
-
-    // let ta = orb.ta_at_time(stamp).as_f32();
-    // let root = orb.position_at(ta) + origin;
-    // let t1 = root + orb.normal_at(ta) * 60.0;
-    // let t2 = root + orb.tangent_at(ta) * 60.0;
-    // let t3 = root + orb.velocity_at(ta) * 3.0;
-    // gizmos.line_2d(root, t1, GREEN);
-    // gizmos.line_2d(root, origin, alpha(GREEN, 0.4));
-    // gizmos.line_2d(root, t2, GREEN);
-    // gizmos.line_2d(root, t3, PURPLE);
+pub fn draw_function(
+    gizmos: &mut Gizmos,
+    func: impl Fn(f32) -> f32,
+    xmin: f32,
+    xmax: f32,
+    camera: &CameraState,
+    color: Srgba,
+) {
+    let bounds = camera.game_bounds();
+    let scale = camera.actual_scale;
+    let xeval = linspace(xmin, xmax, 500);
+    let yeval = apply(&xeval, func);
+    let ymin = yeval.iter().min_by(|x, y| x.total_cmp(y)).unwrap();
+    let ymax = yeval.iter().max_by(|x, y| x.total_cmp(y)).unwrap();
+    let points = xeval
+        .iter()
+        .zip(&yeval)
+        .map(|(x, y)| {
+            let yscale = 2.0 * ((y - ymin) / (ymax - ymin)) - 1.0;
+            bounds.center + Vec2::new(*x, yscale * 500.0) * scale
+        })
+        .collect::<Vec<_>>();
+    let zero = xeval
+        .iter()
+        .map(|x| {
+            let yscale = 2.0 * ((0.0 - ymin) / (ymax - ymin)) - 1.0;
+            bounds.center + Vec2::new(*x, yscale * 500.0) * scale
+        })
+        .collect::<Vec<_>>();
+    gizmos.linestrip_2d(zero, GRAY);
+    gizmos.linestrip_2d(points, color);
 }
 
 pub fn draw_globe(gizmos: &mut Gizmos, p: Vec2, radius: f32, color: Srgba) {
@@ -492,6 +500,20 @@ pub fn draw_maneuver_plan(gizmos: &mut Gizmos, state: &GameState, id: ObjectId) 
 
 pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
     let stamp = state.sim_time;
+
+    if let Some(pv) = state.cursor_pv() {
+        let tof = Nanotime::secs(1);
+        let data = ULData::new(pv, tof, state.system.system.body.mu());
+        let func = |x| data.universal_kepler(x);
+        draw_function(
+            &mut gizmos,
+            |x| func(x) as f32,
+            -500.0,
+            500.0,
+            &state.camera,
+            RED,
+        );
+    }
 
     for p in &state.control_points {
         draw_circle(

@@ -31,7 +31,7 @@ pub fn stumpff_3(z: f32) -> f32 {
     }
 }
 
-pub fn universal_kepler(chi: f32, r_0: f32, v_r0: f32, alpha: f32, delta_t: f32, mu: f32) -> f32 {
+fn universal_kepler(chi: f32, r_0: f32, v_r0: f32, alpha: f32, delta_t: f32, mu: f32) -> f32 {
     let z = alpha * chi.powi(2);
     let first_term = r_0 * v_r0 / mu.sqrt() * chi.powi(2) * stumpff_2(z);
     let second_term = (1.0 - alpha * r_0) * chi.powi(3) * stumpff_3(z);
@@ -58,22 +58,70 @@ pub struct LangrangeCoefficients {
 
 #[derive(Debug, Copy, Clone)]
 pub struct ULData {
+    pub initial: PV,
     pub tof: Nanotime,
-    pub pv: PV,
-    pub alpha: f32,
+    pub mu: f32,
+    pub r_0: f32,
+    pub v_r0: f32,
     pub chi_0: f32,
+    pub alpha: f32,
+}
+
+impl ULData {
+    pub fn new(initial: impl Into<PV>, tof: Nanotime, mu: f32) -> Self {
+        let initial = initial.into();
+        let r_0 = initial.pos.length();
+        let alpha = 2.0 / r_0 - initial.vel.dot(initial.vel) / mu;
+        ULData {
+            initial,
+            tof,
+            mu,
+            r_0,
+            v_r0: initial.vel.dot(initial.pos) / r_0,
+            alpha,
+            chi_0: mu.sqrt() * alpha.abs() * tof.to_secs(),
+        }
+    }
+
+    pub fn universal_kepler(&self, chi: f32) -> f32 {
+        universal_kepler(
+            chi,
+            self.r_0,
+            self.v_r0,
+            self.alpha,
+            self.tof.to_secs(),
+            self.mu,
+        )
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct ULResults {
+    pub pv: PV,
     pub chi: f32,
     pub z: f32,
     pub lc: LangrangeCoefficients,
 }
 
-// https://en.wikipedia.org/wiki/Universal_variable_formulation
-// https://orbital-mechanics.space/time-since-periapsis-and-keplers-equation/universal-lagrange-coefficients-example.html
-pub fn universal_lagrange(
+impl ULResults {
+    fn new(chi: f32, data: &ULData) -> Option<Self> {
+        let z = data.alpha * chi.powi(2);
+        let lcoeffs = lagrange_coefficients(data.initial, chi, data.mu, data.tof);
+        let pv = lagrange_pv(data.initial, &lcoeffs).filter_numerr()?;
+        Some(ULResults {
+            pv,
+            chi,
+            z,
+            lc: lcoeffs,
+        })
+    }
+}
+
+pub fn universal_kepler_func(
     initial: impl Into<PV>,
     tof: Nanotime,
     mu: f32,
-) -> Result<ULData, ULError> {
+) -> impl Fn(f64) -> f64 {
     let initial = initial.into();
     let vec_r_0 = initial.pos;
     let vec_v_0 = initial.vel;
@@ -84,35 +132,38 @@ pub fn universal_lagrange(
     let alpha = 2.0 / r_0 - vec_v_0.dot(vec_v_0) / mu;
 
     let delta_t = tof.to_secs();
-    let chi_0: f32 = mu.sqrt() * alpha.abs() * delta_t;
+
+    move |x| universal_kepler(x as f32, r_0, v_r0, alpha, delta_t, mu).into()
+}
+
+// https://en.wikipedia.org/wiki/Universal_variable_formulation
+// https://orbital-mechanics.space/time-since-periapsis-and-keplers-equation/universal-lagrange-coefficients-example.html
+pub fn universal_lagrange(
+    initial: impl Into<PV>,
+    tof: Nanotime,
+    mu: f32,
+) -> (ULData, Option<ULResults>) {
+    let data = ULData::new(initial, tof, mu);
 
     let chi = if tof == Nanotime(0) {
         0.0
     } else {
-        rootfinder::root_bisection(
-            &|x| universal_kepler(x as f32, r_0, v_r0, alpha, delta_t, mu).into(),
+        match rootfinder::root_bisection(
+            &|x: f64| data.universal_kepler(x as f32) as f64,
             rootfinder::Interval::new(-9999.99, 9999.99),
             None,
             None,
-        )
-        .map_err(|_| ULError::Solve)? as f32
+        ) {
+            Ok(x) => x as f32,
+            Err(_) => {
+                return (data, None);
+            }
+        }
     };
 
-    let z = alpha * chi.powi(2);
+    let results = ULResults::new(chi, &data);
 
-    let lcoeffs = lagrange_coefficients(initial, chi, mu, tof);
-
-    let pv = lagrange_pv(initial, &lcoeffs);
-
-    Ok(ULData {
-        tof,
-        pv,
-        alpha,
-        chi_0,
-        chi,
-        z,
-        lc: lcoeffs,
-    })
+    (data, results)
 }
 
 pub fn lagrange_coefficients(
@@ -180,9 +231,10 @@ pub fn generate_chi_spline(
         .to_vec()
         .iter()
         .map(|t| {
-            let data = universal_lagrange(pv, *t, mu)?;
+            let (_, res) = universal_lagrange(pv, *t, mu);
+            let res = res.ok_or(ULError::NaN)?;
             let t = t.to_secs();
-            let key = Key::new(t, data.chi, Interpolation::Linear);
+            let key = Key::new(t, res.chi, Interpolation::Linear);
             Ok(key)
         })
         .collect::<Result<Vec<_>, ULError>>()?;

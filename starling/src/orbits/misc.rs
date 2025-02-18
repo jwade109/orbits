@@ -20,16 +20,18 @@ pub fn export_orbit_data(
         universal_lagrange(orbit.initial, x, orbit.body.mu())
     });
 
-    let x = apply(&data, |x| x.map(|d| d.pv.pos.x).unwrap_or(f32::NAN));
-    let y = apply(&data, |x| x.map(|d| d.pv.pos.y).unwrap_or(f32::NAN));
-    let vx = apply(&data, |x| x.map(|d| d.pv.vel.x).unwrap_or(f32::NAN));
-    let vy = apply(&data, |x| x.map(|d| d.pv.vel.y).unwrap_or(f32::NAN));
-    let r = apply(&data, |x| x.map(|d| d.pv.pos.length()).unwrap_or(f32::NAN));
-    let z = apply(&data, |x| x.map(|d| d.z).unwrap_or(f32::NAN));
-    let f = apply(&data, |x| x.map(|d| d.lc.f).unwrap_or(f32::NAN));
-    let g = apply(&data, |x| x.map(|d| d.lc.g).unwrap_or(f32::NAN));
-    let fdot = apply(&data, |x| x.map(|d| d.lc.fdot).unwrap_or(f32::NAN));
-    let gdot = apply(&data, |x| x.map(|d| d.lc.gdot).unwrap_or(f32::NAN));
+    let x = apply(&data, |x| x.1.map(|d| d.pv.pos.x).unwrap_or(f32::NAN));
+    let y = apply(&data, |x| x.1.map(|d| d.pv.pos.y).unwrap_or(f32::NAN));
+    let vx = apply(&data, |x| x.1.map(|d| d.pv.vel.x).unwrap_or(f32::NAN));
+    let vy = apply(&data, |x| x.1.map(|d| d.pv.vel.y).unwrap_or(f32::NAN));
+    let r = apply(&data, |x| {
+        x.1.map(|d| d.pv.pos.length()).unwrap_or(f32::NAN)
+    });
+    let z = apply(&data, |x| x.1.map(|d| d.z).unwrap_or(f32::NAN));
+    let f = apply(&data, |x| x.1.map(|d| d.lc.f).unwrap_or(f32::NAN));
+    let g = apply(&data, |x| x.1.map(|d| d.lc.g).unwrap_or(f32::NAN));
+    let fdot = apply(&data, |x| x.1.map(|d| d.lc.fdot).unwrap_or(f32::NAN));
+    let gdot = apply(&data, |x| x.1.map(|d| d.lc.gdot).unwrap_or(f32::NAN));
 
     write_csv(
         &orbit_data_path.join(filename),
@@ -65,10 +67,10 @@ mod tests {
 
         let tof = Nanotime::secs(3600);
 
-        let res = super::universal_lagrange((vec_r_0, vec_v_0), tof, mu).unwrap();
+        let (_, res) = super::universal_lagrange((vec_r_0, vec_v_0), tof, mu);
 
         assert_eq!(
-            res.pv,
+            res.unwrap().pv,
             PV::new((-3297.7869, 7413.3867), (-8.297602, -0.9640651))
         );
     }

@@ -29,8 +29,8 @@ impl PV {
         PV::new(Vec2::ZERO, vel)
     }
 
-    pub fn filter_nan(&self) -> Option<Self> {
-        if self.pos.is_nan() || self.pos.is_nan() {
+    pub fn filter_numerr(&self) -> Option<Self> {
+        if !self.pos.is_finite() || !self.vel.is_finite() {
             None
         } else {
             Some(*self)
@@ -81,12 +81,6 @@ impl Into<PV> for (Vec2, Vec2) {
     fn into(self) -> PV {
         PV::new(self.0, self.1)
     }
-}
-
-// TODO move to utils
-
-pub fn apply<T: Copy, R>(x: &Vec<T>, func: impl Fn(T) -> R) -> Vec<R> {
-    x.iter().map(|x| func(*x)).collect()
 }
 
 pub fn write_csv(

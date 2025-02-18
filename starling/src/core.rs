@@ -27,6 +27,10 @@ pub fn lerp(a: f32, b: f32, t: f32) -> f32 {
     a + (b - a) * t
 }
 
+pub fn apply<T: Copy, R>(x: &Vec<T>, func: impl Fn(T) -> R) -> Vec<R> {
+    x.iter().map(|x| func(*x)).collect()
+}
+
 pub fn linspace(a: f32, b: f32, n: usize) -> Vec<f32> {
     if n < 2 {
         return vec![a];

@@ -9,6 +9,7 @@ use starling::examples::*;
 use starling::orbiter::*;
 use starling::orbits::misc::export_orbit_data;
 use starling::orbits::sparse_orbit::*;
+use starling::pv::PV;
 
 use crate::camera_controls::*;
 use crate::debug::*;
@@ -126,8 +127,7 @@ fn update_text(res: Res<GameState>, mut text: Query<(&mut Transform, &mut Text2d
             if zoomed_out || !window.contains(pv.pos) {
                 let s = res.camera.actual_scale;
                 let h = 23.0 * (n + 1) as f32;
-                let ur =
-                    window.center + window.span / 2.0 + Vec2::new(-300.0, height) * s;
+                let ur = window.center + window.span / 2.0 + Vec2::new(-300.0, height) * s;
                 height -= h;
                 tr.translation = ur.extend(0.0);
                 tr.scale = Vec3::new(s, s, s);
@@ -191,7 +191,7 @@ impl GameState {
         AABB::from_list(&pos).map(|aabb| aabb.padded(60.0))
     }
 
-    pub fn target_orbit(&self) -> Option<SparseOrbit> {
+    pub fn cursor_pv(&self) -> Option<PV> {
         let p1 = self.control_points.get(0);
         let p2 = self
             .control_points
@@ -206,14 +206,15 @@ impl GameState {
 
             let v = (self.system.system.body.mu() / p1.length()).sqrt();
 
-            SparseOrbit::from_pv(
-                (*p1, (p2 - p1) * v / p1.length()),
-                self.system.system.body,
-                self.sim_time,
-            )
+            Some(PV::new(*p1, (p2 - p1) * v / p1.length()))
         } else {
             None
         }
+    }
+
+    pub fn target_orbit(&self) -> Option<SparseOrbit> {
+        let pv = self.cursor_pv()?;
+        SparseOrbit::from_pv(pv, self.system.system.body, self.sim_time)
     }
 
     pub fn spawn_new(&mut self) {
