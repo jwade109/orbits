@@ -93,6 +93,26 @@ impl ULData {
             self.mu,
         )
     }
+
+    pub fn solve(&self) -> Option<ULResults> {
+        let chi = if self.tof == Nanotime(0) {
+            0.0
+        } else {
+            match rootfinder::root_bisection(
+                &|x: f64| self.universal_kepler(x as f32) as f64,
+                rootfinder::Interval::new(-200.00 + self.chi_0 as f64, 200.00 + self.chi_0 as f64),
+                None,
+                None,
+            ) {
+                Ok(x) => x as f32,
+                Err(_) => {
+                    return None;
+                }
+            }
+        };
+
+        ULResults::new(chi, &self)
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -144,26 +164,7 @@ pub fn universal_lagrange(
     mu: f32,
 ) -> (ULData, Option<ULResults>) {
     let data = ULData::new(initial, tof, mu);
-
-    let chi = if tof == Nanotime(0) {
-        0.0
-    } else {
-        match rootfinder::root_bisection(
-            &|x: f64| data.universal_kepler(x as f32) as f64,
-            rootfinder::Interval::new(-9999.99, 9999.99),
-            None,
-            None,
-        ) {
-            Ok(x) => x as f32,
-            Err(_) => {
-                return (data, None);
-            }
-        }
-    };
-
-    let results = ULResults::new(chi, &data);
-
-    (data, results)
+    (data, data.solve())
 }
 
 pub fn lagrange_coefficients(

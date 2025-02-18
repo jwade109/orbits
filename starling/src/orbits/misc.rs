@@ -104,8 +104,13 @@ mod tests {
             mass: 1000.0,
             soi: 15000.0,
         };
-        let orbit = SparseOrbit::from_pv(pv, body, Nanotime(0));
-        dbg!(orbit);
+
+        let data = ULData::new(pv, Nanotime::secs(1), body.mu());
+
+        let res = data.solve();
+
+        dbg!(data);
+        dbg!(res);
     }
 
     #[test]

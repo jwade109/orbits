@@ -50,10 +50,11 @@ fn write_chi_spline() -> Result<(), Box<dyn std::error::Error>> {
     let spline = apply(&teval, |t| spline.sample(t).unwrap_or(f32::NAN));
 
     let data = apply(&teval, |t| {
-        universal_lagrange(orbit.initial, Nanotime::secs_f32(t), orbit.body.mu()).map(|(x, y)| (x, y.unwrap()))
+        let (dat, res) = universal_lagrange(orbit.initial, Nanotime::secs_f32(t), orbit.body.mu());
+        (dat, res.unwrap())
     });
 
-    let actual = apply(&data, |d| d.chi);
+    let actual = apply(&data, |d| d.1.chi);
 
     let error = spline
         .iter()

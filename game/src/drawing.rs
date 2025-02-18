@@ -502,7 +502,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
     let stamp = state.sim_time;
 
     if let Some(pv) = state.cursor_pv() {
-        let tof = Nanotime::secs(1);
+        let tof = stamp;
         let data = ULData::new(pv, tof, state.system.system.body.mu());
         let func = |x| data.universal_kepler(x);
         draw_function(
