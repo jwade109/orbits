@@ -325,7 +325,7 @@ pub fn draw_scalar_field_cell(
     }
 }
 
-pub fn draw_scalar_field_v2(
+pub fn draw_scalar_field(
     gizmos: &mut Gizmos,
     planet: &PlanetarySystem,
     stamp: Nanotime,
@@ -475,18 +475,8 @@ pub fn draw_event_animation(
     Some(())
 }
 
-pub fn draw_maneuver_plan(gizmos: &mut Gizmos, state: &GameState, id: ObjectId) -> Option<()> {
-    let to = state.target_orbit()?;
-    let pr = state
-        .system
-        .objects
-        .iter()
-        .find(|o| o.id == id)?
-        .propagator_at(state.sim_time)?
-        .orbit;
-
-    let plan = generate_maneuver_plan(&pr, &to, state.sim_time)?;
-
+pub fn draw_maneuver_plan(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
+    let plan = state.maneuver_plan()?;
     for node in &plan.nodes {
         for pv in [node.before, node.after] {
             draw_circle(gizmos, pv.pos, 10.0 * state.camera.actual_scale, YELLOW);
@@ -494,26 +484,11 @@ pub fn draw_maneuver_plan(gizmos: &mut Gizmos, state: &GameState, id: ObjectId) 
         }
         draw_orbit(gizmos, &node.orbit, Vec2::ZERO, alpha(YELLOW, 0.2));
     }
-
     Some(())
 }
 
 pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
     let stamp = state.sim_time;
-
-    // if let Some(pv) = state.cursor_pv() {
-    //     let tof = stamp;
-    //     let data = ULData::new(pv, tof, state.system.system.body.mu());
-    //     let func = |x| data.universal_kepler(x);
-    //     draw_function(
-    //         &mut gizmos,
-    //         |x| func(x) as f32,
-    //         -500.0,
-    //         500.0,
-    //         &state.camera,
-    //         RED,
-    //     );
-    // }
 
     for p in &state.control_points {
         draw_circle(
@@ -531,8 +506,8 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
     if let Some(o) = state.target_orbit() {
         draw_orbit(&mut gizmos, &o, Vec2::ZERO, alpha(RED, 0.2));
         if let Some(test) = state.camera.mouse_pos() {
-            for (p, d) in [o.nearest_along_track(test), o.nearest(test)] {
-                let color = alpha(if d >= 0.0 { RED } else { TEAL }, 0.5);
+            for (p, d) in [o.nearest_along_track(test) /*, o.nearest(test)*/] {
+                let color = alpha(if d >= 0.0 { RED } else { TEAL }, 0.2);
                 let size = 7.0 * state.camera.actual_scale.min(1.0);
                 draw_circle(&mut gizmos, p.pos, size, color);
                 draw_velocity_vec(&mut gizmos, p, 40.0 * state.camera.actual_scale, color);
@@ -542,7 +517,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
     }
 
     if state.show_potential_field {
-        draw_scalar_field_v2(&mut gizmos, &state.system.system, stamp, &state.draw_levels);
+        draw_scalar_field(&mut gizmos, &state.system.system, stamp, &state.draw_levels);
     }
 
     for ctrl in &state.controllers {
@@ -576,7 +551,5 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
 
     draw_highlighted_objects(&mut gizmos, &state);
 
-    for id in &state.track_list {
-        draw_maneuver_plan(&mut gizmos, &state, *id);
-    }
+    draw_maneuver_plan(&mut gizmos, &state);
 }
