@@ -1,6 +1,6 @@
 use crate::core::*;
 use crate::orbiter::*;
-use crate::orbits::sparse_orbit::{OrbitClass, SparseOrbit};
+use crate::orbits::sparse_orbit::{OrbitClass, SparseOrbit, PI};
 use crate::orbits::universal::tspace;
 use crate::pv::PV;
 use glam::f32::Vec2;
@@ -224,15 +224,26 @@ impl Propagator {
 
         let alt = self.orbit.pv_at_time(self.end).pos.length();
 
-        let might_hit_planet = self.orbit.periapsis_r() <= self.orbit.body.radius
-            && alt < self.orbit.body.radius * 20.0;
+        let might_hit_planet = self.orbit.is_suborbital();
         let can_escape =
             self.orbit.eccentricity >= 1.0 || self.orbit.apoapsis_r() >= self.orbit.body.soi;
         let near_body = bodies
             .iter()
             .any(|(_, orb, soi)| mutual_separation(&self.orbit, orb, self.stamp()) < soi * 3.0);
 
-        self.dt = if might_hit_planet {
+        let p_self = self.orbit.periapsis_r();
+        let a_self = self.orbit.apoapsis_r();
+        let will_never_hit_anything = !might_hit_planet
+            && bodies.iter().all(|(_, orbit, soi)| {
+                let p_other = orbit.periapsis_r();
+                let a_other = orbit.apoapsis_r();
+
+                p_self > a_other + soi || a_self < p_other - soi
+            });
+
+        self.dt = if will_never_hit_anything {
+            Nanotime::secs(500)
+        } else if might_hit_planet {
             Nanotime::millis(20)
         } else if can_escape {
             Nanotime::secs(2)
@@ -380,6 +391,29 @@ pub struct ManeuverPlan {
     pub nodes: Vec<ManeuverNode>,
 }
 
+impl std::fmt::Display for ManeuverPlan {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Maneuver Plan\n")?;
+        if self.nodes.is_empty() {
+            return write!(f, " (empty)");
+        }
+        for (i, node) in self.nodes.iter().enumerate() {
+            let endline = if i + 1 < self.nodes.len() { "\n" } else { "" };
+            write!(
+                f,
+                "{}. {:?} dV {:0.1} ({:0.1}) to {:?} orbit{}",
+                i + 1,
+                node.stamp,
+                node.dv(),
+                node.dv().length(),
+                node.orbit.class(),
+                endline
+            )?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct ManeuverNode {
     pub stamp: Nanotime,
@@ -399,45 +433,66 @@ pub fn generate_maneuver_plan(
     destination: &SparseOrbit,
     now: Nanotime,
 ) -> Option<ManeuverPlan> {
+    if let Some(n) = get_next_intersection(now, current, destination)
+        .ok()?
+        .map(|(t, pvf)| {
+            let pvi = current.pv_at_time(t);
+            Some(ManeuverNode {
+                stamp: t,
+                before: pvi,
+                after: pvf,
+                orbit: SparseOrbit::from_pv(pvf, current.body, t)?,
+            })
+        })
+        .flatten()
+    {
+        return Some(ManeuverPlan { nodes: vec![n] });
+    }
+
     match current.class() {
-        OrbitClass::Circular | OrbitClass::NearCircular => (),
-        _ => return None,
-    }
-    match destination.class() {
-        OrbitClass::Circular | OrbitClass::NearCircular => (),
-        _ => return None,
+        OrbitClass::Parabolic | OrbitClass::Hyperbolic | OrbitClass::VeryThin => return None,
+        _ => (),
     }
 
-    let r1 = current.semi_major_axis;
-    let r2 = destination.semi_major_axis;
+    if current.retrograde != destination.retrograde {
+        return None;
+    }
+
+    let r1 = current.periapsis_r();
+    let r2 = destination.radius_at_angle(current.arg_periapsis + PI);
+    let a_transfer = (r1 + r2) / 2.0;
     let mu = current.body.mu();
-    let dv1 = (mu / r1).sqrt() * ((2.0 * r2 / (r1 + r2)).sqrt() - 1.0);
+    let v1 = (mu * (2.0 / r1 - 1.0 / a_transfer)).sqrt();
 
-    let t = current.t_next_p(now)?;
-
-    let before = current.pv_at_time(t);
+    let t1 = current.t_next_p(now)?;
+    let before = current.pv_at_time(t1);
     let prograde = before.vel.normalize_or_zero();
-    let after = before + PV::vel(prograde * dv1);
+    let after = PV::new(before.pos, prograde * v1);
 
-    let node = ManeuverNode {
-        stamp: t,
+    let transfer_orbit = SparseOrbit::from_pv(after, current.body, t1)?;
+
+    let n1 = ManeuverNode {
+        stamp: t1,
         before,
         after,
-        orbit: SparseOrbit::from_pv(after, current.body, t)?,
+        orbit: transfer_orbit,
     };
 
-    // let x = get_next_intersection(now, current, destination)
-    //     .ok()?
-    //     .map(|(t, pvf)| {
-    //         let pvi = current.pv_at_time(t);
-    //         Some(ManeuverNode {
-    //             stamp: t,
-    //             before: pvi,
-    //             after: pvf,
-    //             orbit: SparseOrbit::from_pv(pvf, current.body, t)?,
-    //         })
-    //     })
-    //     .flatten()?;
+    let t2 = t1 + transfer_orbit.period()? / 2;
+    let before = transfer_orbit.pv_at_time(t2);
+    let (after, _) = destination.nearest(before.pos);
+    let after = PV::new(before.pos, after.vel);
 
-    Some(ManeuverPlan { nodes: vec![node] })
+    let final_orbit = SparseOrbit::from_pv(after, current.body, t2)?;
+
+    let n2 = ManeuverNode {
+        stamp: t2,
+        before,
+        after,
+        orbit: final_orbit,
+    };
+
+    Some(ManeuverPlan {
+        nodes: vec![n1, n2],
+    })
 }

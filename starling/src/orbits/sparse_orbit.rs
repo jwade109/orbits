@@ -1,4 +1,4 @@
-use crate::core::Nanotime;
+use crate::core::{linspace, Nanotime};
 use crate::orbits::universal::*;
 use crate::pv::PV;
 use glam::f32::Vec2;
@@ -176,7 +176,7 @@ impl SparseOrbit {
             body,
             initial: PV::new(p, v),
             epoch,
-            time_at_periapsis: None,
+            time_at_periapsis: Some(epoch),
         }
     }
 
@@ -292,7 +292,11 @@ impl SparseOrbit {
     }
 
     pub fn pv_at_time_fallible(&self, stamp: Nanotime) -> Option<PV> {
-        let tof = stamp - self.epoch;
+        let advance = match (self.orbit_number(stamp), self.period()) {
+            (Some(n), Some(p)) => p * n,
+            _ => Nanotime(0),
+        };
+        let tof = stamp - (self.epoch + advance);
         universal_lagrange(self.initial, tof, self.body.mu())
             .1
             .map(|t| t.pv.filter_numerr())
@@ -357,11 +361,10 @@ impl SparseOrbit {
         Some(p * (n + 1) + tp)
     }
 
-    pub fn t_last_p(&self, _current: Nanotime) -> Option<Nanotime> {
-        None
-        // let p = self.period()?;
-        // let n = self.orbit_number(current)?;
-        // Some(p * n + self.time_at_periapsis)
+    pub fn t_last_p(&self, current: Nanotime) -> Option<Nanotime> {
+        let p = self.period()?;
+        let n = self.orbit_number(current)?;
+        Some(p * n + self.time_at_periapsis?)
     }
 
     pub fn asymptotes(&self) -> Option<(Vec2, Vec2)> {
