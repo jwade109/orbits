@@ -292,7 +292,11 @@ impl SparseOrbit {
     }
 
     pub fn pv_at_time_fallible(&self, stamp: Nanotime) -> Option<PV> {
-        let tof = stamp - self.epoch;
+        let tof = if let Some(p) = self.period() {
+            (stamp - self.epoch) % p
+        } else {
+            stamp - self.epoch
+        };
         universal_lagrange(self.initial, tof, self.body.mu())
             .1
             .map(|t| t.pv.filter_numerr())
