@@ -96,6 +96,9 @@ impl ULData {
     }
 
     pub fn solve(&self) -> Option<ULResults> {
+        let chi_min = self.chi_0 - 200.0;
+        let chi_max = self.chi_0 + 200.0;
+
         let chi = if self.tof == Nanotime(0) {
             0.0
         } else {
@@ -111,6 +114,10 @@ impl ULData {
                 }
             }
         };
+
+        if chi == chi_min || chi == chi_max {
+            return None;
+        }
 
         ULResults::new(chi, &self)
     }

@@ -1,5 +1,5 @@
 use crate::core::*;
-use crate::orbits::sparse_orbit::{Body, SparseOrbit};
+use crate::orbits::sparse_orbit::{Body, SparseOrbit, PI};
 use glam::f32::Vec2;
 
 pub fn make_earth() -> Body {
@@ -9,7 +9,13 @@ pub fn make_earth() -> Body {
 pub fn make_luna() -> (Body, SparseOrbit) {
     (
         Body::new(22.0, 10.0, 800.0),
-        SparseOrbit::circular(3800.0, make_earth(), Nanotime(-40 * 1000000000), false),
+        SparseOrbit::circular(
+            3800.0,
+            make_earth(),
+            Nanotime(-40 * 1000000000),
+            false,
+            rand(0.0, 2.0 * PI),
+        ),
     )
 }
 
@@ -25,7 +31,13 @@ pub fn just_the_moon() -> (OrbitalTree, ObjectIdTracker) {
         tree.add_object(
             id.next(),
             moon_id,
-            SparseOrbit::circular(rand(200.0, 400.0), luna.body, Nanotime(0), false),
+            SparseOrbit::circular(
+                rand(200.0, 400.0),
+                luna.body,
+                Nanotime(0),
+                false,
+                rand(0.0, 2.0 * PI),
+            ),
             Nanotime(0),
         );
     }
@@ -47,6 +59,7 @@ pub fn earth_moon_example_one() -> (OrbitalTree, ObjectIdTracker) {
             earth.body,
             Nanotime(0),
             false,
+            rand(0.0, 2.0 * PI),
         ),
         ast.clone(),
     );
@@ -56,7 +69,13 @@ pub fn earth_moon_example_one() -> (OrbitalTree, ObjectIdTracker) {
     tree.add_object(
         id.next(),
         earth.id,
-        SparseOrbit::circular(earth.body.radius * 1.1, earth.body, Nanotime(0), false),
+        SparseOrbit::circular(
+            earth.body.radius * 1.1,
+            earth.body,
+            Nanotime(0),
+            false,
+            rand(0.0, 2.0 * PI),
+        ),
         Nanotime(0),
     );
 
@@ -82,15 +101,33 @@ pub fn earth_moon_example_one() -> (OrbitalTree, ObjectIdTracker) {
         tree.add_object(
             id.next(),
             luna.id,
-            SparseOrbit::circular(rand(200.0, 400.0), luna.body, Nanotime(0), false),
+            SparseOrbit::circular(
+                rand(200.0, 400.0),
+                luna.body,
+                Nanotime(0),
+                false,
+                rand(0.0, 2.0 * PI),
+            ),
             Nanotime(0),
         );
+    }
+
+    for _ in 0..200 {
+        let r = rand(0.3, 0.8) * earth.body.soi;
+        let o = SparseOrbit::circular(
+            r,
+            earth.body,
+            Nanotime(0),
+            rand(0.0, 1.0) < 0.2,
+            rand(0.0, 2.0 * PI),
+        );
+        tree.add_object(id.next(), earth.id, o, Nanotime(0));
     }
 
     tree.add_object(
         id.next(),
         ast.id,
-        SparseOrbit::circular(13.0, ast.body, Nanotime(0), false),
+        SparseOrbit::circular(13.0, ast.body, Nanotime(0), false, rand(0.0, 2.0 * PI)),
         Nanotime(0),
     );
 
@@ -146,7 +183,8 @@ pub fn sun_jupiter_lagrange() -> (OrbitalTree, ObjectIdTracker) {
         soi: 500.0,
     };
 
-    let jupiter_orbit = SparseOrbit::circular(5000.0, sun.body, Nanotime(0), false);
+    let jupiter_orbit =
+        SparseOrbit::circular(5000.0, sun.body, Nanotime(0), false, rand(0.0, 2.0 * PI));
 
     sun.orbit(
         jupiter_orbit,
@@ -157,7 +195,8 @@ pub fn sun_jupiter_lagrange() -> (OrbitalTree, ObjectIdTracker) {
 
     for _ in 0..600 {
         let radius = rand(4000.0, 6000.0);
-        let orbit = SparseOrbit::circular(radius, sun.body, Nanotime(0), false);
+        let orbit =
+            SparseOrbit::circular(radius, sun.body, Nanotime(0), false, rand(0.0, 2.0 * PI));
         tree.add_object(id.next(), sun.id, orbit, Nanotime(0));
     }
 

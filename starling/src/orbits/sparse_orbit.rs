@@ -1,4 +1,4 @@
-use crate::core::{linspace, Nanotime};
+use crate::core::{rotate, Nanotime};
 use crate::orbits::universal::*;
 use crate::pv::PV;
 use glam::f32::Vec2;
@@ -165,19 +165,13 @@ impl SparseOrbit {
         Some(o)
     }
 
-    pub fn circular(radius: f32, body: Body, epoch: Nanotime, retrograde: bool) -> Self {
+    pub fn circular(radius: f32, body: Body, epoch: Nanotime, retrograde: bool, ta: f32) -> Self {
         let p = Vec2::new(radius, 0.0);
         let v = Vec2::new(0.0, (body.mu() / radius).sqrt());
-        SparseOrbit {
-            eccentricity: 0.0,
-            semi_major_axis: radius,
-            arg_periapsis: 0.0,
-            retrograde,
-            body,
-            initial: PV::new(p, v),
-            epoch,
-            time_at_periapsis: Some(epoch),
-        }
+        let p = rotate(p, ta);
+        let v = rotate(v, ta);
+        let mul = if retrograde { -1.0 } else { 1.0 };
+        SparseOrbit::from_pv((p, mul * v), body, epoch).unwrap()
     }
 
     pub fn is_suborbital(&self) -> bool {
@@ -288,7 +282,10 @@ impl SparseOrbit {
     }
 
     pub fn pv_at_time(&self, stamp: Nanotime) -> PV {
-        self.pv_at_time_fallible(stamp).unwrap_or(PV::zero())
+        self.pv_at_time_fallible(stamp).unwrap_or_else(|| {
+            dbg!(self);
+            panic!()
+        })
     }
 
     pub fn pv_at_time_fallible(&self, stamp: Nanotime) -> Option<PV> {
