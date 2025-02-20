@@ -380,6 +380,10 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         ),
     );
 
+    if let Some(pv) = state.cursor_pv() {
+        send_log(&mut evt, &format!("{:0.3}", pv));
+    }
+
     if let Some(mp) = state.maneuver_plan() {
         send_log(&mut evt, &format!("{}", mp));
     }

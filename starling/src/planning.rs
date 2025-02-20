@@ -3,7 +3,6 @@ use crate::orbiter::*;
 use crate::orbits::sparse_orbit::{OrbitClass, SparseOrbit, PI};
 use crate::orbits::universal::tspace;
 use crate::pv::PV;
-use glam::f32::Vec2;
 
 #[derive(Debug, Clone, Copy)]
 pub enum ConvergeError<T> {
@@ -250,7 +249,8 @@ impl Propagator {
         match self
             .orbit
             .pv_at_time_fallible(t1)
-            .zip(self.orbit.pv_at_time_fallible(t2))
+            .ok()
+            .zip(self.orbit.pv_at_time_fallible(t2).ok())
         {
             None => {
                 self.end = t1;

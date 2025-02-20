@@ -6,6 +6,10 @@ pub fn make_earth() -> Body {
     Body::new(63.0, 1000.0, 15000.0)
 }
 
+pub fn make_earth_inf_soi() -> Body {
+    Body::new(63.0, 1000.0, 10000000.0)
+}
+
 pub fn make_luna() -> (Body, SparseOrbit) {
     (
         Body::new(22.0, 10.0, 800.0),
@@ -164,13 +168,8 @@ pub fn sun_jupiter_lagrange() -> (OrbitalTree, ObjectIdTracker) {
     (tree, id)
 }
 
-pub fn consistency_example() -> (OrbitalTree, ObjectIdTracker) {
-    let mut id = ObjectIdTracker::new();
-
-    let earth = PlanetarySystem::new(id.next(), "Earth", make_earth());
-
-    let mut orbits = vec![];
-
+pub fn consistency_orbits(body: Body) -> Vec<SparseOrbit> {
+    let mut ret = vec![];
     let r = 1000.0 * Vec2::X;
     let v0 = Vec2::new(0.0, 30.0);
     for angle in [0.6] {
@@ -179,15 +178,24 @@ pub fn consistency_example() -> (OrbitalTree, ObjectIdTracker) {
             for vy in (-200..=200).step_by(10) {
                 let o = SparseOrbit::from_pv(
                     (pos, v0 + Vec2::new(vx as f32, vy as f32)),
-                    make_earth(),
+                    body,
                     Nanotime(0),
                 );
                 if let Some(o) = o {
-                    orbits.push(o);
+                    ret.push(o);
                 }
             }
         }
     }
+    ret
+}
+
+pub fn consistency_example() -> (OrbitalTree, ObjectIdTracker) {
+    let mut id = ObjectIdTracker::new();
+
+    let earth = PlanetarySystem::new(id.next(), "Earth", make_earth_inf_soi());
+
+    let orbits = consistency_orbits(earth.body);
 
     let mut tree = OrbitalTree::new(&earth);
 

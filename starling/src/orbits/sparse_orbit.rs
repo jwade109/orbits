@@ -152,7 +152,7 @@ impl SparseOrbit {
             time_at_periapsis,
         };
 
-        if o.pv_at_time_fallible(epoch + Nanotime::secs(1)).is_none() {
+        if o.pv_at_time_fallible(epoch + Nanotime::secs(1)).is_err() {
             println!("SparseOrbit returned bad PV: {pv:?}\n  {o:?}");
             return None;
         }
@@ -160,6 +160,13 @@ impl SparseOrbit {
         if e.is_nan() {
             println!("Bad orbit: {pv}");
             return None;
+        }
+
+        if let Some(p) = o.period() {
+            if p == Nanotime(0) {
+                println!("SparseOrbit returned orbit with zero period: {pv:?}\n  {o:?}");
+                return None;
+            }
         }
 
         Some(o)
@@ -280,7 +287,11 @@ impl SparseOrbit {
             return None;
         }
         let t = 2.0 * PI / self.mean_motion();
-        Some(Nanotime((t * 1E9) as i64))
+        let ret = Nanotime((t * 1E9) as i64);
+        if ret == Nanotime(0) {
+            return None;
+        }
+        Some(ret)
     }
 
     pub fn period_or(&self, fallback: Nanotime) -> Nanotime {
@@ -291,16 +302,15 @@ impl SparseOrbit {
         self.pv_at_time_fallible(stamp).unwrap_or(PV::zero())
     }
 
-    pub fn pv_at_time_fallible(&self, stamp: Nanotime) -> Option<PV> {
+    pub fn pv_at_time_fallible(&self, stamp: Nanotime) -> Result<PV, ULData> {
         let tof = if let Some(p) = self.period() {
             (stamp - self.epoch) % p
         } else {
             stamp - self.epoch
         };
-        universal_lagrange(self.initial, tof, self.body.mu())
-            .1
-            .map(|t| t.pv.filter_numerr())
-            .flatten()
+        let ul = universal_lagrange(self.initial, tof, self.body.mu());
+        let sol = ul.1.ok_or(ul.0)?;
+        Ok(sol.pv.filter_numerr().ok_or(ul.0)?)
     }
 
     pub fn position_at(&self, true_anomaly: f32) -> Vec2 {
@@ -413,7 +423,7 @@ impl SparseOrbit {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OrbitClass {
     Circular,
     NearCircular,
@@ -422,4 +432,177 @@ pub enum OrbitClass {
     Parabolic,
     Hyperbolic,
     VeryThin,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::examples::{consistency_orbits, make_earth};
+    use more_asserts::*;
+
+    fn ncalc_period(orbit: &SparseOrbit) -> Option<(Nanotime, Nanotime)> {
+        let dt = Nanotime::millis(10);
+        let mut duration = Nanotime(0);
+        let pv0 = orbit.initial;
+        let mut d_prev = 0.0;
+        let mut was_decreasing = false;
+        while duration < Nanotime::secs(10000) {
+            duration += dt;
+            let t = orbit.epoch + duration;
+            let pv = orbit.pv_at_time_fallible(t).ok()?;
+            let d = pv.pos.distance(pv0.pos);
+            let increasing = d > d_prev;
+            d_prev = d;
+
+            let aligned = pv0.vel.dot(pv.vel) > 0.0;
+
+            if d < 20.0 && aligned && increasing && was_decreasing {
+                return Some((t - dt * 5, t));
+            }
+
+            was_decreasing = !increasing;
+        }
+        None
+    }
+
+    fn physics_based_smoketest(orbit: &SparseOrbit) {
+
+        // TODO
+        if orbit.class() == OrbitClass::VeryThin {
+            return;
+        }
+
+        let mut particle = orbit.initial;
+        let dt = Nanotime::millis(2);
+        let mut t = orbit.epoch;
+
+        let mut last_error = 0.0;
+        let max_error_growth = 1.0;
+
+        while t < Nanotime::secs(100) {
+            t += dt;
+            let porbit = match orbit.pv_at_time_fallible(t) {
+                Ok(p) => p,
+                Err(ul) => {
+                    assert!(false, "Bad orbital position at {:?} - {:?}", t, ul);
+                    return;
+                }
+            };
+            let r2 = particle.pos.length_squared();
+            let a = -orbit.body.mu() / r2 * particle.pos.normalize_or_zero();
+            particle.vel += a * dt.to_secs();
+            particle.pos += particle.vel * dt.to_secs();
+
+            let error = porbit.pos.distance(particle.pos);
+            let max_error = last_error + max_error_growth;
+            assert_le!(
+                error,
+                max_error,
+                "Deviation exceeded at {:?}, prev error {:0.3}",
+                t,
+                last_error
+            );
+            last_error = error;
+        }
+
+        println!("Max error: {:0.3}", last_error);
+    }
+
+    fn assert_defined_for_large_time_range(orbit: &SparseOrbit) {
+        // TODO apply this to hyperbolic orbits too!
+        match orbit.class() {
+            OrbitClass::Hyperbolic | OrbitClass::Parabolic => {
+                return;
+            }
+            _ => (),
+        }
+
+        let n = 10000;
+        let t1 = tspace(Nanotime(0), Nanotime::secs(n), n as u32);
+        let t2 = tspace(Nanotime(0), Nanotime::secs(-n), n as u32);
+        for t in t1.iter().chain(t2.iter()) {
+            let pv = orbit.pv_at_time_fallible(*t);
+            assert!(pv.is_ok(), "Failure at time {:?} - {:?}", t, pv);
+        }
+    }
+
+    fn orbit_consistency_test(pv: PV, class: OrbitClass) {
+        println!("{}", pv);
+
+        let body = make_earth();
+
+        let orbit = SparseOrbit::from_pv(pv, body, Nanotime(0));
+
+        assert!(orbit.is_some());
+
+        let orbit = orbit.unwrap();
+
+        assert_eq!(
+            orbit.pv_at_time_fallible(orbit.epoch).ok(),
+            Some(orbit.initial)
+        );
+
+        if let Some(((min, max), period)) = ncalc_period(&orbit).zip(orbit.period()) {
+            dbg!((min, max, period));
+            let tol = Nanotime::secs(1);
+            assert_le!(min - tol, period, "Period too small: {:?}", orbit);
+            assert_ge!(max + tol, period, "Period too big: {:?}", orbit);
+        }
+
+        assert_eq!(orbit.class(), class);
+        dbg!(orbit.class());
+
+        if orbit.eccentricity < 1.0 {
+            physics_based_smoketest(&orbit);
+            assert_defined_for_large_time_range(&orbit);
+        }
+    }
+
+    #[test]
+    fn orbit_001() {
+        orbit_consistency_test(
+            PV::new((669.058, -1918.289), (74.723, 60.678)),
+            OrbitClass::Elliptical,
+        );
+    }
+
+    #[test]
+    fn orbit_002() {
+        orbit_consistency_test(
+            PV::new((430.0, 230.0), (-50.14, 40.13)),
+            OrbitClass::Elliptical,
+        );
+    }
+
+    #[test]
+    fn orbit_003() {
+        orbit_consistency_test(
+            PV::new((0.0, -222.776), (333.258, 0.000)),
+            OrbitClass::Hyperbolic,
+        );
+    }
+
+    #[test]
+    fn orbit_004() {
+        orbit_consistency_test(
+            PV::new((1520.323, 487.734), (-84.935, 70.143)),
+            OrbitClass::Elliptical,
+        );
+    }
+
+    #[test]
+    fn orbit_005() {
+        orbit_consistency_test(
+            PV::new((5535.6294, -125.794685), (-66.63476, 16.682587)),
+            OrbitClass::Hyperbolic,
+        );
+    }
+
+    #[test]
+    fn grid_orbits() {
+        let orbits = consistency_orbits(make_earth());
+        for orbit in &orbits[0..120] {
+            orbit_consistency_test(orbit.initial, orbit.class());
+        }
+    }
 }
