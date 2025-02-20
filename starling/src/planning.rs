@@ -393,8 +393,8 @@ impl std::fmt::Display for ManeuverPlan {
                 "{}. {:?} dV {:0.1} ({:0.1}) to {:?} orbit{}",
                 i + 1,
                 node.stamp,
-                node.dv(),
-                node.dv().length(),
+                node.impulse.vel,
+                node.impulse.vel.length(),
                 node.orbit.class(),
                 endline
             )?;
@@ -406,15 +406,8 @@ impl std::fmt::Display for ManeuverPlan {
 #[derive(Debug, Clone, Copy)]
 pub struct ManeuverNode {
     pub stamp: Nanotime,
-    pub before: PV,
-    pub after: PV,
+    pub impulse: PV,
     pub orbit: SparseOrbit,
-}
-
-impl ManeuverNode {
-    pub fn dv(&self) -> Vec2 {
-        self.after.vel - self.before.vel
-    }
 }
 
 pub fn generate_maneuver_plan(
@@ -428,8 +421,7 @@ pub fn generate_maneuver_plan(
             let pvi = current.pv_at_time(t);
             Some(ManeuverNode {
                 stamp: t,
-                before: pvi,
-                after: pvf,
+                impulse: PV::new(pvi.pos, pvf.vel - pvi.vel),
                 orbit: SparseOrbit::from_pv(pvf, current.body, t)?,
             })
         })
@@ -462,8 +454,7 @@ pub fn generate_maneuver_plan(
 
     let n1 = ManeuverNode {
         stamp: t1,
-        before,
-        after,
+        impulse: PV::new(before.pos, after.vel - before.vel),
         orbit: transfer_orbit,
     };
 
@@ -476,8 +467,7 @@ pub fn generate_maneuver_plan(
 
     let n2 = ManeuverNode {
         stamp: t2,
-        before,
-        after,
+        impulse: PV::new(before.pos, after.vel - before.vel),
         orbit: final_orbit,
     };
 

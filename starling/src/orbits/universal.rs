@@ -96,12 +96,14 @@ impl ULData {
     }
 
     pub fn solve(&self) -> Option<ULResults> {
+        let chi_min = self.chi_0 - 200.0;
+        let chi_max = self.chi_0 + 200.0;
         let chi = if self.tof == Nanotime(0) {
             0.0
         } else {
             match rootfinder::root_bisection(
                 &|x: f64| self.universal_kepler(x as f32) as f64,
-                rootfinder::Interval::new(-200.00 + self.chi_0 as f64, 200.00 + self.chi_0 as f64),
+                rootfinder::Interval::new(chi_min as f64, chi_max as f64),
                 None,
                 None,
             ) {
@@ -111,6 +113,10 @@ impl ULData {
                 }
             }
         };
+
+        if chi == chi_min || chi == chi_max {
+            return None;
+        }
 
         ULResults::new(chi, &self)
     }
