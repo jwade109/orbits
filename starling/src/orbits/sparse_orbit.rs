@@ -466,7 +466,6 @@ mod tests {
     }
 
     fn physics_based_smoketest(orbit: &SparseOrbit) {
-
         // TODO
         if orbit.class() == OrbitClass::VeryThin {
             return;
@@ -552,10 +551,8 @@ mod tests {
         assert_eq!(orbit.class(), class);
         dbg!(orbit.class());
 
-        if orbit.eccentricity < 1.0 {
-            physics_based_smoketest(&orbit);
-            assert_defined_for_large_time_range(&orbit);
-        }
+        physics_based_smoketest(&orbit);
+        assert_defined_for_large_time_range(&orbit);
     }
 
     #[test]
@@ -594,6 +591,22 @@ mod tests {
     fn orbit_005() {
         orbit_consistency_test(
             PV::new((5535.6294, -125.794685), (-66.63476, 16.682587)),
+            OrbitClass::Hyperbolic,
+        );
+    }
+
+    #[test]
+    fn orbit_006() {
+        orbit_consistency_test(
+            PV::new((65.339584, 1118.9651), (-138.84702, -279.47888)),
+            OrbitClass::Hyperbolic,
+        );
+    }
+
+    #[test]
+    fn orbit_007() {
+        orbit_consistency_test(
+            PV::new((-1856.4648, -1254.9697), (216.31313, -85.84622)),
             OrbitClass::Hyperbolic,
         );
     }

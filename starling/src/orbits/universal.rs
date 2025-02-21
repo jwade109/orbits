@@ -144,25 +144,6 @@ impl ULResults {
     }
 }
 
-pub fn universal_kepler_func(
-    initial: impl Into<PV>,
-    tof: Nanotime,
-    mu: f32,
-) -> impl Fn(f64) -> f64 {
-    let initial = initial.into();
-    let vec_r_0 = initial.pos;
-    let vec_v_0 = initial.vel;
-
-    let r_0 = vec_r_0.length();
-    let v_r0 = vec_v_0.dot(vec_r_0) / r_0;
-
-    let alpha = 2.0 / r_0 - vec_v_0.dot(vec_v_0) / mu;
-
-    let delta_t = tof.to_secs();
-
-    move |x| universal_kepler(x as f32, r_0, v_r0, alpha, delta_t, mu).into()
-}
-
 // https://en.wikipedia.org/wiki/Universal_variable_formulation
 // https://orbital-mechanics.space/time-since-periapsis-and-keplers-equation/universal-lagrange-coefficients-example.html
 pub fn universal_lagrange(
