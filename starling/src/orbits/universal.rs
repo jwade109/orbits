@@ -41,12 +41,6 @@ fn universal_kepler(chi: f32, r_0: f32, v_r0: f32, alpha: f32, delta_t: f32, mu:
     first_term + second_term + third_term - fourth_term
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum ULError {
-    Solve,
-    NaN,
-}
-
 #[derive(Debug, Copy, Clone)]
 pub struct LangrangeCoefficients {
     pub s2: f32,
@@ -96,8 +90,9 @@ impl ULData {
     }
 
     pub fn solve(&self) -> Option<ULResults> {
-        let chi_min = self.chi_0 - 200.0;
-        let chi_max = self.chi_0 + 200.0;
+        let radius = 800.0;
+        let chi_min = self.chi_0 - radius;
+        let chi_max = self.chi_0 + radius;
         let chi = if self.tof == Nanotime(0) {
             0.0
         } else {
@@ -209,11 +204,7 @@ pub fn tspace(start: Nanotime, end: Nanotime, nsamples: u32) -> Vec<Nanotime> {
 
 type ChiSpline = Spline<f32, f32>;
 
-pub fn generate_chi_spline(
-    pv: impl Into<PV>,
-    mu: f32,
-    duration: Nanotime,
-) -> Result<ChiSpline, ULError> {
+pub fn generate_chi_spline(pv: impl Into<PV>, mu: f32, duration: Nanotime) -> Option<ChiSpline> {
     let tsample = tspace(Nanotime(0), duration, 500);
     let pv = pv.into();
     let x = tsample
@@ -221,12 +212,12 @@ pub fn generate_chi_spline(
         .iter()
         .map(|t| {
             let (_, res) = universal_lagrange(pv, *t, mu);
-            let res = res.ok_or(ULError::NaN)?;
+            let res = res?;
             let t = t.to_secs();
             let key = Key::new(t, res.chi, Interpolation::Linear);
-            Ok(key)
+            Some(key)
         })
-        .collect::<Result<Vec<_>, ULError>>()?;
+        .collect::<Option<Vec<_>>>()?;
 
-    Ok(Spline::from_vec(x))
+    Some(Spline::from_vec(x))
 }

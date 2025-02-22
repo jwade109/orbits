@@ -474,24 +474,25 @@ pub fn draw_event_animation(
     Some(())
 }
 
-pub fn draw_maneuver_plan(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
-    let plan = state.maneuver_plan()?;
-    for node in &plan.nodes {
-        draw_circle(
-            gizmos,
-            node.impulse.pos,
-            10.0 * state.camera.actual_scale,
-            YELLOW,
-        );
-        draw_velocity_vec(
-            gizmos,
-            node.impulse,
-            100.0 * state.camera.actual_scale,
-            PURPLE,
-        );
-        draw_orbit(gizmos, &node.orbit, Vec2::ZERO, alpha(YELLOW, 0.2));
+pub fn draw_maneuver_plan(gizmos: &mut Gizmos, state: &GameState) {
+    let plans = state.maneuver_plans();
+    for plan in &plans {
+        for node in &plan.nodes {
+            draw_circle(
+                gizmos,
+                node.impulse.pos,
+                10.0 * state.camera.actual_scale,
+                YELLOW,
+            );
+            draw_velocity_vec(
+                gizmos,
+                node.impulse,
+                100.0 * state.camera.actual_scale,
+                PURPLE,
+            );
+            draw_orbit(gizmos, &node.orbit, Vec2::ZERO, alpha(YELLOW, 0.2));
+        }
     }
-    Some(())
 }
 
 pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {

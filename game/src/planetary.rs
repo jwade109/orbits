@@ -265,19 +265,24 @@ impl GameState {
         }
     }
 
-    pub fn maneuver_plan(&self) -> Option<ManeuverPlan> {
-        let dst = self.target_orbit()?;
-        let src = self
-            .system
-            .objects
-            .iter()
-            .find(|o| o.id == self.primary())?
-            .propagator_at(self.sim_time)?
-            .orbit;
+    pub fn maneuver_plans(&self) -> Vec<ManeuverPlan> {
+        let res = (|| -> Option<(SparseOrbit, SparseOrbit)> {
+            let dst = self.target_orbit()?;
+            let src = self
+                .system
+                .objects
+                .iter()
+                .find(|o| o.id == self.primary())?
+                .propagator_at(self.sim_time)?
+                .orbit;
+            Some((src, dst))
+        })();
 
-        let plan = generate_maneuver_plan(&src, &dst, self.sim_time)?;
-
-        Some(plan)
+        if let Some((src, dst)) = res {
+            generate_maneuver_plans(&src, &dst, self.sim_time)
+        } else {
+            vec![]
+        }
     }
 }
 
@@ -384,8 +389,8 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         send_log(&mut evt, &format!("{:0.3}", pv));
     }
 
-    if let Some(mp) = state.maneuver_plan() {
-        send_log(&mut evt, &format!("{}", mp));
+    for plan in state.maneuver_plans() {
+        send_log(&mut evt, &format!("{}", plan));
     }
 
     send_log(&mut evt, &format!("Ctlrs: {}", state.controllers.len()));

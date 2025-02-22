@@ -365,7 +365,7 @@ pub fn get_next_intersection(
     for ts in teval.windows(2) {
         let t1 = ts[0];
         let t2 = ts[1];
-        let t = search_condition(t1, t2, Nanotime(500), &condition)?;
+        let t = search_condition(t1, t2, Nanotime(10), &condition)?;
         if let Some(t) = t {
             let (pv, _) = signed_distance_at(t);
             return Ok(Some((t, pv)));
@@ -380,9 +380,15 @@ pub struct ManeuverPlan {
     pub nodes: Vec<ManeuverNode>,
 }
 
+impl ManeuverPlan {
+    pub fn dv(&self) -> f32 {
+        self.nodes.iter().map(|n| n.impulse.vel.length()).sum()
+    }
+}
+
 impl std::fmt::Display for ManeuverPlan {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Maneuver Plan\n")?;
+        write!(f, "Maneuver Plan ({:0.1})\n", self.dv())?;
         if self.nodes.is_empty() {
             return write!(f, " (empty)");
         }
@@ -410,26 +416,11 @@ pub struct ManeuverNode {
     pub orbit: SparseOrbit,
 }
 
-pub fn generate_maneuver_plan(
+fn hohmann_transfer(
     current: &SparseOrbit,
     destination: &SparseOrbit,
     now: Nanotime,
 ) -> Option<ManeuverPlan> {
-    if let Some(n) = get_next_intersection(now, current, destination)
-        .ok()?
-        .map(|(t, pvf)| {
-            let pvi = current.pv_at_time(t);
-            Some(ManeuverNode {
-                stamp: t,
-                impulse: PV::new(pvi.pos, pvf.vel - pvi.vel),
-                orbit: SparseOrbit::from_pv(pvf, current.body, t)?,
-            })
-        })
-        .flatten()
-    {
-        return Some(ManeuverPlan { nodes: vec![n] });
-    }
-
     match current.class() {
         OrbitClass::Parabolic | OrbitClass::Hyperbolic | OrbitClass::VeryThin => return None,
         _ => (),
@@ -474,4 +465,35 @@ pub fn generate_maneuver_plan(
     Some(ManeuverPlan {
         nodes: vec![n1, n2],
     })
+}
+
+pub fn generate_maneuver_plans(
+    current: &SparseOrbit,
+    destination: &SparseOrbit,
+    now: Nanotime,
+) -> Vec<ManeuverPlan> {
+    let direct = if let Some(n) = get_next_intersection(now, current, destination)
+        .ok()
+        .flatten()
+        .map(|(t, pvf)| {
+            let pvi = current.pv_at_time(t);
+            Some(ManeuverNode {
+                stamp: t,
+                impulse: PV::new(pvi.pos, pvf.vel - pvi.vel),
+                orbit: SparseOrbit::from_pv(pvf, current.body, t)?,
+            })
+        })
+        .flatten()
+    {
+        Some(ManeuverPlan { nodes: vec![n] })
+    } else {
+        None
+    };
+
+    let h1 = hohmann_transfer(current, destination, now);
+
+    [direct, h1]
+        .into_iter()
+        .filter_map(|e| if let Some(e) = e { Some(e) } else { None })
+        .collect()
 }

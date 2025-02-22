@@ -497,9 +497,11 @@ mod tests {
             assert_le!(
                 error,
                 max_error,
-                "Deviation exceeded at {:?}, prev error {:0.3}",
+                "Deviation exceeded at {:?}, prev error {:0.3}\n  Particle: {:?}\n  Orbit: {:?}",
                 t,
-                last_error
+                last_error,
+                particle,
+                porbit,
             );
             last_error = error;
         }
