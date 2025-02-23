@@ -384,11 +384,16 @@ pub fn get_next_intersection(
 
 #[derive(Debug, Clone)]
 pub struct ManeuverPlan {
+    pub kind: ManeuverType,
     pub nodes: Vec<ManeuverNode>,
 }
 
 impl ManeuverPlan {
-    pub fn new(initial: &SparseOrbit, dvs: &[(Nanotime, Vec2)]) -> Option<Self> {
+    pub fn new(
+        kind: ManeuverType,
+        initial: &SparseOrbit,
+        dvs: &[(Nanotime, Vec2)],
+    ) -> Option<Self> {
         let mut current = *initial;
         let mut nodes = vec![];
         for (time, dv) in dvs {
@@ -403,7 +408,7 @@ impl ManeuverPlan {
             nodes.push(node);
             current = next;
         }
-        Some(ManeuverPlan { nodes })
+        Some(ManeuverPlan { kind, nodes })
     }
 
     pub fn dv(&self) -> f32 {
@@ -413,7 +418,7 @@ impl ManeuverPlan {
 
 impl std::fmt::Display for ManeuverPlan {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Maneuver Plan ({:0.1})\n", self.dv())?;
+        write!(f, "Maneuver Plan ({:?}) ({:0.1})\n", self.kind, self.dv())?;
         if self.nodes.is_empty() {
             return write!(f, " (empty)");
         }
@@ -432,6 +437,13 @@ impl std::fmt::Display for ManeuverPlan {
         }
         Ok(())
     }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ManeuverType {
+    Direct,
+    Hohmann,
+    Bielliptic,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -483,7 +495,7 @@ fn hohmann_transfer(
 
     let dv2 = after.vel - before.vel;
 
-    ManeuverPlan::new(current, &[(t1, dv1), (t2, dv2)])
+    ManeuverPlan::new(ManeuverType::Hohmann, current, &[(t1, dv1), (t2, dv2)])
 }
 
 fn bielliptic_transfer(
@@ -491,23 +503,56 @@ fn bielliptic_transfer(
     destination: &SparseOrbit,
     now: Nanotime,
 ) -> Option<ManeuverPlan> {
-    // match current.class() {
-    //     OrbitClass::Parabolic | OrbitClass::Hyperbolic | OrbitClass::VeryThin => return None,
-    //     _ => (),
-    // }
+    match current.class() {
+        OrbitClass::Parabolic | OrbitClass::Hyperbolic | OrbitClass::VeryThin => return None,
+        _ => (),
+    }
 
-    // let mu = current.body.mu();
+    let mu = current.body.mu();
 
-    // let t1 = current.t_next_p(now)?;
+    let t1 = current.t_next_p(now)?;
 
-    // let r1 = current.periapsis_r();
-    // let r2 = destination.semi_major_axis;
+    let r1 = current.periapsis_r();
+    let r2 = destination.apoapsis_r();
 
-    // let rb = r1.max(r2) * 1.7; // arbitrary
+    let rb = current.apoapsis_r().max(destination.apoapsis_r());
 
-    // let v1 = vis_viva_equation(mu, r1,
+    let a1 = (r1 + rb) / 2.0;
+    let a2 = (r2 + rb) / 2.0;
 
-    None
+    // first maneuver; transfer from initial orbit to transfer one
+    let (dv1, transfer_one) = {
+        let v1 = vis_viva_equation(mu, r1, a1);
+        let cv = current.pv_at_time_fallible(t1).ok()?;
+        let prograde = cv.vel.try_normalize()?;
+        let dv = v1 * prograde - cv.vel;
+        let pv = PV::new(cv.pos, v1 * prograde);
+        let transfer = SparseOrbit::from_pv(pv, current.body, t1)?;
+        (dv, transfer)
+    };
+
+    // second maneuver; change from T1 to T2
+    let t2 = t1 + transfer_one.period()? / 2;
+    let (dv2, transfer_two) = {
+        let v2 = vis_viva_equation(mu, rb, a2);
+        let cv = transfer_one.pv_at_time_fallible(t2).ok()?;
+        let prograde = cv.vel.try_normalize()?;
+        let dv = v2 * prograde - cv.vel;
+        let pv = PV::new(cv.pos, v2 * prograde);
+        let transfer = SparseOrbit::from_pv(pv, current.body, t1)?;
+        (dv, transfer)
+    };
+
+    // let t3 = t2 + transfer_two.period()? / 2;
+
+    // let dv3 = {
+    //     let p_final = transfer_two.pv_at_time_fallible(t3).ok()?;
+    //     let (pv_near, _) = destination.nearest(p_final.pos);
+    //     let prograde = pv_near.vel.try_normalize()?;
+    //     prograde * 20.0
+    // };
+
+    ManeuverPlan::new(ManeuverType::Bielliptic, current, &[(t1, dv1), (t2, dv2)])
 }
 
 pub fn generate_maneuver_plans(
@@ -520,13 +565,14 @@ pub fn generate_maneuver_plans(
         .flatten()
         .map(|(t, pvf)| {
             let pvi = current.pv_at_time(t);
-            ManeuverPlan::new(current, &[(t, pvf.vel - pvi.vel)])
+            ManeuverPlan::new(ManeuverType::Direct, current, &[(t, pvf.vel - pvi.vel)])
         })
         .flatten();
 
-    let h1 = hohmann_transfer(current, destination, now);
+    let hohmann = hohmann_transfer(current, destination, now);
+    let bielliptic = bielliptic_transfer(current, destination, now);
 
-    [direct, h1]
+    [direct, hohmann, bielliptic]
         .into_iter()
         .filter_map(|e| if let Some(e) = e { Some(e) } else { None })
         .collect()
