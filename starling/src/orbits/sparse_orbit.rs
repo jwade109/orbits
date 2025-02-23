@@ -1,5 +1,6 @@
-use crate::core::Nanotime;
+use crate::core::{linspace, Nanotime};
 use crate::orbits::universal::*;
+use crate::planning::search_condition;
 use crate::pv::PV;
 use glam::f32::Vec2;
 
@@ -420,6 +421,64 @@ impl SparseOrbit {
         }
 
         (ret, dist.abs() * sign)
+    }
+
+    pub fn nearest_approach(&self, other: SparseOrbit) -> Option<Vec<f32>> {
+        // distance between orbits along a ray cast from planet object
+        let separation = |a: f32| self.radius_at_angle(a) - other.radius_at_angle(a);
+
+        // trend of separation (proportional to ds/da)
+        // positive if separation is growing with angle
+        let derivative = |a: f32| {
+            let da = 0.03;
+            separation(a - da) - separation(a + da)
+        };
+
+        let aeval = linspace(0.0, 2.0 * PI, 100);
+
+        // find all locations where ds/da goes from negative to positive
+        let c1 = |a: f32| derivative(a) > 0.0;
+        let c2 = |a: f32| derivative(a) < 0.0;
+        let c3 = |a: f32| separation(a) > 0.0;
+        let c4 = |a: f32| separation(a) < 0.0;
+
+        let mut ret = vec![];
+
+        for a in aeval.windows(2) {
+            match search_condition::<f32>(a[0], a[1], 1E-6, &c1) {
+                Ok(Some(found)) => ret.push(found),
+                Ok(None) => (),
+                Err(e) => {
+                    dbg!(e);
+                    return None;
+                }
+            }
+            match search_condition::<f32>(a[0], a[1], 1E-6, &c2) {
+                Ok(Some(found)) => ret.push(found),
+                Ok(None) => (),
+                Err(e) => {
+                    dbg!(e);
+                    return None;
+                }
+            }
+            match search_condition::<f32>(a[0], a[1], 1E-6, &c3) {
+                Ok(Some(found)) => ret.push(found),
+                Ok(None) => (),
+                Err(e) => {
+                    dbg!(e);
+                    return None;
+                }
+            }
+            match search_condition::<f32>(a[0], a[1], 1E-6, &c4) {
+                Ok(Some(found)) => ret.push(found),
+                Ok(None) => (),
+                Err(e) => {
+                    dbg!(e);
+                    return None;
+                }
+            }
+        }
+        Some(ret)
     }
 }
 

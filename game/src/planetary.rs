@@ -217,15 +217,17 @@ impl GameState {
         SparseOrbit::from_pv(pv, self.system.system.body, self.sim_time)
     }
 
+    pub fn primary_orbit(&self) -> Option<SparseOrbit> {
+        let lup = self.system.orbiter_lookup(self.primary(), self.sim_time)?;
+        if lup.level == 0 {
+            Some(lup.object.propagator_at(self.sim_time)?.orbit)
+        } else {
+            None
+        }
+    }
+
     pub fn spawn_new(&mut self) {
-        let t = self.target_orbit().or_else(|| {
-            let lup = self.system.orbiter_lookup(self.primary(), self.sim_time)?;
-            if lup.level == 0 {
-                Some(lup.object.propagator_at(self.sim_time)?.orbit)
-            } else {
-                None
-            }
-        });
+        let t = self.target_orbit().or_else(|| self.primary_orbit());
 
         if let Some(orbit) = t {
             let id = self.ids.next();

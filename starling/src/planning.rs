@@ -319,6 +319,13 @@ impl Propagator {
                 let cond = separation_with(&self.orbit, orbit, soi);
                 let id = bodies[i].0;
 
+                if !cond(t1) {
+                    self.end = t1;
+                    self.finished = true;
+                    self.event = Some(EventType::Encounter(id));
+                    return Ok(());
+                }
+
                 if let Some(t) = search_condition::<Nanotime>(t1, t2, tol, &cond)
                     .map_err(|e| PredictError::Encounter(e))?
                 {

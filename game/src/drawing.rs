@@ -524,6 +524,17 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
         }
     }
 
+    if let (Some(to), Some(po)) = (state.target_orbit(), state.primary_orbit()) {
+        let angles = to.nearest_approach(po).unwrap_or(vec![]);
+        for a in angles {
+            let p1 = to.pv_at_angle(a).pos;
+            let p2 = po.pv_at_angle(a).pos;
+            gizmos.line_2d(p1, p2, RED);
+            draw_circle(&mut gizmos, p1, 20.0, RED);
+            draw_circle(&mut gizmos, p2, 20.0, RED);
+        }
+    }
+
     if state.show_potential_field {
         draw_scalar_field(&mut gizmos, &state.system.system, stamp, &state.draw_levels);
     }
@@ -559,5 +570,5 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
 
     draw_highlighted_objects(&mut gizmos, &state);
 
-    draw_maneuver_plan(&mut gizmos, &state);
+    // draw_maneuver_plan(&mut gizmos, &state);
 }
