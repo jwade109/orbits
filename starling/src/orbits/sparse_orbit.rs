@@ -477,6 +477,7 @@ mod tests {
 
         let mut last_error = 0.0;
         let max_error_growth = 1.0;
+        let mut previous = PV::zero();
 
         while t < Nanotime::secs(100) {
             t += dt;
@@ -497,13 +498,18 @@ mod tests {
             assert_le!(
                 error,
                 max_error,
-                "Deviation exceeded at {:?}, prev error {:0.3}\n  Particle: {:?}\n  Orbit: {:?}",
+                "Deviation exceeded at {:?}, prev error {:0.3}\
+                \n  Particle:       {:?}\
+                \n  Previous orbit: {:?}\
+                \n  Bad orbit pos:  {:?}",
                 t,
                 last_error,
                 particle,
+                previous,
                 porbit,
             );
             last_error = error;
+            previous = porbit;
         }
 
         println!("Max error: {:0.3}", last_error);
@@ -527,10 +533,8 @@ mod tests {
         }
     }
 
-    fn orbit_consistency_test(pv: PV, class: OrbitClass) {
+    fn orbit_consistency_test(pv: PV, class: OrbitClass, body: Body) {
         println!("{}", pv);
-
-        let body = make_earth();
 
         let orbit = SparseOrbit::from_pv(pv, body, Nanotime(0));
 
@@ -562,6 +566,7 @@ mod tests {
         orbit_consistency_test(
             PV::new((669.058, -1918.289), (74.723, 60.678)),
             OrbitClass::Elliptical,
+            Body::new(63.0, 1000.0, 15000.0),
         );
     }
 
@@ -570,6 +575,7 @@ mod tests {
         orbit_consistency_test(
             PV::new((430.0, 230.0), (-50.14, 40.13)),
             OrbitClass::Elliptical,
+            Body::new(63.0, 1000.0, 15000.0),
         );
     }
 
@@ -578,6 +584,7 @@ mod tests {
         orbit_consistency_test(
             PV::new((0.0, -222.776), (333.258, 0.000)),
             OrbitClass::Hyperbolic,
+            Body::new(63.0, 1000.0, 15000.0),
         );
     }
 
@@ -586,6 +593,7 @@ mod tests {
         orbit_consistency_test(
             PV::new((1520.323, 487.734), (-84.935, 70.143)),
             OrbitClass::Elliptical,
+            Body::new(63.0, 1000.0, 15000.0),
         );
     }
 
@@ -594,6 +602,7 @@ mod tests {
         orbit_consistency_test(
             PV::new((5535.6294, -125.794685), (-66.63476, 16.682587)),
             OrbitClass::Hyperbolic,
+            Body::new(63.0, 1000.0, 15000.0),
         );
     }
 
@@ -602,6 +611,7 @@ mod tests {
         orbit_consistency_test(
             PV::new((65.339584, 1118.9651), (-138.84702, -279.47888)),
             OrbitClass::Hyperbolic,
+            Body::new(63.0, 1000.0, 15000.0),
         );
     }
 
@@ -610,6 +620,16 @@ mod tests {
         orbit_consistency_test(
             PV::new((-1856.4648, -1254.9697), (216.31313, -85.84622)),
             OrbitClass::Hyperbolic,
+            Body::new(63.0, 1000.0, 15000.0),
+        );
+    }
+
+    #[test]
+    fn orbit_008() {
+        orbit_consistency_test(
+            PV::new((-72.39488, 662.50507), (3.4047441, 71.81263)),
+            OrbitClass::Hyperbolic,
+            Body::new(22.0, 10.0, 800.0),
         );
     }
 
@@ -617,7 +637,7 @@ mod tests {
     fn grid_orbits() {
         let orbits = consistency_orbits(make_earth());
         for orbit in &orbits[0..120] {
-            orbit_consistency_test(orbit.initial, orbit.class());
+            orbit_consistency_test(orbit.initial, orbit.class(), orbit.body);
         }
     }
 }

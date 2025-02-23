@@ -230,10 +230,8 @@ impl Propagator {
 
         let alt = self.orbit.pv_at_time(self.end).pos.length();
 
-        let might_hit_planet = self.orbit.periapsis_r() <= self.orbit.body.radius
-            && alt < self.orbit.body.radius * 20.0;
-        let can_escape =
-            self.orbit.eccentricity >= 1.0 || self.orbit.apoapsis_r() >= self.orbit.body.soi;
+        let might_hit_planet = self.orbit.is_suborbital() && alt < self.orbit.body.radius * 20.0;
+        let can_escape = self.orbit.will_escape();
         let near_body = bodies
             .iter()
             .any(|(_, orb, soi)| mutual_separation(&self.orbit, orb, self.stamp()) < soi * 3.0);
@@ -320,13 +318,10 @@ impl Propagator {
                 let (_, orbit, soi) = bodies[i];
                 let cond = separation_with(&self.orbit, orbit, soi);
                 let id = bodies[i].0;
+
                 if let Some(t) = search_condition::<Nanotime>(t1, t2, tol, &cond)
                     .map_err(|e| PredictError::Encounter(e))?
                 {
-                    if t - self.start < Nanotime::millis(10) {
-                        self.end = t2;
-                        return Ok(());
-                    }
                     self.end = t;
                     self.finished = true;
                     self.event = Some(EventType::Encounter(id));
