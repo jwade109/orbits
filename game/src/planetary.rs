@@ -267,15 +267,15 @@ impl GameState {
 
     pub fn maneuver_plans(&self) -> Vec<ManeuverPlan> {
         let res = (|| -> Option<(SparseOrbit, SparseOrbit)> {
-            let dst = self.target_orbit()?;
-            let src = self
+            let (id, dst) = (self.system.system.id, self.target_orbit()?);
+            let prop = self
                 .system
                 .objects
                 .iter()
                 .find(|o| o.id == self.primary())?
-                .propagator_at(self.sim_time)?
-                .orbit;
-            Some((src, dst))
+                .propagator_at(self.sim_time)?;
+
+            (prop.parent == id).then_some((prop.orbit, dst))
         })();
 
         if let Some((src, dst)) = res {

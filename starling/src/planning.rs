@@ -3,6 +3,7 @@ use crate::orbiter::*;
 use crate::orbits::sparse_orbit::{OrbitClass, SparseOrbit, PI};
 use crate::orbits::universal::tspace;
 use crate::pv::PV;
+use glam::f32::Vec2;
 
 #[derive(Debug, Clone, Copy)]
 pub enum ConvergeError<T> {
@@ -219,6 +220,12 @@ impl Propagator {
             return Ok(());
         }
 
+        if !self.orbit.is_suborbital() && !self.orbit.will_escape() && bodies.is_empty() {
+            // nothing will ever happen to this orbit
+            self.end += Nanotime::secs(500);
+            return Ok(());
+        }
+
         let tol = Nanotime(5);
 
         let alt = self.orbit.pv_at_time(self.end).pos.length();
@@ -381,6 +388,24 @@ pub struct ManeuverPlan {
 }
 
 impl ManeuverPlan {
+    pub fn new(initial: &SparseOrbit, dvs: &[(Nanotime, Vec2)]) -> Option<Self> {
+        let mut current = *initial;
+        let mut nodes = vec![];
+        for (time, dv) in dvs {
+            let before = current.pv_at_time_fallible(*time).ok()?;
+            let after = before + PV::vel(*dv);
+            let next = SparseOrbit::from_pv(after, initial.body, *time)?;
+            let node = ManeuverNode {
+                stamp: *time,
+                impulse: PV::new(before.pos, after.vel - before.vel),
+                orbit: next,
+            };
+            nodes.push(node);
+            current = next;
+        }
+        Some(ManeuverPlan { nodes })
+    }
+
     pub fn dv(&self) -> f32 {
         self.nodes.iter().map(|n| n.impulse.vel.length()).sum()
     }
@@ -416,6 +441,11 @@ pub struct ManeuverNode {
     pub orbit: SparseOrbit,
 }
 
+// https://en.wikipedia.org/wiki/Vis-viva_equation
+fn vis_viva_equation(mu: f32, r: f32, a: f32) -> f32 {
+    (mu * (2.0 / r - 1.0 / a)).sqrt()
+}
+
 fn hohmann_transfer(
     current: &SparseOrbit,
     destination: &SparseOrbit,
@@ -426,6 +456,8 @@ fn hohmann_transfer(
         _ => (),
     }
 
+    let mu = current.body.mu();
+
     if current.retrograde != destination.retrograde {
         return None;
     }
@@ -433,38 +465,49 @@ fn hohmann_transfer(
     let r1 = current.periapsis_r();
     let r2 = destination.radius_at_angle(current.arg_periapsis + PI);
     let a_transfer = (r1 + r2) / 2.0;
-    let mu = current.body.mu();
-    let v1 = (mu * (2.0 / r1 - 1.0 / a_transfer)).sqrt();
+    let v1 = vis_viva_equation(mu, r1, a_transfer);
 
     let t1 = current.t_next_p(now)?;
-    let before = current.pv_at_time(t1);
+    let before = current.pv_at_time_fallible(t1).ok()?;
     let prograde = before.vel.normalize_or_zero();
     let after = PV::new(before.pos, prograde * v1);
 
+    let dv1 = after.vel - before.vel;
+
     let transfer_orbit = SparseOrbit::from_pv(after, current.body, t1)?;
 
-    let n1 = ManeuverNode {
-        stamp: t1,
-        impulse: PV::new(before.pos, after.vel - before.vel),
-        orbit: transfer_orbit,
-    };
-
     let t2 = t1 + transfer_orbit.period()? / 2;
-    let before = transfer_orbit.pv_at_time(t2);
+    let before = transfer_orbit.pv_at_time_fallible(t2).ok()?;
     let (after, _) = destination.nearest(before.pos);
     let after = PV::new(before.pos, after.vel);
 
-    let final_orbit = SparseOrbit::from_pv(after, current.body, t2)?;
+    let dv2 = after.vel - before.vel;
 
-    let n2 = ManeuverNode {
-        stamp: t2,
-        impulse: PV::new(before.pos, after.vel - before.vel),
-        orbit: final_orbit,
-    };
+    ManeuverPlan::new(current, &[(t1, dv1), (t2, dv2)])
+}
 
-    Some(ManeuverPlan {
-        nodes: vec![n1, n2],
-    })
+fn bielliptic_transfer(
+    current: &SparseOrbit,
+    destination: &SparseOrbit,
+    now: Nanotime,
+) -> Option<ManeuverPlan> {
+    // match current.class() {
+    //     OrbitClass::Parabolic | OrbitClass::Hyperbolic | OrbitClass::VeryThin => return None,
+    //     _ => (),
+    // }
+
+    // let mu = current.body.mu();
+
+    // let t1 = current.t_next_p(now)?;
+
+    // let r1 = current.periapsis_r();
+    // let r2 = destination.semi_major_axis;
+
+    // let rb = r1.max(r2) * 1.7; // arbitrary
+
+    // let v1 = vis_viva_equation(mu, r1,
+
+    None
 }
 
 pub fn generate_maneuver_plans(
@@ -472,23 +515,14 @@ pub fn generate_maneuver_plans(
     destination: &SparseOrbit,
     now: Nanotime,
 ) -> Vec<ManeuverPlan> {
-    let direct = if let Some(n) = get_next_intersection(now, current, destination)
+    let direct = get_next_intersection(now, current, destination)
         .ok()
         .flatten()
         .map(|(t, pvf)| {
             let pvi = current.pv_at_time(t);
-            Some(ManeuverNode {
-                stamp: t,
-                impulse: PV::new(pvi.pos, pvf.vel - pvi.vel),
-                orbit: SparseOrbit::from_pv(pvf, current.body, t)?,
-            })
+            ManeuverPlan::new(current, &[(t, pvf.vel - pvi.vel)])
         })
-        .flatten()
-    {
-        Some(ManeuverPlan { nodes: vec![n] })
-    } else {
-        None
-    };
+        .flatten();
 
     let h1 = hohmann_transfer(current, destination, now);
 
