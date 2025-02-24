@@ -1,4 +1,4 @@
-use crate::core::rotate;
+use crate::math::rotate;
 use glam::f32::Vec2;
 
 #[derive(Default, Debug, Clone, Copy)]

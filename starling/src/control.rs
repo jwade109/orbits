@@ -1,6 +1,8 @@
-use crate::orbits::sparse_orbit::{SparseOrbit, PI};
-use crate::core::{cross2d, rotate, Nanotime, OrbitalTree};
+use crate::core::OrbitalTree;
+use crate::math::{cross2d, rotate};
+use crate::nanotime::Nanotime;
 use crate::orbiter::{ObjectId, Orbiter};
+use crate::orbits::{SparseOrbit, PI};
 use glam::f32::Vec2;
 
 #[derive(Debug, Clone)]

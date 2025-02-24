@@ -1,10 +1,10 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use std::hint::black_box;
 
-use starling::core::Nanotime;
 use starling::examples::make_earth;
-use starling::orbits::sparse_orbit::SparseOrbit;
-use starling::orbits::universal::generate_chi_spline;
+use starling::nanotime::Nanotime;
+use starling::orbits::generate_chi_spline;
+use starling::orbits::SparseOrbit;
 
 fn criterion_benchmark(c: &mut Criterion) {
     let o =

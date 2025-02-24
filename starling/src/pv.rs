@@ -82,31 +82,3 @@ impl Into<PV> for (Vec2, Vec2) {
         PV::new(self.0, self.1)
     }
 }
-
-pub fn write_csv(
-    filename: &std::path::Path,
-    signals: &[(&str, &[f32])],
-) -> Result<(), Box<dyn std::error::Error>> {
-    let mut writer = csv::Writer::from_path(filename)?;
-
-    let titles = signals.iter().map(|s| s.0);
-
-    writer.write_record(titles)?;
-
-    for i in 0.. {
-        let iter = signals
-            .iter()
-            .map(|s| s.1.get(i))
-            .map(|s| s.map(|e| format!("{:0.5}", e)))
-            .collect::<Option<Vec<_>>>();
-        if let Some(row) = iter {
-            writer.write_record(row)?;
-        } else {
-            break;
-        }
-    }
-
-    writer.flush()?;
-
-    Ok(())
-}

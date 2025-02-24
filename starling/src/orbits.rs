@@ -1,8 +1,9 @@
-use crate::core::{linspace, Nanotime};
-use crate::orbits::universal::*;
+use crate::math::{linspace, tspace};
+use crate::nanotime::Nanotime;
 use crate::planning::search_condition;
 use crate::pv::PV;
 use glam::f32::Vec2;
+use splines::{Interpolation, Key, Spline};
 
 pub const PI: f32 = std::f32::consts::PI;
 
@@ -372,13 +373,6 @@ impl SparseOrbit {
         Some(p * (n + 1) + tp)
     }
 
-    pub fn t_last_p(&self, _current: Nanotime) -> Option<Nanotime> {
-        None
-        // let p = self.period()?;
-        // let n = self.orbit_number(current)?;
-        // Some(p * n + self.time_at_periapsis)
-    }
-
     pub fn asymptotes(&self) -> Option<(Vec2, Vec2)> {
         if self.eccentricity < 1.0 {
             return None;
@@ -436,7 +430,6 @@ impl SparseOrbit {
 
         let aeval = linspace(0.0, 2.0 * PI, 100);
 
-        // find all locations where ds/da goes from negative to positive
         let c1 = |a: f32| derivative(a) > 0.0;
         let c2 = |a: f32| derivative(a) < 0.0;
         let c3 = |a: f32| separation(a) > 0.0;
@@ -497,6 +490,9 @@ pub enum OrbitClass {
 mod tests {
     use super::*;
     use crate::examples::{consistency_orbits, make_earth};
+    use crate::pv::PV;
+    use approx::assert_relative_eq;
+    use glam::f32::Vec2;
     use more_asserts::*;
 
     fn ncalc_period(orbit: &SparseOrbit) -> Option<(Nanotime, Nanotime)> {
@@ -699,4 +695,316 @@ mod tests {
             orbit_consistency_test(orbit.initial, orbit.class(), orbit.body);
         }
     }
+
+    #[test]
+    fn universal_lagrange_example() {
+        let vec_r_0 = Vec2::new(7000.0, -12124.0);
+        let vec_v_0 = Vec2::new(2.6679, 4.6210);
+        let mu = 3.986004418E5;
+
+        let tof = Nanotime::secs(3600);
+
+        let (_, res) = super::universal_lagrange((vec_r_0, vec_v_0), tof, mu);
+
+        assert_eq!(
+            res.unwrap().pv,
+            PV::new((-3297.7869, 7413.3867), (-8.297602, -0.9640651))
+        );
+    }
+
+    #[test]
+    fn stumpff() {
+        assert_relative_eq!(stumpff_2(-20.0), 2.1388736);
+        assert_relative_eq!(stumpff_2(-5.0), 0.74633473);
+        assert_relative_eq!(stumpff_2(-1.0), 0.5430807);
+        assert_relative_eq!(stumpff_2(-1E-6), 0.50000006);
+        assert_relative_eq!(stumpff_2(-1E-12), 0.5);
+        assert_relative_eq!(stumpff_2(0.0), 0.5);
+        assert_relative_eq!(stumpff_2(1E-12), 0.5);
+        assert_relative_eq!(stumpff_2(1E-6), 0.49999997);
+        assert_relative_eq!(stumpff_2(1.0), 0.45969772);
+        assert_relative_eq!(stumpff_2(5.0), 0.32345456);
+        assert_relative_eq!(stumpff_2(20.0), 0.061897416);
+
+        assert_relative_eq!(stumpff_3(-20.0), 0.43931928);
+        assert_relative_eq!(stumpff_3(-1E-12), 0.16666667);
+        assert_relative_eq!(stumpff_3(0.0), 0.16666667);
+        assert_relative_eq!(stumpff_3(1E-12), 0.16666667);
+        assert_relative_eq!(stumpff_3(20.0), 0.060859215);
+    }
+
+    #[test]
+    fn bad_orbit() {
+        let pv = PV::new((825.33563, 564.6425), (200.0, 230.0));
+        let body = Body {
+            radius: 63.0,
+            mass: 1000.0,
+            soi: 15000.0,
+        };
+
+        let data = ULData::new(pv, Nanotime::secs(1), body.mu());
+
+        let res = data.solve();
+
+        dbg!(data);
+        dbg!(res);
+    }
+
+    #[test]
+    fn orbit_construction() {
+        const TEST_POSITION: Vec2 = Vec2::new(500.0, 300.0);
+        const TEST_VELOCITY: Vec2 = Vec2::new(-200.0, 0.0);
+
+        let body = Body {
+            radius: 100.0,
+            mass: 1000.0,
+            soi: 10000.0,
+        };
+
+        let o1 = SparseOrbit::from_pv((TEST_POSITION, TEST_VELOCITY), body, Nanotime(0)).unwrap();
+        let o2 = SparseOrbit::from_pv((TEST_POSITION, -TEST_VELOCITY), body, Nanotime(0)).unwrap();
+
+        let true_h = TEST_POSITION.extend(0.0).cross(TEST_VELOCITY.extend(0.0)).z;
+
+        assert_relative_eq!(o1.angular_momentum(), true_h);
+        assert!(o1.angular_momentum() > 0.0);
+        assert!(!o1.retrograde);
+
+        assert_relative_eq!(o2.angular_momentum(), true_h);
+        assert!(o1.angular_momentum() > 0.0);
+        assert!(o2.retrograde);
+
+        assert_eq!(o1.period().unwrap(), o2.period().unwrap());
+
+        // TODO make this better
+        for i in [0] {
+            let t = o1.period().unwrap() * i;
+            println!("{t:?} {} {}", o1.pv_at_time(t), o2.pv_at_time(t));
+            assert_relative_eq!(
+                o1.pv_at_time(t).pos.x,
+                o2.pv_at_time(t).pos.x,
+                epsilon = 0.5
+            );
+            assert_relative_eq!(
+                o1.pv_at_time(t).pos.y,
+                o2.pv_at_time(t).pos.y,
+                epsilon = 0.5
+            );
+        }
+    }
+}
+
+// https://www.coursesidekick.com/mathematics/441994
+
+// https://orbital-mechanics.space/time-since-periapsis-and-keplers-equation/universal-variables.html
+
+// 2nd stumpff function
+// aka C(z)
+pub fn stumpff_2(z: f32) -> f32 {
+    let midwidth = 0.01;
+    if z > midwidth {
+        (1.0 - z.sqrt().cos()) / z
+    } else if z < -midwidth {
+        ((-z).sqrt().cosh() - 1.0) / -z
+    } else {
+        0.5 - 0.04 * z
+    }
+}
+
+// 3rd stumpff function
+// aka S(z)
+pub fn stumpff_3(z: f32) -> f32 {
+    let midwidth = 0.01;
+    if z > midwidth {
+        (z.sqrt() - z.sqrt().sin()) / z.powf(1.5)
+    } else if z < -midwidth {
+        ((-z).sqrt().sinh() - (-z).sqrt()) / (-z).powf(1.5)
+    } else {
+        -0.00833 * z + 1.0 / 6.0
+    }
+}
+
+fn universal_kepler(chi: f32, r_0: f32, v_r0: f32, alpha: f32, delta_t: f32, mu: f32) -> f32 {
+    let z = alpha * chi.powi(2);
+    let first_term = r_0 * v_r0 / mu.sqrt() * chi.powi(2) * stumpff_2(z);
+    let second_term = (1.0 - alpha * r_0) * chi.powi(3) * stumpff_3(z);
+    let third_term = r_0 * chi;
+    let fourth_term = mu.sqrt() * delta_t;
+    first_term + second_term + third_term - fourth_term
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct LangrangeCoefficients {
+    pub s2: f32,
+    pub s3: f32,
+    pub f: f32,
+    pub g: f32,
+    pub fdot: f32,
+    pub gdot: f32,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct ULData {
+    pub initial: PV,
+    pub tof: Nanotime,
+    pub mu: f32,
+    pub r_0: f32,
+    pub v_r0: f32,
+    pub chi_0: f32,
+    pub alpha: f32,
+}
+
+impl ULData {
+    pub fn new(initial: impl Into<PV>, tof: Nanotime, mu: f32) -> Self {
+        let initial = initial.into();
+        let r_0 = initial.pos.length();
+        let alpha = 2.0 / r_0 - initial.vel.dot(initial.vel) / mu;
+        ULData {
+            initial,
+            tof,
+            mu,
+            r_0,
+            v_r0: initial.vel.dot(initial.pos) / r_0,
+            alpha,
+            chi_0: mu.sqrt() * alpha.abs() * tof.to_secs(),
+        }
+    }
+
+    pub fn universal_kepler(&self, chi: f32) -> f32 {
+        universal_kepler(
+            chi,
+            self.r_0,
+            self.v_r0,
+            self.alpha,
+            self.tof.to_secs(),
+            self.mu,
+        )
+    }
+
+    pub fn solve(&self) -> Option<ULResults> {
+        let radius = 800.0;
+        let chi_min = self.chi_0 - radius;
+        let chi_max = self.chi_0 + radius;
+        let chi = if self.tof == Nanotime(0) {
+            0.0
+        } else {
+            match rootfinder::root_bisection(
+                &|x: f64| self.universal_kepler(x as f32) as f64,
+                rootfinder::Interval::new(chi_min as f64, chi_max as f64),
+                None,
+                None,
+            ) {
+                Ok(x) => x as f32,
+                Err(_) => {
+                    return None;
+                }
+            }
+        };
+
+        if chi == chi_min || chi == chi_max {
+            return None;
+        }
+
+        ULResults::new(chi, &self)
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct ULResults {
+    pub pv: PV,
+    pub chi: f32,
+    pub z: f32,
+    pub lc: LangrangeCoefficients,
+}
+
+impl ULResults {
+    fn new(chi: f32, data: &ULData) -> Option<Self> {
+        let z = data.alpha * chi.powi(2);
+        let lcoeffs = lagrange_coefficients(data.initial, chi, data.mu, data.tof);
+        let pv = lagrange_pv(data.initial, &lcoeffs).filter_numerr()?;
+        Some(ULResults {
+            pv,
+            chi,
+            z,
+            lc: lcoeffs,
+        })
+    }
+}
+
+// https://en.wikipedia.org/wiki/Universal_variable_formulation
+// https://orbital-mechanics.space/time-since-periapsis-and-keplers-equation/universal-lagrange-coefficients-example.html
+pub fn universal_lagrange(
+    initial: impl Into<PV>,
+    tof: Nanotime,
+    mu: f32,
+) -> (ULData, Option<ULResults>) {
+    let data = ULData::new(initial, tof, mu);
+    (data, data.solve())
+}
+
+pub fn lagrange_coefficients(
+    initial: impl Into<PV>,
+    chi: f32,
+    mu: f32,
+    dt: Nanotime,
+) -> LangrangeCoefficients {
+    let initial = initial.into();
+    let vec_r_0 = initial.pos;
+    let vec_v_0 = initial.vel;
+
+    let r_0 = vec_r_0.length();
+
+    let alpha = 2.0 / r_0 - vec_v_0.dot(vec_v_0) / mu;
+
+    let delta_t = dt.to_secs();
+
+    let z = alpha * chi.powi(2);
+
+    let s2 = stumpff_2(z);
+    let s3 = stumpff_3(z);
+
+    let f = 1.0 - chi.powi(2) / r_0 * s2;
+    let g = delta_t - chi.powi(3) / mu.sqrt() * s3;
+
+    let vec_r = f * vec_r_0 + g * vec_v_0;
+    let r = vec_r.length();
+
+    let fdot = chi * mu.sqrt() / (r * r_0) * (z * s3 - 1.0);
+    let gdot = 1.0 - chi.powi(2) / r * s2;
+
+    LangrangeCoefficients {
+        s2,
+        s3,
+        f,
+        g,
+        fdot,
+        gdot,
+    }
+}
+
+pub fn lagrange_pv(initial: impl Into<PV>, coeff: &LangrangeCoefficients) -> PV {
+    let initial = initial.into();
+    let vec_r = coeff.f * initial.pos + coeff.g * initial.vel;
+    let vec_v = coeff.fdot * initial.pos + coeff.gdot * initial.vel;
+    PV::new(vec_r, vec_v)
+}
+
+type ChiSpline = Spline<f32, f32>;
+
+pub fn generate_chi_spline(pv: impl Into<PV>, mu: f32, duration: Nanotime) -> Option<ChiSpline> {
+    let tsample = tspace(Nanotime(0), duration, 500);
+    let pv = pv.into();
+    let x = tsample
+        .to_vec()
+        .iter()
+        .map(|t| {
+            let (_, res) = universal_lagrange(pv, *t, mu);
+            let res = res?;
+            let t = t.to_secs();
+            let key = Key::new(t, res.chi, Interpolation::Linear);
+            Some(key)
+        })
+        .collect::<Option<Vec<_>>>()?;
+
+    Some(Spline::from_vec(x))
 }
