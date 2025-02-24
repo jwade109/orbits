@@ -150,7 +150,7 @@ impl SparseOrbit {
         }
 
         if let Some(p) = o.period() {
-            if p == Nanotime(0) {
+            if p == Nanotime::zero() {
                 println!("SparseOrbit returned orbit with zero period: {pv:?}\n  {o:?}");
                 return None;
             }
@@ -274,8 +274,8 @@ impl SparseOrbit {
             return None;
         }
         let t = 2.0 * PI / self.mean_motion();
-        let ret = Nanotime((t * 1E9) as i64);
-        if ret == Nanotime(0) {
+        let ret = Nanotime::nanos((t * 1E9) as i64);
+        if ret == Nanotime::zero() {
             return None;
         }
         Some(ret)
@@ -344,8 +344,8 @@ impl SparseOrbit {
     pub fn orbit_number(&self, stamp: Nanotime) -> Option<i64> {
         let p = self.period()?;
         let dt = stamp - self.time_at_periapsis?;
-        let n = dt.0.checked_div(p.0)?;
-        Some(if dt.0 < 0 { n - 1 } else { n })
+        let n = dt.inner().checked_div(p.inner())?;
+        Some(if dt.inner() < 0 { n - 1 } else { n })
     }
 
     pub fn t_next_p(&self, current: Nanotime) -> Option<Nanotime> {
@@ -481,7 +481,7 @@ mod tests {
 
     fn ncalc_period(orbit: &SparseOrbit) -> Option<(Nanotime, Nanotime)> {
         let dt = Nanotime::millis(10);
-        let mut duration = Nanotime(0);
+        let mut duration = Nanotime::zero();
         let pv0 = orbit.initial;
         let mut d_prev = 0.0;
         let mut was_decreasing = false;
@@ -564,8 +564,8 @@ mod tests {
         }
 
         let n = 10000;
-        let t1 = tspace(Nanotime(0), Nanotime::secs(n), n as u32);
-        let t2 = tspace(Nanotime(0), Nanotime::secs(-n), n as u32);
+        let t1 = tspace(Nanotime::zero(), Nanotime::secs(n), n as u32);
+        let t2 = tspace(Nanotime::zero(), Nanotime::secs(-n), n as u32);
         for t in t1.iter().chain(t2.iter()) {
             let pv = orbit.pv_at_time_fallible(*t);
             assert!(pv.is_ok(), "Failure at time {:?} - {:?}", t, pv);
@@ -575,7 +575,7 @@ mod tests {
     fn orbit_consistency_test(pv: PV, class: OrbitClass, body: Body) {
         println!("{}", pv);
 
-        let orbit = SparseOrbit::from_pv(pv, body, Nanotime(0));
+        let orbit = SparseOrbit::from_pv(pv, body, Nanotime::zero());
 
         assert!(orbit.is_some());
 
@@ -745,8 +745,10 @@ mod tests {
             soi: 10000.0,
         };
 
-        let o1 = SparseOrbit::from_pv((TEST_POSITION, TEST_VELOCITY), body, Nanotime(0)).unwrap();
-        let o2 = SparseOrbit::from_pv((TEST_POSITION, -TEST_VELOCITY), body, Nanotime(0)).unwrap();
+        let o1 =
+            SparseOrbit::from_pv((TEST_POSITION, TEST_VELOCITY), body, Nanotime::zero()).unwrap();
+        let o2 = SparseOrbit::from_pv((TEST_POSITION, -TEST_VELOCITY), body, Nanotime::zero())
+            .unwrap();
 
         let true_h = TEST_POSITION.extend(0.0).cross(TEST_VELOCITY.extend(0.0)).z;
 
@@ -871,7 +873,7 @@ impl ULData {
         let radius = 800.0;
         let chi_min = self.chi_0 - radius;
         let chi_max = self.chi_0 + radius;
-        let chi = if self.tof == Nanotime(0) {
+        let chi = if self.tof == Nanotime::zero() {
             0.0
         } else {
             match rootfinder::root_bisection(
@@ -980,7 +982,7 @@ pub type ChiSpline = Spline<f32, f32>;
 
 #[allow(unused)]
 pub fn generate_chi_spline(pv: impl Into<PV>, mu: f32, duration: Nanotime) -> Option<ChiSpline> {
-    let tsample = tspace(Nanotime(0), duration, 500);
+    let tsample = tspace(Nanotime::zero(), duration, 500);
     let pv = pv.into();
     let x = tsample
         .to_vec()

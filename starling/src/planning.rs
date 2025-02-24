@@ -154,7 +154,7 @@ impl Propagator {
             orbit,
             start: stamp,
             end: stamp,
-            dt: Nanotime(0),
+            dt: Nanotime::zero(),
             finished: false,
             dynamic: true,
             event: None,
@@ -262,7 +262,7 @@ impl Propagator {
             return Ok(());
         }
 
-        let tol = Nanotime(5);
+        let tol = Nanotime::nanos(5);
 
         let alt = self.orbit.pv_at_time(self.end).pos.length();
 
@@ -410,7 +410,7 @@ pub fn get_next_intersection(
     for ts in teval.windows(2) {
         let t1 = ts[0];
         let t2 = ts[1];
-        let t = search_condition(t1, t2, Nanotime(10), &condition)?;
+        let t = search_condition(t1, t2, Nanotime::nanos(10), &condition)?;
         if let Some(t) = t {
             let (pv, _) = signed_distance_at(t);
             return Ok(Some((t, pv)));

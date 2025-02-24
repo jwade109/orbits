@@ -1,11 +1,15 @@
 use std::ops::{Add, AddAssign, Div, Mul, Rem, Sub, SubAssign};
 
 #[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Nanotime(pub i64);
+pub struct Nanotime(i64);
 
 impl Nanotime {
     pub const PER_SEC: i64 = 1000000000;
     pub const PER_MILLI: i64 = 1000000;
+
+    pub fn zero() -> Self {
+        Nanotime(0)
+    }
 
     pub fn to_secs(&self) -> f32 {
         self.0 as f32 / Nanotime::PER_SEC as f32
@@ -17,6 +21,10 @@ impl Nanotime {
 
     pub fn to_parts(&self) -> (i64, i64) {
         (self.0 % Nanotime::PER_SEC, self.0 / Nanotime::PER_SEC)
+    }
+
+    pub fn nanos(ns: i64) -> Self {
+        Nanotime(ns)
     }
 
     pub fn secs(s: i64) -> Self {
@@ -37,6 +45,10 @@ impl Nanotime {
 
     pub fn floor(&self, order: i64) -> Self {
         Self(self.0 - (self.0 % order))
+    }
+
+    pub fn inner(&self) -> i64 {
+        self.0
     }
 }
 

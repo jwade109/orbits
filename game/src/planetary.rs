@@ -286,7 +286,7 @@ impl Default for GameState {
     fn default() -> Self {
         let (scenario, ids) = default_example();
         GameState {
-            sim_time: Nanotime(0),
+            sim_time: Nanotime::zero(),
             physics_duration: Nanotime::secs(120),
             sim_speed: 0,
             show_orbits: false,
@@ -297,7 +297,7 @@ impl Default for GameState {
             ids,
             track_list: Vec::new(),
             highlighted_list: Vec::new(),
-            backup: Some((scenario, ids, Nanotime(0))),
+            backup: Some((scenario, ids, Nanotime::zero())),
             draw_levels: (-70000..=-10000)
                 .step_by(10000)
                 .chain((-5000..-3000).step_by(250))
@@ -314,7 +314,7 @@ impl Default for GameState {
 fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     if !state.paused {
         let sp = 10.0f32.powi(state.sim_speed);
-        state.sim_time += Nanotime((time.delta().as_nanos() as f32 * sp) as i64);
+        state.sim_time += Nanotime::nanos((time.delta().as_nanos() as f32 * sp) as i64);
     }
 
     state.duty_cycle_high = time.elapsed().as_millis() % 1000 < 500;
@@ -563,10 +563,10 @@ fn mouse_button_input(
 }
 
 fn load_new_scenario(state: &mut GameState, scen: Scenario, ids: ObjectIdTracker) {
-    state.backup = Some((scen.clone(), ids, Nanotime(0)));
+    state.backup = Some((scen.clone(), ids, Nanotime::zero()));
     state.camera.target_scale = 0.001 * scen.system.body.soi;
     state.scenario = scen;
-    state.sim_time = Nanotime(0);
+    state.sim_time = Nanotime::zero();
 }
 
 fn on_command(state: &mut GameState, cmd: &Vec<String>) {

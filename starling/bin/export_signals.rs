@@ -16,7 +16,7 @@ fn export_orbit_position() -> Result<(), Box<dyn std::error::Error>> {
 
     let initial = PV::new(randvec(100.0, 500.0), randvec(100.0, 400.0));
 
-    let orbit = SparseOrbit::from_pv(initial, earth, Nanotime(0)).unwrap();
+    let orbit = SparseOrbit::from_pv(initial, earth, Nanotime::zero()).unwrap();
 
     _ = export_orbit_data(&orbit, Path::new("orbit.csv"));
 
@@ -37,7 +37,7 @@ fn export_stumpff_functions() -> Result<(), Box<dyn std::error::Error>> {
 
 fn write_chi_spline() -> Result<(), Box<dyn std::error::Error>> {
     let pv = PV::new((500.0, 200.0), (-11.0, 60.0));
-    let orbit = SparseOrbit::from_pv(pv, make_earth(), Nanotime(0)).unwrap();
+    let orbit = SparseOrbit::from_pv(pv, make_earth(), Nanotime::zero()).unwrap();
 
     let spline = generate_chi_spline(
         pv,

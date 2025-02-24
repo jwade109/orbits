@@ -11,7 +11,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     s.measurement_time(std::time::Duration::from_secs(1));
 
     let o =
-        SparseOrbit::from_pv(((500.0, 200.0), (-12.0, 30.0)), make_earth(), Nanotime(0)).unwrap();
+        SparseOrbit::from_pv(((500.0, 200.0), (-12.0, 30.0)), make_earth(), Nanotime::zero()).unwrap();
 
     s.bench_function("pv_at_time", |b| {
         b.iter(|| {
@@ -43,7 +43,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     g.sample_size(1000);
 
     let (mut scenario, _) = stable_simulation();
-    let mut t = Nanotime(0);
+    let mut t = Nanotime::zero();
 
     g.bench_function("scenario_sim", |b| {
         b.iter(|| {
