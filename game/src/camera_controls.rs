@@ -64,14 +64,14 @@ impl CameraState {
     pub fn mouse_pos(&self) -> Option<Vec2> {
         let gb = self.game_bounds();
         let wb = self.window_bounds();
-        Some(AABB::map(wb, gb, self.mouse_screen_pos?))
+        Some(wb.map(gb, self.mouse_screen_pos?))
     }
 
     pub fn mouse_down_pos(&self) -> Option<Vec2> {
         let p = self.mouse_down_pos?;
         let gb = self.game_bounds();
         let wb = self.window_bounds();
-        Some(AABB::map(wb, gb, p))
+        Some(wb.map(gb, p))
     }
 
     pub fn selection_region(&self) -> Option<AABB> {

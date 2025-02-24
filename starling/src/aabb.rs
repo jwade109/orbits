@@ -74,8 +74,8 @@ impl AABB {
         u * self.span + lower
     }
 
-    pub fn map(from: Self, to: Self, p: Vec2) -> Vec2 {
-        let u = from.to_normalized(p);
+    pub fn map(&self, to: Self, p: Vec2) -> Vec2 {
+        let u = self.to_normalized(p);
         to.from_normalized(u)
     }
 

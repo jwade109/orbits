@@ -34,6 +34,12 @@ pub fn draw_square(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     );
 }
 
+pub fn draw_diamond(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
+    let s = size / 2.0;
+    let pts = [0.0, PI / 2.0, PI, -PI / 2.0, 0.0].map(|a| p + rotate(Vec2::X * s, a));
+    gizmos.linestrip_2d(pts, color);
+}
+
 pub fn draw_circle(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     gizmos
         .circle_2d(Isometry2d::from_translation(p), size, color)
@@ -193,14 +199,9 @@ pub fn draw_object(
     }
 
     if tracked {
-        if let Some((pvl, pv)) = obj.pvl(stamp).zip(obj.pv(stamp, planets)) {
-            let prograde = pvl.vel.normalize_or(Vec2::ZERO) * 200.0 * scale.min(2.0);
-            gizmos.line_2d(pv.pos, pv.pos + prograde, RED);
-        }
-
         for (i, prop) in obj.props().iter().enumerate() {
             let color = if i == 0 {
-                alpha(ORANGE, 0.3)
+                alpha(WHITE, 0.2)
             } else {
                 alpha(TEAL, (1.0 - i as f32 * 0.3).max(0.0))
             };
@@ -454,11 +455,12 @@ pub fn draw_event_animation(
 ) -> Option<()> {
     let obj = system.objects.iter().find(|o| o.id() == id)?;
     let p = obj.props().last()?;
-    let mut t = stamp;
+    let dt = Nanotime::secs(1);
+    let mut t = stamp + dt;
     while t < p.end {
         let pv = obj.pv(t, &system.system)?;
-        draw_square(gizmos, pv.pos, 11.0 * scale.min(1.0), alpha(WHITE, 0.6));
-        t += Nanotime::secs(1);
+        draw_diamond(gizmos, pv.pos, 11.0 * scale.min(1.0), alpha(WHITE, 0.6));
+        t += dt;
     }
     for prop in obj.props() {
         let pv = obj.pv(prop.end, &system.system)?;
@@ -492,8 +494,58 @@ pub fn draw_maneuver_plan(gizmos: &mut Gizmos, state: &GameState) {
     }
 }
 
+pub fn draw_scale_indicator(gizmos: &mut Gizmos, cam: &CameraState) {
+    let width = 300.0;
+    let center = Vec2::new(cam.window_dims.x / 2.0, cam.window_dims.y - 20.0);
+
+    let p1 = center + Vec2::X * width;
+    let p2 = center - Vec2::X * width;
+
+    let b = cam.game_bounds();
+    let c = cam.window_bounds();
+
+    let u1 = c.map(b, p1);
+    let u2 = c.map(b, p2);
+
+    let map = |p: Vec2| c.map(b, p);
+
+    let color = alpha(WHITE, 0.3);
+
+    let mut draw_at = |s: f32, weight: f32| {
+        let h = 6.0 * weight;
+        if h < 0.5 {
+            return;
+        }
+        let t = map(center + Vec2::new(s, h));
+        let b = map(center + Vec2::new(s, -h));
+        gizmos.line_2d(t, b, color);
+    };
+
+    draw_at(0.0, 1.0);
+
+    for power in -3..7 {
+        let size = 10.0f32.powi(power);
+        let ds = size / cam.actual_scale;
+        let weight = (ds * 10.0 / width).min(1.0);
+        let mut s = 0.0;
+        s += ds;
+        for _ in 0..100 {
+            if s > width {
+                break;
+            }
+            draw_at(s, weight);
+            draw_at(-s, weight);
+            s += ds;
+        }
+    }
+
+    gizmos.line_2d(u1, u2, color);
+}
+
 pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
     let stamp = state.sim_time;
+
+    draw_scale_indicator(&mut gizmos, &state.camera);
 
     for p in &state.control_points {
         draw_circle(

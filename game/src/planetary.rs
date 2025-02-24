@@ -59,11 +59,7 @@ fn manage_orbiter_labels(
     }
 }
 
-fn update_text(
-    res: Res<GameState>,
-    mut text: Query<(&mut Transform, &mut Text2d, &FollowObject)>,
-    mut gizmos: Gizmos,
-) {
+fn update_text(res: Res<GameState>, mut text: Query<(&mut Transform, &mut Text2d, &FollowObject)>) {
     let scale = res.camera.actual_scale.min(1.0);
     let zoomed_out = scale == 1.0;
     let mut height = -40.0;
@@ -127,14 +123,6 @@ fn update_text(
                 height -= h;
                 tr.translation = ur.extend(0.0);
                 tr.scale = Vec3::new(s, s, s);
-                let color = if obj.has_error() {
-                    alpha(bevy::color::palettes::basic::YELLOW, 0.1)
-                } else if obj.will_collide() {
-                    alpha(bevy::color::palettes::basic::RED, 0.1)
-                } else {
-                    alpha(bevy::color::palettes::basic::WHITE, 0.03)
-                };
-                gizmos.line_2d(ur - Vec2::splat(40.0) * s, pv.pos, color);
             } else {
                 tr.translation = (pv.pos + Vec2::new(40.0 * scale, 40.0 * scale)).extend(0.0);
                 tr.scale = Vec3::new(scale, scale, scale);
@@ -303,7 +291,7 @@ impl Default for GameState {
             sim_speed: 0,
             show_orbits: false,
             show_potential_field: false,
-            show_animations: false,
+            show_animations: true,
             paused: false,
             scenario: scenario.clone(),
             ids,
