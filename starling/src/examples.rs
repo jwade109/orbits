@@ -63,12 +63,7 @@ pub fn earth_moon_example_one() -> (Scenario, ObjectIdTracker) {
     scenario.add_object(
         id.next(),
         earth.id,
-        SparseOrbit::circular(
-            earth.body.radius * 1.1,
-            earth.body,
-            Nanotime::zero(),
-            false,
-        ),
+        SparseOrbit::circular(earth.body.radius * 1.1, earth.body, Nanotime::zero(), false),
         Nanotime::zero(),
     );
 
@@ -105,6 +100,10 @@ pub fn earth_moon_example_one() -> (Scenario, ObjectIdTracker) {
         SparseOrbit::circular(13.0, ast.body, Nanotime::zero(), false),
         Nanotime::zero(),
     );
+
+    scenario.simulate(Nanotime::zero(), Nanotime::secs(100));
+
+    scenario.objects.retain(|o| !o.will_collide());
 
     (scenario, id)
 }
@@ -218,12 +217,8 @@ pub fn single_hyperbolic() -> (Scenario, ObjectIdTracker) {
     let mut id = ObjectIdTracker::new();
     let earth: PlanetarySystem = PlanetarySystem::new(id.next(), "Earth", make_earth());
     let mut scenario = Scenario::new(&earth);
-    let orbit = SparseOrbit::from_pv(
-        ((400.0, 0.0), (0.0, 260.0)),
-        make_earth(),
-        Nanotime::zero(),
-    )
-    .unwrap();
+    let orbit =
+        SparseOrbit::from_pv(((400.0, 0.0), (0.0, 260.0)), make_earth(), Nanotime::zero()).unwrap();
     scenario.add_object(id.next(), earth.id, orbit, Nanotime::zero());
     (scenario, id)
 }
@@ -1472,12 +1467,7 @@ pub fn stable_simulation() -> (Scenario, ObjectIdTracker) {
     scenario.add_object(
         id.next(),
         earth.id,
-        SparseOrbit::circular(
-            earth.body.radius * 1.1,
-            earth.body,
-            Nanotime::zero(),
-            false,
-        ),
+        SparseOrbit::circular(earth.body.radius * 1.1, earth.body, Nanotime::zero(), false),
         Nanotime::zero(),
     );
 
@@ -1492,7 +1482,7 @@ pub fn stable_simulation() -> (Scenario, ObjectIdTracker) {
 }
 
 pub fn default_example() -> (Scenario, ObjectIdTracker) {
-    stable_simulation()
+    earth_moon_example_one()
 }
 
 #[cfg(test)]

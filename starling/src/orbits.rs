@@ -286,7 +286,10 @@ impl SparseOrbit {
     }
 
     pub fn pv_at_time(&self, stamp: Nanotime) -> PV {
-        self.pv_at_time_fallible(stamp).unwrap_or(PV::zero())
+        self.pv_at_time_fallible(stamp).unwrap_or(PV::new(
+            Vec2::splat(f32::INFINITY),
+            Vec2::splat(f32::INFINITY),
+        ))
     }
 
     pub fn pv_at_time_fallible(&self, stamp: Nanotime) -> Result<PV, ULData> {
@@ -297,6 +300,9 @@ impl SparseOrbit {
         };
         let ul = universal_lagrange(self.initial, tof, self.body.mu());
         let sol = ul.1.ok_or(ul.0)?;
+        if sol.pv.pos.length() > 3.0 * self.body.soi {
+            return Err(ul.0);
+        }
         Ok(sol.pv.filter_numerr().ok_or(ul.0)?)
     }
 
@@ -747,8 +753,8 @@ mod tests {
 
         let o1 =
             SparseOrbit::from_pv((TEST_POSITION, TEST_VELOCITY), body, Nanotime::zero()).unwrap();
-        let o2 = SparseOrbit::from_pv((TEST_POSITION, -TEST_VELOCITY), body, Nanotime::zero())
-            .unwrap();
+        let o2 =
+            SparseOrbit::from_pv((TEST_POSITION, -TEST_VELOCITY), body, Nanotime::zero()).unwrap();
 
         let true_h = TEST_POSITION.extend(0.0).cross(TEST_VELOCITY.extend(0.0)).z;
 

@@ -250,7 +250,12 @@ impl GameState {
         let d = self.physics_duration;
         let p = self.scenario.system.clone();
         let obj = self.primary_object_mut()?;
-        obj.dv(s, dv);
+        match obj.dv(s, dv) {
+            Some(()) => (),
+            None => {
+                println!("Failed to maneuver");
+            }
+        };
         let res = obj.propagate_to(s, d, &p);
         match res {
             Ok(_) => Some(()),
@@ -304,7 +309,7 @@ impl Default for GameState {
                 .collect(),
             camera: CameraState::default(),
             control_points: Vec::new(),
-            hide_debug: false,
+            hide_debug: true,
             duty_cycle_high: false,
             controllers: vec![Controller::avoid(ObjectId(12))],
         }
@@ -364,25 +369,27 @@ fn sim_speed_str(speed: i32) -> String {
 }
 
 fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
-    if state.hide_debug {
-        return;
+    let logs = [
+        "",
+        "Look around - [W][A][S][D]",
+        "Control orbiter - Arrow Keys",
+        "  Increase thrust - hold [LSHIFT]",
+        "  Decrease thrust - hold [LCTRL]",
+        "Zoom in/out - +/-, [Scroll]",
+        "Select spacecraft - Left click and drag",
+        "Toggle debug info - [H]",
+        "Increase sim speed - [.]",
+        "Decrease sim speed - [,]",
+        "Pause - [SPACE]",
+        "",
+    ];
+
+    for log in logs {
+        send_log(&mut evt, log);
     }
 
-    if state.track_list.len() > 15 {
-        send_log(&mut evt, &format!("Tracks: lots of em"));
-    } else {
-        send_log(&mut evt, &format!("Tracks: {:?}", state.track_list));
-    }
     send_log(&mut evt, &format!("Epoch: {:?}", state.sim_time));
-    send_log(&mut evt, &format!("Physics: {:?}", state.physics_duration));
-    send_log(
-        &mut evt,
-        &format!("Scale: {:0.3}", state.camera.actual_scale),
-    );
-    send_log(
-        &mut evt,
-        &format!("{} objects", state.scenario.objects.len()),
-    );
+
     if state.paused {
         send_log(&mut evt, "Paused");
     }
@@ -393,6 +400,25 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
             state.sim_speed,
             sim_speed_str(state.sim_speed)
         ),
+    );
+
+    if state.hide_debug {
+        return;
+    }
+
+    if state.track_list.len() > 15 {
+        send_log(&mut evt, &format!("Tracks: lots of em"));
+    } else {
+        send_log(&mut evt, &format!("Tracks: {:?}", state.track_list));
+    }
+    send_log(&mut evt, &format!("Physics: {:?}", state.physics_duration));
+    send_log(
+        &mut evt,
+        &format!("Scale: {:0.3}", state.camera.actual_scale),
+    );
+    send_log(
+        &mut evt,
+        &format!("{} objects", state.scenario.objects.len()),
     );
 
     if let Some(pv) = state.cursor_pv() {

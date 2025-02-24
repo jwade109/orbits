@@ -64,13 +64,23 @@ pub fn draw_obb(gizmos: &mut Gizmos, obb: &OBB, color: Srgba) {
 }
 
 pub fn draw_orbit(gizmos: &mut Gizmos, orb: &SparseOrbit, origin: Vec2, color: Srgba) {
-    if orb.eccentricity >= 1.0 {
-        let n_points = 60;
-        let range = 0.999 * hyperbolic_range_ta(orb.eccentricity);
-        let points: Vec<_> = (0..n_points)
-            .map(|i| {
-                let t = (i as f32 / (n_points - 1) as f32) * 2.0 - 1.0;
-                origin + orb.position_at(t * range)
+    if orb.will_escape() {
+        let n_points = 1000;
+        let ta = if orb.eccentricity >= 1.0 {
+            let hrta = hyperbolic_range_ta(orb.eccentricity);
+            linspace(-0.999 * hrta, 0.999 * hrta, 1000)
+        } else {
+            linspace(-PI, PI, 1000)
+        };
+
+        let points: Vec<_> = ta
+            .iter()
+            .filter_map(|t| {
+                let p = orb.position_at(*t);
+                if p.length() > orb.body.soi {
+                    return None;
+                }
+                Some(origin + p)
             })
             .collect();
         gizmos.linestrip_2d(points, color);
@@ -597,7 +607,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
         draw_controllers(&mut gizmos, &state.scenario, ctrl, state.sim_time);
     }
 
-    if state.show_animations {
+    if state.show_animations && state.track_list.len() < 6 {
         for id in &state.track_list {
             draw_event_animation(
                 &mut gizmos,
