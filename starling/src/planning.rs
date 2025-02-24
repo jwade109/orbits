@@ -320,7 +320,7 @@ impl Propagator {
                 let cond = separation_with(&self.orbit, orbit, soi);
                 let id = bodies[i].0;
 
-                if !cond(t1) {
+                if t1 != self.start && !cond(t1) {
                     self.end = t1;
                     self.finished = true;
                     self.event = Some(EventType::Encounter(id));
