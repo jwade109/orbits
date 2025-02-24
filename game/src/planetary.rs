@@ -4,16 +4,6 @@ use bevy::window::PrimaryWindow;
 
 use starling::prelude::*;
 
-use starling::aabb::AABB;
-use starling::control::*;
-use starling::scenario::*;
-use starling::examples::*;
-use starling::file_export::export_orbit_data;
-use starling::orbiter::*;
-use starling::orbits::*;
-use starling::planning::*;
-use starling::pv::PV;
-
 use crate::camera_controls::*;
 use crate::debug::*;
 use crate::drawing::*;
@@ -69,7 +59,11 @@ fn manage_orbiter_labels(
     }
 }
 
-fn update_text(res: Res<GameState>, mut text: Query<(&mut Transform, &mut Text2d, &FollowObject)>) {
+fn update_text(
+    res: Res<GameState>,
+    mut text: Query<(&mut Transform, &mut Text2d, &FollowObject)>,
+    mut gizmos: Gizmos,
+) {
     let scale = res.camera.actual_scale.min(1.0);
     let zoomed_out = scale == 1.0;
     let mut height = -40.0;
@@ -133,6 +127,14 @@ fn update_text(res: Res<GameState>, mut text: Query<(&mut Transform, &mut Text2d
                 height -= h;
                 tr.translation = ur.extend(0.0);
                 tr.scale = Vec3::new(s, s, s);
+                let color = if obj.has_error() {
+                    alpha(bevy::color::palettes::basic::YELLOW, 0.1)
+                } else if obj.will_collide() {
+                    alpha(bevy::color::palettes::basic::RED, 0.1)
+                } else {
+                    alpha(bevy::color::palettes::basic::WHITE, 0.03)
+                };
+                gizmos.line_2d(ur - Vec2::splat(40.0) * s, pv.pos, color);
             } else {
                 tr.translation = (pv.pos + Vec2::new(40.0 * scale, 40.0 * scale)).extend(0.0);
                 tr.scale = Vec3::new(scale, scale, scale);

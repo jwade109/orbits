@@ -8,9 +8,6 @@ use crate::drawing::*;
 
 use starling::prelude::*;
 
-use starling::aabb::*;
-use starling::orbiter::ObjectId;
-
 pub struct CraftPlugin;
 
 impl Plugin for CraftPlugin {

@@ -1,9 +1,9 @@
-use crate::scenario::*;
 use crate::math::{tspace, PI};
 use crate::nanotime::Nanotime;
 use crate::orbiter::*;
 use crate::orbits::{OrbitClass, SparseOrbit};
 use crate::pv::PV;
+use crate::scenario::*;
 use glam::f32::Vec2;
 
 #[derive(Debug, Clone, Copy)]
@@ -128,6 +128,7 @@ pub struct Propagator {
     pub end: Nanotime,
     pub dt: Nanotime,
     pub finished: bool,
+    pub dynamic: bool,
     pub event: Option<EventType>,
 }
 
@@ -155,6 +156,7 @@ impl Propagator {
             end: stamp,
             dt: Nanotime(0),
             finished: false,
+            dynamic: true,
             event: None,
         }
     }
@@ -239,8 +241,23 @@ impl Propagator {
             return Ok(());
         }
 
-        if !self.orbit.is_suborbital() && !self.orbit.will_escape() && bodies.is_empty() {
+        if !self.dynamic {
+            self.end += Nanotime::secs(500);
+            return Ok(());
+        }
+
+        let will_never_encounter = bodies.iter().all(|(_, orbit, soi)| {
+            let rmin = orbit.periapsis_r() - soi;
+            let rmax = orbit.apoapsis_r() + soi;
+            self.orbit.apoapsis_r() < rmin || self.orbit.periapsis_r() > rmax
+        });
+
+        if !self.orbit.is_suborbital()
+            && !self.orbit.will_escape()
+            && (will_never_encounter || bodies.is_empty())
+        {
             // nothing will ever happen to this orbit
+            self.dynamic = false;
             self.end += Nanotime::secs(500);
             return Ok(());
         }
@@ -576,20 +593,27 @@ fn bielliptic_transfer(
     ManeuverPlan::new(ManeuverType::Bielliptic, current, &[(t1, dv1), (t2, dv2)])
 }
 
-pub fn generate_maneuver_plans(
+fn direct_transfer(
     current: &SparseOrbit,
     destination: &SparseOrbit,
     now: Nanotime,
-) -> Vec<ManeuverPlan> {
-    let direct = get_next_intersection(now, current, destination)
+) -> Option<ManeuverPlan> {
+    get_next_intersection(now, current, destination)
         .ok()
         .flatten()
         .map(|(t, pvf)| {
             let pvi = current.pv_at_time(t);
             ManeuverPlan::new(ManeuverType::Direct, current, &[(t, pvf.vel - pvi.vel)])
         })
-        .flatten();
+        .flatten()
+}
 
+pub fn generate_maneuver_plans(
+    current: &SparseOrbit,
+    destination: &SparseOrbit,
+    now: Nanotime,
+) -> Vec<ManeuverPlan> {
+    let direct = direct_transfer(current, destination, now);
     let hohmann = hohmann_transfer(current, destination, now);
     let bielliptic = bielliptic_transfer(current, destination, now);
 
