@@ -8,7 +8,7 @@ use starling::prelude::*;
 
 use starling::aabb::{AABB, OBB};
 use starling::control::Controller;
-use starling::core::*;
+use starling::scenario::*;
 use starling::orbiter::*;
 use starling::orbits::*;
 use starling::planning::*;
@@ -236,7 +236,7 @@ pub fn draw_object(
 
 pub fn draw_orbital_system(
     gizmos: &mut Gizmos,
-    sys: &OrbitalTree,
+    sys: &Scenario,
     stamp: Nanotime,
     scale: f32,
     show_orbits: bool,
@@ -249,7 +249,7 @@ pub fn draw_orbital_system(
         .objects
         .iter()
         .map(|obj| {
-            let is_tracked = track_list.contains(&obj.id);
+            let is_tracked = track_list.contains(&obj.id());
             draw_object(
                 gizmos,
                 &sys.system,
@@ -304,7 +304,7 @@ pub fn draw_scalar_field_cell(
 
     let pot: Vec<(Vec2, f32)> = [bl, br, tr, tl]
         .iter()
-        .map(|p| (*p, potential_at(&planet, *p, stamp)))
+        .map(|p| (*p, planet.potential_at(*p, stamp)))
         .collect();
 
     for level in levels {
@@ -416,7 +416,7 @@ pub fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) {
         .highlighted_list
         .iter()
         .filter_map(|id| {
-            let pv = state.system.orbiter_lookup(*id, state.sim_time)?.pv();
+            let pv = state.scenario.orbiter_lookup(*id, state.sim_time)?.pv();
             draw_circle(gizmos, pv.pos, 20.0 * state.camera.actual_scale, GRAY);
             Some(())
         })
@@ -439,14 +439,14 @@ pub fn draw_camera_controls(gizmos: &mut Gizmos, cam: &CameraState) {
 
 pub fn draw_controllers(
     gizmos: &mut Gizmos,
-    system: &OrbitalTree,
+    system: &Scenario,
     ctrl: &Controller,
     stamp: Nanotime,
 ) -> Option<()> {
     if !ctrl.last().is_some() {
         return None;
     }
-    let obj = system.objects.iter().find(|o| o.id == ctrl.target())?;
+    let obj = system.objects.iter().find(|o| o.id() == ctrl.target())?;
     let pv = obj.pv(stamp, &system.system)?;
     draw_circle(gizmos, pv.pos, 60.0, TEAL);
     Some(())
@@ -454,13 +454,13 @@ pub fn draw_controllers(
 
 pub fn draw_event_animation(
     gizmos: &mut Gizmos,
-    system: &OrbitalTree,
+    system: &Scenario,
     id: ObjectId,
     stamp: Nanotime,
     scale: f32,
     duty_cycle: bool,
 ) -> Option<()> {
-    let obj = system.objects.iter().find(|o| o.id == id)?;
+    let obj = system.objects.iter().find(|o| o.id() == id)?;
     let p = obj.props().last()?;
     let mut t = stamp;
     while t < p.end {
@@ -541,18 +541,23 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
     }
 
     if state.show_potential_field {
-        draw_scalar_field(&mut gizmos, &state.system.system, stamp, &state.draw_levels);
+        draw_scalar_field(
+            &mut gizmos,
+            &state.scenario.system,
+            stamp,
+            &state.draw_levels,
+        );
     }
 
     for ctrl in &state.controllers {
-        draw_controllers(&mut gizmos, &state.system, ctrl, state.sim_time);
+        draw_controllers(&mut gizmos, &state.scenario, ctrl, state.sim_time);
     }
 
     if state.show_animations {
         for id in &state.track_list {
             draw_event_animation(
                 &mut gizmos,
-                &state.system,
+                &state.scenario,
                 *id,
                 state.sim_time,
                 state.camera.actual_scale,
@@ -565,7 +570,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
 
     draw_orbital_system(
         &mut gizmos,
-        &state.system,
+        &state.scenario,
         stamp,
         state.camera.actual_scale,
         state.show_orbits,

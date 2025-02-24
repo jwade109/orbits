@@ -44,7 +44,7 @@ impl ObjectLookup {
 }
 
 #[derive(Debug, Clone)]
-pub struct OrbitalTree {
+pub struct Scenario {
     pub objects: Vec<Orbiter>,
     pub system: PlanetarySystem,
 }
@@ -100,6 +100,16 @@ impl PlanetarySystem {
     ) -> Option<(Body, PV, Option<ObjectId>, &PlanetarySystem)> {
         self.lookup_inner(id, stamp, PV::zero(), None)
     }
+
+    pub fn potential_at(&self, pos: Vec2, stamp: Nanotime) -> f32 {
+        let r = pos.length().clamp(10.0, std::f32::MAX);
+        let mut ret = -self.body.mu() / r;
+        for (orbit, pl) in &self.subsystems {
+            let pv = orbit.pv_at_time(stamp);
+            ret += pl.potential_at(pos - pv.pos, stamp);
+        }
+        ret
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -109,15 +119,15 @@ pub struct RemovalInfo {
     pub orbit: SparseOrbit,
 }
 
-impl OrbitalTree {
+impl Scenario {
     pub fn new(system: &PlanetarySystem) -> Self {
-        OrbitalTree {
+        Scenario {
             objects: vec![],
             system: system.clone(),
         }
     }
 
-    pub fn propagate_to(
+    pub fn simulate(
         &mut self,
         stamp: Nanotime,
         future_dur: Nanotime,
@@ -135,7 +145,7 @@ impl OrbitalTree {
                     reason: p.event.unwrap_or(EventType::NumericalError),
                     orbit: p.orbit.clone(),
                 });
-                info.push((o.id, reason));
+                info.push((o.id(), reason));
                 false
             } else {
                 true
@@ -157,13 +167,13 @@ impl OrbitalTree {
 
     pub fn remove_object(&mut self, id: ObjectId) -> Option<()> {
         self.objects
-            .remove(self.objects.iter().position(|o| o.id == id)?);
+            .remove(self.objects.iter().position(|o| o.id() == id)?);
         Some(())
     }
 
     pub fn orbiter_lookup(&self, id: ObjectId, stamp: Nanotime) -> Option<ObjectLookup> {
         self.objects.iter().find_map(|o| {
-            if o.id != id {
+            if o.id() != id {
                 return None;
             }
 
@@ -182,14 +192,4 @@ impl OrbitalTree {
             })
         })
     }
-}
-
-pub fn potential_at(planet: &PlanetarySystem, pos: Vec2, stamp: Nanotime) -> f32 {
-    let r = pos.length().clamp(10.0, std::f32::MAX);
-    let mut ret = -planet.body.mu() / r;
-    for (orbit, pl) in &planet.subsystems {
-        let pv = orbit.pv_at_time(stamp);
-        ret += potential_at(pl, pos - pv.pos, stamp);
-    }
-    ret
 }

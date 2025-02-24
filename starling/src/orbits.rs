@@ -477,7 +477,6 @@ mod tests {
     use crate::examples::{consistency_orbits, make_earth};
     use crate::pv::PV;
     use approx::assert_relative_eq;
-    use glam::f32::Vec2;
     use more_asserts::*;
 
     fn ncalc_period(orbit: &SparseOrbit) -> Option<(Nanotime, Nanotime)> {

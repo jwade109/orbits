@@ -1,4 +1,4 @@
-use crate::core::OrbitalTree;
+use crate::scenario::Scenario;
 use crate::math::{cross2d, rotate, PI};
 use crate::nanotime::Nanotime;
 use crate::orbiter::{ObjectId, Orbiter};
@@ -44,11 +44,11 @@ impl Controller {
         }
     }
 
-    pub fn update(&mut self, system: &OrbitalTree, stamp: Nanotime) -> Option<Vec2> {
+    pub fn update(&mut self, system: &Scenario, stamp: Nanotime) -> Option<Vec2> {
         self.last = match &mut self.mode {
             ControllerMode::Idle => None,
             ControllerMode::AvoidCollisions => {
-                let obj = system.objects.iter().find(|o| o.id == self.target())?;
+                let obj = system.objects.iter().find(|o| o.id() == self.target())?;
                 avoid_collisions_update_loop(obj, stamp)
             }
             ControllerMode::Hohmann(_orbit) => Some(Vec2::ZERO),

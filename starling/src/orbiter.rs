@@ -1,4 +1,4 @@
-use crate::core::*;
+use crate::scenario::*;
 use crate::nanotime::Nanotime;
 use crate::orbits::SparseOrbit;
 use crate::planning::*;
@@ -23,7 +23,7 @@ impl std::fmt::Debug for ObjectId {
 
 #[derive(Debug, Clone)]
 pub struct Orbiter {
-    pub id: ObjectId,
+    id: ObjectId,
     props: Vec<Propagator>,
 }
 
@@ -33,6 +33,10 @@ impl Orbiter {
             id,
             props: vec![Propagator::new(parent, orbit, stamp)],
         }
+    }
+
+    pub fn id(&self) -> ObjectId {
+        self.id
     }
 
     pub fn dv(&mut self, stamp: Nanotime, dv: Vec2) -> Option<()> {

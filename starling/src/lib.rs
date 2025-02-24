@@ -1,7 +1,7 @@
 pub mod aabb;
 pub mod canonical;
 pub mod control;
-pub mod core;
+pub mod scenario;
 pub mod examples;
 pub mod file_export;
 pub mod math;

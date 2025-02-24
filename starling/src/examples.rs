@@ -1,4 +1,4 @@
-use crate::core::{ObjectIdTracker, OrbitalTree, PlanetarySystem};
+use crate::scenario::{ObjectIdTracker, Scenario, PlanetarySystem};
 use crate::math::{rand, randvec, rotate};
 use crate::nanotime::Nanotime;
 use crate::orbits::{Body, SparseOrbit};
@@ -19,16 +19,16 @@ pub fn make_luna() -> (Body, SparseOrbit) {
     )
 }
 
-pub fn just_the_moon() -> (OrbitalTree, ObjectIdTracker) {
+pub fn just_the_moon() -> (Scenario, ObjectIdTracker) {
     let mut id = ObjectIdTracker::new();
 
     let moon_id = id.next();
 
     let luna = PlanetarySystem::new(moon_id, "Luna", make_luna().0);
-    let mut tree = OrbitalTree::new(&luna);
+    let mut scenario = Scenario::new(&luna);
 
     for _ in 0..1 {
-        tree.add_object(
+        scenario.add_object(
             id.next(),
             moon_id,
             SparseOrbit::circular(rand(200.0, 400.0), luna.body, Nanotime(0), false),
@@ -36,10 +36,10 @@ pub fn just_the_moon() -> (OrbitalTree, ObjectIdTracker) {
         );
     }
 
-    (tree, id)
+    (scenario, id)
 }
 
-pub fn earth_moon_example_one() -> (OrbitalTree, ObjectIdTracker) {
+pub fn earth_moon_example_one() -> (Scenario, ObjectIdTracker) {
     let mut id = ObjectIdTracker::new();
 
     let mut earth = PlanetarySystem::new(id.next(), "Earth", make_earth());
@@ -57,9 +57,9 @@ pub fn earth_moon_example_one() -> (OrbitalTree, ObjectIdTracker) {
         ast.clone(),
     );
 
-    let mut tree = OrbitalTree::new(&earth);
+    let mut scenario = Scenario::new(&earth);
 
-    tree.add_object(
+    scenario.add_object(
         id.next(),
         earth.id,
         SparseOrbit::circular(earth.body.radius * 1.1, earth.body, Nanotime(0), false),
@@ -71,7 +71,7 @@ pub fn earth_moon_example_one() -> (OrbitalTree, ObjectIdTracker) {
         let v = randvec(45.0, 70.0);
         let o = SparseOrbit::from_pv((r, v), earth.body, Nanotime(0));
         if let Some(o) = o {
-            tree.add_object(id.next(), earth.id, o, Nanotime(0));
+            scenario.add_object(id.next(), earth.id, o, Nanotime(0));
         }
     }
 
@@ -80,12 +80,12 @@ pub fn earth_moon_example_one() -> (OrbitalTree, ObjectIdTracker) {
         let v = randvec(30.0, 70.0);
         let o = SparseOrbit::from_pv((r, v), earth.body, Nanotime(0));
         if let Some(o) = o {
-            tree.add_object(id.next(), earth.id, o, Nanotime(0));
+            scenario.add_object(id.next(), earth.id, o, Nanotime(0));
         }
     }
 
     for _ in 0..5 {
-        tree.add_object(
+        scenario.add_object(
             id.next(),
             luna.id,
             SparseOrbit::circular(rand(200.0, 400.0), luna.body, Nanotime(0), false),
@@ -93,28 +93,28 @@ pub fn earth_moon_example_one() -> (OrbitalTree, ObjectIdTracker) {
         );
     }
 
-    tree.add_object(
+    scenario.add_object(
         id.next(),
         ast.id,
         SparseOrbit::circular(13.0, ast.body, Nanotime(0), false),
         Nanotime(0),
     );
 
-    (tree, id)
+    (scenario, id)
 }
 
-pub fn earth_moon_example_two() -> (OrbitalTree, ObjectIdTracker) {
+pub fn earth_moon_example_two() -> (Scenario, ObjectIdTracker) {
     let mut id = ObjectIdTracker::new();
     let mut earth = PlanetarySystem::new(id.next(), "Earth", make_earth());
     let luna = PlanetarySystem::new(id.next(), "Luna", make_luna().0);
 
     earth.orbit(make_luna().1, luna);
 
-    let mut tree = OrbitalTree::new(&earth);
+    let mut scenario = Scenario::new(&earth);
 
     for vel in (180..200).step_by(2) {
         let angle = 0.3;
-        tree.add_object(
+        scenario.add_object(
             id.next(),
             earth.id,
             SparseOrbit::from_pv(
@@ -130,10 +130,10 @@ pub fn earth_moon_example_two() -> (OrbitalTree, ObjectIdTracker) {
         );
     }
 
-    (tree, id)
+    (scenario, id)
 }
 
-pub fn sun_jupiter_lagrange() -> (OrbitalTree, ObjectIdTracker) {
+pub fn sun_jupiter_lagrange() -> (Scenario, ObjectIdTracker) {
     let mut id = ObjectIdTracker::new();
 
     let mut sun: PlanetarySystem = PlanetarySystem::new(
@@ -159,15 +159,15 @@ pub fn sun_jupiter_lagrange() -> (OrbitalTree, ObjectIdTracker) {
         PlanetarySystem::new(id.next(), "Jupiter", jupiter),
     );
 
-    let mut tree = OrbitalTree::new(&sun);
+    let mut scenario = Scenario::new(&sun);
 
     for _ in 0..600 {
         let radius = rand(4000.0, 6000.0);
         let orbit = SparseOrbit::circular(radius, sun.body, Nanotime(0), false);
-        tree.add_object(id.next(), sun.id, orbit, Nanotime(0));
+        scenario.add_object(id.next(), sun.id, orbit, Nanotime(0));
     }
 
-    (tree, id)
+    (scenario, id)
 }
 
 pub fn consistency_orbits(body: Body) -> Vec<SparseOrbit> {
@@ -192,32 +192,32 @@ pub fn consistency_orbits(body: Body) -> Vec<SparseOrbit> {
     ret
 }
 
-pub fn consistency_example() -> (OrbitalTree, ObjectIdTracker) {
+pub fn consistency_example() -> (Scenario, ObjectIdTracker) {
     let mut id = ObjectIdTracker::new();
 
     let earth = PlanetarySystem::new(id.next(), "Earth", make_earth_inf_soi());
 
     let orbits = consistency_orbits(earth.body);
 
-    let mut tree = OrbitalTree::new(&earth);
+    let mut scenario = Scenario::new(&earth);
 
     for orbit in orbits {
-        tree.add_object(id.next(), earth.id, orbit, Nanotime(0));
+        scenario.add_object(id.next(), earth.id, orbit, Nanotime(0));
     }
 
-    (tree, id)
+    (scenario, id)
 }
 
-pub fn single_hyperbolic() -> (OrbitalTree, ObjectIdTracker) {
+pub fn single_hyperbolic() -> (Scenario, ObjectIdTracker) {
     let mut id = ObjectIdTracker::new();
     let earth: PlanetarySystem = PlanetarySystem::new(id.next(), "Earth", make_earth());
-    let mut tree = OrbitalTree::new(&earth);
+    let mut scenario = Scenario::new(&earth);
     let orbit =
         SparseOrbit::from_pv(((400.0, 0.0), (0.0, 260.0)), make_earth(), Nanotime(0)).unwrap();
-    tree.add_object(id.next(), earth.id, orbit, Nanotime(0));
-    (tree, id)
+    scenario.add_object(id.next(), earth.id, orbit, Nanotime(0));
+    (scenario, id)
 }
 
-pub fn default_example() -> (OrbitalTree, ObjectIdTracker) {
+pub fn default_example() -> (Scenario, ObjectIdTracker) {
     earth_moon_example_one()
 }

@@ -1,4 +1,4 @@
-use crate::core::*;
+use crate::scenario::*;
 use crate::math::{tspace, PI};
 use crate::nanotime::Nanotime;
 use crate::orbiter::*;
@@ -129,6 +129,21 @@ pub struct Propagator {
     pub dt: Nanotime,
     pub finished: bool,
     pub event: Option<EventType>,
+}
+
+impl std::fmt::Display for Propagator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{:?}, {:?}, {}, {:?}, {:?}, {:?}",
+            self.start,
+            self.end,
+            self.finished,
+            self.event,
+            self.dt,
+            self.orbit.class(),
+        )
+    }
 }
 
 impl Propagator {

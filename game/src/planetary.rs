@@ -6,10 +6,10 @@ use starling::prelude::*;
 
 use starling::aabb::AABB;
 use starling::control::*;
-use starling::core::*;
+use starling::scenario::*;
 use starling::examples::*;
-use starling::orbiter::*;
 use starling::file_export::export_orbit_data;
+use starling::orbiter::*;
 use starling::orbits::*;
 use starling::planning::*;
 use starling::pv::PV;
@@ -77,11 +77,11 @@ fn update_text(res: Res<GameState>, mut text: Query<(&mut Transform, &mut Text2d
         .iter_mut()
         .filter_map(|(mut tr, mut text, follow)| {
             let id = follow.0;
-            let obj = res.system.objects.iter().find(|o| o.id == id)?;
+            let obj = res.scenario.objects.iter().find(|o| o.id() == id)?;
             let pvl = obj.pvl(res.sim_time)?;
-            let pv = obj.pv(res.sim_time, &res.system.system)?;
+            let pv = obj.pv(res.sim_time, &res.scenario.system)?;
             let prop = obj.propagator_at(res.sim_time)?;
-            let (_, _, _, parent) = res.system.system.lookup(prop.parent, res.sim_time)?;
+            let (_, _, _, parent) = res.scenario.system.lookup(prop.parent, res.sim_time)?;
             let warn_str = if obj.will_collide() && res.duty_cycle_high {
                 " COLLISION IMMINENT"
             } else if id == res.primary() {
@@ -158,9 +158,9 @@ pub struct GameState {
     pub show_potential_field: bool,
     pub show_animations: bool,
     pub paused: bool,
-    pub system: OrbitalTree,
+    pub scenario: Scenario,
     pub ids: ObjectIdTracker,
-    pub backup: Option<(OrbitalTree, ObjectIdTracker, Nanotime)>,
+    pub backup: Option<(Scenario, ObjectIdTracker, Nanotime)>,
     pub track_list: Vec<ObjectId>,
     pub highlighted_list: Vec<ObjectId>,
     pub draw_levels: Vec<i32>,
@@ -188,7 +188,7 @@ impl GameState {
         let pos = self
             .track_list
             .iter()
-            .filter_map(|id| Some(self.system.orbiter_lookup(*id, self.sim_time)?.pv().pos))
+            .filter_map(|id| Some(self.scenario.orbiter_lookup(*id, self.sim_time)?.pv().pos))
             .collect::<Vec<_>>();
         AABB::from_list(&pos).map(|aabb| aabb.padded(60.0))
     }
@@ -206,7 +206,7 @@ impl GameState {
                 return None;
             }
 
-            let v = (self.system.system.body.mu() / p1.length()).sqrt();
+            let v = (self.scenario.system.body.mu() / p1.length()).sqrt();
 
             Some(PV::new(*p1, (p2 - p1) * v / p1.length()))
         } else {
@@ -216,11 +216,13 @@ impl GameState {
 
     pub fn target_orbit(&self) -> Option<SparseOrbit> {
         let pv = self.cursor_pv()?;
-        SparseOrbit::from_pv(pv, self.system.system.body, self.sim_time)
+        SparseOrbit::from_pv(pv, self.scenario.system.body, self.sim_time)
     }
 
     pub fn primary_orbit(&self) -> Option<SparseOrbit> {
-        let lup = self.system.orbiter_lookup(self.primary(), self.sim_time)?;
+        let lup = self
+            .scenario
+            .orbiter_lookup(self.primary(), self.sim_time)?;
         if lup.level == 0 {
             Some(lup.object.propagator_at(self.sim_time)?.orbit)
         } else {
@@ -234,20 +236,20 @@ impl GameState {
         if let Some(orbit) = t {
             let id = self.ids.next();
             self.toggle_track(id);
-            self.system
-                .add_object(id, self.system.system.id, orbit, self.sim_time);
+            self.scenario
+                .add_object(id, self.scenario.system.id, orbit, self.sim_time);
         }
     }
 
     pub fn delete_objects(&mut self) {
         self.track_list.iter().for_each(|i| {
-            self.system.remove_object(*i);
+            self.scenario.remove_object(*i);
         });
     }
 
     pub fn primary_object_mut(&mut self) -> Option<&mut Orbiter> {
         let pri = self.primary();
-        self.system.objects.iter_mut().find(|o| o.id == pri)
+        self.scenario.objects.iter_mut().find(|o| o.id() == pri)
     }
 
     pub fn do_maneuver(&mut self, dv: Vec2) -> Option<()> {
@@ -256,7 +258,7 @@ impl GameState {
         }
         let s = self.sim_time;
         let d = self.physics_duration;
-        let p = self.system.system.clone();
+        let p = self.scenario.system.clone();
         let obj = self.primary_object_mut()?;
         obj.dv(s, dv);
         let res = obj.propagate_to(s, d, &p);
@@ -271,12 +273,12 @@ impl GameState {
 
     pub fn maneuver_plans(&self) -> Vec<ManeuverPlan> {
         let res = (|| -> Option<(SparseOrbit, SparseOrbit)> {
-            let (id, dst) = (self.system.system.id, self.target_orbit()?);
+            let (id, dst) = (self.scenario.system.id, self.target_orbit()?);
             let prop = self
-                .system
+                .scenario
                 .objects
                 .iter()
-                .find(|o| o.id == self.primary())?
+                .find(|o| o.id() == self.primary())?
                 .propagator_at(self.sim_time)?;
 
             (prop.parent == id).then_some((prop.orbit, dst))
@@ -292,7 +294,7 @@ impl GameState {
 
 impl Default for GameState {
     fn default() -> Self {
-        let (system, ids) = default_example();
+        let (scenario, ids) = default_example();
         GameState {
             sim_time: Nanotime(0),
             physics_duration: Nanotime::secs(120),
@@ -301,11 +303,11 @@ impl Default for GameState {
             show_potential_field: false,
             show_animations: false,
             paused: false,
-            system: system.clone(),
+            scenario: scenario.clone(),
             ids,
             track_list: Vec::new(),
             highlighted_list: Vec::new(),
-            backup: Some((system, ids, Nanotime(0))),
+            backup: Some((scenario, ids, Nanotime(0))),
             draw_levels: (-70000..=-10000)
                 .step_by(10000)
                 .chain((-5000..-3000).step_by(250))
@@ -329,16 +331,27 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
 
     let s = state.sim_time;
     let d = state.physics_duration;
-    let _info = state.system.propagate_to(s, d);
+    let info = state.scenario.simulate(s, d);
+
+    for (id, ri) in &info {
+        if let Some(ri) = ri {
+            println!(
+                "Object {} removed at time {:?} due to {:?}",
+                id, ri.stamp, ri.reason
+            );
+        } else {
+            println!("Object {} removed for unknown reason", id);
+        }
+    }
 
     if let Some(a) = state.camera.selection_region() {
         state.highlighted_list = state
-            .system
+            .scenario
             .objects
             .iter()
             .filter_map(|o| {
-                let pv = state.system.orbiter_lookup(o.id, state.sim_time)?.pv();
-                a.contains(pv.pos).then(|| o.id)
+                let pv = state.scenario.orbiter_lookup(o.id(), state.sim_time)?.pv();
+                a.contains(pv.pos).then(|| o.id())
             })
             .collect();
     } else {
@@ -346,7 +359,7 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     }
 
     let mut track_list = state.track_list.clone();
-    track_list.retain(|o| state.system.orbiter_lookup(*o, state.sim_time).is_some());
+    track_list.retain(|o| state.scenario.orbiter_lookup(*o, state.sim_time).is_some());
     state.track_list = track_list;
 }
 
@@ -376,7 +389,10 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         &mut evt,
         &format!("Scale: {:0.3}", state.camera.actual_scale),
     );
-    send_log(&mut evt, &format!("{} objects", state.system.objects.len()));
+    send_log(
+        &mut evt,
+        &format!("{} objects", state.scenario.objects.len()),
+    );
     if state.paused {
         send_log(&mut evt, "Paused");
     }
@@ -405,27 +421,19 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         }
     }
 
-    let prop_count: usize = state.system.objects.iter().map(|o| o.props().len()).sum();
+    let prop_count: usize = state.scenario.objects.iter().map(|o| o.props().len()).sum();
     send_log(&mut evt, &format!("Propagators: {}", prop_count));
 
-    if let Some(lup) = state.system.orbiter_lookup(state.primary(), state.sim_time) {
+    if let Some(lup) = state
+        .scenario
+        .orbiter_lookup(state.primary(), state.sim_time)
+    {
         if let Some(b) = lup.body {
             send_log(&mut evt, &format!("BD: {:?}", b));
         }
 
         for prop in lup.object.props() {
-            send_log(
-                &mut evt,
-                &format!(
-                    "- [{:?}, {:?}, {}, {:?}, {:?}, {:?}]",
-                    prop.start,
-                    prop.end,
-                    prop.finished,
-                    prop.event,
-                    prop.dt,
-                    prop.orbit.class(),
-                ),
-            );
+            send_log(&mut evt, &format!("- [{}]", prop));
         }
 
         if let Some(prop) = lup.object.propagator_at(state.sim_time) {
@@ -564,10 +572,10 @@ fn mouse_button_input(
     }
 }
 
-fn load_new_scenario(state: &mut GameState, tree: OrbitalTree, ids: ObjectIdTracker) {
-    state.backup = Some((tree.clone(), ids, Nanotime(0)));
-    state.camera.target_scale = 0.001 * tree.system.body.soi;
-    state.system = tree;
+fn load_new_scenario(state: &mut GameState, scen: Scenario, ids: ObjectIdTracker) {
+    state.backup = Some((scen.clone(), ids, Nanotime(0)));
+    state.camera.target_scale = 0.001 * scen.system.body.soi;
+    state.scenario = scen;
     state.sim_time = Nanotime(0);
 }
 
@@ -603,12 +611,12 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
         }
     } else if starts_with("restore") {
         if let Some((sys, ids, time)) = &state.backup {
-            state.system = sys.clone();
+            state.scenario = sys.clone();
             state.sim_time = *time;
             state.ids = *ids;
         }
     } else if starts_with("save") {
-        state.backup = Some((state.system.clone(), state.ids, state.sim_time));
+        state.backup = Some((state.scenario.clone(), state.ids, state.sim_time));
     } else if starts_with("track") {
         for n in cmd.iter().skip(1).filter_map(|s| s.parse::<i64>().ok()) {
             let id = ObjectId(n);
