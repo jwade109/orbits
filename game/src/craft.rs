@@ -10,7 +10,6 @@ use starling::prelude::*;
 
 use starling::aabb::*;
 use starling::orbiter::ObjectId;
-use starling::orbits::PI;
 
 pub struct CraftPlugin;
 

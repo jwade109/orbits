@@ -5,6 +5,7 @@ use starling::examples::make_earth;
 use starling::nanotime::Nanotime;
 use starling::orbits::generate_chi_spline;
 use starling::orbits::SparseOrbit;
+use starling::math::bhaskara_sin_approx;
 
 fn criterion_benchmark(c: &mut Criterion) {
     let o =
@@ -30,6 +31,20 @@ fn criterion_benchmark(c: &mut Criterion) {
         b.iter(|| {
             let t = black_box(32.5);
             spline.sample(t);
+        })
+    });
+
+    c.bench_function("sine", |b| {
+        b.iter(|| {
+            let t: f32 = black_box(0.32);
+            _ = t.sin();
+        })
+    });
+
+    c.bench_function("sine_approx", |b| {
+        b.iter(|| {
+            let t = black_box(0.32);
+            _ = bhaskara_sin_approx(t);
         })
     });
 }

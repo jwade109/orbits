@@ -21,24 +21,10 @@ impl std::fmt::Debug for ObjectId {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum Maneuver {
-    AxisAligned(Vec2),
-}
-
 #[derive(Debug, Clone)]
 pub struct Orbiter {
     pub id: ObjectId,
     props: Vec<Propagator>,
-}
-
-#[derive(Debug, Clone)]
-pub enum BadObjectNextState {
-    Lookup,
-    Removed,
-    NoNextState,
-    BadOrbit,
-    Err,
 }
 
 impl Orbiter {
@@ -89,9 +75,7 @@ impl Orbiter {
     }
 
     pub fn has_error(&self) -> bool {
-        self.props
-            .iter()
-            .any(|p| p.event == Some(EventType::NumericalError))
+        self.props.iter().any(|p| p.is_err())
     }
 
     pub fn propagate_to(

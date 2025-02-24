@@ -1,15 +1,9 @@
 use crate::nanotime::Nanotime;
 use crate::orbiter::*;
 use crate::orbits::{Body, SparseOrbit};
+use crate::planning::EventType;
 use crate::pv::PV;
 use glam::f32::Vec2;
-
-pub fn gravity_accel(body: Body, body_center: Vec2, sample: Vec2) -> Vec2 {
-    let r: Vec2 = body_center - sample;
-    let rsq = r.length_squared().clamp(body.radius.powi(2), std::f32::MAX);
-    let a = body.mu() / rsq;
-    a * r.normalize()
-}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ObjectType {
@@ -29,26 +23,6 @@ impl ObjectIdTracker {
         let ret = self.0;
         self.0 .0 += 1;
         ret
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum EventType {
-    Collide(ObjectId),
-    Escape(ObjectId),
-    Encounter(ObjectId),
-    Maneuver(Maneuver),
-    NumericalError,
-}
-
-impl PartialEq for EventType {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (EventType::Collide(o), EventType::Collide(p)) => o == p,
-            (EventType::Escape(o), EventType::Escape(p)) => o == p,
-            (EventType::Encounter(o), EventType::Encounter(p)) => o == p,
-            _ => false,
-        }
     }
 }
 

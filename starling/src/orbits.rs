@@ -1,29 +1,27 @@
-use crate::math::{linspace, tspace};
+use crate::math::{linspace, tspace, PI};
 use crate::nanotime::Nanotime;
 use crate::planning::search_condition;
 use crate::pv::PV;
 use glam::f32::Vec2;
 use splines::{Interpolation, Key, Spline};
 
-pub const PI: f32 = std::f32::consts::PI;
-
 pub fn hyperbolic_range_ta(ecc: f32) -> f32 {
     (-1.0 / ecc).acos()
 }
 
-pub fn wrap_pi_npi(x: f32) -> f32 {
+fn wrap_pi_npi(x: f32) -> f32 {
     f32::atan2(x.sin(), x.cos())
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum Anomaly {
+enum Anomaly {
     Elliptical(f32),
     Parabolic(f32),
     Hyperbolic(f32),
 }
 
 impl Anomaly {
-    pub fn with_ecc(ecc: f32, anomaly: f32) -> Self {
+    fn with_ecc(ecc: f32, anomaly: f32) -> Self {
         if ecc > 1.0 {
             Anomaly::Hyperbolic(anomaly)
         } else if ecc == 1.0 {
@@ -33,7 +31,7 @@ impl Anomaly {
         }
     }
 
-    pub fn as_f32(&self) -> f32 {
+    fn as_f32(&self) -> f32 {
         match self {
             Anomaly::Elliptical(v) => *v,
             Anomaly::Parabolic(v) => *v,
@@ -42,7 +40,7 @@ impl Anomaly {
     }
 }
 
-pub fn true_to_eccentric(true_anomaly: Anomaly, ecc: f32) -> Anomaly {
+fn true_to_eccentric(true_anomaly: Anomaly, ecc: f32) -> Anomaly {
     match true_anomaly {
         Anomaly::Elliptical(v) => Anomaly::Elliptical({
             let term = f32::sqrt((1. - ecc) / (1. + ecc)) * f32::tan(0.5 * v);
@@ -56,22 +54,9 @@ pub fn true_to_eccentric(true_anomaly: Anomaly, ecc: f32) -> Anomaly {
     }
 }
 
-pub fn bhaskara_sin_approx(x: f32) -> f32 {
-    let xp = x.abs();
-    let res = 16.0 * xp * (PI - xp) / (5.0 * PI.powi(2) - 4.0 * xp * (PI - xp));
-    if x > 0.0 {
-        res
-    } else {
-        -res
-    }
-}
-
-pub fn eccentric_to_mean(eccentric_anomaly: Anomaly, ecc: f32) -> Anomaly {
+fn eccentric_to_mean(eccentric_anomaly: Anomaly, ecc: f32) -> Anomaly {
     match eccentric_anomaly {
         Anomaly::Elliptical(v) => Anomaly::Elliptical(v - ecc * v.sin()),
-        // Anomaly::Elliptical(v) => {
-        //     Anomaly::Elliptical(v - ecc * bhaskara_sin_approx(v as f64) as f32)
-        // }
         Anomaly::Hyperbolic(v) => Anomaly::Hyperbolic(ecc * v.sinh() - v),
         Anomaly::Parabolic(v) => Anomaly::Parabolic(v + v.powi(3) / 3.0),
     }
@@ -834,28 +819,30 @@ fn universal_kepler(chi: f32, r_0: f32, v_r0: f32, alpha: f32, delta_t: f32, mu:
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct LangrangeCoefficients {
-    pub s2: f32,
-    pub s3: f32,
-    pub f: f32,
-    pub g: f32,
-    pub fdot: f32,
-    pub gdot: f32,
+pub(crate) struct LangrangeCoefficients {
+    #[allow(unused)]
+    pub(crate) s2: f32,
+    #[allow(unused)]
+    pub(crate) s3: f32,
+    pub(crate) f: f32,
+    pub(crate) g: f32,
+    pub(crate) fdot: f32,
+    pub(crate) gdot: f32,
 }
 
 #[derive(Debug, Copy, Clone)]
 pub struct ULData {
-    pub initial: PV,
-    pub tof: Nanotime,
-    pub mu: f32,
-    pub r_0: f32,
-    pub v_r0: f32,
-    pub chi_0: f32,
-    pub alpha: f32,
+    pub(crate) initial: PV,
+    pub(crate) tof: Nanotime,
+    pub(crate) mu: f32,
+    pub(crate) r_0: f32,
+    pub(crate) v_r0: f32,
+    pub(crate) chi_0: f32,
+    pub(crate) alpha: f32,
 }
 
 impl ULData {
-    pub fn new(initial: impl Into<PV>, tof: Nanotime, mu: f32) -> Self {
+    fn new(initial: impl Into<PV>, tof: Nanotime, mu: f32) -> Self {
         let initial = initial.into();
         let r_0 = initial.pos.length();
         let alpha = 2.0 / r_0 - initial.vel.dot(initial.vel) / mu;
@@ -870,7 +857,7 @@ impl ULData {
         }
     }
 
-    pub fn universal_kepler(&self, chi: f32) -> f32 {
+    fn universal_kepler(&self, chi: f32) -> f32 {
         universal_kepler(
             chi,
             self.r_0,
@@ -881,7 +868,7 @@ impl ULData {
         )
     }
 
-    pub fn solve(&self) -> Option<ULResults> {
+    fn solve(&self) -> Option<ULResults> {
         let radius = 800.0;
         let chi_min = self.chi_0 - radius;
         let chi_max = self.chi_0 + radius;
@@ -911,10 +898,10 @@ impl ULData {
 
 #[derive(Debug, Copy, Clone)]
 pub struct ULResults {
-    pub pv: PV,
+    pub(crate) pv: PV,
     pub chi: f32,
-    pub z: f32,
-    pub lc: LangrangeCoefficients,
+    pub(crate) z: f32,
+    pub(crate) lc: LangrangeCoefficients,
 }
 
 impl ULResults {
@@ -942,7 +929,7 @@ pub fn universal_lagrange(
     (data, data.solve())
 }
 
-pub fn lagrange_coefficients(
+pub(crate) fn lagrange_coefficients(
     initial: impl Into<PV>,
     chi: f32,
     mu: f32,
@@ -982,15 +969,17 @@ pub fn lagrange_coefficients(
     }
 }
 
-pub fn lagrange_pv(initial: impl Into<PV>, coeff: &LangrangeCoefficients) -> PV {
+pub(crate) fn lagrange_pv(initial: impl Into<PV>, coeff: &LangrangeCoefficients) -> PV {
     let initial = initial.into();
     let vec_r = coeff.f * initial.pos + coeff.g * initial.vel;
     let vec_v = coeff.fdot * initial.pos + coeff.gdot * initial.vel;
     PV::new(vec_r, vec_v)
 }
 
-type ChiSpline = Spline<f32, f32>;
+#[allow(unused)]
+pub type ChiSpline = Spline<f32, f32>;
 
+#[allow(unused)]
 pub fn generate_chi_spline(pv: impl Into<PV>, mu: f32, duration: Nanotime) -> Option<ChiSpline> {
     let tsample = tspace(Nanotime(0), duration, 500);
     let pv = pv.into();

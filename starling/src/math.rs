@@ -2,6 +2,8 @@ use crate::nanotime::Nanotime;
 use glam::f32::Vec2;
 use rand::Rng;
 
+pub const PI: f32 = std::f32::consts::PI;
+
 pub fn rand(min: f32, max: f32) -> f32 {
     rand::thread_rng().gen_range(min..max)
 }
@@ -46,4 +48,9 @@ pub fn linspace(a: f32, b: f32, n: usize) -> Vec<f32> {
 pub fn tspace(start: Nanotime, end: Nanotime, nsamples: u32) -> Vec<Nanotime> {
     let dt = (end - start) / nsamples as i64;
     (0..nsamples).map(|i| start + dt * i as i64).collect()
+}
+
+pub fn bhaskara_sin_approx(x: f32) -> f32 {
+    let xp = x.abs();
+    x.signum() * 16.0 * xp * (PI - xp) / (5.0 * PI.powi(2) - 4.0 * xp * (PI - xp))
 }

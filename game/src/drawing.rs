@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use bevy::color::palettes::basic::*;
 use bevy::color::palettes::css::ORANGE;
 use bevy::prelude::*;
@@ -385,7 +387,7 @@ pub fn draw_event_marker_at(
         EventType::NumericalError => YELLOW,
         EventType::Encounter(_) => GREEN,
         EventType::Escape(_) => TEAL,
-        EventType::Maneuver(_) => PURPLE,
+        EventType::Impulse(_) => PURPLE,
     };
 
     draw_circle(gizmos, p, 15.0 * scale, alpha(color, 0.8));

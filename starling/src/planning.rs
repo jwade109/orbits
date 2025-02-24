@@ -1,10 +1,19 @@
 use crate::core::*;
-use crate::math::tspace;
+use crate::math::{tspace, PI};
 use crate::nanotime::Nanotime;
 use crate::orbiter::*;
-use crate::orbits::{OrbitClass, SparseOrbit, PI};
+use crate::orbits::{OrbitClass, SparseOrbit};
 use crate::pv::PV;
 use glam::f32::Vec2;
+
+#[derive(Debug, Clone, Copy)]
+pub enum EventType {
+    Collide(ObjectId),
+    Escape(ObjectId),
+    Encounter(ObjectId),
+    Impulse(Vec2),
+    NumericalError,
+}
 
 #[derive(Debug, Clone, Copy)]
 pub enum ConvergeError<T> {
@@ -30,7 +39,7 @@ where
 }
 
 // determines timestamp where condition goes from true to false
-pub fn binary_search_recurse<T: BinarySearchKey>(
+pub(crate) fn binary_search_recurse<T: BinarySearchKey>(
     start: (T, bool),
     end: (T, bool),
     tol: T,
@@ -61,7 +70,7 @@ pub fn binary_search_recurse<T: BinarySearchKey>(
     }
 }
 
-pub fn binary_search<T: BinarySearchKey>(
+pub(crate) fn binary_search<T: BinarySearchKey>(
     start: T,
     end: T,
     tol: T,
@@ -75,9 +84,7 @@ pub fn binary_search<T: BinarySearchKey>(
 
 #[derive(Debug, Clone, Copy)]
 pub enum PredictError<T: BinarySearchKey> {
-    BadType,
     Lookup,
-    BadTimeDelta,
     TooManyIterations,
     Collision(ConvergeError<T>),
     Escape(ConvergeError<T>),
@@ -90,7 +97,7 @@ fn mutual_separation(o1: &SparseOrbit, o2: &SparseOrbit, t: Nanotime) -> f32 {
     p1.distance(p2)
 }
 
-pub fn search_condition<T: BinarySearchKey>(
+pub(crate) fn search_condition<T: BinarySearchKey>(
     t1: T,
     t2: T,
     tol: T,
@@ -105,6 +112,12 @@ pub fn search_condition<T: BinarySearchKey>(
         return Ok(None);
     }
     binary_search::<T>(t1, t2, tol, 100, cond).map(|t| Some(t))
+}
+
+#[derive(Debug, Clone)]
+pub(crate) enum BadObjectNextState {
+    Lookup,
+    BadOrbit,
 }
 
 #[derive(Debug, Clone)]
@@ -131,33 +144,26 @@ impl Propagator {
         }
     }
 
-    pub fn is_active(&self, stamp: Nanotime) -> bool {
-        self.start <= stamp && stamp <= self.end
-    }
-
     pub fn pv(&self, stamp: Nanotime) -> Option<PV> {
         self.is_active(stamp).then(|| self.orbit.pv_at_time(stamp))
     }
 
-    pub fn stamp(&self) -> Nanotime {
-        self.end
+    pub(crate) fn is_active(&self, stamp: Nanotime) -> bool {
+        self.start <= stamp && stamp <= self.end
     }
 
-    pub fn calculated_to(&self, stamp: Nanotime) -> bool {
+    pub(crate) fn calculated_to(&self, stamp: Nanotime) -> bool {
         return self.finished || self.end >= stamp;
     }
 
-    pub fn reset(&mut self, stamp: Nanotime) {
-        self.finished = false;
-        self.end = stamp;
+    pub(crate) fn is_err(&self) -> bool {
+        match self.event {
+            Some(EventType::NumericalError) => true,
+            _ => false,
+        }
     }
 
-    pub fn freeze(&mut self, stamp: Nanotime) {
-        self.finished = true;
-        self.end = stamp;
-    }
-
-    pub fn next_prop(
+    pub(crate) fn next_prop(
         &self,
         planets: &PlanetarySystem,
     ) -> Result<Option<Propagator>, BadObjectNextState> {
@@ -201,11 +207,8 @@ impl Propagator {
                     .ok_or(BadObjectNextState::BadOrbit)?;
                 Ok(Some(Propagator::new(id, orbit, self.end)))
             }
-            EventType::Maneuver(man) => {
+            EventType::Impulse(dv) => {
                 let pv = self.orbit.pv_at_time(self.end);
-                let dv = match man {
-                    Maneuver::AxisAligned(dv) => dv,
-                };
                 let orbit = SparseOrbit::from_pv(pv + PV::vel(dv), self.orbit.body, self.end)
                     .ok_or(BadObjectNextState::BadOrbit)?;
                 Ok(Some(Propagator::new(self.parent, orbit, self.end)))
@@ -235,7 +238,7 @@ impl Propagator {
         let can_escape = self.orbit.will_escape();
         let near_body = bodies
             .iter()
-            .any(|(_, orb, soi)| mutual_separation(&self.orbit, orb, self.stamp()) < soi * 3.0);
+            .any(|(_, orb, soi)| mutual_separation(&self.orbit, orb, self.end) < soi * 3.0);
 
         self.dt = if might_hit_planet {
             Nanotime::millis(20)
@@ -342,7 +345,7 @@ impl Propagator {
     }
 }
 
-pub fn separation_with<'a>(
+pub(crate) fn separation_with<'a>(
     ego: &'a SparseOrbit,
     planet: &'a SparseOrbit,
     soi: f32,
@@ -536,7 +539,7 @@ fn bielliptic_transfer(
 
     // second maneuver; change from T1 to T2
     let t2 = t1 + transfer_one.period()? / 2;
-    let (dv2, transfer_two) = {
+    let (dv2, _transfer_two) = {
         let v2 = vis_viva_equation(mu, rb, a2);
         let cv = transfer_one.pv_at_time_fallible(t2).ok()?;
         let prograde = cv.vel.try_normalize()?;
