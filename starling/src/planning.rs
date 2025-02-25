@@ -422,7 +422,7 @@ pub fn get_next_intersection(
 
 #[derive(Debug, Clone)]
 pub struct ManeuverPlan {
-    pub kind: ManeuverType,
+    pub(crate) kind: ManeuverType,
     pub nodes: Vec<ManeuverNode>,
 }
 
@@ -447,6 +447,14 @@ impl ManeuverPlan {
             current = next;
         }
         Some(ManeuverPlan { kind, nodes })
+    }
+
+    pub fn start(&self) -> Option<Nanotime> {
+        Some(self.nodes.first()?.stamp)
+    }
+
+    pub fn end(&self) -> Option<Nanotime> {
+        Some(self.nodes.last()?.stamp)
     }
 
     pub fn dv(&self) -> f32 {
@@ -615,9 +623,9 @@ pub fn generate_maneuver_plans(
 ) -> Vec<ManeuverPlan> {
     let direct = direct_transfer(current, destination, now);
     let hohmann = hohmann_transfer(current, destination, now);
-    let bielliptic = bielliptic_transfer(current, destination, now);
+    // let bielliptic = bielliptic_transfer(current, destination, now);
 
-    [direct, hohmann, bielliptic]
+    [direct, hohmann]
         .into_iter()
         .filter_map(|e| if let Some(e) = e { Some(e) } else { None })
         .collect()

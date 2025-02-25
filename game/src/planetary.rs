@@ -285,6 +285,16 @@ impl GameState {
             vec![]
         }
     }
+
+    pub fn enqueue_plan(&mut self, id: ObjectId, plan: &ManeuverPlan) {
+        if self.controllers.iter().find(|c| c.target == id).is_some() {
+            println!("Controller already exists for object {}", id);
+            return;
+        }
+
+        let c = Controller::with_plan(id, plan.clone());
+        self.controllers.push(c);
+    }
 }
 
 impl Default for GameState {
@@ -311,7 +321,7 @@ impl Default for GameState {
             control_points: Vec::new(),
             hide_debug: true,
             duty_cycle_high: false,
-            controllers: vec![Controller::avoid(ObjectId(12))],
+            controllers: vec![],
         }
     }
 }
@@ -326,9 +336,8 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
 
     let s = state.sim_time;
     let d = state.physics_duration;
-    let info = state.scenario.simulate(s, d);
 
-    for (id, ri) in &info {
+    for (id, ri) in state.scenario.simulate(s, d) {
         if let Some(ri) = ri {
             println!(
                 "Object {} removed at time {:?} due to {:?}",
@@ -356,6 +365,19 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     let mut track_list = state.track_list.clone();
     track_list.retain(|o| state.scenario.orbiter_lookup(*o, state.sim_time).is_some());
     state.track_list = track_list;
+
+    let ids = state.scenario.ids();
+
+    state.controllers.retain(|c| {
+        if !ids.contains(&c.target) {
+            return false;
+        }
+        if let Some(end) = c.plan().map(|p| p.end()).flatten() {
+            end > s
+        } else {
+            true
+        }
+    });
 }
 
 fn sim_speed_str(speed: i32) -> String {
@@ -431,9 +453,18 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
 
     send_log(&mut evt, &format!("Ctlrs: {}", state.controllers.len()));
 
-    for ctrl in &state.controllers {
-        if ctrl.last().is_some() {
-            send_log(&mut evt, &format!(" - {}", ctrl));
+    {
+        let mut dvs = vec![];
+        for ctrl in &state.controllers {
+            if let Some(plan) = ctrl.plan() {
+                for node in &plan.nodes {
+                    dvs.push((ctrl.target, node.stamp, node.impulse.vel));
+                }
+            }
+        }
+        dvs.sort_by_key(|(_, t, _)| t.inner());
+        for (id, t, dv) in dvs {
+            send_log(&mut evt, &format!("- {} {:?} {}", id, t, dv))
         }
     }
 
@@ -509,6 +540,13 @@ fn keyboard_input(
             }
             KeyCode::KeyK => {
                 state.spawn_new();
+            }
+            KeyCode::KeyM => {
+                let plan = state.maneuver_plans();
+                if let Some(plan) = plan.iter().min_by_key(|e| (e.dv() * 1000.0) as i64) {
+                    let id = state.primary();
+                    state.enqueue_plan(id, plan);
+                }
             }
             _ => (),
         }

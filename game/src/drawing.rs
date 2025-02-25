@@ -65,7 +65,6 @@ pub fn draw_obb(gizmos: &mut Gizmos, obb: &OBB, color: Srgba) {
 
 pub fn draw_orbit(gizmos: &mut Gizmos, orb: &SparseOrbit, origin: Vec2, color: Srgba) {
     if orb.will_escape() {
-        let n_points = 1000;
         let ta = if orb.eccentricity >= 1.0 {
             let hrta = hyperbolic_range_ta(orb.eccentricity);
             linspace(-0.999 * hrta, 0.999 * hrta, 1000)
@@ -440,18 +439,9 @@ pub fn draw_camera_controls(gizmos: &mut Gizmos, cam: &CameraState) {
     }
 }
 
-pub fn draw_controllers(
-    gizmos: &mut Gizmos,
-    system: &Scenario,
-    ctrl: &Controller,
-    stamp: Nanotime,
-) -> Option<()> {
-    if !ctrl.last().is_some() {
-        return None;
-    }
-    let obj = system.objects.iter().find(|o| o.id() == ctrl.target())?;
-    let pv = obj.pv(stamp, &system.system)?;
-    draw_circle(gizmos, pv.pos, 60.0, TEAL);
+pub fn draw_controller(gizmos: &mut Gizmos, ctrl: &Controller, scale: f32) -> Option<()> {
+    let plan = ctrl.plan()?;
+    draw_maneuver_plan(gizmos, plan, scale);
     Some(())
 }
 
@@ -483,24 +473,11 @@ pub fn draw_event_animation(
     Some(())
 }
 
-pub fn draw_maneuver_plan(gizmos: &mut Gizmos, state: &GameState) {
-    let plans = state.maneuver_plans();
-    for plan in &plans {
-        for node in &plan.nodes {
-            draw_circle(
-                gizmos,
-                node.impulse.pos,
-                10.0 * state.camera.actual_scale,
-                YELLOW,
-            );
-            draw_velocity_vec(
-                gizmos,
-                node.impulse,
-                100.0 * state.camera.actual_scale,
-                PURPLE,
-            );
-            draw_orbit(gizmos, &node.orbit, Vec2::ZERO, alpha(YELLOW, 0.2));
-        }
+pub fn draw_maneuver_plan(gizmos: &mut Gizmos, plan: &ManeuverPlan, scale: f32) {
+    for node in &plan.nodes {
+        draw_circle(gizmos, node.impulse.pos, 10.0 * scale, YELLOW);
+        draw_velocity_vec(gizmos, node.impulse, 100.0 * scale, PURPLE);
+        draw_orbit(gizmos, &node.orbit, Vec2::ZERO, alpha(YELLOW, 0.2));
     }
 }
 
@@ -583,16 +560,16 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
         }
     }
 
-    if let (Some(to), Some(po)) = (state.target_orbit(), state.primary_orbit()) {
-        let angles = to.nearest_approach(po).unwrap_or(vec![]);
-        for a in angles {
-            let p1 = to.pv_at_angle(a).pos;
-            let p2 = po.pv_at_angle(a).pos;
-            gizmos.line_2d(p1, p2, RED);
-            draw_circle(&mut gizmos, p1, 20.0, RED);
-            draw_circle(&mut gizmos, p2, 20.0, RED);
-        }
-    }
+    // if let (Some(to), Some(po)) = (state.target_orbit(), state.primary_orbit()) {
+    //     let angles = to.nearest_approach(po).unwrap_or(vec![]);
+    //     for a in angles {
+    //         let p1 = to.pv_at_angle(a).pos;
+    //         let p2 = po.pv_at_angle(a).pos;
+    //         gizmos.line_2d(p1, p2, RED);
+    //         draw_circle(&mut gizmos, p1, 20.0, RED);
+    //         draw_circle(&mut gizmos, p2, 20.0, RED);
+    //     }
+    // }
 
     if state.show_potential_field {
         draw_scalar_field(
@@ -604,7 +581,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
     }
 
     for ctrl in &state.controllers {
-        draw_controllers(&mut gizmos, &state.scenario, ctrl, state.sim_time);
+        draw_controller(&mut gizmos, ctrl, state.camera.actual_scale);
     }
 
     if state.show_animations && state.track_list.len() < 6 {
@@ -634,5 +611,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
 
     draw_highlighted_objects(&mut gizmos, &state);
 
-    // draw_maneuver_plan(&mut gizmos, &state);
+    for plan in state.maneuver_plans() {
+        draw_maneuver_plan(&mut gizmos, &plan, state.camera.actual_scale);
+    }
 }

@@ -127,6 +127,10 @@ impl Scenario {
         }
     }
 
+    pub fn ids(&self) -> Vec<ObjectId> {
+        self.objects.iter().map(|o| o.id()).collect()
+    }
+
     pub fn simulate(
         &mut self,
         stamp: Nanotime,
