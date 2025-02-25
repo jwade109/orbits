@@ -12,3 +12,4 @@ pub use crate::orbits::{hyperbolic_range_ta, SparseOrbit};
 pub use crate::planning::{generate_maneuver_plans, EventType, ManeuverPlan, Propagator};
 pub use crate::pv::PV;
 pub use crate::scenario::{ObjectIdTracker, PlanetarySystem, Scenario};
+pub use crate::topomap::{id_to_aabb, test_topo, TopoMap};

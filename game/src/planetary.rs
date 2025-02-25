@@ -159,6 +159,7 @@ pub struct GameState {
     pub hide_debug: bool,
     pub duty_cycle_high: bool,
     pub controllers: Vec<Controller>,
+    pub topo_map: TopoMap,
 }
 
 impl GameState {
@@ -313,15 +314,13 @@ impl Default for GameState {
             track_list: Vec::new(),
             highlighted_list: Vec::new(),
             backup: Some((scenario, ids, Nanotime::zero())),
-            draw_levels: (-70000..=-10000)
-                .step_by(10000)
-                .chain((-5000..-3000).step_by(250))
-                .collect(),
+            draw_levels: (-1000..=1000).step_by(50).collect(),
             camera: CameraState::default(),
             control_points: Vec::new(),
             hide_debug: true,
             duty_cycle_high: false,
             controllers: vec![],
+            topo_map: test_topo(),
         }
     }
 }
@@ -378,6 +377,17 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
             true
         }
     });
+
+    let scalar = move |p: Vec2| -> f32 { (p.length() + s.to_secs()) % 1000.0 };
+
+    let levels = (100..=900)
+        .step_by(100)
+        .map(|i| i as f32)
+        .collect::<Vec<_>>();
+
+    if s - state.topo_map.last_updated > Nanotime::secs(1) {
+        state.topo_map.update(s, &scalar, &levels);
+    }
 }
 
 fn sim_speed_str(speed: i32) -> String {

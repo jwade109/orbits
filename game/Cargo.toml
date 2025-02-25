@@ -11,3 +11,8 @@ chrono = "0.4.39"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 starling = { path = "../starling" }
+
+
+[[bin]]
+name = "pixel_draw"
+path = "src/pixel_draw.rs"

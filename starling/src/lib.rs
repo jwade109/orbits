@@ -10,5 +10,6 @@ pub mod orbiter;
 pub mod orbits;
 pub mod planning;
 pub mod pv;
+pub mod topomap;
 
 pub mod prelude;

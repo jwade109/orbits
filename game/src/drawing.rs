@@ -268,35 +268,11 @@ pub fn draw_orbital_system(
 
 pub fn draw_scalar_field_cell(
     gizmos: &mut Gizmos,
-    planet: &PlanetarySystem,
-    stamp: Nanotime,
+    scalar_field: &impl Fn(Vec2) -> f32,
     center: Vec2,
     step: f32,
     levels: &[i32],
-    expanded: bool,
 ) {
-    if !expanded {
-        let d = planet
-            .subsystems
-            .iter()
-            .map(|(orbit, _)| (orbit.pv_at_time(stamp).pos.distance(center) * 1000.0) as u32)
-            .min()
-            .unwrap_or(10000000);
-        if d < 600000 || center.length() < 600.0 {
-            let n: i32 = 4;
-            let substep = step / n as f32;
-            for i in 0..n {
-                for j in 0..n {
-                    let x = (i - 1) as f32 / n as f32 * substep * n as f32 - substep * 0.5;
-                    let y = (j - 1) as f32 / n as f32 * substep * n as f32 - substep * 0.5;
-                    let p = center + Vec2::new(x, y);
-                    draw_scalar_field_cell(gizmos, planet, stamp, p, substep, levels, true);
-                }
-            }
-            return;
-        }
-    }
-
     draw_square(gizmos, center, step as f32, alpha(WHITE, 0.01));
 
     let bl = center + Vec2::new(-step / 2.0, -step / 2.0);
@@ -306,7 +282,7 @@ pub fn draw_scalar_field_cell(
 
     let pot: Vec<(Vec2, f32)> = [bl, br, tr, tl]
         .iter()
-        .map(|p| (*p, planet.potential_at(*p, stamp)))
+        .map(|p| (*p, scalar_field(*p)))
         .collect();
 
     for level in levels {
@@ -331,17 +307,12 @@ pub fn draw_scalar_field_cell(
     }
 }
 
-pub fn draw_scalar_field(
-    gizmos: &mut Gizmos,
-    planet: &PlanetarySystem,
-    stamp: Nanotime,
-    levels: &[i32],
-) {
+pub fn draw_scalar_field(gizmos: &mut Gizmos, scalar_field: &impl Fn(Vec2) -> f32, levels: &[i32]) {
     let step = 250;
     for y in (-4000..=4000).step_by(step) {
         for x in (-4000..=4000).step_by(step) {
             let p = Vec2::new(x as f32, y as f32);
-            draw_scalar_field_cell(gizmos, planet, stamp, p, step as f32, levels, false);
+            draw_scalar_field_cell(gizmos, scalar_field, p, step as f32, levels);
         }
     }
 }
@@ -571,13 +542,28 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
     //     }
     // }
 
+    {
+        for (id, bin) in &state.topo_map.bins {
+            draw_aabb(
+                &mut gizmos,
+                id_to_aabb(*id, state.topo_map.stepsize),
+                alpha(GRAY, 0.1),
+            );
+            for c in &bin.contours {
+                gizmos.linestrip_2d(c.clone(), GREEN);
+            }
+        }
+    }
+
     if state.show_potential_field {
-        draw_scalar_field(
-            &mut gizmos,
-            &state.scenario.system,
-            stamp,
-            &state.draw_levels,
-        );
+        if let Some(to) = state.target_orbit() {
+            let scalar_field = |p: Vec2| -> f32 {
+                let (_, d) = to.nearest_along_track(p);
+                d
+            };
+
+            draw_scalar_field(&mut gizmos, &scalar_field, &state.draw_levels);
+        }
     }
 
     for ctrl in &state.controllers {
