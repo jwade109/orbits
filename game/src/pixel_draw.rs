@@ -31,7 +31,7 @@ fn main() {
 
 /// Store the image handle that we will draw to, here.
 #[derive(Resource)]
-struct MyProcGenImage(Handle<Image>);
+struct DrawTexture(Handle<Image>);
 
 fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     // spawn a camera
@@ -79,12 +79,12 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 
     // create a sprite entity using our image
     commands.spawn(Sprite::from_image(handle.clone()));
-    commands.insert_resource(MyProcGenImage(handle));
+    commands.insert_resource(DrawTexture(handle));
 }
 
 /// Every fixed update tick, draw one more pixel to make a spiral pattern
 fn draw(
-    my_handle: Res<MyProcGenImage>,
+    my_handle: Res<DrawTexture>,
     mut images: ResMut<Assets<Image>>,
     // used to keep track of where we are
     mut i: Local<u32>,

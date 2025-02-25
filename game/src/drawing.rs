@@ -129,25 +129,9 @@ pub fn draw_function(
     gizmos.linestrip_2d(points, color);
 }
 
-pub fn draw_globe(gizmos: &mut Gizmos, p: Vec2, radius: f32, color: Srgba) {
-    draw_circle(gizmos, p, radius, color);
-    let c = alpha(color, 0.15);
-    let iso = Isometry2d::from_translation(p);
-    for s in [0.9, 0.6, 0.3] {
-        gizmos.ellipse_2d(iso, Vec2::new(radius, radius * s), c);
-        gizmos.ellipse_2d(iso, Vec2::new(radius * s, radius), c);
-    }
-    for (p1, p2) in [
-        ((-radius, 0.0), (radius, 0.0)),
-        ((0.0, -radius), (0.0, radius)),
-    ] {
-        gizmos.line_2d(p + Vec2::from(p1), p + Vec2::from(p2), c);
-    }
-}
-
 pub fn draw_planets(gizmos: &mut Gizmos, planet: &PlanetarySystem, stamp: Nanotime, origin: Vec2) {
     draw_shadows(gizmos, origin, planet.body.radius, stamp);
-    draw_globe(gizmos, origin, planet.body.radius, WHITE);
+    draw_circle(gizmos, origin, planet.body.radius, alpha(WHITE, 0.2));
     for (a, ds) in [(1.0, 1.0), (0.3, 0.98), (0.1, 0.95)] {
         draw_circle(gizmos, origin, planet.body.soi * ds, alpha(ORANGE, a));
     }
@@ -542,18 +526,18 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
     //     }
     // }
 
-    {
-        for (id, bin) in &state.topo_map.bins {
-            draw_aabb(
-                &mut gizmos,
-                id_to_aabb(*id, state.topo_map.stepsize),
-                alpha(GRAY, 0.1),
-            );
-            for c in &bin.contours {
-                gizmos.linestrip_2d(c.clone(), GREEN);
-            }
-        }
-    }
+    // {
+    //     for (id, bin) in &state.topo_map.bins {
+    //         draw_aabb(
+    //             &mut gizmos,
+    //             id_to_aabb(*id, state.topo_map.stepsize),
+    //             alpha(GRAY, 0.1),
+    //         );
+    //         for c in &bin.contours {
+    //             gizmos.linestrip_2d(c.clone(), GREEN);
+    //         }
+    //     }
+    // }
 
     if state.show_potential_field {
         if let Some(to) = state.target_orbit() {

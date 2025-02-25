@@ -16,6 +16,8 @@ impl Plugin for PlanetaryPlugin {
         app.add_systems(
             Update,
             (
+                make_new_sprites,
+                update_planet_sprites,
                 log_system_info,
                 process_commands,
                 keyboard_input,
@@ -30,10 +32,83 @@ impl Plugin for PlanetaryPlugin {
     }
 }
 
+#[derive(Component)]
+#[require(Transform)]
+struct PlanetTexture(ObjectId);
+
+fn planet_texture() -> Image {
+    let w = 1200;
+    let radius = 500.0;
+    let r_fade = 30.0;
+
+    // create an image that we are going to draw into
+    let mut image = Image::new_fill(
+        // 2D image of size 256x256
+        bevy::render::render_resource::Extent3d {
+            width: w,
+            height: w,
+            depth_or_array_layers: 1,
+        },
+        bevy::render::render_resource::TextureDimension::D2,
+        &(bevy::color::palettes::css::TEAL.to_u8_array()),
+        bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
+        bevy::render::render_asset::RenderAssetUsages::MAIN_WORLD
+            | bevy::render::render_asset::RenderAssetUsages::RENDER_WORLD,
+    );
+
+    for y in 0..w {
+        for x in 0..w {
+            let center = Vec2::new(w as f32 / 2.0, w as f32 / 2.0);
+            let r = Vec2::new(x as f32, y as f32).distance(center);
+            let pixel_bytes = image.pixel_bytes_mut(UVec3::new(x, y, 0)).unwrap();
+            if r < radius {
+                pixel_bytes[3] = 255;
+            } else {
+                let a = (1.0 - ((r - radius) / r_fade).max(0.0)).powi(3);
+                pixel_bytes[3] = (a * u8::MAX as f32) as u8;
+            }
+        }
+    }
+
+    image
+}
+
 fn init_system(mut commands: Commands) {
     commands.insert_resource(GameState::default());
     let s = 0.02;
     commands.insert_resource(ClearColor(Color::linear_rgb(s, s, s)));
+}
+
+fn make_new_sprites(
+    mut commands: Commands,
+    mut images: ResMut<Assets<Image>>,
+    query: Query<&PlanetTexture>,
+    state: Res<GameState>,
+) {
+    let planet_ids = state.scenario.system.ids();
+    for id in planet_ids {
+        if query.iter().find(|e| e.0 == id).is_some() {
+            continue;
+        }
+        let lup = state.scenario.system.lookup(id, state.sim_time);
+        if let Some((body, _, _, sys)) = lup {
+            println!("Adding sprite for {}", sys.name);
+            let handle = images.add(planet_texture());
+            commands.spawn((PlanetTexture(id), Sprite::from_image(handle.clone())));
+        }
+    }
+}
+
+fn update_planet_sprites(
+    mut query: Query<(&PlanetTexture, &mut Transform)>,
+    state: Res<GameState>,
+) {
+    for (PlanetTexture(id), mut transform) in query.iter_mut() {
+        if let Some((body, pv, _, _)) = state.scenario.system.lookup(*id, state.sim_time) {
+            transform.translation = pv.pos.extend(-10.0);
+            transform.scale = Vec3::splat(body.radius) / 500.0;
+        }
+    }
 }
 
 fn manage_orbiter_labels(
@@ -159,7 +234,7 @@ pub struct GameState {
     pub hide_debug: bool,
     pub duty_cycle_high: bool,
     pub controllers: Vec<Controller>,
-    pub topo_map: TopoMap,
+    // pub topo_map: TopoMap,
 }
 
 impl GameState {
@@ -320,7 +395,7 @@ impl Default for GameState {
             hide_debug: true,
             duty_cycle_high: false,
             controllers: vec![],
-            topo_map: test_topo(),
+            // topo_map: test_topo(),
         }
     }
 }
@@ -378,16 +453,16 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
         }
     });
 
-    let scalar = move |p: Vec2| -> f32 { (p.length() + s.to_secs()) % 1000.0 };
+    // let scalar = move |p: Vec2| -> f32 { (p.length() + s.to_secs()) % 1000.0 };
 
-    let levels = (100..=900)
-        .step_by(100)
-        .map(|i| i as f32)
-        .collect::<Vec<_>>();
+    // let levels = (100..=900)
+    //     .step_by(100)
+    //     .map(|i| i as f32)
+    //     .collect::<Vec<_>>();
 
-    if s - state.topo_map.last_updated > Nanotime::secs(1) {
-        state.topo_map.update(s, &scalar, &levels);
-    }
+    // if s - state.topo_map.last_updated > Nanotime::secs(1) {
+    //     state.topo_map.update(s, &scalar, &levels);
+    // }
 }
 
 fn sim_speed_str(speed: i32) -> String {

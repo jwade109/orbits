@@ -71,6 +71,14 @@ impl PlanetarySystem {
         self.subsystems.push((orbit, planets));
     }
 
+    pub fn ids(&self) -> Vec<ObjectId> {
+        let mut ret = vec![self.id];
+        for (_, sub) in &self.subsystems {
+            ret.extend_from_slice(&sub.ids())
+        }
+        ret
+    }
+
     fn lookup_inner(
         &self,
         id: ObjectId,
