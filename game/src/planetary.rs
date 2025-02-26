@@ -56,7 +56,7 @@ fn make_new_sprites(
         }
         let lup = state.scenario.system.lookup(id, state.sim_time);
         if let Some((_, _, _, sys)) = lup {
-            let path = format!("{}.png", sys.name);
+            let path = format!("embedded://game/../assets/{}.png", sys.name);
             println!("Adding sprite for {} at {}", sys.name, path);
             let sprite = Sprite::from_image(asset_server.load(path));
             commands.spawn((PlanetTexture(id, sys.name.clone()), sprite));

@@ -1,15 +1,16 @@
 use bevy::prelude::*;
 
+mod button;
+mod camera_controls;
 mod craft;
 mod debug;
 mod drawing;
+mod embedded;
 mod planetary;
-mod camera_controls;
-mod button;
-
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_plugins(crate::embedded::EmbeddedAssetPlugin {})
         .add_plugins(crate::debug::DebugPlugin {})
         .add_plugins(crate::planetary::PlanetaryPlugin {})
         // .add_plugins(crate::craft::CraftPlugin {})
