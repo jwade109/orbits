@@ -50,6 +50,14 @@ impl AABB {
         self.span = max - min;
     }
 
+    pub fn lower(&self) -> Vec2 {
+        self.center - self.span / 2.0
+    }
+
+    pub fn upper(&self) -> Vec2 {
+        self.center + self.span / 2.0
+    }
+
     pub fn corners(&self) -> [Vec2; 4] {
         let c = self.center;
         let ur = self.span / 2.0;
@@ -77,6 +85,12 @@ impl AABB {
     pub fn map(&self, to: Self, p: Vec2) -> Vec2 {
         let u = self.to_normalized(p);
         to.from_normalized(u)
+    }
+
+    pub fn map_box(&self, to: Self, b: AABB) -> AABB {
+        let u = self.map(to, b.lower());
+        let v = self.map(to, b.upper());
+        AABB::from_arbitrary(u, v)
     }
 
     pub fn contains(&self, p: Vec2) -> bool {

@@ -4,6 +4,7 @@ use bevy::window::PrimaryWindow;
 
 use starling::prelude::*;
 
+use crate::button::Button;
 use crate::camera_controls::*;
 use crate::debug::*;
 use crate::drawing::*;
@@ -34,44 +35,7 @@ impl Plugin for PlanetaryPlugin {
 
 #[derive(Component)]
 #[require(Transform)]
-struct PlanetTexture(ObjectId);
-
-fn planet_texture() -> Image {
-    let w = 1200;
-    let radius = 500.0;
-    let r_fade = 30.0;
-
-    // create an image that we are going to draw into
-    let mut image = Image::new_fill(
-        // 2D image of size 256x256
-        bevy::render::render_resource::Extent3d {
-            width: w,
-            height: w,
-            depth_or_array_layers: 1,
-        },
-        bevy::render::render_resource::TextureDimension::D2,
-        &(bevy::color::palettes::css::TEAL.to_u8_array()),
-        bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
-        bevy::render::render_asset::RenderAssetUsages::MAIN_WORLD
-            | bevy::render::render_asset::RenderAssetUsages::RENDER_WORLD,
-    );
-
-    for y in 0..w {
-        for x in 0..w {
-            let center = Vec2::new(w as f32 / 2.0, w as f32 / 2.0);
-            let r = Vec2::new(x as f32, y as f32).distance(center);
-            let pixel_bytes = image.pixel_bytes_mut(UVec3::new(x, y, 0)).unwrap();
-            if r < radius {
-                pixel_bytes[3] = 255;
-            } else {
-                let a = (1.0 - ((r - radius) / r_fade).max(0.0)).powi(3);
-                pixel_bytes[3] = (a * u8::MAX as f32) as u8;
-            }
-        }
-    }
-
-    image
-}
+struct PlanetTexture(ObjectId, String);
 
 fn init_system(mut commands: Commands) {
     commands.insert_resource(GameState::default());
@@ -81,9 +45,9 @@ fn init_system(mut commands: Commands) {
 
 fn make_new_sprites(
     mut commands: Commands,
-    mut images: ResMut<Assets<Image>>,
     query: Query<&PlanetTexture>,
     state: Res<GameState>,
+    asset_server: Res<AssetServer>,
 ) {
     let planet_ids = state.scenario.system.ids();
     for id in planet_ids {
@@ -91,22 +55,30 @@ fn make_new_sprites(
             continue;
         }
         let lup = state.scenario.system.lookup(id, state.sim_time);
-        if let Some((body, _, _, sys)) = lup {
-            println!("Adding sprite for {}", sys.name);
-            let handle = images.add(planet_texture());
-            commands.spawn((PlanetTexture(id), Sprite::from_image(handle.clone())));
+        if let Some((_, _, _, sys)) = lup {
+            let path = format!("{}.png", sys.name);
+            println!("Adding sprite for {} at {}", sys.name, path);
+            let sprite = Sprite::from_image(asset_server.load(path));
+            commands.spawn((PlanetTexture(id, sys.name.clone()), sprite));
         }
     }
 }
 
 fn update_planet_sprites(
-    mut query: Query<(&PlanetTexture, &mut Transform)>,
+    mut commands: Commands,
+    mut query: Query<(Entity, &PlanetTexture, &mut Transform)>,
     state: Res<GameState>,
 ) {
-    for (PlanetTexture(id), mut transform) in query.iter_mut() {
-        if let Some((body, pv, _, _)) = state.scenario.system.lookup(*id, state.sim_time) {
-            transform.translation = pv.pos.extend(-10.0);
-            transform.scale = Vec3::splat(body.radius) / 500.0;
+    for (e, PlanetTexture(id, name), mut transform) in query.iter_mut() {
+        if let Some((body, pv, _, sys)) = state.scenario.system.lookup(*id, state.sim_time) {
+            if sys.name == *name {
+                transform.translation = pv.pos.extend(-10.0);
+                transform.scale = Vec3::splat(body.radius) / 500.0;
+            } else {
+                commands.entity(e).despawn();
+            }
+        } else {
+            commands.entity(e).despawn();
         }
     }
 }
@@ -219,9 +191,6 @@ pub struct GameState {
     pub sim_time: Nanotime,
     pub physics_duration: Nanotime,
     pub sim_speed: i32,
-    pub show_orbits: bool,
-    pub show_potential_field: bool,
-    pub show_animations: bool,
     pub paused: bool,
     pub scenario: Scenario,
     pub ids: ObjectIdTracker,
@@ -235,9 +204,31 @@ pub struct GameState {
     pub duty_cycle_high: bool,
     pub controllers: Vec<Controller>,
     // pub topo_map: TopoMap,
+
+    // buttons!
+    pub show_orbits: Button,
+    pub show_potential_field: Button,
+    pub show_animations: Button,
+    pub spawn_new_craft: Button,
 }
 
 impl GameState {
+    pub fn buttons(&self) -> Vec<&Button> {
+        vec![
+            &self.show_orbits,
+            &self.show_potential_field,
+            &self.show_animations,
+            &self.spawn_new_craft,
+        ]
+    }
+
+    pub fn update_buttons(&mut self, pos: Vec2, clicked: bool) -> bool {
+        self.show_orbits.update(pos, clicked)
+            | self.show_potential_field.update(pos, clicked)
+            | self.show_animations.update(pos, clicked)
+            | self.spawn_new_craft.update(pos, clicked)
+    }
+
     pub fn primary(&self) -> ObjectId {
         *self.track_list.first().unwrap_or(&ObjectId(-1))
     }
@@ -296,15 +287,19 @@ impl GameState {
         }
     }
 
-    pub fn spawn_new(&mut self) {
-        let t = self.target_orbit().or_else(|| self.primary_orbit());
-
-        if let Some(orbit) = t {
-            let id = self.ids.next();
-            self.toggle_track(id);
-            self.scenario
-                .add_object(id, self.scenario.system.id, orbit, self.sim_time);
-        }
+    pub fn spawn_new(&mut self) -> Option<()> {
+        let t = self.target_orbit().or_else(|| self.primary_orbit())?;
+        let pv = t.pv_at_time_fallible(self.sim_time).ok()?;
+        let perturb = PV::new(
+            randvec(pv.pos.length() * 0.005, pv.pos.length() * 0.02),
+            randvec(pv.vel.length() * 0.005, pv.vel.length() * 0.02),
+        );
+        let orbit = SparseOrbit::from_pv(pv + perturb, self.scenario.system.body, self.sim_time)?;
+        let id = self.ids.next();
+        self.toggle_track(id);
+        self.scenario
+            .add_object(id, self.scenario.system.id, orbit, self.sim_time);
+        Some(())
     }
 
     pub fn delete_objects(&mut self) {
@@ -376,13 +371,26 @@ impl GameState {
 impl Default for GameState {
     fn default() -> Self {
         let (scenario, ids) = default_example();
+
+        let mut button_idx = 0;
+
+        let mut next_button = |name: &'static str| -> Button {
+            let w = 50.0;
+            let h = 40.0;
+            let s = 6.0;
+            let start = Vec2::new(30.0, 60.0);
+
+            let p1 = start + Vec2::X * (w + s) * button_idx as f32;
+            let p2 = p1 + Vec2::new(w, h);
+            let b = Button::new(&name, p1, p2, true);
+            button_idx += 1;
+            b
+        };
+
         GameState {
             sim_time: Nanotime::zero(),
             physics_duration: Nanotime::secs(120),
             sim_speed: 0,
-            show_orbits: false,
-            show_potential_field: false,
-            show_animations: true,
             paused: false,
             scenario: scenario.clone(),
             ids,
@@ -396,6 +404,12 @@ impl Default for GameState {
             duty_cycle_high: false,
             controllers: vec![],
             // topo_map: test_topo(),
+
+            // buttons
+            show_orbits: next_button("Show Orbits"),
+            show_potential_field: next_button("Show Potential"),
+            show_animations: next_button("Show Animations"),
+            spawn_new_craft: next_button("Spawn New Craft"),
         }
     }
 }
@@ -463,6 +477,11 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     // if s - state.topo_map.last_updated > Nanotime::secs(1) {
     //     state.topo_map.update(s, &scalar, &levels);
     // }
+
+    if state.spawn_new_craft.state() {
+        state.spawn_new();
+        state.spawn_new_craft.set(false);
+    }
 }
 
 fn sim_speed_str(speed: i32) -> String {
@@ -680,6 +699,17 @@ fn mouse_button_input(
     keys: Res<ButtonInput<KeyCode>>,
     mut state: ResMut<GameState>,
 ) {
+    let clicked = buttons.pressed(MouseButton::Left);
+    let button_interact = if let Some(p) = state.camera.mouse_screen_pos {
+        state.update_buttons(p, clicked)
+    } else {
+        false
+    };
+
+    if button_interact {
+        return;
+    }
+
     if buttons.just_pressed(MouseButton::Right) {
         state.control_points.clear();
         if let Some(p) = state.camera.mouse_pos() {
@@ -733,21 +763,6 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
             }
         };
         load_new_scenario(state, system, ids);
-    } else if starts_with("toggle") {
-        match cmd.get(1).map(|s| s.as_str()) {
-            Some("potential") => {
-                state.show_potential_field = !state.show_potential_field;
-            }
-            Some("orbit") => {
-                state.show_orbits = !state.show_orbits;
-            }
-            Some("animate") => {
-                state.show_animations = !state.show_animations;
-            }
-            _ => {
-                return;
-            }
-        }
     } else if starts_with("restore") {
         if let Some((sys, ids, time)) = &state.backup {
             state.scenario = sys.clone();

@@ -5,6 +5,7 @@ mod debug;
 mod drawing;
 mod planetary;
 mod camera_controls;
+mod button;
 
 fn main() {
     App::new()

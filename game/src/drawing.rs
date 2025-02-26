@@ -6,6 +6,7 @@ use bevy::prelude::*;
 
 use starling::prelude::*;
 
+use crate::button::ButtonState;
 use crate::camera_controls::CameraState;
 use crate::planetary::GameState;
 
@@ -515,6 +516,31 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
         }
     }
 
+    for button in &state.buttons() {
+        let color = match button.button_state() {
+            ButtonState::Hovered => WHITE,
+            ButtonState::Idle => GRAY,
+            ButtonState::Pressed => WHITE,
+        };
+        let gb = state.camera.game_bounds();
+        let wb = state.camera.window_bounds();
+        let bounds = wb.map_box(gb, *button.bounds());
+        draw_aabb(&mut gizmos, bounds, color);
+        if button.button_state() == ButtonState::Pressed {
+            let mut copy = bounds;
+            copy.span *= 0.8;
+            draw_aabb(&mut gizmos, copy, color);
+        }
+        if button.state() {
+            draw_diamond(
+                &mut gizmos,
+                bounds.center,
+                15.0 * state.camera.actual_scale,
+                color,
+            );
+        }
+    }
+
     // if let (Some(to), Some(po)) = (state.target_orbit(), state.primary_orbit()) {
     //     let angles = to.nearest_approach(po).unwrap_or(vec![]);
     //     for a in angles {
@@ -539,7 +565,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
     //     }
     // }
 
-    if state.show_potential_field {
+    if state.show_potential_field.state() {
         if let Some(to) = state.target_orbit() {
             let scalar_field = |p: Vec2| -> f32 {
                 let (_, d) = to.nearest_along_track(p);
@@ -554,7 +580,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
         draw_controller(&mut gizmos, ctrl, state.camera.actual_scale);
     }
 
-    if state.show_animations && state.track_list.len() < 6 {
+    if state.show_animations.state() && state.track_list.len() < 6 {
         for id in &state.track_list {
             draw_event_animation(
                 &mut gizmos,
@@ -574,7 +600,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
         &state.scenario,
         stamp,
         state.camera.actual_scale,
-        state.show_orbits,
+        state.show_orbits.state(),
         &state.track_list,
         state.duty_cycle_high,
     );
