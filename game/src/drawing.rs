@@ -178,7 +178,6 @@ pub fn draw_object(
     let pv = obj.pv(stamp, planets)?;
 
     let size = (4.0 * scale).min(10.0);
-    draw_circle(gizmos, pv.pos, size, WHITE);
     if tracked {
         draw_square(gizmos, pv.pos, (70.0 * scale).min(70.0), alpha(WHITE, 0.7));
     }

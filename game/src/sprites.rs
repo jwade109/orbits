@@ -14,6 +14,8 @@ impl Plugin for PlanetSpritePlugin {
                 make_new_sprites,
                 update_planet_sprites,
                 update_shadow_sprites,
+                update_background_sprite,
+                update_spacecraft_sprites,
             ),
         );
 
@@ -26,7 +28,8 @@ impl Plugin for PlanetSpritePlugin {
     }
 }
 
-const SHADOW_Z_INDEX: f32 = 6.0;
+const SHADOW_Z_INDEX: f32 = 7.0;
+const SPACECRAFT_Z_INDEX: f32 = 6.0;
 const PLANET_Z_INDEX: f32 = 5.0;
 const BACKGROUND_Z_INDEX: f32 = 0.0;
 const EXPECTED_PLANET_SPRITE_SIZE: u32 = 1000;
@@ -36,7 +39,15 @@ const EXPECTED_SHADOW_SPRITE_WIDTH: u32 = 6000;
 
 #[derive(Component)]
 #[require(Transform)]
+struct BackgroundTexture;
+
+#[derive(Component)]
+#[require(Transform)]
 struct PlanetTexture(ObjectId, String);
+
+#[derive(Component)]
+#[require(Transform)]
+struct SpacecraftTexture(ObjectId);
 
 #[derive(Component)]
 #[require(Transform)]
@@ -46,18 +57,19 @@ fn add_background(mut commands: Commands, asset_server: Res<AssetServer>) {
     let path = format!("embedded://game/../assets/background.png");
     let sprite = Sprite::from_image(asset_server.load(path));
     let t = Transform::from_scale(Vec2::splat(100000.0).extend(BACKGROUND_Z_INDEX));
-    commands.spawn((t, sprite));
+    commands.spawn((BackgroundTexture, t, sprite));
 }
 
 fn make_new_sprites(
     mut commands: Commands,
-    query: Query<&PlanetTexture>,
+    ptextures: Query<&PlanetTexture>,
+    stextures: Query<&SpacecraftTexture>,
     state: Res<GameState>,
     asset_server: Res<AssetServer>,
 ) {
     let planet_ids = state.scenario.system.ids();
     for id in planet_ids {
-        if query.iter().find(|e| e.0 == id).is_some() {
+        if ptextures.iter().find(|e| e.0 == id).is_some() {
             continue;
         }
         let lup = state.scenario.system.lookup(id, state.sim_time);
@@ -71,6 +83,16 @@ fn make_new_sprites(
                 Sprite::from_image(asset_server.load("embedded://game/../assets/shadow.png"));
             commands.spawn((ShadowTexture(id), sprite));
         }
+    }
+
+    for id in state.scenario.ids() {
+        if stextures.iter().find(|e| e.0 == id).is_some() {
+            continue;
+        }
+        let path = "embedded://game/../assets/spacecraft.png";
+        let sprite = Sprite::from_image(asset_server.load(path));
+        let tf = Transform::from_scale(Vec3::ZERO);
+        commands.spawn((tf, SpacecraftTexture(id), sprite));
     }
 }
 
@@ -112,4 +134,29 @@ fn update_shadow_sprites(
             commands.entity(e).despawn();
         }
     }
+}
+
+fn update_spacecraft_sprites(
+    mut commands: Commands,
+    mut query: Query<(Entity, &SpacecraftTexture, &mut Transform)>,
+    state: Res<GameState>,
+) {
+    for (e, SpacecraftTexture(id), mut transform) in query.iter_mut() {
+        let lup = state.scenario.orbiter_lookup(*id, state.sim_time);
+        if let Some(lup) = lup {
+            transform.translation = lup.pv().pos.extend(SPACECRAFT_Z_INDEX);
+            transform.scale = Vec3::splat(0.07 * state.camera.actual_scale.min(2.0));
+        } else {
+            commands.entity(e).despawn();
+        }
+    }
+}
+
+fn update_background_sprite(
+    mut query: Query<&mut Transform, With<BackgroundTexture>>,
+    state: Res<GameState>,
+) {
+    let mut tf = query.single_mut();
+    tf.translation = state.camera.center.extend(BACKGROUND_Z_INDEX);
+    tf.scale = Vec3::splat(state.camera.actual_scale * 20.0);
 }

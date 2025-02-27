@@ -15,7 +15,6 @@ fn main() {
         .add_plugins(crate::debug::DebugPlugin {})
         .add_plugins(crate::planetary::PlanetaryPlugin {})
         .add_systems(Startup, setup)
-        .add_system(bevy::window::close_on_esc)
         .run();
 }
 

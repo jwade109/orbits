@@ -269,16 +269,26 @@ impl GameState {
 
     pub fn spawn_new(&mut self) -> Option<()> {
         let t = self.target_orbit().or_else(|| self.primary_orbit())?;
+
+        let (parent_id, body) = if self.target_orbit().is_some() {
+            (self.scenario.system.id, self.scenario.system.body)
+        } else {
+            let pri = self.primary_object()?;
+            let prop = pri.propagator_at(self.sim_time)?;
+            let (body, _, _, _) = self.scenario.system.lookup(prop.parent, self.sim_time)?;
+            (prop.parent, body)
+        };
+
         let pv = t.pv_at_time_fallible(self.sim_time).ok()?;
         let perturb = PV::new(
             randvec(pv.pos.length() * 0.005, pv.pos.length() * 0.02),
             randvec(pv.vel.length() * 0.005, pv.vel.length() * 0.02),
         );
-        let orbit = SparseOrbit::from_pv(pv + perturb, self.scenario.system.body, self.sim_time)?;
+        let orbit = SparseOrbit::from_pv(pv + perturb, body, self.sim_time)?;
         let id = self.ids.next();
         self.toggle_track(id);
         self.scenario
-            .add_object(id, self.scenario.system.id, orbit, self.sim_time);
+            .add_object(id, parent_id, orbit, self.sim_time);
         Some(())
     }
 
@@ -291,6 +301,11 @@ impl GameState {
     pub fn primary_object_mut(&mut self) -> Option<&mut Orbiter> {
         let pri = self.primary();
         self.scenario.objects.iter_mut().find(|o| o.id() == pri)
+    }
+
+    pub fn primary_object(&self) -> Option<&Orbiter> {
+        let pri = self.primary();
+        self.scenario.objects.iter().find(|o| o.id() == pri)
     }
 
     pub fn do_maneuver(&mut self, dv: Vec2) -> Option<()> {
@@ -590,6 +605,7 @@ fn keyboard_input(
     keys: Res<ButtonInput<KeyCode>>,
     scroll: EventReader<MouseWheel>,
     mut state: ResMut<GameState>,
+    mut exit: ResMut<Events<bevy::app::AppExit>>,
     cstate: Res<CommandsState>,
     time: Res<Time>,
     buttons: Res<ButtonInput<MouseButton>>,
@@ -669,6 +685,9 @@ fn keyboard_input(
 
     if keys.just_pressed(KeyCode::Space) {
         state.paused = !state.paused;
+    }
+    if keys.just_pressed(KeyCode::Escape) {
+        exit.send(bevy::app::AppExit::Success);
     }
 }
 
