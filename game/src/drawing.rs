@@ -5,6 +5,7 @@ use bevy::color::palettes::css::ORANGE;
 use bevy::prelude::*;
 
 use starling::prelude::*;
+use starling::scenario::{ObjectType, OrbiterOrBody};
 
 use crate::button::ButtonState;
 use crate::camera_controls::CameraState;
@@ -352,7 +353,7 @@ pub fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) {
         .highlighted_list
         .iter()
         .filter_map(|id| {
-            let pv = state.scenario.orbiter_lookup(*id, state.sim_time)?.pv();
+            let pv = state.scenario.lookup(*id, state.sim_time)?.pv();
             draw_circle(gizmos, pv.pos, 20.0 * state.camera.actual_scale, GRAY);
             Some(())
         })
@@ -516,6 +517,22 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
                 15.0 * state.camera.actual_scale,
                 color,
             );
+        }
+    }
+
+    for id in state.scenario.all_ids() {
+        if let Some(lup) = state.scenario.lookup(id, stamp) {
+            let center = lup.pv().pos;
+            let padding = 40.0 * state.camera.actual_scale.min(1.0);
+            let w = if let OrbiterOrBody::Body(body) = lup.inner {
+                2.0 * body.radius + padding
+            } else {
+                padding
+            };
+            let aabb = AABB::new(center, Vec2::splat(w));
+            if state.camera.mouse_pos().map(|p| aabb.contains(p)).unwrap_or(false) {
+                draw_aabb(&mut gizmos, aabb, GRAY);
+            }
         }
     }
 

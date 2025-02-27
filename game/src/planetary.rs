@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
 use starling::prelude::*;
+use starling::scenario::OrbiterOrBody;
 
 use crate::button::Button;
 use crate::camera_controls::*;
@@ -225,7 +226,7 @@ impl GameState {
         let pos = self
             .track_list
             .iter()
-            .filter_map(|id| Some(self.scenario.orbiter_lookup(*id, self.sim_time)?.pv().pos))
+            .filter_map(|id| Some(self.scenario.lookup(*id, self.sim_time)?.pv().pos))
             .collect::<Vec<_>>();
         AABB::from_list(&pos).map(|aabb| aabb.padded(60.0))
     }
@@ -257,11 +258,9 @@ impl GameState {
     }
 
     pub fn primary_orbit(&self) -> Option<SparseOrbit> {
-        let lup = self
-            .scenario
-            .orbiter_lookup(self.primary(), self.sim_time)?;
-        if lup.level == 0 {
-            Some(lup.object.propagator_at(self.sim_time)?.orbit)
+        let lup = self.scenario.lookup(self.primary(), self.sim_time)?;
+        if let OrbiterOrBody::Orbiter(o) = lup.inner {
+            Some(o.propagator_at(self.sim_time)?.orbit)
         } else {
             None
         }
@@ -439,7 +438,7 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
             .objects
             .iter()
             .filter_map(|o| {
-                let pv = state.scenario.orbiter_lookup(o.id(), state.sim_time)?.pv();
+                let pv = state.scenario.lookup(o.id(), state.sim_time)?.pv();
                 a.contains(pv.pos).then(|| o.id())
             })
             .collect();
@@ -448,7 +447,7 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     }
 
     let mut track_list = state.track_list.clone();
-    track_list.retain(|o| state.scenario.orbiter_lookup(*o, state.sim_time).is_some());
+    track_list.retain(|o| state.scenario.lookup(*o, state.sim_time).is_some());
     state.track_list = track_list;
 
     let ids = state.scenario.ids();
@@ -572,29 +571,26 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
     let prop_count: usize = state.scenario.objects.iter().map(|o| o.props().len()).sum();
     send_log(&mut evt, &format!("Propagators: {}", prop_count));
 
-    if let Some(lup) = state
-        .scenario
-        .orbiter_lookup(state.primary(), state.sim_time)
-    {
-        if let Some(b) = lup.body {
-            send_log(&mut evt, &format!("BD: {:?}", b));
-        }
-
-        for prop in lup.object.props() {
-            send_log(&mut evt, &format!("- [{}]", prop));
-        }
-
-        if let Some(prop) = lup.object.propagator_at(state.sim_time) {
-            send_log(&mut evt, &format!("{:#?}", prop.orbit));
-            send_log(
-                &mut evt,
-                &format!("Next p: {:?}", prop.orbit.t_next_p(state.sim_time)),
-            );
-            send_log(&mut evt, &format!("Period: {:?}", prop.orbit.period()));
-            send_log(
-                &mut evt,
-                &format!("Orbit count: {:?}", prop.orbit.orbit_number(state.sim_time)),
-            );
+    if let Some(lup) = state.scenario.lookup(state.primary(), state.sim_time) {
+        match lup.inner {
+            OrbiterOrBody::Orbiter(o) => {
+                if let Some(prop) = o.propagator_at(state.sim_time) {
+                    send_log(&mut evt, &format!("- [{}]", prop));
+                    send_log(&mut evt, &format!("{:#?}", prop.orbit));
+                    send_log(
+                        &mut evt,
+                        &format!("Next p: {:?}", prop.orbit.t_next_p(state.sim_time)),
+                    );
+                    send_log(&mut evt, &format!("Period: {:?}", prop.orbit.period()));
+                    send_log(
+                        &mut evt,
+                        &format!("Orbit count: {:?}", prop.orbit.orbit_number(state.sim_time)),
+                    );
+                }
+            }
+            OrbiterOrBody::Body(b) => {
+                send_log(&mut evt, &format!("BD: {:?}", b));
+            }
         }
     }
 }

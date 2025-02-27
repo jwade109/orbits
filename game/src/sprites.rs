@@ -142,7 +142,7 @@ fn update_spacecraft_sprites(
     state: Res<GameState>,
 ) {
     for (e, SpacecraftTexture(id), mut transform) in query.iter_mut() {
-        let lup = state.scenario.orbiter_lookup(*id, state.sim_time);
+        let lup = state.scenario.lookup(*id, state.sim_time);
         if let Some(lup) = lup {
             transform.translation = lup.pv().pos.extend(SPACECRAFT_Z_INDEX);
             transform.scale = Vec3::splat(0.07 * state.camera.actual_scale.min(2.0));
@@ -158,5 +158,5 @@ fn update_background_sprite(
 ) {
     let mut tf = query.single_mut();
     tf.translation = state.camera.center.extend(BACKGROUND_Z_INDEX);
-    tf.scale = Vec3::splat(state.camera.actual_scale * 20.0);
+    tf.scale = Vec3::splat(state.camera.actual_scale * 100.0);
 }

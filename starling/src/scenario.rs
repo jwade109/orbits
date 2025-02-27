@@ -26,18 +26,21 @@ impl ObjectIdTracker {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct ObjectLookup {
-    pub object: Orbiter,
-    pub level: u32,
-    pub local_pv: PV,
-    pub frame_pv: PV,
-    pub otype: ObjectType,
-    pub parent: ObjectId,
-    pub body: Option<Body>,
+#[derive(Debug, Copy, Clone)]
+pub enum OrbiterOrBody<O, B> {
+    Orbiter(O),
+    Body(B),
 }
 
-impl ObjectLookup {
+#[derive(Debug, Clone, Copy)]
+pub struct ObjectLookup<O, B> {
+    pub inner: OrbiterOrBody<O, B>,
+    pub local_pv: PV,
+    pub frame_pv: PV,
+    pub parent: Option<ObjectId>,
+}
+
+impl<O, B> ObjectLookup<O, B> {
     pub fn pv(&self) -> PV {
         self.local_pv + self.frame_pv
     }
@@ -139,6 +142,13 @@ impl Scenario {
         self.objects.iter().map(|o| o.id()).collect()
     }
 
+    pub fn all_ids(&self) -> Vec<ObjectId> {
+        self.ids()
+            .into_iter()
+            .chain(self.system.ids().into_iter())
+            .collect()
+    }
+
     pub fn simulate(
         &mut self,
         stamp: Nanotime,
@@ -183,7 +193,17 @@ impl Scenario {
         Some(())
     }
 
-    pub fn orbiter_lookup(&self, id: ObjectId, stamp: Nanotime) -> Option<ObjectLookup> {
+    pub fn lookup(&self, id: ObjectId, stamp: Nanotime) -> Option<ObjectLookup<&Orbiter, Body>> {
+        let pl = self.system.lookup(id, stamp);
+        if let Some((body, pv, parent, sys)) = pl {
+            return Some(ObjectLookup {
+                inner: OrbiterOrBody::Body(body),
+                local_pv: PV::zero(),
+                frame_pv: pv,
+                parent,
+            });
+        }
+
         self.objects.iter().find_map(|o| {
             if o.id() != id {
                 return None;
@@ -194,13 +214,10 @@ impl Scenario {
             let (_, frame_pv, _, _) = self.system.lookup(prop.parent, stamp)?;
 
             Some(ObjectLookup {
-                object: o.clone(),
-                level: 0,
+                inner: OrbiterOrBody::Orbiter(o),
                 local_pv: prop.pv(stamp)?,
                 frame_pv,
-                otype: ObjectType::Orbiter,
-                parent: ObjectId(0),
-                body: None,
+                parent: Some(prop.parent),
             })
         })
     }
