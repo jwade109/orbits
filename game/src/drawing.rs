@@ -131,8 +131,7 @@ pub fn draw_function(
 }
 
 pub fn draw_planets(gizmos: &mut Gizmos, planet: &PlanetarySystem, stamp: Nanotime, origin: Vec2) {
-    draw_shadows(gizmos, origin, planet.body.radius, stamp);
-    draw_circle(gizmos, origin, planet.body.radius, alpha(WHITE, 0.2));
+    draw_circle(gizmos, origin, planet.body.radius, alpha(GRAY, 0.1));
     for (a, ds) in [(1.0, 1.0), (0.3, 0.98), (0.1, 0.95)] {
         draw_circle(gizmos, origin, planet.body.soi * ds, alpha(ORANGE, a));
     }
@@ -298,26 +297,6 @@ pub fn draw_scalar_field(gizmos: &mut Gizmos, scalar_field: &impl Fn(Vec2) -> f3
         for x in (-4000..=4000).step_by(step) {
             let p = Vec2::new(x as f32, y as f32);
             draw_scalar_field_cell(gizmos, scalar_field, p, step as f32, levels);
-        }
-    }
-}
-
-pub fn draw_shadows(gizmos: &mut Gizmos, origin: Vec2, radius: f32, stamp: Nanotime) {
-    let angle = stamp.to_secs() / 1000.0;
-    let u = rotate(Vec2::X, angle);
-    let steps = radius.ceil() as u32;
-    let jmax = 50;
-    for i in 0..steps {
-        let y = (i as f32 / (steps - 1) as f32) * 2.0 - 1.0;
-        let xoff = Vec2::X * radius * (1.0 - y.powi(2)).sqrt();
-        let yoff = Vec2::Y * y * radius;
-        let start = origin + rotate(xoff + yoff, angle);
-        let delta = u * 2000.0;
-        for j in 0..jmax {
-            let s = start + delta * j as f32;
-            let e = start + delta * (j + 1) as f32;
-            let a = 0.25 * ((jmax - j) as f32 / jmax as f32).powi(4);
-            gizmos.line_2d(s, e, alpha(BLACK, a));
         }
     }
 }

@@ -8,17 +8,17 @@ use crate::button::Button;
 use crate::camera_controls::*;
 use crate::debug::*;
 use crate::drawing::*;
+use crate::sprites::PlanetSpritePlugin;
 
 pub struct PlanetaryPlugin;
 
 impl Plugin for PlanetaryPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, init_system);
+        app.add_plugins(PlanetSpritePlugin {});
+        app.add_systems(Startup, (init_system, set_camera_scale));
         app.add_systems(
             Update,
             (
-                make_new_sprites,
-                update_planet_sprites,
                 log_system_info,
                 process_commands,
                 keyboard_input,
@@ -33,54 +33,16 @@ impl Plugin for PlanetaryPlugin {
     }
 }
 
-#[derive(Component)]
-#[require(Transform)]
-struct PlanetTexture(ObjectId, String);
+fn set_camera_scale(mut query: Query<&mut Transform, With<Camera>>) {
+    for mut cam in query.iter_mut() {
+        cam.scale *= 6.5;
+    }
+}
 
 fn init_system(mut commands: Commands) {
     commands.insert_resource(GameState::default());
     let s = 0.02;
     commands.insert_resource(ClearColor(Color::linear_rgb(s, s, s)));
-}
-
-fn make_new_sprites(
-    mut commands: Commands,
-    query: Query<&PlanetTexture>,
-    state: Res<GameState>,
-    asset_server: Res<AssetServer>,
-) {
-    let planet_ids = state.scenario.system.ids();
-    for id in planet_ids {
-        if query.iter().find(|e| e.0 == id).is_some() {
-            continue;
-        }
-        let lup = state.scenario.system.lookup(id, state.sim_time);
-        if let Some((_, _, _, sys)) = lup {
-            let path = format!("embedded://game/../assets/{}.png", sys.name);
-            println!("Adding sprite for {} at {}", sys.name, path);
-            let sprite = Sprite::from_image(asset_server.load(path));
-            commands.spawn((PlanetTexture(id, sys.name.clone()), sprite));
-        }
-    }
-}
-
-fn update_planet_sprites(
-    mut commands: Commands,
-    mut query: Query<(Entity, &PlanetTexture, &mut Transform)>,
-    state: Res<GameState>,
-) {
-    for (e, PlanetTexture(id, name), mut transform) in query.iter_mut() {
-        if let Some((body, pv, _, sys)) = state.scenario.system.lookup(*id, state.sim_time) {
-            if sys.name == *name {
-                transform.translation = pv.pos.extend(-10.0);
-                transform.scale = Vec3::splat(body.radius) / 500.0;
-            } else {
-                commands.entity(e).despawn();
-            }
-        } else {
-            commands.entity(e).despawn();
-        }
-    }
 }
 
 fn manage_orbiter_labels(
@@ -106,10 +68,13 @@ fn manage_orbiter_labels(
     }
 }
 
+const TEXT_LABELS_Z_INDEX: f32 = 100.0;
+
 fn update_text(res: Res<GameState>, mut text: Query<(&mut Transform, &mut Text2d, &FollowObject)>) {
     let scale = res.camera.actual_scale.min(1.0);
     let zoomed_out = scale == 1.0;
     let mut height = -40.0;
+    let count = text.iter().count();
     let _ = text
         .iter_mut()
         .filter_map(|(mut tr, mut text, follow)| {
@@ -140,24 +105,37 @@ fn update_text(res: Res<GameState>, mut text: Query<(&mut Transform, &mut Text2d
                 })
                 .collect::<String>();
 
-            let p_line = obj
-                .propagator_at(res.sim_time)
-                .map(|p| p.orbit.t_next_p(res.sim_time))
-                .flatten()
+            let prop = obj.propagator_at(res.sim_time)?;
+
+            let p_line = prop
+                .orbit
+                .t_next_p(res.sim_time)
                 .map(|nt| format!("\nP {:0.1}s", (nt - res.sim_time).to_secs()))
                 .unwrap_or("".into());
 
-            let txt = format!(
-                "{:?}{}\nOrbiting {}{}\nA {:0.1} V {:0.1}\n{:?}{}",
-                id,
-                warn_str,
-                parent.name,
-                p_line,
-                pvl.pos.length(),
-                pvl.vel.length(),
-                prop.orbit.class(),
-                event_lines,
-            );
+            let altitude = pvl.pos.length() - prop.orbit.body.radius;
+
+            let txt = if count < 8 {
+                format!(
+                    "{:?}{}\nOrbiting {}{}\nA {:0.1} V {:0.1}\n{:?}{}",
+                    id,
+                    warn_str,
+                    parent.name,
+                    p_line,
+                    altitude,
+                    pvl.vel.length(),
+                    prop.orbit.class(),
+                    event_lines,
+                )
+            } else {
+                format!(
+                    "{:?}{}\nA {:0.1} V {:0.1}",
+                    id,
+                    warn_str,
+                    altitude,
+                    pvl.vel.length(),
+                )
+            };
 
             let window = res.camera.game_bounds();
             let n = txt.lines().collect::<Vec<_>>().len();
@@ -168,10 +146,11 @@ fn update_text(res: Res<GameState>, mut text: Query<(&mut Transform, &mut Text2d
                 let h = 23.0 * (n + 1) as f32;
                 let ur = window.center + window.span / 2.0 + Vec2::new(-300.0, height) * s;
                 height -= h;
-                tr.translation = ur.extend(0.0);
+                tr.translation = ur.extend(TEXT_LABELS_Z_INDEX);
                 tr.scale = Vec3::new(s, s, s);
             } else {
-                tr.translation = (pv.pos + Vec2::new(40.0 * scale, 40.0 * scale)).extend(0.0);
+                tr.translation =
+                    (pv.pos + Vec2::new(40.0 * scale, 40.0 * scale)).extend(TEXT_LABELS_Z_INDEX);
                 tr.scale = Vec3::new(scale, scale, scale);
             }
             Some(())
@@ -189,6 +168,7 @@ struct FollowObject(ObjectId);
 #[derive(Resource)]
 pub struct GameState {
     pub sim_time: Nanotime,
+    pub actual_time: Nanotime,
     pub physics_duration: Nanotime,
     pub sim_speed: i32,
     pub paused: bool,
@@ -389,6 +369,7 @@ impl Default for GameState {
 
         GameState {
             sim_time: Nanotime::zero(),
+            actual_time: Nanotime::zero(),
             physics_duration: Nanotime::secs(120),
             sim_speed: 0,
             paused: false,
@@ -415,6 +396,7 @@ impl Default for GameState {
 }
 
 fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
+    state.actual_time += Nanotime::nanos(time.delta().as_nanos() as i64);
     if !state.paused {
         let sp = 10.0f32.powi(state.sim_speed);
         state.sim_time += Nanotime::nanos((time.delta().as_nanos() as f32 * sp) as i64);
@@ -608,7 +590,6 @@ fn keyboard_input(
     keys: Res<ButtonInput<KeyCode>>,
     scroll: EventReader<MouseWheel>,
     mut state: ResMut<GameState>,
-    mut exit: ResMut<Events<bevy::app::AppExit>>,
     cstate: Res<CommandsState>,
     time: Res<Time>,
     buttons: Res<ButtonInput<MouseButton>>,
@@ -688,9 +669,6 @@ fn keyboard_input(
 
     if keys.just_pressed(KeyCode::Space) {
         state.paused = !state.paused;
-    }
-    if keys.just_pressed(KeyCode::Escape) {
-        exit.send(bevy::app::AppExit::Success);
     }
 }
 

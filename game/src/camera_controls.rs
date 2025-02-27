@@ -147,7 +147,7 @@ pub fn update_camera_transform(
 
     *tf = tf.with_translation(cam.center.extend(0.0));
 
-    let ds = (cam.target_scale - tf.scale) * 0.5;
+    let ds = (cam.target_scale - tf.scale) * 0.08;
     tf.scale += ds;
     cam.actual_scale = tf.scale.x;
 }
