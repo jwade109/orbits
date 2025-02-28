@@ -96,13 +96,35 @@ fn update_text(res: Res<GameState>, mut text: Query<(&mut Transform, &mut Text2d
             let event_lines = obj
                 .props()
                 .iter()
-                .filter_map(|p| {
-                    let dt = (p.end - res.sim_time).to_secs();
-                    if let Some(e) = p.event {
-                        Some(format!("\n{:?} in {:0.1}s", e, dt))
-                    } else {
-                        Some(format!("\nC {:0.1}s {:0.2}s", dt, p.dt.to_secs()))
-                    }
+                .map(|p| {
+                    let s = match p.horizon {
+                        HorizonState::Continuing(t) => {
+                            let dt = (t - res.sim_time).to_secs();
+                            format!("Computed for {dt:0.2}s")
+                        }
+                        HorizonState::Indefinite => "Perpetually stable".to_string(),
+                        HorizonState::Terminating(t, e) | HorizonState::Transition(t, e) => {
+                            let dt = (t - res.sim_time).to_secs();
+                            match e {
+                                EventType::Collide(id) => {
+                                    format!("Collide into {id} in {dt:0.2}s")
+                                }
+                                EventType::Encounter(id) => {
+                                    format!("Encounter {id} in {dt:0.2}s")
+                                }
+                                EventType::Escape(id) => {
+                                    format!("Escape {id} in {dt:0.2}s")
+                                }
+                                EventType::Impulse(_) => {
+                                    format!("Maneuver in {dt:0.2}s")
+                                }
+                                EventType::NumericalError => {
+                                    format!("NumericalError in {dt:0.2}s")
+                                }
+                            }
+                        }
+                    };
+                    format!("\n{}", s)
                 })
                 .collect::<String>();
 
@@ -143,9 +165,9 @@ fn update_text(res: Res<GameState>, mut text: Query<(&mut Transform, &mut Text2d
             *text = txt.into();
 
             if zoomed_out || !window.contains(pv.pos) {
-                let s = res.camera.actual_scale;
+                let s = res.camera.actual_scale * 0.85;
                 let h = 23.0 * (n + 1) as f32;
-                let ur = window.center + window.span / 2.0 + Vec2::new(-300.0, height) * s;
+                let ur = window.center + window.span / 2.0 + Vec2::new(-500.0, height) * s;
                 height -= h;
                 tr.translation = ur.extend(TEXT_LABELS_Z_INDEX);
                 tr.scale = Vec3::new(s, s, s);
@@ -727,7 +749,9 @@ fn mouse_button_input(
 fn load_new_scenario(state: &mut GameState, scen: Scenario, ids: ObjectIdTracker) {
     state.backup = Some((scen.clone(), ids, Nanotime::zero()));
     state.camera.target_scale = 0.001 * scen.system.body.soi;
+    state.camera.center = Vec2::ZERO;
     state.scenario = scen;
+    state.ids = ids;
     state.sim_time = Nanotime::zero();
 }
 

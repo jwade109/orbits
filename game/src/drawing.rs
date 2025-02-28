@@ -158,9 +158,9 @@ fn draw_propagator(
 
     draw_orbit(gizmos, &prop.orbit, parent_pv.pos, color);
     if with_event {
-        let pv_end = parent_pv + prop.pv(prop.end)?;
-        if let Some(e) = prop.event {
-            draw_event(gizmos, planets, &e, prop.end, pv_end.pos, scale, duty_cycle);
+        if let Some((t, e)) = prop.stamped_event() {
+            let pv_end = parent_pv + prop.pv(t)?;
+            draw_event(gizmos, planets, &e, t, pv_end.pos, scale, duty_cycle);
         }
     }
     Some(())
@@ -396,19 +396,21 @@ pub fn draw_event_animation(
     let p = obj.props().last()?;
     let dt = Nanotime::secs(1);
     let mut t = stamp + dt;
-    while t < p.end {
+    while t < p.end().unwrap_or(stamp + Nanotime::secs(30)) {
         let pv = obj.pv(t, &system.system)?;
         draw_diamond(gizmos, pv.pos, 11.0 * scale.min(1.0), alpha(WHITE, 0.6));
         t += dt;
     }
     for prop in obj.props() {
-        let pv = obj.pv(prop.end, &system.system)?;
-        if let Some(e) = prop.event {
+        if let Some((t, e)) = prop.stamped_event() {
+            let pv = obj.pv(t, &system.system)?;
             draw_event_marker_at(gizmos, &e, pv.pos, scale, duty_cycle);
         }
     }
-    let pv = obj.pv(p.end, &system.system)?;
-    draw_square(gizmos, pv.pos, 13.0 * scale.min(1.0), alpha(RED, 0.8));
+    if let Some(t) = p.end() {
+        let pv = obj.pv(t, &system.system)?;
+        draw_square(gizmos, pv.pos, 13.0 * scale.min(1.0), alpha(RED, 0.8));
+    }
     Some(())
 }
 

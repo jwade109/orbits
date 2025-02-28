@@ -164,7 +164,10 @@ impl Scenario {
         future_dur: Nanotime,
     ) -> Vec<(ObjectId, Option<RemovalInfo>)> {
         for obj in &mut self.objects {
-            let _ = obj.propagate_to(stamp, future_dur, &self.system);
+            let e = obj.propagate_to(stamp, future_dur, &self.system);
+            if let Err(e) = e {
+                // dbg!(e);
+            }
         }
 
         let mut info = vec![];
@@ -172,8 +175,8 @@ impl Scenario {
         self.objects.retain(|o| {
             if o.propagator_at(stamp).is_none() {
                 let reason = o.props().last().map(|p| RemovalInfo {
-                    stamp: p.end,
-                    reason: p.event.unwrap_or(EventType::NumericalError),
+                    stamp: p.end().unwrap_or(stamp),
+                    reason: p.event().unwrap_or(EventType::NumericalError),
                     orbit: p.orbit.clone(),
                 });
                 info.push((o.id(), reason));
