@@ -184,6 +184,7 @@ pub struct GameState {
     pub hide_debug: bool,
     pub duty_cycle_high: bool,
     pub controllers: Vec<Controller>,
+    pub follow: Option<ObjectId>,
     // pub topo_map: TopoMap,
 
     // buttons!
@@ -264,6 +265,12 @@ impl GameState {
         } else {
             None
         }
+    }
+
+    pub fn follow_position(&self) -> Option<Vec2> {
+        let id = self.follow?;
+        let lup = self.scenario.lookup(id, self.sim_time)?;
+        Some(lup.pv().pos)
     }
 
     pub fn spawn_new(&mut self) -> Option<()> {
@@ -398,6 +405,7 @@ impl Default for GameState {
             hide_debug: true,
             duty_cycle_high: false,
             controllers: vec![],
+            follow: Some(ObjectId(12)),
             // topo_map: test_topo(),
 
             // buttons
@@ -621,6 +629,13 @@ fn keyboard_input(
 
     update_camera_transform(query, &mut state.camera);
 
+    if let Some(p) = state.follow_position() {
+        state.camera.track(p, CameraTracking::ExternalTrack);
+    } else {
+        let s = state.camera.cursor;
+        state.camera.track(s, CameraTracking::TrackingCursor);
+    }
+
     for key in keys.get_just_pressed() {
         match key {
             KeyCode::Period => {
@@ -764,8 +779,10 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
         }
     } else if starts_with("save") {
         state.backup = Some((state.scenario.clone(), state.ids, state.sim_time));
+    } else if starts_with("follow") {
+        state.follow = cmd.get(1).map(|s| s.parse::<i64>().ok()).flatten().map(|n| ObjectId(n));
     } else if starts_with("track") {
-        for n in cmd.iter().skip(1).filter_map(|s| s.parse::<i64>().ok()) {
+      for n in cmd.iter().skip(1).filter_map(|s| s.parse::<i64>().ok()) {
             let id = ObjectId(n);
             state.toggle_track(id);
         }

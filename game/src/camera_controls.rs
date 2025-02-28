@@ -6,7 +6,7 @@ use starling::aabb::AABB;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum CameraTracking {
-    // ExternalTrack,
+    ExternalTrack,
     TrackingCursor,
     Freewheeling,
 }
@@ -141,9 +141,6 @@ pub fn update_camera_transform(
     cam: &mut CameraState,
 ) {
     let mut tf = query.single_mut();
-
-    let s = cam.cursor;
-    cam.track(s, CameraTracking::TrackingCursor);
 
     *tf = tf.with_translation(cam.center.extend(0.0));
 

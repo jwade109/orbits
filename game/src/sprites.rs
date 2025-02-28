@@ -145,7 +145,7 @@ fn update_spacecraft_sprites(
         let lup = state.scenario.lookup(*id, state.sim_time);
         if let Some(lup) = lup {
             transform.translation = lup.pv().pos.extend(SPACECRAFT_Z_INDEX);
-            transform.scale = Vec3::splat(0.07 * state.camera.actual_scale.min(2.0));
+            transform.scale = Vec3::splat(0.03 * state.camera.actual_scale.min(2.0));
         } else {
             commands.entity(e).despawn();
         }
