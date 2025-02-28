@@ -96,14 +96,7 @@ fn update_text(res: Res<GameState>, mut text: Query<(&mut Transform, &mut Text2d
             let event_lines = obj
                 .props()
                 .iter()
-                .filter_map(|p| {
-                    let dt = (p.end - res.sim_time).to_secs();
-                    if let Some(e) = p.event {
-                        Some(format!("\n{:?} in {:0.1}s", e, dt))
-                    } else {
-                        Some(format!("\nC {:0.1}s {:0.2}s", dt, p.dt.to_secs()))
-                    }
-                })
+                .map(|p| format!("\n{:?}", p.horizon))
                 .collect::<String>();
 
             let prop = obj.propagator_at(res.sim_time)?;

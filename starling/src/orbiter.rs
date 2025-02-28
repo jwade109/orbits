@@ -72,14 +72,17 @@ impl Orbiter {
     }
 
     pub fn will_collide(&self) -> bool {
-        self.props.iter().any(|p| match p.event {
-            Some(EventType::Collide(_)) => true,
+        self.props.iter().any(|p| match p.horizon {
+            HorizonState::Terminating(_, EventType::Collide(_)) => true,
             _ => false,
         })
     }
 
     pub fn will_change(&self) -> bool {
-        self.props.first().map(|p| p.event.is_some()).unwrap_or(false)
+        self.props
+            .first()
+            .map(|p| p.horizon.is_change())
+            .unwrap_or(false)
     }
 
     pub fn has_error(&self) -> bool {
@@ -92,13 +95,13 @@ impl Orbiter {
         future_dur: Nanotime,
         planets: &PlanetarySystem,
     ) -> Result<(), PredictError<Nanotime>> {
-        while self.props.len() > 1 && self.props[0].end < stamp {
+        while self.props.len() > 1 && self.props[0].end().unwrap_or(stamp) < stamp {
             self.props.remove(0);
         }
 
         let t = stamp + future_dur;
 
-        let max_iters = 500;
+        let max_iters = 10;
 
         for _ in 0..max_iters {
             let prop = self.props.iter_mut().last().ok_or(PredictError::Lookup)?;
@@ -112,15 +115,20 @@ impl Orbiter {
                 .map(|(orbit, pl)| (pl.id, orbit, pl.body.soi))
                 .collect::<Vec<_>>();
 
-            while !prop.calculated_to(t) {
-                prop.next(&bodies)?;
-            }
+            prop.finish_or_compute_until(t, &bodies)?;
 
-            if prop.end >= t {
+            let (end, prop_finished) = match prop.horizon {
+                HorizonState::Continuing(end) => (end, false),
+                HorizonState::Indefinite => return Ok(()),
+                HorizonState::Terminating(_, _) => return Ok(()),
+                HorizonState::Transition(end, _) => (end, true),
+            };
+
+            if end > t {
                 return Ok(());
             }
 
-            if prop.finished {
+            if prop_finished {
                 match prop.next_prop(planets) {
                     Ok(None) => {
                         return Ok(());
@@ -130,10 +138,8 @@ impl Orbiter {
                     }
                     Err(_) => {
                         let mut p = prop.clone();
-                        p.start = prop.end;
-                        p.end = prop.end;
-                        p.finished = true;
-                        p.event = Some(EventType::NumericalError);
+                        p.start = end;
+                        p.horizon = HorizonState::Terminating(end, EventType::NumericalError);
                         self.props.push(p);
                         return Ok(());
                     }

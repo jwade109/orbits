@@ -120,35 +120,49 @@ pub(crate) enum BadObjectNextState {
     BadOrbit,
 }
 
-enum HorizonState {
-    Continuing,
-    Static,
-    Transition(EventType),
-    Terminating(EventType),
+#[derive(Debug, Clone, Copy)]
+pub enum HorizonState {
+    Continuing(Nanotime),
+    Indefinite,
+    Transition(Nanotime, EventType),
+    Terminating(Nanotime, EventType),
 }
 
-#[derive(Debug, Clone)]
+impl HorizonState {
+    pub fn is_change(&self) -> bool {
+        match self {
+            HorizonState::Continuing(_) | HorizonState::Indefinite => false,
+            HorizonState::Terminating(_, _) | HorizonState::Transition(_, _) => true,
+        }
+    }
+
+    pub fn end(&self) -> Option<Nanotime> {
+        match self {
+            HorizonState::Indefinite => None,
+            HorizonState::Continuing(t)
+            | HorizonState::Terminating(t, _)
+            | HorizonState::Transition(t, _) => Some(*t),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct Propagator {
     pub parent: ObjectId,
     pub orbit: SparseOrbit,
     pub start: Nanotime,
-    pub end: Nanotime,
     pub dt: Nanotime,
-    pub finished: bool,
-    pub dynamic: bool,
-    pub event: Option<EventType>,
+    pub horizon: HorizonState,
 }
 
 impl std::fmt::Display for Propagator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{:?}, {:?}, {}, {:?}, {:?}, {:?}",
+            "{:?}, {:?}, {:?}, {:?}",
             self.start,
-            self.end,
-            self.finished,
-            self.event,
             self.dt,
+            self.horizon,
             self.orbit.class(),
         )
     }
@@ -160,11 +174,8 @@ impl Propagator {
             parent,
             orbit,
             start: stamp,
-            end: stamp,
             dt: Nanotime::zero(),
-            finished: false,
-            dynamic: true,
-            event: None,
+            horizon: HorizonState::Continuing(stamp),
         }
     }
 
@@ -173,27 +184,61 @@ impl Propagator {
     }
 
     pub(crate) fn is_active(&self, stamp: Nanotime) -> bool {
-        self.start <= stamp && stamp <= self.end
+        self.start <= stamp && self.end().unwrap_or(stamp) >= stamp
     }
 
     pub(crate) fn calculated_to(&self, stamp: Nanotime) -> bool {
-        return self.finished || self.end >= stamp;
+        match self.horizon {
+            HorizonState::Terminating(_, _) => true,
+            HorizonState::Indefinite => true,
+            HorizonState::Transition(_, _) => true,
+            HorizonState::Continuing(end) => end >= stamp,
+        }
     }
 
     pub(crate) fn is_err(&self) -> bool {
-        match self.event {
-            Some(EventType::NumericalError) => true,
+        match self.horizon {
+            HorizonState::Terminating(_, EventType::NumericalError) => true,
             _ => false,
         }
+    }
+
+    pub fn event(&self) -> Option<EventType> {
+        match self.horizon {
+            HorizonState::Continuing(_) | HorizonState::Indefinite => None,
+            HorizonState::Terminating(_, e) | HorizonState::Transition(_, e) => Some(e),
+        }
+    }
+
+    pub fn stamped_event(&self) -> Option<(Nanotime, EventType)> {
+        match self.horizon {
+            HorizonState::Continuing(_) | HorizonState::Indefinite => None,
+            HorizonState::Terminating(t, e) | HorizonState::Transition(t, e) => Some((t, e)),
+        }
+    }
+
+    pub fn end(&self) -> Option<Nanotime> {
+        self.horizon.end()
+    }
+
+    pub fn finish_or_compute_until(&mut self, stamp: Nanotime,
+        bodies: &[(ObjectId, &SparseOrbit, f32)],) -> Result<(), PredictError<Nanotime>> {
+        while !self.calculated_to(stamp) {
+            let e = self.next(bodies);
+            if e.is_err() {
+                return e;
+            }
+        }
+        return Ok(())
     }
 
     pub(crate) fn next_prop(
         &self,
         planets: &PlanetarySystem,
     ) -> Result<Option<Propagator>, BadObjectNextState> {
-        let e = match self.event {
-            Some(e) => e,
-            None => return Ok(None),
+        let (stamp, e) = match self.horizon {
+            HorizonState::Transition(stamp, e) => (stamp, e),
+            _ => return Ok(None),
         };
 
         match e {
@@ -201,41 +246,41 @@ impl Propagator {
             EventType::NumericalError => Ok(None),
             EventType::Escape(_) => {
                 let cur = planets
-                    .lookup(self.parent, self.end)
+                    .lookup(self.parent, stamp)
                     .ok_or(BadObjectNextState::Lookup)?;
                 let reparent = match cur.2 {
                     Some(id) => id,
                     None => return Ok(None),
                 };
                 let new = planets
-                    .lookup(reparent, self.end)
+                    .lookup(reparent, stamp)
                     .ok_or(BadObjectNextState::Lookup)?;
 
-                let pv = self.orbit.pv_at_time(self.end);
+                let pv = self.orbit.pv_at_time(stamp);
                 let dv = cur.1 - new.1;
-                let orbit = SparseOrbit::from_pv(pv + dv, new.0, self.end)
+                let orbit = SparseOrbit::from_pv(pv + dv, new.0, stamp)
                     .ok_or(BadObjectNextState::BadOrbit)?;
-                Ok(Some(Propagator::new(reparent, orbit, self.end)))
+                Ok(Some(Propagator::new(reparent, orbit, stamp)))
             }
             EventType::Encounter(id) => {
                 let cur = planets
-                    .lookup(self.parent, self.end)
+                    .lookup(self.parent, stamp)
                     .ok_or(BadObjectNextState::Lookup)?;
                 let new = planets
-                    .lookup(id, self.end)
+                    .lookup(id, stamp)
                     .ok_or(BadObjectNextState::Lookup)?;
 
-                let pv = self.orbit.pv_at_time(self.end);
+                let pv = self.orbit.pv_at_time(stamp);
                 let dv = cur.1 - new.1;
-                let orbit = SparseOrbit::from_pv(pv + dv, new.0, self.end)
+                let orbit = SparseOrbit::from_pv(pv + dv, new.0, stamp)
                     .ok_or(BadObjectNextState::BadOrbit)?;
-                Ok(Some(Propagator::new(id, orbit, self.end)))
+                Ok(Some(Propagator::new(id, orbit, stamp)))
             }
             EventType::Impulse(dv) => {
-                let pv = self.orbit.pv_at_time(self.end);
-                let orbit = SparseOrbit::from_pv(pv + PV::vel(dv), self.orbit.body, self.end)
+                let pv = self.orbit.pv_at_time(stamp);
+                let orbit = SparseOrbit::from_pv(pv + PV::vel(dv), self.orbit.body, stamp)
                     .ok_or(BadObjectNextState::BadOrbit)?;
-                Ok(Some(Propagator::new(self.parent, orbit, self.end)))
+                Ok(Some(Propagator::new(self.parent, orbit, stamp)))
             }
         }
     }
@@ -244,14 +289,10 @@ impl Propagator {
         &mut self,
         bodies: &[(ObjectId, &SparseOrbit, f32)],
     ) -> Result<(), PredictError<Nanotime>> {
-        if self.finished {
-            return Ok(());
-        }
-
-        if !self.dynamic {
-            self.end += Nanotime::secs(500);
-            return Ok(());
-        }
+        let end = match self.horizon {
+            HorizonState::Continuing(end) => end,
+            _ => return Ok(()),
+        };
 
         let will_never_encounter = bodies.iter().all(|(_, orbit, soi)| {
             let rmin = orbit.periapsis_r() - soi;
@@ -264,20 +305,19 @@ impl Propagator {
             && (will_never_encounter || bodies.is_empty())
         {
             // nothing will ever happen to this orbit
-            self.dynamic = false;
-            self.end += Nanotime::secs(500);
+            self.horizon = HorizonState::Indefinite;
             return Ok(());
         }
 
         let tol = Nanotime::nanos(5);
 
-        let alt = self.orbit.pv_at_time(self.end).pos.length();
+        let alt = self.orbit.pv_at_time(end).pos.length();
 
         let might_hit_planet = self.orbit.is_suborbital() && alt < self.orbit.body.radius * 20.0;
         let can_escape = self.orbit.will_escape();
         let near_body = bodies
             .iter()
-            .any(|(_, orb, soi)| mutual_separation(&self.orbit, orb, self.end) < soi * 3.0);
+            .any(|(_, orb, soi)| mutual_separation(&self.orbit, orb, end) < soi * 3.0);
 
         self.dt = if might_hit_planet {
             Nanotime::millis(20)
@@ -289,10 +329,8 @@ impl Propagator {
             Nanotime::secs(5)
         };
 
-        let t1 = self.end;
-        let t2 = self.end + self.dt;
-
-        self.end = t2;
+        let t1 = end;
+        let t2 = end + self.dt;
 
         match self
             .orbit
@@ -301,9 +339,7 @@ impl Propagator {
             .zip(self.orbit.pv_at_time_fallible(t2).ok())
         {
             None => {
-                self.end = t1;
-                self.finished = true;
-                self.event = Some(EventType::NumericalError);
+                self.horizon = HorizonState::Terminating(t1, EventType::NumericalError);
                 return Ok(());
             }
             _ => (),
@@ -321,9 +357,7 @@ impl Propagator {
 
         if might_hit_planet {
             if !above_planet(t1) {
-                self.end = t1;
-                self.finished = true;
-                self.event = Some(EventType::Collide(self.parent));
+                self.horizon = HorizonState::Terminating(t1, EventType::Collide(self.parent));
                 return Ok(());
             }
 
@@ -331,12 +365,10 @@ impl Propagator {
                 .map_err(|e| PredictError::Collision(e))?
             {
                 if t - self.start < Nanotime::millis(10) {
-                    self.end = t2;
+                    self.horizon = HorizonState::Continuing(t2);
                     return Ok(());
                 }
-                self.end = t;
-                self.finished = true;
-                self.event = Some(EventType::Collide(self.parent));
+                self.horizon = HorizonState::Terminating(t, EventType::Collide(self.parent));
                 return Ok(());
             }
         }
@@ -346,12 +378,10 @@ impl Propagator {
                 .map_err(|e| PredictError::Escape(e))?
             {
                 if t - self.start < Nanotime::millis(10) {
-                    self.end = t2;
+                    self.horizon = HorizonState::Continuing(t2);
                     return Ok(());
                 }
-                self.end = t;
-                self.finished = true;
-                self.event = Some(EventType::Escape(self.parent));
+                self.horizon = HorizonState::Transition(t, EventType::Escape(self.parent));
                 return Ok(());
             }
         }
@@ -363,23 +393,20 @@ impl Propagator {
                 let id = bodies[i].0;
 
                 if t1 != self.start && !cond(t1) {
-                    self.end = t1;
-                    self.finished = true;
-                    self.event = Some(EventType::Encounter(id));
+                    self.horizon = HorizonState::Transition(t1, EventType::Encounter(id));
                     return Ok(());
                 }
 
                 if let Some(t) = search_condition::<Nanotime>(t1, t2, tol, &cond)
                     .map_err(|e| PredictError::Encounter(e))?
                 {
-                    self.end = t;
-                    self.finished = true;
-                    self.event = Some(EventType::Encounter(id));
+                    self.horizon = HorizonState::Transition(t, EventType::Encounter(id));
                     return Ok(());
                 }
             }
         }
 
+        self.horizon = HorizonState::Continuing(t2);
         Ok(())
     }
 }
