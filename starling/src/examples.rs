@@ -103,7 +103,7 @@ pub fn earth_moon_example_one() -> (Scenario, ObjectIdTracker) {
 
     scenario.simulate(Nanotime::zero(), Nanotime::secs(100));
 
-    scenario.objects.retain(|o| !o.will_collide());
+    scenario.retain(|o| !o.will_collide());
 
     (scenario, id)
 }

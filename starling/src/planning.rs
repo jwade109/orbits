@@ -120,6 +120,13 @@ pub(crate) enum BadObjectNextState {
     BadOrbit,
 }
 
+enum HorizonState {
+    Continuing,
+    Static,
+    Transition(EventType),
+    Terminating(EventType),
+}
+
 #[derive(Debug, Clone)]
 pub struct Propagator {
     pub parent: ObjectId,

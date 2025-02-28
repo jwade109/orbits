@@ -5,7 +5,7 @@ use bevy::color::palettes::css::ORANGE;
 use bevy::prelude::*;
 
 use starling::prelude::*;
-use starling::scenario::{ObjectType, OrbiterOrBody};
+use starling::scenario::ScenarioObject;
 
 use crate::button::ButtonState;
 use crate::camera_controls::CameraState;
@@ -190,6 +190,9 @@ pub fn draw_object(
         draw_circle(gizmos, pv.pos, size + 10.0 * scale, YELLOW);
         draw_circle(gizmos, pv.pos, size + 16.0 * scale, YELLOW);
     }
+    if obj.will_change() {
+        draw_circle(gizmos, pv.pos, size + 7.0 * scale, TEAL);
+    }
 
     if tracked {
         for (i, prop) in obj.props().iter().enumerate() {
@@ -232,9 +235,10 @@ pub fn draw_orbital_system(
     draw_planets(gizmos, &sys.system, stamp, Vec2::ZERO);
 
     _ = sys
-        .objects
-        .iter()
-        .map(|obj| {
+        .ids()
+        .into_iter()
+        .filter_map(|id| {
+            let obj = sys.lookup(id, stamp)?.orbiter()?;
             let is_tracked = track_list.contains(&obj.id());
             draw_object(
                 gizmos,
@@ -245,7 +249,7 @@ pub fn draw_orbital_system(
                 show_orbits,
                 is_tracked,
                 duty_cycle,
-            );
+            )
         })
         .collect::<Vec<_>>();
 }
@@ -388,7 +392,7 @@ pub fn draw_event_animation(
     scale: f32,
     duty_cycle: bool,
 ) -> Option<()> {
-    let obj = system.objects.iter().find(|o| o.id() == id)?;
+    let obj = system.lookup(id, stamp)?.orbiter()?;
     let p = obj.props().last()?;
     let dt = Nanotime::secs(1);
     let mut t = stamp + dt;
@@ -524,13 +528,18 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
         if let Some(lup) = state.scenario.lookup(id, stamp) {
             let center = lup.pv().pos;
             let padding = 40.0 * state.camera.actual_scale.min(1.0);
-            let w = if let OrbiterOrBody::Body(body) = lup.inner {
+            let w = if let ScenarioObject::Body(body) = lup.inner {
                 2.0 * body.radius + padding
             } else {
                 padding
             };
             let aabb = AABB::new(center, Vec2::splat(w));
-            if state.camera.mouse_pos().map(|p| aabb.contains(p)).unwrap_or(false) {
+            if state
+                .camera
+                .mouse_pos()
+                .map(|p| aabb.contains(p))
+                .unwrap_or(false)
+            {
                 draw_aabb(&mut gizmos, aabb, GRAY);
             }
         }

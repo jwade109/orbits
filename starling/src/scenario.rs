@@ -5,12 +5,6 @@ use crate::planning::EventType;
 use crate::pv::PV;
 use glam::f32::Vec2;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum ObjectType {
-    Orbiter,
-    System,
-}
-
 #[derive(Debug, Clone, Copy)]
 pub struct ObjectIdTracker(ObjectId);
 
@@ -27,28 +21,42 @@ impl ObjectIdTracker {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub enum OrbiterOrBody<O, B> {
+pub enum ScenarioObject<O, B> {
     Orbiter(O),
     Body(B),
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct ObjectLookup<O, B> {
-    pub inner: OrbiterOrBody<O, B>,
+    pub inner: ScenarioObject<O, B>,
     pub local_pv: PV,
     pub frame_pv: PV,
     pub parent: Option<ObjectId>,
 }
 
-impl<O, B> ObjectLookup<O, B> {
+impl<O: Copy, B: Copy> ObjectLookup<O, B> {
     pub fn pv(&self) -> PV {
         self.local_pv + self.frame_pv
+    }
+
+    pub fn orbiter(&self) -> Option<O> {
+        match &self.inner {
+            ScenarioObject::Orbiter(o) => Some(*o),
+            _ => None,
+        }
+    }
+
+    pub fn body(&self) -> Option<B> {
+        match &self.inner {
+            ScenarioObject::Body(b) => Some(*b),
+            _ => None,
+        }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct Scenario {
-    pub objects: Vec<Orbiter>,
+    objects: Vec<Orbiter>,
     pub system: PlanetarySystem,
 }
 
@@ -193,11 +201,24 @@ impl Scenario {
         Some(())
     }
 
+    pub fn dv(&mut self, id: ObjectId, stamp: Nanotime, dv: Vec2) -> Option<()> {
+        let obj = self.objects.iter_mut().find(|o| o.id() == id)?;
+        obj.dv(stamp, dv)
+    }
+
+    pub fn retain<F: FnMut(&Orbiter) -> bool>(&mut self, f: F) {
+        self.objects.retain(f)
+    }
+
+    pub fn prop_count(&self) -> usize {
+        self.objects.iter().map(|o| o.props().len()).sum()
+    }
+
     pub fn lookup(&self, id: ObjectId, stamp: Nanotime) -> Option<ObjectLookup<&Orbiter, Body>> {
         let pl = self.system.lookup(id, stamp);
-        if let Some((body, pv, parent, sys)) = pl {
+        if let Some((body, pv, parent, _)) = pl {
             return Some(ObjectLookup {
-                inner: OrbiterOrBody::Body(body),
+                inner: ScenarioObject::Body(body),
                 local_pv: PV::zero(),
                 frame_pv: pv,
                 parent,
@@ -214,7 +235,7 @@ impl Scenario {
             let (_, frame_pv, _, _) = self.system.lookup(prop.parent, stamp)?;
 
             Some(ObjectLookup {
-                inner: OrbiterOrBody::Orbiter(o),
+                inner: ScenarioObject::Orbiter(o),
                 local_pv: prop.pv(stamp)?,
                 frame_pv,
                 parent: Some(prop.parent),

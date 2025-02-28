@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
 use starling::prelude::*;
-use starling::scenario::OrbiterOrBody;
+use starling::scenario::ScenarioObject;
 
 use crate::button::Button;
 use crate::camera_controls::*;
@@ -80,7 +80,7 @@ fn update_text(res: Res<GameState>, mut text: Query<(&mut Transform, &mut Text2d
         .iter_mut()
         .filter_map(|(mut tr, mut text, follow)| {
             let id = follow.0;
-            let obj = res.scenario.objects.iter().find(|o| o.id() == id)?;
+            let obj = res.scenario.lookup(id, res.sim_time)?.orbiter()?;
             let pvl = obj.pvl(res.sim_time)?;
             let pv = obj.pv(res.sim_time, &res.scenario.system)?;
             let prop = obj.propagator_at(res.sim_time)?;
@@ -260,7 +260,7 @@ impl GameState {
 
     pub fn primary_orbit(&self) -> Option<SparseOrbit> {
         let lup = self.scenario.lookup(self.primary(), self.sim_time)?;
-        if let OrbiterOrBody::Orbiter(o) = lup.inner {
+        if let ScenarioObject::Orbiter(o) = lup.inner {
             Some(o.propagator_at(self.sim_time)?.orbit)
         } else {
             None
@@ -304,50 +304,29 @@ impl GameState {
         });
     }
 
-    pub fn primary_object_mut(&mut self) -> Option<&mut Orbiter> {
-        let pri = self.primary();
-        self.scenario.objects.iter_mut().find(|o| o.id() == pri)
-    }
-
     pub fn primary_object(&self) -> Option<&Orbiter> {
-        let pri = self.primary();
-        self.scenario.objects.iter().find(|o| o.id() == pri)
+        let lup = self.scenario.lookup(self.primary(), self.sim_time)?;
+        lup.orbiter()
     }
 
     pub fn do_maneuver(&mut self, dv: Vec2) -> Option<()> {
         if self.paused {
             return Some(());
         }
-        let s = self.sim_time;
-        let d = self.physics_duration;
-        let p = self.scenario.system.clone();
-        let obj = self.primary_object_mut()?;
-        match obj.dv(s, dv) {
+        match self.scenario.dv(self.primary(), self.sim_time, dv) {
             Some(()) => (),
             None => {
                 println!("Failed to maneuver");
             }
         };
-        let res = obj.propagate_to(s, d, &p);
-        match res {
-            Ok(_) => Some(()),
-            Err(p) => {
-                dbg!(p);
-                None
-            }
-        }
+        Some(())
     }
 
     pub fn maneuver_plans(&self) -> Vec<ManeuverPlan> {
         let res = (|| -> Option<(SparseOrbit, SparseOrbit)> {
             let (id, dst) = (self.scenario.system.id, self.target_orbit()?);
-            let prop = self
-                .scenario
-                .objects
-                .iter()
-                .find(|o| o.id() == self.primary())?
-                .propagator_at(self.sim_time)?;
-
+            let lup = self.scenario.lookup(self.primary(), self.sim_time)?;
+            let prop = lup.orbiter()?.propagator_at(self.sim_time)?;
             (prop.parent == id).then_some((prop.orbit, dst))
         })();
 
@@ -405,7 +384,7 @@ impl Default for GameState {
             hide_debug: true,
             duty_cycle_high: false,
             controllers: vec![],
-            follow: Some(ObjectId(12)),
+            follow: None,
             // topo_map: test_topo(),
 
             // buttons
@@ -443,11 +422,11 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     if let Some(a) = state.camera.selection_region() {
         state.highlighted_list = state
             .scenario
-            .objects
-            .iter()
-            .filter_map(|o| {
-                let pv = state.scenario.lookup(o.id(), state.sim_time)?.pv();
-                a.contains(pv.pos).then(|| o.id())
+            .ids()
+            .into_iter()
+            .filter_map(|id| {
+                let pv = state.scenario.lookup(id, state.sim_time)?.pv();
+                a.contains(pv.pos).then(|| id)
             })
             .collect();
     } else {
@@ -546,10 +525,6 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         &mut evt,
         &format!("Scale: {:0.3}", state.camera.actual_scale),
     );
-    send_log(
-        &mut evt,
-        &format!("{} objects", state.scenario.objects.len()),
-    );
 
     if let Some(pv) = state.cursor_pv() {
         send_log(&mut evt, &format!("{:0.3}", pv));
@@ -576,12 +551,12 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         }
     }
 
-    let prop_count: usize = state.scenario.objects.iter().map(|o| o.props().len()).sum();
+    let prop_count: usize = state.scenario.prop_count();
     send_log(&mut evt, &format!("Propagators: {}", prop_count));
 
     if let Some(lup) = state.scenario.lookup(state.primary(), state.sim_time) {
         match lup.inner {
-            OrbiterOrBody::Orbiter(o) => {
+            ScenarioObject::Orbiter(o) => {
                 if let Some(prop) = o.propagator_at(state.sim_time) {
                     send_log(&mut evt, &format!("- [{}]", prop));
                     send_log(&mut evt, &format!("{:#?}", prop.orbit));
@@ -596,7 +571,7 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
                     );
                 }
             }
-            OrbiterOrBody::Body(b) => {
+            ScenarioObject::Body(b) => {
                 send_log(&mut evt, &format!("BD: {:?}", b));
             }
         }
@@ -780,9 +755,13 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
     } else if starts_with("save") {
         state.backup = Some((state.scenario.clone(), state.ids, state.sim_time));
     } else if starts_with("follow") {
-        state.follow = cmd.get(1).map(|s| s.parse::<i64>().ok()).flatten().map(|n| ObjectId(n));
+        state.follow = cmd
+            .get(1)
+            .map(|s| s.parse::<i64>().ok())
+            .flatten()
+            .map(|n| ObjectId(n));
     } else if starts_with("track") {
-      for n in cmd.iter().skip(1).filter_map(|s| s.parse::<i64>().ok()) {
+        for n in cmd.iter().skip(1).filter_map(|s| s.parse::<i64>().ok()) {
             let id = ObjectId(n);
             state.toggle_track(id);
         }

@@ -1,8 +1,8 @@
-use crate::scenario::*;
 use crate::nanotime::Nanotime;
 use crate::orbits::SparseOrbit;
 use crate::planning::*;
 use crate::pv::PV;
+use crate::scenario::*;
 
 use glam::f32::Vec2;
 
@@ -76,6 +76,10 @@ impl Orbiter {
             Some(EventType::Collide(_)) => true,
             _ => false,
         })
+    }
+
+    pub fn will_change(&self) -> bool {
+        self.props.first().map(|p| p.event.is_some()).unwrap_or(false)
     }
 
     pub fn has_error(&self) -> bool {
