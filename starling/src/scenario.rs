@@ -214,6 +214,10 @@ impl Scenario {
         self.objects.iter().map(|o| o.props().len()).sum()
     }
 
+    pub fn orbiter_count(&self) -> usize {
+        self.objects.len()
+    }
+
     pub fn lookup(&self, id: ObjectId, stamp: Nanotime) -> Option<ObjectLookup<&Orbiter, Body>> {
         let pl = self.system.lookup(id, stamp);
         if let Some((body, pv, parent, _)) = pl {

@@ -1495,12 +1495,12 @@ mod tests {
 
         let res = scenario.simulate(Nanotime::secs(1000), Nanotime::secs(10));
 
-        assert_eq!(scenario.objects.len(), 177);
+        assert_eq!(scenario.orbiter_count(), 177);
         assert_eq!(res.len(), 130);
 
         let res = scenario.simulate(Nanotime::secs(40000), Nanotime::secs(10));
 
-        assert_eq!(scenario.objects.len(), 143);
+        assert_eq!(scenario.orbiter_count(), 143);
         assert_eq!(res.len(), 34);
     }
 }
