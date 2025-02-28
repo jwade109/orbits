@@ -1,6 +1,7 @@
+use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign, Div, Mul, Rem, Sub, SubAssign};
 
-#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Nanotime(i64);
 
 impl Nanotime {

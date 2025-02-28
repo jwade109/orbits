@@ -482,10 +482,6 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
         );
     }
 
-    if let Some(aabb) = state.tracked_aabb() {
-        draw_aabb(&mut gizmos, aabb.padded(50.0), alpha(GRAY, 0.03));
-    }
-
     if let Some(o) = state.target_orbit() {
         draw_orbit(&mut gizmos, &o, Vec2::ZERO, alpha(RED, 0.2));
         if let Some(test) = state.camera.mouse_pos() {

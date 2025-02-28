@@ -5,8 +5,9 @@ use crate::orbits::{OrbitClass, SparseOrbit};
 use crate::pv::PV;
 use crate::scenario::*;
 use glam::f32::Vec2;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub enum EventType {
     Collide(ObjectId),
     Escape(ObjectId),
@@ -127,7 +128,7 @@ enum HorizonState {
     Terminating(EventType),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Propagator {
     pub parent: ObjectId,
     pub orbit: SparseOrbit,

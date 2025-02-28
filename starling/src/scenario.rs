@@ -3,6 +3,7 @@ use crate::orbiter::*;
 use crate::orbits::{Body, SparseOrbit};
 use crate::planning::EventType;
 use crate::pv::PV;
+use serde::{Serialize, Deserialize};
 use glam::f32::Vec2;
 
 #[derive(Debug, Clone, Copy)]
@@ -54,13 +55,13 @@ impl<O: Copy, B: Copy> ObjectLookup<O, B> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Scenario {
     objects: Vec<Orbiter>,
     pub system: PlanetarySystem,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct PlanetarySystem {
     pub id: ObjectId,
     pub name: String,

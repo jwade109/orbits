@@ -3,10 +3,11 @@ use crate::orbits::SparseOrbit;
 use crate::planning::*;
 use crate::pv::PV;
 use crate::scenario::*;
+use serde::{Deserialize, Serialize};
 
 use glam::f32::Vec2;
 
-#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
 pub struct ObjectId(pub i64);
 
 impl std::fmt::Display for ObjectId {
@@ -21,7 +22,7 @@ impl std::fmt::Debug for ObjectId {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Orbiter {
     id: ObjectId,
     props: Vec<Propagator>,

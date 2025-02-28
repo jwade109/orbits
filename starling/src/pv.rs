@@ -1,6 +1,7 @@
 use glam::f32::Vec2;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, Default, PartialEq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Deserialize, Serialize)]
 pub struct PV {
     pub pos: Vec2,
     pub vel: Vec2,
