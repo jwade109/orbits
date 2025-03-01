@@ -329,7 +329,6 @@ impl GameState {
         );
         let orbit = SparseOrbit::from_pv(pv + perturb, body, self.sim_time)?;
         let id = self.ids.next();
-        self.toggle_track(id);
         self.scenario
             .add_object(id, parent_id, orbit, self.sim_time);
         Some(())

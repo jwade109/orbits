@@ -186,11 +186,11 @@ pub fn draw_object(
         draw_circle(gizmos, pv.pos, size + 10.0 * scale, RED);
         draw_circle(gizmos, pv.pos, size + 16.0 * scale, RED);
     }
-    if duty_cycle && obj.has_error() {
+    else if duty_cycle && obj.has_error() {
         draw_circle(gizmos, pv.pos, size + 10.0 * scale, YELLOW);
         draw_circle(gizmos, pv.pos, size + 16.0 * scale, YELLOW);
     }
-    if obj.will_change() {
+    else if duty_cycle && obj.will_change() {
         draw_circle(gizmos, pv.pos, size + 7.0 * scale, TEAL);
     }
 
