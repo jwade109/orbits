@@ -254,6 +254,21 @@ impl GameState {
         AABB::from_list(&pos).map(|aabb| aabb.padded(60.0))
     }
 
+    pub fn planned_maneuvers(&self, after: Nanotime) -> Vec<(ObjectId, Nanotime, Vec2)> {
+        let mut dvs = vec![];
+        for ctrl in &self.controllers {
+            if let Some(plan) = ctrl.plan() {
+                for node in &plan.nodes {
+                    if node.stamp > after {
+                        dvs.push((ctrl.target, node.stamp, node.impulse.vel));
+                    }
+                }
+            }
+        }
+        dvs.sort_by_key(|(_, t, _)| t.inner());
+        dvs
+    }
+
     pub fn cursor_pv(&self) -> Option<PV> {
         let p1 = self.control_points.get(0);
         let p2 = self
@@ -344,19 +359,21 @@ impl GameState {
         Some(())
     }
 
-    pub fn maneuver_plans(&self) -> Vec<ManeuverPlan> {
-        let res = (|| -> Option<(SparseOrbit, SparseOrbit)> {
-            let (id, dst) = (self.scenario.system.id, self.target_orbit()?);
-            let lup = self.scenario.lookup(self.primary(), self.sim_time)?;
-            let prop = lup.orbiter()?.propagator_at(self.sim_time)?;
-            (prop.parent == id).then_some((prop.orbit, dst))
-        })();
+    pub fn maneuver_plans(&self) -> Vec<(ObjectId, ManeuverPlan)> {
+        self.track_list
+            .iter()
+            .filter_map(|id| {
+                let (parent_id, dst) = (self.scenario.system.id, self.target_orbit()?);
 
-        if let Some((src, dst)) = res {
-            generate_maneuver_plans(&src, &dst, self.sim_time)
-        } else {
-            vec![]
-        }
+                let orbiter = self.scenario.lookup(*id, self.sim_time)?.orbiter()?;
+                let prop = orbiter.propagator_at(self.sim_time)?;
+                let src = (prop.parent == parent_id).then_some(prop.orbit)?;
+
+                let plans = generate_maneuver_plans(&src, &dst, self.sim_time);
+                let ret = plans.first()?;
+                Some((*id, ret.clone()))
+            })
+            .collect::<Vec<_>>()
     }
 
     pub fn enqueue_plan(&mut self, id: ObjectId, plan: &ManeuverPlan) {
@@ -419,6 +436,7 @@ impl Default for GameState {
 }
 
 fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
+    let old_sim_time = state.sim_time;
     state.actual_time += Nanotime::nanos(time.delta().as_nanos() as i64);
     if !state.paused {
         let sp = 10.0f32.powi(state.sim_speed);
@@ -429,6 +447,14 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
 
     let s = state.sim_time;
     let d = state.physics_duration;
+
+    let man = state.planned_maneuvers(old_sim_time);
+    if let Some((id, t, dv)) = man.first() {
+        if s > *t {
+            state.scenario.simulate(*t, d);
+            state.scenario.dv(*id, *t, *dv);
+        }
+    }
 
     for (id, ri) in state.scenario.simulate(s, d) {
         if let Some(ri) = ri {
@@ -552,23 +578,14 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         send_log(&mut evt, &format!("{:0.3}", pv));
     }
 
-    for plan in state.maneuver_plans() {
-        send_log(&mut evt, &format!("{}", plan));
+    for (id, plan) in state.maneuver_plans() {
+        send_log(&mut evt, &format!("{} {}", id, plan));
     }
 
     send_log(&mut evt, &format!("Ctlrs: {}", state.controllers.len()));
 
     {
-        let mut dvs = vec![];
-        for ctrl in &state.controllers {
-            if let Some(plan) = ctrl.plan() {
-                for node in &plan.nodes {
-                    dvs.push((ctrl.target, node.stamp, node.impulse.vel));
-                }
-            }
-        }
-        dvs.sort_by_key(|(_, t, _)| t.inner());
-        for (id, t, dv) in dvs {
+        for (id, t, dv) in state.planned_maneuvers(state.sim_time) {
             send_log(&mut evt, &format!("- {} {:?} {}", id, t, dv))
         }
     }
@@ -651,10 +668,8 @@ fn keyboard_input(
                 state.spawn_new();
             }
             KeyCode::KeyM => {
-                let plan = state.maneuver_plans();
-                if let Some(plan) = plan.iter().min_by_key(|e| (e.dv() * 1000.0) as i64) {
-                    let id = state.primary();
-                    state.enqueue_plan(id, plan);
+                for (id, plan) in state.maneuver_plans() {
+                    state.enqueue_plan(id, &plan);
                 }
             }
             _ => (),

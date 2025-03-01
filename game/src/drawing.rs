@@ -579,7 +579,9 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
     }
 
     for ctrl in &state.controllers {
-        draw_controller(&mut gizmos, ctrl, state.camera.actual_scale);
+        if state.track_list.contains(&ctrl.target) {
+            draw_controller(&mut gizmos, ctrl, state.camera.actual_scale);
+        }
     }
 
     if state.show_animations.state() && state.track_list.len() < 6 {
@@ -609,7 +611,9 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
 
     draw_highlighted_objects(&mut gizmos, &state);
 
-    for plan in state.maneuver_plans() {
-        draw_maneuver_plan(&mut gizmos, &plan, state.camera.actual_scale);
+    for (id, plan) in state.maneuver_plans() {
+        if state.track_list.contains(&id) {
+            draw_maneuver_plan(&mut gizmos, &plan, state.camera.actual_scale);
+        }
     }
 }
