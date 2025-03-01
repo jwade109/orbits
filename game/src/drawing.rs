@@ -180,7 +180,7 @@ pub fn draw_object(
 
     let size = (4.0 * scale).min(10.0);
     if tracked {
-        draw_square(gizmos, pv.pos, (70.0 * scale).min(70.0), alpha(WHITE, 0.7));
+        draw_square(gizmos, pv.pos, (70.0 * scale).min(70.0), alpha(WHITE, 0.2));
     }
     if duty_cycle && obj.will_collide() {
         draw_circle(gizmos, pv.pos, size + 10.0 * scale, RED);
@@ -197,13 +197,15 @@ pub fn draw_object(
     if tracked {
         for (i, prop) in obj.props().iter().enumerate() {
             let color = if i == 0 {
-                alpha(WHITE, 0.2)
+                alpha(WHITE, 0.02)
             } else {
                 alpha(TEAL, (1.0 - i as f32 * 0.3).max(0.0))
             };
-            draw_propagator(
-                gizmos, planets, &prop, stamp, scale, true, color, duty_cycle,
-            );
+            if show_orbits {
+                draw_propagator(
+                    gizmos, planets, &prop, stamp, scale, true, color, duty_cycle,
+                );
+            }
         }
     } else {
         if show_orbits {
@@ -416,9 +418,8 @@ pub fn draw_event_animation(
 
 pub fn draw_maneuver_plan(gizmos: &mut Gizmos, plan: &ManeuverPlan, scale: f32) {
     for node in &plan.nodes {
-        draw_circle(gizmos, node.impulse.pos, 10.0 * scale, YELLOW);
-        draw_velocity_vec(gizmos, node.impulse, 100.0 * scale, PURPLE);
-        draw_orbit(gizmos, &node.orbit, Vec2::ZERO, alpha(YELLOW, 0.2));
+        draw_cross(gizmos, node.impulse.pos, 2.0 * scale, YELLOW);
+        draw_orbit(gizmos, &node.orbit, Vec2::ZERO, alpha(YELLOW, 0.01));
     }
 }
 
@@ -486,15 +487,6 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
 
     if let Some(o) = state.target_orbit() {
         draw_orbit(&mut gizmos, &o, Vec2::ZERO, alpha(RED, 0.2));
-        if let Some(test) = state.camera.mouse_pos() {
-            for (p, d) in [o.nearest_along_track(test) /*, o.nearest(test)*/] {
-                let color = alpha(if d >= 0.0 { RED } else { TEAL }, 0.2);
-                let size = 7.0 * state.camera.actual_scale.min(1.0);
-                draw_circle(&mut gizmos, p.pos, size, color);
-                draw_velocity_vec(&mut gizmos, p, 40.0 * state.camera.actual_scale, color);
-                gizmos.line_2d(Vec2::ZERO, p.pos, color);
-            }
-        }
     }
 
     for button in &state.buttons() {
@@ -610,10 +602,4 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
     );
 
     draw_highlighted_objects(&mut gizmos, &state);
-
-    for (id, plan) in state.maneuver_plans() {
-        if state.track_list.contains(&id) {
-            draw_maneuver_plan(&mut gizmos, &plan, state.camera.actual_scale);
-        }
-    }
 }

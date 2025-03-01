@@ -24,10 +24,10 @@ impl Plugin for PlanetaryPlugin {
                 process_commands,
                 keyboard_input,
                 mouse_button_input,
-                propagate_system,
-                manage_orbiter_labels,
+                // manage_orbiter_labels,
                 update_text,
                 draw,
+                propagate_system,
             )
                 .chain(),
         );
@@ -377,11 +377,7 @@ impl GameState {
     }
 
     pub fn enqueue_plan(&mut self, id: ObjectId, plan: &ManeuverPlan) {
-        if self.controllers.iter().find(|c| c.target == id).is_some() {
-            println!("Controller already exists for object {}", id);
-            return;
-        }
-
+        self.controllers.retain(|c| c.target != id);
         let c = Controller::with_plan(id, plan.clone());
         self.controllers.push(c);
     }
@@ -448,12 +444,16 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     let s = state.sim_time;
     let d = state.physics_duration;
 
-    let man = state.planned_maneuvers(old_sim_time);
-    if let Some((id, t, dv)) = man.first() {
+    let mut man = state.planned_maneuvers(old_sim_time);
+    while let Some((id, t, dv)) = man.first() {
         if s > *t {
+            let perturb = randvec(0.1, 0.6);
             state.scenario.simulate(*t, d);
-            state.scenario.dv(*id, *t, *dv);
+            state.scenario.dv(*id, *t, dv + perturb);
+        } else {
+            break;
         }
+        man.remove(0);
     }
 
     for (id, ri) in state.scenario.simulate(s, d) {
@@ -578,10 +578,6 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         send_log(&mut evt, &format!("{:0.3}", pv));
     }
 
-    for (id, plan) in state.maneuver_plans() {
-        send_log(&mut evt, &format!("{} {}", id, plan));
-    }
-
     send_log(&mut evt, &format!("Ctlrs: {}", state.controllers.len()));
 
     {
@@ -664,9 +660,6 @@ fn keyboard_input(
             KeyCode::KeyH => {
                 state.hide_debug = !state.hide_debug;
             }
-            KeyCode::KeyK => {
-                state.spawn_new();
-            }
             KeyCode::KeyM => {
                 for (id, plan) in state.maneuver_plans() {
                     state.enqueue_plan(id, &plan);
@@ -704,6 +697,10 @@ fn keyboard_input(
 
     if man != Vec2::ZERO {
         state.do_maneuver(man);
+    }
+
+    if keys.pressed(KeyCode::KeyK) {
+        state.spawn_new();
     }
 
     if keys.just_pressed(KeyCode::Space) {

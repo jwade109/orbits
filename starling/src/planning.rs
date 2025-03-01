@@ -222,15 +222,18 @@ impl Propagator {
         self.horizon.end()
     }
 
-    pub fn finish_or_compute_until(&mut self, stamp: Nanotime,
-        bodies: &[(ObjectId, &SparseOrbit, f32)],) -> Result<(), PredictError<Nanotime>> {
+    pub fn finish_or_compute_until(
+        &mut self,
+        stamp: Nanotime,
+        bodies: &[(ObjectId, &SparseOrbit, f32)],
+    ) -> Result<(), PredictError<Nanotime>> {
         while !self.calculated_to(stamp) {
             let e = self.next(bodies);
             if e.is_err() {
                 return e;
             }
         }
-        return Ok(())
+        return Ok(());
     }
 
     pub(crate) fn next_prop(
@@ -550,11 +553,6 @@ fn hohmann_transfer(
     }
 
     let mu = current.body.mu();
-
-    if current.retrograde != destination.retrograde {
-        return None;
-    }
-
     let r1 = current.periapsis_r();
     let r2 = destination.radius_at_angle(current.arg_periapsis + PI);
     let a_transfer = (r1 + r2) / 2.0;
@@ -656,8 +654,18 @@ pub fn generate_maneuver_plans(
     destination: &SparseOrbit,
     now: Nanotime,
 ) -> Vec<ManeuverPlan> {
-    let direct = direct_transfer(current, destination, now);
-    let hohmann = hohmann_transfer(current, destination, now);
+
+    let destination = if current.retrograde == destination.retrograde {
+        *destination
+    } else {
+        match destination.inverse() {
+            Some(d) => d,
+            None => return vec![],
+        }
+    };
+
+    let direct = direct_transfer(current, &destination, now);
+    let hohmann = hohmann_transfer(current, &destination, now);
     // let bielliptic = bielliptic_transfer(current, destination, now);
 
     [direct, hohmann]

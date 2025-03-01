@@ -355,6 +355,14 @@ impl SparseOrbit {
         Some(if dt.inner() < 0 { n - 1 } else { n })
     }
 
+    pub fn inverse(&self) -> Option<SparseOrbit> {
+        SparseOrbit::from_pv(
+            PV::new(self.initial.pos, -self.initial.vel),
+            self.body,
+            self.epoch,
+        )
+    }
+
     pub fn t_next_p(&self, current: Nanotime) -> Option<Nanotime> {
         let tp = self.time_at_periapsis?;
         if self.eccentricity >= 1.0 {
