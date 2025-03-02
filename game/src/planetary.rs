@@ -349,12 +349,14 @@ impl GameState {
         if self.paused {
             return Some(());
         }
-        match self.scenario.dv(self.primary(), self.sim_time, dv) {
-            Some(()) => (),
-            None => {
-                println!("Failed to maneuver");
-            }
-        };
+        for id in &self.track_list {
+            match self.scenario.dv(*id, self.sim_time, dv) {
+                Some(()) => (),
+                None => {
+                    println!("Failed to maneuver");
+                }
+            };
+        }
         Some(())
     }
 
