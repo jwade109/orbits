@@ -5,7 +5,6 @@ mod camera_controls;
 mod craft;
 mod debug;
 mod drawing;
-mod grid_sprites;
 mod planetary;
 mod sprites;
 

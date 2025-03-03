@@ -225,7 +225,7 @@ pub struct GameState {
     pub duty_cycle_high: bool,
     pub controllers: Vec<Controller>,
     pub follow: Option<ObjectId>,
-    // pub topo_map: TopoMap,
+    pub topo_map: TopoMap,
     pub show_orbits: ShowOrbitsState,
 
     // buttons!
@@ -416,6 +416,13 @@ impl Default for GameState {
             b
         };
 
+        let mut topo_map = TopoMap::new(250.0);
+        for x in -50..=50 {
+            for y in -50..=50 {
+                topo_map.add_bin(IVec2::new(x, y));
+            }
+        }
+
         GameState {
             sim_time: Nanotime::zero(),
             actual_time: Nanotime::zero(),
@@ -427,14 +434,14 @@ impl Default for GameState {
             track_list: Vec::new(),
             highlighted_list: Vec::new(),
             backup: Some((scenario, ids, Nanotime::zero())),
-            draw_levels: (-1000..=1000).step_by(50).collect(),
+            draw_levels: vec![150],
             camera: CameraState::default(),
             control_points: Vec::new(),
             hide_debug: true,
             duty_cycle_high: false,
             controllers: vec![],
             follow: None,
-            // topo_map: test_topo(),
+            topo_map,
             show_orbits: ShowOrbitsState::Focus,
 
             // buttons
@@ -515,16 +522,34 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
         }
     });
 
-    // let scalar = move |p: Vec2| -> f32 { (p.length() + s.to_secs()) % 1000.0 };
+    if state.show_potential_field.state() {
+        let orbits = state
+            .track_list
+            .iter()
+            .filter_map(|id| {
+                let lup = state.scenario.lookup(*id, state.sim_time)?.orbiter()?;
+                Some(lup.propagator_at(state.sim_time)?.orbit)
+            })
+            .collect::<Vec<_>>();
 
-    // let levels = (100..=900)
-    //     .step_by(100)
-    //     .map(|i| i as f32)
-    //     .collect::<Vec<_>>();
+        let scalar_field = |p: Vec2| -> f32 {
+            orbits
+                .iter()
+                .map(|o| (o.sdf(p) * 1000.0) as i32)
+                .min()
+                .unwrap_or(0) as f32
+                / 1000.0
+        };
 
-    // if s - state.topo_map.last_updated > Nanotime::secs(1) {
-    //     state.topo_map.update(s, &scalar, &levels);
-    // }
+        if orbits.is_empty() {
+            state.topo_map.clear();
+        }
+
+        let a = state.actual_time;
+        if s - state.topo_map.last_updated > Nanotime::millis(1) {
+            state.topo_map.update(a, &scalar_field, &[100.0, 150.0]);
+        }
+    }
 }
 
 fn sim_speed_str(speed: i32) -> String {
@@ -538,6 +563,12 @@ fn sim_speed_str(speed: i32) -> String {
 }
 
 fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
+    send_log(&mut evt, "Show/hide info - [H]");
+
+    if state.hide_debug {
+        return;
+    }
+
     let logs = [
         "",
         "Look around - [W][A][S][D]",
@@ -546,7 +577,9 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         "  Decrease thrust - hold [LCTRL]",
         "Zoom in/out - +/-, [Scroll]",
         "Select spacecraft - Left click and drag",
-        "Toggle debug info - [H]",
+        "Set target orbit - Right click and drag",
+        "Send spacecraft to orbit - [ENTER]",
+        "Toggle orbit draw modes - [TAB]",
         "Increase sim speed - [.]",
         "Decrease sim speed - [,]",
         "Pause - [SPACE]",
@@ -570,10 +603,6 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
             sim_speed_str(state.sim_speed)
         ),
     );
-
-    if state.hide_debug {
-        return;
-    }
 
     if state.track_list.len() > 15 {
         send_log(&mut evt, &format!("Tracks: lots of em"));

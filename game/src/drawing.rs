@@ -264,7 +264,7 @@ pub fn draw_scalar_field_cell(
     step: f32,
     levels: &[i32],
 ) {
-    draw_square(gizmos, center, step as f32, alpha(WHITE, 0.01));
+    // draw_square(gizmos, center, step as f32, alpha(WHITE, 0.001));
 
     let bl = center + Vec2::new(-step / 2.0, -step / 2.0);
     let br = center + Vec2::new(step / 2.0, -step / 2.0);
@@ -294,7 +294,7 @@ pub fn draw_scalar_field_cell(
             }
         }
 
-        gizmos.linestrip_2d(pts, GREEN);
+        gizmos.linestrip_2d(pts, alpha(RED, 0.03));
     }
 }
 
@@ -542,38 +542,11 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
         }
     }
 
-    // if let (Some(to), Some(po)) = (state.target_orbit(), state.primary_orbit()) {
-    //     let angles = to.nearest_approach(po).unwrap_or(vec![]);
-    //     for a in angles {
-    //         let p1 = to.pv_at_angle(a).pos;
-    //         let p2 = po.pv_at_angle(a).pos;
-    //         gizmos.line_2d(p1, p2, RED);
-    //         draw_circle(&mut gizmos, p1, 20.0, RED);
-    //         draw_circle(&mut gizmos, p2, 20.0, RED);
-    //     }
-    // }
-
-    // {
-    //     for (id, bin) in &state.topo_map.bins {
-    //         draw_aabb(
-    //             &mut gizmos,
-    //             id_to_aabb(*id, state.topo_map.stepsize),
-    //             alpha(GRAY, 0.1),
-    //         );
-    //         for c in &bin.contours {
-    //             gizmos.linestrip_2d(c.clone(), GREEN);
-    //         }
-    //     }
-    // }
-
     if state.show_potential_field.state() {
-        if let Some(to) = state.target_orbit() {
-            let scalar_field = |p: Vec2| -> f32 {
-                let (_, d) = to.nearest_along_track(p);
-                d
-            };
-
-            draw_scalar_field(&mut gizmos, &scalar_field, &state.draw_levels);
+        for (_, bin) in &state.topo_map.bins {
+            for c in &bin.contours {
+                gizmos.linestrip_2d(c.clone(), GREEN);
+            }
         }
     }
 

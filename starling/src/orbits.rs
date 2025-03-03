@@ -1,3 +1,4 @@
+use crate::aabb::{AABB, OBB};
 use crate::math::{linspace, rotate, tspace, PI};
 use crate::nanotime::Nanotime;
 use crate::planning::search_condition;
@@ -405,6 +406,31 @@ impl SparseOrbit {
         let ub = Vec2::new(self.semi_major_axis, -b);
 
         Some((u.rotate(ua), u.rotate(ub)))
+    }
+
+    pub fn center(&self) -> Vec2 {
+        (self.apoapsis() + self.periapsis()) / 2.0
+    }
+
+    pub fn sdf(&self, pos: Vec2) -> f32 {
+        let center = self.center();
+        let mut d = rotate(pos - center, -self.arg_periapsis);
+
+        d.y *= self.semi_major_axis / self.semi_minor_axis();
+
+        d.length() - self.semi_major_axis
+    }
+
+    pub fn obb(&self) -> Option<OBB> {
+        (self.eccentricity < 1.0).then(|| {
+            OBB::new(
+                AABB::new(
+                    self.center(),
+                    Vec2::new(self.semi_major_axis * 2.0, self.semi_minor_axis() * 2.0),
+                ),
+                self.arg_periapsis,
+            )
+        })
     }
 
     pub fn nearest_along_track(&self, pos: Vec2) -> (PV, f32) {

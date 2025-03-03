@@ -1,4 +1,5 @@
 use crate::aabb::AABB;
+use crate::math::randvec;
 use crate::nanotime::Nanotime;
 use glam::f32::Vec2;
 use glam::i32::IVec2;
@@ -11,21 +12,50 @@ pub struct TopoMap {
     pub last_updated: Nanotime,
     pub stepsize: f32,
     pub bins: HashMap<BucketId, TopoBin>,
+    check_value: Option<(Vec2, f32)>,
 }
 
 impl TopoMap {
-    fn new(stepsize: f32) -> Self {
+    pub fn new(stepsize: f32) -> Self {
         TopoMap {
             last_updated: Nanotime::zero(),
             stepsize,
             bins: HashMap::new(),
+            check_value: None,
+        }
+    }
+
+    pub fn add_bin(&mut self, c: IVec2) {
+        if !self.bins.contains_key(&c) {
+            self.bins.insert(c, TopoBin::new());
+        }
+    }
+
+    pub fn clear(&mut self) {
+        for (_, bin) in &mut self.bins {
+            bin.clear();
         }
     }
 
     pub fn update(&mut self, stamp: Nanotime, scalar: &impl Fn(Vec2) -> f32, levels: &[f32]) {
-        self.last_updated = stamp;
+        if let Some((p, f)) = self.check_value {
+            let check = scalar(p);
+            if check == f {
+                return;
+            }
+        } else {
+            let p = randvec(0.0, 1000.0);
+            let f = scalar(p);
+            self.check_value = Some((p, f));
+        }
+        let mut n = 60;
         for (id, bin) in &mut self.bins {
-            bin.update(*id, scalar, levels, self.stepsize)
+            if bin.update(stamp, *id, scalar, levels, self.stepsize) {
+                n -= 1;
+            }
+            if n == 0 {
+                break;
+            }
         }
     }
 }
@@ -33,6 +63,8 @@ impl TopoMap {
 #[derive(Debug, Clone)]
 pub struct TopoBin {
     pub contours: Vec<Vec<Vec2>>,
+    last_computed: Nanotime,
+    check_value: f32,
 }
 
 fn bucket_id_to_center(id: BucketId, stepsize: f32) -> Vec2 {
@@ -48,16 +80,31 @@ impl TopoBin {
     fn new() -> Self {
         TopoBin {
             contours: Vec::new(),
+            last_computed: Nanotime::zero(),
+            check_value: f32::NAN,
         }
+    }
+
+    fn clear(&mut self) {
+        self.contours.clear();
+        self.last_computed = Nanotime::zero();
+        self.check_value = f32::NAN;
     }
 
     fn update(
         &mut self,
+        stamp: Nanotime,
         id: BucketId,
         scalar: &impl Fn(Vec2) -> f32,
         levels: &[f32],
         stepsize: f32,
-    ) {
+    ) -> bool {
+        if stamp - self.last_computed < Nanotime::millis(100) {
+            return false;
+        }
+
+        self.last_computed = stamp;
+
         let center = bucket_id_to_center(id, stepsize);
         let bl = center + Vec2::new(-stepsize / 2.0, -stepsize / 2.0);
         let br = center + Vec2::new(stepsize / 2.0, -stepsize / 2.0);
@@ -66,10 +113,11 @@ impl TopoBin {
 
         let pot: Vec<(Vec2, f32)> = [bl, br, tr, tl].iter().map(|p| (*p, scalar(*p))).collect();
 
-        // if id == IVec2::new(2, 3) {
-        //     dbg!([bl, br, tr, tl]);
-        //     dbg!(&pot);
-        // }
+        if self.check_value == pot[0].1 {
+            return false;
+        }
+
+        self.check_value = pot[0].1;
 
         self.contours.clear();
 
@@ -92,6 +140,8 @@ impl TopoBin {
             }
             self.contours.push(pts);
         }
+
+        true
     }
 }
 
