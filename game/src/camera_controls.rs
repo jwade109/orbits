@@ -81,8 +81,8 @@ impl CameraState {
         ))
     }
 
-    pub fn on_scroll(&mut self, mut scroll: EventReader<MouseWheel>) {
-        for ev in scroll.read() {
+    pub fn on_scroll(&mut self, scroll: &[&MouseWheel]) {
+        for ev in scroll {
             if ev.y > 0.0 {
                 self.target_scale /= 1.3;
             } else {

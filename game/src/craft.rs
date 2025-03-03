@@ -370,7 +370,7 @@ fn update_keys(keys: Res<ButtonInput<KeyCode>>, mut state: ResMut<CraftState>, t
 
 fn handle_viewport_input(
     keys: Res<ButtonInput<KeyCode>>,
-    scroll: EventReader<bevy::input::mouse::MouseWheel>,
+    mut scroll: EventReader<bevy::input::mouse::MouseWheel>,
     mut state: ResMut<CraftState>,
     time: Res<Time>,
     buttons: Res<ButtonInput<MouseButton>>,
@@ -378,8 +378,9 @@ fn handle_viewport_input(
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
 ) {
     state.camera.on_keys(&keys, time.delta_secs());
+    let scroll_events = scroll.read().collect::<Vec<_>>();
     if !keys.pressed(KeyCode::ShiftLeft) {
-        state.camera.on_scroll(scroll);
+        state.camera.on_scroll(&scroll_events);
     }
     state.camera.on_mouse_click(&buttons);
     state.camera.on_mouse_move(windows);

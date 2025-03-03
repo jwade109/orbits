@@ -1,4 +1,4 @@
-use crate::math::{linspace, tspace, PI};
+use crate::math::{linspace, rotate, tspace, PI};
 use crate::nanotime::Nanotime;
 use crate::planning::search_condition;
 use crate::pv::PV;
@@ -78,6 +78,11 @@ impl Body {
     pub fn mu(&self) -> f32 {
         self.mass * GRAVITATIONAL_CONSTANT
     }
+}
+
+// https://en.wikipedia.org/wiki/Vis-viva_equation
+pub fn vis_viva_equation(mu: f32, r: f32, a: f32) -> f32 {
+    (mu * (2.0 / r - 1.0 / a)).sqrt()
 }
 
 const GRAVITATIONAL_CONSTANT: f32 = 12000.0;
@@ -171,8 +176,24 @@ impl SparseOrbit {
             body,
             initial: PV::new(p, v),
             epoch,
-            time_at_periapsis: None,
+            time_at_periapsis: Some(epoch),
         }
+    }
+
+    pub fn from_apses(
+        apo: f32,
+        peri: f32,
+        argp: f32,
+        body: Body,
+        epoch: Nanotime,
+        retrograde: bool,
+    ) -> Option<Self> {
+        let semi_major_axis = (apo + peri) / 2.0;
+        let p = rotate(Vec2::X * peri, argp);
+        let vmag = vis_viva_equation(body.mu(), peri, semi_major_axis);
+        let sign = if retrograde { -1.0 } else { 1.0 };
+        let v = sign * rotate(Vec2::Y * vmag, argp);
+        SparseOrbit::from_pv((p, v), body, epoch)
     }
 
     pub fn is_suborbital(&self) -> bool {

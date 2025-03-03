@@ -9,7 +9,7 @@ use starling::scenario::ScenarioObject;
 
 use crate::button::ButtonState;
 use crate::camera_controls::CameraState;
-use crate::planetary::GameState;
+use crate::planetary::{GameState, ShowOrbitsState};
 
 pub fn alpha(color: Srgba, a: f32) -> Srgba {
     Srgba { alpha: a, ..color }
@@ -172,27 +172,28 @@ pub fn draw_object(
     obj: &Orbiter,
     stamp: Nanotime,
     scale: f32,
-    show_orbits: bool,
+    show_orbits: ShowOrbitsState,
     tracked: bool,
     duty_cycle: bool,
 ) -> Option<()> {
     let pv = obj.pv(stamp, planets)?;
 
     let size = (4.0 * scale).min(10.0);
-    if tracked {
-        draw_square(gizmos, pv.pos, (70.0 * scale).min(70.0), alpha(WHITE, 0.2));
-    }
     if duty_cycle && obj.will_collide() {
         draw_circle(gizmos, pv.pos, size + 10.0 * scale, RED);
         draw_circle(gizmos, pv.pos, size + 16.0 * scale, RED);
-    }
-    else if duty_cycle && obj.has_error() {
+    } else if duty_cycle && obj.has_error() {
         draw_circle(gizmos, pv.pos, size + 10.0 * scale, YELLOW);
         draw_circle(gizmos, pv.pos, size + 16.0 * scale, YELLOW);
-    }
-    else if duty_cycle && obj.will_change() {
+    } else if duty_cycle && obj.will_change() {
         draw_circle(gizmos, pv.pos, size + 7.0 * scale, TEAL);
     }
+
+    let show_orbits = match show_orbits {
+        ShowOrbitsState::All => true,
+        ShowOrbitsState::Focus => tracked,
+        ShowOrbitsState::None => false,
+    };
 
     if tracked {
         for (i, prop) in obj.props().iter().enumerate() {
@@ -230,7 +231,7 @@ pub fn draw_orbital_system(
     sys: &Scenario,
     stamp: Nanotime,
     scale: f32,
-    show_orbits: bool,
+    show_orbits: ShowOrbitsState,
     track_list: &Vec<ObjectId>,
     duty_cycle: bool,
 ) {
@@ -417,9 +418,15 @@ pub fn draw_event_animation(
 }
 
 pub fn draw_maneuver_plan(gizmos: &mut Gizmos, plan: &ManeuverPlan, scale: f32) {
+    let color = match plan.kind {
+        ManeuverType::Direct => YELLOW,
+        ManeuverType::Hohmann => TEAL,
+        ManeuverType::Bielliptic => ORANGE,
+    };
+    draw_orbit(gizmos, &plan.initial, Vec2::ZERO, alpha(color, 0.3));
     for node in &plan.nodes {
-        draw_cross(gizmos, node.impulse.pos, 2.0 * scale, YELLOW);
-        draw_orbit(gizmos, &node.orbit, Vec2::ZERO, alpha(YELLOW, 0.01));
+        draw_cross(gizmos, node.impulse.pos, 2.0 * scale, color);
+        draw_orbit(gizmos, &node.orbit, Vec2::ZERO, alpha(color, 0.3));
     }
 }
 
@@ -596,7 +603,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
         &state.scenario,
         stamp,
         state.camera.actual_scale,
-        state.show_orbits.state(),
+        state.show_orbits,
         &state.track_list,
         state.duty_cycle_high,
     );

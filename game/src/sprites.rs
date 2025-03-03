@@ -22,12 +22,13 @@ impl Plugin for PlanetSpritePlugin {
         embedded_asset!(app, "src/", "../assets/Earth.png");
         embedded_asset!(app, "src/", "../assets/Luna.png");
         embedded_asset!(app, "src/", "../assets/Asteroid.png");
-        embedded_asset!(app, "src/", "../assets/spacecraft.png");
         embedded_asset!(app, "src/", "../assets/background.png");
         embedded_asset!(app, "src/", "../assets/shadow.png");
+        embedded_asset!(app, "src/", "../assets/spacecraft.png");
     }
 }
 
+const SELECTED_SPACECRAFT_Z_INDEX: f32 = 8.0;
 const SHADOW_Z_INDEX: f32 = 7.0;
 const SPACECRAFT_Z_INDEX: f32 = 6.0;
 const PLANET_Z_INDEX: f32 = 5.0;
@@ -47,7 +48,7 @@ struct PlanetTexture(ObjectId, String);
 
 #[derive(Component)]
 #[require(Transform)]
-struct SpacecraftTexture(ObjectId);
+struct SpacecraftTexture(ObjectId, f32);
 
 #[derive(Component)]
 #[require(Transform)]
@@ -92,7 +93,7 @@ fn make_new_sprites(
         let path = "embedded://game/../assets/spacecraft.png";
         let sprite = Sprite::from_image(asset_server.load(path));
         let tf = Transform::from_scale(Vec3::ZERO);
-        commands.spawn((tf, SpacecraftTexture(id), sprite));
+        commands.spawn((tf, SpacecraftTexture(id, 0.0), sprite));
     }
 }
 
@@ -136,16 +137,34 @@ fn update_shadow_sprites(
     }
 }
 
+const SPACECRAFT_DEFAULT_SCALE: f32 = 0.03;
+const SPACECRAFT_MAGNIFIED_SCALE: f32 = 0.06;
+const SPACECRAFT_DIMINISHED_SCALE: f32 = 0.01;
+
 fn update_spacecraft_sprites(
     mut commands: Commands,
-    mut query: Query<(Entity, &SpacecraftTexture, &mut Transform)>,
+    mut query: Query<(Entity, &mut SpacecraftTexture, &mut Transform)>,
     state: Res<GameState>,
 ) {
-    for (e, SpacecraftTexture(id), mut transform) in query.iter_mut() {
-        let lup = state.scenario.lookup(*id, state.sim_time);
+    for (e, mut x, mut transform) in query.iter_mut() {
+        let SpacecraftTexture(id, scale) = *x;
+        let lup = state.scenario.lookup(id, state.sim_time);
         if let Some(lup) = lup {
-            transform.translation = lup.pv().pos.extend(SPACECRAFT_Z_INDEX);
-            transform.scale = Vec3::splat(0.03 * state.camera.actual_scale);
+            let z_index = if state.track_list.contains(&id) {
+                SELECTED_SPACECRAFT_Z_INDEX
+            } else {
+                SPACECRAFT_Z_INDEX
+            };
+            transform.translation = lup.pv().pos.extend(z_index);
+            let target_scale = if state.track_list.is_empty() {
+                SPACECRAFT_DEFAULT_SCALE
+            } else if state.track_list.contains(&id) {
+                SPACECRAFT_MAGNIFIED_SCALE
+            } else {
+                SPACECRAFT_DIMINISHED_SCALE
+            };
+            transform.scale = Vec3::splat(scale * state.camera.actual_scale);
+            x.1 += (target_scale - scale) * 0.1;
         } else {
             commands.entity(e).despawn();
         }

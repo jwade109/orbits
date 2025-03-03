@@ -188,6 +188,24 @@ fn draw(gizmos: Gizmos, res: Res<GameState>) {
 #[derive(Component)]
 struct FollowObject(ObjectId);
 
+#[derive(Debug, Clone, Copy)]
+pub enum ShowOrbitsState {
+    None,
+    Focus,
+    All,
+}
+
+impl ShowOrbitsState {
+    fn next(&mut self) {
+        let n = match self {
+            ShowOrbitsState::None => ShowOrbitsState::Focus,
+            ShowOrbitsState::Focus => ShowOrbitsState::All,
+            ShowOrbitsState::All => ShowOrbitsState::None,
+        };
+        *self = n;
+    }
+}
+
 #[derive(Resource)]
 pub struct GameState {
     pub sim_time: Nanotime,
@@ -208,29 +226,20 @@ pub struct GameState {
     pub controllers: Vec<Controller>,
     pub follow: Option<ObjectId>,
     // pub topo_map: TopoMap,
+    pub show_orbits: ShowOrbitsState,
 
     // buttons!
-    pub show_orbits: Button,
     pub show_potential_field: Button,
     pub show_animations: Button,
-    pub spawn_new_craft: Button,
 }
 
 impl GameState {
     pub fn buttons(&self) -> Vec<&Button> {
-        vec![
-            &self.show_orbits,
-            &self.show_potential_field,
-            &self.show_animations,
-            &self.spawn_new_craft,
-        ]
+        vec![&self.show_potential_field, &self.show_animations]
     }
 
     pub fn update_buttons(&mut self, pos: Vec2, clicked: bool) -> bool {
-        self.show_orbits.update(pos, clicked)
-            | self.show_potential_field.update(pos, clicked)
-            | self.show_animations.update(pos, clicked)
-            | self.spawn_new_craft.update(pos, clicked)
+        self.show_potential_field.update(pos, clicked) | self.show_animations.update(pos, clicked)
     }
 
     pub fn primary(&self) -> ObjectId {
@@ -357,6 +366,7 @@ impl GameState {
                 }
             };
         }
+        self.scenario.simulate(self.sim_time, self.physics_duration);
         Some(())
     }
 
@@ -370,7 +380,10 @@ impl GameState {
                 let prop = orbiter.propagator_at(self.sim_time)?;
                 let src = (prop.parent == parent_id).then_some(prop.orbit)?;
 
-                let plans = generate_maneuver_plans(&src, &dst, self.sim_time);
+                let mut plans = generate_maneuver_plans(&src, &dst, self.sim_time);
+
+                plans.sort_by_key(|m| (m.dv() * 1000.0) as i32);
+
                 let ret = plans.first()?;
                 Some((*id, ret.clone()))
             })
@@ -422,12 +435,11 @@ impl Default for GameState {
             controllers: vec![],
             follow: None,
             // topo_map: test_topo(),
+            show_orbits: ShowOrbitsState::Focus,
 
             // buttons
-            show_orbits: next_button("Show Orbits"),
             show_potential_field: next_button("Show Potential"),
             show_animations: next_button("Show Animations"),
-            spawn_new_craft: next_button("Spawn New Craft"),
         }
     }
 }
@@ -448,7 +460,7 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     let mut man = state.planned_maneuvers(old_sim_time);
     while let Some((id, t, dv)) = man.first() {
         if s > *t {
-            let perturb = randvec(0.1, 0.6);
+            let perturb = randvec(0.1, 0.3);
             state.scenario.simulate(*t, d);
             state.scenario.dv(*id, *t, dv + perturb);
         } else {
@@ -493,7 +505,11 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
             return false;
         }
         if let Some(end) = c.plan().map(|p| p.end()).flatten() {
-            end > s
+            let retain = end > s;
+            if !retain {
+                println!("Maneuver completed by vehicle {}", c.target);
+            }
+            retain
         } else {
             true
         }
@@ -509,11 +525,6 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     // if s - state.topo_map.last_updated > Nanotime::secs(1) {
     //     state.topo_map.update(s, &scalar, &levels);
     // }
-
-    if state.spawn_new_craft.state() {
-        state.spawn_new();
-        state.spawn_new_craft.set(false);
-    }
 }
 
 fn sim_speed_str(speed: i32) -> String {
@@ -618,7 +629,7 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
 // because I am ungovernable
 fn keyboard_input(
     keys: Res<ButtonInput<KeyCode>>,
-    scroll: EventReader<MouseWheel>,
+    mut scroll: EventReader<MouseWheel>,
     mut state: ResMut<GameState>,
     mut exit: ResMut<Events<bevy::app::AppExit>>,
     cstate: Res<CommandsState>,
@@ -631,9 +642,11 @@ fn keyboard_input(
         return;
     }
 
+    let scroll_events = scroll.read().collect::<Vec<_>>();
+
     state.camera.on_keys(&keys, time.delta_secs());
     if !keys.pressed(KeyCode::ShiftLeft) {
-        state.camera.on_scroll(scroll);
+        state.camera.on_scroll(&scroll_events);
     }
     state.camera.on_mouse_click(&buttons);
     state.camera.on_mouse_move(windows);
@@ -661,9 +674,16 @@ fn keyboard_input(
             KeyCode::KeyH => {
                 state.hide_debug = !state.hide_debug;
             }
-            KeyCode::KeyM => {
-                for (id, plan) in state.maneuver_plans() {
-                    state.enqueue_plan(id, &plan);
+            KeyCode::Enter => {
+                let plan = state.maneuver_plans();
+                if !plan.is_empty() {
+                    for (id, plan) in &plan {
+                        state.enqueue_plan(*id, &plan);
+                    }
+                    let ids = plan.iter().map(|(id, _)| id).collect::<Vec<_>>();
+                    let avg_dv =
+                        plan.iter().map(|(_, plan)| plan.dv()).sum::<f32>() / plan.len() as f32;
+                    println!("Committing maneuver plan (avg dv of {avg_dv:0.2}) for {ids:?}");
                 }
             }
             _ => (),
@@ -679,6 +699,16 @@ fn keyboard_input(
     };
 
     let mut man = Vec2::ZERO;
+
+    if keys.pressed(KeyCode::ShiftLeft) {
+        for ev in scroll_events {
+            if ev.y > 0.0 {
+                state.sim_speed += 1;
+            } else {
+                state.sim_speed -= 1;
+            }
+        }
+    }
 
     if keys.pressed(KeyCode::ArrowUp) {
         man += Vec2::Y * dv;
@@ -702,6 +732,10 @@ fn keyboard_input(
 
     if keys.pressed(KeyCode::KeyK) {
         state.spawn_new();
+    }
+
+    if keys.just_pressed(KeyCode::Tab) {
+        state.show_orbits.next();
     }
 
     if keys.just_pressed(KeyCode::Space) {

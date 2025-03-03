@@ -1,7 +1,7 @@
 use crate::math::{tspace, PI};
 use crate::nanotime::Nanotime;
 use crate::orbiter::*;
-use crate::orbits::{OrbitClass, SparseOrbit};
+use crate::orbits::{vis_viva_equation, OrbitClass, SparseOrbit};
 use crate::pv::PV;
 use crate::scenario::*;
 use glam::f32::Vec2;
@@ -460,17 +460,14 @@ pub fn get_next_intersection(
 
 #[derive(Debug, Clone)]
 pub struct ManeuverPlan {
-    pub(crate) kind: ManeuverType,
+    pub kind: ManeuverType,
+    pub initial: SparseOrbit,
     pub nodes: Vec<ManeuverNode>,
 }
 
 impl ManeuverPlan {
-    pub fn new(
-        kind: ManeuverType,
-        initial: &SparseOrbit,
-        dvs: &[(Nanotime, Vec2)],
-    ) -> Option<Self> {
-        let mut current = *initial;
+    pub fn new(kind: ManeuverType, initial: SparseOrbit, dvs: &[(Nanotime, Vec2)]) -> Option<Self> {
+        let mut current = initial;
         let mut nodes = vec![];
         for (time, dv) in dvs {
             let before = current.pv_at_time_fallible(*time).ok()?;
@@ -484,7 +481,11 @@ impl ManeuverPlan {
             nodes.push(node);
             current = next;
         }
-        Some(ManeuverPlan { kind, nodes })
+        Some(ManeuverPlan {
+            initial,
+            kind,
+            nodes,
+        })
     }
 
     pub fn start(&self) -> Option<Nanotime> {
@@ -497,6 +498,25 @@ impl ManeuverPlan {
 
     pub fn dv(&self) -> f32 {
         self.nodes.iter().map(|n| n.impulse.vel.length()).sum()
+    }
+
+    pub fn orbits(&self) -> impl Iterator<Item = SparseOrbit> + use<'_> {
+        let mut o = self.initial;
+        self.nodes.iter().filter_map(move |n| {
+            let pv = o.pv_at_time_fallible(n.stamp).ok()? + PV::vel(n.impulse.vel);
+            o = SparseOrbit::from_pv(pv, self.initial.body, n.stamp)?;
+            Some(o)
+        })
+    }
+
+    pub fn and_then(&self, other: Self, kind: ManeuverType) -> Option<Self> {
+        let dvs = self
+            .nodes
+            .iter()
+            .chain(&other.nodes)
+            .map(|n| (n.stamp, n.impulse.vel))
+            .collect::<Vec<_>>();
+        ManeuverPlan::new(kind, self.initial, &dvs)
     }
 }
 
@@ -537,11 +557,6 @@ pub struct ManeuverNode {
     pub orbit: SparseOrbit,
 }
 
-// https://en.wikipedia.org/wiki/Vis-viva_equation
-fn vis_viva_equation(mu: f32, r: f32, a: f32) -> f32 {
-    (mu * (2.0 / r - 1.0 / a)).sqrt()
-}
-
 fn hohmann_transfer(
     current: &SparseOrbit,
     destination: &SparseOrbit,
@@ -574,7 +589,7 @@ fn hohmann_transfer(
 
     let dv2 = after.vel - before.vel;
 
-    ManeuverPlan::new(ManeuverType::Hohmann, current, &[(t1, dv1), (t2, dv2)])
+    ManeuverPlan::new(ManeuverType::Hohmann, *current, &[(t1, dv1), (t2, dv2)])
 }
 
 fn bielliptic_transfer(
@@ -587,51 +602,34 @@ fn bielliptic_transfer(
         _ => (),
     }
 
-    let mu = current.body.mu();
+    let r1 = current.semi_major_axis;
+    let r2 = destination.semi_major_axis;
 
-    let t1 = current.t_next_p(now)?;
+    let (r1, r2) = (r1.min(r2), r1.max(r2));
 
-    let r1 = current.periapsis_r();
-    let r2 = destination.apoapsis_r();
+    if r2 / r1 < 11.94 {
+        // hohmann transfer is always better
+        return None;
+    }
 
-    let rb = current.apoapsis_r().max(destination.apoapsis_r());
+    // if ratio is greater than 15.58, any bi-elliptic transfer is better
 
-    let a1 = (r1 + rb) / 2.0;
-    let a2 = (r2 + rb) / 2.0;
+    let rb = current.apoapsis_r().max(destination.apoapsis_r()) * 2.0;
 
-    // first maneuver; transfer from initial orbit to transfer one
-    let (dv1, transfer_one) = {
-        let v1 = vis_viva_equation(mu, r1, a1);
-        let cv = current.pv_at_time_fallible(t1).ok()?;
-        let prograde = cv.vel.try_normalize()?;
-        let dv = v1 * prograde - cv.vel;
-        let pv = PV::new(cv.pos, v1 * prograde);
-        let transfer = SparseOrbit::from_pv(pv, current.body, t1)?;
-        (dv, transfer)
-    };
+    if rb > current.body.soi * 0.9 {
+        return None;
+    }
 
-    // second maneuver; change from T1 to T2
-    let t2 = t1 + transfer_one.period()? / 2;
-    let (dv2, _transfer_two) = {
-        let v2 = vis_viva_equation(mu, rb, a2);
-        let cv = transfer_one.pv_at_time_fallible(t2).ok()?;
-        let prograde = cv.vel.try_normalize()?;
-        let dv = v2 * prograde - cv.vel;
-        let pv = PV::new(cv.pos, v2 * prograde);
-        let transfer = SparseOrbit::from_pv(pv, current.body, t1)?;
-        (dv, transfer)
-    };
+    let intermediate =
+        SparseOrbit::circular(rb, current.body, Nanotime::zero(), current.retrograde);
 
-    // let t3 = t2 + transfer_two.period()? / 2;
+    let p1 = hohmann_transfer(current, &intermediate, now)?;
 
-    // let dv3 = {
-    //     let p_final = transfer_two.pv_at_time_fallible(t3).ok()?;
-    //     let (pv_near, _) = destination.nearest(p_final.pos);
-    //     let prograde = pv_near.vel.try_normalize()?;
-    //     prograde * 20.0
-    // };
+    let intermediate = p1.orbits().skip(1).next()?;
 
-    ManeuverPlan::new(ManeuverType::Bielliptic, current, &[(t1, dv1), (t2, dv2)])
+    let p2 = hohmann_transfer(&intermediate, destination, p1.end()?)?;
+
+    p1.and_then(p2, ManeuverType::Bielliptic)
 }
 
 fn direct_transfer(
@@ -644,7 +642,7 @@ fn direct_transfer(
         .flatten()
         .map(|(t, pvf)| {
             let pvi = current.pv_at_time(t);
-            ManeuverPlan::new(ManeuverType::Direct, current, &[(t, pvf.vel - pvi.vel)])
+            ManeuverPlan::new(ManeuverType::Direct, *current, &[(t, pvf.vel - pvi.vel)])
         })
         .flatten()
 }
@@ -654,7 +652,6 @@ pub fn generate_maneuver_plans(
     destination: &SparseOrbit,
     now: Nanotime,
 ) -> Vec<ManeuverPlan> {
-
     let destination = if current.retrograde == destination.retrograde {
         *destination
     } else {
@@ -666,10 +663,10 @@ pub fn generate_maneuver_plans(
 
     let direct = direct_transfer(current, &destination, now);
     let hohmann = hohmann_transfer(current, &destination, now);
-    // let bielliptic = bielliptic_transfer(current, destination, now);
+    let bielliptic = bielliptic_transfer(current, &destination, now);
 
-    [direct, hohmann]
+    [direct, hohmann, bielliptic]
         .into_iter()
-        .filter_map(|e| if let Some(e) = e { Some(e) } else { None })
+        .filter_map(std::convert::identity)
         .collect()
 }
