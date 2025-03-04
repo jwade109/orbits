@@ -3,8 +3,8 @@ use crate::orbiter::*;
 use crate::orbits::{Body, SparseOrbit};
 use crate::planning::EventType;
 use crate::pv::PV;
-use serde::{Serialize, Deserialize};
 use glam::f32::Vec2;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy)]
 pub struct ObjectIdTracker(ObjectId);
@@ -22,33 +22,28 @@ impl ObjectIdTracker {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub enum ScenarioObject<O, B> {
-    Orbiter(O),
-    Body(B),
+pub enum ScenarioObject<'a> {
+    Orbiter(&'a Orbiter),
+    Body(Body),
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct ObjectLookup<O, B> {
-    pub inner: ScenarioObject<O, B>,
-    pub local_pv: PV,
-    pub frame_pv: PV,
-    pub parent: Option<ObjectId>,
-}
+pub struct ObjectLookup<'a>(ScenarioObject<'a>, PV);
 
-impl<O: Copy, B: Copy> ObjectLookup<O, B> {
+impl<'a> ObjectLookup<'a> {
     pub fn pv(&self) -> PV {
-        self.local_pv + self.frame_pv
+        self.1
     }
 
-    pub fn orbiter(&self) -> Option<O> {
-        match &self.inner {
-            ScenarioObject::Orbiter(o) => Some(*o),
+    pub fn orbiter(&self) -> Option<&'a Orbiter> {
+        match self.0 {
+            ScenarioObject::Orbiter(o) => Some(o),
             _ => None,
         }
     }
 
-    pub fn body(&self) -> Option<B> {
-        match &self.inner {
+    pub fn body(&self) -> Option<Body> {
+        match &self.0 {
             ScenarioObject::Body(b) => Some(*b),
             _ => None,
         }
@@ -57,7 +52,7 @@ impl<O: Copy, B: Copy> ObjectLookup<O, B> {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Scenario {
-    objects: Vec<Orbiter>,
+    orbiters: Vec<Orbiter>,
     pub system: PlanetarySystem,
 }
 
@@ -142,13 +137,13 @@ pub struct RemovalInfo {
 impl Scenario {
     pub fn new(system: &PlanetarySystem) -> Self {
         Scenario {
-            objects: vec![],
+            orbiters: vec![],
             system: system.clone(),
         }
     }
 
-    pub fn ids(&self) -> Vec<ObjectId> {
-        self.objects.iter().map(|o| o.id()).collect()
+    pub fn ids(&self) -> impl Iterator<Item = ObjectId> + use<'_> {
+        self.orbiters.iter().map(|o| o.id())
     }
 
     pub fn all_ids(&self) -> Vec<ObjectId> {
@@ -163,16 +158,16 @@ impl Scenario {
         stamp: Nanotime,
         future_dur: Nanotime,
     ) -> Vec<(ObjectId, Option<RemovalInfo>)> {
-        for obj in &mut self.objects {
+        for obj in &mut self.orbiters {
             let e = obj.propagate_to(stamp, future_dur, &self.system);
-            if let Err(e) = e {
+            if let Err(_e) = e {
                 // dbg!(e);
             }
         }
 
         let mut info = vec![];
 
-        self.objects.retain(|o| {
+        self.orbiters.retain(|o| {
             if o.propagator_at(stamp).is_none() {
                 let reason = o.props().last().map(|p| RemovalInfo {
                     stamp: p.end().unwrap_or(stamp),
@@ -196,44 +191,40 @@ impl Scenario {
         orbit: SparseOrbit,
         stamp: Nanotime,
     ) {
-        self.objects.push(Orbiter::new(id, parent, orbit, stamp));
+        self.orbiters.push(Orbiter::new(id, parent, orbit, stamp));
     }
 
     pub fn remove_object(&mut self, id: ObjectId) -> Option<()> {
-        self.objects
-            .remove(self.objects.iter().position(|o| o.id() == id)?);
+        self.orbiters
+            .remove(self.orbiters.iter().position(|o| o.id() == id)?);
         Some(())
     }
 
     pub fn dv(&mut self, id: ObjectId, stamp: Nanotime, dv: Vec2) -> Option<()> {
-        let obj = self.objects.iter_mut().find(|o| o.id() == id)?;
+        let obj = self.orbiters.iter_mut().find(|o| o.id() == id)?;
         obj.dv(stamp, dv)
     }
 
+    // TODO get rid of this
     pub fn retain<F: FnMut(&Orbiter) -> bool>(&mut self, f: F) {
-        self.objects.retain(f)
+        self.orbiters.retain(f)
     }
 
     pub fn prop_count(&self) -> usize {
-        self.objects.iter().map(|o| o.props().len()).sum()
+        self.orbiters.iter().map(|o| o.props().len()).sum()
     }
 
     pub fn orbiter_count(&self) -> usize {
-        self.objects.len()
+        self.orbiters.len()
     }
 
-    pub fn lookup(&self, id: ObjectId, stamp: Nanotime) -> Option<ObjectLookup<&Orbiter, Body>> {
+    pub fn lup(&self, id: ObjectId, stamp: Nanotime) -> Option<ObjectLookup> {
         let pl = self.system.lookup(id, stamp);
-        if let Some((body, pv, parent, _)) = pl {
-            return Some(ObjectLookup {
-                inner: ScenarioObject::Body(body),
-                local_pv: PV::zero(),
-                frame_pv: pv,
-                parent,
-            });
+        if let Some((body, pv, _, _)) = pl {
+            return Some(ObjectLookup(ScenarioObject::Body(body), pv));
         }
 
-        self.objects.iter().find_map(|o| {
+        self.orbiters.iter().find_map(|o| {
             if o.id() != id {
                 return None;
             }
@@ -242,12 +233,10 @@ impl Scenario {
 
             let (_, frame_pv, _, _) = self.system.lookup(prop.parent, stamp)?;
 
-            Some(ObjectLookup {
-                inner: ScenarioObject::Orbiter(o),
-                local_pv: prop.pv(stamp)?,
-                frame_pv,
-                parent: Some(prop.parent),
-            })
+            let local_pv = prop.pv(stamp)?;
+            let pv = frame_pv + local_pv;
+
+            Some(ObjectLookup(ScenarioObject::Orbiter(o), pv))
         })
     }
 }

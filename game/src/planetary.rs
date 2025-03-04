@@ -3,7 +3,6 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
 use starling::prelude::*;
-use starling::scenario::ScenarioObject;
 
 use crate::button::Button;
 use crate::camera_controls::*;
@@ -16,7 +15,7 @@ pub struct PlanetaryPlugin;
 impl Plugin for PlanetaryPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(PlanetSpritePlugin {});
-        app.add_systems(Startup, (init_system, set_camera_scale));
+        app.add_systems(Startup, init_system);
         app.add_systems(
             Update,
             (
@@ -24,169 +23,22 @@ impl Plugin for PlanetaryPlugin {
                 process_commands,
                 keyboard_input,
                 mouse_button_input,
-                // manage_orbiter_labels,
-                update_text,
-                draw,
                 propagate_system,
+                update_camera,
+                draw,
             )
                 .chain(),
         );
     }
 }
 
-fn set_camera_scale(mut query: Query<&mut Transform, With<Camera>>) {
-    for mut cam in query.iter_mut() {
-        cam.scale *= 6.5;
-    }
-}
-
 fn init_system(mut commands: Commands) {
     commands.insert_resource(GameState::default());
-    let s = 0.02;
-    commands.insert_resource(ClearColor(Color::linear_rgb(s, s, s)));
-}
-
-fn manage_orbiter_labels(
-    mut commands: Commands,
-    state: Res<GameState>,
-    text: Query<(Entity, &FollowObject)>,
-) {
-    for tid in &state.track_list {
-        let has_txt = text.iter().any(|(_, f)| f.0 == *tid);
-        if !has_txt {
-            commands.spawn((
-                Text2d::new(""),
-                FollowObject(*tid),
-                bevy::sprite::Anchor::TopLeft,
-            ));
-        }
-    }
-
-    for (e, f) in text.iter() {
-        if !state.track_list.contains(&f.0) {
-            commands.entity(e).despawn();
-        }
-    }
-}
-
-const TEXT_LABELS_Z_INDEX: f32 = 100.0;
-
-fn update_text(res: Res<GameState>, mut text: Query<(&mut Transform, &mut Text2d, &FollowObject)>) {
-    let scale = res.camera.actual_scale.min(1.0);
-    let zoomed_out = scale == 1.0;
-    let mut height = -40.0;
-    let count = text.iter().count();
-    let _ = text
-        .iter_mut()
-        .filter_map(|(mut tr, mut text, follow)| {
-            let id = follow.0;
-            let obj = res.scenario.lookup(id, res.sim_time)?.orbiter()?;
-            let pvl = obj.pvl(res.sim_time)?;
-            let pv = obj.pv(res.sim_time, &res.scenario.system)?;
-            let prop = obj.propagator_at(res.sim_time)?;
-            let (_, _, _, parent) = res.scenario.system.lookup(prop.parent, res.sim_time)?;
-            let warn_str = if obj.will_collide() && res.duty_cycle_high {
-                " COLLISION IMMINENT"
-            } else if id == res.primary() {
-                " PRIMARY"
-            } else {
-                ""
-            };
-
-            let event_lines = obj
-                .props()
-                .iter()
-                .map(|p| {
-                    let s = match p.horizon {
-                        HorizonState::Continuing(t) => {
-                            let dt = (t - res.sim_time).to_secs();
-                            format!("Computed for {dt:0.2}s")
-                        }
-                        HorizonState::Indefinite => "Perpetually stable".to_string(),
-                        HorizonState::Terminating(t, e) | HorizonState::Transition(t, e) => {
-                            let dt = (t - res.sim_time).to_secs();
-                            match e {
-                                EventType::Collide(id) => {
-                                    format!("Collide into {id} in {dt:0.2}s")
-                                }
-                                EventType::Encounter(id) => {
-                                    format!("Encounter {id} in {dt:0.2}s")
-                                }
-                                EventType::Escape(id) => {
-                                    format!("Escape {id} in {dt:0.2}s")
-                                }
-                                EventType::Impulse(_) => {
-                                    format!("Maneuver in {dt:0.2}s")
-                                }
-                                EventType::NumericalError => {
-                                    format!("NumericalError in {dt:0.2}s")
-                                }
-                            }
-                        }
-                    };
-                    format!("\n{}", s)
-                })
-                .collect::<String>();
-
-            let prop = obj.propagator_at(res.sim_time)?;
-
-            let p_line = prop
-                .orbit
-                .t_next_p(res.sim_time)
-                .map(|nt| format!("\nP {:0.1}s", (nt - res.sim_time).to_secs()))
-                .unwrap_or("".into());
-
-            let altitude = pvl.pos.length() - prop.orbit.body.radius;
-
-            let txt = if count < 8 {
-                format!(
-                    "{:?}{}\nOrbiting {}{}\nA {:0.1} V {:0.1}\n{:?}{}",
-                    id,
-                    warn_str,
-                    parent.name,
-                    p_line,
-                    altitude,
-                    pvl.vel.length(),
-                    prop.orbit.class(),
-                    event_lines,
-                )
-            } else {
-                format!(
-                    "{:?}{}\nA {:0.1} V {:0.1}",
-                    id,
-                    warn_str,
-                    altitude,
-                    pvl.vel.length(),
-                )
-            };
-
-            let window = res.camera.game_bounds();
-            let n = txt.lines().collect::<Vec<_>>().len();
-            *text = txt.into();
-
-            if zoomed_out || !window.contains(pv.pos) {
-                let s = res.camera.actual_scale * 0.85;
-                let h = 23.0 * (n + 1) as f32;
-                let ur = window.center + window.span / 2.0 + Vec2::new(-500.0, height) * s;
-                height -= h;
-                tr.translation = ur.extend(TEXT_LABELS_Z_INDEX);
-                tr.scale = Vec3::new(s, s, s);
-            } else {
-                tr.translation =
-                    (pv.pos + Vec2::new(40.0 * scale, 40.0 * scale)).extend(TEXT_LABELS_Z_INDEX);
-                tr.scale = Vec3::new(scale, scale, scale);
-            }
-            Some(())
-        })
-        .collect::<Vec<_>>();
 }
 
 fn draw(gizmos: Gizmos, res: Res<GameState>) {
     draw_game_state(gizmos, &res)
 }
-
-#[derive(Component)]
-struct FollowObject(ObjectId);
 
 #[derive(Debug, Clone, Copy)]
 pub enum ShowOrbitsState {
@@ -204,6 +56,10 @@ impl ShowOrbitsState {
         };
         *self = n;
     }
+}
+
+fn update_camera(query: Query<&mut Transform, With<Camera>>, mut state: ResMut<GameState>) {
+    update_camera_transform(query, &mut state.camera);
 }
 
 #[derive(Resource)]
@@ -254,15 +110,6 @@ impl GameState {
         }
     }
 
-    pub fn tracked_aabb(&self) -> Option<AABB> {
-        let pos = self
-            .track_list
-            .iter()
-            .filter_map(|id| Some(self.scenario.lookup(*id, self.sim_time)?.pv().pos))
-            .collect::<Vec<_>>();
-        AABB::from_list(&pos).map(|aabb| aabb.padded(60.0))
-    }
-
     pub fn planned_maneuvers(&self, after: Nanotime) -> Vec<(ObjectId, Nanotime, Vec2)> {
         let mut dvs = vec![];
         for ctrl in &self.controllers {
@@ -305,8 +152,8 @@ impl GameState {
     }
 
     pub fn primary_orbit(&self) -> Option<SparseOrbit> {
-        let lup = self.scenario.lookup(self.primary(), self.sim_time)?;
-        if let ScenarioObject::Orbiter(o) = lup.inner {
+        let lup = self.scenario.lup(self.primary(), self.sim_time)?;
+        if let Some(o) = lup.orbiter() {
             Some(o.propagator_at(self.sim_time)?.orbit)
         } else {
             None
@@ -315,7 +162,7 @@ impl GameState {
 
     pub fn follow_position(&self) -> Option<Vec2> {
         let id = self.follow?;
-        let lup = self.scenario.lookup(id, self.sim_time)?;
+        let lup = self.scenario.lup(id, self.sim_time)?;
         Some(lup.pv().pos)
     }
 
@@ -350,7 +197,7 @@ impl GameState {
     }
 
     pub fn primary_object(&self) -> Option<&Orbiter> {
-        let lup = self.scenario.lookup(self.primary(), self.sim_time)?;
+        let lup = self.scenario.lup(self.primary(), self.sim_time)?;
         lup.orbiter()
     }
 
@@ -376,7 +223,7 @@ impl GameState {
             .filter_map(|id| {
                 let (parent_id, dst) = (self.scenario.system.id, self.target_orbit()?);
 
-                let orbiter = self.scenario.lookup(*id, self.sim_time)?.orbiter()?;
+                let orbiter = self.scenario.lup(*id, self.sim_time)?.orbiter()?;
                 let prop = orbiter.propagator_at(self.sim_time)?;
                 let src = (prop.parent == parent_id).then_some(prop.orbit)?;
 
@@ -493,7 +340,7 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
             .ids()
             .into_iter()
             .filter_map(|id| {
-                let pv = state.scenario.lookup(id, state.sim_time)?.pv();
+                let pv = state.scenario.lup(id, state.sim_time)?.pv();
                 a.contains(pv.pos).then(|| id)
             })
             .collect();
@@ -502,10 +349,10 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     }
 
     let mut track_list = state.track_list.clone();
-    track_list.retain(|o| state.scenario.lookup(*o, state.sim_time).is_some());
+    track_list.retain(|o| state.scenario.lup(*o, state.sim_time).is_some());
     state.track_list = track_list;
 
-    let ids = state.scenario.ids();
+    let ids = state.scenario.ids().collect::<Vec<_>>();
 
     state.controllers.retain(|c| {
         if !ids.contains(&c.target) {
@@ -527,7 +374,7 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
             .track_list
             .iter()
             .filter_map(|id| {
-                let lup = state.scenario.lookup(*id, state.sim_time)?.orbiter()?;
+                let lup = state.scenario.lup(*id, state.sim_time)?.orbiter()?;
                 Some(lup.propagator_at(state.sim_time)?.orbit)
             })
             .collect::<Vec<_>>();
@@ -563,7 +410,11 @@ fn sim_speed_str(speed: i32) -> String {
 }
 
 fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
-    send_log(&mut evt, "Show/hide info - [H]");
+    let mut log = |str: &str| {
+        send_log(&mut evt, str);
+    };
+
+    log("Show/hide info - [H]");
 
     if state.hide_debug {
         return;
@@ -586,70 +437,63 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         "",
     ];
 
-    for log in logs {
-        send_log(&mut evt, log);
+    for s in logs {
+        log(s);
     }
 
-    send_log(&mut evt, &format!("Epoch: {:?}", state.sim_time));
+    log(&format!("Epoch: {:?}", state.sim_time));
 
     if state.paused {
-        send_log(&mut evt, "Paused");
+        log("Paused");
     }
-    send_log(
-        &mut evt,
-        &format!(
-            "Sim speed: 10^{} [{}]",
-            state.sim_speed,
-            sim_speed_str(state.sim_speed)
-        ),
-    );
+    log(&format!(
+        "Sim speed: 10^{} [{}]",
+        state.sim_speed,
+        sim_speed_str(state.sim_speed)
+    ));
 
     if state.track_list.len() > 15 {
-        send_log(&mut evt, &format!("Tracks: lots of em"));
+        log(&format!("Tracks: lots of em"));
     } else {
-        send_log(&mut evt, &format!("Tracks: {:?}", state.track_list));
+        log(&format!("Tracks: {:?}", state.track_list));
     }
-    send_log(&mut evt, &format!("Physics: {:?}", state.physics_duration));
-    send_log(
-        &mut evt,
-        &format!("Scale: {:0.3}", state.camera.actual_scale),
-    );
+    log(&format!("Physics: {:?}", state.physics_duration));
+    log(&format!("Scale: {:0.3}", state.camera.actual_scale));
 
     if let Some(pv) = state.cursor_pv() {
-        send_log(&mut evt, &format!("{:0.3}", pv));
+        log(&format!("{:0.3}", pv));
     }
 
-    send_log(&mut evt, &format!("Ctlrs: {}", state.controllers.len()));
+    log(&format!("Ctlrs: {}", state.controllers.len()));
 
     {
         for (id, t, dv) in state.planned_maneuvers(state.sim_time) {
-            send_log(&mut evt, &format!("- {} {:?} {}", id, t, dv))
+            log(&format!("- {} {:?} {}", id, t, dv))
         }
     }
 
     let prop_count: usize = state.scenario.prop_count();
-    send_log(&mut evt, &format!("Propagators: {}", prop_count));
+    log(&format!("Propagators: {}", prop_count));
 
-    if let Some(lup) = state.scenario.lookup(state.primary(), state.sim_time) {
-        match lup.inner {
-            ScenarioObject::Orbiter(o) => {
-                if let Some(prop) = o.propagator_at(state.sim_time) {
-                    send_log(&mut evt, &format!("- [{}]", prop));
-                    send_log(&mut evt, &format!("{:#?}", prop.orbit));
-                    send_log(
-                        &mut evt,
-                        &format!("Next p: {:?}", prop.orbit.t_next_p(state.sim_time)),
-                    );
-                    send_log(&mut evt, &format!("Period: {:?}", prop.orbit.period()));
-                    send_log(
-                        &mut evt,
-                        &format!("Orbit count: {:?}", prop.orbit.orbit_number(state.sim_time)),
-                    );
-                }
+    if let Some(lup) = state.scenario.lup(state.primary(), state.sim_time) {
+        if let Some(o) = lup.orbiter() {
+            for prop in o.props() {
+                log(&format!("- [{}]", prop));
             }
-            ScenarioObject::Body(b) => {
-                send_log(&mut evt, &format!("BD: {:?}", b));
+            if let Some(prop) = o.propagator_at(state.sim_time) {
+                log(&format!("{:#?}", prop.orbit));
+                log(&format!(
+                    "Next p: {:?}",
+                    prop.orbit.t_next_p(state.sim_time)
+                ));
+                log(&format!("Period: {:?}", prop.orbit.period()));
+                log(&format!(
+                    "Orbit count: {:?}",
+                    prop.orbit.orbit_number(state.sim_time)
+                ));
             }
+        } else if let Some(b) = lup.body() {
+            log(&format!("BD: {:?}", b));
         }
     }
 }
@@ -664,7 +508,6 @@ fn keyboard_input(
     cstate: Res<CommandsState>,
     time: Res<Time>,
     buttons: Res<ButtonInput<MouseButton>>,
-    query: Query<&mut Transform, With<Camera>>,
     windows: Query<&Window, With<PrimaryWindow>>,
 ) {
     if cstate.active {
@@ -679,8 +522,6 @@ fn keyboard_input(
     }
     state.camera.on_mouse_click(&buttons);
     state.camera.on_mouse_move(windows);
-
-    update_camera_transform(query, &mut state.camera);
 
     if let Some(p) = state.follow_position() {
         state.camera.track(p, CameraTracking::ExternalTrack);
@@ -732,9 +573,9 @@ fn keyboard_input(
     if keys.pressed(KeyCode::ShiftLeft) {
         for ev in scroll_events {
             if ev.y > 0.0 {
-                state.sim_speed += 1;
+                state.sim_speed = i32::clamp(state.sim_speed + 1, -10, 4);
             } else {
-                state.sim_speed -= 1;
+                state.sim_speed = i32::clamp(state.sim_speed - 1, -10, 4);
             }
         }
     }
@@ -829,6 +670,7 @@ fn load_new_scenario(state: &mut GameState, scen: Scenario, ids: ObjectIdTracker
     state.scenario = scen;
     state.ids = ids;
     state.sim_time = Nanotime::zero();
+    state.track_list.clear();
 }
 
 fn on_command(state: &mut GameState, cmd: &Vec<String>) {
@@ -865,33 +707,8 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
             let id = ObjectId(n);
             state.toggle_track(id);
         }
-    } else if starts_with("untrack") {
-        state.track_list.clear();
-    } else if starts_with("level") {
-        if Some(&"clear".to_string()) == cmd.get(1) {
-            state.draw_levels.clear();
-        } else {
-            state.draw_levels.extend(
-                cmd.iter()
-                    .skip(1)
-                    .filter_map(|s| Some(-(s.parse::<i32>().ok()?))),
-            );
-        }
-    } else if starts_with("rm") {
-        state.delete_objects();
     } else if starts_with("spawn") {
         state.spawn_new();
-    } else if starts_with("export") {
-        if let Some(orbit) = state.target_orbit() {
-            let filename = format!("orbit-{:?}", state.sim_time);
-            let filename = std::path::Path::new(&filename);
-            match export_orbit_data(&orbit, filename) {
-                Ok(_) => println!("Exported orbit data to {}", filename.display()),
-                Err(e) => println!("Failed to export: {:?}", e),
-            }
-        } else {
-            println!("No orbit to export.");
-        }
     }
 }
 

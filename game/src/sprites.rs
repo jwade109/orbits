@@ -148,7 +148,7 @@ fn update_spacecraft_sprites(
 ) {
     for (e, mut x, mut transform) in query.iter_mut() {
         let SpacecraftTexture(id, scale) = *x;
-        let lup = state.scenario.lookup(id, state.sim_time);
+        let lup = state.scenario.lup(id, state.sim_time);
         if let Some(lup) = lup {
             let z_index = if state.track_list.contains(&id) {
                 SELECTED_SPACECRAFT_Z_INDEX

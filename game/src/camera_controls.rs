@@ -97,7 +97,6 @@ impl CameraState {
         }
         if buttons.just_released(MouseButton::Left) {
             self.mouse_down_pos = None;
-            self.state = CameraTracking::Freewheeling;
         }
     }
 

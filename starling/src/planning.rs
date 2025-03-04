@@ -554,6 +554,7 @@ pub enum ManeuverType {
 pub struct ManeuverNode {
     pub stamp: Nanotime,
     pub impulse: PV,
+    // TODO remove?
     pub orbit: SparseOrbit,
 }
 

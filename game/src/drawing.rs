@@ -226,26 +226,26 @@ pub fn draw_object(
     Some(())
 }
 
-pub fn draw_orbital_system(
+pub fn draw_scenario(
     gizmos: &mut Gizmos,
-    sys: &Scenario,
+    scenario: &Scenario,
     stamp: Nanotime,
     scale: f32,
     show_orbits: ShowOrbitsState,
     track_list: &Vec<ObjectId>,
     duty_cycle: bool,
 ) {
-    draw_planets(gizmos, &sys.system, stamp, Vec2::ZERO);
+    draw_planets(gizmos, &scenario.system, stamp, Vec2::ZERO);
 
-    _ = sys
+    _ = scenario
         .ids()
         .into_iter()
         .filter_map(|id| {
-            let obj = sys.lookup(id, stamp)?.orbiter()?;
+            let obj = scenario.lup(id, stamp)?.orbiter()?;
             let is_tracked = track_list.contains(&obj.id());
             draw_object(
                 gizmos,
-                &sys.system,
+                &scenario.system,
                 obj,
                 stamp,
                 scale,
@@ -360,7 +360,7 @@ pub fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) {
         .highlighted_list
         .iter()
         .filter_map(|id| {
-            let pv = state.scenario.lookup(*id, state.sim_time)?.pv();
+            let pv = state.scenario.lup(*id, state.sim_time)?.pv();
             draw_circle(gizmos, pv.pos, 20.0 * state.camera.actual_scale, GRAY);
             Some(())
         })
@@ -389,29 +389,29 @@ pub fn draw_controller(gizmos: &mut Gizmos, ctrl: &Controller, scale: f32) -> Op
 
 pub fn draw_event_animation(
     gizmos: &mut Gizmos,
-    system: &Scenario,
+    scenario: &Scenario,
     id: ObjectId,
     stamp: Nanotime,
     scale: f32,
     duty_cycle: bool,
 ) -> Option<()> {
-    let obj = system.lookup(id, stamp)?.orbiter()?;
+    let obj = scenario.lup(id, stamp)?.orbiter()?;
     let p = obj.props().last()?;
     let dt = Nanotime::secs(1);
     let mut t = stamp + dt;
     while t < p.end().unwrap_or(stamp + Nanotime::secs(30)) {
-        let pv = obj.pv(t, &system.system)?;
+        let pv = obj.pv(t, &scenario.system)?;
         draw_diamond(gizmos, pv.pos, 11.0 * scale.min(1.0), alpha(WHITE, 0.6));
         t += dt;
     }
     for prop in obj.props() {
         if let Some((t, e)) = prop.stamped_event() {
-            let pv = obj.pv(t, &system.system)?;
+            let pv = obj.pv(t, &scenario.system)?;
             draw_event_marker_at(gizmos, &e, pv.pos, scale, duty_cycle);
         }
     }
     if let Some(t) = p.end() {
-        let pv = obj.pv(t, &system.system)?;
+        let pv = obj.pv(t, &scenario.system)?;
         draw_square(gizmos, pv.pos, 13.0 * scale.min(1.0), alpha(RED, 0.8));
     }
     Some(())
@@ -522,10 +522,10 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
     }
 
     for id in state.scenario.all_ids() {
-        if let Some(lup) = state.scenario.lookup(id, stamp) {
+        if let Some(lup) = state.scenario.lup(id, stamp) {
             let center = lup.pv().pos;
             let padding = 40.0 * state.camera.actual_scale.min(1.0);
-            let w = if let ScenarioObject::Body(body) = lup.inner {
+            let w = if let Some(body) = lup.body() {
                 2.0 * body.radius + padding
             } else {
                 padding
@@ -571,7 +571,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
 
     draw_camera_controls(&mut gizmos, &state.camera);
 
-    draw_orbital_system(
+    draw_scenario(
         &mut gizmos,
         &state.scenario,
         stamp,
