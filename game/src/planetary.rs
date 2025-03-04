@@ -16,6 +16,7 @@ impl Plugin for PlanetaryPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(PlanetSpritePlugin {});
         app.add_systems(Startup, init_system);
+        app.add_systems(FixedUpdate, propagate_system);
         app.add_systems(
             Update,
             (
@@ -23,7 +24,6 @@ impl Plugin for PlanetaryPlugin {
                 process_commands,
                 keyboard_input,
                 mouse_button_input,
-                propagate_system,
                 update_camera,
                 draw,
             )
@@ -98,8 +98,8 @@ impl GameState {
         self.show_potential_field.update(pos, clicked) | self.show_animations.update(pos, clicked)
     }
 
-    pub fn primary(&self) -> ObjectId {
-        *self.track_list.first().unwrap_or(&ObjectId(-1))
+    pub fn primary(&self) -> Option<ObjectId> {
+        self.track_list.first().cloned()
     }
 
     pub fn toggle_track(&mut self, id: ObjectId) {
@@ -146,15 +146,30 @@ impl GameState {
         }
     }
 
-    pub fn target_orbit(&self) -> Option<SparseOrbit> {
+    pub fn target_orbit(&self) -> Option<(ObjectId, SparseOrbit)> {
         let pv = self.cursor_pv()?;
-        SparseOrbit::from_pv(pv, self.scenario.system.body, self.sim_time)
+        // let central = self
+        //     .primary()
+        //     .map(|id| self.scenario.lup(id, self.sim_time))
+        //     .flatten()
+        //     .map(|lup| lup.body())
+        //     .flatten();
+
+        let (id, body) = (|| {
+            let id = self.primary()?;
+            let lup = self.scenario.lup(self.primary()?, self.sim_time)?;
+            Some((id, lup.body()?))
+        })()
+        .unwrap_or((self.scenario.system.id, self.scenario.system.body));
+
+        Some((id, SparseOrbit::from_pv(pv, body, self.sim_time)?))
     }
 
-    pub fn primary_orbit(&self) -> Option<SparseOrbit> {
-        let lup = self.scenario.lup(self.primary(), self.sim_time)?;
+    pub fn primary_orbit(&self) -> Option<(ObjectId, SparseOrbit)> {
+        let lup = self.scenario.lup(self.primary()?, self.sim_time)?;
         if let Some(o) = lup.orbiter() {
-            Some(o.propagator_at(self.sim_time)?.orbit)
+            let prop = o.propagator_at(self.sim_time)?;
+            Some((prop.parent, prop.orbit))
         } else {
             None
         }
@@ -167,26 +182,17 @@ impl GameState {
     }
 
     pub fn spawn_new(&mut self) -> Option<()> {
-        let t = self.target_orbit().or_else(|| self.primary_orbit())?;
+        let (parent, orbit) = self.target_orbit().or_else(|| self.primary_orbit())?;
 
-        let (parent_id, body) = if self.target_orbit().is_some() {
-            (self.scenario.system.id, self.scenario.system.body)
-        } else {
-            let pri = self.primary_object()?;
-            let prop = pri.propagator_at(self.sim_time)?;
-            let (body, _, _, _) = self.scenario.system.lookup(prop.parent, self.sim_time)?;
-            (prop.parent, body)
-        };
-
-        let pv = t.pv_at_time_fallible(self.sim_time).ok()?;
+        let pv_frame = self.scenario.lup(parent, self.sim_time)?.pv();
+        let pv_local = orbit.pv_at_time_fallible(self.sim_time).ok()?;
         let perturb = PV::new(
-            randvec(pv.pos.length() * 0.005, pv.pos.length() * 0.02),
-            randvec(pv.vel.length() * 0.005, pv.vel.length() * 0.02),
+            randvec(pv_local.pos.length() * 0.005, pv_local.pos.length() * 0.02),
+            randvec(pv_local.vel.length() * 0.005, pv_local.vel.length() * 0.02),
         );
-        let orbit = SparseOrbit::from_pv(pv + perturb, body, self.sim_time)?;
+        let orbit = SparseOrbit::from_pv(pv_frame + pv_local + perturb, orbit.body, self.sim_time)?;
         let id = self.ids.next();
-        self.scenario
-            .add_object(id, parent_id, orbit, self.sim_time);
+        self.scenario.add_object(id, parent, orbit, self.sim_time);
         Some(())
     }
 
@@ -197,7 +203,7 @@ impl GameState {
     }
 
     pub fn primary_object(&self) -> Option<&Orbiter> {
-        let lup = self.scenario.lup(self.primary(), self.sim_time)?;
+        let lup = self.scenario.lup(self.primary()?, self.sim_time)?;
         lup.orbiter()
     }
 
@@ -209,7 +215,15 @@ impl GameState {
             match self.scenario.dv(*id, self.sim_time, dv) {
                 Some(()) => (),
                 None => {
-                    println!("Failed to maneuver");
+                    if self
+                        .scenario
+                        .lup(*id, self.sim_time)
+                        .map(|lup| lup.orbiter())
+                        .flatten()
+                        .is_some()
+                    {
+                        println!("{:?} - Failed to maneuver orbiter {}", self.sim_time, id);
+                    }
                 }
             };
         }
@@ -221,8 +235,7 @@ impl GameState {
         self.track_list
             .iter()
             .filter_map(|id| {
-                let (parent_id, dst) = (self.scenario.system.id, self.target_orbit()?);
-
+                let (parent_id, dst) = self.target_orbit()?;
                 let orbiter = self.scenario.lup(*id, self.sim_time)?.orbiter()?;
                 let prop = orbiter.propagator_at(self.sim_time)?;
                 let src = (prop.parent == parent_id).then_some(prop.orbit)?;
@@ -337,7 +350,7 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     if let Some(a) = state.camera.selection_region() {
         state.highlighted_list = state
             .scenario
-            .ids()
+            .all_ids()
             .into_iter()
             .filter_map(|id| {
                 let pv = state.scenario.lup(id, state.sim_time)?.pv();
@@ -475,7 +488,11 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
     let prop_count: usize = state.scenario.prop_count();
     log(&format!("Propagators: {}", prop_count));
 
-    if let Some(lup) = state.scenario.lup(state.primary(), state.sim_time) {
+    if let Some(lup) = state
+        .primary()
+        .map(|id| state.scenario.lup(id, state.sim_time))
+        .flatten()
+    {
         if let Some(o) = lup.orbiter() {
             for prop in o.props() {
                 log(&format!("- [{}]", prop));
@@ -544,6 +561,7 @@ fn keyboard_input(
             KeyCode::KeyH => {
                 state.hide_debug = !state.hide_debug;
             }
+            KeyCode::KeyF => state.follow = state.primary(),
             KeyCode::Enter => {
                 let plan = state.maneuver_plans();
                 if !plan.is_empty() {

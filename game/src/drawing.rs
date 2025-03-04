@@ -492,8 +492,14 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
         );
     }
 
-    if let Some(o) = state.target_orbit() {
-        draw_orbit(&mut gizmos, &o, Vec2::ZERO, alpha(RED, 0.2));
+    if let Some((parent, orbit)) = state.target_orbit() {
+        if let Some(pv) = state
+            .scenario
+            .lup(parent, state.sim_time)
+            .map(|lup| lup.pv())
+        {
+            draw_orbit(&mut gizmos, &orbit, pv.pos, alpha(RED, 0.2));
+        }
     }
 
     for button in &state.buttons() {
@@ -524,6 +530,15 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
     for id in state.scenario.all_ids() {
         if let Some(lup) = state.scenario.lup(id, stamp) {
             let center = lup.pv().pos;
+
+            if state.track_list.contains(&id) {
+                if let Some(body) = lup.body() {
+                    for r in [1.2, 1.25, 1.3] {
+                        draw_circle(&mut gizmos, center, body.radius * r, alpha(ORANGE, 0.4));
+                    }
+                }
+            }
+
             let padding = 40.0 * state.camera.actual_scale.min(1.0);
             let w = if let Some(body) = lup.body() {
                 2.0 * body.radius + padding
