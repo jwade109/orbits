@@ -126,43 +126,34 @@ impl GameState {
     }
 
     pub fn cursor_pv(&self) -> Option<PV> {
-        let p1 = self.control_points.get(0);
+        let p1 = *self.control_points.get(0)?;
         let p2 = self
             .control_points
             .get(1)
             .map(|e| *e)
-            .or(self.camera.mouse_pos());
+            .or(self.camera.mouse_pos())?;
 
-        if let Some((p1, p2)) = p1.zip(p2) {
-            if p1.distance(p2) < 10.0 {
-                return None;
-            }
-
-            let v = (self.scenario.system.body.mu() / p1.length()).sqrt();
-
-            Some(PV::new(*p1, (p2 - p1) * v / p1.length()))
-        } else {
-            None
+        if p1.distance(p2) < 20.0 {
+            return None;
         }
+
+        let wrt_id = self.scenario.relevant_body(p1, self.sim_time)?;
+        let parent = self.scenario.lup(wrt_id, self.sim_time)?;
+
+        let r = p1.distance(parent.pv().pos);
+        let v = (parent.body()?.mu() / r).sqrt();
+
+        Some(PV::new(p1, (p2 - p1) * v / r))
     }
 
     pub fn target_orbit(&self) -> Option<(ObjectId, SparseOrbit)> {
         let pv = self.cursor_pv()?;
-        // let central = self
-        //     .primary()
-        //     .map(|id| self.scenario.lup(id, self.sim_time))
-        //     .flatten()
-        //     .map(|lup| lup.body())
-        //     .flatten();
-
-        let (id, body) = (|| {
-            let id = self.primary()?;
-            let lup = self.scenario.lup(self.primary()?, self.sim_time)?;
-            Some((id, lup.body()?))
-        })()
-        .unwrap_or((self.scenario.system.id, self.scenario.system.body));
-
-        Some((id, SparseOrbit::from_pv(pv, body, self.sim_time)?))
+        let parent_id = self.scenario.relevant_body(pv.pos, self.sim_time)?;
+        let parent = self.scenario.lup(parent_id, self.sim_time)?;
+        let parent_pv = parent.pv();
+        let pv = pv - PV::pos(parent_pv.pos);
+        let body = parent.body()?;
+        Some((parent_id, SparseOrbit::from_pv(pv, body, self.sim_time)?))
     }
 
     pub fn primary_orbit(&self) -> Option<(ObjectId, SparseOrbit)> {
@@ -183,14 +174,12 @@ impl GameState {
 
     pub fn spawn_new(&mut self) -> Option<()> {
         let (parent, orbit) = self.target_orbit().or_else(|| self.primary_orbit())?;
-
-        let pv_frame = self.scenario.lup(parent, self.sim_time)?.pv();
         let pv_local = orbit.pv_at_time_fallible(self.sim_time).ok()?;
         let perturb = PV::new(
             randvec(pv_local.pos.length() * 0.005, pv_local.pos.length() * 0.02),
             randvec(pv_local.vel.length() * 0.005, pv_local.vel.length() * 0.02),
         );
-        let orbit = SparseOrbit::from_pv(pv_frame + pv_local + perturb, orbit.body, self.sim_time)?;
+        let orbit = SparseOrbit::from_pv(pv_local + perturb, orbit.body, self.sim_time)?;
         let id = self.ids.next();
         self.scenario.add_object(id, parent, orbit, self.sim_time);
         Some(())
@@ -200,11 +189,6 @@ impl GameState {
         self.track_list.iter().for_each(|i| {
             self.scenario.remove_object(*i);
         });
-    }
-
-    pub fn primary_object(&self) -> Option<&Orbiter> {
-        let lup = self.scenario.lup(self.primary()?, self.sim_time)?;
-        lup.orbiter()
     }
 
     pub fn do_maneuver(&mut self, dv: Vec2) -> Option<()> {
@@ -485,8 +469,8 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         }
     }
 
-    let prop_count: usize = state.scenario.prop_count();
-    log(&format!("Propagators: {}", prop_count));
+    log(&format!("Orbiters: {}", state.scenario.orbiter_count()));
+    log(&format!("Propagators: {}", state.scenario.prop_count()));
 
     if let Some(lup) = state
         .primary()

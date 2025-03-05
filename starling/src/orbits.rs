@@ -321,6 +321,15 @@ impl SparseOrbit {
         } else {
             stamp - self.epoch
         };
+
+        // if self.eccentricity < 0.9 {
+        //     let pct = tof.inner() as f32 / self.period().unwrap().inner() as f32;
+        //     let true_anomaly = pct * PI * 2.0;
+        //     let pos = self.position_at(true_anomaly);
+        //     let vel = self.velocity_at(true_anomaly);
+        //     return Ok(PV::new(pos, vel));
+        // }
+
         let ul = universal_lagrange(self.initial, tof, self.body.mu());
         let sol = ul.1.ok_or(ul.0)?;
         if sol.pv.pos.length() > 3.0 * self.body.soi {
