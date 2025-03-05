@@ -16,7 +16,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     s.bench_function("pv_at_time", |b| {
         b.iter(|| {
             let t = black_box(Nanotime::secs_f32(32.5));
-            o.pv_at_time(t);
+            o.pv(t).unwrap();
         })
     });
 

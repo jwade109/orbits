@@ -43,7 +43,7 @@ impl Orbiter {
     pub fn dv(&mut self, stamp: Nanotime, dv: Vec2) -> Option<()> {
         let (new_orbit, parent) = {
             let prop = self.propagator_at(stamp)?;
-            let pv = prop.orbit.pv_at_time(stamp) + PV::vel(dv);
+            let pv = prop.orbit.pv(stamp).ok()? + PV::vel(dv);
             let orbit = SparseOrbit::from_pv(pv, prop.orbit.body, stamp)?;
             (orbit, prop.parent)
         };
@@ -56,12 +56,12 @@ impl Orbiter {
     pub fn pv(&self, stamp: Nanotime, planets: &PlanetarySystem) -> Option<PV> {
         let prop = self.propagator_at(stamp)?;
         let (_, pv, _, _) = planets.lookup(prop.parent, stamp)?;
-        Some(prop.orbit.pv_at_time(stamp) + pv)
+        Some(prop.orbit.pv(stamp).ok()? + pv)
     }
 
     pub fn pvl(&self, stamp: Nanotime) -> Option<PV> {
         let prop = self.propagator_at(stamp)?;
-        Some(prop.orbit.pv_at_time(stamp))
+        Some(prop.orbit.pv(stamp).ok()?)
     }
 
     pub fn propagator_at(&self, stamp: Nanotime) -> Option<&Propagator> {

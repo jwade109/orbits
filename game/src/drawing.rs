@@ -67,8 +67,8 @@ pub fn draw_obb(gizmos: &mut Gizmos, obb: &OBB, color: Srgba) {
 
 pub fn draw_orbit(gizmos: &mut Gizmos, orb: &SparseOrbit, origin: Vec2, color: Srgba) {
     if orb.will_escape() {
-        let ta = if orb.eccentricity >= 1.0 {
-            let hrta = hyperbolic_range_ta(orb.eccentricity);
+        let ta = if orb.is_hyperbolic() {
+            let hrta = hyperbolic_range_ta(orb.ecc());
             linspace(-0.999 * hrta, 0.999 * hrta, 1000)
         } else {
             linspace(-PI, PI, 1000)
@@ -86,7 +86,7 @@ pub fn draw_orbit(gizmos: &mut Gizmos, orb: &SparseOrbit, origin: Vec2, color: S
             .collect();
         gizmos.linestrip_2d(points, color);
     } else {
-        let b = orb.semi_major_axis * (1.0 - orb.eccentricity.powi(2)).sqrt();
+        let b = orb.semi_minor_axis();
         let center: Vec2 = origin + (orb.periapsis() + orb.apoapsis()) / 2.0;
         let iso = Isometry2d::new(center, orb.arg_periapsis.into());
 
@@ -138,9 +138,10 @@ pub fn draw_planets(gizmos: &mut Gizmos, planet: &PlanetarySystem, stamp: Nanoti
     }
 
     for (orbit, pl) in &planet.subsystems {
-        let pv = orbit.pv_at_time(stamp);
-        draw_orbit(gizmos, orbit, origin, alpha(GRAY, 0.4));
-        draw_planets(gizmos, pl, stamp, origin + pv.pos)
+        if let Some(pv) = orbit.pv(stamp).ok() {
+            draw_orbit(gizmos, orbit, origin, alpha(GRAY, 0.4));
+            draw_planets(gizmos, pl, stamp, origin + pv.pos)
+        }
     }
 }
 

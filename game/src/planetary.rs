@@ -174,7 +174,7 @@ impl GameState {
 
     pub fn spawn_new(&mut self) -> Option<()> {
         let (parent, orbit) = self.target_orbit().or_else(|| self.primary_orbit())?;
-        let pv_local = orbit.pv_at_time_fallible(self.sim_time).ok()?;
+        let pv_local = orbit.pv(self.sim_time).ok()?;
         let perturb = PV::new(
             randvec(pv_local.pos.length() * 0.005, pv_local.pos.length() * 0.02),
             randvec(pv_local.vel.length() * 0.005, pv_local.vel.length() * 0.02),

@@ -15,6 +15,13 @@ impl PV {
         }
     }
 
+    pub fn inf() -> Self {
+        PV {
+            pos: Vec2::INFINITY,
+            vel: Vec2::INFINITY,
+        }
+    }
+
     pub fn new(pos: impl Into<Vec2>, vel: impl Into<Vec2>) -> Self {
         PV {
             pos: pos.into(),

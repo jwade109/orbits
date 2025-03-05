@@ -90,7 +90,7 @@ const GRAVITATIONAL_CONSTANT: f32 = 12000.0;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct SparseOrbit {
-    pub eccentricity: f32,
+    eccentricity: f32,
     pub semi_major_axis: f32,
     pub arg_periapsis: f32,
     pub retrograde: bool,
@@ -146,7 +146,7 @@ impl SparseOrbit {
             time_at_periapsis,
         };
 
-        if o.pv_at_time_fallible(epoch + Nanotime::secs(1)).is_err() {
+        if o.pv(epoch + Nanotime::secs(1)).is_err() {
             println!("SparseOrbit returned bad PV: {pv:?}\n  {o:?}");
             return None;
         }
@@ -195,6 +195,17 @@ impl SparseOrbit {
         let sign = if retrograde { -1.0 } else { 1.0 };
         let v = sign * rotate(Vec2::Y * vmag, argp);
         SparseOrbit::from_pv((p, v), body, epoch)
+    }
+
+    pub fn ecc(&self) -> f32 {
+        self.eccentricity
+    }
+
+    pub fn is_hyperbolic(&self) -> bool {
+        match self.class() {
+            OrbitClass::Hyperbolic | OrbitClass::Parabolic => true,
+            _ => false,
+        }
     }
 
     pub fn is_suborbital(&self) -> bool {
@@ -308,27 +319,12 @@ impl SparseOrbit {
         self.period().unwrap_or(fallback)
     }
 
-    pub fn pv_at_time(&self, stamp: Nanotime) -> PV {
-        self.pv_at_time_fallible(stamp).unwrap_or(PV::new(
-            Vec2::splat(f32::INFINITY),
-            Vec2::splat(f32::INFINITY),
-        ))
-    }
-
-    pub fn pv_at_time_fallible(&self, stamp: Nanotime) -> Result<PV, ULData> {
+    pub fn pv(&self, stamp: Nanotime) -> Result<PV, ULData> {
         let tof = if let Some(p) = self.period() {
             (stamp - self.epoch) % p
         } else {
             stamp - self.epoch
         };
-
-        // if self.eccentricity < 0.9 {
-        //     let pct = tof.inner() as f32 / self.period().unwrap().inner() as f32;
-        //     let true_anomaly = pct * PI * 2.0;
-        //     let pos = self.position_at(true_anomaly);
-        //     let vel = self.velocity_at(true_anomaly);
-        //     return Ok(PV::new(pos, vel));
-        // }
 
         let ul = universal_lagrange(self.initial, tof, self.body.mu());
         let sol = ul.1.ok_or(ul.0)?;
@@ -631,6 +627,10 @@ impl ULData {
         )
     }
 
+    fn solve_fast(&self) -> Option<ULResults> {
+        ULResults::new(self.chi_0, &self)
+    }
+
     fn solve(&self) -> Option<ULResults> {
         let radius = 800.0;
         let chi_min = self.chi_0 - radius;
@@ -690,6 +690,14 @@ pub fn universal_lagrange(
 ) -> (ULData, Option<ULResults>) {
     let data = ULData::new(initial, tof, mu);
     (data, data.solve())
+}
+pub fn universal_lagrange_fast(
+    initial: impl Into<PV>,
+    tof: Nanotime,
+    mu: f32,
+) -> (ULData, Option<ULResults>) {
+    let data = ULData::new(initial, tof, mu);
+    (data, data.solve_fast())
 }
 
 pub(crate) fn lagrange_coefficients(
@@ -788,7 +796,7 @@ mod tests {
         while duration < Nanotime::secs(10000) {
             duration += dt;
             let t = orbit.epoch + duration;
-            let pv = orbit.pv_at_time_fallible(t).ok()?;
+            let pv = orbit.pv(t).ok()?;
             let d = pv.pos.distance(pv0.pos);
             let increasing = d > d_prev;
             d_prev = d;
@@ -820,7 +828,7 @@ mod tests {
 
         while t < Nanotime::secs(100) {
             t += dt;
-            let porbit = match orbit.pv_at_time_fallible(t) {
+            let porbit = match orbit.pv(t) {
                 Ok(p) => p,
                 Err(ul) => {
                     assert!(false, "Bad orbital position at {:?} - {:?}", t, ul);
@@ -867,7 +875,7 @@ mod tests {
         let t1 = tspace(Nanotime::zero(), Nanotime::secs(n), n as u32);
         let t2 = tspace(Nanotime::zero(), Nanotime::secs(-n), n as u32);
         for t in t1.iter().chain(t2.iter()) {
-            let pv = orbit.pv_at_time_fallible(*t);
+            let pv = orbit.pv(*t);
             assert!(pv.is_ok(), "Failure at time {:?} - {:?}", t, pv);
         }
     }
@@ -881,10 +889,7 @@ mod tests {
 
         let orbit = orbit.unwrap();
 
-        assert_eq!(
-            orbit.pv_at_time_fallible(orbit.epoch).ok(),
-            Some(orbit.initial)
-        );
+        assert_eq!(orbit.pv(orbit.epoch).ok(), Some(orbit.initial));
 
         if let Some(((min, max), period)) = ncalc_period(&orbit).zip(orbit.period()) {
             dbg!((min, max, period));
@@ -1065,15 +1070,15 @@ mod tests {
         // TODO make this better
         for i in [0] {
             let t = o1.period().unwrap() * i;
-            println!("{t:?} {} {}", o1.pv_at_time(t), o2.pv_at_time(t));
+            println!("{t:?} {} {}", o1.pv(t).unwrap(), o2.pv(t).unwrap());
             assert_relative_eq!(
-                o1.pv_at_time(t).pos.x,
-                o2.pv_at_time(t).pos.x,
+                o1.pv(t).unwrap().pos.x,
+                o2.pv(t).unwrap().pos.x,
                 epsilon = 0.5
             );
             assert_relative_eq!(
-                o1.pv_at_time(t).pos.y,
-                o2.pv_at_time(t).pos.y,
+                o1.pv(t).unwrap().pos.y,
+                o2.pv(t).unwrap().pos.y,
                 epsilon = 0.5
             );
         }

@@ -98,10 +98,11 @@ impl PlanetarySystem {
         }
 
         for (orbit, pl) in &self.subsystems {
-            let pv = orbit.pv_at_time(stamp);
-            let ret = pl.lookup_inner(id, stamp, wrt + pv, Some(self.id));
-            if let Some(r) = ret {
-                return Some(r);
+            if let Some(pv) = orbit.pv(stamp).ok() {
+                let ret = pl.lookup_inner(id, stamp, wrt + pv, Some(self.id));
+                if let Some(r) = ret {
+                    return Some(r);
+                }
             }
         }
 
@@ -120,8 +121,9 @@ impl PlanetarySystem {
         let r = pos.length().clamp(10.0, std::f32::MAX);
         let mut ret = -self.body.mu() / r;
         for (orbit, pl) in &self.subsystems {
-            let pv = orbit.pv_at_time(stamp);
-            ret += pl.potential_at(pos - pv.pos, stamp);
+            if let Some(pv) = orbit.pv(stamp).ok() {
+                ret += pl.potential_at(pos - pv.pos, stamp);
+            }
         }
         ret
     }

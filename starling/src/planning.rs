@@ -88,14 +88,15 @@ pub(crate) fn binary_search<T: BinarySearchKey>(
 pub enum PredictError<T: BinarySearchKey> {
     Lookup,
     TooManyIterations,
+    BadPosition,
     Collision(ConvergeError<T>),
     Escape(ConvergeError<T>),
     Encounter(ConvergeError<T>),
 }
 
 fn mutual_separation(o1: &SparseOrbit, o2: &SparseOrbit, t: Nanotime) -> f32 {
-    let p1 = o1.pv_at_time(t).pos;
-    let p2 = o2.pv_at_time(t).pos;
+    let p1 = o1.pv(t).unwrap().pos;
+    let p2 = o2.pv(t).unwrap().pos;
     p1.distance(p2)
 }
 
@@ -120,6 +121,7 @@ pub(crate) fn search_condition<T: BinarySearchKey>(
 pub(crate) enum BadObjectNextState {
     Lookup,
     BadOrbit,
+    BadPosition,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
@@ -186,7 +188,9 @@ impl Propagator {
     }
 
     pub fn pv(&self, stamp: Nanotime) -> Option<PV> {
-        self.is_active(stamp).then(|| self.orbit.pv_at_time(stamp))
+        self.is_active(stamp)
+            .then(|| self.orbit.pv(stamp).ok())
+            .flatten()
     }
 
     pub(crate) fn is_active(&self, stamp: Nanotime) -> bool {
@@ -264,8 +268,10 @@ impl Propagator {
                 let new = planets
                     .lookup(reparent, stamp)
                     .ok_or(BadObjectNextState::Lookup)?;
-
-                let pv = self.orbit.pv_at_time(stamp);
+                let pv = self
+                    .orbit
+                    .pv(stamp)
+                    .map_err(|_| BadObjectNextState::BadPosition)?;
                 let dv = cur.1 - new.1;
                 let orbit = SparseOrbit::from_pv(pv + dv, new.0, stamp)
                     .ok_or(BadObjectNextState::BadOrbit)?;
@@ -278,15 +284,20 @@ impl Propagator {
                 let new = planets
                     .lookup(id, stamp)
                     .ok_or(BadObjectNextState::Lookup)?;
-
-                let pv = self.orbit.pv_at_time(stamp);
+                let pv = self
+                    .orbit
+                    .pv(stamp)
+                    .map_err(|_| BadObjectNextState::BadPosition)?;
                 let dv = cur.1 - new.1;
                 let orbit = SparseOrbit::from_pv(pv + dv, new.0, stamp)
                     .ok_or(BadObjectNextState::BadOrbit)?;
                 Ok(Some(Propagator::new(id, orbit, stamp)))
             }
             EventType::Impulse(dv) => {
-                let pv = self.orbit.pv_at_time(stamp);
+                let pv = self
+                    .orbit
+                    .pv(stamp)
+                    .map_err(|_| BadObjectNextState::BadPosition)?;
                 let orbit = SparseOrbit::from_pv(pv + PV::vel(dv), self.orbit.body, stamp)
                     .ok_or(BadObjectNextState::BadOrbit)?;
                 Ok(Some(Propagator::new(self.parent, orbit, stamp)))
@@ -320,7 +331,12 @@ impl Propagator {
 
         let tol = Nanotime::nanos(5);
 
-        let alt = self.orbit.pv_at_time(end).pos.length();
+        let alt = self
+            .orbit
+            .pv(end)
+            .map_err(|_| PredictError::BadPosition)?
+            .pos
+            .length();
 
         let might_hit_planet = self.orbit.is_suborbital() && alt < self.orbit.body.radius * 20.0;
         let can_escape = self.orbit.will_escape();
@@ -343,9 +359,9 @@ impl Propagator {
 
         match self
             .orbit
-            .pv_at_time_fallible(t1)
+            .pv(t1)
             .ok()
-            .zip(self.orbit.pv_at_time_fallible(t2).ok())
+            .zip(self.orbit.pv(t2).ok())
         {
             None => {
                 self.horizon = HorizonState::Terminating(t1, EventType::NumericalError);
@@ -355,12 +371,12 @@ impl Propagator {
         };
 
         let above_planet = |t: Nanotime| {
-            let pos = self.orbit.pv_at_time(t).pos;
+            let pos = self.orbit.pv(t).unwrap_or(PV::inf()).pos;
             pos.length() > self.orbit.body.radius
         };
 
         let escape_soi = |t: Nanotime| {
-            let pos = self.orbit.pv_at_time(t).pos;
+            let pos = self.orbit.pv(t).unwrap_or(PV::inf()).pos;
             pos.length() < self.orbit.body.soi
         };
 
@@ -438,7 +454,7 @@ pub fn get_next_intersection(
     let teval = tspace(stamp, stamp + period, n);
 
     let signed_distance_at = |t: Nanotime| {
-        let pcurr = eval.pv_at_time(t);
+        let pcurr = eval.pv(t).unwrap_or(PV::inf());
         target.nearest_along_track(pcurr.pos)
     };
 
@@ -475,7 +491,7 @@ impl ManeuverPlan {
         let mut current = initial;
         let mut nodes = vec![];
         for (time, dv) in dvs {
-            let before = current.pv_at_time_fallible(*time).ok()?;
+            let before = current.pv(*time).ok()?;
             let after = before + PV::vel(*dv);
             let next = SparseOrbit::from_pv(after, initial.body, *time)?;
             let node = ManeuverNode {
@@ -508,7 +524,7 @@ impl ManeuverPlan {
     pub fn orbits(&self) -> impl Iterator<Item = SparseOrbit> + use<'_> {
         let mut o = self.initial;
         self.nodes.iter().filter_map(move |n| {
-            let pv = o.pv_at_time_fallible(n.stamp).ok()? + PV::vel(n.impulse.vel);
+            let pv = o.pv(n.stamp).ok()? + PV::vel(n.impulse.vel);
             o = SparseOrbit::from_pv(pv, self.initial.body, n.stamp)?;
             Some(o)
         })
@@ -580,7 +596,7 @@ fn hohmann_transfer(
     let v1 = vis_viva_equation(mu, r1, a_transfer);
 
     let t1 = current.t_next_p(now)?;
-    let before = current.pv_at_time_fallible(t1).ok()?;
+    let before = current.pv(t1).ok()?;
     let prograde = before.vel.normalize_or_zero();
     let after = PV::new(before.pos, prograde * v1);
 
@@ -589,7 +605,7 @@ fn hohmann_transfer(
     let transfer_orbit = SparseOrbit::from_pv(after, current.body, t1)?;
 
     let t2 = t1 + transfer_orbit.period()? / 2;
-    let before = transfer_orbit.pv_at_time_fallible(t2).ok()?;
+    let before = transfer_orbit.pv(t2).ok()?;
     let (after, _) = destination.nearest(before.pos);
     let after = PV::new(before.pos, after.vel);
 
@@ -647,7 +663,7 @@ fn direct_transfer(
         .ok()
         .flatten()
         .map(|(t, pvf)| {
-            let pvi = current.pv_at_time(t);
+            let pvi = current.pv(t).ok()?;
             ManeuverPlan::new(ManeuverType::Direct, *current, &[(t, pvf.vel - pvi.vel)])
         })
         .flatten()
