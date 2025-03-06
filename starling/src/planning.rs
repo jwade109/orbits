@@ -643,7 +643,7 @@ fn bielliptic_transfer(
     }
 
     let intermediate =
-        SparseOrbit::circular(rb, current.body, Nanotime::zero(), current.retrograde);
+        SparseOrbit::circular(rb, current.body, Nanotime::zero(), current.is_retrograde());
 
     let p1 = hohmann_transfer(current, &intermediate, now)?;
 
@@ -674,7 +674,7 @@ pub fn generate_maneuver_plans(
     destination: &SparseOrbit,
     now: Nanotime,
 ) -> Vec<ManeuverPlan> {
-    let destination = if current.retrograde == destination.retrograde {
+    let destination = if current.is_retrograde() == destination.is_retrograde() {
         *destination
     } else {
         match destination.inverse() {

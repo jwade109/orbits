@@ -5,7 +5,6 @@ use bevy::color::palettes::css::ORANGE;
 use bevy::prelude::*;
 
 use starling::prelude::*;
-use starling::scenario::ScenarioObject;
 
 use crate::button::ButtonState;
 use crate::camera_controls::CameraState;

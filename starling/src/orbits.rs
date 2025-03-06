@@ -1,5 +1,5 @@
 use crate::aabb::{AABB, OBB};
-use crate::math::{linspace, rotate, tspace, PI};
+use crate::math::{cross2d, linspace, rotate, tspace, PI};
 use crate::nanotime::Nanotime;
 use crate::planning::search_condition;
 use crate::pv::PV;
@@ -93,7 +93,6 @@ pub struct SparseOrbit {
     eccentricity: f32,
     pub semi_major_axis: f32,
     pub arg_periapsis: f32,
-    pub retrograde: bool,
     pub body: Body,
     pub initial: PV,
     pub epoch: Nanotime,
@@ -125,7 +124,7 @@ impl SparseOrbit {
         let true_anomaly = Anomaly::with_ecc(e.length(), true_anomaly);
 
         let time_at_periapsis = {
-            if e.length() > 0.95 {
+            if e.length() > 0.98 {
                 None
             } else {
                 let eccentric_anomaly = true_to_eccentric(true_anomaly, e.length());
@@ -139,7 +138,6 @@ impl SparseOrbit {
             eccentricity: e.length(),
             semi_major_axis,
             arg_periapsis,
-            retrograde: h.z < 0.0,
             body,
             initial: pv,
             epoch,
@@ -168,12 +166,11 @@ impl SparseOrbit {
 
     pub fn circular(radius: f32, body: Body, epoch: Nanotime, retrograde: bool) -> Self {
         let p = Vec2::new(radius, 0.0);
-        let v = Vec2::new(0.0, (body.mu() / radius).sqrt());
+        let v = if retrograde { -1.0 } else { 1.0 } * Vec2::new(0.0, (body.mu() / radius).sqrt());
         SparseOrbit {
             eccentricity: 0.0,
             semi_major_axis: radius,
             arg_periapsis: 0.0,
-            retrograde,
             body,
             initial: PV::new(p, v),
             epoch,
@@ -181,24 +178,16 @@ impl SparseOrbit {
         }
     }
 
-    pub fn from_apses(
-        apo: f32,
-        peri: f32,
-        argp: f32,
-        body: Body,
-        epoch: Nanotime,
-        retrograde: bool,
-    ) -> Option<Self> {
-        let semi_major_axis = (apo + peri) / 2.0;
-        let p = rotate(Vec2::X * peri, argp);
-        let vmag = vis_viva_equation(body.mu(), peri, semi_major_axis);
-        let sign = if retrograde { -1.0 } else { 1.0 };
-        let v = sign * rotate(Vec2::Y * vmag, argp);
-        SparseOrbit::from_pv((p, v), body, epoch)
-    }
-
     pub fn ecc(&self) -> f32 {
         self.eccentricity
+    }
+
+    pub fn h(&self) -> f32 {
+        cross2d(self.initial.pos, self.initial.vel)
+    }
+
+    pub fn is_retrograde(&self) -> bool {
+        self.h() < 0.0
     }
 
     pub fn is_hyperbolic(&self) -> bool {
@@ -251,7 +240,7 @@ impl SparseOrbit {
 
     pub fn tangent_at(&self, true_anomaly: f32) -> Vec2 {
         let n = self.normal_at(true_anomaly);
-        let angle = match self.retrograde {
+        let angle = match self.is_retrograde() {
             true => -PI / 2.0,
             false => PI / 2.0,
         };
@@ -273,17 +262,13 @@ impl SparseOrbit {
         (self.semi_major_axis.abs() * self.semi_latus_rectum().abs()).sqrt()
     }
 
-    pub fn angular_momentum(&self) -> f32 {
-        (self.body.mu() * self.semi_latus_rectum()).sqrt()
-    }
-
     pub fn radius_at_angle(&self, angle: f32) -> f32 {
         let ta = angle - self.arg_periapsis;
         self.radius_at(ta)
     }
 
     pub fn pv_at_angle(&self, angle: f32) -> PV {
-        let ta = if self.retrograde {
+        let ta = if self.is_retrograde() {
             -angle + self.arg_periapsis
         } else {
             angle - self.arg_periapsis
@@ -295,9 +280,8 @@ impl SparseOrbit {
 
     pub fn radius_at(&self, true_anomaly: f32) -> f32 {
         if self.eccentricity == 1.0 {
-            let h = self.angular_momentum();
             let mu = self.body.mu();
-            return (h.powi(2) / mu) * 1.0 / (1.0 + true_anomaly.cos());
+            return (self.h().powi(2) / mu) * 1.0 / (1.0 + true_anomaly.cos());
         }
         self.semi_major_axis * (1.0 - self.eccentricity.powi(2))
             / (1.0 + self.eccentricity * f32::cos(true_anomaly))
@@ -336,7 +320,7 @@ impl SparseOrbit {
 
     pub fn position_at(&self, true_anomaly: f32) -> Vec2 {
         let r = self.radius_at(true_anomaly);
-        let angle = match self.retrograde {
+        let angle = match self.is_retrograde() {
             false => true_anomaly,
             true => -true_anomaly,
         };
@@ -346,7 +330,7 @@ impl SparseOrbit {
     pub fn velocity_at(&self, true_anomaly: f32) -> Vec2 {
         let r = self.radius_at(true_anomaly);
         let v = (self.body.mu() * (2.0 / r - 1.0 / self.semi_major_axis)).sqrt();
-        let h = self.angular_momentum();
+        let h = self.h();
         let cosfpa = h / (r * v);
         let sinfpa = cosfpa * self.eccentricity * true_anomaly.sin()
             / (1.0 + self.eccentricity * true_anomaly.cos());
@@ -831,7 +815,7 @@ mod tests {
             let porbit = match orbit.pv(t) {
                 Ok(p) => p,
                 Err(ul) => {
-                    assert!(false, "Bad orbital position at {:?} - {:?}", t, ul);
+                    assert!(false, "Bad orbital position at {:?}\n  {:#?}", t, ul);
                     return;
                 }
             };
@@ -880,7 +864,13 @@ mod tests {
         }
     }
 
-    fn orbit_consistency_test(pv: PV, class: OrbitClass, body: Body) {
+    fn orbit_consistency_test(
+        pv: PV,
+        class: OrbitClass,
+        body: Body,
+        ecc: f32,
+        is_retrograde: bool,
+    ) {
         println!("{}", pv);
 
         let orbit = SparseOrbit::from_pv(pv, body, Nanotime::zero());
@@ -888,6 +878,17 @@ mod tests {
         assert!(orbit.is_some());
 
         let orbit = orbit.unwrap();
+
+        if !ecc.is_nan() {
+            assert_relative_eq!(ecc, orbit.ecc());
+        }
+        assert_eq!(
+            is_retrograde,
+            orbit.is_retrograde(),
+            "Orbit {} expected is_retrograde = {}",
+            pv,
+            is_retrograde
+        );
 
         assert_eq!(orbit.pv(orbit.epoch).ok(), Some(orbit.initial));
 
@@ -911,6 +912,8 @@ mod tests {
             PV::new((669.058, -1918.289), (74.723, 60.678)),
             OrbitClass::Elliptical,
             Body::new(63.0, 1000.0, 15000.0),
+            0.6335363,
+            false,
         );
     }
 
@@ -920,6 +923,8 @@ mod tests {
             PV::new((430.0, 230.0), (-50.14, 40.13)),
             OrbitClass::Elliptical,
             Body::new(63.0, 1000.0, 15000.0),
+            0.860516,
+            false,
         );
     }
 
@@ -929,6 +934,8 @@ mod tests {
             PV::new((0.0, -222.776), (333.258, 0.000)),
             OrbitClass::Hyperbolic,
             Body::new(63.0, 1000.0, 15000.0),
+            1.0618086,
+            false,
         );
     }
 
@@ -938,6 +945,8 @@ mod tests {
             PV::new((1520.323, 487.734), (-84.935, 70.143)),
             OrbitClass::Elliptical,
             Body::new(63.0, 1000.0, 15000.0),
+            0.74756867,
+            false,
         );
     }
 
@@ -947,6 +956,8 @@ mod tests {
             PV::new((5535.6294, -125.794685), (-66.63476, 16.682587)),
             OrbitClass::Hyperbolic,
             Body::new(63.0, 1000.0, 15000.0),
+            1.0093584,
+            false,
         );
     }
 
@@ -956,6 +967,8 @@ mod tests {
             PV::new((65.339584, 1118.9651), (-138.84702, -279.47888)),
             OrbitClass::Hyperbolic,
             Body::new(63.0, 1000.0, 15000.0),
+            3.3041847,
+            false,
         );
     }
 
@@ -965,6 +978,8 @@ mod tests {
             PV::new((-1856.4648, -1254.9697), (216.31313, -85.84622)),
             OrbitClass::Hyperbolic,
             Body::new(63.0, 1000.0, 15000.0),
+            7.5504527,
+            false,
         );
     }
 
@@ -974,14 +989,91 @@ mod tests {
             PV::new((-72.39488, 662.50507), (3.4047441, 71.81263)),
             OrbitClass::Hyperbolic,
             Body::new(22.0, 10.0, 800.0),
+            7.0,
+            true,
         );
+    }
+
+    #[test]
+    fn orbit_009() {
+        orbit_consistency_test(
+            PV::new((825.33563, 564.6425), (200.0, 230.0)),
+            OrbitClass::Hyperbolic,
+            Body::new(63.0, 1000.0, 15000.0),
+            1.9568859,
+            false,
+        );
+    }
+
+    #[test]
+    fn orbit_010() {
+        let body = Body::new(63.0, 1000.0, 15000.0);
+        let orbit = SparseOrbit::circular(100.0, body, Nanotime::zero(), false);
+
+        assert_relative_eq!(orbit.h(), 34641.016);
+        assert_relative_eq!(orbit.inverse().unwrap().h(), -34641.016);
+
+        orbit_consistency_test(orbit.initial, OrbitClass::Circular, body, 0.0, false);
+        orbit_consistency_test(
+            orbit.inverse().unwrap().initial,
+            OrbitClass::Circular,
+            body,
+            0.0,
+            true,
+        );
+    }
+
+    #[test]
+    fn assert_positions_are_as_expected() {
+        let body = Body::new(300.0, 1000.0, 100000.0);
+        let pv = PV::new((6500.0, 7000.0), (-14.0, 11.0));
+        let orbit = SparseOrbit::from_pv(pv, body, Nanotime::zero()).unwrap();
+
+        orbit_consistency_test(pv, OrbitClass::Elliptical, body, 0.7496509, false);
+
+        assert_eq!(orbit.period().unwrap(), Nanotime::nanos(732959932416));
+
+        let tests = [
+            (0, ((6500.000, 7000.000), (-14.000, 11.000))),
+            (1, ((6485.955, 7010.952), (-14.089, 10.904))),
+            (2, ((6471.821, 7021.807), (-14.179, 10.807))),
+            (3, ((6457.598, 7032.565), (-14.268, 10.710))),
+            (4, ((6443.286, 7043.227), (-14.357, 10.613))),
+            (5, ((6428.885, 7053.792), (-14.446, 10.516))),
+            (6, ((6414.395, 7064.258), (-14.534, 10.418))),
+            (50, ((5690.970, 7424.940), (-18.311, 5.894))),
+            (100, ((4672.958, 7576.260), (-22.377, -0.008))),
+            (200, ((2049.801, 6815.513), (-29.917, -16.783))),
+            (500, ((6723.073, 2081.153), (16.944, 30.457))),
+        ];
+
+        for (t, pv) in tests {
+            let t = Nanotime::secs(t);
+            let pv: PV = pv.into();
+            let actual = orbit.pv(t).unwrap();
+            let d = pv - actual;
+            assert!(
+                d.pos.length() < 0.001 && d.vel.length() < 0.001,
+                "At time {:?}...\n  expected {}\n  actually {}",
+                t,
+                pv,
+                actual
+            );
+        }
     }
 
     #[test]
     fn grid_orbits() {
         let orbits = consistency_orbits(make_earth());
         for orbit in &orbits[0..120] {
-            orbit_consistency_test(orbit.initial, orbit.class(), orbit.body);
+            let is_retrograde = cross2d(orbit.initial.pos, orbit.initial.vel) < 0.0;
+            orbit_consistency_test(
+                orbit.initial,
+                orbit.class(),
+                orbit.body,
+                f32::NAN,
+                is_retrograde,
+            );
         }
     }
 
@@ -1023,24 +1115,7 @@ mod tests {
     }
 
     #[test]
-    fn bad_orbit() {
-        let pv = PV::new((825.33563, 564.6425), (200.0, 230.0));
-        let body = Body {
-            radius: 63.0,
-            mass: 1000.0,
-            soi: 15000.0,
-        };
-
-        let data = ULData::new(pv, Nanotime::secs(1), body.mu());
-
-        let res = data.solve();
-
-        dbg!(data);
-        dbg!(res);
-    }
-
-    #[test]
-    fn orbit_construction() {
+    fn inverse_orbit() {
         const TEST_POSITION: Vec2 = Vec2::new(500.0, 300.0);
         const TEST_VELOCITY: Vec2 = Vec2::new(-200.0, 0.0);
 
@@ -1057,18 +1132,21 @@ mod tests {
 
         let true_h = TEST_POSITION.extend(0.0).cross(TEST_VELOCITY.extend(0.0)).z;
 
-        assert_relative_eq!(o1.angular_momentum(), true_h);
-        assert!(o1.angular_momentum() > 0.0);
-        assert!(!o1.retrograde);
+        assert_relative_eq!(o1.h(), true_h);
+        assert!(o1.h() > 0.0);
+        assert!(!o1.is_retrograde());
 
-        assert_relative_eq!(o2.angular_momentum(), true_h);
-        assert!(o1.angular_momentum() > 0.0);
-        assert!(o2.retrograde);
+        assert_relative_eq!(o2.h(), -true_h);
+        assert!(o2.h() < 0.0);
+        assert!(o2.is_retrograde());
+
+        assert!(!o1.is_hyperbolic());
+        assert!(!o2.is_hyperbolic());
 
         assert_eq!(o1.period().unwrap(), o2.period().unwrap());
 
         // TODO make this better
-        for i in [0] {
+        for i in [0, 1, 2] {
             let t = o1.period().unwrap() * i;
             println!("{t:?} {} {}", o1.pv(t).unwrap(), o2.pv(t).unwrap());
             assert_relative_eq!(

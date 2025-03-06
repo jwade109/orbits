@@ -50,7 +50,7 @@ impl std::fmt::Display for PV {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "P({:0.3}, {:0.3}) V({:0.3}, {:0.3})",
+            "PV(({:0.3}, {:0.3}), ({:0.3}, {:0.3}))",
             self.pos.x, self.pos.y, self.vel.x, self.vel.y
         )
     }
