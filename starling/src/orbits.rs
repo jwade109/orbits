@@ -1028,12 +1028,13 @@ mod tests {
         let body = Body::new(300.0, 1000.0, 100000.0);
         let pv = PV::new((6500.0, 7000.0), (-14.0, 11.0));
         let orbit = SparseOrbit::from_pv(pv, body, Nanotime::zero()).unwrap();
+        let inverse = orbit.inverse().unwrap();
 
         orbit_consistency_test(pv, OrbitClass::Elliptical, body, 0.7496509, false);
 
         assert_eq!(orbit.period().unwrap(), Nanotime::nanos(732959932416));
 
-        let tests = [
+        let tests_1 = [
             (0, ((6500.000, 7000.000), (-14.000, 11.000))),
             (1, ((6485.955, 7010.952), (-14.089, 10.904))),
             (2, ((6471.821, 7021.807), (-14.179, 10.807))),
@@ -1047,18 +1048,34 @@ mod tests {
             (500, ((6723.073, 2081.153), (16.944, 30.457))),
         ];
 
-        for (t, pv) in tests {
-            let t = Nanotime::secs(t);
-            let pv: PV = pv.into();
-            let actual = orbit.pv(t).unwrap();
-            let d = pv - actual;
-            assert!(
-                d.pos.length() < 0.001 && d.vel.length() < 0.001,
-                "At time {:?}...\n  expected {}\n  actually {}",
-                t,
-                pv,
-                actual
-            );
+        let tests_2 = [
+            (0, ((6500.000, 7000.000), (14.000, -11.000))),
+            (1, ((6513.956, 6988.952), (13.910, -11.096))),
+            (2, ((6527.820, 6977.807), (13.821, -11.192))),
+            (3, ((6541.597, 6966.567), (13.731, -11.288))),
+            (4, ((6555.282, 6955.231), (13.641, -11.384))),
+            (5, ((6568.878, 6943.799), (13.551, -11.479))),
+            (6, ((6582.384, 6932.272), (13.460, -11.575))),
+            (50, ((7084.593, 6333.183), (9.304, -15.608))),
+            (100, ((7420.361, 5444.321), (4.001, -19.907))),
+            (200, ((7165.859, 3044.784), (-10.193, -27.985))),
+            (500, ((1028.914, 6126.698), (31.940, 25.448))),
+        ];
+
+        for (orbit, tests) in &[(orbit, tests_1), (inverse, tests_2)] {
+            for (t, (p, v)) in tests {
+                let t = Nanotime::secs(*t);
+                let pv = PV::new(*p, *v);
+                let actual = orbit.pv(t).unwrap();
+                let d = pv - actual;
+                assert!(
+                    d.pos.length() < 0.001 && d.vel.length() < 0.001,
+                    "At time {:?}...\n  expected {}\n  actually {}",
+                    t,
+                    pv,
+                    actual
+                );
+            }
         }
     }
 

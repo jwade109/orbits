@@ -357,12 +357,7 @@ impl Propagator {
         let t1 = end;
         let t2 = end + self.dt;
 
-        match self
-            .orbit
-            .pv(t1)
-            .ok()
-            .zip(self.orbit.pv(t2).ok())
-        {
+        match self.orbit.pv(t1).ok().zip(self.orbit.pv(t2).ok()) {
             None => {
                 self.horizon = HorizonState::Terminating(t1, EventType::NumericalError);
                 return Ok(());
@@ -674,6 +669,7 @@ pub fn generate_maneuver_plans(
     destination: &SparseOrbit,
     now: Nanotime,
 ) -> Vec<ManeuverPlan> {
+
     let destination = if current.is_retrograde() == destination.is_retrograde() {
         *destination
     } else {
@@ -690,5 +686,8 @@ pub fn generate_maneuver_plans(
     [direct, hohmann, bielliptic]
         .into_iter()
         .filter_map(std::convert::identity)
+        .inspect(|m| {
+            m.orbits().last().map(|o| dbg!(o.is_retrograde()));
+        })
         .collect()
 }
