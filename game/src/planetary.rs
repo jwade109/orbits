@@ -4,7 +4,6 @@ use bevy::window::PrimaryWindow;
 
 use starling::prelude::*;
 
-use crate::button::Button;
 use crate::camera_controls::*;
 use crate::debug::*;
 use crate::drawing::*;
@@ -21,7 +20,6 @@ impl Plugin for PlanetaryPlugin {
             Update,
             (
                 log_system_info,
-                process_commands,
                 keyboard_input,
                 mouse_button_input,
                 update_camera,
@@ -74,7 +72,6 @@ pub struct GameState {
     pub backup: Option<(Scenario, ObjectIdTracker, Nanotime)>,
     pub track_list: Vec<ObjectId>,
     pub highlighted_list: Vec<ObjectId>,
-    pub draw_levels: Vec<i32>,
     pub camera: CameraState,
     pub control_points: Vec<Vec2>,
     pub hide_debug: bool,
@@ -83,21 +80,11 @@ pub struct GameState {
     pub follow: Option<ObjectId>,
     pub topo_map: TopoMap,
     pub show_orbits: ShowOrbitsState,
-
-    // buttons!
-    pub show_potential_field: Button,
-    pub show_animations: Button,
+    pub show_potential_field: bool,
+    pub show_animations: bool,
 }
 
 impl GameState {
-    pub fn buttons(&self) -> Vec<&Button> {
-        vec![&self.show_potential_field, &self.show_animations]
-    }
-
-    pub fn update_buttons(&mut self, pos: Vec2, clicked: bool) -> bool {
-        self.show_potential_field.update(pos, clicked) | self.show_animations.update(pos, clicked)
-    }
-
     pub fn primary(&self) -> Option<ObjectId> {
         self.track_list.first().cloned()
     }
@@ -245,21 +232,6 @@ impl Default for GameState {
     fn default() -> Self {
         let (scenario, ids) = default_example();
 
-        let mut button_idx = 0;
-
-        let mut next_button = |name: &'static str| -> Button {
-            let w = 50.0;
-            let h = 40.0;
-            let s = 6.0;
-            let start = Vec2::new(30.0, 60.0);
-
-            let p1 = start + Vec2::X * (w + s) * button_idx as f32;
-            let p2 = p1 + Vec2::new(w, h);
-            let b = Button::new(&name, p1, p2, true);
-            button_idx += 1;
-            b
-        };
-
         let mut topo_map = TopoMap::new(250.0);
         for x in -50..=50 {
             for y in -50..=50 {
@@ -278,7 +250,6 @@ impl Default for GameState {
             track_list: Vec::new(),
             highlighted_list: Vec::new(),
             backup: Some((scenario, ids, Nanotime::zero())),
-            draw_levels: vec![150],
             camera: CameraState::default(),
             control_points: Vec::new(),
             hide_debug: true,
@@ -287,10 +258,8 @@ impl Default for GameState {
             follow: None,
             topo_map,
             show_orbits: ShowOrbitsState::Focus,
-
-            // buttons
-            show_potential_field: next_button("Show Potential"),
-            show_animations: next_button("Show Animations"),
+            show_potential_field: false,
+            show_animations: false,
         }
     }
 }
@@ -366,7 +335,7 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
         }
     });
 
-    if state.show_potential_field.state() {
+    if state.show_potential_field {
         let orbits = state
             .track_list
             .iter()
@@ -623,17 +592,6 @@ fn mouse_button_input(
     keys: Res<ButtonInput<KeyCode>>,
     mut state: ResMut<GameState>,
 ) {
-    let clicked = buttons.pressed(MouseButton::Left);
-    let button_interact = if let Some(p) = state.camera.mouse_screen_pos {
-        state.update_buttons(p, clicked)
-    } else {
-        false
-    };
-
-    if button_interact {
-        return;
-    }
-
     if buttons.just_pressed(MouseButton::Right) {
         state.control_points.clear();
         if let Some(p) = state.camera.mouse_pos() {
@@ -711,11 +669,5 @@ fn on_command(state: &mut GameState, cmd: &Vec<String>) {
         }
     } else if starts_with("spawn") {
         state.spawn_new();
-    }
-}
-
-fn process_commands(mut evts: EventReader<DebugCommand>, mut state: ResMut<GameState>) {
-    for DebugCommand(cmd) in evts.read() {
-        on_command(&mut state, cmd);
     }
 }

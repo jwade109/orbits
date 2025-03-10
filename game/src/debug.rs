@@ -17,9 +17,6 @@ pub struct DebugLog {
     pub message: String,
 }
 
-#[derive(Event, Debug, Clone)]
-pub struct DebugCommand(pub Vec<String>);
-
 impl DebugInfo {
     fn framerate(&self) -> Option<f32> {
         match self.elapsed_time {
@@ -32,10 +29,7 @@ impl DebugInfo {
 impl Plugin for DebugPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_debug_readout);
-        app.add_systems(
-            Update,
-            (update_fps_count, redraw_fps, keyboard_input, text_input),
-        );
+        app.add_systems(Update, (update_fps_count, redraw_fps, keyboard_input));
     }
 }
 
@@ -75,7 +69,6 @@ fn spawn_debug_readout(mut commands: Commands) {
     ));
     commands.insert_resource(DebugInfo::default());
     commands.insert_resource(Events::<DebugLog>::default());
-    commands.insert_resource(Events::<DebugCommand>::default());
     commands.insert_resource(CommandsState::default());
 }
 
@@ -119,54 +112,6 @@ fn keyboard_input(keys: Res<ButtonInput<KeyCode>>) {
 pub struct CommandsState {
     pub text: String,
     pub active: bool,
-}
-
-fn text_input(
-    mut events: EventReader<KeyboardInput>,
-    mut query: Query<&mut Text, With<DebugKeyInput>>,
-    mut cstate: ResMut<CommandsState>,
-    mut evt: EventWriter<DebugCommand>,
-) {
-    for ev in events.read() {
-        if ev.state == ButtonState::Released {
-            continue;
-        }
-        match &ev.logical_key {
-            Key::Enter => {
-                if cstate.active {
-                    evt.send(DebugCommand(
-                        cstate.text[1..].split(" ").map(|s| s.to_string()).collect(),
-                    ));
-                    cstate.active = false;
-                }
-                cstate.text.clear();
-            }
-            Key::Backspace => {
-                cstate.text.pop();
-            }
-            Key::Space => {
-                cstate.text.push(' ');
-            }
-            Key::Character(input) => {
-                if input.chars().any(|c| c.is_control()) {
-                    continue;
-                }
-                cstate.text.push_str(&input);
-            }
-            _ => (),
-        }
-    }
-
-    cstate.active = Some(':') == cstate.text.chars().nth(0);
-    if !cstate.active {
-        cstate.text.clear()
-    }
-
-    for mut txt in query.iter_mut() {
-        txt.clear();
-        txt.push_str(&cstate.text);
-        txt.push('_');
-    }
 }
 
 pub fn send_log(evt: &mut EventWriter<DebugLog>, message: &str) {

@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 
-mod button;
 mod camera_controls;
 mod craft;
 mod debug;

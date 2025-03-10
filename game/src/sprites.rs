@@ -1,5 +1,6 @@
 use crate::planetary::GameState;
 use bevy::asset::embedded_asset;
+use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use starling::prelude::*;
 
@@ -7,7 +8,7 @@ pub struct PlanetSpritePlugin;
 
 impl Plugin for PlanetSpritePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, add_background);
+        app.add_systems(Startup, (add_background, spawn_box));
         app.add_systems(
             Update,
             (
@@ -16,6 +17,8 @@ impl Plugin for PlanetSpritePlugin {
                 update_shadow_sprites,
                 update_background_sprite,
                 update_spacecraft_sprites,
+                button_system,
+                big_time_system,
             ),
         );
 
@@ -25,6 +28,102 @@ impl Plugin for PlanetSpritePlugin {
         embedded_asset!(app, "src/", "../assets/background.png");
         embedded_asset!(app, "src/", "../assets/shadow.png");
         embedded_asset!(app, "src/", "../assets/spacecraft.png");
+    }
+}
+
+#[derive(Component)]
+struct DateMarker;
+
+fn spawn_box(mut commands: Commands) {
+    let names = [">_", "Orbits", "Spawn", "Commit Maneuver", "Recenter"];
+
+    commands.spawn((
+        DateMarker,
+        Text::new(""),
+        TextFont {
+            font_size: 30.0,
+            ..default()
+        },
+        TextColor(WHITE.into()),
+        ZIndex(100),
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(5.0),
+            right: Val::Px(5.0),
+            ..default()
+        },
+    ));
+
+    // ui camera
+    commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                bottom: Val::Px(0.0),
+                border: UiRect::all(Val::Px(1.0)),
+                padding: UiRect::all(Val::Px(5.0)),
+                margin: UiRect::all(Val::Px(5.0)),
+                column_gap: Val::Px(5.0),
+                ..default()
+            },
+            BorderColor(WHITE.with_alpha(0.04).into()),
+            ZIndex(100),
+        ))
+        .with_children(|parent| {
+            for name in names {
+                parent
+                    .spawn((
+                        Button,
+                        Node {
+                            position_type: PositionType::Relative,
+                            border: UiRect::all(Val::Px(2.0)),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            padding: UiRect::all(Val::Px(10.0)),
+                            ..default()
+                        },
+                        BorderColor(BLACK.into()),
+                        BorderRadius::all(Val::Px(5.0)),
+                        BackgroundColor(BLACK.into()),
+                        ZIndex(100),
+                    ))
+                    .with_child((
+                        Text::new(name),
+                        TextFont {
+                            font_size: 20.0,
+                            ..default()
+                        },
+                        TextColor(WHITE.into()),
+                        ZIndex(100),
+                    ));
+            }
+        });
+}
+
+fn button_system(mut iq: Query<(Entity, &Interaction, &mut BorderColor), Changed<Interaction>>) {
+    for (e, interaction, mut bc) in &mut iq {
+        match *interaction {
+            Interaction::Pressed => {
+                bc.0 = ORANGE.into();
+            }
+            Interaction::Hovered => {
+                bc.0 = WHITE.into();
+            }
+            Interaction::None => {
+                bc.0 = GREY.into();
+            }
+        }
+    }
+}
+
+fn big_time_system(mut q: Query<&mut Text, With<DateMarker>>, state: Res<GameState>) {
+    let secs_per_week = 60;
+    for mut text in &mut q {
+        let t = state.sim_time.to_secs().floor() as u32;
+        let w = t / secs_per_week + 1;
+
+        let d = (t % secs_per_week) as f32 * 7.0 / secs_per_week as f32 + 1.0;
+        text.0 = format!("Week {w} Day {d:0.1}");
     }
 }
 

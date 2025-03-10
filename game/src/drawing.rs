@@ -6,7 +6,6 @@ use bevy::prelude::*;
 
 use starling::prelude::*;
 
-use crate::button::ButtonState;
 use crate::camera_controls::CameraState;
 use crate::planetary::{GameState, ShowOrbitsState};
 
@@ -502,31 +501,6 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
         }
     }
 
-    for button in &state.buttons() {
-        let color = match button.button_state() {
-            ButtonState::Hovered => WHITE,
-            ButtonState::Idle => GRAY,
-            ButtonState::Pressed => WHITE,
-        };
-        let gb = state.camera.game_bounds();
-        let wb = state.camera.window_bounds();
-        let bounds = wb.map_box(gb, *button.bounds());
-        draw_aabb(&mut gizmos, bounds, color);
-        if button.button_state() == ButtonState::Pressed {
-            let mut copy = bounds;
-            copy.span *= 0.8;
-            draw_aabb(&mut gizmos, copy, color);
-        }
-        if button.state() {
-            draw_diamond(
-                &mut gizmos,
-                bounds.center,
-                15.0 * state.camera.actual_scale,
-                color,
-            );
-        }
-    }
-
     for id in state.scenario.all_ids() {
         if let Some(lup) = state.scenario.lup(id, stamp) {
             let center = lup.pv().pos;
@@ -557,7 +531,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
         }
     }
 
-    if state.show_potential_field.state() {
+    if state.show_potential_field {
         for (_, bin) in &state.topo_map.bins {
             for c in &bin.contours {
                 gizmos.linestrip_2d(c.clone(), GREEN);
@@ -571,7 +545,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
         }
     }
 
-    if state.show_animations.state() && state.track_list.len() < 6 {
+    if state.show_animations && state.track_list.len() < 6 {
         for id in &state.track_list {
             draw_event_animation(
                 &mut gizmos,
