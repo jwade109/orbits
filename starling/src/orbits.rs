@@ -330,7 +330,7 @@ impl SparseOrbit {
     pub fn velocity_at(&self, true_anomaly: f32) -> Vec2 {
         let r = self.radius_at(true_anomaly);
         let v = (self.body.mu() * (2.0 / r - 1.0 / self.semi_major_axis)).sqrt();
-        let h = self.h();
+        let h = self.h().abs();
         let cosfpa = h / (r * v);
         let sinfpa = cosfpa * self.eccentricity * true_anomaly.sin()
             / (1.0 + self.eccentricity * true_anomaly.cos());
@@ -1072,6 +1072,46 @@ mod tests {
                     d.pos.length() < 0.001 && d.vel.length() < 0.001,
                     "At time {:?}...\n  expected {}\n  actually {}",
                     t,
+                    pv,
+                    actual
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn assert_true_anomaly_pos_as_expected() {
+        let body = Body::new(300.0, 1000.0, 100000.0);
+        let pv = PV::new((6500.0, 7000.0), (-14.0, 11.0));
+        let orbit = SparseOrbit::from_pv(pv, body, Nanotime::zero()).unwrap();
+
+        orbit_consistency_test(pv, OrbitClass::Elliptical, body, 0.7496509, false);
+
+        assert_eq!(orbit.period().unwrap(), Nanotime::nanos(732959932416));
+
+        let tests_1 = [
+            (0.0, ((-958.451, -976.645), (88.408, -86.761))),
+            (1.0, ((378.518, -1661.429), (106.907, -21.447))),
+            (2.0, ((3272.588, -1182.707), (61.942, 29.408))),
+        ];
+
+        let tests_2 = [
+            (0.0, ((-958.451, -976.645), (-88.408, 86.761))),
+            (1.0, ((-1668.252, 347.212), (-23.453, 106.485))),
+            (2.0, ((-1244.031, 3249.771), (28.238, 62.484))),
+        ];
+
+        for (orbit, tests) in [(orbit, tests_1), (orbit.inverse().unwrap(), tests_2)] {
+            for (ta, pv) in tests {
+                let pv: PV = pv.into();
+                let pos = orbit.position_at(ta);
+                let vel = orbit.velocity_at(ta);
+                let actual = PV::new(pos, vel);
+                let d = pv - actual;
+                assert!(
+                    d.pos.length() < 0.001 && d.vel.length() < 0.001,
+                    "At true anomaly {:0.4}...\n  expected {}\n  actually {}",
+                    ta,
                     pv,
                     actual
                 );
