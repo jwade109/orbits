@@ -5,8 +5,13 @@ use std::ops::{Add, AddAssign, Div, Mul, Rem, Sub, SubAssign};
 pub struct Nanotime(i64);
 
 impl Nanotime {
-    pub const PER_SEC: i64 = 1000000000;
     pub const PER_MILLI: i64 = 1000000;
+    pub const PER_SEC: i64 = Nanotime::PER_MILLI * 1000;
+    pub const PER_MINUTE: i64 = Nanotime::PER_SEC * 60;
+    pub const PER_HOUR: i64 = Nanotime::PER_MINUTE * 60;
+    pub const PER_DAY: i64 = Nanotime::PER_HOUR * 24;
+    pub const PER_WEEK: i64 = Nanotime::PER_DAY * 7;
+    pub const PER_YEAR: i64 = Nanotime::PER_DAY * 365;
 
     pub fn zero() -> Self {
         Nanotime(0)
@@ -50,6 +55,25 @@ impl Nanotime {
 
     pub fn inner(&self) -> i64 {
         self.0
+    }
+
+    pub fn to_date(&self) -> Date {
+        let div = |rem: i64, denom: i64| (rem / denom, rem % denom);
+
+        let (year, rem) = div(self.0, Nanotime::PER_YEAR);
+        let (week, rem) = div(rem, Nanotime::PER_WEEK);
+        let (day, rem) = div(rem, Nanotime::PER_DAY);
+        let (hour, rem) = div(rem, Nanotime::PER_HOUR);
+        let (min, rem) = div(rem, Nanotime::PER_MINUTE);
+        let (sec, _) = div(rem, Nanotime::PER_SEC);
+        Date {
+            year,
+            week,
+            day,
+            hour,
+            min,
+            sec,
+        }
     }
 }
 
@@ -118,4 +142,14 @@ impl Rem<Nanotime> for Nanotime {
     fn rem(self, rhs: Nanotime) -> Self::Output {
         Nanotime(self.0 % rhs.0)
     }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Date {
+    pub year: i64,
+    pub week: i64,
+    pub day: i64,
+    pub hour: i64,
+    pub min: i64,
+    pub sec: i64,
 }

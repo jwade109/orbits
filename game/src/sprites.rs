@@ -35,7 +35,22 @@ impl Plugin for PlanetSpritePlugin {
 struct DateMarker;
 
 fn spawn_box(mut commands: Commands) {
-    let names = [">_", "Orbits", "Spawn", "Commit Maneuver", "Recenter"];
+    commands.insert_resource(Events::<InteractionEvent>::default());
+
+    let buttons = [
+        (">_", InteractionEvent::Console),
+        ("Debug", InteractionEvent::DebugMode),
+        ("Clear", InteractionEvent::ClearSelection),
+        ("Draw Orbits", InteractionEvent::Orbits),
+        ("Spawn", InteractionEvent::Spawn),
+        ("Commit Mission", InteractionEvent::CommitMission),
+        ("Recenter", InteractionEvent::Recenter),
+        ("Del", InteractionEvent::Delete),
+        ("<", InteractionEvent::SimSlower),
+        ("||", InteractionEvent::SimPause),
+        (">", InteractionEvent::SimFaster),
+        ("Exit", InteractionEvent::ExitApp),
+    ];
 
     commands.spawn((
         DateMarker,
@@ -70,7 +85,7 @@ fn spawn_box(mut commands: Commands) {
             ZIndex(100),
         ))
         .with_children(|parent| {
-            for name in names {
+            for (name, event) in buttons {
                 parent
                     .spawn((
                         Button,
@@ -79,12 +94,13 @@ fn spawn_box(mut commands: Commands) {
                             border: UiRect::all(Val::Px(2.0)),
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
-                            padding: UiRect::all(Val::Px(10.0)),
+                            padding: UiRect::all(Val::Px(5.0)),
                             ..default()
                         },
                         BorderColor(BLACK.into()),
                         BorderRadius::all(Val::Px(5.0)),
                         BackgroundColor(BLACK.into()),
+                        OnClick(event),
                         ZIndex(100),
                     ))
                     .with_child((
@@ -100,11 +116,35 @@ fn spawn_box(mut commands: Commands) {
         });
 }
 
-fn button_system(mut iq: Query<(Entity, &Interaction, &mut BorderColor), Changed<Interaction>>) {
-    for (e, interaction, mut bc) in &mut iq {
+#[derive(Debug, Event, Clone, Copy)]
+pub enum InteractionEvent {
+    Orbits,
+    CommitMission,
+    Spawn,
+    Recenter,
+    Console,
+    Delete,
+    SimSlower,
+    SimPause,
+    SimFaster,
+    DebugMode,
+    ClearSelection,
+    Follow,
+    ExitApp,
+}
+
+#[derive(Component, Debug, Clone, Copy)]
+struct OnClick(InteractionEvent);
+
+fn button_system(
+    mut iq: Query<(&Interaction, &mut BorderColor, &OnClick), Changed<Interaction>>,
+    mut evt: EventWriter<InteractionEvent>,
+) {
+    for (interaction, mut bc, OnClick(event)) in &mut iq {
         match *interaction {
             Interaction::Pressed => {
                 bc.0 = ORANGE.into();
+                evt.send(*event);
             }
             Interaction::Hovered => {
                 bc.0 = WHITE.into();
@@ -117,13 +157,18 @@ fn button_system(mut iq: Query<(Entity, &Interaction, &mut BorderColor), Changed
 }
 
 fn big_time_system(mut q: Query<&mut Text, With<DateMarker>>, state: Res<GameState>) {
-    let secs_per_week = 60;
+    const SCALE_FACTOR: i64 = Nanotime::PER_DAY / Nanotime::PER_SEC / 20;
+    let t = state.sim_time * SCALE_FACTOR;
     for mut text in &mut q {
-        let t = state.sim_time.to_secs().floor() as u32;
-        let w = t / secs_per_week + 1;
-
-        let d = (t % secs_per_week) as f32 * 7.0 / secs_per_week as f32 + 1.0;
-        text.0 = format!("Week {w} Day {d:0.1}");
+        let date = t.to_date();
+        text.0 = format!(
+            "Y{} W{} D{} {:02}:{:02}",
+            date.year + 1,
+            date.week + 1,
+            date.day + 1,
+            date.hour,
+            date.min,
+        );
     }
 }
 

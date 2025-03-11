@@ -7,6 +7,7 @@ use starling::prelude::*;
 use crate::camera_controls::*;
 use crate::debug::*;
 use crate::drawing::*;
+use crate::sprites::InteractionEvent;
 use crate::sprites::PlanetSpritePlugin;
 
 pub struct PlanetaryPlugin;
@@ -23,6 +24,7 @@ impl Plugin for PlanetaryPlugin {
                 keyboard_input,
                 mouse_button_input,
                 update_camera,
+                button_interaction_system,
                 draw,
             )
                 .chain(),
@@ -193,7 +195,7 @@ impl GameState {
                         .flatten()
                         .is_some()
                     {
-                        println!("{:?} - Failed to maneuver orbiter {}", self.sim_time, id);
+                        info!("{:?} - Failed to maneuver orbiter {}", self.sim_time, id);
                     }
                 }
             };
@@ -291,12 +293,12 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
 
     for (id, ri) in state.scenario.simulate(s, d) {
         if let Some(ri) = ri {
-            println!(
+            info!(
                 "Object {} removed at time {:?} due to {:?}",
                 id, ri.stamp, ri.reason
             );
         } else {
-            println!("Object {} removed for unknown reason", id);
+            info!("Object {} removed for unknown reason", id);
         }
     }
 
@@ -327,7 +329,7 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
         if let Some(end) = c.plan().map(|p| p.end()).flatten() {
             let retain = end > s;
             if !retain {
-                println!("Maneuver completed by vehicle {}", c.target);
+                info!("Maneuver completed by vehicle {}", c.target);
             }
             retain
         } else {
@@ -468,17 +470,79 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
     }
 }
 
+fn process_interaction(
+    inter: &InteractionEvent,
+    state: &mut GameState,
+    exit: &mut EventWriter<bevy::app::AppExit>,
+) -> Option<()> {
+    match inter {
+        InteractionEvent::Delete => state.delete_objects(),
+        InteractionEvent::CommitMission => {
+            let plan = state.maneuver_plans();
+            if !plan.is_empty() {
+                for (id, plan) in &plan {
+                    state.enqueue_plan(*id, &plan);
+                }
+                let ids = plan.iter().map(|(id, _)| id).collect::<Vec<_>>();
+                let avg_dv =
+                    plan.iter().map(|(_, plan)| plan.dv()).sum::<f32>() / plan.len() as f32;
+                info!("Committing maneuver plan (avg dv of {avg_dv:0.2}) for {ids:?}");
+            }
+        }
+        InteractionEvent::DebugMode => {
+            state.hide_debug = !state.hide_debug;
+        }
+        InteractionEvent::ClearSelection => {
+            state.track_list.clear();
+        }
+        InteractionEvent::SimSlower => {
+            state.sim_speed = i32::clamp(state.sim_speed - 1, -10, 4);
+        }
+        InteractionEvent::SimFaster => {
+            state.sim_speed = i32::clamp(state.sim_speed + 1, -10, 4);
+        }
+        InteractionEvent::SimPause => {
+            state.paused = !state.paused;
+        }
+        InteractionEvent::Follow => {
+            state.follow = state.primary();
+        }
+        InteractionEvent::Orbits => {
+            state.show_orbits.next();
+        }
+        InteractionEvent::Spawn => {
+            state.spawn_new();
+        }
+        InteractionEvent::ExitApp => {
+            exit.send(bevy::app::AppExit::Success);
+        }
+        _ => (),
+    };
+    Some(())
+}
+
+fn button_interaction_system(
+    mut events: EventReader<InteractionEvent>,
+    mut state: ResMut<GameState>,
+    mut exit: EventWriter<bevy::app::AppExit>,
+) {
+    for e in events.read() {
+        info!("Interaction event: {e:?}");
+        process_interaction(e, &mut state, &mut exit);
+    }
+}
+
 // I dislike bevy and so I'm lumping all input events into a single function
 // because I am ungovernable
 fn keyboard_input(
     keys: Res<ButtonInput<KeyCode>>,
     mut scroll: EventReader<MouseWheel>,
     mut state: ResMut<GameState>,
-    mut exit: ResMut<Events<bevy::app::AppExit>>,
     cstate: Res<CommandsState>,
     time: Res<Time>,
     buttons: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window, With<PrimaryWindow>>,
+    mut events: EventWriter<InteractionEvent>,
 ) {
     if cstate.active {
         return;
@@ -503,29 +567,22 @@ fn keyboard_input(
     for key in keys.get_just_pressed() {
         match key {
             KeyCode::Period => {
-                state.sim_speed = i32::clamp(state.sim_speed + 1, -10, 4);
+                events.send(InteractionEvent::SimFaster);
             }
             KeyCode::Comma => {
-                state.sim_speed = i32::clamp(state.sim_speed - 1, -10, 4);
+                events.send(InteractionEvent::SimSlower);
             }
             KeyCode::Delete => {
-                state.delete_objects();
+                events.send(InteractionEvent::Delete);
             }
             KeyCode::KeyH => {
-                state.hide_debug = !state.hide_debug;
+                events.send(InteractionEvent::DebugMode);
             }
-            KeyCode::KeyF => state.follow = state.primary(),
+            KeyCode::KeyF => {
+                events.send(InteractionEvent::Follow);
+            }
             KeyCode::Enter => {
-                let plan = state.maneuver_plans();
-                if !plan.is_empty() {
-                    for (id, plan) in &plan {
-                        state.enqueue_plan(*id, &plan);
-                    }
-                    let ids = plan.iter().map(|(id, _)| id).collect::<Vec<_>>();
-                    let avg_dv =
-                        plan.iter().map(|(_, plan)| plan.dv()).sum::<f32>() / plan.len() as f32;
-                    println!("Committing maneuver plan (avg dv of {avg_dv:0.2}) for {ids:?}");
-                }
+                events.send(InteractionEvent::CommitMission);
             }
             _ => (),
         }
@@ -543,11 +600,11 @@ fn keyboard_input(
 
     if keys.pressed(KeyCode::ShiftLeft) {
         for ev in scroll_events {
-            if ev.y > 0.0 {
-                state.sim_speed = i32::clamp(state.sim_speed + 1, -10, 4);
+            events.send(if ev.y > 0.0 {
+                InteractionEvent::SimFaster
             } else {
-                state.sim_speed = i32::clamp(state.sim_speed - 1, -10, 4);
-            }
+                InteractionEvent::SimSlower
+            });
         }
     }
 
@@ -570,20 +627,17 @@ fn keyboard_input(
     if man != Vec2::ZERO {
         state.do_maneuver(man);
     }
-
     if keys.pressed(KeyCode::KeyK) {
-        state.spawn_new();
+        events.send(InteractionEvent::Spawn);
     }
-
     if keys.just_pressed(KeyCode::Tab) {
-        state.show_orbits.next();
+        events.send(InteractionEvent::Orbits);
     }
-
     if keys.just_pressed(KeyCode::Space) {
-        state.paused = !state.paused;
+        events.send(InteractionEvent::SimPause);
     }
     if keys.just_pressed(KeyCode::Escape) {
-        exit.send(bevy::app::AppExit::Success);
+        events.send(InteractionEvent::ExitApp);
     }
 }
 
@@ -605,7 +659,7 @@ fn mouse_button_input(
     }
     if buttons.just_released(MouseButton::Left) {
         let hl = state.highlighted_list.clone();
-        if keys.pressed(KeyCode::ShiftLeft) {
+        if keys.pressed(KeyCode::ShiftLeft) || state.track_list.is_empty() {
             // add to track list
             for h in hl {
                 if !state.track_list.contains(&h) {
@@ -615,10 +669,6 @@ fn mouse_button_input(
         } else if keys.pressed(KeyCode::KeyX) {
             // remove from track list
             state.track_list.retain(|id| !hl.contains(id))
-        } else {
-            // start from scratch
-            state.track_list.clear();
-            state.track_list = hl;
         }
     }
 }

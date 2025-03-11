@@ -669,7 +669,6 @@ pub fn generate_maneuver_plans(
     destination: &SparseOrbit,
     now: Nanotime,
 ) -> Vec<ManeuverPlan> {
-
     let destination = if current.is_retrograde() == destination.is_retrograde() {
         *destination
     } else {
@@ -685,9 +684,6 @@ pub fn generate_maneuver_plans(
 
     [direct, hohmann, bielliptic]
         .into_iter()
-        .filter_map(std::convert::identity)
-        .inspect(|m| {
-            m.orbits().last().map(|o| dbg!(o.is_retrograde()));
-        })
+        .flatten()
         .collect()
 }
