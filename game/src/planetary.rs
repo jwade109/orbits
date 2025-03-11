@@ -5,6 +5,7 @@ use starling::prelude::*;
 use crate::camera_controls::*;
 use crate::debug::*;
 use crate::drawing::*;
+use crate::mouse::*;
 use crate::ui::InteractionEvent;
 
 pub struct PlanetaryPlugin;
@@ -29,6 +30,9 @@ impl Plugin for PlanetaryPlugin {
                 todo_fix_actual_scale,
                 crate::mouse::cursor_position,
                 draw,
+                draw_mouse_state,
+
+                crate::drawing::draw_mouse_state,
             )
                 .chain(),
         );
@@ -41,6 +45,7 @@ pub struct SoftController(pub Transform);
 fn init_system(mut commands: Commands) {
     commands.insert_resource(GameState::default());
     commands.spawn((Camera2d, SoftController::default()));
+    commands.spawn(MouseState::default());
 }
 
 fn update_camera_controllers(mut query: Query<(&SoftController, &mut Transform)>) {

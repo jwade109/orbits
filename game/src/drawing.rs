@@ -7,6 +7,7 @@ use bevy::prelude::*;
 use starling::prelude::*;
 
 use crate::camera_controls::CameraState;
+use crate::mouse::MouseState;
 use crate::planetary::{GameState, ShowOrbitsState};
 
 pub fn alpha(color: Srgba, a: f32) -> Srgba {
@@ -566,5 +567,24 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
 
     if state.selection_mode {
         draw_highlighted_objects(&mut gizmos, &state);
+    }
+}
+
+pub fn draw_mouse_state(
+    mouse: Single<&MouseState>,
+    cam: Single<(&Camera, &GlobalTransform)>,
+    mut gizmos: Gizmos,
+) {
+    let points = [
+        (mouse.current_world(*cam), RED),
+        (mouse.left_world(*cam), BLUE),
+        (mouse.right_world(*cam), GREEN),
+        (mouse.middle_world(*cam), YELLOW),
+    ];
+
+    for (p, c) in points {
+        if let Some(p) = p {
+            draw_circle(&mut gizmos, p,8.0 * cam.1.scale().z, c);
+        }
     }
 }

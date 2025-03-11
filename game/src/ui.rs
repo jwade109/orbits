@@ -23,6 +23,9 @@ pub enum InteractionEvent {
     Restore,
     Load(String),
 
+    // mouse stuff
+    DoubleClick,
+
     // camera operations
     MoveLeft,
     MoveRight,
