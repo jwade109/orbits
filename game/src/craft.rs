@@ -274,7 +274,7 @@ fn draw_rigid_body(gizmos: &mut Gizmos, craft: &RigidBody, color: Srgba) {
 }
 
 fn draw(mut gizmos: Gizmos, state: Res<CraftState>) {
-    draw_camera_controls(&mut gizmos, &state.camera);
+    // draw_camera_controls(&mut gizmos, &state.camera);
 
     for b in &state.bodies {
         draw_rigid_body(&mut gizmos, &b, WHITE);
@@ -377,15 +377,12 @@ fn handle_viewport_input(
     query: Query<&mut Transform, With<Camera>>,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
 ) {
-    state.camera.on_keys(&keys, time.delta_secs());
     let scroll_events = scroll.read().collect::<Vec<_>>();
     if !keys.pressed(KeyCode::ShiftLeft) {
         state.camera.on_scroll(&scroll_events);
     }
     state.camera.on_mouse_click(&buttons);
     state.camera.on_mouse_move(windows);
-
-    update_camera_transform(query, &mut state.camera);
 }
 
 fn log_system_info(state: Res<CraftState>, mut evt: EventWriter<DebugLog>) {

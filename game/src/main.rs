@@ -4,8 +4,11 @@ mod camera_controls;
 mod craft;
 mod debug;
 mod drawing;
+mod keybindings;
 mod planetary;
 mod sprites;
+mod ui;
+mod mouse;
 
 fn main() {
     App::new()
@@ -17,5 +20,4 @@ fn main() {
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2d);
 }

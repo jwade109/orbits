@@ -1,39 +1,61 @@
-use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
-use bevy::window::PrimaryWindow;
 
 use starling::prelude::*;
 
 use crate::camera_controls::*;
 use crate::debug::*;
 use crate::drawing::*;
-use crate::sprites::InteractionEvent;
-use crate::sprites::PlanetSpritePlugin;
+use crate::ui::InteractionEvent;
+use bevy::time::common_conditions::*;
 
 pub struct PlanetaryPlugin;
 
 impl Plugin for PlanetaryPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(PlanetSpritePlugin {});
+        app.add_plugins(crate::sprites::SpritePlugin {});
+        app.add_plugins(crate::ui::UiPlugin {});
+
         app.add_systems(Startup, init_system);
         app.add_systems(FixedUpdate, propagate_system);
         app.add_systems(
             Update,
             (
                 log_system_info,
-                keyboard_input,
+                crate::keybindings::keyboard_input,
                 mouse_button_input,
-                update_camera,
-                button_interaction_system,
+                handle_interactions,
+                handle_camera_interactions,
+                update_camera_controllers,
+                todo_fix_actual_scale,
+                crate::mouse::cursor_position
+                    .run_if(on_timer(std::time::Duration::from_millis(1000))),
                 draw,
-            )
-                .chain(),
+            ),
         );
     }
 }
 
+#[derive(Component, Default)]
+pub struct SoftController(pub Transform);
+
 fn init_system(mut commands: Commands) {
     commands.insert_resource(GameState::default());
+    commands.spawn((Camera2d, SoftController::default()));
+}
+
+fn update_camera_controllers(mut query: Query<(&SoftController, &mut Transform)>) {
+    for (ctrl, mut tf) in &mut query {
+        let target = ctrl.0;
+        let current = *tf;
+        tf.translation += (target.translation - current.translation) * 0.1;
+        tf.scale += (target.scale - current.scale) * 0.1;
+    }
+}
+
+fn todo_fix_actual_scale(mut state: ResMut<GameState>, query: Query<&Transform, With<Camera>>) {
+    if let Ok(tf) = query.get_single() {
+        state.camera.actual_scale = tf.scale.z;
+    }
 }
 
 fn draw(gizmos: Gizmos, res: Res<GameState>) {
@@ -58,10 +80,6 @@ impl ShowOrbitsState {
     }
 }
 
-fn update_camera(query: Query<&mut Transform, With<Camera>>, mut state: ResMut<GameState>) {
-    update_camera_transform(query, &mut state.camera);
-}
-
 #[derive(Resource)]
 pub struct GameState {
     pub sim_time: Nanotime,
@@ -73,17 +91,16 @@ pub struct GameState {
     pub ids: ObjectIdTracker,
     pub backup: Option<(Scenario, ObjectIdTracker, Nanotime)>,
     pub track_list: Vec<ObjectId>,
-    pub highlighted_list: Vec<ObjectId>,
     pub camera: CameraState,
     pub control_points: Vec<Vec2>,
     pub hide_debug: bool,
     pub duty_cycle_high: bool,
     pub controllers: Vec<Controller>,
     pub follow: Option<ObjectId>,
-    pub topo_map: TopoMap,
     pub show_orbits: ShowOrbitsState,
-    pub show_potential_field: bool,
     pub show_animations: bool,
+    pub selection_mode: bool,
+    pub target_mode: bool,
 }
 
 impl GameState {
@@ -180,6 +197,21 @@ impl GameState {
         });
     }
 
+    pub fn highlighted(&self) -> Vec<ObjectId> {
+        if let Some(a) = self.camera.selection_region() {
+            self.scenario
+                .all_ids()
+                .into_iter()
+                .filter_map(|id| {
+                    let pv = self.scenario.lup(id, self.sim_time)?.pv();
+                    a.contains(pv.pos).then(|| id)
+                })
+                .collect()
+        } else {
+            vec![]
+        }
+    }
+
     pub fn do_maneuver(&mut self, dv: Vec2) -> Option<()> {
         if self.paused {
             return Some(());
@@ -234,13 +266,6 @@ impl Default for GameState {
     fn default() -> Self {
         let (scenario, ids) = default_example();
 
-        let mut topo_map = TopoMap::new(250.0);
-        for x in -50..=50 {
-            for y in -50..=50 {
-                topo_map.add_bin(IVec2::new(x, y));
-            }
-        }
-
         GameState {
             sim_time: Nanotime::zero(),
             actual_time: Nanotime::zero(),
@@ -250,7 +275,6 @@ impl Default for GameState {
             scenario: scenario.clone(),
             ids,
             track_list: Vec::new(),
-            highlighted_list: Vec::new(),
             backup: Some((scenario, ids, Nanotime::zero())),
             camera: CameraState::default(),
             control_points: Vec::new(),
@@ -258,10 +282,10 @@ impl Default for GameState {
             duty_cycle_high: false,
             controllers: vec![],
             follow: None,
-            topo_map,
             show_orbits: ShowOrbitsState::Focus,
-            show_potential_field: false,
             show_animations: false,
+            selection_mode: false,
+            target_mode: false,
         }
     }
 }
@@ -302,20 +326,6 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
         }
     }
 
-    if let Some(a) = state.camera.selection_region() {
-        state.highlighted_list = state
-            .scenario
-            .all_ids()
-            .into_iter()
-            .filter_map(|id| {
-                let pv = state.scenario.lup(id, state.sim_time)?.pv();
-                a.contains(pv.pos).then(|| id)
-            })
-            .collect();
-    } else {
-        state.highlighted_list.clear();
-    }
-
     let mut track_list = state.track_list.clone();
     track_list.retain(|o| state.scenario.lup(*o, state.sim_time).is_some());
     state.track_list = track_list;
@@ -336,35 +346,6 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
             true
         }
     });
-
-    if state.show_potential_field {
-        let orbits = state
-            .track_list
-            .iter()
-            .filter_map(|id| {
-                let lup = state.scenario.lup(*id, state.sim_time)?.orbiter()?;
-                Some(lup.propagator_at(state.sim_time)?.orbit)
-            })
-            .collect::<Vec<_>>();
-
-        let scalar_field = |p: Vec2| -> f32 {
-            orbits
-                .iter()
-                .map(|o| (o.sdf(p) * 1000.0) as i32)
-                .min()
-                .unwrap_or(0) as f32
-                / 1000.0
-        };
-
-        if orbits.is_empty() {
-            state.topo_map.clear();
-        }
-
-        let a = state.actual_time;
-        if s - state.topo_map.last_updated > Nanotime::millis(1) {
-            state.topo_map.update(a, &scalar_field, &[100.0, 150.0]);
-        }
-    }
 }
 
 fn sim_speed_str(speed: i32) -> String {
@@ -489,7 +470,7 @@ fn process_interaction(
                 info!("Committing maneuver plan (avg dv of {avg_dv:0.2}) for {ids:?}");
             }
         }
-        InteractionEvent::DebugMode => {
+        InteractionEvent::ToggleDebugMode => {
             state.hide_debug = !state.hide_debug;
         }
         InteractionEvent::ClearSelection => {
@@ -513,15 +494,45 @@ fn process_interaction(
         InteractionEvent::Spawn => {
             state.spawn_new();
         }
+        InteractionEvent::ToggleTargetMode => {
+            state.target_mode = !state.target_mode;
+        }
+        InteractionEvent::ToggleSelectionMode => {
+            state.selection_mode = !state.selection_mode;
+        }
         InteractionEvent::ExitApp => {
             exit.send(bevy::app::AppExit::Success);
+        }
+        InteractionEvent::Save => {
+            state.backup = Some((state.scenario.clone(), state.ids, state.sim_time));
+        }
+        InteractionEvent::Restore => {
+            if let Some((sys, ids, time)) = &state.backup {
+                state.scenario = sys.clone();
+                state.sim_time = *time;
+                state.ids = *ids;
+            }
+        }
+        InteractionEvent::Load(name) => {
+            let (system, ids) = match name.as_str() {
+                "grid" => Some(consistency_example()),
+                "earth" => Some(earth_moon_example_one()),
+                "earth2" => Some(earth_moon_example_two()),
+                "moon" => Some(just_the_moon()),
+                "jupiter" => Some(sun_jupiter_lagrange()),
+                _ => {
+                    error!("No scenario named {}", name);
+                    None
+                }
+            }?;
+            load_new_scenario(state, system, ids);
         }
         _ => (),
     };
     Some(())
 }
 
-fn button_interaction_system(
+fn handle_interactions(
     mut events: EventReader<InteractionEvent>,
     mut state: ResMut<GameState>,
     mut exit: EventWriter<bevy::app::AppExit>,
@@ -532,120 +543,38 @@ fn button_interaction_system(
     }
 }
 
-// I dislike bevy and so I'm lumping all input events into a single function
-// because I am ungovernable
-fn keyboard_input(
-    keys: Res<ButtonInput<KeyCode>>,
-    mut scroll: EventReader<MouseWheel>,
-    mut state: ResMut<GameState>,
-    cstate: Res<CommandsState>,
+fn handle_camera_interactions(
+    mut events: EventReader<InteractionEvent>,
+    mut query: Query<&mut SoftController>,
     time: Res<Time>,
-    buttons: Res<ButtonInput<MouseButton>>,
-    windows: Query<&Window, With<PrimaryWindow>>,
-    mut events: EventWriter<InteractionEvent>,
 ) {
-    if cstate.active {
-        return;
-    }
+    let mut ctrl = match query.get_single_mut() {
+        Ok(c) => c,
+        Err(e) => {
+            error!("{:?}", e);
+            return;
+        }
+    };
 
-    let scroll_events = scroll.read().collect::<Vec<_>>();
+    let cursor_delta = 1400.0 * time.delta_secs() * ctrl.0.scale.z;
+    let scale_scalar = 1.5;
 
-    state.camera.on_keys(&keys, time.delta_secs());
-    if !keys.pressed(KeyCode::ShiftLeft) {
-        state.camera.on_scroll(&scroll_events);
-    }
-    state.camera.on_mouse_click(&buttons);
-    state.camera.on_mouse_move(windows);
-
-    if let Some(p) = state.follow_position() {
-        state.camera.track(p, CameraTracking::ExternalTrack);
-    } else {
-        let s = state.camera.cursor;
-        state.camera.track(s, CameraTracking::TrackingCursor);
-    }
-
-    for key in keys.get_just_pressed() {
-        match key {
-            KeyCode::Period => {
-                events.send(InteractionEvent::SimFaster);
-            }
-            KeyCode::Comma => {
-                events.send(InteractionEvent::SimSlower);
-            }
-            KeyCode::Delete => {
-                events.send(InteractionEvent::Delete);
-            }
-            KeyCode::KeyH => {
-                events.send(InteractionEvent::DebugMode);
-            }
-            KeyCode::KeyF => {
-                events.send(InteractionEvent::Follow);
-            }
-            KeyCode::Enter => {
-                events.send(InteractionEvent::CommitMission);
-            }
+    for e in events.read() {
+        match e {
+            InteractionEvent::MoveLeft => ctrl.0.translation.x -= cursor_delta,
+            InteractionEvent::MoveRight => ctrl.0.translation.x += cursor_delta,
+            InteractionEvent::MoveUp => ctrl.0.translation.y += cursor_delta,
+            InteractionEvent::MoveDown => ctrl.0.translation.y -= cursor_delta,
+            InteractionEvent::ZoomIn => ctrl.0.scale /= scale_scalar,
+            InteractionEvent::ZoomOut => ctrl.0.scale *= scale_scalar,
+            InteractionEvent::Reset => ctrl.0 = Transform::IDENTITY,
             _ => (),
         }
     }
-
-    let dv = if keys.pressed(KeyCode::ControlLeft) {
-        0.002
-    } else if keys.pressed(KeyCode::ShiftLeft) {
-        0.5
-    } else {
-        0.03
-    };
-
-    let mut man = Vec2::ZERO;
-
-    if keys.pressed(KeyCode::ShiftLeft) {
-        for ev in scroll_events {
-            events.send(if ev.y > 0.0 {
-                InteractionEvent::SimFaster
-            } else {
-                InteractionEvent::SimSlower
-            });
-        }
-    }
-
-    if keys.pressed(KeyCode::ArrowUp) {
-        man += Vec2::Y * dv;
-    }
-
-    if keys.pressed(KeyCode::ArrowDown) {
-        man -= Vec2::Y * dv;
-    }
-
-    if keys.pressed(KeyCode::ArrowLeft) {
-        man -= Vec2::X * dv;
-    }
-
-    if keys.pressed(KeyCode::ArrowRight) {
-        man += Vec2::X * dv;
-    }
-
-    if man != Vec2::ZERO {
-        state.do_maneuver(man);
-    }
-    if keys.pressed(KeyCode::KeyK) {
-        events.send(InteractionEvent::Spawn);
-    }
-    if keys.just_pressed(KeyCode::Tab) {
-        events.send(InteractionEvent::Orbits);
-    }
-    if keys.just_pressed(KeyCode::Space) {
-        events.send(InteractionEvent::SimPause);
-    }
-    if keys.just_pressed(KeyCode::Escape) {
-        events.send(InteractionEvent::ExitApp);
-    }
 }
 
-fn mouse_button_input(
-    buttons: Res<ButtonInput<MouseButton>>,
-    keys: Res<ButtonInput<KeyCode>>,
-    mut state: ResMut<GameState>,
-) {
+// TODO get rid of this
+fn mouse_button_input(buttons: Res<ButtonInput<MouseButton>>, mut state: ResMut<GameState>) {
     if buttons.just_pressed(MouseButton::Right) {
         state.control_points.clear();
         if let Some(p) = state.camera.mouse_pos() {
@@ -657,18 +586,12 @@ fn mouse_button_input(
             state.control_points.push(p);
         }
     }
+    if buttons.just_pressed(MouseButton::Left) {}
     if buttons.just_released(MouseButton::Left) {
-        let hl = state.highlighted_list.clone();
-        if keys.pressed(KeyCode::ShiftLeft) || state.track_list.is_empty() {
-            // add to track list
-            for h in hl {
-                if !state.track_list.contains(&h) {
-                    state.track_list.push(h);
-                }
+        for h in state.highlighted() {
+            if !state.track_list.contains(&h) {
+                state.track_list.push(h);
             }
-        } else if keys.pressed(KeyCode::KeyX) {
-            // remove from track list
-            state.track_list.retain(|id| !hl.contains(id))
         }
     }
 }
@@ -681,43 +604,4 @@ fn load_new_scenario(state: &mut GameState, scen: Scenario, ids: ObjectIdTracker
     state.ids = ids;
     state.sim_time = Nanotime::zero();
     state.track_list.clear();
-}
-
-fn on_command(state: &mut GameState, cmd: &Vec<String>) {
-    let starts_with = |s: &'static str| -> bool { cmd.first() == Some(&s.to_string()) };
-
-    if starts_with("load") {
-        let (system, ids) = match cmd.get(1).map(|s| s.as_str()) {
-            Some("grid") => consistency_example(),
-            Some("earth") => earth_moon_example_one(),
-            Some("earth2") => earth_moon_example_two(),
-            Some("moon") => just_the_moon(),
-            Some("jupiter") => sun_jupiter_lagrange(),
-            _ => {
-                return;
-            }
-        };
-        load_new_scenario(state, system, ids);
-    } else if starts_with("restore") {
-        if let Some((sys, ids, time)) = &state.backup {
-            state.scenario = sys.clone();
-            state.sim_time = *time;
-            state.ids = *ids;
-        }
-    } else if starts_with("save") {
-        state.backup = Some((state.scenario.clone(), state.ids, state.sim_time));
-    } else if starts_with("follow") {
-        state.follow = cmd
-            .get(1)
-            .map(|s| s.parse::<i64>().ok())
-            .flatten()
-            .map(|n| ObjectId(n));
-    } else if starts_with("track") {
-        for n in cmd.iter().skip(1).filter_map(|s| s.parse::<i64>().ok()) {
-            let id = ObjectId(n);
-            state.toggle_track(id);
-        }
-    } else if starts_with("spawn") {
-        state.spawn_new();
-    }
 }

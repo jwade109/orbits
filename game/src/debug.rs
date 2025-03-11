@@ -69,7 +69,6 @@ fn spawn_debug_readout(mut commands: Commands) {
     ));
     commands.insert_resource(DebugInfo::default());
     commands.insert_resource(Events::<DebugLog>::default());
-    commands.insert_resource(CommandsState::default());
 }
 
 fn update_fps_count(time: Res<Time>, mut debug: ResMut<DebugInfo>) {
@@ -106,12 +105,6 @@ fn keyboard_input(keys: Res<ButtonInput<KeyCode>>) {
     for _key in keys.get_pressed() {
         // dbg!(key);
     }
-}
-
-#[derive(Resource, Default)]
-pub struct CommandsState {
-    pub text: String,
-    pub active: bool,
 }
 
 pub fn send_log(evt: &mut EventWriter<DebugLog>, message: &str) {

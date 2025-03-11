@@ -21,13 +21,13 @@ impl ObjectIdTracker {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub enum ScenarioObject<'a> {
     Orbiter(&'a Orbiter),
-    Body(Body),
+    Body(&'a String, Body),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct ObjectLookup<'a>(ScenarioObject<'a>, PV);
 
 impl<'a> ObjectLookup<'a> {
@@ -43,8 +43,15 @@ impl<'a> ObjectLookup<'a> {
     }
 
     pub fn body(&self) -> Option<Body> {
-        match &self.0 {
-            ScenarioObject::Body(b) => Some(*b),
+        match self.0 {
+            ScenarioObject::Body(_, b) => Some(b),
+            _ => None,
+        }
+    }
+
+    pub fn named_body(&self) -> Option<(&'a String, Body)> {
+        match self.0 {
+            ScenarioObject::Body(s, b) => Some((s, b)),
             _ => None,
         }
     }
@@ -222,8 +229,8 @@ impl Scenario {
 
     pub fn lup(&self, id: ObjectId, stamp: Nanotime) -> Option<ObjectLookup> {
         let pl = self.system.lookup(id, stamp);
-        if let Some((body, pv, _, _)) = pl {
-            return Some(ObjectLookup(ScenarioObject::Body(body), pv));
+        if let Some((body, pv, _, sys)) = pl {
+            return Some(ObjectLookup(ScenarioObject::Body(&sys.name, body), pv));
         }
 
         self.orbiters.iter().find_map(|o| {

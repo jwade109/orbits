@@ -356,27 +356,29 @@ pub fn draw_event(
 
 pub fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) {
     _ = state
-        .highlighted_list
-        .iter()
+        .highlighted()
+        .into_iter()
         .filter_map(|id| {
-            let pv = state.scenario.lup(*id, state.sim_time)?.pv();
+            let pv = state.scenario.lup(id, state.sim_time)?.pv();
             draw_circle(gizmos, pv.pos, 20.0 * state.camera.actual_scale, GRAY);
             Some(())
         })
         .collect::<Vec<_>>();
 }
 
-pub fn draw_camera_controls(gizmos: &mut Gizmos, cam: &CameraState) {
-    if let Some(p) = cam.mouse_pos() {
-        draw_circle(gizmos, p, 3.0 * cam.actual_scale, RED);
+pub fn draw_camera_controls(gizmos: &mut Gizmos, state: &GameState) {
+    if let Some(p) = state.camera.mouse_pos() {
+        draw_circle(gizmos, p, 3.0 * state.camera.actual_scale, RED);
     }
 
-    if let Some(p) = cam.mouse_down_pos() {
-        draw_circle(gizmos, p, 2.0 * cam.actual_scale, RED);
+    if let Some(p) = state.camera.mouse_down_pos() {
+        draw_circle(gizmos, p, 2.0 * state.camera.actual_scale, RED);
     }
 
-    if let Some(a) = cam.selection_region() {
-        draw_aabb(gizmos, a, RED);
+    if state.selection_mode {
+        if let Some(a) = state.camera.selection_region() {
+            draw_aabb(gizmos, a, RED);
+        }
     }
 }
 
@@ -531,14 +533,6 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
         }
     }
 
-    if state.show_potential_field {
-        for (_, bin) in &state.topo_map.bins {
-            for c in &bin.contours {
-                gizmos.linestrip_2d(c.clone(), GREEN);
-            }
-        }
-    }
-
     for ctrl in &state.controllers {
         if state.track_list.contains(&ctrl.target) {
             draw_controller(&mut gizmos, ctrl, state.camera.actual_scale);
@@ -558,7 +552,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
         }
     }
 
-    draw_camera_controls(&mut gizmos, &state.camera);
+    draw_camera_controls(&mut gizmos, &state);
 
     draw_scenario(
         &mut gizmos,
@@ -570,5 +564,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
         state.duty_cycle_high,
     );
 
-    draw_highlighted_objects(&mut gizmos, &state);
+    if state.selection_mode {
+        draw_highlighted_objects(&mut gizmos, &state);
+    }
 }

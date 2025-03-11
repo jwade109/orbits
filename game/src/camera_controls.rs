@@ -4,19 +4,9 @@ use bevy::window::PrimaryWindow;
 
 use starling::aabb::AABB;
 
-#[derive(Debug, PartialEq, Eq)]
-pub enum CameraTracking {
-    ExternalTrack,
-    TrackingCursor,
-    Freewheeling,
-}
-
 #[derive(Resource, Debug)]
 pub struct CameraState {
-    pub cursor: Vec2,
     pub center: Vec2,
-    pub easing_lpf: f32,
-    pub state: CameraTracking,
     pub target_scale: f32,
     pub actual_scale: f32,
     pub mouse_screen_pos: Option<Vec2>,
@@ -24,25 +14,12 @@ pub struct CameraState {
     pub window_dims: Vec2,
 }
 
-impl CameraState {
-    pub fn track(&mut self, pos: Vec2, state: CameraTracking) {
-        if self.state != state {
-            self.easing_lpf = 0.1;
-        }
-
-        self.center += (pos - self.center) * self.easing_lpf;
-        self.easing_lpf += (1.0 - self.easing_lpf) * 0.01;
-        self.state = state;
-    }
-}
+impl CameraState {}
 
 impl Default for CameraState {
     fn default() -> Self {
         Self {
-            cursor: Vec2::ZERO,
             center: Vec2::ZERO,
-            easing_lpf: 0.1,
-            state: CameraTracking::Freewheeling,
             target_scale: 4.0,
             actual_scale: 4.0,
             mouse_screen_pos: None,
@@ -111,39 +88,4 @@ impl CameraState {
         self.mouse_screen_pos = p.map(|p| Vec2::new(p.x, w.height() - p.y));
         self.window_dims = Vec2::new(w.width(), w.height());
     }
-
-    pub fn on_keys(&mut self, keys: &ButtonInput<KeyCode>, dt: f32) {
-        let cursor_rate = 1400.0 * self.actual_scale;
-        if keys.just_pressed(KeyCode::Equal) {
-            self.target_scale /= 1.5;
-        }
-        if keys.just_pressed(KeyCode::Minus) {
-            self.target_scale *= 1.5;
-        }
-        if keys.pressed(KeyCode::KeyW) {
-            self.cursor.y += cursor_rate * dt;
-        }
-        if keys.pressed(KeyCode::KeyA) {
-            self.cursor.x -= cursor_rate * dt;
-        }
-        if keys.pressed(KeyCode::KeyD) {
-            self.cursor.x += cursor_rate * dt;
-        }
-        if keys.pressed(KeyCode::KeyS) {
-            self.cursor.y -= cursor_rate * dt;
-        }
-    }
-}
-
-pub fn update_camera_transform(
-    mut query: Query<&mut Transform, With<Camera>>,
-    cam: &mut CameraState,
-) {
-    let mut tf = query.single_mut();
-
-    *tf = tf.with_translation(cam.center.extend(0.0));
-
-    let ds = (cam.target_scale - tf.scale) * 0.08;
-    tf.scale += ds;
-    cam.actual_scale = tf.scale.x;
 }

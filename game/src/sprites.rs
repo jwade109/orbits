@@ -1,14 +1,13 @@
 use crate::planetary::GameState;
 use bevy::asset::embedded_asset;
-use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use starling::prelude::*;
 
-pub struct PlanetSpritePlugin;
+pub struct SpritePlugin;
 
-impl Plugin for PlanetSpritePlugin {
+impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, (add_background, spawn_box));
+        app.add_systems(Startup, add_background);
         app.add_systems(
             Update,
             (
@@ -17,8 +16,6 @@ impl Plugin for PlanetSpritePlugin {
                 update_shadow_sprites,
                 update_background_sprite,
                 update_spacecraft_sprites,
-                button_system,
-                big_time_system,
             ),
         );
 
@@ -28,147 +25,6 @@ impl Plugin for PlanetSpritePlugin {
         embedded_asset!(app, "src/", "../assets/background.png");
         embedded_asset!(app, "src/", "../assets/shadow.png");
         embedded_asset!(app, "src/", "../assets/spacecraft.png");
-    }
-}
-
-#[derive(Component)]
-struct DateMarker;
-
-fn spawn_box(mut commands: Commands) {
-    commands.insert_resource(Events::<InteractionEvent>::default());
-
-    let buttons = [
-        (">_", InteractionEvent::Console),
-        ("Debug", InteractionEvent::DebugMode),
-        ("Clear", InteractionEvent::ClearSelection),
-        ("Draw Orbits", InteractionEvent::Orbits),
-        ("Spawn", InteractionEvent::Spawn),
-        ("Commit Mission", InteractionEvent::CommitMission),
-        ("Recenter", InteractionEvent::Recenter),
-        ("Del", InteractionEvent::Delete),
-        ("<", InteractionEvent::SimSlower),
-        ("||", InteractionEvent::SimPause),
-        (">", InteractionEvent::SimFaster),
-        ("Exit", InteractionEvent::ExitApp),
-    ];
-
-    commands.spawn((
-        DateMarker,
-        Text::new(""),
-        TextFont {
-            font_size: 30.0,
-            ..default()
-        },
-        TextColor(WHITE.into()),
-        ZIndex(100),
-        Node {
-            position_type: PositionType::Absolute,
-            bottom: Val::Px(5.0),
-            right: Val::Px(5.0),
-            ..default()
-        },
-    ));
-
-    // ui camera
-    commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                bottom: Val::Px(0.0),
-                border: UiRect::all(Val::Px(1.0)),
-                padding: UiRect::all(Val::Px(5.0)),
-                margin: UiRect::all(Val::Px(5.0)),
-                column_gap: Val::Px(5.0),
-                ..default()
-            },
-            BorderColor(WHITE.with_alpha(0.04).into()),
-            ZIndex(100),
-        ))
-        .with_children(|parent| {
-            for (name, event) in buttons {
-                parent
-                    .spawn((
-                        Button,
-                        Node {
-                            position_type: PositionType::Relative,
-                            border: UiRect::all(Val::Px(2.0)),
-                            justify_content: JustifyContent::Center,
-                            align_items: AlignItems::Center,
-                            padding: UiRect::all(Val::Px(5.0)),
-                            ..default()
-                        },
-                        BorderColor(BLACK.into()),
-                        BorderRadius::all(Val::Px(5.0)),
-                        BackgroundColor(BLACK.into()),
-                        OnClick(event),
-                        ZIndex(100),
-                    ))
-                    .with_child((
-                        Text::new(name),
-                        TextFont {
-                            font_size: 20.0,
-                            ..default()
-                        },
-                        TextColor(WHITE.into()),
-                        ZIndex(100),
-                    ));
-            }
-        });
-}
-
-#[derive(Debug, Event, Clone, Copy)]
-pub enum InteractionEvent {
-    Orbits,
-    CommitMission,
-    Spawn,
-    Recenter,
-    Console,
-    Delete,
-    SimSlower,
-    SimPause,
-    SimFaster,
-    DebugMode,
-    ClearSelection,
-    Follow,
-    ExitApp,
-}
-
-#[derive(Component, Debug, Clone, Copy)]
-struct OnClick(InteractionEvent);
-
-fn button_system(
-    mut iq: Query<(&Interaction, &mut BorderColor, &OnClick), Changed<Interaction>>,
-    mut evt: EventWriter<InteractionEvent>,
-) {
-    for (interaction, mut bc, OnClick(event)) in &mut iq {
-        match *interaction {
-            Interaction::Pressed => {
-                bc.0 = ORANGE.into();
-                evt.send(*event);
-            }
-            Interaction::Hovered => {
-                bc.0 = WHITE.into();
-            }
-            Interaction::None => {
-                bc.0 = GREY.into();
-            }
-        }
-    }
-}
-
-fn big_time_system(mut q: Query<&mut Text, With<DateMarker>>, state: Res<GameState>) {
-    const SCALE_FACTOR: i64 = Nanotime::PER_DAY / Nanotime::PER_SEC / 20;
-    let t = state.sim_time * SCALE_FACTOR;
-    for mut text in &mut q {
-        let date = t.to_date();
-        text.0 = format!(
-            "Y{} W{} D{} {:02}:{:02}",
-            date.year + 1,
-            date.week + 1,
-            date.day + 1,
-            date.hour,
-            date.min,
-        );
     }
 }
 
@@ -321,5 +177,5 @@ fn update_background_sprite(
 ) {
     let mut tf = query.single_mut();
     tf.translation = state.camera.center.extend(BACKGROUND_Z_INDEX);
-    tf.scale = Vec3::splat(state.camera.actual_scale * 100.0);
+    tf.scale = Vec3::splat(10000.0);
 }
