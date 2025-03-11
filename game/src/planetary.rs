@@ -6,31 +6,31 @@ use crate::camera_controls::*;
 use crate::debug::*;
 use crate::drawing::*;
 use crate::ui::InteractionEvent;
-use bevy::time::common_conditions::*;
 
 pub struct PlanetaryPlugin;
 
 impl Plugin for PlanetaryPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(crate::sprites::SpritePlugin {});
-        app.add_plugins(crate::ui::UiPlugin {});
+        app.insert_resource(Time::<Fixed>::from_hz(400.0));
 
         app.add_systems(Startup, init_system);
         app.add_systems(FixedUpdate, propagate_system);
+
+        app.add_systems(Update, log_system_info);
+
         app.add_systems(
             Update,
             (
-                log_system_info,
                 crate::keybindings::keyboard_input,
                 mouse_button_input,
                 handle_interactions,
                 handle_camera_interactions,
                 update_camera_controllers,
                 todo_fix_actual_scale,
-                crate::mouse::cursor_position
-                    .run_if(on_timer(std::time::Duration::from_millis(1000))),
+                crate::mouse::cursor_position,
                 draw,
-            ),
+            )
+                .chain(),
         );
     }
 }

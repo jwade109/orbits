@@ -5,19 +5,17 @@ mod craft;
 mod debug;
 mod drawing;
 mod keybindings;
+mod mouse;
 mod planetary;
 mod sprites;
 mod ui;
-mod mouse;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(crate::debug::DebugPlugin {})
         .add_plugins(crate::planetary::PlanetaryPlugin {})
-        .add_systems(Startup, setup)
+        .add_plugins(crate::sprites::SpritePlugin {})
+        .add_plugins(crate::ui::UiPlugin {})
         .run();
-}
-
-fn setup(mut commands: Commands) {
 }

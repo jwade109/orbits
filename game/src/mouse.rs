@@ -15,10 +15,8 @@ pub fn cursor_position(
                 .map(|id| Some(state.scenario.lup(id, state.sim_time)?.named_body()?))
                 .flatten()
             {
-                println!("{:?} {:?} {} {:?}", position, p, n, b);
+                // println!("{:?} {:?} {} {:?}", position, p, n, b);
             }
         }
-    } else {
-        println!("Cursor is not in the game window.");
     }
 }
