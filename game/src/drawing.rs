@@ -10,24 +10,32 @@ use crate::camera_controls::CameraState;
 use crate::mouse::MouseState;
 use crate::planetary::{GameState, ShowOrbitsState};
 
-pub fn alpha(color: Srgba, a: f32) -> Srgba {
+pub struct GizmosPlugin;
+
+impl Plugin for GizmosPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Update, (draw_mouse_state, draw_game_state));
+    }
+}
+
+fn alpha(color: Srgba, a: f32) -> Srgba {
     Srgba { alpha: a, ..color }
 }
 
-pub fn draw_cross(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
+fn draw_cross(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     let dx = Vec2::new(size, 0.0);
     let dy = Vec2::new(0.0, size);
     gizmos.line_2d(p - dx, p + dx, color);
     gizmos.line_2d(p - dy, p + dy, color);
 }
 
-pub fn draw_x(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
+fn draw_x(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     let s = size / 2.0;
     gizmos.line_2d(p + Vec2::new(-s, -s), p + Vec2::new(s, s), color);
     gizmos.line_2d(p + Vec2::new(s, -s), p + Vec2::new(-s, s), color);
 }
 
-pub fn draw_square(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
+fn draw_square(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     gizmos.rect_2d(
         Isometry2d::from_translation(p),
         Vec2::new(size, size),
@@ -35,36 +43,46 @@ pub fn draw_square(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     );
 }
 
-pub fn draw_diamond(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
+fn draw_diamond(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     let s = size / 2.0;
     let pts = [0.0, PI / 2.0, PI, -PI / 2.0, 0.0].map(|a| p + rotate(Vec2::X * s, a));
     gizmos.linestrip_2d(pts, color);
 }
 
-pub fn draw_circle(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
+fn draw_circle(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     gizmos
         .circle_2d(Isometry2d::from_translation(p), size, color)
         .resolution(200);
 }
 
-pub fn draw_velocity_vec(gizmos: &mut Gizmos, pv: PV, length: f32, color: Srgba) {
+fn draw_velocity_vec(gizmos: &mut Gizmos, pv: PV, length: f32, color: Srgba) {
     let p1 = pv.pos;
     let p2 = pv.pos + pv.vel.normalize_or_zero() * length;
     gizmos.line_2d(p1, p2, color);
 }
 
-pub fn draw_aabb(gizmos: &mut Gizmos, aabb: AABB, color: Srgba) {
+fn draw_aabb(gizmos: &mut Gizmos, aabb: AABB, color: Srgba) {
     gizmos.rect_2d(Isometry2d::from_translation(aabb.center), aabb.span, color);
 }
 
-pub fn draw_obb(gizmos: &mut Gizmos, obb: &OBB, color: Srgba) {
+fn draw_region(gizmos: &mut Gizmos, region: Region, color: Srgba) {
+    match region {
+        Region::AABB(aabb) => draw_aabb(gizmos, aabb, color),
+        Region::OrbitRange(a, b) => {
+            draw_circle(gizmos, Vec2::ZERO, a, color);
+            draw_circle(gizmos, Vec2::ZERO, b, color);
+        }
+    }
+}
+
+fn draw_obb(gizmos: &mut Gizmos, obb: &OBB, color: Srgba) {
     draw_cross(gizmos, obb.0.center, 30.0, color);
     let mut corners = obb.corners().to_vec();
     corners.push(*corners.get(0).unwrap());
     gizmos.linestrip_2d(corners, color);
 }
 
-pub fn draw_orbit(gizmos: &mut Gizmos, orb: &SparseOrbit, origin: Vec2, color: Srgba) {
+fn draw_orbit(gizmos: &mut Gizmos, orb: &SparseOrbit, origin: Vec2, color: Srgba) {
     if orb.will_escape() {
         let ta = if orb.is_hyperbolic() {
             let hrta = hyperbolic_range_ta(orb.ecc());
@@ -97,7 +115,7 @@ pub fn draw_orbit(gizmos: &mut Gizmos, orb: &SparseOrbit, origin: Vec2, color: S
     }
 }
 
-pub fn draw_function(
+fn draw_function(
     gizmos: &mut Gizmos,
     func: impl Fn(f32) -> f32,
     xmin: f32,
@@ -130,7 +148,7 @@ pub fn draw_function(
     gizmos.linestrip_2d(points, color);
 }
 
-pub fn draw_planets(gizmos: &mut Gizmos, planet: &PlanetarySystem, stamp: Nanotime, origin: Vec2) {
+fn draw_planets(gizmos: &mut Gizmos, planet: &PlanetarySystem, stamp: Nanotime, origin: Vec2) {
     draw_circle(gizmos, origin, planet.body.radius, alpha(GRAY, 0.1));
     for (a, ds) in [(1.0, 1.0), (0.3, 0.98), (0.1, 0.95)] {
         draw_circle(gizmos, origin, planet.body.soi * ds, alpha(ORANGE, a));
@@ -166,7 +184,7 @@ fn draw_propagator(
     Some(())
 }
 
-pub fn draw_object(
+fn draw_object(
     gizmos: &mut Gizmos,
     planets: &PlanetarySystem,
     obj: &Orbiter,
@@ -226,7 +244,7 @@ pub fn draw_object(
     Some(())
 }
 
-pub fn draw_scenario(
+fn draw_scenario(
     gizmos: &mut Gizmos,
     scenario: &Scenario,
     stamp: Nanotime,
@@ -257,7 +275,7 @@ pub fn draw_scenario(
         .collect::<Vec<_>>();
 }
 
-pub fn draw_scalar_field_cell(
+fn draw_scalar_field_cell(
     gizmos: &mut Gizmos,
     scalar_field: &impl Fn(Vec2) -> f32,
     center: Vec2,
@@ -298,7 +316,7 @@ pub fn draw_scalar_field_cell(
     }
 }
 
-pub fn draw_scalar_field(gizmos: &mut Gizmos, scalar_field: &impl Fn(Vec2) -> f32, levels: &[i32]) {
+fn draw_scalar_field(gizmos: &mut Gizmos, scalar_field: &impl Fn(Vec2) -> f32, levels: &[i32]) {
     let step = 250;
     for y in (-4000..=4000).step_by(step) {
         for x in (-4000..=4000).step_by(step) {
@@ -308,7 +326,7 @@ pub fn draw_scalar_field(gizmos: &mut Gizmos, scalar_field: &impl Fn(Vec2) -> f3
     }
 }
 
-pub fn draw_event_marker_at(
+fn draw_event_marker_at(
     gizmos: &mut Gizmos,
     event: &EventType,
     p: Vec2,
@@ -338,7 +356,7 @@ pub fn draw_event_marker_at(
     draw_circle(gizmos, p, 6.0 * scale, alpha(color, 0.8));
 }
 
-pub fn draw_event(
+fn draw_event(
     gizmos: &mut Gizmos,
     planets: &PlanetarySystem,
     event: &EventType,
@@ -355,7 +373,7 @@ pub fn draw_event(
     Some(())
 }
 
-pub fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) {
+fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) {
     _ = state
         .highlighted()
         .into_iter()
@@ -367,7 +385,7 @@ pub fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) {
         .collect::<Vec<_>>();
 }
 
-pub fn draw_camera_controls(gizmos: &mut Gizmos, state: &GameState) {
+fn draw_camera_controls(gizmos: &mut Gizmos, state: &GameState) {
     if let Some(p) = state.camera.mouse_pos() {
         draw_circle(gizmos, p, 3.0 * state.camera.actual_scale, RED);
     }
@@ -376,20 +394,18 @@ pub fn draw_camera_controls(gizmos: &mut Gizmos, state: &GameState) {
         draw_circle(gizmos, p, 2.0 * state.camera.actual_scale, RED);
     }
 
-    if state.selection_mode {
-        if let Some(a) = state.camera.selection_region() {
-            draw_aabb(gizmos, a, RED);
-        }
+    if let Some(a) = state.selection_region {
+        draw_region(gizmos, a, RED);
     }
 }
 
-pub fn draw_controller(gizmos: &mut Gizmos, ctrl: &Controller, scale: f32) -> Option<()> {
+fn draw_controller(gizmos: &mut Gizmos, ctrl: &Controller, scale: f32) -> Option<()> {
     let plan = ctrl.plan()?;
     draw_maneuver_plan(gizmos, plan, scale);
     Some(())
 }
 
-pub fn draw_event_animation(
+fn draw_event_animation(
     gizmos: &mut Gizmos,
     scenario: &Scenario,
     id: ObjectId,
@@ -419,7 +435,7 @@ pub fn draw_event_animation(
     Some(())
 }
 
-pub fn draw_maneuver_plan(gizmos: &mut Gizmos, plan: &ManeuverPlan, scale: f32) {
+fn draw_maneuver_plan(gizmos: &mut Gizmos, plan: &ManeuverPlan, scale: f32) {
     let color = match plan.kind {
         ManeuverType::Direct => YELLOW,
         ManeuverType::Hohmann => TEAL,
@@ -432,7 +448,7 @@ pub fn draw_maneuver_plan(gizmos: &mut Gizmos, plan: &ManeuverPlan, scale: f32) 
     }
 }
 
-pub fn draw_scale_indicator(gizmos: &mut Gizmos, cam: &CameraState) {
+fn draw_scale_indicator(gizmos: &mut Gizmos, cam: &CameraState) {
     let width = 300.0;
     let center = Vec2::new(cam.window_dims.x / 2.0, cam.window_dims.y - 20.0);
 
@@ -480,7 +496,7 @@ pub fn draw_scale_indicator(gizmos: &mut Gizmos, cam: &CameraState) {
     gizmos.line_2d(u1, u2, color);
 }
 
-pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
+fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     let stamp = state.sim_time;
 
     draw_scale_indicator(&mut gizmos, &state.camera);
@@ -565,12 +581,10 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: &GameState) {
         state.duty_cycle_high,
     );
 
-    if state.selection_mode {
-        draw_highlighted_objects(&mut gizmos, &state);
-    }
+    draw_highlighted_objects(&mut gizmos, &state);
 }
 
-pub fn draw_mouse_state(
+fn draw_mouse_state(
     mouse: Single<&MouseState>,
     cam: Single<(&Camera, &GlobalTransform)>,
     mut gizmos: Gizmos,
@@ -584,7 +598,7 @@ pub fn draw_mouse_state(
 
     for (p, c) in points {
         if let Some(p) = p {
-            draw_circle(&mut gizmos, p,8.0 * cam.1.scale().z, c);
+            draw_circle(&mut gizmos, p, 8.0 * cam.1.scale().z, c);
         }
     }
 }

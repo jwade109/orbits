@@ -4,9 +4,8 @@ use starling::prelude::*;
 
 use crate::camera_controls::*;
 use crate::debug::*;
-use crate::drawing::*;
-use crate::mouse::*;
 use crate::ui::InteractionEvent;
+use bevy::core_pipeline::bloom::Bloom;
 
 pub struct PlanetaryPlugin;
 
@@ -16,7 +15,6 @@ impl Plugin for PlanetaryPlugin {
 
         app.add_systems(Startup, init_system);
         app.add_systems(FixedUpdate, propagate_system);
-
         app.add_systems(Update, log_system_info);
 
         app.add_systems(
@@ -28,11 +26,8 @@ impl Plugin for PlanetaryPlugin {
                 handle_camera_interactions,
                 update_camera_controllers,
                 todo_fix_actual_scale,
+                update_mouse_interactions,
                 crate::mouse::cursor_position,
-                draw,
-                draw_mouse_state,
-
-                crate::drawing::draw_mouse_state,
             )
                 .chain(),
         );
@@ -44,8 +39,19 @@ pub struct SoftController(pub Transform);
 
 fn init_system(mut commands: Commands) {
     commands.insert_resource(GameState::default());
-    commands.spawn((Camera2d, SoftController::default()));
-    commands.spawn(MouseState::default());
+    commands.spawn((
+        Camera2d,
+        Camera {
+            hdr: true,
+            ..default()
+        },
+        SoftController::default(),
+        Bloom {
+            intensity: 0.5,
+            ..Bloom::OLD_SCHOOL
+        },
+    ));
+    commands.spawn(crate::mouse::MouseState::default());
 }
 
 fn update_camera_controllers(mut query: Query<(&SoftController, &mut Transform)>) {
@@ -61,10 +67,6 @@ fn todo_fix_actual_scale(mut state: ResMut<GameState>, query: Query<&Transform, 
     if let Ok(tf) = query.get_single() {
         state.camera.actual_scale = tf.scale.z;
     }
-}
-
-fn draw(gizmos: Gizmos, res: Res<GameState>) {
-    draw_game_state(gizmos, &res)
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -106,6 +108,36 @@ pub struct GameState {
     pub show_animations: bool,
     pub selection_mode: bool,
     pub target_mode: bool,
+    pub selection_region: Option<Region>,
+}
+
+impl Default for GameState {
+    fn default() -> Self {
+        let (scenario, ids) = default_example();
+
+        GameState {
+            sim_time: Nanotime::zero(),
+            actual_time: Nanotime::zero(),
+            physics_duration: Nanotime::secs(120),
+            sim_speed: 0,
+            paused: false,
+            scenario: scenario.clone(),
+            ids,
+            track_list: Vec::new(),
+            backup: Some((scenario, ids, Nanotime::zero())),
+            camera: CameraState::default(),
+            control_points: Vec::new(),
+            hide_debug: true,
+            duty_cycle_high: false,
+            controllers: vec![],
+            follow: None,
+            show_orbits: ShowOrbitsState::Focus,
+            show_animations: false,
+            selection_mode: false,
+            target_mode: false,
+            selection_region: None,
+        }
+    }
 }
 
 impl GameState {
@@ -203,7 +235,7 @@ impl GameState {
     }
 
     pub fn highlighted(&self) -> Vec<ObjectId> {
-        if let Some(a) = self.camera.selection_region() {
+        if let Some(a) = self.selection_region {
             self.scenario
                 .all_ids()
                 .into_iter()
@@ -264,34 +296,6 @@ impl GameState {
         self.controllers.retain(|c| c.target != id);
         let c = Controller::with_plan(id, plan.clone());
         self.controllers.push(c);
-    }
-}
-
-impl Default for GameState {
-    fn default() -> Self {
-        let (scenario, ids) = default_example();
-
-        GameState {
-            sim_time: Nanotime::zero(),
-            actual_time: Nanotime::zero(),
-            physics_duration: Nanotime::secs(120),
-            sim_speed: 0,
-            paused: false,
-            scenario: scenario.clone(),
-            ids,
-            track_list: Vec::new(),
-            backup: Some((scenario, ids, Nanotime::zero())),
-            camera: CameraState::default(),
-            control_points: Vec::new(),
-            hide_debug: true,
-            duty_cycle_high: false,
-            controllers: vec![],
-            follow: None,
-            show_orbits: ShowOrbitsState::Focus,
-            show_animations: false,
-            selection_mode: false,
-            target_mode: false,
-        }
     }
 }
 
@@ -406,11 +410,17 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         sim_speed_str(state.sim_speed)
     ));
 
-    if state.track_list.len() > 15 {
-        log(&format!("Tracks: lots of em"));
-    } else {
-        log(&format!("Tracks: {:?}", state.track_list));
-    }
+    let mut show_id_list = |ids: &Vec<ObjectId>, name: &str| {
+        if ids.len() > 15 {
+            log(&format!("{}: {} ...", name, ids.len()));
+        } else {
+            log(&format!("{}: {} {:?}", name, ids.len(), ids));
+        }
+    };
+
+    show_id_list(&state.track_list, "Tracks");
+    show_id_list(&state.highlighted(), "Select");
+
     log(&format!("Physics: {:?}", state.physics_duration));
     log(&format!("Scale: {:0.3}", state.camera.actual_scale));
 
@@ -456,6 +466,27 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
     }
 }
 
+fn update_mouse_interactions(
+    mut state: ResMut<GameState>,
+    mouse: Single<&crate::mouse::MouseState>,
+    cam: Single<(&Camera, &GlobalTransform)>,
+) {
+    state.control_points = mouse
+        .right_world(*cam)
+        .into_iter()
+        .chain(mouse.current_world(*cam).into_iter())
+        .collect();
+
+    state.selection_region =
+        if let Some((a, b)) = mouse.left_world(*cam).zip(mouse.current_world(*cam)) {
+            Some(Region::aabb(a, b))
+        } else if let Some((a, b)) = mouse.middle_world(*cam).zip(mouse.current_world(*cam)) {
+            Some(Region::range(a, b))
+        } else {
+            None
+        }
+}
+
 fn process_interaction(
     inter: &InteractionEvent,
     state: &mut GameState,
@@ -498,6 +529,9 @@ fn process_interaction(
         }
         InteractionEvent::Spawn => {
             state.spawn_new();
+        }
+        InteractionEvent::DoubleClick => {
+            state.track_list.clear();
         }
         InteractionEvent::ToggleTargetMode => {
             state.target_mode = !state.target_mode;
@@ -592,7 +626,7 @@ fn mouse_button_input(buttons: Res<ButtonInput<MouseButton>>, mut state: ResMut<
         }
     }
     if buttons.just_pressed(MouseButton::Left) {}
-    if buttons.just_released(MouseButton::Left) {
+    if buttons.just_released(MouseButton::Left) || buttons.just_released(MouseButton::Middle) {
         for h in state.highlighted() {
             if !state.track_list.contains(&h) {
                 state.track_list.push(h);

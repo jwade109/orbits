@@ -51,13 +51,6 @@ impl CameraState {
         Some(wb.map(gb, p))
     }
 
-    pub fn selection_region(&self) -> Option<AABB> {
-        Some(AABB::from_arbitrary(
-            self.mouse_pos()?,
-            self.mouse_down_pos()?,
-        ))
-    }
-
     pub fn on_scroll(&mut self, scroll: &[&MouseWheel]) {
         for ev in scroll {
             if ev.y > 0.0 {

@@ -232,7 +232,7 @@ fn update(mut state: ResMut<CraftState>, time: Res<Time>) {
     state.collisions = cols;
 
     state.highlighted.clear();
-    if let Some(a) = state.camera.selection_region() {
+    if let Some(a) = state.selection_region {
         let oa = OBB::new(a, 0.0);
         state.highlighted = state
             .bodies

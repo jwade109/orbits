@@ -52,7 +52,6 @@ pub fn cursor_position(
     buttons: Res<ButtonInput<MouseButton>>,
     mut state: Single<&mut MouseState>,
     mut events: EventWriter<InteractionEvent>,
-    cam: Single<(&Camera, &GlobalTransform)>,
     time: Res<Time>,
 ) {
     if let Some(p) = win.cursor_position() {
