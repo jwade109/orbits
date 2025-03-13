@@ -157,9 +157,11 @@ impl GameState {
         let mut dvs = vec![];
         for ctrl in &self.controllers {
             if let Some(plan) = ctrl.plan() {
-                for node in &plan.nodes {
-                    if node.stamp > after {
-                        dvs.push((ctrl.target, node.stamp, node.impulse.vel));
+                for (range, impulse, _) in plan.orbits() {
+                    if let Some((impulse, start)) = impulse.zip(range.start()) {
+                        if start > after {
+                            dvs.push((ctrl.target, start, impulse));
+                        }
                     }
                 }
             }
@@ -345,7 +347,7 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
         if !ids.contains(&c.target) {
             return false;
         }
-        if let Some(end) = c.plan().map(|p| p.end()).flatten() {
+        if let Some(end) = c.plan().map(|p| p.end()) {
             let retain = end > s;
             if !retain {
                 info!("Maneuver completed by vehicle {}", c.target);
@@ -565,6 +567,9 @@ fn process_interaction(
                 }
             }?;
             load_new_scenario(state, system, ids);
+        }
+        InteractionEvent::ToggleController(id) => {
+            state.toggle_track(*id);
         }
         _ => (),
     };

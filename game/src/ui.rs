@@ -22,6 +22,7 @@ pub enum InteractionEvent {
     Save,
     Restore,
     Load(String),
+    ToggleController(ObjectId),
 
     // mouse stuff
     DoubleClick,
@@ -47,7 +48,55 @@ pub struct UiPlugin;
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup);
-        app.add_systems(Update, (big_time_system, button_system));
+        app.add_systems(
+            Update,
+            (big_time_system, button_system, update_controller_buttons),
+        );
+    }
+}
+
+#[derive(Component, Debug, Copy, Clone)]
+struct ControllerButton(ObjectId);
+
+#[derive(Component, Debug, Copy, Clone)]
+struct ControllerBar;
+
+fn update_controller_buttons(
+    mut commands: Commands,
+    parent: Single<Entity, With<ControllerBar>>,
+    query: Query<(Entity, &ControllerButton)>,
+    state: Res<GameState>,
+) {
+    for (e, cb) in &query {
+        if state
+            .controllers
+            .iter()
+            .find(|c| c.target == cb.0)
+            .is_none()
+        {
+            info!("Despawning controller button for {}", cb.0);
+            commands.entity(e).despawn_recursive();
+        }
+    }
+
+    for ctrl in &state.controllers {
+        if query.iter().find(|(_, cb)| cb.0 == ctrl.target).is_none() {
+            info!("Spawning controller button for {}", ctrl.target);
+            let mut entity = None;
+            commands.entity(*parent).with_children(|cb| {
+                let e = add_ui_button(
+                    cb,
+                    &format!("C{}", ctrl.target),
+                    InteractionEvent::ToggleController(ctrl.target),
+                    false,
+                );
+                entity = Some(e);
+            });
+            if let Some(e) = entity {
+                commands.entity(*parent).add_child(e);
+                commands.entity(e).insert(ControllerButton(ctrl.target));
+            };
+        }
     }
 }
 
@@ -71,6 +120,106 @@ fn big_time_system(mut q: Query<&mut Text, With<DateMarker>>, state: Res<GameSta
             date.min,
         );
     }
+}
+
+const BORDER_COLOR: Srgba = Srgba {
+    alpha: 0.0,
+    ..WHITE
+};
+
+const BACKGROUND_COLOR: Srgba = Srgba {
+    alpha: 0.03,
+    ..GRAY
+};
+
+fn get_toplevel_ui() -> impl Bundle {
+    (
+        Node {
+            position_type: PositionType::Absolute,
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            border: UiRect::all(Val::Px(2.0)),
+            padding: UiRect::all(Val::Px(5.0)),
+            column_gap: Val::Px(5.0),
+            row_gap: Val::Px(5.0),
+            flex_direction: FlexDirection::Column,
+            align_items: AlignItems::Stretch,
+            justify_content: JustifyContent::FlexEnd,
+            ..default()
+        },
+        BorderColor(BORDER_COLOR.into()),
+        ZIndex(100),
+    )
+}
+
+fn get_ui_row() -> impl Bundle {
+    (
+        Node {
+            position_type: PositionType::Relative,
+            width: Val::Percent(100.0),
+            min_height: Val::Px(10.0),
+            bottom: Val::Px(0.0),
+            border: UiRect::all(Val::Px(2.0)),
+            padding: UiRect::all(Val::Px(5.0)),
+            column_gap: Val::Px(5.0),
+            overflow: Overflow::clip_x(),
+            ..default()
+        },
+        BorderColor(BORDER_COLOR.into()),
+        BackgroundColor(BACKGROUND_COLOR.into()),
+        ZIndex(100),
+    )
+}
+
+fn add_ui_button(
+    parent: &mut ChildBuilder<'_>,
+    text: &str,
+    onclick: InteractionEvent,
+    holdable: bool,
+) -> Entity {
+    let mut entity = parent.spawn((
+        Button,
+        Node {
+            position_type: PositionType::Relative,
+            border: UiRect::all(Val::Px(2.0)),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            padding: UiRect::all(Val::Px(5.0)),
+            ..default()
+        },
+        BorderColor(BLACK.into()),
+        BackgroundColor(BLACK.into()),
+        OnClick(onclick, holdable),
+        ZIndex(100),
+    ));
+
+    entity.with_child((
+        Text::new(text),
+        TextFont::from_font_size(20.0),
+        TextColor(WHITE.into()),
+        ZIndex(100),
+    ));
+
+    entity.id()
+}
+
+fn get_screen_clock() -> impl Bundle {
+    (
+        DateMarker,
+        Text::new(""),
+        TextFont {
+            font_size: 30.0,
+            ..default()
+        },
+        TextColor(WHITE.into()),
+        ZIndex(100),
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(5.0),
+            right: Val::Px(5.0),
+            ..default()
+        },
+    )
 }
 
 fn setup(mut commands: Commands) {
@@ -108,66 +257,22 @@ fn setup(mut commands: Commands) {
         ),
     ];
 
-    commands.spawn((
-        DateMarker,
-        Text::new(""),
-        TextFont {
-            font_size: 30.0,
-            ..default()
-        },
-        TextColor(WHITE.into()),
-        ZIndex(100),
-        Node {
-            position_type: PositionType::Absolute,
-            bottom: Val::Px(5.0),
-            right: Val::Px(5.0),
-            ..default()
-        },
-    ));
+    commands.spawn(get_screen_clock());
 
-    // ui camera
-    commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                max_width: Val::Percent(75.0),
-                bottom: Val::Px(0.0),
-                // border: UiRect::all(Val::Px(2.0)),
-                padding: UiRect::all(Val::Px(5.0)),
-                margin: UiRect::all(Val::Px(5.0)),
-                column_gap: Val::Px(5.0),
-                ..default()
-            },
-            BorderColor(WHITE.with_alpha(0.02).into()),
-            ZIndex(100),
-        ))
+    let top = commands.spawn(get_toplevel_ui()).id();
+
+    let r1 = commands.spawn(get_ui_row()).insert(ControllerBar).id();
+
+    let r2 = commands
+        .spawn(get_ui_row())
         .with_children(|parent| {
             for (name, event, holdable) in buttons {
-                parent
-                    .spawn((
-                        Button,
-                        Node {
-                            position_type: PositionType::Relative,
-                            border: UiRect::all(Val::Px(2.0)),
-                            justify_content: JustifyContent::Center,
-                            align_items: AlignItems::Center,
-                            padding: UiRect::all(Val::Px(5.0)),
-                            ..default()
-                        },
-                        BorderColor(BLACK.into()),
-                        // BorderRadius::all(Val::Px(5.0)),
-                        BackgroundColor(BLACK.into()),
-                        OnClick(event, holdable),
-                        ZIndex(100),
-                    ))
-                    .with_child((
-                        Text::new(name),
-                        TextFont::from_font_size(20.0),
-                        TextColor(WHITE.into()),
-                        ZIndex(100),
-                    ));
+                add_ui_button(parent, name, event, holdable);
             }
-        });
+        })
+        .id();
+
+    commands.entity(top).add_children(&[r1, r2]);
 }
 
 fn button_system(

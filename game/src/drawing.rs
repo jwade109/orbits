@@ -399,9 +399,14 @@ fn draw_camera_controls(gizmos: &mut Gizmos, state: &GameState) {
     }
 }
 
-fn draw_controller(gizmos: &mut Gizmos, ctrl: &Controller, scale: f32) -> Option<()> {
+fn draw_controller(
+    gizmos: &mut Gizmos,
+    stamp: Nanotime,
+    ctrl: &Controller,
+    scale: f32,
+) -> Option<()> {
     let plan = ctrl.plan()?;
-    draw_maneuver_plan(gizmos, plan, scale);
+    draw_maneuver_plan(gizmos, stamp, plan, scale);
     Some(())
 }
 
@@ -435,17 +440,33 @@ fn draw_event_animation(
     Some(())
 }
 
-fn draw_maneuver_plan(gizmos: &mut Gizmos, plan: &ManeuverPlan, scale: f32) {
-    let color = match plan.kind {
+fn draw_maneuver_plan(
+    gizmos: &mut Gizmos,
+    stamp: Nanotime,
+    plan: &ManeuverPlan,
+    scale: f32,
+) -> Option<()> {
+    let color = match plan.kind() {
         ManeuverType::Direct => YELLOW,
         ManeuverType::Hohmann => TEAL,
         ManeuverType::Bielliptic => ORANGE,
     };
-    draw_orbit(gizmos, &plan.initial, Vec2::ZERO, alpha(color, 0.3));
-    for node in &plan.nodes {
-        draw_cross(gizmos, node.impulse.pos, 2.0 * scale, color);
-        draw_orbit(gizmos, &node.orbit, Vec2::ZERO, alpha(color, 0.3));
+
+    let dist = 20.0;
+    let mut t = stamp;
+    let mut points = vec![];
+    while t < plan.end() {
+        let pv = plan.pv(t)?;
+        let secs = dist / pv.vel.length();
+        t += Nanotime::secs_f32(secs);
+        points.push(pv.pos);
     }
+    let pv = plan.pv(plan.end())?;
+    points.push(pv.pos);
+    gizmos.linestrip_2d(points, color);
+    draw_diamond(gizmos, pv.pos, 10.0 * scale, color);
+
+    Some(())
 }
 
 fn draw_scale_indicator(gizmos: &mut Gizmos, cam: &CameraState) {
@@ -552,7 +573,7 @@ fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
 
     for ctrl in &state.controllers {
         if state.track_list.contains(&ctrl.target) {
-            draw_controller(&mut gizmos, ctrl, state.camera.actual_scale);
+            draw_controller(&mut gizmos, state.sim_time, ctrl, state.camera.actual_scale);
         }
     }
 
