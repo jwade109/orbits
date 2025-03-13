@@ -20,6 +20,7 @@ pub fn keyboard_input(
             KeyCode::Minus => InteractionEvent::ZoomOut,
             KeyCode::Equal => InteractionEvent::ZoomIn,
             KeyCode::KeyR => InteractionEvent::Reset,
+            KeyCode::KeyQ => InteractionEvent::QueueOrbit,
             KeyCode::Tab => InteractionEvent::Orbits,
             KeyCode::Space => InteractionEvent::SimPause,
             KeyCode::Escape => InteractionEvent::ExitApp,

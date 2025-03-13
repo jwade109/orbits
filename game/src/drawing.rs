@@ -531,7 +531,7 @@ fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         );
     }
 
-    if let Some((parent, orbit)) = state.target_orbit() {
+    let mut draw_orbit_with_parent = |parent: ObjectId, orbit: &SparseOrbit| {
         if let Some(pv) = state
             .scenario
             .lup(parent, state.sim_time)
@@ -539,6 +539,14 @@ fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         {
             draw_orbit(&mut gizmos, &orbit, pv.pos, alpha(RED, 0.2));
         }
+    };
+
+    for (parent, orbit) in &state.queued_orbits {
+        draw_orbit_with_parent(*parent, orbit);
+    }
+
+    if let Some((parent, orbit)) = state.cursor_orbit() {
+        draw_orbit_with_parent(parent, &orbit);
     }
 
     for id in state.scenario.all_ids() {
