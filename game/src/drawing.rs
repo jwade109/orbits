@@ -4,6 +4,8 @@ use bevy::color::palettes::basic::*;
 use bevy::color::palettes::css::ORANGE;
 use bevy::prelude::*;
 
+use std::collections::HashSet;
+
 use starling::prelude::*;
 
 use crate::camera_controls::CameraState;
@@ -250,7 +252,7 @@ fn draw_scenario(
     stamp: Nanotime,
     scale: f32,
     show_orbits: ShowOrbitsState,
-    track_list: &Vec<ObjectId>,
+    track_list: &HashSet<ObjectId>,
     duty_cycle: bool,
 ) {
     draw_planets(gizmos, &scenario.system, stamp, Vec2::ZERO);
@@ -532,7 +534,11 @@ fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
             .lup(parent, state.sim_time)
             .map(|lup| lup.pv())
         {
-            draw_orbit(&mut gizmos, &orbit, pv.pos, alpha(RED, 0.2));
+            let color = match orbit.is_retrograde() {
+                true => TEAL,
+                false => RED,
+            };
+            draw_orbit(&mut gizmos, &orbit, pv.pos, alpha(color, 0.3));
         }
     };
 

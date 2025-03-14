@@ -151,15 +151,24 @@ impl Scenario {
         }
     }
 
+    #[deprecated(note = "Use orbiter_ids")]
     pub fn ids(&self) -> impl Iterator<Item = ObjectId> + use<'_> {
         self.orbiters.iter().map(|o| o.id())
     }
 
+    pub fn orbiter_ids(&self) -> impl Iterator<Item = ObjectId> + use<'_> {
+        self.orbiters.iter().map(|o| o.id())
+    }
+
     pub fn all_ids(&self) -> Vec<ObjectId> {
-        self.ids()
+        self.orbiter_ids()
             .into_iter()
             .chain(self.system.ids().into_iter())
             .collect()
+    }
+
+    pub fn has_orbiter(&self, id: ObjectId) -> bool {
+        self.orbiters.iter().any(|o| o.id() == id)
     }
 
     pub fn simulate(

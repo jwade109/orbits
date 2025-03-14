@@ -24,6 +24,7 @@ pub enum InteractionEvent {
     Restore,
     Load(String),
     ToggleObject(ObjectId),
+    ToggleGroup(GroupId),
     QueueOrbit,
 
     // mouse stuff
@@ -52,7 +53,12 @@ impl Plugin for UiPlugin {
         app.add_systems(Startup, setup);
         app.add_systems(
             Update,
-            (big_time_system, button_system, update_controller_buttons),
+            (
+                big_time_system,
+                button_system,
+                update_controller_buttons,
+                update_constellation_buttons,
+            ),
         );
     }
 }
@@ -61,7 +67,13 @@ impl Plugin for UiPlugin {
 struct ControllerButton(ObjectId);
 
 #[derive(Component, Debug, Copy, Clone)]
+struct ConstellationButton(GroupId);
+
+#[derive(Component, Debug, Copy, Clone)]
 struct ControllerBar;
+
+#[derive(Component, Debug, Copy, Clone)]
+struct ConstellationBar;
 
 fn update_controller_buttons(
     mut commands: Commands,
@@ -88,7 +100,7 @@ fn update_controller_buttons(
             commands.entity(*parent).with_children(|cb| {
                 let e = add_ui_button(
                     cb,
-                    &format!("C{}", ctrl.target),
+                    &format!("{}", ctrl.target),
                     InteractionEvent::ToggleObject(ctrl.target),
                     false,
                     BLACK,
@@ -98,6 +110,46 @@ fn update_controller_buttons(
             if let Some(e) = entity {
                 commands.entity(*parent).add_child(e);
                 commands.entity(e).insert(ControllerButton(ctrl.target));
+            };
+        }
+    }
+}
+
+fn update_constellation_buttons(
+    mut commands: Commands,
+    parent: Single<Entity, With<ConstellationBar>>,
+    query: Query<(Entity, &ConstellationButton)>,
+    state: Res<GameState>,
+) {
+    for (e, cb) in &query {
+        if state
+            .constellations
+            .iter()
+            .find(|(c, _)| **c == cb.0)
+            .is_none()
+        {
+            info!("Despawning constellation button for {}", cb.0);
+            commands.entity(e).despawn_recursive();
+        }
+    }
+
+    for (gid, _) in &state.constellations {
+        if query.iter().find(|(_, cb)| cb.0 == *gid).is_none() {
+            info!("Spawning constellation button for {}", gid);
+            let mut entity = None;
+            commands.entity(*parent).with_children(|cb| {
+                let e = add_ui_button(
+                    cb,
+                    &format!("{}", gid),
+                    InteractionEvent::ToggleGroup(*gid),
+                    false,
+                    BLACK,
+                );
+                entity = Some(e);
+            });
+            if let Some(e) = entity {
+                commands.entity(*parent).add_child(e);
+                commands.entity(e).insert(ConstellationButton(*gid));
             };
         }
     }
@@ -160,7 +212,6 @@ fn get_ui_row() -> impl Bundle {
         Node {
             position_type: PositionType::Relative,
             width: Val::Percent(100.0),
-            min_height: Val::Px(10.0),
             bottom: Val::Px(0.0),
             border: UiRect::all(Val::Px(2.0)),
             padding: UiRect::all(Val::Px(5.0)),
@@ -168,8 +219,8 @@ fn get_ui_row() -> impl Bundle {
             overflow: Overflow::clip_x(),
             ..default()
         },
-        BorderColor(BORDER_COLOR.into()),
-        BackgroundColor(BACKGROUND_COLOR.into()),
+        // BorderColor(BORDER_COLOR.into()),
+        // BackgroundColor(BACKGROUND_COLOR.into()),
         ZIndex(100),
     )
 }
@@ -283,9 +334,11 @@ fn setup(mut commands: Commands) {
 
     let top = commands.spawn(get_toplevel_ui()).id();
 
-    let r1 = commands.spawn(get_ui_row()).insert(ControllerBar).id();
+    let r1 = commands.spawn(get_ui_row()).insert(ConstellationBar).id();
 
-    let r2 = commands
+    let r2 = commands.spawn(get_ui_row()).insert(ControllerBar).id();
+
+    let r3 = commands
         .spawn(get_ui_row())
         .with_children(|parent| {
             for (name, event, holdable, color) in buttons {
@@ -294,7 +347,7 @@ fn setup(mut commands: Commands) {
         })
         .id();
 
-    commands.entity(top).add_children(&[r1, r2]);
+    commands.entity(top).add_children(&[r1, r2, r3]);
 }
 
 fn button_system(

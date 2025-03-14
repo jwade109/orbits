@@ -6,6 +6,7 @@ use crate::camera_controls::*;
 use crate::debug::*;
 use crate::ui::InteractionEvent;
 use bevy::core_pipeline::bloom::Bloom;
+use std::collections::{HashMap, HashSet};
 
 pub struct PlanetaryPlugin;
 
@@ -95,7 +96,7 @@ pub struct GameState {
     pub scenario: Scenario,
     pub ids: ObjectIdTracker,
     pub backup: Option<(Scenario, ObjectIdTracker, Nanotime)>,
-    pub track_list: Vec<ObjectId>,
+    pub track_list: HashSet<ObjectId>,
     pub camera: CameraState,
     pub control_points: Vec<Vec2>,
     pub hide_debug: bool,
@@ -108,6 +109,7 @@ pub struct GameState {
     pub target_mode: bool,
     pub selection_region: Option<Region>,
     pub queued_orbits: Vec<(ObjectId, SparseOrbit)>,
+    pub constellations: HashMap<GroupId, HashSet<ObjectId>>,
 }
 
 impl Default for GameState {
@@ -122,7 +124,7 @@ impl Default for GameState {
             paused: false,
             scenario: scenario.clone(),
             ids,
-            track_list: Vec::new(),
+            track_list: HashSet::new(),
             backup: Some((scenario, ids, Nanotime::zero())),
             camera: CameraState::default(),
             control_points: Vec::new(),
@@ -136,21 +138,53 @@ impl Default for GameState {
             target_mode: false,
             selection_region: None,
             queued_orbits: Vec::new(),
+            constellations: HashMap::from([(
+                GroupId(45),
+                HashSet::from([ObjectId(12), ObjectId(30), ObjectId(60)]),
+            )]),
         }
     }
 }
 
 impl GameState {
     pub fn primary(&self) -> Option<ObjectId> {
-        self.track_list.first().cloned()
+        self.track_list.iter().next().cloned()
     }
 
     pub fn toggle_track(&mut self, id: ObjectId) {
         if self.track_list.contains(&id) {
             self.track_list.retain(|e| *e != id);
         } else {
-            self.track_list.insert(0, id);
+            self.track_list.insert(id);
         }
+    }
+
+    pub fn is_tracked(&self, id: ObjectId) -> bool {
+        self.track_list.contains(&id)
+    }
+
+    pub fn toggle_group(&mut self, gid: GroupId) -> Option<()> {
+        // - if any of the orbiters in the group are not selected,
+        //   select all of them
+        // - if all of them are already selected, deselect all of them
+
+        let members = self.constellations.get(&gid)?;
+
+        dbg!(members);
+
+        let all_selected = members.iter().all(|id| self.is_tracked(*id));
+
+        dbg!(all_selected);
+
+        for id in members {
+            if all_selected {
+                self.track_list.remove(id);
+            } else {
+                self.track_list.insert(*id);
+            }
+        }
+
+        Some(())
     }
 
     pub fn planned_maneuvers(&self, after: Nanotime) -> Vec<(ObjectId, Nanotime, Vec2)> {
@@ -232,7 +266,7 @@ impl GameState {
         });
     }
 
-    pub fn highlighted(&self) -> Vec<ObjectId> {
+    pub fn highlighted(&self) -> HashSet<ObjectId> {
         if let Some(a) = self.selection_region {
             self.scenario
                 .all_ids()
@@ -243,7 +277,7 @@ impl GameState {
                 })
                 .collect()
         } else {
-            vec![]
+            HashSet::new()
         }
     }
 
@@ -312,7 +346,7 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     let mut man = state.planned_maneuvers(old_sim_time);
     while let Some((id, t, dv)) = man.first() {
         if s > *t {
-            let perturb = randvec(0.1, 0.3) * 0.0;
+            let perturb = randvec(0.01, 0.05);
             state.scenario.simulate(*t, d);
             state.scenario.dv(*id, *t, dv + perturb);
         } else {
@@ -336,7 +370,15 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     track_list.retain(|o| state.scenario.lup(*o, state.sim_time).is_some());
     state.track_list = track_list;
 
-    let ids = state.scenario.ids().collect::<Vec<_>>();
+    let ids: Vec<_> = state.scenario.orbiter_ids().collect();
+
+    for (_, members) in &mut state.constellations {
+        members.retain(|id| ids.contains(id));
+    }
+
+    state
+        .constellations
+        .retain(|_, members| !members.is_empty());
 
     state.controllers.retain(|c| {
         if !ids.contains(&c.target) {
@@ -411,7 +453,7 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         sim_speed_str(state.sim_speed)
     ));
 
-    let mut show_id_list = |ids: &Vec<ObjectId>, name: &str| {
+    let mut show_id_list = |ids: &HashSet<ObjectId>, name: &str| {
         if ids.len() > 15 {
             log(&format!("{}: {} ...", name, ids.len()));
         } else {
@@ -571,6 +613,21 @@ fn process_interaction(
         InteractionEvent::ToggleObject(id) => {
             state.toggle_track(*id);
         }
+        InteractionEvent::ToggleGroup(gid) => {
+            state.toggle_group(*gid);
+        }
+        InteractionEvent::ThrustUp => {
+            state.do_maneuver(Vec2::Y * 0.03);
+        }
+        InteractionEvent::ThrustDown => {
+            state.do_maneuver(-Vec2::Y * 0.03);
+        }
+        InteractionEvent::ThrustLeft => {
+            state.do_maneuver(-Vec2::X * 0.03);
+        }
+        InteractionEvent::ThrustRight => {
+            state.do_maneuver(Vec2::X * 0.03);
+        }
         _ => (),
     };
     Some(())
@@ -631,11 +688,8 @@ fn mouse_button_input(buttons: Res<ButtonInput<MouseButton>>, mut state: ResMut<
         }
     }
     if buttons.just_released(MouseButton::Left) || buttons.just_released(MouseButton::Middle) {
-        for h in state.highlighted() {
-            if !state.track_list.contains(&h) {
-                state.track_list.push(h);
-            }
-        }
+        let h = state.highlighted();
+        state.track_list.extend(h.into_iter());
     }
 }
 
