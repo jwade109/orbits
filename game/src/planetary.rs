@@ -13,22 +13,38 @@ pub struct PlanetaryPlugin;
 impl Plugin for PlanetaryPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, init_system);
-        app.add_systems(FixedUpdate, propagate_system);
+        // app.add_systems(FixedUpdate, );
         app.add_systems(Update, log_system_info);
 
         app.add_systems(
             Update,
             (
+                propagate_system,
+
+                update_camera_controllers,
+
                 crate::keybindings::keyboard_input,
                 track_highlighted_objects,
                 handle_interactions,
                 handle_camera_interactions,
-                update_camera_controllers,
                 update_mouse_interactions,
                 todo_fix_actual_scale,
+
+                update_camera_controllers,
+
+                crate::sprites::make_new_sprites,
+                crate::sprites::update_planet_sprites,
+                crate::sprites::update_shadow_sprites,
+                crate::sprites::update_background_sprite,
+                crate::sprites::update_spacecraft_sprites,
+
+                update_camera_controllers,
+
                 crate::mouse::update_mouse_state,
                 crate::drawing::draw_mouse_state,
                 crate::drawing::draw_game_state,
+
+                update_camera_controllers,
             )
                 .chain(),
         );

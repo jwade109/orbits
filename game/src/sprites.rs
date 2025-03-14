@@ -9,16 +9,16 @@ impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, add_background);
 
-        app.add_systems(
-            Update,
-            (
-                make_new_sprites,
-                update_planet_sprites,
-                update_shadow_sprites,
-                update_background_sprite,
-                update_spacecraft_sprites,
-            ),
-        );
+        // app.add_systems(
+        //     Update,
+        //     (
+        //         make_new_sprites,
+        //         update_planet_sprites,
+        //         update_shadow_sprites,
+        //         update_background_sprite,
+        //         update_spacecraft_sprites,
+        //     ),
+        // );
 
         embedded_asset!(app, "src/", "../assets/Earth.png");
         embedded_asset!(app, "src/", "../assets/Luna.png");
@@ -41,19 +41,19 @@ const EXPECTED_SHADOW_SPRITE_WIDTH: u32 = 6000;
 
 #[derive(Component)]
 #[require(Transform)]
-struct BackgroundTexture;
+pub struct BackgroundTexture;
 
 #[derive(Component)]
 #[require(Transform)]
-struct PlanetTexture(ObjectId, String);
+pub struct PlanetTexture(ObjectId, String);
 
 #[derive(Component)]
 #[require(Transform)]
-struct SpacecraftTexture(ObjectId, f32);
+pub struct SpacecraftTexture(ObjectId, f32);
 
 #[derive(Component)]
 #[require(Transform)]
-struct ShadowTexture(ObjectId);
+pub struct ShadowTexture(ObjectId);
 
 fn add_background(mut commands: Commands, asset_server: Res<AssetServer>) {
     let path = format!("embedded://game/../assets/background.png");
@@ -62,7 +62,7 @@ fn add_background(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((BackgroundTexture, t, sprite));
 }
 
-fn make_new_sprites(
+pub fn make_new_sprites(
     mut commands: Commands,
     ptextures: Query<&PlanetTexture>,
     stextures: Query<&SpacecraftTexture>,
@@ -98,7 +98,7 @@ fn make_new_sprites(
     }
 }
 
-fn update_planet_sprites(
+pub fn update_planet_sprites(
     mut commands: Commands,
     mut query: Query<(Entity, &PlanetTexture, &mut Transform)>,
     state: Res<GameState>,
@@ -130,7 +130,7 @@ fn update_planet_sprites(
     }
 }
 
-fn update_shadow_sprites(
+pub fn update_shadow_sprites(
     mut commands: Commands,
     mut query: Query<(Entity, &ShadowTexture, &mut Transform)>,
     state: Res<GameState>,
@@ -166,7 +166,7 @@ const SPACECRAFT_DEFAULT_SCALE: f32 = 0.015;
 const SPACECRAFT_MAGNIFIED_SCALE: f32 = 0.06;
 const SPACECRAFT_DIMINISHED_SCALE: f32 = 0.01;
 
-fn update_spacecraft_sprites(
+pub fn update_spacecraft_sprites(
     mut commands: Commands,
     mut query: Query<(Entity, &mut SpacecraftTexture, &mut Transform)>,
     state: Res<GameState>,
@@ -196,7 +196,7 @@ fn update_spacecraft_sprites(
     }
 }
 
-fn update_background_sprite(
+pub fn update_background_sprite(
     mut query: Query<&mut Transform, With<BackgroundTexture>>,
     state: Res<GameState>,
 ) {
