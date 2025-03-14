@@ -450,20 +450,15 @@ fn draw_maneuver_plan(
         ManeuverType::Direct => YELLOW,
         ManeuverType::Hohmann => TEAL,
         ManeuverType::Bielliptic => ORANGE,
+        ManeuverType::Compound => YELLOW,
     };
 
-    let dist = 20.0;
-    let mut t = stamp;
-    let mut points = vec![];
-    while t < plan.end() {
-        let pv = plan.pv(t)?;
-        let secs = dist / pv.vel.length();
-        t += Nanotime::secs_f32(secs);
-        points.push(pv.pos);
+    gizmos.linestrip_2d(plan.initial().line(stamp), color);
+    for (_, _, orbit) in plan.orbits() {
+        gizmos.linestrip_2d(orbit.line(stamp), color);
     }
+
     let pv = plan.pv(plan.end())?;
-    points.push(pv.pos);
-    gizmos.linestrip_2d(points, color);
     draw_diamond(gizmos, pv.pos, 10.0 * scale, color);
 
     Some(())

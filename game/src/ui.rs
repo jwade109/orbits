@@ -15,6 +15,7 @@ pub enum InteractionEvent {
     SimFaster,
     ToggleDebugMode,
     ClearSelection,
+    ClearOrbitQueue,
     Follow,
     ExitApp,
     ToggleSelectionMode,
@@ -22,7 +23,8 @@ pub enum InteractionEvent {
     Save,
     Restore,
     Load(String),
-    ToggleController(ObjectId),
+    ToggleObject(ObjectId),
+    QueueOrbit,
 
     // mouse stuff
     DoubleClick,
@@ -87,8 +89,9 @@ fn update_controller_buttons(
                 let e = add_ui_button(
                     cb,
                     &format!("C{}", ctrl.target),
-                    InteractionEvent::ToggleController(ctrl.target),
+                    InteractionEvent::ToggleObject(ctrl.target),
                     false,
+                    BLACK,
                 );
                 entity = Some(e);
             });
@@ -176,6 +179,7 @@ fn add_ui_button(
     text: &str,
     onclick: InteractionEvent,
     holdable: bool,
+    bg_color: Srgba,
 ) -> Entity {
     let mut entity = parent.spawn((
         Button,
@@ -187,8 +191,7 @@ fn add_ui_button(
             padding: UiRect::all(Val::Px(5.0)),
             ..default()
         },
-        BorderColor(BLACK.into()),
-        BackgroundColor(BLACK.into()),
+        BackgroundColor(bg_color.into()),
         OnClick(onclick, holdable),
         ZIndex(100),
     ));
@@ -226,34 +229,53 @@ fn setup(mut commands: Commands) {
     commands.insert_resource(Events::<InteractionEvent>::default());
 
     let buttons = [
-        (">_", InteractionEvent::Console, false),
-        ("Debug", InteractionEvent::ToggleDebugMode, false),
-        ("Clear", InteractionEvent::ClearSelection, false),
-        ("Draw Orbits", InteractionEvent::Orbits, false),
-        ("Spawn", InteractionEvent::Spawn, true),
-        ("Commit Mission", InteractionEvent::CommitMission, false),
-        ("Reset Camera", InteractionEvent::Reset, false),
-        ("Del", InteractionEvent::Delete, false),
-        ("<", InteractionEvent::SimSlower, false),
-        ("||", InteractionEvent::SimPause, false),
-        (">", InteractionEvent::SimFaster, false),
-        ("Exit", InteractionEvent::ExitApp, false),
-        ("Save", InteractionEvent::Save, false),
-        ("Restore", InteractionEvent::Restore, false),
+        (">_", InteractionEvent::Console, false, BLACK),
+        ("Debug", InteractionEvent::ToggleDebugMode, false, BLACK),
+        (
+            "Clear Tracks",
+            InteractionEvent::ClearSelection,
+            false,
+            BLACK,
+        ),
+        (
+            "Clear Orbits",
+            InteractionEvent::ClearOrbitQueue,
+            false,
+            BLACK,
+        ),
+        ("Draw Orbits", InteractionEvent::Orbits, false, BLACK),
+        ("Spawn", InteractionEvent::Spawn, true, BLACK),
+        (
+            "Commit Mission",
+            InteractionEvent::CommitMission,
+            false,
+            DARK_GREEN.with_luminance(0.2),
+        ),
+        ("Reset Camera", InteractionEvent::Reset, false, BLACK),
+        ("Del", InteractionEvent::Delete, false, BLACK),
+        ("<", InteractionEvent::SimSlower, false, BLACK),
+        ("||", InteractionEvent::SimPause, false, BLACK),
+        (">", InteractionEvent::SimFaster, false, BLACK),
+        ("Exit", InteractionEvent::ExitApp, false, BLACK),
+        ("Save", InteractionEvent::Save, false, BLACK),
+        ("Restore", InteractionEvent::Restore, false, BLACK),
         (
             "Load Earth",
             InteractionEvent::Load("earth".to_owned()),
             false,
+            BLACK,
         ),
         (
             "Load Grid",
             InteractionEvent::Load("grid".to_owned()),
             false,
+            BLACK,
         ),
         (
             "Load Luna",
             InteractionEvent::Load("moon".to_owned()),
             false,
+            BLACK,
         ),
     ];
 
@@ -266,8 +288,8 @@ fn setup(mut commands: Commands) {
     let r2 = commands
         .spawn(get_ui_row())
         .with_children(|parent| {
-            for (name, event, holdable) in buttons {
-                add_ui_button(parent, name, event, holdable);
+            for (name, event, holdable, color) in buttons {
+                add_ui_button(parent, name, event, holdable, color);
             }
         })
         .id();

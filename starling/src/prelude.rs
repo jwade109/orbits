@@ -10,9 +10,9 @@ pub use crate::nanotime::Nanotime;
 pub use crate::orbiter::{ObjectId, Orbiter};
 pub use crate::orbits::{hyperbolic_range_ta, SparseOrbit};
 pub use crate::planning::{
-    generate_maneuver_plans, EventType, HorizonState, ManeuverPlan, ManeuverType, Propagator,
+    best_maneuver_plan, EventType, HorizonState, ManeuverPlan, ManeuverType, Propagator,
 };
 pub use crate::pv::PV;
+pub use crate::region::Region;
 pub use crate::scenario::{ObjectIdTracker, PlanetarySystem, Scenario};
 pub use crate::topomap::{id_to_aabb, test_topo, TopoMap};
-pub use crate::region::Region;

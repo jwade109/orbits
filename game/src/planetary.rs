@@ -11,8 +11,6 @@ pub struct PlanetaryPlugin;
 
 impl Plugin for PlanetaryPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(Time::<Fixed>::from_hz(400.0));
-
         app.add_systems(Startup, init_system);
         app.add_systems(FixedUpdate, propagate_system);
         app.add_systems(Update, log_system_info);
@@ -109,6 +107,7 @@ pub struct GameState {
     pub selection_mode: bool,
     pub target_mode: bool,
     pub selection_region: Option<Region>,
+    pub queued_orbits: Vec<(ObjectId, SparseOrbit)>,
 }
 
 impl Default for GameState {
@@ -136,6 +135,7 @@ impl Default for GameState {
             selection_mode: false,
             target_mode: false,
             selection_region: None,
+            queued_orbits: Vec::new(),
         }
     }
 }
@@ -157,12 +157,8 @@ impl GameState {
         let mut dvs = vec![];
         for ctrl in &self.controllers {
             if let Some(plan) = ctrl.plan() {
-                for (range, impulse, _) in plan.orbits() {
-                    if let Some((impulse, start)) = impulse.zip(range.start()) {
-                        if start > after {
-                            dvs.push((ctrl.target, start, impulse));
-                        }
-                    }
+                for (stamp, impulse) in plan.future_dvs(after) {
+                    dvs.push((ctrl.target, stamp, impulse));
                 }
             }
         }
@@ -191,7 +187,7 @@ impl GameState {
         Some(PV::new(p1, (p2 - p1) * v / r))
     }
 
-    pub fn target_orbit(&self) -> Option<(ObjectId, SparseOrbit)> {
+    pub fn cursor_orbit(&self) -> Option<(ObjectId, SparseOrbit)> {
         let pv = self.cursor_pv()?;
         let parent_id = self.scenario.relevant_body(pv.pos, self.sim_time)?;
         let parent = self.scenario.lup(parent_id, self.sim_time)?;
@@ -218,7 +214,7 @@ impl GameState {
     }
 
     pub fn spawn_new(&mut self) -> Option<()> {
-        let (parent, orbit) = self.target_orbit().or_else(|| self.primary_orbit())?;
+        let (parent, orbit) = self.cursor_orbit().or_else(|| self.primary_orbit())?;
         let pv_local = orbit.pv(self.sim_time).ok()?;
         let perturb = PV::new(
             randvec(pv_local.pos.length() * 0.005, pv_local.pos.length() * 0.02),
@@ -275,29 +271,28 @@ impl GameState {
         Some(())
     }
 
-    pub fn maneuver_plans(&self) -> Vec<(ObjectId, ManeuverPlan)> {
-        self.track_list
-            .iter()
-            .filter_map(|id| {
-                let (parent_id, dst) = self.target_orbit()?;
-                let orbiter = self.scenario.lup(*id, self.sim_time)?.orbiter()?;
-                let prop = orbiter.propagator_at(self.sim_time)?;
-                let src = (prop.parent == parent_id).then_some(prop.orbit)?;
-
-                let mut plans = generate_maneuver_plans(&src, &dst, self.sim_time);
-
-                plans.sort_by_key(|m| (m.dv() * 1000.0) as i32);
-
-                let ret = plans.first()?;
-                Some((*id, ret.clone()))
-            })
-            .collect::<Vec<_>>()
+    pub fn command_selected(&mut self, next: &SparseOrbit) {
+        for id in self.track_list.clone() {
+            self.command(id, next);
+        }
     }
 
-    pub fn enqueue_plan(&mut self, id: ObjectId, plan: &ManeuverPlan) {
-        self.controllers.retain(|c| c.target != id);
-        let c = Controller::with_plan(id, plan.clone());
-        self.controllers.push(c);
+    pub fn command(&mut self, id: ObjectId, next: &SparseOrbit) -> Option<()> {
+        if self.controllers.iter().find(|c| c.target == id).is_none() {
+            self.controllers.push(Controller::idle(id));
+        }
+
+        if let Some(c) = self.controllers.iter_mut().find(|c| c.target == id) {
+            if c.is_idle() {
+                let orbiter = self.scenario.lup(c.target(), self.sim_time)?.orbiter()?;
+                let current = orbiter.propagator_at(self.sim_time)?.orbit;
+                c.activate(&current, next, self.sim_time);
+            } else {
+                c.enqueue(next);
+            }
+        }
+
+        Some(())
     }
 }
 
@@ -317,7 +312,7 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
     let mut man = state.planned_maneuvers(old_sim_time);
     while let Some((id, t, dv)) = man.first() {
         if s > *t {
-            let perturb = randvec(0.1, 0.3);
+            let perturb = randvec(0.1, 0.3) * 0.0;
             state.scenario.simulate(*t, d);
             state.scenario.dv(*id, *t, dv + perturb);
         } else {
@@ -345,6 +340,10 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
 
     state.controllers.retain(|c| {
         if !ids.contains(&c.target) {
+            return false;
+        }
+        if c.is_idle() {
+            info!("Vehicle {} has idle controller", c.target);
             return false;
         }
         if let Some(end) = c.plan().map(|p| p.end()) {
@@ -497,15 +496,8 @@ fn process_interaction(
     match inter {
         InteractionEvent::Delete => state.delete_objects(),
         InteractionEvent::CommitMission => {
-            let plan = state.maneuver_plans();
-            if !plan.is_empty() {
-                for (id, plan) in &plan {
-                    state.enqueue_plan(*id, &plan);
-                }
-                let ids = plan.iter().map(|(id, _)| id).collect::<Vec<_>>();
-                let avg_dv =
-                    plan.iter().map(|(_, plan)| plan.dv()).sum::<f32>() / plan.len() as f32;
-                info!("Committing maneuver plan (avg dv of {avg_dv:0.2}) for {ids:?}");
+            for (_, orbit) in state.queued_orbits.clone() {
+                state.command_selected(&orbit)
             }
         }
         InteractionEvent::ToggleDebugMode => {
@@ -513,6 +505,9 @@ fn process_interaction(
         }
         InteractionEvent::ClearSelection => {
             state.track_list.clear();
+        }
+        InteractionEvent::ClearOrbitQueue => {
+            state.queued_orbits.clear();
         }
         InteractionEvent::SimSlower => {
             state.sim_speed = i32::clamp(state.sim_speed - 1, -10, 4);
@@ -547,6 +542,11 @@ fn process_interaction(
         InteractionEvent::Save => {
             state.backup = Some((state.scenario.clone(), state.ids, state.sim_time));
         }
+        InteractionEvent::QueueOrbit => {
+            if let Some(o) = state.cursor_orbit() {
+                state.queued_orbits.push(o);
+            }
+        }
         InteractionEvent::Restore => {
             if let Some((sys, ids, time)) = &state.backup {
                 state.scenario = sys.clone();
@@ -568,7 +568,7 @@ fn process_interaction(
             }?;
             load_new_scenario(state, system, ids);
         }
-        InteractionEvent::ToggleController(id) => {
+        InteractionEvent::ToggleObject(id) => {
             state.toggle_track(*id);
         }
         _ => (),
@@ -630,7 +630,6 @@ fn mouse_button_input(buttons: Res<ButtonInput<MouseButton>>, mut state: ResMut<
             state.control_points.push(p);
         }
     }
-    if buttons.just_pressed(MouseButton::Left) {}
     if buttons.just_released(MouseButton::Left) || buttons.just_released(MouseButton::Middle) {
         for h in state.highlighted() {
             if !state.track_list.contains(&h) {

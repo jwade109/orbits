@@ -753,6 +753,43 @@ pub fn generate_chi_spline(pv: impl Into<PV>, mu: f32, duration: Nanotime) -> Op
     Some(Spline::from_vec(x))
 }
 
+#[derive(Debug, Clone)]
+pub struct DenseOrbit(SparseOrbit, Vec<(Nanotime, PV)>);
+
+impl DenseOrbit {
+    pub fn new(orbit: &SparseOrbit) -> Self {
+        Self(*orbit, vec![])
+    }
+
+    pub fn in_range(orbit: &SparseOrbit, start: Nanotime, end: Nanotime) -> Option<Self> {
+        let mut samples = vec![];
+        let mut t = start;
+        let dist = 30.0;
+        while t < end {
+            let pv = orbit.pv(t).ok()?;
+            let dt = dist / pv.vel.length();
+            t += Nanotime::secs_f32(dt);
+            samples.push((t, pv));
+        }
+        let pv = orbit.pv(end).ok()?;
+        samples.push((end, pv));
+        Some(Self(*orbit, samples))
+    }
+
+    pub fn sparse(&self) -> &SparseOrbit {
+        &self.0
+    }
+
+    pub fn line(&self, now: Nanotime) -> Vec<Vec2> {
+        (&[/* (now, current) */])
+            .iter()
+            .chain(self.1.iter())
+            .filter(|(t, _)| *t >= now)
+            .map(|(_, p)| p.pos)
+            .collect()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
