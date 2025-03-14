@@ -255,17 +255,17 @@ fn draw_scenario(
     track_list: &HashSet<ObjectId>,
     duty_cycle: bool,
 ) {
-    draw_planets(gizmos, &scenario.system, stamp, Vec2::ZERO);
+    draw_planets(gizmos, scenario.planets(), stamp, Vec2::ZERO);
 
     _ = scenario
-        .ids()
+        .orbiter_ids()
         .into_iter()
         .filter_map(|id| {
             let obj = scenario.lup(id, stamp)?.orbiter()?;
             let is_tracked = track_list.contains(&obj.id());
             draw_object(
                 gizmos,
-                &scenario.system,
+                scenario.planets(),
                 obj,
                 stamp,
                 scale,
@@ -425,18 +425,18 @@ fn draw_event_animation(
     let dt = Nanotime::secs(1);
     let mut t = stamp + dt;
     while t < p.end().unwrap_or(stamp + Nanotime::secs(30)) {
-        let pv = obj.pv(t, &scenario.system)?;
+        let pv = obj.pv(t, scenario.planets())?;
         draw_diamond(gizmos, pv.pos, 11.0 * scale.min(1.0), alpha(WHITE, 0.6));
         t += dt;
     }
     for prop in obj.props() {
         if let Some((t, e)) = prop.stamped_event() {
-            let pv = obj.pv(t, &scenario.system)?;
+            let pv = obj.pv(t, scenario.planets())?;
             draw_event_marker_at(gizmos, &e, pv.pos, scale, duty_cycle);
         }
     }
     if let Some(t) = p.end() {
-        let pv = obj.pv(t, &scenario.system)?;
+        let pv = obj.pv(t, scenario.planets())?;
         draw_square(gizmos, pv.pos, 13.0 * scale.min(1.0), alpha(RED, 0.8));
     }
     Some(())

@@ -695,8 +695,6 @@ fn mouse_button_input(buttons: Res<ButtonInput<MouseButton>>, mut state: ResMut<
 
 fn load_new_scenario(state: &mut GameState, scen: Scenario, ids: ObjectIdTracker) {
     state.backup = Some((scen.clone(), ids, Nanotime::zero()));
-    state.camera.target_scale = 0.001 * scen.system.body.soi;
-    state.camera.center = Vec2::ZERO;
     state.scenario = scen;
     state.ids = ids;
     state.sim_time = Nanotime::zero();

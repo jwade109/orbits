@@ -69,25 +69,25 @@ fn make_new_sprites(
     state: Res<GameState>,
     asset_server: Res<AssetServer>,
 ) {
-    let planet_ids = state.scenario.system.ids();
-    for id in planet_ids {
+    for id in state.scenario.planet_ids() {
         if ptextures.iter().find(|e| e.0 == id).is_some() {
             continue;
         }
-        let lup = state.scenario.system.lookup(id, state.sim_time);
-        if let Some((_, _, _, sys)) = lup {
-            let path = format!("embedded://game/../assets/{}.png", sys.name);
-            println!("Adding sprite for {} at {}", sys.name, path);
-            let sprite = Sprite::from_image(asset_server.load(path));
-            commands.spawn((PlanetTexture(id, sys.name.clone()), sprite));
+        if let Some(lup) = state.scenario.lup(id, state.sim_time) {
+            if let Some((name, body)) = lup.named_body() {
+                let path = format!("embedded://game/../assets/{}.png", name);
+                println!("Adding sprite for {} at {}", name, path);
+                let sprite = Sprite::from_image(asset_server.load(path));
+                commands.spawn((PlanetTexture(id, name.clone()), sprite));
 
-            let sprite =
-                Sprite::from_image(asset_server.load("embedded://game/../assets/shadow.png"));
-            commands.spawn((ShadowTexture(id), sprite));
+                let sprite =
+                    Sprite::from_image(asset_server.load("embedded://game/../assets/shadow.png"));
+                commands.spawn((ShadowTexture(id), sprite));
+            }
         }
     }
 
-    for id in state.scenario.ids() {
+    for id in state.scenario.orbiter_ids() {
         if stextures.iter().find(|e| e.0 == id).is_some() {
             continue;
         }
@@ -104,14 +104,26 @@ fn update_planet_sprites(
     state: Res<GameState>,
 ) {
     for (e, PlanetTexture(id, name), mut transform) in query.iter_mut() {
-        if let Some((body, pv, _, sys)) = state.scenario.system.lookup(*id, state.sim_time) {
-            if sys.name == *name {
-                transform.translation = pv.pos.extend(PLANET_Z_INDEX);
-                transform.scale =
-                    2.0 * Vec3::splat(body.radius) / EXPECTED_PLANET_SPRITE_SIZE as f32;
-            } else {
+        let lup = match state.scenario.lup(*id, state.sim_time) {
+            Some(lup) => lup,
+            None => {
                 commands.entity(e).despawn();
+                continue;
             }
+        };
+
+        let pv = lup.pv();
+        let (lname, body) = match lup.named_body() {
+            Some(n) => n,
+            None => {
+                commands.entity(e).despawn();
+                continue;
+            }
+        };
+
+        if lname == name {
+            transform.translation = pv.pos.extend(PLANET_Z_INDEX);
+            transform.scale = 2.0 * Vec3::splat(body.radius) / EXPECTED_PLANET_SPRITE_SIZE as f32;
         } else {
             commands.entity(e).despawn();
         }
@@ -124,17 +136,29 @@ fn update_shadow_sprites(
     state: Res<GameState>,
 ) {
     for (e, ShadowTexture(id), mut transform) in query.iter_mut() {
-        if let Some((body, pv, _, _)) = state.scenario.system.lookup(*id, state.sim_time) {
-            let angle = state.sim_time.to_secs() / 1000.0;
-            let scale = (2.0 * body.radius) / EXPECTED_SHADOW_SPRITE_HEIGHT as f32;
-            let w = EXPECTED_SHADOW_SPRITE_WIDTH as f32 * scale;
-            let ds = rotate(Vec2::X * w / 2.0, angle);
-            transform.translation = (pv.pos + ds).extend(SHADOW_Z_INDEX);
-            transform.scale = Vec3::new(scale, scale, 1.0);
-            transform.rotation = Quat::from_rotation_z(angle)
-        } else {
-            commands.entity(e).despawn();
-        }
+        let lup = match state.scenario.lup(*id, state.sim_time) {
+            Some(lup) => lup,
+            None => {
+                commands.entity(e).despawn();
+                continue;
+            }
+        };
+
+        let body = match lup.body() {
+            Some(b) => b,
+            None => {
+                commands.entity(e).despawn();
+                continue;
+            }
+        };
+
+        let angle = state.sim_time.to_secs() / 1000.0;
+        let scale = (2.0 * body.radius) / EXPECTED_SHADOW_SPRITE_HEIGHT as f32;
+        let w = EXPECTED_SHADOW_SPRITE_WIDTH as f32 * scale;
+        let ds = rotate(Vec2::X * w / 2.0, angle);
+        transform.translation = (lup.pv().pos + ds).extend(SHADOW_Z_INDEX);
+        transform.scale = Vec3::new(scale, scale, 1.0);
+        transform.rotation = Quat::from_rotation_z(angle);
     }
 }
 

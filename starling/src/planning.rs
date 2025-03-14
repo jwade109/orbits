@@ -6,7 +6,6 @@ use crate::pv::PV;
 use crate::scenario::*;
 use glam::f32::Vec2;
 use serde::{Deserialize, Serialize};
-use splines::{Interpolation, Key, Spline};
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub enum EventType {
@@ -157,9 +156,6 @@ pub struct Propagator {
     pub start: Nanotime,
     pub dt: Nanotime,
     pub horizon: HorizonState,
-
-    #[serde(skip)]
-    pub spline: Option<Spline<f32, f32>>,
 }
 
 impl std::fmt::Display for Propagator {
@@ -183,7 +179,6 @@ impl Propagator {
             start: stamp,
             dt: Nanotime::zero(),
             horizon: HorizonState::Continuing(stamp),
-            spline: None,
         }
     }
 

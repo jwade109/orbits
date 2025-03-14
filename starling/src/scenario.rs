@@ -60,7 +60,7 @@ impl<'a> ObjectLookup<'a> {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Scenario {
     orbiters: Vec<Orbiter>,
-    pub system: PlanetarySystem,
+    system: PlanetarySystem,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -160,6 +160,10 @@ impl Scenario {
         self.orbiters.iter().map(|o| o.id())
     }
 
+    pub fn planet_ids(&self) -> Vec<ObjectId> {
+        self.system.ids()
+    }
+
     pub fn all_ids(&self) -> Vec<ObjectId> {
         self.orbiter_ids()
             .into_iter()
@@ -169,6 +173,10 @@ impl Scenario {
 
     pub fn has_orbiter(&self, id: ObjectId) -> bool {
         self.orbiters.iter().any(|o| o.id() == id)
+    }
+
+    pub fn planets(&self) -> &PlanetarySystem {
+        &self.system
     }
 
     pub fn simulate(
