@@ -18,8 +18,6 @@ pub enum InteractionEvent {
     ClearOrbitQueue,
     Follow,
     ExitApp,
-    ToggleSelectionMode,
-    ToggleTargetMode,
     Save,
     Restore,
     Load(String),
@@ -28,7 +26,7 @@ pub enum InteractionEvent {
     QueueOrbit,
 
     // mouse stuff
-    DoubleClick,
+    DoubleClick(Vec2),
 
     // camera operations
     MoveLeft,
@@ -180,11 +178,6 @@ fn big_time_system(mut q: Query<&mut Text, With<DateMarker>>, state: Res<GameSta
 const BORDER_COLOR: Srgba = Srgba {
     alpha: 0.0,
     ..WHITE
-};
-
-const BACKGROUND_COLOR: Srgba = Srgba {
-    alpha: 0.03,
-    ..GRAY
 };
 
 fn get_toplevel_ui() -> impl Bundle {

@@ -20,13 +20,15 @@ impl Plugin for PlanetaryPlugin {
             Update,
             (
                 crate::keybindings::keyboard_input,
-                mouse_button_input,
+                track_highlighted_objects,
                 handle_interactions,
                 handle_camera_interactions,
                 update_camera_controllers,
-                todo_fix_actual_scale,
                 update_mouse_interactions,
-                crate::mouse::cursor_position,
+                todo_fix_actual_scale,
+                crate::mouse::update_mouse_state,
+                crate::drawing::draw_mouse_state,
+                crate::drawing::draw_game_state,
             )
                 .chain(),
         );
@@ -62,9 +64,15 @@ fn update_camera_controllers(mut query: Query<(&SoftController, &mut Transform)>
     }
 }
 
-fn todo_fix_actual_scale(mut state: ResMut<GameState>, query: Query<&Transform, With<Camera>>) {
+fn todo_fix_actual_scale(
+    mut state: ResMut<GameState>,
+    query: Query<&Transform, With<Camera>>,
+    window: Single<&Window>,
+) {
     if let Ok(tf) = query.get_single() {
         state.camera.actual_scale = tf.scale.z;
+        state.camera.world_center = tf.translation.xy();
+        state.camera.window_dims = Vec2::new(window.width(), window.height());
     }
 }
 
@@ -105,8 +113,6 @@ pub struct GameState {
     pub follow: Option<ObjectId>,
     pub show_orbits: ShowOrbitsState,
     pub show_animations: bool,
-    pub selection_mode: bool,
-    pub target_mode: bool,
     pub selection_region: Option<Region>,
     pub queued_orbits: Vec<(ObjectId, SparseOrbit)>,
     pub constellations: HashMap<GroupId, HashSet<ObjectId>>,
@@ -134,8 +140,6 @@ impl Default for GameState {
             follow: None,
             show_orbits: ShowOrbitsState::Focus,
             show_animations: false,
-            selection_mode: false,
-            target_mode: false,
             selection_region: None,
             queued_orbits: Vec::new(),
             constellations: HashMap::from([(
@@ -202,11 +206,7 @@ impl GameState {
 
     pub fn cursor_pv(&self) -> Option<PV> {
         let p1 = *self.control_points.get(0)?;
-        let p2 = self
-            .control_points
-            .get(1)
-            .map(|e| *e)
-            .or(self.camera.mouse_pos())?;
+        let p2 = *self.control_points.get(1)?;
 
         if p1.distance(p2) < 20.0 {
             return None;
@@ -512,22 +512,20 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
 fn update_mouse_interactions(
     mut state: ResMut<GameState>,
     mouse: Single<&crate::mouse::MouseState>,
-    cam: Single<(&Camera, &GlobalTransform)>,
 ) {
     state.control_points = mouse
-        .right_world(*cam)
+        .right_world()
         .into_iter()
-        .chain(mouse.current_world(*cam).into_iter())
+        .chain(mouse.current_world().into_iter())
         .collect();
 
-    state.selection_region =
-        if let Some((a, b)) = mouse.left_world(*cam).zip(mouse.current_world(*cam)) {
-            Some(Region::aabb(a, b))
-        } else if let Some((a, b)) = mouse.middle_world(*cam).zip(mouse.current_world(*cam)) {
-            Some(Region::range(a, b))
-        } else {
-            None
-        }
+    state.selection_region = if let Some((a, b)) = mouse.left_world().zip(mouse.current_world()) {
+        Some(Region::aabb(a, b))
+    } else if let Some((a, b)) = mouse.middle_world().zip(mouse.current_world()) {
+        Some(Region::range(a, b))
+    } else {
+        None
+    }
 }
 
 fn process_interaction(
@@ -569,14 +567,15 @@ fn process_interaction(
         InteractionEvent::Spawn => {
             state.spawn_new();
         }
-        InteractionEvent::DoubleClick => {
-            state.track_list.clear();
-        }
-        InteractionEvent::ToggleTargetMode => {
-            state.target_mode = !state.target_mode;
-        }
-        InteractionEvent::ToggleSelectionMode => {
-            state.selection_mode = !state.selection_mode;
+        InteractionEvent::DoubleClick(p) => {
+            let w = state
+                .camera
+                .viewport_bounds()
+                .map(state.camera.world_bounds(), *p);
+            let id = state.scenario.nearest(w, state.sim_time);
+            if let Some(id) = id {
+                state.follow = Some(id)
+            }
         }
         InteractionEvent::ExitApp => {
             exit.send(bevy::app::AppExit::Success);
@@ -628,6 +627,11 @@ fn process_interaction(
         InteractionEvent::ThrustRight => {
             state.do_maneuver(Vec2::X * 0.03);
         }
+        InteractionEvent::Reset
+        | InteractionEvent::MoveLeft
+        | InteractionEvent::MoveRight
+        | InteractionEvent::MoveUp
+        | InteractionEvent::MoveDown => state.follow = None,
         _ => (),
     };
     Some(())
@@ -647,6 +651,7 @@ fn handle_interactions(
 fn handle_camera_interactions(
     mut events: EventReader<InteractionEvent>,
     mut query: Query<&mut SoftController>,
+    state: Res<GameState>,
     time: Res<Time>,
 ) {
     let mut ctrl = match query.get_single_mut() {
@@ -659,6 +664,10 @@ fn handle_camera_interactions(
 
     let cursor_delta = 1400.0 * time.delta_secs() * ctrl.0.scale.z;
     let scale_scalar = 1.5;
+
+    if let Some(p) = state.follow_position() {
+        ctrl.0.translation = p.extend(0.0);
+    }
 
     for e in events.read() {
         match e {
@@ -675,18 +684,7 @@ fn handle_camera_interactions(
 }
 
 // TODO get rid of this
-fn mouse_button_input(buttons: Res<ButtonInput<MouseButton>>, mut state: ResMut<GameState>) {
-    if buttons.just_pressed(MouseButton::Right) {
-        state.control_points.clear();
-        if let Some(p) = state.camera.mouse_pos() {
-            state.control_points.push(p);
-        }
-    }
-    if buttons.just_released(MouseButton::Right) {
-        if let Some(p) = state.camera.mouse_pos() {
-            state.control_points.push(p);
-        }
-    }
+fn track_highlighted_objects(buttons: Res<ButtonInput<MouseButton>>, mut state: ResMut<GameState>) {
     if buttons.just_released(MouseButton::Left) || buttons.just_released(MouseButton::Middle) {
         let h = state.highlighted();
         state.track_list.extend(h.into_iter());

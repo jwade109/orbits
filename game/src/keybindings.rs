@@ -10,8 +10,6 @@ pub fn keyboard_input(
     for key in keys.get_just_pressed() {
         let e = match key {
             KeyCode::Period => InteractionEvent::SimFaster,
-            KeyCode::KeyT => InteractionEvent::ToggleTargetMode,
-            KeyCode::KeyC => InteractionEvent::ToggleSelectionMode,
             KeyCode::Comma => InteractionEvent::SimSlower,
             KeyCode::Delete => InteractionEvent::Delete,
             KeyCode::KeyH => InteractionEvent::ToggleDebugMode,
@@ -21,6 +19,7 @@ pub fn keyboard_input(
             KeyCode::Equal => InteractionEvent::ZoomIn,
             KeyCode::KeyR => InteractionEvent::Reset,
             KeyCode::KeyQ => InteractionEvent::QueueOrbit,
+            KeyCode::KeyC => InteractionEvent::ClearSelection,
             KeyCode::Tab => InteractionEvent::Orbits,
             KeyCode::Space => InteractionEvent::SimPause,
             KeyCode::Escape => InteractionEvent::ExitApp,

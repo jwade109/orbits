@@ -16,7 +16,7 @@ pub struct GizmosPlugin;
 
 impl Plugin for GizmosPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (draw_mouse_state, draw_game_state));
+        // app.add_systems(Update, ());
     }
 }
 
@@ -115,39 +115,6 @@ fn draw_orbit(gizmos: &mut Gizmos, orb: &SparseOrbit, origin: Vec2, color: Srgba
             .ellipse_2d(iso, Vec2::new(orb.semi_major_axis, b), color)
             .resolution(res);
     }
-}
-
-fn draw_function(
-    gizmos: &mut Gizmos,
-    func: impl Fn(f32) -> f32,
-    xmin: f32,
-    xmax: f32,
-    camera: &CameraState,
-    color: Srgba,
-) {
-    let bounds = camera.game_bounds();
-    let scale = camera.actual_scale;
-    let xeval = linspace(xmin, xmax, 500);
-    let yeval = apply(&xeval, func);
-    let ymin = yeval.iter().min_by(|x, y| x.total_cmp(y)).unwrap();
-    let ymax = yeval.iter().max_by(|x, y| x.total_cmp(y)).unwrap();
-    let points = xeval
-        .iter()
-        .zip(&yeval)
-        .map(|(x, y)| {
-            let yscale = 2.0 * ((y - ymin) / (ymax - ymin)) - 1.0;
-            bounds.center + Vec2::new(*x, yscale * 500.0) * scale
-        })
-        .collect::<Vec<_>>();
-    let zero = xeval
-        .iter()
-        .map(|x| {
-            let yscale = 2.0 * ((0.0 - ymin) / (ymax - ymin)) - 1.0;
-            bounds.center + Vec2::new(*x, yscale * 500.0) * scale
-        })
-        .collect::<Vec<_>>();
-    gizmos.linestrip_2d(zero, GRAY);
-    gizmos.linestrip_2d(points, color);
 }
 
 fn draw_planets(gizmos: &mut Gizmos, planet: &PlanetarySystem, stamp: Nanotime, origin: Vec2) {
@@ -387,20 +354,6 @@ fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) {
         .collect::<Vec<_>>();
 }
 
-fn draw_camera_controls(gizmos: &mut Gizmos, state: &GameState) {
-    if let Some(p) = state.camera.mouse_pos() {
-        draw_circle(gizmos, p, 3.0 * state.camera.actual_scale, RED);
-    }
-
-    if let Some(p) = state.camera.mouse_down_pos() {
-        draw_circle(gizmos, p, 2.0 * state.camera.actual_scale, RED);
-    }
-
-    if let Some(a) = state.selection_region {
-        draw_region(gizmos, a, RED);
-    }
-}
-
 fn draw_controller(
     gizmos: &mut Gizmos,
     stamp: Nanotime,
@@ -473,8 +426,8 @@ fn draw_scale_indicator(gizmos: &mut Gizmos, cam: &CameraState) {
     let p1 = center + Vec2::X * width;
     let p2 = center - Vec2::X * width;
 
-    let b = cam.game_bounds();
-    let c = cam.window_bounds();
+    let b = cam.world_bounds();
+    let c = cam.viewport_bounds();
 
     let u1 = c.map(b, p1);
     let u2 = c.map(b, p2);
@@ -514,10 +467,17 @@ fn draw_scale_indicator(gizmos: &mut Gizmos, cam: &CameraState) {
     gizmos.line_2d(u1, u2, color);
 }
 
-fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
+pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     let stamp = state.sim_time;
 
     draw_scale_indicator(&mut gizmos, &state.camera);
+
+    if let Some(a) = state.selection_region {
+        draw_region(&mut gizmos, a, RED);
+    }
+
+    // draw_aabb(&mut gizmos, state.camera.world_bounds(), TEAL);
+    // draw_aabb(&mut gizmos, state.camera.viewport_bounds(), TEAL);
 
     for p in &state.control_points {
         draw_circle(
@@ -550,36 +510,6 @@ fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         draw_orbit_with_parent(parent, &orbit);
     }
 
-    for id in state.scenario.all_ids() {
-        if let Some(lup) = state.scenario.lup(id, stamp) {
-            let center = lup.pv().pos;
-
-            if state.track_list.contains(&id) {
-                if let Some(body) = lup.body() {
-                    for r in [1.2, 1.25, 1.3] {
-                        draw_circle(&mut gizmos, center, body.radius * r, alpha(ORANGE, 0.4));
-                    }
-                }
-            }
-
-            let padding = 40.0 * state.camera.actual_scale.min(1.0);
-            let w = if let Some(body) = lup.body() {
-                2.0 * body.radius + padding
-            } else {
-                padding
-            };
-            let aabb = AABB::new(center, Vec2::splat(w));
-            if state
-                .camera
-                .mouse_pos()
-                .map(|p| aabb.contains(p))
-                .unwrap_or(false)
-            {
-                draw_aabb(&mut gizmos, aabb, GRAY);
-            }
-        }
-    }
-
     for ctrl in &state.controllers {
         if state.track_list.contains(&ctrl.target) {
             draw_controller(&mut gizmos, state.sim_time, ctrl, state.camera.actual_scale);
@@ -599,8 +529,6 @@ fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         }
     }
 
-    draw_camera_controls(&mut gizmos, &state);
-
     draw_scenario(
         &mut gizmos,
         &state.scenario,
@@ -614,21 +542,24 @@ fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     draw_highlighted_objects(&mut gizmos, &state);
 }
 
-fn draw_mouse_state(
-    mouse: Single<&MouseState>,
-    cam: Single<(&Camera, &GlobalTransform)>,
-    mut gizmos: Gizmos,
-) {
+pub fn draw_mouse_state(mouse: Single<&MouseState>, mut gizmos: Gizmos) {
     let points = [
-        (mouse.current_world(*cam), RED),
-        (mouse.left_world(*cam), BLUE),
-        (mouse.right_world(*cam), GREEN),
-        (mouse.middle_world(*cam), YELLOW),
+        (mouse.current_world(), RED),
+        (mouse.left_world(), BLUE),
+        (mouse.right_world(), GREEN),
+        (mouse.middle_world(), YELLOW),
+        // (mouse.current(), RED),
+        // (mouse.left(), BLUE),
+        // (mouse.right(), GREEN),
+        // (mouse.middle(), YELLOW),
     ];
 
     for (p, c) in points {
         if let Some(p) = p {
-            draw_circle(&mut gizmos, p, 8.0 * cam.1.scale().z, c);
+            draw_circle(&mut gizmos, p, 8.0 * mouse.scale(), c);
         }
     }
+
+    // draw_aabb(&mut gizmos, mouse.viewport_bounds(), GREEN);
+    // draw_aabb(&mut gizmos, mouse.world_bounds(), GREEN);
 }

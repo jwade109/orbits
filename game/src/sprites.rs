@@ -201,6 +201,6 @@ fn update_background_sprite(
     state: Res<GameState>,
 ) {
     let mut tf = query.single_mut();
-    tf.translation = state.camera.center.extend(BACKGROUND_Z_INDEX);
+    tf.translation = state.camera.world_center.extend(BACKGROUND_Z_INDEX);
     tf.scale = Vec3::splat(10000.0);
 }

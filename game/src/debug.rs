@@ -1,5 +1,3 @@
-use bevy::input::keyboard::{Key, KeyboardInput};
-use bevy::input::ButtonState;
 use bevy::prelude::*;
 
 pub struct DebugPlugin {}

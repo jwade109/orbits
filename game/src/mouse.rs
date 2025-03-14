@@ -1,6 +1,7 @@
 use crate::ui::InteractionEvent;
 use bevy::prelude::*;
 use core::time::Duration;
+use starling::prelude::AABB;
 
 const DOUBLE_CLICK_DURATION: Duration = Duration::from_millis(200);
 
@@ -11,9 +12,17 @@ pub struct MouseState {
     left_click: Option<Vec2>,
     right_click: Option<Vec2>,
     middle_click: Option<Vec2>,
+
+    viewport_bounds: AABB,
+    world_bounds: AABB,
+    scale: f32,
 }
 
 impl MouseState {
+    pub fn scale(&self) -> f32 {
+        self.scale
+    }
+
     pub fn current(&self) -> Option<Vec2> {
         self.position
     }
@@ -30,31 +39,51 @@ impl MouseState {
         self.middle_click
     }
 
-    pub fn current_world(&self, cam: (&Camera, &GlobalTransform)) -> Option<Vec2> {
-        cam.0.viewport_to_world_2d(cam.1, self.current()?).ok()
+    pub fn viewport_bounds(&self) -> AABB {
+        self.viewport_bounds
     }
 
-    pub fn left_world(&self, cam: (&Camera, &GlobalTransform)) -> Option<Vec2> {
-        cam.0.viewport_to_world_2d(cam.1, self.left()?).ok()
+    pub fn world_bounds(&self) -> AABB {
+        self.world_bounds
     }
 
-    pub fn right_world(&self, cam: (&Camera, &GlobalTransform)) -> Option<Vec2> {
-        cam.0.viewport_to_world_2d(cam.1, self.right()?).ok()
+    pub fn viewport_to_world(&self, p: Vec2) -> Vec2 {
+        self.viewport_bounds.map(self.world_bounds, p)
     }
 
-    pub fn middle_world(&self, cam: (&Camera, &GlobalTransform)) -> Option<Vec2> {
-        cam.0.viewport_to_world_2d(cam.1, self.middle()?).ok()
+    pub fn current_world(&self) -> Option<Vec2> {
+        Some(self.viewport_to_world(self.current()?))
+    }
+
+    pub fn left_world(&self) -> Option<Vec2> {
+        Some(self.viewport_to_world(self.left()?))
+    }
+
+    pub fn right_world(&self) -> Option<Vec2> {
+        Some(self.viewport_to_world(self.right()?))
+    }
+
+    pub fn middle_world(&self) -> Option<Vec2> {
+        Some(self.viewport_to_world(self.middle()?))
     }
 }
 
-pub fn cursor_position(
+pub fn update_mouse_state(
     win: Single<&Window>,
     buttons: Res<ButtonInput<MouseButton>>,
+    camera: Single<&Transform, With<Camera2d>>,
     mut state: Single<&mut MouseState>,
     mut events: EventWriter<InteractionEvent>,
     time: Res<Time>,
 ) {
+    let dims = Vec2::new(win.width(), win.height());
+
+    state.viewport_bounds = AABB::new(dims / 2.0, dims);
+    state.world_bounds = AABB::new(camera.translation.xy(), dims * camera.scale.z);
+    state.scale = camera.scale.z;
+
     if let Some(p) = win.cursor_position() {
+        let p = Vec2::new(p.x, dims.y - p.y);
         if state.position != Some(p) {
             state.position = Some(p);
         }
@@ -69,8 +98,11 @@ pub fn cursor_position(
         let now = time.elapsed();
         if let Some(prev) = state.last_click {
             let dt = now - prev;
-            if dt < DOUBLE_CLICK_DURATION {
-                events.send(InteractionEvent::DoubleClick);
+            if let Some(p) = (dt < DOUBLE_CLICK_DURATION)
+                .then(|| state.left_click)
+                .flatten()
+            {
+                events.send(InteractionEvent::DoubleClick(p));
             }
         }
         state.last_click = Some(now);

@@ -284,4 +284,21 @@ impl Scenario {
             .min_by(|(d1, _), (d2, _)| d1.total_cmp(d2))
             .map(|(_, id)| *id)
     }
+
+    pub fn nearest(&self, pos: Vec2, stamp: Nanotime) -> Option<ObjectId> {
+        let results = self
+            .all_ids()
+            .into_iter()
+            .filter_map(|id| {
+                let lup = self.lup(id, stamp)?;
+                let p = lup.pv().pos;
+                let d = pos.distance(p);
+                Some((d, id))
+            })
+            .collect::<Vec<_>>();
+        results
+            .into_iter()
+            .min_by(|(d1, _), (d2, _)| d1.total_cmp(d2))
+            .map(|(_, id)| id)
+    }
 }
