@@ -1,13 +1,12 @@
-use bevy::prelude::*;
-
-use starling::prelude::*;
-
 use crate::camera_controls::*;
 use crate::debug::*;
 use crate::mouse::MouseState;
 use crate::ui::InteractionEvent;
 use bevy::core_pipeline::bloom::Bloom;
+use bevy::prelude::*;
+use starling::prelude::*;
 use std::collections::{HashMap, HashSet};
+use std::ops::DerefMut;
 
 pub struct PlanetaryPlugin;
 
@@ -19,6 +18,8 @@ impl Plugin for PlanetaryPlugin {
         app.add_systems(
             Update,
             (
+                // egui
+                crate::egui::ui_example_system,
                 // physics
                 propagate_system,
                 // inputs
@@ -28,8 +29,7 @@ impl Plugin for PlanetaryPlugin {
                 handle_camera_interactions,
                 crate::mouse::update_mouse_state,
                 // update camera stuff
-                update_camera_controllers,
-                todo_fix_actual_scale,
+                move_camera_and_store,
                 // rendering
                 crate::sprites::make_new_sprites,
                 crate::sprites::update_planet_sprites,
@@ -62,25 +62,24 @@ fn init_system(mut commands: Commands) {
     ));
 }
 
-fn update_camera_controllers(mut query: Query<(&SoftController, &mut Transform)>) {
-    for (ctrl, mut tf) in &mut query {
-        let target = ctrl.0;
-        let current = *tf;
-        tf.translation += (target.translation - current.translation) * 1.0;
-        tf.scale += (target.scale - current.scale) * 1.0;
-    }
-}
-
-fn todo_fix_actual_scale(
-    mut state: ResMut<GameState>,
-    query: Query<&Transform, With<Camera>>,
+fn move_camera_and_store(
+    mut query: Single<(&SoftController, &mut Transform)>,
     window: Single<&Window>,
+    mut state: ResMut<GameState>,
 ) {
-    if let Ok(tf) = query.get_single() {
-        state.camera.actual_scale = tf.scale.z;
-        state.camera.world_center = tf.translation.xy();
-        state.camera.window_dims = Vec2::new(window.width(), window.height());
-    }
+    let (ctrl, ref mut tf) = query.deref_mut();
+    let target = ctrl.0;
+    let current = tf.clone();
+    tf.translation += (target.translation - current.translation) * 1.0;
+    tf.scale += (target.scale - current.scale) * 1.0;
+
+    state.camera.actual_scale = tf.scale.z;
+    state.camera.world_center = tf.translation.xy();
+    state.camera.window_dims = Vec2::new(window.width(), window.height());
+
+    state.mouse.viewport_bounds = state.camera.viewport_bounds();
+    state.mouse.world_bounds = state.camera.world_bounds();
+    state.mouse.scale = tf.scale.z;
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -148,10 +147,7 @@ impl Default for GameState {
             show_orbits: ShowOrbitsState::Focus,
             show_animations: false,
             queued_orbits: Vec::new(),
-            constellations: HashMap::from([(
-                GroupId(45),
-                HashSet::from([ObjectId(12), ObjectId(30), ObjectId(60)]),
-            )]),
+            constellations: HashMap::new(),
         }
     }
 }
@@ -173,7 +169,7 @@ impl GameState {
         self.track_list.contains(&id)
     }
 
-    pub fn toggle_group(&mut self, gid: GroupId) -> Option<()> {
+    pub fn toggle_group(&mut self, gid: &GroupId) -> Option<()> {
         // - if any of the orbiters in the group are not selected,
         //   select all of them
         // - if all of them are already selected, deselect all of them
@@ -195,6 +191,16 @@ impl GameState {
         }
 
         Some(())
+    }
+
+    pub fn disband_group(&mut self, gid: &GroupId) {
+        self.constellations.remove(gid);
+    }
+
+    pub fn create_group(&mut self, gid: GroupId) {
+        if !self.track_list.is_empty() {
+            self.constellations.insert(gid, self.track_list.clone());
+        }
     }
 
     pub fn planned_maneuvers(&self, after: Nanotime) -> Vec<(ObjectId, Nanotime, Vec2)> {
@@ -619,7 +625,13 @@ fn process_interaction(
             state.toggle_track(*id);
         }
         InteractionEvent::ToggleGroup(gid) => {
-            state.toggle_group(*gid);
+            state.toggle_group(gid);
+        }
+        InteractionEvent::DisbandGroup(gid) => {
+            state.disband_group(gid);
+        }
+        InteractionEvent::CreateGroup(gid) => {
+            state.create_group(gid.clone());
         }
         InteractionEvent::ThrustUp => {
             state.do_maneuver(Vec2::Y * 0.3);

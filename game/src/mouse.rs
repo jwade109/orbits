@@ -1,8 +1,8 @@
+use crate::planetary::GameState;
 use crate::ui::InteractionEvent;
 use bevy::prelude::*;
 use core::time::Duration;
 use starling::prelude::AABB;
-use crate::planetary::GameState;
 
 const DOUBLE_CLICK_DURATION: Duration = Duration::from_millis(200);
 
@@ -14,9 +14,9 @@ pub struct MouseState {
     right_click: Option<Vec2>,
     middle_click: Option<Vec2>,
 
-    viewport_bounds: AABB,
-    world_bounds: AABB,
-    scale: f32,
+    pub viewport_bounds: AABB,
+    pub world_bounds: AABB,
+    pub scale: f32,
 }
 
 impl MouseState {
@@ -101,6 +101,7 @@ pub fn update_mouse_state(
         state.mouse.last_click = Some(now);
     } else if buttons.just_released(MouseButton::Left) {
         state.mouse.left_click = None;
+        events.send(InteractionEvent::LeftMouseRelease);
     }
 
     if buttons.just_pressed(MouseButton::Right) {

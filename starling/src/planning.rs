@@ -476,14 +476,19 @@ pub struct ManeuverPlan {
 }
 
 impl ManeuverPlan {
-    pub fn new(kind: ManeuverType, initial: SparseOrbit, dvs: &[(Nanotime, Vec2)]) -> Option<Self> {
+    pub fn new(
+        now: Nanotime,
+        kind: ManeuverType,
+        initial: SparseOrbit,
+        dvs: &[(Nanotime, Vec2)],
+    ) -> Option<Self> {
         if dvs.is_empty() {
             return None;
         }
 
         let mut segments = vec![ManeuverSegment {
             range: TimeRange::before(dvs.first().unwrap().0),
-            orbit: DenseOrbit::in_range(&initial, initial.epoch, dvs.first().unwrap().0)?,
+            orbit: DenseOrbit::in_range(&initial, now, dvs.first().unwrap().0)?,
             impulse: None,
         }];
 
@@ -572,7 +577,7 @@ impl ManeuverPlan {
 
         let dvs: Vec<_> = self.dvs().chain(other.dvs()).collect();
 
-        ManeuverPlan::new(kind, *self.initial().sparse(), &dvs)
+        ManeuverPlan::new(self.end(), kind, *self.initial().sparse(), &dvs)
     }
 }
 
@@ -674,7 +679,12 @@ fn hohmann_transfer(
 
     let dv2 = after.vel - before.vel;
 
-    ManeuverPlan::new(ManeuverType::Hohmann, *current, &[(t1, dv1), (t2, dv2)])
+    ManeuverPlan::new(
+        now,
+        ManeuverType::Hohmann,
+        *current,
+        &[(t1, dv1), (t2, dv2)],
+    )
 }
 
 fn bielliptic_transfer(
@@ -727,7 +737,12 @@ fn direct_transfer(
         .flatten()
         .map(|(t, pvf)| {
             let pvi = current.pv(t).ok()?;
-            ManeuverPlan::new(ManeuverType::Direct, *current, &[(t, pvf.vel - pvi.vel)])
+            ManeuverPlan::new(
+                now,
+                ManeuverType::Direct,
+                *current,
+                &[(t, pvf.vel - pvi.vel)],
+            )
         })
         .flatten()
 }

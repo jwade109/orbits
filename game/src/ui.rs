@@ -23,9 +23,12 @@ pub enum InteractionEvent {
     Load(String),
     ToggleObject(ObjectId),
     ToggleGroup(GroupId),
+    DisbandGroup(GroupId),
+    CreateGroup(GroupId),
     QueueOrbit,
 
     // mouse stuff
+    LeftMouseRelease,
     DoubleClick(Vec2),
 
     // camera operations
@@ -64,7 +67,7 @@ impl Plugin for UiPlugin {
 #[derive(Component, Debug, Copy, Clone)]
 struct ControllerButton(ObjectId);
 
-#[derive(Component, Debug, Copy, Clone)]
+#[derive(Component, Debug, Clone)]
 struct ConstellationButton(GroupId);
 
 #[derive(Component, Debug, Copy, Clone)]
@@ -132,14 +135,14 @@ fn update_constellation_buttons(
     }
 
     for (gid, _) in &state.constellations {
-        if query.iter().find(|(_, cb)| cb.0 == *gid).is_none() {
+        if query.iter().find(|(_, cb)| &cb.0 == gid).is_none() {
             info!("Spawning constellation button for {}", gid);
             let mut entity = None;
             commands.entity(*parent).with_children(|cb| {
                 let e = add_ui_button(
                     cb,
                     &format!("{}", gid),
-                    InteractionEvent::ToggleGroup(*gid),
+                    InteractionEvent::ToggleGroup(gid.clone()),
                     false,
                     BLACK,
                 );
@@ -147,7 +150,7 @@ fn update_constellation_buttons(
             });
             if let Some(e) = entity {
                 commands.entity(*parent).add_child(e);
-                commands.entity(e).insert(ConstellationButton(*gid));
+                commands.entity(e).insert(ConstellationButton(gid.clone()));
             };
         }
     }
