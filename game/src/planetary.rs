@@ -4,6 +4,7 @@ use starling::prelude::*;
 
 use crate::camera_controls::*;
 use crate::debug::*;
+use crate::mouse::MouseState;
 use crate::ui::InteractionEvent;
 use bevy::core_pipeline::bloom::Bloom;
 use std::collections::{HashMap, HashSet};
@@ -13,38 +14,28 @@ pub struct PlanetaryPlugin;
 impl Plugin for PlanetaryPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, init_system);
-        // app.add_systems(FixedUpdate, );
         app.add_systems(Update, log_system_info);
 
         app.add_systems(
             Update,
             (
+                // physics
                 propagate_system,
-
+                // inputs
                 crate::keybindings::keyboard_input,
                 track_highlighted_objects,
                 handle_interactions,
                 handle_camera_interactions,
-                update_mouse_interactions,
-
-                todo_fix_actual_scale,
+                crate::mouse::update_mouse_state,
+                // update camera stuff
                 update_camera_controllers,
-
+                todo_fix_actual_scale,
+                // rendering
                 crate::sprites::make_new_sprites,
                 crate::sprites::update_planet_sprites,
                 crate::sprites::update_shadow_sprites,
                 crate::sprites::update_background_sprite,
                 crate::sprites::update_spacecraft_sprites,
-
-                todo_fix_actual_scale,
-                update_camera_controllers,
-
-                crate::mouse::update_mouse_state,
-
-                todo_fix_actual_scale,
-                update_camera_controllers,
-
-                crate::drawing::draw_mouse_state,
                 crate::drawing::draw_game_state,
             )
                 .chain(),
@@ -69,7 +60,6 @@ fn init_system(mut commands: Commands) {
             ..Bloom::OLD_SCHOOL
         },
     ));
-    commands.spawn(crate::mouse::MouseState::default());
 }
 
 fn update_camera_controllers(mut query: Query<(&SoftController, &mut Transform)>) {
@@ -113,6 +103,9 @@ impl ShowOrbitsState {
 
 #[derive(Resource)]
 pub struct GameState {
+    pub mouse: MouseState,
+    pub camera: CameraState,
+
     pub sim_time: Nanotime,
     pub actual_time: Nanotime,
     pub physics_duration: Nanotime,
@@ -122,15 +115,12 @@ pub struct GameState {
     pub ids: ObjectIdTracker,
     pub backup: Option<(Scenario, ObjectIdTracker, Nanotime)>,
     pub track_list: HashSet<ObjectId>,
-    pub camera: CameraState,
-    pub control_points: Vec<Vec2>,
     pub hide_debug: bool,
     pub duty_cycle_high: bool,
     pub controllers: Vec<Controller>,
     pub follow: Option<ObjectId>,
     pub show_orbits: ShowOrbitsState,
     pub show_animations: bool,
-    pub selection_region: Option<Region>,
     pub queued_orbits: Vec<(ObjectId, SparseOrbit)>,
     pub constellations: HashMap<GroupId, HashSet<ObjectId>>,
 }
@@ -140,6 +130,7 @@ impl Default for GameState {
         let (scenario, ids) = default_example();
 
         GameState {
+            mouse: MouseState::default(),
             sim_time: Nanotime::zero(),
             actual_time: Nanotime::zero(),
             physics_duration: Nanotime::secs(120),
@@ -150,14 +141,12 @@ impl Default for GameState {
             track_list: HashSet::new(),
             backup: Some((scenario, ids, Nanotime::zero())),
             camera: CameraState::default(),
-            control_points: Vec::new(),
             hide_debug: true,
             duty_cycle_high: false,
             controllers: vec![],
             follow: None,
             show_orbits: ShowOrbitsState::Focus,
             show_animations: false,
-            selection_region: None,
             queued_orbits: Vec::new(),
             constellations: HashMap::from([(
                 GroupId(45),
@@ -221,9 +210,28 @@ impl GameState {
         dvs
     }
 
+    pub fn control_points(&self) -> Vec<Vec2> {
+        self.mouse
+            .right_world()
+            .into_iter()
+            .chain(self.mouse.current_world().into_iter())
+            .collect()
+    }
+
+    pub fn selection_region(&self) -> Option<Region> {
+        if let Some((a, b)) = self.mouse.left_world().zip(self.mouse.current_world()) {
+            Some(Region::aabb(a, b))
+        } else if let Some((a, b)) = self.mouse.middle_world().zip(self.mouse.current_world()) {
+            Some(Region::range(a, b))
+        } else {
+            None
+        }
+    }
+
     pub fn cursor_pv(&self) -> Option<PV> {
-        let p1 = *self.control_points.get(0)?;
-        let p2 = *self.control_points.get(1)?;
+        let points = self.control_points();
+        let p1 = *points.get(0)?;
+        let p2 = *points.get(1)?;
 
         if p1.distance(p2) < 20.0 {
             return None;
@@ -284,7 +292,7 @@ impl GameState {
     }
 
     pub fn highlighted(&self) -> HashSet<ObjectId> {
-        if let Some(a) = self.selection_region {
+        if let Some(a) = self.selection_region() {
             self.scenario
                 .all_ids()
                 .into_iter()
@@ -523,25 +531,6 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         } else if let Some(b) = lup.body() {
             log(&format!("BD: {:?}", b));
         }
-    }
-}
-
-fn update_mouse_interactions(
-    mut state: ResMut<GameState>,
-    mouse: Single<&crate::mouse::MouseState>,
-) {
-    state.control_points = mouse
-        .right_world()
-        .into_iter()
-        .chain(mouse.current_world().into_iter())
-        .collect();
-
-    state.selection_region = if let Some((a, b)) = mouse.left_world().zip(mouse.current_world()) {
-        Some(Region::aabb(a, b))
-    } else if let Some((a, b)) = mouse.middle_world().zip(mouse.current_world()) {
-        Some(Region::range(a, b))
-    } else {
-        None
     }
 }
 

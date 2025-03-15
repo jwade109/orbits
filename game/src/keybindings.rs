@@ -13,7 +13,6 @@ pub fn keyboard_input(
             KeyCode::Comma => InteractionEvent::SimSlower,
             KeyCode::Delete => InteractionEvent::Delete,
             KeyCode::KeyH => InteractionEvent::ToggleDebugMode,
-            KeyCode::KeyF => InteractionEvent::Follow,
             KeyCode::Enter => InteractionEvent::CommitMission,
             KeyCode::Minus => InteractionEvent::ZoomOut,
             KeyCode::Equal => InteractionEvent::ZoomIn,

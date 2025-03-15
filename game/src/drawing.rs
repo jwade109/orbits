@@ -460,14 +460,14 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
 
     draw_scale_indicator(&mut gizmos, &state.camera);
 
-    if let Some(a) = state.selection_region {
+    if let Some(a) = state.selection_region() {
         draw_region(&mut gizmos, a, RED);
     }
 
     // draw_aabb(&mut gizmos, state.camera.world_bounds(), TEAL);
     // draw_aabb(&mut gizmos, state.camera.viewport_bounds(), TEAL);
 
-    for p in &state.control_points {
+    for p in &state.control_points() {
         draw_circle(
             &mut gizmos,
             *p,
@@ -528,9 +528,11 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     );
 
     draw_highlighted_objects(&mut gizmos, &state);
+
+    draw_mouse_state(&state.mouse, &mut gizmos);
 }
 
-pub fn draw_mouse_state(mouse: Single<&MouseState>, mut gizmos: Gizmos) {
+fn draw_mouse_state(mouse: &MouseState, gizmos: &mut Gizmos) {
     let points = [
         (mouse.current_world(), RED),
         (mouse.left_world(), BLUE),
@@ -544,7 +546,7 @@ pub fn draw_mouse_state(mouse: Single<&MouseState>, mut gizmos: Gizmos) {
 
     for (p, c) in points {
         if let Some(p) = p {
-            draw_circle(&mut gizmos, p, 8.0 * mouse.scale(), c);
+            draw_circle(gizmos, p, 8.0 * mouse.scale(), c);
         }
     }
 

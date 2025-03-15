@@ -2,10 +2,11 @@ use crate::ui::InteractionEvent;
 use bevy::prelude::*;
 use core::time::Duration;
 use starling::prelude::AABB;
+use crate::planetary::GameState;
 
 const DOUBLE_CLICK_DURATION: Duration = Duration::from_millis(200);
 
-#[derive(Component, Debug, Default)]
+#[derive(Debug, Default)]
 pub struct MouseState {
     last_click: Option<Duration>,
     position: Option<Vec2>,
@@ -64,53 +65,53 @@ pub fn update_mouse_state(
     win: Single<&Window>,
     buttons: Res<ButtonInput<MouseButton>>,
     camera: Single<&Transform, With<Camera2d>>,
-    mut state: Single<&mut MouseState>,
+    mut state: ResMut<GameState>,
     mut events: EventWriter<InteractionEvent>,
     time: Res<Time>,
 ) {
     let dims = Vec2::new(win.width(), win.height());
 
-    state.viewport_bounds = AABB::new(dims / 2.0, dims);
-    state.world_bounds = AABB::new(camera.translation.xy(), dims * camera.scale.z);
-    state.scale = camera.scale.z;
+    state.mouse.viewport_bounds = AABB::new(dims / 2.0, dims);
+    state.mouse.world_bounds = AABB::new(camera.translation.xy(), dims * camera.scale.z);
+    state.mouse.scale = camera.scale.z;
 
     if let Some(p) = win.cursor_position() {
         let p = Vec2::new(p.x, dims.y - p.y);
-        if state.position != Some(p) {
-            state.position = Some(p);
+        if state.mouse.position != Some(p) {
+            state.mouse.position = Some(p);
         }
     } else {
-        if state.position.is_some() {
-            state.position = None;
+        if state.mouse.position.is_some() {
+            state.mouse.position = None;
         }
     }
 
     if buttons.just_pressed(MouseButton::Left) {
-        state.left_click = state.position;
+        state.mouse.left_click = state.mouse.position;
         let now = time.elapsed();
-        if let Some(prev) = state.last_click {
+        if let Some(prev) = state.mouse.last_click {
             let dt = now - prev;
             if let Some(p) = (dt < DOUBLE_CLICK_DURATION)
-                .then(|| state.left_click)
+                .then(|| state.mouse.left_click)
                 .flatten()
             {
                 events.send(InteractionEvent::DoubleClick(p));
             }
         }
-        state.last_click = Some(now);
+        state.mouse.last_click = Some(now);
     } else if buttons.just_released(MouseButton::Left) {
-        state.left_click = None;
+        state.mouse.left_click = None;
     }
 
     if buttons.just_pressed(MouseButton::Right) {
-        state.right_click = state.position;
+        state.mouse.right_click = state.mouse.position;
     } else if buttons.just_released(MouseButton::Right) {
-        state.right_click = None;
+        state.mouse.right_click = None;
     }
 
     if buttons.just_pressed(MouseButton::Middle) {
-        state.middle_click = state.position;
+        state.mouse.middle_click = state.mouse.position;
     } else if buttons.just_released(MouseButton::Middle) {
-        state.middle_click = None;
+        state.mouse.middle_click = None;
     }
 }
