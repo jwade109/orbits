@@ -1,14 +1,12 @@
 #![allow(dead_code)]
 
-use std::io::Write;
-
 use starling::prelude::*;
 
 use starling::examples::make_earth;
 use starling::file_export::{export_orbit_data, write_csv};
 use starling::math::{apply, linspace, randvec};
 use starling::orbits::{
-    generate_chi_spline, stumpff_2, stumpff_3, universal_lagrange, Body, SparseOrbit,
+    generate_chi_spline, stumpff_2, stumpff_3, universal_lagrange, SparseOrbit,
 };
 
 use std::path::Path;

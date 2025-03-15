@@ -12,18 +12,6 @@ use crate::camera_controls::CameraState;
 use crate::mouse::MouseState;
 use crate::planetary::{GameState, ShowOrbitsState};
 
-pub struct GizmosPlugin;
-
-impl Plugin for GizmosPlugin {
-    fn build(&self, app: &mut App) {
-        // app.add_systems(Update, ());
-    }
-}
-
-fn alpha(color: Srgba, a: f32) -> Srgba {
-    Srgba { alpha: a, ..color }
-}
-
 fn draw_cross(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     let dx = Vec2::new(size, 0.0);
     let dy = Vec2::new(0.0, size);
@@ -118,14 +106,14 @@ fn draw_orbit(gizmos: &mut Gizmos, orb: &SparseOrbit, origin: Vec2, color: Srgba
 }
 
 fn draw_planets(gizmos: &mut Gizmos, planet: &PlanetarySystem, stamp: Nanotime, origin: Vec2) {
-    draw_circle(gizmos, origin, planet.body.radius, alpha(GRAY, 0.1));
+    draw_circle(gizmos, origin, planet.body.radius, GRAY.with_alpha(0.1));
     for (a, ds) in [(1.0, 1.0), (0.3, 0.98), (0.1, 0.95)] {
-        draw_circle(gizmos, origin, planet.body.soi * ds, alpha(ORANGE, a));
+        draw_circle(gizmos, origin, planet.body.soi * ds, ORANGE.with_alpha(a));
     }
 
     for (orbit, pl) in &planet.subsystems {
         if let Some(pv) = orbit.pv(stamp).ok() {
-            draw_orbit(gizmos, orbit, origin, alpha(GRAY, 0.4));
+            draw_orbit(gizmos, orbit, origin, GRAY.with_alpha(0.4));
             draw_planets(gizmos, pl, stamp, origin + pv.pos)
         }
     }
@@ -185,9 +173,9 @@ fn draw_object(
     if tracked {
         for (i, prop) in obj.props().iter().enumerate() {
             let color = if i == 0 {
-                alpha(WHITE, 0.02)
+                WHITE.with_alpha(0.02)
             } else {
-                alpha(TEAL, (1.0 - i as f32 * 0.3).max(0.0))
+                TEAL.with_alpha((1.0 - i as f32 * 0.3).max(0.0))
             };
             if show_orbits {
                 draw_propagator(
@@ -205,7 +193,7 @@ fn draw_object(
                 stamp,
                 scale,
                 false,
-                alpha(GRAY, 0.02),
+                GRAY.with_alpha(0.02),
                 duty_cycle,
             );
         }
@@ -251,7 +239,7 @@ fn draw_scalar_field_cell(
     step: f32,
     levels: &[i32],
 ) {
-    // draw_square(gizmos, center, step as f32, alpha(WHITE, 0.001));
+    // draw_square(gizmos, center, step as f32, WHITE.with_alpha(0.001));
 
     let bl = center + Vec2::new(-step / 2.0, -step / 2.0);
     let br = center + Vec2::new(step / 2.0, -step / 2.0);
@@ -281,7 +269,7 @@ fn draw_scalar_field_cell(
             }
         }
 
-        gizmos.linestrip_2d(pts, alpha(RED, 0.03));
+        gizmos.linestrip_2d(pts, RED.with_alpha(0.03));
     }
 }
 
@@ -321,8 +309,8 @@ fn draw_event_marker_at(
         EventType::Impulse(_) => PURPLE,
     };
 
-    draw_circle(gizmos, p, 15.0 * scale, alpha(color, 0.8));
-    draw_circle(gizmos, p, 6.0 * scale, alpha(color, 0.8));
+    draw_circle(gizmos, p, 15.0 * scale, color.with_alpha(0.8));
+    draw_circle(gizmos, p, 6.0 * scale, color.with_alpha(0.8));
 }
 
 fn draw_event(
@@ -336,7 +324,7 @@ fn draw_event(
 ) -> Option<()> {
     if let EventType::Encounter(id) = event {
         let (body, pv, _, _) = planets.lookup(*id, stamp)?;
-        draw_circle(gizmos, pv.pos, body.soi, alpha(ORANGE, 0.2));
+        draw_circle(gizmos, pv.pos, body.soi, ORANGE.with_alpha(0.2));
     }
     draw_event_marker_at(gizmos, event, p, scale, duty_cycle);
     Some(())
@@ -379,7 +367,7 @@ fn draw_event_animation(
     let mut t = stamp + dt;
     while t < p.end().unwrap_or(stamp + Nanotime::secs(30)) {
         let pv = obj.pv(t, scenario.planets())?;
-        draw_diamond(gizmos, pv.pos, 11.0 * scale.min(1.0), alpha(WHITE, 0.6));
+        draw_diamond(gizmos, pv.pos, 11.0 * scale.min(1.0), WHITE.with_alpha(0.6));
         t += dt;
     }
     for prop in obj.props() {
@@ -390,7 +378,7 @@ fn draw_event_animation(
     }
     if let Some(t) = p.end() {
         let pv = obj.pv(t, scenario.planets())?;
-        draw_square(gizmos, pv.pos, 13.0 * scale.min(1.0), alpha(RED, 0.8));
+        draw_square(gizmos, pv.pos, 13.0 * scale.min(1.0), RED.with_alpha(0.8));
     }
     Some(())
 }
@@ -434,7 +422,7 @@ fn draw_scale_indicator(gizmos: &mut Gizmos, cam: &CameraState) {
 
     let map = |p: Vec2| c.map(b, p);
 
-    let color = alpha(WHITE, 0.3);
+    let color = WHITE.with_alpha(0.3);
 
     let mut draw_at = |s: f32, weight: f32| {
         let h = 6.0 * weight;
@@ -484,7 +472,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
             &mut gizmos,
             *p,
             6.0 * state.camera.actual_scale,
-            alpha(GRAY, 0.4),
+            GRAY.with_alpha(0.4),
         );
     }
 
@@ -498,7 +486,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
                 true => TEAL,
                 false => RED,
             };
-            draw_orbit(&mut gizmos, &orbit, pv.pos, alpha(color, 0.3));
+            draw_orbit(&mut gizmos, &orbit, pv.pos, color.with_alpha(0.3));
         }
     };
 

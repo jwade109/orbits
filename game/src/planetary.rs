@@ -21,15 +21,13 @@ impl Plugin for PlanetaryPlugin {
             (
                 propagate_system,
 
-                update_camera_controllers,
-
                 crate::keybindings::keyboard_input,
                 track_highlighted_objects,
                 handle_interactions,
                 handle_camera_interactions,
                 update_mouse_interactions,
-                todo_fix_actual_scale,
 
+                todo_fix_actual_scale,
                 update_camera_controllers,
 
                 crate::sprites::make_new_sprites,
@@ -38,13 +36,16 @@ impl Plugin for PlanetaryPlugin {
                 crate::sprites::update_background_sprite,
                 crate::sprites::update_spacecraft_sprites,
 
+                todo_fix_actual_scale,
                 update_camera_controllers,
 
                 crate::mouse::update_mouse_state,
+
+                todo_fix_actual_scale,
+                update_camera_controllers,
+
                 crate::drawing::draw_mouse_state,
                 crate::drawing::draw_game_state,
-
-                update_camera_controllers,
             )
                 .chain(),
         );
@@ -75,8 +76,8 @@ fn update_camera_controllers(mut query: Query<(&SoftController, &mut Transform)>
     for (ctrl, mut tf) in &mut query {
         let target = ctrl.0;
         let current = *tf;
-        tf.translation += (target.translation - current.translation) * 0.1;
-        tf.scale += (target.scale - current.scale) * 0.1;
+        tf.translation += (target.translation - current.translation) * 1.0;
+        tf.scale += (target.scale - current.scale) * 1.0;
     }
 }
 
@@ -632,16 +633,16 @@ fn process_interaction(
             state.toggle_group(*gid);
         }
         InteractionEvent::ThrustUp => {
-            state.do_maneuver(Vec2::Y * 0.03);
+            state.do_maneuver(Vec2::Y * 0.3);
         }
         InteractionEvent::ThrustDown => {
-            state.do_maneuver(-Vec2::Y * 0.03);
+            state.do_maneuver(-Vec2::Y * 0.3);
         }
         InteractionEvent::ThrustLeft => {
-            state.do_maneuver(-Vec2::X * 0.03);
+            state.do_maneuver(-Vec2::X * 0.3);
         }
         InteractionEvent::ThrustRight => {
-            state.do_maneuver(Vec2::X * 0.03);
+            state.do_maneuver(Vec2::X * 0.3);
         }
         InteractionEvent::Reset
         | InteractionEvent::MoveLeft

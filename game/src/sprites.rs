@@ -74,7 +74,7 @@ pub fn make_new_sprites(
             continue;
         }
         if let Some(lup) = state.scenario.lup(id, state.sim_time) {
-            if let Some((name, body)) = lup.named_body() {
+            if let Some((name, _)) = lup.named_body() {
                 let path = format!("embedded://game/../assets/{}.png", name);
                 println!("Adding sprite for {} at {}", name, path);
                 let sprite = Sprite::from_image(asset_server.load(path));

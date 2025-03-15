@@ -39,15 +39,7 @@ impl MouseState {
         self.middle_click
     }
 
-    pub fn viewport_bounds(&self) -> AABB {
-        self.viewport_bounds
-    }
-
-    pub fn world_bounds(&self) -> AABB {
-        self.world_bounds
-    }
-
-    pub fn viewport_to_world(&self, p: Vec2) -> Vec2 {
+    fn viewport_to_world(&self, p: Vec2) -> Vec2 {
         self.viewport_bounds.map(self.world_bounds, p)
     }
 

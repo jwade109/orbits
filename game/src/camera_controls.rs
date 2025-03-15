@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use starling::aabb::AABB;
 
-#[derive(Resource, Debug)]
+#[derive(Debug)]
 pub struct CameraState {
     pub world_center: Vec2,
     pub actual_scale: f32,

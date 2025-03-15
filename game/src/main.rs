@@ -16,6 +16,5 @@ fn main() {
         .add_plugins(crate::planetary::PlanetaryPlugin {})
         .add_plugins(crate::sprites::SpritePlugin {})
         .add_plugins(crate::ui::UiPlugin {})
-        // .add_plugins(crate::drawing::GizmosPlugin {})
         .run();
 }
