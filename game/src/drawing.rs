@@ -473,16 +473,6 @@ fn draw_timeline(gizmos: &mut Gizmos, state: &GameState) {
 
         for (tr, impulse, orbit) in plan.orbits() {
             match tr {
-                TimeRange::None => (),
-                TimeRange::Before(end) => {
-                    let p = p_at(end, i + 1);
-                    draw_diamond(
-                        gizmos,
-                        p,
-                        state.camera.actual_scale * row_height,
-                        ORANGE.with_alpha(alpha),
-                    );
-                }
                 TimeRange::After(start) => {
                     let p = p_at(start, i + 1);
                     draw_circle(

@@ -515,7 +515,7 @@ impl ManeuverPlan {
     pub fn start(&self) -> Nanotime {
         self.segments
             .iter()
-            .filter_map(|e| Some(e.range.start()?))
+            .filter_map(|e| Some(e.range.start()))
             .next()
             .unwrap()
     }
@@ -531,7 +531,7 @@ impl ManeuverPlan {
     pub fn dvs(&self) -> impl Iterator<Item = (Nanotime, Vec2)> + use<'_> {
         self.segments
             .iter()
-            .filter_map(|m| Some((m.range.start()?, m.impulse?)))
+            .filter_map(|m| Some((m.range.start(), m.impulse?)))
     }
 
     pub fn future_dvs(&self, stamp: Nanotime) -> impl Iterator<Item = (Nanotime, Vec2)> + use<'_> {
@@ -756,25 +756,11 @@ pub fn best_maneuver_plan(
 
 #[derive(Debug, Clone, Copy)]
 pub enum TimeRange {
-    None,
     After(Nanotime),
-    Before(Nanotime),
     Between(Nanotime, Nanotime),
 }
 
 impl TimeRange {
-    pub fn after(start: Nanotime) -> Self {
-        Self::After(start)
-    }
-
-    pub fn before(end: Nanotime) -> Self {
-        Self::Before(end)
-    }
-
-    pub fn between(start: Nanotime, end: Nanotime) -> Self {
-        Self::Between(start, end)
-    }
-
     pub fn maybe_between(start: Nanotime, end: Option<Nanotime>) -> Self {
         if let Some(end) = end {
             Self::Between(start, end)
@@ -783,28 +769,21 @@ impl TimeRange {
         }
     }
 
-    pub fn none() -> Self {
-        TimeRange::None
-    }
-
-    pub fn start(&self) -> Option<Nanotime> {
+    pub fn start(&self) -> Nanotime {
         match self {
-            TimeRange::None | TimeRange::Before(_) => None,
-            TimeRange::After(start) | TimeRange::Between(start, _) => Some(*start),
+            TimeRange::After(start) | TimeRange::Between(start, _) => *start,
         }
     }
 
     pub fn end(&self) -> Option<Nanotime> {
         match self {
-            TimeRange::None | TimeRange::After(_) => None,
-            TimeRange::Before(end) | TimeRange::Between(_, end) => Some(*end),
+            TimeRange::Between(_, end) => Some(*end),
+            TimeRange::After(_) => None,
         }
     }
 
     pub fn includes(&self, t: Nanotime) -> bool {
         match self {
-            TimeRange::None => false,
-            TimeRange::Before(end) => t <= *end,
             TimeRange::After(start) => *start <= t,
             TimeRange::Between(start, end) => *start <= t && t <= *end,
         }

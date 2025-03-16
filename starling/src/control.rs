@@ -48,9 +48,8 @@ impl Controller {
     pub fn enqueue(&mut self, destination: &SparseOrbit) -> Result<(), &'static str> {
         let plan = self.plan().ok_or("No plan")?;
         let (range, _, current) = plan.orbits().last().ok_or("No final orbit")?;
-        let start = range.start().ok_or("No range start")?;
-        let new_plan =
-            best_maneuver_plan(current.sparse(), destination, start).ok_or("No best plan")?;
+        let new_plan = best_maneuver_plan(current.sparse(), destination, range.start())
+            .ok_or("No best plan")?;
         let plan = plan.then(new_plan)?;
         self.state = ControllerState::Planned { plan };
         Ok(())
