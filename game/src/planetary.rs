@@ -472,7 +472,7 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
         if let Some(end) = c.plan().map(|p| p.end()) {
             let retain = end > s;
             if !retain {
-                info!("Maneuver completed by vehicle {}", c.target);
+                info!("Maneuver completed by vehicle {} at time {}", c.target, end);
             }
             retain
         } else {

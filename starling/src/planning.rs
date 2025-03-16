@@ -471,7 +471,9 @@ pub fn get_next_intersection(
 
 #[derive(Debug, Clone)]
 pub struct ManeuverPlan {
-    segments: Vec<ManeuverSegment>,
+    pub initial: SparseOrbit,
+    pub segments: Vec<ManeuverSegment>,
+    pub terminal: SparseOrbit,
 }
 
 impl ManeuverPlan {
@@ -480,26 +482,31 @@ impl ManeuverPlan {
             return None;
         }
 
-        let mut segments = vec![ManeuverSegment {
-            range: TimeRange::Between(now, dvs.first().unwrap().0),
-            orbit: DenseOrbit::in_range(&initial, now, dvs.first().unwrap().0)?,
-            impulse: None,
-        }];
+        let mut segments: Vec<ManeuverSegment> = vec![];
 
-        for (i, (stamp, dv)) in dvs.iter().enumerate() {
-            let end = dvs.get(i + 1).map(|(t, _)| *t);
-            let next = segments.last()?.next(*dv, *stamp, end)?;
-            segments.push(next);
+        for (i, (t, dv)) in dvs.iter().enumerate() {
+            let segment = if let Some(c) = segments.last() {
+                c.next(*t, *dv)
+            } else {
+                ManeuverSegment::new(now, *t, &initial, *dv)
+            }?;
+
+            segments.push(segment);
         }
 
-        Some(ManeuverPlan { segments })
+        let terminal = segments.last()?.next_orbit()?;
+
+        Some(ManeuverPlan {
+            initial,
+            segments,
+            terminal,
+        })
     }
 
     pub fn pv(&self, stamp: Nanotime) -> Option<PV> {
-        for (range, _, orbit) in self.orbits() {
-            if let Some(pv) = range
-                .includes(stamp)
-                .then(|| orbit.sparse().pv(stamp).ok())
+        for segment in &self.segments {
+            if let Some(pv) = (segment.start <= stamp && stamp <= segment.end)
+                .then(|| segment.orbit.sparse().pv(stamp).ok())
                 .flatten()
             {
                 return Some(pv);
@@ -508,30 +515,16 @@ impl ManeuverPlan {
         None
     }
 
-    pub fn initial(&self) -> &DenseOrbit {
-        &self.segments.first().unwrap().orbit
-    }
-
     pub fn start(&self) -> Nanotime {
-        self.segments
-            .iter()
-            .filter_map(|e| Some(e.range.start()))
-            .next()
-            .unwrap()
+        self.segments.iter().map(|e| e.start).next().unwrap()
     }
 
     pub fn end(&self) -> Nanotime {
-        self.segments
-            .iter()
-            .filter_map(|e| Some(e.range.end()?))
-            .last()
-            .unwrap()
+        self.segments.iter().map(|e| e.end).last().unwrap()
     }
 
     pub fn dvs(&self) -> impl Iterator<Item = (Nanotime, Vec2)> + use<'_> {
-        self.segments
-            .iter()
-            .filter_map(|m| Some((m.range.start(), m.impulse?)))
+        self.segments.iter().map(|m| m.dv())
     }
 
     pub fn future_dvs(&self, stamp: Nanotime) -> impl Iterator<Item = (Nanotime, Vec2)> + use<'_> {
@@ -539,14 +532,7 @@ impl ManeuverPlan {
     }
 
     pub fn dv(&self) -> f32 {
-        self.segments
-            .iter()
-            .map(|n| n.impulse.unwrap_or(Vec2::ZERO).length())
-            .sum()
-    }
-
-    pub fn orbits(&self) -> impl Iterator<Item = (TimeRange, Option<Vec2>, &DenseOrbit)> + use<'_> {
-        self.segments.iter().map(|e| (e.range, e.impulse, &e.orbit))
+        self.segments.iter().map(|n| n.impulse.length()).sum()
     }
 
     pub fn then(&self, other: Self) -> Result<Self, &'static str> {
@@ -557,7 +543,7 @@ impl ManeuverPlan {
         let dvs: Vec<_> = self.dvs().chain(other.dvs()).collect();
 
         Ok(
-            ManeuverPlan::new(self.start(), *self.initial().sparse(), &dvs)
+            ManeuverPlan::new(self.start(), self.initial, &dvs)
                 .ok_or("Can't construct")?,
         )
     }
@@ -574,56 +560,67 @@ impl std::fmt::Display for ManeuverPlan {
         if self.segments.is_empty() {
             return write!(f, " (empty)");
         }
-        for (i, node) in self.segments.iter().enumerate() {
-            let endline = if i + 1 < self.segments.len() {
-                "\n"
-            } else {
-                ""
-            };
+        for (i, segment) in self.segments.iter().enumerate() {
             write!(
                 f,
-                "{}. {:?} dV {:0.1} to {:?} orbit{}",
+                "{}. {:?} {:?} dV {:0.1} to {:?} orbit\n",
                 i + 1,
-                node.range,
-                node.impulse.unwrap_or(Vec2::ZERO),
-                node.orbit.sparse().class(),
-                endline
+                segment.start,
+                segment.end,
+                segment.impulse,
+                segment.orbit.sparse().class(),
             )?;
         }
+        write!(f, "Ending with {:?} orbit\n", self.terminal.class());
         Ok(())
     }
 }
 
 #[derive(Debug, Clone)]
-struct ManeuverSegment {
-    range: TimeRange,
-    orbit: DenseOrbit,
-    impulse: Option<Vec2>,
+pub struct ManeuverSegment {
+    pub start: Nanotime,
+    pub end: Nanotime,
+    pub orbit: DenseOrbit,
+    pub impulse: Vec2,
 }
 
 impl ManeuverSegment {
-    fn next(&self, dv: Vec2, stamp: Nanotime, end: Option<Nanotime>) -> Option<Self> {
-        let pv = self.orbit.sparse().pv(stamp).ok()? + PV::vel(dv);
-        let orbit = SparseOrbit::from_pv(pv, self.orbit.sparse().body, stamp)?;
-        let dense = if let Some(end) = end {
-            DenseOrbit::in_range(&orbit, stamp, end)?
-        } else {
-            DenseOrbit::new(&orbit)
-        };
-        Some(Self {
-            range: TimeRange::maybe_between(stamp, end),
-            orbit: dense,
-            impulse: Some(dv),
+    fn new(start: Nanotime, end: Nanotime, orbit: &SparseOrbit, dv: Vec2) -> Option<Self> {
+        Some(ManeuverSegment {
+            start,
+            end,
+            orbit: DenseOrbit::in_range(orbit, start, end)?,
+            impulse: dv,
         })
+    }
+
+    fn next(&self, t: Nanotime, impulse: Vec2) -> Option<Self> {
+        let sparse = self.next_orbit()?;
+        assert!(self.end < t);
+        ManeuverSegment::new(self.end, t, &sparse, impulse)
+    }
+
+    fn next_orbit(&self) -> Option<SparseOrbit> {
+        let pv = self.orbit.sparse().pv(self.end).ok()? + PV::vel(self.impulse);
+        SparseOrbit::from_pv(pv, self.orbit.sparse().body, self.end)
+    }
+
+    fn dv(&self) -> (Nanotime, Vec2) {
+        (self.end, self.impulse)
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct ManeuverNode {
-    pub stamp: Nanotime,
-    pub impulse: PV,
-    // TODO remove?
-    pub orbit: SparseOrbit,
+impl std::fmt::Display for ManeuverSegment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Segment {:?} to {:?} in {:?} orbit, impulse {}",
+            self.start,
+            self.end,
+            self.orbit.sparse().class(),
+            self.impulse
+        )
+    }
 }
 
 fn hohmann_transfer(
@@ -694,9 +691,9 @@ fn bielliptic_transfer(
 
     let p1 = hohmann_transfer(current, &intermediate, now)?;
 
-    let (_, _, intermediate) = p1.orbits().skip(1).next()?;
+    let intermediate = p1.segments.iter().skip(1).next()?;
 
-    let p2 = hohmann_transfer(intermediate.sparse(), destination, p1.end())?;
+    let p2 = hohmann_transfer(intermediate.orbit.sparse(), destination, p1.end())?;
 
     p1.then(p2).ok()
 }
@@ -738,10 +735,7 @@ fn generate_maneuver_plans(
     let hohmann = hohmann_transfer(current, &destination, now);
     let bielliptic = bielliptic_transfer(current, &destination, now);
 
-    [direct, hohmann, bielliptic]
-        .into_iter()
-        .flatten()
-        .collect()
+    [direct, hohmann].into_iter().flatten().collect()
 }
 
 pub fn best_maneuver_plan(
@@ -752,40 +746,4 @@ pub fn best_maneuver_plan(
     let mut plans = generate_maneuver_plans(current, destination, now);
     plans.sort_by_key(|m| (m.dv() * 1000.0) as i32);
     plans.first().cloned()
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum TimeRange {
-    After(Nanotime),
-    Between(Nanotime, Nanotime),
-}
-
-impl TimeRange {
-    pub fn maybe_between(start: Nanotime, end: Option<Nanotime>) -> Self {
-        if let Some(end) = end {
-            Self::Between(start, end)
-        } else {
-            Self::After(start)
-        }
-    }
-
-    pub fn start(&self) -> Nanotime {
-        match self {
-            TimeRange::After(start) | TimeRange::Between(start, _) => *start,
-        }
-    }
-
-    pub fn end(&self) -> Option<Nanotime> {
-        match self {
-            TimeRange::Between(_, end) => Some(*end),
-            TimeRange::After(_) => None,
-        }
-    }
-
-    pub fn includes(&self, t: Nanotime) -> bool {
-        match self {
-            TimeRange::After(start) => *start <= t,
-            TimeRange::Between(start, end) => *start <= t && t <= *end,
-        }
-    }
 }

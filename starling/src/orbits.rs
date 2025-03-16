@@ -768,8 +768,8 @@ impl DenseOrbit {
         while t < end {
             let pv = orbit.pv(t).ok()?;
             let dt = dist / pv.vel.length();
-            t += Nanotime::secs_f32(dt);
             samples.push((t, pv));
+            t += Nanotime::secs_f32(dt);
         }
         let pv = orbit.pv(end).ok()?;
         samples.push((end, pv));
@@ -781,9 +781,8 @@ impl DenseOrbit {
     }
 
     pub fn line(&self, now: Nanotime) -> Vec<Vec2> {
-        (&[/* (now, current) */])
+        self.1
             .iter()
-            .chain(self.1.iter())
             .filter(|(t, _)| *t >= now)
             .map(|(_, p)| p.pos)
             .collect()

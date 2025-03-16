@@ -410,26 +410,30 @@ fn draw_maneuver_plan(
     scale: f32,
 ) -> Option<()> {
     let color = YELLOW;
-    gizmos.linestrip_2d(plan.initial().line(stamp), color);
-    for (_, _, orbit) in plan.orbits() {
-        gizmos.linestrip_2d(orbit.line(stamp), color);
+    for segment in &plan.segments {
+        gizmos.linestrip_2d(segment.orbit.line(stamp), color);
     }
     let pv = plan.pv(plan.end())?;
     draw_diamond(gizmos, pv.pos, 10.0 * scale, color);
+    draw_orbit(gizmos, &plan.terminal, Vec2::ZERO, color);
     Some(())
 }
 
 fn draw_timeline(gizmos: &mut Gizmos, state: &GameState) {
+    if state.controllers.is_empty() {
+        return;
+    }
+
     let tick_dur = Nanotime::secs(1);
-    let tmin = state.sim_time - Nanotime::secs(2);
-    let tmax = state.sim_time + Nanotime::secs(20);
+    let tmin = state.sim_time - Nanotime::secs(1);
+    let tmax = state.sim_time + Nanotime::secs(120);
 
     let b = state.camera.world_bounds();
     let c = state.camera.viewport_bounds();
 
     let width = state.camera.window_dims.x * 0.5;
     let y_root = state.camera.window_dims.y - 40.0;
-    let row_height = 10.0;
+    let row_height = 5.0;
     let x_center = state.camera.window_dims.x / 2.0;
     let x_min = x_center - width / 2.0;
 
@@ -443,7 +447,7 @@ fn draw_timeline(gizmos: &mut Gizmos, state: &GameState) {
         pmin.lerp(pmax, s)
     };
 
-    gizmos.line_2d(p_at(tmin, 0), p_at(tmax, 0), WHITE.with_alpha(0.3));
+    // gizmos.line_2d(p_at(tmin, 0), p_at(tmax, 0), WHITE.with_alpha(0.3));
 
     let mut draw_tick_mark = |t: Nanotime, row: usize, scale: f32, color: Srgba| {
         let p = p_at(t, row);
@@ -453,11 +457,11 @@ fn draw_timeline(gizmos: &mut Gizmos, state: &GameState) {
 
     draw_tick_mark(state.sim_time, 0, 1.0, WHITE);
 
-    let mut t = tmin.floor(Nanotime::PER_SEC);
-    while t < tmax {
-        draw_tick_mark(t, 0, 0.3, WHITE.with_alpha(0.3));
-        t += tick_dur;
-    }
+    // let mut t = tmin.ceil(Nanotime::PER_SEC);
+    // while t < tmax {
+    //     draw_tick_mark(t, 0, 0.3, WHITE.with_alpha(0.3));
+    //     t += tick_dur;
+    // }
 
     for (i, ctrl) in state.controllers.iter().enumerate() {
         let plan = match ctrl.plan() {
@@ -468,29 +472,23 @@ fn draw_timeline(gizmos: &mut Gizmos, state: &GameState) {
         let alpha = if state.track_list.contains(&ctrl.target) {
             1.0
         } else {
-            0.2
+            0.2 / (i + 1) as f32
         };
 
-        for (tr, impulse, orbit) in plan.orbits() {
-            match tr {
-                TimeRange::After(start) => {
-                    let p = p_at(start, i + 1);
-                    draw_circle(
-                        gizmos,
-                        p,
-                        state.camera.actual_scale * row_height * 0.5,
-                        TEAL.with_alpha(alpha),
-                    );
+        for segment in &plan.segments {
+            if segment.end < tmin || segment.start > tmax {
+                continue;
+            }
+            let p1 = p_at(segment.start.max(tmin), i);
+            let p2 = p_at(segment.end.min(tmax), i);
+            gizmos.line_2d(p1, p2, BLUE.with_alpha(alpha * 0.3));
+            let size = state.camera.actual_scale * row_height * 0.5;
+            for t in [segment.start, segment.end] {
+                if t < tmin || t > tmax {
+                    continue;
                 }
-                TimeRange::Between(start, end) => {
-                    let p1 = p_at(start, i + 1);
-                    let p2 = p_at(end, i + 1);
-                    gizmos.line_2d(p1, p2, RED.with_alpha(alpha));
-                    let size = state.camera.actual_scale * row_height * 0.25;
-                    for p in [p1, p2] {
-                        draw_diamond(gizmos, p, size, WHITE.with_alpha(alpha));
-                    }
-                }
+                let p = p_at(t, i);
+                draw_diamond(gizmos, p, size, WHITE.with_alpha(alpha));
             }
         }
     }
