@@ -12,7 +12,10 @@ pub struct Controller {
 #[derive(Debug, Clone)]
 enum ControllerState {
     Idle,
-    Planned { plan: ManeuverPlan },
+    Planned {
+        parent: ObjectId,
+        plan: ManeuverPlan,
+    },
 }
 
 impl Controller {
@@ -36,22 +39,31 @@ impl Controller {
 
     pub fn activate(
         &mut self,
+        parent: ObjectId,
         current: &SparseOrbit,
         destination: &SparseOrbit,
         now: Nanotime,
-    ) -> Option<&mut Self> {
+    ) -> Option<()> {
         let plan = best_maneuver_plan(current, destination, now)?;
-        self.state = ControllerState::Planned { plan };
-        Some(self)
+        self.state = ControllerState::Planned { parent, plan };
+        Some(())
     }
 
     pub fn enqueue(&mut self, destination: &SparseOrbit) -> Result<(), &'static str> {
+        let parent = self.parent().ok_or("No parent")?;
         let plan = self.plan().ok_or("No plan")?;
         let new_plan =
             best_maneuver_plan(&plan.terminal, destination, plan.end()).ok_or("No best plan")?;
         let plan = plan.then(new_plan)?;
-        self.state = ControllerState::Planned { plan };
+        self.state = ControllerState::Planned { parent, plan };
         Ok(())
+    }
+
+    pub fn parent(&self) -> Option<ObjectId> {
+        match &self.state {
+            ControllerState::Idle => None,
+            ControllerState::Planned { parent, .. } => Some(*parent),
+        }
     }
 
     pub fn target(&self) -> ObjectId {

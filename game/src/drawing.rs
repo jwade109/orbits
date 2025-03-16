@@ -366,11 +366,12 @@ fn draw_controller(
     gizmos: &mut Gizmos,
     stamp: Nanotime,
     ctrl: &Controller,
+    scenario: &Scenario,
     scale: f32,
 ) -> Option<()> {
+    let lup = scenario.lup(ctrl.parent()?, stamp)?;
     let plan = ctrl.plan()?;
-    draw_maneuver_plan(gizmos, stamp, plan, scale);
-    Some(())
+    draw_maneuver_plan(gizmos, stamp, plan, lup.pv().pos, scale)
 }
 
 fn draw_event_animation(
@@ -407,20 +408,21 @@ fn draw_maneuver_plan(
     gizmos: &mut Gizmos,
     stamp: Nanotime,
     plan: &ManeuverPlan,
+    origin: Vec2,
     scale: f32,
 ) -> Option<()> {
     let color = YELLOW;
     for segment in &plan.segments {
-        gizmos.linestrip_2d(segment.orbit.line(stamp), color);
+        gizmos.linestrip_2d(segment.orbit.line(stamp, origin), color);
     }
     let pv = plan.pv(plan.end())?;
-    draw_diamond(gizmos, pv.pos, 10.0 * scale, color);
-    draw_orbit(gizmos, &plan.terminal, Vec2::ZERO, color);
+    draw_diamond(gizmos, origin + pv.pos, 10.0 * scale, color);
+    draw_orbit(gizmos, &plan.terminal, origin, color);
     Some(())
 }
 
 fn draw_timeline(gizmos: &mut Gizmos, state: &GameState) {
-    if state.controllers.is_empty() {
+    if !state.controllers.iter().any(|c| !c.is_idle()) {
         return;
     }
 
@@ -593,7 +595,13 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
 
     for ctrl in &state.controllers {
         if state.track_list.contains(&ctrl.target) {
-            draw_controller(&mut gizmos, state.sim_time, ctrl, state.camera.actual_scale);
+            draw_controller(
+                &mut gizmos,
+                state.sim_time,
+                ctrl,
+                &state.scenario,
+                state.camera.actual_scale,
+            );
         }
     }
 

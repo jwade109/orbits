@@ -166,7 +166,7 @@ impl std::fmt::Display for Propagator {
             self.start,
             self.dt,
             self.horizon,
-            self.orbit.class(),
+            self.orbit.desc(),
         )
     }
 }
@@ -542,10 +542,7 @@ impl ManeuverPlan {
 
         let dvs: Vec<_> = self.dvs().chain(other.dvs()).collect();
 
-        Ok(
-            ManeuverPlan::new(self.start(), self.initial, &dvs)
-                .ok_or("Can't construct")?,
-        )
+        Ok(ManeuverPlan::new(self.start(), self.initial, &dvs).ok_or("Can't construct")?)
     }
 }
 
@@ -563,15 +560,15 @@ impl std::fmt::Display for ManeuverPlan {
         for (i, segment) in self.segments.iter().enumerate() {
             write!(
                 f,
-                "{}. {:?} {:?} dV {:0.1} to {:?} orbit\n",
+                "{}. {:?} {:?} dV {:0.1} to {:?}\n",
                 i + 1,
                 segment.start,
                 segment.end,
                 segment.impulse,
-                segment.orbit.sparse().class(),
+                segment.orbit.sparse().desc(),
             )?;
         }
-        write!(f, "Ending with {:?} orbit\n", self.terminal.class());
+        write!(f, "Ending with {:?}\n", self.terminal.desc());
         Ok(())
     }
 }
@@ -614,10 +611,10 @@ impl std::fmt::Display for ManeuverSegment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Segment {:?} to {:?} in {:?} orbit, impulse {}",
+            "Segment {:?} to {:?} in {:?}, impulse {}",
             self.start,
             self.end,
-            self.orbit.sparse().class(),
+            self.orbit.sparse().desc(),
             self.impulse
         )
     }
@@ -718,9 +715,9 @@ fn generate_maneuver_plans(
     destination: &SparseOrbit,
     now: Nanotime,
 ) -> Vec<ManeuverPlan> {
-    if current.is_retrograde() != destination.is_retrograde() {
-        return vec![];
-    }
+    // if current.is_retrograde() != destination.is_retrograde() {
+    //     return vec![];
+    // }
 
     // let destination = if current.is_retrograde() == destination.is_retrograde() {
     //     *destination
@@ -735,7 +732,10 @@ fn generate_maneuver_plans(
     let hohmann = hohmann_transfer(current, &destination, now);
     let bielliptic = bielliptic_transfer(current, &destination, now);
 
-    [direct, hohmann].into_iter().flatten().collect()
+    [direct, hohmann, bielliptic]
+        .into_iter()
+        .flatten()
+        .collect()
 }
 
 pub fn best_maneuver_plan(
@@ -743,6 +743,10 @@ pub fn best_maneuver_plan(
     destination: &SparseOrbit,
     now: Nanotime,
 ) -> Option<ManeuverPlan> {
+    if current.is_similar(destination) {
+        return None;
+    }
+
     let mut plans = generate_maneuver_plans(current, destination, now);
     plans.sort_by_key(|m| (m.dv() * 1000.0) as i32);
     plans.first().cloned()

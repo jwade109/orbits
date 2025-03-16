@@ -92,14 +92,15 @@ fn update_controller_buttons(
             .find(|c| c.target == cb.0)
             .is_none()
         {
-            info!("Despawning controller button for {}", cb.0);
             commands.entity(e).despawn_recursive();
         }
     }
 
     for ctrl in &state.controllers {
+        if ctrl.is_idle() {
+            continue;
+        }
         if query.iter().find(|(_, cb)| cb.0 == ctrl.target).is_none() {
-            info!("Spawning controller button for {}", ctrl.target);
             let mut entity = None;
             commands.entity(*parent).with_children(|cb| {
                 let e = add_ui_button(
@@ -132,14 +133,12 @@ fn update_constellation_buttons(
             .find(|(c, _)| **c == cb.0)
             .is_none()
         {
-            info!("Despawning constellation button for {}", cb.0);
             commands.entity(e).despawn_recursive();
         }
     }
 
     for (gid, _) in &state.constellations {
         if query.iter().find(|(_, cb)| &cb.0 == gid).is_none() {
-            info!("Spawning constellation button for {}", gid);
             let mut entity = None;
             commands.entity(*parent).with_children(|cb| {
                 let e = add_ui_button(

@@ -369,6 +369,11 @@ impl GameState {
     }
 
     pub fn command_selected(&mut self, next: &SparseOrbit, overwrite: bool) {
+        info!(
+            "Commanding {} orbiters to {}",
+            self.track_list.len(),
+            next.desc()
+        );
         for id in self.track_list.clone() {
             self.command(id, next, overwrite);
         }
@@ -382,26 +387,15 @@ impl GameState {
         if let Some(c) = self.controllers.iter_mut().find(|c| c.target == id) {
             if c.is_idle() || overwrite {
                 let orbiter = self.scenario.lup(c.target(), self.sim_time)?.orbiter()?;
-                let current = orbiter.propagator_at(self.sim_time)?.orbit;
-                c.activate(&current, next, self.sim_time);
-                info!(
-                    "Activating controller {} with {:?} orbit",
-                    c.target,
-                    next.class()
-                );
+                let current = orbiter.propagator_at(self.sim_time)?;
+                c.activate(current.parent, &current.orbit, next, self.sim_time);
             } else {
                 if let Err(msg) = c.enqueue(next) {
                     warn!(
-                        "Failed to enqueue orbit {:?} to controller {}: {}",
-                        next.class(),
+                        "Failed to enqueue {} to controller {}: {}",
+                        next.desc(),
                         c.target,
                         msg
-                    );
-                } else {
-                    info!(
-                        "Appending to controller {} with {:?} orbit",
-                        c.target,
-                        next.class()
                     );
                 }
             }

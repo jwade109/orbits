@@ -509,6 +509,21 @@ impl SparseOrbit {
         }
         Some(ret)
     }
+
+    pub fn is_similar(&self, other: &Self) -> bool {
+        // TODO want this to be a sliding scale in [0, 1]
+        let dmax = 50.0;
+        let d1 = self.apoapsis().distance(other.apoapsis());
+        let d2 = self.periapsis().distance(other.periapsis());
+        d1 < dmax && d2 < dmax
+    }
+
+    pub fn desc(&self) -> String {
+        let sma = self.semi_minor_axis().round().abs() as u32;
+        let ecc = (self.ecc() * 100.0).round().abs() as u32;
+        let retrograde = if self.is_retrograde() { "r" } else { "" };
+        format!("{:?}-{}-{:03}{}", self.class(), sma, ecc, retrograde)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -780,11 +795,11 @@ impl DenseOrbit {
         &self.0
     }
 
-    pub fn line(&self, now: Nanotime) -> Vec<Vec2> {
+    pub fn line(&self, now: Nanotime, origin: Vec2) -> Vec<Vec2> {
         self.1
             .iter()
             .filter(|(t, _)| *t >= now)
-            .map(|(_, p)| p.pos)
+            .map(|(_, p)| origin + p.pos)
             .collect()
     }
 }
@@ -914,6 +929,8 @@ mod tests {
         assert!(orbit.is_some());
 
         let orbit = orbit.unwrap();
+
+        println!("{}", orbit.desc());
 
         if !ecc.is_nan() {
             assert_relative_eq!(ecc, orbit.ecc());
