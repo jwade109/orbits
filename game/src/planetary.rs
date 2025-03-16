@@ -4,6 +4,7 @@ use crate::mouse::MouseState;
 use crate::ui::InteractionEvent;
 use bevy::core_pipeline::bloom::Bloom;
 use bevy::prelude::*;
+use bevy_egui::egui::style::Selection;
 use starling::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::ops::DerefMut;
@@ -100,6 +101,23 @@ impl ShowOrbitsState {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+enum SelectionMode {
+    Rect,
+    Altitude,
+    NearOrbit,
+}
+
+impl SelectionMode {
+    fn next(&self) -> Self {
+        match self {
+            SelectionMode::Rect => SelectionMode::Altitude,
+            SelectionMode::Altitude => SelectionMode::NearOrbit,
+            SelectionMode::NearOrbit => SelectionMode::Rect,
+        }
+    }
+}
+
 #[derive(Resource)]
 pub struct GameState {
     pub mouse: MouseState,
@@ -122,6 +140,7 @@ pub struct GameState {
     pub show_animations: bool,
     pub queued_orbits: Vec<(ObjectId, SparseOrbit)>,
     pub constellations: HashMap<GroupId, HashSet<ObjectId>>,
+    pub selection_mode: SelectionMode,
 }
 
 impl Default for GameState {
@@ -148,6 +167,7 @@ impl Default for GameState {
             show_animations: false,
             queued_orbits: Vec::new(),
             constellations: HashMap::new(),
+            selection_mode: SelectionMode::Rect,
         }
     }
 }
@@ -225,20 +245,24 @@ impl GameState {
     }
 
     pub fn selection_region(&self) -> Option<Region> {
-        if let Some((a, b)) = self.mouse.left_world().zip(self.mouse.current_world()) {
-            Some(Region::aabb(a, b))
-        } else if let Some((a, b)) = self.mouse.middle_world().zip(self.mouse.current_world()) {
-            Some(Region::range(a, b))
-        } else {
-            None
+        match self.selection_mode {
+            SelectionMode::Rect => self
+                .mouse
+                .left_world()
+                .zip(self.mouse.current_world())
+                .map(|(a, b)| Region::aabb(a, b)),
+            SelectionMode::Altitude => self
+                .mouse
+                .left_world()
+                .zip(self.mouse.current_world())
+                .map(|(a, b)| Region::altitude(a, b)),
+            SelectionMode::NearOrbit => self
+                .left_cursor_orbit()
+                .map(|(_, orbit)| Region::NearOrbit(orbit, 50.0)),
         }
     }
 
-    pub fn cursor_pv(&self) -> Option<PV> {
-        let points = self.control_points();
-        let p1 = *points.get(0)?;
-        let p2 = *points.get(1)?;
-
+    pub fn cursor_pv(&self, p1: Vec2, p2: Vec2) -> Option<PV> {
         if p1.distance(p2) < 20.0 {
             return None;
         }
@@ -252,14 +276,22 @@ impl GameState {
         Some(PV::new(p1, (p2 - p1) * v / r))
     }
 
-    pub fn cursor_orbit(&self) -> Option<(ObjectId, SparseOrbit)> {
-        let pv = self.cursor_pv()?;
+    pub fn cursor_orbit(&self, p1: Vec2, p2: Vec2) -> Option<(ObjectId, SparseOrbit)> {
+        let pv = self.cursor_pv(p1, p2)?;
         let parent_id = self.scenario.relevant_body(pv.pos, self.sim_time)?;
         let parent = self.scenario.lup(parent_id, self.sim_time)?;
         let parent_pv = parent.pv();
         let pv = pv - PV::pos(parent_pv.pos);
         let body = parent.body()?;
         Some((parent_id, SparseOrbit::from_pv(pv, body, self.sim_time)?))
+    }
+
+    pub fn left_cursor_orbit(&self) -> Option<(ObjectId, SparseOrbit)> {
+        self.cursor_orbit(self.mouse.left_world()?, self.mouse.current_world()?)
+    }
+
+    pub fn right_cursor_orbit(&self) -> Option<(ObjectId, SparseOrbit)> {
+        self.cursor_orbit(self.mouse.right_world()?, self.mouse.current_world()?)
     }
 
     pub fn primary_orbit(&self) -> Option<(ObjectId, SparseOrbit)> {
@@ -279,7 +311,7 @@ impl GameState {
     }
 
     pub fn spawn_new(&mut self) -> Option<()> {
-        let (parent, orbit) = self.cursor_orbit().or_else(|| self.primary_orbit())?;
+        let (parent, orbit) = self.left_cursor_orbit()?;
         let pv_local = orbit.pv(self.sim_time).ok()?;
         let perturb = PV::new(
             randvec(pv_local.pos.length() * 0.005, pv_local.pos.length() * 0.02),
@@ -336,24 +368,42 @@ impl GameState {
         Some(())
     }
 
-    pub fn command_selected(&mut self, next: &SparseOrbit) {
+    pub fn command_selected(&mut self, next: &SparseOrbit, overwrite: bool) {
         for id in self.track_list.clone() {
-            self.command(id, next);
+            self.command(id, next, overwrite);
         }
     }
 
-    pub fn command(&mut self, id: ObjectId, next: &SparseOrbit) -> Option<()> {
+    pub fn command(&mut self, id: ObjectId, next: &SparseOrbit, overwrite: bool) -> Option<()> {
         if self.controllers.iter().find(|c| c.target == id).is_none() {
             self.controllers.push(Controller::idle(id));
         }
 
         if let Some(c) = self.controllers.iter_mut().find(|c| c.target == id) {
-            if c.is_idle() {
+            if c.is_idle() || overwrite {
                 let orbiter = self.scenario.lup(c.target(), self.sim_time)?.orbiter()?;
                 let current = orbiter.propagator_at(self.sim_time)?.orbit;
                 c.activate(&current, next, self.sim_time);
+                info!(
+                    "Activating controller {} with {:?} orbit",
+                    c.target,
+                    next.class()
+                );
             } else {
-                c.enqueue(next);
+                if let Err(msg) = c.enqueue(next) {
+                    warn!(
+                        "Failed to enqueue orbit {:?} to controller {}: {}",
+                        next.class(),
+                        c.target,
+                        msg
+                    );
+                } else {
+                    info!(
+                        "Appending to controller {} with {:?} orbit",
+                        c.target,
+                        next.class()
+                    );
+                }
             }
         }
 
@@ -497,11 +547,6 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
 
     log(&format!("Physics: {:?}", state.physics_duration));
     log(&format!("Scale: {:0.3}", state.camera.actual_scale));
-
-    if let Some(pv) = state.cursor_pv() {
-        log(&format!("{:0.3}", pv));
-    }
-
     log(&format!("Ctlrs: {}", state.controllers.len()));
 
     {
@@ -548,8 +593,10 @@ fn process_interaction(
     match inter {
         InteractionEvent::Delete => state.delete_objects(),
         InteractionEvent::CommitMission => {
+            let mut overwrite = true;
             for (_, orbit) in state.queued_orbits.clone() {
-                state.command_selected(&orbit)
+                state.command_selected(&orbit, overwrite);
+                overwrite = false;
             }
         }
         InteractionEvent::ToggleDebugMode => {
@@ -570,8 +617,8 @@ fn process_interaction(
         InteractionEvent::SimPause => {
             state.paused = !state.paused;
         }
-        InteractionEvent::Follow => {
-            state.follow = state.primary();
+        InteractionEvent::SelectionMode => {
+            state.selection_mode = state.selection_mode.next();
         }
         InteractionEvent::Orbits => {
             state.show_orbits.next();
@@ -595,9 +642,13 @@ fn process_interaction(
         InteractionEvent::Save => {
             state.backup = Some((state.scenario.clone(), state.ids, state.sim_time));
         }
-        InteractionEvent::QueueOrbit => {
-            if let Some(o) = state.cursor_orbit() {
+        InteractionEvent::ContextDependent => {
+            if let Some(o) = state.right_cursor_orbit() {
                 state.queued_orbits.push(o);
+            } else if !state.track_list.is_empty() {
+                state.track_list.clear();
+            } else {
+                state.queued_orbits.clear();
             }
         }
         InteractionEvent::Restore => {

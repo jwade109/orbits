@@ -55,12 +55,32 @@ fn draw_aabb(gizmos: &mut Gizmos, aabb: AABB, color: Srgba) {
     gizmos.rect_2d(Isometry2d::from_translation(aabb.center), aabb.span, color);
 }
 
-fn draw_region(gizmos: &mut Gizmos, region: Region, color: Srgba) {
+fn draw_region(gizmos: &mut Gizmos, region: Region, color: Srgba, origin: Vec2) {
     match region {
         Region::AABB(aabb) => draw_aabb(gizmos, aabb, color),
-        Region::OrbitRange(a, b) => {
+        Region::AltitudeRange(a, b) => {
             draw_circle(gizmos, Vec2::ZERO, a, color);
             draw_circle(gizmos, Vec2::ZERO, b, color);
+        }
+        Region::OrbitRange(a, b) => {
+            draw_orbit(gizmos, &a, origin, color);
+            draw_orbit(gizmos, &b, origin, color);
+            for angle in linspace(0.0, 2.0 * PI, 40) {
+                let u = rotate(Vec2::X, angle);
+                let p1 = u * a.radius_at_angle(angle);
+                let p2 = u * b.radius_at_angle(angle);
+                gizmos.line_2d(p1, p2, color);
+            }
+        }
+        Region::NearOrbit(orbit, dist) => {
+            draw_orbit(gizmos, &orbit, origin, color);
+            for angle in linspace(0.0, 2.0 * PI, 40) {
+                let u = rotate(Vec2::X, angle);
+                let r = orbit.radius_at_angle(angle);
+                let p1 = (r + dist) * u;
+                let p2 = (r - dist) * u;
+                gizmos.line_2d(p1, p2, color);
+            }
         }
     }
 }
@@ -389,22 +409,101 @@ fn draw_maneuver_plan(
     plan: &ManeuverPlan,
     scale: f32,
 ) -> Option<()> {
-    let color = match plan.kind() {
-        ManeuverType::Direct => YELLOW,
-        ManeuverType::Hohmann => TEAL,
-        ManeuverType::Bielliptic => ORANGE,
-        ManeuverType::Compound => YELLOW,
-    };
-
+    let color = YELLOW;
     gizmos.linestrip_2d(plan.initial().line(stamp), color);
     for (_, _, orbit) in plan.orbits() {
         gizmos.linestrip_2d(orbit.line(stamp), color);
     }
-
     let pv = plan.pv(plan.end())?;
     draw_diamond(gizmos, pv.pos, 10.0 * scale, color);
-
     Some(())
+}
+
+fn draw_timeline(gizmos: &mut Gizmos, state: &GameState) {
+    let tick_dur = Nanotime::secs(1);
+    let tmin = state.sim_time - Nanotime::secs(2);
+    let tmax = state.sim_time + Nanotime::secs(20);
+
+    let b = state.camera.world_bounds();
+    let c = state.camera.viewport_bounds();
+
+    let width = state.camera.window_dims.x * 0.5;
+    let y_root = state.camera.window_dims.y - 40.0;
+    let row_height = 10.0;
+    let x_center = state.camera.window_dims.x / 2.0;
+    let x_min = x_center - width / 2.0;
+
+    let map = |p: Vec2| c.map(b, p);
+
+    let p_at = |t: Nanotime, row: usize| -> Vec2 {
+        let y = y_root - row as f32 * row_height;
+        let pmin = map(Vec2::new(x_min, y));
+        let pmax = map(Vec2::new(x_min + width, y));
+        let s = (t - tmin).to_secs() / (tmax - tmin).to_secs();
+        pmin.lerp(pmax, s)
+    };
+
+    gizmos.line_2d(p_at(tmin, 0), p_at(tmax, 0), WHITE.with_alpha(0.3));
+
+    let mut draw_tick_mark = |t: Nanotime, row: usize, scale: f32, color: Srgba| {
+        let p = p_at(t, row);
+        let h = Vec2::Y * state.camera.actual_scale * row_height * scale / 2.0;
+        gizmos.line_2d(p + h, p - h, color);
+    };
+
+    draw_tick_mark(state.sim_time, 0, 1.0, WHITE);
+
+    let mut t = tmin.floor(Nanotime::PER_SEC);
+    while t < tmax {
+        draw_tick_mark(t, 0, 0.3, WHITE.with_alpha(0.3));
+        t += tick_dur;
+    }
+
+    for (i, ctrl) in state.controllers.iter().enumerate() {
+        let plan = match ctrl.plan() {
+            Some(p) => p,
+            None => continue,
+        };
+
+        let alpha = if state.track_list.contains(&ctrl.target) {
+            1.0
+        } else {
+            0.2
+        };
+
+        for (tr, impulse, orbit) in plan.orbits() {
+            match tr {
+                TimeRange::None => (),
+                TimeRange::Before(end) => {
+                    let p = p_at(end, i + 1);
+                    draw_diamond(
+                        gizmos,
+                        p,
+                        state.camera.actual_scale * row_height,
+                        ORANGE.with_alpha(alpha),
+                    );
+                }
+                TimeRange::After(start) => {
+                    let p = p_at(start, i + 1);
+                    draw_circle(
+                        gizmos,
+                        p,
+                        state.camera.actual_scale * row_height * 0.5,
+                        TEAL.with_alpha(alpha),
+                    );
+                }
+                TimeRange::Between(start, end) => {
+                    let p1 = p_at(start, i + 1);
+                    let p2 = p_at(end, i + 1);
+                    gizmos.line_2d(p1, p2, RED.with_alpha(alpha));
+                    let size = state.camera.actual_scale * row_height * 0.25;
+                    for p in [p1, p2] {
+                        draw_diamond(gizmos, p, size, WHITE.with_alpha(alpha));
+                    }
+                }
+            }
+        }
+    }
 }
 
 fn draw_scale_indicator(gizmos: &mut Gizmos, cam: &CameraState) {
@@ -460,8 +559,10 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
 
     draw_scale_indicator(&mut gizmos, &state.camera);
 
+    draw_timeline(&mut gizmos, &state);
+
     if let Some(a) = state.selection_region() {
-        draw_region(&mut gizmos, a, RED);
+        draw_region(&mut gizmos, a, RED, Vec2::ZERO);
     }
 
     // draw_aabb(&mut gizmos, state.camera.world_bounds(), TEAL);
@@ -494,7 +595,11 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         draw_orbit_with_parent(*parent, orbit);
     }
 
-    if let Some((parent, orbit)) = state.cursor_orbit() {
+    // if let Some((parent, orbit)) = state.left_cursor_orbit() {
+    //     draw_orbit_with_parent(parent, &orbit);
+    // }
+
+    if let Some((parent, orbit)) = state.right_cursor_orbit() {
         draw_orbit_with_parent(parent, &orbit);
     }
 

@@ -25,7 +25,10 @@ pub enum InteractionEvent {
     ToggleGroup(GroupId),
     DisbandGroup(GroupId),
     CreateGroup(GroupId),
-    QueueOrbit,
+    ContextDependent,
+    SelectionMode,
+    EnterSelectionMode,
+    ClearMode,
 
     // mouse stuff
     LeftMouseRelease,

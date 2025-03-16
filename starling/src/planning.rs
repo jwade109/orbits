@@ -471,23 +471,17 @@ pub fn get_next_intersection(
 
 #[derive(Debug, Clone)]
 pub struct ManeuverPlan {
-    kind: ManeuverType,
     segments: Vec<ManeuverSegment>,
 }
 
 impl ManeuverPlan {
-    pub fn new(
-        now: Nanotime,
-        kind: ManeuverType,
-        initial: SparseOrbit,
-        dvs: &[(Nanotime, Vec2)],
-    ) -> Option<Self> {
+    pub fn new(now: Nanotime, initial: SparseOrbit, dvs: &[(Nanotime, Vec2)]) -> Option<Self> {
         if dvs.is_empty() {
             return None;
         }
 
         let mut segments = vec![ManeuverSegment {
-            range: TimeRange::before(dvs.first().unwrap().0),
+            range: TimeRange::Between(now, dvs.first().unwrap().0),
             orbit: DenseOrbit::in_range(&initial, now, dvs.first().unwrap().0)?,
             impulse: None,
         }];
@@ -498,18 +492,7 @@ impl ManeuverPlan {
             segments.push(next);
         }
 
-        Some(ManeuverPlan {
-            kind,
-            segments: segments,
-        })
-    }
-
-    pub fn from_orbits(orbits: &[SparseOrbit], now: Nanotime) -> Vec<Self> {
-        orbits
-            .windows(2)
-            .into_iter()
-            .filter_map(|o| Some(best_maneuver_plan(&o[0], &o[1], now)?))
-            .collect()
+        Some(ManeuverPlan { segments })
     }
 
     pub fn pv(&self, stamp: Nanotime) -> Option<PV> {
@@ -527,10 +510,6 @@ impl ManeuverPlan {
 
     pub fn initial(&self) -> &DenseOrbit {
         &self.segments.first().unwrap().orbit
-    }
-
-    pub fn kind(&self) -> ManeuverType {
-        self.kind
     }
 
     pub fn start(&self) -> Nanotime {
@@ -570,20 +549,28 @@ impl ManeuverPlan {
         self.segments.iter().map(|e| (e.range, e.impulse, &e.orbit))
     }
 
-    pub fn and_then(&self, other: Self, kind: ManeuverType) -> Option<Self> {
-        if self.end() >= other.start() {
-            return None;
+    pub fn then(&self, other: Self) -> Result<Self, &'static str> {
+        if self.end() > other.start() {
+            return Err("Self ends after new plan begins");
         }
 
         let dvs: Vec<_> = self.dvs().chain(other.dvs()).collect();
 
-        ManeuverPlan::new(self.end(), kind, *self.initial().sparse(), &dvs)
+        Ok(
+            ManeuverPlan::new(self.start(), *self.initial().sparse(), &dvs)
+                .ok_or("Can't construct")?,
+        )
     }
 }
 
 impl std::fmt::Display for ManeuverPlan {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Maneuver Plan ({:?}) ({:0.1})\n", self.kind, self.dv())?;
+        write!(
+            f,
+            "Maneuver Plan ({} segments) ({:0.1})\n",
+            self.segments.len(),
+            self.dv()
+        )?;
         if self.segments.is_empty() {
             return write!(f, " (empty)");
         }
@@ -605,14 +592,6 @@ impl std::fmt::Display for ManeuverPlan {
         }
         Ok(())
     }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum ManeuverType {
-    Direct,
-    Hohmann,
-    Bielliptic,
-    Compound,
 }
 
 #[derive(Debug, Clone)]
@@ -679,12 +658,7 @@ fn hohmann_transfer(
 
     let dv2 = after.vel - before.vel;
 
-    ManeuverPlan::new(
-        now,
-        ManeuverType::Hohmann,
-        *current,
-        &[(t1, dv1), (t2, dv2)],
-    )
+    ManeuverPlan::new(now, *current, &[(t1, dv1), (t2, dv2)])
 }
 
 fn bielliptic_transfer(
@@ -724,7 +698,7 @@ fn bielliptic_transfer(
 
     let p2 = hohmann_transfer(intermediate.sparse(), destination, p1.end())?;
 
-    p1.and_then(p2, ManeuverType::Bielliptic)
+    p1.then(p2).ok()
 }
 
 fn direct_transfer(
@@ -737,12 +711,7 @@ fn direct_transfer(
         .flatten()
         .map(|(t, pvf)| {
             let pvi = current.pv(t).ok()?;
-            ManeuverPlan::new(
-                now,
-                ManeuverType::Direct,
-                *current,
-                &[(t, pvf.vel - pvi.vel)],
-            )
+            ManeuverPlan::new(now, *current, &[(t, pvf.vel - pvi.vel)])
         })
         .flatten()
 }

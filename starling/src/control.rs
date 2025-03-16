@@ -1,7 +1,7 @@
 use crate::nanotime::Nanotime;
 use crate::orbiter::ObjectId;
 use crate::orbits::SparseOrbit;
-use crate::planning::{best_maneuver_plan, ManeuverPlan, ManeuverType};
+use crate::planning::{best_maneuver_plan, ManeuverPlan};
 
 #[derive(Debug, Clone)]
 pub struct Controller {
@@ -23,6 +23,10 @@ impl Controller {
         }
     }
 
+    pub fn clear(&mut self) {
+        self.state = ControllerState::Idle;
+    }
+
     pub fn is_idle(&self) -> bool {
         match self.state {
             ControllerState::Idle => true,
@@ -41,14 +45,15 @@ impl Controller {
         Some(self)
     }
 
-    pub fn enqueue(&mut self, destination: &SparseOrbit) -> Option<()> {
-        let plan = self.plan()?;
-        let (range, _, current) = plan.orbits().last()?;
-        let start = range.start()?;
-        let new_plan = best_maneuver_plan(current.sparse(), destination, start)?;
-        let plan = self.plan()?.and_then(new_plan, ManeuverType::Compound)?;
+    pub fn enqueue(&mut self, destination: &SparseOrbit) -> Result<(), &'static str> {
+        let plan = self.plan().ok_or("No plan")?;
+        let (range, _, current) = plan.orbits().last().ok_or("No final orbit")?;
+        let start = range.start().ok_or("No range start")?;
+        let new_plan =
+            best_maneuver_plan(current.sparse(), destination, start).ok_or("No best plan")?;
+        let plan = plan.then(new_plan)?;
         self.state = ControllerState::Planned { plan };
-        Some(())
+        Ok(())
     }
 
     pub fn target(&self) -> ObjectId {
