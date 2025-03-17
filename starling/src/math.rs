@@ -26,6 +26,13 @@ pub fn lerp(a: f32, b: f32, t: f32) -> f32 {
     a + (b - a) * t
 }
 
+// vector projection, rejection of a onto b
+pub fn vproj(a: Vec2, b: Vec2) -> (Vec2, Vec2) {
+    let bu = b.normalize_or_zero();
+    let proj = a.dot(bu) * bu;
+    (proj, a - proj)
+}
+
 pub fn apply<T: Copy, R>(x: &Vec<T>, func: impl Fn(T) -> R) -> Vec<R> {
     x.iter().map(|x| func(*x)).collect()
 }

@@ -7,10 +7,7 @@ pub struct WarningsPlugin;
 impl Plugin for WarningsPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Events::<WarningEvent>::default());
-        app.add_systems(
-            Update,
-            (spawn_new_warnings, send_random_warnings, update_warnings),
-        );
+        app.add_systems(Update, (spawn_new_warnings, update_warnings));
     }
 }
 
@@ -31,19 +28,6 @@ impl WarningEvent {
 
 #[derive(Component)]
 struct Warning(Duration, Vec2);
-
-pub fn send_random_warnings(mut warnings: EventWriter<WarningEvent>) {
-    if rand(0.0, 1.0) > 0.07 {
-        return;
-    }
-
-    let warn = WarningEvent {
-        pos: randvec(10.0, 10000.0),
-        message: "Warning!".into(),
-    };
-
-    warnings.send(warn);
-}
 
 const WARNING_Z_INDEX: f32 = 9.0;
 

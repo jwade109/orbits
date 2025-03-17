@@ -250,6 +250,20 @@ fn draw_scenario(
             )
         })
         .collect::<Vec<_>>();
+
+    for (id, orbit) in scenario.debris() {
+        let lup = match scenario.lup(*id, stamp) {
+            Some(lup) => lup,
+            None => continue,
+        };
+
+        let pv = match orbit.pv(stamp).ok() {
+            Some(pv) => pv,
+            None => continue,
+        };
+
+        draw_circle(gizmos, pv.pos + lup.pv().pos, 2.0 * scale, WHITE);
+    }
 }
 
 fn draw_scalar_field_cell(

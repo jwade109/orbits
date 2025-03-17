@@ -1,3 +1,4 @@
+use crate::math::{rand, randvec, rotate, vproj, PI};
 use crate::nanotime::Nanotime;
 use crate::orbiter::*;
 use crate::orbits::{Body, SparseOrbit};
@@ -61,6 +62,7 @@ impl<'a> ObjectLookup<'a> {
 pub struct Scenario {
     orbiters: Vec<Orbiter>,
     system: PlanetarySystem,
+    debris: Vec<(ObjectId, SparseOrbit)>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -140,7 +142,14 @@ impl PlanetarySystem {
 pub struct RemovalInfo {
     pub stamp: Nanotime,
     pub reason: EventType,
+    pub parent: ObjectId,
     pub orbit: SparseOrbit,
+}
+
+impl RemovalInfo {
+    pub fn pv(&self) -> Option<PV> {
+        self.orbit.pv(self.stamp).ok()
+    }
 }
 
 impl Scenario {
@@ -148,6 +157,7 @@ impl Scenario {
         Scenario {
             orbiters: vec![],
             system: system.clone(),
+            debris: vec![],
         }
     }
 
@@ -179,6 +189,10 @@ impl Scenario {
         &self.system
     }
 
+    pub fn debris(&self) -> impl Iterator<Item = &(ObjectId, SparseOrbit)> + use<'_> {
+        self.debris.iter()
+    }
+
     pub fn simulate(
         &mut self,
         stamp: Nanotime,
@@ -198,13 +212,59 @@ impl Scenario {
                 let reason = o.props().last().map(|p| RemovalInfo {
                     stamp: p.end().unwrap_or(stamp),
                     reason: p.event().unwrap_or(EventType::NumericalError),
-                    orbit: p.orbit.clone(),
+                    parent: p.parent,
+                    orbit: p.orbit,
                 });
                 info.push((o.id(), reason));
                 false
             } else {
                 true
             }
+        });
+
+        for (id, info) in &info {
+            let info = match info {
+                Some(info) => info,
+                None => continue,
+            };
+
+            let pv = match info.pv() {
+                Some(pv) => pv,
+                None => continue,
+            };
+
+            for _ in 0..20 {
+                let pos = pv.pos;
+                let vmag = pv.vel.length();
+                let (v_normal, v_tangent) = vproj(pv.vel, pos);
+
+                let n = pos.normalize_or_zero();
+                let t = rotate(n, PI / 2.0);
+
+                let v_normal = -v_normal * rand(0.01, 0.1) + n * rand(0.03, 0.1) * vmag;
+                let v_tangent = v_tangent * rand(0.01, 0.1) + t * rand(-1.0, 1.0) * vmag * 0.1;
+
+                let mut body = info.orbit.body;
+                body.mass *= 0.5;
+
+                let pv = PV::new(pos, v_normal + v_tangent);
+                if let Some(orbit) = SparseOrbit::from_pv(pv, body, info.stamp) {
+                    self.debris.push((info.parent, orbit));
+                }
+            }
+        }
+
+        self.debris.retain(|(_, orbit)| {
+            let dt = stamp - orbit.epoch;
+            if dt > Nanotime::secs(5) {
+                return false;
+            }
+            let pv = match orbit.pv(stamp).ok() {
+                Some(pv) => pv,
+                None => return false,
+            };
+            let r = pv.pos.length();
+            r > orbit.body.radius && r < orbit.body.soi
         });
 
         info
