@@ -1,6 +1,7 @@
 use crate::aabb::{AABB, OBB};
 use crate::math::{cross2d, linspace, rotate, tspace, PI};
 use crate::nanotime::Nanotime;
+use crate::orbiter::ObjectId;
 use crate::planning::search_condition;
 use crate::pv::PV;
 use glam::f32::Vec2;
@@ -517,9 +518,12 @@ impl SparseOrbit {
         let d2 = self.periapsis().distance(other.periapsis());
         d1 < dmax && d2 < dmax
     }
+}
 
-    pub fn desc(&self) -> String {
-        format!(
+impl std::fmt::Display for SparseOrbit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
             "A{:0.0}-E{:0.2}-P{:0.2}-R{:0.0}-M{:0.0}-S{:0.0}{}",
             self.semi_minor_axis(),
             self.ecc(),
@@ -810,6 +814,15 @@ impl DenseOrbit {
     }
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct GlobalOrbit(pub ObjectId, pub SparseOrbit);
+
+impl std::fmt::Display for GlobalOrbit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}/{}", self.0, self.1)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -936,7 +949,7 @@ mod tests {
 
         let orbit = orbit.unwrap();
 
-        println!("{}", orbit.desc());
+        println!("{}", orbit);
 
         if !ecc.is_nan() {
             assert_relative_eq!(ecc, orbit.ecc());

@@ -149,9 +149,9 @@ fn draw_propagator(
     color: Srgba,
     duty_cycle: bool,
 ) -> Option<()> {
-    let (_, parent_pv, _, _) = planets.lookup(prop.parent, stamp)?;
+    let (_, parent_pv, _, _) = planets.lookup(prop.parent(), stamp)?;
 
-    draw_orbit(gizmos, &prop.orbit, parent_pv.pos, color);
+    draw_orbit(gizmos, &prop.orbit.1, parent_pv.pos, color);
     if with_event {
         if let Some((t, e)) = prop.stamped_event() {
             let pv_end = parent_pv + prop.pv(t)?;
@@ -251,7 +251,7 @@ fn draw_scenario(
         })
         .collect::<Vec<_>>();
 
-    for (id, orbit) in scenario.debris() {
+    for GlobalOrbit(id, orbit) in scenario.debris() {
         let lup = match scenario.lup(*id, stamp) {
             Some(lup) => lup,
             None => continue,
@@ -595,7 +595,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         }
     };
 
-    for (parent, orbit) in &state.queued_orbits {
+    for GlobalOrbit(parent, orbit) in &state.queued_orbits {
         draw_orbit_with_parent(*parent, orbit);
     }
 
@@ -603,7 +603,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     //     draw_orbit_with_parent(parent, &orbit);
     // }
 
-    if let Some((parent, orbit)) = state.right_cursor_orbit() {
+    if let Some(GlobalOrbit(parent, orbit)) = state.right_cursor_orbit() {
         draw_orbit_with_parent(parent, &orbit);
     }
 

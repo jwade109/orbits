@@ -139,7 +139,7 @@ pub struct GameState {
     pub follow: Option<ObjectId>,
     pub show_orbits: ShowOrbitsState,
     pub show_animations: bool,
-    pub queued_orbits: Vec<(ObjectId, SparseOrbit)>,
+    pub queued_orbits: Vec<GlobalOrbit>,
     pub constellations: HashMap<GroupId, HashSet<ObjectId>>,
     pub selection_mode: SelectionMode,
 }
@@ -259,7 +259,7 @@ impl GameState {
                 .map(|(a, b)| Region::altitude(a, b)),
             SelectionMode::NearOrbit => self
                 .left_cursor_orbit()
-                .map(|(_, orbit)| Region::NearOrbit(orbit, 50.0)),
+                .map(|GlobalOrbit(_, orbit)| Region::NearOrbit(orbit, 50.0)),
         }
     }
 
@@ -277,29 +277,32 @@ impl GameState {
         Some(PV::new(p1, (p2 - p1) * v / r))
     }
 
-    pub fn cursor_orbit(&self, p1: Vec2, p2: Vec2) -> Option<(ObjectId, SparseOrbit)> {
+    pub fn cursor_orbit(&self, p1: Vec2, p2: Vec2) -> Option<GlobalOrbit> {
         let pv = self.cursor_pv(p1, p2)?;
         let parent_id = self.scenario.relevant_body(pv.pos, self.sim_time)?;
         let parent = self.scenario.lup(parent_id, self.sim_time)?;
         let parent_pv = parent.pv();
         let pv = pv - PV::pos(parent_pv.pos);
         let body = parent.body()?;
-        Some((parent_id, SparseOrbit::from_pv(pv, body, self.sim_time)?))
+        Some(GlobalOrbit(
+            parent_id,
+            SparseOrbit::from_pv(pv, body, self.sim_time)?,
+        ))
     }
 
-    pub fn left_cursor_orbit(&self) -> Option<(ObjectId, SparseOrbit)> {
+    pub fn left_cursor_orbit(&self) -> Option<GlobalOrbit> {
         self.cursor_orbit(self.mouse.left_world()?, self.mouse.current_world()?)
     }
 
-    pub fn right_cursor_orbit(&self) -> Option<(ObjectId, SparseOrbit)> {
+    pub fn right_cursor_orbit(&self) -> Option<GlobalOrbit> {
         self.cursor_orbit(self.mouse.right_world()?, self.mouse.current_world()?)
     }
 
-    pub fn primary_orbit(&self) -> Option<(ObjectId, SparseOrbit)> {
+    pub fn primary_orbit(&self) -> Option<GlobalOrbit> {
         let lup = self.scenario.lup(self.primary()?, self.sim_time)?;
         if let Some(o) = lup.orbiter() {
             let prop = o.propagator_at(self.sim_time)?;
-            Some((prop.parent, prop.orbit))
+            Some(prop.orbit)
         } else {
             None
         }
@@ -312,7 +315,7 @@ impl GameState {
     }
 
     pub fn spawn_new(&mut self) -> Option<()> {
-        let (parent, orbit) = self.left_cursor_orbit()?;
+        let GlobalOrbit(parent, orbit) = self.left_cursor_orbit()?;
         let pv_local = orbit.pv(self.sim_time).ok()?;
         let perturb = PV::new(
             randvec(pv_local.pos.length() * 0.005, pv_local.pos.length() * 0.02),
@@ -369,36 +372,31 @@ impl GameState {
         Some(())
     }
 
-    pub fn command_selected(&mut self, next: &SparseOrbit, overwrite: bool) {
-        info!(
-            "Commanding {} orbiters to {}",
-            self.track_list.len(),
-            next.desc()
-        );
+    pub fn command_selected(&mut self, next: &GlobalOrbit, overwrite: bool) {
+        if self.track_list.is_empty() {
+            return;
+        }
+        info!("Commanding {} orbiters to {}", self.track_list.len(), next,);
         for id in self.track_list.clone() {
             self.command(id, next, overwrite);
         }
     }
 
-    pub fn command(&mut self, id: ObjectId, next: &SparseOrbit, overwrite: bool) -> Option<()> {
+    pub fn command(&mut self, id: ObjectId, next: &GlobalOrbit, overwrite: bool) -> Option<()> {
         if self.controllers.iter().find(|c| c.target == id).is_none() {
             self.controllers.push(Controller::idle(id));
         }
 
         if let Some(c) = self.controllers.iter_mut().find(|c| c.target == id) {
-            if c.is_idle() || overwrite {
+            let res = if c.is_idle() || overwrite {
                 let orbiter = self.scenario.lup(c.target(), self.sim_time)?.orbiter()?;
-                let current = orbiter.propagator_at(self.sim_time)?;
-                c.activate(current.parent, &current.orbit, next, self.sim_time);
+                let prop = orbiter.propagator_at(self.sim_time)?;
+                c.activate(&prop.orbit, next, self.sim_time)
             } else {
-                if let Err(msg) = c.enqueue(next) {
-                    warn!(
-                        "Failed to enqueue {} to controller {}: {}",
-                        next.desc(),
-                        c.target,
-                        msg
-                    );
-                }
+                c.enqueue(next)
+            };
+            if let Err(msg) = res {
+                warn!("Failed to command {} to {}: {}", c.target, next, msg);
             }
         }
 
@@ -581,12 +579,12 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
                 log(&format!("{:#?}", prop.orbit));
                 log(&format!(
                     "Next p: {:?}",
-                    prop.orbit.t_next_p(state.sim_time)
+                    prop.orbit.1.t_next_p(state.sim_time)
                 ));
-                log(&format!("Period: {:?}", prop.orbit.period()));
+                log(&format!("Period: {:?}", prop.orbit.1.period()));
                 log(&format!(
                     "Orbit count: {:?}",
-                    prop.orbit.orbit_number(state.sim_time)
+                    prop.orbit.1.orbit_number(state.sim_time)
                 ));
             }
         } else if let Some(b) = lup.body() {
@@ -605,7 +603,7 @@ fn process_interaction(
         InteractionEvent::Delete => state.delete_objects(),
         InteractionEvent::CommitMission => {
             let mut overwrite = true;
-            for (_, orbit) in state.queued_orbits.clone() {
+            for orbit in state.queued_orbits.clone() {
                 state.command_selected(&orbit, overwrite);
                 overwrite = false;
             }
@@ -657,6 +655,7 @@ fn process_interaction(
         }
         InteractionEvent::ContextDependent => {
             if let Some(o) = state.right_cursor_orbit() {
+                info!("Enqueued orbit {}", &o);
                 state.queued_orbits.push(o);
             } else if !state.track_list.is_empty() {
                 state.track_list.clear();
@@ -726,7 +725,7 @@ fn handle_interactions(
     mut warnings: EventWriter<WarningEvent>,
 ) {
     for e in events.read() {
-        info!("Interaction event: {e:?}");
+        debug!("Interaction event: {e:?}");
         process_interaction(e, &mut state, &mut exit, &mut warnings);
     }
 }

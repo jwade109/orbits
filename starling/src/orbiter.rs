@@ -1,8 +1,8 @@
-use crate::nanotime::Nanotime;
 use crate::orbits::SparseOrbit;
 use crate::planning::*;
 use crate::pv::PV;
 use crate::scenario::*;
+use crate::{nanotime::Nanotime, orbits::GlobalOrbit};
 use serde::{Deserialize, Serialize};
 
 use glam::f32::Vec2;
@@ -44,10 +44,10 @@ pub struct Orbiter {
 }
 
 impl Orbiter {
-    pub fn new(id: ObjectId, parent: ObjectId, orbit: SparseOrbit, stamp: Nanotime) -> Self {
+    pub fn new(id: ObjectId, orbit: GlobalOrbit, stamp: Nanotime) -> Self {
         Orbiter {
             id,
-            props: vec![Propagator::new(parent, orbit, stamp)],
+            props: vec![Propagator::new(orbit, stamp)],
         }
     }
 
@@ -56,27 +56,27 @@ impl Orbiter {
     }
 
     pub fn dv(&mut self, stamp: Nanotime, dv: Vec2) -> Option<()> {
-        let (new_orbit, parent) = {
+        let orbit = {
             let prop = self.propagator_at(stamp)?;
-            let pv = prop.orbit.pv(stamp).ok()? + PV::vel(dv);
-            let orbit = SparseOrbit::from_pv(pv, prop.orbit.body, stamp)?;
-            (orbit, prop.parent)
+            let pv = prop.pv(stamp)? + PV::vel(dv);
+            let orbit = SparseOrbit::from_pv(pv, prop.orbit.1.body, stamp)?;
+            GlobalOrbit(prop.parent(), orbit)
         };
         self.props.clear();
-        let new_prop = Propagator::new(parent, new_orbit, stamp);
+        let new_prop = Propagator::new(orbit, stamp);
         self.props.push(new_prop);
         Some(())
     }
 
     pub fn pv(&self, stamp: Nanotime, planets: &PlanetarySystem) -> Option<PV> {
         let prop = self.propagator_at(stamp)?;
-        let (_, pv, _, _) = planets.lookup(prop.parent, stamp)?;
-        Some(prop.orbit.pv(stamp).ok()? + pv)
+        let (_, pv, _, _) = planets.lookup(prop.parent(), stamp)?;
+        Some(prop.pv(stamp)? + pv)
     }
 
     pub fn pvl(&self, stamp: Nanotime) -> Option<PV> {
         let prop = self.propagator_at(stamp)?;
-        Some(prop.orbit.pv(stamp).ok()?)
+        Some(prop.pv(stamp)?)
     }
 
     pub fn propagator_at(&self, stamp: Nanotime) -> Option<&Propagator> {
@@ -85,6 +85,11 @@ impl Orbiter {
 
     pub fn props(&self) -> &Vec<Propagator> {
         &self.props
+    }
+
+    pub fn orbit(&self, stamp: Nanotime) -> Option<&GlobalOrbit> {
+        let prop = self.propagator_at(stamp)?;
+        Some(&prop.orbit)
     }
 
     pub fn will_collide(&self) -> bool {
@@ -123,7 +128,7 @@ impl Orbiter {
             let prop = self.props.iter_mut().last().ok_or(PredictError::Lookup)?;
 
             let (_, _, _, pl) = planets
-                .lookup(prop.parent, stamp)
+                .lookup(prop.parent(), stamp)
                 .ok_or(PredictError::Lookup)?;
             let bodies = pl
                 .subsystems

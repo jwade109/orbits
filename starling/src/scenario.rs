@@ -1,7 +1,7 @@
 use crate::math::{rand, randvec, rotate, vproj, PI};
 use crate::nanotime::Nanotime;
 use crate::orbiter::*;
-use crate::orbits::{Body, SparseOrbit};
+use crate::orbits::{Body, GlobalOrbit, SparseOrbit};
 use crate::planning::EventType;
 use crate::pv::PV;
 use glam::f32::Vec2;
@@ -62,7 +62,7 @@ impl<'a> ObjectLookup<'a> {
 pub struct Scenario {
     orbiters: Vec<Orbiter>,
     system: PlanetarySystem,
-    debris: Vec<(ObjectId, SparseOrbit)>,
+    debris: Vec<GlobalOrbit>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -189,7 +189,7 @@ impl Scenario {
         &self.system
     }
 
-    pub fn debris(&self) -> impl Iterator<Item = &(ObjectId, SparseOrbit)> + use<'_> {
+    pub fn debris(&self) -> impl Iterator<Item = &GlobalOrbit> + use<'_> {
         self.debris.iter()
     }
 
@@ -212,8 +212,8 @@ impl Scenario {
                 let reason = o.props().last().map(|p| RemovalInfo {
                     stamp: p.end().unwrap_or(stamp),
                     reason: p.event().unwrap_or(EventType::NumericalError),
-                    parent: p.parent,
-                    orbit: p.orbit,
+                    parent: p.parent(),
+                    orbit: p.orbit.1,
                 });
                 info.push((o.id(), reason));
                 false
@@ -249,12 +249,12 @@ impl Scenario {
 
                 let pv = PV::new(pos, v_normal + v_tangent);
                 if let Some(orbit) = SparseOrbit::from_pv(pv, body, info.stamp) {
-                    self.debris.push((info.parent, orbit));
+                    self.debris.push(GlobalOrbit(info.parent, orbit));
                 }
             }
         }
 
-        self.debris.retain(|(_, orbit)| {
+        self.debris.retain(|GlobalOrbit(_, orbit)| {
             let dt = stamp - orbit.epoch;
             if dt > Nanotime::secs(5) {
                 return false;
@@ -277,7 +277,8 @@ impl Scenario {
         orbit: SparseOrbit,
         stamp: Nanotime,
     ) {
-        self.orbiters.push(Orbiter::new(id, parent, orbit, stamp));
+        self.orbiters
+            .push(Orbiter::new(id, GlobalOrbit(parent, orbit), stamp));
     }
 
     pub fn remove_object(&mut self, id: ObjectId) -> Option<()> {
@@ -317,7 +318,7 @@ impl Scenario {
 
             let prop = o.propagator_at(stamp)?;
 
-            let (_, frame_pv, _, _) = self.system.lookup(prop.parent, stamp)?;
+            let (_, frame_pv, _, _) = self.system.lookup(prop.parent(), stamp)?;
 
             let local_pv = prop.pv(stamp)?;
             let pv = frame_pv + local_pv;
