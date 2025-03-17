@@ -2,6 +2,7 @@ use crate::camera_controls::*;
 use crate::debug::*;
 use crate::mouse::MouseState;
 use crate::ui::InteractionEvent;
+use crate::warnings::WarningEvent;
 use bevy::core_pipeline::bloom::Bloom;
 use bevy::prelude::*;
 use bevy_egui::egui::style::Selection;
@@ -405,7 +406,11 @@ impl GameState {
     }
 }
 
-fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
+fn propagate_system(
+    time: Res<Time>,
+    mut state: ResMut<GameState>,
+    mut warnings: EventWriter<WarningEvent>,
+) {
     let old_sim_time = state.sim_time;
     state.actual_time += Nanotime::nanos(time.delta().as_nanos() as i64);
     if !state.paused {
@@ -455,6 +460,8 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
         .constellations
         .retain(|_, members| !members.is_empty());
 
+    let mut finished_ids = vec![];
+
     state.controllers.retain(|c| {
         if !ids.contains(&c.target) {
             return false;
@@ -467,12 +474,21 @@ fn propagate_system(time: Res<Time>, mut state: ResMut<GameState>) {
             let retain = end > s;
             if !retain {
                 info!("Maneuver completed by vehicle {} at time {}", c.target, end);
+                finished_ids.push(c.target);
             }
             retain
         } else {
             true
         }
     });
+
+    for id in finished_ids {
+        if let Some(lup) = state.scenario.lup(id, s) {
+            let pos = lup.pv().pos;
+            let msg = WarningEvent::new(pos, "Maneuver completed");
+            warnings.send(msg);
+        }
+    }
 }
 
 fn sim_speed_str(speed: i32) -> String {
@@ -583,6 +599,7 @@ fn process_interaction(
     inter: &InteractionEvent,
     state: &mut GameState,
     exit: &mut EventWriter<bevy::app::AppExit>,
+    warnings: &mut EventWriter<WarningEvent>,
 ) -> Option<()> {
     match inter {
         InteractionEvent::Delete => state.delete_objects(),
@@ -627,7 +644,9 @@ fn process_interaction(
                 .map(state.camera.world_bounds(), *p);
             let id = state.scenario.nearest(w, state.sim_time);
             if let Some(id) = id {
-                state.follow = Some(id)
+                state.follow = Some(id);
+                let msg = WarningEvent::new(w, format!("Following {}", id));
+                warnings.send(msg);
             }
         }
         InteractionEvent::ExitApp => {
@@ -704,10 +723,11 @@ fn handle_interactions(
     mut events: EventReader<InteractionEvent>,
     mut state: ResMut<GameState>,
     mut exit: EventWriter<bevy::app::AppExit>,
+    mut warnings: EventWriter<WarningEvent>,
 ) {
     for e in events.read() {
         info!("Interaction event: {e:?}");
-        process_interaction(e, &mut state, &mut exit);
+        process_interaction(e, &mut state, &mut exit, &mut warnings);
     }
 }
 

@@ -519,10 +519,16 @@ impl SparseOrbit {
     }
 
     pub fn desc(&self) -> String {
-        let sma = self.semi_minor_axis().round().abs() as u32;
-        let ecc = (self.ecc() * 100.0).round().abs() as u32;
-        let retrograde = if self.is_retrograde() { "r" } else { "" };
-        format!("{:?}-{}-{:03}{}", self.class(), sma, ecc, retrograde)
+        format!(
+            "A{:0.0}-E{:0.2}-P{:0.2}-R{:0.0}-M{:0.0}-S{:0.0}{}",
+            self.semi_minor_axis(),
+            self.ecc(),
+            self.arg_periapsis,
+            self.body.radius,
+            self.body.mass,
+            self.body.soi,
+            if self.is_retrograde() { "*" } else { "" },
+        )
     }
 }
 

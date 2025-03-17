@@ -9,6 +9,7 @@ mod mouse;
 mod planetary;
 mod sprites;
 mod ui;
+mod warnings;
 
 fn main() {
     App::new()
@@ -18,5 +19,6 @@ fn main() {
         .add_plugins(bevy_egui::EguiPlugin)
         .add_plugins(crate::sprites::SpritePlugin {})
         .add_plugins(crate::ui::UiPlugin {})
+        .add_plugins(crate::warnings::WarningsPlugin {})
         .run();
 }
