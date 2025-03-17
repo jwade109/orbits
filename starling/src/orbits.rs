@@ -7,7 +7,6 @@ use crate::pv::PV;
 use glam::f32::Vec2;
 use serde::{Deserialize, Serialize};
 use splines::{Interpolation, Key, Spline};
-use uom::si::f32::LinearDensityOfStates;
 
 pub fn hyperbolic_range_ta(ecc: f32) -> f32 {
     (-1.0 / ecc).acos()
@@ -792,7 +791,6 @@ impl DenseOrbit {
         let buffer_dur = Nanotime::secs(2);
         let mut t = start - buffer_dur;
         let dist = 50.0;
-        let mut first = true;
         let mut samples = vec![];
         while t < end + buffer_dur {
             let pv = orbit.pv(t).ok()?;
@@ -872,21 +870,11 @@ impl std::fmt::Display for GlobalOrbit {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::examples::{consistency_orbits, make_earth, stable_simulation};
+    use crate::examples::{consistency_orbits, make_earth};
     use crate::pv::PV;
     use approx::assert_relative_eq;
     use more_asserts::*;
-
-    #[test]
-    fn serialization() {
-        let scenario = stable_simulation().0;
-        let yaml = serde_yaml::to_string(&scenario).unwrap();
-        let scenario = stable_simulation().0;
-        let toml = toml::to_string(&scenario).unwrap();
-        dbg!(yaml);
-        dbg!(toml);
-    }
-
+    
     fn ncalc_period(orbit: &SparseOrbit) -> Option<(Nanotime, Nanotime)> {
         let dt = Nanotime::millis(10);
         let mut duration = Nanotime::zero();

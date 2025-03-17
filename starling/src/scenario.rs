@@ -1,4 +1,4 @@
-use crate::math::{rand, randvec, rotate, vproj, PI};
+use crate::math::{rand, rotate, vproj, PI};
 use crate::nanotime::Nanotime;
 use crate::orbiter::*;
 use crate::orbits::{Body, GlobalOrbit, SparseOrbit};
@@ -222,7 +222,7 @@ impl Scenario {
             }
         });
 
-        for (id, info) in &info {
+        for (_, info) in &info {
             let info = match info {
                 Some(info) => info,
                 None => continue,

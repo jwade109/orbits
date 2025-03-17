@@ -16,7 +16,6 @@ pub enum InteractionEvent {
     ToggleDebugMode,
     ClearSelection,
     ClearOrbitQueue,
-    Follow,
     ExitApp,
     Save,
     Restore,
@@ -27,8 +26,6 @@ pub enum InteractionEvent {
     CreateGroup(GroupId),
     ContextDependent,
     SelectionMode,
-    EnterSelectionMode,
-    ClearMode,
 
     // mouse stuff
     LeftMouseRelease,

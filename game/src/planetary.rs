@@ -5,7 +5,6 @@ use crate::ui::InteractionEvent;
 use crate::warnings::WarningEvent;
 use bevy::core_pipeline::bloom::Bloom;
 use bevy::prelude::*;
-use bevy_egui::egui::style::Selection;
 use starling::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::ops::DerefMut;
@@ -103,7 +102,7 @@ impl ShowOrbitsState {
 }
 
 #[derive(Debug, Clone, Copy)]
-enum SelectionMode {
+pub enum SelectionMode {
     Rect,
     Altitude,
     NearOrbit,
@@ -296,16 +295,6 @@ impl GameState {
 
     pub fn right_cursor_orbit(&self) -> Option<GlobalOrbit> {
         self.cursor_orbit(self.mouse.right_world()?, self.mouse.current_world()?)
-    }
-
-    pub fn primary_orbit(&self) -> Option<GlobalOrbit> {
-        let lup = self.scenario.lup(self.primary()?, self.sim_time)?;
-        if let Some(o) = lup.orbiter() {
-            let prop = o.propagator_at(self.sim_time)?;
-            Some(prop.orbit)
-        } else {
-            None
-        }
     }
 
     pub fn follow_position(&self) -> Option<Vec2> {

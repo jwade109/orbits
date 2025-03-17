@@ -30,7 +30,7 @@ pub fn ui_example_system(
 
         ui.separator();
 
-        let mut group_name = group_name.deref_mut();
+        let group_name = group_name.deref_mut();
         ui.add(egui::TextEdit::singleline(group_name));
 
         let n_orbiters = state.track_list.len();

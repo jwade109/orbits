@@ -1,7 +1,9 @@
 #![allow(dead_code)]
 
-use starling::prelude::*;
+#[allow(unused_imports)]
+use std::io::Write;
 
+use starling::prelude::*;
 use starling::examples::make_earth;
 use starling::file_export::{export_orbit_data, write_csv};
 use starling::math::{apply, linspace, randvec};

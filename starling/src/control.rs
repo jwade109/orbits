@@ -1,6 +1,6 @@
 use crate::nanotime::Nanotime;
 use crate::orbiter::ObjectId;
-use crate::orbits::{GlobalOrbit, SparseOrbit};
+use crate::orbits::GlobalOrbit;
 use crate::planning::{best_maneuver_plan, ManeuverPlan};
 
 #[derive(Debug, Clone)]

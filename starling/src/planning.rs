@@ -491,7 +491,7 @@ impl ManeuverPlan {
 
         let mut segments: Vec<ManeuverSegment> = vec![];
 
-        for (i, (t, dv)) in dvs.iter().enumerate() {
+        for (t, dv) in dvs.iter() {
             let segment = if let Some(c) = segments.last() {
                 c.next(*t, *dv)
             } else {
@@ -575,8 +575,7 @@ impl std::fmt::Display for ManeuverPlan {
                 segment.orbit.sparse(),
             )?;
         }
-        write!(f, "Ending with {:?}\n", self.terminal);
-        Ok(())
+        write!(f, "Ending with {:?}\n", self.terminal)
     }
 }
 

@@ -1,5 +1,6 @@
+#![allow(private_interfaces)]
+
 use bevy::prelude::*;
-use starling::prelude::*;
 use std::time::Duration;
 
 pub struct WarningsPlugin;

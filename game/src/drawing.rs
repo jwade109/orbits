@@ -382,10 +382,26 @@ fn draw_controller(
     ctrl: &Controller,
     scenario: &Scenario,
     scale: f32,
+    actual_time: Nanotime,
+    tracked: bool,
 ) -> Option<()> {
-    let lup = scenario.lup(ctrl.parent()?, stamp)?;
-    let plan = ctrl.plan()?;
-    draw_maneuver_plan(gizmos, stamp, plan, lup.pv().pos, scale)
+    let craft = scenario.lup(ctrl.target, stamp)?.pv().pos;
+
+    let secs = 2;
+    let t_start = actual_time.floor(Nanotime::PER_SEC * secs);
+    let dt = (actual_time - t_start).to_secs();
+    let r = (8.0 + dt * 30.0) * scale;
+    let a = (1.0 - dt / secs as f32).powi(3);
+
+    draw_circle(gizmos, craft, r, GRAY.with_alpha(a));
+
+    if tracked {
+        let origin = scenario.lup(ctrl.parent()?, stamp)?.pv().pos;
+        let plan = ctrl.plan()?;
+        draw_maneuver_plan(gizmos, stamp, plan, origin, scale)?;
+    }
+
+    Some(())
 }
 
 fn draw_event_animation(
@@ -442,7 +458,6 @@ fn draw_timeline(gizmos: &mut Gizmos, state: &GameState) {
         return;
     }
 
-    let tick_dur = Nanotime::secs(1);
     let tmin = state.sim_time - Nanotime::secs(1);
     let tmax = state.sim_time + Nanotime::secs(120);
 
@@ -610,15 +625,16 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     }
 
     for ctrl in &state.controllers {
-        if state.track_list.contains(&ctrl.target) {
-            draw_controller(
-                &mut gizmos,
-                state.sim_time,
-                ctrl,
-                &state.scenario,
-                state.camera.actual_scale,
-            );
-        }
+        let tracked = state.track_list.contains(&ctrl.target);
+        draw_controller(
+            &mut gizmos,
+            state.sim_time,
+            ctrl,
+            &state.scenario,
+            state.camera.actual_scale,
+            state.actual_time,
+            tracked,
+        );
     }
 
     if state.show_animations && state.track_list.len() < 6 {
