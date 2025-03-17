@@ -428,9 +428,11 @@ fn draw_maneuver_plan(
     let color = YELLOW;
     for segment in &plan.segments {
         gizmos.linestrip_2d(segment.orbit.line(stamp, origin), color);
+        if segment.end > stamp {
+            let pv = plan.pv(segment.end)?;
+            draw_diamond(gizmos, origin + pv.pos, 10.0 * scale, color);
+        }
     }
-    let pv = plan.pv(plan.end())?;
-    draw_diamond(gizmos, origin + pv.pos, 10.0 * scale, color);
     draw_orbit(gizmos, &plan.terminal, origin, color);
     Some(())
 }

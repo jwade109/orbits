@@ -7,6 +7,7 @@ use crate::pv::PV;
 use glam::f32::Vec2;
 use serde::{Deserialize, Serialize};
 use splines::{Interpolation, Key, Spline};
+use uom::si::f32::LinearDensityOfStates;
 
 pub fn hyperbolic_range_ta(ecc: f32) -> f32 {
     (-1.0 / ecc).acos()
@@ -779,38 +780,83 @@ pub fn generate_chi_spline(pv: impl Into<PV>, mu: f32, duration: Nanotime) -> Op
 }
 
 #[derive(Debug, Clone)]
-pub struct DenseOrbit(SparseOrbit, Vec<(Nanotime, PV)>);
+pub struct DenseOrbit {
+    orbit: SparseOrbit,
+    start: Nanotime,
+    end: Nanotime,
+    spline: Spline<f32, Vec2>,
+}
 
 impl DenseOrbit {
-    pub fn new(orbit: &SparseOrbit) -> Self {
-        Self(*orbit, vec![])
-    }
-
     pub fn in_range(orbit: &SparseOrbit, start: Nanotime, end: Nanotime) -> Option<Self> {
+        let buffer_dur = Nanotime::secs(2);
+        let mut t = start - buffer_dur;
+        let dist = 50.0;
+        let mut first = true;
         let mut samples = vec![];
-        let mut t = start;
-        let dist = 30.0;
-        while t < end {
+        while t < end + buffer_dur {
             let pv = orbit.pv(t).ok()?;
             let dt = dist / pv.vel.length();
-            samples.push((t, pv));
+            samples.push(((t - start).to_secs(), pv.pos));
             t += Nanotime::secs_f32(dt);
         }
-        let pv = orbit.pv(end).ok()?;
-        samples.push((end, pv));
-        Some(Self(*orbit, samples))
+        samples.push(((end - start).to_secs(), orbit.pv(end).ok()?.pos));
+
+        let mut keys = vec![];
+        for (i, (dt, pos)) in samples.iter().enumerate() {
+            let interp = if i == 0 {
+                Interpolation::Linear
+            } else if i + 2 < samples.len() {
+                Interpolation::CatmullRom
+            } else {
+                Interpolation::Linear
+            };
+            let key = Key::new(*dt, *pos, interp);
+            keys.push(key);
+        }
+
+        let spline = Spline::<f32, Vec2>::from_vec(keys);
+
+        Some(Self {
+            orbit: *orbit,
+            start,
+            end,
+            spline,
+        })
     }
 
     pub fn sparse(&self) -> &SparseOrbit {
-        &self.0
+        &self.orbit
+    }
+
+    fn sample(&self, t: Nanotime) -> Option<Vec2> {
+        if t > self.end || t < self.start {
+            return None;
+        }
+        let dt = t - self.start;
+        self.spline.clamped_sample(dt.to_secs())
     }
 
     pub fn line(&self, now: Nanotime, origin: Vec2) -> Vec<Vec2> {
-        self.1
-            .iter()
-            .filter(|(t, _)| *t >= now)
-            .map(|(_, p)| origin + p.pos)
-            .collect()
+        assert!(self.sample(self.start).is_some());
+        assert!(self.sample(self.end).is_some());
+
+        let mut t = self.end;
+        let timestep = Nanotime::millis(20);
+        let mut points = vec![];
+
+        let mut add_point = |t: Nanotime| -> Option<()> {
+            points.push(origin + self.sample(t)?);
+            Some(())
+        };
+
+        while t > now && t > self.start {
+            add_point(t);
+            t -= timestep;
+        }
+
+        add_point(self.start.max(now));
+        points
     }
 }
 

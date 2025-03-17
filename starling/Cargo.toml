@@ -14,7 +14,7 @@ rand = "0.8.5"
 rootfinder = "0.2.1"
 serde = "1.0.218"
 serde_yaml = "0.9.34"
-splines = "4.4.2"
+splines = { version = "4.4.2", features = ["glam"] }
 toml = "0.8.20"
 uom = "0.36.0"
 
