@@ -303,8 +303,8 @@ impl GameState {
         Some(lup.pv().pos)
     }
 
-    pub fn spawn_new(&mut self) -> Option<()> {
-        let GlobalOrbit(parent, orbit) = self.left_cursor_orbit()?;
+    pub fn spawn_at(&mut self, global: &GlobalOrbit) -> Option<()> {
+        let GlobalOrbit(parent, orbit) = global;
         let pv_local = orbit.pv(self.sim_time).ok()?;
         let perturb = PV::new(
             randvec(pv_local.pos.length() * 0.005, pv_local.pos.length() * 0.02),
@@ -312,8 +312,13 @@ impl GameState {
         );
         let orbit = SparseOrbit::from_pv(pv_local + perturb, orbit.body, self.sim_time)?;
         let id = self.ids.next();
-        self.scenario.add_object(id, parent, orbit, self.sim_time);
+        self.scenario.add_object(id, *parent, orbit, self.sim_time);
         Some(())
+    }
+
+    pub fn spawn_new(&mut self) -> Option<()> {
+        let orbit = self.left_cursor_orbit()?;
+        self.spawn_at(&orbit)
     }
 
     pub fn delete_objects(&mut self) {
@@ -565,7 +570,6 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
                 log(&format!("- [{}]", prop));
             }
             if let Some(prop) = o.propagator_at(state.sim_time) {
-                log(&format!("{:#?}", prop.orbit));
                 log(&format!(
                     "Next p: {:?}",
                     prop.orbit.1.t_next_p(state.sim_time)
@@ -648,8 +652,13 @@ fn process_interaction(
                 state.queued_orbits.push(o);
             } else if !state.track_list.is_empty() {
                 state.track_list.clear();
-            } else {
+            } else if !state.queued_orbits.is_empty() {
                 state.queued_orbits.clear();
+            } else {
+                for _ in 0..10 {
+                    let global = state.scenario.belts[0].random_global(state.sim_time)?;
+                    state.spawn_at(&global);
+                }
             }
         }
         InteractionEvent::Restore => {

@@ -69,7 +69,7 @@ fn draw_region(gizmos: &mut Gizmos, region: Region, color: Srgba, origin: Vec2) 
                 let u = rotate(Vec2::X, angle);
                 let p1 = u * a.radius_at_angle(angle);
                 let p2 = u * b.radius_at_angle(angle);
-                gizmos.line_2d(p1, p2, color);
+                gizmos.line_2d(p1, p2, color.with_alpha(color.alpha * 0.2));
             }
         }
         Region::NearOrbit(orbit, dist) => {
@@ -79,7 +79,7 @@ fn draw_region(gizmos: &mut Gizmos, region: Region, color: Srgba, origin: Vec2) 
                 let r = orbit.radius_at_angle(angle);
                 let p1 = (r + dist) * u;
                 let p2 = (r - dist) * u;
-                gizmos.line_2d(p1, p2, color);
+                gizmos.line_2d(p1, p2, color.with_alpha(color.alpha * 0.2));
             }
         }
     }
@@ -231,6 +231,16 @@ fn draw_scenario(
     duty_cycle: bool,
 ) {
     draw_planets(gizmos, scenario.planets(), stamp, Vec2::ZERO);
+
+    for belt in scenario.belts() {
+        let origin = match scenario.lup(belt.parent(), stamp).map(|lup| lup.pv().pos) {
+            Some(p) => p,
+            None => continue,
+        };
+
+        let region = belt.region();
+        draw_region(gizmos, region, GRAY.with_alpha(0.1), origin);
+    }
 
     _ = scenario
         .orbiter_ids()

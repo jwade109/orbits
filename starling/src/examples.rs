@@ -1,3 +1,4 @@
+use crate::belts::AsteroidBelt;
 use crate::math::{rand, randvec, rotate};
 use crate::nanotime::Nanotime;
 use crate::orbits::{Body, SparseOrbit};
@@ -66,6 +67,22 @@ pub fn earth_moon_example_one() -> (Scenario, ObjectIdTracker) {
         SparseOrbit::circular(earth.body.radius * 1.1, earth.body, Nanotime::zero(), false),
         Nanotime::zero(),
     );
+
+    scenario.add_belt(AsteroidBelt::new(
+        earth.id,
+        SparseOrbit::from_pv(
+            ((300.0, 100.0), (-25.0, 150.0)),
+            earth.body,
+            Nanotime::zero(),
+        )
+        .unwrap(),
+        SparseOrbit::from_pv(
+            ((500.0, 120.0), (-20.0, 135.0)),
+            earth.body,
+            Nanotime::zero(),
+        )
+        .unwrap(),
+    ));
 
     for _ in 0..200 {
         let r = randvec(700.0, 2400.0);

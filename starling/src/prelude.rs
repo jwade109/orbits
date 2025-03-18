@@ -14,3 +14,4 @@ pub use crate::pv::PV;
 pub use crate::region::Region;
 pub use crate::scenario::{ObjectIdTracker, PlanetarySystem, Scenario};
 pub use crate::topomap::{id_to_aabb, test_topo, TopoMap};
+pub use crate::belts::AsteroidBelt;

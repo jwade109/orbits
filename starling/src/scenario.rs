@@ -1,3 +1,4 @@
+use crate::belts::AsteroidBelt;
 use crate::math::{rand, rotate, vproj, PI};
 use crate::nanotime::Nanotime;
 use crate::orbiter::*;
@@ -56,13 +57,6 @@ impl<'a> ObjectLookup<'a> {
             _ => None,
         }
     }
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Scenario {
-    orbiters: Vec<Orbiter>,
-    system: PlanetarySystem,
-    debris: Vec<GlobalOrbit>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -152,18 +146,22 @@ impl RemovalInfo {
     }
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Scenario {
+    orbiters: Vec<Orbiter>,
+    system: PlanetarySystem,
+    debris: Vec<GlobalOrbit>,
+    pub belts: Vec<AsteroidBelt>,
+}
+
 impl Scenario {
     pub fn new(system: &PlanetarySystem) -> Self {
         Scenario {
             orbiters: vec![],
             system: system.clone(),
+            belts: vec![],
             debris: vec![],
         }
-    }
-
-    #[deprecated(note = "Use orbiter_ids")]
-    pub fn ids(&self) -> impl Iterator<Item = ObjectId> + use<'_> {
-        self.orbiters.iter().map(|o| o.id())
     }
 
     pub fn orbiter_ids(&self) -> impl Iterator<Item = ObjectId> + use<'_> {
@@ -187,6 +185,10 @@ impl Scenario {
 
     pub fn planets(&self) -> &PlanetarySystem {
         &self.system
+    }
+
+    pub fn belts(&self) -> &Vec<AsteroidBelt> {
+        &self.belts
     }
 
     pub fn debris(&self) -> impl Iterator<Item = &GlobalOrbit> + use<'_> {
@@ -268,6 +270,10 @@ impl Scenario {
         });
 
         info
+    }
+
+    pub fn add_belt(&mut self, belt: AsteroidBelt) {
+        self.belts.push(belt);
     }
 
     pub fn add_object(

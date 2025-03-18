@@ -12,5 +12,6 @@ pub mod planning;
 pub mod pv;
 pub mod topomap;
 pub mod region;
+pub mod belts;
 
 pub mod prelude;

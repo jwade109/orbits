@@ -165,6 +165,24 @@ impl SparseOrbit {
         Some(o)
     }
 
+    pub fn new(
+        ra: f32,
+        rp: f32,
+        argp: f32,
+        body: Body,
+        epoch: Nanotime,
+        retrograde: bool,
+    ) -> Option<Self> {
+        let sma = (ra + rp) / 2.0;
+        let sign = if retrograde { -1.0 } else { 1.0 };
+        let p = Vec2::X * rp;
+        let v = sign * Vec2::Y * (body.mu() * ((2.0 / rp) - (1.0 / sma))).sqrt();
+        let p = rotate(p, argp);
+        let v = rotate(v, argp);
+        let pv = PV::new(p, v);
+        SparseOrbit::from_pv(pv, body, epoch)
+    }
+
     pub fn circular(radius: f32, body: Body, epoch: Nanotime, retrograde: bool) -> Self {
         let p = Vec2::new(radius, 0.0);
         let v = if retrograde { -1.0 } else { 1.0 } * Vec2::new(0.0, (body.mu() / radius).sqrt());
@@ -874,7 +892,7 @@ mod tests {
     use crate::pv::PV;
     use approx::assert_relative_eq;
     use more_asserts::*;
-    
+
     fn ncalc_period(orbit: &SparseOrbit) -> Option<(Nanotime, Nanotime)> {
         let dt = Nanotime::millis(10);
         let mut duration = Nanotime::zero();
