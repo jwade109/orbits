@@ -586,6 +586,72 @@ fn draw_scale_indicator(gizmos: &mut Gizmos, cam: &CameraState) {
     gizmos.line_2d(u1, u2, color);
 }
 
+pub fn draw_counter(gizmos: &mut Gizmos, val: u64, pos: Vec2, scale: f32, color: Srgba) {
+    if val == 0 {
+        return;
+    }
+
+    let h = 10.0 * scale;
+    let r = h * 0.8;
+
+    let mut val = val;
+
+    let mut y = 0.0;
+
+    gizmos.line_2d(pos, pos + Vec2::X * h * 10.0, color);
+
+    while val > 0 {
+        let nth_digit = val % 10;
+        for xn in 0..nth_digit {
+            let p = Vec2::new(xn as f32 * h, y);
+            draw_circle(gizmos, pos + p + Vec2::splat(h / 2.0), r / 2.0, color);
+        }
+        val /= 10;
+        y += h;
+    }
+}
+
+fn draw_belt_orbits(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
+    let cursor_orbit = state.right_cursor_orbit();
+    for belt in &state.scenario.belts {
+        let lup = match state.scenario.lup(belt.parent(), state.sim_time) {
+            Some(lup) => lup,
+            None => continue,
+        };
+
+        let origin = lup.pv().pos;
+
+        if let Some(orbit) = cursor_orbit {
+            if orbit.0 == belt.parent() && belt.contains_orbit(&orbit.1) {
+                draw_orbit(gizmos, &orbit.1, origin, YELLOW);
+                draw_diamond(gizmos, orbit.1.periapsis(), 10.0, YELLOW);
+                draw_diamond(gizmos, orbit.1.apoapsis(), 10.0, YELLOW);
+            }
+        }
+
+        let count: u64 = state
+            .scenario
+            .orbiter_ids()
+            .filter_map(|id| {
+                let lup = state.scenario.lup(id, state.sim_time)?;
+                let orbiter = lup.orbiter()?;
+                let orbit = orbiter.propagator_at(state.sim_time)?.orbit;
+                if orbit.0 != belt.parent() {
+                    return None;
+                }
+                if belt.contains_orbit(&orbit.1) {
+                    Some(1)
+                } else {
+                    Some(0)
+                }
+            })
+            .sum();
+
+        draw_counter(gizmos, count, origin, state.camera.actual_scale, WHITE);
+    }
+    Some(())
+}
+
 pub fn draw_notifications(gizmos: &mut Gizmos, state: &GameState) {
     for notif in &state.notifications {
         let p = match state.scenario.lup(notif.parent, state.sim_time) {
@@ -704,8 +770,20 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
 
     draw_notifications(&mut gizmos, &state);
 
+    draw_belt_orbits(&mut gizmos, &state);
+
     if !state.hide_debug {
         draw_mouse_state(&state.mouse, &mut gizmos);
+    }
+
+    if let Some(p) = state.mouse.current_world() {
+        draw_counter(
+            &mut gizmos,
+            state.highlighted().len() as u64,
+            p,
+            state.camera.actual_scale,
+            WHITE,
+        );
     }
 }
 

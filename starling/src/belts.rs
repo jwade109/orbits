@@ -38,6 +38,20 @@ impl AsteroidBelt {
         )
     }
 
+    pub fn contains(&self, p: Vec2) -> bool {
+        let angle = Vec2::X.angle_to(p);
+        let (rmin, rmax) = self.radius(angle);
+        let r = p.length();
+        r >= rmin && r <= rmax
+    }
+
+    pub fn contains_orbit(&self, other: &SparseOrbit) -> bool {
+        self.contains(other.periapsis())
+            && self.contains(other.apoapsis())
+            && self.contains(other.position_at(0.5 * PI))
+            && self.contains(other.position_at(1.5 * PI))
+    }
+
     pub fn random_radius(&self, angle: f32) -> f32 {
         let (rmin, rmax) = self.radius(angle);
         let s = rand(0.0, 1.0);
