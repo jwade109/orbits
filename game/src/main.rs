@@ -6,6 +6,7 @@ mod drawing;
 mod egui;
 mod keybindings;
 mod mouse;
+mod notifications;
 mod planetary;
 mod sprites;
 mod ui;
@@ -19,6 +20,6 @@ fn main() {
         .add_plugins(bevy_egui::EguiPlugin)
         .add_plugins(crate::sprites::SpritePlugin {})
         .add_plugins(crate::ui::UiPlugin {})
-        .add_plugins(crate::warnings::WarningsPlugin {})
+        .add_plugins(crate::warnings::NotificationsPlugin {})
         .run();
 }

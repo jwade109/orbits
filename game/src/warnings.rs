@@ -1,72 +1,57 @@
 #![allow(private_interfaces)]
+#![allow(dead_code, unused_imports)]
 
+use crate::planetary::GameState;
 use bevy::prelude::*;
-use std::time::Duration;
+use starling::prelude::*;
 
-pub struct WarningsPlugin;
+pub struct NotificationsPlugin;
 
-impl Plugin for WarningsPlugin {
+impl Plugin for NotificationsPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(Events::<WarningEvent>::default());
-        app.add_systems(Update, (spawn_new_warnings, update_warnings));
-    }
-}
-
-#[derive(Event)]
-pub struct WarningEvent {
-    pos: Vec2,
-    message: String,
-}
-
-impl WarningEvent {
-    pub fn new(pos: Vec2, message: impl Into<String>) -> Self {
-        WarningEvent {
-            pos,
-            message: message.into(),
-        }
+        app.add_systems(Update, update_warnings);
     }
 }
 
 #[derive(Component)]
-struct Warning(Duration, Vec2);
+struct NotifComponent(usize);
 
 const WARNING_Z_INDEX: f32 = 9.0;
 
-pub fn spawn_new_warnings(
-    mut commands: Commands,
-    mut warnings: EventReader<WarningEvent>,
-    time: Res<Time>,
-) {
-    let stamp = time.elapsed();
-
-    for warn in warnings.read() {
-        commands.spawn((
-            Warning(stamp, warn.pos),
-            Transform::from_translation(warn.pos.extend(WARNING_Z_INDEX)),
-            Text2d::new(warn.message.clone()),
-            TextColor::WHITE,
-        ));
-    }
-}
-
-const WARNING_DUR: Duration = Duration::from_secs(3);
-
 pub fn update_warnings(
-    mut warnings: Query<(Entity, &mut Transform, &mut TextColor, &Warning)>,
-    time: Res<Time>,
+    state: Res<GameState>,
+    mut query: Query<(Entity, &NotifComponent, &mut Transform, &mut Text2d)>,
     mut commands: Commands,
 ) {
-    let vel = Vec2::Y * 12.0;
-    for (e, mut tf, mut color, warn) in &mut warnings {
-        let dt = time.elapsed() - warn.0;
-        let pos = warn.1 + vel * dt.as_secs_f32();
-        tf.translation = pos.extend(WARNING_Z_INDEX);
 
-        let a = 1.0 - dt.as_secs_f32() / WARNING_DUR.as_secs_f32();
-        color.0 = color.0.with_alpha(a);
+    // for (e, n, _, _) in &query {
+    //     if n.0 >= state.notifications.len() {
+    //         commands.entity(e).despawn();
+    //     }
+    // }
 
-        if a < 0.0 {
-            commands.entity(e).despawn();
-        }
-    }
+    // let position = |n: &Notification| -> Option<Vec2> {
+    //     state
+    //         .scenario
+    //         .lup(n.parent, state.sim_time)
+    //         .map(|lup| lup.pv().pos + n.offset + n.jitter + Vec2::Y * 50.0)
+    // };
+
+    // for (i, notif) in state.notifications.iter().enumerate() {
+    //     let pos = match position(notif) {
+    //         Some(p) => p,
+    //         None => continue,
+    //     };
+
+    //     if let Some((_, _, mut tf, mut text)) = query.iter_mut().find(|(_, n, _, _)| n.0 == i) {
+    //         tf.translation = pos.extend(tf.translation.z);
+    //         text.0 = notif.message.clone();
+    //     } else {
+    //         commands.spawn((
+    //             NotifComponent(i),
+    //             Transform::from_translation(pos.extend(WARNING_Z_INDEX)),
+    //             Text2d(notif.message.clone()),
+    //         ));
+    //     }
+    // }
 }

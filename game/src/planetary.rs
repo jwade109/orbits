@@ -1,8 +1,10 @@
+// ignore-tidy-linelength
+
 use crate::camera_controls::*;
 use crate::debug::*;
 use crate::mouse::MouseState;
+use crate::notifications::*;
 use crate::ui::InteractionEvent;
-use crate::warnings::WarningEvent;
 use bevy::core_pipeline::bloom::Bloom;
 use bevy::prelude::*;
 use starling::prelude::*;
@@ -22,7 +24,7 @@ impl Plugin for PlanetaryPlugin {
                 // egui
                 crate::egui::ui_example_system,
                 // physics
-                propagate_system,
+                step_system,
                 // inputs
                 crate::keybindings::keyboard_input,
                 track_highlighted_objects,
@@ -141,6 +143,8 @@ pub struct GameState {
     pub queued_orbits: Vec<GlobalOrbit>,
     pub constellations: HashMap<GroupId, HashSet<ObjectId>>,
     pub selection_mode: SelectionMode,
+
+    pub notifications: Vec<Notification>,
 }
 
 impl Default for GameState {
@@ -168,6 +172,7 @@ impl Default for GameState {
             queued_orbits: Vec::new(),
             constellations: HashMap::new(),
             selection_mode: SelectionMode::Rect,
+            notifications: Vec::new(),
         }
     }
 }
@@ -317,13 +322,26 @@ impl GameState {
     }
 
     pub fn spawn_new(&mut self) -> Option<()> {
-        let orbit = self.left_cursor_orbit()?;
+        let orbit = self.right_cursor_orbit()?;
         self.spawn_at(&orbit)
     }
 
+    pub fn delete_orbiter(&mut self, id: ObjectId) -> Option<()> {
+        let lup = self.scenario.lup(id, self.sim_time)?;
+        let _orbiter = lup.orbiter()?;
+        let parent = lup.parent(self.sim_time)?;
+        let pv = lup.pv().pos;
+        let plup = self.scenario.lup(parent, self.sim_time)?;
+        let pvp = plup.pv().pos;
+        let pvl = pv - pvp;
+        self.scenario.remove_object(id)?;
+        self.notify(parent, NotificationType::OrbiterDeleted, pvl);
+        Some(())
+    }
+
     pub fn delete_objects(&mut self) {
-        self.track_list.iter().for_each(|i| {
-            self.scenario.remove_object(*i);
+        self.track_list.clone().into_iter().for_each(|id| {
+            self.delete_orbiter(id);
         });
     }
 
@@ -381,7 +399,7 @@ impl GameState {
             self.controllers.push(Controller::idle(id));
         }
 
-        if let Some(c) = self.controllers.iter_mut().find(|c| c.target == id) {
+        let success = if let Some(c) = self.controllers.iter_mut().find(|c| c.target == id) {
             let res = if c.is_idle() || overwrite {
                 let orbiter = self.scenario.lup(c.target(), self.sim_time)?.orbiter()?;
                 let prop = orbiter.propagator_at(self.sim_time)?;
@@ -391,96 +409,123 @@ impl GameState {
             };
             if let Err(msg) = res {
                 warn!("Failed to command {} to {}: {}", c.target, next, msg);
+                false
+            } else {
+                true
             }
+        } else {
+            false
+        };
+
+        if success {
+            self.notify(id, NotificationType::ManeuverStarted, None);
+        } else {
+            self.notify(id, NotificationType::ManeuverFailed, None);
         }
 
         Some(())
     }
+
+    pub fn notify(
+        &mut self,
+        parent: ObjectId,
+        kind: NotificationType,
+        offset: impl Into<Option<Vec2>>,
+    ) {
+        self.notifications.push(Notification {
+            parent,
+            offset: offset.into().unwrap_or(Vec2::ZERO),
+            jitter: Vec2::ZERO,
+            wall_time: self.actual_time,
+            duration: Nanotime::secs(5) + Nanotime::secs_f32(rand(0.0, 1.0)),
+            kind,
+        });
+    }
+
+    pub fn step(&mut self, time: &Time) {
+        let old_sim_time = self.sim_time;
+        self.actual_time += Nanotime::nanos(time.delta().as_nanos() as i64);
+        if !self.paused {
+            let sp = 10.0f32.powi(self.sim_speed);
+            self.sim_time += Nanotime::nanos((time.delta().as_nanos() as f32 * sp) as i64);
+        }
+
+        self.duty_cycle_high = time.elapsed().as_millis() % 1000 < 500;
+
+        let s = self.sim_time;
+        let d = self.physics_duration;
+
+        let mut man = self.planned_maneuvers(old_sim_time);
+        while let Some((id, t, dv)) = man.first() {
+            if s > *t {
+                let perturb = randvec(0.01, 0.05);
+                self.scenario.simulate(*t, d);
+                self.scenario.dv(*id, *t, dv + perturb);
+            } else {
+                break;
+            }
+            man.remove(0);
+        }
+
+        for (id, ri) in self.scenario.simulate(s, d) {
+            if let Some(pv) = ri.orbit.pv(ri.stamp).ok() {
+                self.notify(ri.parent, NotificationType::OrbiterCrashed, pv.pos);
+            }
+        }
+
+        let mut track_list = self.track_list.clone();
+        track_list.retain(|o| self.scenario.lup(*o, self.sim_time).is_some());
+        self.track_list = track_list;
+
+        let ids: Vec<_> = self.scenario.orbiter_ids().collect();
+
+        for (_, members) in &mut self.constellations {
+            members.retain(|id| ids.contains(id));
+        }
+
+        self.constellations.retain(|_, members| !members.is_empty());
+
+        let mut finished_ids = vec![];
+
+        self.controllers.retain(|c| {
+            if !ids.contains(&c.target) {
+                return false;
+            }
+            if c.is_idle() {
+                info!("Vehicle {} has idle controller", c.target);
+                return false;
+            }
+            if let Some(end) = c.plan().map(|p| p.end()) {
+                let retain = end > s;
+                if !retain {
+                    info!("Maneuver completed by vehicle {} at time {}", c.target, end);
+                    finished_ids.push(c.target);
+                }
+                retain
+            } else {
+                true
+            }
+        });
+
+        for id in finished_ids {
+            self.notify(id, NotificationType::ManeuverComplete, None);
+        }
+
+        for notif in &mut self.notifications {
+            if notif.jitter == Vec2::ZERO && rand(0.0, 1.0) < 0.004 {
+                notif.jitter = randvec(0.1, 6.0);
+            } else if notif.jitter.length() > 0.0 && rand(0.0, 1.0) < 0.04 {
+                notif.jitter = Vec2::ZERO;
+            }
+        }
+
+        self.notifications
+            .retain(|n| n.wall_time + n.duration > self.actual_time);
+    }
 }
 
-fn propagate_system(
-    time: Res<Time>,
-    mut state: ResMut<GameState>,
-    mut warnings: EventWriter<WarningEvent>,
-) {
-    let old_sim_time = state.sim_time;
-    state.actual_time += Nanotime::nanos(time.delta().as_nanos() as i64);
-    if !state.paused {
-        let sp = 10.0f32.powi(state.sim_speed);
-        state.sim_time += Nanotime::nanos((time.delta().as_nanos() as f32 * sp) as i64);
-    }
-
-    state.duty_cycle_high = time.elapsed().as_millis() % 1000 < 500;
-
-    let s = state.sim_time;
-    let d = state.physics_duration;
-
-    let mut man = state.planned_maneuvers(old_sim_time);
-    while let Some((id, t, dv)) = man.first() {
-        if s > *t {
-            let perturb = randvec(0.01, 0.05);
-            state.scenario.simulate(*t, d);
-            state.scenario.dv(*id, *t, dv + perturb);
-        } else {
-            break;
-        }
-        man.remove(0);
-    }
-
-    for (id, ri) in state.scenario.simulate(s, d) {
-        if let Some(ri) = ri {
-            info!(
-                "Object {} removed at time {:?} due to {:?}",
-                id, ri.stamp, ri.reason
-            );
-        } else {
-            info!("Object {} removed for unknown reason", id);
-        }
-    }
-
-    let mut track_list = state.track_list.clone();
-    track_list.retain(|o| state.scenario.lup(*o, state.sim_time).is_some());
-    state.track_list = track_list;
-
-    let ids: Vec<_> = state.scenario.orbiter_ids().collect();
-
-    for (_, members) in &mut state.constellations {
-        members.retain(|id| ids.contains(id));
-    }
-
-    state
-        .constellations
-        .retain(|_, members| !members.is_empty());
-
-    let mut finished_ids = vec![];
-
-    state.controllers.retain(|c| {
-        if !ids.contains(&c.target) {
-            return false;
-        }
-        if c.is_idle() {
-            info!("Vehicle {} has idle controller", c.target);
-            return false;
-        }
-        if let Some(end) = c.plan().map(|p| p.end()) {
-            let retain = end > s;
-            if !retain {
-                info!("Maneuver completed by vehicle {} at time {}", c.target, end);
-                finished_ids.push(c.target);
-            }
-            retain
-        } else {
-            true
-        }
-    });
-
-    for id in finished_ids {
-        if let Some(lup) = state.scenario.lup(id, s) {
-            let pos = lup.pv().pos;
-            let msg = WarningEvent::new(pos, "Maneuver completed");
-            warnings.send(msg);
-        }
-    }
+fn step_system(time: Res<Time>, mut state: ResMut<GameState>) {
+    state.step(&time);
 }
 
 fn sim_speed_str(speed: i32) -> String {
@@ -590,7 +635,6 @@ fn process_interaction(
     inter: &InteractionEvent,
     state: &mut GameState,
     exit: &mut EventWriter<bevy::app::AppExit>,
-    warnings: &mut EventWriter<WarningEvent>,
 ) -> Option<()> {
     match inter {
         InteractionEvent::Delete => state.delete_objects(),
@@ -611,10 +655,10 @@ fn process_interaction(
             state.queued_orbits.clear();
         }
         InteractionEvent::SimSlower => {
-            state.sim_speed = i32::clamp(state.sim_speed - 1, -10, 4);
+            state.sim_speed = i32::clamp(state.sim_speed - 1, -2, 2);
         }
         InteractionEvent::SimFaster => {
-            state.sim_speed = i32::clamp(state.sim_speed + 1, -10, 4);
+            state.sim_speed = i32::clamp(state.sim_speed + 1, -2, 2);
         }
         InteractionEvent::SimPause => {
             state.paused = !state.paused;
@@ -636,8 +680,7 @@ fn process_interaction(
             let id = state.scenario.nearest(w, state.sim_time);
             if let Some(id) = id {
                 state.follow = Some(id);
-                let msg = WarningEvent::new(w, format!("Following {}", id));
-                warnings.send(msg);
+                state.notify(id, NotificationType::Following, None);
             }
         }
         InteractionEvent::ExitApp => {
@@ -720,11 +763,10 @@ fn handle_interactions(
     mut events: EventReader<InteractionEvent>,
     mut state: ResMut<GameState>,
     mut exit: EventWriter<bevy::app::AppExit>,
-    mut warnings: EventWriter<WarningEvent>,
 ) {
     for e in events.read() {
         debug!("Interaction event: {e:?}");
-        process_interaction(e, &mut state, &mut exit, &mut warnings);
+        process_interaction(e, &mut state, &mut exit);
     }
 }
 

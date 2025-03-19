@@ -10,6 +10,7 @@ use starling::prelude::*;
 
 use crate::camera_controls::CameraState;
 use crate::mouse::MouseState;
+use crate::notifications::*;
 use crate::planetary::{GameState, ShowOrbitsState};
 
 fn draw_cross(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
@@ -585,6 +586,42 @@ fn draw_scale_indicator(gizmos: &mut Gizmos, cam: &CameraState) {
     gizmos.line_2d(u1, u2, color);
 }
 
+pub fn draw_notifications(gizmos: &mut Gizmos, state: &GameState) {
+    for notif in &state.notifications {
+        let p = match state.scenario.lup(notif.parent, state.sim_time) {
+            Some(lup) => lup.pv().pos + notif.offset + notif.jitter,
+            None => continue,
+        };
+
+        let size = 20.0 * state.camera.actual_scale;
+
+        match notif.kind {
+            NotificationType::OrbiterCrashed => {
+                draw_diamond(gizmos, p, size, RED.with_alpha(0.7));
+            }
+            NotificationType::OrbiterDeleted => {
+                draw_x(gizmos, p, size, RED.with_alpha(0.7));
+            }
+            NotificationType::ManeuverStarted => {
+                draw_diamond(gizmos, p, size, ORANGE.with_alpha(0.7));
+            }
+            NotificationType::ManeuverComplete => {
+                // TODO fix circle size
+                draw_circle(gizmos, p, size / 2.0, GREEN.with_alpha(0.7));
+            }
+            NotificationType::ManeuverFailed => {
+                draw_square(gizmos, p, size, RED);
+            }
+            NotificationType::Following => {
+                if state.duty_cycle_high {
+                    draw_circle(gizmos, p, size, ORANGE);
+                }
+            }
+            NotificationType::Generic => draw_square(gizmos, p, size, TEAL),
+        }
+    }
+}
+
 pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     let stamp = state.sim_time;
 
@@ -595,9 +632,6 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     if let Some(a) = state.selection_region() {
         draw_region(&mut gizmos, a, RED, Vec2::ZERO);
     }
-
-    // draw_aabb(&mut gizmos, state.camera.world_bounds(), TEAL);
-    // draw_aabb(&mut gizmos, state.camera.viewport_bounds(), TEAL);
 
     for p in &state.control_points() {
         draw_circle(
@@ -625,10 +659,6 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     for GlobalOrbit(parent, orbit) in &state.queued_orbits {
         draw_orbit_with_parent(*parent, orbit);
     }
-
-    // if let Some((parent, orbit)) = state.left_cursor_orbit() {
-    //     draw_orbit_with_parent(parent, &orbit);
-    // }
 
     if let Some(GlobalOrbit(parent, orbit)) = state.right_cursor_orbit() {
         draw_orbit_with_parent(parent, &orbit);
@@ -672,7 +702,11 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
 
     draw_highlighted_objects(&mut gizmos, &state);
 
-    draw_mouse_state(&state.mouse, &mut gizmos);
+    draw_notifications(&mut gizmos, &state);
+
+    if !state.hide_debug {
+        draw_mouse_state(&state.mouse, &mut gizmos);
+    }
 }
 
 fn draw_mouse_state(mouse: &MouseState, gizmos: &mut Gizmos) {

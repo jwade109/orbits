@@ -44,6 +44,12 @@ impl<'a> ObjectLookup<'a> {
         }
     }
 
+    pub fn parent(&self, stamp: Nanotime) -> Option<ObjectId> {
+        let orbiter = self.orbiter()?;
+        let prop = orbiter.propagator_at(stamp)?;
+        Some(prop.parent())
+    }
+
     pub fn body(&self) -> Option<Body> {
         match self.0 {
             ScenarioObject::Body(_, b) => Some(b),
@@ -199,7 +205,7 @@ impl Scenario {
         &mut self,
         stamp: Nanotime,
         future_dur: Nanotime,
-    ) -> Vec<(ObjectId, Option<RemovalInfo>)> {
+    ) -> Vec<(ObjectId, RemovalInfo)> {
         for obj in &mut self.orbiters {
             let e = obj.propagate_to(stamp, future_dur, &self.system);
             if let Err(_e) = e {
@@ -217,7 +223,9 @@ impl Scenario {
                     parent: p.parent(),
                     orbit: p.orbit.1,
                 });
-                info.push((o.id(), reason));
+                if let Some(reason) = reason {
+                    info.push((o.id(), reason));
+                }
                 false
             } else {
                 true
@@ -225,11 +233,6 @@ impl Scenario {
         });
 
         for (_, info) in &info {
-            let info = match info {
-                Some(info) => info,
-                None => continue,
-            };
-
             let pv = match info.pv() {
                 Some(pv) => pv,
                 None => continue,
