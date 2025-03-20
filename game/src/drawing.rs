@@ -693,7 +693,7 @@ pub fn draw_notifications(gizmos: &mut Gizmos, state: &GameState) {
                     draw_circle(gizmos, p, size, ORANGE);
                 }
             }
-            NotificationType::Generic => draw_square(gizmos, p, size, TEAL),
+            NotificationType::OrbitChanged => draw_square(gizmos, p, size, TEAL),
         }
     }
 }

@@ -373,6 +373,7 @@ impl GameState {
                 if self.scenario.dv(id, self.sim_time, dv).is_none() {
                     Some(id)
                 } else {
+                    self.notify(id, NotificationType::OrbitChanged, None);
                     None
                 }
             })
@@ -464,13 +465,14 @@ impl GameState {
                 let perturb = randvec(0.01, 0.05);
                 self.scenario.simulate(*t, d);
                 self.scenario.dv(*id, *t, dv + perturb);
+                self.notify(*id, NotificationType::OrbitChanged, None);
             } else {
                 break;
             }
             man.remove(0);
         }
 
-        for (id, ri) in self.scenario.simulate(s, d) {
+        for (_, ri) in self.scenario.simulate(s, d) {
             if let Some(pv) = ri.orbit.pv(ri.stamp).ok() {
                 self.notify(ri.parent, NotificationType::OrbiterCrashed, pv.pos);
             }

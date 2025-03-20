@@ -16,5 +16,5 @@ pub enum NotificationType {
     ManeuverComplete,
     ManeuverFailed,
     Following,
-    Generic,
+    OrbitChanged,
 }
