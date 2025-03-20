@@ -339,6 +339,43 @@ impl Propagator {
             .pos
             .length();
 
+        let pv = match self.orbit.1.pv(end).ok() {
+            Some(pv) => pv,
+            None => {
+                self.horizon = HorizonState::Terminating(end, EventType::NumericalError);
+                return Ok(());
+            }
+        };
+
+        let going_down = pv.pos.normalize_or_zero().dot(pv.vel) < 0.0;
+
+        let below_all_bodies = bodies.iter().all(|(_, orbit, soi)| {
+            let rmin = orbit.periapsis_r() - soi;
+            pv.pos.length() < rmin
+        });
+
+        let above_planet = |t: Nanotime| {
+            let pos = self.orbit.1.pv(t).unwrap_or(PV::inf()).pos;
+            pos.length() > self.orbit.1.body.radius
+        };
+
+        if self.orbit.1.is_suborbital() && going_down && below_all_bodies {
+            if let Some(tp) = self.orbit.1.t_next_p(end) {
+                if let Some(t) = search_condition(
+                    tp - Nanotime::secs(2),
+                    tp,
+                    Nanotime::millis(5),
+                    &above_planet,
+                )
+                .ok()
+                .flatten()
+                {
+                    self.horizon = HorizonState::Terminating(t, EventType::Collide(self.orbit.0));
+                    return Ok(());
+                }
+            }
+        }
+
         let might_hit_planet =
             self.orbit.1.is_suborbital() && alt < self.orbit.1.body.radius * 20.0;
         let can_escape = self.orbit.1.will_escape();
@@ -365,11 +402,6 @@ impl Propagator {
                 return Ok(());
             }
             _ => (),
-        };
-
-        let above_planet = |t: Nanotime| {
-            let pos = self.orbit.1.pv(t).unwrap_or(PV::inf()).pos;
-            pos.length() > self.orbit.1.body.radius
         };
 
         let escape_soi = |t: Nanotime| {
