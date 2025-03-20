@@ -130,6 +130,13 @@ impl OBB {
         OBB::new(AABB::new(self.0.center + d, self.0.span), self.1)
     }
 
+    pub fn aabb(&self) -> AABB {
+        match AABB::from_list(&self.corners()) {
+            Some(aabb) => aabb,
+            None => unreachable!(),
+        }
+    }
+
     pub fn corners(&self) -> [Vec2; 4] {
         let c = self.0.center;
         let mut corners = self.0.corners();

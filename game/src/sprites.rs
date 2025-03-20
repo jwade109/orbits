@@ -162,7 +162,7 @@ pub fn update_shadow_sprites(
     }
 }
 
-const SPACECRAFT_DEFAULT_SCALE: f32 = 0.015;
+const SPACECRAFT_DEFAULT_SCALE: f32 = 0.025;
 const SPACECRAFT_MAGNIFIED_SCALE: f32 = 0.06;
 const SPACECRAFT_DIMINISHED_SCALE: f32 = 0.01;
 

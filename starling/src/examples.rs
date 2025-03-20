@@ -68,7 +68,7 @@ pub fn earth_moon_example_one() -> (Scenario, ObjectIdTracker) {
         Nanotime::zero(),
     );
 
-    scenario.add_belt(AsteroidBelt::new(
+    scenario.add_belt(AsteroidBelt::from_orbits(
         earth.id,
         SparseOrbit::from_pv(
             ((300.0, 100.0), (-25.0, 150.0)),
@@ -82,6 +82,14 @@ pub fn earth_moon_example_one() -> (Scenario, ObjectIdTracker) {
             Nanotime::zero(),
         )
         .unwrap(),
+    ));
+
+    scenario.add_belt(AsteroidBelt::circular(
+        luna.id,
+        luna.body.radius * 1.2,
+        luna.body.radius * 2.5,
+        earth.body,
+        false,
     ));
 
     for _ in 0..200 {

@@ -721,9 +721,9 @@ fn generate_maneuver_plans(
     destination: &SparseOrbit,
     now: Nanotime,
 ) -> Vec<ManeuverPlan> {
-    // if current.is_retrograde() != destination.is_retrograde() {
-    //     return vec![];
-    // }
+    if current.is_retrograde() != destination.is_retrograde() {
+        return vec![];
+    }
 
     // let destination = if current.is_retrograde() == destination.is_retrograde() {
     //     *destination

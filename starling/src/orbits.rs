@@ -323,6 +323,10 @@ impl SparseOrbit {
     }
 
     pub fn pv(&self, stamp: Nanotime) -> Result<PV, ULData> {
+        self.pv_slow(stamp)
+    }
+
+    pub fn pv_slow(&self, stamp: Nanotime) -> Result<PV, ULData> {
         let tof = if let Some(p) = self.period() {
             (stamp - self.epoch) % p
         } else {
@@ -335,6 +339,21 @@ impl SparseOrbit {
             return Err(ul.0);
         }
         Ok(sol.pv.filter_numerr().ok_or(ul.0)?)
+    }
+
+    pub fn pv_fast(&self, stamp: Nanotime) -> Result<PV, ULData> {
+        let tof = if let Some(p) = self.period() {
+            (stamp - self.epoch) % p
+        } else {
+            stamp - self.epoch
+        };
+
+        let ul = ULData::new(self.initial, tof, self.body.mu());
+        let sol = ul.solve_fast().ok_or(ul)?;
+        if sol.pv.pos.length() > 3.0 * self.body.soi {
+            return Err(ul);
+        }
+        Ok(sol.pv.filter_numerr().ok_or(ul)?)
     }
 
     pub fn position_at(&self, true_anomaly: f32) -> Vec2 {

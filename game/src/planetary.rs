@@ -364,22 +364,25 @@ impl GameState {
         if self.paused {
             return Some(());
         }
-        for id in &self.track_list {
-            match self.scenario.dv(*id, self.sim_time, dv) {
-                Some(()) => (),
-                None => {
-                    if self
-                        .scenario
-                        .lup(*id, self.sim_time)
-                        .map(|lup| lup.orbiter())
-                        .flatten()
-                        .is_some()
-                    {
-                        info!("{:?} - Failed to maneuver orbiter {}", self.sim_time, id);
-                    }
+
+        let failures: Vec<_> = self
+            .track_list
+            .clone()
+            .into_iter()
+            .filter_map(|id| {
+                if self.scenario.dv(id, self.sim_time, dv).is_none() {
+                    Some(id)
+                } else {
+                    None
                 }
-            };
+            })
+            .collect();
+
+        for id in failures {
+            info!("{:?} - Failed to maneuver orbiter {}", self.sim_time, id);
+            self.notify(id, NotificationType::ManeuverFailed, None)
         }
+
         self.scenario.simulate(self.sim_time, self.physics_duration);
         Some(())
     }
@@ -697,11 +700,6 @@ fn process_interaction(
                 state.track_list.clear();
             } else if !state.queued_orbits.is_empty() {
                 state.queued_orbits.clear();
-            } else {
-                for _ in 0..10 {
-                    let global = state.scenario.belts[0].random_global(state.sim_time)?;
-                    state.spawn_at(&global);
-                }
             }
         }
         InteractionEvent::Restore => {

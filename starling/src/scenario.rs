@@ -157,7 +157,7 @@ pub struct Scenario {
     orbiters: Vec<Orbiter>,
     system: PlanetarySystem,
     debris: Vec<GlobalOrbit>,
-    pub belts: Vec<AsteroidBelt>,
+    belts: Vec<AsteroidBelt>,
 }
 
 impl Scenario {

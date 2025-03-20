@@ -68,8 +68,8 @@ fn draw_region(gizmos: &mut Gizmos, region: Region, color: Srgba, origin: Vec2) 
             draw_orbit(gizmos, &b, origin, color);
             for angle in linspace(0.0, 2.0 * PI, 40) {
                 let u = rotate(Vec2::X, angle);
-                let p1 = u * a.radius_at_angle(angle);
-                let p2 = u * b.radius_at_angle(angle);
+                let p1 = origin + u * a.radius_at_angle(angle);
+                let p2 = origin + u * b.radius_at_angle(angle);
                 gizmos.line_2d(p1, p2, color.with_alpha(color.alpha * 0.2));
             }
         }
@@ -613,7 +613,7 @@ pub fn draw_counter(gizmos: &mut Gizmos, val: u64, pos: Vec2, scale: f32, color:
 
 fn draw_belt_orbits(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let cursor_orbit = state.right_cursor_orbit();
-    for belt in &state.scenario.belts {
+    for belt in state.scenario.belts() {
         let lup = match state.scenario.lup(belt.parent(), state.sim_time) {
             Some(lup) => lup,
             None => continue,
@@ -647,7 +647,17 @@ fn draw_belt_orbits(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
             })
             .sum();
 
-        draw_counter(gizmos, count, origin, state.camera.actual_scale, WHITE);
+        let (_, corner) = belt.position(0.8);
+
+        if state.camera.actual_scale < 2.0 {
+            draw_counter(
+                gizmos,
+                count,
+                origin + corner * 1.1,
+                state.camera.actual_scale,
+                WHITE,
+            );
+        }
     }
     Some(())
 }
