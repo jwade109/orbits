@@ -64,12 +64,14 @@ impl MouseState {
 pub fn update_mouse_state(
     win: Single<&Window>,
     buttons: Res<ButtonInput<MouseButton>>,
-    camera: Single<&Transform, With<Camera2d>>,
+    camera: Query<&Transform, With<Camera2d>>,
     mut state: ResMut<GameState>,
     mut events: EventWriter<InteractionEvent>,
     time: Res<Time>,
 ) {
     let dims = Vec2::new(win.width(), win.height());
+
+    let camera = camera.iter().next().unwrap();
 
     state.mouse.viewport_bounds = AABB::new(dims / 2.0, dims);
     state.mouse.world_bounds = AABB::new(camera.translation.xy(), dims * camera.scale.z);

@@ -1,6 +1,7 @@
 use crate::planetary::GameState;
 use bevy::asset::embedded_asset;
 use bevy::prelude::*;
+use bevy::render::view::RenderLayers;
 use starling::prelude::*;
 
 pub struct SpritePlugin;
@@ -78,11 +79,15 @@ pub fn make_new_sprites(
                 let path = format!("embedded://game/../assets/{}.png", name);
                 println!("Adding sprite for {} at {}", name, path);
                 let sprite = Sprite::from_image(asset_server.load(path));
-                commands.spawn((PlanetTexture(id, name.clone()), sprite));
+                commands.spawn((
+                    PlanetTexture(id, name.clone()),
+                    sprite,
+                    RenderLayers::layer(1),
+                ));
 
                 let sprite =
                     Sprite::from_image(asset_server.load("embedded://game/../assets/shadow.png"));
-                commands.spawn((ShadowTexture(id), sprite));
+                commands.spawn((ShadowTexture(id), sprite, RenderLayers::layer(1)));
             }
         }
     }
@@ -94,7 +99,12 @@ pub fn make_new_sprites(
         let path = "embedded://game/../assets/spacecraft.png";
         let sprite = Sprite::from_image(asset_server.load(path));
         let tf = Transform::from_scale(Vec3::ZERO);
-        commands.spawn((tf, SpacecraftTexture(id, 0.0), sprite));
+        commands.spawn((
+            tf,
+            SpacecraftTexture(id, 0.0),
+            sprite,
+            RenderLayers::layer(1),
+        ));
     }
 }
 

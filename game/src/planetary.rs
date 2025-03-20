@@ -5,6 +5,7 @@ use crate::ui::InteractionEvent;
 use crate::warnings::WarningEvent;
 use bevy::core_pipeline::bloom::Bloom;
 use bevy::prelude::*;
+use bevy::render::view::RenderLayers;
 use starling::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::ops::DerefMut;
@@ -15,6 +16,9 @@ impl Plugin for PlanetaryPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, init_system);
         app.add_systems(Update, log_system_info);
+
+        app.init_gizmo_group::<crate::drawing::BelowShadowGizmoConfigGroup>();
+        app.init_gizmo_group::<crate::drawing::AboveShadowGizmoConfigGroup>();
 
         app.add_systems(
             Update,
@@ -37,6 +41,7 @@ impl Plugin for PlanetaryPlugin {
                 crate::sprites::update_shadow_sprites,
                 crate::sprites::update_background_sprite,
                 crate::sprites::update_spacecraft_sprites,
+                crate::drawing::update_gizmo_settings,
                 crate::drawing::draw_game_state,
             )
                 .chain(),
@@ -53,34 +58,56 @@ fn init_system(mut commands: Commands) {
         Camera2d,
         Camera {
             hdr: true,
+            order: 0,
             ..default()
         },
-        SoftController::default(),
+        RenderLayers::from_layers(&[0]),
+    ));
+    commands.spawn((
+        Camera2d,
+        Camera {
+            hdr: true,
+            order: 1,
+            ..default()
+        },
         Bloom {
             intensity: 0.5,
             ..Bloom::OLD_SCHOOL
         },
+        RenderLayers::from_layers(&[1]),
     ));
+    commands.spawn((
+        Camera2d,
+        Camera {
+            hdr: true,
+            order: 2,
+            ..default()
+        },
+        RenderLayers::from_layers(&[2]),
+    ));
+    commands.spawn(SoftController::default());
 }
 
 fn move_camera_and_store(
-    mut query: Single<(&SoftController, &mut Transform)>,
+    ctrl: Single<&SoftController>,
+    mut query: Query<&mut Transform, With<Camera2d>>,
     window: Single<&Window>,
     mut state: ResMut<GameState>,
 ) {
-    let (ctrl, ref mut tf) = query.deref_mut();
-    let target = ctrl.0;
-    let current = tf.clone();
-    tf.translation += (target.translation - current.translation) * 1.0;
-    tf.scale += (target.scale - current.scale) * 1.0;
+    for mut tf in query.iter_mut() {
+        let target = ctrl.0;
+        let current = tf.clone();
+        tf.translation += (target.translation - current.translation) * 1.0;
+        tf.scale += (target.scale - current.scale) * 1.0;
 
-    state.camera.actual_scale = tf.scale.z;
-    state.camera.world_center = tf.translation.xy();
-    state.camera.window_dims = Vec2::new(window.width(), window.height());
+        state.camera.actual_scale = tf.scale.z;
+        state.camera.world_center = tf.translation.xy();
+        state.camera.window_dims = Vec2::new(window.width(), window.height());
 
-    state.mouse.viewport_bounds = state.camera.viewport_bounds();
-    state.mouse.world_bounds = state.camera.world_bounds();
-    state.mouse.scale = tf.scale.z;
+        state.mouse.viewport_bounds = state.camera.viewport_bounds();
+        state.mouse.world_bounds = state.camera.world_bounds();
+        state.mouse.scale = tf.scale.z;
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -730,18 +757,10 @@ fn handle_interactions(
 
 fn handle_camera_interactions(
     mut events: EventReader<InteractionEvent>,
-    mut query: Query<&mut SoftController>,
+    mut ctrl: Single<&mut SoftController>,
     state: Res<GameState>,
     time: Res<Time>,
 ) {
-    let mut ctrl = match query.get_single_mut() {
-        Ok(c) => c,
-        Err(e) => {
-            error!("{:?}", e);
-            return;
-        }
-    };
-
     let cursor_delta = 1400.0 * time.delta_secs() * ctrl.0.scale.z;
     let scale_scalar = 1.5;
 

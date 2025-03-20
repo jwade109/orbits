@@ -322,6 +322,22 @@ impl SparseOrbit {
         self.period().unwrap_or(fallback)
     }
 
+    pub fn pv_fast(&self, stamp: Nanotime) -> Result<PV, ULData> {
+        let tof = if let Some(p) = self.period() {
+            (stamp - self.epoch) % p
+        } else {
+            stamp - self.epoch
+        };
+
+        let ul = ULData::new(self.initial, tof, self.body.mu());
+        let ul = (ul, ul.solve_fast());
+        let sol = ul.1.ok_or(ul.0)?;
+        if sol.pv.pos.length() > 3.0 * self.body.soi {
+            return Err(ul.0);
+        }
+        Ok(sol.pv.filter_numerr().ok_or(ul.0)?)
+    }
+
     pub fn pv(&self, stamp: Nanotime) -> Result<PV, ULData> {
         let tof = if let Some(p) = self.period() {
             (stamp - self.epoch) % p

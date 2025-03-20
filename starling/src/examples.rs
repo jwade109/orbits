@@ -71,13 +71,13 @@ pub fn earth_moon_example_one() -> (Scenario, ObjectIdTracker) {
     scenario.add_belt(AsteroidBelt::new(
         earth.id,
         SparseOrbit::from_pv(
-            ((300.0, 100.0), (-25.0, 150.0)),
+            ((300.0, 0.0), (0.0, 200.0)),
             earth.body,
             Nanotime::zero(),
         )
         .unwrap(),
         SparseOrbit::from_pv(
-            ((500.0, 120.0), (-20.0, 135.0)),
+            ((500.0, 0.0), (0.0, 160.0)),
             earth.body,
             Nanotime::zero(),
         )

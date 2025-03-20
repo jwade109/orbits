@@ -38,6 +38,11 @@ impl AsteroidBelt {
         )
     }
 
+    pub fn radius_at(&self, angle: f32, s: f32) -> f32 {
+        let (rmin, rmax) = self.radius(angle);
+        rmin.lerp(rmax, s)
+    }
+
     pub fn random_radius(&self, angle: f32) -> f32 {
         let (rmin, rmax) = self.radius(angle);
         let s = rand(0.0, 1.0);
@@ -50,17 +55,17 @@ impl AsteroidBelt {
         rotate(Vec2::X, angle) * r
     }
 
-    pub fn apoapsis(&self, s: f32) -> (f32, f32) {
+    pub fn apoapsis(&self, s: f32) -> (f32, f32, f32) {
         let a1 = self.inner.apoapsis();
         let a2 = self.outer.apoapsis();
         let p = a1.lerp(a2, s);
         let angle = Vec2::X.angle_to(p);
-        (p.length(), angle)
+        (p.length(), angle, s)
     }
 
     pub fn random_orbit(&self, epoch: Nanotime) -> Option<SparseOrbit> {
-        let (r1, argp) = self.apoapsis(rand(0.0, 1.0));
-        let r2 = self.random_radius(argp + PI);
+        let (r1, argp, s) = self.apoapsis(rand(0.0, 1.0));
+        let r2 = self.radius_at(argp + PI, s);
         let (argp, rp, ra) = if r1 < r2 {
             (argp, r1, r2)
         } else {

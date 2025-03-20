@@ -178,9 +178,14 @@ impl Propagator {
     }
 
     pub fn pv(&self, stamp: Nanotime) -> Option<PV> {
-        self.is_active(stamp)
-            .then(|| self.orbit.1.pv(stamp).ok())
-            .flatten()
+        if !self.is_active(stamp) {
+            return None;
+        }
+
+        match self.horizon {
+            HorizonState::Indefinite => self.orbit.1.pv(stamp).ok(),
+            _ => self.orbit.1.pv(stamp).ok(),
+        }
     }
 
     pub(crate) fn is_active(&self, stamp: Nanotime) -> bool {
