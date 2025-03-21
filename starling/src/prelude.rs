@@ -9,7 +9,7 @@ pub use crate::file_export::export_orbit_data;
 pub use crate::math::{apply, linspace, rand, randvec, rotate, PI};
 pub use crate::nanotime::Nanotime;
 pub use crate::orbiter::{GroupId, ObjectId, Orbiter};
-pub use crate::orbits::{hyperbolic_range_ta, Body, GlobalOrbit, SparseOrbit};
+pub use crate::orbits::{hyperbolic_range_ta, Body, DenseOrbit, GlobalOrbit, SparseOrbit};
 pub use crate::planning::{best_maneuver_plan, EventType, HorizonState, ManeuverPlan, Propagator};
 pub use crate::pv::PV;
 pub use crate::region::Region;

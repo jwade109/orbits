@@ -454,7 +454,7 @@ fn draw_maneuver_plan(
 ) -> Option<()> {
     let color = YELLOW;
     for segment in &plan.segments {
-        gizmos.linestrip_2d(segment.orbit.line(stamp, origin), color);
+        gizmos.linestrip_2d(segment.orbit.line(stamp, origin).ok()?, color);
         if segment.end > stamp {
             let pv = plan.pv(segment.end)?;
             draw_diamond(gizmos, origin + pv.pos, 10.0 * scale, color);
@@ -670,32 +670,44 @@ pub fn draw_notifications(gizmos: &mut Gizmos, state: &GameState) {
         };
 
         let size = 20.0 * state.camera.actual_scale;
+        let s = (state.actual_time - notif.wall_time).to_secs() / notif.duration().to_secs();
+        let a = (1.0 - 2.0 * s).max(0.2);
 
         match notif.kind {
-            NotificationType::OrbiterCrashed => {
-                draw_diamond(gizmos, p, size, RED.with_alpha(0.7));
+            NotificationType::OrbiterCrashed(_) => {
+                draw_diamond(gizmos, p, size, RED.with_alpha(a));
             }
-            NotificationType::OrbiterDeleted => {
-                draw_x(gizmos, p, size, RED.with_alpha(0.7));
+            NotificationType::OrbiterDeleted(_) => {
+                draw_x(gizmos, p, size, RED.with_alpha(a));
             }
-            NotificationType::ManeuverStarted => {
-                draw_diamond(gizmos, p, size, ORANGE.with_alpha(0.7));
+            NotificationType::ManeuverStarted(_) => {
+                draw_diamond(gizmos, p, size, ORANGE.with_alpha(a));
             }
-            NotificationType::ManeuverComplete => {
+            NotificationType::ManeuverComplete(_) => {
                 // TODO fix circle size
-                draw_circle(gizmos, p, size / 2.0, GREEN.with_alpha(0.7));
+                draw_circle(gizmos, p, size / 2.0, GREEN.with_alpha(a));
             }
-            NotificationType::ManeuverFailed => {
-                draw_square(gizmos, p, size, RED);
+            NotificationType::ManeuverFailed(_) => {
+                draw_square(gizmos, p, size, RED.with_alpha(a));
             }
-            NotificationType::Following => {
-                if state.duty_cycle_high {
-                    draw_circle(gizmos, p, size, ORANGE);
-                }
+            NotificationType::Following(_) => {
+                let a = 0.7 * (1.0 - s);
+                let size = 2.0 * size * (1.0 - s);
+                draw_circle(gizmos, p, size, ORANGE.with_alpha(a));
             }
-            NotificationType::OrbitChanged => draw_square(gizmos, p, size, TEAL),
+            NotificationType::OrbitChanged(_) => draw_square(gizmos, p, size, TEAL.with_alpha(a)),
         }
     }
+}
+
+pub fn draw_orbit_spline(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
+    let orbit = state.right_cursor_orbit()?;
+    let sparse = orbit.1;
+    let origin = state.scenario.lup(orbit.0, state.sim_time)?.pv().pos;
+    let dense = DenseOrbit::new(&sparse).ok()?;
+
+    gizmos.linestrip_2d(dense.all(origin)?, ORANGE);
+    Some(())
 }
 
 pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
@@ -704,6 +716,8 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     draw_scale_indicator(&mut gizmos, &state.camera);
 
     draw_timeline(&mut gizmos, &state);
+
+    draw_orbit_spline(&mut gizmos, &state);
 
     if let Some(a) = state.selection_region() {
         draw_region(&mut gizmos, a, RED, Vec2::ZERO);

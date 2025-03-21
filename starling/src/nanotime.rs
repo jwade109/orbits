@@ -57,6 +57,10 @@ impl Nanotime {
         self.0
     }
 
+    pub fn abs(&self) -> Self {
+        Self(self.0.abs())
+    }
+
     pub fn to_date(&self) -> Date {
         let div = |rem: i64, denom: i64| (rem / denom, rem % denom);
 

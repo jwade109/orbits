@@ -335,7 +335,7 @@ impl GameState {
         let pvp = plup.pv().pos;
         let pvl = pv - pvp;
         self.scenario.remove_object(id)?;
-        self.notify(parent, NotificationType::OrbiterDeleted, pvl);
+        self.notify(parent, NotificationType::OrbiterDeleted(id), pvl);
         Some(())
     }
 
@@ -373,7 +373,7 @@ impl GameState {
                 if self.scenario.dv(id, self.sim_time, dv).is_none() {
                     Some(id)
                 } else {
-                    self.notify(id, NotificationType::OrbitChanged, None);
+                    self.notify(id, NotificationType::OrbitChanged(id), None);
                     None
                 }
             })
@@ -381,7 +381,7 @@ impl GameState {
 
         for id in failures {
             info!("{:?} - Failed to maneuver orbiter {}", self.sim_time, id);
-            self.notify(id, NotificationType::ManeuverFailed, None)
+            self.notify(id, NotificationType::ManeuverFailed(id), None)
         }
 
         self.scenario.simulate(self.sim_time, self.physics_duration);
@@ -422,9 +422,9 @@ impl GameState {
         };
 
         if success {
-            self.notify(id, NotificationType::ManeuverStarted, None);
+            self.notify(id, NotificationType::ManeuverStarted(id), None);
         } else {
-            self.notify(id, NotificationType::ManeuverFailed, None);
+            self.notify(id, NotificationType::ManeuverFailed(id), None);
         }
 
         Some(())
@@ -436,14 +436,20 @@ impl GameState {
         kind: NotificationType,
         offset: impl Into<Option<Vec2>>,
     ) {
-        self.notifications.push(Notification {
+        let notif = Notification {
             parent,
             offset: offset.into().unwrap_or(Vec2::ZERO),
             jitter: Vec2::ZERO,
             wall_time: self.actual_time,
-            duration: Nanotime::secs(5) + Nanotime::secs_f32(rand(0.0, 1.0)),
+            extra_time: Nanotime::secs_f32(rand(0.0, 1.0)),
             kind,
-        });
+        };
+
+        if self.notifications.iter().any(|e| notif.is_duplicate(e)) {
+            return;
+        }
+
+        self.notifications.push(notif);
     }
 
     pub fn step(&mut self, time: &Time) {
@@ -465,16 +471,16 @@ impl GameState {
                 let perturb = randvec(0.01, 0.05);
                 self.scenario.simulate(*t, d);
                 self.scenario.dv(*id, *t, dv + perturb);
-                self.notify(*id, NotificationType::OrbitChanged, None);
+                self.notify(*id, NotificationType::OrbitChanged(*id), None);
             } else {
                 break;
             }
             man.remove(0);
         }
 
-        for (_, ri) in self.scenario.simulate(s, d) {
+        for (id, ri) in self.scenario.simulate(s, d) {
             if let Some(pv) = ri.orbit.pv(ri.stamp).ok() {
-                self.notify(ri.parent, NotificationType::OrbiterCrashed, pv.pos);
+                self.notify(ri.parent, NotificationType::OrbiterCrashed(id), pv.pos);
             }
         }
 
@@ -513,7 +519,7 @@ impl GameState {
         });
 
         for id in finished_ids {
-            self.notify(id, NotificationType::ManeuverComplete, None);
+            self.notify(id, NotificationType::ManeuverComplete(id), None);
         }
 
         for notif in &mut self.notifications {
@@ -525,7 +531,7 @@ impl GameState {
         }
 
         self.notifications
-            .retain(|n| n.wall_time + n.duration > self.actual_time);
+            .retain(|n| n.wall_time + n.duration() > self.actual_time);
     }
 }
 
@@ -685,7 +691,7 @@ fn process_interaction(
             let id = state.scenario.nearest(w, state.sim_time);
             if let Some(id) = id {
                 state.follow = Some(id);
-                state.notify(id, NotificationType::Following, None);
+                state.notify(id, NotificationType::Following(id), None);
             }
         }
         InteractionEvent::ExitApp => {

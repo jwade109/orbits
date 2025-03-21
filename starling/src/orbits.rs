@@ -297,6 +297,17 @@ impl SparseOrbit {
         PV::new(pos, vel)
     }
 
+    // TODO make this less stupid. should be able to compute
+    // true anomaly more directly, and maybe without fallibility
+    pub fn ta_at_time(&self, stamp: Nanotime) -> Option<f32> {
+        let p = self.pv(stamp).ok()?;
+        if self.is_retrograde() {
+            Some(-p.pos.to_angle() - self.arg_periapsis)
+        } else {
+            Some(p.pos.to_angle() - self.arg_periapsis)
+        }
+    }
+
     pub fn radius_at(&self, true_anomaly: f32) -> f32 {
         if self.eccentricity == 1.0 {
             let mu = self.body.mu();
@@ -820,25 +831,47 @@ pub struct DenseOrbit {
     orbit: SparseOrbit,
     start: Nanotime,
     end: Nanotime,
-    spline: Spline<f32, Vec2>,
+    spline: Spline<f32, f32>,
 }
 
 impl DenseOrbit {
-    pub fn in_range(orbit: &SparseOrbit, start: Nanotime, end: Nanotime) -> Option<Self> {
-        let buffer_dur = Nanotime::secs(2);
-        let mut t = start - buffer_dur;
-        let dist = 50.0;
+    pub fn new(orbit: &SparseOrbit) -> Result<Self, &'static str> {
+        let sample_space = match orbit.class() {
+            OrbitClass::Circular => linspace(0.0, 1.0, 9),
+            OrbitClass::NearCircular => linspace(0.0, 1.0, 15),
+            OrbitClass::Elliptical => linspace(0.0, 1.0, 20),
+            OrbitClass::HighlyElliptical => linspace(0.0, 1.0, 30),
+            OrbitClass::Parabolic => return Err("Parabolic"),
+            OrbitClass::Hyperbolic => return Err("Hyperbolic"),
+            OrbitClass::VeryThin => return Err("Too thin"),
+        };
+
+        let period = orbit.period().ok_or("No period")?;
+        let start = orbit.epoch - period / 4;
+        let end = start + period * 5 / 4;
         let mut samples = vec![];
-        while t < end + buffer_dur {
-            let pv = orbit.pv(t).ok()?;
-            let dt = dist / pv.vel.length();
-            samples.push(((t - start).to_secs(), pv.pos));
-            t += Nanotime::secs_f32(dt);
+        let mut prev = None;
+
+        let mut wrap_monotonic = |ta: f32| {
+            let mut ta = ta;
+            if let Some(prev) = prev {
+                while prev > ta {
+                    ta += PI * 2.0;
+                }
+            }
+            prev = Some(ta);
+            ta
+        };
+
+        for s in sample_space {
+            let t = start + (end - start) * s;
+            let ta = orbit.ta_at_time(t).ok_or("Bad true anomaly")?;
+            let ta = wrap_monotonic(ta);
+            samples.push(((t - start).to_secs(), ta));
         }
-        samples.push(((end - start).to_secs(), orbit.pv(end).ok()?.pos));
 
         let mut keys = vec![];
-        for (i, (dt, pos)) in samples.iter().enumerate() {
+        for (i, (dt, ta)) in samples.iter().enumerate() {
             let interp = if i == 0 {
                 Interpolation::Linear
             } else if i + 2 < samples.len() {
@@ -846,11 +879,53 @@ impl DenseOrbit {
             } else {
                 Interpolation::Linear
             };
-            let key = Key::new(*dt, *pos, interp);
+            let key = Key::new(*dt, *ta, interp);
             keys.push(key);
         }
 
-        let spline = Spline::<f32, Vec2>::from_vec(keys);
+        let spline = Spline::<f32, f32>::from_vec(keys);
+
+        Ok(Self {
+            orbit: *orbit,
+            start,
+            end,
+            spline,
+        })
+    }
+
+    pub fn in_range(orbit: &SparseOrbit, start: Nanotime, end: Nanotime) -> Option<Self> {
+        let buffer_dur = Nanotime::secs(2);
+        let mut t = start - buffer_dur;
+        let dt = orbit.period()? / 8;
+        let mut samples = vec![];
+        let mut prev = None;
+        while t < end + buffer_dur {
+            let mut ta = orbit.ta_at_time(t)?;
+            if let Some(prev) = prev {
+                while prev > ta {
+                    ta += PI * 2.0;
+                }
+            }
+            prev = Some(ta);
+            samples.push(((t - start).to_secs(), ta));
+            t += dt;
+        }
+        samples.push(((end - start).to_secs(), orbit.ta_at_time(end)?));
+
+        let mut keys = vec![];
+        for (i, (dt, ta)) in samples.iter().enumerate() {
+            let interp = if i == 0 {
+                Interpolation::Linear
+            } else if i + 2 < samples.len() {
+                Interpolation::CatmullRom
+            } else {
+                Interpolation::Linear
+            };
+            let key = Key::new(*dt, *ta, interp);
+            keys.push(key);
+        }
+
+        let spline = Spline::<f32, f32>::from_vec(keys);
 
         Some(Self {
             orbit: *orbit,
@@ -864,7 +939,7 @@ impl DenseOrbit {
         &self.orbit
     }
 
-    fn sample(&self, t: Nanotime) -> Option<Vec2> {
+    fn sample(&self, t: Nanotime) -> Option<f32> {
         if t > self.end || t < self.start {
             return None;
         }
@@ -872,7 +947,29 @@ impl DenseOrbit {
         self.spline.clamped_sample(dt.to_secs())
     }
 
-    pub fn line(&self, now: Nanotime, origin: Vec2) -> Vec<Vec2> {
+    pub fn all(&self, origin: Vec2) -> Option<Vec<Vec2>> {
+        // tspace(self.start, self.end, 100)
+        //     .into_iter()
+        //     .map(|t| -> Option<Vec2> {
+        //         let ta = self.sample(t)?;
+        //         let p = self.orbit.position_at(ta);
+        //         Some(origin + p)
+        //     })
+        //     .collect()
+
+        self.spline
+            .keys()
+            .iter()
+            .enumerate()
+            .map(|(i, k)| {
+                let p = self.orbit.position_at(k.value);
+                let u = p.normalize_or_zero();
+                Some(origin + p + i as f32 * u * self.orbit.semi_major_axis / 100.0)
+            })
+            .collect()
+    }
+
+    pub fn line(&self, now: Nanotime, origin: Vec2) -> Result<Vec<Vec2>, &'static str> {
         assert!(self.sample(self.start).is_some());
         assert!(self.sample(self.end).is_some());
 
@@ -881,17 +978,19 @@ impl DenseOrbit {
         let mut points = vec![];
 
         let mut add_point = |t: Nanotime| -> Option<()> {
-            points.push(origin + self.sample(t)?);
+            let ta = self.sample(t)?;
+            let pos = self.orbit.position_at(ta);
+            points.push(origin + pos);
             Some(())
         };
 
         while t > now && t > self.start {
-            add_point(t);
+            add_point(t).ok_or("Bad position")?;
             t -= timestep;
         }
 
-        add_point(self.start.max(now));
-        points
+        add_point(self.start.max(now)).ok_or("Bad position")?;
+        Ok(points)
     }
 }
 
@@ -1040,6 +1139,20 @@ mod tests {
             let tol = Nanotime::secs(1);
             assert_le!(min - tol, period, "Period too small: {:?}", orbit);
             assert_ge!(max + tol, period, "Period too big: {:?}", orbit);
+        }
+
+        if !orbit.is_hyperbolic() {
+            for millis in (0..20000).step_by(100) {
+                let t = orbit.epoch + Nanotime::millis(millis);
+                let ta = orbit.ta_at_time(t).unwrap();
+                let p1 = orbit.position_at(ta);
+                let p2 = orbit.pv(t).unwrap().pos;
+                assert_le!(p1.distance(p2), 0.1);
+            }
+        }
+
+        if let Some(t) = orbit.t_next_p(orbit.epoch) {
+            assert_le!(orbit.ta_at_time(t).unwrap(), 1E-3);
         }
 
         assert_eq!(orbit.class(), class);
