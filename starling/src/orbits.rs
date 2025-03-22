@@ -16,6 +16,20 @@ pub fn wrap_pi_npi(x: f32) -> f32 {
     f32::atan2(x.sin(), x.cos())
 }
 
+pub fn wrap_0_2pi(x: f32) -> f32 {
+    let twopi = 2.0 * PI;
+    x - twopi * (x / twopi).floor()
+}
+
+#[test]
+fn wrapping() {
+    assert_eq!(wrap_0_2pi(-PI), PI);
+    assert_eq!(wrap_0_2pi(0.0), 0.0);
+    assert_eq!(wrap_0_2pi(2.0 * PI), 0.0);
+    assert_eq!(wrap_0_2pi(PI), PI);
+    assert!((wrap_0_2pi(3.0 * PI) - PI).abs() < 0.001);
+}
+
 #[derive(Debug, Clone, Copy)]
 enum Anomaly {
     Elliptical(f32),
@@ -406,6 +420,13 @@ impl SparseOrbit {
 
     pub fn mean_motion(&self) -> f32 {
         (self.body.mu() / self.semi_major_axis.abs().powi(3)).sqrt()
+    }
+
+    pub fn mean_anomaly(&self, stamp: Nanotime) -> Option<f32> {
+        let period = self.period()?;
+        let tp = self.t_next_p(stamp)? - period;
+        let dt = stamp - tp;
+        Some(2.0 * PI * dt.to_secs() / period.to_secs())
     }
 
     pub fn orbit_number(&self, stamp: Nanotime) -> Option<i64> {
@@ -854,7 +875,7 @@ impl DenseOrbit {
             OrbitClass::NearCircular => 20,
             OrbitClass::Circular => 15,
             OrbitClass::Elliptical => 100,
-            OrbitClass::HighlyElliptical => 200,
+            OrbitClass::HighlyElliptical => 1000,
             OrbitClass::Parabolic => return Err("Parabolic"),
             OrbitClass::Hyperbolic => return Err("Hyperbolic"),
             OrbitClass::VeryThin => return Err("Too thin"),
@@ -954,6 +975,15 @@ impl DenseOrbit {
 
     pub fn sparse(&self) -> &SparseOrbit {
         &self.orbit
+    }
+
+    pub fn sample_normalized(&self, s: f32) -> f32 {
+        let ta = match self.spline.sample(s) {
+            Some(s) => s,
+            None => unreachable!(),
+        };
+
+        wrap_pi_npi(ta)
     }
 
     pub fn sample(&self, t: Nanotime) -> f32 {

@@ -4,6 +4,7 @@ mod camera_controls;
 mod debug;
 mod drawing;
 mod egui;
+mod graph;
 mod keybindings;
 mod mouse;
 mod notifications;

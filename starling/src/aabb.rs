@@ -24,7 +24,7 @@ impl AABB {
         let p0 = plist.get(0)?;
         let mut ret = AABB::new(*p0, Vec2::ZERO);
         for p in plist {
-            ret.include(*p)
+            ret.include(p)
         }
         Some(ret)
     }
@@ -39,7 +39,7 @@ impl AABB {
         AABB::new(self.center, self.span + d)
     }
 
-    pub fn include(&mut self, p: Vec2) {
+    pub fn include(&mut self, p: &Vec2) {
         let mut min = self.center - self.span / 2.0;
         let mut max = self.center + self.span / 2.0;
         min.x = min.x.min(p.x);

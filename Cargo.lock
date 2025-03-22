@@ -4758,6 +4758,7 @@ dependencies = [
  "criterion",
  "csv",
  "glam",
+ "lazy_static",
  "more-asserts",
  "rand",
  "rootfinder",
