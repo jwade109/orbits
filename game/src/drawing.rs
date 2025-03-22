@@ -707,7 +707,21 @@ fn draw_graph(gizmos: &mut Gizmos, graph: &Graph, state: &GameState) -> Option<(
             .points()
             .map(|p| state.camera.world_bounds().from_normalized(p))
             .collect::<Vec<_>>();
-        gizmos.linestrip_2d(p, signal.color());
+
+        let (draw_line, draw_points) = match signal.line() {
+            LineType::Both => (true, true),
+            LineType::Points => (false, true),
+            LineType::Line => (true, false),
+        };
+
+        if draw_points {
+            for p in &p {
+                draw_cross(gizmos, *p, 3.0 * state.camera.actual_scale, signal.color());
+            }
+        }
+        if draw_line {
+            gizmos.linestrip_2d(p, signal.color());
+        }
     }
     Some(())
 }
@@ -726,31 +740,36 @@ pub fn draw_orbit_spline(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let period = sparse.period()?;
     let tp = sparse.t_next_p(sparse.epoch)?;
 
-    let t = tspace(tp, tp + period, 500);
+    let n_samples: usize = 1000;
+
+    let t = tspace(tp, tp + period / 2, n_samples);
 
     let x = apply(&t, |t| (t - tp).to_secs() / period.to_secs());
     let y1 = apply(&t, |t| sparse.ta_at_time(t).unwrap());
     let y2 = apply(&t, |t| dense.sample(t));
 
-    let ma = linspace(0.0, 1.0, 300);
+    let ma = linspace(0.0, 0.5, n_samples);
     let ta = apply(&ma, |s| {
         starling::orbital_luts::lookup_ta_from_ma(s * 2.0 * PI, sparse.ecc())
     });
 
     let mut graph = Graph::new();
 
-    graph.add_xy(&x, &y1, RED);
-    graph.add_xy(&x, &y2, GREEN);
-    graph.add_xy(&ma, &ta, YELLOW.with_alpha(0.5));
+    graph.add_xy(&x, &y1, RED, LineType::Line);
+    graph.add_xy(&x, &y2, GREEN, LineType::Line);
+    graph.add_xy(&ma, &ta, YELLOW.with_alpha(0.5), LineType::Points);
 
-    for (e, (x, y)) in starling::orbital_luts::BIG_ORBITS.iter() {
-        graph.add_xy(&x, &y, BLUE.with_alpha(0.3));
+    for (_, y) in starling::orbital_luts::BIG_ORBITS.iter() {
+        let x = linspace(0.0, 1.0, y.len());
+        let (xf, yf) = x
+            .iter()
+            .zip(y.iter())
+            .filter(|(x, _)| **x <= 0.5)
+            .collect::<(Vec<f32>, Vec<f32>)>();
+        graph.add_xy(&xf, &yf, BLUE.with_alpha(0.3), LineType::Line);
     }
 
     draw_graph(gizmos, &graph, state);
-
-    // draw_plot(gizmos, state, &x, &y1, RED);
-    // draw_plot(gizmos, state, &x, &y2, GREEN);
 
     Some(())
 }

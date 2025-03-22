@@ -59,7 +59,7 @@ pub fn linspace(a: f32, b: f32, n: usize) -> Vec<f32> {
         .collect()
 }
 
-pub fn tspace(start: Nanotime, end: Nanotime, nsamples: u32) -> Vec<Nanotime> {
+pub fn tspace(start: Nanotime, end: Nanotime, nsamples: usize) -> Vec<Nanotime> {
     (0..nsamples)
         .map(|i| start.lerp(end, i as f32 / (nsamples - 1) as f32))
         .collect()
