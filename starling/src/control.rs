@@ -43,13 +43,13 @@ impl Controller {
         destination: &GlobalOrbit,
         now: Nanotime,
     ) -> Result<(), &'static str> {
-        if current.0 != destination.0 {
+        if current.parent() != destination.parent() {
             return Err("Orbits have different parents");
         }
-        let plan =
-            best_maneuver_plan(&current.1, &destination.1, now).ok_or("Failed to plan maneuver")?;
+        let plan = best_maneuver_plan(current.sparse(), destination.sparse(), now)
+            .ok_or("Failed to plan maneuver")?;
         self.state = ControllerState::Planned {
-            parent: current.0,
+            parent: current.parent(),
             plan,
         };
         Ok(())
@@ -57,12 +57,12 @@ impl Controller {
 
     pub fn enqueue(&mut self, destination: &GlobalOrbit) -> Result<(), &'static str> {
         let parent = self.parent().ok_or("No parent")?;
-        if parent != destination.0 {
+        if parent != destination.parent() {
             return Err("Different parent than existing plan");
         }
         let plan = self.plan().ok_or("No plan")?;
-        let new_plan =
-            best_maneuver_plan(&plan.terminal, &destination.1, plan.end()).ok_or("No best plan")?;
+        let new_plan = best_maneuver_plan(&plan.terminal, destination.sparse(), plan.end())
+            .ok_or("No best plan")?;
         let plan = plan.then(new_plan)?;
         self.state = ControllerState::Planned { parent, plan };
         Ok(())

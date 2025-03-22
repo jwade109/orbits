@@ -840,11 +840,12 @@ pub fn generate_chi_spline(pv: impl Into<PV>, mu: f32, duration: Nanotime) -> Op
     Some(Spline::from_vec(x))
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DenseOrbit {
     orbit: SparseOrbit,
     start: Nanotime,
     end: Nanotime,
+    #[serde(skip)]
     spline: Spline<f32, f32>,
 }
 
@@ -1015,8 +1016,79 @@ impl DenseOrbit {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct GlobalOrbit(pub ObjectId, pub SparseOrbit);
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Orbit {
+    Sparse(SparseOrbit),
+    Dense(DenseOrbit),
+}
+
+impl Orbit {
+    pub fn from_sparse(orbit: SparseOrbit) -> Self {
+        Self::Sparse(orbit)
+    }
+
+    pub fn from_dense(orbit: DenseOrbit) -> Self {
+        Self::Dense(orbit)
+    }
+
+    pub fn is_dense(&self) -> bool {
+        match self {
+            Self::Dense(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn sparse(&self) -> &SparseOrbit {
+        match self {
+            Self::Sparse(o) => o,
+            Self::Dense(o) => o.sparse(),
+        }
+    }
+}
+
+impl std::fmt::Display for Orbit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}:{}",
+            self.sparse(),
+            if self.is_dense() { "d" } else { "" }
+        )
+    }
+}
+
+impl Into<Orbit> for SparseOrbit {
+    fn into(self) -> Orbit {
+        Orbit::from_sparse(self)
+    }
+}
+
+impl Into<Orbit> for DenseOrbit {
+    fn into(self) -> Orbit {
+        Orbit::from_dense(self)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GlobalOrbit(ObjectId, Orbit);
+
+impl GlobalOrbit {
+    pub fn new(id: ObjectId, orbit: impl Into<Orbit>) -> Self {
+        GlobalOrbit(id, orbit.into())
+    }
+
+    pub fn parent(&self) -> ObjectId {
+        self.0
+    }
+
+    pub fn sparse(&self) -> &SparseOrbit {
+        &self.1.sparse()
+    }
+
+    pub fn pv(&self, stamp: Nanotime) -> Result<PV, ULData> {
+        self.sparse().pv(stamp)
+    }
+}
 
 impl std::fmt::Display for GlobalOrbit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

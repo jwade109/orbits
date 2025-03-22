@@ -221,7 +221,7 @@ impl Scenario {
                     stamp: p.end().unwrap_or(stamp),
                     reason: p.event().unwrap_or(EventType::NumericalError),
                     parent: p.parent(),
-                    orbit: p.orbit.1,
+                    orbit: *p.orbit.sparse(),
                 });
                 if let Some(reason) = reason {
                     info.push((o.id(), reason));
@@ -254,12 +254,13 @@ impl Scenario {
 
                 let pv = PV::new(pos, v_normal + v_tangent);
                 if let Some(orbit) = SparseOrbit::from_pv(pv, body, info.stamp) {
-                    self.debris.push(GlobalOrbit(info.parent, orbit));
+                    self.debris.push(GlobalOrbit::new(info.parent, orbit));
                 }
             }
         }
 
-        self.debris.retain(|GlobalOrbit(_, orbit)| {
+        self.debris.retain(|orbit| {
+            let orbit = orbit.sparse();
             let dt = stamp - orbit.epoch;
             if dt > Nanotime::secs(5) {
                 return false;
@@ -287,7 +288,7 @@ impl Scenario {
         stamp: Nanotime,
     ) {
         self.orbiters
-            .push(Orbiter::new(id, GlobalOrbit(parent, orbit), stamp));
+            .push(Orbiter::new(id, GlobalOrbit::new(parent, orbit), stamp));
     }
 
     pub fn remove_object(&mut self, id: ObjectId) -> Option<()> {

@@ -152,7 +152,7 @@ fn draw_propagator(
 ) -> Option<()> {
     let (_, parent_pv, _, _) = planets.lookup(prop.parent(), stamp)?;
 
-    draw_orbit(gizmos, &prop.orbit.1, parent_pv.pos, color);
+    draw_orbit(gizmos, prop.orbit.sparse(), parent_pv.pos, color);
     if with_event {
         if let Some((t, e)) = prop.stamped_event() {
             let pv_end = parent_pv + prop.pv(t)?;
@@ -262,13 +262,13 @@ fn draw_scenario(
         })
         .collect::<Vec<_>>();
 
-    for GlobalOrbit(id, orbit) in scenario.debris() {
-        let lup = match scenario.lup(*id, stamp) {
+    for global in scenario.debris() {
+        let lup = match scenario.lup(global.parent(), stamp) {
             Some(lup) => lup,
             None => continue,
         };
 
-        let pv = match orbit.pv(stamp).ok() {
+        let pv = match global.pv(stamp).ok() {
             Some(pv) => pv,
             None => continue,
         };
@@ -491,8 +491,6 @@ fn draw_timeline(gizmos: &mut Gizmos, state: &GameState) {
         pmin.lerp(pmax, s)
     };
 
-    // gizmos.line_2d(p_at(tmin, 0), p_at(tmax, 0), WHITE.with_alpha(0.3));
-
     let mut draw_tick_mark = |t: Nanotime, row: usize, scale: f32, color: Srgba| {
         let p = p_at(t, row);
         let h = Vec2::Y * state.camera.actual_scale * row_height * scale / 2.0;
@@ -500,12 +498,6 @@ fn draw_timeline(gizmos: &mut Gizmos, state: &GameState) {
     };
 
     draw_tick_mark(state.sim_time, 0, 1.0, WHITE);
-
-    // let mut t = tmin.ceil(Nanotime::PER_SEC);
-    // while t < tmax {
-    //     draw_tick_mark(t, 0, 0.3, WHITE.with_alpha(0.3));
-    //     t += tick_dur;
-    // }
 
     for (i, ctrl) in state.controllers.iter().enumerate() {
         let plan = match ctrl.plan() {
@@ -621,11 +613,11 @@ fn draw_belt_orbits(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
 
         let origin = lup.pv().pos;
 
-        if let Some(orbit) = cursor_orbit {
-            if orbit.0 == belt.parent() && belt.contains_orbit(&orbit.1) {
-                draw_orbit(gizmos, &orbit.1, origin, YELLOW);
-                draw_diamond(gizmos, orbit.1.periapsis(), 10.0, YELLOW);
-                draw_diamond(gizmos, orbit.1.apoapsis(), 10.0, YELLOW);
+        if let Some(orbit) = &cursor_orbit {
+            if orbit.parent() == belt.parent() && belt.contains_orbit(&orbit.sparse()) {
+                draw_orbit(gizmos, orbit.sparse(), origin, YELLOW);
+                draw_diamond(gizmos, orbit.sparse().periapsis(), 10.0, YELLOW);
+                draw_diamond(gizmos, orbit.sparse().apoapsis(), 10.0, YELLOW);
             }
         }
 
@@ -635,11 +627,11 @@ fn draw_belt_orbits(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
             .filter_map(|id| {
                 let lup = state.scenario.lup(id, state.sim_time)?;
                 let orbiter = lup.orbiter()?;
-                let orbit = orbiter.propagator_at(state.sim_time)?.orbit;
-                if orbit.0 != belt.parent() {
+                let orbit = &orbiter.propagator_at(state.sim_time)?.orbit;
+                if orbit.parent() != belt.parent() {
                     return None;
                 }
-                if belt.contains_orbit(&orbit.1) {
+                if belt.contains_orbit(orbit.sparse()) {
                     Some(1)
                 } else {
                     Some(0)
@@ -707,7 +699,7 @@ pub fn draw_plot(
     y: &[f32],
     color: Srgba,
 ) -> Option<()> {
-    let key = |d: &&f32| (**d * 10000.0) as i32;
+    // let key = |d: &&f32| (**d * 10000.0) as i32;
 
     let xmin = 0.0; // x.iter().min_by_key(key)? - 0.1;
     let xmax = 1.0; // x.iter().max_by_key(key)? + 0.1;
@@ -755,8 +747,8 @@ pub fn draw_plot(
 
 pub fn draw_orbit_spline(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let orbit = state.right_cursor_orbit()?;
-    let sparse = orbit.1.to_perifocal();
-    let origin = state.scenario.lup(orbit.0, state.sim_time)?.pv().pos;
+    let sparse = orbit.sparse().to_perifocal();
+    let origin = state.scenario.lup(orbit.parent(), state.sim_time)?.pv().pos;
     let dense = DenseOrbit::new(&sparse).ok()?;
     draw_orbit(gizmos, &sparse, origin, PURPLE);
     gizmos.linestrip_2d(dense.all(origin)?, ORANGE);
@@ -814,12 +806,12 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         }
     };
 
-    for GlobalOrbit(parent, orbit) in &state.queued_orbits {
-        draw_orbit_with_parent(*parent, orbit);
+    for global in &state.queued_orbits {
+        draw_orbit_with_parent(global.parent(), global.sparse());
     }
 
-    if let Some(GlobalOrbit(parent, orbit)) = state.right_cursor_orbit() {
-        draw_orbit_with_parent(parent, &orbit);
+    if let Some(global) = state.right_cursor_orbit() {
+        draw_orbit_with_parent(global.parent(), global.sparse());
     }
 
     for ctrl in &state.controllers {

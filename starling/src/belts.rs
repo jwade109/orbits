@@ -1,9 +1,9 @@
 use crate::aabb::OBB;
 use crate::math::{rand, rotate, PI};
-use crate::orbits::{Body, GlobalOrbit};
+use crate::orbiter::ObjectId;
+use crate::orbits::{Body, GlobalOrbit, Orbit, SparseOrbit};
 use crate::prelude::Nanotime;
 use crate::region::Region;
-use crate::{orbiter::ObjectId, orbits::SparseOrbit};
 use glam::f32::Vec2;
 use glam::FloatExt;
 use serde::{Deserialize, Serialize};
@@ -35,8 +35,8 @@ impl AsteroidBelt {
     }
 
     pub fn from_orbit(orbit: GlobalOrbit, w: f32) -> Option<Self> {
-        let ra = orbit.1.apoapsis_r();
-        let rp = orbit.1.periapsis_r();
+        let ra = orbit.sparse().apoapsis_r();
+        let rp = orbit.sparse().periapsis_r();
         let rp1 = rp - w / 2.0;
         let ra1 = ra - w / 2.0;
         let rp2 = rp + w / 2.0;
@@ -44,20 +44,20 @@ impl AsteroidBelt {
         let inner = SparseOrbit::new(
             ra1,
             rp1,
-            orbit.1.arg_periapsis,
-            orbit.1.body,
+            orbit.sparse().arg_periapsis,
+            orbit.sparse().body,
             Nanotime::zero(),
-            orbit.1.is_retrograde(),
+            orbit.sparse().is_retrograde(),
         )?;
         let outer = SparseOrbit::new(
             ra2,
             rp2,
-            orbit.1.arg_periapsis,
-            orbit.1.body,
+            orbit.sparse().arg_periapsis,
+            orbit.sparse().body,
             Nanotime::zero(),
-            orbit.1.is_retrograde(),
+            orbit.sparse().is_retrograde(),
         )?;
-        Some(Self::from_orbits(orbit.0, inner, outer))
+        Some(Self::from_orbits(orbit.parent(), inner, outer))
     }
 
     pub fn circular(
@@ -141,7 +141,7 @@ impl AsteroidBelt {
         (p.length(), angle)
     }
 
-    pub fn random_orbit(&self, epoch: Nanotime) -> Option<SparseOrbit> {
+    pub fn random_orbit(&self, epoch: Nanotime) -> Option<Orbit> {
         let (r1, argp) = self.apoapsis(rand(0.0, 1.0));
         let r2 = self.random_radius(argp + PI);
         let (argp, rp, ra) = if r1 < r2 {
@@ -149,18 +149,18 @@ impl AsteroidBelt {
         } else {
             (argp + PI, r2, r1)
         };
-        SparseOrbit::new(
+        Some(Orbit::from_sparse(SparseOrbit::new(
             ra,
             rp,
             argp,
             self.inner.body,
             epoch,
             self.inner.is_retrograde(),
-        )
+        )?))
     }
 
     pub fn random_global(&self, epoch: Nanotime) -> Option<GlobalOrbit> {
-        Some(GlobalOrbit(self.parent, self.random_orbit(epoch)?))
+        Some(GlobalOrbit::new(self.parent, self.random_orbit(epoch)?))
     }
 
     pub fn obb(&self) -> OBB {

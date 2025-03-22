@@ -1,8 +1,9 @@
+use crate::nanotime::Nanotime;
 use crate::orbits::SparseOrbit;
+use crate::orbits::{GlobalOrbit, Orbit};
 use crate::planning::*;
 use crate::pv::PV;
 use crate::scenario::*;
-use crate::{nanotime::Nanotime, orbits::GlobalOrbit};
 use serde::{Deserialize, Serialize};
 
 use glam::f32::Vec2;
@@ -59,8 +60,8 @@ impl Orbiter {
         let orbit = {
             let prop = self.propagator_at(stamp)?;
             let pv = prop.pv(stamp)? + PV::vel(dv);
-            let orbit = SparseOrbit::from_pv(pv, prop.orbit.1.body, stamp)?;
-            GlobalOrbit(prop.parent(), orbit)
+            let orbit = SparseOrbit::from_pv(pv, prop.orbit.sparse().body, stamp)?;
+            GlobalOrbit::new(prop.parent(), Orbit::from_sparse(orbit))
         };
         self.props.clear();
         let new_prop = Propagator::new(orbit, stamp);

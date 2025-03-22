@@ -263,7 +263,7 @@ impl GameState {
                 .map(|(a, b)| Region::altitude(a, b)),
             SelectionMode::NearOrbit => self
                 .left_cursor_orbit()
-                .map(|GlobalOrbit(_, orbit)| Region::NearOrbit(orbit, 50.0)),
+                .map(|g| Region::NearOrbit(*g.sparse(), 50.0)),
         }
     }
 
@@ -288,7 +288,7 @@ impl GameState {
         let parent_pv = parent.pv();
         let pv = pv - PV::pos(parent_pv.pos);
         let body = parent.body()?;
-        Some(GlobalOrbit(
+        Some(GlobalOrbit::new(
             parent_id,
             SparseOrbit::from_pv(pv, body, self.sim_time)?,
         ))
@@ -309,7 +309,7 @@ impl GameState {
     }
 
     pub fn spawn_at(&mut self, global: &GlobalOrbit) -> Option<()> {
-        let GlobalOrbit(parent, orbit) = global;
+        let orbit = global.sparse();
         let pv_local = orbit.pv(self.sim_time).ok()?;
         let perturb = PV::new(
             randvec(pv_local.pos.length() * 0.005, pv_local.pos.length() * 0.02),
@@ -317,7 +317,8 @@ impl GameState {
         );
         let orbit = SparseOrbit::from_pv(pv_local + perturb, orbit.body, self.sim_time)?;
         let id = self.ids.next();
-        self.scenario.add_object(id, *parent, orbit, self.sim_time);
+        self.scenario
+            .add_object(id, global.parent(), orbit, self.sim_time);
         Some(())
     }
 
@@ -628,12 +629,12 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
             if let Some(prop) = o.propagator_at(state.sim_time) {
                 log(&format!(
                     "Next p: {:?}",
-                    prop.orbit.1.t_next_p(state.sim_time)
+                    prop.orbit.sparse().t_next_p(state.sim_time)
                 ));
-                log(&format!("Period: {:?}", prop.orbit.1.period()));
+                log(&format!("Period: {:?}", prop.orbit.sparse().period()));
                 log(&format!(
                     "Orbit count: {:?}",
-                    prop.orbit.1.orbit_number(state.sim_time)
+                    prop.orbit.sparse().orbit_number(state.sim_time)
                 ));
             }
         } else if let Some(b) = lup.body() {
