@@ -6,10 +6,12 @@ pub use crate::examples::{
     just_the_moon, make_earth, make_luna, stable_simulation, sun_jupiter_lagrange,
 };
 pub use crate::file_export::export_orbit_data;
-pub use crate::math::{apply, linspace, rand, randvec, rotate, PI};
+pub use crate::math::{apply, apply_filter, linspace, rand, randvec, rotate, tspace, PI};
 pub use crate::nanotime::Nanotime;
 pub use crate::orbiter::{GroupId, ObjectId, Orbiter};
-pub use crate::orbits::{hyperbolic_range_ta, Body, DenseOrbit, GlobalOrbit, SparseOrbit};
+pub use crate::orbits::{
+    hyperbolic_range_ta, wrap_pi_npi, Body, DenseOrbit, GlobalOrbit, SparseOrbit,
+};
 pub use crate::planning::{best_maneuver_plan, EventType, HorizonState, ManeuverPlan, Propagator};
 pub use crate::pv::PV;
 pub use crate::region::Region;

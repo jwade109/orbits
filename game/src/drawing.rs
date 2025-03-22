@@ -700,13 +700,81 @@ pub fn draw_notifications(gizmos: &mut Gizmos, state: &GameState) {
     }
 }
 
+pub fn draw_plot(
+    gizmos: &mut Gizmos,
+    state: &GameState,
+    x: &[f32],
+    y: &[f32],
+    color: Srgba,
+) -> Option<()> {
+    let key = |d: &&f32| (**d * 10000.0) as i32;
+
+    let xmin = 0.0; // x.iter().min_by_key(key)? - 0.1;
+    let xmax = 1.0; // x.iter().max_by_key(key)? + 0.1;
+
+    let ymin = -10.0; // y.iter().min_by_key(key)? - 0.1;
+    let ymax = 10.0; // y.iter().max_by_key(key)? + 0.1;
+
+    let signal_bounds = AABB::from_arbitrary((xmin, ymin), (xmax, ymax));
+
+    let b = state.camera.world_bounds();
+    let c = state.camera.viewport_bounds();
+    let v2w = |p: Vec2| c.map(b, p);
+
+    let span = Vec2::new(
+        state.camera.window_dims.x * 0.8,
+        state.camera.window_dims.y * 0.8,
+    );
+
+    let center = state.camera.window_dims / 2.0;
+    let lower = v2w(center - span / 2.0);
+    let upper = v2w(center + span / 2.0);
+
+    let graph_screen_space = AABB::from_arbitrary(lower, upper);
+
+    let mut graph_point = |x: f32, y: f32| {
+        let p = signal_bounds.map(graph_screen_space, Vec2::new(x, y));
+        draw_circle(gizmos, p, 3.0 * state.camera.actual_scale, color)
+    };
+
+    let points = x
+        .iter()
+        .zip(y.iter())
+        .map(|(x, y)| {
+            graph_point(*x, *y);
+            signal_bounds.map(graph_screen_space, Vec2::new(*x, *y))
+        })
+        .collect::<Vec<_>>();
+
+    gizmos.linestrip_2d(points, color);
+
+    draw_aabb(gizmos, graph_screen_space, GRAY);
+
+    Some(())
+}
+
 pub fn draw_orbit_spline(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let orbit = state.right_cursor_orbit()?;
-    let sparse = orbit.1;
+    let sparse = orbit.1.to_perifocal();
     let origin = state.scenario.lup(orbit.0, state.sim_time)?.pv().pos;
     let dense = DenseOrbit::new(&sparse).ok()?;
-
+    draw_orbit(gizmos, &sparse, origin, PURPLE);
     gizmos.linestrip_2d(dense.all(origin)?, ORANGE);
+    for p in dense.samples(origin) {
+        draw_circle(gizmos, p, 5.0 * state.camera.actual_scale, ORANGE);
+    }
+
+    let period = sparse.period()?;
+
+    let t = tspace(sparse.epoch, sparse.epoch + period, 200);
+
+    let x = apply(&t, |t| (t - sparse.epoch).to_secs() / period.to_secs());
+    let y1 = apply(&t, |t| sparse.ta_at_time(t).unwrap());
+    let y2 = apply(&t, |t| dense.sample(t));
+
+    draw_plot(gizmos, state, &x, &y1, RED);
+    draw_plot(gizmos, state, &x, &y2, GREEN);
+
     Some(())
 }
 

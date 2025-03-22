@@ -61,6 +61,16 @@ impl Nanotime {
         Self(self.0.abs())
     }
 
+    pub fn lerp(self, other: Self, s: f32) -> Self {
+        if s == 0.0 {
+            self
+        } else if s == 1.0 {
+            other
+        } else {
+            self + (other - self) * s
+        }
+    }
+
     pub fn to_date(&self) -> Date {
         let div = |rem: i64, denom: i64| (rem / denom, rem % denom);
 

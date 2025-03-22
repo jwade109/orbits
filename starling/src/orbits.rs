@@ -12,7 +12,7 @@ pub fn hyperbolic_range_ta(ecc: f32) -> f32 {
     (-1.0 / ecc).acos()
 }
 
-fn wrap_pi_npi(x: f32) -> f32 {
+pub fn wrap_pi_npi(x: f32) -> f32 {
     f32::atan2(x.sin(), x.cos())
 }
 
@@ -566,6 +566,20 @@ impl SparseOrbit {
         let d2 = self.periapsis().distance(other.periapsis());
         d1 < dmax && d2 < dmax
     }
+
+    pub fn to_perifocal(&self) -> Self {
+        let p = rotate(self.initial.pos, -self.arg_periapsis);
+        let v = rotate(self.initial.vel, -self.arg_periapsis);
+        SparseOrbit {
+            eccentricity: self.eccentricity,
+            semi_major_axis: self.semi_major_axis,
+            arg_periapsis: 0.0,
+            body: self.body,
+            initial: PV::new(p, v),
+            epoch: self.epoch,
+            time_at_periapsis: self.time_at_periapsis,
+        }
+    }
 }
 
 impl std::fmt::Display for SparseOrbit {
@@ -836,19 +850,22 @@ pub struct DenseOrbit {
 
 impl DenseOrbit {
     pub fn new(orbit: &SparseOrbit) -> Result<Self, &'static str> {
-        let sample_space = match orbit.class() {
-            OrbitClass::Circular => linspace(0.0, 1.0, 9),
-            OrbitClass::NearCircular => linspace(0.0, 1.0, 15),
-            OrbitClass::Elliptical => linspace(0.0, 1.0, 20),
-            OrbitClass::HighlyElliptical => linspace(0.0, 1.0, 30),
+        let n_samples = match orbit.class() {
+            OrbitClass::NearCircular => 20,
+            OrbitClass::Circular => 15,
+            OrbitClass::Elliptical => 100,
+            OrbitClass::HighlyElliptical => 200,
             OrbitClass::Parabolic => return Err("Parabolic"),
             OrbitClass::Hyperbolic => return Err("Hyperbolic"),
             OrbitClass::VeryThin => return Err("Too thin"),
         };
 
+        let sample_space = linspace(-0.25, 1.25, n_samples);
+
         let period = orbit.period().ok_or("No period")?;
-        let start = orbit.epoch - period / 4;
-        let end = start + period * 5 / 4;
+        let ta = orbit.t_next_p(orbit.epoch).ok_or("No next periapsis")?;
+        let start = ta;
+        let end = ta + period;
         let mut samples = vec![];
         let mut prev = None;
 
@@ -864,10 +881,10 @@ impl DenseOrbit {
         };
 
         for s in sample_space {
-            let t = start + (end - start) * s;
+            let t = start.lerp(end, s);
             let ta = orbit.ta_at_time(t).ok_or("Bad true anomaly")?;
             let ta = wrap_monotonic(ta);
-            samples.push(((t - start).to_secs(), ta));
+            samples.push(((t - start).to_secs() / period.to_secs(), ta));
         }
 
         let mut keys = vec![];
@@ -939,57 +956,61 @@ impl DenseOrbit {
         &self.orbit
     }
 
-    fn sample(&self, t: Nanotime) -> Option<f32> {
-        if t > self.end || t < self.start {
-            return None;
+    pub fn sample(&self, t: Nanotime) -> f32 {
+        let period = self.end - self.start;
+        let mut t = t;
+        while t < self.start {
+            t += period;
         }
-        let dt = t - self.start;
-        self.spline.clamped_sample(dt.to_secs())
+        let dt = (t - self.start) % period;
+
+        let ta = match self.spline.sample(dt.to_secs() / period.to_secs()) {
+            Some(s) => s,
+            None => unreachable!(),
+        };
+
+        wrap_pi_npi(ta)
     }
 
-    pub fn all(&self, origin: Vec2) -> Option<Vec<Vec2>> {
-        // tspace(self.start, self.end, 100)
-        //     .into_iter()
-        //     .map(|t| -> Option<Vec2> {
-        //         let ta = self.sample(t)?;
-        //         let p = self.orbit.position_at(ta);
-        //         Some(origin + p)
-        //     })
-        //     .collect()
-
+    pub fn samples(&self, origin: Vec2) -> Vec<Vec2> {
         self.spline
             .keys()
             .iter()
-            .enumerate()
-            .map(|(i, k)| {
+            .map(|k| {
                 let p = self.orbit.position_at(k.value);
-                let u = p.normalize_or_zero();
-                Some(origin + p + i as f32 * u * self.orbit.semi_major_axis / 100.0)
+                origin + p
+            })
+            .collect()
+    }
+
+    pub fn all(&self, origin: Vec2) -> Option<Vec<Vec2>> {
+        tspace(self.start, self.end, 100)
+            .into_iter()
+            .map(|t| -> Option<Vec2> {
+                let ta = self.sample(t);
+                let p = self.orbit.position_at(ta);
+                Some(origin + p)
             })
             .collect()
     }
 
     pub fn line(&self, now: Nanotime, origin: Vec2) -> Result<Vec<Vec2>, &'static str> {
-        assert!(self.sample(self.start).is_some());
-        assert!(self.sample(self.end).is_some());
-
         let mut t = self.end;
         let timestep = Nanotime::millis(20);
         let mut points = vec![];
 
-        let mut add_point = |t: Nanotime| -> Option<()> {
-            let ta = self.sample(t)?;
+        let mut add_point = |t: Nanotime| {
+            let ta = self.sample(t);
             let pos = self.orbit.position_at(ta);
             points.push(origin + pos);
-            Some(())
         };
 
         while t > now && t > self.start {
-            add_point(t).ok_or("Bad position")?;
+            add_point(t);
             t -= timestep;
         }
 
-        add_point(self.start.max(now)).ok_or("Bad position")?;
+        add_point(self.start.max(now));
         Ok(points)
     }
 }

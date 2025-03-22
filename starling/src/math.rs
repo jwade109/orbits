@@ -37,6 +37,13 @@ pub fn apply<T: Copy, R>(x: &Vec<T>, func: impl Fn(T) -> R) -> Vec<R> {
     x.iter().map(|x| func(*x)).collect()
 }
 
+pub fn apply_filter<T: Copy, K, R>(
+    x: &Vec<T>,
+    func: impl Fn(T) -> Option<(K, R)>,
+) -> (Vec<K>, Vec<R>) {
+    x.iter().filter_map(|x| func(*x)).collect()
+}
+
 pub fn linspace(a: f32, b: f32, n: usize) -> Vec<f32> {
     if n < 2 {
         return vec![a];
@@ -53,8 +60,9 @@ pub fn linspace(a: f32, b: f32, n: usize) -> Vec<f32> {
 }
 
 pub fn tspace(start: Nanotime, end: Nanotime, nsamples: u32) -> Vec<Nanotime> {
-    let dt = (end - start) / nsamples as i64;
-    (0..nsamples).map(|i| start + dt * i as i64).collect()
+    (0..nsamples)
+        .map(|i| start.lerp(end, i as f32 / (nsamples - 1) as f32))
+        .collect()
 }
 
 pub fn bhaskara_sin_approx(x: f32) -> f32 {
