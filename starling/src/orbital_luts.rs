@@ -20,7 +20,7 @@ fn get_orbit_with_ecc(ecc: f32) -> Vec<f32> {
     let dense = DenseOrbit::new(&orbit).unwrap();
 
     let s = linspace(0.0, 1.0, 300);
-    apply(&s, |s: f32| dense.sample_normalized(s))
+    apply(&s, |s: f32| dense.sample_normalized(s) - s * 2.0 * PI)
 }
 
 const ECCENTRICITY_STEP: u8 = 3;
@@ -42,12 +42,12 @@ pub fn lookup_ta_from_ma(ma: f32, ecc: f32) -> f32 {
 
     let lower = match BIG_ORBITS.get(&el) {
         Some(lut) => lut,
-        None => return wrap_pi_npi(ma),
+        None => return 0.0,
     };
 
     let upper = match BIG_ORBITS.get(&eu) {
         Some(lut) => lut,
-        None => return wrap_pi_npi(ma),
+        None => return 0.0,
     };
 
     assert_eq!(lower.len(), upper.len());

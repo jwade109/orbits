@@ -702,10 +702,17 @@ pub fn draw_notifications(gizmos: &mut Gizmos, state: &GameState) {
 }
 
 fn draw_graph(gizmos: &mut Gizmos, graph: &Graph, state: &GameState) -> Option<()> {
+
+    let map = |p: Vec2| state.camera.world_bounds().from_normalized(p);
+
+    for p in graph.points() {
+        draw_x(gizmos, map(p),40.0 * state.camera.actual_scale, RED.with_alpha(0.2));    
+    }
+
     for signal in graph.signals() {
         let p = signal
             .points()
-            .map(|p| state.camera.world_bounds().from_normalized(p))
+            .map(|p| map(p))
             .collect::<Vec<_>>();
 
         let (draw_line, draw_points) = match signal.line() {
@@ -737,37 +744,16 @@ pub fn draw_orbit_spline(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
         draw_circle(gizmos, p, 5.0 * state.camera.actual_scale, ORANGE);
     }
 
-    let period = sparse.period()?;
-    let tp = sparse.t_next_p(sparse.epoch)?;
+    let mut graph = Graph::linspace(-0.1 * PI, 1.1 * PI, 1000);
 
-    let n_samples: usize = 1000;
-
-    let t = tspace(tp, tp + period / 2, n_samples);
-
-    let x = apply(&t, |t| (t - tp).to_secs() / period.to_secs());
-    let y1 = apply(&t, |t| sparse.ta_at_time(t).unwrap());
-    let y2 = apply(&t, |t| dense.sample(t));
-
-    let ma = linspace(0.0, 0.5, n_samples);
-    let ta = apply(&ma, |s| {
-        starling::orbital_luts::lookup_ta_from_ma(s * 2.0 * PI, sparse.ecc())
-    });
-
-    let mut graph = Graph::new();
-
-    graph.add_xy(&x, &y1, RED, LineType::Line);
-    graph.add_xy(&x, &y2, GREEN, LineType::Line);
-    graph.add_xy(&ma, &ta, YELLOW.with_alpha(0.5), LineType::Points);
-
-    for (_, y) in starling::orbital_luts::BIG_ORBITS.iter() {
-        let x = linspace(0.0, 1.0, y.len());
-        let (xf, yf) = x
-            .iter()
-            .zip(y.iter())
-            .filter(|(x, _)| **x <= 0.5)
-            .collect::<(Vec<f32>, Vec<f32>)>();
-        graph.add_xy(&xf, &yf, BLUE.with_alpha(0.3), LineType::Line);
+    for ecc in linspace(0.1, 0.9, 10) {
+        let f = |x| {
+            starling::orbital_luts::lookup_ta_from_ma(x, ecc)
+        };
+        graph.add_func(f, GREEN.mix(&TEAL, ecc), LineType::Line);
     }
+
+    graph.add_func(|x| starling::orbital_luts::lookup_ta_from_ma(x, sparse.ecc()), YELLOW, LineType::Line);
 
     draw_graph(gizmos, &graph, state);
 

@@ -982,8 +982,7 @@ impl DenseOrbit {
             Some(s) => s,
             None => unreachable!(),
         };
-
-        wrap_pi_npi(ta)
+        ta
     }
 
     pub fn sample(&self, t: Nanotime) -> f32 {

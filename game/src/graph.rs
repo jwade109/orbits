@@ -1,19 +1,22 @@
 use bevy::color::Srgba;
 use bevy::math::Vec2;
 use starling::aabb::AABB;
+use starling::math::{apply, linspace};
+
+const GRAPH_PADDING: f32 = 2.0;
 
 pub struct Signal<'a> {
     graph: &'a Graph,
-    points: &'a Vec<Vec2>,
+    x: &'a [f32],
+    y: &'a [f32],
     color: Srgba,
     line: LineType,
 }
 
 impl<'a> Signal<'a> {
     pub fn points(&self) -> impl Iterator<Item = Vec2> + use<'_> {
-        self.points
-            .iter()
-            .map(|p| self.graph.bounds(0.1).to_normalized(*p))
+        self.x.iter().zip(self.y.iter())
+            .map(|(x, y)| self.graph.bounds(GRAPH_PADDING).to_normalized(Vec2::new(*x, *y)))
     }
 
     pub fn color(&self) -> Srgba {
@@ -27,7 +30,9 @@ impl<'a> Signal<'a> {
 
 pub struct Graph {
     bounds: AABB,
-    signals: Vec<(Vec<Vec2>, Srgba, LineType)>,
+    x: Vec<f32>,
+    signals: Vec<(Vec<f32>, Srgba, LineType)>,
+    points: Vec<Vec2>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -38,37 +43,45 @@ pub enum LineType {
 }
 
 impl Graph {
-    pub fn new() -> Self {
+    pub fn linspace(a: f32, b: f32, n: usize) -> Self {
         Graph {
             bounds: AABB::from_wh(0.0, 0.0),
+            x: linspace(a, b, n),
             signals: Vec::new(),
+            points: vec![Vec2::ZERO],
         }
+    }
+
+    pub fn points(&self) -> impl Iterator<Item = Vec2> + use<'_> {
+        self.points.iter().map(|p| {
+        self.bounds(GRAPH_PADDING).to_normalized(*p) })
+    }
+
+    pub fn add_point(&mut self, x: f32, y: f32) {
+        self.points.push(Vec2::new(x, y))
     }
 
     pub fn bounds(&self, padding: f32) -> AABB {
         self.bounds.padded(padding)
     }
 
-    pub fn add_signal(&mut self, signal: Vec<Vec2>, color: Srgba, line: LineType) {
-        for p in &signal {
-            self.bounds.include(p);
-        }
-        self.signals.push((signal, color, line))
+    pub fn add_func(&mut self, func: impl Fn(f32) -> f32, color: Srgba, line: LineType) {
+        let y = apply(&self.x, func);
+        self.x.iter().zip(y.iter()).for_each(|(x, y)| {
+            self.bounds.include(&Vec2::new(*x, *y));
+        });
+        self.signals.push((y, color, line));
     }
 
-    pub fn add_xy(&mut self, x: &[f32], y: &[f32], color: Srgba, line: LineType) {
-        let points = x
-            .iter()
-            .zip(y.iter())
-            .map(|(x, y)| Vec2::new(*x, *y))
-            .collect();
-        self.add_signal(points, color, line);
+    pub fn origin(&self) -> Vec2 {
+        self.bounds.padded(GRAPH_PADDING).to_normalized(Vec2::ZERO)
     }
 
     pub fn signals(&self) -> impl Iterator<Item = Signal> + use<'_> {
-        self.signals.iter().map(|(points, color, line)| Signal {
+        self.signals.iter().map(|(y, color, line)| Signal {
             graph: self,
-            points,
+            x: &self.x,
+            y,
             color: *color,
             line: *line,
         })
