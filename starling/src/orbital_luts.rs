@@ -1,8 +1,11 @@
 use crate::math::{apply, lerp, linspace, PI};
 use crate::nanotime::Nanotime;
-use crate::orbits::{wrap_pi_npi, Body, DenseOrbit, SparseOrbit};
+use crate::orbits::{Body, DenseOrbit, SparseOrbit};
 use lazy_static::lazy_static;
 use std::collections::HashMap;
+
+const ECCENTRICITY_STEP: u8 = 1;
+const N_SAMPLES: usize = 500;
 
 fn get_orbit_with_ecc(ecc: f32) -> Vec<f32> {
     let a = 1000.0;
@@ -19,41 +22,69 @@ fn get_orbit_with_ecc(ecc: f32) -> Vec<f32> {
     let orbit = SparseOrbit::new(ra, rp, argp, body, epoch, retrograde).unwrap();
     let dense = DenseOrbit::new(&orbit).unwrap();
 
-    let s = linspace(0.0, 1.0, 300);
+    let s = linspace(0.0, 1.0, N_SAMPLES);
     apply(&s, |s: f32| dense.sample_normalized(s) - s * 2.0 * PI)
 }
 
-const ECCENTRICITY_STEP: u8 = 3;
-
 lazy_static! {
     pub static ref BIG_ORBITS: HashMap<u8, Vec<f32>> = HashMap::from_iter(
-        (0..97)
+        (0..=98)
             .step_by(ECCENTRICITY_STEP as usize)
             .map(|e| (e, get_orbit_with_ecc(e as f32 / 100.0)))
     );
 }
 
-pub fn lookup_ta_from_ma(ma: f32, ecc: f32) -> f32 {
+fn fmod(a: f32, n: f32) -> f32 {
+    a - n * (a / n).floor()
+}
+
+pub fn lookup_ta_from_ma(ma: f32, ecc: f32) -> Option<f32> {
+    let ma = fmod(ma, 2.0 * PI);
+
     let ei = (ecc * 100.0) as u8;
 
     let el = ei - (ei % ECCENTRICITY_STEP);
     let eu = el + ECCENTRICITY_STEP;
-    let s = ((ecc * 100.0) - (el as f32)) / ECCENTRICITY_STEP as f32;
+    let sy = ((ecc * 100.0) - (el as f32)) / ECCENTRICITY_STEP as f32;
 
-    let lower = match BIG_ORBITS.get(&el) {
-        Some(lut) => lut,
-        None => return 0.0,
-    };
+    let lower = BIG_ORBITS.get(&el)?;
+    let upper = BIG_ORBITS.get(&eu)?;
 
-    let upper = match BIG_ORBITS.get(&eu) {
-        Some(lut) => lut,
-        None => return 0.0,
-    };
+    let x1 = ((ma / (2.0 * PI)) * (N_SAMPLES - 1) as f32) as usize;
+    let x2 = x1 + 1;
 
-    assert_eq!(lower.len(), upper.len());
+    let ma_x1 = (x1 as f32 / (N_SAMPLES - 1) as f32) * 2.0 * PI;
+    let ma_x2 = (x2 as f32 / (N_SAMPLES - 1) as f32) * 2.0 * PI;
 
-    let idx = ((ma / (2.0 * PI)) * (lower.len()) as f32) as usize;
-    let tal = lower[idx % lower.len()];
-    let tau = upper[idx % upper.len()];
-    lerp(tal, tau, s)
+    let sx = (ma - ma_x1) / (ma_x2 - ma_x1);
+
+    let x1y1 = lower[x1 % N_SAMPLES];
+    let x1y2 = upper[x1 % N_SAMPLES];
+
+    let x2y1 = lower[x2 % N_SAMPLES];
+    let x2y2 = upper[x2 % N_SAMPLES];
+
+    let p1 = lerp(x1y1, x1y2, sy);
+    let p2 = lerp(x2y1, x2y2, sy);
+
+    Some(lerp(p1, p2, sx) + ma)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use assert_float_eq::assert_float_absolute_eq;
+
+    #[test]
+    fn lut_expected_values() {
+        for ecc in linspace(0.0, 0.9, 100) {
+            assert_float_absolute_eq!(lookup_ta_from_ma(0.0, ecc).unwrap(), 0.0, 1E-5);
+            assert_float_absolute_eq!(lookup_ta_from_ma(PI, ecc).unwrap(), PI, 1E-5);
+            assert_float_absolute_eq!(lookup_ta_from_ma(2.0 * PI, ecc).unwrap(), 2.0 * PI, 1E-5);
+        }
+
+        for ma in linspace(0.0, 2.0 * PI, 100) {
+            assert_float_absolute_eq!(lookup_ta_from_ma(ma, 0.0).unwrap(), ma, 1E-5);
+        }
+    }
 }

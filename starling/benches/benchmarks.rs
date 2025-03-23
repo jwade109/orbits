@@ -2,6 +2,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use std::hint::black_box;
 
 use starling::examples::make_earth;
+use starling::orbital_luts::lookup_ta_from_ma;
 use starling::orbits::generate_chi_spline;
 use starling::prelude::*;
 
@@ -10,8 +11,12 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     s.measurement_time(std::time::Duration::from_secs(1));
 
-    let o =
-        SparseOrbit::from_pv(((500.0, 200.0), (-12.0, 30.0)), make_earth(), Nanotime::zero()).unwrap();
+    let o = SparseOrbit::from_pv(
+        ((500.0, 200.0), (-12.0, 30.0)),
+        make_earth(),
+        Nanotime::zero(),
+    )
+    .unwrap();
 
     s.bench_function("pv_at_time", |b| {
         b.iter(|| {
@@ -33,6 +38,15 @@ fn criterion_benchmark(c: &mut Criterion) {
         b.iter(|| {
             let t = black_box(32.5);
             spline.sample(t);
+        })
+    });
+
+    s.bench_function("eval_lut", |b| {
+        lookup_ta_from_ma(0.0, 0.0);
+        b.iter(|| {
+            let ma: f32 = black_box(PI * 1.2);
+            let ecc = black_box(0.32);
+            lookup_ta_from_ma(ma, ecc);
         })
     });
 

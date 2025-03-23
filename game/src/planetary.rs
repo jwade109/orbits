@@ -135,6 +135,7 @@ pub struct GameState {
     pub backup: Option<(Scenario, ObjectIdTracker, Nanotime)>,
     pub track_list: HashSet<ObjectId>,
     pub hide_debug: bool,
+    pub show_graph: bool,
     pub duty_cycle_high: bool,
     pub controllers: Vec<Controller>,
     pub follow: Option<ObjectId>,
@@ -164,6 +165,7 @@ impl Default for GameState {
             backup: Some((scenario, ids, Nanotime::zero())),
             camera: CameraState::default(),
             hide_debug: true,
+            show_graph: false,
             duty_cycle_high: false,
             controllers: vec![],
             follow: None,
@@ -658,6 +660,9 @@ fn process_interaction(
         }
         InteractionEvent::ToggleDebugMode => {
             state.hide_debug = !state.hide_debug;
+        }
+        InteractionEvent::ToggleGraph => {
+            state.show_graph = !state.show_graph;
         }
         InteractionEvent::ClearSelection => {
             state.track_list.clear();

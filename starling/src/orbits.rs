@@ -872,9 +872,9 @@ pub struct DenseOrbit {
 impl DenseOrbit {
     pub fn new(orbit: &SparseOrbit) -> Result<Self, &'static str> {
         let n_samples = match orbit.class() {
-            OrbitClass::NearCircular => 20,
-            OrbitClass::Circular => 15,
-            OrbitClass::Elliptical => 100,
+            OrbitClass::NearCircular => 1000,
+            OrbitClass::Circular => 1000,
+            OrbitClass::Elliptical => 1000,
             OrbitClass::HighlyElliptical => 1000,
             OrbitClass::Parabolic => return Err("Parabolic"),
             OrbitClass::Hyperbolic => return Err("Hyperbolic"),
@@ -1145,9 +1145,9 @@ mod tests {
             _ => (),
         }
 
-        let n = 10000;
-        let t1 = tspace(Nanotime::zero(), Nanotime::secs(n), n as u32);
-        let t2 = tspace(Nanotime::zero(), Nanotime::secs(-n), n as u32);
+        let n: usize = 10000;
+        let t1 = tspace(Nanotime::zero(), Nanotime::secs(n as i64), n);
+        let t2 = tspace(Nanotime::zero(), Nanotime::secs(-(n as i64)), n);
         for t in t1.iter().chain(t2.iter()) {
             let pv = orbit.pv(*t);
             assert!(pv.is_ok(), "Failure at time {:?} - {:?}", t, pv);

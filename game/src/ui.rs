@@ -14,6 +14,7 @@ pub enum InteractionEvent {
     SimPause,
     SimFaster,
     ToggleDebugMode,
+    ToggleGraph,
     ClearSelection,
     ClearOrbitQueue,
     ExitApp,
