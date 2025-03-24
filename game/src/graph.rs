@@ -87,7 +87,7 @@ impl Graph {
 }
 
 pub fn get_lut_error_graph(orbit: &SparseOrbit) -> Option<Graph> {
-    let mut graph = Graph::linspace(-0.1 * PI, 4.1 * PI, 1000);
+    let mut graph = Graph::linspace(-0.1 * PI, 2.1 * PI, 5000);
 
     let period = orbit.period()?;
     let tp = orbit.t_next_p(orbit.epoch)?;
@@ -123,7 +123,7 @@ pub fn get_lut_error_graph(orbit: &SparseOrbit) -> Option<Graph> {
 }
 
 fn generate_lut_graph() -> Graph {
-    let mut graph = Graph::linspace(-0.1 * PI, 4.1 * PI, 1000);
+    let mut graph = Graph::linspace(-0.1 * PI, 2.1 * PI, 1000);
 
     graph.add_point(0.0, 0.0, true);
     graph.add_point(PI, 0.0, true);
@@ -131,7 +131,6 @@ fn generate_lut_graph() -> Graph {
     graph.add_point(0.0, PI, true);
     graph.add_point(0.0, 2.0 * PI, true);
     graph.add_point(2.0 * PI, 2.0 * PI, true);
-    graph.add_point(4.0 * PI, 2.0 * PI, true);
 
     for ecc in linspace(0.0, 0.9, 10) {
         let f = |x| lookup_ta_from_ma(x, ecc).unwrap_or(f32::NAN);

@@ -2,7 +2,6 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use std::hint::black_box;
 
 use starling::orbital_luts::lookup_ta_from_ma;
-use starling::orbits::generate_chi_spline;
 use starling::prelude::*;
 
 fn criterion_benchmark(c: &mut Criterion) {
@@ -41,12 +40,10 @@ fn criterion_benchmark(c: &mut Criterion) {
         })
     });
 
-    let spline = generate_chi_spline(o.initial, o.body.mu(), Nanotime::secs(500)).unwrap();
-
-    s.bench_function("eval_spline", |b| {
+    s.bench_function("velocity_at", |b| {
         b.iter(|| {
-            let t = black_box(32.5);
-            spline.sample(t);
+            let ta = black_box(0.43);
+            o.velocity_at(ta);
         })
     });
 

@@ -455,7 +455,7 @@ fn draw_maneuver_plan(
 ) -> Option<()> {
     let color = YELLOW;
     for segment in &plan.segments {
-        gizmos.linestrip_2d(segment.orbit.line(stamp, origin).ok()?, color);
+        draw_orbit(gizmos, &segment.orbit, origin, color);
         if segment.end > stamp {
             let pv = plan.pv(segment.end)?;
             draw_diamond(gizmos, origin + pv.pos, 10.0 * scale, color);

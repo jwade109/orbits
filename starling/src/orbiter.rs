@@ -58,7 +58,7 @@ impl Orbiter {
     pub fn dv(&mut self, stamp: Nanotime, dv: Vec2) -> Option<()> {
         let orbit = {
             let prop = self.propagator_at(stamp)?;
-            let pv = prop.pv(stamp)? + PV::vel(dv);
+            let pv = prop.pv_universal(stamp)? + PV::vel(dv);
             let orbit = SparseOrbit::from_pv(pv, prop.orbit.1.body, stamp)?;
             GlobalOrbit(prop.parent(), orbit)
         };

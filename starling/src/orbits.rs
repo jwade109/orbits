@@ -1,12 +1,11 @@
 use crate::aabb::{AABB, OBB};
-use crate::math::{cross2d, linspace, rotate, tspace, PI};
+use crate::math::{cross2d, linspace, rotate, PI};
 use crate::nanotime::Nanotime;
 use crate::orbiter::ObjectId;
 use crate::planning::search_condition;
 use crate::pv::PV;
 use glam::f32::Vec2;
 use serde::{Deserialize, Serialize};
-use splines::{Interpolation, Key, Spline};
 
 pub fn hyperbolic_range_ta(ecc: f32) -> f32 {
     (-1.0 / ecc).acos()
@@ -139,7 +138,7 @@ impl SparseOrbit {
         let true_anomaly = Anomaly::with_ecc(e.length(), true_anomaly);
 
         let time_at_periapsis = {
-            if e.length() > 0.98 {
+            if e.length() > 0.9 {
                 None
             } else {
                 let eccentric_anomaly = true_to_eccentric(true_anomaly, e.length());
@@ -370,9 +369,6 @@ impl SparseOrbit {
     }
 
     pub fn pv_lut(&self, stamp: Nanotime) -> Option<PV> {
-        if self.ecc() > 0.7 {
-            return None;
-        }
         let ma = self.mean_anomaly(stamp)?;
         let ta = crate::orbital_luts::lookup_ta_from_ma(ma, self.ecc())?;
         let pos = self.position_at(ta);
@@ -838,211 +834,6 @@ pub(crate) fn lagrange_pv(initial: impl Into<PV>, coeff: &LangrangeCoefficients)
     PV::new(vec_r, vec_v)
 }
 
-#[allow(unused)]
-pub type ChiSpline = Spline<f32, f32>;
-
-#[allow(unused)]
-pub fn generate_chi_spline(pv: impl Into<PV>, mu: f32, duration: Nanotime) -> Option<ChiSpline> {
-    let tsample = tspace(Nanotime::zero(), duration, 500);
-    let pv = pv.into();
-    let x = tsample
-        .to_vec()
-        .iter()
-        .map(|t| {
-            let (_, res) = universal_lagrange(pv, *t, mu);
-            let res = res?;
-            let t = t.to_secs();
-            let key = Key::new(t, res.chi, Interpolation::Linear);
-            Some(key)
-        })
-        .collect::<Option<Vec<_>>>()?;
-
-    Some(Spline::from_vec(x))
-}
-
-#[derive(Debug, Clone)]
-pub struct DenseOrbit {
-    orbit: SparseOrbit,
-    start: Nanotime,
-    end: Nanotime,
-    spline: Spline<f32, f32>,
-}
-
-impl DenseOrbit {
-    pub fn new(orbit: &SparseOrbit) -> Result<Self, &'static str> {
-        let n_samples = match orbit.class() {
-            OrbitClass::NearCircular => 1000,
-            OrbitClass::Circular => 1000,
-            OrbitClass::Elliptical => 1000,
-            OrbitClass::HighlyElliptical => 1000,
-            OrbitClass::Parabolic => return Err("Parabolic"),
-            OrbitClass::Hyperbolic => return Err("Hyperbolic"),
-            OrbitClass::VeryThin => return Err("Too thin"),
-        };
-
-        let sample_space = linspace(-0.25, 1.25, n_samples);
-
-        let period = orbit.period().ok_or("No period")?;
-        let ta = orbit.t_next_p(orbit.epoch).ok_or("No next periapsis")?;
-        let start = ta;
-        let end = ta + period;
-        let mut samples = vec![];
-        let mut prev = None;
-
-        let mut wrap_monotonic = |ta: f32| {
-            let mut ta = ta;
-            if let Some(prev) = prev {
-                while prev > ta {
-                    ta += PI * 2.0;
-                }
-            }
-            prev = Some(ta);
-            ta
-        };
-
-        for s in sample_space {
-            let t = start.lerp(end, s);
-            let ta = orbit.ta_at_time(t).ok_or("Bad true anomaly")?;
-            let ta = wrap_monotonic(ta);
-            samples.push(((t - start).to_secs() / period.to_secs(), ta));
-        }
-
-        let mut keys = vec![];
-        for (i, (dt, ta)) in samples.iter().enumerate() {
-            let interp = if i == 0 {
-                Interpolation::Linear
-            } else if i + 2 < samples.len() {
-                Interpolation::CatmullRom
-            } else {
-                Interpolation::Linear
-            };
-            let key = Key::new(*dt, *ta, interp);
-            keys.push(key);
-        }
-
-        let spline = Spline::<f32, f32>::from_vec(keys);
-
-        Ok(Self {
-            orbit: *orbit,
-            start,
-            end,
-            spline,
-        })
-    }
-
-    pub fn in_range(orbit: &SparseOrbit, start: Nanotime, end: Nanotime) -> Option<Self> {
-        let buffer_dur = Nanotime::secs(2);
-        let mut t = start - buffer_dur;
-        let dt = orbit.period()? / 8;
-        let mut samples = vec![];
-        let mut prev = None;
-        while t < end + buffer_dur {
-            let mut ta = orbit.ta_at_time(t)?;
-            if let Some(prev) = prev {
-                while prev > ta {
-                    ta += PI * 2.0;
-                }
-            }
-            prev = Some(ta);
-            samples.push(((t - start).to_secs(), ta));
-            t += dt;
-        }
-        samples.push(((end - start).to_secs(), orbit.ta_at_time(end)?));
-
-        let mut keys = vec![];
-        for (i, (dt, ta)) in samples.iter().enumerate() {
-            let interp = if i == 0 {
-                Interpolation::Linear
-            } else if i + 2 < samples.len() {
-                Interpolation::CatmullRom
-            } else {
-                Interpolation::Linear
-            };
-            let key = Key::new(*dt, *ta, interp);
-            keys.push(key);
-        }
-
-        let spline = Spline::<f32, f32>::from_vec(keys);
-
-        Some(Self {
-            orbit: *orbit,
-            start,
-            end,
-            spline,
-        })
-    }
-
-    pub fn sparse(&self) -> &SparseOrbit {
-        &self.orbit
-    }
-
-    pub fn sample_normalized(&self, s: f32) -> f32 {
-        let ta = match self.spline.sample(s) {
-            Some(s) => s,
-            None => unreachable!(),
-        };
-        ta
-    }
-
-    pub fn sample(&self, t: Nanotime) -> f32 {
-        let period = self.end - self.start;
-        let mut t = t;
-        while t < self.start {
-            t += period;
-        }
-        let dt = (t - self.start) % period;
-
-        let ta = match self.spline.sample(dt.to_secs() / period.to_secs()) {
-            Some(s) => s,
-            None => unreachable!(),
-        };
-
-        wrap_pi_npi(ta)
-    }
-
-    pub fn samples(&self, origin: Vec2) -> Vec<Vec2> {
-        self.spline
-            .keys()
-            .iter()
-            .map(|k| {
-                let p = self.orbit.position_at(k.value);
-                origin + p
-            })
-            .collect()
-    }
-
-    pub fn all(&self, origin: Vec2) -> Option<Vec<Vec2>> {
-        tspace(self.start, self.end, 100)
-            .into_iter()
-            .map(|t| -> Option<Vec2> {
-                let ta = self.sample(t);
-                let p = self.orbit.position_at(ta);
-                Some(origin + p)
-            })
-            .collect()
-    }
-
-    pub fn line(&self, now: Nanotime, origin: Vec2) -> Result<Vec<Vec2>, &'static str> {
-        let mut t = self.end;
-        let timestep = Nanotime::millis(20);
-        let mut points = vec![];
-
-        let mut add_point = |t: Nanotime| {
-            let ta = self.sample(t);
-            let pos = self.orbit.position_at(ta);
-            points.push(origin + pos);
-        };
-
-        while t > now && t > self.start {
-            add_point(t);
-            t -= timestep;
-        }
-
-        add_point(self.start.max(now));
-        Ok(points)
-    }
-}
-
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct GlobalOrbit(pub ObjectId, pub SparseOrbit);
 
@@ -1056,6 +847,7 @@ impl std::fmt::Display for GlobalOrbit {
 mod tests {
     use super::*;
     use crate::examples::{consistency_orbits, make_earth};
+    use crate::math::tspace;
     use crate::pv::PV;
     use approx::assert_relative_eq;
     use more_asserts::*;
@@ -1181,7 +973,7 @@ mod tests {
             is_retrograde
         );
 
-        assert_eq!(orbit.pv(orbit.epoch).ok(), Some(orbit.initial));
+        assert_eq!(orbit.pv_universal(orbit.epoch).ok(), Some(orbit.initial));
 
         if let Some(((min, max), period)) = ncalc_period(&orbit).zip(orbit.period()) {
             dbg!((min, max, period));
@@ -1195,8 +987,11 @@ mod tests {
                 let t = orbit.epoch + Nanotime::millis(millis);
                 let ta = orbit.ta_at_time(t).unwrap();
                 let p1 = orbit.position_at(ta);
-                let p2 = orbit.pv(t).unwrap().pos;
-                assert_le!(p1.distance(p2), 0.1);
+                let p2 = orbit.pv_universal(t).unwrap().pos;
+                assert_le!(p1.distance(p2), 0.02);
+                if let Some(p3) = orbit.pv_lut(t) {
+                    assert_le!(p1.distance(p3.pos), 0.5);
+                }
             }
         }
 

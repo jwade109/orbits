@@ -19,10 +19,6 @@ splines = { version = "4.4.2", features = ["glam"] }
 toml = "0.8.20"
 uom = "0.36.0"
 
-[[bin]]
-name = "export_signals"
-path = "bin/export_signals.rs"
-
 [[bench]]
 name = "benchmark"
 path = "benches/benchmarks.rs"

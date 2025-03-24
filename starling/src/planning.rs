@@ -1,7 +1,7 @@
 use crate::math::{tspace, PI};
 use crate::nanotime::Nanotime;
 use crate::orbiter::*;
-use crate::orbits::{vis_viva_equation, DenseOrbit, GlobalOrbit, OrbitClass, SparseOrbit};
+use crate::orbits::{vis_viva_equation, GlobalOrbit, OrbitClass, SparseOrbit};
 use crate::pv::PV;
 use crate::scenario::*;
 use glam::f32::Vec2;
@@ -180,6 +180,12 @@ impl Propagator {
     pub fn pv(&self, stamp: Nanotime) -> Option<PV> {
         self.is_active(stamp)
             .then(|| self.orbit.1.pv(stamp).ok())
+            .flatten()
+    }
+
+    pub fn pv_universal(&self, stamp: Nanotime) -> Option<PV> {
+        self.is_active(stamp)
+            .then(|| self.orbit.1.pv_universal(stamp).ok())
             .flatten()
     }
 
@@ -527,7 +533,7 @@ impl ManeuverPlan {
             let segment = if let Some(c) = segments.last() {
                 c.next(*t, *dv)
             } else {
-                ManeuverSegment::new(now, *t, &initial, *dv)
+                ManeuverSegment::new(now, *t, initial, *dv)
             }?;
 
             segments.push(segment);
@@ -545,7 +551,7 @@ impl ManeuverPlan {
     pub fn pv(&self, stamp: Nanotime) -> Option<PV> {
         for segment in &self.segments {
             if let Some(pv) = (segment.start <= stamp && stamp <= segment.end)
-                .then(|| segment.orbit.sparse().pv(stamp).ok())
+                .then(|| segment.orbit.pv(stamp).ok())
                 .flatten()
             {
                 return Some(pv);
@@ -604,7 +610,7 @@ impl std::fmt::Display for ManeuverPlan {
                 segment.start,
                 segment.end,
                 segment.impulse,
-                segment.orbit.sparse(),
+                segment.orbit,
             )?;
         }
         write!(f, "Ending with {:?}\n", self.terminal)
@@ -615,16 +621,16 @@ impl std::fmt::Display for ManeuverPlan {
 pub struct ManeuverSegment {
     pub start: Nanotime,
     pub end: Nanotime,
-    pub orbit: DenseOrbit,
+    pub orbit: SparseOrbit,
     pub impulse: Vec2,
 }
 
 impl ManeuverSegment {
-    fn new(start: Nanotime, end: Nanotime, orbit: &SparseOrbit, dv: Vec2) -> Option<Self> {
+    fn new(start: Nanotime, end: Nanotime, orbit: SparseOrbit, dv: Vec2) -> Option<Self> {
         Some(ManeuverSegment {
             start,
             end,
-            orbit: DenseOrbit::in_range(orbit, start, end)?,
+            orbit,
             impulse: dv,
         })
     }
@@ -632,12 +638,12 @@ impl ManeuverSegment {
     fn next(&self, t: Nanotime, impulse: Vec2) -> Option<Self> {
         let sparse = self.next_orbit()?;
         assert!(self.end < t);
-        ManeuverSegment::new(self.end, t, &sparse, impulse)
+        ManeuverSegment::new(self.end, t, sparse, impulse)
     }
 
     fn next_orbit(&self) -> Option<SparseOrbit> {
-        let pv = self.orbit.sparse().pv(self.end).ok()? + PV::vel(self.impulse);
-        SparseOrbit::from_pv(pv, self.orbit.sparse().body, self.end)
+        let pv = self.orbit.pv(self.end).ok()? + PV::vel(self.impulse);
+        SparseOrbit::from_pv(pv, self.orbit.body, self.end)
     }
 
     fn dv(&self) -> (Nanotime, Vec2) {
@@ -650,10 +656,7 @@ impl std::fmt::Display for ManeuverSegment {
         write!(
             f,
             "Segment {:?} to {:?} in {:?}, impulse {}",
-            self.start,
-            self.end,
-            self.orbit.sparse(),
-            self.impulse
+            self.start, self.end, self.orbit, self.impulse
         )
     }
 }
@@ -728,7 +731,7 @@ fn bielliptic_transfer(
 
     let intermediate = p1.segments.iter().skip(1).next()?;
 
-    let p2 = hohmann_transfer(intermediate.orbit.sparse(), destination, p1.end())?;
+    let p2 = hohmann_transfer(&intermediate.orbit, destination, p1.end())?;
 
     p1.then(p2).ok()
 }
