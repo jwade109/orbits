@@ -726,22 +726,7 @@ fn draw_graph(gizmos: &mut Gizmos, graph: &Graph, state: &GameState) -> Option<(
 
     for signal in graph.signals() {
         let p = signal.points().map(|p| map(p)).collect::<Vec<_>>();
-
-        let (draw_line, draw_points) = match signal.line() {
-            LineType::Both => (true, true),
-            LineType::Points => (false, true),
-            LineType::Line => (true, false),
-        };
-
-        if draw_points {
-            for p in &p {
-                draw_circle(gizmos, *p, 2.0 * state.camera.actual_scale, signal.color());
-            }
-        }
-
-        if draw_line {
-            gizmos.linestrip_2d(p, signal.color());
-        }
+        gizmos.linestrip_2d(p, signal.color());
     }
     Some(())
 }

@@ -3,14 +3,13 @@ use bevy::prelude::*;
 use lazy_static::lazy_static;
 use starling::prelude::*;
 
-const GRAPH_PADDING: f32 = 2.0;
+const GRAPH_PADDING: f32 = 0.01;
 
 pub struct Signal<'a> {
     graph: &'a Graph,
     x: &'a [f32],
     y: &'a [f32],
     color: Srgba,
-    line: LineType,
 }
 
 impl<'a> Signal<'a> {
@@ -25,24 +24,13 @@ impl<'a> Signal<'a> {
     pub fn color(&self) -> Srgba {
         self.color
     }
-
-    pub fn line(&self) -> LineType {
-        self.line
-    }
 }
 
 pub struct Graph {
     bounds: AABB,
     x: Vec<f32>,
-    signals: Vec<(Vec<f32>, Srgba, LineType)>,
+    signals: Vec<(Vec<f32>, Srgba)>,
     points: Vec<Vec2>,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum LineType {
-    Line,
-    Points,
-    Both,
 }
 
 impl Graph {
@@ -73,7 +61,7 @@ impl Graph {
         self.bounds.padded(padding)
     }
 
-    pub fn add_func(&mut self, func: impl Fn(f32) -> f32, color: Srgba, line: LineType) {
+    pub fn add_func(&mut self, func: impl Fn(f32) -> f32, color: Srgba) {
         let y = apply(&self.x, func);
         self.x.iter().zip(y.iter()).for_each(|(x, y)| {
             if y.is_nan() {
@@ -81,7 +69,7 @@ impl Graph {
             }
             self.bounds.include(&Vec2::new(*x, *y));
         });
-        self.signals.push((y, color, line));
+        self.signals.push((y, color));
     }
 
     pub fn origin(&self) -> Vec2 {
@@ -89,12 +77,11 @@ impl Graph {
     }
 
     pub fn signals(&self) -> impl Iterator<Item = Signal> + use<'_> {
-        self.signals.iter().map(|(y, color, line)| Signal {
+        self.signals.iter().map(|(y, color)| Signal {
             graph: self,
             x: &self.x,
             y,
             color: *color,
-            line: *line,
         })
     }
 }
@@ -119,13 +106,17 @@ pub fn get_lut_error_graph(orbit: &SparseOrbit) -> Option<Graph> {
     let pv_lut_x = |x| get_x(orbit.pv_lut(t_at_x(x)));
     let pv_lut_y = |x| get_y(orbit.pv_lut(t_at_x(x)));
 
-    let error_x = |x| pv_slow_x(x) - pv_lut_x(x);
-    let error_y = |x| pv_slow_y(x) - pv_lut_y(x);
+    let ra = orbit.apoapsis_r();
 
-    graph.add_func(error_x, TEAL, LineType::Line);
-    graph.add_func(error_y, LIME, LineType::Line);
+    let error_x = |x| (pv_slow_x(x) - pv_lut_x(x)) / ra;
+    let error_y = |x| (pv_slow_y(x) - pv_lut_y(x)) / ra;
 
-    graph.add_point(0.0, 0.1, true);
+    graph.add_func(error_x, TEAL);
+    graph.add_func(error_y, LIME);
+
+    graph.add_point(0.0, 0.001, false);
+    graph.add_point(0.0, 0.01, false);
+    graph.add_point(0.0, 0.1, false);
     graph.add_point(0.0, 1.0, false);
 
     Some(graph)
@@ -144,7 +135,7 @@ fn generate_lut_graph() -> Graph {
 
     for ecc in linspace(0.0, 0.9, 10) {
         let f = |x| lookup_ta_from_ma(x, ecc).unwrap_or(f32::NAN);
-        graph.add_func(f, GREEN.mix(&RED, ecc), LineType::Line);
+        graph.add_func(f, GREEN.mix(&RED, ecc));
     }
 
     graph

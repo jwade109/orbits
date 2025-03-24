@@ -363,9 +363,9 @@ impl GameState {
     }
 
     pub fn do_maneuver(&mut self, dv: Vec2) -> Option<()> {
-        if self.paused {
-            return Some(());
-        }
+        // if self.paused {
+        //     return Some(());
+        // }
 
         let failures: Vec<_> = self
             .track_list

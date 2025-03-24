@@ -159,7 +159,7 @@ impl SparseOrbit {
             time_at_periapsis,
         };
 
-        if o.pv(epoch + Nanotime::secs(1)).is_err() {
+        if o.pv_universal(epoch + Nanotime::secs(1)).is_err() {
             println!("SparseOrbit returned bad PV: {pv:?}\n  {o:?}");
             return None;
         }
@@ -314,7 +314,7 @@ impl SparseOrbit {
     // TODO make this less stupid. should be able to compute
     // true anomaly more directly, and maybe without fallibility
     pub fn ta_at_time(&self, stamp: Nanotime) -> Option<f32> {
-        let p = self.pv(stamp).ok()?;
+        let p = self.pv_universal(stamp).ok()?;
         if self.is_retrograde() {
             Some(-p.pos.to_angle() - self.arg_periapsis)
         } else {
@@ -348,6 +348,9 @@ impl SparseOrbit {
     }
 
     pub fn pv(&self, stamp: Nanotime) -> Result<PV, ULData> {
+        if let Some(pv) = self.pv_lut(stamp) {
+            return Ok(pv);
+        }
         self.pv_universal(stamp)
     }
 
@@ -367,6 +370,9 @@ impl SparseOrbit {
     }
 
     pub fn pv_lut(&self, stamp: Nanotime) -> Option<PV> {
+        if self.ecc() > 0.7 {
+            return None;
+        }
         let ma = self.mean_anomaly(stamp)?;
         let ta = crate::orbital_luts::lookup_ta_from_ma(ma, self.ecc())?;
         let pos = self.position_at(ta);
