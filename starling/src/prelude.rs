@@ -8,6 +8,7 @@ pub use crate::examples::{
 pub use crate::file_export::export_orbit_data;
 pub use crate::math::{apply, apply_filter, linspace, rand, randvec, rotate, tspace, PI};
 pub use crate::nanotime::Nanotime;
+pub use crate::orbital_luts::lookup_ta_from_ma;
 pub use crate::orbiter::{GroupId, ObjectId, Orbiter};
 pub use crate::orbits::{
     hyperbolic_range_ta, wrap_pi_npi, Body, DenseOrbit, GlobalOrbit, SparseOrbit,

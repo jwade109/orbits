@@ -751,59 +751,15 @@ pub fn draw_orbit_spline(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
         return None;
     }
 
-    let mut graph = Graph::linspace(-0.1 * PI, 4.1 * PI, 1000);
-
-    graph.add_point(0.0, 0.0);
-    graph.add_point(PI, 0.0);
-    graph.add_point(2.0 * PI, 0.0);
-    graph.add_point(0.0, PI);
-    graph.add_point(0.0, 2.0 * PI);
-    graph.add_point(2.0 * PI, 2.0 * PI);
-    graph.add_point(4.0 * PI, 2.0 * PI);
-
-    for ecc in linspace(0.0, 0.9, 10) {
-        let f = |x| starling::orbital_luts::lookup_ta_from_ma(x, ecc).unwrap_or(f32::NAN);
-        graph.add_func(f, GREEN.mix(&RED, ecc), LineType::Line);
-    }
-
-    graph.add_func(
-        |x| {
-            let y = (x * 4.0).sin();
-            if y < 0.0 {
-                f32::NAN
-            } else {
-                y * 3.0
-            }
-        },
-        PURPLE,
-        LineType::Line,
-    );
-
-    (|| -> Option<()> {
-        let orbit = state.right_cursor_orbit()?;
-        if orbit.1.is_hyperbolic() {
-            return None;
-        }
-        graph.add_func(
-            |x| starling::orbital_luts::lookup_ta_from_ma(x, orbit.1.ecc()).unwrap_or(f32::NAN),
-            YELLOW,
-            LineType::Line,
-        );
-        graph.add_func(
-            |ta| orbit.1.position_at(ta).length() / orbit.1.apoapsis_r(),
-            TEAL,
-            LineType::Line,
-        );
-        let vmax = orbit.1.velocity_at(0.0).length();
-        graph.add_func(
-            |ta| orbit.1.velocity_at(ta).length() / vmax,
-            ORANGE,
-            LineType::Line,
-        );
-        Some(())
-    })();
-
-    draw_graph(gizmos, &graph, state);
+    if let Some(graph) = state
+        .right_cursor_orbit()
+        .map(|o| get_lut_error_graph(&o.1))
+        .flatten()
+    {
+        draw_graph(gizmos, &graph, state);
+    } else {
+        draw_graph(gizmos, get_lut_graph(), state);
+    };
 
     Some(())
 }

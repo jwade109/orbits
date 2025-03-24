@@ -1,7 +1,7 @@
-use bevy::color::Srgba;
-use bevy::math::Vec2;
-use starling::aabb::AABB;
-use starling::math::{apply, linspace};
+use bevy::color::palettes::css::*;
+use bevy::prelude::*;
+use lazy_static::lazy_static;
+use starling::prelude::*;
 
 const GRAPH_PADDING: f32 = 2.0;
 
@@ -61,9 +61,11 @@ impl Graph {
             .map(|p| self.bounds(GRAPH_PADDING).to_normalized(*p))
     }
 
-    pub fn add_point(&mut self, x: f32, y: f32) {
+    pub fn add_point(&mut self, x: f32, y: f32, update_bounds: bool) {
         let p = Vec2::new(x, y);
-        self.bounds.include(&p);
+        if update_bounds {
+            self.bounds.include(&p);
+        }
         self.points.push(p);
     }
 
@@ -95,4 +97,63 @@ impl Graph {
             line: *line,
         })
     }
+}
+
+pub fn get_lut_error_graph(orbit: &SparseOrbit) -> Option<Graph> {
+    let mut graph = Graph::linspace(-0.1 * PI, 4.1 * PI, 1000);
+
+    let period = orbit.period()?;
+    let tp = orbit.t_next_p(orbit.epoch)?;
+
+    let t_at_x = |x: f32| {
+        let s = x / (2.0 * PI);
+        tp + period * s
+    };
+
+    let get_x = |pv: Option<PV>| pv.map(|pv| pv.pos.x).unwrap_or(f32::NAN);
+    let get_y = |pv: Option<PV>| pv.map(|pv| pv.pos.y).unwrap_or(f32::NAN);
+
+    let pv_slow_x = |x| get_x(orbit.pv_universal(t_at_x(x)).ok());
+    let pv_slow_y = |x| get_y(orbit.pv_universal(t_at_x(x)).ok());
+
+    let pv_lut_x = |x| get_x(orbit.pv_lut(t_at_x(x)));
+    let pv_lut_y = |x| get_y(orbit.pv_lut(t_at_x(x)));
+
+    let error_x = |x| pv_slow_x(x) - pv_lut_x(x);
+    let error_y = |x| pv_slow_y(x) - pv_lut_y(x);
+
+    graph.add_func(error_x, TEAL, LineType::Line);
+    graph.add_func(error_y, LIME, LineType::Line);
+
+    graph.add_point(0.0, 0.1, true);
+    graph.add_point(0.0, 1.0, false);
+
+    Some(graph)
+}
+
+fn generate_lut_graph() -> Graph {
+    let mut graph = Graph::linspace(-0.1 * PI, 4.1 * PI, 1000);
+
+    graph.add_point(0.0, 0.0, true);
+    graph.add_point(PI, 0.0, true);
+    graph.add_point(2.0 * PI, 0.0, true);
+    graph.add_point(0.0, PI, true);
+    graph.add_point(0.0, 2.0 * PI, true);
+    graph.add_point(2.0 * PI, 2.0 * PI, true);
+    graph.add_point(4.0 * PI, 2.0 * PI, true);
+
+    for ecc in linspace(0.0, 0.9, 10) {
+        let f = |x| lookup_ta_from_ma(x, ecc).unwrap_or(f32::NAN);
+        graph.add_func(f, GREEN.mix(&RED, ecc), LineType::Line);
+    }
+
+    graph
+}
+
+lazy_static! {
+    static ref LUT_GRAPH: Graph = generate_lut_graph();
+}
+
+pub fn get_lut_graph() -> &'static Graph {
+    &LUT_GRAPH
 }
