@@ -266,8 +266,7 @@ impl SparseOrbit {
     }
 
     pub fn flight_path_angle_at(&self, true_anomaly: f32) -> f32 {
-        -(self.eccentricity * true_anomaly.sin())
-            .atan2(1.0 + self.eccentricity * true_anomaly.cos())
+        (self.eccentricity * true_anomaly.sin()).atan2(1.0 + self.eccentricity * true_anomaly.cos())
     }
 
     pub fn tangent_at(&self, true_anomaly: f32) -> Vec2 {
@@ -603,7 +602,7 @@ impl std::fmt::Display for SparseOrbit {
         write!(
             f,
             "A{:0.0}-E{:0.2}-P{:0.2}-R{:0.0}-M{:0.0}-S{:0.0}{}",
-            self.semi_minor_axis(),
+            self.semi_major_axis,
             self.ecc(),
             self.arg_periapsis,
             self.body.radius,
@@ -1315,6 +1314,50 @@ mod tests {
                 o1.pv(t).unwrap().pos.y,
                 o2.pv(t).unwrap().pos.y,
                 epsilon = 0.5
+            );
+        }
+    }
+
+    fn calculate_actual_time_at_periapsis(orbit: &SparseOrbit) -> Option<Nanotime> {
+        let velocity_up = |t: Nanotime| {
+            let pv = orbit.pv_universal(t).unwrap();
+            let u = pv.pos.normalize_or_zero();
+            pv.vel.dot(u)
+        };
+
+        let condition = |t: Nanotime| velocity_up(t) < 0.0;
+
+        search_condition(
+            orbit.epoch,
+            orbit.epoch + orbit.period_or(Nanotime::secs(30)) / 2,
+            Nanotime::nanos(2),
+            &condition,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn time_at_periapsis() {
+        let body = Body::new(50.0, 1000.0, 1E8);
+        let pos = Vec2::Y * -700.0;
+
+        for v in linspace(10.0, 70.0, 15) {
+            let vel = Vec2::new(v * 3.0, v);
+            let pv = PV::new(pos, vel);
+            let orbit = SparseOrbit::from_pv(pv, body, Nanotime::zero());
+            assert!(orbit.is_some(), "Bad orbit: {}", v);
+            let orbit = orbit.unwrap();
+            let tp = calculate_actual_time_at_periapsis(&orbit);
+            let dt = if let (Some(t1), Some(t2)) = (tp, orbit.time_at_periapsis) {
+                t1 - t2
+            } else {
+                Nanotime::zero()
+            };
+            println!("{} {:?} {:?} {}", orbit, orbit.time_at_periapsis, tp, dt);
+            assert!(
+                dt.abs() < Nanotime::nanos(20000),
+                "dt exceeds threshold: dt={}",
+                dt
             );
         }
     }
