@@ -301,7 +301,7 @@ impl Propagator {
                     .1
                     .pv(stamp)
                     .map_err(|_| BadObjectNextState::BadPosition)?;
-                let orbit = SparseOrbit::from_pv(pv + PV::vel(dv), self.orbit.1.body, stamp)
+                let orbit = SparseOrbit::from_pv(pv + PV::vel(dv), self.orbit.1.body(), stamp)
                     .ok_or(BadObjectNextState::BadOrbit)?;
                 Ok(Some(Propagator::new(
                     GlobalOrbit(self.orbit.0, orbit),
@@ -362,7 +362,7 @@ impl Propagator {
 
         let above_planet = |t: Nanotime| {
             let pos = self.orbit.1.pv(t).unwrap_or(PV::inf()).pos;
-            pos.length() > self.orbit.1.body.radius
+            pos.length() > self.orbit.1.body().radius
         };
 
         if self.orbit.1.is_suborbital() && going_down && below_all_bodies {
@@ -383,7 +383,7 @@ impl Propagator {
         }
 
         let might_hit_planet =
-            self.orbit.1.is_suborbital() && alt < self.orbit.1.body.radius * 20.0;
+            self.orbit.1.is_suborbital() && alt < self.orbit.1.body().radius * 20.0;
         let can_escape = self.orbit.1.will_escape();
         let near_body = bodies
             .iter()
@@ -412,7 +412,7 @@ impl Propagator {
 
         let escape_soi = |t: Nanotime| {
             let pos = self.orbit.1.pv(t).unwrap_or(PV::inf()).pos;
-            pos.length() < self.orbit.1.body.soi
+            pos.length() < self.orbit.1.body().soi
         };
 
         if might_hit_planet {
@@ -643,7 +643,7 @@ impl ManeuverSegment {
 
     fn next_orbit(&self) -> Option<SparseOrbit> {
         let pv = self.orbit.pv(self.end).ok()? + PV::vel(self.impulse);
-        SparseOrbit::from_pv(pv, self.orbit.body, self.end)
+        SparseOrbit::from_pv(pv, self.orbit.body(), self.end)
     }
 
     fn dv(&self) -> (Nanotime, Vec2) {
@@ -671,7 +671,7 @@ fn hohmann_transfer(
         _ => (),
     }
 
-    let mu = current.body.mu();
+    let mu = current.body().mu();
     let r1 = current.periapsis_r();
     let r2 = destination.radius_at_angle(current.arg_periapsis + PI);
     let a_transfer = (r1 + r2) / 2.0;
@@ -684,7 +684,7 @@ fn hohmann_transfer(
 
     let dv1 = after.vel - before.vel;
 
-    let transfer_orbit = SparseOrbit::from_pv(after, current.body, t1)?;
+    let transfer_orbit = SparseOrbit::from_pv(after, current.body(), t1)?;
 
     let t2 = t1 + transfer_orbit.period()? / 2;
     let before = transfer_orbit.pv(t2).ok()?;
@@ -706,8 +706,8 @@ fn bielliptic_transfer(
         _ => (),
     }
 
-    let r1 = current.semi_major_axis;
-    let r2 = destination.semi_major_axis;
+    let r1 = current.semi_major_axis();
+    let r2 = destination.semi_major_axis();
 
     let (r1, r2) = (r1.min(r2), r1.max(r2));
 
@@ -720,12 +720,16 @@ fn bielliptic_transfer(
 
     let rb = current.apoapsis_r().max(destination.apoapsis_r()) * 2.0;
 
-    if rb > current.body.soi * 0.9 {
+    if rb > current.body().soi * 0.9 {
         return None;
     }
 
-    let intermediate =
-        SparseOrbit::circular(rb, current.body, Nanotime::zero(), current.is_retrograde());
+    let intermediate = SparseOrbit::circular(
+        rb,
+        current.body(),
+        Nanotime::zero(),
+        current.is_retrograde(),
+    );
 
     let p1 = hohmann_transfer(current, &intermediate, now)?;
 

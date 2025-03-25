@@ -317,7 +317,7 @@ impl GameState {
             randvec(pv_local.pos.length() * 0.005, pv_local.pos.length() * 0.02),
             randvec(pv_local.vel.length() * 0.005, pv_local.vel.length() * 0.02),
         );
-        let orbit = SparseOrbit::from_pv(pv_local + perturb, orbit.body, self.sim_time)?;
+        let orbit = SparseOrbit::from_pv(pv_local + perturb, orbit.body(), self.sim_time)?;
         let id = self.ids.next();
         self.scenario.add_object(id, *parent, orbit, self.sim_time);
         Some(())

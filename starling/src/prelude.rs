@@ -10,7 +10,10 @@ pub use crate::math::{apply, apply_filter, linspace, rand, randvec, rotate, tspa
 pub use crate::nanotime::Nanotime;
 pub use crate::orbital_luts::lookup_ta_from_ma;
 pub use crate::orbiter::{GroupId, ObjectId, Orbiter};
-pub use crate::orbits::{hyperbolic_range_ta, wrap_pi_npi, Body, GlobalOrbit, SparseOrbit};
+pub use crate::orbits::{
+    hyperbolic_range_ta, wrap_pi_npi, BasicOrbit, Body, GlobalOrbit, OrbitShape, PerifocalOrbit,
+    SparseOrbit,
+};
 pub use crate::planning::{best_maneuver_plan, EventType, HorizonState, ManeuverPlan, Propagator};
 pub use crate::pv::PV;
 pub use crate::region::Region;
