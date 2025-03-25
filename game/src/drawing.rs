@@ -701,22 +701,19 @@ pub fn draw_notifications(gizmos: &mut Gizmos, state: &GameState) {
     }
 }
 
-fn draw_graph(gizmos: &mut Gizmos, graph: &Graph, state: &GameState) -> Option<()> {
+fn draw_graph(
+    gizmos: &mut Gizmos,
+    graph: &Graph,
+    state: &GameState,
+    center: Vec2,
+    scale: Vec2,
+) -> Option<()> {
     let wb = state.camera.world_bounds();
-    let vb = AABB::new(wb.center, wb.span * 0.7);
+    let vb = AABB::new(wb.center + wb.span * center, wb.span * scale);
 
     let map = |p: Vec2| vb.from_normalized(p);
 
     draw_aabb(gizmos, vb, GRAY.with_alpha(0.05));
-
-    for p in graph.points() {
-        draw_x(
-            gizmos,
-            map(p),
-            40.0 * state.camera.actual_scale,
-            RED.with_alpha(0.2),
-        );
-    }
 
     {
         // axes
@@ -733,6 +730,15 @@ fn draw_graph(gizmos: &mut Gizmos, graph: &Graph, state: &GameState) -> Option<(
         let p = signal.points().map(|p| map(p)).collect::<Vec<_>>();
         gizmos.linestrip_2d(p, signal.color());
     }
+
+    for p in graph.points() {
+        if !AABB::unit().contains(p) {
+            continue;
+        }
+        let size = 15.0 * state.camera.actual_scale;
+        draw_x(gizmos, map(p), size, WHITE.with_alpha(0.6));
+    }
+
     Some(())
 }
 
@@ -741,14 +747,18 @@ pub fn draw_orbit_spline(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
         return None;
     }
 
-    if let Some(graph) = state
+    let scale = Vec2::splat(0.4);
+    let c1 = Vec2::new(-0.26, 0.0);
+    let c2 = Vec2::new(0.26, 0.0);
+
+    let g = state
         .right_cursor_orbit()
         .map(|o: GlobalOrbit| get_orbit_info_graph(&o.1))
-    {
-        draw_graph(gizmos, &graph, state);
-    } else {
-        draw_graph(gizmos, get_lut_graph(), state);
-    };
+        .unwrap_or(Graph::blank());
+
+    draw_graph(gizmos, &g, state, c2, scale);
+
+    draw_graph(gizmos, get_lut_graph(), state, c1, scale);
 
     Some(())
 }

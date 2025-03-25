@@ -40,6 +40,15 @@ impl Graph {
         }
     }
 
+    pub fn blank() -> Self {
+        Graph {
+            bounds: None,
+            x: Vec::new(),
+            signals: Vec::new(),
+            points: Vec::new(),
+        }
+    }
+
     pub fn points(&self) -> impl Iterator<Item = Vec2> + use<'_> {
         self.points.iter().map(|p| self.bounds().to_normalized(*p))
     }
@@ -89,13 +98,23 @@ impl Graph {
     }
 }
 
+#[allow(unused)]
 pub fn get_orbit_info_graph(orbit: &SparseOrbit) -> Graph {
-    let mut graph = Graph::linspace(-0.1, 1.1, 800);
+    let mut graph = Graph::linspace(-0.1, 1.1, 500);
 
     let t0 = orbit.epoch;
-    let period = Nanotime::secs(30);
+    let dur = Nanotime::secs(120);
 
-    let t = |s: f32| t0 + period * s;
+    if let Some(tp) = orbit.t_next_p(orbit.epoch) {
+        let y = orbit.periapsis_r();
+        let period = orbit.period_or(Nanotime::zero());
+        for i in -3..=12 {
+            let x = (tp - orbit.epoch + period * i).to_secs() / dur.to_secs();
+            graph.add_point(x, y, false)
+        }
+    };
+
+    let t = |s: f32| t0 + dur * s;
 
     let pv = |s: f32| orbit.pv(t(s)).ok();
     let ta = |s: f32| orbit.ta_at_time(t(s)).unwrap_or(f32::NAN);
@@ -106,10 +125,13 @@ pub fn get_orbit_info_graph(orbit: &SparseOrbit) -> Graph {
     let y1 = |s: f32| pv(s).map(|pv| pv.pos.y).unwrap_or(f32::NAN);
     let y2 = |s: f32| orbit.position_at(ta(s)).y;
 
+    let r = |s: f32| orbit.position_at(ta(s)).length();
+
     graph.add_func(x1, RED);
-    graph.add_func(x2, RED.with_green(0.2));
+    // graph.add_func(x2, RED.with_green(0.4));
     graph.add_func(y1, TEAL);
-    graph.add_func(y2, TEAL.with_green(0.2));
+    // graph.add_func(y2, TEAL.with_green(0.4));
+    graph.add_func(r, ORANGE);
 
     graph
 }

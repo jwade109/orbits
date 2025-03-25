@@ -12,6 +12,10 @@ impl AABB {
         Self { center, span }
     }
 
+    pub fn unit() -> Self {
+        Self::from_arbitrary((0.0, 0.0), (1.0, 1.0))
+    }
+
     pub fn with_padding(pad: f32) -> Self {
         Self::new(Vec2::ZERO, Vec2::ZERO).padded(pad)
     }
