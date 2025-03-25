@@ -94,7 +94,7 @@ fn get_orbit_with_ecc(ecc: f32) -> Vec<f32> {
 
 lazy_static! {
     pub static ref BIG_ORBITS: HashMap<u8, Vec<f32>> = HashMap::from_iter(
-        (0..=85)
+        (0..=60)
             .step_by(ECCENTRICITY_STEP as usize)
             .map(|e| (e, get_orbit_with_ecc(e as f32 / 100.0)))
     );
@@ -143,7 +143,7 @@ mod tests {
 
     #[test]
     fn lut_expected_values() {
-        for ecc in linspace(0.0, 0.80, 100) {
+        for ecc in linspace(0.0, 0.9, 100) {
             assert_float_absolute_eq!(lookup_ta_from_ma(0.0, ecc).unwrap(), 0.0, 1E-2);
             assert_float_absolute_eq!(lookup_ta_from_ma(PI, ecc).unwrap(), PI, 1E-2);
             assert_float_absolute_eq!(lookup_ta_from_ma(2.0 * PI, ecc).unwrap(), 0.0, 1E-2);

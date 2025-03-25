@@ -45,7 +45,7 @@ impl AsteroidBelt {
             ra1,
             rp1,
             orbit.1.arg_periapsis,
-            orbit.1.body(),
+            orbit.1.body,
             Nanotime::zero(),
             orbit.1.is_retrograde(),
         )?;
@@ -53,7 +53,7 @@ impl AsteroidBelt {
             ra2,
             rp2,
             orbit.1.arg_periapsis,
-            orbit.1.body(),
+            orbit.1.body,
             Nanotime::zero(),
             orbit.1.is_retrograde(),
         )?;
@@ -153,7 +153,7 @@ impl AsteroidBelt {
             ra,
             rp,
             argp,
-            self.inner.body(),
+            self.inner.body,
             epoch,
             self.inner.is_retrograde(),
         )

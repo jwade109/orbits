@@ -94,55 +94,6 @@ fn draw_obb(gizmos: &mut Gizmos, obb: &OBB, color: Srgba) {
     gizmos.linestrip_2d(corners, color);
 }
 
-fn draw_perifocal(
-    gizmos: &mut Gizmos,
-    orb: &PerifocalOrbit,
-    origin: Vec2,
-    color: Srgba,
-    stamp: Nanotime,
-) {
-    if let Some(el) = orb.elliptical() {
-        let b = el.semi_minor_axis();
-        let center: Vec2 = origin + (el.periapsis() + el.apoapsis()) / 2.0;
-        let iso = Isometry2d::from_translation(center);
-        let res = orb.semi_major_axis().clamp(40.0, 300.0) as u32;
-        gizmos
-            .ellipse_2d(iso, Vec2::new(orb.semi_major_axis(), b), color)
-            .resolution(res);
-
-        let ma = stamp.to_secs();
-        if let Some(ta) = lookup_ta_from_ma(ma, orb.ecc()) {
-            let p = el.position_at(ta);
-            draw_circle(gizmos, p, 40.0, color);
-        }
-    }
-}
-
-fn draw_basic_orbit(
-    gizmos: &mut Gizmos,
-    orb: &BasicOrbit,
-    origin: Vec2,
-    color: Srgba,
-    stamp: Nanotime,
-) {
-    if let Some(el) = orb.elliptical() {
-        let peri = el.peri();
-        let b = peri.semi_minor_axis();
-        let center: Vec2 = origin + (el.periapsis() + el.apoapsis()) / 2.0;
-        let iso = Isometry2d::new(center, orb.argp().into());
-        let res = orb.peri().semi_major_axis().clamp(40.0, 300.0) as u32;
-        gizmos
-            .ellipse_2d(iso, Vec2::new(orb.peri().semi_major_axis(), b), color)
-            .resolution(res);
-
-        let ma = stamp.to_secs();
-        if let Some(ta) = lookup_ta_from_ma(ma, orb.peri().ecc()) {
-            let p = el.position_at(ta);
-            draw_cross(gizmos, p, 40.0, color);
-        }
-    }
-}
-
 fn draw_orbit(gizmos: &mut Gizmos, orb: &SparseOrbit, origin: Vec2, color: Srgba) {
     if orb.will_escape() {
         let ta = if orb.is_hyperbolic() {
@@ -156,7 +107,7 @@ fn draw_orbit(gizmos: &mut Gizmos, orb: &SparseOrbit, origin: Vec2, color: Srgba
             .iter()
             .filter_map(|t| {
                 let p = orb.position_at(*t);
-                if p.length() > orb.body().soi {
+                if p.length() > orb.body.soi {
                     return None;
                 }
                 Some(origin + p)
@@ -168,10 +119,10 @@ fn draw_orbit(gizmos: &mut Gizmos, orb: &SparseOrbit, origin: Vec2, color: Srgba
         let center: Vec2 = origin + (orb.periapsis() + orb.apoapsis()) / 2.0;
         let iso = Isometry2d::new(center, orb.arg_periapsis.into());
 
-        let res = orb.semi_major_axis().clamp(40.0, 300.0) as u32;
+        let res = orb.semi_major_axis.clamp(40.0, 300.0) as u32;
 
         gizmos
-            .ellipse_2d(iso, Vec2::new(orb.semi_major_axis(), b), color)
+            .ellipse_2d(iso, Vec2::new(orb.semi_major_axis, b), color)
             .resolution(res);
     }
 }
@@ -810,19 +761,6 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     if let Some(a) = state.selection_region() {
         draw_region(&mut gizmos, a, RED, Vec2::ZERO);
     }
-
-    (|| -> Option<()> {
-        let p1 = state.mouse.right_world()?;
-        let p2 = state.mouse.current_world()?;
-        let pv = state.cursor_pv(p1, p2)?;
-        let peri = PerifocalOrbit::from_pv(pv, state.scenario.planets().body);
-        draw_perifocal(&mut gizmos, &peri, Vec2::ZERO, RED, state.actual_time);
-
-        let basic = BasicOrbit::from_pv(pv, state.scenario.planets().body);
-        draw_basic_orbit(&mut gizmos, &basic, Vec2::ZERO, RED, state.actual_time);
-
-        Some(())
-    })();
 
     for p in &state.control_points() {
         draw_circle(

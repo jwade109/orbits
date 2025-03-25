@@ -59,7 +59,7 @@ impl Orbiter {
         let orbit = {
             let prop = self.propagator_at(stamp)?;
             let pv = prop.pv_universal(stamp)? + PV::vel(dv);
-            let orbit = SparseOrbit::from_pv(pv, prop.orbit.1.body(), stamp)?;
+            let orbit = SparseOrbit::from_pv(pv, prop.orbit.1.body, stamp)?;
             GlobalOrbit(prop.parent(), orbit)
         };
         self.props.clear();

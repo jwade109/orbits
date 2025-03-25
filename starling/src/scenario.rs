@@ -249,7 +249,7 @@ impl Scenario {
                 let v_normal = -v_normal * rand(0.01, 0.1) + n * rand(0.03, 0.1) * vmag;
                 let v_tangent = v_tangent * rand(0.01, 0.1) + t * rand(-1.0, 1.0) * vmag * 0.1;
 
-                let mut body = info.orbit.body();
+                let mut body = info.orbit.body;
                 body.mass *= 0.5;
 
                 let pv = PV::new(pos, v_normal + v_tangent);
@@ -269,7 +269,7 @@ impl Scenario {
                 None => return false,
             };
             let r = pv.pos.length();
-            r > orbit.body().radius && r < orbit.body().soi
+            r > orbit.body.radius && r < orbit.body.soi
         });
 
         info

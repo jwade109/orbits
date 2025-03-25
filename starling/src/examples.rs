@@ -51,7 +51,7 @@ pub fn earth_moon_example_one() -> (Scenario, ObjectIdTracker) {
     earth.orbit(make_luna().1, luna.clone());
     earth.orbit(
         SparseOrbit::circular(
-            make_luna().1.semi_major_axis() * 2.0,
+            make_luna().1.semi_major_axis * 2.0,
             earth.body,
             Nanotime::zero(),
             false,
@@ -1479,7 +1479,7 @@ pub fn stable_simulation() -> (Scenario, ObjectIdTracker) {
     earth.orbit(make_luna().1, luna.clone());
     earth.orbit(
         SparseOrbit::circular(
-            make_luna().1.semi_major_axis() * 2.0,
+            make_luna().1.semi_major_axis * 2.0,
             earth.body,
             Nanotime::zero(),
             false,

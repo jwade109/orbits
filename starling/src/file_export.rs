@@ -44,7 +44,7 @@ pub fn export_orbit_data(
     let nt = apply(&ftime, |x| Nanotime::secs_f32(x));
 
     let data = apply(&nt, |x| {
-        universal_lagrange(orbit.initial, x, orbit.body().mu())
+        universal_lagrange(orbit.initial, x, orbit.body.mu())
     });
 
     let x = apply(&data, |x| x.1.map(|d| d.pv.pos.x).unwrap_or(f32::NAN));

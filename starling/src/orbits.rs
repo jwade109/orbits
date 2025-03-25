@@ -103,274 +103,11 @@ pub fn vis_viva_equation(mu: f32, r: f32, a: f32) -> f32 {
 const GRAVITATIONAL_CONSTANT: f32 = 12000.0;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct PerifocalOrbit {
-    eccentricity: f32,
-    semi_major_axis: f32,
-    body: Body,
-}
-
-// assertion that eccentricity < 1.0
-pub struct Elliptical<'a, T> {
-    inner: &'a T,
-}
-
-// assertion that eccentricity = 1.0
-pub struct Parabolic<'a, T> {
-    inner: &'a T,
-}
-
-// assertion that eccentricity > 1.0
-pub struct Hyperbolic<'a, T> {
-    inner: &'a T,
-}
-
-trait Ellipse {
-    fn rp(&self) -> f32;
-
-    fn ra(&self) -> f32;
-}
-
-trait Parabol {}
-
-trait Hyper {}
-
-pub trait OrbitShape<'a>
-where
-    Self: Sized + 'a,
-    Elliptical<'a, Self>: Ellipse,
-    Parabolic<'a, Self>: Parabol,
-    Hyperbolic<'a, Self>: Hyper,
-{
-    fn elliptical(&'a self) -> Option<Elliptical<'a, Self>>;
-
-    fn parabolic(&'a self) -> Option<Parabolic<'a, Self>>;
-
-    fn hyperbolic(&'a self) -> Option<Hyperbolic<'a, Self>>;
-}
-
-impl OrbitShape<'_> for PerifocalOrbit {
-    fn elliptical(&self) -> Option<Elliptical<'_, Self>> {
-        (self.ecc() < 1.0).then(|| Elliptical { inner: self })
-    }
-
-    fn parabolic(&self) -> Option<Parabolic<'_, Self>> {
-        (self.ecc() == 1.0).then(|| Parabolic { inner: self })
-    }
-
-    fn hyperbolic(&self) -> Option<Hyperbolic<'_, Self>> {
-        (self.ecc() > 1.0).then(|| Hyperbolic { inner: self })
-    }
-}
-
-impl PerifocalOrbit {
-    pub fn new(e: f32, a: f32, body: Body) -> Self {
-        Self {
-            eccentricity: e,
-            semi_major_axis: a,
-            body,
-        }
-    }
-
-    pub fn from_pv(pv: impl Into<PV>, body: Body) -> Self {
-        let pv: PV = pv.into();
-
-        let r3 = pv.pos.extend(0.0);
-        let v3 = pv.vel.extend(0.0);
-        let h = r3.cross(v3);
-        let e = v3.cross(h) / body.mu() - r3 / r3.length();
-        let eccentricity = e.length();
-        let semi_major_axis: f32 = h.length_squared() / (body.mu() * (1.0 - e.length_squared()));
-
-        PerifocalOrbit {
-            eccentricity,
-            semi_major_axis,
-            body,
-        }
-    }
-
-    pub fn ecc(&self) -> f32 {
-        self.eccentricity
-    }
-
-    pub fn semi_major_axis(&self) -> f32 {
-        self.semi_major_axis
-    }
-}
-
-impl Ellipse for Elliptical<'_, PerifocalOrbit> {
-    fn rp(&self) -> f32 {
-        (1.0 - self.inner.eccentricity) * self.inner.semi_major_axis
-    }
-
-    fn ra(&self) -> f32 {
-        (1.0 + self.inner.eccentricity) * self.inner.semi_major_axis
-    }
-}
-
-impl Parabol for Parabolic<'_, PerifocalOrbit> {}
-
-impl Hyper for Hyperbolic<'_, PerifocalOrbit> {}
-
-impl<'a> Elliptical<'a, PerifocalOrbit> {
-    pub fn alpha(&self) -> f32 {
-        1.0 / self.inner.semi_major_axis
-    }
-
-    pub fn periapsis(&self) -> Vec2 {
-        Vec2::X * self.rp()
-    }
-
-    pub fn apoapsis(&self) -> Vec2 {
-        -Vec2::X * self.ra()
-    }
-
-    pub fn semi_latus_rectum(&self) -> f32 {
-        if self.inner.eccentricity == 1.0 {
-            return 2.0 * self.inner.semi_major_axis();
-        }
-        self.inner.semi_major_axis() * (1.0 - self.inner.eccentricity.powi(2))
-    }
-
-    pub fn semi_minor_axis(&self) -> f32 {
-        (self.inner.semi_major_axis.abs() * self.semi_latus_rectum().abs()).sqrt()
-    }
-
-    pub fn radius_at(&self, true_anomaly: f32) -> f32 {
-        self.inner.semi_major_axis() * (1.0 - self.inner.ecc().powi(2))
-            / (1.0 + self.inner.ecc() * f32::cos(true_anomaly))
-    }
-
-    pub fn position_at(&self, true_anomaly: f32) -> Vec2 {
-        let r = self.radius_at(true_anomaly);
-        Vec2::from_angle(true_anomaly) * r
-    }
-}
-
-pub struct BasicOrbit {
-    peri: PerifocalOrbit,
-    arg_periapsis: f32,
-    retrograde: bool,
-}
-
-impl Ellipse for Elliptical<'_, BasicOrbit> {
-    fn ra(&self) -> f32 {
-        self.peri().ra()
-    }
-
-    fn rp(&self) -> f32 {
-        self.peri().rp()
-    }
-}
-
-impl Parabol for Parabolic<'_, BasicOrbit> {}
-
-impl Hyper for Hyperbolic<'_, BasicOrbit> {}
-
-impl<'a> Elliptical<'a, BasicOrbit> {
-    pub fn peri(&self) -> Elliptical<'_, PerifocalOrbit> {
-        Elliptical {
-            inner: &self.inner.peri,
-        }
-    }
-
-    pub fn periapsis(&self) -> Vec2 {
-        self.position_at(0.0)
-    }
-
-    pub fn apoapsis(&self) -> Vec2 {
-        self.position_at(PI)
-    }
-
-    pub fn position_at(&self, true_anomaly: f32) -> Vec2 {
-        let angle = if self.inner.retrograde {
-            -true_anomaly
-        } else {
-            true_anomaly
-        };
-        let p = self.peri().position_at(angle);
-        rotate(p, self.inner.arg_periapsis)
-    }
-}
-
-// impl<'a> Hyperbolic<'a, BasicOrbit> {
-//     pub fn peri(&self) -> Hyperbolic<'_, PerifocalOrbit> {
-//         Hyperbolic {
-//             inner: &self.inner.peri,
-//         }
-//     }
-
-//     pub fn periapsis(&self) -> Vec2 {
-//         self.position_at(0.0)
-//     }
-
-//     pub fn position_at(&self, true_anomaly: f32) -> Vec2 {
-//         let angle = if self.inner.retrograde {
-//             -true_anomaly
-//         } else {
-//             true_anomaly
-//         };
-//         let p = self.peri().position_at(angle);
-//         rotate(p, self.inner.arg_periapsis)
-//     }
-// }
-
-impl BasicOrbit {
-    pub fn new(peri: PerifocalOrbit, argp: f32, retro: bool) -> Self {
-        Self {
-            peri,
-            arg_periapsis: argp,
-            retrograde: retro,
-        }
-    }
-
-    pub fn from_pv(pv: impl Into<PV>, body: Body) -> Self {
-        let pv = pv.into();
-        let peri = PerifocalOrbit::from_pv(pv, body);
-
-        let r3 = pv.pos.extend(0.0);
-        let v3 = pv.vel.extend(0.0);
-        let h = r3.cross(v3);
-        let e = v3.cross(h) / body.mu() - r3 / r3.length();
-        let arg_periapsis = f32::atan2(e.y, e.x);
-
-        Self {
-            peri,
-            arg_periapsis,
-            retrograde: h.z < 0.0,
-        }
-    }
-
-    pub fn peri(&self) -> &PerifocalOrbit {
-        &self.peri
-    }
-
-    pub fn argp(&self) -> f32 {
-        self.arg_periapsis
-    }
-
-    pub fn is_retrograde(&self) -> bool {
-        self.retrograde
-    }
-}
-
-impl OrbitShape<'_> for BasicOrbit {
-    fn elliptical(&self) -> Option<Elliptical<'_, Self>> {
-        (self.peri().ecc() < 1.0).then(|| Elliptical { inner: self })
-    }
-
-    fn parabolic(&self) -> Option<Parabolic<'_, Self>> {
-        (self.peri().ecc() == 1.0).then(|| Parabolic { inner: self })
-    }
-
-    fn hyperbolic(&self) -> Option<Hyperbolic<'_, Self>> {
-        (self.peri().ecc() > 1.0).then(|| Hyperbolic { inner: self })
-    }
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct SparseOrbit {
-    peri: PerifocalOrbit,
+    eccentricity: f32,
+    pub semi_major_axis: f32,
     pub arg_periapsis: f32,
+    pub body: Body,
     pub initial: PV,
     pub epoch: Nanotime,
     pub time_at_periapsis: Option<Nanotime>,
@@ -412,12 +149,10 @@ impl SparseOrbit {
         };
 
         let o = SparseOrbit {
-            peri: PerifocalOrbit {
-                eccentricity: e.length(),
-                semi_major_axis,
-                body,
-            },
+            eccentricity: e.length(),
+            semi_major_axis,
             arg_periapsis,
+            body,
             initial: pv,
             epoch,
             time_at_periapsis,
@@ -465,28 +200,18 @@ impl SparseOrbit {
         let p = Vec2::new(radius, 0.0);
         let v = if retrograde { -1.0 } else { 1.0 } * Vec2::new(0.0, (body.mu() / radius).sqrt());
         SparseOrbit {
-            peri: PerifocalOrbit {
-                eccentricity: 0.0,
-                semi_major_axis: radius,
-                body,
-            },
+            eccentricity: 0.0,
+            semi_major_axis: radius,
             arg_periapsis: 0.0,
+            body,
             initial: PV::new(p, v),
             epoch,
             time_at_periapsis: Some(epoch),
         }
     }
 
-    pub fn semi_major_axis(&self) -> f32 {
-        self.peri.semi_major_axis
-    }
-
     pub fn ecc(&self) -> f32 {
-        self.peri.eccentricity
-    }
-
-    pub fn body(&self) -> Body {
-        self.peri.body
+        self.eccentricity
     }
 
     pub fn h(&self) -> f32 {
@@ -505,30 +230,30 @@ impl SparseOrbit {
     }
 
     pub fn is_suborbital(&self) -> bool {
-        self.periapsis_r() < self.peri.body.radius
+        self.periapsis_r() < self.body.radius
     }
 
     pub fn will_escape(&self) -> bool {
         match self.class() {
             OrbitClass::Parabolic | OrbitClass::Hyperbolic => true,
-            _ => self.apoapsis_r() > self.peri.body.soi,
+            _ => self.apoapsis_r() > self.body.soi,
         }
     }
 
     pub fn class(&self) -> OrbitClass {
-        if self.ecc() == 0.0 {
+        if self.eccentricity == 0.0 {
             OrbitClass::Circular
-        } else if self.ecc() < 0.2 {
+        } else if self.eccentricity < 0.2 {
             OrbitClass::NearCircular
-        } else if self.ecc() < 0.9 {
+        } else if self.eccentricity < 0.9 {
             OrbitClass::Elliptical
-        } else if self.ecc() < 1.0 {
-            if self.ecc() > 0.97 && self.is_suborbital() {
+        } else if self.eccentricity < 1.0 {
+            if self.eccentricity > 0.97 && self.is_suborbital() {
                 OrbitClass::VeryThin
             } else {
                 OrbitClass::HighlyElliptical
             }
-        } else if self.ecc() == 1.0 {
+        } else if self.eccentricity == 1.0 {
             OrbitClass::Parabolic
         } else {
             OrbitClass::Hyperbolic
@@ -541,7 +266,8 @@ impl SparseOrbit {
     }
 
     pub fn flight_path_angle_at(&self, true_anomaly: f32) -> f32 {
-        -(self.ecc() * true_anomaly.sin()).atan2(1.0 + self.ecc() * true_anomaly.cos())
+        -(self.eccentricity * true_anomaly.sin())
+            .atan2(1.0 + self.eccentricity * true_anomaly.cos())
     }
 
     pub fn tangent_at(&self, true_anomaly: f32) -> Vec2 {
@@ -558,14 +284,14 @@ impl SparseOrbit {
     }
 
     pub fn semi_latus_rectum(&self) -> f32 {
-        if self.ecc() == 1.0 {
-            return 2.0 * self.semi_major_axis();
+        if self.eccentricity == 1.0 {
+            return 2.0 * self.semi_major_axis;
         }
-        self.semi_major_axis() * (1.0 - self.ecc().powi(2))
+        self.semi_major_axis * (1.0 - self.eccentricity.powi(2))
     }
 
     pub fn semi_minor_axis(&self) -> f32 {
-        (self.semi_major_axis().abs() * self.semi_latus_rectum().abs()).sqrt()
+        (self.semi_major_axis.abs() * self.semi_latus_rectum().abs()).sqrt()
     }
 
     pub fn radius_at_angle(&self, angle: f32) -> f32 {
@@ -596,16 +322,16 @@ impl SparseOrbit {
     }
 
     pub fn radius_at(&self, true_anomaly: f32) -> f32 {
-        if self.ecc() == 1.0 {
-            let mu = self.peri.body.mu();
+        if self.eccentricity == 1.0 {
+            let mu = self.body.mu();
             return (self.h().powi(2) / mu) * 1.0 / (1.0 + true_anomaly.cos());
         }
-        self.semi_major_axis() * (1.0 - self.ecc().powi(2))
-            / (1.0 + self.ecc() * f32::cos(true_anomaly))
+        self.semi_major_axis * (1.0 - self.eccentricity.powi(2))
+            / (1.0 + self.eccentricity * f32::cos(true_anomaly))
     }
 
     pub fn period(&self) -> Option<Nanotime> {
-        if self.ecc() >= 1.0 {
+        if self.eccentricity >= 1.0 {
             return None;
         }
         let t = 2.0 * PI / self.mean_motion();
@@ -634,9 +360,9 @@ impl SparseOrbit {
             stamp - self.epoch
         };
 
-        let ul = universal_lagrange(self.initial, tof, self.peri.body.mu());
+        let ul = universal_lagrange(self.initial, tof, self.body.mu());
         let sol = ul.1.ok_or(ul.0)?;
-        if sol.pv.pos.length() > 3.0 * self.peri.body.soi {
+        if sol.pv.pos.length() > 3.0 * self.body.soi {
             return Err(ul.0);
         }
         Ok(sol.pv.filter_numerr().ok_or(ul.0)?)
@@ -661,11 +387,11 @@ impl SparseOrbit {
 
     pub fn velocity_at(&self, true_anomaly: f32) -> Vec2 {
         let r = self.radius_at(true_anomaly);
-        let v = (self.peri.body.mu() * (2.0 / r - 1.0 / self.semi_major_axis())).sqrt();
+        let v = (self.body.mu() * (2.0 / r - 1.0 / self.semi_major_axis)).sqrt();
         let h = self.h().abs();
         let cosfpa = h / (r * v);
-        let sinfpa =
-            cosfpa * self.ecc() * true_anomaly.sin() / (1.0 + self.ecc() * true_anomaly.cos());
+        let sinfpa = cosfpa * self.eccentricity * true_anomaly.sin()
+            / (1.0 + self.eccentricity * true_anomaly.cos());
         let n = self.normal_at(true_anomaly);
         let t = self.tangent_at(true_anomaly);
         v * (t * cosfpa + n * sinfpa)
@@ -688,7 +414,7 @@ impl SparseOrbit {
     }
 
     pub fn mean_motion(&self) -> f32 {
-        (self.peri.body.mu() / self.semi_major_axis().abs().powi(3)).sqrt()
+        (self.body.mu() / self.semi_major_axis.abs().powi(3)).sqrt()
     }
 
     pub fn mean_anomaly(&self, stamp: Nanotime) -> Option<f32> {
@@ -708,14 +434,14 @@ impl SparseOrbit {
     pub fn inverse(&self) -> Option<SparseOrbit> {
         SparseOrbit::from_pv(
             PV::new(self.initial.pos, -self.initial.vel),
-            self.peri.body,
+            self.body,
             self.epoch,
         )
     }
 
     pub fn t_next_p(&self, current: Nanotime) -> Option<Nanotime> {
         let tp = self.time_at_periapsis?;
-        if self.ecc() >= 1.0 {
+        if self.eccentricity >= 1.0 {
             return (tp >= current).then(|| tp);
         }
         let p = self.period()?;
@@ -724,14 +450,14 @@ impl SparseOrbit {
     }
 
     pub fn asymptotes(&self) -> Option<(Vec2, Vec2)> {
-        if self.ecc() < 1.0 {
+        if self.eccentricity < 1.0 {
             return None;
         }
         let u = self.periapsis().normalize();
         let b = self.semi_minor_axis();
 
-        let ua = Vec2::new(self.semi_major_axis(), b);
-        let ub = Vec2::new(self.semi_major_axis(), -b);
+        let ua = Vec2::new(self.semi_major_axis, b);
+        let ub = Vec2::new(self.semi_major_axis, -b);
 
         Some((u.rotate(ua), u.rotate(ub)))
     }
@@ -744,17 +470,17 @@ impl SparseOrbit {
         let center = self.center();
         let mut d = rotate(pos - center, -self.arg_periapsis);
 
-        d.y *= self.semi_major_axis() / self.semi_minor_axis();
+        d.y *= self.semi_major_axis / self.semi_minor_axis();
 
-        d.length() - self.semi_major_axis()
+        d.length() - self.semi_major_axis
     }
 
     pub fn obb(&self) -> Option<OBB> {
-        (self.ecc() < 1.0).then(|| {
+        (self.eccentricity < 1.0).then(|| {
             OBB::new(
                 AABB::new(
                     self.center(),
-                    Vec2::new(self.semi_major_axis() * 2.0, self.semi_minor_axis() * 2.0),
+                    Vec2::new(self.semi_major_axis * 2.0, self.semi_minor_axis() * 2.0),
                 ),
                 self.arg_periapsis,
             )
@@ -861,8 +587,10 @@ impl SparseOrbit {
         let p = rotate(self.initial.pos, -self.arg_periapsis);
         let v = rotate(self.initial.vel, -self.arg_periapsis);
         SparseOrbit {
-            peri: self.peri,
+            eccentricity: self.eccentricity,
+            semi_major_axis: self.semi_major_axis,
             arg_periapsis: 0.0,
+            body: self.body,
             initial: PV::new(p, v),
             epoch: self.epoch,
             time_at_periapsis: self.time_at_periapsis,
@@ -878,9 +606,9 @@ impl std::fmt::Display for SparseOrbit {
             self.semi_minor_axis(),
             self.ecc(),
             self.arg_periapsis,
-            self.peri.body.radius,
-            self.peri.body.mass,
-            self.peri.body.soi,
+            self.body.radius,
+            self.body.mass,
+            self.body.soi,
             if self.is_retrograde() { "*" } else { "" },
         )
     }
@@ -1173,7 +901,7 @@ mod tests {
                 }
             };
             let r2 = particle.pos.length_squared();
-            let a = -orbit.body().mu() / r2 * particle.pos.normalize_or_zero();
+            let a = -orbit.body.mu() / r2 * particle.pos.normalize_or_zero();
             particle.vel += a * dt.to_secs();
             particle.pos += particle.vel * dt.to_secs();
 
@@ -1499,7 +1227,7 @@ mod tests {
             orbit_consistency_test(
                 orbit.initial,
                 orbit.class(),
-                orbit.body(),
+                orbit.body,
                 f32::NAN,
                 is_retrograde,
             );
