@@ -94,7 +94,7 @@ fn get_orbit_with_ecc(ecc: f32) -> Vec<f32> {
 
 lazy_static! {
     pub static ref BIG_ORBITS: HashMap<u8, Vec<f32>> = HashMap::from_iter(
-        (0..=60)
+        (0..=93)
             .step_by(ECCENTRICITY_STEP as usize)
             .map(|e| (e, get_orbit_with_ecc(e as f32 / 100.0)))
     );

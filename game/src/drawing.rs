@@ -702,7 +702,12 @@ pub fn draw_notifications(gizmos: &mut Gizmos, state: &GameState) {
 }
 
 fn draw_graph(gizmos: &mut Gizmos, graph: &Graph, state: &GameState) -> Option<()> {
-    let map = |p: Vec2| state.camera.world_bounds().from_normalized(p);
+    let wb = state.camera.world_bounds();
+    let vb = AABB::new(wb.center, wb.span * 0.7);
+
+    let map = |p: Vec2| vb.from_normalized(p);
+
+    draw_aabb(gizmos, vb, GRAY.with_alpha(0.05));
 
     for p in graph.points() {
         draw_x(
@@ -738,8 +743,7 @@ pub fn draw_orbit_spline(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
 
     if let Some(graph) = state
         .right_cursor_orbit()
-        .map(|o| get_lut_error_graph(&o.1))
-        .flatten()
+        .map(|o: GlobalOrbit| get_orbit_info_graph(&o.1))
     {
         draw_graph(gizmos, &graph, state);
     } else {

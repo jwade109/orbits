@@ -12,6 +12,10 @@ impl AABB {
         Self { center, span }
     }
 
+    pub fn with_padding(pad: f32) -> Self {
+        Self::new(Vec2::ZERO, Vec2::ZERO).padded(pad)
+    }
+
     pub fn from_arbitrary(a: impl Into<Vec2>, b: impl Into<Vec2>) -> Self {
         let a: Vec2 = a.into();
         let b: Vec2 = b.into();

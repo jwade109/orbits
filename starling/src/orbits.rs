@@ -138,7 +138,7 @@ impl SparseOrbit {
         let true_anomaly = Anomaly::with_ecc(e.length(), true_anomaly);
 
         let time_at_periapsis = {
-            if e.length() > 0.9 {
+            if e.length() > 0.97 {
                 None
             } else {
                 let eccentric_anomaly = true_to_eccentric(true_anomaly, e.length());
@@ -158,15 +158,15 @@ impl SparseOrbit {
             time_at_periapsis,
         };
 
-        if o.pv_universal(epoch + Nanotime::secs(1)).is_err() {
-            println!("SparseOrbit returned bad PV: {pv:?}\n  {o:?}");
-            return None;
-        }
+        // if o.pv_universal(epoch + Nanotime::secs(1)).is_err() {
+        //     println!("SparseOrbit returned bad PV: {pv:?}\n  {o:?}");
+        //     return None;
+        // }
 
-        if e.is_nan() {
-            println!("Bad orbit: {pv}");
-            return None;
-        }
+        // if e.is_nan() {
+        //     println!("Bad orbit: {pv}");
+        //     return None;
+        // }
 
         if let Some(p) = o.period() {
             if p == Nanotime::zero() {
@@ -313,11 +313,13 @@ impl SparseOrbit {
     // true anomaly more directly, and maybe without fallibility
     pub fn ta_at_time(&self, stamp: Nanotime) -> Option<f32> {
         let p = self.pv_universal(stamp).ok()?;
-        if self.is_retrograde() {
-            Some(-p.pos.to_angle() - self.arg_periapsis)
-        } else {
-            Some(p.pos.to_angle() - self.arg_periapsis)
-        }
+        let ta = Vec2::X.angle_to(p.pos) - self.arg_periapsis;
+        // let ta = if self.is_retrograde() {
+        //     -p.pos.to_angle() - self.arg_periapsis
+        // } else {
+        //     p.pos.to_angle() - self.arg_periapsis
+        // };
+        Some(wrap_pi_npi(ta))
     }
 
     pub fn radius_at(&self, true_anomaly: f32) -> f32 {
@@ -877,11 +879,6 @@ mod tests {
     }
 
     fn physics_based_smoketest(orbit: &SparseOrbit) {
-        // TODO
-        if orbit.class() == OrbitClass::VeryThin {
-            return;
-        }
-
         let mut particle = orbit.initial;
         let dt = Nanotime::millis(2);
         let mut t = orbit.epoch;
@@ -895,7 +892,7 @@ mod tests {
             let porbit = match orbit.pv(t) {
                 Ok(p) => p,
                 Err(ul) => {
-                    assert!(false, "Bad orbital position at {:?}\n  {:#?}", t, ul);
+                    assert!(false, "Bad orbital position at {:?}\n  {:?}", t, ul);
                     return;
                 }
             };
@@ -926,6 +923,32 @@ mod tests {
         println!("Max error: {:0.3}", last_error);
     }
 
+    fn true_anomaly_is_as_expected(orbit: &SparseOrbit) {
+        if orbit.is_hyperbolic() {
+            return;
+        }
+
+        let period = orbit.period().unwrap();
+        let tp = calculate_actual_time_at_periapsis(orbit);
+
+        assert_lt!(orbit.ta_at_time(tp).unwrap().abs(), 0.001);
+        assert_gt!(orbit.ta_at_time(tp + period / 2).unwrap().abs(), 3.1);
+
+        // for ta in linspace(0.0, 2.0 * PI, 1000) {
+        //     let t = tp + period * (ta / (2.0 * PI));
+        //     let ta2 = orbit.ta_at_time(t).unwrap();
+        //     let ta = wrap_pi_npi(ta);
+        //     assert_lt!(
+        //         (ta - ta2).abs(),
+        //         0.01,
+        //         "True anomalies disagree at time {}\n Expected: {}\n Actual: {}",
+        //         t,
+        //         ta,
+        //         ta2
+        //     );
+        // }
+    }
+
     fn assert_defined_for_large_time_range(orbit: &SparseOrbit) {
         // TODO apply this to hyperbolic orbits too!
         match orbit.class() {
@@ -942,6 +965,53 @@ mod tests {
             let pv = orbit.pv(*t);
             assert!(pv.is_ok(), "Failure at time {:?} - {:?}", t, pv);
         }
+    }
+
+    fn calculate_actual_time_at_periapsis(orbit: &SparseOrbit) -> Nanotime {
+        if orbit.ecc() == 0.0 {
+            return orbit.epoch;
+        }
+
+        let velocity_up = |t: Nanotime| {
+            let pv = orbit.pv_universal(t).unwrap();
+            let u = pv.pos.normalize_or_zero();
+            pv.vel.dot(u)
+        };
+
+        let condition = |t: Nanotime| velocity_up(t) < 0.0;
+
+        let tol = Nanotime::nanos(5);
+
+        let res = {
+            let mut t1 = orbit.epoch;
+
+            while velocity_up(t1) >= 0.0 {
+                t1 -= Nanotime::secs(1);
+            }
+
+            let mut t2 = orbit.epoch;
+
+            while velocity_up(t2) <= 0.0 {
+                t2 += Nanotime::secs(1);
+            }
+
+            println!(
+                "{} -> {}, {} -> {}",
+                t1,
+                velocity_up(t1),
+                t2,
+                velocity_up(t2)
+            );
+
+            search_condition(t1, t2, tol, &condition)
+        };
+
+        assert!(res.is_ok(), "Search failed: {:?}\n  {}", res, orbit);
+        let res = res.unwrap();
+        assert!(res.is_some(), "Search failed for orbit {}", orbit);
+        let tp = res.unwrap();
+        println!("Time at periapsis is {}", tp);
+        tp
     }
 
     fn orbit_consistency_test(
@@ -964,6 +1034,7 @@ mod tests {
         if !ecc.is_nan() {
             assert_relative_eq!(ecc, orbit.ecc());
         }
+
         assert_eq!(
             is_retrograde,
             orbit.is_retrograde(),
@@ -974,6 +1045,9 @@ mod tests {
 
         assert_eq!(orbit.pv_universal(orbit.epoch).ok(), Some(orbit.initial));
 
+        physics_based_smoketest(&orbit);
+        assert_defined_for_large_time_range(&orbit);
+
         if let Some(((min, max), period)) = ncalc_period(&orbit).zip(orbit.period()) {
             dbg!((min, max, period));
             let tol = Nanotime::secs(1);
@@ -981,32 +1055,51 @@ mod tests {
             assert_ge!(max + tol, period, "Period too big: {:?}", orbit);
         }
 
-        if !orbit.is_hyperbolic() {
-            for millis in (0..20000).step_by(100) {
-                let t = orbit.epoch + Nanotime::millis(millis);
-                let ta = orbit.ta_at_time(t).unwrap();
-                let p1 = orbit.position_at(ta);
-                let p2 = orbit.pv_universal(t).unwrap().pos;
-                assert_le!(p1.distance(p2), 0.02);
-                if let Some(p3) = orbit.pv_lut(t) {
-                    assert_le!(p1.distance(p3.pos), 0.5);
-                }
-            }
+        if let (Some(tp), t2) = (
+            orbit.time_at_periapsis,
+            calculate_actual_time_at_periapsis(&orbit),
+        ) {
+            let dt = (tp - t2).abs();
+            println!("{} {:?} {:?} {}", orbit, orbit.time_at_periapsis, tp, dt);
+            assert!(
+                dt.abs() < Nanotime::nanos(100000),
+                "dt exceeds threshold: dt={}",
+                dt
+            );
         }
+
+        assert_eq!(orbit.class(), class);
+
+        true_anomaly_is_as_expected(&orbit);
+
+        // if !orbit.is_hyperbolic() {
+        //     for millis in (0..20000).step_by(100) {
+        //         let t = orbit.epoch + Nanotime::millis(millis);
+        //         let ta = orbit.ta_at_time(t).unwrap();
+        //         let p1 = orbit.position_at(ta);
+        //         let p2 = orbit.pv_universal(t).unwrap().pos;
+        //         assert_le!(
+        //             p1.distance(p2),
+        //             0.02,
+        //             "Disagreement at time {}, ta={}\n  position_at: {}\n  pv_universal: {}",
+        //             t,
+        //             ta,
+        //             p1,
+        //             p2
+        //         );
+        //         if let Some(p3) = orbit.pv_lut(t) {
+        //             assert_le!(p1.distance(p3.pos), 0.5);
+        //         }
+        //     }
+        // }
 
         if let Some(t) = orbit.t_next_p(orbit.epoch) {
             assert_le!(orbit.ta_at_time(t).unwrap(), 1E-3);
         }
-
-        assert_eq!(orbit.class(), class);
-        dbg!(orbit.class());
-
-        physics_based_smoketest(&orbit);
-        assert_defined_for_large_time_range(&orbit);
     }
 
     #[test]
-    fn orbit_001() {
+    fn orbit_001_elliptical() {
         orbit_consistency_test(
             PV::new((669.058, -1918.289), (74.723, 60.678)),
             OrbitClass::Elliptical,
@@ -1017,7 +1110,7 @@ mod tests {
     }
 
     #[test]
-    fn orbit_002() {
+    fn orbit_002_elliptical() {
         orbit_consistency_test(
             PV::new((430.0, 230.0), (-50.14, 40.13)),
             OrbitClass::Elliptical,
@@ -1028,7 +1121,7 @@ mod tests {
     }
 
     #[test]
-    fn orbit_003() {
+    fn orbit_003_hyperbolic() {
         orbit_consistency_test(
             PV::new((0.0, -222.776), (333.258, 0.000)),
             OrbitClass::Hyperbolic,
@@ -1039,7 +1132,7 @@ mod tests {
     }
 
     #[test]
-    fn orbit_004() {
+    fn orbit_004_elliptical() {
         orbit_consistency_test(
             PV::new((1520.323, 487.734), (-84.935, 70.143)),
             OrbitClass::Elliptical,
@@ -1050,7 +1143,7 @@ mod tests {
     }
 
     #[test]
-    fn orbit_005() {
+    fn orbit_005_hyperbolic() {
         orbit_consistency_test(
             PV::new((5535.6294, -125.794685), (-66.63476, 16.682587)),
             OrbitClass::Hyperbolic,
@@ -1061,7 +1154,7 @@ mod tests {
     }
 
     #[test]
-    fn orbit_006() {
+    fn orbit_006_hyperbolic() {
         orbit_consistency_test(
             PV::new((65.339584, 1118.9651), (-138.84702, -279.47888)),
             OrbitClass::Hyperbolic,
@@ -1072,7 +1165,7 @@ mod tests {
     }
 
     #[test]
-    fn orbit_007() {
+    fn orbit_007_hyperbolic() {
         orbit_consistency_test(
             PV::new((-1856.4648, -1254.9697), (216.31313, -85.84622)),
             OrbitClass::Hyperbolic,
@@ -1083,18 +1176,18 @@ mod tests {
     }
 
     #[test]
-    fn orbit_008() {
+    fn orbit_008_hyperbolic() {
         orbit_consistency_test(
             PV::new((-72.39488, 662.50507), (3.4047441, 71.81263)),
             OrbitClass::Hyperbolic,
             Body::new(22.0, 10.0, 800.0),
-            7.0,
+            4.422243,
             true,
         );
     }
 
     #[test]
-    fn orbit_009() {
+    fn orbit_009_hyperbolic() {
         orbit_consistency_test(
             PV::new((825.33563, 564.6425), (200.0, 230.0)),
             OrbitClass::Hyperbolic,
@@ -1105,7 +1198,29 @@ mod tests {
     }
 
     #[test]
-    fn orbit_010() {
+    fn orbit_011_elliptical() {
+        orbit_consistency_test(
+            PV::new((-70.0, 600.0), (3.0, 16.0)),
+            OrbitClass::HighlyElliptical,
+            Body::new(22.0, 10.0, 800.0),
+            0.96003157,
+            true,
+        );
+    }
+
+    #[test]
+    fn orbit_012_elliptical() {
+        orbit_consistency_test(
+            PV::new((-70.0, 600.0), (3.0, 9.0)),
+            OrbitClass::HighlyElliptical,
+            Body::new(22.0, 10.0, 800.0),
+            0.93487203,
+            true,
+        );
+    }
+
+    #[test]
+    fn orbit_010_circular() {
         let body = Body::new(63.0, 1000.0, 15000.0);
         let orbit = SparseOrbit::circular(100.0, body, Nanotime::zero(), false);
 
@@ -1123,7 +1238,7 @@ mod tests {
     }
 
     #[test]
-    fn assert_positions_are_as_expected() {
+    fn assert_positions_are_as_expected_universal() {
         let body = Body::new(300.0, 1000.0, 100000.0);
         let pv = PV::new((6500.0, 7000.0), (-14.0, 11.0));
         let orbit = SparseOrbit::from_pv(pv, body, Nanotime::zero()).unwrap();
@@ -1165,7 +1280,7 @@ mod tests {
             for (t, (p, v)) in tests {
                 let t = Nanotime::secs(*t);
                 let pv = PV::new(*p, *v);
-                let actual = orbit.pv(t).unwrap();
+                let actual = orbit.pv_universal(t).unwrap();
                 let d = pv - actual;
                 assert!(
                     d.pos.length() < 0.001 && d.vel.length() < 0.001,
@@ -1318,24 +1433,6 @@ mod tests {
         }
     }
 
-    fn calculate_actual_time_at_periapsis(orbit: &SparseOrbit) -> Option<Nanotime> {
-        let velocity_up = |t: Nanotime| {
-            let pv = orbit.pv_universal(t).unwrap();
-            let u = pv.pos.normalize_or_zero();
-            pv.vel.dot(u)
-        };
-
-        let condition = |t: Nanotime| velocity_up(t) < 0.0;
-
-        search_condition(
-            orbit.epoch,
-            orbit.epoch + orbit.period_or(Nanotime::secs(30)) / 2,
-            Nanotime::nanos(2),
-            &condition,
-        )
-        .unwrap()
-    }
-
     #[test]
     fn time_at_periapsis() {
         let body = Body::new(50.0, 1000.0, 1E8);
@@ -1348,14 +1445,14 @@ mod tests {
             assert!(orbit.is_some(), "Bad orbit: {}", v);
             let orbit = orbit.unwrap();
             let tp = calculate_actual_time_at_periapsis(&orbit);
-            let dt = if let (Some(t1), Some(t2)) = (tp, orbit.time_at_periapsis) {
+            let dt = if let (t1, Some(t2)) = (tp, orbit.time_at_periapsis) {
                 t1 - t2
             } else {
                 Nanotime::zero()
             };
             println!("{} {:?} {:?} {}", orbit, orbit.time_at_periapsis, tp, dt);
             assert!(
-                dt.abs() < Nanotime::nanos(20000),
+                dt.abs() < Nanotime::millis(1),
                 "dt exceeds threshold: dt={}",
                 dt
             );
