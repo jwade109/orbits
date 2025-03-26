@@ -760,15 +760,6 @@ fn generate_maneuver_plans(
         return vec![];
     }
 
-    // let destination = if current.is_retrograde() == destination.is_retrograde() {
-    //     *destination
-    // } else {
-    //     match destination.inverse() {
-    //         Some(d) => d,
-    //         None => return vec![],
-    //     }
-    // };
-
     let direct = direct_transfer(current, &destination, now);
     let hohmann = hohmann_transfer(current, &destination, now);
     let bielliptic = bielliptic_transfer(current, &destination, now);

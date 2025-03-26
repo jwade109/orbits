@@ -1,5 +1,5 @@
 use crate::belts::AsteroidBelt;
-use crate::math::{rand, randvec, rotate};
+use crate::math::{rand, randvec, rotate, PI};
 use crate::nanotime::Nanotime;
 use crate::orbits::{Body, SparseOrbit};
 use crate::pv::PV;
@@ -68,21 +68,23 @@ pub fn earth_moon_example_one() -> (Scenario, ObjectIdTracker) {
         Nanotime::zero(),
     );
 
-    scenario.add_belt(AsteroidBelt::from_orbits(
-        earth.id,
-        SparseOrbit::from_pv(
-            ((300.0, 100.0), (-25.0, 150.0)),
-            earth.body,
-            Nanotime::zero(),
-        )
-        .unwrap(),
-        SparseOrbit::from_pv(
-            ((500.0, 120.0), (-20.0, 135.0)),
-            earth.body,
-            Nanotime::zero(),
-        )
-        .unwrap(),
-    ));
+    for _ in 0..2 {
+        let get_orbit = || {
+            let ra = rand(200.0, 3000.0);
+            let rp = rand(200.0, 3000.0);
+            let (ra, rp) = (ra.max(rp), ra.min(rp));
+            let argp = rand(0.0, 2.0 * PI);
+            let w = rand(50.0, 400.0);
+            (
+                SparseOrbit::new(ra, rp, argp, earth.body, Nanotime::zero(), false),
+                SparseOrbit::new(ra + w, rp + w, argp, earth.body, Nanotime::zero(), false),
+            )
+        };
+
+        if let (Some(inner), Some(outer)) = get_orbit() {
+            scenario.add_belt(AsteroidBelt::from_orbits(earth.id, inner, outer));
+        }
+    }
 
     scenario.add_belt(AsteroidBelt::circular(
         luna.id,

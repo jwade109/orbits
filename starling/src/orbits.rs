@@ -158,16 +158,6 @@ impl SparseOrbit {
             time_at_periapsis,
         };
 
-        // if o.pv_universal(epoch + Nanotime::secs(1)).is_err() {
-        //     println!("SparseOrbit returned bad PV: {pv:?}\n  {o:?}");
-        //     return None;
-        // }
-
-        // if e.is_nan() {
-        //     println!("Bad orbit: {pv}");
-        //     return None;
-        // }
-
         if let Some(p) = o.period() {
             if p == Nanotime::zero() {
                 println!("SparseOrbit returned orbit with zero period: {pv:?}\n  {o:?}");
@@ -595,6 +585,25 @@ impl SparseOrbit {
             epoch: self.epoch,
             time_at_periapsis: self.time_at_periapsis,
         }
+    }
+
+    pub fn sample_pos(
+        &self,
+        start: Nanotime,
+        end: Nanotime,
+        dist: f32,
+        origin: Vec2,
+    ) -> Option<Vec<Vec2>> {
+        let mut ret = Vec::new();
+        let mut t = start;
+        while t < end {
+            let pv = self.pv(t).ok()?;
+            let dt = Nanotime::secs_f32(dist / pv.vel.length()).max(Nanotime::millis(10));
+            ret.push(pv.pos + origin);
+            t += dt;
+        }
+        ret.push(self.pv(end).ok()?.pos + origin);
+        Some(ret)
     }
 }
 

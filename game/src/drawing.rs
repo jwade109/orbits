@@ -127,6 +127,19 @@ fn draw_orbit(gizmos: &mut Gizmos, orb: &SparseOrbit, origin: Vec2, color: Srgba
     }
 }
 
+fn draw_orbit_between(
+    gizmos: &mut Gizmos,
+    orb: &SparseOrbit,
+    origin: Vec2,
+    color: Srgba,
+    start: Nanotime,
+    end: Nanotime,
+) -> Option<()> {
+    let points: Vec<_> = orb.sample_pos(start, end, 10.0, origin)?;
+    gizmos.linestrip_2d(points, color);
+    Some(())
+}
+
 fn draw_planets(gizmos: &mut Gizmos, planet: &PlanetarySystem, stamp: Nanotime, origin: Vec2) {
     draw_circle(gizmos, origin, planet.body.radius, GRAY.with_alpha(0.1));
     for (a, ds) in [(1.0, 1.0), (0.3, 0.98), (0.1, 0.95)] {
@@ -455,7 +468,14 @@ fn draw_maneuver_plan(
 ) -> Option<()> {
     let color = YELLOW;
     for segment in &plan.segments {
-        draw_orbit(gizmos, &segment.orbit, origin, color);
+        draw_orbit_between(
+            gizmos,
+            &segment.orbit,
+            origin,
+            color,
+            segment.start.max(stamp),
+            segment.end,
+        );
         if segment.end > stamp {
             let pv = plan.pv(segment.end)?;
             draw_diamond(gizmos, origin + pv.pos, 10.0 * scale, color);

@@ -92,3 +92,78 @@ impl std::fmt::Display for Controller {
         write!(f, "{}", self.target)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::prelude::*;
+
+    fn simulate_navigation(init: (f32, f32, f32), dst: (f32, f32, f32)) {
+        let body = Body::new(63.0, 1000.0, 10000000.0);
+        let earth = PlanetarySystem::new(ObjectId(0), "Earth", body);
+        let mut scenario = Scenario::new(&earth);
+
+        let orbits = [init, dst].map(|(ra, rp, argp)| {
+            SparseOrbit::new(ra, rp, argp, body, Nanotime::zero(), false).unwrap()
+        });
+
+        println!("Navigate from {}\n           to {}", orbits[0], orbits[1]);
+
+        let orbiter_id = ObjectId(1);
+
+        scenario.add_object(orbiter_id, earth.id, orbits[0], Nanotime::zero());
+
+        let mut ctrl = Controller::idle(orbiter_id);
+
+        ctrl.activate(
+            &GlobalOrbit(earth.id, orbits[0]),
+            &GlobalOrbit(earth.id, orbits[1]),
+            Nanotime::zero(),
+        )
+        .unwrap();
+
+        let mut tfinal = Nanotime::zero();
+
+        for (t, dv) in ctrl.plan().unwrap().dvs() {
+            println!("{}, {}", t, dv);
+            let events = scenario.simulate(t, Nanotime::secs(10));
+            assert!(events.is_empty());
+            assert!(scenario.dv(orbiter_id, t, dv).is_some());
+            assert!(tfinal < t);
+            tfinal = t;
+        }
+
+        tfinal += Nanotime::secs(30);
+
+        let events = scenario.simulate(tfinal, Nanotime::secs(10));
+        assert!(events.is_empty());
+
+        assert_eq!(scenario.orbiter_count(), 1);
+
+        // this is entirely too verbose
+        let lup = scenario.lup(orbiter_id, tfinal).unwrap();
+        let orbiter = lup.orbiter().unwrap();
+        let prop = orbiter.propagator_at(tfinal).unwrap();
+        let orbit = prop.orbit;
+
+        assert!(orbit.1.is_similar(&orbits[1]));
+    }
+
+    #[test]
+    fn controller_scenarios() {
+        let params = [
+            (9000.0, 5000.0, -0.3),
+            (10000.0, 9500.0, -0.7),
+            (2000.0, 700.0, 1.2),
+        ];
+
+        for p in params {
+            for q in params {
+                if p == q {
+                    continue;
+                }
+                simulate_navigation(p, q);
+            }
+        }
+    }
+}
