@@ -1,5 +1,7 @@
-use crate::planetary::GameState;
+use crate::planetary::{GameMode, GameState};
 use bevy::color::palettes::css::*;
+use bevy::core_pipeline::bloom::Bloom;
+use bevy::core_pipeline::post_process::ChromaticAberration;
 use bevy::prelude::*;
 use starling::prelude::*;
 
@@ -24,9 +26,10 @@ pub enum InteractionEvent {
     ToggleObject(ObjectId),
     ToggleGroup(GroupId),
     DisbandGroup(GroupId),
-    CreateGroup(GroupId),
+    CreateGroup,
     ContextDependent,
     SelectionMode,
+    GameMode,
 
     // mouse stuff
     LeftMouseRelease,
@@ -54,12 +57,37 @@ impl Plugin for UiPlugin {
             Update,
             (
                 big_time_system,
+                top_right_text_system,
                 button_system,
                 update_controller_buttons,
                 update_constellation_buttons,
+                set_effects,
             ),
         );
     }
+}
+
+fn set_effects(
+    mut single: Single<(&mut Bloom, &mut ChromaticAberration)>,
+    state: Res<GameState>,
+    mut actual_bloom: Local<f32>,
+    mut actual_chrom: Local<f32>,
+) {
+    let target_bloom = match state.game_mode {
+        GameMode::Default => 0.8,
+        _ => 0.0,
+    };
+
+    let target_chrom = match state.game_mode {
+        GameMode::Default => 0.01,
+        _ => 0.0,
+    };
+
+    *actual_bloom += (target_bloom - *actual_bloom) * 0.03;
+    *actual_chrom += (target_chrom - *actual_chrom) * 0.03;
+
+    single.0.intensity = *actual_bloom;
+    single.1.intensity = *actual_chrom;
 }
 
 #[derive(Component, Debug, Copy, Clone)]
@@ -159,19 +187,39 @@ struct OnClick(InteractionEvent, bool);
 #[derive(Component)]
 struct DateMarker;
 
-fn big_time_system(mut q: Query<&mut Text, With<DateMarker>>, state: Res<GameState>) {
+#[derive(Component)]
+struct TopRight;
+
+fn big_time_system(mut text: Single<&mut Text, With<DateMarker>>, state: Res<GameState>) {
     const SCALE_FACTOR: i64 = Nanotime::PER_DAY / Nanotime::PER_SEC / 20;
     let t = state.sim_time * SCALE_FACTOR;
-    for mut text in &mut q {
-        let date = t.to_date();
-        text.0 = format!(
-            "Y{} W{} D{} {:02}:{:02}",
-            date.year + 1,
-            date.week + 1,
-            date.day + 1,
-            date.hour,
-            date.min,
-        );
+    let date = t.to_date();
+    text.0 = format!(
+        "Y{} W{} D{} {:02}:{:02}",
+        date.year + 1,
+        date.week + 1,
+        date.day + 1,
+        date.hour,
+        date.min,
+    );
+}
+
+fn top_right_text_system(mut text: Single<&mut Text, With<TopRight>>, state: Res<GameState>) {
+    let res = (|| -> Option<(&Orbiter, GlobalOrbit)> {
+        let fid = state.follow?;
+        if !state.track_list.contains(&fid) {
+            return None;
+        }
+        let orbiter = state.scenario.lup(fid, state.sim_time)?.orbiter()?;
+        let prop = orbiter.propagator_at(state.sim_time)?;
+        let go = prop.orbit;
+        Some((orbiter, go))
+    })();
+
+    if let Some((orbiter, go)) = res {
+        text.0 = format!("{}\nOrbit: {}", orbiter, go);
+    } else {
+        text.0 = "".into();
     }
 }
 
@@ -269,6 +317,25 @@ fn get_screen_clock() -> impl Bundle {
     )
 }
 
+fn get_top_right_ui() -> impl Bundle {
+    (
+        TopRight,
+        Text::new(""),
+        TextFont {
+            font_size: 20.0,
+            ..default()
+        },
+        TextColor(WHITE.into()),
+        ZIndex(100),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(20.0),
+            right: Val::Px(5.0),
+            ..default()
+        },
+    )
+}
+
 fn setup(mut commands: Commands) {
     commands.insert_resource(Events::<InteractionEvent>::default());
 
@@ -324,6 +391,8 @@ fn setup(mut commands: Commands) {
     ];
 
     commands.spawn(get_screen_clock());
+
+    commands.spawn(get_top_right_ui());
 
     let top = commands.spawn(get_toplevel_ui()).id();
 

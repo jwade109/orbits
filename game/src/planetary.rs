@@ -6,6 +6,7 @@ use crate::mouse::MouseState;
 use crate::notifications::*;
 use crate::ui::InteractionEvent;
 use bevy::core_pipeline::bloom::Bloom;
+use bevy::core_pipeline::post_process::ChromaticAberration;
 use bevy::prelude::*;
 use starling::prelude::*;
 use std::collections::{HashMap, HashSet};
@@ -62,6 +63,7 @@ fn init_system(mut commands: Commands) {
             intensity: 0.5,
             ..Bloom::OLD_SCHOOL
         },
+        ChromaticAberration::default(),
     ));
 }
 
@@ -100,6 +102,23 @@ impl ShowOrbitsState {
             ShowOrbitsState::All => ShowOrbitsState::None,
         };
         *self = n;
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GameMode {
+    Default,
+    Constellations,
+    Stability,
+}
+
+impl GameMode {
+    fn next(&self) -> Self {
+        match self {
+            GameMode::Default => GameMode::Constellations,
+            GameMode::Constellations => GameMode::Stability,
+            GameMode::Stability => GameMode::Default,
+        }
     }
 }
 
@@ -145,6 +164,8 @@ pub struct GameState {
     pub constellations: HashMap<GroupId, HashSet<ObjectId>>,
     pub selection_mode: SelectionMode,
 
+    pub game_mode: GameMode,
+
     pub notifications: Vec<Notification>,
 }
 
@@ -174,6 +195,7 @@ impl Default for GameState {
             queued_orbits: Vec::new(),
             constellations: HashMap::new(),
             selection_mode: SelectionMode::Rect,
+            game_mode: GameMode::Default,
             notifications: Vec::new(),
         }
     }
@@ -645,6 +667,10 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
     }
 }
 
+fn get_group_id() -> GroupId {
+    GroupId(format!("{:0.3}", rand(100.0, 40000.0)))
+}
+
 fn process_interaction(
     inter: &InteractionEvent,
     state: &mut GameState,
@@ -682,6 +708,9 @@ fn process_interaction(
         }
         InteractionEvent::SelectionMode => {
             state.selection_mode = state.selection_mode.next();
+        }
+        InteractionEvent::GameMode => {
+            state.game_mode = state.game_mode.next();
         }
         InteractionEvent::Orbits => {
             state.show_orbits.next();
@@ -746,11 +775,12 @@ fn process_interaction(
         InteractionEvent::DisbandGroup(gid) => {
             state.disband_group(gid);
         }
-        InteractionEvent::CreateGroup(gid) => {
+        InteractionEvent::CreateGroup => {
+            let gid = get_group_id();
             state.create_group(gid.clone());
         }
         InteractionEvent::Thrust(dx, dy) => {
-            let s = 0.3;
+            let s = 0.1;
             let dv = (Vec2::X * *dx as f32 + Vec2::Y * *dy as f32) * s;
             state.do_maneuver(dv);
         }

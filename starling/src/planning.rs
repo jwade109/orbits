@@ -189,6 +189,13 @@ impl Propagator {
             .flatten()
     }
 
+    pub fn is_indefinite(&self) -> bool {
+        match self.horizon {
+            HorizonState::Indefinite => true,
+            _ => false,
+        }
+    }
+
     pub(crate) fn is_active(&self, stamp: Nanotime) -> bool {
         self.start <= stamp && self.end().unwrap_or(stamp) >= stamp
     }

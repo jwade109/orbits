@@ -157,6 +157,10 @@ impl Orbiter {
             .unwrap_or(false)
     }
 
+    pub fn is_indefinitely_stable(&self) -> bool {
+        self.props.iter().any(|p| p.is_indefinite())
+    }
+
     pub fn has_error(&self) -> bool {
         self.props.iter().any(|p| p.is_err())
     }

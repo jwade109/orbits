@@ -13,7 +13,8 @@ pub fn keyboard_input(
             KeyCode::Comma => InteractionEvent::SimSlower,
             KeyCode::Delete => InteractionEvent::Delete,
             KeyCode::KeyH => InteractionEvent::ToggleDebugMode,
-            KeyCode::KeyG => InteractionEvent::ToggleGraph,
+            KeyCode::KeyP => InteractionEvent::ToggleGraph,
+            KeyCode::KeyG => InteractionEvent::CreateGroup,
             KeyCode::Enter => InteractionEvent::CommitMission,
             KeyCode::Minus => InteractionEvent::ZoomOut,
             KeyCode::Equal => InteractionEvent::ZoomIn,
@@ -23,6 +24,7 @@ pub fn keyboard_input(
             KeyCode::Space => InteractionEvent::SimPause,
             KeyCode::Escape => InteractionEvent::ExitApp,
             KeyCode::KeyU => InteractionEvent::SelectionMode,
+            KeyCode::KeyM => InteractionEvent::GameMode,
             _ => continue,
         };
 

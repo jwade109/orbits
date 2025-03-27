@@ -12,7 +12,7 @@ use crate::camera_controls::CameraState;
 use crate::graph::*;
 use crate::mouse::MouseState;
 use crate::notifications::*;
-use crate::planetary::{GameState, ShowOrbitsState};
+use crate::planetary::{GameMode, GameState, ShowOrbitsState};
 
 fn draw_cross(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     let dx = Vec2::new(size, 0.0);
@@ -261,6 +261,7 @@ fn draw_scenario(
     track_list: &HashSet<ObjectId>,
     duty_cycle: bool,
     followed: Option<ObjectId>,
+    particles: bool,
 ) {
     draw_planets(gizmos, scenario.planets(), stamp, Vec2::ZERO);
 
@@ -308,11 +309,13 @@ fn draw_scenario(
         draw_circle(gizmos, pv.pos + lup.pv().pos, 2.0 * scale, WHITE);
     }
 
-    for (t, pos, vel, l) in scenario.particles() {
-        let age = (stamp - *t).to_secs();
-        let p = pos + vel * age;
-        let a = 1.0 - (age / l.to_secs());
-        draw_circle(gizmos, p, 0.6 * scale, WHITE.with_alpha(a));
+    if particles {
+        for (t, pos, vel, l) in scenario.particles() {
+            let age = (stamp - *t).to_secs();
+            let p = pos + vel * age;
+            let a = 1.0 - (age / l.to_secs());
+            draw_circle(gizmos, p, 0.6 * scale, WHITE.with_alpha(a));
+        }
     }
 }
 
@@ -887,6 +890,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         &state.track_list,
         state.duty_cycle_high,
         state.follow,
+        state.game_mode == GameMode::Default,
     );
 
     draw_highlighted_objects(&mut gizmos, &state);
