@@ -368,7 +368,11 @@ impl GameState {
             .clone()
             .into_iter()
             .filter_map(|id| {
-                if self.scenario.dv(id, self.sim_time, dv).is_none() {
+                if self
+                    .scenario
+                    .impulsive_burn(id, self.sim_time, dv, 10)
+                    .is_none()
+                {
                     Some(id)
                 } else {
                     self.notify(id, NotificationType::OrbitChanged(id), None);
@@ -468,7 +472,7 @@ impl GameState {
             if s > *t {
                 let perturb = randvec(0.01, 0.05);
                 self.scenario.simulate(*t, d);
-                self.scenario.dv(*id, *t, dv + perturb);
+                self.scenario.impulsive_burn(*id, *t, dv + perturb, 50);
                 self.notify(*id, NotificationType::OrbitChanged(*id), None);
             } else {
                 break;
@@ -620,6 +624,7 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         .flatten()
     {
         if let Some(o) = lup.orbiter() {
+            log(&format!("{}", o));
             for prop in o.props() {
                 log(&format!("- [{}]", prop));
             }
@@ -744,17 +749,10 @@ fn process_interaction(
         InteractionEvent::CreateGroup(gid) => {
             state.create_group(gid.clone());
         }
-        InteractionEvent::ThrustUp => {
-            state.do_maneuver(Vec2::Y * 0.3);
-        }
-        InteractionEvent::ThrustDown => {
-            state.do_maneuver(-Vec2::Y * 0.3);
-        }
-        InteractionEvent::ThrustLeft => {
-            state.do_maneuver(-Vec2::X * 0.3);
-        }
-        InteractionEvent::ThrustRight => {
-            state.do_maneuver(Vec2::X * 0.3);
+        InteractionEvent::Thrust(dx, dy) => {
+            let s = 0.3;
+            let dv = (Vec2::X * *dx as f32 + Vec2::Y * *dy as f32) * s;
+            state.do_maneuver(dv);
         }
         InteractionEvent::Reset
         | InteractionEvent::MoveLeft

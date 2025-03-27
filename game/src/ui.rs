@@ -42,10 +42,7 @@ pub enum InteractionEvent {
     Reset,
 
     // manual piloting commands
-    ThrustUp,
-    ThrustDown,
-    ThrustLeft,
-    ThrustRight,
+    Thrust(i8, i8),
 }
 
 pub struct UiPlugin;

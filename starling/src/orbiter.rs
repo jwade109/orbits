@@ -40,13 +40,44 @@ impl std::fmt::Debug for GroupId {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Orbiter {
     id: ObjectId,
+    max_fuel_mass: f32,
+    fuel_mass: f32,
+    dry_mass: f32,
+    exhaust_velocity: f32,
     props: Vec<Propagator>,
+}
+
+fn rocket_equation(ve: f32, m0: f32, m1: f32) -> f32 {
+    ve * (m0 / m1).ln()
+}
+
+fn mass_after_maneuver(ve: f32, m0: f32, dv: f32) -> f32 {
+    m0 / (dv / ve).exp()
+}
+
+impl std::fmt::Display for Orbiter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} {:0.1}kg/{:0.1}kg, ve={:0.1}m/s, dv={:0.2}m/s, {} props",
+            self.id,
+            self.fuel_mass + self.dry_mass,
+            self.dry_mass,
+            self.exhaust_velocity,
+            self.remaining_dv(),
+            self.props.len()
+        )
+    }
 }
 
 impl Orbiter {
     pub fn new(id: ObjectId, orbit: GlobalOrbit, stamp: Nanotime) -> Self {
         Orbiter {
             id,
+            max_fuel_mass: 800.0,
+            fuel_mass: 600.0,
+            dry_mass: 300.0,
+            exhaust_velocity: 6000.0,
             props: vec![Propagator::new(orbit, stamp)],
         }
     }
@@ -55,7 +86,27 @@ impl Orbiter {
         self.id
     }
 
-    pub fn dv(&mut self, stamp: Nanotime, dv: Vec2) -> Option<()> {
+    pub fn mass(&self) -> f32 {
+        self.dry_mass + self.fuel_mass
+    }
+
+    pub fn remaining_dv(&self) -> f32 {
+        rocket_equation(self.exhaust_velocity, self.mass(), self.dry_mass)
+    }
+
+    pub fn fuel_percentage(&self) -> f32 {
+        self.fuel_mass / self.max_fuel_mass
+    }
+
+    pub fn impulsive_burn(&mut self, stamp: Nanotime, dv: Vec2) -> Option<()> {
+        if dv.length() > self.remaining_dv() {
+            return None;
+        }
+
+        let m1 = mass_after_maneuver(self.exhaust_velocity, self.mass(), dv.length());
+
+        self.fuel_mass = m1 - self.dry_mass;
+
         let orbit = {
             let prop = self.propagator_at(stamp)?;
             let pv = prop.pv_universal(stamp)? + PV::vel(dv);

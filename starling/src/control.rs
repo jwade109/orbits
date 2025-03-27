@@ -128,7 +128,7 @@ mod tests {
             println!("{}, {}", t, dv);
             let events = scenario.simulate(t, Nanotime::secs(10));
             assert!(events.is_empty());
-            assert!(scenario.dv(orbiter_id, t, dv).is_some());
+            assert!(scenario.impulsive_burn(orbiter_id, t, dv, 0).is_some());
             assert!(tfinal < t);
             tfinal = t;
         }

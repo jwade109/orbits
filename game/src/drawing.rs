@@ -41,6 +41,13 @@ fn draw_diamond(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     gizmos.linestrip_2d(pts, color);
 }
 
+fn draw_triangle(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
+    let s = size;
+    let pts =
+        [0.0, 1.0 / 3.0, 2.0 / 3.0, 0.0].map(|a| p + rotate(Vec2::X * s, a * 2.0 * PI + PI / 2.0));
+    gizmos.linestrip_2d(pts, color);
+}
+
 fn draw_circle(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     gizmos
         .circle_2d(Isometry2d::from_translation(p), size, color)
@@ -184,6 +191,7 @@ fn draw_object(
     scale: f32,
     show_orbits: ShowOrbitsState,
     tracked: bool,
+    followed: bool,
     duty_cycle: bool,
 ) -> Option<()> {
     let pv = obj.pv(stamp, planets)?;
@@ -197,6 +205,14 @@ fn draw_object(
         draw_circle(gizmos, pv.pos, size + 16.0 * scale, YELLOW);
     } else if duty_cycle && obj.will_change() {
         draw_circle(gizmos, pv.pos, size + 7.0 * scale, TEAL);
+    } else if duty_cycle && obj.remaining_dv() < 5.0 {
+        draw_triangle(gizmos, pv.pos, size + 20.0 * scale, BLUE);
+    }
+
+    if tracked && followed {
+        let p = obj.fuel_percentage();
+        let iso = Isometry2d::from_translation(pv.pos);
+        gizmos.arc_2d(iso, p * 2.0 * PI, size + 30.0 * scale, RED);
     }
 
     let show_orbits = match show_orbits {
@@ -244,6 +260,7 @@ fn draw_scenario(
     show_orbits: ShowOrbitsState,
     track_list: &HashSet<ObjectId>,
     duty_cycle: bool,
+    followed: Option<ObjectId>,
 ) {
     draw_planets(gizmos, scenario.planets(), stamp, Vec2::ZERO);
 
@@ -271,6 +288,7 @@ fn draw_scenario(
                 scale,
                 show_orbits,
                 is_tracked,
+                followed.map(|f| f == id).unwrap_or(false),
                 duty_cycle,
             )
         })
@@ -288,6 +306,13 @@ fn draw_scenario(
         };
 
         draw_circle(gizmos, pv.pos + lup.pv().pos, 2.0 * scale, WHITE);
+    }
+
+    for (t, pos, vel, l) in scenario.particles() {
+        let age = (stamp - *t).to_secs();
+        let p = pos + vel * age;
+        let a = 1.0 - (age / l.to_secs());
+        draw_circle(gizmos, p, 0.6 * scale, WHITE.with_alpha(a));
     }
 }
 
@@ -416,7 +441,7 @@ fn draw_controller(
     let t_start = actual_time.floor(Nanotime::PER_SEC * secs);
     let dt = (actual_time - t_start).to_secs();
     let r = (8.0 + dt * 30.0) * scale;
-    let a = (1.0 - dt / secs as f32).powi(3);
+    let a = 0.03 * (1.0 - dt / secs as f32).powi(3);
 
     draw_circle(gizmos, craft, r, GRAY.with_alpha(a));
 
@@ -861,6 +886,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         state.show_orbits,
         &state.track_list,
         state.duty_cycle_high,
+        state.follow,
     );
 
     draw_highlighted_objects(&mut gizmos, &state);
