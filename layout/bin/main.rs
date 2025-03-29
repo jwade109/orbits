@@ -6,38 +6,52 @@ fn draw_layout(root: &Node, path: &str) -> Result<(), std::io::Error> {
     write_svg(path, &aabbs)
 }
 
-fn grow(root: Node) -> Node {
-    root
+fn box_with_corners(w: f32) -> Node {
+    let banner = || {
+        Node::row(Size::Fit)
+            .with_child(Node::new(w, w))
+            .with_child(Node::grow())
+            .with_child(Node::new(w, w))
+    };
+
+    Node::grow()
+        .tight()
+        .down()
+        .with_child(banner())
+        .with_child(Node::grow())
+        .with_child(banner())
 }
 
 fn main() -> Result<(), std::io::Error> {
-    let sidebar = Node::new(300.0, 700.0)
-        .with_layout(LayoutDir::TopToBottom)
-        .with_child_gap(3.0)
-        .with_children((0..12).map(|i| Node::new(30 + i * 2, 20)))
+    let spacing = 4.0;
+
+    let sidebar = Node::column(300.0)
+        .with_spacing(spacing)
+        .with_children((0..12).map(|i| Node::column(100 + i * 2)))
         .with_child(Node::new(250.0, 100.0))
-        .with_children((0..4).map(|_| Node::new(Size::Grow, 25)));
+        .with_children((0..4).map(|_| Node::row(25)));
 
-    let topbar = Node::new(Size::Fit, Size::Fit)
-        .with_padding(2.0)
-        .with_children((0..10).map(|_| Node::new(40, 20)));
+    let topbar = Node::row(Size::Fit)
+        .with_spacing(spacing)
+        .with_children((0..10).map(|_| Node::new(40, 20)))
+        .with_child(Node::grow())
+        .with_child(Node::grow());
 
-    let b = Node::new(Size::Fit, 200.0).with_child(Node::new(300, 40));
-    let c = Node::new(550.0, Size::Fit).with_child(Node::new(60, 600));
-    let d = Node::new(600.0, 100.0);
+    let main = Node::grow().tight().with_child(sidebar).with_child(
+        Node::grow()
+            .down()
+            .tight()
+            .with_children([box_with_corners(40.0), Node::row(30)].into_iter()),
+    );
 
-    let main = Node::new(Size::Fit, Size::Fit)
-        .with_child(sidebar)
-        .with_child(b)
-        .with_child(c)
-        .with_child(d);
-
-    let root = Node::new(Size::Fit, Size::Fit)
-        .with_layout(LayoutDir::TopToBottom)
+    let root = Node::new(1500, 800)
+        .tight()
+        .down()
         .with_child(topbar)
         .with_child(main);
 
-    let root = grow(root);
+    let root = populate_fit_sizes(root);
+    let root = populate_grow_sizes(root);
 
     draw_layout(&root, "layout.svg")
 }

@@ -10,7 +10,7 @@ pub enum LayoutDir {
     TopToBottom,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Size {
     Grow,
     Fit,
@@ -19,10 +19,30 @@ pub enum Size {
 
 impl Size {
     fn as_fixed(&self) -> f32 {
-        if let Size::Fixed(s) = self {
-            *s
-        } else {
-            0.0
+        match self {
+            Size::Fixed(s) => *s,
+            _ => 0.0,
+        }
+    }
+
+    fn is_grow(&self) -> bool {
+        match self {
+            Size::Grow => true,
+            _ => false,
+        }
+    }
+
+    fn is_fit(&self) -> bool {
+        match self {
+            Size::Fit => true,
+            _ => false,
+        }
+    }
+
+    fn is_fixed(&self) -> bool {
+        match self {
+            Size::Fixed(_) => true,
+            _ => false,
         }
     }
 }
@@ -39,7 +59,7 @@ impl Into<Size> for u32 {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Node {
     width: Size,
     height: Size,
@@ -47,6 +67,7 @@ pub struct Node {
     children: Vec<Node>,
     child_gap: f32,
     padding: f32,
+    visible: bool,
 }
 
 impl Node {
@@ -58,11 +79,39 @@ impl Node {
             children: Vec::new(),
             child_gap: 10.0,
             padding: 10.0,
+            visible: true,
         }
+    }
+
+    pub fn grow() -> Self {
+        Node::new(Size::Grow, Size::Grow)
+    }
+
+    pub fn row(height: impl Into<Size>) -> Self {
+        Node::new(Size::Grow, height).right()
+    }
+
+    pub fn column(width: impl Into<Size>) -> Self {
+        Node::new(width, Size::Grow).down()
     }
 
     pub fn with_layout(mut self, layout: LayoutDir) -> Self {
         self.layout = layout;
+        self
+    }
+
+    pub fn right(mut self) -> Self {
+        self.layout = LayoutDir::LeftToRight;
+        self
+    }
+
+    pub fn down(mut self) -> Self {
+        self.layout = LayoutDir::TopToBottom;
+        self
+    }
+
+    pub fn invisible(mut self) -> Self {
+        self.visible = false;
         self
     }
 
@@ -73,6 +122,18 @@ impl Node {
 
     pub fn with_padding(mut self, padding: f32) -> Self {
         self.padding = padding;
+        self
+    }
+
+    pub fn with_spacing(mut self, spacing: f32) -> Self {
+        self.padding = spacing;
+        self.child_gap = spacing;
+        self
+    }
+
+    pub fn tight(mut self) -> Self {
+        self.padding = 0.0;
+        self.child_gap = 0.0;
         self
     }
 
@@ -92,7 +153,7 @@ impl Node {
         self.children.iter()
     }
 
-    fn is_leaf(&self) -> bool {
+    pub fn is_leaf(&self) -> bool {
         self.children.is_empty()
     }
 
@@ -102,25 +163,7 @@ impl Node {
     }
 
     pub fn fixed_dims(&self) -> Vec2 {
-        if self.is_leaf() {
-            return Vec2::new(self.width.as_fixed(), self.height.as_fixed());
-        }
-
-        let dims = sum_fixed_dims(self.layout, self.children(), self.padding, self.child_gap);
-
-        let dx = match self.width {
-            Size::Fit => dims.x,
-            Size::Grow => dims.x,
-            Size::Fixed(x) => x,
-        };
-
-        let dy = match self.height {
-            Size::Fit => dims.y,
-            Size::Grow => dims.y,
-            Size::Fixed(y) => y,
-        };
-
-        Vec2::new(dx, dy)
+        Vec2::new(self.width.as_fixed(), self.height.as_fixed())
     }
 }
 
@@ -164,11 +207,14 @@ fn sum_fixed_dims<'a>(
     Vec2::new(sx, sy)
 }
 
-pub fn do_aabbs<'a>(root: &Node, origin: Vec2) -> Vec<AABB> {
+pub fn do_aabbs<'a>(root: &Node, origin: Vec2) -> Vec<(AABB, bool)> {
     let mut px = origin.x + root.padding;
     let mut py = origin.y + root.padding;
 
-    let mut ret = vec![AABB::from_arbitrary(origin, origin + root.fixed_dims())];
+    let mut ret = vec![(
+        AABB::from_arbitrary(origin, origin + root.fixed_dims()),
+        root.visible,
+    )];
 
     for node in root.children() {
         let dim = node.fixed_dims();
@@ -184,6 +230,95 @@ pub fn do_aabbs<'a>(root: &Node, origin: Vec2) -> Vec<AABB> {
     }
 
     ret
+}
+
+pub fn populate_fit_sizes(mut root: Node) -> Node {
+    if root.is_leaf() {
+        if root.width.is_fit() {
+            root.width = Size::Fixed(0.0);
+        }
+        if root.height.is_fit() {
+            root.height = Size::Fixed(0.0);
+        }
+        return root;
+    }
+
+    root.children = root
+        .children
+        .into_iter()
+        .map(|n| populate_fit_sizes(n))
+        .collect();
+
+    let dims = sum_fixed_dims(
+        root.layout,
+        root.children.iter(),
+        root.padding,
+        root.child_gap,
+    );
+
+    if root.width.is_fit() {
+        root.width = Size::Fixed(dims.x);
+    }
+
+    if root.height.is_fit() {
+        root.height = Size::Fixed(dims.y);
+    }
+
+    root
+}
+
+pub fn populate_grow_sizes(mut root: Node) -> Node {
+    if root.is_leaf() {
+        return root;
+    }
+
+    let n_to_grow: u32 = root
+        .children
+        .iter()
+        .map(|n| match root.layout {
+            LayoutDir::LeftToRight => n.width.is_grow(),
+            LayoutDir::TopToBottom => n.height.is_grow(),
+        } as u32)
+        .sum();
+
+    let mut w = root.width.as_fixed() - root.padding * 2.0;
+    let mut h = root.height.as_fixed() - root.padding * 2.0;
+
+    for c in &root.children {
+        match root.layout {
+            LayoutDir::LeftToRight => w -= (c.width.as_fixed() + root.child_gap),
+            LayoutDir::TopToBottom => h -= (c.height.as_fixed() + root.child_gap),
+        }
+    }
+
+    let n_to_grow = n_to_grow.max(1);
+
+    match root.layout {
+        LayoutDir::LeftToRight => {
+            w += root.child_gap;
+            w /= n_to_grow as f32;
+        }
+        LayoutDir::TopToBottom => {
+            h += root.child_gap;
+            h /= n_to_grow as f32;
+        }
+    }
+
+    root.children = root
+        .children
+        .into_iter()
+        .map(|mut c| {
+            if c.width.is_grow() {
+                c.width = Size::Fixed(w);
+            }
+            if c.height.is_grow() {
+                c.height = Size::Fixed(h);
+            }
+            populate_grow_sizes(c)
+        })
+        .collect();
+
+    root
 }
 
 #[cfg(test)]

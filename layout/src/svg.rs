@@ -4,16 +4,16 @@ use svg::node::element::path::Data;
 use svg::node::element::Path;
 use svg::Document;
 
-pub fn write_svg(filepath: &str, aabbs: &[AABB]) -> Result<(), std::io::Error> {
+pub fn write_svg(filepath: &str, aabbs: &[(AABB, bool)]) -> Result<(), std::io::Error> {
     let padding = 10.0;
 
     if aabbs.is_empty() {
         return Ok(());
     }
 
-    let mut bounds = aabbs[0];
+    let mut bounds = aabbs[0].0;
 
-    for aabb in aabbs {
+    for (aabb, _) in aabbs {
         bounds.include(&aabb.lower());
         bounds.include(&aabb.upper());
     }
@@ -24,7 +24,11 @@ pub fn write_svg(filepath: &str, aabbs: &[AABB]) -> Result<(), std::io::Error> {
 
     let mut doc = Document::new().set("viewBox", (l.x, l.y, w.x, w.y));
 
-    for (i, aabb) in (&[bounds]).iter().chain(aabbs).enumerate() {
+    for (aabb, visible) in aabbs {
+        if !visible {
+            continue;
+        }
+
         let corners = aabb.corners();
 
         println!("{:?}", aabb);
@@ -40,8 +44,9 @@ pub fn write_svg(filepath: &str, aabbs: &[AABB]) -> Result<(), std::io::Error> {
             .close();
 
         let path = Path::new()
-            .set("fill", "none")
-            .set("stroke", if i == 0 { "grey" } else { "red" })
+            .set("fill", "white")
+            .set("fill-opacity", 1)
+            .set("stroke", "blue")
             .set("stroke-width", 1)
             .set("d", data);
 
@@ -68,40 +73,5 @@ mod tests {
             .collect::<Vec<_>>();
 
         write_svg("boxes.svg", &aabbs).unwrap();
-    }
-
-    #[test]
-    fn svg_layout() {
-        let mut dims = vec![
-            [(0.0, 0.0), (0.1, 1.0)],
-            [(0.1, 0.0), (1.0, 0.1)],
-            [(0.8, 0.95), (1.0, 1.0)],
-            // window
-            [(0.4, 0.5), (0.6, 0.8)],
-            [(0.41, 0.79), (0.59, 0.75)],
-        ];
-
-        for i in 0..20 {
-            let w = 1.0 / 21.0;
-            let s = i as f32 * w + 0.03;
-            dims.push([(0.01, s), (0.09, s + w - 0.003)])
-        }
-
-        let w = 700.0;
-        let h = 500.0;
-
-        let aabbs: Vec<AABB> = dims
-            .iter()
-            .map(|x| {
-                let p: Vec2 = x[0].into();
-                let p = p.with_y(1.0 - p.y);
-                let q: Vec2 = x[1].into();
-                let q = q.with_y(1.0 - q.y);
-                let s = Vec2::new(w, h);
-                AABB::from_arbitrary(p * s, q * s)
-            })
-            .collect();
-
-        write_svg("layout.svg", &aabbs).unwrap();
     }
 }
