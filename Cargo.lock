@@ -2534,6 +2534,7 @@ dependencies = [
  "bevy_egui",
  "bevy_vector_shapes",
  "chrono",
+ "layout",
  "lazy_static",
  "rand",
  "rand_chacha",

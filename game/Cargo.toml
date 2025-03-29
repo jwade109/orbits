@@ -13,3 +13,4 @@ lazy_static = "1.5.0"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 starling = { path = "../starling" }
+layout = { path = "../layout" }

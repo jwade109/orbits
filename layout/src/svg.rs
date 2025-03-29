@@ -4,16 +4,16 @@ use svg::node::element::path::Data;
 use svg::node::element::Path;
 use svg::Document;
 
-pub fn write_svg(filepath: &str, aabbs: &[(AABB, bool)]) -> Result<(), std::io::Error> {
+pub fn write_svg(filepath: &str, aabbs: &[AABB]) -> Result<(), std::io::Error> {
     let padding = 10.0;
 
     if aabbs.is_empty() {
         return Ok(());
     }
 
-    let mut bounds = aabbs[0].0;
+    let mut bounds = aabbs[0];
 
-    for (aabb, _) in aabbs {
+    for aabb in aabbs {
         bounds.include(&aabb.lower());
         bounds.include(&aabb.upper());
     }
@@ -24,14 +24,8 @@ pub fn write_svg(filepath: &str, aabbs: &[(AABB, bool)]) -> Result<(), std::io::
 
     let mut doc = Document::new().set("viewBox", (l.x, l.y, w.x, w.y));
 
-    for (aabb, visible) in aabbs {
-        if !visible {
-            continue;
-        }
-
+    for aabb in aabbs {
         let corners = aabb.corners();
-
-        println!("{:?}", aabb);
 
         let to_tup = |p: Vec2| (p.x, p.y);
 

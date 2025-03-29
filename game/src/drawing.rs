@@ -789,6 +789,48 @@ fn draw_graph(
     Some(())
 }
 
+pub fn draw_ui_layout(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
+    let vb = state.camera.viewport_bounds();
+    let wb = state.camera.world_bounds();
+    let map = |aabb: AABB| vb.map_box(wb, aabb);
+
+    let visitor = |n: &layout::layout::Node| -> Option<AABB> { n.is_visible().then(|| n.aabb()) };
+
+    if let Some(p) = state.mouse.right() {
+        let ctx = layout::examples::context_menu(p);
+        for layout in ctx.layouts() {
+            for aabb in layout.visit(&visitor) {
+                let aabb = map(aabb);
+                draw_aabb(gizmos, aabb, WHITE);
+            }
+        }
+    }
+
+    let tree = layout::examples::example_layout(vb.span.x, vb.span.y);
+    for layout in tree.layouts() {
+        for aabb in layout.visit(&visitor) {
+            let aabb = map(aabb);
+
+            let pos = [
+                (state.mouse.left_world(), RED),
+                (state.mouse.right_world(), YELLOW),
+                (state.mouse.middle_world(), GREEN),
+                (state.mouse.current_world(), TEAL),
+            ];
+
+            for (p, c) in pos {
+                if p.map(|p| aabb.contains(p)).unwrap_or(false) {
+                    draw_aabb(gizmos, aabb, c);
+                    break;
+                } else {
+                    draw_aabb(gizmos, aabb, WHITE.with_alpha(0.4));
+                }
+            }
+        }
+    }
+    Some(())
+}
+
 pub fn draw_orbit_spline(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     if !state.show_graph {
         return None;
@@ -911,6 +953,8 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
             WHITE,
         );
     }
+
+    draw_ui_layout(&mut gizmos, &state);
 }
 
 fn draw_mouse_state(mouse: &MouseState, gizmos: &mut Gizmos) {
