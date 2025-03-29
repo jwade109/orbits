@@ -1,0 +1,13 @@
+[package]
+name = "layout"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+glam = "0.30.1"
+starling = { path = "../starling" }
+svg = "0.18.0"
+
+[[bin]]
+name = "main"
+path = "bin/main.rs"

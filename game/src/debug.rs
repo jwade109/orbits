@@ -27,7 +27,7 @@ impl DebugInfo {
 impl Plugin for DebugPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_debug_readout);
-        app.add_systems(Update, (update_fps_count, redraw_fps, keyboard_input));
+        app.add_systems(Update, (update_fps_count, redraw_fps));
     }
 }
 
@@ -96,12 +96,6 @@ fn redraw_fps(
             debug.total_frames,
             logs
         ));
-    }
-}
-
-fn keyboard_input(keys: Res<ButtonInput<KeyCode>>) {
-    for _key in keys.get_pressed() {
-        // dbg!(key);
     }
 }
 

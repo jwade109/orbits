@@ -1,15 +1,15 @@
 use crate::planetary::GameState;
 use crate::ui::InteractionEvent;
 use bevy::prelude::*;
-use bevy_egui::{egui, EguiContexts};
-use starling::orbiter::GroupId;
-use std::ops::DerefMut;
+use bevy_egui::{/* egui */ EguiContexts};
+// use starling::orbiter::GroupId;
+// use std::ops::DerefMut;
 
 pub fn ui_example_system(
-    mut contexts: EguiContexts,
-    state: Res<GameState>,
-    mut events: EventWriter<InteractionEvent>,
-    mut group_name: Local<String>,
+    mut _contexts: EguiContexts,
+    _state: Res<GameState>,
+    mut _events: EventWriter<InteractionEvent>,
+    mut _group_name: Local<String>,
 ) {
     // let ctx = contexts.ctx_mut();
     // // catppuccin_egui::set_theme(ctx, catppuccin_egui::MOCHA);

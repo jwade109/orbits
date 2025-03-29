@@ -28,8 +28,17 @@ impl Notification {
             NotificationType::Following(_) => Nanotime::millis(500),
         }
     }
+
+    pub fn jitter(&mut self) {
+        if self.jitter == Vec2::ZERO && rand(0.0, 1.0) < 0.004 {
+            self.jitter = randvec(0.1, 6.0);
+        } else if self.jitter.length() > 0.0 && rand(0.0, 1.0) < 0.04 {
+            self.jitter = Vec2::ZERO;
+        }
+    }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NotificationType {
     OrbiterCrashed(ObjectId),

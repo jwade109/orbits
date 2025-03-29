@@ -48,14 +48,13 @@ impl AABB {
     }
 
     pub fn include(&mut self, p: &Vec2) {
-        let mut min = self.center - self.span / 2.0;
-        let mut max = self.center + self.span / 2.0;
-        min.x = min.x.min(p.x);
-        min.y = min.y.min(p.y);
-        max.x = max.x.max(p.x);
-        max.y = max.y.max(p.y);
-        self.center = (max + min) / 2.0;
-        self.span = max - min;
+        let l = self.lower();
+        let u = self.upper();
+
+        let a = Vec2::new(l.x.min(p.x), l.y.min(p.y));
+        let b = Vec2::new(u.x.max(p.x), u.y.max(p.y));
+
+        *self = AABB::from_arbitrary(a, b);
     }
 
     pub fn lower(&self) -> Vec2 {

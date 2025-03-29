@@ -78,7 +78,7 @@ fn eccentric_to_mean(eccentric_anomaly: Anomaly, ecc: f32) -> Anomaly {
     }
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]
 pub struct Body {
     pub radius: f32,
     pub mass: f32,
@@ -102,7 +102,7 @@ pub fn vis_viva_equation(mu: f32, r: f32, a: f32) -> f32 {
 
 const GRAVITATIONAL_CONSTANT: f32 = 12000.0;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub struct SparseOrbit {
     eccentricity: f32,
     pub semi_major_axis: f32,
@@ -843,7 +843,7 @@ pub(crate) fn lagrange_pv(initial: impl Into<PV>, coeff: &LangrangeCoefficients)
     PV::new(vec_r, vec_v)
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub struct GlobalOrbit(pub ObjectId, pub SparseOrbit);
 
 impl std::fmt::Display for GlobalOrbit {

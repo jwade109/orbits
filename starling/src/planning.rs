@@ -587,6 +587,10 @@ impl ManeuverPlan {
         self.segments.iter().map(|n| n.impulse.length()).sum()
     }
 
+    pub fn segment_at(&self, stamp: Nanotime) -> Option<&ManeuverSegment> {
+        self.segments.iter().find(|s| s.is_valid(stamp))
+    }
+
     pub fn then(&self, other: Self) -> Result<Self, &'static str> {
         if self.end() > other.start() {
             return Err("Self ends after new plan begins");
@@ -612,7 +616,7 @@ impl std::fmt::Display for ManeuverPlan {
         for (i, segment) in self.segments.iter().enumerate() {
             write!(
                 f,
-                "{}. {:?} {:?} dV {:0.1} to {:?}\n",
+                "{}. {:?} {:?} dV {:0.1} to {}\n",
                 i + 1,
                 segment.start,
                 segment.end,
@@ -620,7 +624,7 @@ impl std::fmt::Display for ManeuverPlan {
                 segment.orbit,
             )?;
         }
-        write!(f, "Ending with {:?}\n", self.terminal)
+        write!(f, "Ending with {}\n", self.terminal)
     }
 }
 
@@ -651,6 +655,10 @@ impl ManeuverSegment {
     fn next_orbit(&self) -> Option<SparseOrbit> {
         let pv = self.orbit.pv(self.end).ok()? + PV::vel(self.impulse);
         SparseOrbit::from_pv(pv, self.orbit.body, self.end)
+    }
+
+    fn is_valid(&self, stamp: Nanotime) -> bool {
+        self.start <= stamp && self.end > stamp
     }
 
     fn dv(&self) -> (Nanotime, Vec2) {
@@ -781,12 +789,12 @@ pub fn best_maneuver_plan(
     current: &SparseOrbit,
     destination: &SparseOrbit,
     now: Nanotime,
-) -> Option<ManeuverPlan> {
+) -> Result<ManeuverPlan, &'static str> {
     if current.is_similar(destination) {
-        return None;
+        return Err("Orbits are the same");
     }
 
     let mut plans = generate_maneuver_plans(current, destination, now);
     plans.sort_by_key(|m| (m.dv() * 1000.0) as i32);
-    plans.first().cloned()
+    plans.first().cloned().ok_or("No plan")
 }

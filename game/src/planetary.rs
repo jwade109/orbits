@@ -225,11 +225,7 @@ impl GameState {
 
         let members = self.constellations.get(&gid)?;
 
-        dbg!(members);
-
         let all_selected = members.iter().all(|id| self.is_tracked(*id));
-
-        dbg!(all_selected);
 
         for id in members {
             if all_selected {
@@ -257,7 +253,7 @@ impl GameState {
         for ctrl in &self.controllers {
             if let Some(plan) = ctrl.plan() {
                 for (stamp, impulse) in plan.future_dvs(after) {
-                    dvs.push((ctrl.target, stamp, impulse));
+                    dvs.push((ctrl.target(), stamp, impulse));
                 }
             }
         }
@@ -412,44 +408,34 @@ impl GameState {
         Some(())
     }
 
-    pub fn command_selected(&mut self, next: &GlobalOrbit, overwrite: bool) {
+    pub fn command_selected(&mut self, next: &GlobalOrbit) {
         if self.track_list.is_empty() {
             return;
         }
         info!("Commanding {} orbiters to {}", self.track_list.len(), next,);
         for id in self.track_list.clone() {
-            self.command(id, next, overwrite);
+            self.command(id, next);
         }
     }
 
-    pub fn command(&mut self, id: ObjectId, next: &GlobalOrbit, overwrite: bool) -> Option<()> {
-        if self.controllers.iter().find(|c| c.target == id).is_none() {
+    pub fn release_selected(&mut self) {
+        let tracks = self.track_list.clone();
+        self.controllers.retain(|c| !tracks.contains(&c.target()));
+    }
+
+    pub fn command(&mut self, id: ObjectId, next: &GlobalOrbit) -> Option<()> {
+        self.scenario.lup(id, self.sim_time)?.orbiter()?;
+
+        if self.controllers.iter().find(|c| c.target() == id).is_none() {
             self.controllers.push(Controller::idle(id));
         }
 
-        let success = if let Some(c) = self.controllers.iter_mut().find(|c| c.target == id) {
-            let res = if c.is_idle() || overwrite {
-                let orbiter = self.scenario.lup(c.target(), self.sim_time)?.orbiter()?;
-                let prop = orbiter.propagator_at(self.sim_time)?;
-                c.activate(&prop.orbit, next, self.sim_time)
-            } else {
-                c.enqueue(next)
-            };
-            if let Err(msg) = res {
-                warn!("Failed to command {} to {}: {}", c.target, next, msg);
-                false
-            } else {
-                true
+        self.controllers.iter_mut().for_each(|c| {
+            let ret = c.set_destination(*next, self.sim_time);
+            if let Err(_e) = ret {
+                // dbg!(e);
             }
-        } else {
-            false
-        };
-
-        if success {
-            self.notify(id, NotificationType::ManeuverStarted(id), None);
-        } else {
-            self.notify(id, NotificationType::ManeuverFailed(id), None);
-        }
+        });
 
         Some(())
     }
@@ -520,39 +506,45 @@ impl GameState {
 
         self.constellations.retain(|_, members| !members.is_empty());
 
-        let mut finished_ids = vec![];
+        let mut notifs = vec![];
+
+        self.controllers.iter_mut().for_each(|c| {
+            if !c.needs_update(s) {
+                return;
+            }
+
+            let lup = self.scenario.lup(c.target(), s);
+            let orbiter = lup.map(|lup| lup.orbiter()).flatten();
+            let prop = orbiter.map(|orb| orb.propagator_at(s)).flatten();
+
+            if let Some(prop) = prop {
+                let res = c.update(s, prop.orbit);
+                if let Err(_) = res {
+                    notifs.push((c.target(), NotificationType::ManeuverFailed(c.target())));
+                }
+            }
+        });
+
+        notifs
+            .into_iter()
+            .for_each(|(t, n)| self.notify(t, n, None));
+
+        let mut finished_ids = Vec::<ObjectId>::new();
 
         self.controllers.retain(|c| {
-            if !ids.contains(&c.target) {
-                return false;
-            }
             if c.is_idle() {
-                info!("Vehicle {} has idle controller", c.target);
-                return false;
-            }
-            if let Some(end) = c.plan().map(|p| p.end()) {
-                let retain = end > s;
-                if !retain {
-                    info!("Maneuver completed by vehicle {} at time {}", c.target, end);
-                    finished_ids.push(c.target);
-                }
-                retain
+                finished_ids.push(c.target());
+                false
             } else {
                 true
             }
         });
 
-        for id in finished_ids {
-            self.notify(id, NotificationType::ManeuverComplete(id), None);
-        }
+        finished_ids
+            .into_iter()
+            .for_each(|id| self.notify(id, NotificationType::ManeuverComplete(id), None));
 
-        for notif in &mut self.notifications {
-            if notif.jitter == Vec2::ZERO && rand(0.0, 1.0) < 0.004 {
-                notif.jitter = randvec(0.1, 6.0);
-            } else if notif.jitter.length() > 0.0 && rand(0.0, 1.0) < 0.04 {
-                notif.jitter = Vec2::ZERO;
-            }
-        }
+        self.notifications.iter_mut().for_each(|n| n.jitter());
 
         self.notifications
             .retain(|n| n.wall_time + n.duration() > self.actual_time);
@@ -645,6 +637,10 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
         .map(|id| state.scenario.lup(id, state.sim_time))
         .flatten()
     {
+        if let Some(ctrl) = state.controllers.get(0) {
+            log(&format!("{}", ctrl));
+        }
+
         if let Some(o) = lup.orbiter() {
             log(&format!("{}", o));
             for prop in o.props() {
@@ -679,11 +675,13 @@ fn process_interaction(
     match inter {
         InteractionEvent::Delete => state.delete_objects(),
         InteractionEvent::CommitMission => {
-            let mut overwrite = true;
             for orbit in state.queued_orbits.clone() {
-                state.command_selected(&orbit, overwrite);
-                overwrite = false;
+                state.command_selected(&orbit);
+                break;
             }
+        }
+        InteractionEvent::ClearMissions => {
+            state.release_selected();
         }
         InteractionEvent::ToggleDebugMode => {
             state.hide_debug = !state.hide_debug;

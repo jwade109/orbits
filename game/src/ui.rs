@@ -5,10 +5,12 @@ use bevy::core_pipeline::post_process::ChromaticAberration;
 use bevy::prelude::*;
 use starling::prelude::*;
 
+#[allow(dead_code)]
 #[derive(Debug, Event, Clone)]
 pub enum InteractionEvent {
     Orbits,
     CommitMission,
+    ClearMissions,
     Spawn,
     Console,
     Delete,
@@ -74,12 +76,12 @@ fn set_effects(
     mut actual_chrom: Local<f32>,
 ) {
     let target_bloom = match state.game_mode {
-        GameMode::Default => 0.8,
+        GameMode::Default => 0.4,
         _ => 0.0,
     };
 
     let target_chrom = match state.game_mode {
-        GameMode::Default => 0.01,
+        GameMode::Default => 0.005,
         _ => 0.0,
     };
 
@@ -112,7 +114,7 @@ fn update_controller_buttons(
         if state
             .controllers
             .iter()
-            .find(|c| c.target == cb.0)
+            .find(|c| c.target() == cb.0)
             .is_none()
         {
             commands.entity(e).despawn_recursive();
@@ -123,13 +125,13 @@ fn update_controller_buttons(
         if ctrl.is_idle() {
             continue;
         }
-        if query.iter().find(|(_, cb)| cb.0 == ctrl.target).is_none() {
+        if query.iter().find(|(_, cb)| cb.0 == ctrl.target()).is_none() {
             let mut entity = None;
             commands.entity(*parent).with_children(|cb| {
                 let e = add_ui_button(
                     cb,
-                    &format!("{}", ctrl.target),
-                    InteractionEvent::ToggleObject(ctrl.target),
+                    &format!("{}", ctrl.target()),
+                    InteractionEvent::ToggleObject(ctrl.target()),
                     false,
                     BLACK,
                 );
@@ -137,7 +139,7 @@ fn update_controller_buttons(
             });
             if let Some(e) = entity {
                 commands.entity(*parent).add_child(e);
-                commands.entity(e).insert(ControllerButton(ctrl.target));
+                commands.entity(e).insert(ControllerButton(ctrl.target()));
             };
         }
     }

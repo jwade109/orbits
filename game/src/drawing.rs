@@ -438,7 +438,7 @@ fn draw_controller(
     actual_time: Nanotime,
     tracked: bool,
 ) -> Option<()> {
-    let craft = scenario.lup(ctrl.target, stamp)?.pv().pos;
+    let craft = scenario.lup(ctrl.target(), stamp)?.pv().pos;
 
     let secs = 2;
     let t_start = actual_time.floor(Nanotime::PER_SEC * secs);
@@ -449,9 +449,8 @@ fn draw_controller(
     draw_circle(gizmos, craft, r, GRAY.with_alpha(a));
 
     if tracked {
-        let origin = scenario.lup(ctrl.parent()?, stamp)?.pv().pos;
         let plan = ctrl.plan()?;
-        draw_maneuver_plan(gizmos, stamp, plan, origin, scale)?;
+        draw_maneuver_plan(gizmos, stamp, plan, Vec2::ZERO, scale)?;
     }
 
     Some(())
@@ -562,7 +561,7 @@ fn draw_timeline(gizmos: &mut Gizmos, state: &GameState) {
             None => continue,
         };
 
-        let alpha = if state.track_list.contains(&ctrl.target) {
+        let alpha = if state.track_list.contains(&ctrl.target()) {
             1.0
         } else {
             0.2 / (i + 1) as f32
@@ -856,7 +855,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     }
 
     for ctrl in &state.controllers {
-        let tracked = state.track_list.contains(&ctrl.target);
+        let tracked = state.track_list.contains(&ctrl.target());
         draw_controller(
             &mut gizmos,
             state.sim_time,

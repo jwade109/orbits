@@ -15,6 +15,7 @@ pub fn keyboard_input(
             KeyCode::KeyH => InteractionEvent::ToggleDebugMode,
             KeyCode::KeyP => InteractionEvent::ToggleGraph,
             KeyCode::KeyG => InteractionEvent::CreateGroup,
+            KeyCode::KeyC => InteractionEvent::ClearMissions,
             KeyCode::Enter => InteractionEvent::CommitMission,
             KeyCode::Minus => InteractionEvent::ZoomOut,
             KeyCode::Equal => InteractionEvent::ZoomIn,

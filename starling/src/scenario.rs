@@ -1,5 +1,5 @@
 use crate::belts::AsteroidBelt;
-use crate::math::{rand, randvec, rotate, vproj, PI};
+use crate::math::{rand, rotate, vproj, PI};
 use crate::nanotime::Nanotime;
 use crate::orbiter::*;
 use crate::orbits::{Body, GlobalOrbit, SparseOrbit};

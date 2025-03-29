@@ -5,74 +5,96 @@ use crate::planning::{best_maneuver_plan, ManeuverPlan};
 
 #[derive(Debug, Clone)]
 pub struct Controller {
-    pub target: ObjectId,
-    state: ControllerState,
-}
-
-#[derive(Debug, Clone)]
-enum ControllerState {
-    Idle,
-    Planned {
-        parent: ObjectId,
-        plan: ManeuverPlan,
-    },
+    target: ObjectId,
+    last_update: Nanotime,
+    current: Option<GlobalOrbit>,
+    destination: Option<GlobalOrbit>,
+    plan: Option<ManeuverPlan>,
 }
 
 impl Controller {
     pub fn idle(target: ObjectId) -> Self {
         Controller {
             target,
-            state: ControllerState::Idle,
+            last_update: Nanotime::zero(),
+            current: None,
+            destination: None,
+            plan: None,
         }
     }
 
     pub fn clear(&mut self) {
-        self.state = ControllerState::Idle;
+        self.destination = None;
+        self.plan = None;
     }
 
     pub fn is_idle(&self) -> bool {
-        match self.state {
-            ControllerState::Idle => true,
-            _ => false,
+        self.destination.is_none()
+    }
+
+    pub fn needs_update(&self, stamp: Nanotime) -> bool {
+        stamp - self.last_update > Nanotime::secs(1)
+    }
+
+    pub fn update(&mut self, stamp: Nanotime, orbit: GlobalOrbit) -> Result<(), &'static str> {
+        self.last_update = stamp;
+
+        self.current = Some(orbit);
+
+        if self.destination.is_none() {
+            return Ok(());
+        }
+
+        if let Some((c, d)) = self.current.zip(self.destination) {
+            if c.1.is_similar(&d.1) {
+                self.destination = None;
+                self.plan = None;
+                return Ok(());
+            }
+        }
+
+        let nominal = self
+            .plan
+            .as_ref()
+            .map(|m| m.segment_at(stamp))
+            .flatten()
+            .map(|s| s.orbit);
+
+        if let Some(nominal) = nominal {
+            if orbit.1.is_similar(&nominal) {
+                return Ok(());
+            }
+        }
+
+        if self.current.is_some() && self.destination.is_some() {
+            self.reroute(stamp)
+        } else {
+            Ok(())
         }
     }
 
-    pub fn activate(
+    pub fn set_destination(
         &mut self,
-        current: &GlobalOrbit,
-        destination: &GlobalOrbit,
-        now: Nanotime,
+        destination: GlobalOrbit,
+        stamp: Nanotime,
     ) -> Result<(), &'static str> {
-        if current.0 != destination.0 {
-            return Err("Orbits have different parents");
+        self.destination = Some(destination);
+        self.reroute(stamp)
+    }
+
+    pub fn reroute(&mut self, stamp: Nanotime) -> Result<(), &'static str> {
+        let c = self.current.as_ref().ok_or("No current orbit")?;
+        let d = self.destination.as_ref().ok_or("No destination orbit")?;
+        if c.0 != d.0 {
+            return Err("Cannot path between bodies");
         }
-        let plan =
-            best_maneuver_plan(&current.1, &destination.1, now).ok_or("Failed to plan maneuver")?;
-        self.state = ControllerState::Planned {
-            parent: current.0,
-            plan,
-        };
+        let p = best_maneuver_plan(&c.1, &d.1, stamp)?;
+        self.plan = Some(p);
         Ok(())
     }
 
-    pub fn enqueue(&mut self, destination: &GlobalOrbit) -> Result<(), &'static str> {
-        let parent = self.parent().ok_or("No parent")?;
-        if parent != destination.0 {
-            return Err("Different parent than existing plan");
-        }
-        let plan = self.plan().ok_or("No plan")?;
-        let new_plan =
-            best_maneuver_plan(&plan.terminal, &destination.1, plan.end()).ok_or("No best plan")?;
-        let plan = plan.then(new_plan)?;
-        self.state = ControllerState::Planned { parent, plan };
-        Ok(())
-    }
-
-    pub fn parent(&self) -> Option<ObjectId> {
-        match &self.state {
-            ControllerState::Idle => None,
-            ControllerState::Planned { parent, .. } => Some(*parent),
-        }
+    pub fn destination(&self) -> Option<&GlobalOrbit> {
+        self.destination.as_ref()
     }
 
     pub fn target(&self) -> ObjectId {
@@ -80,16 +102,27 @@ impl Controller {
     }
 
     pub fn plan(&self) -> Option<&ManeuverPlan> {
-        match &self.state {
-            ControllerState::Idle => None,
-            ControllerState::Planned { plan, .. } => Some(plan),
-        }
+        self.plan.as_ref()
     }
 }
 
 impl std::fmt::Display for Controller {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.target)
+        let c = self
+            .current
+            .map(|c| format!("{}", c))
+            .unwrap_or("None".into());
+        let d = self
+            .destination
+            .map(|d| format!("{}", d))
+            .unwrap_or("None".into());
+        write!(f, "CTRL {} {} {}", self.last_update, c, d)?;
+
+        if let Some(p) = &self.plan {
+            write!(f, "\n{}", p)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -115,12 +148,15 @@ mod tests {
 
         let mut ctrl = Controller::idle(orbiter_id);
 
-        ctrl.activate(
-            &GlobalOrbit(earth.id, orbits[0]),
-            &GlobalOrbit(earth.id, orbits[1]),
-            Nanotime::zero(),
-        )
-        .unwrap();
+        assert_eq!(
+            ctrl.set_destination(GlobalOrbit(earth.id, orbits[1]), Nanotime::zero()),
+            Err("No current orbit")
+        );
+
+        assert_eq!(
+            ctrl.update(Nanotime::zero(), GlobalOrbit(earth.id, orbits[0])),
+            Ok(())
+        );
 
         let mut tfinal = Nanotime::zero();
 
