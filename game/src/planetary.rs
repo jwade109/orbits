@@ -5,9 +5,10 @@ use crate::debug::*;
 use crate::mouse::MouseState;
 use crate::notifications::*;
 use crate::ui::InteractionEvent;
-use bevy::core_pipeline::bloom::Bloom;
-use bevy::core_pipeline::post_process::ChromaticAberration;
+use bevy::color::palettes::css::*;
 use bevy::prelude::*;
+use bevy::render::view::RenderLayers;
+use bevy::window::WindowMode;
 use starling::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::ops::DerefMut;
@@ -56,14 +57,22 @@ fn init_system(mut commands: Commands) {
         Camera2d,
         Camera {
             hdr: true,
+            order: 0,
+            clear_color: ClearColorConfig::Custom(BLACK.into()),
             ..default()
         },
         SoftController::default(),
-        Bloom {
-            intensity: 0.5,
-            ..Bloom::OLD_SCHOOL
+        RenderLayers::layer(0),
+    ));
+
+    commands.spawn((
+        Camera2d,
+        Camera {
+            order: 1,
+            clear_color: ClearColorConfig::Custom(BLACK.with_alpha(0.0).into()),
+            ..default()
         },
-        ChromaticAberration::default(),
+        RenderLayers::layer(1),
     ));
 }
 
@@ -163,6 +172,7 @@ pub struct GameState {
     pub queued_orbits: Vec<GlobalOrbit>,
     pub constellations: HashMap<GroupId, HashSet<ObjectId>>,
     pub selection_mode: SelectionMode,
+    pub redraw_gui: bool,
 
     pub game_mode: GameMode,
 
@@ -195,7 +205,8 @@ impl Default for GameState {
             queued_orbits: Vec::new(),
             constellations: HashMap::new(),
             selection_mode: SelectionMode::Rect,
-            game_mode: GameMode::Default,
+            redraw_gui: false,
+            game_mode: GameMode::Constellations,
             notifications: Vec::new(),
         }
     }
@@ -671,6 +682,7 @@ fn process_interaction(
     inter: &InteractionEvent,
     state: &mut GameState,
     exit: &mut EventWriter<bevy::app::AppExit>,
+    window: &mut Window,
 ) -> Option<()> {
     match inter {
         InteractionEvent::Delete => state.delete_objects(),
@@ -710,11 +722,22 @@ fn process_interaction(
         InteractionEvent::GameMode => {
             state.game_mode = state.game_mode.next();
         }
+        InteractionEvent::RedrawGui => {
+            state.redraw_gui = true;
+        }
         InteractionEvent::Orbits => {
             state.show_orbits.next();
         }
         InteractionEvent::Spawn => {
             state.spawn_new();
+        }
+        InteractionEvent::ToggleFullscreen => {
+            let fs = WindowMode::BorderlessFullscreen(MonitorSelection::Current);
+            window.mode = if window.mode == fs {
+                WindowMode::Windowed
+            } else {
+                fs
+            };
         }
         InteractionEvent::DoubleClick(p) => {
             let w = state
@@ -796,10 +819,11 @@ fn handle_interactions(
     mut events: EventReader<InteractionEvent>,
     mut state: ResMut<GameState>,
     mut exit: EventWriter<bevy::app::AppExit>,
+    mut window: Single<&mut Window>,
 ) {
     for e in events.read() {
         debug!("Interaction event: {e:?}");
-        process_interaction(e, &mut state, &mut exit);
+        process_interaction(e, &mut state, &mut exit, &mut window);
     }
 }
 

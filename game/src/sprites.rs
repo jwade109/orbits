@@ -202,12 +202,15 @@ pub fn update_spacecraft_sprites(
     }
 }
 
-pub fn update_background_sprite(mut color: ResMut<ClearColor>, state: Res<GameState>) {
+pub fn update_background_sprite(
+    mut camera: Single<&mut Camera, With<crate::planetary::SoftController>>,
+    state: Res<GameState>,
+) {
     let c = match state.game_mode {
         GameMode::Default => BLACK,
         GameMode::Constellations => GRAY.with_luminance(0.1),
         GameMode::Stability => GRAY.with_luminance(0.13),
     };
 
-    color.0 = c.into();
+    camera.clear_color = ClearColorConfig::Custom(c.into());
 }

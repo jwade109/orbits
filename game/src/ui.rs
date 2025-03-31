@@ -1,8 +1,13 @@
-use crate::planetary::{GameMode, GameState};
+use crate::planetary::GameState;
 use bevy::color::palettes::css::*;
-use bevy::core_pipeline::bloom::Bloom;
-use bevy::core_pipeline::post_process::ChromaticAberration;
 use bevy::prelude::*;
+use bevy::render::{
+    render_asset::RenderAssetUsages,
+    render_resource::{Extent3d, TextureDimension, TextureFormat},
+    view::RenderLayers,
+};
+use bevy::text::TextBounds;
+use layout::layout as ui;
 use starling::prelude::*;
 
 #[allow(dead_code)]
@@ -32,6 +37,8 @@ pub enum InteractionEvent {
     ContextDependent,
     SelectionMode,
     GameMode,
+    RedrawGui,
+    ToggleFullscreen,
 
     // mouse stuff
     LeftMouseRelease,
@@ -57,134 +64,10 @@ impl Plugin for UiPlugin {
         app.add_systems(Startup, setup);
         app.add_systems(
             Update,
-            (
-                big_time_system,
-                top_right_text_system,
-                button_system,
-                update_controller_buttons,
-                update_constellation_buttons,
-                set_effects,
-            ),
+            (big_time_system, do_ui_sprites, top_right_text_system),
         );
     }
 }
-
-fn set_effects(
-    mut single: Single<(&mut Bloom, &mut ChromaticAberration)>,
-    state: Res<GameState>,
-    mut actual_bloom: Local<f32>,
-    mut actual_chrom: Local<f32>,
-) {
-    let target_bloom = match state.game_mode {
-        GameMode::Default => 0.4,
-        _ => 0.0,
-    };
-
-    let target_chrom = match state.game_mode {
-        GameMode::Default => 0.005,
-        _ => 0.0,
-    };
-
-    *actual_bloom += (target_bloom - *actual_bloom) * 0.03;
-    *actual_chrom += (target_chrom - *actual_chrom) * 0.03;
-
-    single.0.intensity = *actual_bloom;
-    single.1.intensity = *actual_chrom;
-}
-
-#[derive(Component, Debug, Copy, Clone)]
-struct ControllerButton(ObjectId);
-
-#[derive(Component, Debug, Clone)]
-struct ConstellationButton(GroupId);
-
-#[derive(Component, Debug, Copy, Clone)]
-struct ControllerBar;
-
-#[derive(Component, Debug, Copy, Clone)]
-struct ConstellationBar;
-
-fn update_controller_buttons(
-    mut commands: Commands,
-    parent: Single<Entity, With<ControllerBar>>,
-    query: Query<(Entity, &ControllerButton)>,
-    state: Res<GameState>,
-) {
-    for (e, cb) in &query {
-        if state
-            .controllers
-            .iter()
-            .find(|c| c.target() == cb.0)
-            .is_none()
-        {
-            commands.entity(e).despawn_recursive();
-        }
-    }
-
-    for ctrl in &state.controllers {
-        if ctrl.is_idle() {
-            continue;
-        }
-        if query.iter().find(|(_, cb)| cb.0 == ctrl.target()).is_none() {
-            let mut entity = None;
-            commands.entity(*parent).with_children(|cb| {
-                let e = add_ui_button(
-                    cb,
-                    &format!("{}", ctrl.target()),
-                    InteractionEvent::ToggleObject(ctrl.target()),
-                    false,
-                    BLACK,
-                );
-                entity = Some(e);
-            });
-            if let Some(e) = entity {
-                commands.entity(*parent).add_child(e);
-                commands.entity(e).insert(ControllerButton(ctrl.target()));
-            };
-        }
-    }
-}
-
-fn update_constellation_buttons(
-    mut commands: Commands,
-    parent: Single<Entity, With<ConstellationBar>>,
-    query: Query<(Entity, &ConstellationButton)>,
-    state: Res<GameState>,
-) {
-    for (e, cb) in &query {
-        if state
-            .constellations
-            .iter()
-            .find(|(c, _)| **c == cb.0)
-            .is_none()
-        {
-            commands.entity(e).despawn_recursive();
-        }
-    }
-
-    for (gid, _) in &state.constellations {
-        if query.iter().find(|(_, cb)| &cb.0 == gid).is_none() {
-            let mut entity = None;
-            commands.entity(*parent).with_children(|cb| {
-                let e = add_ui_button(
-                    cb,
-                    &format!("{}", gid),
-                    InteractionEvent::ToggleGroup(gid.clone()),
-                    false,
-                    BLACK,
-                );
-                entity = Some(e);
-            });
-            if let Some(e) = entity {
-                commands.entity(*parent).add_child(e);
-                commands.entity(e).insert(ConstellationButton(gid.clone()));
-            };
-        }
-    }
-}
-
-#[derive(Component, Debug, Clone)]
-struct OnClick(InteractionEvent, bool);
 
 #[derive(Component)]
 struct DateMarker;
@@ -225,81 +108,6 @@ fn top_right_text_system(mut text: Single<&mut Text, With<TopRight>>, state: Res
     }
 }
 
-const BORDER_COLOR: Srgba = Srgba {
-    alpha: 0.0,
-    ..WHITE
-};
-
-fn get_toplevel_ui() -> impl Bundle {
-    (
-        Node {
-            position_type: PositionType::Absolute,
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
-            border: UiRect::all(Val::Px(2.0)),
-            padding: UiRect::all(Val::Px(5.0)),
-            column_gap: Val::Px(5.0),
-            row_gap: Val::Px(5.0),
-            flex_direction: FlexDirection::Column,
-            align_items: AlignItems::Stretch,
-            justify_content: JustifyContent::FlexEnd,
-            ..default()
-        },
-        BorderColor(BORDER_COLOR.into()),
-        ZIndex(100),
-    )
-}
-
-fn get_ui_row() -> impl Bundle {
-    (
-        Node {
-            position_type: PositionType::Relative,
-            width: Val::Percent(100.0),
-            bottom: Val::Px(0.0),
-            border: UiRect::all(Val::Px(2.0)),
-            padding: UiRect::all(Val::Px(5.0)),
-            column_gap: Val::Px(5.0),
-            overflow: Overflow::clip_x(),
-            ..default()
-        },
-        // BorderColor(BORDER_COLOR.into()),
-        // BackgroundColor(BACKGROUND_COLOR.into()),
-        ZIndex(100),
-    )
-}
-
-fn add_ui_button(
-    parent: &mut ChildBuilder<'_>,
-    text: &str,
-    onclick: InteractionEvent,
-    holdable: bool,
-    bg_color: Srgba,
-) -> Entity {
-    let mut entity = parent.spawn((
-        Button,
-        Node {
-            position_type: PositionType::Relative,
-            border: UiRect::all(Val::Px(2.0)),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            padding: UiRect::all(Val::Px(5.0)),
-            ..default()
-        },
-        BackgroundColor(bg_color.into()),
-        OnClick(onclick, holdable),
-        ZIndex(100),
-    ));
-
-    entity.with_child((
-        Text::new(text),
-        TextFont::from_font_size(20.0),
-        TextColor(WHITE.into()),
-        ZIndex(100),
-    ));
-
-    entity.id()
-}
-
 fn get_screen_clock() -> impl Bundle {
     (
         DateMarker,
@@ -338,100 +146,164 @@ fn get_top_right_ui() -> impl Bundle {
     )
 }
 
-fn setup(mut commands: Commands) {
-    commands.insert_resource(Events::<InteractionEvent>::default());
+pub fn layout(state: &GameState) -> Option<ui::Tree> {
+    use ui::*;
+
+    let vb = state.camera.viewport_bounds();
+    if vb.span.x == 0.0 || vb.span.y == 0.0 {
+        return None;
+    }
 
     let buttons = [
-        (">_", InteractionEvent::Console, false, BLACK),
-        ("Debug", InteractionEvent::ToggleDebugMode, false, BLACK),
-        (
-            "Clear Tracks",
-            InteractionEvent::ClearSelection,
-            false,
-            BLACK,
-        ),
-        (
-            "Clear Orbits",
-            InteractionEvent::ClearOrbitQueue,
-            false,
-            BLACK,
-        ),
-        ("Draw Orbits", InteractionEvent::Orbits, false, BLACK),
-        ("Spawn", InteractionEvent::Spawn, true, BLACK),
-        (
-            "Commit Mission",
-            InteractionEvent::CommitMission,
-            false,
-            DARK_GREEN.with_luminance(0.2),
-        ),
-        ("Reset Camera", InteractionEvent::Reset, false, BLACK),
-        ("Del", InteractionEvent::Delete, false, BLACK),
-        ("<", InteractionEvent::SimSlower, false, BLACK),
-        ("||", InteractionEvent::SimPause, false, BLACK),
-        (">", InteractionEvent::SimFaster, false, BLACK),
-        ("Exit", InteractionEvent::ExitApp, false, BLACK),
-        ("Save", InteractionEvent::Save, false, BLACK),
-        ("Restore", InteractionEvent::Restore, false, BLACK),
-        (
-            "Load Earth",
-            InteractionEvent::Load("earth".to_owned()),
-            false,
-            BLACK,
-        ),
-        (
-            "Load Grid",
-            InteractionEvent::Load("grid".to_owned()),
-            false,
-            BLACK,
-        ),
-        (
-            "Load Luna",
-            InteractionEvent::Load("moon".to_owned()),
-            false,
-            BLACK,
-        ),
+        ("Commit Mission", "commit-mission"),
+        ("Clear Orbits", "clear-orbits"),
     ];
 
-    commands.spawn(get_screen_clock());
+    let topbar = Node::row(70).with_children((0..5).map(|_| Node::column(120)));
 
-    commands.spawn(get_top_right_ui());
+    let sidebar = Node::column(300).with_children(
+        buttons
+            .iter()
+            .map(|(s, id)| Node::button(s, id, Size::Grow, 60)),
+    );
 
-    let top = commands.spawn(get_toplevel_ui()).id();
+    let root = Node::new(vb.span.x, vb.span.y)
+        .down()
+        .tight()
+        .invisible()
+        .with_child(topbar)
+        .with_child(Node::grow().with_child(sidebar));
 
-    let r1 = commands.spawn(get_ui_row()).insert(ConstellationBar).id();
+    let tree = Tree::new().with_layout(root, Vec2::ZERO);
 
-    let r2 = commands.spawn(get_ui_row()).insert(ControllerBar).id();
-
-    let r3 = commands
-        .spawn(get_ui_row())
-        .with_children(|parent| {
-            for (name, event, holdable, color) in buttons {
-                add_ui_button(parent, name, event, holdable, color);
-            }
-        })
-        .id();
-
-    commands.entity(top).add_children(&[r1, r2, r3]);
+    Some(tree)
 }
 
-fn button_system(
-    mut iq: Query<(Ref<Interaction>, &mut BorderColor, &OnClick)>,
-    mut evt: EventWriter<InteractionEvent>,
+#[derive(Component)]
+struct UiElement;
+
+fn do_ui_sprites(
+    mut commands: Commands,
+    to_despawn: Query<Entity, With<UiElement>>,
+    mut images: ResMut<Assets<Image>>,
+    mut state: ResMut<GameState>,
 ) {
-    for (interaction, mut bc, OnClick(event, holdable)) in &mut iq {
-        if interaction.is_changed() || *holdable {
-            match *interaction {
-                Interaction::Pressed => {
-                    bc.0 = ORANGE.into();
-                    evt.send(event.clone());
+    if !state.redraw_gui {
+        return;
+    }
+
+    let vb = state.camera.viewport_bounds();
+
+    for e in &to_despawn {
+        commands.entity(e).despawn();
+    }
+
+    if vb.span.x == 0.0 || vb.span.y == 0.0 {
+        return;
+    }
+
+    println!("Redrawing GUI {:?}", vb);
+
+    let ui = layout::examples::example_layout(vb.span.x, vb.span.y);
+
+    // let ui = match layout(&state) {
+    //     Some(ui) => ui,
+    //     None => return,
+    // };
+
+    state.redraw_gui = false;
+
+    for layout in ui.layouts() {
+        let mut nodes = layout.visit(
+            &|layer, n: &layout::layout::Node| n.is_visible().then(move || (layer, n.clone())),
+            0,
+        );
+
+        nodes.sort_by_key(|(l, _)| *l);
+
+        for (layer, n) in nodes {
+            let aabb = n.aabb();
+            let w = (aabb.span.x as u32).max(1);
+            let h = (aabb.span.y as u32).max(1);
+
+            let color = if n.is_leaf() {
+                GRAY.with_luminance(0.5).with_alpha(0.6)
+            } else {
+                GRAY.with_luminance(0.2).with_alpha(0.1)
+            };
+
+            let mut image = Image::new_fill(
+                Extent3d {
+                    width: w,
+                    height: h,
+                    depth_or_array_layers: 1,
+                },
+                TextureDimension::D2,
+                &color.to_u8_array(),
+                TextureFormat::Rgba8UnormSrgb,
+                RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
+            );
+
+            image.sampler = bevy::image::ImageSampler::nearest();
+
+            if w != 1 && h != 1 && n.is_leaf() {
+                for y in 0..h {
+                    for x in 0..w {
+                        if x == 0 || y == 0 || x == w - 1 || y == h - 1 {
+                            if let Some(bytes) = image.pixel_bytes_mut(UVec3::new(x, y, 0)) {
+                                bytes[3] = 80;
+                            }
+                        }
+                    }
                 }
-                Interaction::Hovered => {
-                    bc.0 = WHITE.into();
+
+                for (x, y) in [(0, 0), (0, h - 1), (w - 1, 0), (w - 1, h - 1)] {
+                    if let Some(bytes) = image.pixel_bytes_mut(UVec3::new(x, y, 0)) {
+                        bytes[3] = 0;
+                    }
                 }
-                Interaction::None => {
-                    bc.0 = GREY.into();
+            }
+
+            let mut c = aabb.center;
+
+            c.x -= vb.span.x / 2.0;
+            c.y = vb.span.y / 2.0 - c.y;
+
+            let transform = Transform::from_translation(c.extend(layer as f32 / 10.0));
+
+            let handle = images.add(image);
+
+            commands.spawn((
+                transform,
+                Sprite::from_image(handle.clone()),
+                RenderLayers::layer(1),
+                UiElement,
+            ));
+
+            if n.is_leaf() {
+                let bounds = TextBounds {
+                    width: Some(aabb.span.x),
+                    height: Some(aabb.span.y),
+                };
+
+                let mut transform = transform;
+                transform.translation.z += 0.01;
+                if let Some(s) = n.text_content() {
+                    commands.spawn((
+                        transform,
+                        bounds,
+                        Text2d::new(s.to_uppercase()),
+                        RenderLayers::layer(1),
+                        UiElement,
+                    ));
                 }
             }
         }
     }
+}
+
+fn setup(mut commands: Commands) {
+    commands.insert_resource(Events::<InteractionEvent>::default());
+    commands.spawn(get_screen_clock());
+    commands.spawn(get_top_right_ui());
 }

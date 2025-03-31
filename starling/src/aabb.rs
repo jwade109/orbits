@@ -113,6 +113,12 @@ impl AABB {
         let d = rotate(self.center - p, angle) + p;
         OBB::new(AABB::new(d, self.span), angle)
     }
+
+    pub fn flip_y_about(&self, y: f32) -> Self {
+        let dy = self.center.y - y;
+        let center = self.center.with_y(self.center.y - 2.0 * dy);
+        AABB::new(center, self.span)
+    }
 }
 
 impl From<((f32, f32), (f32, f32))> for AABB {

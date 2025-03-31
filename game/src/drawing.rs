@@ -794,21 +794,25 @@ pub fn draw_ui_layout(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let wb = state.camera.world_bounds();
     let map = |aabb: AABB| vb.map_box(wb, aabb);
 
-    let visitor = |n: &layout::layout::Node| -> Option<AABB> { n.is_visible().then(|| n.aabb()) };
+    let visitor = |_, n: &layout::layout::Node| -> Option<AABB> { true.then(|| n.aabb()) };
 
     if let Some(p) = state.mouse.right() {
         let ctx = layout::examples::context_menu(p);
         for layout in ctx.layouts() {
-            for aabb in layout.visit(&visitor) {
-                let aabb = map(aabb);
+            for aabb in layout.visit(&visitor, 0) {
+                let aabb = map(aabb.flip_y_about(p.y));
                 draw_aabb(gizmos, aabb, WHITE);
             }
         }
     }
 
     let tree = layout::examples::example_layout(vb.span.x, vb.span.y);
+    // let tree = crate::ui::layout(state)?;
+
     for layout in tree.layouts() {
-        for aabb in layout.visit(&visitor) {
+        for aabb in layout.visit(&visitor, 0) {
+            let mut aabb = aabb.flip_y_about(0.0);
+            aabb.center += Vec2::Y * vb.span.y;
             let aabb = map(aabb);
 
             let pos = [
@@ -823,11 +827,12 @@ pub fn draw_ui_layout(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
                     draw_aabb(gizmos, aabb, c);
                     break;
                 } else {
-                    draw_aabb(gizmos, aabb, WHITE.with_alpha(0.4));
+                    // draw_aabb(gizmos, aabb, WHITE.with_alpha(0.4));
                 }
             }
         }
     }
+
     Some(())
 }
 
@@ -931,7 +936,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         &state.track_list,
         state.duty_cycle_high,
         state.follow,
-        state.game_mode == GameMode::Default,
+        false,
     );
 
     draw_highlighted_objects(&mut gizmos, &state);

@@ -71,6 +71,8 @@ pub struct Node {
     child_gap: f32,
     padding: f32,
     visible: bool,
+    id: String,
+    text_content: Option<String>,
 }
 
 impl Node {
@@ -88,6 +90,8 @@ impl Node {
             child_gap: 10.0,
             padding: 10.0,
             visible: true,
+            id: "".into(),
+            text_content: None,
         }
     }
 
@@ -99,8 +103,29 @@ impl Node {
         Node::new(Size::Grow, height).right()
     }
 
+    pub fn button(s: &str, id: &str, width: impl Into<Size>, height: impl Into<Size>) -> Self {
+        Node::new(width, height).with_text(s).with_id(id)
+    }
+
     pub fn column(width: impl Into<Size>) -> Self {
         Node::new(width, Size::Grow).down()
+    }
+
+    pub fn hline() -> Self {
+        Node::row(0)
+    }
+
+    pub fn vline() -> Self {
+        Node::column(0)
+    }
+
+    pub fn text_content(&self) -> Option<&String> {
+        self.text_content.as_ref()
+    }
+
+    pub fn with_text(mut self, s: impl Into<String>) -> Self {
+        self.text_content = Some(s.into());
+        self
     }
 
     pub fn grid(
@@ -122,6 +147,15 @@ impl Node {
                     .down()
                     .with_children((0..rows).map(|_| Node::grow()))
             }))
+    }
+
+    pub fn id(&self) -> &String {
+        &self.id
+    }
+
+    pub fn with_id(mut self, id: impl Into<String>) -> Self {
+        self.id = id.into();
+        self
     }
 
     pub fn with_layout(mut self, layout: LayoutDir) -> Self {
@@ -215,11 +249,11 @@ impl Node {
         AABB::from_arbitrary(a, b)
     }
 
-    pub fn visit<T>(&self, func: &impl Fn(&Node) -> Option<T>) -> Vec<T> {
-        let o = func(self);
+    pub fn visit<T>(&self, func: &impl Fn(u32, &Node) -> Option<T>, layer: u32) -> Vec<T> {
+        let o = func(layer, self);
         let mut ret = o.into_iter().collect::<Vec<_>>();
         for c in &self.children {
-            ret.extend(c.visit(func));
+            ret.extend(c.visit(func, layer + 1));
         }
         ret
     }

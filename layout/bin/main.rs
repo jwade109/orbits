@@ -5,10 +5,10 @@ use starling::aabb::AABB;
 use starling::prelude::Vec2;
 
 fn draw_layout(tree: &Tree, path: &str) -> Result<(), std::io::Error> {
-    let visitor = |n: &Node| -> Option<AABB> { n.is_visible().then(|| n.aabb()) };
+    let visitor = |_, n: &Node| -> Option<AABB> { n.is_visible().then(|| n.aabb()) };
     let mut aabbs = vec![];
     for root in tree.layouts() {
-        aabbs.extend(root.visit(&visitor));
+        aabbs.extend(root.visit(&visitor, 0));
     }
     write_svg(path, &aabbs)
 }

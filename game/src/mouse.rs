@@ -64,7 +64,7 @@ impl MouseState {
 pub fn update_mouse_state(
     win: Single<&Window>,
     buttons: Res<ButtonInput<MouseButton>>,
-    camera: Single<&Transform, With<Camera2d>>,
+    camera: Single<&Transform, With<crate::planetary::SoftController>>,
     mut state: ResMut<GameState>,
     mut events: EventWriter<InteractionEvent>,
     time: Res<Time>,
