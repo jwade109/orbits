@@ -21,17 +21,6 @@ fn box_with_corners(w: f32) -> Node {
         .with_child(banner())
 }
 
-pub fn context_menu(pos: Vec2) -> Tree {
-    let spacing = 4.0;
-    let window = Node::new(200, 300)
-        .down()
-        .with_child(Node::row(20))
-        .with_child(Node::row(40))
-        .with_child(Node::grid(Size::Grow, Size::Grow, 6, 6, spacing));
-
-    Tree::new().with_layout(window, pos)
-}
-
 fn text_dims(s: &str) -> (usize, usize) {
     let max_line = s.lines().map(|l| l.len()).max().unwrap_or(0);
     let lines = s.lines().count();

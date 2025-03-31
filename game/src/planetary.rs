@@ -9,6 +9,7 @@ use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 use bevy::window::WindowMode;
+use layout::layout as ui;
 use starling::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::ops::DerefMut;
@@ -172,7 +173,9 @@ pub struct GameState {
     pub queued_orbits: Vec<GlobalOrbit>,
     pub constellations: HashMap<GroupId, HashSet<ObjectId>>,
     pub selection_mode: SelectionMode,
-    pub redraw_gui: bool,
+
+    pub ui: ui::Tree,
+    pub last_redraw: Nanotime,
 
     pub game_mode: GameMode,
 
@@ -205,7 +208,8 @@ impl Default for GameState {
             queued_orbits: Vec::new(),
             constellations: HashMap::new(),
             selection_mode: SelectionMode::Rect,
-            redraw_gui: false,
+            ui: ui::Tree::new(),
+            last_redraw: Nanotime::zero(),
             game_mode: GameMode::Constellations,
             notifications: Vec::new(),
         }
@@ -392,27 +396,20 @@ impl GameState {
     }
 
     pub fn do_maneuver(&mut self, dv: Vec2) -> Option<()> {
-        let failures: Vec<_> = self
-            .track_list
-            .clone()
-            .into_iter()
-            .filter_map(|id| {
-                if self
-                    .scenario
-                    .impulsive_burn(id, self.sim_time, dv, 10)
-                    .is_none()
-                {
-                    Some(id)
-                } else {
-                    self.notify(id, NotificationType::OrbitChanged(id), None);
-                    None
-                }
-            })
-            .collect();
+        let id = self.follow?;
 
-        for id in failures {
-            info!("{:?} - Failed to maneuver orbiter {}", self.sim_time, id);
+        if !self.track_list.contains(&id) {
+            return None;
+        }
+
+        if self
+            .scenario
+            .impulsive_burn(id, self.sim_time, dv, 10)
+            .is_none()
+        {
             self.notify(id, NotificationType::ManeuverFailed(id), None)
+        } else {
+            self.notify(id, NotificationType::OrbitChanged(id), None);
         }
 
         self.scenario.simulate(self.sim_time, self.physics_duration);
@@ -723,7 +720,7 @@ fn process_interaction(
             state.game_mode = state.game_mode.next();
         }
         InteractionEvent::RedrawGui => {
-            state.redraw_gui = true;
+            state.last_redraw = Nanotime::zero();
         }
         InteractionEvent::Orbits => {
             state.show_orbits.next();

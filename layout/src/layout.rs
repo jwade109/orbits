@@ -73,6 +73,7 @@ pub struct Node {
     visible: bool,
     id: String,
     text_content: Option<String>,
+    enabled: bool,
 }
 
 impl Node {
@@ -92,6 +93,7 @@ impl Node {
             visible: true,
             id: "".into(),
             text_content: None,
+            enabled: true,
         }
     }
 
@@ -103,7 +105,12 @@ impl Node {
         Node::new(Size::Grow, height).right()
     }
 
-    pub fn button(s: &str, id: &str, width: impl Into<Size>, height: impl Into<Size>) -> Self {
+    pub fn button(
+        s: impl Into<String>,
+        id: impl Into<String>,
+        width: impl Into<Size>,
+        height: impl Into<Size>,
+    ) -> Self {
         Node::new(width, height).with_text(s).with_id(id)
     }
 
@@ -117,6 +124,11 @@ impl Node {
 
     pub fn vline() -> Self {
         Node::column(0)
+    }
+
+    pub fn enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
+        self
     }
 
     pub fn text_content(&self) -> Option<&String> {
@@ -220,11 +232,15 @@ impl Node {
         self.children.is_empty()
     }
 
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
     pub fn is_visible(&self) -> bool {
         self.visible
     }
 
-    fn add_child(&mut self, n: Node) -> &mut Self {
+    pub fn add_child(&mut self, n: Node) -> &mut Self {
         self.children.push(n);
         self
     }
@@ -247,6 +263,16 @@ impl Node {
         let a = self.calculated_position.unwrap_or(Vec2::ZERO);
         let b = a + self.calculated_dims();
         AABB::from_arbitrary(a, b)
+    }
+
+    pub fn iter(&self, layer: u32) -> impl Iterator<Item = (u32, &Node)> + use<'_> {
+        let self_iter = [(layer, self)].into_iter();
+        let child_iters: Vec<_> = self
+            .children
+            .iter()
+            .flat_map(|n| n.iter(layer + 1))
+            .collect();
+        self_iter.chain(child_iters.into_iter())
     }
 
     pub fn visit<T>(&self, func: &impl Fn(u32, &Node) -> Option<T>, layer: u32) -> Vec<T> {
@@ -417,12 +443,16 @@ impl Tree {
         Tree { roots: Vec::new() }
     }
 
-    pub fn with_layout(mut self, node: Node, origin: impl Into<Option<Vec2>>) -> Self {
+    pub fn add_layout(&mut self, node: Node, origin: impl Into<Option<Vec2>>) {
         let origin = origin.into().unwrap_or(Vec2::ZERO);
         let node = populate_fit_sizes(node);
         let node = populate_grow_sizes(node);
         let node = populate_positions(node, origin);
         self.roots.push(node);
+    }
+
+    pub fn with_layout(mut self, node: Node, origin: impl Into<Option<Vec2>>) -> Self {
+        self.add_layout(node, origin);
         self
     }
 

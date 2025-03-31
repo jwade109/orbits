@@ -13,6 +13,7 @@ use crate::graph::*;
 use crate::mouse::MouseState;
 use crate::notifications::*;
 use crate::planetary::{GameMode, GameState, ShowOrbitsState};
+use layout::layout as ui;
 
 fn draw_cross(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     let dx = Vec2::new(size, 0.0);
@@ -62,6 +63,18 @@ fn draw_velocity_vec(gizmos: &mut Gizmos, pv: PV, length: f32, color: Srgba) {
 
 fn draw_aabb(gizmos: &mut Gizmos, aabb: AABB, color: Srgba) {
     gizmos.rect_2d(Isometry2d::from_translation(aabb.center), aabb.span, color);
+}
+
+fn fill_aabb(gizmos: &mut Gizmos, aabb: AABB, color: Srgba) {
+    for t in linspace(0.0, 1.0, 10) {
+        let s = aabb.from_normalized(Vec2::new(t, 0.0));
+        let n = aabb.from_normalized(Vec2::new(t, 1.0));
+        let w = aabb.from_normalized(Vec2::new(0.0, t));
+        let e = aabb.from_normalized(Vec2::new(1.0, t));
+
+        gizmos.line_2d(w, e, color);
+        gizmos.line_2d(s, n, color);
+    }
 }
 
 fn draw_region(gizmos: &mut Gizmos, region: Region, color: Srgba, origin: Vec2) {
@@ -794,24 +807,19 @@ pub fn draw_ui_layout(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let wb = state.camera.world_bounds();
     let map = |aabb: AABB| vb.map_box(wb, aabb);
 
-    let visitor = |_, n: &layout::layout::Node| -> Option<AABB> { true.then(|| n.aabb()) };
+    let visitor = |_, n: &layout::layout::Node| true.then(|| n.clone());
 
-    if let Some(p) = state.mouse.right() {
-        let ctx = layout::examples::context_menu(p);
-        for layout in ctx.layouts() {
-            for aabb in layout.visit(&visitor, 0) {
-                let aabb = map(aabb.flip_y_about(p.y));
-                draw_aabb(gizmos, aabb, WHITE);
-            }
-        }
+    if state.game_mode == GameMode::Default {
+        return None;
     }
 
-    let tree = layout::examples::example_layout(vb.span.x, vb.span.y);
-    // let tree = crate::ui::layout(state)?;
+    for layout in state.ui.layouts() {
+        for node in layout.visit(&visitor, 0) {
+            if !node.is_visible() && !node.is_leaf() {
+                continue;
+            }
 
-    for layout in tree.layouts() {
-        for aabb in layout.visit(&visitor, 0) {
-            let mut aabb = aabb.flip_y_about(0.0);
+            let mut aabb = node.aabb().flip_y_about(0.0);
             aabb.center += Vec2::Y * vb.span.y;
             let aabb = map(aabb);
 
@@ -825,6 +833,7 @@ pub fn draw_ui_layout(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
             for (p, c) in pos {
                 if p.map(|p| aabb.contains(p)).unwrap_or(false) {
                     draw_aabb(gizmos, aabb, c);
+                    fill_aabb(gizmos, aabb, c.with_alpha(0.1));
                     break;
                 } else {
                     // draw_aabb(gizmos, aabb, WHITE.with_alpha(0.4));
