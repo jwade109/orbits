@@ -807,14 +807,12 @@ pub fn draw_ui_layout(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let wb = state.camera.world_bounds();
     let map = |aabb: AABB| vb.map_box(wb, aabb);
 
-    let visitor = |_, n: &layout::layout::Node| true.then(|| n.clone());
-
     if state.game_mode == GameMode::Default {
         return None;
     }
 
     for layout in state.ui.layouts() {
-        for node in layout.visit(&visitor, 0) {
+        for node in layout.iter() {
             if !node.is_visible() && !node.is_leaf() {
                 continue;
             }

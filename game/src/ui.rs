@@ -167,12 +167,6 @@ pub fn layout(state: &GameState) -> Option<ui::Tree> {
         return None;
     }
 
-    // let mut buttons: Vec<(String, String)> = vec![
-    //     ("Commit Mission".into(), "commit-mission".into()),
-    //     ("Clear Orbits".into(), "clear-orbits".into()),
-    //     ("Warp to Periapsis".into(), "warp-to-periapsis".into()),
-    // ];
-
     let mut tracked_ids: Vec<_> = state.track_list.iter().collect();
 
     tracked_ids.sort();
@@ -183,6 +177,17 @@ pub fn layout(state: &GameState) -> Option<ui::Tree> {
         .with_child(Node::button("Exit", "exit", 80, Size::Grow));
 
     let mut sidebar = Node::column(300);
+
+    if let Some((s, _)) = state
+        .scenario
+        .relevant_body(state.camera.world_center, state.sim_time)
+        .map(|id| state.scenario.lup(id, state.sim_time))
+        .flatten()
+        .map(|lup| lup.named_body())
+        .flatten()
+    {
+        sidebar.add_child(Node::button(s, "", Size::Grow, button_height).enabled(false));
+    }
 
     sidebar.add_child({
         let s = if !state.hide_debug {
@@ -326,11 +331,7 @@ fn do_ui_sprites(
     state.last_redraw = state.actual_time;
 
     for layout in state.ui.layouts() {
-        let mut nodes: Vec<_> = layout.iter(0).collect();
-
-        nodes.sort_by_key(|(l, _)| *l);
-
-        for (layer, n) in nodes {
+        for n in layout.iter() {
             if !n.is_visible() {
                 continue;
             }
@@ -384,7 +385,7 @@ fn do_ui_sprites(
             c.x -= vb.span.x / 2.0;
             c.y = vb.span.y / 2.0 - c.y;
 
-            let transform = Transform::from_translation(c.extend(layer as f32 / 10.0));
+            let transform = Transform::from_translation(c.extend(n.layer() as f32 / 10.0));
 
             let handle = images.add(image);
 

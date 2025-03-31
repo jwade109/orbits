@@ -66,6 +66,7 @@ pub struct Node {
     calculated_width: Option<f32>,
     calculated_height: Option<f32>,
     calculated_position: Option<Vec2>,
+    layer: Option<u32>,
     layout: LayoutDir,
     children: Vec<Node>,
     child_gap: f32,
@@ -86,6 +87,7 @@ impl Node {
             calculated_width: w.as_fixed(),
             calculated_height: h.as_fixed(),
             calculated_position: None,
+            layer: None,
             layout: LayoutDir::LeftToRight,
             children: Vec::new(),
             child_gap: 10.0,
@@ -245,6 +247,10 @@ impl Node {
         self
     }
 
+    pub fn layer(&self) -> u32 {
+        self.layer.unwrap_or(0)
+    }
+
     pub fn fixed_dims(&self) -> Vec2 {
         Vec2::new(
             self.desired_width.as_fixed().unwrap_or(0.0),
@@ -265,23 +271,10 @@ impl Node {
         AABB::from_arbitrary(a, b)
     }
 
-    pub fn iter(&self, layer: u32) -> impl Iterator<Item = (u32, &Node)> + use<'_> {
-        let self_iter = [(layer, self)].into_iter();
-        let child_iters: Vec<_> = self
-            .children
-            .iter()
-            .flat_map(|n| n.iter(layer + 1))
-            .collect();
+    pub fn iter(&self) -> impl Iterator<Item = &Node> + use<'_> {
+        let self_iter = [self].into_iter();
+        let child_iters: Vec<_> = self.children.iter().flat_map(|n| n.iter()).collect();
         self_iter.chain(child_iters.into_iter())
-    }
-
-    pub fn visit<T>(&self, func: &impl Fn(u32, &Node) -> Option<T>, layer: u32) -> Vec<T> {
-        let o = func(layer, self);
-        let mut ret = o.into_iter().collect::<Vec<_>>();
-        for c in &self.children {
-            ret.extend(c.visit(func, layer + 1));
-        }
-        ret
     }
 }
 
@@ -343,6 +336,14 @@ pub fn populate_positions<'a>(mut root: Node, origin: impl Into<Option<Vec2>>) -
         .collect();
 
     root
+}
+
+fn assign_layers(root: &mut Node, layer: u32) {
+    root.layer = Some(layer);
+
+    for c in &mut root.children {
+        assign_layers(c, layer + 1);
+    }
 }
 
 pub fn populate_fit_sizes(mut root: Node) -> Node {
@@ -447,7 +448,8 @@ impl Tree {
         let origin = origin.into().unwrap_or(Vec2::ZERO);
         let node = populate_fit_sizes(node);
         let node = populate_grow_sizes(node);
-        let node = populate_positions(node, origin);
+        let mut node = populate_positions(node, origin);
+        assign_layers(&mut node, 0);
         self.roots.push(node);
     }
 

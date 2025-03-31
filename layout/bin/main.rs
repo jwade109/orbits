@@ -2,14 +2,9 @@ use layout::examples::*;
 use layout::layout::*;
 use layout::svg::write_svg;
 use starling::aabb::AABB;
-use starling::prelude::Vec2;
 
 fn draw_layout(tree: &Tree, path: &str) -> Result<(), std::io::Error> {
-    let visitor = |_, n: &Node| -> Option<AABB> { n.is_visible().then(|| n.aabb()) };
-    let mut aabbs = vec![];
-    for root in tree.layouts() {
-        aabbs.extend(root.visit(&visitor, 0));
-    }
+    let aabbs: Vec<AABB> = tree.layouts().iter().map(|n| n.aabb()).collect();
     write_svg(path, &aabbs)
 }
 
