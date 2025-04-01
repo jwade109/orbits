@@ -9,10 +9,10 @@ const DOUBLE_CLICK_DURATION: Duration = Duration::from_millis(200);
 #[derive(Debug, Default)]
 pub struct MouseState {
     last_click: Option<Duration>,
-    position: Option<Vec2>,
-    left_click: Option<Vec2>,
-    right_click: Option<Vec2>,
-    middle_click: Option<Vec2>,
+    position: Option<(u32, Vec2)>,
+    left_click: Option<(u32, Vec2)>,
+    right_click: Option<(u32, Vec2)>,
+    middle_click: Option<(u32, Vec2)>,
 
     pub viewport_bounds: AABB,
     pub world_bounds: AABB,
@@ -25,19 +25,25 @@ impl MouseState {
     }
 
     pub fn current(&self) -> Option<Vec2> {
-        self.position
+        self.position.map(|p| p.1)
     }
 
     pub fn left(&self) -> Option<Vec2> {
-        self.left_click
+        self.left_click.map(|p| p.1)
     }
 
     pub fn right(&self) -> Option<Vec2> {
-        self.right_click
+        self.right_click.map(|p| p.1)
     }
 
     pub fn middle(&self) -> Option<Vec2> {
-        self.middle_click
+        self.middle_click.map(|p| p.1)
+    }
+
+    pub fn just_left_clicked(&self, frame_no: u32) -> Option<Vec2> {
+        self.left_click
+            .map(|(f, p)| (frame_no == f).then(|| p))
+            .flatten()
     }
 
     fn viewport_to_world(&self, p: Vec2) -> Vec2 {
@@ -71,14 +77,16 @@ pub fn update_mouse_state(
 ) {
     let dims = Vec2::new(win.width(), win.height());
 
+    let f = state.current_frame_no;
+
     state.mouse.viewport_bounds = AABB::new(dims / 2.0, dims);
     state.mouse.world_bounds = AABB::new(camera.translation.xy(), dims * camera.scale.z);
     state.mouse.scale = camera.scale.z;
 
     if let Some(p) = win.cursor_position() {
         let p = Vec2::new(p.x, dims.y - p.y);
-        if state.mouse.position != Some(p) {
-            state.mouse.position = Some(p);
+        if state.mouse.position != Some((f, p)) {
+            state.mouse.position = Some((f, p));
         }
     } else {
         if state.mouse.position.is_some() {
@@ -95,7 +103,7 @@ pub fn update_mouse_state(
                 .then(|| state.mouse.left_click)
                 .flatten()
             {
-                events.send(InteractionEvent::DoubleClick(p));
+                events.send(InteractionEvent::DoubleClick(p.1));
             }
         }
         state.mouse.last_click = Some(now);

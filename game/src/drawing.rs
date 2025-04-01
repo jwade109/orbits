@@ -811,34 +811,48 @@ pub fn draw_ui_layout(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
         return None;
     }
 
-    for layout in state.ui.layouts() {
-        for node in layout.iter() {
-            if !node.is_visible() && !node.is_leaf() {
-                continue;
-            }
+    let fm = |aabb: AABB| {
+        let mut aabb = aabb.flip_y_about(0.0);
+        aabb.center += Vec2::Y * vb.span.y;
+        map(aabb)
+    };
 
-            let mut aabb = node.aabb().flip_y_about(0.0);
-            aabb.center += Vec2::Y * vb.span.y;
-            let aabb = map(aabb);
-
-            let pos = [
-                (state.mouse.left_world(), RED),
-                (state.mouse.right_world(), YELLOW),
-                (state.mouse.middle_world(), GREEN),
-                (state.mouse.current_world(), TEAL),
-            ];
-
-            for (p, c) in pos {
-                if p.map(|p| aabb.contains(p)).unwrap_or(false) {
-                    draw_aabb(gizmos, aabb, c);
-                    fill_aabb(gizmos, aabb, c.with_alpha(0.1));
-                    break;
-                } else {
-                    // draw_aabb(gizmos, aabb, WHITE.with_alpha(0.4));
-                }
-            }
-        }
+    if let Some(n) = state
+        .mouse
+        .current()
+        .map(|p| Vec2::new(p.x, vb.span.y - p.y))
+        .map(|p| state.ui.at(p))
+        .flatten()
+    {
+        draw_aabb(gizmos, fm(n.aabb()), RED);
     }
+
+    // for layout in state.ui.layouts() {
+    //     for node in layout.iter() {
+    //         if !node.is_visible() && !node.is_leaf() {
+    //             continue;
+    //         }
+
+    //         let aabb = fm(node.aabb());
+
+    //         let pos = [
+    //             (state.mouse.left_world(), RED),
+    //             (state.mouse.right_world(), YELLOW),
+    //             (state.mouse.middle_world(), GREEN),
+    //             (state.mouse.current_world(), TEAL),
+    //         ];
+
+    //         for (p, c) in pos {
+    //             if p.map(|p| aabb.contains(p)).unwrap_or(false) {
+    //                 draw_aabb(gizmos, aabb, c);
+    //                 fill_aabb(gizmos, aabb, c.with_alpha(0.1));
+    //                 break;
+    //             } else {
+    //                 // draw_aabb(gizmos, aabb, WHITE.with_alpha(0.4));
+    //             }
+    //         }
+    //     }
+    // }
 
     Some(())
 }

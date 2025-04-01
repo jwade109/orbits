@@ -148,19 +148,29 @@ impl Node {
         rows: u32,
         cols: u32,
         spacing: f32,
+        func: impl Fn(u32) -> Option<Node>,
     ) -> Node {
-        Node::new(width, height)
+        let mut i = 0;
+        let mut root = Node::new(width, height)
             .invisible()
             .with_padding(0.0)
             .with_child_gap(spacing)
-            .with_children((0..cols).map(|_| {
-                Node::grow()
-                    .with_padding(0.0)
-                    .invisible()
-                    .with_child_gap(spacing)
-                    .down()
-                    .with_children((0..rows).map(|_| Node::grow()))
-            }))
+            .down();
+
+        for r in 0..rows {
+            let mut node = Node::grow().with_padding(0.0);
+            for c in 0..cols {
+                let n = match func(i) {
+                    Some(n) => n,
+                    None => Node::grow().enabled(false).invisible(),
+                };
+                i += 1;
+                node.add_child(n);
+            }
+            root.add_child(node);
+        }
+
+        root
     }
 
     pub fn id(&self) -> &String {
@@ -460,6 +470,13 @@ impl Tree {
 
     pub fn layouts(&self) -> &Vec<Node> {
         &self.roots
+    }
+
+    pub fn at(&self, p: Vec2) -> Option<&Node> {
+        let layout = self.roots.first()?;
+        let mut candidates: Vec<&Node> = layout.iter().filter(|n| n.aabb().contains(p)).collect();
+        candidates.sort_by_key(|n| n.layer());
+        candidates.last().map(|v| *v)
     }
 }
 

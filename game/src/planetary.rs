@@ -151,6 +151,8 @@ impl SelectionMode {
 
 #[derive(Resource)]
 pub struct GameState {
+    pub current_frame_no: u32,
+
     pub mouse: MouseState,
     pub camera: CameraState,
 
@@ -187,6 +189,7 @@ impl Default for GameState {
         let (scenario, ids) = default_example();
 
         GameState {
+            current_frame_no: 0,
             mouse: MouseState::default(),
             sim_time: Nanotime::zero(),
             actual_time: Nanotime::zero(),
@@ -471,6 +474,7 @@ impl GameState {
     }
 
     pub fn step(&mut self, time: &Time) {
+        self.current_frame_no += 1;
         let old_sim_time = self.sim_time;
         self.actual_time += Nanotime::nanos(time.delta().as_nanos() as i64);
         if !self.paused {
@@ -479,6 +483,17 @@ impl GameState {
         }
 
         self.duty_cycle_high = time.elapsed().as_millis() % 1000 < 500;
+
+        if let Some(p) = self.mouse.just_left_clicked(self.current_frame_no - 1) {
+            println!("Wow! {}", p);
+
+            let p = Vec2::new(p.x, self.camera.viewport_bounds().span.y - p.y);
+            if let Some(n) = self.ui.at(p) {
+                if n.is_visible() && n.is_enabled() && !n.id().is_empty() {
+                    println!("{}", n.id());
+                }
+            }
+        }
 
         let s = self.sim_time;
         let d = self.physics_duration;

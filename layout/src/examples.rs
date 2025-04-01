@@ -59,7 +59,9 @@ pub fn example_layout(width: f32, height: f32) -> Tree {
             Size::Grow,
             Size::Grow,
         ))
-        .with_child(Node::grid(Size::Grow, Size::Grow, 2, 4, spacing))
+        .with_child(Node::grid(Size::Grow, Size::Grow, 2, 4, spacing, |_| {
+            Some(Node::grow())
+        }))
         .with_child(Node::hline())
         .with_children((0..6).map(|i| {
             Node::row(Size::Fit)
@@ -71,7 +73,7 @@ pub fn example_layout(width: f32, height: f32) -> Tree {
         }))
         .with_child(Node::row(30))
         .with_child(
-            Node::grid(Size::Grow, 100, 4, 5, spacing)
+            Node::grid(Size::Grow, 100, 4, 5, spacing, |_| Some(Node::grow()))
                 .with_child(Node::vline())
                 .with_child(Node::grow().with_text("hello\ndingus")),
         )

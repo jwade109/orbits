@@ -153,7 +153,9 @@ pub fn context_menu(n: u32, m: u32) -> ui::Node {
         .down()
         .with_child(Node::row(20))
         .with_child(Node::row(40))
-        .with_child(Node::grid(Size::Grow, Size::Grow, n, m, spacing))
+        .with_child(Node::grid(Size::Grow, Size::Grow, n, m, spacing, |_| {
+            Some(Node::grow())
+        }))
 }
 
 pub fn layout(state: &GameState) -> Option<ui::Tree> {
@@ -227,12 +229,16 @@ pub fn layout(state: &GameState) -> Option<ui::Tree> {
         Node::button(s, "", Size::Grow, button_height).enabled(false)
     });
 
-    if state.track_list.len() <= 12 {
-        for id in &state.track_list {
-            let s = format!("Object {}", id);
-            let id = format!("object-{}", id);
-            sidebar.add_child(Node::button(s, id, Size::Grow, button_height));
-        }
+    if state.track_list.len() <= 32 && !state.track_list.is_empty() {
+        let tracks = state.track_list.iter().collect::<Vec<_>>();
+        let rows = (tracks.len() as f32 / 4.0).ceil() as u32;
+        let grid = Node::grid(Size::Grow, rows * button_height, rows, 4, 4.0, |i| {
+            let id = tracks.get(i as usize)?;
+            let s = format!("{id}");
+            let id = format!("object-{}", id.0);
+            Some(Node::grow().with_id(id).with_text(s))
+        });
+        sidebar.add_child(grid);
     }
 
     if let Some(fid) = state.follow {
