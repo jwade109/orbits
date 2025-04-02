@@ -160,16 +160,31 @@ fn draw_orbit_between(
     Some(())
 }
 
-fn draw_planets(gizmos: &mut Gizmos, planet: &PlanetarySystem, stamp: Nanotime, origin: Vec2) {
-    draw_circle(gizmos, origin, planet.body.radius, GRAY.with_alpha(0.1));
-    for (a, ds) in [(1.0, 1.0), (0.3, 0.98), (0.1, 0.95)] {
-        draw_circle(gizmos, origin, planet.body.soi * ds, ORANGE.with_alpha(a));
+fn draw_planets(
+    gizmos: &mut Gizmos,
+    planet: &PlanetarySystem,
+    stamp: Nanotime,
+    origin: Vec2,
+    mode: GameMode,
+) {
+    let a = match mode {
+        GameMode::Default => 0.1,
+        _ => 0.8,
+    };
+    draw_circle(gizmos, origin, planet.body.radius, GRAY.with_alpha(a));
+
+    if mode == GameMode::Default {
+        draw_circle(gizmos, origin, planet.body.soi, GRAY.with_alpha(a));
+    } else {
+        for (a, ds) in [(1.0, 1.0), (0.3, 0.98), (0.1, 0.95)] {
+            draw_circle(gizmos, origin, planet.body.soi * ds, ORANGE.with_alpha(a));
+        }
     }
 
     for (orbit, pl) in &planet.subsystems {
         if let Some(pv) = orbit.pv(stamp).ok() {
-            draw_orbit(gizmos, orbit, origin, GRAY.with_alpha(0.4));
-            draw_planets(gizmos, pl, stamp, origin + pv.pos)
+            draw_orbit(gizmos, orbit, origin, GRAY.with_alpha(a / 2.0));
+            draw_planets(gizmos, pl, stamp, origin + pv.pos, mode)
         }
     }
 }
@@ -275,8 +290,9 @@ fn draw_scenario(
     duty_cycle: bool,
     followed: Option<ObjectId>,
     particles: bool,
+    mode: GameMode,
 ) {
-    draw_planets(gizmos, scenario.planets(), stamp, Vec2::ZERO);
+    draw_planets(gizmos, scenario.planets(), stamp, Vec2::ZERO, mode);
 
     for belt in scenario.belts() {
         let origin = match scenario.lup(belt.parent(), stamp).map(|lup| lup.pv().pos) {
@@ -958,6 +974,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         state.duty_cycle_high,
         state.follow,
         false,
+        state.game_mode,
     );
 
     draw_highlighted_objects(&mut gizmos, &state);

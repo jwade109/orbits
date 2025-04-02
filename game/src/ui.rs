@@ -1,5 +1,6 @@
 use crate::planetary::GameState;
 use bevy::color::palettes::css::*;
+use bevy::core_pipeline::bloom::Bloom;
 use bevy::prelude::*;
 use bevy::render::{
     render_asset::RenderAssetUsages,
@@ -64,8 +65,20 @@ impl Plugin for UiPlugin {
         app.add_systems(Startup, setup);
         app.add_systems(
             Update,
-            (big_time_system, do_ui_sprites, top_right_text_system),
+            (
+                big_time_system,
+                do_ui_sprites,
+                top_right_text_system,
+                set_bloom,
+            ),
         );
+    }
+}
+
+fn set_bloom(state: Res<GameState>, mut bloom: Single<&mut Bloom>) {
+    bloom.intensity = match state.game_mode {
+        crate::planetary::GameMode::Default => 0.6,
+        _ => 0.0,
     }
 }
 
@@ -139,8 +152,8 @@ fn get_top_right_ui() -> impl Bundle {
         ZIndex(100),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(20.0),
-            right: Val::Px(5.0),
+            top: Val::Px(70.0),
+            right: Val::Px(30.0),
             ..default()
         },
     )
@@ -208,7 +221,7 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
 
     let topbar = Node::row(Size::Fit)
         .with_children((0..5).map(|_| Node::new(80, small_button_height)))
-        .with_child(Node::grow())
+        .with_child(Node::grow().invisible())
         .with_child(Node::button("Exit", GuiNodeId::Exit, 80, Size::Grow));
 
     let mut sidebar = Node::column(300);
@@ -377,18 +390,18 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
 #[derive(Component)]
 struct UiElement;
 
-fn generate_button_sprite(node: &layout::layout::Node<GuiNodeId>) -> Image {
+fn generate_button_sprite(node: &layout::layout::Node<GuiNodeId>, color: Option<Srgba>) -> Image {
     let aabb = node.aabb();
     let w = (aabb.span.x as u32).max(1);
     let h = (aabb.span.y as u32).max(1);
 
-    let color = if node.is_leaf() && node.is_enabled() {
-        GRAY.with_luminance(0.5).with_alpha(0.95)
+    let color = color.unwrap_or(if node.is_leaf() && node.is_enabled() {
+        ORANGE.with_luminance(0.4).with_alpha(1.0)
     } else if node.is_leaf() {
         GRAY.with_luminance(0.3).with_alpha(0.4)
     } else {
         BLACK.with_alpha(0.8)
-    };
+    });
 
     let mut image = Image::new_fill(
         Extent3d {
@@ -409,7 +422,7 @@ fn generate_button_sprite(node: &layout::layout::Node<GuiNodeId>) -> Image {
             for x in 0..w {
                 if x < 3 || y < 3 || x > w - 4 || y > h - 4 {
                     if let Some(bytes) = image.pixel_bytes_mut(UVec3::new(x, y, 0)) {
-                        bytes[3] = 80;
+                        bytes[3] = 0;
                     }
                 }
             }
@@ -458,7 +471,17 @@ fn do_ui_sprites(
                 continue;
             }
 
-            let image = generate_button_sprite(n);
+            let color: Option<Srgba> = if let Some(GuiNodeId::Group(gid)) = n.id() {
+                Some(
+                    crate::sprites::hashable_to_color(gid)
+                        .with_luminance(0.3)
+                        .into(),
+                )
+            } else {
+                None
+            };
+
+            let image = generate_button_sprite(n, color);
             let aabb = n.aabb();
 
             let mut c = aabb.center;

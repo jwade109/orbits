@@ -158,7 +158,7 @@ impl<IdType> Node<IdType> {
             .down();
 
         for r in 0..rows {
-            let mut node = Node::grow().with_padding(0.0);
+            let mut node = Node::grow().with_padding(0.0).with_child_gap(spacing);
             for c in 0..cols {
                 let n = match func(i) {
                     Some(n) => n,

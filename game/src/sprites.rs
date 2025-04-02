@@ -79,16 +79,21 @@ pub fn make_new_sprites(
 
 pub fn update_planet_sprites(
     mut commands: Commands,
-    mut query: Query<(Entity, &PlanetTexture, &mut Transform)>,
+    mut query: Query<(Entity, &PlanetTexture, &mut Transform, &mut Visibility)>,
     state: Res<GameState>,
 ) {
-    for (e, PlanetTexture(id, name), mut transform) in query.iter_mut() {
+    for (e, PlanetTexture(id, name), mut transform, mut vis) in query.iter_mut() {
         let lup = match state.scenario.lup(*id, state.sim_time) {
             Some(lup) => lup,
             None => {
                 commands.entity(e).despawn();
                 continue;
             }
+        };
+
+        *vis = match state.game_mode {
+            GameMode::Default => Visibility::Visible,
+            _ => Visibility::Hidden,
         };
 
         let pv = lup.pv();
@@ -150,7 +155,7 @@ const SPACECRAFT_DEFAULT_SCALE: f32 = 0.025;
 const SPACECRAFT_MAGNIFIED_SCALE: f32 = 0.06;
 const SPACECRAFT_DIMINISHED_SCALE: f32 = 0.01;
 
-fn hashable_to_color(h: &impl std::hash::Hash) -> Hsla {
+pub fn hashable_to_color(h: &impl std::hash::Hash) -> Hsla {
     use std::hash::Hasher;
     let mut s = std::hash::DefaultHasher::new();
     h.hash(&mut s);

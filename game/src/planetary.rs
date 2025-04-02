@@ -6,6 +6,7 @@ use crate::mouse::MouseState;
 use crate::notifications::*;
 use crate::ui::InteractionEvent;
 use bevy::color::palettes::css::*;
+use bevy::core_pipeline::bloom::Bloom;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 use bevy::window::WindowMode;
@@ -62,6 +63,10 @@ fn init_system(mut commands: Commands) {
             order: 0,
             clear_color: ClearColorConfig::Custom(BLACK.into()),
             ..default()
+        },
+        Bloom {
+            intensity: 0.2,
+            ..Bloom::OLD_SCHOOL
         },
         SoftController::default(),
         RenderLayers::layer(0),
@@ -217,7 +222,7 @@ impl Default for GameState {
             ui: ui::Tree::new(),
             context_menu_origin: None,
             last_redraw: Nanotime::zero(),
-            game_mode: GameMode::Constellations,
+            game_mode: GameMode::Default,
             notifications: Vec::new(),
         }
     }
@@ -512,9 +517,9 @@ impl GameState {
             GuiNodeId::ToggleDrawMode => self.game_mode = self.game_mode.next(),
             GuiNodeId::ClearTracks => self.track_list.clear(),
             GuiNodeId::ClearOrbits => self.queued_orbits.clear(),
-            GuiNodeId::Group(gid) => {
-                self.toggle_group(&gid);
-            }
+            GuiNodeId::Group(gid) => self.toggle_group(&gid).unwrap(),
+            GuiNodeId::CreateGroup => self.create_group(get_group_id()),
+            GuiNodeId::Exit => std::process::exit(0),
             _ => (),
         };
 
@@ -639,8 +644,6 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
     let mut log = |str: &str| {
         send_log(&mut evt, str);
     };
-
-    log("Show/hide info - [H]");
 
     if state.hide_debug {
         return;
