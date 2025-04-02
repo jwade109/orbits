@@ -10,6 +10,7 @@ use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 use bevy::window::WindowMode;
 use layout::layout as ui;
+use names::Generator;
 use starling::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::ops::DerefMut;
@@ -173,10 +174,12 @@ pub struct GameState {
     pub show_orbits: ShowOrbitsState,
     pub show_animations: bool,
     pub queued_orbits: Vec<GlobalOrbit>,
-    pub constellations: HashMap<GroupId, HashSet<ObjectId>>,
+    pub constellations: HashMap<ObjectId, GroupId>,
     pub selection_mode: SelectionMode,
 
-    pub ui: ui::Tree,
+    pub ui: ui::Tree<crate::ui::GuiNodeId>,
+    pub context_menu_origin: Option<Vec2>,
+
     pub last_redraw: Nanotime,
 
     pub game_mode: GameMode,
@@ -212,6 +215,7 @@ impl Default for GameState {
             constellations: HashMap::new(),
             selection_mode: SelectionMode::Rect,
             ui: ui::Tree::new(),
+            context_menu_origin: None,
             last_redraw: Nanotime::zero(),
             game_mode: GameMode::Constellations,
             notifications: Vec::new(),
@@ -220,6 +224,10 @@ impl Default for GameState {
 }
 
 impl GameState {
+    pub fn redraw(&mut self) {
+        self.last_redraw = Nanotime::zero()
+    }
+
     pub fn primary(&self) -> Option<ObjectId> {
         self.track_list.iter().next().cloned()
     }
@@ -236,20 +244,43 @@ impl GameState {
         self.track_list.contains(&id)
     }
 
+    pub fn get_group_members(&mut self, gid: &GroupId) -> Vec<ObjectId> {
+        self.constellations
+            .iter()
+            .filter_map(|(id, g)| (g == gid).then(|| *id))
+            .collect()
+    }
+
+    pub fn group_membership(&self, id: &ObjectId) -> Option<&GroupId> {
+        self.constellations.get(id)
+    }
+
+    pub fn unique_groups(&self) -> Vec<&GroupId> {
+        let mut s: Vec<&GroupId> = self
+            .constellations
+            .iter()
+            .map(|(_, gid)| gid)
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect();
+        s.sort();
+        s
+    }
+
     pub fn toggle_group(&mut self, gid: &GroupId) -> Option<()> {
         // - if any of the orbiters in the group are not selected,
         //   select all of them
         // - if all of them are already selected, deselect all of them
 
-        let members = self.constellations.get(&gid)?;
+        let members = self.get_group_members(gid);
 
         let all_selected = members.iter().all(|id| self.is_tracked(*id));
 
         for id in members {
             if all_selected {
-                self.track_list.remove(id);
+                self.track_list.remove(&id);
             } else {
-                self.track_list.insert(*id);
+                self.track_list.insert(id);
             }
         }
 
@@ -257,12 +288,12 @@ impl GameState {
     }
 
     pub fn disband_group(&mut self, gid: &GroupId) {
-        self.constellations.remove(gid);
+        self.constellations.retain(|_, g| g != gid);
     }
 
     pub fn create_group(&mut self, gid: GroupId) {
-        if !self.track_list.is_empty() {
-            self.constellations.insert(gid, self.track_list.clone());
+        for id in &self.track_list {
+            self.constellations.insert(*id, gid.clone());
         }
     }
 
@@ -473,6 +504,23 @@ impl GameState {
         self.notifications.push(notif);
     }
 
+    pub fn on_button_event(&mut self, id: crate::ui::GuiNodeId) -> Option<()> {
+        use crate::ui::GuiNodeId;
+
+        match id {
+            GuiNodeId::Orbiter(id) => self.follow = Some(id),
+            GuiNodeId::ToggleDrawMode => self.game_mode = self.game_mode.next(),
+            GuiNodeId::ClearTracks => self.track_list.clear(),
+            GuiNodeId::ClearOrbits => self.queued_orbits.clear(),
+            GuiNodeId::Group(gid) => {
+                self.toggle_group(&gid);
+            }
+            _ => (),
+        };
+
+        Some(())
+    }
+
     pub fn step(&mut self, time: &Time) {
         self.current_frame_no += 1;
         let old_sim_time = self.sim_time;
@@ -485,14 +533,17 @@ impl GameState {
         self.duty_cycle_high = time.elapsed().as_millis() % 1000 < 500;
 
         if let Some(p) = self.mouse.just_left_clicked(self.current_frame_no - 1) {
-            println!("Wow! {}", p);
-
-            let p = Vec2::new(p.x, self.camera.viewport_bounds().span.y - p.y);
-            if let Some(n) = self.ui.at(p) {
-                if n.is_visible() && n.is_enabled() && !n.id().is_empty() {
-                    println!("{}", n.id());
-                }
+            let q = Vec2::new(p.x, self.camera.viewport_bounds().span.y - p.y);
+            if let Some(n) = self.ui.at(q).map(|n| n.id()).flatten() {
+                self.on_button_event(n.clone());
             }
+            self.context_menu_origin = None;
+            self.last_redraw = Nanotime::zero();
+        }
+
+        if let Some(p) = self.mouse.just_right_clicked(self.current_frame_no - 1) {
+            self.context_menu_origin = Some(p);
+            self.last_redraw = Nanotime::zero();
         }
 
         let s = self.sim_time;
@@ -523,11 +574,7 @@ impl GameState {
 
         let ids: Vec<_> = self.scenario.orbiter_ids().collect();
 
-        for (_, members) in &mut self.constellations {
-            members.retain(|id| ids.contains(id));
-        }
-
-        self.constellations.retain(|_, members| !members.is_empty());
+        self.constellations.retain(|id, _| ids.contains(id));
 
         let mut notifs = vec![];
 
@@ -687,7 +734,9 @@ fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
 }
 
 fn get_group_id() -> GroupId {
-    GroupId(format!("{:0.3}", rand(100.0, 40000.0)))
+    let mut generator = Generator::default();
+    let s = generator.next().unwrap();
+    GroupId(s)
 }
 
 fn process_interaction(
@@ -721,9 +770,11 @@ fn process_interaction(
         }
         InteractionEvent::SimSlower => {
             state.sim_speed = i32::clamp(state.sim_speed - 1, -2, 2);
+            state.redraw();
         }
         InteractionEvent::SimFaster => {
             state.sim_speed = i32::clamp(state.sim_speed + 1, -2, 2);
+            state.redraw();
         }
         InteractionEvent::SimPause => {
             state.paused = !state.paused;
@@ -752,6 +803,12 @@ fn process_interaction(
             };
         }
         InteractionEvent::DoubleClick(p) => {
+            // check to see if we're in the main area
+            let n = state
+                .ui
+                .at(Vec2::new(p.x, state.camera.viewport_bounds().span.y - p.y))?;
+            (n.id() == Some(&crate::ui::GuiNodeId::World)).then(|| ())?;
+
             let w = state
                 .camera
                 .viewport_bounds()
@@ -824,6 +881,7 @@ fn process_interaction(
         | InteractionEvent::MoveDown => state.follow = None,
         _ => (),
     };
+    state.redraw();
     Some(())
 }
 

@@ -68,31 +68,31 @@ pub fn earth_moon_example_one() -> (Scenario, ObjectIdTracker) {
         Nanotime::zero(),
     );
 
-    for _ in 0..2 {
-        let get_orbit = || {
-            let ra = rand(200.0, 3000.0);
-            let rp = rand(200.0, 3000.0);
-            let (ra, rp) = (ra.max(rp), ra.min(rp));
-            let argp = rand(0.0, 2.0 * PI);
-            let w = rand(50.0, 400.0);
-            (
-                SparseOrbit::new(ra, rp, argp, earth.body, Nanotime::zero(), false),
-                SparseOrbit::new(ra + w, rp + w, argp, earth.body, Nanotime::zero(), false),
-            )
-        };
+    // for _ in 0..2 {
+    //     let get_orbit = || {
+    //         let ra = rand(200.0, 3000.0);
+    //         let rp = rand(200.0, 3000.0);
+    //         let (ra, rp) = (ra.max(rp), ra.min(rp));
+    //         let argp = rand(0.0, 2.0 * PI);
+    //         let w = rand(50.0, 400.0);
+    //         (
+    //             SparseOrbit::new(ra, rp, argp, earth.body, Nanotime::zero(), false),
+    //             SparseOrbit::new(ra + w, rp + w, argp, earth.body, Nanotime::zero(), false),
+    //         )
+    //     };
 
-        if let (Some(inner), Some(outer)) = get_orbit() {
-            scenario.add_belt(AsteroidBelt::from_orbits(earth.id, inner, outer));
-        }
-    }
+    //     if let (Some(inner), Some(outer)) = get_orbit() {
+    //         scenario.add_belt(AsteroidBelt::from_orbits(earth.id, inner, outer));
+    //     }
+    // }
 
-    scenario.add_belt(AsteroidBelt::circular(
-        luna.id,
-        luna.body.radius * 1.2,
-        luna.body.radius * 2.5,
-        earth.body,
-        false,
-    ));
+    // scenario.add_belt(AsteroidBelt::circular(
+    //     luna.id,
+    //     luna.body.radius * 1.2,
+    //     luna.body.radius * 2.5,
+    //     earth.body,
+    //     false,
+    // ));
 
     for _ in 0..200 {
         let r = randvec(700.0, 2400.0);

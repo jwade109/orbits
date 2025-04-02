@@ -150,6 +150,15 @@ const SPACECRAFT_DEFAULT_SCALE: f32 = 0.025;
 const SPACECRAFT_MAGNIFIED_SCALE: f32 = 0.06;
 const SPACECRAFT_DIMINISHED_SCALE: f32 = 0.01;
 
+fn hashable_to_color(h: &impl std::hash::Hash) -> Hsla {
+    use std::hash::Hasher;
+    let mut s = std::hash::DefaultHasher::new();
+    h.hash(&mut s);
+    let h: u64 = s.finish() % 1000;
+    let hue = 360.0 * (h as f32 / 1000 as f32);
+    Hsla::new(hue, 1.0, 0.5, 1.0)
+}
+
 pub fn update_spacecraft_sprites(
     mut commands: Commands,
     mut query: Query<(Entity, &mut SpacecraftTexture, &mut Transform, &mut Sprite)>,
@@ -168,12 +177,30 @@ pub fn update_spacecraft_sprites(
 
             transform.translation = lup.pv().pos.extend(z_index);
 
-            let target_scale = if state.track_list.is_empty() {
-                SPACECRAFT_DEFAULT_SCALE
-            } else if state.track_list.contains(&id) {
-                SPACECRAFT_MAGNIFIED_SCALE
-            } else {
-                SPACECRAFT_DIMINISHED_SCALE
+            let gid = match state.game_mode {
+                GameMode::Constellations => state.group_membership(&id),
+                _ => None,
+            };
+
+            let target_scale = match state.game_mode {
+                GameMode::Constellations => {
+                    if state.track_list.is_empty() && gid.is_some() {
+                        SPACECRAFT_DEFAULT_SCALE
+                    } else if state.track_list.contains(&id) {
+                        SPACECRAFT_MAGNIFIED_SCALE
+                    } else {
+                        SPACECRAFT_DIMINISHED_SCALE
+                    }
+                }
+                _ => {
+                    if state.track_list.is_empty() {
+                        SPACECRAFT_DEFAULT_SCALE
+                    } else if state.track_list.contains(&id) {
+                        SPACECRAFT_MAGNIFIED_SCALE
+                    } else {
+                        SPACECRAFT_DIMINISHED_SCALE
+                    }
+                }
             };
 
             s.color = match state.game_mode {
@@ -186,7 +213,13 @@ pub fn update_spacecraft_sprites(
                         WHITE.with_alpha(0.2)
                     }
                 }
-                GameMode::Constellations => ORANGE,
+                GameMode::Constellations => {
+                    if let Some(gid) = gid {
+                        hashable_to_color(gid).into()
+                    } else {
+                        WHITE.with_alpha(0.2)
+                    }
+                }
                 GameMode::Stability => match orbiter.is_indefinitely_stable() {
                     true => TEAL,
                     false => ORANGE,

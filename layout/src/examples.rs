@@ -1,7 +1,6 @@
 use crate::layout::*;
-use starling::prelude::{Vec2, AABB};
 
-fn box_with_corners(w: f32) -> Node {
+fn box_with_corners(w: f32) -> Node<String> {
     let banner = || {
         Node::row(Size::Fit)
             .invisible()
@@ -21,13 +20,15 @@ fn box_with_corners(w: f32) -> Node {
         .with_child(banner())
 }
 
+#[allow(unused)]
 fn text_dims(s: &str) -> (usize, usize) {
     let max_line = s.lines().map(|l| l.len()).max().unwrap_or(0);
     let lines = s.lines().count();
     (lines, max_line)
 }
 
-pub fn text_node(s: &str, width: impl Into<Size>, height: impl Into<Size>) -> Node {
+#[allow(unused)]
+fn text_node(s: &str, width: impl Into<Size>, height: impl Into<Size>) -> Node<String> {
     let chr_width = 15.0;
     let chr_height = 30.0;
     let (lines, max_line) = text_dims(&s);
@@ -48,7 +49,7 @@ pub fn text_node(s: &str, width: impl Into<Size>, height: impl Into<Size>) -> No
     )
 }
 
-pub fn example_layout(width: f32, height: f32) -> Tree {
+pub fn example_layout(width: f32, height: f32) -> Tree<String> {
     let spacing = 8.0;
 
     let sidebar = Node::column(300.0)

@@ -146,19 +146,52 @@ fn get_top_right_ui() -> impl Bundle {
     )
 }
 
-pub fn context_menu(n: u32, m: u32) -> ui::Node {
-    use ui::*;
-    let spacing = 4.0;
-    Node::new(200, 300)
-        .down()
-        .with_child(Node::row(20))
-        .with_child(Node::row(40))
-        .with_child(Node::grid(Size::Grow, Size::Grow, n, m, spacing, |_| {
-            Some(Node::grow())
-        }))
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GuiNodeId {
+    Orbiter(ObjectId),
+    Exit,
+    ToggleDrawMode,
+    ClearTracks,
+    CreateGroup,
+    ClearOrbits,
+    CurrentBody,
+    SelectedCount,
+    AutopilotingCount,
+    PilotOrbiter,
+    Group(GroupId),
+    ToggleDebug,
+    TogglePause,
+    World,
+    SimSpeed,
+    GlobalOrbit(usize),
+    DeleteOrbiter,
+    ClearMission,
+    FollowOrbiter,
 }
 
-pub fn layout(state: &GameState) -> Option<ui::Tree> {
+pub fn context_menu(rowsize: f32, items: &[(String, GuiNodeId, bool)]) -> ui::Node<GuiNodeId> {
+    use ui::*;
+    Node::new(200, Size::Fit).down().with_children(
+        items
+            .iter()
+            .map(|(s, id, e)| Node::button(s, id.clone(), Size::Grow, rowsize).enabled(*e)),
+    )
+}
+
+pub fn orbiter_context_menu(id: ObjectId) -> ui::Node<GuiNodeId> {
+    context_menu(
+        40.0,
+        &[
+            (format!("Orbiter {}", id), GuiNodeId::Orbiter(id), false),
+            ("Delete".into(), GuiNodeId::DeleteOrbiter, true),
+            ("Pilot".into(), GuiNodeId::PilotOrbiter, true),
+            ("Clear Mission".into(), GuiNodeId::ClearMission, true),
+            ("Follow".into(), GuiNodeId::FollowOrbiter, true),
+        ],
+    )
+}
+
+pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
     use ui::*;
 
     let small_button_height = 30;
@@ -176,7 +209,7 @@ pub fn layout(state: &GameState) -> Option<ui::Tree> {
     let topbar = Node::row(Size::Fit)
         .with_children((0..5).map(|_| Node::new(80, small_button_height)))
         .with_child(Node::grow())
-        .with_child(Node::button("Exit", "exit", 80, Size::Grow));
+        .with_child(Node::button("Exit", GuiNodeId::Exit, 80, Size::Grow));
 
     let mut sidebar = Node::column(300);
 
@@ -188,7 +221,9 @@ pub fn layout(state: &GameState) -> Option<ui::Tree> {
         .map(|lup| lup.named_body())
         .flatten()
     {
-        sidebar.add_child(Node::button(s, "", Size::Grow, button_height).enabled(false));
+        sidebar.add_child(
+            Node::button(s, GuiNodeId::CurrentBody, Size::Grow, button_height).enabled(false),
+        );
     }
 
     sidebar.add_child({
@@ -197,55 +232,90 @@ pub fn layout(state: &GameState) -> Option<ui::Tree> {
         } else {
             "Show Debug Info"
         };
-        Node::button(s, "toggle-debug", Size::Grow, button_height)
+        Node::button(s, GuiNodeId::ToggleDebug, Size::Grow, button_height)
     });
 
     sidebar.add_child(Node::button(
         "Visual Mode",
-        "toggle-visual-mode",
+        GuiNodeId::ToggleDrawMode,
         Size::Grow,
         button_height,
     ));
 
     sidebar.add_child(
-        Node::button("Clear Tracks", "clear-tracks", Size::Grow, button_height)
-            .enabled(!state.track_list.is_empty()),
+        Node::button(
+            "Clear Tracks",
+            GuiNodeId::ClearTracks,
+            Size::Grow,
+            button_height,
+        )
+        .enabled(!state.track_list.is_empty()),
     );
 
     sidebar.add_child(
-        Node::button("Clear Orbits", "clear-orbits", Size::Grow, button_height)
-            .enabled(!state.queued_orbits.is_empty()),
+        Node::button(
+            "Clear Orbits",
+            GuiNodeId::ClearOrbits,
+            Size::Grow,
+            button_height,
+        )
+        .enabled(!state.queued_orbits.is_empty()),
     );
 
-    sidebar.add_child(
-        Node::button("Create Group", "create-group", Size::Grow, button_height)
-            .enabled(!state.track_list.is_empty()),
-    );
+    if !state.constellations.is_empty() {
+        sidebar.add_child(Node::hline());
+    }
+
+    for gid in state.unique_groups() {
+        let s = format!("GID {}", gid);
+        let id = GuiNodeId::Group(gid.clone());
+        sidebar.add_child(Node::button(s, id, Size::Grow, button_height));
+    }
 
     sidebar.add_child(Node::hline());
 
     sidebar.add_child({
         let s = format!("{} selected", state.track_list.len());
-        Node::button(s, "", Size::Grow, button_height).enabled(false)
+        Node::button(s, GuiNodeId::SelectedCount, Size::Grow, button_height).enabled(false)
     });
 
-    if state.track_list.len() <= 32 && !state.track_list.is_empty() {
+    if !state.track_list.is_empty() {
+        let max_cells = 32;
         let tracks = state.track_list.iter().collect::<Vec<_>>();
-        let rows = (tracks.len() as f32 / 4.0).ceil() as u32;
+        let rows = (tracks.len().min(max_cells) as f32 / 4.0).ceil() as u32;
         let grid = Node::grid(Size::Grow, rows * button_height, rows, 4, 4.0, |i| {
+            if i as usize > max_cells {
+                return None;
+            }
             let id = tracks.get(i as usize)?;
             let s = format!("{id}");
-            let id = format!("object-{}", id.0);
-            Some(Node::grow().with_id(id).with_text(s))
+            Some(Node::grow().with_id(GuiNodeId::Orbiter(**id)).with_text(s))
         });
         sidebar.add_child(grid);
+
+        if state.track_list.len() > max_cells {
+            let n = state.track_list.len() - max_cells;
+            let s = format!("...And {} more", n);
+            sidebar.add_child(
+                Node::new(Size::Grow, button_height)
+                    .with_text(s)
+                    .enabled(false),
+            );
+        }
+
+        sidebar.add_child(Node::button(
+            "Create Group",
+            GuiNodeId::CreateGroup,
+            Size::Grow,
+            button_height,
+        ));
     }
 
     if let Some(fid) = state.follow {
         if state.track_list.contains(&fid) {
             sidebar.add_child(Node::hline());
             let s = format!("Pilot {}", fid);
-            let id = "manual-control";
+            let id = GuiNodeId::PilotOrbiter;
             sidebar.add_child(Node::button(s, id, Size::Grow, button_height));
         }
     }
@@ -253,33 +323,31 @@ pub fn layout(state: &GameState) -> Option<ui::Tree> {
     if !state.controllers.is_empty() {
         sidebar.add_child(Node::hline());
         let s = format!("{} autopiloting", state.controllers.len());
-        sidebar.add_child(Node::button(s, "", Size::Grow, button_height).enabled(false));
-    }
-
-    if !state.constellations.is_empty() {
-        sidebar.add_child(Node::hline());
-    }
-
-    for (gid, members) in &state.constellations {
-        let s = format!("GID {} ({})", gid, members.len());
-        let id = format!("gid-{}", gid);
-        sidebar.add_child(Node::button(s, id, Size::Grow, button_height));
+        let id = GuiNodeId::AutopilotingCount;
+        sidebar.add_child(Node::button(s, id, Size::Grow, button_height).enabled(false));
     }
 
     let mut world = Node::grow()
         .invisible()
-        .with_id("world")
+        .with_id(GuiNodeId::World)
         .with_child({
             let s = if state.paused { "UNPAUSE" } else { "PAUSE" };
-            Node::button(s, "toggle-pause", 120, button_height)
+            Node::button(s, GuiNodeId::TogglePause, 120, button_height)
         })
-        .with_children(
-            (0..6).map(|i| Node::button(format!("{i}"), "", button_height, button_height)),
-        );
+        .with_children((-2..=2).map(|i| {
+            Node::button(
+                format!("{i}"),
+                GuiNodeId::SimSpeed,
+                button_height,
+                button_height,
+            )
+            .enabled(i != state.sim_speed)
+        }));
 
-    for orbit in &state.queued_orbits {
+    for (i, orbit) in state.queued_orbits.iter().enumerate() {
         let s = format!("{}", orbit);
-        world.add_child(Node::button(s, "", 400, button_height));
+        let id = GuiNodeId::GlobalOrbit(i);
+        world.add_child(Node::button(s, id, 400, button_height));
     }
 
     let root = Node::new(vb.span.x, vb.span.y)
@@ -297,10 +365,10 @@ pub fn layout(state: &GameState) -> Option<ui::Tree> {
 
     let mut tree = Tree::new().with_layout(root, Vec2::ZERO);
 
-    if let Some((_, c)) = state.mouse.right().zip(state.mouse.current()) {
-        let ctx = context_menu((c.x / 30.0) as u32 % 10, (c.y / 30.0) as u32 % 10);
-        let c = Vec2::new(c.x, state.camera.viewport_bounds().span.y - c.y);
-        tree.add_layout(ctx, c);
+    if let Some(p) = state.context_menu_origin {
+        let ctx = orbiter_context_menu(ObjectId(0));
+        let p = Vec2::new(p.x, state.camera.viewport_bounds().span.y - p.y);
+        tree.add_layout(ctx, p);
     }
 
     Some(tree)
@@ -308,6 +376,54 @@ pub fn layout(state: &GameState) -> Option<ui::Tree> {
 
 #[derive(Component)]
 struct UiElement;
+
+fn generate_button_sprite(node: &layout::layout::Node<GuiNodeId>) -> Image {
+    let aabb = node.aabb();
+    let w = (aabb.span.x as u32).max(1);
+    let h = (aabb.span.y as u32).max(1);
+
+    let color = if node.is_leaf() && node.is_enabled() {
+        GRAY.with_luminance(0.5).with_alpha(0.95)
+    } else if node.is_leaf() {
+        GRAY.with_luminance(0.3).with_alpha(0.4)
+    } else {
+        BLACK.with_alpha(0.8)
+    };
+
+    let mut image = Image::new_fill(
+        Extent3d {
+            width: w,
+            height: h,
+            depth_or_array_layers: 1,
+        },
+        TextureDimension::D2,
+        &color.to_u8_array(),
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
+    );
+
+    image.sampler = bevy::image::ImageSampler::nearest();
+
+    if w != 1 && h != 1 && node.is_leaf() {
+        for y in 0..h {
+            for x in 0..w {
+                if x < 3 || y < 3 || x > w - 4 || y > h - 4 {
+                    if let Some(bytes) = image.pixel_bytes_mut(UVec3::new(x, y, 0)) {
+                        bytes[3] = 80;
+                    }
+                }
+            }
+        }
+
+        for (x, y) in [(0, 0), (0, h - 1), (w - 1, 0), (w - 1, h - 1)] {
+            if let Some(bytes) = image.pixel_bytes_mut(UVec3::new(x, y, 0)) {
+                bytes[3] = 0;
+            }
+        }
+    }
+
+    image
+}
 
 fn do_ui_sprites(
     mut commands: Commands,
@@ -336,62 +452,22 @@ fn do_ui_sprites(
 
     state.last_redraw = state.actual_time;
 
-    for layout in state.ui.layouts() {
+    for (lid, layout) in state.ui.layouts().iter().enumerate() {
         for n in layout.iter() {
             if !n.is_visible() {
                 continue;
             }
 
+            let image = generate_button_sprite(n);
             let aabb = n.aabb();
-            let w = (aabb.span.x as u32).max(1);
-            let h = (aabb.span.y as u32).max(1);
-
-            let color = if n.is_leaf() && n.is_enabled() {
-                GRAY.with_luminance(0.5).with_alpha(0.8)
-            } else if n.is_leaf() {
-                GRAY.with_luminance(0.2).with_alpha(0.8)
-            } else {
-                GRAY.with_luminance(0.2).with_alpha(0.1)
-            };
-
-            let mut image = Image::new_fill(
-                Extent3d {
-                    width: w,
-                    height: h,
-                    depth_or_array_layers: 1,
-                },
-                TextureDimension::D2,
-                &color.to_u8_array(),
-                TextureFormat::Rgba8UnormSrgb,
-                RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
-            );
-
-            image.sampler = bevy::image::ImageSampler::nearest();
-
-            if w != 1 && h != 1 && n.is_leaf() {
-                for y in 0..h {
-                    for x in 0..w {
-                        if x < 3 || y < 3 || x > w - 4 || y > h - 4 {
-                            if let Some(bytes) = image.pixel_bytes_mut(UVec3::new(x, y, 0)) {
-                                bytes[3] = 80;
-                            }
-                        }
-                    }
-                }
-
-                for (x, y) in [(0, 0), (0, h - 1), (w - 1, 0), (w - 1, h - 1)] {
-                    if let Some(bytes) = image.pixel_bytes_mut(UVec3::new(x, y, 0)) {
-                        bytes[3] = 0;
-                    }
-                }
-            }
 
             let mut c = aabb.center;
 
             c.x -= vb.span.x / 2.0;
             c.y = vb.span.y / 2.0 - c.y;
 
-            let transform = Transform::from_translation(c.extend(n.layer() as f32 / 10.0));
+            let transform =
+                Transform::from_translation(c.extend(n.layer() as f32 / 100.0 + lid as f32));
 
             let handle = images.add(image);
 

@@ -14,3 +14,4 @@ rand = "0.8.5"
 rand_chacha = "0.3.1"
 starling = { path = "../starling" }
 layout = { path = "../layout" }
+names = "0.14.0"

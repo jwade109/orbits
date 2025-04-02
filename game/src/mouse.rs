@@ -46,6 +46,12 @@ impl MouseState {
             .flatten()
     }
 
+    pub fn just_right_clicked(&self, frame_no: u32) -> Option<Vec2> {
+        self.right_click
+            .map(|(f, p)| (frame_no == f).then(|| p))
+            .flatten()
+    }
+
     fn viewport_to_world(&self, p: Vec2) -> Vec2 {
         self.viewport_bounds.map(self.world_bounds, p)
     }

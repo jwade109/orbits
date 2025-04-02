@@ -60,7 +60,7 @@ impl Into<Size> for u32 {
 }
 
 #[derive(Debug, Clone)]
-pub struct Node {
+pub struct Node<IdType> {
     desired_width: Size,
     desired_height: Size,
     calculated_width: Option<f32>,
@@ -68,16 +68,16 @@ pub struct Node {
     calculated_position: Option<Vec2>,
     layer: Option<u32>,
     layout: LayoutDir,
-    children: Vec<Node>,
+    children: Vec<Node<IdType>>,
     child_gap: f32,
     padding: f32,
     visible: bool,
-    id: String,
+    id: Option<IdType>,
     text_content: Option<String>,
     enabled: bool,
 }
 
-impl Node {
+impl<IdType> Node<IdType> {
     pub fn new(width: impl Into<Size>, height: impl Into<Size>) -> Self {
         let w = width.into();
         let h = height.into();
@@ -93,7 +93,7 @@ impl Node {
             child_gap: 10.0,
             padding: 10.0,
             visible: true,
-            id: "".into(),
+            id: None,
             text_content: None,
             enabled: true,
         }
@@ -109,11 +109,11 @@ impl Node {
 
     pub fn button(
         s: impl Into<String>,
-        id: impl Into<String>,
+        id: impl Into<IdType>,
         width: impl Into<Size>,
         height: impl Into<Size>,
     ) -> Self {
-        Node::new(width, height).with_text(s).with_id(id)
+        Node::<IdType>::new(width, height).with_text(s).with_id(id)
     }
 
     pub fn column(width: impl Into<Size>) -> Self {
@@ -148,8 +148,8 @@ impl Node {
         rows: u32,
         cols: u32,
         spacing: f32,
-        func: impl Fn(u32) -> Option<Node>,
-    ) -> Node {
+        func: impl Fn(u32) -> Option<Node<IdType>>,
+    ) -> Self {
         let mut i = 0;
         let mut root = Node::new(width, height)
             .invisible()
@@ -173,12 +173,12 @@ impl Node {
         root
     }
 
-    pub fn id(&self) -> &String {
-        &self.id
+    pub fn id(&self) -> Option<&IdType> {
+        self.id.as_ref()
     }
 
-    pub fn with_id(mut self, id: impl Into<String>) -> Self {
-        self.id = id.into();
+    pub fn with_id(mut self, id: impl Into<IdType>) -> Self {
+        self.id = Some(id.into());
         self
     }
 
@@ -224,19 +224,19 @@ impl Node {
         self
     }
 
-    pub fn with_child(mut self, n: Node) -> Self {
+    pub fn with_child(mut self, n: Node<IdType>) -> Self {
         self.add_child(n);
         self
     }
 
-    pub fn with_children(mut self, nodes: impl Iterator<Item = Node>) -> Self {
+    pub fn with_children(mut self, nodes: impl Iterator<Item = Node<IdType>>) -> Self {
         nodes.for_each(|n| {
             self.add_child(n);
         });
         self
     }
 
-    pub fn children(&self) -> impl Iterator<Item = &Node> + use<'_> {
+    pub fn children(&self) -> impl Iterator<Item = &Node<IdType>> + use<'_, IdType> {
         self.children.iter()
     }
 
@@ -252,7 +252,7 @@ impl Node {
         self.visible
     }
 
-    pub fn add_child(&mut self, n: Node) -> &mut Self {
+    pub fn add_child(&mut self, n: Node<IdType>) -> &mut Self {
         self.children.push(n);
         self
     }
@@ -281,16 +281,20 @@ impl Node {
         AABB::from_arbitrary(a, b)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &Node> + use<'_> {
+    pub fn iter(&self) -> impl Iterator<Item = &Node<IdType>> + use<'_, IdType> {
         let self_iter = [self].into_iter();
-        let child_iters: Vec<_> = self.children.iter().flat_map(|n| n.iter()).collect();
-        self_iter.chain(child_iters.into_iter())
+        let child_iters: Vec<&Node<IdType>> = self
+            .children
+            .iter()
+            .flat_map(|n| n.iter())
+            .collect::<Vec<_>>();
+        self_iter.chain(child_iters)
     }
 }
 
-fn sum_fixed_dims<'a>(
+fn sum_fixed_dims<'a, IdType: 'a>(
     layout: LayoutDir,
-    nodes: impl Iterator<Item = &'a Node>,
+    nodes: impl Iterator<Item = &'a Node<IdType>>,
     padding: f32,
     childgap: f32,
 ) -> Vec2 {
@@ -314,7 +318,14 @@ fn sum_fixed_dims<'a>(
     if sx > 0.0 {
         match layout {
             LayoutDir::LeftToRight => sx -= childgap,
+            _ => (),
+        }
+    }
+
+    if sy > 0.0 {
+        match layout {
             LayoutDir::TopToBottom => sy -= childgap,
+            _ => (),
         }
     }
 
@@ -324,7 +335,10 @@ fn sum_fixed_dims<'a>(
     Vec2::new(sx, sy)
 }
 
-pub fn populate_positions<'a>(mut root: Node, origin: impl Into<Option<Vec2>>) -> Node {
+pub fn populate_positions<'a, IdType: 'a>(
+    mut root: Node<IdType>,
+    origin: impl Into<Option<Vec2>>,
+) -> Node<IdType> {
     let origin = origin.into().unwrap_or(Vec2::ZERO);
     root.calculated_position = Some(origin);
 
@@ -348,7 +362,7 @@ pub fn populate_positions<'a>(mut root: Node, origin: impl Into<Option<Vec2>>) -
     root
 }
 
-fn assign_layers(root: &mut Node, layer: u32) {
+fn assign_layers<IdType>(root: &mut Node<IdType>, layer: u32) {
     root.layer = Some(layer);
 
     for c in &mut root.children {
@@ -356,7 +370,7 @@ fn assign_layers(root: &mut Node, layer: u32) {
     }
 }
 
-pub fn populate_fit_sizes(mut root: Node) -> Node {
+pub fn populate_fit_sizes<IdType>(mut root: Node<IdType>) -> Node<IdType> {
     if root.is_leaf() {
         if root.desired_width.is_fit() {
             root.calculated_width = Some(0.0);
@@ -391,7 +405,7 @@ pub fn populate_fit_sizes(mut root: Node) -> Node {
     root
 }
 
-pub fn populate_grow_sizes(mut root: Node) -> Node {
+pub fn populate_grow_sizes<IdType>(mut root: Node<IdType>) -> Node<IdType> {
     if root.is_leaf() {
         return root;
     }
@@ -445,16 +459,16 @@ pub fn populate_grow_sizes(mut root: Node) -> Node {
     root
 }
 
-pub struct Tree {
-    roots: Vec<Node>,
+pub struct Tree<IdType> {
+    roots: Vec<Node<IdType>>,
 }
 
-impl Tree {
-    pub fn new() -> Tree {
+impl<IdType> Tree<IdType> {
+    pub fn new() -> Tree<IdType> {
         Tree { roots: Vec::new() }
     }
 
-    pub fn add_layout(&mut self, node: Node, origin: impl Into<Option<Vec2>>) {
+    pub fn add_layout(&mut self, node: Node<IdType>, origin: impl Into<Option<Vec2>>) {
         let origin = origin.into().unwrap_or(Vec2::ZERO);
         let node = populate_fit_sizes(node);
         let node = populate_grow_sizes(node);
@@ -463,20 +477,26 @@ impl Tree {
         self.roots.push(node);
     }
 
-    pub fn with_layout(mut self, node: Node, origin: impl Into<Option<Vec2>>) -> Self {
+    pub fn with_layout(mut self, node: Node<IdType>, origin: impl Into<Option<Vec2>>) -> Self {
         self.add_layout(node, origin);
         self
     }
 
-    pub fn layouts(&self) -> &Vec<Node> {
+    pub fn layouts(&self) -> &Vec<Node<IdType>> {
         &self.roots
     }
 
-    pub fn at(&self, p: Vec2) -> Option<&Node> {
-        let layout = self.roots.first()?;
-        let mut candidates: Vec<&Node> = layout.iter().filter(|n| n.aabb().contains(p)).collect();
-        candidates.sort_by_key(|n| n.layer());
-        candidates.last().map(|v| *v)
+    pub fn at(&self, p: Vec2) -> Option<&Node<IdType>> {
+        for layout in self.roots.iter().rev() {
+            let mut candidates: Vec<&Node<IdType>> =
+                layout.iter().filter(|n| n.aabb().contains(p)).collect();
+            if candidates.is_empty() {
+                continue;
+            }
+            candidates.sort_by_key(|n| n.layer());
+            return candidates.last().map(|v| *v);
+        }
+        None
     }
 }
 
@@ -510,7 +530,7 @@ mod tests {
         assert_eq!(t2b.x, 574.0);
         assert_eq!(t2b.y, 1439.0);
 
-        let root = Node::new(Size::Fit, Size::Fit)
+        let root = Node::<String>::new(Size::Fit, Size::Fit)
             .with_child(a)
             .with_child(b)
             .with_child(c);

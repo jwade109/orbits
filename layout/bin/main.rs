@@ -3,7 +3,7 @@ use layout::layout::*;
 use layout::svg::write_svg;
 use starling::aabb::AABB;
 
-fn draw_layout(tree: &Tree, path: &str) -> Result<(), std::io::Error> {
+fn draw_layout(tree: &Tree<String>, path: &str) -> Result<(), std::io::Error> {
     let aabbs: Vec<AABB> = tree.layouts().iter().map(|n| n.aabb()).collect();
     write_svg(path, &aabbs)
 }
