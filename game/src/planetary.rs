@@ -230,7 +230,7 @@ impl Default for GameState {
 
 impl GameState {
     pub fn redraw(&mut self) {
-        self.last_redraw = Nanotime::zero()
+        // self.last_redraw = Nanotime::zero()
     }
 
     pub fn primary(&self) -> Option<ObjectId> {
@@ -543,12 +543,12 @@ impl GameState {
                 self.on_button_event(n.clone());
             }
             self.context_menu_origin = None;
-            self.last_redraw = Nanotime::zero();
+            self.redraw();
         }
 
         if let Some(p) = self.mouse.just_right_clicked(self.current_frame_no - 1) {
             self.context_menu_origin = Some(p);
-            self.last_redraw = Nanotime::zero();
+            self.redraw();
         }
 
         let s = self.sim_time;
@@ -789,7 +789,7 @@ fn process_interaction(
             state.game_mode = state.game_mode.next();
         }
         InteractionEvent::RedrawGui => {
-            state.last_redraw = Nanotime::zero();
+            state.redraw();
         }
         InteractionEvent::Orbits => {
             state.show_orbits.next();

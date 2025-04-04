@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused)]
 
+use crate::svg::write_svg;
 use starling::aabb::AABB;
 use starling::prelude::Vec2;
 
@@ -335,31 +336,25 @@ fn sum_fixed_dims<'a, IdType: 'a>(
     Vec2::new(sx, sy)
 }
 
-pub fn populate_positions<'a, IdType: 'a>(
-    mut root: Node<IdType>,
+fn populate_positions<'a, IdType: 'a>(
+    mut root: &mut Node<IdType>,
     origin: impl Into<Option<Vec2>>,
-) -> Node<IdType> {
+) {
     let origin = origin.into().unwrap_or(Vec2::ZERO);
     root.calculated_position = Some(origin);
 
     let mut px = origin.x + root.padding;
     let mut py = origin.y + root.padding;
 
-    root.children = root
-        .children
-        .into_iter()
-        .map(|n| {
-            let dim = n.calculated_dims();
-            let o = Vec2::new(px, py);
-            match root.layout {
-                LayoutDir::LeftToRight => px += dim.x + root.child_gap,
-                LayoutDir::TopToBottom => py += dim.y + root.child_gap,
-            }
-            populate_positions(n, o)
-        })
-        .collect();
-
-    root
+    root.children.iter_mut().for_each(|n| {
+        let dim = n.calculated_dims();
+        let o = Vec2::new(px, py);
+        match root.layout {
+            LayoutDir::LeftToRight => px += dim.x + root.child_gap,
+            LayoutDir::TopToBottom => py += dim.y + root.child_gap,
+        }
+        populate_positions(n, o)
+    });
 }
 
 fn assign_layers<IdType>(root: &mut Node<IdType>, layer: u32) {
@@ -370,7 +365,7 @@ fn assign_layers<IdType>(root: &mut Node<IdType>, layer: u32) {
     }
 }
 
-pub fn populate_fit_sizes<IdType>(mut root: Node<IdType>) -> Node<IdType> {
+pub fn populate_fit_sizes<IdType>(root: &mut Node<IdType>) {
     if root.is_leaf() {
         if root.desired_width.is_fit() {
             root.calculated_width = Some(0.0);
@@ -378,14 +373,10 @@ pub fn populate_fit_sizes<IdType>(mut root: Node<IdType>) -> Node<IdType> {
         if root.desired_height.is_fit() {
             root.calculated_height = Some(0.0);
         }
-        return root;
+        return;
     }
 
-    root.children = root
-        .children
-        .into_iter()
-        .map(|n| populate_fit_sizes(n))
-        .collect();
+    root.children.iter_mut().for_each(|n| populate_fit_sizes(n));
 
     let dims = sum_fixed_dims(
         root.layout,
@@ -401,13 +392,11 @@ pub fn populate_fit_sizes<IdType>(mut root: Node<IdType>) -> Node<IdType> {
     if root.desired_height.is_fit() {
         root.calculated_height = Some(dims.y);
     }
-
-    root
 }
 
-pub fn populate_grow_sizes<IdType>(mut root: Node<IdType>) -> Node<IdType> {
+pub fn populate_grow_sizes<IdType>(root: &mut Node<IdType>) {
     if root.is_leaf() {
-        return root;
+        return;
     }
 
     let n_to_grow: u32 = root
@@ -442,21 +431,15 @@ pub fn populate_grow_sizes<IdType>(mut root: Node<IdType>) -> Node<IdType> {
         }
     }
 
-    root.children = root
-        .children
-        .into_iter()
-        .map(|mut c| {
-            if c.desired_width.is_grow() {
-                c.calculated_width = Some(w);
-            }
-            if c.desired_height.is_grow() {
-                c.calculated_height = Some(h);
-            }
-            populate_grow_sizes(c)
-        })
-        .collect();
-
-    root
+    root.children.iter_mut().for_each(|mut c| {
+        if c.desired_width.is_grow() {
+            c.calculated_width = Some(w);
+        }
+        if c.desired_height.is_grow() {
+            c.calculated_height = Some(h);
+        }
+        populate_grow_sizes(c)
+    });
 }
 
 pub struct Tree<IdType> {
@@ -468,11 +451,11 @@ impl<IdType> Tree<IdType> {
         Tree { roots: Vec::new() }
     }
 
-    pub fn add_layout(&mut self, node: Node<IdType>, origin: impl Into<Option<Vec2>>) {
+    pub fn add_layout(&mut self, mut node: Node<IdType>, origin: impl Into<Option<Vec2>>) {
         let origin = origin.into().unwrap_or(Vec2::ZERO);
-        let node = populate_fit_sizes(node);
-        let node = populate_grow_sizes(node);
-        let mut node = populate_positions(node, origin);
+        populate_fit_sizes(&mut node);
+        populate_grow_sizes(&mut node);
+        populate_positions(&mut node, origin);
         assign_layers(&mut node, 0);
         self.roots.push(node);
     }
@@ -500,9 +483,26 @@ impl<IdType> Tree<IdType> {
     }
 }
 
+pub fn write_layout_to_svg<T>(filepath: &str, tree: &Tree<T>) -> Result<(), std::io::Error> {
+    let aabbs: Vec<AABB> = tree
+        .layouts()
+        .iter()
+        .flat_map(|r| r.iter().map(|n| n.aabb()).collect::<Vec<_>>())
+        .collect();
+
+    write_svg(filepath, &aabbs)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::svg::write_svg;
+
+    #[test]
+    fn write_layout() {
+        let tree = crate::examples::example_layout(1700.0, 1200.0);
+        write_layout_to_svg("example_layout.svg", &tree).unwrap();
+    }
 
     #[test]
     fn fixed_dims() {
@@ -530,14 +530,22 @@ mod tests {
         assert_eq!(t2b.x, 574.0);
         assert_eq!(t2b.y, 1439.0);
 
-        let root = Node::<String>::new(Size::Fit, Size::Fit)
+        let mut root = Node::<String>::new(Size::Fit, Size::Fit)
             .with_child(a)
             .with_child(b)
             .with_child(c);
 
-        let dims = root.fixed_dims();
+        populate_fit_sizes(&mut root);
+        populate_grow_sizes(&mut root);
+        populate_positions(&mut root, None);
+        assign_layers(&mut root, 0);
 
-        assert_eq!(dims.x, 1080.0);
+        let aabbs = root.iter().map(|n| n.aabb()).collect::<Vec<_>>();
+        write_svg("boxes.svg", &aabbs).unwrap();
+
+        let dims = root.calculated_dims();
+
+        assert_eq!(dims.x, 1090.0);
         assert_eq!(dims.y, 720.0);
     }
 }

@@ -444,7 +444,7 @@ fn do_ui_sprites(
     mut images: ResMut<Assets<Image>>,
     mut state: ResMut<GameState>,
 ) {
-    if state.actual_time - state.last_redraw < Nanotime::millis(250) {
+    if state.actual_time - state.last_redraw < Nanotime::millis(1000) {
         return;
     }
 
