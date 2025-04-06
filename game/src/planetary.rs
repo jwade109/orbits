@@ -190,6 +190,7 @@ pub struct GameState {
     pub game_mode: GameMode,
 
     pub notifications: Vec<Notification>,
+    pub particles: Vec<(Nanotime, Vec2, Vec2, Nanotime)>,
 }
 
 impl Default for GameState {
@@ -199,6 +200,7 @@ impl Default for GameState {
         GameState {
             current_frame_no: 0,
             mouse: MouseState::default(),
+            camera: CameraState::default(),
             sim_time: Nanotime::zero(),
             actual_time: Nanotime::zero(),
             physics_duration: Nanotime::secs(120),
@@ -208,7 +210,6 @@ impl Default for GameState {
             ids,
             track_list: HashSet::new(),
             backup: Some((scenario, ids, Nanotime::zero())),
-            camera: CameraState::default(),
             hide_debug: true,
             show_graph: false,
             duty_cycle_high: false,
@@ -224,13 +225,14 @@ impl Default for GameState {
             last_redraw: Nanotime::zero(),
             game_mode: GameMode::Default,
             notifications: Vec::new(),
+            particles: Vec::new(),
         }
     }
 }
 
 impl GameState {
     pub fn redraw(&mut self) {
-        // self.last_redraw = Nanotime::zero()
+        self.last_redraw = Nanotime::zero()
     }
 
     pub fn primary(&self) -> Option<ObjectId> {
@@ -272,7 +274,7 @@ impl GameState {
         s
     }
 
-    pub fn toggle_group(&mut self, gid: &GroupId) -> Option<()> {
+    pub fn toggle_group(&mut self, gid: &GroupId) {
         // - if any of the orbiters in the group are not selected,
         //   select all of them
         // - if all of them are already selected, deselect all of them
@@ -288,8 +290,6 @@ impl GameState {
                 self.track_list.insert(id);
             }
         }
-
-        Some(())
     }
 
     pub fn disband_group(&mut self, gid: &GroupId) {
@@ -419,10 +419,32 @@ impl GameState {
         });
     }
 
+    pub fn commit_mission(&mut self) {
+        for orbit in self.queued_orbits.clone() {
+            self.command_selected(&orbit);
+            break;
+        }
+    }
+
+    pub fn is_maneuvering(&self, id: ObjectId) -> Option<(Nanotime, Vec2)> {
+        let m = self.closest_maneuver(id)?;
+        let dt = (m.0 - self.sim_time).abs();
+        (dt.to_secs() < 0.1).then(|| m)
+    }
+
+    pub fn closest_maneuver(&self, id: ObjectId) -> Option<(Nanotime, Vec2)> {
+        let ctrl = self.controllers.iter().find(|c| c.target() == id)?;
+        let plan = ctrl.plan()?;
+        let ts: Vec<_> = plan.dvs().collect();
+        ts.iter()
+            .min_by_key(|(t, _)| (*t - self.sim_time).abs())
+            .cloned()
+    }
+
     pub fn highlighted(&self) -> HashSet<ObjectId> {
         if let Some(a) = self.selection_region() {
             self.scenario
-                .all_ids()
+                .orbiter_ids()
                 .into_iter()
                 .filter_map(|id| {
                     let pv = self.scenario.lup(id, self.sim_time)?.pv();
@@ -443,7 +465,7 @@ impl GameState {
 
         if self
             .scenario
-            .impulsive_burn(id, self.sim_time, dv, 10)
+            .impulsive_burn(id, self.sim_time, dv)
             .is_none()
         {
             self.notify(id, NotificationType::ManeuverFailed(id), None)
@@ -493,10 +515,13 @@ impl GameState {
         kind: NotificationType,
         offset: impl Into<Option<Vec2>>,
     ) {
+        self.redraw();
+
         let notif = Notification {
             parent,
             offset: offset.into().unwrap_or(Vec2::ZERO),
             jitter: Vec2::ZERO,
+            sim_time: self.sim_time,
             wall_time: self.actual_time,
             extra_time: Nanotime::secs_f32(rand(0.0, 1.0)),
             kind,
@@ -513,14 +538,28 @@ impl GameState {
         use crate::ui::GuiNodeId;
 
         match id {
+            GuiNodeId::CurrentBody(id) => self.follow = Some(id),
             GuiNodeId::Orbiter(id) => self.follow = Some(id),
             GuiNodeId::ToggleDrawMode => self.game_mode = self.game_mode.next(),
             GuiNodeId::ClearTracks => self.track_list.clear(),
             GuiNodeId::ClearOrbits => self.queued_orbits.clear(),
-            GuiNodeId::Group(gid) => self.toggle_group(&gid).unwrap(),
+            GuiNodeId::Group(gid) => self.toggle_group(&gid),
             GuiNodeId::CreateGroup => self.create_group(get_group_id()),
+            GuiNodeId::DisbandGroup(gid) => self.disband_group(&gid),
+            GuiNodeId::CommitMission => self.commit_mission(),
             GuiNodeId::Exit => std::process::exit(0),
-            _ => (),
+            GuiNodeId::SimSpeed(s) => {
+                self.sim_speed = s;
+            }
+            GuiNodeId::DeleteOrbit(i) => {
+                self.queued_orbits.remove(i);
+            }
+            GuiNodeId::TogglePause => self.paused = !self.paused,
+            GuiNodeId::GlobalOrbit(i) => {
+                let orbit = self.queued_orbits.get(i)?;
+                self.follow = Some(orbit.0);
+            }
+            _ => info!("Unhandled button event: {id:?}"),
         };
 
         Some(())
@@ -546,8 +585,8 @@ impl GameState {
             self.redraw();
         }
 
-        if let Some(p) = self.mouse.just_right_clicked(self.current_frame_no - 1) {
-            self.context_menu_origin = Some(p);
+        if let Some(_p) = self.mouse.just_right_clicked(self.current_frame_no - 1) {
+            // self.context_menu_origin = Some(p);
             self.redraw();
         }
 
@@ -559,7 +598,7 @@ impl GameState {
             if s > *t {
                 let perturb = randvec(0.01, 0.05);
                 self.scenario.simulate(*t, d);
-                self.scenario.impulsive_burn(*id, *t, dv + perturb, 50);
+                self.scenario.impulsive_burn(*id, *t, dv + perturb);
                 self.notify(*id, NotificationType::OrbitChanged(*id), None);
             } else {
                 break;
@@ -623,6 +662,32 @@ impl GameState {
 
         self.notifications
             .retain(|n| n.wall_time + n.duration() > self.actual_time);
+
+        let maneuvering: Vec<_> = self
+            .scenario
+            .orbiter_ids()
+            .filter_map(|id| self.is_maneuvering(id).map(|man| (id, man.0, man.1)))
+            .collect();
+
+        for (id, _, dv) in maneuvering {
+            if let Some(lup) = self.scenario.lup(id, s) {
+                let pv = lup.pv();
+                let n = 3;
+                for _ in 0..n {
+                    let lifetime = Nanotime::secs_f32(rand(0.04, 0.07));
+                    let u = -dv.normalize_or_zero();
+                    let v = rotate(u, PI / 2.0);
+                    let vel = rand(500.0, 1100.0) * u + rand(-200.0, 200.0) * v;
+                    self.particles
+                        .push((self.actual_time, pv.pos, vel, lifetime));
+                }
+            }
+        }
+
+        self.particles.retain(|(t, _, _, l)| {
+            let dt = self.actual_time - *t;
+            dt < *l
+        });
     }
 }
 
@@ -745,17 +810,11 @@ fn get_group_id() -> GroupId {
 fn process_interaction(
     inter: &InteractionEvent,
     state: &mut GameState,
-    exit: &mut EventWriter<bevy::app::AppExit>,
     window: &mut Window,
 ) -> Option<()> {
     match inter {
         InteractionEvent::Delete => state.delete_objects(),
-        InteractionEvent::CommitMission => {
-            for orbit in state.queued_orbits.clone() {
-                state.command_selected(&orbit);
-                break;
-            }
-        }
+        InteractionEvent::CommitMission => state.commit_mission(),
         InteractionEvent::ClearMissions => {
             state.release_selected();
         }
@@ -823,7 +882,7 @@ fn process_interaction(
             }
         }
         InteractionEvent::ExitApp => {
-            exit.send(bevy::app::AppExit::Success);
+            std::process::exit(0);
         }
         InteractionEvent::Save => {
             state.backup = Some((state.scenario.clone(), state.ids, state.sim_time));
@@ -891,12 +950,11 @@ fn process_interaction(
 fn handle_interactions(
     mut events: EventReader<InteractionEvent>,
     mut state: ResMut<GameState>,
-    mut exit: EventWriter<bevy::app::AppExit>,
     mut window: Single<&mut Window>,
 ) {
     for e in events.read() {
         debug!("Interaction event: {e:?}");
-        process_interaction(e, &mut state, &mut exit, &mut window);
+        process_interaction(e, &mut state, &mut window);
     }
 }
 

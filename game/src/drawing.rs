@@ -13,7 +13,6 @@ use crate::graph::*;
 use crate::mouse::MouseState;
 use crate::notifications::*;
 use crate::planetary::{GameMode, GameState, ShowOrbitsState};
-use layout::layout as ui;
 
 fn draw_cross(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     let dx = Vec2::new(size, 0.0);
@@ -336,15 +335,6 @@ fn draw_scenario(
         };
 
         draw_circle(gizmos, pv.pos + lup.pv().pos, 2.0 * scale, WHITE);
-    }
-
-    if particles {
-        for (t, pos, vel, l) in scenario.particles() {
-            let age = (stamp - *t).to_secs();
-            let p = pos + vel * age;
-            let a = 1.0 - (age / l.to_secs());
-            draw_circle(gizmos, p, 0.6 * scale, WHITE.with_alpha(a));
-        }
     }
 }
 
@@ -762,7 +752,7 @@ pub fn draw_notifications(gizmos: &mut Gizmos, state: &GameState) {
             }
             NotificationType::ManeuverComplete(_) => {
                 // TODO fix circle size
-                draw_circle(gizmos, p, size / 2.0, GREEN.with_alpha(a));
+                // draw_circle(gizmos, p, size / 2.0, GREEN.with_alpha(a));
             }
             NotificationType::ManeuverFailed(_) => {
                 draw_square(gizmos, p, size, RED.with_alpha(a));
@@ -772,7 +762,7 @@ pub fn draw_notifications(gizmos: &mut Gizmos, state: &GameState) {
                 let size = 2.0 * size * (1.0 - s);
                 draw_circle(gizmos, p, size, ORANGE.with_alpha(a));
             }
-            NotificationType::OrbitChanged(_) => draw_square(gizmos, p, size, TEAL.with_alpha(a)),
+            NotificationType::OrbitChanged(_) => (), // draw_square(gizmos, p, size, TEAL.with_alpha(a)),
         }
     }
 }
@@ -823,10 +813,6 @@ pub fn draw_ui_layout(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let wb = state.camera.world_bounds();
     let map = |aabb: AABB| vb.map_box(wb, aabb);
 
-    if state.game_mode == GameMode::Default {
-        return None;
-    }
-
     let fm = |aabb: AABB| {
         let mut aabb = aabb.flip_y_about(0.0);
         aabb.center += Vec2::Y * vb.span.y;
@@ -840,35 +826,10 @@ pub fn draw_ui_layout(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
         .map(|p| state.ui.at(p))
         .flatten()
     {
-        draw_aabb(gizmos, fm(n.aabb()), RED);
+        if n.text_content().is_some() {
+            draw_aabb(gizmos, fm(n.aabb()), RED);
+        }
     }
-
-    // for layout in state.ui.layouts() {
-    //     for node in layout.iter() {
-    //         if !node.is_visible() && !node.is_leaf() {
-    //             continue;
-    //         }
-
-    //         let aabb = fm(node.aabb());
-
-    //         let pos = [
-    //             (state.mouse.left_world(), RED),
-    //             (state.mouse.right_world(), YELLOW),
-    //             (state.mouse.middle_world(), GREEN),
-    //             (state.mouse.current_world(), TEAL),
-    //         ];
-
-    //         for (p, c) in pos {
-    //             if p.map(|p| aabb.contains(p)).unwrap_or(false) {
-    //                 draw_aabb(gizmos, aabb, c);
-    //                 fill_aabb(gizmos, aabb, c.with_alpha(0.1));
-    //                 break;
-    //             } else {
-    //                 // draw_aabb(gizmos, aabb, WHITE.with_alpha(0.4));
-    //             }
-    //         }
-    //     }
-    // }
 
     Some(())
 }
@@ -913,6 +874,18 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
             *p,
             6.0 * state.camera.actual_scale,
             GRAY.with_alpha(0.4),
+        );
+    }
+
+    for (t, pos, vel, l) in &state.particles {
+        let age = (state.actual_time - *t).to_secs();
+        let p = pos + vel * age * state.camera.actual_scale;
+        let a = 1.0 - (age / l.to_secs());
+        draw_circle(
+            &mut gizmos,
+            p,
+            1.2 * state.camera.actual_scale,
+            WHITE.with_alpha(a),
         );
     }
 

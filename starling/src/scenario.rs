@@ -30,15 +30,19 @@ pub enum ScenarioObject<'a> {
 }
 
 #[derive(Debug, Clone)]
-pub struct ObjectLookup<'a>(ScenarioObject<'a>, PV);
+pub struct ObjectLookup<'a>(ObjectId, ScenarioObject<'a>, PV);
 
 impl<'a> ObjectLookup<'a> {
+    pub fn id(&self) -> ObjectId {
+        self.0
+    }
+
     pub fn pv(&self) -> PV {
-        self.1
+        self.2
     }
 
     pub fn orbiter(&self) -> Option<&'a Orbiter> {
-        match self.0 {
+        match self.1 {
             ScenarioObject::Orbiter(o) => Some(o),
             _ => None,
         }
@@ -51,14 +55,14 @@ impl<'a> ObjectLookup<'a> {
     }
 
     pub fn body(&self) -> Option<Body> {
-        match self.0 {
+        match self.1 {
             ScenarioObject::Body(_, b) => Some(b),
             _ => None,
         }
     }
 
     pub fn named_body(&self) -> Option<(&'a String, Body)> {
-        match self.0 {
+        match self.1 {
             ScenarioObject::Body(s, b) => Some((s, b)),
             _ => None,
         }
@@ -158,7 +162,6 @@ pub struct Scenario {
     system: PlanetarySystem,
     debris: Vec<GlobalOrbit>,
     belts: Vec<AsteroidBelt>,
-    particles: Vec<(Nanotime, Vec2, Vec2, Nanotime)>,
 }
 
 impl Scenario {
@@ -168,7 +171,6 @@ impl Scenario {
             system: system.clone(),
             belts: vec![],
             debris: vec![],
-            particles: vec![],
         }
     }
 
@@ -201,10 +203,6 @@ impl Scenario {
 
     pub fn debris(&self) -> impl Iterator<Item = &GlobalOrbit> + use<'_> {
         self.debris.iter()
-    }
-
-    pub fn particles(&self) -> &Vec<(Nanotime, Vec2, Vec2, Nanotime)> {
-        &self.particles
     }
 
     pub fn simulate(
@@ -265,11 +263,6 @@ impl Scenario {
             }
         }
 
-        self.particles.retain(|(t, _, _, l)| {
-            let dt = stamp - *t;
-            dt < *l
-        });
-
         self.debris.retain(|GlobalOrbit(_, orbit)| {
             let dt = stamp - orbit.epoch;
             if dt > Nanotime::secs(5) {
@@ -307,26 +300,9 @@ impl Scenario {
         Some(())
     }
 
-    pub fn impulsive_burn(
-        &mut self,
-        id: ObjectId,
-        stamp: Nanotime,
-        dv: Vec2,
-        particles: u32,
-    ) -> Option<()> {
+    pub fn impulsive_burn(&mut self, id: ObjectId, stamp: Nanotime, dv: Vec2) -> Option<()> {
         let obj = self.orbiters.iter_mut().find(|o| o.id() == id)?;
         obj.impulsive_burn(stamp, dv)?;
-
-        if let Some(lup) = self.lup(id, stamp) {
-            let pv = lup.pv();
-            for _ in 0..particles {
-                let lifetime = Nanotime::secs_f32(rand(0.1, 0.2));
-                let u = dv.normalize_or_zero();
-                let v = rotate(u, PI / 2.0);
-                let vel = pv.vel - rand(300.0, 2200.0) * u + rand(-100.0, 100.0) * v;
-                self.particles.push((stamp, pv.pos, vel, lifetime));
-            }
-        }
 
         Some(())
     }
@@ -347,7 +323,7 @@ impl Scenario {
     pub fn lup(&self, id: ObjectId, stamp: Nanotime) -> Option<ObjectLookup> {
         let pl = self.system.lookup(id, stamp);
         if let Some((body, pv, _, sys)) = pl {
-            return Some(ObjectLookup(ScenarioObject::Body(&sys.name, body), pv));
+            return Some(ObjectLookup(id, ScenarioObject::Body(&sys.name, body), pv));
         }
 
         self.orbiters.iter().find_map(|o| {
@@ -362,7 +338,7 @@ impl Scenario {
             let local_pv = prop.pv(stamp)?;
             let pv = frame_pv + local_pv;
 
-            Some(ObjectLookup(ScenarioObject::Orbiter(o), pv))
+            Some(ObjectLookup(id, ScenarioObject::Orbiter(o), pv))
         })
     }
 

@@ -166,8 +166,9 @@ pub enum GuiNodeId {
     ToggleDrawMode,
     ClearTracks,
     CreateGroup,
+    DisbandGroup(GroupId),
     ClearOrbits,
-    CurrentBody,
+    CurrentBody(ObjectId),
     SelectedCount,
     AutopilotingCount,
     PilotOrbiter,
@@ -175,25 +176,31 @@ pub enum GuiNodeId {
     ToggleDebug,
     TogglePause,
     World,
-    SimSpeed,
+    SimSpeed(i32),
     GlobalOrbit(usize),
+    DeleteOrbit(usize),
     DeleteOrbiter,
     ClearMission,
+    CommitMission,
     FollowOrbiter,
+    Nullopt,
 }
 
 pub fn context_menu(rowsize: f32, items: &[(String, GuiNodeId, bool)]) -> ui::Node<GuiNodeId> {
     use ui::*;
-    Node::new(200, Size::Fit).down().with_children(
-        items
-            .iter()
-            .map(|(s, id, e)| Node::button(s, id.clone(), Size::Grow, rowsize).enabled(*e)),
-    )
+    Node::new(200, Size::Fit)
+        .down()
+        .with_color([0.1, 0.1, 0.1, 1.0])
+        .with_children(items.iter().map(|(s, id, e)| {
+            Node::button(s, id.clone(), Size::Grow, rowsize)
+                .with_color([0.3, 0.3, 0.3, 1.0])
+                .enabled(*e)
+        }))
 }
 
 pub fn orbiter_context_menu(id: ObjectId) -> ui::Node<GuiNodeId> {
     context_menu(
-        40.0,
+        30.0,
         &[
             (format!("Orbiter {}", id), GuiNodeId::Orbiter(id), false),
             ("Delete".into(), GuiNodeId::DeleteOrbiter, true),
@@ -202,6 +209,27 @@ pub fn orbiter_context_menu(id: ObjectId) -> ui::Node<GuiNodeId> {
             ("Follow".into(), GuiNodeId::FollowOrbiter, true),
         ],
     )
+}
+
+pub const DELETE_SOMETHING_COLOR: [f32; 4] = [1.0, 0.0, 0.0, 0.5];
+
+fn delete_wrapper(
+    ondelete: GuiNodeId,
+    button: ui::Node<GuiNodeId>,
+    width: impl Into<ui::Size>,
+    height: impl Into<ui::Size>,
+) -> ui::Node<GuiNodeId> {
+    let height = height.into();
+    let x_button = {
+        let s = "X";
+        ui::Node::button(s, ondelete, height, height).with_color(DELETE_SOMETHING_COLOR)
+    };
+
+    ui::Node::new(width.into(), height)
+        .tight()
+        .invisible()
+        .with_child(x_button)
+        .with_child(button)
 }
 
 pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
@@ -226,17 +254,33 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
 
     let mut sidebar = Node::column(300);
 
-    if let Some((s, _)) = state
+    let body_color_lup: std::collections::HashMap<&'static str, Srgba> =
+        std::collections::HashMap::from([("Earth", BLUE), ("Luna", GRAY), ("Asteroid", BROWN)]);
+
+    if let Some(lup) = state
         .scenario
         .relevant_body(state.camera.world_center, state.sim_time)
         .map(|id| state.scenario.lup(id, state.sim_time))
         .flatten()
-        .map(|lup| lup.named_body())
-        .flatten()
     {
-        sidebar.add_child(
-            Node::button(s, GuiNodeId::CurrentBody, Size::Grow, button_height).enabled(false),
-        );
+        if let Some((s, _)) = lup.named_body() {
+            let color: Srgba = body_color_lup
+                .get(s.as_str())
+                .unwrap_or(&Srgba::from(crate::sprites::hashable_to_color(s)))
+                .with_luminance(0.2)
+                .with_alpha(0.9);
+
+            sidebar.add_child(
+                Node::button(
+                    s,
+                    GuiNodeId::CurrentBody(lup.id()),
+                    Size::Grow,
+                    button_height,
+                )
+                // .enabled(false)
+                .with_color(color.to_f32_array()),
+            );
+        }
     }
 
     sidebar.add_child({
@@ -249,7 +293,7 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
     });
 
     sidebar.add_child(Node::button(
-        "Visual Mode",
+        format!("Visual: {:?}", state.game_mode),
         GuiNodeId::ToggleDrawMode,
         Size::Grow,
         button_height,
@@ -275,14 +319,35 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
         .enabled(!state.queued_orbits.is_empty()),
     );
 
+    sidebar.add_child(
+        Node::button(
+            "Commit Mission",
+            GuiNodeId::CommitMission,
+            Size::Grow,
+            button_height,
+        )
+        .enabled(!state.queued_orbits.is_empty() && !state.track_list.is_empty()),
+    );
+
     if !state.constellations.is_empty() {
         sidebar.add_child(Node::hline());
     }
 
     for gid in state.unique_groups() {
-        let s = format!("GID {}", gid);
+        let color: Srgba = crate::sprites::hashable_to_color(gid)
+            .with_luminance(0.3)
+            .into();
+        let s = format!("{}", gid);
         let id = GuiNodeId::Group(gid.clone());
-        sidebar.add_child(Node::button(s, id, Size::Grow, button_height));
+        let button =
+            Node::button(s, id, Size::Grow, button_height).with_color(color.to_f32_array());
+        let wrapper = delete_wrapper(
+            GuiNodeId::DisbandGroup(gid.clone()),
+            button,
+            Size::Grow,
+            button_height as f32,
+        );
+        sidebar.add_child(wrapper);
     }
 
     sidebar.add_child(Node::hline());
@@ -302,7 +367,12 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
             }
             let id = tracks.get(i as usize)?;
             let s = format!("{id}");
-            Some(Node::grow().with_id(GuiNodeId::Orbiter(**id)).with_text(s))
+            Some(
+                Node::grow()
+                    .with_id(GuiNodeId::Orbiter(**id))
+                    .with_text(s)
+                    .enabled(Some(**id) != state.follow),
+            )
         });
         sidebar.add_child(grid);
 
@@ -340,7 +410,8 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
         sidebar.add_child(Node::button(s, id, Size::Grow, button_height).enabled(false));
     }
 
-    let mut world = Node::grow()
+    let mut inner_topbar = Node::fit()
+        .with_padding(0.0)
         .invisible()
         .with_id(GuiNodeId::World)
         .with_child({
@@ -350,18 +421,66 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
         .with_children((-2..=2).map(|i| {
             Node::button(
                 format!("{i}"),
-                GuiNodeId::SimSpeed,
+                GuiNodeId::SimSpeed(i),
                 button_height,
                 button_height,
             )
             .enabled(i != state.sim_speed)
         }));
 
-    for (i, orbit) in state.queued_orbits.iter().enumerate() {
-        let s = format!("{}", orbit);
-        let id = GuiNodeId::GlobalOrbit(i);
-        world.add_child(Node::button(s, id, 400, button_height));
+    if let Some(id) = state.follow {
+        let s = format!("Following {}", id);
+        let id = GuiNodeId::Nullopt;
+        let n = Node::button(s, id, 180, button_height).enabled(false);
+        inner_topbar.add_child(n);
     }
+
+    for (i, orbit) in state.queued_orbits.iter().enumerate() {
+        let orbit_button = {
+            let s = format!("{}", orbit);
+            let id = GuiNodeId::GlobalOrbit(i);
+            Node::button(s, id, 400, button_height)
+        };
+
+        let n = delete_wrapper(
+            GuiNodeId::DeleteOrbit(i),
+            orbit_button,
+            Size::Fit,
+            button_height as f32,
+        );
+
+        inner_topbar.add_child(n);
+    }
+
+    let notif_bar = Node::fit().down().tight().invisible().with_children(
+        state.notifications.iter().rev().take(10).rev().map(|n| {
+            let s = format!("{}", n);
+            ui::Node::new(600, 28)
+                .with_text(s)
+                .with_color([0.3, 0.3, 0.3, 0.3])
+        }),
+    );
+
+    let world = Node::grow()
+        .down()
+        .invisible()
+        .with_id(GuiNodeId::World)
+        .with_child(
+            Node::grow()
+                .with_id(GuiNodeId::World)
+                .tight()
+                .invisible()
+                .with_child(inner_topbar),
+        )
+        .with_child(
+            Node::grow()
+                .with_id(GuiNodeId::World)
+                .tight()
+                .down()
+                .invisible()
+                .with_child(Node::grow().with_id(GuiNodeId::World).invisible())
+                .with_child(notif_bar),
+        );
 
     let root = Node::new(vb.span.x, vb.span.y)
         .down()
@@ -390,18 +509,13 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
 #[derive(Component)]
 struct UiElement;
 
-fn generate_button_sprite(node: &layout::layout::Node<GuiNodeId>, color: Option<Srgba>) -> Image {
+fn generate_button_sprite(node: &layout::layout::Node<GuiNodeId>) -> Image {
     let aabb = node.aabb();
     let w = (aabb.span.x as u32).max(1);
     let h = (aabb.span.y as u32).max(1);
 
-    let color = color.unwrap_or(if node.is_leaf() && node.is_enabled() {
-        ORANGE.with_luminance(0.4).with_alpha(1.0)
-    } else if node.is_leaf() {
-        GRAY.with_luminance(0.3).with_alpha(0.4)
-    } else {
-        BLACK.with_alpha(0.8)
-    });
+    let color = node.color();
+    let color = Srgba::new(color[0], color[1], color[2], color[3]);
 
     let mut image = Image::new_fill(
         Extent3d {
@@ -418,16 +532,6 @@ fn generate_button_sprite(node: &layout::layout::Node<GuiNodeId>, color: Option<
     image.sampler = bevy::image::ImageSampler::nearest();
 
     if w != 1 && h != 1 && node.is_leaf() {
-        for y in 0..h {
-            for x in 0..w {
-                if x < 3 || y < 3 || x > w - 4 || y > h - 4 {
-                    if let Some(bytes) = image.pixel_bytes_mut(UVec3::new(x, y, 0)) {
-                        bytes[3] = 0;
-                    }
-                }
-            }
-        }
-
         for (x, y) in [(0, 0), (0, h - 1), (w - 1, 0), (w - 1, h - 1)] {
             if let Some(bytes) = image.pixel_bytes_mut(UVec3::new(x, y, 0)) {
                 bytes[3] = 0;
@@ -471,17 +575,7 @@ fn do_ui_sprites(
                 continue;
             }
 
-            let color: Option<Srgba> = if let Some(GuiNodeId::Group(gid)) = n.id() {
-                Some(
-                    crate::sprites::hashable_to_color(gid)
-                        .with_luminance(0.3)
-                        .into(),
-                )
-            } else {
-                None
-            };
-
-            let image = generate_button_sprite(n, color);
+            let image = generate_button_sprite(n);
             let aabb = n.aabb();
 
             let mut c = aabb.center;

@@ -60,6 +60,16 @@ impl Into<Size> for u32 {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct NodeStyle {
+    layout: LayoutDir,
+    child_gap: f32,
+    padding: f32,
+    visible: bool,
+    enabled_color: [f32; 4],
+    disabled_color: [f32; 4],
+}
+
 #[derive(Debug, Clone)]
 pub struct Node<IdType> {
     desired_width: Size,
@@ -68,14 +78,11 @@ pub struct Node<IdType> {
     calculated_height: Option<f32>,
     calculated_position: Option<Vec2>,
     layer: Option<u32>,
-    layout: LayoutDir,
     children: Vec<Node<IdType>>,
-    child_gap: f32,
-    padding: f32,
-    visible: bool,
     id: Option<IdType>,
     text_content: Option<String>,
     enabled: bool,
+    style: NodeStyle,
 }
 
 impl<IdType> Node<IdType> {
@@ -89,19 +96,27 @@ impl<IdType> Node<IdType> {
             calculated_height: h.as_fixed(),
             calculated_position: None,
             layer: None,
-            layout: LayoutDir::LeftToRight,
             children: Vec::new(),
-            child_gap: 10.0,
-            padding: 10.0,
-            visible: true,
             id: None,
             text_content: None,
             enabled: true,
+            style: NodeStyle {
+                layout: LayoutDir::LeftToRight,
+                child_gap: 10.0,
+                padding: 10.0,
+                visible: true,
+                enabled_color: [1.0, 0.6, 0.0, 0.2],
+                disabled_color: [0.2, 0.2, 0.2, 0.8],
+            },
         }
     }
 
     pub fn grow() -> Self {
         Node::new(Size::Grow, Size::Grow)
+    }
+
+    pub fn fit() -> Self {
+        Node::new(Size::Fit, Size::Fit)
     }
 
     pub fn row(height: impl Into<Size>) -> Self {
@@ -122,11 +137,11 @@ impl<IdType> Node<IdType> {
     }
 
     pub fn hline() -> Self {
-        Node::row(0)
+        Node::row(0).with_color([0.0, 0.0, 0.0, 0.5])
     }
 
     pub fn vline() -> Self {
-        Node::column(0)
+        Node::column(0).with_color([0.0, 0.0, 0.0, 0.5])
     }
 
     pub fn enabled(mut self, enabled: bool) -> Self {
@@ -159,7 +174,10 @@ impl<IdType> Node<IdType> {
             .down();
 
         for r in 0..rows {
-            let mut node = Node::grow().with_padding(0.0).with_child_gap(spacing);
+            let mut node = Node::grow()
+                .with_padding(0.0)
+                .with_child_gap(spacing)
+                .invisible();
             for c in 0..cols {
                 let n = match func(i) {
                     Some(n) => n,
@@ -184,44 +202,49 @@ impl<IdType> Node<IdType> {
     }
 
     pub fn with_layout(mut self, layout: LayoutDir) -> Self {
-        self.layout = layout;
+        self.style.layout = layout;
+        self
+    }
+
+    pub fn with_color(mut self, color: [f32; 4]) -> Self {
+        self.style.enabled_color = color;
         self
     }
 
     pub fn right(mut self) -> Self {
-        self.layout = LayoutDir::LeftToRight;
+        self.style.layout = LayoutDir::LeftToRight;
         self
     }
 
     pub fn down(mut self) -> Self {
-        self.layout = LayoutDir::TopToBottom;
+        self.style.layout = LayoutDir::TopToBottom;
         self
     }
 
     pub fn invisible(mut self) -> Self {
-        self.visible = false;
+        self.style.visible = false;
         self
     }
 
     pub fn with_child_gap(mut self, child_gap: f32) -> Self {
-        self.child_gap = child_gap;
+        self.style.child_gap = child_gap;
         self
     }
 
     pub fn with_padding(mut self, padding: f32) -> Self {
-        self.padding = padding;
+        self.style.padding = padding;
         self
     }
 
     pub fn with_spacing(mut self, spacing: f32) -> Self {
-        self.padding = spacing;
-        self.child_gap = spacing;
+        self.style.padding = spacing;
+        self.style.child_gap = spacing;
         self
     }
 
     pub fn tight(mut self) -> Self {
-        self.padding = 0.0;
-        self.child_gap = 0.0;
+        self.style.padding = 0.0;
+        self.style.child_gap = 0.0;
         self
     }
 
@@ -250,7 +273,7 @@ impl<IdType> Node<IdType> {
     }
 
     pub fn is_visible(&self) -> bool {
-        self.visible
+        self.style.visible
     }
 
     pub fn add_child(&mut self, n: Node<IdType>) -> &mut Self {
@@ -260,6 +283,14 @@ impl<IdType> Node<IdType> {
 
     pub fn layer(&self) -> u32 {
         self.layer.unwrap_or(0)
+    }
+
+    pub fn color(&self) -> [f32; 4] {
+        if self.enabled {
+            self.style.enabled_color
+        } else {
+            self.style.disabled_color
+        }
     }
 
     pub fn fixed_dims(&self) -> Vec2 {
@@ -343,15 +374,15 @@ fn populate_positions<'a, IdType: 'a>(
     let origin = origin.into().unwrap_or(Vec2::ZERO);
     root.calculated_position = Some(origin);
 
-    let mut px = origin.x + root.padding;
-    let mut py = origin.y + root.padding;
+    let mut px = origin.x + root.style.padding;
+    let mut py = origin.y + root.style.padding;
 
     root.children.iter_mut().for_each(|n| {
         let dim = n.calculated_dims();
         let o = Vec2::new(px, py);
-        match root.layout {
-            LayoutDir::LeftToRight => px += dim.x + root.child_gap,
-            LayoutDir::TopToBottom => py += dim.y + root.child_gap,
+        match root.style.layout {
+            LayoutDir::LeftToRight => px += dim.x + root.style.child_gap,
+            LayoutDir::TopToBottom => py += dim.y + root.style.child_gap,
         }
         populate_positions(n, o)
     });
@@ -379,10 +410,10 @@ pub fn populate_fit_sizes<IdType>(root: &mut Node<IdType>) {
     root.children.iter_mut().for_each(|n| populate_fit_sizes(n));
 
     let dims = sum_fixed_dims(
-        root.layout,
+        root.style.layout,
         root.children.iter(),
-        root.padding,
-        root.child_gap,
+        root.style.padding,
+        root.style.child_gap,
     );
 
     if root.desired_width.is_fit() {
@@ -402,31 +433,35 @@ pub fn populate_grow_sizes<IdType>(root: &mut Node<IdType>) {
     let n_to_grow: u32 = root
         .children
         .iter()
-        .map(|n| match root.layout {
+        .map(|n| match root.style.layout {
             LayoutDir::LeftToRight => n.desired_width.is_grow(),
             LayoutDir::TopToBottom => n.desired_height.is_grow(),
         } as u32)
         .sum();
 
-    let mut w = root.calculated_width.unwrap_or(0.0) - root.padding * 2.0;
-    let mut h = root.calculated_height.unwrap_or(0.0) - root.padding * 2.0;
+    let mut w = root.calculated_width.unwrap_or(0.0) - root.style.padding * 2.0;
+    let mut h = root.calculated_height.unwrap_or(0.0) - root.style.padding * 2.0;
 
     for c in &root.children {
-        match root.layout {
-            LayoutDir::LeftToRight => w -= (c.calculated_width.unwrap_or(0.0) + root.child_gap),
-            LayoutDir::TopToBottom => h -= (c.calculated_height.unwrap_or(0.0) + root.child_gap),
+        match root.style.layout {
+            LayoutDir::LeftToRight => {
+                w -= (c.calculated_width.unwrap_or(0.0) + root.style.child_gap)
+            }
+            LayoutDir::TopToBottom => {
+                h -= (c.calculated_height.unwrap_or(0.0) + root.style.child_gap)
+            }
         }
     }
 
     let n_to_grow = n_to_grow.max(1);
 
-    match root.layout {
+    match root.style.layout {
         LayoutDir::LeftToRight => {
-            w += root.child_gap;
+            w += root.style.child_gap;
             w /= n_to_grow as f32;
         }
         LayoutDir::TopToBottom => {
-            h += root.child_gap;
+            h += root.style.child_gap;
             h /= n_to_grow as f32;
         }
     }
@@ -484,10 +519,11 @@ impl<IdType> Tree<IdType> {
 }
 
 pub fn write_layout_to_svg<T>(filepath: &str, tree: &Tree<T>) -> Result<(), std::io::Error> {
-    let aabbs: Vec<AABB> = tree
+    let aabbs: Vec<(AABB, [f32; 4])> = tree
         .layouts()
         .iter()
-        .flat_map(|r| r.iter().map(|n| n.aabb()).collect::<Vec<_>>())
+        .flat_map(|r| r.iter().map(|n| n).collect::<Vec<_>>())
+        .filter_map(|n| n.is_visible().then(|| (n.aabb(), n.color())))
         .collect();
 
     write_svg(filepath, &aabbs)
@@ -540,7 +576,10 @@ mod tests {
         populate_positions(&mut root, None);
         assign_layers(&mut root, 0);
 
-        let aabbs = root.iter().map(|n| n.aabb()).collect::<Vec<_>>();
+        let aabbs = root
+            .iter()
+            .map(|n| (n.aabb(), n.color()))
+            .collect::<Vec<_>>();
         write_svg("boxes.svg", &aabbs).unwrap();
 
         let dims = root.calculated_dims();

@@ -5,6 +5,7 @@ pub struct Notification {
     pub parent: ObjectId,
     pub offset: Vec2,
     pub jitter: Vec2,
+    pub sim_time: Nanotime,
     pub wall_time: Nanotime,
     pub extra_time: Nanotime,
     pub kind: NotificationType,
@@ -52,6 +53,6 @@ pub enum NotificationType {
 
 impl std::fmt::Display for Notification {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[{}] ({}) {:?}", self.wall_time, self.parent, self.kind)
+        write!(f, "[{}] ({}) {:?}", self.sim_time, self.parent, self.kind)
     }
 }

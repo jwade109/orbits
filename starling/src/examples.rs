@@ -1,5 +1,4 @@
-use crate::belts::AsteroidBelt;
-use crate::math::{rand, randvec, rotate, PI};
+use crate::math::{rand, randvec, rotate};
 use crate::nanotime::Nanotime;
 use crate::orbits::{Body, SparseOrbit};
 use crate::pv::PV;
