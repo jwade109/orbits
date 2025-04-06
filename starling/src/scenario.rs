@@ -99,6 +99,22 @@ impl PlanetarySystem {
         ret
     }
 
+    pub fn bodies<T: Into<Option<PV>>>(
+        &self,
+        stamp: Nanotime,
+        origin: T,
+    ) -> impl Iterator<Item = (PV, Body)> + use<'_, T> {
+        let origin = origin.into().unwrap_or(PV::zero());
+        let mut ret = vec![(origin, self.body)];
+        for (orbit, sys) in &self.subsystems {
+            if let Ok(pv) = orbit.pv(stamp) {
+                let r = sys.bodies(stamp, pv);
+                ret.extend(r);
+            }
+        }
+        ret.into_iter()
+    }
+
     fn lookup_inner(
         &self,
         id: ObjectId,

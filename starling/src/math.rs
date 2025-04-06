@@ -77,6 +77,41 @@ pub fn bhaskara_sin_approx(x: f32) -> f32 {
     x.signum() * 16.0 * xp * (PI - xp) / (5.0 * PI.powi(2) - 4.0 * xp * (PI - xp))
 }
 
+pub fn is_occluded(light_source: Vec2, test: Vec2, object: Vec2, radius: f32) -> bool {
+    let test = test - light_source;
+    let object = object - light_source;
+
+    //
+    //                      * * *
+    //                   *      /  *
+    //        @ T       *      / r  *
+    //                  *     @     *
+    //                  *      O    *
+    //                   *         *
+    //                      * * *
+    //
+    //   @ L (0, 0)
+    //
+
+    let dobj = object.length();
+
+    if object.distance(test) < radius {
+        return true;
+    }
+
+    if dobj < radius {
+        return true;
+    }
+
+    if test.length() < dobj {
+        return false;
+    }
+
+    let angular_radius = (radius / dobj).asin();
+    let angle = test.angle_to(object);
+    angle.abs() < angular_radius
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

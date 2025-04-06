@@ -212,6 +212,7 @@ pub fn orbiter_context_menu(id: ObjectId) -> ui::Node<GuiNodeId> {
 }
 
 pub const DELETE_SOMETHING_COLOR: [f32; 4] = [1.0, 0.0, 0.0, 0.5];
+pub const UI_BACKGROUND_COLOR: [f32; 4] = [0.1, 0.1, 0.1, 0.7];
 
 fn delete_wrapper(
     ondelete: GuiNodeId,
@@ -248,11 +249,12 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
     tracked_ids.sort();
 
     let topbar = Node::row(Size::Fit)
+        .with_color(UI_BACKGROUND_COLOR)
         .with_children((0..5).map(|_| Node::new(80, small_button_height)))
         .with_child(Node::grow().invisible())
         .with_child(Node::button("Exit", GuiNodeId::Exit, 80, Size::Grow));
 
-    let mut sidebar = Node::column(300);
+    let mut sidebar = Node::column(300).with_color(UI_BACKGROUND_COLOR);
 
     let body_color_lup: std::collections::HashMap<&'static str, Srgba> =
         std::collections::HashMap::from([("Earth", BLUE), ("Luna", GRAY), ("Asteroid", BROWN)]);

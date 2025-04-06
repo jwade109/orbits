@@ -950,6 +950,13 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         state.game_mode,
     );
 
+    draw_x(
+        &mut gizmos,
+        state.light_source(),
+        20.0 * state.camera.actual_scale,
+        RED.with_alpha(0.2),
+    );
+
     draw_highlighted_objects(&mut gizmos, &state);
 
     draw_notifications(&mut gizmos, &state);

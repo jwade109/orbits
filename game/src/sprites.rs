@@ -2,6 +2,7 @@ use crate::planetary::{GameMode, GameState};
 use bevy::asset::embedded_asset;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
+use starling::math::is_occluded;
 use starling::prelude::*;
 
 pub struct SpritePlugin;
@@ -22,8 +23,7 @@ const SPACECRAFT_Z_INDEX: f32 = 6.0;
 const PLANET_Z_INDEX: f32 = 5.0;
 const EXPECTED_PLANET_SPRITE_SIZE: u32 = 1000;
 
-const EXPECTED_SHADOW_SPRITE_HEIGHT: u32 = 50;
-const EXPECTED_SHADOW_SPRITE_WIDTH: u32 = 6000;
+const EXPECTED_SHADOW_SPRITE_HEIGHT: u32 = 1000;
 
 #[derive(Component)]
 #[require(Transform)]
@@ -59,8 +59,9 @@ pub fn make_new_sprites(
                 let sprite = Sprite::from_image(asset_server.load(path));
                 commands.spawn((PlanetTexture(id, name.clone()), sprite));
 
-                let sprite =
+                let mut sprite =
                     Sprite::from_image(asset_server.load("embedded://game/../assets/shadow.png"));
+                sprite.color = RED.into();
                 commands.spawn((ShadowTexture(id), sprite));
             }
         }
@@ -124,6 +125,7 @@ pub fn update_shadow_sprites(
             Some(lup) => lup,
             None => {
                 commands.entity(e).despawn();
+                println!("Despawn shadow for {}", id);
                 continue;
             }
         };
@@ -141,11 +143,9 @@ pub fn update_shadow_sprites(
             }
         };
 
-        let angle = state.sim_time.to_secs() / 1000.0;
+        let angle = PI - state.light_source().angle_to(Vec2::X);
         let scale = (2.0 * body.radius) / EXPECTED_SHADOW_SPRITE_HEIGHT as f32;
-        let w = EXPECTED_SHADOW_SPRITE_WIDTH as f32 * scale;
-        let ds = rotate(Vec2::X * w / 2.0, angle);
-        transform.translation = (lup.pv().pos + ds).extend(SHADOW_Z_INDEX);
+        transform.translation = (lup.pv().pos).extend(SHADOW_Z_INDEX);
         transform.scale = Vec3::new(scale, scale, 1.0);
         transform.rotation = Quat::from_rotation_z(angle);
     }
@@ -166,10 +166,22 @@ pub fn hashable_to_color(h: &impl std::hash::Hash) -> Hsla {
 
 pub fn update_spacecraft_sprites(
     mut commands: Commands,
-    mut query: Query<(Entity, &mut SpacecraftTexture, &mut Transform, &mut Sprite)>,
+    mut query: Query<(
+        Entity,
+        &mut SpacecraftTexture,
+        &mut Transform,
+        &mut Sprite,
+        &mut Visibility,
+    )>,
     state: Res<GameState>,
 ) {
-    for (e, mut x, mut transform, mut s) in query.iter_mut() {
+    let bodies: Vec<_> = state
+        .scenario
+        .planets()
+        .bodies(state.sim_time, None)
+        .collect();
+
+    for (e, mut x, mut transform, mut s, mut vis) in query.iter_mut() {
         let SpacecraftTexture(id, scale) = *x;
         let lup = state.scenario.lup(id, state.sim_time);
         let orbiter = lup.as_ref().map(|lup| lup.orbiter()).flatten();
@@ -180,60 +192,78 @@ pub fn update_spacecraft_sprites(
                 SPACECRAFT_Z_INDEX
             };
 
-            transform.translation = lup.pv().pos.extend(z_index);
+            let pos = lup.pv().pos;
 
-            let gid = match state.game_mode {
-                GameMode::Constellations => state.group_membership(&id),
-                _ => None,
-            };
+            transform.translation = pos.extend(z_index);
 
-            let target_scale = match state.game_mode {
-                GameMode::Constellations => {
-                    if state.track_list.is_empty() && gid.is_some() {
-                        SPACECRAFT_DEFAULT_SCALE
-                    } else if state.track_list.contains(&id) {
-                        SPACECRAFT_MAGNIFIED_SCALE
-                    } else {
-                        SPACECRAFT_DIMINISHED_SCALE
-                    }
-                }
-                _ => {
-                    if state.track_list.is_empty() {
-                        SPACECRAFT_DEFAULT_SCALE
-                    } else if state.track_list.contains(&id) {
-                        SPACECRAFT_MAGNIFIED_SCALE
-                    } else {
-                        SPACECRAFT_DIMINISHED_SCALE
-                    }
-                }
-            };
+            let (target_scale, color) = if state.game_mode == GameMode::Default {
+                let light_source = state.light_source();
 
-            s.color = match state.game_mode {
-                GameMode::Default => {
-                    if state.track_list.is_empty() {
-                        WHITE
-                    } else if state.track_list.contains(&id) {
-                        WHITE
-                    } else {
-                        WHITE.with_alpha(0.2)
-                    }
-                }
-                GameMode::Constellations => {
-                    if let Some(gid) = gid {
-                        hashable_to_color(gid).into()
-                    } else {
-                        WHITE.with_alpha(0.2)
-                    }
-                }
-                GameMode::Stability => match orbiter.is_indefinitely_stable() {
+                let is_lit = bodies
+                    .iter()
+                    .all(|(pv, body)| !is_occluded(light_source, pos, pv.pos, body.radius));
+
+                let scale = if state.track_list.contains(&id) {
+                    SPACECRAFT_MAGNIFIED_SCALE
+                } else if !is_lit {
+                    0.0
+                } else if state.track_list.is_empty() {
+                    SPACECRAFT_DEFAULT_SCALE
+                } else {
+                    SPACECRAFT_DIMINISHED_SCALE
+                };
+
+                let color = if state.track_list.is_empty() {
+                    WHITE
+                } else if state.track_list.contains(&id) {
+                    WHITE
+                } else {
+                    WHITE.with_alpha(0.2)
+                };
+
+                (scale, color)
+            } else if state.game_mode == GameMode::Constellations {
+                let gid = match state.game_mode {
+                    GameMode::Constellations => state.group_membership(&id),
+                    _ => None,
+                };
+
+                let scale = if state.track_list.is_empty() && gid.is_some() {
+                    SPACECRAFT_DEFAULT_SCALE
+                } else if state.track_list.contains(&id) {
+                    SPACECRAFT_MAGNIFIED_SCALE
+                } else {
+                    SPACECRAFT_DIMINISHED_SCALE
+                };
+
+                let color = if let Some(gid) = gid {
+                    hashable_to_color(gid).into()
+                } else {
+                    WHITE.with_alpha(0.2)
+                };
+
+                (scale, color)
+            } else {
+                // stability
+                let scale = if state.track_list.is_empty() {
+                    SPACECRAFT_DEFAULT_SCALE
+                } else if state.track_list.contains(&id) {
+                    SPACECRAFT_MAGNIFIED_SCALE
+                } else {
+                    SPACECRAFT_DIMINISHED_SCALE
+                };
+
+                let color = match orbiter.is_indefinitely_stable() {
                     true => TEAL,
                     false => ORANGE,
-                },
-            }
-            .into();
+                };
 
+                (scale, color)
+            };
+
+            s.color = color.into();
             transform.scale = Vec3::splat(scale * state.camera.actual_scale);
-            x.1 += (target_scale - scale) * 0.1;
+            x.1 += (target_scale - scale) * 0.2;
         } else {
             commands.entity(e).despawn();
         }
