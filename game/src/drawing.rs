@@ -207,10 +207,10 @@ fn draw_propagator(
     planets: &PlanetarySystem,
     prop: &Propagator,
     stamp: Nanotime,
+    wall_time: Nanotime,
     scale: f32,
     with_event: bool,
     color: Srgba,
-    duty_cycle: bool,
 ) -> Option<()> {
     let (_, parent_pv, _, _) = planets.lookup(prop.parent(), stamp)?;
 
@@ -218,7 +218,7 @@ fn draw_propagator(
     if with_event {
         if let Some((t, e)) = prop.stamped_event() {
             let pv_end = parent_pv + prop.pv(t)?;
-            draw_event(gizmos, planets, &e, t, pv_end.pos, scale, duty_cycle);
+            draw_event(gizmos, planets, &e, t, wall_time, pv_end.pos, scale);
         }
     }
     Some(())
@@ -229,24 +229,26 @@ fn draw_object(
     planets: &PlanetarySystem,
     obj: &Orbiter,
     stamp: Nanotime,
+    wall_time: Nanotime,
     scale: f32,
     show_orbits: ShowOrbitsState,
     tracked: bool,
     followed: bool,
-    duty_cycle: bool,
 ) -> Option<()> {
     let pv = obj.pv(stamp, planets)?;
 
+    let blinking = is_blinking(wall_time, pv.pos);
+
     let size = (4.0 * scale).min(10.0);
-    if duty_cycle && obj.will_collide() {
+    if blinking && obj.will_collide() {
         draw_circle(gizmos, pv.pos, size + 10.0 * scale, RED);
         draw_circle(gizmos, pv.pos, size + 16.0 * scale, RED);
-    } else if duty_cycle && obj.has_error() {
+    } else if blinking && obj.has_error() {
         draw_circle(gizmos, pv.pos, size + 10.0 * scale, YELLOW);
         draw_circle(gizmos, pv.pos, size + 16.0 * scale, YELLOW);
-    } else if duty_cycle && obj.will_change() {
+    } else if blinking && obj.will_change() {
         draw_circle(gizmos, pv.pos, size + 7.0 * scale, TEAL);
-    } else if duty_cycle && obj.remaining_dv() < 5.0 {
+    } else if blinking && obj.remaining_dv() < 5.0 {
         draw_triangle(gizmos, pv.pos, size + 20.0 * scale, BLUE);
     }
 
@@ -270,9 +272,7 @@ fn draw_object(
                 TEAL.with_alpha((1.0 - i as f32 * 0.3).max(0.0))
             };
             if show_orbits {
-                draw_propagator(
-                    gizmos, planets, &prop, stamp, scale, true, color, duty_cycle,
-                );
+                draw_propagator(gizmos, planets, &prop, stamp, wall_time, scale, true, color);
             }
         }
     } else {
@@ -283,10 +283,10 @@ fn draw_object(
                 planets,
                 prop,
                 stamp,
+                wall_time,
                 scale,
                 false,
                 GRAY.with_alpha(0.02),
-                duty_cycle,
             );
         }
     }
@@ -297,10 +297,10 @@ fn draw_scenario(
     gizmos: &mut Gizmos,
     scenario: &Scenario,
     stamp: Nanotime,
+    wall_time: Nanotime,
     scale: f32,
     show_orbits: ShowOrbitsState,
     track_list: &HashSet<ObjectId>,
-    duty_cycle: bool,
     followed: Option<ObjectId>,
     mode: GameMode,
 ) {
@@ -327,11 +327,11 @@ fn draw_scenario(
                 scenario.planets(),
                 obj,
                 stamp,
+                wall_time,
                 scale,
                 show_orbits,
                 is_tracked,
                 followed.map(|f| f == id).unwrap_or(false),
-                duty_cycle,
             )
         })
         .collect::<Vec<_>>();
@@ -404,12 +404,18 @@ fn draw_scalar_field(gizmos: &mut Gizmos, scalar_field: &impl Fn(Vec2) -> f32, l
 
 fn draw_event_marker_at(
     gizmos: &mut Gizmos,
+    wall_time: Nanotime,
     event: &EventType,
     p: Vec2,
     scale: f32,
-    duty_cycle: bool,
 ) {
-    if !duty_cycle {
+    let blinking = is_blinking(wall_time, p);
+
+    if !blinking {
+        return;
+    }
+
+    if !blinking {
         match event {
             EventType::NumericalError => return,
             EventType::Collide(_) => return,
@@ -437,15 +443,15 @@ fn draw_event(
     planets: &PlanetarySystem,
     event: &EventType,
     stamp: Nanotime,
+    wall_time: Nanotime,
     p: Vec2,
     scale: f32,
-    duty_cycle: bool,
 ) -> Option<()> {
     if let EventType::Encounter(id) = event {
         let (body, pv, _, _) = planets.lookup(*id, stamp)?;
         draw_circle(gizmos, pv.pos, body.soi, ORANGE.with_alpha(0.2));
     }
-    draw_event_marker_at(gizmos, event, p, scale, duty_cycle);
+    draw_event_marker_at(gizmos, wall_time, event, p, scale);
     Some(())
 }
 
@@ -464,12 +470,11 @@ fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) {
 fn draw_controller(
     gizmos: &mut Gizmos,
     stamp: Nanotime,
+    wall_time: Nanotime,
     ctrl: &Controller,
     scenario: &Scenario,
     scale: f32,
-    actual_time: Nanotime,
     tracked: bool,
-    wall_time: Nanotime,
 ) -> Option<()> {
     let lup = scenario.lup(ctrl.target(), stamp)?;
     let parent = lup.parent(stamp)?;
@@ -479,8 +484,8 @@ fn draw_controller(
     let origin = parent_lup.pv().pos;
 
     let secs = 2;
-    let t_start = actual_time.floor(Nanotime::PER_SEC * secs);
-    let dt = (actual_time - t_start).to_secs();
+    let t_start = wall_time.floor(Nanotime::PER_SEC * secs);
+    let dt = (wall_time - t_start).to_secs();
     let r = (8.0 + dt * 30.0) * scale;
     let a = 0.03 * (1.0 - dt / secs as f32).powi(3);
 
@@ -494,13 +499,20 @@ fn draw_controller(
     Some(())
 }
 
+fn is_blinking(wall_time: Nanotime, pos: impl Into<Option<Vec2>>) -> bool {
+    let r = pos.into().unwrap_or(Vec2::ZERO).length();
+    let clock = (wall_time % Nanotime::secs(1)).to_secs();
+    let offset = (r / 5000. - clock * 2.0 * PI).sin();
+    offset >= 0.0
+}
+
 fn draw_event_animation(
     gizmos: &mut Gizmos,
     scenario: &Scenario,
     id: ObjectId,
     stamp: Nanotime,
     scale: f32,
-    duty_cycle: bool,
+    wall_time: Nanotime,
 ) -> Option<()> {
     let obj = scenario.lup(id, stamp)?.orbiter()?;
     let p = obj.props().last()?;
@@ -514,7 +526,7 @@ fn draw_event_animation(
     for prop in obj.props() {
         if let Some((t, e)) = prop.stamped_event() {
             let pv = obj.pv(t, scenario.planets())?;
-            draw_event_marker_at(gizmos, &e, pv.pos, scale, duty_cycle);
+            draw_event_marker_at(gizmos, wall_time, &e, pv.pos, scale);
         }
     }
     if let Some(t) = p.end() {
@@ -772,7 +784,7 @@ pub fn draw_notifications(gizmos: &mut Gizmos, state: &GameState) {
         };
 
         let size = 20.0 * state.camera.actual_scale;
-        let s = (state.actual_time - notif.wall_time).to_secs() / notif.duration().to_secs();
+        let s = (state.wall_time - notif.wall_time).to_secs() / notif.duration().to_secs();
         let a = (1.0 - 2.0 * s).max(0.2);
 
         match notif.kind {
@@ -925,17 +937,8 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         draw_region(&mut gizmos, a, RED, Vec2::ZERO);
     }
 
-    for p in &state.control_points() {
-        draw_circle(
-            &mut gizmos,
-            *p,
-            6.0 * state.camera.actual_scale,
-            GRAY.with_alpha(0.4),
-        );
-    }
-
     for (t, pos, vel, l) in &state.particles {
-        let age = (state.actual_time - *t).to_secs();
+        let age = (state.wall_time - *t).to_secs();
         let p = pos + vel * age * state.camera.actual_scale;
         let a = 1.0 - (age / l.to_secs());
         draw_circle(
@@ -950,8 +953,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         draw_global_orbit(&mut gizmos, orbit, &state, RED);
     }
 
-    if let Some(orbit) = state
-        .duty_cycle_high
+    if let Some(orbit) = is_blinking(state.wall_time, None)
         .then(|| {
             state
                 .current_hover_ui()
@@ -978,12 +980,11 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         draw_controller(
             &mut gizmos,
             state.sim_time,
+            state.wall_time,
             ctrl,
             &state.scenario,
             state.camera.actual_scale,
-            state.actual_time,
             tracked,
-            state.actual_time,
         );
     }
 
@@ -995,7 +996,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
                 *id,
                 state.sim_time,
                 state.camera.actual_scale,
-                state.duty_cycle_high,
+                state.wall_time,
             );
         }
     }
@@ -1004,10 +1005,10 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         &mut gizmos,
         &state.scenario,
         stamp,
+        state.wall_time,
         state.camera.actual_scale,
         state.show_orbits,
         &state.track_list,
-        state.duty_cycle_high,
         state.follow,
         state.game_mode,
     );

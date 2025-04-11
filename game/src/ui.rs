@@ -36,7 +36,7 @@ pub enum InteractionEvent {
     DisbandGroup(GroupId),
     CreateGroup,
     ContextDependent,
-    SelectionMode,
+    CursorMode,
     GameMode,
     RedrawGui,
     ToggleFullscreen,
@@ -185,6 +185,7 @@ pub enum GuiNodeId {
     ClearMission,
     CommitMission,
     FollowOrbiter,
+    CursorMode,
     Nullopt,
 }
 
@@ -245,10 +246,6 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
     if vb.span.x == 0.0 || vb.span.y == 0.0 {
         return None;
     }
-
-    let mut tracked_ids: Vec<_> = state.track_list.iter().collect();
-
-    tracked_ids.sort();
 
     let topbar = Node::row(Size::Fit)
         .with_color(UI_BACKGROUND_COLOR)
@@ -335,6 +332,13 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
         .enabled(!state.queued_orbits.is_empty() && !state.track_list.is_empty()),
     );
 
+    sidebar.add_child(Node::button(
+        format!("Cursor: {:?}", state.selection_mode),
+        GuiNodeId::CursorMode,
+        Size::Grow,
+        button_height,
+    ));
+
     if !state.constellations.is_empty() {
         sidebar.add_child(Node::hline());
     }
@@ -363,35 +367,38 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
         Node::button(s, GuiNodeId::SelectedCount, Size::Grow, button_height).enabled(false)
     });
 
-    if !state.track_list.is_empty() {
-        let max_cells = 32;
-        let tracks = state.track_list.iter().collect::<Vec<_>>();
-        let rows = (tracks.len().min(max_cells) as f32 / 4.0).ceil() as u32;
+    let orbiter_list = |root: &mut Node<GuiNodeId>, max_cells: usize, mut ids: Vec<ObjectId>| {
+        ids.sort();
+
+        let rows = (ids.len().min(max_cells) as f32 / 4.0).ceil() as u32;
         let grid = Node::grid(Size::Grow, rows * button_height, rows, 4, 4.0, |i| {
             if i as usize > max_cells {
                 return None;
             }
-            let id = tracks.get(i as usize)?;
+            let id = ids.get(i as usize)?;
             let s = format!("{id}");
             Some(
                 Node::grow()
-                    .with_id(GuiNodeId::Orbiter(**id))
+                    .with_id(GuiNodeId::Orbiter(*id))
                     .with_text(s)
-                    .enabled(Some(**id) != state.follow),
+                    .enabled(Some(*id) != state.follow),
             )
         });
-        sidebar.add_child(grid);
+        root.add_child(grid);
 
-        if state.track_list.len() > max_cells {
-            let n = state.track_list.len() - max_cells;
+        if ids.len() > max_cells {
+            let n = ids.len() - max_cells;
             let s = format!("...And {} more", n);
-            sidebar.add_child(
+            root.add_child(
                 Node::new(Size::Grow, button_height)
                     .with_text(s)
                     .enabled(false),
             );
         }
+    };
 
+    if !state.track_list.is_empty() {
+        orbiter_list(&mut sidebar, 32, state.track_list.iter().cloned().collect());
         sidebar.add_child(Node::button(
             "Create Group",
             GuiNodeId::CreateGroup,
@@ -414,6 +421,9 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
         let s = format!("{} autopiloting", state.controllers.len());
         let id = GuiNodeId::AutopilotingCount;
         sidebar.add_child(Node::button(s, id, Size::Grow, button_height).enabled(false));
+
+        let ids = state.controllers.iter().map(|c| c.target()).collect();
+        orbiter_list(&mut sidebar, 16, ids);
     }
 
     let mut inner_topbar = Node::fit()
@@ -537,13 +547,13 @@ fn generate_button_sprite(node: &layout::layout::Node<GuiNodeId>) -> Image {
 
     image.sampler = bevy::image::ImageSampler::nearest();
 
-    if w != 1 && h != 1 && node.is_leaf() {
-        for (x, y) in [(0, 0), (0, h - 1), (w - 1, 0), (w - 1, h - 1)] {
-            if let Some(bytes) = image.pixel_bytes_mut(UVec3::new(x, y, 0)) {
-                bytes[3] = 0;
-            }
-        }
-    }
+    // if w != 1 && h != 1 && node.is_leaf() {
+    //     for (x, y) in [(0, 0), (0, h - 1), (w - 1, 0), (w - 1, h - 1)] {
+    //         if let Some(bytes) = image.pixel_bytes_mut(UVec3::new(x, y, 0)) {
+    //             bytes[3] = 0;
+    //         }
+    //     }
+    // }
 
     image
 }
@@ -554,7 +564,7 @@ fn do_ui_sprites(
     mut images: ResMut<Assets<Image>>,
     mut state: ResMut<GameState>,
 ) {
-    let ui_age = state.actual_time - state.last_redraw;
+    let ui_age = state.wall_time - state.last_redraw;
 
     if ui_age < Nanotime::millis(50) {
         return;
@@ -579,7 +589,7 @@ fn do_ui_sprites(
         None => ui::Tree::new(),
     };
 
-    state.last_redraw = state.actual_time;
+    state.last_redraw = state.wall_time;
     state.redraw_requested = false;
 
     for (lid, layout) in state.ui.layouts().iter().enumerate() {

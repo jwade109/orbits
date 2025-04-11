@@ -130,7 +130,11 @@ pub enum GameMode {
     Occlusion,
 }
 
-impl GameMode {
+trait EnumIter {
+    fn next(&self) -> Self;
+}
+
+impl EnumIter for GameMode {
     fn next(&self) -> Self {
         match self {
             GameMode::Default => GameMode::Constellations,
@@ -142,18 +146,20 @@ impl GameMode {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum SelectionMode {
+pub enum CursorMode {
     Rect,
     Altitude,
     NearOrbit,
+    Scratch,
 }
 
-impl SelectionMode {
+impl EnumIter for CursorMode {
     fn next(&self) -> Self {
         match self {
-            SelectionMode::Rect => SelectionMode::Altitude,
-            SelectionMode::Altitude => SelectionMode::NearOrbit,
-            SelectionMode::NearOrbit => SelectionMode::Rect,
+            CursorMode::Rect => CursorMode::Altitude,
+            CursorMode::Altitude => CursorMode::NearOrbit,
+            CursorMode::NearOrbit => CursorMode::Scratch,
+            CursorMode::Scratch => CursorMode::Rect,
         }
     }
 }
@@ -166,7 +172,7 @@ pub struct GameState {
     pub camera: CameraState,
 
     pub sim_time: Nanotime,
-    pub actual_time: Nanotime,
+    pub wall_time: Nanotime,
     pub physics_duration: Nanotime,
     pub sim_speed: i32,
     pub paused: bool,
@@ -176,7 +182,6 @@ pub struct GameState {
     pub track_list: HashSet<ObjectId>,
     pub hide_debug: bool,
     pub show_graph: bool,
-    pub duty_cycle_high: bool,
     pub controllers: Vec<Controller>,
     pub follow: Option<ObjectId>,
     pub user_maneuvers: HashMap<ObjectId, (Nanotime, Vec2)>,
@@ -184,7 +189,7 @@ pub struct GameState {
     pub show_animations: bool,
     pub queued_orbits: Vec<GlobalOrbit>,
     pub constellations: HashMap<ObjectId, GroupId>,
-    pub selection_mode: SelectionMode,
+    pub selection_mode: CursorMode,
 
     pub ui: ui::Tree<crate::ui::GuiNodeId>,
     pub context_menu_origin: Option<Vec2>,
@@ -207,7 +212,7 @@ impl Default for GameState {
             mouse: MouseState::default(),
             camera: CameraState::default(),
             sim_time: Nanotime::zero(),
-            actual_time: Nanotime::zero(),
+            wall_time: Nanotime::zero(),
             physics_duration: Nanotime::secs(120),
             sim_speed: 0,
             paused: false,
@@ -217,7 +222,6 @@ impl Default for GameState {
             backup: Some((scenario, ids, Nanotime::zero())),
             hide_debug: true,
             show_graph: false,
-            duty_cycle_high: false,
             controllers: vec![],
             follow: None,
             user_maneuvers: HashMap::new(),
@@ -225,10 +229,10 @@ impl Default for GameState {
             show_animations: false,
             queued_orbits: Vec::new(),
             constellations: HashMap::new(),
-            selection_mode: SelectionMode::Rect,
+            selection_mode: CursorMode::Rect,
             ui: ui::Tree::new(),
             context_menu_origin: None,
-            redraw_requested: false,
+            redraw_requested: true,
             last_redraw: Nanotime::zero(),
             game_mode: GameMode::Default,
             notifications: Vec::new(),
@@ -323,30 +327,33 @@ impl GameState {
         dvs
     }
 
-    pub fn control_points(&self) -> Vec<Vec2> {
-        self.mouse
-            .right_world()
-            .into_iter()
-            .chain(self.mouse.current_world().into_iter())
-            .collect()
-    }
-
     pub fn selection_region(&self) -> Option<Region> {
+        let mouse: &MouseState = self.mouse_if_world()?;
         match self.selection_mode {
-            SelectionMode::Rect => self
-                .mouse
+            CursorMode::Rect => mouse
                 .left_world()
                 .zip(self.mouse.current_world())
                 .map(|(a, b)| Region::aabb(a, b)),
-            SelectionMode::Altitude => self
-                .mouse
+            CursorMode::Altitude => mouse
                 .left_world()
                 .zip(self.mouse.current_world())
                 .map(|(a, b)| Region::altitude(a, b)),
-            SelectionMode::NearOrbit => self
+            CursorMode::NearOrbit => self
                 .left_cursor_orbit()
                 .map(|GlobalOrbit(_, orbit)| Region::NearOrbit(orbit, 50.0)),
+            CursorMode::Scratch => None,
         }
+    }
+
+    pub fn current_clicked_gui_element(&self) -> Option<crate::ui::GuiNodeId> {
+        let p = self.mouse.left().or(self.mouse.right())?;
+        let q = Vec2::new(p.x, self.camera.viewport_bounds().span.y - p.y);
+        self.ui.at(q).map(|n| n.id()).flatten().cloned()
+    }
+
+    pub fn mouse_if_world<'a>(&'a self) -> Option<&'a MouseState> {
+        let id = self.current_clicked_gui_element()?;
+        (id == crate::ui::GuiNodeId::World).then(|| &self.mouse)
     }
 
     pub fn cursor_pv(&self, p1: Vec2, p2: Vec2) -> Option<PV> {
@@ -377,11 +384,13 @@ impl GameState {
     }
 
     pub fn left_cursor_orbit(&self) -> Option<GlobalOrbit> {
-        self.cursor_orbit(self.mouse.left_world()?, self.mouse.current_world()?)
+        let mouse = self.mouse_if_world()?;
+        self.cursor_orbit(mouse.left_world()?, self.mouse.current_world()?)
     }
 
     pub fn right_cursor_orbit(&self) -> Option<GlobalOrbit> {
-        self.cursor_orbit(self.mouse.right_world()?, self.mouse.current_world()?)
+        let mouse = self.mouse_if_world()?;
+        self.cursor_orbit(mouse.right_world()?, self.mouse.current_world()?)
     }
 
     pub fn follow_position(&self) -> Option<Vec2> {
@@ -437,7 +446,7 @@ impl GameState {
     pub fn is_maneuvering(&self, id: ObjectId) -> Option<(Nanotime, Vec2)> {
         // this is a stupid function
         if let Some((t, dv)) = self.user_maneuvers.get(&id) {
-            let dt = (*t - self.actual_time).abs();
+            let dt = (*t - self.wall_time).abs();
             if dt.to_secs() < 0.05 {
                 return Some((*t, *dv));
             }
@@ -487,7 +496,7 @@ impl GameState {
             self.notify(id, NotificationType::ManeuverFailed(id), None)
         } else {
             self.notify(id, NotificationType::OrbitChanged(id), None);
-            self.user_maneuvers.insert(id, (self.actual_time, dv));
+            self.user_maneuvers.insert(id, (self.wall_time, dv));
         }
 
         self.scenario.simulate(self.sim_time, self.physics_duration);
@@ -539,7 +548,7 @@ impl GameState {
             offset: offset.into().unwrap_or(Vec2::ZERO),
             jitter: Vec2::ZERO,
             sim_time: self.sim_time,
-            wall_time: self.actual_time,
+            wall_time: self.wall_time,
             extra_time: Nanotime::secs_f32(rand(0.0, 1.0)),
             kind,
         };
@@ -592,6 +601,7 @@ impl GameState {
                 dbg!(files);
             }
             GuiNodeId::ToggleDebug => self.hide_debug = !self.hide_debug,
+            GuiNodeId::CursorMode => self.selection_mode = self.selection_mode.next(),
             _ => info!("Unhandled button event: {id:?}"),
         };
 
@@ -604,17 +614,7 @@ impl GameState {
         self.ui.at(q).map(|n| n.id()).flatten()
     }
 
-    pub fn step(&mut self, time: &Time) {
-        self.current_frame_no += 1;
-        let old_sim_time = self.sim_time;
-        self.actual_time += Nanotime::nanos(time.delta().as_nanos() as i64);
-        if !self.paused {
-            let sp = 10.0f32.powi(self.sim_speed);
-            self.sim_time += Nanotime::nanos((time.delta().as_nanos() as f32 * sp) as i64);
-        }
-
-        self.duty_cycle_high = time.elapsed().as_millis() % 1000 < 500;
-
+    fn handle_click_events(&mut self) {
         if let Some(p) = self.mouse.just_left_clicked(self.current_frame_no - 1) {
             let q = Vec2::new(p.x, self.camera.viewport_bounds().span.y - p.y);
             if let Some(n) = self.ui.at(q).map(|n| n.id()).flatten() {
@@ -625,9 +625,20 @@ impl GameState {
         }
 
         if let Some(_p) = self.mouse.just_right_clicked(self.current_frame_no - 1) {
-            // self.context_menu_origin = Some(p);
             self.redraw();
         }
+    }
+
+    pub fn step(&mut self, time: &Time) {
+        self.current_frame_no += 1;
+        let old_sim_time = self.sim_time;
+        self.wall_time += Nanotime::nanos(time.delta().as_nanos() as i64);
+        if !self.paused {
+            let sp = 10.0f32.powi(self.sim_speed);
+            self.sim_time += Nanotime::nanos((time.delta().as_nanos() as f32 * sp) as i64);
+        }
+
+        self.handle_click_events();
 
         let s = self.sim_time;
         let d = self.physics_duration;
@@ -700,7 +711,7 @@ impl GameState {
         self.notifications.iter_mut().for_each(|n| n.jitter());
 
         self.notifications
-            .retain(|n| n.wall_time + n.duration() > self.actual_time);
+            .retain(|n| n.wall_time + n.duration() > self.wall_time);
 
         let maneuvering: Vec<_> = self
             .scenario
@@ -717,14 +728,13 @@ impl GameState {
                     let u = -dv.normalize_or_zero();
                     let v = rotate(u, PI / 2.0);
                     let vel = rand(500.0, 1100.0) * u + rand(-200.0, 200.0) * v;
-                    self.particles
-                        .push((self.actual_time, pv.pos, vel, lifetime));
+                    self.particles.push((self.wall_time, pv.pos, vel, lifetime));
                 }
             }
         }
 
         self.particles.retain(|(t, _, _, l)| {
-            let dt = self.actual_time - *t;
+            let dt = self.wall_time - *t;
             dt < *l
         });
     }
@@ -880,7 +890,7 @@ fn process_interaction(
         InteractionEvent::SimPause => {
             state.paused = !state.paused;
         }
-        InteractionEvent::SelectionMode => {
+        InteractionEvent::CursorMode => {
             state.selection_mode = state.selection_mode.next();
         }
         InteractionEvent::GameMode => {
