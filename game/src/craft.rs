@@ -27,89 +27,6 @@ impl Plugin for CraftPlugin {
     }
 }
 
-#[derive(Default, Debug, Clone)]
-struct RigidBody {
-    id: ObjectId,
-    pv: PV,
-    angle: f32,
-    angular_rate: f32,
-    body: Vec<AABB>,
-}
-
-fn satellite_body(scale: f32) -> Vec<AABB> {
-    vec![
-        // body
-        AABB::from_arbitrary((-100.0, -100.0), (0.0, 0.0)),
-        AABB::from_arbitrary((90.0, -90.0), (0.0, 0.0)),
-        AABB::from_arbitrary((0.0, 0.0), (100.0, 100.0)),
-        AABB::from_arbitrary((-90.0, 90.0), (0.0, 0.0)),
-        // panels
-        AABB::from_arbitrary((-300.0, 20.0), (-80.0, -20.0)),
-        AABB::from_arbitrary((300.0, 20.0), (80.0, -20.0)),
-        // thruster
-        AABB::from_arbitrary((-50.0, -90.0), (50.0, -150.0)),
-    ]
-    .iter()
-    .map(|a| a.scale(scale))
-    .map(|a| {
-        let p1 = rotate(a.center + a.span / 2.0, PI / 2.0);
-        let p2 = rotate(a.center - a.span / 2.0, PI / 2.0);
-        AABB::from_arbitrary(p1, p2)
-    })
-    .collect()
-}
-
-impl RigidBody {
-    fn new(id: ObjectId, pv: impl Into<PV>, body: Vec<AABB>) -> Self {
-        RigidBody {
-            id,
-            pv: pv.into(),
-            angle: rand(0.0, PI * 2.0),
-            angular_rate: 0.0,
-            body,
-        }
-    }
-
-    fn update(&mut self, dt: f32) {
-        self.pv.pos += self.pv.vel.clone() * dt;
-        self.angle += self.angular_rate * dt;
-        self.pv.vel *= (-dt / 8.0).exp();
-        self.angular_rate *= (-dt / 4.0).exp();
-    }
-
-    fn mass(&self) -> f32 {
-        self.body.len() as f32
-    }
-
-    fn vel(&self, pos: Vec2) -> Vec2 {
-        let ang = Vec3::new(0.0, 0.0, self.angular_rate);
-        ang.cross((pos - self.pv.pos).extend(0.0)).xy() + self.pv.vel
-    }
-
-    fn moi(&self) -> f32 {
-        30000.0 * self.body.len() as f32
-    }
-
-    fn body(&self) -> Vec<OBB> {
-        self.body
-            .iter()
-            .map(|e| e.rotate_about(Vec2::ZERO, self.angle).offset(self.pv.pos))
-            .collect()
-    }
-
-    fn aabb(&self) -> AABB {
-        let mut aabb = AABB::new(self.pv.pos, Vec2::new(5.0, 5.0));
-        self.body()
-            .iter()
-            .map(|b| b.corners().into_iter())
-            .flatten()
-            .for_each(|c| {
-                aabb.include(c);
-            });
-        aabb
-    }
-}
-
 #[derive(Resource)]
 struct CraftState {
     bodies: Vec<RigidBody>,
@@ -247,28 +164,6 @@ fn update(mut state: ResMut<CraftState>, time: Res<Time>) {
     for id in state.highlighted.clone() {
         if !state.track_list.contains(&id) {
             state.track_list.push(id);
-        }
-    }
-}
-
-fn draw_rigid_body(gizmos: &mut Gizmos, craft: &RigidBody, color: Srgba) {
-    let body = craft.body();
-
-    draw_circle(gizmos, craft.pv.pos, 30.0, color);
-    gizmos.line_2d(craft.pv.pos, craft.pv.pos + craft.pv.vel * 5.0, PURPLE);
-    let u = rotate(Vec2::X, craft.angle);
-    gizmos.line_2d(craft.pv.pos, craft.pv.pos + u * 1000.0, GREEN);
-
-    draw_aabb(gizmos, craft.aabb(), alpha(GRAY, 0.1));
-
-    for b in &body {
-        draw_obb(gizmos, b, color);
-    }
-
-    for b in &body {
-        for p in b.corners() {
-            let v = craft.vel(p);
-            gizmos.line_2d(p, p + v, alpha(ORANGE, 0.2));
         }
     }
 }

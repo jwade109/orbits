@@ -146,6 +146,20 @@ fn draw_orbit(gizmos: &mut Gizmos, orb: &SparseOrbit, origin: Vec2, color: Srgba
     }
 }
 
+fn draw_global_orbit(
+    gizmos: &mut Gizmos,
+    orbit: &GlobalOrbit,
+    state: &GameState,
+    color: Srgba,
+) -> Option<()> {
+    let pv = state
+        .scenario
+        .lup(orbit.0, state.sim_time)
+        .map(|lup| lup.pv())?;
+    draw_orbit(gizmos, &orbit.1, pv.pos, color);
+    Some(())
+}
+
 fn draw_orbit_between(
     gizmos: &mut Gizmos,
     orb: &SparseOrbit,
@@ -288,7 +302,6 @@ fn draw_scenario(
     track_list: &HashSet<ObjectId>,
     duty_cycle: bool,
     followed: Option<ObjectId>,
-    particles: bool,
     mode: GameMode,
 ) {
     draw_planets(gizmos, scenario.planets(), stamp, Vec2::ZERO, mode);
@@ -456,8 +469,14 @@ fn draw_controller(
     scale: f32,
     actual_time: Nanotime,
     tracked: bool,
+    wall_time: Nanotime,
 ) -> Option<()> {
-    let craft = scenario.lup(ctrl.target(), stamp)?.pv().pos;
+    let lup = scenario.lup(ctrl.target(), stamp)?;
+    let parent = lup.parent(stamp)?;
+    let craft = lup.pv().pos;
+
+    let parent_lup = scenario.lup(parent, stamp)?;
+    let origin = parent_lup.pv().pos;
 
     let secs = 2;
     let t_start = actual_time.floor(Nanotime::PER_SEC * secs);
@@ -469,7 +488,7 @@ fn draw_controller(
 
     if tracked {
         let plan = ctrl.plan()?;
-        draw_maneuver_plan(gizmos, stamp, plan, Vec2::ZERO, scale)?;
+        draw_maneuver_plan(gizmos, stamp, plan, origin, scale, wall_time)?;
     }
 
     Some(())
@@ -511,8 +530,24 @@ fn draw_maneuver_plan(
     plan: &ManeuverPlan,
     origin: Vec2,
     scale: f32,
+    wall_time: Nanotime,
 ) -> Option<()> {
-    let color = YELLOW;
+    let anim_dur = Nanotime::secs(2);
+    let s = (wall_time % anim_dur).to_secs() / anim_dur.to_secs();
+
+    for s in [s - 1.0, s - 0.5, s, s + 0.5, s + 1.0] {
+        let t_anim = plan.start() + plan.duration() * s;
+        let t_end = t_anim + plan.duration() * 0.2;
+        let positions: Vec<_> = tspace(t_anim, t_end, 30)
+            .iter()
+            .filter_map(|t| plan.pv(*t))
+            .map(|p| p.pos)
+            .collect();
+
+        gizmos.linestrip_2d(positions, YELLOW);
+    }
+
+    let color = YELLOW.with_alpha(0.03);
     for segment in &plan.segments {
         draw_orbit_between(
             gizmos,
@@ -834,6 +869,28 @@ pub fn draw_ui_layout(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     Some(())
 }
 
+fn draw_rigid_body(gizmos: &mut Gizmos, craft: &RigidBody, color: Srgba) {
+    let body = craft.body();
+
+    draw_circle(gizmos, craft.pv.pos, 30.0, color);
+    gizmos.line_2d(craft.pv.pos, craft.pv.pos + craft.pv.vel * 5.0, PURPLE);
+    let u = rotate(Vec2::X, craft.angle);
+    gizmos.line_2d(craft.pv.pos, craft.pv.pos + u * 1000.0, GREEN);
+
+    draw_aabb(gizmos, craft.aabb(), GRAY.with_alpha(0.1));
+
+    for b in &body {
+        draw_obb(gizmos, b, color);
+    }
+
+    // for b in &body {
+    //     for p in b.corners() {
+    //         let v = craft.vel(p);
+    //         gizmos.line_2d(p, p + v, alpha(ORANGE, 0.2));
+    //     }
+    // }
+}
+
 pub fn draw_orbit_spline(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     if !state.show_graph {
         return None;
@@ -860,7 +917,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
 
     draw_scale_indicator(&mut gizmos, &state.camera);
 
-    draw_timeline(&mut gizmos, &state);
+    // draw_timeline(&mut gizmos, &state);
 
     draw_orbit_spline(&mut gizmos, &state);
 
@@ -889,26 +946,31 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         );
     }
 
-    let mut draw_orbit_with_parent = |parent: ObjectId, orbit: &SparseOrbit| {
-        if let Some(pv) = state
-            .scenario
-            .lup(parent, state.sim_time)
-            .map(|lup| lup.pv())
-        {
-            let color = match orbit.is_retrograde() {
-                true => TEAL,
-                false => RED,
-            };
-            draw_orbit(&mut gizmos, &orbit, pv.pos, color.with_alpha(0.3));
-        }
-    };
-
-    for GlobalOrbit(parent, orbit) in &state.queued_orbits {
-        draw_orbit_with_parent(*parent, orbit);
+    for orbit in &state.queued_orbits {
+        draw_global_orbit(&mut gizmos, orbit, &state, RED);
     }
 
-    if let Some(GlobalOrbit(parent, orbit)) = state.right_cursor_orbit() {
-        draw_orbit_with_parent(parent, &orbit);
+    if let Some(orbit) = state
+        .duty_cycle_high
+        .then(|| {
+            state
+                .current_hover_ui()
+                .map(|id| {
+                    if let crate::ui::GuiNodeId::GlobalOrbit(i) = *id {
+                        state.queued_orbits.get(i)
+                    } else {
+                        None
+                    }
+                })
+                .flatten()
+        })
+        .flatten()
+    {
+        draw_global_orbit(&mut gizmos, orbit, &state, YELLOW);
+    }
+
+    if let Some(orbit) = state.right_cursor_orbit() {
+        draw_global_orbit(&mut gizmos, &orbit, &state, ORANGE);
     }
 
     for ctrl in &state.controllers {
@@ -921,6 +983,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
             state.camera.actual_scale,
             state.actual_time,
             tracked,
+            state.actual_time,
         );
     }
 
@@ -946,7 +1009,6 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         &state.track_list,
         state.duty_cycle_high,
         state.follow,
-        false,
         state.game_mode,
     );
 

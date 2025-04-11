@@ -6,7 +6,9 @@ pub use crate::examples::{
     just_the_moon, make_earth, make_luna, stable_simulation, sun_jupiter_lagrange,
 };
 pub use crate::file_export::export_orbit_data;
-pub use crate::math::{apply, apply_filter, linspace, rand, randvec, rotate, tspace, PI};
+pub use crate::math::{
+    apply, apply_filter, linspace, rand, randvec, rotate, tspace, Vec2, Vec3, PI,
+};
 pub use crate::nanotime::Nanotime;
 pub use crate::orbital_luts::lookup_ta_from_ma;
 pub use crate::orbiter::{GroupId, ObjectId, Orbiter};
@@ -14,6 +16,6 @@ pub use crate::orbits::{hyperbolic_range_ta, wrap_pi_npi, Body, GlobalOrbit, Spa
 pub use crate::planning::{best_maneuver_plan, EventType, HorizonState, ManeuverPlan, Propagator};
 pub use crate::pv::PV;
 pub use crate::region::Region;
+pub use crate::rigid_body::{satellite_body, RigidBody};
 pub use crate::scenario::{ObjectIdTracker, PlanetarySystem, Scenario};
 pub use crate::topomap::{id_to_aabb, test_topo, TopoMap};
-pub use glam::f32::Vec2;

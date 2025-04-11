@@ -1,5 +1,6 @@
 use crate::nanotime::Nanotime;
-use glam::f32::Vec2;
+pub use glam::f32::Vec2;
+pub use glam::f32::Vec3;
 use rand::Rng;
 
 pub const PI: f32 = std::f32::consts::PI;

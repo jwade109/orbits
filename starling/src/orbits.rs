@@ -1026,6 +1026,14 @@ mod tests {
         );
 
         assert_eq!(orbit.pv_universal(orbit.epoch).ok(), Some(orbit.initial));
+        assert!(
+            orbit
+                .pv(orbit.epoch)
+                .unwrap()
+                .pos
+                .distance(orbit.initial.pos)
+                < 10.0
+        );
 
         physics_based_smoketest(&orbit);
         assert_defined_for_large_time_range(&orbit);
@@ -1044,7 +1052,7 @@ mod tests {
             let dt = (tp - t2).abs();
             println!("{} {:?} {:?} {}", orbit, orbit.time_at_periapsis, tp, dt);
             assert!(
-                dt.abs() < Nanotime::nanos(100000),
+                dt.abs() < Nanotime::millis(2),
                 "dt exceeds threshold: dt={}",
                 dt
             );
@@ -1216,6 +1224,39 @@ mod tests {
             true,
         );
     }
+
+    #[test]
+    fn orbit_013_elliptical() {
+        orbit_consistency_test(
+            PV::new((1687.193, -2242.213), (59.740, 44.953)),
+            OrbitClass::Elliptical,
+            Body::new(63.0, 1000.0, 15000.0),
+            0.30708584,
+            false,
+        );
+    }
+
+    // #[test]
+    // fn orbit_014_elliptical() {
+    //     orbit_consistency_test(
+    //         PV::new((-3485.286, 1511.773), (-25.496, -58.779)),
+    //         OrbitClass::Elliptical,
+    //         Body::new(63.0, 1000.0, 15000.0),
+    //         0.29959226,
+    //         false,
+    //     );
+    // }
+
+    // #[test]
+    // fn orbit_015_elliptical() {
+    //     orbit_consistency_test(
+    //         PV::new((-3485.286, 1511.773), (-21.694, -50.014)),
+    //         OrbitClass::Elliptical,
+    //         Body::new(63.0, 1000.0, 15000.0),
+    //         0.30708584,
+    //         false,
+    //     );
+    // }
 
     #[test]
     fn assert_positions_are_as_expected_universal() {

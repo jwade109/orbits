@@ -196,13 +196,13 @@ pub fn update_spacecraft_sprites(
 
             transform.translation = pos.extend(z_index);
 
+            let light_source = state.light_source();
+
+            let is_lit = bodies
+                .iter()
+                .all(|(pv, body)| !is_occluded(light_source, pos, pv.pos, body.radius));
+
             let (target_scale, color) = if state.game_mode == GameMode::Default {
-                let light_source = state.light_source();
-
-                let is_lit = bodies
-                    .iter()
-                    .all(|(pv, body)| !is_occluded(light_source, pos, pv.pos, body.radius));
-
                 let scale = if state.track_list.contains(&id) {
                     SPACECRAFT_MAGNIFIED_SCALE
                 } else if !is_lit {
@@ -243,7 +243,7 @@ pub fn update_spacecraft_sprites(
                 };
 
                 (scale, color)
-            } else {
+            } else if state.game_mode == GameMode::Stability {
                 // stability
                 let scale = if state.track_list.is_empty() {
                     SPACECRAFT_DEFAULT_SCALE
@@ -256,6 +256,21 @@ pub fn update_spacecraft_sprites(
                 let color = match orbiter.is_indefinitely_stable() {
                     true => TEAL,
                     false => ORANGE,
+                };
+
+                (scale, color)
+            } else {
+                let scale = if state.track_list.is_empty() {
+                    SPACECRAFT_DEFAULT_SCALE
+                } else if state.track_list.contains(&id) {
+                    SPACECRAFT_MAGNIFIED_SCALE
+                } else {
+                    SPACECRAFT_DIMINISHED_SCALE
+                };
+
+                let color = match is_lit {
+                    true => WHITE,
+                    false => RED,
                 };
 
                 (scale, color)
@@ -278,6 +293,7 @@ pub fn update_background_sprite(
         GameMode::Default => BLACK,
         GameMode::Constellations => GRAY.with_luminance(0.1),
         GameMode::Stability => GRAY.with_luminance(0.13),
+        GameMode::Occlusion => GRAY.with_luminance(0.04),
     };
 
     camera.clear_color = ClearColorConfig::Custom(c.into());

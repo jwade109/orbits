@@ -575,6 +575,10 @@ impl ManeuverPlan {
         self.segments.iter().map(|e| e.end).last().unwrap()
     }
 
+    pub fn duration(&self) -> Nanotime {
+        self.end() - self.start()
+    }
+
     pub fn dvs(&self) -> impl Iterator<Item = (Nanotime, Vec2)> + use<'_> {
         self.segments.iter().map(|m| m.dv())
     }
@@ -693,7 +697,7 @@ fn hohmann_transfer(
     let v1 = vis_viva_equation(mu, r1, a_transfer);
 
     let t1 = current.t_next_p(now)?;
-    let before = current.pv(t1).ok()?;
+    let before = current.pv_universal(t1).ok()?;
     let prograde = before.vel.normalize_or_zero();
     let after = PV::new(before.pos, prograde * v1);
 
@@ -702,7 +706,7 @@ fn hohmann_transfer(
     let transfer_orbit = SparseOrbit::from_pv(after, current.body, t1)?;
 
     let t2 = t1 + transfer_orbit.period()? / 2;
-    let before = transfer_orbit.pv(t2).ok()?;
+    let before = transfer_orbit.pv_universal(t2).ok()?;
     let (after, _) = destination.nearest(before.pos);
     let after = PV::new(before.pos, after.vel);
 
@@ -711,6 +715,7 @@ fn hohmann_transfer(
     ManeuverPlan::new(now, *current, &[(t1, dv1), (t2, dv2)])
 }
 
+#[allow(unused)]
 fn bielliptic_transfer(
     current: &SparseOrbit,
     destination: &SparseOrbit,
@@ -777,12 +782,9 @@ fn generate_maneuver_plans(
 
     let direct = direct_transfer(current, &destination, now);
     let hohmann = hohmann_transfer(current, &destination, now);
-    let bielliptic = bielliptic_transfer(current, &destination, now);
+    // let bielliptic = bielliptic_transfer(current, &destination, now);
 
-    [direct, hohmann, bielliptic]
-        .into_iter()
-        .flatten()
-        .collect()
+    [direct, hohmann].into_iter().flatten().collect()
 }
 
 pub fn best_maneuver_plan(
@@ -797,4 +799,88 @@ pub fn best_maneuver_plan(
     let mut plans = generate_maneuver_plans(current, destination, now);
     plans.sort_by_key(|m| (m.dv() * 1000.0) as i32);
     plans.first().cloned().ok_or("No plan")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::math::rand;
+    use crate::orbits::Body;
+
+    fn maneuver_plan_segments_join(plan: &ManeuverPlan) {
+        for segs in plan.segments.windows(2) {
+            let s1 = &segs[0];
+            let s2 = &segs[1];
+            let p1 = s1.orbit.pv(s1.end).unwrap();
+            let p2 = s2.orbit.pv(s2.start).unwrap();
+
+            let d = p1.pos.distance(p2.pos);
+
+            assert!(d < 20.0, "Expected difference to be smaller: {}", d);
+        }
+    }
+
+    fn maneuver_plan_is_continuous(plan: &ManeuverPlan) {
+        let mut t = plan.start();
+        let t_end = plan.end();
+
+        assert!(plan.pv(t - Nanotime::secs(1)).is_none());
+        assert!(plan.pv(t_end + Nanotime::secs(1)).is_none());
+
+        let mut previous = None;
+
+        while t < t_end {
+            let pv = plan.pv(t);
+            assert!(pv.is_some(), "Expected PV to be Some: {}", t);
+            let pv = pv.unwrap();
+
+            let dt = 5.0 / pv.vel.length();
+            let dt = Nanotime::secs_f32(dt);
+
+            if let Some(p) = previous {
+                let d = (pv - p).pos.length();
+                assert!(
+                    d < 10.0,
+                    "Expected difference to be smaller at time {}: {}\n for plan:\n{}",
+                    t,
+                    d,
+                    plan
+                );
+            }
+
+            previous = Some(pv);
+
+            t += dt;
+        }
+    }
+
+    fn random_orbit() -> SparseOrbit {
+        let r1 = rand(1000.0, 8000.0);
+        let r2 = rand(1000.0, 8000.0);
+        let argp = rand(0.0, 2.0 * PI);
+
+        let body = Body::new(63.0, 1000.0, 15000.0);
+
+        SparseOrbit::new(r1.max(r2), r1.min(r2), argp, body, Nanotime::zero(), false).unwrap()
+    }
+
+    #[test]
+    fn random_maneuver_plan() {
+        for _ in 0..100 {
+            let c = random_orbit();
+            let d = random_orbit();
+
+            println!("c: {}", &c);
+            println!("d: {}\n", &d);
+
+            let plan = best_maneuver_plan(&c, &d, Nanotime::zero());
+
+            assert!(plan.is_ok(), "Plan is not Ok: {:?}", plan);
+
+            let plan = plan.unwrap();
+
+            maneuver_plan_segments_join(&plan);
+            maneuver_plan_is_continuous(&plan);
+        }
+    }
 }

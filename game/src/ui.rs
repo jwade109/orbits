@@ -77,8 +77,8 @@ impl Plugin for UiPlugin {
 
 fn set_bloom(state: Res<GameState>, mut bloom: Single<&mut Bloom>) {
     bloom.intensity = match state.game_mode {
-        crate::planetary::GameMode::Default => 0.6,
-        _ => 0.0,
+        crate::planetary::GameMode::Default => 0.3,
+        _ => 0.1,
     }
 }
 
@@ -163,6 +163,8 @@ fn get_top_right_ui() -> impl Bundle {
 pub enum GuiNodeId {
     Orbiter(ObjectId),
     Exit,
+    Save,
+    Load,
     ToggleDrawMode,
     ClearTracks,
     CreateGroup,
@@ -250,7 +252,9 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
 
     let topbar = Node::row(Size::Fit)
         .with_color(UI_BACKGROUND_COLOR)
-        .with_children((0..5).map(|_| Node::new(80, small_button_height)))
+        .with_child(Node::button("Save", GuiNodeId::Save, 80, Size::Grow))
+        .with_child(Node::button("Load", GuiNodeId::Load, 80, Size::Grow))
+        .with_children((0..4).map(|_| Node::new(80, small_button_height)))
         .with_child(Node::grow().invisible())
         .with_child(Node::button("Exit", GuiNodeId::Exit, 80, Size::Grow));
 
@@ -550,7 +554,13 @@ fn do_ui_sprites(
     mut images: ResMut<Assets<Image>>,
     mut state: ResMut<GameState>,
 ) {
-    if state.actual_time - state.last_redraw < Nanotime::millis(1000) {
+    let ui_age = state.actual_time - state.last_redraw;
+
+    if ui_age < Nanotime::millis(50) {
+        return;
+    }
+
+    if ui_age < Nanotime::secs(1) && !state.redraw_requested {
         return;
     }
 
@@ -570,6 +580,7 @@ fn do_ui_sprites(
     };
 
     state.last_redraw = state.actual_time;
+    state.redraw_requested = false;
 
     for (lid, layout) in state.ui.layouts().iter().enumerate() {
         for n in layout.iter() {

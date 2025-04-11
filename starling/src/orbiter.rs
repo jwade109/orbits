@@ -1,3 +1,4 @@
+use crate::math::{rand, PI};
 use crate::orbits::SparseOrbit;
 use crate::planning::*;
 use crate::pv::PV;
@@ -44,6 +45,7 @@ pub struct Orbiter {
     fuel_mass: f32,
     dry_mass: f32,
     exhaust_velocity: f32,
+    angle: f32,
     props: Vec<Propagator>,
 }
 
@@ -78,6 +80,7 @@ impl Orbiter {
             fuel_mass: 600.0,
             dry_mass: 300.0,
             exhaust_velocity: 6000.0,
+            angle: rand(0.0, PI * 2.0),
             props: vec![Propagator::new(orbit, stamp)],
         }
     }

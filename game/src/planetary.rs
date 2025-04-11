@@ -12,6 +12,7 @@ use bevy::render::view::RenderLayers;
 use bevy::window::WindowMode;
 use layout::layout as ui;
 use names::Generator;
+use rfd::FileDialog;
 use starling::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::ops::DerefMut;
@@ -126,6 +127,7 @@ pub enum GameMode {
     Default,
     Constellations,
     Stability,
+    Occlusion,
 }
 
 impl GameMode {
@@ -133,7 +135,8 @@ impl GameMode {
         match self {
             GameMode::Default => GameMode::Constellations,
             GameMode::Constellations => GameMode::Stability,
-            GameMode::Stability => GameMode::Default,
+            GameMode::Stability => GameMode::Occlusion,
+            GameMode::Occlusion => GameMode::Default,
         }
     }
 }
@@ -176,6 +179,7 @@ pub struct GameState {
     pub duty_cycle_high: bool,
     pub controllers: Vec<Controller>,
     pub follow: Option<ObjectId>,
+    pub user_maneuvers: HashMap<ObjectId, (Nanotime, Vec2)>,
     pub show_orbits: ShowOrbitsState,
     pub show_animations: bool,
     pub queued_orbits: Vec<GlobalOrbit>,
@@ -185,6 +189,7 @@ pub struct GameState {
     pub ui: ui::Tree<crate::ui::GuiNodeId>,
     pub context_menu_origin: Option<Vec2>,
 
+    pub redraw_requested: bool,
     pub last_redraw: Nanotime,
 
     pub game_mode: GameMode,
@@ -215,6 +220,7 @@ impl Default for GameState {
             duty_cycle_high: false,
             controllers: vec![],
             follow: None,
+            user_maneuvers: HashMap::new(),
             show_orbits: ShowOrbitsState::Focus,
             show_animations: false,
             queued_orbits: Vec::new(),
@@ -222,6 +228,7 @@ impl Default for GameState {
             selection_mode: SelectionMode::Rect,
             ui: ui::Tree::new(),
             context_menu_origin: None,
+            redraw_requested: false,
             last_redraw: Nanotime::zero(),
             game_mode: GameMode::Default,
             notifications: Vec::new(),
@@ -232,6 +239,7 @@ impl Default for GameState {
 
 impl GameState {
     pub fn redraw(&mut self) {
+        self.redraw_requested = true;
         self.last_redraw = Nanotime::zero()
     }
 
@@ -427,6 +435,14 @@ impl GameState {
     }
 
     pub fn is_maneuvering(&self, id: ObjectId) -> Option<(Nanotime, Vec2)> {
+        // this is a stupid function
+        if let Some((t, dv)) = self.user_maneuvers.get(&id) {
+            let dt = (*t - self.actual_time).abs();
+            if dt.to_secs() < 0.05 {
+                return Some((*t, *dv));
+            }
+        }
+
         let m = self.closest_maneuver(id)?;
         let dt = (m.0 - self.sim_time).abs();
         (dt.to_secs() < 0.1).then(|| m)
@@ -471,6 +487,7 @@ impl GameState {
             self.notify(id, NotificationType::ManeuverFailed(id), None)
         } else {
             self.notify(id, NotificationType::OrbitChanged(id), None);
+            self.user_maneuvers.insert(id, (self.actual_time, dv));
         }
 
         self.scenario.simulate(self.sim_time, self.physics_duration);
@@ -564,10 +581,27 @@ impl GameState {
                 let orbit = self.queued_orbits.get(i)?;
                 self.follow = Some(orbit.0);
             }
+            GuiNodeId::World => (),
+            GuiNodeId::Nullopt => (),
+            GuiNodeId::Load => {
+                let files = FileDialog::new()
+                    .add_filter("text", &["txt", "rs"])
+                    .add_filter("rust", &["rs", "toml"])
+                    .set_directory("/")
+                    .pick_file();
+                dbg!(files);
+            }
+            GuiNodeId::ToggleDebug => self.hide_debug = !self.hide_debug,
             _ => info!("Unhandled button event: {id:?}"),
         };
 
         Some(())
+    }
+
+    pub fn current_hover_ui(&self) -> Option<&crate::ui::GuiNodeId> {
+        let p = self.mouse.current()?;
+        let q = Vec2::new(p.x, self.camera.viewport_bounds().span.y - p.y);
+        self.ui.at(q).map(|n| n.id()).flatten()
     }
 
     pub fn step(&mut self, time: &Time) {
@@ -898,8 +932,6 @@ fn process_interaction(
                 state.queued_orbits.push(o);
             } else if !state.track_list.is_empty() {
                 state.track_list.clear();
-            } else if !state.queued_orbits.is_empty() {
-                state.queued_orbits.clear();
             }
         }
         InteractionEvent::Restore => {
