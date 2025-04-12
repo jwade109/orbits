@@ -1,6 +1,8 @@
 use crate::math::{apply, linspace};
 use crate::nanotime::Nanotime;
+use crate::orbiter::Orbiter;
 use crate::orbits::{universal_lagrange, SparseOrbit};
+use serde_yaml;
 
 pub fn write_csv(
     filename: &std::path::Path,
@@ -76,4 +78,46 @@ pub fn export_orbit_data(
             ("gdot", &gdot),
         ],
     )
+}
+
+pub fn load_strl_file(filename: &std::path::Path) -> Result<Orbiter, &'static str> {
+    let s = std::fs::read_to_string(filename).map_err(|_| "Failed to load from filesystem")?;
+
+    serde_yaml::from_str(&s).map_err(|_| "Failed to deserialize")
+}
+
+pub fn to_strl_file(orbiter: &Orbiter, filename: &std::path::Path) -> Result<(), &'static str> {
+    let s = serde_yaml::to_string(&orbiter).map_err(|_| "Failed to serialize")?;
+    std::fs::write(filename, s).map_err(|_| "Failed to write to filesystem")
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use crate::prelude::*;
+
+    #[test]
+    fn strl_test() {
+        let orbit = SparseOrbit::from_pv(
+            PV::new((-70.0, 600.0), (3.0, 9.0)),
+            Body::new(22.0, 10.0, 800.0),
+            Nanotime::zero(),
+        )
+        .unwrap();
+
+        let orbiter = Orbiter::new(
+            ObjectId(12),
+            GlobalOrbit(ObjectId(3), orbit),
+            Nanotime::zero(),
+        );
+
+        let path = std::path::Path::new("/tmp/orbiter.strl");
+
+        to_strl_file(&orbiter, path).unwrap();
+
+        let test = load_strl_file(path).unwrap();
+
+        dbg!(test);
+    }
 }

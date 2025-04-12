@@ -565,6 +565,30 @@ impl GameState {
         rotate(Vec2::X, angle + PI) * 10000.0
     }
 
+    pub fn save(&self) -> Option<()> {
+        let orbiters: Vec<_> = self
+            .track_list
+            .iter()
+            .filter_map(|id| {
+                self.scenario
+                    .lup(*id, self.sim_time)
+                    .map(|lup| lup.orbiter())
+                    .flatten()
+            })
+            .collect();
+
+        let dir = FileDialog::new().set_directory("/").pick_folder()?;
+
+        for orbiter in orbiters {
+            let mut file = dir.clone();
+            file.push(format!("{}.strl", orbiter.id()));
+            info!("Saving {}", file.display());
+            starling::file_export::to_strl_file(orbiter, &file).ok()?;
+        }
+
+        Some(())
+    }
+
     pub fn on_button_event(&mut self, id: crate::ui::GuiNodeId) -> Option<()> {
         use crate::ui::GuiNodeId;
 
@@ -592,13 +616,19 @@ impl GameState {
             }
             GuiNodeId::World => (),
             GuiNodeId::Nullopt => (),
+            GuiNodeId::Save => {
+                self.save();
+            }
             GuiNodeId::Load => {
-                let files = FileDialog::new()
-                    .add_filter("text", &["txt", "rs"])
-                    .add_filter("rust", &["rs", "toml"])
+                let file = FileDialog::new()
+                    .add_filter("text", &["starling", "strl"])
                     .set_directory("/")
                     .pick_file();
-                dbg!(files);
+                dbg!(&file);
+                if let Some(file) = file {
+                    let obj = starling::file_export::load_strl_file(&file);
+                    dbg!(obj);
+                }
             }
             GuiNodeId::ToggleDebug => self.hide_debug = !self.hide_debug,
             GuiNodeId::CursorMode => self.selection_mode = self.selection_mode.next(),
