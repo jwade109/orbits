@@ -55,7 +55,9 @@ pub enum InteractionEvent {
     Reset,
 
     // manual piloting commands
-    Thrust(i8, i8),
+    ThrustForward,
+    TurnLeft,
+    TurnRight,
 }
 
 pub struct UiPlugin;

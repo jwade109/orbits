@@ -1,8 +1,9 @@
 use crate::aabb::{AABB, OBB};
 use crate::math::{rotate, Vec2, PI};
 use crate::pv::PV;
+use serde::{Deserialize, Serialize};
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Deserialize, Serialize)]
 pub struct RigidBody {
     pub pv: PV,
     pub angle: f32,

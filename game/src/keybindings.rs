@@ -41,23 +41,26 @@ pub fn keyboard_input(
             KeyCode::KeyS => InteractionEvent::MoveDown,
             KeyCode::KeyD => InteractionEvent::MoveRight,
             KeyCode::KeyK => InteractionEvent::Spawn,
+            KeyCode::ArrowUp => InteractionEvent::ThrustForward,
+            KeyCode::ArrowLeft => InteractionEvent::TurnLeft,
+            KeyCode::ArrowRight => InteractionEvent::TurnRight,
             _ => continue,
         };
 
         events.send(e);
     }
 
-    let n = keys.pressed(KeyCode::ArrowUp);
-    let e = keys.pressed(KeyCode::ArrowRight);
-    let s = keys.pressed(KeyCode::ArrowDown);
-    let w = keys.pressed(KeyCode::ArrowLeft);
+    // let n = keys.pressed(KeyCode::ArrowUp);
+    // let e = keys.pressed(KeyCode::ArrowRight);
+    // let s = keys.pressed(KeyCode::ArrowDown);
+    // let w = keys.pressed(KeyCode::ArrowLeft);
 
-    if n || e || s || w {
-        let dx = (e as i8) - (w as i8);
-        let dy = (n as i8) - (s as i8);
-        let ei = InteractionEvent::Thrust(dx, dy);
-        events.send(ei);
-    }
+    // if n || e || s || w {
+    //     let dx = (e as i8) - (w as i8);
+    //     let dy = (n as i8) - (s as i8);
+    //     let ei = InteractionEvent::Thrust(dx, dy);
+    //     events.send(ei);
+    // }
 
     let left_shift: bool = keys.pressed(KeyCode::ShiftLeft);
 

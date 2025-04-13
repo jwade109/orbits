@@ -221,6 +221,14 @@ impl Scenario {
         self.debris.iter()
     }
 
+    pub fn orbiters_mut(&mut self) -> impl Iterator<Item = &mut Orbiter> + use<'_> {
+        self.orbiters.iter_mut()
+    }
+
+    pub fn orbiter_mut(&mut self, id: ObjectId) -> Option<&mut Orbiter> {
+        self.orbiters.iter_mut().find(|o| o.id() == id)
+    }
+
     pub fn simulate(
         &mut self,
         stamp: Nanotime,

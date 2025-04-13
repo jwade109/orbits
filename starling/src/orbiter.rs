@@ -1,7 +1,9 @@
-use crate::math::{rand, PI};
+use crate::aabb::{AABB, OBB};
+use crate::math::{rand, rotate, PI};
 use crate::orbits::SparseOrbit;
 use crate::planning::*;
 use crate::pv::PV;
+use crate::rigid_body::satellite_body;
 use crate::scenario::*;
 use crate::{nanotime::Nanotime, orbits::GlobalOrbit};
 use serde::{Deserialize, Serialize};
@@ -45,8 +47,17 @@ pub struct Orbiter {
     fuel_mass: f32,
     dry_mass: f32,
     exhaust_velocity: f32,
-    angle: f32,
     props: Vec<Propagator>,
+    body: Vec<AABB>,
+
+    // angular velocity
+    angle: f32,
+    angular_velocity: f32,
+    angular_acceleration: f32,
+    stamp: Nanotime,
+
+    // other stuff
+    altitude: f32,
 }
 
 fn rocket_equation(ve: f32, m0: f32, m1: f32) -> f32 {
@@ -77,11 +88,17 @@ impl Orbiter {
         Orbiter {
             id,
             max_fuel_mass: 800.0,
-            fuel_mass: 600.0,
+            fuel_mass: rand(0.0, 800.0),
             dry_mass: 300.0,
-            exhaust_velocity: 6000.0,
-            angle: rand(0.0, PI * 2.0),
+            exhaust_velocity: 1700.0,
             props: vec![Propagator::new(orbit, stamp)],
+            body: satellite_body(rand(0.07, 0.11)),
+
+            angle: rand(0.0, PI * 2.0),
+            angular_velocity: rand(-0.01, 0.01),
+            angular_acceleration: 0.0,
+            stamp,
+            altitude: orbit.1.pv(stamp).map(|pv| pv.pos.length()).unwrap_or(0.0),
         }
     }
 
@@ -99,6 +116,46 @@ impl Orbiter {
 
     pub fn fuel_percentage(&self) -> f32 {
         self.fuel_mass / self.max_fuel_mass
+    }
+
+    pub fn pointing(&self) -> Vec2 {
+        rotate(Vec2::X, self.angle)
+    }
+
+    pub fn angular_velocity(&self) -> f32 {
+        self.angular_velocity
+    }
+
+    pub fn torque(&mut self, torque: f32) {
+        self.angular_acceleration = torque
+    }
+
+    pub fn altitude(&self) -> f32 {
+        self.altitude
+    }
+
+    pub fn add_fuel(&mut self, kg: f32) {
+        self.fuel_mass = (self.fuel_mass + kg).min(self.max_fuel_mass);
+    }
+
+    pub fn step(&mut self, stamp: Nanotime) {
+        let dt = (stamp - self.stamp).to_secs();
+        self.angle += self.angular_velocity * dt;
+        self.angular_velocity += self.angular_acceleration * dt;
+        self.angular_acceleration = 0.0;
+        self.angular_velocity *= (-dt / 5.0).exp();
+        if let Some(prop) = self.propagator_at(stamp) {
+            if let Some(pv) = prop.pv(stamp) {
+                self.altitude = pv.pos.length();
+            }
+        }
+        self.stamp = stamp;
+    }
+
+    pub fn body(&self) -> impl Iterator<Item = OBB> + use<'_> {
+        self.body
+            .iter()
+            .map(move |a| a.rotate_about(Vec2::ZERO, self.angle))
     }
 
     pub fn impulsive_burn(&mut self, stamp: Nanotime, dv: Vec2) -> Option<()> {

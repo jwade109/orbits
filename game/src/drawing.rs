@@ -107,7 +107,7 @@ fn draw_region(gizmos: &mut Gizmos, region: Region, color: Srgba, origin: Vec2) 
 }
 
 fn draw_obb(gizmos: &mut Gizmos, obb: &OBB, color: Srgba) {
-    draw_cross(gizmos, obb.0.center, 30.0, color);
+    // draw_cross(gizmos, obb.0.center, 30.0, color);
     let mut corners = obb.corners().to_vec();
     corners.push(*corners.get(0).unwrap());
     gizmos.linestrip_2d(corners, color);
@@ -224,6 +224,87 @@ fn draw_propagator(
     Some(())
 }
 
+fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
+    let piloting = state.piloting()?;
+
+    let r = 300.0;
+    let center = Vec2::new(state.camera.window_dims.x - r * 1.2, r * 1.2);
+
+    let b = state.camera.world_bounds();
+    let c = state.camera.viewport_bounds();
+
+    let map = |p: Vec2| c.map(b, p);
+
+    let lup = state.scenario.lup(piloting, state.sim_time)?;
+    let orbiter = lup.orbiter()?;
+
+    for obb in orbiter.body() {
+        let corners: Vec<_> = obb
+            .closed_loop()
+            .iter()
+            .map(|p| map(7.0 * p + center))
+            .collect();
+        gizmos.linestrip_2d(corners, WHITE);
+    }
+
+    {
+        let s = 20.0;
+        let c1 = state.camera.window_dims * 0.5 + s * rotate(Vec2::X, 3.0 * PI / 6.0);
+        let c2 = state.camera.window_dims * 0.5 + s * rotate(Vec2::X, 5.0 * PI / 4.0);
+        let u1 = center + r * rotate(Vec2::X, 3.0 * PI / 6.0);
+        let u2 = center + r * rotate(Vec2::X, 5.0 * PI / 4.0);
+        gizmos.line_2d(map(c1), map(u1), GRAY.with_alpha(0.1));
+        gizmos.line_2d(map(c2), map(u2), GRAY.with_alpha(0.1));
+        draw_circle(
+            gizmos,
+            lup.pv().pos,
+            s * state.camera.actual_scale,
+            GRAY.with_alpha(0.1),
+        );
+    }
+
+    {
+        let triangle_width = 13.0;
+        let u = orbiter.pointing();
+        let v = rotate(u, PI / 2.0);
+        let p1 = center + u * r * 0.7;
+        let p2 = p1 + (v - u) * triangle_width;
+        let p3 = p2 - v * triangle_width * 2.0;
+        gizmos.linestrip_2d([map(p1), map(p2), map(p3), map(p1)], LIME);
+    }
+
+    let r = r * state.camera.actual_scale;
+    draw_circle(gizmos, map(center), r, GRAY);
+
+    let p = orbiter.fuel_percentage();
+    let iso = Isometry2d::from_translation(map(center));
+
+    if orbiter.fuel_percentage() < 0.02 {
+        if is_blinking(state.wall_time, None) {
+            draw_triangle(
+                gizmos,
+                map(center),
+                30.0 * state.camera.actual_scale,
+                YELLOW,
+            );
+        }
+    }
+
+    let mut arc = |percent: f32, s: f32, color: Srgba| {
+        gizmos
+            .arc_2d(iso, percent * 2.0 * PI, s * r, color)
+            .resolution(200);
+    };
+
+    for s in linspace(0.95, 0.97, 3) {
+        arc(p, s, RED);
+    }
+
+    arc(orbiter.angular_velocity() / 10.0, 0.93, TEAL);
+
+    Some(())
+}
+
 fn draw_object(
     gizmos: &mut Gizmos,
     planets: &PlanetarySystem,
@@ -233,7 +314,6 @@ fn draw_object(
     scale: f32,
     show_orbits: ShowOrbitsState,
     tracked: bool,
-    followed: bool,
 ) -> Option<()> {
     let pv = obj.pv(stamp, planets)?;
 
@@ -250,12 +330,6 @@ fn draw_object(
         draw_circle(gizmos, pv.pos, size + 7.0 * scale, TEAL);
     } else if blinking && obj.remaining_dv() < 5.0 {
         draw_triangle(gizmos, pv.pos, size + 20.0 * scale, BLUE);
-    }
-
-    if tracked && followed {
-        let p = obj.fuel_percentage();
-        let iso = Isometry2d::from_translation(pv.pos);
-        gizmos.arc_2d(iso, p * 2.0 * PI, size + 30.0 * scale, RED);
     }
 
     let show_orbits = match show_orbits {
@@ -301,7 +375,6 @@ fn draw_scenario(
     scale: f32,
     show_orbits: ShowOrbitsState,
     track_list: &HashSet<ObjectId>,
-    followed: Option<ObjectId>,
     mode: GameMode,
 ) {
     draw_planets(gizmos, scenario.planets(), stamp, Vec2::ZERO, mode);
@@ -331,7 +404,6 @@ fn draw_scenario(
                 scale,
                 show_orbits,
                 is_tracked,
-                followed.map(|f| f == id).unwrap_or(false),
             )
         })
         .collect::<Vec<_>>();
@@ -929,6 +1001,8 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
 
     draw_scale_indicator(&mut gizmos, &state.camera);
 
+    draw_piloting_overlay(&mut gizmos, &state);
+
     // draw_timeline(&mut gizmos, &state);
 
     draw_orbit_spline(&mut gizmos, &state);
@@ -1009,7 +1083,6 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         state.camera.actual_scale,
         state.show_orbits,
         &state.track_list,
-        state.follow,
         state.game_mode,
     );
 

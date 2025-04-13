@@ -1,7 +1,8 @@
 use crate::math::rotate;
 use glam::f32::Vec2;
+use serde::{Deserialize, Serialize};
 
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Default, Debug, Clone, Copy, Deserialize, Serialize)]
 pub struct AABB {
     pub center: Vec2,
     pub span: Vec2,
@@ -139,6 +140,10 @@ impl OBB {
         OBB(aabb.into(), angle)
     }
 
+    pub fn with_aabb(&self, aabb: impl Into<AABB>) -> Self {
+        Self(aabb.into(), self.1)
+    }
+
     pub fn offset(&self, d: Vec2) -> Self {
         OBB::new(AABB::new(self.0.center + d, self.0.span), self.1)
     }
@@ -159,6 +164,11 @@ impl OBB {
         }
 
         corners
+    }
+
+    pub fn closed_loop(&self) -> [Vec2; 5] {
+        let c = self.corners();
+        [c[0], c[1], c[2], c[3], c[0]]
     }
 
     pub fn axes(&self) -> (Vec2, Vec2) {

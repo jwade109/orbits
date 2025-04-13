@@ -399,6 +399,11 @@ impl GameState {
         Some(lup.pv().pos)
     }
 
+    pub fn piloting(&self) -> Option<ObjectId> {
+        let id = self.follow?;
+        self.track_list.contains(&id).then(|| id)
+    }
+
     pub fn spawn_at(&mut self, global: &GlobalOrbit) -> Option<()> {
         let GlobalOrbit(parent, orbit) = global;
         let pv_local = orbit.pv(self.sim_time).ok()?;
@@ -481,12 +486,23 @@ impl GameState {
         }
     }
 
-    pub fn do_maneuver(&mut self, dv: Vec2) -> Option<()> {
+    pub fn turn(&mut self, dir: i8) -> Option<()> {
+        let avel = 8.0 * dir as f32 / 10.0f32.powi(self.sim_speed);
+        let id = self.follow?;
+        let orbiter = self.scenario.orbiter_mut(id)?;
+        orbiter.torque(avel);
+        Some(())
+    }
+
+    pub fn thrust_prograde(&mut self) -> Option<()> {
         let id = self.follow?;
 
         if !self.track_list.contains(&id) {
             return None;
         }
+
+        let orbiter = self.scenario.lup(id, self.sim_time)?.orbiter()?;
+        let dv = orbiter.pointing() * 0.3;
 
         if self
             .scenario
@@ -627,7 +643,7 @@ impl GameState {
                 dbg!(&file);
                 if let Some(file) = file {
                     let obj = starling::file_export::load_strl_file(&file);
-                    dbg!(obj);
+                    let _ = dbg!(obj);
                 }
             }
             GuiNodeId::ToggleDebug => self.hide_debug = !self.hide_debug,
@@ -666,6 +682,14 @@ impl GameState {
         if !self.paused {
             let sp = 10.0f32.powi(self.sim_speed);
             self.sim_time += Nanotime::nanos((time.delta().as_nanos() as f32 * sp) as i64);
+        }
+
+        // handle discrete physics events
+        for orbiter in self.scenario.orbiters_mut() {
+            orbiter.step(self.sim_time);
+            if orbiter.altitude() < 500.0 {
+                orbiter.add_fuel(time.delta_secs() * 12.0 * 10.0f32.powi(self.sim_speed));
+            }
         }
 
         self.handle_click_events();
@@ -757,7 +781,7 @@ impl GameState {
                     let lifetime = Nanotime::secs_f32(rand(0.04, 0.07));
                     let u = -dv.normalize_or_zero();
                     let v = rotate(u, PI / 2.0);
-                    let vel = rand(500.0, 1100.0) * u + rand(-200.0, 200.0) * v;
+                    let vel = pv.vel + rand(500.0, 1100.0) * u + rand(-200.0, 200.0) * v;
                     self.particles.push((self.wall_time, pv.pos, vel, lifetime));
                 }
             }
@@ -1008,10 +1032,14 @@ fn process_interaction(
             let gid = get_group_id();
             state.create_group(gid.clone());
         }
-        InteractionEvent::Thrust(dx, dy) => {
-            let s = 0.1;
-            let dv = (Vec2::X * *dx as f32 + Vec2::Y * *dy as f32) * s;
-            state.do_maneuver(dv);
+        InteractionEvent::ThrustForward => {
+            state.thrust_prograde();
+        }
+        InteractionEvent::TurnLeft => {
+            state.turn(1);
+        }
+        InteractionEvent::TurnRight => {
+            state.turn(-1);
         }
         InteractionEvent::Reset
         | InteractionEvent::MoveLeft
