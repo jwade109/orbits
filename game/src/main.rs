@@ -7,6 +7,7 @@ mod debug;
 mod drawing;
 mod egui;
 mod graph;
+mod inventory;
 mod keybindings;
 mod mouse;
 mod notifications;

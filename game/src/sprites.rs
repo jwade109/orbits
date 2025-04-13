@@ -166,13 +166,7 @@ pub fn hashable_to_color(h: &impl std::hash::Hash) -> Hsla {
 
 pub fn update_spacecraft_sprites(
     mut commands: Commands,
-    mut query: Query<(
-        Entity,
-        &mut SpacecraftTexture,
-        &mut Transform,
-        &mut Sprite,
-        &mut Visibility,
-    )>,
+    mut query: Query<(Entity, &mut SpacecraftTexture, &mut Transform, &mut Sprite)>,
     state: Res<GameState>,
 ) {
     let bodies: Vec<_> = state
@@ -181,7 +175,7 @@ pub fn update_spacecraft_sprites(
         .bodies(state.sim_time, None)
         .collect();
 
-    for (e, mut x, mut transform, mut s, mut vis) in query.iter_mut() {
+    for (e, mut x, mut transform, mut s) in query.iter_mut() {
         let SpacecraftTexture(id, scale) = *x;
         let lup = state.scenario.lup(id, state.sim_time);
         let orbiter = lup.as_ref().map(|lup| lup.orbiter()).flatten();
