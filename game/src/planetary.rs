@@ -500,10 +500,9 @@ impl GameState {
     }
 
     pub fn turn(&mut self, dir: i8) -> Option<()> {
-        let avel = 8.0 * dir as f32 / 10.0f32.powi(self.sim_speed);
         let id = self.follow?;
         let orbiter = self.scenario.orbiter_mut(id)?;
-        orbiter.vehicle.torque(avel);
+        orbiter.vehicle.turn(dir as f32 * 0.01);
         Some(())
     }
 
@@ -661,6 +660,9 @@ impl GameState {
             }
             GuiNodeId::ToggleDebug => self.hide_debug = !self.hide_debug,
             GuiNodeId::CursorMode => self.selection_mode = self.selection_mode.next(),
+            GuiNodeId::AutopilotingCount => {
+                self.track_list = self.controllers.iter().map(|c| c.target()).collect();
+            }
             _ => info!("Unhandled button event: {id:?}"),
         };
 
@@ -699,7 +701,8 @@ impl GameState {
 
         // handle discrete physics events
         for orbiter in self.scenario.orbiters_mut() {
-            orbiter.step(self.sim_time);
+            // controversial
+            orbiter.step(self.wall_time);
         }
 
         self.handle_click_events();

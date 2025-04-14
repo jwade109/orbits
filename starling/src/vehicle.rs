@@ -21,6 +21,7 @@ impl Thruster {
 pub struct Vehicle {
     stamp: Nanotime,
     angle: f32,
+    target_angle: f32,
     angular_velocity: f32,
     angular_acceleration: f32,
     body: Vec<Polygon>,
@@ -45,6 +46,7 @@ impl Vehicle {
         Self {
             body,
             angle: rand(0.0, PI * 2.0),
+            target_angle: rand(0.0, PI * 2.0),
             angular_velocity: avel,
             angular_acceleration: 0.0,
             stamp,
@@ -57,18 +59,22 @@ impl Vehicle {
     }
 
     pub fn step(&mut self, stamp: Nanotime) {
-        let dt = (stamp - self.stamp).to_secs();
+        let dt = (stamp - self.stamp).to_secs().min(0.1);
         self.angle += self.angular_velocity * dt;
         self.angular_velocity += self.angular_acceleration * dt;
         self.angular_acceleration = 0.0;
         if self.is_controllable() {
-            self.angular_velocity *= (-dt / 5.0).exp();
+            self.angular_velocity = (self.target_angle - self.angle) * (dt / 0.2).exp();
         }
         self.stamp = stamp;
     }
 
     pub fn pointing(&self) -> Vec2 {
         rotate(Vec2::X, self.angle)
+    }
+
+    pub fn target_pointing(&self) -> Vec2 {
+        rotate(Vec2::X, self.target_angle)
     }
 
     pub fn angular_velocity(&self) -> f32 {
@@ -79,8 +85,8 @@ impl Vehicle {
         self.angle
     }
 
-    pub fn torque(&mut self, torque: f32) {
-        self.angular_acceleration = torque
+    pub fn turn(&mut self, da: f32) {
+        self.target_angle += da;
     }
 
     pub fn body(&self) -> impl Iterator<Item = Polygon> + use<'_> {

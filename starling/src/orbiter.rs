@@ -80,7 +80,7 @@ impl Orbiter {
         Orbiter {
             id,
             max_fuel_mass: 800.0,
-            fuel_mass: rand(0.0, 800.0),
+            fuel_mass: rand(500.0, 800.0),
             dry_mass: 300.0,
             exhaust_velocity: 1700.0,
             props: vec![Propagator::new(orbit, stamp)],

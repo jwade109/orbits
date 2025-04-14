@@ -316,15 +316,17 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
         );
     }
 
-    {
+    let mut draw_pointing_vector = |u: Vec2, color: Srgba| {
         let triangle_width = 13.0;
-        let u = orbiter.vehicle.pointing();
         let v = rotate(u, PI / 2.0);
         let p1 = center + u * r * 0.7;
         let p2 = p1 + (v - u) * triangle_width;
         let p3 = p2 - v * triangle_width * 2.0;
-        gizmos.linestrip_2d([map(p1), map(p2), map(p3), map(p1)], LIME);
-    }
+        gizmos.linestrip_2d([map(p1), map(p2), map(p3), map(p1)], color);
+    };
+
+    draw_pointing_vector(orbiter.vehicle.pointing(), LIME);
+    draw_pointing_vector(orbiter.vehicle.target_pointing(), LIME.with_alpha(0.4));
 
     let r = r * state.camera.actual_scale;
     draw_circle(gizmos, map(center), r, GRAY);
