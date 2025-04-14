@@ -674,11 +674,11 @@ fn draw_maneuver_plan(
 
     for s in [s - 1.0, s - 0.5, s, s + 0.5, s + 1.0] {
         let t_anim = plan.start() + plan.duration() * s;
-        let t_end = t_anim + plan.duration() * 0.2;
+        let t_end: Nanotime = t_anim + plan.duration() * 0.2;
         let positions: Vec<_> = tspace(t_anim, t_end, 30)
             .iter()
-            .filter_map(|t| plan.pv(*t))
-            .map(|p| p.pos)
+            .filter_map(|t| (*t >= stamp).then(|| plan.pv(*t)).flatten())
+            .map(|p| p.pos + origin)
             .collect();
 
         gizmos.linestrip_2d(positions, YELLOW);
@@ -1085,22 +1085,44 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         draw_global_orbit(&mut gizmos, orbit, &state, RED);
     }
 
-    if let Some(orbit) = is_blinking(state.wall_time, None)
-        .then(|| {
-            state
-                .current_hover_ui()
-                .map(|id| {
-                    if let crate::ui::GuiNodeId::GlobalOrbit(i) = *id {
-                        state.queued_orbits.get(i)
-                    } else {
-                        None
-                    }
-                })
-                .flatten()
+    if let Some(orbit) = state
+        .current_hover_ui()
+        .map(|id| {
+            if let crate::ui::GuiNodeId::GlobalOrbit(i) = *id {
+                state.queued_orbits.get(i)
+            } else {
+                None
+            }
         })
         .flatten()
     {
-        draw_global_orbit(&mut gizmos, orbit, &state, YELLOW);
+        let mut go = *orbit;
+        let sparse = &orbit.1;
+        let anim_dur = 2.0;
+        let max_radius = 20.0;
+
+        let mut draw_with_offset = |s: f32| {
+            let alpha = if s == 0.0 { 1.0 } else { (1.0 - s.abs()) * 0.4 };
+            if let Some(o) = SparseOrbit::new(
+                sparse.apoapsis_r() + s * max_radius,
+                sparse.periapsis_r() + s * max_radius,
+                sparse.arg_periapsis,
+                sparse.body,
+                sparse.epoch,
+                sparse.is_retrograde(),
+            ) {
+                go.1 = o;
+                draw_global_orbit(&mut gizmos, &go, &state, YELLOW.with_alpha(alpha));
+            }
+        };
+
+        draw_with_offset(0.0);
+        let dt = (state.wall_time % Nanotime::secs_f32(anim_dur)).to_secs();
+        for off in linspace(0.0, 1.0, 3) {
+            let s = (dt / anim_dur + off) % 1.0;
+            draw_with_offset(-s);
+            draw_with_offset(s);
+        }
     }
 
     if let Some(orbit) = state.right_cursor_orbit() {
