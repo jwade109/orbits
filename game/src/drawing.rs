@@ -224,10 +224,33 @@ fn draw_propagator(
     Some(())
 }
 
+fn draw_vehicle(gizmos: &mut Gizmos, vehicle: &Vehicle, pos: Vec2, scale: f32) {
+    for poly in vehicle.body() {
+        let corners: Vec<_> = poly.iter_closed().map(|p| p * scale + pos).collect();
+        gizmos.linestrip_2d(corners, WHITE);
+    }
+
+    for thruster in vehicle.thrusters() {
+        let p1 = rotate(thruster.pos, vehicle.angle()) * scale + pos;
+        let u = rotate(-Vec2::X, thruster.angle + vehicle.angle());
+        let v = rotate(u, PI / 2.0);
+        let p2 = p1 + (u * thruster.length + v * thruster.length / 5.0) * scale;
+        let p3 = p1 + (u * thruster.length - v * thruster.length / 5.0) * scale;
+        gizmos.linestrip_2d([p1, p2, p3, p1], WHITE);
+    }
+}
+
 fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let piloting = state.piloting()?;
 
+    let lup = state.scenario.lup(piloting, state.sim_time)?;
+    let orbiter = lup.orbiter()?;
+
+    let rb = orbiter.vehicle.bounding_radius();
     let r = 300.0;
+
+    let zoom = 0.8 * r / rb;
+
     let center = Vec2::new(state.camera.window_dims.x - r * 1.2, r * 1.2);
 
     let b = state.camera.world_bounds();
@@ -235,16 +258,46 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
 
     let map = |p: Vec2| c.map(b, p);
 
-    let lup = state.scenario.lup(piloting, state.sim_time)?;
-    let orbiter = lup.orbiter()?;
+    draw_vehicle(
+        gizmos,
+        &orbiter.vehicle,
+        map(center),
+        state.camera.actual_scale * zoom,
+    );
 
-    for obb in orbiter.body() {
-        let corners: Vec<_> = obb
-            .closed_loop()
-            .iter()
-            .map(|p| map(7.0 * p + center))
-            .collect();
-        gizmos.linestrip_2d(corners, WHITE);
+    draw_counter(
+        gizmos,
+        rb as u64,
+        map(center + Vec2::Y * r),
+        state.camera.actual_scale,
+        WHITE,
+    );
+
+    {
+        draw_circle(
+            gizmos,
+            map(center),
+            rb * state.camera.actual_scale * zoom,
+            RED.with_alpha(0.02),
+        );
+
+        let mut rc = 10.0;
+        while rc < rb {
+            draw_circle(
+                gizmos,
+                map(center),
+                rc * state.camera.actual_scale * zoom,
+                GRAY.with_alpha(0.05),
+            );
+            rc += 10.0;
+        }
+
+        draw_cross(
+            gizmos,
+            map(center),
+            3.0 * state.camera.actual_scale,
+            RED.with_alpha(0.1),
+        );
     }
 
     {
@@ -265,7 +318,7 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
 
     {
         let triangle_width = 13.0;
-        let u = orbiter.pointing();
+        let u = orbiter.vehicle.pointing();
         let v = rotate(u, PI / 2.0);
         let p1 = center + u * r * 0.7;
         let p2 = p1 + (v - u) * triangle_width;
@@ -300,7 +353,7 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
         arc(p, s, RED);
     }
 
-    arc(orbiter.angular_velocity() / 10.0, 0.93, TEAL);
+    arc(orbiter.vehicle.angular_velocity() / 10.0, 0.93, TEAL);
 
     Some(())
 }
@@ -792,6 +845,10 @@ pub fn draw_counter(gizmos: &mut Gizmos, val: u64, pos: Vec2, scale: f32, color:
             let p = Vec2::new(xn as f32 * h, y);
             draw_circle(gizmos, pos + p + Vec2::splat(h / 2.0), r / 2.0, color);
         }
+        if nth_digit == 0 {
+            let p = Vec2::new(0.0, y);
+            draw_x(gizmos, pos + p + Vec2::splat(h / 2.0), r, color);
+        }
         val /= 10;
         y += h;
     }
@@ -966,13 +1023,6 @@ fn draw_rigid_body(gizmos: &mut Gizmos, craft: &RigidBody, color: Srgba) {
     for b in &body {
         draw_obb(gizmos, b, color);
     }
-
-    // for b in &body {
-    //     for p in b.corners() {
-    //         let v = craft.vel(p);
-    //         gizmos.line_2d(p, p + v, alpha(ORANGE, 0.2));
-    //     }
-    // }
 }
 
 pub fn draw_orbit_spline(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
@@ -1009,6 +1059,14 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
 
     if let Some(a) = state.selection_region() {
         draw_region(&mut gizmos, a, RED, Vec2::ZERO);
+    }
+
+    if let Some((m1, m2, corner)) = state.measuring_tape() {
+        draw_x(&mut gizmos, m1, 12.0 * state.camera.actual_scale, GRAY);
+        draw_x(&mut gizmos, m2, 12.0 * state.camera.actual_scale, GRAY);
+        gizmos.line_2d(m1, m2, GRAY);
+        gizmos.line_2d(m1, corner, GRAY.with_alpha(0.3));
+        gizmos.line_2d(m2, corner, GRAY.with_alpha(0.3));
     }
 
     for (t, pos, vel, l) in &state.particles {

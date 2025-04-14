@@ -28,7 +28,7 @@ impl Plugin for PlanetaryPlugin {
             Update,
             (
                 // egui
-                crate::egui::ui_example_system,
+                crate::ui::do_text_labels,
                 // physics
                 step_system,
                 // inputs
@@ -52,7 +52,7 @@ impl Plugin for PlanetaryPlugin {
     }
 }
 
-#[derive(Component, Default)]
+#[derive(Component, Default, Debug)]
 pub struct SoftController(pub Transform);
 
 fn init_system(mut commands: Commands) {
@@ -150,7 +150,7 @@ pub enum CursorMode {
     Rect,
     Altitude,
     NearOrbit,
-    Scratch,
+    Measure,
 }
 
 impl EnumIter for CursorMode {
@@ -158,8 +158,8 @@ impl EnumIter for CursorMode {
         match self {
             CursorMode::Rect => CursorMode::Altitude,
             CursorMode::Altitude => CursorMode::NearOrbit,
-            CursorMode::NearOrbit => CursorMode::Scratch,
-            CursorMode::Scratch => CursorMode::Rect,
+            CursorMode::NearOrbit => CursorMode::Measure,
+            CursorMode::Measure => CursorMode::Rect,
         }
     }
 }
@@ -201,6 +201,7 @@ pub struct GameState {
 
     pub notifications: Vec<Notification>,
     pub particles: Vec<(Nanotime, Vec2, Vec2, Nanotime)>,
+    pub text_labels: Vec<(Vec2, String, f32)>,
 }
 
 impl Default for GameState {
@@ -237,6 +238,7 @@ impl Default for GameState {
             game_mode: GameMode::Default,
             notifications: Vec::new(),
             particles: Vec::new(),
+            text_labels: Vec::new(),
         }
     }
 }
@@ -341,8 +343,19 @@ impl GameState {
             CursorMode::NearOrbit => self
                 .left_cursor_orbit()
                 .map(|GlobalOrbit(_, orbit)| Region::NearOrbit(orbit, 50.0)),
-            CursorMode::Scratch => None,
+            CursorMode::Measure => None,
         }
+    }
+
+    pub fn measuring_tape(&self) -> Option<(Vec2, Vec2, Vec2)> {
+        let mouse: &MouseState = self.mouse_if_world()?;
+        let (m1, m2) = match self.selection_mode {
+            CursorMode::Measure => mouse.left_world().zip(self.mouse.current_world()),
+            _ => None,
+        }?;
+
+        let corner = Vec2::new(m2.x, m1.y);
+        Some((m1, m2, corner))
     }
 
     pub fn current_clicked_gui_element(&self) -> Option<crate::ui::GuiNodeId> {
@@ -490,7 +503,7 @@ impl GameState {
         let avel = 8.0 * dir as f32 / 10.0f32.powi(self.sim_speed);
         let id = self.follow?;
         let orbiter = self.scenario.orbiter_mut(id)?;
-        orbiter.torque(avel);
+        orbiter.vehicle.torque(avel);
         Some(())
     }
 
@@ -502,7 +515,7 @@ impl GameState {
         }
 
         let orbiter = self.scenario.lup(id, self.sim_time)?.orbiter()?;
-        let dv = orbiter.pointing() * 0.3;
+        let dv = orbiter.vehicle.pointing() * 0.3;
 
         if self
             .scenario
@@ -687,9 +700,6 @@ impl GameState {
         // handle discrete physics events
         for orbiter in self.scenario.orbiters_mut() {
             orbiter.step(self.sim_time);
-            if orbiter.altitude() < 500.0 {
-                orbiter.add_fuel(time.delta_secs() * 12.0 * 10.0f32.powi(self.sim_speed));
-            }
         }
 
         self.handle_click_events();
@@ -784,6 +794,16 @@ impl GameState {
                     let vel = pv.vel + rand(500.0, 1100.0) * u + rand(-200.0, 200.0) * v;
                     self.particles.push((self.wall_time, pv.pos, vel, lifetime));
                 }
+            }
+        }
+
+        self.text_labels.clear();
+
+        if let Some((m1, m2, corner)) = self.measuring_tape() {
+            for (a, b) in [(m1, m2), (m1, corner), (m2, corner)] {
+                let middle = (a + b) / 2.0;
+                let d = format!("{:0.2}", a.distance(b));
+                self.text_labels.push((middle, d, self.camera.actual_scale));
             }
         }
 

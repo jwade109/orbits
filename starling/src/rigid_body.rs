@@ -1,5 +1,5 @@
-use crate::aabb::{AABB, OBB};
-use crate::math::{rotate, Vec2, PI};
+use crate::aabb::{Polygon, AABB, OBB};
+use crate::math::{linspace, rand, randint, randvec, rotate, Vec2, PI};
 use crate::pv::PV;
 use serde::{Deserialize, Serialize};
 
@@ -11,27 +11,56 @@ pub struct RigidBody {
     pub body: Vec<AABB>,
 }
 
-pub fn satellite_body(scale: f32) -> Vec<AABB> {
+pub fn asteroid_body() -> Vec<Polygon> {
+    let r_avg = 30.0;
+    let potato = |p: Vec2, r: f32| -> Polygon {
+        let m1 = randint(2, 5) as f32;
+        let m2 = randint(3, 12) as f32;
+        let m3 = randint(7, 16) as f32;
+        let m4 = randint(12, 20) as f32;
+
+        Polygon::new(
+            linspace(0.0, 2.0 * PI, 40)
+                .iter()
+                .map(|a| {
+                    let r = r
+                        + ((a * m1).sin() * r * 0.3)
+                        + ((a * m2).sin() * r * 0.1)
+                        + ((a * m3).sin() * r * 0.02)
+                        + ((a * m4).sin() * r * 0.01);
+                    p + rotate(Vec2::X * r, *a)
+                })
+                .collect(),
+        )
+    };
+
+    let mut potatoes = vec![potato(Vec2::ZERO, r_avg)];
+
+    for _ in 0..randint(1, 4) {
+        let center = randvec(r_avg * 0.1, r_avg * 0.8);
+        let s = r_avg * rand(0.2, 0.6);
+        potatoes.push(potato(center, s));
+    }
+
+    potatoes
+}
+
+pub fn satellite_body() -> Vec<Polygon> {
     vec![
         // body
-        AABB::from_arbitrary((-100.0, -100.0), (0.0, 0.0)),
-        AABB::from_arbitrary((90.0, -90.0), (0.0, 0.0)),
-        AABB::from_arbitrary((0.0, 0.0), (100.0, 100.0)),
-        AABB::from_arbitrary((-90.0, 90.0), (0.0, 0.0)),
+        AABB::from_arbitrary((-0.9, -0.9), (0.0, 0.0)).polygon(),
+        AABB::from_arbitrary((0.9, -0.9), (0.0, 0.0)).polygon(),
+        AABB::from_arbitrary((0.0, 0.0), (0.9, 0.9)).polygon(),
+        AABB::from_arbitrary((-0.9, 0.9), (0.0, 0.0)).polygon(),
         // panels
-        AABB::from_arbitrary((-300.0, 20.0), (-80.0, -20.0)),
-        AABB::from_arbitrary((300.0, 20.0), (80.0, -20.0)),
-        // thruster
-        AABB::from_arbitrary((-50.0, -90.0), (50.0, -150.0)),
+        AABB::from_arbitrary((0.2, -3.0), (-0.2, -0.9)).polygon(),
+        AABB::from_arbitrary((0.2, 3.0), (-0.2, 0.9)).polygon(),
+        // front
+        AABB::from_arbitrary((0.9, -0.5), (1.5, 0.5)).polygon(),
+        Polygon::circle((-0.97, 0.0), 0.2, 16),
+        Polygon::circle((-0.97, -0.4), 0.2, 16),
+        Polygon::circle((-0.97, 0.4), 0.2, 16),
     ]
-    .iter()
-    .map(|a| a.scale(scale))
-    .map(|a| {
-        let p1 = rotate(a.center + a.span / 2.0, PI / 2.0);
-        let p2 = rotate(a.center - a.span / 2.0, PI / 2.0);
-        AABB::from_arbitrary(p1, p2)
-    })
-    .collect()
 }
 
 impl RigidBody {

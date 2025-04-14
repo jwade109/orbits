@@ -1,4 +1,4 @@
-pub use crate::aabb::{AABB, OBB};
+pub use crate::aabb::{Polygon, AABB, OBB};
 pub use crate::belts::AsteroidBelt;
 pub use crate::control::Controller;
 pub use crate::examples::{
@@ -19,3 +19,4 @@ pub use crate::region::Region;
 pub use crate::rigid_body::{satellite_body, RigidBody};
 pub use crate::scenario::{ObjectIdTracker, PlanetarySystem, Scenario};
 pub use crate::topomap::{id_to_aabb, test_topo, TopoMap};
+pub use crate::vehicle::Vehicle;

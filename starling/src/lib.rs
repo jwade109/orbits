@@ -16,3 +16,4 @@ pub mod region;
 pub mod rigid_body;
 pub mod scenario;
 pub mod topomap;
+pub mod vehicle;

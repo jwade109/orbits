@@ -84,6 +84,39 @@ fn set_bloom(state: Res<GameState>, mut bloom: Single<&mut Bloom>) {
     }
 }
 
+const TEXT_LABEL_Z_INDEX: f32 = 10.0;
+
+pub fn do_text_labels(
+    mut commands: Commands,
+    state: Res<GameState>,
+    mut query: Query<(Entity, &mut Text2d, &mut Transform), With<TextLabel>>,
+) {
+    let mut labels: Vec<_> = query.iter_mut().collect();
+    for (i, (pos, txt, size)) in state.text_labels.iter().enumerate() {
+        if let Some((_, text2d, label)) = labels.get_mut(i) {
+            label.translation = pos.extend(TEXT_LABEL_Z_INDEX);
+            label.scale = Vec3::splat(*size);
+            text2d.0 = txt.clone();
+        } else {
+            commands.spawn((
+                Text2d::new(txt.clone()),
+                Transform::from_translation(pos.extend(TEXT_LABEL_Z_INDEX))
+                    .with_scale(Vec3::splat(*size)),
+                TextLabel,
+            ));
+        }
+    }
+
+    for (i, (e, _, _)) in query.iter().enumerate() {
+        if i >= state.text_labels.len() {
+            commands.entity(e).despawn();
+        }
+    }
+}
+
+#[derive(Component)]
+pub struct TextLabel;
+
 #[derive(Component)]
 struct DateMarker;
 

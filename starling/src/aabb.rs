@@ -1,5 +1,4 @@
-use crate::math::rotate;
-use glam::f32::Vec2;
+use crate::math::{linspace, rotate, Vec2, PI};
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Debug, Clone, Copy, Deserialize, Serialize)]
@@ -120,6 +119,10 @@ impl AABB {
         let center = self.center.with_y(self.center.y - 2.0 * dy);
         AABB::new(center, self.span)
     }
+
+    pub fn polygon(&self) -> Polygon {
+        Polygon::from_slice(&self.corners())
+    }
 }
 
 impl From<((f32, f32), (f32, f32))> for AABB {
@@ -166,9 +169,9 @@ impl OBB {
         corners
     }
 
-    pub fn closed_loop(&self) -> [Vec2; 5] {
+    pub fn polygon(&self) -> Polygon {
         let c = self.corners();
-        [c[0], c[1], c[2], c[3], c[0]]
+        Polygon::from_slice(&[c[0], c[1], c[2], c[3], c[0]])
     }
 
     pub fn axes(&self) -> (Vec2, Vec2) {
@@ -176,7 +179,9 @@ impl OBB {
     }
 
     pub fn project_onto(&self, axis: Vec2) -> (f32, f32) {
-        let x = self.corners().map(|e| e.dot(axis.normalize_or_zero()));
+        let x = self
+            .corners()
+            .map(|e: Vec2| e.dot(axis.normalize_or_zero()));
 
         let cmp = |f: &&f32, y: &&f32| f.total_cmp(y);
 
@@ -215,5 +220,53 @@ impl OBB {
         let d = p - self.0.center;
         let t = rotate(d, -self.1) + self.0.center;
         self.0.contains(t)
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Polygon(Vec<Vec2>);
+
+impl Polygon {
+    pub fn new(points: Vec<Vec2>) -> Self {
+        Polygon(points)
+    }
+
+    pub fn circle(center: impl Into<Vec2>, r: f32, n: usize) -> Self {
+        let center = center.into();
+        let mut points: Vec<_> = linspace(0.0, PI * 2.0, n + 1)
+            .into_iter()
+            .map(|a| rotate(Vec2::X * r, a) + center)
+            .collect();
+        points.pop();
+        Polygon(points)
+    }
+
+    pub fn from_slice(points: &[Vec2]) -> Self {
+        Polygon(points.to_owned())
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &Vec2> + use<'_> {
+        self.0.iter()
+    }
+
+    pub fn iter_closed(&self) -> impl Iterator<Item = &Vec2> + use<'_> {
+        self.0.iter().chain(self.0.get(0))
+    }
+
+    pub fn open(&self) -> &Vec<Vec2> {
+        &self.0
+    }
+
+    pub fn rotate_about(&self, o: Vec2, angle: f32) -> Self {
+        let rotated = self.0.iter().map(|p| rotate(p - o, angle) + o).collect();
+        Self(rotated)
+    }
+
+    pub fn closed(&self) -> Vec<Vec2> {
+        let mut points = self.0.clone();
+        if !points.is_empty() {
+            points.push(points[0]);
+        }
+        points
     }
 }
