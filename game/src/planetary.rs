@@ -3,6 +3,7 @@
 use crate::camera_controls::*;
 use crate::mouse::MouseState;
 use crate::notifications::*;
+use crate::scene::{Scene, SceneType};
 use crate::ui::InteractionEvent;
 use bevy::color::palettes::css::*;
 use bevy::core_pipeline::bloom::Bloom;
@@ -60,7 +61,7 @@ fn init_system(mut commands: Commands) {
         Camera {
             hdr: true,
             order: 0,
-            clear_color: ClearColorConfig::Custom(BLACK.into()),
+            clear_color: ClearColorConfig::Custom(BLACK.with_alpha(0.3).into()),
             ..default()
         },
         Bloom {
@@ -188,6 +189,9 @@ pub struct GameState {
     pub constellations: HashMap<OrbiterId, GroupId>,
     pub selection_mode: CursorMode,
 
+    pub scenes: Vec<Scene>,
+    pub current_scene: usize,
+
     pub ui: ui::Tree<crate::ui::GuiNodeId>,
     pub context_menu_origin: Option<Vec2>,
 
@@ -227,6 +231,12 @@ impl Default for GameState {
             queued_orbits: Vec::new(),
             constellations: HashMap::new(),
             selection_mode: CursorMode::Rect,
+            scenes: vec![
+                Scene::new("Earth System", SceneType::OrbitalView(PlanetId(0))),
+                Scene::new("Luna System", SceneType::OrbitalView(PlanetId(1))),
+                Scene::new("Main Menu", SceneType::MainMenu),
+            ],
+            current_scene: 0,
             ui: ui::Tree::new(),
             context_menu_origin: None,
             redraw_requested: true,
@@ -243,6 +253,10 @@ impl GameState {
     pub fn redraw(&mut self) {
         self.redraw_requested = true;
         self.last_redraw = Nanotime::zero()
+    }
+
+    pub fn current_scene(&self) -> &Scene {
+        &self.scenes[self.current_scene]
     }
 
     pub fn toggle_track(&mut self, id: OrbiterId) {
@@ -668,6 +682,10 @@ impl GameState {
             GuiNodeId::CursorMode => self.selection_mode = self.selection_mode.next(),
             GuiNodeId::AutopilotingCount => {
                 self.track_list = self.controllers.iter().map(|c| c.target()).collect();
+            }
+            GuiNodeId::Scene(i) => {
+                let scene = self.scenes.get(i);
+                dbg!(scene);
             }
             _ => info!("Unhandled button event: {id:?}"),
         };

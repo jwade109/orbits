@@ -216,6 +216,7 @@ pub enum GuiNodeId {
     CommitMission,
     FollowOrbiter,
     CursorMode,
+    Scene(usize),
     Nullopt,
 }
 
@@ -494,11 +495,23 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
     let notif_bar = Node::fit().down().tight().invisible().with_children(
         state.notifications.iter().rev().take(10).rev().map(|n| {
             let s = format!("{}", n);
-            ui::Node::new(600, 28)
+            ui::Node::new(900, 28)
                 .with_text(s)
                 .with_color([0.3, 0.3, 0.3, 0.3])
         }),
     );
+
+    let scene_bar = Node::row(Size::Fit)
+        .with_id(GuiNodeId::World)
+        .invisible()
+        .with_padding(0.0)
+        .with_children(
+            state
+                .scenes
+                .iter()
+                .enumerate()
+                .map(|(i, s)| Node::button(s.name(), GuiNodeId::Scene(i), 180, button_height)),
+        );
 
     let world = Node::grow()
         .down()
@@ -518,7 +531,9 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
                 .down()
                 .invisible()
                 .with_child(Node::grow().with_id(GuiNodeId::World).invisible())
-                .with_child(notif_bar),
+                .with_child(notif_bar)
+                .with_child(Node::row(15.0).with_id(GuiNodeId::World).invisible())
+                .with_child(scene_bar),
         );
 
     let root = Node::new(vb.span.x, vb.span.y)

@@ -13,6 +13,7 @@ use crate::graph::*;
 use crate::mouse::MouseState;
 use crate::notifications::*;
 use crate::planetary::{GameMode, GameState, ShowOrbitsState};
+use crate::scene::{Scene, SceneType};
 
 fn draw_cross(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     let dx = Vec2::new(size, 0.0);
@@ -1032,21 +1033,6 @@ pub fn draw_ui_layout(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     Some(())
 }
 
-// fn draw_rigid_body(gizmos: &mut Gizmos, craft: &RigidBody, color: Srgba) {
-//     let body = craft.body();
-
-//     draw_circle(gizmos, craft.pv.pos, 30.0, color);
-//     gizmos.line_2d(craft.pv.pos, craft.pv.pos + craft.pv.vel * 5.0, PURPLE);
-//     let u = rotate(Vec2::X, craft.angle);
-//     gizmos.line_2d(craft.pv.pos, craft.pv.pos + u * 1000.0, GREEN);
-
-//     draw_aabb(gizmos, craft.aabb(), GRAY.with_alpha(0.1));
-
-//     for b in &body {
-//         draw_obb(gizmos, b, color);
-//     }
-// }
-
 pub fn draw_orbit_spline(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     if !state.show_graph {
         return None;
@@ -1068,24 +1054,22 @@ pub fn draw_orbit_spline(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     Some(())
 }
 
-pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
-    let stamp = state.sim_time;
+pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, root: PlanetId) {
+    draw_scale_indicator(gizmos, &state.camera);
 
-    draw_scale_indicator(&mut gizmos, &state.camera);
+    draw_piloting_overlay(gizmos, &state);
 
-    draw_piloting_overlay(&mut gizmos, &state);
+    // draw_timeline(gizmos, &state);
 
-    // draw_timeline(&mut gizmos, &state);
-
-    draw_orbit_spline(&mut gizmos, &state);
+    draw_orbit_spline(gizmos, &state);
 
     if let Some(a) = state.selection_region() {
-        draw_region(&mut gizmos, a, RED, Vec2::ZERO);
+        draw_region(gizmos, a, RED, Vec2::ZERO);
     }
 
     if let Some((m1, m2, corner)) = state.measuring_tape() {
-        draw_x(&mut gizmos, m1, 12.0 * state.camera.actual_scale, GRAY);
-        draw_x(&mut gizmos, m2, 12.0 * state.camera.actual_scale, GRAY);
+        draw_x(gizmos, m1, 12.0 * state.camera.actual_scale, GRAY);
+        draw_x(gizmos, m2, 12.0 * state.camera.actual_scale, GRAY);
         gizmos.line_2d(m1, m2, GRAY);
         gizmos.line_2d(m1, corner, GRAY.with_alpha(0.3));
         gizmos.line_2d(m2, corner, GRAY.with_alpha(0.3));
@@ -1096,7 +1080,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
         let p = pos + vel * age * state.camera.actual_scale;
         let a = 1.0 - (age / l.to_secs());
         draw_circle(
-            &mut gizmos,
+            gizmos,
             p,
             1.2 * state.camera.actual_scale,
             WHITE.with_alpha(a),
@@ -1104,7 +1088,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     }
 
     for orbit in &state.queued_orbits {
-        draw_global_orbit(&mut gizmos, orbit, &state, RED);
+        draw_global_orbit(gizmos, orbit, &state, RED);
     }
 
     if let Some(orbit) = state
@@ -1134,7 +1118,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
                 sparse.is_retrograde(),
             ) {
                 go.1 = o;
-                draw_global_orbit(&mut gizmos, &go, &state, YELLOW.with_alpha(alpha));
+                draw_global_orbit(gizmos, &go, &state, YELLOW.with_alpha(alpha));
             }
         };
 
@@ -1148,13 +1132,13 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     }
 
     if let Some(orbit) = state.right_cursor_orbit() {
-        draw_global_orbit(&mut gizmos, &orbit, &state, ORANGE);
+        draw_global_orbit(gizmos, &orbit, &state, ORANGE);
     }
 
     for ctrl in &state.controllers {
         let tracked = state.track_list.contains(&ctrl.target());
         draw_controller(
-            &mut gizmos,
+            gizmos,
             state.sim_time,
             state.wall_time,
             ctrl,
@@ -1167,7 +1151,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     if state.show_animations && state.track_list.len() < 6 {
         for id in &state.track_list {
             draw_event_animation(
-                &mut gizmos,
+                gizmos,
                 &state.scenario,
                 *id,
                 state.sim_time,
@@ -1178,9 +1162,9 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     }
 
     draw_scenario(
-        &mut gizmos,
+        gizmos,
         &state.scenario,
-        stamp,
+        state.sim_time,
         state.wall_time,
         state.camera.actual_scale,
         state.show_orbits,
@@ -1189,29 +1173,42 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     );
 
     draw_x(
-        &mut gizmos,
+        gizmos,
         state.light_source(),
         20.0 * state.camera.actual_scale,
         RED.with_alpha(0.2),
     );
 
-    draw_highlighted_objects(&mut gizmos, &state);
+    draw_highlighted_objects(gizmos, &state);
 
-    draw_notifications(&mut gizmos, &state);
+    draw_notifications(gizmos, &state);
 
-    draw_belt_orbits(&mut gizmos, &state);
+    draw_belt_orbits(gizmos, &state);
 
     if let Some(p) = state.mouse.current_world() {
         draw_counter(
-            &mut gizmos,
+            gizmos,
             state.highlighted().len() as u64,
             p,
             state.camera.actual_scale,
             WHITE,
         );
     }
+}
 
-    draw_ui_layout(&mut gizmos, &state);
+pub fn draw_scene(gizmos: &mut Gizmos, state: &GameState, scene: &Scene) {
+    match scene.kind() {
+        SceneType::OrbitalView(root) => draw_orbital_view(gizmos, state, *root),
+        SceneType::MainMenu => {}
+    }
+}
+
+pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
+    let gizmos = &mut gizmos;
+
+    draw_scene(gizmos, &state, state.current_scene());
+
+    draw_ui_layout(gizmos, &state);
 }
 
 fn draw_mouse_state(mouse: &MouseState, gizmos: &mut Gizmos) {

@@ -386,24 +386,23 @@ impl Scenario {
         }
     }
 
-    pub fn relevant_body(&self, _pos: Vec2, _stamp: Nanotime) -> Option<PlanetId> {
-        return None;
-        // let results = self
-        //     .system
-        //     .ids()
-        //     .into_iter()
-        //     .filter_map(|id| {
-        //         let lup = self.lup(id, stamp)?;
-        //         let p = lup.pv().pos;
-        //         let body = lup.body()?;
-        //         let d = pos.distance(p);
-        //         (d <= body.soi).then(|| (d, id))
-        //     })
-        //     .collect::<Vec<_>>();
-        // results
-        //     .iter()
-        //     .min_by(|(d1, _), (d2, _)| d1.total_cmp(d2))
-        //     .map(|(_, id)| *id)
+    pub fn relevant_body(&self, pos: Vec2, stamp: Nanotime) -> Option<PlanetId> {
+        let results = self
+            .system
+            .ids()
+            .into_iter()
+            .filter_map(|id| {
+                let lup = self.lup_planet(id, stamp)?;
+                let p = lup.pv().pos;
+                let body = lup.body()?;
+                let d = pos.distance(p);
+                (d <= body.soi).then(|| (d, id))
+            })
+            .collect::<Vec<_>>();
+        results
+            .iter()
+            .min_by(|(d1, _), (d2, _)| d1.total_cmp(d2))
+            .map(|(_, id)| *id)
     }
 
     pub fn nearest(&self, pos: Vec2, stamp: Nanotime) -> Option<ObjectId> {
