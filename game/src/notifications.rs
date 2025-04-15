@@ -42,13 +42,13 @@ impl Notification {
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NotificationType {
-    OrbiterCrashed(ObjectId),
-    OrbiterDeleted(ObjectId),
-    ManeuverStarted(ObjectId),
-    ManeuverComplete(ObjectId),
-    ManeuverFailed(ObjectId),
+    OrbiterCrashed(OrbiterId),
+    OrbiterDeleted(OrbiterId),
+    ManeuverStarted(OrbiterId),
+    ManeuverComplete(OrbiterId),
+    ManeuverFailed(OrbiterId),
     Following(ObjectId),
-    OrbitChanged(ObjectId),
+    OrbitChanged(OrbiterId),
 }
 
 impl std::fmt::Display for Notification {

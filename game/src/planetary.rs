@@ -177,15 +177,15 @@ pub struct GameState {
     pub scenario: Scenario,
     pub ids: ObjectIdTracker,
     pub backup: Option<(Scenario, ObjectIdTracker, Nanotime)>,
-    pub track_list: HashSet<ObjectId>,
+    pub track_list: HashSet<OrbiterId>,
     pub show_graph: bool,
     pub controllers: Vec<Controller>,
     pub follow: Option<ObjectId>,
-    pub user_maneuvers: HashMap<ObjectId, (Nanotime, Vec2)>,
+    pub user_maneuvers: HashMap<OrbiterId, (Nanotime, Vec2)>,
     pub show_orbits: ShowOrbitsState,
     pub show_animations: bool,
     pub queued_orbits: Vec<GlobalOrbit>,
-    pub constellations: HashMap<ObjectId, GroupId>,
+    pub constellations: HashMap<OrbiterId, GroupId>,
     pub selection_mode: CursorMode,
 
     pub ui: ui::Tree<crate::ui::GuiNodeId>,
@@ -245,7 +245,7 @@ impl GameState {
         self.last_redraw = Nanotime::zero()
     }
 
-    pub fn toggle_track(&mut self, id: ObjectId) {
+    pub fn toggle_track(&mut self, id: OrbiterId) {
         if self.track_list.contains(&id) {
             self.track_list.retain(|e| *e != id);
         } else {
@@ -253,18 +253,18 @@ impl GameState {
         }
     }
 
-    pub fn is_tracked(&self, id: ObjectId) -> bool {
+    pub fn is_tracked(&self, id: OrbiterId) -> bool {
         self.track_list.contains(&id)
     }
 
-    pub fn get_group_members(&mut self, gid: &GroupId) -> Vec<ObjectId> {
+    pub fn get_group_members(&mut self, gid: &GroupId) -> Vec<OrbiterId> {
         self.constellations
             .iter()
             .filter_map(|(id, g)| (g == gid).then(|| *id))
             .collect()
     }
 
-    pub fn group_membership(&self, id: &ObjectId) -> Option<&GroupId> {
+    pub fn group_membership(&self, id: &OrbiterId) -> Option<&GroupId> {
         self.constellations.get(id)
     }
 
@@ -308,7 +308,7 @@ impl GameState {
         }
     }
 
-    pub fn planned_maneuvers(&self, after: Nanotime) -> Vec<(ObjectId, Nanotime, Vec2)> {
+    pub fn planned_maneuvers(&self, after: Nanotime) -> Vec<(OrbiterId, Nanotime, Vec2)> {
         let mut dvs = vec![];
         for ctrl in &self.controllers {
             if let Some(plan) = ctrl.plan() {
@@ -367,7 +367,7 @@ impl GameState {
         }
 
         let wrt_id = self.scenario.relevant_body(p1, self.sim_time)?;
-        let parent = self.scenario.lup(wrt_id, self.sim_time)?;
+        let parent = self.scenario.lup_planet(wrt_id, self.sim_time)?;
 
         let r = p1.distance(parent.pv().pos);
         let v = (parent.body()?.mu() / r).sqrt();
@@ -378,7 +378,7 @@ impl GameState {
     pub fn cursor_orbit(&self, p1: Vec2, p2: Vec2) -> Option<GlobalOrbit> {
         let pv = self.cursor_pv(p1, p2)?;
         let parent_id = self.scenario.relevant_body(pv.pos, self.sim_time)?;
-        let parent = self.scenario.lup(parent_id, self.sim_time)?;
+        let parent = self.scenario.lup_planet(parent_id, self.sim_time)?;
         let parent_pv = parent.pv();
         let pv = pv - PV::pos(parent_pv.pos);
         let body = parent.body()?;
@@ -400,12 +400,15 @@ impl GameState {
 
     pub fn follow_position(&self) -> Option<Vec2> {
         let id = self.follow?;
-        let lup = self.scenario.lup(id, self.sim_time)?;
+        let lup = match id {
+            ObjectId::Orbiter(id) => self.scenario.lup_orbiter(id, self.sim_time)?,
+            ObjectId::Planet(id) => self.scenario.lup_planet(id, self.sim_time)?,
+        };
         Some(lup.pv().pos)
     }
 
-    pub fn piloting(&self) -> Option<ObjectId> {
-        let id = self.follow?;
+    pub fn piloting(&self) -> Option<OrbiterId> {
+        let id = self.follow?.orbiter()?;
         self.track_list.contains(&id).then(|| id)
     }
 
@@ -427,16 +430,20 @@ impl GameState {
         self.spawn_at(&orbit)
     }
 
-    pub fn delete_orbiter(&mut self, id: ObjectId) -> Option<()> {
-        let lup = self.scenario.lup(id, self.sim_time)?;
+    pub fn delete_orbiter(&mut self, id: OrbiterId) -> Option<()> {
+        let lup = self.scenario.lup_orbiter(id, self.sim_time)?;
         let _orbiter = lup.orbiter()?;
         let parent = lup.parent(self.sim_time)?;
         let pv = lup.pv().pos;
-        let plup = self.scenario.lup(parent, self.sim_time)?;
+        let plup = self.scenario.lup_planet(parent, self.sim_time)?;
         let pvp = plup.pv().pos;
         let pvl = pv - pvp;
         self.scenario.remove_object(id)?;
-        self.notify(parent, NotificationType::OrbiterDeleted(id), pvl);
+        self.notify(
+            ObjectId::Planet(parent),
+            NotificationType::OrbiterDeleted(id),
+            pvl,
+        );
         Some(())
     }
 
@@ -453,7 +460,7 @@ impl GameState {
         }
     }
 
-    pub fn is_maneuvering(&self, id: ObjectId) -> Option<(Nanotime, Vec2)> {
+    pub fn is_maneuvering(&self, id: OrbiterId) -> Option<(Nanotime, Vec2)> {
         // this is a stupid function
         if let Some((t, dv)) = self.user_maneuvers.get(&id) {
             let dt = (*t - self.wall_time).abs();
@@ -467,7 +474,7 @@ impl GameState {
         (dt.to_secs() < 0.1).then(|| m)
     }
 
-    pub fn closest_maneuver(&self, id: ObjectId) -> Option<(Nanotime, Vec2)> {
+    pub fn closest_maneuver(&self, id: OrbiterId) -> Option<(Nanotime, Vec2)> {
         let ctrl = self.controllers.iter().find(|c| c.target() == id)?;
         let plan = ctrl.plan()?;
         let ts: Vec<_> = plan.dvs().collect();
@@ -476,13 +483,13 @@ impl GameState {
             .cloned()
     }
 
-    pub fn highlighted(&self) -> HashSet<ObjectId> {
+    pub fn highlighted(&self) -> HashSet<OrbiterId> {
         if let Some(a) = self.selection_region() {
             self.scenario
                 .orbiter_ids()
                 .into_iter()
                 .filter_map(|id| {
-                    let pv = self.scenario.lup(id, self.sim_time)?.pv();
+                    let pv = self.scenario.lup_orbiter(id, self.sim_time)?.pv();
                     a.contains(pv.pos).then(|| id)
                 })
                 .collect()
@@ -492,20 +499,20 @@ impl GameState {
     }
 
     pub fn turn(&mut self, dir: i8) -> Option<()> {
-        let id = self.follow?;
+        let id = self.piloting()?;
         let orbiter = self.scenario.orbiter_mut(id)?;
         orbiter.vehicle.turn(dir as f32 * 0.01);
         Some(())
     }
 
     pub fn thrust_prograde(&mut self) -> Option<()> {
-        let id = self.follow?;
+        let id = self.piloting()?;
 
         if !self.track_list.contains(&id) {
             return None;
         }
 
-        let orbiter = self.scenario.lup(id, self.sim_time)?.orbiter()?;
+        let orbiter = self.scenario.lup_orbiter(id, self.sim_time)?.orbiter()?;
         let dv = orbiter.vehicle.pointing() * 0.3;
 
         if self
@@ -513,9 +520,17 @@ impl GameState {
             .impulsive_burn(id, self.sim_time, dv)
             .is_none()
         {
-            self.notify(id, NotificationType::ManeuverFailed(id), None)
+            self.notify(
+                ObjectId::Orbiter(id),
+                NotificationType::ManeuverFailed(id),
+                None,
+            )
         } else {
-            self.notify(id, NotificationType::OrbitChanged(id), None);
+            self.notify(
+                ObjectId::Orbiter(id),
+                NotificationType::OrbitChanged(id),
+                None,
+            );
             self.user_maneuvers.insert(id, (self.wall_time, dv));
         }
 
@@ -538,8 +553,8 @@ impl GameState {
         self.controllers.retain(|c| !tracks.contains(&c.target()));
     }
 
-    pub fn command(&mut self, id: ObjectId, next: &GlobalOrbit) -> Option<()> {
-        self.scenario.lup(id, self.sim_time)?.orbiter()?;
+    pub fn command(&mut self, id: OrbiterId, next: &GlobalOrbit) -> Option<()> {
+        self.scenario.lup_orbiter(id, self.sim_time)?.orbiter()?;
 
         if self.controllers.iter().find(|c| c.target() == id).is_none() {
             self.controllers.push(Controller::idle(id));
@@ -591,7 +606,7 @@ impl GameState {
             .iter()
             .filter_map(|id| {
                 self.scenario
-                    .lup(*id, self.sim_time)
+                    .lup_orbiter(*id, self.sim_time)
                     .map(|lup| lup.orbiter())
                     .flatten()
             })
@@ -613,8 +628,8 @@ impl GameState {
         use crate::ui::GuiNodeId;
 
         match id {
-            GuiNodeId::CurrentBody(id) => self.follow = Some(id),
-            GuiNodeId::Orbiter(id) => self.follow = Some(id),
+            GuiNodeId::CurrentBody(id) => self.follow = Some(ObjectId::Planet(id)),
+            GuiNodeId::Orbiter(id) => self.follow = Some(ObjectId::Orbiter(id)),
             GuiNodeId::ToggleDrawMode => self.game_mode = self.game_mode.next(),
             GuiNodeId::ClearTracks => self.track_list.clear(),
             GuiNodeId::ClearOrbits => self.queued_orbits.clear(),
@@ -632,7 +647,7 @@ impl GameState {
             GuiNodeId::TogglePause => self.paused = !self.paused,
             GuiNodeId::GlobalOrbit(i) => {
                 let orbit = self.queued_orbits.get(i)?;
-                self.follow = Some(orbit.0);
+                self.follow = Some(ObjectId::Planet(orbit.0));
             }
             GuiNodeId::World => (),
             GuiNodeId::Nullopt => (),
@@ -708,7 +723,11 @@ impl GameState {
                 let perturb = randvec(0.01, 0.05);
                 self.scenario.simulate(*t, d);
                 self.scenario.impulsive_burn(*id, *t, dv + perturb);
-                self.notify(*id, NotificationType::OrbitChanged(*id), None);
+                self.notify(
+                    ObjectId::Orbiter(*id),
+                    NotificationType::OrbitChanged(*id),
+                    None,
+                );
             } else {
                 break;
             }
@@ -717,12 +736,16 @@ impl GameState {
 
         for (id, ri) in self.scenario.simulate(s, d) {
             if let Some(pv) = ri.orbit.pv(ri.stamp).ok() {
-                self.notify(ri.parent, NotificationType::OrbiterCrashed(id), pv.pos);
+                self.notify(
+                    ObjectId::Planet(ri.parent),
+                    NotificationType::OrbiterCrashed(id),
+                    pv.pos,
+                );
             }
         }
 
         let mut track_list = self.track_list.clone();
-        track_list.retain(|o| self.scenario.lup(*o, self.sim_time).is_some());
+        track_list.retain(|o| self.scenario.lup_orbiter(*o, self.sim_time).is_some());
         self.track_list = track_list;
 
         let ids: Vec<_> = self.scenario.orbiter_ids().collect();
@@ -736,7 +759,7 @@ impl GameState {
                 return;
             }
 
-            let lup = self.scenario.lup(c.target(), s);
+            let lup = self.scenario.lup_orbiter(c.target(), s);
             let orbiter = lup.map(|lup| lup.orbiter()).flatten();
             let prop = orbiter.map(|orb| orb.propagator_at(s)).flatten();
 
@@ -750,9 +773,9 @@ impl GameState {
 
         notifs
             .into_iter()
-            .for_each(|(t, n)| self.notify(t, n, None));
+            .for_each(|(t, n)| self.notify(ObjectId::Orbiter(t), n, None));
 
-        let mut finished_ids = Vec::<ObjectId>::new();
+        let mut finished_ids = Vec::<OrbiterId>::new();
 
         self.controllers.retain(|c| {
             if c.is_idle() {
@@ -763,9 +786,13 @@ impl GameState {
             }
         });
 
-        finished_ids
-            .into_iter()
-            .for_each(|id| self.notify(id, NotificationType::ManeuverComplete(id), None));
+        finished_ids.into_iter().for_each(|id| {
+            self.notify(
+                ObjectId::Orbiter(id),
+                NotificationType::ManeuverComplete(id),
+                None,
+            )
+        });
 
         self.notifications.iter_mut().for_each(|n| n.jitter());
 
@@ -782,7 +809,7 @@ impl GameState {
             if let Some(orbiter) = self.scenario.orbiter_mut(id) {
                 orbiter.vehicle.main(true);
             }
-            if let Some(lup) = self.scenario.lup(id, s) {
+            if let Some(lup) = self.scenario.lup_orbiter(id, s) {
                 let pv = lup.pv();
                 let n = 3;
                 for _ in 0..n {

@@ -30,7 +30,7 @@ pub enum InteractionEvent {
     Save,
     Restore,
     Load(String),
-    ToggleObject(ObjectId),
+    ToggleObject(OrbiterId),
     ToggleGroup(GroupId),
     DisbandGroup(GroupId),
     CreateGroup,
@@ -138,11 +138,8 @@ fn big_time_system(mut text: Single<&mut Text, With<DateMarker>>, state: Res<Gam
 
 fn top_right_text_system(mut text: Single<&mut Text, With<TopRight>>, state: Res<GameState>) {
     let res = (|| -> Option<(&Orbiter, GlobalOrbit)> {
-        let fid = state.follow?;
-        if !state.track_list.contains(&fid) {
-            return None;
-        }
-        let orbiter = state.scenario.lup(fid, state.sim_time)?.orbiter()?;
+        let id = state.follow?.orbiter()?;
+        let orbiter = state.scenario.lup_orbiter(id, state.sim_time)?.orbiter()?;
         let prop = orbiter.propagator_at(state.sim_time)?;
         let go = prop.orbit;
         Some((orbiter, go))
@@ -195,7 +192,7 @@ fn get_top_right_ui() -> impl Bundle {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GuiNodeId {
-    Orbiter(ObjectId),
+    Orbiter(OrbiterId),
     Exit,
     Save,
     Load,
@@ -204,7 +201,7 @@ pub enum GuiNodeId {
     CreateGroup,
     DisbandGroup(GroupId),
     ClearOrbits,
-    CurrentBody(ObjectId),
+    CurrentBody(PlanetId),
     SelectedCount,
     AutopilotingCount,
     PilotOrbiter,
@@ -234,7 +231,7 @@ pub fn context_menu(rowsize: f32, items: &[(String, GuiNodeId, bool)]) -> ui::No
         }))
 }
 
-pub fn orbiter_context_menu(id: ObjectId) -> ui::Node<GuiNodeId> {
+pub fn orbiter_context_menu(id: OrbiterId) -> ui::Node<GuiNodeId> {
     context_menu(
         30.0,
         &[
@@ -293,31 +290,26 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
     let body_color_lup: std::collections::HashMap<&'static str, Srgba> =
         std::collections::HashMap::from([("Earth", BLUE), ("Luna", GRAY), ("Asteroid", BROWN)]);
 
-    if let Some(lup) = state
-        .scenario
-        .relevant_body(state.camera.world_center, state.sim_time)
-        .map(|id| state.scenario.lup(id, state.sim_time))
-        .flatten()
-    {
-        if let Some((s, _)) = lup.named_body() {
-            let color: Srgba = body_color_lup
-                .get(s.as_str())
-                .unwrap_or(&Srgba::from(crate::sprites::hashable_to_color(s)))
-                .with_luminance(0.2)
-                .with_alpha(0.9);
+    // if let Some(lup) = state
+    //     .scenario
+    //     .relevant_body(state.camera.world_center, state.sim_time)
+    //     .map(|id| state.scenario.lup(id, state.sim_time))
+    //     .flatten()
+    // {
+    //     if let Some((s, _)) = lup.named_body() {
+    //         let color: Srgba = body_color_lup
+    //             .get(s.as_str())
+    //             .unwrap_or(&Srgba::from(crate::sprites::hashable_to_color(s)))
+    //             .with_luminance(0.2)
+    //             .with_alpha(0.9);
 
-            sidebar.add_child(
-                Node::button(
-                    s,
-                    GuiNodeId::CurrentBody(lup.id()),
-                    Size::Grow,
-                    button_height,
-                )
-                // .enabled(false)
-                .with_color(color.to_f32_array()),
-            );
-        }
-    }
+    //         sidebar.add_child(
+    //             Node::button(s, GuiNodeId::CurrentBody(lup), Size::Grow, button_height)
+    //                 // .enabled(false)
+    //                 .with_color(color.to_f32_array()),
+    //         );
+    //     }
+    // }
 
     sidebar.add_child(Node::button(
         format!("Visual: {:?}", state.game_mode),
@@ -391,7 +383,7 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
         Node::button(s, GuiNodeId::SelectedCount, Size::Grow, button_height).enabled(false)
     });
 
-    let orbiter_list = |root: &mut Node<GuiNodeId>, max_cells: usize, mut ids: Vec<ObjectId>| {
+    let orbiter_list = |root: &mut Node<GuiNodeId>, max_cells: usize, mut ids: Vec<OrbiterId>| {
         ids.sort();
 
         let rows = (ids.len().min(max_cells) as f32 / 4.0).ceil() as u32;
@@ -405,7 +397,7 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
                 Node::grow()
                     .with_id(GuiNodeId::Orbiter(*id))
                     .with_text(s)
-                    .enabled(Some(*id) != state.follow),
+                    .enabled(Some(*id) != state.follow.map(|f| f.orbiter()).flatten()),
             )
         });
         root.add_child(grid);
@@ -432,11 +424,13 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
     }
 
     if let Some(fid) = state.follow {
-        if state.track_list.contains(&fid) {
-            sidebar.add_child(Node::hline());
-            let s = format!("Pilot {}", fid);
-            let id = GuiNodeId::PilotOrbiter;
-            sidebar.add_child(Node::button(s, id, Size::Grow, button_height));
+        if let Some(fid) = fid.orbiter() {
+            if state.track_list.contains(&fid) {
+                sidebar.add_child(Node::hline());
+                let s = format!("Pilot {}", fid);
+                let id = GuiNodeId::PilotOrbiter;
+                sidebar.add_child(Node::button(s, id, Size::Grow, button_height));
+            }
         }
     }
 
@@ -538,7 +532,7 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
     let mut tree = Tree::new().with_layout(root, Vec2::ZERO);
 
     if let Some(p) = state.context_menu_origin {
-        let ctx = orbiter_context_menu(ObjectId(0));
+        let ctx = orbiter_context_menu(OrbiterId(0));
         let p = Vec2::new(p.x, state.camera.viewport_bounds().span.y - p.y);
         tree.add_layout(ctx, p);
     }

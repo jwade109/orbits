@@ -10,18 +10,33 @@ use serde::{Deserialize, Serialize};
 use glam::f32::Vec2;
 
 #[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize, Hash)]
-pub struct ObjectId(pub i64);
+pub struct OrbiterId(pub i64);
+
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize, Hash)]
+pub struct PlanetId(pub i64);
 
 #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize, Hash)]
 pub struct GroupId(pub String);
 
-impl std::fmt::Display for ObjectId {
+impl std::fmt::Display for OrbiterId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "#{}", self.0)
     }
 }
 
-impl std::fmt::Debug for ObjectId {
+impl std::fmt::Debug for OrbiterId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "#{}", self.0)
+    }
+}
+
+impl std::fmt::Display for PlanetId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "#{}", self.0)
+    }
+}
+
+impl std::fmt::Debug for PlanetId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "#{}", self.0)
     }
@@ -41,7 +56,7 @@ impl std::fmt::Debug for GroupId {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Orbiter {
-    id: ObjectId,
+    id: OrbiterId,
     max_fuel_mass: f32,
     fuel_mass: f32,
     dry_mass: f32,
@@ -75,7 +90,7 @@ impl std::fmt::Display for Orbiter {
 }
 
 impl Orbiter {
-    pub fn new(id: ObjectId, orbit: GlobalOrbit, stamp: Nanotime) -> Self {
+    pub fn new(id: OrbiterId, orbit: GlobalOrbit, stamp: Nanotime) -> Self {
         Orbiter {
             id,
             max_fuel_mass: 800.0,
@@ -87,7 +102,7 @@ impl Orbiter {
         }
     }
 
-    pub fn id(&self) -> ObjectId {
+    pub fn id(&self) -> OrbiterId {
         self.id
     }
 
@@ -237,5 +252,26 @@ impl Orbiter {
         }
 
         Err(PredictError::TooManyIterations)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ObjectId {
+    Planet(PlanetId),
+    Orbiter(OrbiterId),
+}
+
+impl ObjectId {
+    pub fn orbiter(&self) -> Option<OrbiterId> {
+        match self {
+            Self::Orbiter(id) => Some(*id),
+            _ => None,
+        }
+    }
+}
+
+impl std::fmt::Display for ObjectId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
     }
 }

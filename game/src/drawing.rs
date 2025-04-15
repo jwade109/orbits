@@ -154,7 +154,7 @@ fn draw_global_orbit(
 ) -> Option<()> {
     let pv = state
         .scenario
-        .lup(orbit.0, state.sim_time)
+        .lup_planet(orbit.0, state.sim_time)
         .map(|lup| lup.pv())?;
     draw_orbit(gizmos, &orbit.1, pv.pos, color);
     Some(())
@@ -254,7 +254,7 @@ fn draw_vehicle(gizmos: &mut Gizmos, vehicle: &Vehicle, pos: Vec2, scale: f32) {
 fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let piloting = state.piloting()?;
 
-    let lup = state.scenario.lup(piloting, state.sim_time)?;
+    let lup = state.scenario.lup_orbiter(piloting, state.sim_time)?;
     let orbiter = lup.orbiter()?;
 
     let rb = orbiter.vehicle.bounding_radius();
@@ -440,13 +440,16 @@ fn draw_scenario(
     wall_time: Nanotime,
     scale: f32,
     show_orbits: ShowOrbitsState,
-    track_list: &HashSet<ObjectId>,
+    track_list: &HashSet<OrbiterId>,
     mode: GameMode,
 ) {
     draw_planets(gizmos, scenario.planets(), stamp, Vec2::ZERO, mode);
 
     for belt in scenario.belts() {
-        let origin = match scenario.lup(belt.parent(), stamp).map(|lup| lup.pv().pos) {
+        let origin = match scenario
+            .lup_planet(belt.parent(), stamp)
+            .map(|lup| lup.pv().pos)
+        {
             Some(p) => p,
             None => continue,
         };
@@ -459,7 +462,7 @@ fn draw_scenario(
         .orbiter_ids()
         .into_iter()
         .filter_map(|id| {
-            let obj = scenario.lup(id, stamp)?.orbiter()?;
+            let obj = scenario.lup_orbiter(id, stamp)?.orbiter()?;
             let is_tracked = track_list.contains(&obj.id());
             draw_object(
                 gizmos,
@@ -475,7 +478,7 @@ fn draw_scenario(
         .collect::<Vec<_>>();
 
     for GlobalOrbit(id, orbit) in scenario.debris() {
-        let lup = match scenario.lup(*id, stamp) {
+        let lup = match scenario.lup_planet(*id, stamp) {
             Some(lup) => lup,
             None => continue,
         };
@@ -598,7 +601,7 @@ fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) {
         .highlighted()
         .into_iter()
         .filter_map(|id| {
-            let pv = state.scenario.lup(id, state.sim_time)?.pv();
+            let pv = state.scenario.lup_orbiter(id, state.sim_time)?.pv();
             draw_circle(gizmos, pv.pos, 20.0 * state.camera.actual_scale, GRAY);
             Some(())
         })
@@ -614,11 +617,11 @@ fn draw_controller(
     scale: f32,
     tracked: bool,
 ) -> Option<()> {
-    let lup = scenario.lup(ctrl.target(), stamp)?;
+    let lup = scenario.lup_orbiter(ctrl.target(), stamp)?;
     let parent = lup.parent(stamp)?;
     let craft = lup.pv().pos;
 
-    let parent_lup = scenario.lup(parent, stamp)?;
+    let parent_lup = scenario.lup_planet(parent, stamp)?;
     let origin = parent_lup.pv().pos;
 
     let secs = 2;
@@ -647,12 +650,12 @@ fn is_blinking(wall_time: Nanotime, pos: impl Into<Option<Vec2>>) -> bool {
 fn draw_event_animation(
     gizmos: &mut Gizmos,
     scenario: &Scenario,
-    id: ObjectId,
+    id: OrbiterId,
     stamp: Nanotime,
     scale: f32,
     wall_time: Nanotime,
 ) -> Option<()> {
-    let obj = scenario.lup(id, stamp)?.orbiter()?;
+    let obj = scenario.lup_orbiter(id, stamp)?.orbiter()?;
     let p = obj.props().last()?;
     let dt = Nanotime::secs(1);
     let mut t = stamp + dt;
@@ -870,7 +873,7 @@ pub fn draw_counter(gizmos: &mut Gizmos, val: u64, pos: Vec2, scale: f32, color:
 fn draw_belt_orbits(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let cursor_orbit = state.right_cursor_orbit();
     for belt in state.scenario.belts() {
-        let lup = match state.scenario.lup(belt.parent(), state.sim_time) {
+        let lup = match state.scenario.lup_planet(belt.parent(), state.sim_time) {
             Some(lup) => lup,
             None => continue,
         };
@@ -889,7 +892,7 @@ fn draw_belt_orbits(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
             .scenario
             .orbiter_ids()
             .filter_map(|id| {
-                let lup = state.scenario.lup(id, state.sim_time)?;
+                let lup = state.scenario.lup_orbiter(id, state.sim_time)?;
                 let orbiter = lup.orbiter()?;
                 let orbit = orbiter.propagator_at(state.sim_time)?.orbit;
                 if orbit.0 != belt.parent() {
@@ -920,9 +923,15 @@ fn draw_belt_orbits(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
 
 pub fn draw_notifications(gizmos: &mut Gizmos, state: &GameState) {
     for notif in &state.notifications {
-        let p = match state.scenario.lup(notif.parent, state.sim_time) {
-            Some(lup) => lup.pv().pos + notif.offset + notif.jitter,
-            None => continue,
+        let p = match notif.parent {
+            ObjectId::Orbiter(id) => match state.scenario.lup_orbiter(id, state.sim_time) {
+                Some(lup) => lup.pv().pos + notif.offset + notif.jitter,
+                None => continue,
+            },
+            ObjectId::Planet(id) => match state.scenario.lup_planet(id, state.sim_time) {
+                Some(lup) => lup.pv().pos + notif.offset + notif.jitter,
+                None => continue,
+            },
         };
 
         let size = 20.0 * state.camera.actual_scale;

@@ -1,6 +1,6 @@
 use crate::math::{tspace, PI};
 use crate::nanotime::Nanotime;
-use crate::orbiter::*;
+use crate::orbiter::PlanetId;
 use crate::orbits::{vis_viva_equation, GlobalOrbit, OrbitClass, SparseOrbit};
 use crate::pv::PV;
 use crate::scenario::*;
@@ -9,9 +9,9 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub enum EventType {
-    Collide(ObjectId),
-    Escape(ObjectId),
-    Encounter(ObjectId),
+    Collide(PlanetId),
+    Escape(PlanetId),
+    Encounter(PlanetId),
     Impulse(Vec2),
     NumericalError,
 }
@@ -216,7 +216,7 @@ impl Propagator {
         }
     }
 
-    pub fn parent(&self) -> ObjectId {
+    pub fn parent(&self) -> PlanetId {
         self.orbit.0
     }
 
@@ -241,7 +241,7 @@ impl Propagator {
     pub fn finish_or_compute_until(
         &mut self,
         stamp: Nanotime,
-        bodies: &[(ObjectId, &SparseOrbit, f32)],
+        bodies: &[(PlanetId, &SparseOrbit, f32)],
     ) -> Result<(), PredictError<Nanotime>> {
         while !self.calculated_to(stamp) {
             let e = self.next(bodies);
@@ -320,7 +320,7 @@ impl Propagator {
 
     pub fn next(
         &mut self,
-        bodies: &[(ObjectId, &SparseOrbit, f32)],
+        bodies: &[(PlanetId, &SparseOrbit, f32)],
     ) -> Result<(), PredictError<Nanotime>> {
         let end = match self.horizon {
             HorizonState::Continuing(end) => end,

@@ -1,11 +1,11 @@
 use crate::nanotime::Nanotime;
-use crate::orbiter::ObjectId;
+use crate::orbiter::OrbiterId;
 use crate::orbits::GlobalOrbit;
 use crate::planning::{best_maneuver_plan, ManeuverPlan};
 
 #[derive(Debug, Clone)]
 pub struct Controller {
-    target: ObjectId,
+    target: OrbiterId,
     last_update: Nanotime,
     current: Option<GlobalOrbit>,
     destination: Option<GlobalOrbit>,
@@ -13,7 +13,7 @@ pub struct Controller {
 }
 
 impl Controller {
-    pub fn idle(target: ObjectId) -> Self {
+    pub fn idle(target: OrbiterId) -> Self {
         Controller {
             target,
             last_update: Nanotime::zero(),
@@ -97,7 +97,7 @@ impl Controller {
         self.destination.as_ref()
     }
 
-    pub fn target(&self) -> ObjectId {
+    pub fn target(&self) -> OrbiterId {
         self.target
     }
 
@@ -133,7 +133,7 @@ mod tests {
 
     fn simulate_navigation(init: (f32, f32, f32), dst: (f32, f32, f32)) {
         let body = Body::new(63.0, 1000.0, 10000000.0);
-        let earth = PlanetarySystem::new(ObjectId(0), "Earth", body);
+        let earth = PlanetarySystem::new(OrbiterId(0), "Earth", body);
         let mut scenario = Scenario::new(&earth);
 
         let orbits = [init, dst].map(|(ra, rp, argp)| {
@@ -142,7 +142,7 @@ mod tests {
 
         println!("Navigate from {}\n           to {}", orbits[0], orbits[1]);
 
-        let orbiter_id = ObjectId(1);
+        let orbiter_id = OrbiterId(1);
 
         scenario.add_object(orbiter_id, earth.id, orbits[0], Nanotime::zero());
 

@@ -1,23 +1,24 @@
 use crate::aabb::OBB;
 use crate::math::{rand, rotate, PI};
+use crate::orbiter::PlanetId;
+use crate::orbits::SparseOrbit;
 use crate::orbits::{Body, GlobalOrbit};
 use crate::prelude::Nanotime;
 use crate::region::Region;
-use crate::{orbiter::ObjectId, orbits::SparseOrbit};
 use glam::f32::Vec2;
 use glam::FloatExt;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub struct AsteroidBelt {
-    parent: ObjectId,
+    parent: PlanetId,
     inner: SparseOrbit,
     outer: SparseOrbit,
 }
 
 impl AsteroidBelt {
     pub fn new(
-        parent: ObjectId,
+        parent: PlanetId,
         argp: f32,
         rp: f32,
         ra: f32,
@@ -61,7 +62,7 @@ impl AsteroidBelt {
     }
 
     pub fn circular(
-        parent: ObjectId,
+        parent: PlanetId,
         inner: f32,
         outer: f32,
         body: Body,
@@ -76,7 +77,7 @@ impl AsteroidBelt {
         }
     }
 
-    pub fn from_orbits(parent: ObjectId, inner: SparseOrbit, outer: SparseOrbit) -> Self {
+    pub fn from_orbits(parent: PlanetId, inner: SparseOrbit, outer: SparseOrbit) -> Self {
         assert!(!inner.is_hyperbolic());
         assert!(!outer.is_hyperbolic());
         AsteroidBelt {
@@ -86,7 +87,7 @@ impl AsteroidBelt {
         }
     }
 
-    pub fn parent(&self) -> ObjectId {
+    pub fn parent(&self) -> PlanetId {
         self.parent
     }
 

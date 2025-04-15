@@ -23,7 +23,7 @@ pub fn make_luna() -> (Body, SparseOrbit) {
 pub fn just_the_moon() -> (Scenario, ObjectIdTracker) {
     let mut id = ObjectIdTracker::new();
 
-    let moon_id = id.next();
+    let moon_id = id.next_planet();
 
     let luna = PlanetarySystem::new(moon_id, "Luna", make_luna().0);
     let mut scenario = Scenario::new(&luna);
@@ -43,9 +43,9 @@ pub fn just_the_moon() -> (Scenario, ObjectIdTracker) {
 pub fn earth_moon_example_one() -> (Scenario, ObjectIdTracker) {
     let mut id = ObjectIdTracker::new();
 
-    let mut earth = PlanetarySystem::new(id.next(), "Earth", make_earth());
-    let luna = PlanetarySystem::new(id.next(), "Luna", make_luna().0);
-    let ast = PlanetarySystem::new(id.next(), "Asteroid", Body::new(6.0, 2.0, 200.0));
+    let mut earth = PlanetarySystem::new(id.next_planet(), "Earth", make_earth());
+    let luna = PlanetarySystem::new(id.next_planet(), "Luna", make_luna().0);
+    let ast = PlanetarySystem::new(id.next_planet(), "Asteroid", Body::new(6.0, 2.0, 200.0));
 
     earth.orbit(make_luna().1, luna.clone());
     earth.orbit(
@@ -136,8 +136,8 @@ pub fn earth_moon_example_one() -> (Scenario, ObjectIdTracker) {
 
 pub fn earth_moon_example_two() -> (Scenario, ObjectIdTracker) {
     let mut id = ObjectIdTracker::new();
-    let mut earth = PlanetarySystem::new(id.next(), "Earth", make_earth());
-    let luna = PlanetarySystem::new(id.next(), "Luna", make_luna().0);
+    let mut earth = PlanetarySystem::new(id.next_planet(), "Earth", make_earth());
+    let luna = PlanetarySystem::new(id.next_planet(), "Luna", make_luna().0);
 
     earth.orbit(make_luna().1, luna);
 
@@ -168,7 +168,7 @@ pub fn sun_jupiter_lagrange() -> (Scenario, ObjectIdTracker) {
     let mut id = ObjectIdTracker::new();
 
     let mut sun: PlanetarySystem = PlanetarySystem::new(
-        id.next(),
+        id.next_planet(),
         "Sol",
         Body {
             mass: 1000.0,
@@ -187,7 +187,7 @@ pub fn sun_jupiter_lagrange() -> (Scenario, ObjectIdTracker) {
 
     sun.orbit(
         jupiter_orbit,
-        PlanetarySystem::new(id.next(), "Jupiter", jupiter),
+        PlanetarySystem::new(id.next_planet(), "Jupiter", jupiter),
     );
 
     let mut scenario = Scenario::new(&sun);
@@ -226,7 +226,7 @@ pub fn consistency_orbits(body: Body) -> Vec<SparseOrbit> {
 pub fn consistency_example() -> (Scenario, ObjectIdTracker) {
     let mut id = ObjectIdTracker::new();
 
-    let earth = PlanetarySystem::new(id.next(), "Earth", make_earth_inf_soi());
+    let earth = PlanetarySystem::new(id.next_planet(), "Earth", make_earth_inf_soi());
 
     let orbits = consistency_orbits(earth.body);
 
@@ -241,7 +241,7 @@ pub fn consistency_example() -> (Scenario, ObjectIdTracker) {
 
 pub fn single_hyperbolic() -> (Scenario, ObjectIdTracker) {
     let mut id = ObjectIdTracker::new();
-    let earth: PlanetarySystem = PlanetarySystem::new(id.next(), "Earth", make_earth());
+    let earth: PlanetarySystem = PlanetarySystem::new(id.next_planet(), "Earth", make_earth());
     let mut scenario = Scenario::new(&earth);
     let orbit =
         SparseOrbit::from_pv(((400.0, 0.0), (0.0, 260.0)), make_earth(), Nanotime::zero()).unwrap();
@@ -1473,9 +1473,9 @@ pub fn stable_simulation() -> (Scenario, ObjectIdTracker) {
 
     let mut id = ObjectIdTracker::new();
 
-    let mut earth = PlanetarySystem::new(id.next(), "Earth", make_earth());
-    let luna = PlanetarySystem::new(id.next(), "Luna", make_luna().0);
-    let ast = PlanetarySystem::new(id.next(), "Asteroid", Body::new(6.0, 2.0, 200.0));
+    let mut earth = PlanetarySystem::new(id.next_planet(), "Earth", make_earth());
+    let luna = PlanetarySystem::new(id.next_planet(), "Luna", make_luna().0);
+    let ast = PlanetarySystem::new(id.next_planet(), "Asteroid", Body::new(6.0, 2.0, 200.0));
 
     earth.orbit(make_luna().1, luna.clone());
     earth.orbit(

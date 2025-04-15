@@ -107,8 +107,8 @@ mod tests {
         .unwrap();
 
         let orbiter = Orbiter::new(
-            ObjectId(12),
-            GlobalOrbit(ObjectId(3), orbit),
+            OrbiterId(12),
+            GlobalOrbit(PlanetId(3), orbit),
             Nanotime::zero(),
         );
 

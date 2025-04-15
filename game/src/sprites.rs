@@ -31,15 +31,15 @@ pub struct BackgroundTexture;
 
 #[derive(Component)]
 #[require(Transform)]
-pub struct PlanetTexture(ObjectId, String);
+pub struct PlanetTexture(PlanetId, String);
 
 #[derive(Component)]
 #[require(Transform)]
-pub struct SpacecraftTexture(ObjectId, f32);
+pub struct SpacecraftTexture(OrbiterId, f32);
 
 #[derive(Component)]
 #[require(Transform)]
-pub struct ShadowTexture(ObjectId);
+pub struct ShadowTexture(PlanetId);
 
 pub fn make_new_sprites(
     mut commands: Commands,
@@ -52,7 +52,7 @@ pub fn make_new_sprites(
         if ptextures.iter().find(|e| e.0 == id).is_some() {
             continue;
         }
-        if let Some(lup) = state.scenario.lup(id, state.sim_time) {
+        if let Some(lup) = state.scenario.lup_planet(id, state.sim_time) {
             if let Some((name, _)) = lup.named_body() {
                 let path = format!("embedded://game/../assets/{}.png", name);
                 println!("Adding sprite for {} at {}", name, path);
@@ -84,7 +84,7 @@ pub fn update_planet_sprites(
     state: Res<GameState>,
 ) {
     for (e, PlanetTexture(id, name), mut transform, mut vis) in query.iter_mut() {
-        let lup = match state.scenario.lup(*id, state.sim_time) {
+        let lup = match state.scenario.lup_planet(*id, state.sim_time) {
             Some(lup) => lup,
             None => {
                 commands.entity(e).despawn();
@@ -121,7 +121,7 @@ pub fn update_shadow_sprites(
     state: Res<GameState>,
 ) {
     for (e, ShadowTexture(id), mut transform, mut vis) in query.iter_mut() {
-        let lup = match state.scenario.lup(*id, state.sim_time) {
+        let lup = match state.scenario.lup_planet(*id, state.sim_time) {
             Some(lup) => lup,
             None => {
                 commands.entity(e).despawn();
@@ -177,7 +177,7 @@ pub fn update_spacecraft_sprites(
 
     for (e, mut x, mut transform, mut s) in query.iter_mut() {
         let SpacecraftTexture(id, scale) = *x;
-        let lup = state.scenario.lup(id, state.sim_time);
+        let lup = state.scenario.lup_orbiter(id, state.sim_time);
         let orbiter = lup.as_ref().map(|lup| lup.orbiter()).flatten();
         if let Some((lup, orbiter)) = lup.zip(orbiter) {
             let z_index = if state.track_list.contains(&id) {
