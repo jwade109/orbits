@@ -1,7 +1,6 @@
 // ignore-tidy-linelength
 
 use crate::camera_controls::*;
-use crate::debug::*;
 use crate::mouse::MouseState;
 use crate::notifications::*;
 use crate::ui::InteractionEvent;
@@ -22,7 +21,6 @@ pub struct PlanetaryPlugin;
 impl Plugin for PlanetaryPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, init_system);
-        app.add_systems(Update, log_system_info);
 
         app.add_systems(
             Update,
@@ -180,7 +178,6 @@ pub struct GameState {
     pub ids: ObjectIdTracker,
     pub backup: Option<(Scenario, ObjectIdTracker, Nanotime)>,
     pub track_list: HashSet<ObjectId>,
-    pub hide_debug: bool,
     pub show_graph: bool,
     pub controllers: Vec<Controller>,
     pub follow: Option<ObjectId>,
@@ -221,7 +218,6 @@ impl Default for GameState {
             ids,
             track_list: HashSet::new(),
             backup: Some((scenario, ids, Nanotime::zero())),
-            hide_debug: true,
             show_graph: false,
             controllers: vec![],
             follow: None,
@@ -247,10 +243,6 @@ impl GameState {
     pub fn redraw(&mut self) {
         self.redraw_requested = true;
         self.last_redraw = Nanotime::zero()
-    }
-
-    pub fn primary(&self) -> Option<ObjectId> {
-        self.track_list.iter().next().cloned()
     }
 
     pub fn toggle_track(&mut self, id: ObjectId) {
@@ -658,7 +650,6 @@ impl GameState {
                     let _ = dbg!(obj);
                 }
             }
-            GuiNodeId::ToggleDebug => self.hide_debug = !self.hide_debug,
             GuiNodeId::CursorMode => self.selection_mode = self.selection_mode.next(),
             GuiNodeId::AutopilotingCount => {
                 self.track_list = self.controllers.iter().map(|c| c.target()).collect();
@@ -702,6 +693,7 @@ impl GameState {
         // handle discrete physics events
         for orbiter in self.scenario.orbiters_mut() {
             // controversial
+            orbiter.vehicle.main(false);
             orbiter.step(self.wall_time);
         }
 
@@ -787,6 +779,9 @@ impl GameState {
             .collect();
 
         for (id, _, dv) in maneuvering {
+            if let Some(orbiter) = self.scenario.orbiter_mut(id) {
+                orbiter.vehicle.main(true);
+            }
             if let Some(lup) = self.scenario.lup(id, s) {
                 let pv = lup.pv();
                 let n = 3;
@@ -821,111 +816,97 @@ fn step_system(time: Res<Time>, mut state: ResMut<GameState>) {
     state.step(&time);
 }
 
-fn sim_speed_str(speed: i32) -> String {
-    if speed == 0 {
-        ">".to_owned()
-    } else if speed > 0 {
-        (0..speed.abs() * 2).map(|_| '>').collect()
-    } else {
-        (0..speed.abs() * 2).map(|_| '<').collect()
-    }
-}
+// fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
+//     let mut log = |str: &str| {
+//         send_log(&mut evt, str);
+//     };
 
-fn log_system_info(state: Res<GameState>, mut evt: EventWriter<DebugLog>) {
-    let mut log = |str: &str| {
-        send_log(&mut evt, str);
-    };
+//     let logs = [
+//         "",
+//         "Look around - [W][A][S][D]",
+//         "Control orbiter - Arrow Keys",
+//         "  Increase thrust - hold [LSHIFT]",
+//         "  Decrease thrust - hold [LCTRL]",
+//         "Zoom in/out - +/-, [Scroll]",
+//         "Select spacecraft - Left click and drag",
+//         "Set target orbit - Right click and drag",
+//         "Send spacecraft to orbit - [ENTER]",
+//         "Toggle orbit draw modes - [TAB]",
+//         "Increase sim speed - [.]",
+//         "Decrease sim speed - [,]",
+//         "Pause - [SPACE]",
+//         "",
+//     ];
 
-    if state.hide_debug {
-        return;
-    }
+//     for s in logs {
+//         log(s);
+//     }
 
-    let logs = [
-        "",
-        "Look around - [W][A][S][D]",
-        "Control orbiter - Arrow Keys",
-        "  Increase thrust - hold [LSHIFT]",
-        "  Decrease thrust - hold [LCTRL]",
-        "Zoom in/out - +/-, [Scroll]",
-        "Select spacecraft - Left click and drag",
-        "Set target orbit - Right click and drag",
-        "Send spacecraft to orbit - [ENTER]",
-        "Toggle orbit draw modes - [TAB]",
-        "Increase sim speed - [.]",
-        "Decrease sim speed - [,]",
-        "Pause - [SPACE]",
-        "",
-    ];
+//     log(&format!("Epoch: {:?}", state.sim_time));
 
-    for s in logs {
-        log(s);
-    }
+//     if state.paused {
+//         log("Paused");
+//     }
+//     log(&format!(
+//         "Sim speed: 10^{} [{}]",
+//         state.sim_speed,
+//         sim_speed_str(state.sim_speed)
+//     ));
 
-    log(&format!("Epoch: {:?}", state.sim_time));
+//     let mut show_id_list = |ids: &HashSet<ObjectId>, name: &str| {
+//         if ids.len() > 15 {
+//             log(&format!("{}: {} ...", name, ids.len()));
+//         } else {
+//             log(&format!("{}: {} {:?}", name, ids.len(), ids));
+//         }
+//     };
 
-    if state.paused {
-        log("Paused");
-    }
-    log(&format!(
-        "Sim speed: 10^{} [{}]",
-        state.sim_speed,
-        sim_speed_str(state.sim_speed)
-    ));
+//     show_id_list(&state.track_list, "Tracks");
+//     show_id_list(&state.highlighted(), "Select");
 
-    let mut show_id_list = |ids: &HashSet<ObjectId>, name: &str| {
-        if ids.len() > 15 {
-            log(&format!("{}: {} ...", name, ids.len()));
-        } else {
-            log(&format!("{}: {} {:?}", name, ids.len(), ids));
-        }
-    };
+//     log(&format!("Physics: {:?}", state.physics_duration));
+//     log(&format!("Scale: {:0.3}", state.camera.actual_scale));
+//     log(&format!("Ctlrs: {}", state.controllers.len()));
 
-    show_id_list(&state.track_list, "Tracks");
-    show_id_list(&state.highlighted(), "Select");
+//     {
+//         for (id, t, dv) in state.planned_maneuvers(state.sim_time) {
+//             log(&format!("- {} {:?} {}", id, t, dv))
+//         }
+//     }
 
-    log(&format!("Physics: {:?}", state.physics_duration));
-    log(&format!("Scale: {:0.3}", state.camera.actual_scale));
-    log(&format!("Ctlrs: {}", state.controllers.len()));
+//     log(&format!("Orbiters: {}", state.scenario.orbiter_count()));
+//     log(&format!("Propagators: {}", state.scenario.prop_count()));
 
-    {
-        for (id, t, dv) in state.planned_maneuvers(state.sim_time) {
-            log(&format!("- {} {:?} {}", id, t, dv))
-        }
-    }
+//     if let Some(lup) = state
+//         .primary()
+//         .map(|id| state.scenario.lup(id, state.sim_time))
+//         .flatten()
+//     {
+//         if let Some(ctrl) = state.controllers.get(0) {
+//             log(&format!("{}", ctrl));
+//         }
 
-    log(&format!("Orbiters: {}", state.scenario.orbiter_count()));
-    log(&format!("Propagators: {}", state.scenario.prop_count()));
-
-    if let Some(lup) = state
-        .primary()
-        .map(|id| state.scenario.lup(id, state.sim_time))
-        .flatten()
-    {
-        if let Some(ctrl) = state.controllers.get(0) {
-            log(&format!("{}", ctrl));
-        }
-
-        if let Some(o) = lup.orbiter() {
-            log(&format!("{}", o));
-            for prop in o.props() {
-                log(&format!("- [{}]", prop));
-            }
-            if let Some(prop) = o.propagator_at(state.sim_time) {
-                log(&format!(
-                    "Next p: {:?}",
-                    prop.orbit.1.t_next_p(state.sim_time)
-                ));
-                log(&format!("Period: {:?}", prop.orbit.1.period()));
-                log(&format!(
-                    "Orbit count: {:?}",
-                    prop.orbit.1.orbit_number(state.sim_time)
-                ));
-            }
-        } else if let Some(b) = lup.body() {
-            log(&format!("BD: {:?}", b));
-        }
-    }
-}
+//         if let Some(o) = lup.orbiter() {
+//             log(&format!("{}", o));
+//             for prop in o.props() {
+//                 log(&format!("- [{}]", prop));
+//             }
+//             if let Some(prop) = o.propagator_at(state.sim_time) {
+//                 log(&format!(
+//                     "Next p: {:?}",
+//                     prop.orbit.1.t_next_p(state.sim_time)
+//                 ));
+//                 log(&format!("Period: {:?}", prop.orbit.1.period()));
+//                 log(&format!(
+//                     "Orbit count: {:?}",
+//                     prop.orbit.1.orbit_number(state.sim_time)
+//                 ));
+//             }
+//         } else if let Some(b) = lup.body() {
+//             log(&format!("BD: {:?}", b));
+//         }
+//     }
+// }
 
 fn get_group_id() -> GroupId {
     let mut generator = Generator::default();
@@ -943,9 +924,6 @@ fn process_interaction(
         InteractionEvent::CommitMission => state.commit_mission(),
         InteractionEvent::ClearMissions => {
             state.release_selected();
-        }
-        InteractionEvent::ToggleDebugMode => {
-            state.hide_debug = !state.hide_debug;
         }
         InteractionEvent::ToggleGraph => {
             state.show_graph = !state.show_graph;

@@ -16,7 +16,5 @@ pub use crate::orbits::{hyperbolic_range_ta, wrap_pi_npi, Body, GlobalOrbit, Spa
 pub use crate::planning::{best_maneuver_plan, EventType, HorizonState, ManeuverPlan, Propagator};
 pub use crate::pv::PV;
 pub use crate::region::Region;
-pub use crate::rigid_body::{satellite_body, RigidBody};
 pub use crate::scenario::{ObjectIdTracker, PlanetarySystem, Scenario};
-pub use crate::topomap::{id_to_aabb, test_topo, TopoMap};
 pub use crate::vehicle::Vehicle;

@@ -1,5 +1,4 @@
-use crate::aabb::OBB;
-use crate::math::{rand, rotate};
+use crate::math::rand;
 use crate::orbits::SparseOrbit;
 use crate::planning::*;
 use crate::pv::PV;
@@ -84,7 +83,7 @@ impl Orbiter {
             dry_mass: 300.0,
             exhaust_velocity: 1700.0,
             props: vec![Propagator::new(orbit, stamp)],
-            vehicle: Vehicle::new(stamp),
+            vehicle: Vehicle::random(stamp),
         }
     }
 

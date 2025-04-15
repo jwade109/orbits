@@ -13,7 +13,5 @@ pub mod planning;
 pub mod prelude;
 pub mod pv;
 pub mod region;
-pub mod rigid_body;
 pub mod scenario;
-pub mod topomap;
 pub mod vehicle;

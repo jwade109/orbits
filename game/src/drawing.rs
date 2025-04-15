@@ -237,6 +237,17 @@ fn draw_vehicle(gizmos: &mut Gizmos, vehicle: &Vehicle, pos: Vec2, scale: f32) {
         let p2 = p1 + (u * thruster.length + v * thruster.length / 5.0) * scale;
         let p3 = p1 + (u * thruster.length - v * thruster.length / 5.0) * scale;
         gizmos.linestrip_2d([p1, p2, p3, p1], WHITE);
+
+        if thruster.is_active {
+            let p4 = p2 + (u * 0.7 + v * 0.2) * thruster.length * scale;
+            let p5 = p3 + (u * 0.7 - v * 0.2) * thruster.length * scale;
+            let color = if thruster.is_rcs { TEAL } else { ORANGE };
+            for s in linspace(0.0, 1.0, 13) {
+                let u = p2.lerp(p3, s);
+                let v = p4.lerp(p5, s);
+                gizmos.line_2d(u, v, color);
+            }
+        }
     }
 }
 
@@ -1012,20 +1023,20 @@ pub fn draw_ui_layout(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     Some(())
 }
 
-fn draw_rigid_body(gizmos: &mut Gizmos, craft: &RigidBody, color: Srgba) {
-    let body = craft.body();
+// fn draw_rigid_body(gizmos: &mut Gizmos, craft: &RigidBody, color: Srgba) {
+//     let body = craft.body();
 
-    draw_circle(gizmos, craft.pv.pos, 30.0, color);
-    gizmos.line_2d(craft.pv.pos, craft.pv.pos + craft.pv.vel * 5.0, PURPLE);
-    let u = rotate(Vec2::X, craft.angle);
-    gizmos.line_2d(craft.pv.pos, craft.pv.pos + u * 1000.0, GREEN);
+//     draw_circle(gizmos, craft.pv.pos, 30.0, color);
+//     gizmos.line_2d(craft.pv.pos, craft.pv.pos + craft.pv.vel * 5.0, PURPLE);
+//     let u = rotate(Vec2::X, craft.angle);
+//     gizmos.line_2d(craft.pv.pos, craft.pv.pos + u * 1000.0, GREEN);
 
-    draw_aabb(gizmos, craft.aabb(), GRAY.with_alpha(0.1));
+//     draw_aabb(gizmos, craft.aabb(), GRAY.with_alpha(0.1));
 
-    for b in &body {
-        draw_obb(gizmos, b, color);
-    }
-}
+//     for b in &body {
+//         draw_obb(gizmos, b, color);
+//     }
+// }
 
 pub fn draw_orbit_spline(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     if !state.show_graph {
@@ -1180,10 +1191,6 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     draw_notifications(&mut gizmos, &state);
 
     draw_belt_orbits(&mut gizmos, &state);
-
-    if !state.hide_debug {
-        draw_mouse_state(&state.mouse, &mut gizmos);
-    }
 
     if let Some(p) = state.mouse.current_world() {
         draw_counter(

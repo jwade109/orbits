@@ -23,7 +23,6 @@ pub enum InteractionEvent {
     SimSlower,
     SimPause,
     SimFaster,
-    ToggleDebugMode,
     ToggleGraph,
     ClearSelection,
     ClearOrbitQueue,
@@ -210,7 +209,6 @@ pub enum GuiNodeId {
     AutopilotingCount,
     PilotOrbiter,
     Group(GroupId),
-    ToggleDebug,
     TogglePause,
     World,
     SimSpeed(i32),
@@ -320,15 +318,6 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
             );
         }
     }
-
-    sidebar.add_child({
-        let s = if !state.hide_debug {
-            "Hide Debug Info"
-        } else {
-            "Show Debug Info"
-        };
-        Node::button(s, GuiNodeId::ToggleDebug, Size::Grow, button_height)
-    });
 
     sidebar.add_child(Node::button(
         format!("Visual: {:?}", state.game_mode),
