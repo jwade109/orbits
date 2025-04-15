@@ -268,6 +268,13 @@ impl ObjectId {
             _ => None,
         }
     }
+
+    pub fn planet(&self) -> Option<PlanetId> {
+        match self {
+            Self::Planet(id) => Some(*id),
+            _ => None,
+        }
+    }
 }
 
 impl std::fmt::Display for ObjectId {

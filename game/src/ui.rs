@@ -290,26 +290,31 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
     let body_color_lup: std::collections::HashMap<&'static str, Srgba> =
         std::collections::HashMap::from([("Earth", BLUE), ("Luna", GRAY), ("Asteroid", BROWN)]);
 
-    // if let Some(lup) = state
-    //     .scenario
-    //     .relevant_body(state.camera.world_center, state.sim_time)
-    //     .map(|id| state.scenario.lup(id, state.sim_time))
-    //     .flatten()
-    // {
-    //     if let Some((s, _)) = lup.named_body() {
-    //         let color: Srgba = body_color_lup
-    //             .get(s.as_str())
-    //             .unwrap_or(&Srgba::from(crate::sprites::hashable_to_color(s)))
-    //             .with_luminance(0.2)
-    //             .with_alpha(0.9);
+    if let Some(lup) = state
+        .scenario
+        .relevant_body(state.camera.world_center, state.sim_time)
+        .map(|id| state.scenario.lup_planet(id, state.sim_time))
+        .flatten()
+    {
+        if let Some((s, _)) = lup.named_body() {
+            let color: Srgba = body_color_lup
+                .get(s.as_str())
+                .unwrap_or(&Srgba::from(crate::sprites::hashable_to_color(s)))
+                .with_luminance(0.2)
+                .with_alpha(0.9);
 
-    //         sidebar.add_child(
-    //             Node::button(s, GuiNodeId::CurrentBody(lup), Size::Grow, button_height)
-    //                 // .enabled(false)
-    //                 .with_color(color.to_f32_array()),
-    //         );
-    //     }
-    // }
+            sidebar.add_child(
+                Node::button(
+                    s,
+                    GuiNodeId::CurrentBody(lup.id().planet().unwrap()),
+                    Size::Grow,
+                    button_height,
+                )
+                // .enabled(false)
+                .with_color(color.to_f32_array()),
+            );
+        }
+    }
 
     sidebar.add_child(Node::button(
         format!("Visual: {:?}", state.game_mode),

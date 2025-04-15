@@ -24,7 +24,7 @@ impl ObjectIdTracker {
 
     pub fn next_planet(&mut self) -> PlanetId {
         let ret = self.1;
-        self.0 .0 += 1;
+        self.1 .0 += 1;
         ret
     }
 }
@@ -36,15 +36,19 @@ pub enum ScenarioObject<'a> {
 }
 
 #[derive(Debug, Clone)]
-pub struct ObjectLookup<'a>(ScenarioObject<'a>, PV);
+pub struct ObjectLookup<'a>(ObjectId, ScenarioObject<'a>, PV);
 
 impl<'a> ObjectLookup<'a> {
+    pub fn id(&self) -> ObjectId {
+        self.0
+    }
+
     pub fn pv(&self) -> PV {
-        self.1
+        self.2
     }
 
     pub fn orbiter(&self) -> Option<&'a Orbiter> {
-        match self.0 {
+        match self.1 {
             ScenarioObject::Orbiter(o) => Some(o),
             _ => None,
         }
@@ -57,14 +61,14 @@ impl<'a> ObjectLookup<'a> {
     }
 
     pub fn body(&self) -> Option<Body> {
-        match self.0 {
+        match self.1 {
             ScenarioObject::Body(_, b) => Some(b),
             _ => None,
         }
     }
 
     pub fn named_body(&self) -> Option<(&'a String, Body)> {
-        match self.0 {
+        match self.1 {
             ScenarioObject::Body(s, b) => Some((s, b)),
             _ => None,
         }
@@ -190,6 +194,12 @@ impl Scenario {
             belts: vec![],
             debris: vec![],
         }
+    }
+
+    pub fn ids(&self) -> impl Iterator<Item = ObjectId> + use<'_> {
+        self.orbiter_ids()
+            .map(|id| ObjectId::Orbiter(id))
+            .chain(self.planet_ids().into_iter().map(|id| ObjectId::Planet(id)))
     }
 
     pub fn orbiter_ids(&self) -> impl Iterator<Item = OrbiterId> + use<'_> {
@@ -341,7 +351,11 @@ impl Scenario {
 
     pub fn lup_planet(&self, id: PlanetId, stamp: Nanotime) -> Option<ObjectLookup> {
         let (body, pv, _, sys) = self.system.lookup(id, stamp)?;
-        Some(ObjectLookup(ScenarioObject::Body(&sys.name, body), pv))
+        Some(ObjectLookup(
+            ObjectId::Planet(id),
+            ScenarioObject::Body(&sys.name, body),
+            pv,
+        ))
     }
 
     pub fn lup_orbiter(&self, id: OrbiterId, stamp: Nanotime) -> Option<ObjectLookup> {
@@ -357,8 +371,19 @@ impl Scenario {
             let local_pv = prop.pv(stamp)?;
             let pv = frame_pv + local_pv;
 
-            Some(ObjectLookup(ScenarioObject::Orbiter(o), pv))
+            Some(ObjectLookup(
+                ObjectId::Orbiter(id),
+                ScenarioObject::Orbiter(o),
+                pv,
+            ))
         })
+    }
+
+    pub fn lup(&self, id: ObjectId, stamp: Nanotime) -> Option<ObjectLookup> {
+        match id {
+            ObjectId::Orbiter(id) => self.lup_orbiter(id, stamp),
+            ObjectId::Planet(id) => self.lup_planet(id, stamp),
+        }
     }
 
     pub fn relevant_body(&self, _pos: Vec2, _stamp: Nanotime) -> Option<PlanetId> {
@@ -383,10 +408,9 @@ impl Scenario {
 
     pub fn nearest(&self, pos: Vec2, stamp: Nanotime) -> Option<ObjectId> {
         let results = self
-            .orbiter_ids()
-            .into_iter()
+            .ids()
             .filter_map(|id| {
-                let lup = self.lup_orbiter(id, stamp)?;
+                let lup = self.lup(id, stamp)?;
                 let p = lup.pv().pos;
                 let d = pos.distance(p);
                 Some((d, id))
@@ -395,6 +419,6 @@ impl Scenario {
         results
             .into_iter()
             .min_by(|(d1, _), (d2, _)| d1.total_cmp(d2))
-            .map(|(_, id)| ObjectId::Orbiter(id))
+            .map(|(_, id)| id)
     }
 }
