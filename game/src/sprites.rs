@@ -169,11 +169,7 @@ pub fn update_spacecraft_sprites(
     mut query: Query<(Entity, &mut SpacecraftTexture, &mut Transform, &mut Sprite)>,
     state: Res<GameState>,
 ) {
-    let bodies: Vec<_> = state
-        .scenario
-        .planets()
-        .bodies(state.sim_time, None)
-        .collect();
+    let bodies: Vec<_> = state.scenario.planets().bodies(state.sim_time).collect();
 
     for (e, mut x, mut transform, mut s) in query.iter_mut() {
         let SpacecraftTexture(id, scale) = *x;

@@ -174,31 +174,27 @@ fn draw_orbit_between(
     Some(())
 }
 
-fn draw_planets(
-    gizmos: &mut Gizmos,
-    planet: &PlanetarySystem,
-    stamp: Nanotime,
-    origin: Vec2,
-    mode: GameMode,
-) {
+fn draw_planets(gizmos: &mut Gizmos, planets: &PlanetarySystem, stamp: Nanotime, mode: GameMode) {
     let a = match mode {
         GameMode::Default => 0.1,
         _ => 0.8,
     };
-    draw_circle(gizmos, origin, planet.body.radius, GRAY.with_alpha(a));
 
-    if mode == GameMode::Default {
-        draw_circle(gizmos, origin, planet.body.soi, GRAY.with_alpha(a));
-    } else {
-        for (a, ds) in [(1.0, 1.0), (0.3, 0.98), (0.1, 0.95)] {
-            draw_circle(gizmos, origin, planet.body.soi * ds, ORANGE.with_alpha(a));
+    for planet in planets.iter() {
+        let pv = match planet.pv(stamp) {
+            Some(pv) => pv,
+            None => continue,
+        };
+        draw_circle(gizmos, pv.pos, planet.body.radius, GRAY.with_alpha(a));
+        if mode == GameMode::Default {
+            draw_circle(gizmos, pv.pos, planet.body.soi, GRAY.with_alpha(a));
+        } else {
+            for (a, ds) in [(1.0, 1.0), (0.3, 0.98), (0.1, 0.95)] {
+                draw_circle(gizmos, pv.pos, planet.body.soi * ds, ORANGE.with_alpha(a));
+            }
         }
-    }
-
-    for (orbit, pl) in &planet.subsystems {
-        if let Some(pv) = orbit.pv(stamp).ok() {
-            draw_orbit(gizmos, orbit, origin, GRAY.with_alpha(a / 2.0));
-            draw_planets(gizmos, pl, stamp, origin + pv.pos, mode)
+        if let Some(go) = planet.orbit {
+            draw_orbit(gizmos, &go.1, Vec2::ZERO, GRAY.with_alpha(a / 2.0));
         }
     }
 }
@@ -213,12 +209,11 @@ fn draw_propagator(
     with_event: bool,
     color: Srgba,
 ) -> Option<()> {
-    let (_, parent_pv, _, _) = planets.lookup(prop.parent(), stamp)?;
-
-    draw_orbit(gizmos, &prop.orbit.1, parent_pv.pos, color);
+    let (_, pv) = planets.lookup(prop.parent(), stamp)?;
+    draw_orbit(gizmos, &prop.orbit.1, pv.pos, color);
     if with_event {
         if let Some((t, e)) = prop.stamped_event() {
-            let pv_end = parent_pv + prop.pv(t)?;
+            let pv_end = pv + prop.pv(t)?;
             draw_event(gizmos, planets, &e, t, wall_time, pv_end.pos, scale);
         }
     }
@@ -444,7 +439,7 @@ fn draw_scenario(
     track_list: &HashSet<OrbiterId>,
     mode: GameMode,
 ) {
-    draw_planets(gizmos, scenario.planets(), stamp, Vec2::ZERO, mode);
+    draw_planets(gizmos, scenario.planets(), stamp, mode);
 
     for belt in scenario.belts() {
         let origin = match scenario
@@ -590,8 +585,8 @@ fn draw_event(
     scale: f32,
 ) -> Option<()> {
     if let EventType::Encounter(id) = event {
-        let (body, pv, _, _) = planets.lookup(*id, stamp)?;
-        draw_circle(gizmos, pv.pos, body.soi, ORANGE.with_alpha(0.2));
+        let (pl, pv) = planets.lookup(*id, stamp)?;
+        draw_circle(gizmos, pv.pos, pl.body.soi, ORANGE.with_alpha(0.2));
     }
     draw_event_marker_at(gizmos, wall_time, event, p, scale);
     Some(())

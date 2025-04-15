@@ -1053,11 +1053,11 @@ fn process_interaction(
         }
         InteractionEvent::Load(name) => {
             let (system, ids) = match name.as_str() {
-                "grid" => Some(consistency_example()),
+                // "grid" => Some(consistency_example()),
                 "earth" => Some(earth_moon_example_one()),
-                "earth2" => Some(earth_moon_example_two()),
+                // "earth2" => Some(earth_moon_example_two()),
                 "moon" => Some(just_the_moon()),
-                "jupiter" => Some(sun_jupiter_lagrange()),
+                // "jupiter" => Some(sun_jupiter_lagrange()),
                 _ => {
                     error!("No scenario named {}", name);
                     None

@@ -76,91 +76,81 @@ impl<'a> ObjectLookup<'a> {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct PlanetarySystem {
+pub struct PlanetarySystem(Vec<Planet>);
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Planet {
     pub id: PlanetId,
     pub name: String,
     pub body: Body,
-    pub subsystems: Vec<(SparseOrbit, PlanetarySystem)>,
+    pub orbit: Option<GlobalOrbit>,
 }
 
-impl PlanetarySystem {
-    pub fn new(id: PlanetId, name: impl Into<String>, body: Body) -> Self {
-        PlanetarySystem {
+impl Planet {
+    pub fn new(
+        id: PlanetId,
+        name: impl Into<String>,
+        body: Body,
+        orbit: impl Into<Option<GlobalOrbit>>,
+    ) -> Self {
+        Self {
             id,
             name: name.into(),
             body,
-            subsystems: vec![],
+            orbit: orbit.into(),
         }
     }
 
-    pub fn orbit(&mut self, orbit: SparseOrbit, planets: PlanetarySystem) {
-        self.subsystems.push((orbit, planets));
+    pub fn pv(&self, stamp: Nanotime) -> Option<PV> {
+        match self.orbit {
+            Some(go) => go.1.pv(stamp).ok(),
+            None => Some(PV::zero()),
+        }
+    }
+}
+
+impl PlanetarySystem {
+    pub fn new() -> Self {
+        PlanetarySystem(vec![])
     }
 
-    pub fn ids(&self) -> Vec<PlanetId> {
-        let mut ret = vec![self.id];
-        for (_, sub) in &self.subsystems {
-            ret.extend_from_slice(&sub.ids())
-        }
-        ret
+    pub fn with_body(mut self, planet: Planet) -> Self {
+        self.0.push(planet);
+        self
     }
 
-    pub fn bodies<T: Into<Option<PV>>>(
-        &self,
-        stamp: Nanotime,
-        origin: T,
-    ) -> impl Iterator<Item = (PV, Body)> + use<'_, T> {
-        let origin = origin.into().unwrap_or(PV::zero());
-        let mut ret = vec![(origin, self.body)];
-        for (orbit, sys) in &self.subsystems {
-            if let Ok(pv) = orbit.pv(stamp) {
-                let r = sys.bodies(stamp, pv);
-                ret.extend(r);
-            }
-        }
-        ret.into_iter()
+    pub fn ids(&self) -> impl Iterator<Item = PlanetId> + use<'_> {
+        self.0.iter().map(|p| p.id)
     }
 
-    fn lookup_inner(
-        &self,
-        id: PlanetId,
-        stamp: Nanotime,
-        wrt: PV,
-        parent_id: Option<PlanetId>,
-    ) -> Option<(Body, PV, Option<PlanetId>, &PlanetarySystem)> {
-        if self.id == id {
-            return Some((self.body, wrt, parent_id, self));
-        }
-
-        for (orbit, pl) in &self.subsystems {
-            if let Some(pv) = orbit.pv(stamp).ok() {
-                let ret = pl.lookup_inner(id, stamp, wrt + pv, Some(self.id));
-                if let Some(r) = ret {
-                    return Some(r);
-                }
-            }
-        }
-
-        None
+    pub fn bodies(&self, stamp: Nanotime) -> impl Iterator<Item = (PV, Body)> + use<'_> {
+        self.0.iter().filter_map(move |p| {
+            let pv = if let Some(go) = p.orbit {
+                go.1.pv(stamp).ok()?
+            } else {
+                PV::zero()
+            };
+            Some((pv, p.body))
+        })
     }
 
-    pub fn lookup(
-        &self,
-        id: PlanetId,
-        stamp: Nanotime,
-    ) -> Option<(Body, PV, Option<PlanetId>, &PlanetarySystem)> {
-        self.lookup_inner(id, stamp, PV::zero(), None)
+    pub fn iter(&self) -> impl Iterator<Item = &Planet> + use<'_> {
+        self.0.iter()
     }
 
-    pub fn potential_at(&self, pos: Vec2, stamp: Nanotime) -> f32 {
-        let r = pos.length().clamp(10.0, std::f32::MAX);
-        let mut ret = -self.body.mu() / r;
-        for (orbit, pl) in &self.subsystems {
-            if let Some(pv) = orbit.pv(stamp).ok() {
-                ret += pl.potential_at(pos - pv.pos, stamp);
-            }
-        }
-        ret
+    pub fn lookup(&self, id: PlanetId, stamp: Nanotime) -> Option<(&Planet, PV)> {
+        self.0
+            .iter()
+            .find(|p| p.id == id)
+            .map(|p| {
+                let pv = if let Some(go) = p.orbit {
+                    go.1.pv(stamp).ok()?
+                } else {
+                    PV::zero()
+                };
+                Some((p, pv))
+            })
+            .flatten()
     }
 }
 
@@ -206,7 +196,7 @@ impl Scenario {
         self.orbiters.iter().map(|o| o.id())
     }
 
-    pub fn planet_ids(&self) -> Vec<PlanetId> {
+    pub fn planet_ids(&self) -> impl Iterator<Item = PlanetId> + use<'_> {
         self.system.ids()
     }
 
@@ -350,10 +340,10 @@ impl Scenario {
     }
 
     pub fn lup_planet(&self, id: PlanetId, stamp: Nanotime) -> Option<ObjectLookup> {
-        let (body, pv, _, sys) = self.system.lookup(id, stamp)?;
+        let (pl, pv) = self.system.lookup(id, stamp)?;
         Some(ObjectLookup(
             ObjectId::Planet(id),
-            ScenarioObject::Body(&sys.name, body),
+            ScenarioObject::Body(&pl.name, pl.body),
             pv,
         ))
     }
@@ -366,7 +356,7 @@ impl Scenario {
 
             let prop = o.propagator_at(stamp)?;
 
-            let (_, frame_pv, _, _) = self.system.lookup(prop.parent(), stamp)?;
+            let (_, frame_pv) = self.system.lookup(prop.parent(), stamp)?;
 
             let local_pv = prop.pv(stamp)?;
             let pv = frame_pv + local_pv;

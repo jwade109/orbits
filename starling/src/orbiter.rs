@@ -149,7 +149,7 @@ impl Orbiter {
 
     pub fn pv(&self, stamp: Nanotime, planets: &PlanetarySystem) -> Option<PV> {
         let prop = self.propagator_at(stamp)?;
-        let (_, pv, _, _) = planets.lookup(prop.parent(), stamp)?;
+        let (_, pv) = planets.lookup(prop.parent(), stamp)?;
         Some(prop.pv(stamp)? + pv)
     }
 
@@ -210,14 +210,14 @@ impl Orbiter {
         for _ in 0..max_iters {
             let prop = self.props.iter_mut().last().ok_or(PredictError::Lookup)?;
 
-            let (_, _, _, pl) = planets
-                .lookup(prop.parent(), stamp)
-                .ok_or(PredictError::Lookup)?;
-            let bodies = pl
-                .subsystems
+            let bodies: Vec<_> = planets
                 .iter()
-                .map(|(orbit, pl)| (pl.id, orbit, pl.body.soi))
-                .collect::<Vec<_>>();
+                .filter_map(|p| {
+                    let go = &p.orbit?;
+                    (go.0 == prop.parent()).then(|| ())?;
+                    Some((go.0, go.1, p.body.soi))
+                })
+                .collect();
 
             prop.finish_or_compute_until(t, &bodies)?;
 

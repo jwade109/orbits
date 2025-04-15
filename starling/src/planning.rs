@@ -241,7 +241,7 @@ impl Propagator {
     pub fn finish_or_compute_until(
         &mut self,
         stamp: Nanotime,
-        bodies: &[(PlanetId, &SparseOrbit, f32)],
+        bodies: &[(PlanetId, SparseOrbit, f32)],
     ) -> Result<(), PredictError<Nanotime>> {
         while !self.calculated_to(stamp) {
             let e = self.next(bodies);
@@ -268,8 +268,8 @@ impl Propagator {
                 let cur = planets
                     .lookup(self.orbit.0, stamp)
                     .ok_or(BadObjectNextState::Lookup)?;
-                let reparent = match cur.2 {
-                    Some(id) => id,
+                let reparent = match cur.0.orbit {
+                    Some(go) => go.0,
                     None => return Ok(None),
                 };
                 let new = planets
@@ -281,7 +281,7 @@ impl Propagator {
                     .pv(stamp)
                     .map_err(|_| BadObjectNextState::BadPosition)?;
                 let dv = cur.1 - new.1;
-                let orbit = SparseOrbit::from_pv(pv + dv, new.0, stamp)
+                let orbit = SparseOrbit::from_pv(pv + dv, new.0.body, stamp)
                     .ok_or(BadObjectNextState::BadOrbit)?;
                 Ok(Some(Propagator::new(GlobalOrbit(reparent, orbit), stamp)))
             }
@@ -298,7 +298,7 @@ impl Propagator {
                     .pv(stamp)
                     .map_err(|_| BadObjectNextState::BadPosition)?;
                 let dv = cur.1 - new.1;
-                let orbit = SparseOrbit::from_pv(pv + dv, new.0, stamp)
+                let orbit = SparseOrbit::from_pv(pv + dv, new.0.body, stamp)
                     .ok_or(BadObjectNextState::BadOrbit)?;
                 Ok(Some(Propagator::new(GlobalOrbit(id, orbit), stamp)))
             }
@@ -320,7 +320,7 @@ impl Propagator {
 
     pub fn next(
         &mut self,
-        bodies: &[(PlanetId, &SparseOrbit, f32)],
+        bodies: &[(PlanetId, SparseOrbit, f32)],
     ) -> Result<(), PredictError<Nanotime>> {
         let end = match self.horizon {
             HorizonState::Continuing(end) => end,
@@ -456,7 +456,7 @@ impl Propagator {
         if near_body {
             for i in 0..bodies.len() {
                 let (_, orbit, soi) = bodies[i];
-                let cond = separation_with(&self.orbit.1, orbit, soi);
+                let cond = separation_with(&self.orbit.1, &orbit, soi);
                 let id = bodies[i].0;
 
                 if t1 != self.start && !cond(t1) {
