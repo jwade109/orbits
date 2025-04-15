@@ -15,13 +15,11 @@ mod sprites;
 mod ui;
 
 fn main() {
-    let mut window = Window {
-        // mode: bevy::window::WindowMode::BorderlessFullscreen(MonitorSelection::Primary),
+    let window = Window {
+        mode: bevy::window::WindowMode::BorderlessFullscreen(MonitorSelection::Primary),
         title: "Space UPS".into(),
         ..default()
     };
-
-    window.set_maximized(true);
 
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {

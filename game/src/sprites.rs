@@ -290,5 +290,5 @@ pub fn update_background_sprite(
         GameMode::Occlusion => GRAY.with_luminance(0.04),
     };
 
-    camera.clear_color = ClearColorConfig::Custom(c.into());
+    camera.clear_color = ClearColorConfig::Custom(c.with_alpha(0.0).into());
 }

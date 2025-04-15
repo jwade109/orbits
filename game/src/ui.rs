@@ -326,16 +326,6 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
 
     sidebar.add_child(
         Node::button(
-            "Clear Tracks",
-            GuiNodeId::ClearTracks,
-            Size::Grow,
-            button_height,
-        )
-        .enabled(!state.track_list.is_empty()),
-    );
-
-    sidebar.add_child(
-        Node::button(
             "Clear Orbits",
             GuiNodeId::ClearOrbits,
             Size::Grow,
@@ -386,7 +376,12 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
 
     sidebar.add_child({
         let s = format!("{} selected", state.track_list.len());
-        Node::button(s, GuiNodeId::SelectedCount, Size::Grow, button_height).enabled(false)
+        let b = Node::button(s, GuiNodeId::SelectedCount, Size::Grow, button_height).enabled(false);
+        if state.track_list.is_empty() {
+            b
+        } else {
+            delete_wrapper(GuiNodeId::ClearTracks, b, Size::Grow, button_height)
+        }
     });
 
     let orbiter_list = |root: &mut Node<GuiNodeId>, max_cells: usize, mut ids: Vec<OrbiterId>| {
@@ -427,17 +422,6 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
             Size::Grow,
             button_height,
         ));
-    }
-
-    if let Some(fid) = state.follow {
-        if let Some(fid) = fid.orbiter() {
-            if state.track_list.contains(&fid) {
-                sidebar.add_child(Node::hline());
-                let s = format!("Pilot {}", fid);
-                let id = GuiNodeId::PilotOrbiter;
-                sidebar.add_child(Node::button(s, id, Size::Grow, button_height));
-            }
-        }
     }
 
     if !state.controllers.is_empty() {

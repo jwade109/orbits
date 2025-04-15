@@ -59,9 +59,8 @@ fn init_system(mut commands: Commands) {
     commands.spawn((
         Camera2d,
         Camera {
-            hdr: true,
             order: 0,
-            clear_color: ClearColorConfig::Custom(BLACK.with_alpha(0.3).into()),
+            clear_color: ClearColorConfig::Custom(BLACK.with_alpha(0.0).into()),
             ..default()
         },
         Bloom {
