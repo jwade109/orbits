@@ -133,7 +133,7 @@ mod tests {
 
     fn simulate_navigation(init: (f32, f32, f32), dst: (f32, f32, f32)) {
         let body = Body::new(63.0, 1000.0, 10000000.0);
-        let earth = PlanetarySystem::new(OrbiterId(0), "Earth", body);
+        let earth = PlanetarySystem::new(PlanetId(0), "Earth", body);
         let mut scenario = Scenario::new(&earth);
 
         let orbits = [init, dst].map(|(ra, rp, argp)| {
@@ -177,7 +177,7 @@ mod tests {
         assert_eq!(scenario.orbiter_count(), 1);
 
         // this is entirely too verbose
-        let lup = scenario.lup(orbiter_id, tfinal).unwrap();
+        let lup = scenario.lup_orbiter(orbiter_id, tfinal).unwrap();
         let orbiter = lup.orbiter().unwrap();
         let prop = orbiter.propagator_at(tfinal).unwrap();
         let orbit = prop.orbit;

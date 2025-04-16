@@ -1,7 +1,6 @@
 use layout::examples::*;
 use layout::layout::*;
 use layout::svg::write_svg;
-use starling::aabb::AABB;
 
 fn draw_layout(tree: &Tree<String>, path: &str) -> Result<(), std::io::Error> {
     let aabbs: Vec<_> = tree
