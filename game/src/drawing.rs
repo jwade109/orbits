@@ -259,7 +259,7 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let orbiter = lup.orbiter()?;
 
     let rb = orbiter.vehicle.bounding_radius();
-    let r = 300.0;
+    let r = state.camera.window_dims.y * 0.2;
 
     let zoom = 0.8 * r / rb;
 
@@ -1133,6 +1133,10 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, root: PlanetId)
 
     if let Some(orbit) = state.right_cursor_orbit() {
         draw_global_orbit(gizmos, &orbit, &state, ORANGE);
+    }
+
+    if let Some(orbit) = state.current_orbit() {
+        draw_global_orbit(gizmos, &orbit, &state, TEAL);
     }
 
     for ctrl in &state.controllers {

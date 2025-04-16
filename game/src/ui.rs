@@ -8,6 +8,7 @@ use bevy::render::{
     view::RenderLayers,
 };
 use bevy::text::TextBounds;
+use bevy::window::WindowResized;
 use layout::layout as ui;
 use starling::prelude::*;
 
@@ -71,6 +72,7 @@ impl Plugin for UiPlugin {
                 do_ui_sprites,
                 top_right_text_system,
                 set_bloom,
+                on_resize_system,
             ),
         );
     }
@@ -455,7 +457,7 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
     if let Some(id) = state.follow {
         let s = format!("Following {}", id);
         let id = GuiNodeId::Nullopt;
-        let n = Node::button(s, id, 180, button_height).enabled(false);
+        let n = Node::button(s, id, 300, button_height).enabled(false);
         inner_topbar.add_child(n);
     }
 
@@ -592,7 +594,7 @@ fn do_ui_sprites(
         return;
     }
 
-    if ui_age < Nanotime::secs(1) && !state.redraw_requested {
+    if ui_age < Nanotime::millis(250) && !state.redraw_requested {
         return;
     }
 
@@ -666,4 +668,10 @@ fn setup(mut commands: Commands) {
     commands.insert_resource(Events::<InteractionEvent>::default());
     commands.spawn(get_screen_clock());
     commands.spawn(get_top_right_ui());
+}
+
+fn on_resize_system(mut resize_reader: EventReader<WindowResized>, mut state: ResMut<GameState>) {
+    for _ in resize_reader.read() {
+        state.redraw();
+    }
 }

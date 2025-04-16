@@ -190,6 +190,7 @@ pub struct GameState {
 
     pub scenes: Vec<Scene>,
     pub current_scene: usize,
+    pub current_orbit: Option<usize>,
 
     pub ui: ui::Tree<crate::ui::GuiNodeId>,
     pub context_menu_origin: Option<Vec2>,
@@ -236,6 +237,7 @@ impl Default for GameState {
                 Scene::new("Main Menu", SceneType::MainMenu),
             ],
             current_scene: 0,
+            current_orbit: None,
             ui: ui::Tree::new(),
             context_menu_origin: None,
             redraw_requested: true,
@@ -421,8 +423,7 @@ impl GameState {
     }
 
     pub fn piloting(&self) -> Option<OrbiterId> {
-        let id = self.follow?.orbiter()?;
-        self.track_list.contains(&id).then(|| id)
+        self.follow?.orbiter()
     }
 
     pub fn spawn_at(&mut self, global: &GlobalOrbit) -> Option<()> {
@@ -466,11 +467,14 @@ impl GameState {
         });
     }
 
-    pub fn commit_mission(&mut self) {
-        for orbit in self.queued_orbits.clone() {
-            self.command_selected(&orbit);
-            break;
-        }
+    pub fn current_orbit(&self) -> Option<&GlobalOrbit> {
+        self.queued_orbits.get(self.current_orbit?)
+    }
+
+    pub fn commit_mission(&mut self) -> Option<()> {
+        let orbit = self.current_orbit()?.clone();
+        self.command_selected(&orbit);
+        Some(())
     }
 
     pub fn is_maneuvering(&self, id: OrbiterId) -> Option<(Nanotime, Vec2)> {
@@ -521,10 +525,6 @@ impl GameState {
     pub fn thrust_prograde(&mut self) -> Option<()> {
         let id = self.piloting()?;
 
-        if !self.track_list.contains(&id) {
-            return None;
-        }
-
         let orbiter = self.scenario.lup_orbiter(id, self.sim_time)?.orbiter()?;
         let dv = orbiter.vehicle.pointing() * 0.3;
 
@@ -567,6 +567,7 @@ impl GameState {
     }
 
     pub fn command(&mut self, id: OrbiterId, next: &GlobalOrbit) -> Option<()> {
+        let tracks = self.track_list.clone();
         self.scenario.lup_orbiter(id, self.sim_time)?.orbiter()?;
 
         if self.controllers.iter().find(|c| c.target() == id).is_none() {
@@ -574,9 +575,11 @@ impl GameState {
         }
 
         self.controllers.iter_mut().for_each(|c| {
-            let ret = c.set_destination(*next, self.sim_time);
-            if let Err(_e) = ret {
-                // dbg!(e);
+            if tracks.contains(&c.target()) {
+                let ret = c.set_destination(*next, self.sim_time);
+                if let Err(_e) = ret {
+                    // dbg!(e);
+                }
             }
         });
 
@@ -649,7 +652,9 @@ impl GameState {
             GuiNodeId::Group(gid) => self.toggle_group(&gid),
             GuiNodeId::CreateGroup => self.create_group(get_group_id()),
             GuiNodeId::DisbandGroup(gid) => self.disband_group(&gid),
-            GuiNodeId::CommitMission => self.commit_mission(),
+            GuiNodeId::CommitMission => {
+                self.commit_mission();
+            }
             GuiNodeId::Exit => std::process::exit(0),
             GuiNodeId::SimSpeed(s) => {
                 self.sim_speed = s;
@@ -661,6 +666,7 @@ impl GameState {
             GuiNodeId::GlobalOrbit(i) => {
                 let orbit = self.queued_orbits.get(i)?;
                 self.follow = Some(ObjectId::Planet(orbit.0));
+                self.current_orbit = Some(i);
             }
             GuiNodeId::World => (),
             GuiNodeId::Nullopt => (),
@@ -965,7 +971,9 @@ fn process_interaction(
 ) -> Option<()> {
     match inter {
         InteractionEvent::Delete => state.delete_objects(),
-        InteractionEvent::CommitMission => state.commit_mission(),
+        InteractionEvent::CommitMission => {
+            state.commit_mission();
+        }
         InteractionEvent::ClearMissions => {
             state.release_selected();
         }
