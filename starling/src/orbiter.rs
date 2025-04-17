@@ -1,4 +1,4 @@
-use crate::math::rand;
+use crate::inventory::InventoryItem;
 use crate::orbits::SparseOrbit;
 use crate::planning::*;
 use crate::pv::PV;
@@ -58,7 +58,6 @@ impl std::fmt::Debug for GroupId {
 pub struct Orbiter {
     id: OrbiterId,
     max_fuel_mass: f32,
-    fuel_mass: f32,
     dry_mass: f32,
     exhaust_velocity: f32,
     props: Vec<Propagator>,
@@ -80,7 +79,7 @@ impl std::fmt::Display for Orbiter {
             f,
             "{} {:0.1}kg/{:0.1}kg, ve={:0.1}m/s, dv={:0.2}m/s, {} props",
             self.id,
-            self.fuel_mass + self.dry_mass,
+            self.fuel_mass() + self.dry_mass,
             self.dry_mass,
             self.exhaust_velocity,
             self.remaining_dv(),
@@ -94,7 +93,6 @@ impl Orbiter {
         Orbiter {
             id,
             max_fuel_mass: 800.0,
-            fuel_mass: rand(500.0, 800.0),
             dry_mass: 300.0,
             exhaust_velocity: 1700.0,
             props: vec![Propagator::new(orbit, stamp)],
@@ -106,8 +104,12 @@ impl Orbiter {
         self.id
     }
 
+    pub fn fuel_mass(&self) -> f32 {
+        self.vehicle.inventory.count(InventoryItem::LiquidFuel) as f32 / 1000.0
+    }
+
     pub fn mass(&self) -> f32 {
-        self.dry_mass + self.fuel_mass
+        self.dry_mass + self.fuel_mass()
     }
 
     pub fn remaining_dv(&self) -> f32 {
@@ -115,11 +117,17 @@ impl Orbiter {
     }
 
     pub fn fuel_percentage(&self) -> f32 {
-        self.fuel_mass / self.max_fuel_mass
+        self.fuel_mass() / self.max_fuel_mass
     }
 
-    pub fn add_fuel(&mut self, kg: f32) {
-        self.fuel_mass = (self.fuel_mass + kg).min(self.max_fuel_mass);
+    pub fn low_fuel(&self) -> bool {
+        self.vehicle.is_controllable() && self.remaining_dv() < 10.0
+    }
+
+    pub fn add_fuel(&mut self, kg: u64) {
+        self.vehicle
+            .inventory
+            .add(InventoryItem::LiquidFuel, kg * 1000);
     }
 
     pub fn step(&mut self, stamp: Nanotime) {
@@ -131,11 +139,17 @@ impl Orbiter {
             return None;
         }
 
+        let fuel_mass_before_maneuver = self.fuel_mass();
         let m1 = mass_after_maneuver(self.exhaust_velocity, self.mass(), dv.length());
+        let fuel_mass_after_maneuver = m1 - self.dry_mass;
+        let spent_fuel = fuel_mass_before_maneuver - fuel_mass_after_maneuver;
 
-        self.fuel_mass = m1 - self.dry_mass;
+        self.vehicle.inventory.take(
+            InventoryItem::LiquidFuel,
+            (spent_fuel * 1000.0).round() as u64,
+        );
 
-        let orbit = {
+        let orbit: GlobalOrbit = {
             let prop = self.propagator_at(stamp)?;
             let pv = prop.pv_universal(stamp)? + PV::vel(dv);
             let orbit = SparseOrbit::from_pv(pv, prop.orbit.1.body, stamp)?;
@@ -274,6 +288,18 @@ impl ObjectId {
             Self::Planet(id) => Some(*id),
             _ => None,
         }
+    }
+}
+
+impl From<OrbiterId> for ObjectId {
+    fn from(value: OrbiterId) -> Self {
+        ObjectId::Orbiter(value)
+    }
+}
+
+impl From<PlanetId> for ObjectId {
+    fn from(value: PlanetId) -> Self {
+        ObjectId::Planet(value)
     }
 }
 

@@ -5,7 +5,6 @@ use bevy::prelude::*;
 mod camera_controls;
 mod drawing;
 mod graph;
-mod inventory;
 mod keybindings;
 mod mouse;
 mod notifications;

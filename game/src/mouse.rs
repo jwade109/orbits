@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use core::time::Duration;
 use starling::prelude::AABB;
 
-const DOUBLE_CLICK_DURATION: Duration = Duration::from_millis(200);
+const DOUBLE_CLICK_DURATION: Duration = Duration::from_millis(400);
 
 #[derive(Debug, Default)]
 pub struct MouseState {

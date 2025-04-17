@@ -372,6 +372,16 @@ impl Propagator {
             pos.length() > self.orbit.1.body.radius
         };
 
+        let beyond_soi = |t: Nanotime| {
+            let pos = self.orbit.1.pv(t).unwrap_or(PV::inf()).pos;
+            pos.length() > self.orbit.1.body.soi
+        };
+
+        if beyond_soi(end) {
+            self.horizon = HorizonState::Transition(end, EventType::Escape(self.orbit.0));
+            return Ok(());
+        }
+
         if self.orbit.1.is_suborbital() && going_down && below_all_bodies {
             if let Some(tp) = self.orbit.1.t_next_p(end) {
                 if let Some(t) = search_condition(

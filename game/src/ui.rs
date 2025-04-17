@@ -148,7 +148,7 @@ fn top_right_text_system(mut text: Single<&mut Text, With<TopRight>>, state: Res
     })();
 
     if let Some((orbiter, go)) = res {
-        text.0 = format!("{}\nOrbit: {}", orbiter, go);
+        text.0 = format!("{}\nOrbit: {}\n{}", orbiter, go, orbiter.vehicle.inventory);
     } else {
         text.0 = "".into();
     }
@@ -343,7 +343,7 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
             Size::Grow,
             button_height,
         )
-        .enabled(!state.queued_orbits.is_empty() && !state.track_list.is_empty()),
+        .enabled(state.current_orbit().is_some() && !state.track_list.is_empty()),
     );
 
     sidebar.add_child(Node::button(
@@ -543,7 +543,42 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
         tree.add_layout(ctx, p);
     }
 
+    if let Some(layout) = current_inventory_layout(state) {
+        tree.add_layout(layout, Vec2::splat(400.0));
+    }
+
     Some(tree)
+}
+
+fn current_inventory_layout(state: &GameState) -> Option<ui::Node<GuiNodeId>> {
+    use ui::*;
+
+    let id = state.follow?.orbiter()?;
+    let orbiter = state.scenario.lup_orbiter(id, state.sim_time)?.orbiter()?;
+
+    if orbiter.vehicle.inventory.is_empty() {
+        return None;
+    }
+
+    let buttons = Node::new(Size::Grow, Size::Fit)
+        .down()
+        .with_child({
+            let s = format!("Vehicle {}", orbiter.vehicle.name());
+            Node::button(s, GuiNodeId::Nullopt, Size::Grow, 40.0).enabled(false)
+        })
+        .with_children(orbiter.vehicle.inventory.view().map(|(k, v)| {
+            let name = format!("{:?} {} g", k, v);
+            Node::button(name, GuiNodeId::Nullopt, Size::Grow, 40.0)
+        }));
+
+    Some(
+        // TODO this node should be fit
+        Node::new(400.0, Size::Fit)
+            .tight()
+            .down()
+            .with_child(Node::new(Size::Grow, 30.0).with_color([0.2, 0.2, 0.2, 0.9]))
+            .with_child(buttons),
+    )
 }
 
 #[derive(Component)]

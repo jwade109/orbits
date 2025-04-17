@@ -1,6 +1,7 @@
 use crate::nanotime::Nanotime;
 pub use glam::f32::Vec2;
 pub use glam::f32::Vec3;
+use names::Generator;
 use rand::Rng;
 
 pub const PI: f32 = std::f32::consts::PI;
@@ -111,6 +112,11 @@ pub fn is_occluded(light_source: Vec2, test: Vec2, object: Vec2, radius: f32) ->
     let angular_radius = (radius / dobj).asin();
     let angle = test.angle_to(object);
     angle.abs() < angular_radius
+}
+
+pub fn get_random_name() -> String {
+    let mut generator = Generator::default();
+    generator.next().unwrap()
 }
 
 #[cfg(test)]

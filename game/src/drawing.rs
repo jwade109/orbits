@@ -277,6 +277,15 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
         state.camera.actual_scale * zoom,
     );
 
+    let mut draw_clock = |stamp: Nanotime, color: Srgba| {
+        let angle = (stamp % Nanotime::secs_f32(2.0 * PI)).to_secs();
+        let u = rotate(Vec2::X, angle);
+        gizmos.line_2d(map(center), map(center + u * r), color);
+    };
+
+    draw_clock(state.sim_time, PURPLE.with_alpha(0.2));
+    draw_clock(state.wall_time, RED.with_alpha(0.2));
+
     draw_counter(
         gizmos,
         rb as u64,
@@ -346,7 +355,7 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let p = orbiter.fuel_percentage();
     let iso = Isometry2d::from_translation(map(center));
 
-    if orbiter.fuel_percentage() < 0.02 {
+    if orbiter.low_fuel() {
         if is_blinking(state.wall_time, None) {
             draw_triangle(
                 gizmos,
@@ -395,7 +404,7 @@ fn draw_object(
         draw_circle(gizmos, pv.pos, size + 16.0 * scale, YELLOW);
     } else if blinking && obj.will_change() {
         draw_circle(gizmos, pv.pos, size + 7.0 * scale, TEAL);
-    } else if blinking && obj.remaining_dv() < 5.0 {
+    } else if blinking && obj.low_fuel() {
         draw_triangle(gizmos, pv.pos, size + 20.0 * scale, BLUE);
     }
 
@@ -956,6 +965,7 @@ pub fn draw_notifications(gizmos: &mut Gizmos, state: &GameState) {
             NotificationType::ManeuverFailed(_) => {
                 draw_square(gizmos, p, size, RED.with_alpha(a));
             }
+            NotificationType::NotControllable => {}
             NotificationType::Following(_) => {
                 let a = 0.7 * (1.0 - s);
                 let size = 2.0 * size * (1.0 - s);

@@ -4,6 +4,7 @@ pub mod canonical;
 pub mod control;
 pub mod examples;
 pub mod file_export;
+pub mod inventory;
 pub mod math;
 pub mod nanotime;
 pub mod orbital_luts;

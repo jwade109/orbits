@@ -3,11 +3,11 @@ pub use crate::belts::AsteroidBelt;
 pub use crate::control::Controller;
 pub use crate::examples::{
     consistency_example, default_example, earth_moon_example_one, earth_moon_example_two,
-    just_the_moon, make_earth, make_luna, stable_simulation, sun_jupiter_lagrange,
+    just_the_moon, make_earth, make_luna, stable_simulation, sun_jupiter,
 };
 pub use crate::file_export::export_orbit_data;
 pub use crate::math::{
-    apply, apply_filter, linspace, rand, randvec, rotate, tspace, Vec2, Vec3, PI,
+    apply, apply_filter, get_random_name, linspace, rand, randvec, rotate, tspace, Vec2, Vec3, PI,
 };
 pub use crate::nanotime::Nanotime;
 pub use crate::orbital_luts::lookup_ta_from_ma;

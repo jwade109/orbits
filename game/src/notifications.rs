@@ -25,6 +25,7 @@ impl Notification {
             NotificationType::ManeuverStarted(_) => self.extra_time + Nanotime::secs(2),
             NotificationType::ManeuverComplete(_) => self.extra_time + Nanotime::secs(7),
             NotificationType::ManeuverFailed(_) => self.extra_time + Nanotime::secs(3),
+            NotificationType::NotControllable => self.extra_time + Nanotime::secs(1),
             NotificationType::OrbitChanged(_) => self.extra_time + Nanotime::secs(1),
             NotificationType::Following(_) => Nanotime::millis(500),
         }
@@ -49,6 +50,7 @@ pub enum NotificationType {
     ManeuverFailed(OrbiterId),
     Following(ObjectId),
     OrbitChanged(OrbiterId),
+    NotControllable,
 }
 
 impl std::fmt::Display for Notification {

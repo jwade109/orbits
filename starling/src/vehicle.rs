@@ -1,5 +1,6 @@
 use crate::aabb::{Polygon, AABB};
-use crate::math::{cross2d, linspace, rand, randint, randvec, rotate, Vec2, PI};
+use crate::inventory::{Inventory, InventoryItem};
+use crate::math::{cross2d, get_random_name, linspace, rand, randint, randvec, rotate, Vec2, PI};
 use crate::nanotime::Nanotime;
 use serde::{Deserialize, Serialize};
 
@@ -40,12 +41,14 @@ impl Thruster {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Vehicle {
+    name: String,
     stamp: Nanotime,
     angle: f32,
     target_angle: f32,
     angular_velocity: f32,
     body: Vec<Polygon>,
     thrusters: Vec<Thruster>,
+    pub inventory: Inventory,
 }
 
 fn rcs_block(pos: Vec2, angle: f32) -> Vec<Thruster> {
@@ -54,6 +57,15 @@ fn rcs_block(pos: Vec2, angle: f32) -> Vec<Thruster> {
         Thruster::rcs(pos, angle + 0.0 * PI),
         Thruster::rcs(pos, angle + 0.4 * PI),
     ]
+}
+
+fn random_sat_inventory() -> Inventory {
+    use InventoryItem::*;
+    let mut inv = Inventory::new();
+    inv.add(Copper, randint(2000, 5000) as u64);
+    inv.add(Silicon, randint(40, 400) as u64);
+    inv.add(LiquidFuel, randint(500, 800) as u64 * 1000);
+    inv
 }
 
 impl Vehicle {
@@ -67,28 +79,36 @@ impl Vehicle {
 
     pub fn asteroid(stamp: Nanotime) -> Self {
         Self {
+            name: get_random_name(),
             stamp,
             angle: rand(0.0, 2.0 * PI),
             target_angle: 0.0,
             angular_velocity: rand(-0.3, 0.3),
             body: asteroid_body(),
             thrusters: Vec::new(),
+            inventory: Inventory::new(),
         }
     }
 
     pub fn satellite(stamp: Nanotime) -> Self {
         Self {
+            name: get_random_name(),
             stamp,
             angle: rand(0.0, 2.0 * PI),
             target_angle: rand(0.0, 2.0 * PI),
             angular_velocity: rand(-0.3, 0.3),
             body: satellite_body(),
             thrusters: satellite_thrusters(),
+            inventory: random_sat_inventory(),
         }
     }
 
     pub fn is_controllable(&self) -> bool {
         !self.thrusters.is_empty()
+    }
+
+    pub fn name(&self) -> &String {
+        &self.name
     }
 
     pub fn step(&mut self, stamp: Nanotime) {

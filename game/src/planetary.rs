@@ -11,7 +11,6 @@ use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 use bevy::window::WindowMode;
 use layout::layout as ui;
-use names::Generator;
 use rfd::FileDialog;
 use starling::prelude::*;
 use std::collections::{HashMap, HashSet};
@@ -452,7 +451,7 @@ impl GameState {
         let plup = self.scenario.lup_planet(parent, self.sim_time)?;
         let pvp = plup.pv().pos;
         let pvl = pv - pvp;
-        self.scenario.remove_object(id)?;
+        self.scenario.remove_orbiter(id)?;
         self.notify(
             ObjectId::Planet(parent),
             NotificationType::OrbiterDeleted(id),
@@ -568,7 +567,11 @@ impl GameState {
 
     pub fn command(&mut self, id: OrbiterId, next: &GlobalOrbit) -> Option<()> {
         let tracks = self.track_list.clone();
-        self.scenario.lup_orbiter(id, self.sim_time)?.orbiter()?;
+        let orbiter = self.scenario.lup_orbiter(id, self.sim_time)?.orbiter()?;
+        if !orbiter.vehicle.is_controllable() {
+            self.notify(id, NotificationType::NotControllable, None);
+            return None;
+        }
 
         if self.controllers.iter().find(|c| c.target() == id).is_none() {
             self.controllers.push(Controller::idle(id));
@@ -588,14 +591,14 @@ impl GameState {
 
     pub fn notify(
         &mut self,
-        parent: ObjectId,
+        parent: impl Into<ObjectId>,
         kind: NotificationType,
         offset: impl Into<Option<Vec2>>,
     ) {
         self.redraw();
 
         let notif = Notification {
-            parent,
+            parent: parent.into(),
             offset: offset.into().unwrap_or(Vec2::ZERO),
             jitter: Vec2::ZERO,
             sim_time: self.sim_time,
@@ -650,7 +653,7 @@ impl GameState {
             GuiNodeId::ClearTracks => self.track_list.clear(),
             GuiNodeId::ClearOrbits => self.queued_orbits.clear(),
             GuiNodeId::Group(gid) => self.toggle_group(&gid),
-            GuiNodeId::CreateGroup => self.create_group(get_group_id()),
+            GuiNodeId::CreateGroup => self.create_group(GroupId(get_random_name())),
             GuiNodeId::DisbandGroup(gid) => self.disband_group(&gid),
             GuiNodeId::CommitMission => {
                 self.commit_mission();
@@ -958,12 +961,6 @@ fn step_system(time: Res<Time>, mut state: ResMut<GameState>) {
 //     }
 // }
 
-fn get_group_id() -> GroupId {
-    let mut generator = Generator::default();
-    let s = generator.next().unwrap();
-    GroupId(s)
-}
-
 fn process_interaction(
     inter: &InteractionEvent,
     state: &mut GameState,
@@ -1064,7 +1061,7 @@ fn process_interaction(
                 "earth" => Some(earth_moon_example_one()),
                 "earth2" => Some(earth_moon_example_two()),
                 "moon" => Some(just_the_moon()),
-                "jupiter" => Some(sun_jupiter_lagrange()),
+                "jupiter" => Some(sun_jupiter()),
                 _ => {
                     error!("No scenario named {}", name);
                     None
@@ -1082,7 +1079,7 @@ fn process_interaction(
             state.disband_group(gid);
         }
         InteractionEvent::CreateGroup => {
-            let gid = get_group_id();
+            let gid = GroupId(get_random_name());
             state.create_group(gid.clone());
         }
         InteractionEvent::ThrustForward => {

@@ -164,7 +164,7 @@ pub fn earth_moon_example_two() -> (Scenario, ObjectIdTracker) {
     (scenario, id)
 }
 
-pub fn sun_jupiter_lagrange() -> (Scenario, ObjectIdTracker) {
+pub fn sun_jupiter() -> (Scenario, ObjectIdTracker) {
     let mut id = ObjectIdTracker::new();
 
     let mut sun: PlanetarySystem = PlanetarySystem::new(
@@ -177,7 +177,7 @@ pub fn sun_jupiter_lagrange() -> (Scenario, ObjectIdTracker) {
         },
     );
 
-    let jupiter = Body {
+    let jupiter_body = Body {
         mass: sun.body.mass * 0.000954588,
         radius: 20.0,
         soi: 500.0,
@@ -185,18 +185,28 @@ pub fn sun_jupiter_lagrange() -> (Scenario, ObjectIdTracker) {
 
     let jupiter_orbit = SparseOrbit::circular(5000.0, sun.body, Nanotime::zero(), false);
 
-    sun.orbit(
-        jupiter_orbit,
-        PlanetarySystem::new(id.next_planet(), "Jupiter", jupiter),
-    );
+    let mut jupiter = PlanetarySystem::new(id.next_planet(), "Jupiter", jupiter_body);
 
-    let mut scenario = Scenario::new(&sun);
-
-    for _ in 0..600 {
-        let radius = rand(4000.0, 6000.0);
-        let orbit = SparseOrbit::circular(radius, sun.body, Nanotime::zero(), false);
-        scenario.add_object(id.next(), sun.id, orbit, Nanotime::zero());
+    for (r, n) in [
+        (0.2, "Io"),
+        (0.4, "Europa"),
+        (0.7, "Ganymede"),
+        (1.0, "Callisto"),
+    ] {
+        let body = Body::new(3.0, jupiter_body.mass * 0.03, 30.0);
+        let orbit = SparseOrbit::circular(r * 300.0, jupiter_body, Nanotime::zero(), false);
+        jupiter.orbit(orbit, PlanetarySystem::new(id.next_planet(), n, body));
     }
+
+    sun.orbit(jupiter_orbit, jupiter);
+
+    let scenario = Scenario::new(&sun);
+
+    // for _ in 0..600 {
+    //     let radius = rand(4000.0, 6000.0);
+    //     let orbit = SparseOrbit::circular(radius, sun.body, Nanotime::zero(), false);
+    //     scenario.add_object(id.next(), sun.id, orbit, Nanotime::zero());
+    // }
 
     (scenario, id)
 }
