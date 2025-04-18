@@ -37,7 +37,7 @@ impl Nanotime {
         Nanotime(s * Nanotime::PER_SEC)
     }
 
-    pub fn millis(ms: i64) -> Self {
+    pub const fn millis(ms: i64) -> Self {
         Nanotime(ms * Nanotime::PER_MILLI)
     }
 

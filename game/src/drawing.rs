@@ -10,7 +10,7 @@ use starling::prelude::*;
 
 use crate::camera_controls::CameraState;
 use crate::graph::*;
-use crate::mouse::MouseState;
+use crate::mouse::{MouseButtonSelect, MouseState};
 use crate::notifications::*;
 use crate::planetary::{GameMode, GameState, ShowOrbitsState};
 use crate::scene::{Scene, SceneType};
@@ -1104,7 +1104,7 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, root: PlanetId)
     if let Some(orbit) = state
         .current_hover_ui()
         .map(|id| {
-            if let crate::ui::GuiNodeId::GlobalOrbit(i) = *id {
+            if let crate::ui::OnClick::GlobalOrbit(i) = *id {
                 state.queued_orbits.get(i)
             } else {
                 None
@@ -1223,23 +1223,27 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     draw_scene(gizmos, &state, state.current_scene());
 
     draw_ui_layout(gizmos, &state);
+
+    draw_mouse_state(gizmos, &state.mouse, state.wall_time);
 }
 
-fn draw_mouse_state(mouse: &MouseState, gizmos: &mut Gizmos) {
+fn draw_mouse_state(gizmos: &mut Gizmos, mouse: &MouseState, wall_time: Nanotime) {
     let points = [
-        (mouse.current_world(), RED),
-        (mouse.left_world(), BLUE),
-        (mouse.right_world(), GREEN),
-        (mouse.middle_world(), YELLOW),
-        // (mouse.current(), RED),
-        // (mouse.left(), BLUE),
-        // (mouse.right(), GREEN),
-        // (mouse.middle(), YELLOW),
+        (MouseButtonSelect::Current, RED),
+        (MouseButtonSelect::Left, BLUE),
+        (MouseButtonSelect::Right, GREEN),
+        (MouseButtonSelect::Middle, YELLOW),
     ];
 
-    for (p, c) in points {
-        if let Some(p) = p {
+    for (b, c) in points {
+        if let Some(p) = mouse.world_position(b) {
             draw_circle(gizmos, p, 8.0 * mouse.scale(), c);
+            if let Some(age) = mouse.age(b, wall_time) {
+                draw_circle(gizmos, p, (1.0 + age.to_secs() * 9.0) * mouse.scale(), c);
+            }
+        }
+        if let Some(p) = mouse.position(b) {
+            draw_square(gizmos, p, 8.0 * mouse.scale(), c);
         }
     }
 

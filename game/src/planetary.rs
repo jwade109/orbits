@@ -1,7 +1,7 @@
 // ignore-tidy-linelength
 
 use crate::camera_controls::*;
-use crate::mouse::MouseState;
+use crate::mouse::{MouseButtonSelect, MouseState};
 use crate::notifications::*;
 use crate::scene::{Scene, SceneType};
 use crate::ui::InteractionEvent;
@@ -191,7 +191,7 @@ pub struct GameState {
     pub current_scene: usize,
     pub current_orbit: Option<usize>,
 
-    pub ui: ui::Tree<crate::ui::GuiNodeId>,
+    pub ui: ui::Tree<crate::ui::OnClick>,
     pub context_menu_origin: Option<Vec2>,
 
     pub redraw_requested: bool,
@@ -364,7 +364,7 @@ impl GameState {
         Some((m1, m2, corner))
     }
 
-    pub fn current_clicked_gui_element(&self) -> Option<crate::ui::GuiNodeId> {
+    pub fn current_clicked_gui_element(&self) -> Option<crate::ui::OnClick> {
         let p = self.mouse.left().or(self.mouse.right())?;
         let q = Vec2::new(p.x, self.camera.viewport_bounds().span.y - p.y);
         self.ui.at(q).map(|n| n.id()).flatten().cloned()
@@ -372,7 +372,7 @@ impl GameState {
 
     pub fn mouse_if_world<'a>(&'a self) -> Option<&'a MouseState> {
         let id = self.current_clicked_gui_element()?;
-        (id == crate::ui::GuiNodeId::World).then(|| &self.mouse)
+        (id == crate::ui::OnClick::World).then(|| &self.mouse)
     }
 
     pub fn cursor_pv(&self, p1: Vec2, p2: Vec2) -> Option<PV> {
@@ -643,40 +643,40 @@ impl GameState {
         Some(())
     }
 
-    pub fn on_button_event(&mut self, id: crate::ui::GuiNodeId) -> Option<()> {
-        use crate::ui::GuiNodeId;
+    pub fn on_button_event(&mut self, id: crate::ui::OnClick) -> Option<()> {
+        use crate::ui::OnClick;
 
         match id {
-            GuiNodeId::CurrentBody(id) => self.follow = Some(ObjectId::Planet(id)),
-            GuiNodeId::Orbiter(id) => self.follow = Some(ObjectId::Orbiter(id)),
-            GuiNodeId::ToggleDrawMode => self.game_mode = self.game_mode.next(),
-            GuiNodeId::ClearTracks => self.track_list.clear(),
-            GuiNodeId::ClearOrbits => self.queued_orbits.clear(),
-            GuiNodeId::Group(gid) => self.toggle_group(&gid),
-            GuiNodeId::CreateGroup => self.create_group(GroupId(get_random_name())),
-            GuiNodeId::DisbandGroup(gid) => self.disband_group(&gid),
-            GuiNodeId::CommitMission => {
+            OnClick::CurrentBody(id) => self.follow = Some(ObjectId::Planet(id)),
+            OnClick::Orbiter(id) => self.follow = Some(ObjectId::Orbiter(id)),
+            OnClick::ToggleDrawMode => self.game_mode = self.game_mode.next(),
+            OnClick::ClearTracks => self.track_list.clear(),
+            OnClick::ClearOrbits => self.queued_orbits.clear(),
+            OnClick::Group(gid) => self.toggle_group(&gid),
+            OnClick::CreateGroup => self.create_group(GroupId(get_random_name())),
+            OnClick::DisbandGroup(gid) => self.disband_group(&gid),
+            OnClick::CommitMission => {
                 self.commit_mission();
             }
-            GuiNodeId::Exit => std::process::exit(0),
-            GuiNodeId::SimSpeed(s) => {
+            OnClick::Exit => std::process::exit(0),
+            OnClick::SimSpeed(s) => {
                 self.sim_speed = s;
             }
-            GuiNodeId::DeleteOrbit(i) => {
+            OnClick::DeleteOrbit(i) => {
                 self.queued_orbits.remove(i);
             }
-            GuiNodeId::TogglePause => self.paused = !self.paused,
-            GuiNodeId::GlobalOrbit(i) => {
+            OnClick::TogglePause => self.paused = !self.paused,
+            OnClick::GlobalOrbit(i) => {
                 let orbit = self.queued_orbits.get(i)?;
                 self.follow = Some(ObjectId::Planet(orbit.0));
                 self.current_orbit = Some(i);
             }
-            GuiNodeId::World => (),
-            GuiNodeId::Nullopt => (),
-            GuiNodeId::Save => {
+            OnClick::World => (),
+            OnClick::Nullopt => (),
+            OnClick::Save => {
                 self.save();
             }
-            GuiNodeId::Load => {
+            OnClick::Load => {
                 let file = FileDialog::new()
                     .add_filter("text", &["starling", "strl"])
                     .set_directory("/")
@@ -687,11 +687,11 @@ impl GameState {
                     let _ = dbg!(obj);
                 }
             }
-            GuiNodeId::CursorMode => self.selection_mode = self.selection_mode.next(),
-            GuiNodeId::AutopilotingCount => {
+            OnClick::CursorMode => self.selection_mode = self.selection_mode.next(),
+            OnClick::AutopilotingCount => {
                 self.track_list = self.controllers.iter().map(|c| c.target()).collect();
             }
-            GuiNodeId::Scene(i) => {
+            OnClick::Scene(i) => {
                 let scene = self.scenes.get(i);
                 dbg!(scene);
             }
@@ -701,14 +701,17 @@ impl GameState {
         Some(())
     }
 
-    pub fn current_hover_ui(&self) -> Option<&crate::ui::GuiNodeId> {
+    pub fn current_hover_ui(&self) -> Option<&crate::ui::OnClick> {
         let p = self.mouse.current()?;
         let q = Vec2::new(p.x, self.camera.viewport_bounds().span.y - p.y);
         self.ui.at(q).map(|n| n.id()).flatten()
     }
 
     fn handle_click_events(&mut self) {
-        if let Some(p) = self.mouse.just_left_clicked(self.current_frame_no - 1) {
+        if let Some(p) = self
+            .mouse
+            .on_click(MouseButtonSelect::Left, self.current_frame_no - 1)
+        {
             let q = Vec2::new(p.x, self.camera.viewport_bounds().span.y - p.y);
             if let Some(n) = self.ui.at(q).map(|n| n.id()).flatten() {
                 self.on_button_event(n.clone());
@@ -717,7 +720,10 @@ impl GameState {
             self.redraw();
         }
 
-        if let Some(_p) = self.mouse.just_right_clicked(self.current_frame_no - 1) {
+        if let Some(_p) = self
+            .mouse
+            .on_click(MouseButtonSelect::Right, self.current_frame_no - 1)
+        {
             self.redraw();
         }
     }
@@ -1022,7 +1028,7 @@ fn process_interaction(
             let n = state
                 .ui
                 .at(Vec2::new(p.x, state.camera.viewport_bounds().span.y - p.y))?;
-            (n.id() == Some(&crate::ui::GuiNodeId::World)).then(|| ())?;
+            (n.id() == Some(&crate::ui::OnClick::World)).then(|| ())?;
 
             let w = state
                 .camera

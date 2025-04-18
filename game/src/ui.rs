@@ -42,7 +42,6 @@ pub enum InteractionEvent {
     ToggleFullscreen,
 
     // mouse stuff
-    LeftMouseRelease,
     DoubleClick(Vec2),
 
     // camera operations
@@ -193,7 +192,7 @@ fn get_top_right_ui() -> impl Bundle {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum GuiNodeId {
+pub enum OnClick {
     Orbiter(OrbiterId),
     Exit,
     Save,
@@ -222,7 +221,7 @@ pub enum GuiNodeId {
     Nullopt,
 }
 
-pub fn context_menu(rowsize: f32, items: &[(String, GuiNodeId, bool)]) -> ui::Node<GuiNodeId> {
+fn context_menu(rowsize: f32, items: &[(String, OnClick, bool)]) -> ui::Node<OnClick> {
     use ui::*;
     Node::new(200, Size::Fit)
         .down()
@@ -234,15 +233,15 @@ pub fn context_menu(rowsize: f32, items: &[(String, GuiNodeId, bool)]) -> ui::No
         }))
 }
 
-pub fn orbiter_context_menu(id: OrbiterId) -> ui::Node<GuiNodeId> {
+fn orbiter_context_menu(id: OrbiterId) -> ui::Node<OnClick> {
     context_menu(
         30.0,
         &[
-            (format!("Orbiter {}", id), GuiNodeId::Orbiter(id), false),
-            ("Delete".into(), GuiNodeId::DeleteOrbiter, true),
-            ("Pilot".into(), GuiNodeId::PilotOrbiter, true),
-            ("Clear Mission".into(), GuiNodeId::ClearMission, true),
-            ("Follow".into(), GuiNodeId::FollowOrbiter, true),
+            (format!("Orbiter {}", id), OnClick::Orbiter(id), false),
+            ("Delete".into(), OnClick::DeleteOrbiter, true),
+            ("Pilot".into(), OnClick::PilotOrbiter, true),
+            ("Clear Mission".into(), OnClick::ClearMission, true),
+            ("Follow".into(), OnClick::FollowOrbiter, true),
         ],
     )
 }
@@ -251,11 +250,11 @@ pub const DELETE_SOMETHING_COLOR: [f32; 4] = [1.0, 0.0, 0.0, 0.5];
 pub const UI_BACKGROUND_COLOR: [f32; 4] = [0.1, 0.1, 0.1, 0.7];
 
 fn delete_wrapper(
-    ondelete: GuiNodeId,
-    button: ui::Node<GuiNodeId>,
+    ondelete: OnClick,
+    button: ui::Node<OnClick>,
     width: impl Into<ui::Size>,
     height: impl Into<ui::Size>,
-) -> ui::Node<GuiNodeId> {
+) -> ui::Node<OnClick> {
     let height = height.into();
     let x_button = {
         let s = "X";
@@ -269,7 +268,7 @@ fn delete_wrapper(
         .with_child(button)
 }
 
-pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
+pub fn layout(state: &GameState) -> Option<ui::Tree<OnClick>> {
     use ui::*;
 
     let small_button_height = 30;
@@ -282,11 +281,11 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
 
     let topbar = Node::row(Size::Fit)
         .with_color(UI_BACKGROUND_COLOR)
-        .with_child(Node::button("Save", GuiNodeId::Save, 80, Size::Grow))
-        .with_child(Node::button("Load", GuiNodeId::Load, 80, Size::Grow))
+        .with_child(Node::button("Save", OnClick::Save, 80, Size::Grow))
+        .with_child(Node::button("Load", OnClick::Load, 80, Size::Grow))
         .with_children((0..4).map(|_| Node::new(80, small_button_height)))
         .with_child(Node::grow().invisible())
-        .with_child(Node::button("Exit", GuiNodeId::Exit, 80, Size::Grow));
+        .with_child(Node::button("Exit", OnClick::Exit, 80, Size::Grow));
 
     let mut sidebar = Node::column(300).with_color(UI_BACKGROUND_COLOR);
 
@@ -305,15 +304,13 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
                 .unwrap_or(&Srgba::from(crate::sprites::hashable_to_color(s)))
                 .with_luminance(0.2)
                 .with_alpha(0.9);
-
             sidebar.add_child(
                 Node::button(
                     s,
-                    GuiNodeId::CurrentBody(lup.id().planet().unwrap()),
+                    OnClick::CurrentBody(lup.id().planet().unwrap()),
                     Size::Grow,
                     button_height,
                 )
-                // .enabled(false)
                 .with_color(color.to_f32_array()),
             );
         }
@@ -321,7 +318,7 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
 
     sidebar.add_child(Node::button(
         format!("Visual: {:?}", state.game_mode),
-        GuiNodeId::ToggleDrawMode,
+        OnClick::ToggleDrawMode,
         Size::Grow,
         button_height,
     ));
@@ -329,7 +326,7 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
     sidebar.add_child(
         Node::button(
             "Clear Orbits",
-            GuiNodeId::ClearOrbits,
+            OnClick::ClearOrbits,
             Size::Grow,
             button_height,
         )
@@ -339,7 +336,7 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
     sidebar.add_child(
         Node::button(
             "Commit Mission",
-            GuiNodeId::CommitMission,
+            OnClick::CommitMission,
             Size::Grow,
             button_height,
         )
@@ -348,7 +345,7 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
 
     sidebar.add_child(Node::button(
         format!("Cursor: {:?}", state.selection_mode),
-        GuiNodeId::CursorMode,
+        OnClick::CursorMode,
         Size::Grow,
         button_height,
     ));
@@ -362,11 +359,11 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
             .with_luminance(0.3)
             .into();
         let s = format!("{}", gid);
-        let id = GuiNodeId::Group(gid.clone());
+        let id = OnClick::Group(gid.clone());
         let button =
             Node::button(s, id, Size::Grow, button_height).with_color(color.to_f32_array());
         let wrapper = delete_wrapper(
-            GuiNodeId::DisbandGroup(gid.clone()),
+            OnClick::DisbandGroup(gid.clone()),
             button,
             Size::Grow,
             button_height as f32,
@@ -378,15 +375,15 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
 
     sidebar.add_child({
         let s = format!("{} selected", state.track_list.len());
-        let b = Node::button(s, GuiNodeId::SelectedCount, Size::Grow, button_height).enabled(false);
+        let b = Node::button(s, OnClick::SelectedCount, Size::Grow, button_height).enabled(false);
         if state.track_list.is_empty() {
             b
         } else {
-            delete_wrapper(GuiNodeId::ClearTracks, b, Size::Grow, button_height)
+            delete_wrapper(OnClick::ClearTracks, b, Size::Grow, button_height)
         }
     });
 
-    let orbiter_list = |root: &mut Node<GuiNodeId>, max_cells: usize, mut ids: Vec<OrbiterId>| {
+    let orbiter_list = |root: &mut Node<OnClick>, max_cells: usize, mut ids: Vec<OrbiterId>| {
         ids.sort();
 
         let rows = (ids.len().min(max_cells) as f32 / 4.0).ceil() as u32;
@@ -398,7 +395,7 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
             let s = format!("{id}");
             Some(
                 Node::grow()
-                    .with_id(GuiNodeId::Orbiter(*id))
+                    .with_id(OnClick::Orbiter(*id))
                     .with_text(s)
                     .enabled(Some(*id) != state.follow.map(|f| f.orbiter()).flatten()),
             )
@@ -420,7 +417,7 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
         orbiter_list(&mut sidebar, 32, state.track_list.iter().cloned().collect());
         sidebar.add_child(Node::button(
             "Create Group",
-            GuiNodeId::CreateGroup,
+            OnClick::CreateGroup,
             Size::Grow,
             button_height,
         ));
@@ -429,7 +426,7 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
     if !state.controllers.is_empty() {
         sidebar.add_child(Node::hline());
         let s = format!("{} autopiloting", state.controllers.len());
-        let id = GuiNodeId::AutopilotingCount;
+        let id = OnClick::AutopilotingCount;
         sidebar.add_child(Node::button(s, id, Size::Grow, button_height).enabled(false));
 
         let ids = state.controllers.iter().map(|c| c.target()).collect();
@@ -439,15 +436,15 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
     let mut inner_topbar = Node::fit()
         .with_padding(0.0)
         .invisible()
-        .with_id(GuiNodeId::World)
+        .with_id(OnClick::World)
         .with_child({
             let s = if state.paused { "UNPAUSE" } else { "PAUSE" };
-            Node::button(s, GuiNodeId::TogglePause, 120, button_height)
+            Node::button(s, OnClick::TogglePause, 120, button_height)
         })
         .with_children((-2..=2).map(|i| {
             Node::button(
                 format!("{i}"),
-                GuiNodeId::SimSpeed(i),
+                OnClick::SimSpeed(i),
                 button_height,
                 button_height,
             )
@@ -456,7 +453,7 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
 
     if let Some(id) = state.follow {
         let s = format!("Following {}", id);
-        let id = GuiNodeId::Nullopt;
+        let id = OnClick::Nullopt;
         let n = Node::button(s, id, 300, button_height).enabled(false);
         inner_topbar.add_child(n);
     }
@@ -464,12 +461,12 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
     for (i, orbit) in state.queued_orbits.iter().enumerate() {
         let orbit_button = {
             let s = format!("{}", orbit);
-            let id = GuiNodeId::GlobalOrbit(i);
+            let id = OnClick::GlobalOrbit(i);
             Node::button(s, id, 400, button_height)
         };
 
         let n = delete_wrapper(
-            GuiNodeId::DeleteOrbit(i),
+            OnClick::DeleteOrbit(i),
             orbit_button,
             Size::Fit,
             button_height as f32,
@@ -488,7 +485,7 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
     );
 
     let scene_bar = Node::row(Size::Fit)
-        .with_id(GuiNodeId::World)
+        .with_id(OnClick::World)
         .invisible()
         .with_padding(0.0)
         .with_children(
@@ -496,29 +493,29 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
                 .scenes
                 .iter()
                 .enumerate()
-                .map(|(i, s)| Node::button(s.name(), GuiNodeId::Scene(i), 180, button_height)),
+                .map(|(i, s)| Node::button(s.name(), OnClick::Scene(i), 180, button_height)),
         );
 
     let world = Node::grow()
         .down()
         .invisible()
-        .with_id(GuiNodeId::World)
+        .with_id(OnClick::World)
         .with_child(
             Node::grow()
-                .with_id(GuiNodeId::World)
+                .with_id(OnClick::World)
                 .tight()
                 .invisible()
                 .with_child(inner_topbar),
         )
         .with_child(
             Node::grow()
-                .with_id(GuiNodeId::World)
+                .with_id(OnClick::World)
                 .tight()
                 .down()
                 .invisible()
-                .with_child(Node::grow().with_id(GuiNodeId::World).invisible())
+                .with_child(Node::grow().with_id(OnClick::World).invisible())
                 .with_child(notif_bar)
-                .with_child(Node::row(15.0).with_id(GuiNodeId::World).invisible())
+                .with_child(Node::row(15.0).with_id(OnClick::World).invisible())
                 .with_child(scene_bar),
         );
 
@@ -550,7 +547,7 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<GuiNodeId>> {
     Some(tree)
 }
 
-fn current_inventory_layout(state: &GameState) -> Option<ui::Node<GuiNodeId>> {
+fn current_inventory_layout(state: &GameState) -> Option<ui::Node<OnClick>> {
     use ui::*;
 
     let id = state.follow?.orbiter()?;
@@ -564,11 +561,11 @@ fn current_inventory_layout(state: &GameState) -> Option<ui::Node<GuiNodeId>> {
         .down()
         .with_child({
             let s = format!("Vehicle {}", orbiter.vehicle.name());
-            Node::button(s, GuiNodeId::Nullopt, Size::Grow, 40.0).enabled(false)
+            Node::button(s, OnClick::Nullopt, Size::Grow, 40.0).enabled(false)
         })
         .with_children(orbiter.vehicle.inventory.view().map(|(k, v)| {
             let name = format!("{:?} {} g", k, v);
-            Node::button(name, GuiNodeId::Nullopt, Size::Grow, 40.0)
+            Node::button(name, OnClick::Nullopt, Size::Grow, 40.0)
         }));
 
     Some(
@@ -584,7 +581,7 @@ fn current_inventory_layout(state: &GameState) -> Option<ui::Node<GuiNodeId>> {
 #[derive(Component)]
 struct UiElement;
 
-fn generate_button_sprite(node: &layout::layout::Node<GuiNodeId>) -> Image {
+fn generate_button_sprite(node: &layout::layout::Node<OnClick>) -> Image {
     let aabb = node.aabb();
     let w = (aabb.span.x as u32).max(1);
     let h = (aabb.span.y as u32).max(1);
