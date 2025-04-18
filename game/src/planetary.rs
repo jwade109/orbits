@@ -1,7 +1,7 @@
 // ignore-tidy-linelength
 
 use crate::camera_controls::*;
-use crate::mouse::{MouseButtonSelect, MouseState};
+use crate::mouse::{FrameId, MouseButt, MouseState};
 use crate::notifications::*;
 use crate::scene::{Scene, SceneType};
 use crate::ui::InteractionEvent;
@@ -338,14 +338,16 @@ impl GameState {
     pub fn selection_region(&self) -> Option<Region> {
         let mouse: &MouseState = self.mouse_if_world()?;
         match self.selection_mode {
-            CursorMode::Rect => mouse
-                .left_world()
-                .zip(self.mouse.current_world())
-                .map(|(a, b)| Region::aabb(a, b)),
-            CursorMode::Altitude => mouse
-                .left_world()
-                .zip(self.mouse.current_world())
-                .map(|(a, b)| Region::altitude(a, b)),
+            CursorMode::Rect => {
+                let a = mouse.world_position(MouseButt::Left, FrameId::Down)?;
+                let b = mouse.world_position(MouseButt::Left, FrameId::Current)?;
+                Some(Region::aabb(a, b))
+            }
+            CursorMode::Altitude => {
+                let a = mouse.world_position(MouseButt::Left, FrameId::Down)?;
+                let b = mouse.world_position(MouseButt::Left, FrameId::Current)?;
+                Some(Region::altitude(a, b))
+            }
             CursorMode::NearOrbit => self
                 .left_cursor_orbit()
                 .map(|GlobalOrbit(_, orbit)| Region::NearOrbit(orbit, 50.0)),
@@ -356,7 +358,11 @@ impl GameState {
     pub fn measuring_tape(&self) -> Option<(Vec2, Vec2, Vec2)> {
         let mouse: &MouseState = self.mouse_if_world()?;
         let (m1, m2) = match self.selection_mode {
-            CursorMode::Measure => mouse.left_world().zip(self.mouse.current_world()),
+            CursorMode::Measure => {
+                let a = mouse.world_position(MouseButt::Left, FrameId::Down)?;
+                let b = mouse.world_position(MouseButt::Left, FrameId::Current)?;
+                Some((a, b))
+            }
             _ => None,
         }?;
 
@@ -365,7 +371,9 @@ impl GameState {
     }
 
     pub fn current_clicked_gui_element(&self) -> Option<crate::ui::OnClick> {
-        let p = self.mouse.left().or(self.mouse.right())?;
+        let a = self.mouse.position(MouseButt::Left, FrameId::Down);
+        let b = self.mouse.position(MouseButt::Right, FrameId::Down);
+        let p = a.or(b)?;
         let q = Vec2::new(p.x, self.camera.viewport_bounds().span.y - p.y);
         self.ui.at(q).map(|n| n.id()).flatten().cloned()
     }
@@ -404,12 +412,16 @@ impl GameState {
 
     pub fn left_cursor_orbit(&self) -> Option<GlobalOrbit> {
         let mouse = self.mouse_if_world()?;
-        self.cursor_orbit(mouse.left_world()?, self.mouse.current_world()?)
+        let a = mouse.world_position(MouseButt::Left, FrameId::Down)?;
+        let b = mouse.world_position(MouseButt::Left, FrameId::Current)?;
+        self.cursor_orbit(a, b)
     }
 
     pub fn right_cursor_orbit(&self) -> Option<GlobalOrbit> {
         let mouse = self.mouse_if_world()?;
-        self.cursor_orbit(mouse.right_world()?, self.mouse.current_world()?)
+        let a = mouse.world_position(MouseButt::Right, FrameId::Down)?;
+        let b = mouse.world_position(MouseButt::Right, FrameId::Current)?;
+        self.cursor_orbit(a, b)
     }
 
     pub fn follow_position(&self) -> Option<Vec2> {
@@ -702,15 +714,15 @@ impl GameState {
     }
 
     pub fn current_hover_ui(&self) -> Option<&crate::ui::OnClick> {
-        let p = self.mouse.current()?;
+        let p = self.mouse.position(MouseButt::Hover, FrameId::Current)?;
         let q = Vec2::new(p.x, self.camera.viewport_bounds().span.y - p.y);
         self.ui.at(q).map(|n| n.id()).flatten()
     }
 
     fn handle_click_events(&mut self) {
-        if let Some(p) = self
-            .mouse
-            .on_click(MouseButtonSelect::Left, self.current_frame_no - 1)
+        if let Some(p) =
+            self.mouse
+                .on_frame(MouseButt::Left, FrameId::Down, self.current_frame_no - 1)
         {
             let q = Vec2::new(p.x, self.camera.viewport_bounds().span.y - p.y);
             if let Some(n) = self.ui.at(q).map(|n| n.id()).flatten() {
@@ -720,9 +732,9 @@ impl GameState {
             self.redraw();
         }
 
-        if let Some(_p) = self
-            .mouse
-            .on_click(MouseButtonSelect::Right, self.current_frame_no - 1)
+        if let Some(_p) =
+            self.mouse
+                .on_frame(MouseButt::Right, FrameId::Down, self.current_frame_no - 1)
         {
             self.redraw();
         }

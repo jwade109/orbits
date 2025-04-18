@@ -8,29 +8,86 @@ use starling::prelude::AABB;
 const DOUBLE_CLICK_DURATION: Nanotime = Nanotime::millis(400);
 
 #[derive(Debug, Clone, Copy)]
-pub struct MousePos {
+struct MouseFrame {
     frame_no: u32,
     screen_pos: Vec2,
     wall_time: Nanotime,
 }
 
-impl MousePos {
-    fn new(frame_no: u32, screen_pos: Vec2, wall_time: Nanotime) -> Self {
-        Self {
-            frame_no,
-            screen_pos,
-            wall_time,
+impl MouseFrame {
+    fn age(&self, wall_time: Nanotime) -> Nanotime {
+        wall_time - self.wall_time
+    }
+}
+
+#[derive(Default, Debug, Clone, Copy)]
+enum CursorTravel {
+    #[default]
+    None,
+    Traveling(MouseFrame, MouseFrame),
+    Finished(MouseFrame, MouseFrame),
+}
+
+impl CursorTravel {
+    fn set_down(&mut self, current_frame: MouseFrame) {
+        let next = match self {
+            Self::None => Self::Traveling(current_frame, current_frame),
+            Self::Traveling(down, _) => Self::Traveling(*down, current_frame),
+            Self::Finished(_, _) => Self::Traveling(current_frame, current_frame),
+        };
+
+        *self = next;
+    }
+
+    fn set_up(&mut self) {
+        let down = match self.down() {
+            Some(d) => d,
+            None => return,
+        };
+        let up = match self.current() {
+            Some(d) => d,
+            None => return,
+        };
+
+        *self = Self::Finished(*down, *up);
+    }
+
+    fn down(&self) -> Option<&MouseFrame> {
+        match &self {
+            Self::None => None,
+            Self::Traveling(f, _) | Self::Finished(f, _) => Some(f),
+        }
+    }
+
+    fn current(&self) -> Option<&MouseFrame> {
+        match &self {
+            Self::Traveling(_, c) => Some(c),
+            _ => None,
+        }
+    }
+
+    fn up(&self) -> Option<&MouseFrame> {
+        match &self {
+            Self::Finished(_, f) => Some(f),
+            _ => None,
+        }
+    }
+
+    fn frame(&self, order: FrameId) -> Option<&MouseFrame> {
+        match order {
+            FrameId::Current => self.current(),
+            FrameId::Down => self.down(),
+            FrameId::Up => self.up(),
         }
     }
 }
 
 #[derive(Debug, Default)]
 pub struct MouseState {
-    last_click: Option<Nanotime>,
-    current: Option<MousePos>,
-    left_click: Option<MousePos>,
-    right_click: Option<MousePos>,
-    middle_click: Option<MousePos>,
+    hover: CursorTravel,
+    left: CursorTravel,
+    right: CursorTravel,
+    middle: CursorTravel,
 
     pub viewport_bounds: AABB,
     pub world_bounds: AABB,
@@ -38,11 +95,18 @@ pub struct MouseState {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum MouseButtonSelect {
+pub enum MouseButt {
+    Hover,
     Left,
     Right,
     Middle,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum FrameId {
+    Down,
     Current,
+    Up,
 }
 
 impl MouseState {
@@ -50,77 +114,40 @@ impl MouseState {
         self.scale
     }
 
-    #[deprecated]
-    pub fn current(&self) -> Option<Vec2> {
-        Some(self.current?.screen_pos)
+    pub fn position(&self, button: MouseButt, order: FrameId) -> Option<Vec2> {
+        let state = self.get_state(button);
+        let frame = state.frame(order)?;
+        Some(frame.screen_pos)
     }
 
-    #[deprecated]
-    pub fn left(&self) -> Option<Vec2> {
-        Some(self.left_click?.screen_pos)
+    pub fn age(&self, button: MouseButt, order: FrameId, wall_time: Nanotime) -> Option<Nanotime> {
+        let state = self.get_state(button);
+        let frame = state.frame(order)?;
+        Some(wall_time - frame.wall_time)
     }
 
-    #[deprecated]
-    pub fn right(&self) -> Option<Vec2> {
-        Some(self.right_click?.screen_pos)
-    }
-
-    #[deprecated]
-    pub fn middle(&self) -> Option<Vec2> {
-        Some(self.middle_click?.screen_pos)
-    }
-
-    pub fn position(&self, button: MouseButtonSelect) -> Option<Vec2> {
-        let state = self.get_state(button)?;
-        Some(state.screen_pos)
-    }
-
-    pub fn age(&self, button: MouseButtonSelect, wall_time: Nanotime) -> Option<Nanotime> {
-        let state = self.get_state(button)?;
-        Some(wall_time - state.wall_time)
-    }
-
-    fn get_state(&self, button: MouseButtonSelect) -> Option<&MousePos> {
+    fn get_state(&self, button: MouseButt) -> &CursorTravel {
         match button {
-            MouseButtonSelect::Left => self.left_click.as_ref(),
-            MouseButtonSelect::Right => self.right_click.as_ref(),
-            MouseButtonSelect::Middle => self.middle_click.as_ref(),
-            MouseButtonSelect::Current => self.current.as_ref(),
+            MouseButt::Hover => &self.hover,
+            MouseButt::Left => &self.left,
+            MouseButt::Right => &self.right,
+            MouseButt::Middle => &self.middle,
         }
     }
 
-    pub fn on_click(&self, button: MouseButtonSelect, frame_no: u32) -> Option<Vec2> {
-        let state = self.get_state(button)?;
-        (state.frame_no == frame_no).then(|| state.screen_pos)
+    pub fn on_frame(&self, button: MouseButt, order: FrameId, frame_no: u32) -> Option<Vec2> {
+        let state = self.get_state(button);
+        let frame = state.frame(order)?;
+        (frame.frame_no == frame_no).then(|| frame.screen_pos)
     }
 
     fn viewport_to_world(&self, p: Vec2) -> Vec2 {
         self.viewport_bounds.map(self.world_bounds, p)
     }
 
-    pub fn world_position(&self, button: MouseButtonSelect) -> Option<Vec2> {
-        let p = self.position(button)?;
+    pub fn world_position(&self, button: MouseButt, order: FrameId) -> Option<Vec2> {
+        let p = self.position(button, order)?;
         Some(self.viewport_to_world(p))
-    }
-
-    #[deprecated]
-    pub fn current_world(&self) -> Option<Vec2> {
-        Some(self.viewport_to_world(self.current()?))
-    }
-
-    #[deprecated]
-    pub fn left_world(&self) -> Option<Vec2> {
-        Some(self.viewport_to_world(self.left()?))
-    }
-
-    #[deprecated]
-    pub fn right_world(&self) -> Option<Vec2> {
-        Some(self.viewport_to_world(self.right()?))
-    }
-
-    #[deprecated]
-    pub fn middle_world(&self) -> Option<Vec2> {
-        Some(self.viewport_to_world(self.middle()?))
     }
 }
 
@@ -139,42 +166,44 @@ pub fn update_mouse_state(
     state.mouse.world_bounds = AABB::new(camera.translation.xy(), dims * camera.scale.z);
     state.mouse.scale = camera.scale.z;
 
-    let mp = if let Some(p) = win.cursor_position() {
+    let current_frame = if let Some(p) = win.cursor_position() {
         let p = Vec2::new(p.x, dims.y - p.y);
-        MousePos::new(f, p, t)
+        MouseFrame {
+            frame_no: f,
+            screen_pos: p,
+            wall_time: t,
+        }
     } else {
-        state.mouse.current = None;
-        state.mouse.left_click = None;
-        state.mouse.right_click = None;
-        state.mouse.middle_click = None;
+        state.mouse.hover.set_up();
+        state.mouse.left.set_up();
+        state.mouse.right.set_up();
+        state.mouse.middle.set_up();
         return;
     };
 
-    state.mouse.current = Some(mp);
+    state.mouse.hover.set_down(current_frame);
 
-    if buttons.just_pressed(MouseButton::Left) {
-        if let Some(l) = state.mouse.last_click {
-            let dt = t - l;
-            if dt < DOUBLE_CLICK_DURATION {
-                events.send(InteractionEvent::DoubleClick(mp.screen_pos));
-                state.mouse.last_click = None;
+    if buttons.pressed(MouseButton::Left) {
+        let age = state.mouse.left.up().map(|f| f.age(t));
+        if let Some(age) = age {
+            if age < DOUBLE_CLICK_DURATION {
+                events.send(InteractionEvent::DoubleClick(current_frame.screen_pos));
             }
         }
-        state.mouse.last_click = Some(t);
-        state.mouse.left_click = Some(mp);
-    } else if buttons.just_released(MouseButton::Left) {
-        state.mouse.left_click = None;
+        state.mouse.left.set_down(current_frame);
+    } else {
+        state.mouse.left.set_up();
     }
 
-    if buttons.just_pressed(MouseButton::Right) {
-        state.mouse.right_click = Some(mp);
-    } else if buttons.just_released(MouseButton::Right) {
-        state.mouse.right_click = None;
+    if buttons.pressed(MouseButton::Right) {
+        state.mouse.right.set_down(current_frame);
+    } else {
+        state.mouse.right.set_up();
     }
 
-    if buttons.just_pressed(MouseButton::Middle) {
-        state.mouse.middle_click = Some(mp);
-    } else if buttons.just_released(MouseButton::Middle) {
-        state.mouse.middle_click = None;
+    if buttons.pressed(MouseButton::Middle) {
+        state.mouse.middle.set_down(current_frame);
+    } else {
+        state.mouse.middle.set_up();
     }
 }

@@ -10,7 +10,7 @@ use starling::prelude::*;
 
 use crate::camera_controls::CameraState;
 use crate::graph::*;
-use crate::mouse::{MouseButtonSelect, MouseState};
+use crate::mouse::{FrameId, MouseButt, MouseState};
 use crate::notifications::*;
 use crate::planetary::{GameMode, GameState, ShowOrbitsState};
 use crate::scene::{Scene, SceneType};
@@ -1030,7 +1030,7 @@ pub fn draw_ui_layout(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
 
     if let Some(n) = state
         .mouse
-        .current()
+        .position(MouseButt::Hover, FrameId::Current)
         .map(|p| Vec2::new(p.x, vb.span.y - p.y))
         .map(|p| state.ui.at(p))
         .flatten()
@@ -1199,7 +1199,10 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, root: PlanetId)
 
     draw_belt_orbits(gizmos, &state);
 
-    if let Some(p) = state.mouse.current_world() {
+    if let Some(p) = state
+        .mouse
+        .world_position(MouseButt::Hover, FrameId::Current)
+    {
         draw_counter(
             gizmos,
             state.highlighted().len() as u64,
@@ -1229,24 +1232,38 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
 
 fn draw_mouse_state(gizmos: &mut Gizmos, mouse: &MouseState, wall_time: Nanotime) {
     let points = [
-        (MouseButtonSelect::Current, RED),
-        (MouseButtonSelect::Left, BLUE),
-        (MouseButtonSelect::Right, GREEN),
-        (MouseButtonSelect::Middle, YELLOW),
+        (MouseButt::Left, BLUE),
+        (MouseButt::Right, GREEN),
+        (MouseButt::Middle, YELLOW),
     ];
 
-    for (b, c) in points {
-        if let Some(p) = mouse.world_position(b) {
-            draw_circle(gizmos, p, 8.0 * mouse.scale(), c);
-            if let Some(age) = mouse.age(b, wall_time) {
-                draw_circle(gizmos, p, (1.0 + age.to_secs() * 9.0) * mouse.scale(), c);
-            }
-        }
-        if let Some(p) = mouse.position(b) {
-            draw_square(gizmos, p, 8.0 * mouse.scale(), c);
-        }
+    if let Some(p) = mouse.world_position(MouseButt::Hover, FrameId::Current) {
+        draw_circle(gizmos, p, 8.0 * mouse.scale(), RED);
     }
 
-    // draw_aabb(&mut gizmos, mouse.viewport_bounds(), GREEN);
-    // draw_aabb(&mut gizmos, mouse.world_bounds(), GREEN);
+    for (b, c) in points {
+        let p1 = mouse.world_position(b, FrameId::Down);
+        let p2 = mouse
+            .world_position(b, FrameId::Current)
+            .or(mouse.world_position(b, FrameId::Up));
+
+        if let Some((p1, p2)) = p1.zip(p2) {
+            gizmos.line_2d(p1, p2, c);
+        }
+
+        for fid in [FrameId::Down, FrameId::Up] {
+            let age = mouse.age(b, fid, wall_time);
+            let p = mouse.world_position(b, fid);
+            if let Some((p, age)) = p.zip(age) {
+                let dt = age.to_secs();
+                let a = (1.0 - dt).max(0.0);
+                draw_circle(
+                    gizmos,
+                    p,
+                    50.0 * mouse.scale() * age.to_secs(),
+                    c.with_alpha(a),
+                );
+            }
+        }
+    }
 }
