@@ -720,21 +720,23 @@ impl GameState {
     }
 
     fn handle_click_events(&mut self) {
-        if let Some(p) =
-            self.mouse
-                .on_frame(MouseButt::Left, FrameId::Down, self.current_frame_no - 1)
+        if self
+            .mouse
+            .on_frame(MouseButt::Left, FrameId::Down, self.current_frame_no - 1)
         {
-            let q = Vec2::new(p.x, self.camera.viewport_bounds().span.y - p.y);
-            if let Some(n) = self.ui.at(q).map(|n| n.id()).flatten() {
-                self.on_button_event(n.clone());
+            let p = self.mouse.ui_position(MouseButt::Left, FrameId::Down);
+            if let Some(p) = p {
+                if let Some(n) = self.ui.at(p).map(|n| n.id()).flatten() {
+                    self.on_button_event(n.clone());
+                }
+                self.context_menu_origin = None;
+                self.redraw();
             }
-            self.context_menu_origin = None;
-            self.redraw();
         }
 
-        if let Some(_p) =
-            self.mouse
-                .on_frame(MouseButt::Right, FrameId::Down, self.current_frame_no - 1)
+        if self
+            .mouse
+            .on_frame(MouseButt::Right, FrameId::Down, self.current_frame_no - 1)
         {
             self.redraw();
         }

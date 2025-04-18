@@ -1,3 +1,4 @@
+use crate::mouse::{FrameId, MouseButt};
 use crate::planetary::GameState;
 use bevy::color::palettes::css::*;
 use bevy::core_pipeline::bloom::Bloom;
@@ -581,7 +582,19 @@ fn current_inventory_layout(state: &GameState) -> Option<ui::Node<OnClick>> {
 #[derive(Component)]
 struct UiElement;
 
-fn generate_button_sprite(node: &layout::layout::Node<OnClick>) -> Image {
+fn map_bytes(image: &mut Image, func: impl Fn(&mut [u8], u32, u32, u32, u32)) {
+    let w = image.width();
+    let h = image.height();
+    for x in 0..w {
+        for y in 0..h {
+            if let Some(bytes) = image.pixel_bytes_mut(UVec3::new(x, y, 0)) {
+                func(bytes, x, y, w, h);
+            }
+        }
+    }
+}
+
+fn generate_button_sprite(node: &ui::Node<OnClick>, is_clicked: bool, is_hover: bool) -> Image {
     let aabb = node.aabb();
     let w = (aabb.span.x as u32).max(1);
     let h = (aabb.span.y as u32).max(1);
@@ -603,13 +616,27 @@ fn generate_button_sprite(node: &layout::layout::Node<OnClick>) -> Image {
 
     image.sampler = bevy::image::ImageSampler::nearest();
 
-    // if w != 1 && h != 1 && node.is_leaf() {
-    //     for (x, y) in [(0, 0), (0, h - 1), (w - 1, 0), (w - 1, h - 1)] {
-    //         if let Some(bytes) = image.pixel_bytes_mut(UVec3::new(x, y, 0)) {
-    //             bytes[3] = 0;
-    //         }
-    //     }
-    // }
+    if !node.is_leaf() || w == 1 || h == 1 {
+        return image;
+    }
+
+    if is_hover {
+        map_bytes(&mut image, |bytes, x, y, w, h| {
+            if x == 2 || y == 2 || x + 3 == w || y + 3 == h {
+                bytes[0] = 255;
+                bytes[3] = 255;
+            }
+        });
+    }
+
+    if is_clicked {
+        map_bytes(&mut image, |bytes, x, y, w, h| {
+            if x == 6 || y == 6 || x + 7 == w || y + 7 == h {
+                bytes[0] = 255;
+                bytes[3] = 255;
+            }
+        });
+    }
 
     image
 }
@@ -654,8 +681,14 @@ fn do_ui_sprites(
                 continue;
             }
 
-            let image = generate_button_sprite(n);
             let aabb = n.aabb();
+            let hover = state.mouse.ui_position(MouseButt::Hover, FrameId::Current);
+            let left = state.mouse.ui_position(MouseButt::Left, FrameId::Current);
+            let left_down = state.mouse.ui_position(MouseButt::Left, FrameId::Down);
+            let is_hover = hover.map(|p| aabb.contains(p)).unwrap_or(false);
+            let is_clicked = left.map(|p| aabb.contains(p)).unwrap_or(false)
+                && left_down.map(|p| aabb.contains(p)).unwrap_or(false);
+            let image = generate_button_sprite(n, is_clicked, is_hover);
 
             let mut c = aabb.center;
 

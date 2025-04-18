@@ -50,6 +50,7 @@ impl CursorTravel {
         };
 
         *self = Self::Finished(*down, *up);
+        println!("Mouse up: {:?}", &self);
     }
 
     fn down(&self) -> Option<&MouseFrame> {
@@ -135,10 +136,10 @@ impl MouseState {
         }
     }
 
-    pub fn on_frame(&self, button: MouseButt, order: FrameId, frame_no: u32) -> Option<Vec2> {
+    pub fn on_frame(&self, button: MouseButt, order: FrameId, frame_no: u32) -> bool {
         let state = self.get_state(button);
-        let frame = state.frame(order)?;
-        (frame.frame_no == frame_no).then(|| frame.screen_pos)
+        let frame = state.frame(order);
+        frame.map(|f| f.frame_no == frame_no).unwrap_or(false)
     }
 
     fn viewport_to_world(&self, p: Vec2) -> Vec2 {
@@ -148,6 +149,12 @@ impl MouseState {
     pub fn world_position(&self, button: MouseButt, order: FrameId) -> Option<Vec2> {
         let p = self.position(button, order)?;
         Some(self.viewport_to_world(p))
+    }
+
+    pub fn ui_position(&self, button: MouseButt, order: FrameId) -> Option<Vec2> {
+        let p = self.position(button, order)?;
+        let p = Vec2::new(p.x, self.viewport_bounds.span.y - p.y);
+        Some(p)
     }
 }
 
