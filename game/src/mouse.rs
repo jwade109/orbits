@@ -50,7 +50,6 @@ impl CursorTravel {
         };
 
         *self = Self::Finished(*down, *up);
-        println!("Mouse up: {:?}", &self);
     }
 
     fn down(&self) -> Option<&MouseFrame> {

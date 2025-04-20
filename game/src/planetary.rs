@@ -720,11 +720,11 @@ impl GameState {
     }
 
     fn handle_click_events(&mut self) {
-        if self
-            .mouse
-            .on_frame(MouseButt::Left, FrameId::Down, self.current_frame_no - 1)
-        {
-            let p = self.mouse.ui_position(MouseButt::Left, FrameId::Down);
+        use FrameId::*;
+        use MouseButt::*;
+
+        if self.mouse.on_frame(Left, Down, self.current_frame_no) {
+            let p = self.mouse.ui_position(Left, Down);
             if let Some(p) = p {
                 if let Some(n) = self.ui.at(p).map(|n| n.id()).flatten() {
                     self.on_button_event(n.clone());
@@ -734,16 +734,20 @@ impl GameState {
             }
         }
 
-        if self
-            .mouse
-            .on_frame(MouseButt::Right, FrameId::Down, self.current_frame_no - 1)
-        {
+        if self.mouse.on_frame(Right, Down, self.current_frame_no) {
+            self.redraw();
+        }
+
+        if self.mouse.on_frame(Left, Up, self.current_frame_no) {
+            self.redraw();
+        }
+
+        if self.mouse.on_frame(Right, Up, self.current_frame_no) {
             self.redraw();
         }
     }
 
     pub fn step(&mut self, time: &Time) {
-        self.current_frame_no += 1;
         let old_sim_time = self.sim_time;
         self.wall_time += Nanotime::nanos(time.delta().as_nanos() as i64);
         if !self.paused {
@@ -882,6 +886,8 @@ impl GameState {
             let dt = self.wall_time - *t;
             dt < *l
         });
+
+        self.current_frame_no += 1;
     }
 }
 
