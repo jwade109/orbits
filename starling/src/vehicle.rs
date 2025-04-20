@@ -103,6 +103,19 @@ impl Vehicle {
         }
     }
 
+    pub fn space_station(stamp: Nanotime) -> Self {
+        Self {
+            name: get_random_name(),
+            stamp,
+            angle: 0.0,
+            target_angle: 0.0,
+            angular_velocity: 0.0,
+            body: space_station_body(),
+            thrusters: rcs_block(Vec2::X, 0.0),
+            inventory: random_sat_inventory(),
+        }
+    }
+
     pub fn is_controllable(&self) -> bool {
         !self.thrusters.is_empty()
     }
@@ -238,6 +251,16 @@ fn satellite_body() -> Vec<Polygon> {
         Polygon::circle((-0.97, -0.4), 0.2, 16),
         Polygon::circle((-0.97, 0.4), 0.2, 16),
     ]
+}
+
+fn space_station_body() -> Vec<Polygon> {
+    (-2..=2).map(|i| {
+        let center = Vec2::new(i as f32 * 10.0, 0.0);
+        let upper = Polygon::circle(center + Vec2::Y * 6.0, 2.0, 8);
+        let lower = Polygon::circle(center - Vec2::Y * 6.0, 2.0, 8);
+        let tube = AABB::new(center, Vec2::new(10.0, 4.0));
+        [upper, lower, tube.polygon()]
+    }).flatten().collect()
 }
 
 fn satellite_thrusters() -> Vec<Thruster> {
