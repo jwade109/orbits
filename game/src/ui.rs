@@ -80,7 +80,7 @@ impl Plugin for UiPlugin {
 
 fn set_bloom(state: Res<GameState>, mut bloom: Single<&mut Bloom>) {
     bloom.intensity = match state.game_mode {
-        crate::planetary::GameMode::Default => 0.3,
+        crate::planetary::GameMode::Default => 0.5,
         _ => 0.1,
     }
 }

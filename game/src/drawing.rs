@@ -381,7 +381,7 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     Some(())
 }
 
-fn draw_object(
+fn draw_orbiter(
     gizmos: &mut Gizmos,
     planets: &PlanetarySystem,
     obj: &Orbiter,
@@ -390,6 +390,7 @@ fn draw_object(
     scale: f32,
     show_orbits: ShowOrbitsState,
     tracked: bool,
+    piloting: bool,
 ) -> Option<()> {
     let pv = obj.pv(stamp, planets)?;
 
@@ -410,11 +411,11 @@ fn draw_object(
 
     let show_orbits = match show_orbits {
         ShowOrbitsState::All => true,
-        ShowOrbitsState::Focus => tracked,
+        ShowOrbitsState::Focus => tracked || piloting,
         ShowOrbitsState::None => false,
     };
 
-    if tracked {
+    if tracked || piloting {
         for (i, prop) in obj.props().iter().enumerate() {
             let color = if i == 0 {
                 WHITE.with_alpha(0.02)
@@ -451,6 +452,7 @@ fn draw_scenario(
     scale: f32,
     show_orbits: ShowOrbitsState,
     track_list: &HashSet<OrbiterId>,
+    piloting: Option<OrbiterId>,
     mode: GameMode,
 ) {
     draw_planets(gizmos, scenario.planets(), stamp, Vec2::ZERO, mode);
@@ -474,7 +476,8 @@ fn draw_scenario(
         .filter_map(|id| {
             let obj = scenario.lup_orbiter(id, stamp)?.orbiter()?;
             let is_tracked = track_list.contains(&obj.id());
-            draw_object(
+            let is_piloting = piloting == Some(obj.id());
+            draw_orbiter(
                 gizmos,
                 scenario.planets(),
                 obj,
@@ -483,6 +486,7 @@ fn draw_scenario(
                 scale,
                 show_orbits,
                 is_tracked,
+                is_piloting,
             )
         })
         .collect::<Vec<_>>();
@@ -1183,6 +1187,7 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, root: PlanetId)
         state.camera.actual_scale,
         state.show_orbits,
         &state.track_list,
+        state.piloting(),
         state.game_mode,
     );
 
@@ -1227,7 +1232,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
 
     draw_ui_layout(gizmos, &state);
 
-    draw_mouse_state(gizmos, &state.mouse, state.wall_time);
+    // draw_mouse_state(gizmos, &state.mouse, state.wall_time);
 }
 
 fn draw_mouse_state(gizmos: &mut Gizmos, mouse: &MouseState, wall_time: Nanotime) {
