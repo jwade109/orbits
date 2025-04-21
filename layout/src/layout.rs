@@ -477,6 +477,7 @@ pub fn populate_grow_sizes<IdType>(root: &mut Node<IdType>) {
     });
 }
 
+#[derive(Debug, Clone)]
 pub struct Tree<IdType> {
     roots: Vec<Node<IdType>>,
 }

@@ -1,4 +1,5 @@
 use crate::planetary::{GameMode, GameState};
+use crate::scene::{Scene, SceneType};
 use bevy::asset::embedded_asset;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
@@ -48,6 +49,13 @@ pub fn make_new_sprites(
     state: Res<GameState>,
     asset_server: Res<AssetServer>,
 ) {
+    let scene = state.current_scene();
+
+    match scene.kind() {
+        SceneType::MainMenu => return,
+        _ => (),
+    }
+
     for id in state.scenario.planet_ids() {
         if ptextures.iter().find(|e| e.0 == id).is_some() {
             continue;
@@ -83,6 +91,18 @@ pub fn update_planet_sprites(
     mut query: Query<(Entity, &PlanetTexture, &mut Transform, &mut Visibility)>,
     state: Res<GameState>,
 ) {
+    let scene = state.current_scene();
+
+    match scene.kind() {
+        SceneType::MainMenu => {
+            for (e, _, _, _) in query.iter() {
+                commands.entity(e).despawn();
+            }
+            return;
+        }
+        _ => (),
+    }
+
     for (e, PlanetTexture(id, name), mut transform, mut vis) in query.iter_mut() {
         let lup = match state.scenario.lup_planet(*id, state.sim_time) {
             Some(lup) => lup,
@@ -120,6 +140,18 @@ pub fn update_shadow_sprites(
     mut query: Query<(Entity, &ShadowTexture, &mut Transform, &mut Visibility)>,
     state: Res<GameState>,
 ) {
+    let scene = state.current_scene();
+
+    match scene.kind() {
+        SceneType::MainMenu => {
+            for (e, _, _, _) in query.iter() {
+                commands.entity(e).despawn();
+            }
+            return;
+        }
+        _ => (),
+    }
+
     for (e, ShadowTexture(id), mut transform, mut vis) in query.iter_mut() {
         let lup = match state.scenario.lup_planet(*id, state.sim_time) {
             Some(lup) => lup,
@@ -169,6 +201,18 @@ pub fn update_spacecraft_sprites(
     mut query: Query<(Entity, &mut SpacecraftTexture, &mut Transform, &mut Sprite)>,
     state: Res<GameState>,
 ) {
+    let scene = state.current_scene();
+
+    match scene.kind() {
+        SceneType::MainMenu => {
+            for (e, _, _, _) in query.iter() {
+                commands.entity(e).despawn();
+            }
+            return;
+        }
+        _ => (),
+    }
+
     let bodies: Vec<_> = state
         .scenario
         .planets()

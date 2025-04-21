@@ -13,7 +13,7 @@ use crate::graph::*;
 use crate::mouse::{FrameId, MouseButt, MouseState};
 use crate::notifications::*;
 use crate::planetary::{GameMode, GameState, ShowOrbitsState};
-use crate::scene::{Scene, SceneType};
+use crate::scene::{Scene, BasicScene, SceneType, OrbitalScene};
 
 fn draw_cross(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     let dx = Vec2::new(size, 0.0);
@@ -1022,6 +1022,9 @@ fn draw_graph(
 }
 
 pub fn draw_ui_layout(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
+
+    let scene = state.current_scene();
+
     let vb = state.camera.viewport_bounds();
     let wb = state.camera.world_bounds();
     let map = |aabb: AABB| vb.map_box(wb, aabb);
@@ -1036,7 +1039,7 @@ pub fn draw_ui_layout(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
         .mouse
         .position(MouseButt::Hover, FrameId::Current)
         .map(|p| Vec2::new(p.x, vb.span.y - p.y))
-        .map(|p| state.ui.at(p))
+        .map(|p| scene.ui().at(p))
         .flatten()
     {
         if n.text_content().is_some() {
@@ -1068,7 +1071,8 @@ pub fn draw_orbit_spline(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     Some(())
 }
 
-pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, root: PlanetId) {
+pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, scene: &OrbitalScene) {
+
     draw_scale_indicator(gizmos, &state.camera);
 
     draw_piloting_overlay(gizmos, &state);
@@ -1218,9 +1222,9 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, root: PlanetId)
     }
 }
 
-pub fn draw_scene(gizmos: &mut Gizmos, state: &GameState, scene: &Scene) {
+pub fn draw_scene(gizmos: &mut Gizmos, state: &GameState, scene: &BasicScene) {
     match scene.kind() {
-        SceneType::OrbitalView(root) => draw_orbital_view(gizmos, state, *root),
+        SceneType::OrbitalView(scene) => draw_orbital_view(gizmos, state, scene),
         SceneType::MainMenu => {}
     }
 }

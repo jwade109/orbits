@@ -1,5 +1,6 @@
 use crate::mouse::{FrameId, MouseButt};
 use crate::planetary::GameState;
+use crate::scene::*;
 use bevy::color::palettes::css::*;
 use bevy::core_pipeline::bloom::Bloom;
 use bevy::prelude::*;
@@ -218,7 +219,7 @@ pub enum OnClick {
     CommitMission,
     FollowOrbiter,
     CursorMode,
-    Scene(usize),
+    GoToScene(usize),
     Nullopt,
 }
 
@@ -269,7 +270,36 @@ fn delete_wrapper(
         .with_child(button)
 }
 
-pub fn layout(state: &GameState) -> Option<ui::Tree<OnClick>> {
+pub fn main_menu_layout(state: &GameState) -> ui::Tree<OnClick> {
+    use ui::*;
+
+    let buttons = ["Load Save File", "Settings", "Exit"];
+
+    let wrapper = Node::fit()
+        .down()
+        .with_children(
+            buttons
+                .iter()
+                .map(|s| Node::button(s.to_string(), OnClick::Nullopt, 200, 50)),
+        )
+        .with_children(
+            state
+                .scenes
+                .iter()
+                .enumerate()
+                .map(|(i, s)| Node::button(s.name(), OnClick::GoToScene(i), 200, 50)),
+        );
+
+    ui::Tree::new().with_layout(wrapper, Vec2::splat(300.0))
+}
+
+pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
+    let scene = state.current_scene();
+    match scene.kind() {
+        SceneType::MainMenu => return main_menu_layout(state),
+        _ => (),
+    }
+
     use ui::*;
 
     let small_button_height = 30;
@@ -277,7 +307,7 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<OnClick>> {
 
     let vb = state.camera.viewport_bounds();
     if vb.span.x == 0.0 || vb.span.y == 0.0 {
-        return None;
+        return Tree::new();
     }
 
     let topbar = Node::row(Size::Fit)
@@ -494,7 +524,7 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<OnClick>> {
                 .scenes
                 .iter()
                 .enumerate()
-                .map(|(i, s)| Node::button(s.name(), OnClick::Scene(i), 180, button_height)),
+                .map(|(i, s)| Node::button(s.name(), OnClick::GoToScene(i), 180, button_height)),
         );
 
     let world = Node::grow()
@@ -545,7 +575,7 @@ pub fn layout(state: &GameState) -> Option<ui::Tree<OnClick>> {
         tree.add_layout(layout, Vec2::splat(400.0));
     }
 
-    Some(tree)
+    tree
 }
 
 fn current_inventory_layout(state: &GameState) -> Option<ui::Node<OnClick>> {
@@ -667,15 +697,16 @@ fn do_ui_sprites(
         return;
     }
 
-    state.ui = match layout(&state) {
-        Some(ui) => ui,
-        None => ui::Tree::new(),
-    };
+    let ui = layout(&state);
+    let scene = state.current_scene_mut();
+    scene.set_ui(ui);
 
     state.last_redraw = state.wall_time;
     state.redraw_requested = false;
 
-    for (lid, layout) in state.ui.layouts().iter().enumerate() {
+    let scene = state.current_scene();
+
+    for (lid, layout) in scene.ui().layouts().iter().enumerate() {
         for n in layout.iter() {
             if !n.is_visible() {
                 continue;

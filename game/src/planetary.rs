@@ -3,7 +3,7 @@
 use crate::camera_controls::*;
 use crate::mouse::{FrameId, MouseButt, MouseState};
 use crate::notifications::*;
-use crate::scene::{Scene, SceneType};
+use crate::scene::{Scene, BasicScene, SceneType};
 use crate::ui::InteractionEvent;
 use bevy::color::palettes::css::*;
 use bevy::core_pipeline::bloom::Bloom;
@@ -187,11 +187,10 @@ pub struct GameState {
     pub constellations: HashMap<OrbiterId, GroupId>,
     pub selection_mode: CursorMode,
 
-    pub scenes: Vec<Scene>,
+    pub scenes: Vec<BasicScene>,
     pub current_scene: usize,
     pub current_orbit: Option<usize>,
 
-    pub ui: ui::Tree<crate::ui::OnClick>,
     pub context_menu_origin: Option<Vec2>,
 
     pub redraw_requested: bool,
@@ -231,13 +230,12 @@ impl Default for GameState {
             constellations: HashMap::new(),
             selection_mode: CursorMode::Rect,
             scenes: vec![
-                Scene::new("Earth System", SceneType::OrbitalView(PlanetId(0))),
-                Scene::new("Luna System", SceneType::OrbitalView(PlanetId(1))),
-                Scene::new("Main Menu", SceneType::MainMenu),
+                BasicScene::orbital("Earth System", PlanetId(0)),
+                BasicScene::orbital("Luna System", PlanetId(1)),
+                BasicScene::main_menu(),
             ],
             current_scene: 0,
             current_orbit: None,
-            ui: ui::Tree::new(),
             context_menu_origin: None,
             redraw_requested: true,
             last_redraw: Nanotime::zero(),
@@ -255,8 +253,12 @@ impl GameState {
         self.last_redraw = Nanotime::zero()
     }
 
-    pub fn current_scene(&self) -> &Scene {
+    pub fn current_scene(&self) -> &BasicScene {
         &self.scenes[self.current_scene]
+    }
+
+    pub fn current_scene_mut(&mut self) -> &mut BasicScene {
+        &mut self.scenes[self.current_scene]
     }
 
     pub fn toggle_track(&mut self, id: OrbiterId) {
@@ -371,11 +373,12 @@ impl GameState {
     }
 
     pub fn current_clicked_gui_element(&self) -> Option<crate::ui::OnClick> {
+        let scene = self.current_scene();
         let a = self.mouse.position(MouseButt::Left, FrameId::Down);
         let b = self.mouse.position(MouseButt::Right, FrameId::Down);
         let p = a.or(b)?;
         let q = Vec2::new(p.x, self.camera.viewport_bounds().span.y - p.y);
-        self.ui.at(q).map(|n| n.id()).flatten().cloned()
+        scene.ui().at(q).map(|n| n.id()).flatten().cloned()
     }
 
     pub fn mouse_if_world<'a>(&'a self) -> Option<&'a MouseState> {
@@ -703,9 +706,12 @@ impl GameState {
             OnClick::AutopilotingCount => {
                 self.track_list = self.controllers.iter().map(|c| c.target()).collect();
             }
-            OnClick::Scene(i) => {
+            OnClick::GoToScene(i) => {
                 let scene = self.scenes.get(i);
-                dbg!(scene);
+                if let Some(s) = scene {
+                    println!("Scene {}", s.name());
+                    self.current_scene = i;
+                }
             }
             _ => info!("Unhandled button event: {id:?}"),
         };
@@ -714,9 +720,10 @@ impl GameState {
     }
 
     pub fn current_hover_ui(&self) -> Option<&crate::ui::OnClick> {
+        let scene = self.current_scene();
         let p = self.mouse.position(MouseButt::Hover, FrameId::Current)?;
         let q = Vec2::new(p.x, self.camera.viewport_bounds().span.y - p.y);
-        self.ui.at(q).map(|n| n.id()).flatten()
+        scene.ui().at(q).map(|n| n.id()).flatten()
     }
 
     fn handle_click_events(&mut self) {
@@ -724,9 +731,12 @@ impl GameState {
         use MouseButt::*;
 
         if self.mouse.on_frame(Left, Down, self.current_frame_no) {
+            let scene = self.current_scene_mut();
+            scene.on_mouse_event(Left, Down);
+            let scene = self.current_scene();
             let p = self.mouse.ui_position(Left, Down);
             if let Some(p) = p {
-                if let Some(n) = self.ui.at(p).map(|n| n.id()).flatten() {
+                if let Some(n) = scene.ui().at(p).map(|n| n.id()).flatten() {
                     self.on_button_event(n.clone());
                 }
                 self.context_menu_origin = None;
@@ -1045,8 +1055,9 @@ fn process_interaction(
         }
         InteractionEvent::DoubleClick(p) => {
             // check to see if we're in the main area
-            let n = state
-                .ui
+            let scene = state.current_scene();
+            let n = scene
+                .ui()
                 .at(Vec2::new(p.x, state.camera.viewport_bounds().span.y - p.y))?;
             (n.id() == Some(&crate::ui::OnClick::World)).then(|| ())?;
 
