@@ -13,7 +13,7 @@ use crate::graph::*;
 use crate::mouse::{FrameId, MouseButt, MouseState};
 use crate::notifications::*;
 use crate::planetary::{GameMode, GameState, ShowOrbitsState};
-use crate::scene::{Scene, BasicScene, SceneType, OrbitalScene};
+use crate::scene::{OrbitalScene, Scene, SceneType};
 
 fn draw_cross(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     let dx = Vec2::new(size, 0.0);
@@ -1022,7 +1022,6 @@ fn draw_graph(
 }
 
 pub fn draw_ui_layout(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
-
     let scene = state.current_scene();
 
     let vb = state.camera.viewport_bounds();
@@ -1072,7 +1071,6 @@ pub fn draw_orbit_spline(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
 }
 
 pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, scene: &OrbitalScene) {
-
     draw_scale_indicator(gizmos, &state.camera);
 
     draw_piloting_overlay(gizmos, &state);
@@ -1222,9 +1220,32 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, scene: &Orbital
     }
 }
 
-pub fn draw_scene(gizmos: &mut Gizmos, state: &GameState, scene: &BasicScene) {
+pub fn draw_docking_scenario(
+    gizmos: &mut Gizmos,
+    state: &GameState,
+    _id: &OrbiterId,
+) -> Option<()> {
+    draw_x(gizmos, Vec2::ZERO, 3.0, RED);
+
+    let scale = 3.0;
+    let mut x = 0.0;
+    for id in &state.track_list {
+        if let Some(orbiter) = state.scenario.orbiter(*id) {
+            let r = orbiter.vehicle.bounding_radius();
+            x += r * scale;
+            draw_vehicle(gizmos, &orbiter.vehicle, Vec2::X * x, scale);
+            draw_circle(gizmos, Vec2::X * x, r * scale, GRAY);
+            x += r * scale + 10.0 * scale;
+        }
+    }
+
+    Some(())
+}
+
+pub fn draw_scene(gizmos: &mut Gizmos, state: &GameState, scene: &Scene) {
     match scene.kind() {
         SceneType::OrbitalView(scene) => draw_orbital_view(gizmos, state, scene),
+        SceneType::DockingView(id) => _ = draw_docking_scenario(gizmos, state, id),
         SceneType::MainMenu => {}
     }
 }

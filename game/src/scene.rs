@@ -9,6 +9,7 @@ use starling::prelude::*;
 #[derive(Debug, Clone)]
 pub enum SceneType {
     OrbitalView(OrbitalScene),
+    DockingView(OrbiterId),
     MainMenu,
 }
 
@@ -24,39 +25,31 @@ impl OrbitalScene {
 }
 
 #[derive(Debug, Clone)]
-pub struct BasicScene {
+pub struct Scene {
     name: String,
     scene_type: SceneType,
     ui: Tree<OnClick>,
 }
 
-pub trait Scene {
-    fn name(&self) -> &String;
-
-    fn kind(&self) -> &SceneType;
-
-    fn on_mouse_event(&mut self, button: MouseButt, id: FrameId);
-
-    fn ui(&self) -> &Tree<OnClick>;
-
-    fn set_ui(&mut self, ui: Tree<OnClick>);
-
-    fn on_load(&mut self);
-
-    fn on_exit(&mut self);
-}
-
-impl BasicScene {
+impl Scene {
     pub fn orbital(name: impl Into<String>, primary: PlanetId) -> Self {
-        BasicScene {
+        Scene {
             name: name.into(),
             scene_type: SceneType::OrbitalView(OrbitalScene { primary }),
             ui: Tree::new(),
         }
     }
 
+    pub fn docking(name: impl Into<String>, primary: OrbiterId) -> Self {
+        Scene {
+            name: name.into(),
+            scene_type: SceneType::DockingView(primary),
+            ui: Tree::new(),
+        }
+    }
+
     pub fn main_menu() -> Self {
-        BasicScene {
+        Scene {
             name: "Main Menu".into(),
             scene_type: SceneType::MainMenu,
             ui: Tree::new(),
@@ -64,32 +57,32 @@ impl BasicScene {
     }
 }
 
-impl Scene for BasicScene {
-    fn name(&self) -> &String {
+impl Scene {
+    pub fn name(&self) -> &String {
         &self.name
     }
 
-    fn kind(&self) -> &SceneType {
+    pub fn kind(&self) -> &SceneType {
         &self.scene_type
     }
 
-    fn on_mouse_event(&mut self, button: MouseButt, id: FrameId) {
+    pub fn on_mouse_event(&mut self, button: MouseButt, id: FrameId) {
         info!("{} {:?} {:?}", self.name, button, id);
     }
 
-    fn ui(&self) -> &Tree<OnClick> {
+    pub fn ui(&self) -> &Tree<OnClick> {
         &self.ui
     }
 
-    fn set_ui(&mut self, ui: Tree<OnClick>) {
+    pub fn set_ui(&mut self, ui: Tree<OnClick>) {
         self.ui = ui;
     }
 
-    fn on_load(&mut self) {
+    pub fn on_load(&mut self) {
         info!("On load: {}", &self.name);
     }
 
-    fn on_exit(&mut self) {
+    pub fn on_exit(&mut self) {
         info!("On exit: {}", &self.name);
     }
 }

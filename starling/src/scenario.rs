@@ -235,6 +235,10 @@ impl Scenario {
         self.orbiters.get_mut(&id)
     }
 
+    pub fn orbiter(&self, id: OrbiterId) -> Option<&Orbiter> {
+        self.orbiters.get(&id)
+    }
+
     pub fn simulate(
         &mut self,
         stamp: Nanotime,

@@ -3,7 +3,7 @@
 use crate::camera_controls::*;
 use crate::mouse::{FrameId, MouseButt, MouseState};
 use crate::notifications::*;
-use crate::scene::{Scene, BasicScene, SceneType};
+use crate::scene::{Scene, SceneType};
 use crate::ui::InteractionEvent;
 use bevy::color::palettes::css::*;
 use bevy::core_pipeline::bloom::Bloom;
@@ -187,8 +187,8 @@ pub struct GameState {
     pub constellations: HashMap<OrbiterId, GroupId>,
     pub selection_mode: CursorMode,
 
-    pub scenes: Vec<BasicScene>,
-    pub current_scene: usize,
+    pub scenes: Vec<Scene>,
+    pub current_scene_idx: usize,
     pub current_orbit: Option<usize>,
 
     pub context_menu_origin: Option<Vec2>,
@@ -230,11 +230,12 @@ impl Default for GameState {
             constellations: HashMap::new(),
             selection_mode: CursorMode::Rect,
             scenes: vec![
-                BasicScene::orbital("Earth System", PlanetId(0)),
-                BasicScene::orbital("Luna System", PlanetId(1)),
-                BasicScene::main_menu(),
+                Scene::orbital("Earth System", PlanetId(0)),
+                Scene::orbital("Luna System", PlanetId(1)),
+                Scene::docking("Docking", OrbiterId(0)),
+                Scene::main_menu(),
             ],
-            current_scene: 0,
+            current_scene_idx: 0,
             current_orbit: None,
             context_menu_origin: None,
             redraw_requested: true,
@@ -253,12 +254,12 @@ impl GameState {
         self.last_redraw = Nanotime::zero()
     }
 
-    pub fn current_scene(&self) -> &BasicScene {
-        &self.scenes[self.current_scene]
+    pub fn current_scene(&self) -> &Scene {
+        &self.scenes[self.current_scene_idx]
     }
 
-    pub fn current_scene_mut(&mut self) -> &mut BasicScene {
-        &mut self.scenes[self.current_scene]
+    pub fn current_scene_mut(&mut self) -> &mut Scene {
+        &mut self.scenes[self.current_scene_idx]
     }
 
     pub fn toggle_track(&mut self, id: OrbiterId) {
@@ -428,6 +429,10 @@ impl GameState {
     }
 
     pub fn follow_position(&self) -> Option<Vec2> {
+        match self.current_scene().kind() {
+            SceneType::OrbitalView(_) => (),
+            _ => return None,
+        };
         let id = self.follow?;
         let lup = match id {
             ObjectId::Orbiter(id) => self.scenario.lup_orbiter(id, self.sim_time)?,
@@ -707,15 +712,26 @@ impl GameState {
                 self.track_list = self.controllers.iter().map(|c| c.target()).collect();
             }
             OnClick::GoToScene(i) => {
-                let scene = self.scenes.get(i);
-                if let Some(s) = scene {
-                    println!("Scene {}", s.name());
-                    self.current_scene = i;
-                }
+                self.set_current_scene(i);
             }
             _ => info!("Unhandled button event: {id:?}"),
         };
 
+        Some(())
+    }
+
+    pub fn set_current_scene(&mut self, i: usize) -> Option<()> {
+        if i == self.current_scene_idx {
+            return Some(());
+        }
+
+        self.scenes.get(i)?;
+
+        let c = self.current_scene_mut();
+        c.on_exit();
+        let s = self.scenes.get_mut(i)?;
+        s.on_load();
+        self.current_scene_idx = i;
         Some(())
     }
 

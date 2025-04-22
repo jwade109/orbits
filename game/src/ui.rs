@@ -3,6 +3,7 @@ use crate::planetary::GameState;
 use crate::scene::*;
 use bevy::color::palettes::css::*;
 use bevy::core_pipeline::bloom::Bloom;
+use bevy::math::VectorSpace;
 use bevy::prelude::*;
 use bevy::render::{
     render_asset::RenderAssetUsages,
@@ -293,12 +294,32 @@ pub fn main_menu_layout(state: &GameState) -> ui::Tree<OnClick> {
     ui::Tree::new().with_layout(wrapper, Vec2::splat(300.0))
 }
 
+pub fn docking_layout(state: &GameState, id: &OrbiterId) -> ui::Tree<OnClick> {
+    use ui::*;
+
+    let wrapper = Node::fit()
+        .with_child({
+            let s = format!("dingus {}", id);
+            Node::button(s, OnClick::Nullopt, 200, 50)
+        })
+        .with_children(
+            state
+                .scenes
+                .iter()
+                .enumerate()
+                .map(|(i, s)| Node::button(s.name(), OnClick::GoToScene(i), 200, 50)),
+        );
+
+    ui::Tree::new().with_layout(wrapper, Vec2::ZERO)
+}
+
 pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
     let scene = state.current_scene();
     match scene.kind() {
         SceneType::MainMenu => return main_menu_layout(state),
-        _ => (),
-    }
+        SceneType::DockingView(id) => return docking_layout(state, id),
+        SceneType::OrbitalView(_) => (),
+    };
 
     use ui::*;
 
@@ -515,17 +536,16 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
         }),
     );
 
-    let scene_bar = Node::row(Size::Fit)
-        .with_id(OnClick::World)
-        .invisible()
-        .with_padding(0.0)
-        .with_children(
-            state
-                .scenes
-                .iter()
-                .enumerate()
-                .map(|(i, s)| Node::button(s.name(), OnClick::GoToScene(i), 180, button_height)),
-        );
+    let scene_bar =
+        Node::row(Size::Fit)
+            .with_id(OnClick::World)
+            .invisible()
+            .with_padding(0.0)
+            .with_children(
+                state.scenes.iter().enumerate().map(|(i, s)| {
+                    Node::button(s.name(), OnClick::GoToScene(i), 180, button_height)
+                }),
+            );
 
     let world = Node::grow()
         .down()

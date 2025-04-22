@@ -52,8 +52,8 @@ pub fn make_new_sprites(
     let scene = state.current_scene();
 
     match scene.kind() {
-        SceneType::MainMenu => return,
-        _ => (),
+        SceneType::OrbitalView(_) => (),
+        _ => return,
     }
 
     for id in state.scenario.planet_ids() {
@@ -94,13 +94,13 @@ pub fn update_planet_sprites(
     let scene = state.current_scene();
 
     match scene.kind() {
-        SceneType::MainMenu => {
+        SceneType::OrbitalView(_) => (),
+        _ => {
             for (e, _, _, _) in query.iter() {
                 commands.entity(e).despawn();
             }
             return;
         }
-        _ => (),
     }
 
     for (e, PlanetTexture(id, name), mut transform, mut vis) in query.iter_mut() {
@@ -143,13 +143,13 @@ pub fn update_shadow_sprites(
     let scene = state.current_scene();
 
     match scene.kind() {
-        SceneType::MainMenu => {
+        SceneType::OrbitalView(_) => (),
+        _ => {
             for (e, _, _, _) in query.iter() {
                 commands.entity(e).despawn();
             }
             return;
         }
-        _ => (),
     }
 
     for (e, ShadowTexture(id), mut transform, mut vis) in query.iter_mut() {
@@ -204,13 +204,13 @@ pub fn update_spacecraft_sprites(
     let scene = state.current_scene();
 
     match scene.kind() {
-        SceneType::MainMenu => {
+        SceneType::OrbitalView(_) => (),
+        _ => {
             for (e, _, _, _) in query.iter() {
                 commands.entity(e).despawn();
             }
             return;
         }
-        _ => (),
     }
 
     let bodies: Vec<_> = state
