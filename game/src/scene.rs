@@ -1,6 +1,7 @@
 #![allow(unused)]
 
-use crate::mouse::{FrameId, MouseButt};
+use crate::mouse::{FrameId, MouseButt, MouseState};
+use crate::planetary::CursorMode;
 use crate::ui::OnClick;
 use bevy::log::*;
 use layout::layout::Tree;
@@ -35,7 +36,7 @@ impl Scene {
     pub fn orbital(name: impl Into<String>, primary: PlanetId) -> Self {
         Scene {
             name: name.into(),
-            scene_type: SceneType::OrbitalView(OrbitalScene { primary }),
+            scene_type: SceneType::OrbitalView(OrbitalScene::new(primary)),
             ui: Tree::new(),
         }
     }
@@ -66,6 +67,31 @@ impl Scene {
         &self.scene_type
     }
 
+    pub fn current_clicked_gui_element(&self, mouse: &MouseState) -> Option<OnClick> {
+        let a = mouse.position(MouseButt::Left, FrameId::Down);
+        let b = mouse.position(MouseButt::Right, FrameId::Down);
+        let p = a.or(b)?;
+        let q = Vec2::new(p.x, mouse.viewport_bounds.span.y - p.y);
+        self.ui.at(q).map(|n| n.id()).flatten().cloned()
+    }
+
+    pub fn mouse_if_world<'a>(&self, mouse: &'a MouseState) -> Option<&'a MouseState> {
+        let id = self.current_clicked_gui_element(mouse)?;
+        (id == OnClick::World).then(|| mouse)
+    }
+
+    pub fn orbital_view<'a>(&'a self, mouse: &'a MouseState) -> Option<OrbitalView<'a>> {
+        match &self.scene_type {
+            SceneType::OrbitalView(info) => Some(OrbitalView {
+                info,
+                mouse,
+                ui: &self.ui,
+                scene: &self,
+            }),
+            _ => None,
+        }
+    }
+
     pub fn on_mouse_event(&mut self, button: MouseButt, id: FrameId) {
         info!("{} {:?} {:?}", self.name, button, id);
     }
@@ -84,5 +110,22 @@ impl Scene {
 
     pub fn on_exit(&mut self) {
         info!("On exit: {}", &self.name);
+    }
+}
+
+pub struct OrbitalView<'a> {
+    info: &'a OrbitalScene,
+    mouse: &'a MouseState,
+    ui: &'a Tree<OnClick>,
+    scene: &'a Scene,
+}
+
+impl<'a> OrbitalView<'a> {
+    pub fn measuring_tape(&self) -> Option<(Vec2, Vec2, Vec2)> {
+        let mouse: &MouseState = self.scene.mouse_if_world(self.mouse)?;
+        let a = mouse.world_position(MouseButt::Left, FrameId::Down)?;
+        let b = mouse.world_position(MouseButt::Left, FrameId::Current)?;
+        let corner = Vec2::new(a.x, b.y);
+        Some((a, b, corner))
     }
 }

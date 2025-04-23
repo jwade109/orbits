@@ -142,7 +142,7 @@ impl EnumIter for GameMode {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CursorMode {
     Rect,
     Altitude,
@@ -359,18 +359,13 @@ impl GameState {
     }
 
     pub fn measuring_tape(&self) -> Option<(Vec2, Vec2, Vec2)> {
-        let mouse: &MouseState = self.mouse_if_world()?;
-        let (m1, m2) = match self.selection_mode {
-            CursorMode::Measure => {
-                let a = mouse.world_position(MouseButt::Left, FrameId::Down)?;
-                let b = mouse.world_position(MouseButt::Left, FrameId::Current)?;
-                Some((a, b))
-            }
-            _ => None,
-        }?;
+        if self.selection_mode != CursorMode::Measure {
+            return None;
+        }
 
-        let corner = Vec2::new(m2.x, m1.y);
-        Some((m1, m2, corner))
+        let scene = self.current_scene();
+        let ov = scene.orbital_view(&self.mouse)?;
+        ov.measuring_tape()
     }
 
     pub fn current_clicked_gui_element(&self) -> Option<crate::ui::OnClick> {
