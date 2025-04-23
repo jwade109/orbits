@@ -20,6 +20,18 @@ pub fn randvec(min: f32, max: f32) -> Vec2 {
     rot.rotate(Vec2::new(mag, 0.0))
 }
 
+pub fn randvec3(min: f32, max: f32) -> Vec3 {
+    let r = rand(min, max);
+    let a = rand(0.0, 2.0 * PI);
+    let z = rand(-1.0, 1.0);
+    let p = Vec3::new(
+        (1.0 - z.powi(2)).sqrt() * a.cos(),
+        (1.0 - z.powi(2)).sqrt() * a.sin(),
+        z,
+    );
+    r * p
+}
+
 pub fn rotate(v: Vec2, angle: f32) -> Vec2 {
     Vec2::from_angle(angle).rotate(v)
 }

@@ -2,6 +2,7 @@
 
 use bevy::color::palettes::basic::*;
 use bevy::color::palettes::css::ORANGE;
+use bevy::gizmos::cross;
 use bevy::prelude::*;
 
 use std::collections::HashSet;
@@ -1242,10 +1243,40 @@ pub fn draw_docking_scenario(
     Some(())
 }
 
+fn draw_telescope_view(gizmos: &mut Gizmos, state: &GameState, scene: &Scene) {
+    let center = Vec3::new(0.0, 0.0, 0.0);
+    let normal = Vec3::new(
+        state.sim_time.to_secs().cos(),
+        state.sim_time.to_secs().sin(),
+        (state.camera.world_center.y / 10000.0).sin(),
+    )
+    .normalize_or_zero();
+
+    let x = normal.cross(Vec3::Z).normalize_or_zero();
+    let y = normal.cross(x);
+
+    let map = |p: Vec3| -> Vec2 {
+        let p = p - center;
+        let p = p.reject_from(normal);
+        Vec2::new(p.dot(x), p.dot(y))
+    };
+
+    draw_cross(gizmos, Vec2::ZERO, 5.0 * state.camera.actual_scale, GRAY);
+    for (star, color, radius) in &state.starfield {
+        let star_zero = star.with_z(0.0);
+        let p = map(*star);
+        let q = map(star_zero);
+        draw_circle(gizmos, p, *radius, *color);
+        draw_circle(gizmos, q, 2.0, WHITE.with_alpha(0.03));
+        gizmos.line_2d(p, q, WHITE.with_alpha(0.01));
+    }
+}
+
 pub fn draw_scene(gizmos: &mut Gizmos, state: &GameState, scene: &Scene) {
     match scene.kind() {
         SceneType::OrbitalView(scene) => draw_orbital_view(gizmos, state, scene),
         SceneType::DockingView(id) => _ = draw_docking_scenario(gizmos, state, id),
+        SceneType::TelescopeView => draw_telescope_view(gizmos, &state, scene),
         SceneType::MainMenu => {}
     }
 }

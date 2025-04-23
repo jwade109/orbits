@@ -185,6 +185,7 @@ pub struct GameState {
     pub show_animations: bool,
     pub queued_orbits: Vec<GlobalOrbit>,
     pub constellations: HashMap<OrbiterId, GroupId>,
+    pub starfield: Vec<(Vec3, Srgba, f32)>,
     pub selection_mode: CursorMode,
 
     pub scenes: Vec<Scene>,
@@ -201,6 +202,20 @@ pub struct GameState {
     pub notifications: Vec<Notification>,
     pub particles: Vec<(Nanotime, Vec2, Vec2, Nanotime)>,
     pub text_labels: Vec<(Vec2, String, f32)>,
+}
+
+fn generate_starfield() -> Vec<(Vec3, Srgba, f32)> {
+    (0..1000)
+        .map(|_| {
+            let s = rand(0.0, 2.0);
+            let color = if s < 1.0 {
+                RED.mix(&YELLOW, s)
+            } else {
+                WHITE.mix(&TEAL, s - 1.0)
+            };
+            (randvec3(1000.0, 12000.0), color, rand(3.0, 9.0))
+        })
+        .collect()
 }
 
 impl Default for GameState {
@@ -228,11 +243,13 @@ impl Default for GameState {
             show_animations: false,
             queued_orbits: Vec::new(),
             constellations: HashMap::new(),
+            starfield: generate_starfield(),
             selection_mode: CursorMode::Rect,
             scenes: vec![
                 Scene::orbital("Earth System", PlanetId(0)),
                 Scene::orbital("Luna System", PlanetId(1)),
                 Scene::docking("Docking", OrbiterId(0)),
+                Scene::telescope(),
                 Scene::main_menu(),
             ],
             current_scene_idx: 0,

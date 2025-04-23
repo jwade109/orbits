@@ -11,6 +11,7 @@ use starling::prelude::*;
 pub enum SceneType {
     OrbitalView(OrbitalScene),
     DockingView(OrbiterId),
+    TelescopeView,
     MainMenu,
 }
 
@@ -37,6 +38,14 @@ impl Scene {
         Scene {
             name: name.into(),
             scene_type: SceneType::OrbitalView(OrbitalScene::new(primary)),
+            ui: Tree::new(),
+        }
+    }
+
+    pub fn telescope() -> Self {
+        Scene {
+            name: "Telescope".into(),
+            scene_type: SceneType::TelescopeView,
             ui: Tree::new(),
         }
     }
