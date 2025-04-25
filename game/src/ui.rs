@@ -326,7 +326,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
     let small_button_height = 30;
     let button_height = 40;
 
-    let vb = state.orbital_camera.viewport_bounds();
+    let vb = state.input.screen_bounds;
     if vb.span.x == 0.0 || vb.span.y == 0.0 {
         return Tree::new();
     }
@@ -585,9 +585,11 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
 
     let mut tree = Tree::new().with_layout(root, Vec2::ZERO);
 
+    let vb = state.input.screen_bounds;
+
     if let Some(p) = state.context_menu_origin {
         let ctx = orbiter_context_menu(OrbiterId(0));
-        let p = Vec2::new(p.x, state.orbital_camera.viewport_bounds().span.y - p.y);
+        let p = Vec2::new(p.x, vb.span.y - p.y);
         tree.add_layout(ctx, p);
     }
 
@@ -707,7 +709,7 @@ fn do_ui_sprites(
         return;
     }
 
-    let vb = state.orbital_camera.viewport_bounds();
+    let vb = state.input.screen_bounds;
 
     for e in &to_despawn {
         commands.entity(e).despawn();
@@ -733,9 +735,9 @@ fn do_ui_sprites(
             }
 
             let aabb = n.aabb();
-            let hover = state.mouse.ui_position(MouseButt::Hover, FrameId::Current);
-            let left = state.mouse.ui_position(MouseButt::Left, FrameId::Current);
-            let left_down = state.mouse.ui_position(MouseButt::Left, FrameId::Down);
+            let hover = state.input.ui_position(MouseButt::Hover, FrameId::Current);
+            let left = state.input.ui_position(MouseButt::Left, FrameId::Current);
+            let left_down = state.input.ui_position(MouseButt::Left, FrameId::Down);
             let is_hover = hover.map(|p| aabb.contains(p)).unwrap_or(false);
             let is_clicked = left.map(|p| aabb.contains(p)).unwrap_or(false)
                 && left_down.map(|p| aabb.contains(p)).unwrap_or(false);

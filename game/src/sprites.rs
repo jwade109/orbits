@@ -324,7 +324,7 @@ pub fn update_spacecraft_sprites(
 }
 
 pub fn update_background_sprite(
-    mut orbital_camera: Single<&mut Camera, With<crate::planetary::SoftController>>,
+    mut orbital_camera: Single<&mut Camera, With<crate::planetary::DingusController>>,
     state: Res<GameState>,
 ) {
     let c = match state.game_mode {

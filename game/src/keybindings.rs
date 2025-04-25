@@ -1,12 +1,16 @@
+use crate::planetary::GameState;
 use crate::ui::InteractionEvent;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 
 pub fn keyboard_input(
     keys: Res<ButtonInput<KeyCode>>,
+    mut state: ResMut<GameState>,
     mut scroll: EventReader<MouseWheel>,
     mut events: EventWriter<InteractionEvent>,
 ) {
+    state.input.set_buttons(keys.clone());
+
     for key in keys.get_just_pressed() {
         let e = match key {
             KeyCode::Period => InteractionEvent::SimFaster,

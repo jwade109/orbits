@@ -1,7 +1,7 @@
 // ignore-tidy-linelength
 
 use crate::camera_controls::*;
-use crate::mouse::{FrameId, MouseButt, InputState};
+use crate::mouse::{FrameId, InputState, MouseButt};
 use crate::notifications::*;
 use crate::scenes::Scene;
 use crate::ui::InteractionEvent;
@@ -33,7 +33,7 @@ impl Plugin for PlanetaryPlugin {
                 track_highlighted_objects,
                 handle_interactions,
                 handle_camera_interactions,
-                crate::mouse::update_mouse_state,
+                crate::mouse::update_input_state,
                 // update orbital_camera stuff
                 move_camera_and_store,
                 // rendering
@@ -49,8 +49,8 @@ impl Plugin for PlanetaryPlugin {
     }
 }
 
-#[derive(Component, Default, Debug)]
-pub struct SoftController(pub Transform);
+#[derive(Component, Debug)]
+pub struct DingusController;
 
 fn init_system(mut commands: Commands) {
     commands.insert_resource(GameState::default());
@@ -65,7 +65,7 @@ fn init_system(mut commands: Commands) {
             intensity: 0.2,
             ..Bloom::OLD_SCHOOL
         },
-        SoftController::default(),
+        DingusController,
         RenderLayers::layer(0),
     ));
 
@@ -81,23 +81,12 @@ fn init_system(mut commands: Commands) {
 }
 
 fn move_camera_and_store(
-    mut query: Single<(&SoftController, &mut Transform)>,
-    window: Single<&Window>,
+    mut query: Single<&mut Transform, With<DingusController>>,
     mut state: ResMut<GameState>,
 ) {
-    let (ctrl, ref mut tf) = query.deref_mut();
-    let target = ctrl.0;
-    let current = tf.clone();
-    tf.translation += (target.translation - current.translation) * 1.0;
-    tf.scale += (target.scale - current.scale) * 1.0;
-
+    let tf = query.deref_mut();
     state.orbital_camera.actual_scale = tf.scale.z;
     state.orbital_camera.world_center = tf.translation.xy();
-    state.orbital_camera.window_dims = Vec2::new(window.width(), window.height());
-
-    state.mouse.viewport_bounds = state.orbital_camera.viewport_bounds();
-    state.mouse._world_bounds = state.orbital_camera.world_bounds();
-    state.mouse.orbital_scale = tf.scale.z;
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -164,7 +153,7 @@ impl EnumIter for CursorMode {
 pub struct GameState {
     pub current_frame_no: u32,
 
-    pub mouse: InputState,
+    pub input: InputState,
     pub orbital_camera: OrbitalCameraState,
 
     pub sim_time: Nanotime,
@@ -222,7 +211,7 @@ impl Default for GameState {
 
         GameState {
             current_frame_no: 0,
-            mouse: InputState::default(),
+            input: InputState::default(),
             orbital_camera: OrbitalCameraState::default(),
             sim_time: Nanotime::zero(),
             wall_time: Nanotime::zero(),
@@ -353,7 +342,7 @@ impl GameState {
     }
 
     pub fn selection_region(&self) -> Option<Region> {
-        let ov = self.current_scene().orbital_view(&self.mouse)?;
+        let ov = self.current_scene().orbital_view(&self.input)?;
         ov.selection_region(self)
     }
 
@@ -363,13 +352,13 @@ impl GameState {
         }
 
         let scene = self.current_scene();
-        let ov = scene.orbital_view(&self.mouse)?;
+        let ov = scene.orbital_view(&self.input)?;
         ov.measuring_tape(self)
     }
 
     pub fn right_cursor_orbit(&self) -> Option<GlobalOrbit> {
         let scene = self.current_scene();
-        let ov = scene.orbital_view(&self.mouse)?;
+        let ov = scene.orbital_view(&self.input)?;
         ov.right_cursor_orbit(self)
     }
 
@@ -645,9 +634,10 @@ impl GameState {
     }
 
     pub fn current_hover_ui(&self) -> Option<&crate::ui::OnClick> {
+        let vb = self.input.screen_bounds.span;
         let scene = self.current_scene();
-        let p = self.mouse.position(MouseButt::Hover, FrameId::Current)?;
-        let q = Vec2::new(p.x, self.orbital_camera.viewport_bounds().span.y - p.y);
+        let p = self.input.position(MouseButt::Hover, FrameId::Current)?;
+        let q = Vec2::new(p.x, vb.y - p.y);
         scene.ui().at(q).map(|n| n.id()).flatten()
     }
 
@@ -655,11 +645,11 @@ impl GameState {
         use FrameId::*;
         use MouseButt::*;
 
-        if self.mouse.on_frame(Left, Down, self.current_frame_no) {
+        if self.input.on_frame(Left, Down, self.current_frame_no) {
             let scene = self.current_scene_mut();
             scene.on_mouse_event(Left, Down);
             let scene = self.current_scene();
-            let p = self.mouse.ui_position(Left, Down);
+            let p = self.input.ui_position(Left, Down);
             if let Some(p) = p {
                 if let Some(n) = scene.ui().at(p).map(|n| n.id()).flatten() {
                     self.on_button_event(n.clone());
@@ -669,15 +659,15 @@ impl GameState {
             }
         }
 
-        if self.mouse.on_frame(Right, Down, self.current_frame_no) {
+        if self.input.on_frame(Right, Down, self.current_frame_no) {
             self.redraw();
         }
 
-        if self.mouse.on_frame(Left, Up, self.current_frame_no) {
+        if self.input.on_frame(Left, Up, self.current_frame_no) {
             self.redraw();
         }
 
-        if self.mouse.on_frame(Right, Up, self.current_frame_no) {
+        if self.input.on_frame(Right, Up, self.current_frame_no) {
             self.redraw();
         }
     }
@@ -790,7 +780,8 @@ impl GameState {
             for (a, b) in [(m1, m2), (m1, corner), (m2, corner)] {
                 let middle = (a + b) / 2.0;
                 let d = format!("{:0.2}", a.distance(b));
-                self.text_labels.push((middle, d, self.orbital_camera.actual_scale));
+                self.text_labels
+                    .push((middle, d, self.orbital_camera.actual_scale));
             }
         }
 
@@ -899,7 +890,6 @@ fn process_interaction(
     state: &mut GameState,
     window: &mut Window,
 ) -> Option<()> {
-
     let scene = state.current_scene_mut();
 
     scene.on_interaction(inter);
@@ -957,16 +947,14 @@ fn process_interaction(
         }
         InteractionEvent::DoubleClick(p) => {
             // check to see if we're in the main area
+            let vb = state.input.screen_bounds;
+            let wb = state.orbital_camera.world_bounds(vb.span);
+            let dims = vb.span;
             let scene = state.current_scene();
-            let n = scene
-                .ui()
-                .at(Vec2::new(p.x, state.orbital_camera.viewport_bounds().span.y - p.y))?;
+            let n = scene.ui().at(Vec2::new(p.x, dims.y - p.y))?;
             (n.id() == Some(&crate::ui::OnClick::World)).then(|| ())?;
 
-            let w = state
-                .orbital_camera
-                .viewport_bounds()
-                .map(state.orbital_camera.world_bounds(), *p);
+            let w = vb.map(wb, *p);
             let id = state.scenario.nearest(w, state.sim_time);
             if let Some(id) = id {
                 state.follow = Some(id);
@@ -1054,7 +1042,7 @@ fn handle_interactions(
 
 fn handle_camera_interactions(
     mut events: EventReader<InteractionEvent>,
-    mut query: Query<&mut SoftController>,
+    mut query: Query<&mut Transform, With<DingusController>>,
     state: Res<GameState>,
     time: Res<Time>,
 ) {
@@ -1066,27 +1054,26 @@ fn handle_camera_interactions(
         }
     };
 
-    let ov = match state.current_scene().orbital_view(&state.mouse) {
+    let ov = match state.current_scene().orbital_view(&state.input) {
         Some(ov) => ov,
         None => return,
     };
 
-    let cursor_delta = 1400.0 * time.delta_secs() * ctrl.0.scale.z;
+    let cursor_delta = 1400.0 * time.delta_secs() * ctrl.scale.z;
     let scale_scalar = 1.5;
 
     if let Some(p) = ov.follow_position(&state) {
-        ctrl.0.translation = p.extend(0.0);
+        ctrl.translation = p.extend(0.0);
     }
 
     for e in events.read() {
         match e {
-            InteractionEvent::MoveLeft => ctrl.0.translation.x -= cursor_delta,
-            InteractionEvent::MoveRight => ctrl.0.translation.x += cursor_delta,
-            InteractionEvent::MoveUp => ctrl.0.translation.y += cursor_delta,
-            InteractionEvent::MoveDown => ctrl.0.translation.y -= cursor_delta,
-            InteractionEvent::ZoomIn => ctrl.0.scale /= scale_scalar,
-            InteractionEvent::ZoomOut => ctrl.0.scale *= scale_scalar,
-            InteractionEvent::Reset => ctrl.0 = Transform::IDENTITY,
+            InteractionEvent::MoveLeft => ctrl.translation.x -= cursor_delta,
+            InteractionEvent::MoveRight => ctrl.translation.x += cursor_delta,
+            InteractionEvent::MoveUp => ctrl.translation.y += cursor_delta,
+            InteractionEvent::MoveDown => ctrl.translation.y -= cursor_delta,
+            InteractionEvent::ZoomIn => ctrl.scale /= scale_scalar,
+            InteractionEvent::ZoomOut => ctrl.scale *= scale_scalar,
             _ => (),
         }
     }

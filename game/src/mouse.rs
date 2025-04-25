@@ -88,9 +88,9 @@ pub struct InputState {
     right: CursorTravel,
     middle: CursorTravel,
 
-    pub viewport_bounds: AABB,
-    pub _world_bounds: AABB,
-    pub orbital_scale: f32,
+    pub screen_bounds: AABB,
+
+    buttons: ButtonInput<KeyCode>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -121,6 +121,10 @@ impl InputState {
         Some(wall_time - frame.wall_time)
     }
 
+    pub fn set_buttons(&mut self, buttons: ButtonInput<KeyCode>) {
+        self.buttons = buttons;
+    }
+
     fn get_state(&self, button: MouseButt) -> &CursorTravel {
         match button {
             MouseButt::Hover => &self.hover,
@@ -137,25 +141,29 @@ impl InputState {
     }
 
     fn viewport_to_world(&self, p: Vec2, world_bounds: AABB) -> Vec2 {
-        self.viewport_bounds.map(world_bounds, p)
+        self.screen_bounds.map(world_bounds, p)
     }
 
-    pub fn world_position(&self, button: MouseButt, order: FrameId, world_bounds: AABB) -> Option<Vec2> {
+    pub fn world_position(
+        &self,
+        button: MouseButt,
+        order: FrameId,
+        world_bounds: AABB,
+    ) -> Option<Vec2> {
         let p = self.position(button, order)?;
         Some(self.viewport_to_world(p, world_bounds))
     }
 
     pub fn ui_position(&self, button: MouseButt, order: FrameId) -> Option<Vec2> {
         let p = self.position(button, order)?;
-        let p = Vec2::new(p.x, self.viewport_bounds.span.y - p.y);
+        let p = Vec2::new(p.x, self.screen_bounds.span.y - p.y);
         Some(p)
     }
 }
 
-pub fn update_mouse_state(
+pub fn update_input_state(
     win: Single<&Window>,
     buttons: Res<ButtonInput<MouseButton>>,
-    orbital_camera: Single<&Transform, With<crate::planetary::SoftController>>,
     mut state: ResMut<GameState>,
     mut events: EventWriter<InteractionEvent>,
 ) {
@@ -163,9 +171,7 @@ pub fn update_mouse_state(
     let t = state.wall_time;
     let f = state.current_frame_no;
 
-    state.mouse.viewport_bounds = AABB::new(dims / 2.0, dims);
-    state.mouse._world_bounds = AABB::new(orbital_camera.translation.xy(), dims * orbital_camera.scale.z);
-    state.mouse.orbital_scale = orbital_camera.scale.z;
+    state.input.screen_bounds = AABB::new(dims / 2.0, dims);
 
     let current_frame = if let Some(p) = win.cursor_position() {
         let p = Vec2::new(p.x, dims.y - p.y);
@@ -175,36 +181,36 @@ pub fn update_mouse_state(
             wall_time: t,
         }
     } else {
-        state.mouse.hover.set_up();
-        state.mouse.left.set_up();
-        state.mouse.right.set_up();
-        state.mouse.middle.set_up();
+        state.input.hover.set_up();
+        state.input.left.set_up();
+        state.input.right.set_up();
+        state.input.middle.set_up();
         return;
     };
 
-    state.mouse.hover.set_down(current_frame);
+    state.input.hover.set_down(current_frame);
 
     if buttons.pressed(MouseButton::Left) {
-        let age = state.mouse.left.up().map(|f| f.age(t));
+        let age = state.input.left.up().map(|f| f.age(t));
         if let Some(age) = age {
             if age < DOUBLE_CLICK_DURATION {
                 events.send(InteractionEvent::DoubleClick(current_frame.screen_pos));
             }
         }
-        state.mouse.left.set_down(current_frame);
+        state.input.left.set_down(current_frame);
     } else {
-        state.mouse.left.set_up();
+        state.input.left.set_up();
     }
 
     if buttons.pressed(MouseButton::Right) {
-        state.mouse.right.set_down(current_frame);
+        state.input.right.set_down(current_frame);
     } else {
-        state.mouse.right.set_up();
+        state.input.right.set_up();
     }
 
     if buttons.pressed(MouseButton::Middle) {
-        state.mouse.middle.set_down(current_frame);
+        state.input.middle.set_down(current_frame);
     } else {
-        state.mouse.middle.set_up();
+        state.input.middle.set_up();
     }
 }

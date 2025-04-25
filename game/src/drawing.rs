@@ -8,7 +8,6 @@ use std::collections::HashSet;
 
 use starling::prelude::*;
 
-use crate::camera_controls::OrbitalCameraState;
 use crate::graph::*;
 use crate::mouse::{FrameId, MouseButt};
 use crate::notifications::*;
@@ -258,15 +257,16 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let lup = state.scenario.lup_orbiter(piloting, state.sim_time)?;
     let orbiter = lup.orbiter()?;
 
+    let window_dims = state.input.screen_bounds.span;
     let rb = orbiter.vehicle.bounding_radius();
-    let r = state.orbital_camera.window_dims.y * 0.2;
+    let r = window_dims.y * 0.2;
 
     let zoom = 0.8 * r / rb;
 
-    let center = Vec2::new(state.orbital_camera.window_dims.x - r * 1.2, r * 1.2);
+    let center = Vec2::new(window_dims.x - r * 1.2, r * 1.2);
 
-    let b = state.orbital_camera.world_bounds();
-    let c = state.orbital_camera.viewport_bounds();
+    let b = state.orbital_camera.world_bounds(window_dims);
+    let c = state.input.screen_bounds;
 
     let map = |p: Vec2| c.map(b, p);
 
@@ -323,8 +323,8 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
 
     {
         let s = 20.0;
-        let c1 = state.orbital_camera.window_dims * 0.5 + s * rotate(Vec2::X, 3.0 * PI / 6.0);
-        let c2 = state.orbital_camera.window_dims * 0.5 + s * rotate(Vec2::X, 5.0 * PI / 4.0);
+        let c1 = window_dims * 0.5 + s * rotate(Vec2::X, 3.0 * PI / 6.0);
+        let c2 = window_dims * 0.5 + s * rotate(Vec2::X, 5.0 * PI / 4.0);
         let u1 = center + r * rotate(Vec2::X, 3.0 * PI / 6.0);
         let u2 = center + r * rotate(Vec2::X, 5.0 * PI / 4.0);
         gizmos.line_2d(map(c1), map(u1), GRAY.with_alpha(0.1));
@@ -746,13 +746,14 @@ fn draw_timeline(gizmos: &mut Gizmos, state: &GameState) {
     let tmin = state.sim_time - Nanotime::secs(1);
     let tmax = state.sim_time + Nanotime::secs(120);
 
-    let b = state.orbital_camera.world_bounds();
-    let c = state.orbital_camera.viewport_bounds();
+    let window_dims = state.input.screen_bounds.span;
+    let b = state.orbital_camera.world_bounds(window_dims);
+    let c = state.input.screen_bounds;
 
-    let width = state.orbital_camera.window_dims.x * 0.5;
-    let y_root = state.orbital_camera.window_dims.y - 40.0;
+    let width = window_dims.x * 0.5;
+    let y_root = window_dims.y - 40.0;
     let row_height = 5.0;
-    let x_center = state.orbital_camera.window_dims.x / 2.0;
+    let x_center = window_dims.x / 2.0;
     let x_min = x_center - width / 2.0;
 
     let map = |p: Vec2| c.map(b, p);
@@ -812,15 +813,16 @@ fn draw_timeline(gizmos: &mut Gizmos, state: &GameState) {
     }
 }
 
-fn draw_scale_indicator(gizmos: &mut Gizmos, cam: &OrbitalCameraState) {
+fn draw_scale_indicator(gizmos: &mut Gizmos, state: &GameState) {
+    let window_dims = state.input.screen_bounds.span;
+    let b = state.orbital_camera.world_bounds(window_dims);
+    let c = state.input.screen_bounds;
+
     let width = 300.0;
-    let center = Vec2::new(cam.window_dims.x / 2.0, cam.window_dims.y - 20.0);
+    let center = Vec2::new(window_dims.x / 2.0, window_dims.y - 20.0);
 
     let p1 = center + Vec2::X * width;
     let p2 = center - Vec2::X * width;
-
-    let b = cam.world_bounds();
-    let c = cam.viewport_bounds();
 
     let u1 = c.map(b, p1);
     let u2 = c.map(b, p2);
@@ -843,7 +845,7 @@ fn draw_scale_indicator(gizmos: &mut Gizmos, cam: &OrbitalCameraState) {
 
     for power in -3..7 {
         let size = 10.0f32.powi(power);
-        let ds = size / cam.actual_scale;
+        let ds = size / state.orbital_camera.actual_scale;
         let weight = (ds * 10.0 / width).min(1.0);
         let mut s = 0.0;
         s += ds;
@@ -992,7 +994,8 @@ fn draw_graph(
     center: Vec2,
     scale: Vec2,
 ) -> Option<()> {
-    let wb = state.orbital_camera.world_bounds();
+    let window_dims = state.input.screen_bounds.span;
+    let wb = state.orbital_camera.world_bounds(window_dims);
     let vb = AABB::new(wb.center + wb.span * center, wb.span * scale);
 
     let map = |p: Vec2| vb.from_normalized(p);
@@ -1029,8 +1032,9 @@ fn draw_graph(
 pub fn draw_ui_layout(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let scene = state.current_scene();
 
-    let vb = state.orbital_camera.viewport_bounds();
-    let wb = state.orbital_camera.world_bounds();
+    let window_dims = state.input.screen_bounds.span;
+    let vb = state.input.screen_bounds;
+    let wb = state.orbital_camera.world_bounds(window_dims);
     let map = |aabb: AABB| vb.map_box(wb, aabb);
 
     let fm = |aabb: AABB| {
@@ -1040,7 +1044,7 @@ pub fn draw_ui_layout(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     };
 
     if let Some(n) = state
-        .mouse
+        .input
         .position(MouseButt::Hover, FrameId::Current)
         .map(|p| Vec2::new(p.x, vb.span.y - p.y))
         .map(|p| scene.ui().at(p))
@@ -1076,7 +1080,7 @@ pub fn draw_orbit_spline(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
 }
 
 pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, _scene: &OrbitalContext) {
-    draw_scale_indicator(gizmos, &state.orbital_camera);
+    draw_scale_indicator(gizmos, state);
 
     draw_piloting_overlay(gizmos, &state);
 
@@ -1199,10 +1203,12 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, _scene: &Orbita
 
     draw_belt_orbits(gizmos, &state);
 
-    if let Some(p) = state.mouse.world_position(
+    let wb = state.input.screen_bounds.span;
+
+    if let Some(p) = state.input.world_position(
         MouseButt::Hover,
         FrameId::Current,
-        state.orbital_camera.world_bounds(),
+        state.orbital_camera.world_bounds(wb),
     ) {
         draw_counter(
             gizmos,
@@ -1288,7 +1294,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
 
     draw_ui_layout(gizmos, &state);
 
-    // draw_mouse_state(gizmos, &state.mouse, state.wall_time);
+    // draw_mouse_state(gizmos, &state.input, state.wall_time);
 }
 
 fn draw_mouse_state(gizmos: &mut Gizmos, state: &GameState, wall_time: Nanotime) {
@@ -1298,29 +1304,31 @@ fn draw_mouse_state(gizmos: &mut Gizmos, state: &GameState, wall_time: Nanotime)
         (MouseButt::Middle, YELLOW),
     ];
 
-    let wb = state.orbital_camera.world_bounds();
+    let wb = state
+        .orbital_camera
+        .world_bounds(state.input.screen_bounds.span);
 
     if let Some(p) = state
-        .mouse
+        .input
         .world_position(MouseButt::Hover, FrameId::Current, wb)
     {
         draw_circle(gizmos, p, 8.0, RED);
     }
 
     for (b, c) in points {
-        let p1 = state.mouse.world_position(b, FrameId::Down, wb);
+        let p1 = state.input.world_position(b, FrameId::Down, wb);
         let p2 = state
-            .mouse
+            .input
             .world_position(b, FrameId::Current, wb)
-            .or(state.mouse.world_position(b, FrameId::Up, wb));
+            .or(state.input.world_position(b, FrameId::Up, wb));
 
         if let Some((p1, p2)) = p1.zip(p2) {
             gizmos.line_2d(p1, p2, c);
         }
 
         for fid in [FrameId::Down, FrameId::Up] {
-            let age = state.mouse.age(b, fid, wall_time);
-            let p = state.mouse.world_position(b, fid, wb);
+            let age = state.input.age(b, fid, wall_time);
+            let p = state.input.world_position(b, fid, wb);
             if let Some((p, age)) = p.zip(age) {
                 let dt = age.to_secs();
                 let a = (1.0 - dt).max(0.0);
