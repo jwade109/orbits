@@ -14,7 +14,7 @@ use crate::graph::*;
 use crate::mouse::{FrameId, MouseButt, MouseState};
 use crate::notifications::*;
 use crate::planetary::{GameMode, GameState, ShowOrbitsState};
-use crate::scene::{OrbitalScene, Scene, SceneType};
+use crate::scenes::{OrbitalScene, Scene, SceneType};
 
 fn draw_cross(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     let dx = Vec2::new(size, 0.0);

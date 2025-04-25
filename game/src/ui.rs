@@ -1,6 +1,6 @@
 use crate::mouse::{FrameId, MouseButt};
 use crate::planetary::GameState;
-use crate::scene::*;
+use crate::scenes::*;
 use bevy::color::palettes::css::*;
 use bevy::core_pipeline::bloom::Bloom;
 use bevy::math::VectorSpace;

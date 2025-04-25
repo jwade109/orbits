@@ -3,7 +3,7 @@
 use crate::camera_controls::*;
 use crate::mouse::{FrameId, MouseButt, MouseState};
 use crate::notifications::*;
-use crate::scene::{OrbitalView, Scene, SceneType};
+use crate::scenes::{OrbitalView, Scene, SceneType};
 use crate::ui::InteractionEvent;
 use bevy::color::palettes::css::*;
 use bevy::core_pipeline::bloom::Bloom;
@@ -377,19 +377,6 @@ impl GameState {
         let scene = self.current_scene();
         let ov = scene.orbital_view(&self.mouse)?;
         ov.right_cursor_orbit(self)
-    }
-
-    pub fn follow_position(&self) -> Option<Vec2> {
-        match self.current_scene().kind() {
-            SceneType::OrbitalView(_) => (),
-            _ => return None,
-        };
-        let id = self.follow?;
-        let lup = match id {
-            ObjectId::Orbiter(id) => self.scenario.lup_orbiter(id, self.sim_time)?,
-            ObjectId::Planet(id) => self.scenario.lup_planet(id, self.sim_time)?,
-        };
-        Some(lup.pv().pos)
     }
 
     pub fn piloting(&self) -> Option<OrbiterId> {
@@ -1131,10 +1118,15 @@ fn handle_camera_interactions(
         }
     };
 
+    let ov = match state.current_scene().orbital_view(&state.mouse) {
+        Some(ov) => ov,
+        None => return,
+    };
+
     let cursor_delta = 1400.0 * time.delta_secs() * ctrl.0.scale.z;
     let scale_scalar = 1.5;
 
-    if let Some(p) = state.follow_position() {
+    if let Some(p) = ov.follow_position(&state) {
         ctrl.0.translation = p.extend(0.0);
     }
 

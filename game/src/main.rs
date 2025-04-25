@@ -9,7 +9,7 @@ mod keybindings;
 mod mouse;
 mod notifications;
 mod planetary;
-mod scene;
+mod scenes;
 mod sprites;
 mod ui;
 

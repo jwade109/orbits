@@ -1,5 +1,5 @@
 use crate::planetary::{GameMode, GameState};
-use crate::scene::{Scene, SceneType};
+use crate::scenes::{Scene, SceneType};
 use bevy::asset::embedded_asset;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
