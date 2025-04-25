@@ -1,8 +1,6 @@
-// ignore-tidy-linelength
-
 use crate::mouse::{FrameId, InputState, MouseButt};
 use crate::notifications::*;
-use crate::scenes::{OrbitalContext, Scene};
+use crate::scenes::{CursorMode, OrbitalContext, Scene, EnumIter};
 use crate::ui::InteractionEvent;
 use bevy::color::palettes::css::*;
 use bevy::core_pipeline::bloom::Bloom;
@@ -48,6 +46,7 @@ impl Plugin for PlanetaryPlugin {
     }
 }
 
+/// TODO get rid of this thing.
 #[derive(Component, Debug)]
 pub struct DingusController;
 
@@ -88,88 +87,46 @@ fn move_camera_and_store(
     state.orbital_context.world_center = tf.translation.xy();
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum ShowOrbitsState {
-    None,
-    Focus,
-    All,
-}
-
-impl ShowOrbitsState {
-    fn next(&mut self) {
-        let n = match self {
-            ShowOrbitsState::None => ShowOrbitsState::Focus,
-            ShowOrbitsState::Focus => ShowOrbitsState::All,
-            ShowOrbitsState::All => ShowOrbitsState::None,
-        };
-        *self = n;
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DrawMode {
-    Default,
-    Constellations,
-    Stability,
-    Occlusion,
-}
-
-trait EnumIter {
-    fn next(&self) -> Self;
-}
-
-impl EnumIter for DrawMode {
-    fn next(&self) -> Self {
-        match self {
-            DrawMode::Default => DrawMode::Constellations,
-            DrawMode::Constellations => DrawMode::Stability,
-            DrawMode::Stability => DrawMode::Occlusion,
-            DrawMode::Occlusion => DrawMode::Default,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CursorMode {
-    Rect,
-    Altitude,
-    NearOrbit,
-    Measure,
-}
-
-impl EnumIter for CursorMode {
-    fn next(&self) -> Self {
-        match self {
-            CursorMode::Rect => CursorMode::Altitude,
-            CursorMode::Altitude => CursorMode::NearOrbit,
-            CursorMode::NearOrbit => CursorMode::Measure,
-            CursorMode::Measure => CursorMode::Rect,
-        }
-    }
-}
-
 #[derive(Resource)]
 pub struct GameState {
     pub current_frame_no: u32,
 
+    /// Contains all states related to window size, mouse clicks and positions,
+    /// and button presses and holds.
     pub input: InputState,
+
+    /// Stores information and provides an API for interacting with the simulation
+    /// from the perspective of a global solar/planetary system view.
+    ///
+    /// Additional information allows the user to select spacecraft and
+    /// direct them to particular orbits, or manually pilot them.
     pub orbital_context: OrbitalContext,
 
+    /// Simulation clock
     pub sim_time: Nanotime,
+
+    /// Wall clock, i.e. time since program began.
     pub wall_time: Nanotime,
+
     pub physics_duration: Nanotime,
     pub sim_speed: i32,
     pub paused: bool,
+
+    /// Representation of the solar system and all of the spacecraft
+    /// and other objects contained therein.
+    /// 
+    /// TODO replace this with a flat data structure that can be
+    /// expanded during runtime, and store multiple (potentially
+    /// disjoint) solar systems.
     pub scenario: Scenario,
+
+    /// Stupid thing to generate unique increasing IDs for
+    /// planets and orbiters
     pub ids: ObjectIdTracker,
+
     pub controllers: Vec<Controller>,
-    pub follow: Option<ObjectId>,
-    pub show_orbits: ShowOrbitsState,
-    pub show_animations: bool,
-    pub queued_orbits: Vec<GlobalOrbit>,
     pub constellations: HashMap<OrbiterId, GroupId>,
     pub starfield: Vec<(Vec3, Srgba, f32)>,
-    pub selection_mode: CursorMode,
 
     pub scenes: Vec<Scene>,
     pub current_scene_idx: usize,
@@ -177,8 +134,6 @@ pub struct GameState {
 
     pub redraw_requested: bool,
     pub last_redraw: Nanotime,
-
-    pub game_mode: DrawMode,
 
     pub notifications: Vec<Notification>,
     pub text_labels: Vec<(Vec2, String, f32)>,
@@ -214,13 +169,8 @@ impl Default for GameState {
             scenario: scenario.clone(),
             ids,
             controllers: vec![],
-            follow: None,
-            show_orbits: ShowOrbitsState::Focus,
-            show_animations: false,
-            queued_orbits: Vec::new(),
             constellations: HashMap::new(),
             starfield: generate_starfield(),
-            selection_mode: CursorMode::Rect,
             scenes: vec![
                 Scene::orbital("Earth System", PlanetId(0)),
                 Scene::orbital("Luna System", PlanetId(1)),
@@ -232,7 +182,6 @@ impl Default for GameState {
             current_orbit: None,
             redraw_requested: true,
             last_redraw: Nanotime::zero(),
-            game_mode: DrawMode::Default,
             notifications: Vec::new(),
             text_labels: Vec::new(),
         }
@@ -335,7 +284,7 @@ impl GameState {
     }
 
     pub fn measuring_tape(&self) -> Option<(Vec2, Vec2, Vec2)> {
-        if self.selection_mode != CursorMode::Measure {
+        if self.orbital_context.selection_mode != CursorMode::Measure {
             return None;
         }
 
@@ -351,7 +300,7 @@ impl GameState {
     }
 
     pub fn piloting(&self) -> Option<OrbiterId> {
-        self.follow?.orbiter()
+        self.orbital_context.follow?.orbiter()
     }
 
     pub fn spawn_at(&mut self, global: &GlobalOrbit) -> Option<()> {
@@ -400,7 +349,7 @@ impl GameState {
     }
 
     pub fn current_orbit(&self) -> Option<&GlobalOrbit> {
-        self.queued_orbits.get(self.current_orbit?)
+        self.orbital_context.queued_orbits.get(self.current_orbit?)
     }
 
     pub fn commit_mission(&mut self) -> Option<()> {
@@ -555,11 +504,11 @@ impl GameState {
         use crate::ui::OnClick;
 
         match id {
-            OnClick::CurrentBody(id) => self.follow = Some(ObjectId::Planet(id)),
-            OnClick::Orbiter(id) => self.follow = Some(ObjectId::Orbiter(id)),
-            OnClick::ToggleDrawMode => self.game_mode = self.game_mode.next(),
+            OnClick::CurrentBody(id) => self.orbital_context.follow = Some(ObjectId::Planet(id)),
+            OnClick::Orbiter(id) => self.orbital_context.follow = Some(ObjectId::Orbiter(id)),
+            OnClick::ToggleDrawMode => self.orbital_context.draw_mode.to_next(),
             OnClick::ClearTracks => self.orbital_context.selected.clear(),
-            OnClick::ClearOrbits => self.queued_orbits.clear(),
+            OnClick::ClearOrbits => self.orbital_context.queued_orbits.clear(),
             OnClick::Group(gid) => self.toggle_group(&gid),
             OnClick::CreateGroup => self.create_group(GroupId(get_random_name())),
             OnClick::DisbandGroup(gid) => self.disband_group(&gid),
@@ -571,12 +520,12 @@ impl GameState {
                 self.sim_speed = s;
             }
             OnClick::DeleteOrbit(i) => {
-                self.queued_orbits.remove(i);
+                self.orbital_context.queued_orbits.remove(i);
             }
             OnClick::TogglePause => self.paused = !self.paused,
             OnClick::GlobalOrbit(i) => {
-                let orbit = self.queued_orbits.get(i)?;
-                self.follow = Some(ObjectId::Planet(orbit.0));
+                let orbit = self.orbital_context.queued_orbits.get(i)?;
+                self.orbital_context.follow = Some(ObjectId::Planet(orbit.0));
                 self.current_orbit = Some(i);
             }
             OnClick::World => (),
@@ -595,7 +544,7 @@ impl GameState {
                     let _ = dbg!(obj);
                 }
             }
-            OnClick::CursorMode => self.selection_mode = self.selection_mode.next(),
+            OnClick::CursorMode => self.orbital_context.selection_mode.to_next(),
             OnClick::AutopilotingCount => {
                 self.orbital_context.selected =
                     self.controllers.iter().map(|c| c.target()).collect();
@@ -896,7 +845,7 @@ fn process_interaction(
             state.orbital_context.selected.clear();
         }
         InteractionEvent::ClearOrbitQueue => {
-            state.queued_orbits.clear();
+            state.orbital_context.queued_orbits.clear();
         }
         InteractionEvent::SimSlower => {
             state.sim_speed = i32::clamp(state.sim_speed - 1, -2, 2);
@@ -910,16 +859,16 @@ fn process_interaction(
             state.paused = !state.paused;
         }
         InteractionEvent::CursorMode => {
-            state.selection_mode = state.selection_mode.next();
+            state.orbital_context.selection_mode.to_next();
         }
         InteractionEvent::DrawMode => {
-            state.game_mode = state.game_mode.next();
+            state.orbital_context.draw_mode.to_next();
         }
         InteractionEvent::RedrawGui => {
             state.redraw();
         }
         InteractionEvent::Orbits => {
-            state.show_orbits.next();
+            state.orbital_context.show_orbits.to_next();
         }
         InteractionEvent::Spawn => {
             state.spawn_new();
@@ -944,7 +893,7 @@ fn process_interaction(
             let w = vb.map(wb, *p);
             let id = state.scenario.nearest(w, state.sim_time);
             if let Some(id) = id {
-                state.follow = Some(id);
+                state.orbital_context.follow = Some(id);
                 state.notify(id, NotificationType::Following(id), None);
             }
         }
@@ -954,7 +903,7 @@ fn process_interaction(
         InteractionEvent::ContextDependent => {
             if let Some(o) = state.right_cursor_orbit() {
                 info!("Enqueued orbit {}", &o);
-                state.queued_orbits.push(o);
+                state.orbital_context.queued_orbits.push(o);
             } else if !state.orbital_context.selected.is_empty() {
                 state.orbital_context.selected.clear();
             }
@@ -999,7 +948,7 @@ fn process_interaction(
         | InteractionEvent::MoveLeft
         | InteractionEvent::MoveRight
         | InteractionEvent::MoveUp
-        | InteractionEvent::MoveDown => state.follow = None,
+        | InteractionEvent::MoveDown => state.orbital_context.follow = None,
         _ => (),
     };
     state.redraw();

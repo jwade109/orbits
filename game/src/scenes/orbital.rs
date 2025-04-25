@@ -1,9 +1,76 @@
 use crate::mouse::{FrameId, InputState, MouseButt};
-use crate::planetary::{CursorMode, GameState};
+use crate::planetary::GameState;
 use crate::scenes::Scene;
 use crate::ui::InteractionEvent;
 use starling::prelude::*;
 use std::collections::HashSet;
+
+pub trait EnumIter
+where
+    Self: Sized,
+{
+    fn next(&self) -> Self;
+
+    fn to_next(&mut self) {
+        let n = self.next();
+        *self = n;
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CursorMode {
+    Rect,
+    Altitude,
+    NearOrbit,
+    Measure,
+}
+
+impl EnumIter for CursorMode {
+    fn next(&self) -> Self {
+        match self {
+            CursorMode::Rect => CursorMode::Altitude,
+            CursorMode::Altitude => CursorMode::NearOrbit,
+            CursorMode::NearOrbit => CursorMode::Measure,
+            CursorMode::Measure => CursorMode::Rect,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ShowOrbitsState {
+    None,
+    Focus,
+    All,
+}
+
+impl EnumIter for ShowOrbitsState {
+    fn next(&self) -> Self {
+        match self {
+            ShowOrbitsState::None => ShowOrbitsState::Focus,
+            ShowOrbitsState::Focus => ShowOrbitsState::All,
+            ShowOrbitsState::All => ShowOrbitsState::None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DrawMode {
+    Default,
+    Constellations,
+    Stability,
+    Occlusion,
+}
+
+impl EnumIter for DrawMode {
+    fn next(&self) -> Self {
+        match self {
+            DrawMode::Default => DrawMode::Constellations,
+            DrawMode::Constellations => DrawMode::Stability,
+            DrawMode::Stability => DrawMode::Occlusion,
+            DrawMode::Occlusion => DrawMode::Default,
+        }
+    }
+}
 
 #[allow(unused)]
 #[derive(Debug, Clone)]
@@ -12,6 +79,12 @@ pub struct OrbitalContext {
     pub selected: HashSet<OrbiterId>,
     pub world_center: Vec2,
     pub actual_scale: f32,
+    pub follow: Option<ObjectId>,
+    pub queued_orbits: Vec<GlobalOrbit>,
+    pub selection_mode: CursorMode,
+    pub show_orbits: ShowOrbitsState,
+    pub show_animations: bool,
+    pub draw_mode: DrawMode,
 }
 
 impl OrbitalContext {
@@ -21,6 +94,12 @@ impl OrbitalContext {
             selected: HashSet::new(),
             world_center: Vec2::ZERO,
             actual_scale: 0.4,
+            follow: None,
+            queued_orbits: Vec::new(),
+            selection_mode: CursorMode::Rect,
+            show_orbits: ShowOrbitsState::Focus,
+            show_animations: true,
+            draw_mode: DrawMode::Default,
         }
     }
 
@@ -102,7 +181,7 @@ impl<'a> OrbitalView<'a> {
         let vb = state.input.screen_bounds.span;
         let wb = state.orbital_context.world_bounds(vb);
         let mouse: &InputState = self.scene.mouse_if_world(&self.input)?;
-        match state.selection_mode {
+        match state.orbital_context.selection_mode {
             CursorMode::Rect => {
                 let a = mouse.world_position(MouseButt::Left, FrameId::Down, wb)?;
                 let b = mouse.world_position(MouseButt::Left, FrameId::Current, wb)?;
@@ -121,7 +200,7 @@ impl<'a> OrbitalView<'a> {
     }
 
     pub fn follow_position(&self, state: &GameState) -> Option<Vec2> {
-        let id = state.follow?;
+        let id = state.orbital_context.follow?;
         let lup = match id {
             ObjectId::Orbiter(id) => state.scenario.lup_orbiter(id, state.sim_time)?,
             ObjectId::Planet(id) => state.scenario.lup_planet(id, state.sim_time)?,

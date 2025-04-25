@@ -11,8 +11,8 @@ use starling::prelude::*;
 use crate::graph::*;
 use crate::mouse::{FrameId, MouseButt};
 use crate::notifications::*;
-use crate::planetary::{DrawMode, GameState, ShowOrbitsState};
-use crate::scenes::{OrbitalContext, Scene, SceneType, TelescopeScene};
+use crate::planetary::GameState;
+use crate::scenes::*;
 
 fn draw_cross(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     let dx = Vec2::new(size, 0.0);
@@ -1100,7 +1100,7 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, _scene: &Orbita
         gizmos.line_2d(m2, corner, GRAY.with_alpha(0.3));
     }
 
-    for orbit in &state.queued_orbits {
+    for orbit in &state.orbital_context.queued_orbits {
         draw_global_orbit(gizmos, orbit, &state, RED);
     }
 
@@ -1108,7 +1108,7 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, _scene: &Orbita
         .current_hover_ui()
         .map(|id| {
             if let crate::ui::OnClick::GlobalOrbit(i) = *id {
-                state.queued_orbits.get(i)
+                state.orbital_context.queued_orbits.get(i)
             } else {
                 None
             }
@@ -1165,7 +1165,7 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, _scene: &Orbita
         );
     }
 
-    if state.show_animations && state.orbital_context.selected.len() < 6 {
+    if state.orbital_context.show_animations && state.orbital_context.selected.len() < 6 {
         for id in &state.orbital_context.selected {
             draw_event_animation(
                 gizmos,
@@ -1184,10 +1184,10 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, _scene: &Orbita
         state.sim_time,
         state.wall_time,
         state.orbital_context.actual_scale,
-        state.show_orbits,
+        state.orbital_context.show_orbits,
         &state.orbital_context.selected,
         state.piloting(),
-        state.game_mode,
+        state.orbital_context.draw_mode,
     );
 
     draw_x(
@@ -1278,7 +1278,7 @@ fn draw_telescope_view(gizmos: &mut Gizmos, state: &GameState, scene: &Telescope
     }
 }
 
-pub fn draw_scene(gizmos: &mut Gizmos, state: &GameState, scene: &Scene) {
+pub fn draw_scene(gizmos: &mut Gizmos, state: &GameState, scene: &crate::scenes::Scene) {
     match scene.kind() {
         SceneType::OrbitalView(scene) => draw_orbital_view(gizmos, state, scene),
         SceneType::DockingView(id) => _ = draw_docking_scenario(gizmos, state, id),

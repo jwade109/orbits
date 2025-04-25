@@ -79,8 +79,8 @@ impl Plugin for UiPlugin {
 }
 
 fn set_bloom(state: Res<GameState>, mut bloom: Single<&mut Bloom>) {
-    bloom.intensity = match state.game_mode {
-        crate::planetary::DrawMode::Default => 0.5,
+    bloom.intensity = match state.orbital_context.draw_mode {
+        DrawMode::Default => 0.5,
         _ => 0.1,
     }
 }
@@ -140,7 +140,7 @@ fn big_time_system(mut text: Single<&mut Text, With<DateMarker>>, state: Res<Gam
 
 fn top_right_text_system(mut text: Single<&mut Text, With<TopRight>>, state: Res<GameState>) {
     let res = (|| -> Option<(&Orbiter, GlobalOrbit)> {
-        let id = state.follow?.orbiter()?;
+        let id = state.orbital_context.follow?.orbiter()?;
         let orbiter = state.scenario.lup_orbiter(id, state.sim_time)?.orbiter()?;
         let prop = orbiter.propagator_at(state.sim_time)?;
         let go = prop.orbit;
@@ -192,6 +192,7 @@ fn get_top_right_ui() -> impl Bundle {
     )
 }
 
+#[allow(unused)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OnClick {
     Orbiter(OrbiterId),
@@ -222,6 +223,7 @@ pub enum OnClick {
     Nullopt,
 }
 
+#[allow(unused)]
 fn context_menu(rowsize: f32, items: &[(String, OnClick, bool)]) -> ui::Node<OnClick> {
     use ui::*;
     Node::new(200, Size::Fit)
@@ -232,19 +234,6 @@ fn context_menu(rowsize: f32, items: &[(String, OnClick, bool)]) -> ui::Node<OnC
                 .with_color([0.3, 0.3, 0.3, 1.0])
                 .enabled(*e)
         }))
-}
-
-fn orbiter_context_menu(id: OrbiterId) -> ui::Node<OnClick> {
-    context_menu(
-        30.0,
-        &[
-            (format!("Orbiter {}", id), OnClick::Orbiter(id), false),
-            ("Delete".into(), OnClick::DeleteOrbiter, true),
-            ("Pilot".into(), OnClick::PilotOrbiter, true),
-            ("Clear Mission".into(), OnClick::ClearMission, true),
-            ("Follow".into(), OnClick::FollowOrbiter, true),
-        ],
-    )
 }
 
 pub const DELETE_SOMETHING_COLOR: [f32; 4] = [1.0, 0.0, 0.0, 0.5];
@@ -368,7 +357,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
     }
 
     sidebar.add_child(Node::button(
-        format!("Visual: {:?}", state.game_mode),
+        format!("Visual: {:?}", state.orbital_context.draw_mode),
         OnClick::ToggleDrawMode,
         Size::Grow,
         button_height,
@@ -381,7 +370,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
             Size::Grow,
             button_height,
         )
-        .enabled(!state.queued_orbits.is_empty()),
+        .enabled(!state.orbital_context.queued_orbits.is_empty()),
     );
 
     sidebar.add_child(
@@ -395,7 +384,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
     );
 
     sidebar.add_child(Node::button(
-        format!("Cursor: {:?}", state.selection_mode),
+        format!("Cursor: {:?}", state.orbital_context.selection_mode),
         OnClick::CursorMode,
         Size::Grow,
         button_height,
@@ -448,7 +437,9 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
                 Node::grow()
                     .with_id(OnClick::Orbiter(*id))
                     .with_text(s)
-                    .enabled(Some(*id) != state.follow.map(|f| f.orbiter()).flatten()),
+                    .enabled(
+                        Some(*id) != state.orbital_context.follow.map(|f| f.orbiter()).flatten(),
+                    ),
             )
         });
         root.add_child(grid);
@@ -465,7 +456,11 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
     };
 
     if !state.orbital_context.selected.is_empty() {
-        orbiter_list(&mut sidebar, 32, state.orbital_context.selected.iter().cloned().collect());
+        orbiter_list(
+            &mut sidebar,
+            32,
+            state.orbital_context.selected.iter().cloned().collect(),
+        );
         sidebar.add_child(Node::button(
             "Create Group",
             OnClick::CreateGroup,
@@ -502,14 +497,14 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
             .enabled(i != state.sim_speed)
         }));
 
-    if let Some(id) = state.follow {
+    if let Some(id) = state.orbital_context.follow {
         let s = format!("Following {}", id);
         let id = OnClick::Nullopt;
         let n = Node::button(s, id, 300, button_height).enabled(false);
         inner_topbar.add_child(n);
     }
 
-    for (i, orbit) in state.queued_orbits.iter().enumerate() {
+    for (i, orbit) in state.orbital_context.queued_orbits.iter().enumerate() {
         let orbit_button = {
             let s = format!("{}", orbit);
             let id = OnClick::GlobalOrbit(i);
@@ -584,8 +579,6 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
 
     let mut tree = Tree::new().with_layout(root, Vec2::ZERO);
 
-    let vb = state.input.screen_bounds;
-
     if let Some(layout) = current_inventory_layout(state) {
         tree.add_layout(layout, Vec2::splat(400.0));
     }
@@ -596,7 +589,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
 fn current_inventory_layout(state: &GameState) -> Option<ui::Node<OnClick>> {
     use ui::*;
 
-    let id = state.follow?.orbiter()?;
+    let id = state.orbital_context.follow?.orbiter()?;
     let orbiter = state.scenario.lup_orbiter(id, state.sim_time)?.orbiter()?;
 
     if orbiter.vehicle.inventory.is_empty() {

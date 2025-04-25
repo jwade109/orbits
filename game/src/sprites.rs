@@ -1,5 +1,5 @@
-use crate::planetary::{DrawMode, GameState};
-use crate::scenes::SceneType;
+use crate::planetary::GameState;
+use crate::scenes::*;
 use bevy::asset::embedded_asset;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
@@ -112,7 +112,7 @@ pub fn update_planet_sprites(
             }
         };
 
-        *vis = match state.game_mode {
+        *vis = match state.orbital_context.draw_mode {
             DrawMode::Default => Visibility::Visible,
             _ => Visibility::Hidden,
         };
@@ -162,7 +162,7 @@ pub fn update_shadow_sprites(
             }
         };
 
-        *vis = match state.game_mode {
+        *vis = match state.orbital_context.draw_mode {
             DrawMode::Default => Visibility::Visible,
             _ => Visibility::Hidden,
         };
@@ -240,7 +240,7 @@ pub fn update_spacecraft_sprites(
                 .iter()
                 .all(|(pv, body)| !is_occluded(light_source, pos, pv.pos, body.radius));
 
-            let (target_scale, color) = if state.game_mode == DrawMode::Default {
+            let (target_scale, color) = if state.orbital_context.draw_mode == DrawMode::Default {
                 let scale = if state.orbital_context.selected.contains(&id) {
                     SPACECRAFT_MAGNIFIED_SCALE
                 } else if !is_lit {
@@ -260,8 +260,8 @@ pub fn update_spacecraft_sprites(
                 };
 
                 (scale, color)
-            } else if state.game_mode == DrawMode::Constellations {
-                let gid = match state.game_mode {
+            } else if state.orbital_context.draw_mode == DrawMode::Constellations {
+                let gid = match state.orbital_context.draw_mode {
                     DrawMode::Constellations => state.group_membership(&id),
                     _ => None,
                 };
@@ -281,7 +281,7 @@ pub fn update_spacecraft_sprites(
                 };
 
                 (scale, color)
-            } else if state.game_mode == DrawMode::Stability {
+            } else if state.orbital_context.draw_mode == DrawMode::Stability {
                 // stability
                 let scale = if state.orbital_context.selected.is_empty() {
                     SPACECRAFT_DEFAULT_SCALE
@@ -327,7 +327,7 @@ pub fn update_background_sprite(
     mut orbital_context: Single<&mut Camera, With<crate::planetary::DingusController>>,
     state: Res<GameState>,
 ) {
-    let c = match state.game_mode {
+    let c = match state.orbital_context.draw_mode {
         DrawMode::Default => BLACK,
         DrawMode::Constellations => GRAY.with_luminance(0.1),
         DrawMode::Stability => GRAY.with_luminance(0.13),

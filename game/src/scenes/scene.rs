@@ -1,8 +1,8 @@
 #![allow(unused)]
 
 use crate::mouse::{FrameId, InputState, MouseButt};
-use crate::planetary::{CursorMode, GameState};
-use crate::scenes::{OrbitalContext, OrbitalView, TelescopeScene};
+use crate::planetary::GameState;
+use crate::scenes::{CursorMode, OrbitalContext, OrbitalView, TelescopeScene};
 use crate::ui::{InteractionEvent, OnClick};
 use bevy::log::*;
 use layout::layout::Tree;
