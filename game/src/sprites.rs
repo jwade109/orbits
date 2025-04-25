@@ -1,5 +1,5 @@
-use crate::planetary::{GameMode, GameState};
-use crate::scenes::{Scene, SceneType};
+use crate::planetary::{DrawMode, GameState};
+use crate::scenes::SceneType;
 use bevy::asset::embedded_asset;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
@@ -113,7 +113,7 @@ pub fn update_planet_sprites(
         };
 
         *vis = match state.game_mode {
-            GameMode::Default => Visibility::Visible,
+            DrawMode::Default => Visibility::Visible,
             _ => Visibility::Hidden,
         };
 
@@ -163,7 +163,7 @@ pub fn update_shadow_sprites(
         };
 
         *vis = match state.game_mode {
-            GameMode::Default => Visibility::Visible,
+            DrawMode::Default => Visibility::Visible,
             _ => Visibility::Hidden,
         };
 
@@ -240,7 +240,7 @@ pub fn update_spacecraft_sprites(
                 .iter()
                 .all(|(pv, body)| !is_occluded(light_source, pos, pv.pos, body.radius));
 
-            let (target_scale, color) = if state.game_mode == GameMode::Default {
+            let (target_scale, color) = if state.game_mode == DrawMode::Default {
                 let scale = if state.track_list.contains(&id) {
                     SPACECRAFT_MAGNIFIED_SCALE
                 } else if !is_lit {
@@ -260,9 +260,9 @@ pub fn update_spacecraft_sprites(
                 };
 
                 (scale, color)
-            } else if state.game_mode == GameMode::Constellations {
+            } else if state.game_mode == DrawMode::Constellations {
                 let gid = match state.game_mode {
-                    GameMode::Constellations => state.group_membership(&id),
+                    DrawMode::Constellations => state.group_membership(&id),
                     _ => None,
                 };
 
@@ -281,7 +281,7 @@ pub fn update_spacecraft_sprites(
                 };
 
                 (scale, color)
-            } else if state.game_mode == GameMode::Stability {
+            } else if state.game_mode == DrawMode::Stability {
                 // stability
                 let scale = if state.track_list.is_empty() {
                     SPACECRAFT_DEFAULT_SCALE
@@ -315,7 +315,7 @@ pub fn update_spacecraft_sprites(
             };
 
             s.color = color.into();
-            transform.scale = Vec3::splat(scale * state.camera.actual_scale);
+            transform.scale = Vec3::splat(scale * state.orbital_camera.actual_scale);
             x.1 += (target_scale - scale) * 0.2;
         } else {
             commands.entity(e).despawn();
@@ -324,15 +324,15 @@ pub fn update_spacecraft_sprites(
 }
 
 pub fn update_background_sprite(
-    mut camera: Single<&mut Camera, With<crate::planetary::SoftController>>,
+    mut orbital_camera: Single<&mut Camera, With<crate::planetary::SoftController>>,
     state: Res<GameState>,
 ) {
     let c = match state.game_mode {
-        GameMode::Default => BLACK,
-        GameMode::Constellations => GRAY.with_luminance(0.1),
-        GameMode::Stability => GRAY.with_luminance(0.13),
-        GameMode::Occlusion => GRAY.with_luminance(0.04),
+        DrawMode::Default => BLACK,
+        DrawMode::Constellations => GRAY.with_luminance(0.1),
+        DrawMode::Stability => GRAY.with_luminance(0.13),
+        DrawMode::Occlusion => GRAY.with_luminance(0.04),
     };
 
-    camera.clear_color = ClearColorConfig::Custom(c.with_alpha(0.0).into());
+    orbital_camera.clear_color = ClearColorConfig::Custom(c.with_alpha(0.0).into());
 }

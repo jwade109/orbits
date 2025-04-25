@@ -3,7 +3,6 @@ use crate::planetary::GameState;
 use crate::scenes::*;
 use bevy::color::palettes::css::*;
 use bevy::core_pipeline::bloom::Bloom;
-use bevy::math::VectorSpace;
 use bevy::prelude::*;
 use bevy::render::{
     render_asset::RenderAssetUsages,
@@ -40,14 +39,14 @@ pub enum InteractionEvent {
     CreateGroup,
     ContextDependent,
     CursorMode,
-    GameMode,
+    DrawMode,
     RedrawGui,
     ToggleFullscreen,
 
     // mouse stuff
     DoubleClick(Vec2),
 
-    // camera operations
+    // orbital_camera operations
     MoveLeft,
     MoveRight,
     MoveUp,
@@ -82,7 +81,7 @@ impl Plugin for UiPlugin {
 
 fn set_bloom(state: Res<GameState>, mut bloom: Single<&mut Bloom>) {
     bloom.intensity = match state.game_mode {
-        crate::planetary::GameMode::Default => 0.5,
+        crate::planetary::DrawMode::Default => 0.5,
         _ => 0.1,
     }
 }
@@ -318,7 +317,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
     match scene.kind() {
         SceneType::MainMenu => return main_menu_layout(state),
         SceneType::DockingView(id) => return docking_layout(state, id),
-        SceneType::TelescopeView(ti) => return docking_layout(state, &OrbiterId(0)),
+        SceneType::TelescopeView(_) => return docking_layout(state, &OrbiterId(0)),
         SceneType::OrbitalView(_) => (),
     };
 
@@ -327,7 +326,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
     let small_button_height = 30;
     let button_height = 40;
 
-    let vb = state.camera.viewport_bounds();
+    let vb = state.orbital_camera.viewport_bounds();
     if vb.span.x == 0.0 || vb.span.y == 0.0 {
         return Tree::new();
     }
@@ -347,7 +346,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
 
     if let Some(lup) = state
         .scenario
-        .relevant_body(state.camera.world_center, state.sim_time)
+        .relevant_body(state.orbital_camera.world_center, state.sim_time)
         .map(|id| state.scenario.lup_planet(id, state.sim_time))
         .flatten()
     {
@@ -588,7 +587,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
 
     if let Some(p) = state.context_menu_origin {
         let ctx = orbiter_context_menu(OrbiterId(0));
-        let p = Vec2::new(p.x, state.camera.viewport_bounds().span.y - p.y);
+        let p = Vec2::new(p.x, state.orbital_camera.viewport_bounds().span.y - p.y);
         tree.add_layout(ctx, p);
     }
 
@@ -708,7 +707,7 @@ fn do_ui_sprites(
         return;
     }
 
-    let vb = state.camera.viewport_bounds();
+    let vb = state.orbital_camera.viewport_bounds();
 
     for e in &to_despawn {
         commands.entity(e).despawn();

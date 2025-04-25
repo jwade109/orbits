@@ -82,15 +82,15 @@ impl CursorTravel {
 }
 
 #[derive(Debug, Default)]
-pub struct MouseState {
+pub struct InputState {
     hover: CursorTravel,
     left: CursorTravel,
     right: CursorTravel,
     middle: CursorTravel,
 
     pub viewport_bounds: AABB,
-    pub world_bounds: AABB,
-    pub scale: f32,
+    pub _world_bounds: AABB,
+    pub orbital_scale: f32,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -108,11 +108,7 @@ pub enum FrameId {
     Up,
 }
 
-impl MouseState {
-    pub fn scale(&self) -> f32 {
-        self.scale
-    }
-
+impl InputState {
     pub fn position(&self, button: MouseButt, order: FrameId) -> Option<Vec2> {
         let state = self.get_state(button);
         let frame = state.frame(order)?;
@@ -140,13 +136,13 @@ impl MouseState {
         frame.map(|f| f.frame_no == frame_no).unwrap_or(false)
     }
 
-    fn viewport_to_world(&self, p: Vec2) -> Vec2 {
-        self.viewport_bounds.map(self.world_bounds, p)
+    fn viewport_to_world(&self, p: Vec2, world_bounds: AABB) -> Vec2 {
+        self.viewport_bounds.map(world_bounds, p)
     }
 
-    pub fn world_position(&self, button: MouseButt, order: FrameId) -> Option<Vec2> {
+    pub fn world_position(&self, button: MouseButt, order: FrameId, world_bounds: AABB) -> Option<Vec2> {
         let p = self.position(button, order)?;
-        Some(self.viewport_to_world(p))
+        Some(self.viewport_to_world(p, world_bounds))
     }
 
     pub fn ui_position(&self, button: MouseButt, order: FrameId) -> Option<Vec2> {
@@ -159,7 +155,7 @@ impl MouseState {
 pub fn update_mouse_state(
     win: Single<&Window>,
     buttons: Res<ButtonInput<MouseButton>>,
-    camera: Single<&Transform, With<crate::planetary::SoftController>>,
+    orbital_camera: Single<&Transform, With<crate::planetary::SoftController>>,
     mut state: ResMut<GameState>,
     mut events: EventWriter<InteractionEvent>,
 ) {
@@ -168,8 +164,8 @@ pub fn update_mouse_state(
     let f = state.current_frame_no;
 
     state.mouse.viewport_bounds = AABB::new(dims / 2.0, dims);
-    state.mouse.world_bounds = AABB::new(camera.translation.xy(), dims * camera.scale.z);
-    state.mouse.scale = camera.scale.z;
+    state.mouse._world_bounds = AABB::new(orbital_camera.translation.xy(), dims * orbital_camera.scale.z);
+    state.mouse.orbital_scale = orbital_camera.scale.z;
 
     let current_frame = if let Some(p) = win.cursor_position() {
         let p = Vec2::new(p.x, dims.y - p.y);

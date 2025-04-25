@@ -31,7 +31,7 @@ impl Plugin for CraftPlugin {
 struct CraftState {
     bodies: Vec<RigidBody>,
     collisions: Vec<CollisionInfo>,
-    camera: CameraState,
+    camera: OrbitalCameraState,
     track_list: Vec<ObjectId>,
     highlighted: Vec<ObjectId>,
 }
@@ -72,7 +72,7 @@ impl Default for CraftState {
                 ),
             ],
             collisions: vec![],
-            camera: CameraState::default(),
+            camera: OrbitalCameraState::default(),
             track_list: vec![],
             highlighted: vec![],
         }

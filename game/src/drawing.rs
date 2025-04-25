@@ -2,19 +2,18 @@
 
 use bevy::color::palettes::basic::*;
 use bevy::color::palettes::css::ORANGE;
-use bevy::gizmos::cross;
 use bevy::prelude::*;
 
 use std::collections::HashSet;
 
 use starling::prelude::*;
 
-use crate::camera_controls::CameraState;
+use crate::camera_controls::OrbitalCameraState;
 use crate::graph::*;
-use crate::mouse::{FrameId, MouseButt, MouseState};
+use crate::mouse::{FrameId, MouseButt};
 use crate::notifications::*;
-use crate::planetary::{GameMode, GameState, ShowOrbitsState};
-use crate::scenes::{OrbitalScene, Scene, SceneType, TelescopeScene};
+use crate::planetary::{DrawMode, GameState, ShowOrbitsState};
+use crate::scenes::{OrbitalContext, Scene, SceneType, TelescopeScene};
 
 fn draw_cross(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     let dx = Vec2::new(size, 0.0);
@@ -180,15 +179,15 @@ fn draw_planets(
     planet: &PlanetarySystem,
     stamp: Nanotime,
     origin: Vec2,
-    mode: GameMode,
+    mode: DrawMode,
 ) {
     let a = match mode {
-        GameMode::Default => 0.1,
+        DrawMode::Default => 0.1,
         _ => 0.8,
     };
     draw_circle(gizmos, origin, planet.body.radius, GRAY.with_alpha(a));
 
-    if mode == GameMode::Default {
+    if mode == DrawMode::Default {
         draw_circle(gizmos, origin, planet.body.soi, GRAY.with_alpha(a));
     } else {
         for (a, ds) in [(1.0, 1.0), (0.3, 0.98), (0.1, 0.95)] {
@@ -260,14 +259,14 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let orbiter = lup.orbiter()?;
 
     let rb = orbiter.vehicle.bounding_radius();
-    let r = state.camera.window_dims.y * 0.2;
+    let r = state.orbital_camera.window_dims.y * 0.2;
 
     let zoom = 0.8 * r / rb;
 
-    let center = Vec2::new(state.camera.window_dims.x - r * 1.2, r * 1.2);
+    let center = Vec2::new(state.orbital_camera.window_dims.x - r * 1.2, r * 1.2);
 
-    let b = state.camera.world_bounds();
-    let c = state.camera.viewport_bounds();
+    let b = state.orbital_camera.world_bounds();
+    let c = state.orbital_camera.viewport_bounds();
 
     let map = |p: Vec2| c.map(b, p);
 
@@ -275,7 +274,7 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
         gizmos,
         &orbiter.vehicle,
         map(center),
-        state.camera.actual_scale * zoom,
+        state.orbital_camera.actual_scale * zoom,
     );
 
     let mut draw_clock = |stamp: Nanotime, color: Srgba| {
@@ -291,7 +290,7 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
         gizmos,
         rb as u64,
         map(center + Vec2::Y * r),
-        state.camera.actual_scale,
+        state.orbital_camera.actual_scale,
         WHITE,
     );
 
@@ -299,7 +298,7 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
         draw_circle(
             gizmos,
             map(center),
-            rb * state.camera.actual_scale * zoom,
+            rb * state.orbital_camera.actual_scale * zoom,
             RED.with_alpha(0.02),
         );
 
@@ -308,7 +307,7 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
             draw_circle(
                 gizmos,
                 map(center),
-                rc * state.camera.actual_scale * zoom,
+                rc * state.orbital_camera.actual_scale * zoom,
                 GRAY.with_alpha(0.05),
             );
             rc += 10.0;
@@ -317,15 +316,15 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
         draw_cross(
             gizmos,
             map(center),
-            3.0 * state.camera.actual_scale,
+            3.0 * state.orbital_camera.actual_scale,
             RED.with_alpha(0.1),
         );
     }
 
     {
         let s = 20.0;
-        let c1 = state.camera.window_dims * 0.5 + s * rotate(Vec2::X, 3.0 * PI / 6.0);
-        let c2 = state.camera.window_dims * 0.5 + s * rotate(Vec2::X, 5.0 * PI / 4.0);
+        let c1 = state.orbital_camera.window_dims * 0.5 + s * rotate(Vec2::X, 3.0 * PI / 6.0);
+        let c2 = state.orbital_camera.window_dims * 0.5 + s * rotate(Vec2::X, 5.0 * PI / 4.0);
         let u1 = center + r * rotate(Vec2::X, 3.0 * PI / 6.0);
         let u2 = center + r * rotate(Vec2::X, 5.0 * PI / 4.0);
         gizmos.line_2d(map(c1), map(u1), GRAY.with_alpha(0.1));
@@ -333,7 +332,7 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
         draw_circle(
             gizmos,
             lup.pv().pos,
-            s * state.camera.actual_scale,
+            s * state.orbital_camera.actual_scale,
             GRAY.with_alpha(0.1),
         );
     }
@@ -350,7 +349,7 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     draw_pointing_vector(orbiter.vehicle.pointing(), LIME);
     draw_pointing_vector(orbiter.vehicle.target_pointing(), LIME.with_alpha(0.4));
 
-    let r = r * state.camera.actual_scale;
+    let r = r * state.orbital_camera.actual_scale;
     draw_circle(gizmos, map(center), r, GRAY);
 
     let p = orbiter.fuel_percentage();
@@ -361,7 +360,7 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
             draw_triangle(
                 gizmos,
                 map(center),
-                30.0 * state.camera.actual_scale,
+                30.0 * state.orbital_camera.actual_scale,
                 YELLOW,
             );
         }
@@ -454,7 +453,7 @@ fn draw_scenario(
     show_orbits: ShowOrbitsState,
     track_list: &HashSet<OrbiterId>,
     piloting: Option<OrbiterId>,
-    mode: GameMode,
+    mode: DrawMode,
 ) {
     draw_planets(gizmos, scenario.planets(), stamp, Vec2::ZERO, mode);
 
@@ -617,7 +616,12 @@ fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) {
         .into_iter()
         .filter_map(|id| {
             let pv = state.scenario.lup_orbiter(id, state.sim_time)?.pv();
-            draw_circle(gizmos, pv.pos, 20.0 * state.camera.actual_scale, GRAY);
+            draw_circle(
+                gizmos,
+                pv.pos,
+                20.0 * state.orbital_camera.actual_scale,
+                GRAY,
+            );
             Some(())
         })
         .collect::<Vec<_>>();
@@ -742,13 +746,13 @@ fn draw_timeline(gizmos: &mut Gizmos, state: &GameState) {
     let tmin = state.sim_time - Nanotime::secs(1);
     let tmax = state.sim_time + Nanotime::secs(120);
 
-    let b = state.camera.world_bounds();
-    let c = state.camera.viewport_bounds();
+    let b = state.orbital_camera.world_bounds();
+    let c = state.orbital_camera.viewport_bounds();
 
-    let width = state.camera.window_dims.x * 0.5;
-    let y_root = state.camera.window_dims.y - 40.0;
+    let width = state.orbital_camera.window_dims.x * 0.5;
+    let y_root = state.orbital_camera.window_dims.y - 40.0;
     let row_height = 5.0;
-    let x_center = state.camera.window_dims.x / 2.0;
+    let x_center = state.orbital_camera.window_dims.x / 2.0;
     let x_min = x_center - width / 2.0;
 
     let map = |p: Vec2| c.map(b, p);
@@ -765,7 +769,7 @@ fn draw_timeline(gizmos: &mut Gizmos, state: &GameState) {
 
     let mut draw_tick_mark = |t: Nanotime, row: usize, scale: f32, color: Srgba| {
         let p = p_at(t, row);
-        let h = Vec2::Y * state.camera.actual_scale * row_height * scale / 2.0;
+        let h = Vec2::Y * state.orbital_camera.actual_scale * row_height * scale / 2.0;
         gizmos.line_2d(p + h, p - h, color);
     };
 
@@ -796,7 +800,7 @@ fn draw_timeline(gizmos: &mut Gizmos, state: &GameState) {
             let p1 = p_at(segment.start.max(tmin), i);
             let p2 = p_at(segment.end.min(tmax), i);
             gizmos.line_2d(p1, p2, BLUE.with_alpha(alpha * 0.3));
-            let size = state.camera.actual_scale * row_height * 0.5;
+            let size = state.orbital_camera.actual_scale * row_height * 0.5;
             for t in [segment.start, segment.end] {
                 if t < tmin || t > tmax {
                     continue;
@@ -808,7 +812,7 @@ fn draw_timeline(gizmos: &mut Gizmos, state: &GameState) {
     }
 }
 
-fn draw_scale_indicator(gizmos: &mut Gizmos, cam: &CameraState) {
+fn draw_scale_indicator(gizmos: &mut Gizmos, cam: &OrbitalCameraState) {
     let width = 300.0;
     let center = Vec2::new(cam.window_dims.x / 2.0, cam.window_dims.y - 20.0);
 
@@ -923,12 +927,12 @@ fn draw_belt_orbits(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
 
         let (_, corner) = belt.position(0.8);
 
-        if state.camera.actual_scale < 2.0 {
+        if state.orbital_camera.actual_scale < 2.0 {
             draw_counter(
                 gizmos,
                 count,
                 origin + corner * 1.1,
-                state.camera.actual_scale,
+                state.orbital_camera.actual_scale,
                 WHITE,
             );
         }
@@ -949,7 +953,7 @@ pub fn draw_notifications(gizmos: &mut Gizmos, state: &GameState) {
             },
         };
 
-        let size = 20.0 * state.camera.actual_scale;
+        let size = 20.0 * state.orbital_camera.actual_scale;
         let s = (state.wall_time - notif.wall_time).to_secs() / notif.duration().to_secs();
         let a = (1.0 - 2.0 * s).max(0.2);
 
@@ -988,7 +992,7 @@ fn draw_graph(
     center: Vec2,
     scale: Vec2,
 ) -> Option<()> {
-    let wb = state.camera.world_bounds();
+    let wb = state.orbital_camera.world_bounds();
     let vb = AABB::new(wb.center + wb.span * center, wb.span * scale);
 
     let map = |p: Vec2| vb.from_normalized(p);
@@ -1015,7 +1019,7 @@ fn draw_graph(
         if !AABB::unit().contains(p) {
             continue;
         }
-        let size = 15.0 * state.camera.actual_scale;
+        let size = 15.0 * state.orbital_camera.actual_scale;
         draw_x(gizmos, map(p), size, WHITE.with_alpha(0.6));
     }
 
@@ -1025,8 +1029,8 @@ fn draw_graph(
 pub fn draw_ui_layout(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let scene = state.current_scene();
 
-    let vb = state.camera.viewport_bounds();
-    let wb = state.camera.world_bounds();
+    let vb = state.orbital_camera.viewport_bounds();
+    let wb = state.orbital_camera.world_bounds();
     let map = |aabb: AABB| vb.map_box(wb, aabb);
 
     let fm = |aabb: AABB| {
@@ -1071,8 +1075,8 @@ pub fn draw_orbit_spline(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     Some(())
 }
 
-pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, scene: &OrbitalScene) {
-    draw_scale_indicator(gizmos, &state.camera);
+pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, _scene: &OrbitalContext) {
+    draw_scale_indicator(gizmos, &state.orbital_camera);
 
     draw_piloting_overlay(gizmos, &state);
 
@@ -1085,23 +1089,11 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, scene: &Orbital
     }
 
     if let Some((m1, m2, corner)) = state.measuring_tape() {
-        draw_x(gizmos, m1, 12.0 * state.camera.actual_scale, GRAY);
-        draw_x(gizmos, m2, 12.0 * state.camera.actual_scale, GRAY);
+        draw_x(gizmos, m1, 12.0 * state.orbital_camera.actual_scale, GRAY);
+        draw_x(gizmos, m2, 12.0 * state.orbital_camera.actual_scale, GRAY);
         gizmos.line_2d(m1, m2, GRAY);
         gizmos.line_2d(m1, corner, GRAY.with_alpha(0.3));
         gizmos.line_2d(m2, corner, GRAY.with_alpha(0.3));
-    }
-
-    for (t, pos, vel, l) in &state.particles {
-        let age = (state.wall_time - *t).to_secs();
-        let p = pos + vel * age * state.camera.actual_scale;
-        let a = 1.0 - (age / l.to_secs());
-        draw_circle(
-            gizmos,
-            p,
-            1.2 * state.camera.actual_scale,
-            WHITE.with_alpha(a),
-        );
     }
 
     for orbit in &state.queued_orbits {
@@ -1164,7 +1156,7 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, scene: &Orbital
             state.wall_time,
             ctrl,
             &state.scenario,
-            state.camera.actual_scale,
+            state.orbital_camera.actual_scale,
             tracked,
         );
     }
@@ -1176,7 +1168,7 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, scene: &Orbital
                 &state.scenario,
                 *id,
                 state.sim_time,
-                state.camera.actual_scale,
+                state.orbital_camera.actual_scale,
                 state.wall_time,
             );
         }
@@ -1187,7 +1179,7 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, scene: &Orbital
         &state.scenario,
         state.sim_time,
         state.wall_time,
-        state.camera.actual_scale,
+        state.orbital_camera.actual_scale,
         state.show_orbits,
         &state.track_list,
         state.piloting(),
@@ -1197,7 +1189,7 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, scene: &Orbital
     draw_x(
         gizmos,
         state.light_source(),
-        20.0 * state.camera.actual_scale,
+        20.0 * state.orbital_camera.actual_scale,
         RED.with_alpha(0.2),
     );
 
@@ -1207,15 +1199,16 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, scene: &Orbital
 
     draw_belt_orbits(gizmos, &state);
 
-    if let Some(p) = state
-        .mouse
-        .world_position(MouseButt::Hover, FrameId::Current)
-    {
+    if let Some(p) = state.mouse.world_position(
+        MouseButt::Hover,
+        FrameId::Current,
+        state.orbital_camera.world_bounds(),
+    ) {
         draw_counter(
             gizmos,
             state.highlighted().len() as u64,
             p,
-            state.camera.actual_scale,
+            state.orbital_camera.actual_scale,
             WHITE,
         );
     }
@@ -1263,7 +1256,12 @@ fn draw_telescope_view(gizmos: &mut Gizmos, state: &GameState, scene: &Telescope
 
     let map = |p: Vec3| -> Vec2 { orthographic_camera_map(p, center, normal, x, y) };
 
-    draw_cross(gizmos, scene.center, 5.0 * state.camera.actual_scale, GRAY);
+    draw_cross(
+        gizmos,
+        scene.center,
+        5.0 * state.orbital_camera.actual_scale,
+        GRAY,
+    );
     for (star, color, radius) in &state.starfield {
         let star_zero = star.with_z(0.0);
         let p = map(*star);
@@ -1293,39 +1291,40 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     // draw_mouse_state(gizmos, &state.mouse, state.wall_time);
 }
 
-fn draw_mouse_state(gizmos: &mut Gizmos, mouse: &MouseState, wall_time: Nanotime) {
+fn draw_mouse_state(gizmos: &mut Gizmos, state: &GameState, wall_time: Nanotime) {
     let points = [
         (MouseButt::Left, BLUE),
         (MouseButt::Right, GREEN),
         (MouseButt::Middle, YELLOW),
     ];
 
-    if let Some(p) = mouse.world_position(MouseButt::Hover, FrameId::Current) {
-        draw_circle(gizmos, p, 8.0 * mouse.scale(), RED);
+    let wb = state.orbital_camera.world_bounds();
+
+    if let Some(p) = state
+        .mouse
+        .world_position(MouseButt::Hover, FrameId::Current, wb)
+    {
+        draw_circle(gizmos, p, 8.0, RED);
     }
 
     for (b, c) in points {
-        let p1 = mouse.world_position(b, FrameId::Down);
-        let p2 = mouse
-            .world_position(b, FrameId::Current)
-            .or(mouse.world_position(b, FrameId::Up));
+        let p1 = state.mouse.world_position(b, FrameId::Down, wb);
+        let p2 = state
+            .mouse
+            .world_position(b, FrameId::Current, wb)
+            .or(state.mouse.world_position(b, FrameId::Up, wb));
 
         if let Some((p1, p2)) = p1.zip(p2) {
             gizmos.line_2d(p1, p2, c);
         }
 
         for fid in [FrameId::Down, FrameId::Up] {
-            let age = mouse.age(b, fid, wall_time);
-            let p = mouse.world_position(b, fid);
+            let age = state.mouse.age(b, fid, wall_time);
+            let p = state.mouse.world_position(b, fid, wb);
             if let Some((p, age)) = p.zip(age) {
                 let dt = age.to_secs();
                 let a = (1.0 - dt).max(0.0);
-                draw_circle(
-                    gizmos,
-                    p,
-                    50.0 * mouse.scale() * age.to_secs(),
-                    c.with_alpha(a),
-                );
+                draw_circle(gizmos, p, 50.0 * age.to_secs(), c.with_alpha(a));
             }
         }
     }

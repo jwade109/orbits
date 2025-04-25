@@ -1,4 +1,4 @@
-use crate::{scenes::Scene, ui::InteractionEvent};
+use crate::ui::InteractionEvent;
 use starling::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
@@ -11,7 +11,7 @@ impl TelescopeScene {
         TelescopeScene { center: Vec2::ZERO }
     }
 
-    pub fn on_interaction(&mut self, inter: &InteractionEvent) {
+    pub fn on_interaction(&mut self, _inter: &InteractionEvent) {
         self.center += randvec(1.0, 10.0);
     }
 }

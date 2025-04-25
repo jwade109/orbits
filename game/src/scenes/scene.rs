@@ -1,8 +1,8 @@
 #![allow(unused)]
 
-use crate::mouse::{FrameId, MouseButt, MouseState};
+use crate::mouse::{FrameId, MouseButt, InputState};
 use crate::planetary::{CursorMode, GameState};
-use crate::scenes::{OrbitalScene, OrbitalView, TelescopeScene};
+use crate::scenes::{OrbitalContext, OrbitalView, TelescopeScene};
 use crate::ui::{InteractionEvent, OnClick};
 use bevy::log::*;
 use layout::layout::Tree;
@@ -10,7 +10,7 @@ use starling::prelude::*;
 
 #[derive(Debug, Clone)]
 pub enum SceneType {
-    OrbitalView(OrbitalScene),
+    OrbitalView(OrbitalContext),
     DockingView(OrbiterId),
     TelescopeView(TelescopeScene),
     MainMenu,
@@ -37,7 +37,7 @@ impl Scene {
     pub fn orbital(name: impl Into<String>, primary: PlanetId) -> Self {
         Scene {
             name: name.into(),
-            scene_type: SceneType::OrbitalView(OrbitalScene::new(primary)),
+            scene_type: SceneType::OrbitalView(OrbitalContext::new(primary)),
             ui: Tree::new(),
         }
     }
@@ -74,7 +74,7 @@ impl Scene {
         &self.scene_type
     }
 
-    pub fn current_clicked_gui_element(&self, mouse: &MouseState) -> Option<OnClick> {
+    pub fn current_clicked_gui_element(&self, mouse: &InputState) -> Option<OnClick> {
         let a = mouse.position(MouseButt::Left, FrameId::Down);
         let b = mouse.position(MouseButt::Right, FrameId::Down);
         let p = a.or(b)?;
@@ -82,17 +82,16 @@ impl Scene {
         self.ui.at(q).map(|n| n.id()).flatten().cloned()
     }
 
-    pub fn mouse_if_world<'a>(&self, mouse: &'a MouseState) -> Option<&'a MouseState> {
+    pub fn mouse_if_world<'a>(&self, mouse: &'a InputState) -> Option<&'a InputState> {
         let id = self.current_clicked_gui_element(mouse)?;
         (id == OnClick::World).then(|| mouse)
     }
 
-    pub fn orbital_view<'a>(&'a self, mouse: &'a MouseState) -> Option<OrbitalView<'a>> {
+    pub fn orbital_view<'a>(&'a self, mouse: &'a InputState) -> Option<OrbitalView<'a>> {
         match &self.scene_type {
             SceneType::OrbitalView(info) => Some(OrbitalView {
                 info,
                 mouse,
-                ui: &self.ui,
                 scene: &self,
             }),
             _ => None,

@@ -1,16 +1,15 @@
 // ignore-tidy-linelength
 
 use crate::camera_controls::*;
-use crate::mouse::{FrameId, MouseButt, MouseState};
+use crate::mouse::{FrameId, MouseButt, InputState};
 use crate::notifications::*;
-use crate::scenes::{OrbitalView, Scene, SceneType};
+use crate::scenes::Scene;
 use crate::ui::InteractionEvent;
 use bevy::color::palettes::css::*;
 use bevy::core_pipeline::bloom::Bloom;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 use bevy::window::WindowMode;
-use layout::layout as ui;
 use rfd::FileDialog;
 use starling::prelude::*;
 use std::collections::{HashMap, HashSet};
@@ -35,7 +34,7 @@ impl Plugin for PlanetaryPlugin {
                 handle_interactions,
                 handle_camera_interactions,
                 crate::mouse::update_mouse_state,
-                // update camera stuff
+                // update orbital_camera stuff
                 move_camera_and_store,
                 // rendering
                 crate::sprites::make_new_sprites,
@@ -92,13 +91,13 @@ fn move_camera_and_store(
     tf.translation += (target.translation - current.translation) * 1.0;
     tf.scale += (target.scale - current.scale) * 1.0;
 
-    state.camera.actual_scale = tf.scale.z;
-    state.camera.world_center = tf.translation.xy();
-    state.camera.window_dims = Vec2::new(window.width(), window.height());
+    state.orbital_camera.actual_scale = tf.scale.z;
+    state.orbital_camera.world_center = tf.translation.xy();
+    state.orbital_camera.window_dims = Vec2::new(window.width(), window.height());
 
-    state.mouse.viewport_bounds = state.camera.viewport_bounds();
-    state.mouse.world_bounds = state.camera.world_bounds();
-    state.mouse.scale = tf.scale.z;
+    state.mouse.viewport_bounds = state.orbital_camera.viewport_bounds();
+    state.mouse._world_bounds = state.orbital_camera.world_bounds();
+    state.mouse.orbital_scale = tf.scale.z;
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -120,7 +119,7 @@ impl ShowOrbitsState {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum GameMode {
+pub enum DrawMode {
     Default,
     Constellations,
     Stability,
@@ -131,13 +130,13 @@ trait EnumIter {
     fn next(&self) -> Self;
 }
 
-impl EnumIter for GameMode {
+impl EnumIter for DrawMode {
     fn next(&self) -> Self {
         match self {
-            GameMode::Default => GameMode::Constellations,
-            GameMode::Constellations => GameMode::Stability,
-            GameMode::Stability => GameMode::Occlusion,
-            GameMode::Occlusion => GameMode::Default,
+            DrawMode::Default => DrawMode::Constellations,
+            DrawMode::Constellations => DrawMode::Stability,
+            DrawMode::Stability => DrawMode::Occlusion,
+            DrawMode::Occlusion => DrawMode::Default,
         }
     }
 }
@@ -165,8 +164,8 @@ impl EnumIter for CursorMode {
 pub struct GameState {
     pub current_frame_no: u32,
 
-    pub mouse: MouseState,
-    pub camera: CameraState,
+    pub mouse: InputState,
+    pub orbital_camera: OrbitalCameraState,
 
     pub sim_time: Nanotime,
     pub wall_time: Nanotime,
@@ -197,10 +196,9 @@ pub struct GameState {
     pub redraw_requested: bool,
     pub last_redraw: Nanotime,
 
-    pub game_mode: GameMode,
+    pub game_mode: DrawMode,
 
     pub notifications: Vec<Notification>,
-    pub particles: Vec<(Nanotime, Vec2, Vec2, Nanotime)>,
     pub text_labels: Vec<(Vec2, String, f32)>,
 }
 
@@ -224,8 +222,8 @@ impl Default for GameState {
 
         GameState {
             current_frame_no: 0,
-            mouse: MouseState::default(),
-            camera: CameraState::default(),
+            mouse: InputState::default(),
+            orbital_camera: OrbitalCameraState::default(),
             sim_time: Nanotime::zero(),
             wall_time: Nanotime::zero(),
             physics_duration: Nanotime::secs(120),
@@ -257,9 +255,8 @@ impl Default for GameState {
             context_menu_origin: None,
             redraw_requested: true,
             last_redraw: Nanotime::zero(),
-            game_mode: GameMode::Default,
+            game_mode: DrawMode::Default,
             notifications: Vec::new(),
-            particles: Vec::new(),
             text_labels: Vec::new(),
         }
     }
@@ -355,13 +352,11 @@ impl GameState {
         dvs
     }
 
-    #[deprecated]
     pub fn selection_region(&self) -> Option<Region> {
         let ov = self.current_scene().orbital_view(&self.mouse)?;
         ov.selection_region(self)
     }
 
-    #[deprecated]
     pub fn measuring_tape(&self) -> Option<(Vec2, Vec2, Vec2)> {
         if self.selection_mode != CursorMode::Measure {
             return None;
@@ -369,10 +364,9 @@ impl GameState {
 
         let scene = self.current_scene();
         let ov = scene.orbital_view(&self.mouse)?;
-        ov.measuring_tape()
+        ov.measuring_tape(self)
     }
 
-    #[deprecated]
     pub fn right_cursor_orbit(&self) -> Option<GlobalOrbit> {
         let scene = self.current_scene();
         let ov = scene.orbital_view(&self.mouse)?;
@@ -432,29 +426,6 @@ impl GameState {
         let orbit = self.current_orbit()?.clone();
         self.command_selected(&orbit);
         Some(())
-    }
-
-    pub fn is_maneuvering(&self, id: OrbiterId) -> Option<(Nanotime, Vec2)> {
-        // this is a stupid function
-        if let Some((t, dv)) = self.user_maneuvers.get(&id) {
-            let dt = (*t - self.wall_time).abs();
-            if dt.to_secs() < 0.05 {
-                return Some((*t, *dv));
-            }
-        }
-
-        let m = self.closest_maneuver(id)?;
-        let dt = (m.0 - self.sim_time).abs();
-        (dt.to_secs() < 0.1).then(|| m)
-    }
-
-    pub fn closest_maneuver(&self, id: OrbiterId) -> Option<(Nanotime, Vec2)> {
-        let ctrl = self.controllers.iter().find(|c| c.target() == id)?;
-        let plan = ctrl.plan()?;
-        let ts: Vec<_> = plan.dvs().collect();
-        ts.iter()
-            .min_by_key(|(t, _)| (*t - self.sim_time).abs())
-            .cloned()
     }
 
     pub fn highlighted(&self) -> HashSet<OrbiterId> {
@@ -676,7 +647,7 @@ impl GameState {
     pub fn current_hover_ui(&self) -> Option<&crate::ui::OnClick> {
         let scene = self.current_scene();
         let p = self.mouse.position(MouseButt::Hover, FrameId::Current)?;
-        let q = Vec2::new(p.x, self.camera.viewport_bounds().span.y - p.y);
+        let q = Vec2::new(p.x, self.orbital_camera.viewport_bounds().span.y - p.y);
         scene.ui().at(q).map(|n| n.id()).flatten()
     }
 
@@ -813,43 +784,15 @@ impl GameState {
         self.notifications
             .retain(|n| n.wall_time + n.duration() > self.wall_time);
 
-        let maneuvering: Vec<_> = self
-            .scenario
-            .orbiter_ids()
-            .filter_map(|id| self.is_maneuvering(id).map(|man| (id, man.0, man.1)))
-            .collect();
-
-        for (id, _, dv) in maneuvering {
-            if let Some(orbiter) = self.scenario.orbiter_mut(id) {
-                orbiter.vehicle.main(true);
-            }
-            if let Some(lup) = self.scenario.lup_orbiter(id, s) {
-                let pv = lup.pv();
-                let n = 3;
-                for _ in 0..n {
-                    let lifetime = Nanotime::secs_f32(rand(0.04, 0.07));
-                    let u = -dv.normalize_or_zero();
-                    let v = rotate(u, PI / 2.0);
-                    let vel = pv.vel + rand(500.0, 1100.0) * u + rand(-200.0, 200.0) * v;
-                    self.particles.push((self.wall_time, pv.pos, vel, lifetime));
-                }
-            }
-        }
-
         self.text_labels.clear();
 
         if let Some((m1, m2, corner)) = self.measuring_tape() {
             for (a, b) in [(m1, m2), (m1, corner), (m2, corner)] {
                 let middle = (a + b) / 2.0;
                 let d = format!("{:0.2}", a.distance(b));
-                self.text_labels.push((middle, d, self.camera.actual_scale));
+                self.text_labels.push((middle, d, self.orbital_camera.actual_scale));
             }
         }
-
-        self.particles.retain(|(t, _, _, l)| {
-            let dt = self.wall_time - *t;
-            dt < *l
-        });
 
         self.current_frame_no += 1;
     }
@@ -908,7 +851,7 @@ fn step_system(time: Res<Time>, mut state: ResMut<GameState>) {
 //     show_id_list(&state.highlighted(), "Select");
 
 //     log(&format!("Physics: {:?}", state.physics_duration));
-//     log(&format!("Scale: {:0.3}", state.camera.actual_scale));
+//     log(&format!("Scale: {:0.3}", state.orbital_camera.actual_scale));
 //     log(&format!("Ctlrs: {}", state.controllers.len()));
 
 //     {
@@ -992,7 +935,7 @@ fn process_interaction(
         InteractionEvent::CursorMode => {
             state.selection_mode = state.selection_mode.next();
         }
-        InteractionEvent::GameMode => {
+        InteractionEvent::DrawMode => {
             state.game_mode = state.game_mode.next();
         }
         InteractionEvent::RedrawGui => {
@@ -1017,13 +960,13 @@ fn process_interaction(
             let scene = state.current_scene();
             let n = scene
                 .ui()
-                .at(Vec2::new(p.x, state.camera.viewport_bounds().span.y - p.y))?;
+                .at(Vec2::new(p.x, state.orbital_camera.viewport_bounds().span.y - p.y))?;
             (n.id() == Some(&crate::ui::OnClick::World)).then(|| ())?;
 
             let w = state
-                .camera
+                .orbital_camera
                 .viewport_bounds()
-                .map(state.camera.world_bounds(), *p);
+                .map(state.orbital_camera.world_bounds(), *p);
             let id = state.scenario.nearest(w, state.sim_time);
             if let Some(id) = id {
                 state.follow = Some(id);

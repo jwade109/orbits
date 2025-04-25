@@ -1,37 +1,41 @@
-use crate::ui::{InteractionEvent, OnClick};
-use crate::mouse::{FrameId, MouseButt, MouseState};
+use crate::mouse::{FrameId, MouseButt, InputState};
 use crate::planetary::{CursorMode, GameState};
 use crate::scenes::Scene;
-use layout::layout::Tree;
+use crate::ui::InteractionEvent;
+use bevy::utils::hashbrown::HashSet;
 use starling::prelude::*;
 
+#[allow(unused)]
 #[derive(Debug, Clone)]
-pub struct OrbitalScene {
+pub struct OrbitalContext {
     primary: PlanetId,
+    selected: HashSet<OrbiterId>,
 }
 
-impl OrbitalScene {
+impl OrbitalContext {
     pub fn new(primary: PlanetId) -> Self {
-        Self { primary }
+        Self {
+            primary,
+            selected: HashSet::new(),
+        }
     }
 
-    pub fn on_interaction(&mut self, _inter: &InteractionEvent) {
-
-    }
+    pub fn on_interaction(&mut self, _inter: &InteractionEvent) {}
 }
 
+#[allow(unused)]
 pub struct OrbitalView<'a> {
-    pub info: &'a OrbitalScene,
-    pub mouse: &'a MouseState,
-    pub ui: &'a Tree<OnClick>,
+    pub info: &'a OrbitalContext,
+    pub mouse: &'a InputState,
     pub scene: &'a Scene,
 }
 
 impl<'a> OrbitalView<'a> {
-    pub fn measuring_tape(&self) -> Option<(Vec2, Vec2, Vec2)> {
-        let mouse: &MouseState = self.scene.mouse_if_world(self.mouse)?;
-        let a = mouse.world_position(MouseButt::Left, FrameId::Down)?;
-        let b = mouse.world_position(MouseButt::Left, FrameId::Current)?;
+    pub fn measuring_tape(&self, state: &GameState) -> Option<(Vec2, Vec2, Vec2)> {
+        let wb = state.orbital_camera.world_bounds();
+        let mouse: &InputState = self.scene.mouse_if_world(self.mouse)?;
+        let a = mouse.world_position(MouseButt::Left, FrameId::Down, wb)?;
+        let b = mouse.world_position(MouseButt::Left, FrameId::Current, wb)?;
         let corner = Vec2::new(a.x, b.y);
         Some((a, b, corner))
     }
@@ -64,32 +68,35 @@ impl<'a> OrbitalView<'a> {
     }
 
     pub fn left_cursor_orbit(&self, state: &GameState) -> Option<GlobalOrbit> {
-        let mouse = self.scene.mouse_if_world(&self.mouse)?;
-        let a = self.mouse.world_position(MouseButt::Left, FrameId::Down)?;
+        let wb = state.orbital_camera.world_bounds();
+        let _mouse = self.scene.mouse_if_world(&self.mouse)?;
+        let a = self.mouse.world_position(MouseButt::Left, FrameId::Down, wb)?;
         let b = self
             .mouse
-            .world_position(MouseButt::Left, FrameId::Current)?;
+            .world_position(MouseButt::Left, FrameId::Current, wb)?;
         Self::cursor_orbit(a, b, state)
     }
 
     pub fn right_cursor_orbit(&self, state: &GameState) -> Option<GlobalOrbit> {
+        let wb = state.orbital_camera.world_bounds();
         let mouse = self.scene.mouse_if_world(&self.mouse)?;
-        let a = mouse.world_position(MouseButt::Right, FrameId::Down)?;
-        let b = mouse.world_position(MouseButt::Right, FrameId::Current)?;
+        let a = mouse.world_position(MouseButt::Right, FrameId::Down, wb)?;
+        let b = mouse.world_position(MouseButt::Right, FrameId::Current, wb)?;
         Self::cursor_orbit(a, b, state)
     }
 
     pub fn selection_region(&self, state: &GameState) -> Option<Region> {
-        let mouse: &MouseState = self.scene.mouse_if_world(&self.mouse)?;
+        let wb = state.orbital_camera.world_bounds();
+        let mouse: &InputState = self.scene.mouse_if_world(&self.mouse)?;
         match state.selection_mode {
             CursorMode::Rect => {
-                let a = mouse.world_position(MouseButt::Left, FrameId::Down)?;
-                let b = mouse.world_position(MouseButt::Left, FrameId::Current)?;
+                let a = mouse.world_position(MouseButt::Left, FrameId::Down, wb)?;
+                let b = mouse.world_position(MouseButt::Left, FrameId::Current, wb)?;
                 Some(Region::aabb(a, b))
             }
             CursorMode::Altitude => {
-                let a = mouse.world_position(MouseButt::Left, FrameId::Down)?;
-                let b = mouse.world_position(MouseButt::Left, FrameId::Current)?;
+                let a = mouse.world_position(MouseButt::Left, FrameId::Down, wb)?;
+                let b = mouse.world_position(MouseButt::Left, FrameId::Current, wb)?;
                 Some(Region::altitude(a, b))
             }
             CursorMode::NearOrbit => self

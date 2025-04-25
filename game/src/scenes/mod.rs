@@ -3,5 +3,5 @@ mod orbital;
 mod telescope;
 
 pub use scene::{Scene, SceneType};
-pub use orbital::{OrbitalScene, OrbitalView};
+pub use orbital::{OrbitalContext, OrbitalView};
 pub use telescope::TelescopeScene;
