@@ -180,4 +180,24 @@ impl<'a> OrbitalView<'a> {
         let b = mouse.world_position(MouseButt::Right, FrameId::Current)?;
         Self::cursor_orbit(a, b, state)
     }
+
+    pub fn selection_region(&self, state: &GameState) -> Option<Region> {
+        let mouse: &MouseState = self.scene.mouse_if_world(&self.mouse)?;
+        match state.selection_mode {
+            CursorMode::Rect => {
+                let a = mouse.world_position(MouseButt::Left, FrameId::Down)?;
+                let b = mouse.world_position(MouseButt::Left, FrameId::Current)?;
+                Some(Region::aabb(a, b))
+            }
+            CursorMode::Altitude => {
+                let a = mouse.world_position(MouseButt::Left, FrameId::Down)?;
+                let b = mouse.world_position(MouseButt::Left, FrameId::Current)?;
+                Some(Region::altitude(a, b))
+            }
+            CursorMode::NearOrbit => self
+                .left_cursor_orbit(state)
+                .map(|GlobalOrbit(_, orbit)| Region::NearOrbit(orbit, 50.0)),
+            CursorMode::Measure => None,
+        }
+    }
 }

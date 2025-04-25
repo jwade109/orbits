@@ -355,24 +355,10 @@ impl GameState {
         dvs
     }
 
+    #[deprecated]
     pub fn selection_region(&self) -> Option<Region> {
-        let mouse: &MouseState = self.mouse_if_world()?;
-        match self.selection_mode {
-            CursorMode::Rect => {
-                let a = mouse.world_position(MouseButt::Left, FrameId::Down)?;
-                let b = mouse.world_position(MouseButt::Left, FrameId::Current)?;
-                Some(Region::aabb(a, b))
-            }
-            CursorMode::Altitude => {
-                let a = mouse.world_position(MouseButt::Left, FrameId::Down)?;
-                let b = mouse.world_position(MouseButt::Left, FrameId::Current)?;
-                Some(Region::altitude(a, b))
-            }
-            CursorMode::NearOrbit => self
-                .left_cursor_orbit()
-                .map(|GlobalOrbit(_, orbit)| Region::NearOrbit(orbit, 50.0)),
-            CursorMode::Measure => None,
-        }
+        let ov = self.current_scene().orbital_view(&self.mouse)?;
+        ov.selection_region(self)
     }
 
     #[deprecated]
@@ -384,19 +370,6 @@ impl GameState {
         let scene = self.current_scene();
         let ov = scene.orbital_view(&self.mouse)?;
         ov.measuring_tape()
-    }
-
-    pub fn mouse_if_world<'a>(&'a self) -> Option<&'a MouseState> {
-        let scene = self.current_scene();
-        let id = scene.current_clicked_gui_element(&self.mouse)?;
-        (id == crate::ui::OnClick::World).then(|| &self.mouse)
-    }
-
-    #[deprecated]
-    pub fn left_cursor_orbit(&self) -> Option<GlobalOrbit> {
-        let scene = self.current_scene();
-        let ov = scene.orbital_view(&self.mouse)?;
-        ov.left_cursor_orbit(self)
     }
 
     #[deprecated]
