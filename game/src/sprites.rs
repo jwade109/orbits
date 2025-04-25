@@ -224,7 +224,7 @@ pub fn update_spacecraft_sprites(
         let lup = state.scenario.lup_orbiter(id, state.sim_time);
         let orbiter = lup.as_ref().map(|lup| lup.orbiter()).flatten();
         if let Some((lup, orbiter)) = lup.zip(orbiter) {
-            let z_index = if state.track_list.contains(&id) {
+            let z_index = if state.orbital_context.selected.contains(&id) {
                 SELECTED_SPACECRAFT_Z_INDEX
             } else {
                 SPACECRAFT_Z_INDEX
@@ -241,19 +241,19 @@ pub fn update_spacecraft_sprites(
                 .all(|(pv, body)| !is_occluded(light_source, pos, pv.pos, body.radius));
 
             let (target_scale, color) = if state.game_mode == DrawMode::Default {
-                let scale = if state.track_list.contains(&id) {
+                let scale = if state.orbital_context.selected.contains(&id) {
                     SPACECRAFT_MAGNIFIED_SCALE
                 } else if !is_lit {
                     0.0
-                } else if state.track_list.is_empty() {
+                } else if state.orbital_context.selected.is_empty() {
                     SPACECRAFT_DEFAULT_SCALE
                 } else {
                     SPACECRAFT_DIMINISHED_SCALE
                 };
 
-                let color = if state.track_list.is_empty() {
+                let color = if state.orbital_context.selected.is_empty() {
                     WHITE
-                } else if state.track_list.contains(&id) {
+                } else if state.orbital_context.selected.contains(&id) {
                     WHITE
                 } else {
                     WHITE.with_alpha(0.2)
@@ -266,9 +266,9 @@ pub fn update_spacecraft_sprites(
                     _ => None,
                 };
 
-                let scale = if state.track_list.is_empty() && gid.is_some() {
+                let scale = if state.orbital_context.selected.is_empty() && gid.is_some() {
                     SPACECRAFT_DEFAULT_SCALE
-                } else if state.track_list.contains(&id) {
+                } else if state.orbital_context.selected.contains(&id) {
                     SPACECRAFT_MAGNIFIED_SCALE
                 } else {
                     SPACECRAFT_DIMINISHED_SCALE
@@ -283,9 +283,9 @@ pub fn update_spacecraft_sprites(
                 (scale, color)
             } else if state.game_mode == DrawMode::Stability {
                 // stability
-                let scale = if state.track_list.is_empty() {
+                let scale = if state.orbital_context.selected.is_empty() {
                     SPACECRAFT_DEFAULT_SCALE
-                } else if state.track_list.contains(&id) {
+                } else if state.orbital_context.selected.contains(&id) {
                     SPACECRAFT_MAGNIFIED_SCALE
                 } else {
                     SPACECRAFT_DIMINISHED_SCALE
@@ -298,9 +298,9 @@ pub fn update_spacecraft_sprites(
 
                 (scale, color)
             } else {
-                let scale = if state.track_list.is_empty() {
+                let scale = if state.orbital_context.selected.is_empty() {
                     SPACECRAFT_DEFAULT_SCALE
-                } else if state.track_list.contains(&id) {
+                } else if state.orbital_context.selected.contains(&id) {
                     SPACECRAFT_MAGNIFIED_SCALE
                 } else {
                     SPACECRAFT_DIMINISHED_SCALE
@@ -315,7 +315,7 @@ pub fn update_spacecraft_sprites(
             };
 
             s.color = color.into();
-            transform.scale = Vec3::splat(scale * state.orbital_camera.actual_scale);
+            transform.scale = Vec3::splat(scale * state.orbital_context.actual_scale);
             x.1 += (target_scale - scale) * 0.2;
         } else {
             commands.entity(e).despawn();
@@ -324,7 +324,7 @@ pub fn update_spacecraft_sprites(
 }
 
 pub fn update_background_sprite(
-    mut orbital_camera: Single<&mut Camera, With<crate::planetary::DingusController>>,
+    mut orbital_context: Single<&mut Camera, With<crate::planetary::DingusController>>,
     state: Res<GameState>,
 ) {
     let c = match state.game_mode {
@@ -334,5 +334,5 @@ pub fn update_background_sprite(
         DrawMode::Occlusion => GRAY.with_luminance(0.04),
     };
 
-    orbital_camera.clear_color = ClearColorConfig::Custom(c.with_alpha(0.0).into());
+    orbital_context.clear_color = ClearColorConfig::Custom(c.with_alpha(0.0).into());
 }

@@ -26,7 +26,6 @@ pub enum InteractionEvent {
     SimSlower,
     SimPause,
     SimFaster,
-    ToggleGraph,
     ClearSelection,
     ClearOrbitQueue,
     ExitApp,
@@ -46,7 +45,7 @@ pub enum InteractionEvent {
     // mouse stuff
     DoubleClick(Vec2),
 
-    // orbital_camera operations
+    // orbital_context operations
     MoveLeft,
     MoveRight,
     MoveUp,
@@ -346,7 +345,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
 
     if let Some(lup) = state
         .scenario
-        .relevant_body(state.orbital_camera.world_center, state.sim_time)
+        .relevant_body(state.orbital_context.world_center, state.sim_time)
         .map(|id| state.scenario.lup_planet(id, state.sim_time))
         .flatten()
     {
@@ -392,7 +391,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
             Size::Grow,
             button_height,
         )
-        .enabled(state.current_orbit().is_some() && !state.track_list.is_empty()),
+        .enabled(state.current_orbit().is_some() && !state.orbital_context.selected.is_empty()),
     );
 
     sidebar.add_child(Node::button(
@@ -426,9 +425,9 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
     sidebar.add_child(Node::hline());
 
     sidebar.add_child({
-        let s = format!("{} selected", state.track_list.len());
+        let s = format!("{} selected", state.orbital_context.selected.len());
         let b = Node::button(s, OnClick::SelectedCount, Size::Grow, button_height).enabled(false);
-        if state.track_list.is_empty() {
+        if state.orbital_context.selected.is_empty() {
             b
         } else {
             delete_wrapper(OnClick::ClearTracks, b, Size::Grow, button_height)
@@ -465,8 +464,8 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
         }
     };
 
-    if !state.track_list.is_empty() {
-        orbiter_list(&mut sidebar, 32, state.track_list.iter().cloned().collect());
+    if !state.orbital_context.selected.is_empty() {
+        orbiter_list(&mut sidebar, 32, state.orbital_context.selected.iter().cloned().collect());
         sidebar.add_child(Node::button(
             "Create Group",
             OnClick::CreateGroup,
@@ -586,12 +585,6 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
     let mut tree = Tree::new().with_layout(root, Vec2::ZERO);
 
     let vb = state.input.screen_bounds;
-
-    if let Some(p) = state.context_menu_origin {
-        let ctx = orbiter_context_menu(OrbiterId(0));
-        let p = Vec2::new(p.x, vb.span.y - p.y);
-        tree.add_layout(ctx, p);
-    }
 
     if let Some(layout) = current_inventory_layout(state) {
         tree.add_layout(layout, Vec2::splat(400.0));

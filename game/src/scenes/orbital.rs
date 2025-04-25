@@ -2,14 +2,16 @@ use crate::mouse::{FrameId, InputState, MouseButt};
 use crate::planetary::{CursorMode, GameState};
 use crate::scenes::Scene;
 use crate::ui::InteractionEvent;
-use bevy::utils::hashbrown::HashSet;
 use starling::prelude::*;
+use std::collections::HashSet;
 
 #[allow(unused)]
 #[derive(Debug, Clone)]
 pub struct OrbitalContext {
     primary: PlanetId,
-    selected: HashSet<OrbiterId>,
+    pub selected: HashSet<OrbiterId>,
+    pub world_center: Vec2,
+    pub actual_scale: f32,
 }
 
 impl OrbitalContext {
@@ -17,10 +19,16 @@ impl OrbitalContext {
         Self {
             primary,
             selected: HashSet::new(),
+            world_center: Vec2::ZERO,
+            actual_scale: 0.4,
         }
     }
 
     pub fn on_interaction(&mut self, _inter: &InteractionEvent) {}
+
+    pub fn world_bounds(&self, window_dims: Vec2) -> AABB {
+        AABB::new(self.world_center, window_dims * self.actual_scale)
+    }
 }
 
 #[allow(unused)]
@@ -33,7 +41,7 @@ pub struct OrbitalView<'a> {
 impl<'a> OrbitalView<'a> {
     pub fn measuring_tape(&self, state: &GameState) -> Option<(Vec2, Vec2, Vec2)> {
         let vb = state.input.screen_bounds.span;
-        let wb = state.orbital_camera.world_bounds(vb);
+        let wb = state.orbital_context.world_bounds(vb);
         let mouse: &InputState = self.scene.mouse_if_world(self.input)?;
         let a = mouse.world_position(MouseButt::Left, FrameId::Down, wb)?;
         let b = mouse.world_position(MouseButt::Left, FrameId::Current, wb)?;
@@ -70,7 +78,7 @@ impl<'a> OrbitalView<'a> {
 
     pub fn left_cursor_orbit(&self, state: &GameState) -> Option<GlobalOrbit> {
         let vb = state.input.screen_bounds.span;
-        let wb = state.orbital_camera.world_bounds(vb);
+        let wb = state.orbital_context.world_bounds(vb);
         let _mouse = self.scene.mouse_if_world(&self.input)?;
         let a = self
             .input
@@ -83,7 +91,7 @@ impl<'a> OrbitalView<'a> {
 
     pub fn right_cursor_orbit(&self, state: &GameState) -> Option<GlobalOrbit> {
         let vb = state.input.screen_bounds.span;
-        let wb = state.orbital_camera.world_bounds(vb);
+        let wb = state.orbital_context.world_bounds(vb);
         let mouse = self.scene.mouse_if_world(&self.input)?;
         let a = mouse.world_position(MouseButt::Right, FrameId::Down, wb)?;
         let b = mouse.world_position(MouseButt::Right, FrameId::Current, wb)?;
@@ -92,7 +100,7 @@ impl<'a> OrbitalView<'a> {
 
     pub fn selection_region(&self, state: &GameState) -> Option<Region> {
         let vb = state.input.screen_bounds.span;
-        let wb = state.orbital_camera.world_bounds(vb);
+        let wb = state.orbital_context.world_bounds(vb);
         let mouse: &InputState = self.scene.mouse_if_world(&self.input)?;
         match state.selection_mode {
             CursorMode::Rect => {

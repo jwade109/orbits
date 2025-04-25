@@ -1,9 +1,8 @@
 // ignore-tidy-linelength
 
-use crate::camera_controls::*;
 use crate::mouse::{FrameId, InputState, MouseButt};
 use crate::notifications::*;
-use crate::scenes::Scene;
+use crate::scenes::{OrbitalContext, Scene};
 use crate::ui::InteractionEvent;
 use bevy::color::palettes::css::*;
 use bevy::core_pipeline::bloom::Bloom;
@@ -34,7 +33,7 @@ impl Plugin for PlanetaryPlugin {
                 handle_interactions,
                 handle_camera_interactions,
                 crate::mouse::update_input_state,
-                // update orbital_camera stuff
+                // update orbital_context stuff
                 move_camera_and_store,
                 // rendering
                 crate::sprites::make_new_sprites,
@@ -85,8 +84,8 @@ fn move_camera_and_store(
     mut state: ResMut<GameState>,
 ) {
     let tf = query.deref_mut();
-    state.orbital_camera.actual_scale = tf.scale.z;
-    state.orbital_camera.world_center = tf.translation.xy();
+    state.orbital_context.actual_scale = tf.scale.z;
+    state.orbital_context.world_center = tf.translation.xy();
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -154,7 +153,7 @@ pub struct GameState {
     pub current_frame_no: u32,
 
     pub input: InputState,
-    pub orbital_camera: OrbitalCameraState,
+    pub orbital_context: OrbitalContext,
 
     pub sim_time: Nanotime,
     pub wall_time: Nanotime,
@@ -163,12 +162,8 @@ pub struct GameState {
     pub paused: bool,
     pub scenario: Scenario,
     pub ids: ObjectIdTracker,
-    pub backup: Option<(Scenario, ObjectIdTracker, Nanotime)>,
-    pub track_list: HashSet<OrbiterId>,
-    pub show_graph: bool,
     pub controllers: Vec<Controller>,
     pub follow: Option<ObjectId>,
-    pub user_maneuvers: HashMap<OrbiterId, (Nanotime, Vec2)>,
     pub show_orbits: ShowOrbitsState,
     pub show_animations: bool,
     pub queued_orbits: Vec<GlobalOrbit>,
@@ -179,8 +174,6 @@ pub struct GameState {
     pub scenes: Vec<Scene>,
     pub current_scene_idx: usize,
     pub current_orbit: Option<usize>,
-
-    pub context_menu_origin: Option<Vec2>,
 
     pub redraw_requested: bool,
     pub last_redraw: Nanotime,
@@ -212,7 +205,7 @@ impl Default for GameState {
         GameState {
             current_frame_no: 0,
             input: InputState::default(),
-            orbital_camera: OrbitalCameraState::default(),
+            orbital_context: OrbitalContext::new(PlanetId(0)),
             sim_time: Nanotime::zero(),
             wall_time: Nanotime::zero(),
             physics_duration: Nanotime::secs(120),
@@ -220,12 +213,8 @@ impl Default for GameState {
             paused: false,
             scenario: scenario.clone(),
             ids,
-            track_list: HashSet::new(),
-            backup: Some((scenario, ids, Nanotime::zero())),
-            show_graph: false,
             controllers: vec![],
             follow: None,
-            user_maneuvers: HashMap::new(),
             show_orbits: ShowOrbitsState::Focus,
             show_animations: false,
             queued_orbits: Vec::new(),
@@ -241,7 +230,6 @@ impl Default for GameState {
             ],
             current_scene_idx: 0,
             current_orbit: None,
-            context_menu_origin: None,
             redraw_requested: true,
             last_redraw: Nanotime::zero(),
             game_mode: DrawMode::Default,
@@ -266,15 +254,15 @@ impl GameState {
     }
 
     pub fn toggle_track(&mut self, id: OrbiterId) {
-        if self.track_list.contains(&id) {
-            self.track_list.retain(|e| *e != id);
+        if self.orbital_context.selected.contains(&id) {
+            self.orbital_context.selected.retain(|e| *e != id);
         } else {
-            self.track_list.insert(id);
+            self.orbital_context.selected.insert(id);
         }
     }
 
     pub fn is_tracked(&self, id: OrbiterId) -> bool {
-        self.track_list.contains(&id)
+        self.orbital_context.selected.contains(&id)
     }
 
     pub fn get_group_members(&mut self, gid: &GroupId) -> Vec<OrbiterId> {
@@ -311,9 +299,9 @@ impl GameState {
 
         for id in members {
             if all_selected {
-                self.track_list.remove(&id);
+                self.orbital_context.selected.remove(&id);
             } else {
-                self.track_list.insert(id);
+                self.orbital_context.selected.insert(id);
             }
         }
     }
@@ -323,7 +311,7 @@ impl GameState {
     }
 
     pub fn create_group(&mut self, gid: GroupId) {
-        for id in &self.track_list {
+        for id in &self.orbital_context.selected {
             self.constellations.insert(*id, gid.clone());
         }
     }
@@ -402,9 +390,13 @@ impl GameState {
     }
 
     pub fn delete_objects(&mut self) {
-        self.track_list.clone().into_iter().for_each(|id| {
-            self.delete_orbiter(id);
-        });
+        self.orbital_context
+            .selected
+            .clone()
+            .into_iter()
+            .for_each(|id| {
+                self.delete_orbiter(id);
+            });
     }
 
     pub fn current_orbit(&self) -> Option<&GlobalOrbit> {
@@ -445,46 +437,43 @@ impl GameState {
         let orbiter = self.scenario.lup_orbiter(id, self.sim_time)?.orbiter()?;
         let dv = orbiter.vehicle.pointing() * 0.3;
 
-        if self
+        let notif = if self
             .scenario
             .impulsive_burn(id, self.sim_time, dv)
             .is_none()
         {
-            self.notify(
-                ObjectId::Orbiter(id),
-                NotificationType::ManeuverFailed(id),
-                None,
-            )
+            NotificationType::ManeuverFailed(id)
         } else {
-            self.notify(
-                ObjectId::Orbiter(id),
-                NotificationType::OrbitChanged(id),
-                None,
-            );
-            self.user_maneuvers.insert(id, (self.wall_time, dv));
-        }
+            NotificationType::OrbitChanged(id)
+        };
+
+        self.notify(ObjectId::Orbiter(id), notif, None);
 
         self.scenario.simulate(self.sim_time, self.physics_duration);
         Some(())
     }
 
     pub fn command_selected(&mut self, next: &GlobalOrbit) {
-        if self.track_list.is_empty() {
+        if self.orbital_context.selected.is_empty() {
             return;
         }
-        info!("Commanding {} orbiters to {}", self.track_list.len(), next,);
-        for id in self.track_list.clone() {
+        info!(
+            "Commanding {} orbiters to {}",
+            self.orbital_context.selected.len(),
+            next,
+        );
+        for id in self.orbital_context.selected.clone() {
             self.command(id, next);
         }
     }
 
     pub fn release_selected(&mut self) {
-        let tracks = self.track_list.clone();
+        let tracks = self.orbital_context.selected.clone();
         self.controllers.retain(|c| !tracks.contains(&c.target()));
     }
 
     pub fn command(&mut self, id: OrbiterId, next: &GlobalOrbit) -> Option<()> {
-        let tracks = self.track_list.clone();
+        let tracks = self.orbital_context.selected.clone();
         let orbiter = self.scenario.lup_orbiter(id, self.sim_time)?.orbiter()?;
         if !orbiter.vehicle.is_controllable() {
             self.notify(id, NotificationType::NotControllable, None);
@@ -539,7 +528,8 @@ impl GameState {
 
     pub fn save(&self) -> Option<()> {
         let orbiters: Vec<_> = self
-            .track_list
+            .orbital_context
+            .selected
             .iter()
             .filter_map(|id| {
                 self.scenario
@@ -568,7 +558,7 @@ impl GameState {
             OnClick::CurrentBody(id) => self.follow = Some(ObjectId::Planet(id)),
             OnClick::Orbiter(id) => self.follow = Some(ObjectId::Orbiter(id)),
             OnClick::ToggleDrawMode => self.game_mode = self.game_mode.next(),
-            OnClick::ClearTracks => self.track_list.clear(),
+            OnClick::ClearTracks => self.orbital_context.selected.clear(),
             OnClick::ClearOrbits => self.queued_orbits.clear(),
             OnClick::Group(gid) => self.toggle_group(&gid),
             OnClick::CreateGroup => self.create_group(GroupId(get_random_name())),
@@ -607,7 +597,8 @@ impl GameState {
             }
             OnClick::CursorMode => self.selection_mode = self.selection_mode.next(),
             OnClick::AutopilotingCount => {
-                self.track_list = self.controllers.iter().map(|c| c.target()).collect();
+                self.orbital_context.selected =
+                    self.controllers.iter().map(|c| c.target()).collect();
             }
             OnClick::GoToScene(i) => {
                 self.set_current_scene(i);
@@ -654,7 +645,6 @@ impl GameState {
                 if let Some(n) = scene.ui().at(p).map(|n| n.id()).flatten() {
                     self.on_button_event(n.clone());
                 }
-                self.context_menu_origin = None;
                 self.redraw();
             }
         }
@@ -719,9 +709,9 @@ impl GameState {
             }
         }
 
-        let mut track_list = self.track_list.clone();
+        let mut track_list = self.orbital_context.selected.clone();
         track_list.retain(|o| self.scenario.lup_orbiter(*o, self.sim_time).is_some());
-        self.track_list = track_list;
+        self.orbital_context.selected = track_list;
 
         let ids: Vec<_> = self.scenario.orbiter_ids().collect();
 
@@ -781,7 +771,7 @@ impl GameState {
                 let middle = (a + b) / 2.0;
                 let d = format!("{:0.2}", a.distance(b));
                 self.text_labels
-                    .push((middle, d, self.orbital_camera.actual_scale));
+                    .push((middle, d, self.orbital_context.actual_scale));
             }
         }
 
@@ -838,11 +828,11 @@ fn step_system(time: Res<Time>, mut state: ResMut<GameState>) {
 //         }
 //     };
 
-//     show_id_list(&state.track_list, "Tracks");
+//     show_id_list(&state.orbital_context.selected, "Tracks");
 //     show_id_list(&state.highlighted(), "Select");
 
 //     log(&format!("Physics: {:?}", state.physics_duration));
-//     log(&format!("Scale: {:0.3}", state.orbital_camera.actual_scale));
+//     log(&format!("Scale: {:0.3}", state.orbital_context.actual_scale));
 //     log(&format!("Ctlrs: {}", state.controllers.len()));
 
 //     {
@@ -902,11 +892,8 @@ fn process_interaction(
         InteractionEvent::ClearMissions => {
             state.release_selected();
         }
-        InteractionEvent::ToggleGraph => {
-            state.show_graph = !state.show_graph;
-        }
         InteractionEvent::ClearSelection => {
-            state.track_list.clear();
+            state.orbital_context.selected.clear();
         }
         InteractionEvent::ClearOrbitQueue => {
             state.queued_orbits.clear();
@@ -948,7 +935,7 @@ fn process_interaction(
         InteractionEvent::DoubleClick(p) => {
             // check to see if we're in the main area
             let vb = state.input.screen_bounds;
-            let wb = state.orbital_camera.world_bounds(vb.span);
+            let wb = state.orbital_context.world_bounds(vb.span);
             let dims = vb.span;
             let scene = state.current_scene();
             let n = scene.ui().at(Vec2::new(p.x, dims.y - p.y))?;
@@ -964,22 +951,12 @@ fn process_interaction(
         InteractionEvent::ExitApp => {
             std::process::exit(0);
         }
-        InteractionEvent::Save => {
-            state.backup = Some((state.scenario.clone(), state.ids, state.sim_time));
-        }
         InteractionEvent::ContextDependent => {
             if let Some(o) = state.right_cursor_orbit() {
                 info!("Enqueued orbit {}", &o);
                 state.queued_orbits.push(o);
-            } else if !state.track_list.is_empty() {
-                state.track_list.clear();
-            }
-        }
-        InteractionEvent::Restore => {
-            if let Some((sys, ids, time)) = &state.backup {
-                state.scenario = sys.clone();
-                state.sim_time = *time;
-                state.ids = *ids;
+            } else if !state.orbital_context.selected.is_empty() {
+                state.orbital_context.selected.clear();
             }
         }
         InteractionEvent::Load(name) => {
@@ -1083,14 +1060,13 @@ fn handle_camera_interactions(
 fn track_highlighted_objects(buttons: Res<ButtonInput<MouseButton>>, mut state: ResMut<GameState>) {
     if buttons.just_released(MouseButton::Left) || buttons.just_released(MouseButton::Middle) {
         let h = state.highlighted();
-        state.track_list.extend(h.into_iter());
+        state.orbital_context.selected.extend(h.into_iter());
     }
 }
 
 fn load_new_scenario(state: &mut GameState, scen: Scenario, ids: ObjectIdTracker) {
-    state.backup = Some((scen.clone(), ids, Nanotime::zero()));
     state.scenario = scen;
     state.ids = ids;
     state.sim_time = Nanotime::zero();
-    state.track_list.clear();
+    state.orbital_context.selected.clear();
 }

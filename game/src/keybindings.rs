@@ -16,7 +16,6 @@ pub fn keyboard_input(
             KeyCode::Period => InteractionEvent::SimFaster,
             KeyCode::Comma => InteractionEvent::SimSlower,
             KeyCode::Delete => InteractionEvent::Delete,
-            KeyCode::KeyP => InteractionEvent::ToggleGraph,
             KeyCode::KeyG => InteractionEvent::CreateGroup,
             KeyCode::KeyC => InteractionEvent::ClearMissions,
             KeyCode::Enter => InteractionEvent::CommitMission,

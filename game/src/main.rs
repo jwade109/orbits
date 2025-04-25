@@ -2,7 +2,6 @@
 
 use bevy::prelude::*;
 
-mod camera_controls;
 mod drawing;
 mod graph;
 mod keybindings;

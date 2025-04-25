@@ -162,8 +162,8 @@ fn update(mut state: ResMut<CraftState>, time: Res<Time>) {
     }
 
     for id in state.highlighted.clone() {
-        if !state.track_list.contains(&id) {
-            state.track_list.push(id);
+        if !state.orbital_context.selected.contains(&id) {
+            state.orbital_context.selected.push(id);
         }
     }
 }
@@ -281,6 +281,6 @@ fn handle_viewport_input(
 }
 
 fn log_system_info(state: Res<CraftState>, mut evt: EventWriter<DebugLog>) {
-    send_log(&mut evt, &format!("Tracked: {:?}", state.track_list));
+    send_log(&mut evt, &format!("Tracked: {:?}", state.orbital_context.selected));
     send_log(&mut evt, &format!("Highlighted: {:?}", state.highlighted));
 }
