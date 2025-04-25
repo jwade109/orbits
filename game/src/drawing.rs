@@ -3,6 +3,7 @@
 use bevy::color::palettes::basic::*;
 use bevy::color::palettes::css::ORANGE;
 use bevy::prelude::*;
+use starling::math::linmap;
 
 use std::collections::HashSet;
 
@@ -1248,33 +1249,61 @@ fn orthographic_camera_map(p: Vec3, center: Vec3, normal: Vec3, x: Vec3, y: Vec3
     Vec2::new(p.dot(x), p.dot(y))
 }
 
-fn draw_telescope_view(gizmos: &mut Gizmos, state: &GameState, scene: &TelescopeScene) {
-    let center = Vec3::new(0.0, 0.0, 0.0);
-    let normal = Vec3::new(
-        state.sim_time.to_secs().cos(),
-        state.sim_time.to_secs().sin(),
-        -0.4,
-    )
-    .normalize_or_zero();
+fn draw_telescope_view(gizmos: &mut Gizmos, state: &GameState) {
+    let screen_radius = 800.0;
 
-    let x = normal.cross(Vec3::Z).normalize_or_zero();
-    let y = normal.cross(x);
+    draw_circle(gizmos, Vec2::ZERO, screen_radius, WHITE);
+    draw_circle(gizmos, Vec2::ZERO, screen_radius + 5.0, WHITE);
 
-    let map = |p: Vec3| -> Vec2 { orthographic_camera_map(p, center, normal, x, y) };
+    let map = |az: f32, el: f32| -> (Vec2, f32) {
+        let daz = az - state.telescope_context.azimuth;
+        let del = el - state.telescope_context.elevation;
+
+        // assumes x is on the domain [0, 1].
+        // moves x towards 1, but doesn't move 0
+        let scale = |x: f32| -> f32 {
+            let xmag = x.abs();
+            (1.0 - (1.0 - xmag).powf(3.0)) * x.signum()
+        };
+
+        let daz = wrap_pi_npi(daz);
+        let del = wrap_pi_npi(del * 2.0) / 2.0;
+
+        let angular_offset = Vec2::new(daz, del);
+        let angular_distance = angular_offset.length();
+
+        let scaled_distance =
+            scale((angular_distance / state.telescope_context.angular_radius).min(1.0));
+
+        let alpha = 1.0 - scaled_distance.powi(3);
+
+        (
+            angular_offset.normalize_or_zero() * scaled_distance * screen_radius,
+            alpha,
+        )
+    };
+
+    let azel = |p: Vec3| -> (f32, f32) {
+        let az = f32::atan2(p.y, p.x);
+        let el = f32::atan2(p.z, p.xy().length());
+        (az, el)
+    };
 
     draw_cross(
         gizmos,
-        scene.center,
-        5.0 * state.orbital_context.actual_scale,
+        map(
+            state.telescope_context.azimuth,
+            state.telescope_context.elevation,
+        )
+        .0,
+        5.0,
         GRAY,
     );
+
     for (star, color, radius) in &state.starfield {
-        let star_zero = star.with_z(0.0);
-        let p = map(*star);
-        let q = map(star_zero);
-        draw_circle(gizmos, p, *radius, *color);
-        draw_circle(gizmos, q, 2.0, WHITE.with_alpha(0.03));
-        gizmos.line_2d(p, q, WHITE.with_alpha(0.01));
+        let (az, el) = azel(*star);
+        let (p, alpha) = map(az, el);
+        draw_circle(gizmos, p, *radius, color.with_alpha(alpha));
     }
 }
 
@@ -1282,7 +1311,7 @@ pub fn draw_scene(gizmos: &mut Gizmos, state: &GameState, scene: &crate::scenes:
     match scene.kind() {
         SceneType::OrbitalView(scene) => draw_orbital_view(gizmos, state, scene),
         SceneType::DockingView(id) => _ = draw_docking_scenario(gizmos, state, id),
-        SceneType::TelescopeView(ti) => draw_telescope_view(gizmos, &state, ti),
+        SceneType::TelescopeView(_) => draw_telescope_view(gizmos, &state),
         SceneType::MainMenu => {}
     }
 }

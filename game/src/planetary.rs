@@ -1,6 +1,6 @@
 use crate::mouse::{FrameId, InputState, MouseButt};
 use crate::notifications::*;
-use crate::scenes::{CursorMode, OrbitalContext, Scene, EnumIter};
+use crate::scenes::{CursorMode, EnumIter, OrbitalContext, Scene, TelescopeContext};
 use crate::ui::InteractionEvent;
 use bevy::color::palettes::css::*;
 use bevy::core_pipeline::bloom::Bloom;
@@ -102,6 +102,8 @@ pub struct GameState {
     /// direct them to particular orbits, or manually pilot them.
     pub orbital_context: OrbitalContext,
 
+    pub telescope_context: TelescopeContext,
+
     /// Simulation clock
     pub sim_time: Nanotime,
 
@@ -114,7 +116,7 @@ pub struct GameState {
 
     /// Representation of the solar system and all of the spacecraft
     /// and other objects contained therein.
-    /// 
+    ///
     /// TODO replace this with a flat data structure that can be
     /// expanded during runtime, and store multiple (potentially
     /// disjoint) solar systems.
@@ -161,6 +163,7 @@ impl Default for GameState {
             current_frame_no: 0,
             input: InputState::default(),
             orbital_context: OrbitalContext::new(PlanetId(0)),
+            telescope_context: TelescopeContext::new(),
             sim_time: Nanotime::zero(),
             wall_time: Nanotime::zero(),
             physics_duration: Nanotime::secs(120),
@@ -619,6 +622,25 @@ impl GameState {
             self.sim_time += Nanotime::nanos((time.delta().as_nanos() as f32 * sp) as i64);
         }
 
+        if self.input.is_pressed(KeyCode::Equal) {
+            self.telescope_context.angular_radius *= 0.98;
+        }
+        if self.input.is_pressed(KeyCode::Minus) {
+            self.telescope_context.angular_radius /= 0.98;
+        }
+        if self.input.is_pressed(KeyCode::KeyD) {
+            self.telescope_context.azimuth += 0.01;
+        }
+        if self.input.is_pressed(KeyCode::KeyA) {
+            self.telescope_context.azimuth -= 0.01;
+        }
+        if self.input.is_pressed(KeyCode::KeyW) {
+            self.telescope_context.elevation += 0.01;
+        }
+        if self.input.is_pressed(KeyCode::KeyS) {
+            self.telescope_context.elevation -= 0.01;
+        }
+
         // handle discrete physics events
         for orbiter in self.scenario.orbiters_mut() {
             // controversial
@@ -980,17 +1002,17 @@ fn handle_camera_interactions(
         }
     };
 
-    let ov = match state.current_scene().orbital_view(&state.input) {
-        Some(ov) => ov,
-        None => return,
+    match state.current_scene().orbital_view(&state.input) {
+        Some(ov) => {
+            if let Some(p) = ov.follow_position(&state) {
+                ctrl.translation = p.extend(0.0);
+            }
+        }
+        None => (),
     };
 
     let cursor_delta = 1400.0 * time.delta_secs() * ctrl.scale.z;
     let scale_scalar = 1.5;
-
-    if let Some(p) = ov.follow_position(&state) {
-        ctrl.translation = p.extend(0.0);
-    }
 
     for e in events.read() {
         match e {
@@ -1003,6 +1025,13 @@ fn handle_camera_interactions(
             _ => (),
         }
     }
+
+    match state.current_scene().orbital_view(&state.input) {
+        Some(_) => (),
+        None => {
+            *ctrl = Transform::IDENTITY;
+        }
+    };
 }
 
 // TODO get rid of this

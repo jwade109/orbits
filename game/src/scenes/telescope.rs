@@ -1,17 +1,16 @@
-use crate::ui::InteractionEvent;
-use starling::prelude::*;
-
 #[derive(Debug, Clone, Copy)]
-pub struct TelescopeScene {
-    pub center: Vec2,
+pub struct TelescopeContext {
+    pub azimuth: f32,
+    pub elevation: f32,
+    pub angular_radius: f32,
 }
 
-impl TelescopeScene {
+impl TelescopeContext {
     pub fn new() -> Self {
-        TelescopeScene { center: Vec2::ZERO }
-    }
-
-    pub fn on_interaction(&mut self, _inter: &InteractionEvent) {
-        self.center += randvec(1.0, 10.0);
+        TelescopeContext {
+            azimuth: 0.0,
+            elevation: 0.0,
+            angular_radius: 1.0,
+        }
     }
 }

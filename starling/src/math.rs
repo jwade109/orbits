@@ -44,7 +44,13 @@ pub fn lerp(a: f32, b: f32, t: f32) -> f32 {
     a + (b - a) * t
 }
 
-// vector projection, rejection of a onto b
+/// maps x from the range [a, b] to [p, q]
+pub fn linmap(x: f32, a: f32, b: f32, p: f32, q: f32) -> f32 {
+    let s = (x - a) / (b - a);
+    lerp(p, q, s)
+}
+
+/// vector projection, rejection of a onto b
 pub fn vproj(a: Vec2, b: Vec2) -> (Vec2, Vec2) {
     let bu = b.normalize_or_zero();
     let proj = a.dot(bu) * bu;

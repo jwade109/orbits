@@ -4,4 +4,4 @@ mod telescope;
 
 pub use orbital::{CursorMode, DrawMode, EnumIter, OrbitalContext, OrbitalView, ShowOrbitsState};
 pub use scene::{Scene, SceneType};
-pub use telescope::TelescopeScene;
+pub use telescope::TelescopeContext;

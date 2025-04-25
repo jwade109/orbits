@@ -2,7 +2,7 @@
 
 use crate::mouse::{FrameId, InputState, MouseButt};
 use crate::planetary::GameState;
-use crate::scenes::{CursorMode, OrbitalContext, OrbitalView, TelescopeScene};
+use crate::scenes::{CursorMode, OrbitalContext, OrbitalView, TelescopeContext};
 use crate::ui::{InteractionEvent, OnClick};
 use bevy::log::*;
 use layout::layout::Tree;
@@ -12,7 +12,7 @@ use starling::prelude::*;
 pub enum SceneType {
     OrbitalView(OrbitalContext),
     DockingView(OrbiterId),
-    TelescopeView(TelescopeScene),
+    TelescopeView(TelescopeContext),
     MainMenu,
 }
 
@@ -20,7 +20,6 @@ impl SceneType {
     fn on_interaction(&mut self, inter: &InteractionEvent) {
         match self {
             Self::OrbitalView(os) => os.on_interaction(inter),
-            Self::TelescopeView(ts) => ts.on_interaction(inter),
             _ => (),
         }
     }
@@ -45,7 +44,7 @@ impl Scene {
     pub fn telescope() -> Self {
         Scene {
             name: "Telescope".into(),
-            scene_type: SceneType::TelescopeView(TelescopeScene::new()),
+            scene_type: SceneType::TelescopeView(TelescopeContext::new()),
             ui: Tree::new(),
         }
     }
