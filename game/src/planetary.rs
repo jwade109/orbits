@@ -3,7 +3,7 @@
 use crate::camera_controls::*;
 use crate::mouse::{FrameId, MouseButt, MouseState};
 use crate::notifications::*;
-use crate::scene::{Scene, SceneType};
+use crate::scene::{OrbitalView, Scene, SceneType};
 use crate::ui::InteractionEvent;
 use bevy::color::palettes::css::*;
 use bevy::core_pipeline::bloom::Bloom;
@@ -375,6 +375,7 @@ impl GameState {
         }
     }
 
+    #[deprecated]
     pub fn measuring_tape(&self) -> Option<(Vec2, Vec2, Vec2)> {
         if self.selection_mode != CursorMode::Measure {
             return None;
@@ -385,59 +386,24 @@ impl GameState {
         ov.measuring_tape()
     }
 
-    pub fn current_clicked_gui_element(&self) -> Option<crate::ui::OnClick> {
-        let scene = self.current_scene();
-        let a = self.mouse.position(MouseButt::Left, FrameId::Down);
-        let b = self.mouse.position(MouseButt::Right, FrameId::Down);
-        let p = a.or(b)?;
-        let q = Vec2::new(p.x, self.camera.viewport_bounds().span.y - p.y);
-        scene.ui().at(q).map(|n| n.id()).flatten().cloned()
-    }
-
     pub fn mouse_if_world<'a>(&'a self) -> Option<&'a MouseState> {
-        let id = self.current_clicked_gui_element()?;
+        let scene = self.current_scene();
+        let id = scene.current_clicked_gui_element(&self.mouse)?;
         (id == crate::ui::OnClick::World).then(|| &self.mouse)
     }
 
-    pub fn cursor_pv(&self, p1: Vec2, p2: Vec2) -> Option<PV> {
-        if p1.distance(p2) < 20.0 {
-            return None;
-        }
-
-        let wrt_id = self.scenario.relevant_body(p1, self.sim_time)?;
-        let parent = self.scenario.lup_planet(wrt_id, self.sim_time)?;
-
-        let r = p1.distance(parent.pv().pos);
-        let v = (parent.body()?.mu() / r).sqrt();
-
-        Some(PV::new(p1, (p2 - p1) * v / r))
-    }
-
-    pub fn cursor_orbit(&self, p1: Vec2, p2: Vec2) -> Option<GlobalOrbit> {
-        let pv = self.cursor_pv(p1, p2)?;
-        let parent_id = self.scenario.relevant_body(pv.pos, self.sim_time)?;
-        let parent = self.scenario.lup_planet(parent_id, self.sim_time)?;
-        let parent_pv = parent.pv();
-        let pv = pv - PV::pos(parent_pv.pos);
-        let body = parent.body()?;
-        Some(GlobalOrbit(
-            parent_id,
-            SparseOrbit::from_pv(pv, body, self.sim_time)?,
-        ))
-    }
-
+    #[deprecated]
     pub fn left_cursor_orbit(&self) -> Option<GlobalOrbit> {
-        let mouse = self.mouse_if_world()?;
-        let a = mouse.world_position(MouseButt::Left, FrameId::Down)?;
-        let b = mouse.world_position(MouseButt::Left, FrameId::Current)?;
-        self.cursor_orbit(a, b)
+        let scene = self.current_scene();
+        let ov = scene.orbital_view(&self.mouse)?;
+        ov.left_cursor_orbit(self)
     }
 
+    #[deprecated]
     pub fn right_cursor_orbit(&self) -> Option<GlobalOrbit> {
-        let mouse = self.mouse_if_world()?;
-        let a = mouse.world_position(MouseButt::Right, FrameId::Down)?;
-        let b = mouse.world_position(MouseButt::Right, FrameId::Current)?;
-        self.cursor_orbit(a, b)
+        let scene = self.current_scene();
+        let ov = scene.orbital_view(&self.mouse)?;
+        ov.right_cursor_orbit(self)
     }
 
     pub fn follow_position(&self) -> Option<Vec2> {

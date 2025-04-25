@@ -1248,7 +1248,7 @@ fn draw_telescope_view(gizmos: &mut Gizmos, state: &GameState, scene: &Scene) {
     let normal = Vec3::new(
         state.sim_time.to_secs().cos(),
         state.sim_time.to_secs().sin(),
-        (state.camera.world_center.y / 10000.0).sin(),
+        -0.4,
     )
     .normalize_or_zero();
 
