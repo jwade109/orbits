@@ -318,7 +318,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
     match scene.kind() {
         SceneType::MainMenu => return main_menu_layout(state),
         SceneType::DockingView(id) => return docking_layout(state, id),
-        SceneType::TelescopeView => return docking_layout(state, &OrbiterId(0)),
+        SceneType::TelescopeView(ti) => return docking_layout(state, &OrbiterId(0)),
         SceneType::OrbitalView(_) => (),
     };
 

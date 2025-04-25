@@ -14,7 +14,7 @@ use crate::graph::*;
 use crate::mouse::{FrameId, MouseButt, MouseState};
 use crate::notifications::*;
 use crate::planetary::{GameMode, GameState, ShowOrbitsState};
-use crate::scenes::{OrbitalScene, Scene, SceneType};
+use crate::scenes::{OrbitalScene, Scene, SceneType, TelescopeScene};
 
 fn draw_cross(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     let dx = Vec2::new(size, 0.0);
@@ -1243,7 +1243,13 @@ pub fn draw_docking_scenario(
     Some(())
 }
 
-fn draw_telescope_view(gizmos: &mut Gizmos, state: &GameState, scene: &Scene) {
+fn orthographic_camera_map(p: Vec3, center: Vec3, normal: Vec3, x: Vec3, y: Vec3) -> Vec2 {
+    let p = p - center;
+    let p = p.reject_from(normal);
+    Vec2::new(p.dot(x), p.dot(y))
+}
+
+fn draw_telescope_view(gizmos: &mut Gizmos, state: &GameState, scene: &TelescopeScene) {
     let center = Vec3::new(0.0, 0.0, 0.0);
     let normal = Vec3::new(
         state.sim_time.to_secs().cos(),
@@ -1255,13 +1261,9 @@ fn draw_telescope_view(gizmos: &mut Gizmos, state: &GameState, scene: &Scene) {
     let x = normal.cross(Vec3::Z).normalize_or_zero();
     let y = normal.cross(x);
 
-    let map = |p: Vec3| -> Vec2 {
-        let p = p - center;
-        let p = p.reject_from(normal);
-        Vec2::new(p.dot(x), p.dot(y))
-    };
+    let map = |p: Vec3| -> Vec2 { orthographic_camera_map(p, center, normal, x, y) };
 
-    draw_cross(gizmos, Vec2::ZERO, 5.0 * state.camera.actual_scale, GRAY);
+    draw_cross(gizmos, scene.center, 5.0 * state.camera.actual_scale, GRAY);
     for (star, color, radius) in &state.starfield {
         let star_zero = star.with_z(0.0);
         let p = map(*star);
@@ -1276,7 +1278,7 @@ pub fn draw_scene(gizmos: &mut Gizmos, state: &GameState, scene: &Scene) {
     match scene.kind() {
         SceneType::OrbitalView(scene) => draw_orbital_view(gizmos, state, scene),
         SceneType::DockingView(id) => _ = draw_docking_scenario(gizmos, state, id),
-        SceneType::TelescopeView => draw_telescope_view(gizmos, &state, scene),
+        SceneType::TelescopeView(ti) => draw_telescope_view(gizmos, &state, ti),
         SceneType::MainMenu => {}
     }
 }

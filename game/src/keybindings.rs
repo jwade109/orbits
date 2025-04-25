@@ -49,18 +49,6 @@ pub fn keyboard_input(
         events.send(e);
     }
 
-    // let n = keys.pressed(KeyCode::ArrowUp);
-    // let e = keys.pressed(KeyCode::ArrowRight);
-    // let s = keys.pressed(KeyCode::ArrowDown);
-    // let w = keys.pressed(KeyCode::ArrowLeft);
-
-    // if n || e || s || w {
-    //     let dx = (e as i8) - (w as i8);
-    //     let dy = (n as i8) - (s as i8);
-    //     let ei = InteractionEvent::Thrust(dx, dy);
-    //     events.send(ei);
-    // }
-
     let left_shift: bool = keys.pressed(KeyCode::ShiftLeft);
 
     for ev in scroll.read() {

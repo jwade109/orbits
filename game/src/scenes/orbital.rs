@@ -1,4 +1,4 @@
-use crate::ui::OnClick;
+use crate::ui::{InteractionEvent, OnClick};
 use crate::mouse::{FrameId, MouseButt, MouseState};
 use crate::planetary::{CursorMode, GameState};
 use crate::scenes::Scene;
@@ -13,6 +13,10 @@ pub struct OrbitalScene {
 impl OrbitalScene {
     pub fn new(primary: PlanetId) -> Self {
         Self { primary }
+    }
+
+    pub fn on_interaction(&mut self, _inter: &InteractionEvent) {
+
     }
 }
 

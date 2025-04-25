@@ -2,8 +2,8 @@
 
 use crate::mouse::{FrameId, MouseButt, MouseState};
 use crate::planetary::{CursorMode, GameState};
-use crate::scenes::{OrbitalScene, OrbitalView};
-use crate::ui::OnClick;
+use crate::scenes::{OrbitalScene, OrbitalView, TelescopeScene};
+use crate::ui::{InteractionEvent, OnClick};
 use bevy::log::*;
 use layout::layout::Tree;
 use starling::prelude::*;
@@ -12,8 +12,18 @@ use starling::prelude::*;
 pub enum SceneType {
     OrbitalView(OrbitalScene),
     DockingView(OrbiterId),
-    TelescopeView,
+    TelescopeView(TelescopeScene),
     MainMenu,
+}
+
+impl SceneType {
+    fn on_interaction(&mut self, inter: &InteractionEvent) {
+        match self {
+            Self::OrbitalView(os) => os.on_interaction(inter),
+            Self::TelescopeView(ts) => ts.on_interaction(inter),
+            _ => (),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -35,7 +45,7 @@ impl Scene {
     pub fn telescope() -> Self {
         Scene {
             name: "Telescope".into(),
-            scene_type: SceneType::TelescopeView,
+            scene_type: SceneType::TelescopeView(TelescopeScene::new()),
             ui: Tree::new(),
         }
     }
@@ -55,9 +65,7 @@ impl Scene {
             ui: Tree::new(),
         }
     }
-}
 
-impl Scene {
     pub fn name(&self) -> &String {
         &self.name
     }
@@ -109,5 +117,9 @@ impl Scene {
 
     pub fn on_exit(&mut self) {
         info!("On exit: {}", &self.name);
+    }
+
+    pub fn on_interaction(&mut self, inter: &InteractionEvent) {
+        &self.scene_type.on_interaction(inter);
     }
 }

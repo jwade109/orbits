@@ -956,6 +956,11 @@ fn process_interaction(
     state: &mut GameState,
     window: &mut Window,
 ) -> Option<()> {
+
+    let scene = state.current_scene_mut();
+
+    scene.on_interaction(inter);
+
     match inter {
         InteractionEvent::Delete => state.delete_objects(),
         InteractionEvent::CommitMission => {
