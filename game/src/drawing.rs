@@ -1249,13 +1249,21 @@ fn orthographic_camera_map(p: Vec3, center: Vec3, normal: Vec3, x: Vec3, y: Vec3
     Vec2::new(p.dot(x), p.dot(y))
 }
 
+fn get_frequency_spectrum(x: f32, d: f32, fc: f32) -> f32 {
+    let rsq = (d * -20.0).exp();
+    let blackbody = 0.7 / (x / 250.0);
+    let noise = rand(0.0, 0.01);
+    let emissions = 0.5 * (1.0 / (1.0 + ((x - fc) / 100.0).powi(2)));
+    rsq * (blackbody + noise + emissions)
+}
+
 fn draw_telescope_view(gizmos: &mut Gizmos, state: &GameState) {
-    let screen_radius = 800.0;
+    let screen_radius = state.input.screen_bounds.span.min_element() / 2.0 * 1.1;
 
     draw_circle(gizmos, Vec2::ZERO, screen_radius, WHITE);
     draw_circle(gizmos, Vec2::ZERO, screen_radius + 5.0, WHITE);
 
-    let map = |az: f32, el: f32| -> (Vec2, f32) {
+    let map = |az: f32, el: f32| -> (Vec2, f32, f32) {
         let daz = az - state.telescope_context.azimuth;
         let del = el - state.telescope_context.elevation;
 
@@ -1280,6 +1288,7 @@ fn draw_telescope_view(gizmos: &mut Gizmos, state: &GameState) {
         (
             angular_offset.normalize_or_zero() * scaled_distance * screen_radius,
             alpha,
+            angular_distance,
         )
     };
 
@@ -1300,11 +1309,31 @@ fn draw_telescope_view(gizmos: &mut Gizmos, state: &GameState) {
         GRAY,
     );
 
-    for (star, color, radius) in &state.starfield {
+    let mut graph = Graph::linspace(250.0, 2500.0, 100);
+
+    graph.add_point(250.0, 0.0, true);
+    graph.add_point(250.0, 1.0, true);
+    graph.add_point(2500.0, 0.0, true);
+
+    for (star, color, radius, fc) in &state.starfield {
         let (az, el) = azel(*star);
-        let (p, alpha) = map(az, el);
+        let (p, alpha, d) = map(az, el);
+        if d < 0.2 {
+            graph.add_func(
+                |x: f32| get_frequency_spectrum(x, d, *fc),
+                color.with_alpha(0.3),
+            );
+        }
         draw_circle(gizmos, p, *radius, color.with_alpha(alpha));
     }
+
+    draw_graph(
+        gizmos,
+        &graph,
+        state,
+        Vec2::new(0.0, -0.2),
+        Vec2::new(1.0, 0.6),
+    );
 }
 
 pub fn draw_scene(gizmos: &mut Gizmos, state: &GameState, scene: &crate::scenes::Scene) {

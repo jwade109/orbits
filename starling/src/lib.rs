@@ -16,3 +16,4 @@ pub mod pv;
 pub mod region;
 pub mod scenario;
 pub mod vehicle;
+pub mod rpo;

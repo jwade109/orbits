@@ -128,7 +128,7 @@ pub struct GameState {
 
     pub controllers: Vec<Controller>,
     pub constellations: HashMap<OrbiterId, GroupId>,
-    pub starfield: Vec<(Vec3, Srgba, f32)>,
+    pub starfield: Vec<(Vec3, Srgba, f32, f32)>,
 
     pub scenes: Vec<Scene>,
     pub current_scene_idx: usize,
@@ -141,7 +141,7 @@ pub struct GameState {
     pub text_labels: Vec<(Vec2, String, f32)>,
 }
 
-fn generate_starfield() -> Vec<(Vec3, Srgba, f32)> {
+fn generate_starfield() -> Vec<(Vec3, Srgba, f32, f32)> {
     (0..1000)
         .map(|_| {
             let s = rand(0.0, 2.0);
@@ -150,7 +150,12 @@ fn generate_starfield() -> Vec<(Vec3, Srgba, f32)> {
             } else {
                 WHITE.mix(&TEAL, s - 1.0)
             };
-            (randvec3(1000.0, 12000.0), color, rand(3.0, 9.0))
+            (
+                randvec3(1000.0, 12000.0),
+                color,
+                rand(3.0, 9.0),
+                rand(700.0, 1900.0),
+            )
         })
         .collect()
 }
@@ -622,24 +627,7 @@ impl GameState {
             self.sim_time += Nanotime::nanos((time.delta().as_nanos() as f32 * sp) as i64);
         }
 
-        if self.input.is_pressed(KeyCode::Equal) {
-            self.telescope_context.angular_radius *= 0.98;
-        }
-        if self.input.is_pressed(KeyCode::Minus) {
-            self.telescope_context.angular_radius /= 0.98;
-        }
-        if self.input.is_pressed(KeyCode::KeyD) {
-            self.telescope_context.azimuth += 0.01;
-        }
-        if self.input.is_pressed(KeyCode::KeyA) {
-            self.telescope_context.azimuth -= 0.01;
-        }
-        if self.input.is_pressed(KeyCode::KeyW) {
-            self.telescope_context.elevation += 0.01;
-        }
-        if self.input.is_pressed(KeyCode::KeyS) {
-            self.telescope_context.elevation -= 0.01;
-        }
+        self.telescope_context.step(&self.input);
 
         // handle discrete physics events
         for orbiter in self.scenario.orbiters_mut() {
