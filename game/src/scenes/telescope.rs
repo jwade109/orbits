@@ -1,5 +1,6 @@
 use crate::mouse::InputState;
 use bevy::input::keyboard::KeyCode;
+use starling::prelude::PI;
 
 #[derive(Debug, Clone, Copy)]
 pub struct TelescopeContext {
@@ -40,6 +41,8 @@ impl TelescopeContext {
         if input.is_pressed(KeyCode::KeyS) {
             self.target_el -= 0.01 * self.angular_radius;
         }
+
+        self.angular_radius = self.angular_radius.clamp(0.05, PI / 2.0);
 
         self.azimuth += (self.target_az - self.azimuth) * 0.1;
         self.elevation += (self.target_el - self.elevation) * 0.1;

@@ -2,6 +2,7 @@ use crate::aabb::{Polygon, AABB};
 use crate::inventory::{Inventory, InventoryItem};
 use crate::math::{cross2d, get_random_name, linspace, rand, randint, randvec, rotate, Vec2, PI};
 use crate::nanotime::Nanotime;
+use crate::orbits::wrap_0_2pi;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
@@ -19,7 +20,7 @@ impl Thruster {
             pos,
             angle,
             length,
-            is_active: rand(0.0, 1.0) < 0.7,
+            is_active: false,
             is_rcs: false,
         }
     }
@@ -29,7 +30,7 @@ impl Thruster {
             pos,
             angle,
             length: 0.14,
-            is_active: rand(0.0, 1.0) < 0.7,
+            is_active: false,
             is_rcs: true,
         }
     }
@@ -150,6 +151,7 @@ impl Vehicle {
         }
 
         self.angle += self.angular_velocity * dt;
+        self.angle = wrap_0_2pi(self.angle);
         self.stamp = stamp;
     }
 
@@ -254,13 +256,16 @@ fn satellite_body() -> Vec<Polygon> {
 }
 
 fn space_station_body() -> Vec<Polygon> {
-    (-2..=2).map(|i| {
-        let center = Vec2::new(i as f32 * 10.0, 0.0);
-        let upper = Polygon::circle(center + Vec2::Y * 6.0, 2.0, 8);
-        let lower = Polygon::circle(center - Vec2::Y * 6.0, 2.0, 8);
-        let tube = AABB::new(center, Vec2::new(10.0, 4.0));
-        [upper, lower, tube.polygon()]
-    }).flatten().collect()
+    (-2..=2)
+        .map(|i| {
+            let center = Vec2::new(i as f32 * 10.0, 0.0);
+            let upper = Polygon::circle(center + Vec2::Y * 6.0, 2.0, 8);
+            let lower = Polygon::circle(center - Vec2::Y * 6.0, 2.0, 8);
+            let tube = AABB::new(center, Vec2::new(10.0, 4.0));
+            [upper, lower, tube.polygon()]
+        })
+        .flatten()
+        .collect()
 }
 
 fn satellite_thrusters() -> Vec<Thruster> {

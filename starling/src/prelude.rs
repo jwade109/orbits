@@ -18,3 +18,4 @@ pub use crate::pv::PV;
 pub use crate::region::Region;
 pub use crate::scenario::{ObjectIdTracker, PlanetarySystem, Scenario};
 pub use crate::vehicle::Vehicle;
+pub use crate::rpo::RPO;

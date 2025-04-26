@@ -1,6 +1,6 @@
 use crate::mouse::{FrameId, InputState, MouseButt};
 use crate::notifications::*;
-use crate::scenes::{CursorMode, EnumIter, OrbitalContext, Scene, TelescopeContext};
+use crate::scenes::{CursorMode, EnumIter, OrbitalContext, RPOContext, Scene, TelescopeContext};
 use crate::ui::InteractionEvent;
 use bevy::color::palettes::css::*;
 use bevy::core_pipeline::bloom::Bloom;
@@ -104,6 +104,8 @@ pub struct GameState {
 
     pub telescope_context: TelescopeContext,
 
+    pub rpo_context: RPOContext,
+
     /// Simulation clock
     pub sim_time: Nanotime,
 
@@ -129,6 +131,7 @@ pub struct GameState {
     pub controllers: Vec<Controller>,
     pub constellations: HashMap<OrbiterId, GroupId>,
     pub starfield: Vec<(Vec3, Srgba, f32, f32)>,
+    pub rpos: Vec<RPO>,
 
     pub scenes: Vec<Scene>,
     pub current_scene_idx: usize,
@@ -160,6 +163,10 @@ fn generate_starfield() -> Vec<(Vec3, Srgba, f32, f32)> {
         .collect()
 }
 
+fn generate_rpos() -> Vec<RPO> {
+    vec![RPO::example()]
+}
+
 impl Default for GameState {
     fn default() -> Self {
         let (scenario, ids) = default_example();
@@ -169,6 +176,7 @@ impl Default for GameState {
             input: InputState::default(),
             orbital_context: OrbitalContext::new(PlanetId(0)),
             telescope_context: TelescopeContext::new(),
+            rpo_context: RPOContext::new(),
             sim_time: Nanotime::zero(),
             wall_time: Nanotime::zero(),
             physics_duration: Nanotime::secs(120),
@@ -179,6 +187,7 @@ impl Default for GameState {
             controllers: vec![],
             constellations: HashMap::new(),
             starfield: generate_starfield(),
+            rpos: generate_rpos(),
             scenes: vec![
                 Scene::orbital("Earth System", PlanetId(0)),
                 Scene::orbital("Luna System", PlanetId(1)),
@@ -628,6 +637,11 @@ impl GameState {
         }
 
         self.telescope_context.step(&self.input);
+        self.rpo_context.step(&self.input);
+
+        for rpo in &mut self.rpos {
+            rpo.step(self.wall_time);
+        }
 
         // handle discrete physics events
         for orbiter in self.scenario.orbiters_mut() {

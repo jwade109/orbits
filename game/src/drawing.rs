@@ -3,7 +3,6 @@
 use bevy::color::palettes::basic::*;
 use bevy::color::palettes::css::ORANGE;
 use bevy::prelude::*;
-use starling::math::linmap;
 
 use std::collections::HashSet;
 
@@ -1226,18 +1225,15 @@ pub fn draw_docking_scenario(
     state: &GameState,
     _id: &OrbiterId,
 ) -> Option<()> {
-    draw_x(gizmos, Vec2::ZERO, 3.0, RED);
+    let rpo = state.rpos.get(0)?;
 
-    let scale = 3.0;
-    let mut x = 0.0;
-    for id in &state.orbital_context.selected {
-        if let Some(orbiter) = state.scenario.orbiter(*id) {
-            let r = orbiter.vehicle.bounding_radius();
-            x += r * scale;
-            draw_vehicle(gizmos, &orbiter.vehicle, Vec2::X * x, scale);
-            draw_circle(gizmos, Vec2::X * x, r * scale, GRAY);
-            x += r * scale + 10.0 * scale;
-        }
+    draw_x(gizmos, Vec2::ZERO, 10.0, RED);
+
+    for (_, (pv, vehicle)) in &rpo.vehicles {
+        let r = vehicle.bounding_radius();
+        let p = (pv.pos - state.rpo_context.center) * state.rpo_context.zoom;
+        draw_vehicle(gizmos, vehicle, p, state.rpo_context.zoom);
+        draw_circle(gizmos, p, r * state.rpo_context.zoom, GRAY.with_alpha(0.1));
     }
 
     Some(())
