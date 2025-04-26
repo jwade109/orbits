@@ -1,7 +1,6 @@
 use crate::mouse::{FrameId, InputState, MouseButt};
 use crate::planetary::GameState;
 use crate::scenes::Scene;
-use crate::ui::InteractionEvent;
 use starling::prelude::*;
 use std::collections::HashSet;
 
@@ -102,8 +101,6 @@ impl OrbitalContext {
             draw_mode: DrawMode::Default,
         }
     }
-
-    pub fn on_interaction(&mut self, _inter: &InteractionEvent) {}
 
     pub fn world_bounds(&self, window_dims: Vec2) -> AABB {
         AABB::new(self.world_center, window_dims * self.actual_scale)

@@ -1225,15 +1225,37 @@ pub fn draw_docking_scenario(
     state: &GameState,
     _id: &OrbiterId,
 ) -> Option<()> {
-    let rpo = state.rpos.get(0)?;
+    // let rpo = state.rpos.get(0)?;
 
     draw_x(gizmos, Vec2::ZERO, 10.0, RED);
 
-    for (_, (pv, vehicle)) in &rpo.vehicles {
-        let r = vehicle.bounding_radius();
-        let p = (pv.pos - state.rpo_context.center) * state.rpo_context.zoom;
-        draw_vehicle(gizmos, vehicle, p, state.rpo_context.zoom);
-        draw_circle(gizmos, p, r * state.rpo_context.zoom, GRAY.with_alpha(0.1));
+    let mut reference = None;
+
+    for id in &state.orbital_context.selected {
+        let lup = match state.scenario.lup_orbiter(*id, state.sim_time) {
+            Some(lup) => lup,
+            None => continue,
+        };
+
+        let orbiter = lup.orbiter();
+        let pv = lup.pv();
+        let pos = pv.pos * 1000.0;
+
+        let rp = if let Some(rp) = reference {
+            rp
+        } else {
+            reference = Some(pos);
+            pos
+        };
+
+        if let Some(orbiter) = orbiter {
+            let vehicle = &orbiter.vehicle;
+            let r = vehicle.bounding_radius();
+            let p = ((pos - rp) - state.rpo_context.center) * state.rpo_context.zoom;
+            draw_vehicle(gizmos, vehicle, p, state.rpo_context.zoom);
+            draw_circle(gizmos, p, r * state.rpo_context.zoom, GRAY.with_alpha(0.1));
+            draw_circle(gizmos, p, 15.0, PURPLE.with_alpha(0.2));
+        }
     }
 
     Some(())

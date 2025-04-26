@@ -579,13 +579,7 @@ impl GameState {
         if i == self.current_scene_idx {
             return Some(());
         }
-
         self.scenes.get(i)?;
-
-        let c = self.current_scene_mut();
-        c.on_exit();
-        let s = self.scenes.get_mut(i)?;
-        s.on_load();
         self.current_scene_idx = i;
         Some(())
     }
@@ -603,8 +597,6 @@ impl GameState {
         use MouseButt::*;
 
         if self.input.on_frame(Left, Down, self.current_frame_no) {
-            let scene = self.current_scene_mut();
-            scene.on_mouse_event(Left, Down);
             let scene = self.current_scene();
             let p = self.input.ui_position(Left, Down);
             if let Some(p) = p {
@@ -853,10 +845,6 @@ fn process_interaction(
     state: &mut GameState,
     window: &mut Window,
 ) -> Option<()> {
-    let scene = state.current_scene_mut();
-
-    scene.on_interaction(inter);
-
     match inter {
         InteractionEvent::Delete => state.delete_objects(),
         InteractionEvent::CommitMission => {

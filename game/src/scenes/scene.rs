@@ -16,15 +16,6 @@ pub enum SceneType {
     MainMenu,
 }
 
-impl SceneType {
-    fn on_interaction(&mut self, inter: &InteractionEvent) {
-        match self {
-            Self::OrbitalView(os) => os.on_interaction(inter),
-            _ => (),
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct Scene {
     name: String,
@@ -97,27 +88,11 @@ impl Scene {
         }
     }
 
-    pub fn on_mouse_event(&mut self, button: MouseButt, id: FrameId) {
-        info!("{} {:?} {:?}", self.name, button, id);
-    }
-
     pub fn ui(&self) -> &Tree<OnClick> {
         &self.ui
     }
 
     pub fn set_ui(&mut self, ui: Tree<OnClick>) {
         self.ui = ui;
-    }
-
-    pub fn on_load(&mut self) {
-        info!("On load: {}", &self.name);
-    }
-
-    pub fn on_exit(&mut self) {
-        info!("On exit: {}", &self.name);
-    }
-
-    pub fn on_interaction(&mut self, inter: &InteractionEvent) {
-        &self.scene_type.on_interaction(inter);
     }
 }
