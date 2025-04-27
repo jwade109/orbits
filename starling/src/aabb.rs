@@ -8,12 +8,24 @@ pub struct AABB {
 }
 
 impl AABB {
+    pub const UNIT: Self = Self {
+        center: Vec2::splat(0.5),
+        span: Vec2::splat(1.0),
+    };
+
     pub fn new(center: Vec2, span: Vec2) -> Self {
         Self { center, span }
     }
 
     pub fn unit() -> Self {
         Self::from_arbitrary((0.0, 0.0), (1.0, 1.0))
+    }
+
+    pub fn with_center(&self, c: Vec2) -> Self {
+        Self {
+            center: c,
+            span: self.span,
+        }
     }
 
     pub fn with_padding(pad: f32) -> Self {

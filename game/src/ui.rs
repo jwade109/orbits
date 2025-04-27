@@ -720,19 +720,16 @@ fn do_ui_sprites(
                 continue;
             }
 
-            let aabb = n.aabb();
-            let hover = state.input.ui_position(MouseButt::Hover, FrameId::Current);
-            let left = state.input.ui_position(MouseButt::Left, FrameId::Current);
-            let left_down = state.input.ui_position(MouseButt::Left, FrameId::Down);
+            let aabb = n.aabb_camera(vb.span);
+            let hover = state.input.position(MouseButt::Hover, FrameId::Current);
+            let left = state.input.position(MouseButt::Left, FrameId::Current);
+            let left_down = state.input.position(MouseButt::Left, FrameId::Down);
             let is_hover = hover.map(|p| aabb.contains(p)).unwrap_or(false);
             let is_clicked = left.map(|p| aabb.contains(p)).unwrap_or(false)
                 && left_down.map(|p| aabb.contains(p)).unwrap_or(false);
             let image = generate_button_sprite(n, is_clicked, is_hover);
 
-            let mut c = aabb.center;
-
-            c.x -= vb.span.x / 2.0;
-            c.y = vb.span.y / 2.0 - c.y;
+            let c = aabb.center;
 
             let transform =
                 Transform::from_translation(c.extend(n.layer() as f32 / 100.0 + lid as f32));

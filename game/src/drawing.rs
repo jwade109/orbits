@@ -2,6 +2,7 @@
 
 use bevy::color::palettes::basic::*;
 use bevy::color::palettes::css::ORANGE;
+use bevy::math::VectorSpace;
 use bevy::prelude::*;
 
 use std::collections::HashSet;
@@ -54,12 +55,6 @@ fn draw_circle(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
         .resolution(200);
 }
 
-fn draw_velocity_vec(gizmos: &mut Gizmos, pv: PV, length: f32, color: Srgba) {
-    let p1 = pv.pos;
-    let p2 = pv.pos + pv.vel.normalize_or_zero() * length;
-    gizmos.line_2d(p1, p2, color);
-}
-
 fn draw_aabb(gizmos: &mut Gizmos, aabb: AABB, color: Srgba) {
     gizmos.rect_2d(Isometry2d::from_translation(aabb.center), aabb.span, color);
 }
@@ -76,16 +71,26 @@ fn fill_aabb(gizmos: &mut Gizmos, aabb: AABB, color: Srgba) {
     }
 }
 
-fn draw_region(gizmos: &mut Gizmos, region: Region, color: Srgba, origin: Vec2) {
+fn draw_region(
+    gizmos: &mut Gizmos,
+    region: Region,
+    ctx: &impl CameraProjection,
+    color: Srgba,
+    origin: Vec2,
+) {
     match region {
-        Region::AABB(aabb) => draw_aabb(gizmos, aabb, color),
+        Region::AABB(aabb) => {
+            let p1 = ctx.w2c(aabb.lower());
+            let p2 = ctx.w2c(aabb.upper());
+            draw_aabb(gizmos, AABB::from_arbitrary(p1, p2), color)
+        }
         Region::AltitudeRange(a, b) => {
             draw_circle(gizmos, Vec2::ZERO, a, color);
             draw_circle(gizmos, Vec2::ZERO, b, color);
         }
         Region::OrbitRange(a, b) => {
-            draw_orbit(gizmos, &a, origin, color);
-            draw_orbit(gizmos, &b, origin, color);
+            draw_orbit(gizmos, &a, origin, color, ctx);
+            draw_orbit(gizmos, &b, origin, color, ctx);
             for angle in linspace(0.0, 2.0 * PI, 40) {
                 let u = rotate(Vec2::X, angle);
                 let p1 = origin + u * a.radius_at_angle(angle);
@@ -94,7 +99,7 @@ fn draw_region(gizmos: &mut Gizmos, region: Region, color: Srgba, origin: Vec2) 
             }
         }
         Region::NearOrbit(orbit, dist) => {
-            draw_orbit(gizmos, &orbit, origin, color);
+            draw_orbit(gizmos, &orbit, origin, color, ctx);
             for angle in linspace(0.0, 2.0 * PI, 40) {
                 let u = rotate(Vec2::X, angle);
                 let r = orbit.radius_at_angle(angle);
@@ -113,7 +118,13 @@ fn draw_obb(gizmos: &mut Gizmos, obb: &OBB, color: Srgba) {
     gizmos.linestrip_2d(corners, color);
 }
 
-fn draw_orbit(gizmos: &mut Gizmos, orb: &SparseOrbit, origin: Vec2, color: Srgba) {
+fn draw_orbit(
+    gizmos: &mut Gizmos,
+    orb: &SparseOrbit,
+    origin: Vec2,
+    color: Srgba,
+    ctx: &impl CameraProjection,
+) {
     if orb.will_escape() {
         let ta = if orb.is_hyperbolic() {
             let hrta = hyperbolic_range_ta(orb.ecc());
@@ -129,19 +140,20 @@ fn draw_orbit(gizmos: &mut Gizmos, orb: &SparseOrbit, origin: Vec2, color: Srgba
                 if p.length() > orb.body.soi {
                     return None;
                 }
-                Some(origin + p)
+                Some(ctx.w2c(origin + p))
             })
             .collect();
         gizmos.linestrip_2d(points, color);
     } else {
         let b = orb.semi_minor_axis();
-        let center: Vec2 = origin + (orb.periapsis() + orb.apoapsis()) / 2.0;
+        let center = origin + (orb.periapsis() + orb.apoapsis()) / 2.0;
+        let center = ctx.w2c(center);
         let iso = Isometry2d::new(center, orb.arg_periapsis.into());
 
         let res = orb.semi_major_axis.clamp(40.0, 300.0) as u32;
 
         gizmos
-            .ellipse_2d(iso, Vec2::new(orb.semi_major_axis, b), color)
+            .ellipse_2d(iso, Vec2::new(orb.semi_major_axis, b) * ctx.scale(), color)
             .resolution(res);
     }
 }
@@ -156,7 +168,7 @@ fn draw_global_orbit(
         .scenario
         .lup_planet(orbit.0, state.sim_time)
         .map(|lup| lup.pv())?;
-    draw_orbit(gizmos, &orbit.1, pv.pos, color);
+    draw_orbit(gizmos, &orbit.1, pv.pos, color, &state.orbital_context);
     Some(())
 }
 
@@ -178,15 +190,15 @@ fn draw_planets(
     planet: &PlanetarySystem,
     stamp: Nanotime,
     origin: Vec2,
-    mode: DrawMode,
+    ctx: &OrbitalContext,
 ) {
-    let a = match mode {
+    let a = match ctx.draw_mode {
         DrawMode::Default => 0.1,
         _ => 0.8,
     };
     draw_circle(gizmos, origin, planet.body.radius, GRAY.with_alpha(a));
 
-    if mode == DrawMode::Default {
+    if ctx.draw_mode == DrawMode::Default {
         draw_circle(gizmos, origin, planet.body.soi, GRAY.with_alpha(a));
     } else {
         for (a, ds) in [(1.0, 1.0), (0.3, 0.98), (0.1, 0.95)] {
@@ -196,8 +208,8 @@ fn draw_planets(
 
     for (orbit, pl) in &planet.subsystems {
         if let Some(pv) = orbit.pv(stamp).ok() {
-            draw_orbit(gizmos, orbit, origin, GRAY.with_alpha(a / 2.0));
-            draw_planets(gizmos, pl, stamp, origin + pv.pos, mode)
+            draw_orbit(gizmos, orbit, origin, GRAY.with_alpha(a / 2.0), ctx);
+            draw_planets(gizmos, pl, stamp, origin + pv.pos, ctx)
         }
     }
 }
@@ -211,10 +223,11 @@ fn draw_propagator(
     scale: f32,
     with_event: bool,
     color: Srgba,
+    ctx: &impl CameraProjection,
 ) -> Option<()> {
     let (_, parent_pv, _, _) = planets.lookup(prop.parent(), stamp)?;
 
-    draw_orbit(gizmos, &prop.orbit.1, parent_pv.pos, color);
+    draw_orbit(gizmos, &prop.orbit.1, parent_pv.pos, color, ctx);
     if with_event {
         if let Some((t, e)) = prop.stamped_event() {
             let pv_end = parent_pv + prop.pv(t)?;
@@ -265,10 +278,7 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
 
     let center = Vec2::new(window_dims.x - r * 1.2, r * 1.2);
 
-    let b = state.orbital_context.world_bounds(window_dims);
-    let c = state.input.screen_bounds;
-
-    let map = |p: Vec2| c.map(b, p);
+    let map = |p: Vec2| p;
 
     draw_vehicle(
         gizmos,
@@ -391,6 +401,7 @@ fn draw_orbiter(
     show_orbits: ShowOrbitsState,
     tracked: bool,
     piloting: bool,
+    ctx: &impl CameraProjection,
 ) -> Option<()> {
     let pv = obj.pv(stamp, planets)?;
 
@@ -423,7 +434,9 @@ fn draw_orbiter(
                 TEAL.with_alpha((1.0 - i as f32 * 0.3).max(0.0))
             };
             if show_orbits {
-                draw_propagator(gizmos, planets, &prop, stamp, wall_time, scale, true, color);
+                draw_propagator(
+                    gizmos, planets, &prop, stamp, wall_time, scale, true, color, ctx,
+                );
             }
         }
     } else {
@@ -438,24 +451,24 @@ fn draw_orbiter(
                 scale,
                 false,
                 GRAY.with_alpha(0.02),
+                ctx,
             );
         }
     }
     Some(())
 }
 
-fn draw_scenario(
-    gizmos: &mut Gizmos,
-    scenario: &Scenario,
-    stamp: Nanotime,
-    wall_time: Nanotime,
-    scale: f32,
-    show_orbits: ShowOrbitsState,
-    track_list: &HashSet<OrbiterId>,
-    piloting: Option<OrbiterId>,
-    mode: DrawMode,
-) {
-    draw_planets(gizmos, scenario.planets(), stamp, Vec2::ZERO, mode);
+fn draw_scenario(gizmos: &mut Gizmos, state: &GameState) {
+    let stamp = state.sim_time;
+    let wall_time = state.wall_time;
+    let scenario = &state.scenario;
+    let ctx = &state.orbital_context;
+    let track_list = &state.orbital_context.selected;
+    let scale = state.orbital_context.scale;
+    let show_orbits = state.orbital_context.show_orbits;
+    let piloting = state.piloting();
+
+    draw_planets(gizmos, scenario.planets(), stamp, Vec2::ZERO, ctx);
 
     for belt in scenario.belts() {
         let origin = match scenario
@@ -467,7 +480,7 @@ fn draw_scenario(
         };
 
         let region = belt.region();
-        draw_region(gizmos, region, GRAY.with_alpha(0.1), origin);
+        draw_region(gizmos, region, ctx, GRAY.with_alpha(0.1), origin);
     }
 
     _ = scenario
@@ -487,6 +500,7 @@ fn draw_scenario(
                 show_orbits,
                 is_tracked,
                 is_piloting,
+                ctx,
             )
         })
         .collect::<Vec<_>>();
@@ -611,12 +625,13 @@ fn draw_event(
 }
 
 fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) {
+    let ctx = &state.orbital_context;
     _ = state
         .highlighted()
         .into_iter()
         .filter_map(|id| {
             let pv = state.scenario.lup_orbiter(id, state.sim_time)?.pv();
-            draw_circle(gizmos, pv.pos, 20.0 * state.orbital_context.scale, GRAY);
+            draw_circle(gizmos, ctx.w2c(pv.pos), 20.0, GRAY);
             Some(())
         })
         .collect::<Vec<_>>();
@@ -630,6 +645,7 @@ fn draw_controller(
     scenario: &Scenario,
     scale: f32,
     tracked: bool,
+    ctx: &impl CameraProjection,
 ) -> Option<()> {
     let lup = scenario.lup_orbiter(ctrl.target(), stamp)?;
     let parent = lup.parent(stamp)?;
@@ -648,7 +664,7 @@ fn draw_controller(
 
     if tracked {
         let plan = ctrl.plan()?;
-        draw_maneuver_plan(gizmos, stamp, plan, origin, scale, wall_time)?;
+        draw_maneuver_plan(gizmos, stamp, plan, origin, scale, wall_time, ctx)?;
     }
 
     Some(())
@@ -698,6 +714,7 @@ fn draw_maneuver_plan(
     origin: Vec2,
     scale: f32,
     wall_time: Nanotime,
+    ctx: &impl CameraProjection,
 ) -> Option<()> {
     let anim_dur = Nanotime::secs(2);
     let s = (wall_time % anim_dur).to_secs() / anim_dur.to_secs();
@@ -729,7 +746,7 @@ fn draw_maneuver_plan(
             draw_diamond(gizmos, origin + pv.pos, 10.0 * scale, color);
         }
     }
-    draw_orbit(gizmos, &plan.terminal, origin, color);
+    draw_orbit(gizmos, &plan.terminal, origin, color, ctx);
     Some(())
 }
 
@@ -810,19 +827,13 @@ fn draw_timeline(gizmos: &mut Gizmos, state: &GameState) {
 
 fn draw_scale_indicator(gizmos: &mut Gizmos, state: &GameState) {
     let window_dims = state.input.screen_bounds.span;
-    let b = state.orbital_context.world_bounds(window_dims);
-    let c = state.input.screen_bounds;
-
     let width = 300.0;
-    let center = Vec2::new(window_dims.x / 2.0, window_dims.y - 20.0);
+    let center = Vec2::new(0.0, window_dims.y / 2.0 - 24.0);
 
     let p1 = center + Vec2::X * width;
     let p2 = center - Vec2::X * width;
 
-    let u1 = c.map(b, p1);
-    let u2 = c.map(b, p2);
-
-    let map = |p: Vec2| c.map(b, p);
+    let map = |p: Vec2| p;
 
     let color = WHITE.with_alpha(0.3);
 
@@ -854,7 +865,7 @@ fn draw_scale_indicator(gizmos: &mut Gizmos, state: &GameState) {
         }
     }
 
-    gizmos.line_2d(u1, u2, color);
+    gizmos.line_2d(p1, p2, color);
 }
 
 pub fn draw_counter(gizmos: &mut Gizmos, val: u64, pos: Vec2, scale: f32, color: Srgba) {
@@ -887,6 +898,7 @@ pub fn draw_counter(gizmos: &mut Gizmos, val: u64, pos: Vec2, scale: f32, color:
 }
 
 fn draw_belt_orbits(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
+    let ctx = &state.orbital_context;
     let cursor_orbit = state.right_cursor_orbit();
     for belt in state.scenario.belts() {
         let lup = match state.scenario.lup_planet(belt.parent(), state.sim_time) {
@@ -898,7 +910,7 @@ fn draw_belt_orbits(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
 
         if let Some(orbit) = cursor_orbit {
             if orbit.0 == belt.parent() && belt.contains_orbit(&orbit.1) {
-                draw_orbit(gizmos, &orbit.1, origin, YELLOW);
+                draw_orbit(gizmos, &orbit.1, origin, YELLOW, ctx);
                 draw_diamond(gizmos, orbit.1.periapsis(), 10.0, YELLOW);
                 draw_diamond(gizmos, orbit.1.apoapsis(), 10.0, YELLOW);
             }
@@ -958,6 +970,12 @@ pub fn draw_notifications(gizmos: &mut Gizmos, state: &GameState) {
             NotificationType::OrbiterCrashed(_) => {
                 draw_diamond(gizmos, p, size, RED.with_alpha(a));
             }
+            NotificationType::OrbiterEscaped(_) => {
+                draw_diamond(gizmos, p, size, TEAL.with_alpha(a));
+            }
+            NotificationType::NumericalError(_) => {
+                draw_diamond(gizmos, p, size, YELLOW.with_alpha(a));
+            }
             NotificationType::OrbiterDeleted(_) => {
                 draw_x(gizmos, p, size, RED.with_alpha(a));
             }
@@ -982,20 +1000,10 @@ pub fn draw_notifications(gizmos: &mut Gizmos, state: &GameState) {
     }
 }
 
-fn draw_graph(
-    gizmos: &mut Gizmos,
-    graph: &Graph,
-    state: &GameState,
-    center: Vec2,
-    scale: Vec2,
-) -> Option<()> {
-    let window_dims = state.input.screen_bounds.span;
-    let wb = state.orbital_context.world_bounds(window_dims);
-    let vb = AABB::new(wb.center + wb.span * center, wb.span * scale);
+fn draw_graph(gizmos: &mut Gizmos, graph: &Graph, bounds: AABB) -> Option<()> {
+    let map = |p: Vec2| bounds.from_normalized(p);
 
-    let map = |p: Vec2| vb.from_normalized(p);
-
-    draw_aabb(gizmos, vb, GRAY.with_alpha(0.05));
+    draw_aabb(gizmos, bounds, GRAY.with_alpha(0.05));
 
     {
         // axes
@@ -1017,8 +1025,7 @@ fn draw_graph(
         if !AABB::unit().contains(p) {
             continue;
         }
-        let size = 15.0 * state.orbital_context.scale;
-        draw_x(gizmos, map(p), size, WHITE.with_alpha(0.6));
+        draw_x(gizmos, map(p), 10.0, WHITE.with_alpha(0.6));
     }
 
     Some(())
@@ -1050,36 +1057,38 @@ pub fn draw_orbit_spline(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
         return None;
     }
 
-    let scale = Vec2::splat(0.4);
-    let c1 = Vec2::new(-0.26, 0.0);
-    let c2 = Vec2::new(0.26, 0.0);
-
     let g = state
         .right_cursor_orbit()
         .map(|o: GlobalOrbit| get_orbit_info_graph(&o.1))
         .unwrap_or(Graph::blank());
 
-    draw_graph(gizmos, &g, state, c2, scale);
+    let bounds = state.input.screen_bounds.with_center(Vec2::ZERO);
 
-    draw_graph(gizmos, get_lut_graph(), state, c1, scale);
+    draw_graph(gizmos, &g, bounds);
+    draw_graph(gizmos, get_lut_graph(), bounds);
 
     Some(())
 }
 
 pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, _scene: &OrbitalContext) {
+    let ctx = &state.orbital_context;
+
     draw_scale_indicator(gizmos, state);
 
-    draw_piloting_overlay(gizmos, &state);
+    draw_piloting_overlay(gizmos, state);
 
     // draw_timeline(gizmos, &state);
 
-    draw_orbit_spline(gizmos, &state);
+    draw_orbit_spline(gizmos, state);
 
     if let Some(a) = state.selection_region() {
-        draw_region(gizmos, a, RED, Vec2::ZERO);
+        draw_region(gizmos, a, ctx, RED, Vec2::ZERO);
     }
 
     if let Some((m1, m2, corner)) = state.measuring_tape() {
+        let m1 = ctx.w2c(m1);
+        let m2 = ctx.w2c(m2);
+        let corner = ctx.w2c(corner);
         draw_x(gizmos, m1, 12.0 * state.orbital_context.scale, GRAY);
         draw_x(gizmos, m2, 12.0 * state.orbital_context.scale, GRAY);
         gizmos.line_2d(m1, m2, GRAY);
@@ -1149,6 +1158,7 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, _scene: &Orbita
             &state.scenario,
             state.orbital_context.scale,
             tracked,
+            ctx,
         );
     }
 
@@ -1165,17 +1175,7 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, _scene: &Orbita
         }
     }
 
-    draw_scenario(
-        gizmos,
-        &state.scenario,
-        state.sim_time,
-        state.wall_time,
-        state.orbital_context.scale,
-        state.orbital_context.show_orbits,
-        &state.orbital_context.selected,
-        state.piloting(),
-        state.orbital_context.draw_mode,
-    );
+    draw_scenario(gizmos, state);
 
     draw_x(
         gizmos,
@@ -1189,22 +1189,6 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, _scene: &Orbita
     draw_notifications(gizmos, &state);
 
     draw_belt_orbits(gizmos, &state);
-
-    let wb = state.input.screen_bounds.span;
-
-    if let Some(p) = state.input.world_position(
-        MouseButt::Hover,
-        FrameId::Current,
-        state.orbital_context.world_bounds(wb),
-    ) {
-        draw_counter(
-            gizmos,
-            state.highlighted().len() as u64,
-            p,
-            state.orbital_context.scale,
-            WHITE,
-        );
-    }
 }
 
 pub fn draw_docking_scenario(
@@ -1335,9 +1319,7 @@ fn draw_telescope_view(gizmos: &mut Gizmos, state: &GameState) {
     draw_graph(
         gizmos,
         &graph,
-        state,
-        Vec2::new(0.0, -0.2),
-        Vec2::new(1.0, 0.6),
+        state.input.screen_bounds.with_center(Vec2::ZERO),
     );
 }
 
@@ -1357,10 +1339,10 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
 
     draw_ui_layout(gizmos, &state);
 
-    draw_mouse_state(gizmos, &state, state.wall_time);
+    draw_input_state(gizmos, &state, state.wall_time);
 }
 
-fn draw_mouse_state(gizmos: &mut Gizmos, state: &GameState, wall_time: Nanotime) {
+fn draw_input_state(gizmos: &mut Gizmos, state: &GameState, wall_time: Nanotime) {
     let points = [
         (MouseButt::Left, BLUE),
         (MouseButt::Right, GREEN),

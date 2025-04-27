@@ -21,6 +21,8 @@ impl Notification {
     pub fn duration(&self) -> Nanotime {
         match self.kind {
             NotificationType::OrbiterCrashed(_) => self.extra_time + Nanotime::secs(10),
+            NotificationType::OrbiterEscaped(_) => self.extra_time + Nanotime::secs(10),
+            NotificationType::NumericalError(_) => self.extra_time + Nanotime::secs(30),
             NotificationType::OrbiterDeleted(_) => self.extra_time + Nanotime::secs(5),
             NotificationType::ManeuverStarted(_) => self.extra_time + Nanotime::secs(2),
             NotificationType::ManeuverComplete(_) => self.extra_time + Nanotime::secs(7),
@@ -44,6 +46,8 @@ impl Notification {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NotificationType {
     OrbiterCrashed(OrbiterId),
+    OrbiterEscaped(OrbiterId),
+    NumericalError(OrbiterId),
     OrbiterDeleted(OrbiterId),
     ManeuverStarted(OrbiterId),
     ManeuverComplete(OrbiterId),

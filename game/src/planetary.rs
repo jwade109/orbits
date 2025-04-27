@@ -656,11 +656,14 @@ impl GameState {
 
         for (id, ri) in self.scenario.simulate(s, d) {
             if let Some(pv) = ri.orbit.pv(ri.stamp).ok() {
-                self.notify(
-                    ObjectId::Planet(ri.parent),
-                    NotificationType::OrbiterCrashed(id),
-                    pv.pos,
-                );
+                let notif = match ri.reason {
+                    EventType::Collide(_) => NotificationType::OrbiterCrashed(id),
+                    EventType::Encounter(_) => continue,
+                    EventType::Escape(_) => NotificationType::OrbiterEscaped(id),
+                    EventType::Impulse(_) => continue,
+                    EventType::NumericalError => NotificationType::NumericalError(id),
+                };
+                self.notify(ObjectId::Planet(ri.parent), notif, pv.pos);
             }
         }
 

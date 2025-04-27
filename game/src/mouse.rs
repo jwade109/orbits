@@ -1,4 +1,5 @@
 use crate::planetary::GameState;
+use crate::scenes::CameraProjection;
 use crate::ui::InteractionEvent;
 use bevy::prelude::*;
 use starling::nanotime::Nanotime;
@@ -148,24 +149,14 @@ impl InputState {
         frame.map(|f| f.frame_no == frame_no).unwrap_or(false)
     }
 
-    fn viewport_to_world(&self, p: Vec2, world_bounds: AABB) -> Vec2 {
-        self.screen_bounds.map(world_bounds, p)
-    }
-
     pub fn world_position(
         &self,
         button: MouseButt,
         order: FrameId,
-        world_bounds: AABB,
+        ctx: &impl CameraProjection,
     ) -> Option<Vec2> {
         let p = self.position(button, order)?;
-        Some(self.viewport_to_world(p, world_bounds))
-    }
-
-    pub fn ui_position(&self, button: MouseButt, order: FrameId) -> Option<Vec2> {
-        let p = self.position(button, order)?;
-        let p = Vec2::new(p.x, self.screen_bounds.span.y - p.y);
-        Some(p)
+        Some(ctx.c2w(p))
     }
 }
 
