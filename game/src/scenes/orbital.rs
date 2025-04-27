@@ -1,6 +1,7 @@
 use crate::mouse::{FrameId, InputState, MouseButt};
 use crate::planetary::GameState;
 use crate::scenes::Scene;
+use bevy::input::keyboard::KeyCode;
 use starling::prelude::*;
 use std::collections::HashSet;
 
@@ -76,8 +77,9 @@ impl EnumIter for DrawMode {
 pub struct OrbitalContext {
     primary: PlanetId,
     pub selected: HashSet<OrbiterId>,
-    pub world_center: Vec2,
-    pub actual_scale: f32,
+    pub center: Vec2,
+    target_center: Vec2,
+    pub scale: f32,
     pub follow: Option<ObjectId>,
     pub queued_orbits: Vec<GlobalOrbit>,
     pub selection_mode: CursorMode,
@@ -86,13 +88,24 @@ pub struct OrbitalContext {
     pub draw_mode: DrawMode,
 }
 
+pub trait CameraProjection {
+    fn to_camera(&self, p: Vec2) -> Vec2;
+}
+
+impl CameraProjection for OrbitalContext {
+    fn to_camera(&self, p: Vec2) -> Vec2 {
+        (p - self.center) * self.scale
+    }
+}
+
 impl OrbitalContext {
     pub fn new(primary: PlanetId) -> Self {
         Self {
             primary,
             selected: HashSet::new(),
-            world_center: Vec2::ZERO,
-            actual_scale: 0.4,
+            center: Vec2::ZERO,
+            target_center: Vec2::ZERO,
+            scale: 0.4,
             follow: None,
             queued_orbits: Vec::new(),
             selection_mode: CursorMode::Rect,
@@ -102,8 +115,32 @@ impl OrbitalContext {
         }
     }
 
+    pub fn step(&mut self, input: &InputState) {
+        let speed = 16.0;
+        if input.is_pressed(KeyCode::Equal) {
+            self.scale *= 1.03;
+        }
+        if input.is_pressed(KeyCode::Minus) {
+            self.scale /= 1.03;
+        }
+        if input.is_pressed(KeyCode::KeyD) {
+            self.target_center.x += speed / self.scale;
+        }
+        if input.is_pressed(KeyCode::KeyA) {
+            self.target_center.x -= speed / self.scale;
+        }
+        if input.is_pressed(KeyCode::KeyW) {
+            self.target_center.y += speed / self.scale;
+        }
+        if input.is_pressed(KeyCode::KeyS) {
+            self.target_center.y -= speed / self.scale;
+        }
+
+        self.center += (self.target_center - self.center) * 0.1;
+    }
+
     pub fn world_bounds(&self, window_dims: Vec2) -> AABB {
-        AABB::new(self.world_center, window_dims * self.actual_scale)
+        AABB::new(self.center, window_dims * self.scale)
     }
 }
 

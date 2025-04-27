@@ -334,7 +334,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
 
     if let Some(lup) = state
         .scenario
-        .relevant_body(state.orbital_context.world_center, state.sim_time)
+        .relevant_body(state.orbital_context.center, state.sim_time)
         .map(|id| state.scenario.lup_planet(id, state.sim_time))
         .flatten()
     {

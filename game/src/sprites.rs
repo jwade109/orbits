@@ -1,4 +1,5 @@
 use crate::planetary::GameState;
+use crate::scenes::CameraProjection;
 use crate::scenes::*;
 use bevy::asset::embedded_asset;
 use bevy::color::palettes::css::*;
@@ -103,6 +104,9 @@ pub fn update_planet_sprites(
         }
     }
 
+    let center = state.orbital_context.center;
+    let scale = state.orbital_context.scale;
+
     for (e, PlanetTexture(id, name), mut transform, mut vis) in query.iter_mut() {
         let lup = match state.scenario.lup_planet(*id, state.sim_time) {
             Some(lup) => lup,
@@ -127,8 +131,9 @@ pub fn update_planet_sprites(
         };
 
         if lname == name {
-            transform.translation = pv.pos.extend(PLANET_Z_INDEX);
-            transform.scale = 2.0 * Vec3::splat(body.radius) / EXPECTED_PLANET_SPRITE_SIZE as f32;
+            transform.translation = ((pv.pos - center) * scale).extend(PLANET_Z_INDEX);
+            transform.scale = 2.0 * Vec3::splat(body.radius) / EXPECTED_PLANET_SPRITE_SIZE as f32
+                * state.orbital_context.scale;
         } else {
             commands.entity(e).despawn();
         }
@@ -176,8 +181,10 @@ pub fn update_shadow_sprites(
         };
 
         let angle = PI - state.light_source().angle_to(Vec2::X);
-        let scale = (2.0 * body.radius) / EXPECTED_SHADOW_SPRITE_HEIGHT as f32;
-        transform.translation = (lup.pv().pos).extend(SHADOW_Z_INDEX);
+        let scale = (2.0 * body.radius) / EXPECTED_SHADOW_SPRITE_HEIGHT as f32
+            * state.orbital_context.scale;
+        let pos = lup.pv().pos;
+        transform.translation = state.orbital_context.to_camera(pos).extend(SHADOW_Z_INDEX);
         transform.scale = Vec3::new(scale, scale, 1.0);
         transform.rotation = Quat::from_rotation_z(angle);
     }
@@ -232,7 +239,7 @@ pub fn update_spacecraft_sprites(
 
             let pos = lup.pv().pos;
 
-            transform.translation = pos.extend(z_index);
+            transform.translation = state.orbital_context.to_camera(pos).extend(z_index);
 
             let light_source = state.light_source();
 
@@ -315,7 +322,7 @@ pub fn update_spacecraft_sprites(
             };
 
             s.color = color.into();
-            transform.scale = Vec3::splat(scale * state.orbital_context.actual_scale);
+            transform.scale = Vec3::splat(scale);
             x.1 += (target_scale - scale) * 0.2;
         } else {
             commands.entity(e).despawn();

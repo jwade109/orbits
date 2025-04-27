@@ -274,7 +274,7 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
         gizmos,
         &orbiter.vehicle,
         map(center),
-        state.orbital_context.actual_scale * zoom,
+        state.orbital_context.scale * zoom,
     );
 
     let mut draw_clock = |stamp: Nanotime, color: Srgba| {
@@ -290,7 +290,7 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
         gizmos,
         rb as u64,
         map(center + Vec2::Y * r),
-        state.orbital_context.actual_scale,
+        state.orbital_context.scale,
         WHITE,
     );
 
@@ -298,7 +298,7 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
         draw_circle(
             gizmos,
             map(center),
-            rb * state.orbital_context.actual_scale * zoom,
+            rb * state.orbital_context.scale * zoom,
             RED.with_alpha(0.02),
         );
 
@@ -307,7 +307,7 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
             draw_circle(
                 gizmos,
                 map(center),
-                rc * state.orbital_context.actual_scale * zoom,
+                rc * state.orbital_context.scale * zoom,
                 GRAY.with_alpha(0.05),
             );
             rc += 10.0;
@@ -316,7 +316,7 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
         draw_cross(
             gizmos,
             map(center),
-            3.0 * state.orbital_context.actual_scale,
+            3.0 * state.orbital_context.scale,
             RED.with_alpha(0.1),
         );
     }
@@ -332,7 +332,7 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
         draw_circle(
             gizmos,
             lup.pv().pos,
-            s * state.orbital_context.actual_scale,
+            s * state.orbital_context.scale,
             GRAY.with_alpha(0.1),
         );
     }
@@ -349,7 +349,7 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     draw_pointing_vector(orbiter.vehicle.pointing(), LIME);
     draw_pointing_vector(orbiter.vehicle.target_pointing(), LIME.with_alpha(0.4));
 
-    let r = r * state.orbital_context.actual_scale;
+    let r = r * state.orbital_context.scale;
     draw_circle(gizmos, map(center), r, GRAY);
 
     let p = orbiter.fuel_percentage();
@@ -360,7 +360,7 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
             draw_triangle(
                 gizmos,
                 map(center),
-                30.0 * state.orbital_context.actual_scale,
+                30.0 * state.orbital_context.scale,
                 YELLOW,
             );
         }
@@ -619,7 +619,7 @@ fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) {
             draw_circle(
                 gizmos,
                 pv.pos,
-                20.0 * state.orbital_context.actual_scale,
+                20.0 * state.orbital_context.scale,
                 GRAY,
             );
             Some(())
@@ -770,7 +770,7 @@ fn draw_timeline(gizmos: &mut Gizmos, state: &GameState) {
 
     let mut draw_tick_mark = |t: Nanotime, row: usize, scale: f32, color: Srgba| {
         let p = p_at(t, row);
-        let h = Vec2::Y * state.orbital_context.actual_scale * row_height * scale / 2.0;
+        let h = Vec2::Y * state.orbital_context.scale * row_height * scale / 2.0;
         gizmos.line_2d(p + h, p - h, color);
     };
 
@@ -801,7 +801,7 @@ fn draw_timeline(gizmos: &mut Gizmos, state: &GameState) {
             let p1 = p_at(segment.start.max(tmin), i);
             let p2 = p_at(segment.end.min(tmax), i);
             gizmos.line_2d(p1, p2, BLUE.with_alpha(alpha * 0.3));
-            let size = state.orbital_context.actual_scale * row_height * 0.5;
+            let size = state.orbital_context.scale * row_height * 0.5;
             for t in [segment.start, segment.end] {
                 if t < tmin || t > tmax {
                     continue;
@@ -845,7 +845,7 @@ fn draw_scale_indicator(gizmos: &mut Gizmos, state: &GameState) {
 
     for power in -3..7 {
         let size = 10.0f32.powi(power);
-        let ds = size / state.orbital_context.actual_scale;
+        let ds = size / state.orbital_context.scale;
         let weight = (ds * 10.0 / width).min(1.0);
         let mut s = 0.0;
         s += ds;
@@ -929,12 +929,12 @@ fn draw_belt_orbits(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
 
         let (_, corner) = belt.position(0.8);
 
-        if state.orbital_context.actual_scale < 2.0 {
+        if state.orbital_context.scale < 2.0 {
             draw_counter(
                 gizmos,
                 count,
                 origin + corner * 1.1,
-                state.orbital_context.actual_scale,
+                state.orbital_context.scale,
                 WHITE,
             );
         }
@@ -955,7 +955,7 @@ pub fn draw_notifications(gizmos: &mut Gizmos, state: &GameState) {
             },
         };
 
-        let size = 20.0 * state.orbital_context.actual_scale;
+        let size = 20.0 * state.orbital_context.scale;
         let s = (state.wall_time - notif.wall_time).to_secs() / notif.duration().to_secs();
         let a = (1.0 - 2.0 * s).max(0.2);
 
@@ -1022,7 +1022,7 @@ fn draw_graph(
         if !AABB::unit().contains(p) {
             continue;
         }
-        let size = 15.0 * state.orbital_context.actual_scale;
+        let size = 15.0 * state.orbital_context.scale;
         draw_x(gizmos, map(p), size, WHITE.with_alpha(0.6));
     }
 
@@ -1093,8 +1093,8 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, _scene: &Orbita
     }
 
     if let Some((m1, m2, corner)) = state.measuring_tape() {
-        draw_x(gizmos, m1, 12.0 * state.orbital_context.actual_scale, GRAY);
-        draw_x(gizmos, m2, 12.0 * state.orbital_context.actual_scale, GRAY);
+        draw_x(gizmos, m1, 12.0 * state.orbital_context.scale, GRAY);
+        draw_x(gizmos, m2, 12.0 * state.orbital_context.scale, GRAY);
         gizmos.line_2d(m1, m2, GRAY);
         gizmos.line_2d(m1, corner, GRAY.with_alpha(0.3));
         gizmos.line_2d(m2, corner, GRAY.with_alpha(0.3));
@@ -1160,7 +1160,7 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, _scene: &Orbita
             state.wall_time,
             ctrl,
             &state.scenario,
-            state.orbital_context.actual_scale,
+            state.orbital_context.scale,
             tracked,
         );
     }
@@ -1172,7 +1172,7 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, _scene: &Orbita
                 &state.scenario,
                 *id,
                 state.sim_time,
-                state.orbital_context.actual_scale,
+                state.orbital_context.scale,
                 state.wall_time,
             );
         }
@@ -1183,7 +1183,7 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, _scene: &Orbita
         &state.scenario,
         state.sim_time,
         state.wall_time,
-        state.orbital_context.actual_scale,
+        state.orbital_context.scale,
         state.orbital_context.show_orbits,
         &state.orbital_context.selected,
         state.piloting(),
@@ -1193,7 +1193,7 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, _scene: &Orbita
     draw_x(
         gizmos,
         state.light_source(),
-        20.0 * state.orbital_context.actual_scale,
+        20.0 * state.orbital_context.scale,
         RED.with_alpha(0.2),
     );
 
@@ -1214,7 +1214,7 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, _scene: &Orbita
             gizmos,
             state.highlighted().len() as u64,
             p,
-            state.orbital_context.actual_scale,
+            state.orbital_context.scale,
             WHITE,
         );
     }

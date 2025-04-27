@@ -29,10 +29,7 @@ impl Plugin for PlanetaryPlugin {
                 crate::keybindings::keyboard_input,
                 track_highlighted_objects,
                 handle_interactions,
-                handle_camera_interactions,
                 crate::mouse::update_input_state,
-                // update orbital_context stuff
-                move_camera_and_store,
                 // rendering
                 crate::sprites::make_new_sprites,
                 crate::sprites::update_planet_sprites,
@@ -76,15 +73,6 @@ fn init_system(mut commands: Commands) {
         },
         RenderLayers::layer(1),
     ));
-}
-
-fn move_camera_and_store(
-    mut query: Single<&mut Transform, With<DingusController>>,
-    mut state: ResMut<GameState>,
-) {
-    let tf = query.deref_mut();
-    state.orbital_context.actual_scale = tf.scale.z;
-    state.orbital_context.world_center = tf.translation.xy();
 }
 
 #[derive(Resource)]
@@ -628,6 +616,7 @@ impl GameState {
             self.sim_time += Nanotime::nanos((time.delta().as_nanos() as f32 * sp) as i64);
         }
 
+        self.orbital_context.step(&self.input);
         self.telescope_context.step(&self.input);
         self.rpo_context.step(&self.input);
 
@@ -736,7 +725,7 @@ impl GameState {
                 let middle = (a + b) / 2.0;
                 let d = format!("{:0.2}", a.distance(b));
                 self.text_labels
-                    .push((middle, d, self.orbital_context.actual_scale));
+                    .push((middle, d, self.orbital_context.scale));
             }
         }
 
@@ -797,7 +786,7 @@ fn step_system(time: Res<Time>, mut state: ResMut<GameState>) {
 //     show_id_list(&state.highlighted(), "Select");
 
 //     log(&format!("Physics: {:?}", state.physics_duration));
-//     log(&format!("Scale: {:0.3}", state.orbital_context.actual_scale));
+//     log(&format!("Scale: {:0.3}", state.orbital_context.scale));
 //     log(&format!("Ctlrs: {}", state.controllers.len()));
 
 //     {
@@ -976,52 +965,6 @@ fn handle_interactions(
         debug!("Interaction event: {e:?}");
         process_interaction(e, &mut state, &mut window);
     }
-}
-
-fn handle_camera_interactions(
-    mut events: EventReader<InteractionEvent>,
-    mut query: Query<&mut Transform, With<DingusController>>,
-    state: Res<GameState>,
-    time: Res<Time>,
-) {
-    let mut ctrl = match query.get_single_mut() {
-        Ok(c) => c,
-        Err(e) => {
-            error!("{:?}", e);
-            return;
-        }
-    };
-
-    match state.current_scene().orbital_view(&state.input) {
-        Some(ov) => {
-            if let Some(p) = ov.follow_position(&state) {
-                ctrl.translation = p.extend(0.0);
-            }
-        }
-        None => (),
-    };
-
-    let cursor_delta = 1400.0 * time.delta_secs() * ctrl.scale.z;
-    let scale_scalar = 1.5;
-
-    for e in events.read() {
-        match e {
-            InteractionEvent::MoveLeft => ctrl.translation.x -= cursor_delta,
-            InteractionEvent::MoveRight => ctrl.translation.x += cursor_delta,
-            InteractionEvent::MoveUp => ctrl.translation.y += cursor_delta,
-            InteractionEvent::MoveDown => ctrl.translation.y -= cursor_delta,
-            InteractionEvent::ZoomIn => ctrl.scale /= scale_scalar,
-            InteractionEvent::ZoomOut => ctrl.scale *= scale_scalar,
-            _ => (),
-        }
-    }
-
-    match state.current_scene().orbital_view(&state.input) {
-        Some(_) => (),
-        None => {
-            *ctrl = Transform::IDENTITY;
-        }
-    };
 }
 
 // TODO get rid of this
