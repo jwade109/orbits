@@ -616,12 +616,7 @@ fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) {
         .into_iter()
         .filter_map(|id| {
             let pv = state.scenario.lup_orbiter(id, state.sim_time)?.pv();
-            draw_circle(
-                gizmos,
-                pv.pos,
-                20.0 * state.orbital_context.scale,
-                GRAY,
-            );
+            draw_circle(gizmos, pv.pos, 20.0 * state.orbital_context.scale, GRAY);
             Some(())
         })
         .collect::<Vec<_>>();
@@ -1032,26 +1027,18 @@ fn draw_graph(
 pub fn draw_ui_layout(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let scene = state.current_scene();
 
-    let window_dims = state.input.screen_bounds.span;
-    let vb = state.input.screen_bounds;
-    let wb = state.orbital_context.world_bounds(window_dims);
-    let map = |aabb: AABB| vb.map_box(wb, aabb);
+    let wb = state.input.screen_bounds.span;
 
-    let fm = |aabb: AABB| {
-        let mut aabb = aabb.flip_y_about(0.0);
-        aabb.center += Vec2::Y * vb.span.y;
-        map(aabb)
-    };
-
-    if let Some(n) = state
-        .input
-        .position(MouseButt::Hover, FrameId::Current)
-        .map(|p| Vec2::new(p.x, vb.span.y - p.y))
-        .map(|p| scene.ui().at(p))
-        .flatten()
-    {
-        if n.text_content().is_some() {
-            draw_aabb(gizmos, fm(n.aabb()), RED);
+    for layout in scene.ui().layouts() {
+        for n in layout.iter() {
+            let aabb = n.aabb_camera(wb);
+            let p = state.input.position(MouseButt::Hover, FrameId::Current);
+            let color = if p.map(|p| aabb.contains(p)).unwrap_or(false) {
+                RED
+            } else {
+                GRAY
+            };
+            draw_aabb(gizmos, n.aabb_camera(wb), color);
         }
     }
 
@@ -1370,7 +1357,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
 
     draw_ui_layout(gizmos, &state);
 
-    // draw_mouse_state(gizmos, &state.input, state.wall_time);
+    draw_mouse_state(gizmos, &state, state.wall_time);
 }
 
 fn draw_mouse_state(gizmos: &mut Gizmos, state: &GameState, wall_time: Nanotime) {
@@ -1380,23 +1367,19 @@ fn draw_mouse_state(gizmos: &mut Gizmos, state: &GameState, wall_time: Nanotime)
         (MouseButt::Middle, YELLOW),
     ];
 
-    let wb = state
-        .orbital_context
-        .world_bounds(state.input.screen_bounds.span);
+    let offset = state.input.screen_bounds.span / 2.0;
+    draw_aabb(gizmos, state.input.screen_bounds.offset(-offset), RED);
 
-    if let Some(p) = state
-        .input
-        .world_position(MouseButt::Hover, FrameId::Current, wb)
-    {
+    if let Some(p) = state.input.position(MouseButt::Hover, FrameId::Current) {
         draw_circle(gizmos, p, 8.0, RED);
     }
 
     for (b, c) in points {
-        let p1 = state.input.world_position(b, FrameId::Down, wb);
+        let p1 = state.input.position(b, FrameId::Down);
         let p2 = state
             .input
-            .world_position(b, FrameId::Current, wb)
-            .or(state.input.world_position(b, FrameId::Up, wb));
+            .position(b, FrameId::Current)
+            .or(state.input.position(b, FrameId::Up));
 
         if let Some((p1, p2)) = p1.zip(p2) {
             gizmos.line_2d(p1, p2, c);
@@ -1404,7 +1387,7 @@ fn draw_mouse_state(gizmos: &mut Gizmos, state: &GameState, wall_time: Nanotime)
 
         for fid in [FrameId::Down, FrameId::Up] {
             let age = state.input.age(b, fid, wall_time);
-            let p = state.input.world_position(b, fid, wb);
+            let p = state.input.position(b, fid);
             if let Some((p, age)) = p.zip(age) {
                 let dt = age.to_secs();
                 let a = (1.0 - dt).max(0.0);

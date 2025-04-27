@@ -313,6 +313,12 @@ impl<IdType> Node<IdType> {
         AABB::from_arbitrary(a, b)
     }
 
+    pub fn aabb_camera(&self, wb: Vec2) -> AABB {
+        let aabb = self.aabb();
+        let offset = Vec2::new(-wb.x / 2.0, wb.y / 2.0);
+        aabb.flip_y_about(0.0).offset(offset)
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = &Node<IdType>> + use<'_, IdType> {
         let self_iter = [self].into_iter();
         let child_iters: Vec<&Node<IdType>> = self
@@ -505,10 +511,12 @@ impl<IdType> Tree<IdType> {
         &self.roots
     }
 
-    pub fn at(&self, p: Vec2) -> Option<&Node<IdType>> {
+    pub fn at(&self, p: Vec2, wb: Vec2) -> Option<&Node<IdType>> {
         for layout in self.roots.iter().rev() {
-            let mut candidates: Vec<&Node<IdType>> =
-                layout.iter().filter(|n| n.aabb().contains(p)).collect();
+            let mut candidates: Vec<&Node<IdType>> = layout
+                .iter()
+                .filter(|n| n.aabb_camera(wb).contains(p))
+                .collect();
             if candidates.is_empty() {
                 continue;
             }

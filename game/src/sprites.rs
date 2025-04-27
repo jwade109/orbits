@@ -184,7 +184,7 @@ pub fn update_shadow_sprites(
         let scale = (2.0 * body.radius) / EXPECTED_SHADOW_SPRITE_HEIGHT as f32
             * state.orbital_context.scale;
         let pos = lup.pv().pos;
-        transform.translation = state.orbital_context.to_camera(pos).extend(SHADOW_Z_INDEX);
+        transform.translation = state.orbital_context.w2c(pos).extend(SHADOW_Z_INDEX);
         transform.scale = Vec3::new(scale, scale, 1.0);
         transform.rotation = Quat::from_rotation_z(angle);
     }
@@ -239,7 +239,7 @@ pub fn update_spacecraft_sprites(
 
             let pos = lup.pv().pos;
 
-            transform.translation = state.orbital_context.to_camera(pos).extend(z_index);
+            transform.translation = state.orbital_context.w2c(pos).extend(z_index);
 
             let light_source = state.light_source();
 

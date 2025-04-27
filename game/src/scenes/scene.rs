@@ -68,8 +68,8 @@ impl Scene {
         let a = input.position(MouseButt::Left, FrameId::Down);
         let b = input.position(MouseButt::Right, FrameId::Down);
         let p = a.or(b)?;
-        let q = Vec2::new(p.x, input.screen_bounds.span.y - p.y);
-        self.ui.at(q).map(|n| n.id()).flatten().cloned()
+        let wb = input.screen_bounds.span;
+        self.ui.at(p, wb).map(|n| n.id()).flatten().cloned()
     }
 
     pub fn mouse_if_world<'a>(&self, input: &'a InputState) -> Option<&'a InputState> {

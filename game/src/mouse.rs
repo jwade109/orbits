@@ -109,10 +109,14 @@ pub enum FrameId {
 }
 
 impl InputState {
+    /// Position of the mouse in camera-screen space.
+    ///
+    /// (0, 0) is always the center of the screen.
+    /// (-w/2, -h/2) is the bottom left corner, (w/2, h/2) is the top right corner.
     pub fn position(&self, button: MouseButt, order: FrameId) -> Option<Vec2> {
         let state = self.get_state(button);
         let frame = state.frame(order)?;
-        Some(frame.screen_pos)
+        Some(frame.screen_pos - self.screen_bounds.span / 2.0)
     }
 
     pub fn age(&self, button: MouseButt, order: FrameId, wall_time: Nanotime) -> Option<Nanotime> {

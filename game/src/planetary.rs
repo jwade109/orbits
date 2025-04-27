@@ -573,22 +573,23 @@ impl GameState {
     }
 
     pub fn current_hover_ui(&self) -> Option<&crate::ui::OnClick> {
-        let vb = self.input.screen_bounds.span;
+        let wb = self.input.screen_bounds.span;
         let scene = self.current_scene();
         let p = self.input.position(MouseButt::Hover, FrameId::Current)?;
-        let q = Vec2::new(p.x, vb.y - p.y);
-        scene.ui().at(q).map(|n| n.id()).flatten()
+        scene.ui().at(p, wb).map(|n| n.id()).flatten()
     }
 
     fn handle_click_events(&mut self) {
         use FrameId::*;
         use MouseButt::*;
 
+        let wb = self.input.screen_bounds.span;
+
         if self.input.on_frame(Left, Down, self.current_frame_no) {
             let scene = self.current_scene();
-            let p = self.input.ui_position(Left, Down);
+            let p = self.input.position(Left, Down);
             if let Some(p) = p {
-                if let Some(n) = scene.ui().at(p).map(|n| n.id()).flatten() {
+                if let Some(n) = scene.ui().at(p, wb).map(|n| n.id()).flatten() {
                     self.on_button_event(n.clone());
                 }
                 self.redraw();
@@ -886,9 +887,8 @@ fn process_interaction(
             // check to see if we're in the main area
             let vb = state.input.screen_bounds;
             let wb = state.orbital_context.world_bounds(vb.span);
-            let dims = vb.span;
             let scene = state.current_scene();
-            let n = scene.ui().at(Vec2::new(p.x, dims.y - p.y))?;
+            let n = scene.ui().at(*p, vb.span)?;
             (n.id() == Some(&crate::ui::OnClick::World)).then(|| ())?;
 
             let w = vb.map(wb, *p);

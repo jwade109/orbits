@@ -89,12 +89,20 @@ pub struct OrbitalContext {
 }
 
 pub trait CameraProjection {
-    fn to_camera(&self, p: Vec2) -> Vec2;
+    /// World to camera transform
+    fn w2c(&self, p: Vec2) -> Vec2;
+
+    /// Camera to world transform
+    fn c2w(&self, p: Vec2) -> Vec2;
 }
 
 impl CameraProjection for OrbitalContext {
-    fn to_camera(&self, p: Vec2) -> Vec2 {
+    fn w2c(&self, p: Vec2) -> Vec2 {
         (p - self.center) * self.scale
+    }
+
+    fn c2w(&self, p: Vec2) -> Vec2 {
+        p / self.scale + self.center
     }
 }
 
