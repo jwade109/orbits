@@ -1,7 +1,8 @@
 use crate::mouse::{FrameId, InputState, MouseButt};
 use crate::notifications::*;
 use crate::scenes::{
-    CursorMode, EnumIter, OrbitalContext, RPOContext, Scene, SceneType, TelescopeContext,
+    CameraProjection, CursorMode, EnumIter, OrbitalContext, RPOContext, Scene, SceneType,
+    TelescopeContext,
 };
 use crate::ui::InteractionEvent;
 use bevy::color::palettes::css::*;
@@ -891,20 +892,12 @@ fn process_interaction(
                 fs
             };
         }
-        InteractionEvent::DoubleClick(p) => {
-            // check to see if we're in the main area
-            let vb = state.input.screen_bounds;
-            let wb = state.orbital_context.world_bounds(vb.span);
-            let scene = state.current_scene();
-            let n = scene.ui().at(*p, vb.span)?;
-            (n.id() == Some(&crate::ui::OnClick::World)).then(|| ())?;
-
-            let w = vb.map(wb, *p);
-            let id = state.scenario.nearest(w, state.sim_time);
-            if let Some(id) = id {
-                state.orbital_context.follow = Some(id);
-                state.notify(id, NotificationType::Following(id), None);
-            }
+        InteractionEvent::DoubleClick => {
+            let p = state.input.position(MouseButt::Left, FrameId::Down)?;
+            let w = state.orbital_context.c2w(p);
+            let id = state.scenario.nearest(w, state.sim_time)?;
+            state.orbital_context.follow = Some(id);
+            state.notify(id, NotificationType::Following(id), None);
         }
         InteractionEvent::ExitApp => {
             std::process::exit(0);

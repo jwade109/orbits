@@ -193,7 +193,7 @@ pub fn update_input_state(
         let age = state.input.left.up().map(|f| f.age(t));
         if let Some(age) = age {
             if age < DOUBLE_CLICK_DURATION {
-                events.send(InteractionEvent::DoubleClick(current_frame.screen_pos));
+                events.send(InteractionEvent::DoubleClick);
             }
         }
         state.input.left.set_down(current_frame);

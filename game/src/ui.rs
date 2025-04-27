@@ -43,7 +43,7 @@ pub enum InteractionEvent {
     ToggleFullscreen,
 
     // mouse stuff
-    DoubleClick(Vec2),
+    DoubleClick,
 
     // orbital_context operations
     MoveLeft,
