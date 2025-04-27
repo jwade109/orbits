@@ -38,6 +38,10 @@ impl RPOContext {
         if input.is_pressed(KeyCode::KeyS) {
             self.target_center.y -= speed / self.zoom;
         }
+        if input.is_pressed(KeyCode::KeyR) {
+            self.target_center = Vec2::ZERO;
+            self.zoom = 1.0;
+        }
 
         self.center += (self.target_center - self.center) * 0.1;
     }

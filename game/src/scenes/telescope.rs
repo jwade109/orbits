@@ -41,6 +41,11 @@ impl TelescopeContext {
         if input.is_pressed(KeyCode::KeyS) {
             self.target_el -= 0.01 * self.angular_radius;
         }
+        if input.is_pressed(KeyCode::KeyR) {
+            self.target_el = 0.0;
+            self.target_az = 0.0;
+            self.angular_radius = 1.0;
+        }
 
         self.angular_radius = self.angular_radius.clamp(0.05, PI / 2.0);
 

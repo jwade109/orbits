@@ -1,6 +1,8 @@
 use crate::mouse::{FrameId, InputState, MouseButt};
 use crate::notifications::*;
-use crate::scenes::{CursorMode, EnumIter, OrbitalContext, RPOContext, Scene, TelescopeContext};
+use crate::scenes::{
+    CursorMode, EnumIter, OrbitalContext, RPOContext, Scene, SceneType, TelescopeContext,
+};
 use crate::ui::InteractionEvent;
 use bevy::color::palettes::css::*;
 use bevy::core_pipeline::bloom::Bloom;
@@ -617,9 +619,12 @@ impl GameState {
             self.sim_time += Nanotime::nanos((time.delta().as_nanos() as f32 * sp) as i64);
         }
 
-        self.orbital_context.step(&self.input);
-        self.telescope_context.step(&self.input);
-        self.rpo_context.step(&self.input);
+        match self.current_scene().kind() {
+            SceneType::OrbitalView(_) => self.orbital_context.step(&self.input),
+            SceneType::TelescopeView(_) => self.telescope_context.step(&self.input),
+            SceneType::DockingView(_) => self.rpo_context.step(&self.input),
+            _ => (),
+        }
 
         for rpo in &mut self.rpos {
             rpo.step(self.wall_time);

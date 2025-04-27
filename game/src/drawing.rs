@@ -196,13 +196,31 @@ fn draw_planets(
         DrawMode::Default => 0.1,
         _ => 0.8,
     };
-    draw_circle(gizmos, origin, planet.body.radius, GRAY.with_alpha(a));
+
+    let screen_origin = ctx.w2c(origin);
+
+    draw_circle(
+        gizmos,
+        screen_origin,
+        planet.body.radius * ctx.scale(),
+        GRAY.with_alpha(a),
+    );
 
     if ctx.draw_mode == DrawMode::Default {
-        draw_circle(gizmos, origin, planet.body.soi, GRAY.with_alpha(a));
+        draw_circle(
+            gizmos,
+            screen_origin,
+            planet.body.soi * ctx.scale(),
+            GRAY.with_alpha(a),
+        );
     } else {
         for (a, ds) in [(1.0, 1.0), (0.3, 0.98), (0.1, 0.95)] {
-            draw_circle(gizmos, origin, planet.body.soi * ds, ORANGE.with_alpha(a));
+            draw_circle(
+                gizmos,
+                screen_origin,
+                planet.body.soi * ds * ctx.scale(),
+                ORANGE.with_alpha(a),
+            );
         }
     }
 
@@ -684,6 +702,7 @@ fn draw_event_animation(
     stamp: Nanotime,
     scale: f32,
     wall_time: Nanotime,
+    ctx: &impl CameraProjection,
 ) -> Option<()> {
     let obj = scenario.lup_orbiter(id, stamp)?.orbiter()?;
     let p = obj.props().last()?;
@@ -691,18 +710,18 @@ fn draw_event_animation(
     let mut t = stamp + dt;
     while t < p.end().unwrap_or(stamp + Nanotime::secs(30)) {
         let pv = obj.pv(t, scenario.planets())?;
-        draw_diamond(gizmos, pv.pos, 11.0 * scale.min(1.0), WHITE.with_alpha(0.6));
+        draw_diamond(gizmos, ctx.w2c(pv.pos), 11.0, WHITE.with_alpha(0.6));
         t += dt;
     }
     for prop in obj.props() {
         if let Some((t, e)) = prop.stamped_event() {
             let pv = obj.pv(t, scenario.planets())?;
-            draw_event_marker_at(gizmos, wall_time, &e, pv.pos, scale);
+            draw_event_marker_at(gizmos, wall_time, &e, ctx.w2c(pv.pos), scale);
         }
     }
     if let Some(t) = p.end() {
         let pv = obj.pv(t, scenario.planets())?;
-        draw_square(gizmos, pv.pos, 13.0 * scale.min(1.0), RED.with_alpha(0.8));
+        draw_square(gizmos, ctx.w2c(pv.pos), 13.0, RED.with_alpha(0.8));
     }
     Some(())
 }
@@ -725,7 +744,7 @@ fn draw_maneuver_plan(
         let positions: Vec<_> = tspace(t_anim, t_end, 30)
             .iter()
             .filter_map(|t| (*t >= stamp).then(|| plan.pv(*t)).flatten())
-            .map(|p| p.pos + origin)
+            .map(|p| ctx.w2c(p.pos + origin))
             .collect();
 
         gizmos.linestrip_2d(positions, YELLOW);
@@ -950,6 +969,8 @@ fn draw_belt_orbits(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
 }
 
 pub fn draw_notifications(gizmos: &mut Gizmos, state: &GameState) {
+    let ctx = &state.orbital_context;
+
     for notif in &state.notifications {
         let p = match notif.parent {
             ObjectId::Orbiter(id) => match state.scenario.lup_orbiter(id, state.sim_time) {
@@ -962,9 +983,11 @@ pub fn draw_notifications(gizmos: &mut Gizmos, state: &GameState) {
             },
         };
 
-        let size = 20.0 * state.orbital_context.scale;
+        let size = 20.0;
         let s = (state.wall_time - notif.wall_time).to_secs() / notif.duration().to_secs();
         let a = (1.0 - 2.0 * s).max(0.2);
+
+        let p = ctx.w2c(p);
 
         match notif.kind {
             NotificationType::OrbiterCrashed(_) => {
@@ -1038,14 +1061,14 @@ pub fn draw_ui_layout(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
 
     for layout in scene.ui().layouts() {
         for n in layout.iter() {
+            if n.text_content().map(|t| t.is_empty()).unwrap_or(true) {
+                continue;
+            }
             let aabb = n.aabb_camera(wb);
             let p = state.input.position(MouseButt::Hover, FrameId::Current);
-            let color = if p.map(|p| aabb.contains(p)).unwrap_or(false) {
-                RED
-            } else {
-                GRAY
-            };
-            draw_aabb(gizmos, n.aabb_camera(wb), color);
+            if p.map(|p| aabb.contains(p)).unwrap_or(false) {
+                draw_aabb(gizmos, n.aabb_camera(wb), RED);
+            }
         }
     }
 
@@ -1171,6 +1194,7 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, _scene: &Orbita
                 state.sim_time,
                 state.orbital_context.scale,
                 state.wall_time,
+                ctx,
             );
         }
     }
