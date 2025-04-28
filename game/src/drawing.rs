@@ -2,11 +2,7 @@
 
 use bevy::color::palettes::basic::*;
 use bevy::color::palettes::css::ORANGE;
-use bevy::math::VectorSpace;
 use bevy::prelude::*;
-
-use std::collections::HashSet;
-
 use starling::prelude::*;
 
 use crate::graph::*;
@@ -179,8 +175,12 @@ fn draw_orbit_between(
     color: Srgba,
     start: Nanotime,
     end: Nanotime,
+    ctx: &impl CameraProjection,
 ) -> Option<()> {
-    let points: Vec<_> = orb.sample_pos(start, end, 10.0, origin)?;
+    let mut points: Vec<_> = orb.sample_pos(start, end, 10.0, origin)?;
+    points.iter_mut().for_each(|p| {
+        *p = ctx.w2c(*p);
+    });
     gizmos.linestrip_2d(points, color);
     Some(())
 }
@@ -238,7 +238,6 @@ fn draw_propagator(
     prop: &Propagator,
     stamp: Nanotime,
     wall_time: Nanotime,
-    scale: f32,
     with_event: bool,
     color: Srgba,
     ctx: &impl CameraProjection,
@@ -249,7 +248,7 @@ fn draw_propagator(
     if with_event {
         if let Some((t, e)) = prop.stamped_event() {
             let pv_end = parent_pv + prop.pv(t)?;
-            draw_event(gizmos, planets, &e, t, wall_time, pv_end.pos, scale);
+            draw_event(gizmos, planets, &e, t, wall_time, pv_end.pos, ctx);
         }
     }
     Some(())
@@ -283,6 +282,8 @@ fn draw_vehicle(gizmos: &mut Gizmos, vehicle: &Vehicle, pos: Vec2, scale: f32) {
 }
 
 fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
+    let ctx = &state.orbital_context;
+
     let piloting = state.piloting()?;
 
     let lup = state.scenario.lup_orbiter(piloting, state.sim_time)?;
@@ -294,75 +295,51 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
 
     let zoom = 0.8 * r / rb;
 
-    let center = Vec2::new(window_dims.x - r * 1.2, r * 1.2);
-
-    let map = |p: Vec2| p;
-
-    draw_vehicle(
-        gizmos,
-        &orbiter.vehicle,
-        map(center),
-        state.orbital_context.scale * zoom,
+    let center = Vec2::new(
+        window_dims.x / 2.0 - r * 1.2,
+        -window_dims.y / 2.0 + r * 1.2,
     );
+
+    draw_vehicle(gizmos, &orbiter.vehicle, center, zoom);
 
     let mut draw_clock = |stamp: Nanotime, color: Srgba| {
         let angle = (stamp % Nanotime::secs_f32(2.0 * PI)).to_secs();
         let u = rotate(Vec2::X, angle);
-        gizmos.line_2d(map(center), map(center + u * r), color);
+        gizmos.line_2d(center, center + u * r, color);
     };
 
     draw_clock(state.sim_time, PURPLE.with_alpha(0.2));
     draw_clock(state.wall_time, RED.with_alpha(0.2));
 
-    draw_counter(
-        gizmos,
-        rb as u64,
-        map(center + Vec2::Y * r),
-        state.orbital_context.scale,
-        WHITE,
-    );
+    draw_counter(gizmos, rb as u64, center + Vec2::Y * r, WHITE);
 
     {
-        draw_circle(
-            gizmos,
-            map(center),
-            rb * state.orbital_context.scale * zoom,
-            RED.with_alpha(0.02),
-        );
+        draw_circle(gizmos, center, rb * zoom, RED.with_alpha(0.02));
 
         let mut rc = 10.0;
         while rc < rb {
-            draw_circle(
-                gizmos,
-                map(center),
-                rc * state.orbital_context.scale * zoom,
-                GRAY.with_alpha(0.05),
-            );
+            draw_circle(gizmos, center, rc * zoom, GRAY.with_alpha(0.05));
             rc += 10.0;
         }
 
-        draw_cross(
-            gizmos,
-            map(center),
-            3.0 * state.orbital_context.scale,
-            RED.with_alpha(0.1),
-        );
+        draw_cross(gizmos, center, 3.0, RED.with_alpha(0.1));
     }
 
+    let vehicle_screen = ctx.w2c(lup.pv().pos);
+
     {
+        let alpha = -(center - vehicle_screen).to_angle();
         let s = 20.0;
-        let c1 = window_dims * 0.5 + s * rotate(Vec2::X, 3.0 * PI / 6.0);
-        let c2 = window_dims * 0.5 + s * rotate(Vec2::X, 5.0 * PI / 4.0);
-        let u1 = center + r * rotate(Vec2::X, 3.0 * PI / 6.0);
-        let u2 = center + r * rotate(Vec2::X, 5.0 * PI / 4.0);
-        gizmos.line_2d(map(c1), map(u1), GRAY.with_alpha(0.1));
-        gizmos.line_2d(map(c2), map(u2), GRAY.with_alpha(0.1));
-        draw_circle(
-            gizmos,
-            lup.pv().pos,
-            s * state.orbital_context.scale,
-            GRAY.with_alpha(0.1),
-        );
+        let x1 = center.x;
+        let x2 = vehicle_screen.x;
+        let y1 = center.y;
+        let y2 = vehicle_screen.y;
+        for sign in [-1.0, 1.0] {
+            let p1 = Vec2::new(x1 + r * alpha.sin() * sign, y1 + r * alpha.cos() * sign);
+            let p2 = Vec2::new(x2 + s * alpha.sin() * sign, y2 + s * alpha.cos() * sign);
+            gizmos.line_2d(p1, p2, GREEN.with_alpha(0.2));
+        }
+        draw_circle(gizmos, vehicle_screen, s, GREEN.with_alpha(0.2));
     }
 
     let mut draw_pointing_vector = |u: Vec2, color: Srgba| {
@@ -371,26 +348,19 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
         let p1 = center + u * r * 0.7;
         let p2 = p1 + (v - u) * triangle_width;
         let p3 = p2 - v * triangle_width * 2.0;
-        gizmos.linestrip_2d([map(p1), map(p2), map(p3), map(p1)], color);
+        gizmos.linestrip_2d([p1, p2, p3, p1], color);
     };
 
     draw_pointing_vector(orbiter.vehicle.pointing(), LIME);
     draw_pointing_vector(orbiter.vehicle.target_pointing(), LIME.with_alpha(0.4));
 
-    let r = r * state.orbital_context.scale;
-    draw_circle(gizmos, map(center), r, GRAY);
-
+    draw_circle(gizmos, center, r, GRAY);
     let p = orbiter.fuel_percentage();
-    let iso = Isometry2d::from_translation(map(center));
+    let iso = Isometry2d::from_translation(center);
 
     if orbiter.low_fuel() {
         if is_blinking(state.wall_time, None) {
-            draw_triangle(
-                gizmos,
-                map(center),
-                30.0 * state.orbital_context.scale,
-                YELLOW,
-            );
+            draw_triangle(gizmos, center, 30.0, YELLOW);
         }
     }
 
@@ -425,17 +395,19 @@ fn draw_orbiter(
 
     let blinking = is_blinking(wall_time, pv.pos);
 
+    let screen_pos = ctx.w2c(pv.pos);
+
     let size = (4.0 * scale).min(10.0);
     if blinking && obj.will_collide() {
-        draw_circle(gizmos, pv.pos, size + 10.0 * scale, RED);
-        draw_circle(gizmos, pv.pos, size + 16.0 * scale, RED);
+        draw_circle(gizmos, screen_pos, size + 10.0 * scale, RED);
+        draw_circle(gizmos, screen_pos, size + 16.0 * scale, RED);
     } else if blinking && obj.has_error() {
-        draw_circle(gizmos, pv.pos, size + 10.0 * scale, YELLOW);
-        draw_circle(gizmos, pv.pos, size + 16.0 * scale, YELLOW);
+        draw_circle(gizmos, screen_pos, size + 10.0 * scale, YELLOW);
+        draw_circle(gizmos, screen_pos, size + 16.0 * scale, YELLOW);
     } else if blinking && obj.will_change() {
-        draw_circle(gizmos, pv.pos, size + 7.0 * scale, TEAL);
+        draw_circle(gizmos, screen_pos, size + 7.0 * scale, TEAL);
     } else if blinking && obj.low_fuel() {
-        draw_triangle(gizmos, pv.pos, size + 20.0 * scale, BLUE);
+        draw_triangle(gizmos, screen_pos, size + 20.0 * scale, BLUE);
     }
 
     let show_orbits = match show_orbits {
@@ -452,9 +424,7 @@ fn draw_orbiter(
                 TEAL.with_alpha((1.0 - i as f32 * 0.3).max(0.0))
             };
             if show_orbits {
-                draw_propagator(
-                    gizmos, planets, &prop, stamp, wall_time, scale, true, color, ctx,
-                );
+                draw_propagator(gizmos, planets, &prop, stamp, wall_time, true, color, ctx);
             }
         }
     } else {
@@ -466,7 +436,6 @@ fn draw_orbiter(
                 prop,
                 stamp,
                 wall_time,
-                scale,
                 false,
                 GRAY.with_alpha(0.02),
                 ctx,
@@ -534,7 +503,7 @@ fn draw_scenario(gizmos: &mut Gizmos, state: &GameState) {
             None => continue,
         };
 
-        draw_circle(gizmos, pv.pos + lup.pv().pos, 2.0 * scale, WHITE);
+        draw_circle(gizmos, ctx.w2c(pv.pos + lup.pv().pos), 2.0 * scale, WHITE);
     }
 }
 
@@ -589,13 +558,7 @@ fn draw_scalar_field(gizmos: &mut Gizmos, scalar_field: &impl Fn(Vec2) -> f32, l
     }
 }
 
-fn draw_event_marker_at(
-    gizmos: &mut Gizmos,
-    wall_time: Nanotime,
-    event: &EventType,
-    p: Vec2,
-    scale: f32,
-) {
+fn draw_event_marker_at(gizmos: &mut Gizmos, wall_time: Nanotime, event: &EventType, p: Vec2) {
     let blinking = is_blinking(wall_time, p);
 
     if !blinking {
@@ -612,7 +575,7 @@ fn draw_event_marker_at(
 
     let color = match event {
         EventType::Collide(_) => {
-            draw_x(gizmos, p, 40.0 * scale, RED);
+            draw_x(gizmos, p, 40.0, RED);
             return;
         }
         EventType::NumericalError => YELLOW,
@@ -621,8 +584,8 @@ fn draw_event_marker_at(
         EventType::Impulse(_) => PURPLE,
     };
 
-    draw_circle(gizmos, p, 15.0 * scale, color.with_alpha(0.8));
-    draw_circle(gizmos, p, 6.0 * scale, color.with_alpha(0.8));
+    draw_circle(gizmos, p, 15.0, color.with_alpha(0.8));
+    draw_circle(gizmos, p, 6.0, color.with_alpha(0.8));
 }
 
 fn draw_event(
@@ -632,13 +595,18 @@ fn draw_event(
     stamp: Nanotime,
     wall_time: Nanotime,
     p: Vec2,
-    scale: f32,
+    ctx: &impl CameraProjection,
 ) -> Option<()> {
     if let EventType::Encounter(id) = event {
         let (body, pv, _, _) = planets.lookup(*id, stamp)?;
-        draw_circle(gizmos, pv.pos, body.soi, ORANGE.with_alpha(0.2));
+        draw_circle(
+            gizmos,
+            ctx.w2c(pv.pos),
+            body.soi * ctx.scale(),
+            ORANGE.with_alpha(0.2),
+        );
     }
-    draw_event_marker_at(gizmos, wall_time, event, p, scale);
+    draw_event_marker_at(gizmos, wall_time, event, ctx.w2c(p));
     Some(())
 }
 
@@ -716,7 +684,7 @@ fn draw_event_animation(
     for prop in obj.props() {
         if let Some((t, e)) = prop.stamped_event() {
             let pv = obj.pv(t, scenario.planets())?;
-            draw_event_marker_at(gizmos, wall_time, &e, ctx.w2c(pv.pos), scale);
+            draw_event_marker_at(gizmos, wall_time, &e, ctx.w2c(pv.pos));
         }
     }
     if let Some(t) = p.end() {
@@ -759,6 +727,7 @@ fn draw_maneuver_plan(
             color,
             segment.start.max(stamp),
             segment.end,
+            ctx,
         );
         if segment.end > stamp {
             let pv = plan.pv(segment.end)?;
@@ -778,16 +747,14 @@ fn draw_timeline(gizmos: &mut Gizmos, state: &GameState) {
     let tmax = state.sim_time + Nanotime::secs(120);
 
     let window_dims = state.input.screen_bounds.span;
-    let b = state.orbital_context.world_bounds(window_dims);
-    let c = state.input.screen_bounds;
 
     let width = window_dims.x * 0.5;
-    let y_root = window_dims.y - 40.0;
+    let y_root = 0.0;
     let row_height = 5.0;
-    let x_center = window_dims.x / 2.0;
+    let x_center = 0.0;
     let x_min = x_center - width / 2.0;
 
-    let map = |p: Vec2| c.map(b, p);
+    let map = |p: Vec2| p;
 
     let p_at = |t: Nanotime, row: usize| -> Vec2 {
         let y = y_root - row as f32 * row_height;
@@ -797,8 +764,6 @@ fn draw_timeline(gizmos: &mut Gizmos, state: &GameState) {
         pmin.lerp(pmax, s)
     };
 
-    // gizmos.line_2d(p_at(tmin, 0), p_at(tmax, 0), WHITE.with_alpha(0.3));
-
     let mut draw_tick_mark = |t: Nanotime, row: usize, scale: f32, color: Srgba| {
         let p = p_at(t, row);
         let h = Vec2::Y * state.orbital_context.scale * row_height * scale / 2.0;
@@ -806,12 +771,6 @@ fn draw_timeline(gizmos: &mut Gizmos, state: &GameState) {
     };
 
     draw_tick_mark(state.sim_time, 0, 1.0, WHITE);
-
-    // let mut t = tmin.ceil(Nanotime::PER_SEC);
-    // while t < tmax {
-    //     draw_tick_mark(t, 0, 0.3, WHITE.with_alpha(0.3));
-    //     t += tick_dur;
-    // }
 
     for (i, ctrl) in state.controllers.iter().enumerate() {
         let plan = match ctrl.plan() {
@@ -887,12 +846,12 @@ fn draw_scale_indicator(gizmos: &mut Gizmos, state: &GameState) {
     gizmos.line_2d(p1, p2, color);
 }
 
-pub fn draw_counter(gizmos: &mut Gizmos, val: u64, pos: Vec2, scale: f32, color: Srgba) {
+pub fn draw_counter(gizmos: &mut Gizmos, val: u64, pos: Vec2, color: Srgba) {
     if val == 0 {
         return;
     }
 
-    let h = 10.0 * scale;
+    let h = 12.0;
     let r = h * 0.8;
 
     let mut val = val;
@@ -956,13 +915,7 @@ fn draw_belt_orbits(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
         let (_, corner) = belt.position(0.8);
 
         if state.orbital_context.scale < 2.0 {
-            draw_counter(
-                gizmos,
-                count,
-                origin + corner * 1.1,
-                state.orbital_context.scale,
-                WHITE,
-            );
+            draw_counter(gizmos, count, origin + corner * 1.1, WHITE);
         }
     }
     Some(())
@@ -1363,7 +1316,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
 
     draw_ui_layout(gizmos, &state);
 
-    draw_input_state(gizmos, &state, state.wall_time);
+    // draw_input_state(gizmos, &state, state.wall_time);
 }
 
 fn draw_input_state(gizmos: &mut Gizmos, state: &GameState, wall_time: Nanotime) {

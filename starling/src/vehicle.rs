@@ -2,7 +2,7 @@ use crate::aabb::{Polygon, AABB};
 use crate::inventory::{Inventory, InventoryItem};
 use crate::math::{cross2d, get_random_name, linspace, rand, randint, randvec, rotate, Vec2, PI};
 use crate::nanotime::Nanotime;
-use crate::orbits::wrap_0_2pi;
+use crate::orbits::{wrap_0_2pi, wrap_pi_npi};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
@@ -132,8 +132,9 @@ impl Vehicle {
             let kp = 100.0;
             let kd = 50.0;
 
-            let angular_acceleration =
-                kp * (self.target_angle - self.angle) - kd * self.angular_velocity;
+            let error = wrap_pi_npi(self.target_angle - self.angle);
+
+            let angular_acceleration = kp * error - kd * self.angular_velocity;
 
             for t in &mut self.thrusters {
                 if !t.is_rcs {
@@ -152,6 +153,7 @@ impl Vehicle {
 
         self.angle += self.angular_velocity * dt;
         self.angle = wrap_0_2pi(self.angle);
+        self.target_angle = wrap_0_2pi(self.target_angle);
         self.stamp = stamp;
     }
 

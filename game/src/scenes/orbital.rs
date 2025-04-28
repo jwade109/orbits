@@ -158,10 +158,6 @@ impl OrbitalContext {
 
         self.center += (self.target_center - self.center) * 0.1;
     }
-
-    pub fn world_bounds(&self, window_dims: Vec2) -> AABB {
-        AABB::new(self.center, window_dims * self.scale)
-    }
 }
 
 #[allow(unused)]

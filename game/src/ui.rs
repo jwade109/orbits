@@ -323,7 +323,11 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
         .with_color(UI_BACKGROUND_COLOR)
         .with_child(Node::button("Save", OnClick::Save, 80, Size::Grow))
         .with_child(Node::button("Load", OnClick::Load, 80, Size::Grow))
-        .with_children((0..4).map(|_| Node::new(80, small_button_height)))
+        .with_children(state.scenes.iter().enumerate().map(|(i, scene)| {
+            let s = scene.name();
+            let id = OnClick::GoToScene(i);
+            Node::button(s, id, 120, small_button_height)
+        }))
         .with_child(Node::grow().invisible())
         .with_child(Node::button("Exit", OnClick::Exit, 80, Size::Grow));
 
@@ -530,17 +534,6 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
         }),
     );
 
-    let scene_bar =
-        Node::row(Size::Fit)
-            .with_id(OnClick::World)
-            .invisible()
-            .with_padding(0.0)
-            .with_children(
-                state.scenes.iter().enumerate().map(|(i, s)| {
-                    Node::button(s.name(), OnClick::GoToScene(i), 180, button_height)
-                }),
-            );
-
     let world = Node::grow()
         .down()
         .invisible()
@@ -559,9 +552,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
                 .down()
                 .invisible()
                 .with_child(Node::grow().with_id(OnClick::World).invisible())
-                .with_child(notif_bar)
-                .with_child(Node::row(15.0).with_id(OnClick::World).invisible())
-                .with_child(scene_bar),
+                .with_child(notif_bar),
         );
 
     let root = Node::new(vb.span.x, vb.span.y)
