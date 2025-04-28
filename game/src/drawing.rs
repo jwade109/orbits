@@ -445,6 +445,27 @@ fn draw_orbiter(
     Some(())
 }
 
+fn draw_vehicle_frames(gizmos: &mut Gizmos, state: &GameState) {
+    let ctx = &state.orbital_context;
+    if ctx.scale() < 20.0 {
+        return;
+    }
+
+    const METERS_IN_A_KILOMETER: f32 = 1000.0; // TODO fix camera scaling/world representation
+
+    for id in state.scenario.orbiter_ids() {
+        let lup = match state.scenario.lup_orbiter(id, state.sim_time) {
+            Some(lup) => lup,
+            None => continue,
+        };
+        let orbiter = lup.orbiter().expect("Expected an orbiter");
+        let pos = lup.pv().pos;
+        let cam_pos = ctx.w2c(pos);
+
+        draw_vehicle(gizmos, &orbiter.vehicle, cam_pos, ctx.scale() / METERS_IN_A_KILOMETER);
+    }
+}
+
 fn draw_scenario(gizmos: &mut Gizmos, state: &GameState) {
     let stamp = state.sim_time;
     let wall_time = state.wall_time;
@@ -454,6 +475,8 @@ fn draw_scenario(gizmos: &mut Gizmos, state: &GameState) {
     let scale = state.orbital_context.scale;
     let show_orbits = state.orbital_context.show_orbits;
     let piloting = state.piloting();
+
+    draw_vehicle_frames(gizmos, state);
 
     draw_planets(gizmos, scenario.planets(), stamp, Vec2::ZERO, ctx);
 
