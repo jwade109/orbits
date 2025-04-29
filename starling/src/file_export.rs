@@ -101,7 +101,7 @@ mod tests {
     fn strl_test() {
         let orbit = SparseOrbit::from_pv(
             PV::new((-70.0, 600.0), (3.0, 9.0)),
-            Body::new(22.0, 10.0, 800.0),
+            Body::with_mass(22.0, 10.0, 800.0),
             Nanotime::zero(),
         )
         .unwrap();

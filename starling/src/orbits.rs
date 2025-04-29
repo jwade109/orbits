@@ -81,17 +81,26 @@ fn eccentric_to_mean(eccentric_anomaly: Anomaly, ecc: f32) -> Anomaly {
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]
 pub struct Body {
     pub radius: f32,
-    pub mass: f32,
+    // pub _mass: f32,
+    pub mu: f32,
     pub soi: f32,
 }
 
 impl Body {
-    pub const fn new(radius: f32, mass: f32, soi: f32) -> Self {
-        Body { radius, mass, soi }
+    pub const fn with_mass(radius: f32, mass: f32, soi: f32) -> Self {
+        Body {
+            radius,
+            mu: mass * 12000.0,
+            soi,
+        }
+    }
+
+    pub const fn with_mu(radius: f32, mu: f32, soi: f32) -> Self {
+        Body { radius, mu, soi }
     }
 
     pub fn mu(&self) -> f32 {
-        self.mass * GRAVITATIONAL_CONSTANT
+        self.mu
     }
 }
 
@@ -99,8 +108,6 @@ impl Body {
 pub fn vis_viva_equation(mu: f32, r: f32, a: f32) -> f32 {
     (mu * (2.0 / r - 1.0 / a)).sqrt()
 }
-
-const GRAVITATIONAL_CONSTANT: f32 = 12000.0;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub struct SparseOrbit {
@@ -337,9 +344,9 @@ impl SparseOrbit {
     }
 
     pub fn pv(&self, stamp: Nanotime) -> Result<PV, ULData> {
-        if let Some(pv) = self.pv_lut(stamp) {
-            return Ok(pv);
-        }
+        // if let Some(pv) = self.pv_lut(stamp) {
+        //     return Ok(pv);
+        // }
         self.pv_universal(stamp)
     }
 
@@ -567,7 +574,7 @@ impl SparseOrbit {
 
     pub fn is_similar(&self, other: &Self) -> bool {
         // TODO want this to be a sliding scale in [0, 1]
-        let dmax = 50.0;
+        let dmax = 5000.0;
         let d1 = self.apoapsis().distance(other.apoapsis());
         let d2 = self.periapsis().distance(other.periapsis());
         d1 < dmax && d2 < dmax
@@ -598,7 +605,7 @@ impl SparseOrbit {
         let mut t = start;
         while t < end {
             let pv = self.pv(t).ok()?;
-            let dt = Nanotime::secs_f32(dist / pv.vel.length()).max(Nanotime::millis(10));
+            let dt = Nanotime::secs_f32(dist / pv.vel.length()).max(Nanotime::secs(2));
             ret.push(pv.pos + origin);
             t += dt;
         }
@@ -616,7 +623,7 @@ impl std::fmt::Display for SparseOrbit {
             self.ecc(),
             self.arg_periapsis,
             self.body.radius,
-            self.body.mass,
+            self.body.mu,
             self.body.soi,
             if self.is_retrograde() { "*" } else { "" },
         )
@@ -1091,7 +1098,7 @@ mod tests {
         orbit_consistency_test(
             PV::new((669.058, -1918.289), (74.723, 60.678)),
             OrbitClass::Elliptical,
-            Body::new(63.0, 1000.0, 15000.0),
+            Body::with_mass(63.0, 1000.0, 15000.0),
             0.6335363,
             false,
         );
@@ -1102,7 +1109,7 @@ mod tests {
         orbit_consistency_test(
             PV::new((430.0, 230.0), (-50.14, 40.13)),
             OrbitClass::Elliptical,
-            Body::new(63.0, 1000.0, 15000.0),
+            Body::with_mass(63.0, 1000.0, 15000.0),
             0.860516,
             false,
         );
@@ -1113,7 +1120,7 @@ mod tests {
         orbit_consistency_test(
             PV::new((0.0, -222.776), (333.258, 0.000)),
             OrbitClass::Hyperbolic,
-            Body::new(63.0, 1000.0, 15000.0),
+            Body::with_mass(63.0, 1000.0, 15000.0),
             1.0618086,
             false,
         );
@@ -1124,7 +1131,7 @@ mod tests {
         orbit_consistency_test(
             PV::new((1520.323, 487.734), (-84.935, 70.143)),
             OrbitClass::Elliptical,
-            Body::new(63.0, 1000.0, 15000.0),
+            Body::with_mass(63.0, 1000.0, 15000.0),
             0.74756867,
             false,
         );
@@ -1135,7 +1142,7 @@ mod tests {
         orbit_consistency_test(
             PV::new((5535.6294, -125.794685), (-66.63476, 16.682587)),
             OrbitClass::Hyperbolic,
-            Body::new(63.0, 1000.0, 15000.0),
+            Body::with_mass(63.0, 1000.0, 15000.0),
             1.0093584,
             false,
         );
@@ -1146,7 +1153,7 @@ mod tests {
         orbit_consistency_test(
             PV::new((65.339584, 1118.9651), (-138.84702, -279.47888)),
             OrbitClass::Hyperbolic,
-            Body::new(63.0, 1000.0, 15000.0),
+            Body::with_mass(63.0, 1000.0, 15000.0),
             3.3041847,
             false,
         );
@@ -1157,7 +1164,7 @@ mod tests {
         orbit_consistency_test(
             PV::new((-1856.4648, -1254.9697), (216.31313, -85.84622)),
             OrbitClass::Hyperbolic,
-            Body::new(63.0, 1000.0, 15000.0),
+            Body::with_mass(63.0, 1000.0, 15000.0),
             7.5504527,
             false,
         );
@@ -1168,7 +1175,7 @@ mod tests {
         orbit_consistency_test(
             PV::new((-72.39488, 662.50507), (3.4047441, 71.81263)),
             OrbitClass::Hyperbolic,
-            Body::new(22.0, 10.0, 800.0),
+            Body::with_mass(22.0, 10.0, 800.0),
             4.422243,
             true,
         );
@@ -1179,7 +1186,7 @@ mod tests {
         orbit_consistency_test(
             PV::new((825.33563, 564.6425), (200.0, 230.0)),
             OrbitClass::Hyperbolic,
-            Body::new(63.0, 1000.0, 15000.0),
+            Body::with_mass(63.0, 1000.0, 15000.0),
             1.9568859,
             false,
         );
@@ -1190,7 +1197,7 @@ mod tests {
         orbit_consistency_test(
             PV::new((-70.0, 600.0), (3.0, 16.0)),
             OrbitClass::HighlyElliptical,
-            Body::new(22.0, 10.0, 800.0),
+            Body::with_mass(22.0, 10.0, 800.0),
             0.96003157,
             true,
         );
@@ -1201,7 +1208,7 @@ mod tests {
         orbit_consistency_test(
             PV::new((-70.0, 600.0), (3.0, 9.0)),
             OrbitClass::HighlyElliptical,
-            Body::new(22.0, 10.0, 800.0),
+            Body::with_mass(22.0, 10.0, 800.0),
             0.93487203,
             true,
         );
@@ -1209,7 +1216,7 @@ mod tests {
 
     #[test]
     fn orbit_010_circular() {
-        let body = Body::new(63.0, 1000.0, 15000.0);
+        let body = Body::with_mass(63.0, 1000.0, 15000.0);
         let orbit = SparseOrbit::circular(100.0, body, Nanotime::zero(), false);
 
         assert_relative_eq!(orbit.h(), 34641.016);
@@ -1230,7 +1237,7 @@ mod tests {
         orbit_consistency_test(
             PV::new((1687.193, -2242.213), (59.740, 44.953)),
             OrbitClass::Elliptical,
-            Body::new(63.0, 1000.0, 15000.0),
+            Body::with_mass(63.0, 1000.0, 15000.0),
             0.30708584,
             false,
         );
@@ -1241,7 +1248,7 @@ mod tests {
     //     orbit_consistency_test(
     //         PV::new((-3485.286, 1511.773), (-25.496, -58.779)),
     //         OrbitClass::Elliptical,
-    //         Body::new(63.0, 1000.0, 15000.0),
+    //         Body::with_mass(63.0, 1000.0, 15000.0),
     //         0.29959226,
     //         false,
     //     );
@@ -1252,7 +1259,7 @@ mod tests {
     //     orbit_consistency_test(
     //         PV::new((-3485.286, 1511.773), (-21.694, -50.014)),
     //         OrbitClass::Elliptical,
-    //         Body::new(63.0, 1000.0, 15000.0),
+    //         Body::with_mass(63.0, 1000.0, 15000.0),
     //         0.30708584,
     //         false,
     //     );
@@ -1260,7 +1267,7 @@ mod tests {
 
     #[test]
     fn assert_positions_are_as_expected_universal() {
-        let body = Body::new(300.0, 1000.0, 100000.0);
+        let body = Body::with_mass(300.0, 1000.0, 100000.0);
         let pv = PV::new((6500.0, 7000.0), (-14.0, 11.0));
         let orbit = SparseOrbit::from_pv(pv, body, Nanotime::zero()).unwrap();
         let inverse = orbit.inverse().unwrap();
@@ -1316,7 +1323,7 @@ mod tests {
 
     #[test]
     fn assert_true_anomaly_pos_as_expected() {
-        let body = Body::new(300.0, 1000.0, 100000.0);
+        let body = Body::with_mass(300.0, 1000.0, 100000.0);
         let pv = PV::new((6500.0, 7000.0), (-14.0, 11.0));
         let orbit = SparseOrbit::from_pv(pv, body, Nanotime::zero()).unwrap();
 
@@ -1413,7 +1420,7 @@ mod tests {
 
         let body = Body {
             radius: 100.0,
-            mass: 1000.0,
+            mu: 1000.0 * 12000.0,
             soi: 10000.0,
         };
 
@@ -1456,7 +1463,7 @@ mod tests {
 
     #[test]
     fn time_at_periapsis() {
-        let body = Body::new(50.0, 1000.0, 1E8);
+        let body = Body::with_mass(50.0, 1000.0, 1E8);
         let pos = Vec2::Y * -700.0;
 
         for v in linspace(10.0, 70.0, 15) {

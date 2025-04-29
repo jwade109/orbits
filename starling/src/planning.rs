@@ -869,7 +869,7 @@ mod tests {
         let r2 = rand(1000.0, 8000.0);
         let argp = rand(0.0, 2.0 * PI);
 
-        let body = Body::new(63.0, 1000.0, 15000.0);
+        let body = Body::with_mass(63.0, 1000.0, 15000.0);
 
         SparseOrbit::new(r1.max(r2), r1.min(r2), argp, body, Nanotime::zero(), false).unwrap()
     }

@@ -393,7 +393,7 @@ impl GameState {
         let id = self.piloting()?;
 
         let orbiter = self.scenario.lup_orbiter(id, self.sim_time)?.orbiter()?;
-        let dv = orbiter.vehicle.pointing() * 0.3;
+        let dv = orbiter.vehicle.pointing() * 5.0;
 
         let notif = if self
             .scenario
@@ -667,6 +667,7 @@ impl GameState {
         }
 
         for (id, ri) in self.scenario.simulate(s, d) {
+            info!("{} {:?}", id, &ri);
             if let Some(pv) = ri.orbit.pv(ri.stamp).ok() {
                 let notif = match ri.reason {
                     EventType::Collide(_) => NotificationType::OrbiterCrashed(id),
@@ -741,7 +742,7 @@ impl GameState {
                 let middle = (a + b) / 2.0;
                 let d = format!("{:0.2}", a.distance(b));
                 self.text_labels
-                    .push((middle, d, self.orbital_context.scale));
+                    .push((middle, d, self.orbital_context.scale()));
             }
         }
 
@@ -773,11 +774,11 @@ fn process_interaction(
             state.orbital_context.queued_orbits.clear();
         }
         InteractionEvent::SimSlower => {
-            state.sim_speed = i32::clamp(state.sim_speed - 1, -2, 2);
+            state.sim_speed = i32::clamp(state.sim_speed - 1, -4, 4);
             state.redraw();
         }
         InteractionEvent::SimFaster => {
-            state.sim_speed = i32::clamp(state.sim_speed + 1, -2, 2);
+            state.sim_speed = i32::clamp(state.sim_speed + 1, -4, 4);
             state.redraw();
         }
         InteractionEvent::SimPause => {

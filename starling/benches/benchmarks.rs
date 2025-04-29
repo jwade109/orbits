@@ -13,7 +13,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         12000.0,
         9000.0,
         0.3,
-        Body::new(1.0, 1000.0, 100000.0),
+        Body::with_mass(1.0, 1000.0, 100000.0),
         Nanotime::zero(),
         false,
     )

@@ -94,7 +94,7 @@ impl Orbiter {
             id,
             max_fuel_mass: 800.0,
             dry_mass: 300.0,
-            exhaust_velocity: 1700.0,
+            exhaust_velocity: 5000.0,
             props: vec![Propagator::new(orbit, stamp)],
             vehicle: Vehicle::random(stamp),
         }

@@ -7,7 +7,8 @@ pub use crate::examples::{
 };
 pub use crate::file_export::export_orbit_data;
 pub use crate::math::{
-    apply, apply_filter, get_random_name, linspace, rand, randvec, randvec3, rotate, tspace, Vec2, Vec3, PI,
+    apply, apply_filter, get_random_name, linspace, rand, randvec, randvec3, rotate, tspace, Vec2,
+    Vec3, PI,
 };
 pub use crate::nanotime::Nanotime;
 pub use crate::orbital_luts::lookup_ta_from_ma;
@@ -15,7 +16,8 @@ pub use crate::orbiter::{GroupId, ObjectId, Orbiter, OrbiterId, PlanetId};
 pub use crate::orbits::{hyperbolic_range_ta, wrap_pi_npi, Body, GlobalOrbit, SparseOrbit};
 pub use crate::planning::{best_maneuver_plan, EventType, HorizonState, ManeuverPlan, Propagator};
 pub use crate::pv::PV;
+pub use crate::quantities::*;
 pub use crate::region::Region;
+pub use crate::rpo::RPO;
 pub use crate::scenario::{ObjectIdTracker, PlanetarySystem, Scenario};
 pub use crate::vehicle::Vehicle;
-pub use crate::rpo::RPO;

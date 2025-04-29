@@ -104,8 +104,8 @@ pub fn update_planet_sprites(
         }
     }
 
-    let center = state.orbital_context.center;
-    let scale = state.orbital_context.scale;
+    let center = state.orbital_context.origin();
+    let scale = state.orbital_context.scale();
 
     for (e, PlanetTexture(id, name), mut transform, mut vis) in query.iter_mut() {
         let lup = match state.scenario.lup_planet(*id, state.sim_time) {
@@ -133,7 +133,7 @@ pub fn update_planet_sprites(
         if lname == name {
             transform.translation = ((pv.pos - center) * scale).extend(PLANET_Z_INDEX);
             transform.scale = 2.0 * Vec3::splat(body.radius) / EXPECTED_PLANET_SPRITE_SIZE as f32
-                * state.orbital_context.scale;
+                * state.orbital_context.scale();
         } else {
             commands.entity(e).despawn();
         }
@@ -182,7 +182,7 @@ pub fn update_shadow_sprites(
 
         let angle = PI - state.light_source().angle_to(Vec2::X);
         let scale = (2.0 * body.radius) / EXPECTED_SHADOW_SPRITE_HEIGHT as f32
-            * state.orbital_context.scale;
+            * state.orbital_context.scale();
         let pos = lup.pv().pos;
         transform.translation = state.orbital_context.w2c(pos).extend(SHADOW_Z_INDEX);
         transform.scale = Vec3::new(scale, scale, 1.0);
@@ -192,7 +192,7 @@ pub fn update_shadow_sprites(
 
 const SPACECRAFT_DEFAULT_SCALE: f32 = 0.025;
 const SPACECRAFT_MAGNIFIED_SCALE: f32 = 0.06;
-const SPACECRAFT_DIMINISHED_SCALE: f32 = 0.01;
+const SPACECRAFT_DIMINISHED_SCALE: f32 = 0.02;
 
 pub fn hashable_to_color(h: &impl std::hash::Hash) -> Hsla {
     use std::hash::Hasher;

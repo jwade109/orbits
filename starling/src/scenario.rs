@@ -288,7 +288,7 @@ impl Scenario {
                 let v_tangent = v_tangent * rand(0.01, 0.1) + t * rand(-1.0, 1.0) * vmag * 0.1;
 
                 let mut body = info.orbit.body;
-                body.mass *= 0.5;
+                body.mu *= 0.5;
 
                 let pv = PV::new(pos, v_normal + v_tangent);
                 if let Some(orbit) = SparseOrbit::from_pv(pv, body, info.stamp) {

@@ -80,7 +80,7 @@ fn get_orbit_with_ecc(ecc: f32) -> Vec<f32> {
     let argp = 0.0;
     let body = Body {
         radius: 1.0,
-        mass: 1000.0,
+        mu: 1000.0 * 12000.0,
         soi: 100000.0,
     };
     let epoch = Nanotime::zero();

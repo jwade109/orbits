@@ -125,16 +125,16 @@ struct DateMarker;
 struct TopRight;
 
 fn big_time_system(mut text: Single<&mut Text, With<DateMarker>>, state: Res<GameState>) {
-    const SCALE_FACTOR: i64 = Nanotime::PER_DAY / Nanotime::PER_SEC / 20;
-    let t = state.sim_time * SCALE_FACTOR;
-    let date = t.to_date();
+    let date = state.sim_time.to_date();
     text.0 = format!(
-        "Y{} W{} D{} {:02}:{:02}",
+        "Y{} W{} D{} {:02}:{:02}:{:02}.{:03}",
         date.year + 1,
         date.week + 1,
         date.day + 1,
         date.hour,
         date.min,
+        date.sec,
+        date.milli,
     );
 }
 
@@ -338,7 +338,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
 
     if let Some(lup) = state
         .scenario
-        .relevant_body(state.orbital_context.center, state.sim_time)
+        .relevant_body(state.orbital_context.origin(), state.sim_time)
         .map(|id| state.scenario.lup_planet(id, state.sim_time))
         .flatten()
     {
@@ -491,7 +491,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
             let s = if state.paused { "UNPAUSE" } else { "PAUSE" };
             Node::button(s, OnClick::TogglePause, 120, button_height)
         })
-        .with_children((-2..=2).map(|i| {
+        .with_children((-4..=4).map(|i| {
             Node::button(
                 format!("{i}"),
                 OnClick::SimSpeed(i),
@@ -568,15 +568,16 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
                 .with_child(world),
         );
 
-    let mut tree = Tree::new().with_layout(root, Vec2::ZERO);
+    let tree = Tree::new().with_layout(root, Vec2::ZERO);
 
-    if let Some(layout) = current_inventory_layout(state) {
-        tree.add_layout(layout, Vec2::splat(400.0));
-    }
+    // if let Some(layout) = current_inventory_layout(state) {
+    //     tree.add_layout(layout, Vec2::splat(400.0));
+    // }
 
     tree
 }
 
+#[allow(unused)]
 fn current_inventory_layout(state: &GameState) -> Option<ui::Node<OnClick>> {
     use ui::*;
 

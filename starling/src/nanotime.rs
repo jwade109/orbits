@@ -79,7 +79,8 @@ impl Nanotime {
         let (day, rem) = div(rem, Nanotime::PER_DAY);
         let (hour, rem) = div(rem, Nanotime::PER_HOUR);
         let (min, rem) = div(rem, Nanotime::PER_MINUTE);
-        let (sec, _) = div(rem, Nanotime::PER_SEC);
+        let (sec, rem) = div(rem, Nanotime::PER_SEC);
+        let (milli, _) = div(rem, Nanotime::PER_MILLI);
         Date {
             year,
             week,
@@ -87,6 +88,7 @@ impl Nanotime {
             hour,
             min,
             sec,
+            milli,
         }
     }
 }
@@ -176,4 +178,5 @@ pub struct Date {
     pub hour: i64,
     pub min: i64,
     pub sec: i64,
+    pub milli: i64,
 }

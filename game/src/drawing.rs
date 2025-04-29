@@ -447,11 +447,6 @@ fn draw_orbiter(
 
 fn draw_vehicle_frames(gizmos: &mut Gizmos, state: &GameState) {
     let ctx = &state.orbital_context;
-    if ctx.scale() < 20.0 {
-        return;
-    }
-
-    const METERS_IN_A_KILOMETER: f32 = 1000.0; // TODO fix camera scaling/world representation
 
     for id in state.scenario.orbiter_ids() {
         let lup = match state.scenario.lup_orbiter(id, state.sim_time) {
@@ -462,7 +457,12 @@ fn draw_vehicle_frames(gizmos: &mut Gizmos, state: &GameState) {
         let pos = lup.pv().pos;
         let cam_pos = ctx.w2c(pos);
 
-        draw_vehicle(gizmos, &orbiter.vehicle, cam_pos, ctx.scale() / METERS_IN_A_KILOMETER);
+        let cam_radius = orbiter.vehicle.bounding_radius() * ctx.scale();
+        if cam_radius < 2.0 {
+            continue;
+        }
+
+        draw_vehicle(gizmos, &orbiter.vehicle, cam_pos, ctx.scale());
     }
 }
 
@@ -472,7 +472,6 @@ fn draw_scenario(gizmos: &mut Gizmos, state: &GameState) {
     let scenario = &state.scenario;
     let ctx = &state.orbital_context;
     let track_list = &state.orbital_context.selected;
-    let scale = state.orbital_context.scale;
     let show_orbits = state.orbital_context.show_orbits;
     let piloting = state.piloting();
 
@@ -506,7 +505,7 @@ fn draw_scenario(gizmos: &mut Gizmos, state: &GameState) {
                 obj,
                 stamp,
                 wall_time,
-                scale,
+                ctx.scale(),
                 show_orbits,
                 is_tracked,
                 is_piloting,
@@ -526,7 +525,12 @@ fn draw_scenario(gizmos: &mut Gizmos, state: &GameState) {
             None => continue,
         };
 
-        draw_circle(gizmos, ctx.w2c(pv.pos + lup.pv().pos), 2.0 * scale, WHITE);
+        draw_circle(
+            gizmos,
+            ctx.w2c(pv.pos + lup.pv().pos),
+            2.0 * ctx.scale(),
+            WHITE,
+        );
     }
 }
 
@@ -652,7 +656,6 @@ fn draw_controller(
     wall_time: Nanotime,
     ctrl: &Controller,
     scenario: &Scenario,
-    scale: f32,
     tracked: bool,
     ctx: &impl CameraProjection,
 ) -> Option<()> {
@@ -666,14 +669,14 @@ fn draw_controller(
     let secs = 2;
     let t_start = wall_time.floor(Nanotime::PER_SEC * secs);
     let dt = (wall_time - t_start).to_secs();
-    let r = (8.0 + dt * 30.0) * scale;
+    let r = (8.0 + dt * 30.0) * ctx.scale();
     let a = 0.03 * (1.0 - dt / secs as f32).powi(3);
 
     draw_circle(gizmos, craft, r, GRAY.with_alpha(a));
 
     if tracked {
         let plan = ctrl.plan()?;
-        draw_maneuver_plan(gizmos, stamp, plan, origin, scale, wall_time, ctx)?;
+        draw_maneuver_plan(gizmos, stamp, plan, origin, wall_time, ctx)?;
     }
 
     Some(())
@@ -691,7 +694,6 @@ fn draw_event_animation(
     scenario: &Scenario,
     id: OrbiterId,
     stamp: Nanotime,
-    scale: f32,
     wall_time: Nanotime,
     ctx: &impl CameraProjection,
 ) -> Option<()> {
@@ -722,7 +724,6 @@ fn draw_maneuver_plan(
     stamp: Nanotime,
     plan: &ManeuverPlan,
     origin: Vec2,
-    scale: f32,
     wall_time: Nanotime,
     ctx: &impl CameraProjection,
 ) -> Option<()> {
@@ -754,7 +755,7 @@ fn draw_maneuver_plan(
         );
         if segment.end > stamp {
             let pv = plan.pv(segment.end)?;
-            draw_diamond(gizmos, origin + pv.pos, 10.0 * scale, color);
+            draw_diamond(gizmos, origin + pv.pos, 10.0 * ctx.scale(), color);
         }
     }
     draw_orbit(gizmos, &plan.terminal, origin, color, ctx);
@@ -762,6 +763,8 @@ fn draw_maneuver_plan(
 }
 
 fn draw_timeline(gizmos: &mut Gizmos, state: &GameState) {
+    let ctx = &state.orbital_context;
+
     if !state.controllers.iter().any(|c| !c.is_idle()) {
         return;
     }
@@ -789,7 +792,7 @@ fn draw_timeline(gizmos: &mut Gizmos, state: &GameState) {
 
     let mut draw_tick_mark = |t: Nanotime, row: usize, scale: f32, color: Srgba| {
         let p = p_at(t, row);
-        let h = Vec2::Y * state.orbital_context.scale * row_height * scale / 2.0;
+        let h = Vec2::Y * ctx.scale() * row_height * scale / 2.0;
         gizmos.line_2d(p + h, p - h, color);
     };
 
@@ -801,7 +804,7 @@ fn draw_timeline(gizmos: &mut Gizmos, state: &GameState) {
             None => continue,
         };
 
-        let alpha = if state.orbital_context.selected.contains(&ctrl.target()) {
+        let alpha = if ctx.selected.contains(&ctrl.target()) {
             1.0
         } else {
             0.2 / (i + 1) as f32
@@ -814,7 +817,7 @@ fn draw_timeline(gizmos: &mut Gizmos, state: &GameState) {
             let p1 = p_at(segment.start.max(tmin), i);
             let p2 = p_at(segment.end.min(tmax), i);
             gizmos.line_2d(p1, p2, BLUE.with_alpha(alpha * 0.3));
-            let size = state.orbital_context.scale * row_height * 0.5;
+            let size = ctx.scale() * row_height * 0.5;
             for t in [segment.start, segment.end] {
                 if t < tmin || t > tmax {
                     continue;
@@ -830,6 +833,14 @@ fn draw_scale_indicator(gizmos: &mut Gizmos, state: &GameState) {
     let window_dims = state.input.screen_bounds.span;
     let width = 300.0;
     let center = Vec2::new(0.0, window_dims.y / 2.0 - 24.0);
+
+    let ctx = &state.orbital_context;
+
+    for i in 0..=9 {
+        let r = 10.0f32.powi(i) * ctx.scale();
+        let color = if i % 3 == 0 { RED } else { WHITE };
+        draw_circle(gizmos, Vec2::ZERO, r, color.with_alpha(0.04));
+    }
 
     let p1 = center + Vec2::X * width;
     let p2 = center - Vec2::X * width;
@@ -852,7 +863,7 @@ fn draw_scale_indicator(gizmos: &mut Gizmos, state: &GameState) {
 
     for power in -3..7 {
         let size = 10.0f32.powi(power);
-        let ds = size / state.orbital_context.scale;
+        let ds = size / state.orbital_context.scale();
         let weight = (ds * 10.0 / width).min(1.0);
         let mut s = 0.0;
         s += ds;
@@ -937,7 +948,7 @@ fn draw_belt_orbits(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
 
         let (_, corner) = belt.position(0.8);
 
-        if state.orbital_context.scale < 2.0 {
+        if ctx.scale() < 2.0 {
             draw_counter(gizmos, count, origin + corner * 1.1, WHITE);
         }
     }
@@ -1088,8 +1099,8 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, _scene: &Orbita
         let m1 = ctx.w2c(m1);
         let m2 = ctx.w2c(m2);
         let corner = ctx.w2c(corner);
-        draw_x(gizmos, m1, 12.0 * state.orbital_context.scale, GRAY);
-        draw_x(gizmos, m2, 12.0 * state.orbital_context.scale, GRAY);
+        draw_x(gizmos, m1, 12.0, GRAY);
+        draw_x(gizmos, m2, 12.0, GRAY);
         gizmos.line_2d(m1, m2, GRAY);
         gizmos.line_2d(m1, corner, GRAY.with_alpha(0.3));
         gizmos.line_2d(m2, corner, GRAY.with_alpha(0.3));
@@ -1155,7 +1166,6 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, _scene: &Orbita
             state.wall_time,
             ctrl,
             &state.scenario,
-            state.orbital_context.scale,
             tracked,
             ctx,
         );
@@ -1168,7 +1178,6 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, _scene: &Orbita
                 &state.scenario,
                 *id,
                 state.sim_time,
-                state.orbital_context.scale,
                 state.wall_time,
                 ctx,
             );
@@ -1177,12 +1186,7 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, _scene: &Orbita
 
     draw_scenario(gizmos, state);
 
-    draw_x(
-        gizmos,
-        state.light_source(),
-        20.0 * state.orbital_context.scale,
-        RED.with_alpha(0.2),
-    );
+    draw_x(gizmos, state.light_source(), 20.0, RED.with_alpha(0.2));
 
     draw_highlighted_objects(gizmos, &state);
 
@@ -1196,8 +1200,6 @@ pub fn draw_docking_scenario(
     state: &GameState,
     _id: &OrbiterId,
 ) -> Option<()> {
-    // let rpo = state.rpos.get(0)?;
-
     draw_x(gizmos, Vec2::ZERO, 10.0, RED);
 
     let mut reference = None;

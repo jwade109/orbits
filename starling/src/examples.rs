@@ -2,20 +2,21 @@ use crate::math::{rand, randvec, rotate};
 use crate::nanotime::Nanotime;
 use crate::orbits::{Body, SparseOrbit};
 use crate::pv::PV;
+use crate::quantities::{EARTH_MU, EARTH_RADIUS, EARTH_SOI};
 use crate::scenario::{ObjectIdTracker, PlanetarySystem, Scenario};
 use glam::f32::Vec2;
 
 pub fn make_earth() -> Body {
-    Body::new(63.0, 1000.0, 15000.0)
+    Body::with_mass(63.0, 1000.0, 15000.0)
 }
 
 pub fn make_earth_inf_soi() -> Body {
-    Body::new(63.0, 1000.0, 10000000.0)
+    Body::with_mass(63.0, 1000.0, 10000000.0)
 }
 
 pub fn make_luna() -> (Body, SparseOrbit) {
     (
-        Body::new(22.0, 10.0, 800.0),
+        Body::with_mass(22.0, 10.0, 800.0),
         SparseOrbit::circular(3800.0, make_earth(), Nanotime::secs(-40), false),
     )
 }
@@ -45,7 +46,11 @@ pub fn earth_moon_example_one() -> (Scenario, ObjectIdTracker) {
 
     let mut earth = PlanetarySystem::new(id.next_planet(), "Earth", make_earth());
     let luna = PlanetarySystem::new(id.next_planet(), "Luna", make_luna().0);
-    let ast = PlanetarySystem::new(id.next_planet(), "Asteroid", Body::new(6.0, 2.0, 200.0));
+    let ast = PlanetarySystem::new(
+        id.next_planet(),
+        "Asteroid",
+        Body::with_mass(6.0, 2.0, 200.0),
+    );
 
     earth.orbit(make_luna().1, luna.clone());
     earth.orbit(
@@ -171,14 +176,14 @@ pub fn sun_jupiter() -> (Scenario, ObjectIdTracker) {
         id.next_planet(),
         "Sol",
         Body {
-            mass: 1000.0,
+            mu: 1000.0 * 12000.0,
             radius: 100.0,
             soi: 100000.0,
         },
     );
 
     let jupiter_body = Body {
-        mass: sun.body.mass * 0.000954588,
+        mu: sun.body.mu * 0.000954588,
         radius: 20.0,
         soi: 500.0,
     };
@@ -193,7 +198,7 @@ pub fn sun_jupiter() -> (Scenario, ObjectIdTracker) {
         (0.7, "Ganymede"),
         (1.0, "Callisto"),
     ] {
-        let body = Body::new(3.0, jupiter_body.mass * 0.03, 30.0);
+        let body = Body::with_mu(3.0, jupiter_body.mu * 0.03, 30.0);
         let orbit = SparseOrbit::circular(r * 300.0, jupiter_body, Nanotime::zero(), false);
         jupiter.orbit(orbit, PlanetarySystem::new(id.next_planet(), n, body));
     }
@@ -243,6 +248,21 @@ pub fn consistency_example() -> (Scenario, ObjectIdTracker) {
     let mut scenario = Scenario::new(&earth);
 
     for orbit in orbits {
+        scenario.add_object(id.next(), earth.id, orbit, Nanotime::zero());
+    }
+
+    (scenario, id)
+}
+
+pub fn rss() -> (Scenario, ObjectIdTracker) {
+    let mut id = ObjectIdTracker::new();
+    let earth_body = Body::with_mu(EARTH_RADIUS, EARTH_MU, EARTH_SOI);
+    let earth = PlanetarySystem::new(id.next_planet(), "Earth", earth_body);
+    let mut scenario = Scenario::new(&earth);
+
+    for _ in 0..10 {
+        let s = rand(1.3, 1.9);
+        let orbit = SparseOrbit::circular(EARTH_RADIUS * s, earth_body, Nanotime::zero(), false);
         scenario.add_object(id.next(), earth.id, orbit, Nanotime::zero());
     }
 
@@ -1485,7 +1505,11 @@ pub fn stable_simulation() -> (Scenario, ObjectIdTracker) {
 
     let mut earth = PlanetarySystem::new(id.next_planet(), "Earth", make_earth());
     let luna = PlanetarySystem::new(id.next_planet(), "Luna", make_luna().0);
-    let ast = PlanetarySystem::new(id.next_planet(), "Asteroid", Body::new(6.0, 2.0, 200.0));
+    let ast = PlanetarySystem::new(
+        id.next_planet(),
+        "Asteroid",
+        Body::with_mass(6.0, 2.0, 200.0),
+    );
 
     earth.orbit(make_luna().1, luna.clone());
     earth.orbit(
@@ -1518,7 +1542,7 @@ pub fn stable_simulation() -> (Scenario, ObjectIdTracker) {
 }
 
 pub fn default_example() -> (Scenario, ObjectIdTracker) {
-    earth_moon_example_one()
+    rss()
 }
 
 #[cfg(test)]
