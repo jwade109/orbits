@@ -589,10 +589,6 @@ fn draw_event_marker_at(gizmos: &mut Gizmos, wall_time: Nanotime, event: &EventT
     let blinking = is_blinking(wall_time, p);
 
     if !blinking {
-        return;
-    }
-
-    if !blinking {
         match event {
             EventType::NumericalError => return,
             EventType::Collide(_) => return,
@@ -1255,8 +1251,9 @@ fn draw_telescope_view(gizmos: &mut Gizmos, state: &GameState) {
     draw_circle(gizmos, Vec2::ZERO, screen_radius + 5.0, WHITE);
 
     let map = |az: f32, el: f32| -> (Vec2, f32, f32) {
-        let daz = az - state.telescope_context.azimuth;
-        let del = el - state.telescope_context.elevation;
+        let azel = state.telescope_context.origin();
+        let daz = az - azel.x;
+        let del = el - azel.y;
 
         // assumes x is on the domain [0, 1].
         // moves x towards 1, but doesn't move 0
@@ -1271,8 +1268,7 @@ fn draw_telescope_view(gizmos: &mut Gizmos, state: &GameState) {
         let angular_offset = Vec2::new(daz, del);
         let angular_distance = angular_offset.length();
 
-        let scaled_distance =
-            scale((angular_distance / state.telescope_context.angular_radius).min(1.0));
+        let scaled_distance = scale((angular_distance * state.telescope_context.scale()).min(1.0));
 
         let alpha = 1.0 - scaled_distance.powi(3);
 
@@ -1292,8 +1288,8 @@ fn draw_telescope_view(gizmos: &mut Gizmos, state: &GameState) {
     draw_cross(
         gizmos,
         map(
-            state.telescope_context.azimuth,
-            state.telescope_context.elevation,
+            state.telescope_context.origin().x,
+            state.telescope_context.origin().y,
         )
         .0,
         5.0,

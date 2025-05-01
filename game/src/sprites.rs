@@ -251,7 +251,7 @@ pub fn update_spacecraft_sprites(
                 let scale = if state.orbital_context.selected.contains(&id) {
                     SPACECRAFT_MAGNIFIED_SCALE
                 } else if !is_lit {
-                    0.0
+                    SPACECRAFT_DIMINISHED_SCALE
                 } else if state.orbital_context.selected.is_empty() {
                     SPACECRAFT_DEFAULT_SCALE
                 } else {

@@ -6,10 +6,11 @@ use bevy::prelude::*;
 pub fn keyboard_input(
     keys: Res<ButtonInput<KeyCode>>,
     mut state: ResMut<GameState>,
-    mut scroll: EventReader<MouseWheel>,
+    scroll: EventReader<MouseWheel>,
     mut events: EventWriter<InteractionEvent>,
 ) {
     state.input.set_buttons(keys.clone());
+    state.input.set_scroll(scroll);
 
     for key in keys.get_just_pressed() {
         let e = match key {
@@ -49,18 +50,6 @@ pub fn keyboard_input(
             _ => continue,
         };
 
-        events.send(e);
-    }
-
-    let left_shift: bool = keys.pressed(KeyCode::ShiftLeft);
-
-    for ev in scroll.read() {
-        let e = match (ev.y > 0.0, left_shift) {
-            (true, false) => InteractionEvent::ZoomIn,
-            (false, false) => InteractionEvent::ZoomOut,
-            (true, true) => InteractionEvent::SimFaster,
-            (false, true) => InteractionEvent::SimSlower,
-        };
         events.send(e);
     }
 }

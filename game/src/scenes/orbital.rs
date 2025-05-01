@@ -80,6 +80,7 @@ pub struct OrbitalContext {
     center: Vec2,
     target_center: Vec2,
     scale: f32,
+    target_scale: f32,
     pub follow: Option<ObjectId>,
     pub queued_orbits: Vec<GlobalOrbit>,
     pub selection_mode: CursorMode,
@@ -122,6 +123,7 @@ impl OrbitalContext {
             center: Vec2::ZERO,
             target_center: Vec2::ZERO,
             scale: 0.00004,
+            target_scale: 0.00003,
             follow: None,
             queued_orbits: Vec::new(),
             selection_mode: CursorMode::Rect,
@@ -133,11 +135,28 @@ impl OrbitalContext {
 
     pub fn step(&mut self, input: &InputState) {
         let speed = 16.0;
+
+        if input.is_pressed(KeyCode::ShiftLeft) {
+            if input.is_scroll_down() {
+                println!("TODO change sim speed");
+            }
+            if input.is_scroll_up() {
+                println!("TODO change sim speed");
+            }
+        } else {
+            if input.is_scroll_down() {
+                self.target_scale /= 1.5;
+            }
+            if input.is_scroll_up() {
+                self.target_scale *= 1.5;
+            }
+        }
+
         if input.is_pressed(KeyCode::Equal) {
-            self.scale *= 1.03;
+            self.target_scale *= 1.03;
         }
         if input.is_pressed(KeyCode::Minus) {
-            self.scale /= 1.03;
+            self.target_scale /= 1.03;
         }
         if input.is_pressed(KeyCode::KeyD) {
             self.target_center.x += speed / self.scale;
@@ -153,9 +172,10 @@ impl OrbitalContext {
         }
         if input.is_pressed(KeyCode::KeyR) {
             self.target_center = Vec2::ZERO;
-            self.scale = 1.0;
+            self.target_scale = 1.0;
         }
 
+        self.scale += (self.target_scale - self.scale) * 0.1;
         self.center += (self.target_center - self.center) * 0.1;
     }
 }

@@ -1,6 +1,7 @@
 use crate::planetary::GameState;
 use crate::scenes::CameraProjection;
 use crate::ui::InteractionEvent;
+use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 use starling::nanotime::Nanotime;
 use starling::prelude::AABB;
@@ -83,6 +84,14 @@ impl CursorTravel {
 }
 
 #[derive(Debug, Default)]
+enum ScrollDir {
+    #[default]
+    None,
+    Up,
+    Down,
+}
+
+#[derive(Debug, Default)]
 pub struct InputState {
     hover: CursorTravel,
     left: CursorTravel,
@@ -92,6 +101,7 @@ pub struct InputState {
     pub screen_bounds: AABB,
 
     buttons: ButtonInput<KeyCode>,
+    scroll: ScrollDir,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -128,6 +138,32 @@ impl InputState {
 
     pub fn set_buttons(&mut self, buttons: ButtonInput<KeyCode>) {
         self.buttons = buttons;
+    }
+
+    pub fn set_scroll(&mut self, mut scroll: EventReader<MouseWheel>) {
+        self.scroll = match scroll.read().next() {
+            Some(m) => match m.y.partial_cmp(&0.0) {
+                None => ScrollDir::None,
+                Some(std::cmp::Ordering::Equal) => ScrollDir::None,
+                Some(std::cmp::Ordering::Greater) => ScrollDir::Up,
+                Some(std::cmp::Ordering::Less) => ScrollDir::Down,
+            },
+            None => ScrollDir::None,
+        }
+    }
+
+    pub fn is_scroll_down(&self) -> bool {
+        match self.scroll {
+            ScrollDir::Down => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_scroll_up(&self) -> bool {
+        match self.scroll {
+            ScrollDir::Up => true,
+            _ => false,
+        }
     }
 
     pub fn is_pressed(&self, key: KeyCode) -> bool {

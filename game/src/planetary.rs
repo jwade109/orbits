@@ -481,7 +481,7 @@ impl GameState {
 
     pub fn light_source(&self) -> Vec2 {
         let angle = self.sim_time.to_secs() / 1000.0;
-        rotate(Vec2::X, angle + PI) * 10000.0
+        rotate(Vec2::X, angle + PI) * 1000000.0
     }
 
     pub fn save(&self) -> Option<()> {
