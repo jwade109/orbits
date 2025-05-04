@@ -50,6 +50,9 @@ pub struct Vehicle {
     body: Vec<Polygon>,
     thrusters: Vec<Thruster>,
     pub inventory: Inventory,
+    pub max_fuel_mass: f32,
+    pub dry_mass: f32,
+    pub exhaust_velocity: f32,
 }
 
 fn rcs_block(pos: Vec2, angle: f32) -> Vec<Thruster> {
@@ -69,6 +72,10 @@ fn random_sat_inventory() -> Inventory {
     inv
 }
 
+fn rocket_equation(ve: f32, m0: f32, m1: f32) -> f32 {
+    ve * (m0 / m1).ln()
+}
+
 impl Vehicle {
     pub fn random(stamp: Nanotime) -> Self {
         if rand(0.0, 1.0) < 0.5 {
@@ -80,6 +87,9 @@ impl Vehicle {
 
     pub fn asteroid(stamp: Nanotime) -> Self {
         Self {
+            max_fuel_mass: 0.0,
+            dry_mass: 300.0,
+            exhaust_velocity: 5000.0,
             name: get_random_name(),
             stamp,
             angle: rand(0.0, 2.0 * PI),
@@ -93,6 +103,9 @@ impl Vehicle {
 
     pub fn satellite(stamp: Nanotime) -> Self {
         Self {
+            max_fuel_mass: 800.0,
+            dry_mass: 300.0,
+            exhaust_velocity: 5000.0,
             name: get_random_name(),
             stamp,
             angle: rand(0.0, 2.0 * PI),
@@ -106,6 +119,9 @@ impl Vehicle {
 
     pub fn space_station(stamp: Nanotime) -> Self {
         Self {
+            max_fuel_mass: 800.0,
+            dry_mass: 300.0,
+            exhaust_velocity: 5000.0,
             name: get_random_name(),
             stamp,
             angle: 0.0,
@@ -119,6 +135,22 @@ impl Vehicle {
 
     pub fn is_controllable(&self) -> bool {
         !self.thrusters.is_empty()
+    }
+
+    pub fn fuel_mass(&self) -> f32 {
+        self.inventory.count(InventoryItem::LiquidFuel) as f32 / 1000.0
+    }
+
+    pub fn mass(&self) -> f32 {
+        self.dry_mass + self.fuel_mass()
+    }
+
+    pub fn remaining_dv(&self) -> f32 {
+        rocket_equation(self.exhaust_velocity, self.mass(), self.dry_mass)
+    }
+
+    pub fn fuel_percentage(&self) -> f32 {
+        self.fuel_mass() / self.max_fuel_mass
     }
 
     pub fn name(&self) -> &String {

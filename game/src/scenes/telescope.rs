@@ -35,7 +35,7 @@ impl TelescopeContext {
         }
     }
 
-    pub fn step(&mut self, input: &InputState) {
+    pub fn step(&mut self, input: &InputState, dt: f32) {
         if input.is_scroll_down() {
             self.target_angular_radius *= 1.5;
         }
@@ -50,7 +50,7 @@ impl TelescopeContext {
             self.target_angular_radius /= 0.96;
         }
 
-        let angular_speed = 0.004;
+        let angular_speed = 0.004 * dt * 100.0;
 
         if input.is_pressed(KeyCode::KeyD) {
             self.target_az += angular_speed * self.angular_radius;

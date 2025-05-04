@@ -120,6 +120,7 @@ pub struct GameState {
 
     pub controllers: Vec<Controller>,
     pub constellations: HashMap<OrbiterId, GroupId>,
+    pub vehicles: HashMap<OrbiterId, Vehicle>,
     pub starfield: Vec<(Vec3, Srgba, f32, f32)>,
     pub rpos: Vec<RPO>,
 
@@ -614,6 +615,7 @@ impl GameState {
     }
 
     pub fn step(&mut self, time: &Time) {
+        let dt = time.delta_secs();
         let old_sim_time = self.sim_time;
         self.wall_time += Nanotime::nanos(time.delta().as_nanos() as i64);
         if !self.paused {
@@ -627,9 +629,9 @@ impl GameState {
         }
 
         match self.current_scene().kind() {
-            SceneType::OrbitalView(_) => self.orbital_context.step(&self.input),
-            SceneType::TelescopeView(_) => self.telescope_context.step(&self.input),
-            SceneType::DockingView(_) => self.rpo_context.step(&self.input),
+            SceneType::OrbitalView(_) => self.orbital_context.step(&self.input, dt),
+            SceneType::TelescopeView(_) => self.telescope_context.step(&self.input, dt),
+            SceneType::DockingView(_) => self.rpo_context.step(&self.input, dt),
             _ => (),
         }
 

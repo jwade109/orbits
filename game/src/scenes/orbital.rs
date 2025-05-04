@@ -133,8 +133,8 @@ impl OrbitalContext {
         }
     }
 
-    pub fn step(&mut self, input: &InputState) {
-        let speed = 16.0;
+    pub fn step(&mut self, input: &InputState, dt: f32) {
+        let speed = 16.0 * dt * 100.0;
 
         if input.is_pressed(KeyCode::ShiftLeft) {
             if input.is_scroll_down() {

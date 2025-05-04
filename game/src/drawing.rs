@@ -355,7 +355,7 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     draw_pointing_vector(orbiter.vehicle.target_pointing(), LIME.with_alpha(0.4));
 
     draw_circle(gizmos, center, r, GRAY);
-    let p = orbiter.fuel_percentage();
+    let p = orbiter.vehicle.fuel_percentage();
     let iso = Isometry2d::from_translation(center);
 
     if orbiter.low_fuel() {

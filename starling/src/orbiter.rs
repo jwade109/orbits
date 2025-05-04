@@ -57,44 +57,31 @@ impl std::fmt::Debug for GroupId {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Orbiter {
     id: OrbiterId,
-    max_fuel_mass: f32,
-    dry_mass: f32,
-    exhaust_velocity: f32,
     props: Vec<Propagator>,
 
     pub vehicle: Vehicle,
-}
-
-fn rocket_equation(ve: f32, m0: f32, m1: f32) -> f32 {
-    ve * (m0 / m1).ln()
-}
-
-fn mass_after_maneuver(ve: f32, m0: f32, dv: f32) -> f32 {
-    m0 / (dv / ve).exp()
 }
 
 impl std::fmt::Display for Orbiter {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{} {:0.1}kg/{:0.1}kg, ve={:0.1}m/s, dv={:0.2}m/s, {} props",
+            "{} {:#?} {} props",
             self.id,
-            self.fuel_mass() + self.dry_mass,
-            self.dry_mass,
-            self.exhaust_velocity,
-            self.remaining_dv(),
+            self.props.first(),
             self.props.len()
         )
     }
+}
+
+fn mass_after_maneuver(ve: f32, m0: f32, dv: f32) -> f32 {
+    m0 / (dv / ve).exp()
 }
 
 impl Orbiter {
     pub fn new(id: OrbiterId, orbit: GlobalOrbit, stamp: Nanotime) -> Self {
         Orbiter {
             id,
-            max_fuel_mass: 800.0,
-            dry_mass: 300.0,
-            exhaust_velocity: 5000.0,
             props: vec![Propagator::new(orbit, stamp)],
             vehicle: Vehicle::random(stamp),
         }
@@ -104,24 +91,8 @@ impl Orbiter {
         self.id
     }
 
-    pub fn fuel_mass(&self) -> f32 {
-        self.vehicle.inventory.count(InventoryItem::LiquidFuel) as f32 / 1000.0
-    }
-
-    pub fn mass(&self) -> f32 {
-        self.dry_mass + self.fuel_mass()
-    }
-
-    pub fn remaining_dv(&self) -> f32 {
-        rocket_equation(self.exhaust_velocity, self.mass(), self.dry_mass)
-    }
-
-    pub fn fuel_percentage(&self) -> f32 {
-        self.fuel_mass() / self.max_fuel_mass
-    }
-
     pub fn low_fuel(&self) -> bool {
-        self.vehicle.is_controllable() && self.remaining_dv() < 10.0
+        self.vehicle.is_controllable() && self.vehicle.remaining_dv() < 10.0
     }
 
     pub fn add_fuel(&mut self, kg: u64) {
@@ -135,13 +106,17 @@ impl Orbiter {
     }
 
     pub fn impulsive_burn(&mut self, stamp: Nanotime, dv: Vec2) -> Option<()> {
-        if dv.length() > self.remaining_dv() {
+        if dv.length() > self.vehicle.remaining_dv() {
             return None;
         }
 
-        let fuel_mass_before_maneuver = self.fuel_mass();
-        let m1 = mass_after_maneuver(self.exhaust_velocity, self.mass(), dv.length());
-        let fuel_mass_after_maneuver = m1 - self.dry_mass;
+        let fuel_mass_before_maneuver = self.vehicle.fuel_mass();
+        let m1 = mass_after_maneuver(
+            self.vehicle.exhaust_velocity,
+            self.vehicle.mass(),
+            dv.length(),
+        );
+        let fuel_mass_after_maneuver = m1 - self.vehicle.dry_mass;
         let spent_fuel = fuel_mass_before_maneuver - fuel_mass_after_maneuver;
 
         self.vehicle.inventory.take(
