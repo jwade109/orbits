@@ -574,7 +574,8 @@ impl SparseOrbit {
 
     pub fn is_similar(&self, other: &Self) -> bool {
         // TODO want this to be a sliding scale in [0, 1]
-        let dmax = 5000.0;
+        let avg = 0.5 * (self.semi_major_axis + other.semi_major_axis);
+        let dmax = avg * 0.06;
         let d1 = self.apoapsis().distance(other.apoapsis());
         let d2 = self.periapsis().distance(other.periapsis());
         d1 < dmax && d2 < dmax
@@ -605,7 +606,7 @@ impl SparseOrbit {
         let mut t = start;
         while t < end {
             let pv = self.pv(t).ok()?;
-            let dt = Nanotime::secs_f32(dist / pv.vel.length()).max(Nanotime::secs(2));
+            let dt = Nanotime::secs_f32(dist / pv.vel.length()).max(Nanotime::secs(60));
             ret.push(pv.pos + origin);
             t += dt;
         }

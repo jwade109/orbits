@@ -93,16 +93,15 @@ pub fn do_text_labels(
     mut query: Query<(Entity, &mut Text2d, &mut Transform), With<TextLabel>>,
 ) {
     let mut labels: Vec<_> = query.iter_mut().collect();
-    for (i, (pos, txt, size)) in state.text_labels.iter().enumerate() {
+    for (i, (pos, txt)) in state.text_labels.iter().enumerate() {
         if let Some((_, text2d, label)) = labels.get_mut(i) {
             label.translation = pos.extend(TEXT_LABEL_Z_INDEX);
-            label.scale = Vec3::splat(*size);
+            label.scale = Vec3::splat(1.0);
             text2d.0 = txt.clone();
         } else {
             commands.spawn((
                 Text2d::new(txt.clone()),
-                Transform::from_translation(pos.extend(TEXT_LABEL_Z_INDEX))
-                    .with_scale(Vec3::splat(*size)),
+                Transform::from_translation(pos.extend(TEXT_LABEL_Z_INDEX)),
                 TextLabel,
             ));
         }

@@ -132,7 +132,7 @@ pub struct GameState {
     pub last_redraw: Nanotime,
 
     pub notifications: Vec<Notification>,
-    pub text_labels: Vec<(Vec2, String, f32)>,
+    pub text_labels: Vec<(Vec2, String)>,
 }
 
 fn generate_starfield() -> Vec<(Vec3, Srgba, f32, f32)> {
@@ -170,7 +170,7 @@ impl Default for GameState {
             rpo_context: RPOContext::new(),
             sim_time: Nanotime::zero(),
             wall_time: Nanotime::zero(),
-            physics_duration: Nanotime::secs(120),
+            physics_duration: Nanotime::days(7),
             sim_speed: 0,
             paused: false,
             scenario: scenario.clone(),
@@ -393,7 +393,7 @@ impl GameState {
         let id = self.piloting()?;
 
         let orbiter = self.scenario.lup_orbiter(id, self.sim_time)?.orbiter()?;
-        let dv = orbiter.vehicle.pointing() * 5.0;
+        let dv = orbiter.vehicle.pointing() * 0.005;
 
         let notif = if self
             .scenario
@@ -652,7 +652,7 @@ impl GameState {
         let mut man = self.planned_maneuvers(old_sim_time);
         while let Some((id, t, dv)) = man.first() {
             if s > *t {
-                let perturb = randvec(0.01, 0.05);
+                let perturb = 0.0 * randvec(0.01, 0.05);
                 self.scenario.simulate(*t, d);
                 self.scenario.impulsive_burn(*id, *t, dv + perturb);
                 self.notify(
@@ -740,9 +740,9 @@ impl GameState {
         if let Some((m1, m2, corner)) = self.measuring_tape() {
             for (a, b) in [(m1, m2), (m1, corner), (m2, corner)] {
                 let middle = (a + b) / 2.0;
+                let middle = self.orbital_context.w2c(middle);
                 let d = format!("{:0.2}", a.distance(b));
-                self.text_labels
-                    .push((middle, d, self.orbital_context.scale()));
+                self.text_labels.push((middle, d));
             }
         }
 

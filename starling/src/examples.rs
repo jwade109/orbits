@@ -2,7 +2,7 @@ use crate::math::{rand, randvec, rotate};
 use crate::nanotime::Nanotime;
 use crate::orbits::{Body, SparseOrbit};
 use crate::pv::PV;
-use crate::quantities::{EARTH_MU, EARTH_RADIUS, EARTH_SOI};
+use crate::quantities::*;
 use crate::scenario::{ObjectIdTracker, PlanetarySystem, Scenario};
 use glam::f32::Vec2;
 
@@ -257,7 +257,15 @@ pub fn consistency_example() -> (Scenario, ObjectIdTracker) {
 pub fn rss() -> (Scenario, ObjectIdTracker) {
     let mut id = ObjectIdTracker::new();
     let earth_body = Body::with_mu(EARTH_RADIUS, EARTH_MU, EARTH_SOI);
-    let earth = PlanetarySystem::new(id.next_planet(), "Earth", earth_body);
+    let mut earth = PlanetarySystem::new(id.next_planet(), "Earth", earth_body);
+
+    let luna_body = Body::with_mu(LUNA_RADIUS, LUNA_MU, LUNA_SOI);
+    let luna = PlanetarySystem::new(id.next_planet(), "Luna", luna_body);
+    let luna_orbit =
+        SparseOrbit::circular(LUNA_ORBITAL_RADIUS, earth_body, Nanotime::zero(), false);
+
+    earth.orbit(luna_orbit, luna);
+
     let mut scenario = Scenario::new(&earth);
 
     for _ in 0..10 {

@@ -177,7 +177,7 @@ fn draw_orbit_between(
     end: Nanotime,
     ctx: &impl CameraProjection,
 ) -> Option<()> {
-    let mut points: Vec<_> = orb.sample_pos(start, end, 10.0, origin)?;
+    let mut points: Vec<_> = orb.sample_pos(start, end, 100.0, origin)?;
     points.iter_mut().for_each(|p| {
         *p = ctx.w2c(*p);
     });
@@ -475,7 +475,7 @@ fn draw_scenario(gizmos: &mut Gizmos, state: &GameState) {
     let show_orbits = state.orbital_context.show_orbits;
     let piloting = state.piloting();
 
-    draw_vehicle_frames(gizmos, state);
+    // draw_vehicle_frames(gizmos, state);
 
     draw_planets(gizmos, scenario.planets(), stamp, Vec2::ZERO, ctx);
 
@@ -740,15 +740,15 @@ fn draw_maneuver_plan(
 
     let color = YELLOW.with_alpha(0.03);
     for segment in &plan.segments {
-        draw_orbit_between(
-            gizmos,
-            &segment.orbit,
-            origin,
-            color,
-            segment.start.max(stamp),
-            segment.end,
-            ctx,
-        );
+        // draw_orbit_between(
+        //     gizmos,
+        //     &segment.orbit,
+        //     origin,
+        //     color,
+        //     segment.start.max(stamp),
+        //     segment.end,
+        //     ctx,
+        // );
         if segment.end > stamp {
             let pv = plan.pv(segment.end)?;
             draw_diamond(gizmos, origin + pv.pos, 10.0 * ctx.scale(), color);

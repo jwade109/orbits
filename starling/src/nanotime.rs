@@ -37,6 +37,18 @@ impl Nanotime {
         Nanotime(s * Nanotime::PER_SEC)
     }
 
+    pub fn mins(m: i64) -> Self {
+        Nanotime(m * Nanotime::PER_MINUTE)
+    }
+
+    pub fn hours(h: i64) -> Self {
+        Nanotime(h * Nanotime::PER_HOUR)
+    }
+
+    pub fn days(d: i64) -> Self {
+        Nanotime(d * Nanotime::PER_DAY)
+    }
+
     pub const fn millis(ms: i64) -> Self {
         Nanotime(ms * Nanotime::PER_MILLI)
     }

@@ -407,13 +407,13 @@ impl Propagator {
             .any(|(_, orb, soi)| mutual_separation(&self.orbit.1, orb, end) < soi * 3.0);
 
         self.dt = if might_hit_planet {
-            Nanotime::millis(20)
+            Nanotime::hours(1)
         } else if can_escape {
-            Nanotime::secs(2)
+            Nanotime::hours(10)
         } else if near_body {
-            Nanotime::millis(500)
+            Nanotime::hours(1)
         } else {
-            Nanotime::secs(5)
+            Nanotime::hours(12)
         };
 
         let t1 = end;
