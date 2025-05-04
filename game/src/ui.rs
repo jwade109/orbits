@@ -138,16 +138,17 @@ fn big_time_system(mut text: Single<&mut Text, With<DateMarker>>, state: Res<Gam
 }
 
 fn top_right_text_system(mut text: Single<&mut Text, With<TopRight>>, state: Res<GameState>) {
-    let res = (|| -> Option<(&Orbiter, GlobalOrbit)> {
+    let res = (|| -> Option<(&Orbiter, &Vehicle, GlobalOrbit)> {
         let id = state.orbital_context.follow?.orbiter()?;
         let orbiter = state.scenario.lup_orbiter(id, state.sim_time)?.orbiter()?;
+        let vehicle = state.vehicles.get(&id)?;
         let prop = orbiter.propagator_at(state.sim_time)?;
         let go = prop.orbit;
-        Some((orbiter, go))
+        Some((orbiter, vehicle, go))
     })();
 
-    if let Some((orbiter, go)) = res {
-        text.0 = format!("{}\nOrbit: {}\n{}", orbiter, go, orbiter.vehicle.inventory);
+    if let Some((orbiter, vehicle, go)) = res {
+        text.0 = format!("{}\nOrbit: {}\n{}", orbiter, go, vehicle.inventory);
     } else {
         text.0 = "".into();
     }
@@ -582,18 +583,19 @@ fn current_inventory_layout(state: &GameState) -> Option<ui::Node<OnClick>> {
 
     let id = state.orbital_context.follow?.orbiter()?;
     let orbiter = state.scenario.lup_orbiter(id, state.sim_time)?.orbiter()?;
+    let vehicle = state.vehicles.get(&id)?;
 
-    if orbiter.vehicle.inventory.is_empty() {
+    if vehicle.inventory.is_empty() {
         return None;
     }
 
     let buttons = Node::new(Size::Grow, Size::Fit)
         .down()
         .with_child({
-            let s = format!("Vehicle {}", orbiter.vehicle.name());
+            let s = format!("Vehicle {}", vehicle.name());
             Node::button(s, OnClick::Nullopt, Size::Grow, 40.0).enabled(false)
         })
-        .with_children(orbiter.vehicle.inventory.view().map(|(k, v)| {
+        .with_children(vehicle.inventory.view().map(|(k, v)| {
             let name = format!("{:?} {} g", k, v);
             Node::button(name, OnClick::Nullopt, Size::Grow, 40.0)
         }));

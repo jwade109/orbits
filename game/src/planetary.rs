@@ -177,6 +177,7 @@ impl Default for GameState {
             scenario: scenario.clone(),
             ids,
             controllers: vec![],
+            vehicles: HashMap::new(),
             constellations: HashMap::new(),
             starfield: generate_starfield(),
             rpos: generate_rpos(),
@@ -385,16 +386,16 @@ impl GameState {
 
     pub fn turn(&mut self, dir: i8) -> Option<()> {
         let id = self.piloting()?;
-        let orbiter = self.scenario.orbiter_mut(id)?;
-        orbiter.vehicle.turn(dir as f32 * 0.03);
+        let vehicle = self.vehicles.get_mut(&id)?;
+        vehicle.turn(dir as f32 * 0.03);
         Some(())
     }
 
     pub fn thrust_prograde(&mut self) -> Option<()> {
         let id = self.piloting()?;
 
-        let orbiter = self.scenario.lup_orbiter(id, self.sim_time)?.orbiter()?;
-        let dv = orbiter.vehicle.pointing() * 0.005;
+        let vehicle = self.vehicles.get(&id)?;
+        let dv = vehicle.pointing() * 0.005;
 
         let notif = if self
             .scenario
@@ -433,8 +434,8 @@ impl GameState {
 
     pub fn command(&mut self, id: OrbiterId, next: &GlobalOrbit) -> Option<()> {
         let tracks = self.orbital_context.selected.clone();
-        let orbiter = self.scenario.lup_orbiter(id, self.sim_time)?.orbiter()?;
-        if !orbiter.vehicle.is_controllable() {
+        let vehicle = self.vehicles.get(&id)?;
+        if !vehicle.is_controllable() {
             self.notify(id, NotificationType::NotControllable, None);
             return None;
         }
@@ -640,10 +641,10 @@ impl GameState {
         }
 
         // handle discrete physics events
-        for orbiter in self.scenario.orbiters_mut() {
+        for (_, vehicle) in self.vehicles.iter_mut() {
             // controversial
-            orbiter.vehicle.main(false);
-            orbiter.step(self.wall_time);
+            vehicle.main(false);
+            vehicle.step(self.wall_time);
         }
 
         self.handle_click_events();
@@ -708,6 +709,14 @@ impl GameState {
                 }
             }
         });
+
+        if let Some(id) = self.piloting() {
+            if !self.vehicles.contains_key(&id) {
+                let vehicle = Vehicle::random(self.sim_time);
+                println!("Generated vehicle for {}", id);
+                self.vehicles.insert(id, vehicle);
+            }
+        }
 
         notifs
             .into_iter()

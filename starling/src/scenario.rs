@@ -334,8 +334,7 @@ impl Scenario {
 
     pub fn impulsive_burn(&mut self, id: OrbiterId, stamp: Nanotime, dv: Vec2) -> Option<()> {
         let obj = self.orbiter_mut(id)?;
-        obj.impulsive_burn(stamp, dv)?;
-        Some(())
+        obj.try_impulsive_burn(stamp, dv)
     }
 
     // TODO get rid of this

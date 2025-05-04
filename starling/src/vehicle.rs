@@ -76,6 +76,10 @@ fn rocket_equation(ve: f32, m0: f32, m1: f32) -> f32 {
     ve * (m0 / m1).ln()
 }
 
+fn mass_after_maneuver(ve: f32, m0: f32, dv: f32) -> f32 {
+    m0 / (dv / ve).exp()
+}
+
 impl Vehicle {
     pub fn random(stamp: Nanotime) -> Self {
         if rand(0.0, 1.0) < 0.5 {
@@ -145,6 +149,32 @@ impl Vehicle {
         self.dry_mass + self.fuel_mass()
     }
 
+    pub fn low_fuel(&self) -> bool {
+        self.is_controllable() && self.remaining_dv() < 10.0
+    }
+
+    pub fn add_fuel(&mut self, kg: u64) {
+        self.inventory.add(InventoryItem::LiquidFuel, kg * 1000);
+    }
+
+    pub fn try_impulsive_burn(&mut self, dv: Vec2) -> Option<()> {
+        if dv.length() > self.remaining_dv() {
+            return None;
+        }
+
+        let fuel_mass_before_maneuver = self.fuel_mass();
+        let m1 = mass_after_maneuver(self.exhaust_velocity, self.mass(), dv.length());
+        let fuel_mass_after_maneuver = m1 - self.dry_mass;
+        let spent_fuel = fuel_mass_before_maneuver - fuel_mass_after_maneuver;
+
+        self.inventory.take(
+            InventoryItem::LiquidFuel,
+            (spent_fuel * 1000.0).round() as u64,
+        );
+
+        Some(())
+    }
+
     pub fn remaining_dv(&self) -> f32 {
         rocket_equation(self.exhaust_velocity, self.mass(), self.dry_mass)
     }
@@ -158,7 +188,7 @@ impl Vehicle {
     }
 
     pub fn step(&mut self, stamp: Nanotime) {
-        let dt = (stamp - self.stamp).to_secs().min(0.1);
+        let dt = (stamp - self.stamp).to_secs().clamp(0.01, 0.5);
 
         if self.is_controllable() {
             let kp = 100.0;

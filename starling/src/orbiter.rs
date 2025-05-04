@@ -1,9 +1,7 @@
-use crate::inventory::InventoryItem;
 use crate::orbits::SparseOrbit;
 use crate::planning::*;
 use crate::pv::PV;
 use crate::scenario::*;
-use crate::vehicle::Vehicle;
 use crate::{nanotime::Nanotime, orbits::GlobalOrbit};
 use serde::{Deserialize, Serialize};
 
@@ -58,8 +56,6 @@ impl std::fmt::Debug for GroupId {
 pub struct Orbiter {
     id: OrbiterId,
     props: Vec<Propagator>,
-
-    pub vehicle: Vehicle,
 }
 
 impl std::fmt::Display for Orbiter {
@@ -74,16 +70,11 @@ impl std::fmt::Display for Orbiter {
     }
 }
 
-fn mass_after_maneuver(ve: f32, m0: f32, dv: f32) -> f32 {
-    m0 / (dv / ve).exp()
-}
-
 impl Orbiter {
     pub fn new(id: OrbiterId, orbit: GlobalOrbit, stamp: Nanotime) -> Self {
         Orbiter {
             id,
             props: vec![Propagator::new(orbit, stamp)],
-            vehicle: Vehicle::random(stamp),
         }
     }
 
@@ -91,39 +82,7 @@ impl Orbiter {
         self.id
     }
 
-    pub fn low_fuel(&self) -> bool {
-        self.vehicle.is_controllable() && self.vehicle.remaining_dv() < 10.0
-    }
-
-    pub fn add_fuel(&mut self, kg: u64) {
-        self.vehicle
-            .inventory
-            .add(InventoryItem::LiquidFuel, kg * 1000);
-    }
-
-    pub fn step(&mut self, stamp: Nanotime) {
-        self.vehicle.step(stamp)
-    }
-
-    pub fn impulsive_burn(&mut self, stamp: Nanotime, dv: Vec2) -> Option<()> {
-        if dv.length() > self.vehicle.remaining_dv() {
-            return None;
-        }
-
-        let fuel_mass_before_maneuver = self.vehicle.fuel_mass();
-        let m1 = mass_after_maneuver(
-            self.vehicle.exhaust_velocity,
-            self.vehicle.mass(),
-            dv.length(),
-        );
-        let fuel_mass_after_maneuver = m1 - self.vehicle.dry_mass;
-        let spent_fuel = fuel_mass_before_maneuver - fuel_mass_after_maneuver;
-
-        self.vehicle.inventory.take(
-            InventoryItem::LiquidFuel,
-            (spent_fuel * 1000.0).round() as u64,
-        );
-
+    pub fn try_impulsive_burn(&mut self, stamp: Nanotime, dv: Vec2) -> Option<()> {
         let orbit: GlobalOrbit = {
             let prop = self.propagator_at(stamp)?;
             let pv = prop.pv_universal(stamp)? + PV::vel(dv);

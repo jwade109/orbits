@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use glam::f64::DVec2;
 use glam::i64::I64Vec2;
 use glam::u64::U64Vec2;
