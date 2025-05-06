@@ -4,7 +4,8 @@ mod scene;
 mod telescope;
 
 pub use orbital::{
-    CameraProjection, CursorMode, DrawMode, EnumIter, OrbitalContext, OrbitalView, ShowOrbitsState,
+    CameraProjection, CursorMode, DrawMode, OrbitalContext, OrbitalView, ShowOrbitsState,
+    ThrottleLevel,
 };
 pub use rpo::RPOContext;
 pub use scene::{Scene, SceneType};

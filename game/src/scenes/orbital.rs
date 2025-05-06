@@ -2,72 +2,51 @@ use crate::mouse::{FrameId, InputState, MouseButt};
 use crate::planetary::GameState;
 use crate::scenes::Scene;
 use bevy::input::keyboard::KeyCode;
+use enum_iterator::Sequence;
 use starling::prelude::*;
 use std::collections::HashSet;
 
-pub trait EnumIter
-where
-    Self: Sized,
-{
-    fn next(&self) -> Self;
-
-    fn to_next(&mut self) {
-        let n = self.next();
-        *self = n;
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Sequence)]
 pub enum CursorMode {
+    #[default]
     Rect,
     Altitude,
     NearOrbit,
-    Measure,
+    MeasuringTape,
+    Protractor,
 }
 
-impl EnumIter for CursorMode {
-    fn next(&self) -> Self {
-        match self {
-            CursorMode::Rect => CursorMode::Altitude,
-            CursorMode::Altitude => CursorMode::NearOrbit,
-            CursorMode::NearOrbit => CursorMode::Measure,
-            CursorMode::Measure => CursorMode::Rect,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default, Sequence)]
 pub enum ShowOrbitsState {
+    #[default]
     None,
     Focus,
     All,
 }
 
-impl EnumIter for ShowOrbitsState {
-    fn next(&self) -> Self {
-        match self {
-            ShowOrbitsState::None => ShowOrbitsState::Focus,
-            ShowOrbitsState::Focus => ShowOrbitsState::All,
-            ShowOrbitsState::All => ShowOrbitsState::None,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Sequence)]
 pub enum DrawMode {
+    #[default]
     Default,
     Constellations,
     Stability,
     Occlusion,
 }
 
-impl EnumIter for DrawMode {
-    fn next(&self) -> Self {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Sequence)]
+pub enum ThrottleLevel {
+    High,
+    #[default]
+    Medium,
+    Low,
+}
+
+impl ThrottleLevel {
+    pub fn to_ratio(&self) -> f32 {
         match self {
-            DrawMode::Default => DrawMode::Constellations,
-            DrawMode::Constellations => DrawMode::Stability,
-            DrawMode::Stability => DrawMode::Occlusion,
-            DrawMode::Occlusion => DrawMode::Default,
+            Self::High => 1.0,
+            Self::Medium => 0.2,
+            Self::Low => 0.01,
         }
     }
 }
@@ -87,6 +66,7 @@ pub struct OrbitalContext {
     pub show_orbits: ShowOrbitsState,
     pub show_animations: bool,
     pub draw_mode: DrawMode,
+    pub throttle: ThrottleLevel,
 }
 
 pub trait CameraProjection {
@@ -130,6 +110,7 @@ impl OrbitalContext {
             show_orbits: ShowOrbitsState::Focus,
             show_animations: true,
             draw_mode: DrawMode::Default,
+            throttle: ThrottleLevel::Medium,
         }
     }
 
@@ -199,6 +180,24 @@ impl<'a> OrbitalView<'a> {
         Some((a, b, corner))
     }
 
+    pub fn protractor(&self, state: &GameState) -> Option<(Vec2, Vec2, Option<Vec2>)> {
+        let ctx = &state.orbital_context;
+        let input: &InputState = self.scene.mouse_if_world(self.input)?;
+        let c = input.position(MouseButt::Left, FrameId::Down)?;
+        let l = input.position(MouseButt::Left, FrameId::Current)?;
+
+        let c = ctx.c2w(c);
+
+        let (a, b) = if input.position(MouseButt::Right, FrameId::Current).is_some() {
+            let r = input.position(MouseButt::Right, FrameId::Down)?;
+            (ctx.c2w(r), Some(ctx.c2w(l)))
+        } else {
+            (ctx.c2w(l), None)
+        };
+
+        Some((c, a, b))
+    }
+
     pub fn cursor_pv(p1: Vec2, p2: Vec2, state: &GameState) -> Option<PV> {
         if p1.distance(p2) < 20.0 {
             return None;
@@ -214,6 +213,11 @@ impl<'a> OrbitalView<'a> {
     }
 
     pub fn cursor_orbit(p1: Vec2, p2: Vec2, state: &GameState) -> Option<GlobalOrbit> {
+        if !state.input.is_pressed(KeyCode::KeyZ) {
+            // TODO this is a quick hack to prevent input collisions against
+            // the protractor
+            return None;
+        }
         let pv = Self::cursor_pv(p1, p2, &state)?;
         let parent_id = state.scenario.relevant_body(pv.pos, state.sim_time)?;
         let parent = state.scenario.lup_planet(parent_id, state.sim_time)?;
@@ -263,7 +267,8 @@ impl<'a> OrbitalView<'a> {
             CursorMode::NearOrbit => self
                 .left_cursor_orbit(state)
                 .map(|GlobalOrbit(_, orbit)| Region::NearOrbit(orbit, 50.0)),
-            CursorMode::Measure => None,
+            CursorMode::MeasuringTape => None,
+            CursorMode::Protractor => None,
         }
     }
 

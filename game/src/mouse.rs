@@ -6,7 +6,7 @@ use bevy::prelude::*;
 use starling::nanotime::Nanotime;
 use starling::prelude::AABB;
 
-const DOUBLE_CLICK_DURATION: Nanotime = Nanotime::millis(400);
+const DOUBLE_CLICK_DURATION: Nanotime = Nanotime::millis(300);
 
 #[derive(Debug, Clone, Copy)]
 struct MouseFrame {
@@ -229,6 +229,7 @@ pub fn update_input_state(
         let age = state.input.left.up().map(|f| f.age(t));
         if let Some(age) = age {
             if age < DOUBLE_CLICK_DURATION {
+                // TODO bad
                 events.send(InteractionEvent::DoubleClick);
             }
         }

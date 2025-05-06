@@ -9,6 +9,7 @@ use bevy::render::{
     render_resource::{Extent3d, TextureDimension, TextureFormat},
     view::RenderLayers,
 };
+use bevy::sprite::Anchor;
 use bevy::text::TextBounds;
 use bevy::window::WindowResized;
 use layout::layout as ui;
@@ -220,6 +221,7 @@ pub enum OnClick {
     FollowOrbiter,
     CursorMode,
     GoToScene(usize),
+    ThrustLevel(ThrottleLevel),
     Nullopt,
 }
 
@@ -236,8 +238,8 @@ fn context_menu(rowsize: f32, items: &[(String, OnClick, bool)]) -> ui::Node<OnC
         }))
 }
 
-pub const DELETE_SOMETHING_COLOR: [f32; 4] = [1.0, 0.0, 0.0, 0.5];
-pub const UI_BACKGROUND_COLOR: [f32; 4] = [0.1, 0.1, 0.1, 0.7];
+pub const DELETE_SOMETHING_COLOR: [f32; 4] = [1.0, 0.0, 0.0, 0.8];
+pub const UI_BACKGROUND_COLOR: [f32; 4] = [0.05, 0.05, 0.05, 0.97];
 
 fn delete_wrapper(
     ondelete: OnClick,
@@ -484,8 +486,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
     }
 
     let mut inner_topbar = Node::fit()
-        .with_padding(0.0)
-        .invisible()
+        .with_color(UI_BACKGROUND_COLOR)
         .with_id(OnClick::World)
         .with_child({
             let s = if state.paused { "UNPAUSE" } else { "PAUSE" };
@@ -530,9 +531,32 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
             let s = format!("{}", n);
             ui::Node::new(900, 28)
                 .with_text(s)
-                .with_color([0.3, 0.3, 0.3, 0.3])
+                .with_justify(TextJustify::Left)
+                .with_color([0.0, 0.0, 0.0, 0.0])
         }),
     );
+
+    let throttle_controls = if state.piloting().is_some() {
+        let thrust_levels = [
+            ("High", ThrottleLevel::High),
+            ("Medium", ThrottleLevel::Medium),
+            ("Low", ThrottleLevel::Low),
+        ];
+        Node::new(230, Size::Fit)
+            .with_color(UI_BACKGROUND_COLOR)
+            .down()
+            .with_child(
+                Node::row(button_height)
+                    .with_text("Throttle")
+                    .enabled(false),
+            )
+            .with_children(thrust_levels.iter().map(|(s, id)| {
+                Node::button(*s, OnClick::ThrustLevel(*id), Size::Grow, button_height)
+                    .enabled(id != &state.orbital_context.throttle)
+            }))
+    } else {
+        Node::new(0.0, 0.0)
+    };
 
     let world = Node::grow()
         .down()
@@ -540,10 +564,12 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
         .with_id(OnClick::World)
         .with_child(
             Node::grow()
+                .down()
                 .with_id(OnClick::World)
                 .tight()
                 .invisible()
-                .with_child(inner_topbar),
+                .with_child(inner_topbar)
+                .with_child(throttle_controls),
         )
         .with_child(
             Node::grow()
@@ -745,10 +771,23 @@ fn do_ui_sprites(
                 let mut transform = transform;
                 transform.translation.z += 0.01;
                 if let Some(s) = n.text_content() {
+                    transform.translation.x += match n.justify() {
+                        ui::TextJustify::Center => 0.0,
+                        ui::TextJustify::Left => -aabb.span.x / 2.0,
+                        ui::TextJustify::Right => aabb.span.x / 2.0,
+                    };
+
+                    let anchor = match n.justify() {
+                        ui::TextJustify::Center => Anchor::Center,
+                        ui::TextJustify::Left => Anchor::CenterLeft,
+                        ui::TextJustify::Right => Anchor::CenterRight,
+                    };
+
                     commands.spawn((
                         transform,
                         bounds,
                         Text2d::new(s.to_uppercase()),
+                        anchor,
                         RenderLayers::layer(1),
                         UiElement,
                     ));

@@ -1,8 +1,8 @@
 use starling::prelude::*;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Notification {
-    pub parent: ObjectId,
+    pub parent: Option<ObjectId>,
     pub offset: Vec2,
     pub jitter: Vec2,
     pub sim_time: Nanotime,
@@ -27,9 +27,9 @@ impl Notification {
             NotificationType::ManeuverStarted(_) => self.extra_time + Nanotime::secs(2),
             NotificationType::ManeuverComplete(_) => self.extra_time + Nanotime::secs(7),
             NotificationType::ManeuverFailed(_) => self.extra_time + Nanotime::secs(3),
-            NotificationType::NotControllable => self.extra_time + Nanotime::secs(1),
-            NotificationType::OrbitChanged(_) => self.extra_time + Nanotime::secs(1),
-            NotificationType::Following(_) => Nanotime::millis(500),
+            NotificationType::NotControllable(_) => self.extra_time + Nanotime::secs(5),
+            NotificationType::OrbitChanged(_) => self.extra_time + Nanotime::secs(2),
+            NotificationType::Notice(_) => Nanotime::secs(3),
         }
     }
 
@@ -43,7 +43,7 @@ impl Notification {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NotificationType {
     OrbiterCrashed(OrbiterId),
     OrbiterEscaped(OrbiterId),
@@ -52,13 +52,50 @@ pub enum NotificationType {
     ManeuverStarted(OrbiterId),
     ManeuverComplete(OrbiterId),
     ManeuverFailed(OrbiterId),
-    Following(ObjectId),
     OrbitChanged(OrbiterId),
-    NotControllable,
+    NotControllable(OrbiterId),
+    Notice(String),
+}
+
+impl std::fmt::Display for NotificationType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::OrbiterCrashed(id) => {
+                write!(f, "Orbiter {id} crashed")
+            }
+            Self::OrbiterEscaped(id) => {
+                write!(f, "Orbiter {id} escaped the system")
+            }
+            Self::NumericalError(id) => {
+                write!(f, "Orbiter {id} encountered a numerical error")
+            }
+            Self::OrbiterDeleted(id) => {
+                write!(f, "Orbiter {id} was removed from system tracking")
+            }
+            Self::ManeuverStarted(id) => {
+                write!(f, "Orbiter {id} has initiated a mission")
+            }
+            Self::ManeuverComplete(id) => {
+                write!(f, "Orbiter {id} has completed a mission")
+            }
+            Self::ManeuverFailed(id) => {
+                write!(f, "Orbiter {id} failed to execute a maneuver")
+            }
+            Self::OrbitChanged(id) => {
+                write!(f, "Orbiter {id}'s orbit has changed")
+            }
+            Self::NotControllable(id) => {
+                write!(f, "Orbiter {id} is not controllable")
+            }
+            Self::Notice(str) => {
+                write!(f, "Notice: {str}")
+            }
+        }
+    }
 }
 
 impl std::fmt::Display for Notification {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[{}] ({}) {:?}", self.sim_time, self.parent, self.kind)
+        write!(f, "[{}] {}", self.sim_time, self.kind)
     }
 }

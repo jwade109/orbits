@@ -1,8 +1,7 @@
 use crate::mouse::{FrameId, InputState, MouseButt};
 use crate::notifications::*;
 use crate::scenes::{
-    CameraProjection, CursorMode, EnumIter, OrbitalContext, RPOContext, Scene, SceneType,
-    TelescopeContext,
+    CameraProjection, CursorMode, OrbitalContext, RPOContext, Scene, SceneType, TelescopeContext,
 };
 use crate::ui::{InteractionEvent, OnClick};
 use bevy::color::palettes::css::*;
@@ -10,6 +9,7 @@ use bevy::core_pipeline::bloom::Bloom;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 use bevy::window::WindowMode;
+use enum_iterator::next_cycle;
 use rfd::FileDialog;
 use starling::prelude::*;
 use std::collections::{HashMap, HashSet};
@@ -295,13 +295,23 @@ impl GameState {
     }
 
     pub fn measuring_tape(&self) -> Option<(Vec2, Vec2, Vec2)> {
-        if self.orbital_context.selection_mode != CursorMode::Measure {
+        if self.orbital_context.selection_mode != CursorMode::MeasuringTape {
             return None;
         }
 
         let scene = self.current_scene();
         let ov = scene.orbital_view(&self.input)?;
         ov.measuring_tape(self)
+    }
+
+    pub fn protractor(&self) -> Option<(Vec2, Vec2, Option<Vec2>)> {
+        if self.orbital_context.selection_mode != CursorMode::Protractor {
+            return None;
+        }
+
+        let scene = self.current_scene();
+        let ov = scene.orbital_view(&self.input)?;
+        ov.protractor(self)
     }
 
     pub fn right_cursor_orbit(&self) -> Option<GlobalOrbit> {
@@ -324,6 +334,7 @@ impl GameState {
         let orbit = SparseOrbit::from_pv(pv_local + perturb, orbit.body, self.sim_time)?;
         let id = self.ids.next();
         self.scenario.add_object(id, *parent, orbit, self.sim_time);
+        self.notice(format!("Spawned {id} in orbit around {}", global.0));
         Some(())
     }
 
@@ -395,7 +406,9 @@ impl GameState {
         let id = self.piloting()?;
 
         let vehicle = self.vehicles.get(&id)?;
-        let dv = vehicle.pointing() * 0.005;
+        let throttle = self.orbital_context.throttle.to_ratio();
+
+        let dv = vehicle.pointing() * 0.005 * throttle;
 
         let notif = if self
             .scenario
@@ -436,7 +449,11 @@ impl GameState {
         let tracks = self.orbital_context.selected.clone();
         let vehicle = self.vehicles.get(&id)?;
         if !vehicle.is_controllable() {
-            self.notify(id, NotificationType::NotControllable, None);
+            self.notify(
+                ObjectId::Orbiter(id),
+                NotificationType::NotControllable(id),
+                None,
+            );
             return None;
         }
 
@@ -456,9 +473,13 @@ impl GameState {
         Some(())
     }
 
+    pub fn notice(&mut self, s: String) {
+        self.notify(None, NotificationType::Notice(s), None)
+    }
+
     pub fn notify(
         &mut self,
-        parent: impl Into<ObjectId>,
+        parent: impl Into<Option<ObjectId>>,
         kind: NotificationType,
         offset: impl Into<Option<Vec2>>,
     ) {
@@ -482,7 +503,7 @@ impl GameState {
     }
 
     pub fn light_source(&self) -> Vec2 {
-        let angle = self.sim_time.to_secs() / 1000.0;
+        let angle = 2.0 * PI * self.sim_time.to_secs() / Nanotime::days(365).to_secs();
         rotate(Vec2::X, angle + PI) * 1000000.0
     }
 
@@ -517,7 +538,9 @@ impl GameState {
         match id {
             OnClick::CurrentBody(id) => self.orbital_context.follow = Some(ObjectId::Planet(id)),
             OnClick::Orbiter(id) => self.orbital_context.follow = Some(ObjectId::Orbiter(id)),
-            OnClick::ToggleDrawMode => self.orbital_context.draw_mode.to_next(),
+            OnClick::ToggleDrawMode => {
+                self.orbital_context.draw_mode = next_cycle(&self.orbital_context.draw_mode)
+            }
             OnClick::ClearTracks => self.orbital_context.selected.clear(),
             OnClick::ClearOrbits => self.orbital_context.queued_orbits.clear(),
             OnClick::Group(gid) => self.toggle_group(&gid),
@@ -555,13 +578,20 @@ impl GameState {
                     let _ = dbg!(obj);
                 }
             }
-            OnClick::CursorMode => self.orbital_context.selection_mode.to_next(),
+            OnClick::CursorMode => {
+                self.orbital_context.selection_mode =
+                    next_cycle(&self.orbital_context.selection_mode)
+            }
             OnClick::AutopilotingCount => {
                 self.orbital_context.selected =
                     self.controllers.iter().map(|c| c.target()).collect();
             }
             OnClick::GoToScene(i) => {
                 self.set_current_scene(i);
+            }
+            OnClick::ThrustLevel(throttle) => {
+                self.orbital_context.throttle = throttle;
+                self.notice(format!("Throttle set to {:?}", throttle));
             }
             _ => info!("Unhandled button event: {id:?}"),
         };
@@ -713,7 +743,7 @@ impl GameState {
         if let Some(id) = self.piloting() {
             if !self.vehicles.contains_key(&id) {
                 let vehicle = Vehicle::random(self.sim_time);
-                println!("Generated vehicle for {}", id);
+                self.notice(format!("Generated vehicle for {id}"));
                 self.vehicles.insert(id, vehicle);
             }
         }
@@ -752,8 +782,28 @@ impl GameState {
             for (a, b) in [(m1, m2), (m1, corner), (m2, corner)] {
                 let middle = (a + b) / 2.0;
                 let middle = self.orbital_context.w2c(middle);
-                let d = format!("{:0.2}", a.distance(b));
+                let d = format!("{:0.1} km", a.distance(b));
                 self.text_labels.push((middle, d));
+            }
+        }
+
+        if let Some((c, a, b)) = self.protractor() {
+            for (a, b) in [(c, Some(a)), (c, b)] {
+                if let Some(b) = b {
+                    let middle = (a + b) / 2.0;
+                    let middle = self.orbital_context.w2c(middle);
+                    let d = format!("{:0.1} km", a.distance(b));
+                    self.text_labels.push((middle, d));
+                }
+            }
+            if let Some(b) = b {
+                let da = a - c;
+                let db = b - c;
+                let angle = da.angle_to(db);
+                let d = c + rotate(da * 0.75, angle / 2.0);
+                let t = format!("{:0.1} deg", angle.to_degrees().abs());
+                let d = self.orbital_context.w2c(d);
+                self.text_labels.push((d, t));
             }
         }
 
@@ -796,16 +846,17 @@ fn process_interaction(
             state.paused = !state.paused;
         }
         InteractionEvent::CursorMode => {
-            state.orbital_context.selection_mode.to_next();
+            state.orbital_context.selection_mode =
+                next_cycle(&state.orbital_context.selection_mode);
         }
         InteractionEvent::DrawMode => {
-            state.orbital_context.draw_mode.to_next();
+            state.orbital_context.draw_mode = next_cycle(&state.orbital_context.draw_mode);
         }
         InteractionEvent::RedrawGui => {
             state.redraw();
         }
         InteractionEvent::Orbits => {
-            state.orbital_context.show_orbits.to_next();
+            state.orbital_context.show_orbits = next_cycle(&state.orbital_context.show_orbits);
         }
         InteractionEvent::Spawn => {
             state.spawn_new();
@@ -819,11 +870,14 @@ fn process_interaction(
             };
         }
         InteractionEvent::DoubleClick => {
+            if state.current_hover_ui() != Some(&OnClick::World) {
+                return None;
+            }
             let p = state.input.position(MouseButt::Left, FrameId::Down)?;
             let w = state.orbital_context.c2w(p);
             let id = state.scenario.nearest(w, state.sim_time)?;
             state.orbital_context.follow = Some(id);
-            state.notify(id, NotificationType::Following(id), None);
+            state.notice(format!("Now following {id}"));
         }
         InteractionEvent::ExitApp => {
             std::process::exit(0);
@@ -832,6 +886,8 @@ fn process_interaction(
             if let Some(o) = state.right_cursor_orbit() {
                 info!("Enqueued orbit {}", &o);
                 state.orbital_context.queued_orbits.push(o);
+            } else if state.orbital_context.follow.is_some() {
+                state.orbital_context.follow = None;
             } else if !state.orbital_context.selected.is_empty() {
                 state.orbital_context.selected.clear();
             }

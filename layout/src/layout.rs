@@ -61,6 +61,13 @@ impl Into<Size> for u32 {
 }
 
 #[derive(Debug, Clone, Copy)]
+pub enum TextJustify {
+    Left,
+    Center,
+    Right,
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct NodeStyle {
     layout: LayoutDir,
     child_gap: f32,
@@ -68,6 +75,7 @@ pub struct NodeStyle {
     visible: bool,
     enabled_color: [f32; 4],
     disabled_color: [f32; 4],
+    text_justify: TextJustify,
 }
 
 #[derive(Debug, Clone)]
@@ -107,6 +115,7 @@ impl<IdType> Node<IdType> {
                 visible: true,
                 enabled_color: [1.0, 0.6, 0.0, 0.2],
                 disabled_color: [0.2, 0.2, 0.2, 0.8],
+                text_justify: TextJustify::Center,
             },
         }
     }
@@ -156,6 +165,15 @@ impl<IdType> Node<IdType> {
     pub fn with_text(mut self, s: impl Into<String>) -> Self {
         self.text_content = Some(s.into());
         self
+    }
+
+    pub fn with_justify(mut self, s: TextJustify) -> Self {
+        self.style.text_justify = s;
+        self
+    }
+
+    pub fn justify(&self) -> TextJustify {
+        self.style.text_justify
     }
 
     pub fn grid(

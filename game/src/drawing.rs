@@ -654,7 +654,7 @@ fn draw_event_animation(
     let p = obj.props().last()?;
     let dt = Nanotime::hours(1);
     let mut t = stamp + dt;
-    while t < p.end().unwrap_or(stamp + Nanotime::hours(12)) {
+    while t < p.end().unwrap_or(stamp + Nanotime::days(5)) {
         let pv = obj.pv(t, scenario.planets())?;
         draw_diamond(gizmos, ctx.w2c(pv.pos), 11.0, WHITE.with_alpha(0.6));
         t += dt;
@@ -913,11 +913,12 @@ pub fn draw_notifications(gizmos: &mut Gizmos, state: &GameState) {
 
     for notif in &state.notifications {
         let p = match notif.parent {
-            ObjectId::Orbiter(id) => match state.scenario.lup_orbiter(id, state.sim_time) {
+            None => return,
+            Some(ObjectId::Orbiter(id)) => match state.scenario.lup_orbiter(id, state.sim_time) {
                 Some(lup) => lup.pv().pos + notif.offset + notif.jitter,
                 None => continue,
             },
-            ObjectId::Planet(id) => match state.scenario.lup_planet(id, state.sim_time) {
+            Some(ObjectId::Planet(id)) => match state.scenario.lup_planet(id, state.sim_time) {
                 Some(lup) => lup.pv().pos + notif.offset + notif.jitter,
                 None => continue,
             },
@@ -952,13 +953,9 @@ pub fn draw_notifications(gizmos: &mut Gizmos, state: &GameState) {
             NotificationType::ManeuverFailed(_) => {
                 draw_square(gizmos, p, size, RED.with_alpha(a));
             }
-            NotificationType::NotControllable => {}
-            NotificationType::Following(_) => {
-                let a = 0.7 * (1.0 - s);
-                let size = 2.0 * size * (1.0 - s);
-                draw_circle(gizmos, p, size, ORANGE.with_alpha(a));
-            }
-            NotificationType::OrbitChanged(_) => (), // draw_square(gizmos, p, size, TEAL.with_alpha(a)),
+            NotificationType::NotControllable(_) => (),
+            NotificationType::OrbitChanged(_) => (),
+            NotificationType::Notice(_) => (),
         }
     }
 }
@@ -1057,6 +1054,28 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, _scene: &Orbita
         gizmos.line_2d(m1, m2, GRAY);
         gizmos.line_2d(m1, corner, GRAY.with_alpha(0.3));
         gizmos.line_2d(m2, corner, GRAY.with_alpha(0.3));
+    }
+
+    if let Some((c, a, b)) = state.protractor() {
+        let b = b.unwrap_or(a);
+        let c = ctx.w2c(c);
+        let a = ctx.w2c(a);
+        let b = ctx.w2c(b);
+        let r1 = c.distance(a);
+        let r2 = c.distance(b);
+        for p in [a, b, c] {
+            draw_x(gizmos, p, 7.0, WHITE);
+        }
+        draw_circle(gizmos, c, r1, WHITE.with_alpha(0.4));
+        draw_circle(gizmos, c, r2, WHITE.with_alpha(0.7));
+        gizmos.line_2d(c, a, RED);
+        gizmos.line_2d(c, b, GREEN);
+        gizmos.line_2d(a, b, GRAY.with_alpha(0.3));
+        let angle = (a - c).angle_to(b - c);
+        let iso = Isometry2d::new(c, ((a - c).to_angle() - PI / 2.0).into());
+        gizmos
+            .arc_2d(iso, angle, (r1 * 0.75).min(r2), TEAL)
+            .resolution(100);
     }
 
     for orbit in &state.orbital_context.queued_orbits {
