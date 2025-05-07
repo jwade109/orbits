@@ -1,7 +1,8 @@
 use crate::mouse::{FrameId, InputState, MouseButt};
 use crate::notifications::*;
 use crate::scenes::{
-    CameraProjection, CursorMode, OrbitalContext, RPOContext, Scene, SceneType, TelescopeContext,
+    CameraProjection, CursorMode, EditorContext, Interactive, OrbitalContext, RPOContext, Scene,
+    SceneType, TelescopeContext,
 };
 use crate::ui::{InteractionEvent, OnClick};
 use bevy::color::palettes::css::*;
@@ -96,6 +97,8 @@ pub struct GameState {
 
     pub rpo_context: RPOContext,
 
+    pub editor_context: EditorContext,
+
     /// Simulation clock
     pub sim_time: Nanotime,
 
@@ -120,9 +123,9 @@ pub struct GameState {
 
     pub controllers: Vec<Controller>,
     pub constellations: HashMap<OrbiterId, GroupId>,
-    pub vehicles: HashMap<OrbiterId, Vehicle>,
+    pub orbital_vehicles: HashMap<OrbiterId, Vehicle>,
     pub starfield: Vec<(Vec3, Srgba, f32, f32)>,
-    pub rpos: Vec<RPO>,
+    pub rpos: HashMap<OrbiterId, RPO>,
 
     pub scenes: Vec<Scene>,
     pub current_scene_idx: usize,
@@ -155,10 +158,6 @@ fn generate_starfield() -> Vec<(Vec3, Srgba, f32, f32)> {
         .collect()
 }
 
-fn generate_rpos() -> Vec<RPO> {
-    vec![RPO::example()]
-}
-
 impl Default for GameState {
     fn default() -> Self {
         let (scenario, ids) = default_example();
@@ -169,6 +168,7 @@ impl Default for GameState {
             orbital_context: OrbitalContext::new(PlanetId(0)),
             telescope_context: TelescopeContext::new(),
             rpo_context: RPOContext::new(),
+            editor_context: EditorContext::new(),
             sim_time: Nanotime::zero(),
             wall_time: Nanotime::zero(),
             physics_duration: Nanotime::days(7),
@@ -177,15 +177,16 @@ impl Default for GameState {
             scenario: scenario.clone(),
             ids,
             controllers: vec![],
-            vehicles: HashMap::new(),
+            orbital_vehicles: HashMap::new(),
             constellations: HashMap::new(),
             starfield: generate_starfield(),
-            rpos: generate_rpos(),
+            rpos: HashMap::new(),
             scenes: vec![
                 Scene::orbital("Earth System", PlanetId(0)),
                 Scene::orbital("Luna System", PlanetId(1)),
                 Scene::docking("Docking", OrbiterId(0)),
                 Scene::telescope(),
+                Scene::editor(),
                 Scene::main_menu(),
             ],
             current_scene_idx: 0,
@@ -295,7 +296,7 @@ impl GameState {
     }
 
     pub fn measuring_tape(&self) -> Option<(Vec2, Vec2, Vec2)> {
-        if self.orbital_context.selection_mode != CursorMode::MeasuringTape {
+        if self.orbital_context.cursor_mode != CursorMode::MeasuringTape {
             return None;
         }
 
@@ -305,7 +306,7 @@ impl GameState {
     }
 
     pub fn protractor(&self) -> Option<(Vec2, Vec2, Option<Vec2>)> {
-        if self.orbital_context.selection_mode != CursorMode::Protractor {
+        if self.orbital_context.cursor_mode != CursorMode::Protractor {
             return None;
         }
 
@@ -314,10 +315,24 @@ impl GameState {
         ov.protractor(self)
     }
 
+    pub fn left_cursor_orbit(&self) -> Option<GlobalOrbit> {
+        let scene = self.current_scene();
+        let ov = scene.orbital_view(&self.input)?;
+        ov.left_cursor_orbit(self)
+    }
+
     pub fn right_cursor_orbit(&self) -> Option<GlobalOrbit> {
         let scene = self.current_scene();
         let ov = scene.orbital_view(&self.input)?;
         ov.right_cursor_orbit(self)
+    }
+
+    pub fn cursor_orbit_if_mode(&self) -> Option<GlobalOrbit> {
+        if self.orbital_context.cursor_mode == CursorMode::AddOrbit {
+            self.left_cursor_orbit()
+        } else {
+            None
+        }
     }
 
     pub fn piloting(&self) -> Option<OrbiterId> {
@@ -339,7 +354,7 @@ impl GameState {
     }
 
     pub fn spawn_new(&mut self) -> Option<()> {
-        let orbit = self.right_cursor_orbit()?;
+        let orbit = self.cursor_orbit_if_mode()?;
         self.spawn_at(&orbit)
     }
 
@@ -397,7 +412,7 @@ impl GameState {
 
     pub fn turn(&mut self, dir: i8) -> Option<()> {
         let id = self.piloting()?;
-        let vehicle = self.vehicles.get_mut(&id)?;
+        let vehicle = self.orbital_vehicles.get_mut(&id)?;
         vehicle.turn(dir as f32 * 0.03);
         Some(())
     }
@@ -405,7 +420,7 @@ impl GameState {
     pub fn thrust_prograde(&mut self) -> Option<()> {
         let id = self.piloting()?;
 
-        let vehicle = self.vehicles.get(&id)?;
+        let vehicle = self.orbital_vehicles.get(&id)?;
         let throttle = self.orbital_context.throttle.to_ratio();
 
         let dv = vehicle.pointing() * 0.005 * throttle;
@@ -447,7 +462,7 @@ impl GameState {
 
     pub fn command(&mut self, id: OrbiterId, next: &GlobalOrbit) -> Option<()> {
         let tracks = self.orbital_context.selected.clone();
-        let vehicle = self.vehicles.get(&id)?;
+        let vehicle = self.orbital_vehicles.get(&id)?;
         if !vehicle.is_controllable() {
             self.notify(
                 ObjectId::Orbiter(id),
@@ -578,10 +593,7 @@ impl GameState {
                     let _ = dbg!(obj);
                 }
             }
-            OnClick::CursorMode => {
-                self.orbital_context.selection_mode =
-                    next_cycle(&self.orbital_context.selection_mode)
-            }
+            OnClick::CursorMode(c) => self.orbital_context.cursor_mode = c,
             OnClick::AutopilotingCount => {
                 self.orbital_context.selected =
                     self.controllers.iter().map(|c| c.target()).collect();
@@ -663,15 +675,16 @@ impl GameState {
             SceneType::OrbitalView(_) => self.orbital_context.step(&self.input, dt),
             SceneType::TelescopeView(_) => self.telescope_context.step(&self.input, dt),
             SceneType::DockingView(_) => self.rpo_context.step(&self.input, dt),
+            SceneType::Editor => self.editor_context.step(&self.input, dt),
             _ => (),
         }
 
-        for rpo in &mut self.rpos {
+        for (_, rpo) in &mut self.rpos {
             rpo.step(self.wall_time);
         }
 
         // handle discrete physics events
-        for (_, vehicle) in self.vehicles.iter_mut() {
+        for (_, vehicle) in self.orbital_vehicles.iter_mut() {
             // controversial
             vehicle.main(false);
             vehicle.step(self.wall_time);
@@ -741,10 +754,16 @@ impl GameState {
         });
 
         if let Some(id) = self.piloting() {
-            if !self.vehicles.contains_key(&id) {
-                let vehicle = Vehicle::random(self.sim_time);
-                self.notice(format!("Generated vehicle for {id}"));
-                self.vehicles.insert(id, vehicle);
+            if !self.orbital_vehicles.contains_key(&id) && !self.rpos.contains_key(&id) {
+                if rand(0.0, 1.0) < 0.7 {
+                    let vehicle = Vehicle::random(self.sim_time);
+                    self.notice(format!("Generated vehicle for {id}"));
+                    self.orbital_vehicles.insert(id, vehicle);
+                } else {
+                    let rpo = RPO::example(self.wall_time);
+                    self.notice(format!("Generated RPO for {id}"));
+                    self.rpos.insert(id, rpo);
+                }
             }
         }
 
@@ -846,8 +865,7 @@ fn process_interaction(
             state.paused = !state.paused;
         }
         InteractionEvent::CursorMode => {
-            state.orbital_context.selection_mode =
-                next_cycle(&state.orbital_context.selection_mode);
+            state.orbital_context.cursor_mode = next_cycle(&state.orbital_context.cursor_mode);
         }
         InteractionEvent::DrawMode => {
             state.orbital_context.draw_mode = next_cycle(&state.orbital_context.draw_mode);
@@ -883,7 +901,7 @@ fn process_interaction(
             std::process::exit(0);
         }
         InteractionEvent::ContextDependent => {
-            if let Some(o) = state.right_cursor_orbit() {
+            if let Some(o) = state.cursor_orbit_if_mode() {
                 info!("Enqueued orbit {}", &o);
                 state.orbital_context.queued_orbits.push(o);
             } else if state.orbital_context.follow.is_some() {

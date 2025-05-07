@@ -170,6 +170,10 @@ impl InputState {
         self.buttons.pressed(key)
     }
 
+    pub fn just_pressed(&self, key: KeyCode) -> bool {
+        self.buttons.just_pressed(key)
+    }
+
     fn get_state(&self, button: MouseButt) -> &CursorTravel {
         match button {
             MouseButt::Hover => &self.hover,

@@ -146,7 +146,7 @@ impl<IdType> Node<IdType> {
     }
 
     pub fn hline() -> Self {
-        Node::row(0).with_color([0.0, 0.0, 0.0, 0.5])
+        Node::row(0).with_color([0.5, 0.5, 0.5, 0.9])
     }
 
     pub fn vline() -> Self {
@@ -296,6 +296,13 @@ impl<IdType> Node<IdType> {
 
     pub fn add_child(&mut self, n: Node<IdType>) -> &mut Self {
         self.children.push(n);
+        self
+    }
+
+    pub fn add_children(&mut self, nodes: impl Iterator<Item = Node<IdType>>) -> &mut Self {
+        nodes.for_each(|n| {
+            self.add_child(n);
+        });
         self
     }
 

@@ -3,6 +3,7 @@
 use bevy::color::palettes::basic::*;
 use bevy::color::palettes::css::ORANGE;
 use bevy::prelude::*;
+use enum_iterator::all;
 use starling::prelude::*;
 
 use crate::graph::*;
@@ -80,10 +81,6 @@ fn draw_region(
             let p2 = ctx.w2c(aabb.upper());
             draw_aabb(gizmos, AABB::from_arbitrary(p1, p2), color)
         }
-        Region::AltitudeRange(a, b) => {
-            draw_circle(gizmos, Vec2::ZERO, a, color);
-            draw_circle(gizmos, Vec2::ZERO, b, color);
-        }
         Region::OrbitRange(a, b) => {
             draw_orbit(gizmos, &a, origin, color, ctx);
             draw_orbit(gizmos, &b, origin, color, ctx);
@@ -101,6 +98,8 @@ fn draw_region(
                 let r = orbit.radius_at_angle(angle);
                 let p1 = (r + dist) * u;
                 let p2 = (r - dist) * u;
+                let p1 = ctx.w2c(p1);
+                let p2 = ctx.w2c(p2);
                 gizmos.line_2d(p1, p2, color.with_alpha(color.alpha * 0.2));
             }
         }
@@ -290,13 +289,38 @@ fn draw_vehicle(gizmos: &mut Gizmos, vehicle: &Vehicle, pos: Vec2, scale: f32) {
     }
 }
 
+fn draw_rpo_overlay(gizmos: &mut Gizmos, state: &GameState, rpo: &RPO) -> Option<()> {
+    let ctx = &state.orbital_context;
+    let piloting = state.piloting()?;
+
+    let lup = state.scenario.lup_orbiter(piloting, state.sim_time)?;
+    let pv = lup.pv();
+
+    draw_circle(gizmos, ctx.w2c(pv.pos), 15.0, TEAL);
+
+    let scale = 2.5;
+
+    for (pv, vehicle) in &rpo.vehicles {
+        draw_vehicle(gizmos, &vehicle, pv.pos * scale, scale);
+    }
+    Some(())
+}
+
 fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let ctx = &state.orbital_context;
 
     let piloting = state.piloting()?;
 
     let lup = state.scenario.lup_orbiter(piloting, state.sim_time)?;
-    let vehicle = state.vehicles.get(&piloting)?;
+
+    let vehicle = state.orbital_vehicles.get(&piloting);
+    let rpo = state.rpos.get(&piloting);
+
+    let vehicle = match (vehicle, rpo) {
+        (Some(v), _) => v,
+        (_, Some(r)) => return draw_rpo_overlay(gizmos, state, r),
+        _ => return None,
+    };
 
     let window_dims = state.input.screen_bounds.span;
     let rb = vehicle.bounding_radius();
@@ -393,7 +417,7 @@ fn draw_orbiter(gizmos: &mut Gizmos, state: &GameState, id: OrbiterId) -> Option
     let tracked = state.orbital_context.selected.contains(&id);
     let piloting = state.piloting() == Some(id);
 
-    let low_fuel = match state.vehicles.get(&id) {
+    let low_fuel = match state.orbital_vehicles.get(&id) {
         Some(v) => v.low_fuel(),
         None => false,
     };
@@ -864,7 +888,7 @@ pub fn draw_counter(gizmos: &mut Gizmos, val: u64, pos: Vec2, color: Srgba) {
 
 fn draw_belt_orbits(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let ctx = &state.orbital_context;
-    let cursor_orbit = state.right_cursor_orbit();
+    let cursor_orbit = state.cursor_orbit_if_mode();
     for belt in state.scenario.belts() {
         let lup = match state.scenario.lup_planet(belt.parent(), state.sim_time) {
             Some(lup) => lup,
@@ -1018,7 +1042,7 @@ pub fn draw_orbit_spline(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     }
 
     let g = state
-        .right_cursor_orbit()
+        .cursor_orbit_if_mode()
         .map(|o: GlobalOrbit| get_orbit_info_graph(&o.1))
         .unwrap_or(Graph::blank());
 
@@ -1122,7 +1146,7 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, _scene: &Orbita
         }
     }
 
-    if let Some(orbit) = state.right_cursor_orbit() {
+    if let Some(orbit) = state.cursor_orbit_if_mode() {
         draw_global_orbit(gizmos, &orbit, &state, ORANGE);
     }
 
@@ -1172,37 +1196,23 @@ pub fn draw_docking_scenario(
     state: &GameState,
     _id: &OrbiterId,
 ) -> Option<()> {
-    draw_x(gizmos, Vec2::ZERO, 10.0, RED);
+    let ctx = &state.rpo_context;
 
-    let mut reference = None;
+    let (_, rpo) = state.rpos.iter().next()?;
 
-    for id in &state.orbital_context.selected {
-        let lup = match state.scenario.lup_orbiter(*id, state.sim_time) {
-            Some(lup) => lup,
-            None => continue,
-        };
-
-        let vehicle = match state.vehicles.get(id) {
-            Some(v) => v,
-            None => continue,
-        };
-
-        let pv = lup.pv();
-        let pos = pv.pos * 1000.0;
-
-        let rp = if let Some(rp) = reference {
-            rp
-        } else {
-            reference = Some(pos);
-            pos
-        };
-
+    for (pv, vehicle) in &rpo.vehicles {
         let r = vehicle.bounding_radius();
-        let p = ((pos - rp) - state.rpo_context.center) * state.rpo_context.zoom;
-        draw_vehicle(gizmos, vehicle, p, state.rpo_context.zoom);
-        draw_circle(gizmos, p, r * state.rpo_context.zoom, GRAY.with_alpha(0.1));
-        draw_circle(gizmos, p, 15.0, PURPLE.with_alpha(0.2));
+        let p = ctx.w2c(pv.pos);
+        draw_vehicle(gizmos, vehicle, p, ctx.scale());
+        draw_circle(gizmos, p, r * ctx.scale(), GRAY.with_alpha(0.1));
     }
+
+    draw_circle(
+        gizmos,
+        ctx.w2c(Vec2::ZERO),
+        rpo.bounding_radius() * ctx.scale(),
+        GRAY.with_alpha(0.3),
+    );
 
     Some(())
 }
@@ -1298,12 +1308,49 @@ fn draw_telescope_view(gizmos: &mut Gizmos, state: &GameState) {
     );
 }
 
+pub fn draw_editor(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
+    let ctx = &state.editor_context;
+    draw_cross(gizmos, ctx.w2c(Vec2::ZERO), 10.0, GRAY);
+
+    for (p, color) in ctx.points() {
+        draw_square(gizmos, ctx.w2c(p.as_vec2()), 4.0, color.to_color());
+    }
+
+    for color in all::<EditorColor>() {
+        for points in ctx.lines(color) {
+            let points = points.into_iter().map(|p| ctx.w2c(*p)).collect::<Vec<_>>();
+            gizmos.linestrip_2d(points, color.to_color());
+        }
+    }
+
+    let cursor = state.input.position(MouseButt::Hover, FrameId::Current)?;
+    for v in ctx.paintbrush(cursor) {
+        draw_diamond(gizmos, ctx.w2c(v.as_vec2()), 10.0, ctx.color().to_color());
+    }
+
+    let c = ctx.c2w(cursor);
+    let discrete = IVec2::new(c.x.round() as i32, c.y.round() as i32);
+
+    for dx in -10..=10 {
+        for dy in -10..=10 {
+            let s = IVec2::new(dx, dy);
+            let p = discrete - s;
+            let d = (s.length_squared() as f32).sqrt();
+            let alpha = 0.2 * (1.0 - d / 10.0);
+            draw_diamond(gizmos, ctx.w2c(p.as_vec2()), 7.0, GRAY.with_alpha(alpha));
+        }
+    }
+
+    Some(())
+}
+
 pub fn draw_scene(gizmos: &mut Gizmos, state: &GameState, scene: &crate::scenes::Scene) {
     match scene.kind() {
         SceneType::OrbitalView(scene) => draw_orbital_view(gizmos, state, scene),
         SceneType::DockingView(id) => _ = draw_docking_scenario(gizmos, state, id),
         SceneType::TelescopeView(_) => draw_telescope_view(gizmos, &state),
         SceneType::MainMenu => {}
+        SceneType::Editor => _ = draw_editor(gizmos, state),
     }
 }
 
@@ -1317,7 +1364,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     // draw_input_state(gizmos, &state, state.wall_time);
 }
 
-fn draw_input_state(gizmos: &mut Gizmos, state: &GameState, wall_time: Nanotime) {
+fn draw_input_state(gizmos: &mut Gizmos, state: &GameState) {
     let points = [
         (MouseButt::Left, BLUE),
         (MouseButt::Right, GREEN),
@@ -1343,7 +1390,7 @@ fn draw_input_state(gizmos: &mut Gizmos, state: &GameState, wall_time: Nanotime)
         }
 
         for fid in [FrameId::Down, FrameId::Up] {
-            let age = state.input.age(b, fid, wall_time);
+            let age = state.input.age(b, fid, state.wall_time);
             let p = state.input.position(b, fid);
             if let Some((p, age)) = p.zip(age) {
                 let dt = age.to_secs();

@@ -14,7 +14,7 @@ mod ui;
 
 fn main() {
     let window = Window {
-        // mode: bevy::window::WindowMode::BorderlessFullscreen(MonitorSelection::Primary),
+        mode: bevy::window::WindowMode::BorderlessFullscreen(MonitorSelection::Primary),
         title: "Space UPS".into(),
         ..default()
     };

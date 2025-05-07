@@ -1,6 +1,7 @@
 use crate::nanotime::Nanotime;
 pub use glam::f32::Vec2;
 pub use glam::f32::Vec3;
+pub use glam::i32::IVec2;
 use names::Generator;
 use rand::Rng;
 
@@ -10,7 +11,7 @@ pub fn rand(min: f32, max: f32) -> f32 {
     rand::thread_rng().gen_range(min..max)
 }
 
-pub fn randint(min: u32, max: u32) -> u32 {
+pub fn randint(min: i32, max: i32) -> i32 {
     rand::thread_rng().gen_range(min..max)
 }
 

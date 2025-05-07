@@ -29,7 +29,7 @@ impl Notification {
             NotificationType::ManeuverFailed(_) => self.extra_time + Nanotime::secs(3),
             NotificationType::NotControllable(_) => self.extra_time + Nanotime::secs(5),
             NotificationType::OrbitChanged(_) => self.extra_time + Nanotime::secs(2),
-            NotificationType::Notice(_) => Nanotime::secs(3),
+            NotificationType::Notice(_) => Nanotime::secs(7),
         }
     }
 

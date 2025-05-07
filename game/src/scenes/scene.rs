@@ -13,6 +13,7 @@ pub enum SceneType {
     OrbitalView(OrbitalContext),
     DockingView(OrbiterId),
     TelescopeView(TelescopeContext),
+    Editor,
     MainMenu,
 }
 
@@ -36,6 +37,14 @@ impl Scene {
         Scene {
             name: "Telescope".into(),
             scene_type: SceneType::TelescopeView(TelescopeContext::new()),
+            ui: Tree::new(),
+        }
+    }
+
+    pub fn editor() -> Self {
+        Scene {
+            name: "Editor".into(),
+            scene_type: SceneType::Editor,
             ui: Tree::new(),
         }
     }

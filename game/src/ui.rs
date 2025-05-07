@@ -12,6 +12,7 @@ use bevy::render::{
 use bevy::sprite::Anchor;
 use bevy::text::TextBounds;
 use bevy::window::WindowResized;
+use enum_iterator::all;
 use layout::layout as ui;
 use starling::prelude::*;
 
@@ -142,7 +143,7 @@ fn top_right_text_system(mut text: Single<&mut Text, With<TopRight>>, state: Res
     let res = (|| -> Option<(&Orbiter, &Vehicle, GlobalOrbit)> {
         let id = state.orbital_context.follow?.orbiter()?;
         let orbiter = state.scenario.lup_orbiter(id, state.sim_time)?.orbiter()?;
-        let vehicle = state.vehicles.get(&id)?;
+        let vehicle = state.orbital_vehicles.get(&id)?;
         let prop = orbiter.propagator_at(state.sim_time)?;
         let go = prop.orbit;
         Some((orbiter, vehicle, go))
@@ -219,7 +220,7 @@ pub enum OnClick {
     ClearMission,
     CommitMission,
     FollowOrbiter,
-    CursorMode,
+    CursorMode(CursorMode),
     GoToScene(usize),
     ThrustLevel(ThrottleLevel),
     Nullopt,
@@ -286,6 +287,8 @@ pub fn main_menu_layout(state: &GameState) -> ui::Tree<OnClick> {
 pub fn docking_layout(state: &GameState, id: &OrbiterId) -> ui::Tree<OnClick> {
     use ui::*;
 
+    let notif_bar = notification_bar(state);
+
     let wrapper = Node::fit()
         .with_child({
             let s = format!("dingus {}", id);
@@ -299,7 +302,25 @@ pub fn docking_layout(state: &GameState, id: &OrbiterId) -> ui::Tree<OnClick> {
                 .map(|(i, s)| Node::button(s.name(), OnClick::GoToScene(i), 200, 50)),
         );
 
-    ui::Tree::new().with_layout(wrapper, Vec2::ZERO)
+    let layout = Node::fit()
+        .invisible()
+        .down()
+        .with_child(wrapper)
+        .with_child(notif_bar);
+
+    ui::Tree::new().with_layout(layout, Vec2::ZERO)
+}
+
+pub fn notification_bar(state: &GameState) -> ui::Node<OnClick> {
+    ui::Node::fit().down().tight().invisible().with_children(
+        state.notifications.iter().rev().take(20).rev().map(|n| {
+            let s = format!("{}", n);
+            ui::Node::new(900, 28)
+                .with_text(s)
+                .with_justify(ui::TextJustify::Left)
+                .with_color([0.0, 0.0, 0.0, 0.0])
+        }),
+    )
 }
 
 pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
@@ -309,6 +330,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
         SceneType::DockingView(id) => return docking_layout(state, id),
         SceneType::TelescopeView(_) => return docking_layout(state, &OrbiterId(0)),
         SceneType::OrbitalView(_) => (),
+        SceneType::Editor => return docking_layout(state, &OrbiterId(0)),
     };
 
     use ui::*;
@@ -389,12 +411,14 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
         .enabled(state.current_orbit().is_some() && !state.orbital_context.selected.is_empty()),
     );
 
-    sidebar.add_child(Node::button(
-        format!("Cursor: {:?}", state.orbital_context.selection_mode),
-        OnClick::CursorMode,
-        Size::Grow,
-        button_height,
-    ));
+    sidebar.add_child(Node::hline());
+
+    sidebar.add_children(all::<CursorMode>().map(|c| {
+        let s = format!("{:?}", c);
+        let id = OnClick::CursorMode(c);
+        Node::button(s, id, Size::Grow, button_height)
+            .enabled(c != state.orbital_context.cursor_mode)
+    }));
 
     if !state.constellations.is_empty() {
         sidebar.add_child(Node::hline());
@@ -526,15 +550,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
         inner_topbar.add_child(n);
     }
 
-    let notif_bar = Node::fit().down().tight().invisible().with_children(
-        state.notifications.iter().rev().take(10).rev().map(|n| {
-            let s = format!("{}", n);
-            ui::Node::new(900, 28)
-                .with_text(s)
-                .with_justify(TextJustify::Left)
-                .with_color([0.0, 0.0, 0.0, 0.0])
-        }),
-    );
+    let notif_bar = notification_bar(state);
 
     let throttle_controls = if state.piloting().is_some() {
         let thrust_levels = [
@@ -609,7 +625,7 @@ fn current_inventory_layout(state: &GameState) -> Option<ui::Node<OnClick>> {
 
     let id = state.orbital_context.follow?.orbiter()?;
     let orbiter = state.scenario.lup_orbiter(id, state.sim_time)?.orbiter()?;
-    let vehicle = state.vehicles.get(&id)?;
+    let vehicle = state.orbital_vehicles.get(&id)?;
 
     if vehicle.inventory.is_empty() {
         return None;

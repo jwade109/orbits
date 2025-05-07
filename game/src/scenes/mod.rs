@@ -1,11 +1,13 @@
+mod craft_editor;
 mod orbital;
 mod rpo;
 mod scene;
 mod telescope;
 
+pub use craft_editor::{EditorColor, EditorContext};
 pub use orbital::{
-    CameraProjection, CursorMode, DrawMode, OrbitalContext, OrbitalView, ShowOrbitsState,
-    ThrottleLevel,
+    CameraProjection, CursorMode, DrawMode, Interactive, OrbitalContext, OrbitalView,
+    ShowOrbitsState, ThrottleLevel,
 };
 pub use rpo::RPOContext;
 pub use scene::{Scene, SceneType};

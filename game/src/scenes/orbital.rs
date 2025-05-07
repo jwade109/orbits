@@ -10,7 +10,7 @@ use std::collections::HashSet;
 pub enum CursorMode {
     #[default]
     Rect,
-    Altitude,
+    AddOrbit,
     NearOrbit,
     MeasuringTape,
     Protractor,
@@ -62,7 +62,7 @@ pub struct OrbitalContext {
     target_scale: f32,
     pub follow: Option<ObjectId>,
     pub queued_orbits: Vec<GlobalOrbit>,
-    pub selection_mode: CursorMode,
+    pub cursor_mode: CursorMode,
     pub show_orbits: ShowOrbitsState,
     pub show_animations: bool,
     pub draw_mode: DrawMode,
@@ -83,6 +83,10 @@ pub trait CameraProjection {
     fn origin(&self) -> Vec2;
 
     fn scale(&self) -> f32;
+}
+
+pub trait Interactive {
+    fn step(&mut self, input: &InputState, dt: f32);
 }
 
 impl CameraProjection for OrbitalContext {
@@ -106,15 +110,17 @@ impl OrbitalContext {
             target_scale: 0.025,
             follow: None,
             queued_orbits: Vec::new(),
-            selection_mode: CursorMode::Rect,
+            cursor_mode: CursorMode::Rect,
             show_orbits: ShowOrbitsState::Focus,
             show_animations: true,
             draw_mode: DrawMode::Default,
             throttle: ThrottleLevel::Medium,
         }
     }
+}
 
-    pub fn step(&mut self, input: &InputState, dt: f32) {
+impl Interactive for OrbitalContext {
+    fn step(&mut self, input: &InputState, dt: f32) {
         let speed = 16.0 * dt * 100.0;
 
         if input.is_pressed(KeyCode::ShiftLeft) {
@@ -213,13 +219,8 @@ impl<'a> OrbitalView<'a> {
     }
 
     pub fn cursor_orbit(p1: Vec2, p2: Vec2, state: &GameState) -> Option<GlobalOrbit> {
-        if !state.input.is_pressed(KeyCode::KeyZ) {
-            // TODO this is a quick hack to prevent input collisions against
-            // the protractor
-            return None;
-        }
         let pv = Self::cursor_pv(p1, p2, &state)?;
-        let parent_id = state.scenario.relevant_body(pv.pos, state.sim_time)?;
+        let parent_id: PlanetId = state.scenario.relevant_body(pv.pos, state.sim_time)?;
         let parent = state.scenario.lup_planet(parent_id, state.sim_time)?;
         let parent_pv = parent.pv();
         let pv = pv - PV::pos(parent_pv.pos);
@@ -253,22 +254,16 @@ impl<'a> OrbitalView<'a> {
     pub fn selection_region(&self, state: &GameState) -> Option<Region> {
         let ctx = &state.orbital_context;
         let mouse: &InputState = self.scene.mouse_if_world(&self.input)?;
-        match state.orbital_context.selection_mode {
+        match state.orbital_context.cursor_mode {
             CursorMode::Rect => {
                 let a = mouse.world_position(MouseButt::Left, FrameId::Down, ctx)?;
                 let b = mouse.world_position(MouseButt::Left, FrameId::Current, ctx)?;
                 Some(Region::aabb(a, b))
             }
-            CursorMode::Altitude => {
-                let a = mouse.world_position(MouseButt::Left, FrameId::Down, ctx)?;
-                let b = mouse.world_position(MouseButt::Left, FrameId::Current, ctx)?;
-                Some(Region::altitude(a, b))
-            }
             CursorMode::NearOrbit => self
                 .left_cursor_orbit(state)
-                .map(|GlobalOrbit(_, orbit)| Region::NearOrbit(orbit, 50.0)),
-            CursorMode::MeasuringTape => None,
-            CursorMode::Protractor => None,
+                .map(|GlobalOrbit(_, orbit)| Region::NearOrbit(orbit, 500.0)),
+            _ => None,
         }
     }
 
