@@ -1,6 +1,5 @@
 use crate::planetary::GameState;
 use crate::scenes::CameraProjection;
-use crate::ui::InteractionEvent;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 use starling::nanotime::Nanotime;
@@ -98,6 +97,8 @@ pub struct InputState {
     right: CursorTravel,
     middle: CursorTravel,
 
+    on_double_click: Option<Vec2>,
+
     pub screen_bounds: AABB,
 
     buttons: ButtonInput<KeyCode>,
@@ -166,6 +167,10 @@ impl InputState {
         }
     }
 
+    pub fn double_click(&self) -> Option<Vec2> {
+        self.on_double_click
+    }
+
     pub fn is_pressed(&self, key: KeyCode) -> bool {
         self.buttons.pressed(key)
     }
@@ -204,7 +209,6 @@ pub fn update_input_state(
     win: Single<&Window>,
     buttons: Res<ButtonInput<MouseButton>>,
     mut state: ResMut<GameState>,
-    mut events: EventWriter<InteractionEvent>,
 ) {
     let dims = Vec2::new(win.width(), win.height());
     let t = state.wall_time;
@@ -228,13 +232,16 @@ pub fn update_input_state(
     };
 
     state.input.hover.set_down(current_frame);
+    state.input.on_double_click = None;
 
     if buttons.pressed(MouseButton::Left) {
-        let age = state.input.left.up().map(|f| f.age(t));
-        if let Some(age) = age {
-            if age < DOUBLE_CLICK_DURATION {
-                // TODO bad
-                events.send(InteractionEvent::DoubleClick);
+        let age = state.input.left.down().map(|f| f.age(t));
+        if state.input.left.up().is_some() {
+            if let Some(age) = age {
+                if age < DOUBLE_CLICK_DURATION {
+                    state.input.on_double_click =
+                        Some(current_frame.screen_pos - state.input.screen_bounds.span / 2.0);
+                }
             }
         }
         state.input.left.set_down(current_frame);

@@ -571,7 +571,6 @@ impl GameState {
                 self.orbital_context.following = Some(ObjectId::Planet(orbit.0));
                 self.current_orbit = Some(i);
             }
-            OnClick::World => (),
             OnClick::Nullopt => (),
             OnClick::Save => {
                 self.save();
@@ -621,6 +620,20 @@ impl GameState {
         scene.ui().at(p, wb).map(|n| n.id()).flatten()
     }
 
+    pub fn is_hovering_over_ui(&self) -> bool {
+        let wb = self.input.screen_bounds.span;
+        let scene = self.current_scene();
+        let p = match self.input.position(MouseButt::Hover, FrameId::Current) {
+            Some(p) => p,
+            None => return false,
+        };
+        scene
+            .ui()
+            .at(p, wb)
+            .map(|n| n.is_visible())
+            .unwrap_or(false)
+    }
+
     fn handle_click_events(&mut self) {
         use FrameId::*;
         use MouseButt::*;
@@ -664,6 +677,24 @@ impl GameState {
         if c != self.current_hover {
             self.redraw();
         }
+
+        || -> Option<()> {
+            if let Some(p) = self.input.double_click() {
+                if let SceneType::OrbitalView(_) = self.current_scene().kind() {
+                    ()
+                } else {
+                    return None;
+                }
+                if self.is_hovering_over_ui() {
+                    return None;
+                }
+                let w = self.orbital_context.c2w(p);
+                let id = self.scenario.nearest(w, self.sim_time)?;
+                self.orbital_context.following = Some(id);
+                self.notice(format!("Now following {id}"));
+            }
+            Some(())
+        }();
 
         match self.current_scene().kind() {
             SceneType::OrbitalView(_) => {
@@ -752,7 +783,7 @@ impl GameState {
             }
         });
 
-        if let Some(id) = self.piloting() {
+        for id in ids {
             if !self.orbital_vehicles.contains_key(&id) && !self.rpos.contains_key(&id) {
                 if rand(0.0, 1.0) < 0.7 {
                     let vehicle = Vehicle::random(self.sim_time);
@@ -885,16 +916,6 @@ fn process_interaction(
             } else {
                 fs
             };
-        }
-        InteractionEvent::DoubleClick => {
-            if state.current_hover_ui() != Some(&OnClick::World) {
-                return None;
-            }
-            let p = state.input.position(MouseButt::Left, FrameId::Down)?;
-            let w = state.orbital_context.c2w(p);
-            let id = state.scenario.nearest(w, state.sim_time)?;
-            state.orbital_context.following = Some(id);
-            state.notice(format!("Now following {id}"));
         }
         InteractionEvent::ExitApp => {
             std::process::exit(0);

@@ -1,5 +1,5 @@
 use crate::mouse::InputState;
-use crate::scenes::CameraProjection;
+use crate::scenes::{CameraProjection, Interactive};
 use bevy::input::keyboard::KeyCode;
 use starling::prelude::*;
 
@@ -9,6 +9,7 @@ pub struct RPOContext {
     target_center: Vec2,
     scale: f32,
     target_scale: f32,
+    following: Option<VehicleId>,
 }
 
 impl CameraProjection for RPOContext {
@@ -28,10 +29,17 @@ impl RPOContext {
             target_center: Vec2::ZERO,
             scale: 1.0,
             target_scale: 1.0,
+            following: None,
         }
     }
 
-    pub fn step(&mut self, input: &InputState, dt: f32) {
+    pub fn following(&self) -> Option<VehicleId> {
+        self.following
+    }
+}
+
+impl Interactive for RPOContext {
+    fn step(&mut self, input: &InputState, dt: f32) {
         let speed = 16.0 * dt * 100.0;
 
         if input.is_scroll_down() {

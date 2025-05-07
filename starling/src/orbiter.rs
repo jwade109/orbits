@@ -11,6 +11,9 @@ use glam::f32::Vec2;
 pub struct OrbiterId(pub i64);
 
 #[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize, Hash)]
+pub struct VehicleId(pub i64);
+
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize, Hash)]
 pub struct PlanetId(pub i64);
 
 #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize, Hash)]
@@ -25,6 +28,18 @@ impl std::fmt::Display for OrbiterId {
 impl std::fmt::Debug for OrbiterId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:x}", self.0)
+    }
+}
+
+impl std::fmt::Display for VehicleId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "v{}", self.0)
+    }
+}
+
+impl std::fmt::Debug for VehicleId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "v{}", self.0)
     }
 }
 

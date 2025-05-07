@@ -4,9 +4,9 @@ use crate::scenes::{CameraProjection, Interactive};
 use bevy::color::palettes::css::*;
 use bevy::input::keyboard::KeyCode;
 use bevy::prelude::Srgba;
-use enum_iterator::{all, next_cycle, Sequence};
+use enum_iterator::{next_cycle, Sequence};
 use starling::prelude::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Sequence)]
 pub enum EditorColor {
@@ -17,6 +17,7 @@ pub enum EditorColor {
 }
 
 impl EditorColor {
+    #[allow(unused)]
     pub fn to_color(&self) -> Srgba {
         match self {
             Self::Orange => ORANGE,
@@ -124,14 +125,12 @@ impl EditorContext {
         ))
     }
 
+    #[allow(unused)]
     pub fn color(&self) -> EditorColor {
         self.color
     }
 
-    pub fn cursor_size(&self) -> i32 {
-        ((20.0 / self.scale).round() as i32).max(0)
-    }
-
+    #[allow(unused)]
     pub fn points(&self) -> impl Iterator<Item = &IVec2> {
         self.points.iter()
     }

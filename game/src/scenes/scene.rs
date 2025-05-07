@@ -73,17 +73,19 @@ impl Scene {
         &self.scene_type
     }
 
-    pub fn current_clicked_gui_element(&self, input: &InputState) -> Option<OnClick> {
-        let a = input.position(MouseButt::Left, FrameId::Down);
-        let b = input.position(MouseButt::Right, FrameId::Down);
-        let p = a.or(b)?;
+    // TODO deduplicate
+    pub fn is_hovering_over_ui(&self, input: &InputState) -> bool {
         let wb = input.screen_bounds.span;
-        self.ui.at(p, wb).map(|n| n.id()).flatten().cloned()
+        let p = match input.position(MouseButt::Hover, FrameId::Current) {
+            Some(p) => p,
+            None => return false,
+        };
+        self.ui.at(p, wb).map(|n| n.is_visible()).unwrap_or(false)
     }
 
-    pub fn mouse_if_world<'a>(&self, input: &'a InputState) -> Option<&'a InputState> {
-        let id = self.current_clicked_gui_element(input)?;
-        (id == OnClick::World).then(|| input)
+    pub fn mouse_if_not_on_gui<'a>(&self, input: &'a InputState) -> Option<&'a InputState> {
+        let is_on_world = !self.is_hovering_over_ui(input);
+        is_on_world.then(|| input)
     }
 
     pub fn orbital_view<'a>(&'a self, input: &'a InputState) -> Option<OrbitalView<'a>> {

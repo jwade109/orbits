@@ -211,7 +211,7 @@ pub struct OrbitalView<'a> {
 impl<'a> OrbitalView<'a> {
     pub fn measuring_tape(&self, state: &GameState) -> Option<(Vec2, Vec2, Vec2)> {
         let ctx = &state.orbital_context;
-        let input: &InputState = self.scene.mouse_if_world(self.input)?;
+        let input: &InputState = self.scene.mouse_if_not_on_gui(self.input)?;
         let a = input.position(MouseButt::Left, FrameId::Down)?;
         let b = input.position(MouseButt::Left, FrameId::Current)?;
         let a = ctx.c2w(a);
@@ -222,7 +222,7 @@ impl<'a> OrbitalView<'a> {
 
     pub fn protractor(&self, state: &GameState) -> Option<(Vec2, Vec2, Option<Vec2>)> {
         let ctx = &state.orbital_context;
-        let input: &InputState = self.scene.mouse_if_world(self.input)?;
+        let input: &InputState = self.scene.mouse_if_not_on_gui(self.input)?;
         let c = input.position(MouseButt::Left, FrameId::Down)?;
         let l = input.position(MouseButt::Left, FrameId::Current)?;
 
@@ -266,7 +266,7 @@ impl<'a> OrbitalView<'a> {
     }
 
     pub fn left_cursor_orbit(&self, state: &GameState) -> Option<GlobalOrbit> {
-        let _mouse = self.scene.mouse_if_world(&self.input)?;
+        let _mouse = self.scene.mouse_if_not_on_gui(&self.input)?;
         let ctx = &state.orbital_context;
         let a = self.input.position(MouseButt::Left, FrameId::Down)?;
         let b = self.input.position(MouseButt::Left, FrameId::Current)?;
@@ -277,7 +277,7 @@ impl<'a> OrbitalView<'a> {
 
     pub fn selection_region(&self, state: &GameState) -> Option<Region> {
         let ctx = &state.orbital_context;
-        let mouse: &InputState = self.scene.mouse_if_world(&self.input)?;
+        let mouse: &InputState = self.scene.mouse_if_not_on_gui(&self.input)?;
         match state.orbital_context.cursor_mode {
             CursorMode::Rect => {
                 let a = mouse.world_position(MouseButt::Left, FrameId::Down, ctx)?;

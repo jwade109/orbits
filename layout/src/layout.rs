@@ -541,6 +541,7 @@ impl<IdType> Tree<IdType> {
             let mut candidates: Vec<&Node<IdType>> = layout
                 .iter()
                 .filter(|n| n.aabb_camera(wb).contains(p))
+                .filter(|n| n.is_visible())
                 .collect();
             if candidates.is_empty() {
                 continue;

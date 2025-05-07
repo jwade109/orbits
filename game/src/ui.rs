@@ -44,9 +44,6 @@ pub enum InteractionEvent {
     RedrawGui,
     ToggleFullscreen,
 
-    // mouse stuff
-    DoubleClick,
-
     // orbital_context operations
     MoveLeft,
     MoveRight,
@@ -516,7 +513,6 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
 
     let mut inner_topbar = Node::fit()
         .with_color(UI_BACKGROUND_COLOR)
-        .with_id(OnClick::World)
         .with_child({
             let s = if state.paused { "UNPAUSE" } else { "PAUSE" };
             Node::button(s, OnClick::TogglePause, 120, button_height)
@@ -582,11 +578,9 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
     let world = Node::grow()
         .down()
         .invisible()
-        .with_id(OnClick::World)
         .with_child(
             Node::grow()
                 .down()
-                .with_id(OnClick::World)
                 .tight()
                 .invisible()
                 .with_child(inner_topbar)
@@ -594,11 +588,10 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
         )
         .with_child(
             Node::grow()
-                .with_id(OnClick::World)
                 .tight()
                 .down()
                 .invisible()
-                .with_child(Node::grow().with_id(OnClick::World).invisible())
+                .with_child(Node::grow().invisible())
                 .with_child(notif_bar),
         );
 

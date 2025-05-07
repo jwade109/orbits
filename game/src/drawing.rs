@@ -3,7 +3,6 @@
 use bevy::color::palettes::basic::*;
 use bevy::color::palettes::css::ORANGE;
 use bevy::prelude::*;
-use enum_iterator::all;
 use starling::prelude::*;
 
 use crate::graph::*;
