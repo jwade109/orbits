@@ -141,7 +141,7 @@ fn big_time_system(mut text: Single<&mut Text, With<DateMarker>>, state: Res<Gam
 
 fn top_right_text_system(mut text: Single<&mut Text, With<TopRight>>, state: Res<GameState>) {
     let res = (|| -> Option<(&Orbiter, &Vehicle, GlobalOrbit)> {
-        let id = state.orbital_context.follow?.orbiter()?;
+        let id = state.orbital_context.following?.orbiter()?;
         let orbiter = state.scenario.lup_orbiter(id, state.sim_time)?.orbiter()?;
         let vehicle = state.orbital_vehicles.get(&id)?;
         let prop = orbiter.propagator_at(state.sim_time)?;
@@ -468,7 +468,12 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
                     .with_id(OnClick::Orbiter(*id))
                     .with_text(s)
                     .enabled(
-                        Some(*id) != state.orbital_context.follow.map(|f| f.orbiter()).flatten(),
+                        Some(*id)
+                            != state
+                                .orbital_context
+                                .following
+                                .map(|f| f.orbiter())
+                                .flatten(),
                     ),
             )
         });
@@ -526,7 +531,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
             .enabled(i != state.sim_speed)
         }));
 
-    if let Some(id) = state.orbital_context.follow {
+    if let Some(id) = state.orbital_context.following {
         let s = format!("Following {}", id);
         let id = OnClick::Nullopt;
         let n = Node::button(s, id, 300, button_height).enabled(false);
@@ -623,7 +628,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
 fn current_inventory_layout(state: &GameState) -> Option<ui::Node<OnClick>> {
     use ui::*;
 
-    let id = state.orbital_context.follow?.orbiter()?;
+    let id = state.orbital_context.following?.orbiter()?;
     let orbiter = state.scenario.lup_orbiter(id, state.sim_time)?.orbiter()?;
     let vehicle = state.orbital_vehicles.get(&id)?;
 

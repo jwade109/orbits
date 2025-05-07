@@ -1312,31 +1312,36 @@ pub fn draw_editor(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let ctx = &state.editor_context;
     draw_cross(gizmos, ctx.w2c(Vec2::ZERO), 10.0, GRAY);
 
-    for (p, color) in ctx.points() {
-        draw_square(gizmos, ctx.w2c(p.as_vec2()), 4.0, color.to_color());
+    // for (p, color) in ctx.points() {
+    //     draw_square(gizmos, ctx.w2c(p.as_vec2()), 4.0, color.to_color());
+    // }
+
+    if let Some(aabb) = ctx.cursor_box(&state.input) {
+        draw_aabb(gizmos, ctx.w2c_aabb(aabb), RED);
     }
 
-    for color in all::<EditorColor>() {
-        for points in ctx.lines(color) {
-            let points = points.into_iter().map(|p| ctx.w2c(*p)).collect::<Vec<_>>();
-            gizmos.linestrip_2d(points, color.to_color());
-        }
+    for aabb in ctx.aabbs() {
+        draw_aabb(gizmos, ctx.w2c_aabb(*aabb), WHITE);
+    }
+
+    for points in ctx.lines() {
+        let points = points.into_iter().map(|p| ctx.w2c(*p)).collect::<Vec<_>>();
+        gizmos.linestrip_2d(points, GRAY.with_alpha(0.4));
     }
 
     let cursor = state.input.position(MouseButt::Hover, FrameId::Current)?;
-    for v in ctx.paintbrush(cursor) {
-        draw_diamond(gizmos, ctx.w2c(v.as_vec2()), 10.0, ctx.color().to_color());
-    }
-
     let c = ctx.c2w(cursor);
-    let discrete = IVec2::new(c.x.round() as i32, c.y.round() as i32);
+    let discrete = IVec2::new(
+        (c.x / 8.0).round() as i32 * 8,
+        (c.y / 8.0).round() as i32 * 8,
+    );
 
-    for dx in -10..=10 {
-        for dy in -10..=10 {
+    for dx in (-80..=80).step_by(8) {
+        for dy in (-80..=80).step_by(8) {
             let s = IVec2::new(dx, dy);
             let p = discrete - s;
             let d = (s.length_squared() as f32).sqrt();
-            let alpha = 0.2 * (1.0 - d / 10.0);
+            let alpha = 0.2 * (1.0 - d / 80.0);
             draw_diamond(gizmos, ctx.w2c(p.as_vec2()), 7.0, GRAY.with_alpha(alpha));
         }
     }

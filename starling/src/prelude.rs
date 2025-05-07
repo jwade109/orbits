@@ -7,8 +7,8 @@ pub use crate::examples::{
 };
 pub use crate::file_export::export_orbit_data;
 pub use crate::math::{
-    apply, apply_filter, get_random_name, linspace, rand, randvec, randvec3, rotate, tspace, Vec2,
-    Vec3, PI,
+    apply, apply_filter, get_random_name, linspace, rand, randvec, randvec3, rotate, tspace, vceil,
+    vfloor, vround, IVec2, Vec2, Vec3, PI,
 };
 pub use crate::nanotime::Nanotime;
 pub use crate::orbital_luts::lookup_ta_from_ma;

@@ -321,12 +321,6 @@ impl GameState {
         ov.left_cursor_orbit(self)
     }
 
-    pub fn right_cursor_orbit(&self) -> Option<GlobalOrbit> {
-        let scene = self.current_scene();
-        let ov = scene.orbital_view(&self.input)?;
-        ov.right_cursor_orbit(self)
-    }
-
     pub fn cursor_orbit_if_mode(&self) -> Option<GlobalOrbit> {
         if self.orbital_context.cursor_mode == CursorMode::AddOrbit {
             self.left_cursor_orbit()
@@ -336,7 +330,7 @@ impl GameState {
     }
 
     pub fn piloting(&self) -> Option<OrbiterId> {
-        self.orbital_context.follow?.orbiter()
+        self.orbital_context.following?.orbiter()
     }
 
     pub fn spawn_at(&mut self, global: &GlobalOrbit) -> Option<()> {
@@ -551,8 +545,8 @@ impl GameState {
         use crate::ui::OnClick;
 
         match id {
-            OnClick::CurrentBody(id) => self.orbital_context.follow = Some(ObjectId::Planet(id)),
-            OnClick::Orbiter(id) => self.orbital_context.follow = Some(ObjectId::Orbiter(id)),
+            OnClick::CurrentBody(id) => self.orbital_context.following = Some(ObjectId::Planet(id)),
+            OnClick::Orbiter(id) => self.orbital_context.following = Some(ObjectId::Orbiter(id)),
             OnClick::ToggleDrawMode => {
                 self.orbital_context.draw_mode = next_cycle(&self.orbital_context.draw_mode)
             }
@@ -574,7 +568,7 @@ impl GameState {
             OnClick::TogglePause => self.paused = !self.paused,
             OnClick::GlobalOrbit(i) => {
                 let orbit = self.orbital_context.queued_orbits.get(i)?;
-                self.orbital_context.follow = Some(ObjectId::Planet(orbit.0));
+                self.orbital_context.following = Some(ObjectId::Planet(orbit.0));
                 self.current_orbit = Some(i);
             }
             OnClick::World => (),
@@ -672,7 +666,12 @@ impl GameState {
         }
 
         match self.current_scene().kind() {
-            SceneType::OrbitalView(_) => self.orbital_context.step(&self.input, dt),
+            SceneType::OrbitalView(_) => {
+                self.orbital_context.step(&self.input, dt);
+                if let Some(p) = self.orbital_context.follow_position(self) {
+                    self.orbital_context.go_to(p);
+                }
+            }
             SceneType::TelescopeView(_) => self.telescope_context.step(&self.input, dt),
             SceneType::DockingView(_) => self.rpo_context.step(&self.input, dt),
             SceneType::Editor => self.editor_context.step(&self.input, dt),
@@ -894,7 +893,7 @@ fn process_interaction(
             let p = state.input.position(MouseButt::Left, FrameId::Down)?;
             let w = state.orbital_context.c2w(p);
             let id = state.scenario.nearest(w, state.sim_time)?;
-            state.orbital_context.follow = Some(id);
+            state.orbital_context.following = Some(id);
             state.notice(format!("Now following {id}"));
         }
         InteractionEvent::ExitApp => {
@@ -902,10 +901,10 @@ fn process_interaction(
         }
         InteractionEvent::ContextDependent => {
             if let Some(o) = state.cursor_orbit_if_mode() {
-                info!("Enqueued orbit {}", &o);
+                state.notice(format!("Enqueued orbit {}", &o));
                 state.orbital_context.queued_orbits.push(o);
-            } else if state.orbital_context.follow.is_some() {
-                state.orbital_context.follow = None;
+            } else if state.orbital_context.following.is_some() {
+                state.orbital_context.following = None;
             } else if !state.orbital_context.selected.is_empty() {
                 state.orbital_context.selected.clear();
             }

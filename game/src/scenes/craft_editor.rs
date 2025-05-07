@@ -5,7 +5,7 @@ use bevy::color::palettes::css::*;
 use bevy::input::keyboard::KeyCode;
 use bevy::prelude::Srgba;
 use enum_iterator::{all, next_cycle, Sequence};
-use starling::math::{IVec2, Vec2};
+use starling::prelude::*;
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Sequence)]
@@ -33,9 +33,23 @@ pub struct EditorContext {
     scale: f32,
     target_scale: f32,
 
-    points: HashMap<IVec2, EditorColor>,
-    lines: HashMap<EditorColor, Vec<Vec<Vec2>>>,
+    aabbs: Vec<AABB>,
+    points: HashSet<IVec2>,
+    lines: Vec<Vec<Vec2>>,
     color: EditorColor,
+}
+
+fn discrete_points_in_bounds(aabb: &AABB) -> Vec<IVec2> {
+    let lower = vround(aabb.lower());
+    let upper = vround(aabb.upper());
+    let mut ret = Vec::new();
+    for x in lower.x..=upper.x {
+        for y in lower.y..=upper.y {
+            let v = IVec2::new(x, y);
+            ret.push(v);
+        }
+    }
+    ret
 }
 
 fn marching_squares(
@@ -90,14 +104,24 @@ impl EditorContext {
             target_center: Vec2::ZERO,
             scale: 20.0,
             target_scale: 18.0,
-            points: HashMap::new(),
-            lines: HashMap::new(),
+            aabbs: Vec::new(),
+            points: HashSet::new(),
+            lines: Vec::new(),
             color: EditorColor::Orange,
         };
 
         x.update();
 
         x
+    }
+
+    pub fn cursor_box(&self, input: &InputState) -> Option<AABB> {
+        let p1 = input.position(MouseButt::Left, FrameId::Down)?;
+        let p2 = input.position(MouseButt::Left, FrameId::Current)?;
+        Some(AABB::from_arbitrary(
+            vround(self.c2w(p1)).as_vec2(),
+            vround(self.c2w(p2)).as_vec2(),
+        ))
     }
 
     pub fn color(&self) -> EditorColor {
@@ -108,50 +132,40 @@ impl EditorContext {
         ((20.0 / self.scale).round() as i32).max(0)
     }
 
-    pub fn paintbrush(&self, camera_pos: Vec2) -> HashSet<IVec2> {
-        let w = self.c2w(camera_pos);
-        let i = IVec2::new(w.x.round() as i32, w.y.round() as i32);
-        let mut ret = HashSet::new();
-        for dx in -self.cursor_size()..=self.cursor_size() {
-            for dy in -self.cursor_size()..=self.cursor_size() {
-                let d = IVec2::new(dx, dy);
-                ret.insert(i + d);
-            }
-        }
-        ret
-    }
-
-    pub fn points(&self) -> impl Iterator<Item = (&IVec2, &EditorColor)> {
+    pub fn points(&self) -> impl Iterator<Item = &IVec2> {
         self.points.iter()
     }
 
-    pub fn lines(&self, color: EditorColor) -> impl Iterator<Item = &Vec<Vec2>> {
-        match self.lines.get(&color) {
-            Some(x) => x.iter(),
-            None => [].iter(),
-        }
+    pub fn aabbs(&self) -> impl Iterator<Item = &AABB> {
+        self.aabbs.iter()
+    }
+
+    pub fn lines(&self) -> impl Iterator<Item = &Vec<Vec2>> {
+        self.lines.iter()
     }
 
     fn update(&mut self) {
+        self.points.clear();
+        for aabb in &self.aabbs {
+            let pts = discrete_points_in_bounds(aabb);
+            self.points.extend(pts);
+        }
+
         self.lines.clear();
-        for color in all::<EditorColor>() {
-            let mut lines = Vec::new();
-            for x in -100..=100 {
-                for y in -100..=100 {
-                    let p = IVec2::new(x, y);
-                    let a = IVec2::new(x + 1, y);
-                    let b = IVec2::new(x + 1, y + 1);
-                    let c = IVec2::new(x, y + 1);
-                    let pb = self.points.get(&p) == Some(&color);
-                    let ab = self.points.get(&a) == Some(&color);
-                    let bb = self.points.get(&b) == Some(&color);
-                    let cb = self.points.get(&c) == Some(&color);
-                    if let Some(line) = marching_squares((p, pb), (a, ab), (b, bb), (c, cb)) {
-                        lines.push(line);
-                    }
+        for x in -100..=100 {
+            for y in -100..=100 {
+                let p = IVec2::new(x, y);
+                let a = IVec2::new(x + 1, y);
+                let b = IVec2::new(x + 1, y + 1);
+                let c = IVec2::new(x, y + 1);
+                let pb = self.points.contains(&p);
+                let ab = self.points.contains(&a);
+                let bb = self.points.contains(&b);
+                let cb = self.points.contains(&c);
+                if let Some(line) = marching_squares((p, pb), (a, ab), (b, bb), (c, cb)) {
+                    self.lines.push(line);
                 }
             }
-            self.lines.insert(color, lines);
         }
     }
 }
@@ -171,27 +185,38 @@ impl Interactive for EditorContext {
         let speed = 16.0 * dt * 100.0;
 
         if input.is_pressed(KeyCode::KeyC) {
-            self.points.clear();
+            self.aabbs.clear();
             self.update();
         }
-
         if input.just_pressed(KeyCode::KeyP) {
             self.color = next_cycle(&self.color);
         }
+        if input.just_pressed(KeyCode::KeyQ) {
+            if let Some(aabb) = self.cursor_box(input) {
+                self.aabbs.push(aabb);
+                self.update()
+            }
+        }
 
-        if let Some(c) = input.position(MouseButt::Left, FrameId::Current) {
-            let pb = self.paintbrush(c);
-            for v in pb {
-                self.points.insert(v, self.color);
-            }
-            self.update();
-        } else if let Some(c) = input.position(MouseButt::Right, FrameId::Current) {
-            let pb = self.paintbrush(c);
-            for v in pb {
-                self.points.remove(&v);
-            }
+        if let Some(c) = input.position(MouseButt::Right, FrameId::Current) {
+            let c = self.c2w(c);
+            self.aabbs.retain(|aabb| !aabb.contains(c));
             self.update();
         }
+
+        // if let Some(c) = input.position(MouseButt::Left, FrameId::Current) {
+        //     let pb = self.paintbrush(c);
+        //     for v in pb {
+        //         self.aabbs.insert(v, self.color);
+        //     }
+        //     self.update();
+        // } else if let Some(c) = input.position(MouseButt::Right, FrameId::Current) {
+        //     let pb = self.paintbrush(c);
+        //     for v in pb {
+        //         self.points.remove(&v);
+        //     }
+        //     self.update();
+        // }
 
         if input.is_scroll_down() {
             self.target_scale /= 1.5;

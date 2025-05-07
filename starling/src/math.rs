@@ -58,6 +58,18 @@ pub fn vproj(a: Vec2, b: Vec2) -> (Vec2, Vec2) {
     (proj, a - proj)
 }
 
+pub fn vfloor(v: Vec2) -> IVec2 {
+    IVec2::new(v.x.floor() as i32, v.y.floor() as i32)
+}
+
+pub fn vceil(v: Vec2) -> IVec2 {
+    IVec2::new(v.x.ceil() as i32, v.y.ceil() as i32)
+}
+
+pub fn vround(v: Vec2) -> IVec2 {
+    IVec2::new(v.x.round() as i32, v.y.round() as i32)
+}
+
 pub fn apply<T: Copy, R>(x: &Vec<T>, func: impl Fn(T) -> R) -> Vec<R> {
     x.iter().map(|x| func(*x)).collect()
 }

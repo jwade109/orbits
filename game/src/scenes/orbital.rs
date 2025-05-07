@@ -60,7 +60,8 @@ pub struct OrbitalContext {
     target_center: Vec2,
     scale: f32,
     target_scale: f32,
-    pub follow: Option<ObjectId>,
+    pub following: Option<ObjectId>,
+    piloting: Option<OrbiterId>,
     pub queued_orbits: Vec<GlobalOrbit>,
     pub cursor_mode: CursorMode,
     pub show_orbits: ShowOrbitsState,
@@ -75,9 +76,23 @@ pub trait CameraProjection {
         (p - self.origin()) * self.scale()
     }
 
+    #[allow(unused)]
+    fn w2c_aabb(&self, aabb: AABB) -> AABB {
+        let a = aabb.lower();
+        let b = aabb.upper();
+        AABB::from_arbitrary(self.w2c(a), self.w2c(b))
+    }
+
     /// Camera to world transform
     fn c2w(&self, p: Vec2) -> Vec2 {
         p / self.scale() + self.origin()
+    }
+
+    #[allow(unused)]
+    fn c2w_aabb(&self, aabb: AABB) -> AABB {
+        let a = aabb.lower();
+        let b = aabb.upper();
+        AABB::from_arbitrary(self.c2w(a), self.c2w(b))
     }
 
     fn origin(&self) -> Vec2;
@@ -108,7 +123,8 @@ impl OrbitalContext {
             target_center: Vec2::ZERO,
             scale: 0.02,
             target_scale: 0.025,
-            follow: None,
+            following: None,
+            piloting: None,
             queued_orbits: Vec::new(),
             cursor_mode: CursorMode::Rect,
             show_orbits: ShowOrbitsState::Focus,
@@ -116,6 +132,19 @@ impl OrbitalContext {
             draw_mode: DrawMode::Default,
             throttle: ThrottleLevel::Medium,
         }
+    }
+
+    pub fn go_to(&mut self, p: Vec2) {
+        self.target_center = p;
+    }
+
+    pub fn follow_position(&self, state: &GameState) -> Option<Vec2> {
+        let id = self.following?;
+        let lup = match id {
+            ObjectId::Orbiter(id) => state.scenario.lup_orbiter(id, state.sim_time)?,
+            ObjectId::Planet(id) => state.scenario.lup_planet(id, state.sim_time)?,
+        };
+        Some(lup.pv().pos)
     }
 }
 
@@ -147,19 +176,24 @@ impl Interactive for OrbitalContext {
         }
         if input.is_pressed(KeyCode::KeyD) {
             self.target_center.x += speed / self.scale;
+            self.following = None;
         }
         if input.is_pressed(KeyCode::KeyA) {
             self.target_center.x -= speed / self.scale;
+            self.following = None;
         }
         if input.is_pressed(KeyCode::KeyW) {
             self.target_center.y += speed / self.scale;
+            self.following = None;
         }
         if input.is_pressed(KeyCode::KeyS) {
             self.target_center.y -= speed / self.scale;
+            self.following = None;
         }
         if input.is_pressed(KeyCode::KeyR) {
             self.target_center = Vec2::ZERO;
             self.target_scale = 1.0;
+            self.following = None;
         }
 
         self.scale += (self.target_scale - self.scale) * 0.1;
@@ -241,16 +275,6 @@ impl<'a> OrbitalView<'a> {
         Self::cursor_orbit(a, b, state)
     }
 
-    pub fn right_cursor_orbit(&self, state: &GameState) -> Option<GlobalOrbit> {
-        let _mouse = self.scene.mouse_if_world(&self.input)?;
-        let ctx = &state.orbital_context;
-        let a = self.input.position(MouseButt::Right, FrameId::Down)?;
-        let b = self.input.position(MouseButt::Right, FrameId::Current)?;
-        let a = ctx.c2w(a);
-        let b = ctx.c2w(b);
-        Self::cursor_orbit(a, b, state)
-    }
-
     pub fn selection_region(&self, state: &GameState) -> Option<Region> {
         let ctx = &state.orbital_context;
         let mouse: &InputState = self.scene.mouse_if_world(&self.input)?;
@@ -265,14 +289,5 @@ impl<'a> OrbitalView<'a> {
                 .map(|GlobalOrbit(_, orbit)| Region::NearOrbit(orbit, 500.0)),
             _ => None,
         }
-    }
-
-    pub fn follow_position(&self, state: &GameState) -> Option<Vec2> {
-        let id = state.orbital_context.follow?;
-        let lup = match id {
-            ObjectId::Orbiter(id) => state.scenario.lup_orbiter(id, state.sim_time)?,
-            ObjectId::Planet(id) => state.scenario.lup_planet(id, state.sim_time)?,
-        };
-        Some(lup.pv().pos)
     }
 }
