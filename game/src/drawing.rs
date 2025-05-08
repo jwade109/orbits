@@ -1019,7 +1019,7 @@ pub fn draw_ui_layout(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
 
     let wb = state.input.screen_bounds.span;
 
-    for layout in scene.ui().layouts() {
+    for layout in state.ui.layouts() {
         for n in layout.iter() {
             if n.text_content().map(|t| t.is_empty()).unwrap_or(true) {
                 continue;

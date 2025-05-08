@@ -734,15 +734,12 @@ fn do_ui_sprites(
     }
 
     let ui = layout(&state);
-    let scene = state.current_scene_mut();
-    scene.set_ui(ui);
+    state.ui = ui;
 
     state.last_redraw = state.wall_time;
     state.redraw_requested = false;
 
-    let scene = state.current_scene();
-
-    for (lid, layout) in scene.ui().layouts().iter().enumerate() {
+    for (lid, layout) in state.ui.layouts().iter().enumerate() {
         for n in layout.iter() {
             if !n.is_visible() {
                 continue;

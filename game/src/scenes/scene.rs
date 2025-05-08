@@ -21,7 +21,6 @@ pub enum SceneType {
 pub struct Scene {
     name: String,
     scene_type: SceneType,
-    ui: Tree<OnClick>,
 }
 
 impl Scene {
@@ -29,7 +28,6 @@ impl Scene {
         Scene {
             name: name.into(),
             scene_type: SceneType::OrbitalView(OrbitalContext::new(primary)),
-            ui: Tree::new(),
         }
     }
 
@@ -37,7 +35,6 @@ impl Scene {
         Scene {
             name: "Telescope".into(),
             scene_type: SceneType::TelescopeView(TelescopeContext::new()),
-            ui: Tree::new(),
         }
     }
 
@@ -45,7 +42,6 @@ impl Scene {
         Scene {
             name: "Editor".into(),
             scene_type: SceneType::Editor,
-            ui: Tree::new(),
         }
     }
 
@@ -53,7 +49,6 @@ impl Scene {
         Scene {
             name: name.into(),
             scene_type: SceneType::DockingView(primary),
-            ui: Tree::new(),
         }
     }
 
@@ -61,7 +56,6 @@ impl Scene {
         Scene {
             name: "Main Menu".into(),
             scene_type: SceneType::MainMenu,
-            ui: Tree::new(),
         }
     }
 
@@ -74,17 +68,22 @@ impl Scene {
     }
 
     // TODO deduplicate
-    pub fn is_hovering_over_ui(&self, input: &InputState) -> bool {
+    #[deprecated]
+    pub fn is_hovering_over_ui(&self, input: &InputState, ui: &Tree<OnClick>) -> bool {
         let wb = input.screen_bounds.span;
         let p = match input.position(MouseButt::Hover, FrameId::Current) {
             Some(p) => p,
             None => return false,
         };
-        self.ui.at(p, wb).map(|n| n.is_visible()).unwrap_or(false)
+        ui.at(p, wb).map(|n| n.is_visible()).unwrap_or(false)
     }
 
-    pub fn mouse_if_not_on_gui<'a>(&self, input: &'a InputState) -> Option<&'a InputState> {
-        let is_on_world = !self.is_hovering_over_ui(input);
+    pub fn mouse_if_not_on_gui<'a>(
+        &self,
+        input: &'a InputState,
+        ui: &Tree<OnClick>,
+    ) -> Option<&'a InputState> {
+        let is_on_world = !self.is_hovering_over_ui(input, ui);
         is_on_world.then(|| input)
     }
 
@@ -97,13 +96,5 @@ impl Scene {
             }),
             _ => None,
         }
-    }
-
-    pub fn ui(&self) -> &Tree<OnClick> {
-        &self.ui
-    }
-
-    pub fn set_ui(&mut self, ui: Tree<OnClick>) {
-        self.ui = ui;
     }
 }

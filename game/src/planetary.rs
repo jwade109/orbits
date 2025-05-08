@@ -11,6 +11,7 @@ use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 use bevy::window::WindowMode;
 use enum_iterator::next_cycle;
+use layout::layout::Tree;
 use rfd::FileDialog;
 use starling::prelude::*;
 use std::collections::{HashMap, HashSet};
@@ -134,6 +135,7 @@ pub struct GameState {
     pub current_hover: Option<OnClick>,
     pub redraw_requested: bool,
     pub last_redraw: Nanotime,
+    pub ui: Tree<OnClick>,
 
     pub notifications: Vec<Notification>,
     pub text_labels: Vec<(Vec2, String)>,
@@ -193,6 +195,7 @@ impl Default for GameState {
             current_orbit: None,
             current_hover: None,
             redraw_requested: true,
+            ui: Tree::new(),
             last_redraw: Nanotime::zero(),
             notifications: Vec::new(),
             text_labels: Vec::new(),
@@ -615,23 +618,17 @@ impl GameState {
 
     pub fn current_hover_ui(&self) -> Option<&crate::ui::OnClick> {
         let wb = self.input.screen_bounds.span;
-        let scene = self.current_scene();
         let p = self.input.position(MouseButt::Hover, FrameId::Current)?;
-        scene.ui().at(p, wb).map(|n| n.id()).flatten()
+        self.ui.at(p, wb).map(|n| n.id()).flatten()
     }
 
     pub fn is_hovering_over_ui(&self) -> bool {
         let wb = self.input.screen_bounds.span;
-        let scene = self.current_scene();
         let p = match self.input.position(MouseButt::Hover, FrameId::Current) {
             Some(p) => p,
             None => return false,
         };
-        scene
-            .ui()
-            .at(p, wb)
-            .map(|n| n.is_visible())
-            .unwrap_or(false)
+        self.ui.at(p, wb).map(|n| n.is_visible()).unwrap_or(false)
     }
 
     fn handle_click_events(&mut self) {
@@ -641,10 +638,9 @@ impl GameState {
         let wb = self.input.screen_bounds.span;
 
         if self.input.on_frame(Left, Down, self.current_frame_no) {
-            let scene = self.current_scene();
             let p = self.input.position(Left, Down);
             if let Some(p) = p {
-                if let Some(n) = scene.ui().at(p, wb).map(|n| n.id()).flatten() {
+                if let Some(n) = self.ui.at(p, wb).map(|n| n.id()).flatten() {
                     self.on_button_event(n.clone());
                 }
                 self.redraw();
