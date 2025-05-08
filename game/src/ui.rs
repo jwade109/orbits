@@ -281,23 +281,18 @@ pub fn main_menu_layout(state: &GameState) -> ui::Tree<OnClick> {
     ui::Tree::new().with_layout(wrapper, Vec2::splat(300.0))
 }
 
-pub fn docking_layout(state: &GameState, id: &OrbiterId) -> ui::Tree<OnClick> {
+pub fn basic_scenes_layout(state: &GameState) -> ui::Tree<OnClick> {
     use ui::*;
 
-    let notif_bar = notification_bar(state);
+    let wrapper = Node::fit().with_color(UI_BACKGROUND_COLOR).with_children(
+        state
+            .scenes
+            .iter()
+            .enumerate()
+            .map(|(i, s)| Node::button(s.name(), OnClick::GoToScene(i), 200, 50)),
+    );
 
-    let wrapper = Node::fit()
-        .with_child({
-            let s = format!("dingus {}", id);
-            Node::button(s, OnClick::Nullopt, 200, 50)
-        })
-        .with_children(
-            state
-                .scenes
-                .iter()
-                .enumerate()
-                .map(|(i, s)| Node::button(s.name(), OnClick::GoToScene(i), 200, 50)),
-        );
+    let notif_bar = notification_bar(state);
 
     let layout = Node::fit()
         .invisible()
@@ -324,10 +319,10 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
     let scene = state.current_scene();
     match scene.kind() {
         SceneType::MainMenu => return main_menu_layout(state),
-        SceneType::DockingView(id) => return docking_layout(state, id),
-        SceneType::TelescopeView(_) => return docking_layout(state, &OrbiterId(0)),
+        SceneType::DockingView(_) => return basic_scenes_layout(state),
+        SceneType::TelescopeView(_) => return basic_scenes_layout(state),
         SceneType::OrbitalView(_) => (),
-        SceneType::Editor => return docking_layout(state, &OrbiterId(0)),
+        SceneType::Editor => return basic_scenes_layout(state),
     };
 
     use ui::*;

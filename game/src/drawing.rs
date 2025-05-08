@@ -1199,11 +1199,18 @@ pub fn draw_docking_scenario(
 
     let (_, rpo) = state.rpos.iter().next()?;
 
-    for (pv, vehicle) in &rpo.vehicles {
+    for (i, (pv, vehicle)) in rpo.vehicles.iter().enumerate() {
         let r = vehicle.bounding_radius();
         let p = ctx.w2c(pv.pos);
         draw_vehicle(gizmos, vehicle, p, ctx.scale());
-        draw_circle(gizmos, p, r * ctx.scale(), GRAY.with_alpha(0.1));
+
+        let color = if Some(i) == ctx.following() {
+            TEAL
+        } else {
+            GRAY.with_alpha(0.1)
+        };
+
+        draw_circle(gizmos, p, r * ctx.scale(), color);
     }
 
     draw_circle(

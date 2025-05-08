@@ -704,7 +704,12 @@ impl GameState {
                 }
             }
             SceneType::TelescopeView(_) => self.telescope_context.step(&self.input, dt),
-            SceneType::DockingView(_) => self.rpo_context.step(&self.input, dt),
+            SceneType::DockingView(_) => {
+                self.rpo_context.step(&self.input, dt);
+                if let Some((_, rpo)) = self.rpos.iter().next() {
+                    self.rpo_context.handle_follow(&self.input, rpo);
+                }
+            }
             SceneType::Editor => self.editor_context.step(&self.input, dt),
             _ => (),
         }

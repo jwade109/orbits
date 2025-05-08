@@ -1,4 +1,5 @@
 use crate::math::randvec;
+use crate::math::Vec2;
 use crate::nanotime::Nanotime;
 use crate::pv::PV;
 use crate::vehicle::Vehicle;
@@ -19,6 +20,19 @@ impl RPO {
             .collect();
 
         Self { stamp, vehicles }
+    }
+
+    pub fn nearest(&self, p: Vec2) -> Option<usize> {
+        let mut ret = None;
+        let mut d = f32::MAX;
+        for (i, (pv, _)) in self.vehicles.iter().enumerate() {
+            let di = p.distance(pv.pos);
+            if di < d {
+                d = di;
+                ret = Some(i);
+            }
+        }
+        ret
     }
 
     pub fn bounding_radius(&self) -> f32 {

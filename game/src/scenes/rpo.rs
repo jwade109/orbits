@@ -9,7 +9,7 @@ pub struct RPOContext {
     target_center: Vec2,
     scale: f32,
     target_scale: f32,
-    following: Option<VehicleId>,
+    following: Option<usize>,
 }
 
 impl CameraProjection for RPOContext {
@@ -33,8 +33,15 @@ impl RPOContext {
         }
     }
 
-    pub fn following(&self) -> Option<VehicleId> {
+    pub fn following(&self) -> Option<usize> {
         self.following
+    }
+
+    pub fn handle_follow(&mut self, input: &InputState, rpo: &RPO) -> Option<()> {
+        let p = self.c2w(input.double_click()?);
+        let idx = rpo.nearest(p)?;
+        self.following = Some(idx);
+        Some(())
     }
 }
 
