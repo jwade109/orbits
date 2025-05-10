@@ -146,6 +146,14 @@ impl OrbitalContext {
         };
         Some(lup.pv().pos)
     }
+
+    pub fn toggle_track(&mut self, id: OrbiterId) {
+        if self.selected.contains(&id) {
+            self.selected.retain(|e| *e != id);
+        } else {
+            self.selected.insert(id);
+        }
+    }
 }
 
 impl Interactive for OrbitalContext {

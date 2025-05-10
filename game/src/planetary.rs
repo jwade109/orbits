@@ -213,18 +213,6 @@ impl GameState {
         &self.scenes[self.current_scene_idx]
     }
 
-    pub fn current_scene_mut(&mut self) -> &mut Scene {
-        &mut self.scenes[self.current_scene_idx]
-    }
-
-    pub fn toggle_track(&mut self, id: OrbiterId) {
-        if self.orbital_context.selected.contains(&id) {
-            self.orbital_context.selected.retain(|e| *e != id);
-        } else {
-            self.orbital_context.selected.insert(id);
-        }
-    }
-
     pub fn is_tracked(&self, id: OrbiterId) -> bool {
         self.orbital_context.selected.contains(&id)
     }
@@ -946,7 +934,7 @@ fn process_interaction(
             load_new_scenario(state, system, ids);
         }
         InteractionEvent::ToggleObject(id) => {
-            state.toggle_track(*id);
+            state.orbital_context.toggle_track(*id);
         }
         InteractionEvent::ToggleGroup(gid) => {
             state.toggle_group(gid);
