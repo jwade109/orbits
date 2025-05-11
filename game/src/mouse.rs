@@ -9,7 +9,7 @@ const DOUBLE_CLICK_DURATION: Nanotime = Nanotime::millis(300);
 
 #[derive(Debug, Clone, Copy)]
 struct MouseFrame {
-    frame_no: u32,
+    frame_no: u64,
     screen_pos: Vec2,
     wall_time: Nanotime,
 }
@@ -92,12 +92,15 @@ enum ScrollDir {
 
 #[derive(Debug, Default)]
 pub struct InputState {
+    frame_no: u64,
+
     hover: CursorTravel,
     left: CursorTravel,
     right: CursorTravel,
     middle: CursorTravel,
 
     on_double_click: Option<Vec2>,
+    on_mouse_left_up: bool,
 
     pub screen_bounds: AABB,
 
@@ -188,10 +191,17 @@ impl InputState {
         }
     }
 
-    pub fn on_frame(&self, button: MouseButt, order: FrameId, frame_no: u32) -> bool {
+    pub fn on_frame(&self, button: MouseButt, order: FrameId) -> bool {
+        let delta = match order {
+            FrameId::Current => 0,
+            FrameId::Down => 0,
+            FrameId::Up => 1,
+        };
         let state = self.get_state(button);
         let frame = state.frame(order);
-        frame.map(|f| f.frame_no == frame_no).unwrap_or(false)
+        frame
+            .map(|f| f.frame_no + delta == self.frame_no)
+            .unwrap_or(false)
     }
 
     pub fn world_position(
@@ -212,14 +222,14 @@ pub fn update_input_state(
 ) {
     let dims = Vec2::new(win.width(), win.height());
     let t = state.wall_time;
-    let f = state.current_frame_no;
 
+    state.input.frame_no += 1;
     state.input.screen_bounds = AABB::new(dims / 2.0, dims);
 
     let current_frame = if let Some(p) = win.cursor_position() {
         let p = Vec2::new(p.x, dims.y - p.y);
         MouseFrame {
-            frame_no: f,
+            frame_no: state.input.frame_no,
             screen_pos: p,
             wall_time: t,
         }
@@ -233,6 +243,7 @@ pub fn update_input_state(
 
     state.input.hover.set_down(current_frame);
     state.input.on_double_click = None;
+    state.input.on_mouse_left_up = true;
 
     if buttons.pressed(MouseButton::Left) {
         let age = state.input.left.down().map(|f| f.age(t));
@@ -246,6 +257,7 @@ pub fn update_input_state(
         }
         state.input.left.set_down(current_frame);
     } else {
+        state.input.on_mouse_left_up = true;
         state.input.left.set_up();
     }
 

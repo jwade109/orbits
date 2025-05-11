@@ -1,32 +1,9 @@
 use crate::mouse::InputState;
 use crate::mouse::{FrameId, MouseButt};
 use crate::scenes::{CameraProjection, Interactive};
-use bevy::color::palettes::css::*;
 use bevy::input::keyboard::KeyCode;
-use bevy::prelude::Srgba;
-use enum_iterator::{next_cycle, Sequence};
 use starling::prelude::*;
 use std::collections::HashSet;
-
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Sequence)]
-pub enum EditorColor {
-    Orange,
-    Teal,
-    Red,
-    White,
-}
-
-impl EditorColor {
-    #[allow(unused)]
-    pub fn to_color(&self) -> Srgba {
-        match self {
-            Self::Orange => ORANGE,
-            Self::Teal => TEAL,
-            Self::Red => RED,
-            Self::White => WHITE,
-        }
-    }
-}
 
 pub struct EditorContext {
     center: Vec2,
@@ -37,7 +14,6 @@ pub struct EditorContext {
     aabbs: Vec<AABB>,
     points: HashSet<IVec2>,
     lines: Vec<Vec<Vec2>>,
-    color: EditorColor,
 }
 
 fn discrete_points_in_bounds(aabb: &AABB) -> Vec<IVec2> {
@@ -108,7 +84,6 @@ impl EditorContext {
             aabbs: Vec::new(),
             points: HashSet::new(),
             lines: Vec::new(),
-            color: EditorColor::Orange,
         };
 
         x.update();
@@ -123,16 +98,6 @@ impl EditorContext {
             vround(self.c2w(p1)).as_vec2(),
             vround(self.c2w(p2)).as_vec2(),
         ))
-    }
-
-    #[allow(unused)]
-    pub fn color(&self) -> EditorColor {
-        self.color
-    }
-
-    #[allow(unused)]
-    pub fn points(&self) -> impl Iterator<Item = &IVec2> {
-        self.points.iter()
     }
 
     pub fn aabbs(&self) -> impl Iterator<Item = &AABB> {
@@ -187,9 +152,6 @@ impl Interactive for EditorContext {
             self.aabbs.clear();
             self.update();
         }
-        if input.just_pressed(KeyCode::KeyP) {
-            self.color = next_cycle(&self.color);
-        }
         if input.just_pressed(KeyCode::KeyQ) {
             if let Some(aabb) = self.cursor_box(input) {
                 self.aabbs.push(aabb);
@@ -202,20 +164,6 @@ impl Interactive for EditorContext {
             self.aabbs.retain(|aabb| !aabb.contains(c));
             self.update();
         }
-
-        // if let Some(c) = input.position(MouseButt::Left, FrameId::Current) {
-        //     let pb = self.paintbrush(c);
-        //     for v in pb {
-        //         self.aabbs.insert(v, self.color);
-        //     }
-        //     self.update();
-        // } else if let Some(c) = input.position(MouseButt::Right, FrameId::Current) {
-        //     let pb = self.paintbrush(c);
-        //     for v in pb {
-        //         self.points.remove(&v);
-        //     }
-        //     self.update();
-        // }
 
         if input.is_scroll_down() {
             self.target_scale /= 1.5;

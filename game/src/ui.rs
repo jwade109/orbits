@@ -64,16 +64,7 @@ pub struct UiPlugin;
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup);
-        app.add_systems(
-            Update,
-            (
-                big_time_system,
-                do_ui_sprites,
-                top_right_text_system,
-                set_bloom,
-                on_resize_system,
-            ),
-        );
+        app.add_systems(Update, (do_ui_sprites, set_bloom, on_resize_system));
     }
 }
 
@@ -89,24 +80,29 @@ const TEXT_LABEL_Z_INDEX: f32 = 10.0;
 pub fn do_text_labels(
     mut commands: Commands,
     state: Res<GameState>,
-    mut query: Query<(Entity, &mut Text2d, &mut Transform), With<TextLabel>>,
+    mut query: Query<(Entity, &mut Text2d, &mut TextFont, &mut Transform), With<TextLabel>>,
 ) {
     let mut labels: Vec<_> = query.iter_mut().collect();
-    for (i, (pos, txt)) in state.text_labels.iter().enumerate() {
-        if let Some((_, text2d, label)) = labels.get_mut(i) {
+    for (i, (pos, txt, size)) in state.text_labels.iter().enumerate() {
+        if let Some((_, text2d, font, label)) = labels.get_mut(i) {
             label.translation = pos.extend(TEXT_LABEL_Z_INDEX);
             label.scale = Vec3::splat(1.0);
             text2d.0 = txt.clone();
+            font.font_size = 23.0 * size;
         } else {
             commands.spawn((
                 Text2d::new(txt.clone()),
+                TextFont {
+                    font_size: 23.0 * size,
+                    ..default()
+                },
                 Transform::from_translation(pos.extend(TEXT_LABEL_Z_INDEX)),
                 TextLabel,
             ));
         }
     }
 
-    for (i, (e, _, _)) in query.iter().enumerate() {
+    for (i, (e, _, _, _)) in query.iter().enumerate() {
         if i >= state.text_labels.len() {
             commands.entity(e).despawn();
         }
@@ -119,40 +115,7 @@ pub struct TextLabel;
 #[derive(Component)]
 struct DateMarker;
 
-#[derive(Component)]
-struct TopRight;
-
-fn big_time_system(mut text: Single<&mut Text, With<DateMarker>>, state: Res<GameState>) {
-    let date = state.sim_time.to_date();
-    text.0 = format!(
-        "Y{} W{} D{} {:02}:{:02}:{:02}.{:03}",
-        date.year + 1,
-        date.week + 1,
-        date.day + 1,
-        date.hour,
-        date.min,
-        date.sec,
-        date.milli,
-    );
-}
-
-fn top_right_text_system(mut text: Single<&mut Text, With<TopRight>>, state: Res<GameState>) {
-    let res = (|| -> Option<(&Orbiter, &Vehicle, GlobalOrbit)> {
-        let id = state.orbital_context.following?.orbiter()?;
-        let orbiter = state.scenario.lup_orbiter(id, state.sim_time)?.orbiter()?;
-        let vehicle = state.orbital_vehicles.get(&id)?;
-        let prop = orbiter.propagator_at(state.sim_time)?;
-        let go = prop.orbit;
-        Some((orbiter, vehicle, go))
-    })();
-
-    if let Some((orbiter, vehicle, go)) = res {
-        text.0 = format!("{}\nOrbit: {}\n{}", orbiter, go, vehicle.inventory);
-    } else {
-        text.0 = "".into();
-    }
-}
-
+#[allow(unused)]
 fn get_screen_clock() -> impl Bundle {
     (
         DateMarker,
@@ -167,25 +130,6 @@ fn get_screen_clock() -> impl Bundle {
             position_type: PositionType::Absolute,
             bottom: Val::Px(5.0),
             right: Val::Px(5.0),
-            ..default()
-        },
-    )
-}
-
-fn get_top_right_ui() -> impl Bundle {
-    (
-        TopRight,
-        Text::new(""),
-        TextFont {
-            font_size: 20.0,
-            ..default()
-        },
-        TextColor(WHITE.into()),
-        ZIndex(100),
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(70.0),
-            right: Val::Px(30.0),
             ..default()
         },
     )
@@ -236,22 +180,28 @@ fn context_menu(rowsize: f32, items: &[(String, OnClick, bool)]) -> ui::Node<OnC
         }))
 }
 
-pub const DELETE_SOMETHING_COLOR: [f32; 4] = [1.0, 0.0, 0.0, 0.8];
-pub const UI_BACKGROUND_COLOR: [f32; 4] = [0.05, 0.05, 0.05, 0.97];
+pub const DELETE_SOMETHING_COLOR: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
+pub const UI_BACKGROUND_COLOR: [f32; 4] = [0.05, 0.05, 0.05, 1.0];
 
 fn delete_wrapper(
     ondelete: OnClick,
     button: ui::Node<OnClick>,
-    width: impl Into<ui::Size>,
-    height: impl Into<ui::Size>,
+    box_size: f32,
 ) -> ui::Node<OnClick> {
-    let height = height.into();
     let x_button = {
         let s = "X";
-        ui::Node::button(s, ondelete, height, height).with_color(DELETE_SOMETHING_COLOR)
+        ui::Node::button(s, ondelete, box_size, box_size).with_color(DELETE_SOMETHING_COLOR)
     };
 
-    ui::Node::new(width.into(), height)
+    let (w, _) = button.desired_dims();
+
+    let width = match w {
+        ui::Size::Fit => ui::Size::Fit,
+        ui::Size::Fixed(n) => ui::Size::Fixed(n + box_size),
+        ui::Size::Grow => ui::Size::Grow,
+    };
+
+    ui::Node::new(width, box_size)
         .tight()
         .invisible()
         .with_child(x_button)
@@ -265,6 +215,7 @@ pub fn main_menu_layout(state: &GameState) -> ui::Tree<OnClick> {
 
     let wrapper = Node::fit()
         .down()
+        .with_color(UI_BACKGROUND_COLOR)
         .with_children(
             buttons
                 .iter()
@@ -281,23 +232,38 @@ pub fn main_menu_layout(state: &GameState) -> ui::Tree<OnClick> {
     ui::Tree::new().with_layout(wrapper, Vec2::splat(300.0))
 }
 
+pub fn top_bar(state: &GameState, button_height: f32) -> ui::Node<OnClick> {
+    use ui::*;
+    Node::row(Size::Fit)
+        .with_color(UI_BACKGROUND_COLOR)
+        .with_child(Node::button("Save", OnClick::Save, 80, Size::Grow))
+        .with_child(Node::button("Load", OnClick::Load, 80, Size::Grow))
+        .with_child(Node::vline())
+        .with_children(state.scenes.iter().enumerate().map(|(i, scene)| {
+            let s = scene.name();
+            let id = OnClick::GoToScene(i);
+            Node::button(s, id, 120, button_height)
+        }))
+        .with_child(Node::grow().invisible())
+        .with_child(Node::button("Exit", OnClick::Exit, 80, Size::Grow))
+}
+
 pub fn basic_scenes_layout(state: &GameState) -> ui::Tree<OnClick> {
     use ui::*;
 
-    let wrapper = Node::fit().with_color(UI_BACKGROUND_COLOR).with_children(
-        state
-            .scenes
-            .iter()
-            .enumerate()
-            .map(|(i, s)| Node::button(s.name(), OnClick::GoToScene(i), 200, 50)),
-    );
+    let vb = state.input.screen_bounds;
+    if vb.span.x == 0.0 || vb.span.y == 0.0 {
+        return Tree::new();
+    }
 
+    let top_bar = top_bar(state, 40.0);
     let notif_bar = notification_bar(state);
 
-    let layout = Node::fit()
+    let layout = Node::new(vb.span.x, vb.span.y)
+        .tight()
         .invisible()
         .down()
-        .with_child(wrapper)
+        .with_child(top_bar)
         .with_child(notif_bar);
 
     ui::Tree::new().with_layout(layout, Vec2::ZERO)
@@ -320,14 +286,13 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
     match scene.kind() {
         SceneType::MainMenu => return main_menu_layout(state),
         SceneType::DockingView(_) => return basic_scenes_layout(state),
-        SceneType::TelescopeView(_) => return basic_scenes_layout(state),
+        SceneType::TelescopeView => return basic_scenes_layout(state),
         SceneType::OrbitalView(_) => (),
         SceneType::Editor => return basic_scenes_layout(state),
     };
 
     use ui::*;
 
-    let small_button_height = 30;
     let button_height = 40;
 
     let vb = state.input.screen_bounds;
@@ -335,17 +300,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
         return Tree::new();
     }
 
-    let topbar = Node::row(Size::Fit)
-        .with_color(UI_BACKGROUND_COLOR)
-        .with_child(Node::button("Save", OnClick::Save, 80, Size::Grow))
-        .with_child(Node::button("Load", OnClick::Load, 80, Size::Grow))
-        .with_children(state.scenes.iter().enumerate().map(|(i, scene)| {
-            let s = scene.name();
-            let id = OnClick::GoToScene(i);
-            Node::button(s, id, 120, small_button_height)
-        }))
-        .with_child(Node::grow().invisible())
-        .with_child(Node::button("Exit", OnClick::Exit, 80, Size::Grow));
+    let topbar = top_bar(state, button_height as f32);
 
     let mut sidebar = Node::column(300).with_color(UI_BACKGROUND_COLOR);
 
@@ -424,13 +379,11 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
         let id = OnClick::Group(gid.clone());
         let button =
             Node::button(s, id, Size::Grow, button_height).with_color(color.to_f32_array());
-        let wrapper = delete_wrapper(
+        sidebar.add_child(delete_wrapper(
             OnClick::DisbandGroup(gid.clone()),
             button,
-            Size::Grow,
             button_height as f32,
-        );
-        sidebar.add_child(wrapper);
+        ));
     }
 
     sidebar.add_child(Node::hline());
@@ -441,7 +394,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
         if state.orbital_context.selected.is_empty() {
             b
         } else {
-            delete_wrapper(OnClick::ClearTracks, b, Size::Grow, button_height)
+            delete_wrapper(OnClick::ClearTracks, b, button_height as f32)
         }
     });
 
@@ -457,7 +410,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
             let s = format!("{id}");
             Some(
                 Node::grow()
-                    .with_id(OnClick::Orbiter(*id))
+                    .with_on_click(OnClick::Orbiter(*id))
                     .with_text(s)
                     .enabled(
                         Some(*id)
@@ -536,14 +489,11 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
             Node::button(s, id, 400, button_height)
         };
 
-        let n = delete_wrapper(
+        inner_topbar.add_child(delete_wrapper(
             OnClick::DeleteOrbit(i),
             orbit_button,
-            Size::Fit,
             button_height as f32,
-        );
-
-        inner_topbar.add_child(n);
+        ));
     }
 
     let notif_bar = notification_bar(state);
@@ -686,20 +636,24 @@ fn generate_button_sprite(node: &ui::Node<OnClick>, is_clicked: bool, is_hover: 
         return image;
     }
 
+    if !node.is_enabled() {
+        return image;
+    }
+
     if is_hover {
-        map_bytes(&mut image, |bytes, x, y, w, h| {
-            if x == 2 || y == 2 || x + 3 == w || y + 3 == h {
-                bytes[0] = 255;
-                bytes[3] = 255;
+        map_bytes(&mut image, |bytes, _, _, _, _| {
+            for i in 0..3 {
+                let b = bytes[i] as f32;
+                bytes[i] = (b * 0.8) as u8;
             }
         });
     }
 
     if is_clicked {
-        map_bytes(&mut image, |bytes, x, y, w, h| {
-            if x == 6 || y == 6 || x + 7 == w || y + 7 == h {
-                bytes[0] = 255;
-                bytes[3] = 255;
+        map_bytes(&mut image, |bytes, _, _, _, _| {
+            for i in 0..3 {
+                let b = bytes[i] as f32;
+                bytes[i] = (b * 0.6) as u8;
             }
         });
     }
@@ -806,7 +760,6 @@ fn do_ui_sprites(
 fn setup(mut commands: Commands) {
     commands.insert_resource(Events::<InteractionEvent>::default());
     commands.spawn(get_screen_clock());
-    commands.spawn(get_top_right_ui());
 }
 
 fn on_resize_system(mut resize_reader: EventReader<WindowResized>, mut state: ResMut<GameState>) {

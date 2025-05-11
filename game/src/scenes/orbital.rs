@@ -1,6 +1,5 @@
 use crate::mouse::{FrameId, InputState, MouseButt};
 use crate::planetary::GameState;
-use crate::scenes::Scene;
 use bevy::input::keyboard::KeyCode;
 use enum_iterator::Sequence;
 use starling::prelude::*;
@@ -209,35 +208,38 @@ impl Interactive for OrbitalContext {
     }
 }
 
-#[allow(unused)]
-pub struct OrbitalView<'a> {
-    pub info: &'a OrbitalContext,
-    pub input: &'a InputState,
-    pub scene: &'a Scene,
-}
+pub struct OrbitalView;
 
-impl<'a> OrbitalView<'a> {
-    pub fn measuring_tape(&self, state: &GameState) -> Option<(Vec2, Vec2, Vec2)> {
+impl OrbitalView {
+    pub fn measuring_tape(state: &GameState) -> Option<(Vec2, Vec2, Vec2)> {
+        if state.is_currently_left_clicked_on_ui() {
+            return None;
+        }
         let ctx = &state.orbital_context;
-        let input: &InputState = self.scene.mouse_if_not_on_gui(self.input, &state.ui)?;
-        let a = input.position(MouseButt::Left, FrameId::Down)?;
-        let b = input.position(MouseButt::Left, FrameId::Current)?;
+        let a = state.input.position(MouseButt::Left, FrameId::Down)?;
+        let b = state.input.position(MouseButt::Left, FrameId::Current)?;
         let a = ctx.c2w(a);
         let b = ctx.c2w(b);
         let corner = Vec2::new(a.x, b.y);
         Some((a, b, corner))
     }
 
-    pub fn protractor(&self, state: &GameState) -> Option<(Vec2, Vec2, Option<Vec2>)> {
+    pub fn protractor(state: &GameState) -> Option<(Vec2, Vec2, Option<Vec2>)> {
+        if state.is_currently_left_clicked_on_ui() {
+            return None;
+        }
         let ctx = &state.orbital_context;
-        let input: &InputState = self.scene.mouse_if_not_on_gui(self.input, &state.ui)?;
-        let c = input.position(MouseButt::Left, FrameId::Down)?;
-        let l = input.position(MouseButt::Left, FrameId::Current)?;
+        let c = state.input.position(MouseButt::Left, FrameId::Down)?;
+        let l = state.input.position(MouseButt::Left, FrameId::Current)?;
 
         let c = ctx.c2w(c);
 
-        let (a, b) = if input.position(MouseButt::Right, FrameId::Current).is_some() {
-            let r = input.position(MouseButt::Right, FrameId::Down)?;
+        let (a, b) = if state
+            .input
+            .position(MouseButt::Right, FrameId::Current)
+            .is_some()
+        {
+            let r = state.input.position(MouseButt::Right, FrameId::Down)?;
             (ctx.c2w(r), Some(ctx.c2w(l)))
         } else {
             (ctx.c2w(l), None)
@@ -273,27 +275,34 @@ impl<'a> OrbitalView<'a> {
         ))
     }
 
-    pub fn left_cursor_orbit(&self, state: &GameState) -> Option<GlobalOrbit> {
-        let _mouse = self.scene.mouse_if_not_on_gui(&self.input, &state.ui)?;
+    pub fn left_cursor_orbit(state: &GameState) -> Option<GlobalOrbit> {
+        if state.is_currently_left_clicked_on_ui() {
+            return None;
+        }
         let ctx = &state.orbital_context;
-        let a = self.input.position(MouseButt::Left, FrameId::Down)?;
-        let b = self.input.position(MouseButt::Left, FrameId::Current)?;
+        let a = state.input.position(MouseButt::Left, FrameId::Down)?;
+        let b = state.input.position(MouseButt::Left, FrameId::Current)?;
         let a = ctx.c2w(a);
         let b = ctx.c2w(b);
         Self::cursor_orbit(a, b, state)
     }
 
-    pub fn selection_region(&self, state: &GameState) -> Option<Region> {
+    pub fn selection_region(state: &GameState) -> Option<Region> {
+        if state.is_currently_left_clicked_on_ui() {
+            return None;
+        }
         let ctx = &state.orbital_context;
-        let mouse: &InputState = self.scene.mouse_if_not_on_gui(&self.input, &state.ui)?;
         match state.orbital_context.cursor_mode {
             CursorMode::Rect => {
-                let a = mouse.world_position(MouseButt::Left, FrameId::Down, ctx)?;
-                let b = mouse.world_position(MouseButt::Left, FrameId::Current, ctx)?;
+                let a = state
+                    .input
+                    .world_position(MouseButt::Left, FrameId::Down, ctx)?;
+                let b = state
+                    .input
+                    .world_position(MouseButt::Left, FrameId::Current, ctx)?;
                 Some(Region::aabb(a, b))
             }
-            CursorMode::NearOrbit => self
-                .left_cursor_orbit(state)
+            CursorMode::NearOrbit => Self::left_cursor_orbit(state)
                 .map(|GlobalOrbit(_, orbit)| Region::NearOrbit(orbit, 500.0)),
             _ => None,
         }

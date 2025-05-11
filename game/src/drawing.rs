@@ -1015,8 +1015,6 @@ fn draw_graph(gizmos: &mut Gizmos, graph: &Graph, bounds: AABB) -> Option<()> {
 }
 
 pub fn draw_ui_layout(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
-    let scene = state.current_scene();
-
     let wb = state.input.screen_bounds.span;
 
     for layout in state.ui.layouts() {
@@ -1359,7 +1357,7 @@ pub fn draw_scene(gizmos: &mut Gizmos, state: &GameState, scene: &crate::scenes:
     match scene.kind() {
         SceneType::OrbitalView(scene) => draw_orbital_view(gizmos, state, scene),
         SceneType::DockingView(id) => _ = draw_docking_scenario(gizmos, state, id),
-        SceneType::TelescopeView(_) => draw_telescope_view(gizmos, &state),
+        SceneType::TelescopeView => draw_telescope_view(gizmos, &state),
         SceneType::MainMenu => {}
         SceneType::Editor => _ = draw_editor(gizmos, state),
     }
@@ -1370,7 +1368,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
 
     draw_scene(gizmos, &state, state.current_scene());
 
-    draw_ui_layout(gizmos, &state);
+    // draw_ui_layout(gizmos, &state);
 
     // draw_input_state(gizmos, &state, state.wall_time);
 }

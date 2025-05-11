@@ -16,6 +16,8 @@ impl Plugin for SpritePlugin {
         embedded_asset!(app, "src/", "../assets/Asteroid.png");
         embedded_asset!(app, "src/", "../assets/shadow.png");
         embedded_asset!(app, "src/", "../assets/spacecraft.png");
+        embedded_asset!(app, "src/", "../assets/click.ogg");
+        embedded_asset!(app, "src/", "../assets/chatter.ogg");
     }
 }
 
@@ -331,7 +333,7 @@ pub fn update_spacecraft_sprites(
 }
 
 pub fn update_background_sprite(
-    mut orbital_context: Single<&mut Camera, With<crate::planetary::DingusController>>,
+    mut orbital_context: Single<&mut Camera, With<crate::planetary::BackgroundCamera>>,
     state: Res<GameState>,
 ) {
     let c = match state.orbital_context.draw_mode {

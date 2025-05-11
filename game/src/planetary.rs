@@ -1,8 +1,8 @@
 use crate::mouse::{FrameId, InputState, MouseButt};
 use crate::notifications::*;
 use crate::scenes::{
-    CameraProjection, CursorMode, EditorContext, Interactive, OrbitalContext, RPOContext, Scene,
-    SceneType, TelescopeContext,
+    CameraProjection, CursorMode, EditorContext, Interactive, OrbitalContext, OrbitalView,
+    RPOContext, Scene, SceneType, TelescopeContext,
 };
 use crate::ui::{InteractionEvent, OnClick};
 use bevy::color::palettes::css::*;
@@ -47,11 +47,16 @@ impl Plugin for PlanetaryPlugin {
     }
 }
 
-/// TODO get rid of this thing.
 #[derive(Component, Debug)]
-pub struct DingusController;
+pub struct BackgroundCamera;
 
-fn init_system(mut commands: Commands) {
+fn spawn_click_sound(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let path = "embedded://game/../assets/click.ogg";
+    let handle = asset_server.load(path);
+    commands.spawn(AudioPlayer::new(handle));
+}
+
+fn init_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(GameState::default());
     commands.spawn((
         Camera2d,
@@ -64,7 +69,7 @@ fn init_system(mut commands: Commands) {
             intensity: 0.2,
             ..Bloom::OLD_SCHOOL
         },
-        DingusController,
+        BackgroundCamera,
         RenderLayers::layer(0),
     ));
 
@@ -77,12 +82,16 @@ fn init_system(mut commands: Commands) {
         },
         RenderLayers::layer(1),
     ));
+
+    let path = "embedded://game/../assets/chatter.ogg";
+    let handle = asset_server.load(path);
+    commands.spawn(AudioPlayer::new(handle));
+
+    spawn_click_sound(commands, asset_server);
 }
 
 #[derive(Resource)]
 pub struct GameState {
-    pub current_frame_no: u32,
-
     /// Contains all states related to window size, mouse clicks and positions,
     /// and button presses and holds.
     pub input: InputState,
@@ -138,7 +147,7 @@ pub struct GameState {
     pub ui: Tree<OnClick>,
 
     pub notifications: Vec<Notification>,
-    pub text_labels: Vec<(Vec2, String)>,
+    pub text_labels: Vec<(Vec2, String, f32)>,
 }
 
 fn generate_starfield() -> Vec<(Vec3, Srgba, f32, f32)> {
@@ -165,7 +174,6 @@ impl Default for GameState {
         let (scenario, ids) = default_example();
 
         GameState {
-            current_frame_no: 0,
             input: InputState::default(),
             orbital_context: OrbitalContext::new(PlanetId(0)),
             telescope_context: TelescopeContext::new(),
@@ -282,8 +290,7 @@ impl GameState {
     }
 
     pub fn selection_region(&self) -> Option<Region> {
-        let ov = self.current_scene().orbital_view(&self.input)?;
-        ov.selection_region(self)
+        OrbitalView::selection_region(self)
     }
 
     pub fn measuring_tape(&self) -> Option<(Vec2, Vec2, Vec2)> {
@@ -291,9 +298,7 @@ impl GameState {
             return None;
         }
 
-        let scene = self.current_scene();
-        let ov = scene.orbital_view(&self.input)?;
-        ov.measuring_tape(self)
+        OrbitalView::measuring_tape(self)
     }
 
     pub fn protractor(&self) -> Option<(Vec2, Vec2, Option<Vec2>)> {
@@ -301,15 +306,11 @@ impl GameState {
             return None;
         }
 
-        let scene = self.current_scene();
-        let ov = scene.orbital_view(&self.input)?;
-        ov.protractor(self)
+        OrbitalView::protractor(self)
     }
 
     pub fn left_cursor_orbit(&self) -> Option<GlobalOrbit> {
-        let scene = self.current_scene();
-        let ov = scene.orbital_view(&self.input)?;
-        ov.left_cursor_orbit(self)
+        OrbitalView::left_cursor_orbit(self)
     }
 
     pub fn cursor_orbit_if_mode(&self) -> Option<GlobalOrbit> {
@@ -430,11 +431,11 @@ impl GameState {
         if self.orbital_context.selected.is_empty() {
             return;
         }
-        info!(
+        self.notice(format!(
             "Commanding {} orbiters to {}",
             self.orbital_context.selected.len(),
             next,
-        );
+        ));
         for id in self.orbital_context.selected.clone() {
             self.command(id, next);
         }
@@ -607,12 +608,28 @@ impl GameState {
     pub fn current_hover_ui(&self) -> Option<&crate::ui::OnClick> {
         let wb = self.input.screen_bounds.span;
         let p = self.input.position(MouseButt::Hover, FrameId::Current)?;
-        self.ui.at(p, wb).map(|n| n.id()).flatten()
+        self.ui.at(p, wb).map(|n| n.on_click()).flatten()
     }
 
     pub fn is_hovering_over_ui(&self) -> bool {
         let wb = self.input.screen_bounds.span;
         let p = match self.input.position(MouseButt::Hover, FrameId::Current) {
+            Some(p) => p,
+            None => return false,
+        };
+        self.ui.at(p, wb).map(|n| n.is_visible()).unwrap_or(false)
+    }
+
+    pub fn is_currently_left_clicked_on_ui(&self) -> bool {
+        let wb = self.input.screen_bounds.span;
+        if self
+            .input
+            .position(MouseButt::Left, FrameId::Current)
+            .is_none()
+        {
+            return false;
+        }
+        let p = match self.input.position(MouseButt::Left, FrameId::Down) {
             Some(p) => p,
             None => return false,
         };
@@ -625,25 +642,30 @@ impl GameState {
 
         let wb = self.input.screen_bounds.span;
 
-        if self.input.on_frame(Left, Down, self.current_frame_no) {
+        if self.input.on_frame(Left, Up) {
             let p = self.input.position(Left, Down);
-            if let Some(p) = p {
-                if let Some(n) = self.ui.at(p, wb).map(|n| n.id()).flatten() {
-                    self.on_button_event(n.clone());
+            let q = self.input.position(Left, Up);
+            if let Some((p, q)) = p.zip(q) {
+                let n = self.ui.at(p, wb).map(|n| n.on_click()).flatten();
+                let m = self.ui.at(q, wb).map(|n| n.on_click()).flatten();
+                if let Some((n, m)) = n.zip(m) {
+                    if n == m {
+                        self.on_button_event(n.clone());
+                    }
                 }
                 self.redraw();
             }
         }
 
-        if self.input.on_frame(Right, Down, self.current_frame_no) {
+        if self.input.on_frame(Right, Down) {
             self.redraw();
         }
 
-        if self.input.on_frame(Left, Up, self.current_frame_no) {
+        if self.input.on_frame(Left, Up) {
             self.redraw();
         }
 
-        if self.input.on_frame(Right, Up, self.current_frame_no) {
+        if self.input.on_frame(Right, Up) {
             self.redraw();
         }
     }
@@ -687,7 +709,7 @@ impl GameState {
                     self.orbital_context.go_to(p);
                 }
             }
-            SceneType::TelescopeView(_) => self.telescope_context.step(&self.input, dt),
+            SceneType::TelescopeView => self.telescope_context.step(&self.input, dt),
             SceneType::DockingView(_) => {
                 self.rpo_context.step(&self.input, dt);
                 if let Some((_, rpo)) = self.rpos.iter().next() {
@@ -816,12 +838,34 @@ impl GameState {
 
         self.text_labels.clear();
 
+        if self.paused {
+            let s = "PAUSED".to_string();
+            let c = Vec2::Y * (60.0 - self.input.screen_bounds.span.y * 0.5);
+            self.text_labels.push((c, s, 2.5));
+        }
+
+        {
+            let date = self.sim_time.to_date();
+            let s = format!(
+                "Y{} W{} D{} {:02}:{:02}:{:02}.{:03}",
+                date.year + 1,
+                date.week + 1,
+                date.day + 1,
+                date.hour,
+                date.min,
+                date.sec,
+                date.milli,
+            );
+            let c = Vec2::Y * (20.0 - self.input.screen_bounds.span.y * 0.5);
+            self.text_labels.push((c, s, 1.0));
+        }
+
         if let Some((m1, m2, corner)) = self.measuring_tape() {
             for (a, b) in [(m1, m2), (m1, corner), (m2, corner)] {
                 let middle = (a + b) / 2.0;
                 let middle = self.orbital_context.w2c(middle);
                 let d = format!("{:0.1} km", a.distance(b));
-                self.text_labels.push((middle, d));
+                self.text_labels.push((middle, d, 1.0));
             }
         }
 
@@ -831,7 +875,7 @@ impl GameState {
                     let middle = (a + b) / 2.0;
                     let middle = self.orbital_context.w2c(middle);
                     let d = format!("{:0.1} km", a.distance(b));
-                    self.text_labels.push((middle, d));
+                    self.text_labels.push((middle, d, 1.0));
                 }
             }
             if let Some(b) = b {
@@ -841,15 +885,22 @@ impl GameState {
                 let d = c + rotate(da * 0.75, angle / 2.0);
                 let t = format!("{:0.1} deg", angle.to_degrees().abs());
                 let d = self.orbital_context.w2c(d);
-                self.text_labels.push((d, t));
+                self.text_labels.push((d, t, 1.0));
             }
         }
-
-        self.current_frame_no += 1;
     }
 }
 
-fn step_system(time: Res<Time>, mut state: ResMut<GameState>) {
+fn step_system(
+    time: Res<Time>,
+    mut state: ResMut<GameState>,
+    commands: Commands,
+    asset_server: Res<AssetServer>,
+) {
+    if state.input.just_pressed(KeyCode::KeyQ) {
+        spawn_click_sound(commands, asset_server);
+    }
+
     state.step(&time);
 }
 
@@ -888,9 +939,6 @@ fn process_interaction(
         }
         InteractionEvent::DrawMode => {
             state.orbital_context.draw_mode = next_cycle(&state.orbital_context.draw_mode);
-        }
-        InteractionEvent::RedrawGui => {
-            state.redraw();
         }
         InteractionEvent::Orbits => {
             state.orbital_context.show_orbits = next_cycle(&state.orbital_context.show_orbits);
@@ -979,7 +1027,7 @@ fn handle_interactions(
 
 // TODO get rid of this
 fn track_highlighted_objects(buttons: Res<ButtonInput<MouseButton>>, mut state: ResMut<GameState>) {
-    if buttons.just_released(MouseButton::Left) || buttons.just_released(MouseButton::Middle) {
+    if buttons.just_released(MouseButton::Left) {
         let h = state.highlighted();
         state.orbital_context.selected.extend(h.into_iter());
     }

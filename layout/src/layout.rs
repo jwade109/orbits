@@ -79,21 +79,21 @@ pub struct NodeStyle {
 }
 
 #[derive(Debug, Clone)]
-pub struct Node<IdType> {
+pub struct Node<MessageType> {
     desired_width: Size,
     desired_height: Size,
     calculated_width: Option<f32>,
     calculated_height: Option<f32>,
     calculated_position: Option<Vec2>,
     layer: Option<u32>,
-    children: Vec<Node<IdType>>,
-    id: Option<IdType>,
+    children: Vec<Node<MessageType>>,
+    onclick: Option<MessageType>,
     text_content: Option<String>,
     enabled: bool,
     style: NodeStyle,
 }
 
-impl<IdType> Node<IdType> {
+impl<MessageType> Node<MessageType> {
     pub fn new(width: impl Into<Size>, height: impl Into<Size>) -> Self {
         let w = width.into();
         let h = height.into();
@@ -105,7 +105,7 @@ impl<IdType> Node<IdType> {
             calculated_position: None,
             layer: None,
             children: Vec::new(),
-            id: None,
+            onclick: None,
             text_content: None,
             enabled: true,
             style: NodeStyle {
@@ -113,7 +113,7 @@ impl<IdType> Node<IdType> {
                 child_gap: 10.0,
                 padding: 10.0,
                 visible: true,
-                enabled_color: [1.0, 0.6, 0.0, 0.2],
+                enabled_color: [0.6, 0.3, 0.0, 0.8],
                 disabled_color: [0.2, 0.2, 0.2, 0.8],
                 text_justify: TextJustify::Center,
             },
@@ -134,11 +134,13 @@ impl<IdType> Node<IdType> {
 
     pub fn button(
         s: impl Into<String>,
-        id: impl Into<IdType>,
+        onclick: impl Into<MessageType>,
         width: impl Into<Size>,
         height: impl Into<Size>,
     ) -> Self {
-        Node::<IdType>::new(width, height).with_text(s).with_id(id)
+        Node::<MessageType>::new(width, height)
+            .with_text(s)
+            .with_on_click(onclick)
     }
 
     pub fn column(width: impl Into<Size>) -> Self {
@@ -146,11 +148,11 @@ impl<IdType> Node<IdType> {
     }
 
     pub fn hline() -> Self {
-        Node::row(0).with_color([0.5, 0.5, 0.5, 0.9])
+        Node::row(0).with_color([0.5, 0.5, 0.5, 0.8])
     }
 
     pub fn vline() -> Self {
-        Node::column(0).with_color([0.0, 0.0, 0.0, 0.5])
+        Node::column(0).with_color([0.5, 0.5, 0.5, 0.8])
     }
 
     pub fn enabled(mut self, enabled: bool) -> Self {
@@ -182,7 +184,7 @@ impl<IdType> Node<IdType> {
         rows: u32,
         cols: u32,
         spacing: f32,
-        func: impl Fn(u32) -> Option<Node<IdType>>,
+        func: impl Fn(u32) -> Option<Node<MessageType>>,
     ) -> Self {
         let mut i = 0;
         let mut root = Node::new(width, height)
@@ -210,12 +212,12 @@ impl<IdType> Node<IdType> {
         root
     }
 
-    pub fn id(&self) -> Option<&IdType> {
-        self.id.as_ref()
+    pub fn on_click(&self) -> Option<&MessageType> {
+        self.onclick.as_ref()
     }
 
-    pub fn with_id(mut self, id: impl Into<IdType>) -> Self {
-        self.id = Some(id.into());
+    pub fn with_on_click(mut self, onclick: impl Into<MessageType>) -> Self {
+        self.onclick = Some(onclick.into());
         self
     }
 
@@ -266,19 +268,19 @@ impl<IdType> Node<IdType> {
         self
     }
 
-    pub fn with_child(mut self, n: Node<IdType>) -> Self {
+    pub fn with_child(mut self, n: Node<MessageType>) -> Self {
         self.add_child(n);
         self
     }
 
-    pub fn with_children(mut self, nodes: impl Iterator<Item = Node<IdType>>) -> Self {
+    pub fn with_children(mut self, nodes: impl Iterator<Item = Node<MessageType>>) -> Self {
         nodes.for_each(|n| {
             self.add_child(n);
         });
         self
     }
 
-    pub fn children(&self) -> impl Iterator<Item = &Node<IdType>> + use<'_, IdType> {
+    pub fn children(&self) -> impl Iterator<Item = &Node<MessageType>> + use<'_, MessageType> {
         self.children.iter()
     }
 
@@ -294,12 +296,12 @@ impl<IdType> Node<IdType> {
         self.style.visible
     }
 
-    pub fn add_child(&mut self, n: Node<IdType>) -> &mut Self {
+    pub fn add_child(&mut self, n: Node<MessageType>) -> &mut Self {
         self.children.push(n);
         self
     }
 
-    pub fn add_children(&mut self, nodes: impl Iterator<Item = Node<IdType>>) -> &mut Self {
+    pub fn add_children(&mut self, nodes: impl Iterator<Item = Node<MessageType>>) -> &mut Self {
         nodes.for_each(|n| {
             self.add_child(n);
         });
@@ -316,6 +318,10 @@ impl<IdType> Node<IdType> {
         } else {
             self.style.disabled_color
         }
+    }
+
+    pub fn desired_dims(&self) -> (Size, Size) {
+        (self.desired_width, self.desired_height)
     }
 
     pub fn fixed_dims(&self) -> Vec2 {
@@ -344,9 +350,9 @@ impl<IdType> Node<IdType> {
         aabb.flip_y_about(0.0).offset(offset)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &Node<IdType>> + use<'_, IdType> {
+    pub fn iter(&self) -> impl Iterator<Item = &Node<MessageType>> + use<'_, MessageType> {
         let self_iter = [self].into_iter();
-        let child_iters: Vec<&Node<IdType>> = self
+        let child_iters: Vec<&Node<MessageType>> = self
             .children
             .iter()
             .flat_map(|n| n.iter())
@@ -355,9 +361,9 @@ impl<IdType> Node<IdType> {
     }
 }
 
-fn sum_fixed_dims<'a, IdType: 'a>(
+fn sum_fixed_dims<'a, MessageType: 'a>(
     layout: LayoutDir,
-    nodes: impl Iterator<Item = &'a Node<IdType>>,
+    nodes: impl Iterator<Item = &'a Node<MessageType>>,
     padding: f32,
     childgap: f32,
 ) -> Vec2 {
@@ -398,8 +404,8 @@ fn sum_fixed_dims<'a, IdType: 'a>(
     Vec2::new(sx, sy)
 }
 
-fn populate_positions<'a, IdType: 'a>(
-    mut root: &mut Node<IdType>,
+fn populate_positions<'a, MessageType: 'a>(
+    mut root: &mut Node<MessageType>,
     origin: impl Into<Option<Vec2>>,
 ) {
     let origin = origin.into().unwrap_or(Vec2::ZERO);
@@ -419,7 +425,7 @@ fn populate_positions<'a, IdType: 'a>(
     });
 }
 
-fn assign_layers<IdType>(root: &mut Node<IdType>, layer: u32) {
+fn assign_layers<MessageType>(root: &mut Node<MessageType>, layer: u32) {
     root.layer = Some(layer);
 
     for c in &mut root.children {
@@ -427,7 +433,7 @@ fn assign_layers<IdType>(root: &mut Node<IdType>, layer: u32) {
     }
 }
 
-pub fn populate_fit_sizes<IdType>(root: &mut Node<IdType>) {
+pub fn populate_fit_sizes<MessageType>(root: &mut Node<MessageType>) {
     if root.is_leaf() {
         if root.desired_width.is_fit() {
             root.calculated_width = Some(0.0);
@@ -456,7 +462,7 @@ pub fn populate_fit_sizes<IdType>(root: &mut Node<IdType>) {
     }
 }
 
-pub fn populate_grow_sizes<IdType>(root: &mut Node<IdType>) {
+pub fn populate_grow_sizes<MessageType>(root: &mut Node<MessageType>) {
     if root.is_leaf() {
         return;
     }
@@ -509,16 +515,16 @@ pub fn populate_grow_sizes<IdType>(root: &mut Node<IdType>) {
 }
 
 #[derive(Debug, Clone)]
-pub struct Tree<IdType> {
-    roots: Vec<Node<IdType>>,
+pub struct Tree<MessageType> {
+    roots: Vec<Node<MessageType>>,
 }
 
-impl<IdType> Tree<IdType> {
-    pub fn new() -> Tree<IdType> {
+impl<MessageType> Tree<MessageType> {
+    pub fn new() -> Tree<MessageType> {
         Tree { roots: Vec::new() }
     }
 
-    pub fn add_layout(&mut self, mut node: Node<IdType>, origin: impl Into<Option<Vec2>>) {
+    pub fn add_layout(&mut self, mut node: Node<MessageType>, origin: impl Into<Option<Vec2>>) {
         let origin = origin.into().unwrap_or(Vec2::ZERO);
         populate_fit_sizes(&mut node);
         populate_grow_sizes(&mut node);
@@ -527,18 +533,18 @@ impl<IdType> Tree<IdType> {
         self.roots.push(node);
     }
 
-    pub fn with_layout(mut self, node: Node<IdType>, origin: impl Into<Option<Vec2>>) -> Self {
+    pub fn with_layout(mut self, node: Node<MessageType>, origin: impl Into<Option<Vec2>>) -> Self {
         self.add_layout(node, origin);
         self
     }
 
-    pub fn layouts(&self) -> &Vec<Node<IdType>> {
+    pub fn layouts(&self) -> &Vec<Node<MessageType>> {
         &self.roots
     }
 
-    pub fn at(&self, p: Vec2, wb: Vec2) -> Option<&Node<IdType>> {
+    pub fn at(&self, p: Vec2, wb: Vec2) -> Option<&Node<MessageType>> {
         for layout in self.roots.iter().rev() {
-            let mut candidates: Vec<&Node<IdType>> = layout
+            let mut candidates: Vec<&Node<MessageType>> = layout
                 .iter()
                 .filter(|n| n.aabb_camera(wb).contains(p))
                 .filter(|n| n.is_visible())

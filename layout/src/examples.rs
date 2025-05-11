@@ -84,7 +84,7 @@ pub fn example_layout(width: f32, height: f32) -> Tree<String> {
         .with_spacing(spacing)
         .with_children((0..10).map(|i| Node::new(120, 40).with_text(format!("thing {}", i))))
         .with_children((0..5).map(|_| Node::grow().invisible()))
-        .with_child(Node::column(70).with_text("Exit").with_id("exit"));
+        .with_child(Node::column(70).with_text("Exit").with_on_click("exit"));
 
     let main = Node::grow()
         .tight()

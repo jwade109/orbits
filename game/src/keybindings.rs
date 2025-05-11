@@ -29,7 +29,6 @@ pub fn keyboard_input(
             KeyCode::Escape => InteractionEvent::ExitApp,
             KeyCode::KeyV => InteractionEvent::CursorMode,
             KeyCode::KeyM => InteractionEvent::DrawMode,
-            KeyCode::KeyY => InteractionEvent::RedrawGui,
             KeyCode::F11 => InteractionEvent::ToggleFullscreen,
             _ => continue,
         };

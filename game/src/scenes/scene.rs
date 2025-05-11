@@ -2,7 +2,7 @@
 
 use crate::mouse::{FrameId, InputState, MouseButt};
 use crate::planetary::GameState;
-use crate::scenes::{CursorMode, OrbitalContext, OrbitalView, TelescopeContext};
+use crate::scenes::{CursorMode, OrbitalContext, OrbitalView};
 use crate::ui::{InteractionEvent, OnClick};
 use bevy::log::*;
 use layout::layout::Tree;
@@ -12,7 +12,7 @@ use starling::prelude::*;
 pub enum SceneType {
     OrbitalView(OrbitalContext),
     DockingView(OrbiterId),
-    TelescopeView(TelescopeContext),
+    TelescopeView,
     Editor,
     MainMenu,
 }
@@ -34,7 +34,7 @@ impl Scene {
     pub fn telescope() -> Self {
         Scene {
             name: "Telescope".into(),
-            scene_type: SceneType::TelescopeView(TelescopeContext::new()),
+            scene_type: SceneType::TelescopeView,
         }
     }
 
@@ -65,36 +65,5 @@ impl Scene {
 
     pub fn kind(&self) -> &SceneType {
         &self.scene_type
-    }
-
-    // TODO deduplicate
-    #[deprecated]
-    pub fn is_hovering_over_ui(&self, input: &InputState, ui: &Tree<OnClick>) -> bool {
-        let wb = input.screen_bounds.span;
-        let p = match input.position(MouseButt::Hover, FrameId::Current) {
-            Some(p) => p,
-            None => return false,
-        };
-        ui.at(p, wb).map(|n| n.is_visible()).unwrap_or(false)
-    }
-
-    pub fn mouse_if_not_on_gui<'a>(
-        &self,
-        input: &'a InputState,
-        ui: &Tree<OnClick>,
-    ) -> Option<&'a InputState> {
-        let is_on_world = !self.is_hovering_over_ui(input, ui);
-        is_on_world.then(|| input)
-    }
-
-    pub fn orbital_view<'a>(&'a self, input: &'a InputState) -> Option<OrbitalView<'a>> {
-        match &self.scene_type {
-            SceneType::OrbitalView(info) => Some(OrbitalView {
-                info,
-                input,
-                scene: &self,
-            }),
-            _ => None,
-        }
     }
 }
