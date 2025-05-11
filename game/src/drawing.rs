@@ -415,6 +415,7 @@ fn draw_orbiter(gizmos: &mut Gizmos, state: &GameState, id: OrbiterId) -> Option
     let ctx = &state.orbital_context;
     let tracked = state.orbital_context.selected.contains(&id);
     let piloting = state.piloting() == Some(id);
+    let targeting = state.targeting() == Some(id);
 
     let low_fuel = match state.orbital_vehicles.get(&id) {
         Some(v) => v.low_fuel(),
@@ -444,14 +445,20 @@ fn draw_orbiter(gizmos: &mut Gizmos, state: &GameState, id: OrbiterId) -> Option
 
     let show_orbits = match ctx.show_orbits {
         ShowOrbitsState::All => true,
-        ShowOrbitsState::Focus => tracked || piloting,
+        ShowOrbitsState::Focus => tracked || piloting || targeting,
         ShowOrbitsState::None => false,
     };
 
-    if tracked || piloting {
+    if tracked || piloting || targeting {
         for (i, prop) in obj.props().iter().enumerate() {
             let color = if i == 0 {
-                WHITE.with_alpha(0.02)
+                if piloting {
+                    ORANGE.with_alpha(0.4)
+                } else if targeting {
+                    TEAL.with_alpha(0.4)
+                } else {
+                    WHITE.with_alpha(0.02)
+                }
             } else {
                 TEAL.with_alpha((1.0 - i as f32 * 0.3).max(0.0))
             };
@@ -459,11 +466,9 @@ fn draw_orbiter(gizmos: &mut Gizmos, state: &GameState, id: OrbiterId) -> Option
                 draw_propagator(gizmos, state, &prop, true, color, ctx);
             }
         }
-    } else {
-        if show_orbits {
-            let prop = obj.propagator_at(state.sim_time)?;
-            draw_propagator(gizmos, state, prop, false, GRAY.with_alpha(0.02), ctx);
-        }
+    } else if show_orbits {
+        let prop = obj.propagator_at(state.sim_time)?;
+        draw_propagator(gizmos, state, prop, false, GRAY.with_alpha(0.02), ctx);
     }
     Some(())
 }
@@ -1051,12 +1056,23 @@ pub fn draw_orbit_spline(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     Some(())
 }
 
+fn highlight_targeted_vehicle(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
+    let id = state.targeting()?;
+    let lup = state.scenario.lup_orbiter(id, state.sim_time)?;
+    let pos = lup.pv().pos;
+    let c = state.orbital_context.w2c(pos);
+    draw_circle(gizmos, c, 10.0, TEAL);
+    Some(())
+}
+
 pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, _scene: &OrbitalContext) {
     let ctx = &state.orbital_context;
 
     draw_scale_indicator(gizmos, state);
 
     draw_piloting_overlay(gizmos, state);
+
+    highlight_targeted_vehicle(gizmos, state);
 
     // draw_timeline(gizmos, &state);
 

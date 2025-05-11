@@ -16,8 +16,6 @@ impl Plugin for SpritePlugin {
         embedded_asset!(app, "src/", "../assets/Asteroid.png");
         embedded_asset!(app, "src/", "../assets/shadow.png");
         embedded_asset!(app, "src/", "../assets/spacecraft.png");
-        embedded_asset!(app, "src/", "../assets/click.ogg");
-        embedded_asset!(app, "src/", "../assets/chatter.ogg");
     }
 }
 

@@ -60,13 +60,15 @@ pub struct OrbitalContext {
     scale: f32,
     target_scale: f32,
     pub following: Option<ObjectId>,
-    piloting: Option<OrbiterId>,
     pub queued_orbits: Vec<GlobalOrbit>,
     pub cursor_mode: CursorMode,
     pub show_orbits: ShowOrbitsState,
     pub show_animations: bool,
     pub draw_mode: DrawMode,
     pub throttle: ThrottleLevel,
+
+    pub piloting: Option<OrbiterId>,
+    pub targeting: Option<OrbiterId>,
 }
 
 pub trait CameraProjection {
@@ -123,13 +125,14 @@ impl OrbitalContext {
             scale: 0.02,
             target_scale: 0.025,
             following: None,
-            piloting: None,
             queued_orbits: Vec::new(),
             cursor_mode: CursorMode::Rect,
             show_orbits: ShowOrbitsState::Focus,
             show_animations: true,
             draw_mode: DrawMode::Default,
             throttle: ThrottleLevel::Medium,
+            piloting: None,
+            targeting: None,
         }
     }
 

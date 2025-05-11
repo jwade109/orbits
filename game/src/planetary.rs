@@ -50,12 +50,6 @@ impl Plugin for PlanetaryPlugin {
 #[derive(Component, Debug)]
 pub struct BackgroundCamera;
 
-fn spawn_click_sound(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let path = "embedded://game/../assets/click.ogg";
-    let handle = asset_server.load(path);
-    commands.spawn(AudioPlayer::new(handle));
-}
-
 fn init_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(GameState::default());
     commands.spawn((
@@ -82,12 +76,6 @@ fn init_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         RenderLayers::layer(1),
     ));
-
-    let path = "embedded://game/../assets/chatter.ogg";
-    let handle = asset_server.load(path);
-    commands.spawn(AudioPlayer::new(handle));
-
-    spawn_click_sound(commands, asset_server);
 }
 
 #[derive(Resource)]
@@ -322,7 +310,11 @@ impl GameState {
     }
 
     pub fn piloting(&self) -> Option<OrbiterId> {
-        self.orbital_context.following?.orbiter()
+        self.orbital_context.piloting
+    }
+
+    pub fn targeting(&self) -> Option<OrbiterId> {
+        self.orbital_context.targeting
     }
 
     pub fn spawn_at(&mut self, global: &GlobalOrbit) -> Option<()> {
@@ -590,6 +582,10 @@ impl GameState {
                 self.orbital_context.throttle = throttle;
                 self.notice(format!("Throttle set to {:?}", throttle));
             }
+            OnClick::ClearPilot => self.orbital_context.piloting = None,
+            OnClick::ClearTarget => self.orbital_context.targeting = None,
+            OnClick::SetPilot(p) => self.orbital_context.piloting = Some(p),
+            OnClick::SetTarget(p) => self.orbital_context.targeting = Some(p),
             _ => info!("Unhandled button event: {id:?}"),
         };
 
@@ -891,16 +887,7 @@ impl GameState {
     }
 }
 
-fn step_system(
-    time: Res<Time>,
-    mut state: ResMut<GameState>,
-    commands: Commands,
-    asset_server: Res<AssetServer>,
-) {
-    if state.input.just_pressed(KeyCode::KeyQ) {
-        spawn_click_sound(commands, asset_server);
-    }
-
+fn step_system(time: Res<Time>, mut state: ResMut<GameState>) {
     state.step(&time);
 }
 

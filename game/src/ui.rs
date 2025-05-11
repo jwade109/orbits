@@ -164,6 +164,10 @@ pub enum OnClick {
     CursorMode(CursorMode),
     GoToScene(usize),
     ThrustLevel(ThrottleLevel),
+    SetTarget(OrbiterId),
+    SetPilot(OrbiterId),
+    ClearTarget,
+    ClearPilot,
     Nullopt,
 }
 
@@ -281,6 +285,51 @@ pub fn notification_bar(state: &GameState) -> ui::Node<OnClick> {
     )
 }
 
+pub fn append_piloting_buttons(
+    state: &GameState,
+    sidebar: &mut ui::Node<OnClick>,
+    button_height: u32,
+) -> bool {
+    use ui::*;
+    // piloting and secondary spacecrafts
+
+    let x = if let Some(p) = state.orbital_context.piloting {
+        sidebar.add_child({
+            let s = format!("Piloting {:?}", p);
+            let b = Node::button(s, OnClick::Orbiter(p), Size::Grow, button_height);
+            delete_wrapper(OnClick::ClearPilot, b, button_height as f32)
+        });
+        true
+    } else if let Some(ObjectId::Orbiter(p)) = state.orbital_context.following {
+        sidebar.add_child({
+            let s = format!("Pilot {:?}", p);
+            Node::button(s, OnClick::SetPilot(p), Size::Grow, button_height)
+        });
+        true
+    } else {
+        false
+    };
+
+    let y = if let Some(p) = state.orbital_context.targeting {
+        sidebar.add_child({
+            let s = format!("Targeting {:?}", p);
+            let b = Node::button(s, OnClick::Orbiter(p), Size::Grow, button_height);
+            delete_wrapper(OnClick::ClearTarget, b, button_height as f32)
+        });
+        true
+    } else if let Some(ObjectId::Orbiter(p)) = state.orbital_context.following {
+        sidebar.add_child({
+            let s = format!("Target {:?}", p);
+            Node::button(s, OnClick::SetTarget(p), Size::Grow, button_height)
+        });
+        true
+    } else {
+        false
+    };
+
+    x || y
+}
+
 pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
     let scene = state.current_scene();
     match scene.kind() {
@@ -387,6 +436,10 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
     }
 
     sidebar.add_child(Node::hline());
+
+    if append_piloting_buttons(state, &mut sidebar, button_height) {
+        sidebar.add_child(Node::hline());
+    }
 
     sidebar.add_child({
         let s = format!("{} selected", state.orbital_context.selected.len());
