@@ -3,6 +3,7 @@
 use bevy::color::palettes::basic::*;
 use bevy::color::palettes::css::ORANGE;
 use bevy::prelude::*;
+use starling::planning::rendezvous_plan;
 use starling::prelude::*;
 
 use crate::graph::*;
@@ -723,23 +724,14 @@ fn draw_maneuver_plan(
         gizmos.linestrip_2d(positions, YELLOW);
     }
 
-    let color = YELLOW.with_alpha(0.03);
     for segment in &plan.segments {
-        // draw_orbit_between(
-        //     gizmos,
-        //     &segment.orbit,
-        //     origin,
-        //     color,
-        //     segment.start.max(stamp),
-        //     segment.end,
-        //     ctx,
-        // );
         if segment.end > stamp {
             let pv = plan.pv(segment.end)?;
-            draw_diamond(gizmos, origin + pv.pos, 10.0 * ctx.scale(), color);
+            let p = ctx.w2c(pv.pos + origin);
+            draw_circle(gizmos, p, 20.0, WHITE);
         }
     }
-    draw_orbit(gizmos, &plan.terminal, origin, color, ctx);
+    draw_orbit(gizmos, &plan.terminal, origin, PURPLE, ctx);
     Some(())
 }
 
@@ -1067,7 +1059,26 @@ fn highlight_targeted_vehicle(gizmos: &mut Gizmos, state: &GameState) -> Option<
     Some(())
 }
 
-pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, _scene: &OrbitalContext) {
+fn draw_rendezvous_info(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
+    let ctx = &state.orbital_context;
+    let pilot = state.piloting()?;
+    let target = state.targeting()?;
+    let po = state.get_orbit(pilot)?;
+    let to = state.get_orbit(target)?;
+
+    let info = po.1.geometric_approach_info(to.1)?;
+
+    for a in info.points() {
+        let p = ctx.w2c(po.1.position_at_angle(a));
+        let q = ctx.w2c(to.1.position_at_angle(a));
+        draw_circle(gizmos, p, 10.0, RED);
+        draw_circle(gizmos, q, 10.0, TEAL);
+    }
+
+    Some(())
+}
+
+pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState) {
     let ctx = &state.orbital_context;
 
     draw_scale_indicator(gizmos, state);
@@ -1075,6 +1086,8 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState, _scene: &Orbita
     draw_piloting_overlay(gizmos, state);
 
     highlight_targeted_vehicle(gizmos, state);
+
+    draw_rendezvous_info(gizmos, state);
 
     // draw_timeline(gizmos, &state);
 
@@ -1373,7 +1386,7 @@ pub fn draw_editor(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
 
 pub fn draw_scene(gizmos: &mut Gizmos, state: &GameState, scene: &crate::scenes::Scene) {
     match scene.kind() {
-        SceneType::OrbitalView(scene) => draw_orbital_view(gizmos, state, scene),
+        SceneType::OrbitalView => draw_orbital_view(gizmos, state),
         SceneType::DockingView(id) => _ = draw_docking_scenario(gizmos, state, id),
         SceneType::TelescopeView => draw_telescope_view(gizmos, &state),
         SceneType::MainMenu => {}

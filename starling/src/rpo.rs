@@ -4,6 +4,7 @@ use crate::nanotime::Nanotime;
 use crate::pv::PV;
 use crate::vehicle::Vehicle;
 
+#[derive(Debug)]
 pub struct RPO {
     pub stamp: Nanotime,
     pub vehicles: Vec<(PV, Vehicle)>,

@@ -82,8 +82,10 @@ pub fn do_text_labels(
     state: Res<GameState>,
     mut query: Query<(Entity, &mut Text2d, &mut TextFont, &mut Transform), With<TextLabel>>,
 ) {
+    let text_labels = state.orbital_text_labels();
+
     let mut labels: Vec<_> = query.iter_mut().collect();
-    for (i, (pos, txt, size)) in state.text_labels.iter().enumerate() {
+    for (i, (pos, txt, size)) in text_labels.iter().enumerate() {
         if let Some((_, text2d, font, label)) = labels.get_mut(i) {
             label.translation = pos.extend(TEXT_LABEL_Z_INDEX);
             label.scale = Vec3::splat(1.0);
@@ -103,7 +105,7 @@ pub fn do_text_labels(
     }
 
     for (i, (e, _, _, _)) in query.iter().enumerate() {
-        if i >= state.text_labels.len() {
+        if i >= text_labels.len() {
             commands.entity(e).despawn();
         }
     }
@@ -246,7 +248,8 @@ pub fn top_bar(state: &GameState, button_height: f32) -> ui::Node<OnClick> {
         .with_children(state.scenes.iter().enumerate().map(|(i, scene)| {
             let s = scene.name();
             let id = OnClick::GoToScene(i);
-            Node::button(s, id, 120, button_height)
+            let current = state.current_scene_idx == i;
+            Node::button(s, id, 120, button_height).enabled(!current)
         }))
         .with_child(Node::grow().invisible())
         .with_child(Node::button("Exit", OnClick::Exit, 80, Size::Grow))
@@ -336,7 +339,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
         SceneType::MainMenu => return main_menu_layout(state),
         SceneType::DockingView(_) => return basic_scenes_layout(state),
         SceneType::TelescopeView => return basic_scenes_layout(state),
-        SceneType::OrbitalView(_) => (),
+        SceneType::OrbitalView => (),
         SceneType::Editor => return basic_scenes_layout(state),
     };
 

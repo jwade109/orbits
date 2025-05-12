@@ -22,6 +22,13 @@ impl PV {
         }
     }
 
+    pub fn nan() -> Self {
+        PV {
+            pos: Vec2::NAN,
+            vel: Vec2::NAN,
+        }
+    }
+
     pub fn new(pos: impl Into<Vec2>, vel: impl Into<Vec2>) -> Self {
         PV {
             pos: pos.into(),

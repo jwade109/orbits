@@ -5,6 +5,7 @@ use bevy::input::keyboard::KeyCode;
 use starling::prelude::*;
 use std::collections::HashSet;
 
+#[derive(Debug)]
 pub struct EditorContext {
     center: Vec2,
     target_center: Vec2,

@@ -99,6 +99,7 @@ fn mutual_separation(o1: &SparseOrbit, o2: &SparseOrbit, t: Nanotime) -> f32 {
     p1.distance(p2)
 }
 
+/// determines where the condition goes from true to false, if ever
 pub(crate) fn search_condition<T: BinarySearchKey>(
     t1: T,
     t2: T,
@@ -795,6 +796,14 @@ fn generate_maneuver_plans(
     // let bielliptic = bielliptic_transfer(current, &destination, now);
 
     [direct, hohmann].into_iter().flatten().collect()
+}
+
+pub fn rendezvous_plan(
+    src: &SparseOrbit,
+    dst: &SparseOrbit,
+    now: Nanotime,
+) -> Option<ManeuverPlan> {
+    hohmann_transfer(src, dst, now)
 }
 
 pub fn best_maneuver_plan(

@@ -50,7 +50,7 @@ impl Plugin for PlanetaryPlugin {
 #[derive(Component, Debug)]
 pub struct BackgroundCamera;
 
-fn init_system(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn init_system(mut commands: Commands) {
     commands.insert_resource(GameState::default());
     commands.spawn((
         Camera2d,
@@ -78,7 +78,7 @@ fn init_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-#[derive(Resource)]
+#[derive(Resource, Debug)]
 pub struct GameState {
     /// Contains all states related to window size, mouse clicks and positions,
     /// and button presses and holds.
@@ -129,13 +129,11 @@ pub struct GameState {
     pub current_scene_idx: usize,
     pub current_orbit: Option<usize>,
 
-    pub current_hover: Option<OnClick>,
     pub redraw_requested: bool,
     pub last_redraw: Nanotime,
     pub ui: Tree<OnClick>,
 
     pub notifications: Vec<Notification>,
-    pub text_labels: Vec<(Vec2, String, f32)>,
 }
 
 fn generate_starfield() -> Vec<(Vec3, Srgba, f32, f32)> {
@@ -161,7 +159,7 @@ impl Default for GameState {
     fn default() -> Self {
         let (scenario, ids) = default_example();
 
-        GameState {
+        let mut g = GameState {
             input: InputState::default(),
             orbital_context: OrbitalContext::new(PlanetId(0)),
             telescope_context: TelescopeContext::new(),
@@ -180,8 +178,7 @@ impl Default for GameState {
             starfield: generate_starfield(),
             rpos: HashMap::new(),
             scenes: vec![
-                Scene::orbital("Earth System", PlanetId(0)),
-                Scene::orbital("Luna System", PlanetId(1)),
+                Scene::orbital("Orbital"),
                 Scene::docking("Docking", OrbiterId(0)),
                 Scene::telescope(),
                 Scene::editor(),
@@ -189,13 +186,31 @@ impl Default for GameState {
             ],
             current_scene_idx: 0,
             current_orbit: None,
-            current_hover: None,
             redraw_requested: true,
             ui: Tree::new(),
             last_redraw: Nanotime::zero(),
             notifications: Vec::new(),
-            text_labels: Vec::new(),
+        };
+
+        let orbit = SparseOrbit::new(
+            17000.0,
+            12000.0,
+            -0.3,
+            Body::with_mu(EARTH_RADIUS, EARTH_MU, EARTH_SOI),
+            Nanotime::zero(),
+            false,
+        )
+        .unwrap();
+        let go = GlobalOrbit(PlanetId(0), orbit);
+
+        for _ in 0..60 {
+            g.spawn_with_random_perturbance(&go);
         }
+
+        g.set_piloting(OrbiterId(3));
+        g.set_targeting(OrbiterId(25));
+
+        g
     }
 }
 
@@ -203,6 +218,14 @@ impl GameState {
     pub fn redraw(&mut self) {
         self.redraw_requested = true;
         self.last_redraw = Nanotime::zero()
+    }
+
+    pub fn set_piloting(&mut self, id: OrbiterId) {
+        self.orbital_context.piloting = Some(id);
+    }
+
+    pub fn set_targeting(&mut self, id: OrbiterId) {
+        self.orbital_context.targeting = Some(id);
     }
 
     pub fn current_scene(&self) -> &Scene {
@@ -317,7 +340,14 @@ impl GameState {
         self.orbital_context.targeting
     }
 
-    pub fn spawn_at(&mut self, global: &GlobalOrbit) -> Option<()> {
+    pub fn get_orbit(&self, id: OrbiterId) -> Option<GlobalOrbit> {
+        let lup = self.scenario.lup_orbiter(id, self.sim_time)?;
+        let orbiter = lup.orbiter()?;
+        let prop = orbiter.propagator_at(self.sim_time)?;
+        Some(prop.orbit)
+    }
+
+    pub fn spawn_with_random_perturbance(&mut self, global: &GlobalOrbit) -> Option<()> {
         let GlobalOrbit(parent, orbit) = global;
         let pv_local = orbit.pv(self.sim_time).ok()?;
         let perturb = PV::new(
@@ -333,7 +363,7 @@ impl GameState {
 
     pub fn spawn_new(&mut self) -> Option<()> {
         let orbit = self.cursor_orbit_if_mode()?;
-        self.spawn_at(&orbit)
+        self.spawn_with_random_perturbance(&orbit)
     }
 
     pub fn delete_orbiter(&mut self, id: OrbiterId) -> Option<()> {
@@ -720,23 +750,18 @@ impl GameState {
         }
     }
 
-    pub fn step(&mut self, time: &Time) {
-        let dt = time.delta_secs();
+    pub fn step(&mut self, delta_time: Nanotime) {
+        let dt = delta_time.to_secs();
         let old_sim_time = self.sim_time;
-        self.wall_time += Nanotime::nanos(time.delta().as_nanos() as i64);
+        self.wall_time += delta_time;
         if !self.paused {
             let sp = 10.0f32.powi(self.sim_speed);
-            self.sim_time += Nanotime::nanos((time.delta().as_nanos() as f32 * sp) as i64);
-        }
-
-        let c = self.current_hover_ui().cloned();
-        if c != self.current_hover {
-            self.redraw();
+            self.sim_time += delta_time * sp;
         }
 
         || -> Option<()> {
             if let Some(p) = self.input.double_click() {
-                if let SceneType::OrbitalView(_) = self.current_scene().kind() {
+                if let SceneType::OrbitalView = self.current_scene().kind() {
                     ()
                 } else {
                     return None;
@@ -753,7 +778,7 @@ impl GameState {
         }();
 
         match self.current_scene().kind() {
-            SceneType::OrbitalView(_) => {
+            SceneType::OrbitalView => {
                 self.orbital_context.step(&self.input, dt);
                 if let Some(p) = self.orbital_context.follow_position(self) {
                     self.orbital_context.go_to(p);
@@ -885,15 +910,19 @@ impl GameState {
 
         self.notifications
             .retain(|n| n.wall_time + n.duration() > self.wall_time);
+    }
 
-        self.text_labels.clear();
+    pub fn orbital_text_labels(&self) -> Vec<(Vec2, String, f32)> {
+        if &SceneType::OrbitalView != self.current_scene().kind() {
+            return Vec::new();
+        }
 
-        self.text_labels.extend(self.get_mouseover_labels());
+        let mut text_labels = self.get_mouseover_labels();
 
         if self.paused {
             let s = "PAUSED".to_string();
             let c = Vec2::Y * (60.0 - self.input.screen_bounds.span.y * 0.5);
-            self.text_labels.push((c, s, 2.5));
+            text_labels.push((c, s, 2.5));
         }
 
         {
@@ -909,7 +938,7 @@ impl GameState {
                 date.milli,
             );
             let c = Vec2::Y * (20.0 - self.input.screen_bounds.span.y * 0.5);
-            self.text_labels.push((c, s, 1.0));
+            text_labels.push((c, s, 1.0));
         }
 
         if let Some((m1, m2, corner)) = self.measuring_tape() {
@@ -917,7 +946,7 @@ impl GameState {
                 let middle = (a + b) / 2.0;
                 let middle = self.orbital_context.w2c(middle);
                 let d = format!("{:0.1} km", a.distance(b));
-                self.text_labels.push((middle, d, 1.0));
+                text_labels.push((middle, d, 1.0));
             }
         }
 
@@ -927,7 +956,7 @@ impl GameState {
                     let middle = (a + b) / 2.0;
                     let middle = self.orbital_context.w2c(middle);
                     let d = format!("{:0.1} km", a.distance(b));
-                    self.text_labels.push((middle, d, 1.0));
+                    text_labels.push((middle, d, 1.0));
                 }
             }
             if let Some(b) = b {
@@ -937,14 +966,17 @@ impl GameState {
                 let d = c + rotate(da * 0.75, angle / 2.0);
                 let t = format!("{:0.1} deg", angle.to_degrees().abs());
                 let d = self.orbital_context.w2c(d);
-                self.text_labels.push((d, t, 1.0));
+                text_labels.push((d, t, 1.0));
             }
         }
+
+        text_labels
     }
 }
 
 fn step_system(time: Res<Time>, mut state: ResMut<GameState>) {
-    state.step(&time);
+    let dt = Nanotime::secs_f32(time.delta_secs());
+    state.step(dt);
 }
 
 fn process_interaction(

@@ -53,7 +53,7 @@ pub fn make_new_sprites(
     let scene = state.current_scene();
 
     match scene.kind() {
-        SceneType::OrbitalView(_) => (),
+        SceneType::OrbitalView => (),
         _ => return,
     }
 
@@ -95,7 +95,7 @@ pub fn update_planet_sprites(
     let scene = state.current_scene();
 
     match scene.kind() {
-        SceneType::OrbitalView(_) => (),
+        SceneType::OrbitalView => (),
         _ => {
             for (e, _, _, _) in query.iter() {
                 commands.entity(e).despawn();
@@ -148,7 +148,7 @@ pub fn update_shadow_sprites(
     let scene = state.current_scene();
 
     match scene.kind() {
-        SceneType::OrbitalView(_) => (),
+        SceneType::OrbitalView => (),
         _ => {
             for (e, _, _, _) in query.iter() {
                 commands.entity(e).despawn();
@@ -211,7 +211,7 @@ pub fn update_spacecraft_sprites(
     let scene = state.current_scene();
 
     match scene.kind() {
-        SceneType::OrbitalView(_) => (),
+        SceneType::OrbitalView => (),
         _ => {
             for (e, _, _, _) in query.iter() {
                 commands.entity(e).despawn();

@@ -29,6 +29,56 @@ fn wrapping() {
     assert!((wrap_0_2pi(3.0 * PI) - PI).abs() < 0.001);
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum ApproachInfo<T: Clone + Copy> {
+    NonIntersecting {
+        nearest: T,
+        farthest: T,
+    },
+    Intersecting {
+        nearest: T,
+        farthest: T,
+        rising: T,
+        falling: T,
+    },
+}
+
+impl<T: Clone + Copy> ApproachInfo<T> {
+    pub fn points(&self) -> Vec<T> {
+        match *self {
+            ApproachInfo::Intersecting {
+                nearest,
+                farthest,
+                rising,
+                falling,
+            } => {
+                vec![nearest, farthest, rising, falling]
+            }
+            ApproachInfo::NonIntersecting { nearest, farthest } => {
+                vec![nearest, farthest]
+            }
+        }
+    }
+
+    pub fn intersections(&self) -> Option<(T, T)> {
+        match self {
+            ApproachInfo::Intersecting {
+                rising, falling, ..
+            } => Some((*rising, *falling)),
+            _ => None,
+        }
+    }
+
+    pub fn approaches(&self) -> (T, T) {
+        match self {
+            ApproachInfo::Intersecting {
+                nearest, farthest, ..
+            }
+            | ApproachInfo::NonIntersecting { nearest, farthest } => (*nearest, *farthest),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 enum Anomaly {
     Elliptical(f32),
@@ -295,6 +345,11 @@ impl SparseOrbit {
         self.radius_at(ta)
     }
 
+    pub fn position_at_angle(&self, angle: f32) -> Vec2 {
+        let r = self.radius_at_angle(angle);
+        rotate(Vec2::X * r, angle)
+    }
+
     pub fn pv_at_angle(&self, angle: f32) -> PV {
         let ta = if self.is_retrograde() {
             -angle + self.arg_periapsis
@@ -515,7 +570,15 @@ impl SparseOrbit {
         (ret, dist.abs() * sign)
     }
 
-    pub fn nearest_approach(&self, other: SparseOrbit) -> Option<Vec<f32>> {
+    pub fn timed_approach_info(&self, other: SparseOrbit) -> Option<ApproachInfo<Nanotime>> {
+        // distance between orbits along a ray cast from planet object
+        let separation =
+            |t: Nanotime| self.pv(t).unwrap_or(PV::nan()) - other.pv(t).unwrap_or(PV::nan());
+        
+        todo!()
+    }
+
+    pub fn geometric_approach_info(&self, other: SparseOrbit) -> Option<ApproachInfo<f32>> {
         // distance between orbits along a ray cast from planet object
         let separation = |a: f32| self.radius_at_angle(a) - other.radius_at_angle(a);
 
@@ -533,11 +596,14 @@ impl SparseOrbit {
         let c3 = |a: f32| separation(a) > 0.0;
         let c4 = |a: f32| separation(a) < 0.0;
 
-        let mut ret = vec![];
+        let mut nearest = None;
+        let mut farthest = None;
+        let mut rising = None;
+        let mut falling = None;
 
         for a in aeval.windows(2) {
             match search_condition::<f32>(a[0], a[1], 1E-6, &c1) {
-                Ok(Some(found)) => ret.push(found),
+                Ok(Some(found)) => farthest = Some(found),
                 Ok(None) => (),
                 Err(e) => {
                     dbg!(e);
@@ -545,7 +611,7 @@ impl SparseOrbit {
                 }
             }
             match search_condition::<f32>(a[0], a[1], 1E-6, &c2) {
-                Ok(Some(found)) => ret.push(found),
+                Ok(Some(found)) => nearest = Some(found),
                 Ok(None) => (),
                 Err(e) => {
                     dbg!(e);
@@ -553,7 +619,7 @@ impl SparseOrbit {
                 }
             }
             match search_condition::<f32>(a[0], a[1], 1E-6, &c3) {
-                Ok(Some(found)) => ret.push(found),
+                Ok(Some(found)) => rising = Some(found),
                 Ok(None) => (),
                 Err(e) => {
                     dbg!(e);
@@ -561,7 +627,7 @@ impl SparseOrbit {
                 }
             }
             match search_condition::<f32>(a[0], a[1], 1E-6, &c4) {
-                Ok(Some(found)) => ret.push(found),
+                Ok(Some(found)) => falling = Some(found),
                 Ok(None) => (),
                 Err(e) => {
                     dbg!(e);
@@ -569,7 +635,20 @@ impl SparseOrbit {
                 }
             }
         }
-        Some(ret)
+
+        let nearest = nearest?;
+        let farthest = farthest?;
+
+        Some(if let (Some(rising), Some(falling)) = (rising, falling) {
+            ApproachInfo::Intersecting {
+                nearest,
+                farthest,
+                rising,
+                falling,
+            }
+        } else {
+            ApproachInfo::NonIntersecting { nearest, farthest }
+        })
     }
 
     pub fn is_similar(&self, other: &Self) -> bool {

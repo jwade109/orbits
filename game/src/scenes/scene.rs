@@ -1,16 +1,8 @@
-#![allow(unused)]
-
-use crate::mouse::{FrameId, InputState, MouseButt};
-use crate::planetary::GameState;
-use crate::scenes::{CursorMode, OrbitalContext, OrbitalView};
-use crate::ui::{InteractionEvent, OnClick};
-use bevy::log::*;
-use layout::layout::Tree;
 use starling::prelude::*;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SceneType {
-    OrbitalView(OrbitalContext),
+    OrbitalView,
     DockingView(OrbiterId),
     TelescopeView,
     Editor,
@@ -24,10 +16,10 @@ pub struct Scene {
 }
 
 impl Scene {
-    pub fn orbital(name: impl Into<String>, primary: PlanetId) -> Self {
+    pub fn orbital(name: impl Into<String>) -> Self {
         Scene {
             name: name.into(),
-            scene_type: SceneType::OrbitalView(OrbitalContext::new(primary)),
+            scene_type: SceneType::OrbitalView,
         }
     }
 
