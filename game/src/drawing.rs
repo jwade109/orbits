@@ -320,10 +320,22 @@ fn draw_prograde_marker(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     draw_circle(gizmos, p, size * 0.5, color);
 }
 
-fn make_separation_graph(src: &SparseOrbit, dst: &SparseOrbit, now: Nanotime) -> [Graph; 2] {
+fn make_separation_graph(
+    src: &SparseOrbit,
+    dst: &SparseOrbit,
+    now: Nanotime,
+) -> (Graph, Graph, Vec<Vec2>) {
     // t is in hours!
     let mut g = Graph::linspace(0.0, 48.0, 200);
     let mut v = Graph::linspace(0.0, 48.0, 200);
+
+    let teval = tspace(now, now + Nanotime::hours(16), 600);
+
+    let pv = apply(&teval, |t| {
+        let p = src.pv(t).ok().unwrap_or(PV::nan());
+        let q = dst.pv(t).ok().unwrap_or(PV::nan());
+        p.pos - q.pos
+    });
 
     let sep = |hours: f32| {
         let t = now + Nanotime::secs_f32(hours * 3600.0);
@@ -354,7 +366,7 @@ fn make_separation_graph(src: &SparseOrbit, dst: &SparseOrbit, now: Nanotime) ->
     v.add_func(rvely, TEAL);
     v.add_point(0.0, 0.0, true);
 
-    [g, v]
+    (g, v, pv)
 }
 
 fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
@@ -1126,23 +1138,46 @@ fn draw_rendezvous_info(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let to = state.get_orbit(target)?;
     let vb = state.input.screen_bounds.span / 2.0;
 
-    let g = make_separation_graph(&po.1, &to.1, state.sim_time);
+    let (g, v, mut relpos) = make_separation_graph(&po.1, &to.1, state.sim_time);
+    let h = 140.0;
     draw_graph(
         gizmos,
-        &g[0],
+        &g,
         AABB::from_arbitrary(
             vb - Vec2::new(vb.x * 0.7, 200.0),
-            vb - Vec2::new(20.0, 70.0),
+            vb - Vec2::new(20.0, 200.0 - h),
         ),
     );
     draw_graph(
         gizmos,
-        &g[1],
+        &v,
         AABB::from_arbitrary(
-            vb - Vec2::new(vb.x * 0.7, 400.0),
-            vb - Vec2::new(20.0, 270.0),
+            vb - Vec2::new(vb.x * 0.7, 220.0 + h),
+            vb - Vec2::new(20.0, 220.0),
         ),
     );
+
+    {
+        let world_radius = 50.0; // km
+        let screen_radius = 150.0;
+        let screen_center = vb - Vec2::new(200.0, 550.0);
+        let current_world = relpos.first().cloned();
+        relpos.iter_mut().for_each(|p| {
+            let sep = p.length();
+            *p = if sep > world_radius {
+                Vec2::NAN
+            } else {
+                screen_center + *p / world_radius * screen_radius
+            }
+        });
+        draw_circle(gizmos, screen_center, screen_radius, GRAY);
+        gizmos.linestrip_2d(relpos, WHITE);
+        draw_x(gizmos, screen_center, 6.0, RED);
+        if let Some(p) = current_world {
+            let p = screen_center + p / world_radius * screen_radius;
+            draw_x(gizmos, p, 7.0, TEAL);
+        }
+    }
 
     if let Ok(Some((t, pv))) = get_next_intersection(state.sim_time, &po.1, &to.1) {
         let p = ctx.w2c(pv.pos);

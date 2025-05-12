@@ -38,6 +38,7 @@ pub enum ThrottleLevel {
     #[default]
     Medium,
     Low,
+    VeryLow,
 }
 
 impl ThrottleLevel {
@@ -46,6 +47,7 @@ impl ThrottleLevel {
             Self::High => 1.0,
             Self::Medium => 0.2,
             Self::Low => 0.01,
+            Self::VeryLow => 0.002,
         }
     }
 }

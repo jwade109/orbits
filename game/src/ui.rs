@@ -559,6 +559,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
             ("High", ThrottleLevel::High),
             ("Medium", ThrottleLevel::Medium),
             ("Low", ThrottleLevel::Low),
+            ("Very Low", ThrottleLevel::VeryLow),
         ];
         Node::new(230, Size::Fit)
             .with_color(UI_BACKGROUND_COLOR)
