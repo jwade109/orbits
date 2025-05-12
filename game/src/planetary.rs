@@ -616,6 +616,60 @@ impl GameState {
         self.ui.at(p, wb).map(|n| n.is_visible()).unwrap_or(false)
     }
 
+    pub fn get_mouseover_labels(&self) -> Vec<(Vec2, String, f32)> {
+        let mut ret = Vec::new();
+
+        let cursor = match self.input.position(MouseButt::Hover, FrameId::Current) {
+            Some(p) => p,
+            None => return Vec::new(),
+        };
+
+        let cursor_world = self.orbital_context.c2w(cursor);
+
+        for id in self.scenario.ids() {
+            let lup = match self.scenario.lup(id, self.sim_time) {
+                Some(lup) => lup,
+                None => continue,
+            };
+            let pw = lup.pv().pos;
+            let pc = self.orbital_context.w2c(pw);
+
+            let (passes, label, pos) = if let Some((name, body)) = lup.named_body() {
+                // distance based on world space
+                let d = pw.distance(cursor_world);
+                let p = self.orbital_context.w2c(pw + Vec2::Y * body.radius);
+                (d < body.radius, name.to_uppercase(), p + Vec2::Y * 30.0)
+            } else {
+                let orb_id = id.orbiter().unwrap();
+                let is_rpo = self.rpos.contains_key(&orb_id);
+                let is_controllable = self
+                    .orbital_vehicles
+                    .get(&orb_id)
+                    .map(|v| v.is_controllable())
+                    .unwrap_or(false);
+
+                // distance based on pixel space
+                let d = pc.distance(cursor);
+                (
+                    d < 25.0,
+                    if is_rpo {
+                        format!("RPO {}", orb_id)
+                    } else if is_controllable {
+                        format!("VEH {}", orb_id)
+                    } else {
+                        format!("AST {}", orb_id)
+                    },
+                    pc + Vec2::Y * 40.0,
+                )
+            };
+
+            if passes {
+                ret.push((pos, label, 1.0))
+            }
+        }
+        ret
+    }
+
     pub fn is_currently_left_clicked_on_ui(&self) -> bool {
         let wb = self.input.screen_bounds.span;
         if self
@@ -833,6 +887,8 @@ impl GameState {
             .retain(|n| n.wall_time + n.duration() > self.wall_time);
 
         self.text_labels.clear();
+
+        self.text_labels.extend(self.get_mouseover_labels());
 
         if self.paused {
             let s = "PAUSED".to_string();

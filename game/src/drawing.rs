@@ -815,13 +815,15 @@ fn draw_scale_indicator(gizmos: &mut Gizmos, state: &GameState) {
     let width = 300.0;
     let center = Vec2::new(0.0, window_dims.y / 2.0 - 24.0);
 
-    let ctx = &state.orbital_context;
+    // let ctx = &state.orbital_context;
 
-    for i in 0..=9 {
-        let r = 10.0f32.powi(i) * ctx.scale();
-        let color = if i % 3 == 0 { RED } else { WHITE };
-        draw_circle(gizmos, Vec2::ZERO, r, color.with_alpha(0.04));
-    }
+    draw_circle(gizmos, Vec2::ZERO, 10.0, GRAY.with_alpha(0.2));
+
+    // for i in 0..=9 {
+    //     let r = 10.0f32.powi(i) * ctx.scale();
+    //     let color = if i % 3 == 0 { RED } else { WHITE };
+    //     draw_circle(gizmos, Vec2::ZERO, r, color.with_alpha(0.04));
+    // }
 
     let p1 = center + Vec2::X * width;
     let p2 = center - Vec2::X * width;
