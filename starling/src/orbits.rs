@@ -1,5 +1,5 @@
 use crate::aabb::{AABB, OBB};
-use crate::math::{cross2d, linspace, rotate, PI};
+use crate::math::{cross2d, linspace, rotate, tspace, PI};
 use crate::nanotime::Nanotime;
 use crate::orbiter::PlanetId;
 use crate::planning::search_condition;
@@ -570,12 +570,48 @@ impl SparseOrbit {
         (ret, dist.abs() * sign)
     }
 
-    pub fn timed_approach_info(&self, other: SparseOrbit) -> Option<ApproachInfo<Nanotime>> {
+    pub fn timed_approach_info(
+        &self,
+        other: SparseOrbit,
+        now: Nanotime,
+        dur: Nanotime,
+    ) -> (Option<Nanotime>, Option<Nanotime>) {
         // distance between orbits along a ray cast from planet object
-        let separation =
-            |t: Nanotime| self.pv(t).unwrap_or(PV::nan()) - other.pv(t).unwrap_or(PV::nan());
-        
-        todo!()
+        let separation = |t: Nanotime| {
+            let d = self.pv(t).unwrap_or(PV::nan()) - other.pv(t).unwrap_or(PV::nan());
+            d.pos.length_squared()
+        };
+
+        let teval = tspace(now, now + dur, 100);
+
+        let c3 = |t: Nanotime| separation(t) > 1000.0;
+        let c4 = |t: Nanotime| separation(t) < 1000.0;
+
+        let mut rising = None;
+        let mut falling = None;
+
+        let tol = Nanotime::secs(30);
+
+        for t in teval.windows(2) {
+            match search_condition::<Nanotime>(t[0], t[1], tol, &c3) {
+                Ok(Some(found)) => rising = Some(found),
+                Ok(None) => (),
+                Err(e) => {
+                    dbg!(e);
+                    return (None, None);
+                }
+            }
+            match search_condition::<Nanotime>(t[0], t[1], tol, &c4) {
+                Ok(Some(found)) => falling = Some(found),
+                Ok(None) => (),
+                Err(e) => {
+                    dbg!(e);
+                    return (None, None);
+                }
+            }
+        }
+
+        (rising, falling)
     }
 
     pub fn geometric_approach_info(&self, other: SparseOrbit) -> Option<ApproachInfo<f32>> {

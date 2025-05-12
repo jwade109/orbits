@@ -306,6 +306,57 @@ fn draw_rpo_overlay(gizmos: &mut Gizmos, state: &GameState, rpo: &RPO) -> Option
     Some(())
 }
 
+fn draw_prograde_marker(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
+    let mut draw_notch = |a: f32| {
+        let start = p + rotate(Vec2::X * 0.5 * size, a);
+        let end = p + rotate(Vec2::X * size, a);
+        gizmos.line_2d(start, end, color);
+    };
+
+    draw_notch(0.0);
+    draw_notch(PI / 2.0);
+    draw_notch(PI);
+
+    draw_circle(gizmos, p, size * 0.5, color);
+}
+
+fn make_separation_graph(src: &SparseOrbit, dst: &SparseOrbit, now: Nanotime) -> [Graph; 2] {
+    // t is in hours!
+    let mut g = Graph::linspace(0.0, 48.0, 200);
+    let mut v = Graph::linspace(0.0, 48.0, 200);
+
+    let sep = |hours: f32| {
+        let t = now + Nanotime::secs_f32(hours * 3600.0);
+        let p = src.pv(t).ok().unwrap_or(PV::nan());
+        let q = dst.pv(t).ok().unwrap_or(PV::nan());
+        p.pos.distance(q.pos)
+    };
+
+    let rvelx = |hours: f32| {
+        let t = now + Nanotime::secs_f32(hours * 3600.0);
+        let p = src.pv(t).ok().unwrap_or(PV::nan());
+        let q = dst.pv(t).ok().unwrap_or(PV::nan());
+        p.vel.x - q.vel.x
+    };
+
+    let rvely = |hours: f32| {
+        let t = now + Nanotime::secs_f32(hours * 3600.0);
+        let p = src.pv(t).ok().unwrap_or(PV::nan());
+        let q = dst.pv(t).ok().unwrap_or(PV::nan());
+        p.vel.y - q.vel.y
+    };
+
+    g.add_func(sep, WHITE);
+    g.add_point(0.0, 0.0, true);
+    g.add_point(0.0, 50.0, true);
+
+    v.add_func(rvelx, ORANGE);
+    v.add_func(rvely, TEAL);
+    v.add_point(0.0, 0.0, true);
+
+    [g, v]
+}
+
 fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let ctx = &state.orbital_context;
 
@@ -345,6 +396,14 @@ fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     draw_clock(state.wall_time, RED.with_alpha(0.2));
 
     draw_counter(gizmos, rb as u64, center + Vec2::Y * r, WHITE);
+
+    // prograde markers, etc
+    {
+        let pv = lup.pv();
+        let angle = pv.vel.to_angle();
+        let p = center + rotate(Vec2::X * r * 0.8, angle);
+        draw_prograde_marker(gizmos, p, 20.0, GREEN);
+    }
 
     {
         draw_circle(gizmos, center, rb * zoom, RED.with_alpha(0.02));
@@ -985,7 +1044,7 @@ pub fn draw_notifications(gizmos: &mut Gizmos, state: &GameState) {
 fn draw_graph(gizmos: &mut Gizmos, graph: &Graph, bounds: AABB) -> Option<()> {
     let map = |p: Vec2| bounds.from_normalized(p);
 
-    draw_aabb(gizmos, bounds, GRAY.with_alpha(0.05));
+    // draw_aabb(gizmos, bounds, GRAY.with_alpha(0.05));
 
     {
         // axes
@@ -1065,14 +1124,33 @@ fn draw_rendezvous_info(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let target = state.targeting()?;
     let po = state.get_orbit(pilot)?;
     let to = state.get_orbit(target)?;
+    let vb = state.input.screen_bounds.span / 2.0;
 
-    let info = po.1.geometric_approach_info(to.1)?;
+    let g = make_separation_graph(&po.1, &to.1, state.sim_time);
+    draw_graph(
+        gizmos,
+        &g[0],
+        AABB::from_arbitrary(
+            vb - Vec2::new(vb.x * 0.7, 200.0),
+            vb - Vec2::new(20.0, 70.0),
+        ),
+    );
+    draw_graph(
+        gizmos,
+        &g[1],
+        AABB::from_arbitrary(
+            vb - Vec2::new(vb.x * 0.7, 400.0),
+            vb - Vec2::new(20.0, 270.0),
+        ),
+    );
 
-    for a in info.points() {
-        let p = ctx.w2c(po.1.position_at_angle(a));
-        let q = ctx.w2c(to.1.position_at_angle(a));
-        draw_circle(gizmos, p, 10.0, RED);
-        draw_circle(gizmos, q, 10.0, TEAL);
+    if let Ok(Some((t, pv))) = get_next_intersection(state.sim_time, &po.1, &to.1) {
+        let p = ctx.w2c(pv.pos);
+        draw_circle(gizmos, p, 20.0, WHITE);
+        if let Some(q) = to.1.pv(t).ok() {
+            let q = ctx.w2c(q.pos);
+            draw_circle(gizmos, q, 20.0, ORANGE);
+        }
     }
 
     Some(())
