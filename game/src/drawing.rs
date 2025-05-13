@@ -3,7 +3,6 @@
 use bevy::color::palettes::basic::*;
 use bevy::color::palettes::css::ORANGE;
 use bevy::prelude::*;
-use starling::planning::rendezvous_plan;
 use starling::prelude::*;
 
 use crate::graph::*;
@@ -1332,35 +1331,64 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState) {
     draw_belt_orbits(gizmos, &state);
 }
 
-pub fn draw_docking_scenario(
-    gizmos: &mut Gizmos,
-    state: &GameState,
-    _id: &OrbiterId,
-) -> Option<()> {
+pub fn draw_docking_scenario(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let ctx = &state.rpo_context;
+    let target = state.targeting()?;
 
-    let (_, rpo) = state.rpos.iter().next()?;
+    let origin = state.scenario.lup_orbiter(target, state.sim_time)?.pv();
 
-    for (i, (pv, vehicle)) in rpo.vehicles.iter().enumerate() {
-        let r = vehicle.bounding_radius();
-        let p = ctx.w2c(pv.pos);
-        draw_vehicle(gizmos, vehicle, p, ctx.scale());
-
-        let color = if Some(i) == ctx.following() {
-            TEAL
-        } else {
-            GRAY.with_alpha(0.1)
-        };
-
-        draw_circle(gizmos, p, r * ctx.scale(), color);
-    }
-
+    draw_circle(gizmos, Vec2::ZERO, 4.0, GRAY);
+    draw_circle(gizmos, ctx.w2c(Vec2::ZERO), 4.0, TEAL);
+    draw_circle(gizmos, ctx.w2c(Vec2::ZERO), 1000.0 * ctx.scale(), GRAY);
     draw_circle(
         gizmos,
         ctx.w2c(Vec2::ZERO),
-        rpo.bounding_radius() * ctx.scale(),
-        GRAY.with_alpha(0.3),
+        10000.0 * ctx.scale(),
+        GRAY.with_alpha(0.4),
     );
+
+    for id in state.scenario.orbiter_ids() {
+        if id == target {
+            continue;
+        }
+
+        let lup = match state.scenario.lup_orbiter(id, state.sim_time) {
+            Some(lup) => lup,
+            None => continue,
+        };
+
+        let pv = lup.pv();
+        let d = (pv.pos - origin.pos) * 1000.0;
+
+        draw_circle(gizmos, ctx.w2c(d), 4.0, WHITE);
+
+        if let Some(v) = state.orbital_vehicles.get(&id) {
+            draw_vehicle(gizmos, v, ctx.w2c(d), ctx.scale());
+        }
+    }
+
+    // let (_, rpo) = state.rpos.iter().next()?;
+
+    // for (i, (pv, vehicle)) in rpo.vehicles.iter().enumerate() {
+    //     let r = vehicle.bounding_radius();
+    //     let p = ctx.w2c(pv.pos);
+    //     draw_vehicle(gizmos, vehicle, p, ctx.scale());
+
+    //     let color = if Some(i) == ctx.following() {
+    //         TEAL
+    //     } else {
+    //         GRAY.with_alpha(0.1)
+    //     };
+
+    //     draw_circle(gizmos, p, r * ctx.scale(), color);
+    // }
+
+    // draw_circle(
+    //     gizmos,
+    //     ctx.w2c(Vec2::ZERO),
+    //     rpo.bounding_radius() * ctx.scale(),
+    //     GRAY.with_alpha(0.3),
+    // );
 
     Some(())
 }
@@ -1500,7 +1528,7 @@ pub fn draw_editor(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
 pub fn draw_scene(gizmos: &mut Gizmos, state: &GameState, scene: &crate::scenes::Scene) {
     match scene.kind() {
         SceneType::OrbitalView => draw_orbital_view(gizmos, state),
-        SceneType::DockingView(id) => _ = draw_docking_scenario(gizmos, state, id),
+        SceneType::DockingView(_) => _ = draw_docking_scenario(gizmos, state),
         SceneType::TelescopeView => draw_telescope_view(gizmos, &state),
         SceneType::MainMenu => {}
         SceneType::Editor => _ = draw_editor(gizmos, state),

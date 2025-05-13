@@ -25,16 +25,15 @@ impl Plugin for PlanetaryPlugin {
         app.add_systems(
             Update,
             (
-                // egui
-                crate::ui::do_text_labels,
+                crate::keybindings::keyboard_input,
+                handle_interactions,
+                crate::mouse::update_input_state,
                 // physics
                 step_system,
                 // inputs
-                crate::keybindings::keyboard_input,
                 track_highlighted_objects,
-                handle_interactions,
-                crate::mouse::update_input_state,
                 // rendering
+                crate::ui::do_text_labels,
                 crate::sprites::make_new_sprites,
                 crate::sprites::update_planet_sprites,
                 crate::sprites::update_shadow_sprites,
@@ -132,6 +131,7 @@ pub struct GameState {
     pub redraw_requested: bool,
     pub last_redraw: Nanotime,
     pub ui: Tree<OnClick>,
+    last_hover_ui: Option<OnClick>,
 
     pub notifications: Vec<Notification>,
 }
@@ -188,6 +188,7 @@ impl Default for GameState {
             current_orbit: None,
             redraw_requested: true,
             ui: Tree::new(),
+            last_hover_ui: None,
             last_redraw: Nanotime::zero(),
             notifications: Vec::new(),
         };
@@ -722,7 +723,12 @@ impl GameState {
 
         let wb = self.input.screen_bounds.span;
 
+        if self.input.on_frame(Left, Down) {
+            self.redraw();
+        }
+
         if self.input.on_frame(Left, Up) {
+            self.redraw();
             let p = self.input.position(Left, Down);
             let q = self.input.position(Left, Up);
             if let Some((p, q)) = p.zip(q) {
@@ -733,7 +739,6 @@ impl GameState {
                         self.on_button_event(n.clone());
                     }
                 }
-                self.redraw();
             }
         }
 
@@ -759,6 +764,12 @@ impl GameState {
             self.sim_time += delta_time * sp;
         }
 
+        let current_ui = self.current_hover_ui().cloned();
+        if current_ui != self.last_hover_ui {
+            self.redraw();
+            self.last_hover_ui = current_ui;
+        }
+
         || -> Option<()> {
             if let Some(p) = self.input.double_click() {
                 if let SceneType::OrbitalView = self.current_scene().kind() {
@@ -776,24 +787,6 @@ impl GameState {
             }
             Some(())
         }();
-
-        match self.current_scene().kind() {
-            SceneType::OrbitalView => {
-                self.orbital_context.step(&self.input, dt);
-                if let Some(p) = self.orbital_context.follow_position(self) {
-                    self.orbital_context.go_to(p);
-                }
-            }
-            SceneType::TelescopeView => self.telescope_context.step(&self.input, dt),
-            SceneType::DockingView(_) => {
-                self.rpo_context.step(&self.input, dt);
-                if let Some((_, rpo)) = self.rpos.iter().next() {
-                    self.rpo_context.handle_follow(&self.input, rpo);
-                }
-            }
-            SceneType::Editor => self.editor_context.step(&self.input, dt),
-            _ => (),
-        }
 
         for (_, rpo) in &mut self.rpos {
             rpo.step(self.wall_time);
@@ -910,6 +903,24 @@ impl GameState {
 
         self.notifications
             .retain(|n| n.wall_time + n.duration() > self.wall_time);
+
+        match self.current_scene().kind() {
+            SceneType::OrbitalView => {
+                if let Some(p) = self.orbital_context.follow_position(self) {
+                    self.orbital_context.go_to(p);
+                }
+                self.orbital_context.step(&self.input, dt);
+            }
+            SceneType::TelescopeView => self.telescope_context.step(&self.input, dt),
+            SceneType::DockingView(_) => {
+                self.rpo_context.step(&self.input, dt);
+                if let Some((_, rpo)) = self.rpos.iter().next() {
+                    self.rpo_context.handle_follow(&self.input, rpo);
+                }
+            }
+            SceneType::Editor => self.editor_context.step(&self.input, dt),
+            _ => (),
+        }
     }
 
     pub fn orbital_text_labels(&self) -> Vec<(Vec2, String, f32)> {
@@ -917,60 +928,7 @@ impl GameState {
             return Vec::new();
         }
 
-        let mut text_labels = self.get_mouseover_labels();
-
-        if self.paused {
-            let s = "PAUSED".to_string();
-            let c = Vec2::Y * (60.0 - self.input.screen_bounds.span.y * 0.5);
-            text_labels.push((c, s, 2.5));
-        }
-
-        {
-            let date = self.sim_time.to_date();
-            let s = format!(
-                "Y{} W{} D{} {:02}:{:02}:{:02}.{:03}",
-                date.year + 1,
-                date.week + 1,
-                date.day + 1,
-                date.hour,
-                date.min,
-                date.sec,
-                date.milli,
-            );
-            let c = Vec2::Y * (20.0 - self.input.screen_bounds.span.y * 0.5);
-            text_labels.push((c, s, 1.0));
-        }
-
-        if let Some((m1, m2, corner)) = self.measuring_tape() {
-            for (a, b) in [(m1, m2), (m1, corner), (m2, corner)] {
-                let middle = (a + b) / 2.0;
-                let middle = self.orbital_context.w2c(middle);
-                let d = format!("{:0.1} km", a.distance(b));
-                text_labels.push((middle, d, 1.0));
-            }
-        }
-
-        if let Some((c, a, b)) = self.protractor() {
-            for (a, b) in [(c, Some(a)), (c, b)] {
-                if let Some(b) = b {
-                    let middle = (a + b) / 2.0;
-                    let middle = self.orbital_context.w2c(middle);
-                    let d = format!("{:0.1} km", a.distance(b));
-                    text_labels.push((middle, d, 1.0));
-                }
-            }
-            if let Some(b) = b {
-                let da = a - c;
-                let db = b - c;
-                let angle = da.angle_to(db);
-                let d = c + rotate(da * 0.75, angle / 2.0);
-                let t = format!("{:0.1} deg", angle.to_degrees().abs());
-                let d = self.orbital_context.w2c(d);
-                text_labels.push((d, t, 1.0));
-            }
-        }
-
-        text_labels
+        OrbitalContext::text_labels(self)
     }
 }
 

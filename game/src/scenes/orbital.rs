@@ -158,6 +158,63 @@ impl OrbitalContext {
             self.selected.insert(id);
         }
     }
+
+    pub fn text_labels(state: &GameState) -> Vec<(Vec2, String, f32)> {
+        let mut text_labels = state.get_mouseover_labels();
+
+        if state.paused {
+            let s = "PAUSED".to_string();
+            let c = Vec2::Y * (60.0 - state.input.screen_bounds.span.y * 0.5);
+            text_labels.push((c, s, 2.5));
+        }
+
+        {
+            let date = state.sim_time.to_date();
+            let s = format!(
+                "Y{} W{} D{} {:02}:{:02}:{:02}.{:03}",
+                date.year + 1,
+                date.week + 1,
+                date.day + 1,
+                date.hour,
+                date.min,
+                date.sec,
+                date.milli,
+            );
+            let c = Vec2::Y * (20.0 - state.input.screen_bounds.span.y * 0.5);
+            text_labels.push((c, s, 1.0));
+        }
+
+        if let Some((m1, m2, corner)) = state.measuring_tape() {
+            for (a, b) in [(m1, m2), (m1, corner), (m2, corner)] {
+                let middle = (a + b) / 2.0;
+                let middle = state.orbital_context.w2c(middle);
+                let d = format!("{:0.1} km", a.distance(b));
+                text_labels.push((middle, d, 1.0));
+            }
+        }
+
+        if let Some((c, a, b)) = state.protractor() {
+            for (a, b) in [(c, Some(a)), (c, b)] {
+                if let Some(b) = b {
+                    let middle = (a + b) / 2.0;
+                    let middle = state.orbital_context.w2c(middle);
+                    let d = format!("{:0.1} km", a.distance(b));
+                    text_labels.push((middle, d, 1.0));
+                }
+            }
+            if let Some(b) = b {
+                let da = a - c;
+                let db = b - c;
+                let angle = da.angle_to(db);
+                let d = c + rotate(da * 0.75, angle / 2.0);
+                let t = format!("{:0.1} deg", angle.to_degrees().abs());
+                let d = state.orbital_context.w2c(d);
+                text_labels.push((d, t, 1.0));
+            }
+        }
+
+        text_labels
+    }
 }
 
 impl Interactive for OrbitalContext {
@@ -209,7 +266,7 @@ impl Interactive for OrbitalContext {
         }
 
         self.scale += (self.target_scale - self.scale) * 0.1;
-        self.center += (self.target_center - self.center) * 0.1;
+        self.center += (self.target_center - self.center) * 1.0;
     }
 }
 
