@@ -52,6 +52,20 @@ impl ThrottleLevel {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct LowPass {
+    pub value: f32,
+    pub target: f32,
+    /// LPF coefficient, must be in (0, 1]
+    pub alpha: f32,
+}
+
+impl LowPass {
+    fn step(&mut self) {
+        self.value += (self.target - self.value) * self.alpha
+    }
+}
+
 #[allow(unused)]
 #[derive(Debug, Clone)]
 pub struct OrbitalContext {
@@ -71,6 +85,7 @@ pub struct OrbitalContext {
 
     pub piloting: Option<OrbiterId>,
     pub targeting: Option<OrbiterId>,
+    pub rendezvous_scope_radius: LowPass,
 }
 
 pub trait CameraProjection {
@@ -135,11 +150,17 @@ impl OrbitalContext {
             throttle: ThrottleLevel::Medium,
             piloting: None,
             targeting: None,
+            rendezvous_scope_radius: LowPass {
+                value: 50.0,
+                target: 50.0,
+                alpha: 0.1,
+            },
         }
     }
 
     pub fn go_to(&mut self, p: Vec2) {
         self.target_center = p;
+        self.center = p;
     }
 
     pub fn follow_position(&self, state: &GameState) -> Option<Vec2> {
@@ -219,6 +240,13 @@ impl OrbitalContext {
 
 impl Interactive for OrbitalContext {
     fn step(&mut self, input: &InputState, dt: f32) {
+        if input.just_pressed(KeyCode::BracketLeft) {
+            self.rendezvous_scope_radius.target /= 1.5;
+        }
+        if input.just_pressed(KeyCode::BracketRight) {
+            self.rendezvous_scope_radius.target *= 1.5;
+        }
+
         let speed = 16.0 * dt * 100.0;
 
         if input.is_pressed(KeyCode::ShiftLeft) {
@@ -266,7 +294,8 @@ impl Interactive for OrbitalContext {
         }
 
         self.scale += (self.target_scale - self.scale) * 0.1;
-        self.center += (self.target_center - self.center) * 1.0;
+        self.center += (self.target_center - self.center) * 0.1;
+        self.rendezvous_scope_radius.step();
     }
 }
 

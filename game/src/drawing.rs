@@ -295,12 +295,20 @@ fn draw_rpo_overlay(gizmos: &mut Gizmos, state: &GameState, rpo: &RPO) -> Option
     let lup = state.scenario.lup_orbiter(piloting, state.sim_time)?;
     let pv = lup.pv();
 
-    draw_circle(gizmos, ctx.w2c(pv.pos), 15.0, TEAL);
+    let screen_pos = ctx.w2c(pv.pos);
 
-    let scale = 2.5;
+    draw_circle(gizmos, screen_pos, 15.0, TEAL);
 
-    for (pv, vehicle) in &rpo.vehicles {
-        draw_vehicle(gizmos, &vehicle, pv.pos * scale, scale);
+    for km in 1..=5 {
+        let r = state.orbital_context.scale() * km as f32;
+        draw_circle(gizmos, screen_pos, r, GRAY);
+    }
+
+    let d = pv.pos - ctx.origin();
+
+    for (vpv, _) in &rpo.vehicles {
+        let p = (d + vpv.pos / 1000.0) * ctx.scale();
+        draw_square(gizmos, p, 7.0, RED);
     }
     Some(())
 }
@@ -1126,6 +1134,10 @@ fn highlight_targeted_vehicle(gizmos: &mut Gizmos, state: &GameState) -> Option<
     let pos = lup.pv().pos;
     let c = state.orbital_context.w2c(pos);
     draw_circle(gizmos, c, 10.0, TEAL);
+    for km in 1..=5 {
+        let r = state.orbital_context.scale() * km as f32;
+        draw_circle(gizmos, c, r, GRAY);
+    }
     Some(())
 }
 
@@ -1157,7 +1169,7 @@ fn draw_rendezvous_info(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     );
 
     {
-        let world_radius = 50.0; // km
+        let world_radius = ctx.rendezvous_scope_radius.value; // km
         let screen_radius = 150.0;
         let screen_center = vb - Vec2::new(200.0, 550.0);
         let current_world = relpos.first().cloned();

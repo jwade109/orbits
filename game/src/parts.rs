@@ -13,7 +13,7 @@ impl Plugin for PartPlugin {
         embedded_asset!(app, "src/", "../assets/parts/motor.png");
         embedded_asset!(app, "src/", "../assets/parts/antenna.png");
 
-        app.add_systems(Startup, add_part_sprites);
+        // app.add_systems(Startup, add_part_sprites);
     }
 }
 
