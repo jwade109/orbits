@@ -2,16 +2,6 @@
 
 use bevy::prelude::*;
 
-mod drawing;
-mod graph;
-mod keybindings;
-mod mouse;
-mod notifications;
-mod planetary;
-mod scenes;
-mod sprites;
-mod ui;
-
 fn main() {
     let window = Window {
         mode: bevy::window::WindowMode::BorderlessFullscreen(MonitorSelection::Primary),
@@ -24,8 +14,9 @@ fn main() {
             primary_window: Some(window),
             ..default()
         }))
-        .add_plugins(crate::planetary::PlanetaryPlugin {})
-        .add_plugins(crate::sprites::SpritePlugin {})
-        .add_plugins(crate::ui::UiPlugin {})
+        .add_plugins(game::planetary::PlanetaryPlugin {})
+        .add_plugins(game::sprites::SpritePlugin {})
+        .add_plugins(game::ui::UiPlugin {})
+        .add_plugins(game::parts::PartPlugin {})
         .run();
 }
