@@ -1,7 +1,10 @@
 use crate::mouse::InputState;
 use crate::mouse::{FrameId, MouseButt};
-use crate::scenes::{CameraProjection, Interactive};
+use crate::planetary::GameState;
+use crate::scenes::{CameraProjection, Interactive, Render, StaticSpriteDescriptor, TextLabel};
+use bevy::color::palettes::css::*;
 use bevy::input::keyboard::KeyCode;
+use bevy::prelude::*;
 use starling::prelude::*;
 use std::collections::HashSet;
 
@@ -15,6 +18,52 @@ pub struct EditorContext {
     aabbs: Vec<AABB>,
     points: HashSet<IVec2>,
     lines: Vec<Vec<Vec2>>,
+
+    parts: Vec<IVec2>,
+}
+
+impl Render for EditorContext {
+    fn text_labels(_state: &GameState) -> Vec<TextLabel> {
+        vec![]
+    }
+
+    fn sprites(state: &GameState) -> Vec<StaticSpriteDescriptor> {
+        let parts = ["frame", "tank11", "tank21", "tank22", "motor", "antenna"];
+        let ctx = &state.editor_context;
+        let mut ret: Vec<_> = parts
+            .iter()
+            .enumerate()
+            .map(|(i, path)| StaticSpriteDescriptor {
+                position: ctx.w2c(Vec2::X * i as f32 * 40.0),
+                path: format!("embedded://game/../assets/parts/{}.png", path),
+                scale: ctx.scale(),
+                z_index: 1.0,
+            })
+            .collect();
+
+        if let Some(p) = state.input.position(MouseButt::Hover, FrameId::Current) {
+            let p = ctx.c2w(p);
+            ret.push(StaticSpriteDescriptor {
+                position: ctx.w2c(vround(p).as_vec2()),
+                path: "embedded://game/../assets/parts/frame.png".to_string(),
+                scale: ctx.scale(),
+                z_index: 10.0,
+            });
+        }
+
+        ret.extend(ctx.parts.iter().map(|p| StaticSpriteDescriptor {
+            position: ctx.w2c(p.as_vec2()),
+            path: "embedded://game/../assets/parts/frame.png".to_string(),
+            scale: ctx.scale(),
+            z_index: 10.0,
+        }));
+
+        ret
+    }
+
+    fn background_color(_state: &GameState) -> bevy::color::Srgba {
+        GRAY.with_luminance(0.06)
+    }
 }
 
 fn discrete_points_in_bounds(aabb: &AABB) -> Vec<IVec2> {
@@ -85,6 +134,7 @@ impl EditorContext {
             aabbs: Vec::new(),
             points: HashSet::new(),
             lines: Vec::new(),
+            parts: Vec::new(),
         };
 
         x.update();
@@ -154,16 +204,17 @@ impl Interactive for EditorContext {
             self.update();
         }
         if input.just_pressed(KeyCode::KeyQ) {
-            if let Some(aabb) = self.cursor_box(input) {
-                self.aabbs.push(aabb);
-                self.update()
+            if let Some(c) = input.position(MouseButt::Hover, FrameId::Current) {
+                let p = vround(self.c2w(c));
+                if !self.parts.contains(&p) {
+                    self.parts.push(p);
+                }
             }
         }
 
         if let Some(c) = input.position(MouseButt::Right, FrameId::Current) {
-            let c = self.c2w(c);
-            self.aabbs.retain(|aabb| !aabb.contains(c));
-            self.update();
+            let c = vround(self.c2w(c));
+            self.parts.retain(|p| *p != c);
         }
 
         if input.is_scroll_down() {

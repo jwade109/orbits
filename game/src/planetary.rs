@@ -1,10 +1,11 @@
 use crate::mouse::{FrameId, InputState, MouseButt};
 use crate::notifications::*;
+use crate::onclick::OnClick;
 use crate::scenes::{
     CameraProjection, CursorMode, EditorContext, Interactive, OrbitalContext, OrbitalView,
-    RPOContext, Scene, SceneType, TelescopeContext,
+    RPOContext, Render, Scene, SceneType, StaticSpriteDescriptor, TelescopeContext, TextLabel,
 };
-use crate::ui::{InteractionEvent, OnClick};
+use crate::ui::InteractionEvent;
 use bevy::color::palettes::css::*;
 use bevy::core_pipeline::bloom::Bloom;
 use bevy::prelude::*;
@@ -30,9 +31,8 @@ impl Plugin for PlanetaryPlugin {
                 crate::mouse::update_input_state,
                 // physics
                 step_system,
-                // inputs
-                track_highlighted_objects,
                 // rendering
+                crate::parts::update_static_sprites,
                 crate::ui::do_text_labels,
                 crate::sprites::make_new_sprites,
                 crate::sprites::update_planet_sprites,
@@ -212,6 +212,32 @@ impl Default for GameState {
         g.set_targeting(OrbiterId(25));
 
         g
+    }
+}
+
+impl Render for GameState {
+    fn text_labels(state: &GameState) -> Vec<TextLabel> {
+        match state.current_scene().kind() {
+            SceneType::OrbitalView => OrbitalContext::text_labels(state),
+            SceneType::TelescopeView => TelescopeContext::text_labels(state),
+            _ => vec![],
+        }
+    }
+
+    fn sprites(state: &GameState) -> Vec<StaticSpriteDescriptor> {
+        match state.current_scene().kind() {
+            SceneType::Editor => EditorContext::sprites(state),
+            _ => vec![],
+        }
+    }
+
+    fn background_color(state: &GameState) -> Srgba {
+        match state.current_scene().kind() {
+            SceneType::OrbitalView => OrbitalContext::background_color(state),
+            SceneType::Editor => EditorContext::background_color(state),
+            SceneType::TelescopeView => TelescopeContext::background_color(state),
+            _ => GRAY.with_luminance(0.09),
+        }
     }
 }
 
@@ -404,21 +430,6 @@ impl GameState {
         Some(())
     }
 
-    pub fn highlighted(&self) -> HashSet<OrbiterId> {
-        if let Some(a) = self.selection_region() {
-            self.scenario
-                .orbiter_ids()
-                .into_iter()
-                .filter_map(|id| {
-                    let pv = self.scenario.lup_orbiter(id, self.sim_time)?.pv();
-                    a.contains(pv.pos).then(|| id)
-                })
-                .collect()
-        } else {
-            HashSet::new()
-        }
-    }
-
     pub fn turn(&mut self, dir: i8) -> Option<()> {
         let id = self.piloting()?;
         let vehicle = self.orbital_vehicles.get_mut(&id)?;
@@ -429,7 +440,23 @@ impl GameState {
     pub fn thrust_prograde(&mut self) -> Option<()> {
         let id = self.piloting()?;
 
-        let vehicle = self.orbital_vehicles.get(&id)?;
+        let vehicle = match self.orbital_vehicles.get(&id) {
+            Some(v) => {
+                if v.is_controllable() {
+                    v
+                } else {
+                    let notif = NotificationType::NotControllable(id);
+                    self.notify(ObjectId::Orbiter(id), notif, None);
+                    return None;
+                }
+            }
+            None => {
+                let notif = NotificationType::NotControllable(id);
+                self.notify(ObjectId::Orbiter(id), notif, None);
+                return None;
+            }
+        };
+
         let throttle = self.orbital_context.throttle.to_ratio();
 
         let dv = vehicle.pointing() * 0.005 * throttle;
@@ -556,9 +583,7 @@ impl GameState {
         Some(())
     }
 
-    pub fn on_button_event(&mut self, id: crate::ui::OnClick) -> Option<()> {
-        use crate::ui::OnClick;
-
+    pub fn on_button_event(&mut self, id: OnClick) -> Option<()> {
         match id {
             OnClick::CurrentBody(id) => self.orbital_context.following = Some(ObjectId::Planet(id)),
             OnClick::Orbiter(id) => self.orbital_context.following = Some(ObjectId::Orbiter(id)),
@@ -632,7 +657,7 @@ impl GameState {
         Some(())
     }
 
-    pub fn current_hover_ui(&self) -> Option<&crate::ui::OnClick> {
+    pub fn current_hover_ui(&self) -> Option<&OnClick> {
         let wb = self.input.screen_bounds.span;
         let p = self.input.position(MouseButt::Hover, FrameId::Current)?;
         self.ui.at(p, wb).map(|n| n.on_click()).flatten()
@@ -645,60 +670,6 @@ impl GameState {
             None => return false,
         };
         self.ui.at(p, wb).map(|n| n.is_visible()).unwrap_or(false)
-    }
-
-    pub fn get_mouseover_labels(&self) -> Vec<(Vec2, String, f32)> {
-        let mut ret = Vec::new();
-
-        let cursor = match self.input.position(MouseButt::Hover, FrameId::Current) {
-            Some(p) => p,
-            None => return Vec::new(),
-        };
-
-        let cursor_world = self.orbital_context.c2w(cursor);
-
-        for id in self.scenario.ids() {
-            let lup = match self.scenario.lup(id, self.sim_time) {
-                Some(lup) => lup,
-                None => continue,
-            };
-            let pw = lup.pv().pos;
-            let pc = self.orbital_context.w2c(pw);
-
-            let (passes, label, pos) = if let Some((name, body)) = lup.named_body() {
-                // distance based on world space
-                let d = pw.distance(cursor_world);
-                let p = self.orbital_context.w2c(pw + Vec2::Y * body.radius);
-                (d < body.radius, name.to_uppercase(), p + Vec2::Y * 30.0)
-            } else {
-                let orb_id = id.orbiter().unwrap();
-                let is_rpo = self.rpos.contains_key(&orb_id);
-                let is_controllable = self
-                    .orbital_vehicles
-                    .get(&orb_id)
-                    .map(|v| v.is_controllable())
-                    .unwrap_or(false);
-
-                // distance based on pixel space
-                let d = pc.distance(cursor);
-                (
-                    d < 25.0,
-                    if is_rpo {
-                        format!("RPO {}", orb_id)
-                    } else if is_controllable {
-                        format!("VEH {}", orb_id)
-                    } else {
-                        format!("AST {}", orb_id)
-                    },
-                    pc + Vec2::Y * 40.0,
-                )
-            };
-
-            if passes {
-                ret.push((pos, label, 1.0))
-            }
-        }
-        ret
     }
 
     pub fn is_currently_left_clicked_on_ui(&self) -> bool {
@@ -747,6 +718,9 @@ impl GameState {
         }
 
         if self.input.on_frame(Left, Up) {
+            let h = &self.orbital_context.highlighted;
+            self.orbital_context.selected.extend(h.into_iter());
+            self.orbital_context.highlighted.clear();
             self.redraw();
         }
 
@@ -906,6 +880,7 @@ impl GameState {
 
         match self.current_scene().kind() {
             SceneType::OrbitalView => {
+                self.orbital_context.highlighted = OrbitalContext::highlighted(self);
                 if let Some(p) = self.orbital_context.follow_position(self) {
                     self.orbital_context.go_to(p);
                 }
@@ -921,14 +896,6 @@ impl GameState {
             SceneType::Editor => self.editor_context.step(&self.input, dt),
             _ => (),
         }
-    }
-
-    pub fn orbital_text_labels(&self) -> Vec<(Vec2, String, f32)> {
-        if &SceneType::OrbitalView != self.current_scene().kind() {
-            return Vec::new();
-        }
-
-        OrbitalContext::text_labels(self)
     }
 }
 
@@ -1055,14 +1022,6 @@ fn handle_interactions(
     for e in events.read() {
         debug!("Interaction event: {e:?}");
         process_interaction(e, &mut state, &mut window);
-    }
-}
-
-// TODO get rid of this
-fn track_highlighted_objects(buttons: Res<ButtonInput<MouseButton>>, mut state: ResMut<GameState>) {
-    if buttons.just_released(MouseButton::Left) {
-        let h = state.highlighted();
-        state.orbital_context.selected.extend(h.into_iter());
     }
 }
 

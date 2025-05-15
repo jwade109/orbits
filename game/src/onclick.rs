@@ -1,0 +1,36 @@
+use crate::scenes::{CursorMode, ThrottleLevel};
+use starling::prelude::{GroupId, OrbiterId, PlanetId};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OnClick {
+    Orbiter(OrbiterId),
+    Exit,
+    Save,
+    Load,
+    ToggleDrawMode,
+    ClearTracks,
+    CreateGroup,
+    DisbandGroup(GroupId),
+    ClearOrbits,
+    CurrentBody(PlanetId),
+    SelectedCount,
+    AutopilotingCount,
+    PilotOrbiter,
+    Group(GroupId),
+    TogglePause,
+    World,
+    SimSpeed(i32),
+    GlobalOrbit(usize),
+    DeleteOrbit(usize),
+    DeleteOrbiter,
+    ClearMission,
+    CommitMission,
+    CursorMode(CursorMode),
+    GoToScene(usize),
+    ThrustLevel(ThrottleLevel),
+    SetTarget(OrbiterId),
+    SetPilot(OrbiterId),
+    ClearTarget,
+    ClearPilot,
+    Nullopt,
+}

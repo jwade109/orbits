@@ -1,3 +1,5 @@
+use crate::planetary::GameState;
+use crate::scenes::Render;
 use bevy::asset::embedded_asset;
 use bevy::image::{ImageLoaderSettings, ImageSampler};
 use bevy::prelude::*;
@@ -12,34 +14,49 @@ impl Plugin for PartPlugin {
         embedded_asset!(app, "src/", "../assets/parts/tank22.png");
         embedded_asset!(app, "src/", "../assets/parts/motor.png");
         embedded_asset!(app, "src/", "../assets/parts/antenna.png");
-
-        // app.add_systems(Startup, add_part_sprites);
     }
 }
 
-fn add_part_sprites(mut commands: Commands, assets: Res<AssetServer>, images: Res<Assets<Image>>) {
-    for (i, part) in ["frame", "tank11", "tank21", "tank22", "motor", "antenna"]
-        .into_iter()
-        .enumerate()
-    {
-        let path = format!("../assets/parts/{}.png", part);
-        let handle = assets.load_with_settings(path, |settings: &mut ImageLoaderSettings| {
-            // Need to use nearest filtering to avoid bleeding between the slices with tiling
-            settings.sampler = ImageSampler::nearest();
-        });
+#[derive(Component)]
+pub struct StaticSprite(String, usize);
 
-        let d = if let Some(image) = images.get(&handle) {
-            image.width().max(image.height())
+pub fn update_static_sprites(
+    mut commands: Commands,
+    assets: Res<AssetServer>,
+    state: Res<GameState>,
+    mut query: Query<(Entity, &mut Sprite, &mut Transform, &StaticSprite)>,
+) {
+    let sprites = GameState::sprites(&state);
+
+    let mut sprite_entities: Vec<_> = query.iter_mut().collect();
+
+    for (i, sprite) in sprites.iter().enumerate() {
+        let pos = sprite.position.extend(sprite.z_index);
+        let scale = Vec3::splat(sprite.scale);
+
+        let found = sprite_entities
+            .iter_mut()
+            .find(|(_, _, _, s)| s.0 == sprite.path && s.1 == i);
+
+        if let Some((_, _, tf, _)) = found {
+            tf.translation = pos;
+            tf.scale = scale;
         } else {
-            10
-        };
+            let handle = assets.load_with_settings(
+                sprite.path.clone(),
+                |settings: &mut ImageLoaderSettings| {
+                    settings.sampler = ImageSampler::nearest();
+                },
+            );
+            let spr = Sprite::from_image(handle);
+            let tf = Transform::from_scale(scale).with_translation(pos);
+            commands.spawn((spr, tf, StaticSprite(sprite.path.clone(), i)));
+        }
+    }
 
-        let sprite = Sprite::from_image(handle);
-
-        let scale = 100.0 / d as f32;
-
-        let tf = Transform::from_scale(Vec3::splat(scale))
-            .with_translation(Vec3::X * (i as f32 * 200.0 - 400.0));
-        commands.spawn((sprite, tf));
+    for (i, (e, _, _, _)) in query.iter().enumerate() {
+        if i >= sprites.len() {
+            commands.entity(e).despawn();
+        }
     }
 }

@@ -8,6 +8,7 @@ use starling::prelude::*;
 use crate::graph::*;
 use crate::mouse::{FrameId, MouseButt};
 use crate::notifications::*;
+use crate::onclick::OnClick;
 use crate::planetary::GameState;
 use crate::scenes::*;
 
@@ -699,11 +700,11 @@ fn draw_event(
 
 fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) {
     let ctx = &state.orbital_context;
-    _ = state
-        .highlighted()
-        .into_iter()
+    _ = ctx
+        .highlighted
+        .iter()
         .filter_map(|id| {
-            let pv = state.scenario.lup_orbiter(id, state.sim_time)?.pv();
+            let pv = state.scenario.lup_orbiter(*id, state.sim_time)?.pv();
             draw_circle(gizmos, ctx.w2c(pv.pos), 20.0, GRAY);
             Some(())
         })
@@ -1261,7 +1262,7 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState) {
     if let Some(orbit) = state
         .current_hover_ui()
         .map(|id| {
-            if let crate::ui::OnClick::GlobalOrbit(i) = *id {
+            if let OnClick::GlobalOrbit(i) = *id {
                 state.orbital_context.queued_orbits.get(i)
             } else {
                 None
@@ -1420,56 +1421,11 @@ fn get_frequency_spectrum(x: f32, d: f32, fc: f32) -> f32 {
 }
 
 fn draw_telescope_view(gizmos: &mut Gizmos, state: &GameState) {
-    let screen_radius = state.input.screen_bounds.span.min_element() / 2.0 * 1.1;
-
+    let screen_radius = TelescopeContext::screen_radius(state);
     draw_circle(gizmos, Vec2::ZERO, screen_radius, WHITE);
     draw_circle(gizmos, Vec2::ZERO, screen_radius + 5.0, WHITE);
 
-    let map = |az: f32, el: f32| -> (Vec2, f32, f32) {
-        let azel = state.telescope_context.origin();
-        let daz = az - azel.x;
-        let del = el - azel.y;
-
-        // assumes x is on the domain [0, 1].
-        // moves x towards 1, but doesn't move 0
-        let scale = |x: f32| -> f32 {
-            let xmag = x.abs();
-            (1.0 - (1.0 - xmag).powf(3.0)) * x.signum()
-        };
-
-        let daz = wrap_pi_npi(daz);
-        let del = wrap_pi_npi(del * 2.0) / 2.0;
-
-        let angular_offset = Vec2::new(daz, del);
-        let angular_distance = angular_offset.length();
-
-        let scaled_distance = scale((angular_distance * state.telescope_context.scale()).min(1.0));
-
-        let alpha = 1.0 - scaled_distance.powi(3);
-
-        (
-            angular_offset.normalize_or_zero() * scaled_distance * screen_radius,
-            alpha,
-            angular_distance,
-        )
-    };
-
-    let azel = |p: Vec3| -> (f32, f32) {
-        let az = f32::atan2(p.y, p.x);
-        let el = f32::atan2(p.z, p.xy().length());
-        (az, el)
-    };
-
-    draw_cross(
-        gizmos,
-        map(
-            state.telescope_context.origin().x,
-            state.telescope_context.origin().y,
-        )
-        .0,
-        5.0,
-        GRAY,
-    );
+    draw_cross(gizmos, Vec2::ZERO, 5.0, GRAY);
 
     let mut graph = Graph::linspace(250.0, 2500.0, 100);
 
@@ -1478,8 +1434,8 @@ fn draw_telescope_view(gizmos: &mut Gizmos, state: &GameState) {
     graph.add_point(2500.0, 0.0, true);
 
     for (star, color, radius, fc) in &state.starfield {
-        let (az, el) = azel(*star);
-        let (p, alpha, d) = map(az, el);
+        let (az, el) = TelescopeContext::to_azel(*star);
+        let (p, alpha, d) = TelescopeContext::screen_position(az, el, state);
         if d < 0.2 {
             graph.add_func(
                 |x: f32| get_frequency_spectrum(x, d, *fc),

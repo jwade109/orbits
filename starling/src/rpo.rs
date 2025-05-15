@@ -51,7 +51,7 @@ impl RPO {
             vehicle.step(stamp);
             pv.pos += pv.vel * dt;
             pv.vel *= 0.999;
-            pv.vel += randvec(0.1, 4.0) * dt;
+            pv.vel += randvec(0.1, 12.0) * dt;
         }
         self.stamp = stamp;
     }

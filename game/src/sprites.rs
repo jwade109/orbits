@@ -331,15 +331,10 @@ pub fn update_spacecraft_sprites(
 }
 
 pub fn update_background_sprite(
-    mut orbital_context: Single<&mut Camera, With<crate::planetary::BackgroundCamera>>,
+    mut camera: Single<&mut Camera, With<crate::planetary::BackgroundCamera>>,
     state: Res<GameState>,
 ) {
-    let c = match state.orbital_context.draw_mode {
-        DrawMode::Default => BLACK,
-        DrawMode::Constellations => GRAY.with_luminance(0.1),
-        DrawMode::Stability => GRAY.with_luminance(0.13),
-        DrawMode::Occlusion => GRAY.with_luminance(0.04),
-    };
+    let c = GameState::background_color(&state);
 
-    orbital_context.clear_color = ClearColorConfig::Custom(c.with_alpha(0.0).into());
+    camera.clear_color = ClearColorConfig::Custom(c.with_alpha(0.0).into());
 }

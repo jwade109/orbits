@@ -1,4 +1,5 @@
 use crate::mouse::{FrameId, MouseButt};
+use crate::onclick::OnClick;
 use crate::planetary::GameState;
 use crate::scenes::*;
 use bevy::color::palettes::css::*;
@@ -82,23 +83,23 @@ pub fn do_text_labels(
     state: Res<GameState>,
     mut query: Query<(Entity, &mut Text2d, &mut TextFont, &mut Transform), With<TextLabel>>,
 ) {
-    let text_labels = state.orbital_text_labels();
+    let text_labels = GameState::text_labels(&state);
 
     let mut labels: Vec<_> = query.iter_mut().collect();
-    for (i, (pos, txt, size)) in text_labels.iter().enumerate() {
+    for (i, tl) in text_labels.iter().enumerate() {
         if let Some((_, text2d, font, label)) = labels.get_mut(i) {
-            label.translation = pos.extend(TEXT_LABEL_Z_INDEX);
+            label.translation = tl.position.extend(TEXT_LABEL_Z_INDEX);
             label.scale = Vec3::splat(1.0);
-            text2d.0 = txt.clone();
-            font.font_size = 23.0 * size;
+            text2d.0 = tl.text.clone();
+            font.font_size = 23.0 * tl.size;
         } else {
             commands.spawn((
-                Text2d::new(txt.clone()),
+                Text2d::new(tl.text.clone()),
                 TextFont {
-                    font_size: 23.0 * size,
+                    font_size: 23.0 * tl.size,
                     ..default()
                 },
-                Transform::from_translation(pos.extend(TEXT_LABEL_Z_INDEX)),
+                Transform::from_translation(tl.position.extend(TEXT_LABEL_Z_INDEX)),
                 TextLabel,
             ));
         }
@@ -113,65 +114,6 @@ pub fn do_text_labels(
 
 #[derive(Component)]
 pub struct TextLabel;
-
-#[derive(Component)]
-struct DateMarker;
-
-#[allow(unused)]
-fn get_screen_clock() -> impl Bundle {
-    (
-        DateMarker,
-        Text::new(""),
-        TextFont {
-            font_size: 30.0,
-            ..default()
-        },
-        TextColor(WHITE.into()),
-        ZIndex(100),
-        Node {
-            position_type: PositionType::Absolute,
-            bottom: Val::Px(5.0),
-            right: Val::Px(5.0),
-            ..default()
-        },
-    )
-}
-
-#[allow(unused)]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum OnClick {
-    Orbiter(OrbiterId),
-    Exit,
-    Save,
-    Load,
-    ToggleDrawMode,
-    ClearTracks,
-    CreateGroup,
-    DisbandGroup(GroupId),
-    ClearOrbits,
-    CurrentBody(PlanetId),
-    SelectedCount,
-    AutopilotingCount,
-    PilotOrbiter,
-    Group(GroupId),
-    TogglePause,
-    World,
-    SimSpeed(i32),
-    GlobalOrbit(usize),
-    DeleteOrbit(usize),
-    DeleteOrbiter,
-    ClearMission,
-    CommitMission,
-    FollowOrbiter,
-    CursorMode(CursorMode),
-    GoToScene(usize),
-    ThrustLevel(ThrottleLevel),
-    SetTarget(OrbiterId),
-    SetPilot(OrbiterId),
-    ClearTarget,
-    ClearPilot,
-    Nullopt,
-}
 
 #[allow(unused)]
 fn context_menu(rowsize: f32, items: &[(String, OnClick, bool)]) -> ui::Node<OnClick> {
@@ -816,7 +758,6 @@ fn do_ui_sprites(
 
 fn setup(mut commands: Commands) {
     commands.insert_resource(Events::<InteractionEvent>::default());
-    commands.spawn(get_screen_clock());
 }
 
 fn on_resize_system(mut resize_reader: EventReader<WindowResized>, mut state: ResMut<GameState>) {

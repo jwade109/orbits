@@ -1,6 +1,9 @@
 use crate::mouse::{FrameId, InputState, MouseButt};
 use crate::planetary::GameState;
+use crate::scenes::{Render, StaticSpriteDescriptor, TextLabel};
+use bevy::color::palettes::css::*;
 use bevy::input::keyboard::KeyCode;
+use bevy::prelude::*;
 use enum_iterator::Sequence;
 use starling::prelude::*;
 use std::collections::HashSet;
@@ -71,6 +74,7 @@ impl LowPass {
 pub struct OrbitalContext {
     primary: PlanetId,
     pub selected: HashSet<OrbiterId>,
+    pub highlighted: HashSet<OrbiterId>,
     center: Vec2,
     target_center: Vec2,
     scale: f32,
@@ -137,6 +141,7 @@ impl OrbitalContext {
         Self {
             primary,
             selected: HashSet::new(),
+            highlighted: HashSet::new(),
             center: Vec2::ZERO,
             target_center: Vec2::ZERO,
             scale: 0.02,
@@ -180,13 +185,85 @@ impl OrbitalContext {
         }
     }
 
-    pub fn text_labels(state: &GameState) -> Vec<(Vec2, String, f32)> {
-        let mut text_labels = state.get_mouseover_labels();
+    pub fn highlighted(state: &GameState) -> HashSet<OrbiterId> {
+        if let Some(a) = state.selection_region() {
+            state
+                .scenario
+                .orbiter_ids()
+                .into_iter()
+                .filter_map(|id| {
+                    let pv = state.scenario.lup_orbiter(id, state.sim_time)?.pv();
+                    a.contains(pv.pos).then(|| id)
+                })
+                .collect()
+        } else {
+            HashSet::new()
+        }
+    }
+}
+
+pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> {
+    let mut ret = Vec::new();
+
+    let cursor = match state.input.position(MouseButt::Hover, FrameId::Current) {
+        Some(p) => p,
+        None => return Vec::new(),
+    };
+
+    let cursor_world = state.orbital_context.c2w(cursor);
+
+    for id in state.scenario.ids() {
+        let lup = match state.scenario.lup(id, state.sim_time) {
+            Some(lup) => lup,
+            None => continue,
+        };
+        let pw = lup.pv().pos;
+        let pc = state.orbital_context.w2c(pw);
+
+        let (passes, label, pos) = if let Some((name, body)) = lup.named_body() {
+            // distance based on world space
+            let d = pw.distance(cursor_world);
+            let p = state.orbital_context.w2c(pw + Vec2::Y * body.radius);
+            (d < body.radius, name.to_uppercase(), p + Vec2::Y * 30.0)
+        } else {
+            let orb_id = id.orbiter().unwrap();
+            let is_rpo = state.rpos.contains_key(&orb_id);
+            let is_controllable = state
+                .orbital_vehicles
+                .get(&orb_id)
+                .map(|v| v.is_controllable())
+                .unwrap_or(false);
+
+            // distance based on pixel space
+            let d = pc.distance(cursor);
+            (
+                d < 25.0,
+                if is_rpo {
+                    format!("RPO {}", orb_id)
+                } else if is_controllable {
+                    format!("VEH {}", orb_id)
+                } else {
+                    format!("AST {}", orb_id)
+                },
+                pc + Vec2::Y * 40.0,
+            )
+        };
+
+        if passes {
+            ret.push(TextLabel::new(label, pos, 1.0))
+        }
+    }
+    ret
+}
+
+impl Render for OrbitalContext {
+    fn text_labels(state: &GameState) -> Vec<TextLabel> {
+        let mut text_labels = get_orbital_object_mouseover_labels(state);
 
         if state.paused {
             let s = "PAUSED".to_string();
             let c = Vec2::Y * (60.0 - state.input.screen_bounds.span.y * 0.5);
-            text_labels.push((c, s, 2.5));
+            text_labels.push(TextLabel::new(s, c, 1.0));
         }
 
         {
@@ -202,7 +279,7 @@ impl OrbitalContext {
                 date.milli,
             );
             let c = Vec2::Y * (20.0 - state.input.screen_bounds.span.y * 0.5);
-            text_labels.push((c, s, 1.0));
+            text_labels.push(TextLabel::new(s, c, 1.0));
         }
 
         if let Some((m1, m2, corner)) = state.measuring_tape() {
@@ -210,7 +287,7 @@ impl OrbitalContext {
                 let middle = (a + b) / 2.0;
                 let middle = state.orbital_context.w2c(middle);
                 let d = format!("{:0.1} km", a.distance(b));
-                text_labels.push((middle, d, 1.0));
+                text_labels.push(TextLabel::new(d, middle, 1.0));
             }
         }
 
@@ -220,7 +297,7 @@ impl OrbitalContext {
                     let middle = (a + b) / 2.0;
                     let middle = state.orbital_context.w2c(middle);
                     let d = format!("{:0.1} km", a.distance(b));
-                    text_labels.push((middle, d, 1.0));
+                    text_labels.push(TextLabel::new(d, middle, 1.0));
                 }
             }
             if let Some(b) = b {
@@ -230,11 +307,24 @@ impl OrbitalContext {
                 let d = c + rotate(da * 0.75, angle / 2.0);
                 let t = format!("{:0.1} deg", angle.to_degrees().abs());
                 let d = state.orbital_context.w2c(d);
-                text_labels.push((d, t, 1.0));
+                text_labels.push(TextLabel::new(t, d, 1.0));
             }
         }
 
         text_labels
+    }
+
+    fn sprites(_state: &GameState) -> Vec<StaticSpriteDescriptor> {
+        vec![]
+    }
+
+    fn background_color(state: &GameState) -> bevy::color::Srgba {
+        match state.orbital_context.draw_mode {
+            DrawMode::Default => BLACK,
+            DrawMode::Constellations => GRAY.with_luminance(0.1),
+            DrawMode::Stability => GRAY.with_luminance(0.13),
+            DrawMode::Occlusion => GRAY.with_luminance(0.04),
+        }
     }
 }
 
