@@ -2,8 +2,8 @@ use crate::mouse::{FrameId, InputState, MouseButt};
 use crate::notifications::*;
 use crate::onclick::OnClick;
 use crate::scenes::{
-    CameraProjection, CursorMode, EditorContext, Interactive, OrbitalContext, OrbitalView,
-    RPOContext, Render, Scene, SceneType, StaticSpriteDescriptor, TelescopeContext, TextLabel,
+    CameraProjection, CursorMode, EditorContext, Interactive, OrbitalContext, RPOContext, Render,
+    Scene, SceneType, StaticSpriteDescriptor, TelescopeContext, TextLabel,
 };
 use crate::ui::InteractionEvent;
 use bevy::color::palettes::css::*;
@@ -32,8 +32,8 @@ impl Plugin for PlanetaryPlugin {
                 // physics
                 step_system,
                 // rendering
-                crate::parts::update_static_sprites,
                 crate::ui::do_text_labels,
+                crate::sprites::update_static_sprites,
                 crate::sprites::make_new_sprites,
                 crate::sprites::update_planet_sprites,
                 crate::sprites::update_shadow_sprites,
@@ -218,8 +218,9 @@ impl Default for GameState {
 impl Render for GameState {
     fn text_labels(state: &GameState) -> Vec<TextLabel> {
         match state.current_scene().kind() {
-            SceneType::OrbitalView => OrbitalContext::text_labels(state),
+            SceneType::Orbital => OrbitalContext::text_labels(state),
             SceneType::TelescopeView => TelescopeContext::text_labels(state),
+            SceneType::Editor => EditorContext::text_labels(state),
             _ => vec![],
         }
     }
@@ -233,10 +234,19 @@ impl Render for GameState {
 
     fn background_color(state: &GameState) -> Srgba {
         match state.current_scene().kind() {
-            SceneType::OrbitalView => OrbitalContext::background_color(state),
+            SceneType::Orbital => OrbitalContext::background_color(state),
             SceneType::Editor => EditorContext::background_color(state),
             SceneType::TelescopeView => TelescopeContext::background_color(state),
             _ => GRAY.with_luminance(0.09),
+        }
+    }
+
+    fn draw_gizmos(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
+        match state.current_scene().kind() {
+            SceneType::Orbital => OrbitalContext::draw_gizmos(gizmos, state),
+            SceneType::Editor => EditorContext::draw_gizmos(gizmos, state),
+            SceneType::TelescopeView => TelescopeContext::draw_gizmos(gizmos, state),
+            _ => None,
         }
     }
 }
@@ -328,7 +338,7 @@ impl GameState {
     }
 
     pub fn selection_region(&self) -> Option<Region> {
-        OrbitalView::selection_region(self)
+        OrbitalContext::selection_region(self)
     }
 
     pub fn measuring_tape(&self) -> Option<(Vec2, Vec2, Vec2)> {
@@ -336,7 +346,7 @@ impl GameState {
             return None;
         }
 
-        OrbitalView::measuring_tape(self)
+        OrbitalContext::measuring_tape(self)
     }
 
     pub fn protractor(&self) -> Option<(Vec2, Vec2, Option<Vec2>)> {
@@ -344,11 +354,11 @@ impl GameState {
             return None;
         }
 
-        OrbitalView::protractor(self)
+        OrbitalContext::protractor(self)
     }
 
     pub fn left_cursor_orbit(&self) -> Option<GlobalOrbit> {
-        OrbitalView::left_cursor_orbit(self)
+        OrbitalContext::left_cursor_orbit(self)
     }
 
     pub fn cursor_orbit_if_mode(&self) -> Option<GlobalOrbit> {
@@ -642,6 +652,7 @@ impl GameState {
             OnClick::ClearTarget => self.orbital_context.targeting = None,
             OnClick::SetPilot(p) => self.orbital_context.piloting = Some(p),
             OnClick::SetTarget(p) => self.orbital_context.targeting = Some(p),
+            OnClick::SelectPart(pid) => self.editor_context.current_part_index = pid,
             _ => info!("Unhandled button event: {id:?}"),
         };
 
@@ -694,11 +705,11 @@ impl GameState {
 
         let wb = self.input.screen_bounds.span;
 
-        if self.input.on_frame(Left, Down) {
+        if self.input.on_frame(Left, Down).is_some() {
             self.redraw();
         }
 
-        if self.input.on_frame(Left, Up) {
+        if self.input.on_frame(Left, Up).is_some() {
             self.redraw();
             let p = self.input.position(Left, Down);
             let q = self.input.position(Left, Up);
@@ -713,18 +724,18 @@ impl GameState {
             }
         }
 
-        if self.input.on_frame(Right, Down) {
+        if self.input.on_frame(Right, Down).is_some() {
             self.redraw();
         }
 
-        if self.input.on_frame(Left, Up) {
+        if self.input.on_frame(Left, Up).is_some() {
             let h = &self.orbital_context.highlighted;
             self.orbital_context.selected.extend(h.into_iter());
             self.orbital_context.highlighted.clear();
             self.redraw();
         }
 
-        if self.input.on_frame(Right, Up) {
+        if self.input.on_frame(Right, Up).is_some() {
             self.redraw();
         }
     }
@@ -746,7 +757,7 @@ impl GameState {
 
         || -> Option<()> {
             if let Some(p) = self.input.double_click() {
-                if let SceneType::OrbitalView = self.current_scene().kind() {
+                if let SceneType::Orbital = self.current_scene().kind() {
                     ()
                 } else {
                     return None;
@@ -879,7 +890,7 @@ impl GameState {
             .retain(|n| n.wall_time + n.duration() > self.wall_time);
 
         match self.current_scene().kind() {
-            SceneType::OrbitalView => {
+            SceneType::Orbital => {
                 self.orbital_context.highlighted = OrbitalContext::highlighted(self);
                 if let Some(p) = self.orbital_context.follow_position(self) {
                     self.orbital_context.go_to(p);
@@ -893,7 +904,10 @@ impl GameState {
                     self.rpo_context.handle_follow(&self.input, rpo);
                 }
             }
-            SceneType::Editor => self.editor_context.step(&self.input, dt),
+            SceneType::Editor => {
+                let hover_ui = self.is_hovering_over_ui();
+                self.editor_context.step(&self.input, dt, hover_ui)
+            }
             _ => (),
         }
     }

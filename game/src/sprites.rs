@@ -16,6 +16,16 @@ impl Plugin for SpritePlugin {
         embedded_asset!(app, "src/", "../assets/Asteroid.png");
         embedded_asset!(app, "src/", "../assets/shadow.png");
         embedded_asset!(app, "src/", "../assets/spacecraft.png");
+        embedded_asset!(app, "src/", "../assets/collision_pixel.png");
+
+        embedded_asset!(app, "src/", "../assets/parts/frame.png");
+        embedded_asset!(app, "src/", "../assets/parts/frame2.png");
+        embedded_asset!(app, "src/", "../assets/parts/tank11.png");
+        embedded_asset!(app, "src/", "../assets/parts/tank21.png");
+        embedded_asset!(app, "src/", "../assets/parts/tank22.png");
+        embedded_asset!(app, "src/", "../assets/parts/motor.png");
+        embedded_asset!(app, "src/", "../assets/parts/antenna.png");
+        embedded_asset!(app, "src/", "../assets/parts/cargo.png");
     }
 }
 
@@ -53,7 +63,7 @@ pub fn make_new_sprites(
     let scene = state.current_scene();
 
     match scene.kind() {
-        SceneType::OrbitalView => (),
+        SceneType::Orbital => (),
         _ => return,
     }
 
@@ -95,7 +105,7 @@ pub fn update_planet_sprites(
     let scene = state.current_scene();
 
     match scene.kind() {
-        SceneType::OrbitalView => (),
+        SceneType::Orbital => (),
         _ => {
             for (e, _, _, _) in query.iter() {
                 commands.entity(e).despawn();
@@ -148,7 +158,7 @@ pub fn update_shadow_sprites(
     let scene = state.current_scene();
 
     match scene.kind() {
-        SceneType::OrbitalView => (),
+        SceneType::Orbital => (),
         _ => {
             for (e, _, _, _) in query.iter() {
                 commands.entity(e).despawn();
@@ -211,7 +221,7 @@ pub fn update_spacecraft_sprites(
     let scene = state.current_scene();
 
     match scene.kind() {
-        SceneType::OrbitalView => (),
+        SceneType::Orbital => (),
         _ => {
             for (e, _, _, _) in query.iter() {
                 commands.entity(e).despawn();
@@ -337,4 +347,57 @@ pub fn update_background_sprite(
     let c = GameState::background_color(&state);
 
     camera.clear_color = ClearColorConfig::Custom(c.with_alpha(0.0).into());
+}
+
+use crate::scenes::Render;
+use bevy::image::{ImageLoaderSettings, ImageSampler};
+
+#[derive(Component)]
+pub struct StaticSprite(String);
+
+pub fn update_static_sprites(
+    mut commands: Commands,
+    assets: Res<AssetServer>,
+    state: Res<GameState>,
+    mut query: Query<(Entity, &mut Sprite, &mut Transform, &mut StaticSprite)>,
+) {
+    let sprites = GameState::sprites(&state);
+
+    let mut sprite_entities: Vec<_> = query.iter_mut().collect();
+
+    for (i, sprite) in sprites.iter().enumerate() {
+        let pos = sprite.position.extend(sprite.z_index);
+        let scale = Vec3::splat(sprite.scale);
+
+        if let Some((_, ref mut spr, ref mut tf, ref mut desc)) = sprite_entities.get_mut(i) {
+            tf.translation = pos;
+            tf.scale = scale;
+            if desc.0 != sprite.path {
+                let handle = assets.load_with_settings(
+                    sprite.path.clone(),
+                    |settings: &mut ImageLoaderSettings| {
+                        settings.sampler = ImageSampler::nearest();
+                    },
+                );
+                **spr = Sprite::from_image(handle);
+                desc.0 = sprite.path.clone();
+            }
+        } else {
+            let handle = assets.load_with_settings(
+                sprite.path.clone(),
+                |settings: &mut ImageLoaderSettings| {
+                    settings.sampler = ImageSampler::nearest();
+                },
+            );
+            let spr = Sprite::from_image(handle);
+            let tf = Transform::from_scale(scale).with_translation(pos);
+            commands.spawn((spr, tf, StaticSprite(sprite.path.clone())));
+        }
+    }
+
+    for (i, (e, _, _, _)) in query.iter().enumerate() {
+        if i >= sprites.len() {
+            commands.entity(e).despawn();
+        }
+    }
 }

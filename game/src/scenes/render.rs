@@ -1,5 +1,5 @@
 use crate::planetary::GameState;
-use bevy::color::Srgba;
+use bevy::prelude::*;
 use starling::math::Vec2;
 
 pub struct TextLabel {
@@ -31,4 +31,6 @@ pub trait Render {
     fn sprites(state: &GameState) -> Vec<StaticSpriteDescriptor>;
 
     fn background_color(state: &GameState) -> Srgba;
+
+    fn draw_gizmos(gizmos: &mut Gizmos, state: &GameState) -> Option<()>;
 }

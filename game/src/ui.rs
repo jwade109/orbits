@@ -76,7 +76,7 @@ fn set_bloom(state: Res<GameState>, mut bloom: Single<&mut Bloom>) {
     }
 }
 
-const TEXT_LABEL_Z_INDEX: f32 = 10.0;
+const TEXT_LABEL_Z_INDEX: f32 = 100.0;
 
 pub fn do_text_labels(
     mut commands: Commands,
@@ -180,7 +180,7 @@ pub fn main_menu_layout(state: &GameState) -> ui::Tree<OnClick> {
     ui::Tree::new().with_layout(wrapper, Vec2::splat(300.0))
 }
 
-pub fn top_bar(state: &GameState, button_height: f32) -> ui::Node<OnClick> {
+pub fn top_bar(state: &GameState) -> ui::Node<OnClick> {
     use ui::*;
     Node::row(Size::Fit)
         .with_color(UI_BACKGROUND_COLOR)
@@ -191,7 +191,7 @@ pub fn top_bar(state: &GameState, button_height: f32) -> ui::Node<OnClick> {
             let s = scene.name();
             let id = OnClick::GoToScene(i);
             let current = state.current_scene_idx == i;
-            Node::button(s, id, 120, button_height).enabled(!current)
+            Node::button(s, id, 120, BUTTON_HEIGHT).enabled(!current)
         }))
         .with_child(Node::grow().invisible())
         .with_child(Node::button("Exit", OnClick::Exit, 80, Size::Grow))
@@ -205,7 +205,7 @@ pub fn basic_scenes_layout(state: &GameState) -> ui::Tree<OnClick> {
         return Tree::new();
     }
 
-    let top_bar = top_bar(state, 40.0);
+    let top_bar = top_bar(state);
     let notif_bar = notification_bar(state);
 
     let layout = Node::new(vb.span.x, vb.span.y)
@@ -230,25 +230,21 @@ pub fn notification_bar(state: &GameState) -> ui::Node<OnClick> {
     )
 }
 
-pub fn append_piloting_buttons(
-    state: &GameState,
-    sidebar: &mut ui::Node<OnClick>,
-    button_height: u32,
-) -> bool {
+pub fn append_piloting_buttons(state: &GameState, sidebar: &mut ui::Node<OnClick>) -> bool {
     use ui::*;
     // piloting and secondary spacecrafts
 
     let x = if let Some(p) = state.orbital_context.piloting {
         sidebar.add_child({
             let s = format!("Piloting {:?}", p);
-            let b = Node::button(s, OnClick::Orbiter(p), Size::Grow, button_height);
-            delete_wrapper(OnClick::ClearPilot, b, button_height as f32)
+            let b = Node::button(s, OnClick::Orbiter(p), Size::Grow, BUTTON_HEIGHT);
+            delete_wrapper(OnClick::ClearPilot, b, BUTTON_HEIGHT as f32)
         });
         true
     } else if let Some(ObjectId::Orbiter(p)) = state.orbital_context.following {
         sidebar.add_child({
             let s = format!("Pilot {:?}", p);
-            Node::button(s, OnClick::SetPilot(p), Size::Grow, button_height)
+            Node::button(s, OnClick::SetPilot(p), Size::Grow, BUTTON_HEIGHT)
         });
         true
     } else {
@@ -258,14 +254,14 @@ pub fn append_piloting_buttons(
     let y = if let Some(p) = state.orbital_context.targeting {
         sidebar.add_child({
             let s = format!("Targeting {:?}", p);
-            let b = Node::button(s, OnClick::Orbiter(p), Size::Grow, button_height);
-            delete_wrapper(OnClick::ClearTarget, b, button_height as f32)
+            let b = Node::button(s, OnClick::Orbiter(p), Size::Grow, BUTTON_HEIGHT);
+            delete_wrapper(OnClick::ClearTarget, b, BUTTON_HEIGHT as f32)
         });
         true
     } else if let Some(ObjectId::Orbiter(p)) = state.orbital_context.following {
         sidebar.add_child({
             let s = format!("Target {:?}", p);
-            Node::button(s, OnClick::SetTarget(p), Size::Grow, button_height)
+            Node::button(s, OnClick::SetTarget(p), Size::Grow, BUTTON_HEIGHT)
         });
         true
     } else {
@@ -275,26 +271,55 @@ pub fn append_piloting_buttons(
     x || y
 }
 
-pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
-    let scene = state.current_scene();
-    match scene.kind() {
-        SceneType::MainMenu => return main_menu_layout(state),
-        SceneType::DockingView(_) => return basic_scenes_layout(state),
-        SceneType::TelescopeView => return basic_scenes_layout(state),
-        SceneType::OrbitalView => (),
-        SceneType::Editor => return basic_scenes_layout(state),
-    };
-
+fn editor_layout(state: &GameState) -> ui::Tree<OnClick> {
     use ui::*;
-
-    let button_height = 40;
 
     let vb = state.input.screen_bounds;
     if vb.span.x == 0.0 || vb.span.y == 0.0 {
         return Tree::new();
     }
 
-    let topbar = top_bar(state, button_height as f32);
+    let top_bar = top_bar(state);
+    let part_selection = Node::column(300)
+        .with_color(UI_BACKGROUND_COLOR)
+        .with_children(crate::parts::ALL_PARTS.iter().enumerate().map(|(i, p)| {
+            let s = p.path.to_string();
+            let onclick = OnClick::SelectPart(i);
+            Node::button(s, onclick, Size::Grow, BUTTON_HEIGHT)
+        }));
+    // let notif_bar = notification_bar(state);
+
+    let layout = Node::new(vb.span.x, vb.span.y)
+        .tight()
+        .invisible()
+        .down()
+        .with_child(top_bar)
+        .with_child(part_selection);
+    // .with_child(notif_bar);
+
+    ui::Tree::new().with_layout(layout, Vec2::ZERO)
+}
+
+const BUTTON_HEIGHT: f32 = 40.0;
+
+pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
+    let scene = state.current_scene();
+    match scene.kind() {
+        SceneType::MainMenu => return main_menu_layout(state),
+        SceneType::DockingView(_) => return basic_scenes_layout(state),
+        SceneType::TelescopeView => return basic_scenes_layout(state),
+        SceneType::Orbital => (),
+        SceneType::Editor => return editor_layout(state),
+    };
+
+    use ui::*;
+
+    let vb = state.input.screen_bounds;
+    if vb.span.x == 0.0 || vb.span.y == 0.0 {
+        return Tree::new();
+    }
+
+    let topbar = top_bar(state);
 
     let mut sidebar = Node::column(300).with_color(UI_BACKGROUND_COLOR);
 
@@ -318,7 +343,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
                     s,
                     OnClick::CurrentBody(lup.id().planet().unwrap()),
                     Size::Grow,
-                    button_height,
+                    BUTTON_HEIGHT,
                 )
                 .with_color(color.to_f32_array()),
             );
@@ -329,7 +354,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
         format!("Visual: {:?}", state.orbital_context.draw_mode),
         OnClick::ToggleDrawMode,
         Size::Grow,
-        button_height,
+        BUTTON_HEIGHT,
     ));
 
     sidebar.add_child(
@@ -337,7 +362,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
             "Clear Orbits",
             OnClick::ClearOrbits,
             Size::Grow,
-            button_height,
+            BUTTON_HEIGHT,
         )
         .enabled(!state.orbital_context.queued_orbits.is_empty()),
     );
@@ -347,7 +372,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
             "Commit Mission",
             OnClick::CommitMission,
             Size::Grow,
-            button_height,
+            BUTTON_HEIGHT,
         )
         .enabled(state.current_orbit().is_some() && !state.orbital_context.selected.is_empty()),
     );
@@ -357,7 +382,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
     sidebar.add_children(all::<CursorMode>().map(|c| {
         let s = format!("{:?}", c);
         let id = OnClick::CursorMode(c);
-        Node::button(s, id, Size::Grow, button_height)
+        Node::button(s, id, Size::Grow, BUTTON_HEIGHT)
             .enabled(c != state.orbital_context.cursor_mode)
     }));
 
@@ -372,27 +397,27 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
         let s = format!("{}", gid);
         let id = OnClick::Group(gid.clone());
         let button =
-            Node::button(s, id, Size::Grow, button_height).with_color(color.to_f32_array());
+            Node::button(s, id, Size::Grow, BUTTON_HEIGHT).with_color(color.to_f32_array());
         sidebar.add_child(delete_wrapper(
             OnClick::DisbandGroup(gid.clone()),
             button,
-            button_height as f32,
+            BUTTON_HEIGHT as f32,
         ));
     }
 
     sidebar.add_child(Node::hline());
 
-    if append_piloting_buttons(state, &mut sidebar, button_height) {
+    if append_piloting_buttons(state, &mut sidebar) {
         sidebar.add_child(Node::hline());
     }
 
     sidebar.add_child({
         let s = format!("{} selected", state.orbital_context.selected.len());
-        let b = Node::button(s, OnClick::SelectedCount, Size::Grow, button_height).enabled(false);
+        let b = Node::button(s, OnClick::SelectedCount, Size::Grow, BUTTON_HEIGHT).enabled(false);
         if state.orbital_context.selected.is_empty() {
             b
         } else {
-            delete_wrapper(OnClick::ClearTracks, b, button_height as f32)
+            delete_wrapper(OnClick::ClearTracks, b, BUTTON_HEIGHT as f32)
         }
     });
 
@@ -400,7 +425,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
         ids.sort();
 
         let rows = (ids.len().min(max_cells) as f32 / 4.0).ceil() as u32;
-        let grid = Node::grid(Size::Grow, rows * button_height, rows, 4, 4.0, |i| {
+        let grid = Node::grid(Size::Grow, rows * BUTTON_HEIGHT as u32, rows, 4, 4.0, |i| {
             if i as usize > max_cells {
                 return None;
             }
@@ -426,7 +451,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
             let n = ids.len() - max_cells;
             let s = format!("...And {} more", n);
             root.add_child(
-                Node::new(Size::Grow, button_height)
+                Node::new(Size::Grow, BUTTON_HEIGHT)
                     .with_text(s)
                     .enabled(false),
             );
@@ -443,7 +468,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
             "Create Group",
             OnClick::CreateGroup,
             Size::Grow,
-            button_height,
+            BUTTON_HEIGHT,
         ));
     }
 
@@ -451,7 +476,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
         sidebar.add_child(Node::hline());
         let s = format!("{} autopiloting", state.controllers.len());
         let id = OnClick::AutopilotingCount;
-        sidebar.add_child(Node::button(s, id, Size::Grow, button_height).enabled(false));
+        sidebar.add_child(Node::button(s, id, Size::Grow, BUTTON_HEIGHT).enabled(false));
 
         let ids = state.controllers.iter().map(|c| c.target()).collect();
         orbiter_list(&mut sidebar, 16, ids);
@@ -461,14 +486,14 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
         .with_color(UI_BACKGROUND_COLOR)
         .with_child({
             let s = if state.paused { "UNPAUSE" } else { "PAUSE" };
-            Node::button(s, OnClick::TogglePause, 120, button_height)
+            Node::button(s, OnClick::TogglePause, 120, BUTTON_HEIGHT)
         })
         .with_children((-4..=4).map(|i| {
             Node::button(
                 format!("{i}"),
                 OnClick::SimSpeed(i),
-                button_height,
-                button_height,
+                BUTTON_HEIGHT,
+                BUTTON_HEIGHT,
             )
             .enabled(i != state.sim_speed)
         }));
@@ -476,7 +501,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
     if let Some(id) = state.orbital_context.following {
         let s = format!("Following {}", id);
         let id = OnClick::Nullopt;
-        let n = Node::button(s, id, 300, button_height).enabled(false);
+        let n = Node::button(s, id, 300, BUTTON_HEIGHT).enabled(false);
         inner_topbar.add_child(n);
     }
 
@@ -484,13 +509,13 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
         let orbit_button = {
             let s = format!("{}", orbit);
             let id = OnClick::GlobalOrbit(i);
-            Node::button(s, id, 400, button_height)
+            Node::button(s, id, 400, BUTTON_HEIGHT)
         };
 
         inner_topbar.add_child(delete_wrapper(
             OnClick::DeleteOrbit(i),
             orbit_button,
-            button_height as f32,
+            BUTTON_HEIGHT as f32,
         ));
     }
 
@@ -507,12 +532,12 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
             .with_color(UI_BACKGROUND_COLOR)
             .down()
             .with_child(
-                Node::row(button_height)
+                Node::row(BUTTON_HEIGHT)
                     .with_text("Throttle")
                     .enabled(false),
             )
             .with_children(thrust_levels.iter().map(|(s, id)| {
-                Node::button(*s, OnClick::ThrustLevel(*id), Size::Grow, button_height)
+                Node::button(*s, OnClick::ThrustLevel(*id), Size::Grow, BUTTON_HEIGHT)
                     .enabled(id != &state.orbital_context.throttle)
             }))
     } else {

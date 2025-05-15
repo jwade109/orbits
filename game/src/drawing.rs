@@ -12,20 +12,20 @@ use crate::onclick::OnClick;
 use crate::planetary::GameState;
 use crate::scenes::*;
 
-fn draw_cross(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
+pub fn draw_cross(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     let dx = Vec2::new(size, 0.0);
     let dy = Vec2::new(0.0, size);
     gizmos.line_2d(p - dx, p + dx, color);
     gizmos.line_2d(p - dy, p + dy, color);
 }
 
-fn draw_x(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
+pub fn draw_x(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     let s = size / 2.0;
     gizmos.line_2d(p + Vec2::new(-s, -s), p + Vec2::new(s, s), color);
     gizmos.line_2d(p + Vec2::new(s, -s), p + Vec2::new(-s, s), color);
 }
 
-fn draw_square(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
+pub fn draw_square(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     gizmos.rect_2d(
         Isometry2d::from_translation(p),
         Vec2::new(size, size),
@@ -33,26 +33,26 @@ fn draw_square(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     );
 }
 
-fn draw_diamond(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
+pub fn draw_diamond(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     let s = size / 2.0;
     let pts = [0.0, PI / 2.0, PI, -PI / 2.0, 0.0].map(|a| p + rotate(Vec2::X * s, a));
     gizmos.linestrip_2d(pts, color);
 }
 
-fn draw_triangle(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
+pub fn draw_triangle(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     let s = size;
     let pts =
         [0.0, 1.0 / 3.0, 2.0 / 3.0, 0.0].map(|a| p + rotate(Vec2::X * s, a * 2.0 * PI + PI / 2.0));
     gizmos.linestrip_2d(pts, color);
 }
 
-fn draw_circle(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
+pub fn draw_circle(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     gizmos
         .circle_2d(Isometry2d::from_translation(p), size, color)
         .resolution(200);
 }
 
-fn draw_aabb(gizmos: &mut Gizmos, aabb: AABB, color: Srgba) {
+pub fn draw_aabb(gizmos: &mut Gizmos, aabb: AABB, color: Srgba) {
     gizmos.rect_2d(Isometry2d::from_translation(aabb.center), aabb.span, color);
 }
 
@@ -1452,54 +1452,13 @@ fn draw_telescope_view(gizmos: &mut Gizmos, state: &GameState) {
     );
 }
 
-pub fn draw_editor(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
-    let ctx = &state.editor_context;
-    draw_cross(gizmos, ctx.w2c(Vec2::ZERO), 10.0, GRAY);
-
-    // for (p, color) in ctx.points() {
-    //     draw_square(gizmos, ctx.w2c(p.as_vec2()), 4.0, color.to_color());
-    // }
-
-    if let Some(aabb) = ctx.cursor_box(&state.input) {
-        draw_aabb(gizmos, ctx.w2c_aabb(aabb), RED);
-    }
-
-    for aabb in ctx.aabbs() {
-        draw_aabb(gizmos, ctx.w2c_aabb(*aabb), WHITE);
-    }
-
-    for points in ctx.lines() {
-        let points = points.into_iter().map(|p| ctx.w2c(*p)).collect::<Vec<_>>();
-        gizmos.linestrip_2d(points, GRAY.with_alpha(0.4));
-    }
-
-    let cursor = state.input.position(MouseButt::Hover, FrameId::Current)?;
-    let c = ctx.c2w(cursor);
-    let discrete = IVec2::new(
-        (c.x / 8.0).round() as i32 * 8,
-        (c.y / 8.0).round() as i32 * 8,
-    );
-
-    for dx in (-80..=80).step_by(8) {
-        for dy in (-80..=80).step_by(8) {
-            let s = IVec2::new(dx, dy);
-            let p = discrete - s;
-            let d = (s.length_squared() as f32).sqrt();
-            let alpha = 0.2 * (1.0 - d / 80.0);
-            draw_diamond(gizmos, ctx.w2c(p.as_vec2()), 7.0, GRAY.with_alpha(alpha));
-        }
-    }
-
-    Some(())
-}
-
 pub fn draw_scene(gizmos: &mut Gizmos, state: &GameState, scene: &crate::scenes::Scene) {
     match scene.kind() {
-        SceneType::OrbitalView => draw_orbital_view(gizmos, state),
+        SceneType::Orbital => draw_orbital_view(gizmos, state),
         SceneType::DockingView(_) => _ = draw_docking_scenario(gizmos, state),
         SceneType::TelescopeView => draw_telescope_view(gizmos, &state),
         SceneType::MainMenu => {}
-        SceneType::Editor => _ = draw_editor(gizmos, state),
+        SceneType::Editor => _ = EditorContext::draw_gizmos(gizmos, state),
     }
 }
 
@@ -1508,9 +1467,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
 
     draw_scene(gizmos, &state, state.current_scene());
 
-    // draw_ui_layout(gizmos, &state);
-
-    // draw_input_state(gizmos, &state, state.wall_time);
+    GameState::draw_gizmos(gizmos, &state);
 }
 
 fn draw_input_state(gizmos: &mut Gizmos, state: &GameState) {

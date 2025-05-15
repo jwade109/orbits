@@ -117,6 +117,26 @@ impl AABB {
         0.0 <= u.x && u.x <= 1.0 && 0.0 <= u.y && u.y <= 1.0
     }
 
+    pub fn intersects(&self, other: &AABB) -> bool {
+        let amin = self.lower();
+        let amax = self.upper();
+        let bmin = other.lower();
+        let bmax = other.upper();
+        if amax.x < bmin.x {
+            return false;
+        }
+        if amin.x >= bmax.x {
+            return false;
+        }
+        if amax.y < bmin.y {
+            return false;
+        }
+        if amin.y >= bmax.y {
+            return false;
+        }
+        true
+    }
+
     pub fn scale(&self, scalar: f32) -> Self {
         AABB::new(self.center * scalar, self.span * scalar)
     }

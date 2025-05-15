@@ -191,17 +191,16 @@ impl InputState {
         }
     }
 
-    pub fn on_frame(&self, button: MouseButt, order: FrameId) -> bool {
+    pub fn on_frame(&self, button: MouseButt, order: FrameId) -> Option<Vec2> {
         let delta = match order {
             FrameId::Current => 0,
-            FrameId::Down => 0,
+            FrameId::Down => 1,
             FrameId::Up => 1,
         };
         let state = self.get_state(button);
-        let frame = state.frame(order);
-        frame
-            .map(|f| f.frame_no + delta == self.frame_no)
-            .unwrap_or(false)
+        let frame = state.frame(order)?;
+        (self.frame_no == frame.frame_no + delta)
+            .then(|| frame.screen_pos - self.screen_bounds.span / 2.0)
     }
 
     pub fn world_position(

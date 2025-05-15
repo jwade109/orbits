@@ -2,7 +2,7 @@ use starling::prelude::*;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SceneType {
-    OrbitalView,
+    Orbital,
     DockingView(OrbiterId),
     TelescopeView,
     Editor,
@@ -19,7 +19,7 @@ impl Scene {
     pub fn orbital(name: impl Into<String>) -> Self {
         Scene {
             name: name.into(),
-            scene_type: SceneType::OrbitalView,
+            scene_type: SceneType::Orbital,
         }
     }
 

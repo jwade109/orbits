@@ -32,5 +32,6 @@ pub enum OnClick {
     SetPilot(OrbiterId),
     ClearTarget,
     ClearPilot,
+    SelectPart(usize),
     Nullopt,
 }

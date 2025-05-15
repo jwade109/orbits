@@ -164,4 +164,8 @@ impl Render for TelescopeContext {
     fn background_color(_state: &GameState) -> Srgba {
         GRAY.with_luminance(0.12)
     }
+
+    fn draw_gizmos(_gizmos: &mut Gizmos, _state: &GameState) -> Option<()> {
+        Some(())
+    }
 }

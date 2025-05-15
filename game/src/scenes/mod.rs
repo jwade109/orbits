@@ -7,8 +7,8 @@ mod telescope;
 
 pub use craft_editor::EditorContext;
 pub use orbital::{
-    CameraProjection, CursorMode, DrawMode, Interactive, OrbitalContext, OrbitalView,
-    ShowOrbitsState, ThrottleLevel,
+    CameraProjection, CursorMode, DrawMode, Interactive, OrbitalContext, ShowOrbitsState,
+    ThrottleLevel,
 };
 pub use render::*;
 pub use rpo::RPOContext;

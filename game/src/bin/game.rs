@@ -17,6 +17,5 @@ fn main() {
         .add_plugins(game::planetary::PlanetaryPlugin {})
         .add_plugins(game::sprites::SpritePlugin {})
         .add_plugins(game::ui::UiPlugin {})
-        .add_plugins(game::parts::PartPlugin {})
         .run();
 }

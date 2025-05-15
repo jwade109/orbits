@@ -1,12 +1,13 @@
+use crate::drawing::*;
 use crate::mouse::InputState;
 use crate::mouse::{FrameId, MouseButt};
+use crate::parts::{part_sprite_path, PartProto};
 use crate::planetary::GameState;
-use crate::scenes::{CameraProjection, Interactive, Render, StaticSpriteDescriptor, TextLabel};
+use crate::scenes::{CameraProjection, Render, StaticSpriteDescriptor, TextLabel};
 use bevy::color::palettes::css::*;
 use bevy::input::keyboard::KeyCode;
 use bevy::prelude::*;
 use starling::prelude::*;
-use std::collections::HashSet;
 
 #[derive(Debug)]
 pub struct EditorContext {
@@ -14,132 +15,20 @@ pub struct EditorContext {
     target_center: Vec2,
     scale: f32,
     target_scale: f32,
-
-    aabbs: Vec<AABB>,
-    points: HashSet<IVec2>,
-    lines: Vec<Vec<Vec2>>,
-
-    parts: Vec<IVec2>,
-}
-
-impl Render for EditorContext {
-    fn text_labels(_state: &GameState) -> Vec<TextLabel> {
-        vec![]
-    }
-
-    fn sprites(state: &GameState) -> Vec<StaticSpriteDescriptor> {
-        let parts = ["frame", "tank11", "tank21", "tank22", "motor", "antenna"];
-        let ctx = &state.editor_context;
-        let mut ret: Vec<_> = parts
-            .iter()
-            .enumerate()
-            .map(|(i, path)| StaticSpriteDescriptor {
-                position: ctx.w2c(Vec2::X * i as f32 * 40.0),
-                path: format!("embedded://game/../assets/parts/{}.png", path),
-                scale: ctx.scale(),
-                z_index: 1.0,
-            })
-            .collect();
-
-        if let Some(p) = state.input.position(MouseButt::Hover, FrameId::Current) {
-            let p = ctx.c2w(p);
-            ret.push(StaticSpriteDescriptor {
-                position: ctx.w2c(vround(p).as_vec2()),
-                path: "embedded://game/../assets/parts/frame.png".to_string(),
-                scale: ctx.scale(),
-                z_index: 10.0,
-            });
-        }
-
-        ret.extend(ctx.parts.iter().map(|p| StaticSpriteDescriptor {
-            position: ctx.w2c(p.as_vec2()),
-            path: "embedded://game/../assets/parts/frame.png".to_string(),
-            scale: ctx.scale(),
-            z_index: 10.0,
-        }));
-
-        ret
-    }
-
-    fn background_color(_state: &GameState) -> bevy::color::Srgba {
-        GRAY.with_luminance(0.06)
-    }
-}
-
-fn discrete_points_in_bounds(aabb: &AABB) -> Vec<IVec2> {
-    let lower = vround(aabb.lower());
-    let upper = vround(aabb.upper());
-    let mut ret = Vec::new();
-    for x in lower.x..=upper.x {
-        for y in lower.y..=upper.y {
-            let v = IVec2::new(x, y);
-            ret.push(v);
-        }
-    }
-    ret
-}
-
-fn marching_squares(
-    p: (IVec2, bool),
-    a: (IVec2, bool),
-    b: (IVec2, bool),
-    c: (IVec2, bool),
-) -> Option<Vec<Vec2>> {
-    let lerp4 = |w: IVec2, x: IVec2, y: IVec2, z: IVec2| {
-        Some(vec![
-            w.as_vec2().lerp(x.as_vec2(), 0.5),
-            y.as_vec2().lerp(z.as_vec2(), 0.5),
-        ])
-    };
-
-    let (p, pb) = p;
-    let (a, ab) = a;
-    let (b, bb) = b;
-    let (c, cb) = c;
-
-    let (ab, bb, cb) = if !pb { (ab, bb, cb) } else { (!ab, !bb, !cb) };
-
-    // pb is implicitly false
-    match (ab, bb, cb) {
-        (false, false, false) => None,
-        (true, false, false) => lerp4(p, a, a, b),
-        (false, true, false) => lerp4(a, b, b, c),
-        (true, false, true) => {
-            if pb {
-                let mut x = lerp4(p, a, a, b).unwrap();
-                x.push(Vec2::NAN);
-                x.extend(lerp4(p, c, c, b).unwrap());
-                Some(x)
-            } else {
-                let mut x = lerp4(p, a, p, c).unwrap();
-                x.push(Vec2::NAN);
-                x.extend(lerp4(a, b, c, b).unwrap());
-                Some(x)
-            }
-        }
-        (true, true, false) => lerp4(p, a, b, c),
-        (false, false, true) => lerp4(b, c, c, p),
-        (true, true, true) => lerp4(p, a, p, c),
-        (false, true, true) => lerp4(a, b, p, c),
-    }
+    parts: Vec<(IVec2, PartProto)>,
+    pub current_part_index: usize,
 }
 
 impl EditorContext {
     pub fn new() -> Self {
-        let mut x: EditorContext = EditorContext {
+        EditorContext {
             center: Vec2::ZERO,
             target_center: Vec2::ZERO,
             scale: 20.0,
             target_scale: 18.0,
-            aabbs: Vec::new(),
-            points: HashSet::new(),
-            lines: Vec::new(),
             parts: Vec::new(),
-        };
-
-        x.update();
-
-        x
+            current_part_index: 2,
+        }
     }
 
     pub fn cursor_box(&self, input: &InputState) -> Option<AABB> {
@@ -151,37 +40,135 @@ impl EditorContext {
         ))
     }
 
-    pub fn aabbs(&self) -> impl Iterator<Item = &AABB> {
-        self.aabbs.iter()
-    }
-
-    pub fn lines(&self) -> impl Iterator<Item = &Vec<Vec2>> {
-        self.lines.iter()
-    }
-
-    fn update(&mut self) {
-        self.points.clear();
-        for aabb in &self.aabbs {
-            let pts = discrete_points_in_bounds(aabb);
-            self.points.extend(pts);
+    fn occupied_pixels(pos: IVec2, part: &PartProto) -> Vec<IVec2> {
+        let w2 = part.width / 2;
+        let h2 = part.height / 2;
+        let offset = UVec2::new(w2, h2).as_ivec2();
+        let mut ret = vec![];
+        for w in 0..part.width {
+            for h in 0..part.height {
+                let p = pos + UVec2::new(w, h).as_ivec2() - offset;
+                ret.push(p);
+            }
         }
+        ret
+    }
 
-        self.lines.clear();
-        for x in -100..=100 {
-            for y in -100..=100 {
-                let p = IVec2::new(x, y);
-                let a = IVec2::new(x + 1, y);
-                let b = IVec2::new(x + 1, y + 1);
-                let c = IVec2::new(x, y + 1);
-                let pb = self.points.contains(&p);
-                let ab = self.points.contains(&a);
-                let bb = self.points.contains(&b);
-                let cb = self.points.contains(&c);
-                if let Some(line) = marching_squares((p, pb), (a, ab), (b, bb), (c, cb)) {
-                    self.lines.push(line);
+    fn current_part(&self) -> Option<PartProto> {
+        crate::parts::ALL_PARTS
+            .get(self.current_part_index)
+            .cloned()
+            .cloned()
+    }
+
+    fn try_place_part(&mut self, p: IVec2, new_part: PartProto) -> Option<()> {
+        let new_pixels = Self::occupied_pixels(p, &new_part);
+        for (pos, part) in &self.parts {
+            let pixels = Self::occupied_pixels(*pos, part);
+            for q in pixels {
+                if new_pixels.contains(&q) {
+                    return None;
                 }
             }
         }
+        self.parts.push((p, new_part));
+        Some(())
+    }
+
+    fn remove_part_at(&mut self, p: IVec2) {
+        self.parts.retain(|(pos, part)| {
+            let pixels = Self::occupied_pixels(*pos, part);
+            !pixels.contains(&p)
+        });
+    }
+
+    fn current_part_and_cursor_position(state: &GameState) -> Option<(IVec2, PartProto)> {
+        let part = state.editor_context.current_part()?;
+        let pos = state.input.position(MouseButt::Hover, FrameId::Current)?;
+        let pos = vround(state.editor_context.c2w(pos));
+        Some((pos, part))
+    }
+}
+
+impl Render for EditorContext {
+    fn text_labels(state: &GameState) -> Vec<TextLabel> {
+        vec![TextLabel {
+            text: format!("{} parts", state.editor_context.parts.len()),
+            position: Vec2::new(0.0, 30.0 - state.input.screen_bounds.span.y * 0.5),
+            size: 0.7,
+        }]
+    }
+
+    fn sprites(state: &GameState) -> Vec<StaticSpriteDescriptor> {
+        let ctx = &state.editor_context;
+        let mut ret = Vec::new();
+
+        if let Some((p, current_part)) = Self::current_part_and_cursor_position(state) {
+            ret.push(StaticSpriteDescriptor {
+                position: ctx.w2c(p.as_vec2()),
+                path: part_sprite_path(current_part.path),
+                scale: ctx.scale(),
+                z_index: 12.0,
+            });
+
+            let current_pixels = Self::occupied_pixels(p, &current_part);
+
+            for (pos, part) in &ctx.parts {
+                let pixels = Self::occupied_pixels(*pos, part);
+                for q in pixels {
+                    if current_pixels.contains(&q) {
+                        ret.push(StaticSpriteDescriptor {
+                            position: ctx.w2c(q.as_vec2() + Vec2::ONE / 2.0),
+                            path: "embedded://game/../assets/collision_pixel.png".into(),
+                            scale: ctx.scale(),
+                            z_index: 200.0,
+                        });
+                    }
+                }
+            }
+        }
+
+        ret.extend(
+            ctx.parts
+                .iter()
+                .enumerate()
+                .map(|(i, (pos, part))| StaticSpriteDescriptor {
+                    position: ctx.w2c(pos.as_vec2()),
+                    path: part_sprite_path(part.path),
+                    scale: ctx.scale(),
+                    z_index: 10.0 + i as f32 / 10.0,
+                }),
+        );
+
+        ret
+    }
+
+    fn background_color(_state: &GameState) -> bevy::color::Srgba {
+        GRAY.with_luminance(0.06)
+    }
+
+    fn draw_gizmos(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
+        let ctx = &state.editor_context;
+        draw_cross(gizmos, ctx.w2c(Vec2::ZERO), 10.0, GRAY);
+
+        let cursor = state.input.position(MouseButt::Hover, FrameId::Current)?;
+        let c = ctx.c2w(cursor);
+        let discrete = IVec2::new(
+            (c.x / 8.0).round() as i32 * 8,
+            (c.y / 8.0).round() as i32 * 8,
+        );
+
+        for dx in (-80..=80).step_by(8) {
+            for dy in (-80..=80).step_by(8) {
+                let s = IVec2::new(dx, dy);
+                let p = discrete - s;
+                let d = (s.length_squared() as f32).sqrt();
+                let alpha = 0.2 * (1.0 - d / 80.0);
+                draw_diamond(gizmos, ctx.w2c(p.as_vec2()), 7.0, GRAY.with_alpha(alpha));
+            }
+        }
+
+        Some(())
     }
 }
 
@@ -195,26 +182,22 @@ impl CameraProjection for EditorContext {
     }
 }
 
-impl Interactive for EditorContext {
-    fn step(&mut self, input: &InputState, dt: f32) {
+impl EditorContext {
+    pub fn step(&mut self, input: &InputState, dt: f32, is_hovering_over_ui: bool) {
         let speed = 16.0 * dt * 100.0;
 
-        if input.is_pressed(KeyCode::KeyC) {
-            self.aabbs.clear();
-            self.update();
-        }
-        if input.just_pressed(KeyCode::KeyQ) {
-            if let Some(c) = input.position(MouseButt::Hover, FrameId::Current) {
-                let p = vround(self.c2w(c));
-                if !self.parts.contains(&p) {
-                    self.parts.push(p);
+        if !is_hovering_over_ui {
+            if let Some(p) = input.position(MouseButt::Left, FrameId::Current) {
+                let p = vround(self.c2w(p));
+                if let Some(part) = self.current_part() {
+                    self.try_place_part(p, part);
                 }
             }
-        }
 
-        if let Some(c) = input.position(MouseButt::Right, FrameId::Current) {
-            let c = vround(self.c2w(c));
-            self.parts.retain(|p| *p != c);
+            if let Some(p) = input.position(MouseButt::Right, FrameId::Current) {
+                let p = vround(self.c2w(p));
+                self.remove_part_at(p);
+            }
         }
 
         if input.is_scroll_down() {
