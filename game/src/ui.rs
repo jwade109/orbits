@@ -649,10 +649,14 @@ fn generate_button_sprite(node: &ui::Node<OnClick>, is_clicked: bool, is_hover: 
     }
 
     if is_clicked {
-        map_bytes(&mut image, |bytes, _, _, _, _| {
-            for i in 0..3 {
-                let b = bytes[i] as f32;
-                bytes[i] = (b * 0.6) as u8;
+        map_bytes(&mut image, |bytes, x, y, _, _| {
+            if x < 2 || y < 2 || x + 2 >= w || y + 2 >= h {
+                bytes[3] = 0;
+            } else {
+                for i in 0..3 {
+                    let b = bytes[i] as f32;
+                    bytes[i] = (b * 0.6) as u8;
+                }
             }
         });
     }
