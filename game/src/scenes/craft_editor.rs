@@ -7,7 +7,27 @@ use crate::scenes::{CameraProjection, Render, StaticSpriteDescriptor, TextLabel}
 use bevy::color::palettes::css::*;
 use bevy::input::keyboard::KeyCode;
 use bevy::prelude::*;
+use enum_iterator::{next_cycle, Sequence};
 use starling::prelude::*;
+
+#[derive(Debug, Clone, Copy, Sequence)]
+pub enum Rotation {
+    East,
+    North,
+    West,
+    South,
+}
+
+impl Rotation {
+    fn to_angle(&self) -> f32 {
+        match self {
+            Self::East => 0.0,
+            Self::North => PI * 0.5,
+            Self::West => PI,
+            Self::South => PI * 1.5,
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct EditorContext {
@@ -15,8 +35,9 @@ pub struct EditorContext {
     target_center: Vec2,
     scale: f32,
     target_scale: f32,
-    parts: Vec<(IVec2, PartProto)>,
+    parts: Vec<(IVec2, Rotation, PartProto)>,
     pub current_part_index: usize,
+    rotation: Rotation,
 }
 
 impl EditorContext {
@@ -28,6 +49,7 @@ impl EditorContext {
             target_scale: 18.0,
             parts: Vec::new(),
             current_part_index: 2,
+            rotation: Rotation::East,
         }
     }
 
@@ -40,14 +62,22 @@ impl EditorContext {
         ))
     }
 
-    fn occupied_pixels(pos: IVec2, part: &PartProto) -> Vec<IVec2> {
+    fn occupied_pixels(pos: IVec2, rot: Rotation, part: &PartProto) -> Vec<IVec2> {
         let w2 = part.width / 2;
         let h2 = part.height / 2;
-        let offset = UVec2::new(w2, h2).as_ivec2();
+        let offset = match rot {
+            Rotation::East | Rotation::West => UVec2::new(w2, h2),
+            Rotation::North | Rotation::South => UVec2::new(h2, w2),
+        }
+        .as_ivec2();
         let mut ret = vec![];
         for w in 0..part.width {
             for h in 0..part.height {
-                let p = pos + UVec2::new(w, h).as_ivec2() - offset;
+                let wh = match rot {
+                    Rotation::East | Rotation::West => UVec2::new(w, h),
+                    Rotation::North | Rotation::South => UVec2::new(h, w),
+                };
+                let p = pos + wh.as_ivec2() - offset;
                 ret.push(p);
             }
         }
@@ -62,22 +92,25 @@ impl EditorContext {
     }
 
     fn try_place_part(&mut self, p: IVec2, new_part: PartProto) -> Option<()> {
-        let new_pixels = Self::occupied_pixels(p, &new_part);
-        for (pos, part) in &self.parts {
-            let pixels = Self::occupied_pixels(*pos, part);
+        let new_pixels = Self::occupied_pixels(p, self.rotation, &new_part);
+        for (pos, rot, part) in &self.parts {
+            if part.layer != new_part.layer {
+                continue;
+            }
+            let pixels = Self::occupied_pixels(*pos, *rot, part);
             for q in pixels {
                 if new_pixels.contains(&q) {
                     return None;
                 }
             }
         }
-        self.parts.push((p, new_part));
+        self.parts.push((p, self.rotation, new_part));
         Some(())
     }
 
     fn remove_part_at(&mut self, p: IVec2) {
-        self.parts.retain(|(pos, part)| {
-            let pixels = Self::occupied_pixels(*pos, part);
+        self.parts.retain(|(pos, rot, part)| {
+            let pixels = Self::occupied_pixels(*pos, *rot, part);
             !pixels.contains(&p)
         });
     }
@@ -93,7 +126,11 @@ impl EditorContext {
 impl Render for EditorContext {
     fn text_labels(state: &GameState) -> Vec<TextLabel> {
         vec![TextLabel {
-            text: format!("{} parts", state.editor_context.parts.len()),
+            text: format!(
+                "{} parts / {:?}",
+                state.editor_context.parts.len(),
+                state.editor_context.rotation,
+            ),
             position: Vec2::new(0.0, 30.0 - state.input.screen_bounds.span.y * 0.5),
             size: 0.7,
         }]
@@ -106,39 +143,42 @@ impl Render for EditorContext {
         if let Some((p, current_part)) = Self::current_part_and_cursor_position(state) {
             ret.push(StaticSpriteDescriptor {
                 position: ctx.w2c(p.as_vec2()),
+                angle: ctx.rotation.to_angle(),
                 path: part_sprite_path(current_part.path),
                 scale: ctx.scale(),
                 z_index: 12.0,
             });
 
-            let current_pixels = Self::occupied_pixels(p, &current_part);
+            let current_pixels = Self::occupied_pixels(p, ctx.rotation, &current_part);
 
-            for (pos, part) in &ctx.parts {
-                let pixels = Self::occupied_pixels(*pos, part);
+            for (pos, rot, part) in &ctx.parts {
+                if part.layer != current_part.layer {
+                    continue;
+                }
+                let pixels = Self::occupied_pixels(*pos, *rot, part);
                 for q in pixels {
                     if current_pixels.contains(&q) {
                         ret.push(StaticSpriteDescriptor {
                             position: ctx.w2c(q.as_vec2() + Vec2::ONE / 2.0),
+                            angle: rot.to_angle(),
                             path: "embedded://game/../assets/collision_pixel.png".into(),
                             scale: ctx.scale(),
-                            z_index: 200.0,
+                            z_index: part.to_z_index(),
                         });
                     }
                 }
             }
         }
 
-        ret.extend(
-            ctx.parts
-                .iter()
-                .enumerate()
-                .map(|(i, (pos, part))| StaticSpriteDescriptor {
-                    position: ctx.w2c(pos.as_vec2()),
-                    path: part_sprite_path(part.path),
-                    scale: ctx.scale(),
-                    z_index: 10.0 + i as f32 / 10.0,
-                }),
-        );
+        ret.extend(ctx.parts.iter().enumerate().map(|(i, (pos, rot, part))| {
+            StaticSpriteDescriptor {
+                position: ctx.w2c(pos.as_vec2()),
+                angle: rot.to_angle(),
+                path: part_sprite_path(part.path),
+                scale: ctx.scale(),
+                z_index: part.to_z_index(),
+            }
+        }));
 
         ret
     }
@@ -157,6 +197,14 @@ impl Render for EditorContext {
             (c.x / 8.0).round() as i32 * 8,
             (c.y / 8.0).round() as i32 * 8,
         );
+
+        if let Some((p, _)) = Self::current_part_and_cursor_position(state) {
+            draw_cross(gizmos, ctx.w2c(p.as_vec2()), 0.8 * ctx.scale(), TEAL);
+        }
+
+        for (p, _, _) in &ctx.parts {
+            draw_cross(gizmos, ctx.w2c(p.as_vec2()), 0.5 * ctx.scale(), RED);
+        }
 
         for dx in (-80..=80).step_by(8) {
             for dy in (-80..=80).step_by(8) {
@@ -207,6 +255,10 @@ impl EditorContext {
             self.target_scale *= 1.5;
         }
 
+        if input.just_pressed(KeyCode::KeyR) {
+            self.rotation = next_cycle(&self.rotation);
+        }
+
         if input.is_pressed(KeyCode::Equal) {
             self.target_scale *= 1.03;
         }
@@ -224,10 +276,6 @@ impl EditorContext {
         }
         if input.is_pressed(KeyCode::KeyS) {
             self.target_center.y -= speed / self.scale;
-        }
-        if input.is_pressed(KeyCode::KeyR) {
-            self.target_center = Vec2::ZERO;
-            self.target_scale = 1.0;
         }
 
         self.scale += (self.target_scale - self.scale) * 0.1;

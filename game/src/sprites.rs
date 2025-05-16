@@ -367,11 +367,14 @@ pub fn update_static_sprites(
 
     for (i, sprite) in sprites.iter().enumerate() {
         let pos = sprite.position.extend(sprite.z_index);
+        let angle = sprite.angle;
         let scale = Vec3::splat(sprite.scale);
+        let transform = Transform::from_scale(scale)
+            .with_translation(pos)
+            .with_rotation(Quat::from_rotation_z(angle));
 
         if let Some((_, ref mut spr, ref mut tf, ref mut desc)) = sprite_entities.get_mut(i) {
-            tf.translation = pos;
-            tf.scale = scale;
+            **tf = transform;
             if desc.0 != sprite.path {
                 let handle = assets.load_with_settings(
                     sprite.path.clone(),
@@ -390,8 +393,7 @@ pub fn update_static_sprites(
                 },
             );
             let spr = Sprite::from_image(handle);
-            let tf = Transform::from_scale(scale).with_translation(pos);
-            commands.spawn((spr, tf, StaticSprite(sprite.path.clone())));
+            commands.spawn((spr, transform, StaticSprite(sprite.path.clone())));
         }
     }
 

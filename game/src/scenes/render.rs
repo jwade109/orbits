@@ -20,6 +20,7 @@ impl TextLabel {
 
 pub struct StaticSpriteDescriptor {
     pub position: Vec2,
+    pub angle: f32,
     pub path: String,
     pub scale: f32,
     pub z_index: f32,
