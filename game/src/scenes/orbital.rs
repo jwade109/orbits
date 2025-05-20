@@ -5,6 +5,7 @@ use bevy::color::palettes::css::*;
 use bevy::input::keyboard::KeyCode;
 use bevy::prelude::*;
 use enum_iterator::Sequence;
+use rfd::FileDialog;
 use starling::prelude::*;
 use std::collections::HashSet;
 
@@ -183,6 +184,32 @@ impl OrbitalContext {
         } else {
             self.selected.insert(id);
         }
+    }
+
+    pub fn save_to_file(state: &mut GameState) -> Option<()> {
+        let orbiters: Vec<_> = state
+            .orbital_context
+            .selected
+            .iter()
+            .filter_map(|id| {
+                state
+                    .scenario
+                    .lup_orbiter(*id, state.sim_time)
+                    .map(|lup| lup.orbiter())
+                    .flatten()
+            })
+            .collect();
+
+        let dir = FileDialog::new().set_directory("/").pick_folder()?;
+
+        for orbiter in orbiters {
+            let mut file = dir.clone();
+            file.push(format!("{}.strl", orbiter.id()));
+            info!("Saving {}", file.display());
+            starling::file_export::to_strl_file(orbiter, &file).ok()?;
+        }
+
+        Some(())
     }
 
     pub fn highlighted(state: &GameState) -> HashSet<OrbiterId> {

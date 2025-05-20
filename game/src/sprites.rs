@@ -20,12 +20,17 @@ impl Plugin for SpritePlugin {
 
         embedded_asset!(app, "src/", "../assets/parts/frame.png");
         embedded_asset!(app, "src/", "../assets/parts/frame2.png");
+        embedded_asset!(app, "src/", "../assets/parts/frame22.png");
+        embedded_asset!(app, "src/", "../assets/parts/frame3.png");
         embedded_asset!(app, "src/", "../assets/parts/tank11.png");
         embedded_asset!(app, "src/", "../assets/parts/tank21.png");
         embedded_asset!(app, "src/", "../assets/parts/tank22.png");
         embedded_asset!(app, "src/", "../assets/parts/motor.png");
         embedded_asset!(app, "src/", "../assets/parts/antenna.png");
         embedded_asset!(app, "src/", "../assets/parts/cargo.png");
+        embedded_asset!(app, "src/", "../assets/parts/battery.png");
+        embedded_asset!(app, "src/", "../assets/parts/cpu.png");
+        embedded_asset!(app, "src/", "../assets/parts/solarpanel.png");
     }
 }
 

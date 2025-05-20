@@ -8,14 +8,29 @@ use bevy::color::palettes::css::*;
 use bevy::input::keyboard::KeyCode;
 use bevy::prelude::*;
 use enum_iterator::{next_cycle, Sequence};
+use rfd::FileDialog;
+use serde::{Deserialize, Serialize};
 use starling::prelude::*;
 
-#[derive(Debug, Clone, Copy, Sequence)]
+#[derive(Debug, Clone, Copy, Sequence, Serialize, Deserialize)]
 pub enum Rotation {
     East,
     North,
     West,
     South,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct VehicleFileStorage {
+    pub name: String,
+    pub parts: Vec<VehiclePartFileStorage>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct VehiclePartFileStorage {
+    pub partname: String,
+    pub pos: IVec2,
+    pub rot: Rotation,
 }
 
 impl Rotation {
@@ -62,22 +77,63 @@ impl EditorContext {
         ))
     }
 
-    fn occupied_pixels(pos: IVec2, rot: Rotation, part: &PartProto) -> Vec<IVec2> {
-        let w2 = part.width / 2;
-        let h2 = part.height / 2;
-        let offset = match rot {
-            Rotation::East | Rotation::West => UVec2::new(w2, h2),
-            Rotation::North | Rotation::South => UVec2::new(h2, w2),
+    fn dims_with_rotation(rot: Rotation, part: &PartProto) -> UVec2 {
+        match rot {
+            Rotation::East | Rotation::West => UVec2::new(part.width, part.height),
+            Rotation::North | Rotation::South => UVec2::new(part.height, part.width),
         }
-        .as_ivec2();
+    }
+
+    pub fn save_to_file(state: &mut GameState) -> Option<()> {
+        let choice = FileDialog::new().set_directory("/").save_file()?;
+        state.notice(format!("Saving to {}", choice.display()));
+        for (pos, rot, part) in state.editor_context.parts.clone() {
+            let s = format!("{} {:?} {:?}", pos, rot, part);
+            state.notice(s);
+        }
+
+        let parts = state
+            .editor_context
+            .parts
+            .iter()
+            .map(|(pos, rot, part)| VehiclePartFileStorage {
+                partname: part.path.into(),
+                pos: *pos,
+                rot: *rot,
+            })
+            .collect();
+
+        let storage = VehicleFileStorage {
+            name: "Vehicle".into(),
+            parts,
+        };
+
+        let s = serde_yaml::to_string(&storage).ok()?;
+        std::fs::write(choice, s).ok()
+    }
+
+    pub fn load_from_file(state: &mut GameState) -> Option<()> {
+        let choice = FileDialog::new().set_directory("/").pick_file()?;
+        state.notice(format!("Loading vehicle from {}", choice.display()));
+        let s = std::fs::read_to_string(choice).ok()?;
+        let storage: VehicleFileStorage = serde_yaml::from_str(&s).ok()?;
+        state.notice(format!("Loaded vehicle \"{}\"", storage.name));
+
+        state.editor_context.parts.clear();
+        for ps in storage.parts {
+            if let Some(part) = crate::parts::find_part(&ps.partname) {
+                state.editor_context.parts.push((ps.pos, ps.rot, *part));
+            }
+        }
+        Some(())
+    }
+
+    fn occupied_pixels(pos: IVec2, rot: Rotation, part: &PartProto) -> Vec<IVec2> {
         let mut ret = vec![];
-        for w in 0..part.width {
-            for h in 0..part.height {
-                let wh = match rot {
-                    Rotation::East | Rotation::West => UVec2::new(w, h),
-                    Rotation::North | Rotation::South => UVec2::new(h, w),
-                };
-                let p = pos + wh.as_ivec2() - offset;
+        let wh = Self::dims_with_rotation(rot, part);
+        for w in 0..wh.x {
+            for h in 0..wh.y {
+                let p = pos + UVec2::new(w, h).as_ivec2();
                 ret.push(p);
             }
         }
@@ -141,8 +197,9 @@ impl Render for EditorContext {
         let mut ret = Vec::new();
 
         if let Some((p, current_part)) = Self::current_part_and_cursor_position(state) {
+            let dims = Self::dims_with_rotation(ctx.rotation, &current_part);
             ret.push(StaticSpriteDescriptor {
-                position: ctx.w2c(p.as_vec2()),
+                position: ctx.w2c(p.as_vec2() + dims.as_vec2() / 2.0),
                 angle: ctx.rotation.to_angle(),
                 path: part_sprite_path(current_part.path),
                 scale: ctx.scale(),
@@ -160,10 +217,10 @@ impl Render for EditorContext {
                     if current_pixels.contains(&q) {
                         ret.push(StaticSpriteDescriptor {
                             position: ctx.w2c(q.as_vec2() + Vec2::ONE / 2.0),
-                            angle: rot.to_angle(),
+                            angle: 0.0,
                             path: "embedded://game/../assets/collision_pixel.png".into(),
                             scale: ctx.scale(),
-                            z_index: part.to_z_index(),
+                            z_index: 100.0,
                         });
                     }
                 }
@@ -171,12 +228,13 @@ impl Render for EditorContext {
         }
 
         ret.extend(ctx.parts.iter().enumerate().map(|(i, (pos, rot, part))| {
+            let half_dims = Self::dims_with_rotation(*rot, part).as_vec2() / 2.0;
             StaticSpriteDescriptor {
-                position: ctx.w2c(pos.as_vec2()),
+                position: ctx.w2c(pos.as_vec2() + half_dims),
                 angle: rot.to_angle(),
                 path: part_sprite_path(part.path),
                 scale: ctx.scale(),
-                z_index: part.to_z_index(),
+                z_index: part.to_z_index() + i as f32 / 100.0,
             }
         }));
 

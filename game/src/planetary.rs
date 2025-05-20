@@ -13,7 +13,6 @@ use bevy::render::view::RenderLayers;
 use bevy::window::WindowMode;
 use enum_iterator::next_cycle;
 use layout::layout::Tree;
-use rfd::FileDialog;
 use starling::prelude::*;
 use std::collections::{HashMap, HashSet};
 
@@ -535,6 +534,7 @@ impl GameState {
     }
 
     pub fn notice(&mut self, s: String) {
+        info!("Notice: {s}");
         self.notify(None, NotificationType::Notice(s), None)
     }
 
@@ -568,29 +568,19 @@ impl GameState {
         rotate(Vec2::X, angle + PI) * 1000000.0
     }
 
-    pub fn save(&self) -> Option<()> {
-        let orbiters: Vec<_> = self
-            .orbital_context
-            .selected
-            .iter()
-            .filter_map(|id| {
-                self.scenario
-                    .lup_orbiter(*id, self.sim_time)
-                    .map(|lup| lup.orbiter())
-                    .flatten()
-            })
-            .collect();
-
-        let dir = FileDialog::new().set_directory("/").pick_folder()?;
-
-        for orbiter in orbiters {
-            let mut file = dir.clone();
-            file.push(format!("{}.strl", orbiter.id()));
-            info!("Saving {}", file.display());
-            starling::file_export::to_strl_file(orbiter, &file).ok()?;
+    pub fn save(&mut self) -> Option<()> {
+        match self.current_scene().kind() {
+            SceneType::Editor => EditorContext::save_to_file(self),
+            SceneType::Orbital => OrbitalContext::save_to_file(self),
+            _ => None,
         }
+    }
 
-        Some(())
+    pub fn load(&mut self) -> Option<()> {
+        match self.current_scene().kind() {
+            SceneType::Editor => EditorContext::load_from_file(self),
+            _ => None,
+        }
     }
 
     pub fn on_button_event(&mut self, id: OnClick) -> Option<()> {
@@ -626,15 +616,7 @@ impl GameState {
                 self.save();
             }
             OnClick::Load => {
-                let file = FileDialog::new()
-                    .add_filter("text", &["starling", "strl"])
-                    .set_directory("/")
-                    .pick_file();
-                dbg!(&file);
-                if let Some(file) = file {
-                    let obj = starling::file_export::load_strl_file(&file);
-                    let _ = dbg!(obj);
-                }
+                self.load();
             }
             OnClick::CursorMode(c) => self.orbital_context.cursor_mode = c,
             OnClick::AutopilotingCount => {

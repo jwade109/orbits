@@ -17,3 +17,5 @@ layout = { path = "../layout" }
 names = "0.14.0"
 rfd = "0.15.3"
 enum-iterator = "2.1.0"
+serde_yaml = "0.9.34"
+serde = "1.0.219"

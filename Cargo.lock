@@ -2828,6 +2828,8 @@ dependencies = [
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "rfd",
+ "serde",
+ "serde_yaml",
  "starling",
 ]
 

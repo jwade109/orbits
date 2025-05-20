@@ -35,17 +35,38 @@ impl PartProto {
 
 pub const TANK11: PartProto = PartProto::new(10, 10, PartLayer::Internal, "tank11");
 pub const TANK21: PartProto = PartProto::new(10, 20, PartLayer::Internal, "tank21");
-pub const TANK22: PartProto = PartProto::new(18, 18, PartLayer::Internal, "tank22");
+pub const TANK22: PartProto = PartProto::new(20, 20, PartLayer::Internal, "tank22");
 pub const FRAME: PartProto = PartProto::new(10, 10, PartLayer::Structural, "frame");
 pub const FRAME2: PartProto = PartProto::new(10, 10, PartLayer::Structural, "frame2");
+pub const FRAME22: PartProto = PartProto::new(20, 20, PartLayer::Structural, "frame22");
+pub const FRAME3: PartProto = PartProto::new(40, 10, PartLayer::Structural, "frame3");
 pub const MOTOR: PartProto = PartProto::new(16, 25, PartLayer::Internal, "motor");
-pub const ANTENNA: PartProto = PartProto::new(50, 27, PartLayer::Internal, "antenna");
+pub const ANTENNA: PartProto = PartProto::new(50, 28, PartLayer::Internal, "antenna");
 pub const CARGO: PartProto = PartProto::new(30, 30, PartLayer::Internal, "cargo");
+pub const BATTERY: PartProto = PartProto::new(9, 9, PartLayer::Internal, "battery");
+pub const CPU: PartProto = PartProto::new(8, 9, PartLayer::Internal, "cpu");
+pub const SOLARPANEL: PartProto = PartProto::new(65, 16, PartLayer::Internal, "solarpanel");
 
 pub fn part_sprite_path(short_path: &str) -> String {
     format!("embedded://game/../assets/parts/{}.png", short_path)
 }
 
-pub const ALL_PARTS: [&PartProto; 8] = [
-    &TANK11, &TANK21, &TANK22, &FRAME, &FRAME2, &MOTOR, &ANTENNA, &CARGO,
+pub fn find_part(short_path: &str) -> Option<&PartProto> {
+    ALL_PARTS.iter().cloned().find(|p| p.path == short_path)
+}
+
+pub const ALL_PARTS: [&PartProto; 13] = [
+    &TANK11,
+    &TANK21,
+    &TANK22,
+    &FRAME,
+    &FRAME2,
+    &FRAME22,
+    &FRAME3,
+    &MOTOR,
+    &ANTENNA,
+    &CARGO,
+    &BATTERY,
+    &CPU,
+    &SOLARPANEL,
 ];
