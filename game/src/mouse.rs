@@ -1,5 +1,6 @@
 use crate::planetary::GameState;
 use crate::scenes::CameraProjection;
+use bevy::input::keyboard::KeyboardInput;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 use starling::nanotime::Nanotime;
@@ -105,6 +106,7 @@ pub struct InputState {
     pub screen_bounds: AABB,
 
     buttons: ButtonInput<KeyCode>,
+    pub keyboard_events: Vec<KeyboardInput>,
     scroll: ScrollDir,
 }
 
@@ -217,10 +219,16 @@ impl InputState {
 pub fn update_input_state(
     win: Single<&Window>,
     buttons: Res<ButtonInput<MouseButton>>,
+    mut evr_kbd: EventReader<KeyboardInput>,
     mut state: ResMut<GameState>,
 ) {
     let dims = Vec2::new(win.width(), win.height());
     let t = state.wall_time;
+
+    state.input.keyboard_events.clear();
+    for event in evr_kbd.read() {
+        state.input.keyboard_events.push(event.clone());
+    }
 
     state.input.frame_no += 1;
     state.input.screen_bounds = AABB::new(dims / 2.0, dims);

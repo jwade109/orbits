@@ -27,10 +27,13 @@ impl Plugin for SpritePlugin {
         embedded_asset!(app, "src/", "../assets/parts/tank22.png");
         embedded_asset!(app, "src/", "../assets/parts/motor.png");
         embedded_asset!(app, "src/", "../assets/parts/antenna.png");
+        embedded_asset!(app, "src/", "../assets/parts/small-antenna.png");
         embedded_asset!(app, "src/", "../assets/parts/cargo.png");
         embedded_asset!(app, "src/", "../assets/parts/battery.png");
         embedded_asset!(app, "src/", "../assets/parts/cpu.png");
         embedded_asset!(app, "src/", "../assets/parts/solarpanel.png");
+        embedded_asset!(app, "src/", "../assets/parts/gold.png");
+        embedded_asset!(app, "src/", "../assets/parts/plate.png");
     }
 }
 

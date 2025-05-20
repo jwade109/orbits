@@ -634,7 +634,8 @@ impl GameState {
             OnClick::ClearTarget => self.orbital_context.targeting = None,
             OnClick::SetPilot(p) => self.orbital_context.piloting = Some(p),
             OnClick::SetTarget(p) => self.orbital_context.targeting = Some(p),
-            OnClick::SelectPart(pid) => self.editor_context.current_part_index = pid,
+            OnClick::SelectPart(name) => self.editor_context.set_current_part(name),
+            OnClick::ToggleLayer(layer) => self.editor_context.toggle_layer(layer),
             _ => info!("Unhandled button event: {id:?}"),
         };
 
@@ -887,8 +888,7 @@ impl GameState {
                 }
             }
             SceneType::Editor => {
-                let hover_ui = self.is_hovering_over_ui();
-                self.editor_context.step(&self.input, dt, hover_ui)
+                EditorContext::step(self, dt);
             }
             _ => (),
         }

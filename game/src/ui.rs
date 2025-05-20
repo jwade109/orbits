@@ -206,7 +206,7 @@ pub fn basic_scenes_layout(state: &GameState) -> ui::Tree<OnClick> {
     }
 
     let top_bar = top_bar(state);
-    let notif_bar = notification_bar(state);
+    let notif_bar = notification_bar(state, Size::Fixed(900.0));
 
     let layout = Node::new(vb.span.x, vb.span.y)
         .tight()
@@ -218,16 +218,18 @@ pub fn basic_scenes_layout(state: &GameState) -> ui::Tree<OnClick> {
     ui::Tree::new().with_layout(layout, Vec2::ZERO)
 }
 
-pub fn notification_bar(state: &GameState) -> ui::Node<OnClick> {
-    ui::Node::fit().down().tight().invisible().with_children(
-        state.notifications.iter().rev().take(20).rev().map(|n| {
+pub fn notification_bar(state: &GameState, width: ui::Size) -> ui::Node<OnClick> {
+    ui::Node::new(width, ui::Size::Fit)
+        .down()
+        .tight()
+        .invisible()
+        .with_children(state.notifications.iter().rev().take(20).rev().map(|n| {
             let s = format!("{}", n);
-            ui::Node::new(900, 28)
+            ui::Node::new(width, 28)
                 .with_text(s)
                 .with_justify(ui::TextJustify::Left)
                 .with_color([0.0, 0.0, 0.0, 0.0])
-        }),
-    )
+        }))
 }
 
 pub fn append_piloting_buttons(state: &GameState, sidebar: &mut ui::Node<OnClick>) -> bool {
@@ -282,20 +284,38 @@ fn editor_layout(state: &GameState) -> ui::Tree<OnClick> {
     let top_bar = top_bar(state);
     let part_selection = Node::column(300)
         .with_color(UI_BACKGROUND_COLOR)
-        .with_children(crate::parts::ALL_PARTS.iter().enumerate().map(|(i, p)| {
+        .with_children(crate::parts::ALL_PARTS.iter().map(|p| {
             let s = p.path.to_string();
-            let onclick = OnClick::SelectPart(i);
+            let onclick = OnClick::SelectPart(s.clone());
             Node::button(s, onclick, Size::Grow, BUTTON_HEIGHT)
-        }));
-    // let notif_bar = notification_bar(state);
+        }))
+        .with_child(Node::hline())
+        .with_children(
+            enum_iterator::all::<crate::parts::PartLayer>()
+                .into_iter()
+                .map(|p| {
+                    let s = format!("{:?}", p);
+                    let onclick = OnClick::ToggleLayer(p);
+                    let mut n = Node::button(s, onclick, Size::Grow, BUTTON_HEIGHT);
+                    if !state.editor_context.is_layer_visible(p) {
+                        n = n.with_color(GRAY.to_f32_array());
+                    }
+                    n
+                }),
+        );
 
     let layout = Node::new(vb.span.x, vb.span.y)
         .tight()
         .invisible()
         .down()
         .with_child(top_bar)
-        .with_child(part_selection);
-    // .with_child(notif_bar);
+        .with_child(
+            Node::grow()
+                .tight()
+                .invisible()
+                .with_child(part_selection)
+                .with_child(notification_bar(state, Size::Grow)),
+        );
 
     ui::Tree::new().with_layout(layout, Vec2::ZERO)
 }
@@ -519,7 +539,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
         ));
     }
 
-    let notif_bar = notification_bar(state);
+    let notif_bar = notification_bar(state, Size::Fixed(900.0));
 
     let throttle_controls = if state.piloting().is_some() {
         let thrust_levels = [

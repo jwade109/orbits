@@ -1,3 +1,4 @@
+use crate::parts::PartLayer;
 use crate::scenes::{CursorMode, ThrottleLevel};
 use starling::prelude::{GroupId, OrbiterId, PlanetId};
 
@@ -32,6 +33,7 @@ pub enum OnClick {
     SetPilot(OrbiterId),
     ClearTarget,
     ClearPilot,
-    SelectPart(usize),
+    SelectPart(String),
+    ToggleLayer(PartLayer),
     Nullopt,
 }

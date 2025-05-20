@@ -1,16 +1,18 @@
 use crate::drawing::*;
 use crate::mouse::InputState;
 use crate::mouse::{FrameId, MouseButt};
-use crate::parts::{part_sprite_path, PartProto};
+use crate::parts::{part_sprite_path, PartLayer, PartProto};
 use crate::planetary::GameState;
 use crate::scenes::{CameraProjection, Render, StaticSpriteDescriptor, TextLabel};
 use bevy::color::palettes::css::*;
-use bevy::input::keyboard::KeyCode;
+use bevy::input::keyboard::{Key, KeyCode, KeyboardInput};
 use bevy::prelude::*;
 use enum_iterator::{next_cycle, Sequence};
 use rfd::FileDialog;
 use serde::{Deserialize, Serialize};
 use starling::prelude::*;
+use std::collections::HashSet;
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, Copy, Sequence, Serialize, Deserialize)]
 pub enum Rotation {
@@ -45,14 +47,34 @@ impl Rotation {
 }
 
 #[derive(Debug)]
+pub struct TextInput(String);
+
+impl TextInput {
+    fn on_button(&mut self, key: &KeyboardInput) {
+        match &key.logical_key {
+            Key::Character(c) => {
+                if self.0.len() > 30 {
+                    self.0.clear();
+                }
+                self.0 += c;
+            }
+            _ => (),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct EditorContext {
     center: Vec2,
     target_center: Vec2,
     scale: f32,
     target_scale: f32,
     parts: Vec<(IVec2, Rotation, PartProto)>,
-    pub current_part_index: usize,
+    current_part: Option<PartProto>,
     rotation: Rotation,
+    filepath: Option<PathBuf>,
+    text_input: TextInput,
+    invisible_layers: HashSet<PartLayer>,
 }
 
 impl EditorContext {
@@ -63,8 +85,11 @@ impl EditorContext {
             scale: 20.0,
             target_scale: 18.0,
             parts: Vec::new(),
-            current_part_index: 2,
+            current_part: None,
             rotation: Rotation::East,
+            filepath: None,
+            text_input: TextInput("".into()),
+            invisible_layers: HashSet::new(),
         }
     }
 
@@ -84,13 +109,39 @@ impl EditorContext {
         }
     }
 
-    pub fn save_to_file(state: &mut GameState) -> Option<()> {
-        let choice = FileDialog::new().set_directory("/").save_file()?;
-        state.notice(format!("Saving to {}", choice.display()));
-        for (pos, rot, part) in state.editor_context.parts.clone() {
-            let s = format!("{} {:?} {:?}", pos, rot, part);
-            state.notice(s);
+    pub fn set_current_part(&mut self, name: String) {
+        self.current_part = crate::parts::find_part(&name).cloned();
+    }
+
+    fn open_file(&mut self, force_new: bool) -> Option<PathBuf> {
+        if self.filepath.is_none() || force_new {
+            self.filepath = FileDialog::new().set_directory("/").pick_file()
+        };
+        self.filepath.clone()
+    }
+
+    fn visible_parts(&self) -> impl Iterator<Item = &(IVec2, Rotation, PartProto)> {
+        self.parts.iter().filter(|(_, _, part)| {
+            let layer = part.layer;
+            !self.invisible_layers.contains(&layer)
+        })
+    }
+
+    pub fn is_layer_visible(&self, layer: PartLayer) -> bool {
+        !self.invisible_layers.contains(&layer)
+    }
+
+    pub fn toggle_layer(&mut self, layer: PartLayer) {
+        if self.invisible_layers.contains(&layer) {
+            self.invisible_layers.remove(&layer);
+        } else {
+            self.invisible_layers.insert(layer);
         }
+    }
+
+    pub fn save_to_file(state: &mut GameState) -> Option<()> {
+        let choice = state.editor_context.open_file(false)?;
+        state.notice(format!("Saving to {}", choice.display()));
 
         let parts = state
             .editor_context
@@ -113,7 +164,7 @@ impl EditorContext {
     }
 
     pub fn load_from_file(state: &mut GameState) -> Option<()> {
-        let choice = FileDialog::new().set_directory("/").pick_file()?;
+        let choice = state.editor_context.open_file(true)?;
         state.notice(format!("Loading vehicle from {}", choice.display()));
         let s = std::fs::read_to_string(choice).ok()?;
         let storage: VehicleFileStorage = serde_yaml::from_str(&s).ok()?;
@@ -140,11 +191,14 @@ impl EditorContext {
         ret
     }
 
-    fn current_part(&self) -> Option<PartProto> {
-        crate::parts::ALL_PARTS
-            .get(self.current_part_index)
-            .cloned()
-            .cloned()
+    fn get_part_at(&self, p: IVec2) -> Option<(IVec2, Rotation, PartProto)> {
+        for (pos, rot, part) in self.visible_parts() {
+            let pixels = Self::occupied_pixels(*pos, *rot, part);
+            if pixels.contains(&p) {
+                return Some((*pos, *rot, *part));
+            }
+        }
+        None
     }
 
     fn try_place_part(&mut self, p: IVec2, new_part: PartProto) -> Option<()> {
@@ -166,30 +220,47 @@ impl EditorContext {
 
     fn remove_part_at(&mut self, p: IVec2) {
         self.parts.retain(|(pos, rot, part)| {
+            if self.invisible_layers.contains(&part.layer) {
+                return true;
+            }
             let pixels = Self::occupied_pixels(*pos, *rot, part);
             !pixels.contains(&p)
         });
     }
 
     fn current_part_and_cursor_position(state: &GameState) -> Option<(IVec2, PartProto)> {
-        let part = state.editor_context.current_part()?;
+        let ctx = &state.editor_context;
+        let part = state.editor_context.current_part?;
+        let wh = Self::dims_with_rotation(ctx.rotation, &part).as_ivec2();
         let pos = state.input.position(MouseButt::Hover, FrameId::Current)?;
         let pos = vround(state.editor_context.c2w(pos));
-        Some((pos, part))
+        Some((pos - wh / 2, part))
     }
 }
 
 impl Render for EditorContext {
     fn text_labels(state: &GameState) -> Vec<TextLabel> {
-        vec![TextLabel {
-            text: format!(
-                "{} parts / {:?}",
-                state.editor_context.parts.len(),
-                state.editor_context.rotation,
-            ),
-            position: Vec2::new(0.0, 30.0 - state.input.screen_bounds.span.y * 0.5),
-            size: 0.7,
-        }]
+        let filename = match &state.editor_context.filepath {
+            Some(p) => format!("[{}]", p.display()),
+            None => "[No file open]".to_string(),
+        };
+        vec![
+            // TextLabel {
+            //     text: state.editor_context.text_input.0.clone(),
+            //     position: Vec2::new(0.0, state.input.screen_bounds.span.y * 0.5 - 100.0),
+            //     size: 2.0,
+            // },
+            TextLabel {
+                text: format!(
+                    "{}\n{} parts / {:?}",
+                    filename,
+                    state.editor_context.parts.len(),
+                    state.editor_context.rotation,
+                ),
+                position: Vec2::new(0.0, 40.0 - state.input.screen_bounds.span.y * 0.5),
+                size: 0.7,
+            },
+        ]
     }
 
     fn sprites(state: &GameState) -> Vec<StaticSpriteDescriptor> {
@@ -227,16 +298,20 @@ impl Render for EditorContext {
             }
         }
 
-        ret.extend(ctx.parts.iter().enumerate().map(|(i, (pos, rot, part))| {
-            let half_dims = Self::dims_with_rotation(*rot, part).as_vec2() / 2.0;
-            StaticSpriteDescriptor {
-                position: ctx.w2c(pos.as_vec2() + half_dims),
-                angle: rot.to_angle(),
-                path: part_sprite_path(part.path),
-                scale: ctx.scale(),
-                z_index: part.to_z_index() + i as f32 / 100.0,
-            }
-        }));
+        ret.extend(
+            ctx.visible_parts()
+                .enumerate()
+                .map(|(i, (pos, rot, part))| {
+                    let half_dims = Self::dims_with_rotation(*rot, part).as_vec2() / 2.0;
+                    StaticSpriteDescriptor {
+                        position: ctx.w2c(pos.as_vec2() + half_dims),
+                        angle: rot.to_angle(),
+                        path: part_sprite_path(part.path),
+                        scale: ctx.scale(),
+                        z_index: part.to_z_index() + i as f32 / 100.0,
+                    }
+                }),
+        );
 
         ret
     }
@@ -251,25 +326,30 @@ impl Render for EditorContext {
 
         let cursor = state.input.position(MouseButt::Hover, FrameId::Current)?;
         let c = ctx.c2w(cursor);
+
+        if let Some((p, rot, part)) = ctx.get_part_at(vround(c)) {
+            let wh = Self::dims_with_rotation(rot, &part).as_ivec2();
+            let q = p + wh;
+            let r = p + IVec2::X * wh.x;
+            let s = p + IVec2::Y * wh.y;
+            for p in [p, q, r, s] {
+                let p = p.as_vec2();
+                let alpha = 1.0 - p.distance(c) / 100.0;
+                draw_cross(gizmos, ctx.w2c(p), 0.5 * ctx.scale(), RED.with_alpha(alpha));
+            }
+        }
+
         let discrete = IVec2::new(
-            (c.x / 8.0).round() as i32 * 8,
-            (c.y / 8.0).round() as i32 * 8,
+            (c.x / 10.0).round() as i32 * 10,
+            (c.y / 10.0).round() as i32 * 10,
         );
 
-        if let Some((p, _)) = Self::current_part_and_cursor_position(state) {
-            draw_cross(gizmos, ctx.w2c(p.as_vec2()), 0.8 * ctx.scale(), TEAL);
-        }
-
-        for (p, _, _) in &ctx.parts {
-            draw_cross(gizmos, ctx.w2c(p.as_vec2()), 0.5 * ctx.scale(), RED);
-        }
-
-        for dx in (-80..=80).step_by(8) {
-            for dy in (-80..=80).step_by(8) {
+        for dx in (-100..=100).step_by(10) {
+            for dy in (-100..=100).step_by(10) {
                 let s = IVec2::new(dx, dy);
                 let p = discrete - s;
                 let d = (s.length_squared() as f32).sqrt();
-                let alpha = 0.2 * (1.0 - d / 80.0);
+                let alpha = 0.2 * (1.0 - d / 100.0);
                 draw_diamond(gizmos, ctx.w2c(p.as_vec2()), 7.0, GRAY.with_alpha(alpha));
             }
         }
@@ -289,54 +369,69 @@ impl CameraProjection for EditorContext {
 }
 
 impl EditorContext {
-    pub fn step(&mut self, input: &InputState, dt: f32, is_hovering_over_ui: bool) {
+    pub fn step(state: &mut GameState, dt: f32) {
+        let is_hovering = state.is_hovering_over_ui();
+
+        for input in &state.input.keyboard_events {
+            state.editor_context.text_input.on_button(input);
+        }
+
         let speed = 16.0 * dt * 100.0;
 
-        if !is_hovering_over_ui {
-            if let Some(p) = input.position(MouseButt::Left, FrameId::Current) {
-                let p = vround(self.c2w(p));
-                if let Some(part) = self.current_part() {
-                    self.try_place_part(p, part);
+        if !is_hovering {
+            if let Some(_) = state.input.position(MouseButt::Left, FrameId::Current) {
+                if let Some((p, part)) = Self::current_part_and_cursor_position(state) {
+                    state.editor_context.try_place_part(p, part);
+                }
+            } else if let Some(p) = state.input.position(MouseButt::Right, FrameId::Current) {
+                let p = vround(state.editor_context.c2w(p));
+                state.editor_context.remove_part_at(p);
+            } else if state.input.just_pressed(KeyCode::KeyQ) {
+                if let Some(p) = state.input.position(MouseButt::Hover, FrameId::Current) {
+                    let p = vround(state.editor_context.c2w(p));
+                    if let Some((_, rot, part)) = state.editor_context.get_part_at(p) {
+                        state.editor_context.rotation = rot;
+                        state.editor_context.current_part = Some(part);
+                    } else {
+                        state.editor_context.current_part = None;
+                    }
                 }
             }
-
-            if let Some(p) = input.position(MouseButt::Right, FrameId::Current) {
-                let p = vround(self.c2w(p));
-                self.remove_part_at(p);
-            }
         }
 
-        if input.is_scroll_down() {
-            self.target_scale /= 1.5;
+        let ctx = &mut state.editor_context;
+
+        if state.input.is_scroll_down() {
+            ctx.target_scale /= 1.5;
         }
-        if input.is_scroll_up() {
-            self.target_scale *= 1.5;
+        if state.input.is_scroll_up() {
+            ctx.target_scale *= 1.5;
         }
 
-        if input.just_pressed(KeyCode::KeyR) {
-            self.rotation = next_cycle(&self.rotation);
+        if state.input.just_pressed(KeyCode::KeyR) {
+            ctx.rotation = next_cycle(&ctx.rotation);
         }
 
-        if input.is_pressed(KeyCode::Equal) {
-            self.target_scale *= 1.03;
+        if state.input.is_pressed(KeyCode::Equal) {
+            ctx.target_scale *= 1.03;
         }
-        if input.is_pressed(KeyCode::Minus) {
-            self.target_scale /= 1.03;
+        if state.input.is_pressed(KeyCode::Minus) {
+            ctx.target_scale /= 1.03;
         }
-        if input.is_pressed(KeyCode::KeyD) {
-            self.target_center.x += speed / self.scale;
+        if state.input.is_pressed(KeyCode::KeyD) {
+            ctx.target_center.x += speed / ctx.scale;
         }
-        if input.is_pressed(KeyCode::KeyA) {
-            self.target_center.x -= speed / self.scale;
+        if state.input.is_pressed(KeyCode::KeyA) {
+            ctx.target_center.x -= speed / ctx.scale;
         }
-        if input.is_pressed(KeyCode::KeyW) {
-            self.target_center.y += speed / self.scale;
+        if state.input.is_pressed(KeyCode::KeyW) {
+            ctx.target_center.y += speed / ctx.scale;
         }
-        if input.is_pressed(KeyCode::KeyS) {
-            self.target_center.y -= speed / self.scale;
+        if state.input.is_pressed(KeyCode::KeyS) {
+            ctx.target_center.y -= speed / ctx.scale;
         }
 
-        self.scale += (self.target_scale - self.scale) * 0.1;
-        self.center += (self.target_center - self.center) * 0.1;
+        ctx.scale += (ctx.target_scale - ctx.scale) * 0.1;
+        ctx.center += (ctx.target_center - ctx.center) * 0.1;
     }
 }
