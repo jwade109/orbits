@@ -7,3 +7,4 @@
 - bulk freighters
 - motherships with "fabrication bays"
 - material reclamation
+- pinned vehicles/planets

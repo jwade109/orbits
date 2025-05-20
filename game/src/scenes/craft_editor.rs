@@ -50,6 +50,7 @@ impl Rotation {
 pub struct TextInput(String);
 
 impl TextInput {
+    #[allow(unused)]
     fn on_button(&mut self, key: &KeyboardInput) {
         match &key.logical_key {
             Key::Character(c) => {
@@ -73,7 +74,7 @@ pub struct EditorContext {
     current_part: Option<PartProto>,
     rotation: Rotation,
     filepath: Option<PathBuf>,
-    text_input: TextInput,
+    title: TextInput,
     invisible_layers: HashSet<PartLayer>,
 }
 
@@ -88,7 +89,7 @@ impl EditorContext {
             current_part: None,
             rotation: Rotation::East,
             filepath: None,
-            text_input: TextInput("".into()),
+            title: TextInput("".into()),
             invisible_layers: HashSet::new(),
         }
     }
@@ -155,7 +156,7 @@ impl EditorContext {
             .collect();
 
         let storage = VehicleFileStorage {
-            name: "Vehicle".into(),
+            name: state.editor_context.title.0.clone(),
             parts,
         };
 
@@ -176,6 +177,7 @@ impl EditorContext {
                 state.editor_context.parts.push((ps.pos, ps.rot, *part));
             }
         }
+        state.editor_context.title.0 = storage.name;
         Some(())
     }
 
@@ -244,12 +246,13 @@ impl Render for EditorContext {
             Some(p) => format!("[{}]", p.display()),
             None => "[No file open]".to_string(),
         };
+        let half_span = state.input.screen_bounds.span * 0.5;
         vec![
-            // TextLabel {
-            //     text: state.editor_context.text_input.0.clone(),
-            //     position: Vec2::new(0.0, state.input.screen_bounds.span.y * 0.5 - 100.0),
-            //     size: 2.0,
-            // },
+            TextLabel {
+                text: state.editor_context.title.0.clone(),
+                position: Vec2::new(450.0, 30.0) - half_span,
+                size: 2.0,
+            },
             TextLabel {
                 text: format!(
                     "{}\n{} parts / {:?}",
@@ -257,7 +260,7 @@ impl Render for EditorContext {
                     state.editor_context.parts.len(),
                     state.editor_context.rotation,
                 ),
-                position: Vec2::new(0.0, 40.0 - state.input.screen_bounds.span.y * 0.5),
+                position: Vec2::new(0.0, 40.0 - half_span.y),
                 size: 0.7,
             },
         ]
@@ -372,9 +375,9 @@ impl EditorContext {
     pub fn step(state: &mut GameState, dt: f32) {
         let is_hovering = state.is_hovering_over_ui();
 
-        for input in &state.input.keyboard_events {
-            state.editor_context.text_input.on_button(input);
-        }
+        // for input in &state.input.keyboard_events {
+        //     state.editor_context.title.on_button(input);
+        // }
 
         let speed = 16.0 * dt * 100.0;
 

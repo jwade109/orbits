@@ -70,8 +70,11 @@ impl Plugin for UiPlugin {
 }
 
 fn set_bloom(state: Res<GameState>, mut bloom: Single<&mut Bloom>) {
-    bloom.intensity = match state.orbital_context.draw_mode {
-        DrawMode::Default => 0.5,
+    bloom.intensity = match state.current_scene().kind() {
+        SceneType::Orbital => match state.orbital_context.draw_mode {
+            DrawMode::Default => 0.5,
+            _ => 0.1,
+        },
         _ => 0.1,
     }
 }
