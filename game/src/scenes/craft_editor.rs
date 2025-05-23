@@ -374,7 +374,9 @@ impl Render for EditorContext {
                 let p = discrete - s;
                 let d = (s.length_squared() as f32).sqrt();
                 let alpha = 0.2 * (1.0 - d / 100.0);
-                draw_diamond(gizmos, ctx.w2c(p.as_vec2()), 7.0, GRAY.with_alpha(alpha));
+                if alpha > 0.01 {
+                    draw_diamond(gizmos, ctx.w2c(p.as_vec2()), 7.0, GRAY.with_alpha(alpha));
+                }
             }
         }
 

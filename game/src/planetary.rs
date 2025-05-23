@@ -142,6 +142,8 @@ pub struct GameState {
     last_hover_ui: Option<OnClick>,
 
     pub notifications: Vec<Notification>,
+
+    pub is_exit_prompt: bool,
 }
 
 fn generate_starfield() -> Vec<(Vec3, Srgba, f32, f32)> {
@@ -209,6 +211,7 @@ impl Default for GameState {
             last_hover_ui: None,
             last_redraw: Nanotime::zero(),
             notifications: Vec::new(),
+            is_exit_prompt: false,
         };
 
         let orbit = SparseOrbit::new(
@@ -661,10 +664,16 @@ impl GameState {
             OnClick::SelectPart(name) => EditorContext::set_current_part(self, &name),
             OnClick::ToggleLayer(layer) => self.editor_context.toggle_layer(layer),
             OnClick::LoadVehicle(path) => _ = EditorContext::load_vehicle(&path, self),
+            OnClick::ConfirmExitDialog => self.shutdown(),
+            OnClick::DismissExitDialog => self.is_exit_prompt = false,
             _ => info!("Unhandled button event: {id:?}"),
         };
 
         Some(())
+    }
+
+    pub fn shutdown(&self) {
+        std::process::exit(0)
     }
 
     pub fn set_current_scene(&mut self, i: usize) -> Option<()> {
@@ -973,8 +982,12 @@ fn process_interaction(
                 fs
             };
         }
-        InteractionEvent::ExitApp => {
-            std::process::exit(0);
+        InteractionEvent::Escape => {
+            if !state.is_exit_prompt {
+                state.is_exit_prompt = true;
+            } else {
+                state.shutdown()
+            }
         }
         InteractionEvent::ContextDependent => {
             if let Some(o) = state.cursor_orbit_if_mode() {

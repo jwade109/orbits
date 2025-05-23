@@ -26,7 +26,7 @@ pub fn keyboard_input(
             KeyCode::KeyQ => InteractionEvent::ContextDependent,
             KeyCode::Tab => InteractionEvent::Orbits,
             KeyCode::Space => InteractionEvent::SimPause,
-            KeyCode::Escape => InteractionEvent::ExitApp,
+            KeyCode::Escape => InteractionEvent::Escape,
             KeyCode::KeyV => InteractionEvent::CursorMode,
             KeyCode::KeyM => InteractionEvent::DrawMode,
             KeyCode::F11 => InteractionEvent::ToggleFullscreen,

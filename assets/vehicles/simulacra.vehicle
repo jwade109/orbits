@@ -275,11 +275,6 @@ parts:
   - 20
   - 89
   rot: East
-- partname: tank11
-  pos:
-  - -15
-  - 100
-  rot: East
 - partname: plate
   pos:
   - -25

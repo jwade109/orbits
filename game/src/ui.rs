@@ -31,7 +31,7 @@ pub enum InteractionEvent {
     SimFaster,
     ClearSelection,
     ClearOrbitQueue,
-    ExitApp,
+    Escape,
     Save,
     Restore,
     Load(String),
@@ -343,6 +343,40 @@ fn editor_layout(state: &GameState) -> ui::Tree<OnClick> {
 }
 
 const BUTTON_HEIGHT: f32 = 40.0;
+
+pub fn exit_prompt_overlay(w: f32, h: f32) -> ui::Node<OnClick> {
+    use ui::*;
+
+    let window = Node::new(330, Size::Fit)
+        .down()
+        .with_color(UI_BACKGROUND_COLOR)
+        .with_child(Node::row(BUTTON_HEIGHT).with_text("Exit?").enabled(false))
+        .with_child(Node::button(
+            "Yes Sir",
+            OnClick::ConfirmExitDialog,
+            Size::Grow,
+            BUTTON_HEIGHT,
+        ))
+        .with_child(Node::button(
+            "No Way",
+            OnClick::DismissExitDialog,
+            Size::Grow,
+            BUTTON_HEIGHT,
+        ));
+
+    let col = Node::column(Size::Fit)
+        .invisible()
+        .down()
+        .with_child(Node::grow().invisible())
+        .with_child(window)
+        .with_child(Node::grow().invisible());
+
+    Node::new(w, h)
+        .with_color([0.0, 0.0, 0.0, 0.95])
+        .with_child(Node::grow().invisible())
+        .with_child(col)
+        .with_child(Node::grow().invisible())
+}
 
 pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
     let scene = state.current_scene();
@@ -676,7 +710,11 @@ fn map_bytes(image: &mut Image, func: impl Fn(&mut [u8], u32, u32, u32, u32)) {
     }
 }
 
-fn generate_button_sprite(node: &ui::Node<OnClick>, is_clicked: bool, is_hover: bool) -> Image {
+fn generate_button_sprite(
+    node: &ui::Node<OnClick>,
+    is_clicked: bool,
+    is_hover: bool,
+) -> (Image, f32, f32) {
     let aabb = node.aabb();
     let w = (aabb.span.x as u32).max(1);
     let h = (aabb.span.y as u32).max(1);
@@ -684,27 +722,27 @@ fn generate_button_sprite(node: &ui::Node<OnClick>, is_clicked: bool, is_hover: 
     let color = node.color();
     let color = Srgba::new(color[0], color[1], color[2], color[3]);
 
-    let mut image = Image::new_fill(
-        Extent3d {
-            width: w,
-            height: h,
-            depth_or_array_layers: 1,
-        },
-        TextureDimension::D2,
-        &color.to_u8_array(),
-        TextureFormat::Rgba8UnormSrgb,
-        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
-    );
+    let get_image = |w: u32, h: u32| {
+        let mut image = Image::new_fill(
+            Extent3d {
+                width: w,
+                height: h,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &color.to_u8_array(),
+            TextureFormat::Rgba8UnormSrgb,
+            RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
+        );
+        image.sampler = bevy::image::ImageSampler::nearest();
+        image
+    };
 
-    image.sampler = bevy::image::ImageSampler::nearest();
-
-    if !node.is_leaf() || w == 1 || h == 1 {
-        return image;
+    if !node.is_leaf() || w == 1 || h == 1 || !node.is_enabled() {
+        return (get_image(1, 1), aabb.span.x, aabb.span.y);
     }
 
-    if !node.is_enabled() {
-        return image;
-    }
+    let mut image = get_image(w, h);
 
     if is_hover {
         map_bytes(&mut image, |bytes, _, _, _, _| {
@@ -728,7 +766,7 @@ fn generate_button_sprite(node: &ui::Node<OnClick>, is_clicked: bool, is_hover: 
         });
     }
 
-    image
+    (image, 1.0, 1.0)
 }
 
 fn do_ui_sprites(
@@ -757,7 +795,12 @@ fn do_ui_sprites(
         return;
     }
 
-    let ui = layout(&state);
+    let mut ui = layout(&state);
+
+    if state.is_exit_prompt {
+        ui.add_layout(exit_prompt_overlay(vb.span.x, vb.span.y), Vec2::ZERO)
+    }
+
     state.ui = ui;
 
     state.last_redraw = state.wall_time;
@@ -776,7 +819,7 @@ fn do_ui_sprites(
             let is_hover = hover.map(|p| aabb.contains(p)).unwrap_or(false);
             let is_clicked = left.map(|p| aabb.contains(p)).unwrap_or(false)
                 && left_down.map(|p| aabb.contains(p)).unwrap_or(false);
-            let image = generate_button_sprite(n, is_clicked, is_hover);
+            let (image, sx, sy) = generate_button_sprite(n, is_clicked, is_hover);
 
             let c = aabb.center;
 
@@ -786,7 +829,7 @@ fn do_ui_sprites(
             let handle = images.add(image);
 
             commands.spawn((
-                transform,
+                transform.with_scale(Vec3::new(sx, sy, 1.0)),
                 Sprite::from_image(handle.clone()),
                 RenderLayers::layer(1),
                 UiElement,

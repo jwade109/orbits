@@ -36,5 +36,7 @@ pub enum OnClick {
     SelectPart(String),
     ToggleLayer(PartLayer),
     LoadVehicle(PathBuf),
+    DismissExitDialog,
+    ConfirmExitDialog,
     Nullopt,
 }
