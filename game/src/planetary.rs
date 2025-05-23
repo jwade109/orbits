@@ -248,7 +248,7 @@ impl Render for GameState {
         match state.current_scene().kind() {
             SceneType::Editor => EditorContext::sprites(state),
             SceneType::DockingView => RPOContext::sprites(state),
-            SceneType::Orbital => OrbitalContext::sprites(state),
+            SceneType::MainMenu | SceneType::Orbital => OrbitalContext::sprites(state),
             _ => None,
         }
     }
@@ -265,10 +265,11 @@ impl Render for GameState {
 
     fn draw_gizmos(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
         match state.current_scene().kind() {
-            SceneType::MainMenu | SceneType::Orbital => OrbitalContext::draw_gizmos(gizmos, state),
+            SceneType::Orbital => OrbitalContext::draw_gizmos(gizmos, state),
             SceneType::Editor => EditorContext::draw_gizmos(gizmos, state),
             SceneType::TelescopeView => TelescopeContext::draw_gizmos(gizmos, state),
             SceneType::DockingView => RPOContext::draw_gizmos(gizmos, state),
+            _ => None,
         }
     }
 }

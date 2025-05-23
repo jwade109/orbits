@@ -485,20 +485,18 @@ impl Render for OrbitalContext {
                 let path = "embedded://game/../assets/spacecraft.png".to_string();
                 let scale = if state.orbital_context.selected.contains(&id) {
                     SPACECRAFT_MAGNIFIED_SCALE
-                } else if !is_lit {
-                    0.0
                 } else if state.orbital_context.selected.is_empty() {
                     SPACECRAFT_DEFAULT_SCALE
                 } else {
                     SPACECRAFT_DIMINISHED_SCALE
                 };
-                Some(StaticSpriteDescriptor::new(
-                    ctx.w2c(pos),
-                    0.0,
-                    path,
-                    scale,
-                    SPACECRAFT_Z_INDEX,
-                ))
+
+                let color = if is_lit { WHITE } else { GRAY };
+
+                Some(
+                    StaticSpriteDescriptor::new(ctx.w2c(pos), 0.0, path, scale, SPACECRAFT_Z_INDEX)
+                        .with_color(color),
+                )
             })
             .collect();
 

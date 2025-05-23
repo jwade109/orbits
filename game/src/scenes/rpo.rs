@@ -85,13 +85,13 @@ impl Render for RPOContext {
 
             for (_, _, part) in &vehicle.parts {
                 let path = part_sprite_path(&state.args, &part);
-                let desc = StaticSpriteDescriptor {
-                    position: ctx.w2c(lup.pv().pos),
-                    scale: ctx.scale(),
-                    angle: vehicle.angle(),
+                let desc = StaticSpriteDescriptor::new(
+                    ctx.w2c(lup.pv().pos),
+                    vehicle.angle(),
                     path,
-                    z_index: 10.0,
-                };
+                    ctx.scale(),
+                    10.0,
+                );
                 ret.push(desc);
             }
         }

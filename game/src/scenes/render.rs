@@ -24,6 +24,7 @@ pub struct StaticSpriteDescriptor {
     pub path: String,
     pub scale: f32,
     pub z_index: f32,
+    pub color: Option<Srgba>,
 }
 
 impl StaticSpriteDescriptor {
@@ -34,7 +35,13 @@ impl StaticSpriteDescriptor {
             path,
             scale,
             z_index,
+            color: None,
         }
+    }
+
+    pub fn with_color(mut self, color: Srgba) -> Self {
+        self.color = Some(color);
+        self
     }
 }
 

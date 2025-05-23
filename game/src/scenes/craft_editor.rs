@@ -294,13 +294,13 @@ impl Render for EditorContext {
 
         if let Some((p, current_part)) = Self::current_part_and_cursor_position(state) {
             let dims = Self::dims_with_rotation(ctx.rotation, &current_part);
-            ret.push(StaticSpriteDescriptor {
-                position: ctx.w2c(p.as_vec2() + dims.as_vec2() / 2.0),
-                angle: ctx.rotation.to_angle(),
-                path: part_sprite_path(&state.args, &current_part.path),
-                scale: ctx.scale(),
-                z_index: 12.0,
-            });
+            ret.push(StaticSpriteDescriptor::new(
+                ctx.w2c(p.as_vec2() + dims.as_vec2() / 2.0),
+                ctx.rotation.to_angle(),
+                part_sprite_path(&state.args, &current_part.path),
+                ctx.scale(),
+                12.0,
+            ));
 
             // let current_pixels = Self::occupied_pixels(p, ctx.rotation, &current_part);
 
@@ -327,13 +327,13 @@ impl Render for EditorContext {
                 .enumerate()
                 .map(|(i, (pos, rot, part))| {
                     let half_dims = Self::dims_with_rotation(*rot, part).as_vec2() / 2.0;
-                    StaticSpriteDescriptor {
-                        position: ctx.w2c(pos.as_vec2() + half_dims),
-                        angle: rot.to_angle(),
-                        path: part_sprite_path(&state.args, &part.path),
-                        scale: ctx.scale(),
-                        z_index: part.to_z_index() + i as f32 / 100.0,
-                    }
+                    StaticSpriteDescriptor::new(
+                        ctx.w2c(pos.as_vec2() + half_dims),
+                        rot.to_angle(),
+                        part_sprite_path(&state.args, &part.path),
+                        ctx.scale(),
+                        part.to_z_index() + i as f32 / 100.0,
+                    )
                 }),
         );
 

@@ -2,9 +2,7 @@ use crate::planetary::GameState;
 use crate::scenes::CameraProjection;
 use crate::scenes::*;
 use bevy::asset::embedded_asset;
-use bevy::color::palettes::css::*;
 use bevy::prelude::*;
-use starling::math::is_occluded;
 use starling::prelude::*;
 
 pub struct SpritePlugin;
@@ -20,18 +18,10 @@ impl Plugin for SpritePlugin {
     }
 }
 
-const SELECTED_SPACECRAFT_Z_INDEX: f32 = 8.0;
+// const SELECTED_SPACECRAFT_Z_INDEX: f32 = 8.0;
 const SHADOW_Z_INDEX: f32 = 7.0;
 
 const EXPECTED_SHADOW_SPRITE_HEIGHT: u32 = 1000;
-
-#[derive(Component)]
-#[require(Transform)]
-pub struct BackgroundTexture;
-
-#[derive(Component)]
-#[require(Transform)]
-pub struct SpacecraftTexture(OrbiterId, f32);
 
 #[derive(Component)]
 #[require(Transform)]
@@ -96,11 +86,7 @@ pub fn hashable_to_color(h: &impl std::hash::Hash) -> Hsla {
     Hsla::new(hue, 1.0, 0.5, 1.0)
 }
 
-pub fn update_spacecraft_sprites(
-    mut commands: Commands,
-    mut query: Query<(Entity, &mut SpacecraftTexture, &mut Transform, &mut Sprite)>,
-    state: Res<GameState>,
-) {
+pub fn update_spacecraft_sprites(mut _commands: Commands, _state: Res<GameState>) {
     // let scene = state.current_scene();
 
     // match scene.kind() {
