@@ -35,8 +35,6 @@ impl Plugin for PlanetaryPlugin {
                 // rendering
                 crate::ui::do_text_labels,
                 crate::sprites::update_static_sprites,
-                crate::sprites::make_new_sprites,
-                crate::sprites::update_planet_sprites,
                 crate::sprites::update_shadow_sprites,
                 crate::sprites::update_background_sprite,
                 crate::sprites::update_spacecraft_sprites,
@@ -198,11 +196,11 @@ impl Default for GameState {
             starfield: generate_starfield(),
             rpos: HashMap::new(),
             scenes: vec![
-                Scene::orbital("Orbital"),
-                Scene::docking("Docking", OrbiterId(0)),
+                Scene::main_menu(),
+                Scene::orbital(),
+                Scene::docking(),
                 Scene::telescope(),
                 Scene::editor(),
-                Scene::main_menu(),
             ],
             current_scene_idx: 0,
             current_orbit: None,
@@ -241,7 +239,7 @@ impl Render for GameState {
             SceneType::Orbital => OrbitalContext::text_labels(state),
             SceneType::TelescopeView => TelescopeContext::text_labels(state),
             SceneType::Editor => EditorContext::text_labels(state),
-            SceneType::DockingView(_) => RPOContext::text_labels(state),
+            SceneType::DockingView => RPOContext::text_labels(state),
             _ => None,
         }
     }
@@ -249,7 +247,8 @@ impl Render for GameState {
     fn sprites(state: &GameState) -> Option<Vec<StaticSpriteDescriptor>> {
         match state.current_scene().kind() {
             SceneType::Editor => EditorContext::sprites(state),
-            SceneType::DockingView(_) => RPOContext::sprites(state),
+            SceneType::DockingView => RPOContext::sprites(state),
+            SceneType::Orbital => OrbitalContext::sprites(state),
             _ => None,
         }
     }
@@ -259,18 +258,17 @@ impl Render for GameState {
             SceneType::Orbital => OrbitalContext::background_color(state),
             SceneType::Editor => EditorContext::background_color(state),
             SceneType::TelescopeView => TelescopeContext::background_color(state),
-            SceneType::DockingView(_) => RPOContext::background_color(state),
+            SceneType::DockingView => RPOContext::background_color(state),
             SceneType::MainMenu => GRAY.with_luminance(0.09),
         }
     }
 
     fn draw_gizmos(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
         match state.current_scene().kind() {
-            SceneType::Orbital => OrbitalContext::draw_gizmos(gizmos, state),
+            SceneType::MainMenu | SceneType::Orbital => OrbitalContext::draw_gizmos(gizmos, state),
             SceneType::Editor => EditorContext::draw_gizmos(gizmos, state),
             SceneType::TelescopeView => TelescopeContext::draw_gizmos(gizmos, state),
-            SceneType::DockingView(_) => RPOContext::draw_gizmos(gizmos, state),
-            SceneType::MainMenu => None,
+            SceneType::DockingView => RPOContext::draw_gizmos(gizmos, state),
         }
     }
 }
@@ -905,7 +903,7 @@ impl GameState {
                 self.orbital_context.step(&self.input, dt);
             }
             SceneType::TelescopeView => self.telescope_context.step(&self.input, dt),
-            SceneType::DockingView(_) => {
+            SceneType::DockingView => {
                 self.rpo_context.step(&self.input, dt);
                 if let Some((_, rpo)) = self.rpos.iter().next() {
                     self.rpo_context.handle_follow(&self.input, rpo);

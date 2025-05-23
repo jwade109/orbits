@@ -1,9 +1,7 @@
-use starling::prelude::*;
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SceneType {
     Orbital,
-    DockingView(OrbiterId),
+    DockingView,
     TelescopeView,
     Editor,
     MainMenu,
@@ -16,9 +14,9 @@ pub struct Scene {
 }
 
 impl Scene {
-    pub fn orbital(name: impl Into<String>) -> Self {
+    pub fn orbital() -> Self {
         Scene {
-            name: name.into(),
+            name: "Orbital".into(),
             scene_type: SceneType::Orbital,
         }
     }
@@ -37,10 +35,10 @@ impl Scene {
         }
     }
 
-    pub fn docking(name: impl Into<String>, primary: OrbiterId) -> Self {
+    pub fn docking() -> Self {
         Scene {
-            name: name.into(),
-            scene_type: SceneType::DockingView(primary),
+            name: "Docking".into(),
+            scene_type: SceneType::DockingView,
         }
     }
 

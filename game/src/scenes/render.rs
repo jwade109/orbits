@@ -26,6 +26,18 @@ pub struct StaticSpriteDescriptor {
     pub z_index: f32,
 }
 
+impl StaticSpriteDescriptor {
+    pub fn new(position: Vec2, angle: f32, path: String, scale: f32, z_index: f32) -> Self {
+        Self {
+            position,
+            angle,
+            path,
+            scale,
+            z_index,
+        }
+    }
+}
+
 pub trait Render {
     fn text_labels(state: &GameState) -> Option<Vec<TextLabel>>;
 

@@ -326,12 +326,10 @@ impl OrbitalContext {
     }
 }
 
-pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> {
-    let mut ret = Vec::new();
-
+pub fn get_orbital_object_mouseover_label(state: &GameState) -> Option<TextLabel> {
     let cursor = match state.input.position(MouseButt::Hover, FrameId::Current) {
         Some(p) => p,
-        None => return Vec::new(),
+        None => return None,
     };
 
     let cursor_world = state.orbital_context.c2w(cursor);
@@ -372,17 +370,18 @@ pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> 
                 pc + Vec2::Y * 40.0,
             )
         };
-
         if passes {
-            ret.push(TextLabel::new(label, pos, 1.0))
+            return Some(TextLabel::new(label, pos, 1.0));
         }
     }
-    ret
+    None
 }
 
 impl Render for OrbitalContext {
     fn text_labels(state: &GameState) -> Option<Vec<TextLabel>> {
-        let mut text_labels = get_orbital_object_mouseover_labels(state);
+        let mut text_labels: Vec<TextLabel> = get_orbital_object_mouseover_label(state)
+            .into_iter()
+            .collect();
 
         if state.paused {
             let s = "PAUSED".to_string();
@@ -438,8 +437,31 @@ impl Render for OrbitalContext {
         Some(text_labels)
     }
 
-    fn sprites(_state: &GameState) -> Option<Vec<StaticSpriteDescriptor>> {
-        None
+    fn sprites(state: &GameState) -> Option<Vec<StaticSpriteDescriptor>> {
+        const EXPECTED_PLANET_SPRITE_SIZE: u32 = 1000;
+        const PLANET_Z_INDEX: f32 = 5.0;
+
+        let ctx = &state.orbital_context;
+        Some(
+            state
+                .scenario
+                .planet_ids()
+                .into_iter()
+                .filter_map(|id| {
+                    let lup = state.scenario.lup_planet(id, state.sim_time)?;
+                    let pos = lup.pv().pos;
+                    let (name, body) = lup.named_body()?;
+                    let path = format!("embedded://game/../assets/{}.png", name);
+                    Some(StaticSpriteDescriptor::new(
+                        ctx.w2c(pos),
+                        0.0,
+                        path,
+                        ctx.scale() * 2.0 * body.radius / EXPECTED_PLANET_SPRITE_SIZE as f32,
+                        PLANET_Z_INDEX,
+                    ))
+                })
+                .collect(),
+        )
     }
 
     fn background_color(state: &GameState) -> bevy::color::Srgba {
@@ -451,7 +473,8 @@ impl Render for OrbitalContext {
         }
     }
 
-    fn draw_gizmos(_gizmos: &mut Gizmos, _state: &GameState) -> Option<()> {
+    fn draw_gizmos(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
+        crate::drawing::draw_orbital_view(gizmos, state);
         Some(())
     }
 }

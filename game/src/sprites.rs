@@ -6,7 +6,6 @@ use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use starling::math::is_occluded;
 use starling::prelude::*;
-use std::path::PathBuf;
 
 pub struct SpritePlugin;
 
@@ -24,8 +23,6 @@ impl Plugin for SpritePlugin {
 const SELECTED_SPACECRAFT_Z_INDEX: f32 = 8.0;
 const SHADOW_Z_INDEX: f32 = 7.0;
 const SPACECRAFT_Z_INDEX: f32 = 6.0;
-const PLANET_Z_INDEX: f32 = 5.0;
-const EXPECTED_PLANET_SPRITE_SIZE: u32 = 1000;
 
 const EXPECTED_SHADOW_SPRITE_HEIGHT: u32 = 1000;
 
@@ -35,112 +32,11 @@ pub struct BackgroundTexture;
 
 #[derive(Component)]
 #[require(Transform)]
-pub struct PlanetTexture(PlanetId, String);
-
-#[derive(Component)]
-#[require(Transform)]
 pub struct SpacecraftTexture(OrbiterId, f32);
 
 #[derive(Component)]
 #[require(Transform)]
 pub struct ShadowTexture(PlanetId);
-
-pub fn make_new_sprites(
-    mut commands: Commands,
-    ptextures: Query<&PlanetTexture>,
-    stextures: Query<&SpacecraftTexture>,
-    state: Res<GameState>,
-    asset_server: Res<AssetServer>,
-) {
-    let scene = state.current_scene();
-
-    match scene.kind() {
-        SceneType::Orbital => (),
-        _ => return,
-    }
-
-    for id in state.scenario.planet_ids() {
-        if ptextures.iter().find(|e| e.0 == id).is_some() {
-            continue;
-        }
-        if let Some(lup) = state.scenario.lup_planet(id, state.sim_time) {
-            if let Some((name, _)) = lup.named_body() {
-                let path = format!("embedded://game/../assets/{}.png", name);
-                println!("Adding sprite for {} at {}", name, path);
-                let sprite = Sprite::from_image(asset_server.load(path));
-                commands.spawn((PlanetTexture(id, name.clone()), sprite));
-
-                let mut sprite =
-                    Sprite::from_image(asset_server.load("embedded://game/../assets/shadow.png"));
-                sprite.color = RED.into();
-                commands.spawn((ShadowTexture(id), sprite));
-            }
-        }
-    }
-
-    for id in state.scenario.orbiter_ids() {
-        if stextures.iter().find(|e| e.0 == id).is_some() {
-            continue;
-        }
-        let path = "embedded://game/../assets/spacecraft.png";
-        let sprite = Sprite::from_image(asset_server.load(path));
-        let tf = Transform::from_scale(Vec3::ZERO);
-        commands.spawn((tf, SpacecraftTexture(id, 0.0), sprite));
-    }
-}
-
-pub fn update_planet_sprites(
-    mut commands: Commands,
-    mut query: Query<(Entity, &PlanetTexture, &mut Transform, &mut Visibility)>,
-    state: Res<GameState>,
-) {
-    let scene = state.current_scene();
-
-    match scene.kind() {
-        SceneType::Orbital => (),
-        _ => {
-            for (e, _, _, _) in query.iter() {
-                commands.entity(e).despawn();
-            }
-            return;
-        }
-    }
-
-    let center = state.orbital_context.origin();
-    let scale = state.orbital_context.scale();
-
-    for (e, PlanetTexture(id, name), mut transform, mut vis) in query.iter_mut() {
-        let lup = match state.scenario.lup_planet(*id, state.sim_time) {
-            Some(lup) => lup,
-            None => {
-                commands.entity(e).despawn();
-                continue;
-            }
-        };
-
-        *vis = match state.orbital_context.draw_mode {
-            DrawMode::Default => Visibility::Visible,
-            _ => Visibility::Hidden,
-        };
-
-        let pv = lup.pv();
-        let (lname, body) = match lup.named_body() {
-            Some(n) => n,
-            None => {
-                commands.entity(e).despawn();
-                continue;
-            }
-        };
-
-        if lname == name {
-            transform.translation = ((pv.pos - center) * scale).extend(PLANET_Z_INDEX);
-            transform.scale = 2.0 * Vec3::splat(body.radius) / EXPECTED_PLANET_SPRITE_SIZE as f32
-                * state.orbital_context.scale();
-        } else {
-            commands.entity(e).despawn();
-        }
-    }
-}
 
 pub fn update_shadow_sprites(
     mut commands: Commands,

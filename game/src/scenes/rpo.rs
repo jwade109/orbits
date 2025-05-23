@@ -8,7 +8,6 @@ use bevy::color::palettes::css::*;
 use bevy::input::keyboard::KeyCode;
 use bevy::prelude::*;
 use starling::prelude::*;
-use std::path::PathBuf;
 
 #[derive(Debug)]
 pub struct RPOContext {
@@ -38,7 +37,7 @@ impl Render for RPOContext {
         let ctx = &state.rpo_context;
         let target = state.targeting()?;
 
-        let origin = state.scenario.lup_orbiter(target, state.sim_time)?.pv();
+        // let origin = state.scenario.lup_orbiter(target, state.sim_time)?.pv();
 
         draw_circle(gizmos, Vec2::ZERO, 4.0, GRAY);
         draw_circle(gizmos, ctx.w2c(Vec2::ZERO), 4.0, TEAL);
@@ -79,7 +78,6 @@ impl Render for RPOContext {
 
         for id in state.scenario.orbiter_ids() {
             let lup = state.scenario.lup_orbiter(id, state.sim_time)?;
-            let origin = ctx.origin();
             let vehicle = match state.orbital_vehicles.get(&id) {
                 Some(v) => v,
                 None => continue,

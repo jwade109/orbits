@@ -1392,8 +1392,8 @@ fn draw_telescope_view(gizmos: &mut Gizmos, state: &GameState) {
 
 pub fn draw_scene(gizmos: &mut Gizmos, state: &GameState, scene: &crate::scenes::Scene) {
     match scene.kind() {
-        SceneType::Orbital => draw_orbital_view(gizmos, state),
-        SceneType::DockingView(_) => _ = RPOContext::draw_gizmos(gizmos, state),
+        SceneType::Orbital => {}
+        SceneType::DockingView => _ = RPOContext::draw_gizmos(gizmos, state),
         SceneType::TelescopeView => draw_telescope_view(gizmos, &state),
         SceneType::MainMenu => {}
         SceneType::Editor => _ = EditorContext::draw_gizmos(gizmos, state),
