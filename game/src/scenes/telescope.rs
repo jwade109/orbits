@@ -128,11 +128,8 @@ impl TelescopeContext {
 }
 
 impl Render for TelescopeContext {
-    fn text_labels(state: &GameState) -> Vec<TextLabel> {
-        let cursor = match state.input.position(MouseButt::Hover, FrameId::Current) {
-            Some(p) => p,
-            None => return Vec::new(),
-        };
+    fn text_labels(state: &GameState) -> Option<Vec<TextLabel>> {
+        let cursor = state.input.position(MouseButt::Hover, FrameId::Current)?;
 
         let mut ret = Vec::new();
 
@@ -154,11 +151,11 @@ impl Render for TelescopeContext {
             }
         }
 
-        ret
+        Some(ret)
     }
 
-    fn sprites(_state: &GameState) -> Vec<StaticSpriteDescriptor> {
-        vec![]
+    fn sprites(_state: &GameState) -> Option<Vec<StaticSpriteDescriptor>> {
+        None
     }
 
     fn background_color(_state: &GameState) -> Srgba {

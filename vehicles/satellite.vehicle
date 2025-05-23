@@ -1,10 +1,5 @@
 name: Satellite
 parts:
-- partname: motor
-  pos:
-  - -8
-  - -16
-  rot: East
 - partname: frame2
   pos:
   - -10
@@ -60,11 +55,6 @@ parts:
   - 1
   - 40
   rot: East
-- partname: tank22
-  pos:
-  - -10
-  - 10
-  rot: East
 - partname: battery
   pos:
   - -9
@@ -84,4 +74,14 @@ parts:
   pos:
   - 0
   - 20
+  rot: East
+- partname: tank21
+  pos:
+  - -10
+  - 20
+  rot: North
+- partname: motor
+  pos:
+  - -8
+  - -5
   rot: East

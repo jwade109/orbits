@@ -420,3 +420,43 @@ parts:
   - 90
   - 21
   rot: East
+- partname: small-antenna
+  pos:
+  - -69
+  - 66
+  rot: East
+- partname: small-antenna
+  pos:
+  - -10
+  - 56
+  rot: East
+- partname: small-antenna
+  pos:
+  - -17
+  - 56
+  rot: East
+- partname: small-antenna
+  pos:
+  - 18
+  - -14
+  rot: West
+- partname: frame3
+  pos:
+  - -90
+  - 51
+  rot: East
+- partname: frame3
+  pos:
+  - -90
+  - 1
+  rot: East
+- partname: frame3
+  pos:
+  - 60
+  - 1
+  rot: East
+- partname: frame3
+  pos:
+  - 60
+  - 51
+  rot: East

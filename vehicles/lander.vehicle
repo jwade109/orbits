@@ -1,0 +1,117 @@
+name: Lander
+parts:
+- partname: frame
+  pos:
+  - -15
+  - -10
+  rot: North
+- partname: frame
+  pos:
+  - -5
+  - -10
+  rot: North
+- partname: frame
+  pos:
+  - 5
+  - -10
+  rot: North
+- partname: motor
+  pos:
+  - -18
+  - -28
+  rot: East
+- partname: motor
+  pos:
+  - 2
+  - -28
+  rot: East
+- partname: frame3
+  pos:
+  - -25
+  - -10
+  rot: North
+- partname: frame3
+  pos:
+  - 15
+  - -10
+  rot: North
+- partname: small-antenna
+  pos:
+  - 15
+  - 30
+  rot: East
+- partname: small-antenna
+  pos:
+  - -21
+  - 30
+  rot: East
+- partname: tank22
+  pos:
+  - -35
+  - 0
+  rot: East
+- partname: tank22
+  pos:
+  - 15
+  - 0
+  rot: East
+- partname: frame3
+  pos:
+  - -35
+  - -35
+  rot: North
+- partname: frame3
+  pos:
+  - 25
+  - -35
+  rot: North
+- partname: tank11
+  pos:
+  - -28
+  - -10
+  rot: North
+- partname: tank11
+  pos:
+  - 18
+  - -10
+  rot: North
+- partname: cpu
+  pos:
+  - -25
+  - 21
+  rot: North
+- partname: battery
+  pos:
+  - 15
+  - 21
+  rot: North
+- partname: cargo
+  pos:
+  - -15
+  - 0
+  rot: North
+- partname: frame2
+  pos:
+  - -15
+  - 10
+  rot: North
+- partname: frame2
+  pos:
+  - -15
+  - 20
+  rot: North
+- partname: frame2
+  pos:
+  - -5
+  - 20
+  rot: North
+- partname: frame2
+  pos:
+  - 5
+  - 20
+  rot: North
+- partname: frame2
+  pos:
+  - 5
+  - 10
+  rot: North

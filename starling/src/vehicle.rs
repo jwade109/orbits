@@ -1,9 +1,47 @@
 use crate::aabb::{Polygon, AABB};
 use crate::inventory::{Inventory, InventoryItem};
-use crate::math::{cross2d, get_random_name, linspace, rand, randint, randvec, rotate, Vec2, PI};
+use crate::math::{
+    cross2d, get_random_name, linspace, rand, randint, randvec, rotate, IVec2, Vec2, PI,
+};
 use crate::nanotime::Nanotime;
 use crate::orbits::{wrap_0_2pi, wrap_pi_npi};
+use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Sequence, Hash)]
+pub enum PartLayer {
+    Internal,
+    Structural,
+    Exterior,
+}
+
+/// dimensions in meters
+#[derive(Debug, Clone, Copy)]
+pub struct PartProto {
+    pub width: u32,
+    pub height: u32,
+    pub layer: PartLayer,
+    pub path: &'static str,
+}
+
+impl PartProto {
+    pub const fn new(width: u32, height: u32, layer: PartLayer, path: &'static str) -> Self {
+        Self {
+            width,
+            height,
+            layer,
+            path,
+        }
+    }
+
+    pub fn to_z_index(&self) -> f32 {
+        match self.layer {
+            PartLayer::Internal => 10.0,
+            PartLayer::Structural => 11.0,
+            PartLayer::Exterior => 12.0,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub struct Thruster {
@@ -40,6 +78,25 @@ impl Thruster {
     }
 }
 
+#[derive(Debug, Clone, Copy, Sequence, Serialize, Deserialize)]
+pub enum Rotation {
+    East,
+    North,
+    West,
+    South,
+}
+
+impl Rotation {
+    pub fn to_angle(&self) -> f32 {
+        match self {
+            Self::East => 0.0,
+            Self::North => PI * 0.5,
+            Self::West => PI,
+            Self::South => PI * 1.5,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Vehicle {
     name: String,
@@ -53,6 +110,7 @@ pub struct Vehicle {
     pub max_fuel_mass: f32,
     pub dry_mass: f32,
     pub exhaust_velocity: f32,
+    pub parts: Vec<(IVec2, Rotation, String)>,
 }
 
 fn rcs_block(pos: Vec2, angle: f32) -> Vec<Thruster> {
@@ -102,6 +160,10 @@ impl Vehicle {
             body: asteroid_body(),
             thrusters: Vec::new(),
             inventory: Inventory::new(),
+            parts: vec![
+                (IVec2::ZERO, Rotation::East, "tank22".into()),
+                (IVec2::X * 20, Rotation::North, "frame3".into()),
+            ],
         }
     }
 
@@ -118,6 +180,7 @@ impl Vehicle {
             body: satellite_body(),
             thrusters: satellite_thrusters(),
             inventory: random_sat_inventory(),
+            parts: vec![(IVec2::ZERO, Rotation::East, "frame".into())],
         }
     }
 
@@ -134,6 +197,7 @@ impl Vehicle {
             body: space_station_body(),
             thrusters: rcs_block(Vec2::X, 0.0),
             inventory: random_sat_inventory(),
+            parts: vec![(IVec2::ZERO, Rotation::East, "frame2".into())],
         }
     }
 
@@ -340,3 +404,43 @@ fn satellite_thrusters() -> Vec<Thruster> {
     t.extend(rcs_block(Vec2::new(-0.8, -0.9), 0.5 * PI));
     t
 }
+
+pub const TANK11: PartProto = PartProto::new(10, 10, PartLayer::Internal, "tank11");
+pub const TANK21: PartProto = PartProto::new(10, 20, PartLayer::Internal, "tank21");
+pub const TANK22: PartProto = PartProto::new(20, 20, PartLayer::Internal, "tank22");
+pub const FRAME: PartProto = PartProto::new(10, 10, PartLayer::Structural, "frame");
+pub const FRAME2: PartProto = PartProto::new(10, 10, PartLayer::Structural, "frame2");
+pub const FRAME22: PartProto = PartProto::new(20, 20, PartLayer::Structural, "frame22");
+pub const FRAME3: PartProto = PartProto::new(40, 10, PartLayer::Structural, "frame3");
+pub const MOTOR: PartProto = PartProto::new(16, 25, PartLayer::Internal, "motor");
+pub const ANTENNA: PartProto = PartProto::new(50, 27, PartLayer::Internal, "antenna");
+pub const SMALL_ANTENNA: PartProto = PartProto::new(6, 20, PartLayer::Internal, "small-antenna");
+pub const CARGO: PartProto = PartProto::new(30, 30, PartLayer::Internal, "cargo");
+pub const BATTERY: PartProto = PartProto::new(9, 9, PartLayer::Internal, "battery");
+pub const CPU: PartProto = PartProto::new(8, 9, PartLayer::Internal, "cpu");
+pub const SOLARPANEL: PartProto = PartProto::new(65, 16, PartLayer::Internal, "solarpanel");
+pub const GOLD: PartProto = PartProto::new(10, 10, PartLayer::Exterior, "gold");
+pub const PLATE: PartProto = PartProto::new(10, 10, PartLayer::Exterior, "plate");
+
+pub fn find_part(short_path: &str) -> Option<&PartProto> {
+    ALL_PARTS.iter().cloned().find(|p| p.path == short_path)
+}
+
+pub const ALL_PARTS: [&PartProto; 16] = [
+    &TANK11,
+    &TANK21,
+    &TANK22,
+    &FRAME,
+    &FRAME2,
+    &FRAME22,
+    &FRAME3,
+    &MOTOR,
+    &ANTENNA,
+    &SMALL_ANTENNA,
+    &CARGO,
+    &BATTERY,
+    &CPU,
+    &SOLARPANEL,
+    &GOLD,
+    &PLATE,
+];

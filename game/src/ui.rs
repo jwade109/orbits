@@ -86,7 +86,7 @@ pub fn do_text_labels(
     state: Res<GameState>,
     mut query: Query<(Entity, &mut Text2d, &mut TextFont, &mut Transform), With<TextLabel>>,
 ) {
-    let text_labels = GameState::text_labels(&state);
+    let text_labels = GameState::text_labels(&state).unwrap_or(vec![]);
 
     let mut labels: Vec<_> = query.iter_mut().collect();
     for (i, tl) in text_labels.iter().enumerate() {
@@ -284,28 +284,45 @@ fn editor_layout(state: &GameState) -> ui::Tree<OnClick> {
         return Tree::new();
     }
 
+    let mut vehicle_paths = vec![];
+    if let Ok(paths) = std::fs::read_dir(&state.args.install_dir) {
+        for path in paths {
+            if let Ok(path) = path {
+                vehicle_paths.push(path.path());
+            }
+        }
+    }
+
     let top_bar = top_bar(state);
     let part_selection = Node::column(300)
         .with_color(UI_BACKGROUND_COLOR)
-        .with_children(crate::parts::ALL_PARTS.iter().map(|p| {
+        .with_children(ALL_PARTS.iter().map(|p| {
             let s = p.path.to_string();
             let onclick = OnClick::SelectPart(s.clone());
             Node::button(s, onclick, Size::Grow, BUTTON_HEIGHT)
         }))
         .with_child(Node::hline())
-        .with_children(
-            enum_iterator::all::<crate::parts::PartLayer>()
-                .into_iter()
-                .map(|p| {
-                    let s = format!("{:?}", p);
-                    let onclick = OnClick::ToggleLayer(p);
-                    let mut n = Node::button(s, onclick, Size::Grow, BUTTON_HEIGHT);
-                    if !state.editor_context.is_layer_visible(p) {
-                        n = n.with_color(GRAY.to_f32_array());
-                    }
-                    n
-                }),
-        );
+        .with_child(Node::row(BUTTON_HEIGHT).with_text("Layers").enabled(false))
+        .with_children(enum_iterator::all::<PartLayer>().into_iter().map(|p| {
+            let s = format!("{:?}", p);
+            let onclick = OnClick::ToggleLayer(p);
+            let mut n = Node::button(s, onclick, Size::Grow, BUTTON_HEIGHT);
+            if !state.editor_context.is_layer_visible(p) {
+                n = n.with_color(GRAY.to_f32_array());
+            }
+            n
+        }))
+        .with_child(Node::hline())
+        .with_child(
+            Node::row(BUTTON_HEIGHT)
+                .with_text("Assemblies")
+                .enabled(false),
+        )
+        .with_children(vehicle_paths.into_iter().map(|v| {
+            let s = format!("{}", v.file_stem().unwrap().to_string_lossy());
+            let onclick = OnClick::LoadVehicle(v);
+            Node::button(s, onclick, Size::Grow, BUTTON_HEIGHT)
+        }));
 
     let layout = Node::new(vb.span.x, vb.span.y)
         .tight()

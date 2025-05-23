@@ -10,26 +10,6 @@ parts:
   - 15
   - 35
   rot: South
-- partname: cargo
-  pos:
-  - -15
-  - 40
-  rot: South
-- partname: frame2
-  pos:
-  - -15
-  - 70
-  rot: South
-- partname: frame2
-  pos:
-  - -5
-  - 70
-  rot: South
-- partname: frame2
-  pos:
-  - 5
-  - 70
-  rot: South
 - partname: frame2
   pos:
   - -15
@@ -67,11 +47,6 @@ parts:
   rot: East
 - partname: tank21
   pos:
-  - -25
-  - 45
-  rot: East
-- partname: tank21
-  pos:
   - 15
   - 5
   rot: East
@@ -79,16 +54,6 @@ parts:
   pos:
   - 15
   - 25
-  rot: East
-- partname: tank21
-  pos:
-  - 15
-  - 45
-  rot: East
-- partname: tank21
-  pos:
-  - 15
-  - 65
   rot: East
 - partname: frame3
   pos:
@@ -100,56 +65,6 @@ parts:
   - -25
   - 35
   rot: North
-- partname: tank21
-  pos:
-  - -25
-  - 65
-  rot: West
-- partname: frame3
-  pos:
-  - -20
-  - 80
-  rot: West
-- partname: frame3
-  pos:
-  - -20
-  - 90
-  rot: West
-- partname: battery
-  pos:
-  - -14
-  - 71
-  rot: West
-- partname: battery
-  pos:
-  - -4
-  - 71
-  rot: West
-- partname: cpu
-  pos:
-  - 6
-  - 71
-  rot: West
-- partname: solarpanel
-  pos:
-  - -90
-  - 48
-  rot: West
-- partname: solarpanel
-  pos:
-  - 25
-  - 48
-  rot: East
-- partname: solarpanel
-  pos:
-  - 25
-  - 26
-  rot: East
-- partname: solarpanel
-  pos:
-  - -90
-  - 26
-  rot: West
 - partname: tank11
   pos:
   - -25
@@ -180,68 +95,333 @@ parts:
   - 5
   - 30
   rot: West
-- partname: antenna
-  pos:
-  - -25
-  - 90
-  rot: East
 - partname: cargo
   pos:
   - -15
   - 0
   rot: East
-- partname: gold
+- partname: frame2
+  pos:
+  - 5
+  - 110
+  rot: South
+- partname: frame2
+  pos:
+  - -5
+  - 110
+  rot: South
+- partname: frame2
   pos:
   - -15
-  - 70
+  - 110
+  rot: South
+- partname: frame3
+  pos:
+  - -25
+  - 75
+  rot: North
+- partname: frame3
+  pos:
+  - 15
+  - 75
+  rot: North
+- partname: cargo
+  pos:
+  - -15
+  - 120
+  rot: South
+- partname: frame3
+  pos:
+  - 15
+  - 115
+  rot: North
+- partname: frame3
+  pos:
+  - -25
+  - 115
+  rot: North
+- partname: cpu
+  pos:
+  - 6
+  - 150
+  rot: West
+- partname: battery
+  pos:
+  - -4
+  - 150
+  rot: West
+- partname: battery
+  pos:
+  - -14
+  - 150
+  rot: West
+- partname: frame2
+  pos:
+  - -15
+  - 150
+  rot: South
+- partname: frame2
+  pos:
+  - -5
+  - 150
+  rot: South
+- partname: frame2
+  pos:
+  - 5
+  - 150
+  rot: South
+- partname: tank21
+  pos:
+  - -25
+  - 125
   rot: East
+- partname: tank21
+  pos:
+  - 15
+  - 125
+  rot: East
+- partname: tank21
+  pos:
+  - 15
+  - 105
+  rot: East
+- partname: tank21
+  pos:
+  - -25
+  - 105
+  rot: East
+- partname: tank11
+  pos:
+  - -10
+  - 110
+  rot: East
+- partname: tank11
+  pos:
+  - 0
+  - 110
+  rot: East
+- partname: plate
+  pos:
+  - -5
+  - 104
+  rot: South
+- partname: plate
+  pos:
+  - -5
+  - 94
+  rot: South
+- partname: plate
+  pos:
+  - -5
+  - 36
+  rot: South
+- partname: plate
+  pos:
+  - -5
+  - 46
+  rot: South
+- partname: plate
+  pos:
+  - -5
+  - 114
+  rot: South
+- partname: plate
+  pos:
+  - -5
+  - 124
+  rot: South
+- partname: plate
+  pos:
+  - -5
+  - 26
+  rot: South
+- partname: plate
+  pos:
+  - -5
+  - 16
+  rot: South
+- partname: plate
+  pos:
+  - -5
+  - 56
+  rot: South
+- partname: plate
+  pos:
+  - -5
+  - 84
+  rot: South
+- partname: small-antenna
+  pos:
+  - 7
+  - 90
+  rot: West
+- partname: small-antenna
+  pos:
+  - 7
+  - 40
+  rot: East
+- partname: small-antenna
+  pos:
+  - -13
+  - 40
+  rot: East
+- partname: solarpanel
+  pos:
+  - -84
+  - 73
+  rot: West
+- partname: solarpanel
+  pos:
+  - -84
+  - 89
+  rot: West
+- partname: solarpanel
+  pos:
+  - 20
+  - 73
+  rot: East
+- partname: solarpanel
+  pos:
+  - 20
+  - 89
+  rot: East
+- partname: tank11
+  pos:
+  - -15
+  - 100
+  rot: East
+- partname: antenna
+  pos:
+  - -25
+  - 160
+  rot: East
+- partname: plate
+  pos:
+  - -25
+  - 95
+  rot: South
+- partname: plate
+  pos:
+  - -25
+  - 85
+  rot: South
+- partname: plate
+  pos:
+  - -25
+  - 75
+  rot: South
+- partname: plate
+  pos:
+  - 15
+  - 75
+  rot: South
+- partname: plate
+  pos:
+  - 15
+  - 85
+  rot: South
+- partname: plate
+  pos:
+  - 15
+  - 95
+  rot: South
 - partname: gold
   pos:
   - -5
-  - 70
-  rot: East
+  - -10
+  rot: North
+- partname: gold
+  pos:
+  - -15
+  - -10
+  rot: North
 - partname: gold
   pos:
   - 5
-  - 70
-  rot: East
-- partname: plate
+  - -10
+  rot: North
+- partname: battery
   pos:
-  - -25
-  - 65
-  rot: East
-- partname: plate
+  - -24
+  - 56
+  rot: North
+- partname: frame3
   pos:
-  - 15
-  - 65
-  rot: East
-- partname: plate
+  - -5
+  - 40
+  rot: North
+- partname: frame2
   pos:
-  - -25
-  - 15
-  rot: East
-- partname: plate
+  - -5
+  - 80
+  rot: South
+- partname: frame2
   pos:
-  - 15
-  - 15
+  - -5
+  - 90
   rot: East
-- partname: plate
+- partname: frame2
   pos:
-  - -25
+  - -5
+  - 100
+  rot: North
+- partname: frame2
+  pos:
+  - -15
+  - 120
+  rot: East
+- partname: frame2
+  pos:
+  - -15
+  - 130
+  rot: East
+- partname: frame2
+  pos:
+  - -15
+  - 140
+  rot: East
+- partname: frame2
+  pos:
   - 5
-  rot: East
-- partname: plate
+  - 120
+  rot: North
+- partname: frame2
   pos:
-  - 15
   - 5
-  rot: East
-- partname: plate
+  - 130
+  rot: North
+- partname: frame2
   pos:
-  - 15
-  - 25
-  rot: East
-- partname: plate
+  - 5
+  - 140
+  rot: North
+- partname: frame2
   pos:
-  - -25
-  - 25
-  rot: East
+  - -15
+  - 20
+  rot: West
+- partname: frame2
+  pos:
+  - -15
+  - 10
+  rot: West
+- partname: frame2
+  pos:
+  - -15
+  - 0
+  rot: West
+- partname: frame2
+  pos:
+  - 5
+  - 0
+  rot: South
+- partname: frame2
+  pos:
+  - 5
+  - 10
+  rot: South
+- partname: frame2
+  pos:
+  - 5
+  - 20
+  rot: South

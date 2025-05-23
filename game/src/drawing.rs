@@ -262,7 +262,7 @@ fn draw_propagator(
     Some(())
 }
 
-fn draw_vehicle(gizmos: &mut Gizmos, vehicle: &Vehicle, pos: Vec2, scale: f32) {
+pub fn draw_vehicle(gizmos: &mut Gizmos, vehicle: &Vehicle, pos: Vec2, scale: f32) {
     for poly in vehicle.body() {
         let corners: Vec<_> = poly.iter_closed().map(|p| p * scale + pos).collect();
         gizmos.linestrip_2d(corners, WHITE);
@@ -1344,68 +1344,6 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState) {
     draw_belt_orbits(gizmos, &state);
 }
 
-pub fn draw_docking_scenario(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
-    let ctx = &state.rpo_context;
-    let target = state.targeting()?;
-
-    let origin = state.scenario.lup_orbiter(target, state.sim_time)?.pv();
-
-    draw_circle(gizmos, Vec2::ZERO, 4.0, GRAY);
-    draw_circle(gizmos, ctx.w2c(Vec2::ZERO), 4.0, TEAL);
-    draw_circle(gizmos, ctx.w2c(Vec2::ZERO), 1000.0 * ctx.scale(), GRAY);
-    draw_circle(
-        gizmos,
-        ctx.w2c(Vec2::ZERO),
-        10000.0 * ctx.scale(),
-        GRAY.with_alpha(0.4),
-    );
-
-    for id in state.scenario.orbiter_ids() {
-        if id == target {
-            continue;
-        }
-
-        let lup = match state.scenario.lup_orbiter(id, state.sim_time) {
-            Some(lup) => lup,
-            None => continue,
-        };
-
-        let pv = lup.pv();
-        let d = (pv.pos - origin.pos) * 1000.0;
-
-        draw_circle(gizmos, ctx.w2c(d), 4.0, WHITE);
-
-        if let Some(v) = state.orbital_vehicles.get(&id) {
-            draw_vehicle(gizmos, v, ctx.w2c(d), ctx.scale());
-        }
-    }
-
-    // let (_, rpo) = state.rpos.iter().next()?;
-
-    // for (i, (pv, vehicle)) in rpo.vehicles.iter().enumerate() {
-    //     let r = vehicle.bounding_radius();
-    //     let p = ctx.w2c(pv.pos);
-    //     draw_vehicle(gizmos, vehicle, p, ctx.scale());
-
-    //     let color = if Some(i) == ctx.following() {
-    //         TEAL
-    //     } else {
-    //         GRAY.with_alpha(0.1)
-    //     };
-
-    //     draw_circle(gizmos, p, r * ctx.scale(), color);
-    // }
-
-    // draw_circle(
-    //     gizmos,
-    //     ctx.w2c(Vec2::ZERO),
-    //     rpo.bounding_radius() * ctx.scale(),
-    //     GRAY.with_alpha(0.3),
-    // );
-
-    Some(())
-}
-
 fn orthographic_camera_map(p: Vec3, center: Vec3, normal: Vec3, x: Vec3, y: Vec3) -> Vec2 {
     let p = p - center;
     let p = p.reject_from(normal);
@@ -1455,7 +1393,7 @@ fn draw_telescope_view(gizmos: &mut Gizmos, state: &GameState) {
 pub fn draw_scene(gizmos: &mut Gizmos, state: &GameState, scene: &crate::scenes::Scene) {
     match scene.kind() {
         SceneType::Orbital => draw_orbital_view(gizmos, state),
-        SceneType::DockingView(_) => _ = draw_docking_scenario(gizmos, state),
+        SceneType::DockingView(_) => _ = RPOContext::draw_gizmos(gizmos, state),
         SceneType::TelescopeView => draw_telescope_view(gizmos, &state),
         SceneType::MainMenu => {}
         SceneType::Editor => _ = EditorContext::draw_gizmos(gizmos, state),

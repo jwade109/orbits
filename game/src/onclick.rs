@@ -1,6 +1,6 @@
-use crate::parts::PartLayer;
 use crate::scenes::{CursorMode, ThrottleLevel};
-use starling::prelude::{GroupId, OrbiterId, PlanetId};
+use starling::prelude::{GroupId, OrbiterId, PartLayer, PlanetId};
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OnClick {
@@ -35,5 +35,6 @@ pub enum OnClick {
     ClearPilot,
     SelectPart(String),
     ToggleLayer(PartLayer),
+    LoadVehicle(PathBuf),
     Nullopt,
 }

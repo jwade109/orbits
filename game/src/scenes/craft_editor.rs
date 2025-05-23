@@ -1,26 +1,17 @@
 use crate::drawing::*;
 use crate::mouse::InputState;
 use crate::mouse::{FrameId, MouseButt};
-use crate::parts::{part_sprite_path, PartLayer, PartProto};
 use crate::planetary::GameState;
 use crate::scenes::{CameraProjection, Render, StaticSpriteDescriptor, TextLabel};
 use bevy::color::palettes::css::*;
 use bevy::input::keyboard::{Key, KeyCode, KeyboardInput};
 use bevy::prelude::*;
-use enum_iterator::{next_cycle, Sequence};
+use enum_iterator::next_cycle;
 use rfd::FileDialog;
 use serde::{Deserialize, Serialize};
 use starling::prelude::*;
 use std::collections::HashSet;
-use std::path::PathBuf;
-
-#[derive(Debug, Clone, Copy, Sequence, Serialize, Deserialize)]
-pub enum Rotation {
-    East,
-    North,
-    West,
-    South,
-}
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct VehicleFileStorage {
@@ -33,17 +24,6 @@ struct VehiclePartFileStorage {
     pub partname: String,
     pub pos: IVec2,
     pub rot: Rotation,
-}
-
-impl Rotation {
-    fn to_angle(&self) -> f32 {
-        match self {
-            Self::East => 0.0,
-            Self::North => PI * 0.5,
-            Self::West => PI,
-            Self::South => PI * 1.5,
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -111,7 +91,7 @@ impl EditorContext {
     }
 
     pub fn set_current_part(&mut self, name: String) {
-        self.current_part = crate::parts::find_part(&name).cloned();
+        self.current_part = find_part(&name).cloned();
     }
 
     fn open_file(&mut self, force_new: bool) -> Option<PathBuf> {
@@ -166,18 +146,23 @@ impl EditorContext {
 
     pub fn load_from_file(state: &mut GameState) -> Option<()> {
         let choice = state.editor_context.open_file(true)?;
-        state.notice(format!("Loading vehicle from {}", choice.display()));
-        let s = std::fs::read_to_string(choice).ok()?;
+        EditorContext::load_vehicle(&choice, state)
+    }
+
+    pub fn load_vehicle(path: &Path, state: &mut GameState) -> Option<()> {
+        state.notice(format!("Loading vehicle from {}", path.display()));
+        let s = std::fs::read_to_string(path).ok()?;
         let storage: VehicleFileStorage = serde_yaml::from_str(&s).ok()?;
         state.notice(format!("Loaded vehicle \"{}\"", storage.name));
 
         state.editor_context.parts.clear();
         for ps in storage.parts {
-            if let Some(part) = crate::parts::find_part(&ps.partname) {
+            if let Some(part) = find_part(&ps.partname) {
                 state.editor_context.parts.push((ps.pos, ps.rot, *part));
             }
         }
         state.editor_context.title.0 = storage.name;
+        state.editor_context.filepath = Some(path.to_path_buf());
         Some(())
     }
 
@@ -240,14 +225,18 @@ impl EditorContext {
     }
 }
 
+pub fn part_sprite_path(short_path: &str) -> String {
+    format!("embedded://game/../assets/parts/{}.png", short_path)
+}
+
 impl Render for EditorContext {
-    fn text_labels(state: &GameState) -> Vec<TextLabel> {
+    fn text_labels(state: &GameState) -> Option<Vec<TextLabel>> {
         let filename = match &state.editor_context.filepath {
             Some(p) => format!("[{}]", p.display()),
             None => "[No file open]".to_string(),
         };
         let half_span = state.input.screen_bounds.span * 0.5;
-        vec![
+        Some(vec![
             TextLabel {
                 text: state.editor_context.title.0.clone(),
                 position: Vec2::new(450.0, 30.0) - half_span,
@@ -263,10 +252,10 @@ impl Render for EditorContext {
                 position: Vec2::new(0.0, 40.0 - half_span.y),
                 size: 0.7,
             },
-        ]
+        ])
     }
 
-    fn sprites(state: &GameState) -> Vec<StaticSpriteDescriptor> {
+    fn sprites(state: &GameState) -> Option<Vec<StaticSpriteDescriptor>> {
         let ctx = &state.editor_context;
         let mut ret = Vec::new();
 
@@ -316,7 +305,7 @@ impl Render for EditorContext {
                 }),
         );
 
-        ret
+        Some(ret)
     }
 
     fn background_color(_state: &GameState) -> bevy::color::Srgba {
@@ -390,7 +379,9 @@ impl EditorContext {
                 let p = vround(state.editor_context.c2w(p));
                 state.editor_context.remove_part_at(p);
             } else if state.input.just_pressed(KeyCode::KeyQ) {
-                if let Some(p) = state.input.position(MouseButt::Hover, FrameId::Current) {
+                if state.editor_context.current_part.is_some() {
+                    state.editor_context.current_part = None;
+                } else if let Some(p) = state.input.position(MouseButt::Hover, FrameId::Current) {
                     let p = vround(state.editor_context.c2w(p));
                     if let Some((_, rot, part)) = state.editor_context.get_part_at(p) {
                         state.editor_context.rotation = rot;

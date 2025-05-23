@@ -27,9 +27,9 @@ pub struct StaticSpriteDescriptor {
 }
 
 pub trait Render {
-    fn text_labels(state: &GameState) -> Vec<TextLabel>;
+    fn text_labels(state: &GameState) -> Option<Vec<TextLabel>>;
 
-    fn sprites(state: &GameState) -> Vec<StaticSpriteDescriptor>;
+    fn sprites(state: &GameState) -> Option<Vec<StaticSpriteDescriptor>>;
 
     fn background_color(state: &GameState) -> Srgba;
 

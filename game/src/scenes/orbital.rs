@@ -381,7 +381,7 @@ pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> 
 }
 
 impl Render for OrbitalContext {
-    fn text_labels(state: &GameState) -> Vec<TextLabel> {
+    fn text_labels(state: &GameState) -> Option<Vec<TextLabel>> {
         let mut text_labels = get_orbital_object_mouseover_labels(state);
 
         if state.paused {
@@ -435,11 +435,11 @@ impl Render for OrbitalContext {
             }
         }
 
-        text_labels
+        Some(text_labels)
     }
 
-    fn sprites(_state: &GameState) -> Vec<StaticSpriteDescriptor> {
-        vec![]
+    fn sprites(_state: &GameState) -> Option<Vec<StaticSpriteDescriptor>> {
+        None
     }
 
     fn background_color(state: &GameState) -> bevy::color::Srgba {

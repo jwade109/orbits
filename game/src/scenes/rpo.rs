@@ -1,6 +1,11 @@
+use crate::drawing::*;
 use crate::mouse::InputState;
-use crate::scenes::{CameraProjection, Interactive};
+use crate::planetary::GameState;
+use crate::scenes::Render;
+use crate::scenes::{CameraProjection, Interactive, StaticSpriteDescriptor, TextLabel};
+use bevy::color::palettes::css::*;
 use bevy::input::keyboard::KeyCode;
+use bevy::prelude::*;
 use starling::prelude::*;
 
 #[derive(Debug)]
@@ -19,6 +24,91 @@ impl CameraProjection for RPOContext {
 
     fn scale(&self) -> f32 {
         self.scale
+    }
+}
+
+impl Render for RPOContext {
+    fn background_color(_state: &GameState) -> Srgba {
+        TEAL.with_luminance(0.05)
+    }
+
+    fn draw_gizmos(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
+        let ctx = &state.rpo_context;
+        let target = state.targeting()?;
+
+        let origin = state.scenario.lup_orbiter(target, state.sim_time)?.pv();
+
+        draw_circle(gizmos, Vec2::ZERO, 4.0, GRAY);
+        draw_circle(gizmos, ctx.w2c(Vec2::ZERO), 4.0, TEAL);
+        draw_circle(gizmos, ctx.w2c(Vec2::ZERO), 1000.0 * ctx.scale(), GRAY);
+        draw_circle(
+            gizmos,
+            ctx.w2c(Vec2::ZERO),
+            5000.0 * ctx.scale(),
+            GRAY.with_alpha(0.4),
+        );
+
+        for id in state.scenario.orbiter_ids() {
+            if id == target {
+                continue;
+            }
+
+            let lup = match state.scenario.lup_orbiter(id, state.sim_time) {
+                Some(lup) => lup,
+                None => continue,
+            };
+
+            let pv = lup.pv();
+
+            draw_circle(gizmos, ctx.w2c(pv.pos), 4.0, WHITE);
+
+            if let Some(v) = state.orbital_vehicles.get(&id) {
+                draw_vehicle(gizmos, v, ctx.w2c(pv.pos), ctx.scale());
+            }
+        }
+
+        Some(())
+    }
+
+    fn sprites(state: &GameState) -> Option<Vec<StaticSpriteDescriptor>> {
+        let ctx = &state.rpo_context;
+
+        let mut ret = vec![];
+
+        for id in state.scenario.orbiter_ids() {
+            let lup = state.scenario.lup_orbiter(id, state.sim_time)?;
+            let origin = ctx.origin();
+            let vehicle = match state.orbital_vehicles.get(&id) {
+                Some(v) => v,
+                None => continue,
+            };
+
+            for (_, _, part) in &vehicle.parts {
+                let desc = StaticSpriteDescriptor {
+                    position: ctx.w2c(lup.pv().pos),
+                    scale: ctx.scale(),
+                    angle: vehicle.angle(),
+                    path: crate::scenes::craft_editor::part_sprite_path(part),
+                    z_index: 10.0,
+                };
+                ret.push(desc);
+            }
+        }
+
+        Some(ret)
+    }
+
+    fn text_labels(state: &GameState) -> Option<Vec<TextLabel>> {
+        let half_span = state.input.screen_bounds.span / 2.0;
+        Some(vec![TextLabel::new(
+            format!(
+                "Target: {:?} scale: {}",
+                state.orbital_context.targeting,
+                state.rpo_context.scale()
+            ),
+            (40.0 - half_span.y) * Vec2::Y,
+            0.6,
+        )])
     }
 }
 

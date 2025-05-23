@@ -1,3 +1,4 @@
+use crate::args::ProgramArgs;
 use crate::mouse::{FrameId, InputState, MouseButt};
 use crate::notifications::*;
 use crate::onclick::OnClick;
@@ -11,6 +12,7 @@ use bevy::core_pipeline::bloom::Bloom;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 use bevy::window::WindowMode;
+use clap::Parser;
 use enum_iterator::next_cycle;
 use layout::layout::Tree;
 use starling::prelude::*;
@@ -83,6 +85,9 @@ pub struct GameState {
     /// Contains all states related to window size, mouse clicks and positions,
     /// and button presses and holds.
     pub input: InputState,
+
+    /// Contains CLI arguments
+    pub args: ProgramArgs,
 
     /// Stores information and provides an API for interacting with the simulation
     /// from the perspective of a global solar/planetary system view.
@@ -160,8 +165,17 @@ impl Default for GameState {
     fn default() -> Self {
         let (scenario, ids) = default_example();
 
+        let args = match ProgramArgs::try_parse() {
+            Ok(a) => a,
+            Err(e) => {
+                dbg!(e);
+                ProgramArgs::default()
+            }
+        };
+
         let mut g = GameState {
             input: InputState::default(),
+            args,
             orbital_context: OrbitalContext::new(PlanetId(0)),
             telescope_context: TelescopeContext::new(),
             rpo_context: RPOContext::new(),
@@ -217,19 +231,21 @@ impl Default for GameState {
 }
 
 impl Render for GameState {
-    fn text_labels(state: &GameState) -> Vec<TextLabel> {
+    fn text_labels(state: &GameState) -> Option<Vec<TextLabel>> {
         match state.current_scene().kind() {
             SceneType::Orbital => OrbitalContext::text_labels(state),
             SceneType::TelescopeView => TelescopeContext::text_labels(state),
             SceneType::Editor => EditorContext::text_labels(state),
-            _ => vec![],
+            SceneType::DockingView(_) => RPOContext::text_labels(state),
+            _ => None,
         }
     }
 
-    fn sprites(state: &GameState) -> Vec<StaticSpriteDescriptor> {
+    fn sprites(state: &GameState) -> Option<Vec<StaticSpriteDescriptor>> {
         match state.current_scene().kind() {
             SceneType::Editor => EditorContext::sprites(state),
-            _ => vec![],
+            SceneType::DockingView(_) => RPOContext::sprites(state),
+            _ => None,
         }
     }
 
@@ -238,7 +254,8 @@ impl Render for GameState {
             SceneType::Orbital => OrbitalContext::background_color(state),
             SceneType::Editor => EditorContext::background_color(state),
             SceneType::TelescopeView => TelescopeContext::background_color(state),
-            _ => GRAY.with_luminance(0.09),
+            SceneType::DockingView(_) => RPOContext::background_color(state),
+            SceneType::MainMenu => GRAY.with_luminance(0.09),
         }
     }
 
@@ -247,7 +264,8 @@ impl Render for GameState {
             SceneType::Orbital => OrbitalContext::draw_gizmos(gizmos, state),
             SceneType::Editor => EditorContext::draw_gizmos(gizmos, state),
             SceneType::TelescopeView => TelescopeContext::draw_gizmos(gizmos, state),
-            _ => None,
+            SceneType::DockingView(_) => RPOContext::draw_gizmos(gizmos, state),
+            SceneType::MainMenu => None,
         }
     }
 }
@@ -638,6 +656,7 @@ impl GameState {
             OnClick::SetTarget(p) => self.orbital_context.targeting = Some(p),
             OnClick::SelectPart(name) => self.editor_context.set_current_part(name),
             OnClick::ToggleLayer(layer) => self.editor_context.toggle_layer(layer),
+            OnClick::LoadVehicle(path) => _ = EditorContext::load_vehicle(&path, self),
             _ => info!("Unhandled button event: {id:?}"),
         };
 
