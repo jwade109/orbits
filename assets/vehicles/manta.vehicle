@@ -100,11 +100,6 @@ parts:
   - 16
   - -30
   rot: West
-- partname: motor
-  pos:
-  - -31
-  - -8
-  rot: South
 - partname: frame2
   pos:
   - -16
@@ -130,3 +125,8 @@ parts:
   - -6
   - 10
   rot: North
+- partname: motor
+  pos:
+  - -35
+  - -8
+  rot: South

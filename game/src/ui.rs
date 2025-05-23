@@ -293,11 +293,13 @@ fn editor_layout(state: &GameState) -> ui::Tree<OnClick> {
         }
     }
 
+    let mut part_names: Vec<_> = state.part_database.keys().collect();
+    part_names.sort();
+
     let top_bar = top_bar(state);
     let part_selection = Node::column(300)
         .with_color(UI_BACKGROUND_COLOR)
-        .with_children(state.part_database.iter().map(|(_, p)| {
-            let s = p.path.to_string();
+        .with_children(part_names.into_iter().map(|s| {
             let onclick = OnClick::SelectPart(s.clone());
             Node::button(s, onclick, Size::Grow, BUTTON_HEIGHT)
         }))

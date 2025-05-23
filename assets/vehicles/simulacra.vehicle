@@ -30,16 +30,6 @@ parts:
   - 5
   - -10
   rot: South
-- partname: motor
-  pos:
-  - -18
-  - -28
-  rot: East
-- partname: motor
-  pos:
-  - 2
-  - -28
-  rot: East
 - partname: tank21
   pos:
   - -25
@@ -290,11 +280,6 @@ parts:
   - -15
   - 100
   rot: East
-- partname: antenna
-  pos:
-  - -25
-  - 160
-  rot: East
 - partname: plate
   pos:
   - -25
@@ -425,3 +410,18 @@ parts:
   - 5
   - 20
   rot: South
+- partname: motor
+  pos:
+  - -18
+  - -29
+  rot: East
+- partname: motor
+  pos:
+  - 2
+  - -29
+  rot: East
+- partname: antenna
+  pos:
+  - -27
+  - 160
+  rot: East

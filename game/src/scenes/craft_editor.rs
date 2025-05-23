@@ -11,7 +11,7 @@ use enum_iterator::next_cycle;
 use rfd::FileDialog;
 use serde::{Deserialize, Serialize};
 use starling::prelude::*;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -57,6 +57,7 @@ pub struct EditorContext {
     filepath: Option<PathBuf>,
     title: TextInput,
     invisible_layers: HashSet<PartLayer>,
+    occupied: HashMap<PartLayer, HashSet<IVec2>>,
 }
 
 impl EditorContext {
@@ -72,7 +73,12 @@ impl EditorContext {
             filepath: None,
             title: TextInput("".into()),
             invisible_layers: HashSet::new(),
+            occupied: HashMap::new(),
         }
+    }
+
+    pub fn mass(&self) -> f32 {
+        self.parts.iter().map(|(_, _, part)| part.data.mass).sum()
     }
 
     pub fn cursor_box(&self, input: &InputState) -> Option<AABB> {
@@ -167,6 +173,7 @@ impl EditorContext {
         }
         state.editor_context.title.0 = storage.name;
         state.editor_context.filepath = Some(path.to_path_buf());
+        state.editor_context.update_occupied();
         Some(())
     }
 
@@ -192,20 +199,30 @@ impl EditorContext {
         None
     }
 
+    fn update_occupied(&mut self) {
+        self.occupied.clear();
+        for (pos, rot, part) in &self.parts {
+            let pixels = Self::occupied_pixels(*pos, *rot, part);
+            if let Some(occ) = self.occupied.get_mut(&part.data.layer) {
+                occ.extend(&pixels);
+            } else {
+                self.occupied
+                    .insert(part.data.layer, HashSet::from_iter(pixels.into_iter()));
+            }
+        }
+    }
+
     fn try_place_part(&mut self, p: IVec2, new_part: PartProto) -> Option<()> {
         let new_pixels = Self::occupied_pixels(p, self.rotation, &new_part);
-        for (pos, rot, part) in &self.parts {
-            if part.data.layer != new_part.data.layer {
-                continue;
-            }
-            let pixels = Self::occupied_pixels(*pos, *rot, part);
-            for q in pixels {
-                if new_pixels.contains(&q) {
+        if let Some(occ) = self.occupied.get(&new_part.data.layer) {
+            for p in &new_pixels {
+                if occ.contains(p) {
                     return None;
                 }
             }
         }
         self.parts.push((p, self.rotation, new_part));
+        self.update_occupied();
         Some(())
     }
 
@@ -217,6 +234,7 @@ impl EditorContext {
             let pixels = Self::occupied_pixels(*pos, *rot, part);
             !pixels.contains(&p)
         });
+        self.update_occupied();
     }
 
     fn current_part_and_cursor_position(state: &GameState) -> Option<(IVec2, PartProto)> {
@@ -243,24 +261,31 @@ impl Render for EditorContext {
             Some(p) => format!("[{}]", p.display()),
             None => "[No file open]".to_string(),
         };
+
+        let info_lines = [
+            filename,
+            format!("Title: {:?}", &state.editor_context.title.0),
+            format!("{} parts", state.editor_context.parts.len()),
+            format!("Rotation: {:?}", state.editor_context.rotation),
+            format!("Mass: {} kg", state.editor_context.mass()),
+        ];
+
         let half_span = state.input.screen_bounds.span * 0.5;
-        Some(vec![
-            TextLabel {
-                text: state.editor_context.title.0.clone(),
-                position: Vec2::new(450.0, 30.0) - half_span,
-                size: 2.0,
-            },
-            TextLabel {
-                text: format!(
-                    "{}\n{} parts / {:?}",
-                    filename,
-                    state.editor_context.parts.len(),
-                    state.editor_context.rotation,
-                ),
-                position: Vec2::new(0.0, 40.0 - half_span.y),
-                size: 0.7,
-            },
-        ])
+
+        Some(
+            info_lines
+                .into_iter()
+                .enumerate()
+                .map(|(i, s)| TextLabel {
+                    text: s,
+                    position: Vec2::new(
+                        half_span.x - 350.0,
+                        half_span.y - (200.0 + i as f32 * 30.0),
+                    ),
+                    size: 0.8,
+                })
+                .collect(),
+        )
     }
 
     fn sprites(state: &GameState) -> Option<Vec<StaticSpriteDescriptor>> {
@@ -277,25 +302,24 @@ impl Render for EditorContext {
                 z_index: 12.0,
             });
 
-            let current_pixels = Self::occupied_pixels(p, ctx.rotation, &current_part);
+            // let current_pixels = Self::occupied_pixels(p, ctx.rotation, &current_part);
 
-            for (pos, rot, part) in &ctx.parts {
-                if part.data.layer != current_part.data.layer {
-                    continue;
-                }
-                let pixels = Self::occupied_pixels(*pos, *rot, part);
-                for q in pixels {
-                    if current_pixels.contains(&q) {
-                        ret.push(StaticSpriteDescriptor {
-                            position: ctx.w2c(q.as_vec2() + Vec2::ONE / 2.0),
-                            angle: 0.0,
-                            path: "embedded://game/../assets/collision_pixel.png".into(),
-                            scale: ctx.scale(),
-                            z_index: 100.0,
-                        });
-                    }
-                }
-            }
+            // for (layer, occupied) in &ctx.occupied {
+            //     if layer != &current_part.data.layer {
+            //         continue;
+            //     }
+            //     for p in &current_pixels {
+            //         if occupied.contains(p) {
+            //             ret.push(StaticSpriteDescriptor {
+            //                 position: ctx.w2c(p.as_vec2() + Vec2::ONE / 2.0),
+            //                 angle: 0.0,
+            //                 path: "embedded://game/../assets/collision_pixel.png".into(),
+            //                 scale: ctx.scale(),
+            //                 z_index: 100.0,
+            //             });
+            //         }
+            //     }
+            // }
         }
 
         ret.extend(
