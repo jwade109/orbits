@@ -441,27 +441,69 @@ impl Render for OrbitalContext {
         const EXPECTED_PLANET_SPRITE_SIZE: u32 = 1000;
         const PLANET_Z_INDEX: f32 = 5.0;
 
+        const SPACECRAFT_DEFAULT_SCALE: f32 = 0.025;
+        const SPACECRAFT_MAGNIFIED_SCALE: f32 = 0.06;
+        const SPACECRAFT_DIMINISHED_SCALE: f32 = 0.02;
+        const SPACECRAFT_Z_INDEX: f32 = 6.0;
+
         let ctx = &state.orbital_context;
-        Some(
-            state
-                .scenario
-                .planet_ids()
-                .into_iter()
-                .filter_map(|id| {
-                    let lup = state.scenario.lup_planet(id, state.sim_time)?;
-                    let pos = lup.pv().pos;
-                    let (name, body) = lup.named_body()?;
-                    let path = format!("embedded://game/../assets/{}.png", name);
-                    Some(StaticSpriteDescriptor::new(
-                        ctx.w2c(pos),
-                        0.0,
-                        path,
-                        ctx.scale() * 2.0 * body.radius / EXPECTED_PLANET_SPRITE_SIZE as f32,
-                        PLANET_Z_INDEX,
-                    ))
-                })
-                .collect(),
-        )
+        let mut planetary_sprites: Vec<_> = state
+            .scenario
+            .planet_ids()
+            .into_iter()
+            .filter_map(|id| {
+                let lup = state.scenario.lup_planet(id, state.sim_time)?;
+                let pos = lup.pv().pos;
+                let (name, body) = lup.named_body()?;
+                let path = format!("embedded://game/../assets/{}.png", name);
+                Some(StaticSpriteDescriptor::new(
+                    ctx.w2c(pos),
+                    0.0,
+                    path,
+                    ctx.scale() * 2.0 * body.radius / EXPECTED_PLANET_SPRITE_SIZE as f32,
+                    PLANET_Z_INDEX,
+                ))
+            })
+            .collect();
+
+        let bodies: Vec<_> = state
+            .scenario
+            .planets()
+            .bodies(state.sim_time, None)
+            .collect();
+        let light_source = state.light_source();
+        let orbiter_sprites: Vec<_> = state
+            .scenario
+            .orbiter_ids()
+            .filter_map(|id| {
+                let lup = state.scenario.lup_orbiter(id, state.sim_time)?;
+                let pos = lup.pv().pos;
+                let is_lit = bodies
+                    .iter()
+                    .all(|(pv, body)| !is_occluded(light_source, pos, pv.pos, body.radius));
+
+                let path = "embedded://game/../assets/spacecraft.png".to_string();
+                let scale = if state.orbital_context.selected.contains(&id) {
+                    SPACECRAFT_MAGNIFIED_SCALE
+                } else if !is_lit {
+                    0.0
+                } else if state.orbital_context.selected.is_empty() {
+                    SPACECRAFT_DEFAULT_SCALE
+                } else {
+                    SPACECRAFT_DIMINISHED_SCALE
+                };
+                Some(StaticSpriteDescriptor::new(
+                    ctx.w2c(pos),
+                    0.0,
+                    path,
+                    scale,
+                    SPACECRAFT_Z_INDEX,
+                ))
+            })
+            .collect();
+
+        planetary_sprites.extend(orbiter_sprites);
+        Some(planetary_sprites)
     }
 
     fn background_color(state: &GameState) -> bevy::color::Srgba {

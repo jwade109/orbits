@@ -22,7 +22,6 @@ impl Plugin for SpritePlugin {
 
 const SELECTED_SPACECRAFT_Z_INDEX: f32 = 8.0;
 const SHADOW_Z_INDEX: f32 = 7.0;
-const SPACECRAFT_Z_INDEX: f32 = 6.0;
 
 const EXPECTED_SHADOW_SPRITE_HEIGHT: u32 = 1000;
 
@@ -88,10 +87,6 @@ pub fn update_shadow_sprites(
     }
 }
 
-const SPACECRAFT_DEFAULT_SCALE: f32 = 0.025;
-const SPACECRAFT_MAGNIFIED_SCALE: f32 = 0.06;
-const SPACECRAFT_DIMINISHED_SCALE: f32 = 0.02;
-
 pub fn hashable_to_color(h: &impl std::hash::Hash) -> Hsla {
     use std::hash::Hasher;
     let mut s = std::hash::DefaultHasher::new();
@@ -106,126 +101,126 @@ pub fn update_spacecraft_sprites(
     mut query: Query<(Entity, &mut SpacecraftTexture, &mut Transform, &mut Sprite)>,
     state: Res<GameState>,
 ) {
-    let scene = state.current_scene();
+    // let scene = state.current_scene();
 
-    match scene.kind() {
-        SceneType::Orbital => (),
-        _ => {
-            for (e, _, _, _) in query.iter() {
-                commands.entity(e).despawn();
-            }
-            return;
-        }
-    }
+    // match scene.kind() {
+    //     SceneType::Orbital => (),
+    //     _ => {
+    //         for (e, _, _, _) in query.iter() {
+    //             commands.entity(e).despawn();
+    //         }
+    //         return;
+    //     }
+    // }
 
-    let bodies: Vec<_> = state
-        .scenario
-        .planets()
-        .bodies(state.sim_time, None)
-        .collect();
+    // let bodies: Vec<_> = state
+    //     .scenario
+    //     .planets()
+    //     .bodies(state.sim_time, None)
+    //     .collect();
 
-    for (e, mut x, mut transform, mut s) in query.iter_mut() {
-        let SpacecraftTexture(id, scale) = *x;
-        let lup = state.scenario.lup_orbiter(id, state.sim_time);
-        let orbiter = lup.as_ref().map(|lup| lup.orbiter()).flatten();
-        if let Some((lup, orbiter)) = lup.zip(orbiter) {
-            let z_index = if state.orbital_context.selected.contains(&id) {
-                SELECTED_SPACECRAFT_Z_INDEX
-            } else {
-                SPACECRAFT_Z_INDEX
-            };
+    // for (e, mut x, mut transform, mut s) in query.iter_mut() {
+    //     let SpacecraftTexture(id, scale) = *x;
+    //     let lup = state.scenario.lup_orbiter(id, state.sim_time);
+    //     let orbiter = lup.as_ref().map(|lup| lup.orbiter()).flatten();
+    //     if let Some((lup, orbiter)) = lup.zip(orbiter) {
+    //         let z_index = if state.orbital_context.selected.contains(&id) {
+    //             SELECTED_SPACECRAFT_Z_INDEX
+    //         } else {
+    //             SPACECRAFT_Z_INDEX
+    //         };
 
-            let pos = lup.pv().pos;
+    //         let pos = lup.pv().pos;
 
-            transform.translation = state.orbital_context.w2c(pos).extend(z_index);
+    //         transform.translation = state.orbital_context.w2c(pos).extend(z_index);
 
-            let light_source = state.light_source();
+    //         let light_source = state.light_source();
 
-            let is_lit = bodies
-                .iter()
-                .all(|(pv, body)| !is_occluded(light_source, pos, pv.pos, body.radius));
+    //         let is_lit = bodies
+    //             .iter()
+    //             .all(|(pv, body)| !is_occluded(light_source, pos, pv.pos, body.radius));
 
-            let (target_scale, color) = if state.orbital_context.draw_mode == DrawMode::Default {
-                let scale = if state.orbital_context.selected.contains(&id) {
-                    SPACECRAFT_MAGNIFIED_SCALE
-                } else if !is_lit {
-                    SPACECRAFT_DIMINISHED_SCALE
-                } else if state.orbital_context.selected.is_empty() {
-                    SPACECRAFT_DEFAULT_SCALE
-                } else {
-                    SPACECRAFT_DIMINISHED_SCALE
-                };
+    //         let (target_scale, color) = if state.orbital_context.draw_mode == DrawMode::Default {
+    //             let scale = if state.orbital_context.selected.contains(&id) {
+    //                 SPACECRAFT_MAGNIFIED_SCALE
+    //             } else if !is_lit {
+    //                 SPACECRAFT_DIMINISHED_SCALE
+    //             } else if state.orbital_context.selected.is_empty() {
+    //                 SPACECRAFT_DEFAULT_SCALE
+    //             } else {
+    //                 SPACECRAFT_DIMINISHED_SCALE
+    //             };
 
-                let color = if state.orbital_context.selected.is_empty() {
-                    WHITE
-                } else if state.orbital_context.selected.contains(&id) {
-                    WHITE
-                } else {
-                    WHITE.with_alpha(0.2)
-                };
+    //             let color = if state.orbital_context.selected.is_empty() {
+    //                 WHITE
+    //             } else if state.orbital_context.selected.contains(&id) {
+    //                 WHITE
+    //             } else {
+    //                 WHITE.with_alpha(0.2)
+    //             };
 
-                (scale, color)
-            } else if state.orbital_context.draw_mode == DrawMode::Constellations {
-                let gid = match state.orbital_context.draw_mode {
-                    DrawMode::Constellations => state.group_membership(&id),
-                    _ => None,
-                };
+    //             (scale, color)
+    //         } else if state.orbital_context.draw_mode == DrawMode::Constellations {
+    //             let gid = match state.orbital_context.draw_mode {
+    //                 DrawMode::Constellations => state.group_membership(&id),
+    //                 _ => None,
+    //             };
 
-                let scale = if state.orbital_context.selected.is_empty() && gid.is_some() {
-                    SPACECRAFT_DEFAULT_SCALE
-                } else if state.orbital_context.selected.contains(&id) {
-                    SPACECRAFT_MAGNIFIED_SCALE
-                } else {
-                    SPACECRAFT_DIMINISHED_SCALE
-                };
+    //             let scale = if state.orbital_context.selected.is_empty() && gid.is_some() {
+    //                 SPACECRAFT_DEFAULT_SCALE
+    //             } else if state.orbital_context.selected.contains(&id) {
+    //                 SPACECRAFT_MAGNIFIED_SCALE
+    //             } else {
+    //                 SPACECRAFT_DIMINISHED_SCALE
+    //             };
 
-                let color = if let Some(gid) = gid {
-                    hashable_to_color(gid).into()
-                } else {
-                    WHITE.with_alpha(0.2)
-                };
+    //             let color = if let Some(gid) = gid {
+    //                 hashable_to_color(gid).into()
+    //             } else {
+    //                 WHITE.with_alpha(0.2)
+    //             };
 
-                (scale, color)
-            } else if state.orbital_context.draw_mode == DrawMode::Stability {
-                // stability
-                let scale = if state.orbital_context.selected.is_empty() {
-                    SPACECRAFT_DEFAULT_SCALE
-                } else if state.orbital_context.selected.contains(&id) {
-                    SPACECRAFT_MAGNIFIED_SCALE
-                } else {
-                    SPACECRAFT_DIMINISHED_SCALE
-                };
+    //             (scale, color)
+    //         } else if state.orbital_context.draw_mode == DrawMode::Stability {
+    //             // stability
+    //             let scale = if state.orbital_context.selected.is_empty() {
+    //                 SPACECRAFT_DEFAULT_SCALE
+    //             } else if state.orbital_context.selected.contains(&id) {
+    //                 SPACECRAFT_MAGNIFIED_SCALE
+    //             } else {
+    //                 SPACECRAFT_DIMINISHED_SCALE
+    //             };
 
-                let color = match orbiter.is_indefinitely_stable() {
-                    true => TEAL,
-                    false => ORANGE,
-                };
+    //             let color = match orbiter.is_indefinitely_stable() {
+    //                 true => TEAL,
+    //                 false => ORANGE,
+    //             };
 
-                (scale, color)
-            } else {
-                let scale = if state.orbital_context.selected.is_empty() {
-                    SPACECRAFT_DEFAULT_SCALE
-                } else if state.orbital_context.selected.contains(&id) {
-                    SPACECRAFT_MAGNIFIED_SCALE
-                } else {
-                    SPACECRAFT_DIMINISHED_SCALE
-                };
+    //             (scale, color)
+    //         } else {
+    //             let scale = if state.orbital_context.selected.is_empty() {
+    //                 SPACECRAFT_DEFAULT_SCALE
+    //             } else if state.orbital_context.selected.contains(&id) {
+    //                 SPACECRAFT_MAGNIFIED_SCALE
+    //             } else {
+    //                 SPACECRAFT_DIMINISHED_SCALE
+    //             };
 
-                let color = match is_lit {
-                    true => WHITE,
-                    false => RED,
-                };
+    //             let color = match is_lit {
+    //                 true => WHITE,
+    //                 false => RED,
+    //             };
 
-                (scale, color)
-            };
+    //             (scale, color)
+    //         };
 
-            s.color = color.into();
-            transform.scale = Vec3::splat(scale);
-            x.1 += (target_scale - scale) * 0.2;
-        } else {
-            commands.entity(e).despawn();
-        }
-    }
+    //         s.color = color.into();
+    //         transform.scale = Vec3::splat(scale);
+    //         x.1 += (target_scale - scale) * 0.2;
+    //     } else {
+    //         commands.entity(e).despawn();
+    //     }
+    // }
 }
 
 pub fn update_background_sprite(
