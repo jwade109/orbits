@@ -373,6 +373,7 @@ pub fn update_static_sprites(
         if let Some((_, ref mut spr, ref mut tf, ref mut desc)) = sprite_entities.get_mut(i) {
             **tf = transform;
             if desc.0 != path {
+                println!("{} {}", desc.0.display(), path.display());
                 let handle = assets.load_with_settings(
                     path.clone(),
                     |settings: &mut ImageLoaderSettings| {

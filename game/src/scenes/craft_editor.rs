@@ -111,7 +111,7 @@ impl EditorContext {
     ) -> impl Iterator<Item = (&'a IVec2, &'a Rotation, &'a String)> {
         self.parts.iter().filter_map(|(pos, rot, name)| {
             let part = Self::find_part(state, name)?;
-            let layer = part.layer;
+            let layer = part.data.layer;
             if self.invisible_layers.contains(&layer) {
                 None
             } else {
@@ -212,7 +212,7 @@ impl EditorContext {
                 Some(p) => p,
                 None => continue,
             };
-            if part.layer != new_part.layer {
+            if part.data.layer != new_part.data.layer {
                 continue;
             }
             let pixels = Self::occupied_pixels(*pos, *rot, part);
@@ -257,7 +257,7 @@ impl EditorContext {
 }
 
 pub fn part_sprite_path(install_dir: &Path, short_path: &str) -> PathBuf {
-    install_dir.join(format!("parts/{}.png", short_path))
+    install_dir.join(format!("parts/{}/skin.png", short_path))
 }
 
 impl Render for EditorContext {
@@ -307,29 +307,29 @@ impl Render for EditorContext {
                 z_index: 12.0,
             });
 
-            let current_pixels = Self::occupied_pixels(p, ctx.rotation, &current_part);
+            // let current_pixels = Self::occupied_pixels(p, ctx.rotation, &current_part);
 
-            for (pos, rot, name) in &ctx.parts {
-                let part = match Self::find_part(state, name) {
-                    Some(p) => p,
-                    None => continue,
-                };
-                if part.layer != current_part.layer {
-                    continue;
-                }
-                let pixels = Self::occupied_pixels(*pos, *rot, part);
-                for q in pixels {
-                    if current_pixels.contains(&q) {
-                        ret.push(StaticSpriteDescriptor {
-                            position: ctx.w2c(q.as_vec2() + Vec2::ONE / 2.0),
-                            angle: 0.0,
-                            path: "embedded://game/../assets/collision_pixel.png".into(),
-                            scale: ctx.scale(),
-                            z_index: 100.0,
-                        });
-                    }
-                }
-            }
+            // for (pos, rot, name) in &ctx.parts {
+            //     let part = match Self::find_part(state, name) {
+            //         Some(p) => p,
+            //         None => continue,
+            //     };
+            //     if part.data.layer != current_part.data.layer {
+            //         continue;
+            //     }
+            //     let pixels = Self::occupied_pixels(*pos, *rot, part);
+            //     for q in pixels {
+            //         if current_pixels.contains(&q) {
+            //             ret.push(StaticSpriteDescriptor {
+            //                 position: ctx.w2c(q.as_vec2() + Vec2::ONE / 2.0),
+            //                 angle: 0.0,
+            //                 path: "embedded://game/../assets/collision_pixel.png".into(),
+            //                 scale: ctx.scale(),
+            //                 z_index: 100.0,
+            //             });
+            //         }
+            //     }
+            // }
         }
 
         ret.extend(

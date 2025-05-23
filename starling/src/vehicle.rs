@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Sequence, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Sequence, Hash, Deserialize, Serialize)]
 pub enum PartLayer {
     Internal,
     Structural,
@@ -23,22 +23,22 @@ pub enum PartLayer {
 pub struct PartProto {
     pub width: u32,
     pub height: u32,
-    pub layer: PartLayer,
     pub path: String,
+    pub data: PartMetaData,
 }
 
 impl PartProto {
-    pub const fn new(width: u32, height: u32, layer: PartLayer, path: String) -> Self {
+    pub const fn new(width: u32, height: u32, path: String, data: PartMetaData) -> Self {
         Self {
             width,
             height,
-            layer,
             path,
+            data,
         }
     }
 
     pub fn to_z_index(&self) -> f32 {
-        match self.layer {
+        match self.data.layer {
             PartLayer::Internal => 10.0,
             PartLayer::Structural => 11.0,
             PartLayer::Exterior => 12.0,
@@ -409,14 +409,19 @@ fn satellite_thrusters() -> Vec<Thruster> {
 }
 
 fn part_from_path(path: &Path) -> Option<PartProto> {
-    let img = ImageReader::open(path).ok()?.decode().ok()?;
+    let image_path = path.join("skin.png");
+    let data_path = path.join("metadata.yaml");
+    let img = ImageReader::open(&image_path).ok()?.decode().ok()?;
     let name = path.file_stem()?.to_string_lossy().to_string();
-    Some(PartProto::new(
-        img.width(),
-        img.height(),
-        PartLayer::Internal,
-        name,
-    ))
+    let s = std::fs::read_to_string(&data_path).ok()?;
+    let data: PartMetaData = serde_yaml::from_str(&s).ok()?;
+    Some(PartProto::new(img.width(), img.height(), name, data))
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct PartMetaData {
+    pub mass: f32,
+    pub layer: PartLayer,
 }
 
 pub fn load_parts_from_dir(path: &Path) -> HashMap<String, PartProto> {
@@ -453,22 +458,3 @@ pub fn load_parts_from_dir(path: &Path) -> HashMap<String, PartProto> {
 //     PartProto::new(65, 16, PartLayer::Internal, "solarpanel".to_string());
 // pub const GOLD: PartProto = PartProto::new(10, 10, PartLayer::Exterior, "gold".to_string());
 // pub const PLATE: PartProto = PartProto::new(10, 10, PartLayer::Exterior, "plate".to_string());
-
-pub const ALL_PARTS: [&PartProto; 0] = [
-    // &TANK11,
-    // &TANK21,
-    // &TANK22,
-    // &FRAME,
-    // &FRAME2,
-    // &FRAME22,
-    // &FRAME3,
-    // &MOTOR,
-    // &ANTENNA,
-    // &SMALL_ANTENNA,
-    // &CARGO,
-    // &BATTERY,
-    // &CPU,
-    // &SOLARPANEL,
-    // &GOLD,
-    // &PLATE,
-];
