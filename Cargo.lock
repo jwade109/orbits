@@ -5435,6 +5435,7 @@ dependencies = [
  "csv",
  "enum-iterator",
  "glam 0.29.3",
+ "image",
  "lazy_static",
  "more-asserts",
  "names",

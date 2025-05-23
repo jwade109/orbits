@@ -285,7 +285,7 @@ fn editor_layout(state: &GameState) -> ui::Tree<OnClick> {
     }
 
     let mut vehicle_paths = vec![];
-    if let Ok(paths) = std::fs::read_dir(&state.args.install_dir) {
+    if let Ok(paths) = std::fs::read_dir(&state.args.vehicle_dir()) {
         for path in paths {
             if let Ok(path) = path {
                 vehicle_paths.push(path.path());
@@ -296,7 +296,7 @@ fn editor_layout(state: &GameState) -> ui::Tree<OnClick> {
     let top_bar = top_bar(state);
     let part_selection = Node::column(300)
         .with_color(UI_BACKGROUND_COLOR)
-        .with_children(ALL_PARTS.iter().map(|p| {
+        .with_children(state.part_database.iter().map(|(_, p)| {
             let s = p.path.to_string();
             let onclick = OnClick::SelectPart(s.clone());
             Node::button(s, onclick, Size::Grow, BUTTON_HEIGHT)

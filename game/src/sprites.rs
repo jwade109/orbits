@@ -6,6 +6,7 @@ use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use starling::math::is_occluded;
 use starling::prelude::*;
+use std::path::PathBuf;
 
 pub struct SpritePlugin;
 
@@ -17,23 +18,6 @@ impl Plugin for SpritePlugin {
         embedded_asset!(app, "src/", "../assets/shadow.png");
         embedded_asset!(app, "src/", "../assets/spacecraft.png");
         embedded_asset!(app, "src/", "../assets/collision_pixel.png");
-
-        embedded_asset!(app, "src/", "../assets/parts/frame.png");
-        embedded_asset!(app, "src/", "../assets/parts/frame2.png");
-        embedded_asset!(app, "src/", "../assets/parts/frame22.png");
-        embedded_asset!(app, "src/", "../assets/parts/frame3.png");
-        embedded_asset!(app, "src/", "../assets/parts/tank11.png");
-        embedded_asset!(app, "src/", "../assets/parts/tank21.png");
-        embedded_asset!(app, "src/", "../assets/parts/tank22.png");
-        embedded_asset!(app, "src/", "../assets/parts/motor.png");
-        embedded_asset!(app, "src/", "../assets/parts/antenna.png");
-        embedded_asset!(app, "src/", "../assets/parts/small-antenna.png");
-        embedded_asset!(app, "src/", "../assets/parts/cargo.png");
-        embedded_asset!(app, "src/", "../assets/parts/battery.png");
-        embedded_asset!(app, "src/", "../assets/parts/cpu.png");
-        embedded_asset!(app, "src/", "../assets/parts/solarpanel.png");
-        embedded_asset!(app, "src/", "../assets/parts/gold.png");
-        embedded_asset!(app, "src/", "../assets/parts/plate.png");
     }
 }
 
@@ -361,7 +345,7 @@ use crate::scenes::Render;
 use bevy::image::{ImageLoaderSettings, ImageSampler};
 
 #[derive(Component)]
-pub struct StaticSprite(String);
+pub struct StaticSprite(PathBuf);
 
 pub fn update_static_sprites(
     mut commands: Commands,
@@ -369,7 +353,7 @@ pub fn update_static_sprites(
     state: Res<GameState>,
     mut query: Query<(Entity, &mut Sprite, &mut Transform, &mut StaticSprite)>,
 ) {
-    let sprites = GameState::sprites(&state).unwrap_or(vec![]);
+    let sprites: Vec<StaticSpriteDescriptor> = GameState::sprites(&state).unwrap_or(vec![]);
 
     let mut sprite_entities: Vec<_> = query.iter_mut().collect();
 
@@ -381,27 +365,31 @@ pub fn update_static_sprites(
             .with_translation(pos)
             .with_rotation(Quat::from_rotation_z(angle));
 
+        let path = match std::fs::canonicalize(sprite.path.clone()) {
+            Ok(p) => p,
+            Err(_) => continue,
+        };
+
         if let Some((_, ref mut spr, ref mut tf, ref mut desc)) = sprite_entities.get_mut(i) {
             **tf = transform;
-            if desc.0 != sprite.path {
+            if desc.0 != path {
                 let handle = assets.load_with_settings(
-                    sprite.path.clone(),
+                    path.clone(),
                     |settings: &mut ImageLoaderSettings| {
                         settings.sampler = ImageSampler::nearest();
                     },
                 );
+
                 **spr = Sprite::from_image(handle);
-                desc.0 = sprite.path.clone();
+                desc.0 = path.clone();
             }
         } else {
-            let handle = assets.load_with_settings(
-                sprite.path.clone(),
-                |settings: &mut ImageLoaderSettings| {
+            let handle =
+                assets.load_with_settings(path.clone(), |settings: &mut ImageLoaderSettings| {
                     settings.sampler = ImageSampler::nearest();
-                },
-            );
+                });
             let spr = Sprite::from_image(handle);
-            commands.spawn((spr, transform, StaticSprite(sprite.path.clone())));
+            commands.spawn((spr, transform, StaticSprite(path.clone())));
         }
     }
 

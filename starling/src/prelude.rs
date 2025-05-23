@@ -22,4 +22,4 @@ pub use crate::quantities::*;
 pub use crate::region::Region;
 pub use crate::rpo::RPO;
 pub use crate::scenario::{ObjectIdTracker, PlanetarySystem, Scenario};
-pub use crate::vehicle::{find_part, PartLayer, PartProto, Rotation, Vehicle, ALL_PARTS};
+pub use crate::vehicle::{load_parts_from_dir, PartLayer, PartProto, Rotation, Vehicle};

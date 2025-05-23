@@ -1,4 +1,4 @@
-use crate::args::ProgramArgs;
+use crate::args::ProgramContext;
 use crate::mouse::{FrameId, InputState, MouseButt};
 use crate::notifications::*;
 use crate::onclick::OnClick;
@@ -87,7 +87,7 @@ pub struct GameState {
     pub input: InputState,
 
     /// Contains CLI arguments
-    pub args: ProgramArgs,
+    pub args: ProgramContext,
 
     /// Stores information and provides an API for interacting with the simulation
     /// from the perspective of a global solar/planetary system view.
@@ -119,6 +119,10 @@ pub struct GameState {
     /// expanded during runtime, and store multiple (potentially
     /// disjoint) solar systems.
     pub scenario: Scenario,
+
+    /// Map of names to parts to their definitions. Loaded from
+    /// the assets/parts directory
+    pub part_database: HashMap<String, PartProto>,
 
     /// Stupid thing to generate unique increasing IDs for
     /// planets and orbiters
@@ -165,17 +169,17 @@ impl Default for GameState {
     fn default() -> Self {
         let (scenario, ids) = default_example();
 
-        let args = match ProgramArgs::try_parse() {
+        let args = match ProgramContext::try_parse() {
             Ok(a) => a,
             Err(e) => {
                 dbg!(e);
-                ProgramArgs::default()
+                ProgramContext::default()
             }
         };
 
         let mut g = GameState {
             input: InputState::default(),
-            args,
+            args: args.clone(),
             orbital_context: OrbitalContext::new(PlanetId(0)),
             telescope_context: TelescopeContext::new(),
             rpo_context: RPOContext::new(),
@@ -186,6 +190,7 @@ impl Default for GameState {
             sim_speed: 0,
             paused: false,
             scenario: scenario.clone(),
+            part_database: load_parts_from_dir(&args.parts_dir()),
             ids,
             controllers: vec![],
             orbital_vehicles: HashMap::new(),
@@ -855,11 +860,9 @@ impl GameState {
             if !self.orbital_vehicles.contains_key(&id) && !self.rpos.contains_key(&id) {
                 if rand(0.0, 1.0) < 0.7 {
                     let vehicle = Vehicle::random(self.sim_time);
-                    self.notice(format!("Generated vehicle for {id}"));
                     self.orbital_vehicles.insert(id, vehicle);
                 } else {
                     let rpo = RPO::example(self.wall_time);
-                    self.notice(format!("Generated RPO for {id}"));
                     self.rpos.insert(id, rpo);
                 }
             }
