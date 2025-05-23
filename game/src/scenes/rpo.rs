@@ -86,10 +86,7 @@ impl Render for RPOContext {
             };
 
             for (_, _, part) in &vehicle.parts {
-                let path = part_sprite_path(&PathBuf::from(state.args.install_dir.clone()), &part)
-                    .to_str()
-                    .unwrap()
-                    .to_string();
+                let path = part_sprite_path(&state.args, &part);
                 let desc = StaticSpriteDescriptor {
                     position: ctx.w2c(lup.pv().pos),
                     scale: ctx.scale(),

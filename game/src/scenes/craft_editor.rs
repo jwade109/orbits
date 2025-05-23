@@ -1,3 +1,4 @@
+use crate::args::ProgramContext;
 use crate::drawing::*;
 use crate::mouse::InputState;
 use crate::mouse::{FrameId, MouseButt};
@@ -50,8 +51,8 @@ pub struct EditorContext {
     target_center: Vec2,
     scale: f32,
     target_scale: f32,
-    parts: Vec<(IVec2, Rotation, String)>,
-    current_part: Option<String>,
+    parts: Vec<(IVec2, Rotation, PartProto)>,
+    current_part: Option<PartProto>,
     rotation: Rotation,
     filepath: Option<PathBuf>,
     title: TextInput,
@@ -90,12 +91,8 @@ impl EditorContext {
         }
     }
 
-    fn find_part<'a>(state: &'a GameState, name: &String) -> Option<&'a PartProto> {
-        state.part_database.get(name)
-    }
-
-    pub fn set_current_part(&mut self, name: String) {
-        self.current_part = Some(name);
+    pub fn set_current_part(state: &mut GameState, name: &String) {
+        state.editor_context.current_part = state.part_database.get(name).cloned();
     }
 
     fn open_file(&mut self, force_new: bool) -> Option<PathBuf> {
@@ -105,18 +102,10 @@ impl EditorContext {
         self.filepath.clone()
     }
 
-    fn visible_parts<'a>(
-        &'a self,
-        state: &'a GameState,
-    ) -> impl Iterator<Item = (&'a IVec2, &'a Rotation, &'a String)> {
-        self.parts.iter().filter_map(|(pos, rot, name)| {
-            let part = Self::find_part(state, name)?;
+    fn visible_parts(&self) -> impl Iterator<Item = &(IVec2, Rotation, PartProto)> {
+        self.parts.iter().filter(|(_, _, part)| {
             let layer = part.data.layer;
-            if self.invisible_layers.contains(&layer) {
-                None
-            } else {
-                Some((pos, rot, name))
-            }
+            !self.invisible_layers.contains(&layer)
         })
     }
 
@@ -141,7 +130,7 @@ impl EditorContext {
             .parts
             .iter()
             .map(|(pos, rot, part)| VehiclePartFileStorage {
-                partname: part.clone(),
+                partname: part.path.clone(),
                 pos: *pos,
                 rot: *rot,
             })
@@ -169,10 +158,12 @@ impl EditorContext {
 
         state.editor_context.parts.clear();
         for ps in storage.parts {
-            state
-                .editor_context
-                .parts
-                .push((ps.pos, ps.rot, ps.partname.clone()));
+            if let Some(part) = state.part_database.get(&ps.partname) {
+                state
+                    .editor_context
+                    .parts
+                    .push((ps.pos, ps.rot, part.clone()));
+            }
         }
         state.editor_context.title.0 = storage.name;
         state.editor_context.filepath = Some(path.to_path_buf());
@@ -191,12 +182,8 @@ impl EditorContext {
         ret
     }
 
-    fn get_part_at(&self, state: &GameState, p: IVec2) -> Option<(IVec2, Rotation, PartProto)> {
-        for (pos, rot, name) in self.visible_parts(state) {
-            let part = match Self::find_part(state, name) {
-                Some(p) => p,
-                None => continue,
-            };
+    fn get_part_at(&self, p: IVec2) -> Option<(IVec2, Rotation, PartProto)> {
+        for (pos, rot, part) in self.visible_parts() {
             let pixels = Self::occupied_pixels(*pos, *rot, part);
             if pixels.contains(&p) {
                 return Some((*pos, *rot, part.clone()));
@@ -205,13 +192,9 @@ impl EditorContext {
         None
     }
 
-    fn try_place_part(state: &mut GameState, p: IVec2, new_part: &PartProto) -> Option<()> {
-        let new_pixels = Self::occupied_pixels(p, state.editor_context.rotation, new_part);
-        for (pos, rot, name) in &state.editor_context.parts {
-            let part = match Self::find_part(state, name) {
-                Some(p) => p,
-                None => continue,
-            };
+    fn try_place_part(&mut self, p: IVec2, new_part: PartProto) -> Option<()> {
+        let new_pixels = Self::occupied_pixels(p, self.rotation, &new_part);
+        for (pos, rot, part) in &self.parts {
             if part.data.layer != new_part.data.layer {
                 continue;
             }
@@ -222,33 +205,23 @@ impl EditorContext {
                 }
             }
         }
-        state
-            .editor_context
-            .parts
-            .push((p, state.editor_context.rotation, new_part.path.clone()));
+        self.parts.push((p, self.rotation, new_part));
         Some(())
     }
 
-    fn remove_part_at(state: &mut GameState, p: IVec2) {
-        state.editor_context.parts.retain(|(pos, rot, name)| {
-            true
-            // let part = match Self::find_part(state, name) {
-            //     Some(p) => p,
-            //     None => return false,
-            // };
-            // if state.editor_context.invisible_layers.contains(&part.layer) {
-            //     return true;
-            // }
-            // let pixels = Self::occupied_pixels(*pos, *rot, part);
-            // !pixels.contains(&p)
+    fn remove_part_at(&mut self, p: IVec2) {
+        self.parts.retain(|(pos, rot, part)| {
+            if self.invisible_layers.contains(&part.data.layer) {
+                return true;
+            }
+            let pixels = Self::occupied_pixels(*pos, *rot, part);
+            !pixels.contains(&p)
         });
     }
 
-    fn current_part_and_cursor_position<'a>(
-        state: &'a GameState,
-    ) -> Option<(IVec2, &'a PartProto)> {
+    fn current_part_and_cursor_position(state: &GameState) -> Option<(IVec2, PartProto)> {
         let ctx = &state.editor_context;
-        let part = Self::find_part(state, &state.editor_context.current_part.clone()?)?;
+        let part = state.editor_context.current_part.clone()?;
         let wh = Self::dims_with_rotation(ctx.rotation, &part).as_ivec2();
         let pos = state.input.position(MouseButt::Hover, FrameId::Current)?;
         let pos = vround(state.editor_context.c2w(pos));
@@ -256,8 +229,12 @@ impl EditorContext {
     }
 }
 
-pub fn part_sprite_path(install_dir: &Path, short_path: &str) -> PathBuf {
-    install_dir.join(format!("parts/{}/skin.png", short_path))
+pub fn part_sprite_path(ctx: &ProgramContext, short_path: &str) -> String {
+    ctx.parts_dir()
+        .join(format!("{}/skin.png", short_path))
+        .to_str()
+        .unwrap()
+        .to_string()
 }
 
 impl Render for EditorContext {
@@ -292,64 +269,47 @@ impl Render for EditorContext {
 
         if let Some((p, current_part)) = Self::current_part_and_cursor_position(state) {
             let dims = Self::dims_with_rotation(ctx.rotation, &current_part);
-            let path = part_sprite_path(
-                &PathBuf::from(state.args.install_dir.clone()),
-                &current_part.path,
-            )
-            .to_str()
-            .unwrap()
-            .to_string();
             ret.push(StaticSpriteDescriptor {
                 position: ctx.w2c(p.as_vec2() + dims.as_vec2() / 2.0),
                 angle: ctx.rotation.to_angle(),
-                path,
+                path: part_sprite_path(&state.args, &current_part.path),
                 scale: ctx.scale(),
                 z_index: 12.0,
             });
 
-            // let current_pixels = Self::occupied_pixels(p, ctx.rotation, &current_part);
+            let current_pixels = Self::occupied_pixels(p, ctx.rotation, &current_part);
 
-            // for (pos, rot, name) in &ctx.parts {
-            //     let part = match Self::find_part(state, name) {
-            //         Some(p) => p,
-            //         None => continue,
-            //     };
-            //     if part.data.layer != current_part.data.layer {
-            //         continue;
-            //     }
-            //     let pixels = Self::occupied_pixels(*pos, *rot, part);
-            //     for q in pixels {
-            //         if current_pixels.contains(&q) {
-            //             ret.push(StaticSpriteDescriptor {
-            //                 position: ctx.w2c(q.as_vec2() + Vec2::ONE / 2.0),
-            //                 angle: 0.0,
-            //                 path: "embedded://game/../assets/collision_pixel.png".into(),
-            //                 scale: ctx.scale(),
-            //                 z_index: 100.0,
-            //             });
-            //         }
-            //     }
-            // }
+            for (pos, rot, part) in &ctx.parts {
+                if part.data.layer != current_part.data.layer {
+                    continue;
+                }
+                let pixels = Self::occupied_pixels(*pos, *rot, part);
+                for q in pixels {
+                    if current_pixels.contains(&q) {
+                        ret.push(StaticSpriteDescriptor {
+                            position: ctx.w2c(q.as_vec2() + Vec2::ONE / 2.0),
+                            angle: 0.0,
+                            path: "embedded://game/../assets/collision_pixel.png".into(),
+                            scale: ctx.scale(),
+                            z_index: 100.0,
+                        });
+                    }
+                }
+            }
         }
 
         ret.extend(
-            ctx.visible_parts(state)
+            ctx.visible_parts()
                 .enumerate()
-                .filter_map(|(i, (pos, rot, name))| {
-                    let part = Self::find_part(state, name)?;
+                .map(|(i, (pos, rot, part))| {
                     let half_dims = Self::dims_with_rotation(*rot, part).as_vec2() / 2.0;
-                    let path =
-                        part_sprite_path(&PathBuf::from(state.args.install_dir.clone()), name)
-                            .to_str()
-                            .unwrap()
-                            .to_string();
-                    Some(StaticSpriteDescriptor {
+                    StaticSpriteDescriptor {
                         position: ctx.w2c(pos.as_vec2() + half_dims),
                         angle: rot.to_angle(),
-                        path,
+                        path: part_sprite_path(&state.args, &part.path),
                         scale: ctx.scale(),
                         z_index: part.to_z_index() + i as f32 / 100.0,
-                    })
+                    }
                 }),
         );
 
@@ -367,7 +327,7 @@ impl Render for EditorContext {
         let cursor = state.input.position(MouseButt::Hover, FrameId::Current)?;
         let c = ctx.c2w(cursor);
 
-        if let Some((p, rot, part)) = ctx.get_part_at(state, vround(c)) {
+        if let Some((p, rot, part)) = ctx.get_part_at(vround(c)) {
             let wh = Self::dims_with_rotation(rot, &part).as_ivec2();
             let q = p + wh;
             let r = p + IVec2::X * wh.x;
@@ -419,25 +379,21 @@ impl EditorContext {
         let speed = 16.0 * dt * 100.0;
 
         if !is_hovering {
-            if state
-                .input
-                .position(MouseButt::Left, FrameId::Current)
-                .is_some()
-            {
+            if let Some(_) = state.input.position(MouseButt::Left, FrameId::Current) {
                 if let Some((p, part)) = Self::current_part_and_cursor_position(state) {
-                    Self::try_place_part(state, p, &part.clone());
+                    state.editor_context.try_place_part(p, part);
                 }
             } else if let Some(p) = state.input.position(MouseButt::Right, FrameId::Current) {
                 let p = vround(state.editor_context.c2w(p));
-                Self::remove_part_at(state, p);
+                state.editor_context.remove_part_at(p);
             } else if state.input.just_pressed(KeyCode::KeyQ) {
                 if state.editor_context.current_part.is_some() {
                     state.editor_context.current_part = None;
                 } else if let Some(p) = state.input.position(MouseButt::Hover, FrameId::Current) {
                     let p = vround(state.editor_context.c2w(p));
-                    if let Some((_, rot, part)) = state.editor_context.get_part_at(state, p) {
+                    if let Some((_, rot, part)) = state.editor_context.get_part_at(p) {
                         state.editor_context.rotation = rot;
-                        state.editor_context.current_part = Some(part.path);
+                        state.editor_context.current_part = Some(part);
                     } else {
                         state.editor_context.current_part = None;
                     }

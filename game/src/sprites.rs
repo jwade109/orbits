@@ -345,7 +345,7 @@ use crate::scenes::Render;
 use bevy::image::{ImageLoaderSettings, ImageSampler};
 
 #[derive(Component)]
-pub struct StaticSprite(PathBuf);
+pub struct StaticSprite(String);
 
 pub fn update_static_sprites(
     mut commands: Commands,
@@ -366,14 +366,13 @@ pub fn update_static_sprites(
             .with_rotation(Quat::from_rotation_z(angle));
 
         let path = match std::fs::canonicalize(sprite.path.clone()) {
-            Ok(p) => p,
-            Err(_) => continue,
+            Ok(p) => p.to_string_lossy().to_string(),
+            Err(_) => sprite.path.clone(),
         };
 
         if let Some((_, ref mut spr, ref mut tf, ref mut desc)) = sprite_entities.get_mut(i) {
             **tf = transform;
             if desc.0 != path {
-                println!("{} {}", desc.0.display(), path.display());
                 let handle = assets.load_with_settings(
                     path.clone(),
                     |settings: &mut ImageLoaderSettings| {

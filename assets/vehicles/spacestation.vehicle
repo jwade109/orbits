@@ -305,16 +305,6 @@ parts:
   - -53
   - -94
   rot: South
-- partname: antenna
-  pos:
-  - -117
-  - 6
-  rot: North
-- partname: antenna
-  pos:
-  - 100
-  - 6
-  rot: South
 - partname: gold
   pos:
   - -40
@@ -460,3 +450,13 @@ parts:
   - 60
   - 51
   rot: East
+- partname: antenna
+  pos:
+  - -117
+  - 4
+  rot: North
+- partname: antenna
+  pos:
+  - 100
+  - 4
+  rot: South

@@ -115,3 +115,28 @@ parts:
   - 5
   - 10
   rot: North
+- partname: plate
+  pos:
+  - -15
+  - 0
+  rot: West
+- partname: plate
+  pos:
+  - -5
+  - 0
+  rot: West
+- partname: plate
+  pos:
+  - 5
+  - 0
+  rot: West
+- partname: plate
+  pos:
+  - -35
+  - -25
+  rot: West
+- partname: plate
+  pos:
+  - 25
+  - -25
+  rot: West

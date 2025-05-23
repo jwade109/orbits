@@ -659,7 +659,7 @@ impl GameState {
             OnClick::ClearTarget => self.orbital_context.targeting = None,
             OnClick::SetPilot(p) => self.orbital_context.piloting = Some(p),
             OnClick::SetTarget(p) => self.orbital_context.targeting = Some(p),
-            OnClick::SelectPart(name) => self.editor_context.set_current_part(name),
+            OnClick::SelectPart(name) => EditorContext::set_current_part(self, &name),
             OnClick::ToggleLayer(layer) => self.editor_context.toggle_layer(layer),
             OnClick::LoadVehicle(path) => _ = EditorContext::load_vehicle(&path, self),
             _ => info!("Unhandled button event: {id:?}"),
