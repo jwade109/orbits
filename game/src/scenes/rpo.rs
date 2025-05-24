@@ -111,6 +111,10 @@ impl Render for RPOContext {
             0.6,
         )])
     }
+
+    fn ui(_state: &GameState) -> Option<layout::layout::Tree<crate::onclick::OnClick>> {
+        todo!()
+    }
 }
 
 impl RPOContext {

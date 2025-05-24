@@ -3,8 +3,8 @@ use crate::mouse::{FrameId, InputState, MouseButt};
 use crate::notifications::*;
 use crate::onclick::OnClick;
 use crate::scenes::{
-    CameraProjection, CursorMode, EditorContext, Interactive, OrbitalContext, RPOContext, Render,
-    Scene, SceneType, StaticSpriteDescriptor, TelescopeContext, TextLabel,
+    CameraProjection, CommsContext, CursorMode, EditorContext, Interactive, OrbitalContext,
+    RPOContext, Render, Scene, SceneType, StaticSpriteDescriptor, TelescopeContext, TextLabel,
 };
 use crate::ui::InteractionEvent;
 use bevy::color::palettes::css::*;
@@ -48,8 +48,14 @@ impl Plugin for PlanetaryPlugin {
 #[derive(Component, Debug)]
 pub struct BackgroundCamera;
 
-fn init_system(mut commands: Commands) {
-    commands.insert_resource(GameState::default());
+fn init_system(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let g = GameState::default();
+
+    let path = std::fs::canonicalize(g.args.audio_dir().join("button-down.ogg")).unwrap();
+
+    commands.spawn((AudioPlayer::new(asset_server.load(path)),));
+
+    commands.insert_resource(g);
     commands.spawn((
         Camera2d,
         Camera {
@@ -99,6 +105,8 @@ pub struct GameState {
     pub rpo_context: RPOContext,
 
     pub editor_context: EditorContext,
+
+    pub coms_context: CommsContext,
 
     /// Simulation clock
     pub sim_time: Nanotime,
@@ -184,6 +192,7 @@ impl Default for GameState {
             telescope_context: TelescopeContext::new(),
             rpo_context: RPOContext::new(),
             editor_context: EditorContext::new(),
+            coms_context: CommsContext::default(),
             sim_time: Nanotime::zero(),
             wall_time: Nanotime::zero(),
             physics_duration: Nanotime::days(7),
@@ -203,6 +212,7 @@ impl Default for GameState {
                 Scene::docking(),
                 Scene::telescope(),
                 Scene::editor(),
+                Scene::comms(),
             ],
             current_scene_idx: 0,
             current_orbit: None,
@@ -243,7 +253,8 @@ impl Render for GameState {
             SceneType::TelescopeView => TelescopeContext::text_labels(state),
             SceneType::Editor => EditorContext::text_labels(state),
             SceneType::DockingView => RPOContext::text_labels(state),
-            _ => None,
+            SceneType::CommsPanel => CommsContext::text_labels(state),
+            SceneType::MainMenu => None,
         }
     }
 
@@ -252,7 +263,8 @@ impl Render for GameState {
             SceneType::Editor => EditorContext::sprites(state),
             SceneType::DockingView => RPOContext::sprites(state),
             SceneType::MainMenu | SceneType::Orbital => OrbitalContext::sprites(state),
-            _ => None,
+            SceneType::CommsPanel => CommsContext::sprites(state),
+            SceneType::TelescopeView => None,
         }
     }
 
@@ -263,6 +275,7 @@ impl Render for GameState {
             SceneType::TelescopeView => TelescopeContext::background_color(state),
             SceneType::DockingView => RPOContext::background_color(state),
             SceneType::MainMenu => GRAY.with_luminance(0.09),
+            SceneType::CommsPanel => CommsContext::background_color(state),
         }
     }
 
@@ -272,6 +285,14 @@ impl Render for GameState {
             SceneType::Editor => EditorContext::draw_gizmos(gizmos, state),
             SceneType::TelescopeView => TelescopeContext::draw_gizmos(gizmos, state),
             SceneType::DockingView => RPOContext::draw_gizmos(gizmos, state),
+            SceneType::MainMenu => None,
+            SceneType::CommsPanel => CommsContext::draw_gizmos(gizmos, state),
+        }
+    }
+
+    fn ui(state: &GameState) -> Option<Tree<OnClick>> {
+        match state.current_scene().kind() {
+            SceneType::CommsPanel => CommsContext::ui(state),
             _ => None,
         }
     }
@@ -625,7 +646,7 @@ impl GameState {
             OnClick::CommitMission => {
                 self.commit_mission();
             }
-            OnClick::Exit => std::process::exit(0),
+            OnClick::Exit => self.shutdown_with_prompt(),
             OnClick::SimSpeed(s) => {
                 self.sim_speed = s;
             }
@@ -672,7 +693,17 @@ impl GameState {
         Some(())
     }
 
+    pub fn shutdown_with_prompt(&mut self) {
+        if self.is_exit_prompt {
+            self.shutdown()
+        } else {
+            self.is_exit_prompt = true;
+        }
+    }
+
     pub fn shutdown(&self) {
+        // for a sensation of weightiness
+        std::thread::sleep(core::time::Duration::from_millis(50));
         std::process::exit(0)
     }
 

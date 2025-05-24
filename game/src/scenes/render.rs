@@ -1,5 +1,7 @@
+use crate::onclick::OnClick;
 use crate::planetary::GameState;
 use bevy::prelude::*;
+use layout::layout::Tree;
 use starling::math::Vec2;
 
 pub struct TextLabel {
@@ -53,4 +55,6 @@ pub trait Render {
     fn background_color(state: &GameState) -> Srgba;
 
     fn draw_gizmos(gizmos: &mut Gizmos, state: &GameState) -> Option<()>;
+
+    fn ui(state: &GameState) -> Option<Tree<OnClick>>;
 }

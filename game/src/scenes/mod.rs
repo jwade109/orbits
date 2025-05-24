@@ -1,3 +1,4 @@
+mod comms;
 mod craft_editor;
 mod orbital;
 mod render;
@@ -5,6 +6,7 @@ mod rpo;
 mod scene;
 mod telescope;
 
+pub use comms::CommsContext;
 pub use craft_editor::EditorContext;
 pub use orbital::{
     CameraProjection, CursorMode, DrawMode, Interactive, OrbitalContext, ShowOrbitsState,

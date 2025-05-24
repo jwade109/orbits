@@ -382,6 +382,10 @@ impl Render for EditorContext {
 
         Some(())
     }
+
+    fn ui(_state: &GameState) -> Option<layout::layout::Tree<crate::onclick::OnClick>> {
+        todo!()
+    }
 }
 
 impl CameraProjection for EditorContext {

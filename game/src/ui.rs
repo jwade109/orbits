@@ -342,7 +342,7 @@ fn editor_layout(state: &GameState) -> ui::Tree<OnClick> {
     ui::Tree::new().with_layout(layout, Vec2::ZERO)
 }
 
-const BUTTON_HEIGHT: f32 = 40.0;
+pub const BUTTON_HEIGHT: f32 = 40.0;
 
 pub fn exit_prompt_overlay(w: f32, h: f32) -> ui::Node<OnClick> {
     use ui::*;
@@ -386,6 +386,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
         SceneType::TelescopeView => return basic_scenes_layout(state),
         SceneType::Orbital => (),
         SceneType::Editor => return editor_layout(state),
+        SceneType::CommsPanel => return CommsContext::ui(state).unwrap_or(Tree::new()),
     };
 
     use ui::*;

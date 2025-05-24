@@ -18,4 +18,8 @@ impl ProgramContext {
     pub fn parts_dir(&self) -> PathBuf {
         PathBuf::from(self.install_dir.clone()).join("parts")
     }
+
+    pub fn audio_dir(&self) -> PathBuf {
+        PathBuf::from(self.install_dir.clone()).join("sfx")
+    }
 }

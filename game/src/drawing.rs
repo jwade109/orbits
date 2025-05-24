@@ -1397,6 +1397,7 @@ pub fn draw_scene(gizmos: &mut Gizmos, state: &GameState, scene: &crate::scenes:
         SceneType::TelescopeView => draw_telescope_view(gizmos, &state),
         SceneType::MainMenu => {}
         SceneType::Editor => _ = EditorContext::draw_gizmos(gizmos, state),
+        SceneType::CommsPanel => {}
     }
 }
 

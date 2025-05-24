@@ -1,10 +1,12 @@
 use crate::mouse::{FrameId, InputState, MouseButt};
+use crate::onclick::OnClick;
 use crate::planetary::GameState;
 use crate::scenes::{Render, StaticSpriteDescriptor, TextLabel};
 use bevy::color::palettes::css::*;
 use bevy::input::keyboard::KeyCode;
 use bevy::prelude::*;
 use enum_iterator::Sequence;
+use layout::layout::Tree;
 use rfd::FileDialog;
 use starling::prelude::*;
 use std::collections::HashSet;
@@ -516,6 +518,10 @@ impl Render for OrbitalContext {
     fn draw_gizmos(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
         crate::drawing::draw_orbital_view(gizmos, state);
         Some(())
+    }
+
+    fn ui(_state: &GameState) -> Option<Tree<OnClick>> {
+        todo!()
     }
 }
 

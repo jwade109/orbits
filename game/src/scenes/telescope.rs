@@ -165,4 +165,8 @@ impl Render for TelescopeContext {
     fn draw_gizmos(_gizmos: &mut Gizmos, _state: &GameState) -> Option<()> {
         Some(())
     }
+
+    fn ui(_state: &GameState) -> Option<layout::layout::Tree<crate::onclick::OnClick>> {
+        todo!()
+    }
 }
