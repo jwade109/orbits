@@ -1,3 +1,5 @@
+use crate::drawing::*;
+use crate::graph::Graph;
 use crate::mouse::InputState;
 use crate::mouse::{FrameId, MouseButt};
 use crate::planetary::GameState;
@@ -127,6 +129,14 @@ impl TelescopeContext {
     }
 }
 
+fn get_frequency_spectrum(x: f32, d: f32, fc: f32) -> f32 {
+    let rsq = (d * -20.0).exp();
+    let blackbody = 0.7 / (x / 250.0);
+    let noise = rand(0.0, 0.01);
+    let emissions = 0.5 * (1.0 / (1.0 + ((x - fc) / 100.0).powi(2)));
+    rsq * (blackbody + noise + emissions)
+}
+
 impl Render for TelescopeContext {
     fn text_labels(state: &GameState) -> Option<Vec<TextLabel>> {
         let cursor = state.input.position(MouseButt::Hover, FrameId::Current)?;
@@ -162,7 +172,37 @@ impl Render for TelescopeContext {
         GRAY.with_luminance(0.12)
     }
 
-    fn draw_gizmos(_gizmos: &mut Gizmos, _state: &GameState) -> Option<()> {
+    fn draw_gizmos(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
+        let screen_radius = TelescopeContext::screen_radius(state);
+        draw_circle(gizmos, Vec2::ZERO, screen_radius, WHITE);
+        draw_circle(gizmos, Vec2::ZERO, screen_radius + 5.0, WHITE);
+
+        draw_cross(gizmos, Vec2::ZERO, 5.0, GRAY);
+
+        let mut graph = Graph::linspace(250.0, 2500.0, 100);
+
+        graph.add_point(250.0, 0.0, true);
+        graph.add_point(250.0, 1.0, true);
+        graph.add_point(2500.0, 0.0, true);
+
+        for (star, color, radius, fc) in &state.starfield {
+            let (az, el) = TelescopeContext::to_azel(*star);
+            let (p, alpha, d) = TelescopeContext::screen_position(az, el, state);
+            if d < 0.2 {
+                graph.add_func(
+                    |x: f32| get_frequency_spectrum(x, d, *fc),
+                    color.with_alpha(0.3),
+                );
+            }
+            draw_circle(gizmos, p, *radius, color.with_alpha(alpha));
+        }
+
+        draw_graph(
+            gizmos,
+            &graph,
+            state.input.screen_bounds.with_center(Vec2::ZERO),
+        );
+
         Some(())
     }
 

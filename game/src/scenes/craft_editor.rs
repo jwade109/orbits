@@ -15,13 +15,13 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct VehicleFileStorage {
+pub struct VehicleFileStorage {
     pub name: String,
     pub parts: Vec<VehiclePartFileStorage>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct VehiclePartFileStorage {
+pub struct VehiclePartFileStorage {
     pub partname: String,
     pub pos: IVec2,
     pub rot: Rotation,
@@ -90,7 +90,7 @@ impl EditorContext {
         ))
     }
 
-    fn dims_with_rotation(rot: Rotation, part: &PartProto) -> UVec2 {
+    pub fn dims_with_rotation(rot: Rotation, part: &PartProto) -> UVec2 {
         match rot {
             Rotation::East | Rotation::West => UVec2::new(part.width, part.height),
             Rotation::North | Rotation::South => UVec2::new(part.height, part.width),
@@ -154,6 +154,11 @@ impl EditorContext {
     pub fn load_from_file(state: &mut GameState) -> Option<()> {
         let choice = state.editor_context.open_file(true)?;
         EditorContext::load_vehicle(&choice, state)
+    }
+
+    pub fn load_from_vehicle_file(path: &Path) -> Option<VehicleFileStorage> {
+        let s = std::fs::read_to_string(path).ok()?;
+        serde_yaml::from_str(&s).ok()
     }
 
     pub fn load_vehicle(path: &Path, state: &mut GameState) -> Option<()> {
@@ -272,20 +277,26 @@ impl Render for EditorContext {
 
         let half_span = state.input.screen_bounds.span * 0.5;
 
-        Some(
-            info_lines
-                .into_iter()
-                .enumerate()
-                .map(|(i, s)| TextLabel {
-                    text: s,
-                    position: Vec2::new(
-                        half_span.x - 350.0,
-                        half_span.y - (200.0 + i as f32 * 30.0),
-                    ),
-                    size: 0.8,
-                })
-                .collect(),
-        )
+        let mut labels: Vec<TextLabel> = info_lines
+            .into_iter()
+            .enumerate()
+            .map(|(i, s)| TextLabel {
+                text: s,
+                position: Vec2::new(half_span.x - 350.0, half_span.y - (200.0 + i as f32 * 30.0)),
+                size: 0.8,
+            })
+            .collect();
+
+        if let Some(p) = state.editor_context.current_part.as_ref() {
+            let t = TextLabel {
+                text: format!("{:#?}", &p.data),
+                position: Vec2::ZERO,
+                size: 0.8,
+            };
+            labels.push(t);
+        }
+
+        Some(labels)
     }
 
     fn sprites(state: &GameState) -> Option<Vec<StaticSpriteDescriptor>> {
@@ -348,8 +359,19 @@ impl Render for EditorContext {
         let ctx = &state.editor_context;
         draw_cross(gizmos, ctx.w2c(Vec2::ZERO), 10.0, GRAY);
 
+        let vehicle = Vehicle::from_parts(Nanotime::zero(), ctx.parts.clone());
+
+        let radius = vehicle.bounding_radius();
+
         let cursor = state.input.position(MouseButt::Hover, FrameId::Current)?;
         let c = ctx.c2w(cursor);
+
+        draw_circle(
+            gizmos,
+            ctx.w2c(Vec2::ZERO),
+            radius * ctx.scale(),
+            RED.with_alpha(0.1),
+        );
 
         if let Some((p, rot, part)) = ctx.get_part_at(vround(c)) {
             let wh = Self::dims_with_rotation(rot, &part).as_ivec2();

@@ -36,8 +36,9 @@ impl Render for RPOContext {
     fn draw_gizmos(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
         let ctx = &state.rpo_context;
         let target = state.targeting()?;
+        let piloting = state.piloting()?;
 
-        // let origin = state.scenario.lup_orbiter(target, state.sim_time)?.pv();
+        let origin = state.scenario.lup_orbiter(target, state.sim_time)?.pv();
 
         draw_circle(gizmos, Vec2::ZERO, 4.0, GRAY);
         draw_circle(gizmos, ctx.w2c(Vec2::ZERO), 4.0, TEAL);
@@ -49,22 +50,17 @@ impl Render for RPOContext {
             GRAY.with_alpha(0.4),
         );
 
-        for id in state.scenario.orbiter_ids() {
-            if id == target {
-                continue;
-            }
-
+        for id in [target, piloting] {
             let lup = match state.scenario.lup_orbiter(id, state.sim_time) {
                 Some(lup) => lup,
                 None => continue,
             };
 
-            let pv = lup.pv();
-
+            let pv = lup.pv() - origin;
             draw_circle(gizmos, ctx.w2c(pv.pos), 4.0, WHITE);
 
             if let Some(v) = state.orbital_vehicles.get(&id) {
-                draw_vehicle(gizmos, v, ctx.w2c(pv.pos), ctx.scale());
+                draw_vehicle(gizmos, v, ctx.w2c(pv.pos), ctx.scale() / 1000.0);
             }
         }
 
@@ -72,31 +68,32 @@ impl Render for RPOContext {
     }
 
     fn sprites(state: &GameState) -> Option<Vec<StaticSpriteDescriptor>> {
-        let ctx = &state.rpo_context;
+        None
+        // let ctx = &state.rpo_context;
 
-        let mut ret = vec![];
+        // let mut ret = vec![];
 
-        for id in state.scenario.orbiter_ids() {
-            let lup = state.scenario.lup_orbiter(id, state.sim_time)?;
-            let vehicle = match state.orbital_vehicles.get(&id) {
-                Some(v) => v,
-                None => continue,
-            };
+        // for id in state.scenario.orbiter_ids() {
+        //     let lup = state.scenario.lup_orbiter(id, state.sim_time)?;
+        //     let vehicle = match state.orbital_vehicles.get(&id) {
+        //         Some(v) => v,
+        //         None => continue,
+        //     };
 
-            for (_, _, part) in &vehicle.parts {
-                let path = part_sprite_path(&state.args, &part);
-                let desc = StaticSpriteDescriptor::new(
-                    ctx.w2c(lup.pv().pos),
-                    vehicle.angle(),
-                    path,
-                    ctx.scale(),
-                    10.0,
-                );
-                ret.push(desc);
-            }
-        }
+        //     for (_, _, part) in &vehicle.parts {
+        //         let path = part_sprite_path(&state.args, &part.path);
+        //         let desc = StaticSpriteDescriptor::new(
+        //             ctx.w2c(lup.pv().pos),
+        //             vehicle.angle(),
+        //             path,
+        //             ctx.scale(),
+        //             10.0,
+        //         );
+        //         ret.push(desc);
+        //     }
+        // }
 
-        Some(ret)
+        // Some(ret)
     }
 
     fn text_labels(state: &GameState) -> Option<Vec<TextLabel>> {

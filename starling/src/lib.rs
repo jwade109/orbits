@@ -10,6 +10,7 @@ pub mod nanotime;
 pub mod orbital_luts;
 pub mod orbiter;
 pub mod orbits;
+pub mod parts;
 pub mod planning;
 pub mod prelude;
 pub mod pv;

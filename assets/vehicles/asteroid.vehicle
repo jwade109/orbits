@@ -1,0 +1,397 @@
+name: ''
+parts:
+- partname: frame
+  pos:
+  - 0
+  - 0
+  rot: East
+- partname: frame
+  pos:
+  - -10
+  - 0
+  rot: East
+- partname: frame
+  pos:
+  - -6
+  - -10
+  rot: East
+- partname: frame
+  pos:
+  - 4
+  - -12
+  rot: East
+- partname: frame
+  pos:
+  - -2
+  - -22
+  rot: East
+- partname: frame
+  pos:
+  - -13
+  - -24
+  rot: East
+- partname: frame
+  pos:
+  - -21
+  - -14
+  rot: East
+- partname: frame
+  pos:
+  - -20
+  - -4
+  rot: East
+- partname: frame
+  pos:
+  - -17
+  - 10
+  rot: East
+- partname: frame
+  pos:
+  - -27
+  - 8
+  rot: East
+- partname: frame
+  pos:
+  - -31
+  - -4
+  rot: East
+- partname: frame
+  pos:
+  - 1
+  - 10
+  rot: East
+- partname: frame
+  pos:
+  - 11
+  - 16
+  rot: East
+- partname: frame
+  pos:
+  - 16
+  - 6
+  rot: East
+- partname: frame
+  pos:
+  - 16
+  - -5
+  rot: East
+- partname: frame
+  pos:
+  - 14
+  - -16
+  rot: East
+- partname: frame
+  pos:
+  - 12
+  - -26
+  rot: East
+- partname: frame
+  pos:
+  - 6
+  - -36
+  rot: East
+- partname: frame
+  pos:
+  - 24
+  - -18
+  rot: East
+- partname: frame
+  pos:
+  - -6
+  - 20
+  rot: East
+- partname: frame
+  pos:
+  - -16
+  - 20
+  rot: East
+- partname: frame
+  pos:
+  - -38
+  - -16
+  rot: East
+- partname: frame
+  pos:
+  - -38
+  - -26
+  rot: East
+- partname: frame
+  pos:
+  - -36
+  - -37
+  rot: East
+- partname: frame
+  pos:
+  - -30
+  - -47
+  rot: East
+- partname: frame
+  pos:
+  - -19
+  - -47
+  rot: East
+- partname: frame
+  pos:
+  - -9
+  - -41
+  rot: East
+- partname: frame
+  pos:
+  - -25
+  - -24
+  rot: East
+- partname: frame
+  pos:
+  - -22
+  - -34
+  rot: East
+- partname: frame
+  pos:
+  - 31
+  - -8
+  rot: East
+- partname: frame
+  pos:
+  - 32
+  - 2
+  rot: East
+- partname: frame
+  pos:
+  - 40
+  - -18
+  rot: East
+- partname: frame
+  pos:
+  - 40
+  - -28
+  rot: East
+- partname: frame
+  pos:
+  - 35
+  - -38
+  rot: East
+- partname: frame
+  pos:
+  - 25
+  - -42
+  rot: East
+- partname: frame
+  pos:
+  - 12
+  - -46
+  rot: East
+- partname: frame
+  pos:
+  - 1
+  - -47
+  rot: East
+- partname: frame
+  pos:
+  - -43
+  - -6
+  rot: East
+- partname: frame
+  pos:
+  - -42
+  - 4
+  rot: East
+- partname: frame
+  pos:
+  - -33
+  - 18
+  rot: East
+- partname: frame
+  pos:
+  - -14
+  - 30
+  rot: East
+- partname: frame
+  pos:
+  - -4
+  - 30
+  rot: East
+- partname: frame
+  pos:
+  - 21
+  - 24
+  rot: East
+- partname: frame
+  pos:
+  - 29
+  - 14
+  rot: East
+- partname: frame
+  pos:
+  - 29
+  - -28
+  rot: East
+- partname: frame
+  pos:
+  - -5
+  - -57
+  rot: East
+- partname: frame
+  pos:
+  - -15
+  - -59
+  rot: East
+- partname: frame
+  pos:
+  - -48
+  - -30
+  rot: East
+- partname: frame
+  pos:
+  - -52
+  - -19
+  rot: East
+- partname: frame
+  pos:
+  - -43
+  - 19
+  rot: East
+- partname: frame
+  pos:
+  - -53
+  - 11
+  rot: East
+- partname: frame
+  pos:
+  - -57
+  - 1
+  rot: East
+- partname: frame
+  pos:
+  - -57
+  - -9
+  rot: East
+- partname: frame
+  pos:
+  - -24
+  - 30
+  rot: East
+- partname: plate
+  pos:
+  - -31
+  - 4
+  rot: East
+- partname: plate
+  pos:
+  - -35
+  - -7
+  rot: East
+- partname: plate
+  pos:
+  - -36
+  - -18
+  rot: East
+- partname: plate
+  pos:
+  - -33
+  - -29
+  rot: East
+- partname: plate
+  pos:
+  - -25
+  - -39
+  rot: East
+- partname: plate
+  pos:
+  - -15
+  - -42
+  rot: East
+- partname: plate
+  pos:
+  - -4
+  - -42
+  rot: East
+- partname: plate
+  pos:
+  - 6
+  - -33
+  rot: East
+- partname: plate
+  pos:
+  - 5
+  - -23
+  rot: East
+- partname: plate
+  pos:
+  - -2
+  - -13
+  rot: East
+- partname: plate
+  pos:
+  - -6
+  - -2
+  rot: East
+- partname: plate
+  pos:
+  - -8
+  - 8
+  rot: East
+- partname: plate
+  pos:
+  - 3
+  - 8
+  rot: East
+- partname: plate
+  pos:
+  - 10
+  - -2
+  rot: East
+- partname: plate
+  pos:
+  - 9
+  - -12
+  rot: East
+- partname: plate
+  pos:
+  - -13
+  - -21
+  rot: East
+- partname: plate
+  pos:
+  - 16
+  - -30
+  rot: East
+- partname: plate
+  pos:
+  - 27
+  - -33
+  rot: East
+- partname: plate
+  pos:
+  - 30
+  - -23
+  rot: East
+- partname: plate
+  pos:
+  - 30
+  - -13
+  rot: East
+- partname: plate
+  pos:
+  - 28
+  - -3
+  rot: East
+- partname: plate
+  pos:
+  - 18
+  - 8
+  rot: East
+- partname: plate
+  pos:
+  - -18
+  - 6
+  rot: East
+- partname: plate
+  pos:
+  - -24
+  - -6
+  rot: East
+- partname: plate
+  pos:
+  - -24
+  - -17
+  rot: East

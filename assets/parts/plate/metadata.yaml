@@ -1,2 +1,3 @@
 mass: 10.0
 layer: Exterior
+class: !Undefined

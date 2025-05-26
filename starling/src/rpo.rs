@@ -11,12 +11,13 @@ pub struct RPO {
 }
 
 impl RPO {
-    pub fn example(stamp: Nanotime) -> Self {
-        let vehicles = (0..12)
-            .map(|_| {
+    pub fn example(stamp: Nanotime, vehicles: Vec<Vehicle>) -> Self {
+        let vehicles = vehicles
+            .into_iter()
+            .map(|veh| {
                 let p = randvec(10.0, 100.0);
                 let v = randvec(2.0, 7.0);
-                (PV::new(p, v), Vehicle::random(stamp))
+                (PV::new(p, v), veh)
             })
             .collect();
 

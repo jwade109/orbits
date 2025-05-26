@@ -263,23 +263,32 @@ fn draw_propagator(
 }
 
 pub fn draw_vehicle(gizmos: &mut Gizmos, vehicle: &Vehicle, pos: Vec2, scale: f32) {
-    for poly in vehicle.body() {
-        let corners: Vec<_> = poly.iter_closed().map(|p| p * scale + pos).collect();
-        gizmos.linestrip_2d(corners, WHITE);
+    for (p, rot, part) in &vehicle.parts {
+        let angle = vehicle.angle() - PI / 2.0;
+        let dims = EditorContext::dims_with_rotation(*rot, part).as_vec2();
+        let center = rotate(p.as_vec2() + dims / 2.0, angle) * scale;
+        let obb = OBB::new(
+            AABB::from_arbitrary(scale * -dims / 2.0, scale * dims / 2.0),
+            angle,
+        )
+        .offset(center + pos);
+        draw_obb(gizmos, &obb, WHITE);
     }
+
+    draw_x(gizmos, Vec2::ZERO, 4.0, WHITE);
 
     for thruster in vehicle.thrusters() {
         let p1 = rotate(thruster.pos, vehicle.angle()) * scale + pos;
         let u = rotate(-Vec2::X, thruster.angle + vehicle.angle());
         let v = rotate(u, PI / 2.0);
-        let p2 = p1 + (u * thruster.length + v * thruster.length / 5.0) * scale;
-        let p3 = p1 + (u * thruster.length - v * thruster.length / 5.0) * scale;
+        let p2 = p1 + (u * thruster.proto.length + v * thruster.proto.length / 5.0) * scale;
+        let p3 = p1 + (u * thruster.proto.length - v * thruster.proto.length / 5.0) * scale;
         gizmos.linestrip_2d([p1, p2, p3, p1], WHITE);
 
         if thruster.is_active {
-            let p4 = p2 + (u * 0.7 + v * 0.2) * thruster.length * scale;
-            let p5 = p3 + (u * 0.7 - v * 0.2) * thruster.length * scale;
-            let color = if thruster.is_rcs { TEAL } else { ORANGE };
+            let p4 = p2 + (u * 0.7 + v * 0.2) * thruster.proto.length * scale;
+            let p5 = p3 + (u * 0.7 - v * 0.2) * thruster.proto.length * scale;
+            let color = if thruster.proto.is_rcs { TEAL } else { ORANGE };
             for s in linspace(0.0, 1.0, 13) {
                 let u = p2.lerp(p3, s);
                 let v = p4.lerp(p5, s);
@@ -1061,10 +1070,8 @@ pub fn draw_notifications(gizmos: &mut Gizmos, state: &GameState) {
     }
 }
 
-fn draw_graph(gizmos: &mut Gizmos, graph: &Graph, bounds: AABB) -> Option<()> {
+pub fn draw_graph(gizmos: &mut Gizmos, graph: &Graph, bounds: AABB) -> Option<()> {
     let map = |p: Vec2| bounds.from_normalized(p);
-
-    // draw_aabb(gizmos, bounds, GRAY.with_alpha(0.05));
 
     {
         // axes
@@ -1350,62 +1357,8 @@ fn orthographic_camera_map(p: Vec3, center: Vec3, normal: Vec3, x: Vec3, y: Vec3
     Vec2::new(p.dot(x), p.dot(y))
 }
 
-fn get_frequency_spectrum(x: f32, d: f32, fc: f32) -> f32 {
-    let rsq = (d * -20.0).exp();
-    let blackbody = 0.7 / (x / 250.0);
-    let noise = rand(0.0, 0.01);
-    let emissions = 0.5 * (1.0 / (1.0 + ((x - fc) / 100.0).powi(2)));
-    rsq * (blackbody + noise + emissions)
-}
-
-fn draw_telescope_view(gizmos: &mut Gizmos, state: &GameState) {
-    let screen_radius = TelescopeContext::screen_radius(state);
-    draw_circle(gizmos, Vec2::ZERO, screen_radius, WHITE);
-    draw_circle(gizmos, Vec2::ZERO, screen_radius + 5.0, WHITE);
-
-    draw_cross(gizmos, Vec2::ZERO, 5.0, GRAY);
-
-    let mut graph = Graph::linspace(250.0, 2500.0, 100);
-
-    graph.add_point(250.0, 0.0, true);
-    graph.add_point(250.0, 1.0, true);
-    graph.add_point(2500.0, 0.0, true);
-
-    for (star, color, radius, fc) in &state.starfield {
-        let (az, el) = TelescopeContext::to_azel(*star);
-        let (p, alpha, d) = TelescopeContext::screen_position(az, el, state);
-        if d < 0.2 {
-            graph.add_func(
-                |x: f32| get_frequency_spectrum(x, d, *fc),
-                color.with_alpha(0.3),
-            );
-        }
-        draw_circle(gizmos, p, *radius, color.with_alpha(alpha));
-    }
-
-    draw_graph(
-        gizmos,
-        &graph,
-        state.input.screen_bounds.with_center(Vec2::ZERO),
-    );
-}
-
-pub fn draw_scene(gizmos: &mut Gizmos, state: &GameState, scene: &crate::scenes::Scene) {
-    match scene.kind() {
-        SceneType::Orbital => {}
-        SceneType::DockingView => _ = RPOContext::draw_gizmos(gizmos, state),
-        SceneType::TelescopeView => draw_telescope_view(gizmos, &state),
-        SceneType::MainMenu => {}
-        SceneType::Editor => _ = EditorContext::draw_gizmos(gizmos, state),
-        SceneType::CommsPanel => {}
-    }
-}
-
 pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
     let gizmos = &mut gizmos;
-
-    draw_scene(gizmos, &state, state.current_scene());
-
     GameState::draw_gizmos(gizmos, &state);
 }
 

@@ -716,6 +716,40 @@ impl GameState {
         Some(())
     }
 
+    pub fn get_random_parts(&self) -> Vec<(IVec2, Rotation, PartProto)> {
+        let choice = rand(0.0, 1.0);
+        let name = if choice < 0.6 {
+            "satellite"
+        } else {
+            "asteroid"
+        };
+        let path = self.args.vehicle_dir().join(format!("{}.vehicle", name));
+        let sat = EditorContext::load_from_vehicle_file(&path).unwrap();
+
+        let mut parts = vec![];
+        for part in sat.parts {
+            let proto = self.part_database.get(&part.partname).unwrap();
+            parts.push((part.pos, part.rot, proto.clone()));
+        }
+
+        parts
+
+        // // let keys: Vec<_> = self.part_database.keys().collect();
+
+        // vec![
+        //     (
+        //         IVec2::ZERO,
+        //         Rotation::East,
+        //         self.part_database.get("motor").unwrap().clone(),
+        //     ),
+        //     (
+        //         IVec2::ONE,
+        //         Rotation::East,
+        //         self.part_database.get("tank21").unwrap().clone(),
+        //     ),
+        // ]
+    }
+
     pub fn current_hover_ui(&self) -> Option<&OnClick> {
         let wb = self.input.screen_bounds.span;
         let p = self.input.position(MouseButt::Hover, FrameId::Current)?;
@@ -827,9 +861,7 @@ impl GameState {
 
         // handle discrete physics events
         for (_, vehicle) in self.orbital_vehicles.iter_mut() {
-            // controversial
-            vehicle.main(false);
-            vehicle.step(self.wall_time);
+            vehicle.step(self.sim_time);
         }
 
         self.handle_click_events();
@@ -897,13 +929,8 @@ impl GameState {
 
         for id in ids {
             if !self.orbital_vehicles.contains_key(&id) && !self.rpos.contains_key(&id) {
-                if rand(0.0, 1.0) < 0.7 {
-                    let vehicle = Vehicle::random(self.sim_time);
-                    self.orbital_vehicles.insert(id, vehicle);
-                } else {
-                    let rpo = RPO::example(self.wall_time);
-                    self.rpos.insert(id, rpo);
-                }
+                let vehicle = Vehicle::from_parts(self.sim_time, self.get_random_parts());
+                self.orbital_vehicles.insert(id, vehicle);
             }
         }
 
