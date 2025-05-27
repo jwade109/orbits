@@ -14,7 +14,7 @@ pub use crate::nanotime::Nanotime;
 pub use crate::orbital_luts::lookup_ta_from_ma;
 pub use crate::orbiter::{GroupId, ObjectId, Orbiter, OrbiterId, PlanetId, VehicleId};
 pub use crate::orbits::{hyperbolic_range_ta, wrap_pi_npi, Body, GlobalOrbit, SparseOrbit};
-pub use crate::parts::parts::{load_parts_from_dir, PartLayer, PartProto};
+pub use crate::parts::parts::{load_parts_from_dir, PartLayer, PartProto, PIXELS_PER_METER};
 pub use crate::planning::{
     best_maneuver_plan, get_next_intersection, EventType, HorizonState, ManeuverPlan, Propagator,
 };
@@ -23,4 +23,4 @@ pub use crate::quantities::*;
 pub use crate::region::Region;
 pub use crate::rpo::RPO;
 pub use crate::scenario::{ObjectIdTracker, PlanetarySystem, Scenario};
-pub use crate::vehicle::{Rotation, Vehicle};
+pub use crate::vehicle::{dims_with_rotation, meters_with_rotation, Rotation, Vehicle};

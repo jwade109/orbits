@@ -2,6 +2,7 @@ use crate::nanotime::Nanotime;
 pub use glam::f32::Vec2;
 pub use glam::f32::Vec3;
 pub use glam::i32::IVec2;
+pub use glam::u32::UVec2;
 use names::Generator;
 use rand::Rng;
 

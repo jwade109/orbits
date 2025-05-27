@@ -83,5 +83,5 @@ parts:
 - partname: motor
   pos:
   - -8
-  - -5
+  - -9
   rot: East

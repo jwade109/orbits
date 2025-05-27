@@ -38,17 +38,32 @@ impl Render for RPOContext {
         let target = state.targeting()?;
         let piloting = state.piloting()?;
 
+        draw_piloting_overlay(gizmos, state);
+
         let origin = state.scenario.lup_orbiter(target, state.sim_time)?.pv();
 
-        draw_circle(gizmos, Vec2::ZERO, 4.0, GRAY);
-        draw_circle(gizmos, ctx.w2c(Vec2::ZERO), 4.0, TEAL);
-        draw_circle(gizmos, ctx.w2c(Vec2::ZERO), 1000.0 * ctx.scale(), GRAY);
-        draw_circle(
-            gizmos,
-            ctx.w2c(Vec2::ZERO),
-            5000.0 * ctx.scale(),
-            GRAY.with_alpha(0.4),
-        );
+        draw_circle(gizmos, ctx.w2c(Vec2::ZERO), 7.0, TEAL);
+
+        for km in 1..=5 {
+            let km = km as f32;
+            let alpha = 0.8 - 0.14 * km as f32;
+            draw_circle(
+                gizmos,
+                ctx.w2c(Vec2::ZERO),
+                km * 1000.0 * ctx.scale(),
+                GRAY.with_alpha(alpha),
+            );
+        }
+
+        for meters in (10..=90).step_by(10).chain((100..=900).step_by(100)) {
+            let alpha = 0.2;
+            draw_circle(
+                gizmos,
+                ctx.w2c(Vec2::ZERO),
+                meters as f32 * ctx.scale(),
+                GRAY.with_alpha(alpha),
+            );
+        }
 
         for id in [target, piloting] {
             let lup = match state.scenario.lup_orbiter(id, state.sim_time) {
@@ -56,12 +71,25 @@ impl Render for RPOContext {
                 None => continue,
             };
 
-            let pv = lup.pv() - origin;
-            draw_circle(gizmos, ctx.w2c(pv.pos), 4.0, WHITE);
+            let pv = (lup.pv() - origin) * 1000.0f32;
+
+            if id == piloting {
+                draw_circle(gizmos, ctx.w2c(pv.pos), 7.0, RED);
+            }
 
             if let Some(v) = state.orbital_vehicles.get(&id) {
-                draw_vehicle(gizmos, v, ctx.w2c(pv.pos), ctx.scale() / 1000.0);
+                draw_vehicle(gizmos, v, ctx.w2c(pv.pos), ctx.scale());
             }
+        }
+
+        {
+            // TODO this is terrible
+            let po = state.get_orbit(piloting)?;
+            let to = state.get_orbit(target)?;
+
+            let (_, _, mut relpos) = make_separation_graph(&po.1, &to.1, state.sim_time);
+            relpos.iter_mut().for_each(|p| *p = ctx.w2c(*p * 1000.0));
+            gizmos.linestrip_2d(relpos, WHITE);
         }
 
         Some(())

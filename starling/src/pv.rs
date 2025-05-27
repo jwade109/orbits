@@ -84,6 +84,13 @@ impl std::ops::Div<f32> for PV {
     }
 }
 
+impl std::ops::Mul<f32> for PV {
+    type Output = Self;
+    fn mul(self, rhs: f32) -> Self::Output {
+        PV::new(self.pos * rhs, self.vel * rhs)
+    }
+}
+
 impl Into<PV> for ((f32, f32), (f32, f32)) {
     fn into(self) -> PV {
         let r: Vec2 = self.0.into();

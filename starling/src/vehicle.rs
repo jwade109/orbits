@@ -1,5 +1,6 @@
+use crate::aabb::AABB;
 use crate::inventory::{Inventory, InventoryItem};
-use crate::math::{cross2d, get_random_name, rand, randint, rotate, IVec2, Vec2, PI};
+use crate::math::{cross2d, get_random_name, rand, randint, rotate, IVec2, UVec2, Vec2, PI};
 use crate::nanotime::Nanotime;
 use crate::orbits::{wrap_0_2pi, wrap_pi_npi};
 use crate::parts::{
@@ -63,6 +64,22 @@ fn random_sat_inventory() -> Inventory {
     inv
 }
 
+pub fn dims_with_rotation(rot: Rotation, part: &PartProto) -> UVec2 {
+    match rot {
+        Rotation::East | Rotation::West => UVec2::new(part.width, part.height),
+        Rotation::North | Rotation::South => UVec2::new(part.height, part.width),
+    }
+}
+
+pub fn meters_with_rotation(rot: Rotation, part: &PartProto) -> Vec2 {
+    let w = part.width_meters();
+    let h = part.height_meters();
+    match rot {
+        Rotation::East | Rotation::West => Vec2::new(w, h),
+        Rotation::North | Rotation::South => Vec2::new(h, w),
+    }
+}
+
 impl Vehicle {
     pub fn from_parts(stamp: Nanotime, parts: Vec<(IVec2, Rotation, PartProto)>) -> Self {
         let thrusters: Vec<Thruster> = parts
@@ -87,7 +104,7 @@ impl Vehicle {
                 if let PartClass::Tank(proto) = p.data.class {
                     Some(Tank {
                         proto,
-                        fuel_mass: (proto.wet_mass - p.data.mass) * 0.8,
+                        fuel_mass: (proto.wet_mass - p.data.mass) * rand(0.4, 0.7),
                     })
                 } else {
                     None
@@ -97,8 +114,11 @@ impl Vehicle {
 
         let mut bounding_radius = 1.0;
         for (pos, _, part) in &parts {
-            let r = part.width.max(part.height) as f32 / 2.0;
-            let d = pos.as_vec2().length() + r;
+            let pos = pos.as_vec2() / crate::parts::parts::PIXELS_PER_METER;
+            let w = part.width_meters();
+            let h = part.height_meters();
+            let r = Vec2::new(w, h).length();
+            let d = pos.length() + r;
             if d > bounding_radius {
                 bounding_radius = d;
             }
@@ -131,6 +151,30 @@ impl Vehicle {
 
     pub fn mass(&self) -> f32 {
         self.dry_mass + self.fuel_mass()
+    }
+
+    pub fn thruster_count(&self) -> usize {
+        self.thrusters.len()
+    }
+
+    pub fn tank_count(&self) -> usize {
+        self.tanks.len()
+    }
+
+    pub fn aabb(&self) -> AABB {
+        let mut ret: Option<AABB> = None;
+        for (pos, rot, part) in &self.parts {
+            let dims = meters_with_rotation(*rot, part);
+            let pos = pos.as_vec2() / crate::parts::parts::PIXELS_PER_METER;
+            let aabb = AABB::from_arbitrary(pos, pos + dims);
+            if let Some(r) = ret.as_mut() {
+                r.include(&pos);
+                r.include(&(pos + dims));
+            } else {
+                ret = Some(aabb);
+            }
+        }
+        ret.unwrap_or(AABB::unit())
     }
 
     pub fn low_fuel(&self) -> bool {

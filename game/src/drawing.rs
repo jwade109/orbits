@@ -265,8 +265,8 @@ fn draw_propagator(
 pub fn draw_vehicle(gizmos: &mut Gizmos, vehicle: &Vehicle, pos: Vec2, scale: f32) {
     for (p, rot, part) in &vehicle.parts {
         let angle = vehicle.angle() - PI / 2.0;
-        let dims = EditorContext::dims_with_rotation(*rot, part).as_vec2();
-        let center = rotate(p.as_vec2() + dims / 2.0, angle) * scale;
+        let dims = meters_with_rotation(*rot, part);
+        let center = rotate(p.as_vec2() / PIXELS_PER_METER + dims / 2.0, angle) * scale;
         let obb = OBB::new(
             AABB::from_arbitrary(scale * -dims / 2.0, scale * dims / 2.0),
             angle,
@@ -274,8 +274,6 @@ pub fn draw_vehicle(gizmos: &mut Gizmos, vehicle: &Vehicle, pos: Vec2, scale: f3
         .offset(center + pos);
         draw_obb(gizmos, &obb, WHITE);
     }
-
-    draw_x(gizmos, Vec2::ZERO, 4.0, WHITE);
 
     for thruster in vehicle.thrusters() {
         let p1 = rotate(thruster.pos, vehicle.angle()) * scale + pos;
@@ -337,7 +335,7 @@ fn draw_prograde_marker(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     draw_circle(gizmos, p, size * 0.5, color);
 }
 
-fn make_separation_graph(
+pub fn make_separation_graph(
     src: &SparseOrbit,
     dst: &SparseOrbit,
     now: Nanotime,
@@ -386,7 +384,7 @@ fn make_separation_graph(
     (g, v, pv)
 }
 
-fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
+pub fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let ctx = &state.orbital_context;
 
     let piloting = state.piloting()?;

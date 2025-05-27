@@ -1,397 +1,227 @@
 name: ''
 parts:
-- partname: frame
-  pos:
-  - 0
-  - 0
-  rot: East
-- partname: frame
-  pos:
-  - -10
-  - 0
-  rot: East
-- partname: frame
-  pos:
-  - -6
-  - -10
-  rot: East
-- partname: frame
-  pos:
-  - 4
-  - -12
-  rot: East
-- partname: frame
-  pos:
-  - -2
-  - -22
-  rot: East
-- partname: frame
-  pos:
-  - -13
-  - -24
-  rot: East
-- partname: frame
-  pos:
-  - -21
-  - -14
-  rot: East
-- partname: frame
-  pos:
-  - -20
-  - -4
-  rot: East
-- partname: frame
-  pos:
-  - -17
-  - 10
-  rot: East
-- partname: frame
-  pos:
-  - -27
-  - 8
-  rot: East
-- partname: frame
-  pos:
-  - -31
-  - -4
-  rot: East
-- partname: frame
-  pos:
-  - 1
-  - 10
-  rot: East
-- partname: frame
-  pos:
-  - 11
-  - 16
-  rot: East
-- partname: frame
-  pos:
-  - 16
-  - 6
-  rot: East
-- partname: frame
-  pos:
-  - 16
-  - -5
-  rot: East
-- partname: frame
-  pos:
-  - 14
-  - -16
-  rot: East
-- partname: frame
-  pos:
-  - 12
-  - -26
-  rot: East
-- partname: frame
-  pos:
-  - 6
-  - -36
-  rot: East
-- partname: frame
-  pos:
-  - 24
-  - -18
-  rot: East
-- partname: frame
-  pos:
-  - -6
-  - 20
-  rot: East
-- partname: frame
-  pos:
-  - -16
-  - 20
-  rot: East
-- partname: frame
-  pos:
-  - -38
-  - -16
-  rot: East
-- partname: frame
-  pos:
-  - -38
-  - -26
-  rot: East
-- partname: frame
-  pos:
-  - -36
-  - -37
-  rot: East
-- partname: frame
+- partname: frame3
   pos:
   - -30
-  - -47
+  - 8
   rot: East
-- partname: frame
+- partname: frame3
   pos:
-  - -19
-  - -47
-  rot: East
-- partname: frame
-  pos:
-  - -9
-  - -41
-  rot: East
-- partname: frame
-  pos:
-  - -25
-  - -24
-  rot: East
-- partname: frame
-  pos:
-  - -22
-  - -34
-  rot: East
-- partname: frame
-  pos:
-  - 31
-  - -8
-  rot: East
-- partname: frame
-  pos:
-  - 32
-  - 2
-  rot: East
-- partname: frame
-  pos:
-  - 40
-  - -18
-  rot: East
-- partname: frame
-  pos:
-  - 40
+  - -74
   - -28
   rot: East
-- partname: frame
+- partname: frame3
   pos:
-  - 35
-  - -38
-  rot: East
-- partname: frame
+  - 54
+  - -106
+  rot: West
+- partname: frame3
   pos:
-  - 25
-  - -42
-  rot: East
-- partname: frame
+  - 192
+  - -34
+  rot: South
+- partname: frame3
   pos:
-  - 12
-  - -46
-  rot: East
-- partname: frame
-  pos:
-  - 1
-  - -47
-  rot: East
-- partname: frame
-  pos:
-  - -43
-  - -6
-  rot: East
-- partname: frame
-  pos:
-  - -42
-  - 4
-  rot: East
-- partname: frame
-  pos:
-  - -33
-  - 18
-  rot: East
-- partname: frame
-  pos:
-  - -14
-  - 30
-  rot: East
-- partname: frame
-  pos:
-  - -4
-  - 30
-  rot: East
-- partname: frame
+  - 126
+  - 66
+  rot: South
+- partname: frame3
   pos:
   - 21
-  - 24
-  rot: East
-- partname: frame
+  - 100
+  rot: South
+- partname: frame3
   pos:
-  - 29
-  - 14
-  rot: East
-- partname: frame
+  - 11
+  - 94
+  rot: South
+- partname: frame3
   pos:
-  - 29
-  - -28
-  rot: East
-- partname: frame
+  - -122
+  - 80
+  rot: South
+- partname: frame3
   pos:
-  - -5
-  - -57
-  rot: East
-- partname: frame
+  - -132
+  - 69
+  rot: South
+- partname: frame3
   pos:
-  - -15
-  - -59
-  rot: East
-- partname: frame
+  - -204
+  - -39
+  rot: South
+- partname: frame3
   pos:
-  - -48
+  - -155
+  - -108
+  rot: South
+- partname: frame3
+  pos:
+  - -152
+  - -154
+  rot: South
+- partname: frame3
+  pos:
+  - -139
+  - -156
+  rot: South
+- partname: frame3
+  pos:
+  - -123
+  - -157
+  rot: South
+- partname: frame3
+  pos:
+  - 21
+  - -167
+  rot: South
+- partname: frame3
+  pos:
+  - -145
+  - -83
+  rot: South
+- partname: frame3
+  pos:
+  - -163
+  - 1
+  rot: South
+- partname: frame3
+  pos:
+  - 77
+  - 40
+  rot: East
+- partname: frame3
+  pos:
+  - 78
+  - 84
+  rot: East
+- partname: frame3
+  pos:
+  - 33
+  - 37
+  rot: East
+- partname: frame3
+  pos:
+  - -118
+  - -4
+  rot: East
+- partname: frame3
+  pos:
+  - -100
+  - -93
+  rot: East
+- partname: frame3
+  pos:
+  - 49
   - -30
   rot: East
-- partname: frame
+- partname: frame3
   pos:
-  - -52
-  - -19
+  - 88
+  - 10
   rot: East
-- partname: frame
+- partname: frame3
+  pos:
+  - 108
+  - -120
+  rot: East
+- partname: frame3
+  pos:
+  - 1
+  - -74
+  rot: East
+- partname: frame3
   pos:
   - -43
-  - 19
+  - 105
   rot: East
-- partname: frame
-  pos:
-  - -53
-  - 11
-  rot: East
-- partname: frame
-  pos:
-  - -57
-  - 1
-  rot: East
-- partname: frame
-  pos:
-  - -57
-  - -9
-  rot: East
-- partname: frame
-  pos:
-  - -24
-  - 30
-  rot: East
-- partname: plate
-  pos:
-  - -31
-  - 4
-  rot: East
-- partname: plate
-  pos:
-  - -35
-  - -7
-  rot: East
-- partname: plate
-  pos:
-  - -36
-  - -18
-  rot: East
-- partname: plate
-  pos:
-  - -33
-  - -29
-  rot: East
-- partname: plate
-  pos:
-  - -25
-  - -39
-  rot: East
-- partname: plate
-  pos:
-  - -15
-  - -42
-  rot: East
-- partname: plate
-  pos:
-  - -4
-  - -42
-  rot: East
-- partname: plate
-  pos:
-  - 6
-  - -33
-  rot: East
-- partname: plate
-  pos:
-  - 5
-  - -23
-  rot: East
-- partname: plate
-  pos:
-  - -2
-  - -13
-  rot: East
-- partname: plate
-  pos:
-  - -6
-  - -2
-  rot: East
-- partname: plate
-  pos:
-  - -8
-  - 8
-  rot: East
-- partname: plate
-  pos:
-  - 3
-  - 8
-  rot: East
-- partname: plate
+- partname: frame3
   pos:
   - 10
-  - -2
+  - 173
   rot: East
-- partname: plate
+- partname: frame3
   pos:
-  - 9
-  - -12
+  - 55
+  - 159
   rot: East
-- partname: plate
+- partname: frame3
   pos:
-  - -13
-  - -21
+  - -19
+  - -167
+  rot: South
+- partname: frame3
+  pos:
+  - -87
+  - -194
+  rot: South
+- partname: frame3
+  pos:
+  - 85
+  - -77
   rot: East
-- partname: plate
+- partname: frame3
   pos:
-  - 16
-  - -30
+  - -69
+  - 75
   rot: East
-- partname: plate
+- partname: frame3
   pos:
-  - 27
-  - -33
+  - -87
+  - 58
   rot: East
-- partname: plate
+- partname: frame3
   pos:
-  - 30
-  - -23
-  rot: East
-- partname: plate
-  pos:
-  - 30
-  - -13
-  rot: East
-- partname: plate
-  pos:
-  - 28
-  - -3
-  rot: East
-- partname: plate
-  pos:
+  - -83
   - 18
-  - 8
-  rot: East
-- partname: plate
+  rot: North
+- partname: frame3
   pos:
-  - -18
-  - 6
-  rot: East
-- partname: plate
+  - -73
+  - -5
+  rot: North
+- partname: frame3
   pos:
-  - -24
-  - -6
-  rot: East
-- partname: plate
+  - -91
+  - -44
+  rot: North
+- partname: frame3
   pos:
-  - -24
-  - -17
-  rot: East
+  - 35
+  - -128
+  rot: North
+- partname: frame3
+  pos:
+  - 89
+  - -154
+  rot: North
+- partname: frame3
+  pos:
+  - -96
+  - 152
+  rot: South
+- partname: frame3
+  pos:
+  - -37
+  - 187
+  rot: South
+- partname: frame3
+  pos:
+  - -36
+  - 115
+  rot: North
+- partname: frame3
+  pos:
+  - 178
+  - -34
+  rot: North
+- partname: frame3
+  pos:
+  - 127
+  - -63
+  rot: North
+- partname: frame3
+  pos:
+  - 136
+  - 44
+  rot: North

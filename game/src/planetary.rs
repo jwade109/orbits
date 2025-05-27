@@ -39,6 +39,7 @@ impl Plugin for PlanetaryPlugin {
                 crate::sprites::update_background_sprite,
                 crate::sprites::update_spacecraft_sprites,
                 crate::drawing::draw_game_state,
+                sound_system,
             )
                 .chain(),
         );
@@ -48,12 +49,20 @@ impl Plugin for PlanetaryPlugin {
 #[derive(Component, Debug)]
 pub struct BackgroundCamera;
 
-fn init_system(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn sound_system(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut state: ResMut<GameState>,
+) {
+    if state.button_was_pressed {
+        let path = std::fs::canonicalize(state.args.audio_dir().join("button-up.ogg")).unwrap();
+        commands.spawn((AudioPlayer::new(asset_server.load(path)),));
+        state.button_was_pressed = false;
+    }
+}
+
+fn init_system(mut commands: Commands) {
     let g = GameState::default();
-
-    let path = std::fs::canonicalize(g.args.audio_dir().join("button-down.ogg")).unwrap();
-
-    commands.spawn((AudioPlayer::new(asset_server.load(path)),));
 
     commands.insert_resource(g);
     commands.spawn((
@@ -152,6 +161,7 @@ pub struct GameState {
     pub notifications: Vec<Notification>,
 
     pub is_exit_prompt: bool,
+    pub button_was_pressed: bool,
 }
 
 fn generate_starfield() -> Vec<(Vec3, Srgba, f32, f32)> {
@@ -222,6 +232,7 @@ impl Default for GameState {
             last_redraw: Nanotime::zero(),
             notifications: Vec::new(),
             is_exit_prompt: false,
+            button_was_pressed: true,
         };
 
         let orbit = SparseOrbit::new(
@@ -632,6 +643,8 @@ impl GameState {
     }
 
     pub fn on_button_event(&mut self, id: OnClick) -> Option<()> {
+        self.button_was_pressed = true;
+
         match id {
             OnClick::CurrentBody(id) => self.orbital_context.following = Some(ObjectId::Planet(id)),
             OnClick::Orbiter(id) => self.orbital_context.following = Some(ObjectId::Orbiter(id)),
@@ -781,11 +794,30 @@ impl GameState {
         self.ui.at(p, wb).map(|n| n.is_visible()).unwrap_or(false)
     }
 
-    fn handle_click_events(&mut self) {
+    fn maybe_trigger_click_event(&mut self) -> Option<()> {
         use FrameId::*;
         use MouseButt::*;
 
         let wb = self.input.screen_bounds.span;
+
+        let p = self.input.position(Left, Down)?;
+        let q = self.input.position(Left, Up)?;
+        let n = self.ui.at(p, wb)?;
+        let m = self.ui.at(q, wb)?;
+        if !n.is_enabled() || !m.is_enabled() {
+            return None;
+        }
+        let n = n.on_click()?;
+        let m = m.on_click()?;
+        if n == m {
+            self.on_button_event(n.clone());
+        }
+        return Some(());
+    }
+
+    fn handle_click_events(&mut self) {
+        use FrameId::*;
+        use MouseButt::*;
 
         if self.input.on_frame(Left, Down).is_some() {
             self.redraw();
@@ -793,17 +825,7 @@ impl GameState {
 
         if self.input.on_frame(Left, Up).is_some() {
             self.redraw();
-            let p = self.input.position(Left, Down);
-            let q = self.input.position(Left, Up);
-            if let Some((p, q)) = p.zip(q) {
-                let n = self.ui.at(p, wb).map(|n| n.on_click()).flatten();
-                let m = self.ui.at(q, wb).map(|n| n.on_click()).flatten();
-                if let Some((n, m)) = n.zip(m) {
-                    if n == m {
-                        self.on_button_event(n.clone());
-                    }
-                }
-            }
+            self.maybe_trigger_click_event();
         }
 
         if self.input.on_frame(Right, Down).is_some() {

@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 
+pub const PIXELS_PER_METER: f32 = 8.0;
+
 fn part_from_path(path: &Path) -> Result<PartProto, String> {
     let image_path = path.join("skin.png");
     let data_path = path.join("metadata.yaml");
@@ -46,6 +48,14 @@ impl PartProto {
             path,
             data,
         }
+    }
+
+    pub fn width_meters(&self) -> f32 {
+        self.width as f32 / PIXELS_PER_METER
+    }
+
+    pub fn height_meters(&self) -> f32 {
+        self.height as f32 / PIXELS_PER_METER
     }
 
     pub fn to_z_index(&self) -> f32 {
