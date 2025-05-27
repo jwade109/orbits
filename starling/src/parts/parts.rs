@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 
-pub const PIXELS_PER_METER: f32 = 8.0;
+pub const PIXELS_PER_METER: f32 = 20.0;
 
 fn part_from_path(path: &Path) -> Result<PartProto, String> {
     let image_path = path.join("skin.png");

@@ -1,7 +1,6 @@
 use crate::drawing::*;
 use crate::mouse::InputState;
 use crate::planetary::GameState;
-use crate::scenes::craft_editor::part_sprite_path;
 use crate::scenes::Render;
 use crate::scenes::{CameraProjection, Interactive, StaticSpriteDescriptor, TextLabel};
 use bevy::color::palettes::css::*;
