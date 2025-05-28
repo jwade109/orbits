@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Deserialize, Serialize)]
 pub struct PV {
-    pos: DVec2,
-    vel: DVec2,
+    pub pos: DVec2,
+    pub vel: DVec2,
 }
 
 impl PV {
@@ -32,6 +32,7 @@ impl PV {
         self.vel.as_vec2()
     }
 
+    #[deprecated]
     pub fn from_f32(pos: impl Into<Vec2>, vel: impl Into<Vec2>) -> Self {
         PV {
             pos: pos.into().as_dvec2(),

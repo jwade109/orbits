@@ -420,7 +420,7 @@ impl SparseOrbit {
             stamp - self.epoch
         };
 
-        let ul = universal_lagrange(self.initial, tof, self.body.mu());
+        let ul = universal_lagrange(self.initial, tof, self.body.mu() as f64);
         let sol = ul.1.ok_or(ul.0)?;
         if sol.pv.pos_f32().length() > 3.0 * self.body.soi {
             return Err(ul.0);
@@ -493,7 +493,7 @@ impl SparseOrbit {
 
     pub fn inverse(&self) -> Option<SparseOrbit> {
         SparseOrbit::from_pv(
-            PV::from_f32(self.initial.pos_f32(), -self.initial.vel_f32()),
+            PV::from_f64(self.initial.pos, -self.initial.vel),
             self.body,
             self.epoch,
         )
@@ -698,7 +698,7 @@ pub enum OrbitClass {
 
 // 2nd stumpff function
 // aka C(z)
-pub fn stumpff_2(z: f32) -> f32 {
+pub fn stumpff_2(z: f64) -> f64 {
     let midwidth = 0.01;
     if z > midwidth {
         (1.0 - z.sqrt().cos()) / z
@@ -711,7 +711,7 @@ pub fn stumpff_2(z: f32) -> f32 {
 
 // 3rd stumpff function
 // aka S(z)
-pub fn stumpff_3(z: f32) -> f32 {
+pub fn stumpff_3(z: f64) -> f64 {
     let midwidth = 0.01;
     if z > midwidth {
         (z.sqrt() - z.sqrt().sin()) / z.powf(1.5)
@@ -722,7 +722,7 @@ pub fn stumpff_3(z: f32) -> f32 {
     }
 }
 
-fn universal_kepler(chi: f32, r_0: f32, v_r0: f32, alpha: f32, delta_t: f32, mu: f32) -> f32 {
+fn universal_kepler(chi: f64, r_0: f64, v_r0: f64, alpha: f64, delta_t: f64, mu: f64) -> f64 {
     let z = alpha * chi.powi(2);
     let first_term = r_0 * v_r0 / mu.sqrt() * chi.powi(2) * stumpff_2(z);
     let second_term = (1.0 - alpha * r_0) * chi.powi(3) * stumpff_3(z);
@@ -734,49 +734,49 @@ fn universal_kepler(chi: f32, r_0: f32, v_r0: f32, alpha: f32, delta_t: f32, mu:
 #[derive(Debug, Copy, Clone)]
 pub(crate) struct LangrangeCoefficients {
     #[allow(unused)]
-    pub(crate) s2: f32,
+    pub(crate) s2: f64,
     #[allow(unused)]
-    pub(crate) s3: f32,
-    pub(crate) f: f32,
-    pub(crate) g: f32,
-    pub(crate) fdot: f32,
-    pub(crate) gdot: f32,
+    pub(crate) s3: f64,
+    pub(crate) f: f64,
+    pub(crate) g: f64,
+    pub(crate) fdot: f64,
+    pub(crate) gdot: f64,
 }
 
 #[derive(Debug, Copy, Clone)]
 pub struct ULData {
     pub(crate) initial: PV,
     pub(crate) tof: Nanotime,
-    pub(crate) mu: f32,
-    pub(crate) r_0: f32,
-    pub(crate) v_r0: f32,
-    pub(crate) chi_0: f32,
-    pub(crate) alpha: f32,
+    pub(crate) mu: f64,
+    pub(crate) r_0: f64,
+    pub(crate) v_r0: f64,
+    pub(crate) chi_0: f64,
+    pub(crate) alpha: f64,
 }
 
 impl ULData {
-    fn new(initial: impl Into<PV>, tof: Nanotime, mu: f32) -> Self {
+    fn new(initial: impl Into<PV>, tof: Nanotime, mu: f64) -> Self {
         let initial = initial.into();
-        let r_0 = initial.pos_f32().length();
-        let alpha = 2.0 / r_0 - initial.vel_f32().dot(initial.vel_f32()) / mu;
+        let r_0 = initial.pos.length();
+        let alpha = 2.0 / r_0 - initial.vel.dot(initial.vel) / mu;
         ULData {
             initial,
             tof,
             mu,
             r_0,
-            v_r0: initial.vel_f32().dot(initial.pos_f32()) / r_0,
+            v_r0: initial.vel.dot(initial.pos) / r_0,
             alpha,
-            chi_0: mu.sqrt() * alpha.abs() * tof.to_secs(),
+            chi_0: mu.sqrt() * alpha.abs() * tof.to_secs_f64(),
         }
     }
 
-    fn universal_kepler(&self, chi: f32) -> f32 {
+    fn universal_kepler(&self, chi: f64) -> f64 {
         universal_kepler(
             chi,
             self.r_0,
             self.v_r0,
             self.alpha,
-            self.tof.to_secs(),
+            self.tof.to_secs_f64(),
             self.mu,
         )
     }
@@ -793,12 +793,12 @@ impl ULData {
             0.0
         } else {
             match rootfinder::root_bisection(
-                &|x: f64| self.universal_kepler(x as f32) as f64,
-                rootfinder::Interval::new(chi_min as f64, chi_max as f64),
+                &|x: f64| self.universal_kepler(x),
+                rootfinder::Interval::new(chi_min, chi_max),
                 None,
                 None,
             ) {
-                Ok(x) => x as f32,
+                Ok(x) => x,
                 Err(_) => {
                     return None;
                 }
@@ -816,13 +816,13 @@ impl ULData {
 #[derive(Debug, Copy, Clone)]
 pub struct ULResults {
     pub(crate) pv: PV,
-    pub chi: f32,
-    pub(crate) z: f32,
+    pub chi: f64,
+    pub(crate) z: f64,
     pub(crate) lc: LangrangeCoefficients,
 }
 
 impl ULResults {
-    fn new(chi: f32, data: &ULData) -> Option<Self> {
+    fn new(chi: f64, data: &ULData) -> Option<Self> {
         let z = data.alpha * chi.powi(2);
         let lcoeffs = lagrange_coefficients(data.initial, chi, data.mu, data.tof);
         let pv = lagrange_pv(data.initial, &lcoeffs).filter_numerr()?;
@@ -840,7 +840,7 @@ impl ULResults {
 pub fn universal_lagrange(
     initial: impl Into<PV>,
     tof: Nanotime,
-    mu: f32,
+    mu: f64,
 ) -> (ULData, Option<ULResults>) {
     let data = ULData::new(initial, tof, mu);
     (data, data.solve())
@@ -848,7 +848,7 @@ pub fn universal_lagrange(
 pub fn universal_lagrange_fast(
     initial: impl Into<PV>,
     tof: Nanotime,
-    mu: f32,
+    mu: f64,
 ) -> (ULData, Option<ULResults>) {
     let data = ULData::new(initial, tof, mu);
     (data, data.solve_fast())
@@ -856,19 +856,19 @@ pub fn universal_lagrange_fast(
 
 pub(crate) fn lagrange_coefficients(
     initial: impl Into<PV>,
-    chi: f32,
-    mu: f32,
+    chi: f64,
+    mu: f64,
     dt: Nanotime,
 ) -> LangrangeCoefficients {
     let initial = initial.into();
-    let vec_r_0 = initial.pos_f32();
-    let vec_v_0 = initial.vel_f32();
+    let vec_r_0 = initial.pos;
+    let vec_v_0 = initial.vel;
 
     let r_0 = vec_r_0.length();
 
     let alpha = 2.0 / r_0 - vec_v_0.dot(vec_v_0) / mu;
 
-    let delta_t = dt.to_secs();
+    let delta_t = dt.to_secs_f64();
 
     let z = alpha * chi.powi(2);
 
@@ -896,9 +896,9 @@ pub(crate) fn lagrange_coefficients(
 
 pub(crate) fn lagrange_pv(initial: impl Into<PV>, coeff: &LangrangeCoefficients) -> PV {
     let initial = initial.into();
-    let vec_r = coeff.f * initial.pos_f32() + coeff.g * initial.vel_f32();
-    let vec_v = coeff.fdot * initial.pos_f32() + coeff.gdot * initial.vel_f32();
-    PV::from_f32(vec_r, vec_v)
+    let vec_r = coeff.f * initial.pos + coeff.g * initial.vel;
+    let vec_v = coeff.fdot * initial.pos + coeff.gdot * initial.vel;
+    PV::from_f64(vec_r, vec_v)
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
@@ -964,7 +964,7 @@ mod tests {
             };
             let r2 = particle.pos_f32().length_squared();
             let a = -orbit.body.mu() / r2 * particle.pos_f32().normalize_or_zero();
-            let delta = PV::from_f32(a * dt.to_secs(), particle.vel_f32() * dt.to_secs());
+            let delta = PV::from_f64(a * dt.to_secs(), particle.vel_f32() * dt.to_secs());
             particle += delta;
 
             let error = porbit.pos_f32().distance(particle.pos_f32());
@@ -1147,7 +1147,7 @@ mod tests {
     #[test]
     fn orbit_001_elliptical() {
         orbit_consistency_test(
-            PV::from_f32((669.058, -1918.289), (74.723, 60.678)),
+            PV::from_f64((669.058, -1918.289), (74.723, 60.678)),
             OrbitClass::Elliptical,
             Body::with_mass(63.0, 1000.0, 15000.0),
             0.6335363,
@@ -1158,7 +1158,7 @@ mod tests {
     #[test]
     fn orbit_002_elliptical() {
         orbit_consistency_test(
-            PV::from_f32((430.0, 230.0), (-50.14, 40.13)),
+            PV::from_f64((430.0, 230.0), (-50.14, 40.13)),
             OrbitClass::Elliptical,
             Body::with_mass(63.0, 1000.0, 15000.0),
             0.860516,
@@ -1169,7 +1169,7 @@ mod tests {
     #[test]
     fn orbit_003_hyperbolic() {
         orbit_consistency_test(
-            PV::from_f32((0.0, -222.776), (333.258, 0.000)),
+            PV::from_f64((0.0, -222.776), (333.258, 0.000)),
             OrbitClass::Hyperbolic,
             Body::with_mass(63.0, 1000.0, 15000.0),
             1.0618086,
@@ -1180,7 +1180,7 @@ mod tests {
     #[test]
     fn orbit_004_elliptical() {
         orbit_consistency_test(
-            PV::from_f32((1520.323, 487.734), (-84.935, 70.143)),
+            PV::from_f64((1520.323, 487.734), (-84.935, 70.143)),
             OrbitClass::Elliptical,
             Body::with_mass(63.0, 1000.0, 15000.0),
             0.74756867,
@@ -1191,7 +1191,7 @@ mod tests {
     #[test]
     fn orbit_005_hyperbolic() {
         orbit_consistency_test(
-            PV::from_f32((5535.6294, -125.794685), (-66.63476, 16.682587)),
+            PV::from_f64((5535.6294, -125.794685), (-66.63476, 16.682587)),
             OrbitClass::Hyperbolic,
             Body::with_mass(63.0, 1000.0, 15000.0),
             1.0093584,
@@ -1202,7 +1202,7 @@ mod tests {
     #[test]
     fn orbit_006_hyperbolic() {
         orbit_consistency_test(
-            PV::from_f32((65.339584, 1118.9651), (-138.84702, -279.47888)),
+            PV::from_f64((65.339584, 1118.9651), (-138.84702, -279.47888)),
             OrbitClass::Hyperbolic,
             Body::with_mass(63.0, 1000.0, 15000.0),
             3.3041847,
@@ -1213,7 +1213,7 @@ mod tests {
     #[test]
     fn orbit_007_hyperbolic() {
         orbit_consistency_test(
-            PV::from_f32((-1856.4648, -1254.9697), (216.31313, -85.84622)),
+            PV::from_f64((-1856.4648, -1254.9697), (216.31313, -85.84622)),
             OrbitClass::Hyperbolic,
             Body::with_mass(63.0, 1000.0, 15000.0),
             7.5504527,
@@ -1224,7 +1224,7 @@ mod tests {
     #[test]
     fn orbit_008_hyperbolic() {
         orbit_consistency_test(
-            PV::from_f32((-72.39488, 662.50507), (3.4047441, 71.81263)),
+            PV::from_f64((-72.39488, 662.50507), (3.4047441, 71.81263)),
             OrbitClass::Hyperbolic,
             Body::with_mass(22.0, 10.0, 800.0),
             4.422243,
@@ -1235,7 +1235,7 @@ mod tests {
     #[test]
     fn orbit_009_hyperbolic() {
         orbit_consistency_test(
-            PV::from_f32((825.33563, 564.6425), (200.0, 230.0)),
+            PV::from_f64((825.33563, 564.6425), (200.0, 230.0)),
             OrbitClass::Hyperbolic,
             Body::with_mass(63.0, 1000.0, 15000.0),
             1.9568859,
@@ -1246,7 +1246,7 @@ mod tests {
     #[test]
     fn orbit_011_elliptical() {
         orbit_consistency_test(
-            PV::from_f32((-70.0, 600.0), (3.0, 16.0)),
+            PV::from_f64((-70.0, 600.0), (3.0, 16.0)),
             OrbitClass::HighlyElliptical,
             Body::with_mass(22.0, 10.0, 800.0),
             0.96003157,
@@ -1257,7 +1257,7 @@ mod tests {
     #[test]
     fn orbit_012_elliptical() {
         orbit_consistency_test(
-            PV::from_f32((-70.0, 600.0), (3.0, 9.0)),
+            PV::from_f64((-70.0, 600.0), (3.0, 9.0)),
             OrbitClass::HighlyElliptical,
             Body::with_mass(22.0, 10.0, 800.0),
             0.93487203,
@@ -1286,7 +1286,7 @@ mod tests {
     #[test]
     fn orbit_013_elliptical() {
         orbit_consistency_test(
-            PV::from_f32((1687.193, -2242.213), (59.740, 44.953)),
+            PV::from_f64((1687.193, -2242.213), (59.740, 44.953)),
             OrbitClass::Elliptical,
             Body::with_mass(63.0, 1000.0, 15000.0),
             0.30708584,
@@ -1297,7 +1297,7 @@ mod tests {
     // #[test]
     // fn orbit_014_elliptical() {
     //     orbit_consistency_test(
-    //         PV::from_f32((-3485.286, 1511.773), (-25.496, -58.779)),
+    //         PV::from_f64((-3485.286, 1511.773), (-25.496, -58.779)),
     //         OrbitClass::Elliptical,
     //         Body::with_mass(63.0, 1000.0, 15000.0),
     //         0.29959226,
@@ -1308,7 +1308,7 @@ mod tests {
     // #[test]
     // fn orbit_015_elliptical() {
     //     orbit_consistency_test(
-    //         PV::from_f32((-3485.286, 1511.773), (-21.694, -50.014)),
+    //         PV::from_f64((-3485.286, 1511.773), (-21.694, -50.014)),
     //         OrbitClass::Elliptical,
     //         Body::with_mass(63.0, 1000.0, 15000.0),
     //         0.30708584,
@@ -1319,7 +1319,7 @@ mod tests {
     #[test]
     fn assert_positions_are_as_expected_universal() {
         let body = Body::with_mass(300.0, 1000.0, 100000.0);
-        let pv = PV::from_f32((6500.0, 7000.0), (-14.0, 11.0));
+        let pv = PV::from_f64((6500.0, 7000.0), (-14.0, 11.0));
         let orbit = SparseOrbit::from_pv(pv, body, Nanotime::zero()).unwrap();
         let inverse = orbit.inverse().unwrap();
 
@@ -1358,7 +1358,7 @@ mod tests {
         for (orbit, tests) in &[(orbit, tests_1), (inverse, tests_2)] {
             for (t, (p, v)) in tests {
                 let t = Nanotime::secs(*t);
-                let pv = PV::from_f32(*p, *v);
+                let pv = PV::from_f64(*p, *v);
                 let actual = orbit.pv_universal(t).unwrap();
                 let d = pv - actual;
                 assert!(
@@ -1375,7 +1375,7 @@ mod tests {
     #[test]
     fn assert_true_anomaly_pos_as_expected() {
         let body = Body::with_mass(300.0, 1000.0, 100000.0);
-        let pv = PV::from_f32((6500.0, 7000.0), (-14.0, 11.0));
+        let pv = PV::from_f64((6500.0, 7000.0), (-14.0, 11.0));
         let orbit = SparseOrbit::from_pv(pv, body, Nanotime::zero()).unwrap();
 
         orbit_consistency_test(pv, OrbitClass::Elliptical, body, 0.7496509, false);
@@ -1439,7 +1439,7 @@ mod tests {
 
         assert_eq!(
             res.unwrap().pv,
-            PV::from_f32((-3297.7869, 7413.3867), (-8.297602, -0.9640651))
+            PV::from_f64((-3297.7869, 7413.3867), (-8.297602, -0.9640651))
         );
     }
 

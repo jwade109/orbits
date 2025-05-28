@@ -1,4 +1,4 @@
-use crate::math::{apply, linspace};
+use crate::math::{apply, linspace_f64};
 use crate::nanotime::Nanotime;
 use crate::orbiter::Orbiter;
 use crate::orbits::{universal_lagrange, SparseOrbit};
@@ -6,7 +6,7 @@ use serde_yaml;
 
 pub fn write_csv(
     filename: &std::path::Path,
-    signals: &[(&str, &[f32])],
+    signals: &[(&str, &[f64])],
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut writer = csv::Writer::from_path(filename)?;
 
@@ -39,28 +39,28 @@ pub fn export_orbit_data(
     let orbit_data_path = std::path::Path::new("orbit_data/");
     std::fs::create_dir_all(&orbit_data_path)?;
 
-    let a = orbit.period().unwrap_or(Nanotime::secs(30)).to_secs();
+    let a = orbit.period().unwrap_or(Nanotime::secs(30)).to_secs_f64();
 
-    let ftime = linspace(-a, a, 100000);
+    let ftime = linspace_f64(-a, a, 100000);
 
-    let nt = apply(&ftime, |x| Nanotime::secs_f32(x));
+    let nt = apply(&ftime, |x| Nanotime::secs_f64(x));
 
     let data = apply(&nt, |x| {
-        universal_lagrange(orbit.initial, x, orbit.body.mu())
+        universal_lagrange(orbit.initial, x, orbit.body.mu() as f64)
     });
 
-    let x = apply(&data, |x| x.1.map(|d| d.pv.pos_f32().x).unwrap_or(f32::NAN));
-    let y = apply(&data, |x| x.1.map(|d| d.pv.pos_f32().y).unwrap_or(f32::NAN));
-    let vx = apply(&data, |x| x.1.map(|d| d.pv.pos_f32().x).unwrap_or(f32::NAN));
-    let vy = apply(&data, |x| x.1.map(|d| d.pv.pos_f32().y).unwrap_or(f32::NAN));
+    let x = apply(&data, |x| x.1.map(|d| d.pv.pos.x).unwrap_or(f64::NAN));
+    let y = apply(&data, |x| x.1.map(|d| d.pv.pos.y).unwrap_or(f64::NAN));
+    let vx = apply(&data, |x| x.1.map(|d| d.pv.pos.x).unwrap_or(f64::NAN));
+    let vy = apply(&data, |x| x.1.map(|d| d.pv.pos.y).unwrap_or(f64::NAN));
     let r = apply(&data, |x| {
-        x.1.map(|d| d.pv.pos_f32().length()).unwrap_or(f32::NAN)
+        x.1.map(|d| d.pv.pos.length()).unwrap_or(f64::NAN)
     });
-    let z = apply(&data, |x| x.1.map(|d| d.z).unwrap_or(f32::NAN));
-    let f = apply(&data, |x| x.1.map(|d| d.lc.f).unwrap_or(f32::NAN));
-    let g = apply(&data, |x| x.1.map(|d| d.lc.g).unwrap_or(f32::NAN));
-    let fdot = apply(&data, |x| x.1.map(|d| d.lc.fdot).unwrap_or(f32::NAN));
-    let gdot = apply(&data, |x| x.1.map(|d| d.lc.gdot).unwrap_or(f32::NAN));
+    let z = apply(&data, |x| x.1.map(|d| d.z).unwrap_or(f64::NAN));
+    let f = apply(&data, |x| x.1.map(|d| d.lc.f).unwrap_or(f64::NAN));
+    let g = apply(&data, |x| x.1.map(|d| d.lc.g).unwrap_or(f64::NAN));
+    let fdot = apply(&data, |x| x.1.map(|d| d.lc.fdot).unwrap_or(f64::NAN));
+    let gdot = apply(&data, |x| x.1.map(|d| d.lc.gdot).unwrap_or(f64::NAN));
 
     write_csv(
         &orbit_data_path.join(filename),
@@ -100,7 +100,7 @@ mod tests {
     #[test]
     fn strl_test() {
         let orbit = SparseOrbit::from_pv(
-            PV::from_f32((-70.0, 600.0), (3.0, 9.0)),
+            PV::from_f64((-70.0, 600.0), (3.0, 9.0)),
             Body::with_mass(22.0, 10.0, 800.0),
             Nanotime::zero(),
         )
