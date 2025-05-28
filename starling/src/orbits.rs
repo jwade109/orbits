@@ -1,10 +1,11 @@
 use crate::aabb::{AABB, OBB};
-use crate::math::{cross2d, linspace, rotate, tspace, PI};
+use crate::math::{cross2d, rotate_f64, tspace, PI, PI_64};
 use crate::nanotime::Nanotime;
 use crate::orbiter::PlanetId;
 use crate::planning::search_condition;
 use crate::pv::PV;
 use glam::f32::Vec2;
+use glam::f64::DVec2;
 use serde::{Deserialize, Serialize};
 
 pub fn hyperbolic_range_ta(ecc: f32) -> f32 {
@@ -13,6 +14,10 @@ pub fn hyperbolic_range_ta(ecc: f32) -> f32 {
 
 pub fn wrap_pi_npi(x: f32) -> f32 {
     f32::atan2(x.sin(), x.cos())
+}
+
+pub fn wrap_pi_npi_f64(x: f64) -> f64 {
+    f64::atan2(x.sin(), x.cos())
 }
 
 pub fn wrap_0_2pi(x: f32) -> f32 {
@@ -81,23 +86,23 @@ impl<T: Clone + Copy> ApproachInfo<T> {
 
 #[derive(Debug, Clone, Copy)]
 enum Anomaly {
-    Elliptical(f32),
-    Parabolic(f32),
-    Hyperbolic(f32),
+    Elliptical(f64),
+    Parabolic(f64),
+    Hyperbolic(f64),
 }
 
 impl Anomaly {
-    fn with_ecc(ecc: f32, anomaly: f32) -> Self {
+    fn with_ecc(ecc: f64, anomaly: f64) -> Self {
         if ecc > 1.0 {
             Anomaly::Hyperbolic(anomaly)
         } else if ecc == 1.0 {
             Anomaly::Parabolic(anomaly)
         } else {
-            Anomaly::Elliptical(wrap_pi_npi(anomaly))
+            Anomaly::Elliptical(wrap_pi_npi_f64(anomaly))
         }
     }
 
-    fn as_f32(&self) -> f32 {
+    fn as_f64(&self) -> f64 {
         match self {
             Anomaly::Elliptical(v) => *v,
             Anomaly::Parabolic(v) => *v,
@@ -106,10 +111,10 @@ impl Anomaly {
     }
 }
 
-fn true_to_eccentric(true_anomaly: Anomaly, ecc: f32) -> Anomaly {
+fn true_to_eccentric(true_anomaly: Anomaly, ecc: f64) -> Anomaly {
     match true_anomaly {
         Anomaly::Elliptical(v) => Anomaly::Elliptical({
-            let term = f32::sqrt((1. - ecc) / (1. + ecc)) * f32::tan(0.5 * v);
+            let term = f64::sqrt((1.0 - ecc) / (1.0 + ecc)) * f64::tan(0.5 * v);
             2.0 * term.atan()
         }),
         Anomaly::Hyperbolic(v) => {
@@ -120,7 +125,7 @@ fn true_to_eccentric(true_anomaly: Anomaly, ecc: f32) -> Anomaly {
     }
 }
 
-fn eccentric_to_mean(eccentric_anomaly: Anomaly, ecc: f32) -> Anomaly {
+fn eccentric_to_mean(eccentric_anomaly: Anomaly, ecc: f64) -> Anomaly {
     match eccentric_anomaly {
         Anomaly::Elliptical(v) => Anomaly::Elliptical(v - ecc * v.sin()),
         Anomaly::Hyperbolic(v) => Anomaly::Hyperbolic(ecc * v.sinh() - v),
@@ -131,7 +136,6 @@ fn eccentric_to_mean(eccentric_anomaly: Anomaly, ecc: f32) -> Anomaly {
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]
 pub struct Body {
     pub radius: f32,
-    // pub _mass: f32,
     pub mu: f32,
     pub soi: f32,
 }
@@ -155,15 +159,15 @@ impl Body {
 }
 
 // https://en.wikipedia.org/wiki/Vis-viva_equation
-pub fn vis_viva_equation(mu: f32, r: f32, a: f32) -> f32 {
+pub fn vis_viva_equation(mu: f64, r: f64, a: f64) -> f64 {
     (mu * (2.0 / r - 1.0 / a)).sqrt()
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub struct SparseOrbit {
-    eccentricity: f32,
-    pub semi_major_axis: f32,
-    pub arg_periapsis: f32,
+    eccentricity: f64,
+    pub semi_major_axis: f64,
+    pub arg_periapsis: f64,
     pub body: Body,
     pub initial: PV,
     pub epoch: Nanotime,
@@ -176,17 +180,17 @@ impl SparseOrbit {
 
         pv.filter_numerr()?;
 
-        let r3 = pv.pos.extend(0.0);
-        let v3 = pv.vel.extend(0.0);
+        let r3 = pv.pos_f32().extend(0.0).as_dvec3();
+        let v3 = pv.vel_f32().extend(0.0).as_dvec3();
         let h = r3.cross(v3);
-        let e = v3.cross(h) / body.mu() - r3 / r3.length();
-        let arg_periapsis: f32 = f32::atan2(e.y, e.x);
-        let semi_major_axis: f32 = h.length_squared() / (body.mu() * (1.0 - e.length_squared()));
+        let e = v3.cross(h) / body.mu() as f64 - r3 / r3.length();
+        let arg_periapsis = f64::atan2(e.y, e.x);
+        let semi_major_axis = h.length_squared() / (body.mu() as f64 * (1.0 - e.length_squared()));
 
-        let mut true_anomaly = f32::acos(e.dot(r3) / (e.length() * r3.length()));
+        let mut true_anomaly = f64::acos(e.dot(r3) / (e.length() * r3.length()));
         if r3.dot(v3) < 0.0 {
             true_anomaly = if e.length() < 1.0 {
-                2.0 * PI - true_anomaly
+                2.0 * PI_64 - true_anomaly
             } else {
                 -true_anomaly
             };
@@ -200,8 +204,8 @@ impl SparseOrbit {
             } else {
                 let eccentric_anomaly = true_to_eccentric(true_anomaly, e.length());
                 let mean_anomaly = eccentric_to_mean(eccentric_anomaly, e.length());
-                let mean_motion = (body.mu() / semi_major_axis.abs().powi(3)).sqrt();
-                Some(epoch - Nanotime::secs_f32(mean_anomaly.as_f32() / mean_motion))
+                let mean_motion = (body.mu() as f64 / semi_major_axis.abs().powi(3)).sqrt();
+                Some(epoch - Nanotime::secs_f64(mean_anomaly.as_f64() / mean_motion as f64))
             }
         };
 
@@ -226,43 +230,45 @@ impl SparseOrbit {
     }
 
     pub fn new(
-        ra: f32,
-        rp: f32,
-        argp: f32,
+        ra: f64,
+        rp: f64,
+        argp: f64,
         body: Body,
         epoch: Nanotime,
         retrograde: bool,
     ) -> Option<Self> {
         let sma = (ra + rp) / 2.0;
         let sign = if retrograde { -1.0 } else { 1.0 };
-        let p = Vec2::X * rp;
-        let v = sign * Vec2::Y * (body.mu() * ((2.0 / rp) - (1.0 / sma))).sqrt();
-        let p = rotate(p, argp);
-        let v = rotate(v, argp);
-        let pv = PV::new(p, v);
+        let p = DVec2::X * rp;
+        let v = sign * DVec2::Y * (body.mu() as f64 * ((2.0 / rp) - (1.0 / sma))).sqrt();
+        let p = rotate_f64(p, argp);
+        let v = rotate_f64(v, argp);
+        let pv = PV::from_f64(p, v);
         SparseOrbit::from_pv(pv, body, epoch)
     }
 
-    pub fn circular(radius: f32, body: Body, epoch: Nanotime, retrograde: bool) -> Self {
-        let p = Vec2::new(radius, 0.0);
-        let v = if retrograde { -1.0 } else { 1.0 } * Vec2::new(0.0, (body.mu() / radius).sqrt());
+    pub fn circular(radius: f64, body: Body, epoch: Nanotime, retrograde: bool) -> Self {
+        let p = DVec2::new(radius, 0.0);
+        let v = if retrograde { -1.0 } else { 1.0 }
+            * DVec2::new(0.0, (body.mu() as f64 / radius).sqrt());
         SparseOrbit {
             eccentricity: 0.0,
-            semi_major_axis: radius,
+            semi_major_axis: radius as f64,
             arg_periapsis: 0.0,
             body,
-            initial: PV::new(p, v),
+            initial: PV::from_f64(p, v),
             epoch,
             time_at_periapsis: Some(epoch),
         }
     }
 
-    pub fn ecc(&self) -> f32 {
+    pub fn ecc(&self) -> f64 {
         self.eccentricity
     }
 
-    pub fn h(&self) -> f32 {
-        cross2d(self.initial.pos, self.initial.vel)
+    pub fn h(&self) -> f64 {
+        // TODO(precision)
+        cross2d(self.initial.pos_f32(), self.initial.vel_f32()) as f64
     }
 
     pub fn is_retrograde(&self) -> bool {
@@ -277,13 +283,13 @@ impl SparseOrbit {
     }
 
     pub fn is_suborbital(&self) -> bool {
-        self.periapsis_r() < self.body.radius
+        self.periapsis_r() < self.body.radius as f64
     }
 
     pub fn will_escape(&self) -> bool {
         match self.class() {
             OrbitClass::Parabolic | OrbitClass::Hyperbolic => true,
-            _ => self.apoapsis_r() > self.body.soi,
+            _ => self.apoapsis_r() > self.body.soi as f64,
         }
     }
 
@@ -307,50 +313,52 @@ impl SparseOrbit {
         }
     }
 
-    pub fn prograde_at(&self, true_anomaly: f32) -> Vec2 {
+    pub fn prograde_at(&self, true_anomaly: f64) -> Vec2 {
         let fpa = self.flight_path_angle_at(true_anomaly);
-        Vec2::from_angle(fpa).rotate(self.tangent_at(true_anomaly))
+        DVec2::from_angle(fpa)
+            .rotate(self.tangent_at(true_anomaly))
+            .as_vec2()
     }
 
-    pub fn flight_path_angle_at(&self, true_anomaly: f32) -> f32 {
+    pub fn flight_path_angle_at(&self, true_anomaly: f64) -> f64 {
         (self.eccentricity * true_anomaly.sin()).atan2(1.0 + self.eccentricity * true_anomaly.cos())
     }
 
-    pub fn tangent_at(&self, true_anomaly: f32) -> Vec2 {
+    pub fn tangent_at(&self, true_anomaly: f64) -> DVec2 {
         let n = self.normal_at(true_anomaly);
         let angle = match self.is_retrograde() {
-            true => -PI / 2.0,
-            false => PI / 2.0,
+            true => -PI_64 / 2.0,
+            false => PI_64 / 2.0,
         };
-        Vec2::from_angle(angle).rotate(n)
+        DVec2::from_angle(angle).rotate(n)
     }
 
-    pub fn normal_at(&self, true_anomaly: f32) -> Vec2 {
+    pub fn normal_at(&self, true_anomaly: f64) -> DVec2 {
         self.position_at(true_anomaly).normalize()
     }
 
-    pub fn semi_latus_rectum(&self) -> f32 {
+    pub fn semi_latus_rectum(&self) -> f64 {
         if self.eccentricity == 1.0 {
             return 2.0 * self.semi_major_axis;
         }
         self.semi_major_axis * (1.0 - self.eccentricity.powi(2))
     }
 
-    pub fn semi_minor_axis(&self) -> f32 {
+    pub fn semi_minor_axis(&self) -> f64 {
         (self.semi_major_axis.abs() * self.semi_latus_rectum().abs()).sqrt()
     }
 
-    pub fn radius_at_angle(&self, angle: f32) -> f32 {
+    pub fn radius_at_angle(&self, angle: f64) -> f64 {
         let ta = angle - self.arg_periapsis;
         self.radius_at(ta)
     }
 
-    pub fn position_at_angle(&self, angle: f32) -> Vec2 {
+    pub fn position_at_angle(&self, angle: f64) -> DVec2 {
         let r = self.radius_at_angle(angle);
-        rotate(Vec2::X * r, angle)
+        rotate_f64(DVec2::X * r, angle)
     }
 
-    pub fn pv_at_angle(&self, angle: f32) -> PV {
+    pub fn pv_at_angle(&self, angle: f64) -> PV {
         let ta = if self.is_retrograde() {
             -angle + self.arg_periapsis
         } else {
@@ -358,35 +366,35 @@ impl SparseOrbit {
         };
         let pos = self.position_at(ta);
         let vel = self.velocity_at(ta);
-        PV::new(pos, vel)
+        PV::from_f64(pos, vel)
     }
 
     // TODO make this less stupid. should be able to compute
     // true anomaly more directly, and maybe without fallibility
-    pub fn ta_at_time(&self, stamp: Nanotime) -> Option<f32> {
+    pub fn ta_at_time(&self, stamp: Nanotime) -> Option<f64> {
         let p = self.pv_universal(stamp).ok()?;
         let ta = if self.is_retrograde() {
-            -p.pos.to_angle() + self.arg_periapsis
+            -p.pos_f32().to_angle() as f64 + self.arg_periapsis
         } else {
-            p.pos.to_angle() - self.arg_periapsis
+            p.pos_f32().to_angle() as f64 - self.arg_periapsis
         };
-        Some(wrap_pi_npi(ta))
+        Some(wrap_pi_npi_f64(ta))
     }
 
-    pub fn radius_at(&self, true_anomaly: f32) -> f32 {
+    pub fn radius_at(&self, true_anomaly: f64) -> f64 {
         if self.eccentricity == 1.0 {
-            let mu = self.body.mu();
+            let mu = self.body.mu() as f64;
             return (self.h().powi(2) / mu) * 1.0 / (1.0 + true_anomaly.cos());
         }
         self.semi_major_axis * (1.0 - self.eccentricity.powi(2))
-            / (1.0 + self.eccentricity * f32::cos(true_anomaly))
+            / (1.0 + self.eccentricity * f64::cos(true_anomaly))
     }
 
     pub fn period(&self) -> Option<Nanotime> {
         if self.eccentricity >= 1.0 {
             return None;
         }
-        let t = 2.0 * PI / self.mean_motion();
+        let t = 2.0 * PI_64 / self.mean_motion();
         let ret = Nanotime::nanos((t * 1E9) as i64);
         if ret == Nanotime::zero() {
             return None;
@@ -414,7 +422,7 @@ impl SparseOrbit {
 
         let ul = universal_lagrange(self.initial, tof, self.body.mu());
         let sol = ul.1.ok_or(ul.0)?;
-        if sol.pv.pos.length() > 3.0 * self.body.soi {
+        if sol.pv.pos_f32().length() > 3.0 * self.body.soi {
             return Err(ul.0);
         }
         Ok(sol.pv.filter_numerr().ok_or(ul.0)?)
@@ -425,21 +433,21 @@ impl SparseOrbit {
         let ta = crate::orbital_luts::lookup_ta_from_ma(ma, self.ecc())?;
         let pos = self.position_at(ta);
         let vel = self.velocity_at(ta);
-        Some(PV::new(pos, vel))
+        Some(PV::from_f64(pos, vel))
     }
 
-    pub fn position_at(&self, true_anomaly: f32) -> Vec2 {
+    pub fn position_at(&self, true_anomaly: f64) -> DVec2 {
         let r = self.radius_at(true_anomaly);
         let angle = match self.is_retrograde() {
             false => true_anomaly,
             true => -true_anomaly,
         };
-        Vec2::from_angle(angle + self.arg_periapsis) * r
+        DVec2::from_angle(angle + self.arg_periapsis) * r
     }
 
-    pub fn velocity_at(&self, true_anomaly: f32) -> Vec2 {
+    pub fn velocity_at(&self, true_anomaly: f64) -> DVec2 {
         let r = self.radius_at(true_anomaly);
-        let v = (self.body.mu() * (2.0 / r - 1.0 / self.semi_major_axis)).sqrt();
+        let v = (self.body.mu() as f64 * (2.0 / r - 1.0 / self.semi_major_axis)).sqrt();
         let h = self.h().abs();
         let cosfpa = h / (r * v);
         let sinfpa = cosfpa * self.eccentricity * true_anomaly.sin()
@@ -449,31 +457,31 @@ impl SparseOrbit {
         v * (t * cosfpa + n * sinfpa)
     }
 
-    pub fn periapsis(&self) -> Vec2 {
+    pub fn periapsis(&self) -> DVec2 {
         self.position_at(0.0)
     }
 
-    pub fn periapsis_r(&self) -> f32 {
+    pub fn periapsis_r(&self) -> f64 {
         self.radius_at(0.0)
     }
 
-    pub fn apoapsis(&self) -> Vec2 {
-        self.position_at(PI)
+    pub fn apoapsis(&self) -> DVec2 {
+        self.position_at(PI_64)
     }
 
-    pub fn apoapsis_r(&self) -> f32 {
-        self.radius_at(PI)
+    pub fn apoapsis_r(&self) -> f64 {
+        self.radius_at(PI_64)
     }
 
-    pub fn mean_motion(&self) -> f32 {
-        (self.body.mu() / self.semi_major_axis.abs().powi(3)).sqrt()
+    pub fn mean_motion(&self) -> f64 {
+        (self.body.mu() as f64 / self.semi_major_axis.abs().powi(3)).sqrt()
     }
 
-    pub fn mean_anomaly(&self, stamp: Nanotime) -> Option<f32> {
+    pub fn mean_anomaly(&self, stamp: Nanotime) -> Option<f64> {
         let period = self.period()?;
         let tp = self.t_next_p(stamp)? - period;
         let dt = stamp - tp;
-        Some(2.0 * PI * dt.to_secs() / period.to_secs())
+        Some(2.0 * PI_64 * dt.to_secs_f64() / period.to_secs_f64())
     }
 
     pub fn orbit_number(&self, stamp: Nanotime) -> Option<i64> {
@@ -485,7 +493,7 @@ impl SparseOrbit {
 
     pub fn inverse(&self) -> Option<SparseOrbit> {
         SparseOrbit::from_pv(
-            PV::new(self.initial.pos, -self.initial.vel),
+            PV::from_f32(self.initial.pos_f32(), -self.initial.vel_f32()),
             self.body,
             self.epoch,
         )
@@ -501,26 +509,26 @@ impl SparseOrbit {
         Some(p * (n + 1) + tp)
     }
 
-    pub fn asymptotes(&self) -> Option<(Vec2, Vec2)> {
+    pub fn asymptotes(&self) -> Option<(DVec2, DVec2)> {
         if self.eccentricity < 1.0 {
             return None;
         }
         let u = self.periapsis().normalize();
         let b = self.semi_minor_axis();
 
-        let ua = Vec2::new(self.semi_major_axis, b);
-        let ub = Vec2::new(self.semi_major_axis, -b);
+        let ua = DVec2::new(self.semi_major_axis, b);
+        let ub = DVec2::new(self.semi_major_axis, -b);
 
         Some((u.rotate(ua), u.rotate(ub)))
     }
 
-    pub fn center(&self) -> Vec2 {
+    pub fn center(&self) -> DVec2 {
         (self.apoapsis() + self.periapsis()) / 2.0
     }
 
-    pub fn sdf(&self, pos: Vec2) -> f32 {
+    pub fn sdf(&self, pos: DVec2) -> f64 {
         let center = self.center();
-        let mut d = rotate(pos - center, -self.arg_periapsis);
+        let mut d = rotate_f64(pos - center, -self.arg_periapsis);
 
         d.y *= self.semi_major_axis / self.semi_minor_axis();
 
@@ -531,19 +539,19 @@ impl SparseOrbit {
         (self.eccentricity < 1.0).then(|| {
             OBB::new(
                 AABB::new(
-                    self.center(),
-                    Vec2::new(self.semi_major_axis * 2.0, self.semi_minor_axis() * 2.0),
+                    self.center().as_vec2(),
+                    DVec2::new(self.semi_major_axis * 2.0, self.semi_minor_axis() * 2.0).as_vec2(),
                 ),
-                self.arg_periapsis,
+                self.arg_periapsis as f32,
             )
         })
     }
 
     pub fn nearest_along_track(&self, pos: Vec2) -> (PV, f32) {
         let angle = -pos.angle_to(Vec2::X);
-        let p = self.pv_at_angle(angle);
-        let d = p.pos.distance(pos);
-        if p.pos.length() > pos.length() {
+        let p = self.pv_at_angle(angle as f64);
+        let d = p.pos_f32().distance(pos);
+        if p.pos_f32().length() > pos.length() {
             (p, -d)
         } else {
             (p, d)
@@ -556,13 +564,13 @@ impl SparseOrbit {
         let mut test_pos = pos;
         for _ in 0..4 {
             let (pv, d) = self.nearest_along_track(test_pos);
-            let u = match pv.vel.try_normalize() {
+            let u = match pv.vel_f32().try_normalize() {
                 Some(u) => u,
                 None => return (pv, d),
             };
-            let diff = pos - pv.pos;
+            let diff = pos - pv.pos_f32();
             let mag = diff.dot(u);
-            test_pos = pv.pos + mag * u;
+            test_pos = pv.pos_f32() + mag * u;
             dist = d;
             ret = pv;
         }
@@ -578,8 +586,8 @@ impl SparseOrbit {
     ) -> (Option<Nanotime>, Option<Nanotime>) {
         // distance between orbits along a ray cast from planet object
         let separation = |t: Nanotime| {
-            let d = self.pv(t).unwrap_or(PV::nan()) - other.pv(t).unwrap_or(PV::nan());
-            d.pos.length_squared()
+            let d = self.pv(t).unwrap_or(PV::NAN) - other.pv(t).unwrap_or(PV::NAN);
+            d.pos_f32().length_squared()
         };
 
         let teval = tspace(now, now + dur, 100);
@@ -614,79 +622,6 @@ impl SparseOrbit {
         (rising, falling)
     }
 
-    pub fn geometric_approach_info(&self, other: SparseOrbit) -> Option<ApproachInfo<f32>> {
-        // distance between orbits along a ray cast from planet object
-        let separation = |a: f32| self.radius_at_angle(a) - other.radius_at_angle(a);
-
-        // trend of separation (proportional to ds/da)
-        // positive if separation is growing with angle
-        let derivative = |a: f32| {
-            let da = 0.03;
-            separation(a - da) - separation(a + da)
-        };
-
-        let aeval = linspace(0.0, 2.0 * PI, 100);
-
-        let c1 = |a: f32| derivative(a) > 0.0;
-        let c2 = |a: f32| derivative(a) < 0.0;
-        let c3 = |a: f32| separation(a) > 0.0;
-        let c4 = |a: f32| separation(a) < 0.0;
-
-        let mut nearest = None;
-        let mut farthest = None;
-        let mut rising = None;
-        let mut falling = None;
-
-        for a in aeval.windows(2) {
-            match search_condition::<f32>(a[0], a[1], 1E-6, &c1) {
-                Ok(Some(found)) => farthest = Some(found),
-                Ok(None) => (),
-                Err(e) => {
-                    dbg!(e);
-                    return None;
-                }
-            }
-            match search_condition::<f32>(a[0], a[1], 1E-6, &c2) {
-                Ok(Some(found)) => nearest = Some(found),
-                Ok(None) => (),
-                Err(e) => {
-                    dbg!(e);
-                    return None;
-                }
-            }
-            match search_condition::<f32>(a[0], a[1], 1E-6, &c3) {
-                Ok(Some(found)) => rising = Some(found),
-                Ok(None) => (),
-                Err(e) => {
-                    dbg!(e);
-                    return None;
-                }
-            }
-            match search_condition::<f32>(a[0], a[1], 1E-6, &c4) {
-                Ok(Some(found)) => falling = Some(found),
-                Ok(None) => (),
-                Err(e) => {
-                    dbg!(e);
-                    return None;
-                }
-            }
-        }
-
-        let nearest = nearest?;
-        let farthest = farthest?;
-
-        Some(if let (Some(rising), Some(falling)) = (rising, falling) {
-            ApproachInfo::Intersecting {
-                nearest,
-                farthest,
-                rising,
-                falling,
-            }
-        } else {
-            ApproachInfo::NonIntersecting { nearest, farthest }
-        })
-    }
-
     pub fn is_similar(&self, other: &Self) -> bool {
         // TODO want this to be a sliding scale in [0, 1]
         let avg = 0.5 * (self.semi_major_axis + other.semi_major_axis);
@@ -697,14 +632,14 @@ impl SparseOrbit {
     }
 
     pub fn to_perifocal(&self) -> Self {
-        let p = rotate(self.initial.pos, -self.arg_periapsis);
-        let v = rotate(self.initial.vel, -self.arg_periapsis);
+        let p = rotate_f64(self.initial.pos_f32().as_dvec2(), -self.arg_periapsis);
+        let v = rotate_f64(self.initial.vel_f32().as_dvec2(), -self.arg_periapsis);
         SparseOrbit {
             eccentricity: self.eccentricity,
             semi_major_axis: self.semi_major_axis,
             arg_periapsis: 0.0,
             body: self.body,
-            initial: PV::new(p, v),
+            initial: PV::from_f64(p, v),
             epoch: self.epoch,
             time_at_periapsis: self.time_at_periapsis,
         }
@@ -721,11 +656,11 @@ impl SparseOrbit {
         let mut t = start;
         while t < end {
             let pv = self.pv(t).ok()?;
-            let dt = Nanotime::secs_f32(dist / pv.vel.length()).max(Nanotime::secs(60));
-            ret.push(pv.pos + origin);
+            let dt = Nanotime::secs_f32(dist / pv.vel_f32().length()).max(Nanotime::secs(60));
+            ret.push(pv.pos_f32() + origin);
             t += dt;
         }
-        ret.push(self.pv(end).ok()?.pos + origin);
+        ret.push(self.pv(end).ok()?.pos_f32() + origin);
         Some(ret)
     }
 }
@@ -822,14 +757,14 @@ pub struct ULData {
 impl ULData {
     fn new(initial: impl Into<PV>, tof: Nanotime, mu: f32) -> Self {
         let initial = initial.into();
-        let r_0 = initial.pos.length();
-        let alpha = 2.0 / r_0 - initial.vel.dot(initial.vel) / mu;
+        let r_0 = initial.pos_f32().length();
+        let alpha = 2.0 / r_0 - initial.vel_f32().dot(initial.vel_f32()) / mu;
         ULData {
             initial,
             tof,
             mu,
             r_0,
-            v_r0: initial.vel.dot(initial.pos) / r_0,
+            v_r0: initial.vel_f32().dot(initial.pos_f32()) / r_0,
             alpha,
             chi_0: mu.sqrt() * alpha.abs() * tof.to_secs(),
         }
@@ -926,8 +861,8 @@ pub(crate) fn lagrange_coefficients(
     dt: Nanotime,
 ) -> LangrangeCoefficients {
     let initial = initial.into();
-    let vec_r_0 = initial.pos;
-    let vec_v_0 = initial.vel;
+    let vec_r_0 = initial.pos_f32();
+    let vec_v_0 = initial.vel_f32();
 
     let r_0 = vec_r_0.length();
 
@@ -961,9 +896,9 @@ pub(crate) fn lagrange_coefficients(
 
 pub(crate) fn lagrange_pv(initial: impl Into<PV>, coeff: &LangrangeCoefficients) -> PV {
     let initial = initial.into();
-    let vec_r = coeff.f * initial.pos + coeff.g * initial.vel;
-    let vec_v = coeff.fdot * initial.pos + coeff.gdot * initial.vel;
-    PV::new(vec_r, vec_v)
+    let vec_r = coeff.f * initial.pos_f32() + coeff.g * initial.vel_f32();
+    let vec_v = coeff.fdot * initial.pos_f32() + coeff.gdot * initial.vel_f32();
+    PV::from_f32(vec_r, vec_v)
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
@@ -979,7 +914,7 @@ impl std::fmt::Display for GlobalOrbit {
 mod tests {
     use super::*;
     use crate::examples::{consistency_orbits, make_earth};
-    use crate::math::tspace;
+    use crate::math::{linspace_f64, tspace};
     use crate::pv::PV;
     use approx::assert_relative_eq;
     use more_asserts::*;
@@ -994,11 +929,11 @@ mod tests {
             duration += dt;
             let t = orbit.epoch + duration;
             let pv = orbit.pv(t).ok()?;
-            let d = pv.pos.distance(pv0.pos);
+            let d = pv.pos_f32().distance(pv0.pos_f32());
             let increasing = d > d_prev;
             d_prev = d;
 
-            let aligned = pv0.vel.dot(pv.vel) > 0.0;
+            let aligned = pv0.vel_f32().dot(pv.vel_f32()) > 0.0;
 
             if d < 20.0 && aligned && increasing && was_decreasing {
                 return Some((t - dt * 5, t));
@@ -1016,7 +951,7 @@ mod tests {
 
         let mut last_error = 0.0;
         let max_error_growth = 1.0;
-        let mut previous = PV::zero();
+        let mut previous = PV::ZERO;
 
         while t < Nanotime::secs(100) {
             t += dt;
@@ -1027,12 +962,12 @@ mod tests {
                     return;
                 }
             };
-            let r2 = particle.pos.length_squared();
-            let a = -orbit.body.mu() / r2 * particle.pos.normalize_or_zero();
-            particle.vel += a * dt.to_secs();
-            particle.pos += particle.vel * dt.to_secs();
+            let r2 = particle.pos_f32().length_squared();
+            let a = -orbit.body.mu() / r2 * particle.pos_f32().normalize_or_zero();
+            let delta = PV::from_f32(a * dt.to_secs(), particle.vel_f32() * dt.to_secs());
+            particle += delta;
 
-            let error = porbit.pos.distance(particle.pos);
+            let error = porbit.pos_f32().distance(particle.pos_f32());
             let max_error = last_error + max_error_growth;
             assert_le!(
                 error,
@@ -1079,8 +1014,8 @@ mod tests {
 
         let velocity_up = |t: Nanotime| {
             let pv = orbit.pv_universal(t).unwrap();
-            let u = pv.pos.normalize_or_zero();
-            pv.vel.dot(u)
+            let u = pv.pos_f32().normalize_or_zero();
+            pv.vel_f32().dot(u)
         };
 
         let condition = |t: Nanotime| velocity_up(t) < 0.0;
@@ -1123,7 +1058,7 @@ mod tests {
         pv: PV,
         class: OrbitClass,
         body: Body,
-        ecc: f32,
+        ecc: f64,
         is_retrograde: bool,
     ) {
         println!("{}", pv);
@@ -1153,8 +1088,8 @@ mod tests {
             orbit
                 .pv(orbit.epoch)
                 .unwrap()
-                .pos
-                .distance(orbit.initial.pos)
+                .pos_f32()
+                .distance(orbit.initial.pos_f32())
                 < 10.0
         );
 
@@ -1188,7 +1123,7 @@ mod tests {
                 let t = orbit.epoch + Nanotime::millis(millis);
                 let ta = orbit.ta_at_time(t).unwrap();
                 let p1 = orbit.position_at(ta);
-                let p2 = orbit.pv_universal(t).unwrap().pos;
+                let p2 = orbit.pv_universal(t).unwrap().pos_f32().as_dvec2();
                 assert_le!(
                     p1.distance(p2),
                     0.02,
@@ -1199,7 +1134,7 @@ mod tests {
                     p2
                 );
                 if let Some(p3) = orbit.pv_lut(t) {
-                    assert_le!(p1.distance(p3.pos), 1.0);
+                    assert_le!(p1.distance(p3.pos_f32().as_dvec2()), 1.0);
                 }
             }
         }
@@ -1212,7 +1147,7 @@ mod tests {
     #[test]
     fn orbit_001_elliptical() {
         orbit_consistency_test(
-            PV::new((669.058, -1918.289), (74.723, 60.678)),
+            PV::from_f32((669.058, -1918.289), (74.723, 60.678)),
             OrbitClass::Elliptical,
             Body::with_mass(63.0, 1000.0, 15000.0),
             0.6335363,
@@ -1223,7 +1158,7 @@ mod tests {
     #[test]
     fn orbit_002_elliptical() {
         orbit_consistency_test(
-            PV::new((430.0, 230.0), (-50.14, 40.13)),
+            PV::from_f32((430.0, 230.0), (-50.14, 40.13)),
             OrbitClass::Elliptical,
             Body::with_mass(63.0, 1000.0, 15000.0),
             0.860516,
@@ -1234,7 +1169,7 @@ mod tests {
     #[test]
     fn orbit_003_hyperbolic() {
         orbit_consistency_test(
-            PV::new((0.0, -222.776), (333.258, 0.000)),
+            PV::from_f32((0.0, -222.776), (333.258, 0.000)),
             OrbitClass::Hyperbolic,
             Body::with_mass(63.0, 1000.0, 15000.0),
             1.0618086,
@@ -1245,7 +1180,7 @@ mod tests {
     #[test]
     fn orbit_004_elliptical() {
         orbit_consistency_test(
-            PV::new((1520.323, 487.734), (-84.935, 70.143)),
+            PV::from_f32((1520.323, 487.734), (-84.935, 70.143)),
             OrbitClass::Elliptical,
             Body::with_mass(63.0, 1000.0, 15000.0),
             0.74756867,
@@ -1256,7 +1191,7 @@ mod tests {
     #[test]
     fn orbit_005_hyperbolic() {
         orbit_consistency_test(
-            PV::new((5535.6294, -125.794685), (-66.63476, 16.682587)),
+            PV::from_f32((5535.6294, -125.794685), (-66.63476, 16.682587)),
             OrbitClass::Hyperbolic,
             Body::with_mass(63.0, 1000.0, 15000.0),
             1.0093584,
@@ -1267,7 +1202,7 @@ mod tests {
     #[test]
     fn orbit_006_hyperbolic() {
         orbit_consistency_test(
-            PV::new((65.339584, 1118.9651), (-138.84702, -279.47888)),
+            PV::from_f32((65.339584, 1118.9651), (-138.84702, -279.47888)),
             OrbitClass::Hyperbolic,
             Body::with_mass(63.0, 1000.0, 15000.0),
             3.3041847,
@@ -1278,7 +1213,7 @@ mod tests {
     #[test]
     fn orbit_007_hyperbolic() {
         orbit_consistency_test(
-            PV::new((-1856.4648, -1254.9697), (216.31313, -85.84622)),
+            PV::from_f32((-1856.4648, -1254.9697), (216.31313, -85.84622)),
             OrbitClass::Hyperbolic,
             Body::with_mass(63.0, 1000.0, 15000.0),
             7.5504527,
@@ -1289,7 +1224,7 @@ mod tests {
     #[test]
     fn orbit_008_hyperbolic() {
         orbit_consistency_test(
-            PV::new((-72.39488, 662.50507), (3.4047441, 71.81263)),
+            PV::from_f32((-72.39488, 662.50507), (3.4047441, 71.81263)),
             OrbitClass::Hyperbolic,
             Body::with_mass(22.0, 10.0, 800.0),
             4.422243,
@@ -1300,7 +1235,7 @@ mod tests {
     #[test]
     fn orbit_009_hyperbolic() {
         orbit_consistency_test(
-            PV::new((825.33563, 564.6425), (200.0, 230.0)),
+            PV::from_f32((825.33563, 564.6425), (200.0, 230.0)),
             OrbitClass::Hyperbolic,
             Body::with_mass(63.0, 1000.0, 15000.0),
             1.9568859,
@@ -1311,7 +1246,7 @@ mod tests {
     #[test]
     fn orbit_011_elliptical() {
         orbit_consistency_test(
-            PV::new((-70.0, 600.0), (3.0, 16.0)),
+            PV::from_f32((-70.0, 600.0), (3.0, 16.0)),
             OrbitClass::HighlyElliptical,
             Body::with_mass(22.0, 10.0, 800.0),
             0.96003157,
@@ -1322,7 +1257,7 @@ mod tests {
     #[test]
     fn orbit_012_elliptical() {
         orbit_consistency_test(
-            PV::new((-70.0, 600.0), (3.0, 9.0)),
+            PV::from_f32((-70.0, 600.0), (3.0, 9.0)),
             OrbitClass::HighlyElliptical,
             Body::with_mass(22.0, 10.0, 800.0),
             0.93487203,
@@ -1351,7 +1286,7 @@ mod tests {
     #[test]
     fn orbit_013_elliptical() {
         orbit_consistency_test(
-            PV::new((1687.193, -2242.213), (59.740, 44.953)),
+            PV::from_f32((1687.193, -2242.213), (59.740, 44.953)),
             OrbitClass::Elliptical,
             Body::with_mass(63.0, 1000.0, 15000.0),
             0.30708584,
@@ -1362,7 +1297,7 @@ mod tests {
     // #[test]
     // fn orbit_014_elliptical() {
     //     orbit_consistency_test(
-    //         PV::new((-3485.286, 1511.773), (-25.496, -58.779)),
+    //         PV::from_f32((-3485.286, 1511.773), (-25.496, -58.779)),
     //         OrbitClass::Elliptical,
     //         Body::with_mass(63.0, 1000.0, 15000.0),
     //         0.29959226,
@@ -1373,7 +1308,7 @@ mod tests {
     // #[test]
     // fn orbit_015_elliptical() {
     //     orbit_consistency_test(
-    //         PV::new((-3485.286, 1511.773), (-21.694, -50.014)),
+    //         PV::from_f32((-3485.286, 1511.773), (-21.694, -50.014)),
     //         OrbitClass::Elliptical,
     //         Body::with_mass(63.0, 1000.0, 15000.0),
     //         0.30708584,
@@ -1384,7 +1319,7 @@ mod tests {
     #[test]
     fn assert_positions_are_as_expected_universal() {
         let body = Body::with_mass(300.0, 1000.0, 100000.0);
-        let pv = PV::new((6500.0, 7000.0), (-14.0, 11.0));
+        let pv = PV::from_f32((6500.0, 7000.0), (-14.0, 11.0));
         let orbit = SparseOrbit::from_pv(pv, body, Nanotime::zero()).unwrap();
         let inverse = orbit.inverse().unwrap();
 
@@ -1423,11 +1358,11 @@ mod tests {
         for (orbit, tests) in &[(orbit, tests_1), (inverse, tests_2)] {
             for (t, (p, v)) in tests {
                 let t = Nanotime::secs(*t);
-                let pv = PV::new(*p, *v);
+                let pv = PV::from_f32(*p, *v);
                 let actual = orbit.pv_universal(t).unwrap();
                 let d = pv - actual;
                 assert!(
-                    d.pos.length() < 0.001 && d.vel.length() < 0.001,
+                    d.pos_f32().length() < 0.001 && d.vel_f32().length() < 0.001,
                     "At time {:?}...\n  expected {}\n  actually {}",
                     t,
                     pv,
@@ -1440,7 +1375,7 @@ mod tests {
     #[test]
     fn assert_true_anomaly_pos_as_expected() {
         let body = Body::with_mass(300.0, 1000.0, 100000.0);
-        let pv = PV::new((6500.0, 7000.0), (-14.0, 11.0));
+        let pv = PV::from_f32((6500.0, 7000.0), (-14.0, 11.0));
         let orbit = SparseOrbit::from_pv(pv, body, Nanotime::zero()).unwrap();
 
         orbit_consistency_test(pv, OrbitClass::Elliptical, body, 0.7496509, false);
@@ -1464,10 +1399,10 @@ mod tests {
                 let pv: PV = pv.into();
                 let pos = orbit.position_at(ta);
                 let vel = orbit.velocity_at(ta);
-                let actual = PV::new(pos, vel);
+                let actual = PV::from_f64(pos, vel);
                 let d = pv - actual;
                 assert!(
-                    d.pos.length() < 0.001 && d.vel.length() < 0.001,
+                    d.pos_f32().length() < 0.001 && d.vel_f32().length() < 0.001,
                     "At true anomaly {:0.4}...\n  expected {}\n  actually {}",
                     ta,
                     pv,
@@ -1481,12 +1416,12 @@ mod tests {
     fn grid_orbits() {
         let orbits = consistency_orbits(make_earth());
         for orbit in &orbits[0..120] {
-            let is_retrograde = cross2d(orbit.initial.pos, orbit.initial.vel) < 0.0;
+            let is_retrograde = cross2d(orbit.initial.pos_f32(), orbit.initial.vel_f32()) < 0.0;
             orbit_consistency_test(
                 orbit.initial,
                 orbit.class(),
                 orbit.body,
-                f32::NAN,
+                f64::NAN,
                 is_retrograde,
             );
         }
@@ -1504,7 +1439,7 @@ mod tests {
 
         assert_eq!(
             res.unwrap().pv,
-            PV::new((-3297.7869, 7413.3867), (-8.297602, -0.9640651))
+            PV::from_f32((-3297.7869, 7413.3867), (-8.297602, -0.9640651))
         );
     }
 
@@ -1531,8 +1466,8 @@ mod tests {
 
     #[test]
     fn inverse_orbit() {
-        const TEST_POSITION: Vec2 = Vec2::new(500.0, 300.0);
-        const TEST_VELOCITY: Vec2 = Vec2::new(-200.0, 0.0);
+        const TEST_POSITION: DVec2 = DVec2::new(500.0, 300.0);
+        const TEST_VELOCITY: DVec2 = DVec2::new(-200.0, 0.0);
 
         let body = Body {
             radius: 100.0,
@@ -1565,13 +1500,13 @@ mod tests {
             let t = o1.period().unwrap() * i;
             println!("{t:?} {} {}", o1.pv(t).unwrap(), o2.pv(t).unwrap());
             assert_relative_eq!(
-                o1.pv(t).unwrap().pos.x,
-                o2.pv(t).unwrap().pos.x,
+                o1.pv(t).unwrap().pos_f32().x,
+                o2.pv(t).unwrap().pos_f32().x,
                 epsilon = 0.5
             );
             assert_relative_eq!(
-                o1.pv(t).unwrap().pos.y,
-                o2.pv(t).unwrap().pos.y,
+                o1.pv(t).unwrap().pos_f32().y,
+                o2.pv(t).unwrap().pos_f32().y,
                 epsilon = 0.5
             );
         }
@@ -1580,11 +1515,11 @@ mod tests {
     #[test]
     fn time_at_periapsis() {
         let body = Body::with_mass(50.0, 1000.0, 1E8);
-        let pos = Vec2::Y * -700.0;
+        let pos = DVec2::Y * -700.0;
 
-        for v in linspace(10.0, 70.0, 15) {
-            let vel = Vec2::new(v * 3.0, v);
-            let pv = PV::new(pos, vel);
+        for v in linspace_f64(10.0, 70.0, 15) {
+            let vel = DVec2::new(v * 3.0, v);
+            let pv = PV::from_f64(pos, vel);
             let orbit = SparseOrbit::from_pv(pv, body, Nanotime::zero());
             assert!(orbit.is_some(), "Bad orbit: {}", v);
             let orbit = orbit.unwrap();

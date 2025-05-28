@@ -70,7 +70,7 @@ pub fn update_shadow_sprites(
         let angle = PI - state.light_source().angle_to(Vec2::X);
         let scale = (2.0 * body.radius) / EXPECTED_SHADOW_SPRITE_HEIGHT as f32
             * state.orbital_context.scale();
-        let pos = lup.pv().pos;
+        let pos = lup.pv().pos_f32();
         transform.translation = state.orbital_context.w2c(pos).extend(SHADOW_Z_INDEX);
         transform.scale = Vec3::new(scale, scale, 1.0);
         transform.rotation = Quat::from_rotation_z(angle);

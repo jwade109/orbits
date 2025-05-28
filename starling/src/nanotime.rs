@@ -57,6 +57,10 @@ impl Nanotime {
         Nanotime((s * Nanotime::PER_SEC as f32) as i64)
     }
 
+    pub fn secs_f64(s: f64) -> Self {
+        Nanotime((s * Nanotime::PER_SEC as f64) as i64)
+    }
+
     pub fn ceil(&self, order: i64) -> Self {
         Self((self.0 + order) - (self.0 % order))
     }

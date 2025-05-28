@@ -73,11 +73,11 @@ impl Render for RPOContext {
             let pv = (lup.pv() - origin) * 1000.0f32;
 
             if id == piloting {
-                draw_circle(gizmos, ctx.w2c(pv.pos), 7.0, RED);
+                draw_circle(gizmos, ctx.w2c(pv.pos_f32()), 7.0, RED);
             }
 
             if let Some(v) = state.orbital_vehicles.get(&id) {
-                draw_vehicle(gizmos, v, ctx.w2c(pv.pos), ctx.scale());
+                draw_vehicle(gizmos, v, ctx.w2c(pv.pos_f32()), ctx.scale());
             }
         }
 

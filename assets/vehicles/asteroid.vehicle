@@ -225,3 +225,123 @@ parts:
   - 136
   - 44
   rot: North
+- partname: wmata7000
+  pos:
+  - -203
+  - -28
+  rot: East
+- partname: wmata7000
+  pos:
+  - -288
+  - 50
+  rot: East
+- partname: wmata7000
+  pos:
+  - -191
+  - 126
+  rot: East
+- partname: wmata7000
+  pos:
+  - -313
+  - -110
+  rot: East
+- partname: wmata7000
+  pos:
+  - -265
+  - -215
+  rot: East
+- partname: wmata7000
+  pos:
+  - -57
+  - -298
+  rot: East
+- partname: wmata7000
+  pos:
+  - 276
+  - -189
+  rot: North
+- partname: wmata7000
+  pos:
+  - 348
+  - -158
+  rot: North
+- partname: wmata7000
+  pos:
+  - 432
+  - -80
+  rot: North
+- partname: wmata7000
+  pos:
+  - -235
+  - 214
+  rot: West
+- partname: wmata7000
+  pos:
+  - -301
+  - 299
+  rot: West
+- partname: wmata7000
+  pos:
+  - -711
+  - 158
+  rot: West
+- partname: wmata7000
+  pos:
+  - -395
+  - -350
+  rot: South
+- partname: wmata7000
+  pos:
+  - -478
+  - -320
+  rot: South
+- partname: wmata7000
+  pos:
+  - -552
+  - -333
+  rot: South
+- partname: wmata7000
+  pos:
+  - -626
+  - -375
+  rot: South
+- partname: wmata7000
+  pos:
+  - -454
+  - -440
+  rot: East
+- partname: wmata7000
+  pos:
+  - -65
+  - -367
+  rot: East
+- partname: wmata7000
+  pos:
+  - 160
+  - -439
+  rot: East
+- partname: wmata7000
+  pos:
+  - -53
+  - -511
+  rot: East
+- partname: wmata7000
+  pos:
+  - -338
+  - 389
+  rot: East
+- partname: wmata7000
+  pos:
+  - -773
+  - 290
+  rot: East
+- partname: wmata7000
+  pos:
+  - -17
+  - 506
+  rot: East
+- partname: wmata7000
+  pos:
+  - 165
+  - 408
+  rot: East

@@ -177,7 +177,7 @@ impl OrbitalContext {
             ObjectId::Orbiter(id) => state.scenario.lup_orbiter(id, state.sim_time)?,
             ObjectId::Planet(id) => state.scenario.lup_planet(id, state.sim_time)?,
         };
-        Some(lup.pv().pos)
+        Some(lup.pv().pos_f32())
     }
 
     pub fn toggle_track(&mut self, id: OrbiterId) {
@@ -222,7 +222,7 @@ impl OrbitalContext {
                 .into_iter()
                 .filter_map(|id| {
                     let pv = state.scenario.lup_orbiter(id, state.sim_time)?.pv();
-                    a.contains(pv.pos).then(|| id)
+                    a.contains(pv.pos_f32()).then(|| id)
                 })
                 .collect()
         } else {
@@ -275,18 +275,18 @@ impl OrbitalContext {
         let wrt_id = state.scenario.relevant_body(p1, state.sim_time)?;
         let parent = state.scenario.lup_planet(wrt_id, state.sim_time)?;
 
-        let r = p1.distance(parent.pv().pos);
+        let r = p1.distance(parent.pv().pos_f32());
         let v = (parent.body()?.mu() / r).sqrt();
 
-        Some(PV::new(p1, (p2 - p1) * v / r))
+        Some(PV::from_f32(p1, (p2 - p1) * v / r))
     }
 
     pub fn cursor_orbit(p1: Vec2, p2: Vec2, state: &GameState) -> Option<GlobalOrbit> {
         let pv = Self::cursor_pv(p1, p2, &state)?;
-        let parent_id: PlanetId = state.scenario.relevant_body(pv.pos, state.sim_time)?;
+        let parent_id: PlanetId = state.scenario.relevant_body(pv.pos_f32(), state.sim_time)?;
         let parent = state.scenario.lup_planet(parent_id, state.sim_time)?;
         let parent_pv = parent.pv();
-        let pv = pv - PV::pos(parent_pv.pos);
+        let pv = pv - PV::pos(parent_pv.pos_f32());
         let body = parent.body()?;
         Some(GlobalOrbit(
             parent_id,
@@ -341,7 +341,7 @@ pub fn get_orbital_object_mouseover_label(state: &GameState) -> Option<TextLabel
             Some(lup) => lup,
             None => continue,
         };
-        let pw = lup.pv().pos;
+        let pw = lup.pv().pos_f32();
         let pc = state.orbital_context.w2c(pw);
 
         let (passes, label, pos) = if let Some((name, body)) = lup.named_body() {
@@ -455,7 +455,7 @@ impl Render for OrbitalContext {
             .into_iter()
             .filter_map(|id| {
                 let lup = state.scenario.lup_planet(id, state.sim_time)?;
-                let pos = lup.pv().pos;
+                let pos = lup.pv().pos_f32();
                 let (name, body) = lup.named_body()?;
                 let path = format!("embedded://game/../assets/{}.png", name);
                 Some(StaticSpriteDescriptor::new(
@@ -479,10 +479,10 @@ impl Render for OrbitalContext {
             .orbiter_ids()
             .filter_map(|id| {
                 let lup = state.scenario.lup_orbiter(id, state.sim_time)?;
-                let pos = lup.pv().pos;
+                let pos = lup.pv().pos_f32();
                 let is_lit = bodies
                     .iter()
-                    .all(|(pv, body)| !is_occluded(light_source, pos, pv.pos, body.radius));
+                    .all(|(pv, body)| !is_occluded(light_source, pos, pv.pos_f32(), body.radius));
 
                 let path = "embedded://game/../assets/spacecraft.png".to_string();
                 let scale = if state.orbital_context.selected.contains(&id) {

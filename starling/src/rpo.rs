@@ -17,7 +17,7 @@ impl RPO {
             .map(|veh| {
                 let p = randvec(10.0, 100.0);
                 let v = randvec(2.0, 7.0);
-                (PV::new(p, v), veh)
+                (PV::from_f32(p, v), veh)
             })
             .collect();
 
@@ -28,7 +28,7 @@ impl RPO {
         let mut ret = None;
         let mut d = f32::MAX;
         for (i, (pv, _)) in self.vehicles.iter().enumerate() {
-            let di = p.distance(pv.pos);
+            let di = p.distance(pv.pos_f32());
             if di < d {
                 d = di;
                 ret = Some(i);
@@ -40,7 +40,7 @@ impl RPO {
     pub fn bounding_radius(&self) -> f32 {
         let mut r: f32 = 0.0;
         for (pv, vehicle) in &self.vehicles {
-            let d = pv.pos.length() + vehicle.bounding_radius();
+            let d = pv.pos_f32().length() + vehicle.bounding_radius();
             r = r.max(d);
         }
         r
@@ -50,9 +50,9 @@ impl RPO {
         let dt = (stamp - self.stamp).to_secs();
         for (pv, vehicle) in self.vehicles.iter_mut() {
             vehicle.step(stamp);
-            pv.pos += pv.vel * dt;
-            pv.vel *= 0.999;
-            pv.vel += randvec(0.1, 12.0) * dt;
+
+            let perturb = PV::from_f32(pv.vel_f32() * dt, randvec(0.1, 12.0) * dt);
+            *pv += perturb;
         }
         self.stamp = stamp;
     }

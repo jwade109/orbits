@@ -1,12 +1,15 @@
 use crate::nanotime::Nanotime;
 pub use glam::f32::Vec2;
 pub use glam::f32::Vec3;
+pub use glam::f64::DVec2;
 pub use glam::i32::IVec2;
 pub use glam::u32::UVec2;
 use names::Generator;
 use rand::Rng;
 
 pub const PI: f32 = std::f32::consts::PI;
+
+pub const PI_64: f64 = std::f64::consts::PI;
 
 pub fn rand(min: f32, max: f32) -> f32 {
     rand::thread_rng().gen_range(min..max)
@@ -38,11 +41,19 @@ pub fn rotate(v: Vec2, angle: f32) -> Vec2 {
     Vec2::from_angle(angle).rotate(v)
 }
 
+pub fn rotate_f64(v: DVec2, angle: f64) -> DVec2 {
+    DVec2::from_angle(angle).rotate(v)
+}
+
 pub fn cross2d(a: Vec2, b: Vec2) -> f32 {
     a.extend(0.0).cross(b.extend(0.0)).z
 }
 
 pub fn lerp(a: f32, b: f32, t: f32) -> f32 {
+    a + (b - a) * t
+}
+
+pub fn lerp_f64(a: f64, b: f64, t: f64) -> f64 {
     a + (b - a) * t
 }
 
@@ -93,6 +104,21 @@ pub fn linspace(a: f32, b: f32, n: usize) -> Vec<f32> {
         .map(|i| {
             let t = i as f32 / (n - 1) as f32;
             lerp(a, b, t)
+        })
+        .collect()
+}
+
+pub fn linspace_f64(a: f64, b: f64, n: usize) -> Vec<f64> {
+    if n < 2 {
+        return vec![a];
+    }
+    if n == 2 {
+        return vec![a, b];
+    }
+    (0..n)
+        .map(|i| {
+            let t = i as f64 / (n - 1) as f64;
+            lerp_f64(a, b, t)
         })
         .collect()
 }

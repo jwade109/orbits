@@ -49,12 +49,12 @@ pub fn export_orbit_data(
         universal_lagrange(orbit.initial, x, orbit.body.mu())
     });
 
-    let x = apply(&data, |x| x.1.map(|d| d.pv.pos.x).unwrap_or(f32::NAN));
-    let y = apply(&data, |x| x.1.map(|d| d.pv.pos.y).unwrap_or(f32::NAN));
-    let vx = apply(&data, |x| x.1.map(|d| d.pv.vel.x).unwrap_or(f32::NAN));
-    let vy = apply(&data, |x| x.1.map(|d| d.pv.vel.y).unwrap_or(f32::NAN));
+    let x = apply(&data, |x| x.1.map(|d| d.pv.pos_f32().x).unwrap_or(f32::NAN));
+    let y = apply(&data, |x| x.1.map(|d| d.pv.pos_f32().y).unwrap_or(f32::NAN));
+    let vx = apply(&data, |x| x.1.map(|d| d.pv.pos_f32().x).unwrap_or(f32::NAN));
+    let vy = apply(&data, |x| x.1.map(|d| d.pv.pos_f32().y).unwrap_or(f32::NAN));
     let r = apply(&data, |x| {
-        x.1.map(|d| d.pv.pos.length()).unwrap_or(f32::NAN)
+        x.1.map(|d| d.pv.pos_f32().length()).unwrap_or(f32::NAN)
     });
     let z = apply(&data, |x| x.1.map(|d| d.z).unwrap_or(f32::NAN));
     let f = apply(&data, |x| x.1.map(|d| d.lc.f).unwrap_or(f32::NAN));
@@ -100,7 +100,7 @@ mod tests {
     #[test]
     fn strl_test() {
         let orbit = SparseOrbit::from_pv(
-            PV::new((-70.0, 600.0), (3.0, 9.0)),
+            PV::from_f32((-70.0, 600.0), (3.0, 9.0)),
             Body::with_mass(22.0, 10.0, 800.0),
             Nanotime::zero(),
         )

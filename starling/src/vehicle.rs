@@ -84,11 +84,12 @@ impl Vehicle {
     pub fn from_parts(stamp: Nanotime, parts: Vec<(IVec2, Rotation, PartProto)>) -> Self {
         let thrusters: Vec<Thruster> = parts
             .iter()
-            .filter_map(|(pos, _, p)| {
+            .filter_map(|(pos, rot, p)| {
+                let dims = meters_with_rotation(*rot, p);
                 if let PartClass::Thruster(proto) = p.data.class {
                     Some(Thruster {
                         proto,
-                        pos: pos.as_vec2(),
+                        pos: pos.as_vec2() / crate::parts::parts::PIXELS_PER_METER + dims / 2.0,
                         angle: 0.0,
                         is_active: false,
                     })

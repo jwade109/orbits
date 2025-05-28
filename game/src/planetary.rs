@@ -445,9 +445,15 @@ impl GameState {
     pub fn spawn_with_random_perturbance(&mut self, global: &GlobalOrbit) -> Option<()> {
         let GlobalOrbit(parent, orbit) = global;
         let pv_local = orbit.pv(self.sim_time).ok()?;
-        let perturb = PV::new(
-            randvec(pv_local.pos.length() * 0.005, pv_local.pos.length() * 0.02),
-            randvec(pv_local.vel.length() * 0.005, pv_local.vel.length() * 0.02),
+        let perturb = PV::from_f32(
+            randvec(
+                pv_local.pos_f32().length() * 0.005,
+                pv_local.pos_f32().length() * 0.02,
+            ),
+            randvec(
+                pv_local.vel_f32().length() * 0.005,
+                pv_local.vel_f32().length() * 0.02,
+            ),
         );
         let orbit = SparseOrbit::from_pv(pv_local + perturb, orbit.body, self.sim_time)?;
         let id = self.ids.next();
@@ -465,9 +471,9 @@ impl GameState {
         let lup = self.scenario.lup_orbiter(id, self.sim_time)?;
         let _orbiter = lup.orbiter()?;
         let parent = lup.parent(self.sim_time)?;
-        let pv = lup.pv().pos;
+        let pv = lup.pv().pos_f32();
         let plup = self.scenario.lup_planet(parent, self.sim_time)?;
-        let pvp = plup.pv().pos;
+        let pvp = plup.pv().pos_f32();
         let pvl = pv - pvp;
         self.scenario.remove_orbiter(id)?;
         self.notify(
@@ -731,7 +737,7 @@ impl GameState {
 
     pub fn get_random_parts(&self) -> Vec<(IVec2, Rotation, PartProto)> {
         let choice = rand(0.0, 1.0);
-        let name = if choice < 0.6 {
+        let name = if choice < 1.1 {
             "satellite"
         } else {
             "asteroid"
@@ -918,7 +924,7 @@ impl GameState {
                     EventType::Impulse(_) => continue,
                     EventType::NumericalError => NotificationType::NumericalError(id),
                 };
-                self.notify(ObjectId::Planet(ri.parent), notif, pv.pos);
+                self.notify(ObjectId::Planet(ri.parent), notif, pv.pos_f32());
             }
         }
 

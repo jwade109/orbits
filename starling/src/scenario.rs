@@ -111,7 +111,7 @@ impl PlanetarySystem {
         stamp: Nanotime,
         origin: T,
     ) -> impl Iterator<Item = (PV, Body)> + use<'_, T> {
-        let origin = origin.into().unwrap_or(PV::zero());
+        let origin = origin.into().unwrap_or(PV::ZERO);
         let mut ret = vec![(origin, self.body)];
         for (orbit, sys) in &self.subsystems {
             if let Ok(pv) = orbit.pv(stamp) {
@@ -150,7 +150,7 @@ impl PlanetarySystem {
         id: PlanetId,
         stamp: Nanotime,
     ) -> Option<(Body, PV, Option<PlanetId>, &PlanetarySystem)> {
-        self.lookup_inner(id, stamp, PV::zero(), None)
+        self.lookup_inner(id, stamp, PV::ZERO, None)
     }
 
     pub fn potential_at(&self, pos: Vec2, stamp: Nanotime) -> f32 {
@@ -158,7 +158,7 @@ impl PlanetarySystem {
         let mut ret = -self.body.mu() / r;
         for (orbit, pl) in &self.subsystems {
             if let Some(pv) = orbit.pv(stamp).ok() {
-                ret += pl.potential_at(pos - pv.pos, stamp);
+                ret += pl.potential_at(pos - pv.pos_f32(), stamp);
             }
         }
         ret
@@ -277,9 +277,9 @@ impl Scenario {
             };
 
             for _ in 0..20 {
-                let pos = pv.pos;
-                let vmag = pv.vel.length();
-                let (v_normal, v_tangent) = vproj(pv.vel, pos);
+                let pos = pv.pos_f32();
+                let vmag = pv.vel_f32().length();
+                let (v_normal, v_tangent) = vproj(pv.vel_f32(), pos);
 
                 let n = pos.normalize_or_zero();
                 let t = rotate(n, PI / 2.0);
@@ -290,7 +290,7 @@ impl Scenario {
                 let mut body = info.orbit.body;
                 body.mu *= 0.5;
 
-                let pv = PV::new(pos, v_normal + v_tangent);
+                let pv = PV::from_f32(pos, v_normal + v_tangent);
                 if let Some(orbit) = SparseOrbit::from_pv(pv, body, info.stamp) {
                     self.debris.push(GlobalOrbit(info.parent, orbit));
                 }
@@ -306,7 +306,7 @@ impl Scenario {
                 Some(pv) => pv,
                 None => return false,
             };
-            let r = pv.pos.length();
+            let r = pv.pos_f32().length();
             r > orbit.body.radius && r < orbit.body.soi
         });
 
@@ -386,7 +386,7 @@ impl Scenario {
             .into_iter()
             .filter_map(|id| {
                 let lup = self.lup_planet(id, stamp)?;
-                let p = lup.pv().pos;
+                let p = lup.pv().pos_f32();
                 let body = lup.body()?;
                 let d = pos.distance(p);
                 (d <= body.soi).then(|| (d, id))
@@ -403,7 +403,7 @@ impl Scenario {
             .ids()
             .filter_map(|id| {
                 let lup = self.lup(id, stamp)?;
-                let p = lup.pv().pos;
+                let p = lup.pv().pos_f32();
                 let d = pos.distance(p);
                 Some((d, id))
             })

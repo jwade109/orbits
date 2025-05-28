@@ -50,7 +50,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     s.bench_function("eval_lut", |b| {
         lookup_ta_from_ma(0.0, 0.0);
         b.iter(|| {
-            let ma: f32 = black_box(PI * 1.2);
+            let ma = black_box(PI_64 * 1.2);
             let ecc = black_box(0.32);
             lookup_ta_from_ma(ma, ecc);
         })

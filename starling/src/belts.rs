@@ -1,11 +1,11 @@
 use crate::aabb::OBB;
-use crate::math::{rand, rotate, PI};
+use crate::math::{rand, rotate_f64, PI_64};
 use crate::orbiter::PlanetId;
 use crate::orbits::SparseOrbit;
 use crate::orbits::{Body, GlobalOrbit};
 use crate::prelude::Nanotime;
 use crate::region::Region;
-use glam::f32::Vec2;
+use glam::f64::DVec2;
 use glam::FloatExt;
 use serde::{Deserialize, Serialize};
 
@@ -19,10 +19,10 @@ pub struct AsteroidBelt {
 impl AsteroidBelt {
     pub fn new(
         parent: PlanetId,
-        argp: f32,
-        rp: f32,
-        ra: f32,
-        w: f32,
+        argp: f64,
+        rp: f64,
+        ra: f64,
+        w: f64,
         body: Body,
         retrograde: bool,
     ) -> Option<Self> {
@@ -35,7 +35,7 @@ impl AsteroidBelt {
         Some(Self::from_orbits(parent, inner, outer))
     }
 
-    pub fn from_orbit(orbit: GlobalOrbit, w: f32) -> Option<Self> {
+    pub fn from_orbit(orbit: GlobalOrbit, w: f64) -> Option<Self> {
         let ra = orbit.1.apoapsis_r();
         let rp = orbit.1.periapsis_r();
         let rp1 = rp - w / 2.0;
@@ -63,8 +63,8 @@ impl AsteroidBelt {
 
     pub fn circular(
         parent: PlanetId,
-        inner: f32,
-        outer: f32,
+        inner: f64,
+        outer: f64,
         body: Body,
         retrograde: bool,
     ) -> Self {
@@ -95,21 +95,21 @@ impl AsteroidBelt {
         Region::OrbitRange(self.inner, self.outer)
     }
 
-    pub fn radius(&self, angle: f32) -> (f32, f32) {
+    pub fn radius(&self, angle: f64) -> (f64, f64) {
         (
             self.inner.radius_at_angle(angle),
             self.outer.radius_at_angle(angle),
         )
     }
 
-    pub fn position(&self, angle: f32) -> (Vec2, Vec2) {
+    pub fn position(&self, angle: f64) -> (DVec2, DVec2) {
         let (rmin, rmax) = self.radius(angle);
-        let u = rotate(Vec2::X, angle);
+        let u = rotate_f64(DVec2::X, angle);
         (u * rmin, u * rmax)
     }
 
-    pub fn contains(&self, p: Vec2) -> bool {
-        let angle = Vec2::X.angle_to(p);
+    pub fn contains(&self, p: DVec2) -> bool {
+        let angle = DVec2::X.angle_to(p);
         let (rmin, rmax) = self.radius(angle);
         let r = p.length();
         r >= rmin && r <= rmax
@@ -118,37 +118,37 @@ impl AsteroidBelt {
     pub fn contains_orbit(&self, other: &SparseOrbit) -> bool {
         self.contains(other.periapsis())
             && self.contains(other.apoapsis())
-            && self.contains(other.position_at(0.5 * PI))
-            && self.contains(other.position_at(1.5 * PI))
+            && self.contains(other.position_at(0.5 * PI_64))
+            && self.contains(other.position_at(1.5 * PI_64))
     }
 
-    pub fn random_radius(&self, angle: f32) -> f32 {
+    pub fn random_radius(&self, angle: f64) -> f64 {
         let (rmin, rmax) = self.radius(angle);
         let s = rand(0.0, 1.0);
-        rmin.lerp(rmax, s)
+        rmin.lerp(rmax, s as f64)
     }
 
-    pub fn random_sample(&self) -> Vec2 {
-        let angle = rand(0.0, 2.0 * PI);
+    pub fn random_sample(&self) -> DVec2 {
+        let angle = rand(0.0, 2.0) as f64 * PI_64;
         let r = self.random_radius(angle);
-        rotate(Vec2::X, angle) * r
+        rotate_f64(DVec2::X, angle) * r
     }
 
-    pub fn apoapsis(&self, s: f32) -> (f32, f32) {
+    pub fn apoapsis(&self, s: f64) -> (f64, f64) {
         let a1 = self.inner.apoapsis();
         let a2 = self.outer.apoapsis();
         let p = a1.lerp(a2, s);
-        let angle = Vec2::X.angle_to(p);
+        let angle = DVec2::X.angle_to(p);
         (p.length(), angle)
     }
 
     pub fn random_orbit(&self, epoch: Nanotime) -> Option<SparseOrbit> {
-        let (r1, argp) = self.apoapsis(rand(0.0, 1.0));
-        let r2 = self.random_radius(argp + PI);
+        let (r1, argp) = self.apoapsis(rand(0.0, 1.0) as f64);
+        let r2 = self.random_radius(argp + PI_64);
         let (argp, rp, ra) = if r1 < r2 {
             (argp, r1, r2)
         } else {
-            (argp + PI, r2, r1)
+            (argp + PI_64, r2, r1)
         };
         SparseOrbit::new(
             ra,

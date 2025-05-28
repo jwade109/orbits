@@ -106,7 +106,7 @@ pub fn get_orbit_info_graph(orbit: &SparseOrbit) -> Graph {
     let dur = Nanotime::secs(120);
 
     if let Some(tp) = orbit.t_next_p(orbit.epoch) {
-        let y = orbit.periapsis_r();
+        let y = orbit.periapsis_r() as f32;
         let period = orbit.period_or(Nanotime::zero());
         for i in -3..=12 {
             let x = (tp - orbit.epoch + period * i).to_secs() / dur.to_secs();
@@ -117,15 +117,15 @@ pub fn get_orbit_info_graph(orbit: &SparseOrbit) -> Graph {
     let t = |s: f32| t0 + dur * s;
 
     let pv = |s: f32| orbit.pv(t(s)).ok();
-    let ta = |s: f32| orbit.ta_at_time(t(s)).unwrap_or(f32::NAN);
+    let ta = |s: f32| orbit.ta_at_time(t(s)).unwrap_or(f64::NAN);
 
-    let x1 = |s: f32| pv(s).map(|pv| pv.pos.x).unwrap_or(f32::NAN);
+    let x1 = |s: f32| pv(s).map(|pv| pv.pos_f32().x).unwrap_or(f32::NAN);
     let x2 = |s: f32| orbit.position_at(ta(s)).x;
 
-    let y1 = |s: f32| pv(s).map(|pv| pv.pos.y).unwrap_or(f32::NAN);
+    let y1 = |s: f32| pv(s).map(|pv| pv.pos_f32().y).unwrap_or(f32::NAN);
     let y2 = |s: f32| orbit.position_at(ta(s)).y;
 
-    let r = |s: f32| orbit.position_at(ta(s)).length();
+    let r = |s: f32| orbit.position_at(ta(s)).length() as f32;
 
     graph.add_func(x1, RED);
     // graph.add_func(x2, RED.with_green(0.4));
@@ -148,8 +148,8 @@ pub fn get_lut_error_graph(orbit: &SparseOrbit) -> Option<Graph> {
         tp + period * s
     };
 
-    let get_x = |pv: Option<PV>| pv.map(|pv| pv.pos.x).unwrap_or(f32::NAN);
-    let get_y = |pv: Option<PV>| pv.map(|pv| pv.pos.y).unwrap_or(f32::NAN);
+    let get_x = |pv: Option<PV>| pv.map(|pv| pv.pos_f32().x).unwrap_or(f32::NAN);
+    let get_y = |pv: Option<PV>| pv.map(|pv| pv.pos_f32().y).unwrap_or(f32::NAN);
 
     let pv_slow_x = |x| get_x(orbit.pv_universal(t_at_x(x)).ok());
     let pv_slow_y = |x| get_y(orbit.pv_universal(t_at_x(x)).ok());
@@ -157,7 +157,7 @@ pub fn get_lut_error_graph(orbit: &SparseOrbit) -> Option<Graph> {
     let pv_lut_x = |x| get_x(orbit.pv_lut(t_at_x(x)));
     let pv_lut_y = |x| get_y(orbit.pv_lut(t_at_x(x)));
 
-    let ra = orbit.apoapsis_r();
+    let ra = orbit.apoapsis_r() as f32;
 
     let error_x = |x| (pv_slow_x(x) - pv_lut_x(x)) / ra;
     let error_y = |x| (pv_slow_y(x) - pv_lut_y(x)) / ra;
@@ -184,7 +184,7 @@ fn generate_lut_graph() -> Graph {
     graph.add_point(2.0 * PI, 2.0 * PI, true);
 
     for ecc in linspace(0.0, 0.9, 10) {
-        let f = |x| lookup_ta_from_ma(x, ecc).unwrap_or(f32::NAN);
+        let f = |x| lookup_ta_from_ma(x as f64, ecc as f64).unwrap_or(f64::NAN) as f32;
         graph.add_func(f, GREEN.mix(&RED, ecc));
     }
 

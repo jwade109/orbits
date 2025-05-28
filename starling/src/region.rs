@@ -26,7 +26,7 @@ impl Region {
         match self {
             Region::AABB(aabb) => aabb.contains(p),
             Region::NearOrbit(orbit, dist) => {
-                orbit.nearest_along_track(p).0.pos.distance(p) < *dist
+                orbit.nearest_along_track(p).0.pos_f32().distance(p) < *dist
             }
             _ => false,
         }

@@ -1,4 +1,4 @@
-use crate::math::{tspace, PI};
+use crate::math::{tspace, PI_64};
 use crate::nanotime::Nanotime;
 use crate::orbiter::PlanetId;
 use crate::orbits::{vis_viva_equation, GlobalOrbit, OrbitClass, SparseOrbit};
@@ -94,8 +94,8 @@ pub enum PredictError<T: BinarySearchKey> {
 }
 
 fn mutual_separation(o1: &SparseOrbit, o2: &SparseOrbit, t: Nanotime) -> f32 {
-    let p1 = o1.pv(t).unwrap().pos;
-    let p2 = o2.pv(t).unwrap().pos;
+    let p1 = o1.pv(t).unwrap().pos_f32();
+    let p2 = o2.pv(t).unwrap().pos_f32();
     p1.distance(p2)
 }
 
@@ -329,8 +329,8 @@ impl Propagator {
         };
 
         let will_never_encounter = bodies.iter().all(|(_, orbit, soi)| {
-            let rmin = orbit.periapsis_r() - soi;
-            let rmax = orbit.apoapsis_r() + soi;
+            let rmin = orbit.periapsis_r() - *soi as f64;
+            let rmax = orbit.apoapsis_r() + *soi as f64;
             self.orbit.1.apoapsis_r() < rmin || self.orbit.1.periapsis_r() > rmax
         });
 
@@ -350,7 +350,7 @@ impl Propagator {
             .1
             .pv(end)
             .map_err(|_| PredictError::BadPosition)?
-            .pos
+            .pos_f32()
             .length();
 
         let pv = match self.orbit.1.pv(end).ok() {
@@ -361,20 +361,20 @@ impl Propagator {
             }
         };
 
-        let going_down = pv.pos.normalize_or_zero().dot(pv.vel) < 0.0;
+        let going_down = pv.pos_f32().normalize_or_zero().dot(pv.vel_f32()) < 0.0;
 
         let below_all_bodies = bodies.iter().all(|(_, orbit, soi)| {
-            let rmin = orbit.periapsis_r() - soi;
-            pv.pos.length() < rmin
+            let rmin = orbit.periapsis_r() - *soi as f64;
+            pv.pos_f32().as_dvec2().length() < rmin
         });
 
         let above_planet = |t: Nanotime| {
-            let pos = self.orbit.1.pv(t).unwrap_or(PV::inf()).pos;
+            let pos = self.orbit.1.pv(t).unwrap_or(PV::INFINITY).pos_f32();
             pos.length() > self.orbit.1.body.radius
         };
 
         let beyond_soi = |t: Nanotime| {
-            let pos = self.orbit.1.pv(t).unwrap_or(PV::inf()).pos;
+            let pos = self.orbit.1.pv(t).unwrap_or(PV::INFINITY).pos_f32();
             pos.length() > self.orbit.1.body.soi
         };
 
@@ -429,7 +429,7 @@ impl Propagator {
         };
 
         let escape_soi = |t: Nanotime| {
-            let pos = self.orbit.1.pv(t).unwrap_or(PV::inf()).pos;
+            let pos = self.orbit.1.pv(t).unwrap_or(PV::INFINITY).pos_f32();
             pos.length() < self.orbit.1.body.soi
         };
 
@@ -507,8 +507,8 @@ pub fn get_next_intersection(
     let teval = tspace(stamp, stamp + period, n);
 
     let signed_distance_at = |t: Nanotime| {
-        let pcurr = eval.pv(t).unwrap_or(PV::inf());
-        target.nearest_along_track(pcurr.pos)
+        let pcurr = eval.pv(t).unwrap_or(PV::INFINITY);
+        target.nearest_along_track(pcurr.pos_f32())
     };
 
     let initial_sign = signed_distance_at(stamp).1 > 0.0;
@@ -701,27 +701,27 @@ fn hohmann_transfer(
         _ => (),
     }
 
-    let mu = current.body.mu();
+    let mu = current.body.mu() as f64;
     let r1 = current.periapsis_r();
-    let r2 = destination.radius_at_angle(current.arg_periapsis + PI);
+    let r2 = destination.radius_at_angle(current.arg_periapsis + PI_64);
     let a_transfer = (r1 + r2) / 2.0;
     let v1 = vis_viva_equation(mu, r1, a_transfer);
 
     let t1 = current.t_next_p(now)?;
     let before = current.pv_universal(t1).ok()?;
-    let prograde = before.vel.normalize_or_zero();
-    let after = PV::new(before.pos, prograde * v1);
+    let prograde = before.vel_f32().as_dvec2().normalize_or_zero();
+    let after = PV::from_f64(before.pos_f32(), prograde * v1);
 
-    let dv1 = after.vel - before.vel;
+    let dv1 = after.vel_f32() - before.vel_f32();
 
     let transfer_orbit = SparseOrbit::from_pv(after, current.body, t1)?;
 
     let t2 = t1 + transfer_orbit.period()? / 2;
     let before = transfer_orbit.pv_universal(t2).ok()?;
-    let (after, _) = destination.nearest(before.pos);
-    let after = PV::new(before.pos, after.vel);
+    let (after, _) = destination.nearest(before.pos_f32());
+    let after = PV::from_f32(before.pos_f32(), after.vel_f32());
 
-    let dv2 = after.vel - before.vel;
+    let dv2 = after.vel_f32() - before.vel_f32();
 
     ManeuverPlan::new(now, *current, &[(t1, dv1), (t2, dv2)])
 }
@@ -751,7 +751,7 @@ fn bielliptic_transfer(
 
     let rb = current.apoapsis_r().max(destination.apoapsis_r()) * 2.0;
 
-    if rb > current.body.soi * 0.9 {
+    if rb > current.body.soi as f64 * 0.9 {
         return None;
     }
 
@@ -777,7 +777,7 @@ fn direct_transfer(
         .flatten()
         .map(|(t, pvf)| {
             let pvi = current.pv(t).ok()?;
-            ManeuverPlan::new(now, *current, &[(t, pvf.vel - pvi.vel)])
+            ManeuverPlan::new(now, *current, &[(t, pvf.vel_f32() - pvi.vel_f32())])
         })
         .flatten()
 }
@@ -833,7 +833,7 @@ mod tests {
             let p1 = s1.orbit.pv(s1.end).unwrap();
             let p2 = s2.orbit.pv(s2.start).unwrap();
 
-            let d = p1.pos.distance(p2.pos);
+            let d = p1.pos_f32().distance(p2.pos_f32());
 
             assert!(d < 20.0, "Expected difference to be smaller: {}", d);
         }
@@ -853,11 +853,11 @@ mod tests {
             assert!(pv.is_some(), "Expected PV to be Some: {}", t);
             let pv = pv.unwrap();
 
-            let dt = 5.0 / pv.vel.length();
+            let dt = 5.0 / pv.vel_f32().length();
             let dt = Nanotime::secs_f32(dt);
 
             if let Some(p) = previous {
-                let d = (pv - p).pos.length();
+                let d = (pv - p).pos_f32().length();
                 assert!(
                     d < 10.0,
                     "Expected difference to be smaller at time {}: {}\n for plan:\n{}",
@@ -874,9 +874,9 @@ mod tests {
     }
 
     fn random_orbit() -> SparseOrbit {
-        let r1 = rand(1000.0, 8000.0);
-        let r2 = rand(1000.0, 8000.0);
-        let argp = rand(0.0, 2.0 * PI);
+        let r1 = rand(1000.0, 8000.0) as f64;
+        let r2 = rand(1000.0, 8000.0) as f64;
+        let argp = rand(0.0, 2.0) as f64 * PI_64;
 
         let body = Body::with_mass(63.0, 1000.0, 15000.0);
 

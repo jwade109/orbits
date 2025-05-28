@@ -131,7 +131,7 @@ mod tests {
     use super::*;
     use crate::prelude::*;
 
-    fn simulate_navigation(init: (f32, f32, f32), dst: (f32, f32, f32)) {
+    fn simulate_navigation(init: (f64, f64, f64), dst: (f64, f64, f64)) {
         let body = Body::with_mass(63.0, 1000.0, 10000000.0);
         let earth = PlanetarySystem::new(PlanetId(0), "Earth", body);
         let mut scenario = Scenario::new(&earth);

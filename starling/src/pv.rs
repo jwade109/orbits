@@ -1,47 +1,57 @@
 use glam::f32::Vec2;
+use glam::f64::DVec2;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Deserialize, Serialize)]
 pub struct PV {
-    pub pos: Vec2,
-    pub vel: Vec2,
+    pos: DVec2,
+    vel: DVec2,
 }
 
 impl PV {
-    pub fn zero() -> Self {
+    pub const NAN: PV = PV {
+        pos: DVec2::NAN,
+        vel: DVec2::NAN,
+    };
+
+    pub const INFINITY: PV = PV {
+        pos: DVec2::INFINITY,
+        vel: DVec2::INFINITY,
+    };
+
+    pub const ZERO: PV = PV {
+        pos: DVec2::ZERO,
+        vel: DVec2::ZERO,
+    };
+
+    pub fn pos_f32(&self) -> Vec2 {
+        self.pos.as_vec2()
+    }
+
+    pub fn vel_f32(&self) -> Vec2 {
+        self.vel.as_vec2()
+    }
+
+    pub fn from_f32(pos: impl Into<Vec2>, vel: impl Into<Vec2>) -> Self {
         PV {
-            pos: Vec2::ZERO,
-            vel: Vec2::ZERO,
+            pos: pos.into().as_dvec2(),
+            vel: vel.into().as_dvec2(),
         }
     }
 
-    pub fn inf() -> Self {
-        PV {
-            pos: Vec2::INFINITY,
-            vel: Vec2::INFINITY,
-        }
-    }
-
-    pub fn nan() -> Self {
-        PV {
-            pos: Vec2::NAN,
-            vel: Vec2::NAN,
-        }
-    }
-
-    pub fn new(pos: impl Into<Vec2>, vel: impl Into<Vec2>) -> Self {
+    pub fn from_f64(pos: impl Into<DVec2>, vel: impl Into<DVec2>) -> Self {
         PV {
             pos: pos.into(),
             vel: vel.into(),
         }
     }
 
-    pub fn pos(pos: impl Into<Vec2>) -> Self {
-        PV::new(pos, Vec2::ZERO)
+    pub fn pos(pos: impl Into<DVec2>) -> Self {
+        PV::from_f64(pos, DVec2::ZERO)
     }
 
-    pub fn vel(vel: impl Into<Vec2>) -> Self {
-        PV::new(Vec2::ZERO, vel)
+    pub fn vel(vel: impl Into<DVec2>) -> Self {
+        PV::from_f64(DVec2::ZERO, vel)
     }
 
     pub fn filter_numerr(&self) -> Option<Self> {
@@ -66,28 +76,49 @@ impl std::fmt::Display for PV {
 impl std::ops::Add for PV {
     type Output = Self;
     fn add(self, other: Self) -> Self {
-        PV::new(self.pos + other.pos, self.vel + other.vel)
+        PV::from_f64(self.pos + other.pos, self.vel + other.vel)
     }
 }
 
 impl std::ops::Sub for PV {
     type Output = Self;
     fn sub(self, other: Self) -> Self {
-        PV::new(self.pos - other.pos, self.vel - other.vel)
+        PV::from_f64(self.pos - other.pos, self.vel - other.vel)
     }
 }
 
 impl std::ops::Div<f32> for PV {
     type Output = Self;
     fn div(self, rhs: f32) -> Self::Output {
-        PV::new(self.pos / rhs, self.vel / rhs)
+        PV::from_f64(self.pos / rhs as f64, self.vel / rhs as f64)
+    }
+}
+
+impl std::ops::Div<f64> for PV {
+    type Output = Self;
+    fn div(self, rhs: f64) -> Self::Output {
+        PV::from_f64(self.pos / rhs, self.vel / rhs)
     }
 }
 
 impl std::ops::Mul<f32> for PV {
     type Output = Self;
     fn mul(self, rhs: f32) -> Self::Output {
-        PV::new(self.pos * rhs, self.vel * rhs)
+        PV::from_f64(self.pos * rhs as f64, self.vel * rhs as f64)
+    }
+}
+
+impl std::ops::Mul<f64> for PV {
+    type Output = Self;
+    fn mul(self, rhs: f64) -> Self::Output {
+        PV::from_f64(self.pos * rhs, self.vel * rhs)
+    }
+}
+
+impl std::ops::AddAssign for PV {
+    fn add_assign(&mut self, rhs: Self) {
+        self.pos += rhs.pos;
+        self.vel += rhs.vel;
     }
 }
 
@@ -95,12 +126,18 @@ impl Into<PV> for ((f32, f32), (f32, f32)) {
     fn into(self) -> PV {
         let r: Vec2 = self.0.into();
         let v: Vec2 = self.1.into();
-        PV::new(r, v)
+        PV::from_f64(r, v)
     }
 }
 
 impl Into<PV> for (Vec2, Vec2) {
     fn into(self) -> PV {
-        PV::new(self.0, self.1)
+        PV::from_f64(self.0, self.1)
+    }
+}
+
+impl Into<PV> for (DVec2, DVec2) {
+    fn into(self) -> PV {
+        PV::from_f64(self.0, self.1)
     }
 }
