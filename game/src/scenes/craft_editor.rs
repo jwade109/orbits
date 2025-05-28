@@ -2,12 +2,16 @@ use crate::args::ProgramContext;
 use crate::drawing::*;
 use crate::mouse::InputState;
 use crate::mouse::{FrameId, MouseButt};
+use crate::onclick::OnClick;
 use crate::planetary::GameState;
 use crate::scenes::{CameraProjection, Render, StaticSpriteDescriptor, TextLabel};
+use crate::ui::*;
 use bevy::color::palettes::css::*;
 use bevy::input::keyboard::{Key, KeyCode, KeyboardInput};
 use bevy::prelude::*;
 use enum_iterator::next_cycle;
+use layout::layout::*;
+use layout::layout::{Node, Tree};
 use rfd::FileDialog;
 use serde::{Deserialize, Serialize};
 use starling::prelude::*;
@@ -59,6 +63,11 @@ pub struct EditorContext {
     invisible_layers: HashSet<PartLayer>,
     occupied: HashMap<PartLayer, HashSet<IVec2>>,
     vehicle: Vehicle,
+
+    // menus
+    pub parts_menu_collapsed: bool,
+    pub vehicles_menu_collapsed: bool,
+    pub layers_menu_collapsed: bool,
 }
 
 impl EditorContext {
@@ -76,6 +85,9 @@ impl EditorContext {
             invisible_layers: HashSet::new(),
             occupied: HashMap::new(),
             vehicle: Vehicle::from_parts(Nanotime::zero(), Vec::new()),
+            parts_menu_collapsed: false,
+            vehicles_menu_collapsed: true,
+            layers_menu_collapsed: false,
         }
     }
 
@@ -416,9 +428,105 @@ impl Render for EditorContext {
         Some(())
     }
 
-    fn ui(_state: &GameState) -> Option<layout::layout::Tree<crate::onclick::OnClick>> {
-        todo!()
+    fn ui(state: &GameState) -> Option<Tree<OnClick>> {
+        use crate::ui::*;
+
+        let vb = state.input.screen_bounds;
+        if vb.span.x == 0.0 || vb.span.y == 0.0 {
+            return None;
+        }
+
+        let top_bar = top_bar(state);
+        let parts = part_selection(state);
+        let layers = layer_selection(state);
+        let vehicles = vehicle_selection(state);
+
+        let main_area = Node::grow()
+            .invisible()
+            .with_child(parts)
+            .with_child(layers)
+            .with_child(vehicles);
+
+        let layout = Node::new(vb.span.x, vb.span.y)
+            .tight()
+            .invisible()
+            .down()
+            .with_child(top_bar)
+            .with_child(main_area);
+
+        Some(Tree::new().with_layout(layout, Vec2::ZERO))
     }
+}
+
+fn expandable_menu(text: &str, onclick: OnClick) -> Node<OnClick> {
+    Node::new(300, Size::Fit)
+        .down()
+        .with_color(UI_BACKGROUND_COLOR)
+        .with_child(
+            Node::new(Size::Grow, BUTTON_HEIGHT)
+                .with_text(text)
+                .enabled(false),
+        )
+        .with_child(
+            Node::button("", onclick, Size::Grow, BUTTON_HEIGHT).with_color([0.3, 0.3, 0.3, 1.0]),
+        )
+}
+
+fn part_selection(state: &GameState) -> Node<OnClick> {
+    let mut part_names: Vec<_> = state.part_database.keys().collect();
+    part_names.sort();
+
+    let mut n = expandable_menu("Parts", OnClick::TogglePartsMenuCollapsed);
+
+    if !state.editor_context.parts_menu_collapsed {
+        n.add_children(part_names.into_iter().map(|s| {
+            let onclick = OnClick::SelectPart(s.clone());
+            Node::button(s, onclick, Size::Grow, BUTTON_HEIGHT)
+        }));
+    }
+
+    n
+}
+
+fn vehicle_selection(state: &GameState) -> Node<OnClick> {
+    let mut vehicle_paths = vec![];
+    if let Ok(paths) = std::fs::read_dir(&state.args.vehicle_dir()) {
+        for path in paths {
+            if let Ok(path) = path {
+                vehicle_paths.push(path.path());
+            }
+        }
+    }
+
+    let mut n = expandable_menu("Vehicles", OnClick::ToggleVehiclesMenuCollapsed);
+
+    if !state.editor_context.vehicles_menu_collapsed {
+        n.add_children(vehicle_paths.into_iter().map(|v| {
+            let s = format!("{}", v.file_stem().unwrap().to_string_lossy());
+            let onclick = OnClick::LoadVehicle(v);
+            Node::button(s, onclick, Size::Grow, BUTTON_HEIGHT)
+        }));
+    }
+
+    n
+}
+
+fn layer_selection(state: &GameState) -> Node<OnClick> {
+    let mut n = expandable_menu("Layers", OnClick::ToggleLayersMenuCollapsed);
+
+    if !state.editor_context.layers_menu_collapsed {
+        n.add_children(enum_iterator::all::<PartLayer>().into_iter().map(|p| {
+            let s = format!("{:?}", p);
+            let onclick = OnClick::ToggleLayer(p);
+            let mut n = Node::button(s, onclick, Size::Grow, BUTTON_HEIGHT);
+            if !state.editor_context.is_layer_visible(p) {
+                n = n.with_color(GRAY.to_f32_array());
+            }
+            n
+        }));
+    }
+
+    n
 }
 
 impl CameraProjection for EditorContext {

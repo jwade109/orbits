@@ -706,6 +706,17 @@ impl GameState {
             OnClick::LoadVehicle(path) => _ = EditorContext::load_vehicle(&path, self),
             OnClick::ConfirmExitDialog => self.shutdown(),
             OnClick::DismissExitDialog => self.is_exit_prompt = false,
+            OnClick::TogglePartsMenuCollapsed => {
+                self.editor_context.parts_menu_collapsed = !self.editor_context.parts_menu_collapsed
+            }
+            OnClick::ToggleVehiclesMenuCollapsed => {
+                self.editor_context.vehicles_menu_collapsed =
+                    !self.editor_context.vehicles_menu_collapsed
+            }
+            OnClick::ToggleLayersMenuCollapsed => {
+                self.editor_context.layers_menu_collapsed =
+                    !self.editor_context.layers_menu_collapsed
+            }
             _ => info!("Unhandled button event: {id:?}"),
         };
 
@@ -737,8 +748,10 @@ impl GameState {
 
     pub fn get_random_parts(&self) -> Vec<(IVec2, Rotation, PartProto)> {
         let choice = rand(0.0, 1.0);
-        let name = if choice < 1.1 {
+        let name = if choice < 0.5 {
             "satellite"
+        } else if choice < 0.9 {
+            "spacestation"
         } else {
             "asteroid"
         };

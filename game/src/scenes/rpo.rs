@@ -1,11 +1,13 @@
 use crate::drawing::*;
 use crate::mouse::InputState;
+use crate::onclick::OnClick;
 use crate::planetary::GameState;
 use crate::scenes::Render;
 use crate::scenes::{CameraProjection, Interactive, StaticSpriteDescriptor, TextLabel};
 use bevy::color::palettes::css::*;
 use bevy::input::keyboard::KeyCode;
 use bevy::prelude::*;
+use layout::layout::Tree;
 use starling::prelude::*;
 
 #[derive(Debug)]
@@ -136,8 +138,38 @@ impl Render for RPOContext {
         )])
     }
 
-    fn ui(_state: &GameState) -> Option<layout::layout::Tree<crate::onclick::OnClick>> {
-        todo!()
+    fn ui(state: &GameState) -> Option<Tree<OnClick>> {
+        use crate::ui::*;
+        use layout::layout::Node;
+
+        let dims = state.input.screen_bounds.span;
+
+        let bar = top_bar(state);
+        let sim_time = sim_time_toolbar(state);
+        let throttle = throttle_controls(state);
+
+        let sidebar = Node::column(300).with_color(UI_BACKGROUND_COLOR);
+
+        let world_viewport = Node::grow()
+            .invisible()
+            .down()
+            .with_child(sim_time)
+            .with_child(throttle);
+
+        let main_content = Node::grow()
+            .invisible()
+            .tight()
+            .with_child(sidebar)
+            .with_child(world_viewport);
+
+        let wrapper = Node::new(dims.x, dims.y)
+            .down()
+            .tight()
+            .invisible()
+            .with_child(bar)
+            .with_child(main_content);
+
+        Some(Tree::new().with_layout(wrapper, Vec2::ZERO))
     }
 }
 

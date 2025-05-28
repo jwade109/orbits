@@ -363,7 +363,7 @@ pub fn make_separation_graph(
     let pv = apply(&teval, |t| {
         let p = src.pv(t).ok().unwrap_or(PV::NAN);
         let q = dst.pv(t).ok().unwrap_or(PV::NAN);
-        p.pos_f32() - q.pos_f32()
+        (p.pos - q.pos).as_vec2()
     });
 
     let sep = |hours: f32| {

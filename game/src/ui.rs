@@ -276,72 +276,6 @@ pub fn append_piloting_buttons(state: &GameState, sidebar: &mut ui::Node<OnClick
     x || y
 }
 
-fn editor_layout(state: &GameState) -> ui::Tree<OnClick> {
-    use ui::*;
-
-    let vb = state.input.screen_bounds;
-    if vb.span.x == 0.0 || vb.span.y == 0.0 {
-        return Tree::new();
-    }
-
-    let mut vehicle_paths = vec![];
-    if let Ok(paths) = std::fs::read_dir(&state.args.vehicle_dir()) {
-        for path in paths {
-            if let Ok(path) = path {
-                vehicle_paths.push(path.path());
-            }
-        }
-    }
-
-    let mut part_names: Vec<_> = state.part_database.keys().collect();
-    part_names.sort();
-
-    let top_bar = top_bar(state);
-    let part_selection = Node::column(300)
-        .with_color(UI_BACKGROUND_COLOR)
-        .with_children(part_names.into_iter().map(|s| {
-            let onclick = OnClick::SelectPart(s.clone());
-            Node::button(s, onclick, Size::Grow, BUTTON_HEIGHT)
-        }))
-        .with_child(Node::hline())
-        .with_child(Node::row(BUTTON_HEIGHT).with_text("Layers").enabled(false))
-        .with_children(enum_iterator::all::<PartLayer>().into_iter().map(|p| {
-            let s = format!("{:?}", p);
-            let onclick = OnClick::ToggleLayer(p);
-            let mut n = Node::button(s, onclick, Size::Grow, BUTTON_HEIGHT);
-            if !state.editor_context.is_layer_visible(p) {
-                n = n.with_color(GRAY.to_f32_array());
-            }
-            n
-        }))
-        .with_child(Node::hline())
-        .with_child(
-            Node::row(BUTTON_HEIGHT)
-                .with_text("Assemblies")
-                .enabled(false),
-        )
-        .with_children(vehicle_paths.into_iter().map(|v| {
-            let s = format!("{}", v.file_stem().unwrap().to_string_lossy());
-            let onclick = OnClick::LoadVehicle(v);
-            Node::button(s, onclick, Size::Grow, BUTTON_HEIGHT)
-        }));
-
-    let layout = Node::new(vb.span.x, vb.span.y)
-        .tight()
-        .invisible()
-        .down()
-        .with_child(top_bar)
-        .with_child(
-            Node::grow()
-                .tight()
-                .invisible()
-                .with_child(part_selection)
-                .with_child(notification_bar(state, Size::Grow)),
-        );
-
-    ui::Tree::new().with_layout(layout, Vec2::ZERO)
-}
-
 pub const BUTTON_HEIGHT: f32 = 40.0;
 
 pub fn exit_prompt_overlay(w: f32, h: f32) -> ui::Node<OnClick> {
@@ -378,14 +312,61 @@ pub fn exit_prompt_overlay(w: f32, h: f32) -> ui::Node<OnClick> {
         .with_child(Node::grow().invisible())
 }
 
+pub fn throttle_controls(state: &GameState) -> ui::Node<OnClick> {
+    use ui::*;
+    if state.piloting().is_some() {
+        let thrust_levels = [
+            ("High", ThrottleLevel::High),
+            ("Medium", ThrottleLevel::Medium),
+            ("Low", ThrottleLevel::Low),
+            ("Very Low", ThrottleLevel::VeryLow),
+        ];
+        Node::new(230, Size::Fit)
+            .with_color(UI_BACKGROUND_COLOR)
+            .down()
+            .with_child(
+                Node::row(BUTTON_HEIGHT)
+                    .with_text("Throttle")
+                    .enabled(false),
+            )
+            .with_children(thrust_levels.iter().map(|(s, id)| {
+                Node::button(*s, OnClick::ThrustLevel(*id), Size::Grow, BUTTON_HEIGHT)
+                    .enabled(id != &state.orbital_context.throttle)
+            }))
+    } else {
+        Node::new(0.0, 0.0)
+    }
+}
+
+pub fn sim_time_toolbar(state: &GameState) -> ui::Node<OnClick> {
+    use ui::*;
+
+    Node::fit()
+        .with_color(UI_BACKGROUND_COLOR)
+        .with_child({
+            let s = if state.paused { "UNPAUSE" } else { "PAUSE" };
+            Node::button(s, OnClick::TogglePause, 120, BUTTON_HEIGHT)
+        })
+        .with_children((-4..=4).map(|i| {
+            Node::button(
+                format!("{i}"),
+                OnClick::SimSpeed(i),
+                BUTTON_HEIGHT,
+                BUTTON_HEIGHT,
+            )
+            .enabled(i != state.sim_speed)
+        }))
+}
+
 pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
     let scene = state.current_scene();
     match scene.kind() {
         SceneType::MainMenu => return main_menu_layout(state),
-        SceneType::DockingView => return basic_scenes_layout(state),
+        // SceneType::DockingView => return basic_scenes_layout(state),
+        SceneType::DockingView => return RPOContext::ui(state).unwrap_or(Tree::new()),
         SceneType::TelescopeView => return basic_scenes_layout(state),
         SceneType::Orbital => (),
-        SceneType::Editor => return editor_layout(state),
+        SceneType::Editor => return EditorContext::ui(state).unwrap_or(Tree::new()),
         SceneType::CommsPanel => return CommsContext::ui(state).unwrap_or(Tree::new()),
     };
 
@@ -559,21 +540,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
         orbiter_list(&mut sidebar, 16, ids);
     }
 
-    let mut inner_topbar = Node::fit()
-        .with_color(UI_BACKGROUND_COLOR)
-        .with_child({
-            let s = if state.paused { "UNPAUSE" } else { "PAUSE" };
-            Node::button(s, OnClick::TogglePause, 120, BUTTON_HEIGHT)
-        })
-        .with_children((-4..=4).map(|i| {
-            Node::button(
-                format!("{i}"),
-                OnClick::SimSpeed(i),
-                BUTTON_HEIGHT,
-                BUTTON_HEIGHT,
-            )
-            .enabled(i != state.sim_speed)
-        }));
+    let mut inner_topbar = sim_time_toolbar(state);
 
     if let Some(id) = state.orbital_context.following {
         let s = format!("Following {}", id);
@@ -598,28 +565,7 @@ pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
 
     let notif_bar = notification_bar(state, Size::Fixed(900.0));
 
-    let throttle_controls = if state.piloting().is_some() {
-        let thrust_levels = [
-            ("High", ThrottleLevel::High),
-            ("Medium", ThrottleLevel::Medium),
-            ("Low", ThrottleLevel::Low),
-            ("Very Low", ThrottleLevel::VeryLow),
-        ];
-        Node::new(230, Size::Fit)
-            .with_color(UI_BACKGROUND_COLOR)
-            .down()
-            .with_child(
-                Node::row(BUTTON_HEIGHT)
-                    .with_text("Throttle")
-                    .enabled(false),
-            )
-            .with_children(thrust_levels.iter().map(|(s, id)| {
-                Node::button(*s, OnClick::ThrustLevel(*id), Size::Grow, BUTTON_HEIGHT)
-                    .enabled(id != &state.orbital_context.throttle)
-            }))
-    } else {
-        Node::new(0.0, 0.0)
-    };
+    let throttle_controls = throttle_controls(state);
 
     let world = Node::grow()
         .down()

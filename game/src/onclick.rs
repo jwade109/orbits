@@ -38,5 +38,8 @@ pub enum OnClick {
     LoadVehicle(PathBuf),
     DismissExitDialog,
     ConfirmExitDialog,
+    TogglePartsMenuCollapsed,
+    ToggleVehiclesMenuCollapsed,
+    ToggleLayersMenuCollapsed,
     Nullopt,
 }
