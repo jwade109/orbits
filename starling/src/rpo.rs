@@ -17,7 +17,7 @@ impl RPO {
             .map(|veh| {
                 let p = randvec(10.0, 100.0);
                 let v = randvec(2.0, 7.0);
-                (PV::from_f32(p, v), veh)
+                (PV::from_f64(p, v), veh)
             })
             .collect();
 
@@ -51,7 +51,7 @@ impl RPO {
         for (pv, vehicle) in self.vehicles.iter_mut() {
             vehicle.step(stamp);
 
-            let perturb = PV::from_f32(pv.vel_f32() * dt, randvec(0.1, 12.0) * dt);
+            let perturb = PV::from_f64(pv.vel_f32() * dt, randvec(0.1, 12.0) * dt);
             *pv += perturb;
         }
         self.stamp = stamp;

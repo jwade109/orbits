@@ -2,7 +2,6 @@ use crate::mouse::{FrameId, MouseButt};
 use crate::onclick::OnClick;
 use crate::planetary::GameState;
 use crate::scenes::*;
-use bevy::color::palettes::css::*;
 use bevy::core_pipeline::bloom::Bloom;
 use bevy::prelude::*;
 use bevy::render::{
@@ -13,8 +12,7 @@ use bevy::render::{
 use bevy::sprite::Anchor;
 use bevy::text::TextBounds;
 use bevy::window::WindowResized;
-use enum_iterator::all;
-use layout::layout as ui;
+use layout::layout::{Node, Size, TextJustify, Tree};
 use starling::prelude::*;
 
 #[allow(dead_code)]
@@ -55,7 +53,7 @@ pub enum InteractionEvent {
     Reset,
 
     // manual piloting commands
-    ThrustForward,
+    Thrust(i8),
     TurnLeft,
     TurnRight,
 }
@@ -119,8 +117,7 @@ pub fn do_text_labels(
 pub struct TextLabel;
 
 #[allow(unused)]
-fn context_menu(rowsize: f32, items: &[(String, OnClick, bool)]) -> ui::Node<OnClick> {
-    use ui::*;
+fn context_menu(rowsize: f32, items: &[(String, OnClick, bool)]) -> Node<OnClick> {
     Node::new(200, Size::Fit)
         .down()
         .with_color([0.1, 0.1, 0.1, 1.0])
@@ -134,34 +131,7 @@ fn context_menu(rowsize: f32, items: &[(String, OnClick, bool)]) -> ui::Node<OnC
 pub const DELETE_SOMETHING_COLOR: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
 pub const UI_BACKGROUND_COLOR: [f32; 4] = [0.05, 0.05, 0.05, 1.0];
 
-fn delete_wrapper(
-    ondelete: OnClick,
-    button: ui::Node<OnClick>,
-    box_size: f32,
-) -> ui::Node<OnClick> {
-    let x_button = {
-        let s = "X";
-        ui::Node::button(s, ondelete, box_size, box_size).with_color(DELETE_SOMETHING_COLOR)
-    };
-
-    let (w, _) = button.desired_dims();
-
-    let width = match w {
-        ui::Size::Fit => ui::Size::Fit,
-        ui::Size::Fixed(n) => ui::Size::Fixed(n + box_size),
-        ui::Size::Grow => ui::Size::Grow,
-    };
-
-    ui::Node::new(width, box_size)
-        .tight()
-        .invisible()
-        .with_child(x_button)
-        .with_child(button)
-}
-
-pub fn main_menu_layout(state: &GameState) -> ui::Tree<OnClick> {
-    use ui::*;
-
+pub fn main_menu_layout(state: &GameState) -> Tree<OnClick> {
     let buttons = ["Load Save File", "Settings", "Exit"];
 
     let wrapper = Node::fit()
@@ -180,11 +150,10 @@ pub fn main_menu_layout(state: &GameState) -> ui::Tree<OnClick> {
                 .map(|(i, s)| Node::button(s.name(), OnClick::GoToScene(i), 200, 50)),
         );
 
-    ui::Tree::new().with_layout(wrapper, Vec2::splat(300.0))
+    Tree::new().with_layout(wrapper, Vec2::splat(300.0))
 }
 
-pub fn top_bar(state: &GameState) -> ui::Node<OnClick> {
-    use ui::*;
+pub fn top_bar(state: &GameState) -> Node<OnClick> {
     Node::row(Size::Fit)
         .with_color(UI_BACKGROUND_COLOR)
         .with_child(Node::button("Save", OnClick::Save, 80, Size::Grow))
@@ -200,9 +169,7 @@ pub fn top_bar(state: &GameState) -> ui::Node<OnClick> {
         .with_child(Node::button("Exit", OnClick::Exit, 80, Size::Grow))
 }
 
-pub fn basic_scenes_layout(state: &GameState) -> ui::Tree<OnClick> {
-    use ui::*;
-
+pub fn basic_scenes_layout(state: &GameState) -> Tree<OnClick> {
     let vb = state.input.screen_bounds;
     if vb.span.x == 0.0 || vb.span.y == 0.0 {
         return Tree::new();
@@ -218,69 +185,26 @@ pub fn basic_scenes_layout(state: &GameState) -> ui::Tree<OnClick> {
         .with_child(top_bar)
         .with_child(notif_bar);
 
-    ui::Tree::new().with_layout(layout, Vec2::ZERO)
+    Tree::new().with_layout(layout, Vec2::ZERO)
 }
 
-pub fn notification_bar(state: &GameState, width: ui::Size) -> ui::Node<OnClick> {
-    ui::Node::new(width, ui::Size::Fit)
+pub fn notification_bar(state: &GameState, width: Size) -> Node<OnClick> {
+    Node::new(width, Size::Fit)
         .down()
         .tight()
         .invisible()
         .with_children(state.notifications.iter().rev().take(20).rev().map(|n| {
             let s = format!("{}", n);
-            ui::Node::new(width, 28)
+            Node::new(width, 28)
                 .with_text(s)
-                .with_justify(ui::TextJustify::Left)
+                .with_justify(TextJustify::Left)
                 .with_color([0.0, 0.0, 0.0, 0.0])
         }))
 }
 
-pub fn append_piloting_buttons(state: &GameState, sidebar: &mut ui::Node<OnClick>) -> bool {
-    use ui::*;
-    // piloting and secondary spacecrafts
-
-    let x = if let Some(p) = state.orbital_context.piloting {
-        sidebar.add_child({
-            let s = format!("Piloting {:?}", p);
-            let b = Node::button(s, OnClick::Orbiter(p), Size::Grow, BUTTON_HEIGHT);
-            delete_wrapper(OnClick::ClearPilot, b, BUTTON_HEIGHT as f32)
-        });
-        true
-    } else if let Some(ObjectId::Orbiter(p)) = state.orbital_context.following {
-        sidebar.add_child({
-            let s = format!("Pilot {:?}", p);
-            Node::button(s, OnClick::SetPilot(p), Size::Grow, BUTTON_HEIGHT)
-        });
-        true
-    } else {
-        false
-    };
-
-    let y = if let Some(p) = state.orbital_context.targeting {
-        sidebar.add_child({
-            let s = format!("Targeting {:?}", p);
-            let b = Node::button(s, OnClick::Orbiter(p), Size::Grow, BUTTON_HEIGHT);
-            delete_wrapper(OnClick::ClearTarget, b, BUTTON_HEIGHT as f32)
-        });
-        true
-    } else if let Some(ObjectId::Orbiter(p)) = state.orbital_context.following {
-        sidebar.add_child({
-            let s = format!("Target {:?}", p);
-            Node::button(s, OnClick::SetTarget(p), Size::Grow, BUTTON_HEIGHT)
-        });
-        true
-    } else {
-        false
-    };
-
-    x || y
-}
-
 pub const BUTTON_HEIGHT: f32 = 40.0;
 
-pub fn exit_prompt_overlay(w: f32, h: f32) -> ui::Node<OnClick> {
-    use ui::*;
-
+pub fn exit_prompt_overlay(w: f32, h: f32) -> Node<OnClick> {
     let window = Node::new(330, Size::Fit)
         .down()
         .with_color(UI_BACKGROUND_COLOR)
@@ -312,35 +236,68 @@ pub fn exit_prompt_overlay(w: f32, h: f32) -> ui::Node<OnClick> {
         .with_child(Node::grow().invisible())
 }
 
-pub fn throttle_controls(state: &GameState) -> ui::Node<OnClick> {
-    use ui::*;
-    if state.piloting().is_some() {
-        let thrust_levels = [
-            ("High", ThrottleLevel::High),
-            ("Medium", ThrottleLevel::Medium),
-            ("Low", ThrottleLevel::Low),
-            ("Very Low", ThrottleLevel::VeryLow),
-        ];
-        Node::new(230, Size::Fit)
-            .with_color(UI_BACKGROUND_COLOR)
-            .down()
-            .with_child(
-                Node::row(BUTTON_HEIGHT)
-                    .with_text("Throttle")
-                    .enabled(false),
-            )
-            .with_children(thrust_levels.iter().map(|(s, id)| {
-                Node::button(*s, OnClick::ThrustLevel(*id), Size::Grow, BUTTON_HEIGHT)
-                    .enabled(id != &state.orbital_context.throttle)
-            }))
-    } else {
-        Node::new(0.0, 0.0)
-    }
+pub fn left_right_arrows(
+    width: impl Into<Size>,
+    height: impl Into<Size>,
+    left: OnClick,
+    right: OnClick,
+) -> Node<OnClick> {
+    let height = height.into();
+    let left = Node::button("-", left, Size::Grow, height);
+    let right = Node::button("+", right, Size::Grow, height);
+    Node::new(width, height)
+        .with_padding(0.0)
+        .invisible()
+        .with_child(left)
+        .with_child(right)
 }
 
-pub fn sim_time_toolbar(state: &GameState) -> ui::Node<OnClick> {
-    use ui::*;
+pub fn throttle_controls(state: &GameState) -> Node<OnClick> {
+    const THROTTLE_CONTROLS_WIDTH: f32 = 300.0;
 
+    if !state.piloting().is_some() {
+        return Node::new(0.0, 0.0);
+    }
+
+    let arrows = left_right_arrows(
+        Size::Grow,
+        BUTTON_HEIGHT,
+        OnClick::IncrementThrottle(-1),
+        OnClick::IncrementThrottle(1),
+    );
+
+    let throttle = state.orbital_context.throttle;
+
+    let title = format!(
+        "Throttle ({}%)",
+        (throttle.to_ratio() * 100.0).round() as i32
+    );
+
+    Node::new(THROTTLE_CONTROLS_WIDTH, Size::Fit)
+        .with_color(UI_BACKGROUND_COLOR)
+        .down()
+        .with_child(Node::row(BUTTON_HEIGHT).with_text(title).enabled(false))
+        .with_child(
+            Node::row(BUTTON_HEIGHT)
+                .invisible()
+                .with_padding(0.0)
+                .with_child_gap(2.0)
+                .with_children((0..=ThrottleLevel::MAX).map(|i| {
+                    let t = ThrottleLevel(i);
+                    let onclick = OnClick::ThrottleLevel(t);
+                    let n =
+                        Node::button("", onclick, Size::Grow, BUTTON_HEIGHT).enabled(t != throttle);
+                    if i < throttle.0 {
+                        n.with_color([0.8, 0.2, 0.2, 0.9])
+                    } else {
+                        n.with_color([0.9, 0.9, 0.9, 0.7])
+                    }
+                })),
+        )
+        .with_child(arrows)
+}
+
+pub fn sim_time_toolbar(state: &GameState) -> Node<OnClick> {
     Node::fit()
         .with_color(UI_BACKGROUND_COLOR)
         .with_child({
@@ -358,261 +315,20 @@ pub fn sim_time_toolbar(state: &GameState) -> ui::Node<OnClick> {
         }))
 }
 
-pub fn layout(state: &GameState) -> ui::Tree<OnClick> {
+pub fn layout(state: &GameState) -> Tree<OnClick> {
     let scene = state.current_scene();
     match scene.kind() {
         SceneType::MainMenu => return main_menu_layout(state),
-        // SceneType::DockingView => return basic_scenes_layout(state),
         SceneType::DockingView => return RPOContext::ui(state).unwrap_or(Tree::new()),
-        SceneType::TelescopeView => return basic_scenes_layout(state),
-        SceneType::Orbital => (),
+        SceneType::TelescopeView => return TelescopeContext::ui(state).unwrap_or(Tree::new()),
+        SceneType::Orbital => return OrbitalContext::ui(state).unwrap_or(Tree::new()),
         SceneType::Editor => return EditorContext::ui(state).unwrap_or(Tree::new()),
         SceneType::CommsPanel => return CommsContext::ui(state).unwrap_or(Tree::new()),
     };
-
-    use ui::*;
-
-    let vb = state.input.screen_bounds;
-    if vb.span.x == 0.0 || vb.span.y == 0.0 {
-        return Tree::new();
-    }
-
-    let topbar = top_bar(state);
-
-    let mut sidebar = Node::column(300).with_color(UI_BACKGROUND_COLOR);
-
-    let body_color_lup: std::collections::HashMap<&'static str, Srgba> =
-        std::collections::HashMap::from([("Earth", BLUE), ("Luna", GRAY), ("Asteroid", BROWN)]);
-
-    if let Some(lup) = state
-        .scenario
-        .relevant_body(state.orbital_context.origin(), state.sim_time)
-        .map(|id| state.scenario.lup_planet(id, state.sim_time))
-        .flatten()
-    {
-        if let Some((s, _)) = lup.named_body() {
-            let color: Srgba = body_color_lup
-                .get(s.as_str())
-                .unwrap_or(&Srgba::from(crate::sprites::hashable_to_color(s)))
-                .with_luminance(0.2)
-                .with_alpha(0.9);
-            sidebar.add_child(
-                Node::button(
-                    s,
-                    OnClick::CurrentBody(lup.id().planet().unwrap()),
-                    Size::Grow,
-                    BUTTON_HEIGHT,
-                )
-                .with_color(color.to_f32_array()),
-            );
-        }
-    }
-
-    sidebar.add_child(Node::button(
-        format!("Visual: {:?}", state.orbital_context.draw_mode),
-        OnClick::ToggleDrawMode,
-        Size::Grow,
-        BUTTON_HEIGHT,
-    ));
-
-    sidebar.add_child(
-        Node::button(
-            "Clear Orbits",
-            OnClick::ClearOrbits,
-            Size::Grow,
-            BUTTON_HEIGHT,
-        )
-        .enabled(!state.orbital_context.queued_orbits.is_empty()),
-    );
-
-    sidebar.add_child(
-        Node::button(
-            "Commit Mission",
-            OnClick::CommitMission,
-            Size::Grow,
-            BUTTON_HEIGHT,
-        )
-        .enabled(state.current_orbit().is_some() && !state.orbital_context.selected.is_empty()),
-    );
-
-    sidebar.add_child(Node::hline());
-
-    sidebar.add_children(all::<CursorMode>().map(|c| {
-        let s = format!("{:?}", c);
-        let id = OnClick::CursorMode(c);
-        Node::button(s, id, Size::Grow, BUTTON_HEIGHT)
-            .enabled(c != state.orbital_context.cursor_mode)
-    }));
-
-    if !state.constellations.is_empty() {
-        sidebar.add_child(Node::hline());
-    }
-
-    for gid in state.unique_groups() {
-        let color: Srgba = crate::sprites::hashable_to_color(gid)
-            .with_luminance(0.3)
-            .into();
-        let s = format!("{}", gid);
-        let id = OnClick::Group(gid.clone());
-        let button =
-            Node::button(s, id, Size::Grow, BUTTON_HEIGHT).with_color(color.to_f32_array());
-        sidebar.add_child(delete_wrapper(
-            OnClick::DisbandGroup(gid.clone()),
-            button,
-            BUTTON_HEIGHT as f32,
-        ));
-    }
-
-    sidebar.add_child(Node::hline());
-
-    if append_piloting_buttons(state, &mut sidebar) {
-        sidebar.add_child(Node::hline());
-    }
-
-    sidebar.add_child({
-        let s = format!("{} selected", state.orbital_context.selected.len());
-        let b = Node::button(s, OnClick::SelectedCount, Size::Grow, BUTTON_HEIGHT).enabled(false);
-        if state.orbital_context.selected.is_empty() {
-            b
-        } else {
-            delete_wrapper(OnClick::ClearTracks, b, BUTTON_HEIGHT as f32)
-        }
-    });
-
-    let orbiter_list = |root: &mut Node<OnClick>, max_cells: usize, mut ids: Vec<OrbiterId>| {
-        ids.sort();
-
-        let rows = (ids.len().min(max_cells) as f32 / 4.0).ceil() as u32;
-        let grid = Node::grid(Size::Grow, rows * BUTTON_HEIGHT as u32, rows, 4, 4.0, |i| {
-            if i as usize > max_cells {
-                return None;
-            }
-            let id = ids.get(i as usize)?;
-            let s = format!("{id}");
-            Some(
-                Node::grow()
-                    .with_on_click(OnClick::Orbiter(*id))
-                    .with_text(s)
-                    .enabled(
-                        Some(*id)
-                            != state
-                                .orbital_context
-                                .following
-                                .map(|f| f.orbiter())
-                                .flatten(),
-                    ),
-            )
-        });
-        root.add_child(grid);
-
-        if ids.len() > max_cells {
-            let n = ids.len() - max_cells;
-            let s = format!("...And {} more", n);
-            root.add_child(
-                Node::new(Size::Grow, BUTTON_HEIGHT)
-                    .with_text(s)
-                    .enabled(false),
-            );
-        }
-    };
-
-    if !state.orbital_context.selected.is_empty() {
-        orbiter_list(
-            &mut sidebar,
-            32,
-            state.orbital_context.selected.iter().cloned().collect(),
-        );
-        sidebar.add_child(Node::button(
-            "Create Group",
-            OnClick::CreateGroup,
-            Size::Grow,
-            BUTTON_HEIGHT,
-        ));
-    }
-
-    if !state.controllers.is_empty() {
-        sidebar.add_child(Node::hline());
-        let s = format!("{} autopiloting", state.controllers.len());
-        let id = OnClick::AutopilotingCount;
-        sidebar.add_child(Node::button(s, id, Size::Grow, BUTTON_HEIGHT).enabled(false));
-
-        let ids = state.controllers.iter().map(|c| c.target()).collect();
-        orbiter_list(&mut sidebar, 16, ids);
-    }
-
-    let mut inner_topbar = sim_time_toolbar(state);
-
-    if let Some(id) = state.orbital_context.following {
-        let s = format!("Following {}", id);
-        let id = OnClick::Nullopt;
-        let n = Node::button(s, id, 300, BUTTON_HEIGHT).enabled(false);
-        inner_topbar.add_child(n);
-    }
-
-    for (i, orbit) in state.orbital_context.queued_orbits.iter().enumerate() {
-        let orbit_button = {
-            let s = format!("{}", orbit);
-            let id = OnClick::GlobalOrbit(i);
-            Node::button(s, id, 400, BUTTON_HEIGHT)
-        };
-
-        inner_topbar.add_child(delete_wrapper(
-            OnClick::DeleteOrbit(i),
-            orbit_button,
-            BUTTON_HEIGHT as f32,
-        ));
-    }
-
-    let notif_bar = notification_bar(state, Size::Fixed(900.0));
-
-    let throttle_controls = throttle_controls(state);
-
-    let world = Node::grow()
-        .down()
-        .invisible()
-        .with_child(
-            Node::grow()
-                .down()
-                .tight()
-                .invisible()
-                .with_child(inner_topbar)
-                .with_child(throttle_controls),
-        )
-        .with_child(
-            Node::grow()
-                .tight()
-                .down()
-                .invisible()
-                .with_child(Node::grow().invisible())
-                .with_child(notif_bar),
-        );
-
-    let root = Node::new(vb.span.x, vb.span.y)
-        .down()
-        .tight()
-        .invisible()
-        .with_child(topbar)
-        .with_child(
-            Node::grow()
-                .tight()
-                .invisible()
-                .with_child(sidebar)
-                .with_child(world),
-        );
-
-    let tree = Tree::new().with_layout(root, Vec2::ZERO);
-
-    // if let Some(layout) = current_inventory_layout(state) {
-    //     tree.add_layout(layout, Vec2::splat(400.0));
-    // }
-
-    tree
 }
 
 #[allow(unused)]
-fn current_inventory_layout(state: &GameState) -> Option<ui::Node<OnClick>> {
-    use ui::*;
-
+fn current_inventory_layout(state: &GameState) -> Option<Node<OnClick>> {
     let id = state.orbital_context.following?.orbiter()?;
     let orbiter = state.scenario.lup_orbiter(id, state.sim_time)?.orbiter()?;
     let vehicle = state.orbital_vehicles.get(&id)?;
@@ -658,7 +374,7 @@ fn map_bytes(image: &mut Image, func: impl Fn(&mut [u8], u32, u32, u32, u32)) {
 }
 
 fn generate_button_sprite(
-    node: &ui::Node<OnClick>,
+    node: &Node<OnClick>,
     is_clicked: bool,
     is_hover: bool,
 ) -> (Image, f32, f32) {
@@ -792,15 +508,15 @@ fn do_ui_sprites(
                 transform.translation.z += 0.01;
                 if let Some(s) = n.text_content() {
                     transform.translation.x += match n.justify() {
-                        ui::TextJustify::Center => 0.0,
-                        ui::TextJustify::Left => -aabb.span.x / 2.0,
-                        ui::TextJustify::Right => aabb.span.x / 2.0,
+                        TextJustify::Center => 0.0,
+                        TextJustify::Left => -aabb.span.x / 2.0,
+                        TextJustify::Right => aabb.span.x / 2.0,
                     };
 
                     let anchor = match n.justify() {
-                        ui::TextJustify::Center => Anchor::Center,
-                        ui::TextJustify::Left => Anchor::CenterLeft,
-                        ui::TextJustify::Right => Anchor::CenterRight,
+                        TextJustify::Center => Anchor::Center,
+                        TextJustify::Left => Anchor::CenterLeft,
+                        TextJustify::Right => Anchor::CenterRight,
                     };
 
                     commands.spawn((

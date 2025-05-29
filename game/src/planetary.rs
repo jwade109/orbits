@@ -445,7 +445,7 @@ impl GameState {
     pub fn spawn_with_random_perturbance(&mut self, global: &GlobalOrbit) -> Option<()> {
         let GlobalOrbit(parent, orbit) = global;
         let pv_local = orbit.pv(self.sim_time).ok()?;
-        let perturb = PV::from_f32(
+        let perturb = PV::from_f64(
             randvec(
                 pv_local.pos_f32().length() * 0.005,
                 pv_local.pos_f32().length() * 0.02,
@@ -511,7 +511,7 @@ impl GameState {
         Some(())
     }
 
-    pub fn thrust_prograde(&mut self) -> Option<()> {
+    pub fn thrust_prograde(&mut self, dir: i8) -> Option<()> {
         let id = self.piloting()?;
 
         let vehicle = match self.orbital_vehicles.get(&id) {
@@ -533,7 +533,7 @@ impl GameState {
 
         let throttle = self.orbital_context.throttle.to_ratio();
 
-        let dv = vehicle.pointing() * 0.005 * throttle;
+        let dv = vehicle.pointing() * 0.005 * throttle * dir as f32;
 
         let notif = if self
             .scenario
@@ -693,7 +693,7 @@ impl GameState {
             OnClick::GoToScene(i) => {
                 self.set_current_scene(i);
             }
-            OnClick::ThrustLevel(throttle) => {
+            OnClick::ThrottleLevel(throttle) => {
                 self.orbital_context.throttle = throttle;
                 self.notice(format!("Throttle set to {:?}", throttle));
             }
@@ -716,6 +716,12 @@ impl GameState {
             OnClick::ToggleLayersMenuCollapsed => {
                 self.editor_context.layers_menu_collapsed =
                     !self.editor_context.layers_menu_collapsed
+            }
+            OnClick::IncrementThrottle(d) => {
+                self.orbital_context.throttle.increment(d);
+            }
+            OnClick::OpenNewCraft => {
+                self.editor_context.new_craft();
             }
             _ => info!("Unhandled button event: {id:?}"),
         };
@@ -748,8 +754,8 @@ impl GameState {
 
     pub fn get_random_parts(&self) -> Vec<(IVec2, Rotation, PartProto)> {
         let choice = rand(0.0, 1.0);
-        let name = if choice < 0.5 {
-            "satellite"
+        let name = if choice < 0.75 {
+            "pollux"
         } else if choice < 0.9 {
             "spacestation"
         } else {
@@ -1125,8 +1131,8 @@ fn process_interaction(
             let gid = GroupId(get_random_name());
             state.create_group(gid.clone());
         }
-        InteractionEvent::ThrustForward => {
-            state.thrust_prograde();
+        InteractionEvent::Thrust(dir) => {
+            state.thrust_prograde(*dir);
         }
         InteractionEvent::TurnLeft => {
             state.turn(1);

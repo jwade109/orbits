@@ -2,11 +2,13 @@ use crate::drawing::*;
 use crate::graph::Graph;
 use crate::mouse::InputState;
 use crate::mouse::{FrameId, MouseButt};
+use crate::onclick::OnClick;
 use crate::planetary::GameState;
 use crate::scenes::{CameraProjection, Render, StaticSpriteDescriptor, TextLabel};
 use bevy::color::palettes::css::*;
 use bevy::input::keyboard::KeyCode;
 use bevy::prelude::*;
+use layout::layout::Tree;
 use starling::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
@@ -206,7 +208,7 @@ impl Render for TelescopeContext {
         Some(())
     }
 
-    fn ui(_state: &GameState) -> Option<layout::layout::Tree<crate::onclick::OnClick>> {
-        todo!()
+    fn ui(state: &GameState) -> Option<Tree<OnClick>> {
+        Some(crate::ui::basic_scenes_layout(state))
     }
 }

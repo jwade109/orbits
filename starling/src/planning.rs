@@ -719,7 +719,7 @@ fn hohmann_transfer(
     let t2 = t1 + transfer_orbit.period()? / 2;
     let before = transfer_orbit.pv_universal(t2).ok()?;
     let (after, _) = destination.nearest(before.pos_f32());
-    let after = PV::from_f32(before.pos_f32(), after.vel_f32());
+    let after = PV::from_f64(before.pos_f32(), after.vel_f32());
 
     let dv2 = after.vel_f32() - before.vel_f32();
 

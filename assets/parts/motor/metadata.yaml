@@ -1,4 +1,4 @@
-mass: 10.0
+mass: 40.0
 layer: Internal
 class: !Thruster
   isp: 400.0

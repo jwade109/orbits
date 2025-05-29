@@ -61,7 +61,7 @@ pub struct EditorContext {
     filepath: Option<PathBuf>,
     title: TextInput,
     invisible_layers: HashSet<PartLayer>,
-    occupied: HashMap<PartLayer, HashSet<IVec2>>,
+    occupied: HashMap<PartLayer, HashMap<IVec2, usize>>,
     vehicle: Vehicle,
 
     // menus
@@ -91,10 +91,6 @@ impl EditorContext {
         }
     }
 
-    pub fn mass(&self) -> f32 {
-        self.parts.iter().map(|(_, _, part)| part.data.mass).sum()
-    }
-
     pub fn cursor_box(&self, input: &InputState) -> Option<AABB> {
         let p1 = input.position(MouseButt::Left, FrameId::Down)?;
         let p2 = input.position(MouseButt::Left, FrameId::Current)?;
@@ -104,13 +100,28 @@ impl EditorContext {
         ))
     }
 
+    pub fn new_craft(&mut self) {
+        self.title.0 = "".to_string();
+        self.filepath = None;
+        self.parts.clear();
+        self.current_part = None;
+        self.update();
+    }
+
     pub fn set_current_part(state: &mut GameState, name: &String) {
         state.editor_context.current_part = state.part_database.get(name).cloned();
     }
 
-    fn open_file(&mut self, force_new: bool) -> Option<PathBuf> {
-        if self.filepath.is_none() || force_new {
-            self.filepath = FileDialog::new().set_directory("/").pick_file()
+    fn open_existing_file(&mut self) -> Option<PathBuf> {
+        if let Some(p) = FileDialog::new().set_directory("/").pick_file() {
+            self.filepath = Some(p);
+        }
+        self.filepath.clone()
+    }
+
+    fn open_file_to_save(&mut self) -> Option<PathBuf> {
+        if self.filepath.is_none() {
+            self.filepath = FileDialog::new().set_directory("/").save_file()
         };
         self.filepath.clone()
     }
@@ -135,7 +146,7 @@ impl EditorContext {
     }
 
     pub fn save_to_file(state: &mut GameState) -> Option<()> {
-        let choice = state.editor_context.open_file(false)?;
+        let choice = state.editor_context.open_file_to_save()?;
         state.notice(format!("Saving to {}", choice.display()));
 
         let parts = state
@@ -159,7 +170,7 @@ impl EditorContext {
     }
 
     pub fn load_from_file(state: &mut GameState) -> Option<()> {
-        let choice = state.editor_context.open_file(true)?;
+        let choice = state.editor_context.open_existing_file()?;
         EditorContext::load_vehicle(&choice, state)
     }
 
@@ -202,24 +213,39 @@ impl EditorContext {
     }
 
     fn get_part_at(&self, p: IVec2) -> Option<(IVec2, Rotation, PartProto)> {
-        for (pos, rot, part) in self.visible_parts() {
-            let pixels = Self::occupied_pixels(*pos, *rot, part);
-            if pixels.contains(&p) {
-                return Some((*pos, *rot, part.clone()));
+        for layer in [
+            PartLayer::Exterior,
+            PartLayer::Structural,
+            PartLayer::Internal,
+        ] {
+            if !self.is_layer_visible(layer) {
+                continue;
+            }
+
+            if let Some(occ) = self.occupied.get(&layer) {
+                if let Some(idx) = occ.get(&p) {
+                    return self.parts.get(*idx).cloned();
+                }
             }
         }
+
         None
     }
 
     fn update(&mut self) {
         self.occupied.clear();
-        for (pos, rot, part) in &self.parts {
+        for (i, (pos, rot, part)) in self.parts.iter().enumerate() {
             let pixels = Self::occupied_pixels(*pos, *rot, part);
             if let Some(occ) = self.occupied.get_mut(&part.data.layer) {
-                occ.extend(&pixels);
+                for p in pixels {
+                    occ.insert(p, i);
+                }
             } else {
-                self.occupied
-                    .insert(part.data.layer, HashSet::from_iter(pixels.into_iter()));
+                let mut occ = HashMap::new();
+                for p in pixels {
+                    occ.insert(p, i);
+                }
+                self.occupied.insert(part.data.layer, occ);
             }
         }
 
@@ -230,7 +256,7 @@ impl EditorContext {
         let new_pixels = Self::occupied_pixels(p, self.rotation, &new_part);
         if let Some(occ) = self.occupied.get(&new_part.data.layer) {
             for p in &new_pixels {
-                if occ.contains(p) {
+                if occ.contains_key(p) {
                     return None;
                 }
             }
@@ -285,11 +311,13 @@ impl Render for EditorContext {
             format!("Title: {:?}", &state.editor_context.title.0),
             format!("{} parts", state.editor_context.parts.len()),
             format!("Rotation: {:?}", state.editor_context.rotation),
-            format!("Mass: {} kg", state.editor_context.mass()),
+            format!("Dry mass: {} kg", ctx.vehicle.dry_mass),
             format!("Fuel: {} kg", ctx.vehicle.fuel_mass()),
-            format!("VMass: {} kg", ctx.vehicle.mass()),
+            format!("Wet mass: {} kg", ctx.vehicle.wet_mass()),
             format!("Thrusters: {}", ctx.vehicle.thruster_count()),
             format!("Tanks: {}", ctx.vehicle.tank_count()),
+            format!("ISP: {} s", ctx.vehicle.exhaust_velocity / 9.81),
+            format!("DV: {:0.1} m/s", ctx.vehicle.remaining_dv()),
             format!("WH: {:0.2}x{:0.2}", bounds.span.x, bounds.span.y),
         ];
 
@@ -344,6 +372,7 @@ impl Render for EditorContext {
             //                 angle: 0.0,
             //                 path: "embedded://game/../assets/collision_pixel.png".into(),
             //                 scale: ctx.scale(),
+            //                 color: None,
             //                 z_index: 100.0,
             //             });
             //         }
@@ -396,15 +425,37 @@ impl Render for EditorContext {
             RED.with_alpha(0.1),
         );
 
-        if let Some((p, rot, part)) = ctx.get_part_at(vround(c)) {
+        if let Some((p, rot, part)) = ctx.get_part_at(vfloor(c)) {
             let wh = dims_with_rotation(rot, &part).as_ivec2();
             let q = p + wh;
             let r = p + IVec2::X * wh.x;
             let s = p + IVec2::Y * wh.y;
+            let aabb = aabb_for_part(p, rot, &part);
+            draw_and_fill_aabb(gizmos, ctx.w2c_aabb(aabb), TEAL.with_alpha(0.6));
             for p in [p, q, r, s] {
                 let p = p.as_vec2();
-                let alpha = 1.0 - p.distance(c) / 100.0;
-                draw_cross(gizmos, ctx.w2c(p), 0.5 * ctx.scale(), RED.with_alpha(alpha));
+                draw_cross(gizmos, ctx.w2c(p), 0.5 * ctx.scale(), TEAL.with_alpha(0.6));
+            }
+        }
+
+        if let Some((p, current_part)) = Self::current_part_and_cursor_position(state) {
+            let current_pixels = Self::occupied_pixels(p, ctx.rotation, &current_part);
+
+            let mut visited_parts = HashSet::new();
+
+            if let Some(occ) = ctx.occupied.get(&current_part.data.layer) {
+                for q in &current_pixels {
+                    if let Some(idx) = occ.get(q) {
+                        if visited_parts.contains(idx) {
+                            continue;
+                        }
+                        visited_parts.insert(*idx);
+                        if let Some((pc, rc, partc)) = ctx.parts.get(*idx) {
+                            let aabb = aabb_for_part(*pc, *rc, partc);
+                            draw_and_fill_aabb(gizmos, ctx.w2c_aabb(aabb), RED);
+                        }
+                    }
+                }
             }
         }
 
@@ -441,11 +492,14 @@ impl Render for EditorContext {
         let layers = layer_selection(state);
         let vehicles = vehicle_selection(state);
 
+        let new_button = Node::button("New", OnClick::OpenNewCraft, 350, BUTTON_HEIGHT);
+
         let main_area = Node::grow()
             .invisible()
             .with_child(parts)
             .with_child(layers)
-            .with_child(vehicles);
+            .with_child(vehicles)
+            .with_child(new_button);
 
         let layout = Node::new(vb.span.x, vb.span.y)
             .tight()
@@ -456,6 +510,12 @@ impl Render for EditorContext {
 
         Some(Tree::new().with_layout(layout, Vec2::ZERO))
     }
+}
+
+fn aabb_for_part(p: IVec2, rot: Rotation, part: &PartProto) -> AABB {
+    let wh = dims_with_rotation(rot, part).as_ivec2();
+    let q = p + wh;
+    AABB::from_arbitrary(p.as_vec2(), q.as_vec2())
 }
 
 fn expandable_menu(text: &str, onclick: OnClick) -> Node<OnClick> {

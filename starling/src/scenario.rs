@@ -290,7 +290,7 @@ impl Scenario {
                 let mut body = info.orbit.body;
                 body.mu *= 0.5;
 
-                let pv = PV::from_f32(pos, v_normal + v_tangent);
+                let pv = PV::from_f64(pos, v_normal + v_tangent);
                 if let Some(orbit) = SparseOrbit::from_pv(pv, body, info.stamp) {
                     self.debris.push(GlobalOrbit(info.parent, orbit));
                 }

@@ -96,32 +96,41 @@ impl Render for RPOContext {
         Some(())
     }
 
-    fn sprites(state: &GameState) -> Option<Vec<StaticSpriteDescriptor>> {
+    fn sprites(_state: &GameState) -> Option<Vec<StaticSpriteDescriptor>> {
         None
         // let ctx = &state.rpo_context;
 
         // let mut ret = vec![];
 
-        // for id in state.scenario.orbiter_ids() {
-        //     let lup = state.scenario.lup_orbiter(id, state.sim_time)?;
-        //     let vehicle = match state.orbital_vehicles.get(&id) {
-        //         Some(v) => v,
-        //         None => continue,
-        //     };
+        // let targeting = state.targeting()?;
+        // let piloting = state.piloting()?;
 
-        //     for (_, _, part) in &vehicle.parts {
-        //         let path = part_sprite_path(&state.args, &part.path);
-        //         let desc = StaticSpriteDescriptor::new(
-        //             ctx.w2c(lup.pv().pos),
-        //             vehicle.angle(),
-        //             path,
-        //             ctx.scale(),
-        //             10.0,
-        //         );
+        // let p1 = state.scenario.lup_orbiter(targeting, state.sim_time)?.pv();
+        // let p2 = state.scenario.lup_orbiter(piloting, state.sim_time)?.pv();
+
+        // for (id, offset) in [
+        //     (targeting, DVec2::ZERO),
+        //     (piloting, (p2.pos - p1.pos) * 1000.0),
+        // ] {
+        //     let vehicle = state.orbital_vehicles.get(&id)?;
+
+        //     for (pos, rot, part) in &vehicle.parts {
+        //         let path = crate::scenes::craft_editor::part_sprite_path(&state.args, &part.path);
+        //         let dims = meters_with_rotation(*rot, part);
+        //         let p = pos.as_vec2() / starling::parts::parts::PIXELS_PER_METER;
+        //         let angle = rot.to_angle() + vehicle.angle() - PI / 2.0;
+        //         let center = rotate(p + dims / 2.0, vehicle.angle() - PI / 2.0);
+        //         let scale = ctx.scale() / PIXELS_PER_METER;
+        //         let position = ctx.w2c(offset.as_vec2() + center);
+        //         let z_index = match part.data.layer {
+        //             PartLayer::Exterior => 12.0,
+        //             PartLayer::Internal => 9.0,
+        //             PartLayer::Structural => 11.0,
+        //         };
+        //         let desc = StaticSpriteDescriptor::new(position, angle, path, scale, z_index);
         //         ret.push(desc);
         //     }
         // }
-
         // Some(ret)
     }
 

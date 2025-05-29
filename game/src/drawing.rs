@@ -56,7 +56,7 @@ pub fn draw_aabb(gizmos: &mut Gizmos, aabb: AABB, color: Srgba) {
     gizmos.rect_2d(Isometry2d::from_translation(aabb.center), aabb.span, color);
 }
 
-fn fill_aabb(gizmos: &mut Gizmos, aabb: AABB, color: Srgba) {
+pub fn fill_aabb(gizmos: &mut Gizmos, aabb: AABB, color: Srgba) {
     for t in linspace(0.0, 1.0, 10) {
         let s = aabb.from_normalized(Vec2::new(t, 0.0));
         let n = aabb.from_normalized(Vec2::new(t, 1.0));
@@ -66,6 +66,11 @@ fn fill_aabb(gizmos: &mut Gizmos, aabb: AABB, color: Srgba) {
         gizmos.line_2d(w, e, color);
         gizmos.line_2d(s, n, color);
     }
+}
+
+pub fn draw_and_fill_aabb(gizmos: &mut Gizmos, aabb: AABB, color: Srgba) {
+    fill_aabb(gizmos, aabb, color);
+    draw_aabb(gizmos, aabb, color);
 }
 
 fn draw_region(
@@ -295,10 +300,11 @@ pub fn draw_vehicle(gizmos: &mut Gizmos, vehicle: &Vehicle, pos: Vec2, scale: f3
         gizmos.linestrip_2d([p1, p2, p3, p1], ORANGE);
 
         if thruster.is_active {
-            let p4 = p2 + (u * 0.7 + v * 0.2) * thruster.proto.length * scale;
-            let p5 = p3 + (u * 0.7 - v * 0.2) * thruster.proto.length * scale;
-            let color = if thruster.proto.is_rcs { TEAL } else { ORANGE };
             for s in linspace(0.0, 1.0, 13) {
+                let length = thruster.proto.length * rand(0.9, 1.2);
+                let p4 = p2 + (u * 0.7 + v * 0.4) * length * scale;
+                let p5 = p3 + (u * 0.7 - v * 0.4) * length * scale;
+                let color = if thruster.proto.is_rcs { TEAL } else { RED };
                 let u = p2.lerp(p3, s);
                 let v = p4.lerp(p5, s);
                 gizmos.line_2d(u, v, color);

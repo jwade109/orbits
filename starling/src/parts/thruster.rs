@@ -11,36 +11,6 @@ pub struct Thruster {
 }
 
 impl Thruster {
-    pub fn main(pos: Vec2, angle: f32, length: f32) -> Self {
-        let proto = ThrusterProto {
-            thrust: 400.0,
-            isp: 500.0,
-            length,
-            is_rcs: false,
-        };
-        Self {
-            proto,
-            pos,
-            angle,
-            is_active: false,
-        }
-    }
-
-    pub fn rcs(pos: Vec2, angle: f32) -> Self {
-        let proto = ThrusterProto {
-            thrust: 30.0,
-            isp: 300.0,
-            length: 0.1,
-            is_rcs: false,
-        };
-        Self {
-            proto,
-            pos,
-            angle,
-            is_active: false,
-        }
-    }
-
     pub fn pointing(&self) -> Vec2 {
         rotate(Vec2::X, self.angle)
     }

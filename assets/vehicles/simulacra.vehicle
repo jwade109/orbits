@@ -38,11 +38,6 @@ parts:
 - partname: tank21
   pos:
   - 15
-  - 5
-  rot: East
-- partname: tank21
-  pos:
-  - 15
   - 25
   rot: East
 - partname: frame3
@@ -55,16 +50,6 @@ parts:
   - -25
   - 35
   rot: North
-- partname: tank11
-  pos:
-  - -25
-  - 5
-  rot: West
-- partname: tank11
-  pos:
-  - -25
-  - 15
-  rot: West
 - partname: tank11
   pos:
   - -10
@@ -420,3 +405,33 @@ parts:
   - -27
   - 160
   rot: East
+- partname: motor
+  pos:
+  - -36
+  - -25
+  rot: East
+- partname: motor
+  pos:
+  - 20
+  - -25
+  rot: East
+- partname: frame3
+  pos:
+  - 25
+  - -5
+  rot: South
+- partname: frame3
+  pos:
+  - -35
+  - -5
+  rot: South
+- partname: tank22
+  pos:
+  - -35
+  - 5
+  rot: South
+- partname: tank22
+  pos:
+  - 15
+  - 5
+  rot: South

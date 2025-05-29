@@ -90,14 +90,18 @@ impl Vehicle {
                     Some(Thruster {
                         proto,
                         pos: pos.as_vec2() / crate::parts::parts::PIXELS_PER_METER + dims / 2.0,
-                        angle: 0.0,
-                        is_active: false,
+                        angle: rot.to_angle(),
+                        is_active: rand(0.0, 1.0) < 0.7,
                     })
                 } else {
                     None
                 }
             })
             .collect();
+
+        let dry_mass = parts.iter().map(|(_, _, p)| p.data.mass).sum();
+
+        let isp = thrusters.iter().map(|t| t.proto.isp).sum::<f32>() / thrusters.len() as f32;
 
         let tanks: Vec<Tank> = parts
             .iter()
@@ -127,8 +131,8 @@ impl Vehicle {
 
         Self {
             max_fuel_mass: 0.0,
-            dry_mass: 300.0,
-            exhaust_velocity: 5000.0,
+            dry_mass,
+            exhaust_velocity: isp * 9.81,
             name: get_random_name(),
             stamp,
             angle: rand(0.0, 2.0 * PI),
@@ -150,7 +154,7 @@ impl Vehicle {
         self.tanks.iter().map(|t| t.fuel_mass).sum()
     }
 
-    pub fn mass(&self) -> f32 {
+    pub fn wet_mass(&self) -> f32 {
         self.dry_mass + self.fuel_mass()
     }
 
@@ -192,7 +196,7 @@ impl Vehicle {
         }
 
         let fuel_mass_before_maneuver = self.fuel_mass();
-        let m1 = mass_after_maneuver(self.exhaust_velocity, self.mass(), dv.length());
+        let m1 = mass_after_maneuver(self.exhaust_velocity, self.wet_mass(), dv.length());
         let fuel_mass_after_maneuver = m1 - self.dry_mass;
         let spent_fuel = fuel_mass_before_maneuver - fuel_mass_after_maneuver;
 
@@ -205,7 +209,7 @@ impl Vehicle {
     }
 
     pub fn remaining_dv(&self) -> f32 {
-        rocket_equation(self.exhaust_velocity, self.mass(), self.dry_mass)
+        rocket_equation(self.exhaust_velocity, self.wet_mass(), self.dry_mass)
     }
 
     pub fn fuel_percentage(&self) -> f32 {
@@ -227,17 +231,17 @@ impl Vehicle {
 
             let angular_acceleration = kp * error - kd * self.angular_velocity;
 
-            for t in &mut self.thrusters {
-                if !t.proto.is_rcs {
-                    continue;
-                }
+            // for t in &mut self.thrusters {
+            //     if !t.proto.is_rcs {
+            //         continue;
+            //     }
 
-                let torque = cross2d(t.pos, t.pointing());
-                let sign_equal = torque.signum() == angular_acceleration.signum();
-                let is_thrusting = angular_acceleration.abs() > 0.01;
+            //     let torque = cross2d(t.pos, t.pointing());
+            //     let sign_equal = torque.signum() == angular_acceleration.signum();
+            //     let is_thrusting = angular_acceleration.abs() > 0.01;
 
-                t.is_active = sign_equal && is_thrusting;
-            }
+            //     t.is_active = sign_equal && is_thrusting;
+            // }
 
             self.angular_velocity += angular_acceleration * dt;
         }

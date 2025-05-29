@@ -2,11 +2,13 @@ use crate::mouse::{FrameId, InputState, MouseButt};
 use crate::onclick::OnClick;
 use crate::planetary::GameState;
 use crate::scenes::{Render, StaticSpriteDescriptor, TextLabel};
+use crate::ui::*;
 use bevy::color::palettes::css::*;
 use bevy::input::keyboard::KeyCode;
 use bevy::prelude::*;
+use enum_iterator::all;
 use enum_iterator::Sequence;
-use layout::layout::Tree;
+use layout::layout::{Node, Size, Tree};
 use rfd::FileDialog;
 use starling::prelude::*;
 use std::collections::HashSet;
@@ -38,23 +40,19 @@ pub enum DrawMode {
     Occlusion,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Sequence)]
-pub enum ThrottleLevel {
-    High,
-    #[default]
-    Medium,
-    Low,
-    VeryLow,
-}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ThrottleLevel(pub u32);
 
 impl ThrottleLevel {
+    pub const MAX: u32 = 10;
+
     pub fn to_ratio(&self) -> f32 {
-        match self {
-            Self::High => 1.0,
-            Self::Medium => 0.2,
-            Self::Low => 0.01,
-            Self::VeryLow => 0.002,
-        }
+        self.0 as f32 / Self::MAX as f32
+    }
+
+    pub fn increment(&mut self, d: i32) {
+        let v = self.0 as i32 + d;
+        self.0 = v.clamp(0, Self::MAX as i32) as u32;
     }
 }
 
@@ -155,7 +153,7 @@ impl OrbitalContext {
             show_orbits: ShowOrbitsState::Focus,
             show_animations: true,
             draw_mode: DrawMode::Default,
-            throttle: ThrottleLevel::Medium,
+            throttle: ThrottleLevel(ThrottleLevel::MAX / 2),
             piloting: None,
             targeting: None,
             rendezvous_scope_radius: LowPass {
@@ -278,7 +276,7 @@ impl OrbitalContext {
         let r = p1.distance(parent.pv().pos_f32());
         let v = (parent.body()?.mu() / r).sqrt();
 
-        Some(PV::from_f32(p1, (p2 - p1) * v / r))
+        Some(PV::from_f64(p1, (p2 - p1) * v / r))
     }
 
     pub fn cursor_orbit(p1: Vec2, p2: Vec2, state: &GameState) -> Option<GlobalOrbit> {
@@ -520,9 +518,304 @@ impl Render for OrbitalContext {
         Some(())
     }
 
-    fn ui(_state: &GameState) -> Option<Tree<OnClick>> {
-        todo!()
+    fn ui(state: &GameState) -> Option<Tree<OnClick>> {
+        let vb = state.input.screen_bounds;
+        if vb.span.x == 0.0 || vb.span.y == 0.0 {
+            return Some(Tree::new());
+        }
+
+        let topbar = top_bar(state);
+
+        let mut sidebar = Node::column(300).with_color(UI_BACKGROUND_COLOR);
+
+        let body_color_lup: std::collections::HashMap<&'static str, Srgba> =
+            std::collections::HashMap::from([("Earth", BLUE), ("Luna", GRAY), ("Asteroid", BROWN)]);
+
+        if let Some(lup) = state
+            .scenario
+            .relevant_body(state.orbital_context.origin(), state.sim_time)
+            .map(|id| state.scenario.lup_planet(id, state.sim_time))
+            .flatten()
+        {
+            if let Some((s, _)) = lup.named_body() {
+                let color: Srgba = body_color_lup
+                    .get(s.as_str())
+                    .unwrap_or(&Srgba::from(crate::sprites::hashable_to_color(s)))
+                    .with_luminance(0.2)
+                    .with_alpha(0.9);
+                sidebar.add_child(
+                    Node::button(
+                        s,
+                        OnClick::CurrentBody(lup.id().planet().unwrap()),
+                        Size::Grow,
+                        BUTTON_HEIGHT,
+                    )
+                    .with_color(color.to_f32_array()),
+                );
+            }
+        }
+
+        sidebar.add_child(Node::button(
+            format!("Visual: {:?}", state.orbital_context.draw_mode),
+            OnClick::ToggleDrawMode,
+            Size::Grow,
+            BUTTON_HEIGHT,
+        ));
+
+        sidebar.add_child(
+            Node::button(
+                "Clear Orbits",
+                OnClick::ClearOrbits,
+                Size::Grow,
+                BUTTON_HEIGHT,
+            )
+            .enabled(!state.orbital_context.queued_orbits.is_empty()),
+        );
+
+        sidebar.add_child(
+            Node::button(
+                "Commit Mission",
+                OnClick::CommitMission,
+                Size::Grow,
+                BUTTON_HEIGHT,
+            )
+            .enabled(state.current_orbit().is_some() && !state.orbital_context.selected.is_empty()),
+        );
+
+        sidebar.add_child(Node::hline());
+
+        sidebar.add_children(all::<CursorMode>().map(|c| {
+            let s = format!("{:?}", c);
+            let id = OnClick::CursorMode(c);
+            Node::button(s, id, Size::Grow, BUTTON_HEIGHT)
+                .enabled(c != state.orbital_context.cursor_mode)
+        }));
+
+        if !state.constellations.is_empty() {
+            sidebar.add_child(Node::hline());
+        }
+
+        for gid in state.unique_groups() {
+            let color: Srgba = crate::sprites::hashable_to_color(gid)
+                .with_luminance(0.3)
+                .into();
+            let s = format!("{}", gid);
+            let id = OnClick::Group(gid.clone());
+            let button =
+                Node::button(s, id, Size::Grow, BUTTON_HEIGHT).with_color(color.to_f32_array());
+            sidebar.add_child(delete_wrapper(
+                OnClick::DisbandGroup(gid.clone()),
+                button,
+                BUTTON_HEIGHT as f32,
+            ));
+        }
+
+        sidebar.add_child(Node::hline());
+
+        if append_piloting_buttons(state, &mut sidebar) {
+            sidebar.add_child(Node::hline());
+        }
+
+        sidebar.add_child({
+            let s = format!("{} selected", state.orbital_context.selected.len());
+            let b =
+                Node::button(s, OnClick::SelectedCount, Size::Grow, BUTTON_HEIGHT).enabled(false);
+            if state.orbital_context.selected.is_empty() {
+                b
+            } else {
+                delete_wrapper(OnClick::ClearTracks, b, BUTTON_HEIGHT as f32)
+            }
+        });
+
+        let orbiter_list = |root: &mut Node<OnClick>, max_cells: usize, mut ids: Vec<OrbiterId>| {
+            ids.sort();
+
+            let rows = (ids.len().min(max_cells) as f32 / 4.0).ceil() as u32;
+            let grid = Node::grid(Size::Grow, rows * BUTTON_HEIGHT as u32, rows, 4, 4.0, |i| {
+                if i as usize > max_cells {
+                    return None;
+                }
+                let id = ids.get(i as usize)?;
+                let s = format!("{id}");
+                Some(
+                    Node::grow()
+                        .with_on_click(OnClick::Orbiter(*id))
+                        .with_text(s)
+                        .enabled(
+                            Some(*id)
+                                != state
+                                    .orbital_context
+                                    .following
+                                    .map(|f| f.orbiter())
+                                    .flatten(),
+                        ),
+                )
+            });
+            root.add_child(grid);
+
+            if ids.len() > max_cells {
+                let n = ids.len() - max_cells;
+                let s = format!("...And {} more", n);
+                root.add_child(
+                    Node::new(Size::Grow, BUTTON_HEIGHT)
+                        .with_text(s)
+                        .enabled(false),
+                );
+            }
+        };
+
+        if !state.orbital_context.selected.is_empty() {
+            orbiter_list(
+                &mut sidebar,
+                32,
+                state.orbital_context.selected.iter().cloned().collect(),
+            );
+            sidebar.add_child(Node::button(
+                "Create Group",
+                OnClick::CreateGroup,
+                Size::Grow,
+                BUTTON_HEIGHT,
+            ));
+        }
+
+        if !state.controllers.is_empty() {
+            sidebar.add_child(Node::hline());
+            let s = format!("{} autopiloting", state.controllers.len());
+            let id = OnClick::AutopilotingCount;
+            sidebar.add_child(Node::button(s, id, Size::Grow, BUTTON_HEIGHT).enabled(false));
+
+            let ids = state.controllers.iter().map(|c| c.target()).collect();
+            orbiter_list(&mut sidebar, 16, ids);
+        }
+
+        let mut inner_topbar = sim_time_toolbar(state);
+
+        if let Some(id) = state.orbital_context.following {
+            let s = format!("Following {}", id);
+            let id = OnClick::Nullopt;
+            let n = Node::button(s, id, 300, BUTTON_HEIGHT).enabled(false);
+            inner_topbar.add_child(n);
+        }
+
+        for (i, orbit) in state.orbital_context.queued_orbits.iter().enumerate() {
+            let orbit_button = {
+                let s = format!("{}", orbit);
+                let id = OnClick::GlobalOrbit(i);
+                Node::button(s, id, 400, BUTTON_HEIGHT)
+            };
+
+            inner_topbar.add_child(delete_wrapper(
+                OnClick::DeleteOrbit(i),
+                orbit_button,
+                BUTTON_HEIGHT as f32,
+            ));
+        }
+
+        let notif_bar = notification_bar(state, Size::Fixed(900.0));
+
+        let throttle_controls = throttle_controls(state);
+
+        let world = Node::grow()
+            .down()
+            .invisible()
+            .with_child(
+                Node::grow()
+                    .down()
+                    .invisible()
+                    .with_child(inner_topbar)
+                    .with_child(throttle_controls),
+            )
+            .with_child(
+                Node::grow()
+                    .tight()
+                    .down()
+                    .invisible()
+                    .with_child(Node::grow().invisible())
+                    .with_child(notif_bar),
+            );
+
+        let root = Node::new(vb.span.x, vb.span.y)
+            .down()
+            .tight()
+            .invisible()
+            .with_child(topbar)
+            .with_child(
+                Node::grow()
+                    .tight()
+                    .invisible()
+                    .with_child(sidebar)
+                    .with_child(world),
+            );
+
+        let tree = Tree::new().with_layout(root, Vec2::ZERO);
+
+        // if let Some(layout) = current_inventory_layout(state) {
+        //     tree.add_layout(layout, Vec2::splat(400.0));
+        // }
+
+        Some(tree)
     }
+}
+
+pub fn delete_wrapper(ondelete: OnClick, button: Node<OnClick>, box_size: f32) -> Node<OnClick> {
+    let x_button = {
+        let s = "X";
+        Node::button(s, ondelete, box_size, box_size).with_color(DELETE_SOMETHING_COLOR)
+    };
+
+    let (w, _) = button.desired_dims();
+
+    let width = match w {
+        Size::Fit => Size::Fit,
+        Size::Fixed(n) => Size::Fixed(n + box_size),
+        Size::Grow => Size::Grow,
+    };
+
+    Node::new(width, box_size)
+        .tight()
+        .invisible()
+        .with_child(x_button)
+        .with_child(button)
+}
+
+pub fn append_piloting_buttons(state: &GameState, sidebar: &mut Node<OnClick>) -> bool {
+    // piloting and secondary spacecrafts
+
+    let x = if let Some(p) = state.orbital_context.piloting {
+        sidebar.add_child({
+            let s = format!("Piloting {:?}", p);
+            let b = Node::button(s, OnClick::Orbiter(p), Size::Grow, BUTTON_HEIGHT);
+            delete_wrapper(OnClick::ClearPilot, b, BUTTON_HEIGHT as f32)
+        });
+        true
+    } else if let Some(ObjectId::Orbiter(p)) = state.orbital_context.following {
+        sidebar.add_child({
+            let s = format!("Pilot {:?}", p);
+            Node::button(s, OnClick::SetPilot(p), Size::Grow, BUTTON_HEIGHT)
+        });
+        true
+    } else {
+        false
+    };
+
+    let y = if let Some(p) = state.orbital_context.targeting {
+        sidebar.add_child({
+            let s = format!("Targeting {:?}", p);
+            let b = Node::button(s, OnClick::Orbiter(p), Size::Grow, BUTTON_HEIGHT);
+            delete_wrapper(OnClick::ClearTarget, b, BUTTON_HEIGHT as f32)
+        });
+        true
+    } else if let Some(ObjectId::Orbiter(p)) = state.orbital_context.following {
+        sidebar.add_child({
+            let s = format!("Target {:?}", p);
+            Node::button(s, OnClick::SetTarget(p), Size::Grow, BUTTON_HEIGHT)
+        });
+        true
+    } else {
+        false
+    };
+
+    x || y
 }
 
 impl Interactive for OrbitalContext {

@@ -1,0 +1,207 @@
+name: ''
+parts:
+- partname: wmata7000
+  pos:
+  - -27
+  - 93
+  rot: North
+- partname: frame3
+  pos:
+  - -33
+  - 83
+  rot: West
+- partname: frame3
+  pos:
+  - 7
+  - 83
+  rot: West
+- partname: frame3
+  pos:
+  - -37
+  - 93
+  rot: South
+- partname: frame3
+  pos:
+  - -37
+  - 133
+  rot: South
+- partname: frame3
+  pos:
+  - -37
+  - 173
+  rot: South
+- partname: frame3
+  pos:
+  - -37
+  - 213
+  rot: South
+- partname: frame3
+  pos:
+  - 42
+  - 93
+  rot: South
+- partname: frame3
+  pos:
+  - 42
+  - 133
+  rot: South
+- partname: frame3
+  pos:
+  - 42
+  - 173
+  rot: South
+- partname: frame3
+  pos:
+  - 42
+  - 213
+  rot: South
+- partname: frame3
+  pos:
+  - 22
+  - 253
+  rot: East
+- partname: frame3
+  pos:
+  - 52
+  - 213
+  rot: North
+- partname: frame3
+  pos:
+  - 12
+  - 263
+  rot: West
+- partname: frame3
+  pos:
+  - -47
+  - 213
+  rot: North
+- partname: frame3
+  pos:
+  - -47
+  - 173
+  rot: North
+- partname: frame3
+  pos:
+  - 52
+  - 173
+  rot: North
+- partname: frame3
+  pos:
+  - -47
+  - 253
+  rot: West
+- partname: frame3
+  pos:
+  - -37
+  - 263
+  rot: West
+- partname: tank22
+  pos:
+  - -23
+  - 73
+  rot: South
+- partname: tank22
+  pos:
+  - -3
+  - 73
+  rot: South
+- partname: tank22
+  pos:
+  - 17
+  - 73
+  rot: South
+- partname: motor
+  pos:
+  - -21
+  - 44
+  rot: East
+- partname: motor
+  pos:
+  - -1
+  - 44
+  rot: East
+- partname: motor
+  pos:
+  - 19
+  - 44
+  rot: East
+- partname: frame3
+  pos:
+  - -33
+  - 73
+  rot: East
+- partname: frame3
+  pos:
+  - -33
+  - 63
+  rot: West
+- partname: frame3
+  pos:
+  - 7
+  - 63
+  rot: West
+- partname: frame3
+  pos:
+  - 7
+  - 73
+  rot: East
+- partname: plate
+  pos:
+  - -23
+  - 63
+  rot: East
+- partname: plate
+  pos:
+  - -13
+  - 63
+  rot: East
+- partname: plate
+  pos:
+  - -3
+  - 63
+  rot: East
+- partname: plate
+  pos:
+  - 7
+  - 63
+  rot: East
+- partname: plate
+  pos:
+  - 17
+  - 63
+  rot: East
+- partname: plate
+  pos:
+  - 27
+  - 63
+  rot: East
+- partname: plate
+  pos:
+  - 27
+  - 73
+  rot: East
+- partname: plate
+  pos:
+  - 17
+  - 73
+  rot: East
+- partname: plate
+  pos:
+  - 7
+  - 73
+  rot: East
+- partname: plate
+  pos:
+  - -3
+  - 73
+  rot: East
+- partname: plate
+  pos:
+  - -13
+  - 73
+  rot: East
+- partname: plate
+  pos:
+  - -23
+  - 73
+  rot: East

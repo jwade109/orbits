@@ -28,7 +28,7 @@ pub enum OnClick {
     CommitMission,
     CursorMode(CursorMode),
     GoToScene(usize),
-    ThrustLevel(ThrottleLevel),
+    ThrottleLevel(ThrottleLevel),
     SetTarget(OrbiterId),
     SetPilot(OrbiterId),
     ClearTarget,
@@ -41,5 +41,7 @@ pub enum OnClick {
     TogglePartsMenuCollapsed,
     ToggleVehiclesMenuCollapsed,
     ToggleLayersMenuCollapsed,
+    IncrementThrottle(i32),
+    OpenNewCraft,
     Nullopt,
 }

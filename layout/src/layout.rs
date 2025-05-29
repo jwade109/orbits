@@ -231,6 +231,10 @@ impl<MessageType> Node<MessageType> {
         self
     }
 
+    pub fn set_color(&mut self, color: [f32; 4]) {
+        self.style.enabled_color = color;
+    }
+
     pub fn right(mut self) -> Self {
         self.style.layout = LayoutDir::LeftToRight;
         self

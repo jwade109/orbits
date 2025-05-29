@@ -1,0 +1,7 @@
+mass: 5.0
+layer: Internal
+class: !Thruster
+  isp: 200.0
+  thrust: 90.0
+  length: 0.6
+  is_rcs: true
