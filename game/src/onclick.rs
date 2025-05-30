@@ -43,5 +43,7 @@ pub enum OnClick {
     ToggleLayersMenuCollapsed,
     IncrementThrottle(i32),
     OpenNewCraft,
+    RotateCraft,
+    NormalizeCraft,
     Nullopt,
 }

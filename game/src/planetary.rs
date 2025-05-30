@@ -723,6 +723,12 @@ impl GameState {
             OnClick::OpenNewCraft => {
                 self.editor_context.new_craft();
             }
+            OnClick::RotateCraft => {
+                self.editor_context.rotate_craft();
+            }
+            OnClick::NormalizeCraft => {
+                self.editor_context.normalize_coordinates();
+            }
             _ => info!("Unhandled button event: {id:?}"),
         };
 

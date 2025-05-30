@@ -1,6 +1,6 @@
 use crate::aabb::AABB;
 use crate::inventory::{Inventory, InventoryItem};
-use crate::math::{cross2d, get_random_name, rand, randint, rotate, IVec2, UVec2, Vec2, PI};
+use crate::math::{get_random_name, rand, randint, rotate, IVec2, UVec2, Vec2, PI};
 use crate::nanotime::Nanotime;
 use crate::orbits::{wrap_0_2pi, wrap_pi_npi};
 use crate::parts::{
@@ -109,7 +109,7 @@ impl Vehicle {
                 if let PartClass::Tank(proto) = p.data.class {
                     Some(Tank {
                         proto,
-                        fuel_mass: (proto.wet_mass - p.data.mass) * rand(0.4, 0.7),
+                        fuel_mass: (proto.wet_mass - p.data.mass),
                     })
                 } else {
                     None

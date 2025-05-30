@@ -3,140 +3,140 @@ parts:
 - partname: frame
   pos:
   - -15
-  - -10
+  - -17
   rot: North
 - partname: frame
   pos:
   - -5
-  - -10
+  - -17
   rot: North
 - partname: frame
   pos:
   - 5
-  - -10
+  - -17
   rot: North
 - partname: motor
   pos:
   - -18
-  - -28
+  - -35
   rot: East
 - partname: motor
   pos:
   - 2
-  - -28
+  - -35
   rot: East
 - partname: frame3
   pos:
   - -25
-  - -10
+  - -17
   rot: North
 - partname: frame3
   pos:
   - 15
-  - -10
+  - -17
   rot: North
 - partname: small-antenna
   pos:
   - 15
-  - 30
+  - 23
   rot: East
 - partname: small-antenna
   pos:
   - -21
-  - 30
+  - 23
   rot: East
 - partname: tank22
   pos:
   - -35
-  - 0
+  - -7
   rot: East
 - partname: tank22
   pos:
   - 15
-  - 0
+  - -7
   rot: East
 - partname: frame3
   pos:
   - -35
-  - -35
+  - -42
   rot: North
 - partname: frame3
   pos:
   - 25
-  - -35
+  - -42
   rot: North
 - partname: tank11
   pos:
   - -28
-  - -10
+  - -17
   rot: North
 - partname: tank11
   pos:
   - 18
-  - -10
+  - -17
   rot: North
 - partname: cpu
   pos:
   - -25
-  - 21
+  - 14
   rot: North
 - partname: battery
   pos:
   - 15
-  - 21
+  - 14
   rot: North
 - partname: cargo
   pos:
   - -15
-  - 0
+  - -7
   rot: North
 - partname: frame2
   pos:
   - -15
-  - 10
+  - 3
   rot: North
 - partname: frame2
   pos:
   - -15
-  - 20
+  - 13
   rot: North
 - partname: frame2
   pos:
   - -5
-  - 20
+  - 13
   rot: North
 - partname: frame2
   pos:
   - 5
-  - 20
+  - 13
   rot: North
 - partname: frame2
   pos:
   - 5
-  - 10
+  - 3
   rot: North
 - partname: plate
   pos:
   - -15
-  - 0
+  - -7
   rot: West
 - partname: plate
   pos:
   - -5
-  - 0
+  - -7
   rot: West
 - partname: plate
   pos:
   - 5
-  - 0
+  - -7
   rot: West
 - partname: plate
   pos:
   - -35
-  - -25
+  - -32
   rot: West
 - partname: plate
   pos:
   - 25
-  - -25
+  - -32
   rot: West

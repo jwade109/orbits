@@ -108,6 +108,45 @@ impl EditorContext {
         self.update();
     }
 
+    pub fn rotate_craft(&mut self) {
+        for (p, rot, part) in &mut self.parts {
+            let old_half_dims = dims_with_rotation(*rot, part).as_vec2() / 2.0;
+            let old_center = p.as_vec2() + old_half_dims;
+            let new_center = rotate(old_center, PI / 2.0);
+            *rot = enum_iterator::next_cycle(rot);
+            let new_half_dims = dims_with_rotation(*rot, part).as_vec2() / 2.0;
+            let new_corner = new_center - new_half_dims;
+            *p = vround(new_corner);
+        }
+        self.update();
+    }
+
+    pub fn normalize_coordinates(&mut self) {
+        if self.parts.is_empty() {
+            return;
+        }
+
+        let mut min: IVec2 = IVec2::ZERO;
+        let mut max: IVec2 = IVec2::ZERO;
+
+        self.parts.iter().for_each(|(p, rot, part)| {
+            let dims = dims_with_rotation(*rot, part);
+            let q = *p + dims.as_ivec2();
+            min.x = min.x.min(p.x);
+            min.y = min.y.min(p.y);
+            max.x = max.x.max(q.x);
+            max.y = max.y.max(q.y);
+        });
+
+        let avg = min + (max - min) / 2;
+
+        self.parts.iter_mut().for_each(|(p, _, _)| {
+            *p = *p - avg;
+        });
+
+        self.update();
+    }
+
     pub fn set_current_part(state: &mut GameState, name: &String) {
         state.editor_context.current_part = state.part_database.get(name).cloned();
     }
@@ -409,6 +448,17 @@ impl Render for EditorContext {
         let radius = ctx.vehicle.bounding_radius();
         let bounds = ctx.vehicle.aabb();
 
+        // axes
+        {
+            let length = bounds.span.y * PIXELS_PER_METER * 1.5;
+            let width = bounds.span.x * PIXELS_PER_METER * 1.5;
+            let o = ctx.w2c(Vec2::ZERO);
+            let p = ctx.w2c(Vec2::Y * length);
+            let q = ctx.w2c(-Vec2::X * width);
+            gizmos.line_2d(o, p, RED.with_alpha(0.3));
+            gizmos.line_2d(o, q, GREEN.with_alpha(0.3));
+        }
+
         draw_aabb(
             gizmos,
             ctx.w2c_aabb(bounds.scale(PIXELS_PER_METER)),
@@ -492,6 +542,9 @@ impl Render for EditorContext {
         let layers = layer_selection(state);
         let vehicles = vehicle_selection(state);
 
+        let rotate = rotate_button();
+        let rotate = normalize_button();
+
         let new_button = Node::button("New", OnClick::OpenNewCraft, 350, BUTTON_HEIGHT);
 
         let main_area = Node::grow()
@@ -499,7 +552,8 @@ impl Render for EditorContext {
             .with_child(parts)
             .with_child(layers)
             .with_child(vehicles)
-            .with_child(new_button);
+            .with_child(new_button)
+            .with_child(rotate);
 
         let layout = Node::new(vb.span.x, vb.span.y)
             .tight()
@@ -516,6 +570,14 @@ fn aabb_for_part(p: IVec2, rot: Rotation, part: &PartProto) -> AABB {
     let wh = dims_with_rotation(rot, part).as_ivec2();
     let q = p + wh;
     AABB::from_arbitrary(p.as_vec2(), q.as_vec2())
+}
+
+fn rotate_button() -> Node<OnClick> {
+    Node::button("Rotate", OnClick::RotateCraft, 300, BUTTON_HEIGHT)
+}
+
+fn normalize_button() -> Node<OnClick> {
+    Node::button("Normalize", OnClick::NormalizeCraft, 300, BUTTON_HEIGHT)
 }
 
 fn expandable_menu(text: &str, onclick: OnClick) -> Node<OnClick> {

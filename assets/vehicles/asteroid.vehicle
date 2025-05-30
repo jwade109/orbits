@@ -2,346 +2,346 @@ name: ''
 parts:
 - partname: frame3
   pos:
-  - -30
+  - 47
+  - -24
+  rot: East
+- partname: frame3
+  pos:
+  - 3
+  - -60
+  rot: East
+- partname: frame3
+  pos:
+  - 131
+  - -138
+  rot: West
+- partname: frame3
+  pos:
+  - 269
+  - -66
+  rot: South
+- partname: frame3
+  pos:
+  - 203
+  - 34
+  rot: South
+- partname: frame3
+  pos:
+  - 98
+  - 68
+  rot: South
+- partname: frame3
+  pos:
+  - 88
+  - 62
+  rot: South
+- partname: frame3
+  pos:
+  - -45
+  - 48
+  rot: South
+- partname: frame3
+  pos:
+  - -55
+  - 37
+  rot: South
+- partname: frame3
+  pos:
+  - -127
+  - -71
+  rot: South
+- partname: frame3
+  pos:
+  - -78
+  - -140
+  rot: South
+- partname: frame3
+  pos:
+  - -75
+  - -186
+  rot: South
+- partname: frame3
+  pos:
+  - -62
+  - -188
+  rot: South
+- partname: frame3
+  pos:
+  - -46
+  - -189
+  rot: South
+- partname: frame3
+  pos:
+  - 98
+  - -199
+  rot: South
+- partname: frame3
+  pos:
+  - -68
+  - -115
+  rot: South
+- partname: frame3
+  pos:
+  - -86
+  - -31
+  rot: South
+- partname: frame3
+  pos:
+  - 154
   - 8
   rot: East
 - partname: frame3
   pos:
-  - -74
-  - -28
+  - 155
+  - 52
   rot: East
 - partname: frame3
   pos:
-  - 54
-  - -106
-  rot: West
+  - 110
+  - 5
+  rot: East
 - partname: frame3
   pos:
-  - 192
-  - -34
-  rot: South
+  - -41
+  - -36
+  rot: East
+- partname: frame3
+  pos:
+  - -23
+  - -125
+  rot: East
 - partname: frame3
   pos:
   - 126
-  - 66
-  rot: South
+  - -62
+  rot: East
 - partname: frame3
   pos:
-  - 21
-  - 100
-  rot: South
+  - 165
+  - -22
+  rot: East
 - partname: frame3
   pos:
-  - 11
-  - 94
-  rot: South
-- partname: frame3
-  pos:
-  - -122
-  - 80
-  rot: South
-- partname: frame3
-  pos:
-  - -132
-  - 69
-  rot: South
-- partname: frame3
-  pos:
-  - -204
-  - -39
-  rot: South
-- partname: frame3
-  pos:
-  - -155
-  - -108
-  rot: South
-- partname: frame3
-  pos:
+  - 185
   - -152
-  - -154
-  rot: South
-- partname: frame3
-  pos:
-  - -139
-  - -156
-  rot: South
-- partname: frame3
-  pos:
-  - -123
-  - -157
-  rot: South
-- partname: frame3
-  pos:
-  - 21
-  - -167
-  rot: South
-- partname: frame3
-  pos:
-  - -145
-  - -83
-  rot: South
-- partname: frame3
-  pos:
-  - -163
-  - 1
-  rot: South
-- partname: frame3
-  pos:
-  - 77
-  - 40
   rot: East
 - partname: frame3
   pos:
   - 78
-  - 84
+  - -106
   rot: East
 - partname: frame3
   pos:
-  - 33
-  - 37
+  - 34
+  - 73
   rot: East
 - partname: frame3
   pos:
-  - -118
-  - -4
+  - 87
+  - 141
   rot: East
 - partname: frame3
   pos:
-  - -100
-  - -93
+  - 132
+  - 127
   rot: East
 - partname: frame3
   pos:
-  - 49
-  - -30
+  - 58
+  - -199
+  rot: South
+- partname: frame3
+  pos:
+  - -10
+  - -226
+  rot: South
+- partname: frame3
+  pos:
+  - 162
+  - -109
   rot: East
 - partname: frame3
   pos:
-  - 88
-  - 10
+  - 8
+  - 43
   rot: East
 - partname: frame3
   pos:
-  - 108
-  - -120
+  - -10
+  - 26
   rot: East
 - partname: frame3
   pos:
-  - 1
-  - -74
-  rot: East
+  - -6
+  - -14
+  rot: North
 - partname: frame3
   pos:
-  - -43
-  - 105
-  rot: East
+  - 4
+  - -37
+  rot: North
 - partname: frame3
   pos:
-  - 10
-  - 173
-  rot: East
+  - -14
+  - -76
+  rot: North
 - partname: frame3
   pos:
-  - 55
-  - 159
-  rot: East
+  - 112
+  - -160
+  rot: North
+- partname: frame3
+  pos:
+  - 166
+  - -186
+  rot: North
 - partname: frame3
   pos:
   - -19
-  - -167
+  - 120
   rot: South
 - partname: frame3
   pos:
-  - -87
-  - -194
+  - 40
+  - 155
   rot: South
 - partname: frame3
   pos:
-  - 85
-  - -77
-  rot: East
+  - 41
+  - 83
+  rot: North
 - partname: frame3
   pos:
-  - -69
-  - 75
-  rot: East
+  - 255
+  - -66
+  rot: North
 - partname: frame3
   pos:
-  - -87
-  - 58
-  rot: East
+  - 204
+  - -95
+  rot: North
 - partname: frame3
   pos:
-  - -83
+  - 213
+  - 12
+  rot: North
+- partname: wmata7000
+  pos:
+  - -126
+  - -60
+  rot: East
+- partname: wmata7000
+  pos:
+  - -211
   - 18
-  rot: North
-- partname: frame3
-  pos:
-  - -73
-  - -5
-  rot: North
-- partname: frame3
-  pos:
-  - -91
-  - -44
-  rot: North
-- partname: frame3
-  pos:
-  - 35
-  - -128
-  rot: North
-- partname: frame3
-  pos:
-  - 89
-  - -154
-  rot: North
-- partname: frame3
-  pos:
-  - -96
-  - 152
-  rot: South
-- partname: frame3
-  pos:
-  - -37
-  - 187
-  rot: South
-- partname: frame3
-  pos:
-  - -36
-  - 115
-  rot: North
-- partname: frame3
-  pos:
-  - 178
-  - -34
-  rot: North
-- partname: frame3
-  pos:
-  - 127
-  - -63
-  rot: North
-- partname: frame3
-  pos:
-  - 136
-  - 44
-  rot: North
-- partname: wmata7000
-  pos:
-  - -203
-  - -28
   rot: East
 - partname: wmata7000
   pos:
-  - -288
-  - 50
+  - -114
+  - 94
   rot: East
 - partname: wmata7000
   pos:
-  - -191
-  - 126
+  - -236
+  - -142
   rot: East
 - partname: wmata7000
   pos:
-  - -313
-  - -110
+  - -188
+  - -247
   rot: East
 - partname: wmata7000
   pos:
-  - -265
-  - -215
+  - 20
+  - -330
   rot: East
 - partname: wmata7000
   pos:
-  - -57
-  - -298
-  rot: East
-- partname: wmata7000
-  pos:
-  - 276
-  - -189
+  - 353
+  - -221
   rot: North
 - partname: wmata7000
   pos:
-  - 348
+  - 425
+  - -190
+  rot: North
+- partname: wmata7000
+  pos:
+  - 509
+  - -112
+  rot: North
+- partname: wmata7000
+  pos:
   - -158
-  rot: North
-- partname: wmata7000
-  pos:
-  - 432
-  - -80
-  rot: North
-- partname: wmata7000
-  pos:
-  - -235
-  - 214
+  - 182
   rot: West
 - partname: wmata7000
   pos:
-  - -301
-  - 299
+  - -224
+  - 267
   rot: West
 - partname: wmata7000
   pos:
-  - -711
-  - 158
+  - -634
+  - 126
   rot: West
 - partname: wmata7000
   pos:
-  - -395
-  - -350
+  - -318
+  - -382
   rot: South
 - partname: wmata7000
   pos:
-  - -478
-  - -320
+  - -401
+  - -352
   rot: South
 - partname: wmata7000
   pos:
-  - -552
-  - -333
+  - -475
+  - -365
   rot: South
 - partname: wmata7000
   pos:
-  - -626
-  - -375
+  - -549
+  - -407
   rot: South
 - partname: wmata7000
   pos:
-  - -454
-  - -440
+  - -377
+  - -472
   rot: East
 - partname: wmata7000
   pos:
-  - -65
-  - -367
+  - 12
+  - -399
   rot: East
 - partname: wmata7000
   pos:
-  - 160
-  - -439
+  - 237
+  - -471
   rot: East
 - partname: wmata7000
   pos:
-  - -53
-  - -511
+  - 24
+  - -543
   rot: East
 - partname: wmata7000
   pos:
-  - -338
-  - 389
+  - -261
+  - 357
   rot: East
 - partname: wmata7000
   pos:
-  - -773
-  - 290
+  - -696
+  - 258
   rot: East
 - partname: wmata7000
   pos:
-  - -17
-  - 506
+  - 60
+  - 474
   rot: East
 - partname: wmata7000
   pos:
-  - 165
-  - 408
+  - 242
+  - 376
   rot: East
