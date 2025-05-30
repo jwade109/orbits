@@ -69,6 +69,7 @@ impl Plugin for UiPlugin {
 
 fn set_bloom(state: Res<GameState>, mut bloom: Single<&mut Bloom>) {
     bloom.intensity = match state.current_scene().kind() {
+        SceneType::MainMenu => 0.6,
         SceneType::Orbital => match state.orbital_context.draw_mode {
             DrawMode::Default => 0.5,
             _ => 0.1,
@@ -134,21 +135,18 @@ pub const UI_BACKGROUND_COLOR: [f32; 4] = [0.05, 0.05, 0.05, 1.0];
 pub fn main_menu_layout(state: &GameState) -> Tree<OnClick> {
     let buttons = ["Load Save File", "Settings", "Exit"];
 
+    let button_color = [0.2, 0.2, 0.2, 0.7];
+    let bg_color = [0.0, 0.0, 0.0, 0.0];
+
     let wrapper = Node::fit()
         .down()
-        .with_color(UI_BACKGROUND_COLOR)
-        .with_children(
-            buttons
-                .iter()
-                .map(|s| Node::button(s.to_string(), OnClick::Nullopt, 200, 50)),
-        )
-        .with_children(
-            state
-                .scenes
-                .iter()
-                .enumerate()
-                .map(|(i, s)| Node::button(s.name(), OnClick::GoToScene(i), 200, 50)),
-        );
+        .with_color(bg_color)
+        .with_children(buttons.iter().map(|s| {
+            Node::button(s.to_string(), OnClick::Nullopt, 200, 50).with_color(button_color)
+        }))
+        .with_children(state.scenes.iter().enumerate().map(|(i, s)| {
+            Node::button(s.name(), OnClick::GoToScene(i), 200, 50).with_color(button_color)
+        }));
 
     Tree::new().with_layout(wrapper, Vec2::splat(300.0))
 }

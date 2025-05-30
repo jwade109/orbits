@@ -1,5 +1,3 @@
-use crate::belts::AsteroidBelt;
-use crate::math::{rand, rotate, vproj, PI};
 use crate::nanotime::Nanotime;
 use crate::orbiter::*;
 use crate::orbits::{Body, GlobalOrbit, SparseOrbit};
@@ -183,8 +181,6 @@ impl RemovalInfo {
 pub struct Scenario {
     orbiters: HashMap<OrbiterId, Orbiter>,
     system: PlanetarySystem,
-    debris: Vec<GlobalOrbit>,
-    belts: Vec<AsteroidBelt>,
 }
 
 impl Scenario {
@@ -192,8 +188,6 @@ impl Scenario {
         Scenario {
             orbiters: HashMap::new(),
             system: system.clone(),
-            belts: vec![],
-            debris: vec![],
         }
     }
 
@@ -217,14 +211,6 @@ impl Scenario {
 
     pub fn planets(&self) -> &PlanetarySystem {
         &self.system
-    }
-
-    pub fn belts(&self) -> &Vec<AsteroidBelt> {
-        &self.belts
-    }
-
-    pub fn debris(&self) -> impl Iterator<Item = &GlobalOrbit> + use<'_> {
-        self.debris.iter()
     }
 
     pub fn orbiters_mut(&mut self) -> impl Iterator<Item = &mut Orbiter> + use<'_> {
@@ -270,51 +256,7 @@ impl Scenario {
             }
         });
 
-        for (_, info) in &info {
-            let pv = match info.pv() {
-                Some(pv) => pv,
-                None => continue,
-            };
-
-            for _ in 0..20 {
-                let pos = pv.pos_f32();
-                let vmag = pv.vel_f32().length();
-                let (v_normal, v_tangent) = vproj(pv.vel_f32(), pos);
-
-                let n = pos.normalize_or_zero();
-                let t = rotate(n, PI / 2.0);
-
-                let v_normal = -v_normal * rand(0.01, 0.1) + n * rand(0.03, 0.1) * vmag;
-                let v_tangent = v_tangent * rand(0.01, 0.1) + t * rand(-1.0, 1.0) * vmag * 0.1;
-
-                let mut body = info.orbit.body;
-                body.mu *= 0.5;
-
-                let pv = PV::from_f64(pos, v_normal + v_tangent);
-                if let Some(orbit) = SparseOrbit::from_pv(pv, body, info.stamp) {
-                    self.debris.push(GlobalOrbit(info.parent, orbit));
-                }
-            }
-        }
-
-        self.debris.retain(|GlobalOrbit(_, orbit)| {
-            let dt = stamp - orbit.epoch;
-            if dt > Nanotime::secs(5) {
-                return false;
-            }
-            let pv = match orbit.pv(stamp).ok() {
-                Some(pv) => pv,
-                None => return false,
-            };
-            let r = pv.pos_f32().length();
-            r > orbit.body.radius && r < orbit.body.soi
-        });
-
         info
-    }
-
-    pub fn add_belt(&mut self, belt: AsteroidBelt) {
-        self.belts.push(belt);
     }
 
     pub fn add_object(

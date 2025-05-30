@@ -225,7 +225,7 @@ impl Vehicle {
     }
 
     pub fn step(&mut self, stamp: Nanotime) {
-        let dt = (stamp - self.stamp).to_secs().clamp(0.0001, 0.03);
+        let dt = (stamp - self.stamp).to_secs().clamp(0.0, 0.03);
 
         if self.is_controllable() {
             let kp = 50.0;

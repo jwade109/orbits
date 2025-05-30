@@ -206,7 +206,7 @@ impl Default for GameState {
             sim_time: Nanotime::zero(),
             wall_time: Nanotime::zero(),
             physics_duration: Nanotime::days(7),
-            sim_speed: 0,
+            sim_speed: 2,
             paused: false,
             scenario: scenario.clone(),
             part_database: load_parts_from_dir(&args.parts_dir()),
@@ -235,16 +235,32 @@ impl Default for GameState {
             button_was_pressed: true,
         };
 
-        for _ in 0..200 {
+        let t = g.sim_time;
+
+        let get_random_orbit = || {
             let r1 = rand(11000.0, 40000.0) as f64;
             let r2 = rand(11000.0, 40000.0) as f64;
             let argp = rand(0.0, 2.0 * PI) as f64;
             let body = Body::with_mu(EARTH_RADIUS, EARTH_MU, EARTH_SOI);
-            if let Some(orbit) =
-                SparseOrbit::new(r1.max(r2), r1.min(r2), argp, body, Nanotime::zero(), false)
-            {
-                let go = GlobalOrbit(PlanetId(0), orbit);
-                g.spawn_with_random_perturbance(&go);
+            let orbit = SparseOrbit::new(r1.max(r2), r1.min(r2), argp, body, t, false)?;
+            Some(GlobalOrbit(PlanetId(0), orbit))
+        };
+
+        for _ in 0..200 {
+            let vehicle = g.get_random_vehicle();
+            let orbit = get_random_orbit();
+            if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {
+                g.spawn_with_random_perturbance(orbit, vehicle);
+            }
+        }
+
+        for _ in 0..20 {
+            let n = randint(3, 7);
+            let vehicles = (0..n).filter_map(|_| g.get_random_vehicle()).collect();
+            let rpo = RPO::example(g.sim_time, vehicles);
+            let orbit = get_random_orbit();
+            if let Some(orbit) = orbit {
+                g.spawn_new_rpo(orbit, rpo);
             }
         }
 
@@ -280,7 +296,7 @@ impl Render for GameState {
             SceneType::Editor => EditorContext::background_color(state),
             SceneType::TelescopeView => TelescopeContext::background_color(state),
             SceneType::DockingView => RPOContext::background_color(state),
-            SceneType::MainMenu => GRAY.with_luminance(0.09),
+            SceneType::MainMenu => BLACK,
             SceneType::CommsPanel => CommsContext::background_color(state),
         }
     }
@@ -291,7 +307,7 @@ impl Render for GameState {
             SceneType::Editor => EditorContext::draw_gizmos(gizmos, state),
             SceneType::TelescopeView => TelescopeContext::draw_gizmos(gizmos, state),
             SceneType::DockingView => RPOContext::draw_gizmos(gizmos, state),
-            SceneType::MainMenu => None,
+            SceneType::MainMenu => draw_cells(gizmos, state),
             SceneType::CommsPanel => CommsContext::draw_gizmos(gizmos, state),
         }
     }
@@ -302,6 +318,37 @@ impl Render for GameState {
             _ => None,
         }
     }
+}
+
+fn draw_cells(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
+    let ctx = &state.orbital_context;
+
+    let scale_factor = 3500.0;
+
+    let mut idxs = HashSet::new();
+
+    for id in state.scenario.orbiter_ids() {
+        let pos = state
+            .scenario
+            .lup_orbiter(id, state.sim_time)?
+            .pv()
+            .pos_f32();
+
+        let idx = vfloor(pos / scale_factor);
+        idxs.insert(idx);
+    }
+
+    for idx in idxs {
+        let p = idx.as_vec2() * scale_factor;
+        let q = p + Vec2::splat(scale_factor);
+
+        let aabb = AABB::from_arbitrary(p, q);
+        let aabb = ctx.w2c_aabb(aabb);
+        crate::drawing::draw_aabb(gizmos, aabb, ORANGE.with_alpha(0.3));
+        crate::drawing::fill_aabb(gizmos, aabb, GRAY.with_alpha(0.03));
+    }
+
+    Some(())
 }
 
 impl GameState {
@@ -437,7 +484,19 @@ impl GameState {
         Some(prop.orbit)
     }
 
-    pub fn spawn_with_random_perturbance(&mut self, global: &GlobalOrbit) -> Option<()> {
+    pub fn spawn_new_rpo(&mut self, global: GlobalOrbit, rpo: RPO) {
+        let id = self.ids.next();
+        let GlobalOrbit(parent, orbit) = global;
+        self.scenario.add_object(id, parent, orbit, self.sim_time);
+        self.rpos.insert(id, rpo);
+        self.notice(format!("Spawned RPO {id} in orbit around {}", global.0));
+    }
+
+    pub fn spawn_with_random_perturbance(
+        &mut self,
+        global: GlobalOrbit,
+        vehicle: Vehicle,
+    ) -> Option<()> {
         let GlobalOrbit(parent, orbit) = global;
         let pv_local = orbit.pv(self.sim_time).ok()?;
         let perturb = PV::from_f64(
@@ -452,14 +511,20 @@ impl GameState {
         );
         let orbit = SparseOrbit::from_pv(pv_local + perturb, orbit.body, self.sim_time)?;
         let id = self.ids.next();
-        self.scenario.add_object(id, *parent, orbit, self.sim_time);
-        self.notice(format!("Spawned {id} in orbit around {}", global.0));
+        self.scenario.add_object(id, parent, orbit, self.sim_time);
+        let name = vehicle.name().clone();
+        self.orbital_vehicles.insert(id, vehicle);
+        self.notice(format!(
+            "Spawned {} {} in orbit around {}",
+            name, id, global.0
+        ));
         Some(())
     }
 
     pub fn spawn_new(&mut self) -> Option<()> {
         let orbit = self.cursor_orbit_if_mode()?;
-        self.spawn_with_random_perturbance(&orbit)
+        let vehicle = self.get_random_vehicle()?;
+        self.spawn_with_random_perturbance(orbit, vehicle)
     }
 
     pub fn delete_orbiter(&mut self, id: OrbiterId) -> Option<()> {
@@ -887,7 +952,7 @@ impl GameState {
         }();
 
         for (_, rpo) in &mut self.rpos {
-            rpo.step(self.wall_time);
+            rpo.step(self.sim_time);
         }
 
         // handle discrete physics events

@@ -313,11 +313,10 @@ pub fn draw_vehicle(gizmos: &mut Gizmos, vehicle: &Vehicle, pos: Vec2, scale: f3
     }
 }
 
-fn draw_rpo_overlay(gizmos: &mut Gizmos, state: &GameState, rpo: &RPO) -> Option<()> {
+fn draw_rpo(gizmos: &mut Gizmos, state: &GameState, id: OrbiterId, rpo: &RPO) -> Option<()> {
     let ctx = &state.orbital_context;
-    let piloting = state.piloting()?;
 
-    let lup = state.scenario.lup_orbiter(piloting, state.sim_time)?;
+    let lup = state.scenario.lup_orbiter(id, state.sim_time)?;
     let pv = lup.pv();
 
     let screen_pos = ctx.w2c(pv.pos_f32());
@@ -331,9 +330,11 @@ fn draw_rpo_overlay(gizmos: &mut Gizmos, state: &GameState, rpo: &RPO) -> Option
 
     let d = pv.pos_f32() - ctx.origin();
 
-    for (vpv, _) in &rpo.vehicles {
+    for (vpv, vehicle) in &rpo.vehicles {
         let p = (d + vpv.pos_f32() / 1000.0) * ctx.scale();
         draw_square(gizmos, p, 7.0, RED);
+
+        draw_vehicle(gizmos, vehicle, p, ctx.scale() / 1000.0)
     }
     Some(())
 }
@@ -411,14 +412,7 @@ pub fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<(
 
     let lup = state.scenario.lup_orbiter(piloting, state.sim_time)?;
 
-    let vehicle = state.orbital_vehicles.get(&piloting);
-    let rpo = state.rpos.get(&piloting);
-
-    let vehicle = match (vehicle, rpo) {
-        (Some(v), _) => v,
-        (_, Some(r)) => return draw_rpo_overlay(gizmos, state, r),
-        _ => return None,
-    };
+    let vehicle = state.orbital_vehicles.get(&piloting)?;
 
     let window_dims = state.input.screen_bounds.span;
     let rb = vehicle.bounding_radius();
@@ -432,15 +426,6 @@ pub fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<(
     );
 
     draw_vehicle(gizmos, &vehicle, center, zoom);
-
-    let mut draw_clock = |stamp: Nanotime, color: Srgba| {
-        let angle = (stamp % Nanotime::secs_f32(2.0 * PI)).to_secs();
-        let u = rotate(Vec2::X, angle);
-        gizmos.line_2d(center, center + u * r, color);
-    };
-
-    draw_clock(state.sim_time, PURPLE.with_alpha(0.2));
-    draw_clock(state.wall_time, RED.with_alpha(0.2));
 
     draw_counter(gizmos, rb as u64, center + Vec2::Y * r, WHITE);
 
@@ -587,43 +572,11 @@ fn draw_scenario(gizmos: &mut Gizmos, state: &GameState) {
 
     draw_planets(gizmos, scenario.planets(), stamp, Vec2::ZERO, ctx);
 
-    for belt in scenario.belts() {
-        let origin = match scenario
-            .lup_planet(belt.parent(), stamp)
-            .map(|lup| lup.pv().pos_f32())
-        {
-            Some(p) => p,
-            None => continue,
-        };
-
-        let region = belt.region();
-        draw_region(gizmos, region, ctx, GRAY.with_alpha(0.1), origin);
-    }
-
     _ = scenario
         .orbiter_ids()
         .into_iter()
         .filter_map(|id| draw_orbiter(gizmos, state, id))
         .collect::<Vec<_>>();
-
-    for GlobalOrbit(id, orbit) in scenario.debris() {
-        let lup = match scenario.lup_planet(*id, stamp) {
-            Some(lup) => lup,
-            None => continue,
-        };
-
-        let pv = match orbit.pv(stamp).ok() {
-            Some(pv) => pv,
-            None => continue,
-        };
-
-        draw_circle(
-            gizmos,
-            ctx.w2c(pv.pos_f32() + lup.pv().pos_f32()),
-            2.0 * ctx.scale(),
-            WHITE,
-        );
-    }
 }
 
 fn draw_scalar_field_cell(
@@ -990,49 +943,50 @@ pub fn draw_counter(gizmos: &mut Gizmos, val: u64, pos: Vec2, color: Srgba) {
     }
 }
 
+#[allow(unused)]
 fn draw_belt_orbits(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let ctx = &state.orbital_context;
     let cursor_orbit = state.cursor_orbit_if_mode();
-    for belt in state.scenario.belts() {
-        let lup = match state.scenario.lup_planet(belt.parent(), state.sim_time) {
-            Some(lup) => lup,
-            None => continue,
-        };
+    // for belt in state.scenario.belts() {
+    //     let lup = match state.scenario.lup_planet(belt.parent(), state.sim_time) {
+    //         Some(lup) => lup,
+    //         None => continue,
+    //     };
 
-        let origin = lup.pv().pos_f32();
+    //     let origin = lup.pv().pos_f32();
 
-        if let Some(orbit) = cursor_orbit {
-            if orbit.0 == belt.parent() && belt.contains_orbit(&orbit.1) {
-                draw_orbit(gizmos, &orbit.1, origin, YELLOW, ctx);
-                draw_diamond(gizmos, orbit.1.periapsis().as_vec2(), 10.0, YELLOW);
-                draw_diamond(gizmos, orbit.1.apoapsis().as_vec2(), 10.0, YELLOW);
-            }
-        }
+    //     if let Some(orbit) = cursor_orbit {
+    //         if orbit.0 == belt.parent() && belt.contains_orbit(&orbit.1) {
+    //             draw_orbit(gizmos, &orbit.1, origin, YELLOW, ctx);
+    //             draw_diamond(gizmos, orbit.1.periapsis().as_vec2(), 10.0, YELLOW);
+    //             draw_diamond(gizmos, orbit.1.apoapsis().as_vec2(), 10.0, YELLOW);
+    //         }
+    //     }
 
-        let count: u64 = state
-            .scenario
-            .orbiter_ids()
-            .filter_map(|id| {
-                let lup = state.scenario.lup_orbiter(id, state.sim_time)?;
-                let orbiter = lup.orbiter()?;
-                let orbit = orbiter.propagator_at(state.sim_time)?.orbit;
-                if orbit.0 != belt.parent() {
-                    return None;
-                }
-                if belt.contains_orbit(&orbit.1) {
-                    Some(1)
-                } else {
-                    Some(0)
-                }
-            })
-            .sum();
+    //     let count: u64 = state
+    //         .scenario
+    //         .orbiter_ids()
+    //         .filter_map(|id| {
+    //             let lup = state.scenario.lup_orbiter(id, state.sim_time)?;
+    //             let orbiter = lup.orbiter()?;
+    //             let orbit = orbiter.propagator_at(state.sim_time)?.orbit;
+    //             if orbit.0 != belt.parent() {
+    //                 return None;
+    //             }
+    //             if belt.contains_orbit(&orbit.1) {
+    //                 Some(1)
+    //             } else {
+    //                 Some(0)
+    //             }
+    //         })
+    //         .sum();
 
-        let (_, corner) = belt.position(0.8);
+    //     let (_, corner) = belt.position(0.8);
 
-        if ctx.scale() < 2.0 {
-            draw_counter(gizmos, count, origin + corner.as_vec2() * 1.1, WHITE);
-        }
-    }
+    //     if ctx.scale() < 2.0 {
+    //         draw_counter(gizmos, count, origin + corner.as_vec2() * 1.1, WHITE);
+    //     }
+    // }
     Some(())
 }
 
@@ -1234,6 +1188,10 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState) {
     draw_scale_indicator(gizmos, state);
 
     draw_piloting_overlay(gizmos, state);
+
+    for (id, rpo) in &state.rpos {
+        draw_rpo(gizmos, state, *id, rpo);
+    }
 
     highlight_targeted_vehicle(gizmos, state);
 

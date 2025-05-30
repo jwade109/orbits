@@ -130,3 +130,53 @@ parts:
   - -8
   - -29
   rot: East
+- partname: frame2
+  pos:
+  - -40
+  - 10
+  rot: South
+- partname: frame2
+  pos:
+  - -40
+  - -10
+  rot: South
+- partname: frame2
+  pos:
+  - 30
+  - -10
+  rot: South
+- partname: frame2
+  pos:
+  - 30
+  - 10
+  rot: South
+- partname: rcs
+  pos:
+  - -40
+  - 20
+  rot: West
+- partname: rcs
+  pos:
+  - -40
+  - -14
+  rot: East
+- partname: rcs
+  pos:
+  - -44
+  - 3
+  rot: South
+- partname: rcs
+  pos:
+  - 40
+  - 3
+  rot: North
+- partname: rcs
+  pos:
+  - 34
+  - 20
+  rot: West
+- partname: rcs
+  pos:
+  - 34
+  - -14
+  rot: East

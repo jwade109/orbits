@@ -47,7 +47,7 @@ impl RPO {
     }
 
     pub fn step(&mut self, stamp: Nanotime) {
-        let dt = (stamp - self.stamp).to_secs();
+        let dt = (stamp - self.stamp).to_secs().clamp(0.0, 0.03);
         for (pv, vehicle) in self.vehicles.iter_mut() {
             vehicle.step(stamp);
 
