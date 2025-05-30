@@ -55,8 +55,10 @@ fn sound_system(
     mut state: ResMut<GameState>,
 ) {
     if state.button_was_pressed {
-        let path = std::fs::canonicalize(state.args.audio_dir().join("button-up.ogg")).unwrap();
-        commands.spawn((AudioPlayer::new(asset_server.load(path)),));
+        match std::fs::canonicalize(state.args.audio_dir().join("button-up.ogg")) {
+            Ok(path) => _ = commands.spawn((AudioPlayer::new(asset_server.load(path)),)),
+            Err(e) => _ = dbg!(e),
+        }
         state.button_was_pressed = false;
     }
 }
@@ -611,6 +613,14 @@ impl GameState {
         Some(())
     }
 
+    pub fn toggle_piloting_thruster(&mut self, idx: usize) -> Option<()> {
+        let piloting = self.piloting()?;
+        let vehicle = self.orbital_vehicles.get_mut(&piloting)?;
+        let thruster = vehicle.thrusters_mut().skip(idx).next()?;
+        thruster.is_active = !thruster.is_active;
+        Some(())
+    }
+
     pub fn command_selected(&mut self, next: &GlobalOrbit) {
         if self.orbital_context.selected.is_empty() {
             return;
@@ -786,9 +796,9 @@ impl GameState {
             OnClick::RotateCraft => {
                 self.editor_context.rotate_craft();
             }
-            OnClick::NormalizeCraft => {
-                self.editor_context.normalize_coordinates();
-            }
+            OnClick::NormalizeCraft => self.editor_context.normalize_coordinates(),
+            OnClick::ToggleThruster(idx) => _ = self.toggle_piloting_thruster(idx),
+
             _ => info!("Unhandled button event: {id:?}"),
         };
 
@@ -819,7 +829,11 @@ impl GameState {
     }
 
     pub fn get_random_vehicle(&self) -> Option<Vehicle> {
-        let vehicles = crate::scenes::get_list_of_vehicles(self);
+        let vehicles = crate::scenes::get_list_of_vehicles(self).unwrap_or(vec![]);
+
+        if vehicles.is_empty() {
+            return None;
+        }
 
         let choice = randint(0, vehicles.len() as i32);
         let (name, path) = vehicles.get(choice as usize)?;

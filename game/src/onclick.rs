@@ -45,5 +45,6 @@ pub enum OnClick {
     OpenNewCraft,
     RotateCraft,
     NormalizeCraft,
+    ToggleThruster(usize),
     Nullopt,
 }

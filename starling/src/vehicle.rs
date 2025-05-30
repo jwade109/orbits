@@ -1,8 +1,8 @@
 use crate::aabb::AABB;
 use crate::inventory::{Inventory, InventoryItem};
-use crate::math::{rand, randint, rotate, IVec2, UVec2, Vec2, PI};
+use crate::math::{cross2d, rand, randint, rotate, IVec2, UVec2, Vec2, PI};
 use crate::nanotime::Nanotime;
-use crate::orbits::{wrap_0_2pi, wrap_pi_npi};
+use crate::orbits::wrap_0_2pi;
 use crate::parts::{
     parts::{PartClass, PartProto},
     tank::Tank,
@@ -95,7 +95,7 @@ impl Vehicle {
                         proto,
                         pos: pos.as_vec2() / crate::parts::parts::PIXELS_PER_METER + dims / 2.0,
                         angle: rot.to_angle(),
-                        is_active: rand(0.0, 1.0) < 0.7,
+                        is_active: false,
                     })
                 } else {
                     None
@@ -228,27 +228,30 @@ impl Vehicle {
         let dt = (stamp - self.stamp).to_secs().clamp(0.0, 0.03);
 
         if self.is_controllable() {
-            let kp = 50.0;
-            let kd = 20.0;
+            // let kp = 50.0;
+            // let kd = 20.0;
 
-            let error = wrap_pi_npi(self.target_angle - self.angle);
+            // let error = wrap_pi_npi(self.target_angle - self.angle);
 
-            let angular_acceleration = kp * error - kd * self.angular_velocity;
+            let mut angular_acceleration = 0.0;
 
-            // for t in &mut self.thrusters {
-            //     if !t.proto.is_rcs {
-            //         continue;
-            //     }
+            for t in &mut self.thrusters {
+                if !t.is_active {
+                    continue;
+                }
 
-            //     let torque = cross2d(t.pos, t.pointing());
-            //     let sign_equal = torque.signum() == angular_acceleration.signum();
-            //     let is_thrusting = angular_acceleration.abs() > 0.01;
+                let torque = cross2d(t.pos, rotate(t.pointing(), -PI / 2.0));
 
-            //     t.is_active = sign_equal && is_thrusting;
-            // }
+                angular_acceleration += torque / 4000.0 * t.proto.thrust;
+
+                // let sign_equal = torque.signum() == angular_acceleration.signum();
+                // let is_thrusting = angular_acceleration.abs() > 0.01;
+            }
 
             self.angular_velocity += angular_acceleration * dt;
         }
+
+        self.angular_velocity = self.angular_velocity.clamp(-12.0, 12.0);
 
         self.angle += self.angular_velocity * dt;
         self.angle = wrap_0_2pi(self.angle);
@@ -278,6 +281,10 @@ impl Vehicle {
 
     pub fn thrusters(&self) -> impl Iterator<Item = &Thruster> + use<'_> {
         self.thrusters.iter()
+    }
+
+    pub fn thrusters_mut(&mut self) -> impl Iterator<Item = &mut Thruster> + use<'_> {
+        self.thrusters.iter_mut()
     }
 
     pub fn bounding_radius(&self) -> f32 {

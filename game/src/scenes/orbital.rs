@@ -709,6 +709,7 @@ impl Render for OrbitalContext {
         let notif_bar = notification_bar(state, Size::Fixed(900.0));
 
         let throttle_controls = throttle_controls(state);
+        let thruster_controls = thruster_control_dialogue(state).unwrap_or(Node::new(0, 0));
 
         let world = Node::grow()
             .down()
@@ -718,7 +719,8 @@ impl Render for OrbitalContext {
                     .down()
                     .invisible()
                     .with_child(inner_topbar)
-                    .with_child(throttle_controls),
+                    .with_child(throttle_controls)
+                    .with_child(thruster_controls),
             )
             .with_child(
                 Node::grow()
@@ -771,6 +773,32 @@ pub fn delete_wrapper(ondelete: OnClick, button: Node<OnClick>, box_size: f32) -
         .invisible()
         .with_child(x_button)
         .with_child(button)
+}
+
+pub fn thruster_control_dialogue(state: &GameState) -> Option<Node<OnClick>> {
+    let id = state.piloting()?;
+    let vehicle = state.orbital_vehicles.get(&id)?;
+
+    let mut wrapper = Node::new(320, Size::Fit)
+        .down()
+        .with_color(UI_BACKGROUND_COLOR);
+
+    for (i, thruster) in vehicle.thrusters().enumerate() {
+        let title = if thruster.proto.is_rcs {
+            "RCS"
+        } else {
+            "Thruster"
+        };
+        let s = format!("{} {} {:0.1}", title, i + 1, thruster.angle.to_degrees());
+        let onclick = OnClick::ToggleThruster(i);
+        let mut child = Node::button(s, onclick, Size::Grow, BUTTON_HEIGHT);
+        if thruster.is_active {
+            child.set_color([0.7, 0.2, 0.2, 1.0]);
+        }
+        wrapper.add_child(child);
+    }
+
+    Some(wrapper)
 }
 
 pub fn append_piloting_buttons(state: &GameState, sidebar: &mut Node<OnClick>) -> bool {

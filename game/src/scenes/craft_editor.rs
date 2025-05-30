@@ -330,7 +330,7 @@ pub fn part_sprite_path(ctx: &ProgramContext, short_path: &str) -> String {
     ctx.parts_dir()
         .join(format!("{}/skin.png", short_path))
         .to_str()
-        .unwrap()
+        .unwrap_or("")
         .to_string()
 }
 
@@ -611,26 +611,21 @@ fn part_selection(state: &GameState) -> Node<OnClick> {
     n
 }
 
-pub fn get_list_of_vehicles(state: &GameState) -> Vec<(String, PathBuf)> {
+pub fn get_list_of_vehicles(state: &GameState) -> Option<Vec<(String, PathBuf)>> {
     let mut ret = vec![];
     if let Ok(paths) = std::fs::read_dir(&state.args.vehicle_dir()) {
         for path in paths {
             if let Ok(path) = path {
-                let s = path
-                    .path()
-                    .file_stem()
-                    .unwrap()
-                    .to_string_lossy()
-                    .to_string();
+                let s = path.path().file_stem()?.to_string_lossy().to_string();
                 ret.push((s, path.path()));
             }
         }
     }
-    ret
+    Some(ret)
 }
 
 fn vehicle_selection(state: &GameState) -> Node<OnClick> {
-    let vehicles = get_list_of_vehicles(state);
+    let vehicles = get_list_of_vehicles(state).unwrap_or(vec![]);
 
     let mut n = expandable_menu("Vehicles", OnClick::ToggleVehiclesMenuCollapsed);
 
