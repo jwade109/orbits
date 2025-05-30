@@ -326,10 +326,12 @@ impl OrbitalContext {
     }
 }
 
-pub fn get_orbital_object_mouseover_label(state: &GameState) -> Option<TextLabel> {
+pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> {
+    let mut ret = Vec::new();
+
     let cursor = match state.input.position(MouseButt::Hover, FrameId::Current) {
         Some(p) => p,
-        None => return None,
+        None => return Vec::new(),
     };
 
     let cursor_world = state.orbital_context.c2w(cursor);
@@ -349,39 +351,31 @@ pub fn get_orbital_object_mouseover_label(state: &GameState) -> Option<TextLabel
             (d < body.radius, name.to_uppercase(), p + Vec2::Y * 30.0)
         } else {
             let orb_id = id.orbiter().unwrap();
-            let is_rpo = state.rpos.contains_key(&orb_id);
-            let is_controllable = state
-                .orbital_vehicles
-                .get(&orb_id)
-                .map(|v| v.is_controllable())
-                .unwrap_or(false);
+            let vehicle = state.orbital_vehicles.get(&orb_id);
+            let ufo = "UFO".to_string();
+            let code = vehicle.map(|v| v.name()).unwrap_or(&ufo);
 
             // distance based on pixel space
             let d = pc.distance(cursor);
             (
                 d < 25.0,
-                if is_rpo {
-                    format!("RPO {}", orb_id)
-                } else if is_controllable {
-                    format!("VEH {}", orb_id)
-                } else {
-                    format!("AST {}", orb_id)
-                },
+                format!("{} {}", code, orb_id),
                 pc + Vec2::Y * 40.0,
             )
         };
         if passes {
-            return Some(TextLabel::new(label, pos, 1.0));
+            ret.push(TextLabel::new(label, pos, 1.0));
+            if ret.len() > 6 {
+                return ret;
+            }
         }
     }
-    None
+    ret
 }
 
 impl Render for OrbitalContext {
     fn text_labels(state: &GameState) -> Option<Vec<TextLabel>> {
-        let mut text_labels: Vec<TextLabel> = get_orbital_object_mouseover_label(state)
-            .into_iter()
-            .collect();
+        let mut text_labels: Vec<TextLabel> = get_orbital_object_mouseover_labels(state);
 
         if state.paused {
             let s = "PAUSED".to_string();

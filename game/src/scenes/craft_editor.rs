@@ -84,7 +84,7 @@ impl EditorContext {
             title: TextInput("".into()),
             invisible_layers: HashSet::new(),
             occupied: HashMap::new(),
-            vehicle: Vehicle::from_parts(Nanotime::zero(), Vec::new()),
+            vehicle: Vehicle::from_parts("".into(), Nanotime::zero(), Vec::new()),
             parts_menu_collapsed: false,
             vehicles_menu_collapsed: true,
             layers_menu_collapsed: false,
@@ -288,7 +288,7 @@ impl EditorContext {
             }
         }
 
-        self.vehicle = Vehicle::from_parts(Nanotime::zero(), self.parts.clone());
+        self.vehicle = Vehicle::from_parts("".into(), Nanotime::zero(), self.parts.clone());
     }
 
     fn try_place_part(&mut self, p: IVec2, new_part: PartProto) -> Option<()> {
@@ -543,7 +543,7 @@ impl Render for EditorContext {
         let vehicles = vehicle_selection(state);
 
         let rotate = rotate_button();
-        let rotate = normalize_button();
+        let normalize = normalize_button();
 
         let new_button = Node::button("New", OnClick::OpenNewCraft, 350, BUTTON_HEIGHT);
 
@@ -553,7 +553,8 @@ impl Render for EditorContext {
             .with_child(layers)
             .with_child(vehicles)
             .with_child(new_button)
-            .with_child(rotate);
+            .with_child(rotate)
+            .with_child(normalize);
 
         let layout = Node::new(vb.span.x, vb.span.y)
             .tight()
@@ -610,23 +611,33 @@ fn part_selection(state: &GameState) -> Node<OnClick> {
     n
 }
 
-fn vehicle_selection(state: &GameState) -> Node<OnClick> {
-    let mut vehicle_paths = vec![];
+pub fn get_list_of_vehicles(state: &GameState) -> Vec<(String, PathBuf)> {
+    let mut ret = vec![];
     if let Ok(paths) = std::fs::read_dir(&state.args.vehicle_dir()) {
         for path in paths {
             if let Ok(path) = path {
-                vehicle_paths.push(path.path());
+                let s = path
+                    .path()
+                    .file_stem()
+                    .unwrap()
+                    .to_string_lossy()
+                    .to_string();
+                ret.push((s, path.path()));
             }
         }
     }
+    ret
+}
+
+fn vehicle_selection(state: &GameState) -> Node<OnClick> {
+    let vehicles = get_list_of_vehicles(state);
 
     let mut n = expandable_menu("Vehicles", OnClick::ToggleVehiclesMenuCollapsed);
 
     if !state.editor_context.vehicles_menu_collapsed {
-        n.add_children(vehicle_paths.into_iter().map(|v| {
-            let s = format!("{}", v.file_stem().unwrap().to_string_lossy());
-            let onclick = OnClick::LoadVehicle(v);
-            Node::button(s, onclick, Size::Grow, BUTTON_HEIGHT)
+        n.add_children(vehicles.into_iter().map(|(name, path)| {
+            let onclick = OnClick::LoadVehicle(path);
+            Node::button(name, onclick, Size::Grow, BUTTON_HEIGHT)
         }));
     }
 

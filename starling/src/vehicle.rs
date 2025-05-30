@@ -1,6 +1,6 @@
 use crate::aabb::AABB;
 use crate::inventory::{Inventory, InventoryItem};
-use crate::math::{get_random_name, rand, randint, rotate, IVec2, UVec2, Vec2, PI};
+use crate::math::{rand, randint, rotate, IVec2, UVec2, Vec2, PI};
 use crate::nanotime::Nanotime;
 use crate::orbits::{wrap_0_2pi, wrap_pi_npi};
 use crate::parts::{
@@ -81,7 +81,11 @@ pub fn meters_with_rotation(rot: Rotation, part: &PartProto) -> Vec2 {
 }
 
 impl Vehicle {
-    pub fn from_parts(stamp: Nanotime, parts: Vec<(IVec2, Rotation, PartProto)>) -> Self {
+    pub fn from_parts(
+        name: String,
+        stamp: Nanotime,
+        parts: Vec<(IVec2, Rotation, PartProto)>,
+    ) -> Self {
         let thrusters: Vec<Thruster> = parts
             .iter()
             .filter_map(|(pos, rot, p)| {
@@ -133,7 +137,7 @@ impl Vehicle {
             max_fuel_mass: 0.0,
             dry_mass,
             exhaust_velocity: isp * 9.81,
-            name: get_random_name(),
+            name,
             stamp,
             angle: rand(0.0, 2.0 * PI),
             target_angle: rand(0.0, 2.0 * PI),

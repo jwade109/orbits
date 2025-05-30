@@ -235,23 +235,18 @@ impl Default for GameState {
             button_was_pressed: true,
         };
 
-        let orbit = SparseOrbit::new(
-            17000.0,
-            12000.0,
-            -0.3,
-            Body::with_mu(EARTH_RADIUS, EARTH_MU, EARTH_SOI),
-            Nanotime::zero(),
-            false,
-        )
-        .unwrap();
-        let go = GlobalOrbit(PlanetId(0), orbit);
-
-        for _ in 0..60 {
-            g.spawn_with_random_perturbance(&go);
+        for _ in 0..200 {
+            let r1 = rand(11000.0, 40000.0) as f64;
+            let r2 = rand(11000.0, 40000.0) as f64;
+            let argp = rand(0.0, 2.0 * PI) as f64;
+            let body = Body::with_mu(EARTH_RADIUS, EARTH_MU, EARTH_SOI);
+            if let Some(orbit) =
+                SparseOrbit::new(r1.max(r2), r1.min(r2), argp, body, Nanotime::zero(), false)
+            {
+                let go = GlobalOrbit(PlanetId(0), orbit);
+                g.spawn_with_random_perturbance(&go);
+            }
         }
-
-        g.set_piloting(OrbiterId(3));
-        g.set_targeting(OrbiterId(25));
 
         g
     }
@@ -758,40 +753,23 @@ impl GameState {
         Some(())
     }
 
-    pub fn get_random_parts(&self) -> Vec<(IVec2, Rotation, PartProto)> {
-        let choice = rand(0.0, 1.0);
-        let name = if choice < 0.75 {
-            "pollux"
-        } else if choice < 0.9 {
-            "spacestation"
-        } else {
-            "asteroid"
-        };
-        let path = self.args.vehicle_dir().join(format!("{}.vehicle", name));
-        let sat = EditorContext::load_from_vehicle_file(&path).unwrap();
+    pub fn get_random_vehicle(&self) -> Option<Vehicle> {
+        let vehicles = crate::scenes::get_list_of_vehicles(self);
+
+        let choice = randint(0, vehicles.len() as i32);
+        let (name, path) = vehicles.get(choice as usize)?;
+
+        let sat = EditorContext::load_from_vehicle_file(&path)?;
 
         let mut parts = vec![];
         for part in sat.parts {
-            let proto = self.part_database.get(&part.partname).unwrap();
+            let proto = self.part_database.get(&part.partname)?;
             parts.push((part.pos, part.rot, proto.clone()));
         }
 
-        parts
+        let vehicle = Vehicle::from_parts(name.to_string(), self.sim_time, parts);
 
-        // // let keys: Vec<_> = self.part_database.keys().collect();
-
-        // vec![
-        //     (
-        //         IVec2::ZERO,
-        //         Rotation::East,
-        //         self.part_database.get("motor").unwrap().clone(),
-        //     ),
-        //     (
-        //         IVec2::ONE,
-        //         Rotation::East,
-        //         self.part_database.get("tank21").unwrap().clone(),
-        //     ),
-        // ]
+        Some(vehicle)
     }
 
     pub fn current_hover_ui(&self) -> Option<&OnClick> {
@@ -982,8 +960,9 @@ impl GameState {
 
         for id in ids {
             if !self.orbital_vehicles.contains_key(&id) && !self.rpos.contains_key(&id) {
-                let vehicle = Vehicle::from_parts(self.sim_time, self.get_random_parts());
-                self.orbital_vehicles.insert(id, vehicle);
+                if let Some(v) = self.get_random_vehicle() {
+                    self.orbital_vehicles.insert(id, v);
+                }
             }
         }
 
