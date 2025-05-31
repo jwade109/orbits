@@ -2,6 +2,7 @@ use crate::mouse::{FrameId, MouseButt};
 use crate::onclick::OnClick;
 use crate::planetary::GameState;
 use crate::scenes::*;
+use bevy::color::palettes::css::*;
 use bevy::core_pipeline::bloom::Bloom;
 use bevy::prelude::*;
 use bevy::render::{
@@ -83,17 +84,27 @@ const TEXT_LABEL_Z_INDEX: f32 = 100.0;
 pub fn do_text_labels(
     mut commands: Commands,
     state: Res<GameState>,
-    mut query: Query<(Entity, &mut Text2d, &mut TextFont, &mut Transform), With<TextLabel>>,
+    mut query: Query<
+        (
+            Entity,
+            &mut Text2d,
+            &mut TextFont,
+            &mut Transform,
+            &mut TextColor,
+        ),
+        With<TextLabel>,
+    >,
 ) {
     let text_labels = GameState::text_labels(&state).unwrap_or(vec![]);
 
     let mut labels: Vec<_> = query.iter_mut().collect();
     for (i, tl) in text_labels.iter().enumerate() {
-        if let Some((_, text2d, font, label)) = labels.get_mut(i) {
+        if let Some((_, text2d, font, label, color)) = labels.get_mut(i) {
             label.translation = tl.position.extend(TEXT_LABEL_Z_INDEX);
             label.scale = Vec3::splat(1.0);
             text2d.0 = tl.text.clone();
             font.font_size = 23.0 * tl.size;
+            color.0 = tl.color().into();
         } else {
             commands.spawn((
                 Text2d::new(tl.text.clone()),
@@ -103,11 +114,12 @@ pub fn do_text_labels(
                 },
                 Transform::from_translation(tl.position.extend(TEXT_LABEL_Z_INDEX)),
                 TextLabel,
+                TextColor(tl.color().into()),
             ));
         }
     }
 
-    for (i, (e, _, _, _)) in query.iter().enumerate() {
+    for (i, (e, _, _, _, _)) in query.iter().enumerate() {
         if i >= text_labels.len() {
             commands.entity(e).despawn();
         }

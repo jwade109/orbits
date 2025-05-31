@@ -2,7 +2,7 @@ use crate::aabb::AABB;
 use crate::inventory::{Inventory, InventoryItem};
 use crate::math::{cross2d, rand, randint, rotate, IVec2, UVec2, Vec2, PI};
 use crate::nanotime::Nanotime;
-use crate::orbits::wrap_0_2pi;
+use crate::orbits::{wrap_0_2pi, wrap_pi_npi};
 use crate::parts::{
     parts::{PartClass, PartProto},
     tank::Tank,
@@ -90,12 +90,13 @@ impl Vehicle {
             .iter()
             .filter_map(|(pos, rot, p)| {
                 let dims = meters_with_rotation(*rot, p);
-                if let PartClass::Thruster(proto) = p.data.class {
+                if let PartClass::Thruster(proto) = &p.data.class {
                     Some(Thruster {
-                        proto,
+                        proto: proto.clone(),
                         pos: pos.as_vec2() / crate::parts::parts::PIXELS_PER_METER + dims / 2.0,
-                        angle: rot.to_angle(),
+                        angle: rot.to_angle() + PI / 2.0,
                         is_active: false,
+                        force_active: false,
                     })
                 } else {
                     None
@@ -228,24 +229,27 @@ impl Vehicle {
         let dt = (stamp - self.stamp).to_secs().clamp(0.0, 0.03);
 
         if self.is_controllable() {
-            // let kp = 50.0;
-            // let kd = 20.0;
+            let kp = 20.0;
+            let kd = 40.0;
 
-            // let error = wrap_pi_npi(self.target_angle - self.angle);
-
-            let mut angular_acceleration = 0.0;
+            let error =
+                kp * wrap_pi_npi(self.target_angle - self.angle) - kd * self.angular_velocity;
 
             for t in &mut self.thrusters {
-                if !t.is_active {
+                if !t.proto.is_rcs {
                     continue;
                 }
+                let torque = cross2d(t.pos, t.pointing());
+                t.is_active = torque.signum() == error.signum() && error.abs() > 1.0;
+            }
 
-                let torque = cross2d(t.pos, rotate(t.pointing(), -PI / 2.0));
-
+            let mut angular_acceleration = 0.0;
+            for t in &self.thrusters {
+                if !t.is_active && !t.force_active {
+                    continue;
+                }
+                let torque = cross2d(t.pos, t.pointing());
                 angular_acceleration += torque / 4000.0 * t.proto.thrust;
-
-                // let sign_equal = torque.signum() == angular_acceleration.signum();
-                // let is_thrusting = angular_acceleration.abs() > 0.01;
             }
 
             self.angular_velocity += angular_acceleration * dt;

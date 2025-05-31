@@ -1,5 +1,6 @@
 use crate::onclick::OnClick;
 use crate::planetary::GameState;
+use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use layout::layout::Tree;
 use starling::math::Vec2;
@@ -8,6 +9,7 @@ pub struct TextLabel {
     pub text: String,
     pub position: Vec2,
     pub size: f32,
+    color: Srgba,
 }
 
 impl TextLabel {
@@ -16,7 +18,17 @@ impl TextLabel {
             text,
             position,
             size,
+            color: WHITE,
         }
+    }
+
+    pub fn with_color(mut self, color: Srgba) -> Self {
+        self.color = color;
+        self
+    }
+
+    pub fn color(&self) -> Srgba {
+        self.color
     }
 }
 

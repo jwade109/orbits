@@ -96,8 +96,9 @@ pub struct PartMetaData {
     pub class: PartClass,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ThrusterProto {
+    pub model: String,
     pub thrust: f32,
     pub isp: f32,
     pub length: f32,
@@ -109,7 +110,7 @@ pub struct TankProto {
     pub wet_mass: f32,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum PartClass {
     Thruster(ThrusterProto),
     Tank(TankProto),
@@ -128,6 +129,7 @@ mod tests {
             mass: 12.0,
             layer: PartLayer::Exterior,
             class: PartClass::Thruster(ThrusterProto {
+                model: "RJ1200".into(),
                 thrust: 1200.0,
                 isp: 330.0,
                 length: 3.4,

@@ -79,7 +79,7 @@ impl Render for RPOContext {
             }
 
             if let Some(v) = state.orbital_vehicles.get(&id) {
-                draw_vehicle(gizmos, v, ctx.w2c(pv.pos_f32()), ctx.scale());
+                draw_vehicle(gizmos, v, ctx.w2c(pv.pos_f32()), ctx.scale(), v.angle());
             }
         }
 

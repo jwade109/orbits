@@ -2,12 +2,13 @@ use crate::math::{rotate, Vec2};
 use crate::parts::parts::ThrusterProto;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Thruster {
     pub proto: ThrusterProto,
     pub pos: Vec2,
     pub angle: f32,
     pub is_active: bool,
+    pub force_active: bool,
 }
 
 impl Thruster {

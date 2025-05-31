@@ -365,19 +365,17 @@ impl Render for EditorContext {
         let mut labels: Vec<TextLabel> = info_lines
             .into_iter()
             .enumerate()
-            .map(|(i, s)| TextLabel {
-                text: s,
-                position: Vec2::new(half_span.x - 350.0, half_span.y - (200.0 + i as f32 * 30.0)),
-                size: 0.8,
+            .map(|(i, s)| {
+                TextLabel::new(
+                    s,
+                    Vec2::new(half_span.x - 350.0, half_span.y - (200.0 + i as f32 * 30.0)),
+                    0.8,
+                )
             })
             .collect();
 
         if let Some(p) = state.editor_context.current_part.as_ref() {
-            let t = TextLabel {
-                text: format!("{:#?}", &p.data),
-                position: Vec2::ZERO,
-                size: 0.8,
-            };
+            let t = TextLabel::new(format!("{:#?}", &p.data), Vec2::ZERO, 0.8);
             labels.push(t);
         }
 
@@ -450,11 +448,11 @@ impl Render for EditorContext {
 
         // axes
         {
-            let length = bounds.span.y * PIXELS_PER_METER * 1.5;
-            let width = bounds.span.x * PIXELS_PER_METER * 1.5;
+            let length = bounds.span.x * PIXELS_PER_METER * 1.5;
+            let width = bounds.span.y * PIXELS_PER_METER * 1.5;
             let o = ctx.w2c(Vec2::ZERO);
-            let p = ctx.w2c(Vec2::Y * length);
-            let q = ctx.w2c(-Vec2::X * width);
+            let p = ctx.w2c(Vec2::X * length);
+            let q = ctx.w2c(Vec2::Y * width);
             gizmos.line_2d(o, p, RED.with_alpha(0.3));
             gizmos.line_2d(o, q, GREEN.with_alpha(0.3));
         }

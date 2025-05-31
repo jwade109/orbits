@@ -2,86 +2,86 @@ name: Satellite
 parts:
 - partname: frame2
   pos:
-  - -10
   - -15
-  rot: East
+  - 0
+  rot: South
 - partname: frame2
   pos:
-  - 0
   - -15
-  rot: East
-- partname: frame2
-  pos:
   - -10
-  - -5
-  rot: East
+  rot: South
 - partname: frame2
   pos:
+  - -5
+  - 0
+  rot: South
+- partname: frame2
+  pos:
+  - 5
+  - 0
+  rot: South
+- partname: frame2
+  pos:
+  - 5
   - -10
-  - 5
-  rot: East
+  rot: South
 - partname: frame2
   pos:
-  - 0
-  - 5
-  rot: East
-- partname: frame2
-  pos:
-  - 0
   - -5
-  rot: East
+  - -10
+  rot: South
 - partname: solarpanel
   pos:
-  - -75
   - -5
-  rot: West
-- partname: solarpanel
-  pos:
   - 10
+  rot: North
+- partname: solarpanel
+  pos:
   - -5
-  rot: East
+  - -75
+  rot: South
 - partname: gold
   pos:
-  - -10
   - -15
-  rot: West
-- partname: gold
-  pos:
   - 0
+  rot: North
+- partname: gold
+  pos:
   - -15
-  rot: West
+  - -10
+  rot: North
 - partname: small-antenna
   pos:
-  - 1
   - 15
-  rot: East
+  - -7
+  rot: South
 - partname: battery
   pos:
-  - -9
   - 5
-  rot: East
+  - 0
+  rot: South
 - partname: cpu
   pos:
-  - 1
   - 5
-  rot: East
+  - -9
+  rot: South
 - partname: plate
   pos:
-  - -10
   - -5
-  rot: East
-- partname: plate
-  pos:
   - 0
+  rot: South
+- partname: plate
+  pos:
   - -5
-  rot: East
+  - -10
+  rot: South
 - partname: tank21
   pos:
-  - -10
   - -5
-  rot: North
+  - -10
+  rot: East
 - partname: motor
   pos:
-  - -8
   - -34
-  rot: East
+  - -8
+  rot: South

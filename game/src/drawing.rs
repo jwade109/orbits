@@ -277,9 +277,8 @@ fn draw_propagator(
     Some(())
 }
 
-pub fn draw_vehicle(gizmos: &mut Gizmos, vehicle: &Vehicle, pos: Vec2, scale: f32) {
+pub fn draw_vehicle(gizmos: &mut Gizmos, vehicle: &Vehicle, pos: Vec2, scale: f32, angle: f32) {
     for (p, rot, part) in &vehicle.parts {
-        let angle = vehicle.angle() - PI / 2.0;
         let dims = meters_with_rotation(*rot, part);
         let center = rotate(p.as_vec2() / PIXELS_PER_METER + dims / 2.0, angle) * scale;
         let obb = OBB::new(
@@ -287,21 +286,25 @@ pub fn draw_vehicle(gizmos: &mut Gizmos, vehicle: &Vehicle, pos: Vec2, scale: f3
             angle,
         )
         .offset(center + pos);
-        draw_obb(gizmos, &obb, WHITE);
+        let color = match part.data.layer {
+            PartLayer::Exterior => YELLOW,
+            PartLayer::Internal => GRAY,
+            PartLayer::Structural => WHITE,
+        };
+        draw_obb(gizmos, &obb, color);
     }
 
     for thruster in vehicle.thrusters() {
-        let angle = vehicle.angle() - PI / 2.0;
         let p1 = pos + rotate(thruster.pos * scale, angle);
-        let u = rotate(-Vec2::X, thruster.angle + vehicle.angle());
+        let u = rotate(-Vec2::X, thruster.angle + angle);
         let v = rotate(u, PI / 2.0);
         let p2 = p1 + (u * thruster.proto.length + v * thruster.proto.length / 5.0) * scale;
         let p3 = p1 + (u * thruster.proto.length - v * thruster.proto.length / 5.0) * scale;
         gizmos.linestrip_2d([p1, p2, p3, p1], ORANGE);
 
-        if thruster.is_active {
+        if thruster.is_active || thruster.force_active {
             for s in linspace(0.0, 1.0, 13) {
-                let length = thruster.proto.length * rand(0.9, 1.2);
+                let length = thruster.proto.length * rand(1.3, 2.5);
                 let p4 = p2 + (u * 0.7 + v * 0.4) * length * scale;
                 let p5 = p3 + (u * 0.7 - v * 0.4) * length * scale;
                 let color = if thruster.proto.is_rcs { TEAL } else { RED };
@@ -334,7 +337,7 @@ fn draw_rpo(gizmos: &mut Gizmos, state: &GameState, id: OrbiterId, rpo: &RPO) ->
         let p = (d + vpv.pos_f32() / 1000.0) * ctx.scale();
         draw_square(gizmos, p, 7.0, RED);
 
-        draw_vehicle(gizmos, vehicle, p, ctx.scale() / 1000.0)
+        draw_vehicle(gizmos, vehicle, p, ctx.scale() / 1000.0, vehicle.angle());
     }
     Some(())
 }
@@ -425,7 +428,7 @@ pub fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<(
         -window_dims.y / 2.0 + r * 1.2,
     );
 
-    draw_vehicle(gizmos, &vehicle, center, zoom);
+    draw_vehicle(gizmos, &vehicle, center, zoom, vehicle.angle());
 
     draw_counter(gizmos, rb as u64, center + Vec2::Y * r, WHITE);
 

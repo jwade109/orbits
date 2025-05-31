@@ -374,9 +374,34 @@ pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> 
     ret
 }
 
+fn get_thruster_indicators(state: &GameState) -> Option<Vec<TextLabel>> {
+    let piloting = state.piloting()?;
+    let vehicle = state.orbital_vehicles.get(&piloting)?;
+    let origin = Vec2::new(state.input.screen_bounds.span.x * 0.5 - 100.0, 0.0);
+
+    Some(
+        vehicle
+            .thrusters()
+            .enumerate()
+            .map(|(i, t)| {
+                let text = format!("{} / {}", i, t.proto.model.clone());
+                let pos = origin + Vec2::Y * 26.0 * i as f32;
+                let color = if t.is_active || t.force_active {
+                    RED.with_alpha(0.8)
+                } else {
+                    WHITE.with_alpha(0.6)
+                };
+                TextLabel::new(text, pos, 0.7).with_color(color)
+            })
+            .collect(),
+    )
+}
+
 impl Render for OrbitalContext {
     fn text_labels(state: &GameState) -> Option<Vec<TextLabel>> {
         let mut text_labels: Vec<TextLabel> = get_orbital_object_mouseover_labels(state);
+
+        text_labels.extend(get_thruster_indicators(state).unwrap_or(vec![]));
 
         if state.paused {
             let s = "PAUSED".to_string();
@@ -783,17 +808,28 @@ pub fn thruster_control_dialogue(state: &GameState) -> Option<Node<OnClick>> {
         .down()
         .with_color(UI_BACKGROUND_COLOR);
 
+    let active_color: [f32; 4] = [0.3, 0.2, 0.2, 1.0];
+    let forced_color: [f32; 4] = [0.9, 0.2, 0.2, 1.0];
+
     for (i, thruster) in vehicle.thrusters().enumerate() {
-        let title = if thruster.proto.is_rcs {
-            "RCS"
+        let torque = cross2d(thruster.pos, thruster.pointing());
+
+        let dir = if torque > 1.0 {
+            " [LEFT]"
+        } else if torque < -1.0 {
+            " [RIGHT]"
         } else {
-            "Thruster"
+            ""
         };
-        let s = format!("{} {} {:0.1}", title, i + 1, thruster.angle.to_degrees());
+
+        let s = format!("#{} / {}{}", i + 1, thruster.proto.model, dir);
         let onclick = OnClick::ToggleThruster(i);
         let mut child = Node::button(s, onclick, Size::Grow, BUTTON_HEIGHT);
-        if thruster.is_active {
-            child.set_color([0.7, 0.2, 0.2, 1.0]);
+
+        if thruster.force_active {
+            child.set_color(forced_color);
+        } else if thruster.is_active {
+            child.set_color(active_color);
         }
         wrapper.add_child(child);
     }

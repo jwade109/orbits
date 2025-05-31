@@ -4,114 +4,114 @@ parts:
   pos:
   - -10
   - -10
-  rot: East
-- partname: frame3
-  pos:
-  - -5
-  - -40
   rot: South
 - partname: frame3
   pos:
+  - -40
   - -5
+  rot: West
+- partname: frame3
+  pos:
   - 0
+  - -5
+  rot: West
+- partname: frame3
+  pos:
+  - -5
+  - 5
   rot: South
 - partname: frame3
   pos:
+  - -5
   - -45
-  - -5
-  rot: East
-- partname: frame3
-  pos:
-  - 5
-  - -5
-  rot: East
+  rot: South
 - partname: rcs
   pos:
-  - -45
   - -9
-  rot: East
-- partname: rcs
-  pos:
-  - 45
-  - -3
-  rot: North
-- partname: rcs
-  pos:
   - 39
-  - 5
-  rot: West
+  rot: South
 - partname: rcs
   pos:
-  - -45
-  - 5
-  rot: West
-- partname: rcs
-  pos:
+  - -3
   - -49
-  - -3
-  rot: South
+  rot: East
 - partname: rcs
   pos:
+  - 5
+  - -45
+  rot: North
+- partname: rcs
+  pos:
+  - 5
   - 39
-  - -9
-  rot: East
+  rot: North
 - partname: rcs
   pos:
   - -3
+  - 45
+  rot: West
+- partname: rcs
+  pos:
+  - -9
+  - -45
+  rot: South
+- partname: rcs
+  pos:
   - -44
-  rot: East
-- partname: rcs
-  pos:
-  - 5
-  - -40
-  rot: North
-- partname: rcs
-  pos:
-  - 5
-  - 34
-  rot: North
-- partname: rcs
-  pos:
   - -3
+  rot: South
+- partname: rcs
+  pos:
+  - -40
+  - -9
+  rot: East
+- partname: rcs
+  pos:
+  - 34
+  - -9
+  rot: East
+- partname: rcs
+  pos:
   - 40
+  - -3
+  rot: North
+- partname: rcs
+  pos:
+  - 34
+  - 5
   rot: West
 - partname: rcs
   pos:
-  - -9
-  - 34
-  rot: South
-- partname: rcs
-  pos:
-  - -9
   - -40
-  rot: South
-- partname: tank21
-  pos:
-  - -35
-  - -5
-  rot: South
+  - 5
+  rot: West
 - partname: tank21
   pos:
   - -5
+  - 15
+  rot: West
+- partname: tank21
+  pos:
   - 10
+  - -5
+  rot: South
+- partname: tank21
+  pos:
+  - -5
+  - -35
   rot: East
 - partname: tank21
   pos:
-  - 15
+  - -30
   - -5
   rot: North
-- partname: tank21
-  pos:
-  - -5
-  - -30
-  rot: West
 - partname: small-antenna
   pos:
-  - -17
   - 5
-  rot: East
-- partname: small-antenna
-  pos:
   - 11
+  rot: South
+- partname: small-antenna
+  pos:
   - 5
-  rot: East
+  - -17
+  rot: South
