@@ -189,10 +189,6 @@ impl Vehicle {
         self.is_controllable() && self.remaining_dv() < 10.0
     }
 
-    pub fn add_fuel(&mut self, _kg: u64) {
-        todo!()
-    }
-
     pub fn try_impulsive_burn(&mut self, dv: Vec2) -> Option<()> {
         if dv.length() > self.remaining_dv() {
             return None;
@@ -223,7 +219,7 @@ impl Vehicle {
         &self.name
     }
 
-    pub fn step(&mut self, stamp: Nanotime) {
+    pub fn step(&mut self, stamp: Nanotime) -> Vec2 {
         let dt = (stamp - self.stamp).to_secs().clamp(0.0, 0.03);
 
         if self.is_controllable() {
@@ -243,18 +239,21 @@ impl Vehicle {
                     stamp,
                 );
             }
-
-            let mut angular_acceleration = 0.0;
-            for t in &self.thrusters {
-                if !t.is_thrusting() {
-                    continue;
-                }
-                let torque = cross2d(t.pos, t.pointing());
-                angular_acceleration += torque / 4000.0 * t.proto.thrust;
-            }
-
-            self.angular_velocity += angular_acceleration * dt;
         }
+
+        let mut accel = Vec2::ZERO;
+
+        let mut angular_acceleration = 0.0;
+        for t in &self.thrusters {
+            if !t.is_thrusting() {
+                continue;
+            }
+            accel += rotate(t.pointing(), self.angle) * t.proto.thrust / self.wet_mass();
+            let torque = cross2d(t.pos, t.pointing());
+            angular_acceleration += torque / 4000.0 * t.proto.thrust;
+        }
+
+        self.angular_velocity += angular_acceleration * dt;
 
         self.angular_velocity = self.angular_velocity.clamp(-12.0, 12.0);
 
@@ -262,6 +261,8 @@ impl Vehicle {
         self.angle = wrap_0_2pi(self.angle);
         self.target_angle = wrap_0_2pi(self.target_angle);
         self.stamp = stamp;
+
+        accel * dt
     }
 
     pub fn pointing(&self) -> Vec2 {

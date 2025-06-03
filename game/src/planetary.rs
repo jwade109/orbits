@@ -978,15 +978,19 @@ impl GameState {
             rpo.step(self.sim_time);
         }
 
+        let s = self.sim_time;
+        let d = self.physics_duration;
+
         // handle discrete physics events
-        for (_, vehicle) in self.vehicles.iter_mut() {
-            vehicle.step(self.sim_time);
+        for (id, vehicle) in self.vehicles.iter_mut() {
+            let dv = vehicle.step(s);
+            if dv.length() > 0.0 {
+                self.scenario.simulate(s, d);
+                self.scenario.impulsive_burn(*id, s, dv / 10.0);
+            }
         }
 
         self.handle_click_events();
-
-        let s = self.sim_time;
-        let d = self.physics_duration;
 
         let mut man = self.planned_maneuvers(old_sim_time);
         while let Some((id, t, dv)) = man.first() {
@@ -1207,8 +1211,8 @@ fn process_interaction(
             let gid = GroupId(get_random_name());
             state.create_group(gid.clone());
         }
-        InteractionEvent::Thrust(dir) => {
-            state.thrust_prograde(*dir);
+        InteractionEvent::Thrust(_) => {
+            println!("No thrust!");
         }
         InteractionEvent::TurnLeft => {
             state.turn(1);
