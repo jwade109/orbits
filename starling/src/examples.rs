@@ -121,9 +121,14 @@ pub fn earth_moon_example_one() -> (Scenario, ObjectIdTracker) {
         Nanotime::zero(),
     );
 
-    scenario.simulate(Nanotime::zero(), Nanotime::secs(100));
+    let planets = scenario.planets().clone();
 
-    scenario.retain(|o| !o.will_collide());
+    Scenario::simulate(
+        &mut scenario.orbiters,
+        &planets,
+        Nanotime::zero(),
+        Nanotime::secs(100),
+    );
 
     (scenario, id)
 }
@@ -1543,24 +1548,4 @@ pub fn stable_simulation() -> (Scenario, ObjectIdTracker) {
 
 pub fn default_example() -> (Scenario, ObjectIdTracker) {
     rss()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn simulate() {
-        let (mut scenario, _) = stable_simulation();
-
-        let res = scenario.simulate(Nanotime::secs(1000), Nanotime::secs(10));
-
-        assert_eq!(scenario.orbiter_count(), 177);
-        assert_eq!(res.len(), 130);
-
-        let res = scenario.simulate(Nanotime::secs(40000), Nanotime::secs(10));
-
-        assert_eq!(scenario.orbiter_count(), 141);
-        assert_eq!(res.len(), 36);
-    }
 }

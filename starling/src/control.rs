@@ -160,9 +160,12 @@ mod tests {
 
         let mut tfinal = Nanotime::zero();
 
+        let planets = scenario.planets().clone();
+
         for (t, dv) in ctrl.plan().unwrap().dvs() {
             println!("{}, {}", t, dv);
-            let events = scenario.simulate(t, Nanotime::secs(10));
+            let events =
+                Scenario::simulate(&mut scenario.orbiters, &planets, t, Nanotime::secs(10));
             assert!(events.is_empty());
             assert!(scenario.impulsive_burn(orbiter_id, t, dv).is_some());
             assert!(tfinal < t);
@@ -171,10 +174,11 @@ mod tests {
 
         tfinal += Nanotime::secs(30);
 
-        let events = scenario.simulate(tfinal, Nanotime::secs(10));
+        let events =
+            Scenario::simulate(&mut scenario.orbiters, &planets, tfinal, Nanotime::secs(10));
         assert!(events.is_empty());
 
-        assert_eq!(scenario.orbiter_count(), 1);
+        assert_eq!(scenario.orbiters.len(), 1);
 
         // this is entirely too verbose
         let lup = scenario.lup_orbiter(orbiter_id, tfinal).unwrap();

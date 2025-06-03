@@ -546,7 +546,7 @@ impl GameState {
         let plup = self.scenario.lup_planet(parent, self.sim_time)?;
         let pvp = plup.pv().pos_f32();
         let pvl = pv - pvp;
-        self.scenario.remove_orbiter(id)?;
+        self.scenario.orbiters.remove(&id)?;
         self.notify(
             ObjectId::Planet(parent),
             NotificationType::OrbiterDeleted(id),
@@ -582,6 +582,11 @@ impl GameState {
         Some(())
     }
 
+    pub fn impulsive_burn(&mut self, id: OrbiterId, stamp: Nanotime, dv: Vec2) -> Option<()> {
+        let obj = self.scenario.orbiters.get_mut(&id)?;
+        obj.try_impulsive_burn(stamp, dv)
+    }
+
     pub fn thrust_prograde(&mut self, dir: i8) -> Option<()> {
         let id = self.piloting()?;
 
@@ -606,11 +611,7 @@ impl GameState {
 
         let dv = vehicle.pointing() * 0.005 * throttle * dir as f32;
 
-        let notif = if self
-            .scenario
-            .impulsive_burn(id, self.sim_time, dv)
-            .is_none()
-        {
+        let notif = if self.impulsive_burn(id, self.sim_time, dv).is_none() {
             NotificationType::ManeuverFailed(id)
         } else {
             NotificationType::OrbitChanged(id)
@@ -618,7 +619,13 @@ impl GameState {
 
         self.notify(ObjectId::Orbiter(id), notif, None);
 
-        self.scenario.simulate(self.sim_time, self.physics_duration);
+        let planets = self.scenario.planets().clone();
+        Scenario::simulate(
+            &mut self.scenario.orbiters,
+            &planets,
+            self.sim_time,
+            self.physics_duration,
+        );
         Some(())
     }
 
@@ -981,13 +988,21 @@ impl GameState {
         let s = self.sim_time;
         let d = self.physics_duration;
 
+        let planets = self.scenario.planets().clone();
+
+        let mut burns = Vec::new();
+
         // handle discrete physics events
         for (id, vehicle) in self.vehicles.iter_mut() {
             let dv = vehicle.step(s);
             if dv.length() > 0.0 {
-                self.scenario.simulate(s, d);
-                self.scenario.impulsive_burn(*id, s, dv / 10.0);
+                Scenario::simulate(&mut self.scenario.orbiters, &planets, s, d);
+                burns.push((*id, dv));
             }
+        }
+
+        for (id, dv) in burns {
+            self.impulsive_burn(id, s, dv / 10.0);
         }
 
         self.handle_click_events();
@@ -996,8 +1011,8 @@ impl GameState {
         while let Some((id, t, dv)) = man.first() {
             if s > *t {
                 let perturb = 0.0 * randvec(0.01, 0.05);
-                self.scenario.simulate(*t, d);
-                self.scenario.impulsive_burn(*id, *t, dv + perturb);
+                Scenario::simulate(&mut self.scenario.orbiters, &planets, *t, d);
+                self.impulsive_burn(*id, *t, dv + perturb);
                 self.notify(
                     ObjectId::Orbiter(*id),
                     NotificationType::OrbitChanged(*id),
@@ -1009,7 +1024,7 @@ impl GameState {
             man.remove(0);
         }
 
-        for (id, ri) in self.scenario.simulate(s, d) {
+        for (id, ri) in Scenario::simulate(&mut self.scenario.orbiters, &planets, s, d) {
             info!("{} {:?}", id, &ri);
             if let Some(pv) = ri.orbit.pv(ri.stamp).ok() {
                 let notif = match ri.reason {

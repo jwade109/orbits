@@ -337,7 +337,11 @@ pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> 
     let cursor_world = state.orbital_context.c2w(cursor);
 
     for id in state.scenario.ids() {
-        let lup = match state.scenario.lup(id, state.sim_time) {
+        let lup = match id {
+            ObjectId::Orbiter(id) => state.scenario.lup_orbiter(id, state.sim_time),
+            ObjectId::Planet(id) => state.scenario.lup_planet(id, state.sim_time),
+        };
+        let lup = match lup {
             Some(lup) => lup,
             None => continue,
         };
@@ -808,8 +812,7 @@ pub fn thruster_control_dialogue(state: &GameState) -> Option<Node<OnClick>> {
         .down()
         .with_color(UI_BACKGROUND_COLOR);
 
-    let active_color: [f32; 4] = [0.3, 0.2, 0.2, 1.0];
-    // let forced_color: [f32; 4] = [0.9, 0.2, 0.2, 1.0];
+    let active_color: [f32; 4] = [0.9, 0.2, 0.2, 1.0];
 
     for (i, thruster) in vehicle.thrusters().enumerate() {
         let torque = cross2d(thruster.pos, thruster.pointing());

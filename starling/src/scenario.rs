@@ -96,10 +96,10 @@ impl PlanetarySystem {
         self.subsystems.push((orbit, planets));
     }
 
-    pub fn ids(&self) -> Vec<PlanetId> {
+    pub fn planet_ids(&self) -> Vec<PlanetId> {
         let mut ret = vec![self.id];
         for (_, sub) in &self.subsystems {
-            ret.extend_from_slice(&sub.ids())
+            ret.extend_from_slice(&sub.planet_ids())
         }
         ret
     }
@@ -179,7 +179,7 @@ impl RemovalInfo {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Scenario {
-    orbiters: HashMap<OrbiterId, Orbiter>,
+    pub orbiters: HashMap<OrbiterId, Orbiter>,
     system: PlanetarySystem,
 }
 
@@ -202,61 +202,11 @@ impl Scenario {
     }
 
     pub fn planet_ids(&self) -> Vec<PlanetId> {
-        self.system.ids()
-    }
-
-    pub fn has_orbiter(&self, id: OrbiterId) -> bool {
-        self.orbiters.contains_key(&id)
+        self.system.planet_ids()
     }
 
     pub fn planets(&self) -> &PlanetarySystem {
         &self.system
-    }
-
-    pub fn orbiters_mut(&mut self) -> impl Iterator<Item = &mut Orbiter> + use<'_> {
-        self.orbiters.values_mut()
-    }
-
-    pub fn orbiter_mut(&mut self, id: OrbiterId) -> Option<&mut Orbiter> {
-        self.orbiters.get_mut(&id)
-    }
-
-    pub fn orbiter(&self, id: OrbiterId) -> Option<&Orbiter> {
-        self.orbiters.get(&id)
-    }
-
-    pub fn simulate(
-        &mut self,
-        stamp: Nanotime,
-        future_dur: Nanotime,
-    ) -> Vec<(OrbiterId, RemovalInfo)> {
-        for (_, obj) in &mut self.orbiters {
-            let e = obj.propagate_to(stamp, future_dur, &self.system);
-            if let Err(_e) = e {
-                // dbg!(e);
-            }
-        }
-
-        let mut info = vec![];
-
-        self.orbiters.retain(|_, o| {
-            if o.propagator_at(stamp).is_none() {
-                let reason = o.props().last().map(|p| RemovalInfo {
-                    stamp: p.end().unwrap_or(stamp),
-                    reason: p.event().unwrap_or(EventType::NumericalError),
-                    parent: p.parent(),
-                    orbit: p.orbit.1,
-                });
-                if let Some(reason) = reason {
-                    info.push((o.id(), reason));
-                }
-                false
-            } else {
-                true
-            }
-        });
-
-        info
     }
 
     pub fn add_object(
@@ -268,24 +218,6 @@ impl Scenario {
     ) {
         self.orbiters
             .insert(id, Orbiter::new(id, GlobalOrbit(parent, orbit), stamp));
-    }
-
-    pub fn remove_orbiter(&mut self, id: OrbiterId) -> Option<Orbiter> {
-        self.orbiters.remove(&id)
-    }
-
-    pub fn impulsive_burn(&mut self, id: OrbiterId, stamp: Nanotime, dv: Vec2) -> Option<()> {
-        let obj = self.orbiter_mut(id)?;
-        obj.try_impulsive_burn(stamp, dv)
-    }
-
-    // TODO get rid of this
-    pub fn retain<F: FnMut(&Orbiter) -> bool>(&mut self, mut f: F) {
-        self.orbiters.retain(|_, o| f(o))
-    }
-
-    pub fn orbiter_count(&self) -> usize {
-        self.orbiters.len()
     }
 
     pub fn lup_planet(&self, id: PlanetId, stamp: Nanotime) -> Option<ObjectLookup> {
@@ -314,17 +246,10 @@ impl Scenario {
         ))
     }
 
-    pub fn lup(&self, id: ObjectId, stamp: Nanotime) -> Option<ObjectLookup> {
-        match id {
-            ObjectId::Orbiter(id) => self.lup_orbiter(id, stamp),
-            ObjectId::Planet(id) => self.lup_planet(id, stamp),
-        }
-    }
-
     pub fn relevant_body(&self, pos: Vec2, stamp: Nanotime) -> Option<PlanetId> {
         let results = self
             .system
-            .ids()
+            .planet_ids()
             .into_iter()
             .filter_map(|id| {
                 let lup = self.lup_planet(id, stamp)?;
@@ -344,7 +269,10 @@ impl Scenario {
         let results = self
             .ids()
             .filter_map(|id| {
-                let lup = self.lup(id, stamp)?;
+                let lup = match id {
+                    ObjectId::Orbiter(id) => self.lup_orbiter(id, stamp),
+                    ObjectId::Planet(id) => self.lup_planet(id, stamp),
+                }?;
                 let p = lup.pv().pos_f32();
                 let d = pos.distance(p);
                 Some((d, id))
@@ -354,5 +282,40 @@ impl Scenario {
             .into_iter()
             .min_by(|(d1, _), (d2, _)| d1.total_cmp(d2))
             .map(|(_, id)| id)
+    }
+
+    pub fn simulate(
+        orbiters: &mut HashMap<OrbiterId, Orbiter>,
+        planets: &PlanetarySystem,
+        stamp: Nanotime,
+        future_dur: Nanotime,
+    ) -> Vec<(OrbiterId, RemovalInfo)> {
+        for (_, obj) in orbiters.iter_mut() {
+            let e = obj.propagate_to(stamp, future_dur, planets);
+            if let Err(_e) = e {
+                // dbg!(e);
+            }
+        }
+
+        let mut info = vec![];
+
+        orbiters.retain(|_, o| {
+            if o.propagator_at(stamp).is_none() {
+                let reason = o.props().last().map(|p| RemovalInfo {
+                    stamp: p.end().unwrap_or(stamp),
+                    reason: p.event().unwrap_or(EventType::NumericalError),
+                    parent: p.parent(),
+                    orbit: p.orbit.1,
+                });
+                if let Some(reason) = reason {
+                    info.push((o.id(), reason));
+                }
+                false
+            } else {
+                true
+            }
+        });
+
+        info
     }
 }

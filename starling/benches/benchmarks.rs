@@ -63,12 +63,13 @@ fn criterion_benchmark(c: &mut Criterion) {
     g.sample_size(1000);
 
     let (mut scenario, _) = stable_simulation();
+    let planets = scenario.planets().clone();
     let mut t = Nanotime::zero();
 
     g.bench_function("scenario_sim", |b| {
         b.iter(|| {
             t += Nanotime::secs(10);
-            scenario.simulate(t, Nanotime::secs(20));
+            Scenario::simulate(&mut scenario.orbiters, &planets, t, Nanotime::secs(20));
         })
     });
 
