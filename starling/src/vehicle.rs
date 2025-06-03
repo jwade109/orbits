@@ -91,13 +91,11 @@ impl Vehicle {
             .filter_map(|(pos, rot, p)| {
                 let dims = meters_with_rotation(*rot, p);
                 if let PartClass::Thruster(proto) = &p.data.class {
-                    Some(Thruster {
-                        proto: proto.clone(),
-                        pos: pos.as_vec2() / crate::parts::parts::PIXELS_PER_METER + dims / 2.0,
-                        angle: rot.to_angle() + PI / 2.0,
-                        is_active: false,
-                        force_active: false,
-                    })
+                    Some(Thruster::new(
+                        proto.clone(),
+                        pos.as_vec2() / crate::parts::parts::PIXELS_PER_METER + dims / 2.0,
+                        rot.to_angle() + PI / 2.0,
+                    ))
                 } else {
                     None
                 }
@@ -240,12 +238,15 @@ impl Vehicle {
                     continue;
                 }
                 let torque = cross2d(t.pos, t.pointing());
-                t.is_active = torque.signum() == error.signum() && error.abs() > 1.0;
+                t.set_thrusting(
+                    torque.signum() == error.signum() && error.abs() > 1.0,
+                    stamp,
+                );
             }
 
             let mut angular_acceleration = 0.0;
             for t in &self.thrusters {
-                if !t.is_active && !t.force_active {
+                if !t.is_thrusting() {
                     continue;
                 }
                 let torque = cross2d(t.pos, t.pointing());

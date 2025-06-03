@@ -386,7 +386,7 @@ fn get_thruster_indicators(state: &GameState) -> Option<Vec<TextLabel>> {
             .map(|(i, t)| {
                 let text = format!("{} / {}", i, t.proto.model.clone());
                 let pos = origin + Vec2::Y * 26.0 * i as f32;
-                let color = if t.is_active || t.force_active {
+                let color = if t.is_thrusting() {
                     RED.with_alpha(0.8)
                 } else {
                     WHITE.with_alpha(0.6)
@@ -809,7 +809,7 @@ pub fn thruster_control_dialogue(state: &GameState) -> Option<Node<OnClick>> {
         .with_color(UI_BACKGROUND_COLOR);
 
     let active_color: [f32; 4] = [0.3, 0.2, 0.2, 1.0];
-    let forced_color: [f32; 4] = [0.9, 0.2, 0.2, 1.0];
+    // let forced_color: [f32; 4] = [0.9, 0.2, 0.2, 1.0];
 
     for (i, thruster) in vehicle.thrusters().enumerate() {
         let torque = cross2d(thruster.pos, thruster.pointing());
@@ -826,9 +826,7 @@ pub fn thruster_control_dialogue(state: &GameState) -> Option<Node<OnClick>> {
         let onclick = OnClick::ToggleThruster(i);
         let mut child = Node::button(s, onclick, Size::Grow, BUTTON_HEIGHT);
 
-        if thruster.force_active {
-            child.set_color(forced_color);
-        } else if thruster.is_active {
+        if thruster.is_thrusting() {
             child.set_color(active_color);
         }
         wrapper.add_child(child);

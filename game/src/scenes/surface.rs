@@ -4,7 +4,7 @@ use crate::planetary::GameState;
 use crate::scenes::{CameraProjection, Render, StaticSpriteDescriptor, TextLabel};
 use bevy::color::{palettes::css::*, Luminance};
 use bevy::prelude::*;
-use layout::layout::{Node, Size, Tree};
+use layout::layout::Tree;
 use starling::prelude::*;
 
 #[derive(Debug)]
@@ -91,7 +91,7 @@ fn draw_plant(gizmos: &mut Gizmos, p: &Plant, ctx: &impl CameraProjection) {
 }
 
 impl Render for SurfaceContext {
-    fn background_color(state: &GameState) -> Srgba {
+    fn background_color(_state: &GameState) -> Srgba {
         TEAL.with_luminance(0.3)
     }
 
@@ -110,7 +110,7 @@ impl Render for SurfaceContext {
         Some(())
     }
 
-    fn sprites(state: &GameState) -> Option<Vec<StaticSpriteDescriptor>> {
+    fn sprites(_state: &GameState) -> Option<Vec<StaticSpriteDescriptor>> {
         None
     }
 

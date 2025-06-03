@@ -627,7 +627,7 @@ impl GameState {
         let piloting = self.piloting()?;
         let vehicle = self.orbital_vehicles.get_mut(&piloting)?;
         let thruster = vehicle.thrusters_mut().skip(idx).next()?;
-        thruster.force_active = !thruster.force_active;
+        thruster.toggle(self.sim_time);
         Some(())
     }
 

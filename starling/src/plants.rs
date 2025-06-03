@@ -1,5 +1,4 @@
 use crate::math::{rand, rotate, Vec2};
-use crate::pv::PV;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Segment {

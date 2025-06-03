@@ -302,7 +302,7 @@ pub fn draw_vehicle(gizmos: &mut Gizmos, vehicle: &Vehicle, pos: Vec2, scale: f3
         let p3 = p1 + (u * thruster.proto.length - v * thruster.proto.length / 5.0) * scale;
         gizmos.linestrip_2d([p1, p2, p3, p1], ORANGE);
 
-        if thruster.is_active || thruster.force_active {
+        if thruster.is_thrusting() {
             for s in linspace(0.0, 1.0, 13) {
                 let length = thruster.proto.length * rand(1.3, 2.5);
                 let p4 = p2 + (u * 0.7 + v * 0.4) * length * scale;
