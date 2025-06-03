@@ -334,6 +334,7 @@ pub fn layout(state: &GameState) -> Tree<OnClick> {
         SceneType::Orbital => return OrbitalContext::ui(state).unwrap_or(Tree::new()),
         SceneType::Editor => return EditorContext::ui(state).unwrap_or(Tree::new()),
         SceneType::CommsPanel => return CommsContext::ui(state).unwrap_or(Tree::new()),
+        SceneType::Surface => return SurfaceContext::ui(state).unwrap_or(Tree::new()),
     };
 }
 

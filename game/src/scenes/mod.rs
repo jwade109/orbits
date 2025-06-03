@@ -5,6 +5,7 @@ mod orbital;
 mod render;
 mod rpo;
 mod scene;
+mod surface;
 mod telescope;
 
 pub use comms::CommsContext;
@@ -17,4 +18,5 @@ pub use orbital::{
 pub use render::*;
 pub use rpo::RPOContext;
 pub use scene::{Scene, SceneType};
+pub use surface::SurfaceContext;
 pub use telescope::TelescopeContext;

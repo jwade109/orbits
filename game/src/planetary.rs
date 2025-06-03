@@ -4,7 +4,8 @@ use crate::notifications::*;
 use crate::onclick::OnClick;
 use crate::scenes::{
     CameraProjection, CommsContext, CursorMode, EditorContext, Interactive, OrbitalContext,
-    RPOContext, Render, Scene, SceneType, StaticSpriteDescriptor, TelescopeContext, TextLabel,
+    RPOContext, Render, Scene, SceneType, StaticSpriteDescriptor, SurfaceContext, TelescopeContext,
+    TextLabel,
 };
 use crate::ui::InteractionEvent;
 use bevy::color::palettes::css::*;
@@ -119,6 +120,8 @@ pub struct GameState {
 
     pub coms_context: CommsContext,
 
+    pub surface_context: SurfaceContext,
+
     /// Simulation clock
     pub sim_time: Nanotime,
 
@@ -205,6 +208,7 @@ impl Default for GameState {
             rpo_context: RPOContext::new(),
             editor_context: EditorContext::new(),
             coms_context: CommsContext::default(),
+            surface_context: SurfaceContext::default(),
             sim_time: Nanotime::zero(),
             wall_time: Nanotime::zero(),
             physics_duration: Nanotime::days(7),
@@ -225,6 +229,7 @@ impl Default for GameState {
                 Scene::telescope(),
                 Scene::editor(),
                 Scene::comms(),
+                Scene::surface(),
             ],
             current_scene_idx: 0,
             current_orbit: None,
@@ -278,6 +283,7 @@ impl Render for GameState {
             SceneType::Editor => EditorContext::text_labels(state),
             SceneType::DockingView => RPOContext::text_labels(state),
             SceneType::CommsPanel => CommsContext::text_labels(state),
+            SceneType::Surface => SurfaceContext::text_labels(state),
             SceneType::MainMenu => None,
         }
     }
@@ -288,6 +294,7 @@ impl Render for GameState {
             SceneType::DockingView => RPOContext::sprites(state),
             SceneType::MainMenu | SceneType::Orbital => OrbitalContext::sprites(state),
             SceneType::CommsPanel => CommsContext::sprites(state),
+            SceneType::Surface => SurfaceContext::sprites(state),
             SceneType::TelescopeView => None,
         }
     }
@@ -300,6 +307,7 @@ impl Render for GameState {
             SceneType::DockingView => RPOContext::background_color(state),
             SceneType::MainMenu => BLACK,
             SceneType::CommsPanel => CommsContext::background_color(state),
+            SceneType::Surface => SurfaceContext::background_color(state),
         }
     }
 
@@ -311,12 +319,14 @@ impl Render for GameState {
             SceneType::DockingView => RPOContext::draw_gizmos(gizmos, state),
             SceneType::MainMenu => draw_cells(gizmos, state),
             SceneType::CommsPanel => CommsContext::draw_gizmos(gizmos, state),
+            SceneType::Surface => SurfaceContext::draw_gizmos(gizmos, state),
         }
     }
 
     fn ui(state: &GameState) -> Option<Tree<OnClick>> {
         match state.current_scene().kind() {
             SceneType::CommsPanel => CommsContext::ui(state),
+            SceneType::Surface => SurfaceContext::ui(state),
             _ => None,
         }
     }
@@ -1090,6 +1100,9 @@ impl GameState {
             }
             SceneType::Editor => {
                 EditorContext::step(self, dt);
+            }
+            SceneType::Surface => {
+                SurfaceContext::step(self, dt);
             }
             _ => (),
         }

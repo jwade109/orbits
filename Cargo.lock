@@ -3743,6 +3743,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "lsystem"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23c47210f2a9f5ae2073e7b847026e3233bcb012aa6845201c69c26481762a81"
+
+[[package]]
 name = "mach2"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5437,6 +5443,7 @@ dependencies = [
  "glam 0.29.3",
  "image",
  "lazy_static",
+ "lsystem",
  "more-asserts",
  "names",
  "rand 0.8.5",

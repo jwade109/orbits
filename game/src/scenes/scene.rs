@@ -6,6 +6,7 @@ pub enum SceneType {
     Editor,
     MainMenu,
     CommsPanel,
+    Surface,
 }
 
 #[derive(Debug, Clone)]
@@ -54,6 +55,13 @@ impl Scene {
         Scene {
             name: "Comms".into(),
             scene_type: SceneType::CommsPanel,
+        }
+    }
+
+    pub fn surface() -> Self {
+        Scene {
+            name: "Surface".into(),
+            scene_type: SceneType::Surface,
         }
     }
 

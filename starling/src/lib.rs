@@ -12,6 +12,7 @@ pub mod orbiter;
 pub mod orbits;
 pub mod parts;
 pub mod planning;
+pub mod plants;
 pub mod prelude;
 pub mod pv;
 pub mod quantities;

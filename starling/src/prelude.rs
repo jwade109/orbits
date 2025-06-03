@@ -19,6 +19,7 @@ pub use crate::parts::parts::{load_parts_from_dir, PartLayer, PartProto, PIXELS_
 pub use crate::planning::{
     best_maneuver_plan, get_next_intersection, EventType, HorizonState, ManeuverPlan, Propagator,
 };
+pub use crate::plants::Plant;
 pub use crate::pv::PV;
 pub use crate::quantities::*;
 pub use crate::region::Region;
