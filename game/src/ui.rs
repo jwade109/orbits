@@ -341,7 +341,7 @@ pub fn layout(state: &GameState) -> Tree<OnClick> {
 fn current_inventory_layout(state: &GameState) -> Option<Node<OnClick>> {
     let id = state.orbital_context.following?.orbiter()?;
     let orbiter = state.scenario.lup_orbiter(id, state.sim_time)?.orbiter()?;
-    let vehicle = state.orbital_vehicles.get(&id)?;
+    let vehicle = state.vehicles.get(&id)?;
 
     if vehicle.inventory.is_empty() {
         return None;

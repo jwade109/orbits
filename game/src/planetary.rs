@@ -38,7 +38,6 @@ impl Plugin for PlanetaryPlugin {
                 crate::sprites::update_static_sprites,
                 crate::sprites::update_shadow_sprites,
                 crate::sprites::update_background_sprite,
-                crate::sprites::update_spacecraft_sprites,
                 crate::drawing::draw_game_state,
                 sound_system,
             )
@@ -150,7 +149,7 @@ pub struct GameState {
 
     pub controllers: Vec<Controller>,
     pub constellations: HashMap<OrbiterId, GroupId>,
-    pub orbital_vehicles: HashMap<OrbiterId, Vehicle>,
+    pub vehicles: HashMap<OrbiterId, Vehicle>,
     pub starfield: Vec<(Vec3, Srgba, f32, f32)>,
     pub rpos: HashMap<OrbiterId, RPO>,
 
@@ -218,7 +217,7 @@ impl Default for GameState {
             part_database: load_parts_from_dir(&args.parts_dir()),
             ids,
             controllers: vec![],
-            orbital_vehicles: HashMap::new(),
+            vehicles: HashMap::new(),
             constellations: HashMap::new(),
             starfield: generate_starfield(),
             rpos: HashMap::new(),
@@ -525,7 +524,7 @@ impl GameState {
         let id = self.ids.next();
         self.scenario.add_object(id, parent, orbit, self.sim_time);
         let name = vehicle.name().clone();
-        self.orbital_vehicles.insert(id, vehicle);
+        self.vehicles.insert(id, vehicle);
         self.notice(format!(
             "Spawned {} {} in orbit around {}",
             name, id, global.0
@@ -578,7 +577,7 @@ impl GameState {
 
     pub fn turn(&mut self, dir: i8) -> Option<()> {
         let id = self.piloting()?;
-        let vehicle = self.orbital_vehicles.get_mut(&id)?;
+        let vehicle = self.vehicles.get_mut(&id)?;
         vehicle.turn(dir as f32 * 0.03);
         Some(())
     }
@@ -586,7 +585,7 @@ impl GameState {
     pub fn thrust_prograde(&mut self, dir: i8) -> Option<()> {
         let id = self.piloting()?;
 
-        let vehicle = match self.orbital_vehicles.get(&id) {
+        let vehicle = match self.vehicles.get(&id) {
             Some(v) => {
                 if v.is_controllable() {
                     v
@@ -625,7 +624,7 @@ impl GameState {
 
     pub fn toggle_piloting_thruster(&mut self, idx: usize) -> Option<()> {
         let piloting = self.piloting()?;
-        let vehicle = self.orbital_vehicles.get_mut(&piloting)?;
+        let vehicle = self.vehicles.get_mut(&piloting)?;
         let thruster = vehicle.thrusters_mut().skip(idx).next()?;
         thruster.toggle(self.sim_time);
         Some(())
@@ -652,7 +651,7 @@ impl GameState {
 
     pub fn command(&mut self, id: OrbiterId, next: &GlobalOrbit) -> Option<()> {
         let tracks = self.orbital_context.selected.clone();
-        let vehicle = self.orbital_vehicles.get(&id)?;
+        let vehicle = self.vehicles.get(&id)?;
         if !vehicle.is_controllable() {
             self.notify(
                 ObjectId::Orbiter(id),
@@ -980,7 +979,7 @@ impl GameState {
         }
 
         // handle discrete physics events
-        for (_, vehicle) in self.orbital_vehicles.iter_mut() {
+        for (_, vehicle) in self.vehicles.iter_mut() {
             vehicle.step(self.sim_time);
         }
 
@@ -1048,9 +1047,9 @@ impl GameState {
         });
 
         for id in ids {
-            if !self.orbital_vehicles.contains_key(&id) && !self.rpos.contains_key(&id) {
+            if !self.vehicles.contains_key(&id) && !self.rpos.contains_key(&id) {
                 if let Some(v) = self.get_random_vehicle() {
-                    self.orbital_vehicles.insert(id, v);
+                    self.vehicles.insert(id, v);
                 }
             }
         }

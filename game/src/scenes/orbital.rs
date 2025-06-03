@@ -351,7 +351,7 @@ pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> 
             (d < body.radius, name.to_uppercase(), p + Vec2::Y * 30.0)
         } else {
             let orb_id = id.orbiter().unwrap();
-            let vehicle = state.orbital_vehicles.get(&orb_id);
+            let vehicle = state.vehicles.get(&orb_id);
             let rpo = state.rpos.contains_key(&orb_id);
             let ufo = if rpo { "RPO" } else { "UFO" }.to_string();
             let code = vehicle.map(|v| v.name()).unwrap_or(&ufo);
@@ -376,7 +376,7 @@ pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> 
 
 fn get_thruster_indicators(state: &GameState) -> Option<Vec<TextLabel>> {
     let piloting = state.piloting()?;
-    let vehicle = state.orbital_vehicles.get(&piloting)?;
+    let vehicle = state.vehicles.get(&piloting)?;
     let origin = Vec2::new(state.input.screen_bounds.span.x * 0.5 - 100.0, 0.0);
 
     Some(
@@ -802,7 +802,7 @@ pub fn delete_wrapper(ondelete: OnClick, button: Node<OnClick>, box_size: f32) -
 
 pub fn thruster_control_dialogue(state: &GameState) -> Option<Node<OnClick>> {
     let id = state.piloting()?;
-    let vehicle = state.orbital_vehicles.get(&id)?;
+    let vehicle = state.vehicles.get(&id)?;
 
     let mut wrapper = Node::new(320, Size::Fit)
         .down()

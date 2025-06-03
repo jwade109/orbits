@@ -78,7 +78,7 @@ impl Render for RPOContext {
                 draw_circle(gizmos, ctx.w2c(pv.pos_f32()), 7.0, RED);
             }
 
-            if let Some(v) = state.orbital_vehicles.get(&id) {
+            if let Some(v) = state.vehicles.get(&id) {
                 draw_vehicle(gizmos, v, ctx.w2c(pv.pos_f32()), ctx.scale(), v.angle());
             }
         }
@@ -112,7 +112,7 @@ impl Render for RPOContext {
         //     (targeting, DVec2::ZERO),
         //     (piloting, (p2.pos - p1.pos) * 1000.0),
         // ] {
-        //     let vehicle = state.orbital_vehicles.get(&id)?;
+        //     let vehicle = state.vehicles.get(&id)?;
 
         //     for (pos, rot, part) in &vehicle.parts {
         //         let path = crate::scenes::craft_editor::part_sprite_path(&state.args, &part.path);

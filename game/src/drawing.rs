@@ -362,10 +362,10 @@ pub fn make_separation_graph(
     now: Nanotime,
 ) -> (Graph, Graph, Vec<Vec2>) {
     // t is in hours!
-    let mut g = Graph::linspace(0.0, 48.0, 200);
-    let mut v = Graph::linspace(0.0, 48.0, 200);
+    let mut g = Graph::linspace(0.0, 48.0, 100);
+    let mut v = Graph::linspace(0.0, 48.0, 100);
 
-    let teval = tspace(now, now + Nanotime::hours(16), 600)
+    let teval = tspace(now, now + Nanotime::hours(16), 300)
         .iter()
         .map(|t| t.floor(Nanotime::PER_SEC))
         .collect();
@@ -415,7 +415,7 @@ pub fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<(
 
     let lup = state.scenario.lup_orbiter(piloting, state.sim_time)?;
 
-    let vehicle = state.orbital_vehicles.get(&piloting)?;
+    let vehicle = state.vehicles.get(&piloting)?;
 
     let window_dims = state.input.screen_bounds.span;
     let rb = vehicle.bounding_radius();
@@ -512,7 +512,7 @@ fn draw_orbiter(gizmos: &mut Gizmos, state: &GameState, id: OrbiterId) -> Option
     let piloting = state.piloting() == Some(id);
     let targeting = state.targeting() == Some(id);
 
-    let low_fuel = match state.orbital_vehicles.get(&id) {
+    let low_fuel = match state.vehicles.get(&id) {
         Some(v) => v.low_fuel(),
         None => false,
     };

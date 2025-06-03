@@ -62,7 +62,7 @@ impl Plant {
 
 #[cfg(test)]
 mod tests {
-    use lsystem::{LRules, LSystem, MapRules};
+    use lsystem::{LSystem, MapRules};
 
     #[test]
     fn lsystem() {
