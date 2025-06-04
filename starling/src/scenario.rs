@@ -183,48 +183,37 @@ pub struct Scenario {
     pub planets: PlanetarySystem,
 }
 
-impl Scenario {
-    #[deprecated]
-    pub fn new(system: &PlanetarySystem) -> Self {
-        Scenario {
-            orbiters: HashMap::new(),
-            planets: system.clone(),
+pub fn simulate(
+    orbiters: &mut HashMap<OrbiterId, Orbiter>,
+    planets: &PlanetarySystem,
+    stamp: Nanotime,
+    future_dur: Nanotime,
+) -> Vec<(OrbiterId, RemovalInfo)> {
+    for (_, obj) in orbiters.iter_mut() {
+        let e = obj.propagate_to(stamp, future_dur, planets);
+        if let Err(_e) = e {
+            // dbg!(e);
         }
     }
 
-    #[deprecated]
-    pub fn simulate(
-        orbiters: &mut HashMap<OrbiterId, Orbiter>,
-        planets: &PlanetarySystem,
-        stamp: Nanotime,
-        future_dur: Nanotime,
-    ) -> Vec<(OrbiterId, RemovalInfo)> {
-        for (_, obj) in orbiters.iter_mut() {
-            let e = obj.propagate_to(stamp, future_dur, planets);
-            if let Err(_e) = e {
-                // dbg!(e);
+    let mut info = vec![];
+
+    orbiters.retain(|id, o: &mut Orbiter| {
+        if o.propagator_at(stamp).is_none() {
+            let reason = o.props().last().map(|p| RemovalInfo {
+                stamp: p.end().unwrap_or(stamp),
+                reason: p.event().unwrap_or(EventType::NumericalError),
+                parent: p.parent(),
+                orbit: p.orbit.1,
+            });
+            if let Some(reason) = reason {
+                info.push((*id, reason));
             }
+            false
+        } else {
+            true
         }
+    });
 
-        let mut info = vec![];
-
-        orbiters.retain(|_, o: &mut Orbiter| {
-            if o.propagator_at(stamp).is_none() {
-                let reason = o.props().last().map(|p| RemovalInfo {
-                    stamp: p.end().unwrap_or(stamp),
-                    reason: p.event().unwrap_or(EventType::NumericalError),
-                    parent: p.parent(),
-                    orbit: p.orbit.1,
-                });
-                if let Some(reason) = reason {
-                    info.push((o.id(), reason));
-                }
-                false
-            } else {
-                true
-            }
-        });
-
-        info
-    }
+    info
 }

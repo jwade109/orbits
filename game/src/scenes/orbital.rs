@@ -265,7 +265,7 @@ impl OrbitalContext {
             return None;
         }
 
-        let wrt_id = relevant_body(&state.scenario.planets, p1, state.sim_time)?;
+        let wrt_id = relevant_body(&state.planets, p1, state.sim_time)?;
         let parent = state.lup_planet(wrt_id, state.sim_time)?;
 
         let r = p1.distance(parent.pv().pos_f32());
@@ -276,8 +276,7 @@ impl OrbitalContext {
 
     pub fn cursor_orbit(p1: Vec2, p2: Vec2, state: &GameState) -> Option<GlobalOrbit> {
         let pv = Self::cursor_pv(p1, p2, &state)?;
-        let parent_id: PlanetId =
-            relevant_body(&state.scenario.planets, pv.pos_f32(), state.sim_time)?;
+        let parent_id: PlanetId = relevant_body(&state.planets, pv.pos_f32(), state.sim_time)?;
         let parent = state.lup_planet(parent_id, state.sim_time)?;
         let parent_pv = parent.pv();
         let pv = pv - PV::pos(parent_pv.pos_f32());
@@ -323,13 +322,12 @@ impl OrbitalContext {
 }
 
 pub fn orbiter_ids(state: &GameState) -> impl Iterator<Item = OrbiterId> + use<'_> {
-    state.scenario.orbiters.keys().into_iter().map(|id| *id)
+    state.orbiters.keys().into_iter().map(|id| *id)
 }
 
 pub fn all_orbital_ids(state: &GameState) -> impl Iterator<Item = ObjectId> + use<'_> {
     orbiter_ids(state).map(|id| ObjectId::Orbiter(id)).chain(
         state
-            .scenario
             .planets
             .planet_ids()
             .into_iter()
@@ -520,7 +518,6 @@ impl Render for OrbitalContext {
 
         let ctx = &state.orbital_context;
         let mut planetary_sprites: Vec<_> = state
-            .scenario
             .planets
             .planet_ids()
             .into_iter()
@@ -539,11 +536,7 @@ impl Render for OrbitalContext {
             })
             .collect();
 
-        let bodies: Vec<_> = state
-            .scenario
-            .planets
-            .bodies(state.sim_time, None)
-            .collect();
+        let bodies: Vec<_> = state.planets.bodies(state.sim_time, None).collect();
         let light_source = state.light_source();
         let orbiter_sprites: Vec<_> = orbiter_ids(state)
             .filter_map(|id| {
@@ -603,7 +596,7 @@ impl Render for OrbitalContext {
             std::collections::HashMap::from([("Earth", BLUE), ("Luna", GRAY), ("Asteroid", BROWN)]);
 
         if let Some(lup) = relevant_body(
-            &state.scenario.planets,
+            &state.planets,
             state.orbital_context.origin(),
             state.sim_time,
         )

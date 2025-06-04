@@ -1,7 +1,7 @@
 pub use crate::aabb::{Polygon, AABB, OBB};
 pub use crate::belts::AsteroidBelt;
 pub use crate::control::Controller;
-pub use crate::examples::{default_example, make_earth, make_luna, stable_simulation};
+pub use crate::examples::{default_example, make_earth, make_luna};
 pub use crate::file_export::export_orbit_data;
 pub use crate::math::{
     apply, apply_filter, cross2d, get_random_name, is_occluded, linspace, rand, randint, randvec,
@@ -22,7 +22,7 @@ pub use crate::quantities::*;
 pub use crate::region::Region;
 pub use crate::rpo::RPO;
 pub use crate::scenario::{
-    ObjectIdTracker, ObjectLookup, PlanetarySystem, Scenario, ScenarioObject,
+    simulate, ObjectIdTracker, ObjectLookup, PlanetarySystem, ScenarioObject,
 };
 pub use crate::vehicle::{
     dims_with_rotation, meters_with_rotation, PhysicsMode, Rotation, Vehicle,

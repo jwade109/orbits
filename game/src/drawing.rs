@@ -253,10 +253,7 @@ fn draw_propagator(
     color: Srgba,
     ctx: &impl CameraProjection,
 ) -> Option<()> {
-    let (_, parent_pv, _, _) = state
-        .scenario
-        .planets
-        .lookup(prop.parent(), state.sim_time)?;
+    let (_, parent_pv, _, _) = state.planets.lookup(prop.parent(), state.sim_time)?;
 
     draw_orbit(gizmos, &prop.orbit.1, parent_pv.pos_f32(), color, ctx);
     if with_event {
@@ -264,7 +261,7 @@ fn draw_propagator(
             let pv_end = parent_pv + prop.pv(t)?;
             draw_event(
                 gizmos,
-                &state.scenario.planets,
+                &state.planets,
                 &e,
                 t,
                 state.wall_time,
@@ -576,10 +573,9 @@ fn draw_orbiter(gizmos: &mut Gizmos, state: &GameState, id: OrbiterId) -> Option
 
 fn draw_scenario(gizmos: &mut Gizmos, state: &GameState) {
     let stamp = state.sim_time;
-    let scenario = &state.scenario;
     let ctx = &state.orbital_context;
 
-    draw_planets(gizmos, &scenario.planets, stamp, Vec2::ZERO, ctx);
+    draw_planets(gizmos, &state.planets, stamp, Vec2::ZERO, ctx);
 
     _ = crate::scenes::orbiter_ids(state)
         .filter_map(|id| draw_orbiter(gizmos, state, id))
@@ -746,18 +742,18 @@ fn draw_event_animation(
     let dt = Nanotime::hours(1);
     let mut t = state.sim_time + dt;
     while t < p.end().unwrap_or(state.sim_time + Nanotime::days(5)) {
-        let pv = obj.pv(t, &state.scenario.planets)?;
+        let pv = obj.pv(t, &state.planets)?;
         draw_diamond(gizmos, ctx.w2c(pv.pos_f32()), 11.0, WHITE.with_alpha(0.6));
         t += dt;
     }
     for prop in obj.props() {
         if let Some((t, e)) = prop.stamped_event() {
-            let pv = obj.pv(t, &state.scenario.planets)?;
+            let pv = obj.pv(t, &state.planets)?;
             draw_event_marker_at(gizmos, state.wall_time, &e, ctx.w2c(pv.pos_f32()));
         }
     }
     if let Some(t) = p.end() {
-        let pv = obj.pv(t, &state.scenario.planets)?;
+        let pv = obj.pv(t, &state.planets)?;
         draw_square(gizmos, ctx.w2c(pv.pos_f32()), 13.0, RED.with_alpha(0.8));
     }
     Some(())

@@ -69,32 +69,20 @@ impl std::fmt::Debug for GroupId {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Orbiter {
-    id: OrbiterId,
     props: Vec<Propagator>,
 }
 
 impl std::fmt::Display for Orbiter {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{} {:#?} {} props",
-            self.id,
-            self.props.first(),
-            self.props.len()
-        )
+        write!(f, "{:#?} {} props", self.props.first(), self.props.len())
     }
 }
 
 impl Orbiter {
-    pub fn new(id: OrbiterId, orbit: GlobalOrbit, stamp: Nanotime) -> Self {
+    pub fn new(orbit: GlobalOrbit, stamp: Nanotime) -> Self {
         Orbiter {
-            id,
             props: vec![Propagator::new(orbit, stamp)],
         }
-    }
-
-    pub fn id(&self) -> OrbiterId {
-        self.id
     }
 
     pub fn try_impulsive_burn(&mut self, stamp: Nanotime, dv: Vec2) -> Option<()> {

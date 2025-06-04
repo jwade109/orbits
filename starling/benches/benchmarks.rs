@@ -58,22 +58,22 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     s.finish();
 
-    let mut g = c.benchmark_group("Sim");
+    // let mut g = c.benchmark_group("Sim");
 
-    g.sample_size(1000);
+    // g.sample_size(1000);
 
-    let (mut scenario, _) = stable_simulation();
-    let planets = scenario.planets.clone();
-    let mut t = Nanotime::zero();
+    // let (mut scenario, _) = stable_simulation();
+    // let planets = scenario.planets.clone();
+    // let mut t = Nanotime::zero();
 
-    g.bench_function("scenario_sim", |b| {
-        b.iter(|| {
-            t += Nanotime::secs(10);
-            Scenario::simulate(&mut scenario.orbiters, &planets, t, Nanotime::secs(20));
-        })
-    });
+    // g.bench_function("scenario_sim", |b| {
+    //     b.iter(|| {
+    //         t += Nanotime::secs(10);
+    //         Scenario::simulate(&mut scenario.orbiters, &planets, t, Nanotime::secs(20));
+    //     })
+    // });
 
-    g.finish();
+    // g.finish();
 }
 
 criterion_group!(benches, criterion_benchmark);

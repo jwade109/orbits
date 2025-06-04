@@ -131,13 +131,8 @@ pub struct GameState {
     pub sim_speed: i32,
     pub paused: bool,
 
-    /// Representation of the solar system and all of the spacecraft
-    /// and other objects contained therein.
-    ///
-    /// TODO replace this with a flat data structure that can be
-    /// expanded during runtime, and store multiple (potentially
-    /// disjoint) solar systems.
-    pub scenario: Scenario,
+    pub orbiters: HashMap<OrbiterId, Orbiter>,
+    pub planets: PlanetarySystem,
 
     /// Map of names to parts to their definitions. Loaded from
     /// the assets/parts directory
@@ -230,10 +225,8 @@ impl Default for GameState {
             physics_duration: Nanotime::days(7),
             sim_speed: 2,
             paused: false,
-            scenario: Scenario {
-                orbiters: HashMap::new(),
-                planets: planets.clone(),
-            },
+            orbiters: HashMap::new(),
+            planets: planets.clone(),
             part_database: load_parts_from_dir(&args.parts_dir()),
             ids,
             controllers: vec![],
@@ -461,11 +454,11 @@ impl GameState {
     }
 
     pub fn lup_orbiter(&self, id: OrbiterId, stamp: Nanotime) -> Option<ObjectLookup> {
-        let orbiter = self.scenario.orbiters.get(&id)?;
+        let orbiter = self.orbiters.get(&id)?;
 
         let prop = orbiter.propagator_at(stamp)?;
 
-        let (_, frame_pv, _, _) = self.scenario.planets.lookup(prop.parent(), stamp)?;
+        let (_, frame_pv, _, _) = self.planets.lookup(prop.parent(), stamp)?;
 
         let local_pv = prop.pv(stamp)?;
         let pv = frame_pv + local_pv;
@@ -478,7 +471,7 @@ impl GameState {
     }
 
     pub fn lup_planet(&self, id: PlanetId, stamp: Nanotime) -> Option<ObjectLookup> {
-        let (body, pv, _, sys) = self.scenario.planets.lookup(id, stamp)?;
+        let (body, pv, _, sys) = self.planets.lookup(id, stamp)?;
         Some(ObjectLookup(
             ObjectId::Planet(id),
             ScenarioObject::Body(&sys.name, body),
@@ -549,9 +542,8 @@ impl GameState {
     pub fn spawn_new_rpo(&mut self, global: GlobalOrbit, rpo: RPO) {
         let id = self.ids.next();
 
-        self.scenario
-            .orbiters
-            .insert(id, Orbiter::new(id, global, self.sim_time));
+        self.orbiters
+            .insert(id, Orbiter::new(global, self.sim_time));
 
         self.rpos.insert(id, rpo);
         self.notice(format!("Spawned RPO {id} in orbit around {}", global.0));
@@ -576,10 +568,8 @@ impl GameState {
         );
         let orbit = SparseOrbit::from_pv(pv_local + perturb, orbit.body, self.sim_time)?;
         let id = self.ids.next();
-        self.scenario.orbiters.insert(
-            id,
-            Orbiter::new(id, GlobalOrbit(parent, orbit), self.sim_time),
-        );
+        self.orbiters
+            .insert(id, Orbiter::new(GlobalOrbit(parent, orbit), self.sim_time));
         let name = vehicle.name().clone();
         self.vehicles.insert(id, vehicle);
         self.notice(format!(
@@ -603,7 +593,7 @@ impl GameState {
         let plup = self.lup_planet(parent, self.sim_time)?;
         let pvp = plup.pv().pos_f32();
         let pvl = pv - pvp;
-        self.scenario.orbiters.remove(&id)?;
+        self.orbiters.remove(&id)?;
         self.notify(
             ObjectId::Planet(parent),
             NotificationType::OrbiterDeleted(id),
@@ -658,7 +648,7 @@ impl GameState {
     }
 
     pub fn impulsive_burn(&mut self, id: OrbiterId, stamp: Nanotime, dv: Vec2) -> Option<()> {
-        let obj = self.scenario.orbiters.get_mut(&id)?;
+        let obj = self.orbiters.get_mut(&id)?;
         obj.try_impulsive_burn(stamp, dv)
     }
 
@@ -694,9 +684,9 @@ impl GameState {
 
         self.notify(ObjectId::Orbiter(id), notif, None);
 
-        let planets = self.scenario.planets.clone();
-        Scenario::simulate(
-            &mut self.scenario.orbiters,
+        let planets = self.planets.clone();
+        simulate(
+            &mut self.orbiters,
             &planets,
             self.sim_time,
             self.physics_duration,
@@ -1072,7 +1062,7 @@ impl GameState {
         let s = self.sim_time;
         let d = self.physics_duration;
 
-        let planets = self.scenario.planets.clone();
+        let planets = self.planets.clone();
 
         let mut burns = Vec::new();
 
@@ -1095,7 +1085,7 @@ impl GameState {
             };
             let dv = vehicle.step(s, control, mode);
             if dv.length() > 0.0 {
-                Scenario::simulate(&mut self.scenario.orbiters, &planets, s, d);
+                simulate(&mut self.orbiters, &planets, s, d);
                 burns.push((*id, dv));
             }
         }
@@ -1110,7 +1100,7 @@ impl GameState {
         while let Some((id, t, dv)) = man.first() {
             if s > *t {
                 let perturb = 0.0 * randvec(0.01, 0.05);
-                Scenario::simulate(&mut self.scenario.orbiters, &planets, *t, d);
+                simulate(&mut self.orbiters, &planets, *t, d);
                 self.impulsive_burn(*id, *t, dv + perturb);
                 self.notify(
                     ObjectId::Orbiter(*id),
@@ -1123,7 +1113,7 @@ impl GameState {
             man.remove(0);
         }
 
-        for (id, ri) in Scenario::simulate(&mut self.scenario.orbiters, &planets, s, d) {
+        for (id, ri) in simulate(&mut self.orbiters, &planets, s, d) {
             info!("{} {:?}", id, &ri);
             if let Some(pv) = ri.orbit.pv(ri.stamp).ok() {
                 let notif = match ri.reason {
