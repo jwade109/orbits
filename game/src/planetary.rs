@@ -147,6 +147,7 @@ pub struct GameState {
     /// planets and orbiters
     pub ids: ObjectIdTracker,
 
+    pub landing_sites: HashMap<PlanetId, Vec<(f32, String)>>,
     pub controllers: Vec<Controller>,
     pub constellations: HashMap<OrbiterId, GroupId>,
     pub vehicles: HashMap<OrbiterId, Vehicle>,
@@ -187,6 +188,22 @@ fn generate_starfield() -> Vec<(Vec3, Srgba, f32, f32)> {
         .collect()
 }
 
+fn generate_landing_sites(pids: &[PlanetId]) -> HashMap<PlanetId, Vec<(f32, String)>> {
+    pids.iter()
+        .map(|pid| {
+            let n = randint(3, 12);
+            let sites: Vec<_> = (0..n)
+                .map(|_| {
+                    let angle = rand(0.0, 2.0 * PI);
+                    let name = get_random_name();
+                    (angle, name)
+                })
+                .collect();
+            (*pid, sites)
+        })
+        .collect()
+}
+
 impl Default for GameState {
     fn default() -> Self {
         let (planets, ids) = default_example();
@@ -221,6 +238,7 @@ impl Default for GameState {
             ids,
             controllers: vec![],
             vehicles: HashMap::new(),
+            landing_sites: generate_landing_sites(&planets.planet_ids()),
             constellations: HashMap::new(),
             starfield: generate_starfield(),
             rpos: HashMap::new(),
@@ -273,7 +291,7 @@ impl Default for GameState {
             }
         }
 
-        for _ in 0..200 {
+        for _ in 0..40 {
             let vehicle = g.get_random_vehicle();
             let orbit = get_random_orbit(PlanetId(1));
             if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {

@@ -1,12 +1,12 @@
-mod comms;
-mod craft_editor;
-mod main_menu;
-mod orbital;
-mod render;
-mod rpo;
-mod scene;
-mod surface;
-mod telescope;
+pub mod comms;
+pub mod craft_editor;
+pub mod main_menu;
+pub mod orbital;
+pub mod render;
+pub mod rpo;
+pub mod scene;
+pub mod surface;
+pub mod telescope;
 
 pub use comms::CommsContext;
 pub use craft_editor::{get_list_of_vehicles, EditorContext};

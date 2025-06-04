@@ -229,6 +229,13 @@ impl OrbitalContext {
         Some((a, b, corner))
     }
 
+    pub fn landing_site_position(state: &GameState, pid: PlanetId, angle: f32) -> Option<Vec2> {
+        let lup = state.lup_planet(pid, state.sim_time)?;
+        let body = lup.body()?;
+        let center = lup.pv().pos_f32();
+        Some(center + rotate(Vec2::X * body.radius, angle))
+    }
+
     pub fn protractor(state: &GameState) -> Option<(Vec2, Vec2, Option<Vec2>)> {
         if state.is_currently_left_clicked_on_ui() {
             return None;
@@ -330,6 +337,33 @@ pub fn all_orbital_ids(state: &GameState) -> impl Iterator<Item = ObjectId> + us
     )
 }
 
+pub const LANDING_SITE_MOUSEOVER_DISTANCE: f32 = 50.0;
+
+pub fn get_landing_site_labels(state: &GameState) -> Vec<TextLabel> {
+    let ctx = &state.orbital_context;
+
+    let cursor = match state.input.position(MouseButt::Hover, FrameId::Current) {
+        Some(p) => p,
+        None => return Vec::new(),
+    };
+
+    let mut ret = Vec::new();
+    for (pid, sites) in &state.landing_sites {
+        for (angle, name) in sites {
+            let pos = OrbitalContext::landing_site_position(state, *pid, *angle);
+            if let Some(pos) = pos {
+                let pos = ctx.w2c(pos);
+                let offset = rotate(Vec2::X, *angle) * LANDING_SITE_MOUSEOVER_DISTANCE;
+                if pos.distance(cursor) < LANDING_SITE_MOUSEOVER_DISTANCE {
+                    let label = TextLabel::new(name.clone(), pos + offset, 0.7);
+                    ret.push(label);
+                }
+            }
+        }
+    }
+    ret
+}
+
 pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> {
     let mut ret = Vec::new();
 
@@ -410,6 +444,7 @@ impl Render for OrbitalContext {
         let mut text_labels: Vec<TextLabel> = get_orbital_object_mouseover_labels(state);
 
         text_labels.extend(get_thruster_indicators(state).unwrap_or(vec![]));
+        text_labels.extend(get_landing_site_labels(state));
 
         (|| {
             let id = state.piloting()?;

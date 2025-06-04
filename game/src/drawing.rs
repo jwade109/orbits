@@ -1185,6 +1185,18 @@ fn draw_rendezvous_info(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     Some(())
 }
 
+fn draw_landing_sites(gizmos: &mut Gizmos, state: &GameState) {
+    let ctx = &state.orbital_context;
+    for (pid, sites) in &state.landing_sites {
+        for (site, _) in sites {
+            if let Some(pos) = OrbitalContext::landing_site_position(state, *pid, *site) {
+                let p = ctx.w2c(pos);
+                draw_diamond(gizmos, p, 12.0, WHITE.with_alpha(0.7))
+            }
+        }
+    }
+}
+
 pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState) {
     let ctx = &state.orbital_context;
 
@@ -1203,6 +1215,8 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState) {
     // draw_timeline(gizmos, &state);
 
     draw_orbit_spline(gizmos, state);
+
+    draw_landing_sites(gizmos, state);
 
     if let Some(a) = state.selection_region() {
         draw_region(gizmos, a, ctx, RED, Vec2::ZERO);
