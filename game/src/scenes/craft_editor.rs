@@ -354,7 +354,7 @@ impl Render for EditorContext {
             format!("Fuel: {} kg", ctx.vehicle.fuel_mass()),
             format!("Wet mass: {} kg", ctx.vehicle.wet_mass()),
             format!("Thrusters: {}", ctx.vehicle.thruster_count()),
-            format!("Thrust: {:0.2} N", ctx.vehicle.thrust()),
+            format!("Thrust: {:0.2} kN", ctx.vehicle.thrust() / 1000.0),
             format!("Tanks: {}", ctx.vehicle.tank_count()),
             format!("Accel: {:0.2} g", ctx.vehicle.accel() / 9.81),
             format!("ISP: {} s", ctx.vehicle.exhaust_velocity / 9.81),

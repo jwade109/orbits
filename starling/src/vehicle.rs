@@ -64,6 +64,12 @@ pub fn meters_with_rotation(rot: Rotation, part: &PartProto) -> Vec2 {
 }
 
 #[derive(Debug, Clone, Copy)]
+pub enum PhysicsMode {
+    RealTime,
+    Limited,
+}
+
+#[derive(Debug, Clone, Copy)]
 pub enum VehicleController {
     None,
     Attitude(f32),
@@ -251,9 +257,7 @@ impl Vehicle {
         &self.name
     }
 
-    pub fn step(&mut self, stamp: Nanotime, control: Vec2) -> Vec2 {
-        let dt = (stamp - self.stamp).to_secs().clamp(0.0, 0.03);
-
+    fn step_full_physics(&mut self, stamp: Nanotime, control: Vec2) -> (Vec2, f32) {
         if self.is_controllable() {
             if let VehicleController::Attitude(target_angle) = &mut self.ctrl {
                 *target_angle = wrap_0_2pi(*target_angle);
@@ -292,15 +296,33 @@ impl Vehicle {
             angular_acceleration += torque / 4000.0 * t.proto.thrust;
         }
 
-        self.angular_velocity += angular_acceleration * dt;
+        (accel, angular_acceleration)
+    }
 
-        self.angular_velocity = self.angular_velocity.clamp(-12.0, 12.0);
+    fn step_limited_physics(&mut self, stamp: Nanotime) -> (Vec2, f32) {
+        for t in &mut self.thrusters {
+            t.set_thrusting(false, stamp);
+        }
+        (Vec2::ZERO, 0.0)
+    }
 
-        self.angle += self.angular_velocity * dt;
+    pub fn step(&mut self, stamp: Nanotime, control: Vec2, mode: PhysicsMode) -> Vec2 {
+        let dt = stamp - self.stamp;
+
+        let (linear, angular) = match mode {
+            PhysicsMode::Limited => self.step_limited_physics(stamp),
+            PhysicsMode::RealTime => self.step_full_physics(stamp, control),
+        };
+
+        self.angular_velocity += angular * dt.to_secs();
+
+        self.angular_velocity = self.angular_velocity.clamp(-2.0, 2.0);
+
+        self.angle += self.angular_velocity * dt.to_secs();
         self.angle = wrap_0_2pi(self.angle);
         self.stamp = stamp;
 
-        accel * dt
+        linear * dt.to_secs()
     }
 
     pub fn pointing(&self) -> Vec2 {

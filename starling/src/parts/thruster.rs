@@ -1,11 +1,10 @@
 use crate::math::{rotate, Vec2};
 use crate::nanotime::Nanotime;
 use crate::parts::parts::ThrusterProto;
-use serde::{Deserialize, Serialize};
 
 const THRUSTER_DEBOUNCE_TIME: Nanotime = Nanotime::millis(10);
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone)]
 pub struct Thruster {
     pub proto: ThrusterProto,
     pub pos: Vec2,

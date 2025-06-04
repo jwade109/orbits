@@ -2,7 +2,7 @@ use crate::math::randvec;
 use crate::math::Vec2;
 use crate::nanotime::Nanotime;
 use crate::pv::PV;
-use crate::vehicle::Vehicle;
+use crate::vehicle::{PhysicsMode, Vehicle};
 
 #[derive(Debug)]
 pub struct RPO {
@@ -46,10 +46,10 @@ impl RPO {
         r
     }
 
-    pub fn step(&mut self, stamp: Nanotime) {
+    pub fn step(&mut self, stamp: Nanotime, mode: PhysicsMode) {
         let dt = (stamp - self.stamp).to_secs().clamp(0.0, 0.03);
         for (pv, vehicle) in self.vehicles.iter_mut() {
-            vehicle.step(stamp, Vec2::ZERO);
+            vehicle.step(stamp, Vec2::ZERO, mode);
 
             let perturb = PV::from_f64(pv.vel_f32() * dt, randvec(0.1, 12.0) * dt);
             *pv += perturb;

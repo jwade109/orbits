@@ -15,7 +15,6 @@ use bevy::window::WindowResized;
 use layout::layout::{Node, Size, TextJustify, Tree};
 use starling::prelude::*;
 
-#[allow(dead_code)]
 #[derive(Debug, Event, Clone)]
 pub enum InteractionEvent {
     Orbits,

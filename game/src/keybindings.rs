@@ -38,10 +38,6 @@ pub fn keyboard_input(
 
     for key in keys.get_pressed() {
         let e = match key {
-            KeyCode::KeyW => InteractionEvent::MoveUp,
-            KeyCode::KeyA => InteractionEvent::MoveLeft,
-            KeyCode::KeyS => InteractionEvent::MoveDown,
-            KeyCode::KeyD => InteractionEvent::MoveRight,
             KeyCode::KeyK => InteractionEvent::Spawn,
             KeyCode::ArrowUp => InteractionEvent::Thrust(1),
             KeyCode::ArrowDown => InteractionEvent::Thrust(-1),

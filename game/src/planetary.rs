@@ -850,6 +850,14 @@ impl GameState {
         Some(())
     }
 
+    pub fn physics_mode(&self) -> PhysicsMode {
+        if self.sim_speed <= 0 {
+            PhysicsMode::RealTime
+        } else {
+            PhysicsMode::Limited
+        }
+    }
+
     pub fn get_random_vehicle(&self) -> Option<Vehicle> {
         let vehicles = crate::scenes::get_list_of_vehicles(self).unwrap_or(vec![]);
 
@@ -963,6 +971,8 @@ impl GameState {
             self.sim_time += delta_time * sp;
         }
 
+        let mode = self.physics_mode();
+
         let current_ui = self.current_hover_ui().cloned();
         if current_ui != self.last_hover_ui {
             self.redraw();
@@ -988,7 +998,7 @@ impl GameState {
         }();
 
         for (_, rpo) in &mut self.rpos {
-            rpo.step(self.sim_time);
+            rpo.step(self.sim_time, mode);
         }
 
         let s = self.sim_time;
@@ -1010,7 +1020,7 @@ impl GameState {
             } else {
                 Vec2::ZERO
             };
-            let dv = vehicle.step(s, control);
+            let dv = vehicle.step(s, control, mode);
             if dv.length() > 0.0 {
                 Scenario::simulate(&mut self.scenario.orbiters, &planets, s, d);
                 burns.push((*id, dv));
@@ -1228,21 +1238,13 @@ fn process_interaction(
             let gid = GroupId(get_random_name());
             state.create_group(gid.clone());
         }
-        InteractionEvent::Thrust(_) => {
-            println!("No thrust!");
-        }
         InteractionEvent::TurnLeft => {
             state.turn(1);
         }
         InteractionEvent::TurnRight => {
             state.turn(-1);
         }
-        InteractionEvent::Reset
-        | InteractionEvent::MoveLeft
-        | InteractionEvent::MoveRight
-        | InteractionEvent::MoveUp
-        | InteractionEvent::MoveDown
-        | _ => (),
+        _ => (),
     };
     state.redraw();
     Some(())
