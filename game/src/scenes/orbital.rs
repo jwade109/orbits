@@ -424,7 +424,12 @@ fn get_thruster_indicators(state: &GameState) -> Option<Vec<TextLabel>> {
             .thrusters()
             .enumerate()
             .map(|(i, t)| {
-                let text = format!("{} / {}", i, t.proto.model.clone());
+                let text = format!(
+                    "{} / {} {:0.1}",
+                    i,
+                    t.proto.model.clone(),
+                    t.throttle() * 100.0
+                );
                 let pos = origin + Vec2::Y * 26.0 * i as f32;
                 let color = if t.is_thrusting() {
                     RED.with_alpha(0.8)

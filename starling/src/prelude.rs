@@ -14,6 +14,7 @@ pub use crate::orbital_luts::lookup_ta_from_ma;
 pub use crate::orbiter::Orbiter;
 pub use crate::orbits::{hyperbolic_range_ta, wrap_pi_npi, Body, GlobalOrbit, SparseOrbit};
 pub use crate::parts::parts::{load_parts_from_dir, PartLayer, PartProto, PIXELS_PER_METER};
+pub use crate::parts::thruster::Thruster;
 pub use crate::planning::{best_maneuver_plan, get_next_intersection, ManeuverPlan};
 pub use crate::plants::Plant;
 pub use crate::propagator::{EventType, HorizonState, Propagator};

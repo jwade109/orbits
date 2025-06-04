@@ -698,7 +698,7 @@ impl GameState {
         let piloting = self.piloting()?;
         let vehicle = self.vehicles.get_mut(&piloting)?;
         let thruster = vehicle.thrusters_mut().skip(idx).next()?;
-        thruster.toggle(self.sim_time);
+        // thruster.toggle(self.sim_time);
         Some(())
     }
 
@@ -1083,7 +1083,8 @@ impl GameState {
                 false => PhysicsMode::Limited,
                 true => mode,
             };
-            let dv = vehicle.step(s, control, mode);
+            let throttle = self.orbital_context.throttle.to_ratio();
+            let dv = vehicle.step(s, control, throttle, mode);
             if dv.length() > 0.0 {
                 simulate(&mut self.orbiters, &planets, s, d);
                 burns.push((*id, dv));

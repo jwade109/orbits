@@ -1,4 +1,4 @@
-use crate::math::{rotate, Vec2};
+use crate::math::{rand, rotate, Vec2};
 use crate::nanotime::Nanotime;
 use crate::parts::parts::ThrusterProto;
 
@@ -9,8 +9,8 @@ pub struct Thruster {
     pub proto: ThrusterProto,
     pub pos: Vec2,
     pub angle: f32,
-    is_active: bool,
     last_toggled: Nanotime,
+    throttle: f32,
 }
 
 impl Thruster {
@@ -19,8 +19,8 @@ impl Thruster {
             proto,
             pos,
             angle,
-            is_active: false,
             last_toggled: Nanotime::zero(),
+            throttle: 0.0,
         }
     }
 
@@ -28,23 +28,20 @@ impl Thruster {
         rotate(Vec2::X, self.angle)
     }
 
-    pub fn set_thrusting(&mut self, state: bool, stamp: Nanotime) {
-        let dt = stamp - self.last_toggled;
-        if dt >= THRUSTER_DEBOUNCE_TIME {
-            self.is_active = state;
-            self.last_toggled = stamp;
-        }
-    }
-
-    pub fn toggle(&mut self, stamp: Nanotime) {
-        let dt = stamp - self.last_toggled;
-        if dt >= THRUSTER_DEBOUNCE_TIME {
-            self.is_active = !self.is_active;
-            self.last_toggled = stamp;
-        }
+    pub fn set_thrusting(&mut self, throttle: f32, stamp: Nanotime) {
+        self.throttle += (throttle - self.throttle) * 0.1;
+        // let dt = stamp - self.last_toggled;
+        // if dt >= THRUSTER_DEBOUNCE_TIME {
+        //     self.is_active = state;
+        //     self.last_toggled = stamp;
+        // }
     }
 
     pub fn is_thrusting(&self) -> bool {
-        self.is_active
+        self.throttle > 0.01
+    }
+
+    pub fn throttle(&self) -> f32 {
+        self.throttle
     }
 }

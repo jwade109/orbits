@@ -257,7 +257,7 @@ impl Vehicle {
         &self.name
     }
 
-    fn step_full_physics(&mut self, stamp: Nanotime, control: Vec2) -> (Vec2, f32) {
+    fn step_full_physics(&mut self, stamp: Nanotime, control: Vec2, throttle: f32) -> (Vec2, f32) {
         if self.is_controllable() {
             if let VehicleController::Attitude(target_angle) = &mut self.ctrl {
                 *target_angle = wrap_0_2pi(*target_angle);
@@ -270,13 +270,19 @@ impl Vehicle {
                 for t in &mut self.thrusters {
                     if t.proto.is_rcs {
                         let torque = cross2d(t.pos, t.pointing());
+                        let thrusting = torque.signum() == error.signum() && error.abs() > 0.2;
                         t.set_thrusting(
-                            torque.signum() == error.signum() && error.abs() > 1.0,
+                            if thrusting {
+                                (error.abs() / 5.0).min(1.0)
+                            } else {
+                                0.0
+                            },
                             stamp,
                         );
                     } else {
                         let u = t.pointing();
-                        t.set_thrusting(u.dot(control) > 0.8, stamp);
+                        let thrusting = u.dot(control) > 0.8;
+                        t.set_thrusting(if thrusting { throttle } else { 0.0 }, stamp);
                     }
                 }
             }
@@ -291,8 +297,9 @@ impl Vehicle {
             if !t.is_thrusting() {
                 continue;
             }
-            accel += rotate(t.pointing(), self.angle) * t.proto.thrust / self.wet_mass();
-            let torque = cross2d(t.pos, t.pointing());
+            accel +=
+                rotate(t.pointing(), self.angle) * t.proto.thrust / self.wet_mass() * t.throttle();
+            let torque = cross2d(t.pos, t.pointing()) * t.throttle();
             angular_acceleration += torque / 4000.0 * t.proto.thrust;
         }
 
@@ -301,17 +308,23 @@ impl Vehicle {
 
     fn step_limited_physics(&mut self, stamp: Nanotime) -> (Vec2, f32) {
         for t in &mut self.thrusters {
-            t.set_thrusting(false, stamp);
+            t.set_thrusting(0.0, stamp);
         }
         (Vec2::ZERO, 0.0)
     }
 
-    pub fn step(&mut self, stamp: Nanotime, control: Vec2, mode: PhysicsMode) -> Vec2 {
+    pub fn step(
+        &mut self,
+        stamp: Nanotime,
+        control: Vec2,
+        throttle: f32,
+        mode: PhysicsMode,
+    ) -> Vec2 {
         let dt = stamp - self.stamp;
 
         let (linear, angular) = match mode {
             PhysicsMode::Limited => self.step_limited_physics(stamp),
-            PhysicsMode::RealTime => self.step_full_physics(stamp, control),
+            PhysicsMode::RealTime => self.step_full_physics(stamp, control, throttle),
         };
 
         self.angular_velocity += angular * dt.to_secs();
