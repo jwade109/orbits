@@ -270,7 +270,7 @@ impl OrbitalContext {
             return None;
         }
 
-        let wrt_id = state.scenario.relevant_body(p1, state.sim_time)?;
+        let wrt_id = Scenario::relevant_body(&state.scenario.planets, p1, state.sim_time)?;
         let parent = state.scenario.lup_planet(wrt_id, state.sim_time)?;
 
         let r = p1.distance(parent.pv().pos_f32());
@@ -281,7 +281,8 @@ impl OrbitalContext {
 
     pub fn cursor_orbit(p1: Vec2, p2: Vec2, state: &GameState) -> Option<GlobalOrbit> {
         let pv = Self::cursor_pv(p1, p2, &state)?;
-        let parent_id: PlanetId = state.scenario.relevant_body(pv.pos_f32(), state.sim_time)?;
+        let parent_id: PlanetId =
+            Scenario::relevant_body(&state.scenario.planets, pv.pos_f32(), state.sim_time)?;
         let parent = state.scenario.lup_planet(parent_id, state.sim_time)?;
         let parent_pv = parent.pv();
         let pv = pv - PV::pos(parent_pv.pos_f32());
@@ -473,6 +474,7 @@ impl Render for OrbitalContext {
         let ctx = &state.orbital_context;
         let mut planetary_sprites: Vec<_> = state
             .scenario
+            .planets
             .planet_ids()
             .into_iter()
             .filter_map(|id| {
@@ -492,7 +494,7 @@ impl Render for OrbitalContext {
 
         let bodies: Vec<_> = state
             .scenario
-            .planets()
+            .planets
             .bodies(state.sim_time, None)
             .collect();
         let light_source = state.light_source();
@@ -555,11 +557,13 @@ impl Render for OrbitalContext {
         let body_color_lup: std::collections::HashMap<&'static str, Srgba> =
             std::collections::HashMap::from([("Earth", BLUE), ("Luna", GRAY), ("Asteroid", BROWN)]);
 
-        if let Some(lup) = state
-            .scenario
-            .relevant_body(state.orbital_context.origin(), state.sim_time)
-            .map(|id| state.scenario.lup_planet(id, state.sim_time))
-            .flatten()
+        if let Some(lup) = Scenario::relevant_body(
+            &state.scenario.planets,
+            state.orbital_context.origin(),
+            state.sim_time,
+        )
+        .map(|id| state.scenario.lup_planet(id, state.sim_time))
+        .flatten()
         {
             if let Some((s, _)) = lup.named_body() {
                 let color: Srgba = body_color_lup

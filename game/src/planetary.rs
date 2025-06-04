@@ -497,8 +497,11 @@ impl GameState {
 
     pub fn spawn_new_rpo(&mut self, global: GlobalOrbit, rpo: RPO) {
         let id = self.ids.next();
-        let GlobalOrbit(parent, orbit) = global;
-        self.scenario.add_object(id, parent, orbit, self.sim_time);
+
+        self.scenario
+            .orbiters
+            .insert(id, Orbiter::new(id, global, self.sim_time));
+
         self.rpos.insert(id, rpo);
         self.notice(format!("Spawned RPO {id} in orbit around {}", global.0));
     }
@@ -522,7 +525,10 @@ impl GameState {
         );
         let orbit = SparseOrbit::from_pv(pv_local + perturb, orbit.body, self.sim_time)?;
         let id = self.ids.next();
-        self.scenario.add_object(id, parent, orbit, self.sim_time);
+        self.scenario.orbiters.insert(
+            id,
+            Orbiter::new(id, GlobalOrbit(parent, orbit), self.sim_time),
+        );
         let name = vehicle.name().clone();
         self.vehicles.insert(id, vehicle);
         self.notice(format!(
@@ -619,7 +625,7 @@ impl GameState {
 
         self.notify(ObjectId::Orbiter(id), notif, None);
 
-        let planets = self.scenario.planets().clone();
+        let planets = self.scenario.planets.clone();
         Scenario::simulate(
             &mut self.scenario.orbiters,
             &planets,
@@ -988,7 +994,7 @@ impl GameState {
         let s = self.sim_time;
         let d = self.physics_duration;
 
-        let planets = self.scenario.planets().clone();
+        let planets = self.scenario.planets.clone();
 
         let mut burns = Vec::new();
 
@@ -1199,20 +1205,6 @@ fn process_interaction(
                 state.orbital_context.selected.clear();
             }
         }
-        InteractionEvent::Load(name) => {
-            let (system, ids) = match name.as_str() {
-                "grid" => Some(consistency_example()),
-                "earth" => Some(earth_moon_example_one()),
-                "earth2" => Some(earth_moon_example_two()),
-                "moon" => Some(just_the_moon()),
-                "jupiter" => Some(sun_jupiter()),
-                _ => {
-                    error!("No scenario named {}", name);
-                    None
-                }
-            }?;
-            load_new_scenario(state, system, ids);
-        }
         InteractionEvent::ToggleObject(id) => {
             state.orbital_context.toggle_track(*id);
         }
@@ -1255,11 +1247,4 @@ fn handle_interactions(
         debug!("Interaction event: {e:?}");
         process_interaction(e, &mut state, &mut window);
     }
-}
-
-fn load_new_scenario(state: &mut GameState, scen: Scenario, ids: ObjectIdTracker) {
-    state.scenario = scen;
-    state.ids = ids;
-    state.sim_time = Nanotime::zero();
-    state.orbital_context.selected.clear();
 }

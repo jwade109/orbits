@@ -85,3 +85,23 @@ parts:
   - -34
   - -8
   rot: South
+- partname: rcs
+  pos:
+  - -9
+  - 69
+  rot: South
+- partname: rcs
+  pos:
+  - 11
+  - 69
+  rot: North
+- partname: rcs
+  pos:
+  - -9
+  - -75
+  rot: South
+- partname: rcs
+  pos:
+  - 11
+  - -75
+  rot: North

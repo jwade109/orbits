@@ -205,3 +205,63 @@ parts:
   - -223
   - 21
   rot: South
+- partname: rcs
+  pos:
+  - -233
+  - 41
+  rot: West
+- partname: rcs
+  pos:
+  - -225
+  - 41
+  rot: West
+- partname: rcs
+  pos:
+  - -217
+  - 41
+  rot: West
+- partname: rcs
+  pos:
+  - -233
+  - -43
+  rot: East
+- partname: rcs
+  pos:
+  - -225
+  - -43
+  rot: East
+- partname: rcs
+  pos:
+  - -217
+  - -43
+  rot: East
+- partname: rcs
+  pos:
+  - 246
+  - -38
+  rot: East
+- partname: rcs
+  pos:
+  - 239
+  - -38
+  rot: East
+- partname: rcs
+  pos:
+  - 246
+  - 35
+  rot: West
+- partname: rcs
+  pos:
+  - 239
+  - 35
+  rot: West
+- partname: rcs
+  pos:
+  - -63
+  - 54
+  rot: West
+- partname: rcs
+  pos:
+  - -63
+  - -58
+  rot: East

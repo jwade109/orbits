@@ -256,7 +256,7 @@ fn draw_propagator(
 ) -> Option<()> {
     let (_, parent_pv, _, _) = state
         .scenario
-        .planets()
+        .planets
         .lookup(prop.parent(), state.sim_time)?;
 
     draw_orbit(gizmos, &prop.orbit.1, parent_pv.pos_f32(), color, ctx);
@@ -265,7 +265,7 @@ fn draw_propagator(
             let pv_end = parent_pv + prop.pv(t)?;
             draw_event(
                 gizmos,
-                state.scenario.planets(),
+                &state.scenario.planets,
                 &e,
                 t,
                 state.wall_time,
@@ -573,7 +573,7 @@ fn draw_scenario(gizmos: &mut Gizmos, state: &GameState) {
     let scenario = &state.scenario;
     let ctx = &state.orbital_context;
 
-    draw_planets(gizmos, scenario.planets(), stamp, Vec2::ZERO, ctx);
+    draw_planets(gizmos, &scenario.planets, stamp, Vec2::ZERO, ctx);
 
     _ = scenario
         .orbiter_ids()
@@ -746,18 +746,18 @@ fn draw_event_animation(
     let dt = Nanotime::hours(1);
     let mut t = stamp + dt;
     while t < p.end().unwrap_or(stamp + Nanotime::days(5)) {
-        let pv = obj.pv(t, scenario.planets())?;
+        let pv = obj.pv(t, &scenario.planets)?;
         draw_diamond(gizmos, ctx.w2c(pv.pos_f32()), 11.0, WHITE.with_alpha(0.6));
         t += dt;
     }
     for prop in obj.props() {
         if let Some((t, e)) = prop.stamped_event() {
-            let pv = obj.pv(t, scenario.planets())?;
+            let pv = obj.pv(t, &scenario.planets)?;
             draw_event_marker_at(gizmos, wall_time, &e, ctx.w2c(pv.pos_f32()));
         }
     }
     if let Some(t) = p.end() {
-        let pv = obj.pv(t, scenario.planets())?;
+        let pv = obj.pv(t, &scenario.planets)?;
         draw_square(gizmos, ctx.w2c(pv.pos_f32()), 13.0, RED.with_alpha(0.8));
     }
     Some(())

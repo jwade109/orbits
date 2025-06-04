@@ -1,6 +1,5 @@
 pub mod aabb;
 pub mod belts;
-pub mod canonical;
 pub mod control;
 pub mod examples;
 pub mod file_export;

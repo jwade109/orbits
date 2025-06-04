@@ -1,4 +1,4 @@
-use crate::math::{rand, randvec, rotate};
+use crate::math::rotate;
 use crate::nanotime::Nanotime;
 use crate::orbits::{Body, SparseOrbit};
 use crate::pv::PV;
@@ -19,195 +19,6 @@ pub fn make_luna() -> (Body, SparseOrbit) {
         Body::with_mass(22.0, 10.0, 800.0),
         SparseOrbit::circular(3800.0, make_earth(), Nanotime::secs(-40), false),
     )
-}
-
-pub fn just_the_moon() -> (Scenario, ObjectIdTracker) {
-    let mut id = ObjectIdTracker::new();
-
-    let moon_id = id.next_planet();
-
-    let luna = PlanetarySystem::new(moon_id, "Luna", make_luna().0);
-    let mut scenario = Scenario::new(&luna);
-
-    for _ in 0..1 {
-        scenario.add_object(
-            id.next(),
-            moon_id,
-            SparseOrbit::circular(
-                rand(200.0, 400.0) as f64,
-                luna.body,
-                Nanotime::zero(),
-                false,
-            ),
-            Nanotime::zero(),
-        );
-    }
-
-    (scenario, id)
-}
-
-pub fn earth_moon_example_one() -> (Scenario, ObjectIdTracker) {
-    let mut id = ObjectIdTracker::new();
-
-    let mut earth = PlanetarySystem::new(id.next_planet(), "Earth", make_earth());
-    let luna = PlanetarySystem::new(id.next_planet(), "Luna", make_luna().0);
-    let ast = PlanetarySystem::new(
-        id.next_planet(),
-        "Asteroid",
-        Body::with_mass(6.0, 2.0, 200.0),
-    );
-
-    earth.orbit(make_luna().1, luna.clone());
-    earth.orbit(
-        SparseOrbit::circular(
-            make_luna().1.semi_major_axis * 2.0,
-            earth.body,
-            Nanotime::zero(),
-            false,
-        ),
-        ast.clone(),
-    );
-
-    let mut scenario = Scenario::new(&earth);
-
-    scenario.add_object(
-        id.next(),
-        earth.id,
-        SparseOrbit::circular(
-            earth.body.radius as f64 * 1.1,
-            earth.body,
-            Nanotime::zero(),
-            false,
-        ),
-        Nanotime::zero(),
-    );
-
-    for _ in 0..200 {
-        let r = randvec(700.0, 2400.0);
-        let v = randvec(45.0, 70.0);
-        let o = SparseOrbit::from_pv((r, v), earth.body, Nanotime::zero());
-        if let Some(o) = o {
-            scenario.add_object(id.next(), earth.id, o, Nanotime::zero());
-        }
-    }
-
-    for _ in 0..100 {
-        let r = randvec(5000.0, 9000.0);
-        let v = randvec(30.0, 70.0);
-        let o = SparseOrbit::from_pv((r, v), earth.body, Nanotime::zero());
-        if let Some(o) = o {
-            scenario.add_object(id.next(), earth.id, o, Nanotime::zero());
-        }
-    }
-
-    for _ in 0..5 {
-        scenario.add_object(
-            id.next(),
-            luna.id,
-            SparseOrbit::circular(
-                rand(200.0, 400.0) as f64,
-                luna.body,
-                Nanotime::zero(),
-                false,
-            ),
-            Nanotime::zero(),
-        );
-    }
-
-    scenario.add_object(
-        id.next(),
-        ast.id,
-        SparseOrbit::circular(13.0, ast.body, Nanotime::zero(), false),
-        Nanotime::zero(),
-    );
-
-    let planets = scenario.planets().clone();
-
-    Scenario::simulate(
-        &mut scenario.orbiters,
-        &planets,
-        Nanotime::zero(),
-        Nanotime::secs(100),
-    );
-
-    (scenario, id)
-}
-
-pub fn earth_moon_example_two() -> (Scenario, ObjectIdTracker) {
-    let mut id = ObjectIdTracker::new();
-    let mut earth = PlanetarySystem::new(id.next_planet(), "Earth", make_earth());
-    let luna = PlanetarySystem::new(id.next_planet(), "Luna", make_luna().0);
-
-    earth.orbit(make_luna().1, luna);
-
-    let mut scenario = Scenario::new(&earth);
-
-    for vel in (180..200).step_by(2) {
-        let angle = 0.3;
-        scenario.add_object(
-            id.next(),
-            earth.id,
-            SparseOrbit::from_pv(
-                (
-                    rotate(Vec2::Y * -600.0, angle),
-                    rotate(Vec2::X * vel as f32, angle),
-                ),
-                make_earth(),
-                Nanotime::zero(),
-            )
-            .unwrap(),
-            Nanotime::zero(),
-        );
-    }
-
-    (scenario, id)
-}
-
-pub fn sun_jupiter() -> (Scenario, ObjectIdTracker) {
-    let mut id = ObjectIdTracker::new();
-
-    let mut sun: PlanetarySystem = PlanetarySystem::new(
-        id.next_planet(),
-        "Sol",
-        Body {
-            mu: 1000.0 * 12000.0,
-            radius: 100.0,
-            soi: 100000.0,
-        },
-    );
-
-    let jupiter_body = Body {
-        mu: sun.body.mu * 0.000954588,
-        radius: 20.0,
-        soi: 500.0,
-    };
-
-    let jupiter_orbit = SparseOrbit::circular(5000.0, sun.body, Nanotime::zero(), false);
-
-    let mut jupiter = PlanetarySystem::new(id.next_planet(), "Jupiter", jupiter_body);
-
-    for (r, n) in [
-        (0.2, "Io"),
-        (0.4, "Europa"),
-        (0.7, "Ganymede"),
-        (1.0, "Callisto"),
-    ] {
-        let body = Body::with_mu(3.0, jupiter_body.mu * 0.03, 30.0);
-        let orbit = SparseOrbit::circular(r * 300.0, jupiter_body, Nanotime::zero(), false);
-        jupiter.orbit(orbit, PlanetarySystem::new(id.next_planet(), n, body));
-    }
-
-    sun.orbit(jupiter_orbit, jupiter);
-
-    let scenario = Scenario::new(&sun);
-
-    // for _ in 0..600 {
-    //     let radius = rand(4000.0, 6000.0);
-    //     let orbit = SparseOrbit::circular(radius, sun.body, Nanotime::zero(), false);
-    //     scenario.add_object(id.next(), sun.id, orbit, Nanotime::zero());
-    // }
-
-    (scenario, id)
 }
 
 pub fn consistency_orbits(body: Body) -> Vec<SparseOrbit> {
@@ -232,22 +43,6 @@ pub fn consistency_orbits(body: Body) -> Vec<SparseOrbit> {
     ret
 }
 
-pub fn consistency_example() -> (Scenario, ObjectIdTracker) {
-    let mut id = ObjectIdTracker::new();
-
-    let earth = PlanetarySystem::new(id.next_planet(), "Earth", make_earth_inf_soi());
-
-    let orbits = consistency_orbits(earth.body);
-
-    let mut scenario = Scenario::new(&earth);
-
-    for orbit in orbits {
-        scenario.add_object(id.next(), earth.id, orbit, Nanotime::zero());
-    }
-
-    (scenario, id)
-}
-
 pub fn rss() -> (Scenario, ObjectIdTracker) {
     let mut id = ObjectIdTracker::new();
     let earth_body = Body::with_mu(EARTH_RADIUS, EARTH_MU, EARTH_SOI);
@@ -269,18 +64,8 @@ pub fn rss() -> (Scenario, ObjectIdTracker) {
     (scenario, id)
 }
 
-pub fn single_hyperbolic() -> (Scenario, ObjectIdTracker) {
-    let mut id = ObjectIdTracker::new();
-    let earth: PlanetarySystem = PlanetarySystem::new(id.next_planet(), "Earth", make_earth());
-    let mut scenario = Scenario::new(&earth);
-    let orbit =
-        SparseOrbit::from_pv(((400.0, 0.0), (0.0, 260.0)), make_earth(), Nanotime::zero()).unwrap();
-    scenario.add_object(id.next(), earth.id, orbit, Nanotime::zero());
-    (scenario, id)
-}
-
 pub fn stable_simulation() -> (Scenario, ObjectIdTracker) {
-    let pvs = [
+    let _pvs = [
         PV::from_f64(Vec2::new(69.3, 0.0), Vec2::new(0.0, 416.12518)),
         PV::from_f64(
             Vec2::new(1540.8302, -1178.9854),
@@ -1522,26 +1307,26 @@ pub fn stable_simulation() -> (Scenario, ObjectIdTracker) {
         ast.clone(),
     );
 
-    let mut scenario = Scenario::new(&earth);
+    let scenario = Scenario::new(&earth);
 
-    scenario.add_object(
-        id.next(),
-        earth.id,
-        SparseOrbit::circular(
-            earth.body.radius as f64 * 1.1,
-            earth.body,
-            Nanotime::zero(),
-            false,
-        ),
-        Nanotime::zero(),
-    );
+    // scenario.add_object(
+    //     id.next(),
+    //     earth.id,
+    //     SparseOrbit::circular(
+    //         earth.body.radius as f64 * 1.1,
+    //         earth.body,
+    //         Nanotime::zero(),
+    //         false,
+    //     ),
+    //     Nanotime::zero(),
+    // );
 
-    for pv in &pvs {
-        let orbit = SparseOrbit::from_pv(*pv, earth.body, Nanotime::zero());
-        if let Some(orbit) = orbit {
-            scenario.add_object(id.next(), earth.id, orbit, Nanotime::zero());
-        }
-    }
+    // for pv in &pvs {
+    //     let orbit = SparseOrbit::from_pv(*pv, earth.body, Nanotime::zero());
+    //     if let Some(orbit) = orbit {
+    //         scenario.add_object(id.next(), earth.id, orbit, Nanotime::zero());
+    //     }
+    // }
 
     (scenario, id)
 }

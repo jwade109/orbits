@@ -162,16 +162,6 @@ parts:
   rot: South
 - partname: rcs
   pos:
-  - 3
-  - 40
-  rot: West
-- partname: rcs
-  pos:
-  - 3
-  - -44
-  rot: East
-- partname: rcs
-  pos:
   - 20
   - -40
   rot: North

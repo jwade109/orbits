@@ -1,6 +1,6 @@
 use crate::nanotime::Nanotime;
 use crate::orbiter::*;
-use crate::orbits::{Body, GlobalOrbit, SparseOrbit};
+use crate::orbits::{Body, SparseOrbit};
 use crate::planning::EventType;
 use crate::pv::PV;
 use glam::f32::Vec2;
@@ -180,48 +180,32 @@ impl RemovalInfo {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Scenario {
     pub orbiters: HashMap<OrbiterId, Orbiter>,
-    system: PlanetarySystem,
+    pub planets: PlanetarySystem,
 }
 
 impl Scenario {
     pub fn new(system: &PlanetarySystem) -> Self {
         Scenario {
             orbiters: HashMap::new(),
-            system: system.clone(),
+            planets: system.clone(),
         }
     }
 
     pub fn ids(&self) -> impl Iterator<Item = ObjectId> + use<'_> {
-        self.orbiter_ids()
-            .map(|id| ObjectId::Orbiter(id))
-            .chain(self.planet_ids().into_iter().map(|id| ObjectId::Planet(id)))
+        self.orbiter_ids().map(|id| ObjectId::Orbiter(id)).chain(
+            self.planets
+                .planet_ids()
+                .into_iter()
+                .map(|id| ObjectId::Planet(id)),
+        )
     }
 
     pub fn orbiter_ids(&self) -> impl Iterator<Item = OrbiterId> + use<'_> {
         self.orbiters.keys().into_iter().map(|id| *id)
     }
 
-    pub fn planet_ids(&self) -> Vec<PlanetId> {
-        self.system.planet_ids()
-    }
-
-    pub fn planets(&self) -> &PlanetarySystem {
-        &self.system
-    }
-
-    pub fn add_object(
-        &mut self,
-        id: OrbiterId,
-        parent: PlanetId,
-        orbit: SparseOrbit,
-        stamp: Nanotime,
-    ) {
-        self.orbiters
-            .insert(id, Orbiter::new(id, GlobalOrbit(parent, orbit), stamp));
-    }
-
     pub fn lup_planet(&self, id: PlanetId, stamp: Nanotime) -> Option<ObjectLookup> {
-        let (body, pv, _, sys) = self.system.lookup(id, stamp)?;
+        let (body, pv, _, sys) = self.planets.lookup(id, stamp)?;
         Some(ObjectLookup(
             ObjectId::Planet(id),
             ScenarioObject::Body(&sys.name, body),
@@ -234,7 +218,7 @@ impl Scenario {
 
         let prop = orbiter.propagator_at(stamp)?;
 
-        let (_, frame_pv, _, _) = self.system.lookup(prop.parent(), stamp)?;
+        let (_, frame_pv, _, _) = self.planets.lookup(prop.parent(), stamp)?;
 
         let local_pv = prop.pv(stamp)?;
         let pv = frame_pv + local_pv;
@@ -246,15 +230,17 @@ impl Scenario {
         ))
     }
 
-    pub fn relevant_body(&self, pos: Vec2, stamp: Nanotime) -> Option<PlanetId> {
-        let results = self
-            .system
+    pub fn relevant_body(
+        planets: &PlanetarySystem,
+        pos: Vec2,
+        stamp: Nanotime,
+    ) -> Option<PlanetId> {
+        let results = planets
             .planet_ids()
             .into_iter()
             .filter_map(|id| {
-                let lup = self.lup_planet(id, stamp)?;
-                let p = lup.pv().pos_f32();
-                let body = lup.body()?;
+                let (body, pv, _, _) = planets.lookup(id, stamp)?;
+                let p = pv.pos_f32();
                 let d = pos.distance(p);
                 (d <= body.soi).then(|| (d, id))
             })

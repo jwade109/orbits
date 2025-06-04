@@ -460,3 +460,43 @@ parts:
   - -122
   - -27
   rot: North
+- partname: rcs
+  pos:
+  - -95
+  - 30
+  rot: West
+- partname: rcs
+  pos:
+  - -95
+  - -34
+  rot: East
+- partname: rcs
+  pos:
+  - -59
+  - 54
+  rot: South
+- partname: rcs
+  pos:
+  - -59
+  - -60
+  rot: South
+- partname: rcs
+  pos:
+  - 55
+  - -60
+  rot: North
+- partname: rcs
+  pos:
+  - 89
+  - -34
+  rot: East
+- partname: rcs
+  pos:
+  - 89
+  - 30
+  rot: West
+- partname: rcs
+  pos:
+  - 55
+  - 54
+  rot: North
