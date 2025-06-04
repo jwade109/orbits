@@ -1,9 +1,8 @@
 use crate::math::rotate;
 use crate::nanotime::Nanotime;
 use crate::orbits::{Body, SparseOrbit};
-use crate::pv::PV;
 use crate::quantities::*;
-use crate::scenario::{ObjectIdTracker, PlanetarySystem, Scenario};
+use crate::scenario::{ObjectIdTracker, PlanetarySystem};
 use glam::f32::Vec2;
 
 pub fn make_earth() -> Body {

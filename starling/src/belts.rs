@@ -1,6 +1,6 @@
 use crate::aabb::OBB;
+use crate::id::PlanetId;
 use crate::math::{rand, rotate_f64, PI_64};
-use crate::orbiter::PlanetId;
 use crate::orbits::SparseOrbit;
 use crate::orbits::{Body, GlobalOrbit};
 use crate::prelude::Nanotime;

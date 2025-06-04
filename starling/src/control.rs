@@ -1,5 +1,5 @@
+use crate::id::OrbiterId;
 use crate::nanotime::Nanotime;
-use crate::orbiter::OrbiterId;
 use crate::orbits::GlobalOrbit;
 use crate::planning::{best_maneuver_plan, ManeuverPlan};
 
