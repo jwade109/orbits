@@ -15,16 +15,6 @@ parts:
   - -17
   - -15
   rot: East
-- partname: motor
-  pos:
-  - -35
-  - 2
-  rot: South
-- partname: motor
-  pos:
-  - -35
-  - -18
-  rot: South
 - partname: frame3
   pos:
   - -17
@@ -45,16 +35,6 @@ parts:
   - 23
   - 15
   rot: South
-- partname: tank22
-  pos:
-  - -7
-  - 15
-  rot: South
-- partname: tank22
-  pos:
-  - -7
-  - -35
-  rot: South
 - partname: frame3
   pos:
   - -42
@@ -64,16 +44,6 @@ parts:
   pos:
   - -42
   - -35
-  rot: East
-- partname: tank11
-  pos:
-  - -17
-  - 18
-  rot: East
-- partname: tank11
-  pos:
-  - -17
-  - -28
   rot: East
 - partname: cpu
   pos:
@@ -115,31 +85,6 @@ parts:
   - 3
   - -15
   rot: East
-- partname: plate
-  pos:
-  - -7
-  - 5
-  rot: North
-- partname: plate
-  pos:
-  - -7
-  - -5
-  rot: North
-- partname: plate
-  pos:
-  - -7
-  - -15
-  rot: North
-- partname: plate
-  pos:
-  - -32
-  - 25
-  rot: North
-- partname: plate
-  pos:
-  - -32
-  - -35
-  rot: North
 - partname: rcs
   pos:
   - 17
@@ -200,28 +145,113 @@ parts:
   - -2
   - -35
   rot: North
+- partname: motor
+  pos:
+  - -36
+  - -8
+  rot: South
+- partname: motor
+  pos:
+  - -36
+  - 8
+  rot: South
+- partname: motor
+  pos:
+  - -36
+  - -24
+  rot: South
+- partname: tank21
+  pos:
+  - -7
+  - 15
+  rot: South
+- partname: tank21
+  pos:
+  - -7
+  - -25
+  rot: South
+- partname: tank21
+  pos:
+  - -12
+  - 25
+  rot: South
+- partname: tank21
+  pos:
+  - -12
+  - -35
+  rot: South
 - partname: plate
+  pos:
+  - -17
+  - 10
+  rot: North
+- partname: plate
+  pos:
+  - -17
+  - 0
+  rot: North
+- partname: plate
+  pos:
+  - -17
+  - -10
+  rot: North
+- partname: plate
+  pos:
+  - -17
+  - -20
+  rot: North
+- partname: gold
   pos:
   - -27
   - 15
   rot: North
-- partname: plate
+- partname: gold
   pos:
   - -27
   - 5
   rot: North
-- partname: plate
+- partname: gold
   pos:
   - -27
   - -5
   rot: North
-- partname: plate
+- partname: gold
   pos:
   - -27
   - -15
   rot: North
-- partname: plate
+- partname: gold
   pos:
   - -27
   - -25
+  rot: North
+- partname: plate
+  pos:
+  - -7
+  - 20
+  rot: North
+- partname: plate
+  pos:
+  - 3
+  - 20
+  rot: North
+- partname: plate
+  pos:
+  - -7
+  - -30
+  rot: North
+- partname: plate
+  pos:
+  - 3
+  - -30
+  rot: North
+- partname: plate
+  pos:
+  - -7
+  - -5
+  rot: North
+- partname: plate
+  pos:
+  - 3
+  - -5
   rot: North

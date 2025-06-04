@@ -3,6 +3,6 @@ layer: Internal
 class: !Thruster
   model: "RJ2000"
   isp: 400.0
-  thrust: 2000.0
+  thrust: 8500.0
   length: 1.0
   is_rcs: false

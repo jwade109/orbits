@@ -354,7 +354,9 @@ impl Render for EditorContext {
             format!("Fuel: {} kg", ctx.vehicle.fuel_mass()),
             format!("Wet mass: {} kg", ctx.vehicle.wet_mass()),
             format!("Thrusters: {}", ctx.vehicle.thruster_count()),
+            format!("Thrust: {:0.2} N", ctx.vehicle.thrust()),
             format!("Tanks: {}", ctx.vehicle.tank_count()),
+            format!("Accel: {:0.2} g", ctx.vehicle.accel() / 9.81),
             format!("ISP: {} s", ctx.vehicle.exhaust_velocity / 9.81),
             format!("DV: {:0.1} m/s", ctx.vehicle.remaining_dv()),
             format!("WH: {:0.2}x{:0.2}", bounds.span.x, bounds.span.y),
@@ -395,26 +397,6 @@ impl Render for EditorContext {
                 ctx.scale(),
                 12.0,
             ));
-
-            // let current_pixels = Self::occupied_pixels(p, ctx.rotation, &current_part);
-
-            // for (layer, occupied) in &ctx.occupied {
-            //     if layer != &current_part.data.layer {
-            //         continue;
-            //     }
-            //     for p in &current_pixels {
-            //         if occupied.contains(p) {
-            //             ret.push(StaticSpriteDescriptor {
-            //                 position: ctx.w2c(p.as_vec2() + Vec2::ONE / 2.0),
-            //                 angle: 0.0,
-            //                 path: "embedded://game/../assets/collision_pixel.png".into(),
-            //                 scale: ctx.scale(),
-            //                 color: None,
-            //                 z_index: 100.0,
-            //             });
-            //         }
-            //     }
-            // }
         }
 
         ret.extend(
@@ -436,7 +418,7 @@ impl Render for EditorContext {
     }
 
     fn background_color(_state: &GameState) -> bevy::color::Srgba {
-        GRAY.with_luminance(0.06)
+        GRAY.with_luminance(0.12)
     }
 
     fn draw_gizmos(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
@@ -524,6 +506,14 @@ impl Render for EditorContext {
             }
         }
 
+        draw_vehicle(
+            gizmos,
+            &ctx.vehicle,
+            ctx.w2c(Vec2::ZERO),
+            ctx.scale * PIXELS_PER_METER,
+            0.0,
+        );
+
         Some(())
     }
 
@@ -583,14 +573,7 @@ fn expandable_menu(text: &str, onclick: OnClick) -> Node<OnClick> {
     Node::new(300, Size::Fit)
         .down()
         .with_color(UI_BACKGROUND_COLOR)
-        .with_child(
-            Node::new(Size::Grow, BUTTON_HEIGHT)
-                .with_text(text)
-                .enabled(false),
-        )
-        .with_child(
-            Node::button("", onclick, Size::Grow, BUTTON_HEIGHT).with_color([0.3, 0.3, 0.3, 1.0]),
-        )
+        .with_child(Node::button(text, onclick, Size::Grow, BUTTON_HEIGHT))
 }
 
 fn part_selection(state: &GameState) -> Node<OnClick> {
@@ -600,6 +583,7 @@ fn part_selection(state: &GameState) -> Node<OnClick> {
     let mut n = expandable_menu("Parts", OnClick::TogglePartsMenuCollapsed);
 
     if !state.editor_context.parts_menu_collapsed {
+        n.add_child(Node::hline());
         n.add_children(part_names.into_iter().map(|s| {
             let onclick = OnClick::SelectPart(s.clone());
             Node::button(s, onclick, Size::Grow, BUTTON_HEIGHT)
@@ -628,6 +612,7 @@ fn vehicle_selection(state: &GameState) -> Node<OnClick> {
     let mut n = expandable_menu("Vehicles", OnClick::ToggleVehiclesMenuCollapsed);
 
     if !state.editor_context.vehicles_menu_collapsed {
+        n.add_child(Node::hline());
         n.add_children(vehicles.into_iter().map(|(name, path)| {
             let onclick = OnClick::LoadVehicle(path);
             Node::button(name, onclick, Size::Grow, BUTTON_HEIGHT)
@@ -641,6 +626,7 @@ fn layer_selection(state: &GameState) -> Node<OnClick> {
     let mut n = expandable_menu("Layers", OnClick::ToggleLayersMenuCollapsed);
 
     if !state.editor_context.layers_menu_collapsed {
+        n.add_child(Node::hline());
         n.add_children(enum_iterator::all::<PartLayer>().into_iter().map(|p| {
             let s = format!("{:?}", p);
             let onclick = OnClick::ToggleLayer(p);
@@ -681,13 +667,13 @@ impl EditorContext {
                     state.editor_context.try_place_part(p, part);
                 }
             } else if let Some(p) = state.input.position(MouseButt::Right, FrameId::Current) {
-                let p = vround(state.editor_context.c2w(p));
+                let p = vfloor(state.editor_context.c2w(p));
                 state.editor_context.remove_part_at(p);
             } else if state.input.just_pressed(KeyCode::KeyQ) {
                 if state.editor_context.current_part.is_some() {
                     state.editor_context.current_part = None;
                 } else if let Some(p) = state.input.position(MouseButt::Hover, FrameId::Current) {
-                    let p = vround(state.editor_context.c2w(p));
+                    let p = vfloor(state.editor_context.c2w(p));
                     if let Some((_, rot, part)) = state.editor_context.get_part_at(p) {
                         state.editor_context.rotation = rot;
                         state.editor_context.current_part = Some(part);

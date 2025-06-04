@@ -998,9 +998,19 @@ impl GameState {
 
         let mut burns = Vec::new();
 
-        // handle discrete physics events
+        // handle discrete physics
+        let piloting = self.piloting();
         for (id, vehicle) in self.vehicles.iter_mut() {
-            let dv = vehicle.step(s);
+            let forwards = piloting == Some(*id) && self.input.is_pressed(KeyCode::ArrowUp);
+            let backwards = piloting == Some(*id) && self.input.is_pressed(KeyCode::ArrowDown);
+            let control = if forwards {
+                Vec2::X
+            } else if backwards {
+                -Vec2::X
+            } else {
+                Vec2::ZERO
+            };
+            let dv = vehicle.step(s, control);
             if dv.length() > 0.0 {
                 Scenario::simulate(&mut self.scenario.orbiters, &planets, s, d);
                 burns.push((*id, dv));
@@ -1008,7 +1018,7 @@ impl GameState {
         }
 
         for (id, dv) in burns {
-            self.impulsive_burn(id, s, dv / 10.0);
+            self.impulsive_burn(id, s, dv / 1000.0);
         }
 
         self.handle_click_events();

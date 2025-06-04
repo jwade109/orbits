@@ -30,23 +30,6 @@ impl Rotation {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Vehicle {
-    name: String,
-    stamp: Nanotime,
-    angle: f32,
-    target_angle: f32,
-    angular_velocity: f32,
-    thrusters: Vec<Thruster>,
-    tanks: Vec<Tank>,
-    bounding_radius: f32,
-    pub inventory: Inventory,
-    pub max_fuel_mass: f32,
-    pub dry_mass: f32,
-    pub exhaust_velocity: f32,
-    pub parts: Vec<(IVec2, Rotation, PartProto)>,
-}
-
 fn rocket_equation(ve: f32, m0: f32, m1: f32) -> f32 {
     ve * (m0 / m1).ln()
 }
@@ -80,6 +63,30 @@ pub fn meters_with_rotation(rot: Rotation, part: &PartProto) -> Vec2 {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum VehicleController {
+    None,
+    Attitude(f32),
+    External,
+}
+
+#[derive(Debug, Clone)]
+pub struct Vehicle {
+    name: String,
+    stamp: Nanotime,
+    angle: f32,
+    ctrl: VehicleController,
+    angular_velocity: f32,
+    thrusters: Vec<Thruster>,
+    tanks: Vec<Tank>,
+    bounding_radius: f32,
+    pub inventory: Inventory,
+    pub max_fuel_mass: f32,
+    pub dry_mass: f32,
+    pub exhaust_velocity: f32,
+    pub parts: Vec<(IVec2, Rotation, PartProto)>,
+}
+
 impl Vehicle {
     pub fn from_parts(
         name: String,
@@ -104,7 +111,14 @@ impl Vehicle {
 
         let dry_mass = parts.iter().map(|(_, _, p)| p.data.mass).sum();
 
-        let isp = thrusters.iter().map(|t| t.proto.isp).sum::<f32>() / thrusters.len() as f32;
+        let linear_thrusters = thrusters.iter().filter(|t| !t.proto.is_rcs);
+        let n_linear = linear_thrusters.clone().count();
+
+        let isp = if n_linear == 0 {
+            100.0
+        } else {
+            linear_thrusters.map(|t| t.proto.isp).sum::<f32>() / n_linear as f32
+        };
 
         let tanks: Vec<Tank> = parts
             .iter()
@@ -139,7 +153,7 @@ impl Vehicle {
             name,
             stamp,
             angle: rand(0.0, 2.0 * PI),
-            target_angle: rand(0.0, 2.0 * PI),
+            ctrl: VehicleController::Attitude(rand(0.0, PI * 2.0)),
             angular_velocity: rand(-0.3, 0.3),
             tanks,
             thrusters,
@@ -167,6 +181,24 @@ impl Vehicle {
 
     pub fn tank_count(&self) -> usize {
         self.tanks.len()
+    }
+
+    pub fn thrust(&self) -> f32 {
+        if self.thrusters.is_empty() {
+            0.0
+        } else {
+            self.thrusters.iter().map(|t| t.proto.thrust).sum()
+        }
+    }
+
+    pub fn accel(&self) -> f32 {
+        let thrust = self.thrust();
+        let mass = self.wet_mass();
+        if mass == 0.0 {
+            0.0
+        } else {
+            thrust / mass
+        }
     }
 
     pub fn aabb(&self) -> AABB {
@@ -219,26 +251,33 @@ impl Vehicle {
         &self.name
     }
 
-    pub fn step(&mut self, stamp: Nanotime) -> Vec2 {
+    pub fn step(&mut self, stamp: Nanotime, control: Vec2) -> Vec2 {
         let dt = (stamp - self.stamp).to_secs().clamp(0.0, 0.03);
 
         if self.is_controllable() {
-            let kp = 20.0;
-            let kd = 40.0;
+            if let VehicleController::Attitude(target_angle) = &mut self.ctrl {
+                *target_angle = wrap_0_2pi(*target_angle);
+                let kp = 20.0;
+                let kd = 40.0;
 
-            let error =
-                kp * wrap_pi_npi(self.target_angle - self.angle) - kd * self.angular_velocity;
+                let error =
+                    kp * wrap_pi_npi(*target_angle - self.angle) - kd * self.angular_velocity;
 
-            for t in &mut self.thrusters {
-                if !t.proto.is_rcs {
-                    continue;
+                for t in &mut self.thrusters {
+                    if t.proto.is_rcs {
+                        let torque = cross2d(t.pos, t.pointing());
+                        t.set_thrusting(
+                            torque.signum() == error.signum() && error.abs() > 1.0,
+                            stamp,
+                        );
+                    } else {
+                        let u = t.pointing();
+                        t.set_thrusting(u.dot(control) > 0.8, stamp);
+                    }
                 }
-                let torque = cross2d(t.pos, t.pointing());
-                t.set_thrusting(
-                    torque.signum() == error.signum() && error.abs() > 1.0,
-                    stamp,
-                );
             }
+        } else {
+            self.ctrl = VehicleController::None;
         }
 
         let mut accel = Vec2::ZERO;
@@ -259,7 +298,6 @@ impl Vehicle {
 
         self.angle += self.angular_velocity * dt;
         self.angle = wrap_0_2pi(self.angle);
-        self.target_angle = wrap_0_2pi(self.target_angle);
         self.stamp = stamp;
 
         accel * dt
@@ -269,8 +307,12 @@ impl Vehicle {
         rotate(Vec2::X, self.angle)
     }
 
-    pub fn target_pointing(&self) -> Vec2 {
-        rotate(Vec2::X, self.target_angle)
+    pub fn target_pointing(&self) -> Option<Vec2> {
+        if let VehicleController::Attitude(ta) = self.ctrl {
+            Some(rotate(Vec2::X, ta))
+        } else {
+            None
+        }
     }
 
     pub fn angular_velocity(&self) -> f32 {
@@ -282,7 +324,9 @@ impl Vehicle {
     }
 
     pub fn turn(&mut self, da: f32) {
-        self.target_angle += da;
+        if let VehicleController::Attitude(ta) = &mut self.ctrl {
+            *ta += da;
+        }
     }
 
     pub fn thrusters(&self) -> impl Iterator<Item = &Thruster> + use<'_> {

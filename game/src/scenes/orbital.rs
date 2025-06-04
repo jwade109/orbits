@@ -408,6 +408,15 @@ impl Render for OrbitalContext {
 
         text_labels.extend(get_thruster_indicators(state).unwrap_or(vec![]));
 
+        (|| {
+            let id = state.piloting()?;
+            let pv = state.scenario.lup_orbiter(id, state.sim_time)?.pv();
+            let text = format!("{:0.1} m/s", pv.vel.length() * 1000.0);
+            let c = Vec2::Y * (100.0 - state.input.screen_bounds.span.y * 0.5);
+            text_labels.push(TextLabel::new(text, c, 1.0));
+            Some(())
+        })();
+
         if state.paused {
             let s = "PAUSED".to_string();
             let c = Vec2::Y * (60.0 - state.input.screen_bounds.span.y * 0.5);

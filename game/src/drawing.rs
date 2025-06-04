@@ -479,7 +479,9 @@ pub fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<(
     };
 
     draw_pointing_vector(vehicle.pointing(), LIME);
-    draw_pointing_vector(vehicle.target_pointing(), LIME.with_alpha(0.4));
+    if let Some(u) = vehicle.target_pointing() {
+        draw_pointing_vector(u, LIME.with_alpha(0.4));
+    }
 
     draw_circle(gizmos, center, r, GRAY);
     let p = vehicle.fuel_percentage();
