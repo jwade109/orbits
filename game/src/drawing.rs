@@ -283,7 +283,10 @@ pub fn draw_thruster(gizmos: &mut Gizmos, thruster: &Thruster, pos: Vec2, scale:
 
     if thruster.is_thrusting() {
         for s in linspace(0.0, 1.0, 13) {
-            let length = thruster.proto.length * rand(1.3, 2.5) * thruster.throttle();
+            let length = thruster.proto.length
+                * rand(2.4, 4.5)
+                * thruster.throttle()
+                * ((s - 0.5) * PI).abs().cos();
             let p4 = p2 + (u * 0.7 + v * 0.4) * length * scale;
             let p5 = p3 + (u * 0.7 - v * 0.4) * length * scale;
             let color = if thruster.proto.is_rcs { TEAL } else { RED };

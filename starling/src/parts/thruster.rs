@@ -1,15 +1,14 @@
-use crate::math::{rand, rotate, Vec2};
+use crate::math::{rotate, Vec2};
 use crate::nanotime::Nanotime;
 use crate::parts::parts::ThrusterProto;
-
-const THRUSTER_DEBOUNCE_TIME: Nanotime = Nanotime::millis(10);
 
 #[derive(Debug, Clone)]
 pub struct Thruster {
     pub proto: ThrusterProto,
     pub pos: Vec2,
     pub angle: f32,
-    last_toggled: Nanotime,
+    stamp: Nanotime,
+    throttle_rate: f32,
     throttle: f32,
 }
 
@@ -19,7 +18,8 @@ impl Thruster {
             proto,
             pos,
             angle,
-            last_toggled: Nanotime::zero(),
+            stamp: Nanotime::zero(),
+            throttle_rate: 12.0,
             throttle: 0.0,
         }
     }
@@ -29,12 +29,16 @@ impl Thruster {
     }
 
     pub fn set_thrusting(&mut self, throttle: f32, stamp: Nanotime) {
-        self.throttle += (throttle - self.throttle) * 0.1;
-        // let dt = stamp - self.last_toggled;
-        // if dt >= THRUSTER_DEBOUNCE_TIME {
-        //     self.is_active = state;
-        //     self.last_toggled = stamp;
-        // }
+        let dt = stamp - self.stamp;
+        self.stamp = stamp;
+        let dthrottle = (self.throttle_rate * dt.to_secs()).abs();
+        let diff = (throttle - self.throttle).abs();
+        if self.throttle < throttle {
+            self.throttle += dthrottle.min(diff);
+        } else if self.throttle > throttle {
+            self.throttle -= dthrottle.min(diff);
+        }
+        self.throttle = self.throttle.clamp(0.0, 1.0);
     }
 
     pub fn is_thrusting(&self) -> bool {
