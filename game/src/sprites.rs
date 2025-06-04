@@ -45,7 +45,7 @@ pub fn update_shadow_sprites(
     }
 
     for (e, ShadowTexture(id), mut transform, mut vis) in query.iter_mut() {
-        let lup = match state.scenario.lup_planet(*id, state.sim_time) {
+        let lup = match state.lup_planet(*id, state.sim_time) {
             Some(lup) => lup,
             None => {
                 commands.entity(e).despawn();

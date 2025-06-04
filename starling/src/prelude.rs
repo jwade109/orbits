@@ -21,7 +21,9 @@ pub use crate::pv::PV;
 pub use crate::quantities::*;
 pub use crate::region::Region;
 pub use crate::rpo::RPO;
-pub use crate::scenario::{ObjectIdTracker, PlanetarySystem, Scenario};
+pub use crate::scenario::{
+    ObjectIdTracker, ObjectLookup, PlanetarySystem, Scenario, ScenarioObject,
+};
 pub use crate::vehicle::{
     dims_with_rotation, meters_with_rotation, PhysicsMode, Rotation, Vehicle,
 };

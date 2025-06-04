@@ -306,13 +306,14 @@ pub fn throttle_controls(state: &GameState) -> Node<OnClick> {
 }
 
 pub fn sim_time_toolbar(state: &GameState) -> Node<OnClick> {
+    use crate::planetary::{MAX_SIM_SPEED, MIN_SIM_SPEED};
     Node::fit()
         .with_color(UI_BACKGROUND_COLOR)
         .with_child({
             let s = if state.paused { "UNPAUSE" } else { "PAUSE" };
             Node::button(s, OnClick::TogglePause, 120, BUTTON_HEIGHT)
         })
-        .with_children((-4..=4).map(|i| {
+        .with_children((MIN_SIM_SPEED..=MAX_SIM_SPEED).map(|i| {
             Node::button(
                 format!("{i}"),
                 OnClick::SimSpeed(i),
@@ -339,7 +340,7 @@ pub fn layout(state: &GameState) -> Tree<OnClick> {
 #[allow(unused)]
 fn current_inventory_layout(state: &GameState) -> Option<Node<OnClick>> {
     let id = state.orbital_context.following?.orbiter()?;
-    let orbiter = state.scenario.lup_orbiter(id, state.sim_time)?.orbiter()?;
+    let orbiter = state.lup_orbiter(id, state.sim_time)?.orbiter()?;
     let vehicle = state.vehicles.get(&id)?;
 
     if vehicle.inventory.is_empty() {

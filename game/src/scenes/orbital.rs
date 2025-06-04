@@ -9,7 +9,6 @@ use bevy::prelude::*;
 use enum_iterator::all;
 use enum_iterator::Sequence;
 use layout::layout::{Node, Size, Tree};
-use rfd::FileDialog;
 use starling::prelude::*;
 use std::collections::HashSet;
 
@@ -137,6 +136,23 @@ impl CameraProjection for OrbitalContext {
     }
 }
 
+pub fn relevant_body(planets: &PlanetarySystem, pos: Vec2, stamp: Nanotime) -> Option<PlanetId> {
+    let results = planets
+        .planet_ids()
+        .into_iter()
+        .filter_map(|id| {
+            let (body, pv, _, _) = planets.lookup(id, stamp)?;
+            let p = pv.pos_f32();
+            let d = pos.distance(p);
+            (d <= body.soi).then(|| (d, id))
+        })
+        .collect::<Vec<_>>();
+    results
+        .iter()
+        .min_by(|(d1, _), (d2, _)| d1.total_cmp(d2))
+        .map(|(_, id)| *id)
+}
+
 impl OrbitalContext {
     pub fn new(primary: PlanetId) -> Self {
         Self {
@@ -172,8 +188,8 @@ impl OrbitalContext {
     pub fn follow_position(&self, state: &GameState) -> Option<Vec2> {
         let id = self.following?;
         let lup = match id {
-            ObjectId::Orbiter(id) => state.scenario.lup_orbiter(id, state.sim_time)?,
-            ObjectId::Planet(id) => state.scenario.lup_planet(id, state.sim_time)?,
+            ObjectId::Orbiter(id) => state.lup_orbiter(id, state.sim_time)?,
+            ObjectId::Planet(id) => state.lup_planet(id, state.sim_time)?,
         };
         Some(lup.pv().pos_f32())
     }
@@ -186,40 +202,12 @@ impl OrbitalContext {
         }
     }
 
-    pub fn save_to_file(state: &mut GameState) -> Option<()> {
-        let orbiters: Vec<_> = state
-            .orbital_context
-            .selected
-            .iter()
-            .filter_map(|id| {
-                state
-                    .scenario
-                    .lup_orbiter(*id, state.sim_time)
-                    .map(|lup| lup.orbiter())
-                    .flatten()
-            })
-            .collect();
-
-        let dir = FileDialog::new().set_directory("/").pick_folder()?;
-
-        for orbiter in orbiters {
-            let mut file = dir.clone();
-            file.push(format!("{}.strl", orbiter.id()));
-            info!("Saving {}", file.display());
-            starling::file_export::to_strl_file(orbiter, &file).ok()?;
-        }
-
-        Some(())
-    }
-
     pub fn highlighted(state: &GameState) -> HashSet<OrbiterId> {
         if let Some(a) = state.selection_region() {
-            state
-                .scenario
-                .orbiter_ids()
+            orbiter_ids(state)
                 .into_iter()
                 .filter_map(|id| {
-                    let pv = state.scenario.lup_orbiter(id, state.sim_time)?.pv();
+                    let pv = state.lup_orbiter(id, state.sim_time)?.pv();
                     a.contains(pv.pos_f32()).then(|| id)
                 })
                 .collect()
@@ -270,8 +258,8 @@ impl OrbitalContext {
             return None;
         }
 
-        let wrt_id = Scenario::relevant_body(&state.scenario.planets, p1, state.sim_time)?;
-        let parent = state.scenario.lup_planet(wrt_id, state.sim_time)?;
+        let wrt_id = relevant_body(&state.scenario.planets, p1, state.sim_time)?;
+        let parent = state.lup_planet(wrt_id, state.sim_time)?;
 
         let r = p1.distance(parent.pv().pos_f32());
         let v = (parent.body()?.mu() / r).sqrt();
@@ -282,8 +270,8 @@ impl OrbitalContext {
     pub fn cursor_orbit(p1: Vec2, p2: Vec2, state: &GameState) -> Option<GlobalOrbit> {
         let pv = Self::cursor_pv(p1, p2, &state)?;
         let parent_id: PlanetId =
-            Scenario::relevant_body(&state.scenario.planets, pv.pos_f32(), state.sim_time)?;
-        let parent = state.scenario.lup_planet(parent_id, state.sim_time)?;
+            relevant_body(&state.scenario.planets, pv.pos_f32(), state.sim_time)?;
+        let parent = state.lup_planet(parent_id, state.sim_time)?;
         let parent_pv = parent.pv();
         let pv = pv - PV::pos(parent_pv.pos_f32());
         let body = parent.body()?;
@@ -327,6 +315,21 @@ impl OrbitalContext {
     }
 }
 
+pub fn orbiter_ids(state: &GameState) -> impl Iterator<Item = OrbiterId> + use<'_> {
+    state.scenario.orbiters.keys().into_iter().map(|id| *id)
+}
+
+pub fn all_orbital_ids(state: &GameState) -> impl Iterator<Item = ObjectId> + use<'_> {
+    orbiter_ids(state).map(|id| ObjectId::Orbiter(id)).chain(
+        state
+            .scenario
+            .planets
+            .planet_ids()
+            .into_iter()
+            .map(|id| ObjectId::Planet(id)),
+    )
+}
+
 pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> {
     let mut ret = Vec::new();
 
@@ -337,10 +340,10 @@ pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> 
 
     let cursor_world = state.orbital_context.c2w(cursor);
 
-    for id in state.scenario.ids() {
+    for id in all_orbital_ids(state) {
         let lup = match id {
-            ObjectId::Orbiter(id) => state.scenario.lup_orbiter(id, state.sim_time),
-            ObjectId::Planet(id) => state.scenario.lup_planet(id, state.sim_time),
+            ObjectId::Orbiter(id) => state.lup_orbiter(id, state.sim_time),
+            ObjectId::Planet(id) => state.lup_planet(id, state.sim_time),
         };
         let lup = match lup {
             Some(lup) => lup,
@@ -410,7 +413,7 @@ impl Render for OrbitalContext {
 
         (|| {
             let id = state.piloting()?;
-            let pv = state.scenario.lup_orbiter(id, state.sim_time)?.pv();
+            let pv = state.lup_orbiter(id, state.sim_time)?.pv();
             let text = format!("{:0.1} m/s", pv.vel.length() * 1000.0);
             let c = Vec2::Y * (100.0 - state.input.screen_bounds.span.y * 0.5);
             text_labels.push(TextLabel::new(text, c, 1.0));
@@ -487,7 +490,7 @@ impl Render for OrbitalContext {
             .planet_ids()
             .into_iter()
             .filter_map(|id| {
-                let lup = state.scenario.lup_planet(id, state.sim_time)?;
+                let lup = state.lup_planet(id, state.sim_time)?;
                 let pos = lup.pv().pos_f32();
                 let (name, body) = lup.named_body()?;
                 let path = format!("embedded://game/../assets/{}.png", name);
@@ -507,11 +510,9 @@ impl Render for OrbitalContext {
             .bodies(state.sim_time, None)
             .collect();
         let light_source = state.light_source();
-        let orbiter_sprites: Vec<_> = state
-            .scenario
-            .orbiter_ids()
+        let orbiter_sprites: Vec<_> = orbiter_ids(state)
             .filter_map(|id| {
-                let lup = state.scenario.lup_orbiter(id, state.sim_time)?;
+                let lup = state.lup_orbiter(id, state.sim_time)?;
                 let pos = lup.pv().pos_f32();
                 let is_lit = bodies
                     .iter()
@@ -566,12 +567,12 @@ impl Render for OrbitalContext {
         let body_color_lup: std::collections::HashMap<&'static str, Srgba> =
             std::collections::HashMap::from([("Earth", BLUE), ("Luna", GRAY), ("Asteroid", BROWN)]);
 
-        if let Some(lup) = Scenario::relevant_body(
+        if let Some(lup) = relevant_body(
             &state.scenario.planets,
             state.orbital_context.origin(),
             state.sim_time,
         )
-        .map(|id| state.scenario.lup_planet(id, state.sim_time))
+        .map(|id| state.lup_planet(id, state.sim_time))
         .flatten()
         {
             if let Some((s, _)) = lup.named_body() {

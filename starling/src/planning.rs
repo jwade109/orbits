@@ -328,6 +328,13 @@ impl Propagator {
             _ => return Ok(()),
         };
 
+        if end - self.start < Nanotime::mins(5) {
+            // debounce for bad position precision
+            // TODO fix
+            self.horizon = HorizonState::Continuing(self.start + Nanotime::mins(5));
+            return Ok(());
+        }
+
         let will_never_encounter = bodies.iter().all(|(_, orbit, soi)| {
             let rmin = orbit.periapsis_r() - *soi as f64;
             let rmax = orbit.apoapsis_r() + *soi as f64;

@@ -41,7 +41,7 @@ impl Render for RPOContext {
 
         draw_piloting_overlay(gizmos, state);
 
-        let origin = state.scenario.lup_orbiter(target, state.sim_time)?.pv();
+        let origin = state.lup_orbiter(target, state.sim_time)?.pv();
 
         draw_circle(gizmos, ctx.w2c(Vec2::ZERO), 7.0, TEAL);
 
@@ -67,7 +67,7 @@ impl Render for RPOContext {
         }
 
         for id in [target, piloting] {
-            let lup = match state.scenario.lup_orbiter(id, state.sim_time) {
+            let lup = match state.lup_orbiter(id, state.sim_time) {
                 Some(lup) => lup,
                 None => continue,
             };
@@ -105,8 +105,8 @@ impl Render for RPOContext {
         // let targeting = state.targeting()?;
         // let piloting = state.piloting()?;
 
-        // let p1 = state.scenario.lup_orbiter(targeting, state.sim_time)?.pv();
-        // let p2 = state.scenario.lup_orbiter(piloting, state.sim_time)?.pv();
+        // let p1 = state.lup_orbiter(targeting, state.sim_time)?.pv();
+        // let p2 = state.lup_orbiter(piloting, state.sim_time)?.pv();
 
         // for (id, offset) in [
         //     (targeting, DVec2::ZERO),

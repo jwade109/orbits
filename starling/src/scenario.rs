@@ -35,7 +35,7 @@ pub enum ScenarioObject<'a> {
 }
 
 #[derive(Debug, Clone)]
-pub struct ObjectLookup<'a>(ObjectId, ScenarioObject<'a>, PV);
+pub struct ObjectLookup<'a>(pub ObjectId, pub ScenarioObject<'a>, pub PV);
 
 impl<'a> ObjectLookup<'a> {
     pub fn id(&self) -> ObjectId {
@@ -184,6 +184,7 @@ pub struct Scenario {
 }
 
 impl Scenario {
+    #[deprecated]
     pub fn new(system: &PlanetarySystem) -> Self {
         Scenario {
             orbiters: HashMap::new(),
@@ -191,85 +192,7 @@ impl Scenario {
         }
     }
 
-    pub fn ids(&self) -> impl Iterator<Item = ObjectId> + use<'_> {
-        self.orbiter_ids().map(|id| ObjectId::Orbiter(id)).chain(
-            self.planets
-                .planet_ids()
-                .into_iter()
-                .map(|id| ObjectId::Planet(id)),
-        )
-    }
-
-    pub fn orbiter_ids(&self) -> impl Iterator<Item = OrbiterId> + use<'_> {
-        self.orbiters.keys().into_iter().map(|id| *id)
-    }
-
-    pub fn lup_planet(&self, id: PlanetId, stamp: Nanotime) -> Option<ObjectLookup> {
-        let (body, pv, _, sys) = self.planets.lookup(id, stamp)?;
-        Some(ObjectLookup(
-            ObjectId::Planet(id),
-            ScenarioObject::Body(&sys.name, body),
-            pv,
-        ))
-    }
-
-    pub fn lup_orbiter(&self, id: OrbiterId, stamp: Nanotime) -> Option<ObjectLookup> {
-        let orbiter = self.orbiters.get(&id)?;
-
-        let prop = orbiter.propagator_at(stamp)?;
-
-        let (_, frame_pv, _, _) = self.planets.lookup(prop.parent(), stamp)?;
-
-        let local_pv = prop.pv(stamp)?;
-        let pv = frame_pv + local_pv;
-
-        Some(ObjectLookup(
-            ObjectId::Orbiter(id),
-            ScenarioObject::Orbiter(orbiter),
-            pv,
-        ))
-    }
-
-    pub fn relevant_body(
-        planets: &PlanetarySystem,
-        pos: Vec2,
-        stamp: Nanotime,
-    ) -> Option<PlanetId> {
-        let results = planets
-            .planet_ids()
-            .into_iter()
-            .filter_map(|id| {
-                let (body, pv, _, _) = planets.lookup(id, stamp)?;
-                let p = pv.pos_f32();
-                let d = pos.distance(p);
-                (d <= body.soi).then(|| (d, id))
-            })
-            .collect::<Vec<_>>();
-        results
-            .iter()
-            .min_by(|(d1, _), (d2, _)| d1.total_cmp(d2))
-            .map(|(_, id)| *id)
-    }
-
-    pub fn nearest(&self, pos: Vec2, stamp: Nanotime) -> Option<ObjectId> {
-        let results = self
-            .ids()
-            .filter_map(|id| {
-                let lup = match id {
-                    ObjectId::Orbiter(id) => self.lup_orbiter(id, stamp),
-                    ObjectId::Planet(id) => self.lup_planet(id, stamp),
-                }?;
-                let p = lup.pv().pos_f32();
-                let d = pos.distance(p);
-                Some((d, id))
-            })
-            .collect::<Vec<_>>();
-        results
-            .into_iter()
-            .min_by(|(d1, _), (d2, _)| d1.total_cmp(d2))
-            .map(|(_, id)| id)
-    }
-
+    #[deprecated]
     pub fn simulate(
         orbiters: &mut HashMap<OrbiterId, Orbiter>,
         planets: &PlanetarySystem,
@@ -285,7 +208,7 @@ impl Scenario {
 
         let mut info = vec![];
 
-        orbiters.retain(|_, o| {
+        orbiters.retain(|_, o: &mut Orbiter| {
             if o.propagator_at(stamp).is_none() {
                 let reason = o.props().last().map(|p| RemovalInfo {
                     stamp: p.end().unwrap_or(stamp),

@@ -169,7 +169,6 @@ fn draw_global_orbit(
     color: Srgba,
 ) -> Option<()> {
     let pv = state
-        .scenario
         .lup_planet(orbit.0, state.sim_time)
         .map(|lup| lup.pv())?;
     draw_orbit(
@@ -319,7 +318,7 @@ pub fn draw_vehicle(gizmos: &mut Gizmos, vehicle: &Vehicle, pos: Vec2, scale: f3
 fn draw_rpo(gizmos: &mut Gizmos, state: &GameState, id: OrbiterId, rpo: &RPO) -> Option<()> {
     let ctx = &state.orbital_context;
 
-    let lup = state.scenario.lup_orbiter(id, state.sim_time)?;
+    let lup = state.lup_orbiter(id, state.sim_time)?;
     let pv = lup.pv();
 
     let screen_pos = ctx.w2c(pv.pos_f32());
@@ -413,7 +412,7 @@ pub fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<(
 
     let piloting = state.piloting()?;
 
-    let lup = state.scenario.lup_orbiter(piloting, state.sim_time)?;
+    let lup = state.lup_orbiter(piloting, state.sim_time)?;
 
     let vehicle = state.vehicles.get(&piloting)?;
 
@@ -428,7 +427,12 @@ pub fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<(
         -window_dims.y / 2.0 + r * 1.2,
     );
 
-    draw_vehicle(gizmos, &vehicle, center, zoom, vehicle.angle());
+    let angle = match state.physics_mode() {
+        PhysicsMode::Limited => 0.0,
+        PhysicsMode::RealTime => vehicle.angle(),
+    };
+
+    draw_vehicle(gizmos, &vehicle, center, zoom, angle);
 
     draw_counter(gizmos, rb as u64, center + Vec2::Y * r, WHITE);
 
@@ -519,7 +523,7 @@ fn draw_orbiter(gizmos: &mut Gizmos, state: &GameState, id: OrbiterId) -> Option
         None => false,
     };
 
-    let lup = state.scenario.lup_orbiter(id, state.sim_time)?;
+    let lup = state.lup_orbiter(id, state.sim_time)?;
     let pv = lup.pv();
     let obj = lup.orbiter()?;
 
@@ -577,9 +581,7 @@ fn draw_scenario(gizmos: &mut Gizmos, state: &GameState) {
 
     draw_planets(gizmos, &scenario.planets, stamp, Vec2::ZERO, ctx);
 
-    _ = scenario
-        .orbiter_ids()
-        .into_iter()
+    _ = crate::scenes::orbiter_ids(state)
         .filter_map(|id| draw_orbiter(gizmos, state, id))
         .collect::<Vec<_>>();
 }
@@ -689,7 +691,7 @@ fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) {
         .highlighted
         .iter()
         .filter_map(|id| {
-            let pv = state.scenario.lup_orbiter(*id, state.sim_time)?.pv();
+            let pv = state.lup_orbiter(*id, state.sim_time)?.pv();
             draw_circle(gizmos, ctx.w2c(pv.pos_f32()), 20.0, GRAY);
             Some(())
         })
@@ -698,23 +700,21 @@ fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) {
 
 fn draw_controller(
     gizmos: &mut Gizmos,
-    stamp: Nanotime,
-    wall_time: Nanotime,
     ctrl: &Controller,
-    scenario: &Scenario,
+    state: &GameState,
     tracked: bool,
     ctx: &impl CameraProjection,
 ) -> Option<()> {
-    let lup = scenario.lup_orbiter(ctrl.target(), stamp)?;
-    let parent = lup.parent(stamp)?;
+    let lup = state.lup_orbiter(ctrl.target(), state.sim_time)?;
+    let parent = lup.parent(state.sim_time)?;
     let craft = lup.pv().pos_f32();
 
-    let parent_lup = scenario.lup_planet(parent, stamp)?;
+    let parent_lup = state.lup_planet(parent, state.sim_time)?;
     let origin = parent_lup.pv().pos_f32();
 
     let secs = 2;
-    let t_start = wall_time.floor(Nanotime::PER_SEC * secs);
-    let dt = (wall_time - t_start).to_secs();
+    let t_start = state.wall_time.floor(Nanotime::PER_SEC * secs);
+    let dt = (state.wall_time - t_start).to_secs();
     let r = (8.0 + dt * 30.0) * ctx.scale();
     let a = 0.03 * (1.0 - dt / secs as f32).powi(3);
 
@@ -722,7 +722,7 @@ fn draw_controller(
 
     if tracked {
         let plan = ctrl.plan()?;
-        draw_maneuver_plan(gizmos, stamp, plan, origin, wall_time, ctx)?;
+        draw_maneuver_plan(gizmos, state.sim_time, plan, origin, state.wall_time, ctx)?;
     }
 
     Some(())
@@ -737,29 +737,27 @@ fn is_blinking(wall_time: Nanotime, pos: impl Into<Option<Vec2>>) -> bool {
 
 fn draw_event_animation(
     gizmos: &mut Gizmos,
-    scenario: &Scenario,
+    state: &GameState,
     id: OrbiterId,
-    stamp: Nanotime,
-    wall_time: Nanotime,
     ctx: &impl CameraProjection,
 ) -> Option<()> {
-    let obj = scenario.lup_orbiter(id, stamp)?.orbiter()?;
+    let obj = state.lup_orbiter(id, state.sim_time)?.orbiter()?;
     let p = obj.props().last()?;
     let dt = Nanotime::hours(1);
-    let mut t = stamp + dt;
-    while t < p.end().unwrap_or(stamp + Nanotime::days(5)) {
-        let pv = obj.pv(t, &scenario.planets)?;
+    let mut t = state.sim_time + dt;
+    while t < p.end().unwrap_or(state.sim_time + Nanotime::days(5)) {
+        let pv = obj.pv(t, &state.scenario.planets)?;
         draw_diamond(gizmos, ctx.w2c(pv.pos_f32()), 11.0, WHITE.with_alpha(0.6));
         t += dt;
     }
     for prop in obj.props() {
         if let Some((t, e)) = prop.stamped_event() {
-            let pv = obj.pv(t, &scenario.planets)?;
-            draw_event_marker_at(gizmos, wall_time, &e, ctx.w2c(pv.pos_f32()));
+            let pv = obj.pv(t, &state.scenario.planets)?;
+            draw_event_marker_at(gizmos, state.wall_time, &e, ctx.w2c(pv.pos_f32()));
         }
     }
     if let Some(t) = p.end() {
-        let pv = obj.pv(t, &scenario.planets)?;
+        let pv = obj.pv(t, &state.scenario.planets)?;
         draw_square(gizmos, ctx.w2c(pv.pos_f32()), 13.0, RED.with_alpha(0.8));
     }
     Some(())
@@ -953,7 +951,7 @@ fn draw_belt_orbits(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let ctx = &state.orbital_context;
     let cursor_orbit = state.cursor_orbit_if_mode();
     // for belt in state.scenario.belts() {
-    //     let lup = match state.scenario.lup_planet(belt.parent(), state.sim_time) {
+    //     let lup = match state.lup_planet(belt.parent(), state.sim_time) {
     //         Some(lup) => lup,
     //         None => continue,
     //     };
@@ -972,7 +970,7 @@ fn draw_belt_orbits(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     //         .scenario
     //         .orbiter_ids()
     //         .filter_map(|id| {
-    //             let lup = state.scenario.lup_orbiter(id, state.sim_time)?;
+    //             let lup = state.lup_orbiter(id, state.sim_time)?;
     //             let orbiter = lup.orbiter()?;
     //             let orbit = orbiter.propagator_at(state.sim_time)?.orbit;
     //             if orbit.0 != belt.parent() {
@@ -1001,11 +999,11 @@ pub fn draw_notifications(gizmos: &mut Gizmos, state: &GameState) {
     for notif in &state.notifications {
         let p = match notif.parent {
             None => return,
-            Some(ObjectId::Orbiter(id)) => match state.scenario.lup_orbiter(id, state.sim_time) {
+            Some(ObjectId::Orbiter(id)) => match state.lup_orbiter(id, state.sim_time) {
                 Some(lup) => lup.pv().pos_f32() + notif.offset + notif.jitter,
                 None => continue,
             },
-            Some(ObjectId::Planet(id)) => match state.scenario.lup_planet(id, state.sim_time) {
+            Some(ObjectId::Planet(id)) => match state.lup_planet(id, state.sim_time) {
                 Some(lup) => lup.pv().pos_f32() + notif.offset + notif.jitter,
                 None => continue,
             },
@@ -1115,7 +1113,7 @@ pub fn draw_orbit_spline(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
 
 fn highlight_targeted_vehicle(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let id = state.targeting()?;
-    let lup = state.scenario.lup_orbiter(id, state.sim_time)?;
+    let lup = state.lup_orbiter(id, state.sim_time)?;
     let pos = lup.pv().pos_f32();
     let c = state.orbital_context.w2c(pos);
     draw_circle(gizmos, c, 10.0, TEAL);
@@ -1302,27 +1300,12 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState) {
 
     for ctrl in &state.controllers {
         let tracked = state.orbital_context.selected.contains(&ctrl.target());
-        draw_controller(
-            gizmos,
-            state.sim_time,
-            state.wall_time,
-            ctrl,
-            &state.scenario,
-            tracked,
-            ctx,
-        );
+        draw_controller(gizmos, ctrl, &state, tracked, ctx);
     }
 
     if state.orbital_context.show_animations && state.orbital_context.selected.len() < 6 {
         for id in &state.orbital_context.selected {
-            draw_event_animation(
-                gizmos,
-                &state.scenario,
-                *id,
-                state.sim_time,
-                state.wall_time,
-                ctx,
-            );
+            draw_event_animation(gizmos, &state, *id, ctx);
         }
     }
 

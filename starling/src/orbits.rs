@@ -407,9 +407,9 @@ impl SparseOrbit {
     }
 
     pub fn pv(&self, stamp: Nanotime) -> Result<PV, ULData> {
-        // if let Some(pv) = self.pv_lut(stamp) {
-        //     return Ok(pv);
-        // }
+        if let Some(pv) = self.pv_lut(stamp) {
+            return Ok(pv);
+        }
         self.pv_universal(stamp)
     }
 

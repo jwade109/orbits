@@ -8,6 +8,6 @@ pub const EARTH_RADIUS: f32 = 6378.0;
 pub const EARTH_SOI: f32 = 900000.0;
 
 pub const LUNA_RADIUS: f32 = 3474.0;
-pub const LUNA_SOI: f32 = 20000.0;
+pub const LUNA_SOI: f32 = 35000.0;
 
 pub const LUNA_ORBITAL_RADIUS: f32 = 384399.0;

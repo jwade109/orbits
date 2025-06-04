@@ -189,7 +189,7 @@ fn generate_starfield() -> Vec<(Vec3, Srgba, f32, f32)> {
 
 impl Default for GameState {
     fn default() -> Self {
-        let (scenario, ids) = default_example();
+        let (planets, ids) = default_example();
 
         let args = match ProgramContext::try_parse() {
             Ok(a) => a,
@@ -213,7 +213,10 @@ impl Default for GameState {
             physics_duration: Nanotime::days(7),
             sim_speed: 2,
             paused: false,
-            scenario: scenario.clone(),
+            scenario: Scenario {
+                orbiters: HashMap::new(),
+                planets: planets.clone(),
+            },
             part_database: load_parts_from_dir(&args.parts_dir()),
             ids,
             controllers: vec![],
@@ -243,18 +246,18 @@ impl Default for GameState {
 
         let t = g.sim_time;
 
-        let get_random_orbit = || {
+        let get_random_orbit = |pid: PlanetId| {
             let r1 = rand(11000.0, 40000.0) as f64;
             let r2 = rand(11000.0, 40000.0) as f64;
             let argp = rand(0.0, 2.0 * PI) as f64;
-            let body = Body::with_mu(EARTH_RADIUS, EARTH_MU, EARTH_SOI);
+            let body = planets.lookup(pid, t)?.0;
             let orbit = SparseOrbit::new(r1.max(r2), r1.min(r2), argp, body, t, false)?;
-            Some(GlobalOrbit(PlanetId(0), orbit))
+            Some(GlobalOrbit(pid, orbit))
         };
 
         for _ in 0..200 {
             let vehicle = g.get_random_vehicle();
-            let orbit = get_random_orbit();
+            let orbit = get_random_orbit(PlanetId(0));
             if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {
                 g.spawn_with_random_perturbance(orbit, vehicle);
             }
@@ -264,9 +267,17 @@ impl Default for GameState {
             let n = randint(3, 7);
             let vehicles = (0..n).filter_map(|_| g.get_random_vehicle()).collect();
             let rpo = RPO::example(g.sim_time, vehicles);
-            let orbit = get_random_orbit();
+            let orbit = get_random_orbit(PlanetId(0));
             if let Some(orbit) = orbit {
                 g.spawn_new_rpo(orbit, rpo);
+            }
+        }
+
+        for _ in 0..200 {
+            let vehicle = g.get_random_vehicle();
+            let orbit = get_random_orbit(PlanetId(1));
+            if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {
+                g.spawn_with_random_perturbance(orbit, vehicle);
             }
         }
 
@@ -338,12 +349,8 @@ fn draw_cells(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
 
     let mut idxs = HashSet::new();
 
-    for id in state.scenario.orbiter_ids() {
-        let pos = state
-            .scenario
-            .lup_orbiter(id, state.sim_time)?
-            .pv()
-            .pos_f32();
+    for id in crate::scenes::orbiter_ids(state) {
+        let pos = state.lup_orbiter(id, state.sim_time)?.pv().pos_f32();
 
         let idx = vfloor(pos / scale_factor);
         idxs.insert(idx);
@@ -435,6 +442,32 @@ impl GameState {
         }
     }
 
+    pub fn lup_orbiter(&self, id: OrbiterId, stamp: Nanotime) -> Option<ObjectLookup> {
+        let orbiter = self.scenario.orbiters.get(&id)?;
+
+        let prop = orbiter.propagator_at(stamp)?;
+
+        let (_, frame_pv, _, _) = self.scenario.planets.lookup(prop.parent(), stamp)?;
+
+        let local_pv = prop.pv(stamp)?;
+        let pv = frame_pv + local_pv;
+
+        Some(ObjectLookup(
+            ObjectId::Orbiter(id),
+            ScenarioObject::Orbiter(orbiter),
+            pv,
+        ))
+    }
+
+    pub fn lup_planet(&self, id: PlanetId, stamp: Nanotime) -> Option<ObjectLookup> {
+        let (body, pv, _, sys) = self.scenario.planets.lookup(id, stamp)?;
+        Some(ObjectLookup(
+            ObjectId::Planet(id),
+            ScenarioObject::Body(&sys.name, body),
+            pv,
+        ))
+    }
+
     pub fn planned_maneuvers(&self, after: Nanotime) -> Vec<(OrbiterId, Nanotime, Vec2)> {
         let mut dvs = vec![];
         for ctrl in &self.controllers {
@@ -489,7 +522,7 @@ impl GameState {
     }
 
     pub fn get_orbit(&self, id: OrbiterId) -> Option<GlobalOrbit> {
-        let lup = self.scenario.lup_orbiter(id, self.sim_time)?;
+        let lup = self.lup_orbiter(id, self.sim_time)?;
         let orbiter = lup.orbiter()?;
         let prop = orbiter.propagator_at(self.sim_time)?;
         Some(prop.orbit)
@@ -545,11 +578,11 @@ impl GameState {
     }
 
     pub fn delete_orbiter(&mut self, id: OrbiterId) -> Option<()> {
-        let lup = self.scenario.lup_orbiter(id, self.sim_time)?;
+        let lup = self.lup_orbiter(id, self.sim_time)?;
         let _orbiter = lup.orbiter()?;
         let parent = lup.parent(self.sim_time)?;
         let pv = lup.pv().pos_f32();
-        let plup = self.scenario.lup_planet(parent, self.sim_time)?;
+        let plup = self.lup_planet(parent, self.sim_time)?;
         let pvp = plup.pv().pos_f32();
         let pvl = pv - pvp;
         self.scenario.orbiters.remove(&id)?;
@@ -559,6 +592,24 @@ impl GameState {
             pvl,
         );
         Some(())
+    }
+
+    pub fn nearest(&self, pos: Vec2, stamp: Nanotime) -> Option<ObjectId> {
+        let results = crate::scenes::all_orbital_ids(self)
+            .filter_map(|id| {
+                let lup = match id {
+                    ObjectId::Orbiter(id) => self.lup_orbiter(id, stamp),
+                    ObjectId::Planet(id) => self.lup_planet(id, stamp),
+                }?;
+                let p = lup.pv().pos_f32();
+                let d = pos.distance(p);
+                Some((d, id))
+            })
+            .collect::<Vec<_>>();
+        results
+            .into_iter()
+            .min_by(|(d1, _), (d2, _)| d1.total_cmp(d2))
+            .map(|(_, id)| id)
     }
 
     pub fn delete_objects(&mut self) {
@@ -728,7 +779,6 @@ impl GameState {
     pub fn save(&mut self) -> Option<()> {
         match self.current_scene().kind() {
             SceneType::Editor => EditorContext::save_to_file(self),
-            SceneType::Orbital => OrbitalContext::save_to_file(self),
             _ => None,
         }
     }
@@ -990,7 +1040,7 @@ impl GameState {
                     return None;
                 }
                 let w = self.orbital_context.c2w(p);
-                let id = self.scenario.nearest(w, self.sim_time)?;
+                let id = self.nearest(w, self.sim_time)?;
                 self.orbital_context.following = Some(id);
                 self.notice(format!("Now following {id}"));
             }
@@ -998,7 +1048,7 @@ impl GameState {
         }();
 
         for (_, rpo) in &mut self.rpos {
-            rpo.step(self.sim_time, mode);
+            rpo.step(self.sim_time, PhysicsMode::Limited);
         }
 
         let s = self.sim_time;
@@ -1011,14 +1061,19 @@ impl GameState {
         // handle discrete physics
         let piloting = self.piloting();
         for (id, vehicle) in self.vehicles.iter_mut() {
-            let forwards = piloting == Some(*id) && self.input.is_pressed(KeyCode::ArrowUp);
-            let backwards = piloting == Some(*id) && self.input.is_pressed(KeyCode::ArrowDown);
+            let is_piloting = piloting == Some(*id);
+            let forwards = is_piloting && self.input.is_pressed(KeyCode::ArrowUp);
+            let backwards = is_piloting && self.input.is_pressed(KeyCode::ArrowDown);
             let control = if forwards {
                 Vec2::X
             } else if backwards {
                 -Vec2::X
             } else {
                 Vec2::ZERO
+            };
+            let mode = match is_piloting {
+                false => PhysicsMode::Limited,
+                true => mode,
             };
             let dv = vehicle.step(s, control, mode);
             if dv.length() > 0.0 {
@@ -1065,31 +1120,38 @@ impl GameState {
         }
 
         let mut track_list = self.orbital_context.selected.clone();
-        track_list.retain(|o| self.scenario.lup_orbiter(*o, self.sim_time).is_some());
+        track_list.retain(|o| self.lup_orbiter(*o, self.sim_time).is_some());
         self.orbital_context.selected = track_list;
 
-        let ids: Vec<_> = self.scenario.orbiter_ids().collect();
+        let ids: Vec<_> = crate::scenes::orbiter_ids(self).collect();
 
         self.constellations.retain(|id, _| ids.contains(id));
 
         let mut notifs = vec![];
+        let mut controller_updates = vec![];
 
-        self.controllers.iter_mut().for_each(|c| {
+        self.controllers.iter().enumerate().for_each(|(i, c)| {
             if !c.needs_update(s) {
                 return;
             }
 
-            let lup = self.scenario.lup_orbiter(c.target(), s);
+            let lup = self.lup_orbiter(c.target(), s);
             let orbiter = lup.map(|lup| lup.orbiter()).flatten();
             let prop = orbiter.map(|orb| orb.propagator_at(s)).flatten();
 
             if let Some(prop) = prop {
-                let res = c.update(s, prop.orbit);
+                controller_updates.push((i, prop.orbit));
+            }
+        });
+
+        for (i, orbit) in controller_updates {
+            if let Some(c) = self.controllers.get_mut(i) {
+                let res = c.update(s, orbit);
                 if let Err(_) = res {
                     notifs.push((c.target(), NotificationType::ManeuverFailed(c.target())));
                 }
             }
-        });
+        }
 
         for id in ids {
             if !self.vehicles.contains_key(&id) && !self.rpos.contains_key(&id) {
@@ -1158,6 +1220,9 @@ fn step_system(time: Res<Time>, mut state: ResMut<GameState>) {
     state.step(dt);
 }
 
+pub const MIN_SIM_SPEED: i32 = -4;
+pub const MAX_SIM_SPEED: i32 = 6;
+
 fn process_interaction(
     inter: &InteractionEvent,
     state: &mut GameState,
@@ -1178,11 +1243,11 @@ fn process_interaction(
             state.orbital_context.queued_orbits.clear();
         }
         InteractionEvent::SimSlower => {
-            state.sim_speed = i32::clamp(state.sim_speed - 1, -4, 4);
+            state.sim_speed = i32::clamp(state.sim_speed - 1, MIN_SIM_SPEED, MAX_SIM_SPEED);
             state.redraw();
         }
         InteractionEvent::SimFaster => {
-            state.sim_speed = i32::clamp(state.sim_speed + 1, -4, 4);
+            state.sim_speed = i32::clamp(state.sim_speed + 1, MIN_SIM_SPEED, MAX_SIM_SPEED);
             state.redraw();
         }
         InteractionEvent::SimPause => {

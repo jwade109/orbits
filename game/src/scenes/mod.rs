@@ -12,8 +12,8 @@ pub use comms::CommsContext;
 pub use craft_editor::{get_list_of_vehicles, EditorContext};
 pub use main_menu::MainMenuContext;
 pub use orbital::{
-    CameraProjection, CursorMode, DrawMode, Interactive, OrbitalContext, ShowOrbitsState,
-    ThrottleLevel,
+    all_orbital_ids, orbiter_ids, CameraProjection, CursorMode, DrawMode, Interactive,
+    OrbitalContext, ShowOrbitsState, ThrottleLevel,
 };
 pub use render::*;
 pub use rpo::RPOContext;
