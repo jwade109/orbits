@@ -1,11 +1,14 @@
-use crate::math::{rand, rotate, Vec2};
+use crate::math::{rand, randint, rotate, Vec2, PI};
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub struct Segment {
     length: f32,
     angle: f32,
     angular_velocity: f32,
     rest_angle: f32,
+    children: Vec<Segment>,
+    rigidity: f32,
+    damping: f32,
 }
 
 #[derive(Debug)]
@@ -20,11 +23,33 @@ impl Plant {
             root,
             segments: segments
                 .into_iter()
-                .map(|(angle, length)| Segment {
-                    length,
-                    angle,
-                    angular_velocity: rand(-0.05, 0.05),
-                    rest_angle: rand(-0.2, 0.2),
+                .map(|(angle, length)| {
+                    let children = if length > 4.0 {
+                        let n = randint(2, 5);
+                        (0..n)
+                            .map(|_| Segment {
+                                length: rand(5.0, 9.5),
+                                angle: rand(-PI, PI),
+                                angular_velocity: rand(-0.05, 0.05),
+                                rest_angle: rand(-0.9, 0.9),
+                                children: Vec::new(),
+                                rigidity: rand(3.0, 12.0),
+                                damping: rand(3.0, 10.0),
+                            })
+                            .collect()
+                    } else {
+                        Vec::new()
+                    };
+
+                    Segment {
+                        length,
+                        angle,
+                        angular_velocity: rand(-0.05, 0.05),
+                        rest_angle: rand(-0.2, 0.2),
+                        children,
+                        rigidity: rand(3.0, 12.0),
+                        damping: rand(3.0, 10.0),
+                    }
                 })
                 .collect(),
         }
@@ -32,16 +57,22 @@ impl Plant {
 
     pub fn step(&mut self, dt: f32, offset: f32) {
         for segment in &mut self.segments {
-            let damping = 7.0;
-            let rigidity: f32 = 9.0;
+            let offset = offset + rand(-0.05, 0.05);
 
             let da = segment.rest_angle - segment.angle + offset;
 
-            let accel = da * rigidity - segment.angular_velocity * damping;
+            let accel = da * segment.rigidity - segment.angular_velocity * segment.damping;
 
             segment.angular_velocity += accel * dt / segment.length;
 
             segment.angle += segment.angular_velocity * dt;
+
+            for c in &mut segment.children {
+                let da = c.rest_angle - c.angle + offset;
+                let accel = da * c.rigidity - c.angular_velocity * c.damping;
+                c.angular_velocity += accel * dt / c.length;
+                c.angle += c.angular_velocity * dt;
+            }
         }
     }
 
@@ -50,10 +81,17 @@ impl Plant {
         let mut angle = 0.0;
         let mut ret = Vec::new();
         for segment in &self.segments {
-            angle += segment.angle;
-            let off = rotate(Vec2::Y * segment.length, angle);
+            let off = rotate(Vec2::Y * segment.length, angle + segment.angle);
             let q = p + off;
             ret.push((p, q));
+
+            for s in &segment.children {
+                let off = rotate(Vec2::Y * s.length, angle + s.angle);
+                let q = p + off;
+                ret.push((p, q));
+            }
+
+            angle += segment.angle;
             p = q;
         }
         ret

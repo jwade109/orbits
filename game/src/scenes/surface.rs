@@ -52,12 +52,12 @@ impl SurfaceContext {
         }
 
         if state.input.is_pressed(KeyCode::KeyM) {
-            ctx.wind_offset = 0.3;
+            ctx.wind_offset += 0.01;
         } else if state.input.is_pressed(KeyCode::KeyN) {
-            ctx.wind_offset = -0.3;
-        } else {
-            ctx.wind_offset = 0.0;
+            ctx.wind_offset -= 0.01;
         }
+
+        ctx.wind_offset = ctx.wind_offset.clamp(-0.4, 0.4);
     }
 }
 
