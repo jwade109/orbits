@@ -244,6 +244,139 @@ pub fn exit_prompt_overlay(w: f32, h: f32) -> Node<OnClick> {
         .with_child(Node::grow().invisible())
 }
 
+pub fn delete_wrapper(ondelete: OnClick, button: Node<OnClick>, box_size: f32) -> Node<OnClick> {
+    let x_button = {
+        let s = "X";
+        Node::button(s, ondelete, box_size, box_size).with_color(DELETE_SOMETHING_COLOR)
+    };
+
+    let (w, _) = button.desired_dims();
+
+    let width = match w {
+        Size::Fit => Size::Fit,
+        Size::Fixed(n) => Size::Fixed(n + box_size),
+        Size::Grow => Size::Grow,
+    };
+
+    Node::new(width, box_size)
+        .tight()
+        .invisible()
+        .with_child(x_button)
+        .with_child(button)
+}
+
+pub fn piloting_buttons(state: &GameState, width: Size) -> Node<OnClick> {
+    let mut wrapper = Node::new(width, Size::Fit)
+        .down()
+        .invisible()
+        .with_padding(0.0);
+
+    let _x = if let Some(p) = state.orbital_context.piloting {
+        wrapper.add_child({
+            let s = format!("Piloting {:?}", p);
+            let b = Node::button(s, OnClick::Orbiter(p), Size::Grow, BUTTON_HEIGHT);
+            delete_wrapper(OnClick::ClearPilot, b, BUTTON_HEIGHT as f32)
+        });
+    } else if let Some(ObjectId::Orbiter(p)) = state.orbital_context.following {
+        wrapper.add_child({
+            let s = format!("Pilot {:?}", p);
+            Node::button(s, OnClick::SetPilot(p), Size::Grow, BUTTON_HEIGHT)
+        });
+    } else {
+        wrapper.add_child(
+            Node::button(
+                "No craft selected",
+                OnClick::Nullopt,
+                Size::Grow,
+                BUTTON_HEIGHT,
+            )
+            .enabled(false),
+        );
+    };
+
+    let _y = if let Some(p) = state.orbital_context.targeting {
+        wrapper.add_child({
+            let s = format!("Targeting {:?}", p);
+            let b = Node::button(s, OnClick::Orbiter(p), Size::Grow, BUTTON_HEIGHT);
+            delete_wrapper(OnClick::ClearTarget, b, BUTTON_HEIGHT as f32)
+        });
+        true
+    } else if let Some(ObjectId::Orbiter(p)) = state.orbital_context.following {
+        wrapper.add_child({
+            let s = format!("Target {:?}", p);
+            Node::button(s, OnClick::SetTarget(p), Size::Grow, BUTTON_HEIGHT)
+        });
+        true
+    } else {
+        false
+    };
+
+    if state.piloting().is_some() && state.targeting().is_some() {
+        wrapper.add_child({
+            Node::button(
+                "Swap",
+                OnClick::SwapOwnshipTarget,
+                Size::Grow,
+                BUTTON_HEIGHT,
+            )
+        });
+    }
+
+    wrapper
+}
+
+pub fn selected_button(state: &GameState, width: Size) -> Node<OnClick> {
+    let s = format!("{} selected", state.orbital_context.selected.len());
+    let b = Node::button(s, OnClick::SelectedCount, width, BUTTON_HEIGHT).enabled(false);
+    if state.orbital_context.selected.is_empty() {
+        b
+    } else {
+        delete_wrapper(OnClick::ClearTracks, b, BUTTON_HEIGHT as f32)
+    }
+}
+
+pub fn orbiter_list(
+    state: &GameState,
+    root: &mut Node<OnClick>,
+    max_cells: usize,
+    mut ids: Vec<OrbiterId>,
+) {
+    ids.sort();
+
+    let rows = (ids.len().min(max_cells) as f32 / 4.0).ceil() as u32;
+    let grid = Node::grid(Size::Grow, rows * BUTTON_HEIGHT as u32, rows, 4, 4.0, |i| {
+        if i as usize > max_cells {
+            return None;
+        }
+        let id = ids.get(i as usize)?;
+        let s = format!("{id}");
+        Some(
+            Node::grow()
+                .with_on_click(OnClick::Orbiter(*id))
+                .with_text(s)
+                .enabled(
+                    Some(*id)
+                        != state
+                            .orbital_context
+                            .following
+                            .map(|f| f.orbiter())
+                            .flatten(),
+                ),
+        )
+    });
+    root.add_child(grid);
+
+    if ids.len() > max_cells {
+        let n = ids.len() - max_cells;
+        let s = format!("...And {} more", n);
+        root.add_child(
+            Node::new(Size::Grow, BUTTON_HEIGHT)
+                .with_text(s)
+                .enabled(false),
+        );
+    }
+}
+
 pub fn left_right_arrows(
     width: impl Into<Size>,
     height: impl Into<Size>,

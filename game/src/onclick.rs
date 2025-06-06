@@ -33,6 +33,7 @@ pub enum OnClick {
     SetPilot(OrbiterId),
     ClearTarget,
     ClearPilot,
+    SwapOwnshipTarget,
     SelectPart(String),
     ToggleLayer(PartLayer),
     LoadVehicle(PathBuf),

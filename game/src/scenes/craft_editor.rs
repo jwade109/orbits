@@ -544,7 +544,7 @@ impl Render for EditorContext {
             .with_child(rotate)
             .with_child(normalize);
 
-        let layout = Node::new(vb.span.x, vb.span.y)
+        let layout = Node::structural(vb.span.x, vb.span.y)
             .tight()
             .invisible()
             .down()
@@ -570,7 +570,7 @@ fn normalize_button() -> Node<OnClick> {
 }
 
 fn expandable_menu(text: &str, onclick: OnClick) -> Node<OnClick> {
-    Node::new(300, Size::Fit)
+    Node::structural(300, Size::Fit)
         .down()
         .with_color(UI_BACKGROUND_COLOR)
         .with_child(Node::button(text, onclick, Size::Grow, BUTTON_HEIGHT))

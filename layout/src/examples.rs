@@ -4,11 +4,11 @@ fn box_with_corners(w: f32) -> Node<String> {
     let banner = || {
         Node::row(Size::Fit)
             .invisible()
-            .with_child(Node::new(w, w))
+            .with_child(Node::structural(w, w))
             .with_child(Node::grow().invisible())
-            .with_child(Node::new(w, w))
+            .with_child(Node::structural(w, w))
             .with_child(Node::grow().invisible())
-            .with_child(Node::new(w, w))
+            .with_child(Node::structural(w, w))
     };
 
     Node::grow()
@@ -34,7 +34,7 @@ fn text_node(s: &str, width: impl Into<Size>, height: impl Into<Size>) -> Node<S
     let (lines, max_line) = text_dims(&s);
     let twidth = max_line as f32 * chr_width;
     let theight = lines as f32 * chr_height;
-    Node::new(width, height).tight().down().with_child(
+    Node::structural(width, height).tight().down().with_child(
         Node::grow()
             .tight()
             .with_child(Node::grow())
@@ -42,7 +42,7 @@ fn text_node(s: &str, width: impl Into<Size>, height: impl Into<Size>) -> Node<S
                 Node::column(Size::Fit)
                     .tight()
                     .with_child(Node::grow())
-                    .with_child(Node::new(twidth, theight).with_text(s))
+                    .with_child(Node::text(twidth, theight, &s))
                     .with_child(Node::grow()),
             )
             .with_child(Node::grow()),
@@ -68,7 +68,7 @@ pub fn example_layout(width: f32, height: f32) -> Tree<String> {
             Node::row(Size::Fit)
                 .invisible()
                 .with_padding(0.0)
-                .with_child(Node::new(40 + i * 6, 10))
+                .with_child(Node::structural(40 + i * 6, 10))
                 .with_child(Node::vline())
                 .with_child(Node::grow())
         }))
@@ -82,7 +82,7 @@ pub fn example_layout(width: f32, height: f32) -> Tree<String> {
 
     let topbar = Node::row(Size::Fit)
         .with_spacing(spacing)
-        .with_children((0..10).map(|i| Node::new(120, 40).with_text(format!("thing {}", i))))
+        .with_children((0..10).map(|i| Node::text(120, 40, &format!("thing {}", i))))
         .with_children((0..5).map(|_| Node::grow().invisible()))
         .with_child(Node::column(70).with_text("Exit").with_on_click("exit"));
 
@@ -98,7 +98,7 @@ pub fn example_layout(width: f32, height: f32) -> Tree<String> {
                 .with_children([box_with_corners(40.0), Node::row(30)].into_iter()),
         );
 
-    let root = Node::new(width, height)
+    let root = Node::structural(width, height)
         .invisible()
         .tight()
         .down()

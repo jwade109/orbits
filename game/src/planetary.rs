@@ -702,6 +702,12 @@ impl GameState {
         Some(())
     }
 
+    pub fn swap_ownship_target(&mut self) {
+        let tmp = self.orbital_context.targeting;
+        self.orbital_context.targeting = self.orbital_context.piloting;
+        self.orbital_context.piloting = tmp;
+    }
+
     pub fn command_selected(&mut self, next: &GlobalOrbit) {
         if self.orbital_context.selected.is_empty() {
             return;
@@ -878,6 +884,7 @@ impl GameState {
             }
             OnClick::NormalizeCraft => self.editor_context.normalize_coordinates(),
             OnClick::ToggleThruster(idx) => _ = self.toggle_piloting_thruster(idx),
+            OnClick::SwapOwnshipTarget => _ = self.swap_ownship_target(),
 
             _ => info!("Unhandled button event: {id:?}"),
         };

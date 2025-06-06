@@ -120,6 +120,14 @@ impl<MessageType> Node<MessageType> {
         }
     }
 
+    pub fn text(width: impl Into<Size>, height: impl Into<Size>, text: &str) -> Self {
+        Self::new(width, height).with_text(text)
+    }
+
+    pub fn structural(width: impl Into<Size>, height: impl Into<Size>) -> Self {
+        Self::new(width, height)
+    }
+
     pub fn grow() -> Self {
         Node::new(Size::Grow, Size::Grow)
     }
@@ -148,11 +156,11 @@ impl<MessageType> Node<MessageType> {
     }
 
     pub fn hline() -> Self {
-        Node::row(0).with_color([0.5, 0.5, 0.5, 0.8])
+        Node::row(1).with_color([0.5, 0.5, 0.5, 0.8])
     }
 
     pub fn vline() -> Self {
-        Node::column(0).with_color([0.5, 0.5, 0.5, 0.8])
+        Node::column(1).with_color([0.5, 0.5, 0.5, 0.8])
     }
 
     pub fn enabled(mut self, enabled: bool) -> Self {
