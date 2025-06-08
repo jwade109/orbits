@@ -737,6 +737,7 @@ impl Render for OrbitalContext {
 
         let throttle_controls = throttle_controls(state);
         let thruster_controls = thruster_control_dialogue(state).unwrap_or(Node::new(0, 0));
+        let favorites = favorites_menu(state);
 
         let world = Node::grow()
             .down()
@@ -747,6 +748,7 @@ impl Render for OrbitalContext {
                     .down()
                     .invisible()
                     .with_child(inner_topbar)
+                    .with_child(favorites)
                     .with_child(throttle_controls)
                     .with_child(thruster_controls),
             )

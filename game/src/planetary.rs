@@ -148,6 +148,7 @@ pub struct GameState {
     pub vehicles: HashMap<OrbiterId, Vehicle>,
     pub starfield: Vec<(Vec3, Srgba, f32, f32)>,
     pub rpos: HashMap<OrbiterId, RPO>,
+    pub favorites: HashSet<OrbiterId>,
 
     pub scenes: Vec<Scene>,
     pub current_scene_idx: usize,
@@ -235,6 +236,7 @@ impl Default for GameState {
             constellations: HashMap::new(),
             starfield: generate_starfield(),
             rpos: HashMap::new(),
+            favorites: HashSet::new(),
             scenes: vec![
                 Scene::main_menu(),
                 Scene::orbital(),
@@ -289,6 +291,12 @@ impl Default for GameState {
             let orbit = get_random_orbit(PlanetId(1));
             if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {
                 g.spawn_with_random_perturbance(orbit, vehicle);
+            }
+        }
+
+        for (id, _) in &g.orbiters {
+            if g.favorites.len() < 5 && rand(0.0, 1.0) < 0.05 {
+                g.favorites.insert(*id);
             }
         }
 
@@ -570,7 +578,7 @@ impl GameState {
         let id = self.ids.next();
         self.orbiters
             .insert(id, Orbiter::new(GlobalOrbit(parent, orbit), self.sim_time));
-        let name = vehicle.name().clone();
+        let name = vehicle.name().to_string();
         self.vehicles.insert(id, vehicle);
         self.notice(format!(
             "Spawned {} {} in orbit around {}",
@@ -885,6 +893,8 @@ impl GameState {
             OnClick::NormalizeCraft => self.editor_context.normalize_coordinates(),
             OnClick::ToggleThruster(idx) => _ = self.toggle_piloting_thruster(idx),
             OnClick::SwapOwnshipTarget => _ = self.swap_ownship_target(),
+            OnClick::AddToFavorites(id) => _ = self.favorites.insert(id),
+            OnClick::RemoveFromFavorites(id) => _ = self.favorites.remove(&id),
 
             _ => info!("Unhandled button event: {id:?}"),
         };
@@ -916,7 +926,7 @@ impl GameState {
     }
 
     pub fn physics_mode(&self) -> PhysicsMode {
-        if self.sim_speed <= 0 {
+        if self.sim_speed <= 1 {
             PhysicsMode::RealTime
         } else {
             PhysicsMode::Limited
@@ -1074,24 +1084,28 @@ impl GameState {
         let mut burns = Vec::new();
 
         // handle discrete physics
-        let piloting = self.piloting();
         for (id, vehicle) in self.vehicles.iter_mut() {
-            let is_piloting = piloting == Some(*id);
-            let forwards = is_piloting && self.input.is_pressed(KeyCode::ArrowUp);
-            let backwards = is_piloting && self.input.is_pressed(KeyCode::ArrowDown);
-            let control = if forwards {
+            let is_pilot = Some(*id) == self.orbital_context.piloting;
+            let is_rcs = self.input.is_pressed(KeyCode::ControlLeft);
+            let control = if !is_pilot {
+                Vec2::ZERO
+            } else if self.input.is_pressed(KeyCode::ArrowUp) {
                 Vec2::X
-            } else if backwards {
+            } else if self.input.is_pressed(KeyCode::ArrowDown) {
                 -Vec2::X
+            } else if self.input.is_pressed(KeyCode::ArrowLeft) && is_rcs {
+                Vec2::Y
+            } else if self.input.is_pressed(KeyCode::ArrowRight) && is_rcs {
+                -Vec2::Y
             } else {
                 Vec2::ZERO
             };
-            let mode = match is_piloting {
-                false => PhysicsMode::Limited,
-                true => mode,
-            };
+            // let mode = match self.favorites.contains(id) {
+            //     false => PhysicsMode::Limited,
+            //     true => mode,
+            // };
             let throttle = self.orbital_context.throttle.to_ratio();
-            let dv = vehicle.step(s, control, throttle, mode);
+            let dv = vehicle.step(s, control, throttle, is_rcs, mode);
             if dv.length() > 0.0 {
                 simulate(&mut self.orbiters, &planets, s, d);
                 burns.push((*id, dv));

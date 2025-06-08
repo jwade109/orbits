@@ -445,8 +445,39 @@ impl Render for EditorContext {
             TEAL.with_alpha(0.1),
         );
 
-        let cursor = state.input.position(MouseButt::Hover, FrameId::Current)?;
-        let c = ctx.c2w(cursor);
+        if let Some(cursor) = state.input.position(MouseButt::Hover, FrameId::Current) {
+            let c = ctx.c2w(cursor);
+
+            let discrete = IVec2::new(
+                (c.x / 10.0).round() as i32 * 10,
+                (c.y / 10.0).round() as i32 * 10,
+            );
+
+            for dx in (-100..=100).step_by(10) {
+                for dy in (-100..=100).step_by(10) {
+                    let s = IVec2::new(dx, dy);
+                    let p = discrete - s;
+                    let d = (s.length_squared() as f32).sqrt();
+                    let alpha = 0.2 * (1.0 - d / 100.0);
+                    if alpha > 0.01 {
+                        draw_diamond(gizmos, ctx.w2c(p.as_vec2()), 7.0, GRAY.with_alpha(alpha));
+                    }
+                }
+            }
+
+            if let Some((p, rot, part)) = ctx.get_part_at(vfloor(c)) {
+                let wh = dims_with_rotation(rot, &part).as_ivec2();
+                let q = p + wh;
+                let r = p + IVec2::X * wh.x;
+                let s = p + IVec2::Y * wh.y;
+                let aabb = aabb_for_part(p, rot, &part);
+                draw_and_fill_aabb(gizmos, ctx.w2c_aabb(aabb), TEAL.with_alpha(0.6));
+                for p in [p, q, r, s] {
+                    let p = p.as_vec2();
+                    draw_cross(gizmos, ctx.w2c(p), 0.5 * ctx.scale(), TEAL.with_alpha(0.6));
+                }
+            }
+        }
 
         draw_circle(
             gizmos,
@@ -454,19 +485,6 @@ impl Render for EditorContext {
             radius * ctx.scale() * PIXELS_PER_METER,
             RED.with_alpha(0.1),
         );
-
-        if let Some((p, rot, part)) = ctx.get_part_at(vfloor(c)) {
-            let wh = dims_with_rotation(rot, &part).as_ivec2();
-            let q = p + wh;
-            let r = p + IVec2::X * wh.x;
-            let s = p + IVec2::Y * wh.y;
-            let aabb = aabb_for_part(p, rot, &part);
-            draw_and_fill_aabb(gizmos, ctx.w2c_aabb(aabb), TEAL.with_alpha(0.6));
-            for p in [p, q, r, s] {
-                let p = p.as_vec2();
-                draw_cross(gizmos, ctx.w2c(p), 0.5 * ctx.scale(), TEAL.with_alpha(0.6));
-            }
-        }
 
         if let Some((p, current_part)) = Self::current_part_and_cursor_position(state) {
             let current_pixels = Self::occupied_pixels(p, ctx.rotation, &current_part);
@@ -489,23 +507,6 @@ impl Render for EditorContext {
             }
         }
 
-        let discrete = IVec2::new(
-            (c.x / 10.0).round() as i32 * 10,
-            (c.y / 10.0).round() as i32 * 10,
-        );
-
-        for dx in (-100..=100).step_by(10) {
-            for dy in (-100..=100).step_by(10) {
-                let s = IVec2::new(dx, dy);
-                let p = discrete - s;
-                let d = (s.length_squared() as f32).sqrt();
-                let alpha = 0.2 * (1.0 - d / 100.0);
-                if alpha > 0.01 {
-                    draw_diamond(gizmos, ctx.w2c(p.as_vec2()), 7.0, GRAY.with_alpha(alpha));
-                }
-            }
-        }
-
         draw_vehicle(
             gizmos,
             &ctx.vehicle,
@@ -513,6 +514,26 @@ impl Render for EditorContext {
             ctx.scale * PIXELS_PER_METER,
             0.0,
         );
+
+        // COM
+        let com = ctx.vehicle.center_of_mass() * PIXELS_PER_METER;
+        draw_circle(gizmos, ctx.w2c(com), 7.0, ORANGE);
+        draw_x(gizmos, ctx.w2c(com), 7.0, WHITE);
+
+        // thrust envelope
+        for (rcs, color) in [(false, RED), (true, BLUE)] {
+            let positions: Vec<_> = linspace(0.0, 2.0 * PI, 200)
+                .into_iter()
+                .map(|a| {
+                    let thrust: f32 = ctx.vehicle.max_thrust_along_heading(a, rcs);
+                    let r = (1.0 + thrust.abs().sqrt() / 100.0)
+                        * ctx.vehicle.bounding_radius()
+                        * PIXELS_PER_METER;
+                    ctx.w2c(rotate(Vec2::X * r, a))
+                })
+                .collect();
+            gizmos.linestrip_2d(positions, color.with_alpha(0.6));
+        }
 
         Some(())
     }

@@ -34,6 +34,8 @@ pub enum OnClick {
     ClearTarget,
     ClearPilot,
     SwapOwnshipTarget,
+    AddToFavorites(OrbiterId),
+    RemoveFromFavorites(OrbiterId),
     SelectPart(String),
     ToggleLayer(PartLayer),
     LoadVehicle(PathBuf),

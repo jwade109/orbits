@@ -12,6 +12,8 @@ pub struct Thruster {
     throttle: f32,
 }
 
+pub const THRUSTER_DEAD_BAND: f32 = 0.10; // minimum 10 percent throttle
+
 impl Thruster {
     pub fn new(proto: ThrusterProto, pos: Vec2, angle: f32) -> Self {
         Thruster {
@@ -42,7 +44,7 @@ impl Thruster {
     }
 
     pub fn is_thrusting(&self) -> bool {
-        self.throttle > 0.01
+        self.throttle > THRUSTER_DEAD_BAND
     }
 
     pub fn throttle(&self) -> f32 {

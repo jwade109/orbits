@@ -8,3 +8,4 @@
 - motherships with "fabrication bays"
 - material reclamation
 - pinned vehicles/planets
+- scripting system

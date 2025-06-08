@@ -265,3 +265,23 @@ parts:
   - -63
   - -58
   rot: East
+- partname: rcs
+  pos:
+  - -127
+  - -54
+  rot: South
+- partname: rcs
+  pos:
+  - -127
+  - 49
+  rot: South
+- partname: rcs
+  pos:
+  - -33
+  - 49
+  rot: North
+- partname: rcs
+  pos:
+  - -33
+  - -54
+  rot: North

@@ -4,6 +4,7 @@ use crate::math::{cross2d, rand, randint, rotate, IVec2, UVec2, Vec2, PI};
 use crate::nanotime::Nanotime;
 use crate::orbits::{wrap_0_2pi, wrap_pi_npi};
 use crate::parts::{
+    magnetorquer::Magnetorquer,
     parts::{PartClass, PartProto},
     tank::Tank,
     thruster::Thruster,
@@ -84,13 +85,17 @@ pub struct Vehicle {
     ctrl: VehicleController,
     angular_velocity: f32,
     thrusters: Vec<Thruster>,
+    magnetorquers: Vec<Magnetorquer>,
     tanks: Vec<Tank>,
     bounding_radius: f32,
+    center_of_mass: Vec2,
     pub inventory: Inventory,
     pub max_fuel_mass: f32,
     pub dry_mass: f32,
     pub exhaust_velocity: f32,
     pub parts: Vec<(IVec2, Rotation, PartProto)>,
+    pub velocity_stamp: Nanotime,
+    pub stored_delta_velocity: Vec2,
 }
 
 impl Vehicle {
@@ -141,16 +146,31 @@ impl Vehicle {
             .collect();
 
         let mut bounding_radius = 1.0;
-        for (pos, _, part) in &parts {
+        for (pos, rot, part) in &parts {
             let pos = pos.as_vec2() / crate::parts::parts::PIXELS_PER_METER;
-            let w = part.width_meters();
-            let h = part.height_meters();
-            let r = Vec2::new(w, h).length();
-            let d = pos.length() + r;
-            if d > bounding_radius {
-                bounding_radius = d;
+            let dims = meters_with_rotation(*rot, part);
+            let bounds = AABB::from_arbitrary(pos, pos + dims);
+            for corners in bounds.corners() {
+                let d = corners.length();
+                if d > bounding_radius {
+                    bounding_radius = d;
+                }
             }
         }
+
+        let center_of_mass = if parts.is_empty() {
+            Vec2::ZERO
+        } else {
+            let sum: Vec2 = parts
+                .iter()
+                .map(|(pos, rot, part)| {
+                    let dims = meters_with_rotation(*rot, part);
+                    pos.as_vec2() / crate::parts::parts::PIXELS_PER_METER + dims / 2.0
+                })
+                .sum();
+
+            sum / parts.len() as f32
+        };
 
         Self {
             max_fuel_mass: 0.0,
@@ -163,9 +183,16 @@ impl Vehicle {
             angular_velocity: rand(-0.3, 0.3),
             tanks,
             thrusters,
+            magnetorquers: vec![Magnetorquer {
+                max_torque: 10000.0,
+                current_torque: 0.0,
+            }],
             inventory: random_sat_inventory(),
             parts,
             bounding_radius,
+            center_of_mass,
+            velocity_stamp: Nanotime::zero(),
+            stored_delta_velocity: Vec2::ZERO,
         }
     }
 
@@ -195,6 +222,34 @@ impl Vehicle {
         } else {
             self.thrusters.iter().map(|t| t.proto.thrust).sum()
         }
+    }
+
+    pub fn max_thrust_along_heading(&self, angle: f32, rcs: bool) -> f32 {
+        if self.thrusters.is_empty() {
+            return 0.0;
+        }
+
+        let u = rotate(Vec2::X, angle);
+
+        self.thrusters
+            .iter()
+            .map(|t| {
+                if t.proto.is_rcs != rcs {
+                    return 0.0;
+                }
+                let v = t.pointing();
+                let dot = u.dot(v);
+                if dot < 0.9 {
+                    0.0
+                } else {
+                    dot * t.proto.thrust
+                }
+            })
+            .sum()
+    }
+
+    pub fn center_of_mass(&self) -> Vec2 {
+        self.center_of_mass
     }
 
     pub fn accel(&self) -> f32 {
@@ -227,6 +282,10 @@ impl Vehicle {
         self.is_controllable() && self.remaining_dv() < 10.0
     }
 
+    pub fn is_thrusting(&self) -> bool {
+        self.thrusters.iter().any(|t| t.is_thrusting())
+    }
+
     pub fn try_impulsive_burn(&mut self, dv: Vec2) -> Option<()> {
         if dv.length() > self.remaining_dv() {
             return None;
@@ -253,11 +312,33 @@ impl Vehicle {
         self.fuel_mass() / self.max_fuel_mass
     }
 
-    pub fn name(&self) -> &String {
+    pub fn name(&self) -> &str {
         &self.name
     }
 
-    fn step_full_physics(&mut self, stamp: Nanotime, control: Vec2, throttle: f32) -> (Vec2, f32) {
+    fn current_angular_acceleration(&self) -> f32 {
+        let mut aa = 0.0;
+        let moa = self.wet_mass(); // TODO
+        for t in &self.thrusters {
+            let torque = cross2d(t.pos, t.pointing()) * t.throttle() * t.proto.thrust;
+            aa += torque / moa;
+        }
+        for t in &self.magnetorquers {
+            aa += t.current_torque / moa;
+        }
+        aa
+    }
+
+    fn current_linear_acceleration(&self) -> Vec2 {
+        let mut a = Vec2::ZERO;
+        let mass = self.wet_mass();
+        for t in &self.thrusters {
+            a += rotate(t.pointing(), self.angle) * t.proto.thrust / mass * t.throttle();
+        }
+        a
+    }
+
+    fn step_thrust_control(&mut self, stamp: Nanotime, control: Vec2, throttle: f32, is_rcs: bool) {
         if self.is_controllable() {
             if let VehicleController::Attitude(target_angle) = &mut self.ctrl {
                 *target_angle = wrap_0_2pi(*target_angle);
@@ -268,66 +349,40 @@ impl Vehicle {
                     kp * wrap_pi_npi(*target_angle - self.angle) - kd * self.angular_velocity;
 
                 for t in &mut self.thrusters {
-                    if t.proto.is_rcs {
-                        let torque = cross2d(t.pos, t.pointing());
-                        let thrusting = torque.signum() == error.signum() && error.abs() > 0.2;
-                        t.set_thrusting(
-                            if thrusting {
-                                (error.abs() / 5.0).min(1.0)
-                            } else {
-                                0.0
-                            },
-                            stamp,
-                        );
-                    } else {
-                        let u = t.pointing();
-                        let thrusting = u.dot(control) > 0.8;
-                        t.set_thrusting(if thrusting { throttle } else { 0.0 }, stamp);
-                    }
+                    let u = t.pointing();
+                    let is_torque = t.proto.is_rcs && {
+                        let torque = cross2d(t.pos, u);
+                        torque.signum() == error.signum() && error.abs() > 6.0
+                    };
+                    let is_linear = t.proto.is_rcs == is_rcs && u.dot(control) > 0.9;
+                    let thrusting = is_linear || is_torque;
+                    t.set_thrusting(if thrusting { throttle } else { 0.0 }, stamp);
+                }
+                for t in &mut self.magnetorquers {
+                    t.set_torque(error * 1000.0);
                 }
             }
         } else {
             self.ctrl = VehicleController::None;
         }
-
-        let mut accel = Vec2::ZERO;
-
-        let mut angular_acceleration = 0.0;
-        for t in &self.thrusters {
-            if !t.is_thrusting() {
-                continue;
-            }
-            accel +=
-                rotate(t.pointing(), self.angle) * t.proto.thrust / self.wet_mass() * t.throttle();
-            let torque = cross2d(t.pos, t.pointing()) * t.throttle();
-            angular_acceleration += torque / 4000.0 * t.proto.thrust;
-        }
-
-        (accel, angular_acceleration)
     }
 
-    fn step_limited_physics(&mut self, stamp: Nanotime) -> (Vec2, f32) {
+    fn set_zero_thrust(&mut self, stamp: Nanotime) {
         for t in &mut self.thrusters {
             t.set_thrusting(0.0, stamp);
         }
-        (Vec2::ZERO, 0.0)
+        for t in &mut self.magnetorquers {
+            t.current_torque = 0.0;
+        }
     }
 
-    pub fn step(
-        &mut self,
-        stamp: Nanotime,
-        control: Vec2,
-        throttle: f32,
-        mode: PhysicsMode,
-    ) -> Vec2 {
+    fn iter_physics(&mut self, stamp: Nanotime) {
         let dt = stamp - self.stamp;
 
-        let (linear, angular) = match mode {
-            PhysicsMode::Limited => self.step_limited_physics(stamp),
-            PhysicsMode::RealTime => self.step_full_physics(stamp, control, throttle),
-        };
+        let a = self.current_linear_acceleration();
+        let aa = self.current_angular_acceleration();
 
-        self.angular_velocity += angular * dt.to_secs();
+        self.angular_velocity += aa * dt.to_secs();
 
         self.angular_velocity = self.angular_velocity.clamp(-2.0, 2.0);
 
@@ -335,7 +390,40 @@ impl Vehicle {
         self.angle = wrap_0_2pi(self.angle);
         self.stamp = stamp;
 
-        linear * dt.to_secs()
+        let dv = a * dt.to_secs();
+
+        if dv.length() > 0.0 {
+            if self.stored_delta_velocity.length() > 0.0 {
+                self.velocity_stamp = stamp;
+            }
+            self.stored_delta_velocity += dv;
+        }
+    }
+
+    pub fn step(
+        &mut self,
+        stamp: Nanotime,
+        control: Vec2,
+        throttle: f32,
+        is_rcs: bool,
+        mode: PhysicsMode,
+    ) -> Vec2 {
+        match mode {
+            PhysicsMode::Limited => self.set_zero_thrust(stamp),
+            PhysicsMode::RealTime => self.step_thrust_control(stamp, control, throttle, is_rcs),
+        };
+
+        self.iter_physics(stamp);
+
+        let dt = stamp - self.velocity_stamp;
+
+        if self.velocity_stamp != Nanotime::zero() && dt > Nanotime::secs(1) {
+            let ret = self.stored_delta_velocity;
+            self.stored_delta_velocity = Vec2::ZERO;
+            ret
+        } else {
+            Vec2::ZERO
+        }
     }
 
     pub fn pointing(&self) -> Vec2 {

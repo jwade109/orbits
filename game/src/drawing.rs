@@ -368,10 +368,7 @@ pub fn make_separation_graph(
     let mut g = Graph::linspace(0.0, 48.0, 100);
     let mut v = Graph::linspace(0.0, 48.0, 100);
 
-    let teval = tspace(now, now + Nanotime::hours(16), 300)
-        .iter()
-        .map(|t| t.floor(Nanotime::PER_SEC))
-        .collect();
+    let teval = tspace(now, now + Nanotime::hours(16), 300);
 
     let pv = apply(&teval, |t| {
         let p = src.pv(t).ok().unwrap_or(PV::NAN);
@@ -411,6 +408,36 @@ pub fn make_separation_graph(
     (g, v, pv)
 }
 
+pub fn draw_favorites(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
+    let dims = state.input.screen_bounds.span;
+    let leftmost = dims / 2.0 - Vec2::splat(180.0);
+
+    for (i, id) in state.favorites.iter().enumerate() {
+        if i > 5 {
+            continue;
+        }
+
+        let vehicle = match state.vehicles.get(id) {
+            Some(v) => v,
+            None => continue,
+        };
+
+        let size = 200.0;
+        let rb = vehicle.bounding_radius();
+
+        let pos = leftmost - Vec2::X * i as f32 * size * 1.1;
+
+        draw_vehicle(gizmos, vehicle, pos, size / (rb * 2.0), vehicle.angle());
+        let color = if Some(*id) == state.piloting() {
+            TEAL.with_alpha(0.3)
+        } else {
+            GRAY.with_alpha(0.2)
+        };
+        draw_circle(gizmos, pos, size / 2.0, color);
+    }
+    Some(())
+}
+
 pub fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let ctx = &state.orbital_context;
 
@@ -431,12 +458,7 @@ pub fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<(
         -window_dims.y / 2.0 + r * 1.2,
     );
 
-    let angle = match state.physics_mode() {
-        PhysicsMode::Limited => 0.0,
-        PhysicsMode::RealTime => vehicle.angle(),
-    };
-
-    draw_vehicle(gizmos, &vehicle, center, zoom, angle);
+    draw_vehicle(gizmos, &vehicle, center, zoom, vehicle.angle());
 
     draw_counter(gizmos, rb as u64, center + Vec2::Y * r, WHITE);
 
@@ -521,11 +543,10 @@ fn draw_orbiter(gizmos: &mut Gizmos, state: &GameState, id: OrbiterId) -> Option
     let tracked = state.orbital_context.selected.contains(&id);
     let piloting = state.piloting() == Some(id);
     let targeting = state.targeting() == Some(id);
+    let vehicle = state.vehicles.get(&id);
 
-    let low_fuel = match state.vehicles.get(&id) {
-        Some(v) => v.low_fuel(),
-        None => false,
-    };
+    let low_fuel = vehicle.map(|v| v.low_fuel()).unwrap_or(false);
+    let is_thrusting = vehicle.map(|v| v.is_thrusting()).unwrap_or(false);
 
     let lup = state.lup_orbiter(id, state.sim_time)?;
     let pv = lup.pv();
@@ -546,6 +567,10 @@ fn draw_orbiter(gizmos: &mut Gizmos, state: &GameState, id: OrbiterId) -> Option
         draw_circle(gizmos, screen_pos, size, TEAL);
     } else if blinking && low_fuel {
         draw_triangle(gizmos, screen_pos, size, BLUE);
+    }
+
+    if is_thrusting {
+        draw_diamond(gizmos, screen_pos, 16.0, RED);
     }
 
     let show_orbits = match ctx.show_orbits {
@@ -1206,6 +1231,8 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState) {
     draw_scale_indicator(gizmos, state);
 
     draw_piloting_overlay(gizmos, state);
+
+    draw_favorites(gizmos, state);
 
     for (id, rpo) in &state.rpos {
         draw_rpo(gizmos, state, *id, rpo);

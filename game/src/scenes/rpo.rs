@@ -66,15 +66,19 @@ impl Render for RPOContext {
             );
         }
 
-        for id in [target, piloting] {
-            let lup = match state.lup_orbiter(id, state.sim_time) {
+        for (id, _) in &state.orbiters {
+            let lup = match state.lup_orbiter(*id, state.sim_time) {
                 Some(lup) => lup,
                 None => continue,
             };
 
             let pv = (lup.pv() - origin) * 1000.0f32;
 
-            if id == piloting {
+            if pv.pos.length() > 10000.0 {
+                continue;
+            }
+
+            if *id != target {
                 draw_circle(gizmos, ctx.w2c(pv.pos_f32()), 7.0, RED);
             }
 

@@ -37,12 +37,14 @@ pub fn keyboard_input(
     }
 
     for key in keys.get_pressed() {
-        let e = match key {
-            KeyCode::KeyK => InteractionEvent::Spawn,
-            KeyCode::ArrowUp => InteractionEvent::Thrust(1),
-            KeyCode::ArrowDown => InteractionEvent::Thrust(-1),
-            KeyCode::ArrowLeft => InteractionEvent::TurnLeft,
-            KeyCode::ArrowRight => InteractionEvent::TurnRight,
+        let e = match (keys.pressed(KeyCode::ControlLeft), key) {
+            (_, KeyCode::KeyK) => InteractionEvent::Spawn,
+            (_, KeyCode::ArrowUp) => InteractionEvent::Thrust(1),
+            (_, KeyCode::ArrowDown) => InteractionEvent::Thrust(-1),
+            (false, KeyCode::ArrowLeft) => InteractionEvent::TurnLeft,
+            (false, KeyCode::ArrowRight) => InteractionEvent::TurnRight,
+            (true, KeyCode::ArrowLeft) => InteractionEvent::StrafeLeft,
+            (true, KeyCode::ArrowRight) => InteractionEvent::StrafeRight,
             _ => continue,
         };
 

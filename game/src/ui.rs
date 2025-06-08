@@ -55,6 +55,8 @@ pub enum InteractionEvent {
     Thrust(i8),
     TurnLeft,
     TurnRight,
+    StrafeLeft,
+    StrafeRight,
 }
 
 pub struct UiPlugin;
@@ -141,6 +143,7 @@ fn context_menu(rowsize: f32, items: &[(String, OnClick, bool)]) -> Node<OnClick
 
 pub const DELETE_SOMETHING_COLOR: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
 pub const UI_BACKGROUND_COLOR: [f32; 4] = [0.05, 0.05, 0.05, 1.0];
+pub const PILOT_FAVORITES_COLOR: [f32; 4] = [0.8, 0.8, 0.2, 1.0];
 
 pub fn main_menu_layout(state: &GameState) -> Tree<OnClick> {
     let buttons = ["Load Save File", "Settings", "Exit"];
@@ -210,7 +213,7 @@ pub fn notification_bar(state: &GameState, width: Size) -> Node<OnClick> {
         }))
 }
 
-pub const BUTTON_HEIGHT: f32 = 40.0;
+pub const BUTTON_HEIGHT: f32 = 36.0;
 
 pub fn exit_prompt_overlay(w: f32, h: f32) -> Node<OnClick> {
     let window = Node::new(330, Size::Fit)
@@ -391,6 +394,33 @@ pub fn left_right_arrows(
         .invisible()
         .with_child(left)
         .with_child(right)
+}
+
+pub fn favorites_menu(state: &GameState) -> Node<OnClick> {
+    let mut wrapper = Node::structural(350, Size::Fit)
+        .down()
+        .with_child(Node::text(Size::Grow, BUTTON_HEIGHT, "Favorites").enabled(false))
+        .with_color(UI_BACKGROUND_COLOR)
+        .with_children({
+            state.favorites.iter().filter_map(|id| {
+                let name = state.vehicles.get(id).map(|v| v.name()).unwrap_or(&"?");
+                let s = format!("{} {}", name, id);
+                let b = Node::button(s, OnClick::Orbiter(*id), Size::Grow, BUTTON_HEIGHT);
+                let d = delete_wrapper(OnClick::RemoveFromFavorites(*id), b, BUTTON_HEIGHT);
+                let p = Node::button("", OnClick::SetPilot(*id), BUTTON_HEIGHT, BUTTON_HEIGHT);
+                Some(d.with_child(p.with_color(PILOT_FAVORITES_COLOR)))
+            })
+        });
+
+    if let Some(ObjectId::Orbiter(id)) = state.orbital_context.following {
+        wrapper.add_child(Node::hline());
+        let s = format!("Add {}", id);
+        let b = Node::button(s, OnClick::AddToFavorites(id), Size::Grow, BUTTON_HEIGHT)
+            .enabled(!state.favorites.contains(&id));
+        wrapper.add_child(b);
+    }
+
+    wrapper
 }
 
 pub fn throttle_controls(state: &GameState) -> Node<OnClick> {
