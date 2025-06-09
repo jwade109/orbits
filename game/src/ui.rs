@@ -1,6 +1,6 @@
-use crate::mouse::{FrameId, MouseButt};
+use crate::game::GameState;
+use crate::input::{FrameId, MouseButt};
 use crate::onclick::OnClick;
-use crate::planetary::GameState;
 use crate::scenes::*;
 use bevy::core_pipeline::bloom::Bloom;
 use bevy::prelude::*;
@@ -92,6 +92,7 @@ pub fn do_text_labels(
             &mut TextFont,
             &mut Transform,
             &mut TextColor,
+            &mut Anchor,
         ),
         With<TextLabel>,
     >,
@@ -100,12 +101,13 @@ pub fn do_text_labels(
 
     let mut labels: Vec<_> = query.iter_mut().collect();
     for (i, tl) in text_labels.iter().enumerate() {
-        if let Some((_, text2d, font, label, color)) = labels.get_mut(i) {
+        if let Some((_, text2d, font, label, color, anchor)) = labels.get_mut(i) {
             label.translation = tl.position.extend(TEXT_LABEL_Z_INDEX);
             label.scale = Vec3::splat(1.0);
             text2d.0 = tl.text.clone();
             font.font_size = 23.0 * tl.size;
             color.0 = tl.color().into();
+            **anchor = tl.anchor;
         } else {
             commands.spawn((
                 Text2d::new(tl.text.clone()),
@@ -116,11 +118,12 @@ pub fn do_text_labels(
                 Transform::from_translation(tl.position.extend(TEXT_LABEL_Z_INDEX)),
                 TextLabel,
                 TextColor(tl.color().into()),
+                tl.anchor,
             ));
         }
     }
 
-    for (i, (e, _, _, _, _)) in query.iter().enumerate() {
+    for (i, (e, _, _, _, _, _)) in query.iter().enumerate() {
         if i >= text_labels.len() {
             commands.entity(e).despawn();
         }
@@ -145,25 +148,6 @@ fn context_menu(rowsize: f32, items: &[(String, OnClick, bool)]) -> Node<OnClick
 pub const DELETE_SOMETHING_COLOR: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
 pub const UI_BACKGROUND_COLOR: [f32; 4] = [0.05, 0.05, 0.05, 1.0];
 pub const PILOT_FAVORITES_COLOR: [f32; 4] = [0.8, 0.8, 0.2, 1.0];
-
-pub fn main_menu_layout(state: &GameState) -> Tree<OnClick> {
-    let buttons = ["Load Save File", "Settings", "Exit"];
-
-    let button_color = [0.2, 0.2, 0.2, 0.7];
-    let bg_color = [0.0, 0.0, 0.0, 0.0];
-
-    let wrapper = Node::fit()
-        .down()
-        .with_color(bg_color)
-        .with_children(buttons.iter().map(|s| {
-            Node::button(s.to_string(), OnClick::Nullopt, 200, 50).with_color(button_color)
-        }))
-        .with_children(state.scenes.iter().enumerate().map(|(i, s)| {
-            Node::button(s.name(), OnClick::GoToScene(i), 200, 50).with_color(button_color)
-        }));
-
-    Tree::new().with_layout(wrapper, Vec2::splat(300.0))
-}
 
 pub fn top_bar(state: &GameState) -> Node<OnClick> {
     Node::row(Size::Fit)
@@ -470,7 +454,7 @@ pub fn throttle_controls(state: &GameState) -> Node<OnClick> {
 }
 
 pub fn sim_time_toolbar(state: &GameState) -> Node<OnClick> {
-    use crate::planetary::{MAX_SIM_SPEED, MIN_SIM_SPEED};
+    use crate::game::{MAX_SIM_SPEED, MIN_SIM_SPEED};
     Node::fit()
         .with_color(UI_BACKGROUND_COLOR)
         .with_child({
@@ -491,14 +475,15 @@ pub fn sim_time_toolbar(state: &GameState) -> Node<OnClick> {
 pub fn layout(state: &GameState) -> Tree<OnClick> {
     let scene = state.current_scene();
     match scene.kind() {
-        SceneType::MainMenu => return main_menu_layout(state),
-        SceneType::DockingView => return RPOContext::ui(state).unwrap_or(Tree::new()),
-        SceneType::Telescope => return TelescopeContext::ui(state).unwrap_or(Tree::new()),
-        SceneType::Orbital => return OrbitalContext::ui(state).unwrap_or(Tree::new()),
-        SceneType::Editor => return EditorContext::ui(state).unwrap_or(Tree::new()),
-        SceneType::CommsPanel => return CommsContext::ui(state).unwrap_or(Tree::new()),
-        SceneType::Surface => return SurfaceContext::ui(state).unwrap_or(Tree::new()),
-    };
+        SceneType::MainMenu => MainMenuContext::ui(state),
+        SceneType::DockingView => RPOContext::ui(state),
+        SceneType::Telescope => TelescopeContext::ui(state),
+        SceneType::Orbital => OrbitalContext::ui(state),
+        SceneType::Editor => EditorContext::ui(state),
+        SceneType::CommsPanel => CommsContext::ui(state),
+        SceneType::Surface => SurfaceContext::ui(state),
+    }
+    .unwrap_or(Tree::new())
 }
 
 #[allow(unused)]

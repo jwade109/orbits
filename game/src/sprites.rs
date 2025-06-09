@@ -1,4 +1,4 @@
-use crate::planetary::GameState;
+use crate::game::GameState;
 use crate::scenes::CameraProjection;
 use crate::scenes::*;
 use bevy::asset::embedded_asset;
@@ -87,7 +87,7 @@ pub fn hashable_to_color(h: &impl std::hash::Hash) -> Hsla {
 }
 
 pub fn update_background_sprite(
-    mut camera: Single<&mut Camera, With<crate::planetary::BackgroundCamera>>,
+    mut camera: Single<&mut Camera, With<crate::game::BackgroundCamera>>,
     state: Res<GameState>,
 ) {
     let c = GameState::background_color(&state);

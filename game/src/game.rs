@@ -1,5 +1,5 @@
 use crate::args::ProgramContext;
-use crate::mouse::{FrameId, InputState, MouseButt};
+use crate::input::{FrameId, InputState, MouseButt};
 use crate::notifications::*;
 use crate::onclick::OnClick;
 use crate::scenes::{
@@ -19,9 +19,9 @@ use layout::layout::Tree;
 use starling::prelude::*;
 use std::collections::{HashMap, HashSet};
 
-pub struct PlanetaryPlugin;
+pub struct GamePlugin;
 
-impl Plugin for PlanetaryPlugin {
+impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, init_system);
 
@@ -30,7 +30,7 @@ impl Plugin for PlanetaryPlugin {
             (
                 crate::keybindings::keyboard_input,
                 handle_interactions,
-                crate::mouse::update_input_state,
+                crate::input::update_input_state,
                 // physics
                 step_system,
                 // rendering
@@ -57,7 +57,7 @@ fn sound_system(
     if state.button_was_pressed {
         match std::fs::canonicalize(state.args.audio_dir().join("button-up.ogg")) {
             Ok(path) => _ = commands.spawn((AudioPlayer::new(asset_server.load(path)),)),
-            Err(e) => _ = dbg!(e),
+            Err(e) => _ = error!("Failed to play sound: {}", e),
         }
         state.button_was_pressed = false;
     }
@@ -392,6 +392,10 @@ impl GameState {
     pub fn redraw(&mut self) {
         self.redraw_requested = true;
         self.last_redraw = Nanotime::zero()
+    }
+
+    pub fn reload(&mut self) {
+        *self = GameState::new(self.args.clone());
     }
 
     pub fn set_piloting(&mut self, id: OrbiterId) {
@@ -923,6 +927,7 @@ impl GameState {
             OnClick::SwapOwnshipTarget => _ = self.swap_ownship_target(),
             OnClick::AddToFavorites(id) => _ = self.favorites.insert(id),
             OnClick::RemoveFromFavorites(id) => _ = self.favorites.remove(&id),
+            OnClick::ReloadGame => _ = self.reload(),
 
             _ => info!("Unhandled button event: {id:?}"),
         };

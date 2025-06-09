@@ -1,9 +1,9 @@
 use crate::drawing::*;
+use crate::game::GameState;
 use crate::graph::Graph;
-use crate::mouse::InputState;
-use crate::mouse::{FrameId, MouseButt};
+use crate::input::InputState;
+use crate::input::{FrameId, MouseButt};
 use crate::onclick::OnClick;
-use crate::planetary::GameState;
 use crate::scenes::{CameraProjection, Render, StaticSpriteDescriptor, TextLabel};
 use bevy::color::palettes::css::*;
 use bevy::input::keyboard::KeyCode;

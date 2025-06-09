@@ -1,6 +1,6 @@
 use crate::drawing::*;
+use crate::game::GameState;
 use crate::onclick::OnClick;
-use crate::planetary::GameState;
 use crate::scenes::{CameraProjection, Render, StaticSpriteDescriptor, TextLabel};
 use bevy::color::{palettes::css::*, Luminance};
 use bevy::prelude::*;

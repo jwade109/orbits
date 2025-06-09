@@ -1,7 +1,8 @@
+use crate::game::GameState;
 use crate::onclick::OnClick;
-use crate::planetary::GameState;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
+use bevy::sprite::Anchor;
 use layout::layout::Tree;
 use starling::math::Vec2;
 
@@ -10,6 +11,7 @@ pub struct TextLabel {
     pub position: Vec2,
     pub size: f32,
     color: Srgba,
+    pub anchor: Anchor,
 }
 
 impl TextLabel {
@@ -19,11 +21,17 @@ impl TextLabel {
             position,
             size,
             color: WHITE,
+            anchor: Anchor::Center,
         }
     }
 
     pub fn with_color(mut self, color: Srgba) -> Self {
         self.color = color;
+        self
+    }
+
+    pub fn anchor_left(mut self) -> Self {
+        self.anchor = Anchor::CenterLeft;
         self
     }
 

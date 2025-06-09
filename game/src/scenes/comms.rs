@@ -1,5 +1,5 @@
+use crate::game::GameState;
 use crate::onclick::OnClick;
-use crate::planetary::GameState;
 use crate::scenes::{Render, StaticSpriteDescriptor, TextLabel};
 use crate::ui::{BUTTON_HEIGHT, UI_BACKGROUND_COLOR};
 use bevy::color::palettes::css::*;

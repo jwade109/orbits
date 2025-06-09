@@ -1,11 +1,11 @@
 pub mod args;
 pub mod drawing;
+pub mod game;
 pub mod graph;
+pub mod input;
 pub mod keybindings;
-pub mod mouse;
 pub mod notifications;
 pub mod onclick;
-pub mod planetary;
 pub mod scenes;
 pub mod sprites;
 pub mod ui;

@@ -2,166 +2,166 @@ name: ''
 parts:
 - partname: frame3
   pos:
-  - -5
+  - -12
   - 3
   rot: South
 - partname: tank22
   pos:
-  - -10
+  - -17
   - 43
   rot: East
 - partname: frame22
   pos:
-  - -10
+  - -17
   - 43
   rot: East
 - partname: frame3
   pos:
-  - -5
+  - -12
   - -37
   rot: South
 - partname: frame2
   pos:
-  - -20
+  - -27
   - 53
   rot: North
 - partname: frame2
   pos:
-  - -20
+  - -27
   - 43
   rot: West
 - partname: plate
   pos:
-  - -20
+  - -27
   - 48
   rot: West
 - partname: plate
   pos:
-  - -10
+  - -17
   - 48
   rot: West
 - partname: plate
   pos:
-  - 0
+  - -7
   - 48
   rot: West
 - partname: plate
   pos:
-  - -5
+  - -12
   - 38
   rot: West
 - partname: plate
   pos:
-  - -5
+  - -12
   - 28
   rot: West
 - partname: tank22
   pos:
-  - 10
+  - 3
   - 43
   rot: South
 - partname: frame22
   pos:
-  - 10
+  - 3
   - 43
   rot: South
 - partname: frame3
   pos:
-  - -20
+  - -27
   - 63
   rot: East
 - partname: cpu
   pos:
-  - -9
+  - -16
   - 64
   rot: East
 - partname: battery
   pos:
-  - 1
+  - -6
   - 64
   rot: East
 - partname: battery
   pos:
-  - 11
+  - 4
   - 64
   rot: East
 - partname: small-antenna
   pos:
-  - 20
+  - 13
   - 65
   rot: South
 - partname: plate
   pos:
-  - 10
+  - 3
   - 48
   rot: West
 - partname: plate
   pos:
-  - -20
+  - -27
   - 58
   rot: West
 - partname: rcs
   pos:
-  - 24
+  - 17
   - 39
   rot: East
 - partname: rcs
   pos:
-  - -20
+  - -27
   - 73
   rot: West
 - partname: rcs
   pos:
-  - 14
+  - 7
   - 73
   rot: West
 - partname: frame3
   pos:
-  - -5
+  - -12
   - -77
   rot: South
 - partname: rcs
   pos:
-  - 5
+  - -2
   - -77
   rot: North
 - partname: rcs
   pos:
-  - -9
+  - -16
   - -77
   rot: South
 - partname: rcs
   pos:
-  - -9
+  - -16
   - -68
   rot: South
 - partname: rcs
   pos:
-  - 5
+  - -2
   - -68
   rot: North
 - partname: frame2
   pos:
-  - -15
+  - -22
   - 3
   rot: South
 - partname: rcs
   pos:
-  - -15
+  - -22
   - -1
   rot: East
-- partname: motor
-  pos:
-  - -24
-  - 21
-  rot: South
 - partname: rcs
   pos:
-  - 30
+  - 23
   - 50
   rot: North
 - partname: rcs
   pos:
-  - -24
+  - -31
   - 50
+  rot: South
+- partname: motor
+  pos:
+  - -33
+  - 23
   rot: South

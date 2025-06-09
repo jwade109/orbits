@@ -5,11 +5,11 @@ use bevy::color::palettes::css::ORANGE;
 use bevy::prelude::*;
 use starling::prelude::*;
 
+use crate::game::GameState;
 use crate::graph::*;
-use crate::mouse::{FrameId, MouseButt};
+use crate::input::{FrameId, MouseButt};
 use crate::notifications::*;
 use crate::onclick::OnClick;
-use crate::planetary::GameState;
 use crate::scenes::*;
 
 pub fn draw_cross(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {

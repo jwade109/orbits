@@ -1,4 +1,4 @@
-use crate::planetary::GameState;
+use crate::game::GameState;
 use crate::scenes::CameraProjection;
 use bevy::input::keyboard::KeyboardInput;
 use bevy::input::mouse::MouseWheel;

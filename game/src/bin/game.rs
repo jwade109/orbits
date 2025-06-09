@@ -14,7 +14,7 @@ fn main() {
             primary_window: Some(window),
             ..default()
         }))
-        .add_plugins(game::planetary::PlanetaryPlugin {})
+        .add_plugins(game::game::GamePlugin {})
         .add_plugins(game::sprites::SpritePlugin {})
         .add_plugins(game::ui::UiPlugin {})
         .run();

@@ -1,4 +1,4 @@
-use crate::planetary::GameState;
+use crate::game::GameState;
 use crate::ui::InteractionEvent;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
