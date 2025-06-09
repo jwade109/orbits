@@ -915,6 +915,9 @@ impl GameState {
             OnClick::RotateCraft => {
                 self.editor_context.rotate_craft();
             }
+            OnClick::ToggleVehicleInfo => {
+                self.editor_context.show_vehicle_info = !self.editor_context.show_vehicle_info;
+            }
             OnClick::NormalizeCraft => self.editor_context.normalize_coordinates(),
             OnClick::ToggleThruster(idx) => _ = self.toggle_piloting_thruster(idx),
             OnClick::SwapOwnshipTarget => _ = self.swap_ownship_target(),

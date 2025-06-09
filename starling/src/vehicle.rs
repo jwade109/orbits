@@ -384,8 +384,10 @@ impl Vehicle {
     fn current_angular_acceleration(&self) -> f32 {
         let mut aa = 0.0;
         let moa = self.wet_mass(); // TODO
+        let com = self.center_of_mass();
         for t in &self.thrusters {
-            let torque = cross2d(t.pos, t.pointing()) * t.throttle() * t.proto.thrust;
+            let lever_arm = t.pos - com;
+            let torque = cross2d(lever_arm, t.pointing()) * t.throttle() * t.proto.thrust;
             aa += torque / moa;
         }
         for t in &self.magnetorquers {
@@ -420,8 +422,14 @@ impl Vehicle {
                         torque.signum() == error.signum() && error.abs() > 6.0
                     };
                     let is_linear = t.proto.is_rcs == is_rcs && u.dot(control) > 0.9;
-                    let thrusting = is_linear || is_torque;
-                    t.set_thrusting(if thrusting { throttle } else { 0.0 }, stamp);
+                    let throttle = if is_linear {
+                        throttle
+                    } else if is_torque {
+                        error.abs()
+                    } else {
+                        0.0
+                    };
+                    t.set_thrusting(throttle, stamp);
                 }
                 for t in &mut self.magnetorquers {
                     t.set_torque(error * 1000.0);

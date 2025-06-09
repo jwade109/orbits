@@ -559,22 +559,15 @@ impl Render for EditorContext {
         let parts = part_selection(state);
         let layers = layer_selection(state);
         let vehicles = vehicle_selection(state);
-
-        let rotate = rotate_button();
-        let normalize = normalize_button();
-        let write = Node::button("OUT", OnClick::WriteVehicleToImage, 200, BUTTON_HEIGHT);
-
-        let new_button = Node::button("New", OnClick::OpenNewCraft, 350, BUTTON_HEIGHT);
+        let other_buttons = other_buttons();
 
         let main_area = Node::grow()
             .invisible()
             .with_child(parts)
             .with_child(layers)
             .with_child(vehicles)
-            .with_child(new_button)
-            .with_child(rotate)
-            .with_child(normalize)
-            .with_child(write);
+            .with_child(Node::grow().invisible())
+            .with_child(other_buttons);
 
         let layout = Node::structural(vb.span.x, vb.span.y)
             .tight()
@@ -591,14 +584,6 @@ fn aabb_for_part(p: IVec2, rot: Rotation, part: &PartProto) -> AABB {
     let wh = dims_with_rotation(rot, part).as_ivec2();
     let q = p + wh;
     AABB::from_arbitrary(p.as_vec2(), q.as_vec2())
-}
-
-fn rotate_button() -> Node<OnClick> {
-    Node::button("Rotate", OnClick::RotateCraft, 300, BUTTON_HEIGHT)
-}
-
-fn normalize_button() -> Node<OnClick> {
-    Node::button("Normalize", OnClick::NormalizeCraft, 300, BUTTON_HEIGHT)
 }
 
 fn expandable_menu(text: &str, onclick: OnClick) -> Node<OnClick> {
@@ -652,6 +637,39 @@ fn vehicle_selection(state: &GameState) -> Node<OnClick> {
     }
 
     n
+}
+
+fn other_buttons() -> Node<OnClick> {
+    let rotate = Node::button("Rotate", OnClick::RotateCraft, Size::Grow, BUTTON_HEIGHT);
+    let normalize = Node::button(
+        "Normalize",
+        OnClick::NormalizeCraft,
+        Size::Grow,
+        BUTTON_HEIGHT,
+    );
+    let write = Node::button(
+        "To Image",
+        OnClick::WriteVehicleToImage,
+        Size::Grow,
+        BUTTON_HEIGHT,
+    );
+    let new_button = Node::button("New", OnClick::OpenNewCraft, Size::Grow, BUTTON_HEIGHT);
+
+    let toggle_info = Node::button(
+        "Info",
+        OnClick::ToggleVehicleInfo,
+        Size::Grow,
+        BUTTON_HEIGHT,
+    );
+
+    Node::structural(250, Size::Fit)
+        .with_color(UI_BACKGROUND_COLOR)
+        .down()
+        .with_child(new_button)
+        .with_child(rotate)
+        .with_child(normalize)
+        .with_child(write)
+        .with_child(toggle_info)
 }
 
 fn layer_selection(state: &GameState) -> Node<OnClick> {
