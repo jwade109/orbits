@@ -493,7 +493,7 @@ pub fn layout(state: &GameState) -> Tree<OnClick> {
     match scene.kind() {
         SceneType::MainMenu => return main_menu_layout(state),
         SceneType::DockingView => return RPOContext::ui(state).unwrap_or(Tree::new()),
-        SceneType::TelescopeView => return TelescopeContext::ui(state).unwrap_or(Tree::new()),
+        SceneType::Telescope => return TelescopeContext::ui(state).unwrap_or(Tree::new()),
         SceneType::Orbital => return OrbitalContext::ui(state).unwrap_or(Tree::new()),
         SceneType::Editor => return EditorContext::ui(state).unwrap_or(Tree::new()),
         SceneType::CommsPanel => return CommsContext::ui(state).unwrap_or(Tree::new()),

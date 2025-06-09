@@ -3,9 +3,9 @@ use crate::mouse::{FrameId, InputState, MouseButt};
 use crate::notifications::*;
 use crate::onclick::OnClick;
 use crate::scenes::{
-    CameraProjection, CommsContext, CursorMode, EditorContext, Interactive, OrbitalContext,
-    RPOContext, Render, Scene, SceneType, StaticSpriteDescriptor, SurfaceContext, TelescopeContext,
-    TextLabel,
+    CameraProjection, CommsContext, CursorMode, EditorContext, Interactive, MainMenuContext,
+    OrbitalContext, RPOContext, Render, Scene, SceneType, StaticSpriteDescriptor, SurfaceContext,
+    TelescopeContext, TextLabel,
 };
 use crate::ui::InteractionEvent;
 use bevy::color::palettes::css::*;
@@ -308,12 +308,12 @@ impl Render for GameState {
     fn text_labels(state: &GameState) -> Option<Vec<TextLabel>> {
         match state.current_scene().kind() {
             SceneType::Orbital => OrbitalContext::text_labels(state),
-            SceneType::TelescopeView => TelescopeContext::text_labels(state),
+            SceneType::Telescope => TelescopeContext::text_labels(state),
             SceneType::Editor => EditorContext::text_labels(state),
             SceneType::DockingView => RPOContext::text_labels(state),
             SceneType::CommsPanel => CommsContext::text_labels(state),
             SceneType::Surface => SurfaceContext::text_labels(state),
-            SceneType::MainMenu => None,
+            SceneType::MainMenu => MainMenuContext::text_labels(state),
         }
     }
 
@@ -324,7 +324,7 @@ impl Render for GameState {
             SceneType::MainMenu | SceneType::Orbital => OrbitalContext::sprites(state),
             SceneType::CommsPanel => CommsContext::sprites(state),
             SceneType::Surface => SurfaceContext::sprites(state),
-            SceneType::TelescopeView => None,
+            SceneType::Telescope => TelescopeContext::sprites(state),
         }
     }
 
@@ -332,7 +332,7 @@ impl Render for GameState {
         match state.current_scene().kind() {
             SceneType::Orbital => OrbitalContext::background_color(state),
             SceneType::Editor => EditorContext::background_color(state),
-            SceneType::TelescopeView => TelescopeContext::background_color(state),
+            SceneType::Telescope => TelescopeContext::background_color(state),
             SceneType::DockingView => RPOContext::background_color(state),
             SceneType::MainMenu => BLACK,
             SceneType::CommsPanel => CommsContext::background_color(state),
@@ -344,7 +344,7 @@ impl Render for GameState {
         match state.current_scene().kind() {
             SceneType::Orbital => OrbitalContext::draw_gizmos(gizmos, state),
             SceneType::Editor => EditorContext::draw_gizmos(gizmos, state),
-            SceneType::TelescopeView => TelescopeContext::draw_gizmos(gizmos, state),
+            SceneType::Telescope => TelescopeContext::draw_gizmos(gizmos, state),
             SceneType::DockingView => RPOContext::draw_gizmos(gizmos, state),
             SceneType::MainMenu => draw_cells(gizmos, state),
             SceneType::CommsPanel => CommsContext::draw_gizmos(gizmos, state),
@@ -909,6 +909,9 @@ impl GameState {
             OnClick::OpenNewCraft => {
                 self.editor_context.new_craft();
             }
+            OnClick::WriteVehicleToImage => {
+                self.editor_context.write_to_image(&self.args);
+            }
             OnClick::RotateCraft => {
                 self.editor_context.rotate_craft();
             }
@@ -1249,7 +1252,7 @@ impl GameState {
                 }
                 self.orbital_context.step(&self.input, dt);
             }
-            SceneType::TelescopeView => self.telescope_context.step(&self.input, dt),
+            SceneType::Telescope => self.telescope_context.step(&self.input, dt),
             SceneType::DockingView => {
                 self.rpo_context.step(&self.input, dt);
                 if let Some((_, rpo)) = self.rpos.iter().next() {

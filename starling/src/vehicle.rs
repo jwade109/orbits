@@ -210,6 +210,34 @@ impl Vehicle {
         }
     }
 
+    pub fn parts_by_layer(&self) -> impl Iterator<Item = &(IVec2, Rotation, PartProto)> + use<'_> {
+        // TODO this doesn't support all layers automatically!
+
+        let dummy = PartLayer::Exterior;
+
+        // compile error if I add more layers
+        let _ = match dummy {
+            PartLayer::Exterior => (),
+            PartLayer::Internal => (),
+            PartLayer::Structural => (),
+        };
+
+        let x = self
+            .parts
+            .iter()
+            .filter(|(_, _, part)| part.data.layer == PartLayer::Internal);
+        let y = self
+            .parts
+            .iter()
+            .filter(|(_, _, part)| part.data.layer == PartLayer::Structural);
+        let z = self
+            .parts
+            .iter()
+            .filter(|(_, _, part)| part.data.layer == PartLayer::Exterior);
+
+        x.chain(y).chain(z)
+    }
+
     pub fn is_controllable(&self) -> bool {
         !self.thrusters.is_empty()
     }

@@ -31,7 +31,12 @@ impl Render for MainMenuContext {
     }
 
     fn text_labels(state: &GameState) -> Option<Vec<TextLabel>> {
-        None
+        let dims = state.input.screen_bounds.span;
+        let time = compile_time::datetime_str!();
+        let s = format!("Compiled on {}", time).to_uppercase();
+        let p = Vec2::new(-dims.x / 2.0 + 200.0, -dims.y / 2.0 + 100.0);
+
+        Some(vec![TextLabel::new(s, p, 0.6)])
     }
 
     fn ui(state: &GameState) -> Option<Tree<OnClick>> {

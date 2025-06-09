@@ -10,7 +10,7 @@ use bevy::color::palettes::css::*;
 use bevy::input::keyboard::{Key, KeyCode, KeyboardInput};
 use bevy::prelude::*;
 use enum_iterator::next_cycle;
-use image::{ColorType, DynamicImage, ImageFormat, ImageReader};
+use image::{ColorType, DynamicImage, ImageFormat, ImageReader, RgbaImage};
 use layout::layout::*;
 use layout::layout::{Node, Tree};
 use rfd::FileDialog;
@@ -109,6 +109,16 @@ impl EditorContext {
         self.parts.clear();
         self.current_part = None;
         self.update();
+    }
+
+    pub fn write_to_image(&self, args: &ProgramContext) {
+        let title: &str = if self.title.0.is_empty() {
+            "vehicle"
+        } else {
+            &self.title.0
+        };
+
+        write_to_image(&self.vehicle, args, title);
     }
 
     pub fn rotate_craft(&mut self) {
@@ -558,6 +568,7 @@ impl Render for EditorContext {
 
         let rotate = rotate_button();
         let normalize = normalize_button();
+        let write = Node::button("OUT", OnClick::WriteVehicleToImage, 200, BUTTON_HEIGHT);
 
         let new_button = Node::button("New", OnClick::OpenNewCraft, 350, BUTTON_HEIGHT);
 
@@ -568,7 +579,8 @@ impl Render for EditorContext {
             .with_child(vehicles)
             .with_child(new_button)
             .with_child(rotate)
-            .with_child(normalize);
+            .with_child(normalize)
+            .with_child(write);
 
         let layout = Node::structural(vb.span.x, vb.span.y)
             .tight()
@@ -747,18 +759,19 @@ impl EditorContext {
     }
 }
 
-pub fn read_image(path: PathBuf) -> Option<DynamicImage> {
-    ImageReader::open(path).ok()?.decode().ok()
+pub fn read_image(path: PathBuf) -> Option<RgbaImage> {
+    Some(image::open(path).ok()?.to_rgba8())
 }
 
 pub fn write_to_image(vehicle: &Vehicle, ctx: &ProgramContext, name: &str) -> Option<()> {
+    let outpath = format!("/tmp/{}.png", name);
+    println!("Writing vehicle {} to path {}", vehicle.name(), outpath);
     let parts_dir = ctx.parts_dir();
     let (pixel_min, pixel_max) = vehicle.pixel_bounds()?;
     let dims = pixel_max - pixel_min;
-    dbg!(dims);
     let mut img = DynamicImage::new_rgba8(dims.x as u32, dims.y as u32);
     let to_export = img.as_mut_rgba8().unwrap();
-    for (pos, rot, part) in &vehicle.parts {
+    for (pos, rot, part) in vehicle.parts_by_layer() {
         let path = parts_dir.join(&part.path).join("skin.png");
         let img = match read_image(path.clone()) {
             Some(img) => img,
@@ -768,28 +781,23 @@ pub fn write_to_image(vehicle: &Vehicle, ctx: &ProgramContext, name: &str) -> Op
             }
         };
 
-        let img = match rot {
-            Rotation::East => img.rotate180(),
-            Rotation::North => img.rotate270(),
-            Rotation::West => img,
-            Rotation::South => img.rotate90(),
-        };
-
-        let r = match img.as_rgba8() {
-            Some(r) => r,
-            None => {
-                println!("Skipping {}", path.display());
-                continue;
-            }
-        };
-
         let px = (pos.x - pixel_min.x) as u32;
         let py = (pos.y - pixel_min.y) as u32;
 
-        for x in 0..r.width() {
-            for y in 0..r.height() {
-                let src = r.get_pixel_checked(x, y);
-                let dst = to_export.get_pixel_mut_checked(px + x, py + y);
+        for x in 0..img.width() {
+            for y in 0..img.height() {
+                let p = IVec2::new(x as i32, y as i32);
+                let xp = img.width() as i32 - p.x - 1;
+                let yp = img.height() as i32 - p.y - 1;
+                let p = match *rot {
+                    Rotation::East => IVec2::new(xp, yp),
+                    Rotation::North => IVec2::new(p.y, xp),
+                    Rotation::West => IVec2::new(p.x, p.y),
+                    Rotation::South => IVec2::new(yp, p.x),
+                }
+                .as_uvec2();
+                let src = img.get_pixel_checked(x, y);
+                let dst = to_export.get_pixel_mut_checked(px + p.x, py + p.y);
                 if let Some((src, dst)) = src.zip(dst) {
                     if src.0[3] > 0 {
                         *dst = *src;
@@ -799,7 +807,7 @@ pub fn write_to_image(vehicle: &Vehicle, ctx: &ProgramContext, name: &str) -> Op
         }
     }
 
-    to_export.save(format!("/tmp/{}.png", name)).ok()
+    to_export.save(outpath).ok()
 }
 
 #[cfg(test)]
@@ -822,7 +830,7 @@ mod tests {
             .expect("Expected list of vehicles");
         dbg!(vehicles);
 
-        for name in ["remora", "lander", "pollux", "manta"] {
+        for name in ["remora", "lander", "pollux", "manta", "spacestation"] {
             let vehicle = g.get_vehicle_by_model(name).expect("Expected a vehicle");
             write_to_image(&vehicle, &args, name);
         }

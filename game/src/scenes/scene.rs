@@ -2,7 +2,7 @@
 pub enum SceneType {
     Orbital,
     DockingView,
-    TelescopeView,
+    Telescope,
     Editor,
     MainMenu,
     CommsPanel,
@@ -26,7 +26,7 @@ impl Scene {
     pub fn telescope() -> Self {
         Scene {
             name: "Telescope".into(),
-            scene_type: SceneType::TelescopeView,
+            scene_type: SceneType::Telescope,
         }
     }
 

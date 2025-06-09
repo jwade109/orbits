@@ -22,3 +22,4 @@ serde = "1.0.219"
 clap = { version = "4.5.38", features = ["derive"] }
 image = "0.25.6"
 project-root = "0.2.2"
+compile-time = "0.2.0"

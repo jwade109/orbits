@@ -46,6 +46,7 @@ pub enum OnClick {
     ToggleLayersMenuCollapsed,
     IncrementThrottle(i32),
     OpenNewCraft,
+    WriteVehicleToImage,
     RotateCraft,
     NormalizeCraft,
     ToggleThruster(usize),
