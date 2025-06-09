@@ -10,7 +10,7 @@ use bevy::color::palettes::css::*;
 use bevy::input::keyboard::{Key, KeyCode, KeyboardInput};
 use bevy::prelude::*;
 use enum_iterator::next_cycle;
-use image::{ColorType, DynamicImage, ImageFormat, ImageReader, RgbaImage};
+use image::{DynamicImage, RgbaImage};
 use layout::layout::*;
 use layout::layout::{Node, Tree};
 use rfd::FileDialog;
@@ -112,13 +112,7 @@ impl EditorContext {
     }
 
     pub fn write_to_image(&self, args: &ProgramContext) {
-        let title: &str = if self.title.0.is_empty() {
-            "vehicle"
-        } else {
-            &self.title.0
-        };
-
-        write_to_image(&self.vehicle, args, title);
+        write_to_image(&self.vehicle, args, "vehicle");
     }
 
     pub fn rotate_craft(&mut self) {
@@ -784,23 +778,40 @@ pub fn write_to_image(vehicle: &Vehicle, ctx: &ProgramContext, name: &str) -> Op
         let px = (pos.x - pixel_min.x) as u32;
         let py = (pos.y - pixel_min.y) as u32;
 
+        let color = match part.data.class {
+            PartClass::Cargo => GREEN,
+            PartClass::Thruster(_) => RED,
+            PartClass::Tank(_) => ORANGE,
+            _ => match part.data.layer {
+                PartLayer::Exterior => continue,
+                PartLayer::Internal => GRAY,
+                PartLayer::Structural => WHITE,
+            },
+        }
+        .mix(&BLACK, 0.3)
+        .to_f32_array();
+
         for x in 0..img.width() {
             for y in 0..img.height() {
                 let p = IVec2::new(x as i32, y as i32);
                 let xp = img.width() as i32 - p.x - 1;
                 let yp = img.height() as i32 - p.y - 1;
                 let p = match *rot {
-                    Rotation::East => IVec2::new(xp, yp),
-                    Rotation::North => IVec2::new(p.y, xp),
-                    Rotation::West => IVec2::new(p.x, p.y),
-                    Rotation::South => IVec2::new(yp, p.x),
+                    Rotation::East => IVec2::new(p.x, yp),
+                    Rotation::North => IVec2::new(p.y, p.x),
+                    Rotation::West => IVec2::new(xp, p.y),
+                    Rotation::South => IVec2::new(yp, xp),
                 }
                 .as_uvec2();
+
                 let src = img.get_pixel_checked(x, y);
-                let dst = to_export.get_pixel_mut_checked(px + p.x, py + p.y);
+                let dst =
+                    to_export.get_pixel_mut_checked(px + p.x, to_export.height() - (py + p.y) - 1);
                 if let Some((src, dst)) = src.zip(dst) {
                     if src.0[3] > 0 {
-                        *dst = *src;
+                        for i in 0..4 {
+                            dst.0[i] = (color[i] * 255.0) as u8;
+                        }
                     }
                 }
             }

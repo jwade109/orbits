@@ -235,7 +235,7 @@ impl Vehicle {
             .iter()
             .filter(|(_, _, part)| part.data.layer == PartLayer::Exterior);
 
-        x.chain(y).chain(z)
+        y.chain(x).chain(z)
     }
 
     pub fn is_controllable(&self) -> bool {

@@ -65,17 +65,7 @@ parts:
   - -20
   - 10
   rot: West
-- partname: frame2
-  pos:
-  - -20
-  - 10
-  rot: West
 - partname: tank11
-  pos:
-  - -20
-  - -20
-  rot: West
-- partname: frame2
   pos:
   - -20
   - -20
@@ -100,16 +90,6 @@ parts:
   - 22
   - -30
   rot: West
-- partname: frame2
-  pos:
-  - -10
-  - 10
-  rot: West
-- partname: frame2
-  pos:
-  - -10
-  - -20
-  rot: South
 - partname: cpu
   pos:
   - 20
@@ -132,16 +112,6 @@ parts:
   rot: South
 - partname: frame2
   pos:
-  - 10
-  - 30
-  rot: West
-- partname: frame2
-  pos:
-  - -10
-  - 30
-  rot: West
-- partname: frame2
-  pos:
   - -10
   - -40
   rot: West
@@ -169,4 +139,54 @@ parts:
   pos:
   - -14
   - -40
+  rot: South
+- partname: frame2
+  pos:
+  - -15
+  - 10
+  rot: East
+- partname: frame2
+  pos:
+  - -5
+  - 10
+  rot: North
+- partname: frame2
+  pos:
+  - -5
+  - -20
+  rot: West
+- partname: frame2
+  pos:
+  - -15
+  - -20
+  rot: South
+- partname: frame2
+  pos:
+  - -10
+  - -30
+  rot: South
+- partname: frame2
+  pos:
+  - -10
+  - 30
+  rot: South
+- partname: frame2
+  pos:
+  - -10
+  - 20
+  rot: East
+- partname: frame2
+  pos:
+  - 10
+  - 30
+  rot: South
+- partname: frame2
+  pos:
+  - 0
+  - 25
+  rot: South
+- partname: frame2
+  pos:
+  - 0
+  - -35
   rot: South
