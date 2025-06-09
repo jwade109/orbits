@@ -455,11 +455,6 @@ parts:
   - 95
   - -27
   rot: South
-- partname: antenna
-  pos:
-  - -122
-  - -27
-  rot: North
 - partname: rcs
   pos:
   - -95
@@ -499,4 +494,9 @@ parts:
   pos:
   - 55
   - 54
+  rot: North
+- partname: radar
+  pos:
+  - -126
+  - -20
   rot: North

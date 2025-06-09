@@ -547,6 +547,7 @@ fn draw_orbiter(gizmos: &mut Gizmos, state: &GameState, id: OrbiterId) -> Option
 
     let low_fuel = vehicle.map(|v| v.low_fuel()).unwrap_or(false);
     let is_thrusting = vehicle.map(|v| v.is_thrusting()).unwrap_or(false);
+    let has_radar = vehicle.map(|v| v.has_radar()).unwrap_or(false);
 
     let lup = state.lup_orbiter(id, state.sim_time)?;
     let pv = lup.pv();
@@ -567,6 +568,15 @@ fn draw_orbiter(gizmos: &mut Gizmos, state: &GameState, id: OrbiterId) -> Option
         draw_circle(gizmos, screen_pos, size, TEAL);
     } else if blinking && low_fuel {
         draw_triangle(gizmos, screen_pos, size, BLUE);
+    }
+
+    if has_radar {
+        draw_circle(
+            gizmos,
+            screen_pos,
+            (10.0 * ctx.scale()).max(20.0),
+            TEAL.with_alpha(0.4),
+        );
     }
 
     if is_thrusting {

@@ -26,6 +26,7 @@ pub enum InteractionEvent {
     SimSlower,
     SimPause,
     SimFaster,
+    SetSim(i32),
     ClearSelection,
     ClearOrbitQueue,
     Escape,

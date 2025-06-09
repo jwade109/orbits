@@ -64,7 +64,15 @@ fn sound_system(
 }
 
 fn init_system(mut commands: Commands) {
-    let g = GameState::default();
+    let args = match ProgramContext::try_parse() {
+        Ok(args) => args,
+        Err(e) => {
+            _ = e.print();
+            ProgramContext::default()
+        }
+    };
+
+    let g = GameState::new(args);
 
     commands.insert_resource(g);
     commands.spawn((
@@ -200,17 +208,9 @@ fn generate_landing_sites(pids: &[PlanetId]) -> HashMap<PlanetId, Vec<(f32, Stri
         .collect()
 }
 
-impl Default for GameState {
-    fn default() -> Self {
+impl GameState {
+    pub fn new(args: ProgramContext) -> Self {
         let (planets, ids) = default_example();
-
-        let args = match ProgramContext::try_parse() {
-            Ok(a) => a,
-            Err(e) => {
-                dbg!(e);
-                ProgramContext::default()
-            }
-        };
 
         let mut g = GameState {
             input: InputState::default(),
@@ -459,6 +459,28 @@ impl GameState {
         for id in &self.orbital_context.selected {
             self.constellations.insert(*id, gid.clone());
         }
+    }
+
+    pub fn get_vehicle_by_model(&self, name: &str) -> Option<Vehicle> {
+        let vehicles = crate::scenes::get_list_of_vehicles(self)?;
+
+        if vehicles.is_empty() {
+            return None;
+        }
+
+        let (_, path) = vehicles.iter().find(|(model, _)| model == name)?;
+
+        let sat = EditorContext::load_from_vehicle_file(&path)?;
+
+        let mut parts = vec![];
+        for part in sat.parts {
+            let proto = self.part_database.get(&part.partname)?;
+            parts.push((part.pos, part.rot, proto.clone()));
+        }
+
+        let vehicle = Vehicle::from_parts(name.to_string(), self.sim_time, parts);
+
+        Some(vehicle)
     }
 
     pub fn lup_orbiter(&self, id: OrbiterId, stamp: Nanotime) -> Option<ObjectLookup> {
@@ -1250,7 +1272,7 @@ fn step_system(time: Res<Time>, mut state: ResMut<GameState>) {
     state.step(dt);
 }
 
-pub const MIN_SIM_SPEED: i32 = -4;
+pub const MIN_SIM_SPEED: i32 = -1;
 pub const MAX_SIM_SPEED: i32 = 6;
 
 fn process_interaction(
@@ -1278,6 +1300,10 @@ fn process_interaction(
         }
         InteractionEvent::SimFaster => {
             state.sim_speed = i32::clamp(state.sim_speed + 1, MIN_SIM_SPEED, MAX_SIM_SPEED);
+            state.redraw();
+        }
+        InteractionEvent::SetSim(s) => {
+            state.sim_speed = i32::clamp(*s, MIN_SIM_SPEED, MAX_SIM_SPEED);
             state.redraw();
         }
         InteractionEvent::SimPause => {

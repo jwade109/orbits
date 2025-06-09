@@ -5,7 +5,8 @@ use crate::nanotime::Nanotime;
 use crate::orbits::{wrap_0_2pi, wrap_pi_npi};
 use crate::parts::{
     magnetorquer::Magnetorquer,
-    parts::{PartClass, PartProto},
+    parts::{PartClass, PartLayer, PartProto},
+    radar::Radar,
     tank::Tank,
     thruster::Thruster,
 };
@@ -86,6 +87,7 @@ pub struct Vehicle {
     angular_velocity: f32,
     thrusters: Vec<Thruster>,
     magnetorquers: Vec<Magnetorquer>,
+    radars: Vec<Radar>,
     tanks: Vec<Tank>,
     bounding_radius: f32,
     center_of_mass: Vec2,
@@ -145,6 +147,17 @@ impl Vehicle {
             })
             .collect();
 
+        let radars: Vec<Radar> = parts
+            .iter()
+            .filter_map(|(_, _, p)| {
+                if let PartClass::Radar = p.data.class {
+                    Some(Radar {})
+                } else {
+                    None
+                }
+            })
+            .collect();
+
         let mut bounding_radius = 1.0;
         for (pos, rot, part) in &parts {
             let pos = pos.as_vec2() / crate::parts::parts::PIXELS_PER_METER;
@@ -183,6 +196,7 @@ impl Vehicle {
             angular_velocity: rand(-0.3, 0.3),
             tanks,
             thrusters,
+            radars,
             magnetorquers: vec![Magnetorquer {
                 max_torque: 10000.0,
                 current_torque: 0.0,
@@ -278,12 +292,35 @@ impl Vehicle {
         ret.unwrap_or(AABB::unit())
     }
 
+    pub fn pixel_bounds(&self) -> Option<(IVec2, IVec2)> {
+        let mut min: Option<IVec2> = None;
+        let mut max: Option<IVec2> = None;
+        for (pos, rot, part) in &self.parts {
+            let dims = dims_with_rotation(*rot, part);
+            let upper = pos + dims.as_ivec2();
+            if let Some((min, max)) = min.as_mut().zip(max.as_mut()) {
+                min.x = min.x.min(pos.x);
+                min.y = min.y.min(pos.y);
+                max.x = max.x.max(upper.x);
+                max.y = max.y.max(upper.y);
+            } else {
+                min = Some(*pos);
+                max = Some(upper);
+            }
+        }
+        min.zip(max)
+    }
+
     pub fn low_fuel(&self) -> bool {
         self.is_controllable() && self.remaining_dv() < 10.0
     }
 
     pub fn is_thrusting(&self) -> bool {
         self.thrusters.iter().any(|t| t.is_thrusting())
+    }
+
+    pub fn has_radar(&self) -> bool {
+        !self.radars.is_empty()
     }
 
     pub fn try_impulsive_burn(&mut self, dv: Vec2) -> Option<()> {

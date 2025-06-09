@@ -29,6 +29,24 @@ impl CameraProjection for RPOContext {
     }
 }
 
+fn relative_info_labels(state: &GameState) -> Option<TextLabel> {
+    let target = state.targeting()?;
+    let ownship = state.piloting()?;
+    let pvt = state.lup_orbiter(target, state.sim_time)?.pv();
+    let pvo = state.lup_orbiter(ownship, state.sim_time)?.pv();
+    let relpos = pvo - pvt;
+
+    let str = format!(
+        "Separation {:0.1} m / Velocity {:0.1} m/s",
+        relpos.pos.length() * 1000.0,
+        relpos.vel.length() * 1000.0
+    );
+
+    let dims = state.input.screen_bounds.span;
+
+    Some(TextLabel::new(str, Vec2::Y * (dims.y / 2.0 - 100.0), 1.0))
+}
+
 impl Render for RPOContext {
     fn background_color(_state: &GameState) -> Srgba {
         TEAL.with_luminance(0.05)
@@ -140,15 +158,26 @@ impl Render for RPOContext {
 
     fn text_labels(state: &GameState) -> Option<Vec<TextLabel>> {
         let half_span = state.input.screen_bounds.span / 2.0;
-        Some(vec![TextLabel::new(
-            format!(
-                "Target: {:?} scale: {}",
-                state.orbital_context.targeting,
-                state.rpo_context.scale()
-            ),
-            (40.0 - half_span.y) * Vec2::Y,
-            0.6,
-        )])
+
+        let info = relative_info_labels(state);
+
+        Some(
+            [
+                Some(TextLabel::new(
+                    format!(
+                        "Target: {:?} scale: {}",
+                        state.orbital_context.targeting,
+                        state.rpo_context.scale()
+                    ),
+                    (40.0 - half_span.y) * Vec2::Y,
+                    0.6,
+                )),
+                info,
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
+        )
     }
 
     fn ui(state: &GameState) -> Option<Tree<OnClick>> {

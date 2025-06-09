@@ -10,6 +10,7 @@ use bevy::color::palettes::css::*;
 use bevy::input::keyboard::{Key, KeyCode, KeyboardInput};
 use bevy::prelude::*;
 use enum_iterator::next_cycle;
+use image::{ColorType, DynamicImage, ImageFormat, ImageReader};
 use layout::layout::*;
 use layout::layout::{Node, Tree};
 use rfd::FileDialog;
@@ -65,6 +66,7 @@ pub struct EditorContext {
     vehicle: Vehicle,
 
     // menus
+    pub show_vehicle_info: bool,
     pub parts_menu_collapsed: bool,
     pub vehicles_menu_collapsed: bool,
     pub layers_menu_collapsed: bool,
@@ -85,6 +87,7 @@ impl EditorContext {
             invisible_layers: HashSet::new(),
             occupied: HashMap::new(),
             vehicle: Vehicle::from_parts("".into(), Nanotime::zero(), Vec::new()),
+            show_vehicle_info: false,
             parts_menu_collapsed: false,
             vehicles_menu_collapsed: true,
             layers_menu_collapsed: false,
@@ -439,12 +442,6 @@ impl Render for EditorContext {
             gizmos.line_2d(o, q, GREEN.with_alpha(0.3));
         }
 
-        draw_aabb(
-            gizmos,
-            ctx.w2c_aabb(bounds.scale(PIXELS_PER_METER)),
-            TEAL.with_alpha(0.1),
-        );
-
         if let Some(cursor) = state.input.position(MouseButt::Hover, FrameId::Current) {
             let c = ctx.c2w(cursor);
 
@@ -479,13 +476,6 @@ impl Render for EditorContext {
             }
         }
 
-        draw_circle(
-            gizmos,
-            ctx.w2c(Vec2::ZERO),
-            radius * ctx.scale() * PIXELS_PER_METER,
-            RED.with_alpha(0.1),
-        );
-
         if let Some((p, current_part)) = Self::current_part_and_cursor_position(state) {
             let current_pixels = Self::occupied_pixels(p, ctx.rotation, &current_part);
 
@@ -507,32 +497,47 @@ impl Render for EditorContext {
             }
         }
 
-        draw_vehicle(
-            gizmos,
-            &ctx.vehicle,
-            ctx.w2c(Vec2::ZERO),
-            ctx.scale * PIXELS_PER_METER,
-            0.0,
-        );
+        if ctx.show_vehicle_info {
+            draw_aabb(
+                gizmos,
+                ctx.w2c_aabb(bounds.scale(PIXELS_PER_METER)),
+                TEAL.with_alpha(0.1),
+            );
 
-        // COM
-        let com = ctx.vehicle.center_of_mass() * PIXELS_PER_METER;
-        draw_circle(gizmos, ctx.w2c(com), 7.0, ORANGE);
-        draw_x(gizmos, ctx.w2c(com), 7.0, WHITE);
+            draw_circle(
+                gizmos,
+                ctx.w2c(Vec2::ZERO),
+                radius * ctx.scale() * PIXELS_PER_METER,
+                RED.with_alpha(0.1),
+            );
 
-        // thrust envelope
-        for (rcs, color) in [(false, RED), (true, BLUE)] {
-            let positions: Vec<_> = linspace(0.0, 2.0 * PI, 200)
-                .into_iter()
-                .map(|a| {
-                    let thrust: f32 = ctx.vehicle.max_thrust_along_heading(a, rcs);
-                    let r = (1.0 + thrust.abs().sqrt() / 100.0)
-                        * ctx.vehicle.bounding_radius()
-                        * PIXELS_PER_METER;
-                    ctx.w2c(rotate(Vec2::X * r, a))
-                })
-                .collect();
-            gizmos.linestrip_2d(positions, color.with_alpha(0.6));
+            draw_vehicle(
+                gizmos,
+                &ctx.vehicle,
+                ctx.w2c(Vec2::ZERO),
+                ctx.scale * PIXELS_PER_METER,
+                0.0,
+            );
+
+            // COM
+            let com = ctx.vehicle.center_of_mass() * PIXELS_PER_METER;
+            draw_circle(gizmos, ctx.w2c(com), 7.0, ORANGE);
+            draw_x(gizmos, ctx.w2c(com), 7.0, WHITE);
+
+            // thrust envelope
+            for (rcs, color) in [(false, RED), (true, BLUE)] {
+                let positions: Vec<_> = linspace(0.0, 2.0 * PI, 200)
+                    .into_iter()
+                    .map(|a| {
+                        let thrust: f32 = ctx.vehicle.max_thrust_along_heading(a, rcs);
+                        let r = (1.0 + thrust.abs().sqrt() / 100.0)
+                            * ctx.vehicle.bounding_radius()
+                            * PIXELS_PER_METER;
+                        ctx.w2c(rotate(Vec2::X * r, a))
+                    })
+                    .collect();
+                gizmos.linestrip_2d(positions, color.with_alpha(0.6));
+            }
         }
 
         Some(())
@@ -739,5 +744,87 @@ impl EditorContext {
 
         ctx.scale += (ctx.target_scale - ctx.scale) * 0.1;
         ctx.center += (ctx.target_center - ctx.center) * 0.1;
+    }
+}
+
+pub fn read_image(path: PathBuf) -> Option<DynamicImage> {
+    ImageReader::open(path).ok()?.decode().ok()
+}
+
+pub fn write_to_image(vehicle: &Vehicle, ctx: &ProgramContext, name: &str) -> Option<()> {
+    let parts_dir = ctx.parts_dir();
+    let (pixel_min, pixel_max) = vehicle.pixel_bounds()?;
+    let dims = pixel_max - pixel_min;
+    dbg!(dims);
+    let mut img = DynamicImage::new_rgba8(dims.x as u32, dims.y as u32);
+    let to_export = img.as_mut_rgba8().unwrap();
+    for (pos, rot, part) in &vehicle.parts {
+        let path = parts_dir.join(&part.path).join("skin.png");
+        let img = match read_image(path.clone()) {
+            Some(img) => img,
+            None => {
+                println!("Failed to read {}", path.display());
+                continue;
+            }
+        };
+
+        let img = match rot {
+            Rotation::East => img.rotate180(),
+            Rotation::North => img.rotate270(),
+            Rotation::West => img,
+            Rotation::South => img.rotate90(),
+        };
+
+        let r = match img.as_rgba8() {
+            Some(r) => r,
+            None => {
+                println!("Skipping {}", path.display());
+                continue;
+            }
+        };
+
+        let px = (pos.x - pixel_min.x) as u32;
+        let py = (pos.y - pixel_min.y) as u32;
+
+        for x in 0..r.width() {
+            for y in 0..r.height() {
+                let src = r.get_pixel_checked(x, y);
+                let dst = to_export.get_pixel_mut_checked(px + x, py + y);
+                if let Some((src, dst)) = src.zip(dst) {
+                    if src.0[3] > 0 {
+                        *dst = *src;
+                    }
+                }
+            }
+        }
+    }
+
+    to_export.save(format!("/tmp/{}.png", name)).ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn write_vehicle_to_image() {
+        let dir = project_root::get_project_root()
+            .expect("Expected project root to be discoverable")
+            .join("assets");
+
+        dbg!(&dir);
+
+        let args = ProgramContext::new(dir);
+
+        let g = GameState::new(args.clone());
+
+        let vehicles = crate::scenes::craft_editor::get_list_of_vehicles(&g)
+            .expect("Expected list of vehicles");
+        dbg!(vehicles);
+
+        for name in ["remora", "lander", "pollux", "manta"] {
+            let vehicle = g.get_vehicle_by_model(name).expect("Expected a vehicle");
+            write_to_image(&vehicle, &args, name);
+        }
     }
 }

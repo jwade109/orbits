@@ -114,6 +114,7 @@ pub struct TankProto {
 pub enum PartClass {
     Thruster(ThrusterProto),
     Tank(TankProto),
+    Radar,
     Cargo,
     Undefined,
 }
