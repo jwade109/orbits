@@ -742,6 +742,38 @@ impl GameState {
         self.orbital_context.piloting = tmp;
     }
 
+    pub fn write_editor_to_ownship(&mut self) -> Option<()> {
+        let id = match self.piloting() {
+            Some(p) => p,
+            None => {
+                self.notice("No ownship to write to");
+                return None;
+            }
+        };
+
+        let vehicle = match self.vehicles.get_mut(&id) {
+            Some(v) => v,
+            None => {
+                self.notice(format!("Failed to find vehicle for id {}", id));
+                return None;
+            }
+        };
+
+        let new_vehicle = self.editor_context.vehicle.clone();
+
+        let old_title = vehicle.name().to_string();
+        let new_title = new_vehicle.name().to_string();
+
+        *vehicle = new_vehicle;
+
+        self.notice(format!(
+            "Successfully overwrite vehicle {}, \"{}\" -> \"{}\"",
+            id, old_title, new_title
+        ));
+
+        Some(())
+    }
+
     pub fn command_selected(&mut self, next: &GlobalOrbit) {
         if self.orbital_context.selected.is_empty() {
             return;
@@ -789,7 +821,8 @@ impl GameState {
         Some(())
     }
 
-    pub fn notice(&mut self, s: String) {
+    pub fn notice(&mut self, s: impl Into<String>) {
+        let s = s.into();
         info!("Notice: {s}");
         self.notify(None, NotificationType::Notice(s), None)
     }
@@ -921,6 +954,9 @@ impl GameState {
             }
             OnClick::ToggleVehicleInfo => {
                 self.editor_context.show_vehicle_info = !self.editor_context.show_vehicle_info;
+            }
+            OnClick::WriteToOwnship => {
+                self.write_editor_to_ownship();
             }
             OnClick::NormalizeCraft => self.editor_context.normalize_coordinates(),
             OnClick::ToggleThruster(idx) => _ = self.toggle_piloting_thruster(idx),

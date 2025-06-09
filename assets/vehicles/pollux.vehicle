@@ -400,3 +400,23 @@ parts:
   - 46
   - 34
   rot: South
+- partname: frame3
+  pos:
+  - -20
+  - -30
+  rot: East
+- partname: tank21
+  pos:
+  - 0
+  - -30
+  rot: North
+- partname: tank11
+  pos:
+  - -10
+  - -30
+  rot: North
+- partname: tank11
+  pos:
+  - -20
+  - -30
+  rot: North

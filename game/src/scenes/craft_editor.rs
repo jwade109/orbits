@@ -63,7 +63,7 @@ pub struct EditorContext {
     title: TextInput,
     invisible_layers: HashSet<PartLayer>,
     occupied: HashMap<PartLayer, HashMap<IVec2, usize>>,
-    vehicle: Vehicle,
+    pub vehicle: Vehicle,
 
     // menus
     pub show_vehicle_info: bool,
@@ -662,6 +662,13 @@ fn other_buttons() -> Node<OnClick> {
         BUTTON_HEIGHT,
     );
 
+    let write_to_ownship = Node::button(
+        "Modify Ownship",
+        OnClick::WriteToOwnship,
+        Size::Grow,
+        BUTTON_HEIGHT,
+    );
+
     Node::structural(250, Size::Fit)
         .with_color(UI_BACKGROUND_COLOR)
         .down()
@@ -670,6 +677,7 @@ fn other_buttons() -> Node<OnClick> {
         .with_child(normalize)
         .with_child(write)
         .with_child(toggle_info)
+        .with_child(write_to_ownship)
 }
 
 fn layer_selection(state: &GameState) -> Node<OnClick> {
