@@ -1,3 +1,4 @@
+use crate::canvas::Canvas;
 use crate::game::GameState;
 use crate::onclick::OnClick;
 use bevy::color::palettes::css::*;
@@ -9,17 +10,17 @@ use starling::math::Vec2;
 #[derive(Debug, Clone)]
 pub struct TextLabel {
     pub text: String,
-    pub position: Vec2,
+    pub pos: Vec2,
     pub size: f32,
     color: Srgba,
     pub anchor: Anchor,
 }
 
 impl TextLabel {
-    pub fn new(text: String, position: Vec2, size: f32) -> Self {
+    pub fn new(text: String, pos: Vec2, size: f32) -> Self {
         Self {
             text,
-            position,
+            pos,
             size,
             color: WHITE,
             anchor: Anchor::Center,
@@ -75,13 +76,28 @@ impl StaticSpriteDescriptor {
 }
 
 pub trait Render {
-    fn text_labels(state: &GameState) -> Option<Vec<TextLabel>>;
+    fn text_labels(_state: &GameState) -> Option<Vec<TextLabel>> {
+        None
+    }
 
-    fn sprites(state: &GameState) -> Option<Vec<StaticSpriteDescriptor>>;
+    fn sprites(_state: &GameState) -> Option<Vec<StaticSpriteDescriptor>> {
+        None
+    }
 
     fn background_color(state: &GameState) -> Srgba;
 
-    fn draw_gizmos(gizmos: &mut Gizmos, state: &GameState) -> Option<()>;
+    fn draw_gizmos(_gizmos: &mut Gizmos, _state: &GameState) -> Option<()> {
+        None
+    }
 
     fn ui(state: &GameState) -> Option<Tree<OnClick>>;
+
+    fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
+        canvas.sprite(Vec2::ZERO, 0.0, "bird1.png", 1.0, 1.0);
+        if crate::drawing::is_blinking(state.wall_time, None) {
+            canvas.circle();
+            canvas.text("DRAW PROCEDURE UNIMPLEMENTED", Vec2::ZERO, 3.0);
+        }
+        None
+    }
 }

@@ -1,4 +1,5 @@
 use crate::args::ProgramContext;
+use crate::canvas::Canvas;
 use crate::drawing::*;
 use crate::game::GameState;
 use crate::input::InputState;
@@ -367,199 +368,8 @@ pub fn vehicle_info(vehicle: &Vehicle) -> String {
 }
 
 impl Render for EditorContext {
-    fn text_labels(state: &GameState) -> Option<Vec<TextLabel>> {
-        let ctx = &state.editor_context;
-
-        let filename = match &state.editor_context.filepath {
-            Some(p) => format!("[{}]", p.display()),
-            None => "[No file open]".to_string(),
-        };
-
-        let vehicle_info = vehicle_info(&ctx.vehicle);
-
-        let info: String = [
-            filename,
-            format!("Title: {:?}", &state.editor_context.title.0),
-            format!("{} parts", state.editor_context.parts.len()),
-            format!("Rotation: {:?}", state.editor_context.rotation),
-        ]
-        .into_iter()
-        .map(|s| format!("{s}\n"))
-        .collect();
-
-        let info = format!("{}{}", info, vehicle_info);
-
-        let half_span = state.input.screen_bounds.span * 0.5;
-
-        let mut labels: Vec<TextLabel> = vec![TextLabel::new(
-            info.to_uppercase(),
-            Vec2::new(half_span.x - 500.0, half_span.y - 200.0),
-            0.7,
-        )
-        .with_anchor_left()];
-
-        if let Some(p) = state.editor_context.current_part.as_ref() {
-            let t = TextLabel::new(format!("{:#?}", &p.data), Vec2::ZERO, 0.8);
-            labels.push(t);
-        }
-
-        Some(labels)
-    }
-
-    fn sprites(state: &GameState) -> Option<Vec<StaticSpriteDescriptor>> {
-        let ctx = &state.editor_context;
-        let mut ret = Vec::new();
-
-        if let Some((p, current_part)) = Self::current_part_and_cursor_position(state) {
-            let dims = dims_with_rotation(ctx.rotation, &current_part);
-            ret.push(StaticSpriteDescriptor::new(
-                ctx.w2c(p.as_vec2() + dims.as_vec2() / 2.0),
-                ctx.rotation.to_angle(),
-                part_sprite_path(&state.args, &current_part.path),
-                ctx.scale(),
-                12.0,
-            ));
-        }
-
-        ret.extend(
-            ctx.visible_parts()
-                .enumerate()
-                .map(|(i, (pos, rot, part))| {
-                    let half_dims = dims_with_rotation(*rot, part).as_vec2() / 2.0;
-                    StaticSpriteDescriptor::new(
-                        ctx.w2c(pos.as_vec2() + half_dims),
-                        rot.to_angle(),
-                        part_sprite_path(&state.args, &part.path),
-                        ctx.scale(),
-                        part.to_z_index() + i as f32 / 100.0,
-                    )
-                }),
-        );
-
-        Some(ret)
-    }
-
     fn background_color(_state: &GameState) -> bevy::color::Srgba {
         GRAY.with_luminance(0.12)
-    }
-
-    fn draw_gizmos(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
-        let ctx = &state.editor_context;
-        draw_cross(gizmos, ctx.w2c(Vec2::ZERO), 10.0, GRAY);
-
-        let radius = ctx.vehicle.bounding_radius();
-        let bounds = ctx.vehicle.aabb();
-
-        // axes
-        {
-            let length = bounds.span.x * PIXELS_PER_METER * 1.5;
-            let width = bounds.span.y * PIXELS_PER_METER * 1.5;
-            let o = ctx.w2c(Vec2::ZERO);
-            let p = ctx.w2c(Vec2::X * length);
-            let q = ctx.w2c(Vec2::Y * width);
-            gizmos.line_2d(o, p, RED.with_alpha(0.3));
-            gizmos.line_2d(o, q, GREEN.with_alpha(0.3));
-        }
-
-        if let Some(cursor) = state.input.position(MouseButt::Hover, FrameId::Current) {
-            let c = ctx.c2w(cursor);
-
-            let discrete = IVec2::new(
-                (c.x / 10.0).round() as i32 * 10,
-                (c.y / 10.0).round() as i32 * 10,
-            );
-
-            for dx in (-100..=100).step_by(10) {
-                for dy in (-100..=100).step_by(10) {
-                    let s = IVec2::new(dx, dy);
-                    let p = discrete - s;
-                    let d = (s.length_squared() as f32).sqrt();
-                    let alpha = 0.2 * (1.0 - d / 100.0);
-                    if alpha > 0.01 {
-                        draw_diamond(gizmos, ctx.w2c(p.as_vec2()), 7.0, GRAY.with_alpha(alpha));
-                    }
-                }
-            }
-
-            if let Some((p, rot, part)) = ctx.get_part_at(vfloor(c)) {
-                let wh = dims_with_rotation(rot, &part).as_ivec2();
-                let q = p + wh;
-                let r = p + IVec2::X * wh.x;
-                let s = p + IVec2::Y * wh.y;
-                let aabb = aabb_for_part(p, rot, &part);
-                draw_and_fill_aabb(gizmos, ctx.w2c_aabb(aabb), TEAL.with_alpha(0.6));
-                for p in [p, q, r, s] {
-                    let p = p.as_vec2();
-                    draw_cross(gizmos, ctx.w2c(p), 0.5 * ctx.scale(), TEAL.with_alpha(0.6));
-                }
-            }
-        }
-
-        if let Some((p, current_part)) = Self::current_part_and_cursor_position(state) {
-            let current_pixels = Self::occupied_pixels(p, ctx.rotation, &current_part);
-
-            let mut visited_parts = HashSet::new();
-
-            if let Some(occ) = ctx.occupied.get(&current_part.data.layer) {
-                for q in &current_pixels {
-                    if let Some(idx) = occ.get(q) {
-                        if visited_parts.contains(idx) {
-                            continue;
-                        }
-                        visited_parts.insert(*idx);
-                        if let Some((pc, rc, partc)) = ctx.parts.get(*idx) {
-                            let aabb = aabb_for_part(*pc, *rc, partc);
-                            draw_and_fill_aabb(gizmos, ctx.w2c_aabb(aabb), RED);
-                        }
-                    }
-                }
-            }
-        }
-
-        if ctx.show_vehicle_info {
-            draw_aabb(
-                gizmos,
-                ctx.w2c_aabb(bounds.scale(PIXELS_PER_METER)),
-                TEAL.with_alpha(0.1),
-            );
-
-            draw_circle(
-                gizmos,
-                ctx.w2c(Vec2::ZERO),
-                radius * ctx.scale() * PIXELS_PER_METER,
-                RED.with_alpha(0.1),
-            );
-
-            draw_vehicle(
-                gizmos,
-                &ctx.vehicle,
-                ctx.w2c(Vec2::ZERO),
-                ctx.scale * PIXELS_PER_METER,
-                0.0,
-            );
-
-            // COM
-            let com = ctx.vehicle.center_of_mass() * PIXELS_PER_METER;
-            draw_circle(gizmos, ctx.w2c(com), 7.0, ORANGE);
-            draw_x(gizmos, ctx.w2c(com), 7.0, WHITE);
-
-            // thrust envelope
-            for (rcs, color) in [(false, RED), (true, BLUE)] {
-                let positions: Vec<_> = linspace(0.0, 2.0 * PI, 200)
-                    .into_iter()
-                    .map(|a| {
-                        let thrust: f32 = ctx.vehicle.max_thrust_along_heading(a, rcs);
-                        let r = (1.0 + thrust.abs().sqrt() / 100.0)
-                            * ctx.vehicle.bounding_radius()
-                            * PIXELS_PER_METER;
-                        ctx.w2c(rotate(Vec2::X * r, a))
-                    })
-                    .collect();
-                gizmos.linestrip_2d(positions, color.with_alpha(0.6));
-            }
-        }
-
-        Some(())
     }
 
     fn ui(state: &GameState) -> Option<Tree<OnClick>> {
@@ -592,6 +402,194 @@ impl Render for EditorContext {
             .with_child(main_area);
 
         Some(Tree::new().with_layout(layout, Vec2::ZERO))
+    }
+
+    fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
+        let ctx = &state.editor_context;
+        draw_cross(&mut canvas.gizmos, ctx.w2c(Vec2::ZERO), 10.0, GRAY);
+
+        let radius = ctx.vehicle.bounding_radius();
+        let bounds = ctx.vehicle.aabb();
+
+        let filename = match &state.editor_context.filepath {
+            Some(p) => format!("[{}]", p.display()),
+            None => "[No file open]".to_string(),
+        };
+
+        let vehicle_info = vehicle_info(&ctx.vehicle);
+
+        let info: String = [
+            filename,
+            format!("Title: {:?}", &state.editor_context.title.0),
+            format!("{} parts", state.editor_context.parts.len()),
+            format!("Rotation: {:?}", state.editor_context.rotation),
+        ]
+        .into_iter()
+        .map(|s| format!("{s}\n"))
+        .collect();
+
+        let info = format!("{}{}", info, vehicle_info);
+
+        let half_span = state.input.screen_bounds.span * 0.5;
+
+        canvas.label(
+            TextLabel::new(
+                info.to_uppercase(),
+                Vec2::new(half_span.x - 500.0, half_span.y - 200.0),
+                0.7,
+            )
+            .with_anchor_left(),
+        );
+
+        if let Some(p) = state.editor_context.current_part.as_ref() {
+            let t = TextLabel::new(format!("{:#?}", &p.data), Vec2::ZERO, 0.8);
+            canvas.label(t);
+        }
+
+        // axes
+        {
+            let length = bounds.span.x * PIXELS_PER_METER * 1.5;
+            let width = bounds.span.y * PIXELS_PER_METER * 1.5;
+            let o = ctx.w2c(Vec2::ZERO);
+            let p = ctx.w2c(Vec2::X * length);
+            let q = ctx.w2c(Vec2::Y * width);
+            canvas.gizmos.line_2d(o, p, RED.with_alpha(0.3));
+            canvas.gizmos.line_2d(o, q, GREEN.with_alpha(0.3));
+        }
+
+        if let Some(cursor) = state.input.position(MouseButt::Hover, FrameId::Current) {
+            let c = ctx.c2w(cursor);
+
+            let discrete = IVec2::new(
+                (c.x / 10.0).round() as i32 * 10,
+                (c.y / 10.0).round() as i32 * 10,
+            );
+
+            for dx in (-100..=100).step_by(10) {
+                for dy in (-100..=100).step_by(10) {
+                    let s = IVec2::new(dx, dy);
+                    let p = discrete - s;
+                    let d = (s.length_squared() as f32).sqrt();
+                    let alpha = 0.2 * (1.0 - d / 100.0);
+                    if alpha > 0.01 {
+                        draw_diamond(
+                            &mut canvas.gizmos,
+                            ctx.w2c(p.as_vec2()),
+                            7.0,
+                            GRAY.with_alpha(alpha),
+                        );
+                    }
+                }
+            }
+
+            if let Some((p, rot, part)) = ctx.get_part_at(vfloor(c)) {
+                let wh = dims_with_rotation(rot, &part).as_ivec2();
+                let q = p + wh;
+                let r = p + IVec2::X * wh.x;
+                let s = p + IVec2::Y * wh.y;
+                let aabb = aabb_for_part(p, rot, &part);
+                draw_and_fill_aabb(&mut canvas.gizmos, ctx.w2c_aabb(aabb), TEAL.with_alpha(0.6));
+                for p in [p, q, r, s] {
+                    let p = p.as_vec2();
+                    draw_cross(
+                        &mut canvas.gizmos,
+                        ctx.w2c(p),
+                        0.5 * ctx.scale(),
+                        TEAL.with_alpha(0.6),
+                    );
+                }
+            }
+        }
+
+        if let Some((p, current_part)) = Self::current_part_and_cursor_position(state) {
+            let current_pixels = Self::occupied_pixels(p, ctx.rotation, &current_part);
+
+            let mut visited_parts = HashSet::new();
+
+            if let Some(occ) = ctx.occupied.get(&current_part.data.layer) {
+                for q in &current_pixels {
+                    if let Some(idx) = occ.get(q) {
+                        if visited_parts.contains(idx) {
+                            continue;
+                        }
+                        visited_parts.insert(*idx);
+                        if let Some((pc, rc, partc)) = ctx.parts.get(*idx) {
+                            let aabb = aabb_for_part(*pc, *rc, partc);
+                            draw_and_fill_aabb(&mut canvas.gizmos, ctx.w2c_aabb(aabb), RED);
+                        }
+                    }
+                }
+            }
+        }
+
+        if ctx.show_vehicle_info {
+            draw_aabb(
+                &mut canvas.gizmos,
+                ctx.w2c_aabb(bounds.scale(PIXELS_PER_METER)),
+                TEAL.with_alpha(0.1),
+            );
+
+            draw_circle(
+                &mut canvas.gizmos,
+                ctx.w2c(Vec2::ZERO),
+                radius * ctx.scale() * PIXELS_PER_METER,
+                RED.with_alpha(0.1),
+            );
+
+            draw_vehicle(
+                &mut canvas.gizmos,
+                &ctx.vehicle,
+                ctx.w2c(Vec2::ZERO),
+                ctx.scale * PIXELS_PER_METER,
+                0.0,
+            );
+
+            // COM
+            let com = ctx.vehicle.center_of_mass() * PIXELS_PER_METER;
+            draw_circle(&mut canvas.gizmos, ctx.w2c(com), 7.0, ORANGE);
+            draw_x(&mut canvas.gizmos, ctx.w2c(com), 7.0, WHITE);
+
+            // thrust envelope
+            for (rcs, color) in [(false, RED), (true, BLUE)] {
+                let positions: Vec<_> = linspace(0.0, 2.0 * PI, 200)
+                    .into_iter()
+                    .map(|a| {
+                        let thrust: f32 = ctx.vehicle.max_thrust_along_heading(a, rcs);
+                        let r = (1.0 + thrust.abs().sqrt() / 100.0)
+                            * ctx.vehicle.bounding_radius()
+                            * PIXELS_PER_METER;
+                        ctx.w2c(rotate(Vec2::X * r, a))
+                    })
+                    .collect();
+                canvas.gizmos.linestrip_2d(positions, color.with_alpha(0.6));
+            }
+        }
+
+        if let Some((p, current_part)) = Self::current_part_and_cursor_position(state) {
+            let dims = dims_with_rotation(ctx.rotation, &current_part);
+            canvas.sprite(
+                ctx.w2c(p.as_vec2() + dims.as_vec2() / 2.0),
+                ctx.rotation.to_angle(),
+                part_sprite_path(&state.args, &current_part.path),
+                ctx.scale(),
+                12.0,
+            );
+        }
+
+        ctx.visible_parts()
+            .enumerate()
+            .for_each(|(i, (pos, rot, part))| {
+                let half_dims = dims_with_rotation(*rot, part).as_vec2() / 2.0;
+                canvas.sprite(
+                    ctx.w2c(pos.as_vec2() + half_dims),
+                    rot.to_angle(),
+                    part_sprite_path(&state.args, &part.path),
+                    ctx.scale(),
+                    part.to_z_index() + i as f32 / 100.0,
+                );
+            });
+
+        Some(())
     }
 }
 

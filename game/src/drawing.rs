@@ -298,15 +298,6 @@ pub fn draw_thruster(gizmos: &mut Gizmos, thruster: &Thruster, pos: Vec2, scale:
     }
 }
 
-fn draw_vehicle_controller_info(
-    gizmos: &mut Gizmos,
-    vehicle: &Vehicle,
-    pos: Vec2,
-    scale: f32,
-    angle: f32,
-) {
-}
-
 pub fn draw_vehicle(gizmos: &mut Gizmos, vehicle: &Vehicle, pos: Vec2, scale: f32, angle: f32) {
     for (p, rot, part) in &vehicle.parts {
         let dims = meters_with_rotation(*rot, part);
@@ -776,7 +767,7 @@ fn draw_controller(
     Some(())
 }
 
-fn is_blinking(wall_time: Nanotime, pos: impl Into<Option<Vec2>>) -> bool {
+pub fn is_blinking(wall_time: Nanotime, pos: impl Into<Option<Vec2>>) -> bool {
     let r = pos.into().unwrap_or(Vec2::ZERO).length();
     let clock = (wall_time % Nanotime::secs(1)).to_secs();
     let offset = (r / 5000. - clock * 2.0 * PI).sin();
@@ -1395,26 +1386,7 @@ pub fn draw_game_state(mut gizmos: Gizmos, mut state: ResMut<GameState>) {
 
     let mut canvas = Canvas::new(gizmos);
 
-    canvas.circle();
-
-    canvas.text("Hello!").anchor_left();
-
-    canvas.sprite(Vec2::ZERO, 0.0, "bird1.png", 0.4, 1.0);
-
-    for j in 0..20 {
-        for i in 0..20 {
-            let pos = Vec2::new(i as f32 * 1000.0, j as f32 * 1000.0);
-            let z_index = i as f32 / 100.0 + j as f32;
-            let index = (j * 100 + i) % 3 + 1;
-            canvas.sprite(
-                state.orbital_context.w2c(pos),
-                i as f32 / 10.0 + j as f32 / 5.6,
-                format!("bird{}.png", index),
-                0.2,
-                z_index,
-            );
-        }
-    }
+    GameState::draw(&mut canvas, &state);
 
     state.text_labels = canvas.text_labels;
     state.sprites = canvas.sprites;

@@ -3,7 +3,7 @@ use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 
 pub struct Canvas<'w, 's> {
-    gizmos: Gizmos<'w, 's>,
+    pub gizmos: Gizmos<'w, 's>,
     pub text_labels: Vec<TextLabel>,
     pub sprites: Vec<StaticSpriteDescriptor>,
 }
@@ -21,8 +21,17 @@ impl<'w, 's> Canvas<'w, 's> {
         self.gizmos.circle_2d(Isometry2d::IDENTITY, 40.0, WHITE);
     }
 
-    pub fn text<'a>(&'a mut self, text: impl Into<String>) -> &'a mut TextLabel {
-        let label = TextLabel::new(text.into(), Vec2::ZERO, 0.7);
+    pub fn label(&mut self, label: TextLabel) {
+        self.text_labels.push(label);
+    }
+
+    pub fn text<'a>(
+        &'a mut self,
+        text: impl Into<String>,
+        pos: Vec2,
+        size: f32,
+    ) -> &'a mut TextLabel {
+        let label = TextLabel::new(text.into(), pos, size);
         self.text_labels.push(label);
         self.text_labels
             .last_mut()

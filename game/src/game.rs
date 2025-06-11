@@ -1,4 +1,5 @@
 use crate::args::ProgramContext;
+use crate::canvas::Canvas;
 use crate::input::{FrameId, InputState, MouseButt};
 use crate::notifications::*;
 use crate::onclick::OnClick;
@@ -283,7 +284,6 @@ impl GameState {
             if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {
                 g.spawn_with_random_perturbance(orbit, vehicle);
             }
-            break;
         }
 
         // for _ in 0..20 {
@@ -296,19 +296,19 @@ impl GameState {
         //     }
         // }
 
-        // for _ in 0..40 {
-        //     let vehicle = g.get_random_vehicle();
-        //     let orbit = get_random_orbit(PlanetId(1));
-        //     if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {
-        //         g.spawn_with_random_perturbance(orbit, vehicle);
-        //     }
-        // }
+        for _ in 0..40 {
+            let vehicle = g.get_random_vehicle();
+            let orbit = get_random_orbit(PlanetId(1));
+            if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {
+                g.spawn_with_random_perturbance(orbit, vehicle);
+            }
+        }
 
-        // for (id, _) in &g.orbiters {
-        //     if g.favorites.len() < 5 && rand(0.0, 1.0) < 0.05 {
-        //         g.favorites.insert(*id);
-        //     }
-        // }
+        for (id, _) in &g.orbiters {
+            if g.favorites.len() < 5 && rand(0.0, 1.0) < 0.05 {
+                g.favorites.insert(*id);
+            }
+        }
 
         g
     }
@@ -324,7 +324,8 @@ impl Render for GameState {
             SceneType::CommsPanel => CommsContext::text_labels(state),
             SceneType::Surface => SurfaceContext::text_labels(state),
             SceneType::MainMenu => MainMenuContext::text_labels(state),
-        }?;
+        }
+        .unwrap_or(Vec::new());
 
         labels.extend(state.text_labels.clone());
 
@@ -339,7 +340,8 @@ impl Render for GameState {
             SceneType::CommsPanel => CommsContext::sprites(state),
             SceneType::Surface => SurfaceContext::sprites(state),
             SceneType::Telescope => TelescopeContext::sprites(state),
-        }?;
+        }
+        .unwrap_or(Vec::new());
 
         sprites.extend(state.sprites.clone());
 
@@ -375,6 +377,18 @@ impl Render for GameState {
             SceneType::CommsPanel => CommsContext::ui(state),
             SceneType::Surface => SurfaceContext::ui(state),
             _ => None,
+        }
+    }
+
+    fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
+        match state.current_scene().kind() {
+            SceneType::Orbital => OrbitalContext::draw(canvas, state),
+            SceneType::Editor => EditorContext::draw(canvas, state),
+            SceneType::Telescope => TelescopeContext::draw(canvas, state),
+            SceneType::DockingView => RPOContext::draw(canvas, state),
+            SceneType::MainMenu => MainMenuContext::draw(canvas, state),
+            SceneType::CommsPanel => CommsContext::draw(canvas, state),
+            SceneType::Surface => SurfaceContext::draw(canvas, state),
         }
     }
 }
