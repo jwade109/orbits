@@ -5,6 +5,7 @@ use bevy::color::palettes::css::ORANGE;
 use bevy::prelude::*;
 use starling::prelude::*;
 
+use crate::canvas::Canvas;
 use crate::game::GameState;
 use crate::graph::*;
 use crate::input::{FrameId, MouseButt};
@@ -297,6 +298,15 @@ pub fn draw_thruster(gizmos: &mut Gizmos, thruster: &Thruster, pos: Vec2, scale:
     }
 }
 
+fn draw_vehicle_controller_info(
+    gizmos: &mut Gizmos,
+    vehicle: &Vehicle,
+    pos: Vec2,
+    scale: f32,
+    angle: f32,
+) {
+}
+
 pub fn draw_vehicle(gizmos: &mut Gizmos, vehicle: &Vehicle, pos: Vec2, scale: f32, angle: f32) {
     for (p, rot, part) in &vehicle.parts {
         let dims = meters_with_rotation(*rot, part);
@@ -438,6 +448,15 @@ pub fn draw_favorites(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     Some(())
 }
 
+pub fn draw_pointing_vector(gizmos: &mut Gizmos, center: Vec2, r: f32, u: Vec2, color: Srgba) {
+    let triangle_width = 13.0;
+    let v = rotate(u, PI / 2.0);
+    let p1 = center + u * r * 0.7;
+    let p2 = p1 + (v - u) * triangle_width;
+    let p3 = p2 - v * triangle_width * 2.0;
+    gizmos.linestrip_2d([p1, p2, p3, p1], color);
+}
+
 pub fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let ctx = &state.orbital_context;
 
@@ -499,18 +518,9 @@ pub fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<(
         draw_circle(gizmos, vehicle_screen, s, GREEN.with_alpha(0.2));
     }
 
-    let mut draw_pointing_vector = |u: Vec2, color: Srgba| {
-        let triangle_width = 13.0;
-        let v = rotate(u, PI / 2.0);
-        let p1 = center + u * r * 0.7;
-        let p2 = p1 + (v - u) * triangle_width;
-        let p3 = p2 - v * triangle_width * 2.0;
-        gizmos.linestrip_2d([p1, p2, p3, p1], color);
-    };
-
-    draw_pointing_vector(vehicle.pointing(), LIME);
+    draw_pointing_vector(gizmos, center, r, vehicle.pointing(), LIME);
     if let Some(u) = vehicle.target_pointing() {
-        draw_pointing_vector(u, LIME.with_alpha(0.4));
+        draw_pointing_vector(gizmos, center, r, u, LIME.with_alpha(0.4));
     }
 
     draw_circle(gizmos, center, r, GRAY);
@@ -1380,9 +1390,34 @@ fn orthographic_camera_map(p: Vec3, center: Vec3, normal: Vec3, x: Vec3, y: Vec3
     Vec2::new(p.dot(x), p.dot(y))
 }
 
-pub fn draw_game_state(mut gizmos: Gizmos, state: Res<GameState>) {
-    let gizmos = &mut gizmos;
-    GameState::draw_gizmos(gizmos, &state);
+pub fn draw_game_state(mut gizmos: Gizmos, mut state: ResMut<GameState>) {
+    GameState::draw_gizmos(&mut gizmos, &state);
+
+    let mut canvas = Canvas::new(gizmos);
+
+    canvas.circle();
+
+    canvas.text("Hello!").anchor_left();
+
+    canvas.sprite(Vec2::ZERO, 0.0, "bird1.png", 0.4, 1.0);
+
+    for j in 0..20 {
+        for i in 0..20 {
+            let pos = Vec2::new(i as f32 * 1000.0, j as f32 * 1000.0);
+            let z_index = i as f32 / 100.0 + j as f32;
+            let index = (j * 100 + i) % 3 + 1;
+            canvas.sprite(
+                state.orbital_context.w2c(pos),
+                i as f32 / 10.0 + j as f32 / 5.6,
+                format!("bird{}.png", index),
+                0.2,
+                z_index,
+            );
+        }
+    }
+
+    state.text_labels = canvas.text_labels;
+    state.sprites = canvas.sprites;
 }
 
 fn draw_input_state(gizmos: &mut Gizmos, state: &GameState) {

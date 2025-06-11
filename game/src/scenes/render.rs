@@ -6,6 +6,7 @@ use bevy::sprite::Anchor;
 use layout::layout::Tree;
 use starling::math::Vec2;
 
+#[derive(Debug, Clone)]
 pub struct TextLabel {
     pub text: String,
     pub position: Vec2,
@@ -30,7 +31,12 @@ impl TextLabel {
         self
     }
 
-    pub fn anchor_left(mut self) -> Self {
+    pub fn anchor_left(&mut self) -> &mut Self {
+        self.anchor = Anchor::CenterLeft;
+        self
+    }
+
+    pub fn with_anchor_left(mut self) -> Self {
         self.anchor = Anchor::CenterLeft;
         self
     }
@@ -40,6 +46,7 @@ impl TextLabel {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct StaticSpriteDescriptor {
     pub position: Vec2,
     pub angle: f32,

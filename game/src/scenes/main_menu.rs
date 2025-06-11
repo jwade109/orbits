@@ -50,7 +50,7 @@ impl Render for MainMenuContext {
         .to_uppercase();
         let p = Vec2::new(-dims.x / 2.0 + 200.0, -dims.y / 2.0 + 140.0);
 
-        Some(vec![TextLabel::new(s, p, 0.6).anchor_left()])
+        Some(vec![TextLabel::new(s, p, 0.6).with_anchor_left()])
     }
 
     fn ui(state: &GameState) -> Option<Tree<OnClick>> {

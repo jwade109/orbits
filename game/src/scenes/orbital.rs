@@ -380,7 +380,7 @@ fn get_inventory_label(state: &GameState) -> Option<TextLabel> {
         info, rate, accel.x, accel.y, vinfo,
     );
 
-    Some(TextLabel::new(info, Vec2::ZERO, 0.7).anchor_left())
+    Some(TextLabel::new(info, Vec2::ZERO, 0.7).with_anchor_left())
 }
 
 pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> {

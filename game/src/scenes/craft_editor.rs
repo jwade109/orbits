@@ -396,7 +396,7 @@ impl Render for EditorContext {
             Vec2::new(half_span.x - 500.0, half_span.y - 200.0),
             0.7,
         )
-        .anchor_left()];
+        .with_anchor_left()];
 
         if let Some(p) = state.editor_context.current_part.as_ref() {
             let t = TextLabel::new(format!("{:#?}", &p.data), Vec2::ZERO, 0.8);

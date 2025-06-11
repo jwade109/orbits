@@ -35,10 +35,10 @@ impl Plugin for GamePlugin {
                 step_system,
                 // rendering
                 crate::ui::do_text_labels,
+                crate::drawing::draw_game_state,
                 crate::sprites::update_static_sprites,
                 crate::sprites::update_shadow_sprites,
                 crate::sprites::update_background_sprite,
-                crate::drawing::draw_game_state,
                 sound_system,
             )
                 .chain(),
@@ -171,6 +171,9 @@ pub struct GameState {
 
     pub is_exit_prompt: bool,
     pub button_was_pressed: bool,
+
+    pub text_labels: Vec<TextLabel>,
+    pub sprites: Vec<StaticSpriteDescriptor>,
 }
 
 fn generate_starfield() -> Vec<(Vec3, Srgba, f32, f32)> {
@@ -255,7 +258,13 @@ impl GameState {
             notifications: Vec::new(),
             is_exit_prompt: false,
             button_was_pressed: true,
+            text_labels: Vec::new(),
+            sprites: Vec::new(),
         };
+
+        if let Some(v) = g.get_vehicle_by_model("lander") {
+            g.surface_context.add_vehicle(v);
+        }
 
         let t = g.sim_time;
 
@@ -307,7 +316,7 @@ impl GameState {
 
 impl Render for GameState {
     fn text_labels(state: &GameState) -> Option<Vec<TextLabel>> {
-        match state.current_scene().kind() {
+        let mut labels = match state.current_scene().kind() {
             SceneType::Orbital => OrbitalContext::text_labels(state),
             SceneType::Telescope => TelescopeContext::text_labels(state),
             SceneType::Editor => EditorContext::text_labels(state),
@@ -315,18 +324,26 @@ impl Render for GameState {
             SceneType::CommsPanel => CommsContext::text_labels(state),
             SceneType::Surface => SurfaceContext::text_labels(state),
             SceneType::MainMenu => MainMenuContext::text_labels(state),
-        }
+        }?;
+
+        labels.extend(state.text_labels.clone());
+
+        Some(labels)
     }
 
     fn sprites(state: &GameState) -> Option<Vec<StaticSpriteDescriptor>> {
-        match state.current_scene().kind() {
+        let mut sprites = match state.current_scene().kind() {
             SceneType::Editor => EditorContext::sprites(state),
             SceneType::DockingView => RPOContext::sprites(state),
             SceneType::MainMenu | SceneType::Orbital => OrbitalContext::sprites(state),
             SceneType::CommsPanel => CommsContext::sprites(state),
             SceneType::Surface => SurfaceContext::sprites(state),
             SceneType::Telescope => TelescopeContext::sprites(state),
-        }
+        }?;
+
+        sprites.extend(state.sprites.clone());
+
+        Some(sprites)
     }
 
     fn background_color(state: &GameState) -> Srgba {

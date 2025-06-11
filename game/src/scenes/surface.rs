@@ -11,26 +11,27 @@ use starling::prelude::*;
 pub struct SurfaceContext {
     plants: Vec<Plant>,
     wind_offset: f32,
+    vehicle: Option<Vehicle>,
 }
 
 fn generate_plants() -> Vec<Plant> {
     let mut ret = Vec::new();
 
-    for _ in 0..200 {
-        let root = Vec2::new(rand(-300.0, 300.0), rand(-100.0, 0.0));
+    for _ in 0..5 {
+        let root = Vec2::new(rand(-300.0, 300.0), rand(-150.0, -50.0));
 
         let mut segments = Vec::new();
         if rand(0.0, 1.0) < 0.2 {
-            let n_segments = randint(5, 9);
+            let n_segments = randint(3, 6);
             for _ in 0..n_segments {
                 let angle = rand(-0.4, 0.4);
-                let length = rand(8.0, 18.0);
+                let length = rand(6.0, 11.0);
                 segments.push((angle, length));
             }
         } else {
             for _ in 0..2 {
                 let angle = rand(-0.4, 0.4);
-                let length = rand(5.0, 8.0);
+                let length = rand(3.0, 7.0);
                 segments.push((angle, length));
             }
         }
@@ -43,7 +44,12 @@ fn generate_plants() -> Vec<Plant> {
 }
 
 impl SurfaceContext {
+    pub fn add_vehicle(&mut self, vehicle: Vehicle) {
+        self.vehicle = Some(vehicle);
+    }
+
     pub fn step(state: &mut GameState, dt: f32) {
+        state.sim_speed = 0;
         let ctx = &mut state.surface_context;
         for _ in 0..12 {
             for p in &mut ctx.plants {
@@ -58,6 +64,10 @@ impl SurfaceContext {
         }
 
         ctx.wind_offset = ctx.wind_offset.clamp(-0.4, 0.4);
+
+        if let Some(v) = &mut ctx.vehicle {
+            v.step(state.sim_time, Vec2::X, 1.0, false, PhysicsMode::RealTime);
+        }
     }
 }
 
@@ -66,6 +76,7 @@ impl Default for SurfaceContext {
         SurfaceContext {
             plants: generate_plants(),
             wind_offset: 0.0,
+            vehicle: None,
         }
     }
 }
@@ -97,6 +108,10 @@ impl Render for SurfaceContext {
 
     fn draw_gizmos(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
         let ctx = &state.surface_context;
+
+        if let Some(v) = &ctx.vehicle {
+            draw_vehicle(gizmos, v, Vec2::ZERO, 40.0, v.angle());
+        }
 
         let p = ctx.w2c(Vec2::new(-400.0, 0.0));
         let q = ctx.w2c(Vec2::new(400.0, 0.0));

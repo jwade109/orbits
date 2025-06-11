@@ -1,4 +1,5 @@
 pub mod args;
+pub mod canvas;
 pub mod drawing;
 pub mod game;
 pub mod graph;
