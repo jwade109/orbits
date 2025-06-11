@@ -33,7 +33,7 @@ impl Inventory {
         self.0.clear()
     }
 
-    pub fn view(&self) -> impl Iterator<Item = (&InventoryItem, &u64)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&InventoryItem, &u64)> {
         self.0.iter()
     }
 
@@ -66,7 +66,7 @@ impl Inventory {
 
 impl std::fmt::Display for Inventory {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (i, (k, v)) in self.view().enumerate() {
+        for (i, (k, v)) in self.iter().enumerate() {
             write!(f, "{:?}: {} g", k, v)?;
             if i + 1 < self.len() {
                 write!(f, ", ")?;

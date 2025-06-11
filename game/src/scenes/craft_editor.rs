@@ -341,6 +341,31 @@ pub fn part_sprite_path(ctx: &ProgramContext, short_path: &str) -> String {
         .to_string()
 }
 
+pub fn vehicle_info(vehicle: &Vehicle) -> String {
+    let bounds = vehicle.aabb();
+    let fuel_economy = if vehicle.remaining_dv() > 0.0 {
+        vehicle.fuel_mass() / vehicle.remaining_dv()
+    } else {
+        0.0
+    };
+    [
+        format!("Dry mass: {:0.1} kg", vehicle.dry_mass),
+        format!("Fuel: {:0.1} kg", vehicle.fuel_mass()),
+        format!("Wet mass: {:0.1} kg", vehicle.wet_mass()),
+        format!("Thrusters: {}", vehicle.thruster_count()),
+        format!("Thrust: {:0.2} kN", vehicle.thrust() / 1000.0),
+        format!("Tanks: {}", vehicle.tank_count()),
+        format!("Accel: {:0.2} g", vehicle.accel() / 9.81),
+        format!("Ve: {:0.1} s", vehicle.average_linear_exhaust_velocity()),
+        format!("DV: {:0.1} m/s", vehicle.remaining_dv()),
+        format!("WH: {:0.2}x{:0.2}", bounds.span.x, bounds.span.y),
+        format!("Econ: {:0.2} kg-s/m", fuel_economy),
+    ]
+    .into_iter()
+    .map(|s| format!("{s}\n"))
+    .collect()
+}
+
 impl Render for EditorContext {
     fn text_labels(state: &GameState) -> Option<Vec<TextLabel>> {
         let ctx = &state.editor_context;
@@ -350,38 +375,28 @@ impl Render for EditorContext {
             None => "[No file open]".to_string(),
         };
 
-        let bounds = ctx.vehicle.aabb();
+        let vehicle_info = vehicle_info(&ctx.vehicle);
 
-        let info_lines = [
+        let info: String = [
             filename,
             format!("Title: {:?}", &state.editor_context.title.0),
             format!("{} parts", state.editor_context.parts.len()),
             format!("Rotation: {:?}", state.editor_context.rotation),
-            format!("Dry mass: {} kg", ctx.vehicle.dry_mass),
-            format!("Fuel: {} kg", ctx.vehicle.fuel_mass()),
-            format!("Wet mass: {} kg", ctx.vehicle.wet_mass()),
-            format!("Thrusters: {}", ctx.vehicle.thruster_count()),
-            format!("Thrust: {:0.2} kN", ctx.vehicle.thrust() / 1000.0),
-            format!("Tanks: {}", ctx.vehicle.tank_count()),
-            format!("Accel: {:0.2} g", ctx.vehicle.accel() / 9.81),
-            format!("ISP: {} s", ctx.vehicle.exhaust_velocity / 9.81),
-            format!("DV: {:0.1} m/s", ctx.vehicle.remaining_dv()),
-            format!("WH: {:0.2}x{:0.2}", bounds.span.x, bounds.span.y),
-        ];
+        ]
+        .into_iter()
+        .map(|s| format!("{s}\n"))
+        .collect();
+
+        let info = format!("{}{}", info, vehicle_info);
 
         let half_span = state.input.screen_bounds.span * 0.5;
 
-        let mut labels: Vec<TextLabel> = info_lines
-            .into_iter()
-            .enumerate()
-            .map(|(i, s)| {
-                TextLabel::new(
-                    s,
-                    Vec2::new(half_span.x - 350.0, half_span.y - (200.0 + i as f32 * 30.0)),
-                    0.8,
-                )
-            })
-            .collect();
+        let mut labels: Vec<TextLabel> = vec![TextLabel::new(
+            info.to_uppercase(),
+            Vec2::new(half_span.x - 500.0, half_span.y - 200.0),
+            0.7,
+        )
+        .anchor_left()];
 
         if let Some(p) = state.editor_context.current_part.as_ref() {
             let t = TextLabel::new(format!("{:#?}", &p.data), Vec2::ZERO, 0.8);

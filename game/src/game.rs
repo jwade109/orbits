@@ -274,31 +274,32 @@ impl GameState {
             if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {
                 g.spawn_with_random_perturbance(orbit, vehicle);
             }
+            break;
         }
 
-        for _ in 0..20 {
-            let n = randint(3, 7);
-            let vehicles = (0..n).filter_map(|_| g.get_random_vehicle()).collect();
-            let rpo = RPO::example(g.sim_time, vehicles);
-            let orbit = get_random_orbit(PlanetId(0));
-            if let Some(orbit) = orbit {
-                g.spawn_new_rpo(orbit, rpo);
-            }
-        }
+        // for _ in 0..20 {
+        //     let n = randint(3, 7);
+        //     let vehicles = (0..n).filter_map(|_| g.get_random_vehicle()).collect();
+        //     let rpo = RPO::example(g.sim_time, vehicles);
+        //     let orbit = get_random_orbit(PlanetId(0));
+        //     if let Some(orbit) = orbit {
+        //         g.spawn_new_rpo(orbit, rpo);
+        //     }
+        // }
 
-        for _ in 0..40 {
-            let vehicle = g.get_random_vehicle();
-            let orbit = get_random_orbit(PlanetId(1));
-            if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {
-                g.spawn_with_random_perturbance(orbit, vehicle);
-            }
-        }
+        // for _ in 0..40 {
+        //     let vehicle = g.get_random_vehicle();
+        //     let orbit = get_random_orbit(PlanetId(1));
+        //     if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {
+        //         g.spawn_with_random_perturbance(orbit, vehicle);
+        //     }
+        // }
 
-        for (id, _) in &g.orbiters {
-            if g.favorites.len() < 5 && rand(0.0, 1.0) < 0.05 {
-                g.favorites.insert(*id);
-            }
-        }
+        // for (id, _) in &g.orbiters {
+        //     if g.favorites.len() < 5 && rand(0.0, 1.0) < 0.05 {
+        //         g.favorites.insert(*id);
+        //     }
+        // }
 
         g
     }
@@ -628,6 +629,8 @@ impl GameState {
         let pvp = plup.pv().pos_f32();
         let pvl = pv - pvp;
         self.orbiters.remove(&id)?;
+        self.vehicles.remove(&id);
+        self.rpos.remove(&id);
         self.notify(
             ObjectId::Planet(parent),
             NotificationType::OrbiterDeleted(id),
@@ -683,57 +686,9 @@ impl GameState {
 
     pub fn impulsive_burn(&mut self, id: OrbiterId, stamp: Nanotime, dv: Vec2) -> Option<()> {
         let obj = self.orbiters.get_mut(&id)?;
-        obj.try_impulsive_burn(stamp, dv)
-    }
-
-    pub fn thrust_prograde(&mut self, dir: i8) -> Option<()> {
-        let id = self.piloting()?;
-
-        let vehicle = match self.vehicles.get(&id) {
-            Some(v) => {
-                if v.is_controllable() {
-                    v
-                } else {
-                    let notif = NotificationType::NotControllable(id);
-                    self.notify(ObjectId::Orbiter(id), notif, None);
-                    return None;
-                }
-            }
-            None => {
-                let notif = NotificationType::NotControllable(id);
-                self.notify(ObjectId::Orbiter(id), notif, None);
-                return None;
-            }
-        };
-
-        let throttle = self.orbital_context.throttle.to_ratio();
-
-        let dv = vehicle.pointing() * 0.005 * throttle * dir as f32;
-
-        let notif = if self.impulsive_burn(id, self.sim_time, dv).is_none() {
-            NotificationType::ManeuverFailed(id)
-        } else {
-            NotificationType::OrbitChanged(id)
-        };
-
-        self.notify(ObjectId::Orbiter(id), notif, None);
-
-        let planets = self.planets.clone();
-        simulate(
-            &mut self.orbiters,
-            &planets,
-            self.sim_time,
-            self.physics_duration,
-        );
-        Some(())
-    }
-
-    pub fn toggle_piloting_thruster(&mut self, idx: usize) -> Option<()> {
-        let piloting = self.piloting()?;
-        let vehicle = self.vehicles.get_mut(&piloting)?;
-        let thruster = vehicle.thrusters_mut().skip(idx).next()?;
-        // thruster.toggle(self.sim_time);
-        Some(())
+        obj.try_impulsive_burn(stamp, dv)?;
+        let v = self.vehicles.get_mut(&id)?;
+        v.try_impulsive_burn(dv)
     }
 
     pub fn swap_ownship_target(&mut self) {
@@ -959,7 +914,6 @@ impl GameState {
                 self.write_editor_to_ownship();
             }
             OnClick::NormalizeCraft => self.editor_context.normalize_coordinates(),
-            OnClick::ToggleThruster(idx) => _ = self.toggle_piloting_thruster(idx),
             OnClick::SwapOwnshipTarget => _ = self.swap_ownship_target(),
             OnClick::AddToFavorites(id) => _ = self.favorites.insert(id),
             OnClick::RemoveFromFavorites(id) => _ = self.favorites.remove(&id),

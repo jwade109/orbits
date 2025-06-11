@@ -100,7 +100,7 @@ pub struct PartMetaData {
 pub struct ThrusterProto {
     pub model: String,
     pub thrust: f32,
-    pub isp: f32,
+    pub exhaust_velocity: f32,
     pub length: f32,
     pub is_rcs: bool,
 }
@@ -132,7 +132,7 @@ mod tests {
             class: PartClass::Thruster(ThrusterProto {
                 model: "RJ1200".into(),
                 thrust: 1200.0,
-                isp: 330.0,
+                exhaust_velocity: 3500.0,
                 length: 3.4,
                 is_rcs: false,
             }),

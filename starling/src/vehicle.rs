@@ -94,7 +94,6 @@ pub struct Vehicle {
     pub inventory: Inventory,
     pub max_fuel_mass: f32,
     pub dry_mass: f32,
-    pub exhaust_velocity: f32,
     pub parts: Vec<(IVec2, Rotation, PartProto)>,
     pub velocity_stamp: Nanotime,
     pub stored_delta_velocity: Vec2,
@@ -123,15 +122,6 @@ impl Vehicle {
             .collect();
 
         let dry_mass = parts.iter().map(|(_, _, p)| p.data.mass).sum();
-
-        let linear_thrusters = thrusters.iter().filter(|t| !t.proto.is_rcs);
-        let n_linear = linear_thrusters.clone().count();
-
-        let isp = if n_linear == 0 {
-            100.0
-        } else {
-            linear_thrusters.map(|t| t.proto.isp).sum::<f32>() / n_linear as f32
-        };
 
         let tanks: Vec<Tank> = parts
             .iter()
@@ -188,7 +178,6 @@ impl Vehicle {
         Self {
             max_fuel_mass: 0.0,
             dry_mass,
-            exhaust_velocity: isp * 9.81,
             name,
             stamp,
             angle: rand(0.0, 2.0 * PI),
@@ -340,7 +329,7 @@ impl Vehicle {
     }
 
     pub fn low_fuel(&self) -> bool {
-        self.is_controllable() && self.remaining_dv() < 10.0
+        self.is_controllable() && self.inventory.count(InventoryItem::LiquidFuel) < 1000
     }
 
     pub fn is_thrusting(&self) -> bool {
@@ -356,8 +345,9 @@ impl Vehicle {
             return None;
         }
 
+        let ve = self.average_linear_exhaust_velocity();
         let fuel_mass_before_maneuver = self.fuel_mass();
-        let m1 = mass_after_maneuver(self.exhaust_velocity, self.wet_mass(), dv.length());
+        let m1 = mass_after_maneuver(ve, self.wet_mass(), dv.length());
         let fuel_mass_after_maneuver = m1 - self.dry_mass;
         let spent_fuel = fuel_mass_before_maneuver - fuel_mass_after_maneuver;
 
@@ -369,8 +359,41 @@ impl Vehicle {
         Some(())
     }
 
+    pub fn average_linear_exhaust_velocity(&self) -> f32 {
+        let linear_thrusters = self.thrusters.iter().filter(|t| !t.proto.is_rcs);
+
+        let count = linear_thrusters.clone().count();
+
+        if count == 0 {
+            return 0.0;
+        }
+
+        linear_thrusters
+            .map(|t| t.proto.exhaust_velocity / count as f32)
+            .sum()
+    }
+
+    pub fn body_frame_acceleration(&self) -> Vec2 {
+        let mass = self.wet_mass();
+        self.thrusters
+            .iter()
+            .map(|t| t.thrust_vector() / mass)
+            .sum()
+    }
+
+    pub fn fuel_consumption_rate(&self) -> f32 {
+        self.thrusters
+            .iter()
+            .map(|t| t.fuel_consumption_rate())
+            .sum()
+    }
+
     pub fn remaining_dv(&self) -> f32 {
-        rocket_equation(self.exhaust_velocity, self.wet_mass(), self.dry_mass)
+        if self.wet_mass() * self.dry_mass == 0.0 {
+            return 0.0;
+        }
+        let ve = self.average_linear_exhaust_velocity();
+        rocket_equation(ve, self.wet_mass(), self.dry_mass)
     }
 
     pub fn fuel_percentage(&self) -> f32 {
@@ -466,9 +489,6 @@ impl Vehicle {
         let dv = a * dt.to_secs();
 
         if dv.length() > 0.0 {
-            if self.stored_delta_velocity.length() > 0.0 {
-                self.velocity_stamp = stamp;
-            }
             self.stored_delta_velocity += dv;
         }
     }
@@ -490,9 +510,10 @@ impl Vehicle {
 
         let dt = stamp - self.velocity_stamp;
 
-        if self.velocity_stamp != Nanotime::zero() && dt > Nanotime::secs(1) {
+        if dt > Nanotime::millis(200) {
             let ret = self.stored_delta_velocity;
             self.stored_delta_velocity = Vec2::ZERO;
+            self.velocity_stamp = stamp;
             ret
         } else {
             Vec2::ZERO

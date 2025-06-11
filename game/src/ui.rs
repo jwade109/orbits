@@ -502,7 +502,7 @@ fn current_inventory_layout(state: &GameState) -> Option<Node<OnClick>> {
             let s = format!("Vehicle {}", vehicle.name());
             Node::button(s, OnClick::Nullopt, Size::Grow, 40.0).enabled(false)
         })
-        .with_children(vehicle.inventory.view().map(|(k, v)| {
+        .with_children(vehicle.inventory.iter().map(|(k, v)| {
             let name = format!("{:?} {} g", k, v);
             Node::button(name, OnClick::Nullopt, Size::Grow, 40.0)
         }));
