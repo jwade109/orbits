@@ -1,5 +1,6 @@
 #![allow(unused)]
 
+use crate::canvas::Canvas;
 use crate::game::GameState;
 use crate::onclick::OnClick;
 use crate::scenes::{Render, StaticSpriteDescriptor, TextLabel};
@@ -22,15 +23,7 @@ impl Render for MainMenuContext {
         BLACK
     }
 
-    fn draw_gizmos(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
-        None
-    }
-
-    fn sprites(state: &GameState) -> Option<Vec<StaticSpriteDescriptor>> {
-        None
-    }
-
-    fn text_labels(state: &GameState) -> Option<Vec<TextLabel>> {
+    fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         let dims = state.input.screen_bounds.span;
         let time = compile_time::datetime_str!();
         let dir = match std::fs::canonicalize(state.args.install_dir.clone()) {
@@ -50,7 +43,12 @@ impl Render for MainMenuContext {
         .to_uppercase();
         let p = Vec2::new(-dims.x / 2.0 + 200.0, -dims.y / 2.0 + 140.0);
 
-        Some(vec![TextLabel::new(s, p, 0.6).with_anchor_left()])
+        let t = TextLabel::new(s, p, 0.6).with_anchor_left();
+        canvas.label(t);
+
+        crate::drawing::draw_cells(&mut canvas.gizmos, state);
+
+        Some(())
     }
 
     fn ui(state: &GameState) -> Option<Tree<OnClick>> {

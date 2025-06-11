@@ -4,6 +4,7 @@ use bevy::color::palettes::basic::*;
 use bevy::color::palettes::css::ORANGE;
 use bevy::prelude::*;
 use starling::prelude::*;
+use std::collections::HashSet;
 
 use crate::canvas::Canvas;
 use crate::game::GameState;
@@ -1381,15 +1382,40 @@ fn orthographic_camera_map(p: Vec3, center: Vec3, normal: Vec3, x: Vec3, y: Vec3
     Vec2::new(p.dot(x), p.dot(y))
 }
 
-pub fn draw_game_state(mut gizmos: Gizmos, mut state: ResMut<GameState>) {
-    GameState::draw_gizmos(&mut gizmos, &state);
-
+pub fn draw_game_state(gizmos: Gizmos, mut state: ResMut<GameState>) {
     let mut canvas = Canvas::new(gizmos);
 
     GameState::draw(&mut canvas, &state);
 
     state.text_labels = canvas.text_labels;
     state.sprites = canvas.sprites;
+}
+
+pub fn draw_cells(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
+    let ctx = &state.orbital_context;
+
+    let scale_factor = 3500.0;
+
+    let mut idxs = HashSet::new();
+
+    for id in crate::scenes::orbiter_ids(state) {
+        let pos = state.lup_orbiter(id, state.sim_time)?.pv().pos_f32();
+
+        let idx = vfloor(pos / scale_factor);
+        idxs.insert(idx);
+    }
+
+    for idx in idxs {
+        let p = idx.as_vec2() * scale_factor;
+        let q = p + Vec2::splat(scale_factor);
+
+        let aabb = AABB::from_arbitrary(p, q);
+        let aabb = ctx.w2c_aabb(aabb);
+        crate::drawing::draw_aabb(gizmos, aabb, ORANGE.with_alpha(0.3));
+        crate::drawing::fill_aabb(gizmos, aabb, GRAY.with_alpha(0.03));
+    }
+
+    Some(())
 }
 
 fn draw_input_state(gizmos: &mut Gizmos, state: &GameState) {

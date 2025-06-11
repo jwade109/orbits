@@ -5,7 +5,7 @@ use crate::game::GameState;
 use crate::input::InputState;
 use crate::input::{FrameId, MouseButt};
 use crate::onclick::OnClick;
-use crate::scenes::{CameraProjection, Render, StaticSpriteDescriptor, TextLabel};
+use crate::scenes::{CameraProjection, Render, TextLabel};
 use crate::ui::*;
 use bevy::color::palettes::css::*;
 use bevy::input::keyboard::{Key, KeyCode, KeyboardInput};

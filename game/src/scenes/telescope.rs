@@ -1,10 +1,11 @@
+use crate::canvas::Canvas;
 use crate::drawing::*;
 use crate::game::GameState;
 use crate::graph::Graph;
 use crate::input::InputState;
 use crate::input::{FrameId, MouseButt};
 use crate::onclick::OnClick;
-use crate::scenes::{CameraProjection, Render, StaticSpriteDescriptor, TextLabel};
+use crate::scenes::{CameraProjection, Render, TextLabel};
 use bevy::color::palettes::css::*;
 use bevy::input::keyboard::KeyCode;
 use bevy::prelude::*;
@@ -140,46 +141,20 @@ fn get_frequency_spectrum(x: f32, d: f32, fc: f32) -> f32 {
 }
 
 impl Render for TelescopeContext {
-    fn text_labels(state: &GameState) -> Option<Vec<TextLabel>> {
-        let cursor = state.input.position(MouseButt::Hover, FrameId::Current)?;
-
-        let mut ret = Vec::new();
-
-        for (p, _, _, freq) in &state.starfield {
-            let (az, el) = Self::to_azel(*p);
-            let (q, alpha, _) = Self::screen_position(az, el, state);
-            if alpha > 0.4 && q.distance(cursor) < 50.0 {
-                ret.push(TextLabel::new(
-                    format!(
-                        "AZEL {:0.0}/{:0.0}\n{:0.1} LYR\n{:0.1} K",
-                        az.to_degrees(),
-                        el.to_degrees(),
-                        p.length() / 600.0,
-                        freq
-                    ),
-                    q + 30.0 * Vec2::Y,
-                    0.7,
-                ));
-            }
-        }
-
-        Some(ret)
-    }
-
-    fn sprites(_state: &GameState) -> Option<Vec<StaticSpriteDescriptor>> {
-        None
-    }
-
     fn background_color(_state: &GameState) -> Srgba {
         GRAY.with_luminance(0.12)
     }
 
-    fn draw_gizmos(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
-        let screen_radius = TelescopeContext::screen_radius(state);
-        draw_circle(gizmos, Vec2::ZERO, screen_radius, WHITE);
-        draw_circle(gizmos, Vec2::ZERO, screen_radius + 5.0, WHITE);
+    fn ui(state: &GameState) -> Option<Tree<OnClick>> {
+        Some(crate::ui::basic_scenes_layout(state))
+    }
 
-        draw_cross(gizmos, Vec2::ZERO, 5.0, GRAY);
+    fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
+        let screen_radius = TelescopeContext::screen_radius(state);
+        draw_circle(&mut canvas.gizmos, Vec2::ZERO, screen_radius, WHITE);
+        draw_circle(&mut canvas.gizmos, Vec2::ZERO, screen_radius + 5.0, WHITE);
+
+        draw_cross(&mut canvas.gizmos, Vec2::ZERO, 5.0, GRAY);
 
         let mut graph = Graph::linspace(250.0, 2500.0, 100);
 
@@ -196,19 +171,35 @@ impl Render for TelescopeContext {
                     color.with_alpha(0.3),
                 );
             }
-            draw_circle(gizmos, p, *radius, color.with_alpha(alpha));
+            draw_circle(&mut canvas.gizmos, p, *radius, color.with_alpha(alpha));
         }
 
         draw_graph(
-            gizmos,
+            &mut canvas.gizmos,
             &graph,
             state.input.screen_bounds.with_center(Vec2::ZERO),
         );
 
-        Some(())
-    }
+        let cursor = state.input.position(MouseButt::Hover, FrameId::Current)?;
 
-    fn ui(state: &GameState) -> Option<Tree<OnClick>> {
-        Some(crate::ui::basic_scenes_layout(state))
+        for (p, _, _, freq) in &state.starfield {
+            let (az, el) = Self::to_azel(*p);
+            let (q, alpha, _) = Self::screen_position(az, el, state);
+            if alpha > 0.4 && q.distance(cursor) < 50.0 {
+                canvas.label(TextLabel::new(
+                    format!(
+                        "AZEL {:0.0}/{:0.0}\n{:0.1} LYR\n{:0.1} K",
+                        az.to_degrees(),
+                        el.to_degrees(),
+                        p.length() / 600.0,
+                        freq
+                    ),
+                    q + 30.0 * Vec2::Y,
+                    0.7,
+                ));
+            }
+        }
+
+        Some(())
     }
 }

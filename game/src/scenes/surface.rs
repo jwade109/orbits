@@ -1,7 +1,8 @@
+use crate::canvas::Canvas;
 use crate::drawing::*;
 use crate::game::GameState;
 use crate::onclick::OnClick;
-use crate::scenes::{CameraProjection, Render, StaticSpriteDescriptor, TextLabel};
+use crate::scenes::{CameraProjection, Render, TextLabel};
 use bevy::color::{palettes::css::*, Luminance};
 use bevy::prelude::*;
 use layout::layout::Tree;
@@ -106,35 +107,29 @@ impl Render for SurfaceContext {
         TEAL.with_luminance(0.3)
     }
 
-    fn draw_gizmos(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
+    fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         let ctx = &state.surface_context;
 
         if let Some(v) = &ctx.vehicle {
-            draw_vehicle(gizmos, v, Vec2::ZERO, 40.0, v.angle());
+            draw_vehicle(&mut canvas.gizmos, v, Vec2::ZERO, 40.0, v.angle());
         }
 
         let p = ctx.w2c(Vec2::new(-400.0, 0.0));
         let q = ctx.w2c(Vec2::new(400.0, 0.0));
 
-        gizmos.line_2d(p, q, WHITE);
+        canvas.gizmos.line_2d(p, q, WHITE);
 
         for p in &ctx.plants {
-            draw_plant(gizmos, p, ctx);
+            draw_plant(&mut canvas.gizmos, p, ctx);
         }
 
-        Some(())
-    }
-
-    fn sprites(_state: &GameState) -> Option<Vec<StaticSpriteDescriptor>> {
-        None
-    }
-
-    fn text_labels(state: &GameState) -> Option<Vec<TextLabel>> {
-        Some(vec![TextLabel::new(
-            format!("{:0.2}", state.surface_context.wind_offset),
+        canvas.label(TextLabel::new(
+            format!("{:0.2}", ctx.wind_offset),
             Vec2::splat(-300.0),
             1.0,
-        )])
+        ));
+
+        Some(())
     }
 
     fn ui(state: &GameState) -> Option<Tree<OnClick>> {

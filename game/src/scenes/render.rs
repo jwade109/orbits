@@ -86,18 +86,9 @@ pub trait Render {
 
     fn background_color(state: &GameState) -> Srgba;
 
-    fn draw_gizmos(_gizmos: &mut Gizmos, _state: &GameState) -> Option<()> {
-        None
-    }
-
     fn ui(state: &GameState) -> Option<Tree<OnClick>>;
 
-    fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
-        canvas.sprite(Vec2::ZERO, 0.0, "bird1.png", 1.0, 1.0);
-        if crate::drawing::is_blinking(state.wall_time, None) {
-            canvas.circle();
-            canvas.text("DRAW PROCEDURE UNIMPLEMENTED", Vec2::ZERO, 3.0);
-        }
+    fn draw(_canvas: &mut Canvas, _state: &GameState) -> Option<()> {
         None
     }
 }

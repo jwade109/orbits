@@ -1,3 +1,4 @@
+use crate::canvas::Canvas;
 use crate::game::GameState;
 use crate::input::{FrameId, InputState, MouseButt};
 use crate::onclick::OnClick;
@@ -604,8 +605,8 @@ impl Render for OrbitalContext {
         }
     }
 
-    fn draw_gizmos(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
-        crate::drawing::draw_orbital_view(gizmos, state);
+    fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
+        crate::drawing::draw_orbital_view(&mut canvas.gizmos, state);
         Some(())
     }
 

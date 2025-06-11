@@ -360,18 +360,6 @@ impl Render for GameState {
         }
     }
 
-    fn draw_gizmos(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
-        match state.current_scene().kind() {
-            SceneType::Orbital => OrbitalContext::draw_gizmos(gizmos, state),
-            SceneType::Editor => EditorContext::draw_gizmos(gizmos, state),
-            SceneType::Telescope => TelescopeContext::draw_gizmos(gizmos, state),
-            SceneType::DockingView => RPOContext::draw_gizmos(gizmos, state),
-            SceneType::MainMenu => draw_cells(gizmos, state),
-            SceneType::CommsPanel => CommsContext::draw_gizmos(gizmos, state),
-            SceneType::Surface => SurfaceContext::draw_gizmos(gizmos, state),
-        }
-    }
-
     fn ui(state: &GameState) -> Option<Tree<OnClick>> {
         match state.current_scene().kind() {
             SceneType::CommsPanel => CommsContext::ui(state),
@@ -391,33 +379,6 @@ impl Render for GameState {
             SceneType::Surface => SurfaceContext::draw(canvas, state),
         }
     }
-}
-
-fn draw_cells(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
-    let ctx = &state.orbital_context;
-
-    let scale_factor = 3500.0;
-
-    let mut idxs = HashSet::new();
-
-    for id in crate::scenes::orbiter_ids(state) {
-        let pos = state.lup_orbiter(id, state.sim_time)?.pv().pos_f32();
-
-        let idx = vfloor(pos / scale_factor);
-        idxs.insert(idx);
-    }
-
-    for idx in idxs {
-        let p = idx.as_vec2() * scale_factor;
-        let q = p + Vec2::splat(scale_factor);
-
-        let aabb = AABB::from_arbitrary(p, q);
-        let aabb = ctx.w2c_aabb(aabb);
-        crate::drawing::draw_aabb(gizmos, aabb, ORANGE.with_alpha(0.3));
-        crate::drawing::fill_aabb(gizmos, aabb, GRAY.with_alpha(0.03));
-    }
-
-    Some(())
 }
 
 impl GameState {

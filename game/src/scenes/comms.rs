@@ -1,6 +1,6 @@
 use crate::game::GameState;
 use crate::onclick::OnClick;
-use crate::scenes::{Render, StaticSpriteDescriptor, TextLabel};
+use crate::scenes::Render;
 use crate::ui::{BUTTON_HEIGHT, UI_BACKGROUND_COLOR};
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
@@ -52,18 +52,6 @@ fn interactive_numerical_display(mut num: i64, inset: f32) -> Node<OnClick> {
 impl Render for CommsContext {
     fn background_color(_state: &GameState) -> Srgba {
         TEAL.with_luminance(0.1)
-    }
-
-    fn draw_gizmos(_gizmos: &mut Gizmos, _state: &GameState) -> Option<()> {
-        None
-    }
-
-    fn sprites(_state: &GameState) -> Option<Vec<StaticSpriteDescriptor>> {
-        None
-    }
-
-    fn text_labels(_state: &GameState) -> Option<Vec<TextLabel>> {
-        None
     }
 
     fn ui(state: &GameState) -> Option<Tree<OnClick>> {
