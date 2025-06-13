@@ -175,9 +175,10 @@ impl Render for TelescopeContext {
         }
 
         draw_graph(
-            &mut canvas.gizmos,
+            canvas,
             &graph,
             state.input.screen_bounds.with_center(Vec2::ZERO),
+            Some(&state.input),
         );
 
         let cursor = state.input.position(MouseButt::Hover, FrameId::Current)?;

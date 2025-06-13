@@ -53,10 +53,11 @@ impl Thruster {
         let dt = stamp - self.stamp;
         self.stamp = stamp;
         let dthrottle = (self.throttle_rate * dt.to_secs()).abs();
+        let diff = (throttle - self.throttle).abs();
         if self.throttle < throttle {
-            self.throttle += dthrottle;
+            self.throttle += dthrottle.min(diff);
         } else if self.throttle > throttle {
-            self.throttle -= dthrottle;
+            self.throttle -= dthrottle.min(diff);
         }
         self.throttle = self.throttle.clamp(0.0, 1.0);
     }

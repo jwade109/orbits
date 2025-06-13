@@ -58,6 +58,8 @@ pub enum InteractionEvent {
     TurnRight,
     StrafeLeft,
     StrafeRight,
+
+    ToggleDebugConsole,
 }
 
 pub struct UiPlugin;
@@ -148,6 +150,7 @@ fn context_menu(rowsize: f32, items: &[(String, OnClick, bool)]) -> Node<OnClick
 pub const DELETE_SOMETHING_COLOR: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
 pub const UI_BACKGROUND_COLOR: [f32; 4] = [0.05, 0.05, 0.05, 1.0];
 pub const PILOT_FAVORITES_COLOR: [f32; 4] = [0.8, 0.8, 0.2, 1.0];
+pub const EXIT_OVERLAY_BACKGROUND_COLOR: [f32; 4] = [0.0, 0.0, 0.0, 0.95];
 
 pub fn top_bar(state: &GameState) -> Node<OnClick> {
     Node::row(Size::Fit)
@@ -226,10 +229,67 @@ pub fn exit_prompt_overlay(w: f32, h: f32) -> Node<OnClick> {
         .with_child(Node::grow().invisible());
 
     Node::new(w, h)
-        .with_color([0.0, 0.0, 0.0, 0.95])
+        .with_color(EXIT_OVERLAY_BACKGROUND_COLOR)
         .with_child(Node::grow().invisible())
         .with_child(col)
         .with_child(Node::grow().invisible())
+}
+
+pub fn console_overlay(state: &GameState) -> Node<OnClick> {
+    let dims = state.input.screen_bounds.span;
+
+    let button_height = BUTTON_HEIGHT * 0.6;
+    let offset = "   ";
+    let cursor = if crate::drawing::is_blinking(state.wall_time, None) {
+        "_"
+    } else {
+        ""
+    };
+
+    let spacer = Node::grow().invisible();
+
+    let cmd = Node::row(button_height)
+        .with_text(format!("{}> {}{}", offset, state.console.cmd(), cursor))
+        .with_justify(TextJustify::Left)
+        .with_color(UI_BACKGROUND_COLOR);
+
+    let get_line_node = |text: &str| {
+        Node::new(Size::Grow, button_height)
+            .with_text(format!("{}  {}", offset, text))
+            .with_color(UI_BACKGROUND_COLOR)
+            .with_justify(TextJustify::Left)
+    };
+
+    let mut lines: Vec<_> = state
+        .console
+        .lines()
+        .iter()
+        .rev()
+        .take(20)
+        .rev()
+        .map(|l| get_line_node(l))
+        .collect();
+
+    while lines.len() < 21 {
+        let n = get_line_node("");
+        lines.push(n);
+    }
+
+    let terminal = Node::new(Size::Grow, Size::Fit)
+        .down()
+        .with_color(UI_BACKGROUND_COLOR)
+        .tight()
+        .with_child(Node::hline())
+        .with_children(lines.into_iter())
+        .with_child(Node::hline())
+        .with_child(cmd);
+
+    Node::new(dims.x, dims.y)
+        .invisible()
+        .tight()
+        .down()
+        .with_child(spacer)
+        .with_child(terminal)
 }
 
 pub fn delete_wrapper(ondelete: OnClick, button: Node<OnClick>, box_size: f32) -> Node<OnClick> {
@@ -618,6 +678,10 @@ fn do_ui_sprites(
     }
 
     let mut ui = layout(&state);
+
+    if state.console.is_active() {
+        ui.add_layout(console_overlay(&state), Vec2::ZERO)
+    }
 
     if state.is_exit_prompt {
         ui.add_layout(exit_prompt_overlay(vb.span.x, vb.span.y), Vec2::ZERO)

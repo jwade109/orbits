@@ -383,13 +383,23 @@ impl Render for EditorContext {
         let top_bar = top_bar(state);
         let parts = part_selection(state);
         let layers = layer_selection(state);
+        let info_panel = Node::new(layers.desired_dims().0, 200)
+            .with_color(UI_BACKGROUND_COLOR)
+            .with_child(Node::grow());
         let vehicles = vehicle_selection(state);
         let other_buttons = other_buttons();
 
         let main_area = Node::grow()
             .invisible()
             .with_child(parts)
-            .with_child(layers)
+            .with_child(
+                Node::fit()
+                    .down()
+                    .with_padding(0.0)
+                    .invisible()
+                    .with_child(layers)
+                    .with_child(info_panel),
+            )
             .with_child(vehicles)
             .with_child(Node::grow().invisible())
             .with_child(other_buttons);

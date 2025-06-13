@@ -4,7 +4,7 @@ use crate::game::GameState;
 use crate::input::InputState;
 use crate::onclick::OnClick;
 use crate::scenes::Render;
-use crate::scenes::{CameraProjection, Interactive, StaticSpriteDescriptor, TextLabel};
+use crate::scenes::{CameraProjection, Interactive, TextLabel};
 use bevy::color::palettes::css::*;
 use bevy::input::keyboard::KeyCode;
 use bevy::prelude::*;
@@ -122,69 +122,23 @@ impl Render for RPOContext {
             canvas.gizmos.linestrip_2d(relpos, WHITE);
         }
 
-        Some(())
-    }
-
-    fn sprites(_state: &GameState) -> Option<Vec<StaticSpriteDescriptor>> {
-        None
-        // let ctx = &state.rpo_context;
-
-        // let mut ret = vec![];
-
-        // let targeting = state.targeting()?;
-        // let piloting = state.piloting()?;
-
-        // let p1 = state.lup_orbiter(targeting, state.sim_time)?.pv();
-        // let p2 = state.lup_orbiter(piloting, state.sim_time)?.pv();
-
-        // for (id, offset) in [
-        //     (targeting, DVec2::ZERO),
-        //     (piloting, (p2.pos - p1.pos) * 1000.0),
-        // ] {
-        //     let vehicle = state.vehicles.get(&id)?;
-
-        //     for (pos, rot, part) in &vehicle.parts {
-        //         let path = crate::scenes::craft_editor::part_sprite_path(&state.args, &part.path);
-        //         let dims = meters_with_rotation(*rot, part);
-        //         let p = pos.as_vec2() / starling::parts::parts::PIXELS_PER_METER;
-        //         let angle = rot.to_angle() + vehicle.angle() - PI / 2.0;
-        //         let center = rotate(p + dims / 2.0, vehicle.angle() - PI / 2.0);
-        //         let scale = ctx.scale() / PIXELS_PER_METER;
-        //         let position = ctx.w2c(offset.as_vec2() + center);
-        //         let z_index = match part.data.layer {
-        //             PartLayer::Exterior => 12.0,
-        //             PartLayer::Internal => 9.0,
-        //             PartLayer::Structural => 11.0,
-        //         };
-        //         let desc = StaticSpriteDescriptor::new(position, angle, path, scale, z_index);
-        //         ret.push(desc);
-        //     }
-        // }
-        // Some(ret)
-    }
-
-    fn text_labels(state: &GameState) -> Option<Vec<TextLabel>> {
         let half_span = state.input.screen_bounds.span / 2.0;
 
-        let info = relative_info_labels(state);
+        if let Some(info) = relative_info_labels(state) {
+            canvas.label(info);
+        }
 
-        Some(
-            [
-                Some(TextLabel::new(
-                    format!(
-                        "Target: {:?} scale: {}",
-                        state.orbital_context.targeting,
-                        state.rpo_context.scale()
-                    ),
-                    (40.0 - half_span.y) * Vec2::Y,
-                    0.6,
-                )),
-                info,
-            ]
-            .into_iter()
-            .flatten()
-            .collect(),
-        )
+        canvas.label(TextLabel::new(
+            format!(
+                "Target: {:?} scale: {}",
+                state.orbital_context.targeting,
+                state.rpo_context.scale()
+            ),
+            (40.0 - half_span.y) * Vec2::Y,
+            0.6,
+        ));
+
+        Some(())
     }
 
     fn ui(state: &GameState) -> Option<Tree<OnClick>> {

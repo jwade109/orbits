@@ -9,7 +9,7 @@ use std::collections::HashSet;
 use crate::canvas::Canvas;
 use crate::game::GameState;
 use crate::graph::*;
-use crate::input::{FrameId, MouseButt};
+use crate::input::*;
 use crate::notifications::*;
 use crate::onclick::OnClick;
 use crate::scenes::*;
@@ -1085,7 +1085,12 @@ pub fn draw_notifications(gizmos: &mut Gizmos, state: &GameState) {
     }
 }
 
-pub fn draw_graph(gizmos: &mut Gizmos, graph: &Graph, bounds: AABB) -> Option<()> {
+pub fn draw_graph(
+    canvas: &mut Canvas,
+    graph: &Graph,
+    bounds: AABB,
+    input: Option<&InputState>,
+) -> Option<()> {
     let map = |p: Vec2| bounds.from_normalized(p);
 
     {
@@ -1095,20 +1100,30 @@ pub fn draw_graph(gizmos: &mut Gizmos, graph: &Graph, bounds: AABB) -> Option<()
         let u = origin.with_y(1.0);
         let l = origin.with_x(0.0);
         let r = origin.with_x(1.0);
-        gizmos.line_2d(map(l), map(r), GRAY.with_alpha(0.2));
-        gizmos.line_2d(map(d), map(u), GRAY.with_alpha(0.2));
+        canvas.gizmos.line_2d(map(l), map(r), GRAY.with_alpha(0.2));
+        canvas.gizmos.line_2d(map(d), map(u), GRAY.with_alpha(0.2));
+    }
+
+    if let Some(p) = input
+        .map(|i| i.position(MouseButt::Hover, FrameId::Current))
+        .flatten()
+    {
+        if bounds.contains(p) {
+            canvas.text("Graph!".to_uppercase(), p, 0.7);
+            canvas.sprite(p, 0.0, "bird1.png", 0.06, 50.0);
+        }
     }
 
     for signal in graph.signals() {
         let p = signal.points().map(|p| map(p)).collect::<Vec<_>>();
-        gizmos.linestrip_2d(p, signal.color());
+        canvas.gizmos.linestrip_2d(p, signal.color());
     }
 
     for p in graph.points() {
         if !AABB::unit().contains(p) {
             continue;
         }
-        draw_x(gizmos, map(p), 10.0, WHITE.with_alpha(0.6));
+        draw_x(&mut canvas.gizmos, map(p), 10.0, WHITE.with_alpha(0.6));
     }
 
     Some(())
@@ -1133,7 +1148,7 @@ pub fn draw_ui_layout(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     Some(())
 }
 
-pub fn draw_orbit_spline(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
+pub fn draw_orbit_spline(canvas: &mut Canvas, state: &GameState) -> Option<()> {
     if !state.input.is_pressed(KeyCode::KeyP) {
         return None;
     }
@@ -1145,8 +1160,8 @@ pub fn draw_orbit_spline(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
 
     let bounds = state.input.screen_bounds.with_center(Vec2::ZERO);
 
-    draw_graph(gizmos, &g, bounds);
-    draw_graph(gizmos, get_lut_graph(), bounds);
+    draw_graph(canvas, &g, bounds, Some(&state.input));
+    draw_graph(canvas, get_lut_graph(), bounds, Some(&state.input));
 
     Some(())
 }
@@ -1164,7 +1179,7 @@ fn highlight_targeted_vehicle(gizmos: &mut Gizmos, state: &GameState) -> Option<
     Some(())
 }
 
-fn draw_rendezvous_info(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
+fn draw_rendezvous_info(canvas: &mut Canvas, state: &GameState) -> Option<()> {
     let ctx = &state.orbital_context;
     let pilot = state.piloting()?;
     let target = state.targeting()?;
@@ -1175,20 +1190,22 @@ fn draw_rendezvous_info(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let (g, v, mut relpos) = make_separation_graph(&po.1, &to.1, state.sim_time);
     let h = 140.0;
     draw_graph(
-        gizmos,
+        canvas,
         &g,
         AABB::from_arbitrary(
             vb - Vec2::new(vb.x * 0.7, 200.0),
             vb - Vec2::new(20.0, 200.0 - h),
         ),
+        Some(&state.input),
     );
     draw_graph(
-        gizmos,
+        canvas,
         &v,
         AABB::from_arbitrary(
             vb - Vec2::new(vb.x * 0.7, 220.0 + h),
             vb - Vec2::new(20.0, 220.0),
         ),
+        Some(&state.input),
     );
 
     {
@@ -1204,21 +1221,21 @@ fn draw_rendezvous_info(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
                 screen_center + *p / world_radius * screen_radius
             }
         });
-        draw_circle(gizmos, screen_center, screen_radius, GRAY);
-        gizmos.linestrip_2d(relpos, WHITE);
-        draw_x(gizmos, screen_center, 6.0, RED);
+        draw_circle(&mut canvas.gizmos, screen_center, screen_radius, GRAY);
+        canvas.gizmos.linestrip_2d(relpos, WHITE);
+        draw_x(&mut canvas.gizmos, screen_center, 6.0, RED);
         if let Some(p) = current_world {
             let p = screen_center + p / world_radius * screen_radius;
-            draw_x(gizmos, p, 7.0, TEAL);
+            draw_x(&mut canvas.gizmos, p, 7.0, TEAL);
         }
     }
 
     if let Ok(Some((t, pv))) = get_next_intersection(state.sim_time, &po.1, &to.1) {
         let p = ctx.w2c(pv.pos_f32());
-        draw_circle(gizmos, p, 20.0, WHITE);
+        draw_circle(&mut canvas.gizmos, p, 20.0, WHITE);
         if let Some(q) = to.1.pv(t).ok() {
             let q = ctx.w2c(q.pos_f32());
-            draw_circle(gizmos, q, 20.0, ORANGE);
+            draw_circle(&mut canvas.gizmos, q, 20.0, ORANGE);
         }
     }
 
@@ -1237,42 +1254,42 @@ fn draw_landing_sites(gizmos: &mut Gizmos, state: &GameState) {
     }
 }
 
-pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState) {
+pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
     let ctx = &state.orbital_context;
 
-    draw_scale_indicator(gizmos, state);
+    draw_scale_indicator(&mut canvas.gizmos, state);
 
-    draw_piloting_overlay(gizmos, state);
+    draw_piloting_overlay(&mut canvas.gizmos, state);
 
-    draw_favorites(gizmos, state);
+    draw_favorites(&mut canvas.gizmos, state);
 
     for (id, rpo) in &state.rpos {
-        draw_rpo(gizmos, state, *id, rpo);
+        draw_rpo(&mut canvas.gizmos, state, *id, rpo);
     }
 
-    highlight_targeted_vehicle(gizmos, state);
+    highlight_targeted_vehicle(&mut canvas.gizmos, state);
 
-    draw_rendezvous_info(gizmos, state);
+    draw_rendezvous_info(canvas, state);
 
     // draw_timeline(gizmos, &state);
 
-    draw_orbit_spline(gizmos, state);
+    draw_orbit_spline(canvas, state);
 
-    draw_landing_sites(gizmos, state);
+    draw_landing_sites(&mut canvas.gizmos, state);
 
     if let Some(a) = state.selection_region() {
-        draw_region(gizmos, a, ctx, RED, Vec2::ZERO);
+        draw_region(&mut canvas.gizmos, a, ctx, RED, Vec2::ZERO);
     }
 
     if let Some((m1, m2, corner)) = state.measuring_tape() {
         let m1 = ctx.w2c(m1);
         let m2 = ctx.w2c(m2);
         let corner = ctx.w2c(corner);
-        draw_x(gizmos, m1, 12.0, GRAY);
-        draw_x(gizmos, m2, 12.0, GRAY);
-        gizmos.line_2d(m1, m2, GRAY);
-        gizmos.line_2d(m1, corner, GRAY.with_alpha(0.3));
-        gizmos.line_2d(m2, corner, GRAY.with_alpha(0.3));
+        draw_x(&mut canvas.gizmos, m1, 12.0, GRAY);
+        draw_x(&mut canvas.gizmos, m2, 12.0, GRAY);
+        canvas.gizmos.line_2d(m1, m2, GRAY);
+        canvas.gizmos.line_2d(m1, corner, GRAY.with_alpha(0.3));
+        canvas.gizmos.line_2d(m2, corner, GRAY.with_alpha(0.3));
     }
 
     if let Some((c, a, b)) = state.protractor() {
@@ -1283,22 +1300,23 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState) {
         let r1 = c.distance(a);
         let r2 = c.distance(b);
         for p in [a, b, c] {
-            draw_x(gizmos, p, 7.0, WHITE);
+            draw_x(&mut canvas.gizmos, p, 7.0, WHITE);
         }
-        draw_circle(gizmos, c, r1, WHITE.with_alpha(0.4));
-        draw_circle(gizmos, c, r2, WHITE.with_alpha(0.7));
-        gizmos.line_2d(c, a, RED);
-        gizmos.line_2d(c, b, GREEN);
-        gizmos.line_2d(a, b, GRAY.with_alpha(0.3));
+        draw_circle(&mut canvas.gizmos, c, r1, WHITE.with_alpha(0.4));
+        draw_circle(&mut canvas.gizmos, c, r2, WHITE.with_alpha(0.7));
+        canvas.gizmos.line_2d(c, a, RED);
+        canvas.gizmos.line_2d(c, b, GREEN);
+        canvas.gizmos.line_2d(a, b, GRAY.with_alpha(0.3));
         let angle = (a - c).angle_to(b - c);
         let iso = Isometry2d::new(c, ((a - c).to_angle() - PI / 2.0).into());
-        gizmos
+        canvas
+            .gizmos
             .arc_2d(iso, angle, (r1 * 0.75).min(r2), TEAL)
             .resolution(100);
     }
 
     for orbit in &state.orbital_context.queued_orbits {
-        draw_global_orbit(gizmos, orbit, &state, RED);
+        draw_global_orbit(&mut canvas.gizmos, orbit, &state, RED);
     }
 
     if let Some(orbit) = state
@@ -1332,7 +1350,7 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState) {
                 sparse.is_retrograde(),
             ) {
                 go.1 = o;
-                draw_global_orbit(gizmos, &go, &state, YELLOW.with_alpha(alpha));
+                draw_global_orbit(&mut canvas.gizmos, &go, &state, YELLOW.with_alpha(alpha));
             }
         };
 
@@ -1347,33 +1365,38 @@ pub fn draw_orbital_view(gizmos: &mut Gizmos, state: &GameState) {
     }
 
     if let Some(orbit) = state.cursor_orbit_if_mode() {
-        draw_global_orbit(gizmos, &orbit, &state, ORANGE);
+        draw_global_orbit(&mut canvas.gizmos, &orbit, &state, ORANGE);
     }
 
     if let Some(orbit) = state.current_orbit() {
-        draw_global_orbit(gizmos, &orbit, &state, TEAL);
+        draw_global_orbit(&mut canvas.gizmos, &orbit, &state, TEAL);
     }
 
     for ctrl in &state.controllers {
         let tracked = state.orbital_context.selected.contains(&ctrl.target());
-        draw_controller(gizmos, ctrl, &state, tracked, ctx);
+        draw_controller(&mut canvas.gizmos, ctrl, &state, tracked, ctx);
     }
 
     if state.orbital_context.show_animations && state.orbital_context.selected.len() < 6 {
         for id in &state.orbital_context.selected {
-            draw_event_animation(gizmos, &state, *id, ctx);
+            draw_event_animation(&mut canvas.gizmos, &state, *id, ctx);
         }
     }
 
-    draw_scenario(gizmos, state);
+    draw_scenario(&mut canvas.gizmos, state);
 
-    draw_x(gizmos, state.light_source(), 20.0, RED.with_alpha(0.2));
+    draw_x(
+        &mut canvas.gizmos,
+        state.light_source(),
+        20.0,
+        RED.with_alpha(0.2),
+    );
 
-    draw_highlighted_objects(gizmos, &state);
+    draw_highlighted_objects(&mut canvas.gizmos, &state);
 
-    draw_notifications(gizmos, &state);
+    draw_notifications(&mut canvas.gizmos, &state);
 
-    draw_belt_orbits(gizmos, &state);
+    draw_belt_orbits(&mut canvas.gizmos, &state);
 }
 
 fn orthographic_camera_map(p: Vec3, center: Vec3, normal: Vec3, x: Vec3, y: Vec3) -> Vec2 {

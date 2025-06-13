@@ -23,3 +23,5 @@ clap = { version = "4.5.38", features = ["derive"] }
 image = "0.25.6"
 project-root = "0.2.2"
 compile-time = "0.2.0"
+textwrap = "0.16.2"
+shellwords = "1.1.0"

@@ -83,7 +83,7 @@ impl CursorTravel {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy)]
 enum ScrollDir {
     #[default]
     None,
@@ -91,7 +91,7 @@ enum ScrollDir {
     Down,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct InputState {
     frame_no: u64,
 
@@ -182,6 +182,10 @@ impl InputState {
 
     pub fn just_pressed(&self, key: KeyCode) -> bool {
         self.buttons.just_pressed(key)
+    }
+
+    pub fn pressed(&self) -> impl Iterator<Item = &KeyCode> {
+        self.buttons.get_pressed()
     }
 
     fn get_state(&self, button: MouseButt) -> &CursorTravel {

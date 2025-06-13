@@ -1,5 +1,7 @@
 pub mod args;
 pub mod canvas;
+pub mod commands;
+pub mod debug_console;
 pub mod drawing;
 pub mod game;
 pub mod graph;

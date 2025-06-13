@@ -1,5 +1,7 @@
 use crate::args::ProgramContext;
 use crate::canvas::Canvas;
+use crate::commands::{command::Command, example::ExampleCommand};
+use crate::debug_console::DebugConsole;
 use crate::input::{FrameId, InputState, MouseButt};
 use crate::notifications::*;
 use crate::onclick::OnClick;
@@ -104,11 +106,14 @@ fn init_system(mut commands: Commands) {
     ));
 }
 
-#[derive(Resource, Debug)]
+#[derive(Resource)]
 pub struct GameState {
     /// Contains all states related to window size, mouse clicks and positions,
     /// and button presses and holds.
     pub input: InputState,
+
+    pub console: DebugConsole,
+    pub commands: HashMap<String, Box<dyn Command>>,
 
     /// Contains CLI arguments
     pub args: ProgramContext,
@@ -219,6 +224,11 @@ impl GameState {
         let mut g = GameState {
             input: InputState::default(),
             args: args.clone(),
+            console: DebugConsole::new(),
+            commands: HashMap::from([(
+                "example".to_string(),
+                Box::new(ExampleCommand::default()) as Box<dyn Command>,
+            )]),
             orbital_context: OrbitalContext::new(PlanetId(0)),
             telescope_context: TelescopeContext::new(),
             rpo_context: RPOContext::new(),
@@ -228,7 +238,7 @@ impl GameState {
             sim_time: Nanotime::zero(),
             wall_time: Nanotime::zero(),
             physics_duration: Nanotime::days(7),
-            sim_speed: 2,
+            sim_speed: 0,
             paused: false,
             orbiters: HashMap::new(),
             planets: planets.clone(),
@@ -771,7 +781,7 @@ impl GameState {
     pub fn notice(&mut self, s: impl Into<String>) {
         let s = s.into();
         info!("Notice: {s}");
-        self.notify(None, NotificationType::Notice(s), None)
+        self.console.log(s);
     }
 
     pub fn notify(
@@ -1053,6 +1063,10 @@ impl GameState {
     }
 
     pub fn step(&mut self, delta_time: Nanotime) {
+        if !self.input.keyboard_events.is_empty() {
+            self.redraw();
+        }
+
         let dt = delta_time.to_secs();
         let old_sim_time = self.sim_time;
         self.wall_time += delta_time;
@@ -1060,6 +1074,8 @@ impl GameState {
             let sp = 10.0f32.powi(self.sim_speed);
             self.sim_time += delta_time * sp;
         }
+
+        self.console.process_input(&self.input);
 
         let mode = self.physics_mode();
 
@@ -1322,8 +1338,13 @@ fn process_interaction(
                 fs
             };
         }
+        InteractionEvent::ToggleDebugConsole => {
+            state.console.toggle();
+        }
         InteractionEvent::Escape => {
-            if !state.is_exit_prompt {
+            if state.console.is_active() {
+                state.console.hide()
+            } else if !state.is_exit_prompt {
                 state.is_exit_prompt = true;
             } else {
                 state.shutdown()
