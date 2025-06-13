@@ -253,7 +253,7 @@ impl GameState {
                 Scene::comms(),
                 Scene::surface(),
             ],
-            current_scene_idx: 0,
+            current_scene_idx: 5,
             current_orbit: None,
             redraw_requested: true,
             ui: Tree::new(),
@@ -682,8 +682,7 @@ impl GameState {
     pub fn impulsive_burn(&mut self, id: OrbiterId, stamp: Nanotime, dv: Vec2) -> Option<()> {
         let obj = self.orbiters.get_mut(&id)?;
         obj.try_impulsive_burn(stamp, dv)?;
-        let v = self.vehicles.get_mut(&id)?;
-        v.try_impulsive_burn(dv)
+        Some(())
     }
 
     pub fn swap_ownship_target(&mut self) {
@@ -1131,7 +1130,7 @@ impl GameState {
             //     true => mode,
             // };
             let throttle = self.orbital_context.throttle.to_ratio();
-            let dv = vehicle.step(s, control, throttle, is_rcs, mode);
+            let dv = vehicle.step(s, control, throttle, is_rcs, mode, Nanotime::millis(200));
             if dv.length() > 0.0 {
                 simulate(&mut self.orbiters, &planets, s, d);
                 burns.push((*id, dv));

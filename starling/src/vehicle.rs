@@ -45,7 +45,6 @@ fn random_sat_inventory() -> Inventory {
     let mut inv = Inventory::new();
     inv.add(Copper, randint(2000, 5000) as u64);
     inv.add(Silicon, randint(40, 400) as u64);
-    inv.add(LiquidFuel, randint(500, 800) as u64 * 1000);
     inv
 }
 
@@ -128,8 +127,9 @@ impl Vehicle {
             .filter_map(|(_, _, p)| {
                 if let PartClass::Tank(proto) = p.data.class {
                     Some(Tank {
-                        proto,
-                        fuel_mass: (proto.wet_mass - p.data.mass),
+                        dry_mass: p.data.mass,
+                        current_fuel_mass: proto.wet_mass,
+                        maximum_fuel_mass: proto.wet_mass,
                     })
                 } else {
                     None
@@ -232,7 +232,7 @@ impl Vehicle {
     }
 
     pub fn fuel_mass(&self) -> f32 {
-        self.tanks.iter().map(|t| t.fuel_mass).sum()
+        self.tanks.iter().map(|t| t.current_fuel_mass).sum()
     }
 
     pub fn wet_mass(&self) -> f32 {
@@ -329,7 +329,7 @@ impl Vehicle {
     }
 
     pub fn low_fuel(&self) -> bool {
-        self.is_controllable() && self.inventory.count(InventoryItem::LiquidFuel) < 1000
+        self.is_controllable() && self.remaining_dv() < 50.0
     }
 
     pub fn is_thrusting(&self) -> bool {
@@ -338,25 +338,6 @@ impl Vehicle {
 
     pub fn has_radar(&self) -> bool {
         !self.radars.is_empty()
-    }
-
-    pub fn try_impulsive_burn(&mut self, dv: Vec2) -> Option<()> {
-        if dv.length() > self.remaining_dv() {
-            return None;
-        }
-
-        let ve = self.average_linear_exhaust_velocity();
-        let fuel_mass_before_maneuver = self.fuel_mass();
-        let m1 = mass_after_maneuver(ve, self.wet_mass(), dv.length());
-        let fuel_mass_after_maneuver = m1 - self.dry_mass;
-        let spent_fuel = fuel_mass_before_maneuver - fuel_mass_after_maneuver;
-
-        self.inventory.take(
-            InventoryItem::LiquidFuel,
-            (spent_fuel * 1000.0).round() as u64,
-        );
-
-        Some(())
     }
 
     pub fn average_linear_exhaust_velocity(&self) -> f32 {
@@ -442,7 +423,7 @@ impl Vehicle {
                     let u = t.pointing();
                     let is_torque = t.proto.is_rcs && {
                         let torque = cross2d(t.pos, u);
-                        torque.signum() == error.signum() && error.abs() > 6.0
+                        torque.signum() == error.signum() && error.abs() > 2.0
                     };
                     let is_linear = t.proto.is_rcs == is_rcs && u.dot(control) > 0.9;
                     let throttle = if is_linear {
@@ -455,7 +436,7 @@ impl Vehicle {
                     t.set_thrusting(throttle, stamp);
                 }
                 for t in &mut self.magnetorquers {
-                    t.set_torque(error * 1000.0);
+                    t.set_torque(error * 100.0);
                 }
             }
         } else {
@@ -477,6 +458,13 @@ impl Vehicle {
 
         let a = self.current_linear_acceleration();
         let aa = self.current_angular_acceleration();
+        let fcr = self.fuel_consumption_rate();
+
+        let n = self.tanks.len() as f32;
+        for t in &mut self.tanks {
+            t.current_fuel_mass -= fcr * dt.to_secs() / n;
+            t.current_fuel_mass = t.current_fuel_mass.clamp(0.0, t.maximum_fuel_mass);
+        }
 
         self.angular_velocity += aa * dt.to_secs();
 
@@ -500,6 +488,7 @@ impl Vehicle {
         throttle: f32,
         is_rcs: bool,
         mode: PhysicsMode,
+        emit_duration: Nanotime,
     ) -> Vec2 {
         match mode {
             PhysicsMode::Limited => self.set_zero_thrust(stamp),
@@ -510,7 +499,7 @@ impl Vehicle {
 
         let dt = stamp - self.velocity_stamp;
 
-        if dt > Nanotime::millis(200) {
+        if dt > emit_duration {
             let ret = self.stored_delta_velocity;
             self.stored_delta_velocity = Vec2::ZERO;
             self.velocity_stamp = stamp;
@@ -552,6 +541,10 @@ impl Vehicle {
 
     pub fn thrusters_mut(&mut self) -> impl Iterator<Item = &mut Thruster> + use<'_> {
         self.thrusters.iter_mut()
+    }
+
+    pub fn tanks(&self) -> impl Iterator<Item = &Tank> + use<'_> {
+        self.tanks.iter()
     }
 
     pub fn bounding_radius(&self) -> f32 {

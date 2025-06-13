@@ -349,6 +349,10 @@ pub fn vehicle_info(vehicle: &Vehicle) -> String {
     } else {
         0.0
     };
+
+    let rate = vehicle.fuel_consumption_rate();
+    let accel = vehicle.body_frame_acceleration();
+
     [
         format!("Dry mass: {:0.1} kg", vehicle.dry_mass),
         format!("Fuel: {:0.1} kg", vehicle.fuel_mass()),
@@ -361,6 +365,8 @@ pub fn vehicle_info(vehicle: &Vehicle) -> String {
         format!("DV: {:0.1} m/s", vehicle.remaining_dv()),
         format!("WH: {:0.2}x{:0.2}", bounds.span.x, bounds.span.y),
         format!("Econ: {:0.2} kg-s/m", fuel_economy),
+        format!("Fuel: {:0.1}/s", rate),
+        format!("Accel: ({:0.2}, {:0.2}) m/s^2", accel.x, accel.y),
     ]
     .into_iter()
     .map(|s| format!("{s}\n"))

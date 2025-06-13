@@ -374,12 +374,7 @@ fn get_inventory_label(state: &GameState) -> Option<TextLabel> {
 
     let vinfo = crate::scenes::craft_editor::vehicle_info(vehicle);
 
-    let rate = vehicle.fuel_consumption_rate();
-    let accel = vehicle.body_frame_acceleration();
-    let info = format!(
-        "{}{:0.1}/s\n({:0.2}, {:0.2}) m/s^2\n{}",
-        info, rate, accel.x, accel.y, vinfo,
-    );
+    let info = format!("{}{}", info, vinfo,);
 
     Some(TextLabel::new(info, Vec2::ZERO, 0.7).with_anchor_left())
 }
@@ -436,7 +431,7 @@ pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> 
     ret
 }
 
-fn get_thruster_indicators(state: &GameState) -> Option<Vec<TextLabel>> {
+fn get_indicators(state: &GameState) -> Option<Vec<TextLabel>> {
     let piloting = state.piloting()?;
     let vehicle = state.vehicles.get(&piloting)?;
     let origin = Vec2::new(state.input.screen_bounds.span.x * 0.5 - 100.0, 0.0);
@@ -468,7 +463,7 @@ impl Render for OrbitalContext {
     fn text_labels(state: &GameState) -> Option<Vec<TextLabel>> {
         let mut text_labels: Vec<TextLabel> = get_orbital_object_mouseover_labels(state);
 
-        text_labels.extend(get_thruster_indicators(state).unwrap_or(vec![]));
+        text_labels.extend(get_indicators(state).unwrap_or(vec![]));
         text_labels.extend(get_landing_site_labels(state));
         text_labels.extend(get_inventory_label(state));
 

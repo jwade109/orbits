@@ -13,20 +13,17 @@ use starling::prelude::*;
 
 #[derive(Debug)]
 pub struct RPOContext {
-    center: Vec2,
-    target_center: Vec2,
-    scale: f32,
-    target_scale: f32,
+    camera: LinearCameraController,
     following: Option<usize>,
 }
 
 impl CameraProjection for RPOContext {
     fn origin(&self) -> Vec2 {
-        self.center
+        self.camera.center
     }
 
     fn scale(&self) -> f32 {
-        self.scale
+        self.camera.scale
     }
 }
 
@@ -184,10 +181,12 @@ impl Render for RPOContext {
 impl RPOContext {
     pub fn new() -> Self {
         Self {
-            center: Vec2::ZERO,
-            target_center: Vec2::ZERO,
-            scale: 1.0,
-            target_scale: 1.0,
+            camera: LinearCameraController {
+                center: Vec2::ZERO,
+                target_center: Vec2::ZERO,
+                scale: 1.0,
+                target_scale: 1.0,
+            },
             following: None,
         }
     }
@@ -204,8 +203,16 @@ impl RPOContext {
     }
 }
 
-impl Interactive for RPOContext {
-    fn step(&mut self, input: &InputState, dt: f32) {
+#[derive(Debug)]
+pub struct LinearCameraController {
+    pub center: Vec2,
+    pub target_center: Vec2,
+    pub scale: f32,
+    pub target_scale: f32,
+}
+
+impl LinearCameraController {
+    pub fn update(&mut self, dt: f32, input: &InputState) {
         let speed = 16.0 * dt * 100.0;
 
         if input.is_scroll_down() {
@@ -240,5 +247,11 @@ impl Interactive for RPOContext {
 
         self.scale += (self.target_scale - self.scale) * 0.1;
         self.center += (self.target_center - self.center) * 0.1;
+    }
+}
+
+impl Interactive for RPOContext {
+    fn step(&mut self, input: &InputState, dt: f32) {
+        self.camera.update(dt, input);
     }
 }

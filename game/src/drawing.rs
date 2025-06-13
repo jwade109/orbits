@@ -316,8 +316,30 @@ pub fn draw_vehicle(gizmos: &mut Gizmos, vehicle: &Vehicle, pos: Vec2, scale: f3
         draw_obb(gizmos, &obb, color);
     }
 
+    let r = vehicle.bounding_radius() * scale;
+
+    draw_pointing_vector(gizmos, pos, r, vehicle.pointing(), LIME);
+    if let Some(u) = vehicle.target_pointing() {
+        draw_pointing_vector(gizmos, pos, r, u, LIME.with_alpha(0.4));
+    }
+
     for thruster in vehicle.thrusters() {
         draw_thruster(gizmos, thruster, pos, scale, angle);
+    }
+
+    let w = 20.0;
+    let h = 40.0;
+
+    for (i, tank) in vehicle.tanks().enumerate() {
+        let pct = tank.percent_filled();
+
+        let lower = pos + Vec2::X * w * i as f32 * 1.3;
+        let upper = lower + Vec2::new(w, h);
+        let aabb = AABB::from_arbitrary(lower, upper);
+        draw_aabb(gizmos, aabb, RED);
+        let upper = lower + Vec2::new(w, h * pct);
+        let aabb = AABB::from_arbitrary(lower, upper);
+        fill_aabb(gizmos, aabb, RED);
     }
 }
 
@@ -508,11 +530,6 @@ pub fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<(
             gizmos.line_2d(p1, p2, GREEN.with_alpha(0.2));
         }
         draw_circle(gizmos, vehicle_screen, s, GREEN.with_alpha(0.2));
-    }
-
-    draw_pointing_vector(gizmos, center, r, vehicle.pointing(), LIME);
-    if let Some(u) = vehicle.target_pointing() {
-        draw_pointing_vector(gizmos, center, r, u, LIME.with_alpha(0.4));
     }
 
     draw_circle(gizmos, center, r, GRAY);

@@ -10,7 +10,6 @@ pub enum InventoryItem {
     Titanium,
     Foodstuffs,
     Water,
-    LiquidFuel,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -89,7 +88,7 @@ mod tests {
         assert!(inv.is_empty());
 
         inv.add(Copper, 45);
-        inv.add(LiquidFuel, 5000);
+        inv.add(Water, 5000);
         inv.add(Copper, 400);
         inv.add(Iron, 8000);
 
@@ -102,7 +101,7 @@ mod tests {
         assert_eq!(inv.take(Copper, 5), 0);
         assert_eq!(inv.take_all(Iron), 7400);
         assert_eq!(inv.take_all(Iron), 0);
-        assert!(inv.has(LiquidFuel));
+        assert!(inv.has(Water));
         assert!(!inv.has(Foodstuffs));
         assert!(!inv.is_empty());
 

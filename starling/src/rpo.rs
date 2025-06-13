@@ -49,7 +49,7 @@ impl RPO {
     pub fn step(&mut self, stamp: Nanotime, mode: PhysicsMode) {
         let dt = (stamp - self.stamp).to_secs().clamp(0.0, 0.03);
         for (pv, vehicle) in self.vehicles.iter_mut() {
-            vehicle.step(stamp, Vec2::ZERO, 0.0, false, mode);
+            vehicle.step(stamp, Vec2::ZERO, 0.0, false, mode, Nanotime::zero());
 
             let perturb = PV::from_f64(pv.vel_f32() * dt, randvec(0.1, 12.0) * dt);
             *pv += perturb;
