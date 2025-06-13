@@ -1,6 +1,5 @@
 use crate::args::ProgramContext;
 use crate::canvas::Canvas;
-use crate::commands::{command::Command, example::ExampleCommand};
 use crate::debug_console::DebugConsole;
 use crate::input::{FrameId, InputState, MouseButt};
 use crate::notifications::*;
@@ -113,7 +112,6 @@ pub struct GameState {
     pub input: InputState,
 
     pub console: DebugConsole,
-    pub commands: HashMap<String, Box<dyn Command>>,
 
     /// Contains CLI arguments
     pub args: ProgramContext,
@@ -225,10 +223,6 @@ impl GameState {
             input: InputState::default(),
             args: args.clone(),
             console: DebugConsole::new(),
-            commands: HashMap::from([(
-                "example".to_string(),
-                Box::new(ExampleCommand::default()) as Box<dyn Command>,
-            )]),
             orbital_context: OrbitalContext::new(PlanetId(0)),
             telescope_context: TelescopeContext::new(),
             rpo_context: RPOContext::new(),
@@ -254,7 +248,6 @@ impl GameState {
             scenes: vec![
                 Scene::main_menu(),
                 Scene::orbital(),
-                Scene::docking(),
                 Scene::telescope(),
                 Scene::editor(),
                 Scene::comms(),
@@ -1075,7 +1068,9 @@ impl GameState {
             self.sim_time += delta_time * sp;
         }
 
-        self.console.process_input(&self.input);
+        if let Some((decl, args)) = self.console.process_input(&self.input) {
+            decl.execute(self, args);
+        }
 
         let mode = self.physics_mode();
 

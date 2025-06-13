@@ -9,3 +9,5 @@
 - material reclamation
 - pinned vehicles/planets
 - scripting system
+- silicon mining
+- solar panel longevity

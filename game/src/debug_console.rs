@@ -1,10 +1,8 @@
-use crate::commands::{command::Command, example::ExampleCommand};
-use crate::input::*;
+use crate::commands::command::CommandDecl;
+use crate::input::InputState;
 use bevy::input::keyboard::Key;
 use bevy::input::ButtonState;
-use clap::Parser;
 
-#[derive(Debug, Clone)]
 pub struct DebugConsole {
     is_active: bool,
     text: String,
@@ -49,18 +47,34 @@ impl DebugConsole {
         self.history.push(s);
     }
 
-    fn enter(&mut self) {
+    fn enter(&mut self) -> Option<(CommandDecl, Vec<String>)> {
         if self.text.is_empty() {
-            return;
+            return None;
         }
         let cmd = self.text.clone();
         self.history.push("".into());
         self.history.push(format!("> {}", cmd));
         self.text.clear();
-        self.on_command(cmd);
+
+        match shellwords::split(&cmd) {
+            Ok(args) => {
+                let name = args.get(0).cloned().unwrap_or("".to_string());
+                let v = CommandDecl::from_str(&name);
+                if let Some(v) = v {
+                    Some((v, args))
+                } else {
+                    self.print(format!("No command named \"{}\"", name));
+                    None
+                }
+            }
+            Err(e) => {
+                self.print(format!("{:?}", e));
+                None
+            }
+        }
     }
 
-    fn print(&mut self, lines: impl Into<String>) {
+    pub fn print(&mut self, lines: impl Into<String>) {
         let lines = lines.into();
         for line in lines.lines() {
             for wrapped in textwrap::wrap(line, 80) {
@@ -69,42 +83,13 @@ impl DebugConsole {
         }
     }
 
-    fn on_command(&mut self, cmd: String) {
-        if cmd == "reflect" {
-            let s = format!("{:#?}", self);
-            self.print(s);
-        } else if cmd == "clear" {
-            self.history.clear();
-        } else if cmd == "hello" {
-            self.print("Hi there!\nAnd another!");
-        } else if cmd == "pwd" {
-            self.print(format!("{:?}", std::env::current_dir()));
-        } else if cmd == "args" {
-            self.print(format!("{:?}", std::env::args()));
-        } else if cmd == "env" {
-            for v in std::env::vars() {
-                self.print(format!("{}: {}", v.0, v.1));
-            }
-        } else {
-            let args = shellwords::split(&cmd);
-            if let Ok(args) = args {
-                match ExampleCommand::try_parse_from(args) {
-                    Ok(e) => self.print(format!("{:?}", e)),
-                    Err(e) => self.print(format!("{}", e)),
-                }
-            } else {
-                self.print(format!("{:?}", args));
-            }
-        }
-    }
-
     fn backspace(&mut self) {
         self.text.pop();
     }
 
-    pub fn process_input(&mut self, input: &InputState) {
+    pub fn process_input(&mut self, input: &InputState) -> Option<(CommandDecl, Vec<String>)> {
         if !self.is_active {
-            return;
+            return None;
         }
 
         for key in &input.keyboard_events {
@@ -121,11 +106,12 @@ impl DebugConsole {
                     }
                     self.text += c;
                 }
-                Key::Enter => self.enter(),
+                Key::Enter => return self.enter(),
                 Key::Backspace => self.backspace(),
                 Key::Space => self.text += " ",
                 _ => (),
             }
         }
+        None
     }
 }
