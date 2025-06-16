@@ -327,12 +327,9 @@ pub fn draw_vehicle(gizmos: &mut Gizmos, vehicle: &Vehicle, pos: Vec2, scale: f3
         draw_obb(gizmos, &obb, color);
     }
 
-    let r = vehicle.bounding_radius() * scale;
+    // let r = vehicle.bounding_radius() * scale;
 
-    draw_pointing_vector(gizmos, pos, r, vehicle.pointing(), LIME);
-    if let Some(u) = vehicle.target_pointing() {
-        draw_pointing_vector(gizmos, pos, r, u, LIME.with_alpha(0.4));
-    }
+    // draw_pointing_vector(gizmos, pos, r, vehicle.pointing(), LIME);
 
     for thruster in vehicle.thrusters() {
         draw_thruster(gizmos, thruster, pos, scale, angle);

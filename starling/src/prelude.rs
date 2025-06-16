@@ -27,5 +27,5 @@ pub use crate::scenario::{
     simulate, ObjectIdTracker, ObjectLookup, PlanetarySystem, ScenarioObject,
 };
 pub use crate::vehicle::{
-    dims_with_rotation, meters_with_rotation, PhysicsMode, Rotation, Vehicle,
+    dims_with_rotation, meters_with_rotation, PhysicsMode, Rotation, Vehicle, VehicleControl,
 };

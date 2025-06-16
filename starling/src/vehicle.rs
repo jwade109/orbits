@@ -2,7 +2,7 @@ use crate::aabb::AABB;
 use crate::inventory::{Inventory, InventoryItem};
 use crate::math::{cross2d, rand, randint, rotate, IVec2, UVec2, Vec2, PI};
 use crate::nanotime::Nanotime;
-use crate::orbits::{wrap_0_2pi, wrap_pi_npi};
+use crate::orbits::wrap_0_2pi;
 use crate::parts::{
     magnetorquer::Magnetorquer,
     parts::{PartClass, PartLayer, PartProto},
@@ -37,6 +37,7 @@ fn rocket_equation(ve: f32, m0: f32, m1: f32) -> f32 {
     ve * (m0 / m1).ln()
 }
 
+#[allow(unused)]
 fn mass_after_maneuver(ve: f32, m0: f32, dv: f32) -> f32 {
     m0 / (dv / ve).exp()
 }
@@ -72,10 +73,11 @@ pub enum PhysicsMode {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum VehicleController {
-    None,
-    Attitude(f32),
-    External,
+pub struct VehicleControl {
+    pub throttle: f32,
+    pub linear: Vec2,
+    pub attitude: f32,
+    pub is_rcs: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -84,8 +86,8 @@ pub struct Vehicle {
     pub pv: PV,
     stamp: Nanotime,
     angle: f32,
-    ctrl: VehicleController,
     angular_velocity: f32,
+
     thrusters: Vec<Thruster>,
     magnetorquers: Vec<Magnetorquer>,
     radars: Vec<Radar>,
@@ -186,7 +188,6 @@ impl Vehicle {
             name,
             stamp,
             angle: rand(0.0, 2.0 * PI),
-            ctrl: VehicleController::Attitude(rand(0.0, PI * 2.0)),
             angular_velocity: rand(-0.3, 0.3),
             tanks,
             thrusters,
@@ -412,38 +413,36 @@ impl Vehicle {
         a
     }
 
-    fn step_thrust_control(&mut self, stamp: Nanotime, control: Vec2, throttle: f32, is_rcs: bool) {
-        if self.is_controllable() {
-            if let VehicleController::Attitude(target_angle) = &mut self.ctrl {
-                *target_angle = wrap_0_2pi(*target_angle);
-                let kp = 20.0;
-                let kd = 40.0;
+    fn step_thrust_control(&mut self, stamp: Nanotime, control: VehicleControl) {
+        if !self.is_controllable() {
+            return;
+        }
 
-                let error =
-                    kp * wrap_pi_npi(*target_angle - self.angle) - kd * self.angular_velocity;
+        // *target_angle = wrap_0_2pi(*target_angle);
+        // let kp = 20.0;
+        // let kd = 40.0;
 
-                for t in &mut self.thrusters {
-                    let u = t.pointing();
-                    let is_torque = t.proto.is_rcs && {
-                        let torque = cross2d(t.pos, u);
-                        torque.signum() == error.signum() && error.abs() > 2.0
-                    };
-                    let is_linear = t.proto.is_rcs == is_rcs && u.dot(control) > 0.9;
-                    let throttle = if is_linear {
-                        throttle
-                    } else if is_torque {
-                        error.abs()
-                    } else {
-                        0.0
-                    };
-                    t.set_thrusting(throttle, stamp);
-                }
-                for t in &mut self.magnetorquers {
-                    t.set_torque(error * 100.0);
-                }
-            }
-        } else {
-            self.ctrl = VehicleController::None;
+        // let error = kp * wrap_pi_npi(*target_angle - self.angle) - kd * self.angular_velocity;
+
+        for t in &mut self.thrusters {
+            let u = t.pointing();
+            let is_torque = t.proto.is_rcs && {
+                let torque = cross2d(t.pos, u);
+                torque.signum() == control.attitude.signum() && control.attitude.abs() > 2.0
+            };
+            let is_linear = t.proto.is_rcs == control.is_rcs && u.dot(control.linear) > 0.9;
+            let throttle = if is_linear {
+                control.throttle
+            } else if is_torque {
+                control.attitude.abs()
+            } else {
+                0.0
+            };
+            t.set_thrusting(throttle, stamp);
+        }
+
+        for t in &mut self.magnetorquers {
+            t.set_torque(control.attitude * 100.0);
         }
     }
 
@@ -486,15 +485,13 @@ impl Vehicle {
     pub fn step(
         &mut self,
         stamp: Nanotime,
-        control: Vec2,
-        throttle: f32,
-        is_rcs: bool,
+        control: VehicleControl,
         mode: PhysicsMode,
         gravity: Vec2,
     ) {
         match mode {
             PhysicsMode::Limited => self.set_zero_thrust(stamp),
-            PhysicsMode::RealTime => self.step_thrust_control(stamp, control, throttle, is_rcs),
+            PhysicsMode::RealTime => self.step_thrust_control(stamp, control),
         };
 
         self.iter_physics(stamp, gravity);
@@ -502,14 +499,6 @@ impl Vehicle {
 
     pub fn pointing(&self) -> Vec2 {
         rotate(Vec2::X, self.angle)
-    }
-
-    pub fn target_pointing(&self) -> Option<Vec2> {
-        if let VehicleController::Attitude(ta) = self.ctrl {
-            Some(rotate(Vec2::X, ta))
-        } else {
-            None
-        }
     }
 
     pub fn angular_velocity(&self) -> f32 {
@@ -520,10 +509,11 @@ impl Vehicle {
         self.angle
     }
 
-    pub fn turn(&mut self, da: f32) {
-        if let VehicleController::Attitude(ta) = &mut self.ctrl {
-            *ta += da;
+    pub fn kinematic_apoapis(&self, gravity: f64) -> f64 {
+        if self.pv.vel.y <= 0.0 {
+            return self.pv.pos.y;
         }
+        self.pv.pos.y + self.pv.vel.y.powi(2) / (2.0 * gravity.abs())
     }
 
     pub fn thrusters(&self) -> impl Iterator<Item = &Thruster> + use<'_> {

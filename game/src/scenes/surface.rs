@@ -16,7 +16,7 @@ pub struct SurfaceContext {
     // real stuff
     plants: Vec<Plant>,
     wind_offset: f32,
-    vehicle: Option<Vehicle>,
+    vehicles: Vec<(Vehicle, Vec2)>,
     follow_vehicle: bool,
 }
 
@@ -52,11 +52,79 @@ fn generate_plants() -> Vec<Plant> {
 
 const ACCELERATION_DUE_TO_GRAVITY: Vec2 = Vec2::new(0.0, -3.2); // m/s^2;
 
-// fn hover_control_law(gravity: f32, altitude: f32, vehicle: &Vehicle) -> Nanotime {}
+fn hover_control_law(gravity: Vec2, target: Vec2, vehicle: &Vehicle) -> VehicleControl {
+    let future_alt = vehicle.kinematic_apoapis(gravity.length() as f64) as f32;
+
+    let horizontal_control =
+        if (target.y - vehicle.pv.pos.y as f32).abs() < 10.0 && vehicle.pv.vel.y.abs() < 10.0 {
+            // horizontal controller
+            let kp = 0.01;
+            let kd = 0.15;
+
+            // positive means to the right, which corresponds to a negative heading correction
+            kp * (target.x - vehicle.pv.pos.x as f32) - kd * vehicle.pv.vel.x as f32
+        } else {
+            0.0
+        };
+
+    // attitude controller
+    let kp = 30.0;
+    let kd = 50.0;
+    let target_angle = PI * 0.5 - horizontal_control.clamp(-PI / 4.0, PI / 4.0);
+
+    let attitude_error = wrap_pi_npi(target_angle - vehicle.angle());
+    let attitude = kp * attitude_error - kd * vehicle.angular_velocity();
+
+    let thrust = vehicle.max_thrust_along_heading(0.0, false);
+    let accel = thrust / vehicle.wet_mass();
+    let pct = gravity.length() / accel;
+
+    // vertical controller
+    let kp = 2.0;
+    let kd = 6.0;
+    let altitude_error = target.y - future_alt;
+    let error = kp * altitude_error - kd * vehicle.pv.vel.y as f32;
+
+    let linear = if attitude_error.abs() < 0.5 || vehicle.pv.pos.y > 10.0 {
+        Vec2::X
+    } else {
+        Vec2::ZERO
+    };
+
+    let throttle = pct + error;
+
+    // let throttle = if future_alt < target.y && attitude_error.abs() < PI / 5.0 {
+    //     error.max(0.25)
+    // } else {
+    //     0.0
+    // };
+
+    VehicleControl {
+        throttle,
+        linear,
+        attitude,
+        is_rcs: false,
+    }
+}
 
 impl SurfaceContext {
     pub fn add_vehicle(&mut self, vehicle: Vehicle) {
-        self.vehicle = Some(vehicle);
+        let x = rand(-200.0, 200.0);
+        let y = rand(40.0, 120.0);
+        self.vehicles.push((vehicle, Vec2::new(x, y)));
+    }
+
+    pub fn randomize(&mut self) {
+        let land = rand(0.0, 1.0) < 0.2;
+        for (_, target) in &mut self.vehicles {
+            if land {
+                *target = target.with_y(5.0);
+                continue;
+            }
+            let x = rand(-200.0, 200.0);
+            let y = rand(40.0, 120.0);
+            *target = Vec2::new(x, y);
+        }
     }
 
     pub fn step(state: &mut GameState, dt: f32) {
@@ -67,10 +135,13 @@ impl SurfaceContext {
         if state.input.just_pressed(KeyCode::KeyF) {
             ctx.follow_vehicle = !ctx.follow_vehicle;
         }
+        if state.input.just_pressed(KeyCode::KeyG) {
+            ctx.randomize();
+        }
 
         ctx.camera.update(dt, &state.input);
 
-        if let Some(v) = &mut ctx.vehicle {
+        for (v, target) in &mut ctx.vehicles {
             let is_rcs = state.input.is_pressed(KeyCode::ControlLeft);
             let control = if state.input.is_pressed(KeyCode::ArrowUp) {
                 Vec2::X
@@ -84,18 +155,30 @@ impl SurfaceContext {
                 Vec2::ZERO
             };
 
-            if state.input.is_pressed(KeyCode::ArrowLeft) && !is_rcs {
-                v.turn(0.03);
-            }
-            if state.input.is_pressed(KeyCode::ArrowRight) && !is_rcs {
-                v.turn(-0.03);
-            }
+            let attitude = if state.input.is_pressed(KeyCode::ArrowLeft) && !is_rcs {
+                10.0
+            } else if state.input.is_pressed(KeyCode::ArrowRight) && !is_rcs {
+                -10.0
+            } else {
+                0.0
+            };
+
+            *target += randvec(0.0, 0.1);
+
+            // let control = VehicleControl {
+            //     throttle: 0.4,
+            //     linear: control,
+            //     attitude,
+            //     is_rcs,
+            // };
+
+            let mut control = hover_control_law(ACCELERATION_DUE_TO_GRAVITY, *target, v);
+
+            control.attitude += attitude;
 
             v.step(
-                state.wall_time,
+                state.wall_time * 2.0,
                 control,
-                0.2,
-                is_rcs,
                 PhysicsMode::RealTime,
                 ACCELERATION_DUE_TO_GRAVITY,
             );
@@ -139,7 +222,7 @@ impl Default for SurfaceContext {
             },
             plants: generate_plants(),
             wind_offset: 0.0,
-            vehicle: None,
+            vehicles: Vec::new(),
             follow_vehicle: false,
         }
     }
@@ -184,13 +267,18 @@ impl Render for SurfaceContext {
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         let ctx = &state.surface_context;
 
-        if let Some(v) = &ctx.vehicle {
+        for (v, target) in &ctx.vehicles {
+            let p = ctx.w2c(v.pv.pos_f32());
+            let q = ctx.w2c(*target);
+            draw_circle(&mut canvas.gizmos, q, 2.0 * ctx.scale(), PURPLE);
+            canvas.gizmos.line_2d(p, q, BLUE);
             draw_kinematic_arc(&mut canvas.gizmos, v.pv, ctx, ACCELERATION_DUE_TO_GRAVITY);
             let pos = ctx.w2c(v.pv.pos_f32());
             draw_vehicle(&mut canvas.gizmos, v, pos, ctx.scale(), v.angle());
-            let info = crate::scenes::craft_editor::vehicle_info(v);
-            let info = format!("{}\n{}", v.pv, info);
-            canvas.text(info, pos + Vec2::X * 400.0, 0.7).anchor_left();
+            canvas.sprite(p, v.angle(), "bird1.png", ctx.scale() / 300.0, 1.0);
+            // let info = crate::scenes::craft_editor::vehicle_info(v);
+            // let info = format!("{}\n{}", v.pv, info);
+            // canvas.text(info, pos + Vec2::X * 400.0, 0.7).anchor_left();
         }
 
         let p = ctx.w2c(Vec2::new(-400.0, 0.0));

@@ -264,8 +264,10 @@ impl GameState {
             sprites: Vec::new(),
         };
 
-        if let Some(v) = g.get_vehicle_by_model("lander") {
-            g.surface_context.add_vehicle(v);
+        for model in ["lander", "lander", "pollux", "goober", "remora"] {
+            if let Some(v) = g.get_vehicle_by_model(model) {
+                g.surface_context.add_vehicle(v);
+            }
         }
 
         let t = g.sim_time;
@@ -656,13 +658,6 @@ impl GameState {
     pub fn commit_mission(&mut self) -> Option<()> {
         let orbit = self.current_orbit()?.clone();
         self.command_selected(&orbit);
-        Some(())
-    }
-
-    pub fn turn(&mut self, dir: i8) -> Option<()> {
-        let id = self.piloting()?;
-        let vehicle = self.vehicles.get_mut(&id)?;
-        vehicle.turn(dir as f32 * 0.03);
         Some(())
     }
 
@@ -1095,7 +1090,7 @@ impl GameState {
         for (id, vehicle) in self.vehicles.iter_mut() {
             let is_pilot = Some(*id) == self.orbital_context.piloting;
             let is_rcs = self.input.is_pressed(KeyCode::ControlLeft);
-            let control = if !is_pilot {
+            let linear = if !is_pilot {
                 Vec2::ZERO
             } else if self.input.is_pressed(KeyCode::ArrowUp) {
                 Vec2::X
@@ -1109,8 +1104,26 @@ impl GameState {
                 Vec2::ZERO
             };
             let throttle = self.orbital_context.throttle.to_ratio();
-            vehicle.step(s, control, throttle, is_rcs, mode, Vec2::ZERO);
-            if vehicle.pv.pos.length() > 10.0 {
+
+            let attitude = if !is_pilot {
+                0.0
+            } else if self.input.is_pressed(KeyCode::ArrowLeft) && !is_rcs {
+                10.0
+            } else if self.input.is_pressed(KeyCode::ArrowRight) && !is_rcs {
+                -10.0
+            } else {
+                0.0
+            };
+
+            let control = VehicleControl {
+                throttle,
+                linear,
+                attitude,
+                is_rcs,
+            };
+
+            vehicle.step(s, control, mode, Vec2::ZERO);
+            if vehicle.pv.pos.length() > 1.0 {
                 simulate(&mut self.orbiters, &planets, s, d);
                 burns.push((*id, vehicle.pv.vel.as_vec2()));
                 vehicle.pv = PV::ZERO;
@@ -1343,12 +1356,6 @@ fn process_interaction(
         InteractionEvent::CreateGroup => {
             let gid = GroupId(get_random_name());
             state.create_group(gid.clone());
-        }
-        InteractionEvent::TurnLeft => {
-            state.turn(1);
-        }
-        InteractionEvent::TurnRight => {
-            state.turn(-1);
         }
         _ => (),
     };
