@@ -16,7 +16,7 @@ pub struct SurfaceContext {
     // real stuff
     plants: Vec<Plant>,
     wind_offset: f32,
-    vehicle: Option<(PV, Vehicle)>,
+    vehicle: Option<Vehicle>,
     follow_vehicle: bool,
 }
 
@@ -28,14 +28,14 @@ fn generate_plants() -> Vec<Plant> {
 
         let mut segments = Vec::new();
         if rand(0.0, 1.0) < 0.2 {
-            let n_segments = randint(2, 4);
+            let n_segments = randint(5, 7);
             for _ in 0..n_segments {
                 let angle = rand(-0.4, 0.4);
                 let length = rand(1.2, 2.3);
                 segments.push((angle, length));
             }
         } else {
-            for _ in 0..2 {
+            for _ in 0..5 {
                 let angle = rand(-0.4, 0.4);
                 let length = rand(0.3, 0.9);
                 segments.push((angle, length));
@@ -43,6 +43,7 @@ fn generate_plants() -> Vec<Plant> {
         }
 
         let p = Plant::new(root, segments);
+
         ret.push(p);
     }
 
@@ -51,9 +52,11 @@ fn generate_plants() -> Vec<Plant> {
 
 const ACCELERATION_DUE_TO_GRAVITY: Vec2 = Vec2::new(0.0, -3.2); // m/s^2;
 
+// fn hover_control_law(gravity: f32, altitude: f32, vehicle: &Vehicle) -> Nanotime {}
+
 impl SurfaceContext {
     pub fn add_vehicle(&mut self, vehicle: Vehicle) {
-        self.vehicle = Some((PV::ZERO, vehicle));
+        self.vehicle = Some(vehicle);
     }
 
     pub fn step(state: &mut GameState, dt: f32) {
@@ -67,7 +70,7 @@ impl SurfaceContext {
 
         ctx.camera.update(dt, &state.input);
 
-        if let Some((pv, v)) = &mut ctx.vehicle {
+        if let Some(v) = &mut ctx.vehicle {
             let is_rcs = state.input.is_pressed(KeyCode::ControlLeft);
             let control = if state.input.is_pressed(KeyCode::ArrowUp) {
                 Vec2::X
@@ -88,35 +91,31 @@ impl SurfaceContext {
                 v.turn(-0.03);
             }
 
-            let dv = v.step(
+            v.step(
                 state.wall_time,
                 control,
                 0.2,
                 is_rcs,
                 PhysicsMode::RealTime,
-                Nanotime::zero(),
+                ACCELERATION_DUE_TO_GRAVITY,
             );
 
-            pv.vel += dv.as_dvec2() + (ACCELERATION_DUE_TO_GRAVITY * dt).as_dvec2();
-            pv.pos += pv.vel * dt as f64;
-
-            if pv.pos.y < 0.0 {
-                pv.pos.y = 0.0;
-                pv.vel.y = 0.0;
+            if v.pv.pos.y < 0.0 {
+                v.pv.pos.y = 0.0;
+                v.pv.vel.y = 0.0;
             }
-            if pv.pos.y == 0.0 {
-                pv.vel.x *= 0.99;
+            if v.pv.pos.y == 0.0 {
+                v.pv.vel.x *= 0.99;
             }
 
             if ctx.follow_vehicle {
-                ctx.camera.center = pv.pos_f32();
+                ctx.camera.center = v.pv.pos_f32();
+                ctx.camera.target_center = ctx.camera.center;
             }
         }
 
-        for _ in 0..12 {
-            for p in &mut ctx.plants {
-                p.step(dt, ctx.wind_offset);
-            }
+        for p in &mut ctx.plants {
+            p.step(dt, ctx.wind_offset);
         }
 
         if state.input.is_pressed(KeyCode::KeyM) {
@@ -185,12 +184,12 @@ impl Render for SurfaceContext {
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         let ctx = &state.surface_context;
 
-        if let Some((pv, v)) = &ctx.vehicle {
-            draw_kinematic_arc(&mut canvas.gizmos, *pv, ctx, ACCELERATION_DUE_TO_GRAVITY);
-            let pos = ctx.w2c(pv.pos_f32());
+        if let Some(v) = &ctx.vehicle {
+            draw_kinematic_arc(&mut canvas.gizmos, v.pv, ctx, ACCELERATION_DUE_TO_GRAVITY);
+            let pos = ctx.w2c(v.pv.pos_f32());
             draw_vehicle(&mut canvas.gizmos, v, pos, ctx.scale(), v.angle());
             let info = crate::scenes::craft_editor::vehicle_info(v);
-            let info = format!("{}\n{}", pv, info);
+            let info = format!("{}\n{}", v.pv, info);
             canvas.text(info, pos + Vec2::X * 400.0, 0.7).anchor_left();
         }
 

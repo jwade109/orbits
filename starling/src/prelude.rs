@@ -23,7 +23,6 @@ pub use crate::propagator::{EventType, HorizonState, Propagator};
 pub use crate::pv::PV;
 pub use crate::quantities::*;
 pub use crate::region::Region;
-pub use crate::rpo::RPO;
 pub use crate::scenario::{
     simulate, ObjectIdTracker, ObjectLookup, PlanetarySystem, ScenarioObject,
 };

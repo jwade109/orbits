@@ -159,7 +159,6 @@ pub struct GameState {
     pub constellations: HashMap<OrbiterId, GroupId>,
     pub vehicles: HashMap<OrbiterId, Vehicle>,
     pub starfield: Vec<(Vec3, Srgba, f32, f32)>,
-    pub rpos: HashMap<OrbiterId, RPO>,
     pub favorites: HashSet<OrbiterId>,
 
     pub scenes: Vec<Scene>,
@@ -243,7 +242,6 @@ impl GameState {
             landing_sites: generate_landing_sites(&planets.planet_ids()),
             constellations: HashMap::new(),
             starfield: generate_starfield(),
-            rpos: HashMap::new(),
             favorites: HashSet::new(),
             scenes: vec![
                 Scene::main_menu(),
@@ -569,16 +567,6 @@ impl GameState {
         Some(prop.orbit)
     }
 
-    pub fn spawn_new_rpo(&mut self, global: GlobalOrbit, rpo: RPO) {
-        let id = self.ids.next();
-
-        self.orbiters
-            .insert(id, Orbiter::new(global, self.sim_time));
-
-        self.rpos.insert(id, rpo);
-        self.notice(format!("Spawned RPO {id} in orbit around {}", global.0));
-    }
-
     pub fn spawn_with_random_perturbance(
         &mut self,
         global: GlobalOrbit,
@@ -625,7 +613,6 @@ impl GameState {
         let pvl = pv - pvp;
         self.orbiters.remove(&id)?;
         self.vehicles.remove(&id);
-        self.rpos.remove(&id);
         self.notify(
             ObjectId::Planet(parent),
             NotificationType::OrbiterDeleted(id),
@@ -1097,10 +1084,6 @@ impl GameState {
             Some(())
         }();
 
-        for (_, rpo) in &mut self.rpos {
-            rpo.step(self.sim_time, PhysicsMode::Limited);
-        }
-
         let s = self.sim_time;
         let d = self.physics_duration;
 
@@ -1125,15 +1108,12 @@ impl GameState {
             } else {
                 Vec2::ZERO
             };
-            // let mode = match self.favorites.contains(id) {
-            //     false => PhysicsMode::Limited,
-            //     true => mode,
-            // };
             let throttle = self.orbital_context.throttle.to_ratio();
-            let dv = vehicle.step(s, control, throttle, is_rcs, mode, Nanotime::millis(200));
-            if dv.length() > 0.0 {
+            vehicle.step(s, control, throttle, is_rcs, mode, Vec2::ZERO);
+            if vehicle.pv.pos.length() > 10.0 {
                 simulate(&mut self.orbiters, &planets, s, d);
-                burns.push((*id, dv));
+                burns.push((*id, vehicle.pv.vel.as_vec2()));
+                vehicle.pv = PV::ZERO;
             }
         }
 
@@ -1209,7 +1189,7 @@ impl GameState {
         }
 
         for id in ids {
-            if !self.vehicles.contains_key(&id) && !self.rpos.contains_key(&id) {
+            if !self.vehicles.contains_key(&id) {
                 if let Some(v) = self.get_random_vehicle() {
                     self.vehicles.insert(id, v);
                 }
@@ -1255,9 +1235,6 @@ impl GameState {
             SceneType::Telescope => self.telescope_context.step(&self.input, dt),
             SceneType::DockingView => {
                 self.rpo_context.step(&self.input, dt);
-                if let Some((_, rpo)) = self.rpos.iter().next() {
-                    self.rpo_context.handle_follow(&self.input, rpo);
-                }
             }
             SceneType::Editor => {
                 EditorContext::step(self, dt);

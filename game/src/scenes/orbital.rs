@@ -409,9 +409,7 @@ pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> 
         } else {
             let orb_id = id.orbiter().unwrap();
             let vehicle = state.vehicles.get(&orb_id);
-            let rpo = state.rpos.contains_key(&orb_id);
-            let ufo = if rpo { "RPO" } else { "UFO" }.to_string();
-            let code = vehicle.map(|v| v.name()).unwrap_or(&ufo);
+            let code = vehicle.map(|v| v.name()).unwrap_or(&"UFO");
 
             // distance based on pixel space
             let d = pc.distance(cursor);

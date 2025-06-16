@@ -141,6 +141,10 @@ impl AABB {
         AABB::new(self.center * scalar, self.span * scalar)
     }
 
+    pub fn scale_about_center(&self, scalar: f32) -> Self {
+        AABB::new(self.center, self.span * scalar)
+    }
+
     pub fn rotate_about(&self, p: Vec2, angle: f32) -> OBB {
         let d = rotate(self.center - p, angle) + p;
         OBB::new(AABB::new(d, self.span), angle)

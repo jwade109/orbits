@@ -18,6 +18,5 @@ pub mod propagator;
 pub mod pv;
 pub mod quantities;
 pub mod region;
-pub mod rpo;
 pub mod scenario;
 pub mod vehicle;

@@ -194,13 +194,6 @@ impl RPOContext {
     pub fn following(&self) -> Option<usize> {
         self.following
     }
-
-    pub fn handle_follow(&mut self, input: &InputState, rpo: &RPO) -> Option<()> {
-        let p = self.c2w(input.double_click()?);
-        let idx = rpo.nearest(p)?;
-        self.following = Some(idx);
-        Some(())
-    }
 }
 
 #[derive(Debug)]

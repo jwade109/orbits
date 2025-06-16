@@ -10,6 +10,7 @@ use crate::parts::{
     tank::Tank,
     thruster::Thruster,
 };
+use crate::pv::PV;
 use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
 
@@ -80,6 +81,7 @@ pub enum VehicleController {
 #[derive(Debug, Clone)]
 pub struct Vehicle {
     name: String,
+    pub pv: PV,
     stamp: Nanotime,
     angle: f32,
     ctrl: VehicleController,
@@ -94,8 +96,6 @@ pub struct Vehicle {
     pub max_fuel_mass: f32,
     pub dry_mass: f32,
     pub parts: Vec<(IVec2, Rotation, PartProto)>,
-    pub velocity_stamp: Nanotime,
-    pub stored_delta_velocity: Vec2,
 }
 
 impl Vehicle {
@@ -124,9 +124,13 @@ impl Vehicle {
 
         let tanks: Vec<Tank> = parts
             .iter()
-            .filter_map(|(_, _, p)| {
+            .filter_map(|(pos, rot, p)| {
+                let dims = meters_with_rotation(*rot, p);
                 if let PartClass::Tank(proto) = p.data.class {
                     Some(Tank {
+                        pos: pos.as_vec2() / crate::parts::parts::PIXELS_PER_METER,
+                        width: dims.x,
+                        height: dims.y,
                         dry_mass: p.data.mass,
                         current_fuel_mass: proto.wet_mass,
                         maximum_fuel_mass: proto.wet_mass,
@@ -176,6 +180,7 @@ impl Vehicle {
         };
 
         Self {
+            pv: PV::ZERO,
             max_fuel_mass: 0.0,
             dry_mass,
             name,
@@ -194,8 +199,6 @@ impl Vehicle {
             parts,
             bounding_radius,
             center_of_mass,
-            velocity_stamp: Nanotime::zero(),
-            stored_delta_velocity: Vec2::ZERO,
         }
     }
 
@@ -453,7 +456,7 @@ impl Vehicle {
         }
     }
 
-    fn iter_physics(&mut self, stamp: Nanotime) {
+    fn iter_physics(&mut self, stamp: Nanotime, gravity: Vec2) {
         let dt = stamp - self.stamp;
 
         let a = self.current_linear_acceleration();
@@ -474,11 +477,10 @@ impl Vehicle {
         self.angle = wrap_0_2pi(self.angle);
         self.stamp = stamp;
 
-        let dv = a * dt.to_secs();
+        let dv = (gravity + a) * dt.to_secs();
 
-        if dv.length() > 0.0 {
-            self.stored_delta_velocity += dv;
-        }
+        self.pv.vel += dv.as_dvec2();
+        self.pv.pos += self.pv.vel * dt.to_secs_f64();
     }
 
     pub fn step(
@@ -488,25 +490,14 @@ impl Vehicle {
         throttle: f32,
         is_rcs: bool,
         mode: PhysicsMode,
-        emit_duration: Nanotime,
-    ) -> Vec2 {
+        gravity: Vec2,
+    ) {
         match mode {
             PhysicsMode::Limited => self.set_zero_thrust(stamp),
             PhysicsMode::RealTime => self.step_thrust_control(stamp, control, throttle, is_rcs),
         };
 
-        self.iter_physics(stamp);
-
-        let dt = stamp - self.velocity_stamp;
-
-        if dt > emit_duration {
-            let ret = self.stored_delta_velocity;
-            self.stored_delta_velocity = Vec2::ZERO;
-            self.velocity_stamp = stamp;
-            ret
-        } else {
-            Vec2::ZERO
-        }
+        self.iter_physics(stamp, gravity);
     }
 
     pub fn pointing(&self) -> Vec2 {

@@ -120,6 +120,17 @@ fn draw_obb(gizmos: &mut Gizmos, obb: &OBB, color: Srgba) {
     gizmos.linestrip_2d(corners, color);
 }
 
+fn fill_obb(gizmos: &mut Gizmos, obb: &OBB, color: Srgba, pct: f32) {
+    let mut obb2 = *obb;
+
+    let n = (pct * 20.0).round() as usize;
+
+    for s in linspace(0.0, pct, n) {
+        obb2.0.span = obb.0.span * s;
+        draw_obb(gizmos, &obb2, color)
+    }
+}
+
 fn draw_orbit(
     gizmos: &mut Gizmos,
     orb: &SparseOrbit,
@@ -327,46 +338,21 @@ pub fn draw_vehicle(gizmos: &mut Gizmos, vehicle: &Vehicle, pos: Vec2, scale: f3
         draw_thruster(gizmos, thruster, pos, scale, angle);
     }
 
-    let w = 20.0;
-    let h = 40.0;
+    for tank in vehicle.tanks() {
+        let dims = Vec2::new(tank.width, tank.height);
+        let tank_screen_center = pos + rotate((tank.pos + dims / 2.0) * scale, angle);
 
-    for (i, tank) in vehicle.tanks().enumerate() {
+        draw_circle(gizmos, tank_screen_center, 3.0, WHITE);
+
         let pct = tank.percent_filled();
 
-        let lower = pos + Vec2::X * w * i as f32 * 1.3;
-        let upper = lower + Vec2::new(w, h);
-        let aabb = AABB::from_arbitrary(lower, upper);
-        draw_aabb(gizmos, aabb, RED);
-        let upper = lower + Vec2::new(w, h * pct);
-        let aabb = AABB::from_arbitrary(lower, upper);
-        fill_aabb(gizmos, aabb, RED);
+        gizmos.arc_2d(
+            Isometry2d::from_translation(tank_screen_center),
+            pct * 2.0 * PI,
+            tank.width.min(tank.height) * scale / 2.0,
+            RED,
+        );
     }
-}
-
-fn draw_rpo(gizmos: &mut Gizmos, state: &GameState, id: OrbiterId, rpo: &RPO) -> Option<()> {
-    let ctx = &state.orbital_context;
-
-    let lup = state.lup_orbiter(id, state.sim_time)?;
-    let pv = lup.pv();
-
-    let screen_pos = ctx.w2c(pv.pos_f32());
-
-    draw_circle(gizmos, screen_pos, 15.0, TEAL);
-
-    for km in 1..=5 {
-        let r = state.orbital_context.scale() * km as f32;
-        draw_circle(gizmos, screen_pos, r, GRAY);
-    }
-
-    let d = pv.pos_f32() - ctx.origin();
-
-    for (vpv, vehicle) in &rpo.vehicles {
-        let p = (d + vpv.pos_f32() / 1000.0) * ctx.scale();
-        draw_square(gizmos, p, 7.0, RED);
-
-        draw_vehicle(gizmos, vehicle, p, ctx.scale() / 1000.0, vehicle.angle());
-    }
-    Some(())
 }
 
 fn draw_prograde_marker(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
@@ -1279,10 +1265,6 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
     draw_piloting_overlay(&mut canvas.gizmos, state);
 
     draw_favorites(&mut canvas.gizmos, state);
-
-    for (id, rpo) in &state.rpos {
-        draw_rpo(&mut canvas.gizmos, state, *id, rpo);
-    }
 
     highlight_targeted_vehicle(&mut canvas.gizmos, state);
 
