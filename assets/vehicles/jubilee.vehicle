@@ -57,16 +57,6 @@ parts:
   rot: South
 - partname: rcs
   pos:
-  - -44
-  - -3
-  rot: South
-- partname: rcs
-  pos:
-  - -40
-  - -9
-  rot: East
-- partname: rcs
-  pos:
   - 34
   - -9
   rot: East
@@ -78,11 +68,6 @@ parts:
 - partname: rcs
   pos:
   - 34
-  - 5
-  rot: West
-- partname: rcs
-  pos:
-  - -40
   - 5
   rot: West
 - partname: tank21
@@ -115,3 +100,58 @@ parts:
   - 5
   - -17
   rot: South
+- partname: rcs
+  pos:
+  - -9
+  - -39
+  rot: South
+- partname: rcs
+  pos:
+  - 5
+  - -39
+  rot: North
+- partname: rcs
+  pos:
+  - 28
+  - -9
+  rot: East
+- partname: rcs
+  pos:
+  - 28
+  - 5
+  rot: West
+- partname: rcs
+  pos:
+  - 5
+  - 33
+  rot: North
+- partname: rcs
+  pos:
+  - -9
+  - 33
+  rot: South
+- partname: motor
+  pos:
+  - -59
+  - -8
+  rot: South
+- partname: rcs
+  pos:
+  - -30
+  - 5
+  rot: West
+- partname: rcs
+  pos:
+  - -24
+  - 5
+  rot: West
+- partname: rcs
+  pos:
+  - -30
+  - -9
+  rot: East
+- partname: rcs
+  pos:
+  - -24
+  - -9
+  rot: East

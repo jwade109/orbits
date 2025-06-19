@@ -1,6 +1,7 @@
 use crate::canvas::Canvas;
 use crate::drawing::*;
 use crate::game::GameState;
+use crate::input::{FrameId, MouseButt};
 use crate::onclick::OnClick;
 use crate::scenes::rpo::LinearCameraController;
 use crate::scenes::{CameraProjection, Render, TextLabel};
@@ -18,6 +19,25 @@ pub struct SurfaceContext {
     wind_offset: f32,
     vehicles: Vec<(Vehicle, Vec2)>,
     follow_vehicle: bool,
+    ownship: Option<usize>,
+}
+
+impl Default for SurfaceContext {
+    fn default() -> Self {
+        SurfaceContext {
+            camera: LinearCameraController {
+                center: Vec2::ZERO,
+                target_center: Vec2::ZERO,
+                scale: 1.0,
+                target_scale: 1.0,
+            },
+            plants: generate_plants(),
+            wind_offset: 0.0,
+            vehicles: Vec::new(),
+            follow_vehicle: false,
+            ownship: None,
+        }
+    }
 }
 
 fn generate_plants() -> Vec<Plant> {
@@ -55,17 +75,18 @@ const ACCELERATION_DUE_TO_GRAVITY: Vec2 = Vec2::new(0.0, -3.2); // m/s^2;
 fn hover_control_law(gravity: Vec2, target: Vec2, vehicle: &Vehicle) -> VehicleControl {
     let future_alt = vehicle.kinematic_apoapis(gravity.length() as f64) as f32;
 
-    let horizontal_control =
-        if (target.y - vehicle.pv.pos.y as f32).abs() < 10.0 && vehicle.pv.vel.y.abs() < 10.0 {
-            // horizontal controller
-            let kp = 0.01;
-            let kd = 0.15;
+    let horizontal_control = {
+        // if (target.y - vehicle.pv.pos.y as f32).abs() < 10.0 && vehicle.pv.vel.y.abs() < 10.0 {
+        // horizontal controller
+        let kp = 0.01;
+        let kd = 0.08;
 
-            // positive means to the right, which corresponds to a negative heading correction
-            kp * (target.x - vehicle.pv.pos.x as f32) - kd * vehicle.pv.vel.x as f32
-        } else {
-            0.0
-        };
+        // positive means to the right, which corresponds to a negative heading correction
+        kp * (target.x - vehicle.pv.pos.x as f32) - kd * vehicle.pv.vel.x as f32
+        // } else {
+        //     0.0
+        // };
+    };
 
     // attitude controller
     let kp = 30.0;
@@ -80,8 +101,8 @@ fn hover_control_law(gravity: Vec2, target: Vec2, vehicle: &Vehicle) -> VehicleC
     let pct = gravity.length() / accel;
 
     // vertical controller
-    let kp = 2.0;
-    let kd = 6.0;
+    let kp = 0.5;
+    let kd = 2.0;
     let altitude_error = target.y - future_alt;
     let error = kp * altitude_error - kd * vehicle.pv.vel.y as f32;
 
@@ -114,6 +135,28 @@ impl SurfaceContext {
         self.vehicles.push((vehicle, Vec2::new(x, y)));
     }
 
+    pub fn ownship(&self) -> Option<(usize, &Vehicle)> {
+        let idx = self.ownship?;
+        self.vehicles.get(idx).map(|(v, _)| (idx, v))
+    }
+
+    pub fn follow_position(&self) -> Option<Vec2> {
+        let idx = self.follow_vehicle.then(|| self.ownship)??;
+        let v = self.vehicles.get(idx).map(|(v, _)| v)?;
+        Some(v.pv.pos_f32())
+    }
+
+    pub fn mouseover_vehicle(&self, pos: Vec2) -> Option<(usize, &Vehicle)> {
+        for (i, (v, _)) in self.vehicles.iter().enumerate() {
+            let d = v.pv.pos_f32().distance(pos);
+            let r = v.bounding_radius();
+            if d < r {
+                return Some((i, v));
+            }
+        }
+        None
+    }
+
     pub fn randomize(&mut self) {
         let land = rand(0.0, 1.0) < 0.2;
         for (_, target) in &mut self.vehicles {
@@ -135,15 +178,40 @@ impl SurfaceContext {
         if state.input.just_pressed(KeyCode::KeyF) {
             ctx.follow_vehicle = !ctx.follow_vehicle;
         }
+
         if state.input.just_pressed(KeyCode::KeyG) {
             ctx.randomize();
         }
 
+        (|| -> Option<()> {
+            let (pos, double) = if let Some(p) = state.input.double_click() {
+                (p, true)
+            } else {
+                (state.input.position(MouseButt::Left, FrameId::Down)?, false)
+            };
+
+            let pos = ctx.c2w(pos);
+            let (idx, _) = ctx.mouseover_vehicle(pos)?;
+            ctx.ownship = Some(idx);
+            if double {
+                ctx.follow_vehicle = true;
+            }
+            None
+        })();
+
+        (|| -> Option<()> {
+            let rc = state.input.position(MouseButt::Right, FrameId::Current)?;
+            let p = ctx.c2w(rc);
+            let (_, t) = ctx.vehicles.get_mut(ctx.ownship?)?;
+            *t = p;
+            None
+        })();
+
         ctx.camera.update(dt, &state.input);
 
-        for (v, target) in &mut ctx.vehicles {
+        for (v, target) in ctx.vehicles.iter_mut() {
             let is_rcs = state.input.is_pressed(KeyCode::ControlLeft);
-            let control = if state.input.is_pressed(KeyCode::ArrowUp) {
+            let _control = if state.input.is_pressed(KeyCode::ArrowUp) {
                 Vec2::X
             } else if state.input.is_pressed(KeyCode::ArrowDown) {
                 -Vec2::X
@@ -163,8 +231,6 @@ impl SurfaceContext {
                 0.0
             };
 
-            *target += randvec(0.0, 0.1);
-
             // let control = VehicleControl {
             //     throttle: 0.4,
             //     linear: control,
@@ -177,7 +243,7 @@ impl SurfaceContext {
             control.attitude += attitude;
 
             v.step(
-                state.wall_time * 2.0,
+                state.sim_time,
                 control,
                 PhysicsMode::RealTime,
                 ACCELERATION_DUE_TO_GRAVITY,
@@ -190,11 +256,11 @@ impl SurfaceContext {
             if v.pv.pos.y == 0.0 {
                 v.pv.vel.x *= 0.99;
             }
+        }
 
-            if ctx.follow_vehicle {
-                ctx.camera.center = v.pv.pos_f32();
-                ctx.camera.target_center = ctx.camera.center;
-            }
+        if let Some(v) = ctx.follow_position() {
+            ctx.camera.center = v;
+            ctx.camera.target_center = ctx.camera.center;
         }
 
         for p in &mut ctx.plants {
@@ -208,23 +274,6 @@ impl SurfaceContext {
         }
 
         ctx.wind_offset = ctx.wind_offset.clamp(-0.4, 0.4);
-    }
-}
-
-impl Default for SurfaceContext {
-    fn default() -> Self {
-        SurfaceContext {
-            camera: LinearCameraController {
-                center: Vec2::ZERO,
-                target_center: Vec2::ZERO,
-                scale: 1.0,
-                target_scale: 1.0,
-            },
-            plants: generate_plants(),
-            wind_offset: 0.0,
-            vehicles: Vec::new(),
-            follow_vehicle: false,
-        }
     }
 }
 
@@ -261,25 +310,60 @@ fn draw_kinematic_arc(gizmos: &mut Gizmos, mut pv: PV, ctx: &impl CameraProjecti
 
 impl Render for SurfaceContext {
     fn background_color(_state: &GameState) -> Srgba {
-        TEAL.with_luminance(0.3)
+        BLACK
     }
 
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         let ctx = &state.surface_context;
 
+        {
+            let sprites: String = state
+                .image_handles
+                .iter()
+                .map(|(n, _)| format!("{}\n", n))
+                .collect();
+            canvas.text(sprites, Vec2::splat(-500.0), 1.0);
+        }
+
         for (v, target) in &ctx.vehicles {
             let p = ctx.w2c(v.pv.pos_f32());
             let q = ctx.w2c(*target);
-            draw_circle(&mut canvas.gizmos, q, 2.0 * ctx.scale(), PURPLE);
+            draw_circle(
+                &mut canvas.gizmos,
+                q,
+                2.0 * ctx.scale(),
+                PURPLE.with_alpha(0.3),
+            );
             canvas.gizmos.line_2d(p, q, BLUE);
             draw_kinematic_arc(&mut canvas.gizmos, v.pv, ctx, ACCELERATION_DUE_TO_GRAVITY);
             let pos = ctx.w2c(v.pv.pos_f32());
-            draw_vehicle(&mut canvas.gizmos, v, pos, ctx.scale(), v.angle());
-            canvas.sprite(p, v.angle(), "bird1.png", ctx.scale() / 300.0, 1.0);
-            // let info = crate::scenes::craft_editor::vehicle_info(v);
-            // let info = format!("{}\n{}", v.pv, info);
-            // canvas.text(info, pos + Vec2::X * 400.0, 0.7).anchor_left();
+            draw_vehicle(canvas, v, pos, ctx.scale(), v.angle());
         }
+
+        (|| -> Option<()> {
+            let mouse_pos = ctx.c2w(state.input.current()?);
+            let (_, vehicle) = ctx.mouseover_vehicle(mouse_pos)?;
+            let pos = ctx.w2c(vehicle.pv.pos_f32());
+            draw_circle(
+                &mut canvas.gizmos,
+                pos,
+                vehicle.bounding_radius() * ctx.scale() * 1.1,
+                RED.with_alpha(0.3),
+            );
+            None
+        })();
+
+        (|| -> Option<()> {
+            let (_, v) = ctx.ownship()?;
+            let pos = ctx.w2c(v.pv.pos_f32());
+            draw_circle(
+                &mut canvas.gizmos,
+                pos,
+                v.bounding_radius() * ctx.scale(),
+                ORANGE.with_alpha(0.3),
+            );
+            None
+        })();
 
         let p = ctx.w2c(Vec2::new(-400.0, 0.0));
         let q = ctx.w2c(Vec2::new(400.0, 0.0));

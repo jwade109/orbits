@@ -193,7 +193,7 @@ impl Vehicle {
             thrusters,
             radars,
             magnetorquers: vec![Magnetorquer {
-                max_torque: 10000.0,
+                max_torque: 500.0,
                 current_torque: 0.0,
             }],
             inventory: random_sat_inventory(),
@@ -228,7 +228,7 @@ impl Vehicle {
             .iter()
             .filter(|(_, _, part)| part.data.layer == PartLayer::Exterior);
 
-        y.chain(x).chain(z)
+        x.chain(y).chain(z)
     }
 
     pub fn is_controllable(&self) -> bool {
@@ -393,11 +393,16 @@ impl Vehicle {
         let mut aa = 0.0;
         let moa = self.wet_mass(); // TODO
         let com = self.center_of_mass();
-        for t in &self.thrusters {
-            let lever_arm = t.pos - com;
-            let torque = cross2d(lever_arm, t.pointing()) * t.throttle() * t.proto.thrust;
-            aa += torque / moa;
-        }
+
+        self.thrusters
+            .iter()
+            .filter(|t| t.is_thrusting())
+            .for_each(|t| {
+                let lever_arm = t.pos - com;
+                let torque = cross2d(lever_arm, t.pointing()) * t.throttle() * t.proto.thrust;
+                aa += torque / moa;
+            });
+
         for t in &self.magnetorquers {
             aa += t.current_torque / moa;
         }
@@ -407,9 +412,12 @@ impl Vehicle {
     fn current_linear_acceleration(&self) -> Vec2 {
         let mut a = Vec2::ZERO;
         let mass = self.wet_mass();
-        for t in &self.thrusters {
-            a += rotate(t.pointing(), self.angle) * t.proto.thrust / mass * t.throttle();
-        }
+        self.thrusters
+            .iter()
+            .filter(|t| t.is_thrusting())
+            .for_each(|t| {
+                a += rotate(t.pointing(), self.angle) * t.proto.thrust / mass * t.throttle();
+            });
         a
     }
 

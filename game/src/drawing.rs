@@ -310,7 +310,9 @@ pub fn draw_thruster(gizmos: &mut Gizmos, thruster: &Thruster, pos: Vec2, scale:
     }
 }
 
-pub fn draw_vehicle(gizmos: &mut Gizmos, vehicle: &Vehicle, pos: Vec2, scale: f32, angle: f32) {
+pub fn draw_vehicle(canvas: &mut Canvas, vehicle: &Vehicle, pos: Vec2, scale: f32, angle: f32) {
+    let vector_alpha = (scale / 700.0).clamp(0.0, 1.0);
+
     for (p, rot, part) in &vehicle.parts {
         let dims = meters_with_rotation(*rot, part);
         let center = rotate(p.as_vec2() / PIXELS_PER_METER + dims / 2.0, angle) * scale;
@@ -324,7 +326,17 @@ pub fn draw_vehicle(gizmos: &mut Gizmos, vehicle: &Vehicle, pos: Vec2, scale: f3
             PartLayer::Internal => GRAY,
             PartLayer::Structural => WHITE,
         };
-        draw_obb(gizmos, &obb, color);
+        draw_obb(&mut canvas.gizmos, &obb, color.with_alpha(vector_alpha));
+    }
+
+    if !vehicle.name().is_empty() {
+        canvas.proc_sprite(
+            pos,
+            angle,
+            vehicle.name(),
+            scale / PIXELS_PER_METER as f32,
+            1.0,
+        );
     }
 
     // let r = vehicle.bounding_radius() * scale;
@@ -332,22 +344,27 @@ pub fn draw_vehicle(gizmos: &mut Gizmos, vehicle: &Vehicle, pos: Vec2, scale: f3
     // draw_pointing_vector(gizmos, pos, r, vehicle.pointing(), LIME);
 
     for thruster in vehicle.thrusters() {
-        draw_thruster(gizmos, thruster, pos, scale, angle);
+        draw_thruster(&mut canvas.gizmos, thruster, pos, scale, angle);
     }
 
     for tank in vehicle.tanks() {
         let dims = Vec2::new(tank.width, tank.height);
         let tank_screen_center = pos + rotate((tank.pos + dims / 2.0) * scale, angle);
 
-        draw_circle(gizmos, tank_screen_center, 3.0, WHITE);
+        draw_circle(
+            &mut canvas.gizmos,
+            tank_screen_center,
+            3.0,
+            WHITE.with_alpha(vector_alpha),
+        );
 
         let pct = tank.percent_filled();
 
-        gizmos.arc_2d(
+        canvas.gizmos.arc_2d(
             Isometry2d::from_translation(tank_screen_center),
             pct * 2.0 * PI,
             tank.width.min(tank.height) * scale / 2.0,
-            RED,
+            RED.with_alpha(vector_alpha),
         );
     }
 }
@@ -415,7 +432,7 @@ pub fn make_separation_graph(
     (g, v, pv)
 }
 
-pub fn draw_favorites(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
+pub fn draw_favorites(canvas: &mut Canvas, state: &GameState) -> Option<()> {
     let dims = state.input.screen_bounds.span;
     let leftmost = dims / 2.0 - Vec2::splat(180.0);
 
@@ -434,13 +451,13 @@ pub fn draw_favorites(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
 
         let pos = leftmost - Vec2::X * i as f32 * size * 1.1;
 
-        draw_vehicle(gizmos, vehicle, pos, size / (rb * 2.0), vehicle.angle());
+        draw_vehicle(canvas, vehicle, pos, size / (rb * 2.0), vehicle.angle());
         let color = if Some(*id) == state.piloting() {
             TEAL.with_alpha(0.3)
         } else {
             GRAY.with_alpha(0.2)
         };
-        draw_circle(gizmos, pos, size / 2.0, color);
+        draw_circle(&mut canvas.gizmos, pos, size / 2.0, color);
     }
     Some(())
 }
@@ -454,7 +471,7 @@ pub fn draw_pointing_vector(gizmos: &mut Gizmos, center: Vec2, r: f32, u: Vec2, 
     gizmos.linestrip_2d([p1, p2, p3, p1], color);
 }
 
-pub fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
+pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<()> {
     let ctx = &state.orbital_context;
 
     let piloting = state.piloting()?;
@@ -474,28 +491,28 @@ pub fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<(
         -window_dims.y / 2.0 + r * 1.2,
     );
 
-    draw_vehicle(gizmos, &vehicle, center, zoom, vehicle.angle());
+    draw_vehicle(canvas, &vehicle, center, zoom, vehicle.angle());
 
-    draw_counter(gizmos, rb as u64, center + Vec2::Y * r, WHITE);
+    draw_counter(&mut canvas.gizmos, rb as u64, center + Vec2::Y * r, WHITE);
 
     // prograde markers, etc
     {
         let pv = lup.pv();
         let angle = pv.vel_f32().to_angle();
         let p = center + rotate(Vec2::X * r * 0.8, angle);
-        draw_prograde_marker(gizmos, p, 20.0, GREEN);
+        draw_prograde_marker(&mut canvas.gizmos, p, 20.0, GREEN);
     }
 
     {
-        draw_circle(gizmos, center, rb * zoom, RED.with_alpha(0.02));
+        draw_circle(&mut canvas.gizmos, center, rb * zoom, RED.with_alpha(0.02));
 
         let mut rc = 10.0;
         while rc < rb {
-            draw_circle(gizmos, center, rc * zoom, GRAY.with_alpha(0.05));
+            draw_circle(&mut canvas.gizmos, center, rc * zoom, GRAY.with_alpha(0.05));
             rc += 10.0;
         }
 
-        draw_cross(gizmos, center, 3.0, RED.with_alpha(0.1));
+        draw_cross(&mut canvas.gizmos, center, 3.0, RED.with_alpha(0.1));
     }
 
     let vehicle_screen = ctx.w2c(lup.pv().pos_f32());
@@ -510,23 +527,24 @@ pub fn draw_piloting_overlay(gizmos: &mut Gizmos, state: &GameState) -> Option<(
         for sign in [-1.0, 1.0] {
             let p1 = Vec2::new(x1 + r * alpha.sin() * sign, y1 + r * alpha.cos() * sign);
             let p2 = Vec2::new(x2 + s * alpha.sin() * sign, y2 + s * alpha.cos() * sign);
-            gizmos.line_2d(p1, p2, GREEN.with_alpha(0.2));
+            canvas.gizmos.line_2d(p1, p2, GREEN.with_alpha(0.2));
         }
-        draw_circle(gizmos, vehicle_screen, s, GREEN.with_alpha(0.2));
+        draw_circle(&mut canvas.gizmos, vehicle_screen, s, GREEN.with_alpha(0.2));
     }
 
-    draw_circle(gizmos, center, r, GRAY);
+    draw_circle(&mut canvas.gizmos, center, r, GRAY);
     let p = vehicle.fuel_percentage();
     let iso = Isometry2d::from_translation(center);
 
     if vehicle.low_fuel() {
         if is_blinking(state.wall_time, None) {
-            draw_triangle(gizmos, center, 30.0, YELLOW);
+            draw_triangle(&mut canvas.gizmos, center, 30.0, YELLOW);
         }
     }
 
     let mut arc = |percent: f32, s: f32, color: Srgba| {
-        gizmos
+        canvas
+            .gizmos
             .arc_2d(iso, percent * 2.0 * PI, s * r, color)
             .resolution(200);
     };
@@ -1110,7 +1128,7 @@ pub fn draw_graph(
     {
         if bounds.contains(p) {
             canvas.text("Graph!".to_uppercase(), p, 0.7);
-            canvas.sprite(p, 0.0, "bird1.png", 0.06, 50.0);
+            canvas.file_sprite(p, 0.0, "bird1.png", 0.06, 50.0);
         }
     }
 
@@ -1259,9 +1277,9 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
 
     draw_scale_indicator(&mut canvas.gizmos, state);
 
-    draw_piloting_overlay(&mut canvas.gizmos, state);
+    draw_piloting_overlay(canvas, state);
 
-    draw_favorites(&mut canvas.gizmos, state);
+    draw_favorites(canvas, state);
 
     highlight_targeted_vehicle(&mut canvas.gizmos, state);
 

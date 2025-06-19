@@ -38,7 +38,7 @@ impl<'w, 's> Canvas<'w, 's> {
             .expect("Literally just pushed an element")
     }
 
-    pub fn sprite(
+    pub fn file_sprite(
         &mut self,
         pos: Vec2,
         angle: f32,
@@ -46,7 +46,19 @@ impl<'w, 's> Canvas<'w, 's> {
         scale: f32,
         z_index: f32,
     ) {
-        let sprite = StaticSpriteDescriptor::new(pos, angle, path.into(), scale, z_index);
+        let sprite = StaticSpriteDescriptor::filesystem(pos, angle, path.into(), scale, z_index);
+        self.sprites.push(sprite);
+    }
+
+    pub fn proc_sprite(
+        &mut self,
+        pos: Vec2,
+        angle: f32,
+        path: impl Into<String>,
+        scale: f32,
+        z_index: f32,
+    ) {
+        let sprite = StaticSpriteDescriptor::procedural(pos, angle, path.into(), scale, z_index);
         self.sprites.push(sprite);
     }
 }

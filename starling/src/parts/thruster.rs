@@ -23,7 +23,7 @@ impl Thruster {
             angle,
             pointing: rotate(Vec2::X, angle),
             stamp: Nanotime::zero(),
-            throttle_rate: 12.0, // TODO
+            throttle_rate: 1.5, // TODO
             throttle: 0.0,
         }
     }
@@ -50,6 +50,12 @@ impl Thruster {
     }
 
     pub fn set_thrusting(&mut self, throttle: f32, stamp: Nanotime) {
+        let throttle = if throttle > THRUSTER_DEAD_BAND {
+            throttle
+        } else {
+            0.0
+        };
+
         let dt = stamp - self.stamp;
         self.stamp = stamp;
         let dthrottle = (self.throttle_rate * dt.to_secs()).abs();
@@ -63,7 +69,7 @@ impl Thruster {
     }
 
     pub fn is_thrusting(&self) -> bool {
-        self.throttle > THRUSTER_DEAD_BAND
+        self.throttle > 0.0
     }
 
     pub fn throttle(&self) -> f32 {

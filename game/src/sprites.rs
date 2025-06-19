@@ -119,31 +119,46 @@ pub fn update_static_sprites(
             .with_translation(pos)
             .with_rotation(Quat::from_rotation_z(angle));
 
-        let path = match std::fs::canonicalize(sprite.path.clone()) {
-            Ok(p) => p.to_string_lossy().to_string(),
-            Err(_) => sprite.path.clone(),
-        };
-
-        if let Some((_, ref mut spr, ref mut tf, ref mut desc)) = sprite_entities.get_mut(i) {
-            **tf = transform;
-            if desc.0 != path {
+        let (path, handle) = match sprite.path.clone() {
+            SpritePath::Filesystem(path) => {
+                let path = match std::fs::canonicalize(path.clone()) {
+                    Ok(p) => p.to_string_lossy().to_string(),
+                    Err(_) => path,
+                };
                 let handle = assets.load_with_settings(
                     path.clone(),
                     |settings: &mut ImageLoaderSettings| {
                         settings.sampler = ImageSampler::nearest();
                     },
                 );
+                (path, Some(handle))
+            }
+            SpritePath::Procedural(path) => {
+                let handle = state.image_handles.get(&path).cloned();
+                (path, handle)
+            }
+        };
 
+        let handle = if let Some(handle) = handle {
+            handle
+        } else {
+            Handle::default()
+        };
+
+        if let Some((_, ref mut spr, ref mut tf, ref mut desc)) = sprite_entities.get_mut(i) {
+            **tf = transform;
+            if desc.0 != path {
                 **spr = Sprite::from_image(handle);
+                println!("[{}] ({}) Modified sprite {}", i, state.wall_time, path);
                 desc.0 = path.clone();
             }
         } else {
-            let handle =
-                assets.load_with_settings(path.clone(), |settings: &mut ImageLoaderSettings| {
-                    settings.sampler = ImageSampler::nearest();
-                });
-            let spr = Sprite::from_image(handle);
-            commands.spawn((spr, transform, StaticSprite(path.clone())));
+            println!("[{}] ({}) New sprite {}", i, state.wall_time, path);
+            commands.spawn((
+                Sprite::from_image(handle),
+                transform,
+                StaticSprite(path.clone()),
+            ));
         }
     }
 

@@ -4,6 +4,7 @@ pub mod commands;
 pub mod debug_console;
 pub mod drawing;
 pub mod game;
+pub mod generate_ship_sprites;
 pub mod graph;
 pub mod input;
 pub mod keybindings;

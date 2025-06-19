@@ -54,7 +54,7 @@ impl Render for RPOContext {
         let target = state.targeting()?;
         let piloting = state.piloting()?;
 
-        draw_piloting_overlay(&mut canvas.gizmos, state);
+        draw_piloting_overlay(canvas, state);
 
         let origin = state.lup_orbiter(target, state.sim_time)?.pv();
 
@@ -98,13 +98,7 @@ impl Render for RPOContext {
             }
 
             if let Some(v) = state.vehicles.get(&id) {
-                draw_vehicle(
-                    &mut canvas.gizmos,
-                    v,
-                    ctx.w2c(pv.pos_f32()),
-                    ctx.scale(),
-                    v.angle(),
-                );
+                draw_vehicle(canvas, v, ctx.w2c(pv.pos_f32()), ctx.scale(), v.angle());
             }
         }
 

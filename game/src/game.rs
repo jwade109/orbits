@@ -65,7 +65,7 @@ fn sound_system(
     }
 }
 
-fn init_system(mut commands: Commands) {
+fn init_system(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     let args = match ProgramContext::try_parse() {
         Ok(args) => args,
         Err(e) => {
@@ -74,7 +74,9 @@ fn init_system(mut commands: Commands) {
         }
     };
 
-    let g = GameState::new(args);
+    let mut g = GameState::new(args);
+
+    g.generate_vehicle_sprites(&mut images);
 
     commands.insert_resource(g);
     commands.spawn((
@@ -177,6 +179,7 @@ pub struct GameState {
 
     pub text_labels: Vec<TextLabel>,
     pub sprites: Vec<StaticSpriteDescriptor>,
+    pub image_handles: HashMap<String, Handle<Image>>,
 }
 
 fn generate_starfield() -> Vec<(Vec3, Srgba, f32, f32)> {
@@ -262,9 +265,12 @@ impl GameState {
             button_was_pressed: true,
             text_labels: Vec::new(),
             sprites: Vec::new(),
+            image_handles: HashMap::new(),
         };
 
-        for model in ["lander", "lander", "pollux", "goober", "remora"] {
+        for model in [
+            "lander", "lander", "pollux", "goober", "remora", "manta", "jubilee",
+        ] {
             if let Some(v) = g.get_vehicle_by_model(model) {
                 g.surface_context.add_vehicle(v);
             }
@@ -314,6 +320,23 @@ impl GameState {
         }
 
         g
+    }
+
+    pub fn generate_vehicle_sprites(&mut self, images: &mut Assets<Image>) {
+        let mut handles = HashMap::new();
+        if let Some(v) = crate::scenes::get_list_of_vehicles(self) {
+            for (model, _) in v {
+                if let Some(v) = self.get_vehicle_by_model(&model) {
+                    let parts_dir = self.args.parts_dir();
+                    let img = crate::generate_ship_sprites::generate_ship_sprite(&v, &parts_dir);
+                    if let Some(img) = img {
+                        let handle = images.add(img);
+                        handles.insert(model, handle);
+                    }
+                }
+            }
+        }
+        self.image_handles = handles;
     }
 }
 
@@ -878,7 +901,7 @@ impl GameState {
                 self.editor_context.new_craft();
             }
             OnClick::WriteVehicleToImage => {
-                self.editor_context.write_to_image(&self.args);
+                self.editor_context.write_image_to_file(&self.args);
             }
             OnClick::RotateCraft => {
                 self.editor_context.rotate_craft();

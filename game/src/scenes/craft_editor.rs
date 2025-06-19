@@ -112,8 +112,8 @@ impl EditorContext {
         self.update();
     }
 
-    pub fn write_to_image(&self, args: &ProgramContext) {
-        write_to_image(&self.vehicle, args, "vehicle");
+    pub fn write_image_to_file(&self, args: &ProgramContext) {
+        write_image_to_file(&self.vehicle, args, "vehicle");
     }
 
     pub fn rotate_craft(&mut self) {
@@ -553,7 +553,7 @@ impl Render for EditorContext {
             );
 
             draw_vehicle(
-                &mut canvas.gizmos,
+                canvas,
                 &ctx.vehicle,
                 ctx.w2c(Vec2::ZERO),
                 ctx.scale * PIXELS_PER_METER,
@@ -583,7 +583,7 @@ impl Render for EditorContext {
 
         if let Some((p, current_part)) = Self::current_part_and_cursor_position(state) {
             let dims = dims_with_rotation(ctx.rotation, &current_part);
-            canvas.sprite(
+            canvas.file_sprite(
                 ctx.w2c(p.as_vec2() + dims.as_vec2() / 2.0),
                 ctx.rotation.to_angle(),
                 part_sprite_path(&state.args, &current_part.path),
@@ -596,7 +596,7 @@ impl Render for EditorContext {
             .enumerate()
             .for_each(|(i, (pos, rot, part))| {
                 let half_dims = dims_with_rotation(*rot, part).as_vec2() / 2.0;
-                canvas.sprite(
+                canvas.file_sprite(
                     ctx.w2c(pos.as_vec2() + half_dims),
                     rot.to_angle(),
                     part_sprite_path(&state.args, &part.path),
@@ -812,10 +812,7 @@ pub fn read_image(path: PathBuf) -> Option<RgbaImage> {
     Some(image::open(path).ok()?.to_rgba8())
 }
 
-pub fn write_to_image(vehicle: &Vehicle, ctx: &ProgramContext, name: &str) -> Option<()> {
-    let outpath = format!("/tmp/{}.png", name);
-    println!("Writing vehicle {} to path {}", vehicle.name(), outpath);
-    let parts_dir = ctx.parts_dir();
+pub fn generate_image(vehicle: &Vehicle, parts_dir: &Path) -> Option<DynamicImage> {
     let (pixel_min, pixel_max) = vehicle.pixel_bounds()?;
     let dims = pixel_max - pixel_min;
     let mut img = DynamicImage::new_rgba8(dims.x as u32, dims.y as u32);
@@ -833,7 +830,7 @@ pub fn write_to_image(vehicle: &Vehicle, ctx: &ProgramContext, name: &str) -> Op
         let px = (pos.x - pixel_min.x) as u32;
         let py = (pos.y - pixel_min.y) as u32;
 
-        let color = match part.data.class {
+        let _color = match part.data.class {
             PartClass::Cargo => GREEN,
             PartClass::Thruster(_) => RED,
             PartClass::Tank(_) => ORANGE,
@@ -864,16 +861,25 @@ pub fn write_to_image(vehicle: &Vehicle, ctx: &ProgramContext, name: &str) -> Op
                     to_export.get_pixel_mut_checked(px + p.x, to_export.height() - (py + p.y) - 1);
                 if let Some((src, dst)) = src.zip(dst) {
                     if src.0[3] > 0 {
-                        for i in 0..4 {
-                            dst.0[i] = (color[i] * 255.0) as u8;
+                        for i in 0..3 {
+                            dst.0[i] = src.0[i];
+                            // dst.0[i] = (color[i] * 255.0) as u8;
                         }
+                        dst.0[3] = 255;
                     }
                 }
             }
         }
     }
 
-    to_export.save(outpath).ok()
+    Some(img)
+}
+
+pub fn write_image_to_file(vehicle: &Vehicle, ctx: &ProgramContext, name: &str) -> Option<()> {
+    let outpath: String = format!("/tmp/{}.png", name);
+    println!("Writing vehicle {} to path {}", vehicle.name(), outpath);
+    let img = generate_image(vehicle, &ctx.parts_dir())?;
+    img.save(outpath).ok()
 }
 
 #[cfg(test)]
@@ -898,7 +904,7 @@ mod tests {
 
         for name in ["remora", "lander", "pollux", "manta", "spacestation"] {
             let vehicle = g.get_vehicle_by_model(name).expect("Expected a vehicle");
-            write_to_image(&vehicle, &args, name);
+            write_image_to_file(&vehicle, &args, name);
         }
     }
 }

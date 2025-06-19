@@ -136,6 +136,10 @@ impl InputState {
         Some(frame.screen_pos - self.screen_bounds.span / 2.0)
     }
 
+    pub fn current(&self) -> Option<Vec2> {
+        self.position(MouseButt::Hover, FrameId::Current)
+    }
+
     pub fn age(&self, button: MouseButt, order: FrameId, wall_time: Nanotime) -> Option<Nanotime> {
         let state = self.get_state(button);
         let frame = state.frame(order)?;
