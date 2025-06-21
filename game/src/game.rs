@@ -1,6 +1,7 @@
 use crate::args::ProgramContext;
 use crate::canvas::Canvas;
 use crate::debug_console::DebugConsole;
+use crate::generate_ship_sprites::generate_ship_sprite;
 use crate::input::{FrameId, InputState, MouseButt};
 use crate::notifications::*;
 use crate::onclick::OnClick;
@@ -12,6 +13,7 @@ use crate::scenes::{
 use crate::ui::InteractionEvent;
 use bevy::color::palettes::css::*;
 use bevy::core_pipeline::bloom::Bloom;
+use bevy::core_pipeline::smaa::Smaa;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 use bevy::window::WindowMode;
@@ -76,7 +78,7 @@ fn init_system(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 
     let mut g = GameState::new(args);
 
-    g.generate_vehicle_sprites(&mut images);
+    g.load_sprites(&mut images);
 
     commands.insert_resource(g);
     commands.spawn((
@@ -92,6 +94,7 @@ fn init_system(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
             ..Bloom::OLD_SCHOOL
         },
         BackgroundCamera,
+        Smaa::default(),
         RenderLayers::layer(0),
     ));
 
@@ -322,13 +325,13 @@ impl GameState {
         g
     }
 
-    pub fn generate_vehicle_sprites(&mut self, images: &mut Assets<Image>) {
+    pub fn load_sprites(&mut self, images: &mut Assets<Image>) {
         let mut handles = HashMap::new();
         if let Some(v) = crate::scenes::get_list_of_vehicles(self) {
             for (model, _) in v {
                 if let Some(v) = self.get_vehicle_by_model(&model) {
                     let parts_dir = self.args.parts_dir();
-                    let img = crate::generate_ship_sprites::generate_ship_sprite(&v, &parts_dir);
+                    let img = generate_ship_sprite(&v, &parts_dir, true);
                     if let Some(img) = img {
                         let handle = images.add(img);
                         handles.insert(model, handle);

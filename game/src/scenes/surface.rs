@@ -20,6 +20,7 @@ pub struct SurfaceContext {
     vehicles: Vec<(Vehicle, Vec2)>,
     follow_vehicle: bool,
     ownship: Option<usize>,
+    manual_control: bool,
 }
 
 impl Default for SurfaceContext {
@@ -36,6 +37,7 @@ impl Default for SurfaceContext {
             vehicles: Vec::new(),
             follow_vehicle: false,
             ownship: None,
+            manual_control: false,
         }
     }
 }
@@ -179,6 +181,10 @@ impl SurfaceContext {
             ctx.follow_vehicle = !ctx.follow_vehicle;
         }
 
+        if state.input.just_pressed(KeyCode::KeyM) {
+            ctx.manual_control = !ctx.manual_control;
+        }
+
         if state.input.just_pressed(KeyCode::KeyG) {
             ctx.randomize();
         }
@@ -209,38 +215,40 @@ impl SurfaceContext {
 
         ctx.camera.update(dt, &state.input);
 
-        for (v, target) in ctx.vehicles.iter_mut() {
-            let is_rcs = state.input.is_pressed(KeyCode::ControlLeft);
-            let _control = if state.input.is_pressed(KeyCode::ArrowUp) {
-                Vec2::X
-            } else if state.input.is_pressed(KeyCode::ArrowDown) {
-                -Vec2::X
-            } else if state.input.is_pressed(KeyCode::ArrowLeft) && is_rcs {
-                Vec2::Y
-            } else if state.input.is_pressed(KeyCode::ArrowRight) && is_rcs {
-                -Vec2::Y
+        for (i, (v, target)) in ctx.vehicles.iter_mut().enumerate() {
+            let control = if ctx.manual_control && ctx.ownship == Some(i) {
+                let is_rcs = state.input.is_pressed(KeyCode::ControlLeft);
+                let control = if state.input.is_pressed(KeyCode::ArrowUp) {
+                    Vec2::X
+                } else if state.input.is_pressed(KeyCode::ArrowDown) {
+                    -Vec2::X
+                } else if state.input.is_pressed(KeyCode::ArrowLeft) && is_rcs {
+                    Vec2::Y
+                } else if state.input.is_pressed(KeyCode::ArrowRight) && is_rcs {
+                    -Vec2::Y
+                } else {
+                    Vec2::ZERO
+                };
+
+                let attitude = if state.input.is_pressed(KeyCode::ArrowLeft) && !is_rcs {
+                    10.0
+                } else if state.input.is_pressed(KeyCode::ArrowRight) && !is_rcs {
+                    -10.0
+                } else {
+                    0.0
+                };
+
+                VehicleControl {
+                    throttle: 0.4,
+                    linear: control,
+                    attitude,
+                    is_rcs,
+                }
             } else {
-                Vec2::ZERO
+                hover_control_law(ACCELERATION_DUE_TO_GRAVITY, *target, v)
             };
 
-            let attitude = if state.input.is_pressed(KeyCode::ArrowLeft) && !is_rcs {
-                10.0
-            } else if state.input.is_pressed(KeyCode::ArrowRight) && !is_rcs {
-                -10.0
-            } else {
-                0.0
-            };
-
-            // let control = VehicleControl {
-            //     throttle: 0.4,
-            //     linear: control,
-            //     attitude,
-            //     is_rcs,
-            // };
-
-            let mut control = hover_control_law(ACCELERATION_DUE_TO_GRAVITY, *target, v);
-
-            control.attitude += attitude;
+            // control.attitude += attitude;
 
             v.step(
                 state.sim_time,

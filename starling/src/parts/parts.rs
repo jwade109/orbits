@@ -102,6 +102,7 @@ pub struct ThrusterProto {
     pub thrust: f32,
     pub exhaust_velocity: f32,
     pub length: f32,
+    pub width: f32,
     pub is_rcs: bool,
     pub throttle_rate: f32,
 }
@@ -135,6 +136,7 @@ mod tests {
                 thrust: 1200.0,
                 exhaust_velocity: 3500.0,
                 length: 3.4,
+                width: 1.6,
                 is_rcs: false,
                 throttle_rate: 2.0,
             }),

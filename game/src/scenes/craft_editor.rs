@@ -11,7 +11,6 @@ use bevy::color::palettes::css::*;
 use bevy::input::keyboard::{Key, KeyCode, KeyboardInput};
 use bevy::prelude::*;
 use enum_iterator::next_cycle;
-use image::{DynamicImage, RgbaImage};
 use layout::layout::*;
 use layout::layout::{Node, Tree};
 use rfd::FileDialog;
@@ -808,77 +807,10 @@ impl EditorContext {
     }
 }
 
-pub fn read_image(path: PathBuf) -> Option<RgbaImage> {
-    Some(image::open(path).ok()?.to_rgba8())
-}
-
-pub fn generate_image(vehicle: &Vehicle, parts_dir: &Path) -> Option<DynamicImage> {
-    let (pixel_min, pixel_max) = vehicle.pixel_bounds()?;
-    let dims = pixel_max - pixel_min;
-    let mut img = DynamicImage::new_rgba8(dims.x as u32, dims.y as u32);
-    let to_export = img.as_mut_rgba8().unwrap();
-    for (pos, rot, part) in vehicle.parts_by_layer() {
-        let path = parts_dir.join(&part.path).join("skin.png");
-        let img = match read_image(path.clone()) {
-            Some(img) => img,
-            None => {
-                println!("Failed to read {}", path.display());
-                continue;
-            }
-        };
-
-        let px = (pos.x - pixel_min.x) as u32;
-        let py = (pos.y - pixel_min.y) as u32;
-
-        let _color = match part.data.class {
-            PartClass::Cargo => GREEN,
-            PartClass::Thruster(_) => RED,
-            PartClass::Tank(_) => ORANGE,
-            _ => match part.data.layer {
-                PartLayer::Exterior => continue,
-                PartLayer::Internal => GRAY,
-                PartLayer::Structural => WHITE,
-            },
-        }
-        .mix(&BLACK, 0.3)
-        .to_f32_array();
-
-        for x in 0..img.width() {
-            for y in 0..img.height() {
-                let p = IVec2::new(x as i32, y as i32);
-                let xp = img.width() as i32 - p.x - 1;
-                let yp = img.height() as i32 - p.y - 1;
-                let p = match *rot {
-                    Rotation::East => IVec2::new(p.x, yp),
-                    Rotation::North => IVec2::new(p.y, p.x),
-                    Rotation::West => IVec2::new(xp, p.y),
-                    Rotation::South => IVec2::new(yp, xp),
-                }
-                .as_uvec2();
-
-                let src = img.get_pixel_checked(x, y);
-                let dst =
-                    to_export.get_pixel_mut_checked(px + p.x, to_export.height() - (py + p.y) - 1);
-                if let Some((src, dst)) = src.zip(dst) {
-                    if src.0[3] > 0 {
-                        for i in 0..3 {
-                            dst.0[i] = src.0[i];
-                            // dst.0[i] = (color[i] * 255.0) as u8;
-                        }
-                        dst.0[3] = 255;
-                    }
-                }
-            }
-        }
-    }
-
-    Some(img)
-}
-
 pub fn write_image_to_file(vehicle: &Vehicle, ctx: &ProgramContext, name: &str) -> Option<()> {
     let outpath: String = format!("/tmp/{}.png", name);
     println!("Writing vehicle {} to path {}", vehicle.name(), outpath);
-    let img = generate_image(vehicle, &ctx.parts_dir())?;
+    let img = crate::generate_ship_sprites::generate_image(vehicle, &ctx.parts_dir(), false)?;
     img.save(outpath).ok()
 }
 

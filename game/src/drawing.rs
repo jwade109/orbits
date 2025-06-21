@@ -290,14 +290,14 @@ pub fn draw_thruster(gizmos: &mut Gizmos, thruster: &Thruster, pos: Vec2, scale:
     let p1 = pos + rotate(thruster.pos * scale, angle);
     let u = rotate(-Vec2::X, thruster.angle + angle);
     let v = rotate(u, PI / 2.0);
-    let p2 = p1 + (u * thruster.proto.length + v * thruster.proto.length / 5.0) * scale;
-    let p3 = p1 + (u * thruster.proto.length - v * thruster.proto.length / 5.0) * scale;
-    gizmos.linestrip_2d([p1, p2, p3, p1], ORANGE);
+    let p2 = p1 + (u * thruster.proto.length + v * thruster.proto.width) * scale;
+    let p3 = p1 + (u * thruster.proto.length - v * thruster.proto.width) * scale;
+    // gizmos.linestrip_2d([p1, p2, p3, p1], ORANGE);
 
     if thruster.is_thrusting() {
         for s in linspace(0.0, 1.0, 13) {
-            let length = thruster.proto.length
-                * rand(2.4, 4.5)
+            let length = thruster.proto.length.max(0.2)
+                * rand(8.0, 20.0)
                 * thruster.throttle()
                 * ((s - 0.5) * PI).abs().cos();
             let p4 = p2 + (u * 0.7 + v * 0.4) * length * scale;
