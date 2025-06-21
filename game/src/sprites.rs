@@ -1,22 +1,8 @@
 use crate::game::GameState;
 use crate::scenes::CameraProjection;
 use crate::scenes::*;
-use bevy::asset::embedded_asset;
 use bevy::prelude::*;
 use starling::prelude::*;
-
-pub struct SpritePlugin;
-
-impl Plugin for SpritePlugin {
-    fn build(&self, app: &mut App) {
-        embedded_asset!(app, "src/", "../assets/Earth.png");
-        embedded_asset!(app, "src/", "../assets/Luna.png");
-        embedded_asset!(app, "src/", "../assets/Asteroid.png");
-        embedded_asset!(app, "src/", "../assets/shadow.png");
-        embedded_asset!(app, "src/", "../assets/spacecraft.png");
-        embedded_asset!(app, "src/", "../assets/collision_pixel.png");
-    }
-}
 
 // const SELECTED_SPACECRAFT_Z_INDEX: f32 = 8.0;
 const SHADOW_Z_INDEX: f32 = 7.0;
@@ -99,7 +85,7 @@ use crate::scenes::Render;
 use bevy::image::{ImageLoaderSettings, ImageSampler};
 
 #[derive(Component)]
-pub struct StaticSprite(String);
+pub struct StaticSprite(usize, String);
 
 pub fn update_static_sprites(
     mut commands: Commands,
@@ -145,25 +131,31 @@ pub fn update_static_sprites(
             Handle::default()
         };
 
-        if let Some((_, ref mut spr, ref mut tf, ref mut desc)) = sprite_entities.get_mut(i) {
+        let ent = sprite_entities.iter_mut().find(|(_, _, _, ss)| ss.0 == i);
+
+        if let Some((_, ref mut spr, ref mut tf, ref mut desc)) = ent {
             **tf = transform;
-            if desc.0 != path {
+            if desc.1 != path {
                 **spr = Sprite::from_image(handle);
-                println!("[{}] ({}) Modified sprite {}", i, state.wall_time, path);
-                desc.0 = path.clone();
+                println!(
+                    "[{}] ({}) Modified sprite {} -> {}",
+                    state.wall_time, i, desc.1, path
+                );
+                desc.1 = path.clone();
             }
         } else {
-            println!("[{}] ({}) New sprite {}", i, state.wall_time, path);
+            println!("[{}] ({}) New sprite {}", state.wall_time, i, path);
             commands.spawn((
                 Sprite::from_image(handle),
                 transform,
-                StaticSprite(path.clone()),
+                StaticSprite(i, path.clone()),
             ));
         }
     }
 
-    for (i, (e, _, _, _)) in query.iter().enumerate() {
-        if i >= sprites.len() {
+    for (e, _, _, ss) in &query {
+        if ss.0 >= sprites.len() {
+            println!("[{}] ({}) Deleting sprite {}", state.wall_time, ss.0, ss.1);
             commands.entity(e).despawn();
         }
     }

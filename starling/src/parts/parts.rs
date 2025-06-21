@@ -103,6 +103,7 @@ pub struct ThrusterProto {
     pub exhaust_velocity: f32,
     pub length: f32,
     pub is_rcs: bool,
+    pub throttle_rate: f32,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
@@ -135,6 +136,7 @@ mod tests {
                 exhaust_velocity: 3500.0,
                 length: 3.4,
                 is_rcs: false,
+                throttle_rate: 2.0,
             }),
         };
 

@@ -41,31 +41,31 @@ impl Default for SurfaceContext {
 }
 
 fn generate_plants() -> Vec<Plant> {
-    let mut ret = Vec::new();
+    let ret = Vec::new();
 
-    for _ in 0..30 {
-        let root = Vec2::new(rand(-100.0, 100.0), rand(-40.0, -10.0));
+    // for _ in 0..30 {
+    //     let root = Vec2::new(rand(-100.0, 100.0), rand(-40.0, -10.0));
 
-        let mut segments = Vec::new();
-        if rand(0.0, 1.0) < 0.2 {
-            let n_segments = randint(5, 7);
-            for _ in 0..n_segments {
-                let angle = rand(-0.4, 0.4);
-                let length = rand(1.2, 2.3);
-                segments.push((angle, length));
-            }
-        } else {
-            for _ in 0..5 {
-                let angle = rand(-0.4, 0.4);
-                let length = rand(0.3, 0.9);
-                segments.push((angle, length));
-            }
-        }
+    //     let mut segments = Vec::new();
+    //     if rand(0.0, 1.0) < 0.2 {
+    //         let n_segments = randint(5, 7);
+    //         for _ in 0..n_segments {
+    //             let angle = rand(-0.4, 0.4);
+    //             let length = rand(1.2, 2.3);
+    //             segments.push((angle, length));
+    //         }
+    //     } else {
+    //         for _ in 0..5 {
+    //             let angle = rand(-0.4, 0.4);
+    //             let length = rand(0.3, 0.9);
+    //             segments.push((angle, length));
+    //         }
+    //     }
 
-        let p = Plant::new(root, segments);
+    //     let p = Plant::new(root, segments);
 
-        ret.push(p);
-    }
+    //     ret.push(p);
+    // }
 
     ret
 }
@@ -310,7 +310,7 @@ fn draw_kinematic_arc(gizmos: &mut Gizmos, mut pv: PV, ctx: &impl CameraProjecti
 
 impl Render for SurfaceContext {
     fn background_color(_state: &GameState) -> Srgba {
-        BLACK
+        TEAL.with_luminance(0.3)
     }
 
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {

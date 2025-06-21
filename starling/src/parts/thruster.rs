@@ -9,7 +9,6 @@ pub struct Thruster {
     pub angle: f32,
     pointing: Vec2,
     stamp: Nanotime,
-    throttle_rate: f32,
     throttle: f32,
 }
 
@@ -23,7 +22,6 @@ impl Thruster {
             angle,
             pointing: rotate(Vec2::X, angle),
             stamp: Nanotime::zero(),
-            throttle_rate: 1.5, // TODO
             throttle: 0.0,
         }
     }
@@ -58,7 +56,7 @@ impl Thruster {
 
         let dt = stamp - self.stamp;
         self.stamp = stamp;
-        let dthrottle = (self.throttle_rate * dt.to_secs()).abs();
+        let dthrottle = (self.proto.throttle_rate * dt.to_secs()).abs();
         let diff = (throttle - self.throttle).abs();
         if self.throttle < throttle {
             self.throttle += dthrottle.min(diff);

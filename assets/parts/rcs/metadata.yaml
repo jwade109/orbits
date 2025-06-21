@@ -6,3 +6,4 @@ class: !Thruster
   thrust: 1600.0
   length: 0.3
   is_rcs: true
+  throttle_rate: 10.0

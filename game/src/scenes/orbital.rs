@@ -546,7 +546,7 @@ impl Render for OrbitalContext {
                 let lup = state.lup_planet(id, state.sim_time)?;
                 let pos = lup.pv().pos_f32();
                 let (name, body) = lup.named_body()?;
-                let path = format!("embedded://game/../assets/{}.png", name);
+                let path = format!("{}.png", name);
                 Some(StaticSpriteDescriptor::filesystem(
                     ctx.w2c(pos),
                     0.0,
@@ -567,7 +567,7 @@ impl Render for OrbitalContext {
                     .iter()
                     .all(|(pv, body)| !is_occluded(light_source, pos, pv.pos_f32(), body.radius));
 
-                let path = "embedded://game/../assets/spacecraft.png".to_string();
+                let path = "spacecraft.png".to_string();
                 let scale = if state.orbital_context.selected.contains(&id) {
                     SPACECRAFT_MAGNIFIED_SCALE
                 } else if state.orbital_context.selected.is_empty() {
