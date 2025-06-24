@@ -11,6 +11,7 @@ pub mod orbital_luts;
 pub mod orbiter;
 pub mod orbits;
 pub mod parts;
+pub mod pid;
 pub mod planning;
 pub mod plants;
 pub mod prelude;

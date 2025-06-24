@@ -53,5 +53,7 @@ pub enum OnClick {
     NormalizeCraft,
     ToggleThruster(usize),
     ReloadGame,
+    IncreaseGravity,
+    DecreaseGravity,
     Nullopt,
 }

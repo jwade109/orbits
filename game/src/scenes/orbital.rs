@@ -457,6 +457,23 @@ fn get_indicators(state: &GameState) -> Option<Vec<TextLabel>> {
     )
 }
 
+pub fn date_label(state: &GameState) -> TextLabel {
+    let date = state.sim_time.to_date();
+    let s = format!(
+        "Y{} W{} D{} {:02}:{:02}:{:02}.{:03} (x{:0.1})",
+        date.year + 1,
+        date.week + 1,
+        date.day + 1,
+        date.hour,
+        date.min,
+        date.sec,
+        date.milli,
+        10.0f32.powi(state.sim_speed),
+    );
+    let c = Vec2::Y * (20.0 - state.input.screen_bounds.span.y * 0.5);
+    TextLabel::new(s, c, 1.0)
+}
+
 impl Render for OrbitalContext {
     fn text_labels(state: &GameState) -> Option<Vec<TextLabel>> {
         let mut text_labels: Vec<TextLabel> = get_orbital_object_mouseover_labels(state);
@@ -481,19 +498,8 @@ impl Render for OrbitalContext {
         }
 
         {
-            let date = state.sim_time.to_date();
-            let s = format!(
-                "Y{} W{} D{} {:02}:{:02}:{:02}.{:03}",
-                date.year + 1,
-                date.week + 1,
-                date.day + 1,
-                date.hour,
-                date.min,
-                date.sec,
-                date.milli,
-            );
-            let c = Vec2::Y * (20.0 - state.input.screen_bounds.span.y * 0.5);
-            text_labels.push(TextLabel::new(s, c, 1.0));
+            let label = date_label(state);
+            text_labels.push(label);
         }
 
         if let Some((m1, m2, corner)) = state.measuring_tape() {

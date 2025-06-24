@@ -120,7 +120,7 @@ impl<MessageType> Node<MessageType> {
         }
     }
 
-    pub fn text(width: impl Into<Size>, height: impl Into<Size>, text: &str) -> Self {
+    pub fn text(width: impl Into<Size>, height: impl Into<Size>, text: impl Into<String>) -> Self {
         Self::new(width, height).with_text(text)
     }
 

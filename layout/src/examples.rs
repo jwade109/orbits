@@ -42,7 +42,7 @@ fn text_node(s: &str, width: impl Into<Size>, height: impl Into<Size>) -> Node<S
                 Node::column(Size::Fit)
                     .tight()
                     .with_child(Node::grow())
-                    .with_child(Node::text(twidth, theight, &s))
+                    .with_child(Node::text(twidth, theight, s))
                     .with_child(Node::grow()),
             )
             .with_child(Node::grow()),

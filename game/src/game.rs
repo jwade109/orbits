@@ -10,12 +10,13 @@ use crate::scenes::{
     OrbitalContext, RPOContext, Render, Scene, SceneType, StaticSpriteDescriptor, SurfaceContext,
     TelescopeContext, TextLabel,
 };
-use crate::ui::InteractionEvent;
+use crate::ui::{InteractionEvent, UiElement};
 use bevy::color::palettes::css::*;
 use bevy::core_pipeline::bloom::Bloom;
 use bevy::core_pipeline::smaa::Smaa;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
+use bevy::time::common_conditions::on_timer;
 use bevy::window::WindowMode;
 use clap::Parser;
 use enum_iterator::next_cycle;
@@ -28,6 +29,13 @@ pub struct GamePlugin;
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, init_system);
+
+        app.add_systems(
+            Update,
+            (print_entity_count, print_ui_count)
+                .chain()
+                .run_if(on_timer(std::time::Duration::from_millis(1000))),
+        );
 
         app.add_systems(
             Update,
@@ -52,6 +60,16 @@ impl Plugin for GamePlugin {
 
 #[derive(Component, Debug)]
 pub struct BackgroundCamera;
+
+fn print_entity_count(entities: Query<Entity>) {
+    let len = entities.iter().count();
+    println!("Entities: {}", len);
+}
+
+fn print_ui_count(entities: Query<&UiElement>) {
+    let len = entities.iter().count();
+    println!("UI elements: {}", len);
+}
 
 fn sound_system(
     mut commands: Commands,
@@ -920,6 +938,8 @@ impl GameState {
             OnClick::AddToFavorites(id) => _ = self.favorites.insert(id),
             OnClick::RemoveFromFavorites(id) => _ = self.favorites.remove(&id),
             OnClick::ReloadGame => _ = self.reload(),
+            OnClick::IncreaseGravity => self.surface_context.increase_gravity(),
+            OnClick::DecreaseGravity => self.surface_context.decrease_gravity(),
 
             _ => info!("Unhandled button event: {id:?}"),
         };
@@ -1114,42 +1134,42 @@ impl GameState {
 
         // handle discrete physics
         for (id, vehicle) in self.vehicles.iter_mut() {
-            let is_pilot = Some(*id) == self.orbital_context.piloting;
-            let allow_linear_rcs = self.input.is_pressed(KeyCode::ControlLeft);
-            let linear = if !is_pilot {
-                Vec2::ZERO
-            } else if self.input.is_pressed(KeyCode::ArrowUp) {
-                Vec2::X
-            } else if self.input.is_pressed(KeyCode::ArrowDown) {
-                -Vec2::X
-            } else if self.input.is_pressed(KeyCode::ArrowLeft) && allow_linear_rcs {
-                Vec2::Y
-            } else if self.input.is_pressed(KeyCode::ArrowRight) && allow_linear_rcs {
-                -Vec2::Y
-            } else {
-                Vec2::ZERO
-            };
-            let throttle = self.orbital_context.throttle.to_ratio();
+            // let is_pilot = Some(*id) == self.orbital_context.piloting;
+            // let allow_linear_rcs = self.input.is_pressed(KeyCode::ControlLeft);
+            // let linear = if !is_pilot {
+            //     Vec2::ZERO
+            // } else if self.input.is_pressed(KeyCode::ArrowUp) {
+            //     Vec2::X
+            // } else if self.input.is_pressed(KeyCode::ArrowDown) {
+            //     -Vec2::X
+            // } else if self.input.is_pressed(KeyCode::ArrowLeft) && allow_linear_rcs {
+            //     Vec2::Y
+            // } else if self.input.is_pressed(KeyCode::ArrowRight) && allow_linear_rcs {
+            //     -Vec2::Y
+            // } else {
+            //     Vec2::ZERO
+            // };
+            // let throttle = self.orbital_context.throttle.to_ratio();
 
-            let attitude = if !is_pilot {
-                0.0
-            } else if self.input.is_pressed(KeyCode::ArrowLeft) && !allow_linear_rcs {
-                10.0
-            } else if self.input.is_pressed(KeyCode::ArrowRight) && !allow_linear_rcs {
-                -10.0
-            } else {
-                0.0
-            };
+            // let attitude = if !is_pilot {
+            //     0.0
+            // } else if self.input.is_pressed(KeyCode::ArrowLeft) && !allow_linear_rcs {
+            //     10.0
+            // } else if self.input.is_pressed(KeyCode::ArrowRight) && !allow_linear_rcs {
+            //     -10.0
+            // } else {
+            //     0.0
+            // };
 
-            let control = VehicleControl {
-                throttle,
-                linear,
-                attitude,
-                allow_linear_rcs,
-                allow_attitude_rcs: true,
-            };
+            // let control = VehicleControl {
+            //     throttle,
+            //     linear,
+            //     attitude,
+            //     allow_linear_rcs,
+            //     allow_attitude_rcs: true,
+            // };
 
-            vehicle.step(s, control, mode, Vec2::ZERO);
+            vehicle.step(s, mode, Vec2::ZERO);
             if vehicle.pv.pos.length() > 1.0 {
                 simulate(&mut self.orbiters, &planets, s, d);
                 burns.push((*id, vehicle.pv.vel.as_vec2()));

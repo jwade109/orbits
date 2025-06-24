@@ -17,6 +17,7 @@ pub use crate::parts::parts::{
     load_parts_from_dir, PartClass, PartLayer, PartProto, PIXELS_PER_METER,
 };
 pub use crate::parts::thruster::Thruster;
+pub use crate::pid::*;
 pub use crate::planning::{best_maneuver_plan, get_next_intersection, ManeuverPlan};
 pub use crate::plants::Plant;
 pub use crate::propagator::{EventType, HorizonState, Propagator};
@@ -27,6 +28,6 @@ pub use crate::scenario::{
     simulate, ObjectIdTracker, ObjectLookup, PlanetarySystem, ScenarioObject,
 };
 pub use crate::vehicle::{
-    dims_with_rotation, meters_with_rotation, PhysicsMode, Rotation, Vehicle, VehicleControl,
-    VehicleControlPolicy,
+    dims_with_rotation, meters_with_rotation, simulate_vehicle, PhysicsMode, Rotation, Vehicle,
+    VehicleControl, VehicleControlPolicy,
 };

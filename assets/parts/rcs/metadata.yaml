@@ -2,7 +2,7 @@ mass: 250.0
 layer: Internal
 class: !Thruster
   model: "LPP50-I"
-  exhaust_velocity: 2000.0
+  exhaust_velocity: 20000000.0
   thrust: 1600.0
   length: 0.1
   width: 0.05

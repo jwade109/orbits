@@ -105,19 +105,20 @@ pub fn do_text_labels(
     for (i, tl) in text_labels.iter().enumerate() {
         if let Some((_, text2d, font, label, color, anchor)) = labels.get_mut(i) {
             label.translation = tl.pos.extend(TEXT_LABEL_Z_INDEX);
-            label.scale = Vec3::splat(1.0);
+            label.scale = Vec3::splat(tl.size);
             text2d.0 = tl.text.clone();
-            font.font_size = 23.0 * tl.size;
+            font.font_size = 23.0;
             color.0 = tl.color().into();
             **anchor = tl.anchor;
         } else {
             commands.spawn((
                 Text2d::new(tl.text.clone()),
                 TextFont {
-                    font_size: 23.0 * tl.size,
+                    font_size: 23.0,
                     ..default()
                 },
-                Transform::from_translation(tl.pos.extend(TEXT_LABEL_Z_INDEX)),
+                Transform::from_translation(tl.pos.extend(TEXT_LABEL_Z_INDEX))
+                    .with_scale(Vec3::splat(tl.size)),
                 TextLabel,
                 TextColor(tl.color().into()),
                 tl.anchor,
@@ -578,7 +579,7 @@ fn current_inventory_layout(state: &GameState) -> Option<Node<OnClick>> {
 }
 
 #[derive(Component)]
-struct UiElement;
+pub struct UiElement;
 
 fn map_bytes(image: &mut Image, func: impl Fn(&mut [u8], u32, u32, u32, u32)) {
     let w = image.width();

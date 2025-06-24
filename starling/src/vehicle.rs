@@ -2,7 +2,7 @@ use crate::aabb::AABB;
 use crate::inventory::{Inventory, InventoryItem};
 use crate::math::{cross2d, rand, randint, rotate, IVec2, UVec2, Vec2, PI};
 use crate::nanotime::Nanotime;
-use crate::orbits::wrap_0_2pi;
+use crate::orbits::{wrap_0_2pi, wrap_pi_npi};
 use crate::parts::{
     magnetorquer::Magnetorquer,
     parts::{PartClass, PartLayer, PartProto},
@@ -10,6 +10,7 @@ use crate::parts::{
     tank::Tank,
     thruster::Thruster,
 };
+use crate::pid::*;
 use crate::pv::PV;
 use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
@@ -87,6 +88,145 @@ pub enum VehicleControlPolicy {
     Idle,
     PlayerControlled,
     PositionHold(Vec2),
+}
+
+const ATTITUDE_CONTROLLER: PDCtrl = PDCtrl::new(30.0, 35.0);
+
+const VERTICAL_CONTROLLER: PDCtrl = PDCtrl::new(0.2, 1.0);
+
+const DOCKING_LINEAR_CONTROLLER: PDCtrl = PDCtrl::new(30.0, 300.0);
+
+fn zero_gravity_control_law(vehicle: &Vehicle) -> VehicleControl {
+    let target = if let VehicleControlPolicy::PositionHold(target) = vehicle.policy {
+        target
+    } else {
+        return VehicleControl::default();
+    };
+
+    let position_error = target - vehicle.pv.pos_f32();
+    let error_dir = position_error.normalize_or_zero();
+
+    let target_angle = Vec2::X.angle_to(position_error);
+
+    let attitude = compute_attitude_control(vehicle, target_angle, &ATTITUDE_CONTROLLER);
+
+    let target_velocity = Vec2::X * 5.0;
+
+    let (linear, throttle) = if attitude > 6.0 {
+        (Vec2::ZERO, 0.0)
+    } else {
+        let px = 0.0; // position_error.dot(vehicle.pointing());
+        let py = 0.0; // position_error.dot(rotate(vehicle.pointing(), PI / 2.0));
+
+        let vx = -target_velocity.x + error_dir.dot(vehicle.pv.vel_f32());
+        let vy = -target_velocity.y + rotate(error_dir, PI / 2.0).dot(vehicle.pv.vel_f32());
+
+        let cx = DOCKING_LINEAR_CONTROLLER.apply(px, vx);
+        let cy = DOCKING_LINEAR_CONTROLLER.apply(py, vy);
+
+        if cx.abs() < 10.0 && cy.abs() < 10.0 {
+            (Vec2::ZERO, 0.0)
+        } else if cx.abs() > cy.abs() {
+            (Vec2::X * cx, cx.abs())
+        } else {
+            (Vec2::Y * cy, cy.abs())
+        }
+    };
+
+    VehicleControl {
+        throttle,
+        linear,
+        attitude,
+        allow_linear_rcs: true,
+        allow_attitude_rcs: true,
+    }
+}
+
+fn compute_attitude_control(v: &Vehicle, target_angle: f32, pid: &PDCtrl) -> f32 {
+    let attitude_error = wrap_pi_npi(target_angle - v.angle());
+    pid.apply(attitude_error, v.angular_velocity())
+}
+
+fn hover_control_law(gravity: Vec2, vehicle: &Vehicle) -> VehicleControl {
+    let future_alt = vehicle.kinematic_apoapis(gravity.length() as f64) as f32;
+
+    let target = if let VehicleControlPolicy::PositionHold(target) = vehicle.policy {
+        target
+    } else {
+        return VehicleControl::default();
+    };
+
+    let target = if target.distance(vehicle.pv.pos_f32()) > 250.0 {
+        let d = target - vehicle.pv.pos_f32();
+        d.normalize_or_zero() * 250.0 + vehicle.pv.pos_f32()
+    } else {
+        target
+    };
+
+    let horizontal_control = {
+        // horizontal controller
+        let kp = 0.01;
+        let kd = 0.08;
+
+        // positive means to the right, which corresponds to a negative heading correction
+        kp * (target.x - vehicle.pv.pos.x as f32) - kd * vehicle.pv.vel.x as f32
+    };
+
+    // attitude controller
+    let target_angle = PI * 0.5 - horizontal_control.clamp(-PI / 4.0, PI / 4.0);
+    let attitude_error = wrap_pi_npi(target_angle - vehicle.angle());
+    let attitude = compute_attitude_control(vehicle, target_angle, &ATTITUDE_CONTROLLER);
+
+    let thrust = vehicle.max_thrust_along_heading(0.0, false);
+    let accel = thrust / vehicle.wet_mass();
+    let pct = gravity.length() / accel;
+
+    // vertical controller
+    let error = VERTICAL_CONTROLLER.apply(target.y - future_alt, vehicle.pv.vel.y as f32);
+
+    let linear = if attitude_error.abs() < 0.5 || vehicle.pv.pos.y > 10.0 {
+        Vec2::X
+    } else {
+        Vec2::ZERO
+    };
+
+    let throttle = pct + error;
+
+    VehicleControl {
+        throttle,
+        linear,
+        attitude,
+        allow_linear_rcs: false,
+        allow_attitude_rcs: true,
+    }
+}
+
+pub fn current_control_law(vehicle: &Vehicle, gravity: Vec2) -> VehicleControl {
+    if gravity.length() > 0.0 {
+        hover_control_law(gravity, vehicle)
+    } else {
+        zero_gravity_control_law(vehicle)
+    }
+}
+
+pub fn simulate_vehicle(mut vehicle: Vehicle, gravity: Vec2) -> Vec<(Vec2, f32)> {
+    let start = vehicle.stamp();
+    let end = start + Nanotime::secs(30);
+    let dt = Nanotime::millis(50);
+
+    let mut ret = vec![];
+
+    let mut t = start;
+
+    while t < end {
+        t += dt;
+        vehicle.step(t, PhysicsMode::RealTime, gravity);
+        let pos = vehicle.pv.pos_f32();
+        let angle = vehicle.angle();
+        ret.push((pos, angle));
+    }
+
+    ret
 }
 
 #[derive(Debug, Clone)]
@@ -214,6 +354,10 @@ impl Vehicle {
         }
     }
 
+    pub fn stamp(&self) -> Nanotime {
+        self.stamp
+    }
+
     pub fn parts_by_layer(&self) -> impl Iterator<Item = &(IVec2, Rotation, PartProto)> + use<'_> {
         // TODO this doesn't support all layers automatically!
 
@@ -247,7 +391,7 @@ impl Vehicle {
     }
 
     pub fn fuel_mass(&self) -> f32 {
-        self.tanks.iter().map(|t| t.current_fuel_mass).sum()
+        self.tanks.iter().map(|t: &Tank| t.current_fuel_mass).sum()
     }
 
     pub fn wet_mass(&self) -> f32 {
@@ -469,46 +613,44 @@ impl Vehicle {
         }
     }
 
-    fn iter_physics(&mut self, stamp: Nanotime, gravity: Vec2) {
-        let dt = stamp - self.stamp;
+    fn step_physics(&mut self, gravity: Vec2) {
+        const NOMINAL_DT: Nanotime = Nanotime::millis(20);
 
         let a = self.current_linear_acceleration();
         let aa = self.current_angular_acceleration();
         let fcr = self.fuel_consumption_rate();
 
-        let n = self.tanks.len() as f32;
+        let n: f32 = self.tanks.len() as f32;
         for t in &mut self.tanks {
-            t.current_fuel_mass -= fcr * dt.to_secs() / n;
+            t.current_fuel_mass -= fcr * NOMINAL_DT.to_secs() / n;
             t.current_fuel_mass = t.current_fuel_mass.clamp(0.0, t.maximum_fuel_mass);
         }
 
-        self.angular_velocity += aa * dt.to_secs();
+        self.angular_velocity += aa * NOMINAL_DT.to_secs();
 
         self.angular_velocity = self.angular_velocity.clamp(-2.0, 2.0);
 
-        self.angle += self.angular_velocity * dt.to_secs();
+        self.angle += self.angular_velocity * NOMINAL_DT.to_secs();
         self.angle = wrap_0_2pi(self.angle);
-        self.stamp = stamp;
+        self.stamp += NOMINAL_DT;
 
-        let dv = (gravity + a) * dt.to_secs();
+        let dv = (gravity + a) * NOMINAL_DT.to_secs();
 
         self.pv.vel += dv.as_dvec2();
-        self.pv.pos += self.pv.vel * dt.to_secs_f64();
+        self.pv.pos += self.pv.vel * NOMINAL_DT.to_secs_f64();
     }
 
-    pub fn step(
-        &mut self,
-        stamp: Nanotime,
-        control: VehicleControl,
-        mode: PhysicsMode,
-        gravity: Vec2,
-    ) {
-        match mode {
-            PhysicsMode::Limited => self.set_zero_thrust(stamp),
-            PhysicsMode::RealTime => self.step_thrust_control(stamp, control),
-        };
+    pub fn step(&mut self, stamp: Nanotime, mode: PhysicsMode, gravity: Vec2) {
+        while self.stamp < stamp {
+            let control = current_control_law(&self, gravity);
 
-        self.iter_physics(stamp, gravity);
+            match mode {
+                PhysicsMode::Limited => self.set_zero_thrust(self.stamp),
+                PhysicsMode::RealTime => self.step_thrust_control(self.stamp, control),
+            };
+
+            self.step_physics(gravity);
+        }
     }
 
     pub fn pointing(&self) -> Vec2 {
