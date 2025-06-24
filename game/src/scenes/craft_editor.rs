@@ -349,12 +349,19 @@ pub fn vehicle_info(vehicle: &Vehicle) -> String {
         0.0
     };
 
+    let fuel_mass = vehicle.fuel_mass();
     let rate = vehicle.fuel_consumption_rate();
     let accel = vehicle.body_frame_acceleration();
+    let burn_time = if rate > 0.0 {
+        format!("{:0.1} s", fuel_mass / rate)
+    } else {
+        "N/A".to_string()
+    };
 
     [
         format!("Dry mass: {:0.1} kg", vehicle.dry_mass),
-        format!("Fuel: {:0.1} kg", vehicle.fuel_mass()),
+        format!("Fuel: {:0.1} kg", fuel_mass),
+        format!("Burn time: {}", burn_time),
         format!("Wet mass: {:0.1} kg", vehicle.wet_mass()),
         format!("Thrusters: {}", vehicle.thruster_count()),
         format!("Thrust: {:0.2} kN", vehicle.thrust() / 1000.0),
@@ -455,11 +462,6 @@ impl Render for EditorContext {
             )
             .with_anchor_left(),
         );
-
-        if let Some(p) = state.editor_context.current_part.as_ref() {
-            let t = TextLabel::new(format!("{:#?}", &p.data), Vec2::ZERO, 0.8);
-            canvas.label(t);
-        }
 
         // axes
         {

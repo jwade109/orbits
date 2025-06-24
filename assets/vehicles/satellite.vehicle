@@ -80,8 +80,8 @@ parts:
   - -5
   - -10
   rot: East
-- partname: motor
+- partname: small-motor
   pos:
-  - -34
-  - -8
+  - -25
+  - -5
   rot: South

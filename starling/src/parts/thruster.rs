@@ -12,7 +12,10 @@ pub struct Thruster {
     throttle: f32,
 }
 
-const THRUSTER_DEAD_BAND: f32 = 0.10; // minimum 10 percent throttle
+// TODO make this a per-thruster setting.
+// deep throttling is not a given for all rocket motors
+// and is in fact rather rare. KSP has spoiled us.
+const THRUSTER_DEAD_BAND: f32 = 0.0; // minimum 0 percent throttle
 
 impl Thruster {
     pub fn new(proto: ThrusterProto, pos: Vec2, angle: f32) -> Self {

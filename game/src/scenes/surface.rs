@@ -1,7 +1,7 @@
 use crate::canvas::Canvas;
 use crate::drawing::*;
 use crate::game::GameState;
-use crate::input::{FrameId, MouseButt};
+use crate::input::*;
 use crate::onclick::OnClick;
 use crate::scenes::rpo::LinearCameraController;
 use crate::scenes::{CameraProjection, Render, TextLabel};
@@ -17,7 +17,7 @@ pub struct SurfaceContext {
     // real stuff
     plants: Vec<Plant>,
     wind_offset: f32,
-    vehicles: Vec<(Vehicle, Vec2)>,
+    vehicles: Vec<Vehicle>,
     follow_vehicle: bool,
     ownship: Option<usize>,
     manual_control: bool,
@@ -74,8 +74,14 @@ fn generate_plants() -> Vec<Plant> {
 
 const ACCELERATION_DUE_TO_GRAVITY: Vec2 = Vec2::new(0.0, -3.2); // m/s^2;
 
-fn hover_control_law(gravity: Vec2, target: Vec2, vehicle: &Vehicle) -> VehicleControl {
+fn hover_control_law(gravity: Vec2, vehicle: &Vehicle) -> VehicleControl {
     let future_alt = vehicle.kinematic_apoapis(gravity.length() as f64) as f32;
+
+    let target = if let VehicleControlPolicy::PositionHold(target) = vehicle.policy {
+        target
+    } else {
+        return VehicleControl::default();
+    };
 
     let horizontal_control = {
         // if (target.y - vehicle.pv.pos.y as f32).abs() < 10.0 && vehicle.pv.vel.y.abs() < 10.0 {
@@ -126,30 +132,66 @@ fn hover_control_law(gravity: Vec2, target: Vec2, vehicle: &Vehicle) -> VehicleC
         throttle,
         linear,
         attitude,
-        is_rcs: false,
+        allow_linear_rcs: false,
+        allow_attitude_rcs: true,
+    }
+}
+
+pub fn keyboard_control_law(input: &InputState) -> VehicleControl {
+    let allow_linear_rcs = input.is_pressed(KeyCode::ControlLeft);
+    let control = if input.is_pressed(KeyCode::ArrowUp) {
+        Vec2::X
+    } else if input.is_pressed(KeyCode::ArrowDown) {
+        -Vec2::X
+    } else if input.is_pressed(KeyCode::ArrowLeft) && allow_linear_rcs {
+        Vec2::Y
+    } else if input.is_pressed(KeyCode::ArrowRight) && allow_linear_rcs {
+        -Vec2::Y
+    } else {
+        Vec2::ZERO
+    };
+
+    let attitude = if input.is_pressed(KeyCode::ArrowLeft) && !allow_linear_rcs {
+        10.0
+    } else if input.is_pressed(KeyCode::ArrowRight) && !allow_linear_rcs {
+        -10.0
+    } else {
+        0.0
+    };
+
+    VehicleControl {
+        throttle: 0.4,
+        linear: control,
+        attitude,
+        allow_linear_rcs,
+        allow_attitude_rcs: true,
     }
 }
 
 impl SurfaceContext {
-    pub fn add_vehicle(&mut self, vehicle: Vehicle) {
+    pub fn add_vehicle(&mut self, mut vehicle: Vehicle) {
         let x = rand(-200.0, 200.0);
         let y = rand(40.0, 120.0);
-        self.vehicles.push((vehicle, Vec2::new(x, y)));
+
+        let policy = VehicleControlPolicy::PositionHold(Vec2::new(x, y));
+        vehicle.policy = policy;
+
+        self.vehicles.push(vehicle);
     }
 
     pub fn ownship(&self) -> Option<(usize, &Vehicle)> {
         let idx = self.ownship?;
-        self.vehicles.get(idx).map(|(v, _)| (idx, v))
+        self.vehicles.get(idx).map(|v| (idx, v))
     }
 
     pub fn follow_position(&self) -> Option<Vec2> {
         let idx = self.follow_vehicle.then(|| self.ownship)??;
-        let v = self.vehicles.get(idx).map(|(v, _)| v)?;
+        let v = self.vehicles.get(idx)?;
         Some(v.pv.pos_f32())
     }
 
     pub fn mouseover_vehicle(&self, pos: Vec2) -> Option<(usize, &Vehicle)> {
-        for (i, (v, _)) in self.vehicles.iter().enumerate() {
+        for (i, v) in self.vehicles.iter().enumerate() {
             let d = v.pv.pos_f32().distance(pos);
             let r = v.bounding_radius();
             if d < r {
@@ -160,15 +202,11 @@ impl SurfaceContext {
     }
 
     pub fn randomize(&mut self) {
-        let land = rand(0.0, 1.0) < 0.2;
-        for (_, target) in &mut self.vehicles {
-            if land {
-                *target = target.with_y(5.0);
-                continue;
-            }
+        for v in &mut self.vehicles {
             let x = rand(-200.0, 200.0);
             let y = rand(40.0, 120.0);
-            *target = Vec2::new(x, y);
+            let target = Vec2::new(x, y);
+            v.policy = VehicleControlPolicy::PositionHold(target);
         }
     }
 
@@ -208,47 +246,19 @@ impl SurfaceContext {
         (|| -> Option<()> {
             let rc = state.input.position(MouseButt::Right, FrameId::Current)?;
             let p = ctx.c2w(rc);
-            let (_, t) = ctx.vehicles.get_mut(ctx.ownship?)?;
-            *t = p;
+            let v = ctx.vehicles.get_mut(ctx.ownship?)?;
+            v.policy = VehicleControlPolicy::PositionHold(p);
             None
         })();
 
         ctx.camera.update(dt, &state.input);
 
-        for (i, (v, target)) in ctx.vehicles.iter_mut().enumerate() {
+        for (i, v) in ctx.vehicles.iter_mut().enumerate() {
             let control = if ctx.manual_control && ctx.ownship == Some(i) {
-                let is_rcs = state.input.is_pressed(KeyCode::ControlLeft);
-                let control = if state.input.is_pressed(KeyCode::ArrowUp) {
-                    Vec2::X
-                } else if state.input.is_pressed(KeyCode::ArrowDown) {
-                    -Vec2::X
-                } else if state.input.is_pressed(KeyCode::ArrowLeft) && is_rcs {
-                    Vec2::Y
-                } else if state.input.is_pressed(KeyCode::ArrowRight) && is_rcs {
-                    -Vec2::Y
-                } else {
-                    Vec2::ZERO
-                };
-
-                let attitude = if state.input.is_pressed(KeyCode::ArrowLeft) && !is_rcs {
-                    10.0
-                } else if state.input.is_pressed(KeyCode::ArrowRight) && !is_rcs {
-                    -10.0
-                } else {
-                    0.0
-                };
-
-                VehicleControl {
-                    throttle: 0.4,
-                    linear: control,
-                    attitude,
-                    is_rcs,
-                }
+                keyboard_control_law(&state.input)
             } else {
-                hover_control_law(ACCELERATION_DUE_TO_GRAVITY, *target, v)
+                hover_control_law(ACCELERATION_DUE_TO_GRAVITY, v)
             };
-
-            // control.attitude += attitude;
 
             v.step(
                 state.sim_time,
@@ -324,24 +334,22 @@ impl Render for SurfaceContext {
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         let ctx = &state.surface_context;
 
-        {
-            let sprites: String = state
-                .image_handles
-                .iter()
-                .map(|(n, _)| format!("{}\n", n))
-                .collect();
-            canvas.text(sprites, Vec2::splat(-500.0), 1.0);
-        }
+        for v in &ctx.vehicles {
+            let target = if let VehicleControlPolicy::PositionHold(target) = v.policy {
+                target
+            } else {
+                continue;
+            };
 
-        for (v, target) in &ctx.vehicles {
             let p = ctx.w2c(v.pv.pos_f32());
-            let q = ctx.w2c(*target);
+            let q = ctx.w2c(target);
             draw_circle(
                 &mut canvas.gizmos,
                 q,
                 2.0 * ctx.scale(),
                 PURPLE.with_alpha(0.3),
             );
+            canvas.text(format!("{:?}", v.policy), p, ctx.scale() * 0.05);
             canvas.gizmos.line_2d(p, q, BLUE);
             draw_kinematic_arc(&mut canvas.gizmos, v.pv, ctx, ACCELERATION_DUE_TO_GRAVITY);
             let pos = ctx.w2c(v.pv.pos_f32());

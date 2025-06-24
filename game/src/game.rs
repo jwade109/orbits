@@ -331,7 +331,7 @@ impl GameState {
             for (model, _) in v {
                 if let Some(v) = self.get_vehicle_by_model(&model) {
                     let parts_dir = self.args.parts_dir();
-                    let img = generate_ship_sprite(&v, &parts_dir, true);
+                    let img = generate_ship_sprite(&v, &parts_dir, false);
                     if let Some(img) = img {
                         let handle = images.add(img);
                         handles.insert(model, handle);
@@ -1115,16 +1115,16 @@ impl GameState {
         // handle discrete physics
         for (id, vehicle) in self.vehicles.iter_mut() {
             let is_pilot = Some(*id) == self.orbital_context.piloting;
-            let is_rcs = self.input.is_pressed(KeyCode::ControlLeft);
+            let allow_linear_rcs = self.input.is_pressed(KeyCode::ControlLeft);
             let linear = if !is_pilot {
                 Vec2::ZERO
             } else if self.input.is_pressed(KeyCode::ArrowUp) {
                 Vec2::X
             } else if self.input.is_pressed(KeyCode::ArrowDown) {
                 -Vec2::X
-            } else if self.input.is_pressed(KeyCode::ArrowLeft) && is_rcs {
+            } else if self.input.is_pressed(KeyCode::ArrowLeft) && allow_linear_rcs {
                 Vec2::Y
-            } else if self.input.is_pressed(KeyCode::ArrowRight) && is_rcs {
+            } else if self.input.is_pressed(KeyCode::ArrowRight) && allow_linear_rcs {
                 -Vec2::Y
             } else {
                 Vec2::ZERO
@@ -1133,9 +1133,9 @@ impl GameState {
 
             let attitude = if !is_pilot {
                 0.0
-            } else if self.input.is_pressed(KeyCode::ArrowLeft) && !is_rcs {
+            } else if self.input.is_pressed(KeyCode::ArrowLeft) && !allow_linear_rcs {
                 10.0
-            } else if self.input.is_pressed(KeyCode::ArrowRight) && !is_rcs {
+            } else if self.input.is_pressed(KeyCode::ArrowRight) && !allow_linear_rcs {
                 -10.0
             } else {
                 0.0
@@ -1145,7 +1145,8 @@ impl GameState {
                 throttle,
                 linear,
                 attitude,
-                is_rcs,
+                allow_linear_rcs,
+                allow_attitude_rcs: true,
             };
 
             vehicle.step(s, control, mode, Vec2::ZERO);

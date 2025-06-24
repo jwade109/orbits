@@ -72,18 +72,28 @@ pub enum PhysicsMode {
     Limited,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Default, Debug, Clone, Copy)]
 pub struct VehicleControl {
     pub throttle: f32,
     pub linear: Vec2,
     pub attitude: f32,
-    pub is_rcs: bool,
+    pub allow_linear_rcs: bool,
+    pub allow_attitude_rcs: bool,
+}
+
+#[derive(Default, Debug, Clone, Copy)]
+pub enum VehicleControlPolicy {
+    #[default]
+    Idle,
+    PlayerControlled,
+    PositionHold(Vec2),
 }
 
 #[derive(Debug, Clone)]
 pub struct Vehicle {
     name: String,
     pub pv: PV,
+    pub policy: VehicleControlPolicy,
     stamp: Nanotime,
     angle: f32,
     angular_velocity: f32,
@@ -183,6 +193,7 @@ impl Vehicle {
 
         Self {
             pv: PV::ZERO,
+            policy: VehicleControlPolicy::Idle,
             max_fuel_mass: 0.0,
             dry_mass,
             name,
@@ -426,19 +437,14 @@ impl Vehicle {
             return;
         }
 
-        // *target_angle = wrap_0_2pi(*target_angle);
-        // let kp = 20.0;
-        // let kd = 40.0;
-
-        // let error = kp * wrap_pi_npi(*target_angle - self.angle) - kd * self.angular_velocity;
-
         for t in &mut self.thrusters {
             let u = t.pointing();
             let is_torque = t.proto.is_rcs && {
                 let torque = cross2d(t.pos, u);
                 torque.signum() == control.attitude.signum() && control.attitude.abs() > 2.0
             };
-            let is_linear = t.proto.is_rcs == control.is_rcs && u.dot(control.linear) > 0.9;
+            let is_linear =
+                t.proto.is_rcs == control.allow_linear_rcs && u.dot(control.linear) > 0.9;
             let throttle = if is_linear {
                 control.throttle
             } else if is_torque {

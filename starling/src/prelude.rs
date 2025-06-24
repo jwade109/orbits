@@ -28,4 +28,5 @@ pub use crate::scenario::{
 };
 pub use crate::vehicle::{
     dims_with_rotation, meters_with_rotation, PhysicsMode, Rotation, Vehicle, VehicleControl,
+    VehicleControlPolicy,
 };

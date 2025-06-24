@@ -165,3 +165,18 @@ parts:
   - -33
   - 23
   rot: South
+- partname: small-motor
+  pos:
+  - -36
+  - 59
+  rot: South
+- partname: small-motor
+  pos:
+  - -21
+  - -27
+  rot: South
+- partname: plate
+  pos:
+  - -12
+  - -27
+  rot: West
