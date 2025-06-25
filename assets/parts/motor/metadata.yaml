@@ -8,3 +8,5 @@ class: !Thruster
   width: 0.4
   is_rcs: false
   throttle_rate: 3.0
+  primary_color: [1.0, 0.0, 0.0, 0.8]
+  secondary_color: [1.0, 0.7, 0.0, 0.8]

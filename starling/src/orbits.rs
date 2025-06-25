@@ -1,5 +1,5 @@
 use crate::aabb::{AABB, OBB};
-use crate::id::PlanetId;
+use crate::id::EntityId;
 use crate::math::{cross2d, rotate_f64, tspace, PI, PI_64};
 use crate::nanotime::Nanotime;
 use crate::propagator::search_condition;
@@ -902,7 +902,7 @@ pub(crate) fn lagrange_pv(initial: impl Into<PV>, coeff: &LangrangeCoefficients)
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
-pub struct GlobalOrbit(pub PlanetId, pub SparseOrbit);
+pub struct GlobalOrbit(pub EntityId, pub SparseOrbit);
 
 impl std::fmt::Display for GlobalOrbit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

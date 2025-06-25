@@ -100,36 +100,6 @@ parts:
   - -80
   - 0
   rot: North
-- partname: motor
-  pos:
-  - -109
-  - 9
-  rot: South
-- partname: motor
-  pos:
-  - -109
-  - -25
-  rot: South
-- partname: motor
-  pos:
-  - 80
-  - 9
-  rot: North
-- partname: motor
-  pos:
-  - 80
-  - -25
-  rot: North
-- partname: motor
-  pos:
-  - 82
-  - -8
-  rot: North
-- partname: motor
-  pos:
-  - -111
-  - -8
-  rot: South
 - partname: plate
   pos:
   - 80
@@ -419,4 +389,34 @@ parts:
   pos:
   - -20
   - -30
+  rot: North
+- partname: small-motor
+  pos:
+  - -100
+  - -5
+  rot: South
+- partname: motor
+  pos:
+  - -109
+  - 7
+  rot: South
+- partname: motor
+  pos:
+  - -109
+  - -23
+  rot: South
+- partname: small-motor
+  pos:
+  - 83
+  - -5
+  rot: North
+- partname: motor
+  pos:
+  - 80
+  - 7
+  rot: North
+- partname: motor
+  pos:
+  - 80
+  - -23
   rot: North

@@ -33,9 +33,9 @@ pub enum InteractionEvent {
     Save,
     Restore,
     Load(String),
-    ToggleObject(OrbiterId),
-    ToggleGroup(GroupId),
-    DisbandGroup(GroupId),
+    ToggleObject(EntityId),
+    ToggleGroup(EntityId),
+    DisbandGroup(EntityId),
     CreateGroup,
     ContextDependent,
     CursorMode,
@@ -78,7 +78,7 @@ fn set_bloom(state: Res<GameState>, mut bloom: Single<&mut Bloom>) {
             DrawMode::Default => 0.5,
             _ => 0.1,
         },
-        SceneType::Surface => 0.4,
+        SceneType::Surface => 0.7,
         _ => 0.1,
     }
 }
@@ -389,7 +389,7 @@ pub fn orbiter_list(
     state: &GameState,
     root: &mut Node<OnClick>,
     max_cells: usize,
-    mut ids: Vec<OrbiterId>,
+    mut ids: Vec<EntityId>,
 ) {
     ids.sort();
 

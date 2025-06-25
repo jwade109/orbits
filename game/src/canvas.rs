@@ -1,8 +1,6 @@
-use crate::drawing::draw_obb;
 use crate::scenes::{StaticSpriteDescriptor, TextLabel};
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
-use starling::aabb::*;
 
 pub struct Canvas<'w, 's> {
     pub gizmos: Gizmos<'w, 's>,

@@ -10,15 +10,15 @@ use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone)]
 pub struct CommsContext {
-    connections: HashMap<OrbiterId, HashSet<OrbiterId>>,
+    connections: HashMap<EntityId, HashSet<EntityId>>,
 }
 
 impl Default for CommsContext {
     fn default() -> Self {
         Self {
             connections: HashMap::from([
-                (OrbiterId(12), HashSet::from([OrbiterId(14), OrbiterId(21)])),
-                (OrbiterId(9), HashSet::from([OrbiterId(20), OrbiterId(3)])),
+                (EntityId(12), HashSet::from([EntityId(14), EntityId(21)])),
+                (EntityId(9), HashSet::from([EntityId(20), EntityId(3)])),
             ]),
         }
     }

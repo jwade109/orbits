@@ -1,23 +1,23 @@
 use crate::scenes::{CursorMode, ThrottleLevel};
-use starling::prelude::{GroupId, OrbiterId, PartLayer, PlanetId};
+use starling::prelude::{EntityId, PartLayer};
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OnClick {
-    Orbiter(OrbiterId),
+    Orbiter(EntityId),
     Exit,
     Save,
     Load,
     ToggleDrawMode,
     ClearTracks,
     CreateGroup,
-    DisbandGroup(GroupId),
+    DisbandGroup(EntityId),
     ClearOrbits,
-    CurrentBody(PlanetId),
+    CurrentBody(EntityId),
     SelectedCount,
     AutopilotingCount,
     PilotOrbiter,
-    Group(GroupId),
+    Group(EntityId),
     TogglePause,
     World,
     SimSpeed(i32),
@@ -29,13 +29,13 @@ pub enum OnClick {
     CursorMode(CursorMode),
     GoToScene(usize),
     ThrottleLevel(ThrottleLevel),
-    SetTarget(OrbiterId),
-    SetPilot(OrbiterId),
+    SetTarget(EntityId),
+    SetPilot(EntityId),
     ClearTarget,
     ClearPilot,
     SwapOwnshipTarget,
-    AddToFavorites(OrbiterId),
-    RemoveFromFavorites(OrbiterId),
+    AddToFavorites(EntityId),
+    RemoveFromFavorites(EntityId),
     SelectPart(String),
     ToggleLayer(PartLayer),
     LoadVehicle(PathBuf),

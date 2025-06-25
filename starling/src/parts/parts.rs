@@ -105,6 +105,8 @@ pub struct ThrusterProto {
     pub width: f32,
     pub is_rcs: bool,
     pub throttle_rate: f32,
+    pub primary_color: [f32; 4],
+    pub secondary_color: [f32; 4],
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
@@ -139,6 +141,7 @@ mod tests {
                 width: 1.6,
                 is_rcs: false,
                 throttle_rate: 2.0,
+                color: [0.5, 0.6, 0.9, 0.8],
             }),
         };
 

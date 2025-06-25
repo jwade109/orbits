@@ -73,9 +73,9 @@ impl LowPass {
 #[allow(unused)]
 #[derive(Debug, Clone)]
 pub struct OrbitalContext {
-    primary: PlanetId,
-    pub selected: HashSet<OrbiterId>,
-    pub highlighted: HashSet<OrbiterId>,
+    primary: EntityId,
+    pub selected: HashSet<EntityId>,
+    pub highlighted: HashSet<EntityId>,
     center: Vec2,
     target_center: Vec2,
     scale: f32,
@@ -88,8 +88,8 @@ pub struct OrbitalContext {
     pub draw_mode: DrawMode,
     pub throttle: ThrottleLevel,
 
-    pub piloting: Option<OrbiterId>,
-    pub targeting: Option<OrbiterId>,
+    pub piloting: Option<EntityId>,
+    pub targeting: Option<EntityId>,
     pub rendezvous_scope_radius: LowPass,
 }
 
@@ -137,7 +137,7 @@ impl CameraProjection for OrbitalContext {
     }
 }
 
-pub fn relevant_body(planets: &PlanetarySystem, pos: Vec2, stamp: Nanotime) -> Option<PlanetId> {
+pub fn relevant_body(planets: &PlanetarySystem, pos: Vec2, stamp: Nanotime) -> Option<EntityId> {
     let results = planets
         .planet_ids()
         .into_iter()
@@ -155,7 +155,7 @@ pub fn relevant_body(planets: &PlanetarySystem, pos: Vec2, stamp: Nanotime) -> O
 }
 
 impl OrbitalContext {
-    pub fn new(primary: PlanetId) -> Self {
+    pub fn new(primary: EntityId) -> Self {
         Self {
             primary,
             selected: HashSet::new(),
@@ -195,7 +195,7 @@ impl OrbitalContext {
         Some(lup.pv().pos_f32())
     }
 
-    pub fn toggle_track(&mut self, id: OrbiterId) {
+    pub fn toggle_track(&mut self, id: EntityId) {
         if self.selected.contains(&id) {
             self.selected.retain(|e| *e != id);
         } else {
@@ -203,7 +203,7 @@ impl OrbitalContext {
         }
     }
 
-    pub fn highlighted(state: &GameState) -> HashSet<OrbiterId> {
+    pub fn highlighted(state: &GameState) -> HashSet<EntityId> {
         if let Some(a) = state.selection_region() {
             orbiter_ids(state)
                 .into_iter()
@@ -230,7 +230,7 @@ impl OrbitalContext {
         Some((a, b, corner))
     }
 
-    pub fn landing_site_position(state: &GameState, pid: PlanetId, angle: f32) -> Option<Vec2> {
+    pub fn landing_site_position(state: &GameState, pid: EntityId, angle: f32) -> Option<Vec2> {
         let lup = state.lup_planet(pid, state.sim_time)?;
         let body = lup.body()?;
         let center = lup.pv().pos_f32();
@@ -277,7 +277,7 @@ impl OrbitalContext {
 
     pub fn cursor_orbit(p1: Vec2, p2: Vec2, state: &GameState) -> Option<GlobalOrbit> {
         let pv = Self::cursor_pv(p1, p2, &state)?;
-        let parent_id: PlanetId = relevant_body(&state.planets, pv.pos_f32(), state.sim_time)?;
+        let parent_id: EntityId = relevant_body(&state.planets, pv.pos_f32(), state.sim_time)?;
         let parent = state.lup_planet(parent_id, state.sim_time)?;
         let parent_pv = parent.pv();
         let pv = pv - PV::pos(parent_pv.pos_f32());
@@ -322,7 +322,7 @@ impl OrbitalContext {
     }
 }
 
-pub fn orbiter_ids(state: &GameState) -> impl Iterator<Item = OrbiterId> + use<'_> {
+pub fn orbiter_ids(state: &GameState) -> impl Iterator<Item = EntityId> + use<'_> {
     state.orbiters.keys().into_iter().map(|id| *id)
 }
 
@@ -535,7 +535,6 @@ impl Render for OrbitalContext {
     }
 
     fn sprites(state: &GameState) -> Option<Vec<StaticSpriteDescriptor>> {
-        const EXPECTED_PLANET_SPRITE_SIZE: u32 = 1000;
         const PLANET_Z_INDEX: f32 = 5.0;
 
         const SPACECRAFT_DEFAULT_SCALE: f32 = 0.025;
@@ -574,6 +573,8 @@ impl Render for OrbitalContext {
                     .all(|(pv, body)| !is_occluded(light_source, pos, pv.pos_f32(), body.radius));
 
                 let path = "spacecraft.png".to_string();
+
+                #[allow(unused)]
                 let scale = if state.orbital_context.selected.contains(&id) {
                     SPACECRAFT_MAGNIFIED_SCALE
                 } else if state.orbital_context.selected.is_empty() {
@@ -651,13 +652,8 @@ impl Render for OrbitalContext {
                     .with_luminance(0.2)
                     .with_alpha(0.9);
                 sidebar.add_child(
-                    Node::button(
-                        s,
-                        OnClick::CurrentBody(lup.id().planet().unwrap()),
-                        Size::Grow,
-                        BUTTON_HEIGHT,
-                    )
-                    .with_color(color.to_f32_array()),
+                    Node::button(s, OnClick::CurrentBody(lup.id()), Size::Grow, BUTTON_HEIGHT)
+                        .with_color(color.to_f32_array()),
                 );
             }
         }
@@ -703,7 +699,7 @@ impl Render for OrbitalContext {
         }
 
         for gid in state.unique_groups() {
-            let color: Srgba = crate::sprites::hashable_to_color(gid)
+            let color: Srgba = crate::sprites::hashable_to_color(&gid)
                 .with_luminance(0.3)
                 .into();
             let s = format!("{}", gid);

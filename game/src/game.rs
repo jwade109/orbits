@@ -150,7 +150,7 @@ pub struct GameState {
     pub sim_speed: i32,
     pub paused: bool,
 
-    pub orbiters: HashMap<OrbiterId, Orbiter>,
+    pub orbiters: HashMap<EntityId, Orbiter>,
     pub planets: PlanetarySystem,
 
     /// Map of names to parts to their definitions. Loaded from
@@ -161,12 +161,12 @@ pub struct GameState {
     /// planets and orbiters
     pub ids: ObjectIdTracker,
 
-    pub landing_sites: HashMap<PlanetId, Vec<(f32, String)>>,
+    pub landing_sites: HashMap<EntityId, Vec<(f32, String)>>,
     pub controllers: Vec<Controller>,
-    pub constellations: HashMap<OrbiterId, GroupId>,
-    pub vehicles: HashMap<OrbiterId, Vehicle>,
+    pub constellations: HashMap<EntityId, EntityId>,
+    pub vehicles: HashMap<EntityId, Vehicle>,
     pub starfield: Vec<(Vec3, Srgba, f32, f32)>,
-    pub favorites: HashSet<OrbiterId>,
+    pub favorites: HashSet<EntityId>,
 
     pub scenes: Vec<Scene>,
     pub current_scene_idx: usize,
@@ -206,7 +206,7 @@ fn generate_starfield() -> Vec<(Vec3, Srgba, f32, f32)> {
         .collect()
 }
 
-fn generate_landing_sites(pids: &[PlanetId]) -> HashMap<PlanetId, Vec<(f32, String)>> {
+fn generate_landing_sites(pids: &[EntityId]) -> HashMap<EntityId, Vec<(f32, String)>> {
     pids.iter()
         .map(|pid| {
             let n = randint(3, 12);
@@ -230,7 +230,7 @@ impl GameState {
             input: InputState::default(),
             args: args.clone(),
             console: DebugConsole::new(),
-            orbital_context: OrbitalContext::new(PlanetId(0)),
+            orbital_context: OrbitalContext::new(EntityId(0)),
             telescope_context: TelescopeContext::new(),
             rpo_context: RPOContext::new(),
             editor_context: EditorContext::new(),
@@ -283,7 +283,7 @@ impl GameState {
 
         let t = g.sim_time;
 
-        let get_random_orbit = |pid: PlanetId| {
+        let get_random_orbit = |pid: EntityId| {
             let r1 = rand(11000.0, 40000.0) as f64;
             let r2 = rand(11000.0, 40000.0) as f64;
             let argp = rand(0.0, 2.0 * PI) as f64;
@@ -294,7 +294,7 @@ impl GameState {
 
         for _ in 0..200 {
             let vehicle = g.get_random_vehicle();
-            let orbit = get_random_orbit(PlanetId(0));
+            let orbit = get_random_orbit(EntityId(0));
             if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {
                 g.spawn_with_random_perturbance(orbit, vehicle);
             }
@@ -304,7 +304,7 @@ impl GameState {
         //     let n = randint(3, 7);
         //     let vehicles = (0..n).filter_map(|_| g.get_random_vehicle()).collect();
         //     let rpo = RPO::example(g.sim_time, vehicles);
-        //     let orbit = get_random_orbit(PlanetId(0));
+        //     let orbit = get_random_orbit(EntityId(0));
         //     if let Some(orbit) = orbit {
         //         g.spawn_new_rpo(orbit, rpo);
         //     }
@@ -312,7 +312,7 @@ impl GameState {
 
         for _ in 0..40 {
             let vehicle = g.get_random_vehicle();
-            let orbit = get_random_orbit(PlanetId(1));
+            let orbit = get_random_orbit(EntityId(1));
             if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {
                 g.spawn_with_random_perturbance(orbit, vehicle);
             }
@@ -356,6 +356,19 @@ impl GameState {
                 let handle = images.add(img);
                 handles.insert(name.clone(), (handle, dims));
             }
+        }
+
+        let path = self.args.install_dir.join("cloud.png");
+        if let Some(img) = crate::generate_ship_sprites::read_image(&path) {
+            let mut img = Image::from_dynamic(
+                DynamicImage::ImageRgba8(img),
+                true,
+                RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
+            );
+            img.sampler = bevy::image::ImageSampler::nearest();
+            let dims = img.size();
+            let handle = images.add(img);
+            handles.insert("cloud".into(), (handle, dims));
         }
 
         let image = generate_error_sprite();
@@ -449,11 +462,11 @@ impl GameState {
         *self = GameState::new(self.args.clone());
     }
 
-    pub fn set_piloting(&mut self, id: OrbiterId) {
+    pub fn set_piloting(&mut self, id: EntityId) {
         self.orbital_context.piloting = Some(id);
     }
 
-    pub fn set_targeting(&mut self, id: OrbiterId) {
+    pub fn set_targeting(&mut self, id: EntityId) {
         self.orbital_context.targeting = Some(id);
     }
 
@@ -461,26 +474,26 @@ impl GameState {
         &self.scenes[self.current_scene_idx]
     }
 
-    pub fn is_tracked(&self, id: OrbiterId) -> bool {
+    pub fn is_tracked(&self, id: EntityId) -> bool {
         self.orbital_context.selected.contains(&id)
     }
 
-    pub fn get_group_members(&mut self, gid: &GroupId) -> Vec<OrbiterId> {
+    pub fn get_group_members(&mut self, gid: EntityId) -> Vec<EntityId> {
         self.constellations
             .iter()
-            .filter_map(|(id, g)| (g == gid).then(|| *id))
+            .filter_map(|(id, g)| (*g == gid).then(|| *id))
             .collect()
     }
 
-    pub fn group_membership(&self, id: &OrbiterId) -> Option<&GroupId> {
-        self.constellations.get(id)
+    pub fn group_membership(&self, id: &EntityId) -> Option<EntityId> {
+        self.constellations.get(id).cloned()
     }
 
-    pub fn unique_groups(&self) -> Vec<&GroupId> {
-        let mut s: Vec<&GroupId> = self
+    pub fn unique_groups(&self) -> Vec<EntityId> {
+        let mut s: Vec<EntityId> = self
             .constellations
             .iter()
-            .map(|(_, gid)| gid)
+            .map(|(_, gid)| *gid)
             .collect::<HashSet<_>>()
             .into_iter()
             .collect();
@@ -488,7 +501,7 @@ impl GameState {
         s
     }
 
-    pub fn toggle_group(&mut self, gid: &GroupId) {
+    pub fn toggle_group(&mut self, gid: EntityId) {
         // - if any of the orbiters in the group are not selected,
         //   select all of them
         // - if all of them are already selected, deselect all of them
@@ -506,11 +519,11 @@ impl GameState {
         }
     }
 
-    pub fn disband_group(&mut self, gid: &GroupId) {
-        self.constellations.retain(|_, g| g != gid);
+    pub fn disband_group(&mut self, gid: EntityId) {
+        self.constellations.retain(|_, g| *g != gid);
     }
 
-    pub fn create_group(&mut self, gid: GroupId) {
+    pub fn create_group(&mut self, gid: EntityId) {
         for id in &self.orbital_context.selected {
             self.constellations.insert(*id, gid.clone());
         }
@@ -538,7 +551,7 @@ impl GameState {
         Some(vehicle)
     }
 
-    pub fn lup_orbiter(&self, id: OrbiterId, stamp: Nanotime) -> Option<ObjectLookup> {
+    pub fn lup_orbiter(&self, id: EntityId, stamp: Nanotime) -> Option<ObjectLookup> {
         let orbiter = self.orbiters.get(&id)?;
 
         let prop = orbiter.propagator_at(stamp)?;
@@ -548,23 +561,15 @@ impl GameState {
         let local_pv = prop.pv(stamp)?;
         let pv = frame_pv + local_pv;
 
-        Some(ObjectLookup(
-            ObjectId::Orbiter(id),
-            ScenarioObject::Orbiter(orbiter),
-            pv,
-        ))
+        Some(ObjectLookup(id, ScenarioObject::Orbiter(orbiter), pv))
     }
 
-    pub fn lup_planet(&self, id: PlanetId, stamp: Nanotime) -> Option<ObjectLookup> {
+    pub fn lup_planet(&self, id: EntityId, stamp: Nanotime) -> Option<ObjectLookup> {
         let (body, pv, _, sys) = self.planets.lookup(id, stamp)?;
-        Some(ObjectLookup(
-            ObjectId::Planet(id),
-            ScenarioObject::Body(&sys.name, body),
-            pv,
-        ))
+        Some(ObjectLookup(id, ScenarioObject::Body(&sys.name, body), pv))
     }
 
-    pub fn planned_maneuvers(&self, after: Nanotime) -> Vec<(OrbiterId, Nanotime, Vec2)> {
+    pub fn planned_maneuvers(&self, after: Nanotime) -> Vec<(EntityId, Nanotime, Vec2)> {
         let mut dvs = vec![];
         for ctrl in &self.controllers {
             if let Some(plan) = ctrl.plan() {
@@ -609,15 +614,15 @@ impl GameState {
         }
     }
 
-    pub fn piloting(&self) -> Option<OrbiterId> {
+    pub fn piloting(&self) -> Option<EntityId> {
         self.orbital_context.piloting
     }
 
-    pub fn targeting(&self) -> Option<OrbiterId> {
+    pub fn targeting(&self) -> Option<EntityId> {
         self.orbital_context.targeting
     }
 
-    pub fn get_orbit(&self, id: OrbiterId) -> Option<GlobalOrbit> {
+    pub fn get_orbit(&self, id: EntityId) -> Option<GlobalOrbit> {
         let lup = self.lup_orbiter(id, self.sim_time)?;
         let orbiter = lup.orbiter()?;
         let prop = orbiter.propagator_at(self.sim_time)?;
@@ -660,7 +665,7 @@ impl GameState {
         self.spawn_with_random_perturbance(orbit, vehicle)
     }
 
-    pub fn delete_orbiter(&mut self, id: OrbiterId) -> Option<()> {
+    pub fn delete_orbiter(&mut self, id: EntityId) -> Option<()> {
         let lup = self.lup_orbiter(id, self.sim_time)?;
         let _orbiter = lup.orbiter()?;
         let parent = lup.parent(self.sim_time)?;
@@ -716,7 +721,7 @@ impl GameState {
         Some(())
     }
 
-    pub fn impulsive_burn(&mut self, id: OrbiterId, stamp: Nanotime, dv: Vec2) -> Option<()> {
+    pub fn impulsive_burn(&mut self, id: EntityId, stamp: Nanotime, dv: Vec2) -> Option<()> {
         let obj = self.orbiters.get_mut(&id)?;
         obj.try_impulsive_burn(stamp, dv)?;
         Some(())
@@ -779,7 +784,7 @@ impl GameState {
         self.controllers.retain(|c| !tracks.contains(&c.target()));
     }
 
-    pub fn command(&mut self, id: OrbiterId, next: &GlobalOrbit) -> Option<()> {
+    pub fn command(&mut self, id: EntityId, next: &GlobalOrbit) -> Option<()> {
         let tracks = self.orbital_context.selected.clone();
         let vehicle = self.vehicles.get(&id)?;
         if !vehicle.is_controllable() {
@@ -868,9 +873,12 @@ impl GameState {
             }
             OnClick::ClearTracks => self.orbital_context.selected.clear(),
             OnClick::ClearOrbits => self.orbital_context.queued_orbits.clear(),
-            OnClick::Group(gid) => self.toggle_group(&gid),
-            OnClick::CreateGroup => self.create_group(GroupId(get_random_name())),
-            OnClick::DisbandGroup(gid) => self.disband_group(&gid),
+            OnClick::Group(gid) => self.toggle_group(gid),
+            OnClick::CreateGroup => {
+                let id = self.ids.next();
+                self.create_group(id);
+            }
+            OnClick::DisbandGroup(gid) => self.disband_group(gid),
             OnClick::CommitMission => {
                 self.commit_mission();
             }
@@ -1131,7 +1139,7 @@ impl GameState {
                 let w = self.orbital_context.c2w(p);
                 let id = self.nearest(w, self.sim_time)?;
                 self.orbital_context.following = Some(id);
-                self.notice(format!("Now following {id}"));
+                self.notice(format!("Now following {:?}", id));
             }
             Some(())
         }();
@@ -1236,7 +1244,7 @@ impl GameState {
             .into_iter()
             .for_each(|(t, n)| self.notify(ObjectId::Orbiter(t), n, None));
 
-        let mut finished_ids = Vec::<OrbiterId>::new();
+        let mut finished_ids = Vec::<EntityId>::new();
 
         self.controllers.retain(|c| {
             if c.is_idle() {
@@ -1375,14 +1383,14 @@ fn process_interaction(
             state.orbital_context.toggle_track(*id);
         }
         InteractionEvent::ToggleGroup(gid) => {
-            state.toggle_group(gid);
+            state.toggle_group(*gid);
         }
         InteractionEvent::DisbandGroup(gid) => {
-            state.disband_group(gid);
+            state.disband_group(*gid);
         }
         InteractionEvent::CreateGroup => {
-            let gid = GroupId(get_random_name());
-            state.create_group(gid.clone());
+            let gid = state.ids.next();
+            state.create_group(gid);
         }
         _ => (),
     };

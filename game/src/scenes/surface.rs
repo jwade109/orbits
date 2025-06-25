@@ -22,7 +22,51 @@ pub struct SurfaceContext {
     manual_control: bool,
     /// in 10ths of a G
     gravity: u32,
-    particles: Vec<(PV, Nanotime, Srgba)>,
+    particles: Vec<ThrustParticle>,
+}
+
+const MAX_PARTICLE_AGE_SECONDS: f32 = 3.0;
+
+const NOMINAL_DT: Nanotime = Nanotime::millis(20);
+
+#[derive(Debug)]
+struct ThrustParticle {
+    pv: PV,
+    birth: Nanotime,
+    stamp: Nanotime,
+    lifetime: Nanotime,
+    color: Srgba,
+}
+
+impl ThrustParticle {
+    fn new(pv: PV, stamp: Nanotime, color: Srgba) -> Self {
+        Self {
+            pv,
+            birth: stamp,
+            stamp,
+            color,
+            lifetime: Nanotime::secs_f32(MAX_PARTICLE_AGE_SECONDS * rand(0.5, 1.0)),
+        }
+    }
+
+    fn step_until(&mut self, sim_time: Nanotime) {
+        while self.stamp < sim_time {
+            self.pv.pos += self.pv.vel * NOMINAL_DT.to_secs_f64();
+            self.pv.vel *= 0.96;
+
+            if self.pv.pos.y < 0.0 && self.pv.vel.y < 0.0 {
+                let vx = self.pv.vel.x;
+                let mag = self.pv.vel.y.abs() * rand(0.6, 0.95) as f64;
+                let angle = rand(0.0, 0.25);
+                self.pv.vel = rotate_f64(DVec2::X * mag, angle as f64);
+                if rand(0.0, 1.0) < 0.5 {
+                    self.pv.vel.x *= -1.0;
+                }
+                self.pv.vel.x += vx;
+            }
+            self.stamp += NOMINAL_DT;
+        }
+    }
 }
 
 impl Default for SurfaceContext {
@@ -104,6 +148,10 @@ pub fn keyboard_control_law(input: &InputState) -> VehicleControl {
         allow_linear_rcs,
         allow_attitude_rcs: true,
     }
+}
+
+pub fn to_srbga(fl: [f32; 4]) -> Srgba {
+    Srgba::new(fl[0], fl[1], fl[2], fl[3])
 }
 
 impl SurfaceContext {
@@ -222,21 +270,27 @@ impl SurfaceContext {
         let gravity = ctx.gravity_vector();
 
         for v in ctx.vehicles.iter_mut() {
+            let stamp = v.stamp();
+
             v.step(state.sim_time, PhysicsMode::RealTime, gravity);
 
             for t in v.thrusters() {
+                let mut stamp = stamp;
+
                 if !t.is_thrusting() || t.proto.is_rcs {
                     continue;
                 }
 
-                for _ in 0..3 {
-                    if rand(0.0, 1.0) < t.throttle() {
-                        let pos = rotate(t.pos, v.angle());
-                        let vel = randvec(2.0, 10.0) + v.pointing() * -70.0;
-                        let pv = v.pv + PV::from_f64(pos, vel);
-                        let color = YELLOW.mix(&RED, rand(0.0, 1.0));
-                        ctx.particles.push((pv, state.wall_time, color));
-                    }
+                while stamp < state.sim_time {
+                    let pos = rotate(t.pos, v.angle());
+                    let ve = t.proto.exhaust_velocity / 20.0;
+                    let vel = randvec(2.0, 10.0) + v.pointing() * -ve * rand(0.6, 1.0);
+                    let pv = v.pv + PV::from_f64(pos, vel);
+                    let c1 = to_srbga(t.proto.primary_color);
+                    let c2 = to_srbga(t.proto.secondary_color);
+                    let color = c1.mix(&c2, rand(0.0, 1.0));
+                    ctx.particles.push(ThrustParticle::new(pv, stamp, color));
+                    stamp += NOMINAL_DT;
                 }
             }
 
@@ -244,17 +298,17 @@ impl SurfaceContext {
                 v.pv.pos.y = 0.0;
                 v.pv.vel.y = 0.0;
             }
+
             if v.pv.pos.y == 0.0 {
                 v.pv.vel.x *= 0.98;
             }
         }
 
         ctx.particles
-            .retain(|(_, t, _)| state.wall_time - *t < Nanotime::millis(2000));
+            .retain(|p| state.sim_time - p.birth < p.lifetime);
 
-        for (p, _, _) in &mut ctx.particles {
-            p.pos += p.vel * dt as f64;
-            p.vel *= 0.98;
+        for part in &mut ctx.particles {
+            part.step_until(state.sim_time);
         }
 
         // if let Some(v) = ctx.follow_position() {
@@ -365,34 +419,28 @@ impl Render for SurfaceContext {
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         let ctx = &state.surface_context;
 
-        for (particle, t, color) in &ctx.particles {
-            let p = ctx.w2c(particle.pos_f32());
-            let age = (state.wall_time - *t).to_secs().clamp(0.0, 1.0);
-            let color = color.mix(&BLACK, age);
-            let size = 0.3 + age;
+        for (i, particle) in ctx.particles.iter().enumerate() {
+            let p = ctx.w2c(particle.pv.pos_f32());
+            let age = (state.sim_time - particle.birth).to_secs();
+            let alpha = (1.0 - age / particle.lifetime.to_secs())
+                .powi(3)
+                .clamp(0.0, 1.0);
+            let color = particle.color.mix(&DARK_GRAY, age.clamp(0.0, 1.0).sqrt());
+            let size = 1.0 + age * 12.0;
+            let stretch = (8.0 * (1.0 - age * 2.0)).max(1.0);
+            let angle = particle.pv.vel.to_angle() as f32;
             canvas
-                .sprite(p, 0.0, "error", 1.0, Vec2::splat(size) * ctx.scale())
-                .set_color(color.with_alpha((1.0 - age).clamp(0.1, 1.0)));
+                .sprite(
+                    p,
+                    angle,
+                    "cloud",
+                    1.0 + i as f32 / 10000.0,
+                    Vec2::new(size * stretch, size) * ctx.scale(),
+                )
+                .set_color(color.with_alpha(color.alpha * alpha));
         }
 
         for v in &ctx.vehicles {
-            let target = if let VehicleControlPolicy::PositionHold(target) = v.policy {
-                target
-            } else {
-                continue;
-            };
-
-            let p = ctx.w2c(v.pv.pos_f32());
-            let q = ctx.w2c(target);
-            draw_x(&mut canvas.gizmos, q, 2.0 * ctx.scale(), RED);
-
-            // let info = crate::scenes::craft_editor::vehicle_info(v);
-            // canvas.label(TextLabel::new(info, p, 0.01 * ctx.scale()));
-
-            canvas.gizmos.line_2d(p, q, BLUE);
-            if ctx.gravity_vector().length() > 0.0 {
-                draw_kinematic_arc(&mut canvas.gizmos, v.pv, ctx, ctx.gravity_vector());
-            }
             let pos = ctx.w2c(v.pv.pos_f32());
             draw_vehicle(canvas, v, pos, ctx.scale(), v.angle());
         }
@@ -429,6 +477,24 @@ impl Render for SurfaceContext {
                         let q = ctx.w2c(pos + rotate(Vec2::X * 5.0, *angle));
                         canvas.gizmos.line_2d(p, q, YELLOW.with_alpha(0.7));
                     }
+                }
+
+                let target = if let VehicleControlPolicy::PositionHold(target) = v.policy {
+                    target
+                } else {
+                    continue;
+                };
+
+                let p = ctx.w2c(v.pv.pos_f32());
+                let q = ctx.w2c(target);
+                draw_x(&mut canvas.gizmos, q, 2.0 * ctx.scale(), RED);
+
+                let info = crate::scenes::craft_editor::vehicle_info(v);
+                canvas.text(info, p, 0.01 * ctx.scale()).anchor_left();
+
+                canvas.gizmos.line_2d(p, q, BLUE);
+                if ctx.gravity_vector().length() > 0.0 {
+                    draw_kinematic_arc(&mut canvas.gizmos, v.pv, ctx, ctx.gravity_vector());
                 }
             }
         }

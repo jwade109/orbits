@@ -9,20 +9,20 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy)]
-pub struct ObjectIdTracker(OrbiterId, PlanetId);
+pub struct ObjectIdTracker(EntityId, EntityId);
 
 impl ObjectIdTracker {
     pub fn new() -> Self {
-        ObjectIdTracker(OrbiterId(0), PlanetId(0))
+        ObjectIdTracker(EntityId(0), EntityId(0))
     }
 
-    pub fn next(&mut self) -> OrbiterId {
+    pub fn next(&mut self) -> EntityId {
         let ret = self.0;
         self.0 .0 += 1;
         ret
     }
 
-    pub fn next_planet(&mut self) -> PlanetId {
+    pub fn next_planet(&mut self) -> EntityId {
         let ret = self.1;
         self.1 .0 += 1;
         ret
@@ -36,10 +36,10 @@ pub enum ScenarioObject<'a> {
 }
 
 #[derive(Debug, Clone)]
-pub struct ObjectLookup<'a>(pub ObjectId, pub ScenarioObject<'a>, pub PV);
+pub struct ObjectLookup<'a>(pub EntityId, pub ScenarioObject<'a>, pub PV);
 
 impl<'a> ObjectLookup<'a> {
-    pub fn id(&self) -> ObjectId {
+    pub fn id(&self) -> EntityId {
         self.0
     }
 
@@ -54,7 +54,7 @@ impl<'a> ObjectLookup<'a> {
         }
     }
 
-    pub fn parent(&self, stamp: Nanotime) -> Option<PlanetId> {
+    pub fn parent(&self, stamp: Nanotime) -> Option<EntityId> {
         let orbiter = self.orbiter()?;
         let prop = orbiter.propagator_at(stamp)?;
         Some(prop.parent())
@@ -77,14 +77,14 @@ impl<'a> ObjectLookup<'a> {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct PlanetarySystem {
-    pub id: PlanetId,
+    pub id: EntityId,
     pub name: String,
     pub body: Body,
     pub subsystems: Vec<(SparseOrbit, PlanetarySystem)>,
 }
 
 impl PlanetarySystem {
-    pub fn new(id: PlanetId, name: impl Into<String>, body: Body) -> Self {
+    pub fn new(id: EntityId, name: impl Into<String>, body: Body) -> Self {
         PlanetarySystem {
             id,
             name: name.into(),
@@ -97,7 +97,7 @@ impl PlanetarySystem {
         self.subsystems.push((orbit, planets));
     }
 
-    pub fn planet_ids(&self) -> Vec<PlanetId> {
+    pub fn planet_ids(&self) -> Vec<EntityId> {
         let mut ret = vec![self.id];
         for (_, sub) in &self.subsystems {
             ret.extend_from_slice(&sub.planet_ids())
@@ -123,11 +123,11 @@ impl PlanetarySystem {
 
     fn lookup_inner(
         &self,
-        id: PlanetId,
+        id: EntityId,
         stamp: Nanotime,
         wrt: PV,
-        parent_id: Option<PlanetId>,
-    ) -> Option<(Body, PV, Option<PlanetId>, &PlanetarySystem)> {
+        parent_id: Option<EntityId>,
+    ) -> Option<(Body, PV, Option<EntityId>, &PlanetarySystem)> {
         if self.id == id {
             return Some((self.body, wrt, parent_id, self));
         }
@@ -146,9 +146,9 @@ impl PlanetarySystem {
 
     pub fn lookup(
         &self,
-        id: PlanetId,
+        id: EntityId,
         stamp: Nanotime,
-    ) -> Option<(Body, PV, Option<PlanetId>, &PlanetarySystem)> {
+    ) -> Option<(Body, PV, Option<EntityId>, &PlanetarySystem)> {
         self.lookup_inner(id, stamp, PV::ZERO, None)
     }
 
@@ -168,7 +168,7 @@ impl PlanetarySystem {
 pub struct RemovalInfo {
     pub stamp: Nanotime,
     pub reason: EventType,
-    pub parent: PlanetId,
+    pub parent: EntityId,
     pub orbit: SparseOrbit,
 }
 
@@ -180,16 +180,16 @@ impl RemovalInfo {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Scenario {
-    pub orbiters: HashMap<OrbiterId, Orbiter>,
+    pub orbiters: HashMap<EntityId, Orbiter>,
     pub planets: PlanetarySystem,
 }
 
 pub fn simulate(
-    orbiters: &mut HashMap<OrbiterId, Orbiter>,
+    orbiters: &mut HashMap<EntityId, Orbiter>,
     planets: &PlanetarySystem,
     stamp: Nanotime,
     future_dur: Nanotime,
-) -> Vec<(OrbiterId, RemovalInfo)> {
+) -> Vec<(EntityId, RemovalInfo)> {
     for (_, obj) in orbiters.iter_mut() {
         let e = obj.propagate_to(stamp, future_dur, planets);
         if let Err(_e) = e {

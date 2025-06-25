@@ -106,7 +106,7 @@ mod tests {
         )
         .unwrap();
 
-        let orbiter = Orbiter::new(GlobalOrbit(PlanetId(3), orbit), Nanotime::zero());
+        let orbiter = Orbiter::new(GlobalOrbit(EntityId(3), orbit), Nanotime::zero());
 
         let path = std::path::Path::new("/tmp/orbiter.strl");
 

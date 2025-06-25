@@ -1,5 +1,5 @@
 use crate::aabb::OBB;
-use crate::id::PlanetId;
+use crate::id::EntityId;
 use crate::math::{rand, rotate_f64, PI_64};
 use crate::orbits::SparseOrbit;
 use crate::orbits::{Body, GlobalOrbit};
@@ -11,14 +11,14 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub struct AsteroidBelt {
-    parent: PlanetId,
+    parent: EntityId,
     inner: SparseOrbit,
     outer: SparseOrbit,
 }
 
 impl AsteroidBelt {
     pub fn new(
-        parent: PlanetId,
+        parent: EntityId,
         argp: f64,
         rp: f64,
         ra: f64,
@@ -62,7 +62,7 @@ impl AsteroidBelt {
     }
 
     pub fn circular(
-        parent: PlanetId,
+        parent: EntityId,
         inner: f64,
         outer: f64,
         body: Body,
@@ -77,7 +77,7 @@ impl AsteroidBelt {
         }
     }
 
-    pub fn from_orbits(parent: PlanetId, inner: SparseOrbit, outer: SparseOrbit) -> Self {
+    pub fn from_orbits(parent: EntityId, inner: SparseOrbit, outer: SparseOrbit) -> Self {
         assert!(!inner.is_hyperbolic());
         assert!(!outer.is_hyperbolic());
         AsteroidBelt {
@@ -87,7 +87,7 @@ impl AsteroidBelt {
         }
     }
 
-    pub fn parent(&self) -> PlanetId {
+    pub fn parent(&self) -> EntityId {
         self.parent
     }
 

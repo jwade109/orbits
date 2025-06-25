@@ -336,7 +336,7 @@ pub fn draw_vehicle(canvas: &mut Canvas, vehicle: &Vehicle, pos: Vec2, scale: f3
             pos + rotate(geo, angle) * scale,
             angle,
             vehicle.name(),
-            1.0,
+            10.0,
             vehicle.aabb().span * scale,
         );
     }
@@ -556,7 +556,7 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
     Some(())
 }
 
-fn draw_orbiter(gizmos: &mut Gizmos, state: &GameState, id: OrbiterId) -> Option<()> {
+fn draw_orbiter(gizmos: &mut Gizmos, state: &GameState, id: EntityId) -> Option<()> {
     let ctx = &state.orbital_context;
     let tracked = state.orbital_context.selected.contains(&id);
     let piloting = state.piloting() == Some(id);
@@ -794,7 +794,7 @@ pub fn is_blinking(wall_time: Nanotime, pos: impl Into<Option<Vec2>>) -> bool {
 fn draw_event_animation(
     gizmos: &mut Gizmos,
     state: &GameState,
-    id: OrbiterId,
+    id: EntityId,
     ctx: &impl CameraProjection,
 ) -> Option<()> {
     let obj = state.lup_orbiter(id, state.sim_time)?.orbiter()?;

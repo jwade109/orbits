@@ -45,15 +45,15 @@ impl Notification {
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NotificationType {
-    OrbiterCrashed(OrbiterId),
-    OrbiterEscaped(OrbiterId),
-    NumericalError(OrbiterId),
-    OrbiterDeleted(OrbiterId),
-    ManeuverStarted(OrbiterId),
-    ManeuverComplete(OrbiterId),
-    ManeuverFailed(OrbiterId),
-    OrbitChanged(OrbiterId),
-    NotControllable(OrbiterId),
+    OrbiterCrashed(EntityId),
+    OrbiterEscaped(EntityId),
+    NumericalError(EntityId),
+    OrbiterDeleted(EntityId),
+    ManeuverStarted(EntityId),
+    ManeuverComplete(EntityId),
+    ManeuverFailed(EntityId),
+    OrbitChanged(EntityId),
+    NotControllable(EntityId),
     Notice(String),
 }
 
