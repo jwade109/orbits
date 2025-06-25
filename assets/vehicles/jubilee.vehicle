@@ -155,3 +155,43 @@ parts:
   - -24
   - -9
   rot: East
+- partname: frame3
+  pos:
+  - -45
+  - 23
+  rot: East
+- partname: frame3
+  pos:
+  - -45
+  - -33
+  rot: East
+- partname: rcs
+  pos:
+  - -45
+  - -37
+  rot: East
+- partname: rcs
+  pos:
+  - -39
+  - -37
+  rot: East
+- partname: rcs
+  pos:
+  - -45
+  - 33
+  rot: West
+- partname: rcs
+  pos:
+  - -39
+  - 33
+  rot: West
+- partname: frame2
+  pos:
+  - -15
+  - 13
+  rot: South
+- partname: frame2
+  pos:
+  - -15
+  - -23
+  rot: South

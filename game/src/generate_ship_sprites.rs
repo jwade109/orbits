@@ -1,6 +1,7 @@
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use bevy::render::render_asset::RenderAssetUsages;
+use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use image::{DynamicImage, RgbaImage};
 use starling::prelude::*;
 use std::path::Path;
@@ -89,4 +90,18 @@ pub fn generate_ship_sprite(vehicle: &Vehicle, parts_dir: &Path, schematic: bool
     );
     img.sampler = bevy::image::ImageSampler::nearest();
     Some(img)
+}
+
+pub fn generate_error_sprite() -> Image {
+    Image::new_fill(
+        Extent3d {
+            width: 1,
+            height: 1,
+            depth_or_array_layers: 1,
+        },
+        TextureDimension::D2,
+        &WHITE.to_u8_array(),
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
+    )
 }

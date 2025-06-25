@@ -1,6 +1,8 @@
+use crate::drawing::draw_obb;
 use crate::scenes::{StaticSpriteDescriptor, TextLabel};
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
+use starling::aabb::*;
 
 pub struct Canvas<'w, 's> {
     pub gizmos: Gizmos<'w, 's>,
@@ -38,27 +40,23 @@ impl<'w, 's> Canvas<'w, 's> {
             .expect("Literally just pushed an element")
     }
 
-    pub fn file_sprite(
-        &mut self,
+    pub fn sprite<'a>(
+        &'a mut self,
         pos: Vec2,
         angle: f32,
         path: impl Into<String>,
-        scale: f32,
         z_index: f32,
-    ) {
-        let sprite = StaticSpriteDescriptor::filesystem(pos, angle, path.into(), scale, z_index);
-        self.sprites.push(sprite);
-    }
+        screen_dims: Vec2,
+    ) -> &'a mut StaticSpriteDescriptor {
+        let sprite = StaticSpriteDescriptor::new(pos, angle, path.into(), screen_dims, z_index);
 
-    pub fn proc_sprite(
-        &mut self,
-        pos: Vec2,
-        angle: f32,
-        path: impl Into<String>,
-        scale: f32,
-        z_index: f32,
-    ) {
-        let sprite = StaticSpriteDescriptor::procedural(pos, angle, path.into(), scale, z_index);
+        // let aabb = AABB::new(pos, screen_dims);
+        // let obb = OBB::new(aabb, angle);
+        // draw_obb(&mut self.gizmos, &obb, WHITE);
+
         self.sprites.push(sprite);
+        self.sprites
+            .last_mut()
+            .expect("Literally just pushed an element")
     }
 }

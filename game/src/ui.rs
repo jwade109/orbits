@@ -78,6 +78,7 @@ fn set_bloom(state: Res<GameState>, mut bloom: Single<&mut Bloom>) {
             DrawMode::Default => 0.5,
             _ => 0.1,
         },
+        SceneType::Surface => 0.4,
         _ => 0.1,
     }
 }

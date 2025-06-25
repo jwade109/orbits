@@ -333,14 +333,6 @@ impl EditorContext {
     }
 }
 
-pub fn part_sprite_path(ctx: &ProgramContext, short_path: &str) -> String {
-    ctx.parts_dir()
-        .join(format!("{}/skin.png", short_path))
-        .to_str()
-        .unwrap_or("")
-        .to_string()
-}
-
 pub fn vehicle_info(vehicle: &Vehicle) -> String {
     let bounds = vehicle.aabb();
     let fuel_economy = if vehicle.remaining_dv() > 0.0 {
@@ -584,25 +576,27 @@ impl Render for EditorContext {
 
         if let Some((p, current_part)) = Self::current_part_and_cursor_position(state) {
             let dims = dims_with_rotation(ctx.rotation, &current_part);
-            canvas.file_sprite(
+            let sprite_dims = UVec2::new(current_part.width, current_part.height);
+            canvas.sprite(
                 ctx.w2c(p.as_vec2() + dims.as_vec2() / 2.0),
                 ctx.rotation.to_angle(),
-                part_sprite_path(&state.args, &current_part.path),
-                ctx.scale(),
+                current_part.path.clone(),
                 12.0,
+                sprite_dims.as_vec2() * ctx.scale(),
             );
         }
 
         ctx.visible_parts()
             .enumerate()
             .for_each(|(i, (pos, rot, part))| {
-                let half_dims = dims_with_rotation(*rot, part).as_vec2() / 2.0;
-                canvas.file_sprite(
-                    ctx.w2c(pos.as_vec2() + half_dims),
+                let dims = dims_with_rotation(*rot, part);
+                let sprite_dims = UVec2::new(part.width, part.height);
+                canvas.sprite(
+                    ctx.w2c(pos.as_vec2() + dims.as_vec2() / 2.0),
                     rot.to_angle(),
-                    part_sprite_path(&state.args, &part.path),
-                    ctx.scale(),
+                    part.path.clone(),
                     part.to_z_index() + i as f32 / 100.0,
+                    sprite_dims.as_vec2() * ctx.scale(),
                 );
             });
 

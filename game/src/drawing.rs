@@ -113,7 +113,7 @@ fn draw_region(
     }
 }
 
-fn draw_obb(gizmos: &mut Gizmos, obb: &OBB, color: Srgba) {
+pub fn draw_obb(gizmos: &mut Gizmos, obb: &OBB, color: Srgba) {
     // draw_cross(gizmos, obb.0.center, 30.0, color);
     let mut corners = obb.corners().to_vec();
     corners.push(*corners.get(0).unwrap());
@@ -313,6 +313,8 @@ pub fn draw_thruster(gizmos: &mut Gizmos, thruster: &Thruster, pos: Vec2, scale:
 pub fn draw_vehicle(canvas: &mut Canvas, vehicle: &Vehicle, pos: Vec2, scale: f32, angle: f32) {
     let vector_alpha = (scale / 700.0).clamp(0.0, 1.0);
 
+    let geo = vehicle.aabb().center;
+
     for (p, rot, part) in &vehicle.parts {
         let dims = meters_with_rotation(*rot, part);
         let center = rotate(p.as_vec2() / PIXELS_PER_METER + dims / 2.0, angle) * scale;
@@ -330,18 +332,14 @@ pub fn draw_vehicle(canvas: &mut Canvas, vehicle: &Vehicle, pos: Vec2, scale: f3
     }
 
     if !vehicle.name().is_empty() {
-        canvas.proc_sprite(
-            pos,
+        canvas.sprite(
+            pos + rotate(geo, angle) * scale,
             angle,
             vehicle.name(),
-            scale / PIXELS_PER_METER as f32,
             1.0,
+            vehicle.aabb().span * scale,
         );
     }
-
-    // let r = vehicle.bounding_radius() * scale;
-
-    // draw_pointing_vector(gizmos, pos, r, vehicle.pointing(), LIME);
 
     for thruster in vehicle.thrusters() {
         draw_thruster(&mut canvas.gizmos, thruster, pos, scale, angle);
@@ -1128,7 +1126,7 @@ pub fn draw_graph(
     {
         if bounds.contains(p) {
             canvas.text("Graph!".to_uppercase(), p, 0.7);
-            canvas.file_sprite(p, 0.0, "bird1.png", 0.06, 50.0);
+            canvas.sprite(p, 0.0, "error", 50.0, Vec2::splat(100.0));
         }
     }
 

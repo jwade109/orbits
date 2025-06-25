@@ -553,11 +553,11 @@ impl Render for OrbitalContext {
                 let pos = lup.pv().pos_f32();
                 let (name, body) = lup.named_body()?;
                 let path = format!("{}.png", name);
-                Some(StaticSpriteDescriptor::filesystem(
+                Some(StaticSpriteDescriptor::new(
                     ctx.w2c(pos),
                     0.0,
                     path,
-                    ctx.scale() * 2.0 * body.radius / EXPECTED_PLANET_SPRITE_SIZE as f32,
+                    Vec2::splat(ctx.scale() * 2.0 * body.radius),
                     PLANET_Z_INDEX,
                 ))
             })
@@ -585,11 +585,11 @@ impl Render for OrbitalContext {
                 let color = if is_lit { WHITE } else { GRAY };
 
                 Some(
-                    StaticSpriteDescriptor::filesystem(
+                    StaticSpriteDescriptor::new(
                         ctx.w2c(pos),
                         0.0,
                         path,
-                        scale,
+                        Vec2::splat(10.0),
                         SPACECRAFT_Z_INDEX,
                     )
                     .with_color(color),

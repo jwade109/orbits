@@ -48,39 +48,22 @@ impl TextLabel {
 }
 
 #[derive(Debug, Clone)]
-pub enum SpritePath {
-    Procedural(String),
-    Filesystem(String),
-}
-
-#[derive(Debug, Clone)]
 pub struct StaticSpriteDescriptor {
     pub position: Vec2,
     pub angle: f32,
-    pub path: SpritePath,
-    pub scale: f32,
+    pub path: String,
+    pub dims: Vec2,
     pub z_index: f32,
     pub color: Option<Srgba>,
 }
 
 impl StaticSpriteDescriptor {
-    pub fn filesystem(position: Vec2, angle: f32, path: String, scale: f32, z_index: f32) -> Self {
+    pub fn new(position: Vec2, angle: f32, path: String, dims: Vec2, z_index: f32) -> Self {
         Self {
             position,
             angle,
-            path: SpritePath::Filesystem(path),
-            scale,
-            z_index,
-            color: None,
-        }
-    }
-
-    pub fn procedural(position: Vec2, angle: f32, path: String, scale: f32, z_index: f32) -> Self {
-        Self {
-            position,
-            angle,
-            path: SpritePath::Procedural(path),
-            scale,
+            path,
+            dims,
             z_index,
             color: None,
         }
@@ -89,6 +72,10 @@ impl StaticSpriteDescriptor {
     pub fn with_color(mut self, color: Srgba) -> Self {
         self.color = Some(color);
         self
+    }
+
+    pub fn set_color(&mut self, color: Srgba) {
+        self.color = Some(color);
     }
 }
 

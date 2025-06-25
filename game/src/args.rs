@@ -26,4 +26,12 @@ impl ProgramContext {
     pub fn audio_dir(&self) -> PathBuf {
         self.install_dir.join("sfx")
     }
+
+    pub fn part_sprite_path(&self, short_path: &str) -> String {
+        self.parts_dir()
+            .join(format!("{}/skin.png", short_path))
+            .to_str()
+            .unwrap_or("")
+            .to_string()
+    }
 }

@@ -1,67 +1,6 @@
 use crate::game::GameState;
-use crate::scenes::CameraProjection;
 use crate::scenes::*;
 use bevy::prelude::*;
-use starling::prelude::*;
-
-// const SELECTED_SPACECRAFT_Z_INDEX: f32 = 8.0;
-const SHADOW_Z_INDEX: f32 = 7.0;
-
-const EXPECTED_SHADOW_SPRITE_HEIGHT: u32 = 1000;
-
-#[derive(Component)]
-#[require(Transform)]
-pub struct ShadowTexture(PlanetId);
-
-pub fn update_shadow_sprites(
-    mut commands: Commands,
-    mut query: Query<(Entity, &ShadowTexture, &mut Transform, &mut Visibility)>,
-    state: Res<GameState>,
-) {
-    let scene = state.current_scene();
-
-    match scene.kind() {
-        SceneType::Orbital => (),
-        _ => {
-            for (e, _, _, _) in query.iter() {
-                commands.entity(e).despawn();
-            }
-            return;
-        }
-    }
-
-    for (e, ShadowTexture(id), mut transform, mut vis) in query.iter_mut() {
-        let lup = match state.lup_planet(*id, state.sim_time) {
-            Some(lup) => lup,
-            None => {
-                commands.entity(e).despawn();
-                println!("Despawn shadow for {}", id);
-                continue;
-            }
-        };
-
-        *vis = match state.orbital_context.draw_mode {
-            DrawMode::Default => Visibility::Visible,
-            _ => Visibility::Hidden,
-        };
-
-        let body = match lup.body() {
-            Some(b) => b,
-            None => {
-                commands.entity(e).despawn();
-                continue;
-            }
-        };
-
-        let angle = PI - state.light_source().angle_to(Vec2::X);
-        let scale = (2.0 * body.radius) / EXPECTED_SHADOW_SPRITE_HEIGHT as f32
-            * state.orbital_context.scale();
-        let pos = lup.pv().pos_f32();
-        transform.translation = state.orbital_context.w2c(pos).extend(SHADOW_Z_INDEX);
-        transform.scale = Vec3::new(scale, scale, 1.0);
-        transform.rotation = Quat::from_rotation_z(angle);
-    }
-}
 
 pub fn hashable_to_color(h: &impl std::hash::Hash) -> Hsla {
     use std::hash::Hasher;
@@ -72,7 +11,7 @@ pub fn hashable_to_color(h: &impl std::hash::Hash) -> Hsla {
     Hsla::new(hue, 1.0, 0.5, 1.0)
 }
 
-pub fn update_background_sprite(
+pub fn update_background_color(
     mut camera: Single<&mut Camera, With<crate::game::BackgroundCamera>>,
     state: Res<GameState>,
 ) {
@@ -81,15 +20,11 @@ pub fn update_background_sprite(
     camera.clear_color = ClearColorConfig::Custom(c.with_alpha(0.0).into());
 }
 
-use crate::scenes::Render;
-use bevy::image::{ImageLoaderSettings, ImageSampler};
-
 #[derive(Component)]
 pub struct StaticSprite(usize, String);
 
 pub fn update_static_sprites(
     mut commands: Commands,
-    assets: Res<AssetServer>,
     state: Res<GameState>,
     mut query: Query<(Entity, &mut Sprite, &mut Transform, &mut StaticSprite)>,
 ) {
@@ -99,63 +34,45 @@ pub fn update_static_sprites(
 
     for (i, sprite) in sprites.iter().enumerate() {
         let pos = sprite.position.extend(sprite.z_index);
-        let angle = sprite.angle;
-        let scale = Vec3::splat(sprite.scale);
-        let transform = Transform::from_scale(scale)
-            .with_translation(pos)
-            .with_rotation(Quat::from_rotation_z(angle));
 
-        let (path, handle) = match sprite.path.clone() {
-            SpritePath::Filesystem(path) => {
-                let path = match std::fs::canonicalize(path.clone()) {
-                    Ok(p) => p.to_string_lossy().to_string(),
-                    Err(_) => path,
-                };
-                let handle = assets.load_with_settings(
-                    path.clone(),
-                    |settings: &mut ImageLoaderSettings| {
-                        settings.sampler = ImageSampler::nearest();
-                    },
-                );
-                (path, Some(handle))
-            }
-            SpritePath::Procedural(path) => {
-                let handle = state.image_handles.get(&path).cloned();
-                (path, handle)
-            }
-        };
+        let handle = state
+            .image_handles
+            .get(&sprite.path)
+            .or(state.image_handles.get("error"));
 
-        let handle = if let Some(handle) = handle {
-            handle
+        let (handle, dims) = if let Some((handle, dims)) = handle {
+            (handle.clone(), dims.as_vec2())
         } else {
-            Handle::default()
+            (Handle::default(), Vec2::splat(100.0))
         };
+
+        let sx = sprite.dims.x / dims.x;
+        let sy = sprite.dims.y / dims.y;
+
+        let transform = Transform::from_scale(Vec3::new(sx, sy, 1.0))
+            .with_translation(pos)
+            .with_rotation(Quat::from_rotation_z(sprite.angle));
 
         let ent = sprite_entities.iter_mut().find(|(_, _, _, ss)| ss.0 == i);
 
+        let mut new_sprite = Sprite::from_image(handle);
+        if let Some(c) = sprite.color {
+            new_sprite.color = Color::Srgba(c);
+        }
+
         if let Some((_, ref mut spr, ref mut tf, ref mut desc)) = ent {
             **tf = transform;
-            if desc.1 != path {
-                **spr = Sprite::from_image(handle);
-                println!(
-                    "[{}] ({}) Modified sprite {} -> {}",
-                    state.wall_time, i, desc.1, path
-                );
-                desc.1 = path.clone();
-            }
+            **spr = new_sprite;
+            desc.1 = sprite.path.clone();
         } else {
-            println!("[{}] ({}) New sprite {}", state.wall_time, i, path);
-            commands.spawn((
-                Sprite::from_image(handle),
-                transform,
-                StaticSprite(i, path.clone()),
-            ));
+            // println!("[{}] ({}) New sprite {}", state.wall_time, i, path);
+            commands.spawn((new_sprite, transform, StaticSprite(i, sprite.path.clone())));
         }
     }
 
     for (e, _, _, ss) in &query {
         if ss.0 >= sprites.len() {
-            println!("[{}] ({}) Deleting sprite {}", state.wall_time, ss.0, ss.1);
+            // println!("[{}] ({}) Deleting sprite {}", state.wall_time, ss.0, ss.1);
             commands.entity(e).despawn();
         }
     }

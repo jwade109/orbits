@@ -1,7 +1,7 @@
 use crate::args::ProgramContext;
 use crate::canvas::Canvas;
 use crate::debug_console::DebugConsole;
-use crate::generate_ship_sprites::generate_ship_sprite;
+use crate::generate_ship_sprites::*;
 use crate::input::{FrameId, InputState, MouseButt};
 use crate::notifications::*;
 use crate::onclick::OnClick;
@@ -10,32 +10,27 @@ use crate::scenes::{
     OrbitalContext, RPOContext, Render, Scene, SceneType, StaticSpriteDescriptor, SurfaceContext,
     TelescopeContext, TextLabel,
 };
-use crate::ui::{InteractionEvent, UiElement};
+use crate::ui::InteractionEvent;
 use bevy::color::palettes::css::*;
 use bevy::core_pipeline::bloom::Bloom;
 use bevy::core_pipeline::smaa::Smaa;
 use bevy::prelude::*;
+use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::view::RenderLayers;
-use bevy::time::common_conditions::on_timer;
 use bevy::window::WindowMode;
 use clap::Parser;
 use enum_iterator::next_cycle;
+use image::DynamicImage;
 use layout::layout::Tree;
 use starling::prelude::*;
 use std::collections::{HashMap, HashSet};
+use std::path::Path;
 
 pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, init_system);
-
-        app.add_systems(
-            Update,
-            (print_entity_count, print_ui_count)
-                .chain()
-                .run_if(on_timer(std::time::Duration::from_millis(1000))),
-        );
 
         app.add_systems(
             Update,
@@ -49,8 +44,7 @@ impl Plugin for GamePlugin {
                 crate::ui::do_text_labels,
                 crate::drawing::draw_game_state,
                 crate::sprites::update_static_sprites,
-                crate::sprites::update_shadow_sprites,
-                crate::sprites::update_background_sprite,
+                crate::sprites::update_background_color,
                 sound_system,
             )
                 .chain(),
@@ -60,16 +54,6 @@ impl Plugin for GamePlugin {
 
 #[derive(Component, Debug)]
 pub struct BackgroundCamera;
-
-fn print_entity_count(entities: Query<Entity>) {
-    let len = entities.iter().count();
-    println!("Entities: {}", len);
-}
-
-fn print_ui_count(entities: Query<&UiElement>) {
-    let len = entities.iter().count();
-    println!("UI elements: {}", len);
-}
 
 fn sound_system(
     mut commands: Commands,
@@ -200,7 +184,7 @@ pub struct GameState {
 
     pub text_labels: Vec<TextLabel>,
     pub sprites: Vec<StaticSpriteDescriptor>,
-    pub image_handles: HashMap<String, Handle<Image>>,
+    pub image_handles: HashMap<String, (Handle<Image>, UVec2)>,
 }
 
 fn generate_starfield() -> Vec<(Vec3, Srgba, f32, f32)> {
@@ -351,12 +335,39 @@ impl GameState {
                     let parts_dir = self.args.parts_dir();
                     let img = generate_ship_sprite(&v, &parts_dir, false);
                     if let Some(img) = img {
+                        let dims = img.size();
                         let handle = images.add(img);
-                        handles.insert(model, handle);
+                        handles.insert(model, (handle, dims));
                     }
                 }
             }
         }
+
+        for (name, _) in &self.part_database {
+            let path = self.args.part_sprite_path(name);
+            if let Some(img) = crate::generate_ship_sprites::read_image(Path::new(&path)) {
+                let mut img = Image::from_dynamic(
+                    DynamicImage::ImageRgba8(img),
+                    true,
+                    RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
+                );
+                img.sampler = bevy::image::ImageSampler::nearest();
+                let dims = img.size();
+                let handle = images.add(img);
+                handles.insert(name.clone(), (handle, dims));
+            }
+        }
+
+        let image = generate_error_sprite();
+        let dims = image.size();
+        let handle = images.add(image);
+        handles.insert("error".to_string(), (handle, dims));
+
+        println!("Loaded sprites:");
+        for (k, _) in &handles {
+            println!(" - {}", k);
+        }
+
         self.image_handles = handles;
     }
 }
@@ -1134,41 +1145,6 @@ impl GameState {
 
         // handle discrete physics
         for (id, vehicle) in self.vehicles.iter_mut() {
-            // let is_pilot = Some(*id) == self.orbital_context.piloting;
-            // let allow_linear_rcs = self.input.is_pressed(KeyCode::ControlLeft);
-            // let linear = if !is_pilot {
-            //     Vec2::ZERO
-            // } else if self.input.is_pressed(KeyCode::ArrowUp) {
-            //     Vec2::X
-            // } else if self.input.is_pressed(KeyCode::ArrowDown) {
-            //     -Vec2::X
-            // } else if self.input.is_pressed(KeyCode::ArrowLeft) && allow_linear_rcs {
-            //     Vec2::Y
-            // } else if self.input.is_pressed(KeyCode::ArrowRight) && allow_linear_rcs {
-            //     -Vec2::Y
-            // } else {
-            //     Vec2::ZERO
-            // };
-            // let throttle = self.orbital_context.throttle.to_ratio();
-
-            // let attitude = if !is_pilot {
-            //     0.0
-            // } else if self.input.is_pressed(KeyCode::ArrowLeft) && !allow_linear_rcs {
-            //     10.0
-            // } else if self.input.is_pressed(KeyCode::ArrowRight) && !allow_linear_rcs {
-            //     -10.0
-            // } else {
-            //     0.0
-            // };
-
-            // let control = VehicleControl {
-            //     throttle,
-            //     linear,
-            //     attitude,
-            //     allow_linear_rcs,
-            //     allow_attitude_rcs: true,
-            // };
-
             vehicle.step(s, mode, Vec2::ZERO);
             if vehicle.pv.pos.length() > 1.0 {
                 simulate(&mut self.orbiters, &planets, s, d);
@@ -1307,9 +1283,13 @@ impl GameState {
     }
 }
 
-fn step_system(time: Res<Time>, mut state: ResMut<GameState>) {
+fn step_system(time: Res<Time>, mut state: ResMut<GameState>, mut images: ResMut<Assets<Image>>) {
     let dt = Nanotime::secs_f32(time.delta_secs());
     state.step(dt);
+
+    if state.image_handles.is_empty() {
+        state.load_sprites(&mut images)
+    }
 }
 
 pub const MIN_SIM_SPEED: i32 = -1;

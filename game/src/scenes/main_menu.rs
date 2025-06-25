@@ -34,11 +34,12 @@ impl Render for MainMenuContext {
             .map(|l| l.len())
             .unwrap_or(0);
         let s = format!(
-            "Compiled on {}\nInstall directory: {}\n{} parts loaded\n{} vehicles loaded",
+            "Compiled on {}\nInstall directory: {}\n{} parts loaded\n{} vehicles loaded\n{} sprites loaded",
             time,
             dir,
             state.part_database.len(),
             n_vehicles,
+            state.image_handles.len(),
         )
         .to_uppercase();
         let p = Vec2::new(-dims.x / 2.0 + 200.0, -dims.y / 2.0 + 140.0);

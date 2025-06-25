@@ -5,7 +5,7 @@ use crate::input::*;
 use crate::onclick::OnClick;
 use crate::scenes::rpo::LinearCameraController;
 use crate::scenes::{CameraProjection, Render, TextLabel};
-use bevy::color::{palettes::css::*, Alpha, Luminance, Srgba};
+use bevy::color::{palettes::css::*, Alpha, Luminance, Mix, Srgba};
 use bevy::prelude::{Gizmos, KeyCode};
 use layout::layout::Tree;
 use starling::prelude::*;
@@ -22,6 +22,7 @@ pub struct SurfaceContext {
     manual_control: bool,
     /// in 10ths of a G
     gravity: u32,
+    particles: Vec<(PV, Nanotime, Srgba)>,
 }
 
 impl Default for SurfaceContext {
@@ -39,6 +40,7 @@ impl Default for SurfaceContext {
             selected: HashSet::new(),
             manual_control: false,
             gravity: 5,
+            particles: Vec::new(),
         }
     }
 }
@@ -222,13 +224,37 @@ impl SurfaceContext {
         for v in ctx.vehicles.iter_mut() {
             v.step(state.sim_time, PhysicsMode::RealTime, gravity);
 
+            for t in v.thrusters() {
+                if !t.is_thrusting() || t.proto.is_rcs {
+                    continue;
+                }
+
+                for _ in 0..3 {
+                    if rand(0.0, 1.0) < t.throttle() {
+                        let pos = rotate(t.pos, v.angle());
+                        let vel = randvec(2.0, 10.0) + v.pointing() * -70.0;
+                        let pv = v.pv + PV::from_f64(pos, vel);
+                        let color = YELLOW.mix(&RED, rand(0.0, 1.0));
+                        ctx.particles.push((pv, state.wall_time, color));
+                    }
+                }
+            }
+
             if v.pv.pos.y < 0.0 {
                 v.pv.pos.y = 0.0;
                 v.pv.vel.y = 0.0;
             }
             if v.pv.pos.y == 0.0 {
-                v.pv.vel.x *= 0.99;
+                v.pv.vel.x *= 0.98;
             }
+        }
+
+        ctx.particles
+            .retain(|(_, t, _)| state.wall_time - *t < Nanotime::millis(2000));
+
+        for (p, _, _) in &mut ctx.particles {
+            p.pos += p.vel * dt as f64;
+            p.vel *= 0.98;
         }
 
         // if let Some(v) = ctx.follow_position() {
@@ -339,6 +365,16 @@ impl Render for SurfaceContext {
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         let ctx = &state.surface_context;
 
+        for (particle, t, color) in &ctx.particles {
+            let p = ctx.w2c(particle.pos_f32());
+            let age = (state.wall_time - *t).to_secs().clamp(0.0, 1.0);
+            let color = color.mix(&BLACK, age);
+            let size = 0.3 + age;
+            canvas
+                .sprite(p, 0.0, "error", 1.0, Vec2::splat(size) * ctx.scale())
+                .set_color(color.with_alpha((1.0 - age).clamp(0.1, 1.0)));
+        }
+
         for v in &ctx.vehicles {
             let target = if let VehicleControlPolicy::PositionHold(target) = v.policy {
                 target
@@ -350,8 +386,8 @@ impl Render for SurfaceContext {
             let q = ctx.w2c(target);
             draw_x(&mut canvas.gizmos, q, 2.0 * ctx.scale(), RED);
 
-            let info = crate::scenes::craft_editor::vehicle_info(v);
-            canvas.label(TextLabel::new(info, p, 0.01 * ctx.scale()));
+            // let info = crate::scenes::craft_editor::vehicle_info(v);
+            // canvas.label(TextLabel::new(info, p, 0.01 * ctx.scale()));
 
             canvas.gizmos.line_2d(p, q, BLUE);
             if ctx.gravity_vector().length() > 0.0 {
