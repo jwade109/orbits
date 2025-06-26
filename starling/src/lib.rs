@@ -2,6 +2,7 @@ pub mod aabb;
 pub mod belts;
 pub mod control;
 pub mod examples;
+pub mod factory;
 pub mod file_export;
 pub mod id;
 pub mod inventory;

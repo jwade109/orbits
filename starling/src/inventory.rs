@@ -9,7 +9,16 @@ pub enum InventoryItem {
     Silicon,
     Titanium,
     Foodstuffs,
+    /// H2O, 18 g/mol
     Water,
+    /// CH4; 16 g/mol
+    Methane,
+    /// H2;   2 g/mol
+    H2,
+    /// CO2; 44 g/mol
+    CO2,
+    /// O2;  32 g/mol
+    O2,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
