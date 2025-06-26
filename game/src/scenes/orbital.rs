@@ -348,7 +348,7 @@ pub fn get_landing_site_labels(state: &GameState) -> Vec<TextLabel> {
 
     let mut ret = Vec::new();
     for (pid, sites) in &state.landing_sites {
-        for (angle, name) in sites {
+        for (angle, name, _) in sites {
             let pos = OrbitalContext::landing_site_position(state, *pid, *angle);
             if let Some(pos) = pos {
                 let pos = ctx.w2c(pos);

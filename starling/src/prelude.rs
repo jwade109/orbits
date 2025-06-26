@@ -27,6 +27,7 @@ pub use crate::region::Region;
 pub use crate::scenario::{
     simulate, ObjectIdTracker, ObjectLookup, PlanetarySystem, ScenarioObject,
 };
+pub use crate::surface::*;
 pub use crate::vehicle::{
     dims_with_rotation, meters_with_rotation, simulate_vehicle, PhysicsMode, Rotation, Vehicle,
     VehicleControl, VehicleControlPolicy,

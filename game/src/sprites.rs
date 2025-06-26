@@ -38,7 +38,7 @@ pub fn update_static_sprites(
         let handle = state
             .image_handles
             .get(&sprite.path)
-            .or(state.image_handles.get("error"));
+            .or(state.image_handles.get("wmata7000"));
 
         let (handle, dims) = if let Some((handle, dims)) = handle {
             (handle.clone(), dims.as_vec2())

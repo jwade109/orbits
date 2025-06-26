@@ -161,7 +161,7 @@ pub struct GameState {
     /// planets and orbiters
     pub ids: ObjectIdTracker,
 
-    pub landing_sites: HashMap<EntityId, Vec<(f32, String)>>,
+    pub landing_sites: HashMap<EntityId, Vec<(f32, String, Surface)>>,
     pub controllers: Vec<Controller>,
     pub constellations: HashMap<EntityId, EntityId>,
     pub vehicles: HashMap<EntityId, Vehicle>,
@@ -206,7 +206,7 @@ fn generate_starfield() -> Vec<(Vec3, Srgba, f32, f32)> {
         .collect()
 }
 
-fn generate_landing_sites(pids: &[EntityId]) -> HashMap<EntityId, Vec<(f32, String)>> {
+fn generate_landing_sites(pids: &[EntityId]) -> HashMap<EntityId, Vec<(f32, String, Surface)>> {
     pids.iter()
         .map(|pid| {
             let n = randint(3, 12);
@@ -214,7 +214,7 @@ fn generate_landing_sites(pids: &[EntityId]) -> HashMap<EntityId, Vec<(f32, Stri
                 .map(|_| {
                     let angle = rand(0.0, 2.0 * PI);
                     let name = get_random_name();
-                    (angle, name)
+                    (angle, name, Surface::random())
                 })
                 .collect();
             (*pid, sites)
@@ -358,17 +358,19 @@ impl GameState {
             }
         }
 
-        let path = self.args.install_dir.join("cloud.png");
-        if let Some(img) = crate::generate_ship_sprites::read_image(&path) {
-            let mut img = Image::from_dynamic(
-                DynamicImage::ImageRgba8(img),
-                true,
-                RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
-            );
-            img.sampler = bevy::image::ImageSampler::nearest();
-            let dims = img.size();
-            let handle = images.add(img);
-            handles.insert("cloud".into(), (handle, dims));
+        for name in ["cloud", "diamond"] {
+            let path = self.args.install_dir.join(format!("{}.png", name));
+            if let Some(img) = crate::generate_ship_sprites::read_image(&path) {
+                let mut img = Image::from_dynamic(
+                    DynamicImage::ImageRgba8(img),
+                    true,
+                    RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
+                );
+                img.sampler = bevy::image::ImageSampler::nearest();
+                let dims = img.size();
+                let handle = images.add(img);
+                handles.insert(name.into(), (handle, dims));
+            }
         }
 
         let image = generate_error_sprite();

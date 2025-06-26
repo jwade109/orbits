@@ -141,7 +141,8 @@ mod tests {
                 width: 1.6,
                 is_rcs: false,
                 throttle_rate: 2.0,
-                color: [0.5, 0.6, 0.9, 0.8],
+                primary_color: [0.5, 0.6, 0.9, 0.8],
+                secondary_color: [0.4, 0.7, 0.4, 1.0],
             }),
         };
 

@@ -4,8 +4,8 @@ use crate::game::GameState;
 use crate::input::*;
 use crate::onclick::OnClick;
 use crate::scenes::rpo::LinearCameraController;
-use crate::scenes::{CameraProjection, Render, TextLabel};
-use bevy::color::{palettes::css::*, Alpha, Luminance, Mix, Srgba};
+use crate::scenes::{CameraProjection, Render};
+use bevy::color::{palettes::css::*, Alpha, Mix, Srgba};
 use bevy::prelude::{Gizmos, KeyCode};
 use layout::layout::Tree;
 use starling::prelude::*;
@@ -15,13 +15,11 @@ use std::collections::HashSet;
 pub struct SurfaceContext {
     camera: LinearCameraController,
     // real stuff
-    plants: Vec<Plant>,
-    wind_offset: f32,
     vehicles: Vec<Vehicle>,
     selected: HashSet<usize>,
-    manual_control: bool,
-    /// in 10ths of a G
-    gravity: u32,
+
+    surface: Surface,
+
     particles: Vec<ThrustParticle>,
 }
 
@@ -36,15 +34,17 @@ struct ThrustParticle {
     stamp: Nanotime,
     lifetime: Nanotime,
     color: Srgba,
+    final_color: Srgba,
 }
 
 impl ThrustParticle {
-    fn new(pv: PV, stamp: Nanotime, color: Srgba) -> Self {
+    fn new(pv: PV, stamp: Nanotime, color: Srgba, final_color: Srgba) -> Self {
         Self {
             pv,
             birth: stamp,
             stamp,
             color,
+            final_color,
             lifetime: Nanotime::secs_f32(MAX_PARTICLE_AGE_SECONDS * rand(0.5, 1.0)),
         }
     }
@@ -78,48 +78,16 @@ impl Default for SurfaceContext {
                 scale: 1.0,
                 target_scale: 1.0,
             },
-            plants: generate_plants(),
-            wind_offset: 0.0,
             vehicles: Vec::new(),
+            surface: Surface::random(),
             selected: HashSet::new(),
-            manual_control: false,
-            gravity: 5,
             particles: Vec::new(),
         }
     }
 }
 
-fn generate_plants() -> Vec<Plant> {
-    let ret = Vec::new();
-
-    // for _ in 0..30 {
-    //     let root = Vec2::new(rand(-100.0, 100.0), rand(-40.0, -10.0));
-
-    //     let mut segments = Vec::new();
-    //     if rand(0.0, 1.0) < 0.2 {
-    //         let n_segments = randint(5, 7);
-    //         for _ in 0..n_segments {
-    //             let angle = rand(-0.4, 0.4);
-    //             let length = rand(1.2, 2.3);
-    //             segments.push((angle, length));
-    //         }
-    //     } else {
-    //         for _ in 0..5 {
-    //             let angle = rand(-0.4, 0.4);
-    //             let length = rand(0.3, 0.9);
-    //             segments.push((angle, length));
-    //         }
-    //     }
-
-    //     let p = Plant::new(root, segments);
-
-    //     ret.push(p);
-    // }
-
-    ret
-}
-
-pub fn keyboard_control_law(input: &InputState) -> VehicleControl {
+#[allow(unused)]
+fn keyboard_control_law(input: &InputState) -> VehicleControl {
     let allow_linear_rcs: bool = input.is_pressed(KeyCode::ControlLeft);
     let control = if input.is_pressed(KeyCode::ArrowUp) {
         Vec2::X
@@ -167,24 +135,12 @@ impl SurfaceContext {
     }
 
     pub fn gravity_vector(&self) -> Vec2 {
-        Vec2::new(0.0, -(self.gravity as f32) / 10.0 * 9.81)
+        Vec2::new(0.0, -(self.surface.gravity as f32) / 10.0 * 9.81)
     }
 
-    pub fn increase_gravity(&mut self) {
-        self.gravity += 1;
-    }
+    pub fn increase_gravity(&mut self) {}
 
-    pub fn decrease_gravity(&mut self) {
-        if self.gravity > 0 {
-            self.gravity -= 1;
-        }
-    }
-
-    // pub fn follow_position(&self) -> Option<Vec2> {
-    //     let idx = self.follow_vehicle.then(|| self.ownship)??;
-    //     let v = self.vehicles.get(idx)?;
-    //     Some(v.pv.pos_f32())
-    // }
+    pub fn decrease_gravity(&mut self) {}
 
     pub fn mouseover_vehicle(&self, pos: Vec2) -> Option<(usize, &Vehicle)> {
         for (i, v) in self.vehicles.iter().enumerate() {
@@ -197,33 +153,12 @@ impl SurfaceContext {
         None
     }
 
-    pub fn randomize(&mut self) {
-        for v in &mut self.vehicles {
-            let x = rand(-200.0, 200.0);
-            let y = rand(40.0, 120.0);
-            let target = Vec2::new(x, y);
-            v.policy = VehicleControlPolicy::PositionHold(target);
-        }
-    }
-
     pub fn step(state: &mut GameState, dt: f32) {
         if state.sim_speed > 2 {
             state.sim_speed = 2;
         }
 
         let ctx = &mut state.surface_context;
-
-        // if state.input.just_pressed(KeyCode::KeyF) {
-        //     ctx.follow_vehicle = !ctx.follow_vehicle;
-        // }
-
-        if state.input.just_pressed(KeyCode::KeyM) {
-            ctx.manual_control = !ctx.manual_control;
-        }
-
-        if state.input.just_pressed(KeyCode::KeyG) {
-            ctx.randomize();
-        }
 
         (|| -> Option<()> {
             let (pos, double) = if let Some(p) = state.input.double_click() {
@@ -289,7 +224,9 @@ impl SurfaceContext {
                     let c1 = to_srbga(t.proto.primary_color);
                     let c2 = to_srbga(t.proto.secondary_color);
                     let color = c1.mix(&c2, rand(0.0, 1.0));
-                    ctx.particles.push(ThrustParticle::new(pv, stamp, color));
+                    let final_color = WHITE.mix(&DARK_GRAY, rand(0.3, 0.9)).with_alpha(0.4);
+                    ctx.particles
+                        .push(ThrustParticle::new(pv, stamp, color, final_color));
                     stamp += NOMINAL_DT;
                 }
             }
@@ -310,23 +247,6 @@ impl SurfaceContext {
         for part in &mut ctx.particles {
             part.step_until(state.sim_time);
         }
-
-        // if let Some(v) = ctx.follow_position() {
-        //     ctx.camera.center = v;
-        //     ctx.camera.target_center = ctx.camera.center;
-        // }
-
-        for p in &mut ctx.plants {
-            p.step(dt, ctx.wind_offset);
-        }
-
-        // if state.input.is_pressed(KeyCode::KeyM) {
-        //     ctx.wind_offset += 0.01;
-        // } else if state.input.is_pressed(KeyCode::KeyN) {
-        //     ctx.wind_offset -= 0.01;
-        // }
-
-        // ctx.wind_offset = ctx.wind_offset.clamp(-0.4, 0.4);
     }
 }
 
@@ -337,14 +257,6 @@ impl CameraProjection for SurfaceContext {
 
     fn scale(&self) -> f32 {
         self.camera.scale
-    }
-}
-
-fn draw_plant(gizmos: &mut Gizmos, p: &Plant, ctx: &impl CameraProjection) {
-    for (p, q) in p.segments() {
-        let p = ctx.w2c(p);
-        let q = ctx.w2c(q);
-        gizmos.line_2d(p, q, ORANGE);
     }
 }
 
@@ -412,12 +324,29 @@ fn surface_scene_ui(state: &GameState) -> Tree<OnClick> {
 }
 
 impl Render for SurfaceContext {
-    fn background_color(_state: &GameState) -> Srgba {
-        TEAL.with_luminance(0.3)
+    fn background_color(state: &GameState) -> Srgba {
+        let c = state.surface_context.surface.atmo_color;
+        to_srbga([c[0], c[1], c[2], 1.0])
     }
 
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         let ctx = &state.surface_context;
+
+        {
+            let bl = ctx.w2c(Vec2::new(-1000.0, -500.0));
+            let tr = ctx.w2c(Vec2::new(1000.0, 0.0));
+            let center = (tr + bl) / 2.0;
+            let dims = tr - bl;
+
+            if dims.x > 0.0 && dims.y > 0.0 {
+                let color = ctx.surface.land_color;
+                let color = to_srbga([color[0], color[1], color[2], 1.0]);
+
+                canvas
+                    .sprite(center, 0.0, "error", -10.0, dims)
+                    .set_color(color);
+            }
+        };
 
         for (i, particle) in ctx.particles.iter().enumerate() {
             let p = ctx.w2c(particle.pv.pos_f32());
@@ -425,7 +354,9 @@ impl Render for SurfaceContext {
             let alpha = (1.0 - age / particle.lifetime.to_secs())
                 .powi(3)
                 .clamp(0.0, 1.0);
-            let color = particle.color.mix(&DARK_GRAY, age.clamp(0.0, 1.0).sqrt());
+            let color = particle
+                .color
+                .mix(&particle.final_color, age.clamp(0.0, 1.0).sqrt());
             let size = 1.0 + age * 12.0;
             let stretch = (8.0 * (1.0 - age * 2.0)).max(1.0);
             let angle = particle.pv.vel.to_angle() as f32;
@@ -512,16 +443,6 @@ impl Render for SurfaceContext {
         }
 
         canvas.gizmos.line_2d(p, q, WHITE);
-
-        for p in &ctx.plants {
-            draw_plant(&mut canvas.gizmos, p, ctx);
-        }
-
-        canvas.label(TextLabel::new(
-            format!("{:0.2}", ctx.wind_offset),
-            Vec2::splat(-300.0),
-            1.0,
-        ));
 
         canvas.label(crate::scenes::orbital::date_label(state));
 

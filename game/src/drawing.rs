@@ -1261,7 +1261,7 @@ fn draw_rendezvous_info(canvas: &mut Canvas, state: &GameState) -> Option<()> {
 fn draw_landing_sites(gizmos: &mut Gizmos, state: &GameState) {
     let ctx = &state.orbital_context;
     for (pid, sites) in &state.landing_sites {
-        for (site, _) in sites {
+        for (site, _, _) in sites {
             if let Some(pos) = OrbitalContext::landing_site_position(state, *pid, *site) {
                 let p = ctx.w2c(pos);
                 draw_diamond(gizmos, p, 12.0, WHITE.with_alpha(0.7))

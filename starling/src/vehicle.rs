@@ -581,6 +581,11 @@ impl Vehicle {
             return;
         }
 
+        if self.remaining_dv() == 0.0 {
+            self.set_zero_thrust(stamp);
+            return;
+        }
+
         for t in &mut self.thrusters {
             let u = t.pointing();
             let is_torque = t.proto.is_rcs && {
