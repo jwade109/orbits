@@ -21,6 +21,8 @@ pub struct SurfaceContext {
     surface: Surface,
 
     particles: Vec<ThrustParticle>,
+
+    factory: Factory,
 }
 
 const MAX_PARTICLE_AGE_SECONDS: f32 = 3.0;
@@ -82,6 +84,7 @@ impl Default for SurfaceContext {
             surface: Surface::random(),
             selected: HashSet::new(),
             particles: Vec::new(),
+            factory: Factory::new(Nanotime::zero()),
         }
     }
 }
@@ -142,6 +145,10 @@ impl SurfaceContext {
 
     pub fn decrease_gravity(&mut self) {}
 
+    pub fn inventory(&self) -> &Inventory {
+        &self.factory.inventory
+    }
+
     pub fn mouseover_vehicle(&self, pos: Vec2) -> Option<(usize, &Vehicle)> {
         for (i, v) in self.vehicles.iter().enumerate() {
             let d = v.pv.pos_f32().distance(pos);
@@ -154,11 +161,15 @@ impl SurfaceContext {
     }
 
     pub fn step(state: &mut GameState, dt: f32) {
-        if state.sim_speed > 2 {
-            state.sim_speed = 2;
-        }
+        // if state.sim_speed > 3 {
+        //     state.sim_speed = 3;
+        // }
 
         let ctx = &mut state.surface_context;
+
+        if state.input.just_pressed(KeyCode::KeyF) {
+            ctx.factory = Factory::new(state.sim_time);
+        }
 
         (|| -> Option<()> {
             let (pos, double) = if let Some(p) = state.input.double_click() {
@@ -199,6 +210,8 @@ impl SurfaceContext {
             }
             None
         })();
+
+        ctx.factory.do_stuff(state.sim_time);
 
         ctx.camera.update(dt, &state.input);
 
@@ -331,6 +344,12 @@ impl Render for SurfaceContext {
 
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         let ctx = &state.surface_context;
+
+        draw_factory(
+            canvas,
+            &ctx.factory,
+            AABB::new(Vec2::ZERO, Vec2::new(700.0, 500.0)),
+        );
 
         {
             let bl = ctx.w2c(Vec2::new(-1000.0, -500.0));

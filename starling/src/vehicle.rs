@@ -646,6 +646,10 @@ impl Vehicle {
     }
 
     pub fn step(&mut self, stamp: Nanotime, mode: PhysicsMode, gravity: Vec2) {
+        if self.remaining_dv() == 0.0 {
+            self.stamp = stamp;
+        }
+
         while self.stamp < stamp {
             let control = current_control_law(&self, gravity);
 

@@ -8,6 +8,7 @@ pub enum InventoryItem {
     Magnesium,
     Silicon,
     Titanium,
+    Ice,
     Foodstuffs,
     /// H2O, 18 g/mol
     Water,
@@ -22,11 +23,26 @@ pub enum InventoryItem {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Inventory(HashMap<InventoryItem, u64>);
+pub struct Inventory(HashMap<InventoryItem, ItemCount>);
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct ItemCount {
+    pub count: u64,
+    pub capacity: u64,
+}
 
 impl Inventory {
     pub fn new() -> Self {
         Self(HashMap::new())
+    }
+
+    pub fn set_capacity(&mut self, item: InventoryItem, capacity: u64) {
+        let count = self.count(item);
+        let info = ItemCount {
+            count: count.min(capacity),
+            capacity,
+        };
+        self.0.insert(item, info);
     }
 
     pub fn is_empty(&self) -> bool {
@@ -41,20 +57,38 @@ impl Inventory {
         self.0.clear()
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&InventoryItem, &u64)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&InventoryItem, &ItemCount)> {
         self.0.iter()
     }
 
     pub fn count(&self, item: InventoryItem) -> u64 {
-        self.0.get(&item).cloned().unwrap_or(0)
+        self.0.get(&item).map(|c| c.count).unwrap_or(0)
+    }
+
+    pub fn capacity(&self, item: InventoryItem) -> u64 {
+        self.0.get(&item).map(|c| c.capacity).unwrap_or(0)
+    }
+
+    pub fn can_store(&self, item: InventoryItem, count: u64) -> bool {
+        if let Some(item) = self.0.get(&item) {
+            item.capacity >= item.count + count
+        } else {
+            false
+        }
     }
 
     pub fn take_all(&mut self, item: InventoryItem) -> u64 {
-        self.0.remove(&item).unwrap_or(0)
+        if let Some(info) = self.0.get_mut(&item) {
+            let c = info.count;
+            info.count = 0;
+            c
+        } else {
+            0
+        }
     }
 
     pub fn has(&mut self, item: InventoryItem) -> bool {
-        self.0.contains_key(&item)
+        self.0.get(&item).map(|c| c.count > 0).unwrap_or(false)
     }
 
     pub fn take(&mut self, item: InventoryItem, count: u64) -> u64 {
@@ -66,21 +100,50 @@ impl Inventory {
         n.min(count)
     }
 
-    pub fn add(&mut self, item: InventoryItem, count: u64) {
-        let old = self.count(item);
-        self.0.insert(item.clone(), old + count);
+    pub fn add(&mut self, item: InventoryItem, count: u64) -> bool {
+        if let Some(info) = self.0.get_mut(&item) {
+            info.count = (info.count + count).min(info.capacity);
+            return true;
+        }
+        return false;
+    }
+}
+
+pub fn format_grams(grams: u64) -> String {
+    if grams < 1000 {
+        format!("{} g", grams)
+    } else if grams < 1000000 {
+        format!("{:0.1} kg", grams as f32 / 1000.0)
+    } else {
+        format!("{:0.1} t", (grams / 1000) as f32 / 1000.0)
     }
 }
 
 impl std::fmt::Display for Inventory {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.is_empty() {
+            return write!(f, "[empty inventory]");
+        }
+
         for (i, (k, v)) in self.iter().enumerate() {
-            write!(f, "{:?}: {} g", k, v)?;
+            write!(
+                f,
+                "{:?}: {}/{}",
+                k,
+                format_grams(v.count),
+                format_grams(v.capacity)
+            )?;
             if i + 1 < self.len() {
                 write!(f, ", ")?;
             }
         }
         Ok(())
+    }
+}
+
+impl std::fmt::Display for ItemCount {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}/{}", self.count, self.capacity)
     }
 }
 

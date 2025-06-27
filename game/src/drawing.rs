@@ -1270,6 +1270,51 @@ fn draw_landing_sites(gizmos: &mut Gizmos, state: &GameState) {
     }
 }
 
+pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, aabb: AABB) {
+    draw_aabb(&mut canvas.gizmos, aabb, WHITE.with_alpha(0.3));
+
+    let mut text_pos = aabb.top_center() + Vec2::Y * 20.0;
+
+    canvas.text(format!("{}", factory.stamp.to_date()), text_pos, 0.7);
+
+    for recipe in &factory.recipes {
+        text_pos += Vec2::Y * 24.0;
+        canvas.text(format!("{}", recipe), text_pos, 0.7);
+    }
+
+    if factory.inventory.is_empty() {
+        return;
+    }
+
+    let column_width = aabb.span.x / factory.inventory.len() as f32;
+
+    let mut bl = aabb.lower();
+
+    for (item, info) in factory.inventory.iter() {
+        let color = crate::sprites::hashable_to_color(item);
+        let dims = Vec2::new(
+            column_width,
+            aabb.span.y * info.count as f32 / info.capacity as f32,
+        );
+        let aabb = AABB::from_arbitrary(bl, bl + dims);
+        canvas
+            .sprite(aabb.center, 0.0, "error", 0.0, aabb.span)
+            .set_color(color);
+
+        // TODO
+        use starling::inventory::format_grams;
+
+        let mut bottom = aabb.bottom_center() - Vec2::Y * 15.0;
+        canvas.text(format!("{:?}", item), bottom, 0.7);
+        bottom -= Vec2::Y * 20.0;
+        canvas.text(format!("{}", format_grams(info.count)), bottom, 0.7);
+        bottom -= Vec2::Y * 20.0;
+        canvas.text(format!("{}", format_grams(info.capacity)), bottom, 0.7);
+
+        bl += Vec2::X * column_width;
+    }
+}
+
 pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
     let ctx = &state.orbital_context;
 

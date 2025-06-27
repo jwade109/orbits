@@ -277,7 +277,7 @@ impl GameState {
             "lander", "lander", "pollux", "goober", "remora", "manta", "jubilee",
         ] {
             if let Some(v) = g.get_vehicle_by_model(model) {
-                g.surface_context.add_vehicle(v);
+                // g.surface_context.add_vehicle(v);
             }
         }
 
@@ -296,7 +296,7 @@ impl GameState {
             let vehicle = g.get_random_vehicle();
             let orbit = get_random_orbit(EntityId(0));
             if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {
-                g.spawn_with_random_perturbance(orbit, vehicle);
+                // g.spawn_with_random_perturbance(orbit, vehicle);
             }
         }
 
@@ -314,13 +314,13 @@ impl GameState {
             let vehicle = g.get_random_vehicle();
             let orbit = get_random_orbit(EntityId(1));
             if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {
-                g.spawn_with_random_perturbance(orbit, vehicle);
+                // g.spawn_with_random_perturbance(orbit, vehicle);
             }
         }
 
         for (id, _) in &g.orbiters {
             if g.favorites.len() < 5 && rand(0.0, 1.0) < 0.05 {
-                g.favorites.insert(*id);
+                // g.favorites.insert(*id);
             }
         }
 

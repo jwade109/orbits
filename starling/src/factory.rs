@@ -3,7 +3,9 @@ use crate::nanotime::Nanotime;
 
 #[derive(Debug)]
 pub struct Factory {
-    stamp: Nanotime,
+    pub stamp: Nanotime,
+    pub inventory: Inventory,
+    pub recipes: Vec<Recipe>,
 }
 
 #[derive(Debug)]
@@ -12,10 +14,102 @@ pub struct Recipe {
     outputs: Vec<(InventoryItem, u64)>,
 }
 
+impl std::fmt::Display for Recipe {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?} => {:?}", &self.inputs, &self.outputs)
+    }
+}
+
+pub fn sabatier_reaction() -> Recipe {
+    Recipe {
+        inputs: vec![(InventoryItem::CO2, 44), (InventoryItem::H2, 8)],
+        outputs: vec![(InventoryItem::Methane, 16), (InventoryItem::Water, 36)],
+    }
+}
+
+pub fn water_electrolysis() -> Recipe {
+    Recipe {
+        inputs: vec![(InventoryItem::Water, 9)],
+        outputs: vec![(InventoryItem::O2, 8), (InventoryItem::H2, 1)],
+    }
+}
+
+pub fn carbon_dioxide_condensation() -> Recipe {
+    Recipe {
+        inputs: vec![],
+        outputs: vec![(InventoryItem::CO2, 100)],
+    }
+}
+
+pub fn harvest_grain() -> Recipe {
+    Recipe {
+        inputs: vec![],
+        outputs: vec![(InventoryItem::Foodstuffs, 10)],
+    }
+}
+
+pub fn ice_melting() -> Recipe {
+    Recipe {
+        inputs: vec![(InventoryItem::Ice, 500)],
+        outputs: vec![(InventoryItem::Water, 500)],
+    }
+}
+
+pub fn ice_mining() -> Recipe {
+    Recipe {
+        inputs: vec![],
+        outputs: vec![(InventoryItem::Ice, 10)],
+    }
+}
+
+pub fn people_eat_things() -> Recipe {
+    Recipe {
+        inputs: vec![
+            (InventoryItem::Water, 1_000_000),
+            (InventoryItem::Foodstuffs, 1_000_000),
+        ],
+        outputs: vec![],
+    }
+}
+
 impl Factory {
-    fn new() -> Self {
+    pub fn new(stamp: Nanotime) -> Self {
+        let mut inventory = Inventory::new();
+
+        inventory.set_capacity(InventoryItem::CO2, 5_000_000);
+        inventory.set_capacity(InventoryItem::H2, 5_000_000);
+        inventory.set_capacity(InventoryItem::Methane, 5_000_000);
+        inventory.set_capacity(InventoryItem::Water, 3_000_000);
+        inventory.set_capacity(InventoryItem::Foodstuffs, 2_000_000);
+        inventory.set_capacity(InventoryItem::Ice, 3_000_000);
+
+        inventory.add(InventoryItem::H2, 1_000_000);
+
+        dbg!(&inventory);
+
+        let recipes = vec![
+            sabatier_reaction(),
+            carbon_dioxide_condensation(),
+            harvest_grain(),
+            ice_melting(),
+            people_eat_things(),
+            ice_mining(),
+        ];
+
         Self {
-            stamp: Nanotime::zero(),
+            stamp,
+            inventory,
+            recipes,
+        }
+    }
+
+    pub fn do_stuff(&mut self, stamp: Nanotime) {
+        while self.stamp < stamp {
+            self.stamp += Nanotime::mins(1);
+
+            for recipe in &self.recipes {
+                apply_recipe(&mut self.inventory, recipe);
+            }
         }
     }
 }
@@ -23,6 +117,12 @@ impl Factory {
 fn apply_recipe(inv: &mut Inventory, recipe: &Recipe) -> bool {
     for (item, count) in &recipe.inputs {
         if inv.count(*item) < *count {
+            return false;
+        }
+    }
+
+    for (item, count) in &recipe.outputs {
+        if !inv.can_store(*item, *count) {
             return false;
         }
     }
@@ -45,25 +145,6 @@ mod tests {
     #[test]
     fn do_factory() {
         // OK. how simulate sabatier reaction?
-        let factory = Factory::new();
-
-        // CO2 (44) + 4H2 (8) -> CH4 (16) + 2H20 (36)
-
-        let sabatier = Recipe {
-            inputs: vec![(InventoryItem::CO2, 44), (InventoryItem::H2, 8)],
-            outputs: vec![(InventoryItem::Methane, 16), (InventoryItem::Water, 36)],
-        };
-
-        let carbon_dioxide_condensation = Recipe {
-            inputs: vec![],
-            outputs: vec![(InventoryItem::CO2, 44)],
-        };
-
-        let electrolysis = Recipe {
-            inputs: vec![(InventoryItem::Water, 9)],
-            outputs: vec![(InventoryItem::O2, 8), (InventoryItem::H2, 1)],
-        };
-
         let mut inv = Inventory::new();
 
         // feedstock!
@@ -72,9 +153,9 @@ mod tests {
         println!("{}", &inv);
 
         for i in 0..2000 {
-            apply_recipe(&mut inv, &carbon_dioxide_condensation);
+            apply_recipe(&mut inv, &carbon_dioxide_condensation());
             println!("{} {}", i, &inv);
-            if !apply_recipe(&mut inv, &sabatier) {
+            if !apply_recipe(&mut inv, &sabatier_reaction()) {
                 inv.take_all(InventoryItem::CO2);
                 break;
             }
@@ -83,7 +164,7 @@ mod tests {
 
         println!("{}", &inv);
 
-        while apply_recipe(&mut inv, &electrolysis) {}
+        while apply_recipe(&mut inv, &water_electrolysis()) {}
 
         println!("{}", &inv);
     }

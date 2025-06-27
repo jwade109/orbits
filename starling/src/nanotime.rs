@@ -109,6 +109,22 @@ impl Nanotime {
     }
 }
 
+impl std::fmt::Display for Date {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Y{} W{} D{} {:02}:{:02}:{:02}.{:03}",
+            self.year + 1,
+            self.week + 1,
+            self.day + 1,
+            self.hour,
+            self.min,
+            self.sec,
+            self.milli,
+        )
+    }
+}
+
 fn fmt(s: &Nanotime, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     let disp = s.0.abs();
     if s.0 >= 0 {

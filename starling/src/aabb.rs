@@ -73,6 +73,14 @@ impl AABB {
         self.center - self.span / 2.0
     }
 
+    pub fn top_center(&self) -> Vec2 {
+        self.center + Vec2::Y * self.span.y / 2.0
+    }
+
+    pub fn bottom_center(&self) -> Vec2 {
+        self.center - Vec2::Y * self.span.y / 2.0
+    }
+
     pub fn upper(&self) -> Vec2 {
         self.center + self.span / 2.0
     }

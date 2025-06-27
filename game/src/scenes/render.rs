@@ -69,13 +69,13 @@ impl StaticSpriteDescriptor {
         }
     }
 
-    pub fn with_color(mut self, color: Srgba) -> Self {
-        self.color = Some(color);
+    pub fn with_color(mut self, color: impl Into<Srgba>) -> Self {
+        self.color = Some(color.into());
         self
     }
 
-    pub fn set_color(&mut self, color: Srgba) {
-        self.color = Some(color);
+    pub fn set_color(&mut self, color: impl Into<Srgba>) {
+        self.color = Some(color.into());
     }
 }
 
