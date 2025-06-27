@@ -358,7 +358,7 @@ impl GameState {
             }
         }
 
-        for name in ["cloud", "diamond"] {
+        for name in ["cloud", "diamond", "ice", "bread"] {
             let path = self.args.install_dir.join(format!("{}.png", name));
             if let Some(img) = crate::generate_ship_sprites::read_image(&path) {
                 let mut img = Image::from_dynamic(

@@ -14,3 +14,4 @@
 - travel to the center of the galaxy
 - interstellar N-body physics
 - cultivation of crops/improved cultivars for fuel/food/etc
+- stellar hydrogen harvesting

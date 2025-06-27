@@ -41,10 +41,10 @@ pub fn carbon_dioxide_condensation() -> Recipe {
     }
 }
 
-pub fn harvest_grain() -> Recipe {
+pub fn harvest_bread() -> Recipe {
     Recipe {
         inputs: vec![],
-        outputs: vec![(InventoryItem::Foodstuffs, 10)],
+        outputs: vec![(InventoryItem::Bread, 10)],
     }
 }
 
@@ -66,7 +66,7 @@ pub fn people_eat_things() -> Recipe {
     Recipe {
         inputs: vec![
             (InventoryItem::Water, 1_000_000),
-            (InventoryItem::Foodstuffs, 1_000_000),
+            (InventoryItem::Bread, 1_000_000),
         ],
         outputs: vec![],
     }
@@ -80,7 +80,7 @@ impl Factory {
         inventory.set_capacity(InventoryItem::H2, 5_000_000);
         inventory.set_capacity(InventoryItem::Methane, 5_000_000);
         inventory.set_capacity(InventoryItem::Water, 3_000_000);
-        inventory.set_capacity(InventoryItem::Foodstuffs, 2_000_000);
+        inventory.set_capacity(InventoryItem::Bread, 2_000_000);
         inventory.set_capacity(InventoryItem::Ice, 3_000_000);
 
         inventory.add(InventoryItem::H2, 1_000_000);
@@ -90,7 +90,7 @@ impl Factory {
         let recipes = vec![
             sabatier_reaction(),
             carbon_dioxide_condensation(),
-            harvest_grain(),
+            harvest_bread(),
             ice_melting(),
             people_eat_things(),
             ice_mining(),

@@ -9,7 +9,7 @@ pub enum InventoryItem {
     Silicon,
     Titanium,
     Ice,
-    Foodstuffs,
+    Bread,
     /// H2O, 18 g/mol
     Water,
     /// CH4; 16 g/mol
@@ -20,6 +20,12 @@ pub enum InventoryItem {
     CO2,
     /// O2;  32 g/mol
     O2,
+}
+
+impl InventoryItem {
+    pub fn to_string(&self) -> String {
+        format!("{:?}", self)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -174,7 +180,7 @@ mod tests {
         assert_eq!(inv.take_all(Iron), 7400);
         assert_eq!(inv.take_all(Iron), 0);
         assert!(inv.has(Water));
-        assert!(!inv.has(Foodstuffs));
+        assert!(!inv.has(Bread));
         assert!(!inv.is_empty());
 
         println!("{}", inv);

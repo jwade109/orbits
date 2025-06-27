@@ -1311,6 +1311,16 @@ pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, aabb: AABB) {
         bottom -= Vec2::Y * 20.0;
         canvas.text(format!("{}", format_grams(info.capacity)), bottom, 0.7);
 
+        let sprite_name = item.to_string().to_lowercase();
+        bottom -= Vec2::Y * column_width * 0.7;
+        canvas.sprite(
+            bottom,
+            0.0,
+            sprite_name,
+            0.0,
+            Vec2::splat(column_width * 0.7),
+        );
+
         bl += Vec2::X * column_width;
     }
 }
