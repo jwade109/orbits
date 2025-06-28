@@ -1275,51 +1275,49 @@ pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, aabb: AABB) {
 
     let mut text_pos = aabb.top_center() + Vec2::Y * 20.0;
 
-    canvas.text(format!("{}", factory.stamp.to_date()), text_pos, 0.7);
+    canvas.text(format!("{}", factory.stamp().to_date()), text_pos, 0.7);
 
-    for recipe in &factory.recipes {
+    for plant in factory.plants() {
         text_pos += Vec2::Y * 24.0;
-        canvas.text(format!("{}", recipe), text_pos, 0.7);
+        canvas.text(format!("{}", plant.recipe()), text_pos, 0.7);
     }
 
-    if factory.inventory.is_empty() {
+    for storage in factory.storage() {
+        text_pos += Vec2::Y * 24.0;
+        canvas.text(format!("{:?}", storage), text_pos, 0.7);
+    }
+
+    if factory.storage_count() == 0 {
         return;
     }
 
-    let column_width = aabb.span.x / factory.inventory.len() as f32;
+    let column_width = aabb.span.x / factory.storage_count() as f32;
+    let sprite_size = 50.0;
 
     let mut bl = aabb.lower();
 
-    for (item, info) in factory.inventory.iter() {
-        let color = crate::sprites::hashable_to_color(item);
+    for storage in factory.storage() {
+        let item = storage.item();
+        let color = crate::sprites::hashable_to_color(&item);
         let dims = Vec2::new(
             column_width,
-            aabb.span.y * info.count as f32 / info.capacity as f32,
+            aabb.span.y * storage.count() as f32 / storage.capacity() as f32,
         );
         let aabb = AABB::from_arbitrary(bl, bl + dims);
         canvas
             .sprite(aabb.center, 0.0, "error", 0.0, aabb.span)
             .set_color(color);
 
-        // TODO
-        use starling::inventory::format_grams;
-
         let mut bottom = aabb.bottom_center() - Vec2::Y * 15.0;
         canvas.text(format!("{:?}", item), bottom, 0.7);
         bottom -= Vec2::Y * 20.0;
-        canvas.text(format!("{}", format_grams(info.count)), bottom, 0.7);
+        canvas.text(format!("{}", Mass::grams(storage.count())), bottom, 0.7);
         bottom -= Vec2::Y * 20.0;
-        canvas.text(format!("{}", format_grams(info.capacity)), bottom, 0.7);
+        canvas.text(format!("{}", Mass::grams(storage.capacity())), bottom, 0.7);
 
         let sprite_name = item.to_string().to_lowercase();
-        bottom -= Vec2::Y * column_width * 0.7;
-        canvas.sprite(
-            bottom,
-            0.0,
-            sprite_name,
-            0.0,
-            Vec2::splat(column_width * 0.7),
-        );
+        bottom -= Vec2::Y * sprite_size;
+        canvas.sprite(bottom, 0.0, sprite_name, 0.0, Vec2::splat(sprite_size));
 
         bl += Vec2::X * column_width;
     }

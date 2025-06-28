@@ -285,3 +285,13 @@ parts:
   - -33
   - -54
   rot: North
+- partname: frame3
+  pos:
+  - 212
+  - -34
+  rot: West
+- partname: frame3
+  pos:
+  - 212
+  - 25
+  rot: West

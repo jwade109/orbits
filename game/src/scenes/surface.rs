@@ -84,7 +84,7 @@ impl Default for SurfaceContext {
             surface: Surface::random(),
             selected: HashSet::new(),
             particles: Vec::new(),
-            factory: Factory::new(Nanotime::zero()),
+            factory: model_factory(),
         }
     }
 }
@@ -145,10 +145,6 @@ impl SurfaceContext {
 
     pub fn decrease_gravity(&mut self) {}
 
-    pub fn inventory(&self) -> &Inventory {
-        &self.factory.inventory
-    }
-
     pub fn mouseover_vehicle(&self, pos: Vec2) -> Option<(usize, &Vehicle)> {
         for (i, v) in self.vehicles.iter().enumerate() {
             let d = v.pv.pos_f32().distance(pos);
@@ -168,7 +164,7 @@ impl SurfaceContext {
         let ctx = &mut state.surface_context;
 
         if state.input.just_pressed(KeyCode::KeyF) {
-            ctx.factory = Factory::new(state.sim_time);
+            ctx.factory = model_factory();
         }
 
         (|| -> Option<()> {

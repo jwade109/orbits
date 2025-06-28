@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub enum InventoryItem {
+pub enum Item {
     Iron,
     Copper,
     Magnesium,
@@ -20,16 +20,19 @@ pub enum InventoryItem {
     CO2,
     /// O2;  32 g/mol
     O2,
+    People,
+    Calzones,
+    Geodes,
 }
 
-impl InventoryItem {
+impl Item {
     pub fn to_string(&self) -> String {
         format!("{:?}", self)
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Inventory(HashMap<InventoryItem, ItemCount>);
+pub struct Inventory(HashMap<Item, ItemCount>);
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct ItemCount {
@@ -42,7 +45,7 @@ impl Inventory {
         Self(HashMap::new())
     }
 
-    pub fn set_capacity(&mut self, item: InventoryItem, capacity: u64) {
+    pub fn set_capacity(&mut self, item: Item, capacity: u64) {
         let count = self.count(item);
         let info = ItemCount {
             count: count.min(capacity),
@@ -63,19 +66,19 @@ impl Inventory {
         self.0.clear()
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&InventoryItem, &ItemCount)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&Item, &ItemCount)> {
         self.0.iter()
     }
 
-    pub fn count(&self, item: InventoryItem) -> u64 {
+    pub fn count(&self, item: Item) -> u64 {
         self.0.get(&item).map(|c| c.count).unwrap_or(0)
     }
 
-    pub fn capacity(&self, item: InventoryItem) -> u64 {
+    pub fn capacity(&self, item: Item) -> u64 {
         self.0.get(&item).map(|c| c.capacity).unwrap_or(0)
     }
 
-    pub fn can_store(&self, item: InventoryItem, count: u64) -> bool {
+    pub fn can_store(&self, item: Item, count: u64) -> bool {
         if let Some(item) = self.0.get(&item) {
             item.capacity >= item.count + count
         } else {
@@ -83,7 +86,7 @@ impl Inventory {
         }
     }
 
-    pub fn take_all(&mut self, item: InventoryItem) -> u64 {
+    pub fn take_all(&mut self, item: Item) -> u64 {
         if let Some(info) = self.0.get_mut(&item) {
             let c = info.count;
             info.count = 0;
@@ -93,11 +96,11 @@ impl Inventory {
         }
     }
 
-    pub fn has(&mut self, item: InventoryItem) -> bool {
+    pub fn has(&mut self, item: Item) -> bool {
         self.0.get(&item).map(|c| c.count > 0).unwrap_or(false)
     }
 
-    pub fn take(&mut self, item: InventoryItem, count: u64) -> u64 {
+    pub fn take(&mut self, item: Item, count: u64) -> u64 {
         let n = self.take_all(item);
         let remaining = if count > n { 0 } else { n - count };
         if remaining > 0 {
@@ -106,22 +109,12 @@ impl Inventory {
         n.min(count)
     }
 
-    pub fn add(&mut self, item: InventoryItem, count: u64) -> bool {
+    pub fn add(&mut self, item: Item, count: u64) -> bool {
         if let Some(info) = self.0.get_mut(&item) {
             info.count = (info.count + count).min(info.capacity);
             return true;
         }
         return false;
-    }
-}
-
-pub fn format_grams(grams: u64) -> String {
-    if grams < 1000 {
-        format!("{} g", grams)
-    } else if grams < 1000000 {
-        format!("{:0.1} kg", grams as f32 / 1000.0)
-    } else {
-        format!("{:0.1} t", (grams / 1000) as f32 / 1000.0)
     }
 }
 
@@ -132,13 +125,7 @@ impl std::fmt::Display for Inventory {
         }
 
         for (i, (k, v)) in self.iter().enumerate() {
-            write!(
-                f,
-                "{:?}: {}/{}",
-                k,
-                format_grams(v.count),
-                format_grams(v.capacity)
-            )?;
+            write!(f, "{:?}: {}/{}", k, v.count, v.capacity)?;
             if i + 1 < self.len() {
                 write!(f, ", ")?;
             }
@@ -159,7 +146,7 @@ mod tests {
 
     #[test]
     fn test_inventory() {
-        use InventoryItem::*;
+        use Item::*;
 
         let mut inv = Inventory::new();
 

@@ -5,7 +5,6 @@ pub mod examples;
 pub mod factory;
 pub mod file_export;
 pub mod id;
-pub mod inventory;
 pub mod math;
 pub mod nanotime;
 pub mod orbital_luts;

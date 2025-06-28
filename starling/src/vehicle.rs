@@ -1,5 +1,5 @@
 use crate::aabb::AABB;
-use crate::inventory::{Inventory, InventoryItem};
+use crate::factory::{Inventory, Item};
 use crate::math::{cross2d, rand, randint, rotate, IVec2, UVec2, Vec2, PI};
 use crate::nanotime::Nanotime;
 use crate::orbits::{wrap_0_2pi, wrap_pi_npi};
@@ -44,7 +44,7 @@ fn mass_after_maneuver(ve: f32, m0: f32, dv: f32) -> f32 {
 }
 
 fn random_sat_inventory() -> Inventory {
-    use InventoryItem::*;
+    use Item::*;
     let mut inv = Inventory::new();
     inv.add(Copper, randint(2000, 5000) as u64);
     inv.add(Silicon, randint(40, 400) as u64);
