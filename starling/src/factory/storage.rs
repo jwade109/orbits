@@ -40,11 +40,26 @@ impl Storage {
         self.count = self.capacity
     }
 
+    pub fn fill_percent(&self) -> f32 {
+        self.count as f32 / self.capacity as f32
+    }
+
     pub fn can_store(&self, to_add: u64) -> bool {
         self.count + to_add <= self.capacity
     }
 
     pub fn add(&mut self, to_add: u64) {
         self.count = (self.count + to_add).min(self.capacity)
+    }
+
+    pub fn take(&mut self, to_take: u64) -> u64 {
+        if to_take <= self.count {
+            self.count -= to_take;
+            to_take
+        } else {
+            let c = self.count;
+            self.count = 0;
+            c
+        }
     }
 }

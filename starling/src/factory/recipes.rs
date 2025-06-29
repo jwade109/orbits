@@ -1,6 +1,6 @@
 use crate::factory::*;
 
-#[derive(Debug)]
+#[derive(Debug, Hash)]
 pub struct Recipe {
     inputs: Vec<(Item, u64)>,
     outputs: Vec<(Item, u64)>,
@@ -13,6 +13,14 @@ impl Recipe {
 
     pub fn output_count(&self) -> usize {
         self.outputs.len()
+    }
+
+    pub fn inputs(&self) -> impl Iterator<Item = (Item, u64)> + use<'_> {
+        self.inputs.iter().cloned()
+    }
+
+    pub fn outputs(&self) -> impl Iterator<Item = (Item, u64)> + use<'_> {
+        self.outputs.iter().cloned()
     }
 }
 

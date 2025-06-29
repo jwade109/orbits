@@ -345,6 +345,7 @@ impl Render for SurfaceContext {
             canvas,
             &ctx.factory,
             AABB::new(Vec2::ZERO, Vec2::new(700.0, 500.0)),
+            state.sim_time,
         );
 
         {

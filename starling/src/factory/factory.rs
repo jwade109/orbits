@@ -2,6 +2,11 @@ use crate::factory::*;
 use crate::nanotime::Nanotime;
 use std::collections::{HashMap, HashSet};
 
+pub enum FactoryEntity<'a> {
+    Plant(&'a Plant),
+    Storage(&'a Storage),
+}
+
 #[derive(Debug)]
 pub struct Factory {
     stamp: Nanotime,
@@ -43,8 +48,13 @@ impl Factory {
         id
     }
 
-    pub fn add_plant(&mut self, recipe: Recipe, duration: Nanotime) -> u64 {
-        let plant = Plant::new(recipe, duration);
+    pub fn add_plant(
+        &mut self,
+        name: impl Into<String>,
+        recipe: Recipe,
+        duration: Nanotime,
+    ) -> u64 {
+        let plant = Plant::new(name, recipe, duration);
         let id = self.get_new_entity_id();
         self.plants.insert(id, plant);
         id
@@ -60,12 +70,12 @@ impl Factory {
         self.connections.contains(&(a, b))
     }
 
-    pub fn plants(&self) -> impl Iterator<Item = &Plant> + use<'_> {
-        self.plants.iter().map(|(_, p)| p)
+    pub fn plants(&self) -> impl Iterator<Item = (u64, &Plant)> + use<'_> {
+        self.plants.iter().map(|(e, p)| (*e, p))
     }
 
-    pub fn storage(&self) -> impl Iterator<Item = &Storage> + use<'_> {
-        self.storage.iter().map(|(_, s)| s)
+    pub fn storage(&self) -> impl Iterator<Item = (u64, &Storage)> + use<'_> {
+        self.storage.iter().map(|(e, s)| (*e, s))
     }
 
     pub fn storage_count(&self) -> usize {
@@ -78,19 +88,32 @@ impl Factory {
 
     pub fn do_stuff(&mut self, stamp: Nanotime) {
         while self.stamp < stamp {
+            let dt = Nanotime::mins(1);
+
             for (_, storage) in &mut self.storage {
-                storage.add(crate::math::randint(100, 400) as u64);
+                let delta = crate::math::randint(-200, 400);
+                if delta > 0 {
+                    storage.add(delta as u64);
+                } else {
+                    storage.take((-delta) as u64);
+                }
             }
 
-            self.stamp += Nanotime::mins(1);
+            for (_, plant) in &mut self.plants {
+                if crate::math::rand(0.0, 1.0) < 0.005 {
+                    plant.toggle();
+                }
+
+                plant.step_forward_by(dt);
+            }
+
+            self.stamp += dt;
         }
     }
 }
 
 pub fn model_factory() -> Factory {
     let mut factory = Factory::new();
-
-    let electrolysis = water_electrolysis();
 
     let water = factory.add_storage(Item::Water, 1_500_000);
     let o2 = factory.add_storage(Item::O2, 3_000_000);
@@ -99,11 +122,16 @@ pub fn model_factory() -> Factory {
         factory.add_storage(Item::H2, 500_000);
     }
 
-    let plant = factory.add_plant(electrolysis, Nanotime::mins(3));
+    let p1 = factory.add_plant("electro", water_electrolysis(), Nanotime::mins(270));
 
-    factory.connect(plant, o2);
-    factory.connect(plant, h2);
-    factory.connect(plant, water);
+    let p2 = factory.add_plant("miner", ice_mining(), Nanotime::hours(1));
+    let _ = factory.add_plant("chemplant", sabatier_reaction(), Nanotime::days(3));
+
+    factory.connect(p1, o2);
+    factory.connect(p1, h2);
+    factory.connect(p1, water);
+
+    factory.connect(p2, water);
 
     dbg!(&factory);
 
