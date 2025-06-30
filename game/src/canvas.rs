@@ -1,11 +1,13 @@
 use crate::scenes::{StaticSpriteDescriptor, TextLabel};
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
+use starling::aabb::AABB;
 
 pub struct Canvas<'w, 's> {
     pub gizmos: Gizmos<'w, 's>,
     pub text_labels: Vec<TextLabel>,
     pub sprites: Vec<StaticSpriteDescriptor>,
+    z_index: f32,
 }
 
 impl<'w, 's> Canvas<'w, 's> {
@@ -14,6 +16,7 @@ impl<'w, 's> Canvas<'w, 's> {
             gizmos,
             text_labels: Vec::new(),
             sprites: Vec::new(),
+            z_index: 0.0,
         }
     }
 
@@ -56,5 +59,11 @@ impl<'w, 's> Canvas<'w, 's> {
         self.sprites
             .last_mut()
             .expect("Literally just pushed an element")
+    }
+
+    pub fn rect(&mut self, aabb: AABB, color: impl Into<Srgba>) {
+        self.z_index += 1.0;
+        self.sprite(aabb.center, 0.0, "error", self.z_index, aabb.span)
+            .set_color(color);
     }
 }

@@ -1271,21 +1271,21 @@ fn draw_landing_sites(gizmos: &mut Gizmos, state: &GameState) {
 }
 
 pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, aabb: AABB, stamp: Nanotime) {
-    draw_aabb(&mut canvas.gizmos, aabb, WHITE.with_alpha(0.3));
+    // draw_aabb(&mut canvas.gizmos, aabb, WHITE.with_alpha(0.3));
 
-    let mut text_pos = aabb.top_center() + Vec2::Y * 20.0;
+    // let mut text_pos = aabb.top_center() + Vec2::Y * 20.0;
 
-    canvas.text(format!("{}", factory.stamp().to_date()), text_pos, 0.7);
+    // canvas.text(format!("{}", factory.stamp().to_date()), text_pos, 0.7);
 
-    for (_, plant) in factory.plants() {
-        text_pos += Vec2::Y * 24.0;
-        canvas.text(format!("{}", plant.recipe()), text_pos, 0.7);
-    }
+    // for (_, plant) in factory.plants() {
+    //     text_pos += Vec2::Y * 24.0;
+    //     canvas.text(format!("{}", plant.recipe()), text_pos, 0.7);
+    // }
 
-    for storage in factory.storage() {
-        text_pos += Vec2::Y * 24.0;
-        canvas.text(format!("{:?}", storage), text_pos, 0.7);
-    }
+    // for storage in factory.storage() {
+    //     text_pos += Vec2::Y * 24.0;
+    //     canvas.text(format!("{:?}", storage), text_pos, 0.7);
+    // }
 
     if factory.storage_count() + factory.plant_count() == 0 {
         return;
@@ -1293,18 +1293,12 @@ pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, aabb: AABB, stamp: N
 
     let n = factory.storage_count() + factory.plant_count();
 
-    let column_width = aabb.span.x / n as f32;
-    let sprite_size = 50.0;
-
-    let mut bl = aabb.lower();
-
-    let cell_repr_offset = Vec2::new(-700.0, 300.0);
     let storage_width = 50.0;
     let plant_width = 70.0;
 
     let id_to_pos = |id: u64| {
         let angle = id as f32 * 2.0 * PI / n as f32;
-        cell_repr_offset + rotate(Vec2::X * 200.0, angle)
+        rotate(Vec2::X * 300.0, angle)
     };
 
     for (id, storage) in factory.storage() {
@@ -1312,6 +1306,12 @@ pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, aabb: AABB, stamp: N
         let aabb = AABB::new(center, Vec2::splat(storage_width));
         let color = crate::sprites::hashable_to_color(&storage.item());
         draw_aabb(&mut canvas.gizmos, aabb, color.into());
+
+        canvas.text(
+            format!("{:?}", storage.item()),
+            center + Vec2::Y * storage_width,
+            0.6,
+        );
 
         let filled = storage.fill_percent();
         let aabb_fill = AABB::from_arbitrary(
@@ -1323,12 +1323,26 @@ pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, aabb: AABB, stamp: N
             .set_color(color);
     }
 
+    // let input_port_center = |id: u64, i: usize| {
+    //     let center = id_to_pos(id);
+    //     let aabb = AABB::new(center, Vec2::splat(plant_width));
+    //     let bl = aabb.lower();
+    // };
+
     for (id, plant) in factory.plants() {
         let center = id_to_pos(id);
         let aabb = AABB::new(center, Vec2::splat(plant_width));
         draw_aabb(&mut canvas.gizmos, aabb, WHITE);
 
         canvas.text(plant.name().to_uppercase(), aabb.center, 0.6);
+
+        {
+            let d = plant_width * 0.1;
+            let lc = if plant.is_active() { WHITE } else { RED };
+            let light_upper = aabb.top_right() - Vec2::new(d, 0.0);
+            let light_lower = light_upper - Vec2::splat(d);
+            canvas.rect(AABB::from_arbitrary(light_lower, light_upper), lc);
+        }
 
         let recipe = plant.recipe();
 
@@ -1342,9 +1356,7 @@ pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, aabb: AABB, stamp: N
                 let bl = aabb.lower() + Vec2::X * i as f32 * width;
                 let tr = bl + Vec2::new(width, height);
                 let aabb = AABB::from_arbitrary(bl, tr);
-                canvas
-                    .sprite(aabb.center, 0.0, "error", 1.0, aabb.span)
-                    .set_color(color);
+                canvas.rect(aabb, color);
             }
         }
 
@@ -1358,48 +1370,69 @@ pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, aabb: AABB, stamp: N
                 let bl = aabb.lower() + Vec2::new(i as f32 * width, plant_width * 0.75);
                 let tr = bl + Vec2::new(width, height);
                 let aabb = AABB::from_arbitrary(bl, tr);
-                canvas
-                    .sprite(aabb.center, 0.0, "error", 1.0, aabb.span)
-                    .set_color(color);
+                canvas.rect(aabb, color);
             }
+        }
+
+        for (item, id) in plant.input_ports() {
+            let color = crate::sprites::hashable_to_color(&item);
+            let dst = id_to_pos(id);
+            canvas
+                .gizmos
+                .line_2d(center - Vec2::Y * plant_width / 2.5, dst, color);
+        }
+
+        for (item, id) in plant.output_ports() {
+            let color = crate::sprites::hashable_to_color(&item);
+            let dst = id_to_pos(id);
+            canvas
+                .gizmos
+                .line_2d(center + Vec2::Y * plant_width / 2.5, dst, color);
         }
     }
 
-    for (_, storage) in factory.storage() {
-        let item = storage.item();
-        let color = crate::sprites::hashable_to_color(&item);
-        let dims = Vec2::new(
-            column_width,
-            aabb.span.y * storage.count() as f32 / storage.capacity() as f32,
-        );
-        let aabb = AABB::from_arbitrary(bl, bl + dims);
-        canvas
-            .sprite(aabb.center, 0.0, "error", 0.0, aabb.span)
-            .set_color(color);
+    // bar graph representation
 
-        let mut bottom = aabb.bottom_center() - Vec2::Y * 15.0;
-        canvas.text(format!("{:?}", item), bottom, 0.7);
-        bottom -= Vec2::Y * 20.0;
-        canvas.text(format!("{}", Mass::grams(storage.count())), bottom, 0.7);
-        bottom -= Vec2::Y * 20.0;
-        canvas.text(format!("{}", Mass::grams(storage.capacity())), bottom, 0.7);
+    // let column_width = aabb.span.x / n as f32;
+    // let sprite_size = 50.0;
 
-        let sprite_name = item.to_string().to_lowercase();
-        bottom -= Vec2::Y * sprite_size;
-        canvas.sprite(bottom, 0.0, sprite_name, 0.0, Vec2::splat(sprite_size));
+    // let mut bl = aabb.lower();
 
-        bl += Vec2::X * column_width;
-    }
+    // for (_, storage) in factory.storage() {
+    //     let item = storage.item();
+    //     let color = crate::sprites::hashable_to_color(&item);
+    //     let dims = Vec2::new(
+    //         column_width,
+    //         aabb.span.y * storage.count() as f32 / storage.capacity() as f32,
+    //     );
+    //     let aabb = AABB::from_arbitrary(bl, bl + dims);
+    //     canvas
+    //         .sprite(aabb.center, 0.0, "error", 0.0, aabb.span)
+    //         .set_color(color);
 
-    for (_, plant) in factory.plants() {
-        let color = crate::sprites::hashable_to_color(plant.recipe());
-        let dims = Vec2::new(column_width, aabb.span.y * plant.progress());
-        let aabb = AABB::from_arbitrary(bl, bl + dims);
-        canvas
-            .sprite(aabb.center, 0.0, "error", 0.0, aabb.span)
-            .set_color(color);
-        bl += Vec2::X * column_width;
-    }
+    //     let mut bottom = aabb.bottom_center() - Vec2::Y * 15.0;
+    //     canvas.text(format!("{:?}", item), bottom, 0.7);
+    //     bottom -= Vec2::Y * 20.0;
+    //     canvas.text(format!("{}", Mass::grams(storage.count())), bottom, 0.7);
+    //     bottom -= Vec2::Y * 20.0;
+    //     canvas.text(format!("{}", Mass::grams(storage.capacity())), bottom, 0.7);
+
+    //     let sprite_name = item.to_string().to_lowercase();
+    //     bottom -= Vec2::Y * sprite_size;
+    //     canvas.sprite(bottom, 0.0, sprite_name, 0.0, Vec2::splat(sprite_size));
+
+    //     bl += Vec2::X * column_width;
+    // }
+
+    // for (_, plant) in factory.plants() {
+    //     let color = crate::sprites::hashable_to_color(plant.recipe());
+    //     let dims = Vec2::new(column_width, aabb.span.y * plant.progress());
+    //     let aabb = AABB::from_arbitrary(bl, bl + dims);
+    //     canvas
+    //         .sprite(aabb.center, 0.0, "error", 0.0, aabb.span)
+    //         .set_color(color);
+    //     bl += Vec2::X * column_width;
+    // }
 }
 
 pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {

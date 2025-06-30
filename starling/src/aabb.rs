@@ -73,6 +73,10 @@ impl AABB {
         self.center - self.span / 2.0
     }
 
+    pub fn top_right(&self) -> Vec2 {
+        self.center + Vec2::new(-self.span.x / 2.0, self.span.y / 2.0)
+    }
+
     pub fn top_center(&self) -> Vec2 {
         self.center + Vec2::Y * self.span.y / 2.0
     }

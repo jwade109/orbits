@@ -1,9 +1,10 @@
 use crate::factory::*;
+use std::collections::HashMap;
 
-#[derive(Debug, Hash)]
+#[derive(Debug)]
 pub struct Recipe {
-    inputs: Vec<(Item, u64)>,
-    outputs: Vec<(Item, u64)>,
+    inputs: HashMap<Item, u64>,
+    outputs: HashMap<Item, u64>,
 }
 
 impl Recipe {
@@ -16,11 +17,19 @@ impl Recipe {
     }
 
     pub fn inputs(&self) -> impl Iterator<Item = (Item, u64)> + use<'_> {
-        self.inputs.iter().cloned()
+        self.inputs.iter().map(|(item, count)| (*item, *count))
     }
 
     pub fn outputs(&self) -> impl Iterator<Item = (Item, u64)> + use<'_> {
-        self.outputs.iter().cloned()
+        self.outputs.iter().map(|(item, count)| (*item, *count))
+    }
+
+    pub fn is_input(&self, item: Item) -> bool {
+        self.inputs.contains_key(&item)
+    }
+
+    pub fn is_output(&self, item: Item) -> bool {
+        self.outputs.contains_key(&item)
     }
 }
 
@@ -56,49 +65,49 @@ pub fn apply_recipe(inv: &mut Inventory, recipe: &Recipe) -> bool {
 
 pub fn sabatier_reaction() -> Recipe {
     Recipe {
-        inputs: vec![(Item::CO2, 44), (Item::H2, 8)],
-        outputs: vec![(Item::Methane, 16), (Item::Water, 36)],
+        inputs: HashMap::from([(Item::CO2, 44), (Item::H2, 8)]),
+        outputs: HashMap::from([(Item::Methane, 16), (Item::Water, 36)]),
     }
 }
 
 pub fn water_electrolysis() -> Recipe {
     Recipe {
-        inputs: vec![(Item::Water, 9)],
-        outputs: vec![(Item::O2, 8), (Item::H2, 1)],
+        inputs: HashMap::from([(Item::Water, 9)]),
+        outputs: HashMap::from([(Item::O2, 8), (Item::H2, 1)]),
     }
 }
 
 pub fn carbon_dioxide_condensation() -> Recipe {
     Recipe {
-        inputs: vec![],
-        outputs: vec![(Item::CO2, 100)],
+        inputs: HashMap::from([]),
+        outputs: HashMap::from([(Item::CO2, 100)]),
     }
 }
 
 pub fn harvest_bread() -> Recipe {
     Recipe {
-        inputs: vec![],
-        outputs: vec![(Item::Bread, 10)],
+        inputs: HashMap::from([]),
+        outputs: HashMap::from([(Item::Bread, 10)]),
     }
 }
 
 pub fn ice_melting() -> Recipe {
     Recipe {
-        inputs: vec![(Item::Ice, 500)],
-        outputs: vec![(Item::Water, 500)],
+        inputs: HashMap::from([(Item::Ice, 500)]),
+        outputs: HashMap::from([(Item::Water, 500)]),
     }
 }
 
 pub fn ice_mining() -> Recipe {
     Recipe {
-        inputs: vec![],
-        outputs: vec![(Item::Ice, 10)],
+        inputs: HashMap::from([]),
+        outputs: HashMap::from([(Item::Ice, 10)]),
     }
 }
 
 pub fn people_eat_things() -> Recipe {
     Recipe {
-        inputs: vec![(Item::Water, 1_000_000), (Item::Bread, 1_000_000)],
-        outputs: vec![(Item::People, 1)],
+        inputs: HashMap::from([(Item::Water, 1_000_000), (Item::Bread, 1_000_000)]),
+        outputs: HashMap::from([(Item::People, 1)]),
     }
 }
