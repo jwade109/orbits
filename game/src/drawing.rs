@@ -1270,6 +1270,14 @@ fn draw_landing_sites(gizmos: &mut Gizmos, state: &GameState) {
     }
 }
 
+pub fn draw_bezier(gizmos: &mut Gizmos, bezier: &Bezier, color: Srgba) {
+    let points: Vec<_> = linspace(0.0, 1.0, 20)
+        .into_iter()
+        .map(|t| bezier.eval(t))
+        .collect();
+    gizmos.linestrip_2d(points, color);
+}
+
 pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, aabb: AABB, stamp: Nanotime) {
     // draw_aabb(&mut canvas.gizmos, aabb, WHITE.with_alpha(0.3));
 
@@ -1308,7 +1316,7 @@ pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, aabb: AABB, stamp: N
         draw_aabb(&mut canvas.gizmos, aabb, color.into());
 
         canvas.text(
-            format!("{:?}", storage.item()),
+            format!("{:?} {}", storage.item(), Mass::grams(storage.count())),
             center + Vec2::Y * storage_width,
             0.6,
         );
@@ -1329,19 +1337,33 @@ pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, aabb: AABB, stamp: N
     //     let bl = aabb.lower();
     // };
 
-    for (id, plant) in factory.plants() {
-        let center = id_to_pos(id);
+    for (plant_id, plant) in factory.plants() {
+        let center = id_to_pos(plant_id);
         let aabb = AABB::new(center, Vec2::splat(plant_width));
         draw_aabb(&mut canvas.gizmos, aabb, WHITE);
 
         canvas.text(plant.name().to_uppercase(), aabb.center, 0.6);
 
         {
-            let d = plant_width * 0.1;
-            let lc = if plant.is_active() { WHITE } else { RED };
-            let light_upper = aabb.top_right() - Vec2::new(d, 0.0);
-            let light_lower = light_upper - Vec2::splat(d);
-            canvas.rect(AABB::from_arbitrary(light_lower, light_upper), lc);
+            let progress = plant.progress();
+            let bl = aabb.bottom_right();
+            let tr = bl + Vec2::new(plant_width * 0.15, progress * plant_width);
+            canvas.rect(AABB::from_arbitrary(bl, tr), RED);
+        }
+
+        {
+            let d = plant_width * 0.2;
+            let lc = if plant.is_enabled() { GREEN } else { RED };
+            let bc = if plant.is_blocked() { YELLOW } else { GREEN };
+            let sc = if plant.is_starved() { YELLOW } else { GREEN };
+            let wc = if plant.is_working() { PURPLE } else { RED };
+
+            let mut tr = aabb.top_right() - Vec2::new(d, 0.0);
+            for color in [lc, bc, sc, wc] {
+                let bl = tr - Vec2::splat(d);
+                canvas.rect(AABB::from_arbitrary(bl, tr), color);
+                tr -= Vec2::Y * d * 1.4;
+            }
         }
 
         let recipe = plant.recipe();
@@ -1374,20 +1396,28 @@ pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, aabb: AABB, stamp: N
             }
         }
 
-        for (item, id) in plant.input_ports() {
-            let color = crate::sprites::hashable_to_color(&item);
-            let dst = id_to_pos(id);
-            canvas
-                .gizmos
-                .line_2d(center - Vec2::Y * plant_width / 2.5, dst, color);
+        for port in plant.input_ports() {
+            let conn_id = match port.connected_to() {
+                Some(id) => id,
+                None => continue,
+            };
+            let color = crate::sprites::hashable_to_color(&port.item());
+            let start = center - Vec2::Y * plant_width / 2.5;
+            let end = id_to_pos(conn_id);
+            let bezier = Bezier::new(vec![start, start - Vec2::Y * 200.0, Vec2::ZERO, end]);
+            draw_bezier(&mut canvas.gizmos, &bezier, color.into());
         }
 
-        for (item, id) in plant.output_ports() {
-            let color = crate::sprites::hashable_to_color(&item);
-            let dst = id_to_pos(id);
-            canvas
-                .gizmos
-                .line_2d(center + Vec2::Y * plant_width / 2.5, dst, color);
+        for port in plant.output_ports() {
+            let conn_id = match port.connected_to() {
+                Some(id) => id,
+                None => continue,
+            };
+            let color = crate::sprites::hashable_to_color(&port.item());
+            let start = center + Vec2::Y * plant_width / 2.5;
+            let end = id_to_pos(conn_id);
+            let bezier = Bezier::new(vec![start, start + Vec2::Y * 200.0, Vec2::ZERO, end]);
+            draw_bezier(&mut canvas.gizmos, &bezier, color.into());
         }
     }
 

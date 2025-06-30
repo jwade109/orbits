@@ -1,0 +1,387 @@
+name: ''
+parts:
+- partname: tank22
+  pos:
+  - -20
+  - -38
+  rot: North
+- partname: tank22
+  pos:
+  - -40
+  - -38
+  rot: North
+- partname: tank22
+  pos:
+  - 20
+  - -38
+  rot: North
+- partname: tank22
+  pos:
+  - 0
+  - -18
+  rot: North
+- partname: tank22
+  pos:
+  - 0
+  - 2
+  rot: North
+- partname: tank22
+  pos:
+  - 20
+  - 22
+  rot: North
+- partname: tank22
+  pos:
+  - -20
+  - 22
+  rot: North
+- partname: tank22
+  pos:
+  - -40
+  - 22
+  rot: North
+- partname: tank22
+  pos:
+  - -60
+  - 2
+  rot: North
+- partname: tank22
+  pos:
+  - -60
+  - -18
+  rot: North
+- partname: tank22
+  pos:
+  - 40
+  - 22
+  rot: North
+- partname: tank22
+  pos:
+  - 60
+  - 1
+  rot: North
+- partname: tank22
+  pos:
+  - 60
+  - -19
+  rot: North
+- partname: cargo
+  pos:
+  - -35
+  - -13
+  rot: North
+- partname: cargo
+  pos:
+  - 25
+  - -13
+  rot: North
+- partname: frame3
+  pos:
+  - -40
+  - 12
+  rot: West
+- partname: frame3
+  pos:
+  - -40
+  - 2
+  rot: West
+- partname: frame3
+  pos:
+  - -40
+  - -8
+  rot: East
+- partname: frame3
+  pos:
+  - -40
+  - -18
+  rot: East
+- partname: frame3
+  pos:
+  - 20
+  - -8
+  rot: East
+- partname: frame3
+  pos:
+  - 20
+  - -18
+  rot: East
+- partname: frame3
+  pos:
+  - 20
+  - 2
+  rot: West
+- partname: frame3
+  pos:
+  - 20
+  - 12
+  rot: West
+- partname: motor
+  pos:
+  - 32
+  - -63
+  rot: East
+- partname: tank22
+  pos:
+  - 40
+  - -38
+  rot: North
+- partname: motor
+  pos:
+  - -28
+  - -63
+  rot: East
+- partname: cargo
+  pos:
+  - -5
+  - 42
+  rot: East
+- partname: cargo
+  pos:
+  - -5
+  - 72
+  rot: East
+- partname: cargo
+  pos:
+  - -5
+  - 102
+  rot: East
+- partname: cargo
+  pos:
+  - -5
+  - 132
+  rot: East
+- partname: cargo
+  pos:
+  - -5
+  - 162
+  rot: East
+- partname: cargo
+  pos:
+  - -5
+  - 192
+  rot: East
+- partname: cargo
+  pos:
+  - -5
+  - 222
+  rot: East
+- partname: tank22
+  pos:
+  - 0
+  - 22
+  rot: North
+- partname: small-antenna
+  pos:
+  - -33
+  - 42
+  rot: East
+- partname: small-antenna
+  pos:
+  - 47
+  - 42
+  rot: East
+- partname: small-antenna
+  pos:
+  - 60
+  - 29
+  rot: South
+- partname: small-antenna
+  pos:
+  - 80
+  - 11
+  rot: South
+- partname: small-antenna
+  pos:
+  - 80
+  - -9
+  rot: South
+- partname: small-antenna
+  pos:
+  - 80
+  - -15
+  rot: South
+- partname: small-antenna
+  pos:
+  - 68
+  - -39
+  rot: West
+- partname: small-antenna
+  pos:
+  - -55
+  - -38
+  rot: West
+- partname: small-antenna
+  pos:
+  - -80
+  - -14
+  rot: North
+- partname: small-antenna
+  pos:
+  - -80
+  - 5
+  rot: North
+- partname: small-antenna
+  pos:
+  - -60
+  - 29
+  rot: North
+- partname: small-antenna
+  pos:
+  - -25
+  - 89
+  rot: North
+- partname: small-antenna
+  pos:
+  - 25
+  - 86
+  rot: South
+- partname: frame3
+  pos:
+  - -15
+  - 42
+  rot: South
+- partname: frame3
+  pos:
+  - -15
+  - 82
+  rot: South
+- partname: frame3
+  pos:
+  - -15
+  - 122
+  rot: South
+- partname: frame3
+  pos:
+  - -15
+  - 162
+  rot: South
+- partname: frame3
+  pos:
+  - -15
+  - 202
+  rot: South
+- partname: frame3
+  pos:
+  - 25
+  - 42
+  rot: North
+- partname: frame3
+  pos:
+  - 25
+  - 82
+  rot: North
+- partname: frame3
+  pos:
+  - 25
+  - 122
+  rot: North
+- partname: frame3
+  pos:
+  - 25
+  - 162
+  rot: North
+- partname: frame3
+  pos:
+  - 25
+  - 202
+  rot: North
+- partname: antenna
+  pos:
+  - -15
+  - 252
+  rot: East
+- partname: motor
+  pos:
+  - -27
+  - -88
+  rot: East
+- partname: motor
+  pos:
+  - 32
+  - -88
+  rot: East
+- partname: motor
+  pos:
+  - 32
+  - -113
+  rot: East
+- partname: motor
+  pos:
+  - 32
+  - -138
+  rot: East
+- partname: motor
+  pos:
+  - 32
+  - -163
+  rot: East
+- partname: motor
+  pos:
+  - 32
+  - -188
+  rot: East
+- partname: motor
+  pos:
+  - -27
+  - -113
+  rot: East
+- partname: motor
+  pos:
+  - -27
+  - -139
+  rot: East
+- partname: motor
+  pos:
+  - -27
+  - -164
+  rot: East
+- partname: motor
+  pos:
+  - -27
+  - -189
+  rot: East
+- partname: motor
+  pos:
+  - -11
+  - -73
+  rot: East
+- partname: motor
+  pos:
+  - 16
+  - -63
+  rot: East
+- partname: motor
+  pos:
+  - 6
+  - -88
+  rot: East
+- partname: motor
+  pos:
+  - -8
+  - -113
+  rot: East
+- partname: motor
+  pos:
+  - 16
+  - -113
+  rot: East
+- partname: motor
+  pos:
+  - 16
+  - -148
+  rot: East
+- partname: motor
+  pos:
+  - 0
+  - -145
+  rot: East
+- partname: motor
+  pos:
+  - -11
+  - -180
+  rot: East
+- partname: motor
+  pos:
+  - 7
+  - -194
+  rot: East

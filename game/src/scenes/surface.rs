@@ -84,7 +84,7 @@ impl Default for SurfaceContext {
             surface: Surface::random(),
             selected: HashSet::new(),
             particles: Vec::new(),
-            factory: model_factory(),
+            factory: example_factory(),
         }
     }
 }

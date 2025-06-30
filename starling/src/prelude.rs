@@ -33,3 +33,4 @@ pub use crate::vehicle::{
     dims_with_rotation, meters_with_rotation, simulate_vehicle, PhysicsMode, Rotation, Vehicle,
     VehicleControl, VehicleControlPolicy,
 };
+pub use crate::bezier::*;

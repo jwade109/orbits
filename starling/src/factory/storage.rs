@@ -48,6 +48,10 @@ impl Storage {
         self.count + to_add <= self.capacity
     }
 
+    pub fn has_at_least(&self, to_take: u64) -> bool {
+        self.count >= to_take
+    }
+
     pub fn add(&mut self, to_add: u64) {
         self.count = (self.count + to_add).min(self.capacity)
     }

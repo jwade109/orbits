@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::ops::{Add, AddAssign, Div, Mul, Rem, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Div, Mul, Rem, RemAssign, Sub, SubAssign};
 
 #[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Nanotime(i64);
@@ -199,6 +199,12 @@ impl Rem<Nanotime> for Nanotime {
     type Output = Self;
     fn rem(self, rhs: Nanotime) -> Self::Output {
         Nanotime(self.0 % rhs.0)
+    }
+}
+
+impl RemAssign for Nanotime {
+    fn rem_assign(&mut self, rhs: Self) {
+        *self = *self % rhs;
     }
 }
 

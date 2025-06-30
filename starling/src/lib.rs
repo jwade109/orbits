@@ -22,3 +22,4 @@ pub mod region;
 pub mod scenario;
 pub mod surface;
 pub mod vehicle;
+pub mod bezier;

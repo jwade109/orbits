@@ -1,5 +1,7 @@
 # Plans/Ideas
 
+## General
+
 - rendezvous/phasing
 - space stations
 - uranium enrichment -> project orion
@@ -15,3 +17,10 @@
 - interstellar N-body physics
 - cultivation of crops/improved cultivars for fuel/food/etc
 - stellar hydrogen harvesting
+
+## Planets
+
+- harvest metals out of the air
+- a planet which is always windy and plants that are like
+  those bird toys that drink out of the water, etc
+- geometric rocks, thin atmo, bulbous plants, not much water

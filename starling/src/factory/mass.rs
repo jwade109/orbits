@@ -16,6 +16,10 @@ impl Mass {
     pub fn tons(t: u64) -> Self {
         Mass(t * 1_000_000)
     }
+
+    pub fn to_grams(&self) -> u64 {
+        self.0
+    }
 }
 
 impl std::fmt::Display for Mass {

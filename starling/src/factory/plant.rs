@@ -7,24 +7,75 @@ pub struct Plant {
     name: String,
     recipe: Recipe,
     duration: Nanotime,
-    elapsed: Nanotime,
-    is_active: bool,
-    inputs: HashMap<Item, u64>,
-    outputs: HashMap<Item, u64>,
+    elapsed: Option<Nanotime>,
+    is_enabled: bool,
+    is_blocked: bool,
+    is_starved: bool,
+    input_ports: HashMap<Item, Port>,
+    output_ports: HashMap<Item, Port>,
 }
 
-pub struct Port {}
+#[derive(Debug, Clone, Copy)]
+pub struct Port {
+    item: Item,
+    count: u64,
+    connected_to: Option<u64>,
+}
+
+impl Port {
+    pub fn item(&self) -> Item {
+        self.item
+    }
+
+    pub fn count(&self) -> u64 {
+        self.count
+    }
+
+    pub fn connected_to(&self) -> Option<u64> {
+        self.connected_to
+    }
+}
 
 impl Plant {
     pub fn new(name: impl Into<String>, recipe: Recipe, duration: Nanotime) -> Self {
+        let input_ports = recipe
+            .inputs()
+            .map(|(item, count)| {
+                (
+                    item,
+                    Port {
+                        item,
+                        count,
+                        connected_to: None,
+                    },
+                )
+            })
+            .collect();
+
+        let output_ports = recipe
+            .outputs()
+            .map(|(item, count)| {
+                (
+                    item,
+                    Port {
+                        item,
+                        count,
+                        connected_to: None,
+                    },
+                )
+            })
+            .collect();
+
         Self {
             name: name.into(),
             recipe,
             duration,
-            elapsed: Nanotime::zero(),
-            is_active: false,
-            inputs: HashMap::new(),
-            outputs: HashMap::new(),
+            elapsed: None,
+            is_enabled: true,
+            is_blocked: false,
+            is_starved: false,
+            input_ports,
+            output_ports,
         }
     }
 
@@ -41,40 +92,82 @@ impl Plant {
     }
 
     pub fn toggle(&mut self) {
-        self.is_active = !self.is_active;
+        self.is_enabled = !self.is_enabled;
     }
 
-    pub fn is_active(&self) -> bool {
-        self.is_active
+    pub fn is_enabled(&self) -> bool {
+        self.is_enabled
     }
 
-    pub fn step_forward_by(&mut self, duration: Nanotime) -> u32 {
-        let counts = duration.inner() / self.duration.inner();
-        self.elapsed = (duration + self.elapsed) % self.duration;
-        counts as u32
+    pub fn is_blocked(&self) -> bool {
+        self.is_blocked
+    }
+
+    pub fn is_starved(&self) -> bool {
+        self.is_starved
+    }
+
+    pub fn mark_starved(&mut self) {
+        self.is_starved = true;
+    }
+
+    pub fn mark_blocked(&mut self) {
+        self.is_blocked = true;
+    }
+
+    pub fn clear_flags(&mut self) {
+        self.is_blocked = false;
+        self.is_starved = false;
+    }
+
+    pub fn duration_to_finish(&self) -> Option<Nanotime> {
+        self.elapsed.map(|e| self.duration - e)
+    }
+
+    pub fn is_working(&self) -> bool {
+        self.elapsed.is_some()
+    }
+
+    pub fn start_job(&mut self) {
+        self.elapsed = Some(Nanotime::zero());
+    }
+
+    pub fn finish_job(&mut self) {
+        self.elapsed = None;
+    }
+
+    pub fn step_forward_by(&mut self, duration: Nanotime) {
+        if let Some(elapsed) = &mut self.elapsed {
+            *elapsed = *elapsed + duration;
+            if *elapsed > self.duration {
+                *elapsed = self.duration;
+            }
+        }
     }
 
     pub fn progress(&self) -> f32 {
-        self.elapsed.to_secs() / self.duration.to_secs()
+        self.elapsed
+            .map(|e| e.to_secs() / self.duration.to_secs())
+            .unwrap_or(0.0)
     }
 
     pub fn connect_input(&mut self, item: Item, id: u64) {
-        if self.recipe.is_input(item) {
-            self.inputs.insert(item, id);
+        if let Some(port) = self.input_ports.get_mut(&item) {
+            port.connected_to = Some(id);
         }
     }
 
     pub fn connect_output(&mut self, item: Item, id: u64) {
-        if self.recipe.is_output(item) {
-            self.outputs.insert(item, id);
+        if let Some(port) = self.output_ports.get_mut(&item) {
+            port.connected_to = Some(id);
         }
     }
 
-    pub fn input_ports(&self) -> impl Iterator<Item = (Item, u64)> + use<'_> {
-        self.inputs.iter().map(|(item, id)| (*item, *id))
+    pub fn input_ports(&self) -> impl Iterator<Item = Port> + use<'_> {
+        self.input_ports.iter().map(|(_, port)| *port)
     }
 
-    pub fn output_ports(&self) -> impl Iterator<Item = (Item, u64)> + use<'_> {
-        self.outputs.iter().map(|(item, id)| (*item, *id))
+    pub fn output_ports(&self) -> impl Iterator<Item = Port> + use<'_> {
+        self.output_ports.iter().map(|(_, port)| *port)
     }
 }
