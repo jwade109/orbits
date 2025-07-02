@@ -1299,6 +1299,12 @@ pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, aabb: AABB, stamp: N
         return;
     }
 
+    // canvas.text(
+    //     format!("{:?}", factory.get_next_relevant_plant()),
+    //     Vec2::ZERO,
+    //     1.3,
+    // );
+
     let n = factory.storage_count() + factory.plant_count();
 
     let storage_width = 50.0;
@@ -1353,10 +1359,10 @@ pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, aabb: AABB, stamp: N
 
         {
             let d = plant_width * 0.2;
-            let lc = if plant.is_enabled() { GREEN } else { RED };
-            let bc = if plant.is_blocked() { YELLOW } else { GREEN };
-            let sc = if plant.is_starved() { YELLOW } else { GREEN };
-            let wc = if plant.is_working() { PURPLE } else { RED };
+            let lc = if plant.is_enabled() { YELLOW } else { GRAY };
+            let bc = if plant.is_blocked() { ORANGE } else { GRAY };
+            let sc = if plant.is_starved() { BLUE } else { GRAY };
+            let wc = if plant.is_working() { GREEN } else { RED };
 
             let mut tr = aabb.top_right() - Vec2::new(d, 0.0);
             for color in [lc, bc, sc, wc] {

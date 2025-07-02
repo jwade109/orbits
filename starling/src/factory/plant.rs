@@ -107,12 +107,12 @@ impl Plant {
         self.is_starved
     }
 
-    pub fn mark_starved(&mut self) {
-        self.is_starved = true;
+    pub fn set_blocked(&mut self, blocked: bool) {
+        self.is_blocked = blocked;
     }
 
-    pub fn mark_blocked(&mut self) {
-        self.is_blocked = true;
+    pub fn set_starved(&mut self, starved: bool) {
+        self.is_starved = starved;
     }
 
     pub fn clear_flags(&mut self) {

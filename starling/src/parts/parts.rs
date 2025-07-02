@@ -1,3 +1,5 @@
+use crate::factory::Item;
+use crate::factory::Mass;
 use enum_iterator::Sequence;
 use image::ImageReader;
 use serde::{Deserialize, Serialize};
@@ -91,7 +93,7 @@ pub fn load_parts_from_dir(path: &Path) -> HashMap<String, PartProto> {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct PartMetaData {
-    pub mass: f32,
+    pub mass: Mass,
     pub layer: PartLayer,
     pub class: PartClass,
 }
@@ -111,7 +113,8 @@ pub struct ThrusterProto {
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub struct TankProto {
-    pub wet_mass: f32,
+    pub item: Item,
+    pub wet_mass: Mass,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -131,7 +134,7 @@ mod tests {
     #[test]
     fn write_thruster_metadata_to_file() {
         let data = PartMetaData {
-            mass: 12.0,
+            mass: Mass::kilograms(12),
             layer: PartLayer::Exterior,
             class: PartClass::Thruster(ThrusterProto {
                 model: "RJ1200".into(),
@@ -153,9 +156,12 @@ mod tests {
     #[test]
     fn write_tank_metadata_to_file() {
         let data = PartMetaData {
-            mass: 12.0,
+            mass: Mass::kilograms(12),
             layer: PartLayer::Exterior,
-            class: PartClass::Tank(TankProto { wet_mass: 120.0 }),
+            class: PartClass::Tank(TankProto {
+                wet_mass: Mass::kilograms(120),
+                item: Item::H2,
+            }),
         };
 
         let s = serde_yaml::to_string(&data).unwrap();

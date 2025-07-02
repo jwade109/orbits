@@ -15,12 +15,8 @@ pub struct Factory {
     plants: HashMap<u64, Plant>,
 }
 
-fn normalize_conn_indices(a: u64, b: u64) -> (u64, u64) {
-    (a.min(b), a.max(b))
-}
-
 #[derive(Debug, Clone, Copy)]
-enum PlantTransitionEvent {
+pub enum PlantTransitionEvent {
     StartJob,
     FinishJob,
 }
@@ -96,42 +92,51 @@ impl Factory {
         self.plants.len()
     }
 
-    pub fn is_plant_blocked(&self, id: u64) -> bool {
-        let plant = match self.plants.get(&id) {
+    pub fn update_plant_blocked(&mut self, id: u64) -> bool {
+        let plant = match self.plants.get_mut(&id) {
             Some(p) => p,
             None => return false,
         };
+
+        let mut blocked = false;
 
         for port in plant.output_ports() {
             if let Some(id) = port.connected_to() {
                 if let Some(storage) = self.storage.get(&id) {
                     if !storage.can_store(port.count()) {
-                        return true;
+                        blocked = true;
+                        break;
                     }
                 }
             }
         }
 
-        return false;
+        plant.set_blocked(blocked);
+
+        return blocked;
     }
 
-    pub fn is_plant_starved(&self, id: u64) -> bool {
-        let plant = match self.plants.get(&id) {
+    pub fn update_plant_starved(&mut self, id: u64) -> bool {
+        let plant = match self.plants.get_mut(&id) {
             Some(p) => p,
             None => return false,
         };
+
+        let mut starved = false;
 
         for port in plant.input_ports() {
             if let Some(id) = port.connected_to() {
                 if let Some(storage) = self.storage.get(&id) {
                     if !storage.has_at_least(port.count()) {
-                        return true;
+                        starved = true;
                     }
                 }
             }
         }
 
-        return false;
+        plant.set_starved(starved);
+
+        return starved;
     }
 
     pub fn get_next_relevant_plant(&self) -> Option<(Nanotime, u64, PlantTransitionEvent)> {
@@ -152,10 +157,50 @@ impl Factory {
     }
 
     pub fn step_forward_until(&mut self, stamp: Nanotime) {
-        for (_, plant) in &mut self.plants {
+        let mut ids = Vec::new();
+        for (id, plant) in &mut self.plants {
             plant.step_forward_by(stamp - self.stamp);
+            ids.push(*id);
+        }
+        for id in ids {
+            self.update_plant_blocked(id);
+            self.update_plant_starved(id);
         }
         self.stamp = stamp;
+    }
+
+    pub fn try_start_plant(&mut self, id: u64) -> Option<()> {
+        let starved = self.update_plant_starved(id);
+        if starved {
+            return None;
+        }
+        let plant = self.plants.get_mut(&id)?;
+        for port in plant.input_ports() {
+            if let Some(id) = port.connected_to() {
+                if let Some(storage) = self.storage.get_mut(&id) {
+                    storage.take(port.count());
+                }
+            }
+        }
+        plant.start_job();
+        Some(())
+    }
+
+    pub fn try_finish_plant(&mut self, id: u64) -> Option<()> {
+        let blocked = self.update_plant_blocked(id);
+        if blocked {
+            return None;
+        }
+        let plant = self.plants.get_mut(&id)?;
+        for port in plant.output_ports() {
+            if let Some(id) = port.connected_to() {
+                if let Some(storage) = self.storage.get_mut(&id) {
+                    storage.add(port.count());
+                }
+            }
+        }
+        plant.finish_job();
+        Some(())
     }
 
     pub fn do_stuff(&mut self, stamp: Nanotime) {
@@ -165,89 +210,23 @@ impl Factory {
                 break;
             }
 
-            let plant = match self.plants.get_mut(&id) {
-                Some(p) => p,
-                None => break,
-            };
+            self.step_forward_until(t);
 
             match event {
                 PlantTransitionEvent::StartJob => {
-                    for port in plant.input_ports() {
-                        if let Some(id) = port.connected_to() {
-                            if let Some(storage) = self.storage.get_mut(&id) {
-                                storage.take(port.count());
-                            }
-                        }
-                    }
-                    plant.start_job();
+                    self.try_start_plant(id);
                 }
                 PlantTransitionEvent::FinishJob => {
-                    for port in plant.output_ports() {
-                        if let Some(id) = port.connected_to() {
-                            if let Some(storage) = self.storage.get_mut(&id) {
-                                storage.add(port.count());
-                            }
-                        }
-                    }
-                    plant.finish_job();
+                    self.try_finish_plant(id);
                 }
             }
-
-            self.step_forward_until(t);
         }
-
-        // for (_, plant) in &mut self.plants {
-
-        //     if plant
-
-        //     for _ in 0..count {
-
-        //         let mut starved = false;
-        //         let mut blocked = false;
-
-        //         for port in plant.input_ports() {
-        //             if let Some(id) = port.connected_to() {
-        //                 if let Some(storage) = self.storage.get(&id) {
-        //                     if !storage.has_at_least(port.count()) {
-        //                         starved = true;
-        //                         break;
-        //                     }
-        //                 }
-        //             }
-        //         }
-
-        //         for port in plant.output_ports() {
-        //             if let Some(id) = port.connected_to() {
-        //                 if let Some(storage) = self.storage.get(&id) {
-        //                     if !storage.can_store(port.count()) {
-        //                         blocked = true;
-        //                         break;
-        //                     }
-        //                 }
-        //             }
-        //         }
-
-        //         if starved {
-        //             plant.mark_starved();
-        //         }
-
-        //         if blocked {
-        //             plant.mark_blocked();
-        //         }
-
-        //         if starved || blocked {
-        //             continue;
-        //         }
-
-        //         plant.clear_flags();
-        //     }
-        // }
 
         self.stamp = stamp;
     }
 }
 
-pub fn model_factory() -> Factory {
+fn model_factory() -> Factory {
     let mut factory = Factory::new();
 
     let ice = factory.add_storage(Item::Ice, 300_000);
@@ -267,7 +246,7 @@ pub fn model_factory() -> Factory {
     factory.connect_output(heater, water);
 
     // water to o2 and h2
-    let electro = factory.add_plant("electro", water_electrolysis(), Nanotime::mins(270));
+    let electro = factory.add_plant("electro", water_electrolysis(), Nanotime::mins(20));
     factory.connect_input(electro, water);
     factory.connect_output(electro, o2);
     factory.connect_output(electro, h2);
@@ -287,22 +266,65 @@ pub fn model_factory() -> Factory {
     factory
 }
 
-pub fn simple_factory() -> Factory {
+fn simple_factory() -> Factory {
     let mut factory = Factory::new();
 
-    let recipe = Recipe::default()
-        .produces(Item::Water, 1)
-        .produces(Item::CO2, 2);
+    let recipe = Recipe::produces(Item::Water, 1).and_produces(Item::CO2, 2);
     let water = factory.add_storage(Item::Water, 1000);
     let co2 = factory.add_storage(Item::CO2, 2000);
-    let plant = factory.add_plant("faucet", recipe, Nanotime::secs(1));
 
-    factory.connect_output(plant, water);
-    factory.connect_output(plant, co2);
+    for _ in 0..3 {
+        let plant = factory.add_plant("faucet", recipe.clone(), Nanotime::secs(1));
+
+        factory.connect_output(plant, water);
+        factory.connect_output(plant, co2);
+    }
+
+    factory
+}
+
+fn calzone_factory() -> Factory {
+    let mut factory = Factory::new();
+
+    let silo = factory.add_storage(Item::Wheat, Mass::kilograms(2000).to_grams());
+
+    let milkjug = factory.add_storage(Item::Milk, Mass::kilograms(800).to_grams());
+
+    let shelves = factory.add_storage(Item::Calzones, 80);
+
+    let fields = factory.add_plant(
+        "fields",
+        Recipe::produces(Item::Wheat, Mass::kilograms(50).to_grams()),
+        Nanotime::hours(1),
+    );
+
+    let dairy = factory.add_plant(
+        "dairy",
+        Recipe::produces(Item::Milk, Mass::kilograms(40).to_grams()),
+        Nanotime::mins(30),
+    );
+
+    let bakery = factory.add_plant(
+        "bakery",
+        Recipe::produces(Item::Calzones, 3)
+            .and_consumes(Item::Milk, Mass::kilograms(5).to_grams())
+            .and_consumes(Item::Wheat, Mass::kilograms(3).to_grams()),
+        Nanotime::mins(20),
+    );
+
+    factory.connect_output(fields, silo);
+    factory.connect_output(dairy, milkjug);
+    factory.connect_input(bakery, silo);
+    factory.connect_input(bakery, milkjug);
+    factory.connect_output(bakery, shelves);
 
     factory
 }
 
 pub fn example_factory() -> Factory {
-    model_factory()
+    match crate::math::randint(0, 3) {
+        0 => calzone_factory(),
+        1 => model_factory(),
+        _ => simple_factory(),
+    }
 }

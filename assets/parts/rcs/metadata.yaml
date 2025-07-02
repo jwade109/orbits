@@ -1,4 +1,4 @@
-mass: 250.0
+mass: 250000
 layer: Internal
 class: !Thruster
   model: "LPP50-I"

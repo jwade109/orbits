@@ -1,5 +1,0 @@
-mass: 12.0
-layer: Exterior
-class: !Tank
-  dry_mass: 40.0
-  wet_mass: 120.0

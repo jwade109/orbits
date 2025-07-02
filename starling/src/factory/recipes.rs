@@ -1,19 +1,33 @@
 use crate::factory::*;
-use std::{collections::HashMap};
+use std::collections::HashMap;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Recipe {
     inputs: HashMap<Item, u64>,
     outputs: HashMap<Item, u64>,
 }
 
 impl Recipe {
-    pub fn requires(&mut self, item: Item, count: u64) -> &mut Self {
+    pub fn consumes(item: Item, count: u64) -> Self {
+        Self {
+            inputs: HashMap::from([(item, count)]),
+            outputs: HashMap::new(),
+        }
+    }
+
+    pub fn produces(item: Item, count: u64) -> Self {
+        Self {
+            inputs: HashMap::new(),
+            outputs: HashMap::from([(item, count)]),
+        }
+    }
+
+    pub fn and_consumes(mut self, item: Item, count: u64) -> Self {
         self.inputs.insert(item, count);
         self
     }
 
-    pub fn produces(mut self, item: Item, count: u64) -> Self {
+    pub fn and_produces(mut self, item: Item, count: u64) -> Self {
         self.outputs.insert(item, count);
         self
     }

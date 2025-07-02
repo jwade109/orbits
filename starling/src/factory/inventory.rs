@@ -23,6 +23,8 @@ pub enum Item {
     People,
     Calzones,
     Geodes,
+    Wheat,
+    Milk,
 }
 
 impl Item {

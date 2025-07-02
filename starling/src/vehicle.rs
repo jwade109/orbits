@@ -1,4 +1,5 @@
 use crate::aabb::AABB;
+use crate::factory::Mass;
 use crate::factory::{Inventory, Item};
 use crate::math::{cross2d, rand, randint, rotate, IVec2, UVec2, Vec2, PI};
 use crate::nanotime::Nanotime;
@@ -34,8 +35,8 @@ impl Rotation {
     }
 }
 
-fn rocket_equation(ve: f32, m0: f32, m1: f32) -> f32 {
-    ve * (m0 / m1).ln()
+fn rocket_equation(ve: f32, m0: Mass, m1: Mass) -> f32 {
+    ve * (m0.to_kg_f32() / m1.to_kg_f32()).ln()
 }
 
 #[allow(unused)]
@@ -178,7 +179,7 @@ fn hover_control_law(gravity: Vec2, vehicle: &Vehicle) -> VehicleControl {
     let attitude = compute_attitude_control(vehicle, target_angle, &ATTITUDE_CONTROLLER);
 
     let thrust = vehicle.max_thrust_along_heading(0.0, false);
-    let accel = thrust / vehicle.wet_mass();
+    let accel = thrust / vehicle.wet_mass().to_kg_f32();
     let pct = gravity.length() / accel;
 
     // vertical controller
@@ -245,8 +246,8 @@ pub struct Vehicle {
     bounding_radius: f32,
     center_of_mass: Vec2,
     pub inventory: Inventory,
-    pub max_fuel_mass: f32,
-    pub dry_mass: f32,
+    pub max_fuel_mass: Mass,
+    pub dry_mass: Mass,
     pub parts: Vec<(IVec2, Rotation, PartProto)>,
 }
 
@@ -334,7 +335,7 @@ impl Vehicle {
         Self {
             pv: PV::ZERO,
             policy: VehicleControlPolicy::Idle,
-            max_fuel_mass: 0.0,
+            max_fuel_mass: Mass::ZERO,
             dry_mass,
             name,
             stamp,
@@ -390,11 +391,11 @@ impl Vehicle {
         !self.thrusters.is_empty()
     }
 
-    pub fn fuel_mass(&self) -> f32 {
+    pub fn fuel_mass(&self) -> Mass {
         self.tanks.iter().map(|t: &Tank| t.current_fuel_mass).sum()
     }
 
-    pub fn wet_mass(&self) -> f32 {
+    pub fn wet_mass(&self) -> Mass {
         self.dry_mass + self.fuel_mass()
     }
 
@@ -445,10 +446,10 @@ impl Vehicle {
     pub fn accel(&self) -> f32 {
         let thrust = self.thrust();
         let mass = self.wet_mass();
-        if mass == 0.0 {
+        if mass == Mass::ZERO {
             0.0
         } else {
-            thrust / mass
+            thrust / mass.to_kg_f32()
         }
     }
 
@@ -517,7 +518,7 @@ impl Vehicle {
         let mass = self.wet_mass();
         self.thrusters
             .iter()
-            .map(|t| t.thrust_vector() / mass)
+            .map(|t| t.thrust_vector() / mass.to_kg_f32())
             .sum()
     }
 
@@ -529,7 +530,7 @@ impl Vehicle {
     }
 
     pub fn remaining_dv(&self) -> f32 {
-        if self.wet_mass() * self.dry_mass == 0.0 {
+        if self.wet_mass() == Mass::ZERO || self.dry_mass == Mass::ZERO {
             return 0.0;
         }
         let ve = self.average_linear_exhaust_velocity();
@@ -537,7 +538,7 @@ impl Vehicle {
     }
 
     pub fn fuel_percentage(&self) -> f32 {
-        self.fuel_mass() / self.max_fuel_mass
+        self.fuel_mass().to_kg_f32() / self.max_fuel_mass.to_kg_f32()
     }
 
     pub fn name(&self) -> &str {
@@ -546,7 +547,7 @@ impl Vehicle {
 
     fn current_angular_acceleration(&self) -> f32 {
         let mut aa = 0.0;
-        let moa = self.wet_mass(); // TODO
+        let moa = self.wet_mass().to_kg_f32(); // TODO
         let com = self.center_of_mass();
 
         self.thrusters
@@ -566,7 +567,7 @@ impl Vehicle {
 
     fn current_linear_acceleration(&self) -> Vec2 {
         let mut a = Vec2::ZERO;
-        let mass = self.wet_mass();
+        let mass = self.wet_mass().to_kg_f32();
         self.thrusters
             .iter()
             .filter(|t| t.is_thrusting())
@@ -627,8 +628,8 @@ impl Vehicle {
 
         let n: f32 = self.tanks.len() as f32;
         for t in &mut self.tanks {
-            t.current_fuel_mass -= fcr * NOMINAL_DT.to_secs() / n;
-            t.current_fuel_mass = t.current_fuel_mass.clamp(0.0, t.maximum_fuel_mass);
+            t.current_fuel_mass -= Mass::from_kg_f32(fcr * NOMINAL_DT.to_secs() / n);
+            t.current_fuel_mass = t.current_fuel_mass.clamp(Mass::ZERO, t.maximum_fuel_mass);
         }
 
         self.angular_velocity += aa * NOMINAL_DT.to_secs();

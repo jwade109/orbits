@@ -1,4 +1,5 @@
-mass: 650.0
+mass: 650000
 layer: Internal
 class: !Tank
-  wet_mass: 6000.0
+  wet_mass: 6000000
+  item: H2

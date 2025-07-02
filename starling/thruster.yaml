@@ -1,4 +1,4 @@
-mass: 12.0
+mass: 12000
 layer: Exterior
 class: !Thruster
   thrust: 1200.0

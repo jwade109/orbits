@@ -164,7 +164,7 @@ impl SurfaceContext {
         let ctx = &mut state.surface_context;
 
         if state.input.just_pressed(KeyCode::KeyF) {
-            ctx.factory = model_factory();
+            ctx.factory = example_factory();
         }
 
         (|| -> Option<()> {

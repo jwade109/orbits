@@ -1,4 +1,4 @@
-mass: 200.0
+mass: 200000
 layer: Internal
 class: !Thruster
   model: "P40N"

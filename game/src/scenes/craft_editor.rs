@@ -336,7 +336,7 @@ impl EditorContext {
 pub fn vehicle_info(vehicle: &Vehicle) -> String {
     let bounds = vehicle.aabb();
     let fuel_economy = if vehicle.remaining_dv() > 0.0 {
-        vehicle.fuel_mass() / vehicle.remaining_dv()
+        vehicle.fuel_mass().to_kg_f32() / vehicle.remaining_dv()
     } else {
         0.0
     };
@@ -345,7 +345,7 @@ pub fn vehicle_info(vehicle: &Vehicle) -> String {
     let rate = vehicle.fuel_consumption_rate();
     let accel = vehicle.body_frame_acceleration();
     let burn_time = if rate > 0.0 {
-        format!("{:0.1} s", fuel_mass / rate)
+        format!("{:0.1} s", fuel_mass.to_kg_f32() / rate)
     } else {
         "N/A".to_string()
     };
@@ -387,9 +387,6 @@ impl Render for EditorContext {
         let top_bar = top_bar(state);
         let parts = part_selection(state);
         let layers = layer_selection(state);
-        let info_panel = Node::new(layers.desired_dims().0, 200)
-            .with_color(UI_BACKGROUND_COLOR)
-            .with_child(Node::grow());
         let vehicles = vehicle_selection(state);
         let other_buttons = other_buttons();
 
@@ -401,8 +398,7 @@ impl Render for EditorContext {
                     .down()
                     .with_padding(0.0)
                     .invisible()
-                    .with_child(layers)
-                    .with_child(info_panel),
+                    .with_child(layers),
             )
             .with_child(vehicles)
             .with_child(Node::grow().invisible())

@@ -1,4 +1,4 @@
-mass: 650.0
+mass: 650000
 layer: Internal
 class: !Thruster
   model: "RJ2000"
