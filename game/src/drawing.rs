@@ -315,7 +315,7 @@ pub fn draw_vehicle(canvas: &mut Canvas, vehicle: &Vehicle, pos: Vec2, scale: f3
 
     let geo = vehicle.aabb().center;
 
-    for (p, rot, part) in &vehicle.parts {
+    for (p, rot, part, _) in vehicle.parts() {
         let dims = meters_with_rotation(*rot, part);
         let center = rotate(p.as_vec2() / PIXELS_PER_METER + dims / 2.0, angle) * scale;
         let obb = OBB::new(

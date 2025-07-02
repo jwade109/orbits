@@ -554,20 +554,10 @@ fn current_inventory_layout(state: &GameState) -> Option<Node<OnClick>> {
     let orbiter = state.lup_orbiter(id, state.sim_time)?.orbiter()?;
     let vehicle = state.vehicles.get(&id)?;
 
-    if vehicle.inventory.is_empty() {
-        return None;
-    }
-
-    let buttons = Node::new(Size::Grow, Size::Fit)
-        .down()
-        .with_child({
-            let s = format!("Vehicle {}", vehicle.name());
-            Node::button(s, OnClick::Nullopt, Size::Grow, 40.0).enabled(false)
-        })
-        .with_children(vehicle.inventory.iter().map(|(k, v)| {
-            let name = format!("{:?} {} g", k, v);
-            Node::button(name, OnClick::Nullopt, Size::Grow, 40.0)
-        }));
+    let buttons = Node::new(Size::Grow, Size::Fit).down().with_child({
+        let s = format!("Vehicle {}", vehicle.name());
+        Node::button(s, OnClick::Nullopt, Size::Grow, 40.0).enabled(false)
+    });
 
     Some(
         // TODO this node should be fit

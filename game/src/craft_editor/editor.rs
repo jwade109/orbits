@@ -39,6 +39,7 @@ pub struct EditorContext {
     filepath: Option<PathBuf>,
     invisible_layers: HashSet<PartLayer>,
     occupied: HashMap<PartLayer, HashMap<IVec2, usize>>,
+    parts: Vec<(IVec2, Rotation, PartProto)>,
     pub vehicle: Vehicle,
 
     // menus
@@ -57,6 +58,7 @@ impl EditorContext {
             filepath: None,
             invisible_layers: HashSet::new(),
             occupied: HashMap::new(),
+            parts: Vec::new(),
             vehicle: Vehicle::from_parts("".into(), Nanotime::zero(), Vec::new()),
             show_vehicle_info: false,
             parts_menu_collapsed: false,
@@ -76,7 +78,7 @@ impl EditorContext {
 
     pub fn new_craft(&mut self) {
         self.filepath = None;
-        self.vehicle.parts.clear();
+        self.parts.clear();
         self.current_part = None;
         self.update();
     }
@@ -86,12 +88,12 @@ impl EditorContext {
     }
 
     pub fn rotate_craft(&mut self) {
-        for (p, rot, part) in &mut self.vehicle.parts {
-            let old_half_dims = dims_with_rotation(*rot, part).as_vec2() / 2.0;
+        for (p, rot, part) in &mut self.parts {
+            let old_half_dims = pixel_dims_with_rotation(*rot, part).as_vec2() / 2.0;
             let old_center = p.as_vec2() + old_half_dims;
             let new_center = rotate(old_center, PI / 2.0);
             *rot = enum_iterator::next_cycle(rot);
-            let new_half_dims = dims_with_rotation(*rot, part).as_vec2() / 2.0;
+            let new_half_dims = pixel_dims_with_rotation(*rot, part).as_vec2() / 2.0;
             let new_corner = new_center - new_half_dims;
             *p = vround(new_corner);
         }
@@ -99,15 +101,15 @@ impl EditorContext {
     }
 
     pub fn normalize_coordinates(&mut self) {
-        if self.vehicle.parts.is_empty() {
+        if self.parts.is_empty() {
             return;
         }
 
         let mut min: IVec2 = IVec2::ZERO;
         let mut max: IVec2 = IVec2::ZERO;
 
-        self.vehicle.parts.iter().for_each(|(p, rot, part)| {
-            let dims = dims_with_rotation(*rot, part);
+        self.parts.iter().for_each(|(p, rot, part)| {
+            let dims = pixel_dims_with_rotation(*rot, part);
             let q = *p + dims.as_ivec2();
             min.x = min.x.min(p.x);
             min.y = min.y.min(p.y);
@@ -117,7 +119,7 @@ impl EditorContext {
 
         let avg = min + (max - min) / 2;
 
-        self.vehicle.parts.iter_mut().for_each(|(p, _, _)| {
+        self.parts.iter_mut().for_each(|(p, _, _)| {
             *p = *p - avg;
         });
 
@@ -143,7 +145,7 @@ impl EditorContext {
     }
 
     fn visible_parts(&self) -> impl Iterator<Item = &(IVec2, Rotation, PartProto)> {
-        self.vehicle.parts.iter().filter(|(_, _, part)| {
+        self.parts.iter().filter(|(_, _, part)| {
             let layer = part.data.layer;
             !self.invisible_layers.contains(&layer)
         })
@@ -167,7 +169,6 @@ impl EditorContext {
 
         let parts = state
             .editor_context
-            .vehicle
             .parts
             .iter()
             .map(|(pos, rot, part)| VehiclePartFileStorage {
@@ -202,12 +203,11 @@ impl EditorContext {
         let storage: VehicleFileStorage = serde_yaml::from_str(&s).ok()?;
         state.notice(format!("Loaded vehicle \"{}\"", storage.name));
 
-        state.editor_context.vehicle.parts.clear();
+        state.editor_context.parts.clear();
         for ps in storage.parts {
             if let Some(part) = state.part_database.get(&ps.partname) {
                 state
                     .editor_context
-                    .vehicle
                     .parts
                     .push((ps.pos, ps.rot, part.clone()));
             }
@@ -219,7 +219,7 @@ impl EditorContext {
 
     fn occupied_pixels(pos: IVec2, rot: Rotation, part: &PartProto) -> Vec<IVec2> {
         let mut ret = vec![];
-        let wh = dims_with_rotation(rot, part);
+        let wh = pixel_dims_with_rotation(rot, part);
         for w in 0..wh.x {
             for h in 0..wh.y {
                 let p = pos + UVec2::new(w, h).as_ivec2();
@@ -241,7 +241,7 @@ impl EditorContext {
 
             if let Some(occ) = self.occupied.get(&layer) {
                 if let Some(idx) = occ.get(&p) {
-                    return self.vehicle.parts.get(*idx).cloned();
+                    return self.parts.get(*idx).cloned();
                 }
             }
         }
@@ -251,7 +251,7 @@ impl EditorContext {
 
     fn update(&mut self) {
         self.occupied.clear();
-        for (i, (pos, rot, part)) in self.vehicle.parts.iter().enumerate() {
+        for (i, (pos, rot, part)) in self.parts.iter().enumerate() {
             let pixels = Self::occupied_pixels(*pos, *rot, part);
             if let Some(occ) = self.occupied.get_mut(&part.data.layer) {
                 for p in pixels {
@@ -266,7 +266,7 @@ impl EditorContext {
             }
         }
 
-        self.vehicle = Vehicle::from_parts("".into(), Nanotime::zero(), self.vehicle.parts.clone());
+        self.vehicle = Vehicle::from_parts("".into(), Nanotime::zero(), self.parts.clone());
     }
 
     fn try_place_part(&mut self, p: IVec2, new_part: PartProto) -> Option<()> {
@@ -278,13 +278,13 @@ impl EditorContext {
                 }
             }
         }
-        self.vehicle.parts.push((p, self.rotation, new_part));
+        self.parts.push((p, self.rotation, new_part));
         self.update();
         Some(())
     }
 
     fn remove_part_at(&mut self, p: IVec2) {
-        self.vehicle.parts.retain(|(pos, rot, part)| {
+        self.parts.retain(|(pos, rot, part)| {
             if self.invisible_layers.contains(&part.data.layer) {
                 return true;
             }
@@ -297,7 +297,7 @@ impl EditorContext {
     fn current_part_and_cursor_position(state: &GameState) -> Option<(IVec2, PartProto)> {
         let ctx = &state.editor_context;
         let part = state.editor_context.current_part.clone()?;
-        let wh = dims_with_rotation(ctx.rotation, &part).as_ivec2();
+        let wh = pixel_dims_with_rotation(ctx.rotation, &part).as_ivec2();
         let pos = state.input.position(MouseButt::Hover, FrameId::Current)?;
         let pos = vround(state.editor_context.c2w(pos));
         Some((pos - wh / 2, part))
@@ -322,7 +322,7 @@ pub fn vehicle_info(vehicle: &Vehicle) -> String {
     };
 
     [
-        format!("Dry mass: {:0.1} kg", vehicle.dry_mass),
+        format!("Dry mass: {:0.1} kg", vehicle.dry_mass()),
         format!("Fuel: {:0.1} kg", fuel_mass),
         format!("Burn time: {}", burn_time),
         format!("Wet mass: {:0.1} kg", vehicle.wet_mass()),
@@ -403,7 +403,7 @@ impl Render for EditorContext {
 
         let info: String = [
             filename,
-            format!("{} parts", state.editor_context.vehicle.parts.len()),
+            format!("{} parts", state.editor_context.parts.len()),
             format!("Rotation: {:?}", state.editor_context.rotation),
         ]
         .into_iter()
@@ -460,7 +460,7 @@ impl Render for EditorContext {
             }
 
             if let Some((p, rot, part)) = ctx.get_part_at(vfloor(c)) {
-                let wh = dims_with_rotation(rot, &part).as_ivec2();
+                let wh = pixel_dims_with_rotation(rot, &part).as_ivec2();
                 let q = p + wh;
                 let r = p + IVec2::X * wh.x;
                 let s = p + IVec2::Y * wh.y;
@@ -492,7 +492,7 @@ impl Render for EditorContext {
                             continue;
                         }
                         visited_parts.insert(*idx);
-                        if let Some((pc, rc, partc)) = ctx.vehicle.parts.get(*idx) {
+                        if let Some((pc, rc, partc)) = ctx.parts.get(*idx) {
                             let aabb = aabb_for_part(*pc, *rc, partc);
                             canvas.rect(ctx.w2c_aabb(aabb), RED.with_alpha(0.5)).z_index = 100.0;
                         }
@@ -545,7 +545,7 @@ impl Render for EditorContext {
         }
 
         if let Some((p, current_part)) = Self::current_part_and_cursor_position(state) {
-            let dims = dims_with_rotation(ctx.rotation, &current_part);
+            let dims = pixel_dims_with_rotation(ctx.rotation, &current_part);
             let sprite_dims = UVec2::new(current_part.width, current_part.height);
             canvas.sprite(
                 ctx.w2c(p.as_vec2() + dims.as_vec2() / 2.0),
@@ -559,7 +559,7 @@ impl Render for EditorContext {
         ctx.visible_parts()
             .enumerate()
             .for_each(|(i, (pos, rot, part))| {
-                let dims = dims_with_rotation(*rot, part);
+                let dims = pixel_dims_with_rotation(*rot, part);
                 let sprite_dims = UVec2::new(part.width, part.height);
                 canvas.sprite(
                     ctx.w2c(pos.as_vec2() + dims.as_vec2() / 2.0),
@@ -575,7 +575,7 @@ impl Render for EditorContext {
 }
 
 fn aabb_for_part(p: IVec2, rot: Rotation, part: &PartProto) -> AABB {
-    let wh = dims_with_rotation(rot, part).as_ivec2();
+    let wh = pixel_dims_with_rotation(rot, part).as_ivec2();
     let q = p + wh;
     AABB::from_arbitrary(p.as_vec2(), q.as_vec2())
 }

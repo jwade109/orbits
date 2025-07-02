@@ -366,16 +366,7 @@ pub fn get_landing_site_labels(state: &GameState) -> Vec<TextLabel> {
 fn get_inventory_label(state: &GameState) -> Option<TextLabel> {
     let id = state.piloting()?;
     let vehicle = state.vehicles.get(&id)?;
-    let inv = &vehicle.inventory;
-    let info: String = inv
-        .iter()
-        .map(|(e, c)| format!("{:?}: {}\n", e, c))
-        .collect();
-
-    let vinfo = crate::scenes::craft_editor::vehicle_info(vehicle);
-
-    let info = format!("{}{}", info, vinfo,);
-
+    let info = crate::scenes::craft_editor::vehicle_info(vehicle);
     Some(TextLabel::new(info, Vec2::ZERO, 0.7).with_anchor_left())
 }
 

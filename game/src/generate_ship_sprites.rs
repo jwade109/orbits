@@ -19,7 +19,7 @@ pub fn generate_image(
     let dims = pixel_max - pixel_min;
     let mut img = DynamicImage::new_rgba8(dims.x as u32, dims.y as u32);
     let to_export = img.as_mut_rgba8().unwrap();
-    for (pos, rot, part) in vehicle.parts_by_layer() {
+    for (pos, rot, part, _) in vehicle.parts_by_layer() {
         let path = parts_dir.join(&part.path).join("skin.png");
         let img = match read_image(&path) {
             Some(img) => img,
