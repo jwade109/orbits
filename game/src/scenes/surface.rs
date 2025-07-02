@@ -1,9 +1,9 @@
+use crate::camera_controller::LinearCameraController;
 use crate::canvas::Canvas;
 use crate::drawing::*;
 use crate::game::GameState;
 use crate::input::*;
 use crate::onclick::OnClick;
-use crate::scenes::rpo::LinearCameraController;
 use crate::scenes::{CameraProjection, Render};
 use bevy::color::{palettes::css::*, Alpha, Mix, Srgba};
 use bevy::prelude::{Gizmos, KeyCode};
@@ -14,7 +14,7 @@ use std::collections::HashSet;
 #[derive(Debug)]
 pub struct SurfaceContext {
     camera: LinearCameraController,
-    // real stuff
+
     vehicles: Vec<Vehicle>,
     selected: HashSet<usize>,
 
@@ -74,12 +74,7 @@ impl ThrustParticle {
 impl Default for SurfaceContext {
     fn default() -> Self {
         SurfaceContext {
-            camera: LinearCameraController {
-                center: Vec2::ZERO,
-                target_center: Vec2::ZERO,
-                scale: 1.0,
-                target_scale: 1.0,
-            },
+            camera: LinearCameraController::new(Vec2::ZERO, 1.0),
             vehicles: Vec::new(),
             surface: Surface::random(),
             selected: HashSet::new(),
@@ -261,11 +256,11 @@ impl SurfaceContext {
 
 impl CameraProjection for SurfaceContext {
     fn origin(&self) -> Vec2 {
-        self.camera.center
+        self.camera.origin()
     }
 
     fn scale(&self) -> f32 {
-        self.camera.scale
+        self.camera.scale()
     }
 }
 

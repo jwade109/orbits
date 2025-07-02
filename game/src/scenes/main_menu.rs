@@ -3,7 +3,7 @@
 use crate::canvas::Canvas;
 use crate::game::GameState;
 use crate::onclick::OnClick;
-use crate::scenes::{Render, StaticSpriteDescriptor, TextLabel};
+use crate::scenes::*;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use layout::layout::{Node, Size, Tree};
@@ -30,9 +30,7 @@ impl Render for MainMenuContext {
             Ok(dir) => dir.to_string_lossy().to_string(),
             Err(e) => format!("{} (\"{}\")", e, state.args.install_dir.clone().display()),
         };
-        let n_vehicles = crate::scenes::get_list_of_vehicles(state)
-            .map(|l| l.len())
-            .unwrap_or(0);
+        let n_vehicles = get_list_of_vehicles(state).map(|l| l.len()).unwrap_or(0);
         let s = format!(
             "Compiled on {}\nInstall directory: {}\n{} parts loaded\n{} vehicles loaded\n{} sprites loaded",
             time,

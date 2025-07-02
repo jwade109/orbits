@@ -1,4 +1,5 @@
 use crate::aabb::AABB;
+use crate::factory::Factory;
 use crate::factory::Mass;
 use crate::factory::{Inventory, Item};
 use crate::math::{cross2d, rand, randint, rotate, IVec2, UVec2, Vec2, PI};
@@ -238,7 +239,7 @@ pub struct Vehicle {
     stamp: Nanotime,
     angle: f32,
     angular_velocity: f32,
-
+    factory: Factory,
     thrusters: Vec<Thruster>,
     magnetorquers: Vec<Magnetorquer>,
     radars: Vec<Radar>,
@@ -284,6 +285,7 @@ impl Vehicle {
                         pos: pos.as_vec2() / crate::parts::parts::PIXELS_PER_METER,
                         width: dims.x,
                         height: dims.y,
+                        item: proto.item,
                         dry_mass: p.data.mass,
                         current_fuel_mass: proto.wet_mass,
                         maximum_fuel_mass: proto.wet_mass,
@@ -293,6 +295,12 @@ impl Vehicle {
                 }
             })
             .collect();
+
+        let mut factory = Factory::new();
+
+        for tank in &tanks {
+            factory.add_storage(tank.item, tank.maximum_fuel_mass.to_grams());
+        }
 
         let radars: Vec<Radar> = parts
             .iter()
@@ -341,6 +349,7 @@ impl Vehicle {
             stamp,
             angle: rand(0.0, 2.0 * PI),
             angular_velocity: rand(-0.3, 0.3),
+            factory,
             tanks,
             thrusters,
             radars,
@@ -357,6 +366,10 @@ impl Vehicle {
 
     pub fn stamp(&self) -> Nanotime {
         self.stamp
+    }
+
+    pub fn factory(&self) -> &Factory {
+        &self.factory
     }
 
     pub fn parts_by_layer(&self) -> impl Iterator<Item = &(IVec2, Rotation, PartProto)> + use<'_> {

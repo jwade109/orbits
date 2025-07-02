@@ -61,9 +61,14 @@ impl<'w, 's> Canvas<'w, 's> {
             .expect("Literally just pushed an element")
     }
 
-    pub fn rect(&mut self, aabb: AABB, color: impl Into<Srgba>) {
+    pub fn rect<'a>(
+        &'a mut self,
+        aabb: AABB,
+        color: impl Into<Srgba>,
+    ) -> &'a mut StaticSpriteDescriptor {
         self.z_index += 1.0;
-        self.sprite(aabb.center, 0.0, "error", self.z_index, aabb.span)
-            .set_color(color);
+        let s = self.sprite(aabb.center, 0.0, "error", self.z_index, aabb.span);
+        s.set_color(color.into());
+        s
     }
 }

@@ -1,3 +1,4 @@
+use crate::camera_controller::LinearCameraController;
 use crate::canvas::Canvas;
 use crate::drawing::*;
 use crate::game::GameState;
@@ -6,7 +7,6 @@ use crate::onclick::OnClick;
 use crate::scenes::Render;
 use crate::scenes::{CameraProjection, Interactive, TextLabel};
 use bevy::color::palettes::css::*;
-use bevy::input::keyboard::KeyCode;
 use bevy::prelude::*;
 use layout::layout::Tree;
 
@@ -18,11 +18,11 @@ pub struct RPOContext {
 
 impl CameraProjection for RPOContext {
     fn origin(&self) -> Vec2 {
-        self.camera.center
+        self.camera.origin()
     }
 
     fn scale(&self) -> f32 {
-        self.camera.scale
+        self.camera.scale()
     }
 }
 
@@ -174,65 +174,13 @@ impl Render for RPOContext {
 impl RPOContext {
     pub fn new() -> Self {
         Self {
-            camera: LinearCameraController {
-                center: Vec2::ZERO,
-                target_center: Vec2::ZERO,
-                scale: 1.0,
-                target_scale: 1.0,
-            },
+            camera: LinearCameraController::new(Vec2::ZERO, 1.0),
             following: None,
         }
     }
 
     pub fn following(&self) -> Option<usize> {
         self.following
-    }
-}
-
-#[derive(Debug)]
-pub struct LinearCameraController {
-    pub center: Vec2,
-    pub target_center: Vec2,
-    pub scale: f32,
-    pub target_scale: f32,
-}
-
-impl LinearCameraController {
-    pub fn update(&mut self, dt: f32, input: &InputState) {
-        let speed = 16.0 * dt * 100.0;
-
-        if input.is_scroll_down() {
-            self.target_scale /= 1.5;
-        }
-        if input.is_scroll_up() {
-            self.target_scale *= 1.5;
-        }
-
-        if input.is_pressed(KeyCode::Equal) {
-            self.target_scale *= 1.03;
-        }
-        if input.is_pressed(KeyCode::Minus) {
-            self.target_scale /= 1.03;
-        }
-        if input.is_pressed(KeyCode::KeyD) {
-            self.target_center.x += speed / self.scale;
-        }
-        if input.is_pressed(KeyCode::KeyA) {
-            self.target_center.x -= speed / self.scale;
-        }
-        if input.is_pressed(KeyCode::KeyW) {
-            self.target_center.y += speed / self.scale;
-        }
-        if input.is_pressed(KeyCode::KeyS) {
-            self.target_center.y -= speed / self.scale;
-        }
-        if input.is_pressed(KeyCode::KeyR) {
-            self.target_center = Vec2::ZERO;
-            self.target_scale = 1.0;
-        }
-
-        self.scale += (self.target_scale - self.scale) * 0.1;
-        self.center += (self.target_center - self.center) * 0.1;
     }
 }
 

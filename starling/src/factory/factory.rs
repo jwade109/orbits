@@ -1,13 +1,13 @@
 use crate::factory::*;
 use crate::nanotime::Nanotime;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 pub enum FactoryEntity<'a> {
     Plant(&'a Plant),
     Storage(&'a Storage),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Factory {
     stamp: Nanotime,
     next_entity_id: u64,
@@ -16,7 +16,7 @@ pub struct Factory {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum PlantTransitionEvent {
+enum PlantTransitionEvent {
     StartJob,
     FinishJob,
 }
@@ -92,7 +92,7 @@ impl Factory {
         self.plants.len()
     }
 
-    pub fn update_plant_blocked(&mut self, id: u64) -> bool {
+    fn update_plant_blocked(&mut self, id: u64) -> bool {
         let plant = match self.plants.get_mut(&id) {
             Some(p) => p,
             None => return false,
@@ -116,7 +116,7 @@ impl Factory {
         return blocked;
     }
 
-    pub fn update_plant_starved(&mut self, id: u64) -> bool {
+    fn update_plant_starved(&mut self, id: u64) -> bool {
         let plant = match self.plants.get_mut(&id) {
             Some(p) => p,
             None => return false,
@@ -139,7 +139,7 @@ impl Factory {
         return starved;
     }
 
-    pub fn get_next_relevant_plant(&self) -> Option<(Nanotime, u64, PlantTransitionEvent)> {
+    fn get_next_relevant_plant(&self) -> Option<(Nanotime, u64, PlantTransitionEvent)> {
         let mut results = Vec::new();
         for (id, plant) in &self.plants {
             if !plant.is_working() && !plant.is_starved() {
@@ -169,7 +169,7 @@ impl Factory {
         self.stamp = stamp;
     }
 
-    pub fn try_start_plant(&mut self, id: u64) -> Option<()> {
+    fn try_start_plant(&mut self, id: u64) -> Option<()> {
         let starved = self.update_plant_starved(id);
         if starved {
             return None;
@@ -186,7 +186,7 @@ impl Factory {
         Some(())
     }
 
-    pub fn try_finish_plant(&mut self, id: u64) -> Option<()> {
+    fn try_finish_plant(&mut self, id: u64) -> Option<()> {
         let blocked = self.update_plant_blocked(id);
         if blocked {
             return None;
@@ -260,8 +260,6 @@ fn model_factory() -> Factory {
 
     let condenser = factory.add_plant("cond", carbon_dioxide_condensation(), Nanotime::hours(1));
     factory.connect_output(condenser, co2);
-
-    dbg!(&factory);
 
     factory
 }

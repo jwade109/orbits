@@ -223,6 +223,8 @@ fn generate_landing_sites(pids: &[EntityId]) -> HashMap<EntityId, Vec<(f32, Stri
 }
 
 impl GameState {
+
+    #[allow(unused)]
     pub fn new(args: ProgramContext) -> Self {
         let (planets, ids) = default_example();
 

@@ -1,4 +1,4 @@
-use crate::factory::Mass;
+use crate::factory::{Mass, Item};
 use crate::math::Vec2;
 
 #[derive(Debug, Clone, Copy)]
@@ -6,6 +6,7 @@ pub struct Tank {
     pub pos: Vec2,
     pub width: f32,
     pub height: f32,
+    pub item: Item,
     pub dry_mass: Mass,
     pub current_fuel_mass: Mass,
     pub maximum_fuel_mass: Mass,

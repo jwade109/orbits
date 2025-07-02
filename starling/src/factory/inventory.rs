@@ -25,6 +25,7 @@ pub enum Item {
     Geodes,
     Wheat,
     Milk,
+    Power,
 }
 
 impl Item {

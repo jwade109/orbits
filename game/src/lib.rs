@@ -13,3 +13,5 @@ pub mod onclick;
 pub mod scenes;
 pub mod sprites;
 pub mod ui;
+pub mod craft_editor;
+pub mod camera_controller;

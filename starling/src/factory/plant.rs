@@ -2,7 +2,7 @@ use crate::factory::{Item, Recipe};
 use crate::nanotime::Nanotime;
 use std::collections::HashMap;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Plant {
     name: String,
     recipe: Recipe,

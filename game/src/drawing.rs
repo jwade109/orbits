@@ -1278,7 +1278,7 @@ pub fn draw_bezier(gizmos: &mut Gizmos, bezier: &Bezier, color: Srgba) {
     gizmos.linestrip_2d(points, color);
 }
 
-pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, aabb: AABB, stamp: Nanotime) {
+pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, _aabb: AABB, _stamp: Nanotime) {
     // draw_aabb(&mut canvas.gizmos, aabb, WHITE.with_alpha(0.3));
 
     // let mut text_pos = aabb.top_center() + Vec2::Y * 20.0;
@@ -1322,7 +1322,12 @@ pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, aabb: AABB, stamp: N
         draw_aabb(&mut canvas.gizmos, aabb, color.into());
 
         canvas.text(
-            format!("{:?} {}", storage.item(), Mass::grams(storage.count())),
+            format!(
+                "{:?} {} / {}",
+                storage.item(),
+                Mass::grams(storage.count()),
+                Mass::grams(storage.capacity())
+            ),
             center + Vec2::Y * storage_width,
             0.6,
         );
@@ -1619,6 +1624,8 @@ fn orthographic_camera_map(p: Vec3, center: Vec3, normal: Vec3, x: Vec3, y: Vec3
 }
 
 pub fn draw_game_state(gizmos: Gizmos, mut state: ResMut<GameState>) {
+    // draw_input_state(&mut gizmos, &state);
+
     let mut canvas = Canvas::new(gizmos);
 
     GameState::draw(&mut canvas, &state);
