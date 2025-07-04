@@ -1,6 +1,7 @@
 use crate::args::ProgramContext;
 use crate::camera_controller::LinearCameraController;
 use crate::canvas::Canvas;
+use crate::craft_editor::cursor_state::CursorState;
 use crate::drawing::*;
 use crate::game::GameState;
 use crate::input::InputState;
@@ -34,13 +35,13 @@ pub struct VehiclePartFileStorage {
 #[derive(Debug)]
 pub struct EditorContext {
     camera: LinearCameraController,
-    current_part: Option<PartProto>,
+    cursor_state: CursorState,
     rotation: Rotation,
     filepath: Option<PathBuf>,
     invisible_layers: HashSet<PartLayer>,
     occupied: HashMap<PartLayer, HashMap<IVec2, usize>>,
-    parts: Vec<(IVec2, Rotation, PartProto)>,
-    pub vehicle: Vehicle,
+    parts: Vec<(IVec2, Rotation, PartDefinition)>,
+    vehicle: Vehicle,
 
     // menus
     pub show_vehicle_info: bool,
@@ -53,7 +54,7 @@ impl EditorContext {
     pub fn new() -> Self {
         EditorContext {
             camera: LinearCameraController::new(Vec2::ZERO, 18.0),
-            current_part: None,
+            cursor_state: CursorState::None,
             rotation: Rotation::East,
             filepath: None,
             invisible_layers: HashSet::new(),
@@ -65,6 +66,10 @@ impl EditorContext {
             vehicles_menu_collapsed: true,
             layers_menu_collapsed: false,
         }
+    }
+
+    pub fn vehicle(&self) -> &Vehicle {
+        &self.vehicle
     }
 
     pub fn cursor_box(&self, input: &InputState) -> Option<AABB> {
@@ -79,7 +84,7 @@ impl EditorContext {
     pub fn new_craft(&mut self) {
         self.filepath = None;
         self.parts.clear();
-        self.current_part = None;
+        self.cursor_state = CursorState::None;
         self.update();
     }
 
@@ -127,7 +132,9 @@ impl EditorContext {
     }
 
     pub fn set_current_part(state: &mut GameState, name: &String) {
-        state.editor_context.current_part = state.part_database.get(name).cloned();
+        if let Some(part) = state.part_database.get(name).cloned() {
+            state.editor_context.cursor_state = CursorState::Part(part);
+        }
     }
 
     fn open_existing_file(&mut self) -> Option<PathBuf> {
@@ -144,9 +151,9 @@ impl EditorContext {
         self.filepath.clone()
     }
 
-    fn visible_parts(&self) -> impl Iterator<Item = &(IVec2, Rotation, PartProto)> {
+    fn visible_parts(&self) -> impl Iterator<Item = &(IVec2, Rotation, PartDefinition)> {
         self.parts.iter().filter(|(_, _, part)| {
-            let layer = part.data.layer;
+            let layer = part.layer;
             !self.invisible_layers.contains(&layer)
         })
     }
@@ -164,7 +171,7 @@ impl EditorContext {
     }
 
     pub fn save_to_file(state: &mut GameState) -> Option<()> {
-        let choice = state.editor_context.open_file_to_save()?;
+        let choice: PathBuf = state.editor_context.open_file_to_save()?;
         state.notice(format!("Saving to {}", choice.display()));
 
         let parts = state
@@ -217,7 +224,7 @@ impl EditorContext {
         Some(())
     }
 
-    fn occupied_pixels(pos: IVec2, rot: Rotation, part: &PartProto) -> Vec<IVec2> {
+    fn occupied_pixels(pos: IVec2, rot: Rotation, part: &PartDefinition) -> Vec<IVec2> {
         let mut ret = vec![];
         let wh = pixel_dims_with_rotation(rot, part);
         for w in 0..wh.x {
@@ -229,7 +236,7 @@ impl EditorContext {
         ret
     }
 
-    fn get_part_at(&self, p: IVec2) -> Option<(IVec2, Rotation, PartProto)> {
+    fn get_part_at(&self, p: IVec2) -> Option<(IVec2, Rotation, PartDefinition)> {
         for layer in [
             PartLayer::Exterior,
             PartLayer::Structural,
@@ -253,7 +260,7 @@ impl EditorContext {
         self.occupied.clear();
         for (i, (pos, rot, part)) in self.parts.iter().enumerate() {
             let pixels = Self::occupied_pixels(*pos, *rot, part);
-            if let Some(occ) = self.occupied.get_mut(&part.data.layer) {
+            if let Some(occ) = self.occupied.get_mut(&part.layer) {
                 for p in pixels {
                     occ.insert(p, i);
                 }
@@ -262,16 +269,16 @@ impl EditorContext {
                 for p in pixels {
                     occ.insert(p, i);
                 }
-                self.occupied.insert(part.data.layer, occ);
+                self.occupied.insert(part.layer, occ);
             }
         }
 
         self.vehicle = Vehicle::from_parts("".into(), Nanotime::zero(), self.parts.clone());
     }
 
-    fn try_place_part(&mut self, p: IVec2, new_part: PartProto) -> Option<()> {
+    fn try_place_part(&mut self, p: IVec2, new_part: PartDefinition) -> Option<()> {
         let new_pixels = Self::occupied_pixels(p, self.rotation, &new_part);
-        if let Some(occ) = self.occupied.get(&new_part.data.layer) {
+        if let Some(occ) = self.occupied.get(&new_part.layer) {
             for p in &new_pixels {
                 if occ.contains_key(p) {
                     return None;
@@ -285,7 +292,7 @@ impl EditorContext {
 
     fn remove_part_at(&mut self, p: IVec2) {
         self.parts.retain(|(pos, rot, part)| {
-            if self.invisible_layers.contains(&part.data.layer) {
+            if self.invisible_layers.contains(&part.layer) {
                 return true;
             }
             let pixels = Self::occupied_pixels(*pos, *rot, part);
@@ -294,9 +301,9 @@ impl EditorContext {
         self.update();
     }
 
-    fn current_part_and_cursor_position(state: &GameState) -> Option<(IVec2, PartProto)> {
+    fn current_part_and_cursor_position(state: &GameState) -> Option<(IVec2, PartDefinition)> {
         let ctx = &state.editor_context;
-        let part = state.editor_context.current_part.clone()?;
+        let part = state.editor_context.cursor_state.current_part()?;
         let wh = pixel_dims_with_rotation(ctx.rotation, &part).as_ivec2();
         let pos = state.input.position(MouseButt::Hover, FrameId::Current)?;
         let pos = vround(state.editor_context.c2w(pos));
@@ -388,6 +395,25 @@ impl Render for EditorContext {
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         let ctx = &state.editor_context;
         draw_cross(&mut canvas.gizmos, ctx.w2c(Vec2::ZERO), 10.0, GRAY);
+
+        match &ctx.cursor_state {
+            CursorState::None => (),
+            CursorState::Part(_) => (),
+            CursorState::Logistics(points) => {
+                let points: Vec<_> = points
+                    .iter()
+                    .cloned()
+                    .map(|p| ctx.w2c(p.as_vec2()))
+                    .collect();
+
+                for pair in points.windows(2) {
+                    let aabb = AABB::from_arbitrary(pair[0], pair[1]);
+                    canvas
+                        .rect(aabb.padded(10.0 * ctx.scale() / 10.0), PURPLE)
+                        .z_index = 100.0;
+                }
+            }
+        }
 
         draw_factory(canvas, ctx.vehicle.factory(), AABB::unit(), state.sim_time);
 
@@ -485,7 +511,7 @@ impl Render for EditorContext {
 
             let mut visited_parts = HashSet::new();
 
-            if let Some(occ) = ctx.occupied.get(&current_part.data.layer) {
+            if let Some(occ) = ctx.occupied.get(&current_part.layer) {
                 for q in &current_pixels {
                     if let Some(idx) = occ.get(q) {
                         if visited_parts.contains(idx) {
@@ -574,7 +600,7 @@ impl Render for EditorContext {
     }
 }
 
-fn aabb_for_part(p: IVec2, rot: Rotation, part: &PartProto) -> AABB {
+fn aabb_for_part(p: IVec2, rot: Rotation, part: &PartDefinition) -> AABB {
     let wh = pixel_dims_with_rotation(rot, part).as_ivec2();
     let q = p + wh;
     AABB::from_arbitrary(p.as_vec2(), q.as_vec2())
@@ -707,36 +733,41 @@ impl EditorContext {
     pub fn step(state: &mut GameState, dt: f32) {
         let is_hovering = state.is_hovering_over_ui();
 
-        // for input in &state.input.keyboard_events {
-        //     state.editor_context.title.on_button(input);
-        // }
-
-        if !is_hovering {
-            if let Some(_) = state.input.position(MouseButt::Left, FrameId::Current) {
-                if let Some((p, part)) = Self::current_part_and_cursor_position(state) {
-                    state.editor_context.try_place_part(p, part);
-                }
-            } else if let Some(p) = state.input.position(MouseButt::Right, FrameId::Current) {
-                let p = vfloor(state.editor_context.c2w(p));
-                state.editor_context.remove_part_at(p);
-            } else if state.input.just_pressed(KeyCode::KeyQ) {
-                if state.editor_context.current_part.is_some() {
-                    state.editor_context.current_part = None;
-                } else if let Some(p) = state.input.position(MouseButt::Hover, FrameId::Current) {
-                    let p = vfloor(state.editor_context.c2w(p));
-                    if let Some((_, rot, part)) = state.editor_context.get_part_at(p) {
-                        state.editor_context.rotation = rot;
-                        state.editor_context.current_part = Some(part);
-                    } else {
-                        state.editor_context.current_part = None;
-                    }
-                }
-            }
-        }
-
         let ctx = &mut state.editor_context;
 
         ctx.camera.update(dt, &state.input);
+
+        if is_hovering {
+            return;
+        }
+
+        if let Some(p) = state.input.on_frame(MouseButt::Left, FrameId::Down) {
+            let p = ctx.c2w(p);
+            ctx.cursor_state.append_pipe_control_point(vround(p));
+        }
+
+        if let Some(_) = state.input.position(MouseButt::Left, FrameId::Current) {
+            if let Some((p, part)) = Self::current_part_and_cursor_position(state) {
+                state.editor_context.try_place_part(p, part);
+            }
+        } else if let Some(p) = state.input.position(MouseButt::Right, FrameId::Current) {
+            let p = vfloor(state.editor_context.c2w(p));
+            state.editor_context.remove_part_at(p);
+        } else if state.input.just_pressed(KeyCode::KeyQ) {
+            if state.editor_context.cursor_state.current_part().is_some() {
+                state.editor_context.cursor_state = CursorState::None;
+            } else if let Some(p) = state.input.position(MouseButt::Hover, FrameId::Current) {
+                let p = vfloor(state.editor_context.c2w(p));
+                if let Some((_, rot, part)) = state.editor_context.get_part_at(p) {
+                    state.editor_context.rotation = rot;
+                    state.editor_context.cursor_state = CursorState::Part(part);
+                } else {
+                    state.editor_context.cursor_state = CursorState::None;
+                }
+            }
+        } else if state.input.just_pressed(KeyCode::KeyP) {
+            state.editor_context.cursor_state.toggle_logistics();
+        }
     }
 }
 

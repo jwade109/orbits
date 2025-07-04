@@ -1,14 +1,22 @@
-use crate::factory::Item;
 use crate::factory::Mass;
+use crate::parts::{TankModel, ThrusterModel};
 use enum_iterator::Sequence;
 use image::ImageReader;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 
+// TODO reduce scope of this constant
 pub const PIXELS_PER_METER: f32 = 20.0;
 
-fn part_from_path(path: &Path) -> Result<PartProto, String> {
+#[derive(Debug, Clone, Deserialize, Serialize)]
+struct PartFileStorage {
+    pub mass: Mass,
+    pub layer: PartLayer,
+    pub class: PartDefinitionVariant,
+}
+
+fn part_from_path(path: &Path) -> Result<PartDefinition, String> {
     let image_path = path.join("skin.png");
     let data_path = path.join("metadata.yaml");
     let img = ImageReader::open(&image_path)
@@ -21,9 +29,19 @@ fn part_from_path(path: &Path) -> Result<PartProto, String> {
         .to_string_lossy()
         .to_string();
     let s = std::fs::read_to_string(&data_path).map_err(|_| "Failed to load metadata file")?;
-    let data: PartMetaData =
+    let data: PartFileStorage =
         serde_yaml::from_str(&s).map_err(|e| format!("Failed to parse metadata file: {}", e))?;
-    Ok(PartProto::new(img.width(), img.height(), name, data))
+
+    let proto = PartDefinition {
+        width: img.width(),
+        height: img.height(),
+        path: name,
+        mass: data.mass,
+        layer: data.layer,
+        class: data.class,
+    };
+
+    Ok(proto)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Sequence, Hash, Deserialize, Serialize)]
@@ -33,25 +51,17 @@ pub enum PartLayer {
     Exterior,
 }
 
-/// dimensions in meters
 #[derive(Debug, Clone)]
-pub struct PartProto {
+pub struct PartDefinition {
     pub width: u32,
     pub height: u32,
     pub path: String,
-    pub data: PartMetaData,
+    pub mass: Mass,
+    pub layer: PartLayer,
+    pub class: PartDefinitionVariant,
 }
 
-impl PartProto {
-    pub const fn new(width: u32, height: u32, path: String, data: PartMetaData) -> Self {
-        Self {
-            width,
-            height,
-            path,
-            data,
-        }
-    }
-
+impl PartDefinition {
     pub fn width_meters(&self) -> f32 {
         self.width as f32 / PIXELS_PER_METER
     }
@@ -61,7 +71,7 @@ impl PartProto {
     }
 
     pub fn to_z_index(&self) -> f32 {
-        match self.data.layer {
+        match self.layer {
             PartLayer::Internal => 10.0,
             PartLayer::Structural => 11.0,
             PartLayer::Exterior => 12.0,
@@ -69,7 +79,7 @@ impl PartProto {
     }
 }
 
-pub fn load_parts_from_dir(path: &Path) -> HashMap<String, PartProto> {
+pub fn load_parts_from_dir(path: &Path) -> HashMap<String, PartDefinition> {
     let mut ret = HashMap::new();
     if let Ok(paths) = std::fs::read_dir(path) {
         for path in paths {
@@ -92,35 +102,9 @@ pub fn load_parts_from_dir(path: &Path) -> HashMap<String, PartProto> {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct PartMetaData {
-    pub mass: Mass,
-    pub layer: PartLayer,
-    pub class: PartClass,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ThrusterProto {
-    pub model: String,
-    pub thrust: f32,
-    pub exhaust_velocity: f32,
-    pub length: f32,
-    pub width: f32,
-    pub is_rcs: bool,
-    pub throttle_rate: f32,
-    pub primary_color: [f32; 4],
-    pub secondary_color: [f32; 4],
-}
-
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
-pub struct TankProto {
-    pub item: Item,
-    pub wet_mass: Mass,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub enum PartClass {
-    Thruster(ThrusterProto),
-    Tank(TankProto),
+pub enum PartDefinitionVariant {
+    Thruster(ThrusterModel),
+    Tank(TankModel),
     Radar,
     Cargo,
     Undefined,
@@ -129,14 +113,15 @@ pub enum PartClass {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::factory::Item;
     use serde_yaml;
 
     #[test]
     fn write_thruster_metadata_to_file() {
-        let data = PartMetaData {
+        let data = PartFileStorage {
             mass: Mass::kilograms(12),
             layer: PartLayer::Exterior,
-            class: PartClass::Thruster(ThrusterProto {
+            class: PartDefinitionVariant::Thruster(ThrusterModel {
                 model: "RJ1200".into(),
                 thrust: 1200.0,
                 exhaust_velocity: 3500.0,
@@ -155,10 +140,10 @@ mod tests {
 
     #[test]
     fn write_tank_metadata_to_file() {
-        let data = PartMetaData {
+        let data = PartFileStorage {
             mass: Mass::kilograms(12),
             layer: PartLayer::Exterior,
-            class: PartClass::Tank(TankProto {
+            class: PartDefinitionVariant::Tank(TankModel {
                 wet_mass: Mass::kilograms(120),
                 item: Item::H2,
             }),

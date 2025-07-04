@@ -216,17 +216,17 @@ impl SurfaceContext {
             for t in v.thrusters() {
                 let mut stamp = stamp;
 
-                if !t.is_thrusting() || t.proto.is_rcs {
+                if !t.is_thrusting() || t.model().is_rcs {
                     continue;
                 }
 
                 while stamp < state.sim_time {
                     let pos = rotate(t.pos, v.angle());
-                    let ve = t.proto.exhaust_velocity / 20.0;
+                    let ve = t.model().exhaust_velocity / 20.0;
                     let vel = randvec(2.0, 10.0) + v.pointing() * -ve * rand(0.6, 1.0);
                     let pv = v.pv + PV::from_f64(pos, vel);
-                    let c1 = to_srbga(t.proto.primary_color);
-                    let c2 = to_srbga(t.proto.secondary_color);
+                    let c1 = to_srbga(t.model().primary_color);
+                    let c2 = to_srbga(t.model().secondary_color);
                     let color = c1.mix(&c2, rand(0.0, 1.0));
                     let final_color = WHITE.mix(&DARK_GRAY, rand(0.3, 0.9)).with_alpha(0.4);
                     ctx.particles

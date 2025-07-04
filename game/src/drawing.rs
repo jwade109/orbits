@@ -290,19 +290,19 @@ pub fn draw_thruster(gizmos: &mut Gizmos, thruster: &Thruster, pos: Vec2, scale:
     let p1 = pos + rotate(thruster.pos * scale, angle);
     let u = rotate(-Vec2::X, thruster.angle + angle);
     let v = rotate(u, PI / 2.0);
-    let p2 = p1 + (u * thruster.proto.length + v * thruster.proto.width) * scale;
-    let p3 = p1 + (u * thruster.proto.length - v * thruster.proto.width) * scale;
+    let p2 = p1 + (u * thruster.length() + v * thruster.width()) * scale;
+    let p3 = p1 + (u * thruster.length() - v * thruster.width()) * scale;
     // gizmos.linestrip_2d([p1, p2, p3, p1], ORANGE);
 
     if thruster.is_thrusting() {
         for s in linspace(0.0, 1.0, 13) {
-            let length = thruster.proto.length.max(0.2)
+            let length = thruster.length().max(0.2)
                 * rand(8.0, 20.0)
                 * thruster.throttle()
                 * ((s - 0.5) * PI).abs().cos();
             let p4 = p2 + (u * 0.7 + v * 0.4) * length * scale;
             let p5 = p3 + (u * 0.7 - v * 0.4) * length * scale;
-            let color = if thruster.proto.is_rcs { TEAL } else { RED };
+            let color = if thruster.is_rcs() { TEAL } else { RED };
             let u = p2.lerp(p3, s);
             let v = p4.lerp(p5, s);
             gizmos.line_2d(u, v, color);
@@ -315,15 +315,9 @@ pub fn draw_vehicle(canvas: &mut Canvas, vehicle: &Vehicle, pos: Vec2, scale: f3
 
     let geo = vehicle.aabb().center;
 
-    for (p, rot, part, _) in vehicle.parts() {
-        let dims = meters_with_rotation(*rot, part);
-        let center = rotate(p.as_vec2() / PIXELS_PER_METER + dims / 2.0, angle) * scale;
-        let obb = OBB::new(
-            AABB::from_arbitrary(scale * -dims / 2.0, scale * dims / 2.0),
-            angle,
-        )
-        .offset(center + pos);
-        let color = match part.data.layer {
+    for instance in vehicle.parts() {
+        let obb = instance.obb(angle, scale, pos);
+        let color = match instance.layer() {
             PartLayer::Exterior => YELLOW,
             PartLayer::Internal => GRAY,
             PartLayer::Structural => WHITE,

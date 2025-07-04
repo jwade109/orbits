@@ -19,8 +19,8 @@ pub fn generate_image(
     let dims = pixel_max - pixel_min;
     let mut img = DynamicImage::new_rgba8(dims.x as u32, dims.y as u32);
     let to_export = img.as_mut_rgba8().unwrap();
-    for (pos, rot, part, _) in vehicle.parts_by_layer() {
-        let path = parts_dir.join(&part.path).join("skin.png");
+    for instance in vehicle.parts_by_layer() {
+        let path = parts_dir.join(instance.sprite_path()).join("skin.png");
         let img = match read_image(&path) {
             Some(img) => img,
             None => {
@@ -29,14 +29,14 @@ pub fn generate_image(
             }
         };
 
-        let px = (pos.x - pixel_min.x) as u32;
-        let py = (pos.y - pixel_min.y) as u32;
+        let px = (instance.origin().x - pixel_min.x) as u32;
+        let py = (instance.origin().y - pixel_min.y) as u32;
 
-        let color = match part.data.class {
-            PartClass::Cargo => GREEN,
-            PartClass::Thruster(_) => RED,
-            PartClass::Tank(_) => ORANGE,
-            _ => match part.data.layer {
+        let color = match instance.definition_variant() {
+            PartDefinitionVariant::Cargo => GREEN,
+            PartDefinitionVariant::Thruster(_) => RED,
+            PartDefinitionVariant::Tank(_) => ORANGE,
+            _ => match instance.layer() {
                 PartLayer::Exterior => continue,
                 PartLayer::Internal => GRAY,
                 PartLayer::Structural => WHITE,
@@ -50,7 +50,7 @@ pub fn generate_image(
                 let p = IVec2::new(x as i32, y as i32);
                 let xp = img.width() as i32 - p.x - 1;
                 let yp = img.height() as i32 - p.y - 1;
-                let p = match *rot {
+                let p = match instance.rotation() {
                     Rotation::East => IVec2::new(p.x, yp),
                     Rotation::North => IVec2::new(p.y, p.x),
                     Rotation::West => IVec2::new(xp, p.y),

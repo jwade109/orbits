@@ -1,13 +1,28 @@
 use crate::math::{rotate, Vec2};
 use crate::nanotime::Nanotime;
-use crate::parts::parts::ThrusterProto;
+use serde::{Deserialize, Serialize};
+
+/// Definition of a thruster model.
+/// These are stats common to all thrusters
+/// of a given type, i.e. F1, J2, LEM descent, etc
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ThrusterModel {
+    pub model: String,
+    pub thrust: f32,
+    pub exhaust_velocity: f32,
+    pub length: f32,
+    pub width: f32,
+    pub is_rcs: bool,
+    pub throttle_rate: f32,
+    pub primary_color: [f32; 4],
+    pub secondary_color: [f32; 4],
+}
 
 #[derive(Debug, Clone)]
 pub struct Thruster {
-    pub proto: ThrusterProto,
+    model: ThrusterModel,
     pub pos: Vec2,
     pub angle: f32,
-    pointing: Vec2,
     stamp: Nanotime,
     throttle: f32,
 }
@@ -18,24 +33,35 @@ pub struct Thruster {
 const THRUSTER_DEAD_BAND: f32 = 0.0; // minimum 0 percent throttle
 
 impl Thruster {
-    pub fn new(proto: ThrusterProto, pos: Vec2, angle: f32) -> Self {
+    pub fn new(model: ThrusterModel, pos: Vec2, angle: f32) -> Self {
         Thruster {
-            proto,
+            model,
             pos,
             angle,
-            pointing: rotate(Vec2::X, angle),
             stamp: Nanotime::zero(),
             throttle: 0.0,
         }
     }
 
     pub fn pointing(&self) -> Vec2 {
-        self.pointing
+        rotate(Vec2::X, self.angle)
+    }
+
+    pub fn length(&self) -> f32 {
+        self.model.length
+    }
+
+    pub fn width(&self) -> f32 {
+        self.model.width
+    }
+
+    pub fn is_rcs(&self) -> bool {
+        self.model.is_rcs
     }
 
     pub fn thrust_vector(&self) -> Vec2 {
         if self.is_thrusting() {
-            self.pointing * self.proto.thrust * self.throttle
+            self.pointing() * self.model.thrust * self.throttle
         } else {
             Vec2::ZERO
         }
@@ -43,7 +69,7 @@ impl Thruster {
 
     pub fn fuel_consumption_rate(&self) -> f32 {
         if self.is_thrusting() {
-            let max_rate = self.proto.thrust / self.proto.exhaust_velocity;
+            let max_rate = self.model.thrust / self.model.exhaust_velocity;
             max_rate * self.throttle
         } else {
             0.0
@@ -59,7 +85,7 @@ impl Thruster {
 
         let dt = stamp - self.stamp;
         self.stamp = stamp;
-        let dthrottle = (self.proto.throttle_rate * dt.to_secs()).abs();
+        let dthrottle = (self.model.throttle_rate * dt.to_secs()).abs();
         let diff = (throttle - self.throttle).abs();
         if self.throttle < throttle {
             self.throttle += dthrottle.min(diff);
@@ -75,5 +101,13 @@ impl Thruster {
 
     pub fn throttle(&self) -> f32 {
         self.throttle
+    }
+
+    pub fn model_name(&self) -> &str {
+        &self.model.model
+    }
+
+    pub fn model(&self) -> &ThrusterModel {
+        &self.model
     }
 }

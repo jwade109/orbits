@@ -1,5 +1,12 @@
-use crate::factory::{Mass, Item};
+use crate::factory::{Item, Mass};
 use crate::math::Vec2;
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+pub struct TankModel {
+    pub item: Item,
+    pub wet_mass: Mass,
+}
 
 #[derive(Debug, Clone, Copy)]
 pub struct Tank {

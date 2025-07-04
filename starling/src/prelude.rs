@@ -1,5 +1,6 @@
 pub use crate::aabb::{Polygon, AABB, OBB};
 pub use crate::belts::AsteroidBelt;
+pub use crate::bezier::*;
 pub use crate::control::Controller;
 pub use crate::examples::{default_example, make_earth, make_luna};
 pub use crate::factory::*;
@@ -14,10 +15,7 @@ pub use crate::nanotime::Nanotime;
 pub use crate::orbital_luts::lookup_ta_from_ma;
 pub use crate::orbiter::Orbiter;
 pub use crate::orbits::{hyperbolic_range_ta, wrap_pi_npi, Body, GlobalOrbit, SparseOrbit};
-pub use crate::parts::parts::{
-    load_parts_from_dir, PartClass, PartLayer, PartProto, PIXELS_PER_METER,
-};
-pub use crate::parts::thruster::Thruster;
+pub use crate::parts::*;
 pub use crate::pid::*;
 pub use crate::planning::{best_maneuver_plan, get_next_intersection, ManeuverPlan};
 pub use crate::plants::Plant;
@@ -30,4 +28,3 @@ pub use crate::scenario::{
 };
 pub use crate::surface::*;
 pub use crate::vehicle::*;
-pub use crate::bezier::*;

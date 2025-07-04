@@ -430,12 +430,7 @@ fn get_indicators(state: &GameState) -> Option<Vec<TextLabel>> {
             .thrusters()
             .enumerate()
             .map(|(i, t)| {
-                let text = format!(
-                    "{} / {} {:0.1}",
-                    i,
-                    t.proto.model.clone(),
-                    t.throttle() * 100.0
-                );
+                let text = format!("{} / {} {:0.1}", i, t.model_name(), t.throttle() * 100.0);
                 let pos = origin + Vec2::Y * 26.0 * i as f32;
                 let color = if t.is_thrusting() {
                     RED.with_alpha(0.8)
@@ -814,7 +809,7 @@ pub fn thruster_control_dialogue(state: &GameState) -> Option<Node<OnClick>> {
             ""
         };
 
-        let s = format!("#{} / {}{}", i + 1, thruster.proto.model, dir);
+        let s = format!("#{} / {}{}", i + 1, thruster.model_name(), dir);
         let onclick = OnClick::ToggleThruster(i);
         let mut child = Node::button(s, onclick, Size::Grow, BUTTON_HEIGHT);
 

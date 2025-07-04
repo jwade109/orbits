@@ -155,7 +155,7 @@ pub struct GameState {
 
     /// Map of names to parts to their definitions. Loaded from
     /// the assets/parts directory
-    pub part_database: HashMap<String, PartProto>,
+    pub part_database: HashMap<String, PartDefinition>,
 
     /// Stupid thing to generate unique increasing IDs for
     /// planets and orbiters
@@ -261,7 +261,7 @@ impl GameState {
                 Scene::comms(),
                 Scene::surface(),
             ],
-            current_scene_idx: 5,
+            current_scene_idx: 3,
             current_orbit: None,
             redraw_requested: true,
             ui: Tree::new(),
@@ -754,7 +754,7 @@ impl GameState {
             }
         };
 
-        let new_vehicle = self.editor_context.vehicle.clone();
+        let new_vehicle = self.editor_context.vehicle().clone();
 
         let old_title = vehicle.name().to_string();
         let new_title = new_vehicle.name().to_string();
