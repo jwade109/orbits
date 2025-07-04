@@ -40,7 +40,6 @@ pub struct EditorContext {
     filepath: Option<PathBuf>,
     invisible_layers: HashSet<PartLayer>,
     occupied: HashMap<PartLayer, HashMap<IVec2, usize>>,
-    parts: Vec<(IVec2, Rotation, PartDefinition)>,
     vehicle: Vehicle,
 
     // menus
@@ -59,7 +58,6 @@ impl EditorContext {
             filepath: None,
             invisible_layers: HashSet::new(),
             occupied: HashMap::new(),
-            parts: Vec::new(),
             vehicle: Vehicle::from_parts("".into(), Nanotime::zero(), Vec::new()),
             show_vehicle_info: false,
             parts_menu_collapsed: false,
@@ -83,7 +81,7 @@ impl EditorContext {
 
     pub fn new_craft(&mut self) {
         self.filepath = None;
-        self.parts.clear();
+        self.vehicle.parts.clear();
         self.cursor_state = CursorState::None;
         self.update();
     }
@@ -93,29 +91,30 @@ impl EditorContext {
     }
 
     pub fn rotate_craft(&mut self) {
-        for (p, rot, part) in &mut self.parts {
-            let old_half_dims = pixel_dims_with_rotation(*rot, part).as_vec2() / 2.0;
-            let old_center = p.as_vec2() + old_half_dims;
+        for instance in &mut self.vehicle.parts {
+            let old_half_dims = instance.dims_grid().as_vec2() / 2.0;
+            let old_center = instance.origin().as_vec2() + old_half_dims;
             let new_center = rotate(old_center, PI / 2.0);
-            *rot = enum_iterator::next_cycle(rot);
-            let new_half_dims = pixel_dims_with_rotation(*rot, part).as_vec2() / 2.0;
+            instance.set_rotation(enum_iterator::next_cycle(&instance.rotation()));
+            let new_half_dims = instance.dims_grid().as_vec2() / 2.0;
             let new_corner = new_center - new_half_dims;
-            *p = vround(new_corner);
+            instance.set_origin(vround(new_corner));
         }
         self.update();
     }
 
     pub fn normalize_coordinates(&mut self) {
-        if self.parts.is_empty() {
+        if self.vehicle.parts.is_empty() {
             return;
         }
 
         let mut min: IVec2 = IVec2::ZERO;
         let mut max: IVec2 = IVec2::ZERO;
 
-        self.parts.iter().for_each(|(p, rot, part)| {
-            let dims = pixel_dims_with_rotation(*rot, part);
-            let q = *p + dims.as_ivec2();
+        self.vehicle.parts.iter().for_each(|instance| {
+            let dims = instance.dims_grid();
+            let p = instance.origin();
+            let q = p + dims.as_ivec2();
             min.x = min.x.min(p.x);
             min.y = min.y.min(p.y);
             max.x = max.x.max(q.x);
@@ -124,8 +123,8 @@ impl EditorContext {
 
         let avg = min + (max - min) / 2;
 
-        self.parts.iter_mut().for_each(|(p, _, _)| {
-            *p = *p - avg;
+        self.vehicle.parts.iter_mut().for_each(|instance| {
+            instance.set_origin(instance.origin() - avg);
         });
 
         self.update();
@@ -151,9 +150,9 @@ impl EditorContext {
         self.filepath.clone()
     }
 
-    fn visible_parts(&self) -> impl Iterator<Item = &(IVec2, Rotation, PartDefinition)> {
-        self.parts.iter().filter(|(_, _, part)| {
-            let layer = part.layer;
+    fn visible_parts(&self) -> impl Iterator<Item = &PartInstance> {
+        self.vehicle.parts().filter(|instance| {
+            let layer = instance.layer();
             !self.invisible_layers.contains(&layer)
         })
     }
@@ -176,12 +175,13 @@ impl EditorContext {
 
         let parts = state
             .editor_context
+            .vehicle
             .parts
             .iter()
-            .map(|(pos, rot, part)| VehiclePartFileStorage {
-                partname: part.path.clone(),
-                pos: *pos,
-                rot: *rot,
+            .map(|instance| VehiclePartFileStorage {
+                partname: instance.sprite_path().to_string(),
+                pos: instance.origin(),
+                rot: instance.rotation(),
             })
             .collect();
 
@@ -210,13 +210,11 @@ impl EditorContext {
         let storage: VehicleFileStorage = serde_yaml::from_str(&s).ok()?;
         state.notice(format!("Loaded vehicle \"{}\"", storage.name));
 
-        state.editor_context.parts.clear();
+        state.editor_context.vehicle.parts.clear();
         for ps in storage.parts {
             if let Some(part) = state.part_database.get(&ps.partname) {
-                state
-                    .editor_context
-                    .parts
-                    .push((ps.pos, ps.rot, part.clone()));
+                let instance = PartInstance::new(ps.pos, ps.rot, part.clone());
+                state.editor_context.vehicle.parts.push(instance);
             }
         }
         state.editor_context.filepath = Some(path.to_path_buf());
@@ -248,7 +246,12 @@ impl EditorContext {
 
             if let Some(occ) = self.occupied.get(&layer) {
                 if let Some(idx) = occ.get(&p) {
-                    return self.parts.get(*idx).cloned();
+                    let instance = self.vehicle.parts.get(*idx)?;
+                    return Some((
+                        instance.origin(),
+                        instance.rotation(),
+                        instance.proto().clone(),
+                    ));
                 }
             }
         }
@@ -258,9 +261,10 @@ impl EditorContext {
 
     fn update(&mut self) {
         self.occupied.clear();
-        for (i, (pos, rot, part)) in self.parts.iter().enumerate() {
-            let pixels = Self::occupied_pixels(*pos, *rot, part);
-            if let Some(occ) = self.occupied.get_mut(&part.layer) {
+        for (i, instance) in self.vehicle.parts.iter().enumerate() {
+            let pixels =
+                Self::occupied_pixels(instance.origin(), instance.rotation(), instance.proto());
+            if let Some(occ) = self.occupied.get_mut(&instance.layer()) {
                 for p in pixels {
                     occ.insert(p, i);
                 }
@@ -269,11 +273,9 @@ impl EditorContext {
                 for p in pixels {
                     occ.insert(p, i);
                 }
-                self.occupied.insert(part.layer, occ);
+                self.occupied.insert(instance.layer(), occ);
             }
         }
-
-        self.vehicle = Vehicle::from_parts("".into(), Nanotime::zero(), self.parts.clone());
     }
 
     fn try_place_part(&mut self, p: IVec2, new_part: PartDefinition) -> Option<()> {
@@ -285,17 +287,20 @@ impl EditorContext {
                 }
             }
         }
-        self.parts.push((p, self.rotation, new_part));
+
+        let instance = PartInstance::new(p, self.rotation, new_part);
+        self.vehicle.parts.push(instance);
         self.update();
         Some(())
     }
 
     fn remove_part_at(&mut self, p: IVec2) {
-        self.parts.retain(|(pos, rot, part)| {
-            if self.invisible_layers.contains(&part.layer) {
+        self.vehicle.parts.retain(|instance| {
+            if self.invisible_layers.contains(&instance.layer()) {
                 return true;
             }
-            let pixels = Self::occupied_pixels(*pos, *rot, part);
+            let pixels =
+                Self::occupied_pixels(instance.origin(), instance.rotation(), instance.proto());
             !pixels.contains(&p)
         });
         self.update();
@@ -429,7 +434,7 @@ impl Render for EditorContext {
 
         let info: String = [
             filename,
-            format!("{} parts", state.editor_context.parts.len()),
+            format!("{} parts", state.editor_context.vehicle.parts.len()),
             format!("Rotation: {:?}", state.editor_context.rotation),
         ]
         .into_iter()
@@ -518,8 +523,12 @@ impl Render for EditorContext {
                             continue;
                         }
                         visited_parts.insert(*idx);
-                        if let Some((pc, rc, partc)) = ctx.parts.get(*idx) {
-                            let aabb = aabb_for_part(*pc, *rc, partc);
+                        if let Some(instance) = ctx.vehicle.parts.get(*idx) {
+                            let aabb = aabb_for_part(
+                                instance.origin(),
+                                instance.rotation(),
+                                instance.proto(),
+                            );
                             canvas.rect(ctx.w2c_aabb(aabb), RED.with_alpha(0.5)).z_index = 100.0;
                         }
                     }
@@ -582,19 +591,23 @@ impl Render for EditorContext {
             );
         }
 
-        ctx.visible_parts()
-            .enumerate()
-            .for_each(|(i, (pos, rot, part))| {
-                let dims = pixel_dims_with_rotation(*rot, part);
-                let sprite_dims = UVec2::new(part.width, part.height);
-                canvas.sprite(
-                    ctx.w2c(pos.as_vec2() + dims.as_vec2() / 2.0),
-                    rot.to_angle(),
-                    part.path.clone(),
-                    part.to_z_index() + i as f32 / 100.0,
-                    sprite_dims.as_vec2() * ctx.scale(),
-                );
-            });
+        ctx.visible_parts().enumerate().for_each(|(i, instance)| {
+            let dims = instance.dims_grid();
+            let sprite_dims = instance.sprite_dims();
+            let center = ctx.w2c(instance.origin().as_vec2() + dims.as_vec2() / 2.0);
+            canvas.sprite(
+                center,
+                instance.rotation().to_angle(),
+                instance.sprite_path(),
+                10.0 + i as f32 / 100.0,
+                sprite_dims.as_vec2() * ctx.scale(),
+            );
+
+            if instance.builds_remaining() > 0 {
+                let w = instance.builds_remaining() as f32 * ctx.scale();
+                canvas.rect(AABB::from_wh(w, w).with_center(center), RED);
+            }
+        });
 
         Some(())
     }
@@ -768,6 +781,8 @@ impl EditorContext {
         } else if state.input.just_pressed(KeyCode::KeyP) {
             state.editor_context.cursor_state.toggle_logistics();
         }
+
+        state.editor_context.vehicle.build_once();
     }
 }
 

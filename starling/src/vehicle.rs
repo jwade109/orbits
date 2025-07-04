@@ -225,6 +225,7 @@ pub fn simulate_vehicle(mut vehicle: Vehicle, gravity: Vec2) -> Vec<(Vec2, f32)>
 
 #[derive(Debug, Clone)]
 pub struct PartInstance {
+    builds_remaining: u32,
     origin: IVec2,
     rot: Rotation,
     proto: PartDefinition,
@@ -232,12 +233,37 @@ pub struct PartInstance {
 }
 
 impl PartInstance {
+    pub fn new(origin: IVec2, rot: Rotation, proto: PartDefinition) -> Self {
+        // TODO TODO TODO TODO
+        Self {
+            builds_remaining: 10,
+            origin,
+            rot,
+            proto,
+            variant: PartVariant::Other,
+        }
+    }
+
+    pub fn build(&mut self) {
+        if self.builds_remaining > 0 {
+            self.builds_remaining -= 1;
+        }
+    }
+
+    pub fn builds_remaining(&self) -> u32 {
+        self.builds_remaining
+    }
+
     pub fn definition_variant(&self) -> &PartDefinitionVariant {
         &self.proto.class
     }
 
     pub fn sprite_path(&self) -> &str {
         &self.proto.path
+    }
+
+    pub fn sprite_dims(&self) -> UVec2 {
+        UVec2::new(self.proto.width, self.proto.height)
     }
 
     pub fn dims_grid(&self) -> UVec2 {
@@ -250,6 +276,10 @@ impl PartInstance {
 
     pub fn origin(&self) -> IVec2 {
         self.origin
+    }
+
+    pub fn set_origin(&mut self, p: IVec2) {
+        self.origin = p;
     }
 
     pub fn obb(&self, angle: f32, scale: f32, pos: Vec2) -> OBB {
@@ -269,12 +299,20 @@ impl PartInstance {
         self.rot
     }
 
+    pub fn set_rotation(&mut self, rot: Rotation) {
+        self.rot = rot;
+    }
+
     pub fn layer(&self) -> PartLayer {
         self.proto.layer
     }
 
     pub fn mass(&self) -> Mass {
         self.proto.mass
+    }
+
+    pub fn proto(&self) -> &PartDefinition {
+        &self.proto
     }
 }
 
@@ -287,7 +325,7 @@ pub struct Vehicle {
     angle: f32,
     angular_velocity: f32,
     factory: Factory,
-    parts: Vec<PartInstance>,
+    pub parts: Vec<PartInstance>,
 }
 
 #[derive(Debug, Clone)]
@@ -310,6 +348,7 @@ impl Vehicle {
         let mut parts: Vec<_> = part_protos
             .into_iter()
             .map(|(origin, rot, proto)| PartInstance {
+                builds_remaining: proto.width * proto.height,
                 origin,
                 rot,
                 proto,
@@ -339,10 +378,6 @@ impl Vehicle {
                 PartDefinitionVariant::Undefined => PartVariant::Other,
             };
         });
-
-        for part in &parts {
-            dbg!(part);
-        }
 
         let factory = Factory::new();
 
@@ -764,5 +799,14 @@ impl Vehicle {
     pub fn bounding_radius(&self) -> f32 {
         // TODO
         100.0
+    }
+
+    pub fn build_once(&mut self) {
+        for instance in &mut self.parts {
+            if instance.builds_remaining() > 0 {
+                instance.build();
+                return;
+            }
+        }
     }
 }
