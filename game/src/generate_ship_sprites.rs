@@ -10,6 +10,19 @@ pub fn read_image(path: &Path) -> Option<RgbaImage> {
     Some(image::open(path).ok()?.to_rgba8())
 }
 
+pub fn diagram_color(instance: &PartInstance) -> Srgba {
+    match instance.definition_variant() {
+        PartDefinitionVariant::Cargo => GREEN,
+        PartDefinitionVariant::Thruster(_) => RED,
+        PartDefinitionVariant::Tank(_) => ORANGE,
+        _ => match instance.layer() {
+            PartLayer::Exterior => DARK_GRAY,
+            PartLayer::Internal => GRAY,
+            PartLayer::Structural => WHITE,
+        },
+    }
+}
+
 pub fn generate_image(
     vehicle: &Vehicle,
     parts_dir: &Path,

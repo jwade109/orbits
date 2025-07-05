@@ -236,7 +236,7 @@ impl PartInstance {
     pub fn new(origin: IVec2, rot: Rotation, proto: PartDefinition) -> Self {
         // TODO TODO TODO TODO
         Self {
-            builds_remaining: 10,
+            builds_remaining: 15,
             origin,
             rot,
             proto,
@@ -250,8 +250,8 @@ impl PartInstance {
         }
     }
 
-    pub fn builds_remaining(&self) -> u32 {
-        self.builds_remaining
+    pub fn percent_built(&self) -> f32 {
+        (1.0 - self.builds_remaining as f32 / 15.0).clamp(0.0, 1.0)
     }
 
     pub fn definition_variant(&self) -> &PartDefinitionVariant {
@@ -347,13 +347,7 @@ impl Vehicle {
     ) -> Self {
         let mut parts: Vec<_> = part_protos
             .into_iter()
-            .map(|(origin, rot, proto)| PartInstance {
-                builds_remaining: proto.width * proto.height,
-                origin,
-                rot,
-                proto,
-                variant: PartVariant::Other,
-            })
+            .map(|(origin, rot, proto)| PartInstance::new(origin, rot, proto))
             .collect();
 
         parts.iter_mut().for_each(|instance| {
@@ -531,7 +525,7 @@ impl Vehicle {
         let mut min: Option<IVec2> = None;
         let mut max: Option<IVec2> = None;
         for instance in &self.parts {
-            let dims = pixel_dims_with_rotation(instance.rot, &instance.proto);
+            let dims = instance.dims_grid();
             let upper = instance.origin + dims.as_ivec2();
             if let Some((min, max)) = min.as_mut().zip(max.as_mut()) {
                 min.x = min.x.min(instance.origin.x);
@@ -803,7 +797,7 @@ impl Vehicle {
 
     pub fn build_once(&mut self) {
         for instance in &mut self.parts {
-            if instance.builds_remaining() > 0 {
+            if instance.percent_built() < 1.0 {
                 instance.build();
                 return;
             }

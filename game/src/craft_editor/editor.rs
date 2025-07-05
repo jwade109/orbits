@@ -234,7 +234,7 @@ impl EditorContext {
         ret
     }
 
-    fn get_part_at(&self, p: IVec2) -> Option<(IVec2, Rotation, PartDefinition)> {
+    fn get_part_at(&self, p: IVec2) -> Option<&PartInstance> {
         for layer in [
             PartLayer::Exterior,
             PartLayer::Structural,
@@ -246,12 +246,7 @@ impl EditorContext {
 
             if let Some(occ) = self.occupied.get(&layer) {
                 if let Some(idx) = occ.get(&p) {
-                    let instance = self.vehicle.parts.get(*idx)?;
-                    return Some((
-                        instance.origin(),
-                        instance.rotation(),
-                        instance.proto().clone(),
-                    ));
+                    return Some(self.vehicle.parts.get(*idx)?);
                 }
             }
         }
@@ -354,6 +349,27 @@ pub fn vehicle_info(vehicle: &Vehicle) -> String {
     .collect()
 }
 
+fn draw_highlight_box(canvas: &mut Canvas, aabb: AABB, ctx: &impl CameraProjection, color: Srgba) {
+    let w1 = 3.0;
+    let w2 = 5.0;
+
+    let x1 = Vec2::X * w1;
+    let x2 = Vec2::X * w2;
+
+    let y1 = Vec2::Y * w1;
+    let y2 = Vec2::Y * w2;
+
+    let left = AABB::from_arbitrary(aabb.lower() - x1, aabb.top_left() - x2);
+    let right = AABB::from_arbitrary(aabb.bottom_right() + x1, aabb.upper() + x2);
+
+    let upper = AABB::from_arbitrary(aabb.top_left() + y1, aabb.upper() + y2);
+    let lower = AABB::from_arbitrary(aabb.lower() - y1, aabb.bottom_right() - y2);
+
+    for aabb in [upper, lower, left, right] {
+        canvas.rect(ctx.w2c_aabb(aabb), color).z_index = 100.0;
+    }
+}
+
 impl Render for EditorContext {
     fn background_color(_state: &GameState) -> bevy::color::Srgba {
         GRAY.with_luminance(0.12)
@@ -402,20 +418,33 @@ impl Render for EditorContext {
         draw_cross(&mut canvas.gizmos, ctx.w2c(Vec2::ZERO), 10.0, GRAY);
 
         match &ctx.cursor_state {
-            CursorState::None => (),
-            CursorState::Part(_) => (),
+            CursorState::None | CursorState::Part(_) => {
+                if let Some(p) = state.input.current() {
+                    canvas.circle(p, 4.0, WHITE);
+                }
+            }
             CursorState::Logistics(points) => {
-                let points: Vec<_> = points
-                    .iter()
-                    .cloned()
-                    .map(|p| ctx.w2c(p.as_vec2()))
-                    .collect();
+                let points = if let Some(p) = state.input.current() {
+                    canvas.circle(p, 10.0, PURPLE);
+                    let mut points = points.clone();
+                    points.push(vround(ctx.c2w(p)));
+                    points
+                } else {
+                    points.clone()
+                };
+
+                for p in &points {
+                    draw_circle(&mut canvas.gizmos, ctx.w2c(p.as_vec2()), 5.0, WHITE);
+                }
 
                 for pair in points.windows(2) {
-                    let aabb = AABB::from_arbitrary(pair[0], pair[1]);
-                    canvas
-                        .rect(aabb.padded(10.0 * ctx.scale() / 10.0), PURPLE)
-                        .z_index = 100.0;
+                    let p = pair[0];
+                    let q = pair[1];
+
+                    let off = if p.x == q.x { Vec2::X } else { Vec2::Y };
+
+                    let aabb = AABB::from_arbitrary(p.as_vec2(), q.as_vec2() + off);
+                    canvas.rect(ctx.w2c_aabb(aabb), PURPLE).z_index = 120.0;
                 }
             }
         }
@@ -490,15 +519,16 @@ impl Render for EditorContext {
                 }
             }
 
-            if let Some((p, rot, part)) = ctx.get_part_at(vfloor(c)) {
-                let wh = pixel_dims_with_rotation(rot, &part).as_ivec2();
+            if let Some(instance) = ctx.get_part_at(vfloor(c)) {
+                let wh = instance.dims_grid().as_ivec2();
+                let p = instance.origin();
                 let q = p + wh;
                 let r = p + IVec2::X * wh.x;
                 let s = p + IVec2::Y * wh.y;
-                let aabb = aabb_for_part(p, rot, &part);
-                canvas
-                    .rect(ctx.w2c_aabb(aabb), TEAL.with_alpha(0.5))
-                    .z_index = 100.0;
+                let aabb = aabb_for_part(p, instance.rotation(), instance.proto());
+
+                draw_highlight_box(canvas, aabb, ctx, TEAL.with_alpha(0.6));
+
                 for p in [p, q, r, s] {
                     let p = p.as_vec2();
                     draw_cross(
@@ -529,7 +559,8 @@ impl Render for EditorContext {
                                 instance.rotation(),
                                 instance.proto(),
                             );
-                            canvas.rect(ctx.w2c_aabb(aabb), RED.with_alpha(0.5)).z_index = 100.0;
+
+                            draw_highlight_box(canvas, aabb, ctx, RED.with_alpha(0.6));
                         }
                     }
                 }
@@ -591,23 +622,27 @@ impl Render for EditorContext {
             );
         }
 
-        ctx.visible_parts().enumerate().for_each(|(i, instance)| {
-            let dims = instance.dims_grid();
-            let sprite_dims = instance.sprite_dims();
-            let center = ctx.w2c(instance.origin().as_vec2() + dims.as_vec2() / 2.0);
-            canvas.sprite(
-                center,
-                instance.rotation().to_angle(),
-                instance.sprite_path(),
-                10.0 + i as f32 / 100.0,
-                sprite_dims.as_vec2() * ctx.scale(),
-            );
+        for layer in enum_iterator::all::<PartLayer>() {
+            for instance in ctx.visible_parts().filter(|p| p.layer() == layer) {
+                let dims = instance.dims_grid();
+                let sprite_dims = instance.sprite_dims();
+                let center = ctx.w2c(instance.origin().as_vec2() + dims.as_vec2() / 2.0);
+                canvas.sprite(
+                    center,
+                    instance.rotation().to_angle(),
+                    instance.sprite_path(),
+                    None,
+                    sprite_dims.as_vec2() * ctx.scale(),
+                );
 
-            if instance.builds_remaining() > 0 {
-                let w = instance.builds_remaining() as f32 * ctx.scale();
-                canvas.rect(AABB::from_wh(w, w).with_center(center), RED);
+                let p = instance.percent_built();
+                if p < 1.0 {
+                    let color = crate::generate_ship_sprites::diagram_color(instance);
+                    let aabb = AABB::new(center, dims.as_vec2() * ctx.scale());
+                    canvas.rect(aabb, color.with_alpha(1.0 - p * 0.8));
+                }
             }
-        });
+        }
 
         Some(())
     }
@@ -771,9 +806,9 @@ impl EditorContext {
                 state.editor_context.cursor_state = CursorState::None;
             } else if let Some(p) = state.input.position(MouseButt::Hover, FrameId::Current) {
                 let p = vfloor(state.editor_context.c2w(p));
-                if let Some((_, rot, part)) = state.editor_context.get_part_at(p) {
-                    state.editor_context.rotation = rot;
-                    state.editor_context.cursor_state = CursorState::Part(part);
+                if let Some(instance) = state.editor_context.get_part_at(p).cloned() {
+                    state.editor_context.rotation = instance.rotation();
+                    state.editor_context.cursor_state = CursorState::Part(instance.proto().clone());
                 } else {
                     state.editor_context.cursor_state = CursorState::None;
                 }

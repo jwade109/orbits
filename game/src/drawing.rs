@@ -1363,7 +1363,7 @@ pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, _aabb: AABB, _stamp:
             let sc = if plant.is_starved() { BLUE } else { GRAY };
             let wc = if plant.is_working() { GREEN } else { RED };
 
-            let mut tr = aabb.top_right() - Vec2::new(d, 0.0);
+            let mut tr = aabb.top_left() - Vec2::new(d, 0.0);
             for color in [lc, bc, sc, wc] {
                 let bl = tr - Vec2::splat(d);
                 canvas.rect(AABB::from_arbitrary(bl, tr), color);

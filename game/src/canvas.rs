@@ -1,5 +1,4 @@
 use crate::scenes::{StaticSpriteDescriptor, TextLabel};
-use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use starling::aabb::AABB;
 
@@ -20,8 +19,9 @@ impl<'w, 's> Canvas<'w, 's> {
         }
     }
 
-    pub fn circle(&mut self) {
-        self.gizmos.circle_2d(Isometry2d::IDENTITY, 40.0, WHITE);
+    pub fn circle(&mut self, p: Vec2, radius: f32, color: Srgba) {
+        self.gizmos
+            .circle_2d(Isometry2d::from_translation(p), radius, color);
     }
 
     pub fn label(&mut self, label: TextLabel) {
@@ -46,14 +46,14 @@ impl<'w, 's> Canvas<'w, 's> {
         pos: Vec2,
         angle: f32,
         path: impl Into<String>,
-        z_index: f32,
+        z_index: impl Into<Option<f32>>,
         screen_dims: Vec2,
     ) -> &'a mut StaticSpriteDescriptor {
+        let z_index = z_index.into().unwrap_or(self.z_index);
+
         let sprite = StaticSpriteDescriptor::new(pos, angle, path.into(), screen_dims, z_index);
 
-        // let aabb = AABB::new(pos, screen_dims);
-        // let obb = OBB::new(aabb, angle);
-        // draw_obb(&mut self.gizmos, &obb, WHITE);
+        self.z_index = (self.z_index + 1.0).max(z_index);
 
         self.sprites.push(sprite);
         self.sprites
