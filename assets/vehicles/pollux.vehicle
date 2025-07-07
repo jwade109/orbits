@@ -7,16 +7,6 @@ parts:
   rot: East
 - partname: cargo
   pos:
-  - -30
-  - -15
-  rot: East
-- partname: cargo
-  pos:
-  - 0
-  - -15
-  rot: East
-- partname: cargo
-  pos:
   - 30
   - -15
   rot: East
@@ -420,3 +410,23 @@ parts:
   - 80
   - -23
   rot: North
+- partname: chemical-plant
+  pos:
+  - -30
+  - -10
+  rot: North
+- partname: chemical-plant
+  pos:
+  - 0
+  - -10
+  rot: South
+- partname: frame2
+  pos:
+  - -5
+  - 0
+  rot: North
+- partname: frame2
+  pos:
+  - -5
+  - -10
+  rot: West

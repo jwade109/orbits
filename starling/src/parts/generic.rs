@@ -1,3 +1,4 @@
+use crate::factory::Mass;
 use crate::math::*;
 use crate::parts::PartLayer;
 use serde::{Deserialize, Serialize};
@@ -7,6 +8,7 @@ pub struct Generic {
     name: String,
     dims: UVec2,
     layer: PartLayer,
+    mass: Mass,
 }
 
 impl Generic {
@@ -20,5 +22,9 @@ impl Generic {
 
     pub fn layer(&self) -> PartLayer {
         self.layer
+    }
+
+    pub fn current_mass(&self) -> Mass {
+        self.mass
     }
 }

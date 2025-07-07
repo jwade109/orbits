@@ -8,11 +8,6 @@ parts:
 - partname: frame3
   pos:
   - -30
-  - -5
-  rot: East
-- partname: frame3
-  pos:
-  - -30
   - -15
   rot: East
 - partname: tank22
@@ -25,11 +20,6 @@ parts:
   - -20
   - -15
   rot: North
-- partname: frame3
-  pos:
-  - -30
-  - 5
-  rot: East
 - partname: cargo
   pos:
   - 0
@@ -125,3 +115,18 @@ parts:
   - 30
   - -2
   rot: South
+- partname: frame3
+  pos:
+  - -30
+  - 5
+  rot: West
+- partname: frame
+  pos:
+  - -30
+  - -5
+  rot: West
+- partname: frame
+  pos:
+  - 0
+  - -5
+  rot: West

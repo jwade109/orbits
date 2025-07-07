@@ -1,3 +1,4 @@
+use crate::factory::Mass;
 use crate::math::*;
 use serde::{Deserialize, Serialize};
 
@@ -7,6 +8,7 @@ pub struct Magnetorquer {
     part_name: String,
     pub max_torque: f32,
     pub current_torque: f32,
+    mass: Mass,
 }
 
 impl Magnetorquer {
@@ -20,5 +22,9 @@ impl Magnetorquer {
 
     pub fn dims(&self) -> UVec2 {
         self.dims
+    }
+
+    pub fn current_mass(&self) -> Mass {
+        self.mass
     }
 }

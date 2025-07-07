@@ -38,7 +38,7 @@ pub struct EditorContext {
     cursor_state: CursorState,
     rotation: Rotation,
     filepath: Option<PathBuf>,
-    invisible_layers: HashSet<PartLayer>,
+    focus_layer: Option<PartLayer>,
     occupied: HashMap<PartLayer, HashMap<IVec2, usize>>,
     vehicle: Vehicle,
 
@@ -56,7 +56,7 @@ impl EditorContext {
             cursor_state: CursorState::None,
             rotation: Rotation::East,
             filepath: None,
-            invisible_layers: HashSet::new(),
+            focus_layer: None,
             occupied: HashMap::new(),
             vehicle: Vehicle::from_parts("".into(), Nanotime::zero(), Vec::new()),
             show_vehicle_info: false,
@@ -81,7 +81,7 @@ impl EditorContext {
 
     pub fn new_craft(&mut self) {
         self.filepath = None;
-        self.vehicle.parts.clear();
+        self.vehicle.clear();
         self.cursor_state = CursorState::None;
         self.update();
     }
@@ -91,27 +91,27 @@ impl EditorContext {
     }
 
     pub fn rotate_craft(&mut self) {
-        for instance in &mut self.vehicle.parts {
-            let old_half_dims = instance.dims_grid().as_vec2() / 2.0;
-            let old_center = instance.origin().as_vec2() + old_half_dims;
-            let new_center = rotate(old_center, PI / 2.0);
-            instance.set_rotation(enum_iterator::next_cycle(&instance.rotation()));
-            let new_half_dims = instance.dims_grid().as_vec2() / 2.0;
-            let new_corner = new_center - new_half_dims;
-            instance.set_origin(vround(new_corner));
+        let new_instances: Vec<_> = self
+            .vehicle
+            .parts()
+            .map(|instance| instance.rotated())
+            .collect();
+        self.vehicle.clear();
+        for instance in new_instances {
+            self.vehicle.add_part(instance);
         }
         self.update();
     }
 
     pub fn normalize_coordinates(&mut self) {
-        if self.vehicle.parts.is_empty() {
+        if self.vehicle.parts().count() == 0 {
             return;
         }
 
         let mut min: IVec2 = IVec2::ZERO;
         let mut max: IVec2 = IVec2::ZERO;
 
-        self.vehicle.parts.iter().for_each(|instance| {
+        self.vehicle.parts().for_each(|instance| {
             let dims = instance.dims_grid();
             let p = instance.origin();
             let q = p + dims.as_ivec2();
@@ -123,9 +123,17 @@ impl EditorContext {
 
         let avg = min + (max - min) / 2;
 
-        self.vehicle.parts.iter_mut().for_each(|instance| {
-            instance.set_origin(instance.origin() - avg);
-        });
+        let new_parts: Vec<_> = self
+            .vehicle
+            .parts()
+            .map(|instance| instance.with_origin(instance.origin() - avg))
+            .collect();
+
+        self.vehicle.clear();
+
+        for part in new_parts {
+            self.vehicle.add_part(part);
+        }
 
         self.update();
     }
@@ -150,23 +158,20 @@ impl EditorContext {
         self.filepath.clone()
     }
 
-    fn visible_parts(&self) -> impl Iterator<Item = &PartInstance> {
-        self.vehicle.parts().filter(|instance| {
-            let layer = instance.part().layer();
-            !self.invisible_layers.contains(&layer)
-        })
-    }
-
     pub fn is_layer_visible(&self, layer: PartLayer) -> bool {
-        !self.invisible_layers.contains(&layer)
+        if let Some(focus) = self.focus_layer {
+            focus == layer
+        } else {
+            true
+        }
     }
 
     pub fn toggle_layer(&mut self, layer: PartLayer) {
-        if self.invisible_layers.contains(&layer) {
-            self.invisible_layers.remove(&layer);
+        self.focus_layer = if self.focus_layer == Some(layer) {
+            None
         } else {
-            self.invisible_layers.insert(layer);
-        }
+            Some(layer)
+        };
     }
 
     pub fn save_to_file(state: &mut GameState) -> Option<()> {
@@ -176,8 +181,7 @@ impl EditorContext {
         let parts = state
             .editor_context
             .vehicle
-            .parts
-            .iter()
+            .parts()
             .map(|instance| VehiclePartFileStorage {
                 partname: instance.part().sprite_path().to_string(),
                 pos: instance.origin(),
@@ -210,30 +214,19 @@ impl EditorContext {
         let storage: VehicleFileStorage = serde_yaml::from_str(&s).ok()?;
         state.notice(format!("Loaded vehicle \"{}\"", storage.name));
 
-        state.editor_context.vehicle.parts.clear();
+        state.editor_context.vehicle.clear();
         for ps in storage.parts {
             if let Some(part) = state.part_database.get(&ps.partname) {
                 let instance = PartInstance::new(ps.pos, ps.rot, part.clone());
-                state.editor_context.vehicle.parts.push(instance);
+                state.editor_context.vehicle.add_part(instance);
             } else {
                 error!("Failed to load part: {}", ps.partname);
             }
         }
         state.editor_context.filepath = Some(path.to_path_buf());
         state.editor_context.update();
+        state.editor_context.vehicles_menu_collapsed = true;
         Some(())
-    }
-
-    fn occupied_pixels(pos: IVec2, rot: Rotation, part: &Part) -> Vec<IVec2> {
-        let mut ret = vec![];
-        let wh = pixel_dims_with_rotation(rot, part);
-        for w in 0..wh.x {
-            for h in 0..wh.y {
-                let p = pos + UVec2::new(w, h).as_ivec2();
-                ret.push(p);
-            }
-        }
-        ret
     }
 
     fn get_part_at(&self, p: IVec2) -> Option<&PartInstance> {
@@ -248,7 +241,7 @@ impl EditorContext {
 
             if let Some(occ) = self.occupied.get(&layer) {
                 if let Some(idx) = occ.get(&p) {
-                    return Some(self.vehicle.parts.get(*idx)?);
+                    return Some(self.vehicle.get_part_by_index(*idx)?);
                 }
             }
         }
@@ -258,9 +251,8 @@ impl EditorContext {
 
     fn update(&mut self) {
         self.occupied.clear();
-        for (i, instance) in self.vehicle.parts.iter().enumerate() {
-            let pixels =
-                Self::occupied_pixels(instance.origin(), instance.rotation(), instance.part());
+        for (i, instance) in self.vehicle.parts().enumerate() {
+            let pixels = occupied_pixels(instance.origin(), instance.rotation(), instance.part());
             if let Some(occ) = self.occupied.get_mut(&instance.part().layer()) {
                 for p in pixels {
                     occ.insert(p, i);
@@ -276,7 +268,7 @@ impl EditorContext {
     }
 
     fn try_place_part(&mut self, p: IVec2, new_part: Part) -> Option<()> {
-        let new_pixels = Self::occupied_pixels(p, self.rotation, &new_part);
+        let new_pixels = occupied_pixels(p, self.rotation, &new_part);
         if let Some(occ) = self.occupied.get(&new_part.layer()) {
             for p in &new_pixels {
                 if occ.contains_key(p) {
@@ -286,20 +278,13 @@ impl EditorContext {
         }
 
         let instance = PartInstance::new(p, self.rotation, new_part);
-        self.vehicle.parts.push(instance);
+        self.vehicle.add_part(instance);
         self.update();
         Some(())
     }
 
     fn remove_part_at(&mut self, p: IVec2) {
-        self.vehicle.parts.retain(|instance| {
-            if self.invisible_layers.contains(&instance.part().layer()) {
-                return true;
-            }
-            let pixels =
-                Self::occupied_pixels(instance.origin(), instance.rotation(), instance.part());
-            !pixels.contains(&p)
-        });
+        self.vehicle.remove_part_at(p, self.focus_layer);
         self.update();
     }
 
@@ -324,6 +309,7 @@ pub fn vehicle_info(vehicle: &Vehicle) -> String {
     let fuel_mass = vehicle.fuel_mass();
     let rate = vehicle.fuel_consumption_rate();
     let accel = vehicle.body_frame_acceleration();
+    let pct = vehicle.fuel_percentage() * 100.0;
     let burn_time = if rate > 0.0 {
         format!("{:0.1} s", fuel_mass.to_kg_f32() / rate)
     } else {
@@ -332,7 +318,7 @@ pub fn vehicle_info(vehicle: &Vehicle) -> String {
 
     [
         format!("Dry mass: {}", vehicle.dry_mass()),
-        format!("Fuel: {}", fuel_mass),
+        format!("Fuel: {} ({:0.0}%)", fuel_mass, pct),
         format!("Burn time: {}", burn_time),
         format!("Wet mass: {}", vehicle.wet_mass()),
         format!("Thrusters: {}", vehicle.thruster_count()),
@@ -352,8 +338,8 @@ pub fn vehicle_info(vehicle: &Vehicle) -> String {
 }
 
 fn draw_highlight_box(canvas: &mut Canvas, aabb: AABB, ctx: &impl CameraProjection, color: Srgba) {
-    let w1 = 3.0;
-    let w2 = 5.0;
+    let w1 = 2.0;
+    let w2 = 4.0;
 
     let x1 = Vec2::X * w1;
     let x2 = Vec2::X * w2;
@@ -432,8 +418,6 @@ impl Render for EditorContext {
             }
         }
 
-        draw_factory(canvas, ctx.vehicle.factory(), AABB::unit(), state.sim_time);
-
         let radius = ctx.vehicle.bounding_radius();
         let bounds = ctx.vehicle.aabb();
 
@@ -446,7 +430,7 @@ impl Render for EditorContext {
 
         let info: String = [
             filename,
-            format!("{} parts", state.editor_context.vehicle.parts.len()),
+            format!("{} parts", state.editor_context.vehicle.parts().count()),
             format!("Rotation: {:?}", state.editor_context.rotation),
         ]
         .into_iter()
@@ -460,7 +444,7 @@ impl Render for EditorContext {
         canvas.label(
             TextLabel::new(
                 info.to_uppercase(),
-                Vec2::new(half_span.x - 500.0, half_span.y - 200.0),
+                Vec2::new(half_span.x - 600.0, half_span.y - 400.0),
                 0.7,
             )
             .with_anchor_left(),
@@ -477,55 +461,8 @@ impl Render for EditorContext {
             canvas.gizmos.line_2d(o, q, GREEN.with_alpha(0.3));
         }
 
-        if let Some(cursor) = state.input.position(MouseButt::Hover, FrameId::Current) {
-            let c = ctx.c2w(cursor);
-
-            let discrete = IVec2::new(
-                (c.x / 10.0).round() as i32 * 10,
-                (c.y / 10.0).round() as i32 * 10,
-            );
-
-            for dx in (-100..=100).step_by(10) {
-                for dy in (-100..=100).step_by(10) {
-                    let s = IVec2::new(dx, dy);
-                    let p = discrete - s;
-                    let d = (s.length_squared() as f32).sqrt();
-                    let alpha = 0.2 * (1.0 - d / 100.0);
-                    if alpha > 0.01 {
-                        draw_diamond(
-                            &mut canvas.gizmos,
-                            ctx.w2c(p.as_vec2()),
-                            7.0,
-                            GRAY.with_alpha(alpha),
-                        );
-                    }
-                }
-            }
-
-            if let Some(instance) = ctx.get_part_at(vfloor(c)) {
-                let wh = instance.dims_grid().as_ivec2();
-                let p = instance.origin();
-                let q = p + wh;
-                let r = p + IVec2::X * wh.x;
-                let s = p + IVec2::Y * wh.y;
-                let aabb = aabb_for_part(p, instance.rotation(), instance.part());
-
-                draw_highlight_box(canvas, aabb, ctx, TEAL.with_alpha(0.6));
-
-                for p in [p, q, r, s] {
-                    let p = p.as_vec2();
-                    draw_cross(
-                        &mut canvas.gizmos,
-                        ctx.w2c(p),
-                        0.5 * ctx.scale(),
-                        TEAL.with_alpha(0.6),
-                    );
-                }
-            }
-        }
-
         if let Some((p, current_part)) = Self::current_part_and_cursor_position(state) {
-            let current_pixels = Self::occupied_pixels(p, ctx.rotation, &current_part);
+            let current_pixels = occupied_pixels(p, ctx.rotation, &current_part);
 
             let mut visited_parts = HashSet::new();
 
@@ -536,7 +473,7 @@ impl Render for EditorContext {
                             continue;
                         }
                         visited_parts.insert(*idx);
-                        if let Some(instance) = ctx.vehicle.parts.get(*idx) {
+                        if let Some(instance) = ctx.vehicle.get_part_by_index(*idx) {
                             let aabb = aabb_for_part(
                                 instance.origin(),
                                 instance.rotation(),
@@ -593,41 +530,83 @@ impl Render for EditorContext {
             }
         }
 
-        if let Some((p, current_part)) = Self::current_part_and_cursor_position(state) {
-            let dims = pixel_dims_with_rotation(ctx.rotation, &current_part);
-            let sprite_dims = current_part.dims();
-            canvas.sprite(
-                ctx.w2c(p.as_vec2() + dims.as_vec2() / 2.0),
-                ctx.rotation.to_angle(),
-                current_part.sprite_path().to_string(),
-                12.0,
-                sprite_dims.as_vec2() * ctx.scale(),
-            );
-        }
-
         for layer in enum_iterator::all::<PartLayer>() {
-            for instance in ctx.visible_parts().filter(|p| p.part().layer() == layer) {
+            for instance in ctx.vehicle.parts().filter(|p| p.part().layer() == layer) {
+                let alpha = if ctx.is_layer_visible(instance.part().layer()) {
+                    1.0
+                } else {
+                    0.02
+                };
                 let dims = instance.dims_grid();
                 let sprite_dims = instance.part().dims();
                 let center = ctx.w2c(instance.origin().as_vec2() + dims.as_vec2() / 2.0);
-                canvas.sprite(
-                    center,
-                    instance.rotation().to_angle(),
-                    instance.part().sprite_path(),
-                    None,
-                    sprite_dims.as_vec2() * ctx.scale(),
-                );
+                canvas
+                    .sprite(
+                        center,
+                        instance.rotation().to_angle(),
+                        instance.part().sprite_path(),
+                        None,
+                        sprite_dims.as_vec2() * ctx.scale(),
+                    )
+                    .set_color(WHITE.with_alpha(alpha));
 
-                if let Part::Tank(tank) = instance.part() {
-                    let name = tank.item.to_sprite_name();
-                    canvas.sprite(center, 0.0, name, None, Vec2::splat(100.0));
-                }
+                // if let Part::Tank(tank) = instance.part() {
+                //     let name = tank.item().to_sprite_name();
+                //     canvas.sprite(center, 0.0, name, None, Vec2::splat(100.0));
+                // }
 
                 let p = instance.percent_built();
                 if p < 1.0 {
                     let color = crate::generate_ship_sprites::diagram_color(instance.part());
-                    let aabb = AABB::new(center, dims.as_vec2() * ctx.scale());
-                    canvas.rect(aabb, color.with_alpha(1.0 - p * 0.8));
+                    let aabb = AABB::new(center, dims.as_vec2() * ctx.scale() * (1.0 - p));
+                    canvas.rect(aabb, color /* .with_alpha(1.0 - p * 0.8) */);
+                }
+            }
+        }
+
+        if let Some(cursor) = state.input.position(MouseButt::Hover, FrameId::Current) {
+            let c = ctx.c2w(cursor);
+
+            let discrete = IVec2::new(
+                (c.x / 10.0).round() as i32 * 10,
+                (c.y / 10.0).round() as i32 * 10,
+            );
+
+            for dx in (-100..=100).step_by(10) {
+                for dy in (-100..=100).step_by(10) {
+                    let s = IVec2::new(dx, dy);
+                    let p = discrete - s;
+                    let d = (s.length_squared() as f32).sqrt();
+                    let alpha = 0.2 * (1.0 - d / 100.0);
+                    if alpha > 0.01 {
+                        draw_diamond(
+                            &mut canvas.gizmos,
+                            ctx.w2c(p.as_vec2()),
+                            7.0,
+                            GRAY.with_alpha(alpha),
+                        );
+                    }
+                }
+            }
+
+            if let Some(instance) = ctx.get_part_at(vfloor(c)) {
+                let wh = instance.dims_grid().as_ivec2();
+                let p = instance.origin();
+                let q = p + wh;
+                let r = p + IVec2::X * wh.x;
+                let s = p + IVec2::Y * wh.y;
+                let aabb = aabb_for_part(p, instance.rotation(), instance.part());
+
+                draw_highlight_box(canvas, aabb, ctx, TEAL.with_alpha(0.6));
+
+                for p in [p, q, r, s] {
+                    let p = p.as_vec2();
+                    draw_cross(
+                        &mut canvas.gizmos,
+                        ctx.w2c(p),
+                        0.5 * ctx.scale(),
+                        TEAL.with_alpha(0.6),
+                    );
                 }
             }
         }
@@ -637,6 +616,32 @@ impl Render for EditorContext {
             let q = (pipe + IVec2::ONE).as_vec2();
             let aabb = AABB::from_arbitrary(p, q);
             canvas.rect(ctx.w2c_aabb(aabb), PURPLE);
+        }
+
+        if let Some((p, current_part)) = Self::current_part_and_cursor_position(state) {
+            let dims = pixel_dims_with_rotation(ctx.rotation, &current_part);
+            let sprite_dims = current_part.dims();
+            canvas.sprite(
+                ctx.w2c(p.as_vec2() + dims.as_vec2() / 2.0),
+                ctx.rotation.to_angle(),
+                current_part.sprite_path().to_string(),
+                None,
+                sprite_dims.as_vec2() * ctx.scale(),
+            );
+        }
+
+        for (group_id, set) in ctx.vehicle.part_graph().enumerate() {
+            let color = crate::sprites::hashable_to_color(&group_id);
+            let mut points = Vec::new();
+            for (_, pos) in set {
+                points.push(ctx.w2c(pos.as_vec2()));
+            }
+            let color: Srgba = color.into();
+            for p in &points {
+                for q in &points {
+                    canvas.gizmos.line_2d(*p, *q, color);
+                }
+            }
         }
 
         Some(())
@@ -807,6 +812,12 @@ impl EditorContext {
 
         ctx.camera.update(dt, &state.input);
 
+        ctx.vehicle.build_once();
+
+        for tank in ctx.vehicle.tanks_mut() {
+            tank.put(Mass::kilograms(10));
+        }
+
         if is_hovering {
             return;
         }
@@ -814,8 +825,6 @@ impl EditorContext {
         if state.input.just_pressed(KeyCode::KeyP) {
             ctx.cursor_state.toggle_logistics();
         }
-
-        ctx.vehicle.build_once();
 
         match ctx.cursor_state {
             CursorState::Pipes => {

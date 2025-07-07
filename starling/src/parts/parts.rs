@@ -2,7 +2,7 @@ use crate::factory::Mass;
 use crate::math::*;
 use crate::parts::*;
 use enum_iterator::Sequence;
-use image::ImageReader;
+// use image::ImageReader;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
@@ -11,17 +11,17 @@ use std::path::Path;
 pub const PIXELS_PER_METER: f32 = 20.0;
 
 fn part_from_path(path: &Path) -> Result<Part, String> {
-    let image_path = path.join("skin.png");
+    // let image_path = path.join("skin.png");
     let data_path = path.join("metadata.yaml");
-    let img = ImageReader::open(&image_path)
-        .map_err(|_| "Failed to load image")?
-        .decode()
-        .map_err(|_| "Failed to decode image")?;
-    let name = path
-        .file_stem()
-        .ok_or("Failed to get file stem")?
-        .to_string_lossy()
-        .to_string();
+    // let img = ImageReader::open(&image_path)
+    //     .map_err(|_| "Failed to load image")?
+    //     .decode()
+    //     .map_err(|_| "Failed to decode image")?;
+    // let name = path
+    //     .file_stem()
+    //     .ok_or("Failed to get file stem")?
+    //     .to_string_lossy()
+    //     .to_string();
     let s = std::fs::read_to_string(&data_path).map_err(|_| "Failed to load metadata file")?;
     serde_yaml::from_str(&s).map_err(|e| format!("Failed to parse metadata file: {}", e))
 }
@@ -96,17 +96,27 @@ impl Part {
     }
 
     pub fn current_mass(&self) -> Mass {
-        Mass::kilograms(20)
+        match self {
+            Self::Thruster(p) => p.current_mass(),
+            Self::Tank(p) => p.current_mass(),
+            Self::Radar(p) => p.current_mass(),
+            Self::Cargo(p) => p.current_mass(),
+            Self::Magnetorquer(p) => p.current_mass(),
+            Self::Generic(p) => p.current_mass(),
+            Self::Machine(p) => p.current_mass(),
+        }
+    }
 
-        // match self {
-        //     Self::Thruster(p) => p.current_mass(),
-        //     Self::Tank(p) => p.current_mass(),
-        //     Self::Radar(p) => p.current_mass(),
-        //     Self::Cargo(p) => p.current_mass(),
-        //     Self::Magnetorquer(p) => p.current_mass(),
-        //     Self::Generic(p) => p.current_mass(),
-        //     Self::Machine(p) => p.current_mass(),
-        // }
+    pub fn dry_mass(&self) -> Mass {
+        match self {
+            Self::Thruster(p) => p.current_mass(),
+            Self::Tank(p) => p.dry_mass(),
+            Self::Radar(p) => p.current_mass(),
+            Self::Cargo(p) => p.dry_mass(),
+            Self::Magnetorquer(p) => p.current_mass(),
+            Self::Generic(p) => p.current_mass(),
+            Self::Machine(p) => p.current_mass(),
+        }
     }
 
     pub fn layer(&self) -> PartLayer {

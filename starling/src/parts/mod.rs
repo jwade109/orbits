@@ -5,6 +5,7 @@ pub mod machine;
 pub mod magnetorquer;
 pub mod parts;
 pub mod radar;
+pub mod rotation;
 pub mod tank;
 pub mod thruster;
 
@@ -15,5 +16,6 @@ pub use machine::*;
 pub use magnetorquer::*;
 pub use parts::*;
 pub use radar::*;
+pub use rotation::*;
 pub use tank::*;
 pub use thruster::*;

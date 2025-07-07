@@ -1,0 +1,307 @@
+name: ''
+parts:
+- partname: tank22
+  pos:
+  - -40
+  - 0
+  rot: East
+- partname: tank22
+  pos:
+  - -60
+  - 0
+  rot: East
+- partname: tank22
+  pos:
+  - -60
+  - -20
+  rot: East
+- partname: tank22
+  pos:
+  - -40
+  - -20
+  rot: East
+- partname: tank22
+  pos:
+  - -20
+  - -20
+  rot: East
+- partname: tank22
+  pos:
+  - -20
+  - 0
+  rot: East
+- partname: tank22
+  pos:
+  - 0
+  - 0
+  rot: East
+- partname: tank22
+  pos:
+  - 0
+  - -20
+  rot: East
+- partname: frame3
+  pos:
+  - -60
+  - 0
+  rot: East
+- partname: frame3
+  pos:
+  - -60
+  - -10
+  rot: West
+- partname: rcs
+  pos:
+  - -33
+  - 20
+  rot: West
+- partname: rcs
+  pos:
+  - -33
+  - -24
+  rot: East
+- partname: frame3
+  pos:
+  - -70
+  - -20
+  rot: North
+- partname: small-motor
+  pos:
+  - -77
+  - 0
+  rot: South
+- partname: frame3
+  pos:
+  - 20
+  - 0
+  rot: East
+- partname: frame3
+  pos:
+  - 20
+  - -10
+  rot: West
+- partname: frame3
+  pos:
+  - 60
+  - -20
+  rot: South
+- partname: tank22
+  pos:
+  - 20
+  - 0
+  rot: East
+- partname: tank22
+  pos:
+  - 40
+  - 0
+  rot: East
+- partname: tank22
+  pos:
+  - 20
+  - -20
+  rot: East
+- partname: tank22
+  pos:
+  - 40
+  - -20
+  rot: East
+- partname: small-motor
+  pos:
+  - 60
+  - 0
+  rot: North
+- partname: small-motor
+  pos:
+  - 60
+  - -10
+  rot: North
+- partname: gold
+  pos:
+  - 60
+  - -5
+  rot: North
+- partname: gold
+  pos:
+  - 60
+  - 5
+  rot: North
+- partname: gold
+  pos:
+  - 60
+  - -15
+  rot: North
+- partname: gold
+  pos:
+  - -70
+  - -5
+  rot: North
+- partname: gold
+  pos:
+  - -60
+  - -5
+  rot: North
+- partname: gold
+  pos:
+  - -70
+  - 5
+  rot: North
+- partname: gold
+  pos:
+  - -70
+  - -15
+  rot: North
+- partname: plate
+  pos:
+  - -50
+  - -5
+  rot: North
+- partname: plate
+  pos:
+  - -40
+  - -5
+  rot: North
+- partname: plate
+  pos:
+  - -30
+  - -5
+  rot: North
+- partname: plate
+  pos:
+  - -20
+  - -5
+  rot: North
+- partname: plate
+  pos:
+  - -10
+  - -5
+  rot: North
+- partname: plate
+  pos:
+  - 0
+  - -5
+  rot: North
+- partname: plate
+  pos:
+  - 10
+  - -5
+  rot: North
+- partname: plate
+  pos:
+  - 20
+  - -5
+  rot: North
+- partname: plate
+  pos:
+  - 30
+  - -5
+  rot: North
+- partname: plate
+  pos:
+  - 40
+  - -5
+  rot: North
+- partname: plate
+  pos:
+  - 50
+  - -5
+  rot: North
+- partname: rcs
+  pos:
+  - 27
+  - 20
+  rot: West
+- partname: rcs
+  pos:
+  - 27
+  - -24
+  rot: East
+- partname: rcs
+  pos:
+  - -56
+  - 20
+  rot: West
+- partname: rcs
+  pos:
+  - -50
+  - 20
+  rot: West
+- partname: rcs
+  pos:
+  - -56
+  - -24
+  rot: East
+- partname: rcs
+  pos:
+  - -50
+  - -24
+  rot: East
+- partname: rcs
+  pos:
+  - 44
+  - -24
+  rot: East
+- partname: rcs
+  pos:
+  - 50
+  - -24
+  rot: East
+- partname: rcs
+  pos:
+  - 50
+  - 20
+  rot: West
+- partname: rcs
+  pos:
+  - 44
+  - 20
+  rot: West
+- partname: frame3
+  pos:
+  - -20
+  - -20
+  rot: South
+- partname: frame3
+  pos:
+  - -20
+  - 20
+  rot: East
+- partname: frame3
+  pos:
+  - 10
+  - -20
+  rot: North
+- partname: frame3
+  pos:
+  - -20
+  - -30
+  rot: West
+- partname: tank21
+  pos:
+  - 0
+  - 20
+  rot: South
+- partname: tank21
+  pos:
+  - -20
+  - -30
+  rot: South
+- partname: tank21
+  pos:
+  - 0
+  - -30
+  rot: South
+- partname: cpu
+  pos:
+  - -10
+  - 21
+  rot: South
+- partname: battery
+  pos:
+  - -20
+  - 21
+  rot: South
+- partname: small-motor
+  pos:
+  - -77
+  - -10
+  rot: South

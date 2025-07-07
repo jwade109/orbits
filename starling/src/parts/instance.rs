@@ -1,8 +1,6 @@
 use crate::aabb::*;
 use crate::math::*;
 use crate::parts::*;
-use enum_iterator::Sequence;
-use serde::{Deserialize, Serialize};
 
 pub fn pixel_dims_with_rotation(rot: Rotation, part: &Part) -> UVec2 {
     let dims = part.dims();
@@ -18,22 +16,6 @@ pub fn meters_with_rotation(rot: Rotation, part: &Part) -> Vec2 {
         Rotation::East | Rotation::West => Vec2::new(w.x, w.y),
         Rotation::North | Rotation::South => Vec2::new(w.y, w.x),
     }
-}
-
-pub fn rotate_dims(rot: Rotation, part_meters: Vec2) -> Vec2 {
-    let w = part_meters;
-    match rot {
-        Rotation::East | Rotation::West => Vec2::new(w.x, w.y),
-        Rotation::North | Rotation::South => Vec2::new(w.y, w.x),
-    }
-}
-
-#[derive(Debug, Clone, Copy, Sequence, Serialize, Deserialize)]
-pub enum Rotation {
-    East,
-    North,
-    West,
-    South,
 }
 
 #[derive(Debug, Clone)]
@@ -89,6 +71,12 @@ impl PartInstance {
         self.origin = p;
     }
 
+    pub fn with_origin(&self, p: IVec2) -> Self {
+        let mut ret = self.clone();
+        ret.set_origin(p);
+        ret
+    }
+
     pub fn obb(&self, angle: f32, scale: f32, pos: Vec2) -> OBB {
         let dims = self.dims_meters();
         let center = rotate(
@@ -108,5 +96,33 @@ impl PartInstance {
 
     pub fn set_rotation(&mut self, rot: Rotation) {
         self.rot = rot;
+    }
+
+    pub fn rotated(&self) -> PartInstance {
+        let mut ret = self.clone();
+        let old_half_dims = ret.dims_grid().as_vec2() / 2.0;
+        let old_center = ret.origin().as_vec2() + old_half_dims;
+        let new_center = rotate(old_center, PI / 2.0);
+        ret.set_rotation(enum_iterator::next_cycle(&ret.rotation()));
+        let new_half_dims = ret.dims_grid().as_vec2() / 2.0;
+        let new_corner = new_center - new_half_dims;
+        ret.set_origin(vround(new_corner));
+        ret
+    }
+
+    pub fn as_tank(&self) -> Option<&Tank> {
+        if let Part::Tank(t) = &self.part {
+            Some(t)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_machine(&self) -> Option<&Machine> {
+        if let Part::Machine(m) = &self.part {
+            Some(m)
+        } else {
+            None
+        }
     }
 }

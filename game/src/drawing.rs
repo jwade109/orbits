@@ -1286,7 +1286,7 @@ pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, _aabb: AABB, _stamp:
         let center = id_to_pos(id);
         let aabb = AABB::new(center, Vec2::splat(storage_width));
         let color = crate::sprites::hashable_to_color(&storage.item());
-        // draw_aabb(&mut canvas.gizmos, aabb, color.into());
+        draw_aabb(&mut canvas.gizmos, aabb, color.into());
 
         canvas.text(
             format!(
@@ -1313,7 +1313,7 @@ pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, _aabb: AABB, _stamp:
             0.0,
             format!("item-{}", storage.item().to_sprite_name()),
             None,
-            Vec2::splat(100.0),
+            Vec2::splat(storage_width),
         );
     }
 

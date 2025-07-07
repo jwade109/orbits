@@ -275,7 +275,7 @@ impl GameState {
         };
 
         for model in [
-            "lander", "lander", "pollux", "goober", "remora", "manta", "jubilee",
+            "lander", "mule", "pollux", "goober", "remora", "manta", "jubilee",
         ] {
             if let Some(v) = g.get_vehicle_by_model(model) {
                 g.surface_context.add_vehicle(v);

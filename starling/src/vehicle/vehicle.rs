@@ -7,18 +7,8 @@ use crate::orbits::{wrap_0_2pi, wrap_pi_npi};
 use crate::parts::*;
 use crate::pid::*;
 use crate::pv::PV;
+use crate::vehicle::InstanceRef;
 use std::collections::HashSet;
-
-impl Rotation {
-    pub fn to_angle(&self) -> f32 {
-        match self {
-            Self::East => 0.0,
-            Self::North => PI * 0.5,
-            Self::West => PI,
-            Self::South => PI * 1.5,
-        }
-    }
-}
 
 fn rocket_equation(ve: f32, m0: Mass, m1: Mass) -> f32 {
     ve * (m0.to_kg_f32() / m1.to_kg_f32()).ln()
@@ -191,6 +181,18 @@ pub fn simulate_vehicle(mut vehicle: Vehicle, gravity: Vec2) -> Vec<(Vec2, f32)>
     ret
 }
 
+pub fn occupied_pixels(pos: IVec2, rot: Rotation, part: &Part) -> Vec<IVec2> {
+    let mut ret = vec![];
+    let wh = pixel_dims_with_rotation(rot, part);
+    for w in 0..wh.x {
+        for h in 0..wh.y {
+            let p = pos + UVec2::new(w, h).as_ivec2();
+            ret.push(p);
+        }
+    }
+    ret
+}
+
 #[derive(Debug, Clone)]
 pub struct Vehicle {
     name: String,
@@ -201,35 +203,8 @@ pub struct Vehicle {
     angular_velocity: f32,
     factory: Factory,
     pipes: HashSet<IVec2>,
-    pub parts: Vec<PartInstance>,
-}
-
-pub struct InstanceRef<T> {
-    pub origin: IVec2,
-    pub dims: UVec2,
-    pub rot: Rotation,
-    pub variant: T,
-}
-
-impl<T> InstanceRef<T> {
-    fn new(origin: IVec2, dims: UVec2, rot: Rotation, variant: T) -> Self {
-        Self {
-            origin,
-            dims,
-            rot,
-            variant,
-        }
-    }
-
-    pub fn center_meters(&self) -> Vec2 {
-        let dims = rotate_dims(self.rot, self.dims.as_vec2() / PIXELS_PER_METER);
-        let origin = self.origin.as_vec2() / PIXELS_PER_METER;
-        origin + dims / 2.0
-    }
-
-    pub fn thrust_pointing(&self) -> Vec2 {
-        rotate(Vec2::X, self.rot.to_angle() + PI / 2.0)
-    }
+    parts: Vec<PartInstance>,
+    part_graph: Vec<HashSet<(usize, IVec2)>>,
 }
 
 impl Vehicle {
@@ -239,31 +214,148 @@ impl Vehicle {
             .map(|(origin, rot, part)| PartInstance::new(origin, rot, part))
             .collect();
 
-        let factory = Factory::new();
-
-        Self {
+        let mut ret = Self {
             pv: PV::ZERO,
             policy: VehicleControlPolicy::Idle,
             name,
             stamp,
             angle: rand(0.0, 2.0 * PI),
             angular_velocity: rand(-0.3, 0.3),
-            factory,
+            factory: Factory::new(),
             parts: instances,
             pipes: HashSet::new(),
-        }
+            part_graph: Vec::new(),
+        };
+
+        ret.update();
+
+        ret
     }
 
     pub fn add_pipe(&mut self, p: IVec2) {
         self.pipes.insert(p);
+        self.update();
     }
 
     pub fn remove_pipe(&mut self, p: IVec2) {
         self.pipes.remove(&p);
+        self.update();
     }
 
     pub fn has_pipe(&mut self, p: IVec2) -> bool {
         self.pipes.contains(&p)
+    }
+
+    pub fn add_part(&mut self, instance: PartInstance) {
+        self.parts.push(instance);
+        self.update();
+    }
+
+    pub fn get_part_by_index(&self, idx: usize) -> Option<&PartInstance> {
+        self.parts.get(idx)
+    }
+
+    pub fn get_part_at(
+        &self,
+        p: IVec2,
+        layer: impl Into<Option<PartLayer>>,
+    ) -> Option<(usize, &PartInstance)> {
+        let layer: Option<PartLayer> = layer.into();
+        self.parts.iter().enumerate().find(|(_, instance)| {
+            if let Some(layer) = layer {
+                if layer != instance.part().layer() {
+                    return false;
+                }
+            }
+            let origin = instance.origin();
+            let dims = instance.dims_grid().as_ivec2();
+            let p = p - origin;
+            p.x >= 0 && p.y >= 0 && p.x <= dims.x && p.y <= dims.y
+        })
+    }
+
+    pub fn remove_part_at(&mut self, p: IVec2, layer: impl Into<Option<PartLayer>>) {
+        let layer: Option<PartLayer> = layer.into();
+        self.parts.retain(|instance| {
+            if let Some(focus) = layer {
+                if instance.part().layer() != focus {
+                    return true;
+                }
+            };
+            let pixels = occupied_pixels(instance.origin(), instance.rotation(), instance.part());
+            !pixels.contains(&p)
+        });
+    }
+
+    pub fn clear(&mut self) {
+        self.parts.clear();
+        self.pipes.clear();
+        self.reconstruct_factory();
+    }
+
+    fn construct_connectivity(&mut self) {
+        // visit all pipe locations
+        let mut all_pipes = self.pipes.clone();
+        let mut open_set = HashSet::new();
+
+        let mut part_graph = Vec::new();
+
+        while let Some(p) = all_pipes.iter().next() {
+            open_set.insert(*p);
+
+            let mut local_graph = HashSet::new();
+
+            while let Some(p) = open_set.iter().next().cloned() {
+                println!("Open set size: {}", open_set.len());
+                println!("All set size: {}", all_pipes.len());
+
+                open_set.remove(&p);
+                if !all_pipes.contains(&p) {
+                    continue;
+                }
+                all_pipes.remove(&p);
+
+                if let Some((idx, _)) = self.get_part_at(p, PartLayer::Internal) {
+                    if local_graph
+                        .iter()
+                        .find(|(other, _)| *other == idx)
+                        .is_none()
+                    {
+                        local_graph.insert((idx, p));
+                    }
+                }
+
+                for off in [IVec2::X, IVec2::Y, -IVec2::X, -IVec2::Y] {
+                    let neighbor = p - off;
+                    if self.pipes.contains(&neighbor) {
+                        open_set.insert(neighbor);
+                    }
+                }
+            }
+
+            part_graph.push(local_graph);
+        }
+
+        self.part_graph = part_graph;
+    }
+
+    pub fn part_graph(&self) -> impl Iterator<Item = &HashSet<(usize, IVec2)>> + use<'_> {
+        self.part_graph.iter()
+    }
+
+    fn reconstruct_factory(&mut self) {
+        let mut factory = Factory::new();
+        for instance in &self.parts {
+            if let Some(t) = instance.as_tank() {
+                factory.add_storage(t.item(), t.capacity().to_grams());
+            }
+        }
+        self.factory = factory;
+    }
+
+    fn update(&mut self) {
+        self.construct_connectivity();
+        self.reconstruct_factory();
     }
 
     pub fn pipes(&self) -> impl Iterator<Item = IVec2> + use<'_> {
@@ -298,7 +390,7 @@ impl Vehicle {
     pub fn dry_mass(&self) -> Mass {
         self.parts
             .iter()
-            .map(|instance| instance.part().current_mass())
+            .map(|instance| instance.part().dry_mass())
             .sum()
     }
 
@@ -533,37 +625,37 @@ impl Vehicle {
         }
     }
 
-    fn step_physics(&mut self, gravity: Vec2) {
-        const NOMINAL_DT: Nanotime = Nanotime::millis(10);
-
+    fn step_physics(&mut self, gravity: Vec2, dt: Nanotime) {
         let a = self.current_linear_acceleration();
         let aa = self.current_angular_acceleration();
         let fcr = self.fuel_consumption_rate();
 
         let n: f32 = self.tank_count() as f32;
         for t in self.tanks_mut() {
-            let delta_mass = Mass::from_kg_f32(fcr * NOMINAL_DT.to_secs() / n);
+            let delta_mass = Mass::from_kg_f32(fcr * dt.to_secs() / n);
             t.take(delta_mass);
         }
 
-        self.angular_velocity += aa * NOMINAL_DT.to_secs();
+        self.angular_velocity += aa * dt.to_secs();
 
         self.angular_velocity = self.angular_velocity.clamp(-2.0, 2.0);
 
-        self.angle += self.angular_velocity * NOMINAL_DT.to_secs();
+        self.angle += self.angular_velocity * dt.to_secs();
         self.angle = wrap_0_2pi(self.angle);
-        self.stamp += NOMINAL_DT;
+        self.stamp += dt;
 
-        let dv = (gravity + a) * NOMINAL_DT.to_secs();
+        let dv = (gravity + a) * dt.to_secs();
 
         self.pv.vel += dv.as_dvec2();
-        self.pv.pos += self.pv.vel * NOMINAL_DT.to_secs_f64();
+        self.pv.pos += self.pv.vel * dt.to_secs_f64();
     }
 
     pub fn step(&mut self, stamp: Nanotime, mode: PhysicsMode, gravity: Vec2) {
         // if self.remaining_dv() == 0.0 {
         //     self.stamp = stamp;
         // }
+
+        const NOMINAL_DT: Nanotime = Nanotime::millis(10);
 
         while self.stamp < stamp {
             let control = current_control_law(&self, gravity);
@@ -573,7 +665,7 @@ impl Vehicle {
                 PhysicsMode::RealTime => self.step_thrust_control(self.stamp, control),
             };
 
-            self.step_physics(gravity);
+            self.step_physics(gravity, NOMINAL_DT.min(stamp - self.stamp));
         }
     }
 

@@ -1,3 +1,4 @@
+use crate::factory::Mass;
 use crate::math::*;
 use crate::nanotime::Nanotime;
 use serde::{Deserialize, Serialize};
@@ -37,6 +38,7 @@ impl Default for ThrusterState {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Thruster {
     model: ThrusterModel,
+    mass: Mass,
     name: String,
     #[serde(skip)]
     instance_data: ThrusterState,
@@ -118,5 +120,9 @@ impl Thruster {
 
     pub fn model(&self) -> &ThrusterModel {
         &self.model
+    }
+
+    pub fn current_mass(&self) -> Mass {
+        self.mass
     }
 }

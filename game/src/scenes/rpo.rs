@@ -143,7 +143,7 @@ impl Render for RPOContext {
 
         let sidebar = Node::column(300).with_color(UI_BACKGROUND_COLOR);
 
-        let mut world_viewport = Node::grow()
+        let world_viewport = Node::grow()
             .invisible()
             .down()
             .with_child(sim_time)

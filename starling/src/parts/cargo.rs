@@ -17,4 +17,13 @@ impl Cargo {
     pub fn dims(&self) -> UVec2 {
         self.dims
     }
+
+    pub fn current_mass(&self) -> Mass {
+        // TODO needs to consider payload mass!
+        self.dry_mass
+    }
+
+    pub fn dry_mass(&self) -> Mass {
+        self.dry_mass
+    }
 }
