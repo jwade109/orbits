@@ -354,8 +354,23 @@ impl GameState {
                 );
                 img.sampler = bevy::image::ImageSampler::nearest();
                 let dims = img.size();
-                let handle = images.add(img);
-                handles.insert(name.clone(), (handle, dims));
+                let handle = images.add(img.clone());
+                handles.insert(name.clone(), (handle.clone(), dims));
+
+                for pct in (0..=9).rev() {
+                    for w in 0..img.width() {
+                        for h in 0..img.height() {
+                            if rand(0.0, 1.0) < 0.5 {
+                                if let Some(pixel) = img.pixel_bytes_mut(UVec3::new(w, h, 0)) {
+                                    pixel[3] = pixel[3].min(10);
+                                    pixel[2] = 255;
+                                }
+                            }
+                        }
+                    }
+                    let handle = images.add(img.clone());
+                    handles.insert(format!("{}-building-{}", name, pct), (handle, dims));
+                }
             } else {
                 error!("Failed to load sprite for part {}", name);
             }

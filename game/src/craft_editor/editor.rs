@@ -320,7 +320,7 @@ pub fn vehicle_info(vehicle: &Vehicle) -> String {
         format!("Dry mass: {}", vehicle.dry_mass()),
         format!("Fuel: {} ({:0.0}%)", fuel_mass, pct),
         format!("Burn time: {}", burn_time),
-        format!("Wet mass: {}", vehicle.wet_mass()),
+        format!("Current mass: {}", vehicle.current_mass()),
         format!("Thrusters: {}", vehicle.thruster_count()),
         format!("Thrust: {:0.2} kN", vehicle.thrust() / 1000.0),
         format!("Tanks: {}", vehicle.tank_count()),
@@ -555,11 +555,20 @@ impl Render for EditorContext {
                 let dims = instance.dims_grid();
                 let sprite_dims = instance.part().dims();
                 let center = ctx.w2c(instance.origin().as_vec2() + dims.as_vec2() / 2.0);
+                let p = instance.percent_built();
+                let sprite_name = instance.part().sprite_path();
+                let sprite_name = if p == 1.0 {
+                    sprite_name.to_string()
+                } else {
+                    let idx = (p * 10.0).floor() as i32;
+                    format!("{}-building-{}", sprite_name, idx)
+                };
+
                 canvas
                     .sprite(
                         center,
                         instance.rotation().to_angle(),
-                        instance.part().sprite_path(),
+                        sprite_name,
                         None,
                         sprite_dims.as_vec2() * ctx.scale(),
                     )
@@ -570,12 +579,11 @@ impl Render for EditorContext {
                 //     canvas.sprite(center, 0.0, name, None, Vec2::splat(100.0));
                 // }
 
-                let p = instance.percent_built();
-                if p < 1.0 {
-                    let color = crate::generate_ship_sprites::diagram_color(instance.part());
-                    let aabb = AABB::new(center, dims.as_vec2() * ctx.scale() * (1.0 - p));
-                    canvas.rect(aabb, color /* .with_alpha(1.0 - p * 0.8) */);
-                }
+                // if p < 1.0 {
+                //     let color = crate::generate_ship_sprites::diagram_color(instance.part());
+                //     let aabb = AABB::new(center, dims.as_vec2() * ctx.scale() * (1.0 - p));
+                //     canvas.rect(aabb, color /* .with_alpha(1.0 - p * 0.8) */);
+                // }
             }
         }
 

@@ -129,7 +129,7 @@ fn hover_control_law(gravity: Vec2, vehicle: &Vehicle) -> VehicleControl {
     let attitude = compute_attitude_control(vehicle, target_angle, &ATTITUDE_CONTROLLER);
 
     let thrust = vehicle.max_thrust_along_heading(0.0, false);
-    let accel = thrust / vehicle.wet_mass().to_kg_f32();
+    let accel = thrust / vehicle.current_mass().to_kg_f32();
     let pct = gravity.length() / accel;
 
     // vertical controller
@@ -379,7 +379,7 @@ impl Vehicle {
         self.tanks().map(|t: &Tank| t.stored()).sum()
     }
 
-    pub fn wet_mass(&self) -> Mass {
+    pub fn current_mass(&self) -> Mass {
         self.dry_mass() + self.fuel_mass()
     }
 
@@ -423,7 +423,7 @@ impl Vehicle {
     }
 
     pub fn center_of_mass(&self) -> Vec2 {
-        let mass = self.wet_mass();
+        let mass = self.current_mass();
         self.parts
             .iter()
             .map(|p| {
@@ -436,7 +436,7 @@ impl Vehicle {
 
     pub fn accel(&self) -> f32 {
         let thrust = self.thrust();
-        let mass = self.wet_mass();
+        let mass = self.current_mass();
         if mass == Mass::ZERO {
             0.0
         } else {
@@ -511,7 +511,7 @@ impl Vehicle {
     }
 
     pub fn body_frame_acceleration(&self) -> Vec2 {
-        let mass = self.wet_mass();
+        let mass = self.current_mass();
         self.thrusters_ref()
             .map(|t| t.variant.thrust_vector() / mass.to_kg_f32())
             .sum()
@@ -524,11 +524,11 @@ impl Vehicle {
     }
 
     pub fn remaining_dv(&self) -> f32 {
-        if self.wet_mass() == Mass::ZERO || self.dry_mass() == Mass::ZERO {
+        if self.current_mass() == Mass::ZERO || self.dry_mass() == Mass::ZERO {
             return 0.0;
         }
         let ve = self.average_linear_exhaust_velocity();
-        rocket_equation(ve, self.wet_mass(), self.dry_mass())
+        rocket_equation(ve, self.current_mass(), self.dry_mass())
     }
 
     pub fn name(&self) -> &str {
@@ -537,7 +537,7 @@ impl Vehicle {
 
     fn current_angular_acceleration(&self) -> f32 {
         let mut aa = 0.0;
-        let moa = self.wet_mass().to_kg_f32(); // TODO
+        let moa = self.current_mass().to_kg_f32(); // TODO
         let com = self.center_of_mass();
 
         self.thrusters_ref()
@@ -559,7 +559,7 @@ impl Vehicle {
 
     fn current_linear_acceleration(&self) -> Vec2 {
         let mut a = Vec2::ZERO;
-        let mass = self.wet_mass().to_kg_f32();
+        let mass = self.current_mass().to_kg_f32();
         self.thrusters_ref()
             .filter(|t| t.variant.is_thrusting())
             .for_each(|t| {

@@ -20,7 +20,8 @@ pub fn meters_with_rotation(rot: Rotation, part: &Part) -> Vec2 {
 
 #[derive(Debug, Clone)]
 pub struct PartInstance {
-    builds_remaining: u32,
+    builds_required: u32,
+    builds_performed: u32,
     origin: IVec2,
     rot: Rotation,
     part: Part,
@@ -30,7 +31,8 @@ impl PartInstance {
     pub fn new(origin: IVec2, rot: Rotation, part: Part) -> Self {
         // TODO TODO TODO TODO
         Self {
-            builds_remaining: 5,
+            builds_required: ((part.dims().x * part.dims().y) / 10).clamp(10, 300),
+            builds_performed: 0,
             origin,
             rot,
             part,
@@ -46,13 +48,13 @@ impl PartInstance {
     }
 
     pub fn build(&mut self) {
-        if self.builds_remaining > 0 {
-            self.builds_remaining -= 1;
+        if self.builds_performed < self.builds_required {
+            self.builds_performed += 1;
         }
     }
 
     pub fn percent_built(&self) -> f32 {
-        (1.0 - self.builds_remaining as f32 / 5.0).clamp(0.0, 1.0)
+        (self.builds_performed as f32 / self.builds_required as f32).clamp(0.0, 1.0)
     }
 
     pub fn dims_grid(&self) -> UVec2 {
