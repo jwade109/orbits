@@ -423,7 +423,15 @@ impl Vehicle {
     }
 
     pub fn center_of_mass(&self) -> Vec2 {
-        Vec2::ZERO // TODO
+        let mass = self.wet_mass();
+        self.parts
+            .iter()
+            .map(|p| {
+                let center = p.origin().as_vec2() / PIXELS_PER_METER + p.dims_meters() / 2.0;
+                let weight = p.part().current_mass().to_kg_f32() / mass.to_kg_f32();
+                center * weight
+            })
+            .sum()
     }
 
     pub fn accel(&self) -> f32 {

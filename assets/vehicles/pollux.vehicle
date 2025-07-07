@@ -365,21 +365,6 @@ parts:
   - -20
   - -30
   rot: East
-- partname: tank21
-  pos:
-  - 0
-  - -30
-  rot: North
-- partname: tank11
-  pos:
-  - -10
-  - -30
-  rot: North
-- partname: tank11
-  pos:
-  - -20
-  - -30
-  rot: North
 - partname: small-motor
   pos:
   - -100
@@ -430,3 +415,48 @@ parts:
   - -5
   - -10
   rot: West
+- partname: tank11
+  pos:
+  - -10
+  - 10
+  rot: North
+- partname: tank11
+  pos:
+  - -20
+  - 10
+  rot: North
+- partname: tank11
+  pos:
+  - 0
+  - 10
+  rot: North
+- partname: tank11
+  pos:
+  - 10
+  - 10
+  rot: North
+- partname: tank21
+  pos:
+  - -20
+  - -20
+  rot: North
+- partname: tank21
+  pos:
+  - 0
+  - -20
+  rot: North
+- partname: tank11
+  pos:
+  - 0
+  - 20
+  rot: North
+- partname: tank11
+  pos:
+  - 0
+  - -30
+  rot: North
+- partname: tank11
+  pos:
+  - -10
+  - -30
+  rot: North
