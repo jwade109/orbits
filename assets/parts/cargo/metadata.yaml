@@ -1,3 +1,5 @@
-mass: 8400000
-layer: Internal
-class: !Cargo
+!Cargo
+  dry_mass: 8400000
+  layer: Internal
+  name: "cargo"
+  dims: [30, 30]

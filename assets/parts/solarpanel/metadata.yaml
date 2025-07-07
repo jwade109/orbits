@@ -1,3 +1,5 @@
-mass: 600000
-layer: Internal
-class: !Undefined
+!Generic
+  mass: 600000
+  layer: Internal
+  name: "solarpanel"
+  dims: [65, 16]

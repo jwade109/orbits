@@ -1,3 +1,5 @@
-mass: 90000
-layer: Structural
-class: !Undefined
+!Generic
+  mass: 90000
+  layer: Structural
+  name: "frame"
+  dims: [10, 10]

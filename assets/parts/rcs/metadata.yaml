@@ -1,12 +1,15 @@
-mass: 250000
-layer: Internal
-class: !Thruster
-  model: "LPP50-I"
-  exhaust_velocity: 20000000.0
-  thrust: 1600.0
-  length: 0.1
-  width: 0.05
-  is_rcs: true
-  throttle_rate: 10.0
-  primary_color: [0.7, 0.2, 0.2, 0.8]
-  secondary_color: [1.0, 0.7, 0.0, 0.8]
+!Thruster
+  mass: 250000
+  layer: Internal
+  name: "rcs"
+  model:
+    dims: [6, 4]
+    model: "LPP50-I"
+    exhaust_velocity: 20000000.0
+    thrust: 1600.0
+    length: 0.1
+    width: 0.05
+    is_rcs: true
+    throttle_rate: 10.0
+    primary_color: [0.7, 0.2, 0.2, 0.8]
+    secondary_color: [1.0, 0.7, 0.0, 0.8]

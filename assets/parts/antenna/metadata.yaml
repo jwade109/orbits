@@ -1,3 +1,5 @@
-mass: 3450000
-layer: Internal
-class: !Undefined
+!Generic
+  mass: 3450000
+  layer: Internal
+  name: "antenna"
+  dims: [54, 27]

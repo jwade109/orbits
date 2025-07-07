@@ -1,3 +1,4 @@
-mass: 2600000
-layer: Internal
-class: !Radar
+!Radar
+  mass: 2600000
+  layer: Internal
+  dims: [40, 31]

@@ -140,7 +140,6 @@ impl Render for RPOContext {
         let bar = top_bar(state);
         let sim_time = sim_time_toolbar(state);
         let throttle = throttle_controls(state);
-        let thruster = crate::scenes::orbital::thruster_control_dialogue(state);
 
         let sidebar = Node::column(300).with_color(UI_BACKGROUND_COLOR);
 
@@ -149,10 +148,6 @@ impl Render for RPOContext {
             .down()
             .with_child(sim_time)
             .with_child(throttle);
-
-        if let Some(t) = thruster {
-            world_viewport.add_child(t);
-        }
 
         let main_content = Node::grow()
             .invisible()

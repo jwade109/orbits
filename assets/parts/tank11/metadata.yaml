@@ -1,5 +1,7 @@
-mass: 230000
-layer: Internal
-class: !Tank
-  wet_mass: 1100000
+!Tank
+  name: "tank11"
+  dry_mass: 230000
+  current_fluid_mass: 0
+  max_fluid_mass: 1100000
   item: H2
+  dims: [10, 10]

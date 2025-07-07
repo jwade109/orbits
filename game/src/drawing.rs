@@ -287,8 +287,8 @@ fn draw_propagator(
 }
 
 pub fn draw_thruster(gizmos: &mut Gizmos, thruster: &Thruster, pos: Vec2, scale: f32, angle: f32) {
-    let p1 = pos + rotate(thruster.pos * scale, angle);
-    let u = rotate(-Vec2::X, thruster.angle + angle);
+    let p1 = pos;
+    let u = rotate(-Vec2::X, angle + PI / 2.0);
     let v = rotate(u, PI / 2.0);
     let p2 = p1 + (u * thruster.length() + v * thruster.width()) * scale;
     let p3 = p1 + (u * thruster.length() - v * thruster.width()) * scale;
@@ -323,8 +323,14 @@ pub fn draw_vehicle(canvas: &mut Canvas, vehicle: &Vehicle, pos: Vec2, scale: f3
         );
     }
 
-    for thruster in vehicle.thrusters() {
-        draw_thruster(&mut canvas.gizmos, thruster, pos, scale, angle);
+    for thruster in vehicle.thrusters_ref() {
+        draw_thruster(
+            &mut canvas.gizmos,
+            &thruster.variant,
+            pos + rotate(thruster.center_meters() * scale, angle),
+            scale,
+            thruster.rot.to_angle() + angle,
+        );
     }
 }
 

@@ -1,17 +1,14 @@
-use crate::factory::Mass;
 use crate::math::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Cargo {
-    name: String,
-    dry_mass: Mass,
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+pub struct Machine {
     dims: UVec2,
 }
 
-impl Cargo {
+impl Machine {
     pub fn part_name(&self) -> &str {
-        &self.name
+        "chemical-plant"
     }
 
     pub fn dims(&self) -> UVec2 {

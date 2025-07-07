@@ -41,7 +41,7 @@ pub fn load_parts_from_dir(path: &Path) -> HashMap<String, Part> {
                 let path = path.path();
                 match part_from_path(&path) {
                     Ok(part) => {
-                        ret.insert(part.name().to_string(), part);
+                        ret.insert(part.part_name().to_string(), part);
                     }
                     Err(e) => {
                         println!("Error loading part {}: {}", path.display(), e);
@@ -62,72 +62,66 @@ pub enum Part {
     Radar(Radar),
     Cargo(Cargo),
     Magnetorquer(Magnetorquer),
-    Undefined,
+    Machine(Machine),
+    Generic(Generic),
 }
 
 impl Part {
     pub fn dims(&self) -> UVec2 {
-        todo!()
+        match self {
+            Self::Thruster(p) => p.dims(),
+            Self::Tank(p) => p.dims(),
+            Self::Radar(p) => p.dims(),
+            Self::Cargo(p) => p.dims(),
+            Self::Magnetorquer(p) => p.dims(),
+            Self::Generic(p) => p.dims(),
+            Self::Machine(p) => p.dims(),
+        }
     }
 
     pub fn dims_meters(&self) -> Vec2 {
         self.dims().as_vec2() / PIXELS_PER_METER
     }
 
-    pub fn name(&self) -> &str {
-        todo!()
+    pub fn part_name(&self) -> &str {
+        match self {
+            Self::Thruster(p) => p.part_name(),
+            Self::Tank(p) => p.part_name(),
+            Self::Radar(p) => p.part_name(),
+            Self::Cargo(p) => p.part_name(),
+            Self::Magnetorquer(p) => p.part_name(),
+            Self::Generic(p) => p.part_name(),
+            Self::Machine(p) => p.part_name(),
+        }
     }
 
-    pub fn mass(&self) -> Mass {
-        todo!()
+    pub fn current_mass(&self) -> Mass {
+        Mass::kilograms(20)
+
+        // match self {
+        //     Self::Thruster(p) => p.current_mass(),
+        //     Self::Tank(p) => p.current_mass(),
+        //     Self::Radar(p) => p.current_mass(),
+        //     Self::Cargo(p) => p.current_mass(),
+        //     Self::Magnetorquer(p) => p.current_mass(),
+        //     Self::Generic(p) => p.current_mass(),
+        //     Self::Machine(p) => p.current_mass(),
+        // }
     }
 
     pub fn layer(&self) -> PartLayer {
-        todo!()
+        match self {
+            Self::Thruster(..) => PartLayer::Internal,
+            Self::Tank(..) => PartLayer::Internal,
+            Self::Radar(..) => PartLayer::Internal,
+            Self::Cargo(..) => PartLayer::Internal,
+            Self::Magnetorquer(..) => PartLayer::Internal,
+            Self::Generic(p) => p.layer(),
+            Self::Machine(..) => PartLayer::Internal,
+        }
     }
 
     pub fn sprite_path(&self) -> &str {
-        todo!()
+        self.part_name()
     }
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use crate::factory::Item;
-//     use serde_yaml;
-
-//     #[test]
-//     fn write_thruster_metadata_to_file() {
-//         let data = Part::Thruster(Thruster {
-//                 model: "RJ1200".into(),
-//                 thrust: 1200.0,
-//                 exhaust_velocity: 3500.0,
-//                 length: 3.4,
-//                 width: 1.6,
-//                 is_rcs: false,
-//                 throttle_rate: 2.0,
-//                 primary_color: [0.5, 0.6, 0.9, 0.8],
-//                 secondary_color: [0.4, 0.7, 0.4, 1.0],
-//             }),
-//         };
-
-//         let s = serde_yaml::to_string(&data).unwrap();
-//         std::fs::write("thruster.yaml", s).unwrap();
-//     }
-
-//     #[test]
-//     fn write_tank_metadata_to_file() {
-//         let data = PartFileStorage {
-//             mass: Mass::kilograms(12),
-//             layer: PartLayer::Exterior,
-//             class: PartModel::Tank(TankModel {
-//                 wet_mass: Mass::kilograms(120),
-//                 item: Item::H2,
-//             }),
-//         };
-
-//         let s = serde_yaml::to_string(&data).unwrap();
-//         std::fs::write("tank.yaml", s).unwrap();
-//     }
-// }

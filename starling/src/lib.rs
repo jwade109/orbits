@@ -1,5 +1,6 @@
 pub mod aabb;
 pub mod belts;
+pub mod bezier;
 pub mod control;
 pub mod examples;
 pub mod factory;
@@ -22,4 +23,3 @@ pub mod region;
 pub mod scenario;
 pub mod surface;
 pub mod vehicle;
-pub mod bezier;

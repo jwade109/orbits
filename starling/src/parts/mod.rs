@@ -1,15 +1,19 @@
+pub mod cargo;
+pub mod generic;
 pub mod instance;
+pub mod machine;
 pub mod magnetorquer;
 pub mod parts;
 pub mod radar;
 pub mod tank;
 pub mod thruster;
-pub mod cargo;
 
+pub use cargo::*;
+pub use generic::*;
 pub use instance::*;
+pub use machine::*;
 pub use magnetorquer::*;
 pub use parts::*;
 pub use radar::*;
 pub use tank::*;
 pub use thruster::*;
-pub use cargo::*;

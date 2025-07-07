@@ -427,12 +427,17 @@ fn get_indicators(state: &GameState) -> Option<Vec<TextLabel>> {
 
     Some(
         vehicle
-            .thrusters()
+            .thrusters_ref()
             .enumerate()
             .map(|(i, t)| {
-                let text = format!("{} / {} {:0.1}", i, t.model_name(), t.throttle() * 100.0);
+                let text = format!(
+                    "{} / {} {:0.1}",
+                    i,
+                    t.variant.model_name(),
+                    t.variant.throttle() * 100.0
+                );
                 let pos = origin + Vec2::Y * 26.0 * i as f32;
-                let color = if t.is_thrusting() {
+                let color = if t.variant.is_thrusting() {
                     RED.with_alpha(0.8)
                 } else {
                     WHITE.with_alpha(0.6)
@@ -746,7 +751,6 @@ impl Render for OrbitalContext {
         let notif_bar = notification_bar(state, Size::Fixed(900.0));
 
         let throttle_controls = throttle_controls(state);
-        let thruster_controls = thruster_control_dialogue(state).unwrap_or(Node::new(0, 0));
         let favorites = favorites_menu(state);
 
         let world = Node::grow()
@@ -759,8 +763,7 @@ impl Render for OrbitalContext {
                     .invisible()
                     .with_child(inner_topbar)
                     .with_child(favorites)
-                    .with_child(throttle_controls)
-                    .with_child(thruster_controls),
+                    .with_child(throttle_controls),
             )
             .with_child(
                 Node::grow()
@@ -786,40 +789,6 @@ impl Render for OrbitalContext {
 
         Some(Tree::new().with_layout(root, Vec2::ZERO))
     }
-}
-
-pub fn thruster_control_dialogue(state: &GameState) -> Option<Node<OnClick>> {
-    let id = state.piloting()?;
-    let vehicle = state.vehicles.get(&id)?;
-
-    let mut wrapper = Node::new(320, Size::Fit)
-        .down()
-        .with_color(UI_BACKGROUND_COLOR);
-
-    let active_color: [f32; 4] = [0.9, 0.2, 0.2, 1.0];
-
-    for (i, thruster) in vehicle.thrusters().enumerate() {
-        let torque = cross2d(thruster.pos, thruster.pointing());
-
-        let dir = if torque > 1.0 {
-            " [LEFT]"
-        } else if torque < -1.0 {
-            " [RIGHT]"
-        } else {
-            ""
-        };
-
-        let s = format!("#{} / {}{}", i + 1, thruster.model_name(), dir);
-        let onclick = OnClick::ToggleThruster(i);
-        let mut child = Node::button(s, onclick, Size::Grow, BUTTON_HEIGHT);
-
-        if thruster.is_thrusting() {
-            child.set_color(active_color);
-        }
-        wrapper.add_child(child);
-    }
-
-    Some(wrapper)
 }
 
 impl Interactive for OrbitalContext {

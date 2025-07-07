@@ -1,3 +1,5 @@
-mass: 165000
-layer: Structural
-class: !Undefined
+!Generic
+  mass: 165000
+  layer: Structural
+  name: "frame22"
+  dims: [20, 20]

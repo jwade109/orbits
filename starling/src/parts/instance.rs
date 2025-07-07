@@ -12,8 +12,16 @@ pub fn pixel_dims_with_rotation(rot: Rotation, part: &Part) -> UVec2 {
     }
 }
 
-fn meters_with_rotation(rot: Rotation, part: &Part) -> Vec2 {
+pub fn meters_with_rotation(rot: Rotation, part: &Part) -> Vec2 {
     let w = part.dims_meters();
+    match rot {
+        Rotation::East | Rotation::West => Vec2::new(w.x, w.y),
+        Rotation::North | Rotation::South => Vec2::new(w.y, w.x),
+    }
+}
+
+pub fn rotate_dims(rot: Rotation, part_meters: Vec2) -> Vec2 {
+    let w = part_meters;
     match rot {
         Rotation::East | Rotation::West => Vec2::new(w.x, w.y),
         Rotation::North | Rotation::South => Vec2::new(w.y, w.x),

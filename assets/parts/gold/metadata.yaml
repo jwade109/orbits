@@ -1,3 +1,6 @@
-mass: 12000
-layer: Exterior
-class: !Undefined
+!Generic
+  mass: 12000
+  layer: Exterior
+  name: "gold"
+  dims: [10, 10]
+

@@ -1,3 +1,4 @@
-mass: 960000
-layer: Internal
-class: !Undefined
+!Machine
+  mass: 960000
+  layer: Internal
+  dims: [20, 30]

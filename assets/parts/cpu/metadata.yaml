@@ -1,3 +1,5 @@
-mass: 320000
-layer: Internal
-class: !Undefined
+!Generic
+  mass: 320000
+  layer: Internal
+  name: "cpu"
+  dims: [8, 9]

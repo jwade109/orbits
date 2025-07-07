@@ -215,6 +215,8 @@ impl EditorContext {
             if let Some(part) = state.part_database.get(&ps.partname) {
                 let instance = PartInstance::new(ps.pos, ps.rot, part.clone());
                 state.editor_context.vehicle.parts.push(instance);
+            } else {
+                error!("Failed to load part: {}", ps.partname);
             }
         }
         state.editor_context.filepath = Some(path.to_path_buf());
@@ -329,10 +331,10 @@ pub fn vehicle_info(vehicle: &Vehicle) -> String {
     };
 
     [
-        format!("Dry mass: {:0.1} kg", vehicle.dry_mass()),
-        format!("Fuel: {:0.1} kg", fuel_mass),
+        format!("Dry mass: {}", vehicle.dry_mass()),
+        format!("Fuel: {}", fuel_mass),
         format!("Burn time: {}", burn_time),
-        format!("Wet mass: {:0.1} kg", vehicle.wet_mass()),
+        format!("Wet mass: {}", vehicle.wet_mass()),
         format!("Thrusters: {}", vehicle.thruster_count()),
         format!("Thrust: {:0.2} kN", vehicle.thrust() / 1000.0),
         format!("Tanks: {}", vehicle.tank_count()),
@@ -790,6 +792,10 @@ fn process_part_mode(state: &mut GameState) {
                 state.editor_context.cursor_state = CursorState::None;
             }
         }
+    }
+
+    if state.input.just_pressed(KeyCode::KeyR) {
+        state.editor_context.rotation = enum_iterator::next_cycle(&state.editor_context.rotation);
     }
 }
 

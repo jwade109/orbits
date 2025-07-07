@@ -1,3 +1,5 @@
-mass: 18000
-layer: Exterior
-class: !Undefined
+!Generic
+  mass: 18000
+  layer: Exterior
+  name: "plate"
+  dims: [10, 10]

@@ -77,3 +77,9 @@ impl SubAssign for Mass {
         self.0 = self.0 - rhs.0;
     }
 }
+
+impl PartialOrd for Mass {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.0.partial_cmp(&other.0)
+    }
+}

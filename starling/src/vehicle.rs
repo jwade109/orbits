@@ -77,8 +77,8 @@ fn zero_gravity_control_law(vehicle: &Vehicle) -> VehicleControl {
     let (linear, throttle) = if attitude > 6.0 {
         (Vec2::ZERO, 0.0)
     } else {
-        let px = 0.0; // position_error.dot(vehicle.pointing());
-        let py = 0.0; // position_error.dot(rotate(vehicle.pointing(), PI / 2.0));
+        let px = 0.0;
+        let py = 0.0;
 
         let vx = -target_velocity.x + error_dir.dot(vehicle.pv.vel_f32());
         let vy = -target_velocity.y + rotate(error_dir, PI / 2.0).dot(vehicle.pv.vel_f32());
@@ -204,6 +204,34 @@ pub struct Vehicle {
     pub parts: Vec<PartInstance>,
 }
 
+pub struct InstanceRef<T> {
+    pub origin: IVec2,
+    pub dims: UVec2,
+    pub rot: Rotation,
+    pub variant: T,
+}
+
+impl<T> InstanceRef<T> {
+    fn new(origin: IVec2, dims: UVec2, rot: Rotation, variant: T) -> Self {
+        Self {
+            origin,
+            dims,
+            rot,
+            variant,
+        }
+    }
+
+    pub fn center_meters(&self) -> Vec2 {
+        let dims = rotate_dims(self.rot, self.dims.as_vec2() / PIXELS_PER_METER);
+        let origin = self.origin.as_vec2() / PIXELS_PER_METER;
+        origin + dims / 2.0
+    }
+
+    pub fn thrust_pointing(&self) -> Vec2 {
+        rotate(Vec2::X, self.rot.to_angle() + PI / 2.0)
+    }
+}
+
 impl Vehicle {
     pub fn from_parts(name: String, stamp: Nanotime, parts: Vec<(IVec2, Rotation, Part)>) -> Self {
         let instances: Vec<_> = parts
@@ -255,27 +283,27 @@ impl Vehicle {
     }
 
     pub fn fuel_percentage(&self) -> f32 {
-        let max_fuel_mass: Mass = self.tanks().map(|t| t.maximum_fuel_mass).sum();
+        let max_fuel_mass: Mass = self.tanks().map(|t| t.max_fluid_mass).sum();
         if max_fuel_mass == Mass::ZERO {
             return 0.0;
         }
-        let current_fuel_mass: Mass = self.tanks().map(|t| t.current_fuel_mass).sum();
+        let current_fuel_mass: Mass = self.tanks().map(|t| t.stored()).sum();
         current_fuel_mass.to_kg_f32() / max_fuel_mass.to_kg_f32()
     }
 
     pub fn is_controllable(&self) -> bool {
-        !self.thrusters().count() == 0
+        !self.thrusters_ref().count() == 0
     }
 
     pub fn dry_mass(&self) -> Mass {
         self.parts
             .iter()
-            .map(|instance| instance.part().mass())
+            .map(|instance| instance.part().current_mass())
             .sum()
     }
 
     pub fn fuel_mass(&self) -> Mass {
-        self.tanks().map(|t: &Tank| t.current_fuel_mass).sum()
+        self.tanks().map(|t: &Tank| t.stored()).sum()
     }
 
     pub fn wet_mass(&self) -> Mass {
@@ -283,7 +311,7 @@ impl Vehicle {
     }
 
     pub fn thruster_count(&self) -> usize {
-        self.thrusters().count()
+        self.thrusters_ref().count()
     }
 
     pub fn tank_count(&self) -> usize {
@@ -294,7 +322,7 @@ impl Vehicle {
         if self.thruster_count() == 0 {
             0.0
         } else {
-            self.thrusters().map(|t| t.model().thrust).sum()
+            self.thrusters_ref().map(|t| t.variant.model().thrust).sum()
         }
     }
 
@@ -305,17 +333,17 @@ impl Vehicle {
 
         let u = rotate(Vec2::X, angle);
 
-        self.thrusters()
+        self.thrusters_ref()
             .map(|t| {
-                if t.model().is_rcs != rcs {
+                if t.variant.model().is_rcs != rcs {
                     return 0.0;
                 }
-                let v = t.pointing();
+                let v = t.thrust_pointing();
                 let dot = u.dot(v);
                 if dot < 0.9 {
                     0.0
                 } else {
-                    dot * t.model().thrust
+                    dot * t.variant.model().thrust
                 }
             })
             .sum()
@@ -376,7 +404,7 @@ impl Vehicle {
     }
 
     pub fn is_thrusting(&self) -> bool {
-        self.thrusters().any(|t| t.is_thrusting())
+        self.thrusters_ref().any(|t| t.variant.is_thrusting())
     }
 
     pub fn has_radar(&self) -> bool {
@@ -384,7 +412,10 @@ impl Vehicle {
     }
 
     pub fn average_linear_exhaust_velocity(&self) -> f32 {
-        let linear_thrusters: Vec<_> = self.thrusters().filter(|t| !t.is_rcs()).collect();
+        let linear_thrusters: Vec<_> = self
+            .thrusters_ref()
+            .filter(|t| !t.variant.is_rcs())
+            .collect();
 
         let count = linear_thrusters.len();
 
@@ -394,19 +425,21 @@ impl Vehicle {
 
         linear_thrusters
             .into_iter()
-            .map(|t| t.model().exhaust_velocity / count as f32)
+            .map(|t| t.variant.model().exhaust_velocity / count as f32)
             .sum()
     }
 
     pub fn body_frame_acceleration(&self) -> Vec2 {
         let mass = self.wet_mass();
-        self.thrusters()
-            .map(|t| t.thrust_vector() / mass.to_kg_f32())
+        self.thrusters_ref()
+            .map(|t| t.variant.thrust_vector() / mass.to_kg_f32())
             .sum()
     }
 
     pub fn fuel_consumption_rate(&self) -> f32 {
-        self.thrusters().map(|t| t.fuel_consumption_rate()).sum()
+        self.thrusters_ref()
+            .map(|t| t.variant.fuel_consumption_rate())
+            .sum()
     }
 
     pub fn remaining_dv(&self) -> f32 {
@@ -426,11 +459,16 @@ impl Vehicle {
         let moa = self.wet_mass().to_kg_f32(); // TODO
         let com = self.center_of_mass();
 
-        self.thrusters().filter(|t| t.is_thrusting()).for_each(|t| {
-            let lever_arm = t.pos - com;
-            let torque = cross2d(lever_arm, t.pointing()) * t.throttle() * t.model().thrust;
-            aa += torque / moa;
-        });
+        self.thrusters_ref()
+            .filter(|t| t.variant.is_thrusting())
+            .for_each(|t| {
+                let center_of_thrust = t.center_meters();
+                let lever_arm = center_of_thrust - com;
+                let torque = cross2d(lever_arm, t.thrust_pointing())
+                    * t.variant.throttle()
+                    * t.variant.model().thrust;
+                aa += torque / moa;
+            });
 
         for t in self.magnetorquers() {
             aa += t.current_torque / moa;
@@ -441,29 +479,36 @@ impl Vehicle {
     fn current_linear_acceleration(&self) -> Vec2 {
         let mut a = Vec2::ZERO;
         let mass = self.wet_mass().to_kg_f32();
-        self.thrusters().filter(|t| t.is_thrusting()).for_each(|t| {
-            a += rotate(t.pointing(), self.angle) * t.model().thrust / mass * t.throttle();
-        });
+        self.thrusters_ref()
+            .filter(|t| t.variant.is_thrusting())
+            .for_each(|t| {
+                a += rotate(t.thrust_pointing(), self.angle) * t.variant.model().thrust / mass
+                    * t.variant.throttle();
+            });
         a
     }
 
     fn step_thrust_control(&mut self, stamp: Nanotime, control: VehicleControl) {
-        if !self.is_controllable() {
-            return;
-        }
+        // if !self.is_controllable() {
+        //     return;
+        // }
 
-        if self.remaining_dv() == 0.0 {
-            self.set_zero_thrust(stamp);
-            return;
-        }
+        // if self.remaining_dv() == 0.0 {
+        //     self.set_zero_thrust(stamp);
+        //     return;
+        // }
 
-        for t in &mut self.thrusters_mut() {
-            let u = t.pointing();
-            let is_torque = t.is_rcs() && {
-                let torque = cross2d(t.pos, u);
+        let com = self.center_of_mass();
+
+        for t in self.thrusters_ref_mut() {
+            let center_of_thrust = t.center_meters();
+            let u = t.thrust_pointing();
+            let is_torque = t.variant.is_rcs() && {
+                let torque = cross2d(center_of_thrust - com, u);
                 torque.signum() == control.attitude.signum() && control.attitude.abs() > 2.0
             };
-            let is_linear = t.is_rcs() == control.allow_linear_rcs && u.dot(control.linear) > 0.9;
+            let is_linear =
+                t.variant.is_rcs() == control.allow_linear_rcs && u.dot(control.linear) > 0.9;
             let throttle = if is_linear {
                 control.throttle
             } else if is_torque {
@@ -471,7 +516,7 @@ impl Vehicle {
             } else {
                 0.0
             };
-            t.set_thrusting(throttle, stamp);
+            t.variant.set_thrusting(throttle, stamp);
         }
 
         for t in &mut self.magnetorquers_mut() {
@@ -480,8 +525,8 @@ impl Vehicle {
     }
 
     fn set_zero_thrust(&mut self, stamp: Nanotime) {
-        for t in self.thrusters_mut() {
-            t.set_thrusting(0.0, stamp);
+        for t in self.thrusters_ref_mut() {
+            t.variant.set_thrusting(0.0, stamp);
         }
         for t in self.magnetorquers_mut() {
             t.current_torque = 0.0;
@@ -489,7 +534,7 @@ impl Vehicle {
     }
 
     fn step_physics(&mut self, gravity: Vec2) {
-        const NOMINAL_DT: Nanotime = Nanotime::millis(20);
+        const NOMINAL_DT: Nanotime = Nanotime::millis(10);
 
         let a = self.current_linear_acceleration();
         let aa = self.current_angular_acceleration();
@@ -497,8 +542,8 @@ impl Vehicle {
 
         let n: f32 = self.tank_count() as f32;
         for t in self.tanks_mut() {
-            t.current_fuel_mass -= Mass::from_kg_f32(fcr * NOMINAL_DT.to_secs() / n);
-            t.current_fuel_mass = t.current_fuel_mass.clamp(Mass::ZERO, t.maximum_fuel_mass);
+            let delta_mass = Mass::from_kg_f32(fcr * NOMINAL_DT.to_secs() / n);
+            t.take(delta_mass);
         }
 
         self.angular_velocity += aa * NOMINAL_DT.to_secs();
@@ -516,9 +561,9 @@ impl Vehicle {
     }
 
     pub fn step(&mut self, stamp: Nanotime, mode: PhysicsMode, gravity: Vec2) {
-        if self.remaining_dv() == 0.0 {
-            self.stamp = stamp;
-        }
+        // if self.remaining_dv() == 0.0 {
+        //     self.stamp = stamp;
+        // }
 
         while self.stamp < stamp {
             let control = current_control_law(&self, gravity);
@@ -581,20 +626,28 @@ impl Vehicle {
         })
     }
 
-    pub fn thrusters(&self) -> impl Iterator<Item = &Thruster> + use<'_> {
-        self.parts.iter().filter_map(|instance| {
-            if let Part::Thruster(t) = instance.part() {
-                Some(t)
+    pub fn thrusters_ref(&self) -> impl Iterator<Item = InstanceRef<&Thruster>> + use<'_> {
+        self.parts.iter().filter_map(|p| {
+            let pos = p.part().dims();
+            let origin = p.origin();
+            let rot = p.rotation();
+            if let Part::Thruster(t) = p.part() {
+                Some(InstanceRef::new(origin, pos, rot, t))
             } else {
                 None
             }
         })
     }
 
-    pub fn thrusters_mut(&mut self) -> impl Iterator<Item = &mut Thruster> + use<'_> {
-        self.parts.iter_mut().filter_map(|instance| {
-            if let Part::Thruster(t) = instance.part_mut() {
-                Some(t)
+    pub fn thrusters_ref_mut(
+        &mut self,
+    ) -> impl Iterator<Item = InstanceRef<&mut Thruster>> + use<'_> {
+        self.parts.iter_mut().filter_map(|p| {
+            let pos = p.part().dims();
+            let origin = p.origin();
+            let rot = p.rotation();
+            if let Part::Thruster(t) = p.part_mut() {
+                Some(InstanceRef::new(origin, pos, rot, t))
             } else {
                 None
             }
@@ -623,7 +676,7 @@ impl Vehicle {
 
     pub fn bounding_radius(&self) -> f32 {
         // TODO
-        100.0
+        10.0
     }
 
     pub fn build_once(&mut self) {

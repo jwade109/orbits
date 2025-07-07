@@ -1,12 +1,15 @@
-mass: 200000
-layer: Internal
-class: !Thruster
-  model: "P40N"
-  exhaust_velocity: 3800.0
-  thrust: 30000.0
-  length: 0.4
-  width: 0.3
-  is_rcs: false
-  throttle_rate: 5.0
-  primary_color: [0.5, 0.5, 1.0, 0.2]
-  secondary_color: [1.0, 1.0, 1.0, 0.1]
+!Thruster
+  mass: 200000
+  layer: Internal
+  name: "small-motor"
+  model:
+    dims: [10, 17]
+    model: "P40N"
+    exhaust_velocity: 3800.0
+    thrust: 400000.0
+    length: 0.4
+    width: 0.3
+    is_rcs: false
+    throttle_rate: 5.0
+    primary_color: [0.5, 0.5, 1.0, 0.2]
+    secondary_color: [1.0, 1.0, 1.0, 0.1]

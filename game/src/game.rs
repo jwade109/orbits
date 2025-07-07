@@ -278,7 +278,7 @@ impl GameState {
             "lander", "lander", "pollux", "goober", "remora", "manta", "jubilee",
         ] {
             if let Some(v) = g.get_vehicle_by_model(model) {
-                // g.surface_context.add_vehicle(v);
+                g.surface_context.add_vehicle(v);
             }
         }
 
@@ -356,6 +356,8 @@ impl GameState {
                 let dims = img.size();
                 let handle = images.add(img);
                 handles.insert(name.clone(), (handle, dims));
+            } else {
+                error!("Failed to load sprite for part {}", name);
             }
         }
 

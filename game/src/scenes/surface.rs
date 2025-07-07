@@ -213,20 +213,21 @@ impl SurfaceContext {
 
             v.step(state.sim_time, PhysicsMode::RealTime, gravity);
 
-            for t in v.thrusters() {
+            for t in v.thrusters_ref() {
                 let mut stamp = stamp;
 
-                if !t.is_thrusting() || t.model().is_rcs {
+                if !t.variant.is_thrusting() || t.variant.model().is_rcs {
                     continue;
                 }
 
                 while stamp < state.sim_time {
-                    let pos = rotate(t.pos, v.angle());
-                    let ve = t.model().exhaust_velocity / 20.0;
-                    let vel = randvec(2.0, 10.0) + v.pointing() * -ve * rand(0.6, 1.0);
+                    let pos = rotate(t.center_meters(), v.angle());
+                    let ve = t.variant.model().exhaust_velocity / 20.0;
+                    let u = rotate(t.thrust_pointing(), v.angle());
+                    let vel = randvec(2.0, 10.0) + u * -ve * rand(0.6, 1.0);
                     let pv = v.pv + PV::from_f64(pos, vel);
-                    let c1 = to_srbga(t.model().primary_color);
-                    let c2 = to_srbga(t.model().secondary_color);
+                    let c1 = to_srbga(t.variant.model().primary_color);
+                    let c2 = to_srbga(t.variant.model().secondary_color);
                     let color = c1.mix(&c2, rand(0.0, 1.0));
                     let final_color = WHITE.mix(&DARK_GRAY, rand(0.3, 0.9)).with_alpha(0.4);
                     ctx.particles
@@ -336,12 +337,12 @@ impl Render for SurfaceContext {
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         let ctx = &state.surface_context;
 
-        draw_factory(
-            canvas,
-            &ctx.factory,
-            AABB::new(Vec2::ZERO, Vec2::new(700.0, 500.0)),
-            state.sim_time,
-        );
+        // draw_factory(
+        //     canvas,
+        //     &ctx.factory,
+        //     AABB::new(Vec2::ZERO, Vec2::new(700.0, 500.0)),
+        //     state.sim_time,
+        // );
 
         {
             let bl = ctx.w2c(Vec2::new(-1000.0, -500.0));

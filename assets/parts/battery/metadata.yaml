@@ -1,3 +1,5 @@
-mass: 260000
-layer: Internal
-class: !Undefined
+!Generic
+  mass: 260000
+  layer: Internal
+  name: "battery"
+  dims: [9, 9]
