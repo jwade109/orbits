@@ -1,5 +1,4 @@
 use crate::aabb::AABB;
-use crate::factory::Factory;
 use crate::factory::Mass;
 use crate::math::*;
 use crate::nanotime::Nanotime;
@@ -7,7 +6,7 @@ use crate::orbits::{wrap_0_2pi, wrap_pi_npi};
 use crate::parts::*;
 use crate::pid::*;
 use crate::pv::PV;
-use crate::vehicle::InstanceRef;
+use crate::vehicle::*;
 use std::collections::HashSet;
 
 fn rocket_equation(ve: f32, m0: Mass, m1: Mass) -> f32 {
@@ -201,10 +200,9 @@ pub struct Vehicle {
     stamp: Nanotime,
     angle: f32,
     angular_velocity: f32,
-    factory: Factory,
     pipes: HashSet<IVec2>,
     parts: Vec<PartInstance>,
-    part_graph: Vec<HashSet<(usize, IVec2)>>,
+    conn_groups: Vec<ConnectivityGroup>,
 }
 
 impl Vehicle {
@@ -221,10 +219,9 @@ impl Vehicle {
             stamp,
             angle: rand(0.0, 2.0 * PI),
             angular_velocity: rand(-0.3, 0.3),
-            factory: Factory::new(),
             parts: instances,
             pipes: HashSet::new(),
-            part_graph: Vec::new(),
+            conn_groups: Vec::new(),
         };
 
         ret.update();
@@ -290,7 +287,7 @@ impl Vehicle {
     pub fn clear(&mut self) {
         self.parts.clear();
         self.pipes.clear();
-        self.reconstruct_factory();
+        self.update();
     }
 
     fn construct_connectivity(&mut self) {
@@ -298,31 +295,24 @@ impl Vehicle {
         let mut all_pipes = self.pipes.clone();
         let mut open_set = HashSet::new();
 
-        let mut part_graph = Vec::new();
+        let mut conn_groups = Vec::new();
 
         while let Some(p) = all_pipes.iter().next() {
             open_set.insert(*p);
 
-            let mut local_graph = HashSet::new();
+            let mut local_graph = ConnectivityGroup::new();
 
             while let Some(p) = open_set.iter().next().cloned() {
-                println!("Open set size: {}", open_set.len());
-                println!("All set size: {}", all_pipes.len());
-
                 open_set.remove(&p);
                 if !all_pipes.contains(&p) {
                     continue;
                 }
                 all_pipes.remove(&p);
 
+                local_graph.add_transport_line(p);
+
                 if let Some((idx, _)) = self.get_part_at(p, PartLayer::Internal) {
-                    if local_graph
-                        .iter()
-                        .find(|(other, _)| *other == idx)
-                        .is_none()
-                    {
-                        local_graph.insert((idx, p));
-                    }
+                    local_graph.connect(idx, p);
                 }
 
                 for off in [IVec2::X, IVec2::Y, -IVec2::X, -IVec2::Y] {
@@ -333,29 +323,24 @@ impl Vehicle {
                 }
             }
 
-            part_graph.push(local_graph);
+            conn_groups.push(local_graph);
         }
 
-        self.part_graph = part_graph;
+        self.conn_groups = conn_groups;
     }
 
-    pub fn part_graph(&self) -> impl Iterator<Item = &HashSet<(usize, IVec2)>> + use<'_> {
-        self.part_graph.iter()
+    pub fn conn_groups(&self) -> impl Iterator<Item = &ConnectivityGroup> + use<'_> {
+        self.conn_groups.iter()
     }
 
-    fn reconstruct_factory(&mut self) {
-        let mut factory = Factory::new();
-        for instance in &self.parts {
-            if let Some(t) = instance.as_tank() {
-                factory.add_storage(t.item(), t.capacity().to_grams());
-            }
-        }
-        self.factory = factory;
+    pub fn is_connected(&self, idx_a: usize, idx_b: usize) -> bool {
+        self.conn_groups
+            .iter()
+            .any(|g| g.is_connected(idx_a, idx_b))
     }
 
     fn update(&mut self) {
         self.construct_connectivity();
-        self.reconstruct_factory();
     }
 
     pub fn pipes(&self) -> impl Iterator<Item = IVec2> + use<'_> {
@@ -364,10 +349,6 @@ impl Vehicle {
 
     pub fn stamp(&self) -> Nanotime {
         self.stamp
-    }
-
-    pub fn factory(&self) -> &Factory {
-        &self.factory
     }
 
     pub fn parts(&self) -> impl Iterator<Item = &PartInstance> + use<'_> {

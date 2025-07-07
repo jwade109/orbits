@@ -358,6 +358,27 @@ fn draw_highlight_box(canvas: &mut Canvas, aabb: AABB, ctx: &impl CameraProjecti
     }
 }
 
+fn highlight_part(
+    canvas: &mut Canvas,
+    instance: &PartInstance,
+    ctx: &impl CameraProjection,
+    color: Srgba,
+) {
+    let wh = instance.dims_grid().as_ivec2();
+    let p = instance.origin();
+    let q = p + wh;
+    let r = p + IVec2::X * wh.x;
+    let s = p + IVec2::Y * wh.y;
+    let aabb = aabb_for_part(p, instance.rotation(), instance.part());
+
+    draw_highlight_box(canvas, aabb, ctx, color);
+
+    for p in [p, q, r, s] {
+        let p = p.as_vec2();
+        draw_cross(&mut canvas.gizmos, ctx.w2c(p), 0.5 * ctx.scale(), color);
+    }
+}
+
 impl Render for EditorContext {
     fn background_color(_state: &GameState) -> bevy::color::Srgba {
         GRAY.with_luminance(0.12)
@@ -474,13 +495,7 @@ impl Render for EditorContext {
                         }
                         visited_parts.insert(*idx);
                         if let Some(instance) = ctx.vehicle.get_part_by_index(*idx) {
-                            let aabb = aabb_for_part(
-                                instance.origin(),
-                                instance.rotation(),
-                                instance.part(),
-                            );
-
-                            draw_highlight_box(canvas, aabb, ctx, RED.with_alpha(0.6));
+                            highlight_part(canvas, instance, ctx, RED.with_alpha(0.6));
                         }
                     }
                 }
@@ -589,24 +604,14 @@ impl Render for EditorContext {
                 }
             }
 
-            if let Some(instance) = ctx.get_part_at(vfloor(c)) {
-                let wh = instance.dims_grid().as_ivec2();
-                let p = instance.origin();
-                let q = p + wh;
-                let r = p + IVec2::X * wh.x;
-                let s = p + IVec2::Y * wh.y;
-                let aabb = aabb_for_part(p, instance.rotation(), instance.part());
-
-                draw_highlight_box(canvas, aabb, ctx, TEAL.with_alpha(0.6));
-
-                for p in [p, q, r, s] {
-                    let p = p.as_vec2();
-                    draw_cross(
-                        &mut canvas.gizmos,
-                        ctx.w2c(p),
-                        0.5 * ctx.scale(),
-                        TEAL.with_alpha(0.6),
-                    );
+            if Self::current_part_and_cursor_position(state).is_none() {
+                if let Some((idx, instance)) = ctx.vehicle.get_part_at(vfloor(c), ctx.focus_layer) {
+                    highlight_part(canvas, instance, ctx, TEAL.with_alpha(0.6));
+                    for (other, other_instance) in ctx.vehicle.parts().enumerate() {
+                        if ctx.vehicle.is_connected(idx, other) {
+                            highlight_part(canvas, other_instance, ctx, YELLOW.with_alpha(0.4))
+                        }
+                    }
                 }
             }
         }
@@ -630,17 +635,24 @@ impl Render for EditorContext {
             );
         }
 
-        for (group_id, set) in ctx.vehicle.part_graph().enumerate() {
+        for (group_id, group) in ctx.vehicle.conn_groups().enumerate() {
             let color = crate::sprites::hashable_to_color(&group_id);
             let mut points = Vec::new();
-            for (_, pos) in set {
-                points.push(ctx.w2c(pos.as_vec2()));
+            for p in group.points() {
+                points.push(ctx.w2c(p.as_vec2()));
             }
             let color: Srgba = color.into();
             for p in &points {
                 for q in &points {
                     canvas.gizmos.line_2d(*p, *q, color);
                 }
+            }
+            if let Some(bounds) = group.bounds() {
+                draw_aabb(
+                    &mut canvas.gizmos,
+                    ctx.w2c_aabb(bounds),
+                    color.with_alpha(0.5),
+                );
             }
         }
 
