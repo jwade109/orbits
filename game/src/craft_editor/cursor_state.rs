@@ -4,12 +4,12 @@ use starling::prelude::*;
 pub enum CursorState {
     #[default]
     None,
-    Part(PartDefinition),
-    Logistics(Vec<IVec2>),
+    Part(Part),
+    Pipes,
 }
 
 impl CursorState {
-    pub fn current_part(&self) -> Option<PartDefinition> {
+    pub fn current_part(&self) -> Option<Part> {
         match self {
             Self::Part(proto) => Some(proto.clone()),
             _ => None,
@@ -18,29 +18,8 @@ impl CursorState {
 
     pub fn toggle_logistics(&mut self) {
         *self = match self {
-            Self::Logistics(_) => Self::None,
-            _ => Self::logistics(),
+            Self::Pipes => Self::None,
+            _ => Self::Pipes,
         };
-    }
-
-    pub fn logistics() -> Self {
-        Self::Logistics(Vec::new())
-    }
-
-    pub fn append_pipe_control_point(&mut self, p: IVec2) {
-        if let Self::Logistics(points) = self {
-            let p = if let Some(q) = points.last() {
-                let dx = (q.x - p.x).abs();
-                let dy = (q.y - p.y).abs();
-                if dx > dy {
-                    p.with_y(q.y)
-                } else {
-                    p.with_x(q.x)
-                }
-            } else {
-                p
-            };
-            points.push(p);
-        }
     }
 }

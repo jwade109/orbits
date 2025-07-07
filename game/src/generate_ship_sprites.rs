@@ -10,12 +10,12 @@ pub fn read_image(path: &Path) -> Option<RgbaImage> {
     Some(image::open(path).ok()?.to_rgba8())
 }
 
-pub fn diagram_color(instance: &PartInstance) -> Srgba {
-    match instance.definition_variant() {
-        PartDefinitionVariant::Cargo => GREEN,
-        PartDefinitionVariant::Thruster(_) => RED,
-        PartDefinitionVariant::Tank(_) => ORANGE,
-        _ => match instance.layer() {
+pub fn diagram_color(part: &Part) -> Srgba {
+    match part {
+        Part::Cargo(..) => GREEN,
+        Part::Thruster(..) => RED,
+        Part::Tank(..) => ORANGE,
+        _ => match part.layer() {
             PartLayer::Exterior => DARK_GRAY,
             PartLayer::Internal => GRAY,
             PartLayer::Structural => WHITE,
@@ -32,8 +32,10 @@ pub fn generate_image(
     let dims = pixel_max - pixel_min;
     let mut img = DynamicImage::new_rgba8(dims.x as u32, dims.y as u32);
     let to_export = img.as_mut_rgba8().unwrap();
-    for instance in vehicle.parts_by_layer() {
-        let path = parts_dir.join(instance.sprite_path()).join("skin.png");
+    for instance in vehicle.parts() {
+        let path = parts_dir
+            .join(instance.part().sprite_path())
+            .join("skin.png");
         let img = match read_image(&path) {
             Some(img) => img,
             None => {
@@ -45,18 +47,7 @@ pub fn generate_image(
         let px = (instance.origin().x - pixel_min.x) as u32;
         let py = (instance.origin().y - pixel_min.y) as u32;
 
-        let color = match instance.definition_variant() {
-            PartDefinitionVariant::Cargo => GREEN,
-            PartDefinitionVariant::Thruster(_) => RED,
-            PartDefinitionVariant::Tank(_) => ORANGE,
-            _ => match instance.layer() {
-                PartLayer::Exterior => continue,
-                PartLayer::Internal => GRAY,
-                PartLayer::Structural => WHITE,
-            },
-        }
-        .mix(&BLACK, 0.3)
-        .to_f32_array();
+        let color = diagram_color(instance.part()).to_f32_array();
 
         for x in 0..img.width() {
             for y in 0..img.height() {

@@ -311,19 +311,7 @@ pub fn draw_thruster(gizmos: &mut Gizmos, thruster: &Thruster, pos: Vec2, scale:
 }
 
 pub fn draw_vehicle(canvas: &mut Canvas, vehicle: &Vehicle, pos: Vec2, scale: f32, angle: f32) {
-    let vector_alpha = (scale / 700.0).clamp(0.0, 1.0);
-
     let geo = vehicle.aabb().center;
-
-    for instance in vehicle.parts() {
-        let obb = instance.obb(angle, scale, pos);
-        let color = match instance.layer() {
-            PartLayer::Exterior => YELLOW,
-            PartLayer::Internal => GRAY,
-            PartLayer::Structural => WHITE,
-        };
-        draw_obb(&mut canvas.gizmos, &obb, color.with_alpha(vector_alpha));
-    }
 
     if !vehicle.name().is_empty() {
         canvas.sprite(
@@ -337,27 +325,6 @@ pub fn draw_vehicle(canvas: &mut Canvas, vehicle: &Vehicle, pos: Vec2, scale: f3
 
     for thruster in vehicle.thrusters() {
         draw_thruster(&mut canvas.gizmos, thruster, pos, scale, angle);
-    }
-
-    for tank in vehicle.tanks() {
-        let dims = Vec2::new(tank.width, tank.height);
-        let tank_screen_center = pos + rotate((tank.pos + dims / 2.0) * scale, angle);
-
-        draw_circle(
-            &mut canvas.gizmos,
-            tank_screen_center,
-            3.0,
-            WHITE.with_alpha(vector_alpha),
-        );
-
-        let pct = tank.percent_filled();
-
-        canvas.gizmos.arc_2d(
-            Isometry2d::from_translation(tank_screen_center),
-            pct * 2.0 * PI,
-            tank.width.min(tank.height) * scale / 2.0,
-            RED.with_alpha(vector_alpha),
-        );
     }
 }
 
@@ -1313,7 +1280,7 @@ pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, _aabb: AABB, _stamp:
         let center = id_to_pos(id);
         let aabb = AABB::new(center, Vec2::splat(storage_width));
         let color = crate::sprites::hashable_to_color(&storage.item());
-        draw_aabb(&mut canvas.gizmos, aabb, color.into());
+        // draw_aabb(&mut canvas.gizmos, aabb, color.into());
 
         canvas.text(
             format!(
@@ -1334,6 +1301,14 @@ pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, _aabb: AABB, _stamp:
         canvas
             .sprite(aabb_fill.center, 0.0, "error", 0.0, aabb_fill.span)
             .set_color(color);
+
+        canvas.sprite(
+            aabb.center,
+            0.0,
+            format!("item-{}", storage.item().to_sprite_name()),
+            None,
+            Vec2::splat(100.0),
+        );
     }
 
     // let input_port_center = |id: u64, i: usize| {

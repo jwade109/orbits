@@ -1,4 +1,7 @@
-use crate::scenes::{StaticSpriteDescriptor, TextLabel};
+use crate::{
+    drawing::draw_square,
+    scenes::{StaticSpriteDescriptor, TextLabel},
+};
 use bevy::prelude::*;
 use starling::aabb::AABB;
 
@@ -22,6 +25,10 @@ impl<'w, 's> Canvas<'w, 's> {
     pub fn circle(&mut self, p: Vec2, radius: f32, color: Srgba) {
         self.gizmos
             .circle_2d(Isometry2d::from_translation(p), radius, color);
+    }
+
+    pub fn square(&mut self, p: Vec2, sidelength: f32, color: Srgba) {
+        draw_square(&mut self.gizmos, p, sidelength, color);
     }
 
     pub fn label(&mut self, label: TextLabel) {

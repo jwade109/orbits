@@ -1,4 +1,6 @@
-#[derive(Debug, Clone, Copy)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub struct Magnetorquer {
     pub max_torque: f32,
     pub current_torque: f32,

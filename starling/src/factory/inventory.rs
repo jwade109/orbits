@@ -24,13 +24,14 @@ pub enum Item {
     Calzones,
     Geodes,
     Wheat,
+    Corn,
     Milk,
     Power,
 }
 
 impl Item {
-    pub fn to_string(&self) -> String {
-        format!("{:?}", self)
+    pub fn to_sprite_name(&self) -> String {
+        format!("item-{:?}", self).to_lowercase()
     }
 }
 

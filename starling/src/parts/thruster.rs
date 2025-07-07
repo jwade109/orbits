@@ -18,7 +18,7 @@ pub struct ThrusterModel {
     pub secondary_color: [f32; 4],
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Thruster {
     model: ThrusterModel,
     pub pos: Vec2,

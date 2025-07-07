@@ -1,29 +1,13 @@
 use crate::aabb::AABB;
-use crate::aabb::OBB;
 use crate::factory::Factory;
 use crate::factory::Mass;
-use crate::math::{cross2d, rand, rotate, IVec2, UVec2, Vec2, PI};
+use crate::math::*;
 use crate::nanotime::Nanotime;
 use crate::orbits::{wrap_0_2pi, wrap_pi_npi};
-use crate::parts::{
-    magnetorquer::Magnetorquer,
-    parts::{PartDefinition, PartDefinitionVariant, PartLayer},
-    radar::Radar,
-    tank::Tank,
-    thruster::Thruster,
-};
+use crate::parts::*;
 use crate::pid::*;
 use crate::pv::PV;
-use enum_iterator::Sequence;
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Copy, Sequence, Serialize, Deserialize)]
-pub enum Rotation {
-    East,
-    North,
-    West,
-    South,
-}
+use std::collections::HashSet;
 
 impl Rotation {
     pub fn to_angle(&self) -> f32 {
@@ -43,22 +27,6 @@ fn rocket_equation(ve: f32, m0: Mass, m1: Mass) -> f32 {
 #[allow(unused)]
 fn mass_after_maneuver(ve: f32, m0: f32, dv: f32) -> f32 {
     m0 / (dv / ve).exp()
-}
-
-pub fn pixel_dims_with_rotation(rot: Rotation, part: &PartDefinition) -> UVec2 {
-    match rot {
-        Rotation::East | Rotation::West => UVec2::new(part.width, part.height),
-        Rotation::North | Rotation::South => UVec2::new(part.height, part.width),
-    }
-}
-
-pub fn meters_with_rotation(rot: Rotation, part: &PartDefinition) -> Vec2 {
-    let w = part.width_meters();
-    let h = part.height_meters();
-    match rot {
-        Rotation::East | Rotation::West => Vec2::new(w, h),
-        Rotation::North | Rotation::South => Vec2::new(h, w),
-    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -224,99 +192,6 @@ pub fn simulate_vehicle(mut vehicle: Vehicle, gravity: Vec2) -> Vec<(Vec2, f32)>
 }
 
 #[derive(Debug, Clone)]
-pub struct PartInstance {
-    builds_remaining: u32,
-    origin: IVec2,
-    rot: Rotation,
-    proto: PartDefinition,
-    variant: PartVariant,
-}
-
-impl PartInstance {
-    pub fn new(origin: IVec2, rot: Rotation, proto: PartDefinition) -> Self {
-        // TODO TODO TODO TODO
-        Self {
-            builds_remaining: 15,
-            origin,
-            rot,
-            proto,
-            variant: PartVariant::Other,
-        }
-    }
-
-    pub fn build(&mut self) {
-        if self.builds_remaining > 0 {
-            self.builds_remaining -= 1;
-        }
-    }
-
-    pub fn percent_built(&self) -> f32 {
-        (1.0 - self.builds_remaining as f32 / 15.0).clamp(0.0, 1.0)
-    }
-
-    pub fn definition_variant(&self) -> &PartDefinitionVariant {
-        &self.proto.class
-    }
-
-    pub fn sprite_path(&self) -> &str {
-        &self.proto.path
-    }
-
-    pub fn sprite_dims(&self) -> UVec2 {
-        UVec2::new(self.proto.width, self.proto.height)
-    }
-
-    pub fn dims_grid(&self) -> UVec2 {
-        pixel_dims_with_rotation(self.rot, &self.proto)
-    }
-
-    pub fn dims_meters(&self) -> Vec2 {
-        meters_with_rotation(self.rot, &self.proto)
-    }
-
-    pub fn origin(&self) -> IVec2 {
-        self.origin
-    }
-
-    pub fn set_origin(&mut self, p: IVec2) {
-        self.origin = p;
-    }
-
-    pub fn obb(&self, angle: f32, scale: f32, pos: Vec2) -> OBB {
-        let dims = self.dims_meters();
-        let center = rotate(
-            self.origin().as_vec2() / crate::prelude::PIXELS_PER_METER + dims / 2.0,
-            angle,
-        ) * scale;
-        OBB::new(
-            AABB::from_arbitrary(scale * -dims / 2.0, scale * dims / 2.0),
-            angle,
-        )
-        .offset(center + pos)
-    }
-
-    pub fn rotation(&self) -> Rotation {
-        self.rot
-    }
-
-    pub fn set_rotation(&mut self, rot: Rotation) {
-        self.rot = rot;
-    }
-
-    pub fn layer(&self) -> PartLayer {
-        self.proto.layer
-    }
-
-    pub fn mass(&self) -> Mass {
-        self.proto.mass
-    }
-
-    pub fn proto(&self) -> &PartDefinition {
-        &self.proto
-    }
-}
-
-#[derive(Debug, Clone)]
 pub struct Vehicle {
     name: String,
     pub pv: PV,
@@ -325,53 +200,16 @@ pub struct Vehicle {
     angle: f32,
     angular_velocity: f32,
     factory: Factory,
+    pipes: HashSet<IVec2>,
     pub parts: Vec<PartInstance>,
 }
 
-#[derive(Debug, Clone)]
-pub enum PartVariant {
-    Structure,
-    Thruster(Thruster),
-    Magnetorquer(Magnetorquer),
-    Radar(Radar),
-    Tank(Tank),
-    Cargo,
-    Other,
-}
-
 impl Vehicle {
-    pub fn from_parts(
-        name: String,
-        stamp: Nanotime,
-        part_protos: Vec<(IVec2, Rotation, PartDefinition)>,
-    ) -> Self {
-        let mut parts: Vec<_> = part_protos
+    pub fn from_parts(name: String, stamp: Nanotime, parts: Vec<(IVec2, Rotation, Part)>) -> Self {
+        let instances: Vec<_> = parts
             .into_iter()
-            .map(|(origin, rot, proto)| PartInstance::new(origin, rot, proto))
+            .map(|(origin, rot, part)| PartInstance::new(origin, rot, part))
             .collect();
-
-        parts.iter_mut().for_each(|instance| {
-            let dims = meters_with_rotation(instance.rot, &instance.proto);
-            instance.variant = match &instance.proto.class {
-                PartDefinitionVariant::Thruster(proto) => PartVariant::Thruster(Thruster::new(
-                    proto.clone(),
-                    instance.origin.as_vec2() / crate::parts::parts::PIXELS_PER_METER + dims / 2.0,
-                    instance.rot.to_angle() + PI / 2.0,
-                )),
-                PartDefinitionVariant::Cargo => PartVariant::Cargo,
-                PartDefinitionVariant::Radar => PartVariant::Radar(Radar {}),
-                PartDefinitionVariant::Tank(tank) => PartVariant::Tank(Tank {
-                    pos: instance.origin.as_vec2() / crate::parts::parts::PIXELS_PER_METER,
-                    width: dims.x,
-                    height: dims.y,
-                    item: tank.item,
-                    dry_mass: instance.proto.mass,
-                    current_fuel_mass: tank.wet_mass,
-                    maximum_fuel_mass: tank.wet_mass,
-                }),
-                PartDefinitionVariant::Undefined => PartVariant::Other,
-            };
-        });
 
         let factory = Factory::new();
 
@@ -383,8 +221,25 @@ impl Vehicle {
             angle: rand(0.0, 2.0 * PI),
             angular_velocity: rand(-0.3, 0.3),
             factory,
-            parts,
+            parts: instances,
+            pipes: HashSet::new(),
         }
+    }
+
+    pub fn add_pipe(&mut self, p: IVec2) {
+        self.pipes.insert(p);
+    }
+
+    pub fn remove_pipe(&mut self, p: IVec2) {
+        self.pipes.remove(&p);
+    }
+
+    pub fn has_pipe(&mut self, p: IVec2) -> bool {
+        self.pipes.contains(&p)
+    }
+
+    pub fn pipes(&self) -> impl Iterator<Item = IVec2> + use<'_> {
+        self.pipes.iter().cloned()
     }
 
     pub fn stamp(&self) -> Nanotime {
@@ -408,40 +263,15 @@ impl Vehicle {
         current_fuel_mass.to_kg_f32() / max_fuel_mass.to_kg_f32()
     }
 
-    pub fn parts_by_layer(&self) -> impl Iterator<Item = &PartInstance> + use<'_> {
-        // TODO this doesn't support all layers automatically!
-
-        let dummy = PartLayer::Exterior;
-
-        // compile error if I add more layers
-        let _ = match dummy {
-            PartLayer::Exterior => (),
-            PartLayer::Internal => (),
-            PartLayer::Structural => (),
-        };
-
-        let x = self
-            .parts
-            .iter()
-            .filter(|instance| instance.proto.layer == PartLayer::Internal);
-        let y = self
-            .parts
-            .iter()
-            .filter(|instance| instance.proto.layer == PartLayer::Structural);
-        let z = self
-            .parts
-            .iter()
-            .filter(|instance| instance.proto.layer == PartLayer::Exterior);
-
-        x.chain(y).chain(z)
-    }
-
     pub fn is_controllable(&self) -> bool {
         !self.thrusters().count() == 0
     }
 
     pub fn dry_mass(&self) -> Mass {
-        self.parts.iter().map(|instance| instance.proto.mass).sum()
+        self.parts
+            .iter()
+            .map(|instance| instance.part().mass())
+            .sum()
     }
 
     pub fn fuel_mass(&self) -> Mass {
@@ -508,8 +338,8 @@ impl Vehicle {
     pub fn aabb(&self) -> AABB {
         let mut ret: Option<AABB> = None;
         for instance in &self.parts {
-            let dims = meters_with_rotation(instance.rot, &instance.proto);
-            let pos = instance.origin.as_vec2() / crate::parts::parts::PIXELS_PER_METER;
+            let dims = instance.dims_meters();
+            let pos = instance.origin().as_vec2() / crate::parts::parts::PIXELS_PER_METER;
             let aabb = AABB::from_arbitrary(pos, pos + dims);
             if let Some(r) = ret.as_mut() {
                 r.include(&pos);
@@ -526,14 +356,15 @@ impl Vehicle {
         let mut max: Option<IVec2> = None;
         for instance in &self.parts {
             let dims = instance.dims_grid();
-            let upper = instance.origin + dims.as_ivec2();
+            let origin = instance.origin();
+            let upper = origin + dims.as_ivec2();
             if let Some((min, max)) = min.as_mut().zip(max.as_mut()) {
-                min.x = min.x.min(instance.origin.x);
-                min.y = min.y.min(instance.origin.y);
+                min.x = min.x.min(origin.x);
+                min.y = min.y.min(origin.y);
                 max.x = max.x.max(upper.x);
                 max.y = max.y.max(upper.y);
             } else {
-                min = Some(instance.origin);
+                min = Some(origin);
                 max = Some(upper);
             }
         }
@@ -722,7 +553,7 @@ impl Vehicle {
 
     pub fn radars(&self) -> impl Iterator<Item = &Radar> + use<'_> {
         self.parts.iter().filter_map(|instance| {
-            if let PartVariant::Radar(r) = &instance.variant {
+            if let Part::Radar(r) = &instance.part() {
                 Some(r)
             } else {
                 None
@@ -732,7 +563,7 @@ impl Vehicle {
 
     pub fn magnetorquers(&self) -> impl Iterator<Item = &Magnetorquer> + use<'_> {
         self.parts.iter().filter_map(|instance| {
-            if let PartVariant::Magnetorquer(m) = &instance.variant {
+            if let Part::Magnetorquer(m) = instance.part() {
                 Some(m)
             } else {
                 None
@@ -742,7 +573,7 @@ impl Vehicle {
 
     pub fn magnetorquers_mut(&mut self) -> impl Iterator<Item = &mut Magnetorquer> + use<'_> {
         self.parts.iter_mut().filter_map(|instance| {
-            if let PartVariant::Magnetorquer(m) = &mut instance.variant {
+            if let Part::Magnetorquer(m) = instance.part_mut() {
                 Some(m)
             } else {
                 None
@@ -752,7 +583,7 @@ impl Vehicle {
 
     pub fn thrusters(&self) -> impl Iterator<Item = &Thruster> + use<'_> {
         self.parts.iter().filter_map(|instance| {
-            if let PartVariant::Thruster(t) = &instance.variant {
+            if let Part::Thruster(t) = instance.part() {
                 Some(t)
             } else {
                 None
@@ -762,7 +593,7 @@ impl Vehicle {
 
     pub fn thrusters_mut(&mut self) -> impl Iterator<Item = &mut Thruster> + use<'_> {
         self.parts.iter_mut().filter_map(|instance| {
-            if let PartVariant::Thruster(t) = &mut instance.variant {
+            if let Part::Thruster(t) = instance.part_mut() {
                 Some(t)
             } else {
                 None
@@ -772,7 +603,7 @@ impl Vehicle {
 
     pub fn tanks(&self) -> impl Iterator<Item = &Tank> + use<'_> {
         self.parts.iter().filter_map(|instance| {
-            if let PartVariant::Tank(t) = &instance.variant {
+            if let Part::Tank(t) = instance.part() {
                 Some(t)
             } else {
                 None
@@ -782,7 +613,7 @@ impl Vehicle {
 
     pub fn tanks_mut(&mut self) -> impl Iterator<Item = &mut Tank> + use<'_> {
         self.parts.iter_mut().filter_map(|instance| {
-            if let PartVariant::Tank(t) = &mut instance.variant {
+            if let Part::Tank(t) = instance.part_mut() {
                 Some(t)
             } else {
                 None

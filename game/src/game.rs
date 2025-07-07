@@ -155,7 +155,7 @@ pub struct GameState {
 
     /// Map of names to parts to their definitions. Loaded from
     /// the assets/parts directory
-    pub part_database: HashMap<String, PartDefinition>,
+    pub part_database: HashMap<String, Part>,
 
     /// Stupid thing to generate unique increasing IDs for
     /// planets and orbiters
@@ -223,7 +223,6 @@ fn generate_landing_sites(pids: &[EntityId]) -> HashMap<EntityId, Vec<(f32, Stri
 }
 
 impl GameState {
-
     #[allow(unused)]
     pub fn new(args: ProgramContext) -> Self {
         let (planets, ids) = default_example();
@@ -360,7 +359,19 @@ impl GameState {
             }
         }
 
-        for name in ["cloud", "diamond", "ice", "bread"] {
+        for name in [
+            "cloud",
+            "diamond",
+            // items
+            "item-bread",
+            "item-corn",
+            "item-h2",
+            "item-ice",
+            "item-methane",
+            "item-o2",
+            "item-potato",
+            "item-wheat",
+        ] {
             let path = self.args.install_dir.join(format!("{}.png", name));
             if let Some(img) = crate::generate_ship_sprites::read_image(&path) {
                 let mut img = Image::from_dynamic(
@@ -372,6 +383,8 @@ impl GameState {
                 let dims = img.size();
                 let handle = images.add(img);
                 handles.insert(name.into(), (handle, dims));
+            } else {
+                error!("Failed to load sprite: {}", path.display());
             }
         }
 
