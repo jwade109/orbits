@@ -31,7 +31,7 @@ impl PartInstance {
     pub fn new(origin: IVec2, rot: Rotation, part: Part) -> Self {
         // TODO TODO TODO TODO
         Self {
-            builds_required: ((part.dims().x * part.dims().y) / 10).clamp(10, 300),
+            builds_required: (part.dims().x * part.dims().y / 10).clamp(10, 500),
             builds_performed: 0,
             origin,
             rot,

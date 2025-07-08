@@ -280,8 +280,10 @@ impl<MessageType> Node<MessageType> {
         self
     }
 
-    pub fn with_child(mut self, n: Node<MessageType>) -> Self {
-        self.add_child(n);
+    pub fn with_child(mut self, n: impl Into<Option<Node<MessageType>>>) -> Self {
+        if let Some(n) = n.into() {
+            self.add_child(n);
+        }
         self
     }
 

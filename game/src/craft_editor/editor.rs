@@ -1,7 +1,7 @@
 use crate::args::ProgramContext;
 use crate::camera_controller::LinearCameraController;
 use crate::canvas::Canvas;
-use crate::craft_editor::cursor_state::CursorState;
+use crate::craft_editor::*;
 use crate::drawing::*;
 use crate::game::GameState;
 use crate::input::InputState;
@@ -39,6 +39,7 @@ pub struct EditorContext {
     rotation: Rotation,
     filepath: Option<PathBuf>,
     focus_layer: Option<PartLayer>,
+    selected_part: Option<usize>,
     occupied: HashMap<PartLayer, HashMap<IVec2, usize>>,
     vehicle: Vehicle,
 
@@ -57,6 +58,7 @@ impl EditorContext {
             rotation: Rotation::East,
             filepath: None,
             focus_layer: None,
+            selected_part: None,
             occupied: HashMap::new(),
             vehicle: Vehicle::from_parts("".into(), Nanotime::zero(), Vec::new()),
             show_vehicle_info: false,
@@ -68,6 +70,10 @@ impl EditorContext {
 
     pub fn vehicle(&self) -> &Vehicle {
         &self.vehicle
+    }
+
+    pub fn selected_part(&self) -> Option<&PartInstance> {
+        self.vehicle.get_part_by_index(self.selected_part?)
     }
 
     pub fn cursor_box(&self, input: &InputState) -> Option<AABB> {
@@ -396,7 +402,17 @@ impl Render for EditorContext {
         let parts = part_selection(state);
         let layers = layer_selection(state);
         let vehicles = vehicle_selection(state);
+
         let other_buttons = other_buttons();
+        let part_buttons = state
+            .editor_context
+            .selected_part()
+            .map(|p| part_ui_layout(p));
+
+        let right_column = Node::column(400)
+            .invisible()
+            .with_child(other_buttons)
+            .with_child(part_buttons);
 
         let main_area = Node::grow()
             .invisible()
@@ -410,7 +426,7 @@ impl Render for EditorContext {
             )
             .with_child(vehicles)
             .with_child(Node::grow().invisible())
-            .with_child(other_buttons);
+            .with_child(right_column);
 
         let layout = Node::structural(vb.span.x, vb.span.y)
             .tight()
@@ -624,6 +640,11 @@ impl Render for EditorContext {
             }
         }
 
+        if let Some(instance) = ctx.selected_part() {
+            highlight_part(canvas, instance, ctx, GREEN.with_alpha(0.4));
+            canvas.text(format!("{:#?}", instance), Vec2::new(300.0, 400.0), 0.6);
+        }
+
         for pipe in ctx.vehicle.pipes() {
             let p = pipe.as_vec2();
             let q = (pipe + IVec2::ONE).as_vec2();
@@ -757,7 +778,7 @@ fn other_buttons() -> Node<OnClick> {
         BUTTON_HEIGHT,
     );
 
-    Node::structural(250, Size::Fit)
+    Node::structural(Size::Grow, Size::Fit)
         .with_color(UI_BACKGROUND_COLOR)
         .down()
         .with_child(new_button)
@@ -798,6 +819,19 @@ impl CameraProjection for EditorContext {
 }
 
 fn process_part_mode(state: &mut GameState) {
+    if let Some(p) = state.input.on_frame(MouseButt::Left, FrameId::Down) {
+        let p = state.editor_context.c2w(p);
+        if let Some((index, ..)) = state
+            .editor_context
+            .vehicle
+            .get_part_at(vfloor(p), state.editor_context.focus_layer)
+        {
+            state.editor_context.selected_part = Some(index)
+        } else {
+            state.editor_context.selected_part = None;
+        }
+    }
+
     if let Some(_) = state.input.position(MouseButt::Left, FrameId::Current) {
         if let Some((p, part)) = EditorContext::current_part_and_cursor_position(state) {
             state.editor_context.try_place_part(p, part);
