@@ -301,11 +301,11 @@ impl GameState {
             Some(GlobalOrbit(pid, orbit))
         };
 
-        for _ in 0..200 {
+        for _ in 0..30 {
             let vehicle = g.get_random_vehicle();
             let orbit = get_random_orbit(EntityId(0));
             if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {
-                // g.spawn_with_random_perturbance(orbit, vehicle);
+                g.spawn_with_random_perturbance(orbit, vehicle);
             }
         }
 
@@ -396,6 +396,9 @@ impl GameState {
             "item-o2",
             "item-potato",
             "item-wheat",
+            "Earth",
+            "Luna",
+            "Asteroid",
         ] {
             let path = self.args.install_dir.join(format!("{}.png", name));
             if let Some(img) = crate::generate_ship_sprites::read_image(&path) {

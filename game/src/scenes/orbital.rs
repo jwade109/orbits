@@ -515,6 +515,7 @@ impl Render for OrbitalContext {
         Some(text_labels)
     }
 
+    // TODO use draw/canvas
     fn sprites(state: &GameState) -> Option<Vec<StaticSpriteDescriptor>> {
         const PLANET_Z_INDEX: f32 = 5.0;
 
@@ -532,11 +533,10 @@ impl Render for OrbitalContext {
                 let lup = state.lup_planet(id, state.sim_time)?;
                 let pos = lup.pv().pos_f32();
                 let (name, body) = lup.named_body()?;
-                let path = format!("{}.png", name);
                 Some(StaticSpriteDescriptor::new(
                     ctx.w2c(pos),
                     0.0,
-                    path,
+                    name.clone(),
                     Vec2::splat(ctx.scale() * 2.0 * body.radius),
                     PLANET_Z_INDEX,
                 ))

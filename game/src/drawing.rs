@@ -1093,7 +1093,6 @@ pub fn draw_graph(
     {
         if bounds.contains(p) {
             canvas.text("Graph!".to_uppercase(), p, 0.7);
-            canvas.sprite(p, 0.0, "error", 50.0, Vec2::splat(100.0));
         }
     }
 
