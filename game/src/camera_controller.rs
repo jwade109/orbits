@@ -38,8 +38,10 @@ impl LinearCameraController {
     }
 
     pub fn update(&mut self, dt: f32, input: &InputState) {
+        let dt = 1.0 / 100.0;
+
         const TRAVERSE_SPEED: f32 = 2500.0;
-        const SCROLL_WHEEL_SPEED: f32 = 60.0;
+        const SCROLL_WHEEL_DELTA: f32 = 60.0;
         const BUTTON_ZOOM_SPEED: f32 = 4.0;
         const SCALE_SMOOTHING: f32 = 0.2;
         const CENTER_SMOOTHING: f32 = 0.2;
@@ -47,10 +49,10 @@ impl LinearCameraController {
         let speed = TRAVERSE_SPEED * dt;
 
         if input.is_scroll_down() {
-            self.target_scale -= SCROLL_WHEEL_SPEED * dt;
+            self.target_scale -= SCROLL_WHEEL_DELTA * dt;
         }
         if input.is_scroll_up() {
-            self.target_scale += SCROLL_WHEEL_SPEED * dt;
+            self.target_scale += SCROLL_WHEEL_DELTA * dt;
         }
 
         if input.is_pressed(KeyCode::Equal) {

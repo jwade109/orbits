@@ -37,6 +37,7 @@ struct ThrustParticle {
     lifetime: Nanotime,
     color: Srgba,
     final_color: Srgba,
+    depth: f32,
 }
 
 impl ThrustParticle {
@@ -48,6 +49,7 @@ impl ThrustParticle {
             color,
             final_color,
             lifetime: Nanotime::secs_f32(MAX_PARTICLE_AGE_SECONDS * rand(0.5, 1.0)),
+            depth: rand(0.0, 1000.0),
         }
     }
 
@@ -136,9 +138,15 @@ impl SurfaceContext {
         Vec2::new(0.0, -(self.surface.gravity as f32) / 10.0 * 9.81)
     }
 
-    pub fn increase_gravity(&mut self) {}
+    pub fn increase_gravity(&mut self) {
+        self.surface.gravity += 0.1;
+        self.surface.gravity = self.surface.gravity.max(0.0);
+    }
 
-    pub fn decrease_gravity(&mut self) {}
+    pub fn decrease_gravity(&mut self) {
+        self.surface.gravity -= 0.1;
+        self.surface.gravity = self.surface.gravity.max(0.0);
+    }
 
     pub fn mouseover_vehicle(&self, pos: Vec2) -> Option<(usize, &Vehicle)> {
         for (i, v) in self.vehicles.iter().enumerate() {
@@ -360,7 +368,7 @@ impl Render for SurfaceContext {
             }
         };
 
-        for (i, particle) in ctx.particles.iter().enumerate() {
+        for particle in &ctx.particles {
             let p = ctx.w2c(particle.pv.pos_f32());
             let age = (state.sim_time - particle.birth).to_secs();
             let alpha = (1.0 - age / particle.lifetime.to_secs())
@@ -377,7 +385,7 @@ impl Render for SurfaceContext {
                     p,
                     angle,
                     "cloud",
-                    1.0 + i as f32 / 10000.0,
+                    particle.depth,
                     Vec2::new(size * stretch, size) * ctx.scale(),
                 )
                 .set_color(color.with_alpha(color.alpha * alpha));

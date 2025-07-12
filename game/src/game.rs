@@ -275,7 +275,15 @@ impl GameState {
         };
 
         for model in [
-            "lander", "mule", "pollux", "goober", "remora", "manta", "jubilee",
+            // "lander",
+            // "mule",
+            // "pollux",
+            // "goober",
+            // "remora",
+            // "manta",
+            // "jubilee",
+            "glutton",
+            "Lord of Democracy",
         ] {
             if let Some(v) = g.get_vehicle_by_model(model) {
                 g.surface_context.add_vehicle(v);
