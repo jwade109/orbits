@@ -45,6 +45,8 @@ const ATTITUDE_CONTROLLER: PDCtrl = PDCtrl::new(30.0, 35.0);
 
 const VERTICAL_CONTROLLER: PDCtrl = PDCtrl::new(0.2, 1.0);
 
+const HORIZONTAL_CONTROLLER: PDCtrl = PDCtrl::new(0.01, 0.08);
+
 const DOCKING_LINEAR_CONTROLLER: PDCtrl = PDCtrl::new(30.0, 300.0);
 
 fn zero_gravity_control_law(vehicle: &Vehicle) -> VehicleControl {
@@ -114,14 +116,8 @@ fn hover_control_law(gravity: Vec2, vehicle: &Vehicle) -> VehicleControl {
         target
     };
 
-    let horizontal_control = {
-        // horizontal controller
-        let kp = 0.01;
-        let kd = 0.08;
-
-        // positive means to the right, which corresponds to a negative heading correction
-        kp * (target.x - vehicle.pv.pos.x as f32) - kd * vehicle.pv.vel.x as f32
-    };
+    let horizontal_control =
+        HORIZONTAL_CONTROLLER.apply(target.x - vehicle.pv.pos.x as f32, vehicle.pv.vel.x as f32);
 
     // attitude controller
     let target_angle = PI * 0.5 - horizontal_control.clamp(-PI / 4.0, PI / 4.0);
