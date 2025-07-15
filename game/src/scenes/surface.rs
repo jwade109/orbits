@@ -15,53 +15,17 @@ use std::collections::HashSet;
 #[derive(Debug)]
 pub struct SurfaceContext {
     camera: LinearCameraController,
-    vehicles: Vec<Vehicle>,
     selected: HashSet<usize>,
-    surface: Surface,
     particles: ThrustParticleEffects,
 }
 
 impl Default for SurfaceContext {
     fn default() -> Self {
         SurfaceContext {
-            camera: LinearCameraController::new(Vec2::ZERO, 1.0),
-            vehicles: Vec::new(),
-            surface: Surface::random(),
+            camera: LinearCameraController::new(Vec2::ZERO, 1.0, 2500.0),
             selected: HashSet::new(),
             particles: ThrustParticleEffects::new(),
         }
-    }
-}
-
-#[allow(unused)]
-fn keyboard_control_law(input: &InputState) -> VehicleControl {
-    let allow_linear_rcs: bool = input.is_pressed(KeyCode::ControlLeft);
-    let control = if input.is_pressed(KeyCode::ArrowUp) {
-        Vec2::X
-    } else if input.is_pressed(KeyCode::ArrowDown) {
-        -Vec2::X
-    } else if input.is_pressed(KeyCode::ArrowLeft) && allow_linear_rcs {
-        Vec2::Y
-    } else if input.is_pressed(KeyCode::ArrowRight) && allow_linear_rcs {
-        -Vec2::Y
-    } else {
-        Vec2::ZERO
-    };
-
-    let attitude = if input.is_pressed(KeyCode::ArrowLeft) && !allow_linear_rcs {
-        10.0
-    } else if input.is_pressed(KeyCode::ArrowRight) && !allow_linear_rcs {
-        -10.0
-    } else {
-        0.0
-    };
-
-    VehicleControl {
-        throttle: 0.4,
-        linear: control,
-        attitude,
-        allow_linear_rcs,
-        allow_attitude_rcs: true,
     }
 }
 
@@ -70,33 +34,12 @@ pub fn to_srbga(fl: [f32; 4]) -> Srgba {
 }
 
 impl SurfaceContext {
-    pub fn add_vehicle(&mut self, mut vehicle: Vehicle) {
-        let x = rand(-200.0, 200.0);
-        let y = rand(40.0, 120.0);
-        let target = Vec2::new(x, y);
-
-        let policy = VehicleControlPolicy::PositionHold(target);
-        vehicle.policy = policy;
-        vehicle.pv.pos = (target + randvec(10.0, 100.0)).as_dvec2();
-        self.vehicles.push(vehicle);
+    pub fn camera(&self) -> &LinearCameraController {
+        &self.camera
     }
 
-    pub fn gravity_vector(&self) -> Vec2 {
-        Vec2::new(0.0, -(self.surface.gravity as f32) / 10.0 * 9.81)
-    }
-
-    pub fn increase_gravity(&mut self) {
-        self.surface.gravity += 0.1;
-        self.surface.gravity = self.surface.gravity.max(0.0);
-    }
-
-    pub fn decrease_gravity(&mut self) {
-        self.surface.gravity -= 0.1;
-        self.surface.gravity = self.surface.gravity.max(0.0);
-    }
-
-    pub fn mouseover_vehicle(&self, pos: Vec2) -> Option<(usize, &Vehicle)> {
-        for (i, v) in self.vehicles.iter().enumerate() {
+    pub fn mouseover_vehicle(universe: &Universe, pos: Vec2) -> Option<(usize, &Vehicle)> {
+        for (i, v) in universe.surface_vehicles.iter().enumerate() {
             let d = v.pv.pos_f32().distance(pos);
             let r = v.bounding_radius();
             if d < r {
@@ -107,61 +50,57 @@ impl SurfaceContext {
     }
 
     pub fn handle_input(&mut self, input: &InputState) {
-        self.camera.update(input);
+        self.camera.handle_input(input);
     }
 
-    pub fn step(state: &mut GameState) {
-        let dt = PHYSICS_CONSTANT_DELTA_TIME;
-
+    pub fn on_game_tick(state: &mut GameState) {
         let ctx = &mut state.surface_context;
 
-        (|| -> Option<()> {
-            let (pos, double) = if let Some(p) = state.input.double_click() {
-                (p, true)
-            } else {
-                (state.input.on_frame(MouseButt::Left, FrameId::Down)?, false)
-            };
+        ctx.camera.on_game_tick();
 
-            let add = state.input.is_pressed(KeyCode::ShiftLeft);
-            if !add {
-                ctx.selected.clear();
-            }
+        // (|| -> Option<()> {
+        //     let (pos, double) = if let Some(p) = state.input.double_click() {
+        //         (p, true)
+        //     } else {
+        //         (state.input.on_frame(MouseButt::Left, FrameId::Down)?, false)
+        //     };
 
-            let pos = ctx.c2w(pos);
-            let (idx, _) = ctx.mouseover_vehicle(pos)?;
-            ctx.selected.insert(idx);
-            if double {
-                // TODO fix this
-                // ctx.follow_vehicle = true;
-            }
-            None
-        })();
+        //     let add = state.input.is_pressed(KeyCode::ShiftLeft);
+        //     if !add {
+        //         ctx.selected.clear();
+        //     }
 
-        (|| -> Option<()> {
-            let rc = state.input.position(MouseButt::Right, FrameId::Current)?;
-            let p = ctx.c2w(rc);
+        //     let pos = ctx.c2w(pos);
+        //     let (idx, _) = Self::mouseover_vehicle(&state.universe, pos)?;
+        //     ctx.selected.insert(idx);
+        //     if double {
+        //         // TODO fix this
+        //         // ctx.follow_vehicle = true;
+        //     }
+        //     None
+        // })();
 
-            let sep = 15.0;
-            let spread = sep * ctx.selected.len() as f32 - sep;
-            let center = Vec2::new(spread / 2.0, 0.0);
+        // (|| -> Option<()> {
+        //     let rc = state.input.position(MouseButt::Right, FrameId::Current)?;
+        //     let p = ctx.c2w(rc);
 
-            for (i, idx) in ctx.selected.iter().enumerate() {
-                let v = ctx.vehicles.get_mut(*idx);
-                if let Some(v) = v {
-                    v.policy =
-                        VehicleControlPolicy::PositionHold(p + Vec2::X * 15.0 * i as f32 - center);
-                }
-            }
-            None
-        })();
+        //     let sep = 15.0;
+        //     let spread = sep * ctx.selected.len() as f32 - sep;
+        //     let center = Vec2::new(spread / 2.0, 0.0);
 
-        let gravity = ctx.gravity_vector();
+        //     for (i, idx) in ctx.selected.iter().enumerate() {
+        //         let v = state.universe.surface_vehicles.get_mut(*idx);
+        //         if let Some(v) = v {
+        //             v.policy =
+        //                 VehicleControlPolicy::PositionHold(p + Vec2::X * 15.0 * i as f32 - center);
+        //         }
+        //     }
+        //     None
+        // })();
 
         ctx.particles.step();
 
-        for v in ctx.vehicles.iter_mut() {
-            v.step(gravity, PHYSICS_CONSTANT_DELTA_TIME);
-
+        for v in state.universe.surface_vehicles.iter_mut() {
             for t in v.thrusters_ref() {
                 if !t.variant.is_thrusting() || t.variant.model().is_rcs {
                     continue;
@@ -219,7 +158,7 @@ fn surface_scene_ui(state: &GameState) -> Tree<OnClick> {
     let show_gravity = Node::text(
         Size::Grow,
         BUTTON_HEIGHT,
-        format!("{}", state.surface_context.gravity_vector()),
+        format!("{}", state.universe.surface.gravity_vector()),
     );
 
     let increase_gravity = Node::button(
@@ -257,7 +196,7 @@ fn surface_scene_ui(state: &GameState) -> Tree<OnClick> {
 
 impl Render for SurfaceContext {
     fn background_color(state: &GameState) -> Srgba {
-        let c = state.surface_context.surface.atmo_color;
+        let c = state.universe.surface.atmo_color;
         to_srbga([c[0], c[1], c[2], 1.0])
     }
 
@@ -271,7 +210,7 @@ impl Render for SurfaceContext {
             let dims = tr - bl;
 
             if dims.x > 0.0 && dims.y > 0.0 {
-                let color = ctx.surface.land_color;
+                let color = state.universe.surface.land_color;
                 let color = to_srbga([color[0], color[1], color[2], 1.0]);
 
                 canvas
@@ -282,14 +221,14 @@ impl Render for SurfaceContext {
 
         ctx.particles.draw(canvas, ctx);
 
-        for v in &ctx.vehicles {
+        for v in &state.universe.surface_vehicles {
             let pos = ctx.w2c(v.pv.pos_f32());
             draw_vehicle(canvas, v, pos, ctx.scale(), v.angle());
         }
 
         (|| -> Option<()> {
             let mouse_pos = ctx.c2w(state.input.current()?);
-            let (_, vehicle) = ctx.mouseover_vehicle(mouse_pos)?;
+            let (_, vehicle) = Self::mouseover_vehicle(&state.universe, mouse_pos)?;
             let pos = ctx.w2c(vehicle.pv.pos_f32());
             draw_circle(
                 &mut canvas.gizmos,
@@ -301,7 +240,7 @@ impl Render for SurfaceContext {
         })();
 
         for id in &ctx.selected {
-            if let Some(v) = ctx.vehicles.get(*id) {
+            if let Some(v) = state.universe.surface_vehicles.get(*id) {
                 let pos = ctx.w2c(v.pv.pos_f32());
                 draw_circle(
                     &mut canvas.gizmos,
@@ -310,7 +249,7 @@ impl Render for SurfaceContext {
                     ORANGE.with_alpha(0.3),
                 );
 
-                let sim = simulate_vehicle(v.clone(), ctx.gravity_vector());
+                let sim = simulate_vehicle(v.clone(), state.universe.surface.gravity_vector());
 
                 for (i, (pos, angle)) in sim.iter().enumerate() {
                     let p = ctx.w2c(*pos);
@@ -335,8 +274,13 @@ impl Render for SurfaceContext {
                 canvas.text(info, p, 0.01 * ctx.scale()).anchor_left();
 
                 canvas.gizmos.line_2d(p, q, BLUE);
-                if ctx.gravity_vector().length() > 0.0 {
-                    draw_kinematic_arc(&mut canvas.gizmos, v.pv, ctx, ctx.gravity_vector());
+                if state.universe.surface.gravity_vector().length() > 0.0 {
+                    draw_kinematic_arc(
+                        &mut canvas.gizmos,
+                        v.pv,
+                        ctx,
+                        state.universe.surface.gravity_vector(),
+                    );
                 }
             }
         }

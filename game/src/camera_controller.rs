@@ -4,12 +4,13 @@ use bevy::input::keyboard::KeyCode;
 use starling::math::Vec2;
 use starling::prelude::PHYSICS_CONSTANT_DELTA_TIME;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct LinearCameraController {
     center: Vec2,
     target_center: Vec2,
     scale: f32,
     target_scale: f32,
+    speed: f32,
 }
 
 impl CameraProjection for LinearCameraController {
@@ -23,7 +24,7 @@ impl CameraProjection for LinearCameraController {
 }
 
 impl LinearCameraController {
-    pub fn new(center: Vec2, scale: f32) -> Self {
+    pub fn new(center: Vec2, scale: f32, speed: f32) -> Self {
         let scale = scale.log2();
 
         Self {
@@ -31,6 +32,7 @@ impl LinearCameraController {
             target_center: center,
             scale,
             target_scale: scale,
+            speed,
         }
     }
 
@@ -38,29 +40,33 @@ impl LinearCameraController {
         2.0f32.powf(self.scale)
     }
 
-    pub fn update(&mut self, input: &InputState) {
-        let dt = PHYSICS_CONSTANT_DELTA_TIME.to_secs();
-
-        const TRAVERSE_SPEED: f32 = 2500.0;
-        const SCROLL_WHEEL_DELTA: f32 = 60.0;
-        const BUTTON_ZOOM_SPEED: f32 = 4.0;
+    pub fn on_game_tick(&mut self) {
         const SCALE_SMOOTHING: f32 = 0.2;
         const CENTER_SMOOTHING: f32 = 0.2;
 
-        let speed = TRAVERSE_SPEED * dt;
+        let dt = PHYSICS_CONSTANT_DELTA_TIME.to_secs();
+        self.scale += (self.target_scale - self.scale) * ((dt / SCALE_SMOOTHING).exp() - 1.0);
+        self.center += (self.target_center - self.center) * ((dt / CENTER_SMOOTHING).exp() - 1.0)
+    }
+
+    pub fn handle_input(&mut self, input: &InputState) {
+        const SCROLL_WHEEL_DELTA: f32 = 0.7;
+        const BUTTON_ZOOM_SPEED: f32 = 0.05;
+
+        let speed = self.speed * 0.02;
 
         if input.is_scroll_down() {
-            self.target_scale -= SCROLL_WHEEL_DELTA * dt;
+            self.target_scale -= SCROLL_WHEEL_DELTA;
         }
         if input.is_scroll_up() {
-            self.target_scale += SCROLL_WHEEL_DELTA * dt;
+            self.target_scale += SCROLL_WHEEL_DELTA;
         }
 
         if input.is_pressed(KeyCode::Equal) {
-            self.target_scale += BUTTON_ZOOM_SPEED * dt;
+            self.target_scale += BUTTON_ZOOM_SPEED;
         }
         if input.is_pressed(KeyCode::Minus) {
-            self.target_scale -= BUTTON_ZOOM_SPEED * dt;
+            self.target_scale -= BUTTON_ZOOM_SPEED;
         }
 
         if input.is_pressed(KeyCode::KeyD) {
@@ -79,8 +85,5 @@ impl LinearCameraController {
             self.target_center = Vec2::ZERO;
             self.target_scale = 1.0;
         }
-
-        self.scale += (self.target_scale - self.scale) * ((dt / SCALE_SMOOTHING).exp() - 1.0);
-        self.center += (self.target_center - self.center) * ((dt / CENTER_SMOOTHING).exp() - 1.0)
     }
 }

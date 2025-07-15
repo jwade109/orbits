@@ -55,7 +55,7 @@ pub struct EditorContext {
 impl EditorContext {
     pub fn new() -> Self {
         EditorContext {
-            camera: LinearCameraController::new(Vec2::ZERO, 18.0),
+            camera: LinearCameraController::new(Vec2::ZERO, 18.0, 2500.0),
             cursor_state: CursorState::None,
             rotation: Rotation::East,
             filepath: None,
@@ -864,12 +864,16 @@ fn process_part_mode(state: &mut GameState) {
 }
 
 impl EditorContext {
-    pub fn step(state: &mut GameState, dt: f32) {
+    pub fn handle_input(&mut self, input: &InputState) {
+        self.camera.handle_input(input);
+    }
+
+    pub fn on_game_tick(state: &mut GameState) {
+        state.editor_context.camera.on_game_tick();
+
         let is_hovering = state.is_hovering_over_ui();
 
         let ctx = &mut state.editor_context;
-
-        ctx.camera.update(&state.input);
 
         ctx.vehicle.build_once();
 

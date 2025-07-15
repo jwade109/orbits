@@ -87,6 +87,10 @@ impl Nanotime {
         }
     }
 
+    pub fn to_duration(&self) -> std::time::Duration {
+        std::time::Duration::from_nanos(self.0 as u64)
+    }
+
     pub fn to_date(&self) -> Date {
         let div = |rem: i64, denom: i64| (rem / denom, rem % denom);
 
@@ -184,6 +188,13 @@ impl Mul<i64> for Nanotime {
 impl Mul<i32> for Nanotime {
     type Output = Self;
     fn mul(self, rhs: i32) -> Self {
+        Self(self.0 * rhs as i64)
+    }
+}
+
+impl Mul<u32> for Nanotime {
+    type Output = Self;
+    fn mul(self, rhs: u32) -> Self::Output {
         Self(self.0 * rhs as i64)
     }
 }

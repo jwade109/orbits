@@ -2,6 +2,7 @@ pub mod aabb;
 pub mod belts;
 pub mod bezier;
 pub mod control;
+pub mod control_signals;
 pub mod examples;
 pub mod factory;
 pub mod file_export;

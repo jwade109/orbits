@@ -31,7 +31,7 @@ pub struct VehicleControl {
 pub enum VehicleControlPolicy {
     #[default]
     Idle,
-    PlayerControlled,
+    External(VehicleControl),
     PositionHold(Vec2),
 }
 
@@ -143,6 +143,10 @@ fn hover_control_law(gravity: Vec2, vehicle: &Vehicle) -> VehicleControl {
 }
 
 pub fn current_control_law(vehicle: &Vehicle, gravity: Vec2) -> VehicleControl {
+    if let VehicleControlPolicy::External(ctrl) = vehicle.policy {
+        return ctrl;
+    }
+
     if gravity.length() > 0.0 {
         hover_control_law(gravity, vehicle)
     } else {

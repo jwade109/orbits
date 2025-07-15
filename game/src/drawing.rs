@@ -610,7 +610,9 @@ fn draw_scenario(gizmos: &mut Gizmos, state: &GameState) {
 
     draw_planets(gizmos, &state.universe.planets, stamp, Vec2::ZERO, ctx);
 
-    _ = crate::scenes::orbiter_ids(state)
+    _ = state
+        .universe
+        .orbiter_ids()
         .filter_map(|id| draw_orbiter(gizmos, state, id))
         .collect::<Vec<_>>();
 }
@@ -1254,7 +1256,7 @@ fn draw_rendezvous_info(canvas: &mut Canvas, state: &GameState) -> Option<()> {
 
 fn draw_landing_sites(gizmos: &mut Gizmos, state: &GameState) {
     let ctx = &state.orbital_context;
-    for (pid, sites) in &state.landing_sites {
+    for (pid, sites) in &state.universe.landing_sites {
         for (site, _, _) in sites {
             if let Some(pos) = OrbitalContext::landing_site_position(state, *pid, *site) {
                 let p = ctx.w2c(pos);
@@ -1643,7 +1645,7 @@ pub fn draw_cells(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
 
     let mut idxs = HashSet::new();
 
-    for id in crate::scenes::orbiter_ids(state) {
+    for id in state.universe.orbiter_ids() {
         let pos = state
             .universe
             .lup_orbiter(id, state.universe.stamp())?

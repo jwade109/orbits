@@ -2,6 +2,7 @@ pub use crate::aabb::{Polygon, AABB, OBB};
 pub use crate::belts::AsteroidBelt;
 pub use crate::bezier::*;
 pub use crate::control::Controller;
+pub use crate::control_signals::*;
 pub use crate::examples::{default_example, make_earth, make_luna};
 pub use crate::factory::*;
 pub use crate::file_export::export_orbit_data;

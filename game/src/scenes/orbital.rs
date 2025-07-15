@@ -177,11 +177,13 @@ impl OrbitalContext {
         }
     }
 
+    #[deprecated]
     pub fn go_to(&mut self, p: Vec2) {
         self.target_center = p;
         self.center = p;
     }
 
+    #[deprecated]
     pub fn follow_position(&self, state: &GameState) -> Option<Vec2> {
         let id = self.following?;
         let lup = match id {
@@ -201,7 +203,9 @@ impl OrbitalContext {
 
     pub fn highlighted(state: &GameState) -> HashSet<EntityId> {
         if let Some(a) = state.selection_region() {
-            orbiter_ids(state)
+            state
+                .universe
+                .orbiter_ids()
                 .into_iter()
                 .filter_map(|id| {
                     let pv = state.universe.lup_orbiter(id, state.universe.stamp())?.pv();
@@ -323,17 +327,19 @@ impl OrbitalContext {
         }
     }
 
-    pub fn step(&mut self, input: &InputState) {
-        let dt = PHYSICS_CONSTANT_DELTA_TIME.to_secs();
+    pub fn on_game_tick(&mut self) {
+        self.scale += (self.target_scale - self.scale) * 0.1;
+        self.center += (self.target_center - self.center) * 0.1;
+        self.rendezvous_scope_radius.step();
+    }
 
+    pub fn handle_input(&mut self, input: &InputState) {
         if input.just_pressed(KeyCode::BracketLeft) {
             self.rendezvous_scope_radius.target /= 1.5;
         }
         if input.just_pressed(KeyCode::BracketRight) {
             self.rendezvous_scope_radius.target *= 1.5;
         }
-
-        let speed = 16.0 * dt * 100.0;
 
         if input.is_pressed(KeyCode::ShiftLeft) {
             if input.is_scroll_down() {
@@ -351,6 +357,8 @@ impl OrbitalContext {
             }
         }
 
+        let offset = 50.0;
+
         if input.is_pressed(KeyCode::Equal) {
             self.target_scale *= 1.03;
         }
@@ -358,19 +366,19 @@ impl OrbitalContext {
             self.target_scale /= 1.03;
         }
         if input.is_pressed(KeyCode::KeyD) {
-            self.target_center.x += speed / self.scale;
+            self.target_center.x += offset / self.scale;
             self.following = None;
         }
         if input.is_pressed(KeyCode::KeyA) {
-            self.target_center.x -= speed / self.scale;
+            self.target_center.x -= offset / self.scale;
             self.following = None;
         }
         if input.is_pressed(KeyCode::KeyW) {
-            self.target_center.y += speed / self.scale;
+            self.target_center.y += offset / self.scale;
             self.following = None;
         }
         if input.is_pressed(KeyCode::KeyS) {
-            self.target_center.y -= speed / self.scale;
+            self.target_center.y -= offset / self.scale;
             self.following = None;
         }
         if input.is_pressed(KeyCode::KeyR) {
@@ -378,26 +386,22 @@ impl OrbitalContext {
             self.target_scale = 1.0;
             self.following = None;
         }
-
-        self.scale += (self.target_scale - self.scale) * 0.1;
-        self.center += (self.target_center - self.center) * 0.1;
-        self.rendezvous_scope_radius.step();
     }
 }
 
-pub fn orbiter_ids(state: &GameState) -> impl Iterator<Item = EntityId> + use<'_> {
-    state.universe.orbiters.keys().into_iter().map(|id| *id)
-}
-
 pub fn all_orbital_ids(state: &GameState) -> impl Iterator<Item = ObjectId> + use<'_> {
-    orbiter_ids(state).map(|id| ObjectId::Orbiter(id)).chain(
-        state
-            .universe
-            .planets
-            .planet_ids()
-            .into_iter()
-            .map(|id| ObjectId::Planet(id)),
-    )
+    state
+        .universe
+        .orbiter_ids()
+        .map(|id| ObjectId::Orbiter(id))
+        .chain(
+            state
+                .universe
+                .planets
+                .planet_ids()
+                .into_iter()
+                .map(|id| ObjectId::Planet(id)),
+        )
 }
 
 pub const LANDING_SITE_MOUSEOVER_DISTANCE: f32 = 50.0;
@@ -411,7 +415,7 @@ pub fn get_landing_site_labels(state: &GameState) -> Vec<TextLabel> {
     };
 
     let mut ret = Vec::new();
-    for (pid, sites) in &state.landing_sites {
+    for (pid, sites) in &state.universe.landing_sites {
         for (angle, name, _) in sites {
             let pos = OrbitalContext::landing_site_position(state, *pid, *angle);
             if let Some(pos) = pos {
@@ -614,7 +618,9 @@ impl Render for OrbitalContext {
             .bodies(state.universe.stamp(), None)
             .collect();
         let light_source = state.light_source();
-        let orbiter_sprites: Vec<_> = orbiter_ids(state)
+        let orbiter_sprites: Vec<_> = state
+            .universe
+            .orbiter_ids()
             .filter_map(|id| {
                 let lup = state.universe.lup_orbiter(id, state.universe.stamp())?;
                 let pos = lup.pv().pos_f32();
@@ -744,11 +750,11 @@ impl Render for OrbitalContext {
                 .enabled(c != state.orbital_context.cursor_mode)
         }));
 
-        if !state.constellations.is_empty() {
+        if !state.universe.constellations.is_empty() {
             sidebar.add_child(Node::hline());
         }
 
-        for gid in state.unique_groups() {
+        for gid in state.universe.unique_groups() {
             let color: Srgba = crate::sprites::hashable_to_color(&gid)
                 .with_luminance(0.3)
                 .into();

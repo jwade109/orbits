@@ -10,6 +10,7 @@ pub mod generate_ship_sprites;
 pub mod graph;
 pub mod input;
 pub mod keybindings;
+pub mod new_input;
 pub mod notifications;
 pub mod onclick;
 pub mod scenes;

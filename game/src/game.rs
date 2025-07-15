@@ -1,4 +1,5 @@
 use crate::args::ProgramContext;
+use crate::camera_controller::LinearCameraController;
 use crate::canvas::Canvas;
 use crate::debug_console::DebugConsole;
 use crate::generate_ship_sprites::*;
@@ -31,14 +32,16 @@ impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, init_system);
 
-        app.insert_resource(Time::<Fixed>::from_hz(PHYSICS_CONSTANT_UPDATE_RATE as f64));
+        app.insert_resource(Time::<Fixed>::from_duration(
+            PHYSICS_CONSTANT_DELTA_TIME.to_duration(),
+        ));
 
         app.add_systems(
             Update,
             (
                 crate::keybindings::keyboard_input,
                 crate::input::update_input_state,
-                step_system_native_framerate,
+                on_render_tick,
                 crate::drawing::draw_game_state,
                 crate::sprites::update_static_sprites,
                 crate::sprites::update_background_color,
@@ -121,8 +124,8 @@ pub struct GameState {
     /// Contains CLI arguments
     pub args: ProgramContext,
 
-    /// All the game entities and logic therein. This should run autonomously
-    /// without any user input.
+    /// All the game entities and logic therein. This should be able to run
+    /// autonomously without any user input with on_sim_tick.
     pub universe: Universe,
 
     /// Stores information and provides an API for interacting with the simulation
@@ -146,6 +149,7 @@ pub struct GameState {
     pub physics_duration: Nanotime,
     pub universe_ticks_per_game_tick: u32,
     pub paused: bool,
+    pub exec_time: std::time::Duration,
 
     /// Map of names to parts to their definitions. Loaded from
     /// the assets/parts directory
@@ -155,9 +159,7 @@ pub struct GameState {
     /// planets and orbiters
     pub ids: ObjectIdTracker,
 
-    pub landing_sites: HashMap<EntityId, Vec<(f32, String, Surface)>>,
     pub controllers: Vec<Controller>,
-    pub constellations: HashMap<EntityId, EntityId>,
     pub starfield: Vec<(Vec3, Srgba, f32, f32)>,
     pub favorites: HashSet<EntityId>,
 
@@ -165,10 +167,7 @@ pub struct GameState {
     pub current_scene_idx: usize,
     pub current_orbit: Option<usize>,
 
-    pub redraw_requested: bool,
-    pub last_redraw: Nanotime,
     pub ui: Tree<OnClick>,
-    last_hover_ui: Option<OnClick>,
 
     pub notifications: Vec<Notification>,
 
@@ -199,24 +198,7 @@ fn generate_starfield() -> Vec<(Vec3, Srgba, f32, f32)> {
         .collect()
 }
 
-fn generate_landing_sites(pids: &[EntityId]) -> HashMap<EntityId, Vec<(f32, String, Surface)>> {
-    pids.iter()
-        .map(|pid| {
-            let n = randint(3, 12);
-            let sites: Vec<_> = (0..n)
-                .map(|_| {
-                    let angle = rand(0.0, 2.0 * PI);
-                    let name = get_random_name();
-                    (angle, name, Surface::random())
-                })
-                .collect();
-            (*pid, sites)
-        })
-        .collect()
-}
-
 impl GameState {
-    #[allow(unused)]
     pub fn new(args: ProgramContext) -> Self {
         let (planets, ids) = default_example();
 
@@ -236,11 +218,10 @@ impl GameState {
             physics_duration: Nanotime::days(7),
             universe_ticks_per_game_tick: 1,
             paused: false,
+            exec_time: std::time::Duration::new(0, 0),
             part_database: load_parts_from_dir(&args.parts_dir()),
             ids,
             controllers: vec![],
-            landing_sites: generate_landing_sites(&planets.planet_ids()),
-            constellations: HashMap::new(),
             starfield: generate_starfield(),
             favorites: HashSet::new(),
             scenes: vec![
@@ -252,10 +233,7 @@ impl GameState {
             ],
             current_scene_idx: 3,
             current_orbit: None,
-            redraw_requested: true,
             ui: Tree::new(),
-            last_hover_ui: None,
-            last_redraw: Nanotime::zero(),
             notifications: Vec::new(),
             is_exit_prompt: false,
             button_was_pressed: true,
@@ -267,7 +245,7 @@ impl GameState {
         for model in [
             // "lander",
             // "mule",
-            // "pollux",
+            "pollux",
             // "goober",
             // "remora",
             // "manta",
@@ -276,7 +254,7 @@ impl GameState {
             "Lord of Democracy",
         ] {
             if let Some(v) = g.get_vehicle_by_model(model) {
-                g.surface_context.add_vehicle(v);
+                g.universe.add_surface_vehicle(v);
             }
         }
 
@@ -473,13 +451,14 @@ impl Render for GameState {
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         canvas.text(
             format!(
-                "Wall time: {}\nUniverse time: {}\nUniverse ticks per game tick: {}\nRender ticks: {}\nGame ticks: {}\nUniverse ticks: {}",
+                "Wall time: {}\nUniverse time: {}\nUniverse ticks per game tick: {}\nRender ticks: {}\nGame ticks: {}\nUniverse ticks: {}\nExec time: {} ns",
                 state.wall_time,
                 state.universe.stamp(),
                 state.universe_ticks_per_game_tick,
                 state.render_ticks,
                 state.game_ticks,
                 state.universe.ticks(),
+                state.exec_time.as_micros(),
             ),
             Vec2::ZERO,
             0.8,
@@ -496,12 +475,42 @@ impl Render for GameState {
     }
 }
 
-impl GameState {
-    pub fn redraw(&mut self) {
-        self.redraw_requested = true;
-        self.last_redraw = Nanotime::zero()
+fn keyboard_control_law(input: &InputState) -> Option<VehicleControl> {
+    let allow_linear_rcs: bool = input.is_pressed(KeyCode::ControlLeft);
+    let control = if input.is_pressed(KeyCode::ArrowUp) {
+        Vec2::X
+    } else if input.is_pressed(KeyCode::ArrowDown) {
+        -Vec2::X
+    } else if input.is_pressed(KeyCode::ArrowLeft) && allow_linear_rcs {
+        Vec2::Y
+    } else if input.is_pressed(KeyCode::ArrowRight) && allow_linear_rcs {
+        -Vec2::Y
+    } else {
+        Vec2::ZERO
+    };
+
+    let attitude = if input.is_pressed(KeyCode::ArrowLeft) && !allow_linear_rcs {
+        10.0
+    } else if input.is_pressed(KeyCode::ArrowRight) && !allow_linear_rcs {
+        -10.0
+    } else {
+        0.0
+    };
+
+    if control == Vec2::ZERO && attitude == 0.0 {
+        return None;
     }
 
+    Some(VehicleControl {
+        throttle: 0.4,
+        linear: control,
+        attitude,
+        allow_linear_rcs,
+        allow_attitude_rcs: true,
+    })
+}
+
+impl GameState {
     pub fn reload(&mut self) {
         *self = GameState::new(self.args.clone());
     }
@@ -522,35 +531,12 @@ impl GameState {
         self.orbital_context.selected.contains(&id)
     }
 
-    pub fn get_group_members(&mut self, gid: EntityId) -> Vec<EntityId> {
-        self.constellations
-            .iter()
-            .filter_map(|(id, g)| (*g == gid).then(|| *id))
-            .collect()
-    }
-
-    pub fn group_membership(&self, id: &EntityId) -> Option<EntityId> {
-        self.constellations.get(id).cloned()
-    }
-
-    pub fn unique_groups(&self) -> Vec<EntityId> {
-        let mut s: Vec<EntityId> = self
-            .constellations
-            .iter()
-            .map(|(_, gid)| *gid)
-            .collect::<HashSet<_>>()
-            .into_iter()
-            .collect();
-        s.sort();
-        s
-    }
-
     pub fn toggle_group(&mut self, gid: EntityId) {
         // - if any of the orbiters in the group are not selected,
         //   select all of them
         // - if all of them are already selected, deselect all of them
 
-        let members = self.get_group_members(gid);
+        let members = self.universe.get_group_members(gid);
 
         let all_selected = members.iter().all(|id| self.is_tracked(*id));
 
@@ -564,12 +550,12 @@ impl GameState {
     }
 
     pub fn disband_group(&mut self, gid: EntityId) {
-        self.constellations.retain(|_, g| *g != gid);
+        self.universe.constellations.retain(|_, g| *g != gid);
     }
 
     pub fn create_group(&mut self, gid: EntityId) {
         for id in &self.orbital_context.selected {
-            self.constellations.insert(*id, gid.clone());
+            self.universe.constellations.insert(*id, gid.clone());
         }
     }
 
@@ -852,8 +838,6 @@ impl GameState {
         kind: NotificationType,
         offset: impl Into<Option<Vec2>>,
     ) {
-        self.redraw();
-
         let notif = Notification {
             parent: parent.into(),
             offset: offset.into().unwrap_or(Vec2::ZERO),
@@ -985,8 +969,8 @@ impl GameState {
             OnClick::AddToFavorites(id) => _ = self.favorites.insert(id),
             OnClick::RemoveFromFavorites(id) => _ = self.favorites.remove(&id),
             OnClick::ReloadGame => _ = self.reload(),
-            OnClick::IncreaseGravity => self.surface_context.increase_gravity(),
-            OnClick::DecreaseGravity => self.surface_context.decrease_gravity(),
+            OnClick::IncreaseGravity => self.universe.surface.increase_gravity(),
+            OnClick::DecreaseGravity => self.universe.surface.decrease_gravity(),
 
             _ => info!("Unhandled button event: {id:?}"),
         };
@@ -1096,57 +1080,57 @@ impl GameState {
         use FrameId::*;
         use MouseButt::*;
 
-        if self.input.on_frame(Left, Down).is_some() {
-            self.redraw();
-        }
-
         if self.input.on_frame(Left, Up).is_some() {
-            self.redraw();
             self.maybe_trigger_click_event();
-        }
-
-        if self.input.on_frame(Right, Down).is_some() {
-            self.redraw();
         }
 
         if self.input.on_frame(Left, Up).is_some() {
             let h = &self.orbital_context.highlighted;
             self.orbital_context.selected.extend(h.into_iter());
             self.orbital_context.highlighted.clear();
-            self.redraw();
         }
 
-        if self.input.on_frame(Right, Up).is_some() {
-            self.redraw();
-        }
+        if self.input.on_frame(Right, Up).is_some() {}
     }
 
-    pub fn step_native_framerate(&mut self) {
+    pub fn on_render_tick(&mut self) {
         self.render_ticks += 1;
 
-        if let Some((decl, args)) = self.console.process_input(&self.input) {
+        if let Some((decl, args)) = self.console.process_input(&mut self.input) {
             decl.execute(self, args);
         }
 
-        if !self.input.keyboard_events.is_empty() {
-            self.redraw();
-        }
-
-        let current_ui = self.current_hover_ui().cloned();
-        if current_ui != self.last_hover_ui {
-            self.redraw();
-            self.last_hover_ui = current_ui;
-        }
-
         self.handle_click_events();
+
+        match self.current_scene().kind() {
+            SceneType::DockingView => self.rpo_context.handle_input(&self.input),
+            SceneType::Editor => self.editor_context.handle_input(&self.input),
+            SceneType::MainMenu => (),
+            SceneType::Orbital => self.orbital_context.handle_input(&self.input),
+            SceneType::Surface => self.surface_context.handle_input(&self.input),
+            SceneType::Telescope => self.telescope_context.handle_input(&self.input),
+        }
     }
 
     pub fn on_game_tick(&mut self) {
         self.game_ticks += 1;
 
-        for _ in 0..self.universe_ticks_per_game_tick {
-            self.universe.on_sim_tick();
-        }
+        let start = std::time::Instant::now();
+
+        let mut signals = ControlSignals::new();
+
+        signals.gravity = if self.input.is_pressed(KeyCode::KeyG) {
+            80.0
+        } else {
+            5.0
+        };
+
+        signals.piloting = keyboard_control_law(&self.input);
+
+        self.universe
+            .on_sim_ticks(self.universe_ticks_per_game_tick, &signals);
+
+        self.exec_time = std::time::Instant::now() - start;
 
         let old_sim_time = self.universe.stamp();
 
@@ -1230,10 +1214,6 @@ impl GameState {
         });
         self.orbital_context.selected = track_list;
 
-        let ids: Vec<_> = crate::scenes::orbiter_ids(self).collect();
-
-        self.constellations.retain(|id, _| ids.contains(id));
-
         let mut notifs = vec![];
         let mut controller_updates = vec![];
 
@@ -1259,6 +1239,8 @@ impl GameState {
                 }
             }
         }
+
+        let ids: Vec<_> = self.universe.orbiter_ids().collect();
 
         for id in ids {
             if !self.universe.vehicles.contains_key(&id) {
@@ -1296,32 +1278,30 @@ impl GameState {
         self.notifications
             .retain(|n| n.wall_time + n.duration() > self.wall_time);
 
-        let dt = PHYSICS_CONSTANT_DELTA_TIME.to_secs();
-
         match self.current_scene().kind() {
             SceneType::Orbital => {
                 self.orbital_context.highlighted = OrbitalContext::highlighted(self);
                 if let Some(p) = self.orbital_context.follow_position(self) {
                     self.orbital_context.go_to(p);
                 }
-                self.orbital_context.step(&self.input);
+                self.orbital_context.on_game_tick();
             }
-            SceneType::Telescope => self.telescope_context.step(&self.input, dt),
+            SceneType::Telescope => self.telescope_context.on_game_tick(),
             SceneType::DockingView => {
-                self.rpo_context.step(&self.input);
+                self.rpo_context.on_game_tick();
             }
             SceneType::Editor => {
-                EditorContext::step(self, dt);
+                EditorContext::on_game_tick(self);
             }
             SceneType::Surface => {
-                SurfaceContext::step(self);
+                SurfaceContext::on_game_tick(self);
             }
             _ => (),
         }
     }
 }
 
-fn on_game_tick(time: Res<Time>, mut state: ResMut<GameState>, mut images: ResMut<Assets<Image>>) {
+fn on_game_tick(mut state: ResMut<GameState>, mut images: ResMut<Assets<Image>>) {
     state.on_game_tick();
 
     if state.image_handles.is_empty() {
@@ -1329,12 +1309,12 @@ fn on_game_tick(time: Res<Time>, mut state: ResMut<GameState>, mut images: ResMu
     }
 }
 
-fn step_system_native_framerate(mut state: ResMut<GameState>) {
-    state.step_native_framerate();
+fn on_render_tick(mut state: ResMut<GameState>) {
+    state.on_render_tick();
 }
 
 pub const MIN_SIM_SPEED: u32 = 0;
-pub const MAX_SIM_SPEED: u32 = 7;
+pub const MAX_SIM_SPEED: u32 = 30;
 
 fn process_interaction(
     inter: &InteractionEvent,
@@ -1361,7 +1341,6 @@ fn process_interaction(
                 MIN_SIM_SPEED,
                 MAX_SIM_SPEED,
             );
-            state.redraw();
         }
         InteractionEvent::SimFaster => {
             state.universe_ticks_per_game_tick = u32::clamp(
@@ -1369,11 +1348,9 @@ fn process_interaction(
                 MIN_SIM_SPEED,
                 MAX_SIM_SPEED,
             );
-            state.redraw();
         }
         InteractionEvent::SetSim(s) => {
             state.universe_ticks_per_game_tick = u32::clamp(*s, MIN_SIM_SPEED, MAX_SIM_SPEED);
-            state.redraw();
         }
         InteractionEvent::SimPause => {
             state.paused = !state.paused;
@@ -1435,7 +1412,6 @@ fn process_interaction(
         }
         _ => (),
     };
-    state.redraw();
     Some(())
 }
 

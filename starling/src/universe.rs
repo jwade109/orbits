@@ -1,12 +1,33 @@
+use crate::control_signals::ControlSignals;
 use crate::prelude::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub struct Universe {
     stamp: Nanotime,
     ticks: u128,
     pub orbiters: HashMap<EntityId, Orbiter>,
     pub vehicles: HashMap<EntityId, Vehicle>,
+    pub surface_vehicles: Vec<Vehicle>,
     pub planets: PlanetarySystem,
+    pub surface: Surface,
+    pub landing_sites: HashMap<EntityId, Vec<(f32, String, Surface)>>,
+    pub constellations: HashMap<EntityId, EntityId>,
+}
+
+fn generate_landing_sites(pids: &[EntityId]) -> HashMap<EntityId, Vec<(f32, String, Surface)>> {
+    pids.iter()
+        .map(|pid| {
+            let n = randint(3, 12);
+            let sites: Vec<_> = (0..n)
+                .map(|_| {
+                    let angle = rand(0.0, 2.0 * PI);
+                    let name = get_random_name();
+                    (angle, name, Surface::random())
+                })
+                .collect();
+            (*pid, sites)
+        })
+        .collect()
 }
 
 impl Universe {
@@ -16,7 +37,11 @@ impl Universe {
             ticks: 0,
             orbiters: HashMap::new(),
             vehicles: HashMap::new(),
-            planets,
+            surface_vehicles: Vec::new(),
+            planets: planets.clone(),
+            surface: Surface::random(),
+            landing_sites: generate_landing_sites(&planets.planet_ids()),
+            constellations: HashMap::new(),
         }
     }
 
@@ -28,7 +53,11 @@ impl Universe {
         self.ticks
     }
 
-    pub fn on_sim_tick(&mut self) {
+    pub fn on_sim_ticks(&mut self, ticks: u32, signals: &ControlSignals) {
+        (0..ticks).for_each(|_| self.on_sim_tick(signals));
+    }
+
+    pub fn on_sim_tick(&mut self, signals: &ControlSignals) {
         self.ticks += 1;
         self.stamp += PHYSICS_CONSTANT_DELTA_TIME;
 
@@ -39,6 +68,58 @@ impl Universe {
         for (_, vehicle) in &mut self.vehicles {
             vehicle.on_sim_tick();
         }
+
+        for (i, vehicle) in self.surface_vehicles.iter_mut().enumerate() {
+            if i == 0 {
+                if let Some(ctrl) = signals.piloting {
+                    vehicle.policy = VehicleControlPolicy::External(ctrl);
+                } else {
+                    vehicle.policy = VehicleControlPolicy::PositionHold(vehicle.pv.pos_f32());
+                }
+            }
+            vehicle.step(signals.gravity_vector(), PHYSICS_CONSTANT_DELTA_TIME);
+        }
+
+        self.constellations
+            .retain(|id, _| self.orbiters.contains_key(id));
+    }
+
+    pub fn get_group_members(&mut self, gid: EntityId) -> Vec<EntityId> {
+        self.constellations
+            .iter()
+            .filter_map(|(id, g)| (*g == gid).then(|| *id))
+            .collect()
+    }
+
+    pub fn group_membership(&self, id: &EntityId) -> Option<EntityId> {
+        self.constellations.get(id).cloned()
+    }
+
+    pub fn unique_groups(&self) -> Vec<EntityId> {
+        let mut s: Vec<EntityId> = self
+            .constellations
+            .iter()
+            .map(|(_, gid)| *gid)
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect();
+        s.sort();
+        s
+    }
+
+    pub fn orbiter_ids(&self) -> impl Iterator<Item = EntityId> + use<'_> {
+        self.orbiters.keys().into_iter().map(|id| *id)
+    }
+
+    pub fn add_surface_vehicle(&mut self, mut vehicle: Vehicle) {
+        let x = rand(-200.0, 200.0);
+        let y = rand(40.0, 120.0);
+        let target = Vec2::new(x, y);
+
+        let policy = VehicleControlPolicy::PositionHold(target);
+        vehicle.policy = policy;
+        vehicle.pv.pos = (target + randvec(10.0, 100.0)).as_dvec2();
+        self.surface_vehicles.push(vehicle);
     }
 
     pub fn lup_orbiter(&self, id: EntityId, stamp: Nanotime) -> Option<ObjectLookup> {

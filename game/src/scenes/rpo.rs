@@ -178,7 +178,7 @@ impl Render for RPOContext {
 impl RPOContext {
     pub fn new() -> Self {
         Self {
-            camera: LinearCameraController::new(Vec2::ZERO, 1.0),
+            camera: LinearCameraController::new(Vec2::ZERO, 1.0, 2500.0),
             following: None,
         }
     }
@@ -187,7 +187,11 @@ impl RPOContext {
         self.following
     }
 
-    pub fn step(&mut self, input: &InputState) {
-        self.camera.update(input);
+    pub fn on_game_tick(&mut self) {
+        self.camera.on_game_tick();
+    }
+
+    pub fn handle_input(&mut self, input: &InputState) {
+        self.camera.handle_input(input);
     }
 }

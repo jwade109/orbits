@@ -19,4 +19,17 @@ impl Surface {
             land_color: [rand(0.1, 0.4), rand(0.1, 0.4), rand(0.1, 0.4)],
         }
     }
+
+    pub fn gravity_vector(&self) -> Vec2 {
+        Vec2::new(0.0, -(self.gravity as f32) / 10.0 * 9.81)
+    }
+
+    pub fn increase_gravity(&mut self) {
+        self.gravity += 0.1;
+    }
+
+    pub fn decrease_gravity(&mut self) {
+        self.gravity -= 0.1;
+        self.gravity = self.gravity.max(0.0);
+    }
 }

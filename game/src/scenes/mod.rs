@@ -10,8 +10,8 @@ pub mod telescope;
 pub use craft_editor::*;
 pub use main_menu::MainMenuContext;
 pub use orbital::{
-    all_orbital_ids, orbiter_ids, CameraProjection, CursorMode, DrawMode, OrbitalContext,
-    ShowOrbitsState, ThrottleLevel,
+    all_orbital_ids, CameraProjection, CursorMode, DrawMode, OrbitalContext, ShowOrbitsState,
+    ThrottleLevel,
 };
 pub use render::*;
 pub use rpo::RPOContext;

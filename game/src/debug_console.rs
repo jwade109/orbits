@@ -87,7 +87,7 @@ impl DebugConsole {
         self.text.pop();
     }
 
-    pub fn process_input(&mut self, input: &InputState) -> Option<(CommandDecl, Vec<String>)> {
+    pub fn process_input(&mut self, input: &mut InputState) -> Option<(CommandDecl, Vec<String>)> {
         if !self.is_active {
             return None;
         }
@@ -112,6 +112,8 @@ impl DebugConsole {
                 _ => (),
             }
         }
+
+        input.keyboard_events.clear();
 
         None
     }

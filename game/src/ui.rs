@@ -67,7 +67,7 @@ pub struct UiPlugin;
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup);
-        app.add_systems(Update, (do_ui_sprites, set_bloom, on_resize_system));
+        app.add_systems(Update, (do_ui_sprites, set_bloom));
     }
 }
 
@@ -656,16 +656,6 @@ fn do_ui_sprites(
     mut images: ResMut<Assets<Image>>,
     mut state: ResMut<GameState>,
 ) {
-    let ui_age = state.wall_time - state.last_redraw;
-
-    if ui_age < Nanotime::millis(50) {
-        return;
-    }
-
-    if ui_age < Nanotime::millis(250) && !state.redraw_requested {
-        return;
-    }
-
     let vb = state.input.screen_bounds;
 
     for e in &to_despawn {
@@ -687,9 +677,6 @@ fn do_ui_sprites(
     }
 
     state.ui = ui;
-
-    state.last_redraw = state.wall_time;
-    state.redraw_requested = false;
 
     for (lid, layout) in state.ui.layouts().iter().enumerate() {
         for n in layout.iter() {
@@ -757,10 +744,4 @@ fn do_ui_sprites(
 
 fn setup(mut commands: Commands) {
     commands.insert_resource(Events::<InteractionEvent>::default());
-}
-
-fn on_resize_system(mut resize_reader: EventReader<WindowResized>, mut state: ResMut<GameState>) {
-    for _ in resize_reader.read() {
-        state.redraw();
-    }
 }
