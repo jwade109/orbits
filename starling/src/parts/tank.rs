@@ -76,4 +76,8 @@ impl Tank {
     pub fn capacity(&self) -> Mass {
         self.max_fluid_mass
     }
+
+    pub fn percent_filled(&self) -> f32 {
+        self.instance_data.current_fluid_mass.to_kg_f32() / self.max_fluid_mass.to_kg_f32()
+    }
 }

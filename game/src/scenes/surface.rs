@@ -7,7 +7,7 @@ use crate::onclick::OnClick;
 use crate::scenes::{CameraProjection, Render};
 use crate::thrust_particles::*;
 use bevy::color::{palettes::css::*, Alpha, Srgba};
-use bevy::prelude::{Gizmos, KeyCode};
+use bevy::prelude::Gizmos;
 use layout::layout::Tree;
 use starling::prelude::*;
 use std::collections::HashSet;
@@ -22,7 +22,7 @@ pub struct SurfaceContext {
 impl Default for SurfaceContext {
     fn default() -> Self {
         SurfaceContext {
-            camera: LinearCameraController::new(Vec2::ZERO, 1.0, 2500.0),
+            camera: LinearCameraController::new(Vec2::ZERO, 1.0, 1700.0),
             selected: HashSet::new(),
             particles: ThrustParticleEffects::new(),
         }

@@ -178,7 +178,7 @@ impl Render for RPOContext {
 impl RPOContext {
     pub fn new() -> Self {
         Self {
-            camera: LinearCameraController::new(Vec2::ZERO, 1.0, 2500.0),
+            camera: LinearCameraController::new(Vec2::ZERO, 1.0, 1700.0),
             following: None,
         }
     }

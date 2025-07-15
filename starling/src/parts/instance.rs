@@ -127,4 +127,12 @@ impl PartInstance {
             None
         }
     }
+
+    pub fn as_machine_mut(&mut self) -> Option<&mut Machine> {
+        if let Part::Machine(m) = &mut self.part {
+            Some(m)
+        } else {
+            None
+        }
+    }
 }

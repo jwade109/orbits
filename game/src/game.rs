@@ -1,5 +1,4 @@
 use crate::args::ProgramContext;
-use crate::camera_controller::LinearCameraController;
 use crate::canvas::Canvas;
 use crate::debug_console::DebugConsole;
 use crate::generate_ship_sprites::*;
@@ -291,13 +290,13 @@ impl GameState {
             let vehicle = g.get_random_vehicle();
             let orbit = get_random_orbit(EntityId(1));
             if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {
-                // g.spawn_with_random_perturbance(orbit, vehicle);
+                g.spawn_with_random_perturbance(orbit, vehicle);
             }
         }
 
         for (id, _) in &g.universe.orbiters {
             if g.favorites.len() < 5 && rand(0.0, 1.0) < 0.05 {
-                // g.favorites.insert(*id);
+                g.favorites.insert(*id);
             }
         }
 
@@ -399,37 +398,6 @@ impl GameState {
 }
 
 impl Render for GameState {
-    fn text_labels(state: &GameState) -> Option<Vec<TextLabel>> {
-        let mut labels = match state.current_scene().kind() {
-            SceneType::Orbital => OrbitalContext::text_labels(state),
-            SceneType::Telescope => TelescopeContext::text_labels(state),
-            SceneType::Editor => EditorContext::text_labels(state),
-            SceneType::DockingView => RPOContext::text_labels(state),
-            SceneType::Surface => SurfaceContext::text_labels(state),
-            SceneType::MainMenu => MainMenuContext::text_labels(state),
-        }
-        .unwrap_or(Vec::new());
-
-        labels.extend(state.text_labels.clone());
-
-        Some(labels)
-    }
-
-    fn sprites(state: &GameState) -> Option<Vec<StaticSpriteDescriptor>> {
-        let mut sprites = match state.current_scene().kind() {
-            SceneType::Editor => EditorContext::sprites(state),
-            SceneType::DockingView => RPOContext::sprites(state),
-            SceneType::MainMenu | SceneType::Orbital => OrbitalContext::sprites(state),
-            SceneType::Surface => SurfaceContext::sprites(state),
-            SceneType::Telescope => TelescopeContext::sprites(state),
-        }
-        .unwrap_or(Vec::new());
-
-        sprites.extend(state.sprites.clone());
-
-        Some(sprites)
-    }
-
     fn background_color(state: &GameState) -> Srgba {
         match state.current_scene().kind() {
             SceneType::Orbital => OrbitalContext::background_color(state),
@@ -1104,7 +1072,7 @@ impl GameState {
 
         match self.current_scene().kind() {
             SceneType::DockingView => self.rpo_context.handle_input(&self.input),
-            SceneType::Editor => self.editor_context.handle_input(&self.input),
+            SceneType::Editor => EditorContext::on_render_tick(self),
             SceneType::MainMenu => (),
             SceneType::Orbital => self.orbital_context.handle_input(&self.input),
             SceneType::Surface => self.surface_context.handle_input(&self.input),
@@ -1280,13 +1248,11 @@ impl GameState {
 
         match self.current_scene().kind() {
             SceneType::Orbital => {
-                self.orbital_context.highlighted = OrbitalContext::highlighted(self);
-                if let Some(p) = self.orbital_context.follow_position(self) {
-                    self.orbital_context.go_to(p);
-                }
                 self.orbital_context.on_game_tick();
             }
-            SceneType::Telescope => self.telescope_context.on_game_tick(),
+            SceneType::Telescope => {
+                self.telescope_context.on_game_tick();
+            }
             SceneType::DockingView => {
                 self.rpo_context.on_game_tick();
             }

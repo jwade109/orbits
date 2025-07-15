@@ -100,7 +100,7 @@ pub fn do_text_labels(
         With<TextLabel>,
     >,
 ) {
-    let text_labels = GameState::text_labels(&state).unwrap_or(vec![]);
+    let text_labels = state.text_labels.clone();
 
     let mut labels: Vec<_> = query.iter_mut().collect();
     for (i, tl) in text_labels.iter().enumerate() {

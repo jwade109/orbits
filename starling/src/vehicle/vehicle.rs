@@ -272,17 +272,31 @@ impl Vehicle {
         layer: impl Into<Option<PartLayer>>,
     ) -> Option<(usize, &PartInstance)> {
         let layer: Option<PartLayer> = layer.into();
-        self.parts.iter().enumerate().find(|(_, instance)| {
-            if let Some(layer) = layer {
-                if layer != instance.part().layer() {
+
+        for part_layer in enum_iterator::reverse_all::<PartLayer>() {
+            let found = self.parts.iter().enumerate().find(|(_, instance)| {
+                if let Some(layer) = layer {
+                    if layer != instance.part().layer() {
+                        return false;
+                    }
+                }
+
+                if instance.part().layer() != part_layer {
                     return false;
                 }
+
+                let origin = instance.origin();
+                let dims = instance.dims_grid().as_ivec2();
+                let p = p - origin;
+                p.x >= 0 && p.y >= 0 && p.x <= dims.x && p.y <= dims.y
+            });
+
+            if found.is_some() {
+                return found;
             }
-            let origin = instance.origin();
-            let dims = instance.dims_grid().as_ivec2();
-            let p = p - origin;
-            p.x >= 0 && p.y >= 0 && p.x <= dims.x && p.y <= dims.y
-        })
+        }
+
+        None
     }
 
     pub fn remove_part_at(&mut self, p: IVec2, layer: impl Into<Option<PartLayer>>) {
@@ -607,7 +621,11 @@ impl Vehicle {
     }
 
     pub fn on_sim_tick(&mut self) {
-        // TODO on_sim_tick
+        for (_, part) in self.parts.iter_mut().enumerate() {
+            if let Some(machine) = part.as_machine_mut() {
+                machine.instance_data.on_sim_tick();
+            }
+        }
     }
 
     pub fn step(&mut self, gravity: Vec2, dt: Nanotime) {

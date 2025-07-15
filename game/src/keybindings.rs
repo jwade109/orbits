@@ -13,8 +13,6 @@ pub fn keyboard_input(
     state.input.set_scroll(scroll);
 
     for key in keys.get_just_pressed() {
-        dbg!(key);
-
         let e = match key {
             KeyCode::Period => InteractionEvent::SimFaster,
             KeyCode::Comma => InteractionEvent::SimSlower,

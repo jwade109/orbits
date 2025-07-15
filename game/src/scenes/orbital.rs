@@ -2,7 +2,7 @@ use crate::canvas::Canvas;
 use crate::game::GameState;
 use crate::input::{FrameId, InputState, MouseButt};
 use crate::onclick::OnClick;
-use crate::scenes::{Render, StaticSpriteDescriptor, TextLabel};
+use crate::scenes::{Render, TextLabel};
 use crate::ui::*;
 use bevy::color::palettes::css::*;
 use bevy::input::keyboard::KeyCode;
@@ -175,12 +175,6 @@ impl OrbitalContext {
                 alpha: 0.1,
             },
         }
-    }
-
-    #[deprecated]
-    pub fn go_to(&mut self, p: Vec2) {
-        self.target_center = p;
-        self.center = p;
     }
 
     #[deprecated]
@@ -431,6 +425,7 @@ pub fn get_landing_site_labels(state: &GameState) -> Vec<TextLabel> {
     ret
 }
 
+#[allow(unused)]
 fn get_inventory_label(state: &GameState) -> Option<TextLabel> {
     let id = state.piloting()?;
     let vehicle = state.universe.vehicles.get(&id)?;
@@ -488,6 +483,7 @@ pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> 
     ret
 }
 
+#[allow(unused)]
 fn get_indicators(state: &GameState) -> Option<Vec<TextLabel>> {
     let piloting = state.piloting()?;
     let vehicle = state.universe.vehicles.get(&piloting)?;
@@ -524,139 +520,139 @@ pub fn date_label(state: &GameState) -> TextLabel {
 }
 
 impl Render for OrbitalContext {
-    fn text_labels(state: &GameState) -> Option<Vec<TextLabel>> {
-        let mut text_labels: Vec<TextLabel> = get_orbital_object_mouseover_labels(state);
+    // fn text_labels(state: &GameState) -> Option<Vec<TextLabel>> {
+    //     let mut text_labels: Vec<TextLabel> = get_orbital_object_mouseover_labels(state);
 
-        text_labels.extend(get_indicators(state).unwrap_or(vec![]));
-        text_labels.extend(get_landing_site_labels(state));
-        text_labels.extend(get_inventory_label(state));
+    //     text_labels.extend(get_indicators(state).unwrap_or(vec![]));
+    //     text_labels.extend(get_landing_site_labels(state));
+    //     text_labels.extend(get_inventory_label(state));
 
-        (|| {
-            let id = state.piloting()?;
-            let pv = state.universe.lup_orbiter(id, state.universe.stamp())?.pv();
-            let text = format!("{:0.1} m/s", pv.vel.length() * 1000.0);
-            let c = Vec2::Y * (100.0 - state.input.screen_bounds.span.y * 0.5);
-            text_labels.push(TextLabel::new(text, c, 1.0));
-            Some(())
-        })();
+    //     (|| {
+    //         let id = state.piloting()?;
+    //         let pv = state.universe.lup_orbiter(id, state.universe.stamp())?.pv();
+    //         let text = format!("{:0.1} m/s", pv.vel.length() * 1000.0);
+    //         let c = Vec2::Y * (100.0 - state.input.screen_bounds.span.y * 0.5);
+    //         text_labels.push(TextLabel::new(text, c, 1.0));
+    //         Some(())
+    //     })();
 
-        if state.paused {
-            let s = "PAUSED".to_string();
-            let c = Vec2::Y * (60.0 - state.input.screen_bounds.span.y * 0.5);
-            text_labels.push(TextLabel::new(s, c, 1.0));
-        }
+    //     if state.paused {
+    //         let s = "PAUSED".to_string();
+    //         let c = Vec2::Y * (60.0 - state.input.screen_bounds.span.y * 0.5);
+    //         text_labels.push(TextLabel::new(s, c, 1.0));
+    //     }
 
-        {
-            let label = date_label(state);
-            text_labels.push(label);
-        }
+    //     {
+    //         let label = date_label(state);
+    //         text_labels.push(label);
+    //     }
 
-        if let Some((m1, m2, corner)) = state.measuring_tape() {
-            for (a, b) in [(m1, m2), (m1, corner), (m2, corner)] {
-                let middle = (a + b) / 2.0;
-                let middle = state.orbital_context.w2c(middle);
-                let d = format!("{:0.1} km", a.distance(b));
-                text_labels.push(TextLabel::new(d, middle, 1.0));
-            }
-        }
+    //     if let Some((m1, m2, corner)) = state.measuring_tape() {
+    //         for (a, b) in [(m1, m2), (m1, corner), (m2, corner)] {
+    //             let middle = (a + b) / 2.0;
+    //             let middle = state.orbital_context.w2c(middle);
+    //             let d = format!("{:0.1} km", a.distance(b));
+    //             text_labels.push(TextLabel::new(d, middle, 1.0));
+    //         }
+    //     }
 
-        if let Some((c, a, b)) = state.protractor() {
-            for (a, b) in [(c, Some(a)), (c, b)] {
-                if let Some(b) = b {
-                    let middle = (a + b) / 2.0;
-                    let middle = state.orbital_context.w2c(middle);
-                    let d = format!("{:0.1} km", a.distance(b));
-                    text_labels.push(TextLabel::new(d, middle, 1.0));
-                }
-            }
-            if let Some(b) = b {
-                let da = a - c;
-                let db = b - c;
-                let angle = da.angle_to(db);
-                let d = c + rotate(da * 0.75, angle / 2.0);
-                let t = format!("{:0.1} deg", angle.to_degrees().abs());
-                let d = state.orbital_context.w2c(d);
-                text_labels.push(TextLabel::new(t, d, 1.0));
-            }
-        }
+    //     if let Some((c, a, b)) = state.protractor() {
+    //         for (a, b) in [(c, Some(a)), (c, b)] {
+    //             if let Some(b) = b {
+    //                 let middle = (a + b) / 2.0;
+    //                 let middle = state.orbital_context.w2c(middle);
+    //                 let d = format!("{:0.1} km", a.distance(b));
+    //                 text_labels.push(TextLabel::new(d, middle, 1.0));
+    //             }
+    //         }
+    //         if let Some(b) = b {
+    //             let da = a - c;
+    //             let db = b - c;
+    //             let angle = da.angle_to(db);
+    //             let d = c + rotate(da * 0.75, angle / 2.0);
+    //             let t = format!("{:0.1} deg", angle.to_degrees().abs());
+    //             let d = state.orbital_context.w2c(d);
+    //             text_labels.push(TextLabel::new(t, d, 1.0));
+    //         }
+    //     }
 
-        Some(text_labels)
-    }
+    //     Some(text_labels)
+    // }
 
     // TODO use draw/canvas
-    fn sprites(state: &GameState) -> Option<Vec<StaticSpriteDescriptor>> {
-        const PLANET_Z_INDEX: f32 = 5.0;
+    // fn sprites(state: &GameState) -> Option<Vec<StaticSpriteDescriptor>> {
+    //     const PLANET_Z_INDEX: f32 = 5.0;
 
-        const SPACECRAFT_DEFAULT_SCALE: f32 = 0.025;
-        const SPACECRAFT_MAGNIFIED_SCALE: f32 = 0.06;
-        const SPACECRAFT_DIMINISHED_SCALE: f32 = 0.02;
-        const SPACECRAFT_Z_INDEX: f32 = 6.0;
+    //     const SPACECRAFT_DEFAULT_SCALE: f32 = 0.025;
+    //     const SPACECRAFT_MAGNIFIED_SCALE: f32 = 0.06;
+    //     const SPACECRAFT_DIMINISHED_SCALE: f32 = 0.02;
+    //     const SPACECRAFT_Z_INDEX: f32 = 6.0;
 
-        let ctx = &state.orbital_context;
-        let mut planetary_sprites: Vec<_> = state
-            .universe
-            .planets
-            .planet_ids()
-            .into_iter()
-            .filter_map(|id| {
-                let lup = state.universe.lup_planet(id, state.universe.stamp())?;
-                let pos = lup.pv().pos_f32();
-                let (name, body) = lup.named_body()?;
-                Some(StaticSpriteDescriptor::new(
-                    ctx.w2c(pos),
-                    0.0,
-                    name.clone(),
-                    Vec2::splat(ctx.scale() * 2.0 * body.radius),
-                    PLANET_Z_INDEX,
-                ))
-            })
-            .collect();
+    //     let ctx = &state.orbital_context;
+    //     let mut planetary_sprites: Vec<_> = state
+    //         .universe
+    //         .planets
+    //         .planet_ids()
+    //         .into_iter()
+    //         .filter_map(|id| {
+    //             let lup = state.universe.lup_planet(id, state.universe.stamp())?;
+    //             let pos = lup.pv().pos_f32();
+    //             let (name, body) = lup.named_body()?;
+    //             Some(StaticSpriteDescriptor::new(
+    //                 ctx.w2c(pos),
+    //                 0.0,
+    //                 name.clone(),
+    //                 Vec2::splat(ctx.scale() * 2.0 * body.radius),
+    //                 PLANET_Z_INDEX,
+    //             ))
+    //         })
+    //         .collect();
 
-        let bodies: Vec<_> = state
-            .universe
-            .planets
-            .bodies(state.universe.stamp(), None)
-            .collect();
-        let light_source = state.light_source();
-        let orbiter_sprites: Vec<_> = state
-            .universe
-            .orbiter_ids()
-            .filter_map(|id| {
-                let lup = state.universe.lup_orbiter(id, state.universe.stamp())?;
-                let pos = lup.pv().pos_f32();
-                let is_lit = bodies
-                    .iter()
-                    .all(|(pv, body)| !is_occluded(light_source, pos, pv.pos_f32(), body.radius));
+    //     let bodies: Vec<_> = state
+    //         .universe
+    //         .planets
+    //         .bodies(state.universe.stamp(), None)
+    //         .collect();
+    //     let light_source = state.light_source();
+    //     let orbiter_sprites: Vec<_> = state
+    //         .universe
+    //         .orbiter_ids()
+    //         .filter_map(|id| {
+    //             let lup = state.universe.lup_orbiter(id, state.universe.stamp())?;
+    //             let pos = lup.pv().pos_f32();
+    //             let is_lit = bodies
+    //                 .iter()
+    //                 .all(|(pv, body)| !is_occluded(light_source, pos, pv.pos_f32(), body.radius));
 
-                let path = "spacecraft.png".to_string();
+    //             let path = "spacecraft.png".to_string();
 
-                #[allow(unused)]
-                let scale = if state.orbital_context.selected.contains(&id) {
-                    SPACECRAFT_MAGNIFIED_SCALE
-                } else if state.orbital_context.selected.is_empty() {
-                    SPACECRAFT_DEFAULT_SCALE
-                } else {
-                    SPACECRAFT_DIMINISHED_SCALE
-                };
+    //             #[allow(unused)]
+    //             let scale = if state.orbital_context.selected.contains(&id) {
+    //                 SPACECRAFT_MAGNIFIED_SCALE
+    //             } else if state.orbital_context.selected.is_empty() {
+    //                 SPACECRAFT_DEFAULT_SCALE
+    //             } else {
+    //                 SPACECRAFT_DIMINISHED_SCALE
+    //             };
 
-                let color = if is_lit { WHITE } else { GRAY };
+    //             let color = if is_lit { WHITE } else { GRAY };
 
-                Some(
-                    StaticSpriteDescriptor::new(
-                        ctx.w2c(pos),
-                        0.0,
-                        path,
-                        Vec2::splat(10.0),
-                        SPACECRAFT_Z_INDEX,
-                    )
-                    .with_color(color),
-                )
-            })
-            .collect();
+    //             Some(
+    //                 StaticSpriteDescriptor::new(
+    //                     ctx.w2c(pos),
+    //                     0.0,
+    //                     path,
+    //                     Vec2::splat(10.0),
+    //                     SPACECRAFT_Z_INDEX,
+    //                 )
+    //                 .with_color(color),
+    //             )
+    //         })
+    //         .collect();
 
-        planetary_sprites.extend(orbiter_sprites);
-        Some(planetary_sprites)
-    }
+    //     planetary_sprites.extend(orbiter_sprites);
+    //     Some(planetary_sprites)
+    // }
 
     fn background_color(state: &GameState) -> bevy::color::Srgba {
         match state.orbital_context.draw_mode {

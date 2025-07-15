@@ -464,8 +464,6 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
 
     draw_vehicle(canvas, &vehicle, center, zoom, vehicle.angle());
 
-    draw_counter(&mut canvas.gizmos, rb as u64, center + Vec2::Y * r, WHITE);
-
     // prograde markers, etc
     {
         let pv = lup.pv();
@@ -964,35 +962,6 @@ fn draw_scale_indicator(gizmos: &mut Gizmos, state: &GameState) {
     }
 
     gizmos.line_2d(p1, p2, color);
-}
-
-pub fn draw_counter(gizmos: &mut Gizmos, val: u64, pos: Vec2, color: Srgba) {
-    if val == 0 {
-        return;
-    }
-
-    let h = 12.0;
-    let r = h * 0.8;
-
-    let mut val = val;
-
-    let mut y = 0.0;
-
-    gizmos.line_2d(pos, pos + Vec2::X * h * 10.0, color);
-
-    while val > 0 {
-        let nth_digit = val % 10;
-        for xn in 0..nth_digit {
-            let p = Vec2::new(xn as f32 * h, y);
-            draw_circle(gizmos, pos + p + Vec2::splat(h / 2.0), r / 2.0, color);
-        }
-        if nth_digit == 0 {
-            let p = Vec2::new(0.0, y);
-            draw_x(gizmos, pos + p + Vec2::splat(h / 2.0), r, color);
-        }
-        val /= 10;
-        y += h;
-    }
 }
 
 #[allow(unused)]

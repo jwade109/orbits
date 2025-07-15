@@ -55,7 +55,7 @@ pub struct EditorContext {
 impl EditorContext {
     pub fn new() -> Self {
         EditorContext {
-            camera: LinearCameraController::new(Vec2::ZERO, 18.0, 2500.0),
+            camera: LinearCameraController::new(Vec2::ZERO, 18.0, 1700.0),
             cursor_state: CursorState::None,
             rotation: Rotation::East,
             filepath: None,
@@ -595,10 +595,34 @@ impl Render for EditorContext {
                     )
                     .set_color(WHITE.with_alpha(alpha));
 
-                // if let Part::Tank(tank) = instance.part() {
-                //     let name = tank.item().to_sprite_name();
-                //     canvas.sprite(center, 0.0, name, None, Vec2::splat(100.0));
-                // }
+                if ctx.focus_layer == Some(PartLayer::Internal) {
+                    if let Part::Tank(tank) = instance.part() {
+                        let pct = tank.percent_filled();
+                        let dims = rotate(
+                            (sprite_dims - UVec2::splat(2)).as_vec2() * ctx.scale(),
+                            instance.rotation().to_angle(),
+                        )
+                        .abs();
+                        let lower = center - dims / 2.0;
+                        let upper = lower + Vec2::new(dims.x, dims.y * pct);
+                        let aabb = AABB::from_arbitrary(lower, upper);
+                        let color: Srgba = crate::sprites::hashable_to_color(&tank.item()).into();
+                        canvas.rect(aabb, color.with_alpha(0.7));
+                    }
+
+                    if let Some(machine) = instance.as_machine() {
+                        let pct = machine.instance_data.percent_complete();
+                        let dims = rotate(
+                            (sprite_dims - UVec2::splat(2)).as_vec2() * ctx.scale(),
+                            instance.rotation().to_angle(),
+                        )
+                        .abs();
+                        let lower = center - dims / 2.0;
+                        let upper = lower + Vec2::new(dims.x * pct, 2.0 * ctx.scale());
+                        let aabb = AABB::from_arbitrary(lower, upper);
+                        canvas.rect(aabb, RED.with_alpha(0.7));
+                    }
+                }
 
                 // if p < 1.0 {
                 //     let color = crate::generate_ship_sprites::diagram_color(instance.part());
@@ -823,49 +847,47 @@ impl CameraProjection for EditorContext {
     }
 }
 
-fn process_part_mode(state: &mut GameState) {
-    if let Some(p) = state.input.on_frame(MouseButt::Left, FrameId::Down) {
-        let p = state.editor_context.c2w(p);
-        if let Some((index, ..)) = state
-            .editor_context
-            .vehicle
-            .get_part_at(vfloor(p), state.editor_context.focus_layer)
-        {
-            state.editor_context.selected_part = Some(index)
-        } else {
-            state.editor_context.selected_part = None;
-        }
-    }
-
-    if let Some(_) = state.input.position(MouseButt::Left, FrameId::Current) {
-        if let Some((p, part)) = EditorContext::current_part_and_cursor_position(state) {
-            state.editor_context.try_place_part(p, part);
-        }
-    } else if let Some(p) = state.input.position(MouseButt::Right, FrameId::Current) {
-        let p = vfloor(state.editor_context.c2w(p));
-        state.editor_context.remove_part_at(p);
-    } else if state.input.just_pressed(KeyCode::KeyQ) {
-        if state.editor_context.cursor_state.current_part().is_some() {
-            state.editor_context.cursor_state = CursorState::None;
-        } else if let Some(p) = state.input.position(MouseButt::Hover, FrameId::Current) {
-            let p = vfloor(state.editor_context.c2w(p));
-            if let Some(instance) = state.editor_context.get_part_at(p).cloned() {
-                state.editor_context.rotation = instance.rotation();
-                state.editor_context.cursor_state = CursorState::Part(instance.part().clone());
+impl EditorContext {
+    pub fn on_render_tick(state: &mut GameState) {
+        state.editor_context.camera.handle_input(&state.input);
+        if let Some(p) = state.input.on_frame(MouseButt::Left, FrameId::Down) {
+            let p = state.editor_context.c2w(p);
+            if let Some((index, ..)) = state
+                .editor_context
+                .vehicle
+                .get_part_at(vfloor(p), state.editor_context.focus_layer)
+            {
+                state.editor_context.selected_part = Some(index)
             } else {
-                state.editor_context.cursor_state = CursorState::None;
+                state.editor_context.selected_part = None;
             }
         }
-    }
 
-    if state.input.just_pressed(KeyCode::KeyR) {
-        state.editor_context.rotation = enum_iterator::next_cycle(&state.editor_context.rotation);
-    }
-}
+        if let Some(_) = state.input.position(MouseButt::Left, FrameId::Current) {
+            if let Some((p, part)) = EditorContext::current_part_and_cursor_position(state) {
+                state.editor_context.try_place_part(p, part);
+            }
+        } else if let Some(p) = state.input.position(MouseButt::Right, FrameId::Current) {
+            let p = vfloor(state.editor_context.c2w(p));
+            state.editor_context.remove_part_at(p);
+        } else if state.input.just_pressed(KeyCode::KeyQ) {
+            if state.editor_context.cursor_state.current_part().is_some() {
+                state.editor_context.cursor_state = CursorState::None;
+            } else if let Some(p) = state.input.position(MouseButt::Hover, FrameId::Current) {
+                let p = vfloor(state.editor_context.c2w(p));
+                if let Some(instance) = state.editor_context.get_part_at(p).cloned() {
+                    state.editor_context.rotation = instance.rotation();
+                    state.editor_context.cursor_state = CursorState::Part(instance.part().clone());
+                } else {
+                    state.editor_context.cursor_state = CursorState::None;
+                }
+            }
+        }
 
-impl EditorContext {
-    pub fn handle_input(&mut self, input: &InputState) {
-        self.camera.handle_input(input);
+        if state.input.just_pressed(KeyCode::KeyR) {
+            state.editor_context.rotation =
+                enum_iterator::next_cycle(&state.editor_context.rotation);
+        }
     }
 
     pub fn on_game_tick(state: &mut GameState) {
@@ -875,10 +897,14 @@ impl EditorContext {
 
         let ctx = &mut state.editor_context;
 
-        ctx.vehicle.build_once();
+        for _ in 0..10 {
+            ctx.vehicle.build_once();
+        }
+
+        ctx.vehicle.on_sim_tick();
 
         for tank in ctx.vehicle.tanks_mut() {
-            tank.put(Mass::kilograms(10));
+            tank.put(Mass::kilograms(randint(3, 30) as u64));
         }
 
         if is_hovering {
@@ -901,9 +927,7 @@ impl EditorContext {
                     ctx.vehicle.remove_pipe(p);
                 }
             }
-            _ => {
-                process_part_mode(state);
-            }
+            _ => (),
         }
     }
 }

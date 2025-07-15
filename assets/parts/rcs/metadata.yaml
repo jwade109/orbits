@@ -6,7 +6,7 @@
     dims: [6, 4]
     model: "LPP50-I"
     exhaust_velocity: 20000000.0
-    thrust: 1600.0
+    thrust: 4000.0
     length: 0.1
     width: 0.05
     is_rcs: true

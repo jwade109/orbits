@@ -28,7 +28,7 @@ pub fn update_static_sprites(
     state: Res<GameState>,
     mut query: Query<(Entity, &mut Sprite, &mut Transform, &mut StaticSprite)>,
 ) {
-    let sprites: Vec<StaticSpriteDescriptor> = GameState::sprites(&state).unwrap_or(vec![]);
+    let sprites: Vec<StaticSpriteDescriptor> = state.sprites.clone();
 
     let mut sprite_entities: Vec<_> = query.iter_mut().collect();
 
