@@ -22,4 +22,5 @@ pub mod quantities;
 pub mod region;
 pub mod scenario;
 pub mod surface;
+pub mod universe;
 pub mod vehicle;

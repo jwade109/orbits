@@ -6,9 +6,8 @@ use crate::input::{FrameId, InputState, MouseButt};
 use crate::notifications::*;
 use crate::onclick::OnClick;
 use crate::scenes::{
-    CameraProjection, CursorMode, EditorContext, Interactive, MainMenuContext, OrbitalContext,
-    RPOContext, Render, Scene, SceneType, StaticSpriteDescriptor, SurfaceContext, TelescopeContext,
-    TextLabel,
+    CameraProjection, CursorMode, EditorContext, MainMenuContext, OrbitalContext, RPOContext,
+    Render, Scene, SceneType, StaticSpriteDescriptor, SurfaceContext, TelescopeContext, TextLabel,
 };
 use crate::ui::InteractionEvent;
 use bevy::color::palettes::css::*;
@@ -52,7 +51,7 @@ impl Plugin for GamePlugin {
             (
                 handle_interactions,
                 // physics
-                step_system_physics,
+                on_game_tick,
                 // rendering
                 crate::ui::do_text_labels,
                 crate::sounds::sound_system,
@@ -112,7 +111,6 @@ fn init_system(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 pub struct GameState {
     pub game_ticks: u64,
     pub render_ticks: u64,
-    pub sim_ticks: u64,
 
     /// Contains all states related to window size, mouse clicks and positions,
     /// and button presses and holds.
@@ -122,6 +120,10 @@ pub struct GameState {
 
     /// Contains CLI arguments
     pub args: ProgramContext,
+
+    /// All the game entities and logic therein. This should run autonomously
+    /// without any user input.
+    pub universe: Universe,
 
     /// Stores information and provides an API for interacting with the simulation
     /// from the perspective of a global solar/planetary system view.
@@ -138,18 +140,12 @@ pub struct GameState {
 
     pub surface_context: SurfaceContext,
 
-    /// Simulation clock
-    pub sim_time: Nanotime,
-
     /// Wall clock, i.e. time since program began.
     pub wall_time: Nanotime,
 
     pub physics_duration: Nanotime,
-    pub sim_ticks_per_game_tick: u32,
+    pub universe_ticks_per_game_tick: u32,
     pub paused: bool,
-
-    pub orbiters: HashMap<EntityId, Orbiter>,
-    pub planets: PlanetarySystem,
 
     /// Map of names to parts to their definitions. Loaded from
     /// the assets/parts directory
@@ -162,7 +158,6 @@ pub struct GameState {
     pub landing_sites: HashMap<EntityId, Vec<(f32, String, Surface)>>,
     pub controllers: Vec<Controller>,
     pub constellations: HashMap<EntityId, EntityId>,
-    pub vehicles: HashMap<EntityId, Vehicle>,
     pub starfield: Vec<(Vec3, Srgba, f32, f32)>,
     pub favorites: HashSet<EntityId>,
 
@@ -228,26 +223,22 @@ impl GameState {
         let mut g = GameState {
             render_ticks: 0,
             game_ticks: 0,
-            sim_ticks: 0,
             input: InputState::default(),
             args: args.clone(),
+            universe: Universe::new(planets.clone()),
             console: DebugConsole::new(),
             orbital_context: OrbitalContext::new(EntityId(0)),
             telescope_context: TelescopeContext::new(),
             rpo_context: RPOContext::new(),
             editor_context: EditorContext::new(),
             surface_context: SurfaceContext::default(),
-            sim_time: Nanotime::zero(),
             wall_time: Nanotime::zero(),
             physics_duration: Nanotime::days(7),
-            sim_ticks_per_game_tick: 1,
+            universe_ticks_per_game_tick: 1,
             paused: false,
-            orbiters: HashMap::new(),
-            planets: planets.clone(),
             part_database: load_parts_from_dir(&args.parts_dir()),
             ids,
             controllers: vec![],
-            vehicles: HashMap::new(),
             landing_sites: generate_landing_sites(&planets.planet_ids()),
             constellations: HashMap::new(),
             starfield: generate_starfield(),
@@ -289,7 +280,7 @@ impl GameState {
             }
         }
 
-        let t = g.sim_time;
+        let t = g.universe.stamp();
 
         let get_random_orbit = |pid: EntityId| {
             let r1 = rand(11000.0, 40000.0) as f64;
@@ -326,7 +317,7 @@ impl GameState {
             }
         }
 
-        for (id, _) in &g.orbiters {
+        for (id, _) in &g.universe.orbiters {
             if g.favorites.len() < 5 && rand(0.0, 1.0) < 0.05 {
                 // g.favorites.insert(*id);
             }
@@ -482,13 +473,13 @@ impl Render for GameState {
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         canvas.text(
             format!(
-                "Wall time: {}\nSim time: {}\nSim ticks per real tick: {}\nRender ticks: {}\nGame ticks: {}\nSim ticks: {}",
+                "Wall time: {}\nUniverse time: {}\nUniverse ticks per game tick: {}\nRender ticks: {}\nGame ticks: {}\nUniverse ticks: {}",
                 state.wall_time,
-                state.sim_time,
-                state.sim_ticks_per_game_tick,
+                state.universe.stamp(),
+                state.universe_ticks_per_game_tick,
                 state.render_ticks,
                 state.game_ticks,
-                state.sim_ticks,
+                state.universe.ticks(),
             ),
             Vec2::ZERO,
             0.8,
@@ -604,24 +595,6 @@ impl GameState {
         Some(vehicle)
     }
 
-    pub fn lup_orbiter(&self, id: EntityId, stamp: Nanotime) -> Option<ObjectLookup> {
-        let orbiter = self.orbiters.get(&id)?;
-
-        let prop = orbiter.propagator_at(stamp)?;
-
-        let (_, frame_pv, _, _) = self.planets.lookup(prop.parent(), stamp)?;
-
-        let local_pv = prop.pv(stamp)?;
-        let pv = frame_pv + local_pv;
-
-        Some(ObjectLookup(id, ScenarioObject::Orbiter(orbiter), pv))
-    }
-
-    pub fn lup_planet(&self, id: EntityId, stamp: Nanotime) -> Option<ObjectLookup> {
-        let (body, pv, _, sys) = self.planets.lookup(id, stamp)?;
-        Some(ObjectLookup(id, ScenarioObject::Body(&sys.name, body), pv))
-    }
-
     pub fn planned_maneuvers(&self, after: Nanotime) -> Vec<(EntityId, Nanotime, Vec2)> {
         let mut dvs = vec![];
         for ctrl in &self.controllers {
@@ -676,9 +649,9 @@ impl GameState {
     }
 
     pub fn get_orbit(&self, id: EntityId) -> Option<GlobalOrbit> {
-        let lup = self.lup_orbiter(id, self.sim_time)?;
+        let lup = self.universe.lup_orbiter(id, self.universe.stamp())?;
         let orbiter = lup.orbiter()?;
-        let prop = orbiter.propagator_at(self.sim_time)?;
+        let prop = orbiter.propagator_at(self.universe.stamp())?;
         Some(prop.orbit)
     }
 
@@ -688,7 +661,7 @@ impl GameState {
         vehicle: Vehicle,
     ) -> Option<()> {
         let GlobalOrbit(parent, orbit) = global;
-        let pv_local = orbit.pv(self.sim_time).ok()?;
+        let pv_local = orbit.pv(self.universe.stamp()).ok()?;
         let perturb = PV::from_f64(
             randvec(
                 pv_local.pos_f32().length() * 0.005,
@@ -699,12 +672,14 @@ impl GameState {
                 pv_local.vel_f32().length() * 0.02,
             ),
         );
-        let orbit = SparseOrbit::from_pv(pv_local + perturb, orbit.body, self.sim_time)?;
+        let orbit = SparseOrbit::from_pv(pv_local + perturb, orbit.body, self.universe.stamp())?;
         let id = self.ids.next();
-        self.orbiters
-            .insert(id, Orbiter::new(GlobalOrbit(parent, orbit), self.sim_time));
+        self.universe.orbiters.insert(
+            id,
+            Orbiter::new(GlobalOrbit(parent, orbit), self.universe.stamp()),
+        );
         let name = vehicle.name().to_string();
-        self.vehicles.insert(id, vehicle);
+        self.universe.vehicles.insert(id, vehicle);
         self.notice(format!(
             "Spawned {} {} in orbit around {}",
             name, id, global.0
@@ -719,15 +694,15 @@ impl GameState {
     }
 
     pub fn delete_orbiter(&mut self, id: EntityId) -> Option<()> {
-        let lup = self.lup_orbiter(id, self.sim_time)?;
+        let lup = self.universe.lup_orbiter(id, self.universe.stamp())?;
         let _orbiter = lup.orbiter()?;
-        let parent = lup.parent(self.sim_time)?;
+        let parent = lup.parent(self.universe.stamp())?;
         let pv = lup.pv().pos_f32();
-        let plup = self.lup_planet(parent, self.sim_time)?;
+        let plup = self.universe.lup_planet(parent, self.universe.stamp())?;
         let pvp = plup.pv().pos_f32();
         let pvl = pv - pvp;
-        self.orbiters.remove(&id)?;
-        self.vehicles.remove(&id);
+        self.universe.orbiters.remove(&id)?;
+        self.universe.vehicles.remove(&id);
         self.notify(
             ObjectId::Planet(parent),
             NotificationType::OrbiterDeleted(id),
@@ -740,8 +715,8 @@ impl GameState {
         let results = crate::scenes::all_orbital_ids(self)
             .filter_map(|id| {
                 let lup = match id {
-                    ObjectId::Orbiter(id) => self.lup_orbiter(id, stamp),
-                    ObjectId::Planet(id) => self.lup_planet(id, stamp),
+                    ObjectId::Orbiter(id) => self.universe.lup_orbiter(id, stamp),
+                    ObjectId::Planet(id) => self.universe.lup_planet(id, stamp),
                 }?;
                 let p = lup.pv().pos_f32();
                 let d = pos.distance(p);
@@ -775,7 +750,7 @@ impl GameState {
     }
 
     pub fn impulsive_burn(&mut self, id: EntityId, stamp: Nanotime, dv: Vec2) -> Option<()> {
-        let obj = self.orbiters.get_mut(&id)?;
+        let obj = self.universe.orbiters.get_mut(&id)?;
         obj.try_impulsive_burn(stamp, dv)?;
         Some(())
     }
@@ -795,7 +770,7 @@ impl GameState {
             }
         };
 
-        let vehicle = match self.vehicles.get_mut(&id) {
+        let vehicle = match self.universe.vehicles.get_mut(&id) {
             Some(v) => v,
             None => {
                 self.notice(format!("Failed to find vehicle for id {}", id));
@@ -839,7 +814,7 @@ impl GameState {
 
     pub fn command(&mut self, id: EntityId, next: &GlobalOrbit) -> Option<()> {
         let tracks = self.orbital_context.selected.clone();
-        let vehicle = self.vehicles.get(&id)?;
+        let vehicle = self.universe.vehicles.get(&id)?;
         if !vehicle.is_controllable() {
             self.notify(
                 ObjectId::Orbiter(id),
@@ -855,7 +830,7 @@ impl GameState {
 
         self.controllers.iter_mut().for_each(|c| {
             if tracks.contains(&c.target()) {
-                let ret = c.set_destination(*next, self.sim_time);
+                let ret = c.set_destination(*next, self.universe.stamp());
                 if let Err(_e) = ret {
                     // dbg!(e);
                 }
@@ -883,7 +858,7 @@ impl GameState {
             parent: parent.into(),
             offset: offset.into().unwrap_or(Vec2::ZERO),
             jitter: Vec2::ZERO,
-            sim_time: self.sim_time,
+            sim_time: self.universe.stamp(),
             wall_time: self.wall_time,
             extra_time: Nanotime::secs_f32(rand(0.0, 1.0)),
             kind,
@@ -897,7 +872,7 @@ impl GameState {
     }
 
     pub fn light_source(&self) -> Vec2 {
-        let angle = 2.0 * PI * self.sim_time.to_secs() / Nanotime::days(365).to_secs();
+        let angle = 2.0 * PI * self.universe.stamp().to_secs() / Nanotime::days(365).to_secs();
         rotate(Vec2::X, angle + PI) * 1000000.0
     }
 
@@ -937,7 +912,7 @@ impl GameState {
             }
             OnClick::Exit => self.shutdown_with_prompt(),
             OnClick::SimSpeed(s) => {
-                self.sim_ticks_per_game_tick = s;
+                self.universe_ticks_per_game_tick = s;
             }
             OnClick::DeleteOrbit(i) => {
                 self.orbital_context.queued_orbits.remove(i);
@@ -1166,14 +1141,16 @@ impl GameState {
         self.handle_click_events();
     }
 
-    pub fn step_constant_rate(&mut self, delta_time: Nanotime) {
+    pub fn on_game_tick(&mut self) {
         self.game_ticks += 1;
-        self.sim_ticks += self.sim_ticks_per_game_tick as u64;
 
-        let old_sim_time = self.sim_time;
+        for _ in 0..self.universe_ticks_per_game_tick {
+            self.universe.on_sim_tick();
+        }
 
-        self.sim_time += PHYSICS_CONSTANT_DELTA_TIME * self.sim_ticks_per_game_tick as u64;
-        self.wall_time += delta_time;
+        let old_sim_time = self.universe.stamp();
+
+        self.wall_time += PHYSICS_CONSTANT_DELTA_TIME;
 
         || -> Option<()> {
             if let Some(p) = self.input.double_click() {
@@ -1186,25 +1163,25 @@ impl GameState {
                     return None;
                 }
                 let w = self.orbital_context.c2w(p);
-                let id = self.nearest(w, self.sim_time)?;
+                let id = self.nearest(w, self.universe.stamp())?;
                 self.orbital_context.following = Some(id);
                 self.notice(format!("Now following {:?}", id));
             }
             Some(())
         }();
 
-        let s = self.sim_time;
+        let s = self.universe.stamp();
         let d = self.physics_duration;
 
-        let planets = self.planets.clone();
+        let planets = self.universe.planets.clone();
 
         let mut burns = Vec::new();
 
         // handle discrete physics
-        for (id, vehicle) in self.vehicles.iter_mut() {
+        for (id, vehicle) in self.universe.vehicles.iter_mut() {
             vehicle.step(Vec2::ZERO, PHYSICS_CONSTANT_DELTA_TIME);
             if vehicle.pv.pos.length() > 1.0 {
-                simulate(&mut self.orbiters, &planets, s, d);
+                simulate(&mut self.universe.orbiters, &planets, s, d);
                 burns.push((*id, vehicle.pv.vel.as_vec2()));
                 vehicle.pv = PV::ZERO;
             }
@@ -1218,7 +1195,7 @@ impl GameState {
         while let Some((id, t, dv)) = man.first() {
             if s > *t {
                 let perturb = 0.0 * randvec(0.01, 0.05);
-                simulate(&mut self.orbiters, &planets, *t, d);
+                simulate(&mut self.universe.orbiters, &planets, *t, d);
                 self.impulsive_burn(*id, *t, dv + perturb);
                 self.notify(
                     ObjectId::Orbiter(*id),
@@ -1231,7 +1208,7 @@ impl GameState {
             man.remove(0);
         }
 
-        for (id, ri) in simulate(&mut self.orbiters, &planets, s, d) {
+        for (id, ri) in simulate(&mut self.universe.orbiters, &planets, s, d) {
             info!("{} {:?}", id, &ri);
             if let Some(pv) = ri.orbit.pv(ri.stamp).ok() {
                 let notif = match ri.reason {
@@ -1246,7 +1223,11 @@ impl GameState {
         }
 
         let mut track_list = self.orbital_context.selected.clone();
-        track_list.retain(|o| self.lup_orbiter(*o, self.sim_time).is_some());
+        track_list.retain(|o| {
+            self.universe
+                .lup_orbiter(*o, self.universe.stamp())
+                .is_some()
+        });
         self.orbital_context.selected = track_list;
 
         let ids: Vec<_> = crate::scenes::orbiter_ids(self).collect();
@@ -1261,7 +1242,7 @@ impl GameState {
                 return;
             }
 
-            let lup = self.lup_orbiter(c.target(), s);
+            let lup = self.universe.lup_orbiter(c.target(), s);
             let orbiter = lup.map(|lup| lup.orbiter()).flatten();
             let prop = orbiter.map(|orb| orb.propagator_at(s)).flatten();
 
@@ -1280,9 +1261,9 @@ impl GameState {
         }
 
         for id in ids {
-            if !self.vehicles.contains_key(&id) {
+            if !self.universe.vehicles.contains_key(&id) {
                 if let Some(v) = self.get_random_vehicle() {
-                    self.vehicles.insert(id, v);
+                    self.universe.vehicles.insert(id, v);
                 }
             }
         }
@@ -1323,11 +1304,11 @@ impl GameState {
                 if let Some(p) = self.orbital_context.follow_position(self) {
                     self.orbital_context.go_to(p);
                 }
-                self.orbital_context.step(&self.input, dt);
+                self.orbital_context.step(&self.input);
             }
             SceneType::Telescope => self.telescope_context.step(&self.input, dt),
             SceneType::DockingView => {
-                self.rpo_context.step(&self.input, dt);
+                self.rpo_context.step(&self.input);
             }
             SceneType::Editor => {
                 EditorContext::step(self, dt);
@@ -1340,13 +1321,8 @@ impl GameState {
     }
 }
 
-fn step_system_physics(
-    time: Res<Time>,
-    mut state: ResMut<GameState>,
-    mut images: ResMut<Assets<Image>>,
-) {
-    let dt = Nanotime::secs_f32(time.delta_secs());
-    state.step_constant_rate(dt);
+fn on_game_tick(time: Res<Time>, mut state: ResMut<GameState>, mut images: ResMut<Assets<Image>>) {
+    state.on_game_tick();
 
     if state.image_handles.is_empty() {
         state.load_sprites(&mut images)
@@ -1380,23 +1356,23 @@ fn process_interaction(
             state.orbital_context.queued_orbits.clear();
         }
         InteractionEvent::SimSlower => {
-            state.sim_ticks_per_game_tick = u32::clamp(
-                state.sim_ticks_per_game_tick - 1,
+            state.universe_ticks_per_game_tick = u32::clamp(
+                state.universe_ticks_per_game_tick - 1,
                 MIN_SIM_SPEED,
                 MAX_SIM_SPEED,
             );
             state.redraw();
         }
         InteractionEvent::SimFaster => {
-            state.sim_ticks_per_game_tick = u32::clamp(
-                state.sim_ticks_per_game_tick + 1,
+            state.universe_ticks_per_game_tick = u32::clamp(
+                state.universe_ticks_per_game_tick + 1,
                 MIN_SIM_SPEED,
                 MAX_SIM_SPEED,
             );
             state.redraw();
         }
         InteractionEvent::SetSim(s) => {
-            state.sim_ticks_per_game_tick = u32::clamp(*s, MIN_SIM_SPEED, MAX_SIM_SPEED);
+            state.universe_ticks_per_game_tick = u32::clamp(*s, MIN_SIM_SPEED, MAX_SIM_SPEED);
             state.redraw();
         }
         InteractionEvent::SimPause => {

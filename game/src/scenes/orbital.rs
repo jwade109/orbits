@@ -123,10 +123,6 @@ pub trait CameraProjection {
     fn scale(&self) -> f32;
 }
 
-pub trait Interactive {
-    fn step(&mut self, input: &InputState, dt: f32);
-}
-
 impl CameraProjection for OrbitalContext {
     fn origin(&self) -> Vec2 {
         self.center
@@ -189,8 +185,8 @@ impl OrbitalContext {
     pub fn follow_position(&self, state: &GameState) -> Option<Vec2> {
         let id = self.following?;
         let lup = match id {
-            ObjectId::Orbiter(id) => state.lup_orbiter(id, state.sim_time)?,
-            ObjectId::Planet(id) => state.lup_planet(id, state.sim_time)?,
+            ObjectId::Orbiter(id) => state.universe.lup_orbiter(id, state.universe.stamp())?,
+            ObjectId::Planet(id) => state.universe.lup_planet(id, state.universe.stamp())?,
         };
         Some(lup.pv().pos_f32())
     }
@@ -208,7 +204,7 @@ impl OrbitalContext {
             orbiter_ids(state)
                 .into_iter()
                 .filter_map(|id| {
-                    let pv = state.lup_orbiter(id, state.sim_time)?.pv();
+                    let pv = state.universe.lup_orbiter(id, state.universe.stamp())?.pv();
                     a.contains(pv.pos_f32()).then(|| id)
                 })
                 .collect()
@@ -231,7 +227,7 @@ impl OrbitalContext {
     }
 
     pub fn landing_site_position(state: &GameState, pid: EntityId, angle: f32) -> Option<Vec2> {
-        let lup = state.lup_planet(pid, state.sim_time)?;
+        let lup = state.universe.lup_planet(pid, state.universe.stamp())?;
         let body = lup.body()?;
         let center = lup.pv().pos_f32();
         Some(center + rotate(Vec2::X * body.radius, angle))
@@ -266,8 +262,8 @@ impl OrbitalContext {
             return None;
         }
 
-        let wrt_id = relevant_body(&state.planets, p1, state.sim_time)?;
-        let parent = state.lup_planet(wrt_id, state.sim_time)?;
+        let wrt_id = relevant_body(&state.universe.planets, p1, state.universe.stamp())?;
+        let parent = state.universe.lup_planet(wrt_id, state.universe.stamp())?;
 
         let r = p1.distance(parent.pv().pos_f32());
         let v = (parent.body()?.mu() / r).sqrt();
@@ -277,14 +273,20 @@ impl OrbitalContext {
 
     pub fn cursor_orbit(p1: Vec2, p2: Vec2, state: &GameState) -> Option<GlobalOrbit> {
         let pv = Self::cursor_pv(p1, p2, &state)?;
-        let parent_id: EntityId = relevant_body(&state.planets, pv.pos_f32(), state.sim_time)?;
-        let parent = state.lup_planet(parent_id, state.sim_time)?;
+        let parent_id: EntityId = relevant_body(
+            &state.universe.planets,
+            pv.pos_f32(),
+            state.universe.stamp(),
+        )?;
+        let parent = state
+            .universe
+            .lup_planet(parent_id, state.universe.stamp())?;
         let parent_pv = parent.pv();
         let pv = pv - PV::pos(parent_pv.pos_f32());
         let body = parent.body()?;
         Some(GlobalOrbit(
             parent_id,
-            SparseOrbit::from_pv(pv, body, state.sim_time)?,
+            SparseOrbit::from_pv(pv, body, state.universe.stamp())?,
         ))
     }
 
@@ -320,15 +322,77 @@ impl OrbitalContext {
             _ => None,
         }
     }
+
+    pub fn step(&mut self, input: &InputState) {
+        let dt = PHYSICS_CONSTANT_DELTA_TIME.to_secs();
+
+        if input.just_pressed(KeyCode::BracketLeft) {
+            self.rendezvous_scope_radius.target /= 1.5;
+        }
+        if input.just_pressed(KeyCode::BracketRight) {
+            self.rendezvous_scope_radius.target *= 1.5;
+        }
+
+        let speed = 16.0 * dt * 100.0;
+
+        if input.is_pressed(KeyCode::ShiftLeft) {
+            if input.is_scroll_down() {
+                println!("TODO change sim speed");
+            }
+            if input.is_scroll_up() {
+                println!("TODO change sim speed");
+            }
+        } else {
+            if input.is_scroll_down() {
+                self.target_scale /= 1.5;
+            }
+            if input.is_scroll_up() {
+                self.target_scale *= 1.5;
+            }
+        }
+
+        if input.is_pressed(KeyCode::Equal) {
+            self.target_scale *= 1.03;
+        }
+        if input.is_pressed(KeyCode::Minus) {
+            self.target_scale /= 1.03;
+        }
+        if input.is_pressed(KeyCode::KeyD) {
+            self.target_center.x += speed / self.scale;
+            self.following = None;
+        }
+        if input.is_pressed(KeyCode::KeyA) {
+            self.target_center.x -= speed / self.scale;
+            self.following = None;
+        }
+        if input.is_pressed(KeyCode::KeyW) {
+            self.target_center.y += speed / self.scale;
+            self.following = None;
+        }
+        if input.is_pressed(KeyCode::KeyS) {
+            self.target_center.y -= speed / self.scale;
+            self.following = None;
+        }
+        if input.is_pressed(KeyCode::KeyR) {
+            self.target_center = Vec2::ZERO;
+            self.target_scale = 1.0;
+            self.following = None;
+        }
+
+        self.scale += (self.target_scale - self.scale) * 0.1;
+        self.center += (self.target_center - self.center) * 0.1;
+        self.rendezvous_scope_radius.step();
+    }
 }
 
 pub fn orbiter_ids(state: &GameState) -> impl Iterator<Item = EntityId> + use<'_> {
-    state.orbiters.keys().into_iter().map(|id| *id)
+    state.universe.orbiters.keys().into_iter().map(|id| *id)
 }
 
 pub fn all_orbital_ids(state: &GameState) -> impl Iterator<Item = ObjectId> + use<'_> {
     orbiter_ids(state).map(|id| ObjectId::Orbiter(id)).chain(
         state
+            .universe
             .planets
             .planet_ids()
             .into_iter()
@@ -365,7 +429,7 @@ pub fn get_landing_site_labels(state: &GameState) -> Vec<TextLabel> {
 
 fn get_inventory_label(state: &GameState) -> Option<TextLabel> {
     let id = state.piloting()?;
-    let vehicle = state.vehicles.get(&id)?;
+    let vehicle = state.universe.vehicles.get(&id)?;
     let info = crate::scenes::craft_editor::vehicle_info(vehicle);
     Some(TextLabel::new(info, Vec2::ZERO, 0.7).with_anchor_left())
 }
@@ -382,8 +446,8 @@ pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> 
 
     for id in all_orbital_ids(state) {
         let lup = match id {
-            ObjectId::Orbiter(id) => state.lup_orbiter(id, state.sim_time),
-            ObjectId::Planet(id) => state.lup_planet(id, state.sim_time),
+            ObjectId::Orbiter(id) => state.universe.lup_orbiter(id, state.universe.stamp()),
+            ObjectId::Planet(id) => state.universe.lup_planet(id, state.universe.stamp()),
         };
         let lup = match lup {
             Some(lup) => lup,
@@ -399,7 +463,7 @@ pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> 
             (d < body.radius, name.to_uppercase(), p + Vec2::Y * 30.0)
         } else {
             let orb_id = id.orbiter().unwrap();
-            let vehicle = state.vehicles.get(&orb_id);
+            let vehicle = state.universe.vehicles.get(&orb_id);
             let code = vehicle.map(|v| v.name()).unwrap_or(&"UFO");
 
             // distance based on pixel space
@@ -422,7 +486,7 @@ pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> 
 
 fn get_indicators(state: &GameState) -> Option<Vec<TextLabel>> {
     let piloting = state.piloting()?;
-    let vehicle = state.vehicles.get(&piloting)?;
+    let vehicle = state.universe.vehicles.get(&piloting)?;
     let origin = Vec2::new(state.input.screen_bounds.span.x * 0.5 - 100.0, 0.0);
 
     Some(
@@ -449,8 +513,8 @@ fn get_indicators(state: &GameState) -> Option<Vec<TextLabel>> {
 }
 
 pub fn date_label(state: &GameState) -> TextLabel {
-    let date = state.sim_time.to_date();
-    let s = format!("{} (x{:0.1})", date, state.sim_ticks_per_game_tick);
+    let date = state.universe.stamp().to_date();
+    let s = format!("{} (x{:0.1})", date, state.universe_ticks_per_game_tick);
     let c = Vec2::Y * (20.0 - state.input.screen_bounds.span.y * 0.5);
     TextLabel::new(s, c, 1.0)
 }
@@ -465,7 +529,7 @@ impl Render for OrbitalContext {
 
         (|| {
             let id = state.piloting()?;
-            let pv = state.lup_orbiter(id, state.sim_time)?.pv();
+            let pv = state.universe.lup_orbiter(id, state.universe.stamp())?.pv();
             let text = format!("{:0.1} m/s", pv.vel.length() * 1000.0);
             let c = Vec2::Y * (100.0 - state.input.screen_bounds.span.y * 0.5);
             text_labels.push(TextLabel::new(text, c, 1.0));
@@ -526,11 +590,12 @@ impl Render for OrbitalContext {
 
         let ctx = &state.orbital_context;
         let mut planetary_sprites: Vec<_> = state
+            .universe
             .planets
             .planet_ids()
             .into_iter()
             .filter_map(|id| {
-                let lup = state.lup_planet(id, state.sim_time)?;
+                let lup = state.universe.lup_planet(id, state.universe.stamp())?;
                 let pos = lup.pv().pos_f32();
                 let (name, body) = lup.named_body()?;
                 Some(StaticSpriteDescriptor::new(
@@ -543,11 +608,15 @@ impl Render for OrbitalContext {
             })
             .collect();
 
-        let bodies: Vec<_> = state.planets.bodies(state.sim_time, None).collect();
+        let bodies: Vec<_> = state
+            .universe
+            .planets
+            .bodies(state.universe.stamp(), None)
+            .collect();
         let light_source = state.light_source();
         let orbiter_sprites: Vec<_> = orbiter_ids(state)
             .filter_map(|id| {
-                let lup = state.lup_orbiter(id, state.sim_time)?;
+                let lup = state.universe.lup_orbiter(id, state.universe.stamp())?;
                 let pos = lup.pv().pos_f32();
                 let is_lit = bodies
                     .iter()
@@ -619,11 +688,11 @@ impl Render for OrbitalContext {
             std::collections::HashMap::from([("Earth", BLUE), ("Luna", GRAY), ("Asteroid", BROWN)]);
 
         if let Some(lup) = relevant_body(
-            &state.planets,
+            &state.universe.planets,
             state.orbital_context.origin(),
-            state.sim_time,
+            state.universe.stamp(),
         )
-        .map(|id| state.lup_planet(id, state.sim_time))
+        .map(|id| state.universe.lup_planet(id, state.universe.stamp()))
         .flatten()
         {
             if let Some((s, _)) = lup.named_body() {
@@ -788,66 +857,5 @@ impl Render for OrbitalContext {
             );
 
         Some(Tree::new().with_layout(root, Vec2::ZERO))
-    }
-}
-
-impl Interactive for OrbitalContext {
-    fn step(&mut self, input: &InputState, dt: f32) {
-        if input.just_pressed(KeyCode::BracketLeft) {
-            self.rendezvous_scope_radius.target /= 1.5;
-        }
-        if input.just_pressed(KeyCode::BracketRight) {
-            self.rendezvous_scope_radius.target *= 1.5;
-        }
-
-        let speed = 16.0 * dt * 100.0;
-
-        if input.is_pressed(KeyCode::ShiftLeft) {
-            if input.is_scroll_down() {
-                println!("TODO change sim speed");
-            }
-            if input.is_scroll_up() {
-                println!("TODO change sim speed");
-            }
-        } else {
-            if input.is_scroll_down() {
-                self.target_scale /= 1.5;
-            }
-            if input.is_scroll_up() {
-                self.target_scale *= 1.5;
-            }
-        }
-
-        if input.is_pressed(KeyCode::Equal) {
-            self.target_scale *= 1.03;
-        }
-        if input.is_pressed(KeyCode::Minus) {
-            self.target_scale /= 1.03;
-        }
-        if input.is_pressed(KeyCode::KeyD) {
-            self.target_center.x += speed / self.scale;
-            self.following = None;
-        }
-        if input.is_pressed(KeyCode::KeyA) {
-            self.target_center.x -= speed / self.scale;
-            self.following = None;
-        }
-        if input.is_pressed(KeyCode::KeyW) {
-            self.target_center.y += speed / self.scale;
-            self.following = None;
-        }
-        if input.is_pressed(KeyCode::KeyS) {
-            self.target_center.y -= speed / self.scale;
-            self.following = None;
-        }
-        if input.is_pressed(KeyCode::KeyR) {
-            self.target_center = Vec2::ZERO;
-            self.target_scale = 1.0;
-            self.following = None;
-        }
-
-        self.scale += (self.target_scale - self.scale) * 0.1;
-        self.center += (self.target_center - self.center) * 0.1;
-        self.rendezvous_scope_radius.step();
     }
 }

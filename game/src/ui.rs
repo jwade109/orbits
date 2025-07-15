@@ -450,7 +450,12 @@ pub fn favorites_menu(state: &GameState) -> Node<OnClick> {
         .with_color(UI_BACKGROUND_COLOR)
         .with_children({
             state.favorites.iter().filter_map(|id| {
-                let name = state.vehicles.get(id).map(|v| v.name()).unwrap_or(&"?");
+                let name = state
+                    .universe
+                    .vehicles
+                    .get(id)
+                    .map(|v| v.name())
+                    .unwrap_or(&"?");
                 let s = format!("{} {}", name, id);
                 let b = Node::button(s, OnClick::Orbiter(*id), Size::Grow, BUTTON_HEIGHT);
                 let d = delete_wrapper(OnClick::RemoveFromFavorites(*id), b, BUTTON_HEIGHT);
@@ -530,7 +535,7 @@ pub fn sim_time_toolbar(state: &GameState) -> Node<OnClick> {
                 BUTTON_HEIGHT,
                 BUTTON_HEIGHT,
             )
-            .enabled(i != state.sim_ticks_per_game_tick)
+            .enabled(i != state.universe_ticks_per_game_tick)
         }))
 }
 
@@ -550,8 +555,11 @@ pub fn layout(state: &GameState) -> Tree<OnClick> {
 #[allow(unused)]
 fn current_inventory_layout(state: &GameState) -> Option<Node<OnClick>> {
     let id = state.orbital_context.following?.orbiter()?;
-    let orbiter = state.lup_orbiter(id, state.sim_time)?.orbiter()?;
-    let vehicle = state.vehicles.get(&id)?;
+    let orbiter = state
+        .universe
+        .lup_orbiter(id, state.universe.stamp())?
+        .orbiter()?;
+    let vehicle = state.universe.vehicles.get(&id)?;
 
     let buttons = Node::new(Size::Grow, Size::Fit).down().with_child({
         let s = format!("Vehicle {}", vehicle.name());

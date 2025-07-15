@@ -18,12 +18,6 @@ fn mass_after_maneuver(ve: f32, m0: f32, dv: f32) -> f32 {
     m0 / (dv / ve).exp()
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum PhysicsMode {
-    RealTime,
-    Limited,
-}
-
 #[derive(Default, Debug, Clone, Copy)]
 pub struct VehicleControl {
     pub throttle: f32,
@@ -582,10 +576,6 @@ impl Vehicle {
     }
 
     fn step_thrust_control(&mut self, control: VehicleControl) {
-        // if !self.is_controllable() {
-        //     return;
-        // }
-
         let com = self.center_of_mass();
 
         for t in self.thrusters_ref_mut() {
@@ -612,7 +602,14 @@ impl Vehicle {
         }
     }
 
-    fn step_physics(&mut self, gravity: Vec2, dt: Nanotime) {
+    pub fn on_sim_tick(&mut self) {
+        // TODO on_sim_tick
+    }
+
+    pub fn step(&mut self, gravity: Vec2, dt: Nanotime) {
+        let control = current_control_law(&self, gravity);
+        self.step_thrust_control(control);
+
         let a = self.current_linear_acceleration();
         let aa = self.current_angular_acceleration();
         let fcr = self.fuel_consumption_rate();
@@ -629,12 +626,6 @@ impl Vehicle {
 
         self.pv.vel += dv.as_dvec2();
         self.pv.pos += self.pv.vel * dt.to_secs_f64();
-    }
-
-    pub fn step(&mut self, gravity: Vec2, dt: Nanotime) {
-        let control = current_control_law(&self, gravity);
-        self.step_thrust_control(control);
-        self.step_physics(gravity, dt);
     }
 
     pub fn pointing(&self) -> Vec2 {

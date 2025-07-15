@@ -25,6 +25,10 @@ impl Orbiter {
         }
     }
 
+    pub fn on_sim_tick(&mut self) {
+        // TODO on_sim_tick
+    }
+
     pub fn try_impulsive_burn(&mut self, stamp: Nanotime, dv: Vec2) -> Option<()> {
         let orbit: GlobalOrbit = {
             let prop = self.propagator_at(stamp)?;

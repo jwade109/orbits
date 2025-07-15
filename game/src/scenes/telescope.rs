@@ -45,6 +45,8 @@ impl TelescopeContext {
     }
 
     pub fn step(&mut self, input: &InputState, dt: f32) {
+        let dt = PHYSICS_CONSTANT_DELTA_TIME.to_secs();
+
         if input.is_scroll_down() {
             self.target_angular_radius *= 1.5;
         }

@@ -5,7 +5,7 @@ use crate::game::GameState;
 use crate::input::InputState;
 use crate::onclick::OnClick;
 use crate::scenes::Render;
-use crate::scenes::{CameraProjection, Interactive, TextLabel};
+use crate::scenes::{CameraProjection, TextLabel};
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use layout::layout::Tree;
@@ -29,8 +29,14 @@ impl CameraProjection for RPOContext {
 fn relative_info_labels(state: &GameState) -> Option<TextLabel> {
     let target = state.targeting()?;
     let ownship = state.piloting()?;
-    let pvt = state.lup_orbiter(target, state.sim_time)?.pv();
-    let pvo = state.lup_orbiter(ownship, state.sim_time)?.pv();
+    let pvt = state
+        .universe
+        .lup_orbiter(target, state.universe.stamp())?
+        .pv();
+    let pvo = state
+        .universe
+        .lup_orbiter(ownship, state.universe.stamp())?
+        .pv();
     let relpos = pvo - pvt;
 
     let str = format!(
@@ -56,7 +62,10 @@ impl Render for RPOContext {
 
         draw_piloting_overlay(canvas, state);
 
-        let origin = state.lup_orbiter(target, state.sim_time)?.pv();
+        let origin = state
+            .universe
+            .lup_orbiter(target, state.universe.stamp())?
+            .pv();
 
         draw_circle(&mut canvas.gizmos, ctx.w2c(Vec2::ZERO), 7.0, TEAL);
 
@@ -81,8 +90,8 @@ impl Render for RPOContext {
             );
         }
 
-        for (id, _) in &state.orbiters {
-            let lup = match state.lup_orbiter(*id, state.sim_time) {
+        for (id, _) in &state.universe.orbiters {
+            let lup = match state.universe.lup_orbiter(*id, state.universe.stamp()) {
                 Some(lup) => lup,
                 None => continue,
             };
@@ -97,7 +106,7 @@ impl Render for RPOContext {
                 draw_circle(&mut canvas.gizmos, ctx.w2c(pv.pos_f32()), 7.0, RED);
             }
 
-            if let Some(v) = state.vehicles.get(&id) {
+            if let Some(v) = state.universe.vehicles.get(&id) {
                 draw_vehicle(canvas, v, ctx.w2c(pv.pos_f32()), ctx.scale(), v.angle());
             }
         }
@@ -107,7 +116,7 @@ impl Render for RPOContext {
             let po = state.get_orbit(piloting)?;
             let to = state.get_orbit(target)?;
 
-            let (_, _, mut relpos) = make_separation_graph(&po.1, &to.1, state.sim_time);
+            let (_, _, mut relpos) = make_separation_graph(&po.1, &to.1, state.universe.stamp());
             relpos.iter_mut().for_each(|p| *p = ctx.w2c(*p * 1000.0));
             canvas.gizmos.linestrip_2d(relpos, WHITE);
         }
@@ -177,10 +186,8 @@ impl RPOContext {
     pub fn following(&self) -> Option<usize> {
         self.following
     }
-}
 
-impl Interactive for RPOContext {
-    fn step(&mut self, input: &InputState, dt: f32) {
+    pub fn step(&mut self, input: &InputState) {
         self.camera.update(input);
     }
 }
