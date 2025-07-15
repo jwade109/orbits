@@ -2,6 +2,7 @@ use crate::input::InputState;
 use crate::scenes::CameraProjection;
 use bevy::input::keyboard::KeyCode;
 use starling::math::Vec2;
+use starling::prelude::PHYSICS_CONSTANT_DELTA_TIME;
 
 #[derive(Debug)]
 pub struct LinearCameraController {
@@ -37,8 +38,8 @@ impl LinearCameraController {
         2.0f32.powf(self.scale)
     }
 
-    pub fn update(&mut self, dt: f32, input: &InputState) {
-        let dt = 1.0 / 100.0;
+    pub fn update(&mut self, input: &InputState) {
+        let dt = PHYSICS_CONSTANT_DELTA_TIME.to_secs();
 
         const TRAVERSE_SPEED: f32 = 2500.0;
         const SCROLL_WHEEL_DELTA: f32 = 60.0;

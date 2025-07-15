@@ -80,10 +80,12 @@ impl StaticSpriteDescriptor {
 }
 
 pub trait Render {
+    #[deprecated = "use canvas"]
     fn text_labels(_state: &GameState) -> Option<Vec<TextLabel>> {
         None
     }
 
+    #[deprecated = "use canvas"]
     fn sprites(_state: &GameState) -> Option<Vec<StaticSpriteDescriptor>> {
         None
     }

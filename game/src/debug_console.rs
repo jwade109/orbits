@@ -112,6 +112,7 @@ impl DebugConsole {
                 _ => (),
             }
         }
+
         None
     }
 }

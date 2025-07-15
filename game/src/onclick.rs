@@ -20,7 +20,7 @@ pub enum OnClick {
     Group(EntityId),
     TogglePause,
     World,
-    SimSpeed(i32),
+    SimSpeed(u32),
     GlobalOrbit(usize),
     DeleteOrbit(usize),
     DeleteOrbiter,

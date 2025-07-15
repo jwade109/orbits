@@ -450,7 +450,7 @@ fn get_indicators(state: &GameState) -> Option<Vec<TextLabel>> {
 
 pub fn date_label(state: &GameState) -> TextLabel {
     let date = state.sim_time.to_date();
-    let s = format!("{} (x{:0.1})", date, 10.0f32.powi(state.sim_speed));
+    let s = format!("{} (x{:0.1})", date, state.sim_ticks_per_game_tick);
     let c = Vec2::Y * (20.0 - state.input.screen_bounds.span.y * 0.5);
     TextLabel::new(s, c, 1.0)
 }

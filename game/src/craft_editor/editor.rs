@@ -8,6 +8,7 @@ use crate::input::InputState;
 use crate::input::{FrameId, MouseButt};
 use crate::onclick::OnClick;
 use crate::scenes::{CameraProjection, Render, TextLabel};
+use crate::thrust_particles::ThrustParticleEffects;
 use crate::ui::*;
 use bevy::color::palettes::css::*;
 use bevy::input::keyboard::KeyCode;
@@ -42,6 +43,7 @@ pub struct EditorContext {
     selected_part: Option<usize>,
     occupied: HashMap<PartLayer, HashMap<IVec2, usize>>,
     vehicle: Vehicle,
+    particles: ThrustParticleEffects,
 
     // menus
     pub show_vehicle_info: bool,
@@ -60,7 +62,8 @@ impl EditorContext {
             focus_layer: None,
             selected_part: None,
             occupied: HashMap::new(),
-            vehicle: Vehicle::from_parts("".into(), Nanotime::zero(), Vec::new()),
+            vehicle: Vehicle::new(),
+            particles: ThrustParticleEffects::new(),
             show_vehicle_info: false,
             parts_menu_collapsed: false,
             vehicles_menu_collapsed: true,
@@ -441,6 +444,8 @@ impl Render for EditorContext {
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         let ctx = &state.editor_context;
         draw_cross(&mut canvas.gizmos, ctx.w2c(Vec2::ZERO), 10.0, GRAY);
+
+        ctx.particles.draw(canvas, ctx);
 
         match &ctx.cursor_state {
             CursorState::None | CursorState::Part(_) => {
@@ -864,7 +869,7 @@ impl EditorContext {
 
         let ctx = &mut state.editor_context;
 
-        ctx.camera.update(dt, &state.input);
+        ctx.camera.update(&state.input);
 
         ctx.vehicle.build_once();
 

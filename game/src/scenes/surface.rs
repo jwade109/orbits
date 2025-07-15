@@ -5,7 +5,8 @@ use crate::game::GameState;
 use crate::input::*;
 use crate::onclick::OnClick;
 use crate::scenes::{CameraProjection, Render};
-use bevy::color::{palettes::css::*, Alpha, Mix, Srgba};
+use crate::thrust_particles::*;
+use bevy::color::{palettes::css::*, Alpha, Srgba};
 use bevy::prelude::{Gizmos, KeyCode};
 use layout::layout::Tree;
 use starling::prelude::*;
@@ -14,63 +15,10 @@ use std::collections::HashSet;
 #[derive(Debug)]
 pub struct SurfaceContext {
     camera: LinearCameraController,
-
     vehicles: Vec<Vehicle>,
     selected: HashSet<usize>,
-
     surface: Surface,
-
-    particles: Vec<ThrustParticle>,
-
-    factory: Factory,
-}
-
-const MAX_PARTICLE_AGE_SECONDS: f32 = 3.0;
-
-const NOMINAL_DT: Nanotime = Nanotime::millis(20);
-
-#[derive(Debug)]
-struct ThrustParticle {
-    pv: PV,
-    birth: Nanotime,
-    stamp: Nanotime,
-    lifetime: Nanotime,
-    color: Srgba,
-    final_color: Srgba,
-    depth: f32,
-}
-
-impl ThrustParticle {
-    fn new(pv: PV, stamp: Nanotime, color: Srgba, final_color: Srgba) -> Self {
-        Self {
-            pv,
-            birth: stamp,
-            stamp,
-            color,
-            final_color,
-            lifetime: Nanotime::secs_f32(MAX_PARTICLE_AGE_SECONDS * rand(0.5, 1.0)),
-            depth: rand(0.0, 1000.0),
-        }
-    }
-
-    fn step_until(&mut self, sim_time: Nanotime) {
-        while self.stamp < sim_time {
-            self.pv.pos += self.pv.vel * NOMINAL_DT.to_secs_f64();
-            self.pv.vel *= 0.96;
-
-            if self.pv.pos.y < 0.0 && self.pv.vel.y < 0.0 {
-                let vx = self.pv.vel.x;
-                let mag = self.pv.vel.y.abs() * rand(0.6, 0.95) as f64;
-                let angle = rand(0.0, 0.25);
-                self.pv.vel = rotate_f64(DVec2::X * mag, angle as f64);
-                if rand(0.0, 1.0) < 0.5 {
-                    self.pv.vel.x *= -1.0;
-                }
-                self.pv.vel.x += vx;
-            }
-            self.stamp += NOMINAL_DT;
-        }
-    }
+    particles: ThrustParticleEffects,
 }
 
 impl Default for SurfaceContext {
@@ -80,8 +28,7 @@ impl Default for SurfaceContext {
             vehicles: Vec::new(),
             surface: Surface::random(),
             selected: HashSet::new(),
-            particles: Vec::new(),
-            factory: example_factory(),
+            particles: ThrustParticleEffects::new(),
         }
     }
 }
@@ -159,16 +106,14 @@ impl SurfaceContext {
         None
     }
 
-    pub fn step(state: &mut GameState, dt: f32) {
-        // if state.sim_speed > 3 {
-        //     state.sim_speed = 3;
-        // }
+    pub fn handle_input(&mut self, input: &InputState) {
+        self.camera.update(input);
+    }
+
+    pub fn step(state: &mut GameState) {
+        let dt = PHYSICS_CONSTANT_DELTA_TIME;
 
         let ctx = &mut state.surface_context;
-
-        if state.input.just_pressed(KeyCode::KeyF) {
-            ctx.factory = example_factory();
-        }
 
         (|| -> Option<()> {
             let (pos, double) = if let Some(p) = state.input.double_click() {
@@ -210,38 +155,19 @@ impl SurfaceContext {
             None
         })();
 
-        ctx.factory.do_stuff(state.sim_time);
-
-        ctx.camera.update(dt, &state.input);
-
         let gravity = ctx.gravity_vector();
 
-        for v in ctx.vehicles.iter_mut() {
-            let stamp = v.stamp();
+        ctx.particles.step();
 
-            v.step(state.sim_time, PhysicsMode::RealTime, gravity);
+        for v in ctx.vehicles.iter_mut() {
+            v.step(gravity, PHYSICS_CONSTANT_DELTA_TIME);
 
             for t in v.thrusters_ref() {
-                let mut stamp = stamp;
-
                 if !t.variant.is_thrusting() || t.variant.model().is_rcs {
                     continue;
                 }
 
-                while stamp < state.sim_time {
-                    let pos = rotate(t.center_meters(), v.angle());
-                    let ve = t.variant.model().exhaust_velocity / 20.0;
-                    let u = rotate(t.thrust_pointing(), v.angle());
-                    let vel = randvec(2.0, 10.0) + u * -ve * rand(0.6, 1.0);
-                    let pv = v.pv + PV::from_f64(pos, vel);
-                    let c1 = to_srbga(t.variant.model().primary_color);
-                    let c2 = to_srbga(t.variant.model().secondary_color);
-                    let color = c1.mix(&c2, rand(0.0, 1.0));
-                    let final_color = WHITE.mix(&DARK_GRAY, rand(0.3, 0.9)).with_alpha(0.4);
-                    ctx.particles
-                        .push(ThrustParticle::new(pv, stamp, color, final_color));
-                    stamp += NOMINAL_DT;
-                }
+                ctx.particles.add(v, &t);
             }
 
             if v.pv.pos.y < 0.0 {
@@ -252,13 +178,6 @@ impl SurfaceContext {
             if v.pv.pos.y == 0.0 {
                 v.pv.vel.x *= 0.98;
             }
-        }
-
-        ctx.particles
-            .retain(|p| state.sim_time - p.birth < p.lifetime);
-
-        for part in &mut ctx.particles {
-            part.step_until(state.sim_time);
         }
     }
 }
@@ -345,13 +264,6 @@ impl Render for SurfaceContext {
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         let ctx = &state.surface_context;
 
-        // draw_factory(
-        //     canvas,
-        //     &ctx.factory,
-        //     AABB::new(Vec2::ZERO, Vec2::new(700.0, 500.0)),
-        //     state.sim_time,
-        // );
-
         {
             let bl = ctx.w2c(Vec2::new(-1000.0, -500.0));
             let tr = ctx.w2c(Vec2::new(1000.0, 0.0));
@@ -368,28 +280,7 @@ impl Render for SurfaceContext {
             }
         };
 
-        for particle in &ctx.particles {
-            let p = ctx.w2c(particle.pv.pos_f32());
-            let age = (state.sim_time - particle.birth).to_secs();
-            let alpha = (1.0 - age / particle.lifetime.to_secs())
-                .powi(3)
-                .clamp(0.0, 1.0);
-            let color = particle
-                .color
-                .mix(&particle.final_color, age.clamp(0.0, 1.0).sqrt());
-            let size = 1.0 + age * 12.0;
-            let stretch = (8.0 * (1.0 - age * 2.0)).max(1.0);
-            let angle = particle.pv.vel.to_angle() as f32;
-            canvas
-                .sprite(
-                    p,
-                    angle,
-                    "cloud",
-                    particle.depth,
-                    Vec2::new(size * stretch, size) * ctx.scale(),
-                )
-                .set_color(color.with_alpha(color.alpha * alpha));
-        }
+        ctx.particles.draw(canvas, ctx);
 
         for v in &ctx.vehicles {
             let pos = ctx.w2c(v.pv.pos_f32());

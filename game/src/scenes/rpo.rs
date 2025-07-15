@@ -181,6 +181,6 @@ impl RPOContext {
 
 impl Interactive for RPOContext {
     fn step(&mut self, input: &InputState, dt: f32) {
-        self.camera.update(dt, input);
+        self.camera.update(input);
     }
 }

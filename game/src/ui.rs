@@ -26,7 +26,7 @@ pub enum InteractionEvent {
     SimSlower,
     SimPause,
     SimFaster,
-    SetSim(i32),
+    SetSim(u32),
     ClearSelection,
     ClearOrbitQueue,
     Escape,
@@ -530,7 +530,7 @@ pub fn sim_time_toolbar(state: &GameState) -> Node<OnClick> {
                 BUTTON_HEIGHT,
                 BUTTON_HEIGHT,
             )
-            .enabled(i != state.sim_speed)
+            .enabled(i != state.sim_ticks_per_game_tick)
         }))
 }
 
@@ -542,7 +542,6 @@ pub fn layout(state: &GameState) -> Tree<OnClick> {
         SceneType::Telescope => TelescopeContext::ui(state),
         SceneType::Orbital => OrbitalContext::ui(state),
         SceneType::Editor => EditorContext::ui(state),
-        SceneType::CommsPanel => CommsContext::ui(state),
         SceneType::Surface => SurfaceContext::ui(state),
     }
     .unwrap_or(Tree::new())

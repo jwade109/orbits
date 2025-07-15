@@ -1,6 +1,6 @@
 use crate::onclick::OnClick;
 use crate::ui::{BUTTON_HEIGHT, UI_BACKGROUND_COLOR};
-use layout::layout::{Node, Size, Tree};
+use layout::layout::{Node, Size};
 use starling::prelude::*;
 
 fn tank_ui(tank: &Tank) -> Vec<Node<OnClick>> {

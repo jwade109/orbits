@@ -156,18 +156,20 @@ pub fn current_control_law(vehicle: &Vehicle, gravity: Vec2) -> VehicleControl {
     }
 }
 
+pub const PHYSICS_CONSTANT_UPDATE_RATE: u32 = 40;
+
+pub const PHYSICS_CONSTANT_DELTA_TIME: Nanotime =
+    Nanotime::millis(1000 / PHYSICS_CONSTANT_UPDATE_RATE as i64);
+
 pub fn simulate_vehicle(mut vehicle: Vehicle, gravity: Vec2) -> Vec<(Vec2, f32)> {
-    let start = vehicle.stamp();
-    let end = start + Nanotime::secs(30);
-    let dt = Nanotime::millis(50);
-
+    let end = Nanotime::secs(30);
+    let dt = PHYSICS_CONSTANT_DELTA_TIME;
     let mut ret = vec![];
-
-    let mut t = start;
+    let mut t = Nanotime::zero();
 
     while t < end {
         t += dt;
-        vehicle.step(t, PhysicsMode::RealTime, gravity);
+        vehicle.step(gravity, dt);
         let pos = vehicle.pv.pos_f32();
         let angle = vehicle.angle();
         ret.push((pos, angle));
@@ -189,20 +191,37 @@ pub fn occupied_pixels(pos: IVec2, rot: Rotation, part: &Part) -> Vec<IVec2> {
 }
 
 #[derive(Debug, Clone)]
+pub struct RigidBody {
+    angle: f32,
+    angular_velocity: f32,
+}
+
+impl RigidBody {
+    fn step(&mut self, angular_accel: f32, dt: Nanotime) {
+        self.angular_velocity += angular_accel * dt.to_secs();
+        self.angular_velocity = self.angular_velocity.clamp(-2.0, 2.0);
+        self.angle += self.angular_velocity * dt.to_secs();
+        self.angle = wrap_0_2pi(self.angle);
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Vehicle {
     name: String,
     pub pv: PV,
     pub policy: VehicleControlPolicy,
-    stamp: Nanotime,
-    angle: f32,
-    angular_velocity: f32,
+    body: RigidBody,
     pipes: HashSet<IVec2>,
     parts: Vec<PartInstance>,
     conn_groups: Vec<ConnectivityGroup>,
 }
 
 impl Vehicle {
-    pub fn from_parts(name: String, stamp: Nanotime, parts: Vec<(IVec2, Rotation, Part)>) -> Self {
+    pub fn new() -> Self {
+        Self::from_parts("".into(), Vec::new())
+    }
+
+    pub fn from_parts(name: String, parts: Vec<(IVec2, Rotation, Part)>) -> Self {
         let instances: Vec<_> = parts
             .into_iter()
             .map(|(origin, rot, part)| PartInstance::new(origin, rot, part))
@@ -212,9 +231,10 @@ impl Vehicle {
             pv: PV::ZERO,
             policy: VehicleControlPolicy::Idle,
             name,
-            stamp,
-            angle: rand(0.0, 2.0 * PI),
-            angular_velocity: rand(-0.3, 0.3),
+            body: RigidBody {
+                angle: rand(0.0, 2.0 * PI),
+                angular_velocity: rand(-0.3, 0.3),
+            },
             parts: instances,
             pipes: HashSet::new(),
             conn_groups: Vec::new(),
@@ -341,10 +361,6 @@ impl Vehicle {
 
     pub fn pipes(&self) -> impl Iterator<Item = IVec2> + use<'_> {
         self.pipes.iter().cloned()
-    }
-
-    pub fn stamp(&self) -> Nanotime {
-        self.stamp
     }
 
     pub fn parts(&self) -> impl Iterator<Item = &PartInstance> + use<'_> {
@@ -559,19 +575,14 @@ impl Vehicle {
         self.thrusters_ref()
             .filter(|t| t.variant.is_thrusting())
             .for_each(|t| {
-                a += rotate(t.thrust_pointing(), self.angle) * t.variant.model().thrust / mass
+                a += rotate(t.thrust_pointing(), self.body.angle) * t.variant.model().thrust / mass
                     * t.variant.throttle();
             });
         a
     }
 
-    fn step_thrust_control(&mut self, stamp: Nanotime, control: VehicleControl) {
+    fn step_thrust_control(&mut self, control: VehicleControl) {
         // if !self.is_controllable() {
-        //     return;
-        // }
-
-        // if self.remaining_dv() == 0.0 {
-        //     self.set_zero_thrust(stamp);
         //     return;
         // }
 
@@ -593,20 +604,11 @@ impl Vehicle {
             } else {
                 0.0
             };
-            t.variant.set_thrusting(throttle, stamp);
+            t.variant.set_thrusting(throttle);
         }
 
         for t in &mut self.magnetorquers_mut() {
             t.set_torque(control.attitude * 100.0);
-        }
-    }
-
-    fn set_zero_thrust(&mut self, stamp: Nanotime) {
-        for t in self.thrusters_ref_mut() {
-            t.variant.set_thrusting(0.0, stamp);
-        }
-        for t in self.magnetorquers_mut() {
-            t.current_torque = 0.0;
         }
     }
 
@@ -615,19 +617,13 @@ impl Vehicle {
         let aa = self.current_angular_acceleration();
         let fcr = self.fuel_consumption_rate();
 
-        let n: f32 = self.tank_count() as f32;
+        let n = self.tank_count() as f32;
         for t in self.tanks_mut() {
             let delta_mass = Mass::from_kg_f32(fcr * dt.to_secs() / n);
             t.take(delta_mass);
         }
 
-        self.angular_velocity += aa * dt.to_secs();
-
-        self.angular_velocity = self.angular_velocity.clamp(-2.0, 2.0);
-
-        self.angle += self.angular_velocity * dt.to_secs();
-        self.angle = wrap_0_2pi(self.angle);
-        self.stamp += dt;
+        self.body.step(aa, dt);
 
         let dv = (gravity + a) * dt.to_secs();
 
@@ -635,35 +631,22 @@ impl Vehicle {
         self.pv.pos += self.pv.vel * dt.to_secs_f64();
     }
 
-    pub fn step(&mut self, stamp: Nanotime, mode: PhysicsMode, gravity: Vec2) {
-        // if self.remaining_dv() == 0.0 {
-        //     self.stamp = stamp;
-        // }
-
-        const NOMINAL_DT: Nanotime = Nanotime::millis(10);
-
-        while self.stamp < stamp {
-            let control = current_control_law(&self, gravity);
-
-            match mode {
-                PhysicsMode::Limited => self.set_zero_thrust(self.stamp),
-                PhysicsMode::RealTime => self.step_thrust_control(self.stamp, control),
-            };
-
-            self.step_physics(gravity, NOMINAL_DT.min(stamp - self.stamp));
-        }
+    pub fn step(&mut self, gravity: Vec2, dt: Nanotime) {
+        let control = current_control_law(&self, gravity);
+        self.step_thrust_control(control);
+        self.step_physics(gravity, dt);
     }
 
     pub fn pointing(&self) -> Vec2 {
-        rotate(Vec2::X, self.angle)
+        rotate(Vec2::X, self.body.angle)
     }
 
     pub fn angular_velocity(&self) -> f32 {
-        self.angular_velocity
+        self.body.angular_velocity
     }
 
     pub fn angle(&self) -> f32 {
-        self.angle
+        self.body.angle
     }
 
     pub fn kinematic_apoapis(&self, gravity: f64) -> f64 {

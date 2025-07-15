@@ -53,7 +53,7 @@ impl Nanotime {
         Nanotime(ms * Nanotime::PER_MILLI)
     }
 
-    pub fn secs_f32(s: f32) -> Self {
+    pub const fn secs_f32(s: f32) -> Self {
         Nanotime((s * Nanotime::PER_SEC as f32) as i64)
     }
 
@@ -178,6 +178,20 @@ impl Mul<i64> for Nanotime {
     type Output = Self;
     fn mul(self, rhs: i64) -> Self {
         Self(self.0 * rhs)
+    }
+}
+
+impl Mul<i32> for Nanotime {
+    type Output = Self;
+    fn mul(self, rhs: i32) -> Self {
+        Self(self.0 * rhs as i64)
+    }
+}
+
+impl Mul<u64> for Nanotime {
+    type Output = Self;
+    fn mul(self, rhs: u64) -> Self::Output {
+        Self(self.0 * rhs as i64)
     }
 }
 

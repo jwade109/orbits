@@ -1,6 +1,5 @@
 use crate::factory::Mass;
 use crate::math::*;
-use crate::nanotime::Nanotime;
 use serde::{Deserialize, Serialize};
 
 /// Definition of a thruster model.
@@ -22,16 +21,12 @@ pub struct ThrusterModel {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 struct ThrusterState {
-    stamp: Nanotime,
     throttle: f32,
 }
 
 impl Default for ThrusterState {
     fn default() -> Self {
-        Self {
-            stamp: Nanotime::zero(),
-            throttle: 0.0,
-        }
+        Self { throttle: 0.0 }
     }
 }
 
@@ -47,7 +42,7 @@ pub struct Thruster {
 // TODO make this a per-thruster setting.
 // deep throttling is not a given for all rocket motors
 // and is in fact rather rare. KSP has spoiled us.
-const THRUSTER_DEAD_BAND: f32 = 0.0; // minimum 0 percent throttle
+const _THRUSTER_DEAD_BAND: f32 = 0.0; // minimum 0 percent throttle
 
 impl Thruster {
     pub fn part_name(&self) -> &str {
@@ -87,23 +82,27 @@ impl Thruster {
         }
     }
 
-    pub fn set_thrusting(&mut self, throttle: f32, stamp: Nanotime) {
-        let throttle = if throttle > THRUSTER_DEAD_BAND {
-            throttle
-        } else {
-            0.0
-        };
+    pub fn set_thrusting(&mut self, throttle: f32) {
+        // TODO!
 
-        let dt = stamp - self.instance_data.stamp;
-        self.instance_data.stamp = stamp;
-        let dthrottle = (self.model.throttle_rate * dt.to_secs()).abs();
-        let diff = (throttle - self.instance_data.throttle).abs();
-        if self.instance_data.throttle < throttle {
-            self.instance_data.throttle += dthrottle.min(diff);
-        } else if self.instance_data.throttle > throttle {
-            self.instance_data.throttle -= dthrottle.min(diff);
-        }
-        self.instance_data.throttle = self.instance_data.throttle.clamp(0.0, 1.0);
+        self.instance_data.throttle = throttle.clamp(0.0, 1.0);
+
+        // let throttle = if throttle > THRUSTER_DEAD_BAND {
+        //     throttle
+        // } else {
+        //     0.0
+        // };
+
+        // let dt = stamp - self.instance_data.stamp;
+        // self.instance_data.stamp = stamp;
+        // let dthrottle = (self.model.throttle_rate * dt.to_secs()).abs();
+        // let diff = (throttle - self.instance_data.throttle).abs();
+        // if self.instance_data.throttle < throttle {
+        //     self.instance_data.throttle += dthrottle.min(diff);
+        // } else if self.instance_data.throttle > throttle {
+        //     self.instance_data.throttle -= dthrottle.min(diff);
+        // }
+        // self.instance_data.throttle = self.instance_data.throttle.clamp(0.0, 1.0);
     }
 
     pub fn is_thrusting(&self) -> bool {

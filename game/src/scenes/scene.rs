@@ -5,7 +5,6 @@ pub enum SceneType {
     Telescope,
     Editor,
     MainMenu,
-    CommsPanel,
     Surface,
 }
 
@@ -48,13 +47,6 @@ impl Scene {
         Scene {
             name: "Main Menu".into(),
             scene_type: SceneType::MainMenu,
-        }
-    }
-
-    pub fn comms() -> Self {
-        Scene {
-            name: "Comms".into(),
-            scene_type: SceneType::CommsPanel,
         }
     }
 

@@ -1,6 +1,8 @@
 pub mod args;
+pub mod camera_controller;
 pub mod canvas;
 pub mod commands;
+pub mod craft_editor;
 pub mod debug_console;
 pub mod drawing;
 pub mod game;
@@ -11,7 +13,7 @@ pub mod keybindings;
 pub mod notifications;
 pub mod onclick;
 pub mod scenes;
+pub mod sounds;
 pub mod sprites;
+pub mod thrust_particles;
 pub mod ui;
-pub mod craft_editor;
-pub mod camera_controller;

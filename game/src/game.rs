@@ -6,9 +6,9 @@ use crate::input::{FrameId, InputState, MouseButt};
 use crate::notifications::*;
 use crate::onclick::OnClick;
 use crate::scenes::{
-    CameraProjection, CommsContext, CursorMode, EditorContext, Interactive, MainMenuContext,
-    OrbitalContext, RPOContext, Render, Scene, SceneType, StaticSpriteDescriptor, SurfaceContext,
-    TelescopeContext, TextLabel,
+    CameraProjection, CursorMode, EditorContext, Interactive, MainMenuContext, OrbitalContext,
+    RPOContext, Render, Scene, SceneType, StaticSpriteDescriptor, SurfaceContext, TelescopeContext,
+    TextLabel,
 };
 use crate::ui::InteractionEvent;
 use bevy::color::palettes::css::*;
@@ -32,20 +32,30 @@ impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, init_system);
 
+        app.insert_resource(Time::<Fixed>::from_hz(PHYSICS_CONSTANT_UPDATE_RATE as f64));
+
         app.add_systems(
             Update,
             (
                 crate::keybindings::keyboard_input,
-                handle_interactions,
                 crate::input::update_input_state,
-                // physics
-                step_system,
-                // rendering
-                crate::ui::do_text_labels,
+                step_system_native_framerate,
                 crate::drawing::draw_game_state,
                 crate::sprites::update_static_sprites,
                 crate::sprites::update_background_color,
-                sound_system,
+            )
+                .chain(),
+        );
+
+        app.add_systems(
+            FixedUpdate,
+            (
+                handle_interactions,
+                // physics
+                step_system_physics,
+                // rendering
+                crate::ui::do_text_labels,
+                crate::sounds::sound_system,
             )
                 .chain(),
         );
@@ -54,20 +64,6 @@ impl Plugin for GamePlugin {
 
 #[derive(Component, Debug)]
 pub struct BackgroundCamera;
-
-fn sound_system(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut state: ResMut<GameState>,
-) {
-    if state.button_was_pressed {
-        match std::fs::canonicalize(state.args.audio_dir().join("button-up.ogg")) {
-            Ok(path) => _ = commands.spawn((AudioPlayer::new(asset_server.load(path)),)),
-            Err(e) => _ = error!("Failed to play sound: {}", e),
-        }
-        state.button_was_pressed = false;
-    }
-}
 
 fn init_system(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     let args = match ProgramContext::try_parse() {
@@ -114,6 +110,10 @@ fn init_system(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 
 #[derive(Resource)]
 pub struct GameState {
+    pub game_ticks: u64,
+    pub render_ticks: u64,
+    pub sim_ticks: u64,
+
     /// Contains all states related to window size, mouse clicks and positions,
     /// and button presses and holds.
     pub input: InputState,
@@ -136,8 +136,6 @@ pub struct GameState {
 
     pub editor_context: EditorContext,
 
-    pub coms_context: CommsContext,
-
     pub surface_context: SurfaceContext,
 
     /// Simulation clock
@@ -147,7 +145,7 @@ pub struct GameState {
     pub wall_time: Nanotime,
 
     pub physics_duration: Nanotime,
-    pub sim_speed: i32,
+    pub sim_ticks_per_game_tick: u32,
     pub paused: bool,
 
     pub orbiters: HashMap<EntityId, Orbiter>,
@@ -228,6 +226,9 @@ impl GameState {
         let (planets, ids) = default_example();
 
         let mut g = GameState {
+            render_ticks: 0,
+            game_ticks: 0,
+            sim_ticks: 0,
             input: InputState::default(),
             args: args.clone(),
             console: DebugConsole::new(),
@@ -235,12 +236,11 @@ impl GameState {
             telescope_context: TelescopeContext::new(),
             rpo_context: RPOContext::new(),
             editor_context: EditorContext::new(),
-            coms_context: CommsContext::default(),
             surface_context: SurfaceContext::default(),
             sim_time: Nanotime::zero(),
             wall_time: Nanotime::zero(),
             physics_duration: Nanotime::days(7),
-            sim_speed: 0,
+            sim_ticks_per_game_tick: 1,
             paused: false,
             orbiters: HashMap::new(),
             planets: planets.clone(),
@@ -257,7 +257,6 @@ impl GameState {
                 Scene::orbital(),
                 Scene::telescope(),
                 Scene::editor(),
-                Scene::comms(),
                 Scene::surface(),
             ],
             current_scene_idx: 3,
@@ -437,7 +436,6 @@ impl Render for GameState {
             SceneType::Telescope => TelescopeContext::text_labels(state),
             SceneType::Editor => EditorContext::text_labels(state),
             SceneType::DockingView => RPOContext::text_labels(state),
-            SceneType::CommsPanel => CommsContext::text_labels(state),
             SceneType::Surface => SurfaceContext::text_labels(state),
             SceneType::MainMenu => MainMenuContext::text_labels(state),
         }
@@ -453,7 +451,6 @@ impl Render for GameState {
             SceneType::Editor => EditorContext::sprites(state),
             SceneType::DockingView => RPOContext::sprites(state),
             SceneType::MainMenu | SceneType::Orbital => OrbitalContext::sprites(state),
-            SceneType::CommsPanel => CommsContext::sprites(state),
             SceneType::Surface => SurfaceContext::sprites(state),
             SceneType::Telescope => TelescopeContext::sprites(state),
         }
@@ -471,27 +468,38 @@ impl Render for GameState {
             SceneType::Telescope => TelescopeContext::background_color(state),
             SceneType::DockingView => RPOContext::background_color(state),
             SceneType::MainMenu => BLACK,
-            SceneType::CommsPanel => CommsContext::background_color(state),
             SceneType::Surface => SurfaceContext::background_color(state),
         }
     }
 
     fn ui(state: &GameState) -> Option<Tree<OnClick>> {
         match state.current_scene().kind() {
-            SceneType::CommsPanel => CommsContext::ui(state),
             SceneType::Surface => SurfaceContext::ui(state),
             _ => None,
         }
     }
 
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
+        canvas.text(
+            format!(
+                "Wall time: {}\nSim time: {}\nSim ticks per real tick: {}\nRender ticks: {}\nGame ticks: {}\nSim ticks: {}",
+                state.wall_time,
+                state.sim_time,
+                state.sim_ticks_per_game_tick,
+                state.render_ticks,
+                state.game_ticks,
+                state.sim_ticks,
+            ),
+            Vec2::ZERO,
+            0.8,
+        );
+
         match state.current_scene().kind() {
             SceneType::Orbital => OrbitalContext::draw(canvas, state),
             SceneType::Editor => EditorContext::draw(canvas, state),
             SceneType::Telescope => TelescopeContext::draw(canvas, state),
             SceneType::DockingView => RPOContext::draw(canvas, state),
             SceneType::MainMenu => MainMenuContext::draw(canvas, state),
-            SceneType::CommsPanel => CommsContext::draw(canvas, state),
             SceneType::Surface => SurfaceContext::draw(canvas, state),
         }
     }
@@ -591,7 +599,7 @@ impl GameState {
             parts.push((part.pos, part.rot, proto.clone()));
         }
 
-        let vehicle = Vehicle::from_parts(name.to_string(), self.sim_time, parts);
+        let vehicle = Vehicle::from_parts(name.to_string(), parts);
 
         Some(vehicle)
     }
@@ -929,7 +937,7 @@ impl GameState {
             }
             OnClick::Exit => self.shutdown_with_prompt(),
             OnClick::SimSpeed(s) => {
-                self.sim_speed = s;
+                self.sim_ticks_per_game_tick = s;
             }
             OnClick::DeleteOrbit(i) => {
                 self.orbital_context.queued_orbits.remove(i);
@@ -1034,14 +1042,6 @@ impl GameState {
         Some(())
     }
 
-    pub fn physics_mode(&self) -> PhysicsMode {
-        if self.sim_speed <= 1 {
-            PhysicsMode::RealTime
-        } else {
-            PhysicsMode::Limited
-        }
-    }
-
     pub fn get_random_vehicle(&self) -> Option<Vehicle> {
         let vehicles = crate::scenes::get_list_of_vehicles(self).unwrap_or(vec![]);
 
@@ -1060,7 +1060,7 @@ impl GameState {
             parts.push((part.pos, part.rot, proto.clone()));
         }
 
-        let vehicle = Vehicle::from_parts(name.to_string(), self.sim_time, parts);
+        let vehicle = Vehicle::from_parts(name.to_string(), parts);
 
         Some(vehicle)
     }
@@ -1146,30 +1146,34 @@ impl GameState {
         }
     }
 
-    pub fn step(&mut self, delta_time: Nanotime) {
-        if !self.input.keyboard_events.is_empty() {
-            self.redraw();
-        }
-
-        let dt = delta_time.to_secs();
-        let old_sim_time = self.sim_time;
-        self.wall_time += delta_time;
-        if !self.paused {
-            let sp = 10.0f32.powi(self.sim_speed);
-            self.sim_time += delta_time * sp;
-        }
+    pub fn step_native_framerate(&mut self) {
+        self.render_ticks += 1;
 
         if let Some((decl, args)) = self.console.process_input(&self.input) {
             decl.execute(self, args);
         }
 
-        let mode = self.physics_mode();
+        if !self.input.keyboard_events.is_empty() {
+            self.redraw();
+        }
 
         let current_ui = self.current_hover_ui().cloned();
         if current_ui != self.last_hover_ui {
             self.redraw();
             self.last_hover_ui = current_ui;
         }
+
+        self.handle_click_events();
+    }
+
+    pub fn step_constant_rate(&mut self, delta_time: Nanotime) {
+        self.game_ticks += 1;
+        self.sim_ticks += self.sim_ticks_per_game_tick as u64;
+
+        let old_sim_time = self.sim_time;
+
+        self.sim_time += PHYSICS_CONSTANT_DELTA_TIME * self.sim_ticks_per_game_tick as u64;
+        self.wall_time += delta_time;
 
         || -> Option<()> {
             if let Some(p) = self.input.double_click() {
@@ -1198,7 +1202,7 @@ impl GameState {
 
         // handle discrete physics
         for (id, vehicle) in self.vehicles.iter_mut() {
-            vehicle.step(s, mode, Vec2::ZERO);
+            vehicle.step(Vec2::ZERO, PHYSICS_CONSTANT_DELTA_TIME);
             if vehicle.pv.pos.length() > 1.0 {
                 simulate(&mut self.orbiters, &planets, s, d);
                 burns.push((*id, vehicle.pv.vel.as_vec2()));
@@ -1209,8 +1213,6 @@ impl GameState {
         for (id, dv) in burns {
             self.impulsive_burn(id, s, dv / 1000.0);
         }
-
-        self.handle_click_events();
 
         let mut man = self.planned_maneuvers(old_sim_time);
         while let Some((id, t, dv)) = man.first() {
@@ -1313,6 +1315,8 @@ impl GameState {
         self.notifications
             .retain(|n| n.wall_time + n.duration() > self.wall_time);
 
+        let dt = PHYSICS_CONSTANT_DELTA_TIME.to_secs();
+
         match self.current_scene().kind() {
             SceneType::Orbital => {
                 self.orbital_context.highlighted = OrbitalContext::highlighted(self);
@@ -1329,24 +1333,32 @@ impl GameState {
                 EditorContext::step(self, dt);
             }
             SceneType::Surface => {
-                SurfaceContext::step(self, dt);
+                SurfaceContext::step(self);
             }
             _ => (),
         }
     }
 }
 
-fn step_system(time: Res<Time>, mut state: ResMut<GameState>, mut images: ResMut<Assets<Image>>) {
+fn step_system_physics(
+    time: Res<Time>,
+    mut state: ResMut<GameState>,
+    mut images: ResMut<Assets<Image>>,
+) {
     let dt = Nanotime::secs_f32(time.delta_secs());
-    state.step(dt);
+    state.step_constant_rate(dt);
 
     if state.image_handles.is_empty() {
         state.load_sprites(&mut images)
     }
 }
 
-pub const MIN_SIM_SPEED: i32 = -1;
-pub const MAX_SIM_SPEED: i32 = 6;
+fn step_system_native_framerate(mut state: ResMut<GameState>) {
+    state.step_native_framerate();
+}
+
+pub const MIN_SIM_SPEED: u32 = 0;
+pub const MAX_SIM_SPEED: u32 = 7;
 
 fn process_interaction(
     inter: &InteractionEvent,
@@ -1368,15 +1380,23 @@ fn process_interaction(
             state.orbital_context.queued_orbits.clear();
         }
         InteractionEvent::SimSlower => {
-            state.sim_speed = i32::clamp(state.sim_speed - 1, MIN_SIM_SPEED, MAX_SIM_SPEED);
+            state.sim_ticks_per_game_tick = u32::clamp(
+                state.sim_ticks_per_game_tick - 1,
+                MIN_SIM_SPEED,
+                MAX_SIM_SPEED,
+            );
             state.redraw();
         }
         InteractionEvent::SimFaster => {
-            state.sim_speed = i32::clamp(state.sim_speed + 1, MIN_SIM_SPEED, MAX_SIM_SPEED);
+            state.sim_ticks_per_game_tick = u32::clamp(
+                state.sim_ticks_per_game_tick + 1,
+                MIN_SIM_SPEED,
+                MAX_SIM_SPEED,
+            );
             state.redraw();
         }
         InteractionEvent::SetSim(s) => {
-            state.sim_speed = i32::clamp(*s, MIN_SIM_SPEED, MAX_SIM_SPEED);
+            state.sim_ticks_per_game_tick = u32::clamp(*s, MIN_SIM_SPEED, MAX_SIM_SPEED);
             state.redraw();
         }
         InteractionEvent::SimPause => {
