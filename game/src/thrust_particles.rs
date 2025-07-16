@@ -68,18 +68,24 @@ impl ThrustParticleEffects {
         self.particles.retain(|p| p.age < p.lifetime);
     }
 
-    pub fn add(&mut self, v: &Vehicle, t: &InstanceRef<&Thruster>) {
-        let pos = rotate(t.center_meters(), v.angle());
-        let ve = t.variant.model().exhaust_velocity / 20.0;
-        let u = rotate(t.thrust_pointing(), v.angle());
-        let vel = randvec(2.0, 10.0) + u * -ve * rand(0.6, 1.0);
-        let pv = v.pv + PV::from_f64(pos, vel);
-        let c1 = to_srbga(t.variant.model().primary_color);
-        let c2 = to_srbga(t.variant.model().secondary_color);
-        let initial_color = c1.mix(&c2, rand(0.0, 1.0));
-        let final_color = WHITE.mix(&DARK_GRAY, rand(0.3, 0.9)).with_alpha(0.4);
-        self.particles
-            .push(ThrustParticle::new(pv, initial_color, final_color));
+    pub fn add(&mut self, v: &Vehicle, part: &InstantiatedPart) {
+        if let Some((t, d)) = part.as_thruster() {
+            if rand(0.0, 1.0) > d.throttle() {
+                return;
+            }
+
+            let pos = rotate(part.center_meters(), v.angle());
+            let ve = t.exhaust_velocity / 20.0;
+            let u = rotate(rotate(Vec2::X, part.rotation().to_angle()), v.angle());
+            let vel = randvec(2.0, 10.0) + u * -ve * rand(0.6, 1.0);
+            let pv = v.pv + PV::from_f64(pos, vel);
+            let c1 = to_srbga(t.primary_color);
+            let c2 = to_srbga(t.secondary_color);
+            let initial_color = c1.mix(&c2, rand(0.0, 1.0));
+            let final_color = WHITE.mix(&DARK_GRAY, rand(0.3, 0.9)).with_alpha(0.4);
+            self.particles
+                .push(ThrustParticle::new(pv, initial_color, final_color));
+        }
     }
 
     pub fn draw(&self, canvas: &mut Canvas, ctx: &impl CameraProjection) {

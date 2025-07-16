@@ -491,17 +491,12 @@ fn get_indicators(state: &GameState) -> Option<Vec<TextLabel>> {
 
     Some(
         vehicle
-            .thrusters_ref()
+            .thrusters()
             .enumerate()
-            .map(|(i, t)| {
-                let text = format!(
-                    "{} / {} {:0.1}",
-                    i,
-                    t.variant.model_name(),
-                    t.variant.throttle() * 100.0
-                );
+            .map(|(i, (t, d))| {
+                let text = format!("{} / {} {:0.1}", i, t.model_name(), t.throttle(d) * 100.0);
                 let pos = origin + Vec2::Y * 26.0 * i as f32;
-                let color = if t.variant.is_thrusting() {
+                let color = if t.is_thrusting(d) {
                     RED.with_alpha(0.8)
                 } else {
                     WHITE.with_alpha(0.6)

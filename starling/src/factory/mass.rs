@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::iter::Sum;
-use std::ops::{Add, AddAssign, SubAssign};
+use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Mass(u64);
@@ -69,6 +69,13 @@ impl Sum for Mass {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         let sum = iter.map(|e| e.to_grams()).sum();
         Self(sum)
+    }
+}
+
+impl Sub for Mass {
+    type Output = Mass;
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self(self.0 - rhs.0)
     }
 }
 

@@ -4,12 +4,12 @@ use starling::prelude::*;
 pub enum CursorState {
     #[default]
     None,
-    Part(Part),
+    Part(PartPrototype),
     Pipes,
 }
 
 impl CursorState {
-    pub fn current_part(&self) -> Option<Part> {
+    pub fn current_part(&self) -> Option<PartPrototype> {
         match self {
             Self::Part(proto) => Some(proto.clone()),
             _ => None,

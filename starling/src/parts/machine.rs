@@ -45,7 +45,7 @@ impl Machine {
         self.dims
     }
 
-    pub fn current_mass(&self) -> Mass {
+    pub fn mass(&self) -> Mass {
         self.mass
     }
 }

@@ -1,7 +1,9 @@
+use crate::math::randint;
+use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, Sequence)]
 pub enum Item {
     Iron,
     Copper,
@@ -32,6 +34,64 @@ pub enum Item {
 impl Item {
     pub fn to_sprite_name(&self) -> String {
         format!("item-{:?}", self).to_lowercase()
+    }
+
+    pub fn all() -> impl Iterator<Item = Self> {
+        enum_iterator::all::<Self>()
+    }
+
+    pub fn random() -> Self {
+        let variants: Vec<_> = Self::all().collect();
+        let n = randint(0, variants.len() as i32);
+        variants[n as usize]
+    }
+
+    pub fn is_solid_cargo(&self) -> bool {
+        match self {
+            Item::Iron => true,
+            Item::Copper => true,
+            Item::Magnesium => true,
+            Item::Silicon => true,
+            Item::Titanium => true,
+            Item::Ice => true,
+            Item::Bread => true,
+            Item::Water => false,
+            Item::Methane => false,
+            Item::H2 => false,
+            Item::CO2 => false,
+            Item::O2 => false,
+            Item::People => false,
+            Item::Calzones => true,
+            Item::Geodes => true,
+            Item::Wheat => true,
+            Item::Corn => true,
+            Item::Milk => false,
+            Item::Power => false,
+        }
+    }
+
+    pub fn is_fluid(&self) -> bool {
+        match self {
+            Item::Iron => false,
+            Item::Copper => false,
+            Item::Magnesium => false,
+            Item::Silicon => false,
+            Item::Titanium => false,
+            Item::Ice => false,
+            Item::Bread => false,
+            Item::Water => false,
+            Item::Methane => true,
+            Item::H2 => true,
+            Item::CO2 => true,
+            Item::O2 => true,
+            Item::People => false,
+            Item::Calzones => false,
+            Item::Geodes => false,
+            Item::Wheat => false,
+            Item::Corn => false,
+            Item::Milk => false,
+            Item::Power => false,
+        }
     }
 }
 

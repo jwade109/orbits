@@ -3,37 +3,14 @@ use crate::math::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Tank {
+pub struct TankModel {
     name: String,
     dims: UVec2,
     pub dry_mass: Mass,
     pub max_fluid_mass: Mass,
-
-    #[serde(skip)]
-    instance_data: TankState,
 }
 
-#[derive(Debug, Clone, Copy)]
-struct TankState {
-    item: Item,
-    current_fluid_mass: Mass,
-}
-
-impl Default for TankState {
-    fn default() -> Self {
-        println!("New tank state data");
-        Self {
-            item: if rand(0.0, 1.0) < 0.5 {
-                Item::H2
-            } else {
-                Item::O2
-            },
-            current_fluid_mass: Mass::ZERO,
-        }
-    }
-}
-
-impl Tank {
+impl TankModel {
     pub fn part_name(&self) -> &str {
         &self.name
     }
@@ -42,31 +19,39 @@ impl Tank {
         self.dims
     }
 
-    pub fn stored(&self) -> Mass {
-        self.instance_data.current_fluid_mass
+    #[deprecated]
+    pub fn stored(&self, data: &TankInstanceData) -> Mass {
+        data.contents_mass()
     }
 
-    pub fn take(&mut self, mass: Mass) {
-        if mass < self.instance_data.current_fluid_mass {
-            self.instance_data.current_fluid_mass -= mass;
-        } else {
-            self.instance_data.current_fluid_mass = Mass::ZERO;
+    // #[deprecated]
+    // pub fn take(&self, mass: Mass, data: &mut TankInstanceData) {
+    //     if mass < data.current_fluid_mass {
+    //         data.current_fluid_mass -= mass;
+    //     } else {
+    //         data.current_fluid_mass = Mass::ZERO;
+    //     }
+    // }
+
+    #[deprecated]
+    pub fn put(&self, item: Item, mass: Mass, data: &mut TankInstanceData) {
+        if !item.is_fluid() {
+            return;
         }
-    }
 
-    pub fn put(&mut self, mass: Mass) {
-        self.instance_data.current_fluid_mass += mass;
-        if self.instance_data.current_fluid_mass > self.max_fluid_mass {
-            self.instance_data.current_fluid_mass = self.max_fluid_mass;
+        let current_item = data.item();
+        if !current_item.is_none() && current_item != Some(item) {
+            return;
         }
-    }
 
-    pub fn item(&self) -> Item {
-        self.instance_data.item
-    }
+        let mut storage = data.stored.unwrap_or((item, Mass::ZERO));
 
-    pub fn current_mass(&self) -> Mass {
-        self.dry_mass + self.instance_data.current_fluid_mass
+        storage.1 += mass;
+        if storage.1 > self.max_fluid_mass {
+            storage.1 = self.max_fluid_mass;
+        }
+
+        data.stored = Some(storage);
     }
 
     pub fn dry_mass(&self) -> Mass {
@@ -77,7 +62,28 @@ impl Tank {
         self.max_fluid_mass
     }
 
-    pub fn percent_filled(&self) -> f32 {
-        self.instance_data.current_fluid_mass.to_kg_f32() / self.max_fluid_mass.to_kg_f32()
+    pub fn percent_filled(&self, data: &TankInstanceData) -> f32 {
+        data.contents_mass().to_kg_f32() / self.max_fluid_mass.to_kg_f32()
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct TankInstanceData {
+    stored: Option<(Item, Mass)>,
+}
+
+impl Default for TankInstanceData {
+    fn default() -> Self {
+        Self { stored: None }
+    }
+}
+
+impl TankInstanceData {
+    pub fn contents_mass(&self) -> Mass {
+        self.stored.map(|(_, mass)| mass).unwrap_or(Mass::ZERO)
+    }
+
+    pub fn item(&self) -> Option<Item> {
+        self.stored.map(|(item, _)| item)
     }
 }

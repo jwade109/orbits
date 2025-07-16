@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ThrusterModel {
     dims: UVec2,
+    mass: Mass,
+    name: String,
     pub model: String,
     pub thrust: f32,
     pub exhaust_velocity: f32,
@@ -20,23 +22,18 @@ pub struct ThrusterModel {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-struct ThrusterState {
+pub struct ThrusterInstanceData {
     throttle: f32,
 }
 
-impl Default for ThrusterState {
-    fn default() -> Self {
+impl ThrusterInstanceData {
+    pub fn new() -> Self {
         Self { throttle: 0.0 }
     }
-}
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Thruster {
-    model: ThrusterModel,
-    mass: Mass,
-    name: String,
-    #[serde(skip)]
-    instance_data: ThrusterState,
+    pub fn throttle(&self) -> f32 {
+        self.throttle
+    }
 }
 
 // TODO make this a per-thruster setting.
@@ -44,48 +41,51 @@ pub struct Thruster {
 // and is in fact rather rare. KSP has spoiled us.
 const _THRUSTER_DEAD_BAND: f32 = 0.0; // minimum 0 percent throttle
 
-impl Thruster {
+impl ThrusterModel {
     pub fn part_name(&self) -> &str {
         &self.name
     }
 
     pub fn dims(&self) -> UVec2 {
-        self.model.dims
+        self.dims
     }
 
     pub fn length(&self) -> f32 {
-        self.model.length
+        self.length
     }
 
     pub fn width(&self) -> f32 {
-        self.model.width
+        self.width
     }
 
     pub fn is_rcs(&self) -> bool {
-        self.model.is_rcs
+        self.is_rcs
     }
 
-    pub fn thrust_vector(&self) -> Vec2 {
-        if self.is_thrusting() {
-            Vec2::X * self.model.thrust * self.instance_data.throttle
+    #[deprecated]
+    pub fn thrust_vector(&self, data: &ThrusterInstanceData) -> Vec2 {
+        if self.is_thrusting(data) {
+            Vec2::X * self.thrust * data.throttle
         } else {
             Vec2::ZERO
         }
     }
 
-    pub fn fuel_consumption_rate(&self) -> f32 {
-        if self.is_thrusting() {
-            let max_rate = self.model.thrust / self.model.exhaust_velocity;
-            max_rate * self.instance_data.throttle
+    #[deprecated]
+    pub fn fuel_consumption_rate(&self, data: &ThrusterInstanceData) -> f32 {
+        if self.is_thrusting(data) {
+            let max_rate = self.thrust / self.exhaust_velocity;
+            max_rate * data.throttle
         } else {
             0.0
         }
     }
 
-    pub fn set_thrusting(&mut self, throttle: f32) {
+    #[deprecated]
+    pub fn set_thrusting(&self, throttle: f32, data: &mut ThrusterInstanceData) {
         // TODO!
 
-        self.instance_data.throttle = throttle.clamp(0.0, 1.0);
+        data.throttle = throttle.clamp(0.0, 1.0);
 
         // let throttle = if throttle > THRUSTER_DEAD_BAND {
         //     throttle
@@ -105,23 +105,21 @@ impl Thruster {
         // self.instance_data.throttle = self.instance_data.throttle.clamp(0.0, 1.0);
     }
 
-    pub fn is_thrusting(&self) -> bool {
-        self.instance_data.throttle > 0.0
+    #[deprecated]
+    pub fn is_thrusting(&self, data: &ThrusterInstanceData) -> bool {
+        data.throttle > 0.0
     }
 
-    pub fn throttle(&self) -> f32 {
-        self.instance_data.throttle
+    #[deprecated]
+    pub fn throttle(&self, data: &ThrusterInstanceData) -> f32 {
+        data.throttle
     }
 
     pub fn model_name(&self) -> &str {
-        &self.model.model
-    }
-
-    pub fn model(&self) -> &ThrusterModel {
         &self.model
     }
 
-    pub fn current_mass(&self) -> Mass {
+    pub fn mass(&self) -> Mass {
         self.mass
     }
 }

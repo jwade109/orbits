@@ -2,14 +2,13 @@
   mass: 200000
   layer: Internal
   name: "small-motor"
-  model:
-    dims: [10, 17]
-    model: "P40N"
-    exhaust_velocity: 3800.0
-    thrust: 400000.0
-    length: 0.4
-    width: 0.3
-    is_rcs: false
-    throttle_rate: 5.0
-    primary_color: [0.5, 0.5, 1.0, 0.7]
-    secondary_color: [1.0, 1.0, 1.0, 0.5]
+  dims: [10, 17]
+  model: "P40N"
+  exhaust_velocity: 3800.0
+  thrust: 400000.0
+  length: 0.4
+  width: 0.3
+  is_rcs: false
+  throttle_rate: 5.0
+  primary_color: [0.5, 0.5, 1.0, 0.7]
+  secondary_color: [1.0, 1.0, 1.0, 0.5]

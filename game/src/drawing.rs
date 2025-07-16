@@ -290,7 +290,14 @@ fn draw_propagator(
     Some(())
 }
 
-pub fn draw_thruster(gizmos: &mut Gizmos, thruster: &Thruster, pos: Vec2, scale: f32, angle: f32) {
+pub fn draw_thruster(
+    gizmos: &mut Gizmos,
+    thruster: &ThrusterModel,
+    data: &ThrusterInstanceData,
+    pos: Vec2,
+    scale: f32,
+    angle: f32,
+) {
     let p1 = pos;
     let u = rotate(-Vec2::X, angle + PI / 2.0);
     let v = rotate(u, PI / 2.0);
@@ -298,11 +305,11 @@ pub fn draw_thruster(gizmos: &mut Gizmos, thruster: &Thruster, pos: Vec2, scale:
     let p3 = p1 + (u * thruster.length() - v * thruster.width()) * scale;
     // gizmos.linestrip_2d([p1, p2, p3, p1], ORANGE);
 
-    if thruster.is_thrusting() {
+    if thruster.is_thrusting(data) {
         for s in linspace(0.0, 1.0, 13) {
             let length = thruster.length().max(0.2)
                 * rand(8.0, 20.0)
-                * thruster.throttle()
+                * data.throttle()
                 * ((s - 0.5) * PI).abs().cos();
             let p4 = p2 + (u * 0.7 + v * 0.4) * length * scale;
             let p5 = p3 + (u * 0.7 - v * 0.4) * length * scale;
@@ -327,14 +334,17 @@ pub fn draw_vehicle(canvas: &mut Canvas, vehicle: &Vehicle, pos: Vec2, scale: f3
         );
     }
 
-    for thruster in vehicle.thrusters_ref() {
-        draw_thruster(
-            &mut canvas.gizmos,
-            &thruster.variant,
-            pos + rotate(thruster.center_meters() * scale, angle),
-            scale,
-            thruster.rot.to_angle() + angle,
-        );
+    for (_, part) in vehicle.parts() {
+        if let Some((thruster, data)) = part.as_thruster() {
+            draw_thruster(
+                &mut canvas.gizmos,
+                thruster,
+                data,
+                pos + rotate(part.center_meters() * scale, angle),
+                scale,
+                part.rotation().to_angle() + angle,
+            );
+        }
     }
 }
 

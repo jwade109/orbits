@@ -3,26 +3,35 @@ use crate::ui::{BUTTON_HEIGHT, UI_BACKGROUND_COLOR};
 use layout::layout::{Node, Size};
 use starling::prelude::*;
 
-fn tank_ui(tank: &Tank) -> Vec<Node<OnClick>> {
-    let node = |text: String| Node::<OnClick>::text(Size::Grow, BUTTON_HEIGHT, text);
+fn text_node(text: String) -> Node<OnClick> {
+    Node::<OnClick>::text(Size::Grow, BUTTON_HEIGHT, text)
+}
 
+fn tank_ui(tank: &TankModel, data: &TankInstanceData) -> Vec<Node<OnClick>> {
     vec![
-        node(format!("Current mass: {}", tank.current_mass())),
-        node(format!("Dry mass: {}", tank.dry_mass())),
-        node(format!("Item: {:?}", tank.item())),
+        text_node(format!("Dry mass: {}", tank.dry_mass())),
+        text_node(format!("Current mass: {}", data.contents_mass())),
+        text_node(format!("Item: {:?}", data.item())),
     ]
 }
 
-pub fn part_ui_layout(instance: &PartInstance) -> Node<OnClick> {
+fn cargo_ui(cargo: &Cargo, data: &CargoInstanceData) -> Vec<Node<OnClick>> {
+    data.contents()
+        .map(|e| text_node(format!("{:?} {}", e.0, e.1)))
+        .collect()
+}
+
+pub fn part_ui_layout(instance: &InstantiatedPart) -> Node<OnClick> {
     let header = Node::text(
         Size::Grow,
         BUTTON_HEIGHT,
-        format!("{}", instance.part().sprite_path()),
+        format!("{}", instance.prototype().sprite_path()),
     )
     .enabled(false);
 
-    let children = match instance.part() {
-        Part::Tank(t) => tank_ui(t),
+    let children = match instance.variant() {
+        InstantiatedPartVariant::Tank(t, d) => tank_ui(t, d),
+        InstantiatedPartVariant::Cargo(c, d) => cargo_ui(c, d),
         _ => Vec::new(),
     }
     .into_iter();

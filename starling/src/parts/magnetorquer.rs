@@ -6,16 +6,16 @@ use serde::{Deserialize, Serialize};
 pub struct Magnetorquer {
     dims: UVec2,
     part_name: String,
-    pub max_torque: f32,
-    pub current_torque: f32,
+    max_torque: f32,
     mass: Mass,
 }
 
-impl Magnetorquer {
-    pub fn set_torque(&mut self, torque: f32) {
-        self.current_torque = torque.clamp(-self.max_torque, self.max_torque)
-    }
+#[derive(Debug, Clone)]
+pub struct MagnetorquerInstanceData {
+    current_torque: f32,
+}
 
+impl Magnetorquer {
     pub fn part_name(&self) -> &str {
         &self.part_name
     }
@@ -24,7 +24,23 @@ impl Magnetorquer {
         self.dims
     }
 
-    pub fn current_mass(&self) -> Mass {
+    pub fn mass(&self) -> Mass {
         self.mass
+    }
+}
+
+impl MagnetorquerInstanceData {
+    pub fn new() -> Self {
+        Self {
+            current_torque: 0.0,
+        }
+    }
+
+    pub fn torque(&self) -> f32 {
+        self.current_torque
+    }
+
+    pub fn set_torque(&mut self, model: &Magnetorquer, torque: f32) {
+        self.current_torque = torque.clamp(-model.max_torque, model.max_torque)
     }
 }

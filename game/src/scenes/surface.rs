@@ -101,12 +101,14 @@ impl SurfaceContext {
         ctx.particles.step();
 
         for v in state.universe.surface_vehicles.iter_mut() {
-            for t in v.thrusters_ref() {
-                if !t.variant.is_thrusting() || t.variant.model().is_rcs {
-                    continue;
-                }
+            for (_, part) in v.parts() {
+                if let Some((t, d)) = part.as_thruster() {
+                    if !t.is_thrusting(d) || t.is_rcs() {
+                        continue;
+                    }
 
-                ctx.particles.add(v, &t);
+                    ctx.particles.add(v, part);
+                }
             }
 
             if v.pv.pos.y < 0.0 {

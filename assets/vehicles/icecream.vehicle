@@ -1,0 +1,127 @@
+name: ''
+parts:
+- partname: gold
+  pos:
+  - -26
+  - -10
+  rot: South
+- partname: gold
+  pos:
+  - -26
+  - 0
+  rot: South
+- partname: gold
+  pos:
+  - -36
+  - 0
+  rot: South
+- partname: gold
+  pos:
+  - -36
+  - -10
+  rot: South
+- partname: solarpanel
+  pos:
+  - -34
+  - -74
+  rot: South
+- partname: motor
+  pos:
+  - -64
+  - -8
+  rot: South
+- partname: frame22
+  pos:
+  - -36
+  - -10
+  rot: South
+- partname: tank22
+  pos:
+  - -16
+  - -10
+  rot: South
+- partname: cargo
+  pos:
+  - 4
+  - -15
+  rot: South
+- partname: radar
+  pos:
+  - 34
+  - -20
+  rot: South
+- partname: rcs
+  pos:
+  - 8
+  - 15
+  rot: West
+- partname: rcs
+  pos:
+  - 8
+  - -19
+  rot: East
+- partname: rcs
+  pos:
+  - 24
+  - 15
+  rot: West
+- partname: rcs
+  pos:
+  - 24
+  - -19
+  rot: East
+- partname: rcs
+  pos:
+  - -15
+  - -14
+  rot: East
+- partname: rcs
+  pos:
+  - -15
+  - 10
+  rot: West
+- partname: frame22
+  pos:
+  - -16
+  - -10
+  rot: West
+- partname: frame22
+  pos:
+  - 4
+  - -10
+  rot: West
+- partname: tank11
+  pos:
+  - -26
+  - -5
+  rot: South
+- partname: rcs
+  pos:
+  - -38
+  - -17
+  rot: South
+- partname: rcs
+  pos:
+  - -38
+  - 11
+  rot: South
+- partname: solarpanel
+  pos:
+  - -34
+  - 9
+  rot: North
+- partname: frame2
+  pos:
+  - -34
+  - 10
+  rot: North
+- partname: frame2
+  pos:
+  - -34
+  - -20
+  rot: West
+- partname: frame3
+  pos:
+  - 24
+  - -20
+  rot: South

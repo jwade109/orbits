@@ -40,8 +40,8 @@ pub struct EditorContext {
     rotation: Rotation,
     filepath: Option<PathBuf>,
     focus_layer: Option<PartLayer>,
-    selected_part: Option<usize>,
-    occupied: HashMap<PartLayer, HashMap<IVec2, usize>>,
+    selected_part: Option<PartId>,
+    occupied: HashMap<PartLayer, HashMap<IVec2, PartId>>,
     vehicle: Vehicle,
     particles: ThrustParticleEffects,
 
@@ -75,8 +75,8 @@ impl EditorContext {
         &self.vehicle
     }
 
-    pub fn selected_part(&self) -> Option<&PartInstance> {
-        self.vehicle.get_part_by_index(self.selected_part?)
+    pub fn selected_part(&self) -> Option<&InstantiatedPart> {
+        self.vehicle.get_part(self.selected_part?)
     }
 
     pub fn cursor_box(&self, input: &InputState) -> Option<AABB> {
@@ -103,11 +103,12 @@ impl EditorContext {
         let new_instances: Vec<_> = self
             .vehicle
             .parts()
-            .map(|instance| instance.rotated())
+            .map(|(_, instance)| instance.rotated())
             .collect();
         self.vehicle.clear();
         for instance in new_instances {
-            self.vehicle.add_part(instance);
+            self.vehicle
+                .add_part(instance.prototype(), instance.origin(), instance.rotation());
         }
         self.update();
     }
@@ -120,7 +121,7 @@ impl EditorContext {
         let mut min: IVec2 = IVec2::ZERO;
         let mut max: IVec2 = IVec2::ZERO;
 
-        self.vehicle.parts().for_each(|instance| {
+        self.vehicle.parts().for_each(|(_, instance)| {
             let dims = instance.dims_grid();
             let p = instance.origin();
             let q = p + dims.as_ivec2();
@@ -135,13 +136,14 @@ impl EditorContext {
         let new_parts: Vec<_> = self
             .vehicle
             .parts()
-            .map(|instance| instance.with_origin(instance.origin() - avg))
+            .map(|(_, instance)| instance.with_origin(instance.origin() - avg))
             .collect();
 
         self.vehicle.clear();
 
         for part in new_parts {
-            self.vehicle.add_part(part);
+            self.vehicle
+                .add_part(part.prototype(), part.origin(), part.rotation());
         }
 
         self.update();
@@ -191,8 +193,8 @@ impl EditorContext {
             .editor_context
             .vehicle
             .parts()
-            .map(|instance| VehiclePartFileStorage {
-                partname: instance.part().sprite_path().to_string(),
+            .map(|(_, instance)| VehiclePartFileStorage {
+                partname: instance.prototype().sprite_path().to_string(),
                 pos: instance.origin(),
                 rot: instance.rotation(),
             })
@@ -226,8 +228,10 @@ impl EditorContext {
         state.editor_context.vehicle.clear();
         for ps in storage.parts {
             if let Some(part) = state.part_database.get(&ps.partname) {
-                let instance = PartInstance::new(ps.pos, ps.rot, part.clone());
-                state.editor_context.vehicle.add_part(instance);
+                state
+                    .editor_context
+                    .vehicle
+                    .add_part(part.clone(), ps.pos, ps.rot);
             } else {
                 error!("Failed to load part: {}", ps.partname);
             }
@@ -238,7 +242,7 @@ impl EditorContext {
         Some(())
     }
 
-    fn get_part_at(&self, p: IVec2) -> Option<&PartInstance> {
+    fn get_part_at(&self, p: IVec2) -> Option<&InstantiatedPart> {
         for layer in [
             PartLayer::Exterior,
             PartLayer::Structural,
@@ -250,7 +254,7 @@ impl EditorContext {
 
             if let Some(occ) = self.occupied.get(&layer) {
                 if let Some(idx) = occ.get(&p) {
-                    return Some(self.vehicle.get_part_by_index(*idx)?);
+                    return Some(self.vehicle.get_part(*idx)?);
                 }
             }
         }
@@ -260,25 +264,36 @@ impl EditorContext {
 
     fn update(&mut self) {
         self.occupied.clear();
-        for (i, instance) in self.vehicle.parts().enumerate() {
-            let pixels = occupied_pixels(instance.origin(), instance.rotation(), instance.part());
-            if let Some(occ) = self.occupied.get_mut(&instance.part().layer()) {
+        for (id, instance) in self.vehicle.parts() {
+            let pixels = occupied_pixels(
+                instance.origin(),
+                instance.rotation(),
+                &instance.prototype(),
+            );
+            if let Some(occ) = self.occupied.get_mut(&instance.prototype().layer()) {
                 for p in pixels {
-                    occ.insert(p, i);
+                    occ.insert(p, *id);
                 }
             } else {
                 let mut occ = HashMap::new();
                 for p in pixels {
-                    occ.insert(p, i);
+                    occ.insert(p, *id);
                 }
-                self.occupied.insert(instance.part().layer(), occ);
+                self.occupied.insert(instance.prototype().layer(), occ);
             }
         }
     }
 
-    fn try_place_part(&mut self, p: IVec2, new_part: Part) -> Option<()> {
+    fn try_place_part(&mut self, p: IVec2, new_part: PartPrototype) -> Option<()> {
+        let layer = new_part.layer();
+
+        if !self.is_layer_visible(layer) {
+            return None;
+        }
+
         let new_pixels = occupied_pixels(p, self.rotation, &new_part);
-        if let Some(occ) = self.occupied.get(&new_part.layer()) {
+
+        if let Some(occ) = self.occupied.get(&layer) {
             for p in &new_pixels {
                 if occ.contains_key(p) {
                     return None;
@@ -286,8 +301,7 @@ impl EditorContext {
             }
         }
 
-        let instance = PartInstance::new(p, self.rotation, new_part);
-        self.vehicle.add_part(instance);
+        self.vehicle.add_part(new_part, p, self.rotation);
         self.update();
         Some(())
     }
@@ -297,12 +311,18 @@ impl EditorContext {
         self.update();
     }
 
-    fn current_part_and_cursor_position(state: &GameState) -> Option<(IVec2, Part)> {
+    fn current_part_and_cursor_position(state: &GameState) -> Option<(IVec2, PartPrototype)> {
         let ctx = &state.editor_context;
         let part = state.editor_context.cursor_state.current_part()?;
         let wh = pixel_dims_with_rotation(ctx.rotation, &part).as_ivec2();
         let pos = state.input.position(MouseButt::Hover, FrameId::Current)?;
-        let pos = vround(state.editor_context.c2w(pos));
+        let snap = state.input.is_pressed(KeyCode::ShiftLeft);
+        let pos = state.editor_context.c2w(pos);
+        let pos = if snap {
+            vround(pos / 10.0) * 10
+        } else {
+            vround(pos)
+        };
         Some((pos - wh / 2, part))
     }
 }
@@ -369,7 +389,7 @@ fn draw_highlight_box(canvas: &mut Canvas, aabb: AABB, ctx: &impl CameraProjecti
 
 fn highlight_part(
     canvas: &mut Canvas,
-    instance: &PartInstance,
+    instance: &InstantiatedPart,
     ctx: &impl CameraProjection,
     color: Srgba,
 ) {
@@ -378,7 +398,7 @@ fn highlight_part(
     let q = p + wh;
     let r = p + IVec2::X * wh.x;
     let s = p + IVec2::Y * wh.y;
-    let aabb = aabb_for_part(p, instance.rotation(), instance.part());
+    let aabb = aabb_for_part(p, instance.rotation(), &instance.prototype());
 
     draw_highlight_box(canvas, aabb, ctx, color);
 
@@ -515,7 +535,7 @@ impl Render for EditorContext {
                             continue;
                         }
                         visited_parts.insert(*idx);
-                        if let Some(instance) = ctx.vehicle.get_part_by_index(*idx) {
+                        if let Some(instance) = ctx.vehicle.get_part(*idx) {
                             highlight_part(canvas, instance, ctx, RED.with_alpha(0.6));
                         }
                     }
@@ -567,17 +587,28 @@ impl Render for EditorContext {
         }
 
         for layer in enum_iterator::all::<PartLayer>() {
-            for instance in ctx.vehicle.parts().filter(|p| p.part().layer() == layer) {
-                let alpha = if ctx.is_layer_visible(instance.part().layer()) {
-                    1.0
+            for (_, instance) in ctx
+                .vehicle
+                .parts()
+                .filter(|(_, p)| p.prototype().layer() == layer)
+            {
+                let detailed_part_info =
+                    ctx.focus_layer == Some(PartLayer::Internal) && ctx.show_vehicle_info;
+
+                let alpha = if ctx.is_layer_visible(instance.prototype().layer()) {
+                    if detailed_part_info {
+                        0.1
+                    } else {
+                        1.0
+                    }
                 } else {
                     0.02
                 };
                 let dims = instance.dims_grid();
-                let sprite_dims = instance.part().dims();
+                let sprite_dims = instance.prototype().dims();
                 let center = ctx.w2c(instance.origin().as_vec2() + dims.as_vec2() / 2.0);
                 let p = instance.percent_built();
-                let sprite_name = instance.part().sprite_path();
+                let sprite_name = instance.prototype().sprite_path().to_string();
                 let sprite_name = if p == 1.0 {
                     sprite_name.to_string()
                 } else {
@@ -595,9 +626,9 @@ impl Render for EditorContext {
                     )
                     .set_color(WHITE.with_alpha(alpha));
 
-                if ctx.focus_layer == Some(PartLayer::Internal) {
-                    if let Part::Tank(tank) = instance.part() {
-                        let pct = tank.percent_filled();
+                if detailed_part_info {
+                    if let Some((t, d)) = instance.as_tank() {
+                        let pct = t.percent_filled(d);
                         let dims = rotate(
                             (sprite_dims - UVec2::splat(2)).as_vec2() * ctx.scale(),
                             instance.rotation().to_angle(),
@@ -606,12 +637,18 @@ impl Render for EditorContext {
                         let lower = center - dims / 2.0;
                         let upper = lower + Vec2::new(dims.x, dims.y * pct);
                         let aabb = AABB::from_arbitrary(lower, upper);
-                        let color: Srgba = crate::sprites::hashable_to_color(&tank.item()).into();
+                        let color: Srgba = crate::sprites::hashable_to_color(&d.item()).into();
                         canvas.rect(aabb, color.with_alpha(0.7));
+
+                        if let Some(item) = d.item() {
+                            let s = aabb.span.x.min(aabb.span.y) * 0.7;
+                            let path = item.to_sprite_name();
+                            canvas.sprite(aabb.center, 0.0, path, None, Vec2::splat(s));
+                        }
                     }
 
-                    if let Some(machine) = instance.as_machine() {
-                        let pct = machine.instance_data.percent_complete();
+                    if let Some((_, d)) = instance.as_machine() {
+                        let pct = d.percent_complete();
                         let dims = rotate(
                             (sprite_dims - UVec2::splat(2)).as_vec2() * ctx.scale(),
                             instance.rotation().to_angle(),
@@ -622,10 +659,34 @@ impl Render for EditorContext {
                         let aabb = AABB::from_arbitrary(lower, upper);
                         canvas.rect(aabb, RED.with_alpha(0.7));
                     }
+
+                    if let Some((c, d)) = instance.as_cargo() {
+                        let dims = rotate(
+                            (sprite_dims - UVec2::splat(2)).as_vec2() * ctx.scale(),
+                            instance.rotation().to_angle(),
+                        )
+                        .abs();
+
+                        let mut lower = center - dims / 2.0;
+
+                        for (item, mass) in d.contents() {
+                            let pct = mass.to_kg_f32() / c.capacity_mass().to_kg_f32();
+                            let upper = lower + Vec2::new(dims.x, dims.y * pct);
+                            let aabb = AABB::from_arbitrary(lower, upper);
+                            let color = crate::sprites::hashable_to_color(&item);
+                            canvas.rect(aabb, color.with_alpha(0.4));
+
+                            let s = aabb.span.x.min(aabb.span.y) * 0.7;
+                            let path = item.to_sprite_name();
+                            canvas.sprite(aabb.center, 0.0, path, None, Vec2::splat(s));
+
+                            lower.y += dims.y * pct;
+                        }
+                    }
                 }
 
                 // if p < 1.0 {
-                //     let color = crate::generate_ship_sprites::diagram_color(instance.part());
+                //     let color = crate::generate_ship_sprites::diagram_color(instance.prototype());
                 //     let aabb = AABB::new(center, dims.as_vec2() * ctx.scale() * (1.0 - p));
                 //     canvas.rect(aabb, color /* .with_alpha(1.0 - p * 0.8) */);
                 // }
@@ -658,11 +719,13 @@ impl Render for EditorContext {
             }
 
             if Self::current_part_and_cursor_position(state).is_none() {
-                if let Some((idx, instance)) = ctx.vehicle.get_part_at(vfloor(c), ctx.focus_layer) {
-                    highlight_part(canvas, instance, ctx, TEAL.with_alpha(0.6));
-                    for (other, other_instance) in ctx.vehicle.parts().enumerate() {
-                        if ctx.vehicle.is_connected(idx, other) {
-                            highlight_part(canvas, other_instance, ctx, YELLOW.with_alpha(0.4))
+                if let Some(id) = ctx.vehicle.get_part_at(vfloor(c), ctx.focus_layer) {
+                    if let Some(instance) = ctx.vehicle.get_part(id) {
+                        highlight_part(canvas, instance, ctx, TEAL.with_alpha(0.6));
+                        for (other, other_instance) in ctx.vehicle.parts() {
+                            if ctx.vehicle.is_connected(id, *other) {
+                                highlight_part(canvas, other_instance, ctx, YELLOW.with_alpha(0.4))
+                            }
                         }
                     }
                 }
@@ -718,7 +781,7 @@ impl Render for EditorContext {
     }
 }
 
-fn aabb_for_part(p: IVec2, rot: Rotation, part: &Part) -> AABB {
+fn aabb_for_part(p: IVec2, rot: Rotation, part: &PartPrototype) -> AABB {
     let wh = pixel_dims_with_rotation(rot, part).as_ivec2();
     let q = p + wh;
     AABB::from_arbitrary(p.as_vec2(), q.as_vec2())
@@ -852,12 +915,12 @@ impl EditorContext {
         state.editor_context.camera.handle_input(&state.input);
         if let Some(p) = state.input.on_frame(MouseButt::Left, FrameId::Down) {
             let p = state.editor_context.c2w(p);
-            if let Some((index, ..)) = state
+            if let Some(id) = state
                 .editor_context
                 .vehicle
                 .get_part_at(vfloor(p), state.editor_context.focus_layer)
             {
-                state.editor_context.selected_part = Some(index)
+                state.editor_context.selected_part = Some(id)
             } else {
                 state.editor_context.selected_part = None;
             }
@@ -867,7 +930,7 @@ impl EditorContext {
             if let Some((p, part)) = EditorContext::current_part_and_cursor_position(state) {
                 state.editor_context.try_place_part(p, part);
             }
-        } else if let Some(p) = state.input.position(MouseButt::Right, FrameId::Current) {
+        } else if let Some(p) = state.input.on_frame(MouseButt::Right, FrameId::Down) {
             let p = vfloor(state.editor_context.c2w(p));
             state.editor_context.remove_part_at(p);
         } else if state.input.just_pressed(KeyCode::KeyQ) {
@@ -877,7 +940,8 @@ impl EditorContext {
                 let p = vfloor(state.editor_context.c2w(p));
                 if let Some(instance) = state.editor_context.get_part_at(p).cloned() {
                     state.editor_context.rotation = instance.rotation();
-                    state.editor_context.cursor_state = CursorState::Part(instance.part().clone());
+                    state.editor_context.cursor_state =
+                        CursorState::Part(instance.prototype().clone());
                 } else {
                     state.editor_context.cursor_state = CursorState::None;
                 }
@@ -902,10 +966,6 @@ impl EditorContext {
         }
 
         ctx.vehicle.on_sim_tick();
-
-        for tank in ctx.vehicle.tanks_mut() {
-            tank.put(Mass::kilograms(randint(3, 30) as u64));
-        }
 
         if is_hovering {
             return;

@@ -1,11 +1,12 @@
 use crate::aabb::AABB;
 use crate::math::*;
+use crate::vehicle::PartId;
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone)]
 pub struct ConnectivityGroup {
     transport_lines: HashSet<IVec2>,
-    connections: HashMap<usize, IVec2>,
+    connections: HashMap<PartId, IVec2>,
     bounds: Option<AABB>,
 }
 
@@ -18,8 +19,8 @@ impl ConnectivityGroup {
         }
     }
 
-    pub fn connect(&mut self, idx: usize, pos: IVec2) {
-        self.connections.insert(idx, pos);
+    pub fn connect(&mut self, id: PartId, pos: IVec2) {
+        self.connections.insert(id, pos);
     }
 
     pub fn add_transport_line(&mut self, p: IVec2) {
@@ -39,10 +40,8 @@ impl ConnectivityGroup {
         self.connections.iter().map(|(_, p)| *p)
     }
 
-    pub fn is_connected(&self, idx_a: usize, idx_b: usize) -> bool {
-        idx_a != idx_b
-            && self.connections.contains_key(&idx_a)
-            && self.connections.contains_key(&idx_b)
+    pub fn is_connected(&self, id_a: PartId, id_b: PartId) -> bool {
+        id_a != id_b && self.connections.contains_key(&id_a) && self.connections.contains_key(&id_b)
     }
 
     pub fn bounds(&self) -> Option<AABB> {

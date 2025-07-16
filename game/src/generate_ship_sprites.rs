@@ -10,11 +10,11 @@ pub fn read_image(path: &Path) -> Option<RgbaImage> {
     Some(image::open(path).ok()?.to_rgba8())
 }
 
-pub fn diagram_color(part: &Part) -> Srgba {
+pub fn diagram_color(part: &PartPrototype) -> Srgba {
     match part {
-        Part::Cargo(..) => GREEN,
-        Part::Thruster(..) => RED,
-        Part::Tank(..) => ORANGE,
+        PartPrototype::Cargo(..) => GREEN,
+        PartPrototype::Thruster(..) => RED,
+        PartPrototype::Tank(..) => ORANGE,
         _ => match part.layer() {
             PartLayer::Exterior => DARK_GRAY,
             PartLayer::Internal => GRAY,
@@ -33,13 +33,13 @@ pub fn generate_image(
     let mut img = DynamicImage::new_rgba8(dims.x as u32, dims.y as u32);
     let to_export = img.as_mut_rgba8().unwrap();
     for layer in enum_iterator::all::<PartLayer>() {
-        for instance in vehicle.parts() {
-            if instance.part().layer() != layer {
+        for (_, instance) in vehicle.parts() {
+            if instance.prototype().layer() != layer {
                 continue;
             }
 
             let path = parts_dir
-                .join(instance.part().sprite_path())
+                .join(instance.prototype().sprite_path())
                 .join("skin.png");
             let img = match read_image(&path) {
                 Some(img) => img,
@@ -52,7 +52,7 @@ pub fn generate_image(
             let px = (instance.origin().x - pixel_min.x) as u32;
             let py = (instance.origin().y - pixel_min.y) as u32;
 
-            let color = diagram_color(instance.part()).to_f32_array();
+            let color = diagram_color(&instance.prototype()).to_f32_array();
 
             for x in 0..img.width() {
                 for y in 0..img.height() {

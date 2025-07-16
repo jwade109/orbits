@@ -152,7 +152,7 @@ pub struct GameState {
 
     /// Map of names to parts to their definitions. Loaded from
     /// the assets/parts directory
-    pub part_database: HashMap<String, Part>,
+    pub part_database: HashMap<String, PartPrototype>,
 
     /// Stupid thing to generate unique increasing IDs for
     /// planets and orbiters
@@ -242,6 +242,7 @@ impl GameState {
         };
 
         for model in [
+            "icecream",
             // "lander",
             // "mule",
             "pollux",
@@ -330,7 +331,7 @@ impl GameState {
                 img.sampler = bevy::image::ImageSampler::nearest();
                 let dims = img.size();
                 let handle = images.add(img.clone());
-                handles.insert(name.clone(), (handle.clone(), dims));
+                handles.insert(name.to_string(), (handle.clone(), dims));
 
                 for pct in (0..=9).rev() {
                     for w in 0..img.width() {
@@ -388,11 +389,6 @@ impl GameState {
         let handle = images.add(image);
         handles.insert("error".to_string(), (handle, dims));
 
-        println!("Loaded sprites:");
-        for (k, _) in &handles {
-            println!(" - {}", k);
-        }
-
         self.image_handles = handles;
     }
 }
@@ -417,20 +413,20 @@ impl Render for GameState {
     }
 
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
-        canvas.text(
-            format!(
-                "Wall time: {}\nUniverse time: {}\nUniverse ticks per game tick: {}\nRender ticks: {}\nGame ticks: {}\nUniverse ticks: {}\nExec time: {} ns",
-                state.wall_time,
-                state.universe.stamp(),
-                state.universe_ticks_per_game_tick,
-                state.render_ticks,
-                state.game_ticks,
-                state.universe.ticks(),
-                state.exec_time.as_micros(),
-            ),
-            Vec2::ZERO,
-            0.8,
-        );
+        // canvas.text(
+        //     format!(
+        //         "Wall time: {}\nUniverse time: {}\nUniverse ticks per game tick: {}\nRender ticks: {}\nGame ticks: {}\nUniverse ticks: {}\nExec time: {} ns",
+        //         state.wall_time,
+        //         state.universe.stamp(),
+        //         state.universe_ticks_per_game_tick,
+        //         state.render_ticks,
+        //         state.game_ticks,
+        //         state.universe.ticks(),
+        //         state.exec_time.as_micros(),
+        //     ),
+        //     Vec2::ZERO,
+        //     0.8,
+        // );
 
         match state.current_scene().kind() {
             SceneType::Orbital => OrbitalContext::draw(canvas, state),

@@ -1,5 +1,6 @@
 !Cargo
   dry_mass: 8400000
+  max_cargo_mass: 23000000
   layer: Internal
   name: "cargo"
   dims: [30, 30]
