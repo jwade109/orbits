@@ -6,8 +6,6 @@ use serde::{Deserialize, Serialize};
 pub struct Machine {
     dims: UVec2,
     mass: Mass,
-    #[serde(skip)]
-    pub instance_data: MachineInstanceData,
 }
 
 #[derive(Debug, Clone, Copy)]

@@ -242,16 +242,15 @@ impl GameState {
         };
 
         for model in [
-            "icecream",
-            // "lander",
-            // "mule",
+            // "icecream",
+            "lander", // "mule",
             "pollux",
-            // "goober",
+            "goober",
             // "remora",
             // "manta",
             // "jubilee",
-            "glutton",
-            "Lord of Democracy",
+            // "glutton",
+            // "Lord of Democracy",
         ] {
             if let Some(v) = g.get_vehicle_by_model(model) {
                 g.universe.add_surface_vehicle(v);
@@ -1071,7 +1070,9 @@ impl GameState {
             SceneType::Editor => EditorContext::on_render_tick(self),
             SceneType::MainMenu => (),
             SceneType::Orbital => self.orbital_context.handle_input(&self.input),
-            SceneType::Surface => self.surface_context.handle_input(&self.input),
+            SceneType::Surface => self
+                .surface_context
+                .on_render_tick(&self.input, &mut self.universe),
             SceneType::Telescope => self.telescope_context.handle_input(&self.input),
         }
     }
@@ -1090,6 +1091,7 @@ impl GameState {
         };
 
         signals.piloting = keyboard_control_law(&self.input);
+        signals.toggle_mode = self.input.just_pressed(KeyCode::KeyM);
 
         self.universe
             .on_sim_ticks(self.universe_ticks_per_game_tick, &signals);

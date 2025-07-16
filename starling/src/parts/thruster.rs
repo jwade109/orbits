@@ -1,5 +1,6 @@
 use crate::factory::Mass;
 use crate::math::*;
+use crate::prelude::PHYSICS_CONSTANT_DELTA_TIME;
 use serde::{Deserialize, Serialize};
 
 /// Definition of a thruster model.
@@ -24,15 +25,35 @@ pub struct ThrusterModel {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ThrusterInstanceData {
     throttle: f32,
+    target_throttle: f32,
 }
 
 impl ThrusterInstanceData {
     pub fn new() -> Self {
-        Self { throttle: 0.0 }
+        Self {
+            throttle: 0.0,
+            target_throttle: 0.0,
+        }
     }
 
     pub fn throttle(&self) -> f32 {
         self.throttle
+    }
+
+    pub fn set_throttle(&mut self, throttle: f32) {
+        self.target_throttle = throttle.clamp(0.0, 1.0);
+    }
+
+    pub fn on_sim_tick(&mut self, model: &ThrusterModel) {
+        let dt = PHYSICS_CONSTANT_DELTA_TIME;
+        let dthrottle = (model.throttle_rate * dt.to_secs()).abs();
+        let diff = (self.target_throttle - self.throttle).abs();
+        if self.throttle < self.target_throttle {
+            self.throttle += dthrottle.min(diff);
+        } else if self.throttle > self.target_throttle {
+            self.throttle -= dthrottle.min(diff);
+        }
+        self.throttle = self.throttle.clamp(0.0, 1.0);
     }
 }
 
@@ -63,15 +84,6 @@ impl ThrusterModel {
     }
 
     #[deprecated]
-    pub fn thrust_vector(&self, data: &ThrusterInstanceData) -> Vec2 {
-        if self.is_thrusting(data) {
-            Vec2::X * self.thrust * data.throttle
-        } else {
-            Vec2::ZERO
-        }
-    }
-
-    #[deprecated]
     pub fn fuel_consumption_rate(&self, data: &ThrusterInstanceData) -> f32 {
         if self.is_thrusting(data) {
             let max_rate = self.thrust / self.exhaust_velocity;
@@ -79,30 +91,6 @@ impl ThrusterModel {
         } else {
             0.0
         }
-    }
-
-    #[deprecated]
-    pub fn set_thrusting(&self, throttle: f32, data: &mut ThrusterInstanceData) {
-        // TODO!
-
-        data.throttle = throttle.clamp(0.0, 1.0);
-
-        // let throttle = if throttle > THRUSTER_DEAD_BAND {
-        //     throttle
-        // } else {
-        //     0.0
-        // };
-
-        // let dt = stamp - self.instance_data.stamp;
-        // self.instance_data.stamp = stamp;
-        // let dthrottle = (self.model.throttle_rate * dt.to_secs()).abs();
-        // let diff = (throttle - self.instance_data.throttle).abs();
-        // if self.instance_data.throttle < throttle {
-        //     self.instance_data.throttle += dthrottle.min(diff);
-        // } else if self.instance_data.throttle > throttle {
-        //     self.instance_data.throttle -= dthrottle.min(diff);
-        // }
-        // self.instance_data.throttle = self.instance_data.throttle.clamp(0.0, 1.0);
     }
 
     #[deprecated]

@@ -16,16 +16,22 @@ fn tank_ui(tank: &TankModel, data: &TankInstanceData) -> Vec<Node<OnClick>> {
 }
 
 fn cargo_ui(cargo: &Cargo, data: &CargoInstanceData) -> Vec<Node<OnClick>> {
-    data.contents()
-        .map(|e| text_node(format!("{:?} {}", e.0, e.1)))
+    let cap = text_node(format!("Capacity: {}", cargo.capacity_mass()));
+
+    [cap]
+        .into_iter()
+        .chain(
+            data.contents()
+                .map(|e| text_node(format!("{:?} {}", e.0, e.1))),
+        )
         .collect()
 }
 
-pub fn part_ui_layout(instance: &InstantiatedPart) -> Node<OnClick> {
+pub fn part_ui_layout(id: PartId, instance: &InstantiatedPart) -> Node<OnClick> {
     let header = Node::text(
         Size::Grow,
         BUTTON_HEIGHT,
-        format!("{}", instance.prototype().sprite_path()),
+        format!("{:?} {}", id, instance.prototype().sprite_path()),
     )
     .enabled(false);
 

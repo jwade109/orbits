@@ -8,6 +8,7 @@ use crate::scenes::{CameraProjection, Render};
 use crate::thrust_particles::*;
 use bevy::color::{palettes::css::*, Alpha, Srgba};
 use bevy::prelude::Gizmos;
+use bevy::prelude::KeyCode;
 use layout::layout::Tree;
 use starling::prelude::*;
 use std::collections::HashSet;
@@ -49,54 +50,54 @@ impl SurfaceContext {
         None
     }
 
-    pub fn handle_input(&mut self, input: &InputState) {
+    pub fn on_render_tick(&mut self, input: &InputState, universe: &mut Universe) {
         self.camera.handle_input(input);
+
+        (|| -> Option<()> {
+            let (pos, double) = if let Some(p) = input.double_click() {
+                (p, true)
+            } else {
+                (input.on_frame(MouseButt::Left, FrameId::Down)?, false)
+            };
+
+            let add = input.is_pressed(KeyCode::ShiftLeft);
+            if !add {
+                self.selected.clear();
+            }
+
+            let pos = self.c2w(pos);
+            let (idx, _) = Self::mouseover_vehicle(universe, pos)?;
+            self.selected.insert(idx);
+            if double {
+                // TODO fix this
+                // ctx.follow_vehicle = true;
+            }
+            None
+        })();
+
+        (|| -> Option<()> {
+            let rc = input.position(MouseButt::Right, FrameId::Current)?;
+            let p = self.c2w(rc);
+
+            let sep = 15.0;
+            let spread = sep * self.selected.len() as f32 - sep;
+            let center = Vec2::new(spread / 2.0, 0.0);
+
+            for (i, idx) in self.selected.iter().enumerate() {
+                let v = universe.surface_vehicles.get_mut(*idx);
+                if let Some(v) = v {
+                    v.policy =
+                        VehicleControlPolicy::PositionHold(p + Vec2::X * 15.0 * i as f32 - center);
+                }
+            }
+            None
+        })();
     }
 
     pub fn on_game_tick(state: &mut GameState) {
         let ctx = &mut state.surface_context;
 
         ctx.camera.on_game_tick();
-
-        // (|| -> Option<()> {
-        //     let (pos, double) = if let Some(p) = state.input.double_click() {
-        //         (p, true)
-        //     } else {
-        //         (state.input.on_frame(MouseButt::Left, FrameId::Down)?, false)
-        //     };
-
-        //     let add = state.input.is_pressed(KeyCode::ShiftLeft);
-        //     if !add {
-        //         ctx.selected.clear();
-        //     }
-
-        //     let pos = ctx.c2w(pos);
-        //     let (idx, _) = Self::mouseover_vehicle(&state.universe, pos)?;
-        //     ctx.selected.insert(idx);
-        //     if double {
-        //         // TODO fix this
-        //         // ctx.follow_vehicle = true;
-        //     }
-        //     None
-        // })();
-
-        // (|| -> Option<()> {
-        //     let rc = state.input.position(MouseButt::Right, FrameId::Current)?;
-        //     let p = ctx.c2w(rc);
-
-        //     let sep = 15.0;
-        //     let spread = sep * ctx.selected.len() as f32 - sep;
-        //     let center = Vec2::new(spread / 2.0, 0.0);
-
-        //     for (i, idx) in ctx.selected.iter().enumerate() {
-        //         let v = state.universe.surface_vehicles.get_mut(*idx);
-        //         if let Some(v) = v {
-        //             v.policy =
-        //                 VehicleControlPolicy::PositionHold(p + Vec2::X * 15.0 * i as f32 - center);
-        //         }
-        //     }
-        //     None
-        // })();
 
         ctx.particles.step();
 

@@ -418,10 +418,7 @@ impl Vehicle {
     }
 
     pub fn dry_mass(&self) -> Mass {
-        self.parts
-            .iter()
-            .map(|(_, instance)| instance.prototype().dry_mass())
-            .sum()
+        self.current_mass() - self.fuel_mass()
     }
 
     pub fn fuel_mass(&self) -> Mass {
@@ -429,7 +426,7 @@ impl Vehicle {
     }
 
     pub fn current_mass(&self) -> Mass {
-        self.dry_mass() + self.fuel_mass()
+        self.parts.iter().map(|(_, p)| p.current_mass()).sum()
     }
 
     pub fn thruster_count(&self) -> usize {
@@ -458,15 +455,13 @@ impl Vehicle {
         let mut sum = 0.0;
 
         for (_, part) in &self.parts {
-            if let Some((t, d)) = part.as_thruster() {
+            if let Some((t, _)) = part.as_thruster() {
                 if t.is_rcs != rcs {
-                    return 0.0;
+                    continue;
                 }
                 let v = rotate(Vec2::X, part.rotation().to_angle());
-                let dot = u.dot(v);
-                let thrust = if dot < 0.9 { 0.0 } else { dot * t.thrust };
-
-                sum += thrust;
+                let dot = u.dot(v).max(0.0);
+                sum += dot * t.thrust;
             }
         }
 
@@ -558,13 +553,6 @@ impl Vehicle {
             .sum()
     }
 
-    pub fn body_frame_acceleration(&self) -> Vec2 {
-        let mass = self.current_mass();
-        self.thrusters()
-            .map(|(t, d)| t.thrust_vector(d) / mass.to_kg_f32())
-            .sum()
-    }
-
     pub fn fuel_consumption_rate(&self) -> f32 {
         self.thrusters()
             .map(|(t, d)| t.fuel_consumption_rate(d))
@@ -612,7 +600,7 @@ impl Vehicle {
         for (_, part) in &self.parts {
             if let Some((t, d)) = part.as_thruster() {
                 let thrust_dir = rotate(Vec2::X, part.rotation().to_angle());
-                body_frame_force += thrust_dir * t.thrust / mass * t.throttle(d);
+                body_frame_force += thrust_dir * t.thrust * d.throttle();
             }
         }
 
@@ -632,14 +620,15 @@ impl Vehicle {
                 };
                 let is_linear =
                     t.is_rcs() == control.allow_linear_rcs && u.dot(control.linear) > 0.9;
-                let throttle = if is_linear {
+                let throttle: f32 = if is_linear {
                     control.throttle
                 } else if is_torque {
                     control.attitude.abs()
                 } else {
                     0.0
                 };
-                t.set_thrusting(throttle, d);
+                d.set_throttle(throttle);
+                d.on_sim_tick(t);
             }
 
             if let Some((m, d)) = part.as_magnetorquer_mut() {
@@ -654,7 +643,11 @@ impl Vehicle {
                 continue;
             }
 
-            if let Some((m, d)) = part.as_machine_mut() {
+            if let Some((t, d)) = part.as_thruster_mut() {
+                d.on_sim_tick(t);
+            }
+
+            if let Some((_, d)) = part.as_machine_mut() {
                 d.on_sim_tick();
             }
 

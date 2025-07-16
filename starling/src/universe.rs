@@ -74,10 +74,11 @@ impl Universe {
                 if let Some(ctrl) = signals.piloting {
                     vehicle.policy = VehicleControlPolicy::External(ctrl);
                 } else {
-                    vehicle.policy = VehicleControlPolicy::PositionHold(vehicle.pv.pos_f32());
+                    vehicle.policy = VehicleControlPolicy::PositionHold(Vec2::new(0.0, 30.0));
                 }
             }
             vehicle.step(signals.gravity_vector(), PHYSICS_CONSTANT_DELTA_TIME);
+            vehicle.on_sim_tick();
         }
 
         self.constellations

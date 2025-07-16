@@ -337,7 +337,6 @@ pub fn vehicle_info(vehicle: &Vehicle) -> String {
 
     let fuel_mass = vehicle.fuel_mass();
     let rate = vehicle.fuel_consumption_rate();
-    let accel = vehicle.body_frame_acceleration();
     let pct = vehicle.fuel_percentage() * 100.0;
     let burn_time = if rate > 0.0 {
         format!("{:0.1} s", fuel_mass.to_kg_f32() / rate)
@@ -359,7 +358,6 @@ pub fn vehicle_info(vehicle: &Vehicle) -> String {
         format!("WH: {:0.2}x{:0.2}", bounds.span.x, bounds.span.y),
         format!("Econ: {:0.2} kg-s/m", fuel_economy),
         format!("Fuel: {:0.1}/s", rate),
-        format!("Accel: ({:0.2}, {:0.2}) m/s^2", accel.x, accel.y),
     ]
     .into_iter()
     .map(|s| format!("{s}\n"))
@@ -427,10 +425,16 @@ impl Render for EditorContext {
         let vehicles = vehicle_selection(state);
 
         let other_buttons = other_buttons();
-        let part_buttons = state
-            .editor_context
-            .selected_part()
-            .map(|p| part_ui_layout(p));
+
+        let part_buttons = if let Some(id) = state.editor_context.selected_part {
+            if let Some(instance) = state.editor_context.vehicle.get_part(id) {
+                Some(part_ui_layout(id, instance))
+            } else {
+                None
+            }
+        } else {
+            None
+        };
 
         let right_column = Node::column(400)
             .invisible()
@@ -583,6 +587,18 @@ impl Render for EditorContext {
                     })
                     .collect();
                 canvas.gizmos.linestrip_2d(positions, color.with_alpha(0.6));
+            }
+        }
+
+        for (_, part) in ctx.vehicle.parts() {
+            if let Some((t, _)) = part.as_thruster() {
+                let u = rotate(Vec2::X, part.rotation().to_angle());
+                let thrust_vector = u * (t.thrust / 1000.0).sqrt();
+                let start = part.origin().as_vec2() + part.dims_grid().as_vec2() / 2.0;
+                let end = start + thrust_vector;
+                let start = ctx.w2c(start);
+                let end = ctx.w2c(end);
+                canvas.gizmos.line_2d(start, end, RED);
             }
         }
 

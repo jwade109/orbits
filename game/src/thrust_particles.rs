@@ -15,7 +15,7 @@ struct ThrustParticle {
     depth: f32,
 }
 
-const MAX_PARTICLE_AGE_SECONDS: Nanotime = Nanotime::secs_f32(3.0);
+const MAX_PARTICLE_AGE_SECONDS: Nanotime = Nanotime::secs_f32(2.0);
 
 const NOMINAL_DT: Nanotime = Nanotime::millis(20);
 
@@ -33,7 +33,7 @@ impl ThrustParticle {
 
     fn step(&mut self) {
         self.pv.pos += self.pv.vel * NOMINAL_DT.to_secs_f64();
-        self.pv.vel *= 0.96;
+        self.pv.vel *= 0.92;
 
         if self.pv.pos.y < 0.0 && self.pv.vel.y < 0.0 {
             let vx = self.pv.vel.x;
@@ -70,12 +70,8 @@ impl ThrustParticleEffects {
 
     pub fn add(&mut self, v: &Vehicle, part: &InstantiatedPart) {
         if let Some((t, d)) = part.as_thruster() {
-            if rand(0.0, 1.0) > d.throttle() {
-                return;
-            }
-
             let pos = rotate(part.center_meters(), v.angle());
-            let ve = t.exhaust_velocity / 20.0;
+            let ve = t.exhaust_velocity / 16.0 + 30.0 * d.throttle();
             let u = rotate(rotate(Vec2::X, part.rotation().to_angle()), v.angle());
             let vel = randvec(2.0, 10.0) + u * -ve * rand(0.6, 1.0);
             let pv = v.pv + PV::from_f64(pos, vel);

@@ -299,7 +299,7 @@ pub fn draw_thruster(
     angle: f32,
 ) {
     let p1 = pos;
-    let u = rotate(-Vec2::X, angle + PI / 2.0);
+    let u = rotate(-Vec2::X, angle);
     let v = rotate(u, PI / 2.0);
     let p2 = p1 + (u * thruster.length() + v * thruster.width()) * scale;
     let p3 = p1 + (u * thruster.length() - v * thruster.width()) * scale;
