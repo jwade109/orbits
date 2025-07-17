@@ -244,10 +244,9 @@ impl GameState {
         for model in [
             // "icecream",
             "lander", // "mule",
-            "pollux",
-            "goober",
+            "pollux", "goober",
             // "remora",
-            // "manta",
+            "manta",
             // "jubilee",
             // "glutton",
             // "Lord of Democracy",
@@ -366,6 +365,7 @@ impl GameState {
             "Earth",
             "Luna",
             "Asteroid",
+            "conbot",
         ] {
             let path = self.args.install_dir.join(format!("{}.png", name));
             if let Some(img) = crate::generate_ship_sprites::read_image(&path) {

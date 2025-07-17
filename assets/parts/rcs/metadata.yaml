@@ -1,5 +1,5 @@
 !Thruster
-  mass: 250000
+  mass: 25000
   layer: Internal
   name: "rcs"
   dims: [4, 6]

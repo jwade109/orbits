@@ -727,6 +727,12 @@ impl Vehicle {
         10.0
     }
 
+    pub fn build_part(&mut self, id: PartId) {
+        if let Some(part) = self.parts.get_mut(&id) {
+            part.build();
+        }
+    }
+
     pub fn build_once(&mut self) {
         for layer in PartLayer::build_order() {
             let layer_is_built = self

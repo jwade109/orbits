@@ -1,6 +1,7 @@
 pub mod aabb;
 pub mod belts;
 pub mod bezier;
+pub mod construction_bot;
 pub mod control;
 pub mod control_signals;
 pub mod examples;

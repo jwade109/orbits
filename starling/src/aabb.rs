@@ -1,4 +1,4 @@
-use crate::math::{linspace, rotate, Vec2, PI};
+use crate::math::{linspace, rand, rotate, Vec2, PI};
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Debug, Clone, Copy, Deserialize, Serialize)]
@@ -174,6 +174,12 @@ impl AABB {
 
     pub fn polygon(&self) -> Polygon {
         Polygon::from_slice(&self.corners())
+    }
+
+    pub fn uniform_sample(&self) -> Vec2 {
+        let sx = rand(0.0, 1.0);
+        let sy = rand(0.0, 1.0);
+        self.from_normalized(Vec2::new(sx, sy))
     }
 }
 

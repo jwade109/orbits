@@ -50,6 +50,9 @@ pub struct EditorContext {
     pub parts_menu_collapsed: bool,
     pub vehicles_menu_collapsed: bool,
     pub layers_menu_collapsed: bool,
+
+    // construction bots
+    pub bots: Vec<ConBot>,
 }
 
 impl EditorContext {
@@ -68,6 +71,13 @@ impl EditorContext {
             parts_menu_collapsed: false,
             vehicles_menu_collapsed: true,
             layers_menu_collapsed: false,
+            bots: (0..45)
+                .map(|_| {
+                    let p = randvec(10.0, 50.0);
+                    let v = randvec(3.0, 6.0);
+                    ConBot::new(PV::from_f64(p, v))
+                })
+                .collect(),
         }
     }
 
@@ -793,6 +803,19 @@ impl Render for EditorContext {
             }
         }
 
+        for bot in &ctx.bots {
+            canvas.sprite(
+                ctx.w2c(bot.pos()),
+                bot.angle(),
+                "conbot",
+                None,
+                Vec2::splat(6.0) * ctx.scale(),
+            );
+            if let Some(t) = bot.target_pos() {
+                canvas.circle(ctx.w2c(t), 12.0, PURPLE.with_alpha(0.2));
+            }
+        }
+
         Some(())
     }
 }
@@ -977,8 +1000,69 @@ impl EditorContext {
 
         let ctx = &mut state.editor_context;
 
-        for _ in 0..10 {
-            ctx.vehicle.build_once();
+        let all_parts: HashSet<_> = ctx
+            .vehicle
+            .parts()
+            .filter_map(|(id, p)| (p.percent_built() < 1.0).then(|| *id))
+            .collect();
+
+        let assigned_parts: HashSet<_> = ctx.bots.iter().filter_map(|b| b.target_part()).collect();
+
+        let mut unbuilt_parts: Vec<_> = ctx
+            .vehicle
+            .parts()
+            .filter_map(|(id, p)| {
+                (p.percent_built() < 1.0 && !assigned_parts.contains(id)).then(|| {
+                    let origin = p.origin().as_vec2();
+                    let dims = p.dims_grid().as_vec2();
+                    (*id, AABB::from_arbitrary(origin, origin + dims))
+                })
+            })
+            .collect();
+
+        for bot in &mut ctx.bots {
+            if let Some(id) = bot.target_part() {
+                if !all_parts.contains(&id) {
+                    bot.clear_target_part();
+                    bot.set_target_pos(randvec(200.0, 220.0))
+                }
+            }
+
+            if bot.target_part().is_none() {
+                if let Some(pos) = bot.target_pos() {
+                    if pos.length() < 100.0 {
+                        bot.set_target_pos(randvec(200.0, 220.0))
+                    }
+                }
+            }
+
+            if bot.target_part().is_none() && !unbuilt_parts.is_empty() {
+                let n = randint(0, unbuilt_parts.len() as i32);
+                let (id, bounds) = unbuilt_parts[n as usize];
+                unbuilt_parts.remove(n as usize);
+                bot.set_target_part(id);
+                let pos = bounds.uniform_sample();
+                bot.set_target_pos(pos);
+            }
+
+            bot.on_sim_tick();
+        }
+
+        for bot in &ctx.bots {
+            let tpos = match bot.target_pos() {
+                Some(pos) => pos,
+                None => continue,
+            };
+
+            if bot.pos().distance(tpos) > 1.0 {
+                continue;
+            }
+
+            if let Some(id) = bot.target_part() {
+                for _ in 0..10 {
+                    ctx.vehicle.build_part(id);
+                }
+            }
         }
 
         ctx.vehicle.on_sim_tick();

@@ -4,7 +4,7 @@
   name: "motor"
   dims: [29, 16]
   model: "RJ2000"
-  exhaust_velocity: 4500.0
+  exhaust_velocity: 3750.0
   thrust: 400000.0
   length: 0.7
   width: 0.4

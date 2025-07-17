@@ -1,6 +1,7 @@
 pub use crate::aabb::{Polygon, AABB, OBB};
 pub use crate::belts::AsteroidBelt;
 pub use crate::bezier::*;
+pub use crate::construction_bot::*;
 pub use crate::control::Controller;
 pub use crate::control_signals::*;
 pub use crate::examples::{default_example, make_earth, make_luna};
