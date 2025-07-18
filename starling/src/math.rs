@@ -177,6 +177,19 @@ pub fn get_random_name() -> String {
     generator.next().unwrap()
 }
 
+pub fn wrap_0_2pi(x: f32) -> f32 {
+    let twopi = 2.0 * PI;
+    x - twopi * (x / twopi).floor()
+}
+
+pub fn wrap_pi_npi(x: f32) -> f32 {
+    f32::atan2(x.sin(), x.cos())
+}
+
+pub fn wrap_pi_npi_f64(x: f64) -> f64 {
+    f64::atan2(x.sin(), x.cos())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -202,5 +215,14 @@ mod tests {
         assert_float_absolute_eq!(t[10], 0.51818186);
 
         assert_eq!(t[11], 0.6);
+    }
+
+    #[test]
+    fn wrapping() {
+        assert_eq!(wrap_0_2pi(-PI), PI);
+        assert_eq!(wrap_0_2pi(0.0), 0.0);
+        assert_eq!(wrap_0_2pi(2.0 * PI), 0.0);
+        assert_eq!(wrap_0_2pi(PI), PI);
+        assert!((wrap_0_2pi(3.0 * PI) - PI).abs() < 0.001);
     }
 }

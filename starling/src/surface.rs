@@ -12,7 +12,7 @@ pub struct Surface {
 impl Surface {
     pub fn random() -> Self {
         Surface {
-            gravity: rand(2.0, 7.0),
+            gravity: 2.0,
             wind: rand(-3.0, 3.0),
             radius: 2000.0,
             atmo_color: [rand(0.1, 0.4), rand(0.1, 0.4), rand(0.1, 0.4)],
@@ -21,7 +21,7 @@ impl Surface {
     }
 
     pub fn gravity_vector(&self) -> Vec2 {
-        Vec2::new(0.0, -(self.gravity as f32) / 10.0 * 9.81)
+        Vec2::new(0.0, -self.gravity)
     }
 
     pub fn increase_gravity(&mut self) {

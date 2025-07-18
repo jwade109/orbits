@@ -19,11 +19,6 @@ impl TankModel {
         self.dims
     }
 
-    #[deprecated]
-    pub fn stored(&self, data: &TankInstanceData) -> Mass {
-        data.contents_mass()
-    }
-
     // #[deprecated]
     // pub fn take(&self, mass: Mass, data: &mut TankInstanceData) {
     //     if mass < data.current_fluid_mass {
@@ -33,7 +28,6 @@ impl TankModel {
     //     }
     // }
 
-    #[deprecated]
     pub fn put(&self, item: Item, mass: Mass, data: &mut TankInstanceData) {
         if !item.is_fluid() {
             return;

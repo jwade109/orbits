@@ -1,5 +1,5 @@
 use crate::canvas::Canvas;
-use crate::scenes::surface::to_srbga;
+use crate::scenes::surface::to_srgba;
 use crate::scenes::CameraProjection;
 use bevy::color::palettes::css::*;
 use bevy::prelude::{Alpha, Mix, Srgba};
@@ -68,20 +68,20 @@ impl ThrustParticleEffects {
         self.particles.retain(|p| p.age < p.lifetime);
     }
 
-    pub fn add(&mut self, v: &Vehicle, part: &InstantiatedPart) {
-        if let Some((t, d)) = part.as_thruster() {
-            let pos = rotate(part.center_meters(), v.angle());
-            let ve = t.exhaust_velocity / 16.0 + 30.0 * d.throttle();
-            let u = rotate(rotate(Vec2::X, part.rotation().to_angle()), v.angle());
-            let vel = randvec(2.0, 10.0) + u * -ve * rand(0.6, 1.0);
-            let pv = v.pv + PV::from_f64(pos, vel);
-            let c1 = to_srbga(t.primary_color);
-            let c2 = to_srbga(t.secondary_color);
-            let initial_color = c1.mix(&c2, rand(0.0, 1.0));
-            let final_color = WHITE.mix(&DARK_GRAY, rand(0.3, 0.9)).with_alpha(0.4);
-            self.particles
-                .push(ThrustParticle::new(pv, initial_color, final_color));
-        }
+    pub fn add(&mut self, _v: &Vehicle, _part: &InstantiatedPart) {
+        // if let Some((t, d)) = part.as_thruster() {
+        //     let pos = rotate(part.center_meters(), v.angle());
+        //     let ve = t.exhaust_velocity / 16.0 + 30.0 * d.throttle();
+        //     let u = rotate(rotate(Vec2::X, part.rotation().to_angle()), v.angle());
+        //     let vel = randvec(2.0, 10.0) + u * -ve * rand(0.6, 1.0);
+        //     let pv = v.pv + PV::from_f64(pos, vel);
+        //     let c1 = to_srgba(t.primary_color);
+        //     let c2 = to_srgba(t.secondary_color);
+        //     let initial_color = c1.mix(&c2, rand(0.0, 1.0));
+        //     let final_color = WHITE.mix(&DARK_GRAY, rand(0.3, 0.9)).with_alpha(0.4);
+        //     self.particles
+        //         .push(ThrustParticle::new(pv, initial_color, final_color));
+        // }
     }
 
     pub fn draw(&self, canvas: &mut Canvas, ctx: &impl CameraProjection) {

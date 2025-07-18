@@ -12,14 +12,28 @@ pub struct ThrusterModel {
     mass: Mass,
     name: String,
     pub model: String,
-    pub thrust: f32,
+    thrust: f32,
     pub exhaust_velocity: f32,
-    pub length: f32,
-    pub width: f32,
     pub is_rcs: bool,
     pub throttle_rate: f32,
     pub primary_color: [f32; 4],
     pub secondary_color: [f32; 4],
+    pub plume_length: f32,
+    pub plume_angle: f32,
+}
+
+impl ThrusterModel {
+    pub fn max_thrust(&self) -> f32 {
+        self.thrust
+    }
+
+    pub fn current_thrust(&self, data: &ThrusterInstanceData) -> f32 {
+        if data.is_thrusting() {
+            self.thrust * data.throttle()
+        } else {
+            0.0
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -40,6 +54,10 @@ impl ThrusterInstanceData {
         self.throttle
     }
 
+    pub fn target_throttle(&self) -> f32 {
+        self.target_throttle
+    }
+
     pub fn set_throttle(&mut self, throttle: f32) {
         self.target_throttle = throttle.clamp(0.0, 1.0);
     }
@@ -54,6 +72,10 @@ impl ThrusterInstanceData {
             self.throttle -= dthrottle.min(diff);
         }
         self.throttle = self.throttle.clamp(0.0, 1.0);
+    }
+
+    pub fn is_thrusting(&self) -> bool {
+        self.throttle > 0.0
     }
 }
 
@@ -71,36 +93,17 @@ impl ThrusterModel {
         self.dims
     }
 
-    pub fn length(&self) -> f32 {
-        self.length
-    }
-
-    pub fn width(&self) -> f32 {
-        self.width
-    }
-
     pub fn is_rcs(&self) -> bool {
         self.is_rcs
     }
 
-    #[deprecated]
     pub fn fuel_consumption_rate(&self, data: &ThrusterInstanceData) -> f32 {
-        if self.is_thrusting(data) {
+        if data.is_thrusting() {
             let max_rate = self.thrust / self.exhaust_velocity;
             max_rate * data.throttle
         } else {
             0.0
         }
-    }
-
-    #[deprecated]
-    pub fn is_thrusting(&self, data: &ThrusterInstanceData) -> bool {
-        data.throttle > 0.0
-    }
-
-    #[deprecated]
-    pub fn throttle(&self, data: &ThrusterInstanceData) -> f32 {
-        data.throttle
     }
 
     pub fn model_name(&self) -> &str {

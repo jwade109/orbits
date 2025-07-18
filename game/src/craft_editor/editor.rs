@@ -34,6 +34,27 @@ pub struct VehiclePartFileStorage {
 }
 
 #[derive(Debug)]
+struct BuildParticle {
+    pv: PV,
+    opacity: f32,
+}
+
+impl BuildParticle {
+    fn new(pos: Vec2) -> Self {
+        let vel = randvec(30.0, 90.0);
+        Self {
+            pv: PV::from_f64(pos, vel),
+            opacity: 1.0,
+        }
+    }
+
+    fn on_sim_tick(&mut self) {
+        self.opacity -= 0.2;
+        self.pv.pos += self.pv.vel * PHYSICS_CONSTANT_DELTA_TIME.to_secs_f64();
+    }
+}
+
+#[derive(Debug)]
 pub struct EditorContext {
     camera: LinearCameraController,
     cursor_state: CursorState,
@@ -44,6 +65,7 @@ pub struct EditorContext {
     occupied: HashMap<PartLayer, HashMap<IVec2, PartId>>,
     vehicle: Vehicle,
     particles: ThrustParticleEffects,
+    build_particles: Vec<BuildParticle>,
 
     // menus
     pub show_vehicle_info: bool,
@@ -67,11 +89,12 @@ impl EditorContext {
             occupied: HashMap::new(),
             vehicle: Vehicle::new(),
             particles: ThrustParticleEffects::new(),
+            build_particles: Vec::new(),
             show_vehicle_info: false,
             parts_menu_collapsed: false,
             vehicles_menu_collapsed: true,
             layers_menu_collapsed: false,
-            bots: (0..45)
+            bots: (0..24)
                 .map(|_| {
                     let p = randvec(10.0, 50.0);
                     let v = randvec(3.0, 6.0);
@@ -360,7 +383,7 @@ pub fn vehicle_info(vehicle: &Vehicle) -> String {
         format!("Burn time: {}", burn_time),
         format!("Current mass: {}", vehicle.current_mass()),
         format!("Thrusters: {}", vehicle.thruster_count()),
-        format!("Thrust: {:0.2} kN", vehicle.thrust() / 1000.0),
+        format!("Thrust: {:0.2} kN", vehicle.max_thrust() / 1000.0),
         format!("Tanks: {}", vehicle.tank_count()),
         format!("Accel: {:0.2} g", vehicle.accel() / 9.81),
         format!("Ve: {:0.1} s", vehicle.average_linear_exhaust_velocity()),
@@ -533,8 +556,12 @@ impl Render for EditorContext {
             let o = ctx.w2c(Vec2::ZERO);
             let p = ctx.w2c(Vec2::X * length);
             let q = ctx.w2c(Vec2::Y * width);
+            let np = ctx.w2c(-Vec2::X * length);
+            let nq = ctx.w2c(-Vec2::Y * width);
             canvas.gizmos.line_2d(o, p, RED.with_alpha(0.3));
             canvas.gizmos.line_2d(o, q, GREEN.with_alpha(0.3));
+            canvas.gizmos.line_2d(o, np, RED.with_alpha(0.1));
+            canvas.gizmos.line_2d(o, nq, GREEN.with_alpha(0.1));
         }
 
         if let Some((p, current_part)) = Self::current_part_and_cursor_position(state) {
@@ -603,7 +630,7 @@ impl Render for EditorContext {
         for (_, part) in ctx.vehicle.parts() {
             if let Some((t, _)) = part.as_thruster() {
                 let u = rotate(Vec2::X, part.rotation().to_angle());
-                let thrust_vector = u * (t.thrust / 1000.0).sqrt();
+                let thrust_vector = u * (t.max_thrust() / 1000.0).sqrt();
                 let start = part.origin().as_vec2() + part.dims_grid().as_vec2() / 2.0;
                 let end = start + thrust_vector;
                 let start = ctx.w2c(start);
@@ -801,6 +828,13 @@ impl Render for EditorContext {
                     color.with_alpha(0.5),
                 );
             }
+        }
+
+        for particle in &ctx.build_particles {
+            let p = ctx.w2c(particle.pv.pos_f32());
+            canvas
+                .sprite(p, 0.0, "error", None, Vec2::splat(0.7) * ctx.scale())
+                .set_color(YELLOW.with_alpha(particle.opacity));
         }
 
         for bot in &ctx.bots {
@@ -1060,6 +1094,8 @@ impl EditorContext {
 
             if let Some(id) = bot.target_part() {
                 for _ in 0..10 {
+                    let particle = BuildParticle::new(bot.pos());
+                    ctx.build_particles.push(particle);
                     ctx.vehicle.build_part(id);
                 }
             }
@@ -1075,6 +1111,8 @@ impl EditorContext {
             ctx.cursor_state.toggle_logistics();
         }
 
+        ctx.vehicle.set_all_thrusters(1.0);
+
         match ctx.cursor_state {
             CursorState::Pipes => {
                 if let Some(p) = state.input.on_frame(MouseButt::Left, FrameId::Current) {
@@ -1089,6 +1127,12 @@ impl EditorContext {
             }
             _ => (),
         }
+
+        for particle in &mut ctx.build_particles {
+            particle.on_sim_tick();
+        }
+
+        ctx.build_particles.retain(|p| p.opacity > 0.0);
     }
 }
 

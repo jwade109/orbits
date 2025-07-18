@@ -11,7 +11,6 @@ use bevy::render::{
 };
 use bevy::sprite::Anchor;
 use bevy::text::TextBounds;
-use bevy::window::WindowResized;
 use layout::layout::{Node, Size, TextJustify, Tree};
 use starling::prelude::*;
 

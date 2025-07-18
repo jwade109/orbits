@@ -1,6 +1,6 @@
 use crate::aabb::{AABB, OBB};
 use crate::id::EntityId;
-use crate::math::{cross2d, rotate_f64, tspace, PI, PI_64};
+use crate::math::*;
 use crate::nanotime::Nanotime;
 use crate::propagator::search_condition;
 use crate::pv::PV;
@@ -10,28 +10,6 @@ use serde::{Deserialize, Serialize};
 
 pub fn hyperbolic_range_ta(ecc: f32) -> f32 {
     (-1.0 / ecc).acos()
-}
-
-pub fn wrap_pi_npi(x: f32) -> f32 {
-    f32::atan2(x.sin(), x.cos())
-}
-
-pub fn wrap_pi_npi_f64(x: f64) -> f64 {
-    f64::atan2(x.sin(), x.cos())
-}
-
-pub fn wrap_0_2pi(x: f32) -> f32 {
-    let twopi = 2.0 * PI;
-    x - twopi * (x / twopi).floor()
-}
-
-#[test]
-fn wrapping() {
-    assert_eq!(wrap_0_2pi(-PI), PI);
-    assert_eq!(wrap_0_2pi(0.0), 0.0);
-    assert_eq!(wrap_0_2pi(2.0 * PI), 0.0);
-    assert_eq!(wrap_0_2pi(PI), PI);
-    assert!((wrap_0_2pi(3.0 * PI) - PI).abs() < 0.001);
 }
 
 #[derive(Clone, Copy, Debug)]

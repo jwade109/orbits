@@ -1,0 +1,62 @@
+name: ''
+parts:
+- partname: rcs
+  pos:
+  - 13
+  - 29
+  rot: South
+- partname: frame3
+  pos:
+  - 0
+  - 19
+  rot: West
+- partname: frame3
+  pos:
+  - -10
+  - -45
+  rot: North
+- partname: small-motor
+  pos:
+  - -4
+  - -2
+  rot: West
+- partname: motor
+  pos:
+  - -14
+  - 27
+  rot: South
+- partname: small-motor
+  pos:
+  - -24
+  - -14
+  rot: East
+- partname: motor
+  pos:
+  - -39
+  - 7
+  rot: East
+- partname: frame3
+  pos:
+  - -10
+  - -5
+  rot: North
+- partname: rcs
+  pos:
+  - 34
+  - 15
+  rot: North
+- partname: rcs
+  pos:
+  - -14
+  - -38
+  rot: East
+- partname: small-motor
+  pos:
+  - -9
+  - -56
+  rot: North
+- partname: rcs
+  pos:
+  - 34
+  - 29
+  rot: South

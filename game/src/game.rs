@@ -243,11 +243,9 @@ impl GameState {
 
         for model in [
             // "icecream",
-            "lander", // "mule",
-            "pollux", "goober",
-            // "remora",
-            "manta",
-            // "jubilee",
+            "jubilee", "lander", // "mule",
+            "pollux", "remora", "remora", "remora",
+            "remora",
             // "glutton",
             // "Lord of Democracy",
         ] {
@@ -439,20 +437,22 @@ impl Render for GameState {
 }
 
 fn keyboard_control_law(input: &InputState) -> Option<VehicleControl> {
-    let allow_linear_rcs: bool = input.is_pressed(KeyCode::ControlLeft);
-    let control = if input.is_pressed(KeyCode::ArrowUp) {
-        Vec2::X
-    } else if input.is_pressed(KeyCode::ArrowDown) {
-        -Vec2::X
-    } else if input.is_pressed(KeyCode::ArrowLeft) && allow_linear_rcs {
-        Vec2::Y
-    } else if input.is_pressed(KeyCode::ArrowRight) && allow_linear_rcs {
-        -Vec2::Y
-    } else {
-        Vec2::ZERO
-    };
+    let mut ctrl = VehicleControl::NULLOPT;
 
-    let attitude = if input.is_pressed(KeyCode::ArrowLeft) && !allow_linear_rcs {
+    let allow_linear_rcs: bool = input.is_pressed(KeyCode::ControlLeft);
+    ctrl.plus_x.throttle = input.is_pressed(KeyCode::ArrowUp) as u8 as f32 * 0.4;
+
+    // } else if input.is_pressed(KeyCode::ArrowDown) {
+    //     -Vec2::X
+    // } else if input.is_pressed(KeyCode::ArrowLeft) && allow_linear_rcs {
+    //     Vec2::Y
+    // } else if input.is_pressed(KeyCode::ArrowRight) && allow_linear_rcs {
+    //     -Vec2::Y
+    // } else {
+    //     Vec2::ZERO
+    // };
+
+    ctrl.attitude = if input.is_pressed(KeyCode::ArrowLeft) && !allow_linear_rcs {
         10.0
     } else if input.is_pressed(KeyCode::ArrowRight) && !allow_linear_rcs {
         -10.0
@@ -460,17 +460,11 @@ fn keyboard_control_law(input: &InputState) -> Option<VehicleControl> {
         0.0
     };
 
-    if control == Vec2::ZERO && attitude == 0.0 {
-        return None;
-    }
+    // if control == Vec2::ZERO && attitude == 0.0 {
+    //     return None;
+    // }
 
-    Some(VehicleControl {
-        throttle: 0.4,
-        linear: control,
-        attitude,
-        allow_linear_rcs,
-        allow_attitude_rcs: true,
-    })
+    Some(ctrl)
 }
 
 impl GameState {
@@ -539,7 +533,9 @@ impl GameState {
             parts.push((part.pos, part.rot, proto.clone()));
         }
 
-        let vehicle = Vehicle::from_parts(name.to_string(), parts);
+        let mut vehicle = Vehicle::from_parts(name.to_string(), parts);
+
+        vehicle.build_all();
 
         Some(vehicle)
     }
@@ -1125,22 +1121,6 @@ impl GameState {
 
         let planets = self.universe.planets.clone();
 
-        let mut burns = Vec::new();
-
-        // handle discrete physics
-        for (id, vehicle) in self.universe.vehicles.iter_mut() {
-            vehicle.step(Vec2::ZERO, PHYSICS_CONSTANT_DELTA_TIME);
-            if vehicle.pv.pos.length() > 1.0 {
-                simulate(&mut self.universe.orbiters, &planets, s, d);
-                burns.push((*id, vehicle.pv.vel.as_vec2()));
-                vehicle.pv = PV::ZERO;
-            }
-        }
-
-        for (id, dv) in burns {
-            self.impulsive_burn(id, s, dv / 1000.0);
-        }
-
         let mut man = self.planned_maneuvers(old_sim_time);
         while let Some((id, t, dv)) = man.first() {
             if s > *t {
@@ -1300,11 +1280,13 @@ fn process_interaction(
             state.orbital_context.queued_orbits.clear();
         }
         InteractionEvent::SimSlower => {
-            state.universe_ticks_per_game_tick = u32::clamp(
-                state.universe_ticks_per_game_tick - 1,
-                MIN_SIM_SPEED,
-                MAX_SIM_SPEED,
-            );
+            if state.universe_ticks_per_game_tick > 0 {
+                state.universe_ticks_per_game_tick = u32::clamp(
+                    state.universe_ticks_per_game_tick - 1,
+                    MIN_SIM_SPEED,
+                    MAX_SIM_SPEED,
+                );
+            }
         }
         InteractionEvent::SimFaster => {
             state.universe_ticks_per_game_tick = u32::clamp(

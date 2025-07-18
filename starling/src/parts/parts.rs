@@ -239,6 +239,10 @@ impl InstantiatedPart {
         }
     }
 
+    pub fn build_all(&mut self) {
+        self.builds_performed = self.builds_required;
+    }
+
     pub fn percent_built(&self) -> f32 {
         (self.builds_performed as f32 / self.builds_required as f32).clamp(0.0, 1.0)
     }

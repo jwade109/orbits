@@ -7,7 +7,7 @@ pub struct Universe {
     ticks: u128,
     pub orbiters: HashMap<EntityId, Orbiter>,
     pub vehicles: HashMap<EntityId, Vehicle>,
-    pub surface_vehicles: Vec<Vehicle>,
+    pub surface_vehicles: Vec<(RigidBody, VehicleControlPolicy, Vehicle)>,
     pub planets: PlanetarySystem,
     pub surface: Surface,
     pub landing_sites: HashMap<EntityId, Vec<(f32, String, Surface)>>,
@@ -69,16 +69,25 @@ impl Universe {
             vehicle.on_sim_tick();
         }
 
-        for (i, vehicle) in self.surface_vehicles.iter_mut().enumerate() {
-            if i == 0 {
-                if let Some(ctrl) = signals.piloting {
-                    vehicle.policy = VehicleControlPolicy::External(ctrl);
-                } else {
-                    vehicle.policy = VehicleControlPolicy::PositionHold(Vec2::new(0.0, 30.0));
-                }
-            }
-            vehicle.step(signals.gravity_vector(), PHYSICS_CONSTANT_DELTA_TIME);
+        for (i, (body, policy, vehicle)) in self.surface_vehicles.iter_mut().enumerate() {
+            let ctrl = if i == 0 {
+                signals.piloting.unwrap_or(VehicleControl::NULLOPT)
+            } else if let VehicleControlPolicy::PositionHold(target) = policy {
+                position_hold_control_law(*target, body, vehicle, signals.gravity_vector())
+            } else {
+                VehicleControl::NULLOPT
+            };
+
+            vehicle.set_thrust_control(ctrl);
             vehicle.on_sim_tick();
+
+            let accel = vehicle.body_frame_accel();
+            body.on_sim_tick(
+                accel,
+                self.surface.gravity_vector(),
+                PHYSICS_CONSTANT_DELTA_TIME,
+            );
+            body.clamp_at_floor();
         }
 
         self.constellations
@@ -112,15 +121,22 @@ impl Universe {
         self.orbiters.keys().into_iter().map(|id| *id)
     }
 
-    pub fn add_surface_vehicle(&mut self, mut vehicle: Vehicle) {
-        let x = rand(-200.0, 200.0);
-        let y = rand(40.0, 120.0);
+    pub fn add_surface_vehicle(&mut self, vehicle: Vehicle) {
+        let x = rand(-50.0, 50.0);
+        let y = rand(40.0, 90.0);
         let target = Vec2::new(x, y);
 
+        let pos = target + randvec(10.0, 20.0);
+        let vel = randvec(2.0, 7.0);
+
+        let body = RigidBody {
+            pv: PV::from_f64(pos, vel),
+            angle: PI / 2.0,
+            angular_velocity: 0.0,
+        };
+
         let policy = VehicleControlPolicy::PositionHold(target);
-        vehicle.policy = policy;
-        vehicle.pv.pos = (target + randvec(10.0, 100.0)).as_dvec2();
-        self.surface_vehicles.push(vehicle);
+        self.surface_vehicles.push((body, policy, vehicle));
     }
 
     pub fn lup_orbiter(&self, id: EntityId, stamp: Nanotime) -> Option<ObjectLookup> {

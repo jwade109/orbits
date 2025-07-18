@@ -294,26 +294,38 @@ pub fn draw_thruster(
     gizmos: &mut Gizmos,
     thruster: &ThrusterModel,
     data: &ThrusterInstanceData,
-    pos: Vec2,
+    part_dims: Vec2,
+    center: Vec2,
     scale: f32,
     angle: f32,
 ) {
-    let p1 = pos;
+    // along-plume direction
     let u = rotate(-Vec2::X, angle);
-    let v = rotate(u, PI / 2.0);
-    let p2 = p1 + (u * thruster.length() + v * thruster.width()) * scale;
-    let p3 = p1 + (u * thruster.length() - v * thruster.width()) * scale;
-    // gizmos.linestrip_2d([p1, p2, p3, p1], ORANGE);
 
-    if thruster.is_thrusting(data) {
+    // cross-plume direction
+    let v = rotate(u, PI / 2.0);
+
+    // corners of the business end of the thruster
+    let p2 = center + (u * part_dims.x / 2.0 + v * part_dims.y / 2.0) * scale;
+    let p3 = center + (u * part_dims.x / 2.0 - v * part_dims.y / 2.0) * scale;
+
+    let c1 = crate::scenes::surface::to_srgba(thruster.primary_color);
+    let c2 = crate::scenes::surface::to_srgba(thruster.secondary_color);
+
+    if data.is_thrusting() {
+        let ul = rotate(u, thruster.plume_angle);
+        let ur = rotate(u, -thruster.plume_angle);
+
         for s in linspace(0.0, 1.0, 13) {
-            let length = thruster.length().max(0.2)
-                * rand(8.0, 20.0)
+            let length = thruster.plume_length
+                * rand(0.6, 1.0)
                 * data.throttle()
                 * ((s - 0.5) * PI).abs().cos();
-            let p4 = p2 + (u * 0.7 + v * 0.4) * length * scale;
-            let p5 = p3 + (u * 0.7 - v * 0.4) * length * scale;
-            let color = if thruster.is_rcs() { TEAL } else { RED };
+
+            let p4 = p2 + ul * length * scale;
+            let p5 = p3 + ur * length * scale;
+
+            let color = c1.mix(&c2, rand(0.0, 1.0));
             let u = p2.lerp(p3, s);
             let v = p4.lerp(p5, s);
             gizmos.line_2d(u, v, color);
@@ -335,11 +347,13 @@ pub fn draw_vehicle(canvas: &mut Canvas, vehicle: &Vehicle, pos: Vec2, scale: f3
     }
 
     for (_, part) in vehicle.parts() {
+        let dims = part.prototype().dims_meters();
         if let Some((thruster, data)) = part.as_thruster() {
             draw_thruster(
                 &mut canvas.gizmos,
                 thruster,
                 data,
+                dims,
                 pos + rotate(part.center_meters() * scale, angle),
                 scale,
                 part.rotation().to_angle() + angle,
@@ -532,7 +546,7 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
         arc(p, s, RED);
     }
 
-    arc(vehicle.angular_velocity() / 10.0, 0.93, TEAL);
+    // arc(vehicle.angular_velocity() / 10.0, 0.93, TEAL);
 
     Some(())
 }
@@ -623,57 +637,6 @@ fn draw_scenario(gizmos: &mut Gizmos, state: &GameState) {
         .orbiter_ids()
         .filter_map(|id| draw_orbiter(gizmos, state, id))
         .collect::<Vec<_>>();
-}
-
-fn draw_scalar_field_cell(
-    gizmos: &mut Gizmos,
-    scalar_field: &impl Fn(Vec2) -> f32,
-    center: Vec2,
-    step: f32,
-    levels: &[i32],
-) {
-    // draw_square(gizmos, center, step as f32, WHITE.with_alpha(0.001));
-
-    let bl = center + Vec2::new(-step / 2.0, -step / 2.0);
-    let br = center + Vec2::new(step / 2.0, -step / 2.0);
-    let tl = center + Vec2::new(-step / 2.0, step / 2.0);
-    let tr = center + Vec2::new(step / 2.0, step / 2.0);
-
-    let pot: Vec<(Vec2, f32)> = [bl, br, tr, tl]
-        .iter()
-        .map(|p| (*p, scalar_field(*p)))
-        .collect();
-
-    for level in levels {
-        let mut pts = vec![];
-
-        for i in 0..4 {
-            let p1 = pot[i].0;
-            let z1 = pot[i].1;
-            let p2 = pot[(i + 1) % 4].0;
-            let z2 = pot[(i + 1) % 4].1;
-
-            let l = *level as f32;
-
-            if z1 > l && z2 < l || z1 < l && z2 > l {
-                let t = (l - z1) / (z2 - z1);
-                let d = p1.lerp(p2, t);
-                pts.push(d);
-            }
-        }
-
-        gizmos.linestrip_2d(pts, RED.with_alpha(0.03));
-    }
-}
-
-fn draw_scalar_field(gizmos: &mut Gizmos, scalar_field: &impl Fn(Vec2) -> f32, levels: &[i32]) {
-    let step = 250;
-    for y in (-4000..=4000).step_by(step) {
-        for x in (-4000..=4000).step_by(step) {
-            let p = Vec2::new(x as f32, y as f32);
-            draw_scalar_field_cell(gizmos, scalar_field, p, step as f32, levels);
-        }
-    }
 }
 
 fn draw_event_marker_at(gizmos: &mut Gizmos, wall_time: Nanotime, event: &EventType, p: Vec2) {

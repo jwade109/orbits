@@ -1,87 +1,87 @@
 name: ''
 parts:
-- partname: gold
-  pos:
-  - -15
-  - -10
-  rot: North
-- partname: solarpanel
-  pos:
-  - -5
-  - -75
-  rot: South
-- partname: small-motor
-  pos:
-  - -28
-  - -5
-  rot: East
 - partname: frame2
   pos:
-  - -5
-  - 0
-  rot: South
-- partname: frame2
-  pos:
-  - 5
+  - -18
   - -10
   rot: South
 - partname: plate
   pos:
-  - -5
+  - -8
+  - -10
+  rot: South
+- partname: frame2
+  pos:
+  - 2
   - 0
   rot: South
 - partname: frame2
   pos:
-  - 5
-  - 0
-  rot: South
-- partname: battery
-  pos:
-  - 5
-  - 0
-  rot: South
-- partname: plate
-  pos:
-  - -5
+  - -8
   - -10
   rot: South
 - partname: small-antenna
   pos:
-  - 15
+  - 12
   - -7
   rot: South
-- partname: frame2
+- partname: cpu
   pos:
-  - -15
-  - -10
+  - 2
+  - -9
   rot: South
-- partname: gold
-  pos:
-  - -15
-  - 0
-  rot: North
 - partname: tank21
   pos:
-  - -5
+  - -8
   - -10
   rot: East
+- partname: gold
+  pos:
+  - -18
+  - 0
+  rot: North
+- partname: solarpanel
+  pos:
+  - -8
+  - 10
+  rot: North
 - partname: frame2
   pos:
-  - -15
+  - -18
   - 0
   rot: South
 - partname: frame2
   pos:
-  - -5
-  - -10
+  - -8
+  - 0
   rot: South
 - partname: solarpanel
   pos:
-  - -5
-  - 10
-  rot: North
-- partname: cpu
-  pos:
-  - 5
-  - -9
+  - -8
+  - -75
   rot: South
+- partname: frame2
+  pos:
+  - 2
+  - -10
+  rot: South
+- partname: plate
+  pos:
+  - -8
+  - 0
+  rot: South
+- partname: gold
+  pos:
+  - -18
+  - -10
+  rot: North
+- partname: battery
+  pos:
+  - 2
+  - 0
+  rot: South
+- partname: small-motor
+  pos:
+  - -31
+  - -5
+  rot: East

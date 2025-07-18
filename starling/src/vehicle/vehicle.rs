@@ -2,10 +2,7 @@ use crate::aabb::AABB;
 use crate::factory::{Item, Mass};
 use crate::math::*;
 use crate::nanotime::Nanotime;
-use crate::orbits::{wrap_0_2pi, wrap_pi_npi};
 use crate::parts::*;
-use crate::pid::*;
-use crate::pv::PV;
 use crate::vehicle::*;
 use std::collections::{HashMap, HashSet};
 
@@ -18,163 +15,10 @@ fn mass_after_maneuver(ve: f32, m0: f32, dv: f32) -> f32 {
     m0 / (dv / ve).exp()
 }
 
-#[derive(Default, Debug, Clone, Copy)]
-pub struct VehicleControl {
-    pub throttle: f32,
-    pub linear: Vec2,
-    pub attitude: f32,
-    pub allow_linear_rcs: bool,
-    pub allow_attitude_rcs: bool,
-}
-
-#[derive(Default, Debug, Clone, Copy)]
-pub enum VehicleControlPolicy {
-    #[default]
-    Idle,
-    External(VehicleControl),
-    PositionHold(Vec2),
-}
-
-const ATTITUDE_CONTROLLER: PDCtrl = PDCtrl::new(30.0, 35.0);
-
-const VERTICAL_CONTROLLER: PDCtrl = PDCtrl::new(0.2, 1.0);
-
-const HORIZONTAL_CONTROLLER: PDCtrl = PDCtrl::new(0.01, 0.08);
-
-const DOCKING_LINEAR_CONTROLLER: PDCtrl = PDCtrl::new(30.0, 300.0);
-
-fn zero_gravity_control_law(vehicle: &Vehicle) -> VehicleControl {
-    let target = if let VehicleControlPolicy::PositionHold(target) = vehicle.policy {
-        target
-    } else {
-        return VehicleControl::default();
-    };
-
-    let position_error = target - vehicle.pv.pos_f32();
-    let error_dir = position_error.normalize_or_zero();
-
-    let target_angle = Vec2::X.angle_to(position_error);
-
-    let attitude = compute_attitude_control(vehicle, target_angle, &ATTITUDE_CONTROLLER);
-
-    let target_velocity = Vec2::X * 5.0;
-
-    let (linear, throttle) = if attitude > 6.0 {
-        (Vec2::ZERO, 0.0)
-    } else {
-        let px = 0.0;
-        let py = 0.0;
-
-        let vx = -target_velocity.x + error_dir.dot(vehicle.pv.vel_f32());
-        let vy = -target_velocity.y + rotate(error_dir, PI / 2.0).dot(vehicle.pv.vel_f32());
-
-        let cx = DOCKING_LINEAR_CONTROLLER.apply(px, vx);
-        let cy = DOCKING_LINEAR_CONTROLLER.apply(py, vy);
-
-        if cx.abs() < 10.0 && cy.abs() < 10.0 {
-            (Vec2::ZERO, 0.0)
-        } else if cx.abs() > cy.abs() {
-            (Vec2::X * cx, cx.abs())
-        } else {
-            (Vec2::Y * cy, cy.abs())
-        }
-    };
-
-    VehicleControl {
-        throttle,
-        linear,
-        attitude,
-        allow_linear_rcs: true,
-        allow_attitude_rcs: true,
-    }
-}
-
-fn compute_attitude_control(v: &Vehicle, target_angle: f32, pid: &PDCtrl) -> f32 {
-    let attitude_error = wrap_pi_npi(target_angle - v.angle());
-    pid.apply(attitude_error, v.angular_velocity())
-}
-
-fn hover_control_law(gravity: Vec2, vehicle: &Vehicle) -> VehicleControl {
-    let future_alt = vehicle.kinematic_apoapis(gravity.length() as f64) as f32;
-
-    let target = if let VehicleControlPolicy::PositionHold(target) = vehicle.policy {
-        target
-    } else {
-        return VehicleControl::default();
-    };
-
-    let target = if target.distance(vehicle.pv.pos_f32()) > 250.0 {
-        let d = target - vehicle.pv.pos_f32();
-        d.normalize_or_zero() * 250.0 + vehicle.pv.pos_f32()
-    } else {
-        target
-    };
-
-    let horizontal_control =
-        HORIZONTAL_CONTROLLER.apply(target.x - vehicle.pv.pos.x as f32, vehicle.pv.vel.x as f32);
-
-    // attitude controller
-    let target_angle = PI * 0.5 - horizontal_control.clamp(-PI / 4.0, PI / 4.0);
-    let attitude_error = wrap_pi_npi(target_angle - vehicle.angle());
-    let attitude = compute_attitude_control(vehicle, target_angle, &ATTITUDE_CONTROLLER);
-
-    let thrust = vehicle.max_thrust_along_heading(0.0, false);
-    let accel = thrust / vehicle.current_mass().to_kg_f32();
-    let pct = gravity.length() / accel;
-
-    // vertical controller
-    let error = VERTICAL_CONTROLLER.apply(target.y - future_alt, vehicle.pv.vel.y as f32);
-
-    let linear = if attitude_error.abs() < 0.5 || vehicle.pv.pos.y > 10.0 {
-        Vec2::X
-    } else {
-        Vec2::ZERO
-    };
-
-    let throttle = pct + error;
-
-    VehicleControl {
-        throttle,
-        linear,
-        attitude,
-        allow_linear_rcs: false,
-        allow_attitude_rcs: true,
-    }
-}
-
-pub fn current_control_law(vehicle: &Vehicle, gravity: Vec2) -> VehicleControl {
-    if let VehicleControlPolicy::External(ctrl) = vehicle.policy {
-        return ctrl;
-    }
-
-    if gravity.length() > 0.0 {
-        hover_control_law(gravity, vehicle)
-    } else {
-        zero_gravity_control_law(vehicle)
-    }
-}
-
 pub const PHYSICS_CONSTANT_UPDATE_RATE: u32 = 40;
 
 pub const PHYSICS_CONSTANT_DELTA_TIME: Nanotime =
     Nanotime::millis(1000 / PHYSICS_CONSTANT_UPDATE_RATE as i64);
-
-pub fn simulate_vehicle(mut vehicle: Vehicle, gravity: Vec2) -> Vec<(Vec2, f32)> {
-    let end = Nanotime::secs(30);
-    let dt = PHYSICS_CONSTANT_DELTA_TIME;
-    let mut ret = vec![];
-    let mut t = Nanotime::zero();
-
-    while t < end {
-        t += dt;
-        vehicle.step(gravity, dt);
-        let pos = vehicle.pv.pos_f32();
-        let angle = vehicle.angle();
-        ret.push((pos, angle));
-    }
-
-    ret
-}
 
 pub fn occupied_pixels(pos: IVec2, rot: Rotation, part: &PartPrototype) -> Vec<IVec2> {
     let mut ret = vec![];
@@ -188,32 +32,12 @@ pub fn occupied_pixels(pos: IVec2, rot: Rotation, part: &PartPrototype) -> Vec<I
     ret
 }
 
-#[derive(Debug, Clone)]
-pub struct RigidBody {
-    angle: f32,
-    angular_velocity: f32,
-}
-
-impl RigidBody {
-    fn step(&mut self, angular_accel: f32, dt: Nanotime) {
-        self.angular_velocity += angular_accel * dt.to_secs();
-        self.angular_velocity = self.angular_velocity.clamp(-2.0, 2.0);
-        self.angle += self.angular_velocity * dt.to_secs();
-        self.angle = wrap_0_2pi(self.angle);
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PartId(u64);
 
 #[derive(Debug, Clone)]
 pub struct Vehicle {
     name: String,
-
-    pub pv: PV,
-    pub policy: VehicleControlPolicy,
-
-    body: RigidBody,
     pipes: HashSet<IVec2>,
     next_part_id: PartId,
     parts: HashMap<PartId, InstantiatedPart>,
@@ -237,13 +61,7 @@ impl Vehicle {
         }
 
         let mut ret = Self {
-            pv: PV::ZERO,
-            policy: VehicleControlPolicy::Idle,
             name,
-            body: RigidBody {
-                angle: rand(0.0, 2.0 * PI),
-                angular_velocity: rand(-0.3, 0.3),
-            },
             next_part_id,
             parts,
             pipes: HashSet::new(),
@@ -290,7 +108,7 @@ impl Vehicle {
         let layer: Option<PartLayer> = layer.into();
 
         for part_layer in enum_iterator::reverse_all::<PartLayer>() {
-            let found = self.parts.iter().find(|(id, instance)| {
+            let found = self.parts.iter().find(|(_, instance)| {
                 if let Some(layer) = layer {
                     if layer != instance.prototype().layer() {
                         return false;
@@ -404,11 +222,11 @@ impl Vehicle {
     }
 
     pub fn fuel_percentage(&self) -> f32 {
-        let max_fuel_mass: Mass = self.tanks().map(|(t, d)| t.max_fluid_mass).sum();
+        let max_fuel_mass: Mass = self.tanks().map(|(t, _)| t.max_fluid_mass).sum();
         if max_fuel_mass == Mass::ZERO {
             return 0.0;
         }
-        let current_fuel_mass: Mass = self.tanks().map(|(t, d)| t.stored(d)).sum();
+        let current_fuel_mass: Mass = self.tanks().map(|(_, d)| d.contents_mass()).sum();
         current_fuel_mass.to_kg_f32() / max_fuel_mass.to_kg_f32()
     }
 
@@ -422,7 +240,7 @@ impl Vehicle {
     }
 
     pub fn fuel_mass(&self) -> Mass {
-        self.tanks().map(|(t, d)| t.stored(d)).sum()
+        self.tanks().map(|(_, d)| d.contents_mass()).sum()
     }
 
     pub fn current_mass(&self) -> Mass {
@@ -437,11 +255,11 @@ impl Vehicle {
         self.tanks().count()
     }
 
-    pub fn thrust(&self) -> f32 {
+    pub fn max_thrust(&self) -> f32 {
         if self.thruster_count() == 0 {
             0.0
         } else {
-            self.thrusters().map(|(t, _)| t.thrust).sum()
+            self.thrusters().map(|(t, _)| t.max_thrust()).sum()
         }
     }
 
@@ -461,7 +279,7 @@ impl Vehicle {
                 }
                 let v = rotate(Vec2::X, part.rotation().to_angle());
                 let dot = u.dot(v).max(0.0);
-                sum += dot * t.thrust;
+                sum += dot * t.max_thrust();
             }
         }
 
@@ -480,8 +298,20 @@ impl Vehicle {
             .sum()
     }
 
+    pub fn current_moa(&self) -> f32 {
+        let com = self.center_of_mass();
+        let mut moa = 0.0;
+        for (_, part) in &self.parts {
+            let mass = part.current_mass();
+            let center = part.center_meters();
+            let rsq = center.distance_squared(com);
+            moa += rsq * mass.to_kg_f32()
+        }
+        moa
+    }
+
     pub fn accel(&self) -> f32 {
-        let thrust = self.thrust();
+        let thrust = self.max_thrust();
         let mass = self.current_mass();
         if mass == Mass::ZERO {
             0.0
@@ -531,7 +361,7 @@ impl Vehicle {
     }
 
     pub fn is_thrusting(&self) -> bool {
-        self.thrusters().any(|(t, d)| t.is_thrusting(d))
+        self.thrusters().any(|(_, d)| d.is_thrusting())
     }
 
     pub fn has_radar(&self) -> bool {
@@ -573,7 +403,7 @@ impl Vehicle {
 
     fn current_angular_acceleration(&self) -> f32 {
         let mut aa = 0.0;
-        let moa = self.current_mass().to_kg_f32(); // TODO
+        let moa = self.current_moa();
         let com = self.center_of_mass();
 
         for (_, part) in &self.parts {
@@ -581,7 +411,7 @@ impl Vehicle {
                 let center_of_thrust = part.center_meters();
                 let lever_arm = center_of_thrust - com;
                 let thrust_dir = rotate(Vec2::X, part.rotation().to_angle());
-                let torque = cross2d(lever_arm, thrust_dir) * t.throttle(d) * t.thrust;
+                let torque = cross2d(lever_arm, thrust_dir) * t.current_thrust(d);
                 aa += torque / moa;
             }
 
@@ -600,40 +430,50 @@ impl Vehicle {
         for (_, part) in &self.parts {
             if let Some((t, d)) = part.as_thruster() {
                 let thrust_dir = rotate(Vec2::X, part.rotation().to_angle());
-                body_frame_force += thrust_dir * t.thrust * d.throttle();
+                body_frame_force += thrust_dir * t.current_thrust(d);
             }
         }
 
         body_frame_force / mass
     }
 
-    fn step_thrust_control(&mut self, control: VehicleControl) {
+    pub fn set_thrust_control(&mut self, control: VehicleControl) {
         let com = self.center_of_mass();
 
         for (_, part) in &mut self.parts {
+            let rot = part.rotation();
             let center_of_thrust = part.center_meters();
             let u = rotate(Vec2::X, part.rotation().to_angle());
             if let Some((t, d)) = part.as_thruster_mut() {
-                let is_torque = t.is_rcs() && {
-                    let torque = cross2d(center_of_thrust - com, u);
-                    torque.signum() == control.attitude.signum() && control.attitude.abs() > 2.0
+                let linear_command = match rot {
+                    Rotation::East => control.plus_x,
+                    Rotation::North => control.plus_y,
+                    Rotation::West => control.neg_x,
+                    Rotation::South => control.neg_y,
                 };
-                let is_linear =
-                    t.is_rcs() == control.allow_linear_rcs && u.dot(control.linear) > 0.9;
-                let throttle: f32 = if is_linear {
-                    control.throttle
-                } else if is_torque {
-                    control.attitude.abs()
+
+                if t.is_rcs {
+                    if linear_command.use_rcs {
+                        d.set_throttle(linear_command.throttle);
+                    } else {
+                        let is_torque = {
+                            let torque = cross2d(center_of_thrust - com, u);
+                            torque.signum() == control.attitude.signum()
+                        };
+                        if is_torque {
+                            d.set_throttle(control.attitude.abs());
+                        } else {
+                            d.set_throttle(0.0);
+                        }
+                    }
                 } else {
-                    0.0
-                };
-                d.set_throttle(throttle);
-                d.on_sim_tick(t);
+                    d.set_throttle(linear_command.throttle);
+                }
             }
 
-            if let Some((m, d)) = part.as_magnetorquer_mut() {
-                d.set_torque(m, 1000.0);
-            }
+            // if let Some((m, d)) = part.as_magnetorquer_mut() {
+            //     d.set_torque(m, 1000.0);
+            // }
         }
     }
 
@@ -663,43 +503,23 @@ impl Vehicle {
         }
     }
 
-    pub fn step(&mut self, gravity: Vec2, dt: Nanotime) {
-        let control = current_control_law(&self, gravity);
-        self.step_thrust_control(control);
-
-        let a = self.current_body_frame_linear_acceleration();
-        let a = rotate(a, self.body.angle);
-
-        let aa = self.current_angular_acceleration();
-        // let fcr = self.fuel_consumption_rate();
-
-        // let n = self.tank_count() as f32;
-
-        self.body.step(aa, dt);
-
-        let dv = (gravity + a) * dt.to_secs();
-
-        self.pv.vel += dv.as_dvec2();
-        self.pv.pos += self.pv.vel * dt.to_secs_f64();
+    pub fn body_frame_accel(&self) -> BodyFrameAccel {
+        let linear = self.current_body_frame_linear_acceleration();
+        let angular = self.current_angular_acceleration();
+        BodyFrameAccel { linear, angular }
     }
 
-    pub fn pointing(&self) -> Vec2 {
-        rotate(Vec2::X, self.body.angle)
-    }
-
-    pub fn angular_velocity(&self) -> f32 {
-        self.body.angular_velocity
-    }
-
-    pub fn angle(&self) -> f32 {
-        self.body.angle
-    }
-
-    pub fn kinematic_apoapis(&self, gravity: f64) -> f64 {
-        if self.pv.vel.y <= 0.0 {
-            return self.pv.pos.y;
+    pub fn set_all_thrusters(&mut self, throttle: f32) {
+        for (_, part) in &mut self.parts {
+            if let Some((_, d)) = part.as_thruster_mut() {
+                d.set_throttle(throttle);
+            }
         }
-        self.pv.pos.y + self.pv.vel.y.powi(2) / (2.0 * gravity.abs())
+    }
+
+    #[deprecated]
+    pub fn angle(&self) -> f32 {
+        0.0
     }
 
     pub fn radars(&self) -> impl Iterator<Item = &Radar> + use<'_> {
@@ -723,13 +543,23 @@ impl Vehicle {
     }
 
     pub fn bounding_radius(&self) -> f32 {
-        // TODO
-        10.0
+        let aabb = self.aabb();
+        let mut r: f32 = 10.0;
+        for c in aabb.corners() {
+            r = r.max(c.length());
+        }
+        r
     }
 
     pub fn build_part(&mut self, id: PartId) {
         if let Some(part) = self.parts.get_mut(&id) {
             part.build();
+        }
+    }
+
+    pub fn build_all(&mut self) {
+        for (_, part) in &mut self.parts {
+            part.build_all();
         }
     }
 

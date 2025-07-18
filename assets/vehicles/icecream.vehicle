@@ -1,43 +1,48 @@
 name: ''
 parts:
-- partname: frame22
+- partname: gold
   pos:
   - -36
   - -10
   rot: South
-- partname: frame3
+- partname: gold
+  pos:
+  - -26
+  - -10
+  rot: South
+- partname: frame2
+  pos:
+  - -34
+  - 10
+  rot: North
+- partname: rcs
   pos:
   - 24
-  - -20
+  - -24
   rot: North
 - partname: frame2
   pos:
   - -34
   - -20
   rot: West
-- partname: cargo
+- partname: radar
   pos:
-  - 4
-  - -15
+  - 34
+  - -20
   rot: South
+- partname: rcs
+  pos:
+  - -15
+  - -14
+  rot: North
 - partname: motor
   pos:
   - -59
   - -8
   rot: East
-- partname: rcs
-  pos:
-  - 8
-  - 15
-  rot: South
-- partname: gold
+- partname: frame22
   pos:
   - -36
-  - 0
-  rot: South
-- partname: tank22
-  pos:
-  - -16
   - -10
   rot: South
 - partname: solarpanel
@@ -45,14 +50,24 @@ parts:
   - -34
   - -74
   rot: South
-- partname: frame22
+- partname: frame3
+  pos:
+  - 24
+  - -20
+  rot: North
+- partname: cargo
+  pos:
+  - 4
+  - -15
+  rot: South
+- partname: tank22
   pos:
   - -16
   - -10
-  rot: West
+  rot: South
 - partname: frame22
   pos:
-  - 4
+  - -16
   - -10
   rot: West
 - partname: solarpanel
@@ -63,13 +78,18 @@ parts:
 - partname: rcs
   pos:
   - -15
-  - -14
-  rot: North
-- partname: rcs
+  - 10
+  rot: South
+- partname: tank11
   pos:
-  - 8
-  - -19
-  rot: North
+  - -26
+  - -5
+  rot: South
+- partname: gold
+  pos:
+  - -36
+  - 0
+  rot: South
 - partname: rcs
   pos:
   - -38
@@ -77,51 +97,31 @@ parts:
   rot: East
 - partname: rcs
   pos:
-  - -38
-  - 17
-  rot: East
-- partname: frame2
-  pos:
-  - -34
-  - 10
-  rot: North
-- partname: rcs
-  pos:
   - 24
   - 20
   rot: South
-- partname: tank11
-  pos:
-  - -26
-  - -5
-  rot: South
 - partname: rcs
   pos:
-  - -15
-  - 10
-  rot: South
-- partname: gold
-  pos:
-  - -36
-  - -10
-  rot: South
-- partname: gold
-  pos:
-  - -26
-  - -10
-  rot: South
+  - -38
+  - 17
+  rot: East
 - partname: gold
   pos:
   - -26
   - 0
   rot: South
+- partname: frame22
+  pos:
+  - 4
+  - -10
+  rot: West
 - partname: rcs
   pos:
-  - 24
-  - -24
+  - 8
+  - -19
   rot: North
-- partname: radar
+- partname: rcs
   pos:
-  - 34
-  - -20
+  - 8
+  - 15
   rot: South
