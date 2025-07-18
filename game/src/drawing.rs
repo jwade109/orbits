@@ -312,7 +312,7 @@ pub fn draw_thruster(
     let c1 = crate::scenes::surface::to_srgba(thruster.primary_color);
     let c2 = crate::scenes::surface::to_srgba(thruster.secondary_color);
 
-    if data.is_thrusting() {
+    if data.is_thrusting(thruster) {
         let ul = rotate(u, thruster.plume_angle);
         let ur = rotate(u, -thruster.plume_angle);
 

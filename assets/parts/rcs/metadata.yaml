@@ -10,5 +10,6 @@
   plume_angle: 0.7
   is_rcs: true
   throttle_rate: 8.0
+  minimum_throttle: 0.4
   primary_color: [0.7, 0.2, 0.2, 0.8]
   secondary_color: [1.0, 0.7, 0.0, 0.8]

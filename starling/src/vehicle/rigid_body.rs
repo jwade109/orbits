@@ -35,7 +35,7 @@ impl RigidBody {
         self.pv.pos += self.pv.vel * dt.to_secs_f64();
     }
 
-    pub fn clamp_at_floor(&mut self) {
+    pub fn on_the_floor(&mut self) {
         if self.pv.pos.y < 0.0 {
             self.pv.pos.y = 0.0;
             self.pv.vel.y = 0.0;
@@ -43,6 +43,7 @@ impl RigidBody {
 
         if self.pv.pos.y == 0.0 {
             self.pv.vel.x *= 0.9;
+            self.angular_velocity = (PI / 2.0 - self.angle) * 0.1;
         }
     }
 }

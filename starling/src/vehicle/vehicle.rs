@@ -361,7 +361,7 @@ impl Vehicle {
     }
 
     pub fn is_thrusting(&self) -> bool {
-        self.thrusters().any(|(_, d)| d.is_thrusting())
+        self.thrusters().any(|(t, d)| d.is_thrusting(t))
     }
 
     pub fn has_radar(&self) -> bool {
@@ -452,23 +452,38 @@ impl Vehicle {
                     Rotation::South => control.neg_y,
                 };
 
-                if t.is_rcs {
-                    if linear_command.use_rcs {
-                        d.set_throttle(linear_command.throttle);
+                let throttle = if t.is_rcs {
+                    // this is an RCS thruster
+
+                    let linear_throttle = if linear_command.use_rcs {
+                        // we're using RCS for linear translation
+                        linear_command.throttle
                     } else {
-                        let is_torque = {
-                            let torque = cross2d(center_of_thrust - com, u);
-                            torque.signum() == control.attitude.signum()
-                        };
-                        if is_torque {
-                            d.set_throttle(control.attitude.abs());
+                        0.0
+                    };
+
+                    // we're not using RCS for linear translation.
+                    // fire this thruster if it turns the vehicle
+                    // the right way
+                    let is_torque = {
+                        let torque = cross2d(center_of_thrust - com, u);
+                        torque.signum() == control.attitude.signum()
+                    };
+                    linear_throttle
+                        + if is_torque {
+                            control.attitude.abs()
                         } else {
-                            d.set_throttle(0.0);
+                            0.0
                         }
-                    }
                 } else {
-                    d.set_throttle(linear_command.throttle);
-                }
+                    if !linear_command.use_rcs {
+                        linear_command.throttle
+                    } else {
+                        0.0
+                    }
+                };
+
+                d.set_throttle(throttle);
             }
 
             // if let Some((m, d)) = part.as_magnetorquer_mut() {

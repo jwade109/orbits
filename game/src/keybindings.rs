@@ -16,7 +16,7 @@ pub fn keyboard_input(
         let e = match key {
             KeyCode::Period => InteractionEvent::SimFaster,
             KeyCode::Comma => InteractionEvent::SimSlower,
-            KeyCode::Slash => InteractionEvent::SetSim(0),
+            KeyCode::Slash => InteractionEvent::SetSim(1),
             KeyCode::Delete => InteractionEvent::Delete,
             KeyCode::KeyG => InteractionEvent::CreateGroup,
             KeyCode::KeyC => InteractionEvent::ClearMissions,

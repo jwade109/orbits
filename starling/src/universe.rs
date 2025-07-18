@@ -72,8 +72,14 @@ impl Universe {
         for (i, (body, policy, vehicle)) in self.surface_vehicles.iter_mut().enumerate() {
             let ctrl = if i == 0 {
                 signals.piloting.unwrap_or(VehicleControl::NULLOPT)
-            } else if let VehicleControlPolicy::PositionHold(target) = policy {
-                position_hold_control_law(*target, body, vehicle, signals.gravity_vector())
+            } else if let VehicleControlPolicy::PositionHold(target, angle) = policy {
+                position_hold_control_law(
+                    *target,
+                    *angle,
+                    body,
+                    vehicle,
+                    self.surface.external_acceleration(),
+                )
             } else {
                 VehicleControl::NULLOPT
             };
@@ -84,11 +90,14 @@ impl Universe {
             let accel = vehicle.body_frame_accel();
             body.on_sim_tick(
                 accel,
-                self.surface.gravity_vector(),
+                self.surface.external_acceleration(),
                 PHYSICS_CONSTANT_DELTA_TIME,
             );
-            body.clamp_at_floor();
+
+            body.on_the_floor();
         }
+
+        self.surface.on_sim_tick();
 
         self.constellations
             .retain(|id, _| self.orbiters.contains_key(id));
@@ -129,13 +138,15 @@ impl Universe {
         let pos = target + randvec(10.0, 20.0);
         let vel = randvec(2.0, 7.0);
 
+        let angle = rand(0.0, PI);
+
         let body = RigidBody {
             pv: PV::from_f64(pos, vel),
             angle: PI / 2.0,
             angular_velocity: 0.0,
         };
 
-        let policy = VehicleControlPolicy::PositionHold(target);
+        let policy = VehicleControlPolicy::PositionHold(target, angle);
         self.surface_vehicles.push((body, policy, vehicle));
     }
 

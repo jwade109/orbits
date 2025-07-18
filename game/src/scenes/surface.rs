@@ -79,19 +79,24 @@ impl SurfaceContext {
         })();
 
         (|| -> Option<()> {
-            let rc = input.position(MouseButt::Right, FrameId::Current)?;
+            let rc = input.position(MouseButt::Right, FrameId::Down)?;
+            let rd = input.position(MouseButt::Right, FrameId::Current)?;
             let p = self.c2w(rc);
+            let q = self.c2w(rd);
 
             let sep = 15.0;
             let spread = sep * self.selected.len() as f32 - sep;
             let center = Vec2::new(spread / 2.0, 0.0);
 
+            let angle = (q - p).to_angle();
+
             for (i, idx) in self.selected.iter().enumerate() {
                 if let Some((_, policy, _)) = universe.surface_vehicles.get_mut(*idx) {
-                    *policy =
-                        VehicleControlPolicy::PositionHold(p + Vec2::X * 15.0 * i as f32 - center);
+                    let pos = p + Vec2::X * 15.0 * i as f32 - center;
+                    *policy = VehicleControlPolicy::PositionHold(pos, angle);
                 }
             }
+
             None
         })();
     }
@@ -106,7 +111,7 @@ impl SurfaceContext {
         for (_, _, vehicle) in state.universe.surface_vehicles.iter_mut() {
             for (_, part) in vehicle.parts() {
                 if let Some((t, d)) = part.as_thruster() {
-                    if !d.is_thrusting() || t.is_rcs() {
+                    if !d.is_thrusting(t) || t.is_rcs() {
                         continue;
                     }
 
@@ -154,7 +159,7 @@ fn surface_scene_ui(state: &GameState) -> Tree<OnClick> {
     let show_gravity = Node::text(
         Size::Grow,
         BUTTON_HEIGHT,
-        format!("{}", state.universe.surface.gravity_vector()),
+        format!("{:0.1}", state.universe.surface.external_acceleration()),
     );
 
     let increase_gravity = Node::button(
@@ -245,26 +250,29 @@ impl Render for SurfaceContext {
                     ORANGE.with_alpha(0.3),
                 );
 
-                let target = if let VehicleControlPolicy::PositionHold(target) = policy {
-                    target
-                } else {
-                    continue;
-                };
+                let (target, angle) =
+                    if let VehicleControlPolicy::PositionHold(target, angle) = policy {
+                        (target, angle)
+                    } else {
+                        continue;
+                    };
 
                 let p = ctx.w2c(body.pv.pos_f32());
                 let q = ctx.w2c(*target);
+                let r = ctx.w2c(target + rotate(Vec2::X * 5.0, *angle));
                 draw_x(&mut canvas.gizmos, q, 2.0 * ctx.scale(), RED);
+                canvas.gizmos.line_2d(q, r, YELLOW);
 
                 let info = crate::scenes::craft_editor::vehicle_info(vehicle);
                 canvas.text(info, p, 0.01 * ctx.scale()).anchor_left();
 
                 canvas.gizmos.line_2d(p, q, BLUE);
-                if state.universe.surface.gravity_vector().length() > 0.0 {
+                if state.universe.surface.external_acceleration().length() > 0.0 {
                     draw_kinematic_arc(
                         &mut canvas.gizmos,
                         body.pv,
                         ctx,
-                        state.universe.surface.gravity_vector(),
+                        state.universe.surface.external_acceleration(),
                     );
                 }
             }

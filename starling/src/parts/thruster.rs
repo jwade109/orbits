@@ -20,6 +20,7 @@ pub struct ThrusterModel {
     pub secondary_color: [f32; 4],
     pub plume_length: f32,
     pub plume_angle: f32,
+    pub minimum_throttle: f32,
 }
 
 impl ThrusterModel {
@@ -28,7 +29,7 @@ impl ThrusterModel {
     }
 
     pub fn current_thrust(&self, data: &ThrusterInstanceData) -> f32 {
-        if data.is_thrusting() {
+        if data.is_thrusting(self) {
             self.thrust * data.throttle()
         } else {
             0.0
@@ -74,8 +75,8 @@ impl ThrusterInstanceData {
         self.throttle = self.throttle.clamp(0.0, 1.0);
     }
 
-    pub fn is_thrusting(&self) -> bool {
-        self.throttle > 0.0
+    pub fn is_thrusting(&self, model: &ThrusterModel) -> bool {
+        self.throttle > model.minimum_throttle
     }
 }
 
@@ -98,7 +99,7 @@ impl ThrusterModel {
     }
 
     pub fn fuel_consumption_rate(&self, data: &ThrusterInstanceData) -> f32 {
-        if data.is_thrusting() {
+        if data.is_thrusting(self) {
             let max_rate = self.thrust / self.exhaust_velocity;
             max_rate * data.throttle
         } else {

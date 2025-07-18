@@ -439,30 +439,30 @@ impl Render for GameState {
 fn keyboard_control_law(input: &InputState) -> Option<VehicleControl> {
     let mut ctrl = VehicleControl::NULLOPT;
 
-    let allow_linear_rcs: bool = input.is_pressed(KeyCode::ControlLeft);
-    ctrl.plus_x.throttle = input.is_pressed(KeyCode::ArrowUp) as u8 as f32 * 0.4;
+    let docking_mode = input.is_pressed(KeyCode::ControlLeft);
 
-    // } else if input.is_pressed(KeyCode::ArrowDown) {
-    //     -Vec2::X
-    // } else if input.is_pressed(KeyCode::ArrowLeft) && allow_linear_rcs {
-    //     Vec2::Y
-    // } else if input.is_pressed(KeyCode::ArrowRight) && allow_linear_rcs {
-    //     -Vec2::Y
-    // } else {
-    //     Vec2::ZERO
-    // };
-
-    ctrl.attitude = if input.is_pressed(KeyCode::ArrowLeft) && !allow_linear_rcs {
-        10.0
-    } else if input.is_pressed(KeyCode::ArrowRight) && !allow_linear_rcs {
-        -10.0
+    if docking_mode {
+        ctrl.plus_x.throttle = input.is_pressed(KeyCode::ArrowUp) as u8 as f32;
+        ctrl.plus_y.throttle = input.is_pressed(KeyCode::ArrowLeft) as u8 as f32;
+        ctrl.neg_x.throttle = input.is_pressed(KeyCode::ArrowDown) as u8 as f32;
+        ctrl.neg_y.throttle = input.is_pressed(KeyCode::ArrowRight) as u8 as f32;
     } else {
-        0.0
-    };
+        ctrl.plus_x.throttle = input.is_pressed(KeyCode::ArrowUp) as u8 as f32;
+        ctrl.neg_x.throttle = input.is_pressed(KeyCode::ArrowDown) as u8 as f32;
 
-    // if control == Vec2::ZERO && attitude == 0.0 {
-    //     return None;
-    // }
+        ctrl.attitude = if input.is_pressed(KeyCode::ArrowLeft) {
+            10.0
+        } else if input.is_pressed(KeyCode::ArrowRight) {
+            -10.0
+        } else {
+            0.0
+        };
+    }
+
+    ctrl.plus_x.use_rcs = docking_mode;
+    ctrl.plus_y.use_rcs = docking_mode;
+    ctrl.neg_x.use_rcs = docking_mode;
+    ctrl.neg_y.use_rcs = docking_mode;
 
     Some(ctrl)
 }
@@ -1089,8 +1089,10 @@ impl GameState {
         signals.piloting = keyboard_control_law(&self.input);
         signals.toggle_mode = self.input.just_pressed(KeyCode::KeyM);
 
-        self.universe
-            .on_sim_ticks(self.universe_ticks_per_game_tick, &signals);
+        if !self.paused {
+            self.universe
+                .on_sim_ticks(self.universe_ticks_per_game_tick, &signals);
+        }
 
         self.exec_time = std::time::Instant::now() - start;
 

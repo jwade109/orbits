@@ -1,4 +1,3 @@
-use crate::prelude::Vec2;
 use crate::vehicle::VehicleControl;
 
 pub struct ControlSignals {
@@ -14,9 +13,5 @@ impl ControlSignals {
             piloting: None,
             toggle_mode: false,
         }
-    }
-
-    pub fn gravity_vector(&self) -> Vec2 {
-        -Vec2::Y * self.gravity
     }
 }
