@@ -25,5 +25,6 @@ pub use crate::scenario::{
     simulate, ObjectIdTracker, ObjectLookup, PlanetarySystem, ScenarioObject,
 };
 pub use crate::surface::*;
+pub use crate::terrain::*;
 pub use crate::universe::*;
 pub use crate::vehicle::*;

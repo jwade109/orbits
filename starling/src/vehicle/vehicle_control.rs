@@ -53,6 +53,16 @@ const DOCKING_LINEAR_CONTROLLER: PDCtrl = PDCtrl::new(10.0, 300.0);
 fn zero_gravity_control_law(target: Vec2, target_angle: f32, body: &RigidBody) -> VehicleControl {
     let mut ctrl = VehicleControl::NULLOPT;
 
+    if body.pv.vel.length() > 1.0 {
+        let target_angle = wrap_0_2pi((-body.pv.vel).to_angle() as f32);
+        ctrl.attitude = compute_attitude_control(body, target_angle, &ATTITUDE_CONTROLLER);
+        if (body.angle - target_angle).abs() < 0.1 && body.angular_velocity.abs() < 1.0 {
+            ctrl.plus_x.throttle = 0.6;
+        }
+
+        return ctrl;
+    }
+
     ctrl.attitude = compute_attitude_control(body, target_angle, &ATTITUDE_CONTROLLER);
 
     let error = rotate(target - body.pv.pos_f32(), -body.angle);
@@ -92,8 +102,6 @@ fn hover_control_law(
     vehicle: &Vehicle,
     body: &RigidBody,
 ) -> VehicleControl {
-    let future_alt = kinematic_apoapis(body, gravity.length() as f64) as f32;
-
     let upright_angle = Vec2::new(-gravity.x, -gravity.y).to_angle();
 
     let target = if target.distance(body.pv.pos_f32()) > 250.0 {
@@ -116,7 +124,7 @@ fn hover_control_law(
     let pct = gravity.length() / accel;
 
     // vertical controller
-    let error = VERTICAL_CONTROLLER.apply(target.y - future_alt, body.pv.vel.y as f32);
+    let error = VERTICAL_CONTROLLER.apply(target.y - body.pv.pos.y as f32, body.pv.vel.y as f32);
 
     let throttle = pct + error;
 

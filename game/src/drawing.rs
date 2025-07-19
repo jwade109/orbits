@@ -444,7 +444,7 @@ pub fn draw_favorites(canvas: &mut Canvas, state: &GameState) -> Option<()> {
 
         let pos = leftmost - Vec2::X * i as f32 * size * 1.1;
 
-        draw_vehicle(canvas, vehicle, pos, size / (rb * 2.0), vehicle.angle());
+        draw_vehicle(canvas, vehicle, pos, size / (rb * 2.0), 0.0);
         let color = if Some(*id) == state.piloting() {
             TEAL.with_alpha(0.3)
         } else {
@@ -486,7 +486,7 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
         -window_dims.y / 2.0 + r * 1.2,
     );
 
-    draw_vehicle(canvas, &vehicle, center, zoom, vehicle.angle());
+    draw_vehicle(canvas, &vehicle, center, zoom, 0.0);
 
     // prograde markers, etc
     {

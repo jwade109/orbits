@@ -11,12 +11,12 @@ use bevy::prelude::*;
 use layout::layout::Tree;
 
 #[derive(Debug)]
-pub struct RPOContext {
+pub struct DockingContext {
     camera: LinearCameraController,
     following: Option<usize>,
 }
 
-impl CameraProjection for RPOContext {
+impl CameraProjection for DockingContext {
     fn origin(&self) -> Vec2 {
         self.camera.origin()
     }
@@ -50,13 +50,13 @@ fn relative_info_labels(state: &GameState) -> Option<TextLabel> {
     Some(TextLabel::new(str, Vec2::Y * (dims.y / 2.0 - 100.0), 1.0))
 }
 
-impl Render for RPOContext {
+impl Render for DockingContext {
     fn background_color(_state: &GameState) -> Srgba {
         TEAL.with_luminance(0.05)
     }
 
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
-        let ctx = &state.rpo_context;
+        let ctx = &state.docking_context;
         let target = state.targeting()?;
         let piloting = state.piloting()?;
 
@@ -107,7 +107,7 @@ impl Render for RPOContext {
             }
 
             if let Some(v) = state.universe.vehicles.get(&id) {
-                draw_vehicle(canvas, v, ctx.w2c(pv.pos_f32()), ctx.scale(), v.angle());
+                draw_vehicle(canvas, v, ctx.w2c(pv.pos_f32()), ctx.scale(), 0.0);
             }
         }
 
@@ -131,7 +131,7 @@ impl Render for RPOContext {
             format!(
                 "Target: {:?} scale: {}",
                 state.orbital_context.targeting,
-                state.rpo_context.scale()
+                state.docking_context.scale()
             ),
             (40.0 - half_span.y) * Vec2::Y,
             0.6,
@@ -175,7 +175,7 @@ impl Render for RPOContext {
     }
 }
 
-impl RPOContext {
+impl DockingContext {
     pub fn new() -> Self {
         Self {
             camera: LinearCameraController::new(Vec2::ZERO, 1.0, 1700.0),

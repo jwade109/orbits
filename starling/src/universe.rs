@@ -94,7 +94,9 @@ impl Universe {
                 PHYSICS_CONSTANT_DELTA_TIME,
             );
 
-            body.on_the_floor();
+            let elevation = self.surface.elevation(body.pv.pos_f32().x);
+
+            body.on_the_floor(elevation);
         }
 
         self.surface.on_sim_tick();

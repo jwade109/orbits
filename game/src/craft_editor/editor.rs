@@ -34,27 +34,6 @@ pub struct VehiclePartFileStorage {
 }
 
 #[derive(Debug)]
-struct BuildParticle {
-    pv: PV,
-    opacity: f32,
-}
-
-impl BuildParticle {
-    fn new(pos: Vec2) -> Self {
-        let vel = randvec(30.0, 90.0);
-        Self {
-            pv: PV::from_f64(pos, vel),
-            opacity: 1.0,
-        }
-    }
-
-    fn on_sim_tick(&mut self) {
-        self.opacity -= 0.2;
-        self.pv.pos += self.pv.vel * PHYSICS_CONSTANT_DELTA_TIME.to_secs_f64();
-    }
-}
-
-#[derive(Debug)]
 pub struct EditorContext {
     camera: LinearCameraController,
     cursor_state: CursorState,
@@ -386,6 +365,7 @@ pub fn vehicle_info(vehicle: &Vehicle) -> String {
         format!("Thrust: {:0.2} kN", vehicle.max_thrust() / 1000.0),
         format!("Tanks: {}", vehicle.tank_count()),
         format!("Accel: {:0.2} g", vehicle.accel() / 9.81),
+        format!("BFA: {:0.2} g", vehicle.body_frame_accel().linear / 9.81),
         format!("Ve: {:0.1} s", vehicle.average_linear_exhaust_velocity()),
         format!("DV: {:0.1} m/s", vehicle.remaining_dv()),
         format!("WH: {:0.2}x{:0.2}", bounds.span.x, bounds.span.y),
@@ -696,6 +676,9 @@ impl Render for EditorContext {
                         if let Some(item) = d.item() {
                             let s = aabb.span.x.min(aabb.span.y) * 0.7;
                             let path = item.to_sprite_name();
+                            canvas
+                                .sprite(aabb.center, 0.0, "cloud", None, Vec2::splat(s))
+                                .set_color(BLACK);
                             canvas.sprite(aabb.center, 0.0, path, None, Vec2::splat(s));
                         }
                     }
@@ -731,6 +714,10 @@ impl Render for EditorContext {
 
                             let s = aabb.span.x.min(aabb.span.y) * 0.7;
                             let path = item.to_sprite_name();
+                            canvas
+                                .sprite(aabb.center, 0.0, "cloud", None, Vec2::splat(s))
+                                .set_color(BLACK);
+
                             canvas.sprite(aabb.center, 0.0, path, None, Vec2::splat(s));
 
                             lower.y += dims.y * pct;
@@ -831,10 +818,10 @@ impl Render for EditorContext {
         }
 
         for particle in &ctx.build_particles {
-            let p = ctx.w2c(particle.pv.pos_f32());
+            let p = ctx.w2c(particle.pos());
             canvas
                 .sprite(p, 0.0, "error", None, Vec2::splat(0.7) * ctx.scale())
-                .set_color(YELLOW.with_alpha(particle.opacity));
+                .set_color(YELLOW.with_alpha(particle.opacity()));
         }
 
         for bot in &ctx.bots {
@@ -1132,7 +1119,7 @@ impl EditorContext {
             particle.on_sim_tick();
         }
 
-        ctx.build_particles.retain(|p| p.opacity > 0.0);
+        ctx.build_particles.retain(|p| p.opacity() > 0.0);
     }
 }
 

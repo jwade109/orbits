@@ -7,8 +7,7 @@ use crate::onclick::OnClick;
 use crate::scenes::{CameraProjection, Render};
 use crate::thrust_particles::*;
 use bevy::color::{palettes::css::*, Alpha, Srgba};
-use bevy::prelude::Gizmos;
-use bevy::prelude::KeyCode;
+use bevy::prelude::{Gizmos, KeyCode};
 use layout::layout::Tree;
 use starling::prelude::*;
 use std::collections::HashSet;
@@ -23,7 +22,7 @@ pub struct SurfaceContext {
 impl Default for SurfaceContext {
     fn default() -> Self {
         SurfaceContext {
-            camera: LinearCameraController::new(Vec2::ZERO, 1.0, 1700.0),
+            camera: LinearCameraController::new(Vec2::Y * 30.0, 10.0, 1700.0),
             selected: HashSet::new(),
             particles: ThrustParticleEffects::new(),
         }
@@ -176,6 +175,20 @@ fn surface_scene_ui(state: &GameState) -> Tree<OnClick> {
         BUTTON_HEIGHT,
     );
 
+    let increase_wind = Node::button(
+        "More Wind",
+        OnClick::IncreaseWind,
+        Size::Grow,
+        BUTTON_HEIGHT,
+    );
+
+    let decrease_wind = Node::button(
+        "Less Wind",
+        OnClick::DecreaseWind,
+        Size::Grow,
+        BUTTON_HEIGHT,
+    );
+
     let main_area = Node::grow().invisible();
 
     let wrapper = Node::structural(350, Size::Fit)
@@ -183,7 +196,9 @@ fn surface_scene_ui(state: &GameState) -> Tree<OnClick> {
         .with_color(UI_BACKGROUND_COLOR)
         .with_child(show_gravity)
         .with_child(increase_gravity)
-        .with_child(decrease_gravity);
+        .with_child(decrease_gravity)
+        .with_child(increase_wind)
+        .with_child(decrease_wind);
 
     let layout = Node::new(vb.span.x, vb.span.y)
         .tight()
@@ -195,6 +210,40 @@ fn surface_scene_ui(state: &GameState) -> Tree<OnClick> {
     Tree::new().with_layout(layout, Vec2::ZERO)
 }
 
+fn draw_terrain_tile(
+    canvas: &mut Canvas,
+    ctx: &impl CameraProjection,
+    pos: IVec2,
+    chunk: &TerrainChunk,
+) {
+    if chunk.is_air() {
+        return;
+    }
+
+    if chunk.is_deep() {
+        return;
+    }
+
+    let bounds = chunk_pos_to_bounds(pos);
+    let bounds = ctx.w2c_aabb(bounds);
+    draw_aabb(&mut canvas.gizmos, bounds, GRAY.with_alpha(0.1));
+
+    for (tile_pos, value) in chunk.tiles() {
+        let color = match value {
+            Tile::Air => continue,
+            Tile::DeepStone => GRAY,
+            Tile::Stone => LIGHT_GRAY,
+            Tile::Sand => LIGHT_YELLOW,
+            Tile::Ore => ORANGE,
+            Tile::Grass => DARK_GREEN,
+        };
+
+        let bounds = tile_pos_to_bounds(pos, tile_pos);
+        let bounds = ctx.w2c_aabb(bounds);
+        canvas.rect(bounds, color).z_index = 1.0;
+    }
+}
+
 impl Render for SurfaceContext {
     fn background_color(state: &GameState) -> Srgba {
         let c = state.universe.surface.atmo_color;
@@ -204,20 +253,17 @@ impl Render for SurfaceContext {
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         let ctx = &state.surface_context;
 
+        for (pos, chunk) in &state.universe.surface.terrain {
+            draw_terrain_tile(canvas, ctx, *pos, chunk);
+        }
+
         {
-            let bl = ctx.w2c(Vec2::new(-1000.0, -500.0));
-            let tr = ctx.w2c(Vec2::new(1000.0, 0.0));
-            let center = (tr + bl) / 2.0;
-            let dims = tr - bl;
-
-            if dims.x > 0.0 && dims.y > 0.0 {
-                let color = state.universe.surface.land_color;
-                let color = to_srgba([color[0], color[1], color[2], 1.0]);
-
-                canvas
-                    .sprite(center, 0.0, "error", -10.0, dims)
-                    .set_color(color);
+            let mut pts = Vec::new();
+            for k in &state.universe.surface.elevation {
+                let p = ctx.w2c(Vec2::new(k.t, k.value));
+                pts.push(p);
             }
+            canvas.gizmos.linestrip_2d(pts, GRAY);
         };
 
         ctx.particles.draw(canvas, ctx);
@@ -278,9 +324,6 @@ impl Render for SurfaceContext {
             }
         }
 
-        let p = ctx.w2c(Vec2::new(-400.0, 0.0));
-        let q = ctx.w2c(Vec2::new(400.0, 0.0));
-
         // grid of 10 meter increments
         for i in (-100..100).step_by(10) {
             for j in (-100..100).step_by(10) {
@@ -289,8 +332,6 @@ impl Render for SurfaceContext {
                 draw_cross(&mut canvas.gizmos, p, 3.0, WHITE.with_alpha(0.1));
             }
         }
-
-        canvas.gizmos.line_2d(p, q, WHITE);
 
         canvas.label(crate::scenes::orbital::date_label(state));
 

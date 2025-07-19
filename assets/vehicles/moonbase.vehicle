@@ -1,0 +1,467 @@
+name: ''
+parts:
+- partname: radar
+  pos:
+  - 22
+  - 71
+  rot: South
+- partname: frame3
+  pos:
+  - -58
+  - 61
+  rot: East
+- partname: frame3
+  pos:
+  - -78
+  - -109
+  rot: South
+- partname: plate
+  pos:
+  - -68
+  - -44
+  rot: South
+- partname: plate
+  pos:
+  - -68
+  - 66
+  rot: South
+- partname: tank22
+  pos:
+  - -83
+  - -29
+  rot: East
+- partname: tank22
+  pos:
+  - -83
+  - -9
+  rot: East
+- partname: frame3
+  pos:
+  - -68
+  - -109
+  rot: South
+- partname: gold
+  pos:
+  - 22
+  - 116
+  rot: South
+- partname: frame3
+  pos:
+  - -68
+  - 11
+  rot: South
+- partname: cargo
+  pos:
+  - -28
+  - 61
+  rot: East
+- partname: gold
+  pos:
+  - 52
+  - 116
+  rot: South
+- partname: plate
+  pos:
+  - -68
+  - -74
+  rot: South
+- partname: plate
+  pos:
+  - -68
+  - -14
+  rot: South
+- partname: frame3
+  pos:
+  - -78
+  - 51
+  rot: South
+- partname: antenna
+  pos:
+  - 62
+  - 94
+  rot: South
+- partname: gold
+  pos:
+  - 32
+  - 116
+  rot: South
+- partname: plate
+  pos:
+  - -68
+  - 6
+  rot: South
+- partname: plate
+  pos:
+  - -68
+  - 106
+  rot: South
+- partname: plate
+  pos:
+  - -68
+  - -84
+  rot: South
+- partname: gold
+  pos:
+  - 42
+  - 116
+  rot: South
+- partname: tank22
+  pos:
+  - -83
+  - 11
+  rot: East
+- partname: tank22
+  pos:
+  - -83
+  - 71
+  rot: East
+- partname: plate
+  pos:
+  - -68
+  - -134
+  rot: South
+- partname: tank22
+  pos:
+  - -83
+  - 51
+  rot: East
+- partname: plate
+  pos:
+  - -68
+  - -94
+  rot: South
+- partname: frame3
+  pos:
+  - -68
+  - -149
+  rot: South
+- partname: plate
+  pos:
+  - -68
+  - 116
+  rot: South
+- partname: plate
+  pos:
+  - -68
+  - -24
+  rot: South
+- partname: frame2
+  pos:
+  - 2
+  - 71
+  rot: North
+- partname: frame
+  pos:
+  - 2
+  - 91
+  rot: North
+- partname: frame3
+  pos:
+  - -78
+  - -29
+  rot: South
+- partname: frame3
+  pos:
+  - -68
+  - -29
+  rot: South
+- partname: cargo
+  pos:
+  - -58
+  - 61
+  rot: East
+- partname: frame2
+  pos:
+  - 2
+  - 81
+  rot: East
+- partname: frame3
+  pos:
+  - -18
+  - 61
+  rot: East
+- partname: plate
+  pos:
+  - -68
+  - 36
+  rot: South
+- partname: frame3
+  pos:
+  - -88
+  - -109
+  rot: South
+- partname: plate
+  pos:
+  - -68
+  - 56
+  rot: South
+- partname: tank22
+  pos:
+  - -58
+  - 91
+  rot: East
+- partname: plate
+  pos:
+  - -68
+  - 76
+  rot: South
+- partname: frame3
+  pos:
+  - -88
+  - 91
+  rot: South
+- partname: plate
+  pos:
+  - -68
+  - -54
+  rot: South
+- partname: plate
+  pos:
+  - -68
+  - 26
+  rot: South
+- partname: frame22
+  pos:
+  - -58
+  - 91
+  rot: East
+- partname: frame3
+  pos:
+  - -18
+  - 111
+  rot: East
+- partname: plate
+  pos:
+  - -68
+  - -114
+  rot: South
+- partname: plate
+  pos:
+  - -68
+  - -104
+  rot: South
+- partname: plate
+  pos:
+  - -68
+  - -34
+  rot: South
+- partname: frame3
+  pos:
+  - -78
+  - 11
+  rot: South
+- partname: frame3
+  pos:
+  - -68
+  - -69
+  rot: South
+- partname: tank22
+  pos:
+  - -83
+  - 31
+  rot: East
+- partname: gold
+  pos:
+  - -18
+  - 116
+  rot: South
+- partname: plate
+  pos:
+  - -68
+  - 16
+  rot: South
+- partname: gold
+  pos:
+  - 12
+  - 116
+  rot: South
+- partname: plate
+  pos:
+  - -68
+  - -64
+  rot: South
+- partname: frame22
+  pos:
+  - -18
+  - 91
+  rot: East
+- partname: gold
+  pos:
+  - -38
+  - 116
+  rot: South
+- partname: frame3
+  pos:
+  - -58
+  - 121
+  rot: East
+- partname: frame3
+  pos:
+  - -88
+  - 51
+  rot: South
+- partname: plate
+  pos:
+  - -68
+  - -144
+  rot: South
+- partname: tank22
+  pos:
+  - 2
+  - 91
+  rot: East
+- partname: gold
+  pos:
+  - -48
+  - 116
+  rot: South
+- partname: tank22
+  pos:
+  - -38
+  - 91
+  rot: East
+- partname: frame3
+  pos:
+  - -68
+  - 91
+  rot: South
+- partname: tank11
+  pos:
+  - 2
+  - 71
+  rot: East
+- partname: frame3
+  pos:
+  - -88
+  - -149
+  rot: South
+- partname: frame3
+  pos:
+  - -78
+  - 91
+  rot: South
+- partname: frame3
+  pos:
+  - 12
+  - 71
+  rot: North
+- partname: plate
+  pos:
+  - -68
+  - 86
+  rot: South
+- partname: frame3
+  pos:
+  - 22
+  - 111
+  rot: East
+- partname: plate
+  pos:
+  - -68
+  - 46
+  rot: South
+- partname: frame3
+  pos:
+  - -88
+  - -29
+  rot: South
+- partname: gold
+  pos:
+  - -58
+  - 116
+  rot: South
+- partname: frame3
+  pos:
+  - -78
+  - -149
+  rot: South
+- partname: plate
+  pos:
+  - -68
+  - -4
+  rot: South
+- partname: gold
+  pos:
+  - -8
+  - 116
+  rot: South
+- partname: frame3
+  pos:
+  - -18
+  - 121
+  rot: East
+- partname: frame3
+  pos:
+  - -58
+  - 111
+  rot: East
+- partname: plate
+  pos:
+  - -68
+  - 96
+  rot: South
+- partname: frame3
+  pos:
+  - -88
+  - 11
+  rot: South
+- partname: frame3
+  pos:
+  - 22
+  - 121
+  rot: East
+- partname: gold
+  pos:
+  - 2
+  - 116
+  rot: South
+- partname: plate
+  pos:
+  - -68
+  - -124
+  rot: South
+- partname: tank11
+  pos:
+  - 2
+  - 81
+  rot: East
+- partname: frame3
+  pos:
+  - -68
+  - 51
+  rot: South
+- partname: frame3
+  pos:
+  - -78
+  - -69
+  rot: South
+- partname: tank22
+  pos:
+  - -18
+  - 91
+  rot: East
+- partname: frame
+  pos:
+  - 2
+  - 101
+  rot: North
+- partname: frame3
+  pos:
+  - -88
+  - -69
+  rot: South
+- partname: frame22
+  pos:
+  - -38
+  - 91
+  rot: East
+- partname: gold
+  pos:
+  - -28
+  - 116
+  rot: South
+- partname: tank22
+  pos:
+  - -83
+  - 91
+  rot: East

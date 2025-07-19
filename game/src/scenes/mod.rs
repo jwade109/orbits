@@ -14,7 +14,7 @@ pub use orbital::{
     ThrottleLevel,
 };
 pub use render::*;
-pub use rpo::RPOContext;
+pub use rpo::DockingContext;
 pub use scene::{Scene, SceneType};
 pub use surface::SurfaceContext;
 pub use telescope::TelescopeContext;

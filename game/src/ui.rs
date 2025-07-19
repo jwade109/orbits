@@ -542,7 +542,7 @@ pub fn layout(state: &GameState) -> Tree<OnClick> {
     let scene = state.current_scene();
     match scene.kind() {
         SceneType::MainMenu => MainMenuContext::ui(state),
-        SceneType::DockingView => RPOContext::ui(state),
+        SceneType::DockingView => DockingContext::ui(state),
         SceneType::Telescope => TelescopeContext::ui(state),
         SceneType::Orbital => OrbitalContext::ui(state),
         SceneType::Editor => EditorContext::ui(state),

@@ -462,8 +462,7 @@ impl Vehicle {
                         0.0
                     };
 
-                    // we're not using RCS for linear translation.
-                    // fire this thruster if it turns the vehicle
+                    // also fire this thruster if it turns the vehicle
                     // the right way
                     let is_torque = {
                         let torque = cross2d(center_of_thrust - com, u);
@@ -485,15 +484,13 @@ impl Vehicle {
 
                 d.set_throttle(throttle);
             }
-
-            // if let Some((m, d)) = part.as_magnetorquer_mut() {
-            //     d.set_torque(m, 1000.0);
-            // }
         }
     }
 
     pub fn on_sim_tick(&mut self) {
-        for (_, part) in &mut self.parts {
+        let mut machines = Vec::new();
+
+        for (id, part) in &mut self.parts {
             if part.percent_built() < 1.0 {
                 continue;
             }
@@ -504,16 +501,31 @@ impl Vehicle {
 
             if let Some((_, d)) = part.as_machine_mut() {
                 d.on_sim_tick();
+                machines.push(id);
             }
+        }
 
-            if let Some((t, d)) = part.as_tank_mut() {
-                let item = d.item().unwrap_or(Item::random());
-                t.put(item, Mass::kilograms(20), d);
+        let mut tank_ids = HashSet::new();
+
+        for id in machines {
+            for conn in &self.conn_groups {
+                if !conn.contains(*id) {
+                    continue;
+                }
+                for other in conn.ids() {
+                    if other == *id {
+                        continue;
+                    }
+                    tank_ids.insert(other);
+                }
             }
+        }
 
-            if let Some((c, d)) = part.as_cargo_mut() {
-                let mass = randint(100, 700);
-                c.put(Item::random(), Mass::kilograms(mass as u64), d);
+        for id in tank_ids {
+            if let Some(p) = self.parts.get_mut(&id) {
+                if let Some((t, d)) = p.as_tank_mut() {
+                    t.put(Item::H2, Mass::kilograms(3), d);
+                }
             }
         }
     }
@@ -530,11 +542,6 @@ impl Vehicle {
                 d.set_throttle(throttle);
             }
         }
-    }
-
-    #[deprecated]
-    pub fn angle(&self) -> f32 {
-        0.0
     }
 
     pub fn radars(&self) -> impl Iterator<Item = &Radar> + use<'_> {

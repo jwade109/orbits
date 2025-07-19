@@ -23,6 +23,14 @@ impl ConnectivityGroup {
         self.connections.insert(id, pos);
     }
 
+    pub fn contains(&self, id: PartId) -> bool {
+        self.connections.contains_key(&id)
+    }
+
+    pub fn ids(&self) -> impl Iterator<Item = PartId> + use<'_> {
+        self.connections.iter().map(|(id, _)| *id)
+    }
+
     pub fn add_transport_line(&mut self, p: IVec2) {
         self.transport_lines.insert(p);
         if let Some(aabb) = &mut self.bounds {

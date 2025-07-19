@@ -6,7 +6,7 @@ use crate::input::{FrameId, InputState, MouseButt};
 use crate::notifications::*;
 use crate::onclick::OnClick;
 use crate::scenes::{
-    CameraProjection, CursorMode, EditorContext, MainMenuContext, OrbitalContext, RPOContext,
+    CameraProjection, CursorMode, DockingContext, EditorContext, MainMenuContext, OrbitalContext,
     Render, Scene, SceneType, StaticSpriteDescriptor, SurfaceContext, TelescopeContext, TextLabel,
 };
 use crate::ui::InteractionEvent;
@@ -136,7 +136,7 @@ pub struct GameState {
 
     pub telescope_context: TelescopeContext,
 
-    pub rpo_context: RPOContext,
+    pub docking_context: DockingContext,
 
     pub editor_context: EditorContext,
 
@@ -210,7 +210,7 @@ impl GameState {
             console: DebugConsole::new(),
             orbital_context: OrbitalContext::new(EntityId(0)),
             telescope_context: TelescopeContext::new(),
-            rpo_context: RPOContext::new(),
+            docking_context: DockingContext::new(),
             editor_context: EditorContext::new(),
             surface_context: SurfaceContext::default(),
             wall_time: Nanotime::zero(),
@@ -244,9 +244,8 @@ impl GameState {
         for model in [
             // "icecream",
             "jubilee", "lander", // "mule",
-            "pollux", "remora", "remora", "remora",
-            "remora",
-            // "glutton",
+            "pollux", "remora", "remora", "remora", "remora",
+            "moonbase",
             // "Lord of Democracy",
         ] {
             if let Some(v) = g.get_vehicle_by_model(model) {
@@ -396,7 +395,7 @@ impl Render for GameState {
             SceneType::Orbital => OrbitalContext::background_color(state),
             SceneType::Editor => EditorContext::background_color(state),
             SceneType::Telescope => TelescopeContext::background_color(state),
-            SceneType::DockingView => RPOContext::background_color(state),
+            SceneType::DockingView => DockingContext::background_color(state),
             SceneType::MainMenu => BLACK,
             SceneType::Surface => SurfaceContext::background_color(state),
         }
@@ -429,7 +428,7 @@ impl Render for GameState {
             SceneType::Orbital => OrbitalContext::draw(canvas, state),
             SceneType::Editor => EditorContext::draw(canvas, state),
             SceneType::Telescope => TelescopeContext::draw(canvas, state),
-            SceneType::DockingView => RPOContext::draw(canvas, state),
+            SceneType::DockingView => DockingContext::draw(canvas, state),
             SceneType::MainMenu => MainMenuContext::draw(canvas, state),
             SceneType::Surface => SurfaceContext::draw(canvas, state),
         }
@@ -930,6 +929,8 @@ impl GameState {
             OnClick::ReloadGame => _ = self.reload(),
             OnClick::IncreaseGravity => self.universe.surface.increase_gravity(),
             OnClick::DecreaseGravity => self.universe.surface.decrease_gravity(),
+            OnClick::IncreaseWind => self.universe.surface.increase_wind(),
+            OnClick::DecreaseWind => self.universe.surface.decrease_wind(),
 
             _ => info!("Unhandled button event: {id:?}"),
         };
@@ -1062,7 +1063,7 @@ impl GameState {
         self.handle_click_events();
 
         match self.current_scene().kind() {
-            SceneType::DockingView => self.rpo_context.handle_input(&self.input),
+            SceneType::DockingView => self.docking_context.handle_input(&self.input),
             SceneType::Editor => EditorContext::on_render_tick(self),
             SceneType::MainMenu => (),
             SceneType::Orbital => self.orbital_context.handle_input(&self.input),
@@ -1234,7 +1235,7 @@ impl GameState {
                 self.telescope_context.on_game_tick();
             }
             SceneType::DockingView => {
-                self.rpo_context.on_game_tick();
+                self.docking_context.on_game_tick();
             }
             SceneType::Editor => {
                 EditorContext::on_game_tick(self);

@@ -55,5 +55,7 @@ pub enum OnClick {
     ReloadGame,
     IncreaseGravity,
     DecreaseGravity,
+    IncreaseWind,
+    DecreaseWind,
     Nullopt,
 }
