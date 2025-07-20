@@ -1,4 +1,6 @@
 use crate::factory::*;
+use crate::math::*;
+use enum_iterator::Sequence;
 use std::collections::HashMap;
 
 #[derive(Debug, Default, Clone)]
@@ -133,5 +135,29 @@ pub fn people_eat_things() -> Recipe {
     Recipe {
         inputs: HashMap::from([(Item::Water, 1_000_000), (Item::Bread, 1_000_000)]),
         outputs: HashMap::from([(Item::People, 1)]),
+    }
+}
+
+#[derive(Debug, Clone, Copy, Sequence, PartialEq, Eq)]
+pub enum RecipeListing {
+    DoNothing, // TODO maybe don't keep this
+    Sabatier,
+    WaterElectrolysis,
+    CarbonDioxideCondensation,
+    HarvestBread,
+    IceMelting,
+    IceMining,
+    PeopleEatThings,
+}
+
+impl RecipeListing {
+    pub fn all() -> impl Iterator<Item = Self> {
+        enum_iterator::all::<Self>()
+    }
+
+    pub fn random() -> Self {
+        let variants: Vec<_> = Self::all().collect();
+        let n = randint(0, variants.len() as i32);
+        variants[n as usize]
     }
 }

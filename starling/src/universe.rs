@@ -61,13 +61,13 @@ impl Universe {
         self.ticks += 1;
         self.stamp += PHYSICS_CONSTANT_DELTA_TIME;
 
-        for (_, orbiter) in &mut self.orbiters {
-            orbiter.on_sim_tick();
-        }
+        // for (_, orbiter) in &mut self.orbiters {
+        //     orbiter.on_sim_tick();
+        // }
 
-        for (_, vehicle) in &mut self.vehicles {
-            vehicle.on_sim_tick();
-        }
+        // for (_, vehicle) in &mut self.vehicles {
+        //     vehicle.on_sim_tick();
+        // }
 
         for (i, (body, policy, vehicle)) in self.surface_vehicles.iter_mut().enumerate() {
             let ctrl = if i == 0 {
@@ -85,6 +85,7 @@ impl Universe {
             };
 
             vehicle.set_thrust_control(ctrl);
+
             vehicle.on_sim_tick();
 
             let accel = vehicle.body_frame_accel();
@@ -99,10 +100,10 @@ impl Universe {
             body.on_the_floor(elevation);
         }
 
-        self.surface.on_sim_tick();
+        // self.surface.on_sim_tick();
 
-        self.constellations
-            .retain(|id, _| self.orbiters.contains_key(id));
+        // self.constellations
+        //     .retain(|id, _| self.orbiters.contains_key(id));
     }
 
     pub fn get_group_members(&mut self, gid: EntityId) -> Vec<EntityId> {

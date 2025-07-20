@@ -51,6 +51,9 @@ impl ConBot {
     pub fn on_sim_tick(&mut self) {
         let dt = PHYSICS_CONSTANT_DELTA_TIME;
 
+        const MAX_ACCEL: f64 = 30.0;
+        const MAX_VEL: f64 = 50.0;
+
         if let Some(target_pos) = self.target_pos {
             let dx = target_pos.x - self.pos().x;
             let dy = target_pos.y - self.pos().y;
@@ -62,11 +65,11 @@ impl ConBot {
 
             let a = Vec2::new(ax, ay)
                 .as_dvec2()
-                .clamp(-DVec2::splat(30.0), DVec2::splat(30.0));
+                .clamp(-DVec2::splat(MAX_ACCEL), DVec2::splat(MAX_ACCEL));
             self.pv.vel += a * dt.to_secs_f64();
         }
 
-        self.pv.vel = self.pv.vel.clamp_length(0.0, 50.0);
+        self.pv.vel = self.pv.vel.clamp_length(0.0, MAX_VEL);
 
         self.pv.pos += self.pv.vel * dt.to_secs_f64();
 

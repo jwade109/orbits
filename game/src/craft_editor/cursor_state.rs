@@ -5,7 +5,6 @@ pub enum CursorState {
     #[default]
     None,
     Part(PartPrototype),
-    Pipes,
 }
 
 impl CursorState {
@@ -14,12 +13,5 @@ impl CursorState {
             Self::Part(proto) => Some(proto.clone()),
             _ => None,
         }
-    }
-
-    pub fn toggle_logistics(&mut self) {
-        *self = match self {
-            Self::Pipes => Self::None,
-            _ => Self::Pipes,
-        };
     }
 }

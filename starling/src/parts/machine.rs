@@ -1,4 +1,4 @@
-use crate::factory::Mass;
+use crate::factory::*;
 use crate::math::*;
 use serde::{Deserialize, Serialize};
 
@@ -10,6 +10,7 @@ pub struct Machine {
 
 #[derive(Debug, Clone, Copy)]
 pub struct MachineInstanceData {
+    pub recipe: RecipeListing,
     pub steps_completed: u32,
     pub steps_required: u32,
 }
@@ -17,6 +18,7 @@ pub struct MachineInstanceData {
 impl Default for MachineInstanceData {
     fn default() -> Self {
         MachineInstanceData {
+            recipe: RecipeListing::DoNothing,
             steps_completed: 0,
             steps_required: 100,
         }

@@ -1,5 +1,5 @@
 use crate::scenes::{CursorMode, ThrottleLevel};
-use starling::prelude::{EntityId, PartLayer};
+use starling::prelude::*;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -57,5 +57,7 @@ pub enum OnClick {
     DecreaseGravity,
     IncreaseWind,
     DecreaseWind,
+    SetRecipe(PartId, RecipeListing),
+    ClearContents(PartId),
     Nullopt,
 }

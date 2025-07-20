@@ -1,69 +1,84 @@
 name: ''
 parts:
-- partname: gold
-  pos:
-  - -36
-  - -10
-  rot: South
-- partname: gold
-  pos:
-  - -26
-  - -10
-  rot: South
-- partname: frame2
-  pos:
-  - -34
-  - 10
-  rot: North
-- partname: rcs
-  pos:
-  - 24
-  - -24
-  rot: North
-- partname: frame2
-  pos:
-  - -34
-  - -20
-  rot: West
-- partname: radar
-  pos:
-  - 34
-  - -20
-  rot: South
 - partname: rcs
   pos:
   - -15
   - -14
   rot: North
-- partname: motor
-  pos:
-  - -59
-  - -8
-  rot: East
 - partname: frame22
   pos:
   - -36
   - -10
   rot: South
-- partname: solarpanel
+- partname: rcs
   pos:
-  - -34
-  - -74
+  - -15
+  - 10
   rot: South
-- partname: frame3
+- partname: gold
   pos:
-  - 24
-  - -20
-  rot: North
+  - -26
+  - 0
+  rot: South
+- partname: tank11
+  pos:
+  - -26
+  - -5
+  rot: South
 - partname: cargo
   pos:
   - 4
   - -15
   rot: South
-- partname: tank22
+- partname: frame22
   pos:
-  - -16
+  - 4
   - -10
+  rot: West
+- partname: rcs
+  pos:
+  - 8
+  - 15
+  rot: South
+- partname: angled-frame
+  pos:
+  - 14
+  - 10
+  rot: North
+- partname: angled-frame
+  pos:
+  - 14
+  - -20
+  rot: West
+- partname: angled-frame
+  pos:
+  - -34
+  - 10
+  rot: East
+- partname: rcs
+  pos:
+  - 24
+  - -24
+  rot: North
+- partname: gold
+  pos:
+  - -26
+  - -10
+  rot: South
+- partname: rcs
+  pos:
+  - -38
+  - 17
+  rot: East
+- partname: frame3
+  pos:
+  - 24
+  - -20
+  rot: North
+- partname: solarpanel
+  pos:
+  - -34
+  - -74
   rot: South
 - partname: frame22
   pos:
@@ -77,13 +92,18 @@ parts:
   rot: North
 - partname: rcs
   pos:
-  - -15
-  - 10
+  - 24
+  - 20
   rot: South
-- partname: tank11
+- partname: gold
   pos:
-  - -26
-  - -5
+  - -36
+  - -10
+  rot: South
+- partname: angled-frame
+  pos:
+  - -34
+  - -20
   rot: South
 - partname: gold
   pos:
@@ -92,36 +112,27 @@ parts:
   rot: South
 - partname: rcs
   pos:
-  - -38
-  - -23
-  rot: East
-- partname: rcs
-  pos:
-  - 24
-  - 20
-  rot: South
-- partname: rcs
-  pos:
-  - -38
-  - 17
-  rot: East
-- partname: gold
-  pos:
-  - -26
-  - 0
-  rot: South
-- partname: frame22
-  pos:
-  - 4
-  - -10
-  rot: West
-- partname: rcs
-  pos:
   - 8
   - -19
   rot: North
+- partname: radar
+  pos:
+  - 34
+  - -20
+  rot: South
+- partname: motor
+  pos:
+  - -59
+  - -8
+  rot: East
 - partname: rcs
   pos:
-  - 8
-  - 15
+  - -38
+  - -23
+  rot: East
+- partname: tank22
+  pos:
+  - -16
+  - -10
   rot: South
+lines: []

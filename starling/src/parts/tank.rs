@@ -80,4 +80,8 @@ impl TankInstanceData {
     pub fn item(&self) -> Option<Item> {
         self.stored.map(|(item, _)| item)
     }
+
+    pub fn clear_contents(&mut self) {
+        self.stored = None;
+    }
 }

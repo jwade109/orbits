@@ -19,6 +19,7 @@ pub fn diagram_color(part: &PartPrototype) -> Srgba {
             PartLayer::Exterior => DARK_GRAY,
             PartLayer::Internal => GRAY,
             PartLayer::Structural => WHITE,
+            PartLayer::Plumbing => PURPLE,
         },
     }
 }

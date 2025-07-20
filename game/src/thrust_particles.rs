@@ -1,7 +1,5 @@
 use crate::canvas::Canvas;
-use crate::scenes::surface::to_srgba;
 use crate::scenes::CameraProjection;
-use bevy::color::palettes::css::*;
 use bevy::prelude::{Alpha, Mix, Srgba};
 use starling::prelude::*;
 
@@ -15,10 +13,6 @@ struct ThrustParticle {
     depth: f32,
 }
 
-const MAX_PARTICLE_AGE_SECONDS: Nanotime = Nanotime::secs_f32(2.0);
-
-const NOMINAL_DT: Nanotime = Nanotime::millis(20);
-
 impl ThrustParticle {
     fn new(pv: PV, initial_color: Srgba, final_color: Srgba) -> Self {
         Self {
@@ -26,13 +20,13 @@ impl ThrustParticle {
             age: Nanotime::zero(),
             initial_color,
             final_color,
-            lifetime: MAX_PARTICLE_AGE_SECONDS * rand(0.5, 1.0),
+            lifetime: Nanotime::secs_f32(rand(1.2, 1.8)),
             depth: rand(0.0, 1000.0),
         }
     }
 
     fn step(&mut self) {
-        self.pv.pos += self.pv.vel * NOMINAL_DT.to_secs_f64();
+        self.pv.pos += self.pv.vel * PHYSICS_CONSTANT_DELTA_TIME.to_secs_f64();
         self.pv.vel *= 0.92;
 
         if self.pv.pos.y < 0.0 && self.pv.vel.y < 0.0 {
@@ -45,7 +39,7 @@ impl ThrustParticle {
             }
             self.pv.vel.x += vx;
         }
-        self.age += NOMINAL_DT;
+        self.age += PHYSICS_CONSTANT_DELTA_TIME;
     }
 }
 

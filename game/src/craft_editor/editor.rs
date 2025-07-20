@@ -24,6 +24,7 @@ use std::path::{Path, PathBuf};
 pub struct VehicleFileStorage {
     pub name: String,
     pub parts: Vec<VehiclePartFileStorage>,
+    pub lines: HashSet<IVec2>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -42,7 +43,7 @@ pub struct EditorContext {
     focus_layer: Option<PartLayer>,
     selected_part: Option<PartId>,
     occupied: HashMap<PartLayer, HashMap<IVec2, PartId>>,
-    vehicle: Vehicle,
+    pub vehicle: Vehicle,
     particles: ThrustParticleEffects,
     build_particles: Vec<BuildParticle>,
 
@@ -81,10 +82,6 @@ impl EditorContext {
                 })
                 .collect(),
         }
-    }
-
-    pub fn vehicle(&self) -> &Vehicle {
-        &self.vehicle
     }
 
     pub fn selected_part(&self) -> Option<&InstantiatedPart> {
@@ -126,38 +123,7 @@ impl EditorContext {
     }
 
     pub fn normalize_coordinates(&mut self) {
-        if self.vehicle.parts().count() == 0 {
-            return;
-        }
-
-        let mut min: IVec2 = IVec2::ZERO;
-        let mut max: IVec2 = IVec2::ZERO;
-
-        self.vehicle.parts().for_each(|(_, instance)| {
-            let dims = instance.dims_grid();
-            let p = instance.origin();
-            let q = p + dims.as_ivec2();
-            min.x = min.x.min(p.x);
-            min.y = min.y.min(p.y);
-            max.x = max.x.max(q.x);
-            max.y = max.y.max(q.y);
-        });
-
-        let avg = min + (max - min) / 2;
-
-        let new_parts: Vec<_> = self
-            .vehicle
-            .parts()
-            .map(|(_, instance)| instance.with_origin(instance.origin() - avg))
-            .collect();
-
-        self.vehicle.clear();
-
-        for part in new_parts {
-            self.vehicle
-                .add_part(part.prototype(), part.origin(), part.rotation());
-        }
-
+        self.vehicle.normalize_coordinates();
         self.update();
     }
 
@@ -215,6 +181,7 @@ impl EditorContext {
         let storage = VehicleFileStorage {
             name: "".into(),
             parts,
+            lines: state.editor_context.vehicle.pipes().collect(),
         };
 
         let s = serde_yaml::to_string(&storage).ok()?;
@@ -237,17 +204,15 @@ impl EditorContext {
         let storage: VehicleFileStorage = serde_yaml::from_str(&s).ok()?;
         state.notice(format!("Loaded vehicle \"{}\"", storage.name));
 
-        state.editor_context.vehicle.clear();
-        for ps in storage.parts {
-            if let Some(part) = state.part_database.get(&ps.partname) {
-                state
-                    .editor_context
-                    .vehicle
-                    .add_part(part.clone(), ps.pos, ps.rot);
-            } else {
-                error!("Failed to load part: {}", ps.partname);
+        let mut prototypes = Vec::new();
+        for part in &storage.parts {
+            if let Some(proto) = state.part_database.get(&part.partname) {
+                prototypes.push((part.pos, part.rot, proto.clone()));
             }
         }
+
+        state.editor_context.vehicle = Vehicle::from_parts(storage.name, prototypes, storage.lines);
+
         state.editor_context.filepath = Some(path.to_path_buf());
         state.editor_context.update();
         state.editor_context.vehicles_menu_collapsed = true;
@@ -490,11 +455,6 @@ impl Render for EditorContext {
                     canvas.circle(p, 4.0, WHITE);
                 }
             }
-            CursorState::Pipes => {
-                if let Some(p) = state.input.current() {
-                    canvas.square(p, 6.0, PURPLE);
-                }
-            }
         }
 
         let radius = ctx.vehicle.bounding_radius();
@@ -596,7 +556,7 @@ impl Render for EditorContext {
                 let positions: Vec<_> = linspace(0.0, 2.0 * PI, 200)
                     .into_iter()
                     .map(|a| {
-                        let thrust: f32 = ctx.vehicle.max_thrust_along_heading(a, rcs);
+                        let thrust: f32 = ctx.vehicle.current_thrust_along_heading(a, rcs);
                         let r = (1.0 + thrust.abs().sqrt() / 100.0)
                             * ctx.vehicle.bounding_radius()
                             * PIXELS_PER_METER;
@@ -619,7 +579,46 @@ impl Render for EditorContext {
             }
         }
 
-        for layer in enum_iterator::all::<PartLayer>() {
+        for layer in PartLayer::draw_order() {
+            if layer == PartLayer::Plumbing
+                && (ctx.focus_layer == Some(PartLayer::Internal)
+                    || ctx.focus_layer == Some(PartLayer::Plumbing)
+                    || ctx.focus_layer.is_none())
+            {
+                // draw the pipes themselves
+                let is_focus = ctx.focus_layer == Some(PartLayer::Plumbing);
+                for pipe in ctx.vehicle.pipes() {
+                    let color = if is_focus { PURPLE } else { DARK_SLATE_GRAY };
+                    let p = pipe.as_vec2();
+                    let q = (pipe + IVec2::ONE).as_vec2();
+                    let aabb = AABB::from_arbitrary(p, q).scale_about_center(1.2);
+                    canvas.rect(ctx.w2c_aabb(aabb), color);
+                }
+
+                for group in ctx.vehicle.conn_groups() {
+                    for joint in group.points() {
+                        let p = joint.as_vec2();
+                        let q = (joint + IVec2::ONE).as_vec2();
+                        let aabb = AABB::from_arbitrary(p, q).scale_about_center(1.5);
+                        canvas.rect(ctx.w2c_aabb(aabb), ORANGE);
+                    }
+                }
+
+                // highlight parts in this connectivity group
+                if is_focus {
+                    for (group_id, group) in ctx.vehicle.conn_groups().enumerate() {
+                        let color = crate::sprites::hashable_to_color(&group_id);
+                        let color: Srgba = color.into();
+                        for id in group.ids() {
+                            if let Some(part) = ctx.vehicle.get_part(id) {
+                                highlight_part(canvas, part, ctx, color.with_alpha(0.02));
+                            }
+                        }
+                    }
+                }
+                continue;
+            }
+
             for (_, instance) in ctx
                 .vehicle
                 .parts()
@@ -628,15 +627,19 @@ impl Render for EditorContext {
                 let detailed_part_info =
                     ctx.focus_layer == Some(PartLayer::Internal) && ctx.show_vehicle_info;
 
-                let alpha = if ctx.is_layer_visible(instance.prototype().layer()) {
-                    if detailed_part_info {
-                        0.1
-                    } else {
-                        1.0
-                    }
-                } else {
-                    0.02
+                let alpha = match (ctx.focus_layer, layer) {
+                    (None, _) => 1.0,
+                    (_, PartLayer::Plumbing) => continue,
+                    (Some(PartLayer::Internal), PartLayer::Internal) => 1.0,
+                    (Some(PartLayer::Internal), _) => 0.02,
+                    (Some(PartLayer::Plumbing), PartLayer::Internal) => 0.7,
+                    (Some(PartLayer::Plumbing), _) => 0.02,
+                    (Some(PartLayer::Structural), PartLayer::Structural) => 1.0,
+                    (Some(PartLayer::Structural), _) => 0.02,
+                    (Some(PartLayer::Exterior), PartLayer::Exterior) => 1.0,
+                    (Some(PartLayer::Exterior), _) => 0.02,
                 };
+
                 let dims = instance.dims_grid();
                 let sprite_dims = instance.prototype().dims();
                 let center = ctx.w2c(instance.origin().as_vec2() + dims.as_vec2() / 2.0);
@@ -777,13 +780,6 @@ impl Render for EditorContext {
             canvas.text(format!("{:#?}", instance), Vec2::new(300.0, 400.0), 0.6);
         }
 
-        for pipe in ctx.vehicle.pipes() {
-            let p = pipe.as_vec2();
-            let q = (pipe + IVec2::ONE).as_vec2();
-            let aabb = AABB::from_arbitrary(p, q);
-            canvas.rect(ctx.w2c_aabb(aabb), PURPLE);
-        }
-
         if let Some((p, current_part)) = Self::current_part_and_cursor_position(state) {
             let dims = pixel_dims_with_rotation(ctx.rotation, &current_part);
             let sprite_dims = current_part.dims();
@@ -794,27 +790,6 @@ impl Render for EditorContext {
                 None,
                 sprite_dims.as_vec2() * ctx.scale(),
             );
-        }
-
-        for (group_id, group) in ctx.vehicle.conn_groups().enumerate() {
-            let color = crate::sprites::hashable_to_color(&group_id);
-            let mut points = Vec::new();
-            for p in group.points() {
-                points.push(ctx.w2c(p.as_vec2()));
-            }
-            let color: Srgba = color.into();
-            for p in &points {
-                for q in &points {
-                    canvas.gizmos.line_2d(*p, *q, color);
-                }
-            }
-            if let Some(bounds) = group.bounds() {
-                draw_aabb(
-                    &mut canvas.gizmos,
-                    ctx.w2c_aabb(bounds),
-                    color.with_alpha(0.5),
-                );
-            }
         }
 
         for particle in &ctx.build_particles {
@@ -973,6 +948,17 @@ impl CameraProjection for EditorContext {
 impl EditorContext {
     pub fn on_render_tick(state: &mut GameState) {
         state.editor_context.camera.handle_input(&state.input);
+
+        if state.is_hovering_over_ui() {
+            return;
+        }
+
+        if state.input.is_pressed(KeyCode::KeyB) {
+            for _ in 0..100 {
+                state.editor_context.vehicle.build_once();
+            }
+        }
+
         if let Some(p) = state.input.on_frame(MouseButt::Left, FrameId::Down) {
             let p = state.editor_context.c2w(p);
             if let Some(id) = state
@@ -1012,12 +998,21 @@ impl EditorContext {
             state.editor_context.rotation =
                 enum_iterator::next_cycle(&state.editor_context.rotation);
         }
+
+        if state.editor_context.focus_layer == Some(PartLayer::Plumbing) {
+            if let Some(p) = state.input.position(MouseButt::Left, FrameId::Current) {
+                let p = vfloor(state.editor_context.c2w(p));
+                state.editor_context.vehicle.add_pipe(p);
+            }
+            if let Some(p) = state.input.position(MouseButt::Right, FrameId::Current) {
+                let p = vfloor(state.editor_context.c2w(p));
+                state.editor_context.vehicle.remove_pipe(p);
+            }
+        }
     }
 
     pub fn on_game_tick(state: &mut GameState) {
         state.editor_context.camera.on_game_tick();
-
-        let is_hovering = state.is_hovering_over_ui();
 
         let ctx = &mut state.editor_context;
 
@@ -1090,30 +1085,7 @@ impl EditorContext {
 
         ctx.vehicle.on_sim_tick();
 
-        if is_hovering {
-            return;
-        }
-
-        if state.input.just_pressed(KeyCode::KeyP) {
-            ctx.cursor_state.toggle_logistics();
-        }
-
         ctx.vehicle.set_all_thrusters(1.0);
-
-        match ctx.cursor_state {
-            CursorState::Pipes => {
-                if let Some(p) = state.input.on_frame(MouseButt::Left, FrameId::Current) {
-                    let p = ctx.c2w(p);
-                    let p = vfloor(p);
-                    ctx.vehicle.add_pipe(p);
-                } else if let Some(p) = state.input.on_frame(MouseButt::Right, FrameId::Current) {
-                    let p = ctx.c2w(p);
-                    let p = vfloor(p);
-                    ctx.vehicle.remove_pipe(p);
-                }
-            }
-            _ => (),
-        }
 
         for particle in &mut ctx.build_particles {
             particle.on_sim_tick();

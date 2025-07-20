@@ -12,26 +12,33 @@ pub fn keyboard_input(
     state.input.set_buttons(keys.clone());
     state.input.set_scroll(scroll);
 
+    let ctrl = keys.pressed(KeyCode::ControlLeft);
+    let shift = keys.pressed(KeyCode::ShiftLeft);
+
     for key in keys.get_just_pressed() {
-        let e = match key {
-            KeyCode::Period => InteractionEvent::SimFaster,
-            KeyCode::Comma => InteractionEvent::SimSlower,
-            KeyCode::Slash => InteractionEvent::SetSim(1),
-            KeyCode::Delete => InteractionEvent::Delete,
-            KeyCode::KeyG => InteractionEvent::CreateGroup,
-            KeyCode::KeyC => InteractionEvent::ClearMissions,
-            KeyCode::Enter => InteractionEvent::CommitMission,
-            KeyCode::Minus => InteractionEvent::ZoomOut,
-            KeyCode::Equal => InteractionEvent::ZoomIn,
-            KeyCode::KeyR => InteractionEvent::Reset,
-            KeyCode::KeyQ => InteractionEvent::ContextDependent,
-            KeyCode::Tab => InteractionEvent::Orbits,
-            KeyCode::Space => InteractionEvent::SimPause,
-            KeyCode::Escape => InteractionEvent::Escape,
-            KeyCode::KeyV => InteractionEvent::CursorMode,
-            KeyCode::KeyM => InteractionEvent::DrawMode,
-            KeyCode::F11 => InteractionEvent::ToggleFullscreen,
-            KeyCode::Backquote => InteractionEvent::ToggleDebugConsole,
+        let e = match (ctrl, shift, key) {
+            (false, _, KeyCode::Period) => InteractionEvent::SimFaster(1),
+            (false, _, KeyCode::Comma) => InteractionEvent::SimSlower(1),
+            (true, false, KeyCode::Period) => InteractionEvent::SimFaster(10),
+            (true, false, KeyCode::Comma) => InteractionEvent::SimSlower(10),
+            (true, true, KeyCode::Period) => InteractionEvent::SimFaster(100),
+            (true, true, KeyCode::Comma) => InteractionEvent::SimSlower(100),
+            (_, _, KeyCode::Slash) => InteractionEvent::SetSim(1),
+            (_, _, KeyCode::Delete) => InteractionEvent::Delete,
+            (_, _, KeyCode::KeyG) => InteractionEvent::CreateGroup,
+            (_, _, KeyCode::KeyC) => InteractionEvent::ClearMissions,
+            (_, _, KeyCode::Enter) => InteractionEvent::CommitMission,
+            (_, _, KeyCode::Minus) => InteractionEvent::ZoomOut,
+            (_, _, KeyCode::Equal) => InteractionEvent::ZoomIn,
+            (_, _, KeyCode::KeyR) => InteractionEvent::Reset,
+            (_, _, KeyCode::KeyQ) => InteractionEvent::ContextDependent,
+            (_, _, KeyCode::Tab) => InteractionEvent::Orbits,
+            (_, _, KeyCode::Space) => InteractionEvent::SimPause,
+            (_, _, KeyCode::Escape) => InteractionEvent::Escape,
+            (_, _, KeyCode::KeyV) => InteractionEvent::CursorMode,
+            (_, _, KeyCode::KeyM) => InteractionEvent::DrawMode,
+            (_, _, KeyCode::F11) => InteractionEvent::ToggleFullscreen,
+            (_, _, KeyCode::Backquote) => InteractionEvent::ToggleDebugConsole,
             _ => continue,
         };
 

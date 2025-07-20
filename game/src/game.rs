@@ -149,6 +149,7 @@ pub struct GameState {
     pub universe_ticks_per_game_tick: u32,
     pub paused: bool,
     pub exec_time: std::time::Duration,
+    pub actual_universe_ticks_per_game_tick: u32,
 
     /// Map of names to parts to their definitions. Loaded from
     /// the assets/parts directory
@@ -215,7 +216,8 @@ impl GameState {
             surface_context: SurfaceContext::default(),
             wall_time: Nanotime::zero(),
             physics_duration: Nanotime::days(7),
-            universe_ticks_per_game_tick: 1,
+            universe_ticks_per_game_tick: 100,
+            actual_universe_ticks_per_game_tick: 0,
             paused: false,
             exec_time: std::time::Duration::new(0, 0),
             part_database: load_parts_from_dir(&args.parts_dir()),
@@ -242,10 +244,11 @@ impl GameState {
         };
 
         for model in [
-            // "icecream",
-            "jubilee", "lander", // "mule",
-            "pollux", "remora", "remora", "remora", "remora",
-            "moonbase",
+            "remora",
+            "icecream",
+            // "jubilee", "lander", // "mule",
+            // "pollux", "remora", "remora", "remora", "remora",
+            // "moonbase",
             // "Lord of Democracy",
         ] {
             if let Some(v) = g.get_vehicle_by_model(model) {
@@ -409,20 +412,29 @@ impl Render for GameState {
     }
 
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
-        // canvas.text(
-        //     format!(
-        //         "Wall time: {}\nUniverse time: {}\nUniverse ticks per game tick: {}\nRender ticks: {}\nGame ticks: {}\nUniverse ticks: {}\nExec time: {} ns",
-        //         state.wall_time,
-        //         state.universe.stamp(),
-        //         state.universe_ticks_per_game_tick,
-        //         state.render_ticks,
-        //         state.game_ticks,
-        //         state.universe.ticks(),
-        //         state.exec_time.as_micros(),
-        //     ),
-        //     Vec2::ZERO,
-        //     0.8,
-        // );
+        let debug_info: String = [
+            format!("Wall time: {}", state.wall_time),
+            format!("Universe time: {}", state.universe.stamp()),
+            format!(
+                "Ideal universe ticks per game tick: {}",
+                state.universe_ticks_per_game_tick
+            ),
+            format!(
+                "Actual universe ticks per game tick: {}",
+                state.actual_universe_ticks_per_game_tick
+            ),
+            format!("Render ticks: {}", state.render_ticks),
+            format!("Game ticks: {}", state.game_ticks),
+            format!("Universe ticks: {}", state.universe.ticks()),
+            format!("Execution time: {} us", state.exec_time.as_micros()),
+        ]
+        .iter()
+        .map(|e| format!("{}\n", e))
+        .collect();
+
+        canvas
+            .text(debug_info, Vec2::splat(-300.0), 0.7)
+            .anchor_left();
 
         match state.current_scene().kind() {
             SceneType::Orbital => OrbitalContext::draw(canvas, state),
@@ -532,7 +544,7 @@ impl GameState {
             parts.push((part.pos, part.rot, proto.clone()));
         }
 
-        let mut vehicle = Vehicle::from_parts(name.to_string(), parts);
+        let mut vehicle = Vehicle::from_parts(name.to_string(), parts, sat.lines);
 
         vehicle.build_all();
 
@@ -722,7 +734,7 @@ impl GameState {
             }
         };
 
-        let new_vehicle = self.editor_context.vehicle().clone();
+        let new_vehicle = self.editor_context.vehicle.clone();
 
         let old_title = vehicle.name().to_string();
         let new_title = new_vehicle.name().to_string();
@@ -931,7 +943,25 @@ impl GameState {
             OnClick::DecreaseGravity => self.universe.surface.decrease_gravity(),
             OnClick::IncreaseWind => self.universe.surface.increase_wind(),
             OnClick::DecreaseWind => self.universe.surface.decrease_wind(),
+            OnClick::SetRecipe(id, recipe) => {
+                if self.editor_context.vehicle.set_recipe(id, recipe) {
+                    self.notice(format!("Set recipe for part {:?} to {:?}", id, recipe));
+                } else {
+                    self.notice(format!(
+                        "Failed to set recipe for part {:?} to {:?}",
+                        id, recipe
+                    ));
+                }
+            }
+            OnClick::ClearContents(id) => {
+                if self.editor_context.vehicle.clear_contents(id) {
+                    self.notice(format!("Cleared inventory for part {:?}", id));
+                } else {
+                    self.notice(format!("Failed to clear inventory for part {:?}", id));
+                }
+            }
 
+            // BOOKMARK unhandled event
             _ => info!("Unhandled button event: {id:?}"),
         };
 
@@ -979,7 +1009,7 @@ impl GameState {
             parts.push((part.pos, part.rot, proto.clone()));
         }
 
-        let vehicle = Vehicle::from_parts(name.to_string(), parts);
+        let vehicle = Vehicle::from_parts(name.to_string(), parts, sat.lines);
 
         Some(vehicle)
     }
@@ -1090,12 +1120,19 @@ impl GameState {
         signals.piloting = keyboard_control_law(&self.input);
         signals.toggle_mode = self.input.just_pressed(KeyCode::KeyM);
 
+        // BOOKMARK gameloop
+        self.actual_universe_ticks_per_game_tick = 0;
+        self.exec_time = std::time::Duration::ZERO;
         if !self.paused {
-            self.universe
-                .on_sim_ticks(self.universe_ticks_per_game_tick, &signals);
+            for _ in 0..self.universe_ticks_per_game_tick {
+                self.universe.on_sim_tick(&signals);
+                self.exec_time = std::time::Instant::now() - start;
+                self.actual_universe_ticks_per_game_tick += 1;
+                if self.exec_time > std::time::Duration::from_millis(10) {
+                    break;
+                }
+            }
         }
-
-        self.exec_time = std::time::Instant::now() - start;
 
         let old_sim_time = self.universe.stamp();
 
@@ -1261,7 +1298,7 @@ fn on_render_tick(mut state: ResMut<GameState>) {
 }
 
 pub const MIN_SIM_SPEED: u32 = 0;
-pub const MAX_SIM_SPEED: u32 = 30;
+pub const MAX_SIM_SPEED: u32 = 2000;
 
 fn process_interaction(
     inter: &InteractionEvent,
@@ -1282,18 +1319,18 @@ fn process_interaction(
         InteractionEvent::ClearOrbitQueue => {
             state.orbital_context.queued_orbits.clear();
         }
-        InteractionEvent::SimSlower => {
-            if state.universe_ticks_per_game_tick > 0 {
+        InteractionEvent::SimSlower(delta) => {
+            if state.universe_ticks_per_game_tick > (*delta as u32) {
                 state.universe_ticks_per_game_tick = u32::clamp(
-                    state.universe_ticks_per_game_tick - 1,
+                    state.universe_ticks_per_game_tick - (*delta as u32),
                     MIN_SIM_SPEED,
                     MAX_SIM_SPEED,
                 );
             }
         }
-        InteractionEvent::SimFaster => {
+        InteractionEvent::SimFaster(delta) => {
             state.universe_ticks_per_game_tick = u32::clamp(
-                state.universe_ticks_per_game_tick + 1,
+                state.universe_ticks_per_game_tick + (*delta as u32),
                 MIN_SIM_SPEED,
                 MAX_SIM_SPEED,
             );

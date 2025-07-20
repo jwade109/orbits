@@ -64,6 +64,10 @@ impl CargoInstanceData {
         }
     }
 
+    pub fn clear_contents(&mut self) {
+        self.contents = [None, None, None, None]
+    }
+
     pub fn contents(&self) -> impl Iterator<Item = (Item, Mass)> + use<'_> {
         self.contents.iter().filter_map(|e| {
             let (item, mass) = (*e)?;

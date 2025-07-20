@@ -1,5 +1,5 @@
 use crate::aabb::AABB;
-use crate::factory::{Item, Mass};
+use crate::factory::*;
 use crate::math::*;
 use crate::nanotime::Nanotime;
 use crate::parts::*;
@@ -46,10 +46,14 @@ pub struct Vehicle {
 
 impl Vehicle {
     pub fn new() -> Self {
-        Self::from_parts("".into(), Vec::new())
+        Self::from_parts("".into(), Vec::new(), HashSet::new())
     }
 
-    pub fn from_parts(name: String, prototypes: Vec<(IVec2, Rotation, PartPrototype)>) -> Self {
+    pub fn from_parts(
+        name: String,
+        prototypes: Vec<(IVec2, Rotation, PartPrototype)>,
+        pipes: HashSet<IVec2>,
+    ) -> Self {
         let mut next_part_id = PartId(0);
         let mut parts = HashMap::new();
 
@@ -64,7 +68,7 @@ impl Vehicle {
             name,
             next_part_id,
             parts,
-            pipes: HashSet::new(),
+            pipes,
             conn_groups: Vec::new(),
         };
 
@@ -184,7 +188,18 @@ impl Vehicle {
                 local_graph.add_transport_line(p);
 
                 if let Some(id) = self.get_part_at(p, PartLayer::Internal) {
-                    local_graph.connect(id, p);
+                    if let Some(q) = local_graph.get_pos(id) {
+                        let center = if let Some(part) = self.get_part(id) {
+                            part.origin() + part.dims_grid().as_ivec2() / 2
+                        } else {
+                            IVec2::ZERO
+                        };
+                        if p.distance_squared(center) < q.distance_squared(center) {
+                            local_graph.connect(id, p);
+                        }
+                    } else {
+                        local_graph.connect(id, p);
+                    }
                 }
 
                 for off in [IVec2::X, IVec2::Y, -IVec2::X, -IVec2::Y] {
@@ -195,7 +210,9 @@ impl Vehicle {
                 }
             }
 
-            conn_groups.push(local_graph);
+            if local_graph.len() > 1 {
+                conn_groups.push(local_graph);
+            }
         }
 
         self.conn_groups = conn_groups;
@@ -263,7 +280,7 @@ impl Vehicle {
         }
     }
 
-    pub fn max_thrust_along_heading(&self, angle: f32, rcs: bool) -> f32 {
+    fn thrust_along_heading(&self, angle: f32, rcs: bool, current: bool) -> f32 {
         if self.thruster_count() == 0 {
             return 0.0;
         }
@@ -273,17 +290,30 @@ impl Vehicle {
         let mut sum = 0.0;
 
         for (_, part) in &self.parts {
-            if let Some((t, _)) = part.as_thruster() {
+            if let Some((t, d)) = part.as_thruster() {
                 if t.is_rcs != rcs {
                     continue;
                 }
                 let v = rotate(Vec2::X, part.rotation().to_angle());
                 let dot = u.dot(v).max(0.0);
-                sum += dot * t.max_thrust();
+                sum += dot
+                    * if current {
+                        t.current_thrust(d)
+                    } else {
+                        t.max_thrust()
+                    };
             }
         }
 
         sum
+    }
+
+    pub fn max_thrust_along_heading(&self, angle: f32, rcs: bool) -> f32 {
+        self.thrust_along_heading(angle, rcs, false)
+    }
+
+    pub fn current_thrust_along_heading(&self, angle: f32, rcs: bool) -> f32 {
+        self.thrust_along_heading(angle, rcs, true)
     }
 
     pub fn center_of_mass(&self) -> Vec2 {
@@ -564,6 +594,32 @@ impl Vehicle {
         self.parts.iter().filter_map(|(_, p)| p.as_thruster())
     }
 
+    pub fn set_recipe(&mut self, id: PartId, recipe: RecipeListing) -> bool {
+        if let Some(part) = self.parts.get_mut(&id) {
+            if let Some((_, d)) = part.as_machine_mut() {
+                d.recipe = recipe;
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn clear_contents(&mut self, id: PartId) -> bool {
+        if let Some(part) = self.parts.get_mut(&id) {
+            if let Some((_, d)) = part.as_tank_mut() {
+                d.clear_contents();
+                return true;
+            }
+
+            if let Some((_, d)) = part.as_cargo_mut() {
+                d.clear_contents();
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     pub fn bounding_radius(&self) -> f32 {
         let aabb = self.aabb();
         let mut r: f32 = 10.0;
@@ -610,5 +666,35 @@ impl Vehicle {
             }
             return;
         }
+    }
+
+    pub fn normalize_coordinates(&mut self) {
+        if self.parts.len() == 0 {
+            return;
+        }
+
+        let mut min: IVec2 = IVec2::ZERO;
+        let mut max: IVec2 = IVec2::ZERO;
+
+        self.parts.iter().for_each(|(_, instance)| {
+            let dims = instance.dims_grid();
+            let p = instance.origin();
+            let q = p + dims.as_ivec2();
+            min.x = min.x.min(p.x);
+            min.y = min.y.min(p.y);
+            max.x = max.x.max(q.x);
+            max.y = max.y.max(q.y);
+        });
+
+        let avg = min + (max - min) / 2;
+
+        self.parts.iter_mut().for_each(|(_, p)| {
+            p.set_origin(p.origin() - avg);
+        });
+
+        let new_pipes = self.pipes.iter().map(|p| p - avg).collect();
+        self.pipes = new_pipes;
+
+        self.update();
     }
 }

@@ -5,8 +5,8 @@ use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct Surface {
-    pub gravity: f32,
-    pub wind: f32,
+    pub gravity: i32,
+    pub wind: i32,
     pub radius: f32,
     pub atmo_color: [f32; 3],
     pub land_color: [f32; 3],
@@ -41,8 +41,8 @@ impl Surface {
         }
 
         Surface {
-            gravity: 2.0,
-            wind: rand(-2.0, 2.0),
+            gravity: -3,
+            wind: 1,
             radius: 2000.0,
             atmo_color: [rand(0.1, 0.4), rand(0.1, 0.4), rand(0.1, 0.4)],
             land_color: [rand(0.1, 0.4), rand(0.1, 0.4), rand(0.1, 0.4)],
@@ -57,11 +57,11 @@ impl Surface {
     }
 
     fn gravity_vector(&self) -> Vec2 {
-        Vec2::new(0.0, -self.gravity)
+        Vec2::new(0.0, self.gravity as f32)
     }
 
     fn wind_vector(&self) -> Vec2 {
-        Vec2::new(self.wind, 0.0)
+        Vec2::new(self.wind as f32, 0.0)
     }
 
     pub fn external_acceleration(&self) -> Vec2 {
@@ -69,19 +69,19 @@ impl Surface {
     }
 
     pub fn increase_gravity(&mut self) {
-        self.gravity += 0.1;
+        self.gravity += 1;
     }
 
     pub fn decrease_gravity(&mut self) {
-        self.gravity -= 0.1;
+        self.gravity -= 1;
     }
 
     pub fn increase_wind(&mut self) {
-        self.wind += 0.1;
+        self.wind += 1;
     }
 
     pub fn decrease_wind(&mut self) {
-        self.wind -= 0.1;
+        self.wind -= 1;
     }
 
     pub fn elevation(&self, x: f32) -> f32 {

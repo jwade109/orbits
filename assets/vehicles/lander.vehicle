@@ -1,44 +1,134 @@
 name: ''
 parts:
+- partname: small-antenna
+  pos:
+  - 23
+  - 15
+  rot: South
+- partname: cpu
+  pos:
+  - 14
+  - 16
+  rot: East
+- partname: frame3
+  pos:
+  - -42
+  - 25
+  rot: East
+- partname: tank11
+  pos:
+  - 23
+  - -15
+  rot: East
 - partname: gold
   pos:
   - -27
-  - -25
+  - -15
   rot: North
-- partname: plate
+- partname: frame2
   pos:
   - 3
-  - 20
-  rot: North
-- partname: motor
-  pos:
-  - -36
-  - 6
+  - -15
   rot: East
 - partname: rcs
   pos:
   - -16
   - -45
   rot: East
-- partname: rcs
-  pos:
-  - -12
-  - -49
-  rot: North
-- partname: frame
-  pos:
-  - -17
-  - 5
-  rot: East
 - partname: frame
   pos:
   - -17
   - -5
   rot: East
+- partname: rcs
+  pos:
+  - 17
+  - 25
+  rot: South
+- partname: frame3
+  pos:
+  - -17
+  - 15
+  rot: East
+- partname: frame2
+  pos:
+  - -2
+  - -35
+  rot: North
+- partname: frame2
+  pos:
+  - 23
+  - 5
+  rot: West
+- partname: plate
+  pos:
+  - -7
+  - -30
+  rot: North
+- partname: small-antenna
+  pos:
+  - 23
+  - -21
+  rot: South
+- partname: plate
+  pos:
+  - -17
+  - -10
+  rot: North
+- partname: plate
+  pos:
+  - 3
+  - -30
+  rot: North
+- partname: rcs
+  pos:
+  - -2
+  - -45
+  rot: West
+- partname: plate
+  pos:
+  - -7
+  - -5
+  rot: North
+- partname: rcs
+  pos:
+  - 23
+  - 21
+  rot: West
+- partname: cargo
+  pos:
+  - -7
+  - -15
+  rot: East
+- partname: plate
+  pos:
+  - -7
+  - 20
+  rot: North
+- partname: frame2
+  pos:
+  - -2
+  - 25
+  rot: East
+- partname: rcs
+  pos:
+  - 17
+  - -29
+  rot: North
+- partname: gold
+  pos:
+  - -27
+  - -25
+  rot: North
 - partname: frame3
   pos:
   - -42
-  - 25
+  - -35
+  rot: East
+- partname: motor
+  pos:
+  - -36
+  - -22
   rot: East
 - partname: tank21
   pos:
@@ -47,65 +137,40 @@ parts:
   rot: South
 - partname: rcs
   pos:
-  - -2
-  - -45
-  rot: West
-- partname: gold
-  pos:
-  - -27
-  - -15
-  rot: North
+  - -16
+  - 39
+  rot: East
 - partname: tank21
   pos:
-  - -7
-  - -25
+  - -12
+  - 25
   rot: South
-- partname: small-motor
+- partname: frame3
   pos:
-  - 23
-  - -5
-  rot: West
-- partname: small-motor
-  pos:
-  - -38
-  - -5
-  rot: East
-- partname: battery
-  pos:
-  - 14
-  - -24
+  - -17
+  - -25
   rot: East
 - partname: plate
   pos:
-  - -7
-  - -5
+  - -17
+  - -20
   rot: North
 - partname: gold
   pos:
   - -27
-  - 5
+  - -5
   rot: North
 - partname: frame2
-  pos:
-  - 23
-  - -15
-  rot: West
-- partname: plate
   pos:
   - 3
-  - -30
-  rot: North
-- partname: small-antenna
-  pos:
-  - 23
-  - -21
-  rot: South
-- partname: motor
-  pos:
-  - -36
-  - -22
+  - 5
   rot: East
 - partname: frame2
+  pos:
+  - 13
+  - 5
+  rot: East
+- partname: small-motor
   pos:
   - 23
   - -5
@@ -115,26 +180,66 @@ parts:
   - -12
   - 45
   rot: South
+- partname: frame2
+  pos:
+  - 23
+  - -5
+  rot: West
+- partname: plate
+  pos:
+  - -17
+  - 10
+  rot: North
+- partname: frame
+  pos:
+  - -17
+  - 5
+  rot: East
+- partname: frame2
+  pos:
+  - -12
+  - -45
+  rot: North
+- partname: rcs
+  pos:
+  - -12
+  - -49
+  rot: North
+- partname: frame2
+  pos:
+  - -12
+  - 35
+  rot: East
 - partname: gold
   pos:
   - -27
   - 15
   rot: North
-- partname: frame2
+- partname: gold
   pos:
-  - 13
-  - -15
-  rot: East
-- partname: frame2
+  - -27
+  - 5
+  rot: North
+- partname: plate
   pos:
-  - 3
-  - -15
-  rot: East
-- partname: frame2
+  - -17
+  - 0
+  rot: North
+- partname: motor
   pos:
-  - -2
-  - 25
+  - -36
+  - 6
   rot: East
+- partname: small-motor
+  pos:
+  - -38
+  - -5
+  rot: East
+- partname: tank21
+  pos:
+  - -7
+  - 15
+  rot: South
 - partname: frame
   pos:
   - -17
@@ -145,153 +250,349 @@ parts:
   - 23
   - -27
   rot: West
-- partname: tank21
-  pos:
-  - -7
-  - 15
-  rot: South
-- partname: frame2
-  pos:
-  - -12
-  - -45
-  rot: North
-- partname: plate
-  pos:
-  - -17
-  - -20
-  rot: North
-- partname: frame2
-  pos:
-  - -12
-  - 35
-  rot: East
-- partname: frame2
-  pos:
-  - 3
-  - 5
-  rot: East
-- partname: frame3
-  pos:
-  - -42
-  - -35
-  rot: East
-- partname: frame3
-  pos:
-  - -17
-  - 15
-  rot: East
-- partname: tank21
-  pos:
-  - -12
-  - 25
-  rot: South
-- partname: frame2
-  pos:
-  - 23
-  - 5
-  rot: West
-- partname: frame2
-  pos:
-  - -2
-  - -35
-  rot: North
-- partname: cargo
-  pos:
-  - -7
-  - -15
-  rot: East
-- partname: plate
-  pos:
-  - -17
-  - -10
-  rot: North
-- partname: small-antenna
-  pos:
-  - 23
-  - 15
-  rot: South
-- partname: tank11
-  pos:
-  - 23
-  - -15
-  rot: East
-- partname: tank11
-  pos:
-  - 23
-  - 5
-  rot: East
-- partname: rcs
-  pos:
-  - 17
-  - -29
-  rot: North
-- partname: cpu
+- partname: battery
   pos:
   - 14
-  - 16
+  - -24
+  rot: East
+- partname: plate
+  pos:
+  - 3
+  - 20
+  rot: North
+- partname: frame2
+  pos:
+  - 13
+  - -15
   rot: East
 - partname: plate
   pos:
   - 3
   - -5
   rot: North
+- partname: frame2
+  pos:
+  - 13
+  - -5
+  rot: East
+- partname: frame2
+  pos:
+  - 23
+  - -15
+  rot: West
+- partname: tank11
+  pos:
+  - 23
+  - 5
+  rot: East
+- partname: tank21
+  pos:
+  - -7
+  - -25
+  rot: South
 - partname: rcs
   pos:
   - -2
   - 39
   rot: West
-- partname: frame3
-  pos:
-  - -17
-  - -25
-  rot: East
-- partname: plate
-  pos:
-  - -7
+lines:
+- - 26
+  - 6
+- - -5
+  - 16
+- - 26
+  - 18
+- - 9
+  - 19
+- - 18
+  - -20
+- - 3
+  - 19
+- - 17
+  - 19
+- - -3
+  - 16
+- - 26
+  - 12
+- - 20
+  - 19
+- - 20
+  - -20
+- - 26
+  - 1
+- - 0
+  - -23
+- - 26
+  - 16
+- - 0
   - -30
-  rot: North
-- partname: gold
-  pos:
-  - -27
-  - -5
-  rot: North
-- partname: plate
-  pos:
-  - -17
-  - 10
-  rot: North
-- partname: rcs
-  pos:
-  - 17
-  - 25
-  rot: South
-- partname: plate
-  pos:
-  - -7
+- - 18
+  - -9
+- - 18
+  - -14
+- - 7
+  - 19
+- - 1
   - 20
-  rot: North
-- partname: plate
-  pos:
-  - -17
-  - 0
-  rot: North
-- partname: frame2
-  pos:
-  - 13
-  - 5
-  rot: East
-- partname: rcs
-  pos:
-  - -16
-  - 39
-  rot: East
-- partname: frame2
-  pos:
-  - 13
-  - -5
-  rot: East
-- partname: rcs
-  pos:
+- - 28
+  - -7
+- - 1
   - 23
+- - 26
+  - -19
+- - 15
+  - -20
+- - 26
+  - 5
+- - 19
+  - -20
+- - 1
+  - 19
+- - 24
+  - 19
+- - -3
+  - -17
+- - 25
+  - -20
+- - 26
+  - -10
+- - 1
+  - 29
+- - -1
+  - -17
+- - 28
+  - -4
+- - 23
+  - 19
+- - -4
+  - 16
+- - 1
+  - 25
+- - 1
+  - -17
+- - 1
+  - 24
+- - 0
+  - -18
+- - 26
+  - 17
+- - -8
+  - 16
+- - 12
+  - -20
+- - 1
+  - 18
+- - -5
+  - -17
+- - 26
+  - -15
+- - 13
+  - 19
+- - 1
   - 21
-  rot: West
+- - -4
+  - -17
+- - 28
+  - -6
+- - 3
+  - -17
+- - 5
+  - -17
+- - 0
+  - -28
+- - 26
+  - 3
+- - 22
+  - -20
+- - 7
+  - -17
+- - -6
+  - -17
+- - 26
+  - -12
+- - 10
+  - -19
+- - 26
+  - 19
+- - 1
+  - 27
+- - 4
+  - -17
+- - 26
+  - -11
+- - 16
+  - -20
+- - 2
+  - 19
+- - 26
+  - -16
+- - 18
+  - -17
+- - 23
+  - -20
+- - 18
+  - -10
+- - 10
+  - -20
+- - 18
+  - -11
+- - 18
+  - -12
+- - 4
+  - 19
+- - 0
+  - -19
+- - 14
+  - -20
+- - 15
+  - 19
+- - 6
+  - -17
+- - -10
+  - -17
+- - -11
+  - -17
+- - 1
+  - 16
+- - -7
+  - 16
+- - 22
+  - 19
+- - -10
+  - 16
+- - 26
+  - 7
+- - 0
+  - -20
+- - -9
+  - -17
+- - 26
+  - 15
+- - 0
+  - -21
+- - 28
+  - -5
+- - 26
+  - -14
+- - 26
+  - -13
+- - 25
+  - 19
+- - 18
+  - -13
+- - 17
+  - -20
+- - 8
+  - -17
+- - 10
+  - 19
+- - 14
+  - 19
+- - 12
+  - 19
+- - 26
+  - 14
+- - 9
+  - -17
+- - 19
+  - 19
+- - -1
+  - 16
+- - 13
+  - -20
+- - 6
+  - 19
+- - -2
+  - -17
+- - -8
+  - -17
+- - 21
+  - -20
+- - 26
+  - 13
+- - 1
+  - 22
+- - 16
+  - 19
+- - -2
+  - 16
+- - 11
+  - -20
+- - 1
+  - 26
+- - 0
+  - -17
+- - 18
+  - -16
+- - -6
+  - 16
+- - 18
+  - 19
+- - 21
+  - 19
+- - 26
+  - 2
+- - -9
+  - 16
+- - -12
+  - -17
+- - -7
+  - -17
+- - 10
+  - -18
+- - 18
+  - -15
+- - 28
+  - -8
+- - 26
+  - 4
+- - 5
+  - 19
+- - 26
+  - -17
+- - 11
+  - 19
+- - 26
+  - 9
+- - 28
+  - -3
+- - 18
+  - -8
+- - 10
+  - -17
+- - 26
+  - -20
+- - 0
+  - -29
+- - 26
+  - -18
+- - 26
+  - 11
+- - 1
+  - 28
+- - 0
+  - -24
+- - 0
+  - -27
+- - 24
+  - -20
+- - 0
+  - -22
+- - 0
+  - 16
+- - 1
+  - 17
+- - 0
+  - -25
+- - 26
+  - 10
+- - 2
+  - -17
+- - 28
+  - -2
+- - 0
+  - -26
+- - -11
+  - 16
+- - 8
+  - 19

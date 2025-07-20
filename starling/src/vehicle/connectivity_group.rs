@@ -31,6 +31,14 @@ impl ConnectivityGroup {
         self.connections.iter().map(|(id, _)| *id)
     }
 
+    pub fn get_pos(&self, id: PartId) -> Option<IVec2> {
+        self.connections.get(&id).map(|e| *e)
+    }
+
+    pub fn len(&self) -> usize {
+        self.connections.len()
+    }
+
     pub fn add_transport_line(&mut self, p: IVec2) {
         self.transport_lines.insert(p);
         if let Some(aabb) = &mut self.bounds {

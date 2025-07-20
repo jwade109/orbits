@@ -97,6 +97,7 @@ fn part_from_path(path: &Path) -> Result<PartPrototype, String> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Sequence, Hash, Deserialize, Serialize)]
 pub enum PartLayer {
     Internal,
+    Plumbing,
     Structural,
     Exterior,
 }
@@ -110,6 +111,17 @@ impl PartLayer {
         [
             PartLayer::Structural,
             PartLayer::Internal,
+            PartLayer::Plumbing,
+            PartLayer::Exterior,
+        ]
+        .into_iter()
+    }
+
+    pub fn draw_order() -> impl Iterator<Item = PartLayer> {
+        [
+            PartLayer::Internal,
+            PartLayer::Plumbing,
+            PartLayer::Structural,
             PartLayer::Exterior,
         ]
         .into_iter()
