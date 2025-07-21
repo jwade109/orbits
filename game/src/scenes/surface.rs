@@ -441,6 +441,28 @@ impl Render for SurfaceContext {
             draw_aabb(&mut canvas.gizmos, bounds, RED.with_alpha(0.6));
         }
 
+        let mut p = -state.input.screen_bounds.span / 2.0;
+        let h = 6.0;
+
+        let bar = |lower: Vec2, w: f32| {
+            let upper = lower + Vec2::new(w, h);
+            AABB::from_arbitrary(lower, upper)
+        };
+
+        for id in &ctx.selected {
+            p += Vec2::Y * (h + 1.0);
+            if let Some((_, _, vehicle)) = state.universe.surface_vehicles.get(id) {
+                let c1 = crate::sprites::hashable_to_color(id);
+                for (t, d) in vehicle.thrusters() {
+                    let color = c1.with_saturation(if t.is_rcs { 0.3 } else { 1.0 });
+                    let w = d.seconds_remaining() * 15.0;
+                    let aabb = bar(p, w);
+                    canvas.rect(aabb, color).z_index = 100.0;
+                    p += Vec2::Y * (h + 1.0);
+                }
+            }
+        }
+
         Some(())
     }
 

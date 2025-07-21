@@ -79,7 +79,7 @@ impl Universe {
 
         let gravity = self.surface.external_acceleration();
 
-        for (id, (body, controller, vehicle)) in &mut self.surface_vehicles {
+        for (_, (body, controller, vehicle)) in &mut self.surface_vehicles {
             let ext = signals.piloting.unwrap_or(VehicleControl::NULLOPT);
 
             let ctrl = match (controller.mode(), controller.get_target_pose()) {

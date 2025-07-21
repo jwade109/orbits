@@ -42,6 +42,7 @@ pub struct Vehicle {
     next_part_id: PartId,
     parts: HashMap<PartId, InstantiatedPart>,
     conn_groups: Vec<ConnectivityGroup>,
+    is_thrust_idle: bool,
 }
 
 impl Vehicle {
@@ -70,6 +71,7 @@ impl Vehicle {
             parts,
             pipes,
             conn_groups: Vec::new(),
+            is_thrust_idle: false,
         };
 
         ret.update();
@@ -468,6 +470,13 @@ impl Vehicle {
     }
 
     pub fn set_thrust_control(&mut self, control: VehicleControl) {
+        let is_nullopt = control == VehicleControl::NULLOPT;
+
+        if self.is_thrust_idle && is_nullopt {
+            // nothing to do
+            return;
+        }
+
         let com = self.center_of_mass();
 
         for (_, part) in &mut self.parts {
@@ -515,6 +524,8 @@ impl Vehicle {
                 d.set_throttle(throttle);
             }
         }
+
+        self.is_thrust_idle = is_nullopt;
     }
 
     pub fn on_sim_tick(&mut self) {

@@ -41,6 +41,7 @@ impl ThrusterModel {
 pub struct ThrusterInstanceData {
     throttle: f32,
     target_throttle: f32,
+    seconds_remaining: f32,
 }
 
 impl ThrusterInstanceData {
@@ -48,6 +49,7 @@ impl ThrusterInstanceData {
         Self {
             throttle: 0.0,
             target_throttle: 0.0,
+            seconds_remaining: 20.0,
         }
     }
 
@@ -63,6 +65,10 @@ impl ThrusterInstanceData {
         self.target_throttle = throttle.clamp(0.0, 1.0);
     }
 
+    pub fn seconds_remaining(&self) -> f32 {
+        self.seconds_remaining
+    }
+
     pub fn on_sim_tick(&mut self, model: &ThrusterModel) {
         let dt = PHYSICS_CONSTANT_DELTA_TIME;
         let dthrottle = (model.throttle_rate * dt.to_secs()).abs();
@@ -73,6 +79,11 @@ impl ThrusterInstanceData {
             self.throttle -= dthrottle.min(diff);
         }
         self.throttle = self.throttle.clamp(0.0, 1.0);
+
+        self.seconds_remaining -= PHYSICS_CONSTANT_DELTA_TIME.to_secs() * self.throttle;
+        if self.seconds_remaining < 0.0 {
+            self.seconds_remaining = 20.0;
+        }
     }
 
     pub fn is_thrusting(&self, model: &ThrusterModel) -> bool {
