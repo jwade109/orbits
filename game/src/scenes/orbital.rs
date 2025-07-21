@@ -509,7 +509,13 @@ fn get_indicators(state: &GameState) -> Option<Vec<TextLabel>> {
 
 pub fn date_label(state: &GameState) -> TextLabel {
     let date = state.universe.stamp().to_date();
-    let s = format!("{} (x{:0.1})", date, state.universe_ticks_per_game_tick);
+    let s = format!(
+        "{} (x{}/{} {} us)",
+        date,
+        state.actual_universe_ticks_per_game_tick,
+        state.universe_ticks_per_game_tick,
+        state.exec_time.as_micros()
+    );
     let c = Vec2::Y * (20.0 - state.input.screen_bounds.span.y * 0.5);
     TextLabel::new(s, c, 1.0)
 }

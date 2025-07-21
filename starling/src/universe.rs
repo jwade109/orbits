@@ -5,9 +5,10 @@ use std::collections::{HashMap, HashSet};
 pub struct Universe {
     stamp: Nanotime,
     ticks: u128,
+    next_entity_id: EntityId,
     pub orbiters: HashMap<EntityId, Orbiter>,
     pub vehicles: HashMap<EntityId, Vehicle>,
-    pub surface_vehicles: Vec<(RigidBody, VehicleControlPolicy, Vehicle)>,
+    pub surface_vehicles: HashMap<EntityId, (RigidBody, VehicleController, Vehicle)>,
     pub planets: PlanetarySystem,
     pub surface: Surface,
     pub landing_sites: HashMap<EntityId, Vec<(f32, String, Surface)>>,
@@ -35,9 +36,10 @@ impl Universe {
         Self {
             stamp: Nanotime::zero(),
             ticks: 0,
+            next_entity_id: EntityId(0),
             orbiters: HashMap::new(),
             vehicles: HashMap::new(),
-            surface_vehicles: Vec::new(),
+            surface_vehicles: HashMap::new(),
             planets: planets.clone(),
             surface: Surface::random(),
             landing_sites: generate_landing_sites(&planets.planet_ids()),
@@ -51,6 +53,12 @@ impl Universe {
 
     pub fn ticks(&self) -> u128 {
         self.ticks
+    }
+
+    fn next_entity_id(&mut self) -> EntityId {
+        let ret = self.next_entity_id;
+        self.next_entity_id.0 += 1;
+        ret
     }
 
     pub fn on_sim_ticks(&mut self, ticks: u32, signals: &ControlSignals) {
@@ -69,20 +77,21 @@ impl Universe {
         //     vehicle.on_sim_tick();
         // }
 
-        for (i, (body, policy, vehicle)) in self.surface_vehicles.iter_mut().enumerate() {
-            let ctrl = if i == 0 {
-                signals.piloting.unwrap_or(VehicleControl::NULLOPT)
-            } else if let VehicleControlPolicy::PositionHold(target, angle) = policy {
-                position_hold_control_law(
-                    *target,
-                    *angle,
-                    body,
-                    vehicle,
-                    self.surface.external_acceleration(),
-                )
-            } else {
-                VehicleControl::NULLOPT
+        let gravity = self.surface.external_acceleration();
+
+        for (id, (body, controller, vehicle)) in &mut self.surface_vehicles {
+            let ext = signals.piloting.unwrap_or(VehicleControl::NULLOPT);
+
+            let ctrl = match (controller.mode(), controller.get_target_pose()) {
+                (VehicleControlPolicy::Idle, _) => VehicleControl::NULLOPT,
+                (VehicleControlPolicy::External, _) => ext,
+                (VehicleControlPolicy::PositionHold, Some(pose)) => {
+                    position_hold_control_law(pose, body, vehicle, gravity)
+                }
+                (_, _) => VehicleControl::NULLOPT,
             };
+
+            controller.check_target_achieved(body, gravity.length() > 0.0);
 
             vehicle.set_thrust_control(ctrl);
 
@@ -100,10 +109,10 @@ impl Universe {
             body.on_the_floor(elevation);
         }
 
-        // self.surface.on_sim_tick();
+        self.surface.on_sim_tick();
 
-        // self.constellations
-        //     .retain(|id, _| self.orbiters.contains_key(id));
+        self.constellations
+            .retain(|id, _| self.orbiters.contains_key(id));
     }
 
     pub fn get_group_members(&mut self, gid: EntityId) -> Vec<EntityId> {
@@ -133,12 +142,8 @@ impl Universe {
         self.orbiters.keys().into_iter().map(|id| *id)
     }
 
-    pub fn add_surface_vehicle(&mut self, vehicle: Vehicle) {
-        let x = rand(-50.0, 50.0);
-        let y = rand(40.0, 90.0);
-        let target = Vec2::new(x, y);
-
-        let pos = target + randvec(10.0, 20.0);
+    pub fn add_surface_vehicle(&mut self, vehicle: Vehicle, pos: Vec2) {
+        let target = pos + randvec(10.0, 20.0);
         let vel = randvec(2.0, 7.0);
 
         let angle = rand(0.0, PI);
@@ -149,8 +154,12 @@ impl Universe {
             angular_velocity: 0.0,
         };
 
-        let policy = VehicleControlPolicy::PositionHold(target, angle);
-        self.surface_vehicles.push((body, policy, vehicle));
+        let pose: Pose = (target, angle);
+
+        let controller = VehicleController::position_hold(pose);
+        let id = self.next_entity_id();
+        self.surface_vehicles
+            .insert(id, (body, controller, vehicle));
     }
 
     pub fn lup_orbiter(&self, id: EntityId, stamp: Nanotime) -> Option<ObjectLookup> {

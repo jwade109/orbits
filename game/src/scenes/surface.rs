@@ -4,6 +4,7 @@ use crate::drawing::*;
 use crate::game::GameState;
 use crate::input::*;
 use crate::onclick::OnClick;
+use crate::scenes::craft_editor::vehicle_info;
 use crate::scenes::{CameraProjection, Render};
 use crate::thrust_particles::*;
 use bevy::color::{palettes::css::*, Alpha, Srgba};
@@ -15,8 +16,14 @@ use std::collections::HashSet;
 #[derive(Debug)]
 pub struct SurfaceContext {
     camera: LinearCameraController,
-    selected: HashSet<usize>,
+    selected: HashSet<EntityId>,
     particles: ThrustParticleEffects,
+
+    left_click_world_pos: Option<Vec2>,
+    right_click_world_pos: Option<Vec2>,
+
+    // TODO stupid
+    pub hello_yes_please_spawn_a_new_random_ship: Option<Vec2>,
 }
 
 impl Default for SurfaceContext {
@@ -25,6 +32,9 @@ impl Default for SurfaceContext {
             camera: LinearCameraController::new(Vec2::Y * 30.0, 10.0, 1700.0),
             selected: HashSet::new(),
             particles: ThrustParticleEffects::new(),
+            left_click_world_pos: None,
+            right_click_world_pos: None,
+            hello_yes_please_spawn_a_new_random_ship: None,
         }
     }
 }
@@ -41,19 +51,56 @@ impl SurfaceContext {
     pub fn mouseover_vehicle(
         universe: &Universe,
         pos: Vec2,
-    ) -> Option<(usize, &RigidBody, &Vehicle)> {
-        for (i, (body, _, vehicle)) in universe.surface_vehicles.iter().enumerate() {
+    ) -> Option<(EntityId, &RigidBody, &Vehicle)> {
+        for (id, (body, _, vehicle)) in &universe.surface_vehicles {
             let d = body.pv.pos_f32().distance(pos);
             let r = vehicle.bounding_radius();
             if d < r {
-                return Some((i, body, vehicle));
+                return Some((*id, body, vehicle));
             }
         }
         None
     }
 
+    pub fn selection_region(&self, mouse_pos: Option<Vec2>) -> Option<AABB> {
+        let (p, q) = self.left_click_world_pos.zip(mouse_pos)?;
+        let q = self.c2w(q);
+        if p.distance(q) < 4.0 {
+            return None;
+        }
+        Some(AABB::from_arbitrary(p, q))
+    }
+
     pub fn on_render_tick(&mut self, input: &InputState, universe: &mut Universe) {
         self.camera.handle_input(input);
+
+        if let Some(bounds) = self.selection_region(input.on_frame(MouseButt::Left, FrameId::Up)) {
+            self.selected = universe
+                .surface_vehicles
+                .iter()
+                .filter_map(|(id, (body, _, _))| bounds.contains(body.pv.pos_f32()).then(|| *id))
+                .collect();
+        }
+
+        if input.position(MouseButt::Left, FrameId::Current).is_some() {
+            if let Some(p) = input.position(MouseButt::Left, FrameId::Down) {
+                if self.left_click_world_pos.is_none() {
+                    self.left_click_world_pos = Some(self.c2w(p));
+                }
+            }
+        } else {
+            self.left_click_world_pos = None;
+        }
+
+        if input.position(MouseButt::Right, FrameId::Current).is_some() {
+            if let Some(p) = input.position(MouseButt::Right, FrameId::Down) {
+                if self.right_click_world_pos.is_none() {
+                    self.right_click_world_pos = Some(self.c2w(p));
+                }
+            }
+        } else {
+            self.right_click_world_pos = None;
+        }
 
         (|| -> Option<()> {
             let (pos, double) = if let Some(p) = input.double_click() {
@@ -78,26 +125,68 @@ impl SurfaceContext {
         })();
 
         (|| -> Option<()> {
-            let rc = input.position(MouseButt::Right, FrameId::Down)?;
-            let rd = input.position(MouseButt::Right, FrameId::Current)?;
+            let rc = input.on_frame(MouseButt::Right, FrameId::Down)?;
             let p = self.c2w(rc);
-            let q = self.c2w(rd);
 
-            let sep = 15.0;
-            let spread = sep * self.selected.len() as f32 - sep;
-            let center = Vec2::new(spread / 2.0, 0.0);
+            let clear_queue = !input.is_pressed(KeyCode::ShiftLeft);
 
-            let angle = (q - p).to_angle();
+            let angle = PI / 2.0;
 
-            for (i, idx) in self.selected.iter().enumerate() {
-                if let Some((_, policy, _)) = universe.surface_vehicles.get_mut(*idx) {
-                    let pos = p + Vec2::X * 15.0 * i as f32 - center;
-                    *policy = VehicleControlPolicy::PositionHold(pos, angle);
+            let ns = self.selected.len();
+            let width = (ns as f32).sqrt().ceil() as usize;
+
+            let mut separation: f32 = 5.0;
+
+            let mut selected: Vec<_> = self.selected.iter().collect();
+            selected.sort();
+
+            for idx in &self.selected {
+                if let Some((_, _, vehicle)) = universe.surface_vehicles.get_mut(idx) {
+                    separation = separation.max(vehicle.bounding_radius());
+                }
+            }
+
+            for (i, idx) in selected.into_iter().enumerate() {
+                if let Some((_, controller, _)) = universe.surface_vehicles.get_mut(idx) {
+                    let xi = i % width;
+                    let yi = i / width;
+                    let pos = p + Vec2::new(xi as f32, yi as f32) * separation * 2.0;
+                    let pose: Pose = (pos, angle);
+                    controller.enqueue_target_pose(pose, clear_queue);
                 }
             }
 
             None
         })();
+
+        if input.just_pressed(KeyCode::KeyN) {
+            for idx in &self.selected {
+                if let Some((_, controller, _)) = universe.surface_vehicles.get_mut(idx) {
+                    controller.go_to_next_mode();
+                }
+            }
+        }
+
+        if input.just_pressed(KeyCode::KeyC) {
+            for idx in &self.selected {
+                if let Some((_, controller, _)) = universe.surface_vehicles.get_mut(idx) {
+                    controller.clear_queue();
+                }
+            }
+        }
+
+        if input.just_pressed(KeyCode::Delete) {
+            universe
+                .surface_vehicles
+                .retain(|id, _| !self.selected.contains(id))
+        }
+
+        if input.just_pressed(KeyCode::KeyR) {
+            if let Some(p) = input.position(MouseButt::Hover, FrameId::Current) {
+                let p = self.c2w(p);
+                self.hello_yes_please_spawn_a_new_random_ship = Some(p);
+            }
+        }
     }
 
     pub fn on_game_tick(state: &mut GameState) {
@@ -107,7 +196,7 @@ impl SurfaceContext {
 
         ctx.particles.step();
 
-        for (_, _, vehicle) in state.universe.surface_vehicles.iter_mut() {
+        for (_, (_, _, vehicle)) in state.universe.surface_vehicles.iter_mut() {
             for (_, part) in vehicle.parts() {
                 if let Some((t, d)) = part.as_thruster() {
                     if !d.is_thrusting(t) || t.is_rcs() {
@@ -131,10 +220,16 @@ impl CameraProjection for SurfaceContext {
     }
 }
 
-fn draw_kinematic_arc(gizmos: &mut Gizmos, mut pv: PV, ctx: &impl CameraProjection, accel: Vec2) {
+fn draw_kinematic_arc(
+    gizmos: &mut Gizmos,
+    mut pv: PV,
+    ctx: &impl CameraProjection,
+    accel: Vec2,
+    surface: &Surface,
+) {
     let dt = 0.25;
     for _ in 0..100 {
-        if pv.pos.y < 0.0 {
+        if pv.pos.y < surface.elevation(pv.pos.x as f32) as f64 {
             return;
         }
         let q = ctx.w2c(pv.pos_f32());
@@ -161,33 +256,13 @@ fn surface_scene_ui(state: &GameState) -> Tree<OnClick> {
         format!("{:0.1}", state.universe.surface.external_acceleration()),
     );
 
-    let increase_gravity = Node::button(
-        "More Gravity",
-        OnClick::IncreaseGravity,
-        Size::Grow,
-        BUTTON_HEIGHT,
-    );
+    let increase_gravity = Node::button("+Y", OnClick::IncreaseGravity, Size::Grow, BUTTON_HEIGHT);
 
-    let decrease_gravity = Node::button(
-        "Less Gravity",
-        OnClick::DecreaseGravity,
-        Size::Grow,
-        BUTTON_HEIGHT,
-    );
+    let decrease_gravity = Node::button("-Y", OnClick::DecreaseGravity, Size::Grow, BUTTON_HEIGHT);
 
-    let increase_wind = Node::button(
-        "More Wind",
-        OnClick::IncreaseWind,
-        Size::Grow,
-        BUTTON_HEIGHT,
-    );
+    let increase_wind = Node::button("+X", OnClick::IncreaseWind, Size::Grow, BUTTON_HEIGHT);
 
-    let decrease_wind = Node::button(
-        "Less Wind",
-        OnClick::DecreaseWind,
-        Size::Grow,
-        BUTTON_HEIGHT,
-    );
+    let decrease_wind = Node::button("-X", OnClick::DecreaseWind, Size::Grow, BUTTON_HEIGHT);
 
     let main_area = Node::grow().invisible();
 
@@ -244,6 +319,10 @@ fn draw_terrain_tile(
     }
 }
 
+fn vehicle_mouseover_radius(vehicle: &Vehicle, ctx: &impl CameraProjection) -> f32 {
+    (vehicle.bounding_radius() * ctx.scale()).max(20.0)
+}
+
 impl Render for SurfaceContext {
     fn background_color(state: &GameState) -> Srgba {
         let c = state.universe.surface.atmo_color;
@@ -268,9 +347,15 @@ impl Render for SurfaceContext {
 
         ctx.particles.draw(canvas, ctx);
 
-        for (body, _, vehicle) in &state.universe.surface_vehicles {
+        for (_, (body, _, vehicle)) in &state.universe.surface_vehicles {
             let pos = ctx.w2c(body.pv.pos_f32());
             draw_vehicle(canvas, vehicle, pos, ctx.scale(), body.angle);
+
+            canvas.circle(
+                pos,
+                7.0,
+                RED.with_alpha((1.0 - ctx.scale() / 4.0).clamp(0.0, 1.0)),
+            );
         }
 
         (|| -> Option<()> {
@@ -280,47 +365,42 @@ impl Render for SurfaceContext {
             draw_circle(
                 &mut canvas.gizmos,
                 pos,
-                vehicle.bounding_radius() * ctx.scale() * 1.1,
+                vehicle_mouseover_radius(vehicle, ctx) * 1.1,
                 RED.with_alpha(0.3),
             );
             None
         })();
 
         for id in &ctx.selected {
-            if let Some((body, policy, vehicle)) = state.universe.surface_vehicles.get(*id) {
+            if let Some((body, _, vehicle)) = state.universe.surface_vehicles.get(id) {
                 let pos = ctx.w2c(body.pv.pos_f32());
                 draw_circle(
                     &mut canvas.gizmos,
                     pos,
-                    vehicle.bounding_radius() * ctx.scale(),
+                    vehicle_mouseover_radius(vehicle, ctx),
                     ORANGE.with_alpha(0.3),
                 );
 
-                let (target, angle) =
-                    if let VehicleControlPolicy::PositionHold(target, angle) = policy {
-                        (target, angle)
-                    } else {
-                        continue;
-                    };
-
                 let p = ctx.w2c(body.pv.pos_f32());
-                let q = ctx.w2c(*target);
-                let r = ctx.w2c(target + rotate(Vec2::X * 5.0, *angle));
-                draw_x(&mut canvas.gizmos, q, 2.0 * ctx.scale(), RED);
-                canvas.gizmos.line_2d(q, r, YELLOW);
-
-                let info = crate::scenes::craft_editor::vehicle_info(vehicle);
+                let info = vehicle_info(vehicle);
                 canvas.text(info, p, 0.01 * ctx.scale()).anchor_left();
+            }
+        }
 
-                canvas.gizmos.line_2d(p, q, BLUE);
-                if state.universe.surface.external_acceleration().length() > 0.0 {
-                    draw_kinematic_arc(
-                        &mut canvas.gizmos,
-                        body.pv,
-                        ctx,
-                        state.universe.surface.external_acceleration(),
-                    );
+        for (id, (body, controller, _)) in &state.universe.surface_vehicles {
+            let selected = ctx.selected.contains(id);
+            let mut p = ctx.w2c(body.pv.pos_f32());
+            for pose in controller.get_target_queue() {
+                let q = ctx.w2c(pose.0);
+                let r = ctx.w2c(pose.0 + rotate(Vec2::X * 5.0, pose.1));
+                draw_x(&mut canvas.gizmos, q, 2.0 * ctx.scale(), RED);
+                if selected {
+                    canvas.gizmos.line_2d(q, r, YELLOW);
                 }
+
+                let color = if selected { BLUE } else { GRAY.with_alpha(0.2) };
+                canvas.gizmos.line_2d(p, q, color);
+                p = q;
             }
         }
 
@@ -334,6 +414,32 @@ impl Render for SurfaceContext {
         }
 
         canvas.label(crate::scenes::orbital::date_label(state));
+
+        if let Some(p) = ctx.left_click_world_pos {
+            canvas.circle(ctx.w2c(p), 10.0, GREEN);
+        }
+        if let Some(p) = ctx.right_click_world_pos {
+            canvas.circle(ctx.w2c(p), 10.0, BLUE);
+        }
+
+        if let Some(bounds) =
+            ctx.selection_region(state.input.position(MouseButt::Left, FrameId::Current))
+        {
+            for (_, (body, _, vehicle)) in &state.universe.surface_vehicles {
+                let p = body.pv.pos_f32();
+                if bounds.contains(p) {
+                    draw_circle(
+                        &mut canvas.gizmos,
+                        ctx.w2c(p),
+                        vehicle.bounding_radius() * ctx.scale(),
+                        GRAY.with_alpha(0.6),
+                    );
+                }
+            }
+
+            let bounds = ctx.w2c_aabb(bounds);
+            draw_aabb(&mut canvas.gizmos, bounds, RED.with_alpha(0.6));
+        }
 
         Some(())
     }

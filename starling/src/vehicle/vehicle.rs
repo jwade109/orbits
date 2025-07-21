@@ -622,7 +622,7 @@ impl Vehicle {
 
     pub fn bounding_radius(&self) -> f32 {
         let aabb = self.aabb();
-        let mut r: f32 = 10.0;
+        let mut r: f32 = 0.0;
         for c in aabb.corners() {
             r = r.max(c.length());
         }

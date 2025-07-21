@@ -243,16 +243,10 @@ impl GameState {
             image_handles: HashMap::new(),
         };
 
-        for model in [
-            "remora",
-            "icecream",
-            // "jubilee", "lander", // "mule",
-            // "pollux", "remora", "remora", "remora", "remora",
-            // "moonbase",
-            // "Lord of Democracy",
-        ] {
+        for model in ["remora", "icecream", "lander", "remora", "pollux"] {
             if let Some(v) = g.get_vehicle_by_model(model) {
-                g.universe.add_surface_vehicle(v);
+                g.universe
+                    .add_surface_vehicle(v, Vec2::Y * 100.0 + randvec(20.0, 50.0));
             }
         }
 
@@ -432,9 +426,9 @@ impl Render for GameState {
         .map(|e| format!("{}\n", e))
         .collect();
 
-        canvas
-            .text(debug_info, Vec2::splat(-300.0), 0.7)
-            .anchor_left();
+        // canvas
+        //     .text(debug_info, Vec2::splat(-300.0), 0.7)
+        //     .anchor_left();
 
         match state.current_scene().kind() {
             SceneType::Orbital => OrbitalContext::draw(canvas, state),
@@ -1009,7 +1003,9 @@ impl GameState {
             parts.push((part.pos, part.rot, proto.clone()));
         }
 
-        let vehicle = Vehicle::from_parts(name.to_string(), parts, sat.lines);
+        let mut vehicle = Vehicle::from_parts(name.to_string(), parts, sat.lines);
+
+        vehicle.build_all();
 
         Some(vehicle)
     }
@@ -1281,6 +1277,19 @@ impl GameState {
                 SurfaceContext::on_game_tick(self);
             }
             _ => (),
+        }
+
+        if let Some(p) = self
+            .surface_context
+            .hello_yes_please_spawn_a_new_random_ship
+        {
+            if let Some(v) = self.get_random_vehicle() {
+                if v.thruster_count() > 0 {
+                    self.universe.add_surface_vehicle(v, p);
+                    self.surface_context
+                        .hello_yes_please_spawn_a_new_random_ship = None;
+                }
+            }
         }
     }
 }
