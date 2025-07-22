@@ -2,11 +2,8 @@ use crate::factory::Mass;
 use crate::math::*;
 use crate::parts::*;
 use enum_iterator::Sequence;
-// use image::ImageReader;
 use crate::aabb::*;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::path::Path;
 
 // TODO reduce scope of this constant
 pub const PIXELS_PER_METER: f32 = 20.0;
@@ -88,12 +85,6 @@ impl PartPrototype {
     }
 }
 
-fn part_from_path(path: &Path) -> Result<PartPrototype, String> {
-    let data_path = path.join("metadata.yaml");
-    let s = std::fs::read_to_string(&data_path).map_err(|_| "Failed to load metadata file")?;
-    serde_yaml::from_str(&s).map_err(|e| format!("Failed to parse metadata file: {}", e))
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Sequence, Hash, Deserialize, Serialize)]
 pub enum PartLayer {
     Internal,
@@ -125,28 +116,6 @@ impl PartLayer {
             PartLayer::Exterior,
         ]
     }
-}
-
-pub fn load_parts_from_dir(path: &Path) -> HashMap<String, PartPrototype> {
-    let mut ret = HashMap::new();
-    if let Ok(paths) = std::fs::read_dir(path) {
-        for path in paths {
-            if let Ok(path) = path {
-                let path = path.path();
-                match part_from_path(&path) {
-                    Ok(part) => {
-                        ret.insert(part.part_name().to_string(), part);
-                    }
-                    Err(e) => {
-                        println!("Error loading part {}: {}", path.display(), e);
-                        continue;
-                    }
-                }
-            }
-        }
-    }
-
-    ret
 }
 
 #[derive(Debug, Clone)]

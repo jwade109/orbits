@@ -531,15 +531,7 @@ impl GameState {
 
         let (_, path) = vehicles.iter().find(|(model, _)| model == name)?;
 
-        let sat = EditorContext::load_from_vehicle_file(&path)?;
-
-        let mut parts = vec![];
-        for part in sat.parts {
-            let proto = self.part_database.get(&part.partname)?;
-            parts.push((part.pos, part.rot, proto.clone()));
-        }
-
-        let mut vehicle = Vehicle::from_parts(name.to_string(), parts, sat.lines);
+        let mut vehicle = load_vehicle(path, &self.part_database).ok()?;
 
         vehicle.build_all();
 
@@ -994,17 +986,9 @@ impl GameState {
         }
 
         let choice = randint(0, vehicles.len() as i32);
-        let (name, path) = vehicles.get(choice as usize)?;
+        let (_, path) = vehicles.get(choice as usize)?;
 
-        let sat = EditorContext::load_from_vehicle_file(&path)?;
-
-        let mut parts = vec![];
-        for part in sat.parts {
-            let proto = self.part_database.get(&part.partname)?;
-            parts.push((part.pos, part.rot, proto.clone()));
-        }
-
-        let mut vehicle = Vehicle::from_parts(name.to_string(), parts, sat.lines);
+        let mut vehicle = load_vehicle(path, &self.part_database).ok()?;
 
         vehicle.build_all();
 

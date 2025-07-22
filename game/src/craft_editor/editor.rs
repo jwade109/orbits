@@ -15,24 +15,9 @@ use bevy::input::keyboard::KeyCode;
 use bevy::prelude::*;
 use layout::layout::{Node, Size, Tree};
 use rfd::FileDialog;
-use serde::{Deserialize, Serialize};
 use starling::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VehicleFileStorage {
-    pub name: String,
-    pub parts: Vec<VehiclePartFileStorage>,
-    pub lines: HashSet<IVec2>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VehiclePartFileStorage {
-    pub partname: String,
-    pub pos: IVec2,
-    pub rot: Rotation,
-}
 
 #[derive(Debug, Clone)]
 pub enum Action {
@@ -228,26 +213,16 @@ impl EditorContext {
         EditorContext::load_vehicle(&choice, state)
     }
 
-    pub fn load_from_vehicle_file(path: &Path) -> Option<VehicleFileStorage> {
-        let s = std::fs::read_to_string(path).ok()?;
-        serde_yaml::from_str(&s).ok()
-    }
-
     pub fn load_vehicle(path: &Path, state: &mut GameState) -> Option<()> {
-        state.notice(format!("Loading vehicle from {}", path.display()));
-        let s = std::fs::read_to_string(path).ok()?;
-        let storage: VehicleFileStorage = serde_yaml::from_str(&s).ok()?;
-        state.notice(format!("Loaded vehicle \"{}\"", storage.name));
-
-        let mut prototypes = Vec::new();
-        for part in &storage.parts {
-            if let Some(proto) = state.part_database.get(&part.partname) {
-                prototypes.push((part.pos, part.rot, proto.clone()));
+        let vehicle = match load_vehicle(path, &state.part_database) {
+            Ok(v) => v,
+            Err(e) => {
+                state.notice(format!("Failed to load vehicle: {:?}", e));
+                return None;
             }
-        }
+        };
 
-        state.editor_context.vehicle = Vehicle::from_parts(storage.name, prototypes, storage.lines);
-
+        state.editor_context.vehicle = vehicle;
         state.editor_context.filepath = Some(path.to_path_buf());
         state.editor_context.update();
         state.editor_context.vehicles_menu_collapsed = true;
@@ -1198,7 +1173,7 @@ pub fn write_image_to_file(vehicle: &Vehicle, ctx: &ProgramContext, name: &str) 
         vehicle.discriminator(),
         outpath
     );
-    let img = crate::generate_ship_sprites::generate_image(vehicle, &ctx.parts_dir(), false)?;
+    let img = generate_image(vehicle, &ctx.parts_dir(), false)?;
     img.save(outpath).ok()
 }
 
