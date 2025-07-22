@@ -220,6 +220,7 @@ impl CameraProjection for SurfaceContext {
     }
 }
 
+#[allow(unused)]
 fn draw_kinematic_arc(
     gizmos: &mut Gizmos,
     mut pv: PV,

@@ -302,11 +302,12 @@ impl GameState {
             for (model, _) in v {
                 if let Some(v) = self.get_vehicle_by_model(&model) {
                     let parts_dir = self.args.parts_dir();
+                    let sprite_path = crate::drawing::vehicle_sprite_path(v.discriminator());
                     let img = generate_ship_sprite(&v, &parts_dir, false);
                     if let Some(img) = img {
                         let dims = img.size();
                         let handle = images.add(img);
-                        handles.insert(model, (handle, dims));
+                        handles.insert(sprite_path, (handle, dims));
                     }
                 }
             }

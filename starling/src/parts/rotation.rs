@@ -2,7 +2,7 @@ use crate::math::PI;
 use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, Sequence, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Sequence, Serialize, Deserialize, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Rotation {
     East,
     North,

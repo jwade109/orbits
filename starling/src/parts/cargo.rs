@@ -11,6 +11,15 @@ pub struct Cargo {
 }
 
 impl Cargo {
+    pub fn new(name: String, dry_mass: Mass, max_cargo_mass: Mass, dims: UVec2) -> Self {
+        Self {
+            name,
+            dry_mass,
+            max_cargo_mass,
+            dims,
+        }
+    }
+
     pub fn part_name(&self) -> &str {
         &self.name
     }

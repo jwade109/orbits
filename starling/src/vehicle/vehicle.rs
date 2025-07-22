@@ -5,6 +5,8 @@ use crate::nanotime::Nanotime;
 use crate::parts::*;
 use crate::vehicle::*;
 use std::collections::{HashMap, HashSet};
+use std::hash::Hasher;
+use std::hash::{DefaultHasher, Hash};
 
 fn rocket_equation(ve: f32, m0: Mass, m1: Mass) -> f32 {
     ve * (m0.to_kg_f32() / m1.to_kg_f32()).ln()
@@ -43,6 +45,7 @@ pub struct Vehicle {
     parts: HashMap<PartId, InstantiatedPart>,
     conn_groups: Vec<ConnectivityGroup>,
     is_thrust_idle: bool,
+    discriminator: u64,
 }
 
 impl Vehicle {
@@ -72,11 +75,16 @@ impl Vehicle {
             pipes,
             conn_groups: Vec::new(),
             is_thrust_idle: false,
+            discriminator: 0,
         };
 
         ret.update();
 
         ret
+    }
+
+    pub fn discriminator(&self) -> u64 {
+        self.discriminator
     }
 
     pub fn add_pipe(&mut self, p: IVec2) {
@@ -99,11 +107,12 @@ impl Vehicle {
         ret
     }
 
-    pub fn add_part(&mut self, proto: PartPrototype, pos: IVec2, rot: Rotation) {
+    pub fn add_part(&mut self, proto: PartPrototype, pos: IVec2, rot: Rotation) -> PartId {
         let id = self.get_next_part_id();
         let instance = InstantiatedPart::from_prototype(proto, pos, rot);
         self.parts.insert(id, instance);
         self.update();
+        id
     }
 
     pub fn get_part(&self, id: PartId) -> Option<&InstantiatedPart> {
@@ -139,21 +148,32 @@ impl Vehicle {
         None
     }
 
-    pub fn remove_part_at(&mut self, p: IVec2, layer: impl Into<Option<PartLayer>>) {
-        let layer: Option<PartLayer> = layer.into();
-        self.parts.retain(|_, instance| {
-            if let Some(focus) = layer {
-                if instance.prototype().layer() != focus {
-                    return true;
+    pub fn remove_part_at(
+        &mut self,
+        p: IVec2,
+        layer: impl Into<Option<PartLayer>>,
+    ) -> Result<InstantiatedPart, &'static str> {
+        let layer = layer.into();
+
+        if let Some(layer) = layer {
+            let id = self
+                .get_part_at(p, layer)
+                .ok_or("No part at given position and layer")?;
+            self.remove_part(id).ok_or("No part with given ID")
+        } else {
+            let mut layers = PartLayer::draw_order();
+            layers.reverse();
+            for layer in layers {
+                if let Some(part) = self
+                    .get_part_at(p, layer)
+                    .map(|id| self.remove_part(id))
+                    .flatten()
+                {
+                    return Ok(part);
                 }
-            };
-            let pixels = occupied_pixels(
-                instance.origin(),
-                instance.rotation(),
-                &instance.prototype(),
-            );
-            !pixels.contains(&p)
-        });
+            }
+            Err("No part found")
+        }
     }
 
     pub fn remove_part(&mut self, id: PartId) -> Option<InstantiatedPart> {
@@ -220,6 +240,54 @@ impl Vehicle {
         self.conn_groups = conn_groups;
     }
 
+    fn update_discriminator(&mut self) {
+        let mut hash = std::hash::DefaultHasher::new();
+        if self.parts.is_empty() {
+            self.discriminator = 0;
+            return;
+        }
+
+        let mut hash_stuff = Vec::new();
+
+        for (_, part) in &self.parts {
+            let stuff = (
+                part.origin(),
+                part.rotation(),
+                part.prototype().part_name().to_string(),
+            );
+            hash_stuff.push(stuff);
+        }
+
+        hash_stuff.sort_by(|(pa, ra, na), (pb, rb, nb)| {
+            use std::cmp::Ordering;
+            match pa.x.cmp(&pb.x) {
+                Ordering::Less => return Ordering::Less,
+                Ordering::Equal => (),
+                Ordering::Greater => return Ordering::Greater,
+            };
+
+            match pa.y.cmp(&pb.y) {
+                Ordering::Less => return Ordering::Less,
+                Ordering::Equal => (),
+                Ordering::Greater => return Ordering::Greater,
+            };
+
+            match ra.cmp(&rb) {
+                Ordering::Less => return Ordering::Less,
+                Ordering::Equal => (),
+                Ordering::Greater => return Ordering::Greater,
+            };
+
+            na.cmp(&nb)
+        });
+
+        for elem in hash_stuff {
+            elem.hash(&mut hash);
+        }
+
+        self.discriminator = hash.finish();
+    }
+
     pub fn conn_groups(&self) -> impl Iterator<Item = &ConnectivityGroup> + use<'_> {
         self.conn_groups.iter()
     }
@@ -230,6 +298,7 @@ impl Vehicle {
 
     fn update(&mut self) {
         self.construct_connectivity();
+        self.update_discriminator();
     }
 
     pub fn pipes(&self) -> impl Iterator<Item = IVec2> + use<'_> {

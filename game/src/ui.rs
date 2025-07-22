@@ -202,7 +202,7 @@ pub fn notification_bar(state: &GameState, width: Size) -> Node<OnClick> {
         }))
 }
 
-pub const BUTTON_HEIGHT: f32 = 36.0;
+pub const BUTTON_HEIGHT: f32 = 29.0;
 
 pub fn exit_prompt_overlay(w: f32, h: f32) -> Node<OnClick> {
     let window = Node::new(330, Size::Fit)

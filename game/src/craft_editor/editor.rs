@@ -34,6 +34,21 @@ pub struct VehiclePartFileStorage {
     pub rot: Rotation,
 }
 
+#[derive(Debug, Clone)]
+pub enum Action {
+    Add(IVec2, Rotation, PartPrototype),
+    Remove(IVec2, Rotation, PartPrototype),
+}
+
+impl Action {
+    pub fn to_string(&self) -> String {
+        match self {
+            Self::Add(_, _, proto) => format!("Add {}", proto.part_name()),
+            Self::Remove(_, _, proto) => format!("Remove {}", proto.part_name()),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct EditorContext {
     camera: LinearCameraController,
@@ -42,6 +57,8 @@ pub struct EditorContext {
     filepath: Option<PathBuf>,
     focus_layer: Option<PartLayer>,
     selected_part: Option<PartId>,
+    snap_info: Option<(IVec2, UVec2)>,
+    action_queue: Vec<Action>,
     occupied: HashMap<PartLayer, HashMap<IVec2, PartId>>,
     pub vehicle: Vehicle,
     particles: ThrustParticleEffects,
@@ -66,6 +83,8 @@ impl EditorContext {
             filepath: None,
             focus_layer: None,
             selected_part: None,
+            snap_info: None,
+            action_queue: Vec::new(),
             occupied: HashMap::new(),
             vehicle: Vehicle::new(),
             particles: ThrustParticleEffects::new(),
@@ -82,6 +101,22 @@ impl EditorContext {
                 })
                 .collect(),
         }
+    }
+
+    pub fn remove_part(&mut self, id: PartId) {
+        self.vehicle.remove_part(id);
+    }
+
+    pub fn undo(&mut self) -> Option<()> {
+        let action = self.action_queue.pop()?;
+        match action {
+            Action::Add(pos, _, proto) => match self.vehicle.remove_part_at(pos, proto.layer()) {
+                Ok(p) => println!("Removed {:?}", p),
+                Err(s) => println!("Failed to remove: {}", s),
+            },
+            Action::Remove(pos, rot, proto) => self.add_part(pos, rot, proto),
+        }
+        Some(())
     }
 
     pub fn selected_part(&self) -> Option<&InstantiatedPart> {
@@ -216,6 +251,7 @@ impl EditorContext {
         state.editor_context.filepath = Some(path.to_path_buf());
         state.editor_context.update();
         state.editor_context.vehicles_menu_collapsed = true;
+        state.editor_context.action_queue.clear();
         Some(())
     }
 
@@ -261,6 +297,11 @@ impl EditorContext {
         }
     }
 
+    fn add_part(&mut self, p: IVec2, rot: Rotation, proto: PartPrototype) {
+        self.vehicle.add_part(proto, p, rot);
+        self.update();
+    }
+
     fn try_place_part(&mut self, p: IVec2, new_part: PartPrototype) -> Option<()> {
         let layer = new_part.layer();
 
@@ -278,13 +319,23 @@ impl EditorContext {
             }
         }
 
-        self.vehicle.add_part(new_part, p, self.rotation);
+        self.vehicle.add_part(new_part.clone(), p, self.rotation);
+
+        self.action_queue
+            .push(Action::Add(p, self.rotation, new_part));
+
         self.update();
         Some(())
     }
 
     fn remove_part_at(&mut self, p: IVec2) {
-        self.vehicle.remove_part_at(p, self.focus_layer);
+        if let Ok(part) = self.vehicle.remove_part_at(p, self.focus_layer) {
+            self.action_queue.push(Action::Remove(
+                part.origin(),
+                part.rotation(),
+                part.prototype(),
+            ));
+        }
         self.update();
     }
 
@@ -293,14 +344,26 @@ impl EditorContext {
         let part = state.editor_context.cursor_state.current_part()?;
         let wh = pixel_dims_with_rotation(ctx.rotation, &part).as_ivec2();
         let pos = state.input.position(MouseButt::Hover, FrameId::Current)?;
-        let snap = state.input.is_pressed(KeyCode::ShiftLeft);
         let pos = state.editor_context.c2w(pos);
-        let pos = if snap {
-            vround(pos / 10.0) * 10
+        let pos = vround(pos);
+        let pos = if let Some((snap_pos, dims)) = state.editor_context.snap_info {
+            let dims = dims.as_ivec2();
+            let delta = pos - snap_pos;
+            let xi = if delta.x < 0 {
+                delta.x / dims.x - 1
+            } else {
+                delta.x / dims.x
+            };
+            let yi = if delta.y < 0 {
+                delta.y / dims.y - 1
+            } else {
+                delta.y / dims.y
+            };
+            snap_pos + IVec2::new(xi * dims.x, yi * dims.y)
         } else {
-            vround(pos)
+            pos - wh / 2
         };
-        Some((pos - wh / 2, part))
+        Some((pos, part))
     }
 }
 
@@ -315,16 +378,11 @@ pub fn vehicle_info(vehicle: &Vehicle) -> String {
     let fuel_mass = vehicle.fuel_mass();
     let rate = vehicle.fuel_consumption_rate();
     let pct = vehicle.fuel_percentage() * 100.0;
-    let burn_time = if rate > 0.0 {
-        format!("{:0.1} s", fuel_mass.to_kg_f32() / rate)
-    } else {
-        "N/A".to_string()
-    };
 
     [
+        format!("discriminator: {}", vehicle.discriminator()),
         format!("Dry mass: {}", vehicle.dry_mass()),
         format!("Fuel: {} ({:0.0}%)", fuel_mass, pct),
-        format!("Burn time: {}", burn_time),
         format!("Current mass: {}", vehicle.current_mass()),
         format!("Thrusters: {}", vehicle.thruster_count()),
         format!("Thrust: {:0.2} kN", vehicle.max_thrust() / 1000.0),
@@ -403,6 +461,7 @@ impl Render for EditorContext {
         let vehicles = vehicle_selection(state);
 
         let other_buttons = other_buttons();
+        let actions = action_queue(&state.editor_context.action_queue);
 
         let part_buttons = if let Some(id) = state.editor_context.selected_part {
             if let Some(instance) = state.editor_context.vehicle.get_part(id) {
@@ -417,6 +476,7 @@ impl Render for EditorContext {
         let right_column = Node::column(400)
             .invisible()
             .with_child(other_buttons)
+            // .with_child(actions)
             .with_child(part_buttons);
 
         let main_area = Node::grow()
@@ -446,6 +506,13 @@ impl Render for EditorContext {
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         let ctx = &state.editor_context;
         draw_cross(&mut canvas.gizmos, ctx.w2c(Vec2::ZERO), 10.0, GRAY);
+
+        if let Some((pos, dims)) = ctx.snap_info {
+            let lower = pos.as_vec2();
+            let upper = lower + dims.as_vec2();
+            let aabb = AABB::from_arbitrary(lower, upper);
+            draw_aabb(&mut canvas.gizmos, ctx.w2c_aabb(aabb), GREEN);
+        }
 
         ctx.particles.draw(canvas, ctx);
 
@@ -538,13 +605,13 @@ impl Render for EditorContext {
                 RED.with_alpha(0.1),
             );
 
-            draw_vehicle(
-                canvas,
-                &ctx.vehicle,
-                ctx.w2c(Vec2::ZERO),
-                ctx.scale() * PIXELS_PER_METER,
-                0.0,
-            );
+            // draw_vehicle(
+            //     canvas,
+            //     &ctx.vehicle,
+            //     ctx.w2c(Vec2::ZERO),
+            //     ctx.scale() * PIXELS_PER_METER,
+            //     0.0,
+            // );
 
             // COM
             let com = ctx.vehicle.center_of_mass() * PIXELS_PER_METER;
@@ -875,6 +942,17 @@ fn vehicle_selection(state: &GameState) -> Node<OnClick> {
     n
 }
 
+fn action_queue(queue: &Vec<Action>) -> Node<OnClick> {
+    Node::structural(Size::Grow, Size::Fit)
+        .with_color(UI_BACKGROUND_COLOR)
+        .down()
+        .with_children(
+            queue
+                .iter()
+                .map(|a| Node::text(Size::Grow, BUTTON_HEIGHT, format!("{}", a.to_string()))),
+        )
+}
+
 fn other_buttons() -> Node<OnClick> {
     let rotate = Node::button("Rotate", OnClick::RotateCraft, Size::Grow, BUTTON_HEIGHT);
     let normalize = Node::button(
@@ -972,6 +1050,20 @@ impl EditorContext {
             }
         }
 
+        if state.input.is_pressed(KeyCode::ShiftLeft) {
+            if let Some((pos, proto)) = EditorContext::current_part_and_cursor_position(state) {
+                if state.editor_context.snap_info.is_none() {
+                    let rot = state.editor_context.rotation;
+                    let dims = pixel_dims_with_rotation(rot, &proto);
+                    state.editor_context.snap_info = Some((pos, dims));
+                }
+            } else {
+                state.editor_context.snap_info = None;
+            }
+        } else {
+            state.editor_context.snap_info = None;
+        }
+
         if let Some(_) = state.input.position(MouseButt::Left, FrameId::Current) {
             if let Some((p, part)) = EditorContext::current_part_and_cursor_position(state) {
                 state.editor_context.try_place_part(p, part);
@@ -1008,6 +1100,10 @@ impl EditorContext {
                 let p = vfloor(state.editor_context.c2w(p));
                 state.editor_context.vehicle.remove_pipe(p);
             }
+        }
+
+        if state.input.is_pressed(KeyCode::ControlLeft) && state.input.just_pressed(KeyCode::KeyZ) {
+            state.editor_context.undo();
         }
     }
 
@@ -1097,7 +1193,11 @@ impl EditorContext {
 
 pub fn write_image_to_file(vehicle: &Vehicle, ctx: &ProgramContext, name: &str) -> Option<()> {
     let outpath: String = format!("/tmp/{}.png", name);
-    println!("Writing vehicle {} to path {}", vehicle.name(), outpath);
+    println!(
+        "Writing vehicle {} to path {}",
+        vehicle.discriminator(),
+        outpath
+    );
     let img = crate::generate_ship_sprites::generate_image(vehicle, &ctx.parts_dir(), false)?;
     img.save(outpath).ok()
 }

@@ -333,18 +333,20 @@ pub fn draw_thruster(
     }
 }
 
+pub fn vehicle_sprite_path(disc: u64) -> String {
+    format!("vehicle-{}", disc)
+}
+
 pub fn draw_vehicle(canvas: &mut Canvas, vehicle: &Vehicle, pos: Vec2, scale: f32, angle: f32) {
     let geo = vehicle.aabb().center;
 
-    if !vehicle.name().is_empty() {
-        canvas.sprite(
-            pos + rotate(geo, angle) * scale,
-            angle,
-            vehicle.name(),
-            10.0,
-            vehicle.aabb().span * scale,
-        );
-    }
+    canvas.sprite(
+        pos + rotate(geo, angle) * scale,
+        angle,
+        vehicle_sprite_path(vehicle.discriminator()),
+        10.0,
+        vehicle.aabb().span * scale,
+    );
 
     for (_, part) in vehicle.parts() {
         let dims = part.prototype().dims_meters();

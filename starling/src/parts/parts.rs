@@ -117,14 +117,13 @@ impl PartLayer {
         .into_iter()
     }
 
-    pub fn draw_order() -> impl Iterator<Item = PartLayer> {
+    pub fn draw_order() -> [PartLayer; 4] {
         [
             PartLayer::Internal,
             PartLayer::Plumbing,
             PartLayer::Structural,
             PartLayer::Exterior,
         ]
-        .into_iter()
     }
 }
 

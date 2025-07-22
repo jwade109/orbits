@@ -92,7 +92,6 @@ pub fn generate_image(
 }
 
 pub fn generate_ship_sprite(vehicle: &Vehicle, parts_dir: &Path, schematic: bool) -> Option<Image> {
-    println!("Generating sprite for vehicle {}", vehicle.name());
     let dynamic = generate_image(vehicle, parts_dir, schematic)?;
     let mut img = Image::from_dynamic(
         dynamic,
