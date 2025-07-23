@@ -201,7 +201,7 @@ impl InstantiatedPart {
         &self.variant
     }
 
-    pub fn current_mass(&self) -> Mass {
+    pub fn total_mass(&self) -> Mass {
         match &self.variant {
             InstantiatedPartVariant::Thruster(t, _) => t.mass(),
             InstantiatedPartVariant::Tank(t, d) => t.dry_mass() + d.contents_mass(),

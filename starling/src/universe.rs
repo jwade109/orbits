@@ -91,20 +91,24 @@ impl Universe {
                 (_, _) => VehicleControl::NULLOPT,
             };
 
-            controller.check_target_achieved(body, gravity.length() > 0.0);
-
-            vehicle.set_thrust_control(ctrl);
-
-            vehicle.on_sim_tick();
-
-            let accel = vehicle.body_frame_accel();
-            body.on_sim_tick(
-                accel,
-                self.surface.external_acceleration(),
-                PHYSICS_CONSTANT_DELTA_TIME,
-            );
-
             let elevation = self.surface.elevation(body.pv.pos_f32().x);
+
+            if controller.mode() != VehicleControlPolicy::Idle {
+                controller.check_target_achieved(body, gravity.length() > 0.0);
+                vehicle.set_thrust_control(ctrl);
+                vehicle.on_sim_tick();
+            }
+
+            if controller.mode() != VehicleControlPolicy::Idle || body.pv.pos_f32().y > elevation {
+                let accel = vehicle.body_frame_accel();
+                body.on_sim_tick(
+                    accel,
+                    self.surface.external_acceleration(),
+                    PHYSICS_CONSTANT_DELTA_TIME,
+                );
+            } else {
+                vehicle.set_thrust_control(VehicleControl::NULLOPT);
+            }
 
             body.on_the_floor(elevation);
         }

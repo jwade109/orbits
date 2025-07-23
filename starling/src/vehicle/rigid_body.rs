@@ -23,7 +23,11 @@ impl RigidBody {
     };
 
     pub fn on_sim_tick(&mut self, a: BodyFrameAccel, gravity: Vec2, dt: Nanotime) {
-        let linear = rotate(a.linear, self.angle) + gravity;
+        let linear = if a.linear != Vec2::ZERO {
+            rotate(a.linear, self.angle)
+        } else {
+            Vec2::ZERO
+        } + gravity;
 
         self.angular_velocity += a.angular * dt.to_secs();
         self.angular_velocity = self.angular_velocity.clamp(-2.0, 2.0);

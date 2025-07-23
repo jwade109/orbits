@@ -24,6 +24,24 @@ pub struct ThrusterModel {
 }
 
 impl ThrusterModel {
+    pub fn main_thruster(thrust: f32, ve: f32) -> Self {
+        Self {
+            dims: UVec2::new(30, 10),
+            mass: Mass::kilograms(800),
+            name: "".into(),
+            model: "".into(),
+            thrust,
+            exhaust_velocity: ve,
+            is_rcs: false,
+            throttle_rate: 3.0,
+            primary_color: [1.0, 0.3, 0.3, 1.0],
+            secondary_color: [1.0, 1.0, 0.2, 1.0],
+            plume_angle: 0.2,
+            plume_length: 5.0,
+            minimum_throttle: 0.2,
+        }
+    }
+
     pub fn max_thrust(&self) -> f32 {
         self.thrust
     }

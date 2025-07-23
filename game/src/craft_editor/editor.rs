@@ -358,7 +358,7 @@ pub fn vehicle_info(vehicle: &Vehicle) -> String {
         format!("discriminator: {}", vehicle.discriminator()),
         format!("Dry mass: {}", vehicle.dry_mass()),
         format!("Fuel: {} ({:0.0}%)", fuel_mass, pct),
-        format!("Current mass: {}", vehicle.current_mass()),
+        format!("Current mass: {}", vehicle.total_mass()),
         format!("Thrusters: {}", vehicle.thruster_count()),
         format!("Thrust: {:0.2} kN", vehicle.max_thrust() / 1000.0),
         format!("Tanks: {}", vehicle.tank_count()),

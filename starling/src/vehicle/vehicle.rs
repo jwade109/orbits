@@ -323,7 +323,7 @@ impl Vehicle {
     }
 
     pub fn dry_mass(&self) -> Mass {
-        self.current_mass() - self.fuel_mass()
+        self.total_mass() - self.fuel_mass()
     }
 
     pub fn fuel_mass(&self) -> Mass {
@@ -333,11 +333,11 @@ impl Vehicle {
         self.tanks().map(|(_, d)| d.contents_mass()).sum()
     }
 
-    pub fn current_mass(&self) -> Mass {
+    pub fn total_mass(&self) -> Mass {
         if self.parts.is_empty() {
             return Mass::kilograms(100);
         }
-        self.parts.iter().map(|(_, p)| p.current_mass()).sum()
+        self.parts.iter().map(|(_, p)| p.total_mass()).sum()
     }
 
     pub fn thruster_count(&self) -> usize {
@@ -393,25 +393,25 @@ impl Vehicle {
     }
 
     pub fn center_of_mass(&self) -> Vec2 {
-        let mass = self.current_mass();
+        let mass = self.total_mass();
         self.parts
             .iter()
             .map(|(_, p)| {
                 let center = p.origin().as_vec2() / PIXELS_PER_METER + p.dims_meters() / 2.0;
-                let weight = p.current_mass().to_kg_f32() / mass.to_kg_f32();
+                let weight = p.total_mass().to_kg_f32() / mass.to_kg_f32();
                 center * weight
             })
             .sum()
     }
 
-    pub fn current_moa(&self) -> f32 {
+    pub fn moment_of_inertia(&self) -> f32 {
         if self.parts.is_empty() {
             return 1.0;
         }
         let com = self.center_of_mass();
         let mut moa = 0.0;
         for (_, part) in &self.parts {
-            let mass = part.current_mass();
+            let mass = part.total_mass();
             let center = part.center_meters();
             let rsq = center.distance_squared(com);
             moa += rsq * mass.to_kg_f32()
@@ -421,7 +421,7 @@ impl Vehicle {
 
     pub fn accel(&self) -> f32 {
         let thrust = self.max_thrust();
-        let mass = self.current_mass();
+        let mass = self.total_mass();
         if mass == Mass::ZERO {
             0.0
         } else {
@@ -499,11 +499,11 @@ impl Vehicle {
     }
 
     pub fn remaining_dv(&self) -> f32 {
-        if self.current_mass() == Mass::ZERO || self.dry_mass() == Mass::ZERO {
+        if self.total_mass() == Mass::ZERO || self.dry_mass() == Mass::ZERO {
             return 0.0;
         }
         let ve = self.average_linear_exhaust_velocity();
-        rocket_equation(ve, self.current_mass(), self.dry_mass())
+        rocket_equation(ve, self.total_mass(), self.dry_mass())
     }
 
     pub fn name(&self) -> &str {
@@ -512,7 +512,7 @@ impl Vehicle {
 
     fn current_angular_acceleration(&self) -> f32 {
         let mut aa = 0.0;
-        let moa = self.current_moa();
+        let moa = self.moment_of_inertia();
         let com = self.center_of_mass();
 
         for (_, part) in &self.parts {
@@ -534,7 +534,7 @@ impl Vehicle {
 
     fn current_body_frame_linear_acceleration(&self) -> Vec2 {
         let mut body_frame_force = Vec2::ZERO;
-        let mass = self.current_mass().to_kg_f32();
+        let mass = self.total_mass().to_kg_f32();
 
         for (_, part) in &self.parts {
             if let Some((t, d)) = part.as_thruster() {

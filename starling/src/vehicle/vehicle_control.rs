@@ -172,7 +172,7 @@ fn hover_control_law(
     let attitude = compute_attitude_control(body, target_angle, &ATTITUDE_CONTROLLER);
 
     let thrust = vehicle.max_thrust_along_heading(0.0, false);
-    let accel = thrust / vehicle.current_mass().to_kg_f32();
+    let accel = thrust / vehicle.total_mass().to_kg_f32();
     let pct = gravity.length() / accel;
 
     // vertical controller
@@ -204,7 +204,7 @@ pub fn position_hold_control_law(
     }
 }
 
-#[derive(Debug, Clone, Copy, Sequence)]
+#[derive(Debug, Clone, Copy, Sequence, PartialEq, Eq)]
 pub enum VehicleControlPolicy {
     Idle,
     External,

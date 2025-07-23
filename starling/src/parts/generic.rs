@@ -12,6 +12,15 @@ pub struct Generic {
 }
 
 impl Generic {
+    pub fn new(name: String, dims: UVec2, layer: PartLayer, mass: Mass) -> Self {
+        Self {
+            name,
+            dims,
+            layer,
+            mass,
+        }
+    }
+
     pub fn part_name(&self) -> &str {
         &self.name
     }
