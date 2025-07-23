@@ -38,13 +38,7 @@ pub fn generate_image(
             let path = parts_dir
                 .join(instance.prototype().sprite_path())
                 .join("skin.png");
-            let img = match read_image(&path) {
-                Some(img) => img,
-                None => {
-                    println!("Failed to read {}", path.display());
-                    continue;
-                }
-            };
+            let img = read_image(&path)?;
 
             let px = (instance.origin().x - pixel_min.x) as u32;
             let py = (instance.origin().y - pixel_min.y) as u32;

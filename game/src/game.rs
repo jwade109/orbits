@@ -306,20 +306,6 @@ impl GameState {
 
     pub fn load_sprites(&mut self, images: &mut Assets<Image>) {
         let mut handles = HashMap::new();
-        if let Some(v) = crate::scenes::get_list_of_vehicles(self) {
-            for (model, _) in v {
-                if let Some(v) = self.get_vehicle_by_model(&model) {
-                    let parts_dir = self.args.parts_dir();
-                    let sprite_path = crate::drawing::vehicle_sprite_path(v.discriminator());
-                    let img = generate_ship_sprite(&v, &parts_dir, false);
-                    if let Some(img) = img {
-                        let dims = img.size();
-                        let handle = images.add(img);
-                        handles.insert(sprite_path, (handle, dims));
-                    }
-                }
-            }
-        }
 
         for (name, _) in &self.part_database {
             let path = self.args.part_sprite_path(name);
@@ -415,7 +401,6 @@ impl Render for GameState {
     }
 
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
-
         // BOOKMARK debug info
 
         #[allow(unused)]
@@ -1299,6 +1284,8 @@ fn on_game_tick(mut state: ResMut<GameState>, mut images: ResMut<Assets<Image>>)
     if state.image_handles.is_empty() {
         state.load_sprites(&mut images)
     }
+
+    crate::generate_ship_sprites::proc_gen_ship_sprites(&mut state, &mut images);
 }
 
 fn on_render_tick(mut state: ResMut<GameState>) {
