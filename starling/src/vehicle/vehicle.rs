@@ -5,8 +5,7 @@ use crate::nanotime::Nanotime;
 use crate::parts::*;
 use crate::vehicle::*;
 use std::collections::{HashMap, HashSet};
-use std::hash::Hasher;
-use std::hash::{DefaultHasher, Hash};
+use std::hash::{Hash, Hasher};
 
 fn rocket_equation(ve: f32, m0: Mass, m1: Mass) -> f32 {
     ve * (m0.to_kg_f32() / m1.to_kg_f32()).ln()
@@ -328,10 +327,16 @@ impl Vehicle {
     }
 
     pub fn fuel_mass(&self) -> Mass {
+        if self.parts.is_empty() {
+            return Mass::ZERO;
+        }
         self.tanks().map(|(_, d)| d.contents_mass()).sum()
     }
 
     pub fn current_mass(&self) -> Mass {
+        if self.parts.is_empty() {
+            return Mass::kilograms(100);
+        }
         self.parts.iter().map(|(_, p)| p.current_mass()).sum()
     }
 
@@ -400,6 +405,9 @@ impl Vehicle {
     }
 
     pub fn current_moa(&self) -> f32 {
+        if self.parts.is_empty() {
+            return 1.0;
+        }
         let com = self.center_of_mass();
         let mut moa = 0.0;
         for (_, part) in &self.parts {

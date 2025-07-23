@@ -14,6 +14,7 @@ struct ThrustParticle {
 }
 
 impl ThrustParticle {
+    #[allow(unused)]
     fn new(pv: PV, initial_color: Srgba, final_color: Srgba) -> Self {
         Self {
             pv,

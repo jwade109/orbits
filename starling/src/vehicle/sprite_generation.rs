@@ -7,18 +7,17 @@ pub fn read_image(path: &Path) -> Option<RgbaImage> {
 }
 
 pub fn diagram_color(part: &PartPrototype) -> [f32; 4] {
-    [0.6, 0.6, 0.6, 1.0]
-    // match part {
-    //     PartPrototype::Cargo(..) => GREEN,
-    //     PartPrototype::Thruster(..) => RED,
-    //     PartPrototype::Tank(..) => ORANGE,
-    //     _ => match part.layer() {
-    //         PartLayer::Exterior => DARK_GRAY,
-    //         PartLayer::Internal => GRAY,
-    //         PartLayer::Structural => WHITE,
-    //         PartLayer::Plumbing => PURPLE,
-    //     },
-    // }
+    match part {
+        PartPrototype::Cargo(..) => [0.0, 0.45, 0.0, 1.0],
+        PartPrototype::Thruster(..) => [1.0, 0.0, 0.0, 1.0],
+        PartPrototype::Tank(..) => [1.0, 0.6, 0.0, 1.0],
+        _ => match part.layer() {
+            PartLayer::Exterior => [0.2, 0.2, 0.2, 1.0],
+            PartLayer::Internal => [0.4, 0.4, 0.4, 1.0],
+            PartLayer::Structural => [0.9, 0.9, 0.9, 1.0],
+            PartLayer::Plumbing => [0.6, 0.0, 0.6, 1.0],
+        },
+    }
 }
 
 pub fn generate_image(

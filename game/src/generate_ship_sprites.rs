@@ -2,26 +2,12 @@ use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
-use image::{DynamicImage, RgbaImage};
+use image::RgbaImage;
 use starling::prelude::*;
 use std::path::Path;
 
 pub fn read_image(path: &Path) -> Option<RgbaImage> {
     Some(image::open(path).ok()?.to_rgba8())
-}
-
-pub fn diagram_color(part: &PartPrototype) -> Srgba {
-    match part {
-        PartPrototype::Cargo(..) => GREEN,
-        PartPrototype::Thruster(..) => RED,
-        PartPrototype::Tank(..) => ORANGE,
-        _ => match part.layer() {
-            PartLayer::Exterior => DARK_GRAY,
-            PartLayer::Internal => GRAY,
-            PartLayer::Structural => WHITE,
-            PartLayer::Plumbing => PURPLE,
-        },
-    }
 }
 
 pub fn generate_ship_sprite(vehicle: &Vehicle, parts_dir: &Path, schematic: bool) -> Option<Image> {

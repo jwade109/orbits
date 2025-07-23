@@ -116,7 +116,7 @@ fn draw_region(
 pub fn draw_obb(gizmos: &mut Gizmos, obb: &OBB, color: Srgba) {
     // draw_cross(gizmos, obb.0.center, 30.0, color);
     let mut corners = obb.corners().to_vec();
-    corners.push(*corners.get(0).unwrap());
+    corners.push(*corners.get(0).expect("Expected a corner"));
     gizmos.linestrip_2d(corners, color);
 }
 

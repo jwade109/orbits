@@ -36,17 +36,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     dbg!(&args);
 
-    let parts = load_parts_from_dir(&args.parts_dir);
+    let parts = load_parts_from_dir(&args.parts_dir)?;
 
     let vehicle = load_vehicle(&args.ship_path, &parts)?;
 
-    let mut img = generate_image(&vehicle, &args.parts_dir, false).ok_or("Empty vehicle")?;
+    let mut img =
+        generate_image(&vehicle, &args.parts_dir, args.schematic).ok_or("Empty vehicle")?;
 
     if args.scale < 1.0 {
+        let filter = if args.schematic {
+            image::imageops::FilterType::Nearest
+        } else {
+            image::imageops::FilterType::CatmullRom
+        };
         img = img.resize(
             (img.width() as f32 * args.scale).round() as u32,
             (img.height() as f32 * args.scale).round() as u32,
-            image::imageops::FilterType::Gaussian,
+            filter,
         );
     }
 

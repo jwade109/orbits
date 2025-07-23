@@ -45,7 +45,7 @@ pub enum OnClick {
     ToggleVehiclesMenuCollapsed,
     ToggleLayersMenuCollapsed,
     ToggleVehicleInfo,
-    WriteToOwnship,
+    SendToSurface,
     IncrementThrottle(i32),
     OpenNewCraft,
     WriteVehicleToImage,

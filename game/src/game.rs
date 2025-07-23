@@ -202,6 +202,14 @@ impl GameState {
     pub fn new(args: ProgramContext) -> Self {
         let (planets, ids) = default_example();
 
+        let part_database = match load_parts_from_dir(&args.parts_dir()) {
+            Ok(d) => d,
+            Err(s) => {
+                error!("Failed to load parts: {s}");
+                HashMap::new()
+            }
+        };
+
         let mut g = GameState {
             render_ticks: 0,
             game_ticks: 0,
@@ -220,7 +228,7 @@ impl GameState {
             actual_universe_ticks_per_game_tick: 0,
             paused: false,
             exec_time: std::time::Duration::new(0, 0),
-            part_database: load_parts_from_dir(&args.parts_dir()),
+            part_database,
             ids,
             controllers: vec![],
             starfield: generate_starfield(),
@@ -407,6 +415,10 @@ impl Render for GameState {
     }
 
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
+
+        // BOOKMARK debug info
+
+        #[allow(unused)]
         let debug_info: String = [
             format!("Wall time: {}", state.wall_time),
             format!("Universe time: {}", state.universe.stamp()),
@@ -918,8 +930,10 @@ impl GameState {
             OnClick::ToggleVehicleInfo => {
                 self.editor_context.show_vehicle_info = !self.editor_context.show_vehicle_info;
             }
-            OnClick::WriteToOwnship => {
-                self.write_editor_to_ownship();
+            OnClick::SendToSurface => {
+                let mut vehicle = self.editor_context.vehicle.clone();
+                vehicle.build_all();
+                self.universe.add_surface_vehicle(vehicle, Vec2::Y * 100.0);
             }
             OnClick::NormalizeCraft => self.editor_context.normalize_coordinates(),
             OnClick::SwapOwnshipTarget => _ = self.swap_ownship_target(),

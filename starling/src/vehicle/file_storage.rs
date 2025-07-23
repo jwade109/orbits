@@ -19,6 +19,17 @@ pub struct VehiclePartFileStorage {
     pub rot: Rotation,
 }
 
+#[derive(Debug)]
+pub struct NoPartError(String);
+
+impl std::fmt::Display for NoPartError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "no part found with the name \"{}\"", self.0)
+    }
+}
+
+impl std::error::Error for NoPartError {}
+
 pub fn load_vehicle(
     path: &Path,
     parts: &HashMap<String, PartPrototype>,
@@ -27,9 +38,10 @@ pub fn load_vehicle(
     let storage: VehicleFileStorage = serde_yaml::from_str(&s)?;
     let mut prototypes = Vec::new();
     for part in &storage.parts {
-        if let Some(proto) = parts.get(&part.partname) {
-            prototypes.push((part.pos, part.rot, proto.clone()));
-        }
+        let proto = parts
+            .get(&part.partname)
+            .ok_or(Box::new(NoPartError(part.partname.clone())))?;
+        prototypes.push((part.pos, part.rot, proto.clone()));
     }
     Ok(Vehicle::from_parts(storage.name, prototypes, storage.lines))
 }
@@ -40,24 +52,16 @@ fn part_from_path(path: &Path) -> Result<PartPrototype, String> {
     serde_yaml::from_str(&s).map_err(|e| format!("Failed to parse metadata file: {}", e))
 }
 
-pub fn load_parts_from_dir(path: &Path) -> HashMap<String, PartPrototype> {
+pub fn load_parts_from_dir(path: &Path) -> Result<HashMap<String, PartPrototype>, String> {
     let mut ret = HashMap::new();
     if let Ok(paths) = std::fs::read_dir(path) {
         for path in paths {
             if let Ok(path) = path {
                 let path = path.path();
-                match part_from_path(&path) {
-                    Ok(part) => {
-                        ret.insert(part.part_name().to_string(), part);
-                    }
-                    Err(e) => {
-                        println!("Error loading part {}: {}", path.display(), e);
-                        continue;
-                    }
-                }
+                let part = part_from_path(&path)?;
+                ret.insert(part.part_name().to_string(), part);
             }
         }
     }
-
-    ret
+    Ok(ret)
 }

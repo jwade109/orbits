@@ -217,7 +217,7 @@ impl EditorContext {
         let vehicle = match load_vehicle(path, &state.part_database) {
             Ok(v) => v,
             Err(e) => {
-                state.notice(format!("Failed to load vehicle: {:?}", e));
+                state.notice(format!("Failed to load vehicle: {}", e));
                 return None;
             }
         };
@@ -436,7 +436,7 @@ impl Render for EditorContext {
         let vehicles = vehicle_selection(state);
 
         let other_buttons = other_buttons();
-        let actions = action_queue(&state.editor_context.action_queue);
+        // let actions = action_queue(&state.editor_context.action_queue);
 
         let part_buttons = if let Some(id) = state.editor_context.selected_part {
             if let Some(instance) = state.editor_context.vehicle.get_part(id) {
@@ -769,12 +769,6 @@ impl Render for EditorContext {
                         }
                     }
                 }
-
-                // if p < 1.0 {
-                //     let color = crate::generate_ship_sprites::diagram_color(instance.prototype());
-                //     let aabb = AABB::new(center, dims.as_vec2() * ctx.scale() * (1.0 - p));
-                //     canvas.rect(aabb, color /* .with_alpha(1.0 - p * 0.8) */);
-                // }
             }
         }
 
@@ -917,6 +911,7 @@ fn vehicle_selection(state: &GameState) -> Node<OnClick> {
     n
 }
 
+#[allow(unused)]
 fn action_queue(queue: &Vec<Action>) -> Node<OnClick> {
     Node::structural(Size::Grow, Size::Fit)
         .with_color(UI_BACKGROUND_COLOR)
@@ -930,18 +925,14 @@ fn action_queue(queue: &Vec<Action>) -> Node<OnClick> {
 
 fn other_buttons() -> Node<OnClick> {
     let rotate = Node::button("Rotate", OnClick::RotateCraft, Size::Grow, BUTTON_HEIGHT);
+
     let normalize = Node::button(
         "Normalize",
         OnClick::NormalizeCraft,
         Size::Grow,
         BUTTON_HEIGHT,
     );
-    let write = Node::button(
-        "To Image",
-        OnClick::WriteVehicleToImage,
-        Size::Grow,
-        BUTTON_HEIGHT,
-    );
+
     let new_button = Node::button("New", OnClick::OpenNewCraft, Size::Grow, BUTTON_HEIGHT);
 
     let toggle_info = Node::button(
@@ -951,9 +942,9 @@ fn other_buttons() -> Node<OnClick> {
         BUTTON_HEIGHT,
     );
 
-    let write_to_ownship = Node::button(
-        "Modify Ownship",
-        OnClick::WriteToOwnship,
+    let send_to_surface = Node::button(
+        "Send to Surface",
+        OnClick::SendToSurface,
         Size::Grow,
         BUTTON_HEIGHT,
     );
@@ -962,11 +953,12 @@ fn other_buttons() -> Node<OnClick> {
         .with_color(UI_BACKGROUND_COLOR)
         .down()
         .with_child(new_button)
+        .with_child(Node::hline())
         .with_child(rotate)
         .with_child(normalize)
-        .with_child(write)
+        .with_child(Node::hline())
         .with_child(toggle_info)
-        .with_child(write_to_ownship)
+        .with_child(send_to_surface)
 }
 
 fn layer_selection(state: &GameState) -> Node<OnClick> {
