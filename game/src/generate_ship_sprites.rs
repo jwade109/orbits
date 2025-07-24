@@ -39,7 +39,13 @@ pub fn generate_error_sprite() -> Image {
 }
 
 pub fn proc_gen_ship_sprites(state: &mut GameState, images: &mut Assets<Image>) {
-    for (_, (_, _, vehicle)) in &state.universe.surface_vehicles {
+    for vehicle in state
+        .universe
+        .surface_vehicles
+        .iter()
+        .map(|(_, (_, _, v))| v)
+        .chain(state.universe.vehicles.iter().map(|(_, v)| v))
+    {
         let sprite_name = vehicle_sprite_path(vehicle.discriminator());
         if state.image_handles.contains_key(&sprite_name) {
             continue;
