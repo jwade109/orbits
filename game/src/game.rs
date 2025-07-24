@@ -359,6 +359,7 @@ impl GameState {
             "Luna",
             "Asteroid",
             "conbot",
+            "low-fuel",
         ] {
             let path = self.args.install_dir.join(format!("{}.png", name));
             if let Some(img) = crate::generate_ship_sprites::read_image(&path) {

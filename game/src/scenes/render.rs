@@ -12,8 +12,9 @@ pub struct TextLabel {
     pub text: String,
     pub pos: Vec2,
     pub size: f32,
-    color: Srgba,
+    pub color: Srgba,
     pub anchor: Anchor,
+    pub z_index: f32,
 }
 
 impl TextLabel {
@@ -24,6 +25,7 @@ impl TextLabel {
             size,
             color: WHITE,
             anchor: Anchor::Center,
+            z_index: 100.0,
         }
     }
 

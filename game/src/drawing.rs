@@ -213,7 +213,7 @@ fn draw_orbit_between(
 }
 
 fn draw_planets(
-    gizmos: &mut Gizmos,
+    canvas: &mut Canvas,
     planet: &PlanetarySystem,
     stamp: Nanotime,
     origin: Vec2,
@@ -226,8 +226,16 @@ fn draw_planets(
 
     let screen_origin = ctx.w2c(origin);
 
+    canvas.sprite(
+        screen_origin,
+        0.0,
+        planet.name.clone(),
+        None,
+        Vec2::splat(planet.body.radius) * 2.0 * ctx.scale(),
+    );
+
     draw_circle(
-        gizmos,
+        &mut canvas.gizmos,
         screen_origin,
         planet.body.radius * ctx.scale(),
         GRAY.with_alpha(a),
@@ -235,7 +243,7 @@ fn draw_planets(
 
     if ctx.draw_mode == DrawMode::Default {
         draw_circle(
-            gizmos,
+            &mut canvas.gizmos,
             screen_origin,
             planet.body.soi * ctx.scale(),
             GRAY.with_alpha(a),
@@ -243,7 +251,7 @@ fn draw_planets(
     } else {
         for (a, ds) in [(1.0, 1.0), (0.3, 0.98), (0.1, 0.95)] {
             draw_circle(
-                gizmos,
+                &mut canvas.gizmos,
                 screen_origin,
                 planet.body.soi * ds * ctx.scale(),
                 ORANGE.with_alpha(a),
@@ -253,8 +261,14 @@ fn draw_planets(
 
     for (orbit, pl) in &planet.subsystems {
         if let Some(pv) = orbit.pv(stamp).ok() {
-            draw_orbit(gizmos, orbit, origin, GRAY.with_alpha(a / 2.0), ctx);
-            draw_planets(gizmos, pl, stamp, origin + pv.pos_f32(), ctx)
+            draw_orbit(
+                &mut canvas.gizmos,
+                orbit,
+                origin,
+                GRAY.with_alpha(a / 2.0),
+                ctx,
+            );
+            draw_planets(canvas, pl, stamp, origin + pv.pos_f32(), ctx)
         }
     }
 }
@@ -533,7 +547,7 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
 
     if vehicle.low_fuel() {
         if is_blinking(state.wall_time, None) {
-            draw_triangle(&mut canvas.gizmos, center, 30.0, YELLOW);
+            canvas.sprite(center, 0.0, "low-fuel", 500.0, Vec2::splat(50.0));
         }
     }
 
@@ -628,16 +642,16 @@ fn draw_orbiter(gizmos: &mut Gizmos, state: &GameState, id: EntityId) -> Option<
     Some(())
 }
 
-fn draw_scenario(gizmos: &mut Gizmos, state: &GameState) {
+fn draw_scenario(canvas: &mut Canvas, state: &GameState) {
     let stamp = state.universe.stamp();
     let ctx = &state.orbital_context;
 
-    draw_planets(gizmos, &state.universe.planets, stamp, Vec2::ZERO, ctx);
+    draw_planets(canvas, &state.universe.planets, stamp, Vec2::ZERO, ctx);
 
     _ = state
         .universe
         .orbiter_ids()
-        .filter_map(|id| draw_orbiter(gizmos, state, id))
+        .filter_map(|id| draw_orbiter(&mut canvas.gizmos, state, id))
         .collect::<Vec<_>>();
 }
 
@@ -1549,7 +1563,7 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
         }
     }
 
-    draw_scenario(&mut canvas.gizmos, state);
+    draw_scenario(canvas, state);
 
     draw_x(
         &mut canvas.gizmos,
