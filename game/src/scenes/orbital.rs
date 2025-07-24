@@ -705,8 +705,13 @@ impl Render for OrbitalContext {
                     .with_luminance(0.2)
                     .with_alpha(0.9);
                 sidebar.add_child(
-                    Node::button(s, OnClick::CurrentBody(lup.id()), Size::Grow, BUTTON_HEIGHT)
-                        .with_color(color.to_f32_array()),
+                    Node::button(
+                        s,
+                        OnClick::CurrentBody(lup.id()),
+                        Size::Grow,
+                        state.settings.ui_button_height,
+                    )
+                    .with_color(color.to_f32_array()),
                 );
             }
         }
@@ -715,7 +720,7 @@ impl Render for OrbitalContext {
             format!("Visual: {:?}", state.orbital_context.draw_mode),
             OnClick::ToggleDrawMode,
             Size::Grow,
-            BUTTON_HEIGHT,
+            state.settings.ui_button_height,
         ));
 
         sidebar.add_child(
@@ -723,7 +728,7 @@ impl Render for OrbitalContext {
                 "Clear Orbits",
                 OnClick::ClearOrbits,
                 Size::Grow,
-                BUTTON_HEIGHT,
+                state.settings.ui_button_height,
             )
             .enabled(!state.orbital_context.queued_orbits.is_empty()),
         );
@@ -733,7 +738,7 @@ impl Render for OrbitalContext {
                 "Commit Mission",
                 OnClick::CommitMission,
                 Size::Grow,
-                BUTTON_HEIGHT,
+                state.settings.ui_button_height,
             )
             .enabled(state.current_orbit().is_some() && !state.orbital_context.selected.is_empty()),
         );
@@ -743,7 +748,7 @@ impl Render for OrbitalContext {
         sidebar.add_children(all::<CursorMode>().map(|c| {
             let s = format!("{:?}", c);
             let id = OnClick::CursorMode(c);
-            Node::button(s, id, Size::Grow, BUTTON_HEIGHT)
+            Node::button(s, id, Size::Grow, state.settings.ui_button_height)
                 .enabled(c != state.orbital_context.cursor_mode)
         }));
 
@@ -757,12 +762,12 @@ impl Render for OrbitalContext {
                 .into();
             let s = format!("{}", gid);
             let id = OnClick::Group(gid.clone());
-            let button =
-                Node::button(s, id, Size::Grow, BUTTON_HEIGHT).with_color(color.to_f32_array());
+            let button = Node::button(s, id, Size::Grow, state.settings.ui_button_height)
+                .with_color(color.to_f32_array());
             sidebar.add_child(delete_wrapper(
                 OnClick::DisbandGroup(gid.clone()),
                 button,
-                BUTTON_HEIGHT as f32,
+                state.settings.ui_button_height as f32,
             ));
         }
 
@@ -783,7 +788,7 @@ impl Render for OrbitalContext {
                 "Create Group",
                 OnClick::CreateGroup,
                 Size::Grow,
-                BUTTON_HEIGHT,
+                state.settings.ui_button_height,
             ));
         }
 
@@ -791,7 +796,9 @@ impl Render for OrbitalContext {
             sidebar.add_child(Node::hline());
             let s = format!("{} autopiloting", state.controllers.len());
             let id = OnClick::AutopilotingCount;
-            sidebar.add_child(Node::button(s, id, Size::Grow, BUTTON_HEIGHT).enabled(false));
+            sidebar.add_child(
+                Node::button(s, id, Size::Grow, state.settings.ui_button_height).enabled(false),
+            );
 
             let ids = state.controllers.iter().map(|c| c.target()).collect();
             orbiter_list(state, &mut sidebar, 16, ids);
@@ -802,7 +809,7 @@ impl Render for OrbitalContext {
         if let Some(id) = state.orbital_context.following {
             let s = format!("Following {}", id);
             let id = OnClick::Nullopt;
-            let n = Node::button(s, id, 300, BUTTON_HEIGHT).enabled(false);
+            let n = Node::button(s, id, 300, state.settings.ui_button_height).enabled(false);
             inner_topbar.add_child(n);
         }
 
@@ -810,13 +817,13 @@ impl Render for OrbitalContext {
             let orbit_button = {
                 let s = format!("{}", orbit);
                 let id = OnClick::GlobalOrbit(i);
-                Node::button(s, id, 400, BUTTON_HEIGHT)
+                Node::button(s, id, 400, state.settings.ui_button_height)
             };
 
             inner_topbar.add_child(delete_wrapper(
                 OnClick::DeleteOrbit(i),
                 orbit_button,
-                BUTTON_HEIGHT as f32,
+                state.settings.ui_button_height,
             ));
         }
 

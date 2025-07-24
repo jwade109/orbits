@@ -51,8 +51,6 @@ impl Render for MainMenuContext {
     }
 
     fn ui(state: &GameState) -> Option<Tree<OnClick>> {
-        use crate::ui::BUTTON_HEIGHT;
-
         let buttons = ["Load Save File", "Settings", "Exit"];
         let button_color = [0.2, 0.2, 0.2, 0.7];
         let bg_color = [0.0, 0.0, 0.0, 0.0];
@@ -61,17 +59,27 @@ impl Render for MainMenuContext {
             .down()
             .with_color(bg_color)
             .with_children(buttons.iter().map(|s| {
-                Node::button(s.to_string(), OnClick::Nullopt, Size::Grow, BUTTON_HEIGHT)
-                    .with_color(button_color)
+                Node::button(
+                    s.to_string(),
+                    OnClick::Nullopt,
+                    Size::Grow,
+                    state.settings.ui_button_height,
+                )
+                .with_color(button_color)
             }))
             .with_children(state.scenes.iter().enumerate().map(|(i, s)| {
-                Node::button(s.name(), OnClick::GoToScene(i), Size::Grow, BUTTON_HEIGHT)
-                    .with_color(button_color)
+                Node::button(
+                    s.name(),
+                    OnClick::GoToScene(i),
+                    Size::Grow,
+                    state.settings.ui_button_height,
+                )
+                .with_color(button_color)
             }))
             .with_child({
                 let s = "Reload";
                 let onclick = OnClick::ReloadGame;
-                Node::button(s, onclick, Size::Grow, BUTTON_HEIGHT)
+                Node::button(s, onclick, Size::Grow, state.settings.ui_button_height)
             });
 
         Some(Tree::new().with_layout(wrapper, Vec2::splat(300.0)))

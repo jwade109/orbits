@@ -9,6 +9,7 @@ use crate::scenes::{
     CameraProjection, CursorMode, DockingContext, EditorContext, MainMenuContext, OrbitalContext,
     Render, Scene, SceneType, StaticSpriteDescriptor, SurfaceContext, TelescopeContext, TextLabel,
 };
+use crate::settings::Settings;
 use crate::ui::InteractionEvent;
 use bevy::color::palettes::css::*;
 use bevy::core_pipeline::bloom::Bloom;
@@ -114,6 +115,8 @@ pub struct GameState {
     pub game_ticks: u64,
     pub render_ticks: u64,
 
+    pub settings: Settings,
+
     /// Contains all states related to window size, mouse clicks and positions,
     /// and button presses and holds.
     pub input: InputState,
@@ -213,6 +216,7 @@ impl GameState {
         let mut g = GameState {
             render_ticks: 0,
             game_ticks: 0,
+            settings: Settings::default(),
             input: InputState::default(),
             args: args.clone(),
             universe: Universe::new(planets.clone()),
@@ -1070,6 +1074,20 @@ impl GameState {
             decl.execute(self, args);
         }
 
+        if self.input.is_pressed(KeyCode::ShiftLeft) && self.input.is_pressed(KeyCode::ControlLeft)
+        {
+            let delta = if self.input.just_pressed(KeyCode::Minus) {
+                -1.0
+            } else if self.input.just_pressed(KeyCode::Equal) {
+                1.0
+            } else {
+                0.0
+            };
+
+            self.settings.ui_button_height =
+                (self.settings.ui_button_height + delta).clamp(3.0, 40.0);
+        }
+
         self.handle_click_events();
 
         match self.current_scene().kind() {
@@ -1293,7 +1311,7 @@ fn on_render_tick(mut state: ResMut<GameState>) {
 }
 
 pub const MIN_SIM_SPEED: u32 = 0;
-pub const MAX_SIM_SPEED: u32 = 2000;
+pub const MAX_SIM_SPEED: u32 = 1000000;
 
 fn process_interaction(
     inter: &InteractionEvent,

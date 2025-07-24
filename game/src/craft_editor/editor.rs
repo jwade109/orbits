@@ -435,12 +435,16 @@ impl Render for EditorContext {
         let layers = layer_selection(state);
         let vehicles = vehicle_selection(state);
 
-        let other_buttons = other_buttons();
+        let other_buttons = other_buttons(state.settings.ui_button_height);
         // let actions = action_queue(&state.editor_context.action_queue);
 
         let part_buttons = if let Some(id) = state.editor_context.selected_part {
             if let Some(instance) = state.editor_context.vehicle.get_part(id) {
-                Some(part_ui_layout(id, instance))
+                Some(part_ui_layout(
+                    state.settings.ui_button_height,
+                    id,
+                    instance,
+                ))
             } else {
                 None
             }
@@ -858,24 +862,28 @@ fn aabb_for_part(p: IVec2, rot: Rotation, part: &PartPrototype) -> AABB {
     AABB::from_arbitrary(p.as_vec2(), q.as_vec2())
 }
 
-fn expandable_menu(text: &str, onclick: OnClick) -> Node<OnClick> {
+fn expandable_menu(button_height: f32, text: &str, onclick: OnClick) -> Node<OnClick> {
     Node::structural(300, Size::Fit)
         .down()
         .with_color(UI_BACKGROUND_COLOR)
-        .with_child(Node::button(text, onclick, Size::Grow, BUTTON_HEIGHT))
+        .with_child(Node::button(text, onclick, Size::Grow, button_height))
 }
 
 fn part_selection(state: &GameState) -> Node<OnClick> {
     let mut part_names: Vec<_> = state.part_database.keys().collect();
     part_names.sort();
 
-    let mut n = expandable_menu("Parts", OnClick::TogglePartsMenuCollapsed);
+    let mut n = expandable_menu(
+        state.settings.ui_button_height,
+        "Parts",
+        OnClick::TogglePartsMenuCollapsed,
+    );
 
     if !state.editor_context.parts_menu_collapsed {
         n.add_child(Node::hline());
         n.add_children(part_names.into_iter().map(|s| {
             let onclick = OnClick::SelectPart(s.clone());
-            Node::button(s, onclick, Size::Grow, BUTTON_HEIGHT)
+            Node::button(s, onclick, Size::Grow, state.settings.ui_button_height)
         }));
     }
 
@@ -898,13 +906,17 @@ pub fn get_list_of_vehicles(state: &GameState) -> Option<Vec<(String, PathBuf)>>
 fn vehicle_selection(state: &GameState) -> Node<OnClick> {
     let vehicles = get_list_of_vehicles(state).unwrap_or(vec![]);
 
-    let mut n = expandable_menu("Vehicles", OnClick::ToggleVehiclesMenuCollapsed);
+    let mut n = expandable_menu(
+        state.settings.ui_button_height,
+        "Vehicles",
+        OnClick::ToggleVehiclesMenuCollapsed,
+    );
 
     if !state.editor_context.vehicles_menu_collapsed {
         n.add_child(Node::hline());
         n.add_children(vehicles.into_iter().map(|(name, path)| {
             let onclick = OnClick::LoadVehicle(path);
-            Node::button(name, onclick, Size::Grow, BUTTON_HEIGHT)
+            Node::button(name, onclick, Size::Grow, state.settings.ui_button_height)
         }));
     }
 
@@ -912,41 +924,41 @@ fn vehicle_selection(state: &GameState) -> Node<OnClick> {
 }
 
 #[allow(unused)]
-fn action_queue(queue: &Vec<Action>) -> Node<OnClick> {
+fn action_queue(button_height: f32, queue: &Vec<Action>) -> Node<OnClick> {
     Node::structural(Size::Grow, Size::Fit)
         .with_color(UI_BACKGROUND_COLOR)
         .down()
         .with_children(
             queue
                 .iter()
-                .map(|a| Node::text(Size::Grow, BUTTON_HEIGHT, format!("{}", a.to_string()))),
+                .map(|a| Node::text(Size::Grow, button_height, format!("{}", a.to_string()))),
         )
 }
 
-fn other_buttons() -> Node<OnClick> {
-    let rotate = Node::button("Rotate", OnClick::RotateCraft, Size::Grow, BUTTON_HEIGHT);
+fn other_buttons(button_height: f32) -> Node<OnClick> {
+    let rotate = Node::button("Rotate", OnClick::RotateCraft, Size::Grow, button_height);
 
     let normalize = Node::button(
         "Normalize",
         OnClick::NormalizeCraft,
         Size::Grow,
-        BUTTON_HEIGHT,
+        button_height,
     );
 
-    let new_button = Node::button("New", OnClick::OpenNewCraft, Size::Grow, BUTTON_HEIGHT);
+    let new_button = Node::button("New", OnClick::OpenNewCraft, Size::Grow, button_height);
 
     let toggle_info = Node::button(
         "Info",
         OnClick::ToggleVehicleInfo,
         Size::Grow,
-        BUTTON_HEIGHT,
+        button_height,
     );
 
     let send_to_surface = Node::button(
         "Send to Surface",
         OnClick::SendToSurface,
         Size::Grow,
-        BUTTON_HEIGHT,
+        button_height,
     );
 
     Node::structural(Size::Grow, Size::Fit)
@@ -962,14 +974,18 @@ fn other_buttons() -> Node<OnClick> {
 }
 
 fn layer_selection(state: &GameState) -> Node<OnClick> {
-    let mut n = expandable_menu("Layers", OnClick::ToggleLayersMenuCollapsed);
+    let mut n = expandable_menu(
+        state.settings.ui_button_height,
+        "Layers",
+        OnClick::ToggleLayersMenuCollapsed,
+    );
 
     if !state.editor_context.layers_menu_collapsed {
         n.add_child(Node::hline());
         n.add_children(enum_iterator::all::<PartLayer>().into_iter().map(|p| {
             let s = format!("{:?}", p);
             let onclick = OnClick::ToggleLayer(p);
-            let mut n = Node::button(s, onclick, Size::Grow, BUTTON_HEIGHT);
+            let mut n = Node::button(s, onclick, Size::Grow, state.settings.ui_button_height);
             if !state.editor_context.is_layer_visible(p) {
                 n = n.with_color(GRAY.to_f32_array());
             }

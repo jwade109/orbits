@@ -253,17 +253,37 @@ fn surface_scene_ui(state: &GameState) -> Tree<OnClick> {
 
     let show_gravity = Node::text(
         Size::Grow,
-        BUTTON_HEIGHT,
+        state.settings.ui_button_height,
         format!("{:0.1}", state.universe.surface.external_acceleration()),
     );
 
-    let increase_gravity = Node::button("+Y", OnClick::IncreaseGravity, Size::Grow, BUTTON_HEIGHT);
+    let increase_gravity = Node::button(
+        "+Y",
+        OnClick::IncreaseGravity,
+        Size::Grow,
+        state.settings.ui_button_height,
+    );
 
-    let decrease_gravity = Node::button("-Y", OnClick::DecreaseGravity, Size::Grow, BUTTON_HEIGHT);
+    let decrease_gravity = Node::button(
+        "-Y",
+        OnClick::DecreaseGravity,
+        Size::Grow,
+        state.settings.ui_button_height,
+    );
 
-    let increase_wind = Node::button("+X", OnClick::IncreaseWind, Size::Grow, BUTTON_HEIGHT);
+    let increase_wind = Node::button(
+        "+X",
+        OnClick::IncreaseWind,
+        Size::Grow,
+        state.settings.ui_button_height,
+    );
 
-    let decrease_wind = Node::button("-X", OnClick::DecreaseWind, Size::Grow, BUTTON_HEIGHT);
+    let decrease_wind = Node::button(
+        "-X",
+        OnClick::DecreaseWind,
+        Size::Grow,
+        state.settings.ui_button_height,
+    );
 
     let main_area = Node::grow().invisible();
 

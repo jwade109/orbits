@@ -163,7 +163,7 @@ pub fn top_bar(state: &GameState) -> Node<OnClick> {
             let s = scene.name();
             let id = OnClick::GoToScene(i);
             let current = state.current_scene_idx == i;
-            Node::button(s, id, 120, BUTTON_HEIGHT).enabled(!current)
+            Node::button(s, id, 120, state.settings.ui_button_height).enabled(!current)
         }))
         .with_child(Node::grow().invisible())
         .with_child(Node::button("Exit", OnClick::Exit, 80, Size::Grow))
@@ -202,24 +202,25 @@ pub fn notification_bar(state: &GameState, width: Size) -> Node<OnClick> {
         }))
 }
 
+#[deprecated]
 pub const BUTTON_HEIGHT: f32 = 29.0;
 
-pub fn exit_prompt_overlay(w: f32, h: f32) -> Node<OnClick> {
+pub fn exit_prompt_overlay(button_height: f32, w: f32, h: f32) -> Node<OnClick> {
     let window = Node::new(330, Size::Fit)
         .down()
         .with_color(UI_BACKGROUND_COLOR)
-        .with_child(Node::row(BUTTON_HEIGHT).with_text("Exit?").enabled(false))
+        .with_child(Node::row(button_height).with_text("Exit?").enabled(false))
         .with_child(Node::button(
             "Yes Sir",
             OnClick::ConfirmExitDialog,
             Size::Grow,
-            BUTTON_HEIGHT,
+            button_height,
         ))
         .with_child(Node::button(
             "No Way",
             OnClick::DismissExitDialog,
             Size::Grow,
-            BUTTON_HEIGHT,
+            button_height,
         ));
 
     let col = Node::column(Size::Fit)
@@ -239,7 +240,7 @@ pub fn exit_prompt_overlay(w: f32, h: f32) -> Node<OnClick> {
 pub fn console_overlay(state: &GameState) -> Node<OnClick> {
     let dims = state.input.screen_bounds.span;
 
-    let button_height = BUTTON_HEIGHT * 0.6;
+    let button_height = state.settings.ui_button_height * 0.6;
     let offset = "   ";
     let cursor = if crate::drawing::is_blinking(state.wall_time, None) {
         "_"
@@ -323,13 +324,23 @@ pub fn piloting_buttons(state: &GameState, width: Size) -> Node<OnClick> {
     let _x = if let Some(p) = state.orbital_context.piloting {
         wrapper.add_child({
             let s = format!("Piloting {:?}", p);
-            let b = Node::button(s, OnClick::Orbiter(p), Size::Grow, BUTTON_HEIGHT);
-            delete_wrapper(OnClick::ClearPilot, b, BUTTON_HEIGHT as f32)
+            let b = Node::button(
+                s,
+                OnClick::Orbiter(p),
+                Size::Grow,
+                state.settings.ui_button_height,
+            );
+            delete_wrapper(OnClick::ClearPilot, b, state.settings.ui_button_height)
         });
     } else if let Some(ObjectId::Orbiter(p)) = state.orbital_context.following {
         wrapper.add_child({
             let s = format!("Pilot {:?}", p);
-            Node::button(s, OnClick::SetPilot(p), Size::Grow, BUTTON_HEIGHT)
+            Node::button(
+                s,
+                OnClick::SetPilot(p),
+                Size::Grow,
+                state.settings.ui_button_height,
+            )
         });
     } else {
         wrapper.add_child(
@@ -337,7 +348,7 @@ pub fn piloting_buttons(state: &GameState, width: Size) -> Node<OnClick> {
                 "No craft selected",
                 OnClick::Nullopt,
                 Size::Grow,
-                BUTTON_HEIGHT,
+                state.settings.ui_button_height,
             )
             .enabled(false),
         );
@@ -346,14 +357,24 @@ pub fn piloting_buttons(state: &GameState, width: Size) -> Node<OnClick> {
     let _y = if let Some(p) = state.orbital_context.targeting {
         wrapper.add_child({
             let s = format!("Targeting {:?}", p);
-            let b = Node::button(s, OnClick::Orbiter(p), Size::Grow, BUTTON_HEIGHT);
-            delete_wrapper(OnClick::ClearTarget, b, BUTTON_HEIGHT as f32)
+            let b = Node::button(
+                s,
+                OnClick::Orbiter(p),
+                Size::Grow,
+                state.settings.ui_button_height,
+            );
+            delete_wrapper(OnClick::ClearTarget, b, state.settings.ui_button_height)
         });
         true
     } else if let Some(ObjectId::Orbiter(p)) = state.orbital_context.following {
         wrapper.add_child({
             let s = format!("Target {:?}", p);
-            Node::button(s, OnClick::SetTarget(p), Size::Grow, BUTTON_HEIGHT)
+            Node::button(
+                s,
+                OnClick::SetTarget(p),
+                Size::Grow,
+                state.settings.ui_button_height,
+            )
         });
         true
     } else {
@@ -366,7 +387,7 @@ pub fn piloting_buttons(state: &GameState, width: Size) -> Node<OnClick> {
                 "Swap",
                 OnClick::SwapOwnshipTarget,
                 Size::Grow,
-                BUTTON_HEIGHT,
+                state.settings.ui_button_height,
             )
         });
     }
@@ -376,11 +397,17 @@ pub fn piloting_buttons(state: &GameState, width: Size) -> Node<OnClick> {
 
 pub fn selected_button(state: &GameState, width: Size) -> Node<OnClick> {
     let s = format!("{} selected", state.orbital_context.selected.len());
-    let b = Node::button(s, OnClick::SelectedCount, width, BUTTON_HEIGHT).enabled(false);
+    let b = Node::button(
+        s,
+        OnClick::SelectedCount,
+        width,
+        state.settings.ui_button_height,
+    )
+    .enabled(false);
     if state.orbital_context.selected.is_empty() {
         b
     } else {
-        delete_wrapper(OnClick::ClearTracks, b, BUTTON_HEIGHT as f32)
+        delete_wrapper(OnClick::ClearTracks, b, state.settings.ui_button_height)
     }
 }
 
@@ -393,33 +420,40 @@ pub fn orbiter_list(
     ids.sort();
 
     let rows = (ids.len().min(max_cells) as f32 / 4.0).ceil() as u32;
-    let grid = Node::grid(Size::Grow, rows * BUTTON_HEIGHT as u32, rows, 4, 4.0, |i| {
-        if i as usize > max_cells {
-            return None;
-        }
-        let id = ids.get(i as usize)?;
-        let s = format!("{id}");
-        Some(
-            Node::grow()
-                .with_on_click(OnClick::Orbiter(*id))
-                .with_text(s)
-                .enabled(
-                    Some(*id)
-                        != state
-                            .orbital_context
-                            .following
-                            .map(|f| f.orbiter())
-                            .flatten(),
-                ),
-        )
-    });
+    let grid = Node::grid(
+        Size::Grow,
+        rows * state.settings.ui_button_height as u32,
+        rows,
+        4,
+        4.0,
+        |i| {
+            if i as usize > max_cells {
+                return None;
+            }
+            let id = ids.get(i as usize)?;
+            let s = format!("{id}");
+            Some(
+                Node::grow()
+                    .with_on_click(OnClick::Orbiter(*id))
+                    .with_text(s)
+                    .enabled(
+                        Some(*id)
+                            != state
+                                .orbital_context
+                                .following
+                                .map(|f| f.orbiter())
+                                .flatten(),
+                    ),
+            )
+        },
+    );
     root.add_child(grid);
 
     if ids.len() > max_cells {
         let n = ids.len() - max_cells;
         let s = format!("...And {} more", n);
         root.add_child(
-            Node::new(Size::Grow, BUTTON_HEIGHT)
+            Node::new(Size::Grow, state.settings.ui_button_height)
                 .with_text(s)
                 .enabled(false),
         );
@@ -445,7 +479,9 @@ pub fn left_right_arrows(
 pub fn favorites_menu(state: &GameState) -> Node<OnClick> {
     let mut wrapper = Node::structural(350, Size::Fit)
         .down()
-        .with_child(Node::text(Size::Grow, BUTTON_HEIGHT, "Favorites").enabled(false))
+        .with_child(
+            Node::text(Size::Grow, state.settings.ui_button_height, "Favorites").enabled(false),
+        )
         .with_color(UI_BACKGROUND_COLOR)
         .with_children({
             state.favorites.iter().filter_map(|id| {
@@ -456,9 +492,23 @@ pub fn favorites_menu(state: &GameState) -> Node<OnClick> {
                     .map(|v| v.name())
                     .unwrap_or(&"?");
                 let s = format!("{} {}", name, id);
-                let b = Node::button(s, OnClick::Orbiter(*id), Size::Grow, BUTTON_HEIGHT);
-                let d = delete_wrapper(OnClick::RemoveFromFavorites(*id), b, BUTTON_HEIGHT);
-                let p = Node::button("", OnClick::SetPilot(*id), BUTTON_HEIGHT, BUTTON_HEIGHT);
+                let b = Node::button(
+                    s,
+                    OnClick::Orbiter(*id),
+                    Size::Grow,
+                    state.settings.ui_button_height,
+                );
+                let d = delete_wrapper(
+                    OnClick::RemoveFromFavorites(*id),
+                    b,
+                    state.settings.ui_button_height,
+                );
+                let p = Node::button(
+                    "",
+                    OnClick::SetPilot(*id),
+                    state.settings.ui_button_height,
+                    state.settings.ui_button_height,
+                );
                 Some(d.with_child(p.with_color(PILOT_FAVORITES_COLOR)))
             })
         });
@@ -466,8 +516,13 @@ pub fn favorites_menu(state: &GameState) -> Node<OnClick> {
     if let Some(ObjectId::Orbiter(id)) = state.orbital_context.following {
         wrapper.add_child(Node::hline());
         let s = format!("Add {}", id);
-        let b = Node::button(s, OnClick::AddToFavorites(id), Size::Grow, BUTTON_HEIGHT)
-            .enabled(!state.favorites.contains(&id));
+        let b = Node::button(
+            s,
+            OnClick::AddToFavorites(id),
+            Size::Grow,
+            state.settings.ui_button_height,
+        )
+        .enabled(!state.favorites.contains(&id));
         wrapper.add_child(b);
     }
 
@@ -483,7 +538,7 @@ pub fn throttle_controls(state: &GameState) -> Node<OnClick> {
 
     let arrows = left_right_arrows(
         Size::Grow,
-        BUTTON_HEIGHT,
+        state.settings.ui_button_height,
         OnClick::IncrementThrottle(-1),
         OnClick::IncrementThrottle(1),
     );
@@ -498,17 +553,21 @@ pub fn throttle_controls(state: &GameState) -> Node<OnClick> {
     Node::new(THROTTLE_CONTROLS_WIDTH, Size::Fit)
         .with_color(UI_BACKGROUND_COLOR)
         .down()
-        .with_child(Node::row(BUTTON_HEIGHT).with_text(title).enabled(false))
         .with_child(
-            Node::row(BUTTON_HEIGHT)
+            Node::row(state.settings.ui_button_height)
+                .with_text(title)
+                .enabled(false),
+        )
+        .with_child(
+            Node::row(state.settings.ui_button_height)
                 .invisible()
                 .with_padding(0.0)
                 .with_child_gap(2.0)
                 .with_children((0..=ThrottleLevel::MAX).map(|i| {
                     let t = ThrottleLevel(i);
                     let onclick = OnClick::ThrottleLevel(t);
-                    let n =
-                        Node::button("", onclick, Size::Grow, BUTTON_HEIGHT).enabled(t != throttle);
+                    let n = Node::button("", onclick, Size::Grow, state.settings.ui_button_height)
+                        .enabled(t != throttle);
                     if i < throttle.0 {
                         n.with_color([0.8, 0.2, 0.2, 0.9])
                     } else {
@@ -520,22 +579,15 @@ pub fn throttle_controls(state: &GameState) -> Node<OnClick> {
 }
 
 pub fn sim_time_toolbar(state: &GameState) -> Node<OnClick> {
-    use crate::game::{MAX_SIM_SPEED, MIN_SIM_SPEED};
-    Node::fit()
-        .with_color(UI_BACKGROUND_COLOR)
-        .with_child({
-            let s = if state.paused { "UNPAUSE" } else { "PAUSE" };
-            Node::button(s, OnClick::TogglePause, 120, BUTTON_HEIGHT)
-        })
-        .with_children((MIN_SIM_SPEED..=MAX_SIM_SPEED).map(|i| {
-            Node::button(
-                format!("{i}"),
-                OnClick::SimSpeed(i),
-                BUTTON_HEIGHT,
-                BUTTON_HEIGHT,
-            )
-            .enabled(i != state.universe_ticks_per_game_tick)
-        }))
+    Node::fit().with_color(UI_BACKGROUND_COLOR).with_child({
+        let s = if state.paused { "UNPAUSE" } else { "PAUSE" };
+        Node::button(
+            s,
+            OnClick::TogglePause,
+            120,
+            state.settings.ui_button_height,
+        )
+    })
 }
 
 pub fn layout(state: &GameState) -> Tree<OnClick> {
@@ -672,7 +724,10 @@ fn do_ui_sprites(
     }
 
     if state.is_exit_prompt {
-        ui.add_layout(exit_prompt_overlay(vb.span.x, vb.span.y), Vec2::ZERO)
+        ui.add_layout(
+            exit_prompt_overlay(state.settings.ui_button_height, vb.span.x, vb.span.y),
+            Vec2::ZERO,
+        )
     }
 
     state.ui = ui;
