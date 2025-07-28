@@ -41,8 +41,8 @@ impl LinearCameraController {
     }
 
     pub fn on_game_tick(&mut self) {
-        const SCALE_SMOOTHING: f32 = 0.2;
-        const CENTER_SMOOTHING: f32 = 0.2;
+        const SCALE_SMOOTHING: f32 = 0.1;
+        const CENTER_SMOOTHING: f32 = 0.1;
 
         let dt = PHYSICS_CONSTANT_DELTA_TIME.to_secs();
         self.scale += (self.target_scale - self.scale) * ((dt / SCALE_SMOOTHING).exp() - 1.0);
@@ -50,10 +50,10 @@ impl LinearCameraController {
     }
 
     pub fn handle_input(&mut self, input: &InputState) {
-        const SCROLL_WHEEL_DELTA: f32 = 0.7;
+        const SCROLL_WHEEL_DELTA: f32 = 0.5;
         const BUTTON_ZOOM_SPEED: f32 = 0.05;
 
-        let speed = self.speed * 0.02;
+        let speed = self.speed * 0.01;
 
         if input.is_scroll_down() {
             self.target_scale -= SCROLL_WHEEL_DELTA;

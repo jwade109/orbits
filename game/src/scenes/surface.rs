@@ -6,6 +6,7 @@ use crate::input::*;
 use crate::onclick::OnClick;
 use crate::scenes::craft_editor::vehicle_info;
 use crate::scenes::{CameraProjection, Render};
+use crate::sounds::*;
 use crate::thrust_particles::*;
 use bevy::color::{palettes::css::*, Alpha, Srgba};
 use bevy::prelude::{Gizmos, KeyCode};
@@ -29,7 +30,7 @@ pub struct SurfaceContext {
 impl Default for SurfaceContext {
     fn default() -> Self {
         SurfaceContext {
-            camera: LinearCameraController::new(Vec2::Y * 30.0, 10.0, 1700.0),
+            camera: LinearCameraController::new(Vec2::Y * 30.0, 10.0, 1100.0),
             selected: HashSet::new(),
             particles: ThrustParticleEffects::new(),
             left_click_world_pos: None,
@@ -71,7 +72,12 @@ impl SurfaceContext {
         Some(AABB::from_arbitrary(p, q))
     }
 
-    pub fn on_render_tick(&mut self, input: &InputState, universe: &mut Universe) {
+    pub fn on_render_tick(
+        &mut self,
+        input: &InputState,
+        universe: &mut Universe,
+        sounds: &mut EnvironmentSounds,
+    ) {
         self.camera.handle_input(input);
 
         if let Some(bounds) = self.selection_region(input.on_frame(MouseButt::Left, FrameId::Up)) {
@@ -116,6 +122,7 @@ impl SurfaceContext {
 
             let pos = self.c2w(pos);
             let (idx, _, _) = Self::mouseover_vehicle(universe, pos)?;
+            sounds.play_once("soft-pulse.ogg", 1.0);
             self.selected.insert(idx);
             if double {
                 // TODO fix this
@@ -127,6 +134,8 @@ impl SurfaceContext {
         (|| -> Option<()> {
             let rc = input.on_frame(MouseButt::Right, FrameId::Down)?;
             let p = self.c2w(rc);
+
+            sounds.play_once("soft-pulse-higher.ogg", 0.6);
 
             let clear_queue = !input.is_pressed(KeyCode::ShiftLeft);
 

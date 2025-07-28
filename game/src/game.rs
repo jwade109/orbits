@@ -9,7 +9,8 @@ use crate::scenes::{
     CameraProjection, CursorMode, DockingContext, EditorContext, MainMenuContext, OrbitalContext,
     Render, Scene, SceneType, StaticSpriteDescriptor, SurfaceContext, TelescopeContext, TextLabel,
 };
-use crate::settings::Settings;
+use crate::settings::*;
+use crate::sounds::*;
 use crate::ui::InteractionEvent;
 use bevy::color::palettes::css::*;
 use bevy::core_pipeline::bloom::Bloom;
@@ -117,6 +118,8 @@ pub struct GameState {
 
     pub settings: Settings,
 
+    pub sounds: EnvironmentSounds,
+
     /// Contains all states related to window size, mouse clicks and positions,
     /// and button presses and holds.
     pub input: InputState,
@@ -175,7 +178,6 @@ pub struct GameState {
     pub notifications: Vec<Notification>,
 
     pub is_exit_prompt: bool,
-    pub button_was_pressed: bool,
 
     pub text_labels: Vec<TextLabel>,
     pub sprites: Vec<StaticSpriteDescriptor>,
@@ -213,10 +215,22 @@ impl GameState {
             }
         };
 
+        let settings = match load_settings_from_file(&args.settings_path()) {
+            Ok(s) => s,
+            Err(e) => {
+                error!("Failed to load settings: {e}");
+                Settings::default()
+            }
+        };
+
+        let mut sounds = EnvironmentSounds::new();
+        sounds.play_loop("building.ogg", 0.1);
+
         let mut g = GameState {
             render_ticks: 0,
             game_ticks: 0,
-            settings: Settings::default(),
+            settings,
+            sounds,
             input: InputState::default(),
             args: args.clone(),
             universe: Universe::new(planets.clone()),
@@ -249,7 +263,6 @@ impl GameState {
             ui: Tree::new(),
             notifications: Vec::new(),
             is_exit_prompt: false,
-            button_was_pressed: true,
             text_labels: Vec::new(),
             sprites: Vec::new(),
             image_handles: HashMap::new(),
@@ -834,7 +847,7 @@ impl GameState {
     }
 
     pub fn on_button_event(&mut self, id: OnClick) -> Option<()> {
-        self.button_was_pressed = true;
+        self.sounds.play_once("button-up.ogg", 1.0);
 
         match id {
             OnClick::CurrentBody(id) => self.orbital_context.following = Some(ObjectId::Planet(id)),
@@ -1096,9 +1109,11 @@ impl GameState {
             SceneType::Editor => EditorContext::on_render_tick(self),
             SceneType::MainMenu => (),
             SceneType::Orbital => self.orbital_context.handle_input(&self.input),
-            SceneType::Surface => self
-                .surface_context
-                .on_render_tick(&self.input, &mut self.universe),
+            SceneType::Surface => self.surface_context.on_render_tick(
+                &self.input,
+                &mut self.universe,
+                &mut self.sounds,
+            ),
             SceneType::Telescope => self.telescope_context.handle_input(&self.input),
         }
     }

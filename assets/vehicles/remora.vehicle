@@ -1,34 +1,59 @@
 name: ''
 parts:
-- partname: tank21
-  pos:
-  - -26
-  - -15
-  rot: North
 - partname: small-antenna
   pos:
   - 24
   - -2
   rot: South
-- partname: rcs
+- partname: plate
   pos:
-  - 24
-  - 5
-  rot: West
+  - -26
+  - 0
+  rot: East
+- partname: tank21
+  pos:
+  - -26
+  - -15
+  rot: North
 - partname: rcs
   pos:
   - -40
   - 11
   rot: East
-- partname: tank21
+- partname: frame3
   pos:
-  - -26
-  - 15
+  - -36
+  - -15
+  rot: East
+- partname: frame
+  pos:
+  - -6
+  - -5
+  rot: West
+- partname: frame2
+  pos:
+  - -11
+  - -25
+  rot: West
+- partname: tank11
+  pos:
+  - -6
+  - -25
   rot: North
 - partname: rcs
   pos:
   - -36
-  - -19
+  - 15
+  rot: South
+- partname: plate
+  pos:
+  - -36
+  - 0
+  rot: East
+- partname: tank21
+  pos:
+  - -26
+  - 15
   rot: North
 - partname: rcs
   pos:
@@ -37,351 +62,326 @@ parts:
   rot: North
 - partname: plate
   pos:
-  - -26
-  - -10
+  - -16
+  - 0
   rot: East
+- partname: rcs
+  pos:
+  - -40
+  - -17
+  rot: East
+- partname: tank11
+  pos:
+  - -26
+  - -5
+  rot: North
+- partname: rcs
+  pos:
+  - -36
+  - -19
+  rot: North
+- partname: cargo
+  pos:
+  - -6
+  - -15
+  rot: East
+- partname: frame3
+  pos:
+  - -36
+  - 5
+  rot: West
 - partname: tank21
   pos:
   - -26
   - 5
   rot: North
-- partname: tank11
+- partname: rcs
   pos:
-  - -6
+  - 14
   - 15
-  rot: North
-- partname: plate
+  rot: South
+- partname: rcs
   pos:
-  - -16
-  - -10
-  rot: East
-- partname: plate
-  pos:
-  - 4
-  - -5
-  rot: East
-- partname: plate
-  pos:
-  - -26
-  - 0
-  rot: East
-- partname: tank11
-  pos:
-  - -16
-  - -5
-  rot: North
-- partname: frame2
-  pos:
-  - -21
-  - 15
-  rot: North
-- partname: frame3
-  pos:
-  - -36
-  - -15
-  rot: East
-- partname: frame
-  pos:
-  - -36
-  - -5
-  rot: West
-- partname: frame
-  pos:
-  - -6
-  - -5
+  - 24
+  - 5
   rot: West
 - partname: small-motor
   pos:
   - -43
   - -5
   rot: East
-- partname: tank11
+- partname: plate
   pos:
-  - -6
-  - -25
-  rot: North
+  - 4
+  - -5
+  rot: East
 - partname: tank21
   pos:
   - -26
   - -25
   rot: North
-- partname: frame2
+- partname: plate
   pos:
-  - -11
-  - 15
-  rot: North
-- partname: frame2
-  pos:
-  - -21
-  - -25
-  rot: West
-- partname: cargo
-  pos:
-  - -6
-  - -15
+  - -36
+  - -10
   rot: East
 - partname: plate
   pos:
   - -6
   - 0
   rot: East
+- partname: tank11
+  pos:
+  - -16
+  - -5
+  rot: North
+- partname: tank11
+  pos:
+  - -6
+  - 15
+  rot: North
+- partname: plate
+  pos:
+  - -6
+  - -10
+  rot: East
+- partname: frame2
+  pos:
+  - -21
+  - 15
+  rot: North
 - partname: rcs
   pos:
   - 24
   - -11
   rot: West
-- partname: rcs
-  pos:
-  - -40
-  - -17
-  rot: East
-- partname: plate
-  pos:
-  - -6
-  - -10
-  rot: East
-- partname: frame3
+- partname: frame
   pos:
   - -36
-  - 5
+  - -5
   rot: West
 - partname: plate
   pos:
   - -16
-  - 0
+  - -10
   rot: East
-- partname: tank11
-  pos:
-  - -26
-  - -5
-  rot: North
-- partname: rcs
-  pos:
-  - -36
-  - 15
-  rot: South
 - partname: plate
   pos:
-  - -36
+  - -26
   - -10
   rot: East
 - partname: frame2
   pos:
-  - -11
+  - -21
   - -25
   rot: West
-- partname: plate
+- partname: frame2
   pos:
-  - -36
-  - 0
-  rot: East
-- partname: rcs
-  pos:
-  - 14
+  - -11
   - 15
-  rot: South
+  rot: North
 lines:
-- - -17
-  - 0
-- - -15
-  - 0
-- - -5
-  - 19
-- - -21
-  - 0
-- - -28
-  - 0
-- - -16
-  - 0
-- - -22
-  - 2
-- - -22
-  - 6
-- - -22
-  - -16
-- - -12
-  - 0
-- - -11
-  - 0
-- - -29
+- - -13
   - 0
 - - -6
-  - 19
-- - -22
-  - -11
-- - -21
-  - 19
-- - -22
-  - 9
-- - -22
-  - -13
-- - -2
   - -21
-- - -18
-  - 0
-- - -16
-  - -20
 - - -23
   - 0
 - - -12
+  - 0
+- - -22
+  - 8
+- - -22
+  - -9
+- - -26
+  - 0
+- - -22
+  - 3
+- - -22
+  - -19
+- - -22
+  - 1
+- - -5
+  - 19
+- - -22
+  - -6
+- - -19
+  - 19
+- - -14
+  - 19
+- - -28
+  - 0
+- - -13
+  - -21
+- - -15
+  - -21
+- - -20
+  - 0
+- - -22
+  - 10
+- - -22
+  - -16
+- - -22
+  - 13
+- - -22
+  - -3
+- - -22
+  - 12
+- - -17
+  - -20
+- - -22
+  - -13
+- - -27
+  - 0
+- - -22
+  - -14
+- - -22
+  - 11
+- - -22
+  - -18
+- - -1
+  - -21
+- - -2
+  - -21
+- - -8
+  - -21
+- - -22
+  - -10
+- - -3
+  - -21
+- - -16
+  - -21
+- - -4
+  - -21
+- - -5
+  - -21
+- - -22
+  - -11
+- - -19
+  - -20
+- - -22
+  - 6
+- - -22
+  - 14
+- - -22
+  - 4
+- - -8
+  - 19
+- - -17
+  - 19
+- - -3
+  - 19
+- - -22
+  - 9
+- - -21
+  - 0
+- - -22
+  - 0
+- - -22
+  - 7
+- - -10
   - 19
 - - -22
   - -7
-- - -22
-  - -20
 - - -18
   - -20
 - - -24
   - 0
-- - -22
-  - 18
-- - -22
-  - 5
-- - -22
-  - -2
-- - -17
-  - -20
-- - -19
-  - 0
-- - -22
-  - -10
-- - -22
-  - -18
-- - -22
-  - 15
-- - -22
-  - 10
-- - -22
-  - 1
-- - -4
-  - -21
-- - -10
-  - -21
-- - -22
-  - 13
-- - -27
-  - 0
-- - -22
-  - 19
-- - -10
-  - 19
-- - -22
-  - -9
-- - -9
-  - 19
-- - -25
-  - 0
-- - -11
-  - 19
-- - -22
-  - 8
-- - -22
-  - -12
-- - -15
-  - 19
-- - -22
-  - 11
 - - -11
   - -21
-- - -22
-  - 7
-- - -22
-  - -8
-- - -18
-  - 19
-- - -7
-  - 19
-- - -13
-  - -21
-- - -13
-  - 19
-- - -5
-  - -21
-- - -20
-  - 0
-- - -26
-  - 0
-- - -15
-  - -21
-- - -22
-  - -6
-- - -8
-  - 19
-- - -31
-  - 0
-- - -22
-  - 16
-- - -14
-  - 0
-- - -14
-  - 19
-- - -19
-  - 19
-- - -20
-  - 19
-- - -22
-  - 4
-- - -22
-  - -1
-- - -22
-  - -4
 - - -21
   - -20
 - - -22
-  - 12
-- - -14
-  - -21
-- - -16
-  - -21
-- - -22
-  - 0
-- - -9
-  - -21
-- - -3
-  - 19
-- - -3
-  - -21
-- - -22
-  - -14
-- - -22
   - 17
-- - -4
-  - 19
-- - -30
-  - 0
-- - -7
-  - -21
-- - -22
-  - -5
-- - -19
-  - -20
-- - -8
-  - -21
-- - -22
-  - -17
-- - -1
-  - -21
-- - -22
-  - 3
-- - -6
-  - -21
-- - -22
-  - 14
-- - -22
-  - -19
 - - -12
   - -21
-- - -17
+- - -22
   - 19
+- - -22
+  - -2
+- - -11
+  - 0
+- - -11
+  - 19
+- - -7
+  - -21
+- - -12
+  - 19
+- - -20
+  - 19
+- - -22
+  - 2
+- - -31
+  - 0
+- - -30
+  - 0
+- - -4
+  - 19
+- - -22
+  - -1
+- - -22
+  - -12
+- - -13
+  - 19
+- - -19
+  - 0
+- - -7
+  - 19
+- - -10
+  - -21
+- - -20
+  - -20
+- - -22
+  - -17
+- - -9
+  - 19
+- - -22
+  - 18
+- - -18
+  - 19
+- - -16
+  - -20
+- - -15
+  - 19
+- - -14
+  - 0
+- - -22
+  - -8
+- - -22
+  - -15
+- - -17
+  - 0
+- - -22
+  - -20
+- - -15
+  - 0
+- - -6
+  - 19
+- - -22
+  - 16
+- - -25
+  - 0
+- - -16
+  - 19
+- - -16
+  - 0
+- - -22
+  - -5
+- - -14
+  - -21
+- - -22
+  - -4
+- - -22
+  - 5
 - - -32
   - 0
 - - -22
-  - -15
-- - -16
-  - 19
-- - -22
-  - -3
-- - -13
+  - 15
+- - -18
   - 0
-- - -20
-  - -20
+- - -21
+  - 19
+- - -9
+  - -21
+- - -29
+  - 0

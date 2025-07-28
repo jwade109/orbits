@@ -178,7 +178,7 @@ impl Render for DockingContext {
 impl DockingContext {
     pub fn new() -> Self {
         Self {
-            camera: LinearCameraController::new(Vec2::ZERO, 1.0, 1700.0),
+            camera: LinearCameraController::new(Vec2::ZERO, 1.0, 1100.0),
             following: None,
         }
     }

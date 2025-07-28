@@ -62,7 +62,7 @@ pub struct EditorContext {
 impl EditorContext {
     pub fn new() -> Self {
         EditorContext {
-            camera: LinearCameraController::new(Vec2::ZERO, 18.0, 1700.0),
+            camera: LinearCameraController::new(Vec2::ZERO, 18.0, 1100.0),
             cursor_state: CursorState::None,
             rotation: Rotation::East,
             filepath: None,
