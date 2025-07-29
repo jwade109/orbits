@@ -547,7 +547,7 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
 
     if vehicle.low_fuel() {
         if is_blinking(state.wall_time, None) {
-            canvas.sprite(center, 0.0, "low-fuel", 500.0, Vec2::splat(50.0));
+            canvas.sprite(center, 0.0, "low-fuel", 500.0, Vec2::splat(150.0));
         }
     }
 
@@ -567,7 +567,7 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
     Some(())
 }
 
-fn draw_orbiter(gizmos: &mut Gizmos, state: &GameState, id: EntityId) -> Option<()> {
+fn draw_orbiter(canvas: &mut Canvas, state: &GameState, id: EntityId) -> Option<()> {
     let ctx = &state.orbital_context;
     let tracked = state.orbital_context.selected.contains(&id);
     let piloting = state.piloting() == Some(id);
@@ -586,22 +586,24 @@ fn draw_orbiter(gizmos: &mut Gizmos, state: &GameState, id: EntityId) -> Option<
 
     let screen_pos = ctx.w2c(pv.pos_f32());
 
+    canvas.sprite(screen_pos, 0.0, "cloud", None, Vec2::splat(6.0));
+
     let size = 12.0;
     if blinking && obj.will_collide() {
-        draw_circle(gizmos, screen_pos, size, RED);
-        draw_circle(gizmos, screen_pos, size + 3.0, RED);
+        draw_circle(&mut canvas.gizmos, screen_pos, size, RED);
+        draw_circle(&mut canvas.gizmos, screen_pos, size + 3.0, RED);
     } else if blinking && obj.has_error() {
-        draw_circle(gizmos, screen_pos, size, YELLOW);
-        draw_circle(gizmos, screen_pos, size + 3.0, YELLOW);
+        draw_circle(&mut canvas.gizmos, screen_pos, size, YELLOW);
+        draw_circle(&mut canvas.gizmos, screen_pos, size + 3.0, YELLOW);
     } else if blinking && obj.will_change() {
-        draw_circle(gizmos, screen_pos, size, TEAL);
+        draw_circle(&mut canvas.gizmos, screen_pos, size, TEAL);
     } else if blinking && low_fuel {
-        draw_triangle(gizmos, screen_pos, size, BLUE);
+        draw_triangle(&mut canvas.gizmos, screen_pos, size, BLUE);
     }
 
     if has_radar {
         draw_circle(
-            gizmos,
+            &mut canvas.gizmos,
             screen_pos,
             (10.0 * ctx.scale()).max(20.0),
             TEAL.with_alpha(0.4),
@@ -609,7 +611,7 @@ fn draw_orbiter(gizmos: &mut Gizmos, state: &GameState, id: EntityId) -> Option<
     }
 
     if is_thrusting {
-        draw_diamond(gizmos, screen_pos, 16.0, RED);
+        draw_diamond(&mut canvas.gizmos, screen_pos, 16.0, RED);
     }
 
     let show_orbits = match ctx.show_orbits {
@@ -632,12 +634,19 @@ fn draw_orbiter(gizmos: &mut Gizmos, state: &GameState, id: EntityId) -> Option<
                 TEAL.with_alpha((1.0 - i as f32 * 0.3).max(0.0))
             };
             if show_orbits {
-                draw_propagator(gizmos, state, &prop, true, color, ctx);
+                draw_propagator(&mut canvas.gizmos, state, &prop, true, color, ctx);
             }
         }
     } else if show_orbits {
         let prop = obj.propagator_at(state.universe.stamp())?;
-        draw_propagator(gizmos, state, prop, false, GRAY.with_alpha(0.02), ctx);
+        draw_propagator(
+            &mut canvas.gizmos,
+            state,
+            prop,
+            false,
+            GRAY.with_alpha(0.02),
+            ctx,
+        );
     }
     Some(())
 }
@@ -651,7 +660,7 @@ fn draw_scenario(canvas: &mut Canvas, state: &GameState) {
     _ = state
         .universe
         .orbiter_ids()
-        .filter_map(|id| draw_orbiter(&mut canvas.gizmos, state, id))
+        .filter_map(|id| draw_orbiter(canvas, state, id))
         .collect::<Vec<_>>();
 }
 

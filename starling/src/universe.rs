@@ -93,13 +93,13 @@ impl Universe {
 
             let elevation = self.surface.elevation(body.pv.pos_f32().x);
 
-            if controller.mode() != VehicleControlPolicy::Idle {
+            if !controller.is_idle() {
                 controller.check_target_achieved(body, gravity.length() > 0.0);
                 vehicle.set_thrust_control(ctrl);
                 vehicle.on_sim_tick();
             }
 
-            if controller.mode() != VehicleControlPolicy::Idle || body.pv.pos_f32().y > elevation {
+            if !controller.is_idle() || body.pv.pos_f32().y > elevation {
                 let accel = vehicle.body_frame_accel();
                 body.on_sim_tick(
                     accel,

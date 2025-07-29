@@ -47,6 +47,8 @@ impl Render for MainMenuContext {
 
         crate::drawing::draw_cells(&mut canvas.gizmos, state);
 
+        crate::drawing::draw_orbital_view(canvas, state);
+
         Some(())
     }
 

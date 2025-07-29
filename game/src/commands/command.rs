@@ -31,6 +31,7 @@ pub enum CommandDecl {
     Example,
     Pwd,
     Listing,
+    ListVehicles,
 }
 
 impl CommandDecl {
@@ -39,6 +40,7 @@ impl CommandDecl {
             CommandDecl::Example => do_command::<Example>(state, args),
             CommandDecl::Pwd => do_command::<Pwd>(state, args),
             CommandDecl::Listing => do_command::<Listing>(state, args),
+            CommandDecl::ListVehicles => do_command::<ListVehicles>(state, args),
         }
     }
 

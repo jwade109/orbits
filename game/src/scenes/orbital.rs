@@ -1,3 +1,4 @@
+use crate::camera_controller::LinearCameraController;
 use crate::canvas::Canvas;
 use crate::game::GameState;
 use crate::input::{FrameId, InputState, MouseButt};
@@ -5,7 +6,6 @@ use crate::onclick::OnClick;
 use crate::scenes::{Render, TextLabel};
 use crate::ui::*;
 use bevy::color::palettes::css::*;
-use bevy::input::keyboard::KeyCode;
 use bevy::prelude::*;
 use enum_iterator::all;
 use enum_iterator::Sequence;
@@ -73,13 +73,10 @@ impl LowPass {
 #[allow(unused)]
 #[derive(Debug, Clone)]
 pub struct OrbitalContext {
+    camera: LinearCameraController,
     primary: EntityId,
     pub selected: HashSet<EntityId>,
     pub highlighted: HashSet<EntityId>,
-    center: Vec2,
-    target_center: Vec2,
-    scale: f32,
-    target_scale: f32,
     pub following: Option<ObjectId>,
     pub queued_orbits: Vec<GlobalOrbit>,
     pub cursor_mode: CursorMode,
@@ -125,11 +122,11 @@ pub trait CameraProjection {
 
 impl CameraProjection for OrbitalContext {
     fn origin(&self) -> Vec2 {
-        self.center
+        self.camera.origin()
     }
 
     fn scale(&self) -> f32 {
-        self.scale
+        self.camera.scale()
     }
 }
 
@@ -153,13 +150,10 @@ pub fn relevant_body(planets: &PlanetarySystem, pos: Vec2, stamp: Nanotime) -> O
 impl OrbitalContext {
     pub fn new(primary: EntityId) -> Self {
         Self {
+            camera: LinearCameraController::new(Vec2::ZERO, 0.02, 600.0),
             primary,
             selected: HashSet::new(),
             highlighted: HashSet::new(),
-            center: Vec2::ZERO,
-            target_center: Vec2::ZERO,
-            scale: 0.02,
-            target_scale: 0.025,
             following: None,
             queued_orbits: Vec::new(),
             cursor_mode: CursorMode::Rect,
@@ -322,64 +316,12 @@ impl OrbitalContext {
     }
 
     pub fn on_game_tick(&mut self) {
-        self.scale += (self.target_scale - self.scale) * 0.1;
-        self.center += (self.target_center - self.center) * 0.1;
+        self.camera.on_game_tick();
         self.rendezvous_scope_radius.step();
     }
 
     pub fn handle_input(&mut self, input: &InputState) {
-        if input.just_pressed(KeyCode::BracketLeft) {
-            self.rendezvous_scope_radius.target /= 1.5;
-        }
-        if input.just_pressed(KeyCode::BracketRight) {
-            self.rendezvous_scope_radius.target *= 1.5;
-        }
-
-        if input.is_pressed(KeyCode::ShiftLeft) {
-            if input.is_scroll_down() {
-                println!("TODO change sim speed");
-            }
-            if input.is_scroll_up() {
-                println!("TODO change sim speed");
-            }
-        } else {
-            if input.is_scroll_down() {
-                self.target_scale /= 1.5;
-            }
-            if input.is_scroll_up() {
-                self.target_scale *= 1.5;
-            }
-        }
-
-        let offset = 50.0;
-
-        if input.is_pressed(KeyCode::Equal) {
-            self.target_scale *= 1.03;
-        }
-        if input.is_pressed(KeyCode::Minus) {
-            self.target_scale /= 1.03;
-        }
-        if input.is_pressed(KeyCode::KeyD) {
-            self.target_center.x += offset / self.scale;
-            self.following = None;
-        }
-        if input.is_pressed(KeyCode::KeyA) {
-            self.target_center.x -= offset / self.scale;
-            self.following = None;
-        }
-        if input.is_pressed(KeyCode::KeyW) {
-            self.target_center.y += offset / self.scale;
-            self.following = None;
-        }
-        if input.is_pressed(KeyCode::KeyS) {
-            self.target_center.y -= offset / self.scale;
-            self.following = None;
-        }
-        if input.is_pressed(KeyCode::KeyR) {
-            self.target_center = Vec2::ZERO;
-            self.target_scale = 1.0;
-            self.following = None;
-        }
+        self.camera.handle_input(input);
     }
 }
 

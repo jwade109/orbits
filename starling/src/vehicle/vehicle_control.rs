@@ -264,6 +264,10 @@ impl VehicleController {
         self.mode
     }
 
+    pub fn is_idle(&self) -> bool {
+        self.mode == VehicleControlPolicy::Idle
+    }
+
     pub fn get_target_pose(&self) -> Option<Pose> {
         self.position_queue.get(0).cloned()
     }

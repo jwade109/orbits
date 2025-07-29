@@ -312,7 +312,34 @@ fn surface_scene_ui(state: &GameState) -> Tree<OnClick> {
         .with_child(top_bar)
         .with_child(main_area.with_child(wrapper));
 
-    Tree::new().with_layout(layout, Vec2::ZERO)
+    let ctx = &state.surface_context;
+
+    let mut tree = Tree::new().with_layout(layout, Vec2::ZERO);
+
+    if let Some((r, _, v)) = (ctx.selected.len() == 1)
+        .then(|| {
+            ctx.selected
+                .iter()
+                .next()
+                .map(|id| state.universe.surface_vehicles.get(id))
+                .flatten()
+        })
+        .flatten()
+    {
+        let mut n = Node::structural(Size::Fit, Size::Fit)
+            .with_color(UI_BACKGROUND_COLOR)
+            .down();
+        let text = vehicle_info(v);
+        for line in text.lines() {
+            n.add_child(Node::text(300, state.settings.ui_button_height, line));
+        }
+        let pos = ctx.w2c(r.pv.pos_f32() + Vec2::X * v.bounding_radius());
+        let dims = state.input.screen_bounds.span;
+        let pos = dims / 2.0 + Vec2::new(pos.x, -pos.y);
+        tree.add_layout(n, pos);
+    };
+
+    tree
 }
 
 fn draw_terrain_tile(
@@ -410,10 +437,6 @@ impl Render for SurfaceContext {
                     vehicle_mouseover_radius(vehicle, ctx),
                     ORANGE.with_alpha(0.3),
                 );
-
-                let p = ctx.w2c(body.pv.pos_f32());
-                let info = vehicle_info(vehicle);
-                canvas.text(info, p, 0.01 * ctx.scale()).anchor_left();
             }
         }
 

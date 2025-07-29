@@ -82,8 +82,6 @@ fn set_bloom(state: Res<GameState>, mut bloom: Single<&mut Bloom>) {
     }
 }
 
-const TEXT_LABEL_Z_INDEX: f32 = 100.0;
-
 pub fn do_text_labels(
     mut commands: Commands,
     state: Res<GameState>,
