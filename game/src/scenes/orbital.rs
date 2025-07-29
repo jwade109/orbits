@@ -370,7 +370,7 @@ pub fn get_landing_site_labels(state: &GameState) -> Vec<TextLabel> {
 #[allow(unused)]
 fn get_inventory_label(state: &GameState) -> Option<TextLabel> {
     let id = state.piloting()?;
-    let vehicle = state.universe.vehicles.get(&id)?;
+    let (_, _, vehicle) = state.universe.orbital_vehicles.get(&id)?;
     let info = crate::scenes::craft_editor::vehicle_info(vehicle);
     Some(TextLabel::new(info, Vec2::ZERO, 0.7).with_anchor_left())
 }
@@ -404,8 +404,8 @@ pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> 
             (d < body.radius, name.to_uppercase(), p + Vec2::Y * 30.0)
         } else {
             let orb_id = id.orbiter().unwrap();
-            let vehicle = state.universe.vehicles.get(&orb_id);
-            let code = vehicle.map(|v| v.name()).unwrap_or(&"UFO");
+            let vehicle = state.universe.orbital_vehicles.get(&orb_id);
+            let code = vehicle.map(|(_, _, v)| v.name()).unwrap_or(&"UFO");
 
             // distance based on pixel space
             let d = pc.distance(cursor);
@@ -428,7 +428,7 @@ pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> 
 #[allow(unused)]
 fn get_indicators(state: &GameState) -> Option<Vec<TextLabel>> {
     let piloting = state.piloting()?;
-    let vehicle = state.universe.vehicles.get(&piloting)?;
+    let (_, _, vehicle) = state.universe.orbital_vehicles.get(&piloting)?;
     let origin = Vec2::new(state.input.screen_bounds.span.x * 0.5 - 100.0, 0.0);
 
     Some(

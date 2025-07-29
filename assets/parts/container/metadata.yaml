@@ -1,0 +1,6 @@
+!Cargo
+  dry_mass: 24000000
+  max_cargo_mass: 288000000
+  layer: Internal
+  name: "container"
+  dims: [120, 50]

@@ -3,6 +3,7 @@ use crate::factory::*;
 use crate::math::*;
 use crate::nanotime::Nanotime;
 use crate::parts::*;
+use crate::pid::PDCtrl;
 use crate::vehicle::*;
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
@@ -36,6 +37,10 @@ pub fn occupied_pixels(pos: IVec2, rot: Rotation, part: &PartPrototype) -> Vec<I
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PartId(u64);
 
+pub struct ThrustAxisInfo {
+    max_thrust: f32,
+}
+
 #[derive(Debug, Clone)]
 pub struct Vehicle {
     name: String,
@@ -45,6 +50,14 @@ pub struct Vehicle {
     conn_groups: Vec<ConnectivityGroup>,
     is_thrust_idle: bool,
     discriminator: u64,
+
+    pub attitude_controller: PDCtrl,
+    pub vertical_controller: PDCtrl,
+    pub horizontal_controller: PDCtrl,
+    pub docking_linear_controller: PDCtrl,
+
+    total_mass: Mass,
+    moi: f32,
 }
 
 impl Vehicle {
@@ -75,6 +88,14 @@ impl Vehicle {
             conn_groups: Vec::new(),
             is_thrust_idle: false,
             discriminator: 0,
+
+            attitude_controller: PDCtrl::new(40.0, 60.0).jitter(),
+            vertical_controller: PDCtrl::new(0.03, 0.3).jitter(),
+            horizontal_controller: PDCtrl::new(0.01, 0.08).jitter(),
+            docking_linear_controller: PDCtrl::new(10.0, 300.0).jitter(),
+
+            total_mass: Mass::kilograms(20000),
+            moi: 20000.0,
         };
 
         ret.update();
@@ -334,10 +355,11 @@ impl Vehicle {
     }
 
     pub fn total_mass(&self) -> Mass {
-        if self.parts.is_empty() {
-            return Mass::kilograms(100);
-        }
-        self.parts.iter().map(|(_, p)| p.total_mass()).sum()
+        self.total_mass
+        // if self.parts.is_empty() {
+        //     return Mass::kilograms(100);
+        // }
+        // self.parts.iter().map(|(_, p)| p.total_mass()).sum()
     }
 
     pub fn thruster_count(&self) -> usize {
@@ -393,30 +415,32 @@ impl Vehicle {
     }
 
     pub fn center_of_mass(&self) -> Vec2 {
-        let mass = self.total_mass();
-        self.parts
-            .iter()
-            .map(|(_, p)| {
-                let center = p.origin().as_vec2() / PIXELS_PER_METER + p.dims_meters() / 2.0;
-                let weight = p.total_mass().to_kg_f32() / mass.to_kg_f32();
-                center * weight
-            })
-            .sum()
+        Vec2::ZERO
+        // let mass = self.total_mass();
+        // self.parts
+        //     .iter()
+        //     .map(|(_, p)| {
+        //         let center = p.origin().as_vec2() / PIXELS_PER_METER + p.dims_meters() / 2.0;
+        //         let weight = p.total_mass().to_kg_f32() / mass.to_kg_f32();
+        //         center * weight
+        //     })
+        //     .sum()
     }
 
     pub fn moment_of_inertia(&self) -> f32 {
-        if self.parts.is_empty() {
-            return 1.0;
-        }
-        let com = self.center_of_mass();
-        let mut moa = 0.0;
-        for (_, part) in &self.parts {
-            let mass = part.total_mass();
-            let center = part.center_meters();
-            let rsq = center.distance_squared(com);
-            moa += rsq * mass.to_kg_f32()
-        }
-        moa
+        20000.0
+        // if self.parts.is_empty() {
+        //     return 1.0;
+        // }
+        // let com = self.center_of_mass();
+        // let mut moa = 0.0;
+        // for (_, part) in &self.parts {
+        //     let mass = part.total_mass();
+        //     let center = part.center_meters();
+        //     let rsq = center.distance_squared(com);
+        //     moa += rsq * mass.to_kg_f32()
+        // }
+        // moa
     }
 
     pub fn accel(&self) -> f32 {
@@ -727,6 +751,11 @@ impl Vehicle {
         for (_, part) in &mut self.parts {
             part.build_all();
         }
+
+        self.attitude_controller = self.attitude_controller.jitter();
+        self.vertical_controller = self.vertical_controller.jitter();
+        self.horizontal_controller = self.horizontal_controller.jitter();
+        self.docking_linear_controller = self.docking_linear_controller.jitter();
     }
 
     pub fn build_once(&mut self) {

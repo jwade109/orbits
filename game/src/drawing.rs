@@ -450,8 +450,8 @@ pub fn draw_favorites(canvas: &mut Canvas, state: &GameState) -> Option<()> {
             continue;
         }
 
-        let vehicle = match state.universe.vehicles.get(id) {
-            Some(v) => v,
+        let vehicle = match state.universe.orbital_vehicles.get(id) {
+            Some((_, _, v)) => v,
             None => continue,
         };
 
@@ -489,7 +489,7 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
         .universe
         .lup_orbiter(piloting, state.universe.stamp())?;
 
-    let vehicle = state.universe.vehicles.get(&piloting)?;
+    let (_, _, vehicle) = state.universe.orbital_vehicles.get(&piloting)?;
 
     let window_dims = state.input.screen_bounds.span;
     let rb = vehicle.bounding_radius();
@@ -572,11 +572,11 @@ fn draw_orbiter(canvas: &mut Canvas, state: &GameState, id: EntityId) -> Option<
     let tracked = state.orbital_context.selected.contains(&id);
     let piloting = state.piloting() == Some(id);
     let targeting = state.targeting() == Some(id);
-    let vehicle = state.universe.vehicles.get(&id);
+    let (_, _, v) = state.universe.orbital_vehicles.get(&id)?;
 
-    let low_fuel = vehicle.map(|v| v.low_fuel()).unwrap_or(false);
-    let is_thrusting = vehicle.map(|v| v.is_thrusting()).unwrap_or(false);
-    let has_radar = vehicle.map(|v| v.has_radar()).unwrap_or(false);
+    let low_fuel = v.low_fuel();
+    let is_thrusting = v.is_thrusting();
+    let has_radar = v.has_radar();
 
     let lup = state.universe.lup_orbiter(id, state.universe.stamp())?;
     let pv = lup.pv();

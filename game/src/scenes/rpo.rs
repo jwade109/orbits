@@ -90,7 +90,7 @@ impl Render for DockingContext {
             );
         }
 
-        for (id, _) in &state.universe.orbiters {
+        for (id, (_, _, vehicle)) in &state.universe.orbital_vehicles {
             let lup = match state.universe.lup_orbiter(*id, state.universe.stamp()) {
                 Some(lup) => lup,
                 None => continue,
@@ -106,9 +106,7 @@ impl Render for DockingContext {
                 draw_circle(&mut canvas.gizmos, ctx.w2c(pv.pos_f32()), 7.0, RED);
             }
 
-            if let Some(v) = state.universe.vehicles.get(&id) {
-                draw_vehicle(canvas, v, ctx.w2c(pv.pos_f32()), ctx.scale(), 0.0);
-            }
+            draw_vehicle(canvas, vehicle, ctx.w2c(pv.pos_f32()), ctx.scale(), 0.0);
         }
 
         {

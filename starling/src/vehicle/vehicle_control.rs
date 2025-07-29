@@ -35,13 +35,13 @@ impl VehicleControl {
     };
 }
 
-const ATTITUDE_CONTROLLER: PDCtrl = PDCtrl::new(40.0, 60.0);
+// const ATTITUDE_CONTROLLER: PDCtrl = PDCtrl::new(40.0, 60.0);
 
-const VERTICAL_CONTROLLER: PDCtrl = PDCtrl::new(0.03, 0.3);
+// const VERTICAL_CONTROLLER: PDCtrl = PDCtrl::new(0.03, 0.3);
 
-const HORIZONTAL_CONTROLLER: PDCtrl = PDCtrl::new(0.01, 0.08);
+// const vehicle.horizontal_controller: PDCtrl = PDCtrl::new(0.01, 0.08);
 
-const DOCKING_LINEAR_CONTROLLER: PDCtrl = PDCtrl::new(10.0, 300.0);
+// const DOCKING_LINEAR_CONTROLLER: PDCtrl = PDCtrl::new(10.0, 300.0);
 
 fn zero_gravity_control_law(
     target: Vec2,
@@ -62,13 +62,17 @@ fn zero_gravity_control_law(
     let bad_vel = vel - vel_along_error;
 
     if distance < 20.0 {
-        ctrl.attitude = compute_attitude_control(body, target_angle, &ATTITUDE_CONTROLLER);
+        ctrl.attitude = compute_attitude_control(body, target_angle, &vehicle.attitude_controller);
 
         let error = rotate(target - body.pv.pos_f32(), -body.angle);
         let error_rate = rotate(body.pv.vel_f32(), -body.angle);
 
-        let ax = DOCKING_LINEAR_CONTROLLER.apply(error.x, error_rate.x);
-        let ay = DOCKING_LINEAR_CONTROLLER.apply(error.y, error_rate.y);
+        let ax = vehicle
+            .docking_linear_controller
+            .apply(error.x, error_rate.x);
+        let ay = vehicle
+            .docking_linear_controller
+            .apply(error.y, error_rate.y);
 
         if ax > 0.0 {
             ctrl.plus_x.throttle = ax.abs();
@@ -89,14 +93,14 @@ fn zero_gravity_control_law(
     } else if bad_vel.length() > 2.0 && vel.length() > 5.0 {
         let target_angle = (-bad_vel).to_angle();
         let angle_error = wrap_pi_npi(target_angle - body.angle);
-        ctrl.attitude = compute_attitude_control(body, target_angle, &ATTITUDE_CONTROLLER);
+        ctrl.attitude = compute_attitude_control(body, target_angle, &vehicle.attitude_controller);
         if angle_error.abs() < 0.2 {
             ctrl.plus_x.throttle = 0.4;
         }
     } else if distance > 100.0 {
         let target_angle = error.to_angle();
         let angle_error = wrap_pi_npi(target_angle - body.angle);
-        ctrl.attitude = compute_attitude_control(body, target_angle, &ATTITUDE_CONTROLLER);
+        ctrl.attitude = compute_attitude_control(body, target_angle, &vehicle.attitude_controller);
         if angle_error.abs() < 0.05 && vel.length() < 4.0 {
             ctrl.plus_x.throttle = 0.2;
         }
@@ -116,7 +120,8 @@ fn zero_gravity_control_law(
         if forward > 0.0 && backward / forward > 0.5 {
             let target_angle = vel.to_angle();
             let angle_error = wrap_pi_npi(target_angle - body.angle);
-            ctrl.attitude = compute_attitude_control(body, target_angle, &ATTITUDE_CONTROLLER);
+            ctrl.attitude =
+                compute_attitude_control(body, target_angle, &vehicle.attitude_controller);
             if angle_error.abs() < 0.05 {
                 ctrl.neg_x.throttle = 0.2;
             }
@@ -124,7 +129,8 @@ fn zero_gravity_control_law(
             // flip and burn
             let target_angle = (-vel).to_angle();
             let angle_error = wrap_pi_npi(target_angle - body.angle);
-            ctrl.attitude = compute_attitude_control(body, target_angle, &ATTITUDE_CONTROLLER);
+            ctrl.attitude =
+                compute_attitude_control(body, target_angle, &vehicle.attitude_controller);
             if angle_error.abs() < 0.05 {
                 ctrl.plus_x.throttle = 0.2;
             }
@@ -132,12 +138,12 @@ fn zero_gravity_control_law(
     } else if vel.length() < 1.0 {
         let target_angle = error.to_angle();
         let angle_error = wrap_pi_npi(target_angle - body.angle);
-        ctrl.attitude = compute_attitude_control(body, target_angle, &ATTITUDE_CONTROLLER);
+        ctrl.attitude = compute_attitude_control(body, target_angle, &vehicle.attitude_controller);
         if angle_error.abs() < 0.1 {
             ctrl.plus_x.throttle = 0.2;
         }
     } else {
-        ctrl.attitude = compute_attitude_control(body, 0.0, &ATTITUDE_CONTROLLER);
+        ctrl.attitude = compute_attitude_control(body, 0.0, &vehicle.attitude_controller);
     }
 
     ctrl
@@ -163,20 +169,23 @@ fn hover_control_law(
         target
     };
 
-    let horizontal_control =
-        HORIZONTAL_CONTROLLER.apply(target.x - body.pv.pos.x as f32, body.pv.vel.x as f32);
+    let horizontal_control = vehicle
+        .horizontal_controller
+        .apply(target.x - body.pv.pos.x as f32, body.pv.vel.x as f32);
 
     // attitude controller
     let target_angle = upright_angle - horizontal_control.clamp(-PI / 6.0, PI / 6.0);
     let attitude_error = (body.angle - target_angle).abs();
-    let attitude = compute_attitude_control(body, target_angle, &ATTITUDE_CONTROLLER);
+    let attitude = compute_attitude_control(body, target_angle, &vehicle.attitude_controller);
 
     let thrust = vehicle.max_thrust_along_heading(0.0, false);
     let accel = thrust / vehicle.total_mass().to_kg_f32();
     let pct = gravity.length() / accel;
 
     // vertical controller
-    let error = VERTICAL_CONTROLLER.apply(target.y - body.pv.pos.y as f32, body.pv.vel.y as f32);
+    let error = vehicle
+        .vertical_controller
+        .apply(target.y - body.pv.pos.y as f32, body.pv.vel.y as f32);
 
     let throttle = pct + error;
 

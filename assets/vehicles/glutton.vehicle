@@ -1,8 +1,0 @@
-name: ''
-parts:
-- partname: wmata7000
-  pos:
-  - -227
-  - -34
-  rot: East
-lines: []

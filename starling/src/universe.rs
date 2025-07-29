@@ -6,8 +6,7 @@ pub struct Universe {
     stamp: Nanotime,
     ticks: u128,
     next_entity_id: EntityId,
-    pub orbiters: HashMap<EntityId, Orbiter>,
-    pub vehicles: HashMap<EntityId, Vehicle>,
+    pub orbital_vehicles: HashMap<EntityId, (Orbiter, (), Vehicle)>,
     pub surface_vehicles: HashMap<EntityId, (RigidBody, VehicleController, Vehicle)>,
     pub planets: PlanetarySystem,
     pub surface: Surface,
@@ -37,8 +36,7 @@ impl Universe {
             stamp: Nanotime::zero(),
             ticks: 0,
             next_entity_id: EntityId(0),
-            orbiters: HashMap::new(),
-            vehicles: HashMap::new(),
+            orbital_vehicles: HashMap::new(),
             surface_vehicles: HashMap::new(),
             planets: planets.clone(),
             surface: Surface::random(),
@@ -115,8 +113,9 @@ impl Universe {
 
         self.surface.on_sim_tick();
 
-        self.constellations
-            .retain(|id, _| self.orbiters.contains_key(id));
+        self.constellations.retain(|id, _| {
+            self.orbital_vehicles.contains_key(id) || self.surface_vehicles.contains_key(id)
+        });
     }
 
     pub fn get_group_members(&mut self, gid: EntityId) -> Vec<EntityId> {
@@ -143,7 +142,7 @@ impl Universe {
     }
 
     pub fn orbiter_ids(&self) -> impl Iterator<Item = EntityId> + use<'_> {
-        self.orbiters.keys().into_iter().map(|id| *id)
+        self.orbital_vehicles.keys().into_iter().map(|id| *id)
     }
 
     pub fn add_surface_vehicle(&mut self, vehicle: Vehicle, pos: Vec2) {
@@ -167,7 +166,7 @@ impl Universe {
     }
 
     pub fn lup_orbiter(&self, id: EntityId, stamp: Nanotime) -> Option<ObjectLookup> {
-        let orbiter = self.orbiters.get(&id)?;
+        let (orbiter, _, _) = self.orbital_vehicles.get(&id)?;
         let prop = orbiter.propagator_at(stamp)?;
         let (_, frame_pv, _, _) = self.planets.lookup(prop.parent(), stamp)?;
         let local_pv = prop.pv(stamp)?;

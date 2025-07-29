@@ -1,0 +1,5 @@
+!Generic
+  mass: 15000
+  layer: Structural
+  name: "ruler"
+  dims: [100, 10]

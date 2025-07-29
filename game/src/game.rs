@@ -312,7 +312,7 @@ impl GameState {
             }
         }
 
-        for (id, _) in &g.universe.orbiters {
+        for (id, _) in &g.universe.orbital_vehicles {
             if g.favorites.len() < 5 && rand(0.0, 1.0) < 0.05 {
                 g.favorites.insert(*id);
             }
@@ -632,15 +632,14 @@ impl GameState {
         );
         let orbit = SparseOrbit::from_pv(pv_local + perturb, orbit.body, self.universe.stamp())?;
         let id = self.ids.next();
-        self.universe.orbiters.insert(
-            id,
-            Orbiter::new(GlobalOrbit(parent, orbit), self.universe.stamp()),
-        );
+        let orbiter = Orbiter::new(GlobalOrbit(parent, orbit), self.universe.stamp());
         let name = vehicle.name().to_string();
-        self.universe.vehicles.insert(id, vehicle);
+        self.universe
+            .orbital_vehicles
+            .insert(id, (orbiter, (), vehicle));
         self.notice(format!(
-            "Spawned {} {} in orbit around {}",
-            name, id, global.0
+            "Spawned \"{}\" {} in orbit around {}",
+            name, id, global.0,
         ));
         Some(())
     }
@@ -659,8 +658,7 @@ impl GameState {
         let plup = self.universe.lup_planet(parent, self.universe.stamp())?;
         let pvp = plup.pv().pos_f32();
         let pvl = pv - pvp;
-        self.universe.orbiters.remove(&id)?;
-        self.universe.vehicles.remove(&id);
+        self.universe.orbital_vehicles.remove(&id)?;
         self.notify(
             ObjectId::Planet(parent),
             NotificationType::OrbiterDeleted(id),
@@ -708,8 +706,8 @@ impl GameState {
     }
 
     pub fn impulsive_burn(&mut self, id: EntityId, stamp: Nanotime, dv: Vec2) -> Option<()> {
-        let obj = self.universe.orbiters.get_mut(&id)?;
-        obj.try_impulsive_burn(stamp, dv)?;
+        let (orbiter, _, _) = self.universe.orbital_vehicles.get_mut(&id)?;
+        orbiter.try_impulsive_burn(stamp, dv)?;
         Some(())
     }
 
@@ -728,7 +726,7 @@ impl GameState {
             }
         };
 
-        let vehicle = match self.universe.vehicles.get_mut(&id) {
+        let (_, _, vehicle) = match self.universe.orbital_vehicles.get_mut(&id) {
             Some(v) => v,
             None => {
                 self.notice(format!("Failed to find vehicle for id {}", id));
@@ -772,7 +770,7 @@ impl GameState {
 
     pub fn command(&mut self, id: EntityId, next: &GlobalOrbit) -> Option<()> {
         let tracks = self.orbital_context.selected.clone();
-        let vehicle = self.universe.vehicles.get(&id)?;
+        let (_, _, vehicle) = self.universe.orbital_vehicles.get(&id)?;
         if !vehicle.is_controllable() {
             self.notify(
                 ObjectId::Orbiter(id),
@@ -1179,7 +1177,7 @@ impl GameState {
         while let Some((id, t, dv)) = man.first() {
             if s > *t {
                 let perturb = 0.0 * randvec(0.01, 0.05);
-                simulate(&mut self.universe.orbiters, &planets, *t, d);
+                simulate(&mut self.universe.orbital_vehicles, &planets, *t, d);
                 self.impulsive_burn(*id, *t, dv + perturb);
                 self.notify(
                     ObjectId::Orbiter(*id),
@@ -1192,7 +1190,7 @@ impl GameState {
             man.remove(0);
         }
 
-        for (id, ri) in simulate(&mut self.universe.orbiters, &planets, s, d) {
+        for (id, ri) in simulate(&mut self.universe.orbital_vehicles, &planets, s, d) {
             info!("{} {:?}", id, &ri);
             if let Some(pv) = ri.orbit.pv(ri.stamp).ok() {
                 let notif = match ri.reason {
@@ -1236,16 +1234,6 @@ impl GameState {
                 let res = c.update(s, orbit);
                 if let Err(_) = res {
                     notifs.push((c.target(), NotificationType::ManeuverFailed(c.target())));
-                }
-            }
-        }
-
-        let ids: Vec<_> = self.universe.orbiter_ids().collect();
-
-        for id in ids {
-            if !self.universe.vehicles.contains_key(&id) {
-                if let Some(v) = self.get_random_vehicle() {
-                    self.universe.vehicles.insert(id, v);
                 }
             }
         }

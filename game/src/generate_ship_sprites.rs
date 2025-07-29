@@ -44,7 +44,13 @@ pub fn proc_gen_ship_sprites(state: &mut GameState, images: &mut Assets<Image>) 
         .surface_vehicles
         .iter()
         .map(|(_, (_, _, v))| v)
-        .chain(state.universe.vehicles.iter().map(|(_, v)| v))
+        .chain(
+            state
+                .universe
+                .orbital_vehicles
+                .iter()
+                .map(|(_, (_, _, v))| v),
+        )
     {
         let sprite_name = vehicle_sprite_path(vehicle.discriminator());
         if state.image_handles.contains_key(&sprite_name) {
