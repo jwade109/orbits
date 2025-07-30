@@ -505,7 +505,7 @@ pub fn favorites_menu(state: &GameState) -> Node<OnClick> {
                     .universe
                     .orbital_vehicles
                     .get(id)
-                    .map(|(_, _, v)| v.name())
+                    .map(|ov| ov.vehicle.name())
                     .unwrap_or(&"?");
                 let s = format!("{} {}", name, id);
                 let b = Node::button(
@@ -626,7 +626,7 @@ fn current_inventory_layout(state: &GameState) -> Option<Node<OnClick>> {
         .universe
         .lup_orbiter(id, state.universe.stamp())?
         .orbiter()?;
-    let (_, _, vehicle) = state.universe.orbital_vehicles.get(&id)?;
+    let vehicle = &state.universe.orbital_vehicles.get(&id)?.vehicle;
 
     let buttons = Node::new(Size::Grow, Size::Fit).down().with_child({
         let s = format!("Vehicle {}", vehicle.name());

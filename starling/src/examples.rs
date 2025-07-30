@@ -42,7 +42,7 @@ pub fn consistency_orbits(body: Body) -> Vec<SparseOrbit> {
     ret
 }
 
-pub fn rss() -> (PlanetarySystem, ObjectIdTracker) {
+pub fn rss() -> PlanetarySystem {
     let mut id = ObjectIdTracker::new();
     let earth_body = Body::with_mu(EARTH_RADIUS, EARTH_MU, EARTH_SOI);
     let mut earth = PlanetarySystem::new(id.next_planet(), "Earth", earth_body);
@@ -58,7 +58,7 @@ pub fn rss() -> (PlanetarySystem, ObjectIdTracker) {
 
     earth.orbit(luna_orbit, luna);
 
-    (earth, id)
+    earth
 }
 
 // pub fn stable_simulation() -> (Scenario, ObjectIdTracker) {
@@ -1328,6 +1328,6 @@ pub fn rss() -> (PlanetarySystem, ObjectIdTracker) {
 //     (scenario, id)
 // }
 
-pub fn default_example() -> (PlanetarySystem, ObjectIdTracker) {
+pub fn default_example() -> PlanetarySystem {
     rss()
 }

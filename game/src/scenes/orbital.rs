@@ -397,7 +397,7 @@ pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> 
         } else {
             let orb_id = id.orbiter().unwrap();
             let vehicle = state.universe.orbital_vehicles.get(&orb_id);
-            let code = vehicle.map(|(_, _, v)| v.name()).unwrap_or(&"UFO");
+            let code = vehicle.map(|ov| ov.vehicle.name()).unwrap_or(&"UFO");
 
             // distance based on pixel space
             let d = pc.distance(cursor);
@@ -417,30 +417,6 @@ pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> 
     ret
 }
 
-#[allow(unused)]
-fn get_indicators(state: &GameState) -> Option<Vec<TextLabel>> {
-    let piloting = state.piloting()?;
-    let (_, _, vehicle) = state.universe.orbital_vehicles.get(&piloting)?;
-    let origin = Vec2::new(state.input.screen_bounds.span.x * 0.5 - 100.0, 0.0);
-
-    Some(
-        vehicle
-            .thrusters()
-            .enumerate()
-            .map(|(i, (t, d))| {
-                let text = format!("{} / {} {:0.1}", i, t.model_name(), d.throttle() * 100.0);
-                let pos = origin + Vec2::Y * 26.0 * i as f32;
-                let color = if d.is_thrusting(t) {
-                    RED.with_alpha(0.8)
-                } else {
-                    WHITE.with_alpha(0.6)
-                };
-                TextLabel::new(text, pos, 0.7).with_color(color)
-            })
-            .collect(),
-    )
-}
-
 pub fn date_info(state: &GameState) -> String {
     let date = state.universe.stamp().to_date();
     format!(
@@ -455,7 +431,6 @@ pub fn date_info(state: &GameState) -> String {
 fn text_labels(state: &GameState) -> Vec<TextLabel> {
     let mut text_labels: Vec<TextLabel> = get_orbital_object_mouseover_labels(state);
 
-    text_labels.extend(get_indicators(state).unwrap_or(vec![]));
     text_labels.extend(get_landing_site_labels(state));
 
     (|| {

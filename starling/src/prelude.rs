@@ -4,6 +4,7 @@ pub use crate::bezier::*;
 pub use crate::construction_bot::*;
 pub use crate::control::Controller;
 pub use crate::control_signals::*;
+pub use crate::entities::*;
 pub use crate::examples::{default_example, make_earth, make_luna};
 pub use crate::factory::*;
 pub use crate::file_export::export_orbit_data;
@@ -21,9 +22,7 @@ pub use crate::propagator::{EventType, HorizonState, Propagator};
 pub use crate::pv::PV;
 pub use crate::quantities::*;
 pub use crate::region::Region;
-pub use crate::scenario::{
-    simulate, ObjectIdTracker, ObjectLookup, PlanetarySystem, ScenarioObject,
-};
+pub use crate::scenario::{simulate, ObjectLookup, PlanetarySystem, ScenarioObject};
 pub use crate::surface::*;
 pub use crate::terrain::*;
 pub use crate::universe::*;

@@ -6,8 +6,8 @@ pub struct Universe {
     stamp: Nanotime,
     ticks: u128,
     next_entity_id: EntityId,
-    pub orbital_vehicles: HashMap<EntityId, (Orbiter, (), Vehicle)>,
-    pub surface_vehicles: HashMap<EntityId, (RigidBody, VehicleController, Vehicle)>,
+    pub orbital_vehicles: HashMap<EntityId, OrbitalSpacecraftEntity>,
+    pub surface_vehicles: HashMap<EntityId, SurfaceSpacecraftEntity>,
     pub planets: PlanetarySystem,
     pub surface: Surface,
     pub landing_sites: HashMap<EntityId, Vec<(f32, String, Surface)>>,
@@ -77,38 +77,39 @@ impl Universe {
 
         let gravity = self.surface.external_acceleration();
 
-        for (_, (body, controller, vehicle)) in &mut self.surface_vehicles {
+        for (_, sv) in &mut self.surface_vehicles {
             let ext = signals.piloting.unwrap_or(VehicleControl::NULLOPT);
 
-            let ctrl = match (controller.mode(), controller.get_target_pose()) {
+            let ctrl = match (sv.controller.mode(), sv.controller.get_target_pose()) {
                 (VehicleControlPolicy::Idle, _) => VehicleControl::NULLOPT,
                 (VehicleControlPolicy::External, _) => ext,
                 (VehicleControlPolicy::PositionHold, Some(pose)) => {
-                    position_hold_control_law(pose, body, vehicle, gravity)
+                    position_hold_control_law(pose, &sv.body, &sv.vehicle, gravity)
                 }
                 (_, _) => VehicleControl::NULLOPT,
             };
 
-            let elevation = self.surface.elevation(body.pv.pos_f32().x);
+            let elevation = self.surface.elevation(sv.body.pv.pos_f32().x);
 
-            if !controller.is_idle() {
-                controller.check_target_achieved(body, gravity.length() > 0.0);
-                vehicle.set_thrust_control(ctrl);
-                vehicle.on_sim_tick();
+            if !sv.controller.is_idle() {
+                sv.controller
+                    .check_target_achieved(&sv.body, gravity.length() > 0.0);
+                sv.vehicle.set_thrust_control(ctrl);
+                sv.vehicle.on_sim_tick();
             }
 
-            if !controller.is_idle() || body.pv.pos_f32().y > elevation {
-                let accel = vehicle.body_frame_accel();
-                body.on_sim_tick(
+            if !sv.controller.is_idle() || sv.body.pv.pos_f32().y > elevation {
+                let accel = sv.vehicle.body_frame_accel();
+                sv.body.on_sim_tick(
                     accel,
                     self.surface.external_acceleration(),
                     PHYSICS_CONSTANT_DELTA_TIME,
                 );
             } else {
-                vehicle.set_thrust_control(VehicleControl::NULLOPT);
+                sv.vehicle.set_thrust_control(VehicleControl::NULLOPT);
             }
 
-            body.clamp_with_elevation(elevation);
+            sv.body.clamp_with_elevation(elevation);
         }
 
         self.surface.on_sim_tick();
@@ -148,7 +149,8 @@ impl Universe {
     pub fn add_orbital_vehicle(&mut self, vehicle: Vehicle, orbit: GlobalOrbit) {
         let id = self.next_entity_id();
         let orbiter = Orbiter::new(orbit, self.stamp);
-        self.orbital_vehicles.insert(id, (orbiter, (), vehicle));
+        let os = OrbitalSpacecraftEntity::new(vehicle, RigidBody::ZERO, orbiter);
+        self.orbital_vehicles.insert(id, os);
     }
 
     pub fn add_surface_vehicle(&mut self, vehicle: Vehicle, pos: Vec2) {
@@ -167,17 +169,17 @@ impl Universe {
 
         let controller = VehicleController::position_hold(pose);
         let id = self.next_entity_id();
-        self.surface_vehicles
-            .insert(id, (body, controller, vehicle));
+        let sv = SurfaceSpacecraftEntity::new(vehicle, body, controller);
+        self.surface_vehicles.insert(id, sv);
     }
 
     pub fn lup_orbiter(&self, id: EntityId, stamp: Nanotime) -> Option<ObjectLookup> {
-        let (orbiter, _, _) = self.orbital_vehicles.get(&id)?;
-        let prop = orbiter.propagator_at(stamp)?;
+        let os = self.orbital_vehicles.get(&id)?;
+        let prop = os.orbiter.propagator_at(stamp)?;
         let (_, frame_pv, _, _) = self.planets.lookup(prop.parent(), stamp)?;
         let local_pv = prop.pv(stamp)?;
         let pv = frame_pv + local_pv;
-        Some(ObjectLookup(id, ScenarioObject::Orbiter(orbiter), pv))
+        Some(ObjectLookup(id, ScenarioObject::Orbiter(&os.orbiter), pv))
     }
 
     pub fn lup_planet(&self, id: EntityId, stamp: Nanotime) -> Option<ObjectLookup> {

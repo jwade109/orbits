@@ -53,11 +53,11 @@ impl SurfaceContext {
         universe: &Universe,
         pos: Vec2,
     ) -> Option<(EntityId, &RigidBody, &Vehicle)> {
-        for (id, (body, _, vehicle)) in &universe.surface_vehicles {
-            let d = body.pv.pos_f32().distance(pos);
-            let r = vehicle.bounding_radius();
+        for (id, sv) in &universe.surface_vehicles {
+            let d = sv.body.pv.pos_f32().distance(pos);
+            let r = sv.vehicle.bounding_radius();
             if d < r {
-                return Some((*id, body, vehicle));
+                return Some((*id, &sv.body, &sv.vehicle));
             }
         }
         None
@@ -84,7 +84,7 @@ impl SurfaceContext {
             self.selected = universe
                 .surface_vehicles
                 .iter()
-                .filter_map(|(id, (body, _, _))| bounds.contains(body.pv.pos_f32()).then(|| *id))
+                .filter_map(|(id, sv)| bounds.contains(sv.body.pv.pos_f32()).then(|| *id))
                 .collect();
         }
 
@@ -150,18 +150,18 @@ impl SurfaceContext {
             selected.sort();
 
             for idx in &self.selected {
-                if let Some((_, _, vehicle)) = universe.surface_vehicles.get_mut(idx) {
-                    separation = separation.max(vehicle.bounding_radius());
+                if let Some(sv) = universe.surface_vehicles.get_mut(idx) {
+                    separation = separation.max(sv.vehicle.bounding_radius());
                 }
             }
 
             for (i, idx) in selected.into_iter().enumerate() {
-                if let Some((_, controller, _)) = universe.surface_vehicles.get_mut(idx) {
+                if let Some(sv) = universe.surface_vehicles.get_mut(idx) {
                     let xi = i % width;
                     let yi = i / width;
                     let pos = p + Vec2::new(xi as f32, yi as f32) * separation * 2.0;
                     let pose: Pose = (pos, angle);
-                    controller.enqueue_target_pose(pose, clear_queue);
+                    sv.controller.enqueue_target_pose(pose, clear_queue);
                 }
             }
 
@@ -170,16 +170,16 @@ impl SurfaceContext {
 
         if input.just_pressed(KeyCode::KeyN) {
             for idx in &self.selected {
-                if let Some((_, controller, _)) = universe.surface_vehicles.get_mut(idx) {
-                    controller.go_to_next_mode();
+                if let Some(sv) = universe.surface_vehicles.get_mut(idx) {
+                    sv.controller.go_to_next_mode();
                 }
             }
         }
 
         if input.just_pressed(KeyCode::KeyC) {
             for idx in &self.selected {
-                if let Some((_, controller, _)) = universe.surface_vehicles.get_mut(idx) {
-                    controller.clear_queue();
+                if let Some(sv) = universe.surface_vehicles.get_mut(idx) {
+                    sv.controller.clear_queue();
                 }
             }
         }
@@ -205,14 +205,14 @@ impl SurfaceContext {
 
         ctx.particles.step();
 
-        for (_, (_, _, vehicle)) in state.universe.surface_vehicles.iter_mut() {
-            for (_, part) in vehicle.parts() {
+        for (_, sv) in state.universe.surface_vehicles.iter_mut() {
+            for (_, part) in sv.vehicle.parts() {
                 if let Some((t, d)) = part.as_thruster() {
                     if !d.is_thrusting(t) || t.is_rcs() {
                         continue;
                     }
 
-                    ctx.particles.add(vehicle, part);
+                    ctx.particles.add(&sv.vehicle, part);
                 }
             }
         }
@@ -316,7 +316,7 @@ fn surface_scene_ui(state: &GameState) -> Tree<OnClick> {
 
     let mut tree = Tree::new().with_layout(layout, Vec2::ZERO);
 
-    if let Some((r, _, v)) = (ctx.selected.len() == 1)
+    if let Some(sv) = (ctx.selected.len() == 1)
         .then(|| {
             ctx.selected
                 .iter()
@@ -329,11 +329,11 @@ fn surface_scene_ui(state: &GameState) -> Tree<OnClick> {
         let mut n = Node::structural(Size::Fit, Size::Fit)
             .with_color(UI_BACKGROUND_COLOR)
             .down();
-        let text = vehicle_info(v);
+        let text = vehicle_info(&sv.vehicle);
         for line in text.lines() {
             n.add_child(Node::text(300, state.settings.ui_button_height, line));
         }
-        let pos = ctx.w2c(r.pv.pos_f32() + Vec2::X * v.bounding_radius());
+        let pos = ctx.w2c(sv.body.pv.pos_f32() + Vec2::X * sv.vehicle.bounding_radius());
         let dims = state.input.screen_bounds.span;
         let pos = dims / 2.0 + Vec2::new(pos.x, -pos.y);
         tree.add_layout(n, pos);
@@ -404,9 +404,9 @@ impl Render for SurfaceContext {
 
         ctx.particles.draw(canvas, ctx);
 
-        for (_, (body, _, vehicle)) in &state.universe.surface_vehicles {
-            let pos = ctx.w2c(body.pv.pos_f32());
-            draw_vehicle(canvas, vehicle, pos, ctx.scale(), body.angle);
+        for (_, sv) in &state.universe.surface_vehicles {
+            let pos = ctx.w2c(sv.body.pv.pos_f32());
+            draw_vehicle(canvas, &sv.vehicle, pos, ctx.scale(), sv.body.angle);
 
             canvas.circle(
                 pos,
@@ -429,21 +429,21 @@ impl Render for SurfaceContext {
         })();
 
         for id in &ctx.selected {
-            if let Some((body, _, vehicle)) = state.universe.surface_vehicles.get(id) {
-                let pos = ctx.w2c(body.pv.pos_f32());
+            if let Some(sv) = state.universe.surface_vehicles.get(id) {
+                let pos = ctx.w2c(sv.body.pv.pos_f32());
                 draw_circle(
                     &mut canvas.gizmos,
                     pos,
-                    vehicle_mouseover_radius(vehicle, ctx),
+                    vehicle_mouseover_radius(&sv.vehicle, ctx),
                     ORANGE.with_alpha(0.3),
                 );
             }
         }
 
-        for (id, (body, controller, _)) in &state.universe.surface_vehicles {
+        for (id, sv) in &state.universe.surface_vehicles {
             let selected = ctx.selected.contains(id);
-            let mut p = ctx.w2c(body.pv.pos_f32());
-            for pose in controller.get_target_queue() {
+            let mut p = ctx.w2c(sv.body.pv.pos_f32());
+            for pose in sv.controller.get_target_queue() {
                 let q = ctx.w2c(pose.0);
                 let r = ctx.w2c(pose.0 + rotate(Vec2::X * 5.0, pose.1));
                 draw_x(&mut canvas.gizmos, q, 2.0 * ctx.scale(), RED);
@@ -476,13 +476,13 @@ impl Render for SurfaceContext {
         if let Some(bounds) =
             ctx.selection_region(state.input.position(MouseButt::Left, FrameId::Current))
         {
-            for (_, (body, _, vehicle)) in &state.universe.surface_vehicles {
-                let p = body.pv.pos_f32();
+            for (_, sv) in &state.universe.surface_vehicles {
+                let p = sv.body.pv.pos_f32();
                 if bounds.contains(p) {
                     draw_circle(
                         &mut canvas.gizmos,
                         ctx.w2c(p),
-                        vehicle.bounding_radius() * ctx.scale(),
+                        sv.vehicle.bounding_radius() * ctx.scale(),
                         GRAY.with_alpha(0.6),
                     );
                 }
@@ -502,9 +502,9 @@ impl Render for SurfaceContext {
 
         for id in &ctx.selected {
             p += Vec2::Y * (h + 1.0);
-            if let Some((_, _, vehicle)) = state.universe.surface_vehicles.get(id) {
+            if let Some(sv) = state.universe.surface_vehicles.get(id) {
                 let c1 = crate::sprites::hashable_to_color(id);
-                for (t, d) in vehicle.thrusters() {
+                for (t, d) in sv.vehicle.thrusters() {
                     let color = c1.with_saturation(if t.is_rcs { 0.3 } else { 1.0 });
                     let w = d.seconds_remaining() * 15.0;
                     let aabb = bar(p, w);

@@ -238,7 +238,7 @@ fn generate_starfield() -> Vec<(Vec3, Srgba, f32, f32)> {
 
 impl GameState {
     pub fn new(args: ProgramContext) -> Self {
-        let (planets, ids) = default_example();
+        let planets = default_example();
 
         let part_database = match load_parts_from_dir(&args.parts_dir()) {
             Ok(d) => d,
@@ -723,7 +723,7 @@ impl GameState {
     }
 
     pub fn impulsive_burn(&mut self, id: EntityId, stamp: Nanotime, dv: Vec2) -> Option<()> {
-        let (orbiter, _, _) = self.universe.orbital_vehicles.get_mut(&id)?;
+        let orbiter = &mut self.universe.orbital_vehicles.get_mut(&id)?.orbiter;
         orbiter.try_impulsive_burn(stamp, dv)?;
         Some(())
     }
@@ -743,8 +743,8 @@ impl GameState {
             }
         };
 
-        let (_, _, vehicle) = match self.universe.orbital_vehicles.get_mut(&id) {
-            Some(v) => v,
+        let vehicle = match self.universe.orbital_vehicles.get_mut(&id) {
+            Some(v) => &mut v.vehicle,
             None => {
                 self.notice(format!("Failed to find vehicle for id {}", id));
                 return None;
@@ -787,7 +787,7 @@ impl GameState {
 
     pub fn command(&mut self, id: EntityId, next: &GlobalOrbit) -> Option<()> {
         let tracks = self.orbital_context.selected.clone();
-        let (_, _, vehicle) = self.universe.orbital_vehicles.get(&id)?;
+        let vehicle = &self.universe.orbital_vehicles.get(&id)?.vehicle;
         if !vehicle.is_controllable() {
             self.notify(
                 ObjectId::Orbiter(id),

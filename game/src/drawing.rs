@@ -451,7 +451,7 @@ pub fn draw_favorites(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         }
 
         let vehicle = match state.universe.orbital_vehicles.get(id) {
-            Some((_, _, v)) => v,
+            Some(ov) => &ov.vehicle,
             None => continue,
         };
 
@@ -481,15 +481,13 @@ pub fn draw_pointing_vector(gizmos: &mut Gizmos, center: Vec2, r: f32, u: Vec2, 
 }
 
 pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<()> {
-    let ctx = &state.orbital_context;
-
     let piloting = state.piloting()?;
 
     let lup = state
         .universe
         .lup_orbiter(piloting, state.universe.stamp())?;
 
-    let (_, _, vehicle) = state.universe.orbital_vehicles.get(&piloting)?;
+    let vehicle = &state.universe.orbital_vehicles.get(&piloting)?.vehicle;
 
     let window_dims = state.input.screen_bounds.span;
     let rb = vehicle.bounding_radius();
@@ -502,7 +500,7 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
         -window_dims.y / 2.0 + r * 1.2,
     );
 
-    draw_vehicle(canvas, &vehicle, center, zoom, 0.0);
+    draw_vehicle(canvas, vehicle, center, zoom, 0.0);
 
     // prograde markers, etc
     {
@@ -523,23 +521,6 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
 
         draw_cross(&mut canvas.gizmos, center, 3.0, RED.with_alpha(0.1));
     }
-
-    // let vehicle_screen = ctx.w2c(lup.pv().pos_f32());
-
-    // {
-    //     let alpha = -(center - vehicle_screen).to_angle();
-    //     let s = 20.0;
-    //     let x1 = center.x;
-    //     let x2 = vehicle_screen.x;
-    //     let y1 = center.y;
-    //     let y2 = vehicle_screen.y;
-    //     for sign in [-1.0, 1.0] {
-    //         let p1 = Vec2::new(x1 + r * alpha.sin() * sign, y1 + r * alpha.cos() * sign);
-    //         let p2 = Vec2::new(x2 + s * alpha.sin() * sign, y2 + s * alpha.cos() * sign);
-    //         canvas.gizmos.line_2d(p1, p2, GREEN.with_alpha(0.2));
-    //     }
-    //     draw_circle(&mut canvas.gizmos, vehicle_screen, s, GREEN.with_alpha(0.2));
-    // }
 
     draw_circle(&mut canvas.gizmos, center, r, GRAY);
     let p = vehicle.fuel_percentage();
@@ -562,8 +543,6 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
         arc(p, s, RED);
     }
 
-    // arc(vehicle.angular_velocity() / 10.0, 0.93, TEAL);
-
     Some(())
 }
 
@@ -572,7 +551,7 @@ fn draw_orbiter(canvas: &mut Canvas, state: &GameState, id: EntityId) -> Option<
     let tracked = state.orbital_context.selected.contains(&id);
     let piloting = state.piloting() == Some(id);
     let targeting = state.targeting() == Some(id);
-    let (_, _, v) = state.universe.orbital_vehicles.get(&id)?;
+    let v = &state.universe.orbital_vehicles.get(&id)?.vehicle;
 
     let low_fuel = v.low_fuel();
     let is_thrusting = v.is_thrusting();

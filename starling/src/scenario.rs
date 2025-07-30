@@ -1,10 +1,10 @@
+use crate::entities::*;
 use crate::id::*;
 use crate::nanotime::Nanotime;
 use crate::orbiter::*;
 use crate::orbits::{Body, SparseOrbit};
 use crate::propagator::EventType;
 use crate::pv::PV;
-use crate::vehicle::Vehicle;
 use glam::f32::Vec2;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -186,13 +186,13 @@ pub struct Scenario {
 }
 
 pub fn simulate(
-    orbiters: &mut HashMap<EntityId, (Orbiter, (), Vehicle)>,
+    orbiters: &mut HashMap<EntityId, OrbitalSpacecraftEntity>,
     planets: &PlanetarySystem,
     stamp: Nanotime,
     future_dur: Nanotime,
 ) -> Vec<(EntityId, RemovalInfo)> {
-    for (_, (orbiter, _, _)) in orbiters.iter_mut() {
-        let e = orbiter.propagate_to(stamp, future_dur, planets);
+    for (_, ov) in orbiters.iter_mut() {
+        let e = ov.orbiter.propagate_to(stamp, future_dur, planets);
         if let Err(_e) = e {
             // dbg!(e);
         }
@@ -200,9 +200,9 @@ pub fn simulate(
 
     let mut info = vec![];
 
-    orbiters.retain(|id, (orbiter, _, _)| {
-        if orbiter.propagator_at(stamp).is_none() {
-            let reason = orbiter.props().last().map(|p| RemovalInfo {
+    orbiters.retain(|id, ov| {
+        if ov.orbiter.propagator_at(stamp).is_none() {
+            let reason = ov.orbiter.props().last().map(|p| RemovalInfo {
                 stamp: p.end().unwrap_or(stamp),
                 reason: p.event().unwrap_or(EventType::NumericalError),
                 parent: p.parent(),
