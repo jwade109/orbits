@@ -37,8 +37,15 @@ pub fn occupied_pixels(pos: IVec2, rot: Rotation, part: &PartPrototype) -> Vec<I
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PartId(u64);
 
+#[derive(Debug, Clone, Copy)]
 pub struct ThrustAxisInfo {
     max_thrust: f32,
+}
+
+impl Default for ThrustAxisInfo {
+    fn default() -> Self {
+        Self { max_thrust: 0.0 }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -51,13 +58,19 @@ pub struct Vehicle {
     is_thrust_idle: bool,
     discriminator: u64,
 
+    forwards: ThrustAxisInfo,
+    backwards: ThrustAxisInfo,
+    left: ThrustAxisInfo,
+    right: ThrustAxisInfo,
+
     pub attitude_controller: PDCtrl,
     pub vertical_controller: PDCtrl,
     pub horizontal_controller: PDCtrl,
     pub docking_linear_controller: PDCtrl,
 
+    center_of_mass: Vec2,
     total_mass: Mass,
-    moi: f32,
+    moment_of_inertia: f32,
 }
 
 impl Vehicle {
@@ -94,8 +107,14 @@ impl Vehicle {
             horizontal_controller: PDCtrl::new(0.01, 0.08).jitter(),
             docking_linear_controller: PDCtrl::new(10.0, 300.0).jitter(),
 
-            total_mass: Mass::kilograms(20000),
-            moi: 20000.0,
+            forwards: ThrustAxisInfo::default(),
+            backwards: ThrustAxisInfo::default(),
+            left: ThrustAxisInfo::default(),
+            right: ThrustAxisInfo::default(),
+
+            center_of_mass: Vec2::ZERO,
+            total_mass: Mass::ZERO,
+            moment_of_inertia: 0.0,
         };
 
         ret.update();
@@ -308,6 +327,43 @@ impl Vehicle {
         self.discriminator = hash.finish();
     }
 
+    fn update_physical_quantities(&mut self) {
+        self.total_mass = if self.parts.is_empty() {
+            Mass::kilograms(100)
+        } else {
+            self.parts.iter().map(|(_, p)| p.total_mass()).sum()
+        };
+
+        self.moment_of_inertia = if self.parts.is_empty() {
+            1000.0
+        } else {
+            let com = self.center_of_mass();
+            let mut moa = 0.0;
+            for (_, part) in &self.parts {
+                let mass = part.total_mass();
+                let center = part.center_meters();
+                let rsq = center.distance_squared(com);
+                moa += rsq * mass.to_kg_f32()
+            }
+            moa
+        };
+
+        self.center_of_mass = self
+            .parts
+            .iter()
+            .map(|(_, p)| {
+                let center = p.origin().as_vec2() / PIXELS_PER_METER + p.dims_meters() / 2.0;
+                let weight = p.total_mass().to_kg_f32() / self.total_mass.to_kg_f32();
+                center * weight
+            })
+            .sum();
+
+        self.forwards.max_thrust = self.max_thrust_along_heading(0.0, false);
+        self.left.max_thrust = self.max_thrust_along_heading(PI / 2.0, false);
+        self.backwards.max_thrust = self.max_thrust_along_heading(PI, false);
+        self.right.max_thrust = self.max_thrust_along_heading(-PI / 2.0, false);
+    }
+
     pub fn conn_groups(&self) -> impl Iterator<Item = &ConnectivityGroup> + use<'_> {
         self.conn_groups.iter()
     }
@@ -319,6 +375,7 @@ impl Vehicle {
     fn update(&mut self) {
         self.construct_connectivity();
         self.update_discriminator();
+        self.update_physical_quantities();
     }
 
     pub fn pipes(&self) -> impl Iterator<Item = IVec2> + use<'_> {
@@ -356,10 +413,6 @@ impl Vehicle {
 
     pub fn total_mass(&self) -> Mass {
         self.total_mass
-        // if self.parts.is_empty() {
-        //     return Mass::kilograms(100);
-        // }
-        // self.parts.iter().map(|(_, p)| p.total_mass()).sum()
     }
 
     pub fn thruster_count(&self) -> usize {
@@ -406,6 +459,14 @@ impl Vehicle {
         sum
     }
 
+    pub fn max_forward_thrust(&self) -> f32 {
+        self.forwards.max_thrust
+    }
+
+    pub fn max_backwards_thrust(&self) -> f32 {
+        self.backwards.max_thrust
+    }
+
     pub fn max_thrust_along_heading(&self, angle: f32, rcs: bool) -> f32 {
         self.thrust_along_heading(angle, rcs, false)
     }
@@ -415,32 +476,11 @@ impl Vehicle {
     }
 
     pub fn center_of_mass(&self) -> Vec2 {
-        Vec2::ZERO
-        // let mass = self.total_mass();
-        // self.parts
-        //     .iter()
-        //     .map(|(_, p)| {
-        //         let center = p.origin().as_vec2() / PIXELS_PER_METER + p.dims_meters() / 2.0;
-        //         let weight = p.total_mass().to_kg_f32() / mass.to_kg_f32();
-        //         center * weight
-        //     })
-        //     .sum()
+        self.center_of_mass
     }
 
     pub fn moment_of_inertia(&self) -> f32 {
-        20000.0
-        // if self.parts.is_empty() {
-        //     return 1.0;
-        // }
-        // let com = self.center_of_mass();
-        // let mut moa = 0.0;
-        // for (_, part) in &self.parts {
-        //     let mass = part.total_mass();
-        //     let center = part.center_meters();
-        //     let rsq = center.distance_squared(com);
-        //     moa += rsq * mass.to_kg_f32()
-        // }
-        // moa
+        self.moment_of_inertia
     }
 
     pub fn accel(&self) -> f32 {

@@ -108,7 +108,7 @@ impl Universe {
                 vehicle.set_thrust_control(VehicleControl::NULLOPT);
             }
 
-            body.on_the_floor(elevation);
+            body.clamp_with_elevation(elevation);
         }
 
         self.surface.on_sim_tick();
@@ -143,6 +143,12 @@ impl Universe {
 
     pub fn orbiter_ids(&self) -> impl Iterator<Item = EntityId> + use<'_> {
         self.orbital_vehicles.keys().into_iter().map(|id| *id)
+    }
+
+    pub fn add_orbital_vehicle(&mut self, vehicle: Vehicle, orbit: GlobalOrbit) {
+        let id = self.next_entity_id();
+        let orbiter = Orbiter::new(orbit, self.stamp);
+        self.orbital_vehicles.insert(id, (orbiter, (), vehicle));
     }
 
     pub fn add_surface_vehicle(&mut self, vehicle: Vehicle, pos: Vec2) {

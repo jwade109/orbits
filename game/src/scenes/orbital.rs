@@ -367,14 +367,6 @@ pub fn get_landing_site_labels(state: &GameState) -> Vec<TextLabel> {
     ret
 }
 
-#[allow(unused)]
-fn get_inventory_label(state: &GameState) -> Option<TextLabel> {
-    let id = state.piloting()?;
-    let (_, _, vehicle) = state.universe.orbital_vehicles.get(&id)?;
-    let info = crate::scenes::craft_editor::vehicle_info(vehicle);
-    Some(TextLabel::new(info, Vec2::ZERO, 0.7).with_anchor_left())
-}
-
 pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> {
     let mut ret = Vec::new();
 
@@ -449,154 +441,71 @@ fn get_indicators(state: &GameState) -> Option<Vec<TextLabel>> {
     )
 }
 
-pub fn date_label(state: &GameState) -> TextLabel {
+pub fn date_info(state: &GameState) -> String {
     let date = state.universe.stamp().to_date();
-    let s = format!(
+    format!(
         "{} (x{}/{} {} us)",
         date,
         state.actual_universe_ticks_per_game_tick,
         state.universe_ticks_per_game_tick,
         state.exec_time.as_micros()
-    );
-    let c = Vec2::Y * (20.0 - state.input.screen_bounds.span.y * 0.5);
-    TextLabel::new(s, c, 1.0)
+    )
+}
+
+fn text_labels(state: &GameState) -> Vec<TextLabel> {
+    let mut text_labels: Vec<TextLabel> = get_orbital_object_mouseover_labels(state);
+
+    text_labels.extend(get_indicators(state).unwrap_or(vec![]));
+    text_labels.extend(get_landing_site_labels(state));
+
+    (|| {
+        let id = state.piloting()?;
+        let pv = state.universe.lup_orbiter(id, state.universe.stamp())?.pv();
+        let text = format!("{:0.1} m/s", pv.vel.length() * 1000.0);
+        let c = Vec2::Y * (100.0 - state.input.screen_bounds.span.y * 0.5);
+        text_labels.push(TextLabel::new(text, c, 1.0));
+        Some(())
+    })();
+
+    if state.paused {
+        let s = "PAUSED".to_string();
+        let c = Vec2::Y * (60.0 - state.input.screen_bounds.span.y * 0.5);
+        text_labels.push(TextLabel::new(s, c, 1.0));
+    }
+
+    if let Some((m1, m2, corner)) = state.measuring_tape() {
+        for (a, b) in [(m1, m2), (m1, corner), (m2, corner)] {
+            let middle = (a + b) / 2.0;
+            let middle = state.orbital_context.w2c(middle);
+            let d = format!("{:0.1} km", a.distance(b));
+            text_labels.push(TextLabel::new(d, middle, 1.0));
+        }
+    }
+
+    if let Some((c, a, b)) = state.protractor() {
+        for (a, b) in [(c, Some(a)), (c, b)] {
+            if let Some(b) = b {
+                let middle = (a + b) / 2.0;
+                let middle = state.orbital_context.w2c(middle);
+                let d = format!("{:0.1} km", a.distance(b));
+                text_labels.push(TextLabel::new(d, middle, 1.0));
+            }
+        }
+        if let Some(b) = b {
+            let da = a - c;
+            let db = b - c;
+            let angle = da.angle_to(db);
+            let d = c + rotate(da * 0.75, angle / 2.0);
+            let t = format!("{:0.1} deg", angle.to_degrees().abs());
+            let d = state.orbital_context.w2c(d);
+            text_labels.push(TextLabel::new(t, d, 1.0));
+        }
+    }
+
+    text_labels
 }
 
 impl Render for OrbitalContext {
-    // fn text_labels(state: &GameState) -> Option<Vec<TextLabel>> {
-    //     let mut text_labels: Vec<TextLabel> = get_orbital_object_mouseover_labels(state);
-
-    //     text_labels.extend(get_indicators(state).unwrap_or(vec![]));
-    //     text_labels.extend(get_landing_site_labels(state));
-    //     text_labels.extend(get_inventory_label(state));
-
-    //     (|| {
-    //         let id = state.piloting()?;
-    //         let pv = state.universe.lup_orbiter(id, state.universe.stamp())?.pv();
-    //         let text = format!("{:0.1} m/s", pv.vel.length() * 1000.0);
-    //         let c = Vec2::Y * (100.0 - state.input.screen_bounds.span.y * 0.5);
-    //         text_labels.push(TextLabel::new(text, c, 1.0));
-    //         Some(())
-    //     })();
-
-    //     if state.paused {
-    //         let s = "PAUSED".to_string();
-    //         let c = Vec2::Y * (60.0 - state.input.screen_bounds.span.y * 0.5);
-    //         text_labels.push(TextLabel::new(s, c, 1.0));
-    //     }
-
-    //     {
-    //         let label = date_label(state);
-    //         text_labels.push(label);
-    //     }
-
-    //     if let Some((m1, m2, corner)) = state.measuring_tape() {
-    //         for (a, b) in [(m1, m2), (m1, corner), (m2, corner)] {
-    //             let middle = (a + b) / 2.0;
-    //             let middle = state.orbital_context.w2c(middle);
-    //             let d = format!("{:0.1} km", a.distance(b));
-    //             text_labels.push(TextLabel::new(d, middle, 1.0));
-    //         }
-    //     }
-
-    //     if let Some((c, a, b)) = state.protractor() {
-    //         for (a, b) in [(c, Some(a)), (c, b)] {
-    //             if let Some(b) = b {
-    //                 let middle = (a + b) / 2.0;
-    //                 let middle = state.orbital_context.w2c(middle);
-    //                 let d = format!("{:0.1} km", a.distance(b));
-    //                 text_labels.push(TextLabel::new(d, middle, 1.0));
-    //             }
-    //         }
-    //         if let Some(b) = b {
-    //             let da = a - c;
-    //             let db = b - c;
-    //             let angle = da.angle_to(db);
-    //             let d = c + rotate(da * 0.75, angle / 2.0);
-    //             let t = format!("{:0.1} deg", angle.to_degrees().abs());
-    //             let d = state.orbital_context.w2c(d);
-    //             text_labels.push(TextLabel::new(t, d, 1.0));
-    //         }
-    //     }
-
-    //     Some(text_labels)
-    // }
-
-    // TODO use draw/canvas
-    // fn sprites(state: &GameState) -> Option<Vec<StaticSpriteDescriptor>> {
-    //     const PLANET_Z_INDEX: f32 = 5.0;
-
-    //     const SPACECRAFT_DEFAULT_SCALE: f32 = 0.025;
-    //     const SPACECRAFT_MAGNIFIED_SCALE: f32 = 0.06;
-    //     const SPACECRAFT_DIMINISHED_SCALE: f32 = 0.02;
-    //     const SPACECRAFT_Z_INDEX: f32 = 6.0;
-
-    //     let ctx = &state.orbital_context;
-    //     let mut planetary_sprites: Vec<_> = state
-    //         .universe
-    //         .planets
-    //         .planet_ids()
-    //         .into_iter()
-    //         .filter_map(|id| {
-    //             let lup = state.universe.lup_planet(id, state.universe.stamp())?;
-    //             let pos = lup.pv().pos_f32();
-    //             let (name, body) = lup.named_body()?;
-    //             Some(StaticSpriteDescriptor::new(
-    //                 ctx.w2c(pos),
-    //                 0.0,
-    //                 name.clone(),
-    //                 Vec2::splat(ctx.scale() * 2.0 * body.radius),
-    //                 PLANET_Z_INDEX,
-    //             ))
-    //         })
-    //         .collect();
-
-    //     let bodies: Vec<_> = state
-    //         .universe
-    //         .planets
-    //         .bodies(state.universe.stamp(), None)
-    //         .collect();
-    //     let light_source = state.light_source();
-    //     let orbiter_sprites: Vec<_> = state
-    //         .universe
-    //         .orbiter_ids()
-    //         .filter_map(|id| {
-    //             let lup = state.universe.lup_orbiter(id, state.universe.stamp())?;
-    //             let pos = lup.pv().pos_f32();
-    //             let is_lit = bodies
-    //                 .iter()
-    //                 .all(|(pv, body)| !is_occluded(light_source, pos, pv.pos_f32(), body.radius));
-
-    //             let path = "spacecraft.png".to_string();
-
-    //             #[allow(unused)]
-    //             let scale = if state.orbital_context.selected.contains(&id) {
-    //                 SPACECRAFT_MAGNIFIED_SCALE
-    //             } else if state.orbital_context.selected.is_empty() {
-    //                 SPACECRAFT_DEFAULT_SCALE
-    //             } else {
-    //                 SPACECRAFT_DIMINISHED_SCALE
-    //             };
-
-    //             let color = if is_lit { WHITE } else { GRAY };
-
-    //             Some(
-    //                 StaticSpriteDescriptor::new(
-    //                     ctx.w2c(pos),
-    //                     0.0,
-    //                     path,
-    //                     Vec2::splat(10.0),
-    //                     SPACECRAFT_Z_INDEX,
-    //                 )
-    //                 .with_color(color),
-    //             )
-    //         })
-    //         .collect();
-
-    //     planetary_sprites.extend(orbiter_sprites);
-    //     Some(planetary_sprites)
-    // }
-
     fn background_color(state: &GameState) -> bevy::color::Srgba {
         match state.orbital_context.draw_mode {
             DrawMode::Default => BLACK,
@@ -617,6 +526,10 @@ impl Render for OrbitalContext {
             .collect();
 
         canvas.text(buttons, -Vec2::X * 200.0, 0.8);
+
+        for label in text_labels(state) {
+            canvas.label(label);
+        }
 
         Some(())
     }

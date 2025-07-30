@@ -15,6 +15,7 @@ use crate::ui::InteractionEvent;
 use bevy::color::palettes::css::*;
 use bevy::core_pipeline::bloom::Bloom;
 use bevy::core_pipeline::smaa::Smaa;
+use bevy::input::gamepad::Gamepad;
 use bevy::prelude::*;
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::view::RenderLayers;
@@ -28,6 +29,39 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 pub struct GamePlugin;
+
+fn gamepad_usage_system(gamepads: Query<(&Name, &Gamepad)>, mut state: ResMut<GameState>) {
+    for (_name, gamepad) in &gamepads {
+        for button in gamepad.get_just_pressed() {
+            dbg!((button, state.cursor_position, true));
+        }
+        for button in gamepad.get_just_released() {
+            dbg!((button, state.cursor_position, false));
+        }
+
+        if gamepad.just_pressed(GamepadButton::South) {
+            let wb = state.input.screen_bounds.span;
+            let n = state.ui.at(state.cursor_position, wb);
+            if let Some(event) = n
+                .map(|n| n.is_enabled().then(|| n.on_click()))
+                .flatten()
+                .flatten()
+                .cloned()
+            {
+                state.on_button_event(event);
+            }
+        }
+
+        let speed = state.settings.controller_cursor_speed;
+
+        if let Some(left_stick_x) = gamepad.get(GamepadAxis::LeftStickX) {
+            state.cursor_position += Vec2::X * left_stick_x * speed;
+        }
+        if let Some(left_stick_y) = gamepad.get(GamepadAxis::LeftStickY) {
+            state.cursor_position += Vec2::Y * left_stick_y * speed;
+        }
+    }
+}
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
@@ -46,6 +80,7 @@ impl Plugin for GamePlugin {
                 crate::drawing::draw_game_state,
                 crate::sprites::update_static_sprites,
                 crate::sprites::update_background_color,
+                gamepad_usage_system,
             )
                 .chain(),
         );
@@ -116,6 +151,8 @@ pub struct GameState {
     pub game_ticks: u64,
     pub render_ticks: u64,
 
+    pub cursor_position: Vec2,
+
     pub settings: Settings,
 
     pub sounds: EnvironmentSounds,
@@ -160,10 +197,6 @@ pub struct GameState {
     /// Map of names to parts to their definitions. Loaded from
     /// the assets/parts directory
     pub part_database: HashMap<String, PartPrototype>,
-
-    /// Stupid thing to generate unique increasing IDs for
-    /// planets and orbiters
-    pub ids: ObjectIdTracker,
 
     pub controllers: Vec<Controller>,
     pub starfield: Vec<(Vec3, Srgba, f32, f32)>,
@@ -229,6 +262,7 @@ impl GameState {
         let mut g = GameState {
             render_ticks: 0,
             game_ticks: 0,
+            cursor_position: Vec2::ZERO,
             settings,
             sounds,
             input: InputState::default(),
@@ -242,12 +276,11 @@ impl GameState {
             surface_context: SurfaceContext::default(),
             wall_time: Nanotime::zero(),
             physics_duration: Nanotime::days(7),
-            universe_ticks_per_game_tick: 100,
+            universe_ticks_per_game_tick: 3,
             actual_universe_ticks_per_game_tick: 0,
             paused: false,
             exec_time: std::time::Duration::new(0, 0),
             part_database,
-            ids,
             controllers: vec![],
             starfield: generate_starfield(),
             favorites: HashSet::new(),
@@ -258,7 +291,7 @@ impl GameState {
                 Scene::editor(),
                 Scene::surface(),
             ],
-            current_scene_idx: 3,
+            current_scene_idx: 0,
             current_orbit: None,
             ui: Tree::new(),
             notifications: Vec::new(),
@@ -293,16 +326,6 @@ impl GameState {
                 g.spawn_with_random_perturbance(orbit, vehicle);
             }
         }
-
-        // for _ in 0..20 {
-        //     let n = randint(3, 7);
-        //     let vehicles = (0..n).filter_map(|_| g.get_random_vehicle()).collect();
-        //     let rpo = RPO::example(g.sim_time, vehicles);
-        //     let orbit = get_random_orbit(EntityId(0));
-        //     if let Some(orbit) = orbit {
-        //         g.spawn_new_rpo(orbit, rpo);
-        //     }
-        // }
 
         for _ in 0..40 {
             let vehicle = g.get_random_vehicle();
@@ -420,6 +443,8 @@ impl Render for GameState {
 
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         // BOOKMARK debug info
+
+        crate::drawing::draw_x(&mut canvas.gizmos, state.cursor_position, 30.0, WHITE);
 
         #[allow(unused)]
         let debug_info: String = [
@@ -631,16 +656,8 @@ impl GameState {
             ),
         );
         let orbit = SparseOrbit::from_pv(pv_local + perturb, orbit.body, self.universe.stamp())?;
-        let id = self.ids.next();
-        let orbiter = Orbiter::new(GlobalOrbit(parent, orbit), self.universe.stamp());
-        let name = vehicle.name().to_string();
         self.universe
-            .orbital_vehicles
-            .insert(id, (orbiter, (), vehicle));
-        self.notice(format!(
-            "Spawned \"{}\" {} in orbit around {}",
-            name, id, global.0,
-        ));
+            .add_orbital_vehicle(vehicle, GlobalOrbit(parent, orbit));
         Some(())
     }
 
@@ -857,8 +874,9 @@ impl GameState {
             OnClick::ClearOrbits => self.orbital_context.queued_orbits.clear(),
             OnClick::Group(gid) => self.toggle_group(gid),
             OnClick::CreateGroup => {
-                let id = self.ids.next();
-                self.create_group(id);
+                // let id = self.ids.next();
+                // self.create_group(id);
+                println!("todo!");
             }
             OnClick::DisbandGroup(gid) => self.disband_group(gid),
             OnClick::CommitMission => {
@@ -1082,8 +1100,11 @@ impl GameState {
     pub fn on_render_tick(&mut self) {
         self.render_ticks += 1;
 
-        if let Some((decl, args)) = self.console.process_input(&mut self.input) {
-            decl.execute(self, args);
+        if self.console.is_active() {
+            if let Some((decl, args)) = self.console.process_input(&mut self.input) {
+                decl.execute(self, args);
+            }
+            return;
         }
 
         if self.input.is_pressed(KeyCode::ShiftLeft) && self.input.is_pressed(KeyCode::ControlLeft)
@@ -1410,8 +1431,9 @@ fn process_interaction(
             state.disband_group(*gid);
         }
         InteractionEvent::CreateGroup => {
-            let gid = state.ids.next();
-            state.create_group(gid);
+            // let gid = state.ids.next();
+            // state.create_group(gid);
+            println!("todo!");
         }
         _ => (),
     };

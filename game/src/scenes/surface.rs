@@ -466,8 +466,6 @@ impl Render for SurfaceContext {
             }
         }
 
-        canvas.label(crate::scenes::orbital::date_label(state));
-
         if let Some(p) = ctx.left_click_world_pos {
             canvas.circle(ctx.w2c(p), 10.0, GREEN);
         }

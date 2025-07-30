@@ -2,6 +2,7 @@ use crate::game::GameState;
 use crate::input::{FrameId, MouseButt};
 use crate::onclick::OnClick;
 use crate::scenes::*;
+use crate::sim_rate::SimRate;
 use bevy::core_pipeline::bloom::Bloom;
 use bevy::prelude::*;
 use bevy::render::{
@@ -163,7 +164,22 @@ pub fn top_bar(state: &GameState) -> Node<OnClick> {
             let current = state.current_scene_idx == i;
             Node::button(s, id, 120, state.settings.ui_button_height).enabled(!current)
         }))
-        .with_child(Node::grow().invisible())
+        .with_child(Node::vline())
+        .with_children(SimRate::all().map(|r| {
+            let s = r.as_str();
+            let id = OnClick::SimSpeed(r.as_ticks());
+            Node::button(s, id, 100, state.settings.ui_button_height)
+                .enabled(state.universe_ticks_per_game_tick != r.as_ticks())
+        }))
+        .with_child(
+            Node::text(
+                Size::Grow,
+                state.settings.ui_button_height,
+                crate::scenes::orbital::date_info(state),
+            )
+            .enabled(false),
+        )
+        .with_child(Node::vline())
         .with_child(Node::button("Exit", OnClick::Exit, 80, Size::Grow))
 }
 
@@ -260,17 +276,19 @@ pub fn console_overlay(state: &GameState) -> Node<OnClick> {
             .with_justify(TextJustify::Left)
     };
 
+    const TERMINAL_LINES: usize = 40;
+
     let mut lines: Vec<_> = state
         .console
         .lines()
         .iter()
         .rev()
-        .take(20)
+        .take(TERMINAL_LINES)
         .rev()
         .map(|l| get_line_node(l))
         .collect();
 
-    while lines.len() < 21 {
+    while lines.len() < TERMINAL_LINES + 1 {
         let n = get_line_node("");
         lines.push(n);
     }
@@ -783,7 +801,7 @@ fn do_ui_sprites(
                     commands.spawn((
                         transform,
                         bounds,
-                        Text2d::new(s.to_uppercase()),
+                        Text2d::new(s),
                         anchor,
                         RenderLayers::layer(1),
                         UiElement,

@@ -114,8 +114,8 @@ fn zero_gravity_control_law(
             ctrl.plus_y.use_rcs = true;
         }
     } else if vel.length() > 3.0 {
-        let forward = vehicle.max_thrust_along_heading(0.0, false);
-        let backward = vehicle.max_thrust_along_heading(PI, false);
+        let forward = vehicle.max_forward_thrust();
+        let backward = vehicle.max_backwards_thrust();
 
         if forward > 0.0 && backward / forward > 0.5 {
             let target_angle = vel.to_angle();
@@ -178,7 +178,7 @@ fn hover_control_law(
     let attitude_error = (body.angle - target_angle).abs();
     let attitude = compute_attitude_control(body, target_angle, &vehicle.attitude_controller);
 
-    let thrust = vehicle.max_thrust_along_heading(0.0, false);
+    let thrust = vehicle.max_forward_thrust();
     let accel = thrust / vehicle.total_mass().to_kg_f32();
     let pct = gravity.length() / accel;
 

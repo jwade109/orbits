@@ -524,22 +524,22 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
         draw_cross(&mut canvas.gizmos, center, 3.0, RED.with_alpha(0.1));
     }
 
-    let vehicle_screen = ctx.w2c(lup.pv().pos_f32());
+    // let vehicle_screen = ctx.w2c(lup.pv().pos_f32());
 
-    {
-        let alpha = -(center - vehicle_screen).to_angle();
-        let s = 20.0;
-        let x1 = center.x;
-        let x2 = vehicle_screen.x;
-        let y1 = center.y;
-        let y2 = vehicle_screen.y;
-        for sign in [-1.0, 1.0] {
-            let p1 = Vec2::new(x1 + r * alpha.sin() * sign, y1 + r * alpha.cos() * sign);
-            let p2 = Vec2::new(x2 + s * alpha.sin() * sign, y2 + s * alpha.cos() * sign);
-            canvas.gizmos.line_2d(p1, p2, GREEN.with_alpha(0.2));
-        }
-        draw_circle(&mut canvas.gizmos, vehicle_screen, s, GREEN.with_alpha(0.2));
-    }
+    // {
+    //     let alpha = -(center - vehicle_screen).to_angle();
+    //     let s = 20.0;
+    //     let x1 = center.x;
+    //     let x2 = vehicle_screen.x;
+    //     let y1 = center.y;
+    //     let y2 = vehicle_screen.y;
+    //     for sign in [-1.0, 1.0] {
+    //         let p1 = Vec2::new(x1 + r * alpha.sin() * sign, y1 + r * alpha.cos() * sign);
+    //         let p2 = Vec2::new(x2 + s * alpha.sin() * sign, y2 + s * alpha.cos() * sign);
+    //         canvas.gizmos.line_2d(p1, p2, GREEN.with_alpha(0.2));
+    //     }
+    //     draw_circle(&mut canvas.gizmos, vehicle_screen, s, GREEN.with_alpha(0.2));
+    // }
 
     draw_circle(&mut canvas.gizmos, center, r, GRAY);
     let p = vehicle.fuel_percentage();

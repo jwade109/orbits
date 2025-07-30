@@ -41,7 +41,7 @@ impl Surface {
         }
 
         Surface {
-            gravity: 0,
+            gravity: -2,
             wind: 0,
             radius: 2000.0,
             atmo_color: [rand(0.1, 0.2), rand(0.1, 0.2), rand(0.1, 0.2)],

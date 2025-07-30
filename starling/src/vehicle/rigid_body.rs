@@ -39,7 +39,7 @@ impl RigidBody {
         self.pv.pos += self.pv.vel * dt.to_secs_f64();
     }
 
-    pub fn on_the_floor(&mut self, elevation: f32) {
+    pub fn clamp_with_elevation(&mut self, elevation: f32) {
         if self.pv.pos.y < elevation as f64 {
             self.pv.pos.y = elevation as f64;
             self.pv.vel.y = 0.0;
