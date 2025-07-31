@@ -1,4 +1,4 @@
-name: ''
+name: 'Spacestation'
 parts:
 - partname: rcs
   pos:

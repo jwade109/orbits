@@ -16,6 +16,7 @@ mod tests {
 
         let vehicle = Vehicle::from_parts(
             "".to_string(),
+            "".to_string(),
             vec![(IVec2::ZERO, Rotation::East, part)],
             HashSet::new(),
         );
@@ -43,6 +44,7 @@ mod tests {
         let thruster = PartPrototype::Thruster(thruster);
 
         let vehicle = Vehicle::from_parts(
+            "".into(),
             "".into(),
             vec![
                 (IVec2::ZERO, Rotation::East, frame),

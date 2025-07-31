@@ -316,15 +316,20 @@ fn surface_scene_ui(state: &GameState) -> Tree<OnClick> {
         .flatten()
     {
         let mut n = Node::structural(Size::Fit, Size::Fit)
-            .with_color(UI_BACKGROUND_COLOR)
+            .with_color([0.0, 0.0, 0.0, 0.0])
+            .tight()
             .down();
         let text = vehicle_info(&sv.vehicle);
         for line in text.lines() {
-            n.add_child(Node::text(300, state.settings.ui_button_height, line));
+            n.add_child(
+                Node::text(500, state.settings.ui_button_height, line)
+                    .enabled(false)
+                    .with_color([0.1, 0.1, 0.1, 0.8]),
+            );
         }
         let pos = ctx.w2c(sv.body.pv.pos_f32() + Vec2::X * sv.vehicle.bounding_radius());
         let dims = state.input.screen_bounds.span;
-        let pos = dims / 2.0 + Vec2::new(pos.x, -pos.y);
+        let pos = dims / 2.0 + Vec2::new(pos.x + 20.0, -pos.y);
         tree.add_layout(n, pos);
     };
 

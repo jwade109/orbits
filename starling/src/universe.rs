@@ -35,7 +35,7 @@ impl Universe {
         Self {
             stamp: Nanotime::zero(),
             ticks: 0,
-            next_entity_id: EntityId(0),
+            next_entity_id: EntityId(1002),
             orbital_vehicles: HashMap::new(),
             surface_vehicles: HashMap::new(),
             planets: planets.clone(),
@@ -219,4 +219,23 @@ pub fn orbiters_within_bounds(
         let pv = universe.lup_orbiter(*id, universe.stamp())?.pv();
         bounds.contains(pv.pos_f32()).then(|| *id)
     })
+}
+
+pub fn nearest(universe: &Universe, pos: Vec2) -> Option<ObjectId> {
+    let stamp = universe.stamp();
+    let results = all_orbital_ids(universe)
+        .filter_map(|id| {
+            let lup = match id {
+                ObjectId::Orbiter(id) => universe.lup_orbiter(id, stamp),
+                ObjectId::Planet(id) => universe.lup_planet(id, stamp),
+            }?;
+            let p = lup.pv().pos_f32();
+            let d = pos.distance(p);
+            Some((d, id))
+        })
+        .collect::<Vec<_>>();
+    results
+        .into_iter()
+        .min_by(|(d1, _), (d2, _)| d1.total_cmp(d2))
+        .map(|(_, id)| id)
 }

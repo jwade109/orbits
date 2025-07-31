@@ -51,6 +51,7 @@ impl Default for ThrustAxisInfo {
 #[derive(Debug, Clone)]
 pub struct Vehicle {
     name: String,
+    model: String,
     pipes: HashSet<IVec2>,
     next_part_id: PartId,
     parts: HashMap<PartId, InstantiatedPart>,
@@ -75,11 +76,17 @@ pub struct Vehicle {
 
 impl Vehicle {
     pub fn new() -> Self {
-        Self::from_parts("".into(), Vec::new(), HashSet::new())
+        Self::from_parts(
+            "Unnamed Ship".into(),
+            "XYZ".into(),
+            Vec::new(),
+            HashSet::new(),
+        )
     }
 
     pub fn from_parts(
         name: String,
+        model: String,
         prototypes: Vec<(IVec2, Rotation, PartPrototype)>,
         pipes: HashSet<IVec2>,
     ) -> Self {
@@ -95,6 +102,7 @@ impl Vehicle {
 
         let mut ret = Self {
             name,
+            model,
             next_part_id,
             parts,
             pipes,
@@ -396,8 +404,7 @@ impl Vehicle {
     }
 
     pub fn is_controllable(&self) -> bool {
-        // TODO
-        true
+        self.forwards.max_thrust > 0.0
     }
 
     pub fn dry_mass(&self) -> Mass {
@@ -572,6 +579,27 @@ impl Vehicle {
 
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    pub fn set_name(&mut self, name: String) {
+        self.name = name;
+    }
+
+    pub fn model(&self) -> &str {
+        &self.model
+    }
+
+    pub fn set_model(&mut self, model: String) {
+        self.model = model;
+    }
+
+    pub fn title(&self) -> String {
+        let model = if self.model.len() >= 4 {
+            self.model[0..4].to_uppercase()
+        } else {
+            self.model.to_uppercase()
+        };
+        format!("[{}] {}", model, self.name)
     }
 
     fn current_angular_acceleration(&self) -> f32 {

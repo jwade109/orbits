@@ -304,6 +304,13 @@ impl OrbitalContext {
             return;
         }
 
+        if let Some(p) = input.double_click() {
+            let w = self.c2w(p);
+            if let Some(id) = nearest(universe, w) {
+                self.following = Some(id);
+            }
+        }
+
         if self.mouse_down_world_pos.is_none() {
             if let Some(p) = input.on_frame(MouseButt::Left, FrameId::Down) {
                 self.mouse_down_world_pos = Some(self.c2w(p));
@@ -395,7 +402,9 @@ pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> 
         } else {
             let orb_id = id.orbiter().unwrap();
             let vehicle = state.universe.orbital_vehicles.get(&orb_id);
-            let code = vehicle.map(|ov| ov.vehicle.name()).unwrap_or(&"UFO");
+            let code = vehicle
+                .map(|ov| ov.vehicle.title())
+                .unwrap_or("UFO".to_string());
 
             // distance based on pixel space
             let d = pc.distance(cursor);
@@ -418,7 +427,8 @@ pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> 
 pub fn date_info(state: &GameState) -> String {
     let date = state.universe.stamp().to_date();
     format!(
-        "{} (x{}/{} {} us)",
+        "{}{} (x{}/{} {} us)",
+        if state.paused { "[PAUSED] " } else { "" },
         date,
         state.actual_universe_ticks_per_game_tick,
         state.universe_ticks_per_game_tick,
@@ -430,12 +440,6 @@ fn text_labels(state: &GameState) -> Vec<TextLabel> {
     let mut text_labels: Vec<TextLabel> = get_orbital_object_mouseover_labels(state);
 
     text_labels.extend(get_landing_site_labels(state));
-
-    if state.paused {
-        let s = "PAUSED".to_string();
-        let c = Vec2::Y * (60.0 - state.input.screen_bounds.span.y * 0.5);
-        text_labels.push(TextLabel::new(s, c, 1.0));
-    }
 
     if let Some((m1, m2, corner)) = state.measuring_tape() {
         for (a, b) in [(m1, m2), (m1, corner), (m2, corner)] {
@@ -611,7 +615,7 @@ impl Render for OrbitalContext {
             ));
         }
 
-        let mut inner_topbar = sim_time_toolbar(state);
+        let mut inner_topbar = Node::fit().with_color(UI_BACKGROUND_COLOR);
 
         if let Some(id) = state.orbital_context.following {
             let s = format!("Following {}", id);

@@ -6,6 +6,7 @@ use crate::drawing::*;
 use crate::game::GameState;
 use crate::input::InputState;
 use crate::input::{FrameId, MouseButt};
+use crate::names::*;
 use crate::onclick::OnClick;
 use crate::scenes::{CameraProjection, Render, TextLabel};
 use crate::thrust_particles::ThrustParticleEffects;
@@ -199,7 +200,7 @@ impl EditorContext {
             .collect();
 
         let storage = VehicleFileStorage {
-            name: "".into(),
+            name: state.editor_context.vehicle.model().to_string(),
             parts,
             lines: state.editor_context.vehicle.pipes().collect(),
         };
@@ -214,7 +215,8 @@ impl EditorContext {
     }
 
     pub fn load_vehicle(path: &Path, state: &mut GameState) -> Option<()> {
-        let vehicle = match load_vehicle(path, &state.part_database) {
+        let name = get_random_ship_name(&state.vehicle_names);
+        let vehicle = match load_vehicle(path, name, &state.part_database) {
             Ok(v) => v,
             Err(e) => {
                 state.notice(format!("Failed to load vehicle: {}", e));
@@ -355,7 +357,8 @@ pub fn vehicle_info(vehicle: &Vehicle) -> String {
     let pct = vehicle.fuel_percentage() * 100.0;
 
     [
-        format!("discriminator: {}", vehicle.discriminator()),
+        format!("{}", vehicle.title()),
+        format!("Discriminator: {:0x}", vehicle.discriminator()),
         format!("Dry mass: {}", vehicle.dry_mass()),
         format!("Fuel: {} ({:0.0}%)", fuel_mass, pct),
         format!("Current mass: {}", vehicle.total_mass()),
@@ -524,16 +527,22 @@ impl Render for EditorContext {
 
         let info = format!("{}{}", info, vehicle_info);
 
-        let half_span = state.input.screen_bounds.span * 0.5;
-
-        canvas.label(
-            TextLabel::new(
-                info.to_uppercase(),
-                Vec2::new(half_span.x - 600.0, half_span.y - 400.0),
-                0.7,
+        let world_pos = Vec2::new(0.0, PIXELS_PER_METER * -bounds.span.y / 2.0 - 10.0);
+        canvas
+            .text(info, ctx.w2c(world_pos), 0.2 * ctx.scale())
+            .anchor_top_left();
+        let world_pos = Vec2::new(0.0, PIXELS_PER_METER * bounds.span.y / 2.0 + 10.0);
+        canvas
+            .text(
+                format!(
+                    "{}-type vessel\n\"{}\"",
+                    state.editor_context.vehicle.model(),
+                    state.editor_context.vehicle.name()
+                ),
+                ctx.w2c(world_pos),
+                0.2 * ctx.scale(),
             )
-            .with_anchor_left(),
-        );
+            .anchor_bottom_left();
 
         // axes
         {

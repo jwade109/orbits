@@ -1,4 +1,4 @@
-name: ''
+name: 'Seal'
 parts:
 - partname: motor
   pos:

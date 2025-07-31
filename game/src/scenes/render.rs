@@ -39,6 +39,21 @@ impl TextLabel {
         self
     }
 
+    pub fn anchor_right(&mut self) -> &mut Self {
+        self.anchor = Anchor::CenterRight;
+        self
+    }
+
+    pub fn anchor_top_left(&mut self) -> &mut Self {
+        self.anchor = Anchor::TopLeft;
+        self
+    }
+
+    pub fn anchor_bottom_left(&mut self) -> &mut Self {
+        self.anchor = Anchor::BottomLeft;
+        self
+    }
+
     pub fn with_anchor_left(mut self) -> Self {
         self.anchor = Anchor::CenterLeft;
         self

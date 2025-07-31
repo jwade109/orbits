@@ -38,7 +38,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let parts = load_parts_from_dir(&args.parts_dir)?;
 
-    let vehicle = load_vehicle(&args.ship_path, &parts)?;
+    let vehicle = load_vehicle(&args.ship_path, String::new(), &parts)?;
 
     let mut img =
         generate_image(&vehicle, &args.parts_dir, args.schematic).ok_or("Empty vehicle")?;

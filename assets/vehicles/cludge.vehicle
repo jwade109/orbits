@@ -1,0 +1,183 @@
+name: Cludge
+parts:
+- partname: container
+  pos:
+  - 8
+  - 92
+  rot: East
+- partname: container
+  pos:
+  - 423
+  - -148
+  rot: North
+- partname: container
+  pos:
+  - 304
+  - -28
+  rot: East
+- partname: container
+  pos:
+  - -361
+  - -243
+  rot: West
+- partname: container
+  pos:
+  - -526
+  - -193
+  rot: South
+- partname: container
+  pos:
+  - 423
+  - -268
+  rot: North
+- partname: container
+  pos:
+  - -112
+  - 92
+  rot: East
+- partname: container
+  pos:
+  - 1
+  - -390
+  rot: North
+- partname: container
+  pos:
+  - 424
+  - -28
+  rot: East
+- partname: container
+  pos:
+  - 544
+  - 22
+  rot: South
+- partname: container
+  pos:
+  - -472
+  - 92
+  rot: East
+- partname: container
+  pos:
+  - 544
+  - -218
+  rot: South
+- partname: container
+  pos:
+  - 355
+  - 142
+  rot: West
+- partname: container
+  pos:
+  - -481
+  - -243
+  rot: West
+- partname: container
+  pos:
+  - -526
+  - 287
+  rot: South
+- partname: container
+  pos:
+  - 1
+  - -510
+  rot: North
+- partname: container
+  pos:
+  - -121
+  - -243
+  rot: West
+- partname: container
+  pos:
+  - -241
+  - -243
+  rot: West
+- partname: container
+  pos:
+  - 1
+  - -630
+  rot: North
+- partname: container
+  pos:
+  - 544
+  - -98
+  rot: South
+- partname: container
+  pos:
+  - 1
+  - -269
+  rot: North
+- partname: container
+  pos:
+  - 235
+  - 142
+  rot: West
+- partname: container
+  pos:
+  - -352
+  - 92
+  rot: East
+- partname: container
+  pos:
+  - 1
+  - -149
+  rot: North
+- partname: container
+  pos:
+  - 184
+  - -28
+  rot: East
+- partname: container
+  pos:
+  - 64
+  - -28
+  rot: East
+- partname: container
+  pos:
+  - -601
+  - -243
+  rot: West
+- partname: container
+  pos:
+  - -526
+  - -73
+  rot: South
+- partname: container
+  pos:
+  - -526
+  - 47
+  rot: South
+- partname: container
+  pos:
+  - -526
+  - 167
+  rot: South
+- partname: container
+  pos:
+  - -56
+  - -28
+  rot: East
+- partname: container
+  pos:
+  - 475
+  - 142
+  rot: West
+- partname: container
+  pos:
+  - -232
+  - 92
+  rot: East
+- partname: container
+  pos:
+  - 473
+  - -268
+  rot: East
+- partname: container
+  pos:
+  - 129
+  - 22
+  rot: North
+- partname: container
+  pos:
+  - 115
+  - 142
+  rot: West
+lines: []

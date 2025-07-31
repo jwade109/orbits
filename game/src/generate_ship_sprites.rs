@@ -59,7 +59,11 @@ pub fn proc_gen_ship_sprites(state: &mut GameState, images: &mut Assets<Image>) 
 
         let img = generate_ship_sprite(vehicle, &state.args.parts_dir(), false);
         if let Some(img) = img {
-            println!("Generated new ship sprite for {}", vehicle.discriminator());
+            println!(
+                "Generated new ship sprite for {:0x} ({})",
+                vehicle.discriminator(),
+                vehicle.title(),
+            );
             let dims = img.size();
             let handle = images.add(img);
             state.image_handles.insert(sprite_name, (handle, dims));

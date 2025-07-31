@@ -19,6 +19,10 @@ impl ProgramContext {
         self.install_dir.join("settings.yaml")
     }
 
+    pub fn names_path(&self) -> PathBuf {
+        self.install_dir.join("ship_names.txt")
+    }
+
     pub fn vehicle_dir(&self) -> PathBuf {
         self.install_dir.join("vehicles")
     }

@@ -3,11 +3,12 @@ use crate::canvas::Canvas;
 use crate::debug_console::DebugConsole;
 use crate::generate_ship_sprites::*;
 use crate::input::{FrameId, InputState, MouseButt};
+use crate::names::*;
 use crate::notifications::*;
 use crate::onclick::OnClick;
 use crate::scenes::{
-    CameraProjection, CursorMode, DockingContext, EditorContext, MainMenuContext, OrbitalContext,
-    Render, Scene, SceneType, StaticSpriteDescriptor, SurfaceContext, TelescopeContext, TextLabel,
+    CursorMode, DockingContext, EditorContext, MainMenuContext, OrbitalContext, Render, Scene,
+    SceneType, StaticSpriteDescriptor, SurfaceContext, TelescopeContext, TextLabel,
 };
 use crate::settings::*;
 use crate::sounds::*;
@@ -214,6 +215,8 @@ pub struct GameState {
     pub text_labels: Vec<TextLabel>,
     pub sprites: Vec<StaticSpriteDescriptor>,
     pub image_handles: HashMap<String, (Handle<Image>, UVec2)>,
+
+    pub vehicle_names: Vec<String>,
 }
 
 fn generate_starfield() -> Vec<(Vec3, Srgba, f32, f32)> {
@@ -258,6 +261,14 @@ impl GameState {
         let mut sounds = EnvironmentSounds::new();
         sounds.play_loop("building.ogg", 0.1);
 
+        let vehicle_names = match load_names_from_file(&args.names_path()) {
+            Ok(n) => n,
+            Err(e) => {
+                error!("Failed to load vehicle names: {e}");
+                Vec::new()
+            }
+        };
+
         let mut g = GameState {
             render_ticks: 0,
             game_ticks: 0,
@@ -297,6 +308,7 @@ impl GameState {
             text_labels: Vec::new(),
             sprites: Vec::new(),
             image_handles: HashMap::new(),
+            vehicle_names,
         };
 
         for model in ["remora", "icecream", "lander", "remora", "pollux"] {
@@ -334,7 +346,7 @@ impl GameState {
         }
 
         for (id, _) in &g.universe.orbital_vehicles {
-            if g.favorites.len() < 5 && rand(0.0, 1.0) < 0.05 {
+            if g.favorites.len() < 5 {
                 g.favorites.insert(*id);
             }
         }
@@ -394,6 +406,11 @@ impl GameState {
             "Asteroid",
             "conbot",
             "low-fuel",
+            "low-fuel-dim",
+            "radar",
+            "radar-dim",
+            "ctrl",
+            "ctrl-dim",
             "shipscope",
         ] {
             let path = self.args.install_dir.join(format!("{}.png", name));
@@ -570,7 +587,9 @@ impl GameState {
 
         let (_, path) = vehicles.iter().find(|(model, _)| model == name)?;
 
-        let mut vehicle = load_vehicle(path, &self.part_database).ok()?;
+        let name = get_random_ship_name(&self.vehicle_names);
+
+        let mut vehicle = load_vehicle(path, name, &self.part_database).ok()?;
 
         vehicle.build_all();
 
@@ -677,24 +696,6 @@ impl GameState {
             pvl,
         );
         Some(())
-    }
-
-    pub fn nearest(&self, pos: Vec2, stamp: Nanotime) -> Option<ObjectId> {
-        let results = all_orbital_ids(&self.universe)
-            .filter_map(|id| {
-                let lup = match id {
-                    ObjectId::Orbiter(id) => self.universe.lup_orbiter(id, stamp),
-                    ObjectId::Planet(id) => self.universe.lup_planet(id, stamp),
-                }?;
-                let p = lup.pv().pos_f32();
-                let d = pos.distance(p);
-                Some((d, id))
-            })
-            .collect::<Vec<_>>();
-        results
-            .into_iter()
-            .min_by(|(d1, _), (d2, _)| d1.total_cmp(d2))
-            .map(|(_, id)| id)
     }
 
     pub fn delete_objects(&mut self) {
@@ -1018,7 +1019,9 @@ impl GameState {
         let choice = randint(0, vehicles.len() as i32);
         let (_, path) = vehicles.get(choice as usize)?;
 
-        let mut vehicle = load_vehicle(path, &self.part_database).ok()?;
+        let name = get_random_ship_name(&self.vehicle_names);
+
+        let mut vehicle = load_vehicle(path, name, &self.part_database).ok()?;
 
         vehicle.build_all();
 
@@ -1172,24 +1175,6 @@ impl GameState {
         let old_sim_time = self.universe.stamp();
 
         self.wall_time += PHYSICS_CONSTANT_DELTA_TIME;
-
-        || -> Option<()> {
-            if let Some(p) = self.input.double_click() {
-                if let SceneType::Orbital = self.current_scene().kind() {
-                    ()
-                } else {
-                    return None;
-                }
-                if self.is_hovering_over_ui() {
-                    return None;
-                }
-                let w = self.orbital_context.c2w(p);
-                let id = self.nearest(w, self.universe.stamp())?;
-                self.orbital_context.following = Some(id);
-                self.notice(format!("Now following {:?}", id));
-            }
-            Some(())
-        }();
 
         let s = self.universe.stamp();
         let d = self.physics_duration;

@@ -493,7 +493,7 @@ pub fn left_right_arrows(
 }
 
 pub fn favorites_menu(state: &GameState) -> Node<OnClick> {
-    let mut wrapper = Node::structural(350, Size::Fit)
+    let mut wrapper = Node::structural(600, Size::Fit)
         .down()
         .with_child(
             Node::text(Size::Grow, state.settings.ui_button_height, "Favorites").enabled(false),
@@ -505,8 +505,8 @@ pub fn favorites_menu(state: &GameState) -> Node<OnClick> {
                     .universe
                     .orbital_vehicles
                     .get(id)
-                    .map(|ov| ov.vehicle.name())
-                    .unwrap_or(&"?");
+                    .map(|ov| ov.vehicle.title())
+                    .unwrap_or("?".to_string());
                 let s = format!("{} {}", name, id);
                 let b = Node::button(
                     s,
@@ -519,15 +519,15 @@ pub fn favorites_menu(state: &GameState) -> Node<OnClick> {
                     b,
                     state.settings.ui_button_height,
                 );
-                let (color, text) = if Some(*id) == state.piloting() {
-                    (DELETE_SOMETHING_COLOR, "Release")
+                let (color, text, onclick) = if Some(*id) == state.piloting() {
+                    (DELETE_SOMETHING_COLOR, "Release", OnClick::ClearPilot)
                 } else {
-                    (PILOT_FAVORITES_COLOR, "Pilot")
+                    (PILOT_FAVORITES_COLOR, "Pilot", OnClick::SetPilot(*id))
                 };
 
                 let p = Node::button(
                     text,
-                    OnClick::SetPilot(*id),
+                    onclick,
                     state.settings.ui_button_height * 4.0,
                     state.settings.ui_button_height,
                 )
@@ -600,18 +600,6 @@ pub fn throttle_controls(state: &GameState) -> Node<OnClick> {
                 })),
         )
         .with_child(arrows)
-}
-
-pub fn sim_time_toolbar(state: &GameState) -> Node<OnClick> {
-    Node::fit().with_color(UI_BACKGROUND_COLOR).with_child({
-        let s = if state.paused { "UNPAUSE" } else { "PAUSE" };
-        Node::button(
-            s,
-            OnClick::TogglePause,
-            120,
-            state.settings.ui_button_height,
-        )
-    })
 }
 
 pub fn layout(state: &GameState) -> Tree<OnClick> {

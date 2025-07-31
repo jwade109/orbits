@@ -145,16 +145,11 @@ impl Render for DockingContext {
         let dims = state.input.screen_bounds.span;
 
         let bar = top_bar(state);
-        let sim_time = sim_time_toolbar(state);
         let throttle = throttle_controls(state);
 
         let sidebar = Node::column(300).with_color(UI_BACKGROUND_COLOR);
 
-        let world_viewport = Node::grow()
-            .invisible()
-            .down()
-            .with_child(sim_time)
-            .with_child(throttle);
+        let world_viewport = Node::grow().invisible().down().with_child(throttle);
 
         let main_content = Node::grow()
             .invisible()

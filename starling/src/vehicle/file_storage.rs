@@ -32,6 +32,7 @@ impl std::error::Error for NoPartError {}
 
 pub fn load_vehicle(
     path: &Path,
+    name: String,
     parts: &HashMap<String, PartPrototype>,
 ) -> Result<Vehicle, Box<dyn std::error::Error>> {
     let s = std::fs::read_to_string(path)?;
@@ -43,7 +44,12 @@ pub fn load_vehicle(
             .ok_or(Box::new(NoPartError(part.partname.clone())))?;
         prototypes.push((part.pos, part.rot, proto.clone()));
     }
-    Ok(Vehicle::from_parts(storage.name, prototypes, storage.lines))
+    Ok(Vehicle::from_parts(
+        name,
+        storage.name,
+        prototypes,
+        storage.lines,
+    ))
 }
 
 fn part_from_path(path: &Path) -> Result<PartPrototype, String> {

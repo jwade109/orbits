@@ -1,4 +1,4 @@
-name: ''
+name: 'Jubilee'
 parts:
 - partname: small-motor
   pos:

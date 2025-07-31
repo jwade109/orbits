@@ -1,4 +1,4 @@
-name: ''
+name: 'Moonbase'
 parts:
 - partname: radar
   pos:

@@ -463,17 +463,17 @@ pub fn draw_favorites(canvas: &mut Canvas, state: &GameState) -> Option<()> {
             continue;
         }
 
-        let vehicle = match state.universe.orbital_vehicles.get(id) {
-            Some(ov) => &ov.vehicle,
+        let ov = match state.universe.orbital_vehicles.get(id) {
+            Some(ov) => ov,
             None => continue,
         };
 
         let size = 200.0;
-        let rb = vehicle.bounding_radius();
+        let rb = ov.vehicle.bounding_radius();
 
         let pos = leftmost - Vec2::X * i as f32 * size * 1.1;
 
-        draw_vehicle(canvas, vehicle, pos, size / (rb * 2.0), 0.0);
+        draw_vehicle(canvas, &ov.vehicle, pos, size / (rb * 2.0), ov.body.angle);
         let color = if Some(*id) == state.piloting() {
             TEAL.with_alpha(0.3)
         } else {
@@ -541,11 +541,37 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
     let p = ov.vehicle.fuel_percentage();
     let iso = Isometry2d::from_translation(center);
 
-    if ov.vehicle.low_fuel() {
-        if is_blinking(state.wall_time, None) {
-            let pos = center + Vec2::new(r * 0.7, r * 1.4);
-            canvas.sprite(pos, 0.0, "low-fuel", 500.0, Vec2::splat(150.0));
-        }
+    canvas
+        .text(
+            format!("{}-type vessel", ov.vehicle.model().to_uppercase()),
+            center + Vec2::new(r * 0.4, r + 90.0),
+            0.8,
+        )
+        .anchor_right();
+    canvas
+        .text(
+            format!("{} {}", ov.vehicle.name(), piloting.0),
+            center + Vec2::new(r * 0.4, r + 60.0),
+            1.2,
+        )
+        .anchor_right();
+
+    let dash_icons = [
+        ("low-fuel", "low-fuel-dim", ov.vehicle.low_fuel(), true),
+        ("radar", "radar-dim", ov.vehicle.has_radar(), false),
+        ("ctrl", "ctrl-dim", !ov.vehicle.is_controllable(), true),
+    ];
+
+    let mut icon_pos = center + Vec2::new(r * 0.9, r * 1.1);
+    let icon_size = 75.0;
+    for (pa, pb, cond, blink) in dash_icons {
+        let path = if cond && (!blink || is_blinking(state.wall_time, None)) {
+            pa
+        } else {
+            pb
+        };
+        canvas.sprite(icon_pos, 0.0, path, 500.0, Vec2::splat(icon_size));
+        icon_pos += Vec2::Y * icon_size;
     }
 
     let mut arc = |percent: f32, s: f32, color: Srgba| {

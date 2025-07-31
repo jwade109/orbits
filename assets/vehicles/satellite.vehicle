@@ -1,4 +1,4 @@
-name: ''
+name: 'Satellite'
 parts:
 - partname: rcs
   pos:
