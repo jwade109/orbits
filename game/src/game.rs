@@ -198,7 +198,6 @@ pub struct GameState {
     /// the assets/parts directory
     pub part_database: HashMap<String, PartPrototype>,
 
-    pub controllers: Vec<Controller>,
     pub starfield: Vec<(Vec3, Srgba, f32, f32)>,
     pub favorites: HashSet<EntityId>,
 
@@ -281,7 +280,6 @@ impl GameState {
             paused: false,
             exec_time: std::time::Duration::new(0, 0),
             part_database,
-            controllers: vec![],
             starfield: generate_starfield(),
             favorites: HashSet::new(),
             scenes: vec![
@@ -396,6 +394,7 @@ impl GameState {
             "Asteroid",
             "conbot",
             "low-fuel",
+            "shipscope",
         ] {
             let path = self.args.install_dir.join(format!("{}.png", name));
             if let Some(img) = crate::generate_ship_sprites::read_image(&path) {
@@ -580,19 +579,15 @@ impl GameState {
 
     pub fn planned_maneuvers(&self, after: Nanotime) -> Vec<(EntityId, Nanotime, Vec2)> {
         let mut dvs = vec![];
-        for ctrl in &self.controllers {
-            if let Some(plan) = ctrl.plan() {
+        for (id, ov) in &self.universe.orbital_vehicles {
+            if let Some(plan) = ov.controller.plan() {
                 for (stamp, impulse) in plan.future_dvs(after) {
-                    dvs.push((ctrl.target(), stamp, impulse));
+                    dvs.push((*id, stamp, impulse));
                 }
             }
         }
         dvs.sort_by_key(|(_, t, _)| t.inner());
         dvs
-    }
-
-    pub fn selection_region(&self) -> Option<Region> {
-        OrbitalContext::selection_region(self)
     }
 
     pub fn measuring_tape(&self) -> Option<(Vec2, Vec2, Vec2)> {
@@ -685,7 +680,7 @@ impl GameState {
     }
 
     pub fn nearest(&self, pos: Vec2, stamp: Nanotime) -> Option<ObjectId> {
-        let results = crate::scenes::all_orbital_ids(self)
+        let results = all_orbital_ids(&self.universe)
             .filter_map(|id| {
                 let lup = match id {
                     ObjectId::Orbiter(id) => self.universe.lup_orbiter(id, stamp),
@@ -782,13 +777,17 @@ impl GameState {
 
     pub fn release_selected(&mut self) {
         let tracks = self.orbital_context.selected.clone();
-        self.controllers.retain(|c| !tracks.contains(&c.target()));
+        for id in tracks {
+            if let Some(ov) = self.universe.orbital_vehicles.get_mut(&id) {
+                ov.controller.clear();
+            }
+        }
     }
 
     pub fn command(&mut self, id: EntityId, next: &GlobalOrbit) -> Option<()> {
-        let tracks = self.orbital_context.selected.clone();
-        let vehicle = &self.universe.orbital_vehicles.get(&id)?.vehicle;
-        if !vehicle.is_controllable() {
+        let t = self.universe.stamp();
+        let ov = self.universe.orbital_vehicles.get_mut(&id)?;
+        if !ov.vehicle.is_controllable() {
             self.notify(
                 ObjectId::Orbiter(id),
                 NotificationType::NotControllable(id),
@@ -797,18 +796,12 @@ impl GameState {
             return None;
         }
 
-        if self.controllers.iter().find(|c| c.target() == id).is_none() {
-            self.controllers.push(Controller::idle(id));
-        }
-
-        self.controllers.iter_mut().for_each(|c| {
-            if tracks.contains(&c.target()) {
-                let ret = c.set_destination(*next, self.universe.stamp());
-                if let Err(_e) = ret {
-                    // dbg!(e);
-                }
+        match ov.controller.set_destination(*next, t) {
+            Err(e) => {
+                dbg!(e);
             }
-        });
+            _ => (),
+        }
 
         Some(())
     }
@@ -904,8 +897,12 @@ impl GameState {
             }
             OnClick::CursorMode(c) => self.orbital_context.cursor_mode = c,
             OnClick::AutopilotingCount => {
-                self.orbital_context.selected =
-                    self.controllers.iter().map(|c| c.target()).collect();
+                self.orbital_context.selected = self
+                    .universe
+                    .orbital_vehicles
+                    .iter()
+                    .filter_map(|(id, ov)| (!ov.controller.is_idle()).then(|| *id))
+                    .collect();
             }
             OnClick::GoToScene(i) => {
                 self.set_current_scene(i);
@@ -1087,14 +1084,6 @@ impl GameState {
         if self.input.on_frame(Left, Up).is_some() {
             self.maybe_trigger_click_event();
         }
-
-        if self.input.on_frame(Left, Up).is_some() {
-            let h = &self.orbital_context.highlighted;
-            self.orbital_context.selected.extend(h.into_iter());
-            self.orbital_context.highlighted.clear();
-        }
-
-        if self.input.on_frame(Right, Up).is_some() {}
     }
 
     pub fn on_render_tick(&mut self) {
@@ -1123,17 +1112,30 @@ impl GameState {
 
         self.handle_click_events();
 
+        let on_ui = self.is_hovering_over_ui();
+
         match self.current_scene().kind() {
-            SceneType::DockingView => self.docking_context.handle_input(&self.input),
-            SceneType::Editor => EditorContext::on_render_tick(self),
+            SceneType::DockingView => {
+                self.docking_context.on_render_tick(&self.input);
+            }
+            SceneType::Editor => {
+                EditorContext::on_render_tick(self);
+            }
             SceneType::MainMenu => (),
-            SceneType::Orbital => self.orbital_context.handle_input(&self.input),
-            SceneType::Surface => self.surface_context.on_render_tick(
-                &self.input,
-                &mut self.universe,
-                &mut self.sounds,
-            ),
-            SceneType::Telescope => self.telescope_context.handle_input(&self.input),
+            SceneType::Orbital => {
+                self.orbital_context
+                    .on_render_tick(on_ui, &self.input, &self.universe);
+            }
+            SceneType::Surface => {
+                self.surface_context.on_render_tick(
+                    &self.input,
+                    &mut self.universe,
+                    &mut self.sounds,
+                );
+            }
+            SceneType::Telescope => {
+                self.telescope_context.on_render_tick(&self.input);
+            }
         }
     }
 
@@ -1233,55 +1235,6 @@ impl GameState {
         });
         self.orbital_context.selected = track_list;
 
-        let mut notifs = vec![];
-        let mut controller_updates = vec![];
-
-        self.controllers.iter().enumerate().for_each(|(i, c)| {
-            if !c.needs_update(s) {
-                return;
-            }
-
-            let lup = self.universe.lup_orbiter(c.target(), s);
-            let orbiter = lup.map(|lup| lup.orbiter()).flatten();
-            let prop = orbiter.map(|orb| orb.propagator_at(s)).flatten();
-
-            if let Some(prop) = prop {
-                controller_updates.push((i, prop.orbit));
-            }
-        });
-
-        for (i, orbit) in controller_updates {
-            if let Some(c) = self.controllers.get_mut(i) {
-                let res = c.update(s, orbit);
-                if let Err(_) = res {
-                    notifs.push((c.target(), NotificationType::ManeuverFailed(c.target())));
-                }
-            }
-        }
-
-        notifs
-            .into_iter()
-            .for_each(|(t, n)| self.notify(ObjectId::Orbiter(t), n, None));
-
-        let mut finished_ids = Vec::<EntityId>::new();
-
-        self.controllers.retain(|c| {
-            if c.is_idle() {
-                finished_ids.push(c.target());
-                false
-            } else {
-                true
-            }
-        });
-
-        finished_ids.into_iter().for_each(|id| {
-            self.notify(
-                ObjectId::Orbiter(id),
-                NotificationType::ManeuverComplete(id),
-                None,
-            )
-        });
-
         self.notifications.iter_mut().for_each(|n| n.jitter());
 
         self.notifications
@@ -1304,19 +1257,6 @@ impl GameState {
                 SurfaceContext::on_game_tick(self);
             }
             _ => (),
-        }
-
-        if let Some(p) = self
-            .surface_context
-            .hello_yes_please_spawn_a_new_random_ship
-        {
-            if let Some(v) = self.get_random_vehicle() {
-                if v.thruster_count() > 0 {
-                    self.universe.add_surface_vehicle(v, p);
-                    self.surface_context
-                        .hello_yes_please_spawn_a_new_random_ship = None;
-                }
-            }
         }
     }
 }

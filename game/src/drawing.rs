@@ -352,6 +352,19 @@ pub fn vehicle_sprite_path(disc: u64) -> String {
 }
 
 pub fn draw_vehicle(canvas: &mut Canvas, vehicle: &Vehicle, pos: Vec2, scale: f32, angle: f32) {
+    for (_, part) in vehicle.parts() {
+        let color = diagram_color(&part.prototype());
+        let color = Srgba::from_f32_array(color);
+        let dims = part.dims_meters();
+        let center = rotate(part.center_meters(), angle) * scale;
+        let obb = OBB::new(
+            AABB::from_arbitrary(scale * -dims / 2.0, scale * dims / 2.0),
+            angle,
+        )
+        .offset(center + pos);
+        draw_obb(&mut canvas.gizmos, &obb, color);
+    }
+
     let geo = vehicle.aabb().center;
 
     canvas.sprite(
@@ -487,10 +500,10 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
         .universe
         .lup_orbiter(piloting, state.universe.stamp())?;
 
-    let vehicle = &state.universe.orbital_vehicles.get(&piloting)?.vehicle;
+    let ov = &state.universe.orbital_vehicles.get(&piloting)?;
 
     let window_dims = state.input.screen_bounds.span;
-    let rb = vehicle.bounding_radius();
+    let rb = ov.vehicle.bounding_radius();
     let r = window_dims.y * 0.2;
 
     let zoom = 0.8 * r / rb;
@@ -500,7 +513,9 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
         -window_dims.y / 2.0 + r * 1.2,
     );
 
-    draw_vehicle(canvas, vehicle, center, zoom, 0.0);
+    canvas.sprite(center, 0.0, "shipscope", None, Vec2::splat(r * 2.0) * 1.1);
+
+    draw_vehicle(canvas, &ov.vehicle, center, zoom, ov.body.angle);
 
     // prograde markers, etc
     {
@@ -523,12 +538,13 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
     }
 
     draw_circle(&mut canvas.gizmos, center, r, GRAY);
-    let p = vehicle.fuel_percentage();
+    let p = ov.vehicle.fuel_percentage();
     let iso = Isometry2d::from_translation(center);
 
-    if vehicle.low_fuel() {
+    if ov.vehicle.low_fuel() {
         if is_blinking(state.wall_time, None) {
-            canvas.sprite(center, 0.0, "low-fuel", 500.0, Vec2::splat(150.0));
+            let pos = center + Vec2::new(r * 0.7, r * 1.4);
+            canvas.sprite(pos, 0.0, "low-fuel", 500.0, Vec2::splat(150.0));
         }
     }
 
@@ -691,32 +707,33 @@ fn draw_event(
     Some(())
 }
 
-fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) {
+fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
     let ctx = &state.orbital_context;
-    _ = ctx
-        .highlighted
-        .iter()
-        .filter_map(|id| {
-            let pv = state
-                .universe
-                .lup_orbiter(*id, state.universe.stamp())?
-                .pv();
-            draw_circle(gizmos, ctx.w2c(pv.pos_f32()), 20.0, GRAY);
-            Some(())
-        })
-        .collect::<Vec<_>>();
+
+    let bounds = ctx.selection_bounds?;
+
+    for (id, _) in &state.universe.orbital_vehicles {
+        let lup = state.universe.lup_orbiter(*id, state.universe.stamp());
+        if let Some(lup) = lup {
+            let pos = lup.pv().pos_f32();
+            if bounds.contains(pos) {
+                draw_circle(gizmos, ctx.w2c(pos), 20.0, GRAY);
+            }
+        }
+    }
+
+    Some(())
 }
 
 fn draw_controller(
     gizmos: &mut Gizmos,
-    ctrl: &Controller,
+    id: EntityId,
+    ctrl: &OrbitalController,
     state: &GameState,
     tracked: bool,
     ctx: &impl CameraProjection,
 ) -> Option<()> {
-    let lup = state
-        .universe
-        .lup_orbiter(ctrl.target(), state.universe.stamp())?;
+    let lup = state.universe.lup_orbiter(id, state.universe.stamp())?;
     let parent = lup.parent(state.universe.stamp())?;
     let craft = lup.pv().pos_f32();
 
@@ -771,7 +788,7 @@ fn draw_event_animation(
         .unwrap_or(state.universe.stamp() + Nanotime::days(5))
     {
         let pv = obj.pv(t, &state.universe.planets)?;
-        draw_diamond(gizmos, ctx.w2c(pv.pos_f32()), 11.0, WHITE.with_alpha(0.6));
+        draw_circle(gizmos, ctx.w2c(pv.pos_f32()), 3.0, WHITE.with_alpha(0.2));
         t += dt;
     }
     for prop in obj.props() {
@@ -819,73 +836,6 @@ fn draw_maneuver_plan(
     }
     draw_orbit(gizmos, &plan.terminal, origin, PURPLE, ctx);
     Some(())
-}
-
-fn draw_timeline(gizmos: &mut Gizmos, state: &GameState) {
-    let ctx = &state.orbital_context;
-
-    if !state.controllers.iter().any(|c| !c.is_idle()) {
-        return;
-    }
-
-    let tmin = state.universe.stamp() - Nanotime::secs(1);
-    let tmax = state.universe.stamp() + Nanotime::secs(120);
-
-    let window_dims = state.input.screen_bounds.span;
-
-    let width = window_dims.x * 0.5;
-    let y_root = 0.0;
-    let row_height = 5.0;
-    let x_center = 0.0;
-    let x_min = x_center - width / 2.0;
-
-    let map = |p: Vec2| p;
-
-    let p_at = |t: Nanotime, row: usize| -> Vec2 {
-        let y = y_root - row as f32 * row_height;
-        let pmin = map(Vec2::new(x_min, y));
-        let pmax = map(Vec2::new(x_min + width, y));
-        let s = (t - tmin).to_secs() / (tmax - tmin).to_secs();
-        pmin.lerp(pmax, s)
-    };
-
-    let mut draw_tick_mark = |t: Nanotime, row: usize, scale: f32, color: Srgba| {
-        let p = p_at(t, row);
-        let h = Vec2::Y * ctx.scale() * row_height * scale / 2.0;
-        gizmos.line_2d(p + h, p - h, color);
-    };
-
-    draw_tick_mark(state.universe.stamp(), 0, 1.0, WHITE);
-
-    for (i, ctrl) in state.controllers.iter().enumerate() {
-        let plan = match ctrl.plan() {
-            Some(p) => p,
-            None => continue,
-        };
-
-        let alpha = if ctx.selected.contains(&ctrl.target()) {
-            1.0
-        } else {
-            0.2 / (i + 1) as f32
-        };
-
-        for segment in &plan.segments {
-            if segment.end < tmin || segment.start > tmax {
-                continue;
-            }
-            let p1 = p_at(segment.start.max(tmin), i);
-            let p2 = p_at(segment.end.min(tmax), i);
-            gizmos.line_2d(p1, p2, BLUE.with_alpha(alpha * 0.3));
-            let size = ctx.scale() * row_height * 0.5;
-            for t in [segment.start, segment.end] {
-                if t < tmin || t > tmax {
-                    continue;
-                }
-                let p = p_at(t, i);
-                draw_diamond(gizmos, p, size, WHITE.with_alpha(alpha));
-            }
-        }
-    }
 }
 
 fn draw_scale_indicator(gizmos: &mut Gizmos, state: &GameState) {
@@ -1204,7 +1154,7 @@ fn draw_landing_sites(gizmos: &mut Gizmos, state: &GameState) {
     let ctx = &state.orbital_context;
     for (pid, sites) in &state.universe.landing_sites {
         for (site, _, _) in sites {
-            if let Some(pos) = OrbitalContext::landing_site_position(state, *pid, *site) {
+            if let Some(pos) = landing_site_position(&state.universe, *pid, *site) {
                 let p = ctx.w2c(pos);
                 draw_diamond(gizmos, p, 12.0, WHITE.with_alpha(0.7))
             }
@@ -1439,14 +1389,16 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
 
     draw_rendezvous_info(canvas, state);
 
-    // draw_timeline(gizmos, &state);
-
     draw_orbit_spline(canvas, state);
 
     draw_landing_sites(&mut canvas.gizmos, state);
 
-    if let Some(a) = state.selection_region() {
-        draw_region(&mut canvas.gizmos, a, ctx, RED, Vec2::ZERO);
+    if let Some(bounds) = state.orbital_context.selection_bounds {
+        draw_aabb(&mut canvas.gizmos, ctx.w2c_aabb(bounds), RED);
+    }
+
+    if let Some(follow) = state.orbital_context.follow_position(&state.universe) {
+        draw_x(&mut canvas.gizmos, ctx.w2c(follow), 9.0, RED);
     }
 
     if let Some((m1, m2, corner)) = state.measuring_tape() {
@@ -1540,9 +1492,9 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
         draw_global_orbit(&mut canvas.gizmos, &orbit, &state, TEAL);
     }
 
-    for ctrl in &state.controllers {
-        let tracked = state.orbital_context.selected.contains(&ctrl.target());
-        draw_controller(&mut canvas.gizmos, ctrl, &state, tracked, ctx);
+    for (id, sv) in &state.universe.orbital_vehicles {
+        let tracked = state.orbital_context.selected.contains(id);
+        draw_controller(&mut canvas.gizmos, *id, &sv.controller, state, tracked, ctx);
     }
 
     if state.orbital_context.show_animations && state.orbital_context.selected.len() < 6 {

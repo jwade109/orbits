@@ -90,6 +90,7 @@ pub struct Node<MessageType> {
     onclick: Option<MessageType>,
     text_content: Option<String>,
     enabled: bool,
+    sprite: Option<String>,
     style: NodeStyle,
 }
 
@@ -108,6 +109,7 @@ impl<MessageType> Node<MessageType> {
             onclick: None,
             text_content: None,
             enabled: true,
+            sprite: None,
             style: NodeStyle {
                 layout: LayoutDir::LeftToRight,
                 child_gap: 10.0,
@@ -175,6 +177,15 @@ impl<MessageType> Node<MessageType> {
     pub fn with_text(mut self, s: impl Into<String>) -> Self {
         self.text_content = Some(s.into());
         self
+    }
+
+    pub fn with_sprite(mut self, s: impl Into<String>) -> Self {
+        self.sprite = Some(s.into());
+        self
+    }
+
+    pub fn sprite(&self) -> Option<&str> {
+        self.sprite.as_ref().map(|s| s.as_str())
     }
 
     pub fn with_justify(mut self, s: TextJustify) -> Self {

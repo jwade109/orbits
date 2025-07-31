@@ -5,14 +5,21 @@ pub struct OrbitalSpacecraftEntity {
     pub vehicle: Vehicle,
     pub body: RigidBody,
     pub orbiter: Orbiter,
+    pub controller: OrbitalController,
 }
 
 impl OrbitalSpacecraftEntity {
-    pub fn new(vehicle: Vehicle, body: RigidBody, orbiter: Orbiter) -> Self {
+    pub fn new(
+        vehicle: Vehicle,
+        body: RigidBody,
+        orbiter: Orbiter,
+        controller: OrbitalController,
+    ) -> Self {
         Self {
             vehicle,
             body,
             orbiter,
+            controller,
         }
     }
 }

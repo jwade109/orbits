@@ -76,7 +76,6 @@ pub struct OrbitalContext {
     camera: LinearCameraController,
     primary: EntityId,
     pub selected: HashSet<EntityId>,
-    pub highlighted: HashSet<EntityId>,
     pub following: Option<ObjectId>,
     pub queued_orbits: Vec<GlobalOrbit>,
     pub cursor_mode: CursorMode,
@@ -88,6 +87,9 @@ pub struct OrbitalContext {
     pub piloting: Option<EntityId>,
     pub targeting: Option<EntityId>,
     pub rendezvous_scope_radius: LowPass,
+
+    pub mouse_down_world_pos: Option<Vec2>,
+    pub selection_bounds: Option<AABB>,
 }
 
 pub trait CameraProjection {
@@ -147,13 +149,19 @@ pub fn relevant_body(planets: &PlanetarySystem, pos: Vec2, stamp: Nanotime) -> O
         .map(|(_, id)| *id)
 }
 
+pub fn landing_site_position(universe: &Universe, planet_id: EntityId, angle: f32) -> Option<Vec2> {
+    let lup = universe.lup_planet(planet_id, universe.stamp())?;
+    let body = lup.body()?;
+    let center = lup.pv().pos_f32();
+    Some(center + rotate(Vec2::X * body.radius, angle))
+}
+
 impl OrbitalContext {
     pub fn new(primary: EntityId) -> Self {
         Self {
             camera: LinearCameraController::new(Vec2::ZERO, 0.02, 600.0),
             primary,
             selected: HashSet::new(),
-            highlighted: HashSet::new(),
             following: None,
             queued_orbits: Vec::new(),
             cursor_mode: CursorMode::Rect,
@@ -168,15 +176,16 @@ impl OrbitalContext {
                 target: 50.0,
                 alpha: 0.1,
             },
+            mouse_down_world_pos: None,
+            selection_bounds: None,
         }
     }
 
-    #[deprecated]
-    pub fn follow_position(&self, state: &GameState) -> Option<Vec2> {
+    pub fn follow_position(&self, universe: &Universe) -> Option<Vec2> {
         let id = self.following?;
         let lup = match id {
-            ObjectId::Orbiter(id) => state.universe.lup_orbiter(id, state.universe.stamp())?,
-            ObjectId::Planet(id) => state.universe.lup_planet(id, state.universe.stamp())?,
+            ObjectId::Orbiter(id) => universe.lup_orbiter(id, universe.stamp())?,
+            ObjectId::Planet(id) => universe.lup_planet(id, universe.stamp())?,
         };
         Some(lup.pv().pos_f32())
     }
@@ -190,16 +199,8 @@ impl OrbitalContext {
     }
 
     pub fn highlighted(state: &GameState) -> HashSet<EntityId> {
-        if let Some(a) = state.selection_region() {
-            state
-                .universe
-                .orbiter_ids()
-                .into_iter()
-                .filter_map(|id| {
-                    let pv = state.universe.lup_orbiter(id, state.universe.stamp())?.pv();
-                    a.contains(pv.pos_f32()).then(|| id)
-                })
-                .collect()
+        if let Some(a) = state.orbital_context.selection_bounds {
+            orbiters_within_bounds(&state.universe, a).collect()
         } else {
             HashSet::new()
         }
@@ -216,13 +217,6 @@ impl OrbitalContext {
         let b = ctx.c2w(b);
         let corner = Vec2::new(a.x, b.y);
         Some((a, b, corner))
-    }
-
-    pub fn landing_site_position(state: &GameState, pid: EntityId, angle: f32) -> Option<Vec2> {
-        let lup = state.universe.lup_planet(pid, state.universe.stamp())?;
-        let body = lup.body()?;
-        let center = lup.pv().pos_f32();
-        Some(center + rotate(Vec2::X * body.radius, angle))
     }
 
     pub fn protractor(state: &GameState) -> Option<(Vec2, Vec2, Option<Vec2>)> {
@@ -294,50 +288,54 @@ impl OrbitalContext {
         Self::cursor_orbit(a, b, state)
     }
 
-    pub fn selection_region(state: &GameState) -> Option<Region> {
-        if state.is_currently_left_clicked_on_ui() {
-            return None;
-        }
-        let ctx = &state.orbital_context;
-        match state.orbital_context.cursor_mode {
-            CursorMode::Rect => {
-                let a = state
-                    .input
-                    .world_position(MouseButt::Left, FrameId::Down, ctx)?;
-                let b = state
-                    .input
-                    .world_position(MouseButt::Left, FrameId::Current, ctx)?;
-                Some(Region::aabb(a, b))
-            }
-            CursorMode::NearOrbit => Self::left_cursor_orbit(state)
-                .map(|GlobalOrbit(_, orbit)| Region::NearOrbit(orbit, 500.0)),
-            _ => None,
-        }
-    }
-
     pub fn on_game_tick(&mut self) {
         self.camera.on_game_tick();
         self.rendezvous_scope_radius.step();
     }
 
-    pub fn handle_input(&mut self, input: &InputState) {
+    pub fn on_render_tick(&mut self, on_ui: bool, input: &InputState, universe: &Universe) {
         self.camera.handle_input(input);
-    }
-}
 
-pub fn all_orbital_ids(state: &GameState) -> impl Iterator<Item = ObjectId> + use<'_> {
-    state
-        .universe
-        .orbiter_ids()
-        .map(|id| ObjectId::Orbiter(id))
-        .chain(
-            state
-                .universe
-                .planets
-                .planet_ids()
-                .into_iter()
-                .map(|id| ObjectId::Planet(id)),
-        )
+        if let Some(p) = self.follow_position(universe) {
+            self.camera.follow(p);
+        }
+
+        if on_ui {
+            return;
+        }
+
+        if self.mouse_down_world_pos.is_none() {
+            if let Some(p) = input.on_frame(MouseButt::Left, FrameId::Down) {
+                self.mouse_down_world_pos = Some(self.c2w(p));
+            }
+        }
+
+        if input.on_frame(MouseButt::Left, FrameId::Up).is_some() {
+            self.mouse_down_world_pos = None;
+
+            if let Some(bounds) = self.selection_bounds {
+                self.selected = orbiters_within_bounds(universe, bounds).collect();
+            }
+
+            self.selection_bounds = None;
+        }
+
+        self.selection_bounds = self
+            .mouse_down_world_pos
+            .zip(input.position(MouseButt::Left, FrameId::Current))
+            .map(|(p, q)| {
+                let q = self.c2w(q);
+                AABB::from_arbitrary(p, q)
+            });
+
+        if input.is_pressed(KeyCode::KeyW)
+            || input.is_pressed(KeyCode::KeyA)
+            || input.is_pressed(KeyCode::KeyS)
+            || input.is_pressed(KeyCode::KeyD)
+        {
+            self.following = None;
+        }
+    }
 }
 
 pub const LANDING_SITE_MOUSEOVER_DISTANCE: f32 = 50.0;
@@ -353,7 +351,7 @@ pub fn get_landing_site_labels(state: &GameState) -> Vec<TextLabel> {
     let mut ret = Vec::new();
     for (pid, sites) in &state.universe.landing_sites {
         for (angle, name, _) in sites {
-            let pos = OrbitalContext::landing_site_position(state, *pid, *angle);
+            let pos = landing_site_position(&state.universe, *pid, *angle);
             if let Some(pos) = pos {
                 let pos = ctx.w2c(pos);
                 let offset = rotate(Vec2::X, *angle) * LANDING_SITE_MOUSEOVER_DISTANCE;
@@ -377,7 +375,7 @@ pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> 
 
     let cursor_world = state.orbital_context.c2w(cursor);
 
-    for id in all_orbital_ids(state) {
+    for id in all_orbital_ids(&state.universe) {
         let lup = match id {
             ObjectId::Orbiter(id) => state.universe.lup_orbiter(id, state.universe.stamp()),
             ObjectId::Planet(id) => state.universe.lup_planet(id, state.universe.stamp()),
@@ -432,15 +430,6 @@ fn text_labels(state: &GameState) -> Vec<TextLabel> {
     let mut text_labels: Vec<TextLabel> = get_orbital_object_mouseover_labels(state);
 
     text_labels.extend(get_landing_site_labels(state));
-
-    (|| {
-        let id = state.piloting()?;
-        let pv = state.universe.lup_orbiter(id, state.universe.stamp())?.pv();
-        let text = format!("{:0.1} m/s", pv.vel.length() * 1000.0);
-        let c = Vec2::Y * (100.0 - state.input.screen_bounds.span.y * 0.5);
-        text_labels.push(TextLabel::new(text, c, 1.0));
-        Some(())
-    })();
 
     if state.paused {
         let s = "PAUSED".to_string();
@@ -622,24 +611,12 @@ impl Render for OrbitalContext {
             ));
         }
 
-        if !state.controllers.is_empty() {
-            sidebar.add_child(Node::hline());
-            let s = format!("{} autopiloting", state.controllers.len());
-            let id = OnClick::AutopilotingCount;
-            sidebar.add_child(
-                Node::button(s, id, Size::Grow, state.settings.ui_button_height).enabled(false),
-            );
-
-            let ids = state.controllers.iter().map(|c| c.target()).collect();
-            orbiter_list(state, &mut sidebar, 16, ids);
-        }
-
         let mut inner_topbar = sim_time_toolbar(state);
 
         if let Some(id) = state.orbital_context.following {
             let s = format!("Following {}", id);
             let id = OnClick::Nullopt;
-            let n = Node::button(s, id, 300, state.settings.ui_button_height).enabled(false);
+            let n = Node::button(s, id, 400, state.settings.ui_button_height).enabled(false);
             inner_topbar.add_child(n);
         }
 
@@ -659,7 +636,6 @@ impl Render for OrbitalContext {
 
         let notif_bar = notification_bar(state, Size::Fixed(900.0));
 
-        let throttle_controls = throttle_controls(state);
         let favorites = favorites_menu(state);
 
         let world = Node::grow()
@@ -671,8 +647,7 @@ impl Render for OrbitalContext {
                     .down()
                     .invisible()
                     .with_child(inner_topbar)
-                    .with_child(favorites)
-                    .with_child(throttle_controls),
+                    .with_child(favorites),
             )
             .with_child(
                 Node::grow()

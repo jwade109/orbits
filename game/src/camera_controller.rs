@@ -49,6 +49,11 @@ impl LinearCameraController {
         self.center += (self.target_center - self.center) * ((dt / CENTER_SMOOTHING).exp() - 1.0)
     }
 
+    pub fn follow(&mut self, p: Vec2) {
+        self.center = p;
+        self.target_center = p;
+    }
+
     pub fn handle_input(&mut self, input: &InputState) {
         const SCROLL_WHEEL_DELTA: f32 = 0.5;
         const BUTTON_ZOOM_SPEED: f32 = 0.05;

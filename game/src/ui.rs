@@ -147,9 +147,9 @@ fn context_menu(rowsize: f32, items: &[(String, OnClick, bool)]) -> Node<OnClick
         }))
 }
 
-pub const DELETE_SOMETHING_COLOR: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
+pub const DELETE_SOMETHING_COLOR: [f32; 4] = [1.0, 0.3, 0.3, 1.0];
 pub const UI_BACKGROUND_COLOR: [f32; 4] = [0.05, 0.05, 0.05, 1.0];
-pub const PILOT_FAVORITES_COLOR: [f32; 4] = [0.8, 0.8, 0.2, 1.0];
+pub const PILOT_FAVORITES_COLOR: [f32; 4] = [0.3, 0.3, 0.9, 1.0];
 pub const EXIT_OVERLAY_BACKGROUND_COLOR: [f32; 4] = [0.0, 0.0, 0.0, 0.95];
 
 pub fn top_bar(state: &GameState) -> Node<OnClick> {
@@ -519,13 +519,21 @@ pub fn favorites_menu(state: &GameState) -> Node<OnClick> {
                     b,
                     state.settings.ui_button_height,
                 );
+                let (color, text) = if Some(*id) == state.piloting() {
+                    (DELETE_SOMETHING_COLOR, "Release")
+                } else {
+                    (PILOT_FAVORITES_COLOR, "Pilot")
+                };
+
                 let p = Node::button(
-                    "",
+                    text,
                     OnClick::SetPilot(*id),
+                    state.settings.ui_button_height * 4.0,
                     state.settings.ui_button_height,
-                    state.settings.ui_button_height,
-                );
-                Some(d.with_child(p.with_color(PILOT_FAVORITES_COLOR)))
+                )
+                .with_color(color);
+
+                Some(d.with_child(p))
             })
         });
 
@@ -776,6 +784,22 @@ fn do_ui_sprites(
                 RenderLayers::layer(1),
                 UiElement,
             ));
+
+            if let Some(sprite) = n.sprite() {
+                if let Some((handle, dims)) = state.image_handles.get(sprite) {
+                    let mut transform = transform;
+                    transform.translation.z += 0.01;
+                    let sx = aabb.span.x / dims.x as f32;
+                    let sy = aabb.span.y / dims.y as f32;
+                    let s = sx.min(sy);
+                    commands.spawn((
+                        transform.with_scale(Vec3::new(s, s, 1.0)),
+                        Sprite::from_image(handle.clone()),
+                        RenderLayers::layer(1),
+                        UiElement,
+                    ));
+                }
+            }
 
             if n.is_leaf() {
                 let bounds = TextBounds {

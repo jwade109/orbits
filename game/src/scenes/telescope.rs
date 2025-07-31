@@ -46,7 +46,7 @@ impl TelescopeContext {
         self.camera.on_game_tick();
     }
 
-    pub fn handle_input(&mut self, input: &InputState) {
+    pub fn on_render_tick(&mut self, input: &InputState) {
         self.camera.handle_input(input);
     }
 

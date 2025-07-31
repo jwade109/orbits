@@ -22,9 +22,6 @@ pub struct SurfaceContext {
 
     left_click_world_pos: Option<Vec2>,
     right_click_world_pos: Option<Vec2>,
-
-    // TODO stupid
-    pub hello_yes_please_spawn_a_new_random_ship: Option<Vec2>,
 }
 
 impl Default for SurfaceContext {
@@ -35,7 +32,6 @@ impl Default for SurfaceContext {
             particles: ThrustParticleEffects::new(),
             left_click_world_pos: None,
             right_click_world_pos: None,
-            hello_yes_please_spawn_a_new_random_ship: None,
         }
     }
 }
@@ -188,13 +184,6 @@ impl SurfaceContext {
             universe
                 .surface_vehicles
                 .retain(|id, _| !self.selected.contains(id))
-        }
-
-        if input.just_pressed(KeyCode::KeyR) {
-            if let Some(p) = input.position(MouseButt::Hover, FrameId::Current) {
-                let p = self.c2w(p);
-                self.hello_yes_please_spawn_a_new_random_ship = Some(p);
-            }
         }
     }
 

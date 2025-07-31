@@ -75,6 +75,14 @@ impl Universe {
         //     vehicle.on_sim_tick();
         // }
 
+        for (_, ov) in &mut self.orbital_vehicles {
+            ov.body.on_sim_tick(
+                BodyFrameAccel::default(),
+                Vec2::ZERO,
+                PHYSICS_CONSTANT_DELTA_TIME,
+            );
+        }
+
         let gravity = self.surface.external_acceleration();
 
         for (_, sv) in &mut self.surface_vehicles {
@@ -149,7 +157,9 @@ impl Universe {
     pub fn add_orbital_vehicle(&mut self, vehicle: Vehicle, orbit: GlobalOrbit) {
         let id = self.next_entity_id();
         let orbiter = Orbiter::new(orbit, self.stamp);
-        let os = OrbitalSpacecraftEntity::new(vehicle, RigidBody::ZERO, orbiter);
+        let controller = OrbitalController::idle();
+        let os =
+            OrbitalSpacecraftEntity::new(vehicle, RigidBody::random_spin(), orbiter, controller);
         self.orbital_vehicles.insert(id, os);
     }
 
@@ -186,4 +196,27 @@ impl Universe {
         let (body, pv, _, sys) = self.planets.lookup(id, stamp)?;
         Some(ObjectLookup(id, ScenarioObject::Body(&sys.name, body), pv))
     }
+}
+
+pub fn all_orbital_ids(universe: &Universe) -> impl Iterator<Item = ObjectId> + use<'_> {
+    universe
+        .orbiter_ids()
+        .map(|id| ObjectId::Orbiter(id))
+        .chain(
+            universe
+                .planets
+                .planet_ids()
+                .into_iter()
+                .map(|id| ObjectId::Planet(id)),
+        )
+}
+
+pub fn orbiters_within_bounds(
+    universe: &Universe,
+    bounds: AABB,
+) -> impl Iterator<Item = EntityId> + use<'_> {
+    universe.orbital_vehicles.iter().filter_map(move |(id, _)| {
+        let pv = universe.lup_orbiter(*id, universe.stamp())?.pv();
+        bounds.contains(pv.pos_f32()).then(|| *id)
+    })
 }

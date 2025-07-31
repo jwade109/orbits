@@ -20,3 +20,4 @@ pub mod sounds;
 pub mod sprites;
 pub mod thrust_particles;
 pub mod ui;
+pub mod z_index;

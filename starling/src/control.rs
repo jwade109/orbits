@@ -1,21 +1,18 @@
-use crate::id::EntityId;
 use crate::nanotime::Nanotime;
 use crate::orbits::GlobalOrbit;
 use crate::planning::{best_maneuver_plan, ManeuverPlan};
 
 #[derive(Debug, Clone)]
-pub struct Controller {
-    target: EntityId,
+pub struct OrbitalController {
     last_update: Nanotime,
     current: Option<GlobalOrbit>,
     destination: Option<GlobalOrbit>,
     plan: Option<ManeuverPlan>,
 }
 
-impl Controller {
-    pub fn idle(target: EntityId) -> Self {
-        Controller {
-            target,
+impl OrbitalController {
+    pub fn idle() -> Self {
+        OrbitalController {
             last_update: Nanotime::zero(),
             current: None,
             destination: None,
@@ -97,16 +94,12 @@ impl Controller {
         self.destination.as_ref()
     }
 
-    pub fn target(&self) -> EntityId {
-        self.target
-    }
-
     pub fn plan(&self) -> Option<&ManeuverPlan> {
         self.plan.as_ref()
     }
 }
 
-impl std::fmt::Display for Controller {
+impl std::fmt::Display for OrbitalController {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let c = self
             .current

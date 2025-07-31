@@ -22,6 +22,14 @@ impl RigidBody {
         angular_velocity: 0.0,
     };
 
+    pub fn random_spin() -> Self {
+        Self {
+            pv: PV::ZERO,
+            angle: rand(0.0, PI * 2.0),
+            angular_velocity: rand(-0.3, 0.3),
+        }
+    }
+
     pub fn on_sim_tick(&mut self, a: BodyFrameAccel, gravity: Vec2, dt: Nanotime) {
         let linear = if a.linear != Vec2::ZERO {
             rotate(a.linear, self.angle)

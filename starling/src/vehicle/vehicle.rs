@@ -538,7 +538,7 @@ impl Vehicle {
     }
 
     pub fn has_radar(&self) -> bool {
-        !self.radars().count() > 0
+        self.radars().count() > 0
     }
 
     pub fn average_linear_exhaust_velocity(&self) -> f32 {
