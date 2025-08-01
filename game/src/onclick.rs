@@ -1,4 +1,5 @@
 use crate::scenes::{CursorMode, ThrottleLevel};
+use crate::sim_rate::SimRate;
 use starling::prelude::*;
 use std::path::PathBuf;
 
@@ -20,7 +21,7 @@ pub enum OnClick {
     Group(EntityId),
     TogglePause,
     World,
-    SimSpeed(u32),
+    SimSpeed(SimRate),
     GlobalOrbit(usize),
     DeleteOrbit(usize),
     DeleteOrbiter,
@@ -57,6 +58,7 @@ pub enum OnClick {
     DecreaseGravity,
     IncreaseWind,
     DecreaseWind,
+    ToggleSurfaceSleep,
     SetRecipe(PartId, RecipeListing),
     ClearContents(PartId),
     GoToSurface(EntityId),

@@ -438,7 +438,7 @@ pub fn date_info(state: &GameState) -> String {
         if state.using_batch_mode { "B" } else { "S" },
         date,
         state.actual_universe_ticks_per_game_tick,
-        state.universe_ticks_per_game_tick,
+        state.universe_ticks_per_game_tick.as_ticks(),
         state.exec_time.as_micros()
     )
 }

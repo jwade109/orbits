@@ -290,6 +290,13 @@ fn surface_scene_ui(state: &GameState) -> Option<Tree<OnClick>> {
         state.settings.ui_button_height,
     );
 
+    let toggle_sleep = Node::button(
+        "Toggle Sleep",
+        OnClick::ToggleSurfaceSleep,
+        Size::Grow,
+        state.settings.ui_button_height,
+    );
+
     let main_area = Node::grow().invisible();
 
     let wrapper = Node::structural(350, Size::Fit)
@@ -299,7 +306,8 @@ fn surface_scene_ui(state: &GameState) -> Option<Tree<OnClick>> {
         .with_child(increase_gravity)
         .with_child(decrease_gravity)
         .with_child(increase_wind)
-        .with_child(decrease_wind);
+        .with_child(decrease_wind)
+        .with_child(toggle_sleep);
 
     let surfaces = Node::structural(350, Size::Fit)
         .down()
@@ -343,7 +351,13 @@ fn surface_scene_ui(state: &GameState) -> Option<Tree<OnClick>> {
             .tight()
             .down();
         let text = vehicle_info(&sv.vehicle);
-        let text = format!("{}Mode: {:?}", text, sv.controller.mode());
+        let text = format!(
+            "{}Mode: {:?}\nP: {:0.2}\nV: {:0.2}",
+            text,
+            sv.controller.mode(),
+            sv.body.pv.pos_f32(),
+            sv.body.pv.vel_f32(),
+        );
         for line in text.lines() {
             n.add_child(
                 Node::text(500, state.settings.ui_button_height, line)

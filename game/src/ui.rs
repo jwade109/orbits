@@ -23,10 +23,10 @@ pub enum InteractionEvent {
     Spawn,
     Console,
     Delete,
-    SimSlower(i32),
+    SimSlower,
     SimPause,
-    SimFaster(i32),
-    SetSim(u32),
+    SimFaster,
+    SetSim(SimRate),
     ClearSelection,
     ClearOrbitQueue,
     Escape,
@@ -167,9 +167,9 @@ pub fn top_bar(state: &GameState) -> Node<OnClick> {
         .with_child(Node::vline())
         .with_children(SimRate::all().map(|r| {
             let s = r.as_str();
-            let id = OnClick::SimSpeed(r.as_ticks());
-            Node::button(s, id, 100, state.settings.ui_button_height)
-                .enabled(state.universe_ticks_per_game_tick != r.as_ticks())
+            let id = OnClick::SimSpeed(r);
+            Node::button(s, id, 50, state.settings.ui_button_height)
+                .enabled(state.universe_ticks_per_game_tick != r)
         }))
         .with_child(
             Node::text(

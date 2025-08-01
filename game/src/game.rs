@@ -11,6 +11,7 @@ use crate::scenes::{
     SceneType, StaticSpriteDescriptor, SurfaceContext, TelescopeContext, TextLabel,
 };
 use crate::settings::*;
+use crate::sim_rate::SimRate;
 use crate::sounds::*;
 use crate::ui::InteractionEvent;
 use bevy::color::palettes::css::*;
@@ -190,7 +191,7 @@ pub struct GameState {
     pub wall_time: Nanotime,
 
     pub physics_duration: Nanotime,
-    pub universe_ticks_per_game_tick: u32,
+    pub universe_ticks_per_game_tick: SimRate,
     pub paused: bool,
     pub exec_time: std::time::Duration,
     pub actual_universe_ticks_per_game_tick: u32,
@@ -287,7 +288,7 @@ impl GameState {
             surface_context: SurfaceContext::default(),
             wall_time: Nanotime::zero(),
             physics_duration: Nanotime::days(7),
-            universe_ticks_per_game_tick: 3,
+            universe_ticks_per_game_tick: SimRate::RealTime,
             actual_universe_ticks_per_game_tick: 0,
             using_batch_mode: false,
             paused: false,
@@ -483,7 +484,7 @@ impl Render for GameState {
             format!("Universe time: {}", state.universe.stamp()),
             format!(
                 "Ideal universe ticks per game tick: {}",
-                state.universe_ticks_per_game_tick
+                state.universe_ticks_per_game_tick.as_ticks(),
             ),
             format!(
                 "Actual universe ticks per game tick: {}",
@@ -892,8 +893,8 @@ impl GameState {
                 self.commit_mission();
             }
             OnClick::Exit => self.shutdown_with_prompt(),
-            OnClick::SimSpeed(s) => {
-                self.universe_ticks_per_game_tick = s;
+            OnClick::SimSpeed(r) => {
+                self.universe_ticks_per_game_tick = r;
             }
             OnClick::DeleteOrbit(i) => {
                 self.orbital_context.queued_orbits.remove(i);
@@ -963,19 +964,39 @@ impl GameState {
                 self.editor_context.show_vehicle_info = !self.editor_context.show_vehicle_info;
             }
             OnClick::SendToSurface => {
-                // let mut vehicle = self.editor_context.vehicle.clone();
-                // vehicle.build_all();
-                // self.universe.add_surface_vehicle(vehicle, Vec2::Y * 100.0);
+                let mut vehicle = self.editor_context.vehicle.clone();
+                vehicle.build_all();
+                self.universe.add_surface_vehicle(
+                    self.surface_context.current_surface,
+                    vehicle,
+                    Vec2::Y * 100.0,
+                );
             }
             OnClick::NormalizeCraft => self.editor_context.normalize_coordinates(),
             OnClick::SwapOwnshipTarget => _ = self.swap_ownship_target(),
             OnClick::PinObject(id) => _ = self.pinned.insert(id),
             OnClick::UnpinObject(id) => _ = self.pinned.remove(&id),
             OnClick::ReloadGame => _ = self.reload(),
-            // OnClick::IncreaseGravity => self.universe.surface.increase_gravity(),
-            // OnClick::DecreaseGravity => self.universe.surface.decrease_gravity(),
-            // OnClick::IncreaseWind => self.universe.surface.increase_wind(),
-            // OnClick::DecreaseWind => self.universe.surface.decrease_wind(),
+            OnClick::IncreaseGravity => {
+                self.universe
+                    .increase_gravity(self.surface_context.current_surface);
+            }
+            OnClick::DecreaseGravity => {
+                self.universe
+                    .decrease_gravity(self.surface_context.current_surface);
+            }
+            OnClick::IncreaseWind => {
+                self.universe
+                    .increase_wind(self.surface_context.current_surface);
+            }
+            OnClick::DecreaseWind => {
+                self.universe
+                    .decrease_wind(self.surface_context.current_surface);
+            }
+            OnClick::ToggleSurfaceSleep => {
+                self.universe
+                    .toggle_sleep(self.surface_context.current_surface);
+            }
             OnClick::SetRecipe(id, recipe) => {
                 if self.editor_context.vehicle.set_recipe(id, recipe) {
                     self.notice(format!("Set recipe for part {:?} to {:?}", id, recipe));
@@ -1189,7 +1210,7 @@ impl GameState {
                 self.exec_time,
                 self.using_batch_mode,
             ) = self.universe.on_sim_ticks(
-                self.universe_ticks_per_game_tick,
+                self.universe_ticks_per_game_tick.as_ticks(),
                 &signals,
                 std::time::Duration::from_millis(10),
             )
@@ -1306,24 +1327,18 @@ fn process_interaction(
         InteractionEvent::ClearOrbitQueue => {
             state.orbital_context.queued_orbits.clear();
         }
-        InteractionEvent::SimSlower(delta) => {
-            if state.universe_ticks_per_game_tick > (*delta as u32) {
-                state.universe_ticks_per_game_tick = u32::clamp(
-                    state.universe_ticks_per_game_tick - (*delta as u32),
-                    MIN_SIM_SPEED,
-                    MAX_SIM_SPEED,
-                );
+        InteractionEvent::SimSlower => {
+            if let Some(t) = enum_iterator::previous(&state.universe_ticks_per_game_tick) {
+                state.universe_ticks_per_game_tick = t;
             }
         }
-        InteractionEvent::SimFaster(delta) => {
-            state.universe_ticks_per_game_tick = u32::clamp(
-                state.universe_ticks_per_game_tick + (*delta as u32),
-                MIN_SIM_SPEED,
-                MAX_SIM_SPEED,
-            );
+        InteractionEvent::SetSim(r) => {
+            state.universe_ticks_per_game_tick = *r;
         }
-        InteractionEvent::SetSim(s) => {
-            state.universe_ticks_per_game_tick = u32::clamp(*s, MIN_SIM_SPEED, MAX_SIM_SPEED);
+        InteractionEvent::SimFaster => {
+            if let Some(t) = enum_iterator::next(&state.universe_ticks_per_game_tick) {
+                state.universe_ticks_per_game_tick = t;
+            }
         }
         InteractionEvent::SimPause => {
             state.paused = !state.paused;

@@ -1,4 +1,5 @@
 use crate::game::GameState;
+use crate::sim_rate::SimRate;
 use crate::ui::InteractionEvent;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
@@ -17,13 +18,9 @@ pub fn keyboard_input(
 
     for key in keys.get_just_pressed() {
         let e = match (ctrl, shift, key) {
-            (false, _, KeyCode::Period) => InteractionEvent::SimFaster(1),
-            (false, _, KeyCode::Comma) => InteractionEvent::SimSlower(1),
-            (true, false, KeyCode::Period) => InteractionEvent::SimFaster(10),
-            (true, false, KeyCode::Comma) => InteractionEvent::SimSlower(10),
-            (true, true, KeyCode::Period) => InteractionEvent::SimFaster(100),
-            (true, true, KeyCode::Comma) => InteractionEvent::SimSlower(100),
-            (_, _, KeyCode::Slash) => InteractionEvent::SetSim(1),
+            (_, _, KeyCode::Period) => InteractionEvent::SimFaster,
+            (_, _, KeyCode::Comma) => InteractionEvent::SimSlower,
+            (_, _, KeyCode::Slash) => InteractionEvent::SetSim(SimRate::RealTime),
             (_, _, KeyCode::Delete) => InteractionEvent::Delete,
             (_, _, KeyCode::KeyG) => InteractionEvent::CreateGroup,
             (_, _, KeyCode::KeyC) => InteractionEvent::ClearMissions,

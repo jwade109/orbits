@@ -73,7 +73,9 @@ impl Universe {
         let mut actual_ticks = 0;
         let mut exec_time = Duration::ZERO;
 
-        let batch_mode = if signals.is_empty() {
+        let surfaces_awake = self.landing_sites.iter().any(|(_, ls)| ls.is_awake);
+
+        let batch_mode = if !surfaces_awake && signals.is_empty() {
             self.run_batch_ticks(ticks);
             exec_time = std::time::Instant::now() - start;
             actual_ticks = ticks;
@@ -157,7 +159,7 @@ impl Universe {
 
             ov.reference_orbit_age += PHYSICS_CONSTANT_DELTA_TIME;
 
-            if ov.reference_orbit_age > Nanotime::secs(1) {
+            if ov.reference_orbit_age > Nanotime::millis(100) {
                 ov.reference_orbit_age = Nanotime::zero();
                 if !ov.body.pv.is_zero() {
                     if let Some(orbit) = ov.current_orbit(self.stamp) {
@@ -296,6 +298,36 @@ impl Universe {
         &self,
     ) -> impl Iterator<Item = (&EntityId, &SurfaceSpacecraftEntity)> + use<'_> {
         self.surface_vehicles.iter()
+    }
+
+    pub fn increase_gravity(&mut self, surface_id: EntityId) -> Option<()> {
+        let ls = self.landing_sites.get_mut(&surface_id)?;
+        ls.surface.increase_gravity();
+        Some(())
+    }
+
+    pub fn decrease_gravity(&mut self, surface_id: EntityId) -> Option<()> {
+        let ls = self.landing_sites.get_mut(&surface_id)?;
+        ls.surface.decrease_gravity();
+        Some(())
+    }
+
+    pub fn increase_wind(&mut self, surface_id: EntityId) -> Option<()> {
+        let ls = self.landing_sites.get_mut(&surface_id)?;
+        ls.surface.increase_wind();
+        Some(())
+    }
+
+    pub fn decrease_wind(&mut self, surface_id: EntityId) -> Option<()> {
+        let ls = self.landing_sites.get_mut(&surface_id)?;
+        ls.surface.decrease_wind();
+        Some(())
+    }
+
+    pub fn toggle_sleep(&mut self, surface_id: EntityId) -> Option<()> {
+        let ls = self.landing_sites.get_mut(&surface_id)?;
+        ls.is_awake = !ls.is_awake;
+        Some(())
     }
 }
 
