@@ -1,17 +1,19 @@
+use crate::id::EntityId;
 use crate::vehicle::VehicleControl;
+use std::collections::HashMap;
 
 pub struct ControlSignals {
-    pub gravity: f32,
-    pub piloting: Option<VehicleControl>,
-    pub toggle_mode: bool,
+    pub piloting_commands: HashMap<EntityId, VehicleControl>,
 }
 
 impl ControlSignals {
     pub fn new() -> Self {
         Self {
-            gravity: 5.0,
-            piloting: None,
-            toggle_mode: false,
+            piloting_commands: HashMap::new(),
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.piloting_commands.is_empty()
     }
 }

@@ -62,6 +62,10 @@ impl PV {
             Some(*self)
         }
     }
+
+    pub fn is_zero(&self) -> bool {
+        self.pos == DVec2::ZERO && self.vel == DVec2::ZERO
+    }
 }
 
 impl std::fmt::Display for PV {

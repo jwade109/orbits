@@ -304,6 +304,13 @@ impl OrbitalContext {
             return;
         }
 
+        if let Some(p) = input.on_frame(MouseButt::Right, FrameId::Down) {
+            let w = self.c2w(p);
+            if let Some(ObjectId::Orbiter(id)) = nearest(universe, w) {
+                self.piloting = Some(id);
+            }
+        }
+
         if let Some(p) = input.double_click() {
             let w = self.c2w(p);
             if let Some(id) = nearest(universe, w) {
@@ -356,16 +363,15 @@ pub fn get_landing_site_labels(state: &GameState) -> Vec<TextLabel> {
     };
 
     let mut ret = Vec::new();
-    for (pid, sites) in &state.universe.landing_sites {
-        for (angle, name, _) in sites {
-            let pos = landing_site_position(&state.universe, *pid, *angle);
-            if let Some(pos) = pos {
-                let pos = ctx.w2c(pos);
-                let offset = rotate(Vec2::X, *angle) * LANDING_SITE_MOUSEOVER_DISTANCE;
-                if pos.distance(cursor) < LANDING_SITE_MOUSEOVER_DISTANCE {
-                    let label = TextLabel::new(name.clone(), pos + offset, 0.7);
-                    ret.push(label);
-                }
+    for (id, site) in &state.universe.landing_sites {
+        let pos = landing_site_position(&state.universe, site.planet, site.angle);
+        if let Some(pos) = pos {
+            let pos = ctx.w2c(pos);
+            let offset = rotate(Vec2::X, site.angle) * LANDING_SITE_MOUSEOVER_DISTANCE;
+            if pos.distance(cursor) < LANDING_SITE_MOUSEOVER_DISTANCE {
+                let text = format!("LS {} {}", site.name.clone(), id);
+                let label = TextLabel::new(text, pos + offset, 0.7);
+                ret.push(label);
             }
         }
     }
@@ -427,8 +433,9 @@ pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> 
 pub fn date_info(state: &GameState) -> String {
     let date = state.universe.stamp().to_date();
     format!(
-        "{}{} (x{}/{} {} us)",
+        "{}({}) {} (x{}/{} {} us)",
         if state.paused { "[PAUSED] " } else { "" },
+        if state.using_batch_mode { "B" } else { "S" },
         date,
         state.actual_universe_ticks_per_game_tick,
         state.universe_ticks_per_game_tick,
@@ -640,7 +647,7 @@ impl Render for OrbitalContext {
 
         let notif_bar = notification_bar(state, Size::Fixed(900.0));
 
-        let favorites = favorites_menu(state);
+        let pinned = pinned_menu(state);
 
         let world = Node::grow()
             .down()
@@ -651,7 +658,7 @@ impl Render for OrbitalContext {
                     .down()
                     .invisible()
                     .with_child(inner_topbar)
-                    .with_child(favorites),
+                    .with_child(pinned),
             )
             .with_child(
                 Node::grow()

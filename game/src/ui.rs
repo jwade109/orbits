@@ -492,15 +492,13 @@ pub fn left_right_arrows(
         .with_child(right)
 }
 
-pub fn favorites_menu(state: &GameState) -> Node<OnClick> {
+pub fn pinned_menu(state: &GameState) -> Node<OnClick> {
     let mut wrapper = Node::structural(600, Size::Fit)
         .down()
-        .with_child(
-            Node::text(Size::Grow, state.settings.ui_button_height, "Favorites").enabled(false),
-        )
+        .with_child(Node::text(Size::Grow, state.settings.ui_button_height, "Pnned").enabled(false))
         .with_color(UI_BACKGROUND_COLOR)
         .with_children({
-            state.favorites.iter().filter_map(|id| {
+            state.pinned.iter().filter_map(|id| {
                 let name = state
                     .universe
                     .orbital_vehicles
@@ -515,7 +513,7 @@ pub fn favorites_menu(state: &GameState) -> Node<OnClick> {
                     state.settings.ui_button_height,
                 );
                 let d = delete_wrapper(
-                    OnClick::RemoveFromFavorites(*id),
+                    OnClick::UnpinObject(*id),
                     b,
                     state.settings.ui_button_height,
                 );
@@ -542,11 +540,11 @@ pub fn favorites_menu(state: &GameState) -> Node<OnClick> {
         let s = format!("Add {}", id);
         let b = Node::button(
             s,
-            OnClick::AddToFavorites(id),
+            OnClick::PinObject(id),
             Size::Grow,
             state.settings.ui_button_height,
         )
-        .enabled(!state.favorites.contains(&id));
+        .enabled(!state.pinned.contains(&id));
         wrapper.add_child(b);
     }
 

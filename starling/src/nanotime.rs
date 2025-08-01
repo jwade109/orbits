@@ -5,6 +5,8 @@ use std::ops::{Add, AddAssign, Div, Mul, Rem, RemAssign, Sub, SubAssign};
 pub struct Nanotime(i64);
 
 impl Nanotime {
+    pub const ZERO: Self = Self(0);
+
     pub const PER_MILLI: i64 = 1000000;
     pub const PER_SEC: i64 = Nanotime::PER_MILLI * 1000;
     pub const PER_MINUTE: i64 = Nanotime::PER_SEC * 60;

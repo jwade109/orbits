@@ -2,7 +2,7 @@ use crate::aabb::*;
 use crate::math::*;
 use splines::Spline;
 
-pub const TILES_PER_CHUNK_SIDE: usize = 10;
+pub const TILES_PER_CHUNK_SIDE: usize = 20;
 
 pub const CHUNK_WIDTH_METERS: f32 = 10.0;
 

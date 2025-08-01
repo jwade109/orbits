@@ -194,13 +194,14 @@ pub struct GameState {
     pub paused: bool,
     pub exec_time: std::time::Duration,
     pub actual_universe_ticks_per_game_tick: u32,
+    pub using_batch_mode: bool,
 
     /// Map of names to parts to their definitions. Loaded from
     /// the assets/parts directory
     pub part_database: HashMap<String, PartPrototype>,
 
     pub starfield: Vec<(Vec3, Srgba, f32, f32)>,
-    pub favorites: HashSet<EntityId>,
+    pub pinned: HashSet<EntityId>,
 
     pub scenes: Vec<Scene>,
     pub current_scene_idx: usize,
@@ -288,11 +289,12 @@ impl GameState {
             physics_duration: Nanotime::days(7),
             universe_ticks_per_game_tick: 3,
             actual_universe_ticks_per_game_tick: 0,
+            using_batch_mode: false,
             paused: false,
             exec_time: std::time::Duration::new(0, 0),
             part_database,
             starfield: generate_starfield(),
-            favorites: HashSet::new(),
+            pinned: HashSet::new(),
             scenes: vec![
                 Scene::main_menu(),
                 Scene::orbital(),
@@ -311,10 +313,23 @@ impl GameState {
             vehicle_names,
         };
 
+        let surface_id = g
+            .universe
+            .landing_sites
+            .iter()
+            .next()
+            .map(|(e, _)| *e)
+            .unwrap_or(EntityId(0));
+
+        g.surface_context.current_surface = surface_id;
+
         for model in ["remora", "icecream", "lander", "remora", "pollux"] {
             if let Some(v) = g.get_vehicle_by_model(model) {
-                g.universe
-                    .add_surface_vehicle(v, Vec2::Y * 100.0 + randvec(20.0, 50.0));
+                g.universe.add_surface_vehicle(
+                    surface_id,
+                    v,
+                    Vec2::Y * 100.0 + randvec(20.0, 50.0),
+                );
             }
         }
 
@@ -346,8 +361,8 @@ impl GameState {
         }
 
         for (id, _) in &g.universe.orbital_vehicles {
-            if g.favorites.len() < 5 {
-                g.favorites.insert(*id);
+            if g.pinned.len() < 5 {
+                g.pinned.insert(*id);
             }
         }
 
@@ -948,19 +963,19 @@ impl GameState {
                 self.editor_context.show_vehicle_info = !self.editor_context.show_vehicle_info;
             }
             OnClick::SendToSurface => {
-                let mut vehicle = self.editor_context.vehicle.clone();
-                vehicle.build_all();
-                self.universe.add_surface_vehicle(vehicle, Vec2::Y * 100.0);
+                // let mut vehicle = self.editor_context.vehicle.clone();
+                // vehicle.build_all();
+                // self.universe.add_surface_vehicle(vehicle, Vec2::Y * 100.0);
             }
             OnClick::NormalizeCraft => self.editor_context.normalize_coordinates(),
             OnClick::SwapOwnshipTarget => _ = self.swap_ownship_target(),
-            OnClick::AddToFavorites(id) => _ = self.favorites.insert(id),
-            OnClick::RemoveFromFavorites(id) => _ = self.favorites.remove(&id),
+            OnClick::PinObject(id) => _ = self.pinned.insert(id),
+            OnClick::UnpinObject(id) => _ = self.pinned.remove(&id),
             OnClick::ReloadGame => _ = self.reload(),
-            OnClick::IncreaseGravity => self.universe.surface.increase_gravity(),
-            OnClick::DecreaseGravity => self.universe.surface.decrease_gravity(),
-            OnClick::IncreaseWind => self.universe.surface.increase_wind(),
-            OnClick::DecreaseWind => self.universe.surface.decrease_wind(),
+            // OnClick::IncreaseGravity => self.universe.surface.increase_gravity(),
+            // OnClick::DecreaseGravity => self.universe.surface.decrease_gravity(),
+            // OnClick::IncreaseWind => self.universe.surface.increase_wind(),
+            // OnClick::DecreaseWind => self.universe.surface.decrease_wind(),
             OnClick::SetRecipe(id, recipe) => {
                 if self.editor_context.vehicle.set_recipe(id, recipe) {
                     self.notice(format!("Set recipe for part {:?} to {:?}", id, recipe));
@@ -976,6 +991,16 @@ impl GameState {
                     self.notice(format!("Cleared inventory for part {:?}", id));
                 } else {
                     self.notice(format!("Failed to clear inventory for part {:?}", id));
+                }
+            }
+            OnClick::GoToSurface(id) => {
+                self.surface_context.current_surface = id;
+                if let Some(idx) = self
+                    .scenes
+                    .iter()
+                    .position(|s| *s.kind() == SceneType::Surface)
+                {
+                    self.current_scene_idx = idx;
                 }
             }
 
@@ -1145,31 +1170,29 @@ impl GameState {
     pub fn on_game_tick(&mut self) {
         self.game_ticks += 1;
 
-        let start = std::time::Instant::now();
-
         let mut signals = ControlSignals::new();
 
-        signals.gravity = if self.input.is_pressed(KeyCode::KeyG) {
-            80.0
-        } else {
-            5.0
-        };
-
-        signals.piloting = keyboard_control_law(&self.input);
-        signals.toggle_mode = self.input.just_pressed(KeyCode::KeyM);
+        if let Some(id) = self.piloting() {
+            if let Some(cmd) = keyboard_control_law(&self.input) {
+                if cmd != VehicleControl::NULLOPT {
+                    signals.piloting_commands.insert(id, cmd);
+                }
+            }
+        }
 
         // BOOKMARK gameloop
         self.actual_universe_ticks_per_game_tick = 0;
         self.exec_time = std::time::Duration::ZERO;
         if !self.paused {
-            for _ in 0..self.universe_ticks_per_game_tick {
-                self.universe.on_sim_tick(&signals);
-                self.exec_time = std::time::Instant::now() - start;
-                self.actual_universe_ticks_per_game_tick += 1;
-                if self.exec_time > std::time::Duration::from_millis(10) {
-                    break;
-                }
-            }
+            (
+                self.actual_universe_ticks_per_game_tick,
+                self.exec_time,
+                self.using_batch_mode,
+            ) = self.universe.on_sim_ticks(
+                self.universe_ticks_per_game_tick,
+                &signals,
+                std::time::Duration::from_millis(10),
+            )
         }
 
         let old_sim_time = self.universe.stamp();
@@ -1254,6 +1277,7 @@ fn on_game_tick(mut state: ResMut<GameState>, mut images: ResMut<Assets<Image>>)
     }
 
     crate::generate_ship_sprites::proc_gen_ship_sprites(&mut state, &mut images);
+    crate::generate_ship_sprites::proc_gen_terrain_sprites(&mut state, &mut images);
 }
 
 fn on_render_tick(mut state: ResMut<GameState>) {

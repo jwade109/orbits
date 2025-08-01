@@ -34,8 +34,8 @@ pub enum OnClick {
     ClearTarget,
     ClearPilot,
     SwapOwnshipTarget,
-    AddToFavorites(EntityId),
-    RemoveFromFavorites(EntityId),
+    PinObject(EntityId),
+    UnpinObject(EntityId),
     SelectPart(String),
     ToggleLayer(PartLayer),
     LoadVehicle(PathBuf),
@@ -59,5 +59,6 @@ pub enum OnClick {
     DecreaseWind,
     SetRecipe(PartId, RecipeListing),
     ClearContents(PartId),
+    GoToSurface(EntityId),
     Nullopt,
 }

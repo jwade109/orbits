@@ -81,6 +81,8 @@ impl ThrusterInstanceData {
 
     pub fn set_throttle(&mut self, throttle: f32) {
         self.target_throttle = throttle.clamp(0.0, 1.0);
+        // TODO!
+        self.throttle = self.target_throttle;
     }
 
     pub fn seconds_remaining(&self) -> f32 {

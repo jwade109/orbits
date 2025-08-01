@@ -8,7 +8,7 @@ use crate::input::InputState;
 use crate::input::{FrameId, MouseButt};
 use crate::names::*;
 use crate::onclick::OnClick;
-use crate::scenes::{CameraProjection, Render, TextLabel};
+use crate::scenes::{CameraProjection, Render};
 use crate::thrust_particles::ThrustParticleEffects;
 use crate::ui::*;
 use bevy::color::palettes::css::*;
@@ -120,7 +120,7 @@ impl EditorContext {
 
     pub fn new_craft(&mut self) {
         self.filepath = None;
-        self.vehicle.clear();
+        self.vehicle = Vehicle::new();
         self.cursor_state = CursorState::None;
         self.update();
     }
@@ -342,40 +342,6 @@ impl EditorContext {
         };
         Some((pos, part))
     }
-}
-
-pub fn vehicle_info(vehicle: &Vehicle) -> String {
-    let bounds = vehicle.aabb();
-    let fuel_economy = if vehicle.remaining_dv() > 0.0 {
-        vehicle.fuel_mass().to_kg_f32() / vehicle.remaining_dv()
-    } else {
-        0.0
-    };
-
-    let fuel_mass = vehicle.fuel_mass();
-    let rate = vehicle.fuel_consumption_rate();
-    let pct = vehicle.fuel_percentage() * 100.0;
-
-    [
-        format!("{}", vehicle.title()),
-        format!("Discriminator: {:0x}", vehicle.discriminator()),
-        format!("Dry mass: {}", vehicle.dry_mass()),
-        format!("Fuel: {} ({:0.0}%)", fuel_mass, pct),
-        format!("Current mass: {}", vehicle.total_mass()),
-        format!("Thrusters: {}", vehicle.thruster_count()),
-        format!("Thrust: {:0.2} kN", vehicle.max_thrust() / 1000.0),
-        format!("Tanks: {}", vehicle.tank_count()),
-        format!("Accel: {:0.2} g", vehicle.accel() / 9.81),
-        format!("BFA: {:0.2} g", vehicle.body_frame_accel().linear / 9.81),
-        format!("Ve: {:0.1} s", vehicle.average_linear_exhaust_velocity()),
-        format!("DV: {:0.1} m/s", vehicle.remaining_dv()),
-        format!("WH: {:0.2}x{:0.2}", bounds.span.x, bounds.span.y),
-        format!("Econ: {:0.2} kg-s/m", fuel_economy),
-        format!("Fuel: {:0.1}/s", rate),
-    ]
-    .into_iter()
-    .map(|s| format!("{s}\n"))
-    .collect()
 }
 
 fn draw_highlight_box(canvas: &mut Canvas, aabb: AABB, ctx: &impl CameraProjection, color: Srgba) {

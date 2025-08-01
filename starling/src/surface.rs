@@ -26,13 +26,13 @@ impl Surface {
 
         let elevation = Spline::from_vec(keys);
         let mut terrain = HashMap::new();
-        for x in -15..=15 {
+        for x in -20..=20 {
             let x_elev = x as f32 * CHUNK_WIDTH_METERS;
 
             if let Some(y_elev) = elevation.clamped_sample(x_elev) {
                 let chunk_pos = world_pos_to_chunk(Vec2::new(x_elev, y_elev));
 
-                for yoff in -1..=1 {
+                for yoff in -5..=2 {
                     let chunk_pos = chunk_pos + IVec2::Y * yoff;
                     let chunk = TerrainChunk::with_elevation(&elevation, chunk_pos);
                     terrain.insert(chunk_pos, chunk);

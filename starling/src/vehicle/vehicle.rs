@@ -72,6 +72,7 @@ pub struct Vehicle {
     center_of_mass: Vec2,
     total_mass: Mass,
     moment_of_inertia: f32,
+    is_thrusting: bool,
 }
 
 impl Vehicle {
@@ -123,6 +124,7 @@ impl Vehicle {
             center_of_mass: Vec2::ZERO,
             total_mass: Mass::ZERO,
             moment_of_inertia: 0.0,
+            is_thrusting: false,
         };
 
         ret.update();
@@ -541,7 +543,8 @@ impl Vehicle {
     }
 
     pub fn is_thrusting(&self) -> bool {
-        self.thrusters().any(|(t, d)| d.is_thrusting(t))
+        self.is_thrusting
+        // self.thrusters().any(|(t, d)| d.is_thrusting(t))
     }
 
     pub fn has_radar(&self) -> bool {
@@ -603,6 +606,10 @@ impl Vehicle {
     }
 
     fn current_angular_acceleration(&self) -> f32 {
+        if !self.is_thrusting() {
+            return 0.0;
+        }
+
         let mut aa = 0.0;
         let moa = self.moment_of_inertia();
         let com = self.center_of_mass();
@@ -625,6 +632,10 @@ impl Vehicle {
     }
 
     fn current_body_frame_linear_acceleration(&self) -> Vec2 {
+        if !self.is_thrusting() {
+            return Vec2::ZERO;
+        }
+
         let mut body_frame_force = Vec2::ZERO;
         let mass = self.total_mass().to_kg_f32();
 
@@ -640,6 +651,8 @@ impl Vehicle {
 
     pub fn set_thrust_control(&mut self, control: VehicleControl) {
         let is_nullopt = control == VehicleControl::NULLOPT;
+
+        self.is_thrusting = false;
 
         if self.is_thrust_idle && is_nullopt {
             // nothing to do
@@ -689,6 +702,8 @@ impl Vehicle {
                         0.0
                     }
                 };
+
+                self.is_thrusting |= throttle > 0.0;
 
                 d.set_throttle(throttle);
             }
@@ -752,6 +767,14 @@ impl Vehicle {
                 d.set_throttle(throttle);
             }
         }
+    }
+
+    pub fn zero_all_thrusters(&mut self) {
+        if !self.is_thrusting {
+            return;
+        }
+        self.set_all_thrusters(0.0);
+        self.is_thrusting = false;
     }
 
     pub fn radars(&self) -> impl Iterator<Item = &Radar> + use<'_> {
@@ -882,4 +905,38 @@ impl Vehicle {
 
         self.update();
     }
+}
+
+pub fn vehicle_info(vehicle: &Vehicle) -> String {
+    let bounds = vehicle.aabb();
+    let fuel_economy = if vehicle.remaining_dv() > 0.0 {
+        vehicle.fuel_mass().to_kg_f32() / vehicle.remaining_dv()
+    } else {
+        0.0
+    };
+
+    let fuel_mass = vehicle.fuel_mass();
+    let rate = vehicle.fuel_consumption_rate();
+    let pct = vehicle.fuel_percentage() * 100.0;
+
+    [
+        format!("{}", vehicle.title()),
+        format!("Discriminator: {:0x}", vehicle.discriminator()),
+        format!("Dry mass: {}", vehicle.dry_mass()),
+        format!("Fuel: {} ({:0.0}%)", fuel_mass, pct),
+        format!("Current mass: {}", vehicle.total_mass()),
+        format!("Thrusters: {}", vehicle.thruster_count()),
+        format!("Thrust: {:0.2} kN", vehicle.max_thrust() / 1000.0),
+        format!("Tanks: {}", vehicle.tank_count()),
+        format!("Accel: {:0.2} g", vehicle.accel() / 9.81),
+        format!("BFA: {:0.2} g", vehicle.body_frame_accel().linear / 9.81),
+        format!("Ve: {:0.1} s", vehicle.average_linear_exhaust_velocity()),
+        format!("DV: {:0.1} m/s", vehicle.remaining_dv()),
+        format!("WH: {:0.2}x{:0.2}", bounds.span.x, bounds.span.y),
+        format!("Econ: {:0.2} kg-s/m", fuel_economy),
+        format!("Fuel: {:0.1}/s", rate),
+    ]
+    .into_iter()
+    .map(|s| format!("{s}\n"))
+    .collect()
 }

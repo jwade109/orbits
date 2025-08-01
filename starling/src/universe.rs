@@ -1,6 +1,7 @@
 use crate::control_signals::ControlSignals;
 use crate::prelude::*;
 use std::collections::{HashMap, HashSet};
+use std::time::{Duration, Instant};
 
 pub struct Universe {
     stamp: Nanotime,
@@ -9,40 +10,43 @@ pub struct Universe {
     pub orbital_vehicles: HashMap<EntityId, OrbitalSpacecraftEntity>,
     pub surface_vehicles: HashMap<EntityId, SurfaceSpacecraftEntity>,
     pub planets: PlanetarySystem,
-    pub surface: Surface,
-    pub landing_sites: HashMap<EntityId, Vec<(f32, String, Surface)>>,
+    pub landing_sites: HashMap<EntityId, LandingSiteEntity>,
     pub constellations: HashMap<EntityId, EntityId>,
 }
 
-fn generate_landing_sites(pids: &[EntityId]) -> HashMap<EntityId, Vec<(f32, String, Surface)>> {
+fn generate_landing_sites(pids: &[EntityId]) -> Vec<LandingSiteEntity> {
     pids.iter()
-        .map(|pid| {
+        .flat_map(|pid| {
             let n = randint(3, 12);
-            let sites: Vec<_> = (0..n)
-                .map(|_| {
-                    let angle = rand(0.0, 2.0 * PI);
-                    let name = get_random_name();
-                    (angle, name, Surface::random())
-                })
-                .collect();
-            (*pid, sites)
+            (0..n).map(|_| {
+                let angle = rand(0.0, 2.0 * PI);
+                let name = get_random_name();
+                LandingSiteEntity::new(name, Surface::random(), *pid, angle)
+            })
         })
         .collect()
 }
 
 impl Universe {
     pub fn new(planets: PlanetarySystem) -> Self {
-        Self {
+        let ids = planets.planet_ids();
+
+        let mut ret = Self {
             stamp: Nanotime::zero(),
             ticks: 0,
             next_entity_id: EntityId(1002),
             orbital_vehicles: HashMap::new(),
             surface_vehicles: HashMap::new(),
             planets: planets.clone(),
-            surface: Surface::random(),
-            landing_sites: generate_landing_sites(&planets.planet_ids()),
+            landing_sites: HashMap::new(),
             constellations: HashMap::new(),
+        };
+
+        for ls in generate_landing_sites(&ids) {
+            ret.add_landing_site(ls.name, ls.surface, ls.planet, ls.angle);
         }
+
+        ret
     }
 
     pub fn stamp(&self) -> Nanotime {
@@ -59,68 +63,120 @@ impl Universe {
         ret
     }
 
-    pub fn on_sim_ticks(&mut self, ticks: u32, signals: &ControlSignals) {
-        (0..ticks).for_each(|_| self.on_sim_tick(signals));
+    pub fn on_sim_ticks(
+        &mut self,
+        ticks: u32,
+        signals: &ControlSignals,
+        max_dur: Duration,
+    ) -> (u32, Duration, bool) {
+        let start = Instant::now();
+        let mut actual_ticks = 0;
+        let mut exec_time = Duration::ZERO;
+
+        let batch_mode = if signals.is_empty() {
+            self.run_batch_ticks(ticks);
+            exec_time = std::time::Instant::now() - start;
+            actual_ticks = ticks;
+            true
+        } else {
+            for _ in 0..ticks {
+                actual_ticks += 1;
+                self.on_sim_tick(signals);
+                exec_time = std::time::Instant::now() - start;
+                if exec_time > max_dur {
+                    break;
+                }
+            }
+            false
+        };
+
+        (actual_ticks, exec_time, batch_mode)
+    }
+
+    fn step_surface_vehicles(&mut self, signals: &ControlSignals) {
+        for (id, sv) in &mut self.surface_vehicles {
+            let ls = match self.landing_sites.get(&sv.surface_id) {
+                Some(s) => s,
+                None => continue,
+            };
+
+            let external_accel = ls.surface.external_acceleration();
+
+            let ext = signals
+                .piloting_commands
+                .get(id)
+                .map(|v| *v)
+                .unwrap_or(VehicleControl::NULLOPT);
+
+            let ctrl = match (sv.controller.mode(), sv.controller.get_target_pose()) {
+                (VehicleControlPolicy::Idle, _) => VehicleControl::NULLOPT,
+                (VehicleControlPolicy::External, _) => ext,
+                (VehicleControlPolicy::PositionHold, Some(pose)) => {
+                    position_hold_control_law(pose, &sv.body, &sv.vehicle, external_accel)
+                }
+                (_, _) => VehicleControl::NULLOPT,
+            };
+
+            let elevation = ls.surface.elevation(sv.body.pv.pos_f32().x);
+
+            sv.controller
+                .check_target_achieved(&sv.body, external_accel.length() > 0.0);
+            sv.vehicle.set_thrust_control(ctrl);
+            sv.vehicle.on_sim_tick();
+
+            let accel = sv.vehicle.body_frame_accel();
+            sv.body
+                .on_sim_tick(accel, external_accel, PHYSICS_CONSTANT_DELTA_TIME);
+
+            sv.body.clamp_with_elevation(elevation);
+        }
+    }
+
+    pub fn run_batch_ticks(&mut self, ticks: u32) {
+        self.ticks += ticks as u128;
+        let old_stamp = self.stamp;
+        self.stamp = old_stamp + PHYSICS_CONSTANT_DELTA_TIME * ticks;
+        let delta = self.stamp - old_stamp;
+
+        for (_, ov) in &mut self.orbital_vehicles {
+            ov.body.angle += ov.body.angular_velocity * delta.to_secs();
+            ov.body.angle = wrap_pi_npi(ov.body.angle);
+            ov.vehicle.zero_all_thrusters();
+        }
     }
 
     pub fn on_sim_tick(&mut self, signals: &ControlSignals) {
         self.ticks += 1;
         self.stamp += PHYSICS_CONSTANT_DELTA_TIME;
 
-        // for (_, orbiter) in &mut self.orbiters {
-        //     orbiter.on_sim_tick();
-        // }
-
-        // for (_, vehicle) in &mut self.vehicles {
-        //     vehicle.on_sim_tick();
-        // }
-
-        for (_, ov) in &mut self.orbital_vehicles {
-            ov.body.on_sim_tick(
-                BodyFrameAccel::default(),
-                Vec2::ZERO,
-                PHYSICS_CONSTANT_DELTA_TIME,
-            );
-        }
-
-        let gravity = self.surface.external_acceleration();
-
-        for (_, sv) in &mut self.surface_vehicles {
-            let ext = signals.piloting.unwrap_or(VehicleControl::NULLOPT);
-
-            let ctrl = match (sv.controller.mode(), sv.controller.get_target_pose()) {
-                (VehicleControlPolicy::Idle, _) => VehicleControl::NULLOPT,
-                (VehicleControlPolicy::External, _) => ext,
-                (VehicleControlPolicy::PositionHold, Some(pose)) => {
-                    position_hold_control_law(pose, &sv.body, &sv.vehicle, gravity)
-                }
-                (_, _) => VehicleControl::NULLOPT,
+        for (id, ov) in &mut self.orbital_vehicles {
+            let ctrl = match signals.piloting_commands.get(id) {
+                Some(ctrl) => ctrl,
+                None => &VehicleControl::NULLOPT,
             };
 
-            let elevation = self.surface.elevation(sv.body.pv.pos_f32().x);
+            ov.reference_orbit_age += PHYSICS_CONSTANT_DELTA_TIME;
 
-            if !sv.controller.is_idle() {
-                sv.controller
-                    .check_target_achieved(&sv.body, gravity.length() > 0.0);
-                sv.vehicle.set_thrust_control(ctrl);
-                sv.vehicle.on_sim_tick();
+            if ov.reference_orbit_age > Nanotime::secs(1) {
+                ov.reference_orbit_age = Nanotime::zero();
+                if !ov.body.pv.is_zero() {
+                    if let Some(orbit) = ov.current_orbit(self.stamp) {
+                        ov.orbiter = Orbiter::new(orbit, self.stamp);
+                        ov.body.pv = PV::ZERO;
+                    }
+                }
             }
 
-            if !sv.controller.is_idle() || sv.body.pv.pos_f32().y > elevation {
-                let accel = sv.vehicle.body_frame_accel();
-                sv.body.on_sim_tick(
-                    accel,
-                    self.surface.external_acceleration(),
-                    PHYSICS_CONSTANT_DELTA_TIME,
-                );
-            } else {
-                sv.vehicle.set_thrust_control(VehicleControl::NULLOPT);
-            }
+            ov.vehicle.set_thrust_control(*ctrl);
+            // ov.vehicle.on_sim_tick();
 
-            sv.body.clamp_with_elevation(elevation);
+            let accel = ov.vehicle.body_frame_accel();
+
+            ov.body
+                .on_sim_tick(accel, Vec2::ZERO, PHYSICS_CONSTANT_DELTA_TIME);
         }
 
-        self.surface.on_sim_tick();
+        self.step_surface_vehicles(signals);
 
         self.constellations.retain(|id, _| {
             self.orbital_vehicles.contains_key(id) || self.surface_vehicles.contains_key(id)
@@ -154,6 +210,18 @@ impl Universe {
         self.orbital_vehicles.keys().into_iter().map(|id| *id)
     }
 
+    pub fn add_landing_site(
+        &mut self,
+        name: String,
+        surface: Surface,
+        planet: EntityId,
+        angle: f32,
+    ) {
+        let id = self.next_entity_id();
+        let entity = LandingSiteEntity::new(name, surface, planet, angle);
+        self.landing_sites.insert(id, entity);
+    }
+
     pub fn add_orbital_vehicle(&mut self, vehicle: Vehicle, orbit: GlobalOrbit) {
         let id = self.next_entity_id();
         let orbiter = Orbiter::new(orbit, self.stamp);
@@ -163,7 +231,7 @@ impl Universe {
         self.orbital_vehicles.insert(id, os);
     }
 
-    pub fn add_surface_vehicle(&mut self, vehicle: Vehicle, pos: Vec2) {
+    pub fn add_surface_vehicle(&mut self, surface_id: EntityId, vehicle: Vehicle, pos: Vec2) {
         let target = pos + randvec(10.0, 20.0);
         let vel = randvec(2.0, 7.0);
 
@@ -179,7 +247,7 @@ impl Universe {
 
         let controller = VehicleController::position_hold(pose);
         let id = self.next_entity_id();
-        let sv = SurfaceSpacecraftEntity::new(vehicle, body, controller);
+        let sv = SurfaceSpacecraftEntity::new(surface_id, vehicle, body, controller);
         self.surface_vehicles.insert(id, sv);
     }
 
@@ -195,6 +263,39 @@ impl Universe {
     pub fn lup_planet(&self, id: EntityId, stamp: Nanotime) -> Option<ObjectLookup> {
         let (body, pv, _, sys) = self.planets.lookup(id, stamp)?;
         Some(ObjectLookup(id, ScenarioObject::Body(&sys.name, body), pv))
+    }
+
+    pub fn lup_surface_vehicle(
+        &self,
+        id: EntityId,
+        surface_id: EntityId,
+    ) -> Option<&SurfaceSpacecraftEntity> {
+        let sv = self.surface_vehicles.get(&id)?;
+        (sv.surface_id == surface_id).then(|| sv)
+    }
+
+    pub fn surface_vehicles(
+        &self,
+        surface_id: EntityId,
+    ) -> impl Iterator<Item = (&EntityId, &SurfaceSpacecraftEntity)> + use<'_> {
+        self.surface_vehicles
+            .iter()
+            .filter(move |(_, sv)| sv.surface_id == surface_id)
+    }
+
+    pub fn surface_vehicles_mut(
+        &mut self,
+        surface_id: EntityId,
+    ) -> impl Iterator<Item = (&EntityId, &mut SurfaceSpacecraftEntity)> + use<'_> {
+        self.surface_vehicles
+            .iter_mut()
+            .filter(move |(_, sv)| sv.surface_id == surface_id)
+    }
+
+    pub fn all_surface_vehicles(
+        &self,
+    ) -> impl Iterator<Item = (&EntityId, &SurfaceSpacecraftEntity)> + use<'_> {
+        self.surface_vehicles.iter()
     }
 }
 

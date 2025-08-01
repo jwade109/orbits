@@ -454,11 +454,11 @@ pub fn make_separation_graph(
     (g, v, pv)
 }
 
-pub fn draw_favorites(canvas: &mut Canvas, state: &GameState) -> Option<()> {
+pub fn draw_pinned(canvas: &mut Canvas, state: &GameState) -> Option<()> {
     let dims = state.input.screen_bounds.span;
     let leftmost = dims / 2.0 - Vec2::splat(180.0);
 
-    for (i, id) in state.favorites.iter().enumerate() {
+    for (i, id) in state.pinned.iter().enumerate() {
         if i > 5 {
             continue;
         }
@@ -599,6 +599,8 @@ fn draw_orbiter(canvas: &mut Canvas, state: &GameState, id: EntityId) -> Option<
     let is_thrusting = v.is_thrusting();
     let has_radar = v.has_radar();
 
+    let ov = state.universe.orbital_vehicles.get(&id)?;
+
     let lup = state.universe.lup_orbiter(id, state.universe.stamp())?;
     let pv = lup.pv();
     let obj = lup.orbiter()?;
@@ -645,7 +647,7 @@ fn draw_orbiter(canvas: &mut Canvas, state: &GameState, id: EntityId) -> Option<
         for (i, prop) in obj.props().iter().enumerate() {
             let color = if i == 0 {
                 if piloting {
-                    ORANGE.with_alpha(0.4)
+                    GRAY.with_alpha(0.4)
                 } else if targeting {
                     TEAL.with_alpha(0.4)
                 } else {
@@ -656,6 +658,12 @@ fn draw_orbiter(canvas: &mut Canvas, state: &GameState, id: EntityId) -> Option<
             };
             if show_orbits {
                 draw_propagator(&mut canvas.gizmos, state, &prop, true, color, ctx);
+            }
+
+            if piloting {
+                if let Some(o) = ov.current_orbit(state.universe.stamp()) {
+                    draw_global_orbit(&mut canvas.gizmos, &o, state, ORANGE);
+                }
             }
         }
     } else if show_orbits {
@@ -1178,12 +1186,10 @@ fn draw_rendezvous_info(canvas: &mut Canvas, state: &GameState) -> Option<()> {
 
 fn draw_landing_sites(gizmos: &mut Gizmos, state: &GameState) {
     let ctx = &state.orbital_context;
-    for (pid, sites) in &state.universe.landing_sites {
-        for (site, _, _) in sites {
-            if let Some(pos) = landing_site_position(&state.universe, *pid, *site) {
-                let p = ctx.w2c(pos);
-                draw_diamond(gizmos, p, 12.0, WHITE.with_alpha(0.7))
-            }
+    for (_, site) in &state.universe.landing_sites {
+        if let Some(pos) = landing_site_position(&state.universe, site.planet, site.angle) {
+            let p = ctx.w2c(pos);
+            draw_diamond(gizmos, p, 12.0, WHITE.with_alpha(0.7))
         }
     }
 }
@@ -1409,7 +1415,7 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
 
     draw_piloting_overlay(canvas, state);
 
-    draw_favorites(canvas, state);
+    draw_pinned(canvas, state);
 
     highlight_targeted_vehicle(&mut canvas.gizmos, state);
 
