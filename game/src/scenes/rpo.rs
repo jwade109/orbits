@@ -13,7 +13,6 @@ use layout::layout::Tree;
 #[derive(Debug)]
 pub struct DockingContext {
     camera: LinearCameraController,
-    following: Option<usize>,
 }
 
 impl CameraProjection for DockingContext {
@@ -172,12 +171,7 @@ impl DockingContext {
     pub fn new() -> Self {
         Self {
             camera: LinearCameraController::new(Vec2::ZERO, 1.0, 1100.0),
-            following: None,
         }
-    }
-
-    pub fn following(&self) -> Option<usize> {
-        self.following
     }
 
     pub fn on_game_tick(&mut self) {

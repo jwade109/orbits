@@ -299,6 +299,7 @@ impl GameState {
             scenes: vec![
                 Scene::main_menu(),
                 Scene::orbital(),
+                Scene::docking(),
                 Scene::telescope(),
                 Scene::editor(),
                 Scene::surface(),
@@ -345,19 +346,29 @@ impl GameState {
             Some(GlobalOrbit(pid, orbit))
         };
 
-        for _ in 0..30 {
+        for i in 0..6 {
             let vehicle = g.get_random_vehicle();
             let orbit = get_random_orbit(EntityId(0));
             if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {
-                g.spawn_with_random_perturbance(orbit, vehicle);
+                let entity = g.universe.spawn_with_random_perturbance(orbit, vehicle);
+                if i > 3 {
+                    continue;
+                }
+                for _ in 0..7 {
+                    if let Some((e, v)) = entity.zip(g.get_random_vehicle()) {
+                        let mut body = RigidBody::ZERO;
+                        body.pv.pos = randvec(12.0, 400.0).as_dvec2();
+                        g.universe.add_relative_orbital_vehicle(v, body, e)
+                    }
+                }
             }
         }
 
-        for _ in 0..40 {
+        for _ in 0..4 {
             let vehicle = g.get_random_vehicle();
             let orbit = get_random_orbit(EntityId(1));
             if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {
-                g.spawn_with_random_perturbance(orbit, vehicle);
+                g.universe.spawn_with_random_perturbance(orbit, vehicle);
             }
         }
 
@@ -668,33 +679,10 @@ impl GameState {
         Some(prop.orbit)
     }
 
-    pub fn spawn_with_random_perturbance(
-        &mut self,
-        global: GlobalOrbit,
-        vehicle: Vehicle,
-    ) -> Option<()> {
-        let GlobalOrbit(parent, orbit) = global;
-        let pv_local = orbit.pv(self.universe.stamp()).ok()?;
-        let perturb = PV::from_f64(
-            randvec(
-                pv_local.pos_f32().length() * 0.005,
-                pv_local.pos_f32().length() * 0.02,
-            ),
-            randvec(
-                pv_local.vel_f32().length() * 0.005,
-                pv_local.vel_f32().length() * 0.02,
-            ),
-        );
-        let orbit = SparseOrbit::from_pv(pv_local + perturb, orbit.body, self.universe.stamp())?;
-        self.universe
-            .add_orbital_vehicle(vehicle, GlobalOrbit(parent, orbit));
-        Some(())
-    }
-
-    pub fn spawn_new(&mut self) -> Option<()> {
+    pub fn spawn_new(&mut self) -> Option<EntityId> {
         let orbit = self.cursor_orbit_if_mode()?;
         let vehicle = self.get_random_vehicle()?;
-        self.spawn_with_random_perturbance(orbit, vehicle)
+        self.universe.spawn_with_random_perturbance(orbit, vehicle)
     }
 
     pub fn delete_orbiter(&mut self, id: EntityId) -> Option<()> {
@@ -731,12 +719,6 @@ impl GameState {
     pub fn commit_mission(&mut self) -> Option<()> {
         let orbit = self.current_orbit()?.clone();
         self.command_selected(&orbit);
-        Some(())
-    }
-
-    pub fn impulsive_burn(&mut self, id: EntityId, stamp: Nanotime, dv: Vec2) -> Option<()> {
-        let orbiter = &mut self.universe.orbital_vehicles.get_mut(&id)?.orbiter;
-        orbiter.try_impulsive_burn(stamp, dv)?;
         Some(())
     }
 
@@ -1216,31 +1198,12 @@ impl GameState {
             )
         }
 
-        let old_sim_time = self.universe.stamp();
-
         self.wall_time += PHYSICS_CONSTANT_DELTA_TIME;
 
         let s = self.universe.stamp();
         let d = self.physics_duration;
 
         let planets = self.universe.planets.clone();
-
-        let mut man = self.planned_maneuvers(old_sim_time);
-        while let Some((id, t, dv)) = man.first() {
-            if s > *t {
-                let perturb = 0.0 * randvec(0.01, 0.05);
-                simulate(&mut self.universe.orbital_vehicles, &planets, *t, d);
-                self.impulsive_burn(*id, *t, dv + perturb);
-                self.notify(
-                    ObjectId::Orbiter(*id),
-                    NotificationType::OrbitChanged(*id),
-                    None,
-                );
-            } else {
-                break;
-            }
-            man.remove(0);
-        }
 
         for (id, ri) in simulate(&mut self.universe.orbital_vehicles, &planets, s, d) {
             info!("{} {:?}", id, &ri);

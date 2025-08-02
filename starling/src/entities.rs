@@ -1,10 +1,26 @@
 use crate::prelude::*;
 
 #[derive(Debug)]
+pub enum OrbitalParent {
+    Planet(Orbiter),
+    Vehicle(EntityId),
+    Surface(EntityId),
+}
+
+impl OrbitalParent {
+    pub fn orbit(&self, stamp: Nanotime) -> Option<&GlobalOrbit> {
+        match self {
+            Self::Planet(orbiter) => orbiter.orbit(stamp),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct OrbitalSpacecraftEntity {
     pub vehicle: Vehicle,
     pub body: RigidBody,
-    pub orbiter: Orbiter,
+    pub transform: OrbitalParent,
     pub controller: OrbitalController,
     pub reference_orbit_age: Nanotime,
 }
@@ -13,21 +29,28 @@ impl OrbitalSpacecraftEntity {
     pub fn new(
         vehicle: Vehicle,
         body: RigidBody,
-        orbiter: Orbiter,
+        transform: OrbitalParent,
         controller: OrbitalController,
     ) -> Self {
         Self {
             vehicle,
             body,
-            orbiter,
+            transform,
             controller,
             reference_orbit_age: Nanotime::ZERO,
         }
     }
 
+    pub fn is_transform_orbital(&self) -> bool {
+        match &self.transform {
+            OrbitalParent::Planet(..) => true,
+            _ => false,
+        }
+    }
+
     pub fn current_orbit(&self, stamp: Nanotime) -> Option<GlobalOrbit> {
         let body_pv = self.body.pv; // m/s
-        let GlobalOrbit(id, orbit) = self.orbiter.orbit(stamp)?;
+        let GlobalOrbit(id, orbit) = self.transform.orbit(stamp)?;
         if body_pv.is_zero() {
             return Some(GlobalOrbit(*id, *orbit));
         }

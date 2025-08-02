@@ -192,30 +192,35 @@ pub fn simulate(
     future_dur: Nanotime,
 ) -> Vec<(EntityId, RemovalInfo)> {
     for (_, ov) in orbiters.iter_mut() {
-        let e = ov.orbiter.propagate_to(stamp, future_dur, planets);
+        let orbiter = match &mut ov.transform {
+            OrbitalParent::Planet(orbiter) => orbiter,
+            _ => continue,
+        };
+
+        let e = orbiter.propagate_to(stamp, future_dur, planets);
         if let Err(_e) = e {
             // dbg!(e);
         }
     }
 
-    let mut info = vec![];
+    let info = vec![];
 
-    orbiters.retain(|id, ov| {
-        if ov.orbiter.propagator_at(stamp).is_none() {
-            let reason = ov.orbiter.props().last().map(|p| RemovalInfo {
-                stamp: p.end().unwrap_or(stamp),
-                reason: p.event().unwrap_or(EventType::NumericalError),
-                parent: p.parent(),
-                orbit: p.orbit.1,
-            });
-            if let Some(reason) = reason {
-                info.push((*id, reason));
-            }
-            false
-        } else {
-            true
-        }
-    });
+    // orbiters.retain(|id, ov| {
+    //     if ov.orbiter.propagator_at(stamp).is_none() {
+    //         let reason = ov.orbiter.props().last().map(|p| RemovalInfo {
+    //             stamp: p.end().unwrap_or(stamp),
+    //             reason: p.event().unwrap_or(EventType::NumericalError),
+    //             parent: p.parent(),
+    //             orbit: p.orbit.1,
+    //         });
+    //         if let Some(reason) = reason {
+    //             info.push((*id, reason));
+    //         }
+    //         false
+    //     } else {
+    //         true
+    //     }
+    // });
 
     info
 }

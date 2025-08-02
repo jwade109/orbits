@@ -493,14 +493,27 @@ pub fn draw_pointing_vector(gizmos: &mut Gizmos, center: Vec2, r: f32, u: Vec2, 
     gizmos.linestrip_2d([p1, p2, p3, p1], color);
 }
 
+fn nav_text(ov: &OrbitalSpacecraftEntity, universe: &Universe) -> Option<String> {
+    let stamp = universe.stamp();
+    match &ov.transform {
+        OrbitalParent::Planet(orbiter) => {
+            let orbit = orbiter.orbit(stamp)?;
+            let (_, _, _, sys) = universe.planets.lookup(orbit.0, stamp)?;
+            Some(format!("Orbiting {}", sys.name))
+        }
+        OrbitalParent::Vehicle(id) => {
+            let ov = universe.orbital_vehicles.get(id)?;
+            let name = ov.vehicle.name();
+            Some(format!("Navigating relative to {} {}", name, id))
+        }
+        _ => None,
+    }
+}
+
 pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<()> {
     let piloting = state.piloting()?;
 
-    let lup = state
-        .universe
-        .lup_orbiter(piloting, state.universe.stamp())?;
-
-    let ov = &state.universe.orbital_vehicles.get(&piloting)?;
+    let ov = state.universe.orbital_vehicles.get(&piloting)?;
 
     let window_dims = state.input.screen_bounds.span;
     let rb = ov.vehicle.bounding_radius();
@@ -519,10 +532,11 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
 
     // prograde markers, etc
     {
-        let pv = lup.pv();
-        let angle = pv.vel_f32().to_angle();
-        let p = center + rotate(Vec2::X * r * 0.8, angle);
-        draw_prograde_marker(&mut canvas.gizmos, p, 20.0, GREEN);
+        // TODO
+        // let pv = lup.pv();
+        // let angle = pv.vel_f32().to_angle();
+        // let p = center + rotate(Vec2::X * r * 0.8, angle);
+        // draw_prograde_marker(&mut canvas.gizmos, p, 20.0, GREEN);
     }
 
     {
@@ -541,20 +555,20 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
     let p = ov.vehicle.fuel_percentage();
     let iso = Isometry2d::from_translation(center);
 
-    canvas
-        .text(
-            format!("{}-type vessel", ov.vehicle.model().to_uppercase()),
-            center + Vec2::new(r * 0.4, r + 90.0),
-            0.8,
-        )
-        .anchor_right();
-    canvas
-        .text(
-            format!("{} {}", ov.vehicle.name(), piloting.0),
-            center + Vec2::new(r * 0.4, r + 60.0),
-            1.2,
-        )
-        .anchor_right();
+    let model_text = format!("{}-type vessel", ov.vehicle.model().to_uppercase());
+    let title_text = format!("{} {}", ov.vehicle.name(), piloting.0);
+    let navtext = nav_text(ov, &state.universe).unwrap_or("Unknown navigation status".into());
+
+    let lines = [
+        (navtext, 0.8, 50.0),
+        (title_text, 1.2, 80.0),
+        (model_text, 0.8, 110.0),
+    ];
+
+    for (text, size, y) in lines {
+        let pos = Vec2::new(r * 0.7, r + y);
+        canvas.text(text, center + pos, size).anchor_right();
+    }
 
     let dash_icons = [
         ("low-fuel", "low-fuel-dim", ov.vehicle.low_fuel(), true),
@@ -590,39 +604,65 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
 
 fn draw_orbiter(canvas: &mut Canvas, state: &GameState, id: EntityId) -> Option<()> {
     let ctx = &state.orbital_context;
-    let tracked = state.orbital_context.selected.contains(&id);
+    // let tracked = state.orbital_context.selected.contains(&id);
     let piloting = state.piloting() == Some(id);
-    let targeting = state.targeting() == Some(id);
-    let v = &state.universe.orbital_vehicles.get(&id)?.vehicle;
+    // let targeting = state.targeting() == Some(id);
 
-    let low_fuel = v.low_fuel();
+    let ov = state.universe.orbital_vehicles.get(&id)?;
+    let v = &ov.vehicle;
+    let stamp = state.universe.stamp();
+
+    // let low_fuel = v.low_fuel();
     let is_thrusting = v.is_thrusting();
     let has_radar = v.has_radar();
 
-    let ov = state.universe.orbital_vehicles.get(&id)?;
+    let (pv, rel) = {
+        match &ov.transform {
+            OrbitalParent::Planet(orbiter) => (orbiter.pv(stamp, &state.universe.planets)?, false),
+            OrbitalParent::Vehicle(id) => {
+                let guideship = state.universe.orbital_vehicles.get(&id);
+                let pv = guideship
+                    .map(|ov| ov.current_orbit(stamp).map(|o| o.1.pv(stamp).ok()))
+                    .flatten()
+                    .flatten()?;
+                (pv + ov.body.pv / 1000.0, true)
+            }
+            _ => return None,
+        }
+    };
 
-    let lup = state.universe.lup_orbiter(id, state.universe.stamp())?;
-    let pv = lup.pv();
-    let obj = lup.orbiter()?;
+    if let Some(orbit) = ov.current_orbit(stamp) {
+        let color = if piloting { ORANGE } else { GRAY };
+        draw_global_orbit(&mut canvas.gizmos, &orbit, state, color);
+    }
 
-    let blinking = is_blinking(state.wall_time, pv.pos_f32());
+    // let lup = state.universe.lup_orbiter(id, state.universe.stamp())?;
+    // let pv = lup.pv();
+    // let obj = lup.orbiter()?;
+
+    // let blinking = is_blinking(state.wall_time, pv.pos_f32());
 
     let screen_pos = ctx.w2c(pv.pos_f32());
 
-    canvas.sprite(screen_pos, 0.0, "cloud", None, Vec2::splat(6.0));
+    let r = if piloting { 15.0 } else { 6.0 };
 
-    let size = 12.0;
-    if blinking && obj.will_collide() {
-        draw_circle(&mut canvas.gizmos, screen_pos, size, RED);
-        draw_circle(&mut canvas.gizmos, screen_pos, size + 3.0, RED);
-    } else if blinking && obj.has_error() {
-        draw_circle(&mut canvas.gizmos, screen_pos, size, YELLOW);
-        draw_circle(&mut canvas.gizmos, screen_pos, size + 3.0, YELLOW);
-    } else if blinking && obj.will_change() {
-        draw_circle(&mut canvas.gizmos, screen_pos, size, TEAL);
-    } else if blinking && low_fuel {
-        draw_triangle(&mut canvas.gizmos, screen_pos, size, BLUE);
-    }
+    canvas.sprite(screen_pos, 0.0, "cloud", None, Vec2::splat(r));
+
+    // let size = 12.0;
+    // if blinking && obj.will_collide() {
+    //     draw_circle(&mut canvas.gizmos, screen_pos, size, RED);
+    //     draw_circle(&mut canvas.gizmos, screen_pos, size + 3.0, RED);
+    // } else if blinking && obj.has_error() {
+    //     draw_circle(&mut canvas.gizmos, screen_pos, size, YELLOW);
+    //     draw_circle(&mut canvas.gizmos, screen_pos, size + 3.0, YELLOW);
+    // } else if blinking && obj.will_change() {
+    //     draw_circle(&mut canvas.gizmos, screen_pos, size, TEAL);
+    // } else if blinking && low_fuel {
+    //     draw_triangle(&mut canvas.gizmos, screen_pos, size, BLUE);
+    // }
+
+    let color = if rel { RED.with_alpha(0.2) } else { TEAL };
+    canvas.circle(screen_pos, 16.0, color);
 
     if has_radar {
         draw_circle(
@@ -637,46 +677,46 @@ fn draw_orbiter(canvas: &mut Canvas, state: &GameState, id: EntityId) -> Option<
         draw_diamond(&mut canvas.gizmos, screen_pos, 16.0, RED);
     }
 
-    let show_orbits = match ctx.show_orbits {
-        ShowOrbitsState::All => true,
-        ShowOrbitsState::Focus => tracked || piloting || targeting,
-        ShowOrbitsState::None => false,
-    };
+    // let show_orbits = match ctx.show_orbits {
+    //     ShowOrbitsState::All => true,
+    //     ShowOrbitsState::Focus => tracked || piloting || targeting,
+    //     ShowOrbitsState::None => false,
+    // };
 
-    if tracked || piloting || targeting {
-        for (i, prop) in obj.props().iter().enumerate() {
-            let color = if i == 0 {
-                if piloting {
-                    GRAY.with_alpha(0.4)
-                } else if targeting {
-                    TEAL.with_alpha(0.4)
-                } else {
-                    WHITE.with_alpha(0.02)
-                }
-            } else {
-                TEAL.with_alpha((1.0 - i as f32 * 0.3).max(0.0))
-            };
-            if show_orbits {
-                draw_propagator(&mut canvas.gizmos, state, &prop, true, color, ctx);
-            }
+    // if tracked || piloting || targeting {
+    //     for (i, prop) in obj.props().iter().enumerate() {
+    //         let color = if i == 0 {
+    //             if piloting {
+    //                 GRAY.with_alpha(0.4)
+    //             } else if targeting {
+    //                 TEAL.with_alpha(0.4)
+    //             } else {
+    //                 WHITE.with_alpha(0.02)
+    //             }
+    //         } else {
+    //             TEAL.with_alpha((1.0 - i as f32 * 0.3).max(0.0))
+    //         };
+    //         if show_orbits {
+    //             draw_propagator(&mut canvas.gizmos, state, &prop, true, color, ctx);
+    //         }
 
-            if piloting {
-                if let Some(o) = ov.current_orbit(state.universe.stamp()) {
-                    draw_global_orbit(&mut canvas.gizmos, &o, state, ORANGE);
-                }
-            }
-        }
-    } else if show_orbits {
-        let prop = obj.propagator_at(state.universe.stamp())?;
-        draw_propagator(
-            &mut canvas.gizmos,
-            state,
-            prop,
-            false,
-            GRAY.with_alpha(0.02),
-            ctx,
-        );
-    }
+    //         if piloting {
+    //             if let Some(o) = ov.current_orbit(state.universe.stamp()) {
+    //                 draw_global_orbit(&mut canvas.gizmos, &o, state, ORANGE);
+    //             }
+    //         }
+    //     }
+    // } else if show_orbits {
+    //     let prop = obj.propagator_at(state.universe.stamp())?;
+    //     draw_propagator(
+    //         &mut canvas.gizmos,
+    //         state,
+    //         prop,
+    //         false,
+    //         GRAY.with_alpha(0.02),
+    //         ctx,
+    //     );
+    // }
     Some(())
 }
 

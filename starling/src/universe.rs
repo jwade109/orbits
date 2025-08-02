@@ -75,7 +75,7 @@ impl Universe {
 
         let surfaces_awake = self.landing_sites.iter().any(|(_, ls)| ls.is_awake);
 
-        let batch_mode = if !surfaces_awake && signals.is_empty() {
+        let batch_mode = if ticks > 5 && !surfaces_awake && signals.is_empty() {
             self.run_batch_ticks(ticks);
             exec_time = std::time::Instant::now() - start;
             actual_ticks = ticks;
@@ -157,14 +157,15 @@ impl Universe {
                 None => &VehicleControl::NULLOPT,
             };
 
-            ov.reference_orbit_age += PHYSICS_CONSTANT_DELTA_TIME;
-
-            if ov.reference_orbit_age > Nanotime::millis(100) {
-                ov.reference_orbit_age = Nanotime::zero();
-                if !ov.body.pv.is_zero() {
-                    if let Some(orbit) = ov.current_orbit(self.stamp) {
-                        ov.orbiter = Orbiter::new(orbit, self.stamp);
-                        ov.body.pv = PV::ZERO;
+            if ov.is_transform_orbital() {
+                ov.reference_orbit_age += PHYSICS_CONSTANT_DELTA_TIME;
+                if ov.reference_orbit_age > Nanotime::millis(100) {
+                    ov.reference_orbit_age = Nanotime::zero();
+                    if !ov.body.pv.is_zero() {
+                        if let Some(orbit) = ov.current_orbit(self.stamp) {
+                            ov.transform = OrbitalParent::Planet(Orbiter::new(orbit, self.stamp));
+                            ov.body.pv = PV::ZERO;
+                        }
                     }
                 }
             }
@@ -224,12 +225,28 @@ impl Universe {
         self.landing_sites.insert(id, entity);
     }
 
-    pub fn add_orbital_vehicle(&mut self, vehicle: Vehicle, orbit: GlobalOrbit) {
+    pub fn add_orbital_vehicle(&mut self, vehicle: Vehicle, orbit: GlobalOrbit) -> EntityId {
         let id = self.next_entity_id();
         let orbiter = Orbiter::new(orbit, self.stamp);
         let controller = OrbitalController::idle();
+        let transform = OrbitalParent::Planet(orbiter);
         let os =
-            OrbitalSpacecraftEntity::new(vehicle, RigidBody::random_spin(), orbiter, controller);
+            OrbitalSpacecraftEntity::new(vehicle, RigidBody::random_spin(), transform, controller);
+        self.orbital_vehicles.insert(id, os);
+        id
+    }
+
+    pub fn add_relative_orbital_vehicle(
+        &mut self,
+        vehicle: Vehicle,
+        body: RigidBody,
+        guideship_id: EntityId,
+    ) {
+        let id = self.next_entity_id();
+        let transform = OrbitalParent::Vehicle(guideship_id);
+        let controller = OrbitalController::idle();
+        let os = OrbitalSpacecraftEntity::new(vehicle, body, transform, controller);
+        println!("Spawn relative vehicle: {:?} {:?}", os.transform, os.body);
         self.orbital_vehicles.insert(id, os);
     }
 
@@ -255,11 +272,15 @@ impl Universe {
 
     pub fn lup_orbiter(&self, id: EntityId, stamp: Nanotime) -> Option<ObjectLookup> {
         let os = self.orbital_vehicles.get(&id)?;
-        let prop = os.orbiter.propagator_at(stamp)?;
+        let orbiter = match &os.transform {
+            OrbitalParent::Planet(orbiter) => orbiter,
+            _ => return None,
+        };
+        let prop = orbiter.propagator_at(stamp)?;
         let (_, frame_pv, _, _) = self.planets.lookup(prop.parent(), stamp)?;
         let local_pv = prop.pv(stamp)?;
         let pv = frame_pv + local_pv;
-        Some(ObjectLookup(id, ScenarioObject::Orbiter(&os.orbiter), pv))
+        Some(ObjectLookup(id, ScenarioObject::Orbiter(orbiter), pv))
     }
 
     pub fn lup_planet(&self, id: EntityId, stamp: Nanotime) -> Option<ObjectLookup> {
@@ -328,6 +349,27 @@ impl Universe {
         let ls = self.landing_sites.get_mut(&surface_id)?;
         ls.is_awake = !ls.is_awake;
         Some(())
+    }
+
+    pub fn spawn_with_random_perturbance(
+        &mut self,
+        global: GlobalOrbit,
+        vehicle: Vehicle,
+    ) -> Option<EntityId> {
+        let GlobalOrbit(parent, orbit) = global;
+        let pv_local = orbit.pv(self.stamp()).ok()?;
+        let perturb = PV::from_f64(
+            randvec(
+                pv_local.pos_f32().length() * 0.005,
+                pv_local.pos_f32().length() * 0.02,
+            ),
+            randvec(
+                pv_local.vel_f32().length() * 0.005,
+                pv_local.vel_f32().length() * 0.02,
+            ),
+        );
+        let orbit = SparseOrbit::from_pv(pv_local + perturb, orbit.body, self.stamp())?;
+        Some(self.add_orbital_vehicle(vehicle, GlobalOrbit(parent, orbit)))
     }
 }
 
