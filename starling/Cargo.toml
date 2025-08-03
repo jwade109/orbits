@@ -17,6 +17,7 @@ lazy_static = "1.5.0"
 lsystem = "0.2.1"
 more-asserts = "0.3.1"
 names = "0.14.0"
+noise = "0.9.0"
 rand = "0.8.5"
 rootfinder = "0.2.1"
 serde = "1.0.218"
@@ -31,3 +32,7 @@ harness = false
 [[bin]]
 name = "ship2png"
 path = "bin/ship2png.rs"
+
+[[bin]]
+name = "ast2png"
+path = "bin/ast2png.rs"

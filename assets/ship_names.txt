@@ -136,3 +136,6 @@ Yocta
 Edamame
 Safe Harbor
 Pathfinder
+Triple Point
+Critical Path
+Wayfinder
