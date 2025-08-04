@@ -2,6 +2,15 @@ use crate::game::GameState;
 use crate::scenes::*;
 use bevy::prelude::*;
 
+pub fn hashable_to_color(h: &impl std::hash::Hash) -> Hsla {
+    use std::hash::Hasher;
+    let mut s = std::hash::DefaultHasher::new();
+    h.hash(&mut s);
+    let h: u64 = s.finish() % 1000;
+    let hue = 360.0 * (h as f32 / 1000 as f32);
+    Hsla::new(hue, 1.0, 0.5, 1.0)
+}
+
 pub fn update_background_color(
     mut camera: Single<&mut Camera, With<crate::game::BackgroundCamera>>,
     state: Res<GameState>,
