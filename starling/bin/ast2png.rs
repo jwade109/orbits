@@ -1,10 +1,11 @@
+use ab_glyph::Font;
 use clap::Parser;
-use image::RgbaImage;
+use image::{Rgba, RgbaImage};
+use imageproc::drawing::draw_text;
 use noise::{NoiseFn, Perlin};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use starling::prelude::*;
-use imageproc::draw_text;
 
 /// Converts ship file to PNG
 #[derive(Parser, Debug, Default, Clone)]
@@ -293,7 +294,8 @@ pub fn make_asteroid_image(
         vround(u * Vec2::new(width as f32, height as f32))
     };
 
-    img
+    let font = Vec::from(include_bytes!("bombardier.ttf") as &[u8]);
+    let font = ab_glyph::FontVec::try_from_vec(font).unwrap();
 
     for w in 0..width {
         let sx = w as f32 / width as f32;
@@ -354,6 +356,16 @@ pub fn make_asteroid_image(
             write_pixel(&mut img, q, [50, 255, 255, 255]);
         }
     }
+
+    let img = draw_text(
+        &img,
+        Rgba::from([255, 255, 255, 255]),
+        100,
+        100,
+        30.0,
+        &font,
+        "beeg rock",
+    );
 
     img
 }
