@@ -6,7 +6,6 @@ use crate::input::*;
 use crate::onclick::OnClick;
 use crate::scenes::{CameraProjection, Render};
 use crate::sounds::*;
-use crate::thrust_particles::*;
 use bevy::color::{palettes::css::*, Alpha, Srgba};
 use bevy::prelude::{Gizmos, KeyCode};
 use layout::layout::Tree;
@@ -17,7 +16,6 @@ use std::collections::HashSet;
 pub struct SurfaceContext {
     camera: LinearCameraController,
     selected: HashSet<EntityId>,
-    particles: ThrustParticleEffects,
     pub current_surface: EntityId,
 
     left_click_world_pos: Option<Vec2>,
@@ -29,7 +27,6 @@ impl Default for SurfaceContext {
         SurfaceContext {
             camera: LinearCameraController::new(Vec2::Y * 30.0, 10.0, 1100.0),
             selected: HashSet::new(),
-            particles: ThrustParticleEffects::new(),
             current_surface: EntityId(0),
             left_click_world_pos: None,
             right_click_world_pos: None,
@@ -193,19 +190,7 @@ impl SurfaceContext {
 
         ctx.camera.on_game_tick();
 
-        ctx.particles.step();
-
-        for (_, sv) in state.universe.surface_vehicles.iter_mut() {
-            for (_, part) in sv.vehicle.parts() {
-                if let Some((t, d)) = part.as_thruster() {
-                    if !d.is_thrusting(t) || t.is_rcs() {
-                        continue;
-                    }
-
-                    ctx.particles.add(&sv.vehicle, part);
-                }
-            }
-        }
+        // ctx.particles.step();
     }
 }
 
@@ -493,9 +478,9 @@ impl Render for SurfaceContext {
                 landing_site_info(ls)
             );
             canvas.text(text, p, 0.5 * ctx.scale()).color.alpha = 0.2;
-        }
 
-        ctx.particles.draw(canvas, ctx);
+            crate::craft_editor::draw_particles(canvas, ctx, &surface.particles);
+        }
 
         for (_, sv) in state.universe.surface_vehicles(surface_id) {
             let pos = ctx.w2c(sv.body.pv.pos_f32());

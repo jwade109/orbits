@@ -1,8 +1,8 @@
+use crate::aabb::*;
 use crate::factory::Mass;
 use crate::math::*;
 use crate::parts::*;
 use enum_iterator::Sequence;
-use crate::aabb::*;
 use serde::{Deserialize, Serialize};
 
 // TODO reduce scope of this constant
@@ -227,6 +227,10 @@ impl InstantiatedPart {
         (self.builds_performed as f32 / self.builds_required as f32).clamp(0.0, 1.0)
     }
 
+    pub fn is_built(&self) -> bool {
+        self.builds_performed == self.builds_required
+    }
+
     pub fn dims_grid(&self) -> UVec2 {
         pixel_dims_with_rotation(self.rot, &self.prototype())
     }
@@ -243,6 +247,10 @@ impl InstantiatedPart {
 
     pub fn origin(&self) -> IVec2 {
         self.pos
+    }
+
+    pub fn origin_meters(&self) -> Vec2 {
+        self.pos.as_vec2() / PIXELS_PER_METER
     }
 
     pub fn set_origin(&mut self, p: IVec2) {

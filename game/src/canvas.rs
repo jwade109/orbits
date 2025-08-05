@@ -60,7 +60,7 @@ impl<'w, 's> Canvas<'w, 's> {
 
         let sprite = StaticSpriteDescriptor::new(pos, angle, path.into(), screen_dims, z_index);
 
-        self.z_index = (self.z_index + 1.0).max(z_index);
+        self.z_index = (self.z_index + 0.01).max(z_index);
 
         self.sprites.push(sprite);
         self.sprites

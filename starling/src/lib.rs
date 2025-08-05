@@ -26,5 +26,6 @@ pub mod region;
 pub mod scenario;
 pub mod surface;
 pub mod terrain;
+pub mod thrust_particles;
 pub mod universe;
 pub mod vehicle;

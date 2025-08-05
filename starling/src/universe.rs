@@ -96,8 +96,12 @@ impl Universe {
     }
 
     fn step_surface_vehicles(&mut self, signals: &ControlSignals) {
+        for (_, ls) in &mut self.landing_sites {
+            ls.surface.particles.step();
+        }
+
         for (id, sv) in &mut self.surface_vehicles {
-            let ls = match self.landing_sites.get(&sv.surface_id) {
+            let ls = match self.landing_sites.get_mut(&sv.surface_id) {
                 Some(s) => s,
                 None => continue,
             };
@@ -131,6 +135,8 @@ impl Universe {
                 .on_sim_tick(accel, external_accel, PHYSICS_CONSTANT_DELTA_TIME);
 
             sv.body.clamp_with_elevation(elevation);
+
+            add_particles_from_vehicle(&mut ls.surface.particles, &sv.vehicle, &sv.body);
         }
     }
 

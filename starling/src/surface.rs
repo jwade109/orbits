@@ -1,5 +1,6 @@
 use crate::math::*;
 use crate::terrain::*;
+use crate::thrust_particles::*;
 use splines::{Key, Spline};
 use std::collections::HashMap;
 
@@ -12,6 +13,7 @@ pub struct Surface {
     pub land_color: [f32; 3],
     pub elevation: Spline<f32, f32>,
     pub terrain: HashMap<IVec2, TerrainChunk>,
+    pub particles: ThrustParticleEffects,
 }
 
 impl Surface {
@@ -48,12 +50,12 @@ impl Surface {
             land_color: [rand(0.1, 0.4), rand(0.1, 0.4), rand(0.1, 0.4)],
             elevation,
             terrain,
+            particles: ThrustParticleEffects::new(),
         }
     }
 
     pub fn on_sim_tick(&mut self) {
-        // self.wind = 0.0;
-        // self.gravity = 0.0;
+        self.particles.step();
     }
 
     fn gravity_vector(&self) -> Vec2 {

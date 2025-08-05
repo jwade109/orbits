@@ -25,5 +25,6 @@ pub use crate::region::Region;
 pub use crate::scenario::{simulate, ObjectLookup, PlanetarySystem, ScenarioObject};
 pub use crate::surface::*;
 pub use crate::terrain::*;
+pub use crate::thrust_particles::*;
 pub use crate::universe::*;
 pub use crate::vehicle::*;

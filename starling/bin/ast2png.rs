@@ -205,24 +205,7 @@ impl Asteroid {
     fn noise(&self, p: Vec2) -> f32 {
         let n1 = self.noise_a(p);
         let n2 = self.noise_b(p);
-        // let n3 = self.noise_c(p);
-        // let n4 = self.noise.get([p.x as f64 * 10.0, p.y as f64 * 10.0, 0.0]) as f32;
         n1 + n2
-    }
-
-    fn sample_noise_color(&self, p: Vec2) -> Option<[u8; 4]> {
-        if !self.contains(p) {
-            return None;
-        }
-
-        let n_to_u8 = |n: f32| ((n.clamp(-1.0, 1.0) / 2.0 + 0.5) * 255.0).round() as u8;
-
-        Some([
-            n_to_u8(self.noise_a(p)),
-            n_to_u8(self.noise_b(p)),
-            n_to_u8(self.noise_c(p)),
-            255,
-        ])
     }
 
     fn sample_color(&self, p: Vec2, highlight_deposits: bool) -> Option<[u8; 4]> {

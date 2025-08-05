@@ -19,6 +19,5 @@ pub mod settings;
 pub mod sim_rate;
 pub mod sounds;
 pub mod sprites;
-pub mod thrust_particles;
 pub mod ui;
 pub mod z_index;

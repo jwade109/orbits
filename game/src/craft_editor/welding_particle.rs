@@ -8,7 +8,7 @@ pub struct BuildParticle {
 
 impl BuildParticle {
     pub fn new(pos: Vec2) -> Self {
-        let vel = randvec(30.0, 90.0);
+        let vel = randvec(1.5, 6.0);
         Self {
             pv: PV::from_f64(pos, vel),
             opacity: 1.0,
