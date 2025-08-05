@@ -63,6 +63,14 @@ impl Universe {
         ret
     }
 
+    pub fn remove(&mut self, id: EntityId) {
+        self.orbital_vehicles.remove(&id);
+        self.surface_vehicles.remove(&id);
+        self.landing_sites.iter_mut().for_each(|(_, ls)| {
+            ls.tracks.remove(&id);
+        });
+    }
+
     pub fn on_sim_ticks(
         &mut self,
         ticks: u32,
@@ -100,6 +108,8 @@ impl Universe {
             ls.surface.particles.step();
         }
 
+        let stamp = self.stamp();
+
         for (id, sv) in &mut self.surface_vehicles {
             let ls = match self.landing_sites.get_mut(&sv.surface_id) {
                 Some(s) => s,
@@ -120,6 +130,9 @@ impl Universe {
                 (VehicleControlPolicy::PositionHold, Some(pose)) => {
                     position_hold_control_law(pose, &sv.body, &sv.vehicle, external_accel)
                 }
+                (VehicleControlPolicy::Velocity, _) => {
+                    enter_orbit_control_law(&sv.body, &sv.vehicle, external_accel)
+                }
                 (_, _) => VehicleControl::NULLOPT,
             };
 
@@ -137,6 +150,8 @@ impl Universe {
             sv.body.clamp_with_elevation(elevation);
 
             add_particles_from_vehicle(&mut ls.surface.particles, &sv.vehicle, &sv.body);
+
+            ls.add_position_track(*id, stamp, sv.body.pv.pos_f32());
         }
     }
 

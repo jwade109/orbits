@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct OrbitalSpacecraftEntity {
@@ -69,6 +70,7 @@ pub struct LandingSiteEntity {
     pub planet: EntityId,
     pub angle: f32,
     pub is_awake: bool,
+    pub tracks: HashMap<EntityId, Vec<(Nanotime, Vec2)>>,
 }
 
 impl LandingSiteEntity {
@@ -79,6 +81,27 @@ impl LandingSiteEntity {
             planet,
             angle,
             is_awake: false,
+            tracks: HashMap::new(),
+        }
+    }
+
+    pub fn add_position_track(&mut self, id: EntityId, stamp: Nanotime, p: Vec2) {
+        if let Some(track) = self.tracks.get_mut(&id) {
+            if let Some((t, _)) = track.last() {
+                let dt = stamp - *t;
+                if dt > Nanotime::secs(1) {
+                    track.push((stamp, p));
+                }
+            } else {
+                track.push((stamp, p));
+            }
+
+            if track.len() > 120 {
+                track.remove(0);
+            }
+        } else {
+            let track = vec![(stamp, p)];
+            self.tracks.insert(id, track);
         }
     }
 }

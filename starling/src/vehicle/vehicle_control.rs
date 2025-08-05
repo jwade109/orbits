@@ -26,8 +26,19 @@ pub struct VehicleControl {
 }
 
 impl VehicleControl {
-    pub const NULLOPT: VehicleControl = VehicleControl {
+    pub const NULLOPT: Self = Self {
         plus_x: ThrustAxisControl::NULLOPT,
+        plus_y: ThrustAxisControl::NULLOPT,
+        neg_x: ThrustAxisControl::NULLOPT,
+        neg_y: ThrustAxisControl::NULLOPT,
+        attitude: 0.0,
+    };
+
+    pub const FORWARD: Self = Self {
+        plus_x: ThrustAxisControl {
+            use_rcs: false,
+            throttle: 1.0,
+        },
         plus_y: ThrustAxisControl::NULLOPT,
         neg_x: ThrustAxisControl::NULLOPT,
         neg_y: ThrustAxisControl::NULLOPT,
@@ -213,11 +224,76 @@ pub fn position_hold_control_law(
     }
 }
 
+pub fn velocity_control_law(
+    vel: Vec2,
+    body: &RigidBody,
+    vehicle: &Vehicle,
+    gravity: Vec2,
+) -> VehicleControl {
+    if gravity.length() == 0.0 {
+        return VehicleControl::NULLOPT;
+    }
+
+    let mut cmd = VehicleControl::NULLOPT;
+
+    let upright_angle = vel.to_angle();
+    let velocity_error = vel - body.pv.vel_f32();
+    let heading_dir = velocity_error - gravity;
+    let target_angle = heading_dir
+        .to_angle()
+        .clamp(upright_angle - 0.2 * PI, upright_angle + 0.2 * PI);
+
+    // attitude controller
+    // let attitude_error = (body.angle - target_angle).abs();
+    let attitude = compute_attitude_control(body, target_angle, &vehicle.attitude_controller);
+
+    let vmag = body.pv.vel_f32().length();
+    let vmag_error = vel.length() - vmag;
+
+    let pid = PDCtrl::new(0.3, 30.0);
+
+    let extra_throttle = pid.apply(vmag_error, 0.0);
+
+    let thrust = vehicle.max_forward_thrust();
+    let accel = thrust / vehicle.total_mass().to_kg_f32();
+    let pct = gravity.length() / accel + extra_throttle;
+
+    cmd.attitude = attitude;
+    cmd.plus_x.throttle = pct;
+
+    cmd
+}
+
+pub fn enter_orbit_control_law(
+    body: &RigidBody,
+    vehicle: &Vehicle,
+    _gravity: Vec2,
+) -> VehicleControl {
+    let altitude_km = body.pv.pos_f32().y / 1000.0;
+
+    let off_normal = if altitude_km < 15.0 {
+        0.0
+    } else if altitude_km < 40.0 {
+        0.25 * PI
+    } else {
+        0.5 * PI
+    };
+
+    let target_angle = PI / 2.0 - off_normal;
+
+    let mut cmd = VehicleControl::NULLOPT;
+    cmd.plus_x.throttle = 1.0;
+    cmd.attitude = compute_attitude_control(body, target_angle, &vehicle.attitude_controller);
+
+    cmd
+}
+
 #[derive(Debug, Clone, Copy, Sequence, PartialEq, Eq)]
 pub enum VehicleControlPolicy {
     Idle,
     External,
     PositionHold,
+    Velocity,
 }
 
 #[derive(Debug, Clone)]
@@ -239,6 +315,13 @@ impl VehicleController {
     pub fn external() -> Self {
         Self {
             mode: VehicleControlPolicy::External,
+            position_queue: Vec::new(),
+        }
+    }
+
+    pub fn velocity() -> Self {
+        Self {
+            mode: VehicleControlPolicy::Velocity,
             position_queue: Vec::new(),
         }
     }
@@ -282,7 +365,10 @@ impl VehicleController {
     }
 
     pub fn get_target_queue(&self) -> impl Iterator<Item = Pose> + use<'_> {
-        self.position_queue.iter().cloned()
+        self.position_queue
+            .iter()
+            .filter(|_| self.mode == VehicleControlPolicy::PositionHold)
+            .cloned()
     }
 
     pub fn go_to_next_mode(&mut self) {

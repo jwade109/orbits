@@ -4,6 +4,7 @@ use noise::{NoiseFn, Perlin};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use starling::prelude::*;
+use imageproc::draw_text;
 
 /// Converts ship file to PNG
 #[derive(Parser, Debug, Default, Clone)]
@@ -291,6 +292,8 @@ pub fn make_asteroid_image(
         let u = viewport.to_normalized(p);
         vround(u * Vec2::new(width as f32, height as f32))
     };
+
+    img
 
     for w in 0..width {
         let sx = w as f32 / width as f32;

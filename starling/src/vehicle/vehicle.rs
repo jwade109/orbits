@@ -616,6 +616,9 @@ impl Vehicle {
 
         for (_, part) in &self.parts {
             if let Some((t, d)) = part.as_thruster() {
+                if !t.is_rcs {
+                    continue;
+                }
                 let center_of_thrust = part.center_meters();
                 let lever_arm = center_of_thrust - com;
                 let thrust_dir = rotate(Vec2::X, part.rotation().to_angle());

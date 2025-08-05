@@ -372,17 +372,17 @@ fn highlight_part(
     ctx: &impl CameraProjection,
     color: Srgba,
 ) {
-    let wh = instance.dims_meters().as_ivec2();
-    let p = instance.origin();
+    let wh = instance.dims_meters();
+    let p = instance.origin_meters();
     let q = p + wh;
-    let r = p + IVec2::X * wh.x;
-    let s = p + IVec2::Y * wh.y;
-    let aabb = aabb_for_part(p, instance.rotation(), &instance.prototype());
+    let r = p + Vec2::X * wh.x;
+    let s = p + Vec2::Y * wh.y;
+    let aabb = AABB::from_arbitrary(p, p + wh);
 
     draw_highlight_box(canvas, aabb, ctx, color);
 
     for p in [p, q, r, s] {
-        let p = ctx.w2c(p.as_vec2() / PIXELS_PER_METER);
+        let p = ctx.w2c(p);
         draw_cross(&mut canvas.gizmos, p, 0.1 * ctx.scale(), color);
     }
 }
@@ -404,11 +404,10 @@ pub fn draw_particles(
         let size = 1.0 + age * 12.0;
         let ramp_up = (age * 40.0).clamp(0.0, 1.0);
         let stretch = (8.0 * (1.0 - age * 2.0)).max(1.0);
-        let angle = particle.pv.vel.to_angle() as f32;
         canvas
             .sprite(
                 p,
-                angle,
+                particle.angle,
                 "cloud",
                 None,
                 Vec2::new(size * stretch * ramp_up, size * ramp_up) * ctx.scale(),
@@ -524,11 +523,11 @@ impl Render for EditorContext {
 
         let info = format!("{}{}", info, vehicle_info);
 
-        let world_pos = Vec2::new(0.0, -bounds.span.y / 2.0 - 10.0);
+        let world_pos = Vec2::new(0.0, bounds.lower().y - 1.0);
         canvas
-            .text(info, ctx.w2c(world_pos), 0.2 * ctx.scale())
+            .text(info, ctx.w2c(world_pos), 0.01 * ctx.scale())
             .anchor_top_left();
-        let world_pos = Vec2::new(0.0, bounds.span.y / 2.0 + 10.0);
+        let world_pos = Vec2::new(0.0, bounds.upper().y + 1.0);
         canvas
             .text(
                 format!(
@@ -537,7 +536,7 @@ impl Render for EditorContext {
                     state.editor_context.vehicle.name()
                 ),
                 ctx.w2c(world_pos),
-                0.2 * ctx.scale(),
+                0.01 * ctx.scale(),
             )
             .anchor_bottom_left();
 
@@ -1072,11 +1071,11 @@ impl EditorContext {
 
         if state.editor_context.focus_layer == Some(PartLayer::Plumbing) {
             if let Some(p) = state.input.position(MouseButt::Left, FrameId::Current) {
-                let p = vfloor(state.editor_context.c2w(p));
+                let p = vfloor(state.editor_context.c2w(p) * PIXELS_PER_METER);
                 state.editor_context.vehicle.add_pipe(p);
             }
             if let Some(p) = state.input.position(MouseButt::Right, FrameId::Current) {
-                let p = vfloor(state.editor_context.c2w(p));
+                let p = vfloor(state.editor_context.c2w(p) * PIXELS_PER_METER);
                 state.editor_context.vehicle.remove_pipe(p);
             }
         }

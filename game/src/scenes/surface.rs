@@ -10,7 +10,7 @@ use bevy::color::{palettes::css::*, Alpha, Srgba};
 use bevy::prelude::{Gizmos, KeyCode};
 use layout::layout::Tree;
 use starling::prelude::*;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug)]
 pub struct SurfaceContext {
@@ -20,6 +20,8 @@ pub struct SurfaceContext {
 
     left_click_world_pos: Option<Vec2>,
     right_click_world_pos: Option<Vec2>,
+
+    follow: Option<EntityId>,
 }
 
 impl Default for SurfaceContext {
@@ -30,6 +32,7 @@ impl Default for SurfaceContext {
             current_surface: EntityId(0),
             left_click_world_pos: None,
             right_click_world_pos: None,
+            follow: None,
         }
     }
 }
@@ -49,6 +52,13 @@ impl SurfaceContext {
         pos: Vec2,
     ) -> Option<(EntityId, &'a SurfaceSpacecraftEntity)> {
         for (id, sv) in universe.surface_vehicles(self.current_surface) {
+            let veh_screen_pos = self.w2c(sv.body.pv.pos_f32());
+            let mouse_screen_pos = self.w2c(pos);
+
+            if veh_screen_pos.distance(mouse_screen_pos) < 25.0 {
+                return Some((*id, sv));
+            }
+
             let d = sv.body.pv.pos_f32().distance(pos);
             let r = sv.vehicle.bounding_radius();
             if d < r {
@@ -170,6 +180,16 @@ impl SurfaceContext {
             }
         }
 
+        if input.just_pressed(KeyCode::KeyF) {
+            if self.follow.is_none() {
+                if let Some(id) = self.selected.iter().next() {
+                    self.follow = Some(*id);
+                }
+            } else {
+                self.follow = None;
+            }
+        }
+
         if input.just_pressed(KeyCode::KeyC) {
             for idx in &self.selected {
                 if let Some(sv) = universe.surface_vehicles.get_mut(idx) {
@@ -179,9 +199,9 @@ impl SurfaceContext {
         }
 
         if input.just_pressed(KeyCode::Delete) {
-            universe
-                .surface_vehicles
-                .retain(|id, _| !self.selected.contains(id))
+            for id in &self.selected {
+                universe.remove(*id);
+            }
         }
     }
 
@@ -189,6 +209,16 @@ impl SurfaceContext {
         let ctx = &mut state.surface_context;
 
         ctx.camera.on_game_tick();
+
+        if let Some(follow) = ctx.follow {
+            if let Some(sv) = state
+                .universe
+                .lup_surface_vehicle(follow, ctx.current_surface)
+            {
+                let p = sv.body.pv.pos_f32();
+                ctx.camera.follow(p);
+            }
+        }
 
         // ctx.particles.step();
     }
@@ -221,6 +251,22 @@ fn draw_kinematic_arc(
         draw_circle(gizmos, q, 2.0, GRAY);
         pv.pos += pv.vel * dt;
         pv.vel += accel.as_dvec2() * dt;
+    }
+}
+
+fn draw_tracks(
+    canvas: &mut Canvas,
+    ctx: &impl CameraProjection,
+    tracks: &HashMap<EntityId, Vec<(Nanotime, Vec2)>>,
+    selected: &HashSet<EntityId>,
+) {
+    for (id, track) in tracks {
+        let color = if selected.contains(id) { ORANGE } else { GRAY };
+
+        for (_, p) in track {
+            let p = ctx.w2c(*p);
+            canvas.circle(p, 3.0, color);
+        }
     }
 }
 
@@ -480,7 +526,11 @@ impl Render for SurfaceContext {
             canvas.text(text, p, 0.5 * ctx.scale()).color.alpha = 0.2;
 
             crate::craft_editor::draw_particles(canvas, ctx, &surface.particles);
+
+            draw_tracks(canvas, ctx, &ls.tracks, &ctx.selected);
         }
+
+        crate::drawing::draw_piloting_overlay(canvas, state);
 
         for (_, sv) in state.universe.surface_vehicles(surface_id) {
             let pos = ctx.w2c(sv.body.pv.pos_f32());
@@ -491,11 +541,23 @@ impl Render for SurfaceContext {
                 7.0,
                 RED.with_alpha((1.0 - ctx.scale() / 4.0).clamp(0.0, 1.0)),
             );
+
+            let ground_track = sv.body.pv.pos_f32().with_y(0.0);
+
+            for (p, q) in [
+                (Vec2::ZERO, ground_track),
+                (ground_track, sv.body.pv.pos_f32()),
+            ] {
+                let p = ctx.w2c(p);
+                let q = ctx.w2c(q);
+                canvas.gizmos.line_2d(p, q, GRAY);
+            }
         }
 
         (|| -> Option<()> {
-            let mouse_pos = ctx.c2w(state.input.current()?);
-            let (_, sv) = ctx.mouseover_vehicle(&state.universe, mouse_pos)?;
+            let p = state.input.current()?;
+            let mouse_world_pos = ctx.c2w(p);
+            let (_, sv) = ctx.mouseover_vehicle(&state.universe, mouse_world_pos)?;
             let pos = ctx.w2c(sv.body.pv.pos_f32());
             let r = vehicle_mouseover_radius(&sv.vehicle, ctx) * 1.1;
             draw_circle(&mut canvas.gizmos, pos, r, RED.with_alpha(0.3));
@@ -541,6 +603,7 @@ impl Render for SurfaceContext {
             let selected = ctx.selected.contains(id);
             let mut p = ctx.w2c(sv.body.pv.pos_f32());
             positions.push(sv.body.pv.pos_f32());
+
             for pose in sv.controller.get_target_queue() {
                 let q = ctx.w2c(pose.0);
                 let r = ctx.w2c(pose.0 + rotate(Vec2::X * 5.0, pose.1));
@@ -555,7 +618,7 @@ impl Render for SurfaceContext {
             }
         }
 
-        draw_grid(canvas, ctx, &positions, 10, 250);
+        draw_grid(canvas, ctx, &positions, 250, 1000);
 
         if let Some(p) = ctx.left_click_world_pos {
             canvas.circle(ctx.w2c(p), 10.0, GREEN);

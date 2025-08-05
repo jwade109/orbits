@@ -11,10 +11,11 @@ pub struct ThrustParticle {
     pub initial_color: [f32; 4],
     pub final_color: [f32; 4],
     pub depth: f32,
+    pub angle: f32,
 }
 
 impl ThrustParticle {
-    fn new(pv: PV, initial_color: [f32; 4], final_color: [f32; 4]) -> Self {
+    fn new(pv: PV, angle: f32, initial_color: [f32; 4], final_color: [f32; 4]) -> Self {
         Self {
             pv,
             age: Nanotime::zero(),
@@ -22,6 +23,7 @@ impl ThrustParticle {
             final_color,
             lifetime: Nanotime::secs_f32(rand(1.2, 3.0)),
             depth: rand(0.0, 1000.0),
+            angle,
         }
     }
 
@@ -84,8 +86,12 @@ impl ThrustParticleEffects {
                 let pv = body.pv + PV::from_f64(pos, vel);
                 let initial_color = mix(t.primary_color, t.secondary_color, rand(0.1, 0.7));
                 // let final_color = WHITE.mix(&DARK_GRAY, rand(0.3, 0.9)).with_alpha(0.4);
-                self.particles
-                    .push(ThrustParticle::new(pv, initial_color, [1.0, 1.0, 1.0, 0.7]));
+                self.particles.push(ThrustParticle::new(
+                    pv,
+                    body.angle + part.rotation().to_angle(),
+                    initial_color,
+                    [1.0, 1.0, 1.0, 0.7],
+                ));
             }
         }
     }
