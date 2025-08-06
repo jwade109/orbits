@@ -1,4 +1,6 @@
 use crate::math::*;
+use crate::orbits::Body;
+use crate::orbits::SparseOrbit;
 use crate::pid::PDCtrl;
 use crate::vehicle::*;
 use enum_iterator::{next_cycle, Sequence};
@@ -22,7 +24,7 @@ pub struct VehicleControl {
     pub plus_y: ThrustAxisControl,
     pub neg_x: ThrustAxisControl,
     pub neg_y: ThrustAxisControl,
-    pub attitude: f32,
+    pub attitude: f64,
 }
 
 impl VehicleControl {
@@ -46,24 +48,16 @@ impl VehicleControl {
     };
 }
 
-// const ATTITUDE_CONTROLLER: PDCtrl = PDCtrl::new(40.0, 60.0);
-
-// const VERTICAL_CONTROLLER: PDCtrl = PDCtrl::new(0.03, 0.3);
-
-// const vehicle.horizontal_controller: PDCtrl = PDCtrl::new(0.01, 0.08);
-
-// const DOCKING_LINEAR_CONTROLLER: PDCtrl = PDCtrl::new(10.0, 300.0);
-
 fn zero_gravity_control_law(
-    target: Vec2,
-    target_angle: f32,
+    target: DVec2,
+    target_angle: f64,
     body: &RigidBody,
     vehicle: &Vehicle,
 ) -> VehicleControl {
     let mut ctrl = VehicleControl::NULLOPT;
 
-    let pos = body.pv.pos_f32();
-    let vel = body.pv.vel_f32();
+    let pos = body.pv.pos;
+    let vel = body.pv.vel;
     let error = target - pos;
     let distance = error.length();
 
@@ -75,8 +69,8 @@ fn zero_gravity_control_law(
     if distance < 20.0 {
         ctrl.attitude = compute_attitude_control(body, target_angle, &vehicle.attitude_controller);
 
-        let error = rotate(target - body.pv.pos_f32(), -body.angle);
-        let error_rate = rotate(body.pv.vel_f32(), -body.angle);
+        let error = rotate_f64(target - body.pv.pos, -body.angle);
+        let error_rate = rotate_f64(body.pv.vel, -body.angle);
 
         let ax = vehicle
             .docking_linear_controller
@@ -86,15 +80,15 @@ fn zero_gravity_control_law(
             .apply(error.y, error_rate.y);
 
         if ax > 0.0 {
-            ctrl.plus_x.throttle = ax.abs();
+            ctrl.plus_x.throttle = ax.abs() as f32;
         } else {
-            ctrl.neg_x.throttle = ax.abs();
+            ctrl.neg_x.throttle = ax.abs() as f32;
         }
 
         if ay > 0.0 {
-            ctrl.plus_y.throttle = ay.abs();
+            ctrl.plus_y.throttle = ay.abs() as f32;
         } else {
-            ctrl.neg_y.throttle = ay.abs();
+            ctrl.neg_y.throttle = ay.abs() as f32;
         }
 
         ctrl.plus_x.use_rcs = true;
@@ -103,20 +97,20 @@ fn zero_gravity_control_law(
         ctrl.neg_y.use_rcs = true;
     } else if bad_vel.length() > 2.0 && vel.length() > 5.0 {
         let target_angle = (-bad_vel).to_angle();
-        let angle_error = wrap_pi_npi(target_angle - body.angle);
+        let angle_error = wrap_pi_npi_f64(target_angle - body.angle);
         ctrl.attitude = compute_attitude_control(body, target_angle, &vehicle.attitude_controller);
         if angle_error.abs() < 0.2 {
             ctrl.plus_x.throttle = 0.4;
         }
     } else if distance > 100.0 {
         let target_angle = error.to_angle();
-        let angle_error = wrap_pi_npi(target_angle - body.angle);
+        let angle_error = wrap_pi_npi_f64(target_angle - body.angle);
         ctrl.attitude = compute_attitude_control(body, target_angle, &vehicle.attitude_controller);
         if angle_error.abs() < 0.05 && vel.length() < 4.0 {
             ctrl.plus_x.throttle = 0.2;
         }
 
-        let bad_vel = rotate(bad_vel, -body.angle);
+        let bad_vel = rotate_f64(bad_vel, -body.angle);
         if bad_vel.y > 0.1 {
             ctrl.neg_y.throttle = 1.0;
             ctrl.neg_y.use_rcs = true;
@@ -130,7 +124,7 @@ fn zero_gravity_control_law(
 
         if forward > 0.0 && backward / forward > 0.5 {
             let target_angle = vel.to_angle();
-            let angle_error = wrap_pi_npi(target_angle - body.angle);
+            let angle_error = wrap_pi_npi_f64(target_angle - body.angle);
             ctrl.attitude =
                 compute_attitude_control(body, target_angle, &vehicle.attitude_controller);
             if angle_error.abs() < 0.05 {
@@ -139,7 +133,7 @@ fn zero_gravity_control_law(
         } else {
             // flip and burn
             let target_angle = (-vel).to_angle();
-            let angle_error = wrap_pi_npi(target_angle - body.angle);
+            let angle_error = wrap_pi_npi_f64(target_angle - body.angle);
             ctrl.attitude =
                 compute_attitude_control(body, target_angle, &vehicle.attitude_controller);
             if angle_error.abs() < 0.05 {
@@ -148,7 +142,7 @@ fn zero_gravity_control_law(
         }
     } else if vel.length() < 1.0 {
         let target_angle = error.to_angle();
-        let angle_error = wrap_pi_npi(target_angle - body.angle);
+        let angle_error = wrap_pi_npi_f64(target_angle - body.angle);
         ctrl.attitude = compute_attitude_control(body, target_angle, &vehicle.attitude_controller);
         if angle_error.abs() < 0.1 {
             ctrl.plus_x.throttle = 0.2;
@@ -160,50 +154,50 @@ fn zero_gravity_control_law(
     ctrl
 }
 
-fn compute_attitude_control(body: &RigidBody, target_angle: f32, pid: &PDCtrl) -> f32 {
-    let attitude_error = wrap_pi_npi(target_angle - body.angle);
+fn compute_attitude_control(body: &RigidBody, target_angle: f64, pid: &PDCtrl) -> f64 {
+    let attitude_error = wrap_pi_npi_f64(target_angle - body.angle);
     pid.apply(attitude_error, body.angular_velocity)
 }
 
 fn hover_control_law(
-    target: Vec2,
-    gravity: Vec2,
+    target: DVec2,
+    gravity: DVec2,
     vehicle: &Vehicle,
     body: &RigidBody,
 ) -> VehicleControl {
-    let upright_angle = Vec2::new(-gravity.x, -gravity.y).to_angle();
+    let upright_angle = DVec2::new(-gravity.x, -gravity.y).to_angle();
 
-    let target = if target.distance(body.pv.pos_f32()) > 250.0 {
-        let d = target - body.pv.pos_f32();
-        d.normalize_or_zero() * 250.0 + body.pv.pos_f32()
+    let target = if target.distance(body.pv.pos) > 250.0 {
+        let d = target - body.pv.pos;
+        d.normalize_or_zero() * 250.0 + body.pv.pos
     } else {
         target
     };
 
     let horizontal_control = vehicle
         .horizontal_controller
-        .apply(target.x - body.pv.pos.x as f32, body.pv.vel.x as f32);
+        .apply(target.x - body.pv.pos.x as f64, body.pv.vel.x as f64);
 
     // attitude controller
-    let target_angle = upright_angle - horizontal_control.clamp(-PI / 6.0, PI / 6.0);
+    let target_angle = upright_angle - horizontal_control.clamp(-PI_64 / 6.0, PI_64 / 6.0);
     let attitude_error = (body.angle - target_angle).abs();
     let attitude = compute_attitude_control(body, target_angle, &vehicle.attitude_controller);
 
     let thrust = vehicle.max_forward_thrust();
-    let accel = thrust / vehicle.total_mass().to_kg_f32();
+    let accel = thrust / vehicle.total_mass().to_kg_f64();
     let pct = gravity.length() / accel;
 
     // vertical controller
     let error = vehicle
         .vertical_controller
-        .apply(target.y - body.pv.pos.y as f32, body.pv.vel.y as f32);
+        .apply(target.y - body.pv.pos.y as f64, body.pv.vel.y as f64);
 
     let throttle = pct + error;
 
     let mut ctrl = VehicleControl::NULLOPT;
 
     if attitude_error < 0.7 {
-        ctrl.plus_x.throttle = throttle;
+        ctrl.plus_x.throttle = throttle as f32;
     }
 
     ctrl.attitude = attitude;
@@ -215,7 +209,7 @@ pub fn position_hold_control_law(
     target: Pose,
     body: &RigidBody,
     vehicle: &Vehicle,
-    gravity: Vec2,
+    gravity: DVec2,
 ) -> VehicleControl {
     if gravity.length() > 0.0 {
         hover_control_law(target.0, gravity, vehicle, body)
@@ -225,10 +219,10 @@ pub fn position_hold_control_law(
 }
 
 pub fn velocity_control_law(
-    vel: Vec2,
+    vel: DVec2,
     body: &RigidBody,
     vehicle: &Vehicle,
-    gravity: Vec2,
+    gravity: DVec2,
 ) -> VehicleControl {
     if gravity.length() == 0.0 {
         return VehicleControl::NULLOPT;
@@ -237,17 +231,17 @@ pub fn velocity_control_law(
     let mut cmd = VehicleControl::NULLOPT;
 
     let upright_angle = vel.to_angle();
-    let velocity_error = vel - body.pv.vel_f32();
+    let velocity_error = vel - body.pv.vel;
     let heading_dir = velocity_error - gravity;
     let target_angle = heading_dir
         .to_angle()
-        .clamp(upright_angle - 0.2 * PI, upright_angle + 0.2 * PI);
+        .clamp(upright_angle - 0.2 * PI_64, upright_angle + 0.2 * PI_64);
 
     // attitude controller
     // let attitude_error = (body.angle - target_angle).abs();
     let attitude = compute_attitude_control(body, target_angle, &vehicle.attitude_controller);
 
-    let vmag = body.pv.vel_f32().length();
+    let vmag = body.pv.vel.length();
     let vmag_error = vel.length() - vmag;
 
     let pid = PDCtrl::new(0.3, 30.0);
@@ -255,40 +249,45 @@ pub fn velocity_control_law(
     let extra_throttle = pid.apply(vmag_error, 0.0);
 
     let thrust = vehicle.max_forward_thrust();
-    let accel = thrust / vehicle.total_mass().to_kg_f32();
+    let accel = thrust / vehicle.total_mass().to_kg_f64();
     let pct = gravity.length() / accel + extra_throttle;
 
     cmd.attitude = attitude;
-    cmd.plus_x.throttle = pct;
+    cmd.plus_x.throttle = pct as f32;
 
     cmd
 }
 
 pub fn enter_orbit_control_law(
+    planet: &Body,
     body: &RigidBody,
     vehicle: &Vehicle,
-    _gravity: Vec2,
+    orbit: Option<&SparseOrbit>,
 ) -> VehicleControl {
-    let altitude_km = body.pv.pos_f32().y / 1000.0;
+    if let Some(orbit) = orbit {
+        if orbit.apoapsis_r() - planet.radius as f64 > 200000.0 {
+            return VehicleControl::NULLOPT;
+        }
+    }
 
-    let off_normal = if altitude_km < 15.0 {
-        0.0
-    } else if altitude_km < 40.0 {
-        0.25 * PI
-    } else {
-        0.5 * PI
-    };
+    let altitude_km = (body.pv.pos.length() - planet.radius) / 1000.0;
 
-    let target_angle = PI / 2.0 - off_normal;
+    let s = ((altitude_km - 1.0) / 4.0).clamp(0.0, 1.0);
+
+    let vertical = body.pv.pos.to_angle();
+
+    let off_vertical = s * PI_64 / 2.0;
+
+    let target_angle = vertical + off_vertical;
 
     let mut cmd = VehicleControl::NULLOPT;
-    cmd.plus_x.throttle = 1.0;
+    cmd.plus_x.throttle = 0.7;
     cmd.attitude = compute_attitude_control(body, target_angle, &vehicle.attitude_controller);
 
     cmd
 }
 
-#[derive(Debug, Clone, Copy, Sequence, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Sequence, PartialEq, Eq, Hash)]
 pub enum VehicleControlPolicy {
     Idle,
     External,
@@ -299,10 +298,10 @@ pub enum VehicleControlPolicy {
 #[derive(Debug, Clone)]
 pub struct VehicleController {
     mode: VehicleControlPolicy,
-    position_queue: Vec<(Vec2, f32)>,
+    position_queue: Vec<(DVec2, f64)>,
 }
 
-pub type Pose = (Vec2, f32);
+pub type Pose = (DVec2, f64);
 
 impl VehicleController {
     pub fn idle() -> Self {
@@ -395,9 +394,9 @@ impl VehicleController {
             return;
         }
 
-        let d = pos.distance(body.pv.pos_f32()).abs();
-        let v = body.pv.vel_f32().length().abs();
-        let a = wrap_pi_npi(angle - body.angle).abs();
+        let d = pos.distance(body.pv.pos).abs();
+        let v = body.pv.vel.length().abs();
+        let a = wrap_pi_npi_f64(angle - body.angle).abs();
 
         if d > 2.0 {
             return;

@@ -5,17 +5,19 @@ use starling::prelude::*;
 
 pub struct Signal<'a> {
     graph: &'a Graph,
-    x: &'a [f32],
-    y: &'a [f32],
+    x: &'a [f64],
+    y: &'a [f64],
     color: Srgba,
 }
 
 impl<'a> Signal<'a> {
-    pub fn points(&self) -> impl Iterator<Item = Vec2> + use<'_> {
-        self.x
-            .iter()
-            .zip(self.y.iter())
-            .map(|(x, y)| self.graph.bounds().to_normalized(Vec2::new(*x, *y)))
+    pub fn points(&self) -> impl Iterator<Item = DVec2> + use<'_> {
+        self.x.iter().zip(self.y.iter()).map(|(x, y)| {
+            self.graph
+                .bounds()
+                .to_normalized(aabb_stopgap_cast(DVec2::new(*x, *y)))
+                .as_dvec2()
+        })
     }
 
     pub fn color(&self) -> Srgba {
@@ -25,16 +27,16 @@ impl<'a> Signal<'a> {
 
 pub struct Graph {
     bounds: Option<AABB>,
-    x: Vec<f32>,
-    signals: Vec<(Vec<f32>, Srgba)>,
-    points: Vec<Vec2>,
+    x: Vec<f64>,
+    signals: Vec<(Vec<f64>, Srgba)>,
+    points: Vec<DVec2>,
 }
 
 impl Graph {
-    pub fn linspace(a: f32, b: f32, n: usize) -> Self {
+    pub fn linspace(a: f64, b: f64, n: usize) -> Self {
         Graph {
             bounds: None,
-            x: linspace(a, b, n),
+            x: linspace_f64(a, b, n),
             signals: Vec::new(),
             points: Vec::new(),
         }
@@ -49,20 +51,25 @@ impl Graph {
         }
     }
 
-    pub fn points(&self) -> impl Iterator<Item = Vec2> + use<'_> {
-        self.points.iter().map(|p| self.bounds().to_normalized(*p))
+    pub fn points(&self) -> impl Iterator<Item = DVec2> + use<'_> {
+        self.points.iter().map(|p| {
+            self.bounds()
+                .to_normalized(aabb_stopgap_cast(*p))
+                .as_dvec2()
+        })
     }
 
-    fn update_bounds(&mut self, p: Vec2) {
+    fn update_bounds(&mut self, p: DVec2) {
         if let Some(aabb) = &mut self.bounds {
-            aabb.include(&p);
+            aabb.include(&aabb_stopgap_cast(p));
         } else {
-            self.bounds = Some(AABB::from_arbitrary(p, p).padded(0.01));
+            self.bounds =
+                Some(AABB::from_arbitrary(aabb_stopgap_cast(p), aabb_stopgap_cast(p)).padded(0.01));
         }
     }
 
-    pub fn add_point(&mut self, x: f32, y: f32, update_bounds: bool) {
-        let p = Vec2::new(x, y);
+    pub fn add_point(&mut self, x: f64, y: f64, update_bounds: bool) {
+        let p = DVec2::new(x, y);
         if update_bounds {
             self.update_bounds(p);
         }
@@ -73,19 +80,21 @@ impl Graph {
         self.bounds.unwrap_or(AABB::with_padding(0.1))
     }
 
-    pub fn add_func(&mut self, func: impl Fn(f32) -> f32, color: Srgba) {
+    pub fn add_func(&mut self, func: impl Fn(f64) -> f64, color: Srgba) {
         let y = apply(&self.x, func);
         self.x.clone().iter().zip(y.iter()).for_each(|(x, y)| {
             if y.is_nan() {
                 return;
             }
-            self.update_bounds(Vec2::new(*x, *y));
+            self.update_bounds(DVec2::new(*x, *y));
         });
         self.signals.push((y, color));
     }
 
-    pub fn origin(&self) -> Vec2 {
-        self.bounds().to_normalized(Vec2::ZERO)
+    pub fn origin(&self) -> DVec2 {
+        self.bounds()
+            .to_normalized(aabb_stopgap_cast(DVec2::ZERO))
+            .as_dvec2()
     }
 
     pub fn signals(&self) -> impl Iterator<Item = Signal> + use<'_> {
@@ -106,26 +115,26 @@ pub fn get_orbit_info_graph(orbit: &SparseOrbit) -> Graph {
     let dur = Nanotime::secs(120);
 
     if let Some(tp) = orbit.t_next_p(orbit.epoch) {
-        let y = orbit.periapsis_r() as f32;
+        let y = orbit.periapsis_r() as f64;
         let period = orbit.period_or(Nanotime::zero());
         for i in -3..=12 {
-            let x = (tp - orbit.epoch + period * i).to_secs() / dur.to_secs();
+            let x = (tp - orbit.epoch + period * i).to_secs_f64() / dur.to_secs_f64();
             graph.add_point(x, y, false)
         }
     };
 
-    let t = |s: f32| t0 + dur * s;
+    let t = |s: f64| t0 + dur * s;
 
-    let pv = |s: f32| orbit.pv(t(s)).ok();
-    let ta = |s: f32| orbit.ta_at_time(t(s)).unwrap_or(f64::NAN);
+    let pv = |s: f64| orbit.pv(t(s)).ok();
+    let ta = |s: f64| orbit.ta_at_time(t(s)).unwrap_or(f64::NAN);
 
-    let x1 = |s: f32| pv(s).map(|pv| pv.pos_f32().x).unwrap_or(f32::NAN);
-    let x2 = |s: f32| orbit.position_at(ta(s)).x;
+    let x1 = |s: f64| pv(s).map(|pv| pv.pos.x).unwrap_or(f64::NAN);
+    let x2 = |s: f64| orbit.position_at(ta(s)).x;
 
-    let y1 = |s: f32| pv(s).map(|pv| pv.pos_f32().y).unwrap_or(f32::NAN);
-    let y2 = |s: f32| orbit.position_at(ta(s)).y;
+    let y1 = |s: f64| pv(s).map(|pv| pv.pos.y).unwrap_or(f64::NAN);
+    let y2 = |s: f64| orbit.position_at(ta(s)).y;
 
-    let r = |s: f32| orbit.position_at(ta(s)).length() as f32;
+    let r = |s: f64| orbit.position_at(ta(s)).length() as f64;
 
     graph.add_func(x1, RED);
     // graph.add_func(x2, RED.with_green(0.4));
@@ -138,18 +147,18 @@ pub fn get_orbit_info_graph(orbit: &SparseOrbit) -> Graph {
 
 #[allow(unused)]
 pub fn get_lut_error_graph(orbit: &SparseOrbit) -> Option<Graph> {
-    let mut graph = Graph::linspace(-0.1 * PI, 2.1 * PI, 5000);
+    let mut graph = Graph::linspace(-0.1 * PI_64, 2.1 * PI_64, 5000);
 
     let period = orbit.period()?;
     let tp = orbit.t_next_p(orbit.epoch)?;
 
-    let t_at_x = |x: f32| {
-        let s = x / (2.0 * PI);
+    let t_at_x = |x: f64| {
+        let s = x / (2.0 * PI_64);
         tp + period * s
     };
 
-    let get_x = |pv: Option<PV>| pv.map(|pv| pv.pos_f32().x).unwrap_or(f32::NAN);
-    let get_y = |pv: Option<PV>| pv.map(|pv| pv.pos_f32().y).unwrap_or(f32::NAN);
+    let get_x = |pv: Option<PV>| pv.map(|pv| pv.pos.x).unwrap_or(f64::NAN);
+    let get_y = |pv: Option<PV>| pv.map(|pv| pv.pos.y).unwrap_or(f64::NAN);
 
     let pv_slow_x = |x| get_x(orbit.pv_universal(t_at_x(x)).ok());
     let pv_slow_y = |x| get_y(orbit.pv_universal(t_at_x(x)).ok());
@@ -157,7 +166,7 @@ pub fn get_lut_error_graph(orbit: &SparseOrbit) -> Option<Graph> {
     let pv_lut_x = |x| get_x(orbit.pv_lut(t_at_x(x)));
     let pv_lut_y = |x| get_y(orbit.pv_lut(t_at_x(x)));
 
-    let ra = orbit.apoapsis_r() as f32;
+    let ra = orbit.apoapsis_r() as f64;
 
     let error_x = |x| (pv_slow_x(x) - pv_lut_x(x)) / ra;
     let error_y = |x| (pv_slow_y(x) - pv_lut_y(x)) / ra;
@@ -174,17 +183,17 @@ pub fn get_lut_error_graph(orbit: &SparseOrbit) -> Option<Graph> {
 }
 
 fn generate_lut_graph() -> Graph {
-    let mut graph = Graph::linspace(-0.1 * PI, 2.1 * PI, 1000);
+    let mut graph = Graph::linspace(-0.1 * PI_64, 2.1 * PI_64, 1000);
 
     graph.add_point(0.0, 0.0, true);
-    graph.add_point(PI, 0.0, true);
-    graph.add_point(2.0 * PI, 0.0, true);
-    graph.add_point(0.0, PI, true);
-    graph.add_point(0.0, 2.0 * PI, true);
-    graph.add_point(2.0 * PI, 2.0 * PI, true);
+    graph.add_point(PI_64, 0.0, true);
+    graph.add_point(2.0 * PI_64, 0.0, true);
+    graph.add_point(0.0, PI_64, true);
+    graph.add_point(0.0, 2.0 * PI_64, true);
+    graph.add_point(2.0 * PI_64, 2.0 * PI_64, true);
 
     for ecc in linspace(0.0, 0.9, 10) {
-        let f = |x| lookup_ta_from_ma(x as f64, ecc as f64).unwrap_or(f64::NAN) as f32;
+        let f = |x| lookup_ta_from_ma(x as f64, ecc as f64).unwrap_or(f64::NAN) as f64;
         graph.add_func(f, GREEN.mix(&RED, ecc));
     }
 

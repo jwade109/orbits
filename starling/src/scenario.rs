@@ -1,11 +1,11 @@
 use crate::entities::*;
 use crate::id::*;
+use crate::math::*;
 use crate::nanotime::Nanotime;
 use crate::orbiter::*;
 use crate::orbits::{Body, SparseOrbit};
 use crate::propagator::EventType;
 use crate::pv::PV;
-use glam::f32::Vec2;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -153,12 +153,12 @@ impl PlanetarySystem {
         self.lookup_inner(id, stamp, PV::ZERO, None)
     }
 
-    pub fn potential_at(&self, pos: Vec2, stamp: Nanotime) -> f32 {
-        let r = pos.length().clamp(10.0, std::f32::MAX);
+    pub fn potential_at(&self, pos: DVec2, stamp: Nanotime) -> f64 {
+        let r = pos.length().clamp(10.0, std::f64::MAX);
         let mut ret = -self.body.mu() / r;
         for (orbit, pl) in &self.subsystems {
             if let Some(pv) = orbit.pv(stamp).ok() {
-                ret += pl.potential_at(pos - pv.pos_f32(), stamp);
+                ret += pl.potential_at(pos - pv.pos, stamp);
             }
         }
         ret

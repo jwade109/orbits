@@ -1,11 +1,10 @@
+use crate::math::DVec2;
 use crate::orbits::SparseOrbit;
 use crate::propagator::*;
 use crate::pv::PV;
 use crate::scenario::*;
 use crate::{nanotime::Nanotime, orbits::GlobalOrbit};
 use serde::{Deserialize, Serialize};
-
-use glam::f32::Vec2;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Orbiter {
@@ -29,7 +28,7 @@ impl Orbiter {
         // TODO on_sim_tick
     }
 
-    pub fn try_impulsive_burn(&mut self, stamp: Nanotime, dv: Vec2) -> Option<()> {
+    pub fn try_impulsive_burn(&mut self, stamp: Nanotime, dv: DVec2) -> Option<()> {
         let orbit: GlobalOrbit = {
             let prop = self.propagator_at(stamp)?;
             let pv = prop.pv_universal(stamp)? + PV::vel(dv);

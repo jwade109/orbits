@@ -3,8 +3,8 @@ use starling::prelude::*;
 #[derive(Debug, Clone)]
 pub struct Notification {
     pub parent: Option<ObjectId>,
-    pub offset: Vec2,
-    pub jitter: Vec2,
+    pub offset: DVec2,
+    pub jitter: DVec2,
     pub sim_time: Nanotime,
     pub wall_time: Nanotime,
     pub extra_time: Nanotime,
@@ -34,10 +34,10 @@ impl Notification {
     }
 
     pub fn jitter(&mut self) {
-        if self.jitter == Vec2::ZERO && rand(0.0, 1.0) < 0.004 {
-            self.jitter = randvec(0.1, 6.0);
+        if self.jitter == DVec2::ZERO && rand(0.0, 1.0) < 0.004 {
+            self.jitter = randvec(0.1, 6.0).as_dvec2();
         } else if self.jitter.length() > 0.0 && rand(0.0, 1.0) < 0.04 {
-            self.jitter = Vec2::ZERO;
+            self.jitter = DVec2::ZERO;
         }
     }
 }

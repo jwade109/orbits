@@ -56,8 +56,8 @@ impl TankModel {
         self.max_fluid_mass
     }
 
-    pub fn percent_filled(&self, data: &TankInstanceData) -> f32 {
-        data.contents_mass().to_kg_f32() / self.max_fluid_mass.to_kg_f32()
+    pub fn percent_filled(&self, data: &TankInstanceData) -> f64 {
+        data.contents_mass().to_kg_f64() / self.max_fluid_mass.to_kg_f64()
     }
 }
 

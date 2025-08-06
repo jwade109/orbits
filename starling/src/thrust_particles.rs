@@ -79,16 +79,16 @@ impl ThrustParticleEffects {
                 return;
             }
             for _ in 0..2 {
-                let pos = rotate(part.center_meters(), body.angle);
-                let ve = t.exhaust_velocity / 20.0 + 30.0 * d.throttle();
-                let u = rotate(rotate(Vec2::X, part.rotation().to_angle()), body.angle);
-                let vel = randvec(2.0, 4.0) + u * -ve * rand(0.6, 1.0);
+                let pos = rotate_f64(part.center_meters().as_dvec2(), body.angle);
+                let ve = t.exhaust_velocity as f64 / 20.0 + 30.0 * d.throttle() as f64;
+                let u = rotate_f64(rotate_f64(DVec2::X, part.rotation().to_angle()), body.angle);
+                let vel = randvec(2.0, 4.0).as_dvec2() + u * -ve * rand(0.6, 1.0) as f64;
                 let pv = body.pv + PV::from_f64(pos, vel);
                 let initial_color = mix(t.primary_color, t.secondary_color, rand(0.1, 0.7));
                 // let final_color = WHITE.mix(&DARK_GRAY, rand(0.3, 0.9)).with_alpha(0.4);
                 self.particles.push(ThrustParticle::new(
                     pv,
-                    body.angle + part.rotation().to_angle(),
+                    (body.angle + part.rotation().to_angle()) as f32,
                     initial_color,
                     [1.0, 1.0, 1.0, 0.7],
                 ));

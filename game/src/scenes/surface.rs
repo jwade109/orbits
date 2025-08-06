@@ -15,11 +15,11 @@ use std::collections::{HashMap, HashSet};
 #[derive(Debug)]
 pub struct SurfaceContext {
     camera: LinearCameraController,
-    selected: HashSet<EntityId>,
+    pub selected: HashSet<EntityId>,
     pub current_surface: EntityId,
 
-    left_click_world_pos: Option<Vec2>,
-    right_click_world_pos: Option<Vec2>,
+    left_click_world_pos: Option<DVec2>,
+    right_click_world_pos: Option<DVec2>,
 
     follow: Option<EntityId>,
 }
@@ -27,7 +27,7 @@ pub struct SurfaceContext {
 impl Default for SurfaceContext {
     fn default() -> Self {
         SurfaceContext {
-            camera: LinearCameraController::new(Vec2::Y * 30.0, 10.0, 1100.0),
+            camera: LinearCameraController::new(DVec2::Y * 30.0, 0.001, 1100.0),
             selected: HashSet::new(),
             current_surface: EntityId(0),
             left_click_world_pos: None,
@@ -49,17 +49,17 @@ impl SurfaceContext {
     pub fn mouseover_vehicle<'a>(
         &'a self,
         universe: &'a Universe,
-        pos: Vec2,
+        pos: DVec2,
     ) -> Option<(EntityId, &'a SurfaceSpacecraftEntity)> {
         for (id, sv) in universe.surface_vehicles(self.current_surface) {
-            let veh_screen_pos = self.w2c(sv.body.pv.pos_f32());
+            let veh_screen_pos = self.w2c(sv.body.pv.pos);
             let mouse_screen_pos = self.w2c(pos);
 
             if veh_screen_pos.distance(mouse_screen_pos) < 25.0 {
                 return Some((*id, sv));
             }
 
-            let d = sv.body.pv.pos_f32().distance(pos);
+            let d = sv.body.pv.pos.distance(pos);
             let r = sv.vehicle.bounding_radius();
             if d < r {
                 return Some((*id, sv));
@@ -74,7 +74,10 @@ impl SurfaceContext {
         if p.distance(q) < 4.0 {
             return None;
         }
-        Some(AABB::from_arbitrary(p, q))
+        Some(AABB::from_arbitrary(
+            aabb_stopgap_cast(p),
+            aabb_stopgap_cast(q),
+        ))
     }
 
     pub fn on_render_tick(
@@ -88,7 +91,11 @@ impl SurfaceContext {
         if let Some(bounds) = self.selection_region(input.on_frame(MouseButt::Left, FrameId::Up)) {
             self.selected = universe
                 .surface_vehicles(self.current_surface)
-                .filter_map(|(id, sv)| bounds.contains(sv.body.pv.pos_f32()).then(|| *id))
+                .filter_map(|(id, sv)| {
+                    bounds
+                        .contains(aabb_stopgap_cast(sv.body.pv.pos))
+                        .then(|| *id)
+                })
                 .collect();
         }
 
@@ -143,19 +150,19 @@ impl SurfaceContext {
 
             let clear_queue = !input.is_pressed(KeyCode::ShiftLeft);
 
-            let angle = PI / 2.0;
+            let angle = PI_64 / 2.0;
 
             let ns = self.selected.len();
             let width = (ns as f32).sqrt().ceil() as usize;
 
-            let mut separation: f32 = 5.0;
+            let mut separation: f64 = 5.0;
 
             let mut selected: Vec<_> = self.selected.iter().collect();
             selected.sort();
 
             for idx in &self.selected {
                 if let Some(sv) = universe.surface_vehicles.get_mut(idx) {
-                    separation = separation.max(sv.vehicle.bounding_radius());
+                    separation = separation.max(sv.vehicle.bounding_radius() * 4.0);
                 }
             }
 
@@ -163,7 +170,8 @@ impl SurfaceContext {
                 if let Some(sv) = universe.surface_vehicles.get_mut(idx) {
                     let xi = i % width;
                     let yi = i / width;
-                    let pos = p + Vec2::new(xi as f32, yi as f32) * separation * 2.0;
+                    let oblique = yi as f64 * 0.33;
+                    let pos = p + DVec2::new(xi as f64 + oblique, yi as f64) * separation * 2.0;
                     let pose: Pose = (pos, angle);
                     sv.controller.enqueue_target_pose(pose, clear_queue);
                 }
@@ -215,7 +223,7 @@ impl SurfaceContext {
                 .universe
                 .lup_surface_vehicle(follow, ctx.current_surface)
             {
-                let p = sv.body.pv.pos_f32();
+                let p = sv.body.pv.pos;
                 ctx.camera.follow(p);
             }
         }
@@ -225,11 +233,11 @@ impl SurfaceContext {
 }
 
 impl CameraProjection for SurfaceContext {
-    fn origin(&self) -> Vec2 {
+    fn origin(&self) -> DVec2 {
         self.camera.origin()
     }
 
-    fn scale(&self) -> f32 {
+    fn scale(&self) -> f64 {
         self.camera.scale()
     }
 }
@@ -242,22 +250,22 @@ fn draw_kinematic_arc(
     accel: Vec2,
     surface: &Surface,
 ) {
-    let dt = 0.25;
-    for _ in 0..100 {
-        if pv.pos.y < surface.elevation(pv.pos.x as f32) as f64 {
-            return;
-        }
-        let q = ctx.w2c(pv.pos_f32());
-        draw_circle(gizmos, q, 2.0, GRAY);
-        pv.pos += pv.vel * dt;
-        pv.vel += accel.as_dvec2() * dt;
-    }
+    // let dt = 0.25;
+    // for _ in 0..100 {
+    //     if pv.pos.y < surface.elevation(pv.pos.x as f32) as f64 {
+    //         return;
+    //     }
+    //     let q = ctx.w2c(pv.pos);
+    //     draw_circle(gizmos, q, 2.0, GRAY);
+    //     pv.pos += pv.vel * dt;
+    //     pv.vel += accel.as_dvec2() * dt;
+    // }
 }
 
 fn draw_tracks(
     canvas: &mut Canvas,
     ctx: &impl CameraProjection,
-    tracks: &HashMap<EntityId, Vec<(Nanotime, Vec2)>>,
+    tracks: &HashMap<EntityId, Vec<(Nanotime, DVec2)>>,
     selected: &HashSet<EntityId>,
 ) {
     for (id, track) in tracks {
@@ -290,35 +298,11 @@ fn surface_scene_ui(state: &GameState) -> Option<Tree<OnClick>> {
     let show_gravity = Node::text(
         Size::Grow,
         state.settings.ui_button_height,
-        format!("{:0.1}", ls.surface.external_acceleration()),
-    );
-
-    let increase_gravity = Node::button(
-        "+Y",
-        OnClick::IncreaseGravity,
-        Size::Grow,
-        state.settings.ui_button_height,
-    );
-
-    let decrease_gravity = Node::button(
-        "-Y",
-        OnClick::DecreaseGravity,
-        Size::Grow,
-        state.settings.ui_button_height,
-    );
-
-    let increase_wind = Node::button(
-        "+X",
-        OnClick::IncreaseWind,
-        Size::Grow,
-        state.settings.ui_button_height,
-    );
-
-    let decrease_wind = Node::button(
-        "-X",
-        OnClick::DecreaseWind,
-        Size::Grow,
-        state.settings.ui_button_height,
+        format!(
+            "{:0.2}",
+            ls.surface
+                .external_acceleration(ls.surface.body.radius * DVec2::Y)
+        ),
     );
 
     let toggle_sleep = Node::button(
@@ -334,10 +318,6 @@ fn surface_scene_ui(state: &GameState) -> Option<Tree<OnClick>> {
         .down()
         .with_color(UI_BACKGROUND_COLOR)
         .with_child(show_gravity)
-        .with_child(increase_gravity)
-        .with_child(decrease_gravity)
-        .with_child(increase_wind)
-        .with_child(decrease_wind)
         .with_child(toggle_sleep);
 
     let surfaces = Node::structural(350, Size::Fit)
@@ -386,8 +366,8 @@ fn surface_scene_ui(state: &GameState) -> Option<Tree<OnClick>> {
             "{}Mode: {:?}\nP: {:0.2}\nV: {:0.2}",
             text,
             sv.controller.mode(),
-            sv.body.pv.pos_f32(),
-            sv.body.pv.vel_f32(),
+            sv.body.pv.pos,
+            sv.body.pv.vel,
         );
         for line in text.lines() {
             n.add_child(
@@ -396,7 +376,7 @@ fn surface_scene_ui(state: &GameState) -> Option<Tree<OnClick>> {
                     .with_color([0.1, 0.1, 0.1, 0.8]),
             );
         }
-        let pos = ctx.w2c(sv.body.pv.pos_f32() + Vec2::X * sv.vehicle.bounding_radius());
+        let pos = ctx.w2c(sv.body.pv.pos + DVec2::X * sv.vehicle.bounding_radius());
         let dims = state.input.screen_bounds.span;
         let pos = dims / 2.0 + Vec2::new(pos.x + 20.0, -pos.y);
         tree.add_layout(n, pos);
@@ -405,62 +385,22 @@ fn surface_scene_ui(state: &GameState) -> Option<Tree<OnClick>> {
     Some(tree)
 }
 
-pub fn terrain_tile_sprite_name(surface_id: EntityId, pos: IVec2) -> String {
-    format!("terrain-tile-s{}-x{}-y{}", surface_id, pos.x, pos.y)
-}
-
-fn draw_terrain_tile(
-    canvas: &mut Canvas,
-    ctx: &impl CameraProjection,
-    pos: IVec2,
-    chunk: &TerrainChunk,
-    surface_id: EntityId,
-) {
-    if chunk.is_air() {
-        return;
-    }
-
-    let bounds = chunk_pos_to_bounds(pos);
-    let bounds = ctx.w2c_aabb(bounds);
-    draw_aabb(&mut canvas.gizmos, bounds, GRAY.with_alpha(0.1));
-
-    let sprite_name = terrain_tile_sprite_name(surface_id, pos);
-
-    canvas.sprite(bounds.center, 0.0, sprite_name, 1.0, bounds.span);
-
-    // for (tile_pos, value) in chunk.tiles() {
-    //     let color = match value {
-    //         Tile::Air => continue,
-    //         Tile::DeepStone => GRAY,
-    //         Tile::Stone => LIGHT_GRAY,
-    //         Tile::Sand => LIGHT_YELLOW,
-    //         Tile::Ore => ORANGE,
-    //         Tile::Grass => DARK_GREEN,
-    //     };
-
-    //     let bounds = tile_pos_to_bounds(pos, tile_pos);
-    //     let bounds = ctx.w2c_aabb(bounds);
-    //     canvas.rect(bounds, color).z_index = 1.0;
-    // }
-}
-
 fn vehicle_mouseover_radius(vehicle: &Vehicle, ctx: &impl CameraProjection) -> f32 {
-    (vehicle.bounding_radius() * ctx.scale()).max(20.0)
+    (vehicle.bounding_radius() * ctx.scale()).max(20.0) as f32
 }
 
 fn draw_grid(
     canvas: &mut Canvas,
     ctx: &impl CameraProjection,
-    positions: &Vec<Vec2>,
+    positions: &Vec<DVec2>,
     step: u32,
     width: u32,
 ) {
     let mut aabbs = Vec::new();
 
     for pos in positions {
-        let aabb = AABB::new(*pos, Vec2::splat(width as f32));
+        let aabb = AABB::new(aabb_stopgap_cast(*pos), Vec2::splat(width as f32));
         aabbs.push(aabb);
-        canvas.circle(ctx.w2c(*pos), 4.0, RED);
     }
 
     let mut points = HashSet::new();
@@ -479,7 +419,7 @@ fn draw_grid(
     }
 
     for p in points {
-        let p = ctx.w2c(p.as_vec2());
+        let p = ctx.w2c(p.as_dvec2());
         draw_cross(&mut canvas.gizmos, p, 3.0, WHITE.with_alpha(0.1));
     }
 }
@@ -501,21 +441,24 @@ impl Render for SurfaceContext {
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         let ctx = &state.surface_context;
 
+        draw_camera_info(canvas, ctx, state.input.screen_bounds.span);
+
         let surface_id = state.surface_context.current_surface;
 
         if let Some(ls) = state.universe.landing_sites.get(&surface_id) {
             let surface = &ls.surface;
-            for (pos, chunk) in &surface.terrain {
-                draw_terrain_tile(canvas, ctx, *pos, chunk, surface_id);
-            }
-            let mut pts = Vec::new();
-            for k in &surface.elevation {
-                let p = ctx.w2c(Vec2::new(k.t, k.value));
-                pts.push(p);
-            }
-            canvas.gizmos.linestrip_2d(pts, GRAY);
 
-            let p = Vec2::new(-30.0, 200.0);
+            let body_center = DVec2::ZERO;
+
+            canvas
+                .circle(
+                    ctx.w2c(body_center),
+                    gcast(ls.surface.body.radius * ctx.scale()),
+                    WHITE.with_alpha(0.5),
+                )
+                .resolution(1000);
+
+            let p = DVec2::new(-30.0, 200.0) + DVec2::Y * surface.body.radius;
             let p = ctx.w2c(p);
             let text = format!(
                 "Landing Site\nLS-{} \"{}\"\n{}",
@@ -523,42 +466,60 @@ impl Render for SurfaceContext {
                 ls.name,
                 landing_site_info(ls)
             );
-            canvas.text(text, p, 0.5 * ctx.scale()).color.alpha = 0.2;
+            canvas.text(text, p, gcast(0.5 * ctx.scale())).color.alpha = 0.2;
 
             crate::craft_editor::draw_particles(canvas, ctx, &surface.particles);
 
             draw_tracks(canvas, ctx, &ls.tracks, &ctx.selected);
-        }
 
-        crate::drawing::draw_piloting_overlay(canvas, state);
+            for (id, sv) in state.universe.surface_vehicles(surface_id) {
+                let pos = ctx.w2c(sv.body.pv.pos);
+                draw_vehicle(
+                    canvas,
+                    &sv.vehicle,
+                    pos,
+                    gcast(ctx.scale()),
+                    gcast(sv.body.angle),
+                );
 
-        for (_, sv) in state.universe.surface_vehicles(surface_id) {
-            let pos = ctx.w2c(sv.body.pv.pos_f32());
-            draw_vehicle(canvas, &sv.vehicle, pos, ctx.scale(), sv.body.angle);
+                let color: Srgba = crate::sprites::hashable_to_color(&sv.controller.mode()).into();
 
-            canvas.circle(
-                pos,
-                7.0,
-                RED.with_alpha((1.0 - ctx.scale() / 4.0).clamp(0.0, 1.0)),
-            );
+                canvas.circle(
+                    pos,
+                    7.0,
+                    color.with_alpha(gcast((1.0 - ctx.scale() / 4.0).clamp(0.0, 1.0))),
+                );
 
-            let ground_track = sv.body.pv.pos_f32().with_y(0.0);
+                let ground_track = sv.body.pv.pos.normalize_or_zero() * ls.surface.body.radius;
 
-            for (p, q) in [
-                (Vec2::ZERO, ground_track),
-                (ground_track, sv.body.pv.pos_f32()),
-            ] {
-                let p = ctx.w2c(p);
-                let q = ctx.w2c(q);
-                canvas.gizmos.line_2d(p, q, GRAY);
+                for (p, q) in [(ground_track, sv.body.pv.pos)] {
+                    let p = ctx.w2c(p);
+                    let q = ctx.w2c(q);
+                    canvas.gizmos.line_2d(p, q, GRAY);
+                }
+
+                let altitude = sv.body.pv.pos.length() - ls.surface.body.radius;
+                if altitude < 2000.0 || sv.body.pv.vel.length() < 100.0 {
+                    continue;
+                }
+                let color = if ctx.selected.contains(id) {
+                    ORANGE
+                } else {
+                    GRAY
+                };
+                if let Some(orbit) = sv.orbit {
+                    crate::drawing::draw_orbit(&mut canvas.gizmos, &orbit, body_center, color, ctx);
+                }
             }
         }
+
+        crate::drawing::draw_piloting_overlay(canvas, state, ctx.selected.iter().next().cloned());
 
         (|| -> Option<()> {
             let p = state.input.current()?;
             let mouse_world_pos = ctx.c2w(p);
             let (_, sv) = ctx.mouseover_vehicle(&state.universe, mouse_world_pos)?;
-            let pos = ctx.w2c(sv.body.pv.pos_f32());
+            let pos = ctx.w2c(sv.body.pv.pos);
             let r = vehicle_mouseover_radius(&sv.vehicle, ctx) * 1.1;
             draw_circle(&mut canvas.gizmos, pos, r, RED.with_alpha(0.3));
             let title = sv.vehicle.title();
@@ -570,7 +531,7 @@ impl Render for SurfaceContext {
             if !ctx.selected.contains(e) {
                 continue;
             }
-            let pos = ctx.w2c(sv.body.pv.pos_f32());
+            let pos = ctx.w2c(sv.body.pv.pos);
             draw_circle(
                 &mut canvas.gizmos,
                 pos,
@@ -601,13 +562,13 @@ impl Render for SurfaceContext {
 
         for (id, sv) in state.universe.surface_vehicles(surface_id) {
             let selected = ctx.selected.contains(id);
-            let mut p = ctx.w2c(sv.body.pv.pos_f32());
-            positions.push(sv.body.pv.pos_f32());
+            let mut p = ctx.w2c(sv.body.pv.pos);
+            positions.push(sv.body.pv.pos);
 
             for pose in sv.controller.get_target_queue() {
                 let q = ctx.w2c(pose.0);
-                let r = ctx.w2c(pose.0 + rotate(Vec2::X * 5.0, pose.1));
-                draw_x(&mut canvas.gizmos, q, 2.0 * ctx.scale(), RED);
+                let r = ctx.w2c(pose.0 + rotate_f64(DVec2::X * 5.0, pose.1));
+                draw_x(&mut canvas.gizmos, q, gcast(2.0 * ctx.scale()), RED);
                 if selected {
                     canvas.gizmos.line_2d(q, r, YELLOW);
                 }
@@ -631,12 +592,12 @@ impl Render for SurfaceContext {
             ctx.selection_region(state.input.position(MouseButt::Left, FrameId::Current))
         {
             for (_, sv) in state.universe.surface_vehicles(surface_id) {
-                let p = sv.body.pv.pos_f32();
-                if bounds.contains(p) {
+                let p = sv.body.pv.pos;
+                if bounds.contains(aabb_stopgap_cast(p)) {
                     draw_circle(
                         &mut canvas.gizmos,
                         ctx.w2c(p),
-                        sv.vehicle.bounding_radius() * ctx.scale(),
+                        gcast(sv.vehicle.bounding_radius() * ctx.scale()),
                         GRAY.with_alpha(0.6),
                     );
                 }

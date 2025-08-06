@@ -215,6 +215,13 @@ impl Mul<f32> for Nanotime {
     }
 }
 
+impl Mul<f64> for Nanotime {
+    type Output = Self;
+    fn mul(self, rhs: f64) -> Self {
+        Self((self.0 as f64 * rhs) as i64)
+    }
+}
+
 impl Div<i64> for Nanotime {
     type Output = Self;
     fn div(self, rhs: i64) -> Self {

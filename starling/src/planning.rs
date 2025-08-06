@@ -1,9 +1,8 @@
-use crate::math::{tspace, PI_64};
+use crate::math::*;
 use crate::nanotime::Nanotime;
 use crate::orbits::{vis_viva_equation, OrbitClass, SparseOrbit};
 use crate::propagator::{search_condition, ConvergeError};
 use crate::pv::PV;
-use glam::f32::Vec2;
 
 #[derive(Debug, Clone)]
 pub struct ManeuverPlan {
@@ -13,7 +12,7 @@ pub struct ManeuverPlan {
 }
 
 impl ManeuverPlan {
-    pub fn new(now: Nanotime, initial: SparseOrbit, dvs: &[(Nanotime, Vec2)]) -> Option<Self> {
+    pub fn new(now: Nanotime, initial: SparseOrbit, dvs: &[(Nanotime, DVec2)]) -> Option<Self> {
         if dvs.is_empty() {
             return None;
         }
@@ -63,15 +62,15 @@ impl ManeuverPlan {
         self.end() - self.start()
     }
 
-    pub fn dvs(&self) -> impl Iterator<Item = (Nanotime, Vec2)> + use<'_> {
+    pub fn dvs(&self) -> impl Iterator<Item = (Nanotime, DVec2)> + use<'_> {
         self.segments.iter().map(|m| m.dv())
     }
 
-    pub fn future_dvs(&self, stamp: Nanotime) -> impl Iterator<Item = (Nanotime, Vec2)> + use<'_> {
+    pub fn future_dvs(&self, stamp: Nanotime) -> impl Iterator<Item = (Nanotime, DVec2)> + use<'_> {
         self.dvs().filter(move |(t, _)| *t > stamp)
     }
 
-    pub fn dv(&self) -> f32 {
+    pub fn dv(&self) -> f64 {
         self.segments.iter().map(|n| n.impulse.length()).sum()
     }
 
@@ -121,11 +120,11 @@ pub struct ManeuverSegment {
     pub start: Nanotime,
     pub end: Nanotime,
     pub orbit: SparseOrbit,
-    pub impulse: Vec2,
+    pub impulse: DVec2,
 }
 
 impl ManeuverSegment {
-    fn new(start: Nanotime, end: Nanotime, orbit: SparseOrbit, dv: Vec2) -> Option<Self> {
+    fn new(start: Nanotime, end: Nanotime, orbit: SparseOrbit, dv: DVec2) -> Option<Self> {
         Some(ManeuverSegment {
             start,
             end,
@@ -134,7 +133,7 @@ impl ManeuverSegment {
         })
     }
 
-    fn next(&self, t: Nanotime, impulse: Vec2) -> Option<Self> {
+    fn next(&self, t: Nanotime, impulse: DVec2) -> Option<Self> {
         let sparse = self.next_orbit()?;
         assert!(self.end < t);
         ManeuverSegment::new(self.end, t, sparse, impulse)
@@ -149,7 +148,7 @@ impl ManeuverSegment {
         self.start <= stamp && self.end > stamp
     }
 
-    fn dv(&self) -> (Nanotime, Vec2) {
+    fn dv(&self) -> (Nanotime, DVec2) {
         (self.end, self.impulse)
     }
 }
@@ -182,19 +181,19 @@ fn hohmann_transfer(
 
     let t1 = current.t_next_p(now)?;
     let before = current.pv_universal(t1).ok()?;
-    let prograde = before.vel_f32().as_dvec2().normalize_or_zero();
-    let after = PV::from_f64(before.pos_f32(), prograde * v1);
+    let prograde = before.vel.normalize_or_zero();
+    let after = PV::from_f64(before.pos, prograde * v1);
 
-    let dv1 = after.vel_f32() - before.vel_f32();
+    let dv1 = after.vel - before.vel;
 
     let transfer_orbit = SparseOrbit::from_pv(after, current.body, t1)?;
 
     let t2 = t1 + transfer_orbit.period()? / 2;
     let before = transfer_orbit.pv_universal(t2).ok()?;
-    let (after, _) = destination.nearest(before.pos_f32());
-    let after = PV::from_f64(before.pos_f32(), after.vel_f32());
+    let (after, _) = destination.nearest(before.pos);
+    let after = PV::from_f64(before.pos, after.vel);
 
-    let dv2 = after.vel_f32() - before.vel_f32();
+    let dv2 = after.vel - before.vel;
 
     ManeuverPlan::new(now, *current, &[(t1, dv1), (t2, dv2)])
 }
@@ -251,7 +250,7 @@ pub fn get_next_intersection(
 
     let signed_distance_at = |t: Nanotime| {
         let pcurr = eval.pv(t).unwrap_or(PV::INFINITY);
-        target.nearest_along_track(pcurr.pos_f32())
+        target.nearest_along_track(pcurr.pos)
     };
 
     let initial_sign = signed_distance_at(stamp).1 > 0.0;
@@ -285,7 +284,7 @@ fn direct_transfer(
         .flatten()
         .map(|(t, pvf)| {
             let pvi = current.pv(t).ok()?;
-            ManeuverPlan::new(now, *current, &[(t, pvf.vel_f32() - pvi.vel_f32())])
+            ManeuverPlan::new(now, *current, &[(t, pvf.vel - pvi.vel)])
         })
         .flatten()
 }
@@ -341,7 +340,7 @@ mod tests {
             let p1 = s1.orbit.pv(s1.end).unwrap();
             let p2 = s2.orbit.pv(s2.start).unwrap();
 
-            let d = p1.pos_f32().distance(p2.pos_f32());
+            let d = p1.pos.distance(p2.pos);
 
             assert!(d < 20.0, "Expected difference to be smaller: {}", d);
         }
@@ -361,11 +360,11 @@ mod tests {
             assert!(pv.is_some(), "Expected PV to be Some: {}", t);
             let pv = pv.unwrap();
 
-            let dt = 5.0 / pv.vel_f32().length();
-            let dt = Nanotime::secs_f32(dt);
+            let dt = 5.0 / pv.vel.length();
+            let dt = Nanotime::secs_f64(dt);
 
             if let Some(p) = previous {
-                let d = (pv - p).pos_f32().length();
+                let d = (pv - p).pos.length();
                 assert!(
                     d < 10.0,
                     "Expected difference to be smaller at time {}: {}\n for plan:\n{}",

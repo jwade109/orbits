@@ -1,9 +1,8 @@
-use crate::math::rotate;
+use crate::math::*;
 use crate::nanotime::Nanotime;
 use crate::orbits::{Body, SparseOrbit};
 use crate::quantities::*;
 use crate::scenario::{ObjectIdTracker, PlanetarySystem};
-use glam::f32::Vec2;
 
 pub fn make_earth() -> Body {
     Body::with_mass(63.0, 1000.0, 15000.0)
@@ -22,14 +21,14 @@ pub fn make_luna() -> (Body, SparseOrbit) {
 
 pub fn consistency_orbits(body: Body) -> Vec<SparseOrbit> {
     let mut ret = vec![];
-    let r = 1000.0 * Vec2::X;
-    let v0 = Vec2::new(0.0, 30.0);
+    let r = 1000.0 * DVec2::X;
+    let v0 = DVec2::new(0.0, 30.0);
     for angle in [0.6] {
-        let pos = rotate(r, angle);
+        let pos = rotate_f64(r, angle);
         for vx in (-200..=200).step_by(10) {
             for vy in (-200..=200).step_by(10) {
                 let o = SparseOrbit::from_pv(
-                    (pos, v0 + Vec2::new(vx as f32, vy as f32)),
+                    (pos, v0 + DVec2::new(vx as f64, vy as f64)),
                     body,
                     Nanotime::zero(),
                 );

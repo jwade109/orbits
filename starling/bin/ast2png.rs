@@ -1,4 +1,3 @@
-use ab_glyph::Font;
 use clap::Parser;
 use image::{Rgba, RgbaImage};
 use imageproc::drawing::draw_text;

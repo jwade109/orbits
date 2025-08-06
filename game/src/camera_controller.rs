@@ -1,30 +1,30 @@
 use crate::input::InputState;
 use crate::scenes::CameraProjection;
 use bevy::input::keyboard::KeyCode;
-use starling::math::Vec2;
+use starling::math::DVec2;
 use starling::prelude::PHYSICS_CONSTANT_DELTA_TIME;
 
 #[derive(Debug, Clone, Copy)]
 pub struct LinearCameraController {
-    center: Vec2,
-    target_center: Vec2,
-    scale: f32,
-    target_scale: f32,
-    speed: f32,
+    center: DVec2,
+    target_center: DVec2,
+    scale: f64,
+    target_scale: f64,
+    speed: f64,
 }
 
 impl CameraProjection for LinearCameraController {
-    fn origin(&self) -> Vec2 {
+    fn origin(&self) -> DVec2 {
         self.center
     }
 
-    fn scale(&self) -> f32 {
+    fn scale(&self) -> f64 {
         self.scale()
     }
 }
 
 impl LinearCameraController {
-    pub fn new(center: Vec2, scale: f32, speed: f32) -> Self {
+    pub fn new(center: DVec2, scale: f64, speed: f64) -> Self {
         let scale = scale.log2();
 
         Self {
@@ -36,27 +36,27 @@ impl LinearCameraController {
         }
     }
 
-    pub fn scale(&self) -> f32 {
-        2.0f32.powf(self.scale)
+    pub fn scale(&self) -> f64 {
+        2.0f64.powf(self.scale)
     }
 
     pub fn on_game_tick(&mut self) {
-        const SCALE_SMOOTHING: f32 = 0.1;
-        const CENTER_SMOOTHING: f32 = 0.1;
+        const SCALE_SMOOTHING: f64 = 0.1;
+        const CENTER_SMOOTHING: f64 = 0.1;
 
-        let dt = PHYSICS_CONSTANT_DELTA_TIME.to_secs();
+        let dt = PHYSICS_CONSTANT_DELTA_TIME.to_secs_f64();
         self.scale += (self.target_scale - self.scale) * ((dt / SCALE_SMOOTHING).exp() - 1.0);
         self.center += (self.target_center - self.center) * ((dt / CENTER_SMOOTHING).exp() - 1.0)
     }
 
-    pub fn follow(&mut self, p: Vec2) {
+    pub fn follow(&mut self, p: DVec2) {
         self.center = p;
         self.target_center = p;
     }
 
     pub fn handle_input(&mut self, input: &InputState) {
-        const SCROLL_WHEEL_DELTA: f32 = 0.5;
-        const BUTTON_ZOOM_SPEED: f32 = 0.05;
+        const SCROLL_WHEEL_DELTA: f64 = 0.5;
+        const BUTTON_ZOOM_SPEED: f64 = 0.05;
 
         let speed = self.speed * 0.01;
 
@@ -87,7 +87,7 @@ impl LinearCameraController {
             self.target_center.y -= speed / self.scale();
         }
         if input.is_pressed(KeyCode::KeyR) && input.is_pressed(KeyCode::ShiftLeft) {
-            self.target_center = Vec2::ZERO;
+            self.target_center = DVec2::ZERO;
             self.target_scale = 1.0;
         }
     }

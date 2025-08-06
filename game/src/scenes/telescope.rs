@@ -18,11 +18,11 @@ pub struct TelescopeContext {
 }
 
 impl CameraProjection for TelescopeContext {
-    fn origin(&self) -> Vec2 {
+    fn origin(&self) -> DVec2 {
         self.camera.origin()
     }
 
-    fn scale(&self) -> f32 {
+    fn scale(&self) -> f64 {
         self.camera.scale()
     }
 }
@@ -30,15 +30,15 @@ impl CameraProjection for TelescopeContext {
 impl TelescopeContext {
     pub fn new() -> Self {
         TelescopeContext {
-            camera: LinearCameraController::new(Vec2::ZERO, 1.1, 0.3),
+            camera: LinearCameraController::new(DVec2::ZERO, 1.1, 0.3),
         }
     }
 
-    pub fn azimuth(&self) -> f32 {
+    pub fn azimuth(&self) -> f64 {
         self.camera.origin().x
     }
 
-    pub fn elevation(&self) -> f32 {
+    pub fn elevation(&self) -> f64 {
         self.camera.origin().y
     }
 
@@ -50,9 +50,10 @@ impl TelescopeContext {
         self.camera.handle_input(input);
     }
 
-    pub fn to_azel(p: Vec3) -> (f32, f32) {
-        let az = f32::atan2(p.y, p.x);
-        let el = f32::atan2(p.z, p.xy().length());
+    pub fn to_azel(p: Vec3) -> (f64, f64) {
+        let p = p.as_dvec3();
+        let az = f64::atan2(p.y, p.x);
+        let el = f64::atan2(p.z, p.xy().length());
         (az, el)
     }
 
@@ -60,39 +61,35 @@ impl TelescopeContext {
         state.input.screen_bounds.span.min_element() / 2.0 * 1.1
     }
 
-    pub fn screen_position(az: f32, el: f32, state: &GameState) -> (Vec2, f32, f32) {
+    pub fn screen_position(az: f64, el: f64, state: &GameState) -> (Vec2, f32, f64) {
         let screen_radius = Self::screen_radius(state);
-        let map = |az: f32, el: f32| -> (Vec2, f32, f32) {
-            let azel = state.telescope_context.origin();
-            let daz = az - azel.x;
-            let del = el - azel.y;
 
-            // assumes x is on the domain [0, 1].
-            // moves x towards 1, but doesn't move 0
-            let scale = |x: f32| -> f32 {
-                let xmag = x.abs();
-                (1.0 - (1.0 - xmag).powf(3.0)) * x.signum()
-            };
+        let azel = state.telescope_context.origin();
+        let daz = az - azel.x;
+        let del = el - azel.y;
 
-            let daz = wrap_pi_npi(daz);
-            let del = wrap_pi_npi(del * 2.0) / 2.0;
-
-            let angular_offset = Vec2::new(daz, del);
-            let angular_distance = angular_offset.length();
-
-            let scaled_distance =
-                scale((angular_distance * state.telescope_context.scale()).min(1.0));
-
-            let alpha = 1.0 - scaled_distance.powi(3);
-
-            (
-                angular_offset.normalize_or_zero() * scaled_distance * screen_radius,
-                alpha,
-                angular_distance,
-            )
+        // assumes x is on the domain [0, 1].
+        // moves x towards 1, but doesn't move 0
+        let scale = |x: f64| -> f64 {
+            let xmag = x.abs();
+            (1.0 - (1.0 - xmag).powf(3.0)) * x.signum()
         };
 
-        map(az, el)
+        let daz = wrap_pi_npi_f64(daz);
+        let del = wrap_pi_npi_f64(del * 2.0) / 2.0;
+
+        let angular_offset = DVec2::new(daz, del);
+        let angular_distance = angular_offset.length();
+
+        let scaled_distance = scale((angular_distance * state.telescope_context.scale()).min(1.0));
+
+        let alpha = 1.0 - scaled_distance.powi(3);
+
+        (
+            graphics_cast(angular_offset.normalize_or_zero() * scaled_distance) * screen_radius,
+            gcast(alpha),
+            angular_distance,
+        )
     }
 }
 
@@ -131,7 +128,7 @@ impl Render for TelescopeContext {
             let (p, alpha, d) = TelescopeContext::screen_position(az, el, state);
             if d < 0.2 {
                 graph.add_func(
-                    |x: f32| get_frequency_spectrum(x, d, *fc),
+                    |x: f64| get_frequency_spectrum(x as f32, d as f32, *fc as f32) as f64,
                     color.with_alpha(0.3),
                 );
             }

@@ -19,7 +19,7 @@ fn generate_landing_sites(pids: &[EntityId]) -> Vec<LandingSiteEntity> {
         .flat_map(|pid| {
             let n = randint(3, 12);
             (0..n).map(|_| {
-                let angle = rand(0.0, 2.0 * PI);
+                let angle = rand(0.0, 2.0 * PI) as f64;
                 let name = get_random_name();
                 LandingSiteEntity::new(name, Surface::random(), *pid, angle)
             })
@@ -116,7 +116,7 @@ impl Universe {
                 None => continue,
             };
 
-            let external_accel = ls.surface.external_acceleration();
+            let external_accel = ls.surface.external_acceleration(sv.body.pv.pos);
 
             let ext = signals
                 .piloting_commands
@@ -130,28 +130,31 @@ impl Universe {
                 (VehicleControlPolicy::PositionHold, Some(pose)) => {
                     position_hold_control_law(pose, &sv.body, &sv.vehicle, external_accel)
                 }
-                (VehicleControlPolicy::Velocity, _) => {
-                    enter_orbit_control_law(&sv.body, &sv.vehicle, external_accel)
-                }
+                (VehicleControlPolicy::Velocity, _) => enter_orbit_control_law(
+                    &ls.surface.body,
+                    &sv.body,
+                    &sv.vehicle,
+                    sv.orbit.as_ref(),
+                ),
                 (_, _) => VehicleControl::NULLOPT,
             };
-
-            let elevation = ls.surface.elevation(sv.body.pv.pos_f32().x);
 
             sv.controller
                 .check_target_achieved(&sv.body, external_accel.length() > 0.0);
             sv.vehicle.set_thrust_control(ctrl);
             sv.vehicle.on_sim_tick();
 
+            sv.orbit = SparseOrbit::from_pv(sv.body.pv, ls.surface.body, stamp);
+
             let accel = sv.vehicle.body_frame_accel();
             sv.body
                 .on_sim_tick(accel, external_accel, PHYSICS_CONSTANT_DELTA_TIME);
 
-            sv.body.clamp_with_elevation(elevation);
+            sv.body.clamp_with_elevation(ls.surface.body.radius);
 
             add_particles_from_vehicle(&mut ls.surface.particles, &sv.vehicle, &sv.body);
 
-            ls.add_position_track(*id, stamp, sv.body.pv.pos_f32());
+            ls.add_position_track(*id, stamp, sv.body.pv.pos);
         }
     }
 
@@ -162,8 +165,8 @@ impl Universe {
         let delta = self.stamp - old_stamp;
 
         for (_, ov) in &mut self.orbital_vehicles {
-            ov.body.angle += ov.body.angular_velocity * delta.to_secs();
-            ov.body.angle = wrap_pi_npi(ov.body.angle);
+            ov.body.angle += ov.body.angular_velocity * delta.to_secs_f64();
+            ov.body.angle = wrap_pi_npi_f64(ov.body.angle);
             ov.vehicle.zero_all_thrusters();
         }
     }
@@ -196,7 +199,7 @@ impl Universe {
             let accel = ov.vehicle.body_frame_accel();
 
             ov.body
-                .on_sim_tick(accel, Vec2::ZERO, PHYSICS_CONSTANT_DELTA_TIME);
+                .on_sim_tick(accel, DVec2::ZERO, PHYSICS_CONSTANT_DELTA_TIME);
         }
 
         self.step_surface_vehicles(signals);
@@ -238,7 +241,7 @@ impl Universe {
         name: String,
         surface: Surface,
         planet: EntityId,
-        angle: f32,
+        angle: f64,
     ) {
         let id = self.next_entity_id();
         let entity = LandingSiteEntity::new(name, surface, planet, angle);
@@ -254,19 +257,31 @@ impl Universe {
         self.orbital_vehicles.insert(id, os);
     }
 
-    pub fn add_surface_vehicle(&mut self, surface_id: EntityId, vehicle: Vehicle, pos: Vec2) {
-        let target = pos + randvec(10.0, 20.0);
+    pub fn add_surface_vehicle(
+        &mut self,
+        surface_id: EntityId,
+        vehicle: Vehicle,
+        angle: f64,
+        altitude: f64,
+    ) {
+        let ls = match self.landing_sites.get(&surface_id) {
+            Some(ls) => ls,
+            None => return,
+        };
+
+        let pos = rotate_f64(DVec2::X * (ls.surface.body.radius + altitude), angle);
+
         let vel = randvec(2.0, 7.0);
 
-        let angle = rand(0.0, PI);
+        let angle = rand(0.0, PI) as f64;
 
         let body = RigidBody {
             pv: PV::from_f64(pos, vel),
-            angle: PI / 2.0,
+            angle: PI_64 / 2.0,
             angular_velocity: 0.0,
         };
 
-        let pose: Pose = (target, angle);
+        let pose: Pose = (pos, angle);
 
         let controller = VehicleController::position_hold(pose);
         let id = self.next_entity_id();
@@ -321,30 +336,6 @@ impl Universe {
         self.surface_vehicles.iter()
     }
 
-    pub fn increase_gravity(&mut self, surface_id: EntityId) -> Option<()> {
-        let ls = self.landing_sites.get_mut(&surface_id)?;
-        ls.surface.increase_gravity();
-        Some(())
-    }
-
-    pub fn decrease_gravity(&mut self, surface_id: EntityId) -> Option<()> {
-        let ls = self.landing_sites.get_mut(&surface_id)?;
-        ls.surface.decrease_gravity();
-        Some(())
-    }
-
-    pub fn increase_wind(&mut self, surface_id: EntityId) -> Option<()> {
-        let ls = self.landing_sites.get_mut(&surface_id)?;
-        ls.surface.increase_wind();
-        Some(())
-    }
-
-    pub fn decrease_wind(&mut self, surface_id: EntityId) -> Option<()> {
-        let ls = self.landing_sites.get_mut(&surface_id)?;
-        ls.surface.decrease_wind();
-        Some(())
-    }
-
     pub fn toggle_sleep(&mut self, surface_id: EntityId) -> Option<()> {
         let ls = self.landing_sites.get_mut(&surface_id)?;
         ls.is_awake = !ls.is_awake;
@@ -371,11 +362,11 @@ pub fn orbiters_within_bounds(
 ) -> impl Iterator<Item = EntityId> + use<'_> {
     universe.orbital_vehicles.iter().filter_map(move |(id, _)| {
         let pv = universe.lup_orbiter(*id, universe.stamp())?.pv();
-        bounds.contains(pv.pos_f32()).then(|| *id)
+        bounds.contains(aabb_stopgap_cast(pv.pos)).then(|| *id)
     })
 }
 
-pub fn nearest(universe: &Universe, pos: Vec2) -> Option<ObjectId> {
+pub fn nearest(universe: &Universe, pos: DVec2) -> Option<ObjectId> {
     let stamp = universe.stamp();
     let results = all_orbital_ids(universe)
         .filter_map(|id| {
@@ -383,7 +374,7 @@ pub fn nearest(universe: &Universe, pos: Vec2) -> Option<ObjectId> {
                 ObjectId::Orbiter(id) => universe.lup_orbiter(id, stamp),
                 ObjectId::Planet(id) => universe.lup_planet(id, stamp),
             }?;
-            let p = lup.pv().pos_f32();
+            let p = lup.pv().pos;
             let d = pos.distance(p);
             Some((d, id))
         })
@@ -392,4 +383,15 @@ pub fn nearest(universe: &Universe, pos: Vec2) -> Option<ObjectId> {
         .into_iter()
         .min_by(|(d1, _), (d2, _)| d1.total_cmp(d2))
         .map(|(_, id)| id)
+}
+
+pub fn landing_site_position(
+    universe: &Universe,
+    planet_id: EntityId,
+    angle: f64,
+) -> Option<DVec2> {
+    let lup = universe.lup_planet(planet_id, universe.stamp())?;
+    let body = lup.body()?;
+    let center = lup.pv().pos;
+    Some(center + rotate_f64(DVec2::X * body.radius, angle))
 }

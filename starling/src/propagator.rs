@@ -92,9 +92,9 @@ pub enum PredictError<T: BinarySearchKey> {
     Encounter(ConvergeError<T>),
 }
 
-fn mutual_separation(o1: &SparseOrbit, o2: &SparseOrbit, t: Nanotime) -> f32 {
-    let p1 = o1.pv(t).unwrap().pos_f32();
-    let p2 = o2.pv(t).unwrap().pos_f32();
+fn mutual_separation(o1: &SparseOrbit, o2: &SparseOrbit, t: Nanotime) -> f64 {
+    let p1 = o1.pv(t).expect("mutual_separation is poorly written").pos;
+    let p2 = o2.pv(t).expect("mutual_separation is poorly written").pos;
     p1.distance(p2)
 }
 
@@ -241,7 +241,7 @@ impl Propagator {
     pub fn finish_or_compute_until(
         &mut self,
         stamp: Nanotime,
-        bodies: &[(EntityId, &SparseOrbit, f32)],
+        bodies: &[(EntityId, &SparseOrbit, f64)],
     ) -> Result<(), PredictError<Nanotime>> {
         while !self.calculated_to(stamp) {
             let e = self.next(bodies);
@@ -320,7 +320,7 @@ impl Propagator {
 
     pub fn next(
         &mut self,
-        bodies: &[(EntityId, &SparseOrbit, f32)],
+        bodies: &[(EntityId, &SparseOrbit, f64)],
     ) -> Result<(), PredictError<Nanotime>> {
         let end = match self.horizon {
             HorizonState::Continuing(end) => end,
@@ -356,7 +356,7 @@ impl Propagator {
             .1
             .pv(end)
             .map_err(|_| PredictError::BadPosition)?
-            .pos_f32()
+            .pos
             .length();
 
         let pv = match self.orbit.1.pv(end).ok() {
@@ -367,20 +367,20 @@ impl Propagator {
             }
         };
 
-        let going_down = pv.pos_f32().normalize_or_zero().dot(pv.vel_f32()) < 0.0;
+        let going_down = pv.pos.normalize_or_zero().dot(pv.vel) < 0.0;
 
         let below_all_bodies = bodies.iter().all(|(_, orbit, soi)| {
             let rmin = orbit.periapsis_r() - *soi as f64;
-            pv.pos_f32().as_dvec2().length() < rmin
+            pv.pos.length() < rmin
         });
 
         let above_planet = |t: Nanotime| {
-            let pos = self.orbit.1.pv(t).unwrap_or(PV::INFINITY).pos_f32();
+            let pos = self.orbit.1.pv(t).unwrap_or(PV::INFINITY).pos;
             pos.length() > self.orbit.1.body.radius
         };
 
         let beyond_soi = |t: Nanotime| {
-            let pos = self.orbit.1.pv(t).unwrap_or(PV::INFINITY).pos_f32();
+            let pos = self.orbit.1.pv(t).unwrap_or(PV::INFINITY).pos;
             pos.length() > self.orbit.1.body.soi
         };
 
@@ -435,7 +435,7 @@ impl Propagator {
         };
 
         let escape_soi = |t: Nanotime| {
-            let pos = self.orbit.1.pv(t).unwrap_or(PV::INFINITY).pos_f32();
+            let pos = self.orbit.1.pv(t).unwrap_or(PV::INFINITY).pos;
             pos.length() < self.orbit.1.body.soi
         };
 
@@ -498,7 +498,7 @@ impl Propagator {
 pub(crate) fn separation_with<'a>(
     ego: &'a SparseOrbit,
     planet: &'a SparseOrbit,
-    soi: f32,
+    soi: f64,
 ) -> impl Fn(Nanotime) -> bool + use<'a> {
     move |t: Nanotime| mutual_separation(ego, planet, t) > soi
 }

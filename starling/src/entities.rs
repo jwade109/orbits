@@ -45,6 +45,7 @@ pub struct SurfaceSpacecraftEntity {
     pub vehicle: Vehicle,
     pub body: RigidBody,
     pub controller: VehicleController,
+    pub orbit: Option<SparseOrbit>,
 }
 
 impl SurfaceSpacecraftEntity {
@@ -59,6 +60,7 @@ impl SurfaceSpacecraftEntity {
             vehicle,
             body,
             controller,
+            orbit: None,
         }
     }
 }
@@ -68,13 +70,13 @@ pub struct LandingSiteEntity {
     pub name: String,
     pub surface: Surface,
     pub planet: EntityId,
-    pub angle: f32,
+    pub angle: f64,
     pub is_awake: bool,
-    pub tracks: HashMap<EntityId, Vec<(Nanotime, Vec2)>>,
+    pub tracks: HashMap<EntityId, Vec<(Nanotime, DVec2)>>,
 }
 
 impl LandingSiteEntity {
-    pub fn new(name: String, surface: Surface, planet: EntityId, angle: f32) -> Self {
+    pub fn new(name: String, surface: Surface, planet: EntityId, angle: f64) -> Self {
         Self {
             name,
             surface,
@@ -85,7 +87,7 @@ impl LandingSiteEntity {
         }
     }
 
-    pub fn add_position_track(&mut self, id: EntityId, stamp: Nanotime, p: Vec2) {
+    pub fn add_position_track(&mut self, id: EntityId, stamp: Nanotime, p: DVec2) {
         if let Some(track) = self.tracks.get_mut(&id) {
             if let Some((t, _)) = track.last() {
                 let dt = stamp - *t;
@@ -111,8 +113,6 @@ pub fn landing_site_info(ls: &LandingSiteEntity) -> String {
         format!("{}", ls.name),
         format!("Planet: {}", ls.planet),
         format!("Atmo color: {:?}", ls.surface.atmo_color),
-        format!("Gravity: {}", ls.surface.gravity),
-        format!("Wind: {}", ls.surface.wind),
         format!("Awake: {}", ls.is_awake),
     ]
     .into_iter()

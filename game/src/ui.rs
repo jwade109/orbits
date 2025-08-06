@@ -256,7 +256,7 @@ pub fn console_overlay(state: &GameState) -> Node<OnClick> {
 
     let button_height = state.settings.ui_button_height * 0.6;
     let offset = "   ";
-    let cursor = if crate::drawing::is_blinking(state.wall_time, None) {
+    let cursor = if crate::drawing::is_blinking(state.wall_time) {
         "_"
     } else {
         ""

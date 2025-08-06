@@ -12,7 +12,7 @@ pub struct ThrusterModel {
     mass: Mass,
     name: String,
     pub model: String,
-    thrust: f32,
+    thrust: f64,
     pub exhaust_velocity: f32,
     pub is_rcs: bool,
     pub throttle_rate: f32,
@@ -24,7 +24,7 @@ pub struct ThrusterModel {
 }
 
 impl ThrusterModel {
-    pub fn main_thruster(thrust: f32, ve: f32) -> Self {
+    pub fn main_thruster(thrust: f64, ve: f32) -> Self {
         Self {
             dims: UVec2::new(30, 10),
             mass: Mass::kilograms(800),
@@ -42,13 +42,13 @@ impl ThrusterModel {
         }
     }
 
-    pub fn max_thrust(&self) -> f32 {
+    pub fn max_thrust(&self) -> f64 {
         self.thrust
     }
 
-    pub fn current_thrust(&self, data: &ThrusterInstanceData) -> f32 {
+    pub fn current_thrust(&self, data: &ThrusterInstanceData) -> f64 {
         if data.is_thrusting(self) {
-            self.thrust * data.throttle()
+            self.thrust * data.throttle() as f64
         } else {
             0.0
         }
@@ -129,10 +129,10 @@ impl ThrusterModel {
         self.is_rcs
     }
 
-    pub fn fuel_consumption_rate(&self, data: &ThrusterInstanceData) -> f32 {
+    pub fn fuel_consumption_rate(&self, data: &ThrusterInstanceData) -> f64 {
         if data.is_thrusting(self) {
-            let max_rate = self.thrust / self.exhaust_velocity;
-            max_rate * data.throttle
+            let max_rate = self.thrust / self.exhaust_velocity as f64;
+            max_rate * data.throttle as f64
         } else {
             0.0
         }

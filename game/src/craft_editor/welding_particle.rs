@@ -7,7 +7,7 @@ pub struct BuildParticle {
 }
 
 impl BuildParticle {
-    pub fn new(pos: Vec2) -> Self {
+    pub fn new(pos: DVec2) -> Self {
         let vel = randvec(1.5, 6.0);
         Self {
             pv: PV::from_f64(pos, vel),
@@ -20,8 +20,8 @@ impl BuildParticle {
         self.pv.pos += self.pv.vel * PHYSICS_CONSTANT_DELTA_TIME.to_secs_f64();
     }
 
-    pub fn pos(&self) -> Vec2 {
-        self.pv.pos_f32()
+    pub fn pos(&self) -> DVec2 {
+        self.pv.pos
     }
 
     pub fn opacity(&self) -> f32 {

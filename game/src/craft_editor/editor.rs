@@ -62,7 +62,7 @@ pub struct EditorContext {
 impl EditorContext {
     pub fn new() -> Self {
         EditorContext {
-            camera: LinearCameraController::new(Vec2::ZERO, 18.0, 1100.0),
+            camera: LinearCameraController::new(DVec2::ZERO, 18.0, 1100.0),
             cursor_state: CursorState::None,
             rotation: Rotation::East,
             filepath: None,
@@ -112,8 +112,8 @@ impl EditorContext {
         let p1 = input.position(MouseButt::Left, FrameId::Down)?;
         let p2 = input.position(MouseButt::Left, FrameId::Current)?;
         Some(AABB::from_arbitrary(
-            vround(self.c2w(p1)).as_vec2(),
-            vround(self.c2w(p2)).as_vec2(),
+            vround_f64(self.c2w(p1)).as_vec2(),
+            vround_f64(self.c2w(p2)).as_vec2(),
         ))
     }
 
@@ -323,7 +323,7 @@ impl EditorContext {
         let part = state.editor_context.cursor_state.current_part()?;
         let wh = pixel_dims_with_rotation(ctx.rotation, &part).as_ivec2();
         let pos = state.input.position(MouseButt::Hover, FrameId::Current)?;
-        let pos = vround(state.editor_context.c2w(pos) * PIXELS_PER_METER);
+        let pos = vround_f64(state.editor_context.c2w(pos) * PIXELS_PER_METER as f64);
         let pos = if let Some((snap_pos, dims)) = state.editor_context.snap_info {
             let dims = dims.as_ivec2();
             let delta = pos - snap_pos;
@@ -382,8 +382,9 @@ fn highlight_part(
     draw_highlight_box(canvas, aabb, ctx, color);
 
     for p in [p, q, r, s] {
+        let p = p.as_dvec2();
         let p = ctx.w2c(p);
-        draw_cross(&mut canvas.gizmos, p, 0.1 * ctx.scale(), color);
+        draw_cross(&mut canvas.gizmos, p, gcast(0.1 * ctx.scale()), color);
     }
 }
 
@@ -393,7 +394,7 @@ pub fn draw_particles(
     particles: &ThrustParticleEffects,
 ) {
     for particle in &particles.particles {
-        let p = ctx.w2c(particle.pv.pos_f32());
+        let p = ctx.w2c(particle.pv.pos);
         let age = particle.age.to_secs();
         let alpha = (1.0 - age / particle.lifetime.to_secs())
             .powi(3)
@@ -410,7 +411,7 @@ pub fn draw_particles(
                 particle.angle,
                 "cloud",
                 None,
-                Vec2::new(size * stretch * ramp_up, size * ramp_up) * ctx.scale(),
+                Vec2::new(size * stretch * ramp_up, size * ramp_up) * gcast(ctx.scale()),
             )
             .set_color(color.with_alpha(color.alpha * alpha));
     }
@@ -483,7 +484,7 @@ impl Render for EditorContext {
 
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         let ctx = &state.editor_context;
-        draw_cross(&mut canvas.gizmos, ctx.w2c(Vec2::ZERO), 10.0, GRAY);
+        draw_cross(&mut canvas.gizmos, ctx.w2c(DVec2::ZERO), 10.0, GRAY);
 
         if let Some((pos, dims)) = ctx.snap_info {
             let lower = pos.as_vec2();
@@ -523,11 +524,11 @@ impl Render for EditorContext {
 
         let info = format!("{}{}", info, vehicle_info);
 
-        let world_pos = Vec2::new(0.0, bounds.lower().y - 1.0);
+        let world_pos = Vec2::new(0.0, bounds.lower().y - 1.0).as_dvec2();
         canvas
-            .text(info, ctx.w2c(world_pos), 0.01 * ctx.scale())
+            .text(info, ctx.w2c(world_pos), gcast(0.01 * ctx.scale()))
             .anchor_top_left();
-        let world_pos = Vec2::new(0.0, bounds.upper().y + 1.0);
+        let world_pos = Vec2::new(0.0, bounds.upper().y + 1.0).as_dvec2();
         canvas
             .text(
                 format!(
@@ -536,19 +537,19 @@ impl Render for EditorContext {
                     state.editor_context.vehicle.name()
                 ),
                 ctx.w2c(world_pos),
-                0.01 * ctx.scale(),
+                gcast(0.01 * ctx.scale()),
             )
             .anchor_bottom_left();
 
         // axes
         {
-            let length = bounds.span.x * 1.5;
-            let width = bounds.span.y * 1.5;
-            let o = ctx.w2c(Vec2::ZERO);
-            let p = ctx.w2c(Vec2::X * length);
-            let q = ctx.w2c(Vec2::Y * width);
-            let np = ctx.w2c(-Vec2::X * length);
-            let nq = ctx.w2c(-Vec2::Y * width);
+            let length = bounds.span.x as f64 * 1.5;
+            let width = bounds.span.y as f64 * 1.5;
+            let o = ctx.w2c(DVec2::ZERO);
+            let p = ctx.w2c(DVec2::X * length);
+            let q = ctx.w2c(DVec2::Y * width);
+            let np = ctx.w2c(-DVec2::X * length);
+            let nq = ctx.w2c(-DVec2::Y * width);
             canvas.gizmos.line_2d(o, p, RED.with_alpha(0.3));
             canvas.gizmos.line_2d(o, q, GREEN.with_alpha(0.3));
             canvas.gizmos.line_2d(o, np, RED.with_alpha(0.1));
@@ -584,8 +585,8 @@ impl Render for EditorContext {
 
             draw_circle(
                 &mut canvas.gizmos,
-                ctx.w2c(Vec2::ZERO),
-                radius * ctx.scale(),
+                ctx.w2c(DVec2::ZERO),
+                gcast(radius * ctx.scale()),
                 RED.with_alpha(0.1),
             );
 
@@ -596,12 +597,12 @@ impl Render for EditorContext {
 
             // thrust envelope
             for (rcs, color) in [(false, RED), (true, BLUE)] {
-                let positions: Vec<_> = linspace(0.0, 2.0 * PI, 200)
+                let positions: Vec<_> = linspace_f64(0.0, 2.0 * PI_64, 200)
                     .into_iter()
                     .map(|a| {
-                        let thrust: f32 = ctx.vehicle.current_thrust_along_heading(a, rcs);
+                        let thrust = ctx.vehicle.current_thrust_along_heading(a, rcs);
                         let r = (1.0 + thrust.abs().sqrt() / 100.0) * ctx.vehicle.bounding_radius();
-                        ctx.w2c(rotate(Vec2::X * r, a))
+                        ctx.w2c(rotate_f64(DVec2::X * r, a))
                     })
                     .collect();
                 canvas.gizmos.linestrip_2d(positions, color.with_alpha(0.6));
@@ -610,9 +611,9 @@ impl Render for EditorContext {
 
         for (_, part) in ctx.vehicle.parts() {
             if let Some((t, _)) = part.as_thruster() {
-                let u = rotate(Vec2::X, part.rotation().to_angle());
+                let u = rotate_f64(DVec2::X, part.rotation().to_angle());
                 let thrust_vector = u * (t.max_thrust() / 1000.0).sqrt();
-                let start = part.origin().as_vec2() + part.dims_grid().as_vec2() / 2.0;
+                let start = part.origin().as_dvec2() + part.dims_grid().as_dvec2() / 2.0;
                 let end = start + thrust_vector;
                 let start = ctx.w2c(start);
                 let end = ctx.w2c(end);
@@ -681,9 +682,9 @@ impl Render for EditorContext {
                     (Some(PartLayer::Exterior), _) => 0.02,
                 };
 
-                let dims = instance.dims_meters();
+                let dims = instance.dims_meters().as_dvec2();
                 let sprite_dims = instance.prototype().dims_meters();
-                let center = ctx.w2c(instance.origin_meters() + dims / 2.0);
+                let center = ctx.w2c(instance.origin_meters().as_dvec2() + dims / 2.0);
                 let p = instance.percent_built();
                 let sprite_name = instance.prototype().sprite_path().to_string();
                 let sprite_name = if p == 1.0 {
@@ -696,10 +697,10 @@ impl Render for EditorContext {
                 canvas
                     .sprite(
                         center,
-                        instance.rotation().to_angle(),
+                        gcast(instance.rotation().to_angle()),
                         sprite_name,
                         None,
-                        sprite_dims * ctx.scale(),
+                        graphics_cast(sprite_dims.as_dvec2() * ctx.scale()),
                     )
                     .set_color(WHITE.with_alpha(alpha));
 
@@ -707,12 +708,12 @@ impl Render for EditorContext {
                     if let Some((t, d)) = instance.as_tank() {
                         let pct = t.percent_filled(d);
                         let dims = rotate(
-                            (sprite_dims - Vec2::splat(2.0)) * ctx.scale(),
-                            instance.rotation().to_angle(),
+                            (sprite_dims - Vec2::splat(2.0)) * gcast(ctx.scale()),
+                            gcast(instance.rotation().to_angle()),
                         )
                         .abs();
                         let lower = center - dims / 2.0;
-                        let upper = lower + Vec2::new(dims.x, dims.y * pct);
+                        let upper = lower + Vec2::new(dims.x, dims.y * gcast(pct));
                         let aabb = AABB::from_arbitrary(lower, upper);
                         let color: Srgba = crate::sprites::hashable_to_color(&d.item()).into();
                         canvas.rect(aabb, color.with_alpha(0.7));
@@ -730,28 +731,28 @@ impl Render for EditorContext {
                     if let Some((_, d)) = instance.as_machine() {
                         let pct = d.percent_complete();
                         let dims = rotate(
-                            (sprite_dims - Vec2::splat(2.0)) * ctx.scale(),
-                            instance.rotation().to_angle(),
+                            (sprite_dims - Vec2::splat(2.0)) * gcast(ctx.scale()),
+                            gcast(instance.rotation().to_angle()),
                         )
                         .abs();
                         let lower = center - dims / 2.0;
-                        let upper = lower + Vec2::new(dims.x * pct, 2.0 * ctx.scale());
+                        let upper = lower + Vec2::new(dims.x * pct, 2.0 * gcast(ctx.scale()));
                         let aabb = AABB::from_arbitrary(lower, upper);
                         canvas.rect(aabb, RED.with_alpha(0.7));
                     }
 
                     if let Some((c, d)) = instance.as_cargo() {
                         let dims = rotate(
-                            (sprite_dims - Vec2::splat(2.0)) * ctx.scale(),
-                            instance.rotation().to_angle(),
+                            (sprite_dims - Vec2::splat(2.0)) * gcast(ctx.scale()),
+                            gcast(instance.rotation().to_angle()),
                         )
                         .abs();
 
                         let mut lower = center - dims / 2.0;
 
                         for (item, mass) in d.contents() {
-                            let pct = mass.to_kg_f32() / c.capacity_mass().to_kg_f32();
-                            let upper = lower + Vec2::new(dims.x, dims.y * pct);
+                            let pct = mass.to_kg_f64() / c.capacity_mass().to_kg_f64();
+                            let upper = lower + Vec2::new(dims.x, dims.y * gcast(pct));
                             let aabb = AABB::from_arbitrary(lower, upper);
                             let color = crate::sprites::hashable_to_color(&item);
                             canvas.rect(aabb, color.with_alpha(0.4));
@@ -764,7 +765,7 @@ impl Render for EditorContext {
 
                             canvas.sprite(aabb.center, 0.0, path, None, Vec2::splat(s));
 
-                            lower.y += dims.y * pct;
+                            lower.y += dims.y * gcast(pct);
                         }
                     }
                 }
@@ -794,7 +795,7 @@ impl Render for EditorContext {
             // }
 
             if Self::current_part_and_cursor_position(state).is_none() {
-                if let Some((id, _)) = ctx.get_part_at(c) {
+                if let Some((id, _)) = ctx.get_part_at(graphics_cast(c)) {
                     if let Some(instance) = ctx.vehicle.get_part(id) {
                         highlight_part(canvas, instance, ctx, TEAL.with_alpha(0.6));
                         for (other, other_instance) in ctx.vehicle.parts() {
@@ -816,28 +817,34 @@ impl Render for EditorContext {
             let dims = pixel_dims_with_rotation(ctx.rotation, &current_part);
             let sprite_dims = current_part.dims();
             canvas.sprite(
-                ctx.w2c(p.as_vec2() / PIXELS_PER_METER + dims.as_vec2() / PIXELS_PER_METER / 2.0),
-                ctx.rotation.to_angle(),
+                ctx.w2c((p.as_dvec2() + dims.as_dvec2() / 2.0) / PIXELS_PER_METER as f64),
+                gcast(ctx.rotation.to_angle()),
                 current_part.sprite_path().to_string(),
                 None,
-                sprite_dims.as_vec2() / PIXELS_PER_METER * ctx.scale(),
+                sprite_dims.as_vec2() / PIXELS_PER_METER * gcast(ctx.scale()),
             );
         }
 
         for particle in &ctx.build_particles {
             let p = ctx.w2c(particle.pos());
             canvas
-                .sprite(p, 0.0, "error", None, Vec2::splat(0.03) * ctx.scale())
+                .sprite(
+                    p,
+                    0.0,
+                    "error",
+                    None,
+                    Vec2::splat(0.03) * gcast(ctx.scale()),
+                )
                 .set_color(YELLOW.with_alpha(particle.opacity()));
         }
 
         for bot in &ctx.bots {
             canvas.sprite(
                 ctx.w2c(bot.pos()),
-                bot.angle(),
+                gcast(bot.angle()),
                 "conbot",
                 None,
-                Vec2::splat(0.3) * ctx.scale(),
+                Vec2::splat(0.3) * gcast(ctx.scale()),
             );
             if let Some(t) = bot.target_pos() {
                 canvas.circle(ctx.w2c(t), 12.0, PURPLE.with_alpha(0.2));
@@ -846,15 +853,6 @@ impl Render for EditorContext {
 
         Some(())
     }
-}
-
-fn aabb_for_part(p: IVec2, rot: Rotation, part: &PartPrototype) -> AABB {
-    let wh = pixel_dims_with_rotation(rot, part).as_ivec2();
-    let q = p + wh;
-    AABB::from_arbitrary(
-        p.as_vec2() / PIXELS_PER_METER,
-        q.as_vec2() / PIXELS_PER_METER,
-    )
 }
 
 fn expandable_menu(button_height: f32, text: &str, onclick: OnClick) -> Node<OnClick> {
@@ -992,11 +990,11 @@ fn layer_selection(state: &GameState) -> Node<OnClick> {
 }
 
 impl CameraProjection for EditorContext {
-    fn origin(&self) -> Vec2 {
+    fn origin(&self) -> DVec2 {
         self.camera.origin()
     }
 
-    fn scale(&self) -> f32 {
+    fn scale(&self) -> f64 {
         self.camera.scale()
     }
 }
@@ -1017,7 +1015,7 @@ impl EditorContext {
 
         if let Some(p) = state.input.on_frame(MouseButt::Left, FrameId::Down) {
             let p = state.editor_context.c2w(p);
-            if let Some((id, _)) = state.editor_context.get_part_at(p) {
+            if let Some((id, _)) = state.editor_context.get_part_at(graphics_cast(p)) {
                 state.editor_context.selected_part = Some(id)
             } else {
                 state.editor_context.selected_part = None;
@@ -1045,14 +1043,14 @@ impl EditorContext {
         } else if let Some(p) = state.input.on_frame(MouseButt::Right, FrameId::Down) {
             state
                 .editor_context
-                .remove_part_at(state.editor_context.c2w(p));
+                .remove_part_at(graphics_cast(state.editor_context.c2w(p)));
         } else if state.input.just_pressed(KeyCode::KeyQ) {
             if state.editor_context.cursor_state.current_part().is_some() {
                 state.editor_context.cursor_state = CursorState::None;
             } else if let Some(p) = state.input.position(MouseButt::Hover, FrameId::Current) {
                 if let Some((_, instance)) = state
                     .editor_context
-                    .get_part_at(state.editor_context.c2w(p))
+                    .get_part_at(graphics_cast(state.editor_context.c2w(p)))
                 {
                     let instance = instance.clone();
                     state.editor_context.rotation = instance.rotation();
@@ -1071,11 +1069,11 @@ impl EditorContext {
 
         if state.editor_context.focus_layer == Some(PartLayer::Plumbing) {
             if let Some(p) = state.input.position(MouseButt::Left, FrameId::Current) {
-                let p = vfloor(state.editor_context.c2w(p) * PIXELS_PER_METER);
+                let p = vfloor(graphics_cast(state.editor_context.c2w(p)) * PIXELS_PER_METER);
                 state.editor_context.vehicle.add_pipe(p);
             }
             if let Some(p) = state.input.position(MouseButt::Right, FrameId::Current) {
-                let p = vfloor(state.editor_context.c2w(p) * PIXELS_PER_METER);
+                let p = vfloor(graphics_cast(state.editor_context.c2w(p)) * PIXELS_PER_METER);
                 state.editor_context.vehicle.remove_pipe(p);
             }
         }
@@ -1114,14 +1112,14 @@ impl EditorContext {
             if let Some(id) = bot.target_part() {
                 if !all_parts.contains(&id) {
                     bot.clear_target_part();
-                    bot.set_target_pos(randvec(50.0, 60.0))
+                    bot.set_target_pos(randvec(50.0, 60.0).as_dvec2())
                 }
             }
 
             if bot.target_part().is_none() {
                 if let Some(pos) = bot.target_pos() {
                     if pos.length() < 10.0 {
-                        bot.set_target_pos(randvec(50.0, 60.0))
+                        bot.set_target_pos(randvec(50.0, 60.0).as_dvec2())
                     }
                 }
             }
@@ -1131,7 +1129,7 @@ impl EditorContext {
                 let (id, bounds) = unbuilt_parts[n as usize];
                 unbuilt_parts.remove(n as usize);
                 bot.set_target_part(id);
-                let pos = bounds.uniform_sample();
+                let pos = bounds.uniform_sample().as_dvec2();
                 bot.set_target_pos(pos);
             }
 

@@ -22,9 +22,14 @@ impl<'w, 's> Canvas<'w, 's> {
         }
     }
 
-    pub fn circle(&mut self, p: Vec2, radius: f32, color: Srgba) {
+    pub fn circle<'a>(
+        &'a mut self,
+        p: Vec2,
+        radius: f32,
+        color: Srgba,
+    ) -> bevy::gizmos::circles::Ellipse2dBuilder<'a, 'w, 's, DefaultGizmoConfigGroup, ()> {
         self.gizmos
-            .circle_2d(Isometry2d::from_translation(p), radius, color);
+            .circle_2d(Isometry2d::from_translation(p), radius, color)
     }
 
     pub fn square(&mut self, p: Vec2, sidelength: f32, color: Srgba) {

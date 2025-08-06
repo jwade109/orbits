@@ -9,6 +9,7 @@ use crate::scenes::{CameraProjection, TextLabel};
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use layout::layout::Tree;
+use starling::prelude::*;
 
 #[derive(Debug)]
 pub struct DockingContext {
@@ -17,11 +18,11 @@ pub struct DockingContext {
 }
 
 impl CameraProjection for DockingContext {
-    fn origin(&self) -> Vec2 {
+    fn origin(&self) -> DVec2 {
         self.camera.origin()
     }
 
-    fn scale(&self) -> f32 {
+    fn scale(&self) -> f64 {
         self.camera.scale()
     }
 }
@@ -60,22 +61,22 @@ impl Render for DockingContext {
         let target = state.targeting()?;
         let piloting = state.piloting()?;
 
-        draw_piloting_overlay(canvas, state);
+        draw_piloting_overlay(canvas, state, state.piloting());
 
         let origin = state
             .universe
             .lup_orbiter(target, state.universe.stamp())?
             .pv();
 
-        draw_circle(&mut canvas.gizmos, ctx.w2c(Vec2::ZERO), 7.0, TEAL);
+        draw_circle(&mut canvas.gizmos, ctx.w2c(DVec2::ZERO), 7.0, TEAL);
 
         for km in 1..=5 {
-            let km = km as f32;
+            let km = km as f64;
             let alpha = 0.8 - 0.14 * km as f32;
             draw_circle(
                 &mut canvas.gizmos,
-                ctx.w2c(Vec2::ZERO),
-                km * 1000.0 * ctx.scale(),
+                ctx.w2c(DVec2::ZERO),
+                gcast(km * 1000.0 * ctx.scale()),
                 GRAY.with_alpha(alpha),
             );
         }
@@ -84,8 +85,8 @@ impl Render for DockingContext {
             let alpha = 0.2;
             draw_circle(
                 &mut canvas.gizmos,
-                ctx.w2c(Vec2::ZERO),
-                meters as f32 * ctx.scale(),
+                ctx.w2c(DVec2::ZERO),
+                gcast(meters as f64 * ctx.scale()),
                 GRAY.with_alpha(alpha),
             );
         }
@@ -103,10 +104,16 @@ impl Render for DockingContext {
             }
 
             if *id != target {
-                draw_circle(&mut canvas.gizmos, ctx.w2c(pv.pos_f32()), 7.0, RED);
+                draw_circle(&mut canvas.gizmos, ctx.w2c(pv.pos), 7.0, RED);
             }
 
-            draw_vehicle(canvas, &ov.vehicle, ctx.w2c(pv.pos_f32()), ctx.scale(), 0.0);
+            draw_vehicle(
+                canvas,
+                &ov.vehicle,
+                ctx.w2c(pv.pos),
+                gcast(ctx.scale()),
+                0.0,
+            );
         }
 
         {
@@ -114,9 +121,11 @@ impl Render for DockingContext {
             let po = state.get_orbit(piloting)?;
             let to = state.get_orbit(target)?;
 
-            let (_, _, mut relpos) = make_separation_graph(&po.1, &to.1, state.universe.stamp());
-            relpos.iter_mut().for_each(|p| *p = ctx.w2c(*p * 1000.0));
-            canvas.gizmos.linestrip_2d(relpos, WHITE);
+            let po = revisit(po);
+
+            let (_, _, relpos) = make_separation_graph(&po.1, &to.1, state.universe.stamp());
+            let positions: Vec<_> = relpos.into_iter().map(|p| ctx.w2c(p * 1000.0)).collect();
+            canvas.gizmos.linestrip_2d(positions, WHITE);
         }
 
         let half_span = state.input.screen_bounds.span / 2.0;
@@ -171,7 +180,7 @@ impl Render for DockingContext {
 impl DockingContext {
     pub fn new() -> Self {
         Self {
-            camera: LinearCameraController::new(Vec2::ZERO, 1.0, 1100.0),
+            camera: LinearCameraController::new(DVec2::ZERO, 1.0, 1100.0),
             following: None,
         }
     }

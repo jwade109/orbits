@@ -1,5 +1,4 @@
 use crate::game::GameState;
-use crate::scenes::CameraProjection;
 use bevy::input::keyboard::KeyboardInput;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
@@ -211,16 +210,6 @@ impl InputState {
         let frame = state.frame(order)?;
         (self.frame_no == frame.frame_no + delta)
             .then(|| frame.screen_pos - self.screen_bounds.span / 2.0)
-    }
-
-    pub fn world_position(
-        &self,
-        button: MouseButt,
-        order: FrameId,
-        ctx: &impl CameraProjection,
-    ) -> Option<Vec2> {
-        let p = self.position(button, order)?;
-        Some(ctx.c2w(p))
     }
 }
 

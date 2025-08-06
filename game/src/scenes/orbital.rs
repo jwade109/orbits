@@ -58,10 +58,10 @@ impl ThrottleLevel {
 
 #[derive(Debug, Clone, Copy)]
 pub struct LowPass {
-    pub value: f32,
-    pub target: f32,
+    pub value: f64,
+    pub target: f64,
     /// LPF coefficient, must be in (0, 1]
-    pub alpha: f32,
+    pub alpha: f64,
 }
 
 impl LowPass {
@@ -88,57 +88,59 @@ pub struct OrbitalContext {
     pub targeting: Option<EntityId>,
     pub rendezvous_scope_radius: LowPass,
 
-    pub mouse_down_world_pos: Option<Vec2>,
+    pub mouse_down_world_pos: Option<DVec2>,
     pub selection_bounds: Option<AABB>,
 }
 
 pub trait CameraProjection {
     /// World to camera transform
-    fn w2c(&self, p: Vec2) -> Vec2 {
-        (p - self.origin()) * self.scale()
+    fn w2c(&self, p: DVec2) -> Vec2 {
+        graphics_cast((p - self.origin()) * self.scale())
     }
 
-    #[allow(unused)]
     fn w2c_aabb(&self, aabb: AABB) -> AABB {
-        let a = aabb.lower();
-        let b = aabb.upper();
+        let a = aabb.lower().as_dvec2();
+        let b = aabb.upper().as_dvec2();
         AABB::from_arbitrary(self.w2c(a), self.w2c(b))
     }
 
     /// Camera to world transform
-    fn c2w(&self, p: Vec2) -> Vec2 {
-        p / self.scale() + self.origin()
+    fn c2w(&self, p: Vec2) -> DVec2 {
+        p.as_dvec2() / self.scale() + self.origin()
     }
 
     #[allow(unused)]
     fn c2w_aabb(&self, aabb: AABB) -> AABB {
         let a = aabb.lower();
         let b = aabb.upper();
-        AABB::from_arbitrary(self.c2w(a), self.c2w(b))
+        AABB::from_arbitrary(
+            aabb_stopgap_cast(self.c2w(a)),
+            aabb_stopgap_cast(self.c2w(b)),
+        )
     }
 
-    fn origin(&self) -> Vec2;
+    fn origin(&self) -> DVec2;
 
-    fn scale(&self) -> f32;
+    fn scale(&self) -> f64;
 }
 
 impl CameraProjection for OrbitalContext {
-    fn origin(&self) -> Vec2 {
+    fn origin(&self) -> DVec2 {
         self.camera.origin()
     }
 
-    fn scale(&self) -> f32 {
+    fn scale(&self) -> f64 {
         self.camera.scale()
     }
 }
 
-pub fn relevant_body(planets: &PlanetarySystem, pos: Vec2, stamp: Nanotime) -> Option<EntityId> {
+pub fn relevant_body(planets: &PlanetarySystem, pos: DVec2, stamp: Nanotime) -> Option<EntityId> {
     let results = planets
         .planet_ids()
         .into_iter()
         .filter_map(|id| {
             let (body, pv, _, _) = planets.lookup(id, stamp)?;
-            let p = pv.pos_f32();
+            let p = pv.pos;
             let d = pos.distance(p);
             (d <= body.soi).then(|| (d, id))
         })
@@ -149,17 +151,10 @@ pub fn relevant_body(planets: &PlanetarySystem, pos: Vec2, stamp: Nanotime) -> O
         .map(|(_, id)| *id)
 }
 
-pub fn landing_site_position(universe: &Universe, planet_id: EntityId, angle: f32) -> Option<Vec2> {
-    let lup = universe.lup_planet(planet_id, universe.stamp())?;
-    let body = lup.body()?;
-    let center = lup.pv().pos_f32();
-    Some(center + rotate(Vec2::X * body.radius, angle))
-}
-
 impl OrbitalContext {
     pub fn new(primary: EntityId) -> Self {
         Self {
-            camera: LinearCameraController::new(Vec2::ZERO, 0.02, 600.0),
+            camera: LinearCameraController::new(DVec2::ZERO, 0.02, 600.0),
             primary,
             selected: HashSet::new(),
             following: None,
@@ -181,13 +176,13 @@ impl OrbitalContext {
         }
     }
 
-    pub fn follow_position(&self, universe: &Universe) -> Option<Vec2> {
+    pub fn follow_position(&self, universe: &Universe) -> Option<DVec2> {
         let id = self.following?;
         let lup = match id {
             ObjectId::Orbiter(id) => universe.lup_orbiter(id, universe.stamp())?,
             ObjectId::Planet(id) => universe.lup_planet(id, universe.stamp())?,
         };
-        Some(lup.pv().pos_f32())
+        Some(lup.pv().pos)
     }
 
     pub fn toggle_track(&mut self, id: EntityId) {
@@ -206,7 +201,7 @@ impl OrbitalContext {
         }
     }
 
-    pub fn measuring_tape(state: &GameState) -> Option<(Vec2, Vec2, Vec2)> {
+    pub fn measuring_tape(state: &GameState) -> Option<(DVec2, DVec2, DVec2)> {
         if state.is_currently_left_clicked_on_ui() {
             return None;
         }
@@ -215,11 +210,11 @@ impl OrbitalContext {
         let b = state.input.position(MouseButt::Left, FrameId::Current)?;
         let a = ctx.c2w(a);
         let b = ctx.c2w(b);
-        let corner = Vec2::new(a.x, b.y);
+        let corner = DVec2::new(a.x, b.y);
         Some((a, b, corner))
     }
 
-    pub fn protractor(state: &GameState) -> Option<(Vec2, Vec2, Option<Vec2>)> {
+    pub fn protractor(state: &GameState) -> Option<(DVec2, DVec2, Option<DVec2>)> {
         if state.is_currently_left_clicked_on_ui() {
             return None;
         }
@@ -243,7 +238,7 @@ impl OrbitalContext {
         Some((c, a, b))
     }
 
-    pub fn cursor_pv(p1: Vec2, p2: Vec2, state: &GameState) -> Option<PV> {
+    pub fn cursor_pv(p1: DVec2, p2: DVec2, state: &GameState) -> Option<PV> {
         if p1.distance(p2) < 20.0 {
             return None;
         }
@@ -251,24 +246,21 @@ impl OrbitalContext {
         let wrt_id = relevant_body(&state.universe.planets, p1, state.universe.stamp())?;
         let parent = state.universe.lup_planet(wrt_id, state.universe.stamp())?;
 
-        let r = p1.distance(parent.pv().pos_f32());
+        let r = p1.distance(parent.pv().pos);
         let v = (parent.body()?.mu() / r).sqrt();
 
         Some(PV::from_f64(p1, (p2 - p1) * v / r))
     }
 
-    pub fn cursor_orbit(p1: Vec2, p2: Vec2, state: &GameState) -> Option<GlobalOrbit> {
+    pub fn cursor_orbit(p1: DVec2, p2: DVec2, state: &GameState) -> Option<GlobalOrbit> {
         let pv = Self::cursor_pv(p1, p2, &state)?;
-        let parent_id: EntityId = relevant_body(
-            &state.universe.planets,
-            pv.pos_f32(),
-            state.universe.stamp(),
-        )?;
+        let parent_id: EntityId =
+            relevant_body(&state.universe.planets, pv.pos, state.universe.stamp())?;
         let parent = state
             .universe
             .lup_planet(parent_id, state.universe.stamp())?;
         let parent_pv = parent.pv();
-        let pv = pv - PV::pos(parent_pv.pos_f32());
+        let pv = pv - PV::pos(parent_pv.pos);
         let body = parent.body()?;
         Some(GlobalOrbit(
             parent_id,
@@ -339,7 +331,7 @@ impl OrbitalContext {
             .zip(input.position(MouseButt::Left, FrameId::Current))
             .map(|(p, q)| {
                 let q = self.c2w(q);
-                AABB::from_arbitrary(p, q)
+                AABB::from_arbitrary(aabb_stopgap_cast(p), aabb_stopgap_cast(q))
             });
 
         if input.is_pressed(KeyCode::KeyW)
@@ -367,7 +359,7 @@ pub fn get_landing_site_labels(state: &GameState) -> Vec<TextLabel> {
         let pos = landing_site_position(&state.universe, site.planet, site.angle);
         if let Some(pos) = pos {
             let pos = ctx.w2c(pos);
-            let offset = rotate(Vec2::X, site.angle) * LANDING_SITE_MOUSEOVER_DISTANCE;
+            let offset = rotate(Vec2::X, gcast(site.angle)) * LANDING_SITE_MOUSEOVER_DISTANCE;
             if pos.distance(cursor) < LANDING_SITE_MOUSEOVER_DISTANCE {
                 let text = format!("LS {} {}", site.name.clone(), id);
                 let label = TextLabel::new(text, pos + offset, 0.7);
@@ -397,13 +389,13 @@ pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> 
             Some(lup) => lup,
             None => continue,
         };
-        let pw = lup.pv().pos_f32();
+        let pw = lup.pv().pos;
         let pc = state.orbital_context.w2c(pw);
 
         let (passes, label, pos) = if let Some((name, body)) = lup.named_body() {
             // distance based on world space
             let d = pw.distance(cursor_world);
-            let p = state.orbital_context.w2c(pw + Vec2::Y * body.radius);
+            let p = state.orbital_context.w2c(pw + DVec2::Y * body.radius);
             (d < body.radius, name.to_uppercase(), p + Vec2::Y * 30.0)
         } else {
             let orb_id = id.orbiter().unwrap();
@@ -470,7 +462,7 @@ fn text_labels(state: &GameState) -> Vec<TextLabel> {
             let da = a - c;
             let db = b - c;
             let angle = da.angle_to(db);
-            let d = c + rotate(da * 0.75, angle / 2.0);
+            let d = c + rotate_f64(da * 0.75, angle / 2.0);
             let t = format!("{:0.1} deg", angle.to_degrees().abs());
             let d = state.orbital_context.w2c(d);
             text_labels.push(TextLabel::new(t, d, 1.0));

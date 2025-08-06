@@ -45,7 +45,9 @@ pub fn rotate_f64(v: DVec2, angle: f64) -> DVec2 {
     DVec2::from_angle(angle).rotate(v)
 }
 
-pub fn cross2d(a: Vec2, b: Vec2) -> f32 {
+pub fn cross2d(a: impl Into<DVec2>, b: impl Into<DVec2>) -> f64 {
+    let a = a.into();
+    let b = b.into();
     a.extend(0.0).cross(b.extend(0.0)).z
 }
 
@@ -74,11 +76,19 @@ pub fn vfloor(v: Vec2) -> IVec2 {
     IVec2::new(v.x.floor() as i32, v.y.floor() as i32)
 }
 
+pub fn vfloor_f64(v: DVec2) -> IVec2 {
+    IVec2::new(v.x.floor() as i32, v.y.floor() as i32)
+}
+
 pub fn vceil(v: Vec2) -> IVec2 {
     IVec2::new(v.x.ceil() as i32, v.y.ceil() as i32)
 }
 
 pub fn vround(v: Vec2) -> IVec2 {
+    IVec2::new(v.x.round() as i32, v.y.round() as i32)
+}
+
+pub fn vround_f64(v: DVec2) -> IVec2 {
     IVec2::new(v.x.round() as i32, v.y.round() as i32)
 }
 
@@ -179,6 +189,11 @@ pub fn get_random_name() -> String {
 
 pub fn wrap_0_2pi(x: f32) -> f32 {
     let twopi = 2.0 * PI;
+    x - twopi * (x / twopi).floor()
+}
+
+pub fn wrap_0_2pi_f64(x: f64) -> f64 {
+    let twopi = 2.0 * PI_64;
     x - twopi * (x / twopi).floor()
 }
 

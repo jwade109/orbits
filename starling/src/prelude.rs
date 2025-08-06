@@ -1,6 +1,7 @@
 pub use crate::aabb::{Polygon, AABB, OBB};
 pub use crate::belts::AsteroidBelt;
 pub use crate::bezier::*;
+pub use crate::casts::*;
 pub use crate::construction_bot::*;
 pub use crate::control::OrbitalController;
 pub use crate::control_signals::*;
@@ -24,7 +25,6 @@ pub use crate::quantities::*;
 pub use crate::region::Region;
 pub use crate::scenario::{simulate, ObjectLookup, PlanetarySystem, ScenarioObject};
 pub use crate::surface::*;
-pub use crate::terrain::*;
 pub use crate::thrust_particles::*;
 pub use crate::universe::*;
 pub use crate::vehicle::*;

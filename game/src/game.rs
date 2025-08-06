@@ -260,8 +260,8 @@ impl GameState {
             }
         };
 
-        let mut sounds = EnvironmentSounds::new();
-        sounds.play_loop("building.ogg", 0.1);
+        let sounds = EnvironmentSounds::new();
+        // sounds.play_loop("building.ogg", 0.1);
 
         let vehicle_names = match load_names_from_file(&args.names_path()) {
             Ok(n) => n,
@@ -324,12 +324,16 @@ impl GameState {
 
         g.surface_context.current_surface = surface_id;
 
-        for model in ["remora", "icecream", "lander", "remora", "pollux"] {
+        for model in [
+            "remora", "remora", "remora", "remora", "remora", "remora", "remora", "icecream",
+            "lander", "remora", "pollux",
+        ] {
             if let Some(v) = g.get_vehicle_by_model(model) {
                 g.universe.add_surface_vehicle(
                     surface_id,
                     v,
-                    Vec2::Y * 100.0 + randvec(20.0, 50.0),
+                    (PI / 2.0 + rand(-0.001, 0.001)) as f64,
+                    rand(10.0, 30.0) as f64,
                 );
             }
         }
@@ -514,7 +518,7 @@ impl Render for GameState {
     }
 }
 
-fn keyboard_control_law(input: &InputState) -> Option<VehicleControl> {
+fn keyboard_control_law(input: &InputState) -> VehicleControl {
     let mut ctrl = VehicleControl::NULLOPT;
 
     let docking_mode = input.is_pressed(KeyCode::ControlLeft);
@@ -542,7 +546,7 @@ fn keyboard_control_law(input: &InputState) -> Option<VehicleControl> {
     ctrl.neg_x.use_rcs = docking_mode;
     ctrl.neg_y.use_rcs = docking_mode;
 
-    Some(ctrl)
+    ctrl
 }
 
 impl GameState {
@@ -612,7 +616,7 @@ impl GameState {
         Some(vehicle)
     }
 
-    pub fn planned_maneuvers(&self, after: Nanotime) -> Vec<(EntityId, Nanotime, Vec2)> {
+    pub fn planned_maneuvers(&self, after: Nanotime) -> Vec<(EntityId, Nanotime, DVec2)> {
         let mut dvs = vec![];
         for (id, ov) in &self.universe.orbital_vehicles {
             if let Some(plan) = ov.controller.plan() {
@@ -625,7 +629,7 @@ impl GameState {
         dvs
     }
 
-    pub fn measuring_tape(&self) -> Option<(Vec2, Vec2, Vec2)> {
+    pub fn measuring_tape(&self) -> Option<(DVec2, DVec2, DVec2)> {
         if self.orbital_context.cursor_mode != CursorMode::MeasuringTape {
             return None;
         }
@@ -633,7 +637,7 @@ impl GameState {
         OrbitalContext::measuring_tape(self)
     }
 
-    pub fn protractor(&self) -> Option<(Vec2, Vec2, Option<Vec2>)> {
+    pub fn protractor(&self) -> Option<(DVec2, DVec2, Option<DVec2>)> {
         if self.orbital_context.cursor_mode != CursorMode::Protractor {
             return None;
         }
@@ -677,12 +681,12 @@ impl GameState {
         let pv_local = orbit.pv(self.universe.stamp()).ok()?;
         let perturb = PV::from_f64(
             randvec(
-                pv_local.pos_f32().length() * 0.005,
-                pv_local.pos_f32().length() * 0.02,
+                gcast(pv_local.pos.length() * 0.005),
+                gcast(pv_local.pos.length() * 0.02),
             ),
             randvec(
-                pv_local.vel_f32().length() * 0.005,
-                pv_local.vel_f32().length() * 0.02,
+                gcast(pv_local.vel.length() * 0.005),
+                gcast(pv_local.vel.length() * 0.02),
             ),
         );
         let orbit = SparseOrbit::from_pv(pv_local + perturb, orbit.body, self.universe.stamp())?;
@@ -701,9 +705,9 @@ impl GameState {
         let lup = self.universe.lup_orbiter(id, self.universe.stamp())?;
         let _orbiter = lup.orbiter()?;
         let parent = lup.parent(self.universe.stamp())?;
-        let pv = lup.pv().pos_f32();
+        let pv = lup.pv().pos;
         let plup = self.universe.lup_planet(parent, self.universe.stamp())?;
-        let pvp = plup.pv().pos_f32();
+        let pvp = plup.pv().pos;
         let pvl = pv - pvp;
         self.universe.orbital_vehicles.remove(&id)?;
         self.notify(
@@ -734,7 +738,7 @@ impl GameState {
         Some(())
     }
 
-    pub fn impulsive_burn(&mut self, id: EntityId, stamp: Nanotime, dv: Vec2) -> Option<()> {
+    pub fn impulsive_burn(&mut self, id: EntityId, stamp: Nanotime, dv: DVec2) -> Option<()> {
         let orbiter = &mut self.universe.orbital_vehicles.get_mut(&id)?.orbiter;
         orbiter.try_impulsive_burn(stamp, dv)?;
         Some(())
@@ -833,12 +837,12 @@ impl GameState {
         &mut self,
         parent: impl Into<Option<ObjectId>>,
         kind: NotificationType,
-        offset: impl Into<Option<Vec2>>,
+        offset: impl Into<Option<DVec2>>,
     ) {
         let notif = Notification {
             parent: parent.into(),
-            offset: offset.into().unwrap_or(Vec2::ZERO),
-            jitter: Vec2::ZERO,
+            offset: offset.into().unwrap_or(DVec2::ZERO),
+            jitter: DVec2::ZERO,
             sim_time: self.universe.stamp(),
             wall_time: self.wall_time,
             extra_time: Nanotime::secs_f32(rand(0.0, 1.0)),
@@ -966,10 +970,13 @@ impl GameState {
             OnClick::SendToSurface => {
                 let mut vehicle = self.editor_context.vehicle.clone();
                 vehicle.build_all();
+                let name = get_random_ship_name(&self.vehicle_names);
+                vehicle.set_name(name);
                 self.universe.add_surface_vehicle(
                     self.surface_context.current_surface,
                     vehicle,
-                    Vec2::Y * 100.0,
+                    (PI / 2.0 + rand(-0.01, 0.01)) as f64,
+                    rand(10.0, 30.0) as f64,
                 );
             }
             OnClick::NormalizeCraft => self.editor_context.normalize_coordinates(),
@@ -977,22 +984,6 @@ impl GameState {
             OnClick::PinObject(id) => _ = self.pinned.insert(id),
             OnClick::UnpinObject(id) => _ = self.pinned.remove(&id),
             OnClick::ReloadGame => _ = self.reload(),
-            OnClick::IncreaseGravity => {
-                self.universe
-                    .increase_gravity(self.surface_context.current_surface);
-            }
-            OnClick::DecreaseGravity => {
-                self.universe
-                    .decrease_gravity(self.surface_context.current_surface);
-            }
-            OnClick::IncreaseWind => {
-                self.universe
-                    .increase_wind(self.surface_context.current_surface);
-            }
-            OnClick::DecreaseWind => {
-                self.universe
-                    .decrease_wind(self.surface_context.current_surface);
-            }
             OnClick::ToggleSurfaceSleep => {
                 self.universe
                     .toggle_sleep(self.surface_context.current_surface);
@@ -1194,10 +1185,16 @@ impl GameState {
         let mut signals = ControlSignals::new();
 
         if let Some(id) = self.piloting() {
-            if let Some(cmd) = keyboard_control_law(&self.input) {
-                if cmd != VehicleControl::NULLOPT {
-                    signals.piloting_commands.insert(id, cmd);
-                }
+            let cmd = keyboard_control_law(&self.input);
+            if cmd != VehicleControl::NULLOPT {
+                signals.piloting_commands.insert(id, cmd);
+            }
+        }
+
+        for id in &self.surface_context.selected {
+            let cmd = keyboard_control_law(&self.input);
+            if cmd != VehicleControl::NULLOPT {
+                signals.piloting_commands.insert(*id, cmd);
             }
         }
 
@@ -1228,9 +1225,8 @@ impl GameState {
         let mut man = self.planned_maneuvers(old_sim_time);
         while let Some((id, t, dv)) = man.first() {
             if s > *t {
-                let perturb = 0.0 * randvec(0.01, 0.05);
                 simulate(&mut self.universe.orbital_vehicles, &planets, *t, d);
-                self.impulsive_burn(*id, *t, dv + perturb);
+                self.impulsive_burn(*id, *t, *dv);
                 self.notify(
                     ObjectId::Orbiter(*id),
                     NotificationType::OrbitChanged(*id),
@@ -1252,7 +1248,7 @@ impl GameState {
                     EventType::Impulse(_) => continue,
                     EventType::NumericalError => NotificationType::NumericalError(id),
                 };
-                self.notify(ObjectId::Planet(ri.parent), notif, pv.pos_f32());
+                self.notify(ObjectId::Planet(ri.parent), notif, pv.pos);
             }
         }
 
@@ -1298,7 +1294,6 @@ fn on_game_tick(mut state: ResMut<GameState>, mut images: ResMut<Assets<Image>>)
     }
 
     crate::generate_ship_sprites::proc_gen_ship_sprites(&mut state, &mut images);
-    crate::generate_ship_sprites::proc_gen_terrain_sprites(&mut state, &mut images);
 }
 
 fn on_render_tick(mut state: ResMut<GameState>) {

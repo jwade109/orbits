@@ -26,8 +26,8 @@ impl Mass {
         self.0
     }
 
-    pub fn to_kg_f32(&self) -> f32 {
-        self.0 as f32 / Self::GRAMS_PER_KILOGRAM as f32
+    pub fn to_kg_f64(&self) -> f64 {
+        self.0 as f64 / Self::GRAMS_PER_KILOGRAM as f64
     }
 
     pub fn from_kg_f32(kg: f32) -> Self {

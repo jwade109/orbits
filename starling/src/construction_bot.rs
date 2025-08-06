@@ -3,8 +3,8 @@ use crate::prelude::*;
 #[derive(Debug, Clone)]
 pub struct ConBot {
     pv: PV,
-    angle: f32,
-    target_pos: Option<Vec2>,
+    angle: f64,
+    target_pos: Option<DVec2>,
     target_part: Option<PartId>,
 }
 
@@ -14,25 +14,25 @@ impl ConBot {
     pub fn new(pv: PV) -> Self {
         Self {
             pv,
-            angle: rand(0.0, 2.0 * PI),
-            target_pos: Some(randvec(10.0, 30.0)),
+            angle: rand(0.0, 2.0 * PI) as f64,
+            target_pos: Some(randvec(10.0, 30.0).as_dvec2()),
             target_part: None,
         }
     }
 
-    pub fn pos(&self) -> Vec2 {
-        self.pv.pos_f32()
+    pub fn pos(&self) -> DVec2 {
+        self.pv.pos
     }
 
-    pub fn angle(&self) -> f32 {
+    pub fn angle(&self) -> f64 {
         self.angle
     }
 
-    pub fn set_target_pos(&mut self, pos: Vec2) {
+    pub fn set_target_pos(&mut self, pos: DVec2) {
         self.target_pos = Some(pos);
     }
 
-    pub fn target_pos(&self) -> Option<Vec2> {
+    pub fn target_pos(&self) -> Option<DVec2> {
         self.target_pos
     }
 
@@ -51,21 +51,19 @@ impl ConBot {
     pub fn on_sim_tick(&mut self) {
         let dt = PHYSICS_CONSTANT_DELTA_TIME;
 
-        const MAX_ACCEL: f64 = 30.0;
-        const MAX_VEL: f64 = 50.0;
+        const MAX_ACCEL: f64 = 6.0;
+        const MAX_VEL: f64 = 4.0;
 
         if let Some(target_pos) = self.target_pos {
             let dx = target_pos.x - self.pos().x;
             let dy = target_pos.y - self.pos().y;
 
-            let vx = self.pv.vel_f32().x;
-            let vy = self.pv.vel_f32().y;
+            let vx = self.pv.vel.x;
+            let vy = self.pv.vel.y;
             let ax = CONBOT_PD_CTRL.apply(dx, vx);
             let ay = CONBOT_PD_CTRL.apply(dy, vy);
 
-            let a = Vec2::new(ax, ay)
-                .as_dvec2()
-                .clamp(-DVec2::splat(MAX_ACCEL), DVec2::splat(MAX_ACCEL));
+            let a = DVec2::new(ax, ay).clamp(-DVec2::splat(MAX_ACCEL), DVec2::splat(MAX_ACCEL));
             self.pv.vel += a * dt.to_secs_f64();
         }
 
@@ -76,7 +74,7 @@ impl ConBot {
         let target_angle = if self.pv.vel.length() < 2.0 {
             self.angle
         } else {
-            self.pv.vel.to_angle() as f32
+            self.pv.vel.to_angle() as f64
         };
 
         self.angle += (target_angle - self.angle) * 0.1;

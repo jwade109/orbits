@@ -113,13 +113,19 @@ fn eccentric_to_mean(eccentric_anomaly: Anomaly, ecc: f64) -> Anomaly {
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]
 pub struct Body {
-    pub radius: f32,
-    pub mu: f32,
-    pub soi: f32,
+    pub radius: f64,
+    pub mu: f64,
+    pub soi: f64,
 }
 
 impl Body {
-    pub const fn with_mass(radius: f32, mass: f32, soi: f32) -> Self {
+    pub const LUNA: Self = Self {
+        radius: 1_737_400.0,
+        mu: 4.902800118E12,
+        soi: 12_000_000.0,
+    };
+
+    pub const fn with_mass(radius: f64, mass: f64, soi: f64) -> Self {
         Body {
             radius,
             mu: mass * 12000.0,
@@ -127,11 +133,11 @@ impl Body {
         }
     }
 
-    pub const fn with_mu(radius: f32, mu: f32, soi: f32) -> Self {
+    pub const fn with_mu(radius: f64, mu: f64, soi: f64) -> Self {
         Body { radius, mu, soi }
     }
 
-    pub fn mu(&self) -> f32 {
+    pub fn mu(&self) -> f64 {
         self.mu
     }
 }
@@ -158,8 +164,8 @@ impl SparseOrbit {
 
         pv.filter_numerr()?;
 
-        let r3 = pv.pos_f32().extend(0.0).as_dvec3();
-        let v3 = pv.vel_f32().extend(0.0).as_dvec3();
+        let r3 = pv.pos.extend(0.0);
+        let v3 = pv.vel.extend(0.0);
         let h = r3.cross(v3);
         let e = v3.cross(h) / body.mu() as f64 - r3 / r3.length();
         let arg_periapsis = f64::atan2(e.y, e.x);
@@ -246,7 +252,7 @@ impl SparseOrbit {
 
     pub fn h(&self) -> f64 {
         // TODO(precision)
-        cross2d(self.initial.pos_f32(), self.initial.vel_f32()) as f64
+        cross2d(self.initial.pos, self.initial.vel) as f64
     }
 
     pub fn is_retrograde(&self) -> bool {
@@ -352,9 +358,9 @@ impl SparseOrbit {
     pub fn ta_at_time(&self, stamp: Nanotime) -> Option<f64> {
         let p = self.pv_universal(stamp).ok()?;
         let ta = if self.is_retrograde() {
-            -p.pos_f32().to_angle() as f64 + self.arg_periapsis
+            -p.pos.to_angle() as f64 + self.arg_periapsis
         } else {
-            p.pos_f32().to_angle() as f64 - self.arg_periapsis
+            p.pos.to_angle() as f64 - self.arg_periapsis
         };
         Some(wrap_pi_npi_f64(ta))
     }
@@ -400,7 +406,7 @@ impl SparseOrbit {
 
         let ul = universal_lagrange(self.initial, tof, self.body.mu() as f64);
         let sol = ul.1.ok_or(ul.0)?;
-        if sol.pv.pos_f32().length() > 3.0 * self.body.soi {
+        if sol.pv.pos.length() > 3.0 * self.body.soi {
             return Err(ul.0);
         }
         Ok(sol.pv.filter_numerr().ok_or(ul.0)?)
@@ -525,30 +531,30 @@ impl SparseOrbit {
         })
     }
 
-    pub fn nearest_along_track(&self, pos: Vec2) -> (PV, f32) {
-        let angle = -pos.angle_to(Vec2::X);
+    pub fn nearest_along_track(&self, pos: DVec2) -> (PV, f64) {
+        let angle = -pos.angle_to(DVec2::X);
         let p = self.pv_at_angle(angle as f64);
-        let d = p.pos_f32().distance(pos);
-        if p.pos_f32().length() > pos.length() {
+        let d = p.pos.distance(pos);
+        if p.pos.length() > pos.length() {
             (p, -d)
         } else {
             (p, d)
         }
     }
 
-    pub fn nearest(&self, pos: Vec2) -> (PV, f32) {
+    pub fn nearest(&self, pos: DVec2) -> (PV, f64) {
         let (mut ret, mut dist) = self.nearest_along_track(pos);
         let sign = dist.signum();
         let mut test_pos = pos;
         for _ in 0..4 {
             let (pv, d) = self.nearest_along_track(test_pos);
-            let u = match pv.vel_f32().try_normalize() {
+            let u = match pv.vel.try_normalize() {
                 Some(u) => u,
                 None => return (pv, d),
             };
-            let diff = pos - pv.pos_f32();
+            let diff = pos - pv.pos;
             let mag = diff.dot(u);
-            test_pos = pv.pos_f32() + mag * u;
+            test_pos = pv.pos + mag * u;
             dist = d;
             ret = pv;
         }
@@ -565,7 +571,7 @@ impl SparseOrbit {
         // distance between orbits along a ray cast from planet object
         let separation = |t: Nanotime| {
             let d = self.pv(t).unwrap_or(PV::NAN) - other.pv(t).unwrap_or(PV::NAN);
-            d.pos_f32().length_squared()
+            d.pos.length_squared()
         };
 
         let teval = tspace(now, now + dur, 100);
@@ -610,8 +616,8 @@ impl SparseOrbit {
     }
 
     pub fn to_perifocal(&self) -> Self {
-        let p = rotate_f64(self.initial.pos_f32().as_dvec2(), -self.arg_periapsis);
-        let v = rotate_f64(self.initial.vel_f32().as_dvec2(), -self.arg_periapsis);
+        let p = rotate_f64(self.initial.pos, -self.arg_periapsis);
+        let v = rotate_f64(self.initial.vel, -self.arg_periapsis);
         SparseOrbit {
             eccentricity: self.eccentricity,
             semi_major_axis: self.semi_major_axis,
@@ -627,18 +633,19 @@ impl SparseOrbit {
         &self,
         start: Nanotime,
         end: Nanotime,
-        dist: f32,
-        origin: Vec2,
-    ) -> Option<Vec<Vec2>> {
+        dist: f64,
+        origin: impl Into<DVec2>,
+    ) -> Option<Vec<DVec2>> {
+        let origin = origin.into();
         let mut ret = Vec::new();
         let mut t = start;
         while t < end {
             let pv = self.pv(t).ok()?;
-            let dt = Nanotime::secs_f32(dist / pv.vel_f32().length()).max(Nanotime::secs(60));
-            ret.push(pv.pos_f32() + origin);
+            let dt = Nanotime::secs_f64(dist / pv.vel.length()).max(Nanotime::secs(60));
+            ret.push(pv.pos + origin);
             t += dt;
         }
-        ret.push(self.pv(end).ok()?.pos_f32() + origin);
+        ret.push(self.pv(end).ok()?.pos + origin);
         Some(ret)
     }
 }
@@ -907,11 +914,11 @@ mod tests {
             duration += dt;
             let t = orbit.epoch + duration;
             let pv = orbit.pv(t).ok()?;
-            let d = pv.pos_f32().distance(pv0.pos_f32());
+            let d = pv.pos.distance(pv0.pos);
             let increasing = d > d_prev;
             d_prev = d;
 
-            let aligned = pv0.vel_f32().dot(pv.vel_f32()) > 0.0;
+            let aligned = pv0.vel.dot(pv.vel) > 0.0;
 
             if d < 20.0 && aligned && increasing && was_decreasing {
                 return Some((t - dt * 5, t));
@@ -940,12 +947,12 @@ mod tests {
                     return;
                 }
             };
-            let r2 = particle.pos_f32().length_squared();
-            let a = -orbit.body.mu() / r2 * particle.pos_f32().normalize_or_zero();
-            let delta = PV::from_f64(a * dt.to_secs(), particle.vel_f32() * dt.to_secs());
+            let r2 = particle.pos.length_squared();
+            let a = -orbit.body.mu() / r2 * particle.pos.normalize_or_zero();
+            let delta = PV::from_f64(a * dt.to_secs_f64(), particle.vel * dt.to_secs_f64());
             particle += delta;
 
-            let error = porbit.pos_f32().distance(particle.pos_f32());
+            let error = porbit.pos.distance(particle.pos);
             let max_error = last_error + max_error_growth;
             assert_le!(
                 error,
@@ -992,8 +999,8 @@ mod tests {
 
         let velocity_up = |t: Nanotime| {
             let pv = orbit.pv_universal(t).unwrap();
-            let u = pv.pos_f32().normalize_or_zero();
-            pv.vel_f32().dot(u)
+            let u = pv.pos.normalize_or_zero();
+            pv.vel.dot(u)
         };
 
         let condition = |t: Nanotime| velocity_up(t) < 0.0;
@@ -1066,8 +1073,8 @@ mod tests {
             orbit
                 .pv(orbit.epoch)
                 .unwrap()
-                .pos_f32()
-                .distance(orbit.initial.pos_f32())
+                .pos
+                .distance(orbit.initial.pos)
                 < 10.0
         );
 
@@ -1101,7 +1108,7 @@ mod tests {
                 let t = orbit.epoch + Nanotime::millis(millis);
                 let ta = orbit.ta_at_time(t).unwrap();
                 let p1 = orbit.position_at(ta);
-                let p2 = orbit.pv_universal(t).unwrap().pos_f32().as_dvec2();
+                let p2 = orbit.pv_universal(t).unwrap().pos;
                 assert_le!(
                     p1.distance(p2),
                     0.02,
@@ -1112,7 +1119,7 @@ mod tests {
                     p2
                 );
                 if let Some(p3) = orbit.pv_lut(t) {
-                    assert_le!(p1.distance(p3.pos_f32().as_dvec2()), 1.0);
+                    assert_le!(p1.distance(p3.pos), 1.0);
                 }
             }
         }
@@ -1340,7 +1347,7 @@ mod tests {
                 let actual = orbit.pv_universal(t).unwrap();
                 let d = pv - actual;
                 assert!(
-                    d.pos_f32().length() < 0.001 && d.vel_f32().length() < 0.001,
+                    d.pos.length() < 0.001 && d.vel.length() < 0.001,
                     "At time {:?}...\n  expected {}\n  actually {}",
                     t,
                     pv,
@@ -1380,7 +1387,7 @@ mod tests {
                 let actual = PV::from_f64(pos, vel);
                 let d = pv - actual;
                 assert!(
-                    d.pos_f32().length() < 0.001 && d.vel_f32().length() < 0.001,
+                    d.pos.length() < 0.001 && d.vel.length() < 0.001,
                     "At true anomaly {:0.4}...\n  expected {}\n  actually {}",
                     ta,
                     pv,
@@ -1394,7 +1401,7 @@ mod tests {
     fn grid_orbits() {
         let orbits = consistency_orbits(make_earth());
         for orbit in &orbits[0..120] {
-            let is_retrograde = cross2d(orbit.initial.pos_f32(), orbit.initial.vel_f32()) < 0.0;
+            let is_retrograde = cross2d(orbit.initial.pos, orbit.initial.vel) < 0.0;
             orbit_consistency_test(
                 orbit.initial,
                 orbit.class(),
@@ -1407,8 +1414,8 @@ mod tests {
 
     #[test]
     fn universal_lagrange_example() {
-        let vec_r_0 = Vec2::new(7000.0, -12124.0);
-        let vec_v_0 = Vec2::new(2.6679, 4.6210);
+        let vec_r_0 = DVec2::new(7000.0, -12124.0);
+        let vec_v_0 = DVec2::new(2.6679, 4.6210);
         let mu = 3.986004418E5;
 
         let tof = Nanotime::secs(3600);
@@ -1478,13 +1485,13 @@ mod tests {
             let t = o1.period().unwrap() * i;
             println!("{t:?} {} {}", o1.pv(t).unwrap(), o2.pv(t).unwrap());
             assert_relative_eq!(
-                o1.pv(t).unwrap().pos_f32().x,
-                o2.pv(t).unwrap().pos_f32().x,
+                o1.pv(t).unwrap().pos.x,
+                o2.pv(t).unwrap().pos.x,
                 epsilon = 0.5
             );
             assert_relative_eq!(
-                o1.pv(t).unwrap().pos_f32().y,
-                o2.pv(t).unwrap().pos_f32().y,
+                o1.pv(t).unwrap().pos.y,
+                o2.pv(t).unwrap().pos.y,
                 epsilon = 0.5
             );
         }

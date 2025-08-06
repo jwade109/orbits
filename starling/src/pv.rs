@@ -24,10 +24,12 @@ impl PV {
         vel: DVec2::ZERO,
     };
 
+    #[deprecated]
     pub fn pos_f32(&self) -> Vec2 {
         self.pos.as_vec2()
     }
 
+    #[deprecated]
     pub fn vel_f32(&self) -> Vec2 {
         self.vel.as_vec2()
     }
@@ -48,11 +50,11 @@ impl PV {
     }
 
     pub fn pos(pos: impl Into<DVec2>) -> Self {
-        PV::from_f64(pos, DVec2::ZERO)
+        PV::from_f64(pos.into(), DVec2::ZERO)
     }
 
     pub fn vel(vel: impl Into<DVec2>) -> Self {
-        PV::from_f64(DVec2::ZERO, vel)
+        PV::from_f64(DVec2::ZERO, vel.into())
     }
 
     pub fn filter_numerr(&self) -> Option<Self> {
@@ -127,17 +129,11 @@ impl std::ops::AddAssign for PV {
     }
 }
 
-impl Into<PV> for ((f32, f32), (f32, f32)) {
+impl Into<PV> for ((f64, f64), (f64, f64)) {
     fn into(self) -> PV {
-        let r: Vec2 = self.0.into();
-        let v: Vec2 = self.1.into();
+        let r: DVec2 = self.0.into();
+        let v: DVec2 = self.1.into();
         PV::from_f64(r, v)
-    }
-}
-
-impl Into<PV> for (Vec2, Vec2) {
-    fn into(self) -> PV {
-        PV::from_f64(self.0, self.1)
     }
 }
 

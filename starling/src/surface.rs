@@ -1,18 +1,13 @@
 use crate::math::*;
-use crate::terrain::*;
+use crate::orbits::Body;
 use crate::thrust_particles::*;
-use splines::{Key, Spline};
-use std::collections::HashMap;
+use splines::Key;
 
 #[derive(Debug)]
 pub struct Surface {
-    pub gravity: i32,
-    pub wind: i32,
-    pub radius: f32,
+    pub body: Body,
     pub atmo_color: [f32; 3],
     pub land_color: [f32; 3],
-    pub elevation: Spline<f32, f32>,
-    pub terrain: HashMap<IVec2, TerrainChunk>,
     pub particles: ThrustParticleEffects,
 }
 
@@ -26,30 +21,10 @@ impl Surface {
             keys.push(Key::new(x, y, splines::Interpolation::Linear));
         }
 
-        let elevation = Spline::from_vec(keys);
-        let mut terrain = HashMap::new();
-        for x in -20..=20 {
-            let x_elev = x as f32 * CHUNK_WIDTH_METERS;
-
-            if let Some(y_elev) = elevation.clamped_sample(x_elev) {
-                let chunk_pos = world_pos_to_chunk(Vec2::new(x_elev, y_elev));
-
-                for yoff in -5..=2 {
-                    let chunk_pos = chunk_pos + IVec2::Y * yoff;
-                    let chunk = TerrainChunk::with_elevation(&elevation, chunk_pos);
-                    terrain.insert(chunk_pos, chunk);
-                }
-            }
-        }
-
         Surface {
-            gravity: -2,
-            wind: 0,
-            radius: 2000.0,
+            body: Body::LUNA,
             atmo_color: [rand(0.1, 0.2), rand(0.1, 0.2), rand(0.1, 0.2)],
             land_color: [rand(0.1, 0.4), rand(0.1, 0.4), rand(0.1, 0.4)],
-            elevation,
-            terrain,
             particles: ThrustParticleEffects::new(),
         }
     }
@@ -58,35 +33,14 @@ impl Surface {
         self.particles.step();
     }
 
-    fn gravity_vector(&self) -> Vec2 {
-        Vec2::new(0.0, self.gravity as f32)
-    }
-
-    fn wind_vector(&self) -> Vec2 {
-        Vec2::new(self.wind as f32, 0.0)
-    }
-
-    pub fn external_acceleration(&self) -> Vec2 {
-        self.gravity_vector() + self.wind_vector()
-    }
-
-    pub fn increase_gravity(&mut self) {
-        self.gravity += 1;
-    }
-
-    pub fn decrease_gravity(&mut self) {
-        self.gravity -= 1;
-    }
-
-    pub fn increase_wind(&mut self) {
-        self.wind += 1;
-    }
-
-    pub fn decrease_wind(&mut self) {
-        self.wind -= 1;
-    }
-
-    pub fn elevation(&self, x: f32) -> f32 {
-        self.elevation.clamped_sample(x).unwrap_or(0.0)
+    pub fn external_acceleration(&self, p: impl Into<DVec2>) -> DVec2 {
+        let p = p.into();
+        let rsq = p.length_squared();
+        let rhat = p.normalize_or_zero();
+        // TODO put into equation function
+        if rsq == 0.0 {
+            return DVec2::ZERO;
+        }
+        -self.body.mu as f64 * rhat / rsq
     }
 }

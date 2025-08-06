@@ -23,7 +23,7 @@ mod tests {
 
         assert_eq!(vehicle.total_mass(), Mass::kilograms(400));
         assert_eq!(vehicle.moment_of_inertia(), 0.0);
-        assert_eq!(vehicle.center_of_mass(), Vec2::splat(0.25));
+        assert_eq!(vehicle.center_of_mass(), DVec2::splat(0.25));
 
         let aabb = vehicle.aabb();
         assert_eq!(aabb.span, Vec2::splat(0.5));
@@ -55,7 +55,7 @@ mod tests {
 
         assert_eq!(vehicle.total_mass(), Mass::kilograms(1200));
         assert_eq!(vehicle.moment_of_inertia(), 0.0);
-        assert_eq!(vehicle.center_of_mass(), Vec2::splat(0.25));
+        assert_eq!(vehicle.center_of_mass(), DVec2::splat(0.25));
 
         let aabb = vehicle.aabb();
         assert_eq!(aabb.span, Vec2::splat(0.5));
