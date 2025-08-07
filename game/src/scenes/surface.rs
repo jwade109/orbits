@@ -198,6 +198,17 @@ impl SurfaceContext {
             }
         }
 
+        if input.just_pressed(KeyCode::KeyQ) {
+            if let Some((_, sv)) = universe.surface_vehicles.iter().next().iter().next() {
+                universe.add_surface_vehicle(
+                    self.current_surface,
+                    sv.vehicle.clone(),
+                    rand(0.0, PI) as f64,
+                    100.0,
+                );
+            }
+        }
+
         if input.just_pressed(KeyCode::KeyC) {
             for idx in &self.selected {
                 if let Some(sv) = universe.surface_vehicles.get_mut(idx) {
@@ -300,16 +311,8 @@ fn surface_scene_ui(state: &GameState) -> Option<Tree<OnClick>> {
         state.settings.ui_button_height,
         format!(
             "{:0.2}",
-            ls.surface
-                .external_acceleration(ls.surface.body.radius * DVec2::Y)
+            ls.surface.body.gravity(ls.surface.body.radius * DVec2::Y)
         ),
-    );
-
-    let toggle_sleep = Node::button(
-        "Toggle Sleep",
-        OnClick::ToggleSurfaceSleep,
-        Size::Grow,
-        state.settings.ui_button_height,
     );
 
     let main_area = Node::grow().invisible();
@@ -317,8 +320,7 @@ fn surface_scene_ui(state: &GameState) -> Option<Tree<OnClick>> {
     let wrapper = Node::structural(350, Size::Fit)
         .down()
         .with_color(UI_BACKGROUND_COLOR)
-        .with_child(show_gravity)
-        .with_child(toggle_sleep);
+        .with_child(show_gravity);
 
     let surfaces = Node::structural(350, Size::Fit)
         .down()
@@ -363,9 +365,10 @@ fn surface_scene_ui(state: &GameState) -> Option<Tree<OnClick>> {
             .down();
         let text = vehicle_info(&sv.vehicle);
         let text = format!(
-            "{}Mode: {:?}\nP: {:0.2}\nV: {:0.2}",
+            "{}Mode: {:?}\nStatus: {:?}\nP: {:0.2}\nV: {:0.2}",
             text,
             sv.controller.mode(),
+            sv.controller.status(),
             sv.body.pv.pos,
             sv.body.pv.vel,
         );
@@ -409,9 +412,8 @@ fn draw_grid(
         let bl = vfloor(aabb.lower() / step as f32) * step as i32;
         let tr = bl + IVec2::new(width as i32, width as i32);
 
-        // grid of 10 meter increments
-        for i in (bl.x..tr.x).step_by(step as usize) {
-            for j in (bl.y..tr.y).step_by(step as usize) {
+        for i in (bl.x..=tr.x).step_by(step as usize) {
+            for j in (bl.y..=tr.y).step_by(step as usize) {
                 let p = IVec2::new(i, j);
                 points.insert(p);
             }
@@ -450,13 +452,31 @@ impl Render for SurfaceContext {
 
             let body_center = DVec2::ZERO;
 
-            canvas
-                .circle(
+            for (altitude, color) in [
+                (-200.0, WHITE.with_alpha(0.2)),
+                (-100.0, WHITE.with_alpha(0.6)),
+                (0.0, WHITE),
+                (5000.0, RED.with_alpha(0.3)),
+                (10000.0, TEAL.with_alpha(0.3)),
+                (50000.0, GREEN.with_alpha(0.3)),
+                (100000.0, TEAL.with_alpha(0.3)),
+                (300000.0, GREEN.with_alpha(0.3)),
+            ] {
+                canvas
+                    .circle(
+                        ctx.w2c(body_center),
+                        gcast((ls.surface.body.radius + altitude) * ctx.scale()),
+                        color,
+                    )
+                    .resolution(1000);
+                canvas.sprite(
                     ctx.w2c(body_center),
-                    gcast(ls.surface.body.radius * ctx.scale()),
-                    WHITE.with_alpha(0.5),
-                )
-                .resolution(1000);
+                    0.0,
+                    "Luna",
+                    10.0,
+                    graphics_cast(DVec2::splat(ls.surface.body.radius) * 2.0 * ctx.scale()),
+                );
+            }
 
             let p = DVec2::new(-30.0, 200.0) + DVec2::Y * surface.body.radius;
             let p = ctx.w2c(p);
@@ -466,7 +486,7 @@ impl Render for SurfaceContext {
                 ls.name,
                 landing_site_info(ls)
             );
-            canvas.text(text, p, gcast(0.5 * ctx.scale())).color.alpha = 0.2;
+            canvas.text(text, p, gcast(5.0 * ctx.scale())).color.alpha = 0.2;
 
             crate::craft_editor::draw_particles(canvas, ctx, &surface.particles);
 
@@ -495,17 +515,18 @@ impl Render for SurfaceContext {
                 for (p, q) in [(ground_track, sv.body.pv.pos)] {
                     let p = ctx.w2c(p);
                     let q = ctx.w2c(q);
-                    canvas.gizmos.line_2d(p, q, GRAY);
+                    canvas.gizmos.line_2d(p, q, RED.with_alpha(0.1));
                 }
 
                 let altitude = sv.body.pv.pos.length() - ls.surface.body.radius;
-                if altitude < 2000.0 || sv.body.pv.vel.length() < 100.0 {
+                if altitude < 2000.0 {
                     continue;
                 }
+
                 let color = if ctx.selected.contains(id) {
                     ORANGE
                 } else {
-                    GRAY
+                    GRAY.with_alpha(0.1)
                 };
                 if let Some(orbit) = sv.orbit {
                     crate::drawing::draw_orbit(&mut canvas.gizmos, &orbit, body_center, color, ctx);
@@ -579,7 +600,7 @@ impl Render for SurfaceContext {
             }
         }
 
-        draw_grid(canvas, ctx, &positions, 250, 1000);
+        draw_grid(canvas, ctx, &positions, 1000, 5000);
 
         if let Some(p) = ctx.left_click_world_pos {
             canvas.circle(ctx.w2c(p), 10.0, GREEN);

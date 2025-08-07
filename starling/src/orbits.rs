@@ -140,6 +140,16 @@ impl Body {
     pub fn mu(&self) -> f64 {
         self.mu
     }
+
+    pub fn gravity(&self, p: impl Into<DVec2>) -> DVec2 {
+        let p = p.into();
+        let rsq = p.length_squared();
+        let rhat = p.normalize_or_zero();
+        if rsq == 0.0 {
+            return DVec2::ZERO;
+        }
+        -self.mu * rhat / rsq
+    }
 }
 
 // https://en.wikipedia.org/wiki/Vis-viva_equation

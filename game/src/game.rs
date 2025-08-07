@@ -196,6 +196,7 @@ pub struct GameState {
     pub exec_time: std::time::Duration,
     pub actual_universe_ticks_per_game_tick: u32,
     pub using_batch_mode: bool,
+    pub force_batch_mode: bool,
 
     /// Map of names to parts to their definitions. Loaded from
     /// the assets/parts directory
@@ -291,6 +292,7 @@ impl GameState {
             universe_ticks_per_game_tick: SimRate::RealTime,
             actual_universe_ticks_per_game_tick: 0,
             using_batch_mode: false,
+            force_batch_mode: false,
             paused: false,
             exec_time: std::time::Duration::new(0, 0),
             part_database,
@@ -325,8 +327,9 @@ impl GameState {
         g.surface_context.current_surface = surface_id;
 
         for model in [
-            "remora", "remora", "remora", "remora", "remora", "remora", "remora", "icecream",
-            "lander", "remora", "pollux",
+            "remora",
+            // "remora", "remora", "remora", "remora", "remora", "remora", "icecream",
+            // "lander", "remora", "pollux",
         ] {
             if let Some(v) = g.get_vehicle_by_model(model) {
                 g.universe.add_surface_vehicle(
@@ -984,10 +987,6 @@ impl GameState {
             OnClick::PinObject(id) => _ = self.pinned.insert(id),
             OnClick::UnpinObject(id) => _ = self.pinned.remove(&id),
             OnClick::ReloadGame => _ = self.reload(),
-            OnClick::ToggleSurfaceSleep => {
-                self.universe
-                    .toggle_sleep(self.surface_context.current_surface);
-            }
             OnClick::SetRecipe(id, recipe) => {
                 if self.editor_context.vehicle.set_recipe(id, recipe) {
                     self.notice(format!("Set recipe for part {:?} to {:?}", id, recipe));
@@ -1210,6 +1209,7 @@ impl GameState {
                 self.universe_ticks_per_game_tick.as_ticks(),
                 &signals,
                 std::time::Duration::from_millis(10),
+                self.force_batch_mode,
             )
         }
 

@@ -69,6 +69,8 @@ pub struct Vehicle {
     pub horizontal_controller: PDCtrl,
     pub docking_linear_controller: PDCtrl,
 
+    pub gyro_angular_momentum: f32,
+
     center_of_mass: DVec2,
     total_mass: Mass,
     moment_of_inertia: f64,
@@ -120,6 +122,8 @@ impl Vehicle {
             backwards: ThrustAxisInfo::default(),
             left: ThrustAxisInfo::default(),
             right: ThrustAxisInfo::default(),
+
+            gyro_angular_momentum: 0.0,
 
             center_of_mass: DVec2::ZERO,
             total_mass: Mass::ZERO,

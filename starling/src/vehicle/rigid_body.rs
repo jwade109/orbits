@@ -63,9 +63,9 @@ impl RigidBody {
     }
 }
 
-pub fn kinematic_apoapis(body: &RigidBody, gravity: f64) -> f64 {
-    if body.pv.vel.y <= 0.0 {
-        return body.pv.pos.y;
+pub fn kinematic_apoapis(altitude: f64, vertical_velocity: f64, gravity: f64) -> f64 {
+    if vertical_velocity <= 0.0 {
+        return altitude;
     }
-    body.pv.pos.y + body.pv.vel.y.powi(2) / (2.0 * gravity.abs())
+    altitude + vertical_velocity.powi(2) / (2.0 * gravity.abs())
 }

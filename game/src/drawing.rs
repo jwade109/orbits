@@ -505,14 +505,20 @@ pub fn draw_piloting_overlay(
 ) -> Option<()> {
     let piloting = pilot?;
 
-    let lup = state
-        .universe
-        .lup_orbiter(piloting, state.universe.stamp())?;
+    // let lup = state
+    //     .universe
+    //     .lup_orbiter(piloting, state.universe.stamp())?;
 
-    let ov = &state.universe.orbital_vehicles.get(&piloting)?;
+    let (vehicle, body) = if let Some(os) = state.universe.orbital_vehicles.get(&piloting) {
+        (&os.vehicle, &os.body)
+    } else if let Some(sv) = state.universe.surface_vehicles.get(&piloting) {
+        (&sv.vehicle, &sv.body)
+    } else {
+        return None;
+    };
 
     let window_dims = state.input.screen_bounds.span;
-    let rb = gcast(ov.vehicle.bounding_radius());
+    let rb = gcast(vehicle.bounding_radius());
     let r = window_dims.y * 0.2;
 
     let zoom = 0.8 * r / rb;
@@ -524,14 +530,14 @@ pub fn draw_piloting_overlay(
 
     canvas.sprite(center, 0.0, "shipscope", None, Vec2::splat(r * 2.0) * 1.1);
 
-    draw_vehicle(canvas, &ov.vehicle, center, zoom, gcast(ov.body.angle));
+    draw_vehicle(canvas, vehicle, center, zoom, gcast(body.angle));
 
     // prograde markers, etc
     {
-        let pv = lup.pv();
-        let angle = gcast(pv.vel.to_angle());
-        let p = center + rotate(Vec2::X * r * 0.8, angle);
-        draw_prograde_marker(&mut canvas.gizmos, p, 20.0, GREEN);
+        // let pv = lup.pv();
+        // let angle = gcast(pv.vel.to_angle());
+        // let p = center + rotate(Vec2::X * r * 0.8, angle);
+        // draw_prograde_marker(&mut canvas.gizmos, p, 20.0, GREEN);
     }
 
     {
@@ -547,28 +553,28 @@ pub fn draw_piloting_overlay(
     }
 
     draw_circle(&mut canvas.gizmos, center, r, GRAY);
-    let p = ov.vehicle.fuel_percentage();
+    let p = vehicle.fuel_percentage();
     let iso = Isometry2d::from_translation(center);
 
     canvas
         .text(
-            format!("{}-type vessel", ov.vehicle.model().to_uppercase()),
+            format!("{}-type vessel", vehicle.model().to_uppercase()),
             center + Vec2::new(r * 0.4, r + 90.0),
             0.8,
         )
         .anchor_right();
     canvas
         .text(
-            format!("{} {}", ov.vehicle.name(), piloting.0),
+            format!("{} {}", vehicle.name(), piloting.0),
             center + Vec2::new(r * 0.4, r + 60.0),
             1.2,
         )
         .anchor_right();
 
     let dash_icons = [
-        ("low-fuel", "low-fuel-dim", ov.vehicle.low_fuel(), true),
-        ("radar", "radar-dim", ov.vehicle.has_radar(), false),
-        ("ctrl", "ctrl-dim", !ov.vehicle.is_controllable(), true),
+        ("low-fuel", "low-fuel-dim", vehicle.low_fuel(), true),
+        ("radar", "radar-dim", vehicle.has_radar(), false),
+        ("ctrl", "ctrl-dim", !vehicle.is_controllable(), true),
     ];
 
     let mut icon_pos = center + Vec2::new(r * 0.9, r * 1.1);
@@ -1620,17 +1626,20 @@ pub fn draw_camera_info(canvas: &mut Canvas, ctx: &impl CameraProjection, window
 
     let meters = window_span.as_dvec2() / ctx.scale();
 
-    canvas.text(
-        [
-            format!("Camera pos:    {:0.2} m\n", ctx.origin()),
-            format!("Camera width:  {:0.2} m\n", meters.x),
-            format!("Camera height: {:0.2} m", meters.y),
-        ]
-        .into_iter()
-        .collect::<String>(),
-        Vec2::ZERO,
-        2.0,
-    );
+    canvas
+        .text(
+            [
+                format!("Camera pos:    {:0.2} m\n", ctx.origin()),
+                format!("Camera width:  {:0.2} m\n", meters.x),
+                format!("Camera height: {:0.2} m", meters.y),
+            ]
+            .into_iter()
+            .collect::<String>(),
+            Vec2::ZERO,
+            0.5,
+        )
+        .color
+        .alpha = 0.1;
 }
 
 fn draw_input_state(gizmos: &mut Gizmos, state: &GameState) {

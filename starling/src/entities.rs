@@ -71,7 +71,6 @@ pub struct LandingSiteEntity {
     pub surface: Surface,
     pub planet: EntityId,
     pub angle: f64,
-    pub is_awake: bool,
     pub tracks: HashMap<EntityId, Vec<(Nanotime, DVec2)>>,
 }
 
@@ -82,7 +81,6 @@ impl LandingSiteEntity {
             surface,
             planet,
             angle,
-            is_awake: false,
             tracks: HashMap::new(),
         }
     }
@@ -113,7 +111,6 @@ pub fn landing_site_info(ls: &LandingSiteEntity) -> String {
         format!("{}", ls.name),
         format!("Planet: {}", ls.planet),
         format!("Atmo color: {:?}", ls.surface.atmo_color),
-        format!("Awake: {}", ls.is_awake),
     ]
     .into_iter()
     .map(|s| format!("{s}\n"))

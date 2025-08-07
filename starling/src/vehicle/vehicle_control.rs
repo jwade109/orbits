@@ -53,7 +53,7 @@ fn zero_gravity_control_law(
     target_angle: f64,
     body: &RigidBody,
     vehicle: &Vehicle,
-) -> VehicleControl {
+) -> (VehicleControl, VehicleControlStatus) {
     let mut ctrl = VehicleControl::NULLOPT;
 
     let pos = body.pv.pos;
@@ -151,7 +151,7 @@ fn zero_gravity_control_law(
         ctrl.attitude = compute_attitude_control(body, 0.0, &vehicle.attitude_controller);
     }
 
-    ctrl
+    (ctrl, VehicleControlStatus::Whatever)
 }
 
 fn compute_attitude_control(body: &RigidBody, target_angle: f64, pid: &PDCtrl) -> f64 {
@@ -164,7 +164,7 @@ fn hover_control_law(
     gravity: DVec2,
     vehicle: &Vehicle,
     body: &RigidBody,
-) -> VehicleControl {
+) -> (VehicleControl, VehicleControlStatus) {
     let upright_angle = DVec2::new(-gravity.x, -gravity.y).to_angle();
 
     let target = if target.distance(body.pv.pos) > 250.0 {
@@ -202,7 +202,7 @@ fn hover_control_law(
 
     ctrl.attitude = attitude;
 
-    ctrl
+    (ctrl, VehicleControlStatus::Whatever)
 }
 
 pub fn position_hold_control_law(
@@ -210,7 +210,7 @@ pub fn position_hold_control_law(
     body: &RigidBody,
     vehicle: &Vehicle,
     gravity: DVec2,
-) -> VehicleControl {
+) -> (VehicleControl, VehicleControlStatus) {
     if gravity.length() > 0.0 {
         hover_control_law(target.0, gravity, vehicle, body)
     } else {
@@ -258,33 +258,110 @@ pub fn velocity_control_law(
     cmd
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum VehicleControlStatus {
+    Done,
+    WaitingForInput,
+    RaisingOrbit,
+    StopFalling,
+    RaisingPeriapsis,
+    ExecutingLaunchProgram,
+    CoastingToApoapsis,
+    Whatever,
+    InProgress,
+}
+
 pub fn enter_orbit_control_law(
     planet: &Body,
     body: &RigidBody,
     vehicle: &Vehicle,
     orbit: Option<&SparseOrbit>,
-) -> VehicleControl {
-    if let Some(orbit) = orbit {
-        if orbit.apoapsis_r() - planet.radius as f64 > 200000.0 {
-            return VehicleControl::NULLOPT;
-        }
-    }
+    target_altitude: f64,
+) -> (VehicleControl, VehicleControlStatus) {
+    let target_apoapsis = target_altitude + 10000.0;
+    let target_periapsis = target_altitude;
 
-    let altitude_km = (body.pv.pos.length() - planet.radius) / 1000.0;
-
-    let s = ((altitude_km - 1.0) / 4.0).clamp(0.0, 1.0);
-
+    let altitude = body.pv.pos.length() - planet.radius;
     let vertical = body.pv.pos.to_angle();
+    let vertical_velocity = body.pv.vel.dot(body.pv.pos.normalize_or_zero());
+    let gravity = planet.gravity(body.pv.pos).length();
 
-    let off_vertical = s * PI_64 / 2.0;
+    let (apoapsis_altitude, periapsis_altitude, circular) = if let Some(orbit) = orbit {
+        (
+            orbit.apoapsis_r() - planet.radius,
+            orbit.periapsis_r() - planet.radius,
+            match orbit.class() {
+                crate::orbits::OrbitClass::Circular => true,
+                crate::orbits::OrbitClass::NearCircular => true,
+                _ => false,
+            },
+        )
+    } else {
+        (
+            kinematic_apoapis(altitude, vertical_velocity, gravity),
+            0.0,
+            false,
+        )
+    };
 
-    let target_angle = vertical + off_vertical;
+    let att_and_throttle = |target_angle: f64, throttle: f32| {
+        let mut cmd = VehicleControl::NULLOPT;
+        cmd.attitude = compute_attitude_control(body, target_angle, &vehicle.attitude_controller);
+        // let angle_error = wrap_pi_npi_f64(target_angle - body.angle);
+        // if angle_error.abs() < 0.1 {
+        cmd.plus_x.throttle = throttle;
+        // }
+        cmd
+    };
 
-    let mut cmd = VehicleControl::NULLOPT;
-    cmd.plus_x.throttle = 0.7;
-    cmd.attitude = compute_attitude_control(body, target_angle, &vehicle.attitude_controller);
+    let near_ground = altitude < 1000.0;
+    let falling = vertical_velocity < 0.0;
+    let periapsis_above_target = periapsis_altitude > target_periapsis;
+    let apoapsis_above_target = apoapsis_altitude > target_apoapsis;
+    let above_target = altitude > target_altitude;
 
-    cmd
+    let launch_program_target_angle = {
+        let start_altitude = 1000.0;
+        let end_altitude = 12000.0;
+        let s = ((altitude - start_altitude) / end_altitude).clamp(0.0, 1.0);
+        let off_vertical = s * PI_64 / 2.0;
+        vertical + off_vertical
+    };
+
+    let circularization_angle = {
+        let off_horizontal_angle = (vertical_velocity / 100.0).clamp(-PI_64 / 5.0, PI_64 / 5.0);
+        vertical + PI_64 / 2.0 + off_horizontal_angle
+    };
+
+    let (cmd, status) = if apoapsis_above_target && periapsis_above_target {
+        (VehicleControl::NULLOPT, VehicleControlStatus::Done)
+    } else if near_ground && falling {
+        (
+            att_and_throttle(vertical, 1.0),
+            VehicleControlStatus::StopFalling,
+        )
+    } else if apoapsis_above_target {
+        if !above_target {
+            (
+                VehicleControl::NULLOPT,
+                VehicleControlStatus::CoastingToApoapsis,
+            )
+        } else if !periapsis_above_target || !circular {
+            (
+                att_and_throttle(circularization_angle, 0.1),
+                VehicleControlStatus::RaisingPeriapsis,
+            )
+        } else {
+            (VehicleControl::NULLOPT, VehicleControlStatus::InProgress)
+        }
+    } else {
+        (
+            att_and_throttle(launch_program_target_angle, 1.0),
+            VehicleControlStatus::ExecutingLaunchProgram,
+        )
+    };
+
+    (cmd, status)
 }
 
 #[derive(Debug, Clone, Copy, Sequence, PartialEq, Eq, Hash)]
@@ -292,11 +369,12 @@ pub enum VehicleControlPolicy {
     Idle,
     External,
     PositionHold,
-    Velocity,
+    LaunchToOrbit,
 }
 
 #[derive(Debug, Clone)]
 pub struct VehicleController {
+    status: VehicleControlStatus,
     mode: VehicleControlPolicy,
     position_queue: Vec<(DVec2, f64)>,
 }
@@ -306,6 +384,7 @@ pub type Pose = (DVec2, f64);
 impl VehicleController {
     pub fn idle() -> Self {
         Self {
+            status: VehicleControlStatus::Done,
             mode: VehicleControlPolicy::Idle,
             position_queue: Vec::new(),
         }
@@ -313,20 +392,23 @@ impl VehicleController {
 
     pub fn external() -> Self {
         Self {
+            status: VehicleControlStatus::WaitingForInput,
             mode: VehicleControlPolicy::External,
             position_queue: Vec::new(),
         }
     }
 
-    pub fn velocity() -> Self {
+    pub fn launch() -> Self {
         Self {
-            mode: VehicleControlPolicy::Velocity,
+            status: VehicleControlStatus::InProgress,
+            mode: VehicleControlPolicy::LaunchToOrbit,
             position_queue: Vec::new(),
         }
     }
 
     pub fn position_hold(pose: Pose) -> Self {
         Self {
+            status: VehicleControlStatus::InProgress,
             mode: VehicleControlPolicy::PositionHold,
             position_queue: vec![pose],
         }
@@ -334,9 +416,18 @@ impl VehicleController {
 
     pub fn mission(poses: Vec<Pose>) -> Self {
         Self {
+            status: VehicleControlStatus::InProgress,
             mode: VehicleControlPolicy::PositionHold,
             position_queue: poses,
         }
+    }
+
+    pub fn set_status(&mut self, status: VehicleControlStatus) {
+        self.status = status;
+    }
+
+    pub fn status(&self) -> VehicleControlStatus {
+        self.status
     }
 
     pub fn set_idle(&mut self) {

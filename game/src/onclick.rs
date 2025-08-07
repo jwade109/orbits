@@ -54,7 +54,6 @@ pub enum OnClick {
     NormalizeCraft,
     ToggleThruster(usize),
     ReloadGame,
-    ToggleSurfaceSleep,
     SetRecipe(PartId, RecipeListing),
     ClearContents(PartId),
     GoToSurface(EntityId),

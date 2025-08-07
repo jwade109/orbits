@@ -76,14 +76,13 @@ impl Universe {
         ticks: u32,
         signals: &ControlSignals,
         max_dur: Duration,
+        batch_mode: bool,
     ) -> (u32, Duration, bool) {
         let start = Instant::now();
         let mut actual_ticks = 0;
         let mut exec_time = Duration::ZERO;
 
-        let surfaces_awake = self.landing_sites.iter().any(|(_, ls)| ls.is_awake);
-
-        let batch_mode = if !surfaces_awake && signals.is_empty() {
+        let batch_mode = if batch_mode {
             self.run_batch_ticks(ticks);
             exec_time = std::time::Instant::now() - start;
             actual_ticks = ticks;
@@ -116,7 +115,7 @@ impl Universe {
                 None => continue,
             };
 
-            let external_accel = ls.surface.external_acceleration(sv.body.pv.pos);
+            let external_accel = ls.surface.body.gravity(sv.body.pv.pos);
 
             let ext = signals
                 .piloting_commands
@@ -124,20 +123,25 @@ impl Universe {
                 .map(|v| *v)
                 .unwrap_or(VehicleControl::NULLOPT);
 
-            let ctrl = match (sv.controller.mode(), sv.controller.get_target_pose()) {
-                (VehicleControlPolicy::Idle, _) => VehicleControl::NULLOPT,
-                (VehicleControlPolicy::External, _) => ext,
+            let (ctrl, status) = match (sv.controller.mode(), sv.controller.get_target_pose()) {
+                (VehicleControlPolicy::Idle, _) => {
+                    (VehicleControl::NULLOPT, VehicleControlStatus::Whatever)
+                }
+                (VehicleControlPolicy::External, _) => (ext, VehicleControlStatus::Whatever),
                 (VehicleControlPolicy::PositionHold, Some(pose)) => {
                     position_hold_control_law(pose, &sv.body, &sv.vehicle, external_accel)
                 }
-                (VehicleControlPolicy::Velocity, _) => enter_orbit_control_law(
+                (VehicleControlPolicy::LaunchToOrbit, _) => enter_orbit_control_law(
                     &ls.surface.body,
                     &sv.body,
                     &sv.vehicle,
                     sv.orbit.as_ref(),
+                    300_000.0,
                 ),
-                (_, _) => VehicleControl::NULLOPT,
+                (_, _) => (VehicleControl::NULLOPT, VehicleControlStatus::Whatever),
             };
+
+            sv.controller.set_status(status);
 
             sv.controller
                 .check_target_achieved(&sv.body, external_accel.length() > 0.0);
@@ -283,7 +287,7 @@ impl Universe {
 
         let pose: Pose = (pos, angle);
 
-        let controller = VehicleController::position_hold(pose);
+        let controller = VehicleController::launch();
         let id = self.next_entity_id();
         let sv = SurfaceSpacecraftEntity::new(surface_id, vehicle, body, controller);
         self.surface_vehicles.insert(id, sv);
@@ -334,12 +338,6 @@ impl Universe {
         &self,
     ) -> impl Iterator<Item = (&EntityId, &SurfaceSpacecraftEntity)> + use<'_> {
         self.surface_vehicles.iter()
-    }
-
-    pub fn toggle_sleep(&mut self, surface_id: EntityId) -> Option<()> {
-        let ls = self.landing_sites.get_mut(&surface_id)?;
-        ls.is_awake = !ls.is_awake;
-        Some(())
     }
 }
 
