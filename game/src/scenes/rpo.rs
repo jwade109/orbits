@@ -113,6 +113,8 @@ impl Render for DockingContext {
                 ctx.w2c(pv.pos),
                 gcast(ctx.scale()),
                 0.0,
+                false,
+                true,
             );
         }
 

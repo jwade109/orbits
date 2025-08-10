@@ -45,7 +45,7 @@ impl Render for MainMenuContext {
         let t = TextLabel::new(s, p, 0.6).with_anchor_left();
         canvas.label(t);
 
-        crate::drawing::draw_cells(&mut canvas.gizmos, state);
+        crate::drawing::draw_cells(canvas, state);
 
         crate::drawing::draw_orbital_view(canvas, state);
 

@@ -1,6 +1,7 @@
 use crate::canvas::Canvas;
 use crate::game::GameState;
 use crate::onclick::OnClick;
+use crate::z_index::ZOrdering;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
@@ -14,7 +15,7 @@ pub struct TextLabel {
     pub size: f32,
     pub color: Srgba,
     pub anchor: Anchor,
-    pub z_index: f32,
+    pub z_index: ZOrdering,
 }
 
 impl TextLabel {
@@ -25,7 +26,7 @@ impl TextLabel {
             size,
             color: WHITE,
             anchor: Anchor::Center,
-            z_index: 100.0,
+            z_index: ZOrdering::Text,
         }
     }
 
@@ -70,12 +71,12 @@ pub struct StaticSpriteDescriptor {
     pub angle: f32,
     pub path: String,
     pub dims: Vec2,
-    pub z_index: f32,
+    pub z_index: ZOrdering,
     pub color: Option<Srgba>,
 }
 
 impl StaticSpriteDescriptor {
-    pub fn new(position: Vec2, angle: f32, path: String, dims: Vec2, z_index: f32) -> Self {
+    pub fn new(position: Vec2, angle: f32, path: String, dims: Vec2, z_index: ZOrdering) -> Self {
         Self {
             position,
             angle,

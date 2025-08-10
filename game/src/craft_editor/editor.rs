@@ -10,6 +10,7 @@ use crate::names::*;
 use crate::onclick::OnClick;
 use crate::scenes::{CameraProjection, Render};
 use crate::ui::*;
+use crate::z_index::ZOrdering;
 use bevy::color::palettes::css::*;
 use bevy::input::keyboard::KeyCode;
 use bevy::prelude::*;
@@ -348,7 +349,13 @@ impl EditorContext {
     }
 }
 
-fn draw_highlight_box(canvas: &mut Canvas, aabb: AABB, ctx: &impl CameraProjection, color: Srgba) {
+fn draw_highlight_box(
+    canvas: &mut Canvas,
+    aabb: AABB,
+    ctx: &impl CameraProjection,
+    color: Srgba,
+    z: ZOrdering,
+) {
     let w1 = 2.0 / PIXELS_PER_METER;
     let w2 = 4.0 / PIXELS_PER_METER;
 
@@ -365,7 +372,7 @@ fn draw_highlight_box(canvas: &mut Canvas, aabb: AABB, ctx: &impl CameraProjecti
     let lower = AABB::from_arbitrary(aabb.lower() - y1, aabb.bottom_right() - y2);
 
     for aabb in [upper, lower, left, right] {
-        canvas.rect(ctx.w2c_aabb(aabb), color).z_index = 100.0;
+        canvas.rect(ctx.w2c_aabb(aabb), z, color);
     }
 }
 
@@ -374,6 +381,7 @@ fn highlight_part(
     instance: &InstantiatedPart,
     ctx: &impl CameraProjection,
     color: Srgba,
+    z: ZOrdering,
 ) {
     let wh = instance.dims_meters();
     let p = instance.origin_meters();
@@ -382,7 +390,7 @@ fn highlight_part(
     let s = p + Vec2::Y * wh.y;
     let aabb = AABB::from_arbitrary(p, p + wh);
 
-    draw_highlight_box(canvas, aabb, ctx, color);
+    draw_highlight_box(canvas, aabb, ctx, color, z);
 
     for p in [p, q, r, s] {
         let p = p.as_dvec2();
@@ -414,7 +422,7 @@ pub fn draw_particles(
                 p,
                 particle.angle,
                 "cloud",
-                None,
+                ZOrdering::ThrustParticles,
                 Vec2::new(size * stretch * ramp_up, size * ramp_up) * gcast(ctx.scale()),
             )
             .set_color(color.with_alpha(color.alpha * alpha));
@@ -491,10 +499,10 @@ impl Render for EditorContext {
         draw_cross(&mut canvas.gizmos, ctx.w2c(DVec2::ZERO), 10.0, GRAY);
 
         if let Some((pos, dims)) = ctx.snap_info {
-            let lower = pos.as_vec2();
-            let upper = lower + dims.as_vec2();
+            let lower = pos.as_vec2() / PIXELS_PER_METER;
+            let upper = lower + dims.as_vec2() / PIXELS_PER_METER;
             let aabb = AABB::from_arbitrary(lower, upper);
-            draw_aabb(&mut canvas.gizmos, ctx.w2c_aabb(aabb), GREEN);
+            draw_aabb(canvas, ctx.w2c_aabb(aabb), GREEN);
         }
 
         draw_particles(canvas, ctx, &ctx.particles);
@@ -573,7 +581,13 @@ impl Render for EditorContext {
                         }
                         visited_parts.insert(*idx);
                         if let Some(instance) = ctx.vehicle.get_part(*idx) {
-                            highlight_part(canvas, instance, ctx, RED.with_alpha(0.6));
+                            highlight_part(
+                                canvas,
+                                instance,
+                                ctx,
+                                RED.with_alpha(0.6),
+                                ZOrdering::EditorConflictHighlight,
+                            );
                         }
                     }
                 }
@@ -581,11 +595,7 @@ impl Render for EditorContext {
         }
 
         if ctx.show_vehicle_info {
-            draw_aabb(
-                &mut canvas.gizmos,
-                ctx.w2c_aabb(bounds),
-                TEAL.with_alpha(0.1),
-            );
+            draw_aabb(canvas, ctx.w2c_aabb(bounds), TEAL.with_alpha(0.1));
 
             draw_circle(
                 &mut canvas.gizmos,
@@ -638,7 +648,7 @@ impl Render for EditorContext {
                     let p = pipe.as_vec2() / PIXELS_PER_METER;
                     let q = (pipe + IVec2::ONE).as_vec2() / PIXELS_PER_METER;
                     let aabb = AABB::from_arbitrary(p, q).scale_about_center(1.2);
-                    canvas.rect(ctx.w2c_aabb(aabb), color);
+                    canvas.rect(ctx.w2c_aabb(aabb), ZOrdering::EditorPipe, color);
                 }
 
                 for group in ctx.vehicle.conn_groups() {
@@ -646,7 +656,7 @@ impl Render for EditorContext {
                         let p = joint.as_vec2() / PIXELS_PER_METER;
                         let q = (joint + IVec2::ONE).as_vec2() / PIXELS_PER_METER;
                         let aabb = AABB::from_arbitrary(p, q).scale_about_center(1.5);
-                        canvas.rect(ctx.w2c_aabb(aabb), ORANGE);
+                        canvas.rect(ctx.w2c_aabb(aabb), ZOrdering::EditorPipeJoint, ORANGE);
                     }
                 }
 
@@ -657,7 +667,13 @@ impl Render for EditorContext {
                         let color: Srgba = color.into();
                         for id in group.ids() {
                             if let Some(part) = ctx.vehicle.get_part(id) {
-                                highlight_part(canvas, part, ctx, color.with_alpha(0.02));
+                                highlight_part(
+                                    canvas,
+                                    part,
+                                    ctx,
+                                    color.with_alpha(0.02),
+                                    ZOrdering::EditorConnGroupHighlight,
+                                );
                             }
                         }
                     }
@@ -688,7 +704,7 @@ impl Render for EditorContext {
 
                 let dims = instance.dims_meters().as_dvec2();
                 let sprite_dims = instance.prototype().dims_meters();
-                let center = ctx.w2c(instance.origin_meters().as_dvec2() + dims / 2.0);
+                let center = instance.center_meters().as_dvec2();
                 let p = instance.percent_built();
                 let sprite_name = instance.prototype().sprite_path().to_string();
                 let sprite_name = if p == 1.0 {
@@ -698,12 +714,19 @@ impl Render for EditorContext {
                     format!("{}-building-{}", sprite_name, idx)
                 };
 
+                let z_index = match layer {
+                    PartLayer::Exterior => ZOrdering::EditorExteriorPart,
+                    PartLayer::Internal => ZOrdering::EditorInteriorPart,
+                    PartLayer::Structural => ZOrdering::EditorStructuralPart,
+                    PartLayer::Plumbing => ZOrdering::EditorPipe,
+                };
+
                 canvas
                     .sprite(
-                        center,
+                        ctx.w2c(center),
                         gcast(instance.rotation().to_angle()),
                         sprite_name,
-                        None,
+                        z_index,
                         graphics_cast(sprite_dims.as_dvec2() * ctx.scale()),
                     )
                     .set_color(WHITE.with_alpha(alpha));
@@ -711,65 +734,88 @@ impl Render for EditorContext {
                 if detailed_part_info {
                     if let Some((t, d)) = instance.as_tank() {
                         let pct = t.percent_filled(d);
-                        let dims = rotate(
-                            (sprite_dims - Vec2::splat(2.0)) * gcast(ctx.scale()),
-                            gcast(instance.rotation().to_angle()),
-                        )
-                        .abs();
                         let lower = center - dims / 2.0;
-                        let upper = lower + Vec2::new(dims.x, dims.y * gcast(pct));
-                        let aabb = AABB::from_arbitrary(lower, upper);
+                        let upper = lower + DVec2::new(dims.x, dims.y * pct);
+                        let aabb = AABB::from_arbitrary(
+                            aabb_stopgap_cast(lower),
+                            aabb_stopgap_cast(upper),
+                        );
                         let color: Srgba = crate::sprites::hashable_to_color(&d.item()).into();
-                        canvas.rect(aabb, color.with_alpha(0.7));
+                        let aabb = ctx.w2c_aabb(aabb);
+                        canvas.rect(aabb, ZOrdering::EditorTankFill, color.with_alpha(0.7));
 
                         if let Some(item) = d.item() {
                             let s = aabb.span.x.min(aabb.span.y) * 0.7;
                             let path = item.to_sprite_name();
                             canvas
-                                .sprite(aabb.center, 0.0, "cloud", None, Vec2::splat(s))
+                                .sprite(
+                                    aabb.center,
+                                    0.0,
+                                    "cloud",
+                                    ZOrdering::EditorItemBackground,
+                                    Vec2::splat(s),
+                                )
                                 .set_color(BLACK);
-                            canvas.sprite(aabb.center, 0.0, path, None, Vec2::splat(s));
+                            canvas.sprite(
+                                aabb.center,
+                                0.0,
+                                path,
+                                ZOrdering::EditorItem,
+                                Vec2::splat(s),
+                            );
                         }
                     }
 
                     if let Some((_, d)) = instance.as_machine() {
-                        let pct = d.percent_complete();
-                        let dims = rotate(
-                            (sprite_dims - Vec2::splat(2.0)) * gcast(ctx.scale()),
-                            gcast(instance.rotation().to_angle()),
-                        )
-                        .abs();
+                        let pct = d.percent_complete() as f64;
                         let lower = center - dims / 2.0;
-                        let upper = lower + Vec2::new(dims.x * pct, 2.0 * gcast(ctx.scale()));
-                        let aabb = AABB::from_arbitrary(lower, upper);
-                        canvas.rect(aabb, RED.with_alpha(0.7));
+                        let upper = lower + DVec2::new(dims.x * pct, 0.1 * ctx.scale());
+                        let aabb = AABB::from_arbitrary(
+                            aabb_stopgap_cast(lower),
+                            aabb_stopgap_cast(upper),
+                        );
+                        canvas.rect(
+                            ctx.w2c_aabb(aabb),
+                            ZOrdering::EditorTankFill,
+                            RED.with_alpha(0.7),
+                        );
                     }
 
                     if let Some((c, d)) = instance.as_cargo() {
-                        let dims = rotate(
-                            (sprite_dims - Vec2::splat(2.0)) * gcast(ctx.scale()),
-                            gcast(instance.rotation().to_angle()),
-                        )
-                        .abs();
-
                         let mut lower = center - dims / 2.0;
 
                         for (item, mass) in d.contents() {
                             let pct = mass.to_kg_f64() / c.capacity_mass().to_kg_f64();
-                            let upper = lower + Vec2::new(dims.x, dims.y * gcast(pct));
-                            let aabb = AABB::from_arbitrary(lower, upper);
+                            let upper = lower + DVec2::new(dims.x, dims.y * pct);
+                            let aabb = AABB::from_arbitrary(
+                                aabb_stopgap_cast(lower),
+                                aabb_stopgap_cast(upper),
+                            );
                             let color = crate::sprites::hashable_to_color(&item);
-                            canvas.rect(aabb, color.with_alpha(0.4));
+                            let aabb = ctx.w2c_aabb(aabb);
+                            canvas.rect(aabb, ZOrdering::EditorTankFill, color.with_alpha(0.4));
 
                             let s = aabb.span.x.min(aabb.span.y) * 0.7;
                             let path = item.to_sprite_name();
                             canvas
-                                .sprite(aabb.center, 0.0, "cloud", None, Vec2::splat(s))
+                                .sprite(
+                                    aabb.center,
+                                    0.0,
+                                    "cloud",
+                                    ZOrdering::EditorItemBackground,
+                                    Vec2::splat(s),
+                                )
                                 .set_color(BLACK);
 
-                            canvas.sprite(aabb.center, 0.0, path, None, Vec2::splat(s));
+                            canvas.sprite(
+                                aabb.center,
+                                0.0,
+                                path,
+                                ZOrdering::EditorItem,
+                                Vec2::splat(s),
+                            );
 
-                            lower.y += dims.y * gcast(pct);
+                            lower.y += dims.y * pct;
                         }
                     }
                 }
@@ -801,10 +847,22 @@ impl Render for EditorContext {
             if Self::current_part_and_cursor_position(state).is_none() {
                 if let Some((id, _)) = ctx.get_part_at(graphics_cast(c)) {
                     if let Some(instance) = ctx.vehicle.get_part(id) {
-                        highlight_part(canvas, instance, ctx, TEAL.with_alpha(0.6));
+                        highlight_part(
+                            canvas,
+                            instance,
+                            ctx,
+                            TEAL.with_alpha(0.6),
+                            ZOrdering::EditorMouseoverPartHighlight,
+                        );
                         for (other, other_instance) in ctx.vehicle.parts() {
                             if ctx.vehicle.is_connected(id, *other) {
-                                highlight_part(canvas, other_instance, ctx, YELLOW.with_alpha(0.4))
+                                highlight_part(
+                                    canvas,
+                                    other_instance,
+                                    ctx,
+                                    YELLOW.with_alpha(0.4),
+                                    ZOrdering::EditorConnGroupHighlight,
+                                )
                             }
                         }
                     }
@@ -813,7 +871,13 @@ impl Render for EditorContext {
         }
 
         if let Some(instance) = ctx.selected_part() {
-            highlight_part(canvas, instance, ctx, GREEN.with_alpha(0.4));
+            highlight_part(
+                canvas,
+                instance,
+                ctx,
+                GREEN.with_alpha(0.4),
+                ZOrdering::EditorMouseoverPartHighlight,
+            );
             canvas.text(format!("{:#?}", instance), Vec2::new(300.0, 400.0), 0.6);
         }
 
@@ -824,7 +888,7 @@ impl Render for EditorContext {
                 ctx.w2c((p.as_dvec2() + dims.as_dvec2() / 2.0) / PIXELS_PER_METER as f64),
                 gcast(ctx.rotation.to_angle()),
                 current_part.sprite_path().to_string(),
-                None,
+                ZOrdering::EditorCursor,
                 sprite_dims.as_vec2() / PIXELS_PER_METER * gcast(ctx.scale()),
             );
         }
@@ -836,7 +900,7 @@ impl Render for EditorContext {
                     p,
                     0.0,
                     "error",
-                    None,
+                    ZOrdering::EditorWeldingParticles,
                     Vec2::splat(0.03) * gcast(ctx.scale()),
                 )
                 .set_color(YELLOW.with_alpha(particle.opacity()));
@@ -847,7 +911,7 @@ impl Render for EditorContext {
                 ctx.w2c(bot.pos()),
                 gcast(bot.angle()),
                 "conbot",
-                None,
+                ZOrdering::EditorConbot,
                 Vec2::splat(0.3) * gcast(ctx.scale()),
             );
             if let Some(t) = bot.target_pos() {

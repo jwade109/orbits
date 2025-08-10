@@ -264,11 +264,15 @@ pub enum VehicleControlStatus {
     WaitingForInput,
     RaisingOrbit,
     StopFalling,
-    RaisingPeriapsis,
+    RaisingPeriapsis(i32),
     ExecutingLaunchProgram,
-    CoastingToApoapsis,
+    CoastingToApoapsis(i32),
     Whatever,
     InProgress,
+}
+
+fn to_int_percent(x: f64) -> i32 {
+    (100.0 * x).round() as i32
 }
 
 pub fn enter_orbit_control_law(
@@ -314,7 +318,7 @@ pub fn enter_orbit_control_law(
         cmd
     };
 
-    let near_ground = altitude < 1000.0;
+    let near_ground = altitude < 20_000.0;
     let falling = vertical_velocity < 0.0;
     let periapsis_above_target = periapsis_altitude > target_periapsis;
     let apoapsis_above_target = apoapsis_altitude > target_apoapsis;
@@ -340,16 +344,20 @@ pub fn enter_orbit_control_law(
             att_and_throttle(vertical, 1.0),
             VehicleControlStatus::StopFalling,
         )
-    } else if apoapsis_above_target {
+    } else if apoapsis_above_target || above_target {
         if !above_target {
             (
-                VehicleControl::NULLOPT,
-                VehicleControlStatus::CoastingToApoapsis,
+                att_and_throttle(body.pv.vel.to_angle(), 0.0),
+                VehicleControlStatus::CoastingToApoapsis(to_int_percent(
+                    altitude / target_altitude,
+                )),
             )
         } else if !periapsis_above_target || !circular {
             (
-                att_and_throttle(circularization_angle, 0.1),
-                VehicleControlStatus::RaisingPeriapsis,
+                att_and_throttle(circularization_angle, 0.2),
+                VehicleControlStatus::RaisingPeriapsis(to_int_percent(
+                    periapsis_altitude / target_periapsis,
+                )),
             )
         } else {
             (VehicleControl::NULLOPT, VehicleControlStatus::InProgress)

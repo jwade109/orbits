@@ -1,24 +1,26 @@
+use crate::z_index::ZOrdering;
 use crate::{
     drawing::draw_square,
     scenes::{StaticSpriteDescriptor, TextLabel},
 };
 use bevy::prelude::*;
+use bevy_vector_shapes::prelude::*;
 use starling::aabb::AABB;
 
 pub struct Canvas<'w, 's> {
     pub gizmos: Gizmos<'w, 's>,
     pub text_labels: Vec<TextLabel>,
     pub sprites: Vec<StaticSpriteDescriptor>,
-    z_index: f32,
+    pub painter: ShapePainter<'w, 's>,
 }
 
 impl<'w, 's> Canvas<'w, 's> {
-    pub fn new(gizmos: Gizmos<'w, 's>) -> Self {
+    pub fn new(gizmos: Gizmos<'w, 's>, painter: ShapePainter<'w, 's>) -> Self {
         Self {
             gizmos,
             text_labels: Vec::new(),
             sprites: Vec::new(),
-            z_index: 0.0,
+            painter,
         }
     }
 
@@ -58,14 +60,10 @@ impl<'w, 's> Canvas<'w, 's> {
         pos: Vec2,
         angle: f32,
         path: impl Into<String>,
-        z_index: impl Into<Option<f32>>,
+        z_index: ZOrdering,
         screen_dims: Vec2,
     ) -> &'a mut StaticSpriteDescriptor {
-        let z_index = z_index.into().unwrap_or(self.z_index);
-
         let sprite = StaticSpriteDescriptor::new(pos, angle, path.into(), screen_dims, z_index);
-
-        self.z_index = (self.z_index + 0.01).max(z_index);
 
         self.sprites.push(sprite);
         self.sprites
@@ -76,10 +74,10 @@ impl<'w, 's> Canvas<'w, 's> {
     pub fn rect<'a>(
         &'a mut self,
         aabb: AABB,
+        z_index: ZOrdering,
         color: impl Into<Srgba>,
     ) -> &'a mut StaticSpriteDescriptor {
-        self.z_index += 1.0;
-        let s = self.sprite(aabb.center, 0.0, "error", self.z_index, aabb.span);
+        let s = self.sprite(aabb.center, 0.0, "error", z_index, aabb.span);
         s.set_color(color.into());
         s
     }

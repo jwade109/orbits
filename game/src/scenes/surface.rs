@@ -6,8 +6,10 @@ use crate::input::*;
 use crate::onclick::OnClick;
 use crate::scenes::{CameraProjection, Render};
 use crate::sounds::*;
+use crate::z_index::*;
 use bevy::color::{palettes::css::*, Alpha, Srgba};
 use bevy::prelude::{Gizmos, KeyCode};
+use bevy_vector_shapes::prelude::*;
 use layout::layout::Tree;
 use starling::prelude::*;
 use std::collections::{HashMap, HashSet};
@@ -374,7 +376,7 @@ fn surface_scene_ui(state: &GameState) -> Option<Tree<OnClick>> {
         );
         for line in text.lines() {
             n.add_child(
-                Node::text(500, state.settings.ui_button_height, line)
+                Node::text(600, state.settings.ui_button_height, line)
                     .enabled(false)
                     .with_color([0.1, 0.1, 0.1, 0.8]),
             );
@@ -390,40 +392,6 @@ fn surface_scene_ui(state: &GameState) -> Option<Tree<OnClick>> {
 
 fn vehicle_mouseover_radius(vehicle: &Vehicle, ctx: &impl CameraProjection) -> f32 {
     (vehicle.bounding_radius() * ctx.scale()).max(20.0) as f32
-}
-
-fn draw_grid(
-    canvas: &mut Canvas,
-    ctx: &impl CameraProjection,
-    positions: &Vec<DVec2>,
-    step: u32,
-    width: u32,
-) {
-    let mut aabbs = Vec::new();
-
-    for pos in positions {
-        let aabb = AABB::new(aabb_stopgap_cast(*pos), Vec2::splat(width as f32));
-        aabbs.push(aabb);
-    }
-
-    let mut points = HashSet::new();
-
-    for aabb in aabbs {
-        let bl = vfloor(aabb.lower() / step as f32) * step as i32;
-        let tr = bl + IVec2::new(width as i32, width as i32);
-
-        for i in (bl.x..=tr.x).step_by(step as usize) {
-            for j in (bl.y..=tr.y).step_by(step as usize) {
-                let p = IVec2::new(i, j);
-                points.insert(p);
-            }
-        }
-    }
-
-    for p in points {
-        let p = ctx.w2c(p.as_dvec2());
-        draw_cross(&mut canvas.gizmos, p, 3.0, WHITE.with_alpha(0.1));
-    }
 }
 
 impl Render for SurfaceContext {
@@ -473,7 +441,7 @@ impl Render for SurfaceContext {
                     ctx.w2c(body_center),
                     0.0,
                     "Luna",
-                    10.0,
+                    ZOrdering::Planet,
                     graphics_cast(DVec2::splat(ls.surface.body.radius) * 2.0 * ctx.scale()),
                 );
             }
@@ -500,6 +468,8 @@ impl Render for SurfaceContext {
                     pos,
                     gcast(ctx.scale()),
                     gcast(sv.body.angle),
+                    false,
+                    false,
                 );
 
                 let color: Srgba = crate::sprites::hashable_to_color(&sv.controller.mode()).into();
@@ -529,7 +499,7 @@ impl Render for SurfaceContext {
                     GRAY.with_alpha(0.1)
                 };
                 if let Some(orbit) = sv.orbit {
-                    crate::drawing::draw_orbit(&mut canvas.gizmos, &orbit, body_center, color, ctx);
+                    crate::drawing::draw_orbit(canvas, &orbit, body_center, color, ctx);
                 }
             }
         }
@@ -559,32 +529,11 @@ impl Render for SurfaceContext {
                 vehicle_mouseover_radius(&sv.vehicle, ctx),
                 ORANGE.with_alpha(0.3),
             );
-
-            let mut p = -state.input.screen_bounds.span / 2.0;
-            let h = 6.0;
-
-            let bar = |lower: Vec2, w: f32| {
-                let upper = lower + Vec2::new(w, h);
-                AABB::from_arbitrary(lower, upper)
-            };
-
-            p += Vec2::Y * (h + 1.0);
-            let c1 = crate::sprites::hashable_to_color(e);
-            for (t, d) in sv.vehicle.thrusters() {
-                let color = c1.with_saturation(if t.is_rcs { 0.3 } else { 1.0 });
-                let w = d.seconds_remaining() * 15.0;
-                let aabb = bar(p, w);
-                canvas.rect(aabb, color).z_index = 100.0;
-                p += Vec2::Y * (h + 1.0);
-            }
         }
-
-        let mut positions = Vec::new();
 
         for (id, sv) in state.universe.surface_vehicles(surface_id) {
             let selected = ctx.selected.contains(id);
             let mut p = ctx.w2c(sv.body.pv.pos);
-            positions.push(sv.body.pv.pos);
 
             for pose in sv.controller.get_target_queue() {
                 let q = ctx.w2c(pose.0);
@@ -599,8 +548,6 @@ impl Render for SurfaceContext {
                 p = q;
             }
         }
-
-        draw_grid(canvas, ctx, &positions, 1000, 5000);
 
         if let Some(p) = ctx.left_click_world_pos {
             canvas.circle(ctx.w2c(p), 10.0, GREEN);
@@ -625,7 +572,7 @@ impl Render for SurfaceContext {
             }
 
             let bounds = ctx.w2c_aabb(bounds);
-            draw_aabb(&mut canvas.gizmos, bounds, RED.with_alpha(0.6));
+            draw_aabb(canvas, bounds, RED.with_alpha(0.6));
         }
 
         Some(())

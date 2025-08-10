@@ -3,6 +3,7 @@
 use bevy::color::palettes::basic::*;
 use bevy::color::palettes::css::ORANGE;
 use bevy::prelude::*;
+use bevy_vector_shapes::prelude::*;
 use starling::prelude::*;
 use std::collections::HashSet;
 
@@ -13,6 +14,7 @@ use crate::input::*;
 use crate::notifications::*;
 use crate::onclick::OnClick;
 use crate::scenes::*;
+use crate::z_index::*;
 
 pub fn draw_cross(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     let dx = Vec2::new(size, 0.0);
@@ -54,29 +56,32 @@ pub fn draw_circle(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
         .resolution(200);
 }
 
-pub fn draw_aabb(gizmos: &mut Gizmos, aabb: AABB, color: Srgba) {
-    gizmos.rect_2d(Isometry2d::from_translation(aabb.center), aabb.span, color);
+pub fn draw_aabb(canvas: &mut Canvas, aabb: AABB, color: Srgba) {
+    canvas
+        .gizmos
+        .rect_2d(Isometry2d::from_translation(aabb.center), aabb.span, color);
 }
 
-pub fn fill_aabb(gizmos: &mut Gizmos, aabb: AABB, color: Srgba) {
+pub fn fill_aabb(canvas: &mut Canvas, aabb: AABB, color: Srgba) {
+    // TODO get rid of this
     for t in linspace(0.0, 1.0, 10) {
         let s = aabb.from_normalized(Vec2::new(t, 0.0));
         let n = aabb.from_normalized(Vec2::new(t, 1.0));
         let w = aabb.from_normalized(Vec2::new(0.0, t));
         let e = aabb.from_normalized(Vec2::new(1.0, t));
 
-        gizmos.line_2d(w, e, color);
-        gizmos.line_2d(s, n, color);
+        canvas.gizmos.line_2d(w, e, color);
+        canvas.gizmos.line_2d(s, n, color);
     }
 }
 
-pub fn draw_and_fill_aabb(gizmos: &mut Gizmos, aabb: AABB, color: Srgba) {
-    fill_aabb(gizmos, aabb, color);
-    draw_aabb(gizmos, aabb, color);
+pub fn draw_and_fill_aabb(canvas: &mut Canvas, aabb: AABB, color: Srgba) {
+    fill_aabb(canvas, aabb, color);
+    draw_aabb(canvas, aabb, color);
 }
 
 fn draw_region(
-    gizmos: &mut Gizmos,
+    canvas: &mut Canvas,
     region: Region,
     ctx: &impl CameraProjection,
     color: Srgba,
@@ -86,16 +91,16 @@ fn draw_region(
         Region::AABB(aabb) => {
             let p1 = ctx.w2c(aabb.lower().as_dvec2());
             let p2 = ctx.w2c(aabb.upper().as_dvec2());
-            draw_aabb(gizmos, AABB::from_arbitrary(p1, p2), color)
+            draw_aabb(canvas, AABB::from_arbitrary(p1, p2), color)
         }
         Region::OrbitRange(a, b) => {
-            draw_orbit(gizmos, &a, origin, color, ctx);
-            draw_orbit(gizmos, &b, origin, color, ctx);
+            draw_orbit(canvas, &a, origin, color, ctx);
+            draw_orbit(canvas, &b, origin, color, ctx);
             for angle in linspace_f64(0.0, 2.0 * PI_64, 40) {
                 let u = rotate_f64(DVec2::X, angle);
                 let p1 = origin + u * a.radius_at_angle(angle);
                 let p2 = origin + u * b.radius_at_angle(angle);
-                gizmos.line_2d(
+                canvas.gizmos.line_2d(
                     graphics_cast(p1),
                     graphics_cast(p2),
                     color.with_alpha(color.alpha * 0.2),
@@ -103,7 +108,7 @@ fn draw_region(
             }
         }
         Region::NearOrbit(orbit, dist) => {
-            draw_orbit(gizmos, &orbit, origin, color, ctx);
+            draw_orbit(canvas, &orbit, origin, color, ctx);
             for angle in linspace_f64(0.0, 2.0 * PI_64, 40) {
                 let u = rotate_f64(DVec2::X, angle);
                 let r = orbit.radius_at_angle(angle);
@@ -111,7 +116,9 @@ fn draw_region(
                 let p2 = (r - dist) * u;
                 let p1 = ctx.w2c(p1);
                 let p2 = ctx.w2c(p2);
-                gizmos.line_2d(p1, p2, color.with_alpha(color.alpha * 0.2));
+                canvas
+                    .gizmos
+                    .line_2d(p1, p2, color.with_alpha(color.alpha * 0.2));
             }
         }
     }
@@ -136,7 +143,7 @@ fn fill_obb(gizmos: &mut Gizmos, obb: &OBB, color: Srgba, pct: f32) {
 }
 
 pub fn draw_orbit(
-    gizmos: &mut Gizmos,
+    canvas: &mut Canvas,
     orb: &SparseOrbit,
     origin: DVec2,
     color: Srgba,
@@ -160,27 +167,31 @@ pub fn draw_orbit(
                 Some(ctx.w2c(origin + p))
             })
             .collect();
-        gizmos.linestrip_2d(points, color);
+        canvas.gizmos.linestrip_2d(points, color);
     } else {
         let b = orb.semi_minor_axis();
         let center = origin + (orb.periapsis() + orb.apoapsis()) / 2.0;
         let center = ctx.w2c(center);
-        let iso = Isometry2d::new(center, (orb.arg_periapsis as f32).into());
-
-        let res = orb.semi_major_axis.clamp(40.0, 300.0) as u32;
-
-        gizmos
-            .ellipse_2d(
-                iso,
-                graphics_cast(DVec2::new(orb.semi_major_axis, b) * ctx.scale()),
-                color,
-            )
-            .resolution(res);
+        let rot = Quat::from_rotation_z(orb.arg_periapsis as f32);
+        canvas
+            .painter
+            .set_translation(center.extend(ZOrdering::Orbit.as_f32()));
+        canvas.painter.set_rotation(rot);
+        canvas
+            .painter
+            .set_scale(Vec3::new(1.0, (b / orb.semi_major_axis) as f32, 1.0));
+        canvas.painter.hollow = true;
+        canvas.painter.thickness = 2.0;
+        canvas.painter.set_color(color);
+        canvas
+            .painter
+            .circle((orb.semi_major_axis * ctx.scale()) as f32);
+        canvas.painter.reset();
     }
 }
 
 fn draw_global_orbit(
-    gizmos: &mut Gizmos,
+    canvas: &mut Canvas,
     orbit: &GlobalOrbit,
     state: &GameState,
     color: Srgba,
@@ -189,7 +200,7 @@ fn draw_global_orbit(
         .universe
         .lup_planet(orbit.0, state.universe.stamp())
         .map(|lup| lup.pv())?;
-    draw_orbit(gizmos, &orbit.1, pv.pos, color, &state.orbital_context);
+    draw_orbit(canvas, &orbit.1, pv.pos, color, &state.orbital_context);
     Some(())
 }
 
@@ -229,7 +240,7 @@ fn draw_planets(
         screen_origin,
         0.0,
         planet.name.clone(),
-        None,
+        ZOrdering::Planet,
         graphics_cast(DVec2::splat(planet.body.radius) * 2.0 * ctx.scale()),
     );
 
@@ -260,20 +271,14 @@ fn draw_planets(
 
     for (orbit, pl) in &planet.subsystems {
         if let Some(pv) = orbit.pv(stamp).ok() {
-            draw_orbit(
-                &mut canvas.gizmos,
-                orbit,
-                origin,
-                GRAY.with_alpha(a / 2.0),
-                ctx,
-            );
+            draw_orbit(canvas, orbit, origin, GRAY.with_alpha(a / 2.0), ctx);
             draw_planets(canvas, pl, stamp, origin + pv.pos, ctx)
         }
     }
 }
 
 fn draw_propagator(
-    gizmos: &mut Gizmos,
+    canvas: &mut Canvas,
     state: &GameState,
     prop: &Propagator,
     with_event: bool,
@@ -285,12 +290,12 @@ fn draw_propagator(
         .planets
         .lookup(prop.parent(), state.universe.stamp())?;
 
-    draw_orbit(gizmos, &prop.orbit.1, parent_pv.pos, color, ctx);
+    draw_orbit(canvas, &prop.orbit.1, parent_pv.pos, color, ctx);
     if with_event {
         if let Some((t, e)) = prop.stamped_event() {
             let pv_end = parent_pv + prop.pv(t)?;
             draw_event(
-                gizmos,
+                canvas,
                 &state.universe.planets,
                 &e,
                 t,
@@ -350,18 +355,28 @@ pub fn vehicle_sprite_path(disc: u64) -> String {
     format!("vehicle-{}", disc)
 }
 
-pub fn draw_vehicle(canvas: &mut Canvas, vehicle: &Vehicle, pos: Vec2, scale: f32, angle: f32) {
-    for (_, part) in vehicle.parts() {
-        let color = diagram_color(&part.prototype());
-        let color = Srgba::from_f32_array(color);
-        let dims = part.dims_meters();
-        let center = rotate(part.center_meters(), angle) * scale;
-        let obb = OBB::new(
-            AABB::from_arbitrary(scale * -dims / 2.0, scale * dims / 2.0),
-            angle,
-        )
-        .offset(center + pos);
-        draw_obb(&mut canvas.gizmos, &obb, color);
+pub fn draw_vehicle(
+    canvas: &mut Canvas,
+    vehicle: &Vehicle,
+    pos: Vec2,
+    scale: f32,
+    angle: f32,
+    outline: bool,
+    thrusters: bool,
+) {
+    if outline {
+        for (_, part) in vehicle.parts() {
+            let color = diagram_color(&part.prototype());
+            let color = Srgba::from_f32_array(color);
+            let dims = part.dims_meters();
+            let center = rotate(part.center_meters(), angle) * scale;
+            let obb = OBB::new(
+                AABB::from_arbitrary(scale * -dims / 2.0, scale * dims / 2.0),
+                angle,
+            )
+            .offset(center + pos);
+            draw_obb(&mut canvas.gizmos, &obb, color);
+        }
     }
 
     let geo = vehicle.aabb().center;
@@ -370,22 +385,24 @@ pub fn draw_vehicle(canvas: &mut Canvas, vehicle: &Vehicle, pos: Vec2, scale: f3
         pos + rotate(geo, angle) * scale,
         angle,
         vehicle_sprite_path(vehicle.discriminator()),
-        10.0,
+        ZOrdering::Vehicle,
         vehicle.aabb().span * scale,
     );
 
-    for (_, part) in vehicle.parts() {
-        let dims = part.prototype().dims_meters();
-        if let Some((thruster, data)) = part.as_thruster() {
-            draw_thruster(
-                &mut canvas.gizmos,
-                thruster,
-                data,
-                dims,
-                pos + rotate(part.center_meters() * scale, angle),
-                scale,
-                gcast(part.rotation().to_angle()) + angle,
-            );
+    if thrusters {
+        for (_, part) in vehicle.parts() {
+            let dims = part.prototype().dims_meters();
+            if let Some((thruster, data)) = part.as_thruster() {
+                draw_thruster(
+                    &mut canvas.gizmos,
+                    thruster,
+                    data,
+                    dims,
+                    pos + rotate(part.center_meters() * scale, angle),
+                    scale,
+                    gcast(part.rotation().to_angle()) + angle,
+                );
+            }
         }
     }
 }
@@ -478,6 +495,8 @@ pub fn draw_pinned(canvas: &mut Canvas, state: &GameState) -> Option<()> {
             pos,
             size / gcast(rb * 2.0),
             gcast(ov.body.angle),
+            false,
+            true,
         );
         let color = if Some(*id) == state.piloting() {
             TEAL.with_alpha(0.3)
@@ -528,9 +547,23 @@ pub fn draw_piloting_overlay(
         -window_dims.y / 2.0 + r * 1.2,
     );
 
-    canvas.sprite(center, 0.0, "shipscope", None, Vec2::splat(r * 2.0) * 1.1);
+    canvas.sprite(
+        center,
+        0.0,
+        "shipscope",
+        ZOrdering::Shipscope,
+        Vec2::splat(r * 2.0) * 1.1,
+    );
 
-    draw_vehicle(canvas, vehicle, center, zoom, gcast(body.angle));
+    draw_vehicle(
+        canvas,
+        vehicle,
+        center,
+        zoom,
+        gcast(body.angle),
+        false,
+        true,
+    );
 
     // prograde markers, etc
     {
@@ -585,7 +618,13 @@ pub fn draw_piloting_overlay(
         } else {
             pb
         };
-        canvas.sprite(icon_pos, 0.0, path, 500.0, Vec2::splat(icon_size));
+        canvas.sprite(
+            icon_pos,
+            0.0,
+            path,
+            ZOrdering::HudIcon,
+            Vec2::splat(icon_size),
+        );
         icon_pos += Vec2::Y * icon_size;
     }
 
@@ -624,7 +663,9 @@ fn draw_orbiter(canvas: &mut Canvas, state: &GameState, id: EntityId) -> Option<
 
     let screen_pos = ctx.w2c(pv.pos);
 
-    canvas.sprite(screen_pos, 0.0, "cloud", None, Vec2::splat(6.0));
+    canvas.painter.set_translation(screen_pos.extend(12.0));
+    canvas.painter.set_color(WHITE);
+    canvas.painter.circle(4.0);
 
     let size = 12.0;
     if blinking && obj.will_collide() {
@@ -672,25 +713,18 @@ fn draw_orbiter(canvas: &mut Canvas, state: &GameState, id: EntityId) -> Option<
                 TEAL.with_alpha((1.0 - i as f32 * 0.3).max(0.0))
             };
             if show_orbits {
-                draw_propagator(&mut canvas.gizmos, state, &prop, true, color, ctx);
+                draw_propagator(canvas, state, &prop, true, color, ctx);
             }
 
             if piloting {
                 if let Some(o) = ov.current_orbit(state.universe.stamp()) {
-                    draw_global_orbit(&mut canvas.gizmos, &o, state, ORANGE);
+                    draw_global_orbit(canvas, &o, state, ORANGE);
                 }
             }
         }
     } else if show_orbits {
         let prop = obj.propagator_at(state.universe.stamp())?;
-        draw_propagator(
-            &mut canvas.gizmos,
-            state,
-            prop,
-            false,
-            GRAY.with_alpha(0.02),
-            ctx,
-        );
+        draw_propagator(canvas, state, prop, false, GRAY.with_alpha(0.02), ctx);
     }
     Some(())
 }
@@ -735,7 +769,7 @@ fn draw_event_marker_at(gizmos: &mut Gizmos, wall_time: Nanotime, event: &EventT
 }
 
 fn draw_event(
-    gizmos: &mut Gizmos,
+    canvas: &mut Canvas,
     planets: &PlanetarySystem,
     event: &EventType,
     stamp: Nanotime,
@@ -746,13 +780,13 @@ fn draw_event(
     if let EventType::Encounter(id) = event {
         let (body, pv, _, _) = planets.lookup(*id, stamp)?;
         draw_circle(
-            gizmos,
+            &mut canvas.gizmos,
             ctx.w2c(pv.pos),
             gcast(body.soi * ctx.scale()),
             ORANGE.with_alpha(0.2),
         );
     }
-    draw_event_marker_at(gizmos, wall_time, event, ctx.w2c(p));
+    draw_event_marker_at(&mut canvas.gizmos, wall_time, event, ctx.w2c(p));
     Some(())
 }
 
@@ -775,7 +809,7 @@ fn draw_highlighted_objects(gizmos: &mut Gizmos, state: &GameState) -> Option<()
 }
 
 fn draw_controller(
-    gizmos: &mut Gizmos,
+    canvas: &mut Canvas,
     id: EntityId,
     ctrl: &OrbitalController,
     state: &GameState,
@@ -795,12 +829,17 @@ fn draw_controller(
     let r = (8.0 + dt * 30.0) * ctx.scale();
     let a = 0.03 * (1.0 - dt / secs as f64).powi(3);
 
-    draw_circle(gizmos, craft, gcast(r), GRAY.with_alpha(gcast(a)));
+    draw_circle(
+        &mut canvas.gizmos,
+        craft,
+        gcast(r),
+        GRAY.with_alpha(gcast(a)),
+    );
 
     if tracked {
         let plan = ctrl.plan()?;
         draw_maneuver_plan(
-            gizmos,
+            canvas,
             state.universe.stamp(),
             plan,
             origin,
@@ -852,7 +891,7 @@ fn draw_event_animation(
 }
 
 fn draw_maneuver_plan(
-    gizmos: &mut Gizmos,
+    canvas: &mut Canvas,
     stamp: Nanotime,
     plan: &ManeuverPlan,
     origin: DVec2,
@@ -871,34 +910,28 @@ fn draw_maneuver_plan(
             .map(|p| ctx.w2c(p.pos + origin))
             .collect();
 
-        gizmos.linestrip_2d(positions, YELLOW);
+        canvas.gizmos.linestrip_2d(positions, YELLOW);
     }
 
     for segment in &plan.segments {
         if segment.end > stamp {
             let pv = plan.pv(segment.end)?;
             let p = ctx.w2c(pv.pos + origin);
-            draw_circle(gizmos, p, 20.0, WHITE);
+            draw_circle(&mut canvas.gizmos, p, 20.0, WHITE);
         }
     }
-    draw_orbit(gizmos, &plan.terminal, origin, PURPLE, ctx);
+    draw_orbit(canvas, &plan.terminal, origin, PURPLE, ctx);
     Some(())
 }
 
-fn draw_scale_indicator(gizmos: &mut Gizmos, state: &GameState) {
+fn draw_scale_indicator(canvas: &mut Canvas, state: &GameState) {
     let window_dims = state.input.screen_bounds.span;
     let width = 300.0;
-    let center = Vec2::new(0.0, window_dims.y / 2.0 - 24.0);
+    let center = Vec2::new(0.0, window_dims.y / 2.0 - 80.0);
 
-    // let ctx = &state.orbital_context;
-
-    draw_circle(gizmos, Vec2::ZERO, 10.0, GRAY.with_alpha(0.2));
-
-    // for i in 0..=9 {
-    //     let r = 10.0f32.powi(i) * ctx.scale();
-    //     let color = if i % 3 == 0 { RED } else { WHITE };
-    //     draw_circle(gizmos, Vec2::ZERO, r, color.with_alpha(0.04));
-    // }
+    canvas.painter.set_translation(Vec3::ZERO);
+    canvas.painter.set_color(GRAY.with_alpha(0.2));
+    canvas.painter.circle(10.0);
 
     let p1 = center + Vec2::X * width;
     let p2 = center - Vec2::X * width;
@@ -914,7 +947,7 @@ fn draw_scale_indicator(gizmos: &mut Gizmos, state: &GameState) {
         }
         let t = map(center + Vec2::new(s, h));
         let b = map(center + Vec2::new(s, -h));
-        gizmos.line_2d(t, b, color);
+        canvas.gizmos.line_2d(t, b, color);
     };
 
     draw_at(0.0, 1.0);
@@ -935,7 +968,7 @@ fn draw_scale_indicator(gizmos: &mut Gizmos, state: &GameState) {
         }
     }
 
-    gizmos.line_2d(p1, p2, color);
+    canvas.gizmos.line_2d(p1, p2, color);
 }
 
 #[allow(unused)]
@@ -1084,7 +1117,7 @@ pub fn draw_graph(
     Some(())
 }
 
-pub fn draw_ui_layout(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
+pub fn draw_ui_layout(canvas: &mut Canvas, state: &GameState) -> Option<()> {
     let wb = state.input.screen_bounds.span;
 
     for layout in state.ui.layouts() {
@@ -1095,7 +1128,7 @@ pub fn draw_ui_layout(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
             let aabb = n.aabb_camera(wb);
             let p = state.input.position(MouseButt::Hover, FrameId::Current);
             if p.map(|p| aabb.contains(p)).unwrap_or(false) {
-                draw_aabb(gizmos, n.aabb_camera(wb), RED);
+                draw_aabb(canvas, n.aabb_camera(wb), RED);
             }
         }
     }
@@ -1263,7 +1296,7 @@ pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, _aabb: AABB, _stamp:
         let center = id_to_pos(id);
         let aabb = AABB::new(center, Vec2::splat(storage_width));
         let color = crate::sprites::hashable_to_color(&storage.item());
-        draw_aabb(&mut canvas.gizmos, aabb, color.into());
+        draw_aabb(canvas, aabb, color.into());
 
         canvas.text(
             format!(
@@ -1282,14 +1315,20 @@ pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, _aabb: AABB, _stamp:
             aabb.bottom_right() + Vec2::Y * aabb.span.y * filled,
         );
         canvas
-            .sprite(aabb_fill.center, 0.0, "error", 0.0, aabb_fill.span)
+            .sprite(
+                aabb_fill.center,
+                0.0,
+                "error",
+                ZOrdering::Factory,
+                aabb_fill.span,
+            )
             .set_color(color);
 
         canvas.sprite(
             aabb.center,
             0.0,
             format!("item-{}", storage.item().to_sprite_name()),
-            None,
+            ZOrdering::Factory,
             Vec2::splat(storage_width),
         );
     }
@@ -1303,7 +1342,7 @@ pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, _aabb: AABB, _stamp:
     for (plant_id, plant) in factory.plants() {
         let center = id_to_pos(plant_id);
         let aabb = AABB::new(center, Vec2::splat(plant_width));
-        draw_aabb(&mut canvas.gizmos, aabb, WHITE);
+        draw_aabb(canvas, aabb, WHITE);
 
         canvas.text(plant.name().to_uppercase(), aabb.center, 0.6);
 
@@ -1311,7 +1350,7 @@ pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, _aabb: AABB, _stamp:
             let progress = plant.progress();
             let bl = aabb.bottom_right();
             let tr = bl + Vec2::new(plant_width * 0.15, progress * plant_width);
-            canvas.rect(AABB::from_arbitrary(bl, tr), RED);
+            canvas.rect(AABB::from_arbitrary(bl, tr), ZOrdering::Factory, RED);
         }
 
         {
@@ -1324,7 +1363,7 @@ pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, _aabb: AABB, _stamp:
             let mut tr = aabb.top_left() - Vec2::new(d, 0.0);
             for color in [lc, bc, sc, wc] {
                 let bl = tr - Vec2::splat(d);
-                canvas.rect(AABB::from_arbitrary(bl, tr), color);
+                canvas.rect(AABB::from_arbitrary(bl, tr), ZOrdering::Factory, color);
                 tr -= Vec2::Y * d * 1.4;
             }
         }
@@ -1341,7 +1380,7 @@ pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, _aabb: AABB, _stamp:
                 let bl = aabb.lower() + Vec2::X * i as f32 * width;
                 let tr = bl + Vec2::new(width, height);
                 let aabb = AABB::from_arbitrary(bl, tr);
-                canvas.rect(aabb, color);
+                canvas.rect(aabb, ZOrdering::Factory, color);
             }
         }
 
@@ -1355,7 +1394,7 @@ pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, _aabb: AABB, _stamp:
                 let bl = aabb.lower() + Vec2::new(i as f32 * width, plant_width * 0.75);
                 let tr = bl + Vec2::new(width, height);
                 let aabb = AABB::from_arbitrary(bl, tr);
-                canvas.rect(aabb, color);
+                canvas.rect(aabb, ZOrdering::Factory, color);
             }
         }
 
@@ -1431,7 +1470,7 @@ pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, _aabb: AABB, _stamp:
 pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
     let ctx = &state.orbital_context;
 
-    draw_scale_indicator(&mut canvas.gizmos, state);
+    draw_scale_indicator(canvas, state);
 
     draw_piloting_overlay(canvas, state, state.piloting());
 
@@ -1446,7 +1485,7 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
     draw_landing_sites(&mut canvas.gizmos, state);
 
     if let Some(bounds) = state.orbital_context.selection_bounds {
-        draw_aabb(&mut canvas.gizmos, ctx.w2c_aabb(bounds), RED);
+        draw_aabb(canvas, ctx.w2c_aabb(bounds), RED);
     }
 
     if let Some(follow) = state.orbital_context.follow_position(&state.universe) {
@@ -1488,7 +1527,7 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
     }
 
     for orbit in &state.orbital_context.queued_orbits {
-        draw_global_orbit(&mut canvas.gizmos, orbit, &state, RED);
+        draw_global_orbit(canvas, orbit, &state, RED);
     }
 
     if let Some(orbit) = state
@@ -1522,7 +1561,7 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
                 sparse.is_retrograde(),
             ) {
                 go.1 = o;
-                draw_global_orbit(&mut canvas.gizmos, &go, &state, YELLOW.with_alpha(alpha));
+                draw_global_orbit(canvas, &go, &state, YELLOW.with_alpha(alpha));
             }
         };
 
@@ -1537,16 +1576,16 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
     }
 
     if let Some(orbit) = state.cursor_orbit_if_mode() {
-        draw_global_orbit(&mut canvas.gizmos, &orbit, &state, ORANGE);
+        draw_global_orbit(canvas, &orbit, &state, ORANGE);
     }
 
     if let Some(orbit) = state.current_orbit() {
-        draw_global_orbit(&mut canvas.gizmos, &orbit, &state, TEAL);
+        draw_global_orbit(canvas, &orbit, &state, TEAL);
     }
 
     for (id, sv) in &state.universe.orbital_vehicles {
         let tracked = state.orbital_context.selected.contains(id);
-        draw_controller(&mut canvas.gizmos, *id, &sv.controller, state, tracked, ctx);
+        draw_controller(canvas, *id, &sv.controller, state, tracked, ctx);
     }
 
     if state.orbital_context.show_animations && state.orbital_context.selected.len() < 6 {
@@ -1577,10 +1616,10 @@ fn orthographic_camera_map(p: Vec3, center: Vec3, normal: Vec3, x: Vec3, y: Vec3
     Vec2::new(p.dot(x), p.dot(y))
 }
 
-pub fn draw_game_state(gizmos: Gizmos, mut state: ResMut<GameState>) {
+pub fn draw_game_state(gizmos: Gizmos, mut state: ResMut<GameState>, painter: ShapePainter) {
     // draw_input_state(&mut gizmos, &state);
 
-    let mut canvas = Canvas::new(gizmos);
+    let mut canvas = Canvas::new(gizmos, painter);
 
     GameState::draw(&mut canvas, &state);
 
@@ -1588,7 +1627,7 @@ pub fn draw_game_state(gizmos: Gizmos, mut state: ResMut<GameState>) {
     state.sprites = canvas.sprites;
 }
 
-pub fn draw_cells(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
+pub fn draw_cells(canvas: &mut Canvas, state: &GameState) -> Option<()> {
     let ctx = &state.orbital_context;
 
     let scale_factor = 3500.0;
@@ -1612,37 +1651,64 @@ pub fn draw_cells(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
 
         let aabb = AABB::from_arbitrary(aabb_stopgap_cast(p), aabb_stopgap_cast(q));
         let aabb = ctx.w2c_aabb(aabb);
-        crate::drawing::draw_aabb(gizmos, aabb, ORANGE.with_alpha(0.3));
-        crate::drawing::fill_aabb(gizmos, aabb, GRAY.with_alpha(0.03));
+        draw_aabb(canvas, aabb, ORANGE.with_alpha(0.3));
+        fill_aabb(canvas, aabb, GRAY.with_alpha(0.03));
     }
 
     Some(())
 }
 
 pub fn draw_camera_info(canvas: &mut Canvas, ctx: &impl CameraProjection, window_span: Vec2) {
-    let bounds = AABB::new(Vec2::ZERO, window_span);
-    draw_aabb(&mut canvas.gizmos, bounds.scale_about_center(0.98), RED);
-    draw_aabb(&mut canvas.gizmos, bounds.scale_about_center(0.97), GREEN);
-
     let meters = window_span.as_dvec2() / ctx.scale();
+    let lower_bound = ctx.origin() - meters / 2.0;
+    let upper_bound = ctx.origin() + meters / 2.0;
 
-    canvas
-        .text(
-            [
-                format!("Camera pos:    {:0.2} m\n", ctx.origin()),
-                format!("Camera width:  {:0.2} m\n", meters.x),
-                format!("Camera height: {:0.2} m", meters.y),
-            ]
-            .into_iter()
-            .collect::<String>(),
-            Vec2::ZERO,
-            0.5,
-        )
-        .color
-        .alpha = 0.1;
+    let xl = lower_bound.x.ceil() as i64;
+    let xu = upper_bound.x.floor() as i64;
+
+    let yl = lower_bound.y.ceil() as i64;
+    let yu = upper_bound.y.floor() as i64;
+
+    let dist = (xu - xl).max(yu - yl);
+
+    let mut step: i64 = 1;
+    while dist / step > 100 {
+        step *= 10;
+    }
+
+    let xl = (xl / step) * step;
+    let xu = (xu / step) * step;
+
+    let yl = (yl / step) * step;
+    let yu = (yu / step) * step;
+
+    let step = step.try_into().unwrap();
+
+    canvas.painter.reset();
+    canvas.painter.thickness = 3.0;
+
+    for x in (xl..=xu).step_by(step) {
+        let wp = lower_bound.with_x(x as f64);
+        let p = ctx.w2c(wp);
+        let q = p + Vec2::Y * 10.0;
+        canvas.painter.line(
+            p.extend(ZOrdering::ScaleIndicator.as_f32()),
+            q.extend(ZOrdering::ScaleIndicator.as_f32()),
+        );
+    }
+
+    for y in (yl..=yu).step_by(step) {
+        let wp = upper_bound.with_y(y as f64);
+        let p = ctx.w2c(wp);
+        let q = p - Vec2::X * 10.0;
+        canvas.painter.line(
+            p.extend(ZOrdering::ScaleIndicator.as_f32()),
+            q.extend(ZOrdering::ScaleIndicator.as_f32()),
+        );
+    }
 }
 
-fn draw_input_state(gizmos: &mut Gizmos, state: &GameState) {
+fn draw_input_state(canvas: &mut Canvas, state: &GameState) {
     let points = [
         (MouseButt::Left, BLUE),
         (MouseButt::Right, GREEN),
@@ -1650,10 +1716,10 @@ fn draw_input_state(gizmos: &mut Gizmos, state: &GameState) {
     ];
 
     let offset = state.input.screen_bounds.span / 2.0;
-    draw_aabb(gizmos, state.input.screen_bounds.offset(-offset), RED);
+    draw_aabb(canvas, state.input.screen_bounds.offset(-offset), RED);
 
     if let Some(p) = state.input.position(MouseButt::Hover, FrameId::Current) {
-        draw_circle(gizmos, p, 8.0, RED);
+        draw_circle(&mut canvas.gizmos, p, 8.0, RED);
     }
 
     for (b, c) in points {
@@ -1664,7 +1730,7 @@ fn draw_input_state(gizmos: &mut Gizmos, state: &GameState) {
             .or(state.input.position(b, FrameId::Up));
 
         if let Some((p1, p2)) = p1.zip(p2) {
-            gizmos.line_2d(p1, p2, c);
+            canvas.gizmos.line_2d(p1, p2, c);
         }
 
         for fid in [FrameId::Down, FrameId::Up] {
@@ -1673,7 +1739,7 @@ fn draw_input_state(gizmos: &mut Gizmos, state: &GameState) {
             if let Some((p, age)) = p.zip(age) {
                 let dt = age.to_secs();
                 let a = (1.0 - dt).max(0.0);
-                draw_circle(gizmos, p, 50.0 * age.to_secs(), c.with_alpha(a));
+                draw_circle(&mut canvas.gizmos, p, 50.0 * age.to_secs(), c.with_alpha(a));
             }
         }
     }

@@ -103,7 +103,7 @@ pub fn do_text_labels(
     let mut labels: Vec<_> = query.iter_mut().collect();
     for (i, tl) in text_labels.iter().enumerate() {
         if let Some((_, text2d, font, label, color, anchor)) = labels.get_mut(i) {
-            label.translation = tl.pos.extend(tl.z_index);
+            label.translation = tl.pos.extend(tl.z_index.as_f32());
             label.scale = Vec3::splat(tl.size);
             text2d.0 = tl.text.clone();
             font.font_size = 23.0;
@@ -116,7 +116,7 @@ pub fn do_text_labels(
                     font_size: 23.0,
                     ..default()
                 },
-                Transform::from_translation(tl.pos.extend(tl.z_index))
+                Transform::from_translation(tl.pos.extend(tl.z_index.as_f32()))
                     .with_scale(Vec3::splat(tl.size)),
                 TextLabel,
                 TextColor(tl.color().into()),

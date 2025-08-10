@@ -33,7 +33,7 @@ pub fn update_static_sprites(
     let mut sprite_entities: Vec<_> = query.iter_mut().collect();
 
     for (i, sprite) in sprites.iter().enumerate() {
-        let pos = sprite.position.extend(sprite.z_index);
+        let pos = sprite.position.extend(sprite.z_index.as_f32());
 
         let handle = state
             .image_handles
