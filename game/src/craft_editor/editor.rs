@@ -49,6 +49,8 @@ pub struct EditorContext {
     particles: ThrustParticleEffects,
     build_particles: Vec<BuildParticle>,
 
+    atmo: i32,
+
     // menus
     pub show_vehicle_info: bool,
     pub parts_menu_collapsed: bool,
@@ -74,6 +76,7 @@ impl EditorContext {
             vehicle: Vehicle::new(),
             particles: ThrustParticleEffects::new(),
             build_particles: Vec::new(),
+            atmo: 3,
             show_vehicle_info: false,
             parts_menu_collapsed: false,
             vehicles_menu_collapsed: true,
@@ -398,7 +401,8 @@ pub fn draw_particles(
         let age = particle.age.to_secs();
         let alpha = (1.0 - age / particle.lifetime.to_secs())
             .powi(3)
-            .clamp(0.0, 1.0);
+            .clamp(0.0, 1.0)
+            * (particle.atmo * 0.8 + 0.2);
         let c1 = Srgba::from_f32_array(particle.initial_color);
         let c2 = Srgba::from_f32_array(particle.final_color);
         let color = c1.mix(&c2, age.clamp(0.0, 1.0).sqrt());
@@ -1081,6 +1085,16 @@ impl EditorContext {
         if state.input.is_pressed(KeyCode::ControlLeft) && state.input.just_pressed(KeyCode::KeyZ) {
             state.editor_context.undo();
         }
+
+        if state.input.just_pressed(KeyCode::KeyO) {
+            state.editor_context.atmo += 1;
+        }
+
+        if state.input.just_pressed(KeyCode::KeyL) {
+            state.editor_context.atmo -= 1;
+        }
+
+        state.editor_context.atmo = state.editor_context.atmo.clamp(0, 10);
     }
 
     pub fn on_game_tick(state: &mut GameState) {
@@ -1163,7 +1177,9 @@ impl EditorContext {
             particle.on_sim_tick();
         }
 
-        add_particles_from_vehicle(&mut ctx.particles, &ctx.vehicle, &RigidBody::ZERO);
+        let atmo = ctx.atmo as f32 / 10.0;
+
+        add_particles_from_vehicle(&mut ctx.particles, &ctx.vehicle, &RigidBody::ZERO, atmo);
         ctx.particles.step();
 
         ctx.build_particles.retain(|p| p.opacity() > 0.0);

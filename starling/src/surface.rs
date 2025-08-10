@@ -6,6 +6,7 @@ use splines::Key;
 #[derive(Debug)]
 pub struct Surface {
     pub body: Body,
+    pub atmo_density: f32,
     pub atmo_color: [f32; 3],
     pub land_color: [f32; 3],
     pub particles: ThrustParticleEffects,
@@ -23,6 +24,7 @@ impl Surface {
 
         Surface {
             body: Body::LUNA,
+            atmo_density: rand(0.0, 1.0),
             atmo_color: [rand(0.1, 0.2), rand(0.1, 0.2), rand(0.1, 0.2)],
             land_color: [rand(0.1, 0.4), rand(0.1, 0.4), rand(0.1, 0.4)],
             particles: ThrustParticleEffects::new(),

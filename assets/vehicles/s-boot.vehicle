@@ -1,0 +1,433 @@
+name: s-boot
+parts:
+- partname: tank21
+  pos:
+  - 13
+  - 0
+  rot: South
+- partname: tank22
+  pos:
+  - 73
+  - -30
+  rot: North
+- partname: angled-frame
+  pos:
+  - 13
+  - -50
+  rot: South
+- partname: frame
+  pos:
+  - 3
+  - 10
+  rot: South
+- partname: frame
+  pos:
+  - 23
+  - -40
+  rot: East
+- partname: tank21
+  pos:
+  - 33
+  - -30
+  rot: South
+- partname: frame
+  pos:
+  - -77
+  - 10
+  rot: East
+- partname: frame
+  pos:
+  - 43
+  - 10
+  rot: South
+- partname: gold
+  pos:
+  - -82
+  - -26
+  rot: North
+- partname: gold
+  pos:
+  - -82
+  - -6
+  rot: North
+- partname: small-antenna
+  pos:
+  - 6
+  - 20
+  rot: East
+- partname: angled-frame
+  pos:
+  - -48
+  - 20
+  rot: East
+- partname: tank21
+  pos:
+  - -27
+  - 0
+  rot: South
+- partname: frame
+  pos:
+  - 33
+  - -40
+  rot: East
+- partname: rcs
+  pos:
+  - 83
+  - 20
+  rot: South
+- partname: battery
+  pos:
+  - 66
+  - -10
+  rot: West
+- partname: tank21
+  pos:
+  - -7
+  - 0
+  rot: South
+- partname: cpu
+  pos:
+  - 65
+  - 2
+  rot: North
+- partname: rcs
+  pos:
+  - -64
+  - -44
+  rot: North
+- partname: motor
+  pos:
+  - -107
+  - -7
+  rot: East
+- partname: rcs
+  pos:
+  - 82
+  - -44
+  rot: North
+- partname: frame
+  pos:
+  - 73
+  - -40
+  rot: East
+- partname: battery
+  pos:
+  - 57
+  - -10
+  rot: West
+- partname: frame
+  pos:
+  - 83
+  - -40
+  rot: East
+- partname: frame
+  pos:
+  - -37
+  - -40
+  rot: East
+- partname: frame
+  pos:
+  - -37
+  - 10
+  rot: East
+- partname: frame
+  pos:
+  - 73
+  - 10
+  rot: South
+- partname: cpu
+  pos:
+  - 83
+  - 2
+  rot: North
+- partname: gold
+  pos:
+  - -82
+  - 4
+  rot: North
+- partname: frame
+  pos:
+  - 43
+  - -40
+  rot: East
+- partname: frame
+  pos:
+  - 53
+  - -40
+  rot: East
+- partname: battery
+  pos:
+  - 84
+  - -10
+  rot: West
+- partname: rcs
+  pos:
+  - -65
+  - 20
+  rot: South
+- partname: tank21
+  pos:
+  - 33
+  - -20
+  rot: South
+- partname: frame2
+  pos:
+  - -77
+  - 0
+  rot: East
+- partname: battery
+  pos:
+  - 75
+  - -10
+  rot: West
+- partname: rcs
+  pos:
+  - 103
+  - 7
+  rot: West
+- partname: frame
+  pos:
+  - 53
+  - 10
+  rot: South
+- partname: frame
+  pos:
+  - -47
+  - 10
+  rot: East
+- partname: tank22
+  pos:
+  - -67
+  - -30
+  rot: North
+- partname: motor
+  pos:
+  - -107
+  - -23
+  rot: East
+- partname: tank22
+  pos:
+  - -47
+  - -30
+  rot: North
+- partname: frame
+  pos:
+  - 63
+  - 10
+  rot: South
+- partname: cpu
+  pos:
+  - 74
+  - 2
+  rot: North
+- partname: frame
+  pos:
+  - 93
+  - -5
+  rot: North
+- partname: frame
+  pos:
+  - 83
+  - 10
+  rot: South
+- partname: frame
+  pos:
+  - -7
+  - 10
+  rot: South
+- partname: frame
+  pos:
+  - -67
+  - 10
+  rot: East
+- partname: cpu
+  pos:
+  - 56
+  - 2
+  rot: North
+- partname: frame
+  pos:
+  - -57
+  - -40
+  rot: East
+- partname: frame
+  pos:
+  - -27
+  - -40
+  rot: East
+- partname: frame
+  pos:
+  - 93
+  - -35
+  rot: North
+- partname: cargo
+  pos:
+  - 3
+  - -30
+  rot: East
+- partname: frame2
+  pos:
+  - -77
+  - -10
+  rot: East
+- partname: frame2
+  pos:
+  - -77
+  - -20
+  rot: East
+- partname: radar
+  pos:
+  - 14
+  - 19
+  rot: East
+- partname: frame
+  pos:
+  - -17
+  - -40
+  rot: East
+- partname: frame
+  pos:
+  - 23
+  - 10
+  rot: South
+- partname: frame
+  pos:
+  - 33
+  - 10
+  rot: South
+- partname: frame
+  pos:
+  - 3
+  - -40
+  rot: East
+- partname: gold
+  pos:
+  - -82
+  - -16
+  rot: North
+- partname: frame
+  pos:
+  - -87
+  - 6
+  rot: East
+- partname: tank22
+  pos:
+  - 53
+  - -30
+  rot: North
+- partname: tank21
+  pos:
+  - -37
+  - -10
+  rot: West
+- partname: frame2
+  pos:
+  - -77
+  - -30
+  rot: East
+- partname: frame
+  pos:
+  - -7
+  - -40
+  rot: East
+- partname: cargo
+  pos:
+  - -27
+  - -30
+  rot: East
+- partname: frame
+  pos:
+  - 93
+  - -25
+  rot: North
+- partname: tank21
+  pos:
+  - 33
+  - -10
+  rot: South
+- partname: frame
+  pos:
+  - 93
+  - 5
+  rot: North
+- partname: frame
+  pos:
+  - 63
+  - -40
+  rot: East
+- partname: frame
+  pos:
+  - -77
+  - -40
+  rot: East
+- partname: frame
+  pos:
+  - -57
+  - 10
+  rot: East
+- partname: chemical-plant
+  pos:
+  - -67
+  - -10
+  rot: South
+- partname: gold
+  pos:
+  - -82
+  - -36
+  rot: North
+- partname: frame
+  pos:
+  - -67
+  - -40
+  rot: East
+- partname: frame
+  pos:
+  - -87
+  - -30
+  rot: East
+- partname: frame
+  pos:
+  - 13
+  - 10
+  rot: South
+- partname: frame
+  pos:
+  - -47
+  - -40
+  rot: East
+- partname: frame
+  pos:
+  - -17
+  - 10
+  rot: South
+- partname: rcs
+  pos:
+  - 103
+  - -33
+  rot: West
+- partname: rcs
+  pos:
+  - -81
+  - -37
+  rot: East
+- partname: frame
+  pos:
+  - 93
+  - -15
+  rot: North
+- partname: tank21
+  pos:
+  - 33
+  - 0
+  rot: South
+- partname: frame
+  pos:
+  - -27
+  - 10
+  rot: South
+- partname: frame
+  pos:
+  - 13
+  - -40
+  rot: East
+lines: []

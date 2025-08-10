@@ -156,7 +156,17 @@ impl Universe {
 
             sv.body.clamp_with_elevation(ls.surface.body.radius);
 
-            add_particles_from_vehicle(&mut ls.surface.particles, &sv.vehicle, &sv.body);
+            let atmo = {
+                let altitude = sv.body.pv.pos.length() - ls.surface.body.radius;
+                (1.0 - altitude / 200_000.0).clamp(0.0, 1.0) * ls.surface.atmo_density as f64
+            };
+
+            add_particles_from_vehicle(
+                &mut ls.surface.particles,
+                &sv.vehicle,
+                &sv.body,
+                atmo as f32,
+            );
 
             ls.add_position_track(*id, stamp, sv.body.pv.pos);
         }
@@ -277,15 +287,11 @@ impl Universe {
 
         let vel = randvec(2.0, 7.0);
 
-        let angle = rand(0.0, PI) as f64;
-
         let body = RigidBody {
             pv: PV::from_f64(pos, vel),
             angle: PI_64 / 2.0,
             angular_velocity: 0.0,
         };
-
-        let pose: Pose = (pos, angle);
 
         let controller = VehicleController::launch();
         let id = self.next_entity_id();

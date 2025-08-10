@@ -6,6 +6,7 @@ use crate::prelude::*;
 #[derive(Debug)]
 pub struct ThrustParticle {
     pub pv: PV,
+    pub atmo: f32,
     pub age: Nanotime,
     pub lifetime: Nanotime,
     pub initial_color: [f32; 4],
@@ -15,13 +16,14 @@ pub struct ThrustParticle {
 }
 
 impl ThrustParticle {
-    fn new(pv: PV, angle: f32, initial_color: [f32; 4], final_color: [f32; 4]) -> Self {
+    fn new(pv: PV, atmo: f32, angle: f32, initial_color: [f32; 4], final_color: [f32; 4]) -> Self {
         Self {
             pv,
+            atmo: atmo.clamp(0.0, 1.0),
             age: Nanotime::zero(),
             initial_color,
             final_color,
-            lifetime: Nanotime::secs_f32(rand(1.2, 3.0)),
+            lifetime: Nanotime::secs_f32(rand(1.2, 2.0) * (0.1 + atmo * 0.9)),
             depth: rand(0.0, 1000.0),
             angle,
         }
@@ -29,7 +31,7 @@ impl ThrustParticle {
 
     fn step(&mut self) {
         self.pv.pos += self.pv.vel * PHYSICS_CONSTANT_DELTA_TIME.to_secs_f64();
-        self.pv.vel *= 0.97;
+        self.pv.vel *= 1.0 - 0.04 * self.atmo as f64;
 
         // if self.pv.pos.y < 0.0 && self.pv.vel.y < 0.0 {
         //     let vx = self.pv.vel.x;
@@ -73,22 +75,27 @@ impl ThrustParticleEffects {
             .retain(|p: &ThrustParticle| p.age < p.lifetime || rand(0.0, 1.0) < 0.2);
     }
 
-    pub fn add(&mut self, body: &RigidBody, part: &InstantiatedPart) {
+    pub fn add(&mut self, body: &RigidBody, part: &InstantiatedPart, atmo: f32) {
         if let Some((t, d)) = part.as_thruster() {
             if !part.is_built() {
                 return;
             }
-            for _ in 0..2 {
+
+            let n = 2 + ((1.0 - atmo) * 8.0).round() as u32;
+
+            for _ in 0..n {
                 let pos = rotate_f64(part.center_meters().as_dvec2(), body.angle);
                 let ve = t.exhaust_velocity as f64 / 20.0 + 30.0 * d.throttle() as f64;
                 let u = rotate_f64(rotate_f64(DVec2::X, part.rotation().to_angle()), body.angle);
                 let vel = randvec(2.0, 4.0).as_dvec2() + u * -ve * rand(0.6, 1.0) as f64;
+                let spread_angle = (1.0 - atmo) * rand(-0.5, 0.5);
+                let vel = rotate_f64(vel, spread_angle as f64);
                 let pv = body.pv + PV::from_f64(pos, vel);
                 let initial_color = mix(t.primary_color, t.secondary_color, rand(0.1, 0.7));
-                // let final_color = WHITE.mix(&DARK_GRAY, rand(0.3, 0.9)).with_alpha(0.4);
                 self.particles.push(ThrustParticle::new(
                     pv,
-                    (body.angle + part.rotation().to_angle()) as f32,
+                    atmo,
+                    (body.angle + part.rotation().to_angle()) as f32 + spread_angle,
                     initial_color,
                     [1.0, 1.0, 1.0, 0.7],
                 ));
@@ -101,6 +108,7 @@ pub fn add_particles_from_vehicle(
     particles: &mut ThrustParticleEffects,
     vehicle: &Vehicle,
     body: &RigidBody,
+    atmo: f32,
 ) {
     for (_, part) in vehicle.parts() {
         if let Some((t, d)) = part.as_thruster() {
@@ -108,7 +116,7 @@ pub fn add_particles_from_vehicle(
                 continue;
             }
 
-            particles.add(body, part);
+            particles.add(body, part, atmo);
         }
     }
 }
