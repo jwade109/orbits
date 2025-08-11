@@ -363,8 +363,11 @@ pub fn enter_orbit_control_law(
             (VehicleControl::NULLOPT, VehicleControlStatus::InProgress)
         }
     } else {
+        let max_accel = vehicle.max_forward_thrust() / vehicle.total_mass().to_kg_f64();
+        let target_accel = 16.0;
+        let throttle = target_accel / max_accel;
         (
-            att_and_throttle(launch_program_target_angle, 1.0),
+            att_and_throttle(launch_program_target_angle, throttle as f32),
             VehicleControlStatus::ExecutingLaunchProgram,
         )
     };

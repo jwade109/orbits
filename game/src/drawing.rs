@@ -517,6 +517,24 @@ pub fn draw_pointing_vector(gizmos: &mut Gizmos, center: Vec2, r: f32, u: Vec2, 
     gizmos.linestrip_2d([p1, p2, p3, p1], color);
 }
 
+pub fn draw_arc(
+    painter: &mut ShapePainter,
+    pos: Vec2,
+    z: f32,
+    color: Srgba,
+    r: f32,
+    start: f32,
+    end: f32,
+) {
+    painter.reset();
+    painter.set_translation(pos.extend(z));
+    painter.set_color(color);
+    painter.hollow = true;
+    painter.thickness = 12.0;
+    painter.cap = Cap::Square;
+    painter.arc(r + 6.0, start, end);
+}
+
 pub fn draw_piloting_overlay(
     canvas: &mut Canvas,
     state: &GameState,
@@ -565,6 +583,52 @@ pub fn draw_piloting_overlay(
         true,
     );
 
+    {
+        canvas.painter.reset();
+        canvas
+            .painter
+            .set_translation(center.extend(ZOrdering::HudAngularMomentum.as_f32()));
+        canvas.painter.set_color(RED);
+        canvas.painter.hollow = true;
+        canvas.painter.thickness = 6.0;
+
+        let angles = |am: f32| {
+            let am = am.clamp(-1.0, 1.0);
+            if am > 0.0 {
+                (2.0 * PI - 1.9 * PI * am, 2.0 * PI)
+            } else {
+                (0.0, -1.9 * PI * am)
+            }
+        };
+
+        let am_body = (body.angular_velocity / MAX_ANGULAR_VELOCITY) as f32;
+        let am_gyro = (vehicle.gyro.angular_velocity / vehicle.gyro.max_angular_velocity) as f32;
+
+        let (start, end) = angles(am_body);
+
+        draw_arc(
+            &mut canvas.painter,
+            center,
+            ZOrdering::HudAngularMomentum.as_f32(),
+            RED,
+            r,
+            start,
+            end,
+        );
+
+        let (start, end) = angles(am_gyro);
+
+        draw_arc(
+            &mut canvas.painter,
+            center,
+            ZOrdering::HudAngularMomentum.as_f32(),
+            GREEN,
+            r - 15.0,
+            start,
+            end,
+        );
+    }
+
     // prograde markers, etc
     {
         // let pv = lup.pv();
@@ -586,8 +650,6 @@ pub fn draw_piloting_overlay(
     }
 
     draw_circle(&mut canvas.gizmos, center, r, GRAY);
-    let p = vehicle.fuel_percentage();
-    let iso = Isometry2d::from_translation(center);
 
     canvas
         .text(
@@ -626,17 +688,6 @@ pub fn draw_piloting_overlay(
             Vec2::splat(icon_size),
         );
         icon_pos += Vec2::Y * icon_size;
-    }
-
-    let mut arc = |percent, s, color| {
-        canvas
-            .gizmos
-            .arc_2d(iso, gcast(percent) * 2.0 * PI, s * r, color)
-            .resolution(200);
-    };
-
-    for s in linspace(0.95, 0.97, 3) {
-        arc(p, s, RED);
     }
 
     Some(())

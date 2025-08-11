@@ -22,6 +22,7 @@ pub enum ZOrdering {
     EditorCursor,
     Text,
     HudIcon,
+    HudAngularMomentum,
     ScaleIndicator,
 }
 

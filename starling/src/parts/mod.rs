@@ -1,5 +1,6 @@
 pub mod cargo;
 pub mod generic;
+pub mod gyro;
 pub mod machine;
 pub mod magnetorquer;
 pub mod parts;
@@ -10,6 +11,7 @@ pub mod thruster;
 
 pub use cargo::*;
 pub use generic::*;
+pub use gyro::*;
 pub use machine::*;
 pub use magnetorquer::*;
 pub use parts::*;

@@ -69,7 +69,7 @@ pub struct Vehicle {
     pub horizontal_controller: PDCtrl,
     pub docking_linear_controller: PDCtrl,
 
-    pub gyro_angular_momentum: f32,
+    pub gyro: Gyro,
 
     center_of_mass: DVec2,
     total_mass: Mass,
@@ -123,7 +123,7 @@ impl Vehicle {
             left: ThrustAxisInfo::default(),
             right: ThrustAxisInfo::default(),
 
-            gyro_angular_momentum: 0.0,
+            gyro: Gyro::new(),
 
             center_of_mass: DVec2::ZERO,
             total_mass: Mass::ZERO,
@@ -610,9 +610,9 @@ impl Vehicle {
     }
 
     fn current_angular_acceleration(&self) -> f64 {
-        if !self.is_thrusting() {
-            return 0.0;
-        }
+        // if !self.is_thrusting() {
+        //     return 0.0;
+        // }
 
         let mut aa = 0.0;
         let moa = self.moment_of_inertia();
@@ -620,22 +620,15 @@ impl Vehicle {
 
         for (_, part) in &self.parts {
             if let Some((t, d)) = part.as_thruster() {
-                if !t.is_rcs {
-                    continue;
-                }
                 let center_of_thrust = part.center_meters().as_dvec2();
                 let lever_arm = center_of_thrust - com;
                 let thrust_dir = rotate_f64(DVec2::X, part.rotation().to_angle());
                 let torque = cross2d(lever_arm, thrust_dir) * t.current_thrust(d);
                 aa += torque / moa;
             }
-
-            // if let Some((_, d)) = part.as_magnetorquer() {
-            //     aa += d.torque() / moa;
-            // }
         }
 
-        aa
+        aa + self.gyro.current_torque() / self.moment_of_inertia
     }
 
     fn current_body_frame_linear_acceleration(&self) -> DVec2 {
@@ -661,6 +654,12 @@ impl Vehicle {
 
         self.is_thrusting = false;
 
+        self.gyro.increase_speed_by(control.attitude);
+        self.gyro.step();
+
+        let saturated = self.gyro.saturation() > 0.2;
+        let dir = self.gyro.angular_velocity.signum();
+
         if self.is_thrust_idle && is_nullopt {
             // nothing to do
             return;
@@ -673,6 +672,11 @@ impl Vehicle {
             let center_of_thrust = part.center_meters().as_dvec2();
             let u = rotate_f64(DVec2::X, part.rotation().to_angle());
             if let Some((t, d)) = part.as_thruster_mut() {
+                if t.is_rcs && !saturated {
+                    d.set_throttle(0.0);
+                    continue;
+                }
+
                 let linear_command = match rot {
                     Rotation::East => control.plus_x,
                     Rotation::North => control.plus_y,
@@ -694,7 +698,7 @@ impl Vehicle {
                     // the right way
                     let is_torque = {
                         let torque = cross2d(center_of_thrust - com, u);
-                        torque.signum() == control.attitude.signum()
+                        torque.signum() == control.attitude.signum() && torque.signum() == dir
                     };
                     linear_throttle
                         + if is_torque {

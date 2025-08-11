@@ -469,7 +469,7 @@ impl Render for SurfaceContext {
                     gcast(ctx.scale()),
                     gcast(sv.body.angle),
                     false,
-                    false,
+                    true,
                 );
 
                 let color: Srgba = crate::sprites::hashable_to_color(&sv.controller.mode()).into();

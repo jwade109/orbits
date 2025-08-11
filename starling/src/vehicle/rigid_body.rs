@@ -15,6 +15,8 @@ pub struct RigidBody {
     pub angular_velocity: f64,
 }
 
+pub const MAX_ANGULAR_VELOCITY: f64 = 4.0;
+
 impl RigidBody {
     pub const ZERO: RigidBody = RigidBody {
         pv: PV::ZERO,
@@ -38,7 +40,9 @@ impl RigidBody {
         } + gravity;
 
         self.angular_velocity += a.angular * dt.to_secs_f64();
-        self.angular_velocity = self.angular_velocity.clamp(-2.0, 2.0);
+        // self.angular_velocity = self
+        // .angular_velocity
+        // .clamp(-MAX_ANGULAR_VELOCITY, MAX_ANGULAR_VELOCITY);
         self.angle += self.angular_velocity * dt.to_secs_f64();
         self.angle = wrap_0_2pi_f64(self.angle);
 
