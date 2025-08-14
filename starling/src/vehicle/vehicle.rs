@@ -628,7 +628,7 @@ impl Vehicle {
             }
         }
 
-        aa + self.gyro.current_torque() / self.moment_of_inertia
+        aa // + self.gyro.current_torque() / self.moment_of_inertia
     }
 
     fn current_body_frame_linear_acceleration(&self) -> DVec2 {
@@ -649,16 +649,16 @@ impl Vehicle {
         body_frame_force / mass
     }
 
-    pub fn set_thrust_control(&mut self, control: VehicleControl) {
-        let is_nullopt = control == VehicleControl::NULLOPT;
+    pub fn set_thrust_control(&mut self, control: &VehicleControl) {
+        let is_nullopt = *control == VehicleControl::NULLOPT;
 
         self.is_thrusting = false;
 
-        self.gyro.increase_speed_by(control.attitude);
-        self.gyro.step();
+        // self.gyro.increase_speed_by(control.attitude);
+        // self.gyro.step();
 
-        let saturated = self.gyro.saturation() > 0.2;
-        let dir = self.gyro.angular_velocity.signum();
+        // let saturated = self.gyro.saturation() > 0.2;
+        // let dir = self.gyro.angular_velocity.signum();
 
         if self.is_thrust_idle && is_nullopt {
             // nothing to do
@@ -672,10 +672,10 @@ impl Vehicle {
             let center_of_thrust = part.center_meters().as_dvec2();
             let u = rotate_f64(DVec2::X, part.rotation().to_angle());
             if let Some((t, d)) = part.as_thruster_mut() {
-                if t.is_rcs && !saturated {
-                    d.set_throttle(0.0);
-                    continue;
-                }
+                // if t.is_rcs && !saturated {
+                //     d.set_throttle(0.0);
+                //     continue;
+                // }
 
                 let linear_command = match rot {
                     Rotation::East => control.plus_x,
@@ -698,7 +698,7 @@ impl Vehicle {
                     // the right way
                     let is_torque = {
                         let torque = cross2d(center_of_thrust - com, u);
-                        torque.signum() == control.attitude.signum() && torque.signum() == dir
+                        torque.signum() == control.attitude.signum() // && torque.signum() == dir
                     };
                     linear_throttle
                         + if is_torque {

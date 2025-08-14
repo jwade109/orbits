@@ -7,8 +7,8 @@ use crate::names::*;
 use crate::notifications::*;
 use crate::onclick::OnClick;
 use crate::scenes::{
-    CursorMode, DockingContext, EditorContext, MainMenuContext, OrbitalContext, Render, Scene,
-    SceneType, StaticSpriteDescriptor, SurfaceContext, TelescopeContext, TextLabel,
+    CursorMode, EditorContext, MainMenuContext, OrbitalContext, Render, Scene, SceneType,
+    StaticSpriteDescriptor, SurfaceContext, TelescopeContext, TextLabel,
 };
 use crate::settings::*;
 use crate::sim_rate::SimRate;
@@ -181,8 +181,6 @@ pub struct GameState {
 
     pub telescope_context: TelescopeContext,
 
-    pub docking_context: DockingContext,
-
     pub editor_context: EditorContext,
 
     pub surface_context: SurfaceContext,
@@ -284,7 +282,6 @@ impl GameState {
             console: DebugConsole::new(),
             orbital_context: OrbitalContext::new(EntityId(0)),
             telescope_context: TelescopeContext::new(),
-            docking_context: DockingContext::new(),
             editor_context: EditorContext::new(),
             surface_context: SurfaceContext::default(),
             wall_time: Nanotime::zero(),
@@ -327,8 +324,7 @@ impl GameState {
         g.surface_context.current_surface = surface_id;
 
         for model in [
-            "remora",
-            // "remora", "remora", "remora", "remora", "remora", "remora", "icecream",
+            "remora", "remora", "icecream",
             // "lander", "remora", "pollux",
         ] {
             if let Some(v) = g.get_vehicle_by_model(model) {
@@ -344,15 +340,15 @@ impl GameState {
         let t = g.universe.stamp();
 
         let get_random_orbit = |pid: EntityId| {
-            let r1 = rand(11000.0, 40000.0) as f64;
-            let r2 = rand(11000.0, 40000.0) as f64;
+            let r1 = rand(11_000_000.0, 40_000_000.0) as f64;
+            let r2 = rand(11_000_000.0, 40_000_000.0) as f64;
             let argp = rand(0.0, 2.0 * PI) as f64;
             let body = planets.lookup(pid, t)?.0;
             let orbit = SparseOrbit::new(r1.max(r2), r1.min(r2), argp, body, t, false)?;
             Some(GlobalOrbit(pid, orbit))
         };
 
-        for _ in 0..30 {
+        for _ in 0..3 {
             let vehicle = g.get_random_vehicle();
             let orbit = get_random_orbit(EntityId(0));
             if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {
@@ -360,7 +356,7 @@ impl GameState {
             }
         }
 
-        for _ in 0..40 {
+        for _ in 0..2 {
             let vehicle = g.get_random_vehicle();
             let orbit = get_random_orbit(EntityId(1));
             if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {
@@ -467,7 +463,6 @@ impl Render for GameState {
             SceneType::Orbital => OrbitalContext::background_color(state),
             SceneType::Editor => EditorContext::background_color(state),
             SceneType::Telescope => TelescopeContext::background_color(state),
-            SceneType::DockingView => DockingContext::background_color(state),
             SceneType::MainMenu => BLACK,
             SceneType::Surface => SurfaceContext::background_color(state),
         }
@@ -514,7 +509,6 @@ impl Render for GameState {
             SceneType::Orbital => OrbitalContext::draw(canvas, state),
             SceneType::Editor => EditorContext::draw(canvas, state),
             SceneType::Telescope => TelescopeContext::draw(canvas, state),
-            SceneType::DockingView => DockingContext::draw(canvas, state),
             SceneType::MainMenu => MainMenuContext::draw(canvas, state),
             SceneType::Surface => SurfaceContext::draw(canvas, state),
         }
@@ -619,19 +613,6 @@ impl GameState {
         Some(vehicle)
     }
 
-    pub fn planned_maneuvers(&self, after: Nanotime) -> Vec<(EntityId, Nanotime, DVec2)> {
-        let mut dvs = vec![];
-        for (id, ov) in &self.universe.orbital_vehicles {
-            if let Some(plan) = ov.controller.plan() {
-                for (stamp, impulse) in plan.future_dvs(after) {
-                    dvs.push((*id, stamp, impulse));
-                }
-            }
-        }
-        dvs.sort_by_key(|(_, t, _)| t.inner());
-        dvs
-    }
-
     pub fn measuring_tape(&self) -> Option<(DVec2, DVec2, DVec2)> {
         if self.orbital_context.cursor_mode != CursorMode::MeasuringTape {
             return None;
@@ -668,13 +649,6 @@ impl GameState {
         self.orbital_context.targeting
     }
 
-    pub fn get_orbit(&self, id: EntityId) -> Option<GlobalOrbit> {
-        let lup = self.universe.lup_orbiter(id, self.universe.stamp())?;
-        let orbiter = lup.orbiter()?;
-        let prop = orbiter.propagator_at(self.universe.stamp())?;
-        Some(prop.orbit)
-    }
-
     pub fn spawn_with_random_perturbance(
         &mut self,
         global: GlobalOrbit,
@@ -705,18 +679,13 @@ impl GameState {
     }
 
     pub fn delete_orbiter(&mut self, id: EntityId) -> Option<()> {
-        let lup = self.universe.lup_orbiter(id, self.universe.stamp())?;
-        let _orbiter = lup.orbiter()?;
-        let parent = lup.parent(self.universe.stamp())?;
-        let pv = lup.pv().pos;
-        let plup = self.universe.lup_planet(parent, self.universe.stamp())?;
-        let pvp = plup.pv().pos;
-        let pvl = pv - pvp;
-        self.universe.orbital_vehicles.remove(&id)?;
+        let ov = self.universe.orbital_vehicles.remove(&id)?;
+        let parent = ov.parent();
+        let pv = ov.pv();
         self.notify(
             ObjectId::Planet(parent),
             NotificationType::OrbiterDeleted(id),
-            pvl,
+            pv.pos,
         );
         Some(())
     }
@@ -736,14 +705,7 @@ impl GameState {
     }
 
     pub fn commit_mission(&mut self) -> Option<()> {
-        let orbit = self.current_orbit()?.clone();
-        self.command_selected(&orbit);
-        Some(())
-    }
-
-    pub fn impulsive_burn(&mut self, id: EntityId, stamp: Nanotime, dv: DVec2) -> Option<()> {
-        let orbiter = &mut self.universe.orbital_vehicles.get_mut(&id)?.orbiter;
-        orbiter.try_impulsive_burn(stamp, dv)?;
+        println!("TODO");
         Some(())
     }
 
@@ -762,8 +724,8 @@ impl GameState {
             }
         };
 
-        let vehicle = match self.universe.orbital_vehicles.get_mut(&id) {
-            Some(v) => &mut v.vehicle,
+        let ov = match self.universe.orbital_vehicles.get_mut(&id) {
+            Some(v) => v,
             None => {
                 self.notice(format!("Failed to find vehicle for id {}", id));
                 return None;
@@ -772,60 +734,15 @@ impl GameState {
 
         let new_vehicle = self.editor_context.vehicle.clone();
 
-        let old_title = vehicle.name().to_string();
+        let old_title = ov.vehicle().name().to_string();
         let new_title = new_vehicle.name().to_string();
 
-        *vehicle = new_vehicle;
+        ov.overwrite_vehicle(new_vehicle);
 
         self.notice(format!(
             "Successfully overwrite vehicle {}, \"{}\" -> \"{}\"",
             id, old_title, new_title
         ));
-
-        Some(())
-    }
-
-    pub fn command_selected(&mut self, next: &GlobalOrbit) {
-        if self.orbital_context.selected.is_empty() {
-            return;
-        }
-        self.notice(format!(
-            "Commanding {} orbiters to {}",
-            self.orbital_context.selected.len(),
-            next,
-        ));
-        for id in self.orbital_context.selected.clone() {
-            self.command(id, next);
-        }
-    }
-
-    pub fn release_selected(&mut self) {
-        let tracks = self.orbital_context.selected.clone();
-        for id in tracks {
-            if let Some(ov) = self.universe.orbital_vehicles.get_mut(&id) {
-                ov.controller.clear();
-            }
-        }
-    }
-
-    pub fn command(&mut self, id: EntityId, next: &GlobalOrbit) -> Option<()> {
-        let t = self.universe.stamp();
-        let ov = self.universe.orbital_vehicles.get_mut(&id)?;
-        if !ov.vehicle.is_controllable() {
-            self.notify(
-                ObjectId::Orbiter(id),
-                NotificationType::NotControllable(id),
-                None,
-            );
-            return None;
-        }
-
-        match ov.controller.set_destination(*next, t) {
-            Err(e) => {
-                dbg!(e);
-            }
-            _ => (),
-        }
 
         Some(())
     }
@@ -920,14 +837,6 @@ impl GameState {
                 self.load();
             }
             OnClick::CursorMode(c) => self.orbital_context.cursor_mode = c,
-            OnClick::AutopilotingCount => {
-                self.orbital_context.selected = self
-                    .universe
-                    .orbital_vehicles
-                    .iter()
-                    .filter_map(|(id, ov)| (!ov.controller.is_idle()).then(|| *id))
-                    .collect();
-            }
             OnClick::GoToScene(i) => {
                 self.set_current_scene(i);
             }
@@ -1154,9 +1063,6 @@ impl GameState {
         let on_ui = self.is_hovering_over_ui();
 
         match self.current_scene().kind() {
-            SceneType::DockingView => {
-                self.docking_context.on_render_tick(&self.input);
-            }
             SceneType::Editor => {
                 EditorContext::on_render_tick(self);
             }
@@ -1213,8 +1119,6 @@ impl GameState {
             )
         }
 
-        let old_sim_time = self.universe.stamp();
-
         self.wall_time += PHYSICS_CONSTANT_DELTA_TIME;
 
         let s = self.universe.stamp();
@@ -1222,35 +1126,19 @@ impl GameState {
 
         let planets = self.universe.planets.clone();
 
-        let mut man = self.planned_maneuvers(old_sim_time);
-        while let Some((id, t, dv)) = man.first() {
-            if s > *t {
-                simulate(&mut self.universe.orbital_vehicles, &planets, *t, d);
-                self.impulsive_burn(*id, *t, *dv);
-                self.notify(
-                    ObjectId::Orbiter(*id),
-                    NotificationType::OrbitChanged(*id),
-                    None,
-                );
-            } else {
-                break;
-            }
-            man.remove(0);
-        }
-
-        for (id, ri) in simulate(&mut self.universe.orbital_vehicles, &planets, s, d) {
-            info!("{} {:?}", id, &ri);
-            if let Some(pv) = ri.orbit.pv(ri.stamp).ok() {
-                let notif = match ri.reason {
-                    EventType::Collide(_) => NotificationType::OrbiterCrashed(id),
-                    EventType::Encounter(_) => continue,
-                    EventType::Escape(_) => NotificationType::OrbiterEscaped(id),
-                    EventType::Impulse(_) => continue,
-                    EventType::NumericalError => NotificationType::NumericalError(id),
-                };
-                self.notify(ObjectId::Planet(ri.parent), notif, pv.pos);
-            }
-        }
+        // for (id, ri) in simulate(&mut self.universe.orbital_vehicles, &planets, s, d) {
+        //     info!("{} {:?}", id, &ri);
+        //     if let Some(pv) = ri.orbit.pv(ri.stamp).ok() {
+        //         let notif = match ri.reason {
+        //             EventType::Collide(_) => NotificationType::OrbiterCrashed(id),
+        //             EventType::Encounter(_) => continue,
+        //             EventType::Escape(_) => NotificationType::OrbiterEscaped(id),
+        //             EventType::Impulse(_) => continue,
+        //             EventType::NumericalError => NotificationType::NumericalError(id),
+        //         };
+        //         self.notify(ObjectId::Planet(ri.parent), notif, pv.pos);
+        //     }
+        // }
 
         let mut track_list = self.orbital_context.selected.clone();
         track_list.retain(|o| {
@@ -1271,9 +1159,6 @@ impl GameState {
             }
             SceneType::Telescope => {
                 self.telescope_context.on_game_tick();
-            }
-            SceneType::DockingView => {
-                self.docking_context.on_game_tick();
             }
             SceneType::Editor => {
                 EditorContext::on_game_tick(self);
@@ -1314,7 +1199,7 @@ fn process_interaction(
             state.commit_mission();
         }
         InteractionEvent::ClearMissions => {
-            state.release_selected();
+            println!("TODO");
         }
         InteractionEvent::ClearSelection => {
             state.orbital_context.selected.clear();

@@ -9,7 +9,6 @@ use crate::sounds::*;
 use crate::z_index::*;
 use bevy::color::{palettes::css::*, Alpha, Srgba};
 use bevy::prelude::{Gizmos, KeyCode};
-use bevy_vector_shapes::prelude::*;
 use layout::layout::Tree;
 use starling::prelude::*;
 use std::collections::{HashMap, HashSet};
@@ -412,6 +411,8 @@ impl Render for SurfaceContext {
         let ctx = &state.surface_context;
 
         draw_camera_info(canvas, ctx, state.input.screen_bounds.span);
+
+        draw_transforms(canvas, ctx, &state.universe);
 
         let surface_id = state.surface_context.current_surface;
 

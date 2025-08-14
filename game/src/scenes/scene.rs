@@ -1,7 +1,6 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SceneType {
     Orbital,
-    DockingView,
     Telescope,
     Editor,
     MainMenu,
@@ -33,13 +32,6 @@ impl Scene {
         Scene {
             name: "Editor".into(),
             scene_type: SceneType::Editor,
-        }
-    }
-
-    pub fn docking() -> Self {
-        Scene {
-            name: "Docking".into(),
-            scene_type: SceneType::DockingView,
         }
     }
 

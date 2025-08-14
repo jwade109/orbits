@@ -401,9 +401,9 @@ impl SparseOrbit {
     }
 
     pub fn pv(&self, stamp: Nanotime) -> Result<PV, ULData> {
-        // if let Some(pv) = self.pv_lut(stamp) {
-        //     return Ok(pv);
-        // }
+        if let Some(pv) = self.pv_lut(stamp) {
+            return Ok(pv);
+        }
         self.pv_universal(stamp)
     }
 
@@ -414,7 +414,7 @@ impl SparseOrbit {
             stamp - self.epoch
         };
 
-        let ul = universal_lagrange(self.initial, tof, self.body.mu() as f64);
+        let ul = universal_lagrange(self.initial, tof, self.body.mu());
         let sol = ul.1.ok_or(ul.0)?;
         if sol.pv.pos.length() > 3.0 * self.body.soi {
             return Err(ul.0);

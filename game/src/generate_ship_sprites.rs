@@ -49,7 +49,7 @@ pub fn proc_gen_ship_sprites(state: &mut GameState, images: &mut Assets<Image>) 
                 .universe
                 .orbital_vehicles
                 .iter()
-                .map(|(_, ov)| &ov.vehicle),
+                .map(|(_, ov)| ov.vehicle()),
         )
     {
         let sprite_name = vehicle_sprite_path(vehicle.discriminator());

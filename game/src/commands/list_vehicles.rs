@@ -13,8 +13,8 @@ impl Command for ListVehicles {
             let s = format!(
                 "{:?}: orbital name=\"{}\" d={}",
                 id,
-                ov.vehicle.name(),
-                ov.vehicle.discriminator()
+                ov.vehicle().name(),
+                ov.vehicle().discriminator()
             );
             state.console.print(s);
         }

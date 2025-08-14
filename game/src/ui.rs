@@ -503,7 +503,7 @@ pub fn pinned_menu(state: &GameState) -> Node<OnClick> {
                     .universe
                     .orbital_vehicles
                     .get(id)
-                    .map(|ov| ov.vehicle.title())
+                    .map(|ov| ov.vehicle().title())
                     .unwrap_or("?".to_string());
                 let s = format!("{} {}", name, id);
                 let b = Node::button(
@@ -604,37 +604,12 @@ pub fn layout(state: &GameState) -> Tree<OnClick> {
     let scene = state.current_scene();
     match scene.kind() {
         SceneType::MainMenu => MainMenuContext::ui(state),
-        SceneType::DockingView => DockingContext::ui(state),
         SceneType::Telescope => TelescopeContext::ui(state),
         SceneType::Orbital => OrbitalContext::ui(state),
         SceneType::Editor => EditorContext::ui(state),
         SceneType::Surface => SurfaceContext::ui(state),
     }
     .unwrap_or(Tree::new())
-}
-
-#[allow(unused)]
-fn current_inventory_layout(state: &GameState) -> Option<Node<OnClick>> {
-    let id = state.orbital_context.following?.orbiter()?;
-    let orbiter = state
-        .universe
-        .lup_orbiter(id, state.universe.stamp())?
-        .orbiter()?;
-    let vehicle = &state.universe.orbital_vehicles.get(&id)?.vehicle;
-
-    let buttons = Node::new(Size::Grow, Size::Fit).down().with_child({
-        let s = format!("Vehicle {}", vehicle.name());
-        Node::button(s, OnClick::Nullopt, Size::Grow, 40.0).enabled(false)
-    });
-
-    Some(
-        // TODO this node should be fit
-        Node::new(400.0, Size::Fit)
-            .tight()
-            .down()
-            .with_child(Node::new(Size::Grow, 30.0).with_color([0.2, 0.2, 0.2, 0.9]))
-            .with_child(buttons),
-    )
 }
 
 #[derive(Component)]

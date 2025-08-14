@@ -29,8 +29,6 @@ fn generate_landing_sites(pids: &[EntityId]) -> Vec<LandingSiteEntity> {
 
 impl Universe {
     pub fn new(planets: PlanetarySystem) -> Self {
-        let ids = planets.planet_ids();
-
         let mut ret = Self {
             stamp: Nanotime::zero(),
             ticks: 0,
@@ -42,7 +40,7 @@ impl Universe {
             constellations: HashMap::new(),
         };
 
-        for ls in generate_landing_sites(&ids) {
+        for ls in generate_landing_sites(&[EntityId(1)]) {
             ret.add_landing_site(ls.name, ls.surface, ls.planet, ls.angle);
         }
 
@@ -145,7 +143,7 @@ impl Universe {
 
             sv.controller
                 .check_target_achieved(&sv.body, external_accel.length() > 0.0);
-            sv.vehicle.set_thrust_control(ctrl);
+            sv.vehicle.set_thrust_control(&ctrl);
             sv.vehicle.on_sim_tick();
 
             sv.orbit = SparseOrbit::from_pv(sv.body.pv, ls.surface.body, stamp);
@@ -179,9 +177,7 @@ impl Universe {
         let delta = self.stamp - old_stamp;
 
         for (_, ov) in &mut self.orbital_vehicles {
-            ov.body.angle += ov.body.angular_velocity * delta.to_secs_f64();
-            ov.body.angle = wrap_pi_npi_f64(ov.body.angle);
-            ov.vehicle.zero_all_thrusters();
+            ov.on_sim_tick_batch(delta);
         }
     }
 
@@ -195,25 +191,14 @@ impl Universe {
                 None => &VehicleControl::NULLOPT,
             };
 
-            ov.reference_orbit_age += PHYSICS_CONSTANT_DELTA_TIME;
+            let parent_body = match self.planets.lookup(ov.parent(), self.stamp) {
+                Some((body, _, _, _)) => body,
+                None => continue,
+            };
 
-            if ov.reference_orbit_age > Nanotime::millis(100) {
-                ov.reference_orbit_age = Nanotime::zero();
-                if !ov.body.pv.is_zero() {
-                    if let Some(orbit) = ov.current_orbit(self.stamp) {
-                        ov.orbiter = Orbiter::new(orbit, self.stamp);
-                        ov.body.pv = PV::ZERO;
-                    }
-                }
-            }
+            let gravity = parent_body.gravity(ov.pv().pos);
 
-            ov.vehicle.set_thrust_control(*ctrl);
-            // ov.vehicle.on_sim_tick();
-
-            let accel = ov.vehicle.body_frame_accel();
-
-            ov.body
-                .on_sim_tick(accel, DVec2::ZERO, PHYSICS_CONSTANT_DELTA_TIME);
+            ov.on_sim_tick(ctrl, self.stamp, gravity, parent_body);
         }
 
         self.step_surface_vehicles(signals);
@@ -262,13 +247,14 @@ impl Universe {
         self.landing_sites.insert(id, entity);
     }
 
-    pub fn add_orbital_vehicle(&mut self, vehicle: Vehicle, orbit: GlobalOrbit) {
+    pub fn add_orbital_vehicle(&mut self, vehicle: Vehicle, orbit: GlobalOrbit) -> Option<()> {
         let id = self.next_entity_id();
         let orbiter = Orbiter::new(orbit, self.stamp);
-        let controller = OrbitalController::idle();
-        let os =
-            OrbitalSpacecraftEntity::new(vehicle, RigidBody::random_spin(), orbiter, controller);
+        let mut body = RigidBody::random_spin();
+        body.pv = orbit.1.pv(self.stamp).ok()?; // orbiter.pv(self.stamp, &self.planets)?;
+        let os = OrbitalSpacecraftEntity::new(orbit.0, vehicle, body, orbiter);
         self.orbital_vehicles.insert(id, os);
+        Some(())
     }
 
     pub fn add_surface_vehicle(
@@ -283,6 +269,8 @@ impl Universe {
             None => return,
         };
 
+        let planet_id = ls.planet;
+
         let pos = rotate_f64(DVec2::X * (ls.surface.body.radius + altitude), angle);
 
         let vel = randvec(2.0, 7.0);
@@ -295,17 +283,17 @@ impl Universe {
 
         let controller = VehicleController::launch();
         let id = self.next_entity_id();
-        let sv = SurfaceSpacecraftEntity::new(surface_id, vehicle, body, controller);
+        let sv = SurfaceSpacecraftEntity::new(surface_id, planet_id, vehicle, body, controller);
         self.surface_vehicles.insert(id, sv);
     }
 
+    #[deprecated]
     pub fn lup_orbiter(&self, id: EntityId, stamp: Nanotime) -> Option<ObjectLookup> {
         let os = self.orbital_vehicles.get(&id)?;
-        let prop = os.orbiter.propagator_at(stamp)?;
-        let (_, frame_pv, _, _) = self.planets.lookup(prop.parent(), stamp)?;
-        let local_pv = prop.pv(stamp)?;
-        let pv = frame_pv + local_pv;
-        Some(ObjectLookup(id, ScenarioObject::Orbiter(&os.orbiter), pv))
+        let pv = os.pv();
+        let (_, frame_pv, _, _) = self.planets.lookup(os.parent(), stamp)?;
+        let pv = frame_pv + pv;
+        Some(ObjectLookup(id, ScenarioObject::Orbiter(os.orbiter()), pv))
     }
 
     pub fn lup_planet(&self, id: EntityId, stamp: Nanotime) -> Option<ObjectLookup> {

@@ -154,7 +154,7 @@ pub fn relevant_body(planets: &PlanetarySystem, pos: DVec2, stamp: Nanotime) -> 
 impl OrbitalContext {
     pub fn new(primary: EntityId) -> Self {
         Self {
-            camera: LinearCameraController::new(DVec2::ZERO, 0.02, 600.0),
+            camera: LinearCameraController::new(DVec2::ZERO, 0.00002, 600.0),
             primary,
             selected: HashSet::new(),
             following: None,
@@ -174,15 +174,6 @@ impl OrbitalContext {
             mouse_down_world_pos: None,
             selection_bounds: None,
         }
-    }
-
-    pub fn follow_position(&self, universe: &Universe) -> Option<DVec2> {
-        let id = self.following?;
-        let lup = match id {
-            ObjectId::Orbiter(id) => universe.lup_orbiter(id, universe.stamp())?,
-            ObjectId::Planet(id) => universe.lup_planet(id, universe.stamp())?,
-        };
-        Some(lup.pv().pos)
     }
 
     pub fn toggle_track(&mut self, id: EntityId) {
@@ -287,10 +278,6 @@ impl OrbitalContext {
 
     pub fn on_render_tick(&mut self, on_ui: bool, input: &InputState, universe: &Universe) {
         self.camera.handle_input(input);
-
-        if let Some(p) = self.follow_position(universe) {
-            self.camera.follow(p);
-        }
 
         if on_ui {
             return;
@@ -401,7 +388,7 @@ pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> 
             let orb_id = id.orbiter().unwrap();
             let vehicle = state.universe.orbital_vehicles.get(&orb_id);
             let code = vehicle
-                .map(|ov| ov.vehicle.title())
+                .map(|ov| ov.vehicle().title())
                 .unwrap_or("UFO".to_string());
 
             // distance based on pixel space

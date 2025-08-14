@@ -3,45 +3,89 @@ use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct OrbitalSpacecraftEntity {
-    pub vehicle: Vehicle,
-    pub body: RigidBody,
-    pub orbiter: Orbiter,
-    pub controller: OrbitalController,
-    pub reference_orbit_age: Nanotime,
+    parent_id: EntityId,
+    vehicle: Vehicle,
+    body: RigidBody,
+    orbit: Option<SparseOrbit>,
+    orbiter: Orbiter,
+    reference_orbit_age: Nanotime,
 }
 
 impl OrbitalSpacecraftEntity {
-    pub fn new(
-        vehicle: Vehicle,
-        body: RigidBody,
-        orbiter: Orbiter,
-        controller: OrbitalController,
-    ) -> Self {
+    pub fn new(parent_id: EntityId, vehicle: Vehicle, body: RigidBody, orbiter: Orbiter) -> Self {
         Self {
+            parent_id,
             vehicle,
             body,
+            orbit: None,
             orbiter,
-            controller,
             reference_orbit_age: Nanotime::ZERO,
         }
     }
 
-    pub fn current_orbit(&self, stamp: Nanotime) -> Option<GlobalOrbit> {
-        let body_pv = self.body.pv; // m/s
-        let GlobalOrbit(id, orbit) = self.orbiter.orbit(stamp)?;
-        if body_pv.is_zero() {
-            return Some(GlobalOrbit(*id, *orbit));
+    pub fn pv(&self) -> PV {
+        self.body.pv
+    }
+
+    pub fn parent(&self) -> EntityId {
+        self.parent_id
+    }
+
+    pub fn current_orbit(&self) -> Option<GlobalOrbit> {
+        let orbit = self.orbit?;
+        Some(GlobalOrbit(self.parent_id, orbit))
+    }
+
+    #[deprecated]
+    pub fn orbiter(&self) -> &Orbiter {
+        &self.orbiter
+    }
+
+    pub fn vehicle(&self) -> &Vehicle {
+        &self.vehicle
+    }
+
+    pub fn overwrite_vehicle(&mut self, vehicle: Vehicle) {
+        self.vehicle = vehicle;
+    }
+
+    pub fn body(&self) -> &RigidBody {
+        &self.body
+    }
+
+    pub fn on_sim_tick(
+        &mut self,
+        ctrl: &VehicleControl,
+        stamp: Nanotime,
+        gravity: DVec2,
+        parent_body: Body,
+    ) {
+        self.reference_orbit_age += PHYSICS_CONSTANT_DELTA_TIME;
+
+        if self.reference_orbit_age > Nanotime::millis(100) {
+            self.orbit = SparseOrbit::from_pv(self.body.pv, parent_body, stamp);
         }
-        let orbit_pv = orbit.pv(stamp).ok()?; // km/s
-        let pv = orbit_pv + body_pv / 1000.0;
-        let orbit = SparseOrbit::from_pv(pv, orbit.body, stamp)?;
-        Some(GlobalOrbit(*id, orbit))
+
+        self.vehicle.set_thrust_control(ctrl);
+        // ov.vehicle.on_sim_tick();
+
+        let accel = self.vehicle.body_frame_accel();
+
+        self.body
+            .on_sim_tick(accel, gravity, PHYSICS_CONSTANT_DELTA_TIME);
+    }
+
+    pub fn on_sim_tick_batch(&mut self, elapsed: Nanotime) {
+        self.body.angle += self.body.angular_velocity * elapsed.to_secs_f64();
+        self.body.angle = wrap_pi_npi_f64(self.body.angle);
+        self.vehicle.zero_all_thrusters();
     }
 }
 
 #[derive(Debug)]
 pub struct SurfaceSpacecraftEntity {
     pub surface_id: EntityId,
+    pub planet_id: EntityId,
     pub vehicle: Vehicle,
     pub body: RigidBody,
     pub controller: VehicleController,
@@ -51,17 +95,23 @@ pub struct SurfaceSpacecraftEntity {
 impl SurfaceSpacecraftEntity {
     pub fn new(
         surface_id: EntityId,
+        planet_id: EntityId,
         vehicle: Vehicle,
         body: RigidBody,
         controller: VehicleController,
     ) -> Self {
         Self {
             surface_id,
+            planet_id,
             vehicle,
             body,
             controller,
             orbit: None,
         }
+    }
+
+    pub fn current_orbit(&self) -> Option<GlobalOrbit> {
+        Some(GlobalOrbit(self.planet_id, self.orbit?))
     }
 }
 

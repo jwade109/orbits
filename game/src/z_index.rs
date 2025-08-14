@@ -24,6 +24,7 @@ pub enum ZOrdering {
     HudIcon,
     HudAngularMomentum,
     ScaleIndicator,
+    Transforms,
 }
 
 impl ZOrdering {
