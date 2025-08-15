@@ -67,6 +67,22 @@ impl PV {
 
     pub fn is_zero(&self) -> bool {
         self.pos == DVec2::ZERO && self.vel == DVec2::ZERO
+    } 
+}
+
+pub fn distance_str(x: f64) -> String {
+    if x.abs() > 1000.0 {
+        format!("{:0.2} km", x / 1000.0)
+    } else {
+        format!("{:0.1} m", x)
+    }
+}
+
+pub fn velocity_str(x: f64) -> String {
+    if x.abs() > 1000.0 {
+        format!("{:0.2} km/s", x / 1000.0)
+    } else {
+        format!("{:0.1} m/s", x)
     }
 }
 
@@ -74,8 +90,8 @@ impl std::fmt::Display for PV {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "PV(({:0.3}, {:0.3}), ({:0.3}, {:0.3}))",
-            self.pos.x, self.pos.y, self.vel.x, self.vel.y
+            "({}, {}), ({}, {})",
+            distance_str(self.pos.x), distance_str(self.pos.y), velocity_str(self.vel.x), velocity_str(self.vel.y)
         )
     }
 }

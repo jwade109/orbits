@@ -398,13 +398,15 @@ pub fn draw_vehicle(
 
     let geo = vehicle.aabb().center;
 
-    canvas.sprite(
-        pos + rotate(geo, angle) * scale,
-        angle,
-        vehicle_sprite_path(vehicle.discriminator()),
-        ZOrdering::Vehicle,
-        vehicle.aabb().span * scale,
-    );
+    if !outline {
+        canvas.sprite(
+            pos + rotate(geo, angle) * scale,
+            angle,
+            vehicle_sprite_path(vehicle.discriminator()),
+            ZOrdering::Vehicle,
+            vehicle.aabb().span * scale,
+        );
+    }
 
     if thrusters {
         for (_, part) in vehicle.parts() {
@@ -522,11 +524,16 @@ pub fn draw_piloting_overlay(
     let piloting = pilot?;
 
     let sv = state.universe.surface_vehicles.get(&piloting)?;
+    let planet = state
+        .universe
+        .lup_planet(sv.parent(), state.universe.stamp())?;
+    let radius = planet.body()?.radius;
 
     let vehicle = sv.vehicle();
     let body = &sv.body;
     let orbit = sv.current_orbit();
     let ctrl = &sv.controller;
+    let altitude = body.pv.pos.length() - radius;
 
     let window_dims = state.input.screen_bounds.span;
     let rb = gcast(vehicle.bounding_radius());
@@ -553,7 +560,7 @@ pub fn draw_piloting_overlay(
         center,
         zoom,
         gcast(body.angle),
-        false,
+        true,
         true,
     );
 
@@ -635,8 +642,12 @@ pub fn draw_piloting_overlay(
 
     canvas
         .text(
-            format!("{}-type vessel", vehicle.model().to_uppercase()),
-            center + Vec2::new(r * 0.4, r + 90.0),
+            format!(
+                "ALT {}\n{}-type vessel",
+                distance_str(altitude),
+                vehicle.model().to_uppercase()
+            ),
+            center + Vec2::new(r * 0.4, r + 110.0),
             0.8,
         )
         .anchor_right();
@@ -653,17 +664,29 @@ pub fn draw_piloting_overlay(
         .map(|o| format!("{}", o))
         .unwrap_or("No orbit".to_string());
 
+    let docking_info = if let Some(t) = state.targeting() {
+        if let Some(sv) = state.universe.surface_vehicles.get(&t) {
+            let rvel = body.pv - sv.body.pv;
+            format!("RELM {}\n", rvel)
+        } else {
+            String::new()
+        }
+    } else {
+        String::new()
+    };
+
     canvas
         .text(
             format!(
-                "CTRL {:?} / {:?}\n{}\n{:?}",
+                "{}CTRL {:?} / {:?}\n{}\n{:?}",
+                docking_info,
                 ctrl.mode(),
                 ctrl.status(),
                 body.pv,
                 orbit_str
             ),
-            center + Vec2::new(r * 0.4, r + 150.0),
-            0.8,
+            center - Vec2::new(r * 1.2, r * 0.8),
+            0.7,
         )
         .anchor_right();
 
@@ -1179,55 +1202,48 @@ fn draw_rendezvous_info(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         .current_orbit()?;
     let vb = state.input.screen_bounds.span / 2.0;
 
-    let (g, v, relpos) = revisit(make_separation_graph(&po.1, &to.1, state.universe.stamp()));
+    let target_pos = state.universe.pv(target)?;
 
-    let h = 140.0;
+    let (_, _, relpos) = revisit(make_separation_graph(&po.1, &to.1, state.universe.stamp()));
 
-    draw_graph(
-        canvas,
-        &g,
-        AABB::from_arbitrary(
-            vb - Vec2::new(vb.x * 0.7, 200.0),
-            vb - Vec2::new(20.0, 200.0 - h),
-        ),
-        Some(&state.input),
-    );
-    draw_graph(
-        canvas,
-        &v,
-        AABB::from_arbitrary(
-            vb - Vec2::new(vb.x * 0.7, 220.0 + h),
-            vb - Vec2::new(20.0, 220.0),
-        ),
-        Some(&state.input),
-    );
+    // let h = 140.0;
 
-    {
-        let world_radius = ctx.rendezvous_scope_radius.value; // km
-        let screen_radius = 150.0;
-        let screen_center = vb - Vec2::new(200.0, 550.0);
-        let current_world = relpos.first().cloned();
+    // draw_graph(
+    //     canvas,
+    //     &g,
+    //     AABB::from_arbitrary(
+    //         vb - Vec2::new(vb.x * 0.7, 200.0),
+    //         vb - Vec2::new(20.0, 200.0 - h),
+    //     ),
+    //     Some(&state.input),
+    // );
+    // draw_graph(
+    //     canvas,
+    //     &v,
+    //     AABB::from_arbitrary(
+    //         vb - Vec2::new(vb.x * 0.7, 220.0 + h),
+    //         vb - Vec2::new(20.0, 220.0),
+    //     ),
+    //     Some(&state.input),
+    // );
 
-        let relpos_screen: Vec<_> = relpos
-            .into_iter()
-            .map(|p| {
-                let sep = p.length();
-                if sep > world_radius {
-                    Vec2::NAN
-                } else {
-                    screen_center + graphics_cast(p / world_radius) * screen_radius
-                }
-            })
-            .collect();
+    // {
+    //     let world_radius = ctx.rendezvous_scope_radius.value; // km
+    //     let screen_radius = 150.0;
+    //     let screen_center = vb - Vec2::new(200.0, 550.0);
+    //     let current_world = relpos.first().cloned();
 
-        draw_circle(&mut canvas.gizmos, screen_center, screen_radius, GRAY);
-        canvas.gizmos.linestrip_2d(relpos_screen, WHITE);
-        draw_x(&mut canvas.gizmos, screen_center, 6.0, RED);
-        if let Some(p) = current_world {
-            let p = screen_center + graphics_cast(p / world_radius) * screen_radius;
-            draw_x(&mut canvas.gizmos, p, 7.0, TEAL);
-        }
-    }
+    let relpos_screen: Vec<_> = relpos.into_iter().map(|p| ctx.w2c(target_pos.pos + p)).collect();
+    canvas.gizmos.linestrip_2d(relpos_screen, GRAY.with_alpha(0.3));
+
+    //     draw_circle(&mut canvas.gizmos, screen_center, screen_radius, GRAY);
+    //     canvas.gizmos.linestrip_2d(relpos_screen, WHITE);
+    //     draw_x(&mut canvas.gizmos, screen_center, 6.0, RED);
+    //     if let Some(p) = current_world {
+    //         let p = screen_center + graphics_cast(p / world_radius) * screen_radius;
+    //         draw_x(&mut canvas.gizmos, p, 7.0, TEAL);
+    //     }
+    // }
 
     if let Ok(Some((t, pv))) = get_next_intersection(state.universe.stamp(), &po.1, &to.1) {
         let p = ctx.w2c(pv.pos);
@@ -1674,14 +1690,6 @@ pub fn draw_transforms(canvas: &mut Canvas, ctx: &impl CameraProjection, univers
         canvas.painter.hollow = true;
         canvas.painter.set_translation(p1.extend(z));
         canvas.painter.rect(Vec2::new(20.0, 20.0));
-    }
-}
-
-fn distance_str(x: f64) -> String {
-    if x > 1000.0 {
-        format!("{:0.2} km", x / 1000.0)
-    } else {
-        format!("{:0.1} m", x)
     }
 }
 

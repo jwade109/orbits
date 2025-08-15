@@ -20,7 +20,7 @@ pub use crate::pid::*;
 pub use crate::planning::{best_maneuver_plan, get_next_intersection, ManeuverPlan};
 pub use crate::plants::Plant;
 pub use crate::propagator::{EventType, HorizonState, Propagator};
-pub use crate::pv::PV;
+pub use crate::pv::*;
 pub use crate::quantities::*;
 pub use crate::region::Region;
 pub use crate::scenario::{ObjectLookup, PlanetarySystem, ScenarioObject};
