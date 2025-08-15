@@ -152,7 +152,13 @@ impl Universe {
             sv.vehicle.set_thrust_control(&ctrl);
             sv.vehicle.on_sim_tick();
 
-            sv.orbit = SparseOrbit::from_pv(sv.body.pv, parent_body, stamp);
+            let altitude = sv.body.pv.pos.length() - parent_body.radius;
+
+            sv.orbit = if altitude > 2_000.0 {
+                SparseOrbit::from_pv(sv.body.pv, parent_body, stamp)
+            } else {
+                None
+            };
 
             let accel = sv.vehicle.body_frame_accel();
             sv.body

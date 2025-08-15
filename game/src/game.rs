@@ -27,7 +27,7 @@ use enum_iterator::next_cycle;
 use image::DynamicImage;
 use layout::layout::Tree;
 use starling::prelude::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::Path;
 
 pub struct GamePlugin;
@@ -548,7 +548,11 @@ impl GameState {
     }
 
     pub fn set_targeting(&mut self, id: EntityId) {
-        self.orbital_context.targeting = Some(id);
+        if let Some(p) = self.piloting() {
+            if let Some(sv) = self.universe.surface_vehicles.get_mut(&p) {
+                sv.set_target(id);
+            }
+        }
     }
 
     pub fn current_scene(&self) -> &Scene {
@@ -637,10 +641,6 @@ impl GameState {
         self.orbital_context.piloting
     }
 
-    pub fn targeting(&self) -> Option<EntityId> {
-        self.orbital_context.targeting
-    }
-
     pub fn spawn_with_random_perturbance(
         &mut self,
         global: GlobalOrbit,
@@ -702,9 +702,16 @@ impl GameState {
     }
 
     pub fn swap_ownship_target(&mut self) {
-        let tmp = self.orbital_context.targeting;
-        self.orbital_context.targeting = self.orbital_context.piloting;
-        self.orbital_context.piloting = tmp;
+        if let Some(old_pilot_id) = self.orbital_context.piloting {
+            if let Some(old_pilot) = self.universe.surface_vehicles.get_mut(&old_pilot_id) {
+                if let Some(new_pilot) = old_pilot.target() {
+                    self.orbital_context.piloting = Some(new_pilot);
+                    if let Some(sv) = self.universe.surface_vehicles.get_mut(&new_pilot) {
+                        sv.set_target(old_pilot_id);
+                    }
+                }
+            }
+        }
     }
 
     pub fn write_editor_to_ownship(&mut self) -> Option<()> {
@@ -837,9 +844,21 @@ impl GameState {
                 self.notice(format!("Throttle set to {:?}", throttle));
             }
             OnClick::ClearPilot => self.orbital_context.piloting = None,
-            OnClick::ClearTarget => self.orbital_context.targeting = None,
+            OnClick::ClearTarget => {
+                if let Some(p) = self.piloting() {
+                    if let Some(sv) = self.universe.surface_vehicles.get_mut(&p) {
+                        sv.set_target(None);
+                    }
+                }
+            }
             OnClick::SetPilot(p) => self.orbital_context.piloting = Some(p),
-            OnClick::SetTarget(p) => self.orbital_context.targeting = Some(p),
+            OnClick::SetTarget(t) => {
+                if let Some(p) = self.piloting() {
+                    if let Some(sv) = self.universe.surface_vehicles.get_mut(&p) {
+                        sv.set_target(t);
+                    }
+                }
+            }
             OnClick::SelectPart(name) => EditorContext::set_current_part(self, &name),
             OnClick::ToggleLayer(layer) => self.editor_context.toggle_layer(layer),
             OnClick::LoadVehicle(path) => _ = EditorContext::load_vehicle(&path, self),

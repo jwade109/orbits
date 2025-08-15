@@ -18,6 +18,7 @@ pub struct SurfaceSpacecraftEntity {
     pub controller: VehicleController,
     pub orbit: Option<SparseOrbit>,
     pub reference_orbit_age: Nanotime,
+    target: Option<EntityId>,
 }
 
 // impl OrbitalSpacecraftEntity {
@@ -99,6 +100,7 @@ impl SurfaceSpacecraftEntity {
             controller,
             orbit: None,
             reference_orbit_age: Nanotime::ZERO,
+            target: None,
         }
     }
 
@@ -120,6 +122,14 @@ impl SurfaceSpacecraftEntity {
 
     pub fn pv(&self) -> PV {
         self.body.pv
+    }
+
+    pub fn target(&self) -> Option<EntityId> {
+        self.target
+    }
+
+    pub fn set_target(&mut self, id: impl Into<Option<EntityId>>) {
+        self.target = id.into();
     }
 }
 

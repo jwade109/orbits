@@ -554,15 +554,7 @@ pub fn draw_piloting_overlay(
         Vec2::splat(r * 2.0) * 1.1,
     );
 
-    draw_vehicle(
-        canvas,
-        vehicle,
-        center,
-        zoom,
-        gcast(body.angle),
-        true,
-        true,
-    );
+    draw_vehicle(canvas, vehicle, center, zoom, gcast(body.angle), true, true);
 
     {
         canvas.painter.reset();
@@ -613,7 +605,7 @@ pub fn draw_piloting_overlay(
     draw_pointing_vector(
         &mut canvas.gizmos,
         center,
-        r * 1.2,
+        r * 1.3,
         rotate(Vec2::X, body.angle as f32),
         GREEN,
     );
@@ -662,12 +654,12 @@ pub fn draw_piloting_overlay(
 
     let orbit_str = orbit
         .map(|o| format!("{}", o))
-        .unwrap_or("No orbit".to_string());
+        .unwrap_or("/ NO INFO".to_string());
 
-    let docking_info = if let Some(t) = state.targeting() {
+    let docking_info = if let Some(t) = sv.target() {
         if let Some(sv) = state.universe.surface_vehicles.get(&t) {
             let rvel = body.pv - sv.body.pv;
-            format!("RELM {}\n", rvel)
+            format!("TGT {} {}\n", t, rvel)
         } else {
             String::new()
         }
@@ -678,7 +670,7 @@ pub fn draw_piloting_overlay(
     canvas
         .text(
             format!(
-                "{}CTRL {:?} / {:?}\n{}\n{:?}",
+                "{}CMD {:?} / {:?}\nNAV {}\nORB {}",
                 docking_info,
                 ctrl.mode(),
                 ctrl.status(),
@@ -722,7 +714,15 @@ fn draw_orbiter(canvas: &mut Canvas, state: &GameState, id: EntityId) -> Option<
     let meters = state.input.screen_bounds.span.as_dvec2() / ctx.scale();
     let tracked = state.orbital_context.selected.contains(&id);
     let piloting = state.piloting() == Some(id);
-    let targeting = state.targeting() == Some(id);
+    let targeting = if let Some(pilot) = state.piloting() {
+        if let Some(sv) = state.universe.surface_vehicles.get(&pilot) {
+            sv.target() == Some(id)
+        } else {
+            false
+        }
+    } else {
+        false
+    };
 
     let (parent, vehicle, body, orbit) = if let Some(sv) = state.universe.surface_vehicles.get(&id)
     {
@@ -1174,76 +1174,33 @@ pub fn draw_orbit_spline(canvas: &mut Canvas, state: &GameState) -> Option<()> {
     Some(())
 }
 
-fn highlight_targeted_vehicle(gizmos: &mut Gizmos, state: &GameState) -> Option<()> {
-    let id = state.targeting()?;
-    let pv = state.universe.pv(id)?;
-    let c = state.orbital_context.w2c(pv.pos);
-    draw_circle(gizmos, c, 10.0, TEAL);
-    for km in 1..=5 {
-        let r = state.orbital_context.scale() * km as f64;
-        draw_circle(gizmos, c, gcast(r), GRAY);
-    }
-    Some(())
-}
-
 fn draw_rendezvous_info(canvas: &mut Canvas, state: &GameState) -> Option<()> {
     let ctx = &state.orbital_context;
     let pilot = state.piloting()?;
-    let target = state.targeting()?;
-    let po = state
-        .universe
-        .surface_vehicles
-        .get(&pilot)?
-        .current_orbit()?;
+
+    let pv = state.universe.surface_vehicles.get(&pilot)?;
+
+    let target = pv.target()?;
+
+    let po = pv.current_orbit()?;
+
     let to = state
         .universe
         .surface_vehicles
         .get(&target)?
         .current_orbit()?;
-    let vb = state.input.screen_bounds.span / 2.0;
 
     let target_pos = state.universe.pv(target)?;
 
     let (_, _, relpos) = revisit(make_separation_graph(&po.1, &to.1, state.universe.stamp()));
 
-    // let h = 140.0;
-
-    // draw_graph(
-    //     canvas,
-    //     &g,
-    //     AABB::from_arbitrary(
-    //         vb - Vec2::new(vb.x * 0.7, 200.0),
-    //         vb - Vec2::new(20.0, 200.0 - h),
-    //     ),
-    //     Some(&state.input),
-    // );
-    // draw_graph(
-    //     canvas,
-    //     &v,
-    //     AABB::from_arbitrary(
-    //         vb - Vec2::new(vb.x * 0.7, 220.0 + h),
-    //         vb - Vec2::new(20.0, 220.0),
-    //     ),
-    //     Some(&state.input),
-    // );
-
-    // {
-    //     let world_radius = ctx.rendezvous_scope_radius.value; // km
-    //     let screen_radius = 150.0;
-    //     let screen_center = vb - Vec2::new(200.0, 550.0);
-    //     let current_world = relpos.first().cloned();
-
-    let relpos_screen: Vec<_> = relpos.into_iter().map(|p| ctx.w2c(target_pos.pos + p)).collect();
-    canvas.gizmos.linestrip_2d(relpos_screen, GRAY.with_alpha(0.3));
-
-    //     draw_circle(&mut canvas.gizmos, screen_center, screen_radius, GRAY);
-    //     canvas.gizmos.linestrip_2d(relpos_screen, WHITE);
-    //     draw_x(&mut canvas.gizmos, screen_center, 6.0, RED);
-    //     if let Some(p) = current_world {
-    //         let p = screen_center + graphics_cast(p / world_radius) * screen_radius;
-    //         draw_x(&mut canvas.gizmos, p, 7.0, TEAL);
-    //     }
-    // }
+    let relpos_screen: Vec<_> = relpos
+        .into_iter()
+        .map(|p| ctx.w2c(target_pos.pos + p))
+        .collect();
+    canvas
+        .gizmos
+        .linestrip_2d(relpos_screen, GRAY.with_alpha(0.3));
 
     if let Ok(Some((t, pv))) = get_next_intersection(state.universe.stamp(), &po.1, &to.1) {
         let p = ctx.w2c(pv.pos);
@@ -1252,6 +1209,14 @@ fn draw_rendezvous_info(canvas: &mut Canvas, state: &GameState) -> Option<()> {
             let q = ctx.w2c(q.pos);
             draw_circle(&mut canvas.gizmos, q, 20.0, ORANGE);
         }
+    }
+
+    let pv = state.universe.pv(target)?;
+    let c = state.orbital_context.w2c(pv.pos);
+    draw_circle(&mut canvas.gizmos, c, 10.0, TEAL);
+    for km in 1..=5 {
+        let r = state.orbital_context.scale() * km as f64 * 1000.0;
+        draw_circle(&mut canvas.gizmos, c, gcast(r), GRAY);
     }
 
     Some(())
@@ -1498,8 +1463,6 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
 
     draw_piloting_overlay(canvas, state, state.piloting());
 
-    highlight_targeted_vehicle(&mut canvas.gizmos, state);
-
     draw_rendezvous_info(canvas, state);
 
     draw_orbit_spline(canvas, state);
@@ -1672,7 +1635,9 @@ pub fn draw_cells(canvas: &mut Canvas, state: &GameState) -> Option<()> {
 }
 
 pub fn draw_transforms(canvas: &mut Canvas, ctx: &impl CameraProjection, universe: &Universe) {
-    for (pv, parent) in universe.frames() {
+    let camera_pv = PV::pos(ctx.origin());
+
+    for (pv, parent) in universe.frames().chain([(camera_pv, EntityId(0))]) {
         let parent_pv = match universe.lup_planet(parent, universe.stamp()) {
             Some(p) => p.pv(),
             None => continue,

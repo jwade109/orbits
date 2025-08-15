@@ -85,8 +85,6 @@ pub struct OrbitalContext {
     pub throttle: ThrottleLevel,
 
     pub piloting: Option<EntityId>,
-    pub targeting: Option<EntityId>,
-    pub rendezvous_scope_radius: LowPass,
 
     pub mouse_down_world_pos: Option<DVec2>,
     pub selection_bounds: Option<AABB>,
@@ -165,12 +163,6 @@ impl OrbitalContext {
             draw_mode: DrawMode::Default,
             throttle: ThrottleLevel(ThrottleLevel::MAX / 2),
             piloting: None,
-            targeting: None,
-            rendezvous_scope_radius: LowPass {
-                value: 50.0,
-                target: 50.0,
-                alpha: 0.1,
-            },
             mouse_down_world_pos: None,
             selection_bounds: None,
         }
@@ -279,7 +271,6 @@ impl OrbitalContext {
         }
 
         self.camera.on_game_tick();
-        self.rendezvous_scope_radius.step();
 
         let mut track_list = self.selected.clone();
         track_list.retain(|o| universe.surface_vehicles.contains_key(o));

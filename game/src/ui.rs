@@ -337,9 +337,19 @@ pub fn piloting_buttons(state: &GameState, width: Size) -> Node<OnClick> {
         .invisible()
         .with_padding(0.0);
 
+    let target = if let Some(p) = state.orbital_context.piloting {
+        if let Some(sv) = state.universe.surface_vehicles.get(&p) {
+            sv.target()
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
     let _x = if let Some(p) = state.orbital_context.piloting {
         wrapper.add_child({
-            let s = format!("Piloting {:?}", p);
+            let s = format!("Piloting {}", p);
             let b = Node::button(
                 s,
                 OnClick::Orbiter(p),
@@ -350,7 +360,7 @@ pub fn piloting_buttons(state: &GameState, width: Size) -> Node<OnClick> {
         });
     } else if let Some(ObjectId::Orbiter(p)) = state.orbital_context.following {
         wrapper.add_child({
-            let s = format!("Pilot {:?}", p);
+            let s = format!("Pilot {}", p);
             Node::button(
                 s,
                 OnClick::SetPilot(p),
@@ -370,9 +380,9 @@ pub fn piloting_buttons(state: &GameState, width: Size) -> Node<OnClick> {
         );
     };
 
-    let _y = if let Some(p) = state.orbital_context.targeting {
+    let _y = if let Some(p) = target {
         wrapper.add_child({
-            let s = format!("Targeting {:?}", p);
+            let s = format!("Targeting {}", p);
             let b = Node::button(
                 s,
                 OnClick::Orbiter(p),
@@ -384,7 +394,7 @@ pub fn piloting_buttons(state: &GameState, width: Size) -> Node<OnClick> {
         true
     } else if let Some(ObjectId::Orbiter(p)) = state.orbital_context.following {
         wrapper.add_child({
-            let s = format!("Target {:?}", p);
+            let s = format!("Target {}", p);
             Node::button(
                 s,
                 OnClick::SetTarget(p),
@@ -397,7 +407,7 @@ pub fn piloting_buttons(state: &GameState, width: Size) -> Node<OnClick> {
         false
     };
 
-    if state.piloting().is_some() && state.targeting().is_some() {
+    if state.piloting().is_some() && target.is_some() {
         wrapper.add_child({
             Node::button(
                 "Swap",
