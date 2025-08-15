@@ -399,36 +399,6 @@ fn highlight_part(
     }
 }
 
-pub fn draw_particles(
-    canvas: &mut Canvas,
-    ctx: &impl CameraProjection,
-    particles: &ThrustParticleEffects,
-) {
-    for particle in &particles.particles {
-        let p = ctx.w2c(particle.pv.pos);
-        let age = particle.age.to_secs();
-        let alpha = (1.0 - age / particle.lifetime.to_secs())
-            .powi(3)
-            .clamp(0.0, 1.0)
-            * (particle.atmo * 0.8 + 0.2);
-        let c1 = Srgba::from_f32_array(particle.initial_color);
-        let c2 = Srgba::from_f32_array(particle.final_color);
-        let color = c1.mix(&c2, age.clamp(0.0, 1.0).sqrt());
-        let size = 1.0 + age * 12.0;
-        let ramp_up = (age * 40.0).clamp(0.0, 1.0);
-        let stretch = (8.0 * (1.0 - age * 2.0)).max(1.0);
-        canvas
-            .sprite(
-                p,
-                particle.angle,
-                "cloud",
-                ZOrdering::ThrustParticles,
-                Vec2::new(size * stretch * ramp_up, size * ramp_up) * gcast(ctx.scale()),
-            )
-            .set_color(color.with_alpha(color.alpha * alpha));
-    }
-}
-
 impl Render for EditorContext {
     fn background_color(_state: &GameState) -> bevy::color::Srgba {
         GRAY.with_luminance(0.12)
@@ -505,7 +475,7 @@ impl Render for EditorContext {
             draw_aabb(canvas, ctx.w2c_aabb(aabb), GREEN);
         }
 
-        draw_particles(canvas, ctx, &ctx.particles);
+        draw_thrust_particles(canvas, ctx, &ctx.particles);
 
         match &ctx.cursor_state {
             CursorState::None | CursorState::Part(_) => {

@@ -30,7 +30,7 @@ impl ObjectIdTracker {
 
 #[derive(Debug, Clone)]
 pub enum ScenarioObject<'a> {
-    Orbiter(&'a OrbitalSpacecraftEntity),
+    Orbiter(&'a SurfaceSpacecraftEntity),
     Body(&'a String, Body),
 }
 
@@ -46,7 +46,7 @@ impl<'a> ObjectLookup<'a> {
         self.2
     }
 
-    pub fn orbiter(&self) -> Option<&'a OrbitalSpacecraftEntity> {
+    pub fn orbiter(&self) -> Option<&'a SurfaceSpacecraftEntity> {
         match self.1 {
             ScenarioObject::Orbiter(o) => Some(o),
             _ => None,

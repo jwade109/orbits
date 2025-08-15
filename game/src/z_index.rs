@@ -33,6 +33,6 @@ impl ZOrdering {
     }
 
     pub fn as_f32(&self) -> f32 {
-        self.as_u32() as f32 / 1000.0
+        self.as_u32() as f32 / 100.0
     }
 }

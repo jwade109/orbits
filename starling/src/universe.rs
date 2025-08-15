@@ -7,11 +7,11 @@ pub struct Universe {
     stamp: Nanotime,
     ticks: u128,
     next_entity_id: EntityId,
-    pub orbital_vehicles: HashMap<EntityId, OrbitalSpacecraftEntity>,
     pub surface_vehicles: HashMap<EntityId, SurfaceSpacecraftEntity>,
     pub planets: PlanetarySystem,
     pub landing_sites: HashMap<EntityId, LandingSiteEntity>,
     pub constellations: HashMap<EntityId, EntityId>,
+    pub thrust_particles: ThrustParticleEffects,
 }
 
 fn generate_landing_sites(pids: &[EntityId]) -> Vec<LandingSiteEntity> {
@@ -33,11 +33,11 @@ impl Universe {
             stamp: Nanotime::zero(),
             ticks: 0,
             next_entity_id: EntityId(1002),
-            orbital_vehicles: HashMap::new(),
             surface_vehicles: HashMap::new(),
             planets: planets.clone(),
             landing_sites: HashMap::new(),
             constellations: HashMap::new(),
+            thrust_particles: ThrustParticleEffects::new(),
         };
 
         for ls in generate_landing_sites(&[EntityId(1)]) {
@@ -62,7 +62,6 @@ impl Universe {
     }
 
     pub fn remove(&mut self, id: EntityId) {
-        self.orbital_vehicles.remove(&id);
         self.surface_vehicles.remove(&id);
         self.landing_sites.iter_mut().for_each(|(_, ls)| {
             ls.tracks.remove(&id);
@@ -123,18 +122,25 @@ impl Universe {
 
             let (ctrl, status) = match (sv.controller.mode(), sv.controller.get_target_pose()) {
                 (VehicleControlPolicy::Idle, _) => {
-                    (VehicleControl::NULLOPT, VehicleControlStatus::Whatever)
+                    (VehicleControl::NULLOPT, VehicleControlStatus::Idling)
                 }
-                (VehicleControlPolicy::External, _) => (ext, VehicleControlStatus::Whatever),
-                (VehicleControlPolicy::PositionHold, Some(pose)) => {
+                (VehicleControlPolicy::External, _) => (
+                    ext,
+                    if ext == VehicleControl::NULLOPT {
+                        VehicleControlStatus::WaitingForInput
+                    } else {
+                        VehicleControlStatus::UnderExternalControl
+                    },
+                ),
+                (VehicleControlPolicy::PositionHold(_), Some(pose)) => {
                     position_hold_control_law(pose, &sv.body, &sv.vehicle, gravity)
                 }
-                (VehicleControlPolicy::LaunchToOrbit, _) => enter_orbit_control_law(
+                (VehicleControlPolicy::LaunchToOrbit(altitude), _) => enter_orbit_control_law(
                     &parent_body,
                     &sv.body,
                     &sv.vehicle,
                     sv.orbit.as_ref(),
-                    300_000.0,
+                    *altitude,
                 ),
                 (_, _) => (VehicleControl::NULLOPT, VehicleControlStatus::Whatever),
             };
@@ -154,17 +160,17 @@ impl Universe {
 
             sv.body.clamp_with_elevation(parent_body.radius);
 
-            // let atmo = {
-            //     let altitude = sv.body.pv.pos.length() - parent_body.radius;
-            //     (1.0 - altitude / 200_000.0).clamp(0.0, 1.0) * ls.surface.atmo_density as f64
-            // };
+            let atmo = {
+                let altitude = sv.body.pv.pos.length() - parent_body.radius;
+                (1.0 - altitude / 200_000.0).clamp(0.0, 1.0)
+            };
 
-            // add_particles_from_vehicle(
-            //     &mut ls.surface.particles,
-            //     &sv.vehicle,
-            //     &sv.body,
-            //     atmo as f32,
-            // );
+            add_particles_from_vehicle(
+                &mut self.thrust_particles,
+                &sv.vehicle,
+                &sv.body,
+                atmo as f32,
+            );
 
             // ls.add_position_track(*id, stamp, sv.body.pv.pos);
         }
@@ -175,37 +181,18 @@ impl Universe {
         let old_stamp = self.stamp;
         self.stamp = old_stamp + PHYSICS_CONSTANT_DELTA_TIME * ticks;
         let delta = self.stamp - old_stamp;
-
-        for (_, ov) in &mut self.orbital_vehicles {
-            ov.on_sim_tick_batch(delta);
-        }
     }
 
     pub fn on_sim_tick(&mut self, signals: &ControlSignals) {
         self.ticks += 1;
         self.stamp += PHYSICS_CONSTANT_DELTA_TIME;
 
-        for (id, ov) in &mut self.orbital_vehicles {
-            let ctrl = match signals.piloting_commands.get(id) {
-                Some(ctrl) => ctrl,
-                None => &VehicleControl::NULLOPT,
-            };
-
-            let parent_body = match self.planets.lookup(ov.parent(), self.stamp) {
-                Some((body, _, _, _)) => body,
-                None => continue,
-            };
-
-            let gravity = parent_body.gravity(ov.pv().pos);
-
-            ov.on_sim_tick(ctrl, self.stamp, gravity, parent_body);
-        }
+        self.thrust_particles.step();
 
         self.step_surface_vehicles(signals);
 
-        self.constellations.retain(|id, _| {
-            self.orbital_vehicles.contains_key(id) || self.surface_vehicles.contains_key(id)
-        });
+        self.constellations
+            .retain(|id, _| self.surface_vehicles.contains_key(id));
     }
 
     pub fn get_group_members(&mut self, gid: EntityId) -> Vec<EntityId> {
@@ -232,7 +219,7 @@ impl Universe {
     }
 
     pub fn orbiter_ids(&self) -> impl Iterator<Item = EntityId> + use<'_> {
-        self.orbital_vehicles.keys().into_iter().map(|id| *id)
+        self.surface_vehicles.keys().into_iter().map(|id| *id)
     }
 
     pub fn add_landing_site(
@@ -251,8 +238,9 @@ impl Universe {
         let id = self.next_entity_id();
         let mut body = RigidBody::random_spin();
         body.pv = orbit.1.pv(self.stamp).ok()?; // orbiter.pv(self.stamp, &self.planets)?;
-        let os = OrbitalSpacecraftEntity::new(orbit.0, vehicle, body);
-        self.orbital_vehicles.insert(id, os);
+        let controller = VehicleController::idle();
+        let os = SurfaceSpacecraftEntity::new(orbit.0, vehicle, body, controller);
+        self.surface_vehicles.insert(id, os);
         Some(())
     }
 
@@ -288,23 +276,25 @@ impl Universe {
 
     #[deprecated]
     pub fn lup_orbiter(&self, id: EntityId, stamp: Nanotime) -> Option<ObjectLookup> {
-        let os = self.orbital_vehicles.get(&id)?;
+        let os = self.surface_vehicles.get(&id)?;
         let pv = os.pv();
         let (_, frame_pv, _, _) = self.planets.lookup(os.parent(), stamp)?;
         let pv = frame_pv + pv;
         Some(ObjectLookup(id, ScenarioObject::Orbiter(os), pv))
     }
 
-    pub fn pv(&self, id: EntityId, stamp: Nanotime) -> Option<PV> {
-        let (local, parent) = if let Some(ov) = self.orbital_vehicles.get(&id) {
+    pub fn pv(&self, id: EntityId) -> Option<PV> {
+        if let Some((_, pv, _, _)) = self.planets.lookup(id, self.stamp) {
+            return Some(pv);
+        }
+
+        let (local, parent) = if let Some(ov) = self.surface_vehicles.get(&id) {
             (ov.pv(), ov.parent())
-        } else if let Some(sv) = self.surface_vehicles.get(&id) {
-            (sv.pv(), sv.parent())
         } else {
             return None;
         };
 
-        let (_, parent, _, _) = self.planets.lookup(parent, stamp)?;
+        let (_, parent, _, _) = self.planets.lookup(parent, self.stamp)?;
 
         Some(local + parent)
     }
@@ -312,6 +302,16 @@ impl Universe {
     pub fn lup_planet(&self, id: EntityId, stamp: Nanotime) -> Option<ObjectLookup> {
         let (body, pv, _, sys) = self.planets.lookup(id, stamp)?;
         Some(ObjectLookup(id, ScenarioObject::Body(&sys.name, body), pv))
+    }
+
+    pub fn frames(&self) -> impl Iterator<Item = (PV, EntityId)> + use<'_> {
+        self.surface_vehicles
+            .iter()
+            .map(|(_, ov)| (ov.pv(), ov.parent()))
+            .chain(self.planets.planet_ids().into_iter().filter_map(|id| {
+                let (_, pv, parent, _) = self.planets.lookup(id, self.stamp)?;
+                Some((pv, parent?))
+            }))
     }
 }
 
@@ -332,8 +332,8 @@ pub fn orbiters_within_bounds(
     universe: &Universe,
     bounds: AABB,
 ) -> impl Iterator<Item = EntityId> + use<'_> {
-    universe.orbital_vehicles.iter().filter_map(move |(id, _)| {
-        let pv = universe.pv(*id, universe.stamp())?;
+    universe.surface_vehicles.iter().filter_map(move |(id, _)| {
+        let pv = universe.pv(*id)?;
         bounds.contains(aabb_stopgap_cast(pv.pos)).then(|| *id)
     })
 }

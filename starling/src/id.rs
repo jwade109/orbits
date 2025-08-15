@@ -37,4 +37,11 @@ impl ObjectId {
             _ => None,
         }
     }
+
+    pub fn as_eid(&self) -> EntityId {
+        match self {
+            ObjectId::Orbiter(e) => *e,
+            ObjectId::Planet(e) => *e,
+        }
+    }
 }

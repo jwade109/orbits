@@ -201,7 +201,6 @@ pub struct GameState {
     pub part_database: HashMap<String, PartPrototype>,
 
     pub starfield: Vec<(Vec3, Srgba, f32, f32)>,
-    pub pinned: HashSet<EntityId>,
 
     pub scenes: Vec<Scene>,
     pub current_scene_idx: usize,
@@ -294,7 +293,6 @@ impl GameState {
             exec_time: std::time::Duration::new(0, 0),
             part_database,
             starfield: generate_starfield(),
-            pinned: HashSet::new(),
             scenes: vec![
                 Scene::main_menu(),
                 Scene::orbital(),
@@ -361,12 +359,6 @@ impl GameState {
             let orbit = get_random_orbit(EntityId(1));
             if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {
                 g.spawn_with_random_perturbance(orbit, vehicle);
-            }
-        }
-
-        for (id, _) in &g.universe.orbital_vehicles {
-            if g.pinned.len() < 5 {
-                g.pinned.insert(*id);
             }
         }
 
@@ -679,7 +671,7 @@ impl GameState {
     }
 
     pub fn delete_orbiter(&mut self, id: EntityId) -> Option<()> {
-        let ov = self.universe.orbital_vehicles.remove(&id)?;
+        let ov = self.universe.surface_vehicles.remove(&id)?;
         let parent = ov.parent();
         let pv = ov.pv();
         self.notify(
@@ -724,7 +716,7 @@ impl GameState {
             }
         };
 
-        let ov = match self.universe.orbital_vehicles.get_mut(&id) {
+        let ov = match self.universe.surface_vehicles.get_mut(&id) {
             Some(v) => v,
             None => {
                 self.notice(format!("Failed to find vehicle for id {}", id));
@@ -893,8 +885,6 @@ impl GameState {
             }
             OnClick::NormalizeCraft => self.editor_context.normalize_coordinates(),
             OnClick::SwapOwnshipTarget => _ = self.swap_ownship_target(),
-            OnClick::PinObject(id) => _ = self.pinned.insert(id),
-            OnClick::UnpinObject(id) => _ = self.pinned.remove(&id),
             OnClick::ReloadGame => _ = self.reload(),
             OnClick::SetRecipe(id, recipe) => {
                 if self.editor_context.vehicle.set_recipe(id, recipe) {
@@ -1069,7 +1059,7 @@ impl GameState {
             SceneType::MainMenu => (),
             SceneType::Orbital => {
                 self.orbital_context
-                    .on_render_tick(on_ui, &self.input, &self.universe);
+                    .on_render_tick(on_ui, &self.input, &mut self.universe);
             }
             SceneType::Surface => {
                 self.surface_context.on_render_tick(

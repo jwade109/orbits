@@ -272,16 +272,30 @@ impl OrbitalContext {
     }
 
     pub fn on_game_tick(&mut self, universe: &Universe) {
+        if let Some(follow) = self.following {
+            if let Some(pv) = universe.pv(follow.as_eid()) {
+                self.camera.follow(pv.pos);
+            }
+        }
+
         self.camera.on_game_tick();
         self.rendezvous_scope_radius.step();
 
         let mut track_list = self.selected.clone();
-        track_list.retain(|o| universe.orbital_vehicles.contains_key(o));
+        track_list.retain(|o| universe.surface_vehicles.contains_key(o));
         self.selected = track_list;
     }
 
-    pub fn on_render_tick(&mut self, on_ui: bool, input: &InputState, universe: &Universe) {
+    pub fn on_render_tick(&mut self, on_ui: bool, input: &InputState, universe: &mut Universe) {
         self.camera.handle_input(input);
+
+        if input.just_pressed(KeyCode::KeyN) {
+            if let Some(id) = self.piloting {
+                if let Some(sv) = universe.surface_vehicles.get_mut(&id) {
+                    sv.controller.go_to_next_mode();
+                }
+            }
+        }
 
         if on_ui {
             return;
@@ -390,7 +404,7 @@ pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> 
             (d < body.radius, name.to_uppercase(), p + Vec2::Y * 30.0)
         } else {
             let orb_id = id.as_orbiter().unwrap();
-            let vehicle = state.universe.orbital_vehicles.get(&orb_id);
+            let vehicle = state.universe.surface_vehicles.get(&orb_id);
             let code = vehicle
                 .map(|ov| ov.vehicle().title())
                 .unwrap_or("UFO".to_string());
@@ -630,19 +644,11 @@ impl Render for OrbitalContext {
 
         let notif_bar = notification_bar(state, Size::Fixed(900.0));
 
-        let pinned = pinned_menu(state);
-
         let world = Node::grow()
             .down()
             .invisible()
             .tight()
-            .with_child(
-                Node::grow()
-                    .down()
-                    .invisible()
-                    .with_child(inner_topbar)
-                    .with_child(pinned),
-            )
+            .with_child(Node::grow().down().invisible().with_child(inner_topbar))
             .with_child(
                 Node::grow()
                     .tight()

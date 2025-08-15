@@ -492,65 +492,6 @@ pub fn left_right_arrows(
         .with_child(right)
 }
 
-pub fn pinned_menu(state: &GameState) -> Node<OnClick> {
-    let mut wrapper = Node::structural(600, Size::Fit)
-        .down()
-        .with_child(Node::text(Size::Grow, state.settings.ui_button_height, "Pnned").enabled(false))
-        .with_color(UI_BACKGROUND_COLOR)
-        .with_children({
-            state.pinned.iter().filter_map(|id| {
-                let name = state
-                    .universe
-                    .orbital_vehicles
-                    .get(id)
-                    .map(|ov| ov.vehicle().title())
-                    .unwrap_or("?".to_string());
-                let s = format!("{} {}", name, id);
-                let b = Node::button(
-                    s,
-                    OnClick::Orbiter(*id),
-                    Size::Grow,
-                    state.settings.ui_button_height,
-                );
-                let d = delete_wrapper(
-                    OnClick::UnpinObject(*id),
-                    b,
-                    state.settings.ui_button_height,
-                );
-                let (color, text, onclick) = if Some(*id) == state.piloting() {
-                    (DELETE_SOMETHING_COLOR, "Release", OnClick::ClearPilot)
-                } else {
-                    (PILOT_FAVORITES_COLOR, "Pilot", OnClick::SetPilot(*id))
-                };
-
-                let p = Node::button(
-                    text,
-                    onclick,
-                    state.settings.ui_button_height * 4.0,
-                    state.settings.ui_button_height,
-                )
-                .with_color(color);
-
-                Some(d.with_child(p))
-            })
-        });
-
-    if let Some(ObjectId::Orbiter(id)) = state.orbital_context.following {
-        wrapper.add_child(Node::hline());
-        let s = format!("Add {}", id);
-        let b = Node::button(
-            s,
-            OnClick::PinObject(id),
-            Size::Grow,
-            state.settings.ui_button_height,
-        )
-        .enabled(!state.pinned.contains(&id));
-        wrapper.add_child(b);
-    }
-
-    wrapper
-}
-
 pub fn throttle_controls(state: &GameState) -> Node<OnClick> {
     const THROTTLE_CONTROLS_WIDTH: f32 = 300.0;
 

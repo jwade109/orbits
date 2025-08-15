@@ -211,14 +211,6 @@ impl SurfaceContext {
             }
         }
 
-        if input.just_pressed(KeyCode::KeyC) {
-            for idx in &self.selected {
-                if let Some(sv) = universe.surface_vehicles.get_mut(idx) {
-                    sv.controller.clear_queue();
-                }
-            }
-        }
-
         if input.just_pressed(KeyCode::Delete) {
             for id in &self.selected {
                 universe.remove(*id);
@@ -433,7 +425,7 @@ impl Render for SurfaceContext {
             );
             canvas.text(text, p, gcast(5.0 * ctx.scale())).color.alpha = 0.2;
 
-            crate::craft_editor::draw_particles(canvas, ctx, &surface.particles);
+            draw_thrust_particles(canvas, ctx, &surface.particles);
 
             draw_tracks(canvas, ctx, &ls.tracks, &ctx.selected);
 
@@ -447,14 +439,6 @@ impl Render for SurfaceContext {
                     gcast(sv.body.angle),
                     false,
                     true,
-                );
-
-                let color: Srgba = crate::sprites::hashable_to_color(&sv.controller.mode()).into();
-
-                canvas.circle(
-                    pos,
-                    7.0,
-                    color.with_alpha(gcast((1.0 - ctx.scale() / 4.0).clamp(0.0, 1.0))),
                 );
 
                 let ground_track = sv.body.pv.pos.normalize_or_zero() * ls.surface.body.radius;

@@ -66,7 +66,7 @@ fn zero_gravity_control_law(
     let vel_along_error = error_hat * error_hat.dot(vel);
     let bad_vel = vel - vel_along_error;
 
-    if distance < 20.0 {
+    let status = if distance < 20.0 {
         ctrl.attitude = compute_attitude_control(body, target_angle, &vehicle.attitude_controller);
 
         let error = rotate_f64(target - body.pv.pos, -body.angle);
@@ -95,6 +95,7 @@ fn zero_gravity_control_law(
         ctrl.plus_y.use_rcs = true;
         ctrl.neg_x.use_rcs = true;
         ctrl.neg_y.use_rcs = true;
+        0
     } else if bad_vel.length() > 2.0 && vel.length() > 5.0 {
         let target_angle = (-bad_vel).to_angle();
         let angle_error = wrap_pi_npi_f64(target_angle - body.angle);
@@ -102,6 +103,7 @@ fn zero_gravity_control_law(
         if angle_error.abs() < 0.2 {
             ctrl.plus_x.throttle = 0.4;
         }
+        1
     } else if distance > 100.0 {
         let target_angle = error.to_angle();
         let angle_error = wrap_pi_npi_f64(target_angle - body.angle);
@@ -118,6 +120,7 @@ fn zero_gravity_control_law(
             ctrl.plus_y.throttle = 1.0;
             ctrl.plus_y.use_rcs = true;
         }
+        2
     } else if vel.length() > 3.0 {
         let forward = vehicle.max_forward_thrust();
         let backward = vehicle.max_backwards_thrust();
@@ -130,6 +133,7 @@ fn zero_gravity_control_law(
             if angle_error.abs() < 0.05 {
                 ctrl.neg_x.throttle = 0.2;
             }
+            3
         } else {
             // flip and burn
             let target_angle = (-vel).to_angle();
@@ -139,6 +143,7 @@ fn zero_gravity_control_law(
             if angle_error.abs() < 0.05 {
                 ctrl.plus_x.throttle = 0.2;
             }
+            4
         }
     } else if vel.length() < 1.0 {
         let target_angle = error.to_angle();
@@ -147,11 +152,13 @@ fn zero_gravity_control_law(
         if angle_error.abs() < 0.1 {
             ctrl.plus_x.throttle = 0.2;
         }
+        5
     } else {
         ctrl.attitude = compute_attitude_control(body, 0.0, &vehicle.attitude_controller);
-    }
+        6
+    };
 
-    (ctrl, VehicleControlStatus::Whatever)
+    (ctrl, VehicleControlStatus::ZeroGRendezvous(status))
 }
 
 fn compute_attitude_control(body: &RigidBody, target_angle: f64, pid: &PDCtrl) -> f64 {
@@ -196,13 +203,16 @@ fn hover_control_law(
 
     let mut ctrl = VehicleControl::NULLOPT;
 
-    if attitude_error < 0.7 {
+    let status = if attitude_error < 0.7 {
         ctrl.plus_x.throttle = throttle as f32;
-    }
+        VehicleControlStatus::TurningToHover
+    } else {
+        VehicleControlStatus::Hovering
+    };
 
     ctrl.attitude = attitude;
 
-    (ctrl, VehicleControlStatus::Whatever)
+    (ctrl, status)
 }
 
 pub fn position_hold_control_law(
@@ -262,13 +272,18 @@ pub fn velocity_control_law(
 pub enum VehicleControlStatus {
     Done,
     WaitingForInput,
+    UnderExternalControl,
+    ZeroGRendezvous(u32),
     RaisingOrbit,
     StopFalling,
     RaisingPeriapsis(i32),
     ExecutingLaunchProgram,
     CoastingToApoapsis(i32),
+    Idling,
     Whatever,
     InProgress,
+    TurningToHover,
+    Hovering,
 }
 
 fn to_int_percent(x: f64) -> i32 {
@@ -375,19 +390,18 @@ pub fn enter_orbit_control_law(
     (cmd, status)
 }
 
-#[derive(Debug, Clone, Copy, Sequence, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone)]
 pub enum VehicleControlPolicy {
     Idle,
     External,
-    PositionHold,
-    LaunchToOrbit,
+    PositionHold(Vec<(DVec2, f64)>),
+    LaunchToOrbit(f64),
 }
 
 #[derive(Debug, Clone)]
 pub struct VehicleController {
     status: VehicleControlStatus,
     mode: VehicleControlPolicy,
-    position_queue: Vec<(DVec2, f64)>,
 }
 
 pub type Pose = (DVec2, f64);
@@ -397,7 +411,6 @@ impl VehicleController {
         Self {
             status: VehicleControlStatus::Done,
             mode: VehicleControlPolicy::Idle,
-            position_queue: Vec::new(),
         }
     }
 
@@ -405,31 +418,27 @@ impl VehicleController {
         Self {
             status: VehicleControlStatus::WaitingForInput,
             mode: VehicleControlPolicy::External,
-            position_queue: Vec::new(),
         }
     }
 
     pub fn launch() -> Self {
         Self {
             status: VehicleControlStatus::InProgress,
-            mode: VehicleControlPolicy::LaunchToOrbit,
-            position_queue: Vec::new(),
+            mode: VehicleControlPolicy::LaunchToOrbit(rand(300_000.0, 700_000.0) as f64),
         }
     }
 
     pub fn position_hold(pose: Pose) -> Self {
         Self {
             status: VehicleControlStatus::InProgress,
-            mode: VehicleControlPolicy::PositionHold,
-            position_queue: vec![pose],
+            mode: VehicleControlPolicy::PositionHold(vec![pose]),
         }
     }
 
     pub fn mission(poses: Vec<Pose>) -> Self {
         Self {
             status: VehicleControlStatus::InProgress,
-            mode: VehicleControlPolicy::PositionHold,
-            position_queue: poses,
+            mode: VehicleControlPolicy::PositionHold(poses),
         }
     }
 
@@ -446,43 +455,54 @@ impl VehicleController {
     }
 
     pub fn enqueue_target_pose(&mut self, pose: Pose, clear_queue: bool) {
-        if clear_queue {
-            self.position_queue.clear();
+        if let VehicleControlPolicy::PositionHold(queue) = &mut self.mode {
+            if clear_queue {
+                queue.clear();
+            }
+            queue.push(pose);
+        } else {
+            self.mode = VehicleControlPolicy::PositionHold(vec![pose]);
         }
-        self.position_queue.push(pose);
-        self.mode = VehicleControlPolicy::PositionHold;
     }
 
-    pub fn mode(&self) -> VehicleControlPolicy {
-        self.mode
+    pub fn mode(&self) -> &VehicleControlPolicy {
+        &self.mode
     }
 
     pub fn is_idle(&self) -> bool {
-        self.mode == VehicleControlPolicy::Idle
+        match self.mode {
+            VehicleControlPolicy::Idle => true,
+            _ => false,
+        }
     }
 
     pub fn get_target_pose(&self) -> Option<Pose> {
-        self.position_queue.get(0).cloned()
+        self.get_target_queue().next()
     }
 
     pub fn get_target_queue(&self) -> impl Iterator<Item = Pose> + use<'_> {
-        self.position_queue
-            .iter()
-            .filter(|_| self.mode == VehicleControlPolicy::PositionHold)
-            .cloned()
+        match &self.mode {
+            VehicleControlPolicy::PositionHold(queue) => queue.iter().cloned(),
+            _ => [].iter().cloned(),
+        }
     }
 
     pub fn go_to_next_mode(&mut self) {
-        self.mode = next_cycle(&self.mode);
-    }
-
-    pub fn clear_queue(&mut self) {
-        self.position_queue.clear();
+        self.mode = match self.mode {
+            VehicleControlPolicy::Idle => VehicleControlPolicy::External,
+            VehicleControlPolicy::External => VehicleControlPolicy::PositionHold(vec![]),
+            VehicleControlPolicy::PositionHold(_) => {
+                VehicleControlPolicy::LaunchToOrbit(rand(300_000.0, 700_000.0) as f64)
+            }
+            VehicleControlPolicy::LaunchToOrbit(_) => VehicleControlPolicy::Idle,
+        };
     }
 
     fn mark_target_achieved(&mut self) {
-        if self.position_queue.len() > 1 {
-            self.position_queue.remove(0);
+        if let VehicleControlPolicy::PositionHold(queue) = &mut self.mode {
+            if queue.len() > 1 {
+                queue.remove(0);
+            }
         }
     }
 
@@ -491,10 +511,6 @@ impl VehicleController {
             Some(p) => p,
             None => return,
         };
-
-        if self.position_queue.len() <= 1 {
-            return;
-        }
 
         let d = pos.distance(body.pv.pos).abs();
         let v = body.pv.vel.length().abs();

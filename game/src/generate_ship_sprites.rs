@@ -47,7 +47,7 @@ pub fn proc_gen_ship_sprites(state: &mut GameState, images: &mut Assets<Image>) 
         .chain(
             state
                 .universe
-                .orbital_vehicles
+                .surface_vehicles
                 .iter()
                 .map(|(_, ov)| ov.vehicle()),
         )

@@ -9,7 +9,7 @@ pub struct ListVehicles {}
 
 impl Command for ListVehicles {
     fn execute(&self, state: &mut GameState) -> Result<(), String> {
-        for (id, ov) in &state.universe.orbital_vehicles {
+        for (id, ov) in &state.universe.surface_vehicles {
             let s = format!(
                 "{:?}: orbital name=\"{}\" d={}",
                 id,
