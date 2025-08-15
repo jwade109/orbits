@@ -2,12 +2,10 @@ use crate::entities::*;
 use crate::id::*;
 use crate::math::*;
 use crate::nanotime::Nanotime;
-use crate::orbiter::*;
 use crate::orbits::{Body, SparseOrbit};
 use crate::propagator::EventType;
 use crate::pv::PV;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy)]
 pub struct ObjectIdTracker(EntityId, EntityId);
@@ -32,7 +30,7 @@ impl ObjectIdTracker {
 
 #[derive(Debug, Clone)]
 pub enum ScenarioObject<'a> {
-    Orbiter(&'a Orbiter),
+    Orbiter(&'a OrbitalSpacecraftEntity),
     Body(&'a String, Body),
 }
 
@@ -48,17 +46,11 @@ impl<'a> ObjectLookup<'a> {
         self.2
     }
 
-    pub fn orbiter(&self) -> Option<&'a Orbiter> {
+    pub fn orbiter(&self) -> Option<&'a OrbitalSpacecraftEntity> {
         match self.1 {
             ScenarioObject::Orbiter(o) => Some(o),
             _ => None,
         }
-    }
-
-    pub fn parent(&self, stamp: Nanotime) -> Option<EntityId> {
-        let orbiter = self.orbiter()?;
-        let prop = orbiter.propagator_at(stamp)?;
-        Some(prop.parent())
     }
 
     pub fn body(&self) -> Option<Body> {
@@ -178,44 +170,3 @@ impl RemovalInfo {
         self.orbit.pv(self.stamp).ok()
     }
 }
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Scenario {
-    pub orbiters: HashMap<EntityId, Orbiter>,
-    pub planets: PlanetarySystem,
-}
-
-// pub fn simulate(
-//     orbiters: &mut HashMap<EntityId, OrbitalSpacecraftEntity>,
-//     planets: &PlanetarySystem,
-//     stamp: Nanotime,
-//     future_dur: Nanotime,
-// ) -> Vec<(EntityId, RemovalInfo)> {
-//     for (_, ov) in orbiters.iter_mut() {
-//         let e = ov.orbiter().propagate_to(stamp, future_dur, planets);
-//         if let Err(_e) = e {
-//             // dbg!(e);
-//         }
-//     }
-
-//     let mut info = vec![];
-
-//     orbiters.retain(|id, ov| {
-//         if ov.orbiter().propagator_at(stamp).is_none() {
-//             let reason = ov.orbiter().props().last().map(|p| RemovalInfo {
-//                 stamp: p.end().unwrap_or(stamp),
-//                 reason: p.event().unwrap_or(EventType::NumericalError),
-//                 parent: p.parent(),
-//                 orbit: p.orbit.1,
-//             });
-//             if let Some(reason) = reason {
-//                 info.push((*id, reason));
-//             }
-//             false
-//         } else {
-//             true
-//         }
-//     });
-
-//     info
-// }

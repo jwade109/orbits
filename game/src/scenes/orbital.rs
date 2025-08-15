@@ -271,9 +271,13 @@ impl OrbitalContext {
         Self::cursor_orbit(a, b, state)
     }
 
-    pub fn on_game_tick(&mut self) {
+    pub fn on_game_tick(&mut self, universe: &Universe) {
         self.camera.on_game_tick();
         self.rendezvous_scope_radius.step();
+
+        let mut track_list = self.selected.clone();
+        track_list.retain(|o| universe.orbital_vehicles.contains_key(o));
+        self.selected = track_list;
     }
 
     pub fn on_render_tick(&mut self, on_ui: bool, input: &InputState, universe: &Universe) {
@@ -385,7 +389,7 @@ pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> 
             let p = state.orbital_context.w2c(pw + DVec2::Y * body.radius);
             (d < body.radius, name.to_uppercase(), p + Vec2::Y * 30.0)
         } else {
-            let orb_id = id.orbiter().unwrap();
+            let orb_id = id.as_orbiter().unwrap();
             let vehicle = state.universe.orbital_vehicles.get(&orb_id);
             let code = vehicle
                 .map(|ov| ov.vehicle().title())

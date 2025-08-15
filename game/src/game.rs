@@ -1121,33 +1121,6 @@ impl GameState {
 
         self.wall_time += PHYSICS_CONSTANT_DELTA_TIME;
 
-        let s = self.universe.stamp();
-        let d = self.physics_duration;
-
-        let planets = self.universe.planets.clone();
-
-        // for (id, ri) in simulate(&mut self.universe.orbital_vehicles, &planets, s, d) {
-        //     info!("{} {:?}", id, &ri);
-        //     if let Some(pv) = ri.orbit.pv(ri.stamp).ok() {
-        //         let notif = match ri.reason {
-        //             EventType::Collide(_) => NotificationType::OrbiterCrashed(id),
-        //             EventType::Encounter(_) => continue,
-        //             EventType::Escape(_) => NotificationType::OrbiterEscaped(id),
-        //             EventType::Impulse(_) => continue,
-        //             EventType::NumericalError => NotificationType::NumericalError(id),
-        //         };
-        //         self.notify(ObjectId::Planet(ri.parent), notif, pv.pos);
-        //     }
-        // }
-
-        let mut track_list = self.orbital_context.selected.clone();
-        track_list.retain(|o| {
-            self.universe
-                .lup_orbiter(*o, self.universe.stamp())
-                .is_some()
-        });
-        self.orbital_context.selected = track_list;
-
         self.notifications.iter_mut().for_each(|n| n.jitter());
 
         self.notifications
@@ -1155,7 +1128,7 @@ impl GameState {
 
         match self.current_scene().kind() {
             SceneType::Orbital => {
-                self.orbital_context.on_game_tick();
+                self.orbital_context.on_game_tick(&self.universe);
             }
             SceneType::Telescope => {
                 self.telescope_context.on_game_tick();

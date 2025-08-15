@@ -1,115 +1,30 @@
-name: 'Satellite'
+name: Satellite
 parts:
+- partname: small-antenna
+  pos:
+  - 12
+  - -3
+  rot: South
 - partname: rcs
   pos:
   - -18
   - -14
   rot: North
-- partname: solarpanel
-  pos:
-  - -8
-  - 10
-  rot: North
 - partname: frame2
   pos:
-  - 2
-  - 0
-  rot: South
-- partname: gold
-  pos:
-  - -18
+  - -8
   - -10
-  rot: North
+  rot: South
+- partname: tank21
+  pos:
+  - 2
+  - -10
+  rot: East
 - partname: rcs
   pos:
   - -12
   - 14
   rot: East
-- partname: angled-frame
-  pos:
-  - -8
-  - -20
-  rot: South
-- partname: battery
-  pos:
-  - 2
-  - 0
-  rot: South
-- partname: rcs
-  pos:
-  - -12
-  - -20
-  rot: East
-- partname: plate
-  pos:
-  - -8
-  - 0
-  rot: South
-- partname: small-antenna
-  pos:
-  - 12
-  - -7
-  rot: South
-- partname: frame2
-  pos:
-  - -8
-  - 0
-  rot: South
-- partname: rcs
-  pos:
-  - 12
-  - 1
-  rot: West
-- partname: small-motor
-  pos:
-  - -31
-  - -5
-  rot: East
-- partname: gold
-  pos:
-  - -18
-  - 0
-  rot: North
-- partname: cpu
-  pos:
-  - 2
-  - -9
-  rot: South
-- partname: rcs
-  pos:
-  - -18
-  - 10
-  rot: South
-- partname: frame2
-  pos:
-  - 2
-  - -10
-  rot: South
-- partname: plate
-  pos:
-  - -8
-  - -10
-  rot: South
-- partname: frame2
-  pos:
-  - -8
-  - -10
-  rot: South
-- partname: frame2
-  pos:
-  - -18
-  - -10
-  rot: South
-- partname: angled-frame
-  pos:
-  - -8
-  - 10
-  rot: East
-- partname: frame2
-  pos:
-  - -18
-  - 0
-  rot: South
 - partname: tank21
   pos:
   - -8
@@ -120,4 +35,79 @@ parts:
   - -8
   - -75
   rot: South
+- partname: gold
+  pos:
+  - -18
+  - 0
+  rot: North
+- partname: rcs
+  pos:
+  - -18
+  - 10
+  rot: South
+- partname: frame2
+  pos:
+  - -18
+  - -10
+  rot: South
+- partname: angled-frame
+  pos:
+  - -8
+  - 10
+  rot: East
+- partname: frame2
+  pos:
+  - -18
+  - 0
+  rot: South
+- partname: rcs
+  pos:
+  - -12
+  - -20
+  rot: East
+- partname: frame2
+  pos:
+  - 2
+  - 0
+  rot: South
+- partname: gold
+  pos:
+  - -18
+  - -10
+  rot: North
+- partname: angled-frame
+  pos:
+  - -8
+  - -20
+  rot: South
+- partname: solarpanel
+  pos:
+  - -8
+  - 10
+  rot: North
+- partname: frame2
+  pos:
+  - -8
+  - 0
+  rot: South
+- partname: plate
+  pos:
+  - -8
+  - -10
+  rot: South
+- partname: plate
+  pos:
+  - -8
+  - 0
+  rot: South
+- partname: frame2
+  pos:
+  - 2
+  - -10
+  rot: South
+- partname: small-motor
+  pos:
+  - -25
+  - -5
+  rot: East
 lines: []

@@ -768,8 +768,20 @@ fn draw_orbiter(canvas: &mut Canvas, state: &GameState, id: EntityId) -> Option<
         ShowOrbitsState::None => false,
     };
 
+    let color = if !show_orbits {
+        return None;
+    } else if tracked {
+        PURPLE
+    } else if piloting {
+        ORANGE
+    } else if targeting {
+        BLUE
+    } else {
+        GRAY.with_alpha(0.3)
+    };
+
     if let Some(orbit) = orbit {
-        draw_global_orbit(canvas, &orbit, state, GRAY);
+        draw_global_orbit(canvas, &orbit, state, color);
     }
 
     // if tracked || piloting || targeting {
@@ -890,32 +902,30 @@ fn draw_event_animation(
     id: EntityId,
     ctx: &impl CameraProjection,
 ) -> Option<()> {
-    let obj = state
-        .universe
-        .lup_orbiter(id, state.universe.stamp())?
-        .orbiter()?;
-    let p = obj.props().last()?;
-    let dt = Nanotime::hours(1);
-    let mut t = state.universe.stamp() + dt;
-    while t < p
-        .end()
-        .unwrap_or(state.universe.stamp() + Nanotime::days(5))
-    {
-        let pv = obj.pv(t, &state.universe.planets)?;
-        draw_circle(gizmos, ctx.w2c(pv.pos), 3.0, WHITE.with_alpha(0.2));
-        t += dt;
-    }
-    for prop in obj.props() {
-        if let Some((t, e)) = prop.stamped_event() {
-            let pv = obj.pv(t, &state.universe.planets)?;
-            draw_event_marker_at(gizmos, state.wall_time, &e, ctx.w2c(pv.pos));
-        }
-    }
-    if let Some(t) = p.end() {
-        let pv = obj.pv(t, &state.universe.planets)?;
-        draw_square(gizmos, ctx.w2c(pv.pos), 13.0, RED.with_alpha(0.8));
-    }
-    Some(())
+    None
+    // let obj = state.universe.orbital_vehicles.get(&id)?.orbiter();
+    // let p = obj.props().last()?;
+    // let dt = Nanotime::hours(1);
+    // let mut t = state.universe.stamp() + dt;
+    // while t < p
+    //     .end()
+    //     .unwrap_or(state.universe.stamp() + Nanotime::days(5))
+    // {
+    //     let pv = obj.pv(t, &state.universe.planets)?;
+    //     draw_circle(gizmos, ctx.w2c(pv.pos), 3.0, WHITE.with_alpha(0.2));
+    //     t += dt;
+    // }
+    // for prop in obj.props() {
+    //     if let Some((t, e)) = prop.stamped_event() {
+    //         let pv = obj.pv(t, &state.universe.planets)?;
+    //         draw_event_marker_at(gizmos, state.wall_time, &e, ctx.w2c(pv.pos));
+    //     }
+    // }
+    // if let Some(t) = p.end() {
+    //     let pv = obj.pv(t, &state.universe.planets)?;
+    //     draw_square(gizmos, ctx.w2c(pv.pos), 13.0, RED.with_alpha(0.8));
+    // }
+    // Some(())
 }
 
 fn draw_maneuver_plan(
@@ -1660,6 +1670,14 @@ pub fn draw_transforms(canvas: &mut Canvas, ctx: &impl CameraProjection, univers
     }
 }
 
+fn distance_str(x: f64) -> String {
+    if x > 1000.0 {
+        format!("{:0.2} km", x / 1000.0)
+    } else {
+        format!("{:0.1} m", x)
+    }
+}
+
 pub fn draw_camera_info(canvas: &mut Canvas, ctx: &impl CameraProjection, window_span: Vec2) {
     let meters = window_span.as_dvec2() / ctx.scale();
     let lower_bound = ctx.origin() - meters / 2.0;
@@ -1674,9 +1692,17 @@ pub fn draw_camera_info(canvas: &mut Canvas, ctx: &impl CameraProjection, window
     let dist = (xu - xl).max(yu - yl);
 
     let mut step: i64 = 1;
-    while dist / step > 100 {
-        step *= 10;
+    while dist / step > 40 {
+        step *= 2;
     }
+
+    canvas
+        .text(
+            distance_str(step as f64),
+            Vec2::new(window_span.x, -window_span.y) / 2.0 - Vec2::new(40.0, -40.0),
+            0.5,
+        )
+        .anchor_right();
 
     let xl = (xl / step) * step;
     let xu = (xu / step) * step;

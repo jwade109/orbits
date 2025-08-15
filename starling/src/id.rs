@@ -24,14 +24,14 @@ impl std::fmt::Display for ObjectId {
 }
 
 impl ObjectId {
-    pub fn orbiter(&self) -> Option<EntityId> {
+    pub fn as_orbiter(&self) -> Option<EntityId> {
         match self {
             Self::Orbiter(id) => Some(*id),
             _ => None,
         }
     }
 
-    pub fn planet(&self) -> Option<EntityId> {
+    pub fn as_planet(&self) -> Option<EntityId> {
         match self {
             Self::Planet(id) => Some(*id),
             _ => None,

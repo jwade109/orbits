@@ -7,18 +7,25 @@ pub struct OrbitalSpacecraftEntity {
     vehicle: Vehicle,
     body: RigidBody,
     orbit: Option<SparseOrbit>,
-    orbiter: Orbiter,
     reference_orbit_age: Nanotime,
 }
 
+#[derive(Debug)]
+pub struct SurfaceSpacecraftEntity {
+    pub planet_id: EntityId,
+    pub vehicle: Vehicle,
+    pub body: RigidBody,
+    pub controller: VehicleController,
+    pub orbit: Option<SparseOrbit>,
+}
+
 impl OrbitalSpacecraftEntity {
-    pub fn new(parent_id: EntityId, vehicle: Vehicle, body: RigidBody, orbiter: Orbiter) -> Self {
+    pub fn new(parent_id: EntityId, vehicle: Vehicle, body: RigidBody) -> Self {
         Self {
             parent_id,
             vehicle,
             body,
             orbit: None,
-            orbiter,
             reference_orbit_age: Nanotime::ZERO,
         }
     }
@@ -34,11 +41,6 @@ impl OrbitalSpacecraftEntity {
     pub fn current_orbit(&self) -> Option<GlobalOrbit> {
         let orbit = self.orbit?;
         Some(GlobalOrbit(self.parent_id, orbit))
-    }
-
-    #[deprecated]
-    pub fn orbiter(&self) -> &Orbiter {
-        &self.orbiter
     }
 
     pub fn vehicle(&self) -> &Vehicle {
@@ -82,26 +84,14 @@ impl OrbitalSpacecraftEntity {
     }
 }
 
-#[derive(Debug)]
-pub struct SurfaceSpacecraftEntity {
-    pub surface_id: EntityId,
-    pub planet_id: EntityId,
-    pub vehicle: Vehicle,
-    pub body: RigidBody,
-    pub controller: VehicleController,
-    pub orbit: Option<SparseOrbit>,
-}
-
 impl SurfaceSpacecraftEntity {
     pub fn new(
-        surface_id: EntityId,
         planet_id: EntityId,
         vehicle: Vehicle,
         body: RigidBody,
         controller: VehicleController,
     ) -> Self {
         Self {
-            surface_id,
             planet_id,
             vehicle,
             body,
@@ -112,6 +102,14 @@ impl SurfaceSpacecraftEntity {
 
     pub fn current_orbit(&self) -> Option<GlobalOrbit> {
         Some(GlobalOrbit(self.planet_id, self.orbit?))
+    }
+
+    pub fn parent(&self) -> EntityId {
+        self.planet_id
+    }
+
+    pub fn pv(&self) -> PV {
+        self.body.pv
     }
 }
 

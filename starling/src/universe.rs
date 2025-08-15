@@ -108,12 +108,12 @@ impl Universe {
         let stamp = self.stamp();
 
         for (id, sv) in &mut self.surface_vehicles {
-            let ls = match self.landing_sites.get_mut(&sv.surface_id) {
-                Some(s) => s,
+            let parent_body = match self.planets.lookup(sv.planet_id, self.stamp) {
+                Some((body, _, _, _)) => body,
                 None => continue,
             };
 
-            let external_accel = ls.surface.body.gravity(sv.body.pv.pos);
+            let gravity = parent_body.gravity(sv.body.pv.pos);
 
             let ext = signals
                 .piloting_commands
@@ -127,10 +127,10 @@ impl Universe {
                 }
                 (VehicleControlPolicy::External, _) => (ext, VehicleControlStatus::Whatever),
                 (VehicleControlPolicy::PositionHold, Some(pose)) => {
-                    position_hold_control_law(pose, &sv.body, &sv.vehicle, external_accel)
+                    position_hold_control_law(pose, &sv.body, &sv.vehicle, gravity)
                 }
                 (VehicleControlPolicy::LaunchToOrbit, _) => enter_orbit_control_law(
-                    &ls.surface.body,
+                    &parent_body,
                     &sv.body,
                     &sv.vehicle,
                     sv.orbit.as_ref(),
@@ -142,31 +142,31 @@ impl Universe {
             sv.controller.set_status(status);
 
             sv.controller
-                .check_target_achieved(&sv.body, external_accel.length() > 0.0);
+                .check_target_achieved(&sv.body, gravity.length() > 0.0);
             sv.vehicle.set_thrust_control(&ctrl);
             sv.vehicle.on_sim_tick();
 
-            sv.orbit = SparseOrbit::from_pv(sv.body.pv, ls.surface.body, stamp);
+            sv.orbit = SparseOrbit::from_pv(sv.body.pv, parent_body, stamp);
 
             let accel = sv.vehicle.body_frame_accel();
             sv.body
-                .on_sim_tick(accel, external_accel, PHYSICS_CONSTANT_DELTA_TIME);
+                .on_sim_tick(accel, gravity, PHYSICS_CONSTANT_DELTA_TIME);
 
-            sv.body.clamp_with_elevation(ls.surface.body.radius);
+            sv.body.clamp_with_elevation(parent_body.radius);
 
-            let atmo = {
-                let altitude = sv.body.pv.pos.length() - ls.surface.body.radius;
-                (1.0 - altitude / 200_000.0).clamp(0.0, 1.0) * ls.surface.atmo_density as f64
-            };
+            // let atmo = {
+            //     let altitude = sv.body.pv.pos.length() - parent_body.radius;
+            //     (1.0 - altitude / 200_000.0).clamp(0.0, 1.0) * ls.surface.atmo_density as f64
+            // };
 
-            add_particles_from_vehicle(
-                &mut ls.surface.particles,
-                &sv.vehicle,
-                &sv.body,
-                atmo as f32,
-            );
+            // add_particles_from_vehicle(
+            //     &mut ls.surface.particles,
+            //     &sv.vehicle,
+            //     &sv.body,
+            //     atmo as f32,
+            // );
 
-            ls.add_position_track(*id, stamp, sv.body.pv.pos);
+            // ls.add_position_track(*id, stamp, sv.body.pv.pos);
         }
     }
 
@@ -249,10 +249,9 @@ impl Universe {
 
     pub fn add_orbital_vehicle(&mut self, vehicle: Vehicle, orbit: GlobalOrbit) -> Option<()> {
         let id = self.next_entity_id();
-        let orbiter = Orbiter::new(orbit, self.stamp);
         let mut body = RigidBody::random_spin();
         body.pv = orbit.1.pv(self.stamp).ok()?; // orbiter.pv(self.stamp, &self.planets)?;
-        let os = OrbitalSpacecraftEntity::new(orbit.0, vehicle, body, orbiter);
+        let os = OrbitalSpacecraftEntity::new(orbit.0, vehicle, body);
         self.orbital_vehicles.insert(id, os);
         Some(())
     }
@@ -283,7 +282,7 @@ impl Universe {
 
         let controller = VehicleController::launch();
         let id = self.next_entity_id();
-        let sv = SurfaceSpacecraftEntity::new(surface_id, planet_id, vehicle, body, controller);
+        let sv = SurfaceSpacecraftEntity::new(planet_id, vehicle, body, controller);
         self.surface_vehicles.insert(id, sv);
     }
 
@@ -293,45 +292,26 @@ impl Universe {
         let pv = os.pv();
         let (_, frame_pv, _, _) = self.planets.lookup(os.parent(), stamp)?;
         let pv = frame_pv + pv;
-        Some(ObjectLookup(id, ScenarioObject::Orbiter(os.orbiter()), pv))
+        Some(ObjectLookup(id, ScenarioObject::Orbiter(os), pv))
+    }
+
+    pub fn pv(&self, id: EntityId, stamp: Nanotime) -> Option<PV> {
+        let (local, parent) = if let Some(ov) = self.orbital_vehicles.get(&id) {
+            (ov.pv(), ov.parent())
+        } else if let Some(sv) = self.surface_vehicles.get(&id) {
+            (sv.pv(), sv.parent())
+        } else {
+            return None;
+        };
+
+        let (_, parent, _, _) = self.planets.lookup(parent, stamp)?;
+
+        Some(local + parent)
     }
 
     pub fn lup_planet(&self, id: EntityId, stamp: Nanotime) -> Option<ObjectLookup> {
         let (body, pv, _, sys) = self.planets.lookup(id, stamp)?;
         Some(ObjectLookup(id, ScenarioObject::Body(&sys.name, body), pv))
-    }
-
-    pub fn lup_surface_vehicle(
-        &self,
-        id: EntityId,
-        surface_id: EntityId,
-    ) -> Option<&SurfaceSpacecraftEntity> {
-        let sv = self.surface_vehicles.get(&id)?;
-        (sv.surface_id == surface_id).then(|| sv)
-    }
-
-    pub fn surface_vehicles(
-        &self,
-        surface_id: EntityId,
-    ) -> impl Iterator<Item = (&EntityId, &SurfaceSpacecraftEntity)> + use<'_> {
-        self.surface_vehicles
-            .iter()
-            .filter(move |(_, sv)| sv.surface_id == surface_id)
-    }
-
-    pub fn surface_vehicles_mut(
-        &mut self,
-        surface_id: EntityId,
-    ) -> impl Iterator<Item = (&EntityId, &mut SurfaceSpacecraftEntity)> + use<'_> {
-        self.surface_vehicles
-            .iter_mut()
-            .filter(move |(_, sv)| sv.surface_id == surface_id)
-    }
-
-    pub fn all_surface_vehicles(
-        &self,
-    ) -> impl Iterator<Item = (&EntityId, &SurfaceSpacecraftEntity)> + use<'_> {
-        self.surface_vehicles.iter()
     }
 }
 
@@ -353,7 +333,7 @@ pub fn orbiters_within_bounds(
     bounds: AABB,
 ) -> impl Iterator<Item = EntityId> + use<'_> {
     universe.orbital_vehicles.iter().filter_map(move |(id, _)| {
-        let pv = universe.lup_orbiter(*id, universe.stamp())?.pv();
+        let pv = universe.pv(*id, universe.stamp())?;
         bounds.contains(aabb_stopgap_cast(pv.pos)).then(|| *id)
     })
 }

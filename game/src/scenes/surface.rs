@@ -8,7 +8,7 @@ use crate::scenes::{CameraProjection, Render};
 use crate::sounds::*;
 use crate::z_index::*;
 use bevy::color::{palettes::css::*, Alpha, Srgba};
-use bevy::prelude::{Gizmos, KeyCode};
+use bevy::prelude::KeyCode;
 use layout::layout::Tree;
 use starling::prelude::*;
 use std::collections::{HashMap, HashSet};
@@ -52,7 +52,7 @@ impl SurfaceContext {
         universe: &'a Universe,
         pos: DVec2,
     ) -> Option<(EntityId, &'a SurfaceSpacecraftEntity)> {
-        for (id, sv) in universe.surface_vehicles(self.current_surface) {
+        for (id, sv) in &universe.surface_vehicles {
             let veh_screen_pos = self.w2c(sv.body.pv.pos);
             let mouse_screen_pos = self.w2c(pos);
 
@@ -91,7 +91,8 @@ impl SurfaceContext {
 
         if let Some(bounds) = self.selection_region(input.on_frame(MouseButt::Left, FrameId::Up)) {
             self.selected = universe
-                .surface_vehicles(self.current_surface)
+                .surface_vehicles
+                .iter()
                 .filter_map(|(id, sv)| {
                     bounds
                         .contains(aabb_stopgap_cast(sv.body.pv.pos))
@@ -231,10 +232,7 @@ impl SurfaceContext {
         ctx.camera.on_game_tick();
 
         if let Some(follow) = ctx.follow {
-            if let Some(sv) = state
-                .universe
-                .lup_surface_vehicle(follow, ctx.current_surface)
-            {
+            if let Some(sv) = state.universe.surface_vehicles.get(&follow) {
                 let p = sv.body.pv.pos;
                 ctx.camera.follow(p);
             }
@@ -252,26 +250,6 @@ impl CameraProjection for SurfaceContext {
     fn scale(&self) -> f64 {
         self.camera.scale()
     }
-}
-
-#[allow(unused)]
-fn draw_kinematic_arc(
-    gizmos: &mut Gizmos,
-    mut pv: PV,
-    ctx: &impl CameraProjection,
-    accel: Vec2,
-    surface: &Surface,
-) {
-    // let dt = 0.25;
-    // for _ in 0..100 {
-    //     if pv.pos.y < surface.elevation(pv.pos.x as f32) as f64 {
-    //         return;
-    //     }
-    //     let q = ctx.w2c(pv.pos);
-    //     draw_circle(gizmos, q, 2.0, GRAY);
-    //     pv.pos += pv.vel * dt;
-    //     pv.vel += accel.as_dvec2() * dt;
-    // }
 }
 
 fn draw_tracks(
@@ -295,8 +273,6 @@ fn surface_scene_ui(state: &GameState) -> Option<Tree<OnClick>> {
     use layout::layout::*;
 
     let ctx = &state.surface_context;
-
-    let surface_id = ctx.current_surface;
 
     let vb = state.input.screen_bounds;
     if vb.span.x == 0.0 || vb.span.y == 0.0 {
@@ -355,7 +331,7 @@ fn surface_scene_ui(state: &GameState) -> Option<Tree<OnClick>> {
             ctx.selected
                 .iter()
                 .next()
-                .map(|id| state.universe.lup_surface_vehicle(*id, surface_id))
+                .map(|id| state.universe.surface_vehicles.get(id))
                 .flatten()
         })
         .flatten()
@@ -461,7 +437,7 @@ impl Render for SurfaceContext {
 
             draw_tracks(canvas, ctx, &ls.tracks, &ctx.selected);
 
-            for (id, sv) in state.universe.surface_vehicles(surface_id) {
+            for (id, sv) in &state.universe.surface_vehicles {
                 let pos = ctx.w2c(sv.body.pv.pos);
                 draw_vehicle(
                     canvas,
@@ -519,7 +495,7 @@ impl Render for SurfaceContext {
             None
         })();
 
-        for (e, sv) in state.universe.surface_vehicles(surface_id) {
+        for (e, sv) in &state.universe.surface_vehicles {
             if !ctx.selected.contains(e) {
                 continue;
             }
@@ -532,7 +508,7 @@ impl Render for SurfaceContext {
             );
         }
 
-        for (id, sv) in state.universe.surface_vehicles(surface_id) {
+        for (id, sv) in &state.universe.surface_vehicles {
             let selected = ctx.selected.contains(id);
             let mut p = ctx.w2c(sv.body.pv.pos);
 
@@ -560,7 +536,7 @@ impl Render for SurfaceContext {
         if let Some(bounds) =
             ctx.selection_region(state.input.position(MouseButt::Left, FrameId::Current))
         {
-            for (_, sv) in state.universe.surface_vehicles(surface_id) {
+            for (_, sv) in &state.universe.surface_vehicles {
                 let p = sv.body.pv.pos;
                 if bounds.contains(aabb_stopgap_cast(p)) {
                     draw_circle(

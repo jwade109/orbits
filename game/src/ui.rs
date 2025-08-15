@@ -457,7 +457,7 @@ pub fn orbiter_list(
                             != state
                                 .orbital_context
                                 .following
-                                .map(|f| f.orbiter())
+                                .map(|f| f.as_orbiter())
                                 .flatten(),
                     ),
             )
