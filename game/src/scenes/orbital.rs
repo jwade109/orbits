@@ -132,23 +132,6 @@ impl CameraProjection for OrbitalContext {
     }
 }
 
-pub fn relevant_body(planets: &PlanetarySystem, pos: DVec2, stamp: Nanotime) -> Option<EntityId> {
-    let results = planets
-        .planet_ids()
-        .into_iter()
-        .filter_map(|id| {
-            let (body, pv, _, _) = planets.lookup(id, stamp)?;
-            let p = pv.pos;
-            let d = pos.distance(p);
-            (d <= body.soi).then(|| (d, id))
-        })
-        .collect::<Vec<_>>();
-    results
-        .iter()
-        .min_by(|(d1, _), (d2, _)| d1.total_cmp(d2))
-        .map(|(_, id)| *id)
-}
-
 impl OrbitalContext {
     pub fn new(primary: EntityId) -> Self {
         Self {
@@ -226,7 +209,7 @@ impl OrbitalContext {
             return None;
         }
 
-        let wrt_id = relevant_body(&state.universe.planets, p1, state.universe.stamp())?;
+        let wrt_id = nearest_relevant_body(&state.universe.planets, p1, state.universe.stamp())?;
         let parent = state.universe.lup_planet(wrt_id, state.universe.stamp())?;
 
         let r = p1.distance(parent.pv().pos);
@@ -238,7 +221,7 @@ impl OrbitalContext {
     pub fn cursor_orbit(p1: DVec2, p2: DVec2, state: &GameState) -> Option<GlobalOrbit> {
         let pv = Self::cursor_pv(p1, p2, &state)?;
         let parent_id: EntityId =
-            relevant_body(&state.universe.planets, pv.pos, state.universe.stamp())?;
+            nearest_relevant_body(&state.universe.planets, pv.pos, state.universe.stamp())?;
         let parent = state
             .universe
             .lup_planet(parent_id, state.universe.stamp())?;
@@ -294,14 +277,14 @@ impl OrbitalContext {
 
         if let Some(p) = input.on_frame(MouseButt::Right, FrameId::Down) {
             let w = self.c2w(p);
-            if let Some(ObjectId::Orbiter(id)) = nearest(universe, w) {
+            if let Some(ObjectId::Orbiter(id)) = nearest_orbiter_or_planet(universe, w) {
                 self.piloting = Some(id);
             }
         }
 
         if let Some(p) = input.double_click() {
             let w = self.c2w(p);
-            if let Some(id) = nearest(universe, w) {
+            if let Some(id) = nearest_orbiter_or_planet(universe, w) {
                 self.following = Some(id);
             }
         }
@@ -338,32 +321,6 @@ impl OrbitalContext {
             self.following = None;
         }
     }
-}
-
-pub const LANDING_SITE_MOUSEOVER_DISTANCE: f32 = 50.0;
-
-pub fn get_landing_site_labels(state: &GameState) -> Vec<TextLabel> {
-    let ctx = &state.orbital_context;
-
-    let cursor = match state.input.position(MouseButt::Hover, FrameId::Current) {
-        Some(p) => p,
-        None => return Vec::new(),
-    };
-
-    let mut ret = Vec::new();
-    for (id, site) in &state.universe.landing_sites {
-        let pos = landing_site_position(&state.universe, site.planet, site.angle);
-        if let Some(pos) = pos {
-            let pos = ctx.w2c(pos);
-            let offset = rotate(Vec2::X, gcast(site.angle)) * LANDING_SITE_MOUSEOVER_DISTANCE;
-            if pos.distance(cursor) < LANDING_SITE_MOUSEOVER_DISTANCE {
-                let text = format!("LS {} {}", site.name.clone(), id);
-                let label = TextLabel::new(text, pos + offset, 0.7);
-                ret.push(label);
-            }
-        }
-    }
-    ret
 }
 
 pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> {
@@ -433,8 +390,6 @@ pub fn date_info(state: &GameState) -> String {
 
 fn text_labels(state: &GameState) -> Vec<TextLabel> {
     let mut text_labels: Vec<TextLabel> = get_orbital_object_mouseover_labels(state);
-
-    text_labels.extend(get_landing_site_labels(state));
 
     if let Some((m1, m2, corner)) = state.measuring_tape() {
         for (a, b) in [(m1, m2), (m1, corner), (m2, corner)] {
@@ -508,7 +463,7 @@ impl Render for OrbitalContext {
         let body_color_lup: std::collections::HashMap<&'static str, Srgba> =
             std::collections::HashMap::from([("Earth", BLUE), ("Luna", GRAY), ("Asteroid", BROWN)]);
 
-        if let Some(lup) = relevant_body(
+        if let Some(lup) = nearest_relevant_body(
             &state.universe.planets,
             state.orbital_context.origin(),
             state.universe.stamp(),

@@ -8,7 +8,7 @@ use crate::notifications::*;
 use crate::onclick::OnClick;
 use crate::scenes::{
     CursorMode, EditorContext, MainMenuContext, OrbitalContext, Render, Scene, SceneType,
-    StaticSpriteDescriptor, SurfaceContext, TelescopeContext, TextLabel,
+    StaticSpriteDescriptor, TelescopeContext, TextLabel,
 };
 use crate::settings::*;
 use crate::sim_rate::SimRate;
@@ -183,8 +183,6 @@ pub struct GameState {
 
     pub editor_context: EditorContext,
 
-    pub surface_context: SurfaceContext,
-
     /// Wall clock, i.e. time since program began.
     pub wall_time: Nanotime,
 
@@ -258,8 +256,8 @@ impl GameState {
             }
         };
 
-        let sounds = EnvironmentSounds::new();
-        // sounds.play_loop("building.ogg", 0.1);
+        let mut sounds = EnvironmentSounds::new();
+        sounds.play_loop("building.ogg", 0.1);
 
         let vehicle_names = match load_names_from_file(&args.names_path()) {
             Ok(n) => n,
@@ -282,7 +280,6 @@ impl GameState {
             orbital_context: OrbitalContext::new(EntityId(0)),
             telescope_context: TelescopeContext::new(),
             editor_context: EditorContext::new(),
-            surface_context: SurfaceContext::default(),
             wall_time: Nanotime::zero(),
             physics_duration: Nanotime::days(7),
             universe_ticks_per_game_tick: SimRate::RealTime,
@@ -298,7 +295,6 @@ impl GameState {
                 Scene::orbital(),
                 Scene::telescope(),
                 Scene::editor(),
-                Scene::surface(),
             ],
             current_scene_idx: 0,
             current_orbit: None,
@@ -311,15 +307,8 @@ impl GameState {
             vehicle_names,
         };
 
-        let surface_id = g
-            .universe
-            .landing_sites
-            .iter()
-            .next()
-            .map(|(e, _)| *e)
-            .unwrap_or(EntityId(0));
-
-        g.surface_context.current_surface = surface_id;
+        let earth_id = g.universe.lup_planet_by_name("Earth").unwrap();
+        let luna_id = g.universe.lup_planet_by_name("Luna").unwrap();
 
         for model in [
             "remora", "remora", "icecream",
@@ -327,7 +316,7 @@ impl GameState {
         ] {
             if let Some(v) = g.get_vehicle_by_model(model) {
                 g.universe.add_surface_vehicle(
-                    surface_id,
+                    luna_id,
                     v,
                     (PI / 2.0 + rand(-0.001, 0.001)) as f64,
                     rand(10.0, 30.0) as f64,
@@ -348,7 +337,7 @@ impl GameState {
 
         for _ in 0..3 {
             let vehicle = g.get_random_vehicle();
-            let orbit = get_random_orbit(EntityId(0));
+            let orbit = get_random_orbit(earth_id);
             if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {
                 g.spawn_with_random_perturbance(orbit, vehicle);
             }
@@ -356,7 +345,7 @@ impl GameState {
 
         for _ in 0..2 {
             let vehicle = g.get_random_vehicle();
-            let orbit = get_random_orbit(EntityId(1));
+            let orbit = get_random_orbit(luna_id);
             if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {
                 g.spawn_with_random_perturbance(orbit, vehicle);
             }
@@ -456,13 +445,11 @@ impl Render for GameState {
             SceneType::Editor => EditorContext::background_color(state),
             SceneType::Telescope => TelescopeContext::background_color(state),
             SceneType::MainMenu => BLACK,
-            SceneType::Surface => SurfaceContext::background_color(state),
         }
     }
 
     fn ui(state: &GameState) -> Option<Tree<OnClick>> {
         match state.current_scene().kind() {
-            SceneType::Surface => SurfaceContext::ui(state),
             _ => None,
         }
     }
@@ -502,7 +489,6 @@ impl Render for GameState {
             SceneType::Editor => EditorContext::draw(canvas, state),
             SceneType::Telescope => TelescopeContext::draw(canvas, state),
             SceneType::MainMenu => MainMenuContext::draw(canvas, state),
-            SceneType::Surface => SurfaceContext::draw(canvas, state),
         }
     }
 }
@@ -890,13 +876,13 @@ impl GameState {
             OnClick::ToggleVehicleInfo => {
                 self.editor_context.show_vehicle_info = !self.editor_context.show_vehicle_info;
             }
-            OnClick::SendToSurface => {
+            OnClick::SendToSurface(e) => {
                 let mut vehicle = self.editor_context.vehicle.clone();
                 vehicle.build_all();
                 let name = get_random_ship_name(&self.vehicle_names);
                 vehicle.set_name(name);
                 self.universe.add_surface_vehicle(
-                    self.surface_context.current_surface,
+                    e,
                     vehicle,
                     (PI / 2.0 + rand(-0.01, 0.01)) as f64,
                     rand(10.0, 30.0) as f64,
@@ -920,16 +906,6 @@ impl GameState {
                     self.notice(format!("Cleared inventory for part {:?}", id));
                 } else {
                     self.notice(format!("Failed to clear inventory for part {:?}", id));
-                }
-            }
-            OnClick::GoToSurface(id) => {
-                self.surface_context.current_surface = id;
-                if let Some(idx) = self
-                    .scenes
-                    .iter()
-                    .position(|s| *s.kind() == SceneType::Surface)
-                {
-                    self.current_scene_idx = idx;
                 }
             }
 
@@ -1053,6 +1029,10 @@ impl GameState {
             return;
         }
 
+        if self.input.is_pressed(KeyCode::ControlLeft) && self.input.just_pressed(KeyCode::KeyB) {
+            self.force_batch_mode = !self.force_batch_mode;
+        }
+
         if self.input.is_pressed(KeyCode::ShiftLeft) && self.input.is_pressed(KeyCode::ControlLeft)
         {
             let delta = if self.input.just_pressed(KeyCode::Minus) {
@@ -1080,13 +1060,6 @@ impl GameState {
                 self.orbital_context
                     .on_render_tick(on_ui, &self.input, &mut self.universe);
             }
-            SceneType::Surface => {
-                self.surface_context.on_render_tick(
-                    &self.input,
-                    &mut self.universe,
-                    &mut self.sounds,
-                );
-            }
             SceneType::Telescope => {
                 self.telescope_context.on_render_tick(&self.input);
             }
@@ -1102,13 +1075,6 @@ impl GameState {
             let cmd = keyboard_control_law(&self.input);
             if cmd != VehicleControl::NULLOPT {
                 signals.piloting_commands.insert(id, cmd);
-            }
-        }
-
-        for id in &self.surface_context.selected {
-            let cmd = keyboard_control_law(&self.input);
-            if cmd != VehicleControl::NULLOPT {
-                signals.piloting_commands.insert(*id, cmd);
             }
         }
 
@@ -1144,9 +1110,6 @@ impl GameState {
             }
             SceneType::Editor => {
                 EditorContext::on_game_tick(self);
-            }
-            SceneType::Surface => {
-                SurfaceContext::on_game_tick(self);
             }
             _ => (),
         }

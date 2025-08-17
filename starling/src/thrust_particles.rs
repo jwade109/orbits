@@ -5,6 +5,7 @@ use crate::prelude::*;
 
 #[derive(Debug)]
 pub struct ThrustParticle {
+    pub parent: EntityId,
     pub pv: PV,
     pub atmo: f32,
     pub age: Nanotime,
@@ -13,12 +14,22 @@ pub struct ThrustParticle {
     pub final_color: [f32; 4],
     pub depth: f32,
     pub angle: f32,
+    pub scale: f32,
 }
 
 impl ThrustParticle {
-    fn new(pv: PV, atmo: f32, angle: f32, initial_color: [f32; 4], final_color: [f32; 4]) -> Self {
+    fn new(
+        parent: EntityId,
+        pv: PV,
+        atmo: f32,
+        angle: f32,
+        initial_color: [f32; 4],
+        final_color: [f32; 4],
+        scale: f32,
+    ) -> Self {
         Self {
-            pv,
+            parent,
+            pv: pv,
             atmo: atmo.clamp(0.0, 1.0),
             age: Nanotime::zero(),
             initial_color,
@@ -26,23 +37,13 @@ impl ThrustParticle {
             lifetime: Nanotime::secs_f32(rand(1.2, 2.0) * (0.1 + atmo * 0.9)),
             depth: rand(0.0, 1000.0),
             angle,
+            scale,
         }
     }
 
     fn step(&mut self) {
         self.pv.pos += self.pv.vel * PHYSICS_CONSTANT_DELTA_TIME.to_secs_f64();
         self.pv.vel *= 1.0 - 0.04 * self.atmo as f64;
-
-        // if self.pv.pos.y < 0.0 && self.pv.vel.y < 0.0 {
-        //     let vx = self.pv.vel.x;
-        //     let mag = self.pv.vel.y.abs() * rand(0.6, 0.95) as f64;
-        //     let angle = rand(0.0, 0.25);
-        //     self.pv.vel = rotate_f64(DVec2::X * mag, angle as f64);
-        //     if rand(0.0, 1.0) < 0.5 {
-        //         self.pv.vel.x *= -1.0;
-        //     }
-        //     self.pv.vel.x += vx;
-        // }
         self.age += PHYSICS_CONSTANT_DELTA_TIME;
     }
 }
@@ -75,29 +76,34 @@ impl ThrustParticleEffects {
             .retain(|p: &ThrustParticle| p.age < p.lifetime || rand(0.0, 1.0) < 0.2);
     }
 
-    pub fn add(&mut self, body: &RigidBody, part: &InstantiatedPart, atmo: f32) {
+    pub fn add(&mut self, parent: EntityId, body: &RigidBody, part: &InstantiatedPart, atmo: f32) {
         if let Some((t, d)) = part.as_thruster() {
             if !part.is_built() {
                 return;
             }
 
+            let atmo = if t.is_rcs { 0.0 } else { atmo };
+
             let n = 2 + ((1.0 - atmo) * 8.0).round() as u32;
 
+            let pos = rotate_f64(part.center_meters().as_dvec2(), body.angle);
+
             for _ in 0..n {
-                let pos = rotate_f64(part.center_meters().as_dvec2(), body.angle);
                 let ve = t.exhaust_velocity as f64 / 20.0 + 30.0 * d.throttle() as f64;
                 let u = rotate_f64(rotate_f64(DVec2::X, part.rotation().to_angle()), body.angle);
                 let vel = randvec(2.0, 4.0).as_dvec2() + u * -ve * rand(0.6, 1.0) as f64;
                 let spread_angle = (1.0 - atmo) * rand(-0.5, 0.5);
-                let vel = rotate_f64(vel, spread_angle as f64);
+                let vel = rotate_f64(vel, spread_angle as f64) * t.particle_scale as f64;
                 let pv = body.pv + PV::from_f64(pos, vel);
                 let initial_color = mix(t.primary_color, t.secondary_color, rand(0.1, 0.7));
                 self.particles.push(ThrustParticle::new(
+                    parent,
                     pv,
                     atmo,
                     (body.angle + part.rotation().to_angle()) as f32 + spread_angle,
                     initial_color,
                     [1.0, 1.0, 1.0, 0.7],
+                    t.particle_scale,
                 ));
             }
         }
@@ -106,17 +112,18 @@ impl ThrustParticleEffects {
 
 pub fn add_particles_from_vehicle(
     particles: &mut ThrustParticleEffects,
+    parent: EntityId,
     vehicle: &Vehicle,
     body: &RigidBody,
     atmo: f32,
 ) {
     for (_, part) in vehicle.parts() {
         if let Some((t, d)) = part.as_thruster() {
-            if !d.is_thrusting(t) || t.is_rcs() {
+            if !d.is_thrusting(t) {
                 continue;
             }
 
-            particles.add(body, part, atmo);
+            particles.add(parent, body, part, atmo);
         }
     }
 }

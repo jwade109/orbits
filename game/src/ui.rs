@@ -78,7 +78,6 @@ fn set_bloom(state: Res<GameState>, mut bloom: Single<&mut Bloom>) {
             DrawMode::Default => 0.5,
             _ => 0.1,
         },
-        SceneType::Surface => 0.2,
         _ => 0.1,
     }
 }
@@ -558,7 +557,6 @@ pub fn layout(state: &GameState) -> Tree<OnClick> {
         SceneType::Telescope => TelescopeContext::ui(state),
         SceneType::Orbital => OrbitalContext::ui(state),
         SceneType::Editor => EditorContext::ui(state),
-        SceneType::Surface => SurfaceContext::ui(state),
     }
     .unwrap_or(Tree::new())
 }

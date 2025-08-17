@@ -21,6 +21,7 @@ pub struct ThrusterModel {
     pub plume_length: f32,
     pub plume_angle: f32,
     pub minimum_throttle: f32,
+    pub particle_scale: f32,
 }
 
 impl ThrusterModel {
@@ -39,6 +40,7 @@ impl ThrusterModel {
             plume_angle: 0.2,
             plume_length: 5.0,
             minimum_throttle: 0.2,
+            particle_scale: 1.0,
         }
     }
 

@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use bevy::color::palettes::basic::*;
-use bevy::color::palettes::css::ORANGE;
+use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use bevy_vector_shapes::prelude::*;
 use starling::prelude::*;
@@ -325,6 +325,10 @@ fn draw_propagator(
     Some(())
 }
 
+pub fn to_srgba(fl: [f32; 4]) -> Srgba {
+    Srgba::new(fl[0], fl[1], fl[2], fl[3])
+}
+
 pub fn draw_thruster(
     gizmos: &mut Gizmos,
     thruster: &ThrusterModel,
@@ -344,8 +348,8 @@ pub fn draw_thruster(
     let p2 = center + (u * part_dims.x / 2.0 + v * part_dims.y / 2.0) * scale;
     let p3 = center + (u * part_dims.x / 2.0 - v * part_dims.y / 2.0) * scale;
 
-    let c1 = crate::scenes::surface::to_srgba(thruster.primary_color);
-    let c2 = crate::scenes::surface::to_srgba(thruster.secondary_color);
+    let c1 = to_srgba(thruster.primary_color);
+    let c2 = to_srgba(thruster.secondary_color);
 
     if data.is_thrusting(thruster) {
         let ul = rotate(u, thruster.plume_angle);
@@ -523,6 +527,8 @@ pub fn draw_piloting_overlay(
 ) -> Option<()> {
     let piloting = pilot?;
 
+    let ctx = &state.orbital_context;
+
     let sv = state.universe.surface_vehicles.get(&piloting)?;
     let planet = state
         .universe
@@ -667,15 +673,19 @@ pub fn draw_piloting_overlay(
         String::new()
     };
 
+    let prop_info = sv.props().map(|p| format!("{}\n", p)).collect::<String>();
+
     canvas
         .text(
             format!(
-                "{}CMD {:?} / {:?}\nNAV {}\nORB {}",
+                "{}{}CMD {:?} / {:?}\nNAV {}\nORB {}\nCBOR: {}",
+                prop_info,
                 docking_info,
                 ctrl.mode(),
                 ctrl.status(),
                 body.pv,
-                orbit_str
+                orbit_str,
+                sv.can_be_on_rails()
             ),
             center - Vec2::new(r * 1.2, r * 0.8),
             0.7,
@@ -704,6 +714,10 @@ pub fn draw_piloting_overlay(
             Vec2::splat(icon_size),
         );
         icon_pos += Vec2::Y * icon_size;
+    }
+
+    for prop in sv.props() {
+        draw_propagator(canvas, state, prop, true, TEAL, ctx);
     }
 
     Some(())
@@ -1222,16 +1236,6 @@ fn draw_rendezvous_info(canvas: &mut Canvas, state: &GameState) -> Option<()> {
     Some(())
 }
 
-fn draw_landing_sites(gizmos: &mut Gizmos, state: &GameState) {
-    let ctx = &state.orbital_context;
-    for (_, site) in &state.universe.landing_sites {
-        if let Some(pos) = landing_site_position(&state.universe, site.planet, site.angle) {
-            let p = ctx.w2c(pos);
-            draw_diamond(gizmos, p, 12.0, WHITE.with_alpha(0.7))
-        }
-    }
-}
-
 pub fn draw_bezier(gizmos: &mut Gizmos, bezier: &Bezier, color: Srgba) {
     let points: Vec<_> = linspace(0.0, 1.0, 20)
         .into_iter()
@@ -1467,8 +1471,6 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
 
     draw_orbit_spline(canvas, state);
 
-    draw_landing_sites(&mut canvas.gizmos, state);
-
     if let Some(bounds) = state.orbital_context.selection_bounds {
         draw_aabb(canvas, ctx.w2c_aabb(bounds), RED);
     }
@@ -1583,7 +1585,12 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
 
     draw_notifications(&mut canvas.gizmos, &state);
 
-    draw_thrust_particles(canvas, ctx, &state.universe.thrust_particles);
+    draw_thrust_particles(
+        canvas,
+        ctx,
+        &state.universe.thrust_particles,
+        &state.universe,
+    );
 }
 
 fn orthographic_camera_map(p: Vec3, center: Vec3, normal: Vec3, x: Vec3, y: Vec3) -> Vec2 {
@@ -1637,7 +1644,17 @@ pub fn draw_cells(canvas: &mut Canvas, state: &GameState) -> Option<()> {
 pub fn draw_transforms(canvas: &mut Canvas, ctx: &impl CameraProjection, universe: &Universe) {
     let camera_pv = PV::pos(ctx.origin());
 
-    for (pv, parent) in universe.frames().chain([(camera_pv, EntityId(0))]) {
+    // let particle_transforms = universe
+    //     .thrust_particles
+    //     .particles
+    //     .iter()
+    //     .map(|t| (t.pv, t.parent));
+
+    for (pv, parent) in universe
+        .frames()
+        // .chain(particle_transforms)
+        .chain([(camera_pv, EntityId(0))])
+    {
         let parent_pv = match universe.lup_planet(parent, universe.stamp()) {
             Some(p) => p.pv(),
             None => continue,
@@ -1757,9 +1774,21 @@ pub fn draw_thrust_particles(
     canvas: &mut Canvas,
     ctx: &impl CameraProjection,
     particles: &ThrustParticleEffects,
+    universe: &Universe,
 ) {
     for particle in &particles.particles {
-        let p = ctx.w2c(particle.pv.pos);
+        // TODO this is needlessly expensive. lots of particles will have
+        // the same parent transform
+        let parent_pv = if particle.parent == EntityId(0) {
+            PV::ZERO
+        } else {
+            match universe.pv(particle.parent) {
+                Some(pv) => pv,
+                None => continue,
+            }
+        };
+
+        let p = ctx.w2c(particle.pv.pos + parent_pv.pos);
         let age = particle.age.to_secs();
         let alpha = (1.0 - age / particle.lifetime.to_secs())
             .powi(3)
@@ -1768,7 +1797,7 @@ pub fn draw_thrust_particles(
         let c1 = Srgba::from_f32_array(particle.initial_color);
         let c2 = Srgba::from_f32_array(particle.final_color);
         let color = c1.mix(&c2, age.clamp(0.0, 1.0).sqrt());
-        let size = 1.0 + age * 12.0;
+        let size = (1.0 + age * 12.0) * particle.scale;
         let ramp_up = (age * 40.0).clamp(0.0, 1.0);
         let stretch = (8.0 * (1.0 - age * 2.0)).max(1.0);
         canvas

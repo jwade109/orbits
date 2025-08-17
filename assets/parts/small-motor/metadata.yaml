@@ -13,3 +13,4 @@
   minimum_throttle: 0.0
   primary_color: [0.5, 0.5, 1.0, 0.7]
   secondary_color: [1.0, 1.0, 1.0, 0.5]
+  particle_scale: 0.8

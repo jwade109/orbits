@@ -44,10 +44,10 @@ pub fn consistency_orbits(body: Body) -> Vec<SparseOrbit> {
 pub fn rss() -> PlanetarySystem {
     let mut id = ObjectIdTracker::new();
     let earth_body = Body::with_mu(EARTH_RADIUS, EARTH_MU, EARTH_SOI);
-    let mut earth = PlanetarySystem::new(id.next_planet(), "Earth", earth_body);
+    let mut earth = PlanetarySystem::new(id.next(), "Earth", earth_body);
 
     let luna_body = Body::with_mu(LUNA_RADIUS, LUNA_MU, LUNA_SOI);
-    let luna = PlanetarySystem::new(id.next_planet(), "Luna", luna_body);
+    let luna = PlanetarySystem::new(id.next(), "Luna", luna_body);
     let luna_orbit = SparseOrbit::circular(
         LUNA_ORBITAL_RADIUS as f64,
         earth_body,

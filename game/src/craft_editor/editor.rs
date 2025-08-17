@@ -417,7 +417,7 @@ impl Render for EditorContext {
         let layers = layer_selection(state);
         let vehicles = vehicle_selection(state);
 
-        let other_buttons = other_buttons(state.settings.ui_button_height);
+        let other_buttons = other_buttons(state.settings.ui_button_height, &state.universe);
         // let actions = action_queue(&state.editor_context.action_queue);
 
         let part_buttons = if let Some(id) = state.editor_context.selected_part {
@@ -475,7 +475,7 @@ impl Render for EditorContext {
             draw_aabb(canvas, ctx.w2c_aabb(aabb), GREEN);
         }
 
-        draw_thrust_particles(canvas, ctx, &ctx.particles);
+        draw_thrust_particles(canvas, ctx, &ctx.particles, &Universe::empty());
 
         match &ctx.cursor_state {
             CursorState::None | CursorState::Part(_) => {
@@ -966,7 +966,7 @@ fn action_queue(button_height: f32, queue: &Vec<Action>) -> Node<OnClick> {
         )
 }
 
-fn other_buttons(button_height: f32) -> Node<OnClick> {
+fn other_buttons(button_height: f32, universe: &Universe) -> Node<OnClick> {
     let rotate = Node::button("Rotate", OnClick::RotateCraft, Size::Grow, button_height);
 
     let normalize = Node::button(
@@ -985,12 +985,14 @@ fn other_buttons(button_height: f32) -> Node<OnClick> {
         button_height,
     );
 
-    let send_to_surface = Node::button(
-        "Send to Surface",
-        OnClick::SendToSurface,
-        Size::Grow,
-        button_height,
-    );
+    let surface_buttons = universe.planets.planet_ids().into_iter().map(|id| {
+        Node::button(
+            "Send to Surface",
+            OnClick::SendToSurface(id),
+            Size::Grow,
+            button_height,
+        )
+    });
 
     Node::structural(Size::Grow, Size::Fit)
         .with_color(UI_BACKGROUND_COLOR)
@@ -1001,7 +1003,7 @@ fn other_buttons(button_height: f32) -> Node<OnClick> {
         .with_child(normalize)
         .with_child(Node::hline())
         .with_child(toggle_info)
-        .with_child(send_to_surface)
+        .with_children(surface_buttons)
 }
 
 fn layer_selection(state: &GameState) -> Node<OnClick> {
@@ -1213,7 +1215,13 @@ impl EditorContext {
 
         let atmo = ctx.atmo as f32 / 10.0;
 
-        add_particles_from_vehicle(&mut ctx.particles, &ctx.vehicle, &RigidBody::ZERO, atmo);
+        add_particles_from_vehicle(
+            &mut ctx.particles,
+            EntityId(0),
+            &ctx.vehicle,
+            &RigidBody::ZERO,
+            atmo,
+        );
         ctx.particles.step();
 
         ctx.build_particles.retain(|p| p.opacity() > 0.0);

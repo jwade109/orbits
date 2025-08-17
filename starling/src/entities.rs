@@ -1,14 +1,4 @@
 use crate::prelude::*;
-use std::collections::HashMap;
-
-// #[derive(Debug)]
-// pub struct OrbitalSpacecraftEntity {
-//     parent_id: EntityId,
-//     vehicle: Vehicle,
-//     body: RigidBody,
-//     orbit: Option<SparseOrbit>,
-//     reference_orbit_age: Nanotime,
-// }
 
 #[derive(Debug)]
 pub struct SurfaceSpacecraftEntity {
@@ -19,72 +9,8 @@ pub struct SurfaceSpacecraftEntity {
     pub orbit: Option<SparseOrbit>,
     pub reference_orbit_age: Nanotime,
     target: Option<EntityId>,
+    orbiter: Option<Orbiter>,
 }
-
-// impl OrbitalSpacecraftEntity {
-//     pub fn new(parent_id: EntityId, vehicle: Vehicle, body: RigidBody) -> Self {
-//         Self {
-//             parent_id,
-//             vehicle,
-//             body,
-//             orbit: None,
-//             reference_orbit_age: Nanotime::ZERO,
-//         }
-//     }
-
-//     pub fn pv(&self) -> PV {
-//         self.body.pv
-//     }
-
-//     pub fn parent(&self) -> EntityId {
-//         self.parent_id
-//     }
-
-//     pub fn current_orbit(&self) -> Option<GlobalOrbit> {
-//         let orbit = self.orbit?;
-//         Some(GlobalOrbit(self.parent_id, orbit))
-//     }
-
-//     pub fn vehicle(&self) -> &Vehicle {
-//         &self.vehicle
-//     }
-
-//     pub fn overwrite_vehicle(&mut self, vehicle: Vehicle) {
-//         self.vehicle = vehicle;
-//     }
-
-//     pub fn body(&self) -> &RigidBody {
-//         &self.body
-//     }
-
-//     pub fn on_sim_tick(
-//         &mut self,
-//         ctrl: &VehicleControl,
-//         stamp: Nanotime,
-//         gravity: DVec2,
-//         parent_body: Body,
-//     ) {
-//         self.reference_orbit_age += PHYSICS_CONSTANT_DELTA_TIME;
-
-//         if self.reference_orbit_age > Nanotime::millis(100) {
-//             self.orbit = SparseOrbit::from_pv(self.body.pv, parent_body, stamp);
-//         }
-
-//         self.vehicle.set_thrust_control(ctrl);
-//         // ov.vehicle.on_sim_tick();
-
-//         let accel = self.vehicle.body_frame_accel();
-
-//         self.body
-//             .on_sim_tick(accel, gravity, PHYSICS_CONSTANT_DELTA_TIME);
-//     }
-
-//     pub fn on_sim_tick_batch(&mut self, elapsed: Nanotime) {
-//         self.body.angle += self.body.angular_velocity * elapsed.to_secs_f64();
-//         self.body.angle = wrap_pi_npi_f64(self.body.angle);
-//         self.vehicle.zero_all_thrusters();
-//     }
-// }
 
 impl SurfaceSpacecraftEntity {
     pub fn new(
@@ -101,6 +27,7 @@ impl SurfaceSpacecraftEntity {
             orbit: None,
             reference_orbit_age: Nanotime::ZERO,
             target: None,
+            orbiter: None,
         }
     }
 
@@ -131,56 +58,154 @@ impl SurfaceSpacecraftEntity {
     pub fn set_target(&mut self, id: impl Into<Option<EntityId>>) {
         self.target = id.into();
     }
-}
 
-#[derive(Debug)]
-pub struct LandingSiteEntity {
-    pub name: String,
-    pub surface: Surface,
-    pub planet: EntityId,
-    pub angle: f64,
-    pub tracks: HashMap<EntityId, Vec<(Nanotime, DVec2)>>,
-}
+    pub fn props(&self) -> impl Iterator<Item = &Propagator> + use<'_> {
+        self.orbiter.iter().flat_map(|o| o.props())
+    }
 
-impl LandingSiteEntity {
-    pub fn new(name: String, surface: Surface, planet: EntityId, angle: f64) -> Self {
-        Self {
-            name,
-            surface,
-            planet,
-            angle,
-            tracks: HashMap::new(),
+    pub fn step_on_rails(
+        &mut self,
+        delta_time: Nanotime,
+        stamp: Nanotime,
+        planets: &PlanetarySystem,
+    ) {
+        if let Some(orbit) = &self.orbit {
+            if let Ok(pv) = orbit.pv(stamp) {
+                self.body.pv = pv;
+            }
+        }
+        self.body.angle += self.body.angular_velocity * delta_time.to_secs_f64();
+        self.body.angle = wrap_0_2pi_f64(self.body.angle);
+
+        let (parent_body, parent_pv) = match planets.lookup(self.planet_id, stamp) {
+            Some((body, pv, _, _)) => (body, pv),
+            None => todo!(),
+        };
+
+        self.reparent_if_necessary(parent_body, parent_pv, planets, stamp);
+    }
+
+    fn reparent_to(
+        &mut self,
+        new_parent: EntityId,
+        planets: &PlanetarySystem,
+        stamp: Nanotime,
+    ) -> Option<()> {
+        println!("Reparent to {}", new_parent);
+        let (_, old_parent_pv, _, _) = planets.lookup(self.planet_id, stamp)?;
+        let (_, new_parent_pv, _, _) = planets.lookup(new_parent, stamp)?;
+        self.body.pv += old_parent_pv - new_parent_pv;
+        self.planet_id = new_parent;
+        Some(())
+    }
+
+    fn reparent_if_necessary(
+        &mut self,
+        parent_body: Body,
+        parent_pv: PV,
+        planets: &PlanetarySystem,
+        stamp: Nanotime,
+    ) {
+        if self.body.pv.pos.length() > parent_body.soi {
+            let pv = self.body.pv + parent_pv;
+            if let Some(new_parent) = nearest_relevant_body(planets, pv.pos, stamp) {
+                self.reparent_to(new_parent, planets, stamp);
+                let altitude = self.body.pv.pos.length() - parent_body.radius;
+                self.update_orbit(planets, altitude, parent_body, stamp);
+            }
         }
     }
 
-    pub fn add_position_track(&mut self, id: EntityId, stamp: Nanotime, p: DVec2) {
-        if let Some(track) = self.tracks.get_mut(&id) {
-            if let Some((t, _)) = track.last() {
-                let dt = stamp - *t;
-                if dt > Nanotime::secs(1) {
-                    track.push((stamp, p));
-                }
-            } else {
-                track.push((stamp, p));
-            }
+    pub fn step(&mut self, planets: &PlanetarySystem, stamp: Nanotime, ext: VehicleControl) {
+        let (parent_body, parent_pv) = match planets.lookup(self.planet_id, stamp) {
+            Some((body, pv, _, _)) => (body, pv),
+            None => todo!(),
+        };
 
-            if track.len() > 120 {
-                track.remove(0);
+        let gravity = parent_body.gravity(self.body.pv.pos);
+
+        let (ctrl, status) = match (self.controller.mode(), self.controller.get_target_pose()) {
+            (VehicleControlPolicy::Idle, _) => {
+                (VehicleControl::NULLOPT, VehicleControlStatus::Idling)
             }
+            (VehicleControlPolicy::External, _) => (
+                ext,
+                if ext == VehicleControl::NULLOPT {
+                    VehicleControlStatus::WaitingForInput
+                } else {
+                    VehicleControlStatus::UnderExternalControl
+                },
+            ),
+            (VehicleControlPolicy::PositionHold(_), Some(pose)) => {
+                position_hold_control_law(pose, &self.body, &self.vehicle, gravity)
+            }
+            (VehicleControlPolicy::LaunchToOrbit(altitude), _) => enter_orbit_control_law(
+                &parent_body,
+                &self.body,
+                &self.vehicle,
+                self.orbit.as_ref(),
+                *altitude,
+            ),
+            (VehicleControlPolicy::BurnPrograde, _) => {
+                burn_along_velocity_vector_control_law(&self.body, &self.vehicle, true)
+            }
+            (VehicleControlPolicy::BurnRetrograde, _) => {
+                burn_along_velocity_vector_control_law(&self.body, &self.vehicle, false)
+            }
+            (_, _) => (VehicleControl::NULLOPT, VehicleControlStatus::Idling),
+        };
+
+        self.controller.set_status(status);
+
+        if status.is_done() {
+            self.controller.set_idle();
+            self.controller.set_status(VehicleControlStatus::Idling);
+        }
+
+        self.controller
+            .check_target_achieved(&self.body, gravity.length() > 0.0);
+        self.vehicle.set_thrust_control(&ctrl);
+        self.vehicle.on_sim_tick();
+
+        let altitude = self.body.pv.pos.length() - parent_body.radius;
+
+        let accel = self.vehicle.body_frame_accel();
+        self.body
+            .on_sim_tick(accel, gravity, PHYSICS_CONSTANT_DELTA_TIME);
+
+        self.body.clamp_with_elevation(parent_body.radius);
+
+        self.reparent_if_necessary(parent_body, parent_pv, planets, stamp);
+
+        self.update_orbit(planets, altitude, parent_body, stamp);
+    }
+
+    fn update_orbit(
+        &mut self,
+        _planets: &PlanetarySystem,
+        altitude: f64,
+        parent_body: Body,
+        stamp: Nanotime,
+    ) {
+        self.orbit = if altitude > 2_000.0 {
+            SparseOrbit::from_pv(self.body.pv, parent_body, stamp)
         } else {
-            let track = vec![(stamp, p)];
-            self.tracks.insert(id, track);
+            None
+        };
+
+        // if let Some(orbit) = self.current_orbit() {
+        //     let mut orbiter = Orbiter::new(orbit, stamp);
+        //     if let Err(e) = orbiter.propagate_to(stamp, Nanotime::days(3), planets) {
+        //         dbg!(e);
+        //     }
+        //     self.orbiter = Some(orbiter);
+        // }
+    }
+
+    pub fn can_be_on_rails(&self) -> bool {
+        match (self.controller.mode(), self.controller.status()) {
+            (VehicleControlPolicy::Idle, VehicleControlStatus::Idling) => true,
+            _ => false,
         }
     }
-}
-
-pub fn landing_site_info(ls: &LandingSiteEntity) -> String {
-    [
-        format!("{}", ls.name),
-        format!("Planet: {}", ls.planet),
-        format!("Atmo color: {:?}", ls.surface.atmo_color),
-    ]
-    .into_iter()
-    .map(|s| format!("{s}\n"))
-    .collect()
 }

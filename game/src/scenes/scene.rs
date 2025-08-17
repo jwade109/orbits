@@ -4,7 +4,6 @@ pub enum SceneType {
     Telescope,
     Editor,
     MainMenu,
-    Surface,
 }
 
 #[derive(Debug, Clone)]
@@ -39,13 +38,6 @@ impl Scene {
         Scene {
             name: "Main Menu".into(),
             scene_type: SceneType::MainMenu,
-        }
-    }
-
-    pub fn surface() -> Self {
-        Scene {
-            name: "Surface".into(),
-            scene_type: SceneType::Surface,
         }
     }
 

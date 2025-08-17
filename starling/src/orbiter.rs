@@ -1,5 +1,3 @@
-use crate::math::DVec2;
-use crate::orbits::SparseOrbit;
 use crate::propagator::*;
 use crate::pv::PV;
 use crate::scenario::*;
@@ -22,23 +20,6 @@ impl Orbiter {
         Orbiter {
             props: vec![Propagator::new(orbit, stamp)],
         }
-    }
-
-    pub fn on_sim_tick(&mut self) {
-        // TODO on_sim_tick
-    }
-
-    pub fn try_impulsive_burn(&mut self, stamp: Nanotime, dv: DVec2) -> Option<()> {
-        let orbit: GlobalOrbit = {
-            let prop = self.propagator_at(stamp)?;
-            let pv = prop.pv_universal(stamp)? + PV::vel(dv);
-            let orbit = SparseOrbit::from_pv(pv, prop.orbit.1.body, stamp)?;
-            GlobalOrbit(prop.parent(), orbit)
-        };
-        self.props.clear();
-        let new_prop = Propagator::new(orbit, stamp);
-        self.props.push(new_prop);
-        Some(())
     }
 
     pub fn pv(&self, stamp: Nanotime, planets: &PlanetarySystem) -> Option<PV> {

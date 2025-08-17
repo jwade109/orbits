@@ -8,22 +8,16 @@ use crate::pv::PV;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy)]
-pub struct ObjectIdTracker(EntityId, EntityId);
+pub struct ObjectIdTracker(EntityId);
 
 impl ObjectIdTracker {
     pub fn new() -> Self {
-        ObjectIdTracker(EntityId(0), EntityId(0))
+        ObjectIdTracker(EntityId(900))
     }
 
     pub fn next(&mut self) -> EntityId {
         let ret = self.0;
         self.0 .0 += 1;
-        ret
-    }
-
-    pub fn next_planet(&mut self) -> EntityId {
-        let ret = self.1;
-        self.1 .0 += 1;
         ret
     }
 }

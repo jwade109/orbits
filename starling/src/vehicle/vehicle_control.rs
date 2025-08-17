@@ -284,6 +284,17 @@ pub enum VehicleControlStatus {
     InProgress,
     TurningToHover,
     Hovering,
+    NoVelocityVector,
+    ComingAbout,
+}
+
+impl VehicleControlStatus {
+    pub fn is_done(&self) -> bool {
+        match self {
+            VehicleControlStatus::Done => true,
+            _ => false,
+        }
+    }
 }
 
 fn to_int_percent(x: f64) -> i32 {
@@ -390,12 +401,41 @@ pub fn enter_orbit_control_law(
     (cmd, status)
 }
 
+pub fn burn_along_velocity_vector_control_law(
+    body: &RigidBody,
+    vehicle: &Vehicle,
+    prograde: bool,
+) -> (VehicleControl, VehicleControlStatus) {
+    if body.pv.vel.length() < 5.0 {
+        return (
+            VehicleControl::NULLOPT,
+            VehicleControlStatus::NoVelocityVector,
+        );
+    }
+
+    let thrust_angle = if prograde { body.pv.vel } else { -body.pv.vel }.to_angle();
+    let mut ctrl = VehicleControl::NULLOPT;
+    let actual_angle = body.angle;
+    ctrl.attitude = compute_attitude_control(body, thrust_angle, &vehicle.attitude_controller);
+    let angular_error = wrap_pi_npi_f64((thrust_angle - actual_angle).abs());
+    let status = if angular_error.abs() < 0.05 {
+        ctrl.plus_x.throttle = 0.5;
+        VehicleControlStatus::InProgress
+    } else {
+        VehicleControlStatus::ComingAbout
+    };
+
+    (ctrl, status)
+}
+
 #[derive(Debug, Clone)]
 pub enum VehicleControlPolicy {
     Idle,
     External,
     PositionHold(Vec<(DVec2, f64)>),
     LaunchToOrbit(f64),
+    BurnPrograde,
+    BurnRetrograde,
 }
 
 #[derive(Debug, Clone)]
@@ -494,7 +534,9 @@ impl VehicleController {
             VehicleControlPolicy::PositionHold(_) => {
                 VehicleControlPolicy::LaunchToOrbit(rand(300_000.0, 700_000.0) as f64)
             }
-            VehicleControlPolicy::LaunchToOrbit(_) => VehicleControlPolicy::Idle,
+            VehicleControlPolicy::LaunchToOrbit(_) => VehicleControlPolicy::BurnPrograde,
+            VehicleControlPolicy::BurnPrograde => VehicleControlPolicy::BurnRetrograde,
+            VehicleControlPolicy::BurnRetrograde => VehicleControlPolicy::Idle,
         };
     }
 

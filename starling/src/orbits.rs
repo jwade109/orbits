@@ -664,14 +664,11 @@ impl std::fmt::Display for SparseOrbit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "A{:0.0}-E{:0.2}-P{:0.2}-R{:0.0}-M{:0.0}-S{:0.0}{}",
+            "A{:0.0}-E{:0.2}-P{:0.2}{}",
             self.semi_major_axis,
             self.ecc(),
             self.arg_periapsis,
-            self.body.radius,
-            self.body.mu,
-            self.body.soi,
-            if self.is_retrograde() { "*" } else { "" },
+            if self.is_retrograde() { "r" } else { "p" },
         )
     }
 }
