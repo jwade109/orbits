@@ -501,55 +501,6 @@ pub fn left_right_arrows(
         .with_child(right)
 }
 
-pub fn throttle_controls(state: &GameState) -> Node<OnClick> {
-    const THROTTLE_CONTROLS_WIDTH: f32 = 300.0;
-
-    if !state.piloting().is_some() {
-        return Node::new(0.0, 0.0);
-    }
-
-    let arrows = left_right_arrows(
-        Size::Grow,
-        state.settings.ui_button_height,
-        OnClick::IncrementThrottle(-1),
-        OnClick::IncrementThrottle(1),
-    );
-
-    let throttle = state.orbital_context.throttle;
-
-    let title = format!(
-        "Throttle ({}%)",
-        (throttle.to_ratio() * 100.0).round() as i32
-    );
-
-    Node::new(THROTTLE_CONTROLS_WIDTH, Size::Fit)
-        .with_color(UI_BACKGROUND_COLOR)
-        .down()
-        .with_child(
-            Node::row(state.settings.ui_button_height)
-                .with_text(title)
-                .enabled(false),
-        )
-        .with_child(
-            Node::row(state.settings.ui_button_height)
-                .invisible()
-                .with_padding(0.0)
-                .with_child_gap(2.0)
-                .with_children((0..=ThrottleLevel::MAX).map(|i| {
-                    let t = ThrottleLevel(i);
-                    let onclick = OnClick::ThrottleLevel(t);
-                    let n = Node::button("", onclick, Size::Grow, state.settings.ui_button_height)
-                        .enabled(t != throttle);
-                    if i < throttle.0 {
-                        n.with_color([0.8, 0.2, 0.2, 0.9])
-                    } else {
-                        n.with_color([0.9, 0.9, 0.9, 0.7])
-                    }
-                })),
-        )
-        .with_child(arrows)
-}
-
 pub fn layout(state: &GameState) -> Tree<OnClick> {
     let scene = state.current_scene();
     match scene.kind() {

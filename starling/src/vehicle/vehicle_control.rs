@@ -3,7 +3,6 @@ use crate::orbits::Body;
 use crate::orbits::SparseOrbit;
 use crate::pid::PDCtrl;
 use crate::vehicle::*;
-use enum_iterator::{next_cycle, Sequence};
 
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub struct ThrustAxisControl {
@@ -172,7 +171,7 @@ fn hover_control_law(
     vehicle: &Vehicle,
     body: &RigidBody,
 ) -> (VehicleControl, VehicleControlStatus) {
-    let upright_angle = DVec2::new(-gravity.x, -gravity.y).to_angle();
+    let upright_angle = (-gravity).to_angle();
 
     let target = if target.distance(body.pv.pos) > 250.0 {
         let d = target - body.pv.pos;

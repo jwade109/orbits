@@ -40,36 +40,6 @@ pub enum DrawMode {
     Occlusion,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct ThrottleLevel(pub u32);
-
-impl ThrottleLevel {
-    pub const MAX: u32 = 10;
-
-    pub fn to_ratio(&self) -> f32 {
-        self.0 as f32 / Self::MAX as f32
-    }
-
-    pub fn increment(&mut self, d: i32) {
-        let v = self.0 as i32 + d;
-        self.0 = v.clamp(0, Self::MAX as i32) as u32;
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct LowPass {
-    pub value: f64,
-    pub target: f64,
-    /// LPF coefficient, must be in (0, 1]
-    pub alpha: f64,
-}
-
-impl LowPass {
-    fn step(&mut self) {
-        self.value += (self.target - self.value) * self.alpha
-    }
-}
-
 #[allow(unused)]
 #[derive(Debug, Clone)]
 pub struct OrbitalContext {
@@ -82,7 +52,6 @@ pub struct OrbitalContext {
     pub show_orbits: ShowOrbitsState,
     pub show_animations: bool,
     pub draw_mode: DrawMode,
-    pub throttle: ThrottleLevel,
 
     pub piloting: Option<EntityId>,
 
@@ -144,7 +113,6 @@ impl OrbitalContext {
             show_orbits: ShowOrbitsState::Focus,
             show_animations: true,
             draw_mode: DrawMode::Default,
-            throttle: ThrottleLevel(ThrottleLevel::MAX / 2),
             piloting: None,
             mouse_down_world_pos: None,
             selection_bounds: None,

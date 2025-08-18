@@ -825,10 +825,6 @@ impl GameState {
             OnClick::GoToScene(i) => {
                 self.set_current_scene(i);
             }
-            OnClick::ThrottleLevel(throttle) => {
-                self.orbital_context.throttle = throttle;
-                self.notice(format!("Throttle set to {:?}", throttle));
-            }
             OnClick::ClearPilot => self.orbital_context.piloting = None,
             OnClick::ClearTarget => {
                 if let Some(p) = self.piloting() {
@@ -860,9 +856,6 @@ impl GameState {
             OnClick::ToggleLayersMenuCollapsed => {
                 self.editor_context.layers_menu_collapsed =
                     !self.editor_context.layers_menu_collapsed
-            }
-            OnClick::IncrementThrottle(d) => {
-                self.orbital_context.throttle.increment(d);
             }
             OnClick::OpenNewCraft => {
                 self.editor_context.new_craft();

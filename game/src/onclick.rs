@@ -1,4 +1,4 @@
-use crate::scenes::{CursorMode, ThrottleLevel};
+use crate::scenes::CursorMode;
 use crate::sim_rate::SimRate;
 use starling::prelude::*;
 use std::path::PathBuf;
@@ -29,7 +29,6 @@ pub enum OnClick {
     CommitMission,
     CursorMode(CursorMode),
     GoToScene(usize),
-    ThrottleLevel(ThrottleLevel),
     SetTarget(EntityId),
     SetPilot(EntityId),
     ClearTarget,
