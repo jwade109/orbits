@@ -436,15 +436,6 @@ impl Render for OrbitalContext {
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         crate::drawing::draw_orbital_view(canvas, state);
 
-        let buttons: String = state
-            .input
-            .pressed()
-            .into_iter()
-            .map(|k| format!("{:?}\n", k))
-            .collect();
-
-        canvas.text(buttons, -Vec2::X * 200.0, 0.8);
-
         for label in text_labels(state) {
             canvas.label(label);
         }
