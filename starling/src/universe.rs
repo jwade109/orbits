@@ -279,7 +279,12 @@ pub fn orbiters_within_bounds(
     })
 }
 
-pub fn nearest_orbiter_or_planet(universe: &Universe, pos: DVec2) -> Option<ObjectId> {
+pub fn nearest_orbiter_or_planet(
+    universe: &Universe,
+    pos: DVec2,
+    max_dist: impl Into<Option<f64>>,
+) -> Option<ObjectId> {
+    let max_dist = max_dist.into();
     let stamp = universe.stamp();
     let results = all_orbital_ids(universe)
         .filter_map(|id| {
@@ -289,7 +294,8 @@ pub fn nearest_orbiter_or_planet(universe: &Universe, pos: DVec2) -> Option<Obje
             }?;
             let p = lup.pv().pos;
             let d = pos.distance(p);
-            Some((d, id))
+            let passes = if let Some(m) = max_dist { d <= m } else { true };
+            passes.then(|| (d, id))
         })
         .collect::<Vec<_>>();
     results

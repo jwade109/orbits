@@ -32,6 +32,14 @@ use std::path::Path;
 
 pub struct GamePlugin;
 
+fn combo_just_pressed(input: &InputState, keys: &[KeyCode]) -> bool {
+    if let Some(l) = keys.last() {
+        keys.iter().all(|k| input.is_pressed(*k)) && input.just_pressed(*l)
+    } else {
+        false
+    }
+}
+
 fn gamepad_usage_system(gamepads: Query<(&Name, &Gamepad)>, mut state: ResMut<GameState>) {
     for (_name, gamepad) in &gamepads {
         for button in gamepad.get_just_pressed() {
@@ -335,17 +343,18 @@ impl GameState {
             Some(GlobalOrbit(pid, orbit))
         };
 
-        for _ in 0..3 {
-            let vehicle = g.get_random_vehicle();
-            let orbit = get_random_orbit(earth_id);
-            if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {
-                g.spawn_with_random_perturbance(orbit, vehicle);
-            }
-        }
+        let vehicles = [
+            ("spacestation", earth_id),
+            ("lander", earth_id),
+            ("pollux", earth_id),
+            ("bellerophon", earth_id),
+            ("pollux", luna_id),
+            ("bellerophon", luna_id),
+        ];
 
-        for _ in 0..2 {
-            let vehicle = g.get_random_vehicle();
-            let orbit = get_random_orbit(luna_id);
+        for (name, parent) in vehicles {
+            let vehicle = g.get_vehicle_by_model(name);
+            let orbit = get_random_orbit(parent);
             if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {
                 g.spawn_with_random_perturbance(orbit, vehicle);
             }
@@ -457,8 +466,6 @@ impl Render for GameState {
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         // BOOKMARK debug info
 
-        crate::drawing::draw_x(&mut canvas.gizmos, state.cursor_position, 30.0, WHITE);
-
         #[allow(unused)]
         let debug_info: String = [
             format!("Wall time: {}", state.wall_time),
@@ -531,14 +538,6 @@ impl GameState {
 
     pub fn set_piloting(&mut self, id: EntityId) {
         self.orbital_context.piloting = Some(id);
-    }
-
-    pub fn set_targeting(&mut self, id: EntityId) {
-        if let Some(p) = self.piloting() {
-            if let Some(sv) = self.universe.surface_vehicles.get_mut(&p) {
-                sv.set_target(id);
-            }
-        }
     }
 
     pub fn current_scene(&self) -> &Scene {
@@ -784,8 +783,8 @@ impl GameState {
         self.sounds.play_once("button-up.ogg", 1.0);
 
         match id {
-            OnClick::CurrentBody(id) => self.orbital_context.following = Some(ObjectId::Planet(id)),
-            OnClick::Orbiter(id) => self.orbital_context.following = Some(ObjectId::Orbiter(id)),
+            OnClick::CurrentBody(id) => self.orbital_context.following = Some(id),
+            OnClick::Orbiter(id) => self.orbital_context.following = Some(id),
             OnClick::ToggleDrawMode => {
                 self.orbital_context.draw_mode = next_cycle(&self.orbital_context.draw_mode)
             }
@@ -811,7 +810,7 @@ impl GameState {
             OnClick::TogglePause => self.paused = !self.paused,
             OnClick::GlobalOrbit(i) => {
                 let orbit = self.orbital_context.queued_orbits.get(i)?;
-                self.orbital_context.following = Some(ObjectId::Planet(orbit.0));
+                self.orbital_context.following = Some(orbit.0);
                 self.current_orbit = Some(i);
             }
             OnClick::Nullopt => (),
@@ -1026,6 +1025,13 @@ impl GameState {
             self.force_batch_mode = !self.force_batch_mode;
         }
 
+        if combo_just_pressed(
+            &self.input,
+            &[KeyCode::ControlLeft, KeyCode::ShiftLeft, KeyCode::KeyT],
+        ) {
+            self.settings.draw_transform_tree = !self.settings.draw_transform_tree;
+        }
+
         if self.input.is_pressed(KeyCode::ShiftLeft) && self.input.is_pressed(KeyCode::ControlLeft)
         {
             let delta = if self.input.just_pressed(KeyCode::Minus) {
@@ -1050,8 +1056,12 @@ impl GameState {
             }
             SceneType::MainMenu => (),
             SceneType::Orbital => {
-                self.orbital_context
-                    .on_render_tick(on_ui, &self.input, &mut self.universe);
+                self.orbital_context.on_render_tick(
+                    on_ui,
+                    &self.input,
+                    &mut self.universe,
+                    &mut self.sounds,
+                );
             }
             SceneType::Telescope => {
                 self.telescope_context.on_render_tick(&self.input);

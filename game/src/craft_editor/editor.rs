@@ -848,7 +848,7 @@ impl Render for EditorContext {
                 GREEN.with_alpha(0.4),
                 ZOrdering::EditorMouseoverPartHighlight,
             );
-            canvas.text(format!("{:#?}", instance), Vec2::new(300.0, 400.0), 0.6);
+            // canvas.text(format!("{:#?}", instance), Vec2::new(300.0, 400.0), 0.6);
         }
 
         if let Some((p, current_part)) = Self::current_part_and_cursor_position(state) {

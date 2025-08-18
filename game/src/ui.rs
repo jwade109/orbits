@@ -357,16 +357,18 @@ pub fn piloting_buttons(state: &GameState, width: Size) -> Node<OnClick> {
             );
             delete_wrapper(OnClick::ClearPilot, b, state.settings.ui_button_height)
         });
-    } else if let Some(ObjectId::Orbiter(p)) = state.orbital_context.following {
-        wrapper.add_child({
-            let s = format!("Pilot {}", p);
-            Node::button(
-                s,
-                OnClick::SetPilot(p),
-                Size::Grow,
-                state.settings.ui_button_height,
-            )
-        });
+    } else if let Some(p) = state.orbital_context.following {
+        if state.universe.surface_vehicles.contains_key(&p) {
+            wrapper.add_child({
+                let s = format!("Pilot {}", p);
+                Node::button(
+                    s,
+                    OnClick::SetPilot(p),
+                    Size::Grow,
+                    state.settings.ui_button_height,
+                )
+            });
+        }
     } else {
         wrapper.add_child(
             Node::button(
@@ -391,17 +393,21 @@ pub fn piloting_buttons(state: &GameState, width: Size) -> Node<OnClick> {
             delete_wrapper(OnClick::ClearTarget, b, state.settings.ui_button_height)
         });
         true
-    } else if let Some(ObjectId::Orbiter(p)) = state.orbital_context.following {
-        wrapper.add_child({
-            let s = format!("Target {}", p);
-            Node::button(
-                s,
-                OnClick::SetTarget(p),
-                Size::Grow,
-                state.settings.ui_button_height,
-            )
-        });
-        true
+    } else if let Some(p) = state.orbital_context.following {
+        if state.universe.surface_vehicles.contains_key(&p) {
+            wrapper.add_child({
+                let s = format!("Target {}", p);
+                Node::button(
+                    s,
+                    OnClick::SetTarget(p),
+                    Size::Grow,
+                    state.settings.ui_button_height,
+                )
+            });
+            true
+        } else {
+            false
+        }
     } else {
         false
     };
@@ -461,14 +467,7 @@ pub fn orbiter_list(
                 Node::grow()
                     .with_on_click(OnClick::Orbiter(*id))
                     .with_text(s)
-                    .enabled(
-                        Some(*id)
-                            != state
-                                .orbital_context
-                                .following
-                                .map(|f| f.as_orbiter())
-                                .flatten(),
-                    ),
+                    .enabled(Some(*id) != state.orbital_context.following),
             )
         },
     );

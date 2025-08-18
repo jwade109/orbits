@@ -4,6 +4,7 @@ use crate::game::GameState;
 use crate::input::{FrameId, InputState, MouseButt};
 use crate::onclick::OnClick;
 use crate::scenes::{Render, TextLabel};
+use crate::sounds::EnvironmentSounds;
 use crate::ui::*;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
@@ -46,17 +47,14 @@ pub struct OrbitalContext {
     camera: LinearCameraController,
     primary: EntityId,
     pub selected: HashSet<EntityId>,
-    pub following: Option<ObjectId>,
+    pub following: Option<EntityId>,
     pub queued_orbits: Vec<GlobalOrbit>,
     pub cursor_mode: CursorMode,
     pub show_orbits: ShowOrbitsState,
     pub show_animations: bool,
     pub draw_mode: DrawMode,
-
     pub piloting: Option<EntityId>,
-
-    pub mouse_down_world_pos: Option<DVec2>,
-    pub selection_bounds: Option<AABB>,
+    pub hovered_craft: Option<EntityId>,
 }
 
 pub trait CameraProjection {
@@ -101,6 +99,8 @@ impl CameraProjection for OrbitalContext {
     }
 }
 
+pub const SPACECRAFT_HOVER_RADIUS: f64 = 30.0;
+
 impl OrbitalContext {
     pub fn new(primary: EntityId) -> Self {
         Self {
@@ -114,8 +114,7 @@ impl OrbitalContext {
             show_animations: true,
             draw_mode: DrawMode::Default,
             piloting: None,
-            mouse_down_world_pos: None,
-            selection_bounds: None,
+            hovered_craft: None,
         }
     }
 
@@ -124,14 +123,6 @@ impl OrbitalContext {
             self.selected.retain(|e| *e != id);
         } else {
             self.selected.insert(id);
-        }
-    }
-
-    pub fn highlighted(state: &GameState) -> HashSet<EntityId> {
-        if let Some(a) = state.orbital_context.selection_bounds {
-            orbiters_within_bounds(&state.universe, a).collect()
-        } else {
-            HashSet::new()
         }
     }
 
@@ -216,7 +207,7 @@ impl OrbitalContext {
 
     pub fn on_game_tick(&mut self, universe: &Universe) {
         if let Some(follow) = self.following {
-            if let Some(pv) = universe.pv(follow.as_eid()) {
+            if let Some(pv) = universe.pv(follow) {
                 self.camera.follow(pv.pos);
             }
         }
@@ -228,7 +219,13 @@ impl OrbitalContext {
         self.selected = track_list;
     }
 
-    pub fn on_render_tick(&mut self, on_ui: bool, input: &InputState, universe: &mut Universe) {
+    pub fn on_render_tick(
+        &mut self,
+        on_ui: bool,
+        input: &InputState,
+        universe: &mut Universe,
+        sounds: &mut EnvironmentSounds,
+    ) {
         self.camera.handle_input(input);
 
         if input.just_pressed(KeyCode::KeyN) {
@@ -243,43 +240,42 @@ impl OrbitalContext {
             return;
         }
 
-        if let Some(p) = input.on_frame(MouseButt::Right, FrameId::Down) {
+        self.hovered_craft = if let Some(p) = input.position(MouseButt::Hover, FrameId::Current) {
+            let dist = (SPACECRAFT_HOVER_RADIUS / self.scale()).max(10.0);
             let w = self.c2w(p);
-            if let Some(ObjectId::Orbiter(id)) = nearest_orbiter_or_planet(universe, w) {
-                self.piloting = Some(id);
+            if let Some(ObjectId::Orbiter(id)) = nearest_orbiter_or_planet(universe, w, dist) {
+                Some(id)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        if let Some(_) = input.on_frame(MouseButt::Left, FrameId::Down) {
+            if input.is_pressed(KeyCode::ControlLeft) {
+                self.following = self.hovered_craft;
+            } else {
+                if let Some(h) = self.hovered_craft {
+                    self.piloting = Some(h);
+                    sounds.play_once("soft-pulse-higher.ogg", 0.3);
+                } else {
+                    self.piloting = None;
+                    sounds.play_once("soft-pulse.ogg", 0.3);
+                }
             }
         }
 
-        if let Some(p) = input.double_click() {
-            let w = self.c2w(p);
-            if let Some(id) = nearest_orbiter_or_planet(universe, w) {
-                self.following = Some(id);
-            }
+        if let Some(_) = input.on_frame(MouseButt::Right, FrameId::Down) {
+            || -> Option<()> {
+                let pilot = self.piloting?;
+                let sv = universe.surface_vehicles.get_mut(&pilot)?;
+                if self.hovered_craft != Some(pilot) {
+                    sv.set_target(self.hovered_craft);
+                }
+                Some(())
+            }();
         }
-
-        if self.mouse_down_world_pos.is_none() {
-            if let Some(p) = input.on_frame(MouseButt::Left, FrameId::Down) {
-                self.mouse_down_world_pos = Some(self.c2w(p));
-            }
-        }
-
-        if input.on_frame(MouseButt::Left, FrameId::Up).is_some() {
-            self.mouse_down_world_pos = None;
-
-            if let Some(bounds) = self.selection_bounds {
-                self.selected = orbiters_within_bounds(universe, bounds).collect();
-            }
-
-            self.selection_bounds = None;
-        }
-
-        self.selection_bounds = self
-            .mouse_down_world_pos
-            .zip(input.position(MouseButt::Left, FrameId::Current))
-            .map(|(p, q)| {
-                let q = self.c2w(q);
-                AABB::from_arbitrary(aabb_stopgap_cast(p), aabb_stopgap_cast(q))
-            });
 
         if input.is_pressed(KeyCode::KeyW)
             || input.is_pressed(KeyCode::KeyA)
@@ -328,7 +324,7 @@ pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> 
             // distance based on pixel space
             let d = pc.distance(cursor);
             (
-                d < 25.0,
+                (d as f64) < SPACECRAFT_HOVER_RADIUS,
                 format!("{} {}", code, orb_id),
                 pc + Vec2::Y * 40.0,
             )
@@ -572,7 +568,7 @@ impl Render for OrbitalContext {
                 Node::grow()
                     .tight()
                     .invisible()
-                    .with_child(sidebar)
+                    // .with_child(sidebar)
                     .with_child(world),
             );
 

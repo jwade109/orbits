@@ -6,6 +6,7 @@ use std::path::Path;
 pub struct Settings {
     pub ui_button_height: f32,
     pub controller_cursor_speed: f32,
+    pub draw_transform_tree: bool,
 }
 
 impl Default for Settings {
@@ -13,6 +14,7 @@ impl Default for Settings {
         Settings {
             ui_button_height: 32.0,
             controller_cursor_speed: 6.0,
+            draw_transform_tree: false,
         }
     }
 }
