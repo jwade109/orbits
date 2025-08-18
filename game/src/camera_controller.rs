@@ -1,8 +1,7 @@
 use crate::input::InputState;
-use crate::scenes::CameraProjection;
 use bevy::input::keyboard::KeyCode;
 use starling::math::DVec2;
-use starling::prelude::PHYSICS_CONSTANT_DELTA_TIME;
+use starling::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
 pub struct LinearCameraController {
@@ -11,15 +10,31 @@ pub struct LinearCameraController {
     scale: f64,
     target_scale: f64,
     speed: f64,
+    parent: EntityId,
+    offset: DVec2,
 }
 
 impl CameraProjection for LinearCameraController {
     fn origin(&self) -> DVec2 {
-        self.center
+        self.center + self.offset
     }
 
     fn scale(&self) -> f64 {
         self.scale()
+    }
+
+    fn offset(&self) -> DVec2 {
+        self.offset
+    }
+
+    fn parent(&self) -> EntityId {
+        self.parent
+    }
+}
+
+impl std::fmt::Display for LinearCameraController {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}/{:0.1}", self.parent, self.offset)
     }
 }
 
@@ -33,11 +48,17 @@ impl LinearCameraController {
             scale,
             target_scale: scale,
             speed,
+            parent: EntityId(0),
+            offset: DVec2::ZERO,
         }
     }
 
     pub fn scale(&self) -> f64 {
         2.0f64.powf(self.scale)
+    }
+
+    pub fn clear_offset(&mut self) {
+        self.target_center = DVec2::ZERO;
     }
 
     pub fn on_game_tick(&mut self) {
@@ -46,12 +67,24 @@ impl LinearCameraController {
 
         let dt = PHYSICS_CONSTANT_DELTA_TIME.to_secs_f64();
         self.scale += (self.target_scale - self.scale) * ((dt / SCALE_SMOOTHING).exp() - 1.0);
-        self.center += (self.target_center - self.center) * ((dt / CENTER_SMOOTHING).exp() - 1.0)
+        self.offset += (self.target_center - self.offset) * ((dt / CENTER_SMOOTHING).exp() - 1.0)
     }
 
-    pub fn follow(&mut self, p: DVec2) {
+    pub fn follow(&mut self, parent: EntityId, p: DVec2) {
+        if parent != self.parent {
+            self.target_center = DVec2::ZERO;
+            self.offset = self.center + self.offset - p;
+        }
+        self.parent = parent;
         self.center = p;
-        self.target_center = p;
+    }
+
+    pub fn offset(&self) -> DVec2 {
+        self.offset
+    }
+
+    pub fn parent(&self) -> EntityId {
+        self.parent
     }
 
     pub fn handle_input(&mut self, input: &InputState) {
@@ -91,4 +124,40 @@ impl LinearCameraController {
             self.target_scale = 1.0;
         }
     }
+}
+
+pub trait CameraProjection {
+    /// World to camera transform
+    fn w2c(&self, p: DVec2) -> Vec2 {
+        graphics_cast((p - self.origin()) * self.scale())
+    }
+
+    fn w2c_aabb(&self, aabb: AABB) -> AABB {
+        let a = aabb.lower().as_dvec2();
+        let b = aabb.upper().as_dvec2();
+        AABB::from_arbitrary(self.w2c(a), self.w2c(b))
+    }
+
+    /// Camera to world transform
+    fn c2w(&self, p: Vec2) -> DVec2 {
+        p.as_dvec2() / self.scale() + self.origin()
+    }
+
+    #[allow(unused)]
+    fn c2w_aabb(&self, aabb: AABB) -> AABB {
+        let a = aabb.lower();
+        let b = aabb.upper();
+        AABB::from_arbitrary(
+            aabb_stopgap_cast(self.c2w(a)),
+            aabb_stopgap_cast(self.c2w(b)),
+        )
+    }
+
+    fn origin(&self) -> DVec2;
+
+    fn scale(&self) -> f64;
+
+    fn offset(&self) -> DVec2;
+
+    fn parent(&self) -> EntityId;
 }

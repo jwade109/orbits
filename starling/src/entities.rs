@@ -69,20 +69,25 @@ impl SurfaceSpacecraftEntity {
         stamp: Nanotime,
         planets: &PlanetarySystem,
     ) {
-        if let Some(orbit) = &self.orbit {
-            if let Ok(pv) = orbit.pv(stamp) {
-                self.body.pv = pv;
-            }
+        if let Some(pv) = &self.orbit.map(|o| o.pv(stamp).ok()).flatten() {
+            self.body.pv = *pv;
+        } else {
+            let accel = BodyFrameAccel {
+                linear: DVec2::ZERO,
+                angular: 0.0,
+            };
+            self.body.on_sim_tick(accel, DVec2::ZERO, delta_time);
         }
+
         self.body.angle += self.body.angular_velocity * delta_time.to_secs_f64();
         self.body.angle = wrap_0_2pi_f64(self.body.angle);
 
-        let (parent_body, parent_pv) = match planets.lookup(self.planet_id, stamp) {
+        let (_, parent_pv) = match planets.lookup(self.planet_id, stamp) {
             Some((body, pv, _, _)) => (body, pv),
             None => todo!(),
         };
 
-        self.reparent_if_necessary(parent_body, parent_pv, planets, stamp);
+        self.reparent_if_necessary(parent_pv, planets, stamp);
     }
 
     fn reparent_to(
@@ -91,7 +96,7 @@ impl SurfaceSpacecraftEntity {
         planets: &PlanetarySystem,
         stamp: Nanotime,
     ) -> Option<()> {
-        println!("Reparent to {}", new_parent);
+        println!("Reparent from {} to {}", self.planet_id, new_parent);
         let (_, old_parent_pv, _, _) = planets.lookup(self.planet_id, stamp)?;
         let (_, new_parent_pv, _, _) = planets.lookup(new_parent, stamp)?;
         self.body.pv += old_parent_pv - new_parent_pv;
@@ -101,19 +106,21 @@ impl SurfaceSpacecraftEntity {
 
     fn reparent_if_necessary(
         &mut self,
-        parent_body: Body,
         parent_pv: PV,
         planets: &PlanetarySystem,
         stamp: Nanotime,
-    ) {
-        if self.body.pv.pos.length() > parent_body.soi {
-            let pv = self.body.pv + parent_pv;
-            if let Some(new_parent) = nearest_relevant_body(planets, pv.pos, stamp) {
-                self.reparent_to(new_parent, planets, stamp);
-                let altitude = self.body.pv.pos.length() - parent_body.radius;
-                self.update_orbit(planets, altitude, parent_body, stamp);
-            }
+    ) -> Option<()> {
+        let pv = self.body.pv + parent_pv;
+        let new_parent_id = nearest_relevant_body(planets, pv.pos, stamp)?;
+        if new_parent_id == self.planet_id {
+            return None;
         }
+
+        let (new_parent_body, _, _, _) = planets.lookup(new_parent_id, stamp)?;
+        self.reparent_to(new_parent_id, planets, stamp)?;
+        let altitude = self.body.pv.pos.length() - new_parent_body.radius;
+        self.update_orbit(planets, altitude, new_parent_body, stamp);
+        Some(())
     }
 
     pub fn step(&mut self, planets: &PlanetarySystem, stamp: Nanotime, ext: VehicleControl) {
@@ -159,7 +166,14 @@ impl SurfaceSpacecraftEntity {
 
         if status.is_done() {
             self.controller.set_idle();
-            self.controller.set_status(VehicleControlStatus::Idling);
+        }
+
+        if status.is_awaiting_user_input() && ext == VehicleControl::NULLOPT {
+            self.controller.set_idle();
+        }
+
+        if ext != VehicleControl::NULLOPT {
+            self.controller = VehicleController::external();
         }
 
         self.controller
@@ -175,7 +189,7 @@ impl SurfaceSpacecraftEntity {
 
         self.body.clamp_with_elevation(parent_body.radius);
 
-        self.reparent_if_necessary(parent_body, parent_pv, planets, stamp);
+        self.reparent_if_necessary(parent_pv, planets, stamp);
 
         self.update_orbit(planets, altitude, parent_body, stamp);
     }

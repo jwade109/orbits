@@ -1,4 +1,4 @@
-use crate::camera_controller::LinearCameraController;
+use crate::camera_controller::*;
 use crate::canvas::Canvas;
 use crate::game::GameState;
 use crate::input::{FrameId, InputState, MouseButt};
@@ -44,7 +44,7 @@ pub enum DrawMode {
 #[allow(unused)]
 #[derive(Debug, Clone)]
 pub struct OrbitalContext {
-    camera: LinearCameraController,
+    pub camera: LinearCameraController,
     primary: EntityId,
     pub selected: HashSet<EntityId>,
     pub following: Option<EntityId>,
@@ -54,39 +54,7 @@ pub struct OrbitalContext {
     pub show_animations: bool,
     pub draw_mode: DrawMode,
     pub piloting: Option<EntityId>,
-    pub hovered_craft: Option<EntityId>,
-}
-
-pub trait CameraProjection {
-    /// World to camera transform
-    fn w2c(&self, p: DVec2) -> Vec2 {
-        graphics_cast((p - self.origin()) * self.scale())
-    }
-
-    fn w2c_aabb(&self, aabb: AABB) -> AABB {
-        let a = aabb.lower().as_dvec2();
-        let b = aabb.upper().as_dvec2();
-        AABB::from_arbitrary(self.w2c(a), self.w2c(b))
-    }
-
-    /// Camera to world transform
-    fn c2w(&self, p: Vec2) -> DVec2 {
-        p.as_dvec2() / self.scale() + self.origin()
-    }
-
-    #[allow(unused)]
-    fn c2w_aabb(&self, aabb: AABB) -> AABB {
-        let a = aabb.lower();
-        let b = aabb.upper();
-        AABB::from_arbitrary(
-            aabb_stopgap_cast(self.c2w(a)),
-            aabb_stopgap_cast(self.c2w(b)),
-        )
-    }
-
-    fn origin(&self) -> DVec2;
-
-    fn scale(&self) -> f64;
+    pub hovered_entity: Option<EntityId>,
 }
 
 impl CameraProjection for OrbitalContext {
@@ -96,6 +64,14 @@ impl CameraProjection for OrbitalContext {
 
     fn scale(&self) -> f64 {
         self.camera.scale()
+    }
+
+    fn offset(&self) -> DVec2 {
+        self.camera.offset()
+    }
+
+    fn parent(&self) -> EntityId {
+        self.camera.parent()
     }
 }
 
@@ -114,7 +90,7 @@ impl OrbitalContext {
             show_animations: true,
             draw_mode: DrawMode::Default,
             piloting: None,
-            hovered_craft: None,
+            hovered_entity: None,
         }
     }
 
@@ -208,7 +184,7 @@ impl OrbitalContext {
     pub fn on_game_tick(&mut self, universe: &Universe) {
         if let Some(follow) = self.following {
             if let Some(pv) = universe.pv(follow) {
-                self.camera.follow(pv.pos);
+                self.camera.follow(follow, pv.pos);
             }
         }
 
@@ -240,23 +216,20 @@ impl OrbitalContext {
             return;
         }
 
-        self.hovered_craft = if let Some(p) = input.position(MouseButt::Hover, FrameId::Current) {
+        self.hovered_entity = if let Some(p) = input.position(MouseButt::Hover, FrameId::Current) {
             let dist = (SPACECRAFT_HOVER_RADIUS / self.scale()).max(10.0);
             let w = self.c2w(p);
-            if let Some(ObjectId::Orbiter(id)) = nearest_orbiter_or_planet(universe, w, dist) {
-                Some(id)
-            } else {
-                None
-            }
+            nearest_orbiter_or_planet(universe, w, dist)
         } else {
             None
         };
 
         if let Some(_) = input.on_frame(MouseButt::Left, FrameId::Down) {
             if input.is_pressed(KeyCode::ControlLeft) {
-                self.following = self.hovered_craft;
+                self.following = self.hovered_entity;
+                self.camera.clear_offset();
             } else {
-                if let Some(h) = self.hovered_craft {
+                if let Some(h) = self.hovered_entity {
                     self.piloting = Some(h);
                     sounds.play_once("soft-pulse-higher.ogg", 0.3);
                 } else {
@@ -270,19 +243,15 @@ impl OrbitalContext {
             || -> Option<()> {
                 let pilot = self.piloting?;
                 let sv = universe.surface_vehicles.get_mut(&pilot)?;
-                if self.hovered_craft != Some(pilot) {
-                    sv.set_target(self.hovered_craft);
+                if self.hovered_entity != Some(pilot) {
+                    if sv.target() == self.hovered_entity {
+                        sv.set_target(None);
+                    } else {
+                        sv.set_target(self.hovered_entity);
+                    }
                 }
                 Some(())
             }();
-        }
-
-        if input.is_pressed(KeyCode::KeyW)
-            || input.is_pressed(KeyCode::KeyA)
-            || input.is_pressed(KeyCode::KeyS)
-            || input.is_pressed(KeyCode::KeyD)
-        {
-            self.following = None;
         }
     }
 }
@@ -290,51 +259,54 @@ impl OrbitalContext {
 pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> {
     let mut ret = Vec::new();
 
-    let cursor = match state.input.position(MouseButt::Hover, FrameId::Current) {
-        Some(p) => p,
-        None => return Vec::new(),
-    };
+    let target_id = state
+        .orbital_context
+        .piloting
+        .map(|p| state.universe.surface_vehicles.get(&p).map(|p| p.target()))
+        .flatten()
+        .flatten();
 
-    let cursor_world = state.orbital_context.c2w(cursor);
-
-    for id in all_orbital_ids(&state.universe) {
-        let lup = match id {
-            ObjectId::Orbiter(id) => state.universe.lup_orbiter(id, state.universe.stamp()),
-            ObjectId::Planet(id) => state.universe.lup_planet(id, state.universe.stamp()),
-        };
-        let lup = match lup {
-            Some(lup) => lup,
+    for (id, alpha) in [
+        (state.orbital_context.piloting, 0.3),
+        (state.orbital_context.hovered_entity, 0.9),
+        (target_id, 0.3),
+    ] {
+        let id = match id {
+            Some(id) => id,
             None => continue,
         };
+
+        let lup = if let Some(lup) = state.universe.lup_orbiter(id, state.universe.stamp()) {
+            lup
+        } else if let Some(lup) = state.universe.lup_planet(id, state.universe.stamp()) {
+            lup
+        } else {
+            continue;
+        };
+
         let pw = lup.pv().pos;
         let pc = state.orbital_context.w2c(pw);
 
-        let (passes, label, pos) = if let Some((name, body)) = lup.named_body() {
+        let label = if let Some((name, body)) = lup.named_body() {
             // distance based on world space
-            let d = pw.distance(cursor_world);
             let p = state.orbital_context.w2c(pw + DVec2::Y * body.radius);
-            (d < body.radius, name.to_uppercase(), p + Vec2::Y * 30.0)
+            let text = name.to_uppercase();
+            let pos = p + Vec2::Y * 30.0;
+            TextLabel::new(text, pos, 1.0).with_color(WHITE.with_alpha(alpha))
         } else {
-            let orb_id = id.as_orbiter().unwrap();
-            let vehicle = state.universe.surface_vehicles.get(&orb_id);
+            let vehicle = state.universe.surface_vehicles.get(&id);
             let code = vehicle
                 .map(|ov| ov.vehicle().title())
                 .unwrap_or("UFO".to_string());
 
-            // distance based on pixel space
-            let d = pc.distance(cursor);
-            (
-                (d as f64) < SPACECRAFT_HOVER_RADIUS,
-                format!("{} {}", code, orb_id),
-                pc + Vec2::Y * 40.0,
-            )
+            let text = format!("{} {}", code, id);
+            let pos = pc + Vec2::X * 40.0;
+
+            let mut t = TextLabel::new(text, pos, 0.6).with_anchor_left();
+            t.color = WHITE.with_alpha(alpha);
+            t
         };
-        if passes {
-            ret.push(TextLabel::new(label, pos, 1.0));
-            if ret.len() > 6 {
-                return ret;
-            }
-        }
+        ret.push(label);
     }
     ret
 }
@@ -523,9 +495,9 @@ impl Render for OrbitalContext {
         let mut inner_topbar = Node::fit().with_color(UI_BACKGROUND_COLOR);
 
         if let Some(id) = state.orbital_context.following {
-            let s = format!("Following {}", id);
+            let s = format!("Following {}, {}", id, state.orbital_context.camera);
             let id = OnClick::Nullopt;
-            let n = Node::button(s, id, 400, state.settings.ui_button_height).enabled(false);
+            let n = Node::button(s, id, 800, state.settings.ui_button_height).enabled(false);
             inner_topbar.add_child(n);
         }
 

@@ -91,6 +91,7 @@ impl Plugin for GamePlugin {
                 crate::sprites::update_static_sprites,
                 crate::sprites::update_background_color,
                 gamepad_usage_system,
+                crate::ui::do_text_labels,
             )
                 .chain(),
         );
@@ -102,7 +103,6 @@ impl Plugin for GamePlugin {
                 // physics
                 on_game_tick,
                 // rendering
-                crate::ui::do_text_labels,
                 crate::sounds::sound_system,
             )
                 .chain(),
@@ -318,10 +318,7 @@ impl GameState {
         let earth_id = g.universe.lup_planet_by_name("Earth").unwrap();
         let luna_id = g.universe.lup_planet_by_name("Luna").unwrap();
 
-        for model in [
-            "remora", "remora", "icecream",
-            // "lander", "remora", "pollux",
-        ] {
+        for model in ["icecream"] {
             if let Some(v) = g.get_vehicle_by_model(model) {
                 g.universe.add_surface_vehicle(
                     luna_id,
@@ -1079,6 +1076,10 @@ impl GameState {
             if cmd != VehicleControl::NULLOPT {
                 signals.piloting_commands.insert(id, cmd);
             }
+        }
+
+        if !signals.is_empty() {
+            self.universe_ticks_per_game_tick = SimRate::RealTime;
         }
 
         // BOOKMARK gameloop

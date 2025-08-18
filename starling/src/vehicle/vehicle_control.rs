@@ -294,6 +294,13 @@ impl VehicleControlStatus {
             _ => false,
         }
     }
+
+    pub fn is_awaiting_user_input(&self) -> bool {
+        match self {
+            VehicleControlStatus::WaitingForInput => true,
+            _ => false,
+        }
+    }
 }
 
 fn to_int_percent(x: f64) -> i32 {
@@ -491,6 +498,7 @@ impl VehicleController {
 
     pub fn set_idle(&mut self) {
         self.mode = VehicleControlPolicy::Idle;
+        self.status = VehicleControlStatus::Idling;
     }
 
     pub fn enqueue_target_pose(&mut self, pose: Pose, clear_queue: bool) {

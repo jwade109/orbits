@@ -7,6 +7,7 @@ use bevy_vector_shapes::prelude::*;
 use starling::prelude::*;
 use std::collections::HashSet;
 
+use crate::camera_controller::*;
 use crate::canvas::Canvas;
 use crate::game::GameState;
 use crate::graph::*;
@@ -530,6 +531,7 @@ pub fn draw_piloting_overlay(
     let ctx = &state.orbital_context;
 
     let sv = state.universe.surface_vehicles.get(&piloting)?;
+
     let planet = state
         .universe
         .lup_planet(sv.parent(), state.universe.stamp())?;
@@ -560,7 +562,7 @@ pub fn draw_piloting_overlay(
         Vec2::splat(r * 2.0) * 1.1,
     );
 
-    circle_spacecraft(canvas, sv.target(), ctx, &state.universe, BLUE);
+    circle_entity(canvas, sv.target(), ctx, &state.universe, TEAL);
 
     draw_vehicle(canvas, vehicle, center, zoom, gcast(body.angle), true, true);
 
@@ -665,8 +667,8 @@ pub fn draw_piloting_overlay(
         .unwrap_or("/ NO INFO".to_string());
 
     let docking_info = if let Some(t) = sv.target() {
-        if let Some(sv) = state.universe.surface_vehicles.get(&t) {
-            let rvel = body.pv - sv.body.pv;
+        if let Some((target, ego)) = state.universe.pv(t).zip(state.universe.pv(piloting)) {
+            let rvel = ego - target;
             format!("TGT {} {}\n", t, rvel)
         } else {
             String::new()
@@ -744,24 +746,17 @@ fn draw_orbiter(canvas: &mut Canvas, state: &GameState, id: EntityId) -> Option<
         false
     };
 
-    let (parent, vehicle, body, orbit) = if let Some(sv) = state.universe.surface_vehicles.get(&id)
-    {
-        (sv.planet_id, &sv.vehicle, &sv.body, sv.current_orbit())
+    let sv = if let Some(sv) = state.universe.surface_vehicles.get(&id) {
+        sv
     } else {
         println!("Failed to draw orbiter {}", id);
         return None;
     };
 
-    let low_fuel = vehicle.low_fuel();
-    let is_thrusting = vehicle.is_thrusting();
-    let has_radar = vehicle.has_radar();
+    let low_fuel = sv.vehicle.low_fuel();
+    let is_thrusting = sv.vehicle.is_thrusting();
 
-    let parent_pv = state
-        .universe
-        .lup_planet(parent, state.universe.stamp())?
-        .pv();
-
-    let pv = body.pv + parent_pv;
+    let pv = state.universe.pv(id)?;
 
     let blinking = is_blinking(state.wall_time);
 
@@ -786,6 +781,8 @@ fn draw_orbiter(canvas: &mut Canvas, state: &GameState, id: EntityId) -> Option<
 
     if is_thrusting {
         draw_diamond(&mut canvas.gizmos, screen_pos, 28.0, RED);
+    } else if !sv.can_be_on_rails() && blinking {
+        draw_diamond(&mut canvas.gizmos, screen_pos, 28.0, TEAL);
     }
 
     let show_orbits = match ctx.show_orbits {
@@ -797,10 +794,10 @@ fn draw_orbiter(canvas: &mut Canvas, state: &GameState, id: EntityId) -> Option<
     if meters.max_element() < 2500.0 {
         draw_vehicle(
             canvas,
-            vehicle,
+            &sv.vehicle,
             screen_pos,
             gcast(ctx.scale()),
-            body.angle as f32,
+            sv.body.angle as f32,
             false,
             true,
         );
@@ -819,38 +816,11 @@ fn draw_orbiter(canvas: &mut Canvas, state: &GameState, id: EntityId) -> Option<
     };
 
     if meters.max_element() > 5000.0 {
-        if let Some(orbit) = orbit {
+        if let Some(orbit) = sv.current_orbit() {
             draw_global_orbit(canvas, &orbit, state, color);
         }
     }
 
-    // if tracked || piloting || targeting {
-    //     for (i, prop) in obj.props().iter().enumerate() {
-    //         let color = if i == 0 {
-    //             if piloting {
-    //                 GRAY.with_alpha(0.4)
-    //             } else if targeting {
-    //                 TEAL.with_alpha(0.4)
-    //             } else {
-    //                 WHITE.with_alpha(0.02)
-    //             }
-    //         } else {
-    //             TEAL.with_alpha((1.0 - i as f32 * 0.3).max(0.0))
-    //         };
-    //         if show_orbits {
-    //             draw_propagator(canvas, state, &prop, true, color, ctx);
-    //         }
-
-    //         if piloting {
-    //             if let Some(o) = ov.current_orbit(state.universe.stamp()) {
-    //                 draw_global_orbit(canvas, &o, state, ORANGE);
-    //             }
-    //         }
-    //     }
-    // } else if show_orbits {
-    //     let prop = obj.propagator_at(state.universe.stamp())?;
-    //     draw_propagator(canvas, state, prop, false, GRAY.with_alpha(0.02), ctx);
-    // }
     Some(())
 }
 
@@ -1141,16 +1111,18 @@ fn draw_rendezvous_info(canvas: &mut Canvas, state: &GameState) -> Option<()> {
     let target_pos = state.universe.pv(target)?;
 
     let meters = camera_span_meters(state.input.screen_bounds.span, ctx);
-    if meters.max_element() < 500_000.0 {
+
+    {
         let c = state.orbital_context.w2c(target_pos.pos);
         draw_circle(&mut canvas.gizmos, c, 10.0, TEAL);
-        for km in [1, 2, 5, 10, 25] {
-            let r = state.orbital_context.scale() * km as f64 * 1000.0;
-            canvas.circle(c, gcast(r), WHITE.with_alpha(0.02));
-            let p_world = target_pos.pos + DVec2::X * km as f64 * 1000.0;
+        for m in [100, 500, 1_000, 2_000, 5_000, 10_000, 25_000, 50_000] {
+            let alpha = (m as f64 / meters.max_element() * 5.0).clamp(0.0, 1.0);
+            let r = state.orbital_context.scale() * m as f64;
+            canvas.circle(c, gcast(r), WHITE.with_alpha(0.02 * gcast(alpha)));
+            let p_world = target_pos.pos + DVec2::from_angle(PI_64 / 4.0) * m as f64;
             let p_screen = ctx.w2c(p_world);
-            let s = format!("{} km", km);
-            canvas.text(s, p_screen, 0.5).anchor_left();
+            let s = format!("{}", distance_str(m as f64));
+            canvas.text(s, p_screen, 0.5).anchor_left().color = WHITE.with_alpha(gcast(alpha));
         }
     }
 
@@ -1415,7 +1387,7 @@ pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, _aabb: AABB, _stamp:
     // }
 }
 
-pub fn circle_spacecraft(
+pub fn circle_entity(
     canvas: &mut Canvas,
     id: impl Into<Option<EntityId>>,
     ctx: &impl CameraProjection,
@@ -1424,11 +1396,20 @@ pub fn circle_spacecraft(
 ) -> Option<()> {
     let id = id.into()?;
     let pv = universe.pv(id)?;
-    let sv = universe.surface_vehicles.get(&id)?;
-    let p = ctx.w2c(pv.pos);
-    let r = SPACECRAFT_HOVER_RADIUS.max(sv.vehicle.bounding_radius() * ctx.scale());
-    canvas.circle(p, gcast(r), color);
-    Some(())
+    if let Some(sv) = universe.surface_vehicles.get(&id) {
+        let p = ctx.w2c(pv.pos);
+        let r = SPACECRAFT_HOVER_RADIUS.max(sv.vehicle.bounding_radius() * ctx.scale());
+        canvas.circle(p, gcast(r), color);
+        Some(())
+    } else if let Some(lup) = universe.lup_planet(id, universe.stamp()) {
+        let p = ctx.w2c(lup.pv().pos);
+        let r =
+            SPACECRAFT_HOVER_RADIUS.max(lup.body()?.radius * ctx.scale() + SPACECRAFT_HOVER_RADIUS);
+        canvas.circle(p, gcast(r), color);
+        Some(())
+    } else {
+        None
+    }
 }
 
 pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
@@ -1437,7 +1418,7 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
     draw_camera_info(canvas, ctx, state.input.screen_bounds.span);
 
     if state.settings.draw_transform_tree {
-        draw_transforms(canvas, ctx, &state.universe);
+        draw_transforms(canvas, &ctx.camera, &state.universe);
     }
 
     draw_piloting_overlay(canvas, state, state.piloting());
@@ -1484,8 +1465,8 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
         draw_global_orbit(canvas, orbit, &state, RED);
     }
 
-    circle_spacecraft(canvas, ctx.hovered_craft, ctx, &state.universe, GRAY);
-    circle_spacecraft(canvas, ctx.piloting, ctx, &state.universe, ORANGE);
+    circle_entity(canvas, ctx.hovered_entity, ctx, &state.universe, GRAY);
+    circle_entity(canvas, ctx.piloting, ctx, &state.universe, ORANGE);
 
     if let Some(orbit) = state
         .current_hover_ui()
@@ -1613,23 +1594,23 @@ pub fn draw_cells(canvas: &mut Canvas, state: &GameState) -> Option<()> {
     Some(())
 }
 
-pub fn draw_transforms(canvas: &mut Canvas, ctx: &impl CameraProjection, universe: &Universe) {
-    let camera_pv = PV::pos(ctx.origin());
+pub fn draw_transforms(canvas: &mut Canvas, ctx: &LinearCameraController, universe: &Universe) {
+    let camera_pv = PV::pos(ctx.offset());
 
-    // let particle_transforms = universe
-    //     .thrust_particles
-    //     .particles
-    //     .iter()
-    //     .map(|t| (t.pv, t.parent));
+    let particle_transforms = universe
+        .thrust_particles
+        .particles
+        .iter()
+        .map(|t| (t.pv, t.parent));
 
     for (pv, parent) in universe
         .frames()
-        // .chain(particle_transforms)
-        .chain([(camera_pv, EntityId(0))])
+        .chain(particle_transforms)
+        .chain([(camera_pv, ctx.parent())])
     {
-        let parent_pv = match universe.lup_planet(parent, universe.stamp()) {
-            Some(p) => p.pv(),
-            None => continue,
+        let parent_pv = match universe.pv(parent) {
+            Some(p) => p,
+            None => PV::ZERO,
         };
 
         let p1 = ctx.w2c(pv.pos + parent_pv.pos);
@@ -1649,8 +1630,8 @@ pub fn draw_transforms(canvas: &mut Canvas, ctx: &impl CameraProjection, univers
 
 pub fn draw_camera_info(canvas: &mut Canvas, ctx: &impl CameraProjection, window_span: Vec2) {
     let meters = window_span.as_dvec2() / ctx.scale();
-    let lower_bound = ctx.origin() - meters / 2.0;
-    let upper_bound = ctx.origin() + meters / 2.0;
+    let lower_bound = ctx.offset() - meters / 2.0;
+    let upper_bound = ctx.offset() + meters / 2.0;
 
     let xl = lower_bound.x.ceil() as i64;
     let xu = upper_bound.x.floor() as i64;
@@ -1661,15 +1642,44 @@ pub fn draw_camera_info(canvas: &mut Canvas, ctx: &impl CameraProjection, window
     let dist = (xu - xl).max(yu - yl);
 
     let mut step: i64 = 1;
-    while dist / step > 40 {
-        step *= 5;
+
+    for s in [
+        1,
+        5,
+        10,
+        25,
+        50,
+        100,
+        250,
+        500,
+        1_000,
+        2_000,
+        5_000,
+        10_000,
+        25_000,
+        50_000,
+        100_000,
+        200_000,
+        500_000,
+        1_000_000,
+        5_000_000,
+        10_000_000,
+        50_000_000,
+        100_000_000,
+        1_000_000_000,
+    ] {
+        let n = dist / s;
+        if n < 40 {
+            step = s;
+            break;
+        }
     }
 
     canvas
         .text(
             distance_str(step as f64),
             Vec2::new(window_span.x, -window_span.y) / 2.0 - Vec2::new(40.0, -40.0),
-            0.5,
+            0.9,
         )
         .anchor_right();
 
@@ -1681,12 +1691,14 @@ pub fn draw_camera_info(canvas: &mut Canvas, ctx: &impl CameraProjection, window
 
     let step = step.try_into().unwrap();
 
+    let origin = ctx.origin() - ctx.offset();
+
     canvas.painter.reset();
-    canvas.painter.thickness = 3.0;
+    canvas.painter.thickness = 2.0;
 
     for x in (xl..=xu).step_by(step) {
         let wp = lower_bound.with_x(x as f64);
-        let p = ctx.w2c(wp);
+        let p = ctx.w2c(origin + wp);
         let q = p + Vec2::Y * 10.0;
         canvas.painter.line(
             p.extend(ZOrdering::ScaleIndicator.as_f32()),
@@ -1696,11 +1708,24 @@ pub fn draw_camera_info(canvas: &mut Canvas, ctx: &impl CameraProjection, window
 
     for y in (yl..=yu).step_by(step) {
         let wp = upper_bound.with_y(y as f64);
-        let p = ctx.w2c(wp);
+        let p = ctx.w2c(origin + wp);
         let q = p - Vec2::X * 10.0;
         canvas.painter.line(
             p.extend(ZOrdering::ScaleIndicator.as_f32()),
             q.extend(ZOrdering::ScaleIndicator.as_f32()),
+        );
+    }
+
+    canvas.painter.set_color(WHITE.with_alpha(0.03));
+
+    for a in 0..4 {
+        let a = 0.5 * PI * a as f32;
+        let c = ctx.w2c(origin);
+        let p = Vec2::from_angle(a) * 100.0;
+        let q = p * 3.0;
+        canvas.painter.line(
+            (c + p).extend(ZOrdering::ScaleIndicator.as_f32()),
+            (c + q).extend(ZOrdering::ScaleIndicator.as_f32()),
         );
     }
 }

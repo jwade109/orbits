@@ -60,7 +60,7 @@ impl Universe {
         let mut actual_ticks = 0;
         let mut exec_time = Duration::ZERO;
 
-        let batch_mode = if self.can_run_batch_mode() {
+        let batch_mode = if self.can_run_batch_mode() && signals.is_empty() {
             self.run_batch_ticks(ticks);
             exec_time = std::time::Instant::now() - start;
             actual_ticks = ticks;
@@ -283,7 +283,7 @@ pub fn nearest_orbiter_or_planet(
     universe: &Universe,
     pos: DVec2,
     max_dist: impl Into<Option<f64>>,
-) -> Option<ObjectId> {
+) -> Option<EntityId> {
     let max_dist = max_dist.into();
     let stamp = universe.stamp();
     let results = all_orbital_ids(universe)
@@ -292,10 +292,19 @@ pub fn nearest_orbiter_or_planet(
                 ObjectId::Orbiter(id) => universe.lup_orbiter(id, stamp),
                 ObjectId::Planet(id) => universe.lup_planet(id, stamp),
             }?;
+            let size = if let Some(body) = lup.body() {
+                body.radius
+            } else {
+                0.0
+            };
             let p = lup.pv().pos;
             let d = pos.distance(p);
-            let passes = if let Some(m) = max_dist { d <= m } else { true };
-            passes.then(|| (d, id))
+            let passes = if let Some(m) = max_dist {
+                d <= size + m
+            } else {
+                true
+            };
+            passes.then(|| (d, id.as_eid()))
         })
         .collect::<Vec<_>>();
     results

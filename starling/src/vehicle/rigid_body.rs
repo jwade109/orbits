@@ -8,7 +8,7 @@ pub struct BodyFrameAccel {
     pub angular: f64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct RigidBody {
     pub pv: PV,
     pub angle: f64,

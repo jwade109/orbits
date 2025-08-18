@@ -198,7 +198,7 @@ impl SparseOrbit {
             } else {
                 let eccentric_anomaly = true_to_eccentric(true_anomaly, e.length());
                 let mean_anomaly = eccentric_to_mean(eccentric_anomaly, e.length());
-                let mean_motion = (body.mu() as f64 / semi_major_axis.abs().powi(3)).sqrt();
+                let mean_motion = (body.mu() / semi_major_axis.abs().powi(3)).sqrt();
                 Some(epoch - Nanotime::secs_f64(mean_anomaly.as_f64() / mean_motion as f64))
             }
         };
@@ -401,9 +401,9 @@ impl SparseOrbit {
     }
 
     pub fn pv(&self, stamp: Nanotime) -> Result<PV, ULData> {
-        if let Some(pv) = self.pv_lut(stamp) {
-            return Ok(pv);
-        }
+        // if let Some(pv) = self.pv_lut(stamp) {
+        //     return Ok(pv);
+        // }
         self.pv_universal(stamp)
     }
 
@@ -778,7 +778,7 @@ impl ULData {
     }
 
     fn solve(&self) -> Option<ULResults> {
-        let radius = 800.0;
+        let radius = 800000.0;
         let chi_min = self.chi_0 - radius;
         let chi_max = self.chi_0 + radius;
         let chi = if self.tof == Nanotime::zero() {

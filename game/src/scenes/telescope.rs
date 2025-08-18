@@ -1,4 +1,4 @@
-use crate::camera_controller::LinearCameraController;
+use crate::camera_controller::*;
 use crate::canvas::Canvas;
 use crate::drawing::*;
 use crate::game::GameState;
@@ -6,7 +6,7 @@ use crate::graph::Graph;
 use crate::input::InputState;
 use crate::input::{FrameId, MouseButt};
 use crate::onclick::OnClick;
-use crate::scenes::{CameraProjection, Render, TextLabel};
+use crate::scenes::{Render, TextLabel};
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use layout::layout::Tree;
@@ -24,6 +24,14 @@ impl CameraProjection for TelescopeContext {
 
     fn scale(&self) -> f64 {
         self.camera.scale()
+    }
+
+    fn offset(&self) -> DVec2 {
+        self.camera.offset()
+    }
+
+    fn parent(&self) -> EntityId {
+        self.camera.parent()
     }
 }
 

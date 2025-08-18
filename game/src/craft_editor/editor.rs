@@ -1,5 +1,5 @@
 use crate::args::ProgramContext;
-use crate::camera_controller::LinearCameraController;
+use crate::camera_controller::*;
 use crate::canvas::Canvas;
 use crate::craft_editor::*;
 use crate::drawing::*;
@@ -8,7 +8,7 @@ use crate::input::InputState;
 use crate::input::{FrameId, MouseButt};
 use crate::names::*;
 use crate::onclick::OnClick;
-use crate::scenes::{CameraProjection, Render};
+use crate::scenes::Render;
 use crate::ui::*;
 use crate::z_index::ZOrdering;
 use bevy::color::palettes::css::*;
@@ -1036,6 +1036,14 @@ impl CameraProjection for EditorContext {
 
     fn scale(&self) -> f64 {
         self.camera.scale()
+    }
+
+    fn offset(&self) -> DVec2 {
+        self.camera.offset()
+    }
+
+    fn parent(&self) -> EntityId {
+        self.camera.parent()
     }
 }
 
