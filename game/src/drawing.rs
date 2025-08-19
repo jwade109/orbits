@@ -1421,6 +1421,20 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
         draw_transforms(canvas, &ctx.camera, &state.universe);
     }
 
+    for (p, c, r, _) in &state.starfield {
+        if p.x <= 0.0 {
+            continue;
+        }
+        let o = ctx.origin();
+        let q = p.as_dvec3() * 10000.0 - DVec3::new(0.0, o.x, o.y) / p.x as f64;
+        let (az, el) = crate::scenes::telescope::to_azel(q.as_vec3());
+        canvas.circle(
+            DVec2::new(az, el).as_vec2() * 1_000.0,
+            *r * 0.1,
+            WHITE.mix(c, rand(0.0, 0.3)),
+        );
+    }
+
     draw_piloting_overlay(canvas, state, state.piloting());
 
     draw_rendezvous_info(canvas, state);

@@ -35,6 +35,13 @@ impl CameraProjection for TelescopeContext {
     }
 }
 
+pub fn to_azel(p: Vec3) -> (f64, f64) {
+    let p = p.as_dvec3();
+    let az = f64::atan2(p.y, p.x);
+    let el = f64::atan2(p.z, p.xy().length());
+    (az, el)
+}
+
 impl TelescopeContext {
     pub fn new() -> Self {
         TelescopeContext {
@@ -56,13 +63,6 @@ impl TelescopeContext {
 
     pub fn on_render_tick(&mut self, input: &InputState) {
         self.camera.handle_input(input);
-    }
-
-    pub fn to_azel(p: Vec3) -> (f64, f64) {
-        let p = p.as_dvec3();
-        let az = f64::atan2(p.y, p.x);
-        let el = f64::atan2(p.z, p.xy().length());
-        (az, el)
     }
 
     pub fn screen_radius(state: &GameState) -> f32 {
@@ -132,7 +132,7 @@ impl Render for TelescopeContext {
         graph.add_point(2500.0, 0.0, true);
 
         for (star, color, radius, fc) in &state.starfield {
-            let (az, el) = TelescopeContext::to_azel(*star);
+            let (az, el) = to_azel(*star);
             let (p, alpha, d) = TelescopeContext::screen_position(az, el, state);
             if d < 0.2 {
                 graph.add_func(
@@ -153,7 +153,7 @@ impl Render for TelescopeContext {
         let cursor = state.input.position(MouseButt::Hover, FrameId::Current)?;
 
         for (p, _, _, freq) in &state.starfield {
-            let (az, el) = Self::to_azel(*p);
+            let (az, el) = to_azel(*p);
             let (q, alpha, _) = Self::screen_position(az, el, state);
             if alpha > 0.4 && q.distance(cursor) < 50.0 {
                 canvas.label(TextLabel::new(

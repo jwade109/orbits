@@ -51,19 +51,17 @@ impl RigidBody {
         self.pv.pos += self.pv.vel * dt.to_secs_f64();
     }
 
-    pub fn clamp_with_elevation(&mut self, elevation: f64) {
+    pub fn clamp_with_elevation(&mut self, elevation: f64) -> bool {
         let elev = self.pv.pos.length() as f64;
-        if elev < elevation {
+
+        let clamped = elev <= elevation;
+
+        if clamped {
             self.pv.pos = self.pv.pos.normalize_or_zero() * elevation as f64;
-            // self.pv.vel.y = 0.0;
+            self.pv.vel = DVec2::ZERO;
         }
 
-        // let angle = wrap_pi_npi(self.pv.pos.to_angle() as f64);
-
-        if elev <= elevation {
-            self.pv.vel *= 0.98;
-            // self.angular_velocity = (angle - self.angle) * 0.1;
-        }
+        clamped
     }
 }
 

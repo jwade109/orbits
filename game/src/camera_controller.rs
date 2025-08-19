@@ -119,10 +119,8 @@ impl LinearCameraController {
         if input.is_pressed(KeyCode::KeyS) {
             self.target_center.y -= speed / self.scale();
         }
-        if input.is_pressed(KeyCode::KeyR) && input.is_pressed(KeyCode::ShiftLeft) {
-            self.target_center = DVec2::ZERO;
-            self.target_scale = 1.0;
-        }
+
+        self.target_scale = self.target_scale.clamp(-22.0, 10.0);
     }
 }
 

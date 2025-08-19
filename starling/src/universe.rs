@@ -124,6 +124,12 @@ impl Universe {
         for (_, sv) in &mut self.surface_vehicles {
             sv.step_on_rails(delta_time, self.stamp, &self.planets);
         }
+
+        if ticks == 1 {
+            self.thrust_particles.step();
+        } else {
+            self.thrust_particles.particles.clear();
+        }
     }
 
     pub fn on_sim_tick(&mut self, signals: &ControlSignals) {

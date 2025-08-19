@@ -10,6 +10,8 @@ pub struct SurfaceSpacecraftEntity {
     pub reference_orbit_age: Nanotime,
     target: Option<EntityId>,
     orbiter: Option<Orbiter>,
+    altitude: Option<f64>,
+    clamped_to_ground: bool,
 }
 
 impl SurfaceSpacecraftEntity {
@@ -28,6 +30,8 @@ impl SurfaceSpacecraftEntity {
             reference_orbit_age: Nanotime::ZERO,
             target: None,
             orbiter: None,
+            altitude: None,
+            clamped_to_ground: false,
         }
     }
 
@@ -82,10 +86,21 @@ impl SurfaceSpacecraftEntity {
         self.body.angle += self.body.angular_velocity * delta_time.to_secs_f64();
         self.body.angle = wrap_0_2pi_f64(self.body.angle);
 
-        let (_, parent_pv) = match planets.lookup(self.planet_id, stamp) {
+        let (parent_body, parent_pv) = match planets.lookup(self.planet_id, stamp) {
             Some((body, pv, _, _)) => (body, pv),
             None => todo!(),
         };
+
+        if self.clamped_to_ground {
+            self.body.angle = self.body.pv.pos.to_angle();
+        }
+
+        let alt = self.body.pv.pos.length() - parent_body.radius;
+        self.altitude = Some(alt);
+
+        if alt < 2_000.0 {
+            self.orbit = None;
+        }
 
         self.reparent_if_necessary(parent_pv, planets, stamp);
     }
@@ -96,7 +111,6 @@ impl SurfaceSpacecraftEntity {
         planets: &PlanetarySystem,
         stamp: Nanotime,
     ) -> Option<()> {
-        println!("Reparent from {} to {}", self.planet_id, new_parent);
         let (_, old_parent_pv, _, _) = planets.lookup(self.planet_id, stamp)?;
         let (_, new_parent_pv, _, _) = planets.lookup(new_parent, stamp)?;
         self.body.pv += old_parent_pv - new_parent_pv;
@@ -181,17 +195,22 @@ impl SurfaceSpacecraftEntity {
         self.vehicle.set_thrust_control(&ctrl);
         self.vehicle.on_sim_tick();
 
-        let altitude = self.body.pv.pos.length() - parent_body.radius;
+        let alt = self.body.pv.pos.length() - parent_body.radius;
+        self.altitude = Some(alt);
 
         let accel = self.vehicle.body_frame_accel();
         self.body
             .on_sim_tick(accel, gravity, PHYSICS_CONSTANT_DELTA_TIME);
 
-        self.body.clamp_with_elevation(parent_body.radius);
+        self.clamped_to_ground = self.body.clamp_with_elevation(parent_body.radius);
+
+        if self.clamped_to_ground {
+            self.body.angle = self.body.pv.pos.to_angle();
+        }
 
         self.reparent_if_necessary(parent_pv, planets, stamp);
 
-        self.update_orbit(planets, altitude, parent_body, stamp);
+        self.update_orbit(planets, alt, parent_body, stamp);
     }
 
     fn update_orbit(
@@ -217,9 +236,11 @@ impl SurfaceSpacecraftEntity {
     }
 
     pub fn can_be_on_rails(&self) -> bool {
-        match (self.controller.mode(), self.controller.status()) {
+        let is_idle = match (self.controller.mode(), self.controller.status()) {
             (VehicleControlPolicy::Idle, VehicleControlStatus::Idling) => true,
             _ => false,
-        }
+        };
+        let has_orbit = self.orbit.is_some();
+        is_idle && (has_orbit || self.clamped_to_ground)
     }
 }
