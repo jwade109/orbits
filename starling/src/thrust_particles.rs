@@ -43,7 +43,7 @@ impl ThrustParticle {
 
     fn step(&mut self) {
         self.pv.pos += self.pv.vel * PHYSICS_CONSTANT_DELTA_TIME.to_secs_f64();
-        self.pv.vel *= 1.0 - 0.04 * self.atmo as f64;
+        self.pv.vel *= 1.0 - 0.02 * self.atmo as f64;
         self.age += PHYSICS_CONSTANT_DELTA_TIME;
     }
 }

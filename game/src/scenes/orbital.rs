@@ -256,7 +256,7 @@ impl OrbitalContext {
     }
 }
 
-pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> {
+pub fn get_orbital_labels(state: &GameState) -> Vec<TextLabel> {
     let mut ret = Vec::new();
 
     let target_id = state
@@ -291,7 +291,7 @@ pub fn get_orbital_object_mouseover_labels(state: &GameState) -> Vec<TextLabel> 
             // distance based on world space
             let p = state.orbital_context.w2c(pw + DVec2::Y * body.radius);
             let text = name.to_uppercase();
-            let pos = p + Vec2::Y * 30.0;
+            let pos = p + Vec2::Y * 50.0;
             TextLabel::new(text, pos, 1.0).with_color(WHITE.with_alpha(alpha))
         } else {
             let vehicle = state.universe.surface_vehicles.get(&id);
@@ -325,7 +325,7 @@ pub fn date_info(state: &GameState) -> String {
 }
 
 fn text_labels(state: &GameState) -> Vec<TextLabel> {
-    let mut text_labels: Vec<TextLabel> = get_orbital_object_mouseover_labels(state);
+    let mut text_labels: Vec<TextLabel> = get_orbital_labels(state);
 
     if let Some((m1, m2, corner)) = state.measuring_tape() {
         for (a, b) in [(m1, m2), (m1, corner), (m2, corner)] {
@@ -380,6 +380,8 @@ impl Render for OrbitalContext {
     }
 
     fn ui(state: &GameState) -> Option<Tree<OnClick>> {
+        return None;
+
         let vb = state.input.screen_bounds;
         if vb.span.x == 0.0 || vb.span.y == 0.0 {
             return Some(Tree::new());

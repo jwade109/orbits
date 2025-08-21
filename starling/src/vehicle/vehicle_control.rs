@@ -45,6 +45,14 @@ impl VehicleControl {
         neg_y: ThrustAxisControl::NULLOPT,
         attitude: 0.0,
     };
+
+    pub fn is_nullopt(&self) -> bool {
+        self.plus_x.throttle == 0.0
+            && self.plus_y.throttle == 0.0
+            && self.neg_x.throttle == 0.0
+            && self.neg_y.throttle == 0.0
+            && self.attitude == 0.0
+    }
 }
 
 fn zero_gravity_control_law(
@@ -163,6 +171,23 @@ fn zero_gravity_control_law(
 fn compute_attitude_control(body: &RigidBody, target_angle: f64, pid: &PDCtrl) -> f64 {
     let attitude_error = wrap_pi_npi_f64(target_angle - body.angle);
     pid.apply(attitude_error, body.angular_velocity)
+}
+
+pub fn attitude_control_law(
+    target_angle: f64,
+    vehicle: &Vehicle,
+    body: &RigidBody,
+) -> (VehicleControl, VehicleControlStatus) {
+    let mut cmd = VehicleControl::NULLOPT;
+    cmd.attitude = compute_attitude_control(body, target_angle, &vehicle.attitude_controller);
+    let attitude_error = wrap_pi_npi_f64(target_angle - body.angle);
+    let stat = if attitude_error.abs() > 0.03 {
+        VehicleControlStatus::ComingAbout
+    } else {
+        cmd.attitude = 0.0;
+        VehicleControlStatus::HoldingAttitude
+    };
+    (cmd, stat)
 }
 
 fn hover_control_law(
@@ -285,6 +310,7 @@ pub enum VehicleControlStatus {
     Hovering,
     NoVelocityVector,
     ComingAbout,
+    HoldingAttitude,
 }
 
 impl VehicleControlStatus {
@@ -379,7 +405,7 @@ pub fn enter_orbit_control_law(
     } else if apoapsis_above_target || above_target {
         if !above_target {
             (
-                att_and_throttle(body.pv.vel.to_angle(), 0.0),
+                VehicleControl::NULLOPT,
                 VehicleControlStatus::CoastingToApoapsis(to_int_percent(
                     altitude / target_altitude,
                 )),
@@ -442,6 +468,21 @@ pub enum VehicleControlPolicy {
     LaunchToOrbit(f64),
     BurnPrograde,
     BurnRetrograde,
+    HoldAttitude,
+}
+
+impl VehicleControlPolicy {
+    pub fn to_status_str(&self) -> String {
+        match self {
+            VehicleControlPolicy::Idle => "Idling".to_string(),
+            VehicleControlPolicy::External => "Under external control".to_string(),
+            VehicleControlPolicy::PositionHold(_) => "Holding position".to_string(),
+            VehicleControlPolicy::LaunchToOrbit(_) => "Launching to orbit".to_string(),
+            VehicleControlPolicy::BurnPrograde => "Burning prograde".to_string(),
+            VehicleControlPolicy::BurnRetrograde => "Burning retrograde".to_string(),
+            VehicleControlPolicy::HoldAttitude => "Holding attitude".to_string(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -543,7 +584,8 @@ impl VehicleController {
             }
             VehicleControlPolicy::LaunchToOrbit(_) => VehicleControlPolicy::BurnPrograde,
             VehicleControlPolicy::BurnPrograde => VehicleControlPolicy::BurnRetrograde,
-            VehicleControlPolicy::BurnRetrograde => VehicleControlPolicy::Idle,
+            VehicleControlPolicy::BurnRetrograde => VehicleControlPolicy::HoldAttitude,
+            VehicleControlPolicy::HoldAttitude => VehicleControlPolicy::Idle,
         };
     }
 

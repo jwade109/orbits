@@ -1,4 +1,5 @@
 use crate::args::ProgramContext;
+use crate::button::{Button, Take};
 use crate::canvas::Canvas;
 use crate::debug_console::DebugConsole;
 use crate::generate_ship_sprites::*;
@@ -223,6 +224,8 @@ pub struct GameState {
     pub image_handles: HashMap<String, (Handle<Image>, UVec2)>,
 
     pub vehicle_names: Vec<String>,
+
+    pub buttons: Vec<Button>,
 }
 
 fn generate_starfield() -> Vec<(Vec3, Srgba, f32, f32)> {
@@ -275,6 +278,40 @@ impl GameState {
             }
         };
 
+        let mut buttons = Vec::new();
+        let w = 60.0;
+        let s = w + 10.0;
+        for (y, onclick, text, sp) in [
+            (0, OnClick::ToggleDrawMode, "Launch to Orbit", "launch-icon"),
+            (
+                1,
+                OnClick::ToggleDrawMode,
+                "Thrust Prograde",
+                "prograde-icon",
+            ),
+            (
+                2,
+                OnClick::NextControllerMode,
+                "Thrust Retrograde",
+                "retrograde-icon",
+            ),
+            (
+                3,
+                OnClick::NextControllerMode,
+                "Clear Controller",
+                "clear-icon",
+            ),
+            (
+                4,
+                OnClick::NextControllerMode,
+                "Hold Attitude",
+                "heading-icon",
+            ),
+        ] {
+            let p = Vec2::new(-900.0, y as f32 * s);
+            buttons.push(Button::new(text, onclick, p, Vec2::splat(w), sp));
+        }
+
         let mut g = GameState {
             render_ticks: 0,
             game_ticks: 0,
@@ -313,6 +350,7 @@ impl GameState {
             sprites: Vec::new(),
             image_handles: HashMap::new(),
             vehicle_names,
+            buttons,
         };
 
         let earth_id = g.universe.lup_planet_by_name("Earth").unwrap();
@@ -418,6 +456,11 @@ impl GameState {
             "ctrl",
             "ctrl-dim",
             "shipscope",
+            "launch-icon",
+            "prograde-icon",
+            "retrograde-icon",
+            "clear-icon",
+            "heading-icon",
         ] {
             let path = self.args.install_dir.join(format!("{}.png", name));
             if let Some(img) = crate::generate_ship_sprites::read_image(&path) {
@@ -897,11 +940,21 @@ impl GameState {
                     self.notice(format!("Failed to clear inventory for part {:?}", id));
                 }
             }
+            OnClick::NextControllerMode => {
+                self.next_controller_mode();
+            }
 
             // BOOKMARK unhandled event
             _ => info!("Unhandled button event: {id:?}"),
         };
 
+        Some(())
+    }
+
+    pub fn next_controller_mode(&mut self) -> Option<()> {
+        let piloting = self.piloting()?;
+        let sv = self.universe.surface_vehicles.get_mut(&piloting)?;
+        sv.controller.go_to_next_mode();
         Some(())
     }
 
@@ -1011,9 +1064,38 @@ impl GameState {
     pub fn on_render_tick(&mut self) {
         self.render_ticks += 1;
 
+        let mut take = Take::from_opt(self.input.position(MouseButt::Hover, FrameId::Current));
+
+        for button in &mut self.buttons {
+            button.update_mouse_position(&mut take);
+        }
+
         if self.console.is_active() {
             if let Some((decl, args)) = self.console.process_input(&mut self.input) {
                 decl.execute(self, args);
+            }
+            return;
+        }
+
+        if let Some(_) = self.input.on_frame(MouseButt::Left, FrameId::Down) {
+            for button in &mut self.buttons {
+                button.on_left_mouse_down();
+            }
+        }
+
+        let mut events = Vec::new();
+
+        if let Some(_) = self.input.on_frame(MouseButt::Left, FrameId::Up) {
+            for button in &mut self.buttons {
+                if let Some(e) = button.on_left_mouse_up() {
+                    events.push(e);
+                }
+            }
+        }
+
+        if !events.is_empty() {
+            for e in events {
+                self.on_button_event(e);
             }
             return;
         }
@@ -1069,11 +1151,15 @@ impl GameState {
     pub fn on_game_tick(&mut self) {
         self.game_ticks += 1;
 
+        for button in &mut self.buttons {
+            button.step();
+        }
+
         let mut signals = ControlSignals::new();
 
         if let Some(id) = self.piloting() {
             let cmd = keyboard_control_law(&self.input);
-            if cmd != VehicleControl::NULLOPT {
+            if !cmd.is_nullopt() {
                 signals.piloting_commands.insert(id, cmd);
             }
         }

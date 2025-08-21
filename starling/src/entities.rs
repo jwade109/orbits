@@ -102,6 +102,16 @@ impl SurfaceSpacecraftEntity {
             self.orbit = None;
         }
 
+        let hold_att = match self.controller.mode() {
+            VehicleControlPolicy::HoldAttitude => true,
+            _ => false,
+        };
+
+        if hold_att {
+            self.body.angle = 0.0;
+            self.body.angular_velocity = 0.0;
+        }
+
         self.reparent_if_necessary(parent_pv, planets, stamp);
     }
 
@@ -151,7 +161,7 @@ impl SurfaceSpacecraftEntity {
             }
             (VehicleControlPolicy::External, _) => (
                 ext,
-                if ext == VehicleControl::NULLOPT {
+                if ext.is_nullopt() {
                     VehicleControlStatus::WaitingForInput
                 } else {
                     VehicleControlStatus::UnderExternalControl
@@ -173,6 +183,9 @@ impl SurfaceSpacecraftEntity {
             (VehicleControlPolicy::BurnRetrograde, _) => {
                 burn_along_velocity_vector_control_law(&self.body, &self.vehicle, false)
             }
+            (VehicleControlPolicy::HoldAttitude, _) => {
+                attitude_control_law(0.0, &self.vehicle, &self.body)
+            }
             (_, _) => (VehicleControl::NULLOPT, VehicleControlStatus::Idling),
         };
 
@@ -182,7 +195,7 @@ impl SurfaceSpacecraftEntity {
             self.controller.set_idle();
         }
 
-        if status.is_awaiting_user_input() && ext == VehicleControl::NULLOPT {
+        if status.is_awaiting_user_input() && ext.is_nullopt() {
             self.controller.set_idle();
         }
 
@@ -238,6 +251,7 @@ impl SurfaceSpacecraftEntity {
     pub fn can_be_on_rails(&self) -> bool {
         let is_idle = match (self.controller.mode(), self.controller.status()) {
             (VehicleControlPolicy::Idle, VehicleControlStatus::Idling) => true,
+            (VehicleControlPolicy::HoldAttitude, _) => self.body.angle.abs() < 0.05,
             _ => false,
         };
         let has_orbit = self.orbit.is_some();

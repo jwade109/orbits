@@ -67,7 +67,7 @@ Double Blind
 Mockingbird
 Numerical Methods
 Packing Efficiency
-Endeavour of Foresight
+Benefit of Hindsight
 Much Laxity
 Bird in the Hand
 Two in the Bush
@@ -157,3 +157,17 @@ Nasturtium
 Bougainvillea
 Heuchera
 Cnidaria
+Sign of Things to Come
+Unsolved Problem
+Interlocutor
+Waxwing
+Vireo
+Grackle
+Songbird
+Zephyr
+Columbia
+Cholesky
+Haversine
+Gestalt
+Herd Immunity
+Katydid

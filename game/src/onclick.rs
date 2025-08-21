@@ -56,5 +56,6 @@ pub enum OnClick {
     SetRecipe(PartId, RecipeListing),
     ClearContents(PartId),
     GoToSurface(EntityId),
+    NextControllerMode,
     Nullopt,
 }

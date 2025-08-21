@@ -7,6 +7,7 @@ use bevy_vector_shapes::prelude::*;
 use starling::prelude::*;
 use std::collections::HashSet;
 
+use crate::button::*;
 use crate::camera_controller::*;
 use crate::canvas::Canvas;
 use crate::game::GameState;
@@ -661,6 +662,21 @@ pub fn draw_piloting_overlay(
             1.2,
         )
         .anchor_right();
+
+    let color = if sv.controller.is_idle() || !is_blinking(state.wall_time) {
+        GRAY.with_alpha(0.3)
+    } else {
+        RED
+    };
+
+    canvas
+        .text(
+            sv.controller.mode().to_status_str().to_uppercase(),
+            center + Vec2::new(r * 0.4, r + 170.0),
+            1.2,
+        )
+        .anchor_right()
+        .color = color;
 
     let orbit_str = orbit
         .map(|o| format!("{}", o))
@@ -1414,6 +1430,10 @@ pub fn circle_entity(
 
 pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
     let ctx = &state.orbital_context;
+
+    for button in &state.buttons {
+        draw_button(canvas, button);
+    }
 
     draw_camera_info(canvas, ctx, state.input.screen_bounds.span);
 

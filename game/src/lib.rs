@@ -1,4 +1,5 @@
 pub mod args;
+pub mod button;
 pub mod camera_controller;
 pub mod canvas;
 pub mod commands;

@@ -650,7 +650,7 @@ impl Vehicle {
     }
 
     pub fn set_thrust_control(&mut self, control: &VehicleControl) {
-        let is_nullopt = *control == VehicleControl::NULLOPT;
+        let is_nullopt = control.is_nullopt();
 
         self.is_thrusting = false;
 
