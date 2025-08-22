@@ -460,7 +460,7 @@ pub fn burn_along_velocity_vector_control_law(
     (ctrl, status)
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum VehicleControlPolicy {
     Idle,
     External,
@@ -468,7 +468,7 @@ pub enum VehicleControlPolicy {
     LaunchToOrbit(f64),
     BurnPrograde,
     BurnRetrograde,
-    HoldAttitude,
+    HoldAttitude(Option<f64>),
 }
 
 impl VehicleControlPolicy {
@@ -480,7 +480,7 @@ impl VehicleControlPolicy {
             VehicleControlPolicy::LaunchToOrbit(_) => "Launching to orbit".to_string(),
             VehicleControlPolicy::BurnPrograde => "Burning prograde".to_string(),
             VehicleControlPolicy::BurnRetrograde => "Burning retrograde".to_string(),
-            VehicleControlPolicy::HoldAttitude => "Holding attitude".to_string(),
+            VehicleControlPolicy::HoldAttitude(_) => "Holding attitude".to_string(),
         }
     }
 }
@@ -527,6 +527,10 @@ impl VehicleController {
             status: VehicleControlStatus::InProgress,
             mode: VehicleControlPolicy::PositionHold(poses),
         }
+    }
+
+    pub fn set_policy(&mut self, policy: VehicleControlPolicy) {
+        self.mode = policy;
     }
 
     pub fn set_status(&mut self, status: VehicleControlStatus) {
@@ -584,8 +588,8 @@ impl VehicleController {
             }
             VehicleControlPolicy::LaunchToOrbit(_) => VehicleControlPolicy::BurnPrograde,
             VehicleControlPolicy::BurnPrograde => VehicleControlPolicy::BurnRetrograde,
-            VehicleControlPolicy::BurnRetrograde => VehicleControlPolicy::HoldAttitude,
-            VehicleControlPolicy::HoldAttitude => VehicleControlPolicy::Idle,
+            VehicleControlPolicy::BurnRetrograde => VehicleControlPolicy::HoldAttitude(None),
+            VehicleControlPolicy::HoldAttitude(_) => VehicleControlPolicy::Idle,
         };
     }
 

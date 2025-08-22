@@ -54,7 +54,6 @@ impl Universe {
         ticks: u32,
         signals: &ControlSignals,
         max_dur: Duration,
-        batch_mode: bool,
     ) -> (u32, Duration, bool) {
         let start = Instant::now();
         let mut actual_ticks = 0;
@@ -115,6 +114,24 @@ impl Universe {
         }
     }
 
+    fn update_vehicle_relative_info(&mut self) {
+        let mut rel = HashMap::new();
+        for (id, sv) in &self.surface_vehicles {
+            if let Some(t) = sv.target() {
+                if let Some((ego, target)) = self.pv(*id).zip(self.pv(t)) {
+                    rel.insert(*id, ego - target);
+                }
+            }
+        }
+        for (id, sv) in &mut self.surface_vehicles {
+            if let Some(pv) = rel.get(id) {
+                sv.target_relative_pv = Some(*pv);
+            } else {
+                sv.target_relative_pv = None;
+            }
+        }
+    }
+
     pub fn run_batch_ticks(&mut self, ticks: u32) {
         self.ticks += ticks as u128;
         let old_stamp = self.stamp;
@@ -130,6 +147,8 @@ impl Universe {
         } else {
             self.thrust_particles.particles.clear();
         }
+
+        self.update_vehicle_relative_info();
     }
 
     pub fn on_sim_tick(&mut self, signals: &ControlSignals) {
@@ -142,6 +161,8 @@ impl Universe {
 
         self.constellations
             .retain(|id, _| self.surface_vehicles.contains_key(id));
+
+        self.update_vehicle_relative_info();
     }
 
     pub fn get_group_members(&mut self, gid: EntityId) -> Vec<EntityId> {
@@ -188,7 +209,7 @@ impl Universe {
         angle: f64,
         altitude: f64,
     ) -> Option<EntityId> {
-        let lup = self.lup_planet(planet_id, self.stamp)?;
+        let lup = self.lup_planet(planet_id)?;
         let body = lup.body()?;
 
         let pos = rotate_f64(DVec2::X * (body.radius + altitude), angle);
@@ -209,8 +230,8 @@ impl Universe {
         Some(id)
     }
 
-    #[deprecated]
-    pub fn lup_orbiter(&self, id: EntityId, stamp: Nanotime) -> Option<ObjectLookup> {
+    pub fn lup_orbiter(&self, id: EntityId) -> Option<ObjectLookup> {
+        let stamp = self.stamp;
         let os = self.surface_vehicles.get(&id)?;
         let pv = os.pv();
         let (_, frame_pv, _, _) = self.planets.lookup(os.parent(), stamp)?;
@@ -234,7 +255,8 @@ impl Universe {
         Some(local + parent)
     }
 
-    pub fn lup_planet(&self, id: EntityId, stamp: Nanotime) -> Option<ObjectLookup> {
+    pub fn lup_planet(&self, id: EntityId) -> Option<ObjectLookup> {
+        let stamp = self.stamp;
         let (body, pv, _, sys) = self.planets.lookup(id, stamp)?;
         Some(ObjectLookup(id, ScenarioObject::Body(&sys.name, body), pv))
     }
@@ -254,7 +276,7 @@ impl Universe {
             .planet_ids()
             .iter()
             .filter_map(|id| {
-                let lup = self.lup_planet(*id, self.stamp)?;
+                let lup = self.lup_planet(*id)?;
                 Some((*id, lup.named_body()?.0))
             })
             .find(|s| s.1 == name)
@@ -291,12 +313,11 @@ pub fn nearest_orbiter_or_planet(
     max_dist: impl Into<Option<f64>>,
 ) -> Option<EntityId> {
     let max_dist = max_dist.into();
-    let stamp = universe.stamp();
     let results = all_orbital_ids(universe)
         .filter_map(|id| {
             let lup = match id {
-                ObjectId::Orbiter(id) => universe.lup_orbiter(id, stamp),
-                ObjectId::Planet(id) => universe.lup_planet(id, stamp),
+                ObjectId::Orbiter(id) => universe.lup_orbiter(id),
+                ObjectId::Planet(id) => universe.lup_planet(id),
             }?;
             let size = if let Some(body) = lup.body() {
                 body.radius
@@ -324,7 +345,7 @@ pub fn landing_site_position(
     planet_id: EntityId,
     angle: f64,
 ) -> Option<DVec2> {
-    let lup = universe.lup_planet(planet_id, universe.stamp())?;
+    let lup = universe.lup_planet(planet_id)?;
     let body = lup.body()?;
     let center = lup.pv().pos;
     Some(center + rotate_f64(DVec2::X * body.radius, angle))

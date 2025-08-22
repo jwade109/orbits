@@ -1,20 +1,4 @@
-use crate::args::ProgramContext;
-use crate::button::{Button, Take};
-use crate::canvas::Canvas;
-use crate::debug_console::DebugConsole;
-use crate::generate_ship_sprites::*;
-use crate::input::{FrameId, InputState, MouseButt};
-use crate::names::*;
-use crate::notifications::*;
-use crate::onclick::OnClick;
-use crate::scenes::{
-    CursorMode, EditorContext, MainMenuContext, OrbitalContext, Render, Scene, SceneType,
-    StaticSpriteDescriptor, TelescopeContext, TextLabel,
-};
-use crate::settings::*;
-use crate::sim_rate::SimRate;
-use crate::sounds::*;
-use crate::ui::InteractionEvent;
+use crate::prelude::*;
 use bevy::color::palettes::css::*;
 use bevy::core_pipeline::bloom::Bloom;
 use bevy::core_pipeline::smaa::Smaa;
@@ -209,8 +193,8 @@ pub struct GameState {
 
     pub starfield: Vec<(Vec3, Srgba, f32, f32)>,
 
-    pub scenes: Vec<Scene>,
-    pub current_scene_idx: usize,
+    pub scene: SceneType,
+
     pub current_orbit: Option<usize>,
 
     pub ui: Tree<OnClick>,
@@ -225,7 +209,7 @@ pub struct GameState {
 
     pub vehicle_names: Vec<String>,
 
-    pub buttons: Vec<Button>,
+    pub buttons: Vec<ExpandButton>,
 }
 
 fn generate_starfield() -> Vec<(Vec3, Srgba, f32, f32)> {
@@ -282,34 +266,39 @@ impl GameState {
         let w = 60.0;
         let s = w + 10.0;
         for (y, onclick, text, sp) in [
-            (0, OnClick::ToggleDrawMode, "Launch to Orbit", "launch-icon"),
+            (
+                0,
+                OnClick::SetControllerPolicy(VehicleControlPolicy::LaunchToOrbit(450_000.0)),
+                "Launch to Orbit",
+                "launch-icon",
+            ),
             (
                 1,
-                OnClick::ToggleDrawMode,
-                "Thrust Prograde",
+                OnClick::SetControllerPolicy(VehicleControlPolicy::BurnPrograde),
+                "Burn Prograde",
                 "prograde-icon",
             ),
             (
                 2,
-                OnClick::NextControllerMode,
-                "Thrust Retrograde",
+                OnClick::SetControllerPolicy(VehicleControlPolicy::BurnRetrograde),
+                "Burn Retrograde",
                 "retrograde-icon",
             ),
             (
                 3,
-                OnClick::NextControllerMode,
+                OnClick::SetControllerPolicy(VehicleControlPolicy::Idle),
                 "Clear Controller",
                 "clear-icon",
             ),
             (
                 4,
-                OnClick::NextControllerMode,
+                OnClick::SetControllerPolicy(VehicleControlPolicy::HoldAttitude(None)),
                 "Hold Attitude",
                 "heading-icon",
             ),
         ] {
             let p = Vec2::new(-900.0, y as f32 * s);
-            buttons.push(Button::new(text, onclick, p, Vec2::splat(w), sp));
+            buttons.push(ExpandButton::new(text, onclick, p, Vec2::splat(w), sp));
         }
 
         let mut g = GameState {
@@ -335,13 +324,7 @@ impl GameState {
             exec_time: std::time::Duration::new(0, 0),
             part_database,
             starfield: generate_starfield(),
-            scenes: vec![
-                Scene::main_menu(),
-                Scene::orbital(),
-                Scene::telescope(),
-                Scene::editor(),
-            ],
-            current_scene_idx: 0,
+            scene: SceneType::MainMenu,
             current_orbit: None,
             ui: Tree::new(),
             notifications: Vec::new(),
@@ -489,7 +472,7 @@ impl GameState {
 
 impl Render for GameState {
     fn background_color(state: &GameState) -> Srgba {
-        match state.current_scene().kind() {
+        match state.scene {
             SceneType::Orbital => OrbitalContext::background_color(state),
             SceneType::Editor => EditorContext::background_color(state),
             SceneType::Telescope => TelescopeContext::background_color(state),
@@ -498,7 +481,7 @@ impl Render for GameState {
     }
 
     fn ui(state: &GameState) -> Option<Tree<OnClick>> {
-        match state.current_scene().kind() {
+        match state.scene {
             _ => None,
         }
     }
@@ -531,7 +514,7 @@ impl Render for GameState {
         //     .text(debug_info, Vec2::splat(-300.0), 0.7)
         //     .anchor_left();
 
-        match state.current_scene().kind() {
+        match state.scene {
             SceneType::Orbital => OrbitalContext::draw(canvas, state),
             SceneType::Editor => EditorContext::draw(canvas, state),
             SceneType::Telescope => TelescopeContext::draw(canvas, state),
@@ -578,10 +561,6 @@ impl GameState {
 
     pub fn set_piloting(&mut self, id: EntityId) {
         self.orbital_context.piloting = Some(id);
-    }
-
-    pub fn current_scene(&self) -> &Scene {
-        &self.scenes[self.current_scene_idx]
     }
 
     pub fn is_tracked(&self, id: EntityId) -> bool {
@@ -806,14 +785,14 @@ impl GameState {
     }
 
     pub fn save(&mut self) -> Option<()> {
-        match self.current_scene().kind() {
+        match self.scene {
             SceneType::Editor => EditorContext::save_to_file(self),
             _ => None,
         }
     }
 
     pub fn load(&mut self) -> Option<()> {
-        match self.current_scene().kind() {
+        match self.scene {
             SceneType::Editor => EditorContext::load_from_file(self),
             _ => None,
         }
@@ -861,8 +840,8 @@ impl GameState {
                 self.load();
             }
             OnClick::CursorMode(c) => self.orbital_context.cursor_mode = c,
-            OnClick::GoToScene(i) => {
-                self.set_current_scene(i);
+            OnClick::GoToScene(s) => {
+                self.set_current_scene(s);
             }
             OnClick::ClearPilot => self.orbital_context.piloting = None,
             OnClick::ClearTarget => {
@@ -940,8 +919,8 @@ impl GameState {
                     self.notice(format!("Failed to clear inventory for part {:?}", id));
                 }
             }
-            OnClick::NextControllerMode => {
-                self.next_controller_mode();
+            OnClick::SetControllerPolicy(policy) => {
+                self.set_controller_policy(policy);
             }
 
             // BOOKMARK unhandled event
@@ -951,10 +930,10 @@ impl GameState {
         Some(())
     }
 
-    pub fn next_controller_mode(&mut self) -> Option<()> {
+    pub fn set_controller_policy(&mut self, policy: VehicleControlPolicy) -> Option<()> {
         let piloting = self.piloting()?;
         let sv = self.universe.surface_vehicles.get_mut(&piloting)?;
-        sv.controller.go_to_next_mode();
+        sv.controller.set_policy(policy);
         Some(())
     }
 
@@ -972,12 +951,8 @@ impl GameState {
         std::process::exit(0)
     }
 
-    pub fn set_current_scene(&mut self, i: usize) -> Option<()> {
-        if i == self.current_scene_idx {
-            return Some(());
-        }
-        self.scenes.get(i)?;
-        self.current_scene_idx = i;
+    pub fn set_current_scene(&mut self, s: SceneType) -> Option<()> {
+        self.scene = s;
         Some(())
     }
 
@@ -1046,6 +1021,7 @@ impl GameState {
         }
         let n = n.on_click()?;
         let m = m.on_click()?;
+        // TODO this whole function is terrible
         if n == m {
             self.on_button_event(n.clone());
         }
@@ -1067,7 +1043,7 @@ impl GameState {
         let mut take = Take::from_opt(self.input.position(MouseButt::Hover, FrameId::Current));
 
         for button in &mut self.buttons {
-            button.update_mouse_position(&mut take);
+            button.on_mouse_move(&mut take);
         }
 
         if self.console.is_active() {
@@ -1100,10 +1076,6 @@ impl GameState {
             return;
         }
 
-        if self.input.is_pressed(KeyCode::ControlLeft) && self.input.just_pressed(KeyCode::KeyB) {
-            self.force_batch_mode = !self.force_batch_mode;
-        }
-
         if combo_just_pressed(
             &self.input,
             &[KeyCode::ControlLeft, KeyCode::ShiftLeft, KeyCode::KeyT],
@@ -1127,9 +1099,9 @@ impl GameState {
 
         self.handle_click_events();
 
-        let on_ui = self.is_hovering_over_ui();
+        let on_ui = self.is_hovering_over_ui() || take.take().is_none();
 
-        match self.current_scene().kind() {
+        match self.scene {
             SceneType::Editor => {
                 EditorContext::on_render_tick(self);
             }
@@ -1180,7 +1152,6 @@ impl GameState {
                 self.universe_ticks_per_game_tick.as_ticks(),
                 &signals,
                 std::time::Duration::from_millis(10),
-                self.force_batch_mode,
             )
         }
 
@@ -1191,7 +1162,7 @@ impl GameState {
         self.notifications
             .retain(|n| n.wall_time + n.duration() > self.wall_time);
 
-        match self.current_scene().kind() {
+        match self.scene {
             SceneType::Orbital => {
                 self.orbital_context.on_game_tick(&self.universe);
             }
@@ -1232,9 +1203,6 @@ fn process_interaction(
         InteractionEvent::Delete => state.delete_objects(),
         InteractionEvent::CommitMission => {
             state.commit_mission();
-        }
-        InteractionEvent::ClearMissions => {
-            println!("TODO");
         }
         InteractionEvent::ClearSelection => {
             state.orbital_context.selected.clear();
@@ -1288,16 +1256,6 @@ fn process_interaction(
                 state.is_exit_prompt = true;
             } else {
                 state.shutdown()
-            }
-        }
-        InteractionEvent::ContextDependent => {
-            if let Some(o) = state.cursor_orbit_if_mode() {
-                state.notice(format!("Enqueued orbit {}", &o));
-                state.orbital_context.queued_orbits.push(o);
-            } else if state.orbital_context.following.is_some() {
-                state.orbital_context.following = None;
-            } else if !state.orbital_context.selected.is_empty() {
-                state.orbital_context.selected.clear();
             }
         }
         InteractionEvent::ToggleObject(id) => {

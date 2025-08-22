@@ -1,4 +1,6 @@
-#[derive(Debug, Clone, PartialEq, Eq)]
+use enum_iterator::Sequence;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Sequence)]
 pub enum SceneType {
     Orbital,
     Telescope,
@@ -6,46 +8,8 @@ pub enum SceneType {
     MainMenu,
 }
 
-#[derive(Debug, Clone)]
-pub struct Scene {
-    name: String,
-    scene_type: SceneType,
-}
-
-impl Scene {
-    pub fn orbital() -> Self {
-        Scene {
-            name: "Orbital".into(),
-            scene_type: SceneType::Orbital,
-        }
-    }
-
-    pub fn telescope() -> Self {
-        Scene {
-            name: "Telescope".into(),
-            scene_type: SceneType::Telescope,
-        }
-    }
-
-    pub fn editor() -> Self {
-        Scene {
-            name: "Editor".into(),
-            scene_type: SceneType::Editor,
-        }
-    }
-
-    pub fn main_menu() -> Self {
-        Scene {
-            name: "Main Menu".into(),
-            scene_type: SceneType::MainMenu,
-        }
-    }
-
-    pub fn name(&self) -> &String {
-        &self.name
-    }
-
-    pub fn kind(&self) -> &SceneType {
-        &self.scene_type
+impl SceneType {
+    pub fn all() -> impl Iterator<Item = SceneType> {
+        enum_iterator::all::<SceneType>()
     }
 }

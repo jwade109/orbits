@@ -9,5 +9,5 @@ pub use craft_editor::*;
 pub use main_menu::MainMenuContext;
 pub use orbital::*;
 pub use render::*;
-pub use scene::{Scene, SceneType};
+pub use scene::SceneType;
 pub use telescope::TelescopeContext;

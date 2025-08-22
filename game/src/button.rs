@@ -1,54 +1,10 @@
-use crate::canvas::Canvas;
-use crate::onclick::OnClick;
-use crate::z_index::ZOrdering;
+use crate::prelude::*;
 use bevy::color::palettes::css::*;
 use bevy::color::*;
-use starling::aabb::*;
-use starling::math::*;
+use starling::prelude::*;
 
 #[derive(Debug, Clone)]
-pub struct Lpf {
-    pub target: f32,
-    pub actual: f32,
-    pub alpha: f32,
-}
-
-impl Lpf {
-    pub fn new(target: f32, actual: f32, alpha: f32) -> Self {
-        Self {
-            target,
-            actual,
-            alpha,
-        }
-    }
-
-    pub fn step(&mut self) {
-        self.actual += (self.target - self.actual) * self.alpha;
-    }
-}
-
-pub struct Take<T>(Option<T>);
-
-impl<T> Take<T> {
-    pub fn new(val: T) -> Self {
-        Self(Some(val))
-    }
-
-    pub fn from_opt(val: Option<T>) -> Self {
-        Self(val)
-    }
-
-    pub fn take(&mut self) -> Option<T> {
-        self.0.take()
-    }
-
-    pub fn peek(&self) -> Option<&T> {
-        self.0.as_ref()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Button {
+pub struct ExpandButton {
     pos: Vec2,
     dims: Vec2,
     text: String,
@@ -59,7 +15,7 @@ pub struct Button {
     onclick: OnClick,
 }
 
-impl Button {
+impl ExpandButton {
     pub fn new(
         text: impl Into<String>,
         onclick: OnClick,
@@ -96,13 +52,27 @@ impl Button {
     pub fn anim(&self) -> f32 {
         self.animation.actual
     }
+}
 
-    pub fn step(&mut self) {
-        self.animation.target = self.is_hovered as u8 as f32;
-        self.animation.step();
+impl Interactive for ExpandButton {
+    fn on_left_mouse_down(&mut self) -> Option<OnClick> {
+        if !self.is_hovered {
+            return None;
+        }
+        self.is_clicked = true;
+        None
     }
 
-    pub fn update_mouse_position(&mut self, p: &mut Take<Vec2>) {
+    fn on_left_mouse_up(&mut self) -> Option<OnClick> {
+        if self.is_clicked {
+            self.is_clicked = false;
+            Some(self.onclick.clone())
+        } else {
+            None
+        }
+    }
+
+    fn on_mouse_move(&mut self, p: &mut Take<Vec2>) {
         self.is_hovered = p
             .peek()
             .map(|p| self.inner_bounds().contains(*p))
@@ -112,25 +82,16 @@ impl Button {
         }
     }
 
-    pub fn on_left_mouse_down(&mut self) -> Option<OnClick> {
+    fn step(&mut self) {
+        self.animation.target = self.is_hovered as u8 as f32;
+        self.animation.step();
         if !self.is_hovered {
-            return None;
-        }
-        self.is_clicked = true;
-        None
-    }
-
-    pub fn on_left_mouse_up(&mut self) -> Option<OnClick> {
-        if self.is_clicked {
             self.is_clicked = false;
-            Some(self.onclick.clone())
-        } else {
-            None
         }
     }
 }
 
-pub fn draw_button(canvas: &mut Canvas, button: &Button) {
+pub fn draw_button(canvas: &mut Canvas, button: &ExpandButton) {
     let alpha = lerp(0.03, 1.0, button.anim());
     let aabb = button.inner_bounds();
 

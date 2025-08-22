@@ -1,6 +1,6 @@
 use crate::args::ProgramContext;
 use crate::camera_controller::*;
-use crate::canvas::Canvas;
+use crate::canvas::*;
 use crate::craft_editor::*;
 use crate::drawing::*;
 use crate::game::GameState;
@@ -590,18 +590,6 @@ impl Render for EditorContext {
                     })
                     .collect();
                 canvas.gizmos.linestrip_2d(positions, color.with_alpha(0.6));
-            }
-        }
-
-        for (_, part) in ctx.vehicle.parts() {
-            if let Some((t, _)) = part.as_thruster() {
-                let u = rotate_f64(DVec2::X, part.rotation().to_angle());
-                let thrust_vector = u * (t.max_thrust() / 1000.0).sqrt();
-                let start = part.origin().as_dvec2() + part.dims_grid().as_dvec2() / 2.0;
-                let end = start + thrust_vector;
-                let start = ctx.w2c(start);
-                let end = ctx.w2c(end);
-                canvas.gizmos.line_2d(start, end, RED);
             }
         }
 

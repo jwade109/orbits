@@ -37,7 +37,6 @@ pub enum InteractionEvent {
     ToggleGroup(EntityId),
     DisbandGroup(EntityId),
     CreateGroup,
-    ContextDependent,
     CursorMode,
     DrawMode,
     RedrawGui,
@@ -72,7 +71,7 @@ impl Plugin for UiPlugin {
 }
 
 fn set_bloom(state: Res<GameState>, mut bloom: Single<&mut Bloom>) {
-    bloom.intensity = match state.current_scene().kind() {
+    bloom.intensity = match state.scene {
         SceneType::MainMenu => 0.6,
         SceneType::Orbital => match state.orbital_context.draw_mode {
             DrawMode::Default => 0.5,
@@ -134,18 +133,6 @@ pub fn do_text_labels(
 #[derive(Component)]
 pub struct TextLabel;
 
-#[allow(unused)]
-fn context_menu(rowsize: f32, items: &[(String, OnClick, bool)]) -> Node<OnClick> {
-    Node::new(200, Size::Fit)
-        .down()
-        .with_color([0.1, 0.1, 0.1, 1.0])
-        .with_children(items.iter().map(|(s, id, e)| {
-            Node::button(s, id.clone(), Size::Grow, rowsize)
-                .with_color([0.3, 0.3, 0.3, 1.0])
-                .enabled(*e)
-        }))
-}
-
 pub const DELETE_SOMETHING_COLOR: [f32; 4] = [1.0, 0.3, 0.3, 1.0];
 pub const UI_BACKGROUND_COLOR: [f32; 4] = [0.05, 0.05, 0.05, 1.0];
 pub const PILOT_FAVORITES_COLOR: [f32; 4] = [0.3, 0.3, 0.9, 1.0];
@@ -157,11 +144,10 @@ pub fn top_bar(state: &GameState) -> Node<OnClick> {
         .with_child(Node::button("Save", OnClick::Save, 80, Size::Grow))
         .with_child(Node::button("Load", OnClick::Load, 80, Size::Grow))
         .with_child(Node::vline())
-        .with_children(state.scenes.iter().enumerate().map(|(i, scene)| {
-            let s = scene.name();
-            let id = OnClick::GoToScene(i);
-            let current = state.current_scene_idx == i;
-            Node::button(s, id, 120, state.settings.ui_button_height).enabled(!current)
+        .with_children(SceneType::all().map(|st| {
+            let s = format!("{:?}", st);
+            let id = OnClick::GoToScene(st);
+            Node::button(s, id, 120, state.settings.ui_button_height).enabled(state.scene != st)
         }))
         .with_child(Node::vline())
         .with_children(SimRate::all().map(|r| {
@@ -501,8 +487,7 @@ pub fn left_right_arrows(
 }
 
 pub fn layout(state: &GameState) -> Tree<OnClick> {
-    let scene = state.current_scene();
-    match scene.kind() {
+    match state.scene {
         SceneType::MainMenu => MainMenuContext::ui(state),
         SceneType::Telescope => TelescopeContext::ui(state),
         SceneType::Orbital => OrbitalContext::ui(state),

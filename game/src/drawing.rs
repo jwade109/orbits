@@ -1,11 +1,8 @@
-#![allow(dead_code)]
-
 use bevy::color::palettes::basic::*;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use bevy_vector_shapes::prelude::*;
 use starling::prelude::*;
-use std::collections::HashSet;
 
 use crate::button::*;
 use crate::camera_controller::*;
@@ -82,6 +79,7 @@ pub fn draw_and_fill_aabb(canvas: &mut Canvas, aabb: AABB, color: Srgba) {
     draw_aabb(canvas, aabb, color);
 }
 
+#[allow(unused)]
 fn draw_region(
     canvas: &mut Canvas,
     region: Region,
@@ -131,17 +129,6 @@ pub fn draw_obb(gizmos: &mut Gizmos, obb: &OBB, color: Srgba) {
     let mut corners = obb.corners().to_vec();
     corners.push(*corners.get(0).expect("Expected a corner"));
     gizmos.linestrip_2d(corners, color);
-}
-
-fn fill_obb(gizmos: &mut Gizmos, obb: &OBB, color: Srgba, pct: f32) {
-    let mut obb2 = *obb;
-
-    let n = (pct * 20.0).round() as usize;
-
-    for s in linspace(0.0, pct, n) {
-        obb2.0.span = obb.0.span * s;
-        draw_obb(gizmos, &obb2, color)
-    }
 }
 
 pub fn draw_orbit(
@@ -201,12 +188,13 @@ fn draw_global_orbit(
 ) -> Option<()> {
     let pv = state
         .universe
-        .lup_planet(orbit.0, state.universe.stamp())
+        .lup_planet(orbit.0)
         .map(|lup: ObjectLookup<'_>| lup.pv())?;
     draw_orbit(canvas, &orbit.1, pv.pos, color, &state.orbital_context);
     Some(())
 }
 
+#[allow(unused)]
 fn draw_orbit_between(
     gizmos: &mut Gizmos,
     orb: &SparseOrbit,
@@ -533,9 +521,7 @@ pub fn draw_piloting_overlay(
 
     let sv = state.universe.surface_vehicles.get(&piloting)?;
 
-    let planet = state
-        .universe
-        .lup_planet(sv.parent(), state.universe.stamp())?;
+    let planet = state.universe.lup_planet(sv.parent())?;
     let radius = planet.body()?.radius;
 
     let vehicle = sv.vehicle();
@@ -769,7 +755,7 @@ fn draw_orbiter(canvas: &mut Canvas, state: &GameState, id: EntityId) -> Option<
         return None;
     };
 
-    let low_fuel = sv.vehicle.low_fuel();
+    // let low_fuel = sv.vehicle.low_fuel();
     let is_thrusting = sv.vehicle.is_thrusting();
 
     let pv = state.universe.pv(id)?;
@@ -906,71 +892,70 @@ pub fn is_blinking(wall_time: Nanotime) -> bool {
     clock >= 0.5
 }
 
-fn draw_event_animation(
-    gizmos: &mut Gizmos,
-    state: &GameState,
-    id: EntityId,
-    ctx: &impl CameraProjection,
-) -> Option<()> {
-    None
-    // let obj = state.universe.orbital_vehicles.get(&id)?.orbiter();
-    // let p = obj.props().last()?;
-    // let dt = Nanotime::hours(1);
-    // let mut t = state.universe.stamp() + dt;
-    // while t < p
-    //     .end()
-    //     .unwrap_or(state.universe.stamp() + Nanotime::days(5))
-    // {
-    //     let pv = obj.pv(t, &state.universe.planets)?;
-    //     draw_circle(gizmos, ctx.w2c(pv.pos), 3.0, WHITE.with_alpha(0.2));
-    //     t += dt;
-    // }
-    // for prop in obj.props() {
-    //     if let Some((t, e)) = prop.stamped_event() {
-    //         let pv = obj.pv(t, &state.universe.planets)?;
-    //         draw_event_marker_at(gizmos, state.wall_time, &e, ctx.w2c(pv.pos));
-    //     }
-    // }
-    // if let Some(t) = p.end() {
-    //     let pv = obj.pv(t, &state.universe.planets)?;
-    //     draw_square(gizmos, ctx.w2c(pv.pos), 13.0, RED.with_alpha(0.8));
-    // }
-    // Some(())
-}
+// fn draw_event_animation(
+//     gizmos: &mut Gizmos,
+//     state: &GameState,
+//     id: EntityId,
+//     ctx: &impl CameraProjection,
+// ) -> Option<()> {
+//     let obj = state.universe.orbital_vehicles.get(&id)?.orbiter();
+//     let p = obj.props().last()?;
+//     let dt = Nanotime::hours(1);
+//     let mut t = state.universe.stamp() + dt;
+//     while t < p
+//         .end()
+//         .unwrap_or(state.universe.stamp() + Nanotime::days(5))
+//     {
+//         let pv = obj.pv(t, &state.universe.planets)?;
+//         draw_circle(gizmos, ctx.w2c(pv.pos), 3.0, WHITE.with_alpha(0.2));
+//         t += dt;
+//     }
+//     for prop in obj.props() {
+//         if let Some((t, e)) = prop.stamped_event() {
+//             let pv = obj.pv(t, &state.universe.planets)?;
+//             draw_event_marker_at(gizmos, state.wall_time, &e, ctx.w2c(pv.pos));
+//         }
+//     }
+//     if let Some(t) = p.end() {
+//         let pv = obj.pv(t, &state.universe.planets)?;
+//         draw_square(gizmos, ctx.w2c(pv.pos), 13.0, RED.with_alpha(0.8));
+//     }
+//     Some(())
+// }
 
-fn draw_maneuver_plan(
-    canvas: &mut Canvas,
-    stamp: Nanotime,
-    plan: &ManeuverPlan,
-    origin: DVec2,
-    wall_time: Nanotime,
-    ctx: &impl CameraProjection,
-) -> Option<()> {
-    let anim_dur = Nanotime::secs(2);
-    let s = (wall_time % anim_dur).to_secs() / anim_dur.to_secs();
+// fn draw_maneuver_plan(
+//     canvas: &mut Canvas,
+//     stamp: Nanotime,
+//     plan: &ManeuverPlan,
+//     origin: DVec2,
+//     wall_time: Nanotime,
+//     ctx: &impl CameraProjection,
+// ) -> Option<()> {
+//     let anim_dur = Nanotime::secs(2);
+//     let s = (wall_time % anim_dur).to_secs() / anim_dur.to_secs();
 
-    for s in [s - 1.0, s - 0.5, s, s + 0.5, s + 1.0] {
-        let t_anim = plan.start() + plan.duration() * s;
-        let t_end: Nanotime = t_anim + plan.duration() * 0.2;
-        let positions: Vec<_> = tspace(t_anim, t_end, 30)
-            .iter()
-            .filter_map(|t| (*t >= stamp).then(|| plan.pv(*t)).flatten())
-            .map(|p| ctx.w2c(p.pos + origin))
-            .collect();
+//     for s in [s - 1.0, s - 0.5, s, s + 0.5, s + 1.0] {
+//         let t_anim = plan.start() + plan.duration() * s;
+//         let t_end: Nanotime = t_anim + plan.duration() * 0.2;
+//         let positions: Vec<_> = tspace(t_anim, t_end, 30)
+//             .iter()
+//             .filter_map(|t| (*t >= stamp).then(|| plan.pv(*t)).flatten())
+//             .map(|p| ctx.w2c(p.pos + origin))
+//             .collect();
 
-        canvas.gizmos.linestrip_2d(positions, YELLOW);
-    }
+//         canvas.gizmos.linestrip_2d(positions, YELLOW);
+//     }
 
-    for segment in &plan.segments {
-        if segment.end > stamp {
-            let pv = plan.pv(segment.end)?;
-            let p = ctx.w2c(pv.pos + origin);
-            draw_circle(&mut canvas.gizmos, p, 20.0, WHITE);
-        }
-    }
-    draw_orbit(canvas, &plan.terminal, origin, PURPLE, ctx);
-    Some(())
-}
+//     for segment in &plan.segments {
+//         if segment.end > stamp {
+//             let pv = plan.pv(segment.end)?;
+//             let p = ctx.w2c(pv.pos + origin);
+//             draw_circle(&mut canvas.gizmos, p, 20.0, WHITE);
+//         }
+//     }
+//     draw_orbit(canvas, &plan.terminal, origin, PURPLE, ctx);
+//     Some(())
+// }
 
 pub fn draw_notifications(gizmos: &mut Gizmos, state: &GameState) {
     let ctx = &state.orbital_context;
@@ -978,18 +963,14 @@ pub fn draw_notifications(gizmos: &mut Gizmos, state: &GameState) {
     for notif in &state.notifications {
         let p = match notif.parent {
             None => return,
-            Some(ObjectId::Orbiter(id)) => {
-                match state.universe.lup_orbiter(id, state.universe.stamp()) {
-                    Some(lup) => lup.pv().pos + notif.offset + notif.jitter,
-                    None => continue,
-                }
-            }
-            Some(ObjectId::Planet(id)) => {
-                match state.universe.lup_planet(id, state.universe.stamp()) {
-                    Some(lup) => lup.pv().pos + notif.offset + notif.jitter,
-                    None => continue,
-                }
-            }
+            Some(ObjectId::Orbiter(id)) => match state.universe.pv(id) {
+                Some(pv) => pv.pos + notif.offset + notif.jitter,
+                None => continue,
+            },
+            Some(ObjectId::Planet(id)) => match state.universe.lup_planet(id) {
+                Some(lup) => lup.pv().pos + notif.offset + notif.jitter,
+                None => continue,
+            },
         };
 
         let size = 20.0;
@@ -1417,7 +1398,7 @@ pub fn circle_entity(
         let r = SPACECRAFT_HOVER_RADIUS.max(sv.vehicle.bounding_radius() * ctx.scale());
         canvas.circle(p, gcast(r), color);
         Some(())
-    } else if let Some(lup) = universe.lup_planet(id, universe.stamp()) {
+    } else if let Some(lup) = universe.lup_planet(id) {
         let p = ctx.w2c(lup.pv().pos);
         let r =
             SPACECRAFT_HOVER_RADIUS.max(lup.body()?.radius * ctx.scale() + SPACECRAFT_HOVER_RADIUS);
@@ -1555,12 +1536,6 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
         draw_global_orbit(canvas, &orbit, &state, TEAL);
     }
 
-    if state.orbital_context.show_animations && state.orbital_context.selected.len() < 6 {
-        for id in &state.orbital_context.selected {
-            draw_event_animation(&mut canvas.gizmos, &state, *id, ctx);
-        }
-    }
-
     draw_scenario(canvas, state);
 
     draw_x(
@@ -1580,52 +1555,13 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
     );
 }
 
-fn orthographic_camera_map(p: Vec3, center: Vec3, normal: Vec3, x: Vec3, y: Vec3) -> Vec2 {
-    let p = p - center;
-    let p = p.reject_from(normal);
-    Vec2::new(p.dot(x), p.dot(y))
-}
-
 pub fn draw_game_state(gizmos: Gizmos, mut state: ResMut<GameState>, painter: ShapePainter) {
-    // draw_input_state(&mut gizmos, &state);
-
     let mut canvas = Canvas::new(gizmos, painter);
 
     GameState::draw(&mut canvas, &state);
 
     state.text_labels = canvas.text_labels;
     state.sprites = canvas.sprites;
-}
-
-pub fn draw_cells(canvas: &mut Canvas, state: &GameState) -> Option<()> {
-    let ctx = &state.orbital_context;
-
-    let scale_factor = 3500.0;
-
-    let mut idxs = HashSet::new();
-
-    for id in state.universe.orbiter_ids() {
-        let pos = state
-            .universe
-            .lup_orbiter(id, state.universe.stamp())?
-            .pv()
-            .pos;
-
-        let idx = vfloor_f64(pos / scale_factor);
-        idxs.insert(idx);
-    }
-
-    for idx in idxs {
-        let p = idx.as_dvec2() * scale_factor;
-        let q = p + DVec2::splat(scale_factor);
-
-        let aabb = AABB::from_arbitrary(aabb_stopgap_cast(p), aabb_stopgap_cast(q));
-        let aabb = ctx.w2c_aabb(aabb);
-        draw_aabb(canvas, aabb, ORANGE.with_alpha(0.3));
-        fill_aabb(canvas, aabb, GRAY.with_alpha(0.03));
-    }
-
-    Some(())
 }
 
 pub fn draw_transforms(canvas: &mut Canvas, ctx: &LinearCameraController, universe: &Universe) {
@@ -1761,43 +1697,6 @@ pub fn draw_camera_info(canvas: &mut Canvas, ctx: &impl CameraProjection, window
             (c + p).extend(ZOrdering::ScaleIndicator.as_f32()),
             (c + q).extend(ZOrdering::ScaleIndicator.as_f32()),
         );
-    }
-}
-
-fn draw_input_state(canvas: &mut Canvas, state: &GameState) {
-    let points = [
-        (MouseButt::Left, BLUE),
-        (MouseButt::Right, GREEN),
-        (MouseButt::Middle, YELLOW),
-    ];
-
-    let offset = state.input.screen_bounds.span / 2.0;
-    draw_aabb(canvas, state.input.screen_bounds.offset(-offset), RED);
-
-    if let Some(p) = state.input.position(MouseButt::Hover, FrameId::Current) {
-        draw_circle(&mut canvas.gizmos, p, 8.0, RED);
-    }
-
-    for (b, c) in points {
-        let p1 = state.input.position(b, FrameId::Down);
-        let p2 = state
-            .input
-            .position(b, FrameId::Current)
-            .or(state.input.position(b, FrameId::Up));
-
-        if let Some((p1, p2)) = p1.zip(p2) {
-            canvas.gizmos.line_2d(p1, p2, c);
-        }
-
-        for fid in [FrameId::Down, FrameId::Up] {
-            let age = state.input.age(b, fid, state.wall_time);
-            let p = state.input.position(b, fid);
-            if let Some((p, age)) = p.zip(age) {
-                let dt = age.to_secs();
-                let a = (1.0 - dt).max(0.0);
-                draw_circle(&mut canvas.gizmos, p, 50.0 * age.to_secs(), c.with_alpha(a));
-            }
-        }
     }
 }
 

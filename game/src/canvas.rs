@@ -4,7 +4,7 @@ use crate::{
     scenes::{StaticSpriteDescriptor, TextLabel},
 };
 use bevy::prelude::*;
-use bevy_vector_shapes::prelude::*;
+pub use bevy_vector_shapes::prelude::*;
 use starling::aabb::AABB;
 
 pub struct Canvas<'w, 's> {

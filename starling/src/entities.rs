@@ -12,6 +12,7 @@ pub struct SurfaceSpacecraftEntity {
     orbiter: Option<Orbiter>,
     altitude: Option<f64>,
     clamped_to_ground: bool,
+    pub target_relative_pv: Option<PV>,
 }
 
 impl SurfaceSpacecraftEntity {
@@ -32,6 +33,7 @@ impl SurfaceSpacecraftEntity {
             orbiter: None,
             altitude: None,
             clamped_to_ground: false,
+            target_relative_pv: None,
         }
     }
 
@@ -102,13 +104,8 @@ impl SurfaceSpacecraftEntity {
             self.orbit = None;
         }
 
-        let hold_att = match self.controller.mode() {
-            VehicleControlPolicy::HoldAttitude => true,
-            _ => false,
-        };
-
-        if hold_att {
-            self.body.angle = 0.0;
+        if let VehicleControlPolicy::HoldAttitude(Some(a)) = self.controller.mode() {
+            self.body.angle = *a;
             self.body.angular_velocity = 0.0;
         }
 
@@ -155,6 +152,14 @@ impl SurfaceSpacecraftEntity {
 
         let gravity = parent_body.gravity(self.body.pv.pos);
 
+        match self.controller.mode() {
+            VehicleControlPolicy::HoldAttitude(None) => {
+                self.controller
+                    .set_policy(VehicleControlPolicy::HoldAttitude(Some(self.body.angle)));
+            }
+            _ => (),
+        };
+
         let (ctrl, status) = match (self.controller.mode(), self.controller.get_target_pose()) {
             (VehicleControlPolicy::Idle, _) => {
                 (VehicleControl::NULLOPT, VehicleControlStatus::Idling)
@@ -167,9 +172,6 @@ impl SurfaceSpacecraftEntity {
                     VehicleControlStatus::UnderExternalControl
                 },
             ),
-            (VehicleControlPolicy::PositionHold(_), Some(pose)) => {
-                position_hold_control_law(pose, &self.body, &self.vehicle, gravity)
-            }
             (VehicleControlPolicy::LaunchToOrbit(altitude), _) => enter_orbit_control_law(
                 &parent_body,
                 &self.body,
@@ -183,10 +185,13 @@ impl SurfaceSpacecraftEntity {
             (VehicleControlPolicy::BurnRetrograde, _) => {
                 burn_along_velocity_vector_control_law(&self.body, &self.vehicle, false)
             }
-            (VehicleControlPolicy::HoldAttitude, _) => {
-                attitude_control_law(0.0, &self.vehicle, &self.body)
+            (VehicleControlPolicy::HoldAttitude(angle), _) => {
+                let angle = angle.unwrap_or(0.0);
+                attitude_control_law(angle, &self.vehicle, &self.body)
             }
-            (_, _) => (VehicleControl::NULLOPT, VehicleControlStatus::Idling),
+            (VehicleControlPolicy::PositionHold(_), _) => {
+                (VehicleControl::NULLOPT, VehicleControlStatus::Idling)
+            }
         };
 
         self.controller.set_status(status);
@@ -251,7 +256,9 @@ impl SurfaceSpacecraftEntity {
     pub fn can_be_on_rails(&self) -> bool {
         let is_idle = match (self.controller.mode(), self.controller.status()) {
             (VehicleControlPolicy::Idle, VehicleControlStatus::Idling) => true,
-            (VehicleControlPolicy::HoldAttitude, _) => self.body.angle.abs() < 0.05,
+            (VehicleControlPolicy::HoldAttitude(a), _) => a
+                .map(|a| wrap_pi_npi_f64(a - self.body.angle).abs() < 0.05)
+                .unwrap_or(false),
             _ => false,
         };
         let has_orbit = self.orbit.is_some();

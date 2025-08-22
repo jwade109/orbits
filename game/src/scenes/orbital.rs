@@ -145,7 +145,7 @@ impl OrbitalContext {
         }
 
         let wrt_id = nearest_relevant_body(&state.universe.planets, p1, state.universe.stamp())?;
-        let parent = state.universe.lup_planet(wrt_id, state.universe.stamp())?;
+        let parent = state.universe.lup_planet(wrt_id)?;
 
         let r = p1.distance(parent.pv().pos);
         let v = (parent.body()?.mu() / r).sqrt();
@@ -157,9 +157,7 @@ impl OrbitalContext {
         let pv = Self::cursor_pv(p1, p2, &state)?;
         let parent_id: EntityId =
             nearest_relevant_body(&state.universe.planets, pv.pos, state.universe.stamp())?;
-        let parent = state
-            .universe
-            .lup_planet(parent_id, state.universe.stamp())?;
+        let parent = state.universe.lup_planet(parent_id)?;
         let parent_pv = parent.pv();
         let pv = pv - PV::pos(parent_pv.pos);
         let body = parent.body()?;
@@ -276,9 +274,9 @@ pub fn get_orbital_labels(state: &GameState) -> Vec<TextLabel> {
             None => continue,
         };
 
-        let lup = if let Some(lup) = state.universe.lup_orbiter(id, state.universe.stamp()) {
+        let lup = if let Some(lup) = state.universe.lup_orbiter(id) {
             lup
-        } else if let Some(lup) = state.universe.lup_planet(id, state.universe.stamp()) {
+        } else if let Some(lup) = state.universe.lup_planet(id) {
             lup
         } else {
             continue;
@@ -380,8 +378,6 @@ impl Render for OrbitalContext {
     }
 
     fn ui(state: &GameState) -> Option<Tree<OnClick>> {
-        return None;
-
         let vb = state.input.screen_bounds;
         if vb.span.x == 0.0 || vb.span.y == 0.0 {
             return Some(Tree::new());
@@ -397,7 +393,7 @@ impl Render for OrbitalContext {
             state.orbital_context.origin(),
             state.universe.stamp(),
         )
-        .map(|id| state.universe.lup_planet(id, state.universe.stamp()))
+        .map(|id| state.universe.lup_planet(id))
         .flatten()
         {
             if let Some((s, _)) = lup.named_body() {
@@ -495,13 +491,6 @@ impl Render for OrbitalContext {
         }
 
         let mut inner_topbar = Node::fit().with_color(UI_BACKGROUND_COLOR);
-
-        if let Some(id) = state.orbital_context.following {
-            let s = format!("Following {}, {}", id, state.orbital_context.camera);
-            let id = OnClick::Nullopt;
-            let n = Node::button(s, id, 800, state.settings.ui_button_height).enabled(false);
-            inner_topbar.add_child(n);
-        }
 
         for (i, orbit) in state.orbital_context.queued_orbits.iter().enumerate() {
             let orbit_button = {

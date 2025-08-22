@@ -28,8 +28,6 @@ pub fn keyboard_input(
             (_, _, KeyCode::Minus) => InteractionEvent::ZoomOut,
             (_, _, KeyCode::Equal) => InteractionEvent::ZoomIn,
             (_, _, KeyCode::KeyR) => InteractionEvent::Reset,
-            (_, _, KeyCode::KeyQ) => InteractionEvent::ContextDependent,
-            (_, _, KeyCode::Tab) => InteractionEvent::Orbits,
             (_, _, KeyCode::Space) => InteractionEvent::SimPause,
             (_, _, KeyCode::Escape) => InteractionEvent::Escape,
             (_, _, KeyCode::KeyV) => InteractionEvent::CursorMode,

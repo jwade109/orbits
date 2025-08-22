@@ -45,8 +45,6 @@ impl Render for MainMenuContext {
         let t = TextLabel::new(s, p, 0.6).with_anchor_left();
         canvas.label(t);
 
-        crate::drawing::draw_cells(canvas, state);
-
         crate::drawing::draw_orbital_view(canvas, state);
 
         Some(())
@@ -69,10 +67,10 @@ impl Render for MainMenuContext {
                 )
                 .with_color(button_color)
             }))
-            .with_children(state.scenes.iter().enumerate().map(|(i, s)| {
+            .with_children(SceneType::all().enumerate().map(|(i, s)| {
                 Node::button(
-                    s.name(),
-                    OnClick::GoToScene(i),
+                    format!("{:?}", s),
+                    OnClick::GoToScene(s),
                     Size::Grow,
                     state.settings.ui_button_height,
                 )

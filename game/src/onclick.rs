@@ -1,9 +1,10 @@
 use crate::scenes::CursorMode;
+use crate::scenes::SceneType;
 use crate::sim_rate::SimRate;
 use starling::prelude::*;
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum OnClick {
     Orbiter(EntityId),
     Exit,
@@ -28,7 +29,7 @@ pub enum OnClick {
     ClearMission,
     CommitMission,
     CursorMode(CursorMode),
-    GoToScene(usize),
+    GoToScene(SceneType),
     SetTarget(EntityId),
     SetPilot(EntityId),
     ClearTarget,
@@ -56,6 +57,6 @@ pub enum OnClick {
     SetRecipe(PartId, RecipeListing),
     ClearContents(PartId),
     GoToSurface(EntityId),
-    NextControllerMode,
+    SetControllerPolicy(VehicleControlPolicy),
     Nullopt,
 }
