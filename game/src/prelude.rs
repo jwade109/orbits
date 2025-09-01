@@ -27,3 +27,4 @@ pub use crate::sounds::*;
 pub use crate::sprites::*;
 pub use crate::ui::InteractionEvent;
 pub use crate::z_index::*;
+pub use crate::goals::*;

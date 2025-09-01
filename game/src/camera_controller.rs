@@ -79,6 +79,14 @@ impl LinearCameraController {
         self.center = p;
     }
 
+    pub fn set_center(&mut self, pos: DVec2) {
+        self.center = pos;
+    }
+
+    pub fn set_target_offset(&mut self, offset: DVec2) {
+        self.target_offset = offset;
+    }
+
     pub fn set_target_scale(&mut self, scale: f64) {
         self.target_scale = scale;
     }

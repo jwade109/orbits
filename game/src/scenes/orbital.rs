@@ -86,7 +86,7 @@ impl OrbitalContext {
             following: None,
             queued_orbits: Vec::new(),
             cursor_mode: CursorMode::Rect,
-            show_orbits: ShowOrbitsState::Focus,
+            show_orbits: ShowOrbitsState::All,
             show_animations: true,
             draw_mode: DrawMode::Default,
             piloting: None,
@@ -378,6 +378,9 @@ impl Render for OrbitalContext {
     }
 
     fn ui(state: &GameState) -> Option<Tree<OnClick>> {
+
+        return None;
+
         let vb = state.input.screen_bounds;
         if vb.span.x == 0.0 || vb.span.y == 0.0 {
             return Some(Tree::new());

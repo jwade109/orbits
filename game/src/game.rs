@@ -210,6 +210,8 @@ pub struct GameState {
     pub vehicle_names: Vec<String>,
 
     pub buttons: Vec<ExpandButton>,
+
+    pub goals: Vec<Goal>,
 }
 
 fn generate_starfield() -> Vec<(Vec3, Srgba, f32, f32)> {
@@ -291,7 +293,8 @@ impl GameState {
                 "Hold Attitude",
                 "heading-icon",
             ),
-            (OnClick::ZoomToVehicle, "Zoom", ""),
+            (OnClick::ZoomToOrbit, "Zoom To Orbit", ""),
+            (OnClick::ZoomToVehicle, "Zoom To Vehicle", ""),
         ]
         .into_iter()
         .enumerate()
@@ -333,21 +336,11 @@ impl GameState {
             image_handles: HashMap::new(),
             vehicle_names,
             buttons,
+            goals: Vec::new(),
         };
 
         let earth_id = g.universe.lup_planet_by_name("Earth").unwrap();
         let luna_id = g.universe.lup_planet_by_name("Luna").unwrap();
-
-        for model in ["icecream"] {
-            if let Some(v) = g.get_vehicle_by_model(model) {
-                g.universe.add_surface_vehicle(
-                    luna_id,
-                    v,
-                    (PI / 2.0 + rand(-0.001, 0.001)) as f64,
-                    rand(10.0, 30.0) as f64,
-                );
-            }
-        }
 
         let t = g.universe.stamp();
 
@@ -369,12 +362,27 @@ impl GameState {
             ("bellerophon", luna_id),
         ];
 
+        let mut a = None;
+        let mut b = None;
+
         for (name, parent) in vehicles {
             let vehicle = g.get_vehicle_by_model(name);
             let orbit = get_random_orbit(parent);
             if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {
-                g.spawn_with_random_perturbance(orbit, vehicle);
+                let id = g.spawn_with_random_perturbance(orbit, vehicle);
+                if let Some(id) = (name == "pollux").then(|| id).flatten() {
+                    if a.is_none() {
+                        a = Some(id);
+                    }
+                }
+                if let Some(id) = (name == "spacestation").then(|| id).flatten() {
+                    b = Some(id);
+                }
             }
+        }
+
+        if let (Some(a), Some(b)) = (a, b) {
+            g.goals = init_goals(a, b).collect();
         }
 
         g
@@ -648,7 +656,7 @@ impl GameState {
         &mut self,
         global: GlobalOrbit,
         vehicle: Vehicle,
-    ) -> Option<()> {
+    ) -> Option<EntityId> {
         let GlobalOrbit(parent, orbit) = global;
         let pv_local = orbit.pv(self.universe.stamp()).ok()?;
         let perturb = PV::from_f64(
@@ -663,14 +671,14 @@ impl GameState {
         );
         let orbit = SparseOrbit::from_pv(pv_local + perturb, orbit.body, self.universe.stamp())?;
         self.universe
-            .add_orbital_vehicle(vehicle, GlobalOrbit(parent, orbit));
-        Some(())
+            .add_orbital_vehicle(vehicle, GlobalOrbit(parent, orbit))
     }
 
     pub fn spawn_new(&mut self) -> Option<()> {
         let orbit = self.cursor_orbit_if_mode()?;
         let vehicle = self.get_random_vehicle()?;
-        self.spawn_with_random_perturbance(orbit, vehicle)
+        self.spawn_with_random_perturbance(orbit, vehicle)?;
+        Some(())
     }
 
     pub fn delete_orbiter(&mut self, id: EntityId) -> Option<()> {
@@ -922,7 +930,10 @@ impl GameState {
                 self.set_controller_policy(policy);
             }
             OnClick::ZoomToVehicle => {
-                self.zoom_to_vehicle();
+                self.zoom_to_vehicle(true);
+            }
+            OnClick::ZoomToOrbit => {
+                self.zoom_to_vehicle(false);
             }
 
             // BOOKMARK unhandled event
@@ -932,13 +943,17 @@ impl GameState {
         Some(())
     }
 
-    pub fn zoom_to_vehicle(&mut self) -> Option<()> {
-        if let Some(id) = self.piloting() {
-            self.orbital_context.following = Some(id);
-            self.orbital_context.camera.set_target_scale(4.0);
+    pub fn zoom_to_vehicle(&mut self, vehicle: bool) -> Option<()> {
+        if vehicle {
+            if let Some(id) = self.piloting() {
+                self.orbital_context.following = Some(id);
+                self.orbital_context.camera.set_target_scale(4.0);
+            }
         } else {
             self.orbital_context.following = None;
             self.orbital_context.camera.follow(EntityId(0), DVec2::ZERO);
+            self.orbital_context.camera.set_center(DVec2::ZERO);
+            self.orbital_context.camera.set_target_offset(DVec2::ZERO);
             self.orbital_context.camera.set_target_scale(-17.0);
         }
         Some(())
@@ -1187,6 +1202,10 @@ impl GameState {
                 EditorContext::on_game_tick(self);
             }
             _ => (),
+        }
+
+        for goal in &mut self.goals {
+            goal.update(&self.universe);
         }
     }
 }

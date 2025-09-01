@@ -192,14 +192,18 @@ impl Universe {
         self.surface_vehicles.keys().into_iter().map(|id| *id)
     }
 
-    pub fn add_orbital_vehicle(&mut self, vehicle: Vehicle, orbit: GlobalOrbit) -> Option<()> {
+    pub fn add_orbital_vehicle(
+        &mut self,
+        vehicle: Vehicle,
+        orbit: GlobalOrbit,
+    ) -> Option<EntityId> {
         let id = self.next_entity_id();
         let mut body = RigidBody::random_spin();
         body.pv = orbit.1.pv(self.stamp).ok()?; // orbiter.pv(self.stamp, &self.planets)?;
         let controller = VehicleController::idle();
         let os = SurfaceSpacecraftEntity::new(orbit.0, vehicle, body, controller);
         self.surface_vehicles.insert(id, os);
-        Some(())
+        Some(id)
     }
 
     pub fn add_surface_vehicle(

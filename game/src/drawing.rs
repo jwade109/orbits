@@ -1,6 +1,7 @@
 use bevy::color::palettes::basic::*;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
+use bevy::text;
 use bevy_vector_shapes::prelude::*;
 use starling::prelude::*;
 
@@ -1414,6 +1415,26 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
 
     for button in &state.buttons {
         draw_button(canvas, button);
+    }
+
+    let goal_lines = [("Goals".to_string(), WHITE)]
+        .into_iter()
+        .chain(state.goals.iter().map(|g| {
+            (
+                g.to_string(),
+                if g.is_complete {
+                    GREEN.mix(&WHITE, 0.3)
+                } else {
+                    WHITE
+                },
+            )
+        }));
+
+    for (i, (text, color)) in goal_lines.into_iter().enumerate() {
+        let sp = state.input.screen_bounds.span / 2.0;
+        let x = -sp.x + 200.0;
+        let y = sp.y - 40.0 - 26.0 * i as f32;
+        canvas.text(text, Vec2::new(x, y), 0.9).anchor_left().color = color;
     }
 
     draw_camera_info(canvas, ctx, state.input.screen_bounds.span);

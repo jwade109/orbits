@@ -59,5 +59,6 @@ pub enum OnClick {
     GoToSurface(EntityId),
     SetControllerPolicy(VehicleControlPolicy),
     ZoomToVehicle,
+    ZoomToOrbit,
     Nullopt,
 }

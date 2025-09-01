@@ -24,3 +24,4 @@ pub mod sounds;
 pub mod sprites;
 pub mod ui;
 pub mod z_index;
+pub mod goals;
