@@ -265,39 +265,38 @@ impl GameState {
         let mut buttons = Vec::new();
         let w = 60.0;
         let s = w + 10.0;
-        for (y, onclick, text, sp) in [
+        for (i, (onclick, text, sp)) in [
             (
-                0,
                 OnClick::SetControllerPolicy(VehicleControlPolicy::LaunchToOrbit(450_000.0)),
                 "Launch to Orbit",
                 "launch-icon",
             ),
             (
-                1,
                 OnClick::SetControllerPolicy(VehicleControlPolicy::BurnPrograde),
                 "Burn Prograde",
                 "prograde-icon",
             ),
             (
-                2,
                 OnClick::SetControllerPolicy(VehicleControlPolicy::BurnRetrograde),
                 "Burn Retrograde",
                 "retrograde-icon",
             ),
             (
-                3,
                 OnClick::SetControllerPolicy(VehicleControlPolicy::Idle),
                 "Clear Controller",
                 "clear-icon",
             ),
             (
-                4,
                 OnClick::SetControllerPolicy(VehicleControlPolicy::HoldAttitude(None)),
                 "Hold Attitude",
                 "heading-icon",
             ),
-        ] {
-            let p = Vec2::new(-900.0, y as f32 * s);
+            (OnClick::ZoomToVehicle, "Zoom", ""),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let p = Vec2::new(-900.0, i as f32 * s);
             buttons.push(ExpandButton::new(text, onclick, p, Vec2::splat(w), sp));
         }
 
@@ -922,11 +921,26 @@ impl GameState {
             OnClick::SetControllerPolicy(policy) => {
                 self.set_controller_policy(policy);
             }
+            OnClick::ZoomToVehicle => {
+                self.zoom_to_vehicle();
+            }
 
             // BOOKMARK unhandled event
             _ => info!("Unhandled button event: {id:?}"),
         };
 
+        Some(())
+    }
+
+    pub fn zoom_to_vehicle(&mut self) -> Option<()> {
+        if let Some(id) = self.piloting() {
+            self.orbital_context.following = Some(id);
+            self.orbital_context.camera.set_target_scale(4.0);
+        } else {
+            self.orbital_context.following = None;
+            self.orbital_context.camera.follow(EntityId(0), DVec2::ZERO);
+            self.orbital_context.camera.set_target_scale(-17.0);
+        }
         Some(())
     }
 

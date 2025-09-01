@@ -6,7 +6,7 @@ use starling::prelude::*;
 #[derive(Debug, Clone, Copy)]
 pub struct LinearCameraController {
     center: DVec2,
-    target_center: DVec2,
+    target_offset: DVec2,
     scale: f64,
     target_scale: f64,
     speed: f64,
@@ -44,7 +44,7 @@ impl LinearCameraController {
 
         Self {
             center,
-            target_center: center,
+            target_offset: DVec2::ZERO,
             scale,
             target_scale: scale,
             speed,
@@ -58,7 +58,7 @@ impl LinearCameraController {
     }
 
     pub fn clear_offset(&mut self) {
-        self.target_center = DVec2::ZERO;
+        self.target_offset = DVec2::ZERO;
     }
 
     pub fn on_game_tick(&mut self) {
@@ -67,16 +67,20 @@ impl LinearCameraController {
 
         let dt = PHYSICS_CONSTANT_DELTA_TIME.to_secs_f64();
         self.scale += (self.target_scale - self.scale) * ((dt / SCALE_SMOOTHING).exp() - 1.0);
-        self.offset += (self.target_center - self.offset) * ((dt / CENTER_SMOOTHING).exp() - 1.0)
+        self.offset += (self.target_offset - self.offset) * ((dt / CENTER_SMOOTHING).exp() - 1.0)
     }
 
     pub fn follow(&mut self, parent: EntityId, p: DVec2) {
         if parent != self.parent {
-            self.target_center = DVec2::ZERO;
+            self.target_offset = DVec2::ZERO;
             self.offset = self.center + self.offset - p;
         }
         self.parent = parent;
         self.center = p;
+    }
+
+    pub fn set_target_scale(&mut self, scale: f64) {
+        self.target_scale = scale;
     }
 
     pub fn offset(&self) -> DVec2 {
@@ -108,16 +112,16 @@ impl LinearCameraController {
         }
 
         if input.is_pressed(KeyCode::KeyD) {
-            self.target_center.x += speed / self.scale();
+            self.target_offset.x += speed / self.scale();
         }
         if input.is_pressed(KeyCode::KeyA) {
-            self.target_center.x -= speed / self.scale();
+            self.target_offset.x -= speed / self.scale();
         }
         if input.is_pressed(KeyCode::KeyW) {
-            self.target_center.y += speed / self.scale();
+            self.target_offset.y += speed / self.scale();
         }
         if input.is_pressed(KeyCode::KeyS) {
-            self.target_center.y -= speed / self.scale();
+            self.target_offset.y -= speed / self.scale();
         }
 
         self.target_scale = self.target_scale.clamp(-22.0, 10.0);

@@ -58,5 +58,6 @@ pub enum OnClick {
     ClearContents(PartId),
     GoToSurface(EntityId),
     SetControllerPolicy(VehicleControlPolicy),
+    ZoomToVehicle,
     Nullopt,
 }
