@@ -1,22 +1,25 @@
+use crate::game::GameState;
 use starling::prelude::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum GoalCondition {
     AnyLaunchToOrbit,
     AnyHoldAttitude,
     AnyManuallyControlled,
     AnyLandOnTheMoon,
     AnyLandOnEarth,
-    Renzevzous(EntityId, EntityId),
+    Rendezvous { ownship: EntityId, target: EntityId },
+    SetTarget { ownship: EntityId, target: EntityId },
+    SelectVehicle(EntityId),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct GoalDuration {
     required: Nanotime,
     actual: Nanotime,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Goal {
     pub is_complete: bool,
     pub is_permanent: bool,
@@ -34,16 +37,48 @@ impl Goal {
         }
     }
 
-    pub fn update(&mut self, universe: &Universe) {
+    pub fn with_duration(mut self, duration: Nanotime) -> Self {
+        self.dur = Some(GoalDuration {
+            required: duration,
+            actual: Nanotime::ZERO,
+        });
+        self
+    }
+
+    pub fn as_impermanent(mut self) -> Self {
+        self.is_permanent = false;
+        self
+    }
+
+    pub fn update(&mut self, state: &GameState) {
         if self.is_complete && self.is_permanent {
             return;
         }
 
-        self.is_complete = is_satisfied(universe, &self.cond).unwrap_or(false);
+        let satisfied = is_satisfied(state, &self.cond).unwrap_or(false);
+
+        if let Some(gd) = &mut self.dur {
+            if satisfied {
+                gd.actual += PHYSICS_CONSTANT_DELTA_TIME;
+                self.is_complete = gd.actual >= gd.required;
+            } else {
+                gd.actual = Nanotime::ZERO;
+            }
+        } else {
+            self.is_complete = satisfied;
+        }
     }
 
-    pub fn to_string(&self) -> String {
-        let s = if self.is_complete { " * " } else { " - " };
+    pub fn progress(&self) -> f32 {
+        if let Some(gd) = &self.dur {
+            gd.actual.to_secs() / gd.required.to_secs()
+        } else {
+            self.is_complete as u8 as f32
+        }
+    }
+
+    pub fn to_string(&self, state: &GameState) -> String {
+        let s = if self.is_complete { "* " } else { "- " };
         let text = match self.cond {
             GoalCondition::AnyLaunchToOrbit => "Launch any spacecraft to orbit".to_string(),
             GoalCondition::AnyHoldAttitude => {
@@ -54,32 +89,67 @@ impl Goal {
             }
             GoalCondition::AnyLandOnTheMoon => todo!(),
             GoalCondition::AnyLandOnEarth => todo!(),
-            GoalCondition::Renzevzous(a, b) => {
-                format!("Rendezvous vehicle {} with vehicle {}", a, b)
+            GoalCondition::Rendezvous { ownship, target } => {
+                let s = || -> Option<String> {
+                    let a = state.universe.surface_vehicles.get(&ownship)?;
+                    let b = state.universe.surface_vehicles.get(&target)?;
+                    Some(format!(
+                        "Rendezvous vessel \"{}\" with \"{}\"",
+                        a.vehicle.name_with_id(ownship),
+                        b.vehicle.name_with_id(target),
+                    ))
+                }();
+                s.unwrap_or(String::new())
+            }
+            GoalCondition::SetTarget { ownship, target } => {
+                let s = || -> Option<String> {
+                    let a = state.universe.surface_vehicles.get(&ownship)?;
+                    let b = state.universe.surface_vehicles.get(&target)?;
+                    Some(format!(
+                        "Set \"{}\" as the target of \"{}\"",
+                        b.vehicle.name_with_id(target),
+                        a.vehicle.name_with_id(ownship)
+                    ))
+                }();
+                s.unwrap_or(String::new())
+            }
+            GoalCondition::SelectVehicle(v) => {
+                let s = || -> Option<String> {
+                    let sv = state.universe.surface_vehicles.get(&v)?;
+                    Some(format!(
+                        "Click \"{}\" to set it as the current ownship",
+                        sv.vehicle.name_with_id(v),
+                    ))
+                }();
+                s.unwrap_or(String::new())
             }
         };
         format!("{}{}", s, text)
     }
 }
 
-fn is_satisfied(universe: &Universe, cond: &GoalCondition) -> Option<bool> {
+fn is_satisfied(state: &GameState, cond: &GoalCondition) -> Option<bool> {
     match cond {
-        GoalCondition::AnyLaunchToOrbit => Some(universe.surface_vehicles.iter().any(|(_, v)| {
-            if let VehicleControlPolicy::LaunchToOrbit(_) = v.controller.mode() {
-                true
-            } else {
-                false
-            }
-        })),
-        GoalCondition::AnyHoldAttitude => Some(universe.surface_vehicles.iter().any(|(_, v)| {
-            if let VehicleControlPolicy::HoldAttitude(_) = v.controller.mode() {
-                true
-            } else {
-                false
-            }
-        })),
+        GoalCondition::AnyLaunchToOrbit => {
+            Some(state.universe.surface_vehicles.iter().any(|(_, v)| {
+                if let VehicleControlPolicy::LaunchToOrbit(_) = v.controller.mode() {
+                    true
+                } else {
+                    false
+                }
+            }))
+        }
+        GoalCondition::AnyHoldAttitude => {
+            Some(state.universe.surface_vehicles.iter().any(|(_, v)| {
+                if let VehicleControlPolicy::HoldAttitude(_) = v.controller.mode() {
+                    true
+                } else {
+                    false
+                }
+            }))
+        }
         GoalCondition::AnyManuallyControlled => {
-            Some(universe.surface_vehicles.iter().any(|(_, v)| {
+            Some(state.universe.surface_vehicles.iter().any(|(_, v)| {
                 if let VehicleControlPolicy::External = v.controller.mode() {
                     true
                 } else {
@@ -89,13 +159,18 @@ fn is_satisfied(universe: &Universe, cond: &GoalCondition) -> Option<bool> {
         }
         GoalCondition::AnyLandOnTheMoon => None,
         GoalCondition::AnyLandOnEarth => None,
-        GoalCondition::Renzevzous(a, b) => {
-            let pva = universe.pv(*a)?;
-            let pvb = universe.pv(*b)?;
+        GoalCondition::Rendezvous { ownship, target } => {
+            let pva = state.universe.pv(*ownship)?;
+            let pvb = state.universe.pv(*target)?;
             let ds = pva.pos.distance(pva.pos);
             let dv = pva.vel.distance(pvb.vel);
-            Some(ds < 100.0 && dv < 10.0)
+            Some(ds < 100.0 && dv < 3.0)
         }
+        GoalCondition::SetTarget { ownship, target } => {
+            let sv = state.universe.surface_vehicles.get(ownship)?;
+            Some(sv.target() == Some(*target))
+        }
+        GoalCondition::SelectVehicle(v) => Some(state.orbital_context.piloting == Some(*v)),
     }
 }
 
@@ -104,7 +179,16 @@ pub fn init_goals(v1: EntityId, v2: EntityId) -> impl Iterator<Item = Goal> {
         Goal::new(GoalCondition::AnyHoldAttitude),
         Goal::new(GoalCondition::AnyLaunchToOrbit),
         Goal::new(GoalCondition::AnyManuallyControlled),
-        Goal::new(GoalCondition::Renzevzous(v1, v2)),
+        Goal::new(GoalCondition::SelectVehicle(v1)).as_impermanent(),
+        Goal::new(GoalCondition::SetTarget {
+            ownship: v1,
+            target: v2,
+        }),
+        Goal::new(GoalCondition::Rendezvous {
+            ownship: v1,
+            target: v2,
+        })
+        .with_duration(Nanotime::secs(10)),
     ]
     .into_iter()
 }

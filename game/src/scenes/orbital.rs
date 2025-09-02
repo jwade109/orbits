@@ -5,12 +5,12 @@ use crate::input::{FrameId, InputState, MouseButt};
 use crate::onclick::OnClick;
 use crate::scenes::{Render, TextLabel};
 use crate::sounds::EnvironmentSounds;
-use crate::ui::*;
+// use crate::ui::*;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
-use enum_iterator::all;
+// use enum_iterator::all;
 use enum_iterator::Sequence;
-use layout::layout::{Node, Size, Tree};
+use layout::layout::Tree;
 use starling::prelude::*;
 use std::collections::HashSet;
 
@@ -377,167 +377,166 @@ impl Render for OrbitalContext {
         Some(())
     }
 
-    fn ui(state: &GameState) -> Option<Tree<OnClick>> {
-
+    fn ui(_state: &GameState) -> Option<Tree<OnClick>> {
         return None;
 
-        let vb = state.input.screen_bounds;
-        if vb.span.x == 0.0 || vb.span.y == 0.0 {
-            return Some(Tree::new());
-        }
+        // let vb = state.input.screen_bounds;
+        // if vb.span.x == 0.0 || vb.span.y == 0.0 {
+        //     return Some(Tree::new());
+        // }
 
-        let mut sidebar = Node::column(300).with_color(UI_BACKGROUND_COLOR);
+        // let mut sidebar = Node::column(300).with_color(UI_BACKGROUND_COLOR);
 
-        let body_color_lup: std::collections::HashMap<&'static str, Srgba> =
-            std::collections::HashMap::from([("Earth", BLUE), ("Luna", GRAY), ("Asteroid", BROWN)]);
+        // let body_color_lup: std::collections::HashMap<&'static str, Srgba> =
+        //     std::collections::HashMap::from([("Earth", BLUE), ("Luna", GRAY), ("Asteroid", BROWN)]);
 
-        if let Some(lup) = nearest_relevant_body(
-            &state.universe.planets,
-            state.orbital_context.origin(),
-            state.universe.stamp(),
-        )
-        .map(|id| state.universe.lup_planet(id))
-        .flatten()
-        {
-            if let Some((s, _)) = lup.named_body() {
-                let color: Srgba = body_color_lup
-                    .get(s.as_str())
-                    .unwrap_or(&Srgba::from(crate::sprites::hashable_to_color(s)))
-                    .with_luminance(0.2)
-                    .with_alpha(0.9);
-                sidebar.add_child(
-                    Node::button(
-                        s,
-                        OnClick::CurrentBody(lup.id()),
-                        Size::Grow,
-                        state.settings.ui_button_height,
-                    )
-                    .with_color(color.to_f32_array()),
-                );
-            }
-        }
+        // if let Some(lup) = nearest_relevant_body(
+        //     &state.universe.planets,
+        //     state.orbital_context.origin(),
+        //     state.universe.stamp(),
+        // )
+        // .map(|id| state.universe.lup_planet(id))
+        // .flatten()
+        // {
+        //     if let Some((s, _)) = lup.named_body() {
+        //         let color: Srgba = body_color_lup
+        //             .get(s.as_str())
+        //             .unwrap_or(&Srgba::from(crate::sprites::hashable_to_color(s)))
+        //             .with_luminance(0.2)
+        //             .with_alpha(0.9);
+        //         sidebar.add_child(
+        //             Node::button(
+        //                 s,
+        //                 OnClick::CurrentBody(lup.id()),
+        //                 Size::Grow,
+        //                 state.settings.ui_button_height,
+        //             )
+        //             .with_color(color.to_f32_array()),
+        //         );
+        //     }
+        // }
 
-        sidebar.add_child(Node::button(
-            format!("Visual: {:?}", state.orbital_context.draw_mode),
-            OnClick::ToggleDrawMode,
-            Size::Grow,
-            state.settings.ui_button_height,
-        ));
+        // sidebar.add_child(Node::button(
+        //     format!("Visual: {:?}", state.orbital_context.draw_mode),
+        //     OnClick::ToggleDrawMode,
+        //     Size::Grow,
+        //     state.settings.ui_button_height,
+        // ));
 
-        sidebar.add_child(
-            Node::button(
-                "Clear Orbits",
-                OnClick::ClearOrbits,
-                Size::Grow,
-                state.settings.ui_button_height,
-            )
-            .enabled(!state.orbital_context.queued_orbits.is_empty()),
-        );
+        // sidebar.add_child(
+        //     Node::button(
+        //         "Clear Orbits",
+        //         OnClick::ClearOrbits,
+        //         Size::Grow,
+        //         state.settings.ui_button_height,
+        //     )
+        //     .enabled(!state.orbital_context.queued_orbits.is_empty()),
+        // );
 
-        sidebar.add_child(
-            Node::button(
-                "Commit Mission",
-                OnClick::CommitMission,
-                Size::Grow,
-                state.settings.ui_button_height,
-            )
-            .enabled(state.current_orbit().is_some() && !state.orbital_context.selected.is_empty()),
-        );
+        // sidebar.add_child(
+        //     Node::button(
+        //         "Commit Mission",
+        //         OnClick::CommitMission,
+        //         Size::Grow,
+        //         state.settings.ui_button_height,
+        //     )
+        //     .enabled(state.current_orbit().is_some() && !state.orbital_context.selected.is_empty()),
+        // );
 
-        sidebar.add_child(Node::hline());
+        // sidebar.add_child(Node::hline());
 
-        sidebar.add_children(all::<CursorMode>().map(|c| {
-            let s = format!("{:?}", c);
-            let id = OnClick::CursorMode(c);
-            Node::button(s, id, Size::Grow, state.settings.ui_button_height)
-                .enabled(c != state.orbital_context.cursor_mode)
-        }));
+        // sidebar.add_children(all::<CursorMode>().map(|c| {
+        //     let s = format!("{:?}", c);
+        //     let id = OnClick::CursorMode(c);
+        //     Node::button(s, id, Size::Grow, state.settings.ui_button_height)
+        //         .enabled(c != state.orbital_context.cursor_mode)
+        // }));
 
-        if !state.universe.constellations.is_empty() {
-            sidebar.add_child(Node::hline());
-        }
+        // if !state.universe.constellations.is_empty() {
+        //     sidebar.add_child(Node::hline());
+        // }
 
-        for gid in state.universe.unique_groups() {
-            let color: Srgba = crate::sprites::hashable_to_color(&gid)
-                .with_luminance(0.3)
-                .into();
-            let s = format!("{}", gid);
-            let id = OnClick::Group(gid.clone());
-            let button = Node::button(s, id, Size::Grow, state.settings.ui_button_height)
-                .with_color(color.to_f32_array());
-            sidebar.add_child(delete_wrapper(
-                OnClick::DisbandGroup(gid.clone()),
-                button,
-                state.settings.ui_button_height as f32,
-            ));
-        }
+        // for gid in state.universe.unique_groups() {
+        //     let color: Srgba = crate::sprites::hashable_to_color(&gid)
+        //         .with_luminance(0.3)
+        //         .into();
+        //     let s = format!("{}", gid);
+        //     let id = OnClick::Group(gid.clone());
+        //     let button = Node::button(s, id, Size::Grow, state.settings.ui_button_height)
+        //         .with_color(color.to_f32_array());
+        //     sidebar.add_child(delete_wrapper(
+        //         OnClick::DisbandGroup(gid.clone()),
+        //         button,
+        //         state.settings.ui_button_height as f32,
+        //     ));
+        // }
 
-        sidebar.add_child(Node::hline());
+        // sidebar.add_child(Node::hline());
 
-        sidebar.add_child(piloting_buttons(state, Size::Grow));
+        // sidebar.add_child(piloting_buttons(state, Size::Grow));
 
-        sidebar.add_child(selected_button(state, Size::Grow));
+        // sidebar.add_child(selected_button(state, Size::Grow));
 
-        if !state.orbital_context.selected.is_empty() {
-            orbiter_list(
-                state,
-                &mut sidebar,
-                32,
-                state.orbital_context.selected.iter().cloned().collect(),
-            );
-            sidebar.add_child(Node::button(
-                "Create Group",
-                OnClick::CreateGroup,
-                Size::Grow,
-                state.settings.ui_button_height,
-            ));
-        }
+        // if !state.orbital_context.selected.is_empty() {
+        //     orbiter_list(
+        //         state,
+        //         &mut sidebar,
+        //         32,
+        //         state.orbital_context.selected.iter().cloned().collect(),
+        //     );
+        //     sidebar.add_child(Node::button(
+        //         "Create Group",
+        //         OnClick::CreateGroup,
+        //         Size::Grow,
+        //         state.settings.ui_button_height,
+        //     ));
+        // }
 
-        let mut inner_topbar = Node::fit().with_color(UI_BACKGROUND_COLOR);
+        // let mut inner_topbar = Node::fit().with_color(UI_BACKGROUND_COLOR);
 
-        for (i, orbit) in state.orbital_context.queued_orbits.iter().enumerate() {
-            let orbit_button = {
-                let s = format!("{}", orbit);
-                let id = OnClick::GlobalOrbit(i);
-                Node::button(s, id, 400, state.settings.ui_button_height)
-            };
+        // for (i, orbit) in state.orbital_context.queued_orbits.iter().enumerate() {
+        //     let orbit_button = {
+        //         let s = format!("{}", orbit);
+        //         let id = OnClick::GlobalOrbit(i);
+        //         Node::button(s, id, 400, state.settings.ui_button_height)
+        //     };
 
-            inner_topbar.add_child(delete_wrapper(
-                OnClick::DeleteOrbit(i),
-                orbit_button,
-                state.settings.ui_button_height,
-            ));
-        }
+        //     inner_topbar.add_child(delete_wrapper(
+        //         OnClick::DeleteOrbit(i),
+        //         orbit_button,
+        //         state.settings.ui_button_height,
+        //     ));
+        // }
 
-        let notif_bar = notification_bar(state, Size::Fixed(900.0));
+        // let notif_bar = notification_bar(state, Size::Fixed(900.0));
 
-        let world = Node::grow()
-            .down()
-            .invisible()
-            .tight()
-            .with_child(Node::grow().down().invisible().with_child(inner_topbar))
-            .with_child(
-                Node::grow()
-                    .tight()
-                    .down()
-                    .invisible()
-                    .with_child(Node::grow().invisible())
-                    .with_child(notif_bar),
-            );
+        // let world = Node::grow()
+        //     .down()
+        //     .invisible()
+        //     .tight()
+        //     .with_child(Node::grow().down().invisible().with_child(inner_topbar))
+        //     .with_child(
+        //         Node::grow()
+        //             .tight()
+        //             .down()
+        //             .invisible()
+        //             .with_child(Node::grow().invisible())
+        //             .with_child(notif_bar),
+        //     );
 
-        let root = Node::new(vb.span.x, vb.span.y)
-            .down()
-            .tight()
-            .invisible()
-            .with_child(top_bar(state))
-            .with_child(
-                Node::grow()
-                    .tight()
-                    .invisible()
-                    // .with_child(sidebar)
-                    .with_child(world),
-            );
+        // let root = Node::new(vb.span.x, vb.span.y)
+        //     .down()
+        //     .tight()
+        //     .invisible()
+        //     .with_child(top_bar(state))
+        //     .with_child(
+        //         Node::grow()
+        //             .tight()
+        //             .invisible()
+        //             // .with_child(sidebar)
+        //             .with_child(world),
+        //     );
 
-        Some(Tree::new().with_layout(root, Vec2::ZERO))
+        // Some(Tree::new().with_layout(root, Vec2::ZERO))
     }
 }

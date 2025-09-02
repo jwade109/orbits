@@ -1,5 +1,6 @@
 use crate::aabb::AABB;
 use crate::factory::*;
+use crate::id::EntityId;
 use crate::math::*;
 use crate::nanotime::Nanotime;
 use crate::parts::*;
@@ -586,6 +587,10 @@ impl Vehicle {
 
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    pub fn name_with_id(&self, id: EntityId) -> String {
+        format!("{}-{}", self.name, id)
     }
 
     pub fn set_name(&mut self, name: String) {

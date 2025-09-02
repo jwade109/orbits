@@ -6,7 +6,7 @@ use std::path::Path;
 pub fn load_names_from_file(filename: &Path) -> Result<Vec<String>, Box<dyn Error>> {
     Ok(read_to_string(filename)?
         .lines()
-        .map(|s| s.to_string())
+        .filter_map(|s| (!s.is_empty()).then(|| s.to_string()))
         .collect())
 }
 

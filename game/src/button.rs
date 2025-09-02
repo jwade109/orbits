@@ -5,7 +5,7 @@ use starling::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct ExpandButton {
-    pos: Vec2,
+    pub pos: Vec2,
     dims: Vec2,
     text: String,
     sprite: String,

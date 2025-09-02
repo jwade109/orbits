@@ -1,7 +1,6 @@
 use bevy::color::palettes::basic::*;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
-use bevy::text;
 use bevy_vector_shapes::prelude::*;
 use starling::prelude::*;
 
@@ -1417,24 +1416,35 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
         draw_button(canvas, button);
     }
 
-    let goal_lines = [("Goals".to_string(), WHITE)]
+    let goal_lines = [("Helpful Goals".to_string(), WHITE, 0.0)]
         .into_iter()
         .chain(state.goals.iter().map(|g| {
             (
-                g.to_string(),
+                g.to_string(&state),
                 if g.is_complete {
                     GREEN.mix(&WHITE, 0.3)
                 } else {
                     WHITE
                 },
+                g.progress(),
             )
         }));
 
-    for (i, (text, color)) in goal_lines.into_iter().enumerate() {
+    for (i, (text, color, progress)) in goal_lines.into_iter().enumerate() {
         let sp = state.input.screen_bounds.span / 2.0;
         let x = -sp.x + 200.0;
-        let y = sp.y - 40.0 - 26.0 * i as f32;
-        canvas.text(text, Vec2::new(x, y), 0.9).anchor_left().color = color;
+        let y = sp.y - 40.0 - 36.0 * i as f32;
+        let size = 0.9;
+        let s_len = text.len() as f32 * 13.9 * size;
+        let t = canvas.text(text, Vec2::new(x, y), 0.9).anchor_bottom_left();
+
+        t.color = color;
+        t.z_index = ZOrdering::Ui3;
+        canvas.rect(
+            AABB::from_arbitrary(Vec2::new(x, y), Vec2::new(x + s_len * progress, y - 5.0)),
+            ZOrdering::Ui2,
+            color,
+        );
     }
 
     draw_camera_info(canvas, ctx, state.input.screen_bounds.span);

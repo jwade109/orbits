@@ -30,3 +30,4 @@ pub use crate::take::*;
 pub use crate::thrust_particles::*;
 pub use crate::universe::*;
 pub use crate::vehicle::*;
+pub use crate::welding_particle::*;

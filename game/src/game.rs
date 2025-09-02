@@ -345,10 +345,12 @@ impl GameState {
         let t = g.universe.stamp();
 
         let get_random_orbit = |pid: EntityId| {
-            let r1 = rand(11_000_000.0, 40_000_000.0) as f64;
-            let r2 = rand(11_000_000.0, 40_000_000.0) as f64;
+            let r1 = rand(3_000_000.0, 8_000_000.0) as f64;
+            let r2 = rand(3_000_000.0, 8_000_000.0) as f64;
             let argp = rand(0.0, 2.0 * PI) as f64;
             let body = planets.lookup(pid, t)?.0;
+            let r1 = body.radius + r1;
+            let r2 = body.radius + r2;
             let orbit = SparseOrbit::new(r1.max(r2), r1.min(r2), argp, body, t, false)?;
             Some(GlobalOrbit(pid, orbit))
         };
@@ -1204,8 +1206,17 @@ impl GameState {
             _ => (),
         }
 
-        for goal in &mut self.goals {
-            goal.update(&self.universe);
+        let mut goals = self.goals.clone();
+
+        for goal in &mut goals {
+            goal.update(&self);
+        }
+
+        self.goals = goals;
+
+        for button in &mut self.buttons {
+            let sp = self.input.screen_bounds.span / 2.0;
+            button.pos.x = -sp.x + 10.0;
         }
     }
 }
