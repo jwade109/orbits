@@ -13,6 +13,7 @@ use crate::input::*;
 use crate::notifications::*;
 use crate::onclick::OnClick;
 use crate::scenes::*;
+use crate::window::*;
 use crate::z_index::*;
 
 pub fn draw_cross(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
@@ -1416,35 +1417,8 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
         draw_button(canvas, button);
     }
 
-    let goal_lines = [("Helpful Goals".to_string(), WHITE, 0.0)]
-        .into_iter()
-        .chain(state.goals.iter().map(|g| {
-            (
-                g.to_string(&state),
-                if g.is_complete {
-                    GREEN.mix(&WHITE, 0.3)
-                } else {
-                    WHITE
-                },
-                g.progress(),
-            )
-        }));
-
-    for (i, (text, color, progress)) in goal_lines.into_iter().enumerate() {
-        let sp = state.input.screen_bounds.span / 2.0;
-        let x = -sp.x + 200.0;
-        let y = sp.y - 40.0 - 36.0 * i as f32;
-        let size = 0.9;
-        let s_len = text.len() as f32 * 13.9 * size;
-        let t = canvas.text(text, Vec2::new(x, y), 0.9).anchor_bottom_left();
-
-        t.color = color;
-        t.z_index = ZOrdering::Ui3;
-        canvas.rect(
-            AABB::from_arbitrary(Vec2::new(x, y), Vec2::new(x + s_len * progress, y - 5.0)),
-            ZOrdering::Ui2,
-            color,
-        );
+    for (i, window) in state.windows.iter().rev().enumerate() {
+        draw_window(canvas, window, i as u32);
     }
 
     draw_camera_info(canvas, ctx, state.input.screen_bounds.span);

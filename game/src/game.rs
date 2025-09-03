@@ -15,6 +15,9 @@ use starling::prelude::*;
 use std::collections::HashMap;
 use std::path::Path;
 
+const INTRO_TEXT: &'static str =
+    "Hello!\n\nThis is a semi-polished demo of the very core mechanics.";
+
 pub struct GamePlugin;
 
 fn combo_just_pressed(input: &InputState, keys: &[KeyCode]) -> bool {
@@ -210,6 +213,7 @@ pub struct GameState {
     pub vehicle_names: Vec<String>,
 
     pub buttons: Vec<ExpandButton>,
+    pub windows: Vec<UiWindow>,
 
     pub goals: Vec<Goal>,
 }
@@ -337,6 +341,11 @@ impl GameState {
             vehicle_names,
             buttons,
             goals: Vec::new(),
+            windows: vec![
+                UiWindow::new(WindowClass::Tutorial, ""),
+                UiWindow::new(WindowClass::Hello, INTRO_TEXT),
+                UiWindow::new(WindowClass::VehicleInfo, ""),
+            ],
         };
 
         let earth_id = g.universe.lup_planet_by_name("Earth").unwrap();
@@ -561,6 +570,24 @@ fn keyboard_control_law(input: &InputState) -> VehicleControl {
     ctrl.neg_y.use_rcs = docking_mode;
 
     ctrl
+}
+
+fn get_vehicle_info_contents(universe: &Universe, id: Option<EntityId>) -> Option<String> {
+    let id = id?;
+    let sv = universe.surface_vehicles.get(&id)?;
+    let pv = sv.body.pv;
+
+    Some(format!(
+        "{}\n{}-type vessel\n{}\n{}\nMODE {}\nORB {}",
+        sv.vehicle.name_with_id(id),
+        sv.vehicle.model(),
+        distance_str_v(pv.pos),
+        velocity_str_v(pv.vel),
+        sv.controller.mode().to_status_str(),
+        sv.orbit
+            .map(|o| format!("{}", o))
+            .unwrap_or("N/A".to_string()),
+    ))
 }
 
 impl GameState {
@@ -1073,8 +1100,14 @@ impl GameState {
 
         let mut take = Take::from_opt(self.input.position(MouseButt::Hover, FrameId::Current));
 
+        self.windows.sort_by_key(|w| !w.is_clicked as u8);
+
         for button in &mut self.buttons {
             button.on_mouse_move(&mut take);
+        }
+
+        for window in &mut self.windows {
+            window.on_mouse_move(&mut take);
         }
 
         if self.console.is_active() {
@@ -1088,6 +1121,9 @@ impl GameState {
             for button in &mut self.buttons {
                 button.on_left_mouse_down();
             }
+            for window in &mut self.windows {
+                window.on_left_mouse_down();
+            }
         }
 
         let mut events = Vec::new();
@@ -1097,6 +1133,9 @@ impl GameState {
                 if let Some(e) = button.on_left_mouse_up() {
                     events.push(e);
                 }
+            }
+            for window in &mut self.windows {
+                window.on_left_mouse_up();
             }
         }
 
@@ -1156,6 +1195,30 @@ impl GameState {
 
         for button in &mut self.buttons {
             button.step();
+        }
+
+        let goal_text: String = self
+            .goals
+            .iter()
+            .map(|g| format!("\n\n{}", g.to_string(&self)))
+            .collect();
+
+        for window in &mut self.windows {
+            match window.class {
+                WindowClass::Tutorial => {
+                    window.contents = goal_text.clone();
+                }
+                WindowClass::VehicleInfo => {
+                    window.contents =
+                        get_vehicle_info_contents(&self.universe, self.orbital_context.piloting)
+                            .unwrap_or(
+                                "No current vehicle.\n\nSelect a vehicle by clicking on it"
+                                    .to_string(),
+                            );
+                }
+                _ => (),
+            }
+            window.step();
         }
 
         let mut signals = ControlSignals::new();

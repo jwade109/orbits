@@ -93,6 +93,10 @@ impl AABB {
         self.center + self.span / 2.0
     }
 
+    pub fn mid_left(&self) -> Vec2 {
+        self.center - Vec2::X * self.span.x / 2.0
+    }
+
     pub fn corners(&self) -> [Vec2; 4] {
         let c = self.center;
         let ur = self.span / 2.0;
