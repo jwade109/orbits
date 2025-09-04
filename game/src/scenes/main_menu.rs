@@ -42,8 +42,7 @@ impl Render for MainMenuContext {
         .to_uppercase();
         let p = Vec2::new(-dims.x / 2.0 + 200.0, -dims.y / 2.0 + 140.0);
 
-        let t = TextLabel::new(s, p, 0.6).with_anchor_left();
-        canvas.label(t);
+        canvas.text(s, p, 0.6).set_anchor(Anchor::CenterLeft);
 
         crate::drawing::draw_orbital_view(canvas, state);
 

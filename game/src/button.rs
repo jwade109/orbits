@@ -112,5 +112,5 @@ pub fn draw_button(canvas: &mut Canvas, button: &ExpandButton) {
     canvas.rect(aabb, ZOrdering::Ui, TEAL.with_alpha(alpha));
     canvas
         .text(button.text.clone(), aabb.center, button.anim())
-        .z_index = ZOrdering::Ui2;
+        .set_z_order(ZOrdering::Ui2);
 }

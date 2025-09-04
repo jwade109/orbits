@@ -640,7 +640,7 @@ pub fn draw_piloting_overlay(
             center + Vec2::new(r * 0.4, r + 110.0),
             0.8,
         )
-        .anchor_right();
+        .set_anchor(Anchor::CenterRight);
 
     canvas
         .text(
@@ -648,7 +648,7 @@ pub fn draw_piloting_overlay(
             center + Vec2::new(r * 0.4, r + 60.0),
             1.2,
         )
-        .anchor_right();
+        .set_anchor(Anchor::CenterRight);
 
     let color = if sv.controller.is_idle() || !is_blinking(state.wall_time) {
         GRAY.with_alpha(0.3)
@@ -662,8 +662,8 @@ pub fn draw_piloting_overlay(
             center + Vec2::new(r * 0.4, r + 170.0),
             1.2,
         )
-        .anchor_right()
-        .color = color;
+        .set_anchor(Anchor::CenterRight)
+        .set_color(color);
 
     let orbit_str = orbit
         .map(|o| format!("{}", o))
@@ -697,7 +697,7 @@ pub fn draw_piloting_overlay(
             center - Vec2::new(r * 1.2, r * 0.8),
             0.7,
         )
-        .anchor_right();
+        .set_anchor(Anchor::CenterRight);
 
     let dash_icons = [
         ("low-fuel", "low-fuel-dim", vehicle.low_fuel(), true),
@@ -1120,7 +1120,10 @@ fn draw_rendezvous_info(canvas: &mut Canvas, state: &GameState) -> Option<()> {
             let p_world = target_pos.pos + DVec2::from_angle(PI_64 / 4.0) * m as f64;
             let p_screen = ctx.w2c(p_world);
             let s = format!("{}", distance_str(m as f64));
-            canvas.text(s, p_screen, 0.5).anchor_left().color = WHITE.with_alpha(gcast(alpha));
+            canvas
+                .text(s, p_screen, 0.5)
+                .set_anchor(Anchor::CenterLeft)
+                .set_color(WHITE.with_alpha(gcast(alpha)));
         }
     }
 
@@ -1656,7 +1659,7 @@ pub fn draw_camera_info(canvas: &mut Canvas, ctx: &impl CameraProjection, window
             Vec2::new(window_span.x, -window_span.y) / 2.0 - Vec2::new(40.0, -40.0),
             0.9,
         )
-        .anchor_right();
+        .set_anchor(Anchor::CenterRight);
 
     let xl = (xl / step) * step;
     let xu = (xu / step) * step;

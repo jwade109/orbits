@@ -8,7 +8,7 @@ use crate::input::InputState;
 use crate::input::{FrameId, MouseButt};
 use crate::names::*;
 use crate::onclick::OnClick;
-use crate::scenes::Render;
+use crate::scenes::*;
 use crate::ui::*;
 use crate::z_index::ZOrdering;
 use bevy::color::palettes::css::*;
@@ -509,7 +509,7 @@ impl Render for EditorContext {
         let world_pos = Vec2::new(0.0, bounds.lower().y - 1.0).as_dvec2();
         canvas
             .text(info, ctx.w2c(world_pos), gcast(0.01 * ctx.scale()))
-            .anchor_top_left();
+            .set_anchor(Anchor::TopLeft);
         let world_pos = Vec2::new(0.0, bounds.upper().y + 1.0).as_dvec2();
         canvas
             .text(
@@ -521,7 +521,7 @@ impl Render for EditorContext {
                 ctx.w2c(world_pos),
                 gcast(0.01 * ctx.scale()),
             )
-            .anchor_bottom_left();
+            .set_anchor(Anchor::BottomLeft);
 
         // axes
         {

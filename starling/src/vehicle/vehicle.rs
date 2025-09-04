@@ -590,7 +590,7 @@ impl Vehicle {
     }
 
     pub fn name_with_id(&self, id: EntityId) -> String {
-        format!("{}-{}", self.name, id)
+        format!("{} {}", self.name, id)
     }
 
     pub fn set_name(&mut self, name: String) {

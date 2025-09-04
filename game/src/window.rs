@@ -3,17 +3,19 @@ use starling::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
 pub enum WindowClass {
-    Tutorial,
+    Tutorial(usize),
     Hello,
-    VehicleInfo,
+    CurrentVehicleInfo,
+    VehicleInfo(EntityId),
 }
 
 impl WindowClass {
     pub fn title(&self) -> &'static str {
         match self {
-            Self::Tutorial => "Tutorial",
+            Self::Tutorial(_) => "Tutorial",
             Self::Hello => "Hello!",
-            Self::VehicleInfo => "Vehicle Info",
+            Self::CurrentVehicleInfo => "Vehicle Info",
+            Self::VehicleInfo(_) => "Vehicle Info",
         }
     }
 }
@@ -32,14 +34,15 @@ pub struct UiWindow {
     is_focused: bool,
     is_minimized: bool,
     collapse_lpf: Lpf,
+    rest_pos: Vec2,
 }
 
 impl UiWindow {
-    pub fn new(class: WindowClass, contents: impl Into<String>) -> Self {
+    pub fn new(class: WindowClass) -> Self {
         Self {
             class,
             title: class.title().into(),
-            contents: contents.into(),
+            contents: String::new(),
             origin: randvec(100.0, 400.0),
             static_content_dims: Vec2::new(450.0, rand(200.0, 500.0)),
             handle_height: 30.0,
@@ -49,6 +52,7 @@ impl UiWindow {
             is_focused: false,
             is_minimized: false,
             collapse_lpf: Lpf::new(1.0, 0.0, 0.3),
+            rest_pos: Vec2::ZERO,
         }
     }
 
@@ -109,6 +113,10 @@ impl UiWindow {
         let cb = self.dynamic_total_bounds();
         cb.offset(Vec2::splat(-7.0))
     }
+
+    pub fn set_rest_pos(&mut self, p: Vec2) {
+        self.rest_pos = p;
+    }
 }
 
 impl Interactive for UiWindow {
@@ -159,11 +167,6 @@ impl Interactive for UiWindow {
     fn step(&mut self) {
         self.collapse_lpf.step();
         self.collapse_lpf.target = !self.is_minimized as u8 as f32;
-
-        let desired_pos = vround(self.origin / 25.0).as_vec2() * 25.0;
-        if !self.is_clicked || !self.mouse_offset.is_some() {
-            self.origin += (desired_pos - self.origin) * 0.2;
-        }
     }
 }
 
@@ -188,6 +191,8 @@ pub fn draw_window(canvas: &mut Canvas, window: &UiWindow, n: u32) {
 
     let factor = if window.is_focused { 0.3 } else { 0.7 };
 
+    let orange = Srgba::from_f32_array([0.6, 0.3, 0.0, 0.8]);
+
     // let inner = content.padded(-pad);
     canvas.rect(
         content,
@@ -195,7 +200,7 @@ pub fn draw_window(canvas: &mut Canvas, window: &UiWindow, n: u32) {
         GRAY.with_alpha(alpha).mix(&BLACK, factor),
     );
 
-    let handle_color = DARK_BLUE.mix(&BLACK, factor).with_alpha(alpha);
+    let handle_color = orange.with_alpha(alpha);
 
     canvas.rect(handle, ZOrdering::Window(n, 3), handle_color);
 
@@ -203,18 +208,18 @@ pub fn draw_window(canvas: &mut Canvas, window: &UiWindow, n: u32) {
 
     canvas.rect(mb, ZOrdering::Window(n, 4), color.with_alpha(alpha));
 
-    let tl = canvas.text(window.title.clone(), handle.mid_left() + Vec2::X * 5.0, 0.8);
+    canvas
+        .text(window.title.clone(), handle.mid_left() + Vec2::X * 5.0, 0.8)
+        .set_anchor(Anchor::CenterLeft)
+        .set_z_order(ZOrdering::Window(n, 5));
 
-    tl.anchor_left();
-    tl.z_index = ZOrdering::Window(n, 5);
-
-    let tl = canvas.text(
-        window.contents.clone(),
-        // format!("{:#?}", window),
-        content.top_left() + Vec2::new(5.0, -5.0),
-        0.7 * window.collapse_lpf.actual,
-    );
-    tl.z_index = ZOrdering::Window(n, 6);
-    tl.color.alpha = alpha;
-    tl.anchor_top_left();
+    canvas
+        .text(
+            window.contents.clone(),
+            // format!("{:#?}", window),
+            content.top_left() + Vec2::new(5.0, -5.0),
+            0.7 * window.collapse_lpf.actual,
+        )
+        .set_anchor(Anchor::TopLeft)
+        .set_z_order(ZOrdering::Window(n, 6));
 }

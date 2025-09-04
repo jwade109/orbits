@@ -95,30 +95,34 @@ pub fn do_text_labels(
         ),
         With<TextLabel>,
     >,
+    asset_server: Res<AssetServer>,
 ) {
     let text_labels = state.text_labels.clone();
+
+    let font = asset_server.load("Lato-Bold.ttf");
+
+    let font_size = 28.0;
+
+    let scale = rand(1.0, 20.0);
 
     let mut labels: Vec<_> = query.iter_mut().collect();
     for (i, tl) in text_labels.iter().enumerate() {
         if let Some((_, text2d, font, label, color, anchor)) = labels.get_mut(i) {
-            label.translation = tl.pos.extend(tl.z_index.as_f32());
-            label.scale = Vec3::splat(tl.size);
-            text2d.0 = tl.text.clone();
-            font.font_size = 23.0;
+            label.translation = tl.pos().extend(tl.z_order().as_f32());
+            label.scale = Vec3::splat(tl.size());
+            text2d.0 = tl.text().to_string();
+            font.font_size = font_size;
             color.0 = tl.color().into();
-            **anchor = tl.anchor;
+            **anchor = tl.anchor();
         } else {
             commands.spawn((
-                Text2d::new(tl.text.clone()),
-                TextFont {
-                    font_size: 23.0,
-                    ..default()
-                },
-                Transform::from_translation(tl.pos.extend(tl.z_index.as_f32()))
-                    .with_scale(Vec3::splat(tl.size)),
+                Text2d::new(tl.text()),
+                TextFont::from_font_size(font_size * scale).with_font(font.clone()),
+                Transform::from_translation(tl.pos().extend(tl.z_order().as_f32()))
+                    .with_scale(Vec3::splat(tl.size() / scale)),
                 TextLabel,
                 TextColor(tl.color().into()),
-                tl.anchor,
+                tl.anchor(),
             ));
         }
     }

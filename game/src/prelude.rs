@@ -20,7 +20,7 @@ pub use crate::onclick::*;
 pub use crate::scenes::orbital::*;
 pub use crate::scenes::TextLabel;
 pub use crate::scenes::{
-    MainMenuContext, Render, SceneType, StaticSpriteDescriptor, TelescopeContext,
+    Anchor, MainMenuContext, Render, SceneType, StaticSpriteDescriptor, TelescopeContext,
 };
 pub use crate::settings::*;
 pub use crate::sim_rate::*;

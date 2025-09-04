@@ -23,6 +23,7 @@ pub mod settings;
 pub mod sim_rate;
 pub mod sounds;
 pub mod sprites;
+pub mod tutorial;
 pub mod ui;
 pub mod window;
 pub mod z_index;

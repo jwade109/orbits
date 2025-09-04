@@ -4,18 +4,18 @@ use crate::onclick::OnClick;
 use crate::z_index::ZOrdering;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
-use bevy::sprite::Anchor;
+pub use bevy::sprite::Anchor;
 use layout::layout::Tree;
 use starling::math::Vec2;
 
 #[derive(Debug, Clone)]
 pub struct TextLabel {
-    pub text: String,
-    pub pos: Vec2,
-    pub size: f32,
-    pub color: Srgba,
-    pub anchor: Anchor,
-    pub z_index: ZOrdering,
+    text: String,
+    pos: Vec2,
+    size: f32,
+    color: Srgba,
+    anchor: Anchor,
+    z_index: ZOrdering,
 }
 
 impl TextLabel {
@@ -30,38 +30,64 @@ impl TextLabel {
         }
     }
 
+    pub fn text(&self) -> &str {
+        &self.text
+    }
+
+    pub fn pos(&self) -> Vec2 {
+        self.pos
+    }
+
+    pub fn size(&self) -> f32 {
+        self.size
+    }
+
+    pub fn color(&self) -> Srgba {
+        self.color
+    }
+
+    pub fn anchor(&self) -> Anchor {
+        self.anchor
+    }
+
+    pub fn z_order(&self) -> ZOrdering {
+        self.z_index
+    }
+
+    // color
+
     pub fn with_color(mut self, color: Srgba) -> Self {
         self.color = color;
         self
     }
 
-    pub fn anchor_left(&mut self) -> &mut Self {
-        self.anchor = Anchor::CenterLeft;
+    pub fn set_color(&mut self, color: Srgba) -> &mut Self {
+        self.color = color;
         self
     }
 
-    pub fn anchor_right(&mut self) -> &mut Self {
-        self.anchor = Anchor::CenterRight;
+    // anchor
+
+    pub fn set_anchor(&mut self, anchor: Anchor) -> &mut Self {
+        self.anchor = anchor;
         self
     }
 
-    pub fn anchor_top_left(&mut self) -> &mut Self {
-        self.anchor = Anchor::TopLeft;
+    pub fn with_anchor(mut self, anchor: Anchor) -> Self {
+        self.anchor = anchor;
         self
     }
 
-    pub fn anchor_bottom_left(&mut self) -> &mut Self {
-        self.anchor = Anchor::BottomLeft;
+    // z ordering
+
+    pub fn set_z_order(&mut self, z: ZOrdering) -> &mut Self {
+        self.z_index = z;
         self
     }
 
-    pub fn with_anchor_left(mut self) -> Self {
-        self.anchor = Anchor::CenterLeft;
+    pub fn with_z_order(mut self, z: ZOrdering) -> Self {
+        self.z_index = z;
         self
-    }
-
-    pub fn color(&self) -> Srgba {
-        self.color
     }
 }
 

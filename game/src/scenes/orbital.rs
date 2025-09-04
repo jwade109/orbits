@@ -3,7 +3,7 @@ use crate::canvas::Canvas;
 use crate::game::GameState;
 use crate::input::{FrameId, InputState, MouseButt};
 use crate::onclick::OnClick;
-use crate::scenes::{Render, TextLabel};
+use crate::scenes::*;
 use crate::sounds::EnvironmentSounds;
 // use crate::ui::*;
 use bevy::color::palettes::css::*;
@@ -300,9 +300,9 @@ pub fn get_orbital_labels(state: &GameState) -> Vec<TextLabel> {
             let text = format!("{} {}", code, id);
             let pos = pc + Vec2::X * 40.0;
 
-            let mut t = TextLabel::new(text, pos, 0.6).with_anchor_left();
-            t.color = WHITE.with_alpha(alpha);
-            t
+            TextLabel::new(text, pos, 0.6)
+                .with_anchor(Anchor::CenterLeft)
+                .with_color(WHITE.with_alpha(alpha))
         };
         ret.push(label);
     }

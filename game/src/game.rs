@@ -15,9 +15,6 @@ use starling::prelude::*;
 use std::collections::HashMap;
 use std::path::Path;
 
-const INTRO_TEXT: &'static str =
-    "Hello!\n\nThis is a semi-polished demo of the very core mechanics.";
-
 pub struct GamePlugin;
 
 fn combo_just_pressed(input: &InputState, keys: &[KeyCode]) -> bool {
@@ -342,9 +339,10 @@ impl GameState {
             buttons,
             goals: Vec::new(),
             windows: vec![
-                UiWindow::new(WindowClass::Tutorial, ""),
-                UiWindow::new(WindowClass::Hello, INTRO_TEXT),
-                UiWindow::new(WindowClass::VehicleInfo, ""),
+                UiWindow::new(WindowClass::Tutorial(4)),
+                UiWindow::new(WindowClass::Hello),
+                UiWindow::new(WindowClass::CurrentVehicleInfo),
+                UiWindow::new(WindowClass::VehicleInfo(EntityId(1002))),
             ],
         };
 
@@ -572,14 +570,18 @@ fn keyboard_control_law(input: &InputState) -> VehicleControl {
     ctrl
 }
 
-fn get_vehicle_info_contents(universe: &Universe, id: Option<EntityId>) -> Option<String> {
+fn get_vehicle_info_contents(
+    universe: &Universe,
+    id: Option<EntityId>,
+) -> Option<(String, String)> {
     let id = id?;
     let sv = universe.surface_vehicles.get(&id)?;
     let pv = sv.body.pv;
 
-    Some(format!(
-        "{}\n{}-type vessel\n{}\n{}\nMODE {}\nORB {}",
-        sv.vehicle.name_with_id(id),
+    let title = sv.vehicle.name_with_id(id);
+
+    let contents = format!(
+        "{}-type vessel\n{}\n{}\nMODE {}\nORB {}",
         sv.vehicle.model(),
         distance_str_v(pv.pos),
         velocity_str_v(pv.vel),
@@ -587,7 +589,9 @@ fn get_vehicle_info_contents(universe: &Universe, id: Option<EntityId>) -> Optio
         sv.orbit
             .map(|o| format!("{}", o))
             .unwrap_or("N/A".to_string()),
-    ))
+    );
+
+    Some((title, contents))
 }
 
 impl GameState {
@@ -1197,24 +1201,29 @@ impl GameState {
             button.step();
         }
 
-        let goal_text: String = self
-            .goals
-            .iter()
-            .map(|g| format!("\n\n{}", g.to_string(&self)))
-            .collect();
-
         for window in &mut self.windows {
             match window.class {
-                WindowClass::Tutorial => {
-                    window.contents = goal_text.clone();
+                WindowClass::Tutorial(id) => {
+                    if let Some(g) = self.goals.get(id) {
+                        window.contents = format!("{:#?}", g);
+                    } else {
+                        window.contents.clear();
+                    }
                 }
-                WindowClass::VehicleInfo => {
-                    window.contents =
+                WindowClass::CurrentVehicleInfo => {
+                    let fb_title = "Current Vehicle".to_string();
+                    let fb_contents =
+                        "No current vehicle.\n\nSelect a vehicle by clicking on it".to_string();
+                    (window.title, window.contents) =
                         get_vehicle_info_contents(&self.universe, self.orbital_context.piloting)
-                            .unwrap_or(
-                                "No current vehicle.\n\nSelect a vehicle by clicking on it"
-                                    .to_string(),
-                            );
+                            .unwrap_or((fb_title, fb_contents));
+                }
+                WindowClass::VehicleInfo(e) => {
+                    let fb_title = format!("Vehicle {}", e);
+                    let fb_contents = format!("No vehicle with id {}.", e);
+                    (window.title, window.contents) =
+                        get_vehicle_info_contents(&self.universe, Some(e))
+                            .unwrap_or((fb_title, fb_contents));
                 }
                 _ => (),
             }
