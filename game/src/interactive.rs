@@ -6,7 +6,11 @@ pub trait Interactive {
 
     fn on_left_mouse_up(&mut self) -> Option<OnClick>;
 
-    fn on_mouse_move(&mut self, p: &mut Take<Vec2>);
+    fn on_mouse_move(&mut self, p: &mut Take<Vec2>) -> Option<OnClick>;
 
-    fn step(&mut self);
+    fn on_key(&mut self, _key: &bevy::input::keyboard::KeyboardInput) -> Option<OnClick> {
+        None
+    }
+
+    fn step(&mut self) -> Option<OnClick>;
 }

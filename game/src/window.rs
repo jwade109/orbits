@@ -1,4 +1,6 @@
 use crate::prelude::*;
+pub use bevy::input::keyboard::{Key, KeyboardInput};
+pub use bevy::input::mouse::MouseButton;
 use starling::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
@@ -22,29 +24,34 @@ impl WindowClass {
 
 #[derive(Debug)]
 pub struct UiWindow {
+    pub id: u32,
     pub class: WindowClass,
     pub title: String,
     pub contents: String,
-    pub origin: Vec2,
+    origin: Vec2,
+    target_origin: Vec2,
     pub static_content_dims: Vec2,
     pub handle_height: f32,
     pub is_hovered: bool,
     pub is_clicked: bool,
     pub mouse_offset: Option<Vec2>,
-    is_focused: bool,
+    pub is_focused: bool,
     is_minimized: bool,
     collapse_lpf: Lpf,
-    rest_pos: Vec2,
+    focus_animation: Lpf,
 }
 
 impl UiWindow {
-    pub fn new(class: WindowClass) -> Self {
+    pub fn new(id: u32, class: WindowClass) -> Self {
+        let origin = randvec(100.0, 400.0);
         Self {
+            id,
             class,
             title: class.title().into(),
             contents: String::new(),
-            origin: randvec(100.0, 400.0),
-            static_content_dims: Vec2::new(450.0, rand(200.0, 500.0)),
+            origin,
+            target_origin: origin + randvec(50.0, 80.0),
+            static_content_dims: Vec2::new(rand(350.0, 470.0), rand(200.0, 500.0)),
             handle_height: 30.0,
             is_hovered: false,
             is_clicked: false,
@@ -52,8 +59,17 @@ impl UiWindow {
             is_focused: false,
             is_minimized: false,
             collapse_lpf: Lpf::new(1.0, 0.0, 0.3),
-            rest_pos: Vec2::ZERO,
+            focus_animation: Lpf::new(0.0, 0.0, 0.3),
         }
+    }
+
+    pub fn set_origin(&mut self, p: Vec2) {
+        self.origin = p;
+        self.target_origin = p;
+    }
+
+    pub fn set_target_pos(&mut self, p: Vec2) {
+        self.target_origin = p;
     }
 
     pub fn static_content_bounds(&self) -> AABB {
@@ -71,29 +87,27 @@ impl UiWindow {
         AABB::from_arbitrary(top_left - Vec2::Y * h, top_right)
     }
 
-    pub fn static_minimize_button(&self) -> AABB {
-        let cb = self.handle_bounds();
-        let tr = cb.upper();
-        let h = cb.span.y;
-        let bl = tr - Vec2::splat(h);
-        AABB::from_arbitrary(bl, tr).padded(-10.0)
-    }
-
-    pub fn dynamic_minimize_button(&self) -> AABB {
-        let b = self.static_minimize_button();
-        b.padded(if self.is_min_button_clicked() {
-            -5.0
-        } else {
-            0.0
-        })
-    }
-
-    pub fn is_min_button_clicked(&self) -> bool {
-        if let Some(off) = self.mouse_offset {
-            self.is_clicked && self.static_minimize_button().contains(off + self.origin)
-        } else {
-            false
-        }
+    pub fn buttons(&self) -> impl Iterator<Item = (AABB, OnClick)> {
+        let h = self.handle_height;
+        let button_dims = Vec2::splat(h);
+        let width = self.static_content_dims.x;
+        let pad_size = 12.0;
+        let button_aabb = AABB::from_arbitrary(Vec2::ZERO, button_dims);
+        [
+            (
+                button_aabb.offset(Vec2::X * (width - h)).padded(-pad_size),
+                OnClick::CloseWindow(self.id),
+            ),
+            (
+                button_aabb.offset(Vec2::X * (width - 2.0 * h)).padded(-pad_size),
+                if self.is_minimized {
+                    OnClick::MaximizeWindow(self.id)
+                } else {
+                    OnClick::MinimizeWindow(self.id)
+                },
+            ),
+        ]
+        .into_iter()
     }
 
     pub fn handle_bounds(&self) -> AABB {
@@ -114,8 +128,14 @@ impl UiWindow {
         cb.offset(Vec2::splat(-7.0))
     }
 
-    pub fn set_rest_pos(&mut self, p: Vec2) {
-        self.rest_pos = p;
+    pub fn minimize(&mut self) {
+        self.is_minimized = true;
+        self.is_focused = false;
+        self.is_clicked = false;
+    }
+
+    pub fn maximize(&mut self) {
+        self.is_minimized = false;
     }
 }
 
@@ -127,33 +147,34 @@ impl Interactive for UiWindow {
         } else {
             self.is_focused = false;
         }
+
+        if let Some(off) = self.mouse_offset {
+            for (bounds, event) in self.buttons() {
+                if bounds.contains(off) {
+                    return Some(event);
+                }
+            }
+        }
+
         None
     }
 
     fn on_left_mouse_up(&mut self) -> Option<OnClick> {
         self.is_clicked = false;
-        if let Some(off) = self.mouse_offset {
-            if self.static_minimize_button().contains(self.origin + off) {
-                self.is_minimized = !self.is_minimized;
-            }
-        }
         None
     }
 
-    fn on_mouse_move(&mut self, p: &mut Take<Vec2>) {
+    fn on_mouse_move(&mut self, p: &mut Take<Vec2>) -> Option<OnClick> {
         let bounds = self.dynamic_total_bounds();
         if let Some(pos) = p.peek() {
             if self.is_clicked {
                 if let Some(off) = self.mouse_offset {
-                    self.origin = *pos - off;
+                    self.set_origin(*pos - off);
                 }
+            } else if self.is_hovered && bounds.contains(*pos) {
+                self.mouse_offset = Some(*pos - self.origin);
             } else {
-                let handle_bounds = self.handle_bounds();
-                if handle_bounds.contains(*pos) {
-                    self.mouse_offset = Some(*pos - self.origin);
-                } else {
-                    self.mouse_offset = None;
-                }
+                self.mouse_offset = None;
             }
             self.is_hovered = bounds.contains(*pos);
             if self.is_hovered {
@@ -162,22 +183,50 @@ impl Interactive for UiWindow {
         } else {
             self.is_hovered = false;
         }
+
+        None
     }
 
-    fn step(&mut self) {
-        self.collapse_lpf.step();
+    fn on_key(&mut self, key: &KeyboardInput) -> Option<OnClick> {
+        if !self.is_focused {
+            return None;
+        }
+
+        if !key.state.is_pressed() {
+            return None;
+        }
+
+        match &key.logical_key {
+            Key::Character(c) => {
+                self.contents += c;
+            }
+            Key::Enter => {
+                self.contents += "\n";
+            }
+            Key::Backspace => {
+                self.contents.pop();
+            }
+            _ => (),
+        }
+
+        None
+    }
+
+    fn step(&mut self) -> Option<OnClick> {
         self.collapse_lpf.target = !self.is_minimized as u8 as f32;
+        self.collapse_lpf.step();
+        self.focus_animation.target = self.is_focused as u8 as f32;
+        self.focus_animation.step();
+        self.origin += (self.target_origin - self.origin) * 0.3;
+        None
     }
 }
 
 pub fn draw_window(canvas: &mut Canvas, window: &UiWindow, n: u32) {
-    let (shadow_alpha, shadow_size) = if window.is_focused {
-        (0.95, 30.0)
-    } else {
-        (0.5, 15.0)
-    };
+    let shadow_alpha = window.focus_animation.actual * 0.45 + 0.5;
+    let shadow_size = window.focus_animation.actual * 15.0 + 15.0;
 
-    let alpha = 0.1 + 0.8 * window.collapse_lpf.actual;
+    let alpha = 0.6 + 0.36 * window.collapse_lpf.actual;
 
     canvas.rect(
         window.dynamic_total_bounds().padded(shadow_size),
@@ -187,13 +236,11 @@ pub fn draw_window(canvas: &mut Canvas, window: &UiWindow, n: u32) {
 
     let content = window.dynamic_content_bounds();
     let handle = window.handle_bounds();
-    let mb = window.dynamic_minimize_button();
 
-    let factor = if window.is_focused { 0.3 } else { 0.7 };
+    let factor = lerp(0.7, 0.4, window.focus_animation.actual);
 
     let orange = Srgba::from_f32_array([0.6, 0.3, 0.0, 0.8]);
 
-    // let inner = content.padded(-pad);
     canvas.rect(
         content,
         ZOrdering::Window(n, 2),
@@ -206,7 +253,10 @@ pub fn draw_window(canvas: &mut Canvas, window: &UiWindow, n: u32) {
 
     let color = WHITE.mix(&BLACK, factor);
 
-    canvas.rect(mb, ZOrdering::Window(n, 4), color.with_alpha(alpha));
+    for (b, _) in window.buttons() {
+        let b = b.offset(window.origin);
+        canvas.rect(b, ZOrdering::Window(n, 4), color.with_alpha(alpha));
+    }
 
     canvas
         .text(window.title.clone(), handle.mid_left() + Vec2::X * 5.0, 0.8)
@@ -222,4 +272,9 @@ pub fn draw_window(canvas: &mut Canvas, window: &UiWindow, n: u32) {
         )
         .set_anchor(Anchor::TopLeft)
         .set_z_order(ZOrdering::Window(n, 6));
+
+    if let Some(p) = window.mouse_offset {
+        let z = ZOrdering::Window(n, 7).as_f32();
+        canvas.circle((window.origin + p).extend(z), 4.0, WHITE.with_alpha(0.2));
+    }
 }

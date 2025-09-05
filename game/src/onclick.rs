@@ -34,7 +34,6 @@ pub enum OnClick {
     SetPilot(EntityId),
     ClearTarget,
     ClearPilot,
-    SwapOwnshipTarget,
     PinObject(EntityId),
     UnpinObject(EntityId),
     SelectPart(String),
@@ -60,5 +59,8 @@ pub enum OnClick {
     SetControllerPolicy(VehicleControlPolicy),
     ZoomToVehicle,
     ZoomToOrbit,
+    CloseWindow(u32),
+    MinimizeWindow(u32),
+    MaximizeWindow(u32),
     Nullopt,
 }

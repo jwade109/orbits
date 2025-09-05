@@ -72,7 +72,7 @@ impl Interactive for ExpandButton {
         }
     }
 
-    fn on_mouse_move(&mut self, p: &mut Take<Vec2>) {
+    fn on_mouse_move(&mut self, p: &mut Take<Vec2>) -> Option<OnClick> {
         self.is_hovered = p
             .peek()
             .map(|p| self.inner_bounds().contains(*p))
@@ -80,14 +80,16 @@ impl Interactive for ExpandButton {
         if self.is_hovered {
             p.take();
         }
+        None
     }
 
-    fn step(&mut self) {
+    fn step(&mut self)  -> Option<OnClick>{
         self.animation.target = self.is_hovered as u8 as f32;
         self.animation.step();
         if !self.is_hovered {
             self.is_clicked = false;
         }
+        None
     }
 }
 

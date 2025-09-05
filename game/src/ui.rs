@@ -402,17 +402,6 @@ pub fn piloting_buttons(state: &GameState, width: Size) -> Node<OnClick> {
         false
     };
 
-    if state.piloting().is_some() && target.is_some() {
-        wrapper.add_child({
-            Node::button(
-                "Swap",
-                OnClick::SwapOwnshipTarget,
-                Size::Grow,
-                state.settings.ui_button_height,
-            )
-        });
-    }
-
     wrapper
 }
 

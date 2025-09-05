@@ -765,7 +765,7 @@ fn draw_orbiter(canvas: &mut Canvas, state: &GameState, id: EntityId) -> Option<
 
     let screen_pos = ctx.w2c(pv.pos);
 
-    canvas.painter.set_translation(screen_pos.extend(12.0));
+    canvas.painter.set_translation(screen_pos.extend(ZOrdering::Vehicle.as_f32()));
     canvas.painter.set_color(WHITE);
     canvas.painter.circle(4.0);
 
@@ -1116,7 +1116,8 @@ fn draw_rendezvous_info(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         for m in [100, 500, 1_000, 2_000, 5_000, 10_000, 25_000, 50_000] {
             let alpha = (m as f64 / meters.max_element() * 5.0).clamp(0.0, 1.0);
             let r = state.orbital_context.scale() * m as f64;
-            canvas.circle(c, gcast(r), WHITE.with_alpha(0.02 * gcast(alpha)));
+            let p = c.extend(ZOrdering::ScaleIndicator.as_f32());
+            canvas.circle(p, gcast(r), WHITE.with_alpha(0.02 * gcast(alpha)));
             let p_world = target_pos.pos + DVec2::from_angle(PI_64 / 4.0) * m as f64;
             let p_screen = ctx.w2c(p_world);
             let s = format!("{}", distance_str(m as f64));
@@ -1398,12 +1399,14 @@ pub fn circle_entity(
     let id = id.into()?;
     let pv = universe.pv(id)?;
     if let Some(sv) = universe.surface_vehicles.get(&id) {
-        let p = ctx.w2c(pv.pos);
+        let z = ZOrdering::Vehicle.as_f32();
+        let p = ctx.w2c(pv.pos).extend(z);
         let r = SPACECRAFT_HOVER_RADIUS.max(sv.vehicle.bounding_radius() * ctx.scale());
         canvas.circle(p, gcast(r), color);
         Some(())
     } else if let Some(lup) = universe.lup_planet(id) {
-        let p = ctx.w2c(lup.pv().pos);
+        let z = ZOrdering::Planet.as_f32();
+        let p = ctx.w2c(lup.pv().pos).extend(z);
         let r =
             SPACECRAFT_HOVER_RADIUS.max(lup.body()?.radius * ctx.scale() + SPACECRAFT_HOVER_RADIUS);
         canvas.circle(p, gcast(r), color);
@@ -1420,7 +1423,12 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
         draw_button(canvas, button);
     }
 
-    for (i, window) in state.windows.iter().rev().enumerate() {
+    for (i, window) in state.windows.iter().enumerate() {
+        let i = if window.is_focused {
+            state.windows.len() + 1
+        } else {
+            i
+        };
         draw_window(canvas, window, i as u32);
     }
 
@@ -1437,11 +1445,9 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
         let o = ctx.origin();
         let q = p.as_dvec3() * 10000.0 - DVec3::new(0.0, o.x, o.y) / p.x as f64;
         let (az, el) = crate::scenes::telescope::to_azel(q.as_vec3());
-        canvas.circle(
-            DVec2::new(az, el).as_vec2() * 1_000.0,
-            *r * 0.1,
-            WHITE.mix(c, rand(0.0, 0.3)),
-        );
+        let p = DVec2::new(az, el).as_vec2() * 1_000.0;
+        let p = p.extend(ZOrdering::Starfield.as_f32());
+        canvas.circle(p, *r * 0.1, WHITE.mix(c, rand(0.0, 0.3)));
     }
 
     draw_piloting_overlay(canvas, state, state.piloting());

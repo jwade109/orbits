@@ -24,9 +24,9 @@ impl<'w, 's> Canvas<'w, 's> {
         }
     }
 
-    pub fn circle<'a>(&'a mut self, p: Vec2, radius: f32, color: Srgba) {
+    pub fn circle<'a>(&'a mut self, p: Vec3, radius: f32, color: Srgba) {
         self.painter.reset();
-        self.painter.set_translation(p.extend(0.0));
+        self.painter.set_translation(p);
         self.painter.set_color(color);
         self.painter.hollow = true;
         self.painter.thickness = 3.0;

@@ -1,5 +1,6 @@
 #[derive(Debug, Clone, Copy)]
 pub enum ZOrdering {
+    Starfield,
     Orbit,
     Planet,
     Factory,
@@ -32,8 +33,9 @@ pub enum ZOrdering {
 }
 
 impl ZOrdering {
-    pub fn as_u32(&self) -> u32 {
+    pub fn as_u32(&self) -> i32 {
         match self {
+            ZOrdering::Starfield => -1,
             ZOrdering::Orbit => 0,
             ZOrdering::Planet => 1,
             ZOrdering::Factory => 2,
@@ -62,7 +64,7 @@ impl ZOrdering {
             ZOrdering::Ui => 25,
             ZOrdering::Ui2 => 26,
             ZOrdering::Ui3 => 27,
-            ZOrdering::Window(n, l) => 28 + n * 100 + l,
+            ZOrdering::Window(n, l) => (28 + n * 100 + l) as i32,
         }
     }
 

@@ -76,56 +76,6 @@ impl Goal {
             self.is_complete as u8 as f32
         }
     }
-
-    pub fn to_string(&self, state: &GameState) -> String {
-        let s = if self.is_complete { "* " } else { "- " };
-        let text = match self.cond {
-            GoalCondition::AnyLaunchToOrbit => "Launch any spacecraft to orbit".to_string(),
-            GoalCondition::AnyHoldAttitude => {
-                "Command any spacecraft to hold current attitude".to_string()
-            }
-            GoalCondition::AnyManuallyControlled => {
-                "Pilot any spacecraft using the arrow keys".to_string()
-            }
-            GoalCondition::AnyLandOnTheMoon => todo!(),
-            GoalCondition::AnyLandOnEarth => todo!(),
-            GoalCondition::Rendezvous { ownship, target } => {
-                let s = || -> Option<String> {
-                    let a = state.universe.surface_vehicles.get(&ownship)?;
-                    let b = state.universe.surface_vehicles.get(&target)?;
-                    Some(format!(
-                        "Rendezvous vessel \"{}\" with \"{}\"",
-                        a.vehicle.name_with_id(ownship),
-                        b.vehicle.name_with_id(target),
-                    ))
-                }();
-                s.unwrap_or(String::new())
-            }
-            GoalCondition::SetTarget { ownship, target } => {
-                let s = || -> Option<String> {
-                    let a = state.universe.surface_vehicles.get(&ownship)?;
-                    let b = state.universe.surface_vehicles.get(&target)?;
-                    Some(format!(
-                        "Set \"{}\" as the target of \"{}\"",
-                        b.vehicle.name_with_id(target),
-                        a.vehicle.name_with_id(ownship)
-                    ))
-                }();
-                s.unwrap_or(String::new())
-            }
-            GoalCondition::SelectVehicle(v) => {
-                let s = || -> Option<String> {
-                    let sv = state.universe.surface_vehicles.get(&v)?;
-                    Some(format!(
-                        "Click \"{}\" to set it as the current ownship",
-                        sv.vehicle.name_with_id(v),
-                    ))
-                }();
-                s.unwrap_or(String::new())
-            }
-        };
-        format!("{}{}", s, text)
-    }
 }
 
 fn is_satisfied(state: &GameState, cond: &GoalCondition) -> Option<bool> {

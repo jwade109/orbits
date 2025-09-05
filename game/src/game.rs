@@ -210,6 +210,7 @@ pub struct GameState {
     pub vehicle_names: Vec<String>,
 
     pub buttons: Vec<ExpandButton>,
+    pub next_window_id: u32,
     pub windows: Vec<UiWindow>,
 
     pub goals: Vec<Goal>,
@@ -327,7 +328,7 @@ impl GameState {
             exec_time: std::time::Duration::new(0, 0),
             part_database,
             starfield: generate_starfield(),
-            scene: SceneType::MainMenu,
+            scene: SceneType::Orbital,
             current_orbit: None,
             ui: Tree::new(),
             notifications: Vec::new(),
@@ -338,13 +339,17 @@ impl GameState {
             vehicle_names,
             buttons,
             goals: Vec::new(),
-            windows: vec![
-                UiWindow::new(WindowClass::Tutorial(4)),
-                UiWindow::new(WindowClass::Hello),
-                UiWindow::new(WindowClass::CurrentVehicleInfo),
-                UiWindow::new(WindowClass::VehicleInfo(EntityId(1002))),
-            ],
+            next_window_id: 7,
+            windows: Vec::new(),
         };
+
+        g.spawn_window(WindowClass::Tutorial(4), randvec(100.0, 500.0));
+        g.spawn_window(WindowClass::Hello, randvec(100.0, 500.0));
+        g.spawn_window(WindowClass::CurrentVehicleInfo, randvec(100.0, 500.0));
+        g.spawn_window(
+            WindowClass::VehicleInfo(EntityId(1002)),
+            randvec(100.0, 500.0),
+        );
 
         let earth_id = g.universe.lup_planet_by_name("Earth").unwrap();
         let luna_id = g.universe.lup_planet_by_name("Luna").unwrap();
@@ -745,19 +750,6 @@ impl GameState {
         Some(())
     }
 
-    pub fn swap_ownship_target(&mut self) {
-        if let Some(old_pilot_id) = self.orbital_context.piloting {
-            if let Some(old_pilot) = self.universe.surface_vehicles.get_mut(&old_pilot_id) {
-                if let Some(new_pilot) = old_pilot.target() {
-                    self.orbital_context.piloting = Some(new_pilot);
-                    if let Some(sv) = self.universe.surface_vehicles.get_mut(&new_pilot) {
-                        sv.set_target(old_pilot_id);
-                    }
-                }
-            }
-        }
-    }
-
     pub fn write_editor_to_ownship(&mut self) -> Option<()> {
         let id = match self.piloting() {
             Some(p) => p,
@@ -940,7 +932,6 @@ impl GameState {
                 );
             }
             OnClick::NormalizeCraft => self.editor_context.normalize_coordinates(),
-            OnClick::SwapOwnshipTarget => _ = self.swap_ownship_target(),
             OnClick::ReloadGame => _ = self.reload(),
             OnClick::SetRecipe(id, recipe) => {
                 if self.editor_context.vehicle.set_recipe(id, recipe) {
@@ -967,6 +958,15 @@ impl GameState {
             }
             OnClick::ZoomToOrbit => {
                 self.zoom_to_vehicle(false);
+            }
+            OnClick::CloseWindow(id) => {
+                self.close_window(id);
+            }
+            OnClick::MinimizeWindow(id) => {
+                self.minimize_window(id);
+            }
+            OnClick::MaximizeWindow(id) => {
+                self.maximize_window(id);
             }
 
             // BOOKMARK unhandled event
@@ -1099,19 +1099,100 @@ impl GameState {
         }
     }
 
+    pub fn next_window_id(&mut self) -> u32 {
+        let id = self.next_window_id;
+        self.next_window_id += 1;
+        id
+    }
+
+    pub fn spawn_window(&mut self, class: WindowClass, p: Vec2) {
+        for window in &mut self.windows {
+            window.is_focused = false;
+        }
+        let id = self.next_window_id();
+        let mut window = UiWindow::new(id, class);
+        window.set_origin(p);
+        window.is_focused = true;
+        self.windows.push(window);
+    }
+
+    pub fn close_window(&mut self, id: u32) {
+        self.windows.retain(|w| w.id != id);
+    }
+
+    pub fn minimize_window(&mut self, id: u32) {
+        if let Some(w) = self.windows.iter_mut().find(|w| w.id == id) {
+            w.minimize();
+        }
+    }
+
+    pub fn maximize_window(&mut self, id: u32) {
+        if let Some(w) = self.windows.iter_mut().find(|w| w.id == id) {
+            w.maximize();
+        }
+    }
+
+    pub fn arrange_windows(&mut self, minimized: bool) {
+        let half = self.input.screen_bounds.span / 2.0;
+        let half = half.with_x(-half.x);
+        let mut origin = Vec2::new(90.0, -70.0) + half;
+        let delta_y = if minimized { 40.0 } else { 150.0 };
+        for window in &mut self.windows {
+            if window.static_content_dims.x + origin.x > half.x.abs() - 50.0 {
+                origin.x = half.x + 90.0;
+                origin.y -= delta_y;
+            }
+            if minimized {
+                window.minimize();
+            } else {
+                window.maximize();
+            }
+            window.set_target_pos(origin);
+            origin += Vec2::new(window.static_content_dims.x + 15.0, 0.0);
+        }
+    }
+
     pub fn on_render_tick(&mut self) {
         self.render_ticks += 1;
 
         let mut take = Take::from_opt(self.input.position(MouseButt::Hover, FrameId::Current));
 
-        self.windows.sort_by_key(|w| !w.is_clicked as u8);
+        if self
+            .input
+            .on_frame(MouseButt::Right, FrameId::Down)
+            .is_some()
+            && self.input.is_pressed(KeyCode::ShiftLeft)
+        {
+            if let Some(p) = take.take() {
+                self.spawn_window(WindowClass::Hello, p);
+                return;
+            }
+        }
+
+        self.windows.sort_by_key(|w| w.is_focused as u8);
 
         for button in &mut self.buttons {
             button.on_mouse_move(&mut take);
         }
 
-        for window in &mut self.windows {
+        let mut events = Vec::new();
+
+        for window in self.windows.iter_mut().rev() {
             window.on_mouse_move(&mut take);
+
+            for e in &self.input.keyboard_events {
+                if let Some(e) = window.on_key(e) {
+                    events.push(e);
+                }
+            }
+        }
+
+        if self.input.just_pressed(KeyCode::KeyY) {
+            self.arrange_windows(false);
+        }
+
+        if self.input.just_pressed(KeyCode::KeyJ) {
+            self.arrange_windows(true);
         }
 
         if self.console.is_active() {
@@ -1126,11 +1207,11 @@ impl GameState {
                 button.on_left_mouse_down();
             }
             for window in &mut self.windows {
-                window.on_left_mouse_down();
+                if let Some(e) = window.on_left_mouse_down() {
+                    events.push(e);
+                }
             }
         }
-
-        let mut events = Vec::new();
 
         if let Some(_) = self.input.on_frame(MouseButt::Left, FrameId::Up) {
             for button in &mut self.buttons {

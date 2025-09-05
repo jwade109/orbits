@@ -480,6 +480,7 @@ impl Render for EditorContext {
         match &ctx.cursor_state {
             CursorState::None | CursorState::Part(_) => {
                 if let Some(p) = state.input.current() {
+                    let p = p.extend(ZOrdering::EditorCursor.as_f32());
                     canvas.circle(p, 4.0, WHITE);
                 }
             }
@@ -873,7 +874,8 @@ impl Render for EditorContext {
                 Vec2::splat(0.3) * gcast(ctx.scale()),
             );
             if let Some(t) = bot.target_pos() {
-                canvas.circle(ctx.w2c(t), 12.0, PURPLE.with_alpha(0.2));
+                let p = ctx.w2c(t).extend(ZOrdering::EditorConbot.as_f32());
+                canvas.circle(p, 12.0, PURPLE.with_alpha(0.2));
             }
         }
 
