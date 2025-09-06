@@ -65,14 +65,12 @@ pub fn update_static_sprites(
             **spr = new_sprite;
             desc.1 = sprite.path.clone();
         } else {
-            // println!("[{}] ({}) New sprite {}", state.wall_time, i, path);
             commands.spawn((new_sprite, transform, StaticSprite(i, sprite.path.clone())));
         }
     }
 
     for (e, _, _, ss) in &query {
         if ss.0 >= sprites.len() {
-            // println!("[{}] ({}) Deleting sprite {}", state.wall_time, ss.0, ss.1);
             commands.entity(e).despawn();
         }
     }

@@ -544,7 +544,8 @@ impl Vehicle {
     }
 
     pub fn low_fuel(&self) -> bool {
-        self.is_controllable() && self.remaining_dv() < 50.0
+        false
+        // self.is_controllable() && self.remaining_dv() < 50.0
     }
 
     pub fn is_thrusting(&self) -> bool {
@@ -606,12 +607,17 @@ impl Vehicle {
     }
 
     pub fn title(&self) -> String {
-        let model = if self.model.len() >= 4 {
-            self.model[0..4].to_uppercase()
+        let model = if self.model.len() >= 3 {
+            self.model[0..3].to_uppercase()
         } else {
             self.model.to_uppercase()
         };
-        format!("[{}] {}", model, self.name)
+        format!("{} {}", model, self.name)
+    }
+
+    pub fn title_with_id(&self, id: EntityId) -> String {
+        let title = self.title();
+        format!("{} {}", title, id)
     }
 
     fn current_angular_acceleration(&self) -> f64 {

@@ -7,6 +7,9 @@ pub struct Settings {
     pub ui_button_height: f32,
     pub controller_cursor_speed: f32,
     pub draw_transform_tree: bool,
+    pub high_volume: f32,
+    pub mids_volume: f32,
+    pub low_volume: f32,
 }
 
 impl Default for Settings {
@@ -15,6 +18,9 @@ impl Default for Settings {
             ui_button_height: 32.0,
             controller_cursor_speed: 6.0,
             draw_transform_tree: false,
+            high_volume: 0.3,
+            mids_volume: 0.3,
+            low_volume: 0.3,
         }
     }
 }

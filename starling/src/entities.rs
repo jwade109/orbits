@@ -13,6 +13,7 @@ pub struct SurfaceSpacecraftEntity {
     altitude: Option<f64>,
     clamped_to_ground: bool,
     pub target_relative_pv: Option<PV>,
+    throttle: f32,
 }
 
 impl SurfaceSpacecraftEntity {
@@ -34,6 +35,7 @@ impl SurfaceSpacecraftEntity {
             altitude: None,
             clamped_to_ground: false,
             target_relative_pv: None,
+            throttle: 0.3,
         }
     }
 
@@ -63,6 +65,10 @@ impl SurfaceSpacecraftEntity {
 
     pub fn set_target(&mut self, id: impl Into<Option<EntityId>>) {
         self.target = id.into();
+    }
+
+    pub fn throttle(&self) -> f32 {
+        self.throttle
     }
 
     pub fn props(&self) -> impl Iterator<Item = &Propagator> + use<'_> {
@@ -144,11 +150,22 @@ impl SurfaceSpacecraftEntity {
         Some(())
     }
 
-    pub fn step(&mut self, planets: &PlanetarySystem, stamp: Nanotime, ext: VehicleControl) {
+    pub fn step_throttle(&mut self, throttle_rate: f32) {
+        let dt = throttle_rate * PHYSICS_CONSTANT_DELTA_TIME.to_secs();
+        self.throttle += dt;
+        self.throttle = self.throttle.clamp(0.0, 1.0);
+    }
+
+    pub fn step(&mut self, planets: &PlanetarySystem, stamp: Nanotime, mut ext: VehicleControl) {
         let (parent_body, parent_pv) = match planets.lookup(self.planet_id, stamp) {
             Some((body, pv, _, _)) => (body, pv),
             None => todo!(),
         };
+
+        ext.plus_x.throttle *= self.throttle;
+        ext.plus_y.throttle *= self.throttle;
+        ext.neg_x.throttle *= self.throttle;
+        ext.neg_y.throttle *= self.throttle;
 
         let gravity = parent_body.gravity(self.body.pv.pos);
 

@@ -3,7 +3,7 @@ use crate::vehicle::VehicleControl;
 use std::collections::HashMap;
 
 pub struct ControlSignals {
-    pub piloting_commands: HashMap<EntityId, VehicleControl>,
+    pub piloting_commands: HashMap<EntityId, (VehicleControl, f32)>,
 }
 
 impl ControlSignals {

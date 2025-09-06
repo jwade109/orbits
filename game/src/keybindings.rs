@@ -31,7 +31,6 @@ pub fn keyboard_input(
             (_, _, KeyCode::Space) => InteractionEvent::SimPause,
             (_, _, KeyCode::Escape) => InteractionEvent::Escape,
             (_, _, KeyCode::KeyV) => InteractionEvent::CursorMode,
-            (_, _, KeyCode::KeyM) => InteractionEvent::DrawMode,
             (_, _, KeyCode::F11) => InteractionEvent::ToggleFullscreen,
             (_, _, KeyCode::Backquote) => InteractionEvent::ToggleDebugConsole,
             _ => continue,

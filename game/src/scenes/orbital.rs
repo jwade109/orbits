@@ -294,13 +294,19 @@ pub fn get_orbital_labels(state: &GameState) -> Vec<TextLabel> {
         } else {
             let vehicle = state.universe.surface_vehicles.get(&id);
             let code = vehicle
-                .map(|ov| ov.vehicle().title())
+                .map(|ov| {
+                    let title = ov.vehicle().title_with_id(id);
+                    if ov.controller.is_idle() {
+                        title
+                    } else {
+                        format!("{}\n{}", title, ov.controller.mode().to_status_str())
+                    }
+                })
                 .unwrap_or("UFO".to_string());
 
-            let text = format!("{} {}", code, id);
             let pos = pc + Vec2::X * 40.0;
 
-            TextLabel::new(text, pos, 0.6)
+            TextLabel::new(code, pos, 0.6)
                 .with_anchor(Anchor::CenterLeft)
                 .with_color(WHITE.with_alpha(alpha))
         };

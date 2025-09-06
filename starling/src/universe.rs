@@ -89,10 +89,12 @@ impl Universe {
         let stamp = self.stamp();
 
         for (id, sv) in &mut self.surface_vehicles {
-            let ext = *signals
+            let (ext, delta_throttle) = *signals
                 .piloting_commands
                 .get(&id)
-                .unwrap_or(&VehicleControl::NULLOPT);
+                .unwrap_or(&(VehicleControl::NULLOPT, 0.0));
+
+            sv.step_throttle(delta_throttle);
 
             sv.step(&self.planets, stamp, ext);
 

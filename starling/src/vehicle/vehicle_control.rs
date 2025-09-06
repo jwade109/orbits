@@ -169,6 +169,9 @@ fn zero_gravity_control_law(
 }
 
 fn compute_attitude_control(body: &RigidBody, target_angle: f64, pid: &PDCtrl) -> f64 {
+    if wrap_pi_npi_f64(target_angle - body.angle).abs() < 0.02 {
+        return 0.0;
+    }
     let attitude_error = wrap_pi_npi_f64(target_angle - body.angle);
     pid.apply(attitude_error, body.angular_velocity)
 }
@@ -564,6 +567,13 @@ impl VehicleController {
     pub fn is_idle(&self) -> bool {
         match self.mode {
             VehicleControlPolicy::Idle => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_attitude_hold(&self) -> bool {
+        match self.mode {
+            VehicleControlPolicy::HoldAttitude(_) => true,
             _ => false,
         }
     }

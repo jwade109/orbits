@@ -86,6 +86,7 @@ impl ThrustParticleEffects {
 
             let n = 2 + ((1.0 - atmo) * 8.0).round() as u32;
 
+            let dims = part.dims_meters();
             let pos = rotate_f64(part.center_meters().as_dvec2(), body.angle);
 
             for _ in 0..n {
@@ -94,7 +95,7 @@ impl ThrustParticleEffects {
                 let vel = randvec(2.0, 4.0).as_dvec2() + u * -ve * rand(0.6, 1.0) as f64;
                 let spread_angle = (1.0 - atmo) * rand(-0.5, 0.5);
                 let vel = rotate_f64(vel, spread_angle as f64) * t.particle_scale as f64;
-                let pv = body.pv + PV::from_f64(pos, vel);
+                let pv = body.pv + PV::from_f64(pos - u * dims.x as f64 / 2.0, vel);
                 let initial_color = mix(t.primary_color, t.secondary_color, rand(0.1, 0.7));
                 self.particles.push(ThrustParticle::new(
                     parent,

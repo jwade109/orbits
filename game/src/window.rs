@@ -39,6 +39,7 @@ pub struct UiWindow {
     is_minimized: bool,
     collapse_lpf: Lpf,
     focus_animation: Lpf,
+    hover_animation: Lpf,
 }
 
 impl UiWindow {
@@ -60,6 +61,7 @@ impl UiWindow {
             is_minimized: false,
             collapse_lpf: Lpf::new(1.0, 0.0, 0.3),
             focus_animation: Lpf::new(0.0, 0.0, 0.3),
+            hover_animation: Lpf::new(0.0, 0.0, 0.3),
         }
     }
 
@@ -87,7 +89,7 @@ impl UiWindow {
         AABB::from_arbitrary(top_left - Vec2::Y * h, top_right)
     }
 
-    pub fn buttons(&self) -> impl Iterator<Item = (AABB, OnClick)> {
+    pub fn buttons(&self) -> impl Iterator<Item = (AABB, OnClick, Srgba)> {
         let h = self.handle_height;
         let button_dims = Vec2::splat(h);
         let width = self.static_content_dims.x;
@@ -97,6 +99,7 @@ impl UiWindow {
             (
                 button_aabb.offset(Vec2::X * (width - h)).padded(-pad_size),
                 OnClick::CloseWindow(self.id),
+                RED,
             ),
             (
                 button_aabb.offset(Vec2::X * (width - 2.0 * h)).padded(-pad_size),
@@ -105,6 +108,7 @@ impl UiWindow {
                 } else {
                     OnClick::MinimizeWindow(self.id)
                 },
+                GREEN,
             ),
         ]
         .into_iter()
@@ -149,7 +153,7 @@ impl Interactive for UiWindow {
         }
 
         if let Some(off) = self.mouse_offset {
-            for (bounds, event) in self.buttons() {
+            for (bounds, event, _) in self.buttons() {
                 if bounds.contains(off) {
                     return Some(event);
                 }
@@ -217,6 +221,8 @@ impl Interactive for UiWindow {
         self.collapse_lpf.step();
         self.focus_animation.target = self.is_focused as u8 as f32;
         self.focus_animation.step();
+        self.hover_animation.target = self.is_hovered as u8 as f32;
+        self.hover_animation.step();
         self.origin += (self.target_origin - self.origin) * 0.3;
         None
     }
@@ -226,7 +232,7 @@ pub fn draw_window(canvas: &mut Canvas, window: &UiWindow, n: u32) {
     let shadow_alpha = window.focus_animation.actual * 0.45 + 0.5;
     let shadow_size = window.focus_animation.actual * 15.0 + 15.0;
 
-    let alpha = 0.6 + 0.36 * window.collapse_lpf.actual;
+    let alpha = 0.6 + 0.36 * window.collapse_lpf.actual.max(window.hover_animation.actual);
 
     canvas.rect(
         window.dynamic_total_bounds().padded(shadow_size),
@@ -251,9 +257,8 @@ pub fn draw_window(canvas: &mut Canvas, window: &UiWindow, n: u32) {
 
     canvas.rect(handle, ZOrdering::Window(n, 3), handle_color);
 
-    let color = WHITE.mix(&BLACK, factor);
-
-    for (b, _) in window.buttons() {
+    for (b, _, color) in window.buttons() {
+        let color = color.mix(&BLACK, 0.3);
         let b = b.offset(window.origin);
         canvas.rect(b, ZOrdering::Window(n, 4), color.with_alpha(alpha));
     }

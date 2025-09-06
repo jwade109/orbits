@@ -232,11 +232,6 @@ fn draw_planets(
     canvas
         .painter
         .set_translation(screen_origin.extend(ZOrdering::Planet.as_f32()));
-    // let color = crate::sprites::hashable_to_color(&planet.name);
-    // canvas.painter.set_color(color.with_luminance(0.2));
-    // canvas
-    //     .painter
-    //     .circle(gcast(planet.body.radius * ctx.scale()));
     canvas.painter.hollow = true;
     canvas.painter.thickness = 2.0;
     canvas.painter.set_color(GRAY);
@@ -248,16 +243,9 @@ fn draw_planets(
         screen_origin,
         0.0,
         planet.name.clone(),
-        ZOrdering::Planet,
+        ZOrdering::Orbit,
         graphics_cast(DVec2::splat(planet.body.radius) * 2.0 * ctx.scale()),
     );
-
-    // draw_circle(
-    //     &mut canvas.gizmos,
-    //     screen_origin,
-    //     gcast(planet.body.radius * ctx.scale()),
-    //     GRAY.with_alpha(a),
-    // );
 
     if ctx.draw_mode == DrawMode::Default {
         draw_circle(
@@ -501,14 +489,15 @@ pub fn draw_arc(
     r: f32,
     start: f32,
     end: f32,
+    thickness: f32,
 ) {
     painter.reset();
     painter.set_translation(pos.extend(z));
     painter.set_color(color);
     painter.hollow = true;
-    painter.thickness = 12.0;
-    painter.cap = Cap::Square;
-    painter.arc(r + 6.0, start, end);
+    painter.thickness = thickness;
+    painter.cap = Cap::Round;
+    painter.arc(r + thickness / 2.0, start, end);
 }
 
 pub fn draw_piloting_overlay(
@@ -577,27 +566,39 @@ pub fn draw_piloting_overlay(
 
         let (start, end) = angles(am_body);
 
-        draw_arc(
-            &mut canvas.painter,
-            center,
-            ZOrdering::HudAngularMomentum.as_f32(),
-            RED,
-            r,
-            start,
-            end,
-        );
+        let z = ZOrdering::HudAngularMomentum.as_f32();
+        draw_arc(&mut canvas.painter, center, z, RED, r, start, end, 12.0);
 
         let (start, end) = angles(am_gyro);
 
         draw_arc(
             &mut canvas.painter,
             center,
-            ZOrdering::HudAngularMomentum.as_f32(),
+            z,
             GREEN,
             r - 15.0,
             start,
             end,
+            12.0,
         );
+    }
+
+    // throttle indicator
+    {
+        let orange = Srgba::from_f32_array([0.6, 0.3, 0.0, 0.8]);
+        let start = PI + PI * 0.2;
+        let end = PI + PI * 0.8;
+        let mid = lerp(start, end, sv.throttle());
+        let z = ZOrdering::HudAngularMomentum.as_f32();
+        let pos = center;
+        let r = r + 50.0;
+        let bg = DARK_SLATE_GRAY;
+        draw_arc(&mut canvas.painter, pos, z, BLACK, r, start, mid, 15.0);
+        draw_arc(&mut canvas.painter, pos, z, bg, r, start, end, 8.0);
+        draw_arc(&mut canvas.painter, pos, z, orange, r, start, mid, 12.0);
+        let p = center + rotate(Vec2::Y, -start) * r - Vec2::X * 20.0;
+        let text = format!("THROTTLE {:0.0}%", sv.throttle() * 100.0);
+        canvas.text(text, p, 0.6).set_anchor(Anchor::CenterRight);
     }
 
     draw_pointing_vector(
@@ -665,39 +666,39 @@ pub fn draw_piloting_overlay(
         .set_anchor(Anchor::CenterRight)
         .set_color(color);
 
-    let orbit_str = orbit
-        .map(|o| format!("{}", o))
-        .unwrap_or("/ NO INFO".to_string());
+    // let orbit_str = orbit
+    //     .map(|o| format!("{}", o))
+    //     .unwrap_or("/ NO INFO".to_string());
 
-    let docking_info = if let Some(t) = sv.target() {
-        if let Some((target, ego)) = state.universe.pv(t).zip(state.universe.pv(piloting)) {
-            let rvel = ego - target;
-            format!("TGT {} {}\n", t, rvel)
-        } else {
-            String::new()
-        }
-    } else {
-        String::new()
-    };
+    // let docking_info = if let Some(t) = sv.target() {
+    //     if let Some((target, ego)) = state.universe.pv(t).zip(state.universe.pv(piloting)) {
+    //         let rvel = ego - target;
+    //         format!("TGT {} {}\n", t, rvel)
+    //     } else {
+    //         String::new()
+    //     }
+    // } else {
+    //     String::new()
+    // };
 
-    let prop_info = sv.props().map(|p| format!("{}\n", p)).collect::<String>();
+    // let prop_info = sv.props().map(|p| format!("{}\n", p)).collect::<String>();
 
-    canvas
-        .text(
-            format!(
-                "{}{}CMD {:?} / {:?}\nNAV {}\nORB {}\nCBOR: {}",
-                prop_info,
-                docking_info,
-                ctrl.mode(),
-                ctrl.status(),
-                body.pv,
-                orbit_str,
-                sv.can_be_on_rails()
-            ),
-            center - Vec2::new(r * 1.2, r * 0.8),
-            0.7,
-        )
-        .set_anchor(Anchor::CenterRight);
+    // canvas
+    //     .text(
+    //         format!(
+    //             "{}{}CMD {:?} / {:?}\nNAV {}\nORB {}\nCBOR: {}",
+    //             prop_info,
+    //             docking_info,
+    //             ctrl.mode(),
+    //             ctrl.status(),
+    //             body.pv,
+    //             orbit_str,
+    //             sv.can_be_on_rails()
+    //         ),
+    //         center - Vec2::new(r * 1.2, r * 0.8),
+    //         0.7,
+    //     )
+    //     .set_anchor(Anchor::CenterRight);
 
     let dash_icons = [
         ("low-fuel", "low-fuel-dim", vehicle.low_fuel(), true),
@@ -765,7 +766,9 @@ fn draw_orbiter(canvas: &mut Canvas, state: &GameState, id: EntityId) -> Option<
 
     let screen_pos = ctx.w2c(pv.pos);
 
-    canvas.painter.set_translation(screen_pos.extend(ZOrdering::Vehicle.as_f32()));
+    canvas
+        .painter
+        .set_translation(screen_pos.extend(ZOrdering::Vehicle.as_f32()));
     canvas.painter.set_color(WHITE);
     canvas.painter.circle(4.0);
 
@@ -1662,10 +1665,10 @@ pub fn draw_camera_info(canvas: &mut Canvas, ctx: &impl CameraProjection, window
     canvas
         .text(
             distance_str(step as f64),
-            Vec2::new(window_span.x, -window_span.y) / 2.0 - Vec2::new(40.0, -40.0),
+            -window_span / 2.0 + Vec2::splat(40.0),
             0.9,
         )
-        .set_anchor(Anchor::CenterRight);
+        .set_anchor(Anchor::CenterLeft);
 
     let xl = (xl / step) * step;
     let xu = (xu / step) * step;

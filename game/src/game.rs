@@ -256,7 +256,10 @@ impl GameState {
         };
 
         let mut sounds = EnvironmentSounds::new();
-        sounds.play_loop("building.ogg", 0.1);
+        sounds.play_loop("winter-morning-sea-smoke-bass.ogg", 0.3, TrackTag::Bass);
+        sounds.play_loop("winter-morning-sea-smoke-mids.ogg", 0.5, TrackTag::Mids);
+        sounds.play_loop("winter-morning-sea-smoke-high.ogg", 0.5, TrackTag::High);
+        sounds.play_loop("thrust-noise.ogg", 0.0, TrackTag::Thrust);
 
         let vehicle_names = match load_names_from_file(&args.names_path()) {
             Ok(n) => n,
@@ -374,6 +377,9 @@ impl GameState {
             ("bellerophon", earth_id),
             ("pollux", luna_id),
             ("bellerophon", luna_id),
+            ("remora", luna_id),
+            ("remora", luna_id),
+            ("remora", luna_id),
         ];
 
         let mut a = None;
@@ -980,6 +986,7 @@ impl GameState {
         if vehicle {
             if let Some(id) = self.piloting() {
                 self.orbital_context.following = Some(id);
+                self.orbital_context.camera.set_target_offset(DVec2::ZERO);
                 self.orbital_context.camera.set_target_scale(4.0);
             }
         } else {
@@ -1315,8 +1322,17 @@ impl GameState {
 
         if let Some(id) = self.piloting() {
             let cmd = keyboard_control_law(&self.input);
-            if !cmd.is_nullopt() {
-                signals.piloting_commands.insert(id, cmd);
+
+            let throttle_rate = if self.input.is_pressed(KeyCode::BracketRight) {
+                1.0
+            } else if self.input.is_pressed(KeyCode::BracketLeft) {
+                -1.0
+            } else {
+                0.0
+            };
+
+            if !cmd.is_nullopt() || throttle_rate != 0.0 {
+                signals.piloting_commands.insert(id, (cmd, throttle_rate));
             }
         }
 
