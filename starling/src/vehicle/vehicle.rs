@@ -557,6 +557,10 @@ impl Vehicle {
         self.radars().count() > 0
     }
 
+    pub fn supports_bots(&self) -> bool {
+        self.parts.iter().any(|(_, p)| p.as_machine().is_some() || p.as_radar().is_some())
+    }
+
     pub fn average_linear_exhaust_velocity(&self) -> f64 {
         let linear_thrusters: Vec<_> = self.thrusters().filter(|(t, _)| !t.is_rcs()).collect();
 

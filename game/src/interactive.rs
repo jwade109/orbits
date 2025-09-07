@@ -1,7 +1,9 @@
+use crate::canvas::Canvas;
 use crate::onclick::OnClick;
+use crate::ui_facade::UiFacade;
 use starling::prelude::*;
 
-pub trait Interactive {
+pub trait Interactive: Send + Sync {
     fn on_left_mouse_down(&mut self) -> Option<OnClick>;
 
     fn on_left_mouse_up(&mut self) -> Option<OnClick>;
@@ -13,4 +15,8 @@ pub trait Interactive {
     }
 
     fn step(&mut self) -> Option<OnClick>;
+
+    fn update(&mut self, _facade: &UiFacade) {}
+
+    fn draw(&self, canvas: &mut Canvas) {}
 }

@@ -486,6 +486,41 @@ impl VehicleControlPolicy {
             VehicleControlPolicy::HoldAttitude(_) => "Holding attitude".to_string(),
         }
     }
+
+    pub fn is_idle(&self) -> bool {
+        match self {
+            VehicleControlPolicy::Idle => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_prograde(&self) -> bool {
+        match self {
+            VehicleControlPolicy::BurnPrograde => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_retrograde(&self) -> bool {
+        match self {
+            VehicleControlPolicy::BurnRetrograde => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_attitude_hold(&self) -> bool {
+        match self {
+            VehicleControlPolicy::HoldAttitude(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_launch_to_orbit(&self) -> bool {
+        match self {
+            VehicleControlPolicy::LaunchToOrbit(_) => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

@@ -20,6 +20,10 @@ impl ConBot {
         }
     }
 
+    pub fn pv(&self) -> PV {
+        self.pv
+    }
+
     pub fn pos(&self) -> DVec2 {
         self.pv.pos
     }

@@ -83,7 +83,7 @@ impl Interactive for ExpandButton {
         None
     }
 
-    fn step(&mut self)  -> Option<OnClick>{
+    fn step(&mut self) -> Option<OnClick> {
         self.animation.target = self.is_hovered as u8 as f32;
         self.animation.step();
         if !self.is_hovered {
@@ -91,28 +91,28 @@ impl Interactive for ExpandButton {
         }
         None
     }
-}
 
-pub fn draw_button(canvas: &mut Canvas, button: &ExpandButton) {
-    let alpha = lerp(0.03, 1.0, button.anim());
-    let aabb = button.inner_bounds();
+    fn draw(&self, canvas: &mut Canvas) {
+        let alpha = lerp(0.03, 1.0, self.anim());
+        let aabb = self.inner_bounds();
 
-    let aabb = if button.is_clicked {
-        aabb.offset(-Vec2::splat(2.0))
-    } else {
-        aabb
-    };
+        let aabb = if self.is_clicked {
+            aabb.offset(-Vec2::splat(2.0))
+        } else {
+            aabb
+        };
 
-    let color = if button.is_clicked { SLATE_BLUE } else { GRAY };
+        let color = if self.is_clicked { SLATE_BLUE } else { GRAY };
 
-    canvas.rect(aabb, ZOrdering::Ui, color.with_alpha(alpha));
-    canvas
-        .sprite(aabb.center, 0.0, button.sprite(), ZOrdering::Ui2, aabb.span)
-        .color = Some(WHITE.with_alpha(alpha.clamp(0.3, 1.0)));
+        canvas.rect(aabb, ZOrdering::Ui, color.with_alpha(alpha));
+        canvas
+            .sprite(aabb.center, 0.0, self.sprite(), ZOrdering::Ui2, aabb.span)
+            .color = Some(WHITE.with_alpha(alpha.clamp(0.3, 1.0)));
 
-    let aabb = button.label_bounds();
-    canvas.rect(aabb, ZOrdering::Ui, TEAL.with_alpha(alpha));
-    canvas
-        .text(button.text.clone(), aabb.center, button.anim())
-        .set_z_order(ZOrdering::Ui2);
+        let aabb = self.label_bounds();
+        canvas.rect(aabb, ZOrdering::Ui, TEAL.with_alpha(alpha));
+        canvas
+            .text(self.text.clone(), aabb.center, self.anim())
+            .set_z_order(ZOrdering::Ui2);
+    }
 }

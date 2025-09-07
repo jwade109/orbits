@@ -209,7 +209,7 @@ pub struct GameState {
 
     pub vehicle_names: Vec<String>,
 
-    pub buttons: Vec<ExpandButton>,
+    pub buttons: Vec<Box<dyn Interactive>>,
     pub next_window_id: u32,
     pub windows: Vec<UiWindow>,
 
@@ -269,35 +269,10 @@ impl GameState {
             }
         };
 
-        let mut buttons = Vec::new();
+        let mut buttons: Vec<Box<dyn Interactive>> = Vec::new();
         let w = 60.0;
         let s = w + 10.0;
         for (i, (onclick, text, sp)) in [
-            (
-                OnClick::SetControllerPolicy(VehicleControlPolicy::LaunchToOrbit(450_000.0)),
-                "Launch to Orbit",
-                "launch-icon",
-            ),
-            (
-                OnClick::SetControllerPolicy(VehicleControlPolicy::BurnPrograde),
-                "Burn Prograde",
-                "prograde-icon",
-            ),
-            (
-                OnClick::SetControllerPolicy(VehicleControlPolicy::BurnRetrograde),
-                "Burn Retrograde",
-                "retrograde-icon",
-            ),
-            (
-                OnClick::SetControllerPolicy(VehicleControlPolicy::Idle),
-                "Clear Controller",
-                "clear-icon",
-            ),
-            (
-                OnClick::SetControllerPolicy(VehicleControlPolicy::HoldAttitude(None)),
-                "Hold Attitude",
-                "heading-icon",
-            ),
             (OnClick::ZoomToOrbit, "Zoom To Orbit", ""),
             (OnClick::ZoomToVehicle, "Zoom To Vehicle", ""),
         ]
@@ -305,7 +280,25 @@ impl GameState {
         .enumerate()
         {
             let p = Vec2::new(-900.0, i as f32 * s);
-            buttons.push(ExpandButton::new(text, onclick, p, Vec2::splat(w), sp));
+            let b = ExpandButton::new(text, onclick, p, Vec2::splat(w), sp);
+            buttons.push(Box::new(b));
+        }
+
+        let text_labels = [
+            ButtonId::Rcs,
+            ButtonId::Idle,
+            ButtonId::Prograde,
+            ButtonId::Retrograde,
+            ButtonId::Attitude,
+            ButtonId::Launch,
+        ];
+
+        let mut origin = Vec2::ZERO;
+        for s in text_labels {
+            let text = format!("{:?}", s).to_ascii_uppercase();
+            let ts = TextButton::new(origin, text, s);
+            origin.x += ts.bounds().span.x + 10.0;
+            buttons.push(Box::new(ts));
         }
 
         let mut g = GameState {
@@ -354,6 +347,8 @@ impl GameState {
             randvec(100.0, 500.0),
         );
 
+        g.arrange_windows(true);
+
         let earth_id = g.universe.lup_planet_by_name("Earth").unwrap();
         let luna_id = g.universe.lup_planet_by_name("Luna").unwrap();
 
@@ -374,10 +369,10 @@ impl GameState {
             ("spacestation", earth_id),
             ("lander", earth_id),
             ("pollux", earth_id),
+            ("remora", earth_id),
             ("bellerophon", earth_id),
             ("pollux", luna_id),
             ("bellerophon", luna_id),
-            ("remora", luna_id),
             ("remora", luna_id),
             ("remora", luna_id),
         ];
@@ -390,7 +385,7 @@ impl GameState {
             let orbit = get_random_orbit(parent);
             if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {
                 let id = g.spawn_with_random_perturbance(orbit, vehicle);
-                if let Some(id) = (name == "pollux").then(|| id).flatten() {
+                if let Some(id) = (name == "remora").then(|| id).flatten() {
                     if a.is_none() {
                         a = Some(id);
                     }
@@ -839,6 +834,8 @@ impl GameState {
     pub fn on_button_event(&mut self, id: OnClick) -> Option<()> {
         self.sounds.play_once("button-up.ogg", 1.0);
 
+        dbg!(&id);
+
         match id {
             OnClick::CurrentBody(id) => self.orbital_context.following = Some(id),
             OnClick::Orbiter(id) => self.orbital_context.following = Some(id),
@@ -974,6 +971,24 @@ impl GameState {
             OnClick::MaximizeWindow(id) => {
                 self.maximize_window(id);
             }
+            OnClick::TextButtonClicked(id) => {
+                match id {
+                    ButtonId::Rcs => self.toggle_rcs(),
+                    ButtonId::Idle => self.set_controller_policy(VehicleControlPolicy::Idle),
+                    ButtonId::Prograde => {
+                        self.set_controller_policy(VehicleControlPolicy::BurnPrograde)
+                    }
+                    ButtonId::Retrograde => {
+                        self.set_controller_policy(VehicleControlPolicy::BurnRetrograde)
+                    }
+                    ButtonId::Attitude => {
+                        self.set_controller_policy(VehicleControlPolicy::HoldAttitude(None))
+                    }
+                    ButtonId::Launch => {
+                        self.set_controller_policy(VehicleControlPolicy::LaunchToOrbit(300_000.0))
+                    }
+                };
+            }
 
             // BOOKMARK unhandled event
             _ => info!("Unhandled button event: {id:?}"),
@@ -982,20 +997,18 @@ impl GameState {
         Some(())
     }
 
+    pub fn toggle_rcs(&mut self) -> Option<()> {
+        let id = self.piloting()?;
+        let sv = self.universe.surface_vehicles.get_mut(&id)?;
+        sv.toggle_rcs();
+        Some(())
+    }
+
     pub fn zoom_to_vehicle(&mut self, vehicle: bool) -> Option<()> {
-        if vehicle {
-            if let Some(id) = self.piloting() {
-                self.orbital_context.following = Some(id);
-                self.orbital_context.camera.set_target_offset(DVec2::ZERO);
-                self.orbital_context.camera.set_target_scale(4.0);
-            }
-        } else {
-            self.orbital_context.following = None;
-            self.orbital_context.camera.follow(EntityId(0), DVec2::ZERO);
-            self.orbital_context.camera.set_center(DVec2::ZERO);
-            self.orbital_context.camera.set_target_offset(DVec2::ZERO);
-            self.orbital_context.camera.set_target_scale(-17.0);
-        }
+        let scale = if vehicle { 4.0 } else { -15.0 };
+        self.orbital_context.following = Some(self.piloting()?);
+        self.orbital_context.camera.set_target_offset(DVec2::ZERO);
+        self.orbital_context.camera.set_target_scale(scale);
         Some(())
     }
 
@@ -1178,11 +1191,13 @@ impl GameState {
 
         self.windows.sort_by_key(|w| w.is_focused as u8);
 
-        for button in &mut self.buttons {
-            button.on_mouse_move(&mut take);
-        }
-
         let mut events = Vec::new();
+
+        for button in &mut self.buttons {
+            if let Some(e) = button.on_mouse_move(&mut take) {
+                events.push(e);
+            }
+        }
 
         for window in self.windows.iter_mut().rev() {
             window.on_mouse_move(&mut take);
@@ -1285,7 +1300,9 @@ impl GameState {
     pub fn on_game_tick(&mut self) {
         self.game_ticks += 1;
 
+        let facade = UiFacade::new(self);
         for button in &mut self.buttons {
+            button.update(&facade);
             button.step();
         }
 
@@ -1382,11 +1399,6 @@ impl GameState {
         }
 
         self.goals = goals;
-
-        for button in &mut self.buttons {
-            let sp = self.input.screen_bounds.span / 2.0;
-            button.pos.x = -sp.x + 10.0;
-        }
     }
 }
 

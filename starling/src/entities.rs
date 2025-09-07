@@ -14,6 +14,7 @@ pub struct SurfaceSpacecraftEntity {
     clamped_to_ground: bool,
     pub target_relative_pv: Option<PV>,
     throttle: f32,
+    is_rcs: bool,
 }
 
 impl SurfaceSpacecraftEntity {
@@ -23,6 +24,15 @@ impl SurfaceSpacecraftEntity {
         body: RigidBody,
         controller: VehicleController,
     ) -> Self {
+        let bots = if vehicle.supports_bots() {
+            let n = randint(4, 12);
+            (0..n)
+                .map(|_| ConBot::new(body.pv + PV::pos(randvec(10.0, 50.0))))
+                .collect()
+        } else {
+            Vec::new()
+        };
+
         Self {
             planet_id,
             vehicle,
@@ -36,6 +46,7 @@ impl SurfaceSpacecraftEntity {
             clamped_to_ground: false,
             target_relative_pv: None,
             throttle: 0.3,
+            is_rcs: false,
         }
     }
 
@@ -69,6 +80,14 @@ impl SurfaceSpacecraftEntity {
 
     pub fn throttle(&self) -> f32 {
         self.throttle
+    }
+
+    pub fn is_rcs_mode(&self) -> bool {
+        self.is_rcs
+    }
+
+    pub fn toggle_rcs(&mut self) {
+        self.is_rcs = !self.is_rcs;
     }
 
     pub fn props(&self) -> impl Iterator<Item = &Propagator> + use<'_> {
@@ -162,10 +181,18 @@ impl SurfaceSpacecraftEntity {
             None => todo!(),
         };
 
-        ext.plus_x.throttle *= self.throttle;
-        ext.plus_y.throttle *= self.throttle;
-        ext.neg_x.throttle *= self.throttle;
-        ext.neg_y.throttle *= self.throttle;
+        if !ext.plus_x.use_rcs {
+            ext.plus_x.throttle *= self.throttle;
+        }
+        if !ext.plus_y.use_rcs {
+            ext.plus_y.throttle *= self.throttle;
+        }
+        if !ext.neg_x.use_rcs {
+            ext.neg_x.throttle *= self.throttle;
+        }
+        if !ext.neg_y.use_rcs {
+            ext.neg_y.throttle *= self.throttle;
+        }
 
         let gravity = parent_body.gravity(self.body.pv.pos);
 

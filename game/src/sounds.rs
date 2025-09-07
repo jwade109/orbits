@@ -40,10 +40,11 @@ pub fn sound_system(
 
     let has_current = state.piloting().is_some();
 
-    let (high, mids, bass) = match (has_current, current_vehicle_is_thrusting) {
-        (false, _) => (0.0, 0.0, 0.5),
-        (true, false) => (0.1, 0.5, 0.3),
-        (true, true) => (0.8, 0.6, 0.4),
+    let (high, mids, bass) = match (state.paused, has_current, current_vehicle_is_thrusting) {
+        (true, _, _) => (0.0, 0.0, 0.4),
+        (_, false, _) => (0.0, 0.0, 0.7),
+        (_, true, false) => (0.1, 0.5, 0.3),
+        (_, true, true) => (0.8, 0.6, 0.4),
     };
 
     for (sink, track) in &mut music_controller {

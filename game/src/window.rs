@@ -22,7 +22,7 @@ impl WindowClass {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct UiWindow {
     pub id: u32,
     pub class: WindowClass,

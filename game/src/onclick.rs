@@ -3,6 +3,7 @@ use crate::scenes::SceneType;
 use crate::sim_rate::SimRate;
 use starling::prelude::*;
 use std::path::PathBuf;
+use crate::text_button::ButtonId;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum OnClick {
@@ -62,5 +63,6 @@ pub enum OnClick {
     CloseWindow(u32),
     MinimizeWindow(u32),
     MaximizeWindow(u32),
+    TextButtonClicked(ButtonId),
     Nullopt,
 }

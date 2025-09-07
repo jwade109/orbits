@@ -4,7 +4,6 @@ use bevy::prelude::*;
 use bevy_vector_shapes::prelude::*;
 use starling::prelude::*;
 
-use crate::button::*;
 use crate::camera_controller::*;
 use crate::canvas::Canvas;
 use crate::game::GameState;
@@ -604,9 +603,10 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
     );
 
     let rel_pv = (|| {
+        let ev = state.universe.pv(piloting)?;
         let tgt = sv.target()?;
         let tv = state.universe.pv(tgt)?;
-        let dv = body.pv - tv;
+        let dv = ev - tv;
         Some(dv)
     })();
 
@@ -1436,8 +1436,14 @@ pub fn circle_entity(
 pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
     let ctx = &state.orbital_context;
 
+    if state.paused {
+        canvas
+            .text("PAUSED", Vec2::ZERO, 3.0)
+            .set_color(WHITE.with_alpha(0.2));
+    }
+
     for button in &state.buttons {
-        draw_button(canvas, button);
+        button.draw(canvas);
     }
 
     for (i, window) in state.windows.iter().enumerate() {
