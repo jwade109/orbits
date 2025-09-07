@@ -500,12 +500,8 @@ pub fn draw_arc(
     painter.arc(r + thickness / 2.0, start, end);
 }
 
-pub fn draw_piloting_overlay(
-    canvas: &mut Canvas,
-    state: &GameState,
-    pilot: Option<EntityId>,
-) -> Option<()> {
-    let piloting = pilot?;
+pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<()> {
+    let piloting = state.piloting()?;
 
     let ctx = &state.orbital_context;
 
@@ -516,8 +512,6 @@ pub fn draw_piloting_overlay(
 
     let vehicle = sv.vehicle();
     let body = &sv.body;
-    let orbit = sv.current_orbit();
-    let ctrl = &sv.controller;
     let altitude = body.pv.pos.length() - radius;
 
     let window_dims = state.input.screen_bounds.span;
@@ -608,6 +602,26 @@ pub fn draw_piloting_overlay(
         rotate(Vec2::X, body.angle as f32),
         GREEN,
     );
+
+    let rel_pv = (|| {
+        let tgt = sv.target()?;
+        let tv = state.universe.pv(tgt)?;
+        let dv = body.pv - tv;
+        Some(dv)
+    })();
+
+    if let Some(rel_pv) = rel_pv {
+        let angle_to_target = (-rel_pv.pos).to_angle();
+        draw_pointing_vector(
+            &mut canvas.gizmos,
+            center,
+            r * 1.3,
+            rotate(Vec2::X, angle_to_target as f32),
+            TEAL,
+        );
+        let p = center + rotate(Vec2::X * r * 0.8, rel_pv.vel.to_angle() as f32);
+        draw_prograde_marker(&mut canvas.gizmos, p, 13.0, TEAL);
+    }
 
     // prograde markers, etc
     {
@@ -1453,7 +1467,7 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
         canvas.circle(p, *r * 0.1, WHITE.mix(c, rand(0.0, 0.3)));
     }
 
-    draw_piloting_overlay(canvas, state, state.piloting());
+    draw_piloting_overlay(canvas, state);
 
     draw_rendezvous_info(canvas, state);
 
