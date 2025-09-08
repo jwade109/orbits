@@ -7,6 +7,7 @@ use starling::prelude::*;
 use crate::camera_controller::*;
 use crate::canvas::Canvas;
 use crate::game::GameState;
+use crate::goals::*;
 use crate::graph::*;
 use crate::input::*;
 use crate::notifications::*;
@@ -857,6 +858,83 @@ fn draw_scenario(canvas: &mut Canvas, state: &GameState) {
     });
 }
 
+fn get_goal_text(cond: &GoalCondition, state: &GameState) -> Option<String> {
+    match cond {
+        GoalCondition::SelectVehicle(id) => {
+            let sv = state.universe.surface_vehicles.get(&id)?;
+            let title = sv.vehicle.title_with_id(*id);
+            Some(format!(
+                "Select vessel \"{}\" by left-clicking on it.",
+                title
+            ))
+        }
+        GoalCondition::SetTarget { ownship, target } => {
+            let ov = state.universe.surface_vehicles.get(ownship)?;
+            let tv = state.universe.surface_vehicles.get(target)?;
+            let ot = ov.vehicle.name();
+            let tt = tv.vehicle.title_with_id(*target);
+            Some(format!(
+                "Set the target of \"{}\" to \"{}\" by right-clicking on it.",
+                ot, tt,
+            ))
+        }
+        GoalCondition::Rendezvous { ownship, target } => {
+            let ov = state.universe.surface_vehicles.get(ownship)?;
+            let tv = state.universe.surface_vehicles.get(target)?;
+            let ot = ov.vehicle.name();
+            let tt = tv.vehicle.name();
+            Some(format!("Rendezvous \"{}\" with \"{}\".", ot, tt,))
+        }
+        _ => None,
+    }
+}
+
+fn draw_tutorials(canvas: &mut Canvas, state: &GameState) -> Option<()> {
+    let tut = state.tutorial.as_ref()?;
+    let chap = tut.current()?;
+    let half = state.input.screen_bounds.span / 2.0;
+    let half = half.with_x(-half.x);
+    let x = 100.0;
+    let mut y = 140.0;
+
+    let mut draw_line = |s: &str, color: Srgba| {
+        canvas
+            .text(s, half + Vec2::new(x, -y), 0.8)
+            .set_anchor(Anchor::BottomLeft)
+            .set_color(color)
+            .set_z_order(ZOrdering::Ui2);
+        y += 31.0;
+    };
+
+    let title = format!("{}. {}", tut.current + 1, chap.title.to_uppercase());
+
+    draw_line(&title, WHITE.with_alpha(0.8));
+    draw_line("", WHITE);
+
+    let mut wrap_lines = |s: &str, color: Srgba| {
+        let lines = s.split("\n");
+        for line in lines {
+            draw_line(&line, color);
+        }
+    };
+
+    wrap_lines(&chap.intro, WHITE.with_alpha(0.5));
+
+    for goal in &chap.conditions {
+        let t = get_goal_text(&goal.cond, state).unwrap_or(format!("{:?}", goal.cond));
+        let color = if goal.is_complete { GREEN } else { WHITE };
+        wrap_lines(&t, color);
+    }
+
+    wrap_lines("", WHITE.with_alpha(0.5));
+    if chap.is_complete() {
+        wrap_lines(&chap.ending, WHITE.with_alpha(0.5));
+    }
+    wrap_lines("(Press K for previous, L for next)", WHITE.with_alpha(0.2));
+
+    Some(())
+}
+
 fn draw_event_marker_at(gizmos: &mut Gizmos, wall_time: Nanotime, event: &EventType, p: Vec2) {
     let blinking = is_blinking(wall_time);
 
@@ -1164,23 +1242,14 @@ fn draw_rendezvous_info(canvas: &mut Canvas, state: &GameState) -> Option<()> {
             .collect();
         canvas
             .gizmos
-            .linestrip_2d(relpos_screen, GRAY.with_alpha(0.3));
-
-        if let Ok(Some((t, pv))) = get_next_intersection(stamp, &po.1, &to.1) {
-            let p = ctx.w2c(pv.pos);
-            draw_diamond(&mut canvas.gizmos, p, 20.0, ORANGE);
-            if let Some(q) = to.1.pv(t).ok() {
-                let q = ctx.w2c(q.pos);
-                draw_diamond(&mut canvas.gizmos, q, 20.0, TEAL);
-            }
-        }
+            .linestrip_2d(relpos_screen, RED.with_alpha(0.4));
     } else {
         let rel_pv = po.1.pv(stamp).ok()? - to.1.pv(stamp).ok()?;
         let p1 = pv.body.pv.pos;
         let p2 = p1 + rel_pv.vel * 30.0;
         let q1 = ctx.w2c(p1);
         let q2 = ctx.w2c(p2);
-        canvas.gizmos.line_2d(q1, q2, GRAY.with_alpha(0.3));
+        canvas.gizmos.line_2d(q1, q2, RED.with_alpha(0.4));
     }
 
     Some(())
@@ -1477,7 +1546,7 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
 
     draw_rendezvous_info(canvas, state);
 
-    draw_orbit_spline(canvas, state);
+    // draw_orbit_spline(canvas, state);
 
     if let Some((m1, m2, corner)) = state.measuring_tape() {
         let m1 = ctx.w2c(m1);
@@ -1574,6 +1643,8 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
     }
 
     draw_scenario(canvas, state);
+
+    draw_tutorials(canvas, state);
 
     draw_x(
         &mut canvas.gizmos,

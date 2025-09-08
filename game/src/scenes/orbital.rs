@@ -202,14 +202,6 @@ impl OrbitalContext {
     ) {
         self.camera.handle_input(input);
 
-        if input.just_pressed(KeyCode::KeyN) {
-            if let Some(id) = self.piloting {
-                if let Some(sv) = universe.surface_vehicles.get_mut(&id) {
-                    sv.controller.go_to_next_mode();
-                }
-            }
-        }
-
         if on_ui {
             return;
         }

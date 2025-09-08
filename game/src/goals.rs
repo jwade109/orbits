@@ -1,7 +1,8 @@
 use crate::game::GameState;
 use starling::prelude::*;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub enum GoalCondition {
     AnyLaunchToOrbit,
     AnyHoldAttitude,
@@ -31,7 +32,7 @@ impl Goal {
     pub fn new(cond: GoalCondition) -> Self {
         Self {
             is_complete: false,
-            is_permanent: true,
+            is_permanent: false,
             cond,
             dur: None,
         }

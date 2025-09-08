@@ -35,6 +35,10 @@ impl ProgramContext {
         self.install_dir.join("sfx")
     }
 
+    pub fn tutorial_path(&self) -> PathBuf {
+        self.install_dir.join("tutorial.yaml")
+    }
+
     pub fn part_sprite_path(&self, short_path: &str) -> String {
         self.parts_dir()
             .join(format!("{}/skin.png", short_path))

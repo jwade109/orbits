@@ -213,7 +213,7 @@ pub struct GameState {
     pub next_window_id: u32,
     pub windows: Vec<UiWindow>,
 
-    pub goals: Vec<Goal>,
+    pub tutorial: Option<Tutorial>,
 }
 
 fn generate_starfield() -> Vec<(Vec3, Srgba, f32, f32)> {
@@ -270,19 +270,19 @@ impl GameState {
         };
 
         let mut buttons: Vec<Box<dyn Interactive>> = Vec::new();
-        let w = 60.0;
-        let s = w + 10.0;
-        for (i, (onclick, text, sp)) in [
-            (OnClick::ZoomToOrbit, "Zoom To Orbit", ""),
-            (OnClick::ZoomToVehicle, "Zoom To Vehicle", ""),
-        ]
-        .into_iter()
-        .enumerate()
-        {
-            let p = Vec2::new(-900.0, i as f32 * s);
-            let b = ExpandButton::new(text, onclick, p, Vec2::splat(w), sp);
-            buttons.push(Box::new(b));
-        }
+        // let w = 60.0;
+        // let s = w + 10.0;
+        // for (i, (onclick, text, sp)) in [
+        //     (OnClick::ZoomToOrbit, "Zoom To Orbit", ""),
+        //     (OnClick::ZoomToVehicle, "Zoom To Vehicle", ""),
+        // ]
+        // .into_iter()
+        // .enumerate()
+        // {
+        //     let p = Vec2::new(-900.0, i as f32 * s);
+        //     let b = ExpandButton::new(text, onclick, p, Vec2::splat(w), sp);
+        //     buttons.push(Box::new(b));
+        // }
 
         let text_labels = [
             ButtonId::Rcs,
@@ -300,6 +300,8 @@ impl GameState {
             origin.x += ts.bounds().span.x + 10.0;
             buttons.push(Box::new(ts));
         }
+
+        let tutorial = load_tutorial_from_file(&args.tutorial_path()).ok();
 
         let mut g = GameState {
             render_ticks: 0,
@@ -334,18 +336,18 @@ impl GameState {
             image_handles: HashMap::new(),
             vehicle_names,
             buttons,
-            goals: Vec::new(),
             next_window_id: 7,
             windows: Vec::new(),
+            tutorial,
         };
 
-        g.spawn_window(WindowClass::Tutorial(4), randvec(100.0, 500.0));
-        g.spawn_window(WindowClass::Hello, randvec(100.0, 500.0));
-        g.spawn_window(WindowClass::CurrentVehicleInfo, randvec(100.0, 500.0));
-        g.spawn_window(
-            WindowClass::VehicleInfo(EntityId(1002)),
-            randvec(100.0, 500.0),
-        );
+        // g.spawn_window(WindowClass::Tutorial(4), randvec(100.0, 500.0));
+        // g.spawn_window(WindowClass::Hello, randvec(100.0, 500.0));
+        // g.spawn_window(WindowClass::CurrentVehicleInfo, randvec(100.0, 500.0));
+        // g.spawn_window(
+        //     WindowClass::VehicleInfo(EntityId(1002)),
+        //     randvec(100.0, 500.0),
+        // );
 
         g.arrange_windows(true);
 
@@ -396,9 +398,9 @@ impl GameState {
             }
         }
 
-        if let (Some(a), Some(b)) = (a, b) {
-            g.goals = init_goals(a, b).collect();
-        }
+        // if let (Some(a), Some(b)) = (a, b) {
+        //     g.goals = init_goals(a, b).collect();
+        // }
 
         g
     }
@@ -1177,6 +1179,18 @@ impl GameState {
 
         let mut take = Take::from_opt(self.input.position(MouseButt::Hover, FrameId::Current));
 
+        if self.input.just_pressed(KeyCode::KeyK) {
+            if let Some(t) = &mut self.tutorial {
+                t.prev();
+            }
+        }
+
+        if self.input.just_pressed(KeyCode::KeyL) {
+            if let Some(t) = &mut self.tutorial {
+                t.next();
+            }
+        }
+
         if self
             .input
             .on_frame(MouseButt::Right, FrameId::Down)
@@ -1308,13 +1322,6 @@ impl GameState {
 
         for window in &mut self.windows {
             match window.class {
-                WindowClass::Tutorial(id) => {
-                    if let Some(g) = self.goals.get(id) {
-                        window.contents = format!("{:#?}", g);
-                    } else {
-                        window.contents.clear();
-                    }
-                }
                 WindowClass::CurrentVehicleInfo => {
                     let fb_title = "Current Vehicle".to_string();
                     let fb_contents =
@@ -1392,13 +1399,11 @@ impl GameState {
             _ => (),
         }
 
-        let mut goals = self.goals.clone();
-
-        for goal in &mut goals {
-            goal.update(&self);
+        // this is the worst. but whatever
+        if let Some(mut t) = self.tutorial.clone() {
+            t.update(self);
+            self.tutorial = Some(t);
         }
-
-        self.goals = goals;
     }
 }
 

@@ -1,0 +1,51 @@
+# chapter 1
+- title: Getting started
+  intro: >
+    Thanks for playing the Unnamed Orbits Game/Space Fedex 2025.
+
+    This tutorial should walk you through the basics of spaceflight.
+
+    Let's start by selecting a vehicle.
+  conditions:
+    - !SelectVehicle 1005
+
+  ending: |
+    Great job! This vehicle will be referred to as the "ownship" further
+    along in the tutorial.
+
+    Now let's learn how to control vehicles.
+
+# ====================================================================
+
+- title: Selecting a target
+  intro: |
+    We want to dock two vehicles together, so they can exchange
+    cargo and fuel with each other.
+
+    Designating another vehicle as a target is useful for performing orbital
+    rendezvous. This will display relative positioning info which can be
+    used to maneuver into an intercept with the target.
+  conditions:
+    - !SelectVehicle 1005
+    - !SetTarget
+        ownship: 1005
+        target: 1002
+  ending: |
+    Cool! The red line on the screen indicates the ownship's future position
+    relative to its target. Places where the red line passes next to the
+    target are approaches, which we'll tune in order to perform the rendezvous.
+
+# ====================================================================
+
+- title: Draw the rest of the owl
+  intro: >
+    I know you just started, but you're so ready for this.
+  conditions:
+    - !SelectVehicle 1005
+    - !SetTarget
+        ownship: 1005
+        target: 1002
+    - !Rendezvous
+        ownship: 1005
+        target: 1002
+  ending: You freaking did it!
