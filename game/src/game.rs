@@ -1401,7 +1401,14 @@ impl GameState {
 
         // this is the worst. but whatever
         if let Some(mut t) = self.tutorial.clone() {
-            t.update(self);
+            let finished = t.update(self);
+            if finished {
+                if t.is_complete() {
+                    self.sounds.play_once("nyt-crossword.ogg", 0.5);
+                } else {
+                    self.sounds.play_once("modern-button-click.ogg", 1.0);
+                }
+            }
             self.tutorial = Some(t);
         }
     }

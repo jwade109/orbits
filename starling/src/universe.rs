@@ -328,7 +328,11 @@ pub fn nearest_orbiter_or_planet(
             let size = if let Some(body) = lup.body() {
                 body.radius
             } else {
-                0.0
+                universe
+                    .surface_vehicles
+                    .get(&id.as_eid())
+                    .map(|sv| sv.vehicle.bounding_radius())
+                    .unwrap_or(0.0)
             };
             let p = lup.pv().pos;
             let d = pos.distance(p);

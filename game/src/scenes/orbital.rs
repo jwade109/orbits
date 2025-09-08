@@ -207,7 +207,7 @@ impl OrbitalContext {
         }
 
         self.hovered_entity = if let Some(p) = input.position(MouseButt::Hover, FrameId::Current) {
-            let dist = (SPACECRAFT_HOVER_RADIUS / self.scale()).max(10.0);
+            let dist = (SPACECRAFT_HOVER_RADIUS / self.scale()).max(0.1);
             let w = self.c2w(p);
             nearest_orbiter_or_planet(universe, w, dist)
         } else {

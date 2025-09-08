@@ -12,12 +12,15 @@ pub enum GoalCondition {
     Rendezvous { ownship: EntityId, target: EntityId },
     SetTarget { ownship: EntityId, target: EntityId },
     SelectVehicle(EntityId),
+    ThrustForward(EntityId),
+    ThrustBackward(EntityId),
+    HoldAttitude(EntityId, u16),
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct GoalDuration {
-    required: Nanotime,
-    actual: Nanotime,
+    pub required: Nanotime,
+    pub actual: Nanotime,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -64,6 +67,7 @@ impl Goal {
                 self.is_complete = gd.actual >= gd.required;
             } else {
                 gd.actual = Nanotime::ZERO;
+                self.is_complete = false;
             }
         } else {
             self.is_complete = satisfied;
@@ -122,6 +126,21 @@ fn is_satisfied(state: &GameState, cond: &GoalCondition) -> Option<bool> {
             Some(sv.target() == Some(*target))
         }
         GoalCondition::SelectVehicle(v) => Some(state.orbital_context.piloting == Some(*v)),
+        GoalCondition::ThrustForward(id) => {
+            let sv = state.universe.surface_vehicles.get(id)?;
+            Some(sv.vehicle.is_thrusting() && sv.vehicle.body_frame_accel().linear.x > 2.0)
+        }
+        GoalCondition::ThrustBackward(id) => {
+            let sv = state.universe.surface_vehicles.get(id)?;
+            Some(sv.vehicle.is_thrusting() && sv.vehicle.body_frame_accel().linear.x < -2.0)
+        }
+        GoalCondition::HoldAttitude(id, heading) => {
+            let sv = state.universe.surface_vehicles.get(id)?;
+            let heading = *heading as f64 / 180.0 * PI_64;
+            let error_deg = wrap_pi_npi_f64(sv.body.angle - heading).abs().to_degrees();
+            let rate = sv.body.angular_velocity.to_degrees();
+            Some(error_deg.abs() < 5.0 && rate.abs() < 3.0)
+        }
     }
 }
 

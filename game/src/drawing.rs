@@ -649,11 +649,13 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
     canvas
         .text(
             format!(
-                "ALT {}\n{}-type vessel",
+                "ALT {}\nHDG {:0.0} RATE {:0.0}\n{}-type vessel",
                 distance_str(altitude),
+                wrap_0_2pi_f64(body.angle).to_degrees(),
+                wrap_pi_npi_f64(body.angular_velocity).to_degrees(),
                 vehicle.model().to_uppercase()
             ),
-            center + Vec2::new(r * 0.4, r + 110.0),
+            center + Vec2::new(r * 0.7, r + 130.0),
             0.8,
         )
         .set_anchor(Anchor::CenterRight);
@@ -661,7 +663,7 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
     canvas
         .text(
             format!("{} {}", vehicle.name(), piloting.0),
-            center + Vec2::new(r * 0.4, r + 60.0),
+            center + Vec2::new(r * 0.7, r + 60.0),
             1.2,
         )
         .set_anchor(Anchor::CenterRight);
@@ -675,7 +677,7 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
     canvas
         .text(
             sv.controller.mode().to_status_str().to_uppercase(),
-            center + Vec2::new(r * 0.4, r + 170.0),
+            center + Vec2::new(r * 0.7, r + 200.0),
             1.2,
         )
         .set_anchor(Anchor::CenterRight)
@@ -715,29 +717,29 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
     //     )
     //     .set_anchor(Anchor::CenterRight);
 
-    let dash_icons = [
-        ("low-fuel", "low-fuel-dim", vehicle.low_fuel(), true),
-        ("radar", "radar-dim", vehicle.has_radar(), false),
-        ("ctrl", "ctrl-dim", !vehicle.is_controllable(), true),
-    ];
+    // let dash_icons = [
+    //     ("low-fuel", "low-fuel-dim", vehicle.low_fuel(), true),
+    //     ("radar", "radar-dim", vehicle.has_radar(), false),
+    //     ("ctrl", "ctrl-dim", !vehicle.is_controllable(), true),
+    // ];
 
-    let mut icon_pos = center + Vec2::new(r * 0.9, r * 1.1);
-    let icon_size = 75.0;
-    for (pa, pb, cond, blink) in dash_icons {
-        let path = if cond && (!blink || is_blinking(state.wall_time)) {
-            pa
-        } else {
-            pb
-        };
-        canvas.sprite(
-            icon_pos,
-            0.0,
-            path,
-            ZOrdering::HudIcon,
-            Vec2::splat(icon_size),
-        );
-        icon_pos += Vec2::Y * icon_size;
-    }
+    // let mut icon_pos = center + Vec2::new(r * 0.9, r * 1.1);
+    // let icon_size = 75.0;
+    // for (pa, pb, cond, blink) in dash_icons {
+    //     let path = if cond && (!blink || is_blinking(state.wall_time)) {
+    //         pa
+    //     } else {
+    //         pb
+    //     };
+    //     canvas.sprite(
+    //         icon_pos,
+    //         0.0,
+    //         path,
+    //         ZOrdering::HudIcon,
+    //         Vec2::splat(icon_size),
+    //     );
+    //     icon_pos += Vec2::Y * icon_size;
+    // }
 
     for prop in sv.props() {
         draw_propagator(canvas, state, prop, true, TEAL, ctx);
@@ -885,6 +887,21 @@ fn get_goal_text(cond: &GoalCondition, state: &GameState) -> Option<String> {
             let tt = tv.vehicle.name();
             Some(format!("Rendezvous \"{}\" with \"{}\".", ot, tt,))
         }
+        GoalCondition::ThrustForward(id) => {
+            let sv = state.universe.surface_vehicles.get(id)?;
+            let n = sv.vehicle.name_with_id(*id);
+            Some(format!("Apply forwards thrust to \"{}\".", n))
+        }
+        GoalCondition::ThrustBackward(id) => {
+            let sv = state.universe.surface_vehicles.get(id)?;
+            let n = sv.vehicle.name_with_id(*id);
+            Some(format!("Apply backwards thrust to \"{}\".", n))
+        }
+        GoalCondition::HoldAttitude(id, deg) => {
+            let sv = state.universe.surface_vehicles.get(id)?;
+            let n = sv.vehicle.name_with_id(*id);
+            Some(format!("Hold heading of \"{}\" at {} degrees.", n, deg))
+        }
         _ => None,
     }
 }
@@ -897,40 +914,54 @@ fn draw_tutorials(canvas: &mut Canvas, state: &GameState) -> Option<()> {
     let x = 100.0;
     let mut y = 140.0;
 
-    let mut draw_line = |s: &str, color: Srgba| {
-        canvas
-            .text(s, half + Vec2::new(x, -y), 0.8)
+    let draw_line = |c: &mut Canvas, y: &mut f32, s: &str, color: Srgba| {
+        c.text(s, half + Vec2::new(x, -*y) - Vec2::splat(2.0), 0.8)
+            .set_anchor(Anchor::BottomLeft)
+            .set_color(BLACK)
+            .set_z_order(ZOrdering::Ui);
+        c.text(s, half + Vec2::new(x, -*y), 0.8)
             .set_anchor(Anchor::BottomLeft)
             .set_color(color)
             .set_z_order(ZOrdering::Ui2);
-        y += 31.0;
+        *y += 31.0;
     };
 
     let title = format!("{}. {}", tut.current + 1, chap.title.to_uppercase());
 
-    draw_line(&title, WHITE.with_alpha(0.8));
-    draw_line("", WHITE);
+    draw_line(canvas, &mut y, &title, WHITE.with_alpha(0.8));
+    draw_line(canvas, &mut y, "", WHITE);
 
-    let mut wrap_lines = |s: &str, color: Srgba| {
+    let wrap_lines = |c: &mut Canvas, y: &mut f32, s: &str, color: Srgba| {
         let lines = s.split("\n");
         for line in lines {
-            draw_line(&line, color);
+            draw_line(c, y, &line, color);
         }
     };
 
-    wrap_lines(&chap.intro, WHITE.with_alpha(0.5));
+    wrap_lines(canvas, &mut y, &chap.intro, WHITE.with_alpha(0.5));
 
     for goal in &chap.conditions {
         let t = get_goal_text(&goal.cond, state).unwrap_or(format!("{:?}", goal.cond));
         let color = if goal.is_complete { GREEN } else { WHITE };
-        wrap_lines(&t, color);
+        let p = goal.progress();
+        if p > 0.0 && p < 1.0 {
+            let o = half + Vec2::new(x, -y);
+            let c = o + Vec2::new(p * 400.0, -5.0);
+            canvas.rect(AABB::from_arbitrary(o, c), ZOrdering::Ui, GREEN);
+        }
+        wrap_lines(canvas, &mut y, &t, color);
     }
 
-    wrap_lines("", WHITE.with_alpha(0.5));
+    wrap_lines(canvas, &mut y, "", WHITE.with_alpha(0.5));
     if chap.is_complete() {
-        wrap_lines(&chap.ending, WHITE.with_alpha(0.5));
+        wrap_lines(canvas, &mut y, &chap.ending, WHITE.with_alpha(0.5));
     }
-    wrap_lines("(Press K for previous, L for next)", WHITE.with_alpha(0.2));
+    wrap_lines(
+        canvas,
+        &mut y,
+        "(Press K for previous, L for next)",
+        WHITE.with_alpha(0.2),
+    );
 
     Some(())
 }

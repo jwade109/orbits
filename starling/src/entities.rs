@@ -24,15 +24,6 @@ impl SurfaceSpacecraftEntity {
         body: RigidBody,
         controller: VehicleController,
     ) -> Self {
-        let bots = if vehicle.supports_bots() {
-            let n = randint(4, 12);
-            (0..n)
-                .map(|_| ConBot::new(body.pv + PV::pos(randvec(10.0, 50.0))))
-                .collect()
-        } else {
-            Vec::new()
-        };
-
         Self {
             planet_id,
             vehicle,
@@ -45,7 +36,7 @@ impl SurfaceSpacecraftEntity {
             altitude: None,
             clamped_to_ground: false,
             target_relative_pv: None,
-            throttle: 0.3,
+            throttle: 0.7,
             is_rcs: false,
         }
     }
@@ -301,7 +292,7 @@ impl SurfaceSpacecraftEntity {
         let is_idle = match (self.controller.mode(), self.controller.status()) {
             (VehicleControlPolicy::Idle, VehicleControlStatus::Idling) => true,
             (VehicleControlPolicy::HoldAttitude(a), _) => a
-                .map(|a| wrap_pi_npi_f64(a - self.body.angle).abs() < 0.05)
+                .map(|a| wrap_pi_npi_f64(a - self.body.angle).abs().to_degrees() < 0.01)
                 .unwrap_or(false),
             _ => false,
         };

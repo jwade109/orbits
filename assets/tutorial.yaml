@@ -1,4 +1,3 @@
-# chapter 1
 - title: Getting started
   intro: >
     Thanks for playing the Unnamed Orbits Game/Space Fedex 2025.
@@ -7,13 +6,91 @@
 
     Let's start by selecting a vehicle.
   conditions:
-    - !SelectVehicle 1005
+    - cond: !SelectVehicle 1005
+      is_permanent: true
+      seconds: 0
 
   ending: |
     Great job! This vehicle will be referred to as the "ownship" further
     along in the tutorial.
 
-    Now let's learn how to control vehicles.
+    The HUD that appeared on the bottom right of the screen displays
+    vehicle-specific info, like your heading, vehicle class, current mode, etc.
+    This is called the "Navigation Panel".
+
+    Now let's learn how to control the spacecraft.
+
+# ====================================================================
+
+- title: Thrust Control
+  intro: |
+    Once a vehicle is selected, you can control it using the arrow keys.
+    The up arrow key will enable the thrusters located in the rear of the
+    ship, which will drive the vessel "forwards".
+
+    Conversely, the down arrow key will activate the thrusters located on the
+    front of the ship (if it has any), sending the vessel "backwards".
+
+    In short, UP is FORWARDS, DOWN is BACKWARDS.
+
+    Since vessels can rotate freely, you'll need to keep track of which way
+    your ownship is pointing - this is indicated by the green arrow on the
+    Navigation Panel.
+
+  conditions:
+    - cond: !SelectVehicle 1003
+      is_permanent: false
+      seconds: 0
+    - cond: !ThrustForward 1003
+      is_permanent: true
+      seconds: 10
+    - cond: !ThrustBackward 1003
+      is_permanent: true
+      seconds: 10
+
+  ending: |
+    Fabulous. For the remainder of this tutorial, we'll use a spacecraft with
+    only one thrust vector to keep things simple.
+
+# ====================================================================
+
+- title: Attitude Control
+  intro: |
+    You might notice your vessel is spinning. This makes maneuvering difficult;
+    we want to be able to control which way the craft is pointing so that we
+    can thrust in different directions.
+
+    You can change your vehicle's rotation rate using the left and right arrow
+    keys. The HDG and RATE indicators on the Navigation Panel show which way
+    the vessel is pointing and how fast it's spinning.
+
+  conditions:
+    - cond: !SelectVehicle 1005
+      is_permanent: false
+      seconds: 0
+    - cond: !HoldAttitude
+        - 1005
+        - 240
+      is_permanent: true
+      seconds: 5
+    - cond: !HoldAttitude
+        - 1005
+        - 120
+      is_permanent: true
+      seconds: 5
+    - cond: !HoldAttitude
+        - 1005
+        - 175
+      is_permanent: true
+      seconds: 5
+    - cond: !HoldAttitude
+        - 1005
+        - 320
+      is_permanent: true
+      seconds: 5
+
+  ending: |
+    Heckin sweet.
 
 # ====================================================================
 
@@ -26,10 +103,14 @@
     rendezvous. This will display relative positioning info which can be
     used to maneuver into an intercept with the target.
   conditions:
-    - !SelectVehicle 1005
-    - !SetTarget
+    - cond: !SelectVehicle 1005
+      is_permanent: false
+      seconds: 0
+    - cond: !SetTarget
         ownship: 1005
         target: 1002
+      is_permanent: false
+      seconds: 0
   ending: |
     Cool! The red line on the screen indicates the ownship's future position
     relative to its target. Places where the red line passes next to the
@@ -41,11 +122,17 @@
   intro: >
     I know you just started, but you're so ready for this.
   conditions:
-    - !SelectVehicle 1005
-    - !SetTarget
+    - cond: !SelectVehicle 1005
+      is_permanent: false
+      seconds: 0
+    - cond: !SetTarget
         ownship: 1005
         target: 1002
-    - !Rendezvous
+      is_permanent: false
+      seconds: 0
+    - cond: !Rendezvous
         ownship: 1005
         target: 1002
+      is_permanent: false
+      seconds: 10
   ending: You freaking did it!
