@@ -79,6 +79,10 @@ impl LinearCameraController {
         self.center = p;
     }
 
+    pub fn is_following(&self, id: EntityId) -> bool {
+        self.parent == id
+    }
+
     pub fn set_center(&mut self, pos: DVec2) {
         self.center = pos;
     }
@@ -170,4 +174,8 @@ pub trait CameraProjection {
     fn offset(&self) -> DVec2;
 
     fn parent(&self) -> EntityId;
+}
+
+pub fn camera_span_meters(screen_bounds: Vec2, ctx: &impl CameraProjection) -> DVec2 {
+    screen_bounds.as_dvec2() / ctx.scale()
 }

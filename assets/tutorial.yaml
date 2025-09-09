@@ -6,8 +6,8 @@
 
     Let's start by selecting a vehicle.
   conditions:
-    - cond: !SelectVehicle 1005
-      is_permanent: true
+    - cond: !SelectVehicle 1003
+      is_permanent: false
       seconds: 0
 
   ending: |
@@ -18,7 +18,34 @@
     vehicle-specific info, like your heading, vehicle class, current mode, etc.
     This is called the "Navigation Panel".
 
-    Now let's learn how to control the spacecraft.
+    Let's zoom in on this spacecraft to get a closer look.
+
+# ====================================================================
+
+- title: Controlling the camera
+  intro: |
+    The camera can be translated around with WASD.
+    Zoom in and out with [+] and [-], or using the mouse scroll wheel.
+
+    Additionally, you can tell the camera to go to a particular vessel by
+    ctrl+left-clicking the vessel of interest.
+
+    Let's zoom in on a particular ship to see what it looks like up close.
+  conditions:
+    - cond: !SelectVehicle 1003
+      is_permanent: false
+      seconds: 0
+    - cond: !FocusCamera 1003
+      is_permanent: false
+      seconds: 0
+    - cond: !ZoomCameraTo
+      - 20
+      - 250
+      is_permanent: false
+      seconds: 0
+
+  ending: |
+    Very cool. Now let's learn how to control a spacecraft.
 
 # ====================================================================
 
@@ -49,8 +76,10 @@
       seconds: 10
 
   ending: |
-    Fabulous. For the remainder of this tutorial, we'll use a spacecraft with
-    only one thrust vector to keep things simple.
+    Fabulous. Most vessels won't be able to thrust both forwards and backwards;
+    this one is special.
+
+    Now let's correct that spin.
 
 # ====================================================================
 
@@ -64,33 +93,36 @@
     keys. The HDG and RATE indicators on the Navigation Panel show which way
     the vessel is pointing and how fast it's spinning.
 
+    We'll use a larger vehicle that's harder to turn, so it's easier to
+    make precise changes manually.
+
   conditions:
-    - cond: !SelectVehicle 1005
+    - cond: !SelectVehicle 1006
       is_permanent: false
       seconds: 0
     - cond: !HoldAttitude
-        - 1005
+        - 1006
         - 240
       is_permanent: true
       seconds: 5
     - cond: !HoldAttitude
-        - 1005
+        - 1006
         - 120
       is_permanent: true
       seconds: 5
     - cond: !HoldAttitude
-        - 1005
+        - 1006
         - 175
       is_permanent: true
       seconds: 5
     - cond: !HoldAttitude
-        - 1005
+        - 1006
         - 320
       is_permanent: true
       seconds: 5
 
   ending: |
-    Heckin sweet.
+    Heckin sweet. Let's make some orbital maneuvers.
 
 # ====================================================================
 

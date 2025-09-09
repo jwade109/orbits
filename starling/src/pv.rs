@@ -71,7 +71,9 @@ impl PV {
 }
 
 pub fn distance_str(x: f64) -> String {
-    if x.abs() > 1000.0 {
+    if x.abs() > 1000000.0 {
+        format!("{:0.2} Mm", x / 1000000.0)
+    } else if x.abs() > 1000.0 {
         format!("{:0.2} km", x / 1000.0)
     } else {
         format!("{:0.1} m", x)

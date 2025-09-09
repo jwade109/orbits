@@ -357,13 +357,14 @@ impl GameState {
         let t = g.universe.stamp();
 
         let get_random_orbit = |pid: EntityId| {
-            let r1 = rand(3_000_000.0, 8_000_000.0) as f64;
-            let r2 = rand(3_000_000.0, 8_000_000.0) as f64;
+            let r1 = rand(3_000_000.0, 20_000_000.0) as f64;
+            let r2 = rand(3_000_000.0, 20_000_000.0) as f64;
             let argp = rand(0.0, 2.0 * PI) as f64;
             let body = planets.lookup(pid, t)?.0;
             let r1 = body.radius + r1;
             let r2 = body.radius + r2;
-            let orbit = SparseOrbit::new(r1.max(r2), r1.min(r2), argp, body, t, false)?;
+            let epoch = Nanotime::secs_f32(rand(0.0, 100000.0));
+            let orbit = SparseOrbit::new(r1.max(r2), r1.min(r2), argp, body, epoch, false)?;
             Some(GlobalOrbit(pid, orbit))
         };
 

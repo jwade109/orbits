@@ -1,6 +1,7 @@
+use crate::camera_controller::camera_span_meters;
 use crate::game::GameState;
-use starling::prelude::*;
 use serde::{Deserialize, Serialize};
+use starling::prelude::*;
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub enum GoalCondition {
@@ -15,6 +16,8 @@ pub enum GoalCondition {
     ThrustForward(EntityId),
     ThrustBackward(EntityId),
     HoldAttitude(EntityId, u16),
+    FocusCamera(EntityId),
+    ZoomCameraTo(f64, f64),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -140,6 +143,15 @@ fn is_satisfied(state: &GameState, cond: &GoalCondition) -> Option<bool> {
             let error_deg = wrap_pi_npi_f64(sv.body.angle - heading).abs().to_degrees();
             let rate = sv.body.angular_velocity.to_degrees();
             Some(error_deg.abs() < 5.0 && rate.abs() < 3.0)
+        }
+        GoalCondition::FocusCamera(id) => Some(state.orbital_context.camera.is_following(*id)),
+        GoalCondition::ZoomCameraTo(min, max) => {
+            let meters = camera_span_meters(
+                state.input.screen_bounds.span,
+                &state.orbital_context.camera,
+            );
+
+            Some(*min <= meters.length() && meters.length() <= *max)
         }
     }
 }

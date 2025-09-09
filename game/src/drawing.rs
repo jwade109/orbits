@@ -95,8 +95,8 @@ fn draw_region(
             draw_aabb(canvas, AABB::from_arbitrary(p1, p2), color)
         }
         Region::OrbitRange(a, b) => {
-            draw_orbit(canvas, &a, origin, color, ctx);
-            draw_orbit(canvas, &b, origin, color, ctx);
+            draw_orbit(canvas, &a, origin, color, false, ctx);
+            draw_orbit(canvas, &b, origin, color, false, ctx);
             for angle in linspace_f64(0.0, 2.0 * PI_64, 40) {
                 let u = rotate_f64(DVec2::X, angle);
                 let p1 = origin + u * a.radius_at_angle(angle);
@@ -109,7 +109,7 @@ fn draw_region(
             }
         }
         Region::NearOrbit(orbit, dist) => {
-            draw_orbit(canvas, &orbit, origin, color, ctx);
+            draw_orbit(canvas, &orbit, origin, color, false, ctx);
             for angle in linspace_f64(0.0, 2.0 * PI_64, 40) {
                 let u = rotate_f64(DVec2::X, angle);
                 let r = orbit.radius_at_angle(angle);
@@ -137,8 +137,38 @@ pub fn draw_orbit(
     orb: &SparseOrbit,
     origin: DVec2,
     color: Srgba,
+    draw_nodes: bool,
     ctx: &impl CameraProjection,
 ) {
+    let peri = orb.periapsis();
+    let apo = orb.apoapsis();
+
+    let draw_node = |canvas: &mut Canvas, pos: DVec2, text: &'static str| {
+        if !draw_nodes {
+            return;
+        }
+        let p = pos + origin;
+        let p = ctx.w2c(p);
+        let z = ZOrdering::Orbit;
+        let p = p.extend(z.as_f32());
+        canvas.circle(p, 5.0, color);
+        let tp = p.xy() + pos.as_vec2().normalize_or_zero() * 20.0;
+        let d = pos.length();
+        let text = format!("{} {}", text, distance_str(d));
+        let anchor = if pos.x > 0.0 {
+            Anchor::CenterLeft
+        } else {
+            Anchor::CenterRight
+        };
+        canvas
+            .text(text, tp, 0.6)
+            .set_z_order(ZOrdering::OrbitLabels)
+            .set_anchor(anchor)
+            .set_color(GRAY);
+    };
+
+    draw_node(canvas, peri, "PERI");
+
     if orb.ecc() >= 1.0 {
         // orb.will_escape() {
         let ta = if orb.is_hyperbolic() {
@@ -164,6 +194,7 @@ pub fn draw_orbit(
         let center = origin + (orb.periapsis() + orb.apoapsis()) / 2.0;
         let center = ctx.w2c(center);
         let rot = Quat::from_rotation_z(orb.arg_periapsis as f32);
+        canvas.painter.reset();
         canvas
             .painter
             .set_translation(center.extend(ZOrdering::Orbit.as_f32()));
@@ -176,8 +207,9 @@ pub fn draw_orbit(
         canvas.painter.set_color(color);
         canvas
             .painter
-            .circle((orb.semi_major_axis * ctx.scale()) as f32);
-        canvas.painter.reset();
+            .circle((orb.semi_major_axis * ctx.scale()) as f32 + 1.0);
+
+        draw_node(canvas, apo, "APO");
     }
 }
 
@@ -186,12 +218,20 @@ fn draw_global_orbit(
     orbit: &GlobalOrbit,
     state: &GameState,
     color: Srgba,
+    draw_nodes: bool,
 ) -> Option<()> {
     let pv = state
         .universe
         .lup_planet(orbit.0)
         .map(|lup: ObjectLookup<'_>| lup.pv())?;
-    draw_orbit(canvas, &orbit.1, pv.pos, color, &state.orbital_context);
+    draw_orbit(
+        canvas,
+        &orbit.1,
+        pv.pos,
+        color,
+        draw_nodes,
+        &state.orbital_context,
+    );
     Some(())
 }
 
@@ -267,7 +307,7 @@ fn draw_planets(
 
     for (orbit, pl) in &planet.subsystems {
         if let Some(pv) = orbit.pv(stamp).ok() {
-            draw_orbit(canvas, orbit, origin, GRAY.with_alpha(a / 2.0), ctx);
+            draw_orbit(canvas, orbit, origin, GRAY.with_alpha(a / 2.0), false, ctx);
             draw_planets(canvas, pl, stamp, origin + pv.pos, ctx)
         }
     }
@@ -286,7 +326,7 @@ fn draw_propagator(
         .planets
         .lookup(prop.parent(), state.universe.stamp())?;
 
-    draw_orbit(canvas, &prop.orbit.1, parent_pv.pos, color, ctx);
+    draw_orbit(canvas, &prop.orbit.1, parent_pv.pos, color, false, ctx);
     if with_event {
         if let Some((t, e)) = prop.stamped_event() {
             let pv_end = parent_pv + prop.pv(t)?;
@@ -432,7 +472,13 @@ pub fn make_separation_graph(
     let mut g = Graph::linspace(0.0, 48.0, 100);
     let mut v = Graph::linspace(0.0, 48.0, 100);
 
-    let teval = tspace(now, now + Nanotime::hours(16), 300);
+    let duration = src
+        .period()
+        .zip(dst.period())
+        .map(|(s, d)| s.min(d) * 3)
+        .unwrap_or(Nanotime::hours(16));
+
+    let teval = tspace(now, now + duration, 300);
 
     let pv = apply(&teval, |t| {
         let p = src.pv(t).ok().unwrap_or(PV::NAN);
@@ -748,10 +794,6 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
     Some(())
 }
 
-fn camera_span_meters(screen_bounds: Vec2, ctx: &impl CameraProjection) -> DVec2 {
-    screen_bounds.as_dvec2() / ctx.scale()
-}
-
 fn draw_orbiter(canvas: &mut Canvas, state: &GameState, id: EntityId) -> Option<()> {
     let ctx = &state.orbital_context;
     let meters = camera_span_meters(state.input.screen_bounds.span, ctx);
@@ -835,12 +877,12 @@ fn draw_orbiter(canvas: &mut Canvas, state: &GameState, id: EntityId) -> Option<
     } else if tracked {
         PURPLE
     } else {
-        GRAY.with_alpha(0.3)
+        GRAY.with_alpha(0.03)
     };
 
     if meters.max_element() > 5000.0 {
         if let Some(orbit) = sv.current_orbit() {
-            draw_global_orbit(canvas, &orbit, state, color);
+            draw_global_orbit(canvas, &orbit, state, color, piloting);
         }
     }
 
@@ -902,7 +944,58 @@ fn get_goal_text(cond: &GoalCondition, state: &GameState) -> Option<String> {
             let n = sv.vehicle.name_with_id(*id);
             Some(format!("Hold heading of \"{}\" at {} degrees.", n, deg))
         }
+        GoalCondition::FocusCamera(id) => {
+            let sv = state.universe.surface_vehicles.get(id)?;
+            let n = sv.vehicle.name_with_id(*id);
+            Some(format!(
+                "Set the camera to follow \"{}\" with ctrl+left-click.",
+                n
+            ))
+        }
+        GoalCondition::ZoomCameraTo(min, max) => Some(format!(
+            "Zoom the viewport width to between {} and {}.",
+            distance_str(*min),
+            distance_str(*max)
+        )),
         _ => None,
+    }
+}
+
+fn tutorial_highlight_vessel(
+    canvas: &mut Canvas,
+    id: EntityId,
+    ctx: &impl CameraProjection,
+    universe: &Universe,
+    color: Srgba,
+) -> Option<()> {
+    let pv = universe.pv(id)?;
+    let pos = ctx.w2c(pv.pos);
+    let p = pos.extend(ZOrdering::Ui.as_f32());
+    canvas.circle(p, 36.0, color);
+    Some(())
+}
+
+fn draw_goal_markers(canvas: &mut Canvas, state: &GameState, goal: &Goal) {
+    if goal.is_complete {
+        return;
+    }
+    let blinking = is_blinking(state.wall_time);
+    let alpha = if blinking { 0.8 } else { 0.2 };
+    let ctx = &state.orbital_context.camera;
+    match &goal.cond {
+        GoalCondition::SetTarget { ownship: _, target } => {
+            tutorial_highlight_vessel(
+                canvas,
+                *target,
+                ctx,
+                &state.universe,
+                TEAL.with_alpha(alpha),
+            );
+        }
+        GoalCondition::SelectVehicle(id) => {
+            tutorial_highlight_vessel(canvas, *id, ctx, &state.universe, ORANGE.with_alpha(alpha));
+        }
+        _ => (),
     }
 }
 
@@ -944,12 +1037,20 @@ fn draw_tutorials(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         let t = get_goal_text(&goal.cond, state).unwrap_or(format!("{:?}", goal.cond));
         let color = if goal.is_complete { GREEN } else { WHITE };
         let p = goal.progress();
-        if p > 0.0 && p < 1.0 {
+        let color = if p > 0.0 && p < 1.0 {
             let o = half + Vec2::new(x, -y);
             let c = o + Vec2::new(p * 400.0, -5.0);
             canvas.rect(AABB::from_arbitrary(o, c), ZOrdering::Ui, GREEN);
-        }
+            if is_blinking(state.wall_time) {
+                GREEN
+            } else {
+                WHITE
+            }
+        } else {
+            color
+        };
         wrap_lines(canvas, &mut y, &t, color);
+        draw_goal_markers(canvas, state, goal);
     }
 
     wrap_lines(canvas, &mut y, "", WHITE.with_alpha(0.5));
@@ -1226,11 +1327,23 @@ fn draw_rendezvous_info(canvas: &mut Canvas, state: &GameState) -> Option<()> {
 
     let po = pv.current_orbit()?;
 
-    let to = state
+    let to = if let Some(sv) = state.universe.surface_vehicles.get(&target) {
+        sv.current_orbit()?
+    } else if let Some((_, _, parent, _)) = state
         .universe
-        .surface_vehicles
-        .get(&target)?
-        .current_orbit()?;
+        .planets
+        .lookup(target, state.universe.stamp())
+    {
+        let parent = parent?;
+        let (_, _, _, sys) = state
+            .universe
+            .planets
+            .lookup(parent, state.universe.stamp())?;
+        let (orbit, _) = sys.subsystems.iter().find(|(_, s)| s.id == target)?;
+        GlobalOrbit(parent, *orbit)
+    } else {
+        return None;
+    };
 
     let target_pos = state.universe.pv(target)?;
 
@@ -1614,7 +1727,7 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
     }
 
     for orbit in &ctx.queued_orbits {
-        draw_global_orbit(canvas, orbit, &state, RED);
+        draw_global_orbit(canvas, orbit, &state, RED, false);
     }
 
     circle_entity(canvas, ctx.hovered_entity, ctx, &state.universe, GRAY);
@@ -1651,7 +1764,7 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
                 sparse.is_retrograde(),
             ) {
                 go.1 = o;
-                draw_global_orbit(canvas, &go, &state, YELLOW.with_alpha(alpha));
+                draw_global_orbit(canvas, &go, &state, YELLOW.with_alpha(alpha), false);
             }
         };
 
@@ -1666,11 +1779,11 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
     }
 
     if let Some(orbit) = state.cursor_orbit_if_mode() {
-        draw_global_orbit(canvas, &orbit, &state, ORANGE);
+        draw_global_orbit(canvas, &orbit, &state, ORANGE, false);
     }
 
     if let Some(orbit) = state.current_orbit() {
-        draw_global_orbit(canvas, &orbit, &state, TEAL);
+        draw_global_orbit(canvas, &orbit, &state, TEAL, false);
     }
 
     draw_scenario(canvas, state);
