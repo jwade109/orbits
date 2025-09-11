@@ -24,6 +24,10 @@ impl Tutorial {
         self.chapters.get(self.current)
     }
 
+    pub fn current_is_last(&self) -> bool {
+        self.current + 1 == self.chapters.len()
+    }
+
     pub fn update(&mut self, state: &GameState) -> bool {
         let mut any_chapter_completed = false;
         if let Some(chapter) = self.chapters.get_mut(self.current) {
@@ -42,9 +46,11 @@ impl Tutorial {
         self.chapters.iter().all(|c| c.is_complete())
     }
 
-    pub fn next(&mut self) {
-        if self.current + 1 < self.chapters.len() {
-            self.current += 1;
+    pub fn next(&mut self, force: bool) {
+        if let Some(c) = self.current() {
+            if (force || c.is_complete()) && self.current < self.chapters.len() {
+                self.current += 1;
+            }
         }
     }
 

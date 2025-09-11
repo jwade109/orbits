@@ -16,7 +16,9 @@
 
     The HUD that appeared on the bottom right of the screen displays
     vehicle-specific info, like your heading, vehicle class, current mode, etc.
-    This is called the "Navigation Panel".
+    This is called the "Control Panel".
+
+    FYI: You can move between chapters of the tutorial with K and L.
 
     Let's zoom in on this spacecraft to get a closer look.
 
@@ -38,9 +40,7 @@
     - cond: !FocusCamera 1003
       is_permanent: false
       seconds: 0
-    - cond: !ZoomCameraTo
-      - 20
-      - 250
+    - cond: !ZoomCamera
       is_permanent: false
       seconds: 0
 
@@ -62,7 +62,7 @@
 
     Since vessels can rotate freely, you'll need to keep track of which way
     your ownship is pointing - this is indicated by the green arrow on the
-    Navigation Panel.
+    Control Panel.
 
   conditions:
     - cond: !SelectVehicle 1003
@@ -70,10 +70,10 @@
       seconds: 0
     - cond: !ThrustForward 1003
       is_permanent: true
-      seconds: 10
+      seconds: 5
     - cond: !ThrustBackward 1003
       is_permanent: true
-      seconds: 10
+      seconds: 5
 
   ending: |
     Fabulous. Most vessels won't be able to thrust both forwards and backwards;
@@ -90,14 +90,21 @@
     can thrust in different directions.
 
     You can change your vehicle's rotation rate using the left and right arrow
-    keys. The HDG and RATE indicators on the Navigation Panel show which way
+    keys. The HEADING and RATE indicators on the Control Panel show which way
     the vessel is pointing and how fast it's spinning.
 
-    We'll use a larger vehicle that's harder to turn, so it's easier to
-    make precise changes manually.
+    We'll use a larger vessel that's slower to turn, so it's easier to
+    make precise changes manually. Press H to return to the orbital view and
+    select another vessel.
 
   conditions:
     - cond: !SelectVehicle 1006
+      is_permanent: false
+      seconds: 0
+    - cond: !FocusCamera 1006
+      is_permanent: false
+      seconds: 0
+    - cond: !ZoomCamera
       is_permanent: false
       seconds: 0
     - cond: !HoldAttitude
@@ -123,6 +130,139 @@
 
   ending: |
     Heckin sweet. Let's make some orbital maneuvers.
+
+# ====================================================================
+
+- title: Prograde and Retrograde
+  intro: |
+    Prograde and retrograde are two of the most fundamental directions
+    in orbital mechanics. Vessels are equipped with the ability to
+    execute maneuvers in those directions automatically.
+
+    "Prograde" means "along the vehicle's direction of travel".
+
+    "Retrograde" means "opposite the vehicle's direction of travel".
+
+    In space, prograde is nearly the same thing as forwards, and retrograde
+    is close enough to the idea of backwards. There are important differences
+    (for example, spacecraft can point in other directions than their
+    direction of travel - they're not cars!) but that's a close enough
+    mental model to start with.
+
+  conditions:
+    - cond: !SelectVehicle 1004
+      is_permanent: false
+      seconds: 0
+    - cond: !Prograde 1004
+      is_permanent: true
+      seconds: 30
+    - cond: !Retrograde 1004
+      is_permanent: true
+      seconds: 30
+    - cond: !Idle 1004
+      is_permanent: false
+      seconds: 0
+  ending: |
+    Good job!
+
+# ====================================================================
+
+- title: Raising your apoapsis
+  intro: |
+    This is the first half of raising your orbit - thrust prograde and
+    raise your apoapsis to the desired altitude.
+
+    TODO make this better and explain what apoapses are.
+  conditions:
+    - cond: !SelectVehicle 1004
+      is_permanent: false
+      seconds: 0
+    - cond: !Prograde 1004
+      is_permanent: true
+      seconds: 10
+    - cond: !Apoapsis
+        - 1004
+        - 64000000
+        - 67000000
+      is_permanent: false
+      seconds: 10
+    - cond: !Idle 1004
+      is_permanent: false
+      seconds: 0
+  ending: |
+    Yay!
+
+# ====================================================================
+
+- title: Raising your periapsis
+  intro: |
+    We want to raise orbits, for fun.
+  conditions:
+    - cond: !SelectVehicle 1004
+      is_permanent: false
+      seconds: 0
+    - cond: !Periapsis
+        - 1004
+        - 45000000
+        - 48000000
+      is_permanent: false
+      seconds: 10
+  ending: |
+    Yay!
+
+# ====================================================================
+
+- title: Inserting into a specific orbit
+  intro: |
+    Another challenge for the fun of it.
+  conditions:
+    - cond: !SelectVehicle 1004
+      is_permanent: false
+      seconds: 0
+    - cond: !Apoapsis
+        - 1004
+        - 52000000
+        - 56000000
+      is_permanent: false
+      seconds: 10
+    - cond: !Periapsis
+        - 1004
+        - 31000000
+        - 34000000
+      is_permanent: false
+      seconds: 10
+  ending: |
+    Yay!
+
+# ====================================================================
+
+- title: Inserting into a specific orbit, part II
+  intro: |
+    Another challenge for the fun of it.
+  conditions:
+    - cond: !SelectVehicle 1004
+      is_permanent: false
+      seconds: 0
+    - cond: !Apoapsis
+        - 1004
+        - 75000000
+        - 82000000
+      is_permanent: false
+      seconds: 10
+    - cond: !Periapsis
+        - 1004
+        - 40000000
+        - 45000000
+      is_permanent: false
+      seconds: 10
+    - cond: !ArgumentOfPeriapsis
+        - 1004
+        - 0.7
+        - 0.8
+      is_permanent: false
+      seconds: 10
+  ending: |
+    Yay!
 
 # ====================================================================
 
@@ -154,17 +294,18 @@
   intro: >
     I know you just started, but you're so ready for this.
   conditions:
-    - cond: !SelectVehicle 1005
+    - cond: !SelectVehicle 1004
       is_permanent: false
       seconds: 0
     - cond: !SetTarget
-        ownship: 1005
+        ownship: 1004
         target: 1002
       is_permanent: false
       seconds: 0
     - cond: !Rendezvous
-        ownship: 1005
+        ownship: 1004
         target: 1002
       is_permanent: false
       seconds: 10
-  ending: You freaking did it!
+  ending: |
+    You freaking did it!

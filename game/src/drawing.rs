@@ -125,11 +125,24 @@ fn draw_region(
     }
 }
 
-pub fn draw_obb(gizmos: &mut Gizmos, obb: &OBB, color: Srgba) {
+pub fn draw_obb(canvas: &mut Canvas, obb: &OBB, color: Srgba, fill: bool) {
     // draw_cross(gizmos, obb.0.center, 30.0, color);
-    let mut corners = obb.corners().to_vec();
-    corners.push(*corners.get(0).expect("Expected a corner"));
-    gizmos.linestrip_2d(corners, color);
+    // let mut corners = obb.corners().to_vec();
+    // corners.push(*corners.get(0).expect("Expected a corner"));
+    // gizmos.linestrip_2d(corners, color);
+    let z = ZOrdering::Ui.as_f32();
+    canvas.painter.reset();
+    canvas.painter.set_color(color);
+    if fill {
+        canvas.painter.hollow = false;
+        canvas.painter.thickness = 0.0;
+    } else {
+        canvas.painter.hollow = true;
+        canvas.painter.thickness = 2.0;
+    }
+    canvas.painter.set_translation(obb.0.center.extend(z));
+    canvas.painter.set_rotation(Quat::from_rotation_z(obb.1));
+    canvas.painter.rect(obb.0.span);
 }
 
 pub fn draw_orbit(
@@ -140,7 +153,7 @@ pub fn draw_orbit(
     draw_nodes: bool,
     ctx: &impl CameraProjection,
 ) {
-    let peri = orb.periapsis();
+    let peri: DVec2 = orb.periapsis();
     let apo = orb.apoapsis();
 
     let draw_node = |canvas: &mut Canvas, pos: DVec2, text: &'static str| {
@@ -415,7 +428,8 @@ pub fn draw_vehicle(
                 angle,
             )
             .offset(center + pos);
-            draw_obb(&mut canvas.gizmos, &obb, color);
+            draw_obb(canvas, &obb, color, false);
+            draw_obb(canvas, &obb, color.with_alpha(0.1), true);
         }
     }
 
@@ -518,13 +532,19 @@ pub fn make_separation_graph(
     (g, v, pv)
 }
 
-pub fn draw_pointing_vector(gizmos: &mut Gizmos, center: Vec2, r: f32, u: Vec2, color: Srgba) {
-    let triangle_width = 13.0;
+pub fn draw_pointing_vector(canvas: &mut Canvas, center: Vec2, r: f32, u: Vec2, color: Srgba) {
+    let triangle_width = 22.0;
     let v = rotate(u, PI / 2.0);
-    let p1 = center + u * r * 0.7;
+    let p1 = center + u * r;
     let p2 = p1 + (v - u) * triangle_width;
     let p3 = p2 - v * triangle_width * 2.0;
-    gizmos.linestrip_2d([p1, p2, p3, p1], color);
+    canvas.painter.reset();
+    canvas.painter.set_color(color);
+    canvas.painter.hollow = false;
+    canvas
+        .painter
+        .set_translation(Vec3::Z * ZOrdering::Ui.as_f32());
+    canvas.painter.triangle(p1, p2, p3);
 }
 
 pub fn draw_arc(
@@ -641,13 +661,7 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
         canvas.text(text, p, 0.6).set_anchor(Anchor::CenterRight);
     }
 
-    draw_pointing_vector(
-        &mut canvas.gizmos,
-        center,
-        r * 1.3,
-        rotate(Vec2::X, body.angle as f32),
-        GREEN,
-    );
+    draw_pointing_vector(canvas, center, r, rotate(Vec2::X, body.angle as f32), GREEN);
 
     let rel_pv = (|| {
         let ev = state.universe.pv(piloting)?;
@@ -660,9 +674,9 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
     if let Some(rel_pv) = rel_pv {
         let angle_to_target = (-rel_pv.pos).to_angle();
         draw_pointing_vector(
-            &mut canvas.gizmos,
+            canvas,
             center,
-            r * 1.3,
+            r,
             rotate(Vec2::X, angle_to_target as f32),
             TEAL,
         );
@@ -695,16 +709,16 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
     canvas
         .text(
             format!(
-                "ALT {}\nHDG {:0.0} RATE {:0.0}\n{}-type vessel",
+                "ALT {}\nHEADING {:0.0} TURNRATE {:0.0}\n{}-type vessel",
                 distance_str(altitude),
                 wrap_0_2pi_f64(body.angle).to_degrees(),
                 wrap_pi_npi_f64(body.angular_velocity).to_degrees(),
                 vehicle.model().to_uppercase()
             ),
-            center + Vec2::new(r * 0.7, r + 130.0),
+            center + Vec2::new(-r * 0.7, r + 130.0),
             0.8,
         )
-        .set_anchor(Anchor::CenterRight);
+        .set_anchor(Anchor::CenterLeft);
 
     canvas
         .text(
@@ -723,10 +737,10 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
     canvas
         .text(
             sv.controller.mode().to_status_str().to_uppercase(),
-            center + Vec2::new(r * 0.7, r + 200.0),
+            center + Vec2::new(-r * 0.7, r + 200.0),
             1.2,
         )
-        .set_anchor(Anchor::CenterRight)
+        .set_anchor(Anchor::CenterLeft)
         .set_color(color);
 
     // let orbit_str = orbit
@@ -902,76 +916,142 @@ fn draw_scenario(canvas: &mut Canvas, state: &GameState) {
     });
 }
 
-fn get_goal_text(cond: &GoalCondition, state: &GameState) -> Option<String> {
-    match cond {
-        GoalCondition::SelectVehicle(id) => {
-            let sv = state.universe.surface_vehicles.get(&id)?;
-            let title = sv.vehicle.title_with_id(*id);
-            Some(format!(
-                "Select vessel \"{}\" by left-clicking on it.",
-                title
-            ))
-        }
-        GoalCondition::SetTarget { ownship, target } => {
-            let ov = state.universe.surface_vehicles.get(ownship)?;
-            let tv = state.universe.surface_vehicles.get(target)?;
-            let ot = ov.vehicle.name();
-            let tt = tv.vehicle.title_with_id(*target);
-            Some(format!(
-                "Set the target of \"{}\" to \"{}\" by right-clicking on it.",
-                ot, tt,
-            ))
-        }
-        GoalCondition::Rendezvous { ownship, target } => {
-            let ov = state.universe.surface_vehicles.get(ownship)?;
-            let tv = state.universe.surface_vehicles.get(target)?;
-            let ot = ov.vehicle.name();
-            let tt = tv.vehicle.name();
-            Some(format!("Rendezvous \"{}\" with \"{}\".", ot, tt,))
-        }
-        GoalCondition::ThrustForward(id) => {
-            let sv = state.universe.surface_vehicles.get(id)?;
-            let n = sv.vehicle.name_with_id(*id);
-            Some(format!("Apply forwards thrust to \"{}\".", n))
-        }
-        GoalCondition::ThrustBackward(id) => {
-            let sv = state.universe.surface_vehicles.get(id)?;
-            let n = sv.vehicle.name_with_id(*id);
-            Some(format!("Apply backwards thrust to \"{}\".", n))
-        }
-        GoalCondition::HoldAttitude(id, deg) => {
-            let sv = state.universe.surface_vehicles.get(id)?;
-            let n = sv.vehicle.name_with_id(*id);
-            Some(format!("Hold heading of \"{}\" at {} degrees.", n, deg))
-        }
-        GoalCondition::FocusCamera(id) => {
-            let sv = state.universe.surface_vehicles.get(id)?;
-            let n = sv.vehicle.name_with_id(*id);
-            Some(format!(
-                "Set the camera to follow \"{}\" with ctrl+left-click.",
-                n
-            ))
-        }
-        GoalCondition::ZoomCameraTo(min, max) => Some(format!(
-            "Zoom the viewport width to between {} and {}.",
-            distance_str(*min),
-            distance_str(*max)
-        )),
-        _ => None,
-    }
-}
-
 fn tutorial_highlight_vessel(
     canvas: &mut Canvas,
     id: EntityId,
     ctx: &impl CameraProjection,
-    universe: &Universe,
+    state: &GameState,
     color: Srgba,
+    text: &'static str,
 ) -> Option<()> {
-    let pv = universe.pv(id)?;
+    let pv = state.universe.pv(id)?;
     let pos = ctx.w2c(pv.pos);
+    let half_span = state.input.screen_bounds.span / 2.0;
+
+    if pos.x > half_span.x || pos.y > half_span.y || pos.x < -half_span.x || pos.y < -half_span.y {
+        let alpha = if is_blinking(state.wall_time) {
+            1.0
+        } else {
+            0.2
+        };
+        canvas
+            .text("PRESS H TO RETURN HOME", Vec2::Y * 300.0, 2.0)
+            .set_color(WHITE.with_alpha(alpha));
+    }
+
     let p = pos.extend(ZOrdering::Ui.as_f32());
     canvas.circle(p, 36.0, color);
+    canvas
+        .text(text, p.xy() + Vec2::Y * 40.0, 0.8)
+        .set_z_order(ZOrdering::Ui)
+        .set_color(color)
+        .set_anchor(Anchor::BottomCenter);
+    Some(())
+}
+
+fn tutorial_draw_attitude_goal(
+    canvas: &mut Canvas,
+    id: EntityId,
+    ctx: &impl CameraProjection,
+    state: &GameState,
+    color: Srgba,
+    heading: f64,
+    goal: &Goal,
+) -> Option<()> {
+    let meters = camera_span_meters(state.input.screen_bounds.span, ctx).length();
+    let alpha = ((500.0 - meters) / 100.0).clamp(0.0, 1.0);
+
+    if alpha < 0.01 {
+        return None;
+    }
+
+    let pv = state.universe.pv(id)?;
+    let sv = state.universe.surface_vehicles.get(&id)?;
+    let r = sv.vehicle.bounding_radius();
+
+    let lum = if goal.progress() > 0.0 { 1.0 } else { 0.5 };
+    let alpha = alpha
+        * if goal.progress() > 0.0 && is_blinking(state.wall_time) {
+            1.0
+        } else {
+            0.7
+        };
+
+    draw_pointing_vector(
+        canvas,
+        ctx.w2c(pv.pos),
+        gcast(r * ctx.scale()) * 1.2,
+        rotate_f64(DVec2::X, heading).as_vec2(),
+        color.with_alpha(alpha as f32).with_luminance(lum),
+    );
+
+    let p = ctx.w2c(pv.pos) + rotate(Vec2::X, heading as f32) * gcast(r * ctx.scale()) * 1.3;
+
+    canvas
+        .text(format!("{:0.0}", heading.to_degrees()), p, 0.8)
+        .set_color(color.with_alpha(alpha as f32))
+        .set_z_order(ZOrdering::Ui2);
+
+    Some(())
+}
+
+fn tutorial_draw_target_node(
+    canvas: &mut Canvas,
+    state: &GameState,
+    id: EntityId,
+    min: f64,
+    max: f64,
+    goal: &Goal,
+    is_periapsis: bool,
+) -> Option<()> {
+    if state.piloting() != Some(id) {
+        return None;
+    }
+    let sv = state.universe.surface_vehicles.get(&id)?;
+    let orbit = sv.current_orbit()?;
+    let pv = state.universe.pv(orbit.0)?;
+    let ctx = &state.orbital_context;
+    let z = ZOrdering::Ui.as_f32();
+    let p = ctx.w2c(pv.pos).extend(z);
+    let alpha = if goal.progress() > 0.0 && is_blinking(state.wall_time) {
+        1.0
+    } else {
+        0.5
+    };
+    let color = if goal.progress() > 0.0 { GREEN } else { TEAL };
+    for r in [min, max] {
+        canvas.circle(p, gcast(r * ctx.scale()), color.with_alpha(alpha));
+    }
+
+    let node = if is_periapsis {
+        orbit.1.periapsis()
+    } else {
+        orbit.1.apoapsis()
+    };
+    let r = node.length();
+    let node = ctx.w2c(pv.pos + node);
+    let alpha = if is_blinking(state.wall_time) {
+        1.0
+    } else {
+        0.5
+    };
+
+    let text = match (is_periapsis, r < min, r > max) {
+        (true, true, _) => "RAISE PERIAPSIS",
+        (true, _, true) => "LOWER PERIAPSIS",
+        (false, true, _) => "RAISE APOAPSIS",
+        (false, _, true) => "LOWER APOAPSIS",
+        (_, false, false) => "PERFECT",
+    };
+
+    let color = color.with_alpha(alpha);
+    canvas.circle(node.extend(z), 30.0, color);
+    canvas
+        .text(text, node + Vec2::Y * 40.0, 0.8)
+        .set_z_order(ZOrdering::Ui)
+        .set_color(color)
+        .set_anchor(Anchor::BottomCenter);
+
     Some(())
 }
 
@@ -983,17 +1063,37 @@ fn draw_goal_markers(canvas: &mut Canvas, state: &GameState, goal: &Goal) {
     let alpha = if blinking { 0.8 } else { 0.2 };
     let ctx = &state.orbital_context.camera;
     match &goal.cond {
-        GoalCondition::SetTarget { ownship: _, target } => {
-            tutorial_highlight_vessel(
-                canvas,
-                *target,
-                ctx,
-                &state.universe,
-                TEAL.with_alpha(alpha),
-            );
+        GoalCondition::SetTarget { ownship, target } => {
+            if Some(*ownship) == state.piloting() {
+                tutorial_highlight_vessel(
+                    canvas,
+                    *target,
+                    ctx,
+                    state,
+                    TEAL.with_alpha(alpha),
+                    "RIGHT CLICK ME",
+                );
+            }
         }
         GoalCondition::SelectVehicle(id) => {
-            tutorial_highlight_vessel(canvas, *id, ctx, &state.universe, ORANGE.with_alpha(alpha));
+            tutorial_highlight_vessel(
+                canvas,
+                *id,
+                ctx,
+                state,
+                ORANGE.with_alpha(alpha),
+                "CLICK ME",
+            );
+        }
+        GoalCondition::HoldAttitude(id, angle) => {
+            let heading = (*angle as f64).to_radians();
+            tutorial_draw_attitude_goal(canvas, *id, ctx, state, GREEN, heading, goal);
+        }
+        GoalCondition::Periapsis(id, min, max) => {
+            tutorial_draw_target_node(canvas, state, *id, *min, *max, goal, true);
+        }
+        GoalCondition::Apoapsis(id, min, max) => {
+            tutorial_draw_target_node(canvas, state, *id, *min, *max, goal, false);
         }
         _ => (),
     }
@@ -1002,6 +1102,7 @@ fn draw_goal_markers(canvas: &mut Canvas, state: &GameState, goal: &Goal) {
 fn draw_tutorials(canvas: &mut Canvas, state: &GameState) -> Option<()> {
     let tut = state.tutorial.as_ref()?;
     let chap = tut.current()?;
+    let is_last = tut.current_is_last();
     let half = state.input.screen_bounds.span / 2.0;
     let half = half.with_x(-half.x);
     let x = 100.0;
@@ -1021,9 +1122,6 @@ fn draw_tutorials(canvas: &mut Canvas, state: &GameState) -> Option<()> {
 
     let title = format!("{}. {}", tut.current + 1, chap.title.to_uppercase());
 
-    draw_line(canvas, &mut y, &title, WHITE.with_alpha(0.8));
-    draw_line(canvas, &mut y, "", WHITE);
-
     let wrap_lines = |c: &mut Canvas, y: &mut f32, s: &str, color: Srgba| {
         let lines = s.split("\n");
         for line in lines {
@@ -1031,11 +1129,31 @@ fn draw_tutorials(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         }
     };
 
+    let checkmark = |c: &mut Canvas, y: f32, is_complete: bool| {
+        let aabb = AABB::unit()
+            .with_center(half + Vec2::new(x, -y) + Vec2::new(-13.0, 13.0))
+            .scale_about_center(12.0);
+        if is_complete {
+            c.rect(aabb, ZOrdering::Ui, GREEN);
+        } else {
+            c.hollow_rect(aabb, ZOrdering::Ui, WHITE, 1.0);
+        }
+    };
+
+    checkmark(canvas, y, chap.is_complete());
+
+    draw_line(canvas, &mut y, &title, WHITE.with_alpha(0.8));
+    draw_line(canvas, &mut y, "", WHITE);
+
     wrap_lines(canvas, &mut y, &chap.intro, WHITE.with_alpha(0.5));
 
     for goal in &chap.conditions {
         let t = get_goal_text(&goal.cond, state).unwrap_or(format!("{:?}", goal.cond));
-        let color = if goal.is_complete { GREEN } else { WHITE };
+        let color = if goal.is_complete {
+            WHITE.with_alpha(0.1)
+        } else {
+            WHITE
+        };
         let p = goal.progress();
         let color = if p > 0.0 && p < 1.0 {
             let o = half + Vec2::new(x, -y);
@@ -1049,20 +1167,28 @@ fn draw_tutorials(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         } else {
             color
         };
+        checkmark(canvas, y, goal.is_complete);
         wrap_lines(canvas, &mut y, &t, color);
         draw_goal_markers(canvas, state, goal);
     }
 
-    wrap_lines(canvas, &mut y, "", WHITE.with_alpha(0.5));
     if chap.is_complete() {
+        wrap_lines(canvas, &mut y, "", WHITE.with_alpha(0.5));
         wrap_lines(canvas, &mut y, &chap.ending, WHITE.with_alpha(0.5));
+        if !is_last {
+            let alpha = if is_blinking(state.wall_time) {
+                1.0
+            } else {
+                0.4
+            };
+            wrap_lines(
+                canvas,
+                &mut y,
+                "Press L to continue to next chapter",
+                WHITE.with_alpha(alpha),
+            );
+        }
     }
-    wrap_lines(
-        canvas,
-        &mut y,
-        "(Press K for previous, L for next)",
-        WHITE.with_alpha(0.2),
-    );
 
     Some(())
 }
@@ -1651,7 +1777,7 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
 
     if state.paused {
         canvas
-            .text("PAUSED", Vec2::ZERO, 3.0)
+            .text("PAUSED", Vec2::Y * 500.0, 3.0)
             .set_color(WHITE.with_alpha(0.2));
     }
 
@@ -1692,43 +1818,43 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
 
     // draw_orbit_spline(canvas, state);
 
-    if let Some((m1, m2, corner)) = state.measuring_tape() {
-        let m1 = ctx.w2c(m1);
-        let m2 = ctx.w2c(m2);
-        let corner = ctx.w2c(corner);
-        draw_x(&mut canvas.gizmos, m1, 12.0, GRAY);
-        draw_x(&mut canvas.gizmos, m2, 12.0, GRAY);
-        canvas.gizmos.line_2d(m1, m2, GRAY);
-        canvas.gizmos.line_2d(m1, corner, GRAY.with_alpha(0.3));
-        canvas.gizmos.line_2d(m2, corner, GRAY.with_alpha(0.3));
-    }
+    // if let Some((m1, m2, corner)) = state.measuring_tape() {
+    //     let m1 = ctx.w2c(m1);
+    //     let m2 = ctx.w2c(m2);
+    //     let corner = ctx.w2c(corner);
+    //     draw_x(&mut canvas.gizmos, m1, 12.0, GRAY);
+    //     draw_x(&mut canvas.gizmos, m2, 12.0, GRAY);
+    //     canvas.gizmos.line_2d(m1, m2, GRAY);
+    //     canvas.gizmos.line_2d(m1, corner, GRAY.with_alpha(0.3));
+    //     canvas.gizmos.line_2d(m2, corner, GRAY.with_alpha(0.3));
+    // }
 
-    if let Some((c, a, b)) = state.protractor() {
-        let b = b.unwrap_or(a);
-        let c = ctx.w2c(c);
-        let a = ctx.w2c(a);
-        let b = ctx.w2c(b);
-        let r1 = c.distance(a);
-        let r2 = c.distance(b);
-        for p in [a, b, c] {
-            draw_x(&mut canvas.gizmos, p, 7.0, WHITE);
-        }
-        draw_circle(&mut canvas.gizmos, c, r1, WHITE.with_alpha(0.4));
-        draw_circle(&mut canvas.gizmos, c, r2, WHITE.with_alpha(0.7));
-        canvas.gizmos.line_2d(c, a, RED);
-        canvas.gizmos.line_2d(c, b, GREEN);
-        canvas.gizmos.line_2d(a, b, GRAY.with_alpha(0.3));
-        let angle = (a - c).angle_to(b - c);
-        let iso = Isometry2d::new(c, ((a - c).to_angle() - PI / 2.0).into());
-        canvas
-            .gizmos
-            .arc_2d(iso, angle, (r1 * 0.75).min(r2), TEAL)
-            .resolution(100);
-    }
+    // if let Some((c, a, b)) = state.protractor() {
+    //     let b = b.unwrap_or(a);
+    //     let c = ctx.w2c(c);
+    //     let a = ctx.w2c(a);
+    //     let b = ctx.w2c(b);
+    //     let r1 = c.distance(a);
+    //     let r2 = c.distance(b);
+    //     for p in [a, b, c] {
+    //         draw_x(&mut canvas.gizmos, p, 7.0, WHITE);
+    //     }
+    //     draw_circle(&mut canvas.gizmos, c, r1, WHITE.with_alpha(0.4));
+    //     draw_circle(&mut canvas.gizmos, c, r2, WHITE.with_alpha(0.7));
+    //     canvas.gizmos.line_2d(c, a, RED);
+    //     canvas.gizmos.line_2d(c, b, GREEN);
+    //     canvas.gizmos.line_2d(a, b, GRAY.with_alpha(0.3));
+    //     let angle = (a - c).angle_to(b - c);
+    //     let iso = Isometry2d::new(c, ((a - c).to_angle() - PI / 2.0).into());
+    //     canvas
+    //         .gizmos
+    //         .arc_2d(iso, angle, (r1 * 0.75).min(r2), TEAL)
+    //         .resolution(100);
+    // }
 
-    for orbit in &ctx.queued_orbits {
-        draw_global_orbit(canvas, orbit, &state, RED, false);
-    }
+    // for orbit in &ctx.queued_orbits {
+    //     draw_global_orbit(canvas, orbit, &state, RED, false);
+    // }
 
     circle_entity(canvas, ctx.hovered_entity, ctx, &state.universe, GRAY);
     circle_entity(canvas, ctx.piloting, ctx, &state.universe, ORANGE);
@@ -1778,13 +1904,13 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
         }
     }
 
-    if let Some(orbit) = state.cursor_orbit_if_mode() {
-        draw_global_orbit(canvas, &orbit, &state, ORANGE, false);
-    }
+    // if let Some(orbit) = state.cursor_orbit_if_mode() {
+    //     draw_global_orbit(canvas, &orbit, &state, ORANGE, false);
+    // }
 
-    if let Some(orbit) = state.current_orbit() {
-        draw_global_orbit(canvas, &orbit, &state, TEAL, false);
-    }
+    // if let Some(orbit) = state.current_orbit() {
+    //     draw_global_orbit(canvas, &orbit, &state, TEAL, false);
+    // }
 
     draw_scenario(canvas, state);
 

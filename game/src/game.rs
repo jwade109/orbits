@@ -17,6 +17,24 @@ use std::path::Path;
 
 pub struct GamePlugin;
 
+fn my_system(world: &mut World) {
+    let q = world.iter_entities();
+
+    let mut entity_info = HashMap::new();
+
+    for e in q {
+        for ci in world.inspect_entity(e.id()) {
+            let s = ci.name().to_string();
+            let count: u64 = *entity_info.get(&s).unwrap_or(&0);
+            entity_info.insert(s, count + 1);
+        }
+    }
+
+    let mut game = world.get_resource_mut::<GameState>().unwrap();
+
+    game.entity_info = entity_info;
+}
+
 fn combo_just_pressed(input: &InputState, keys: &[KeyCode]) -> bool {
     if let Some(l) = keys.last() {
         keys.iter().all(|k| input.is_pressed(*k)) && input.just_pressed(*l)
@@ -89,6 +107,8 @@ impl Plugin for GamePlugin {
                 on_game_tick,
                 // rendering
                 crate::sounds::sound_system,
+                // whatever
+                my_system,
             )
                 .chain(),
         );
@@ -145,6 +165,8 @@ fn init_system(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 pub struct GameState {
     pub game_ticks: u64,
     pub render_ticks: u64,
+    pub entity_count: u64,
+    pub entity_info: HashMap<String, u64>,
 
     pub cursor_position: Vec2,
 
@@ -301,11 +323,19 @@ impl GameState {
             buttons.push(Box::new(ts));
         }
 
-        let tutorial = load_tutorial_from_file(&args.tutorial_path()).ok();
+        let tutorial = match load_tutorial_from_file(&args.tutorial_path()) {
+            Ok(t) => Some(t),
+            Err(e) => {
+                error!(e);
+                None
+            }
+        };
 
         let mut g = GameState {
             render_ticks: 0,
             game_ticks: 0,
+            entity_count: 0,
+            entity_info: HashMap::new(),
             cursor_position: Vec2::ZERO,
             settings,
             sounds,
@@ -380,28 +410,13 @@ impl GameState {
             ("remora", luna_id),
         ];
 
-        let mut a = None;
-        let mut b = None;
-
         for (name, parent) in vehicles {
             let vehicle = g.get_vehicle_by_model(name);
             let orbit = get_random_orbit(parent);
             if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {
-                let id = g.spawn_with_random_perturbance(orbit, vehicle);
-                if let Some(id) = (name == "remora").then(|| id).flatten() {
-                    if a.is_none() {
-                        a = Some(id);
-                    }
-                }
-                if let Some(id) = (name == "spacestation").then(|| id).flatten() {
-                    b = Some(id);
-                }
+                g.spawn_with_random_perturbance(orbit, vehicle);
             }
         }
-
-        // if let (Some(a), Some(b)) = (a, b) {
-        //     g.goals = init_goals(a, b).collect();
-        // }
 
         g
     }
@@ -514,30 +529,50 @@ impl Render for GameState {
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         // BOOKMARK debug info
 
-        #[allow(unused)]
-        let debug_info: String = [
-            format!("Wall time: {}", state.wall_time),
-            format!("Universe time: {}", state.universe.stamp()),
-            format!(
-                "Ideal universe ticks per game tick: {}",
-                state.universe_ticks_per_game_tick.as_ticks(),
-            ),
-            format!(
-                "Actual universe ticks per game tick: {}",
-                state.actual_universe_ticks_per_game_tick
-            ),
-            format!("Render ticks: {}", state.render_ticks),
-            format!("Game ticks: {}", state.game_ticks),
-            format!("Universe ticks: {}", state.universe.ticks()),
-            format!("Execution time: {} us", state.exec_time.as_micros()),
-        ]
-        .iter()
-        .map(|e| format!("{}\n", e))
-        .collect();
+        if state.settings.show_debug_info {
 
-        // canvas
-        //     .text(debug_info, Vec2::splat(-300.0), 0.7)
-        //     .anchor_left();
+            let mut entity_info = Vec::from_iter(state.entity_info.iter());
+
+            entity_info.sort_by_key(|(s, _)| *s);
+
+            let debug_info: String = [
+                format!("Wall time: {}", state.wall_time),
+                format!("Universe time: {}", state.universe.stamp()),
+                format!(
+                    "Ideal universe ticks per game tick: {}",
+                    state.universe_ticks_per_game_tick.as_ticks(),
+                ),
+                format!(
+                    "Actual universe ticks per game tick: {}",
+                    state.actual_universe_ticks_per_game_tick
+                ),
+                format!("Render ticks: {}", state.render_ticks),
+                format!("Game ticks: {}", state.game_ticks),
+                format!("Universe ticks: {}", state.universe.ticks()),
+                format!("Execution time: {} us", state.exec_time.as_micros()),
+                format!("Entity count: {}", state.entity_count),
+            ]
+            .into_iter()
+            .chain(entity_info.iter().map(|(s, c)| {
+                format!(" - {}: {}", s, c)
+            }))
+            .map(|e| format!("{}\n", e))
+            .collect();
+
+            let pos = state.input.screen_bounds.span / 2.0;
+            let pos = pos.with_x(-pos.x);
+
+            canvas.rect(
+                AABB::from_arbitrary(pos, pos + Vec2::new(700.0, -2000.0)),
+                ZOrdering::Debug,
+                BLACK.with_alpha(0.95),
+            );
+
+            canvas
+                .text(debug_info, pos + Vec2::new(6.0, -6.0), 0.5)
+                .set_anchor(Anchor::TopLeft)
+                .set_z_order(ZOrdering::Debug2);
+        }
 
         match state.scene {
             SceneType::Orbital => OrbitalContext::draw(canvas, state),
@@ -1008,11 +1043,18 @@ impl GameState {
     }
 
     pub fn zoom_to_vehicle(&mut self, vehicle: bool) -> Option<()> {
-        let scale = if vehicle { 4.0 } else { -15.0 };
+        let scale = if vehicle { 4.5 } else { -15.0 };
         self.orbital_context.following = Some(self.piloting()?);
         self.orbital_context.camera.set_target_offset(DVec2::ZERO);
         self.orbital_context.camera.set_target_scale(scale);
         Some(())
+    }
+
+    pub fn reset_camera(&mut self) {
+        self.orbital_context.following = None;
+        self.orbital_context.camera.follow(EntityId(0), DVec2::ZERO);
+        self.orbital_context.camera.set_target_offset(DVec2::ZERO);
+        self.orbital_context.camera.set_target_scale(-16.0);
     }
 
     pub fn set_controller_policy(&mut self, policy: VehicleControlPolicy) -> Option<()> {
@@ -1188,7 +1230,8 @@ impl GameState {
 
         if self.input.just_pressed(KeyCode::KeyL) {
             if let Some(t) = &mut self.tutorial {
-                t.next();
+                let force = self.input.is_pressed(KeyCode::ControlLeft);
+                t.next(force);
             }
         }
 
@@ -1222,6 +1265,14 @@ impl GameState {
                     events.push(e);
                 }
             }
+        }
+
+        if self.input.just_pressed(KeyCode::KeyH) {
+            self.reset_camera();
+        }
+
+        if self.input.just_pressed(KeyCode::KeyV) {
+            self.zoom_to_vehicle(true);
         }
 
         if self.input.just_pressed(KeyCode::KeyY) {
@@ -1273,6 +1324,15 @@ impl GameState {
             &[KeyCode::ControlLeft, KeyCode::ShiftLeft, KeyCode::KeyT],
         ) {
             self.settings.draw_transform_tree = !self.settings.draw_transform_tree;
+            return;
+        }
+
+        if combo_just_pressed(
+            &self.input,
+            &[KeyCode::ControlLeft, KeyCode::ShiftLeft, KeyCode::KeyD],
+        ) {
+            self.settings.show_debug_info = !self.settings.show_debug_info;
+            return;
         }
 
         if self.input.is_pressed(KeyCode::ShiftLeft) && self.input.is_pressed(KeyCode::ControlLeft)
@@ -1415,12 +1475,18 @@ impl GameState {
     }
 }
 
-fn on_game_tick(mut state: ResMut<GameState>, mut images: ResMut<Assets<Image>>) {
+fn on_game_tick(
+    mut state: ResMut<GameState>,
+    mut images: ResMut<Assets<Image>>,
+    entities: Query<Entity>,
+) {
     state.on_game_tick();
 
     if state.image_handles.is_empty() {
         state.load_sprites(&mut images)
     }
+
+    state.entity_count = entities.iter().count() as u64;
 
     crate::generate_ship_sprites::proc_gen_ship_sprites(&mut state, &mut images);
 }

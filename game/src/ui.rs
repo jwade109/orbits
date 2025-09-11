@@ -103,8 +103,6 @@ pub fn do_text_labels(
 
     let font_size = 28.0;
 
-    let scale = rand(1.0, 20.0);
-
     let mut labels: Vec<_> = query.iter_mut().collect();
     for (i, tl) in text_labels.iter().enumerate() {
         if let Some((_, text2d, font, label, color, anchor)) = labels.get_mut(i) {
@@ -117,9 +115,9 @@ pub fn do_text_labels(
         } else {
             commands.spawn((
                 Text2d::new(tl.text()),
-                TextFont::from_font_size(font_size * scale).with_font(font.clone()),
+                TextFont::from_font_size(font_size).with_font(font.clone()),
                 Transform::from_translation(tl.pos().extend(tl.z_order().as_f32()))
-                    .with_scale(Vec3::splat(tl.size() / scale)),
+                    .with_scale(Vec3::splat(tl.size())),
                 TextLabel,
                 TextColor(tl.color().into()),
                 tl.anchor(),

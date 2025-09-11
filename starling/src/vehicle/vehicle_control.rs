@@ -295,7 +295,7 @@ pub fn velocity_control_law(
     cmd
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VehicleControlStatus {
     Done,
     WaitingForInput,
@@ -453,7 +453,9 @@ pub fn burn_along_velocity_vector_control_law(
     let actual_angle = body.angle;
     ctrl.attitude = compute_attitude_control(body, thrust_angle, &vehicle.attitude_controller);
     let angular_error = wrap_pi_npi_f64((thrust_angle - actual_angle).abs());
-    let status = if angular_error.abs() < 0.05 {
+    let status = if angular_error.abs().to_degrees() < 3.0
+        && body.angular_velocity.to_degrees().abs() < 3.0
+    {
         ctrl.plus_x.throttle = 0.5;
         VehicleControlStatus::InProgress
     } else {

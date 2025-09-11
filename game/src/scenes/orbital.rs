@@ -296,7 +296,11 @@ pub fn get_orbital_labels(state: &GameState) -> Vec<TextLabel> {
                 })
                 .unwrap_or("UFO".to_string());
 
-            let pos = pc + Vec2::X * 40.0;
+            let r = vehicle
+                .map(|v| v.vehicle.bounding_radius() * state.orbital_context.scale() * 1.1)
+                .unwrap_or(40.0).max(40.0);
+
+            let pos = pc + Vec2::X * r as f32;
 
             TextLabel::new(code, pos, 0.6)
                 .with_anchor(Anchor::CenterLeft)

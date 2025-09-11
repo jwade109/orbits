@@ -10,6 +10,7 @@ pub fn sound_system(
     mut state: ResMut<GameState>,
 ) {
     for (s, v, do_loop, track) in state.sounds.sounds() {
+        println!("{} {} {} {:?}", &s, v, do_loop, track);
         let handle = match std::fs::canonicalize(state.args.audio_dir().join(s)) {
             Ok(path) => asset_server.load(path),
             Err(e) => {

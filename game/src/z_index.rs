@@ -31,6 +31,8 @@ pub enum ZOrdering {
     Ui2,
     Ui3,
     Window(u32, u32),
+    Debug,
+    Debug2,
 }
 
 impl ZOrdering {
@@ -67,6 +69,8 @@ impl ZOrdering {
             ZOrdering::Ui2 => 27,
             ZOrdering::Ui3 => 28,
             ZOrdering::Window(n, l) => (29 + n * 100 + l) as i32,
+            ZOrdering::Debug => 45,
+            ZOrdering::Debug2 => 46,
         }
     }
 

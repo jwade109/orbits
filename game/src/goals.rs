@@ -5,11 +5,6 @@ use starling::prelude::*;
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub enum GoalCondition {
-    AnyLaunchToOrbit,
-    AnyHoldAttitude,
-    AnyManuallyControlled,
-    AnyLandOnTheMoon,
-    AnyLandOnEarth,
     Rendezvous { ownship: EntityId, target: EntityId },
     SetTarget { ownship: EntityId, target: EntityId },
     SelectVehicle(EntityId),
@@ -17,7 +12,13 @@ pub enum GoalCondition {
     ThrustBackward(EntityId),
     HoldAttitude(EntityId, u16),
     FocusCamera(EntityId),
-    ZoomCameraTo(f64, f64),
+    ZoomCamera,
+    Apoapsis(EntityId, f64, f64),
+    Periapsis(EntityId, f64, f64),
+    ArgumentOfPeriapsis(EntityId, f64, f64),
+    Prograde(EntityId),
+    Retrograde(EntityId),
+    Idle(EntityId),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -66,8 +67,10 @@ impl Goal {
 
         if let Some(gd) = &mut self.dur {
             if satisfied {
-                gd.actual += PHYSICS_CONSTANT_DELTA_TIME;
-                self.is_complete = gd.actual >= gd.required;
+                if !state.paused {
+                    gd.actual += PHYSICS_CONSTANT_DELTA_TIME;
+                    self.is_complete = gd.actual >= gd.required;
+                }
             } else {
                 gd.actual = Nanotime::ZERO;
                 self.is_complete = false;
@@ -88,35 +91,6 @@ impl Goal {
 
 fn is_satisfied(state: &GameState, cond: &GoalCondition) -> Option<bool> {
     match cond {
-        GoalCondition::AnyLaunchToOrbit => {
-            Some(state.universe.surface_vehicles.iter().any(|(_, v)| {
-                if let VehicleControlPolicy::LaunchToOrbit(_) = v.controller.mode() {
-                    true
-                } else {
-                    false
-                }
-            }))
-        }
-        GoalCondition::AnyHoldAttitude => {
-            Some(state.universe.surface_vehicles.iter().any(|(_, v)| {
-                if let VehicleControlPolicy::HoldAttitude(_) = v.controller.mode() {
-                    true
-                } else {
-                    false
-                }
-            }))
-        }
-        GoalCondition::AnyManuallyControlled => {
-            Some(state.universe.surface_vehicles.iter().any(|(_, v)| {
-                if let VehicleControlPolicy::External = v.controller.mode() {
-                    true
-                } else {
-                    false
-                }
-            }))
-        }
-        GoalCondition::AnyLandOnTheMoon => None,
-        GoalCondition::AnyLandOnEarth => None,
         GoalCondition::Rendezvous { ownship, target } => {
             let pva = state.universe.pv(*ownship)?;
             let pvb = state.universe.pv(*target)?;
@@ -138,6 +112,9 @@ fn is_satisfied(state: &GameState, cond: &GoalCondition) -> Option<bool> {
             Some(sv.vehicle.is_thrusting() && sv.vehicle.body_frame_accel().linear.x < -2.0)
         }
         GoalCondition::HoldAttitude(id, heading) => {
+            if Some(*id) != state.piloting() {
+                return Some(false);
+            }
             let sv = state.universe.surface_vehicles.get(id)?;
             let heading = *heading as f64 / 180.0 * PI_64;
             let error_deg = wrap_pi_npi_f64(sv.body.angle - heading).abs().to_degrees();
@@ -145,32 +122,134 @@ fn is_satisfied(state: &GameState, cond: &GoalCondition) -> Option<bool> {
             Some(error_deg.abs() < 5.0 && rate.abs() < 3.0)
         }
         GoalCondition::FocusCamera(id) => Some(state.orbital_context.camera.is_following(*id)),
-        GoalCondition::ZoomCameraTo(min, max) => {
+        GoalCondition::ZoomCamera => {
+            let min = 5.0;
+            let max = 250.0;
             let meters = camera_span_meters(
                 state.input.screen_bounds.span,
                 &state.orbital_context.camera,
             );
 
-            Some(*min <= meters.length() && meters.length() <= *max)
+            Some(min <= meters.length() && meters.length() <= max)
+        }
+        GoalCondition::Periapsis(id, min, max) => {
+            let sv = state.universe.surface_vehicles.get(id)?;
+            let orbit = sv.current_orbit()?;
+            let r = orbit.1.periapsis_r();
+            Some(*min <= r && r <= *max)
+        }
+        GoalCondition::Apoapsis(id, min, max) => {
+            let sv = state.universe.surface_vehicles.get(id)?;
+            let orbit = sv.current_orbit()?;
+            let r = orbit.1.apoapsis_r();
+            Some(*min <= r && r <= *max)
+        }
+        GoalCondition::ArgumentOfPeriapsis(id, min, max) => {
+            let sv = state.universe.surface_vehicles.get(id)?;
+            let orbit = sv.current_orbit()?;
+            let argp = orbit.1.arg_periapsis;
+            Some(*min <= argp && argp <= *max)
+        }
+        GoalCondition::Prograde(id) => {
+            let sv = state.universe.surface_vehicles.get(id)?;
+            Some(
+                sv.controller.mode().is_prograde()
+                    && sv.controller.status() != VehicleControlStatus::ComingAbout,
+            )
+        }
+        GoalCondition::Retrograde(id) => {
+            let sv = state.universe.surface_vehicles.get(id)?;
+            Some(
+                sv.controller.mode().is_retrograde()
+                    && sv.controller.status() != VehicleControlStatus::ComingAbout,
+            )
+        }
+        GoalCondition::Idle(id) => {
+            let sv = state.universe.surface_vehicles.get(id)?;
+            Some(sv.controller.mode().is_idle())
         }
     }
 }
 
-pub fn init_goals(v1: EntityId, v2: EntityId) -> impl Iterator<Item = Goal> {
-    [
-        Goal::new(GoalCondition::AnyHoldAttitude),
-        Goal::new(GoalCondition::AnyLaunchToOrbit),
-        Goal::new(GoalCondition::AnyManuallyControlled),
-        Goal::new(GoalCondition::SelectVehicle(v1)).as_impermanent(),
-        Goal::new(GoalCondition::SetTarget {
-            ownship: v1,
-            target: v2,
-        }),
-        Goal::new(GoalCondition::Rendezvous {
-            ownship: v1,
-            target: v2,
-        })
-        .with_duration(Nanotime::secs(10)),
-    ]
-    .into_iter()
+pub fn get_goal_text(cond: &GoalCondition, state: &GameState) -> Option<String> {
+    match cond {
+        GoalCondition::SelectVehicle(id) => {
+            let sv = state.universe.surface_vehicles.get(&id)?;
+            let title = sv.vehicle.title_with_id(*id);
+            Some(format!(
+                "Select vessel \"{}\" by left-clicking on it.",
+                title
+            ))
+        }
+        GoalCondition::SetTarget { ownship, target } => {
+            let ov = state.universe.surface_vehicles.get(ownship)?;
+            let tv = state.universe.surface_vehicles.get(target)?;
+            let ot = ov.vehicle.name();
+            let tt = tv.vehicle.title_with_id(*target);
+            Some(format!(
+                "Set the target of \"{}\" to \"{}\" by right-clicking on it.",
+                ot, tt,
+            ))
+        }
+        GoalCondition::Rendezvous { ownship, target } => {
+            let ov = state.universe.surface_vehicles.get(ownship)?;
+            let tv = state.universe.surface_vehicles.get(target)?;
+            let ot = ov.vehicle.name();
+            let tt = tv.vehicle.name();
+            Some(format!("Rendezvous \"{}\" with \"{}\".", ot, tt,))
+        }
+        GoalCondition::ThrustForward(id) => {
+            let sv = state.universe.surface_vehicles.get(id)?;
+            let n = sv.vehicle.name_with_id(*id);
+            Some(format!("Apply forwards thrust to \"{}\".", n))
+        }
+        GoalCondition::ThrustBackward(id) => {
+            let sv = state.universe.surface_vehicles.get(id)?;
+            let n = sv.vehicle.name_with_id(*id);
+            Some(format!("Apply backwards thrust to \"{}\".", n))
+        }
+        GoalCondition::HoldAttitude(id, deg) => {
+            let sv = state.universe.surface_vehicles.get(id)?;
+            let n = sv.vehicle.name_with_id(*id);
+            Some(format!("Hold heading of \"{}\" at {} degrees.", n, deg))
+        }
+        GoalCondition::FocusCamera(id) => {
+            let sv = state.universe.surface_vehicles.get(id)?;
+            let n = sv.vehicle.name_with_id(*id);
+            Some(format!(
+                "Set the camera to follow \"{}\" with ctrl+left-click.",
+                n
+            ))
+        }
+        GoalCondition::ZoomCamera => Some(format!("Press V to zoom in on the selected vehicle.",)),
+        GoalCondition::Periapsis(_, min, max) => Some(format!(
+            "Set periapsis to between {} and {}.",
+            distance_str(*min),
+            distance_str(*max)
+        )),
+        GoalCondition::Apoapsis(_, min, max) => Some(format!(
+            "Set apoapsis to between {} and {}.",
+            distance_str(*min),
+            distance_str(*max)
+        )),
+        GoalCondition::ArgumentOfPeriapsis(_, min, max) => Some(format!(
+            "Set argument of periapsis to between {:0.1} deg and {:0.1} deg.",
+            min.to_degrees(), max.to_degrees()
+        )),
+        GoalCondition::Prograde(id) => {
+            let sv = state.universe.surface_vehicles.get(id)?;
+            let n = sv.vehicle.name_with_id(*id);
+            Some(format!("Switch mode for \"{}\" to PROGRADE.", n))
+        },
+        GoalCondition::Retrograde(id) => {
+            let sv = state.universe.surface_vehicles.get(id)?;
+            let n = sv.vehicle.name_with_id(*id);
+            Some(format!("Switch mode for \"{}\" to RETROGRADE.", n))
+        },
+        GoalCondition::Idle(id) => {
+            let sv = state.universe.surface_vehicles.get(id)?;
+            let n = sv.vehicle.name_with_id(*id);
+            Some(format!("Switch mode for \"{}\" to IDLE.", n))
+        },
+    }
 }
