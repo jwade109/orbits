@@ -26,9 +26,9 @@ impl Render for MainMenuContext {
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         let dims = state.input.screen_bounds.span;
         let time = compile_time::datetime_str!();
-        let dir = match std::fs::canonicalize(state.args.install_dir.clone()) {
+        let dir = match std::fs::canonicalize(state.args.assets_dir().clone()) {
             Ok(dir) => dir.to_string_lossy().to_string(),
-            Err(e) => format!("{} (\"{}\")", e, state.args.install_dir.clone().display()),
+            Err(e) => format!("{} (\"{}\")", e, state.args.assets_dir().clone().display()),
         };
         let n_vehicles = get_list_of_vehicles(state).map(|l| l.len()).unwrap_or(0);
         let s = format!(

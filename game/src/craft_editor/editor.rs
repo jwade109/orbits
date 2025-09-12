@@ -1249,7 +1249,7 @@ mod tests {
 
         dbg!(&dir);
 
-        let args = ProgramContext::new(dir);
+        let args = ProgramContext::new(Some(dir));
 
         let g = GameState::new(args.clone());
 

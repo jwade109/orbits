@@ -485,7 +485,7 @@ impl GameState {
             "clear-icon",
             "heading-icon",
         ] {
-            let path = self.args.install_dir.join(format!("{}.png", name));
+            let path = self.args.assets_dir().join(format!("{}.png", name));
             if let Some(img) = crate::generate_ship_sprites::read_image(&path) {
                 let mut img = Image::from_dynamic(
                     DynamicImage::ImageRgba8(img),

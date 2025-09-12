@@ -7,36 +7,41 @@ use std::path::PathBuf;
 pub struct ProgramContext {
     /// Directory for game assets and saved files
     #[arg(long)]
-    pub install_dir: PathBuf,
+    assets_dir: Option<PathBuf>,
 }
 
 impl ProgramContext {
-    pub fn new(install_dir: PathBuf) -> Self {
-        Self { install_dir }
+    pub fn new(assets_dir: Option<PathBuf>) -> Self {
+        Self { assets_dir }
+    }
+
+    pub fn assets_dir(&self) -> PathBuf {
+        let current_dir = std::env::current_dir().unwrap_or(PathBuf::new());
+        self.assets_dir.clone().unwrap_or(current_dir.join("assets"))
     }
 
     pub fn settings_path(&self) -> PathBuf {
-        self.install_dir.join("settings.yaml")
+        self.assets_dir().join("settings.yaml")
     }
 
     pub fn names_path(&self) -> PathBuf {
-        self.install_dir.join("ship_names.txt")
+        self.assets_dir().join("ship_names.txt")
     }
 
     pub fn vehicle_dir(&self) -> PathBuf {
-        self.install_dir.join("vehicles")
+        self.assets_dir().join("vehicles")
     }
 
     pub fn parts_dir(&self) -> PathBuf {
-        self.install_dir.join("parts")
+        self.assets_dir().join("parts")
     }
 
     pub fn audio_dir(&self) -> PathBuf {
-        self.install_dir.join("sfx")
+        self.assets_dir().join("sfx")
     }
 
     pub fn tutorial_path(&self) -> PathBuf {
-        self.install_dir.join("tutorial.yaml")
+        self.assets_dir().join("tutorial.yaml")
     }
 
     pub fn part_sprite_path(&self, short_path: &str) -> String {
