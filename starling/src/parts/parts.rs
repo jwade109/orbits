@@ -197,6 +197,10 @@ impl InstantiatedPart {
         }
     }
 
+    pub fn layer(&self) -> PartLayer {
+        self.prototype().layer()
+    }
+
     pub fn variant(&self) -> &InstantiatedPartVariant {
         &self.variant
     }

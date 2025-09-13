@@ -263,11 +263,17 @@ pub fn get_goal_text(cond: &GoalCondition, state: &GameState) -> Option<String> 
         GoalCondition::Orbit {
             vehicle_id,
             planet_id,
-            rp,
-            ra,
-            argp,
-            tol,
-        } => None,
+            ..
+        } => {
+            let sv = state.universe.surface_vehicles.get(vehicle_id)?;
+            let n = sv.vehicle.name_with_id(*vehicle_id);
+            let lup = state.universe.lup_planet(*planet_id)?;
+            let b = lup.named_body()?.0;
+            Some(format!(
+                "Place \"{}\" into the specified orbit around {}.",
+                n, b
+            ))
+        }
         GoalCondition::Prograde(id) => {
             let sv = state.universe.surface_vehicles.get(id)?;
             let n = sv.vehicle.name_with_id(*id);

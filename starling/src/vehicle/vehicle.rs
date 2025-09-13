@@ -401,6 +401,15 @@ impl Vehicle {
         self.parts.iter()
     }
 
+    pub fn parts_in_draw_order(
+        &self,
+    ) -> impl Iterator<Item = (&PartId, &InstantiatedPart)> + use<'_> {
+        PartLayer::draw_order()
+            .map(|l| self.parts.iter().filter(move |(_, p)| p.layer() == l))
+            .into_iter()
+            .flat_map(|p| p.into_iter())
+    }
+
     pub fn fuel_percentage(&self) -> f64 {
         let max_fuel_mass: Mass = self.tanks().map(|(t, _)| t.max_fluid_mass).sum();
         if max_fuel_mass == Mass::ZERO {
@@ -558,7 +567,9 @@ impl Vehicle {
     }
 
     pub fn supports_bots(&self) -> bool {
-        self.parts.iter().any(|(_, p)| p.as_machine().is_some() || p.as_radar().is_some())
+        self.parts
+            .iter()
+            .any(|(_, p)| p.as_machine().is_some() || p.as_radar().is_some())
     }
 
     pub fn average_linear_exhaust_velocity(&self) -> f64 {

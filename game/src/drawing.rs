@@ -418,7 +418,7 @@ pub fn draw_vehicle(
     thrusters: bool,
 ) {
     if outline {
-        for (_, part) in vehicle.parts() {
+        for (_, part) in vehicle.parts_in_draw_order() {
             let color = diagram_color(&part.prototype());
             let color = Srgba::from_f32_array(color);
             let dims = part.dims_meters();
