@@ -1,5 +1,6 @@
 use crate::camera_controller::camera_span_meters;
 use crate::game::GameState;
+use crate::sim_rate::SimRate;
 use serde::{Deserialize, Serialize};
 use starling::prelude::*;
 
@@ -32,6 +33,9 @@ pub enum GoalCondition {
     Prograde(EntityId),
     Retrograde(EntityId),
     Idle(EntityId),
+    TimeWarp,
+    CancelTimeWarp,
+    Pause,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -196,6 +200,13 @@ fn is_satisfied(state: &GameState, cond: &GoalCondition) -> Option<bool> {
             let sv = state.universe.surface_vehicles.get(id)?;
             Some(sv.controller.mode().is_idle())
         }
+        GoalCondition::TimeWarp => Some(
+            state.universe_ticks_per_game_tick.as_ticks() >= SimRate::FiveMinsPerSecond.as_ticks(),
+        ),
+        GoalCondition::CancelTimeWarp => {
+            Some(state.universe_ticks_per_game_tick == SimRate::RealTime)
+        }
+        GoalCondition::Pause => Some(state.paused),
     }
 }
 
@@ -289,5 +300,10 @@ pub fn get_goal_text(cond: &GoalCondition, state: &GameState) -> Option<String> 
             let n = sv.vehicle.name_with_id(*id);
             Some(format!("Switch mode for \"{}\" to IDLE.", n))
         }
+        GoalCondition::TimeWarp => Some(format!("Accelerate time using time warp by pressing [.]")),
+        GoalCondition::CancelTimeWarp => {
+            Some(format!("Cancel time warp with [/] to return to real time."))
+        }
+        GoalCondition::Pause => Some(format!("Pause the game with [SPACE].")),
     }
 }

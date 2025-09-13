@@ -20,7 +20,35 @@
 
     FYI: You can move between chapters of the tutorial with K and L.
 
-    Let's zoom in on this spacecraft to get a closer look.
+# ====================================================================
+
+- title: Time Warp
+  intro: |
+    Orbiting the Earth takes a long time. For the fastest spacecraft,
+    it takes around 92 minutes.
+
+    We don't have that kind of time; we're busy people. But good news:
+    we can speed up time!
+
+    You can control the speed at which time elapses using "Time Warp".
+    Ooooh, fancy.
+
+    Press [.] to increase time warp, [,] to decrease it,
+    and [/] to cancel it.
+  conditions:
+    - cond: !TimeWarp
+      is_permanent: true
+      seconds: 5
+    - cond: !CancelTimeWarp
+      is_permanent: false
+      seconds: 0
+    - cond: !Pause
+      is_permanent: false
+      seconds: 0
+
+  ending: |
+    Good job! You can also unpause the game with [SPACE]. Be careful not
+    to accelerate too fast and miss your deadline!
 
 # ====================================================================
 
