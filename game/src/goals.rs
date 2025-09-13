@@ -5,8 +5,14 @@ use starling::prelude::*;
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub enum GoalCondition {
-    Rendezvous { ownship: EntityId, target: EntityId },
-    SetTarget { ownship: EntityId, target: EntityId },
+    Rendezvous {
+        ownship: EntityId,
+        target: EntityId,
+    },
+    SetTarget {
+        ownship: EntityId,
+        target: EntityId,
+    },
     SelectVehicle(EntityId),
     ThrustForward(EntityId),
     ThrustBackward(EntityId),
@@ -15,7 +21,14 @@ pub enum GoalCondition {
     ZoomCamera,
     Apoapsis(EntityId, f64, f64),
     Periapsis(EntityId, f64, f64),
-    ArgumentOfPeriapsis(EntityId, f64, f64),
+    Orbit {
+        vehicle_id: EntityId,
+        planet_id: EntityId,
+        rp: f64,
+        ra: f64,
+        argp: f64,
+        tol: f64,
+    },
     Prograde(EntityId),
     Retrograde(EntityId),
     Idle(EntityId),
@@ -144,11 +157,26 @@ fn is_satisfied(state: &GameState, cond: &GoalCondition) -> Option<bool> {
             let r = orbit.1.apoapsis_r();
             Some(*min <= r && r <= *max)
         }
-        GoalCondition::ArgumentOfPeriapsis(id, min, max) => {
-            let sv = state.universe.surface_vehicles.get(id)?;
+        GoalCondition::Orbit {
+            vehicle_id,
+            planet_id,
+            rp,
+            ra,
+            argp,
+            tol,
+        } => {
+            let sv = state.universe.surface_vehicles.get(vehicle_id)?;
+            if sv.parent() != *planet_id {
+                return Some(false);
+            }
             let orbit = sv.current_orbit()?;
-            let argp = orbit.1.arg_periapsis;
-            Some(*min <= argp && argp <= *max)
+            let target_orbit =
+                SparseOrbit::new(*ra, *rp, *argp, orbit.1.body, Nanotime::ZERO, false)?;
+            let ta = target_orbit.apoapsis();
+            let tp = target_orbit.periapsis();
+            let a = orbit.1.apoapsis();
+            let p = orbit.1.periapsis();
+            Some(a.distance(ta) < *tol && p.distance(tp) < *tol)
         }
         GoalCondition::Prograde(id) => {
             let sv = state.universe.surface_vehicles.get(id)?;
@@ -232,24 +260,28 @@ pub fn get_goal_text(cond: &GoalCondition, state: &GameState) -> Option<String> 
             distance_str(*min),
             distance_str(*max)
         )),
-        GoalCondition::ArgumentOfPeriapsis(_, min, max) => Some(format!(
-            "Set argument of periapsis to between {:0.1} deg and {:0.1} deg.",
-            min.to_degrees(), max.to_degrees()
-        )),
+        GoalCondition::Orbit {
+            vehicle_id,
+            planet_id,
+            rp,
+            ra,
+            argp,
+            tol,
+        } => None,
         GoalCondition::Prograde(id) => {
             let sv = state.universe.surface_vehicles.get(id)?;
             let n = sv.vehicle.name_with_id(*id);
             Some(format!("Switch mode for \"{}\" to PROGRADE.", n))
-        },
+        }
         GoalCondition::Retrograde(id) => {
             let sv = state.universe.surface_vehicles.get(id)?;
             let n = sv.vehicle.name_with_id(*id);
             Some(format!("Switch mode for \"{}\" to RETROGRADE.", n))
-        },
+        }
         GoalCondition::Idle(id) => {
             let sv = state.universe.surface_vehicles.get(id)?;
             let n = sv.vehicle.name_with_id(*id);
             Some(format!("Switch mode for \"{}\" to IDLE.", n))
-        },
+        }
     }
 }

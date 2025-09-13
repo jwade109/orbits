@@ -1055,9 +1055,9 @@ fn tutorial_draw_target_node(
     Some(())
 }
 
-fn draw_goal_markers(canvas: &mut Canvas, state: &GameState, goal: &Goal) {
+fn draw_goal_markers(canvas: &mut Canvas, state: &GameState, goal: &Goal) -> Option<()> {
     if goal.is_complete {
-        return;
+        return None;
     }
     let blinking = is_blinking(state.wall_time);
     let alpha = if blinking { 0.8 } else { 0.2 };
@@ -1095,8 +1095,49 @@ fn draw_goal_markers(canvas: &mut Canvas, state: &GameState, goal: &Goal) {
         GoalCondition::Apoapsis(id, min, max) => {
             tutorial_draw_target_node(canvas, state, *id, *min, *max, goal, false);
         }
+        GoalCondition::Orbit {
+            vehicle_id,
+            planet_id,
+            rp,
+            ra,
+            argp,
+            tol,
+        } => {
+            let sv = state.universe.surface_vehicles.get(vehicle_id)?;
+            let body = state.universe.lup_planet(*planet_id)?.body()?;
+            let orbit = SparseOrbit::new(*ra, *rp, *argp, body, Nanotime::ZERO, false)?;
+            let orbit = GlobalOrbit(*planet_id, orbit);
+            let current_orbit = sv.current_orbit()?;
+            let alpha = if blinking { 1.0 } else { 0.5 };
+            let color = if goal.progress() > 0.0 && blinking {
+                GREEN.with_alpha(alpha)
+            } else {
+                PURPLE.with_alpha(0.5)
+            };
+            draw_global_orbit(canvas, &orbit, state, color, true);
+            let origin = state.universe.pv(*planet_id)?;
+            let ta = origin.pos + orbit.1.apoapsis();
+            let tp = origin.pos + orbit.1.periapsis();
+            let a = origin.pos + current_orbit.1.apoapsis();
+            let p = origin.pos + current_orbit.1.periapsis();
+            let z = ZOrdering::Ui.as_f32();
+            let ctx = &state.orbital_context;
+
+            let mut draw_node = |t: DVec2, v: DVec2| {
+                let color = if t.distance(v) > *tol {
+                    PURPLE.with_alpha(0.5)
+                } else {
+                    GREEN.with_alpha(alpha)
+                };
+                canvas.circle(ctx.w2c(t).extend(z), gcast(tol * ctx.scale()), color);
+            };
+
+            draw_node(ta, a);
+            draw_node(tp, p);
+        }
         _ => (),
     }
+    Some(())
 }
 
 fn draw_tutorials(canvas: &mut Canvas, state: &GameState) -> Option<()> {

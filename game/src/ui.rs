@@ -99,7 +99,15 @@ pub fn do_text_labels(
 ) {
     let text_labels = state.text_labels.clone();
 
-    let font = asset_server.load("Lato-Bold.ttf");
+    let font_ttf = "Lato-Bold.ttf";
+
+    let font = match std::fs::canonicalize(state.args.fonts_dir().join(font_ttf)) {
+        Ok(path) => asset_server.load(path),
+        Err(e) => {
+            error!("Failed to play sound: {}", e);
+            return;
+        }
+    };
 
     let font_size = 28.0;
 

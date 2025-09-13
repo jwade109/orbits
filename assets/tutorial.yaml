@@ -243,22 +243,34 @@
     - cond: !SelectVehicle 1004
       is_permanent: false
       seconds: 0
-    - cond: !Apoapsis
-        - 1004
-        - 75000000
-        - 82000000
+    - cond: !Orbit
+        vehicle_id: 1004
+        planet_id: 900
+        rp: 90000000
+        ra: 150000000
+        argp: 0.95
+        tol: 8000000
       is_permanent: false
       seconds: 10
-    - cond: !Periapsis
-        - 1004
-        - 40000000
-        - 45000000
+  ending: |
+    Yay!
+
+# ====================================================================
+
+- title: Inserting into a specific orbit, part III
+  intro: |
+    One more!
+  conditions:
+    - cond: !SelectVehicle 1004
       is_permanent: false
-      seconds: 10
-    - cond: !ArgumentOfPeriapsis
-        - 1004
-        - 0.7
-        - 0.8
+      seconds: 0
+    - cond: !Orbit
+        vehicle_id: 1004
+        planet_id: 901
+        rp: 10000000
+        ra: 23000000
+        argp: -0.4
+        tol: 1000000
       is_permanent: false
       seconds: 10
   ending: |

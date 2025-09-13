@@ -44,6 +44,10 @@ impl ProgramContext {
         self.assets_dir().join("tutorial.yaml")
     }
 
+    pub fn fonts_dir(&self) -> PathBuf {
+        self.assets_dir().join("fonts")
+    }
+
     pub fn part_sprite_path(&self, short_path: &str) -> String {
         self.parts_dir()
             .join(format!("{}/skin.png", short_path))
