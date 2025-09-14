@@ -1031,11 +1031,15 @@ impl CameraProjection for Editor {
     fn parent(&self) -> EntityId {
         self.camera.parent()
     }
+
+    fn distance(&self) -> f64 {
+        self.camera.distance()
+    }
 }
 
 impl Editor {
     pub fn on_render_tick(state: &mut GameState) {
-        state.editor_context.camera.handle_input(&state.input);
+        state.editor_context.camera.handle_input(&state.input, &state.settings);
 
         if state.is_hovering_over_ui() {
             return;

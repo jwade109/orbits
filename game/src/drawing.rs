@@ -11,9 +11,9 @@ use crate::graph::*;
 use crate::input::*;
 use crate::notifications::*;
 use crate::scenes::*;
+use crate::tutorial::*;
 use crate::window::*;
 use crate::z_index::*;
-use crate::tutorial::*;
 
 pub fn draw_cross(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     let dx = Vec2::new(size, 0.0);
@@ -1944,12 +1944,14 @@ pub fn draw_camera_info(canvas: &mut Canvas, ctx: &impl CameraProjection, window
         }
     }
 
+    let label = format!(
+        "{} {}",
+        distance_str(step as f64),
+        distance_str(ctx.distance())
+    );
+
     canvas
-        .text(
-            distance_str(step as f64),
-            -window_span / 2.0 + Vec2::splat(40.0),
-            0.9,
-        )
+        .text(label, -window_span / 2.0 + Vec2::splat(40.0), 0.9)
         .set_anchor(Anchor::CenterLeft);
 
     let xl = (xl / step) * step;

@@ -75,8 +75,10 @@ pub fn distance_str(x: f64) -> String {
         format!("{:0.2} Mm", x / 1000000.0)
     } else if x.abs() > 1000.0 {
         format!("{:0.2} km", x / 1000.0)
-    } else {
+    } else if x.abs() > 0.9 {
         format!("{:0.1} m", x)
+    } else {
+        format!("{:0.1} mm", x * 1000.0)
     }
 }
 

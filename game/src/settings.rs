@@ -11,6 +11,9 @@ pub struct Settings {
     pub high_volume: f32,
     pub mids_volume: f32,
     pub low_volume: f32,
+    pub camera_pan_sensitivity: f64,
+    pub camera_scroll_sensitivity: f64,
+    pub camera_zoom_button_sensitivity: f64,
 }
 
 impl Default for Settings {
@@ -23,6 +26,9 @@ impl Default for Settings {
             high_volume: 0.3,
             mids_volume: 0.3,
             low_volume: 0.3,
+            camera_pan_sensitivity: 1.0,
+            camera_scroll_sensitivity: 1.0,
+            camera_zoom_button_sensitivity: 1.0,
         }
     }
 }

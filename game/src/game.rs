@@ -525,7 +525,6 @@ impl Render for GameState {
         // BOOKMARK debug info
 
         if state.settings.show_debug_info {
-
             let mut entity_info = Vec::from_iter(state.entity_info.iter());
 
             entity_info.sort_by_key(|(s, _)| *s);
@@ -548,9 +547,7 @@ impl Render for GameState {
                 format!("Entity count: {}", state.entity_count),
             ]
             .into_iter()
-            .chain(entity_info.iter().map(|(s, c)| {
-                format!(" - {}: {}", s, c)
-            }))
+            .chain(entity_info.iter().map(|(s, c)| format!(" - {}: {}", s, c)))
             .map(|e| format!("{}\n", e))
             .collect();
 
@@ -985,10 +982,10 @@ impl GameState {
     }
 
     pub fn zoom_to_vehicle(&mut self, vehicle: bool) -> Option<()> {
-        let scale = if vehicle { 4.5 } else { -15.0 };
+        let scale = if vehicle { 0.01 } else { 1000000.0 };
         self.orbital_context.following = Some(self.piloting()?);
         self.orbital_context.camera.set_target_offset(DVec2::ZERO);
-        self.orbital_context.camera.set_target_scale(scale);
+        self.orbital_context.camera.set_target_view_distance(scale);
         Some(())
     }
 
@@ -996,7 +993,9 @@ impl GameState {
         self.orbital_context.following = None;
         self.orbital_context.camera.follow(EntityId(0), DVec2::ZERO);
         self.orbital_context.camera.set_target_offset(DVec2::ZERO);
-        self.orbital_context.camera.set_target_scale(-16.0);
+        self.orbital_context
+            .camera
+            .set_target_view_distance(1000000.0);
     }
 
     pub fn set_controller_policy(&mut self, policy: VehicleControlPolicy) -> Option<()> {
@@ -1304,12 +1303,14 @@ impl GameState {
                 self.orbital_context.on_render_tick(
                     on_ui,
                     &self.input,
+                    &self.settings,
                     &mut self.universe,
                     &mut self.sounds,
                 );
             }
             SceneType::Telescope => {
-                self.telescope_context.on_render_tick(&self.input);
+                self.telescope_context
+                    .on_render_tick(&self.input, &self.settings);
             }
         }
     }

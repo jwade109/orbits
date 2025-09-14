@@ -2,6 +2,7 @@ use crate::input::InputState;
 use bevy::input::keyboard::KeyCode;
 use starling::math::DVec2;
 use starling::prelude::*;
+use crate::settings::Settings;
 
 #[derive(Debug, Clone, Copy)]
 pub struct LinearCameraController {
@@ -33,6 +34,10 @@ impl CameraProjection for LinearCameraController {
     fn parent(&self) -> EntityId {
         self.parent
     }
+
+    fn distance(&self) -> f64 {
+        self.view_distance
+    }
 }
 
 impl std::fmt::Display for LinearCameraController {
@@ -43,7 +48,6 @@ impl std::fmt::Display for LinearCameraController {
 
 impl LinearCameraController {
     pub fn new(center: DVec2, scale: f64, speed: f64) -> Self {
-        let scale = scale.log2();
 
         Self {
             center,
@@ -71,8 +75,8 @@ impl LinearCameraController {
         const CENTER_SMOOTHING: f64 = 0.1;
 
         let dt = PHYSICS_CONSTANT_DELTA_TIME.to_secs_f64();
-        // self.scale += (self.target_scale - self.scale) * ((dt / SCALE_SMOOTHING).exp() - 1.0);
-        self.offset += (self.target_offset - self.offset) * ((dt / CENTER_SMOOTHING).exp() - 1.0)
+        self.offset += (self.target_offset - self.offset) * ((dt / CENTER_SMOOTHING).exp() - 1.0);
+        self.view_distance += (self.target_view_distance - self.view_distance) * ((dt / SCALE_SMOOTHING).exp() - 1.0);
     }
 
     pub fn follow(&mut self, parent: EntityId, p: DVec2) {
@@ -96,8 +100,8 @@ impl LinearCameraController {
         self.target_offset = offset;
     }
 
-    pub fn set_target_scale(&mut self, scale: f64) {
-        // self.target_scale = scale;
+    pub fn set_target_view_distance(&mut self, dist: f64) {
+        self.target_view_distance = dist;
     }
 
     pub fn offset(&self) -> DVec2 {
@@ -108,28 +112,24 @@ impl LinearCameraController {
         self.parent
     }
 
-    pub fn handle_input(&mut self, input: &InputState) {
-        const SCROLL_WHEEL_DELTA: f64 = 0.5;
-        const BUTTON_ZOOM_SPEED: f64 = 0.05;
+    pub fn handle_input(&mut self, input: &InputState, settings: &Settings) {
 
-        let speed = self.speed * 0.02;
+        let speed = 9.0 * settings.camera_pan_sensitivity;
 
         if input.is_scroll_down() {
-            // self.target_scale -= SCROLL_WHEEL_DELTA;
-            self.target_view_distance *= 1.4;
+            self.target_view_distance *= 1.4 * settings.camera_scroll_sensitivity;
         }
         if input.is_scroll_up() {
-            // self.target_scale += SCROLL_WHEEL_DELTA;
-            self.target_view_distance /= 1.4;
+            self.target_view_distance /= 1.4 * settings.camera_scroll_sensitivity;
         }
 
         if input.is_pressed(KeyCode::Equal) {
             // self.target_scale += BUTTON_ZOOM_SPEED;
-            self.target_view_distance /= 1.02;
+            self.target_view_distance /= 1.02 * settings.camera_zoom_button_sensitivity;
         }
         if input.is_pressed(KeyCode::Minus) {
             // self.target_scale -= BUTTON_ZOOM_SPEED;
-            self.target_view_distance *= 1.02;
+            self.target_view_distance *= 1.02 * settings.camera_zoom_button_sensitivity;
         }
 
         if input.is_pressed(KeyCode::KeyD) {
@@ -145,10 +145,7 @@ impl LinearCameraController {
             self.target_offset.y -= speed / self.scale();
         }
 
-        self.target_view_distance = self.target_view_distance.clamp(10.0, 10000000.0);
-        self.view_distance += (self.target_view_distance - self.view_distance) * 0.1;
-
-        // self.target_scale = self.target_scale.clamp(-22.0, 10.0);
+        self.target_view_distance = self.target_view_distance.clamp(0.001, 10000000.0);
     }
 }
 
@@ -186,6 +183,8 @@ pub trait CameraProjection {
     fn offset(&self) -> DVec2;
 
     fn parent(&self) -> EntityId;
+
+    fn distance(&self) -> f64;
 }
 
 pub fn camera_span_meters(screen_bounds: Vec2, ctx: &impl CameraProjection) -> DVec2 {

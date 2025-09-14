@@ -7,6 +7,7 @@ use crate::input::InputState;
 use crate::input::{FrameId, MouseButt};
 use crate::onclick::OnClick;
 use crate::scenes::{Render, TextLabel};
+use crate::settings::Settings;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use layout::layout::Tree;
@@ -32,6 +33,10 @@ impl CameraProjection for TelescopeContext {
 
     fn parent(&self) -> EntityId {
         self.camera.parent()
+    }
+
+    fn distance(&self) -> f64 {
+        self.camera.distance()
     }
 }
 
@@ -61,8 +66,8 @@ impl TelescopeContext {
         self.camera.on_game_tick();
     }
 
-    pub fn on_render_tick(&mut self, input: &InputState) {
-        self.camera.handle_input(input);
+    pub fn on_render_tick(&mut self, input: &InputState, settings: &Settings) {
+        self.camera.handle_input(input, settings);
     }
 
     pub fn screen_radius(state: &GameState) -> f32 {

@@ -7,3 +7,6 @@ high_volume: 0.5
 mids_volume: 0.3
 low_volume: 0.1
 
+camera_pan_sensitivity: 1.0
+camera_scroll_sensitivity: 1.0
+camera_zoom_button_sensitivity: 1.0

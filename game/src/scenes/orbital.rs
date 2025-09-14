@@ -1,6 +1,7 @@
 use crate::camera_controller::*;
 use crate::canvas::Canvas;
 use crate::game::GameState;
+use crate::settings::Settings;
 use crate::input::{FrameId, InputState, MouseButt};
 use crate::onclick::OnClick;
 use crate::scenes::*;
@@ -58,6 +59,10 @@ impl CameraProjection for OrbitalContext {
 
     fn parent(&self) -> EntityId {
         self.camera.parent()
+    }
+
+    fn distance(&self) -> f64 {
+        self.camera.distance()
     }
 }
 
@@ -179,10 +184,11 @@ impl OrbitalContext {
         &mut self,
         on_ui: bool,
         input: &InputState,
+        settings: &Settings,
         universe: &mut Universe,
         sounds: &mut EnvironmentSounds,
     ) {
-        self.camera.handle_input(input);
+        self.camera.handle_input(input, settings);
 
         if on_ui {
             return;
