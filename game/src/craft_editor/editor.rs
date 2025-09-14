@@ -36,7 +36,7 @@ impl Action {
 }
 
 #[derive(Debug)]
-pub struct EditorContext {
+pub struct Editor {
     camera: LinearCameraController,
     cursor_state: CursorState,
     rotation: Rotation,
@@ -62,9 +62,9 @@ pub struct EditorContext {
     pub bots: Vec<ConBot>,
 }
 
-impl EditorContext {
+impl Editor {
     pub fn new() -> Self {
-        EditorContext {
+        Editor {
             camera: LinearCameraController::new(DVec2::ZERO, 18.0, 1100.0),
             cursor_state: CursorState::None,
             rotation: Rotation::East,
@@ -214,7 +214,7 @@ impl EditorContext {
 
     pub fn load_from_file(state: &mut GameState) -> Option<()> {
         let choice = state.editor_context.open_existing_file()?;
-        EditorContext::load_vehicle(&choice, state)
+        Editor::load_vehicle(&choice, state)
     }
 
     pub fn load_vehicle(path: &Path, state: &mut GameState) -> Option<()> {
@@ -399,7 +399,7 @@ fn highlight_part(
     }
 }
 
-impl Render for EditorContext {
+impl Render for Editor {
     fn background_color(_state: &GameState) -> bevy::color::Srgba {
         GRAY.with_luminance(0.12)
     }
@@ -854,15 +854,11 @@ impl Render for EditorContext {
 
         for particle in &ctx.build_particles {
             let p = ctx.w2c(particle.pos());
-            canvas
-                .sprite(
-                    p,
-                    0.0,
-                    "error",
-                    ZOrdering::EditorWeldingParticles,
-                    Vec2::splat(0.03) * gcast(ctx.scale()),
-                )
-                .set_color(YELLOW.with_alpha(particle.opacity()));
+            canvas.rect(
+                AABB::new(p, Vec2::splat(0.03) * gcast(ctx.scale())),
+                ZOrdering::EditorWeldingParticles,
+                YELLOW.with_alpha(particle.opacity()),
+            );
         }
 
         for bot in &ctx.bots {
@@ -1019,7 +1015,7 @@ fn layer_selection(state: &GameState) -> Node<OnClick> {
     n
 }
 
-impl CameraProjection for EditorContext {
+impl CameraProjection for Editor {
     fn origin(&self) -> DVec2 {
         self.camera.origin()
     }
@@ -1037,7 +1033,7 @@ impl CameraProjection for EditorContext {
     }
 }
 
-impl EditorContext {
+impl Editor {
     pub fn on_render_tick(state: &mut GameState) {
         state.editor_context.camera.handle_input(&state.input);
 
@@ -1061,7 +1057,7 @@ impl EditorContext {
         }
 
         if state.input.is_pressed(KeyCode::ShiftLeft) {
-            if let Some((pos, proto)) = EditorContext::current_part_and_cursor_position(state) {
+            if let Some((pos, proto)) = Editor::current_part_and_cursor_position(state) {
                 if state.editor_context.snap_info.is_none() {
                     let rot = state.editor_context.rotation;
                     let dims = pixel_dims_with_rotation(rot, &proto);
@@ -1075,7 +1071,7 @@ impl EditorContext {
         }
 
         if let Some(_) = state.input.position(MouseButt::Left, FrameId::Current) {
-            if let Some((p, part)) = EditorContext::current_part_and_cursor_position(state) {
+            if let Some((p, part)) = Editor::current_part_and_cursor_position(state) {
                 state.editor_context.try_place_part(p, part);
             }
         } else if let Some(p) = state.input.on_frame(MouseButt::Right, FrameId::Down) {

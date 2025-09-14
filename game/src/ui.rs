@@ -18,8 +18,6 @@ use starling::prelude::*;
 #[derive(Debug, Event, Clone)]
 pub enum InteractionEvent {
     Orbits,
-    CommitMission,
-    ClearMissions,
     Spawn,
     Console,
     Delete,
@@ -50,13 +48,6 @@ pub enum InteractionEvent {
     ZoomIn,
     ZoomOut,
     Reset,
-
-    // manual piloting commands
-    Thrust(i8),
-    TurnLeft,
-    TurnRight,
-    StrafeLeft,
-    StrafeRight,
 
     ToggleDebugConsole,
 }
@@ -333,7 +324,7 @@ pub fn piloting_buttons(state: &GameState, width: Size) -> Node<OnClick> {
         .with_padding(0.0);
 
     let target = if let Some(p) = state.orbital_context.piloting {
-        if let Some(sv) = state.universe.surface_vehicles.get(&p) {
+        if let Some(sv) = state.universe.spacecraft.get(&p) {
             sv.target()
         } else {
             None
@@ -354,7 +345,7 @@ pub fn piloting_buttons(state: &GameState, width: Size) -> Node<OnClick> {
             delete_wrapper(OnClick::ClearPilot, b, state.settings.ui_button_height)
         });
     } else if let Some(p) = state.orbital_context.following {
-        if state.universe.surface_vehicles.contains_key(&p) {
+        if state.universe.spacecraft.contains_key(&p) {
             wrapper.add_child({
                 let s = format!("Pilot {}", p);
                 Node::button(
@@ -390,7 +381,7 @@ pub fn piloting_buttons(state: &GameState, width: Size) -> Node<OnClick> {
         });
         true
     } else if let Some(p) = state.orbital_context.following {
-        if state.universe.surface_vehicles.contains_key(&p) {
+        if state.universe.spacecraft.contains_key(&p) {
             wrapper.add_child({
                 let s = format!("Target {}", p);
                 Node::button(
@@ -490,7 +481,7 @@ pub fn layout(state: &GameState) -> Tree<OnClick> {
         SceneType::MainMenu => MainMenuContext::ui(state),
         SceneType::Telescope => TelescopeContext::ui(state),
         SceneType::Orbital => OrbitalContext::ui(state),
-        SceneType::Editor => EditorContext::ui(state),
+        SceneType::Editor => Editor::ui(state),
     }
     .unwrap_or(Tree::new())
 }

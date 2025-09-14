@@ -18,5 +18,5 @@ pub trait Interactive: Send + Sync {
 
     fn update(&mut self, _facade: &UiFacade) {}
 
-    fn draw(&self, canvas: &mut Canvas) {}
+    fn draw(&self, _canvas: &mut Canvas) {}
 }

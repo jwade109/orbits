@@ -1,7 +1,7 @@
 use crate::prelude::*;
 
 #[derive(Debug)]
-pub struct SurfaceSpacecraftEntity {
+pub struct Spacecraft {
     pub planet_id: EntityId,
     pub vehicle: Vehicle,
     pub body: RigidBody,
@@ -17,7 +17,7 @@ pub struct SurfaceSpacecraftEntity {
     is_rcs: bool,
 }
 
-impl SurfaceSpacecraftEntity {
+impl Spacecraft {
     pub fn new(
         planet_id: EntityId,
         vehicle: Vehicle,

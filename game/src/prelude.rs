@@ -8,8 +8,6 @@ pub use crate::debug_console::*;
 pub use crate::drawing::*;
 pub use crate::game::*;
 pub use crate::generate_ship_sprites::*;
-pub use crate::goals::*;
-pub use crate::goals::*;
 pub use crate::graph::*;
 pub use crate::input::*;
 pub use crate::interactive::*;

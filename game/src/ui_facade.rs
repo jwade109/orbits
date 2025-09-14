@@ -20,7 +20,7 @@ impl Default for UiFacade {
 
 fn current_vehicle_controller(state: &GameState) -> Option<UiFacade> {
     let id = state.piloting()?;
-    let sv = state.universe.surface_vehicles.get(&id)?;
+    let sv = state.universe.spacecraft.get(&id)?;
 
     Some(UiFacade {
         current_vehicle_controller: Some(sv.controller.mode().clone()),

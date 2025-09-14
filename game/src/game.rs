@@ -17,7 +17,7 @@ use std::path::Path;
 
 pub struct GamePlugin;
 
-fn my_system(world: &mut World) {
+fn get_entity_info(world: &mut World) {
     let q = world.iter_entities();
 
     let mut entity_info = HashMap::new();
@@ -108,7 +108,7 @@ impl Plugin for GamePlugin {
                 // rendering
                 crate::sounds::sound_system,
                 // whatever
-                my_system,
+                get_entity_info,
             )
                 .chain(),
         );
@@ -196,7 +196,7 @@ pub struct GameState {
 
     pub telescope_context: TelescopeContext,
 
-    pub editor_context: EditorContext,
+    pub editor_context: Editor,
 
     /// Wall clock, i.e. time since program began.
     pub wall_time: Nanotime,
@@ -343,9 +343,9 @@ impl GameState {
             args: args.clone(),
             universe: Universe::new(planets.clone()),
             console: DebugConsole::new(),
-            orbital_context: OrbitalContext::new(EntityId(0)),
+            orbital_context: OrbitalContext::new(),
             telescope_context: TelescopeContext::new(),
-            editor_context: EditorContext::new(),
+            editor_context: Editor::new(),
             wall_time: Nanotime::zero(),
             physics_duration: Nanotime::days(7),
             universe_ticks_per_game_tick: SimRate::RealTime,
@@ -501,11 +501,6 @@ impl GameState {
             }
         }
 
-        let image = generate_error_sprite();
-        let dims = image.size();
-        let handle = images.add(image);
-        handles.insert("error".to_string(), (handle, dims));
-
         self.image_handles = handles;
     }
 }
@@ -514,7 +509,7 @@ impl Render for GameState {
     fn background_color(state: &GameState) -> Srgba {
         match state.scene {
             SceneType::Orbital => OrbitalContext::background_color(state),
-            SceneType::Editor => EditorContext::background_color(state),
+            SceneType::Editor => Editor::background_color(state),
             SceneType::Telescope => TelescopeContext::background_color(state),
             SceneType::MainMenu => BLACK,
         }
@@ -576,7 +571,7 @@ impl Render for GameState {
 
         match state.scene {
             SceneType::Orbital => OrbitalContext::draw(canvas, state),
-            SceneType::Editor => EditorContext::draw(canvas, state),
+            SceneType::Editor => Editor::draw(canvas, state),
             SceneType::Telescope => TelescopeContext::draw(canvas, state),
             SceneType::MainMenu => MainMenuContext::draw(canvas, state),
         }
@@ -619,7 +614,7 @@ fn get_vehicle_info_contents(
     id: Option<EntityId>,
 ) -> Option<(String, String)> {
     let id = id?;
-    let sv = universe.surface_vehicles.get(&id)?;
+    let sv = universe.spacecraft.get(&id)?;
     let pv = sv.body.pv;
 
     let title = sv.vehicle.name_with_id(id);
@@ -697,34 +692,6 @@ impl GameState {
         Some(vehicle)
     }
 
-    pub fn measuring_tape(&self) -> Option<(DVec2, DVec2, DVec2)> {
-        if self.orbital_context.cursor_mode != CursorMode::MeasuringTape {
-            return None;
-        }
-
-        OrbitalContext::measuring_tape(self)
-    }
-
-    pub fn protractor(&self) -> Option<(DVec2, DVec2, Option<DVec2>)> {
-        if self.orbital_context.cursor_mode != CursorMode::Protractor {
-            return None;
-        }
-
-        OrbitalContext::protractor(self)
-    }
-
-    pub fn left_cursor_orbit(&self) -> Option<GlobalOrbit> {
-        OrbitalContext::left_cursor_orbit(self)
-    }
-
-    pub fn cursor_orbit_if_mode(&self) -> Option<GlobalOrbit> {
-        if self.orbital_context.cursor_mode == CursorMode::AddOrbit {
-            self.left_cursor_orbit()
-        } else {
-            None
-        }
-    }
-
     pub fn piloting(&self) -> Option<EntityId> {
         self.orbital_context.piloting
     }
@@ -752,14 +719,11 @@ impl GameState {
     }
 
     pub fn spawn_new(&mut self) -> Option<()> {
-        let orbit = self.cursor_orbit_if_mode()?;
-        let vehicle = self.get_random_vehicle()?;
-        self.spawn_with_random_perturbance(orbit, vehicle)?;
-        Some(())
+        todo!()
     }
 
     pub fn delete_orbiter(&mut self, id: EntityId) -> Option<()> {
-        let ov = self.universe.surface_vehicles.remove(&id)?;
+        let ov = self.universe.spacecraft.remove(&id)?;
         let parent = ov.parent();
         let pv = ov.pv();
         self.notify(
@@ -780,15 +744,6 @@ impl GameState {
             });
     }
 
-    pub fn current_orbit(&self) -> Option<&GlobalOrbit> {
-        self.orbital_context.queued_orbits.get(self.current_orbit?)
-    }
-
-    pub fn commit_mission(&mut self) -> Option<()> {
-        println!("TODO");
-        Some(())
-    }
-
     pub fn write_editor_to_ownship(&mut self) -> Option<()> {
         let id = match self.piloting() {
             Some(p) => p,
@@ -798,7 +753,7 @@ impl GameState {
             }
         };
 
-        let ov = match self.universe.surface_vehicles.get_mut(&id) {
+        let ov = match self.universe.spacecraft.get_mut(&id) {
             Some(v) => v,
             None => {
                 self.notice(format!("Failed to find vehicle for id {}", id));
@@ -857,14 +812,14 @@ impl GameState {
 
     pub fn save(&mut self) -> Option<()> {
         match self.scene {
-            SceneType::Editor => EditorContext::save_to_file(self),
+            SceneType::Editor => Editor::save_to_file(self),
             _ => None,
         }
     }
 
     pub fn load(&mut self) -> Option<()> {
         match self.scene {
-            SceneType::Editor => EditorContext::load_from_file(self),
+            SceneType::Editor => Editor::load_from_file(self),
             _ => None,
         }
     }
@@ -881,7 +836,6 @@ impl GameState {
                 self.orbital_context.draw_mode = next_cycle(&self.orbital_context.draw_mode)
             }
             OnClick::ClearTracks => self.orbital_context.selected.clear(),
-            OnClick::ClearOrbits => self.orbital_context.queued_orbits.clear(),
             OnClick::Group(gid) => self.toggle_group(gid),
             OnClick::CreateGroup => {
                 // let id = self.ids.next();
@@ -889,22 +843,11 @@ impl GameState {
                 println!("todo!");
             }
             OnClick::DisbandGroup(gid) => self.disband_group(gid),
-            OnClick::CommitMission => {
-                self.commit_mission();
-            }
             OnClick::Exit => self.shutdown_with_prompt(),
             OnClick::SimSpeed(r) => {
                 self.universe_ticks_per_game_tick = r;
             }
-            OnClick::DeleteOrbit(i) => {
-                self.orbital_context.queued_orbits.remove(i);
-            }
             OnClick::TogglePause => self.paused = !self.paused,
-            OnClick::GlobalOrbit(i) => {
-                let orbit = self.orbital_context.queued_orbits.get(i)?;
-                self.orbital_context.following = Some(orbit.0);
-                self.current_orbit = Some(i);
-            }
             OnClick::Nullopt => (),
             OnClick::Save => {
                 self.save();
@@ -912,14 +855,13 @@ impl GameState {
             OnClick::Load => {
                 self.load();
             }
-            OnClick::CursorMode(c) => self.orbital_context.cursor_mode = c,
             OnClick::GoToScene(s) => {
                 self.set_current_scene(s);
             }
             OnClick::ClearPilot => self.orbital_context.piloting = None,
             OnClick::ClearTarget => {
                 if let Some(p) = self.piloting() {
-                    if let Some(sv) = self.universe.surface_vehicles.get_mut(&p) {
+                    if let Some(sv) = self.universe.spacecraft.get_mut(&p) {
                         sv.set_target(None);
                     }
                 }
@@ -927,14 +869,14 @@ impl GameState {
             OnClick::SetPilot(p) => self.orbital_context.piloting = Some(p),
             OnClick::SetTarget(t) => {
                 if let Some(p) = self.piloting() {
-                    if let Some(sv) = self.universe.surface_vehicles.get_mut(&p) {
+                    if let Some(sv) = self.universe.spacecraft.get_mut(&p) {
                         sv.set_target(t);
                     }
                 }
             }
-            OnClick::SelectPart(name) => EditorContext::set_current_part(self, &name),
+            OnClick::SelectPart(name) => Editor::set_current_part(self, &name),
             OnClick::ToggleLayer(layer) => self.editor_context.toggle_layer(layer),
-            OnClick::LoadVehicle(path) => _ = EditorContext::load_vehicle(&path, self),
+            OnClick::LoadVehicle(path) => _ = Editor::load_vehicle(&path, self),
             OnClick::ConfirmExitDialog => self.shutdown(),
             OnClick::DismissExitDialog => self.is_exit_prompt = false,
             OnClick::TogglePartsMenuCollapsed => {
@@ -1037,7 +979,7 @@ impl GameState {
 
     pub fn toggle_rcs(&mut self) -> Option<()> {
         let id = self.piloting()?;
-        let sv = self.universe.surface_vehicles.get_mut(&id)?;
+        let sv = self.universe.spacecraft.get_mut(&id)?;
         sv.toggle_rcs();
         Some(())
     }
@@ -1059,7 +1001,7 @@ impl GameState {
 
     pub fn set_controller_policy(&mut self, policy: VehicleControlPolicy) -> Option<()> {
         let piloting = self.piloting()?;
-        let sv = self.universe.surface_vehicles.get_mut(&piloting)?;
+        let sv = self.universe.spacecraft.get_mut(&piloting)?;
         sv.controller.set_policy(policy);
         Some(())
     }
@@ -1355,7 +1297,7 @@ impl GameState {
 
         match self.scene {
             SceneType::Editor => {
-                EditorContext::on_render_tick(self);
+                Editor::on_render_tick(self);
             }
             SceneType::MainMenu => (),
             SceneType::Orbital => {
@@ -1455,7 +1397,7 @@ impl GameState {
                 self.telescope_context.on_game_tick();
             }
             SceneType::Editor => {
-                EditorContext::on_game_tick(self);
+                Editor::on_game_tick(self);
             }
             _ => (),
         }
@@ -1505,14 +1447,8 @@ fn process_interaction(
 ) -> Option<()> {
     match inter {
         InteractionEvent::Delete => state.delete_objects(),
-        InteractionEvent::CommitMission => {
-            state.commit_mission();
-        }
         InteractionEvent::ClearSelection => {
             state.orbital_context.selected.clear();
-        }
-        InteractionEvent::ClearOrbitQueue => {
-            state.orbital_context.queued_orbits.clear();
         }
         InteractionEvent::SimSlower => {
             if let Some(t) = enum_iterator::previous(&state.universe_ticks_per_game_tick) {
@@ -1530,14 +1466,8 @@ fn process_interaction(
         InteractionEvent::SimPause => {
             state.paused = !state.paused;
         }
-        InteractionEvent::CursorMode => {
-            state.orbital_context.cursor_mode = next_cycle(&state.orbital_context.cursor_mode);
-        }
         InteractionEvent::DrawMode => {
             state.orbital_context.draw_mode = next_cycle(&state.orbital_context.draw_mode);
-        }
-        InteractionEvent::Orbits => {
-            state.orbital_context.show_orbits = next_cycle(&state.orbital_context.show_orbits);
         }
         InteractionEvent::Spawn => {
             state.spawn_new();

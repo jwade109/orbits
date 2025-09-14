@@ -1,7 +1,6 @@
 use crate::game::GameState;
 use bevy::audio::*;
 use bevy::prelude::*;
-use starling::prelude::*;
 
 pub fn sound_system(
     mut commands: Commands,
@@ -28,7 +27,7 @@ pub fn sound_system(
 
     let sv = state
         .piloting()
-        .map(|id| state.universe.surface_vehicles.get(&id))
+        .map(|id| state.universe.spacecraft.get(&id))
         .flatten();
 
     let current_vehicle_is_thrusting = {
@@ -96,5 +95,3 @@ pub enum TrackTag {
     Thrust,
     Sfx,
 }
-
-pub struct MultiVoiceTrack {}

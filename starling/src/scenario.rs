@@ -22,12 +22,14 @@ impl ObjectIdTracker {
     }
 }
 
+#[deprecated]
 #[derive(Debug, Clone)]
 pub enum ScenarioObject<'a> {
-    Orbiter(&'a SurfaceSpacecraftEntity),
+    Orbiter(&'a Spacecraft),
     Body(&'a String, Body),
 }
 
+#[deprecated]
 #[derive(Debug, Clone)]
 pub struct ObjectLookup<'a>(pub EntityId, pub ScenarioObject<'a>, pub PV);
 
@@ -40,7 +42,7 @@ impl<'a> ObjectLookup<'a> {
         self.2
     }
 
-    pub fn orbiter(&self) -> Option<&'a SurfaceSpacecraftEntity> {
+    pub fn orbiter(&self) -> Option<&'a Spacecraft> {
         match self.1 {
             ScenarioObject::Orbiter(o) => Some(o),
             _ => None,

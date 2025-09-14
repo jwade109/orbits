@@ -5,10 +5,8 @@ use crate::input::{FrameId, InputState, MouseButt};
 use crate::onclick::OnClick;
 use crate::scenes::*;
 use crate::sounds::EnvironmentSounds;
-// use crate::ui::*;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
-// use enum_iterator::all;
 use enum_iterator::Sequence;
 use layout::layout::Tree;
 use starling::prelude::*;
@@ -24,14 +22,6 @@ pub enum CursorMode {
     Protractor,
 }
 
-#[derive(Debug, Clone, Copy, Default, Sequence)]
-pub enum ShowOrbitsState {
-    #[default]
-    None,
-    Focus,
-    All,
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Sequence)]
 pub enum DrawMode {
     #[default]
@@ -45,12 +35,8 @@ pub enum DrawMode {
 #[derive(Debug, Clone)]
 pub struct OrbitalContext {
     pub camera: LinearCameraController,
-    primary: EntityId,
     pub selected: HashSet<EntityId>,
     pub following: Option<EntityId>,
-    pub queued_orbits: Vec<GlobalOrbit>,
-    pub cursor_mode: CursorMode,
-    pub show_orbits: ShowOrbitsState,
     pub show_animations: bool,
     pub draw_mode: DrawMode,
     pub piloting: Option<EntityId>,
@@ -78,15 +64,11 @@ impl CameraProjection for OrbitalContext {
 pub const SPACECRAFT_HOVER_RADIUS: f64 = 30.0;
 
 impl OrbitalContext {
-    pub fn new(primary: EntityId) -> Self {
+    pub fn new() -> Self {
         Self {
             camera: LinearCameraController::new(DVec2::ZERO, 0.00002, 600.0),
-            primary,
             selected: HashSet::new(),
             following: None,
-            queued_orbits: Vec::new(),
-            cursor_mode: CursorMode::Rect,
-            show_orbits: ShowOrbitsState::All,
             show_animations: true,
             draw_mode: DrawMode::Default,
             piloting: None,
@@ -189,7 +171,7 @@ impl OrbitalContext {
         self.camera.on_game_tick();
 
         let mut track_list = self.selected.clone();
-        track_list.retain(|o| universe.surface_vehicles.contains_key(o));
+        track_list.retain(|o| universe.spacecraft.contains_key(o));
         self.selected = track_list;
     }
 
@@ -232,7 +214,7 @@ impl OrbitalContext {
         if let Some(_) = input.on_frame(MouseButt::Right, FrameId::Down) {
             || -> Option<()> {
                 let pilot = self.piloting?;
-                let sv = universe.surface_vehicles.get_mut(&pilot)?;
+                let sv = universe.spacecraft.get_mut(&pilot)?;
                 if self.hovered_entity != Some(pilot) {
                     if sv.target() == self.hovered_entity {
                         sv.set_target(None);
@@ -252,7 +234,7 @@ pub fn get_orbital_labels(state: &GameState) -> Vec<TextLabel> {
     let target_id = state
         .orbital_context
         .piloting
-        .map(|p| state.universe.surface_vehicles.get(&p).map(|p| p.target()))
+        .map(|p| state.universe.spacecraft.get(&p).map(|p| p.target()))
         .flatten()
         .flatten();
 
@@ -284,7 +266,7 @@ pub fn get_orbital_labels(state: &GameState) -> Vec<TextLabel> {
             let pos = p + Vec2::Y * 50.0;
             TextLabel::new(text, pos, 1.0).with_color(WHITE.with_alpha(alpha))
         } else {
-            let vehicle = state.universe.surface_vehicles.get(&id);
+            let vehicle = state.universe.spacecraft.get(&id);
             let code = vehicle
                 .map(|ov| {
                     let title = ov.vehicle().title_with_id(id);
@@ -324,41 +306,6 @@ pub fn date_info(state: &GameState) -> String {
     )
 }
 
-fn text_labels(state: &GameState) -> Vec<TextLabel> {
-    let mut text_labels: Vec<TextLabel> = get_orbital_labels(state);
-
-    if let Some((m1, m2, corner)) = state.measuring_tape() {
-        for (a, b) in [(m1, m2), (m1, corner), (m2, corner)] {
-            let middle = (a + b) / 2.0;
-            let middle = state.orbital_context.w2c(middle);
-            let d = format!("{:0.1} km", a.distance(b));
-            text_labels.push(TextLabel::new(d, middle, 1.0));
-        }
-    }
-
-    if let Some((c, a, b)) = state.protractor() {
-        for (a, b) in [(c, Some(a)), (c, b)] {
-            if let Some(b) = b {
-                let middle = (a + b) / 2.0;
-                let middle = state.orbital_context.w2c(middle);
-                let d = format!("{:0.1} km", a.distance(b));
-                text_labels.push(TextLabel::new(d, middle, 1.0));
-            }
-        }
-        if let Some(b) = b {
-            let da = a - c;
-            let db = b - c;
-            let angle = da.angle_to(db);
-            let d = c + rotate_f64(da * 0.75, angle / 2.0);
-            let t = format!("{:0.1} deg", angle.to_degrees().abs());
-            let d = state.orbital_context.w2c(d);
-            text_labels.push(TextLabel::new(t, d, 1.0));
-        }
-    }
-
-    text_labels
-}
-
 impl Render for OrbitalContext {
     fn background_color(state: &GameState) -> bevy::color::Srgba {
         match state.orbital_context.draw_mode {
@@ -372,7 +319,7 @@ impl Render for OrbitalContext {
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         crate::drawing::draw_orbital_view(canvas, state);
 
-        for label in text_labels(state) {
+        for label in get_orbital_labels(state) {
             canvas.label(label);
         }
 
@@ -424,16 +371,6 @@ impl Render for OrbitalContext {
         //     Size::Grow,
         //     state.settings.ui_button_height,
         // ));
-
-        // sidebar.add_child(
-        //     Node::button(
-        //         "Clear Orbits",
-        //         OnClick::ClearOrbits,
-        //         Size::Grow,
-        //         state.settings.ui_button_height,
-        //     )
-        //     .enabled(!state.orbital_context.queued_orbits.is_empty()),
-        // );
 
         // sidebar.add_child(
         //     Node::button(
@@ -495,20 +432,6 @@ impl Render for OrbitalContext {
         // }
 
         // let mut inner_topbar = Node::fit().with_color(UI_BACKGROUND_COLOR);
-
-        // for (i, orbit) in state.orbital_context.queued_orbits.iter().enumerate() {
-        //     let orbit_button = {
-        //         let s = format!("{}", orbit);
-        //         let id = OnClick::GlobalOrbit(i);
-        //         Node::button(s, id, 400, state.settings.ui_button_height)
-        //     };
-
-        //     inner_topbar.add_child(delete_wrapper(
-        //         OnClick::DeleteOrbit(i),
-        //         orbit_button,
-        //         state.settings.ui_button_height,
-        //     ));
-        // }
 
         // let notif_bar = notification_bar(state, Size::Fixed(900.0));
 

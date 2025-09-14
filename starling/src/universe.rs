@@ -7,7 +7,7 @@ pub struct Universe {
     stamp: Nanotime,
     ticks: u128,
     next_entity_id: EntityId,
-    pub surface_vehicles: HashMap<EntityId, SurfaceSpacecraftEntity>,
+    pub spacecraft: HashMap<EntityId, Spacecraft>,
     pub planets: PlanetarySystem,
     pub constellations: HashMap<EntityId, EntityId>,
     pub thrust_particles: ThrustParticleEffects,
@@ -24,7 +24,7 @@ impl Universe {
             stamp: Nanotime::zero(),
             ticks: 0,
             next_entity_id: EntityId(1002),
-            surface_vehicles: HashMap::new(),
+            spacecraft: HashMap::new(),
             planets,
             constellations: HashMap::new(),
             thrust_particles: ThrustParticleEffects::new(),
@@ -46,7 +46,7 @@ impl Universe {
     }
 
     pub fn remove(&mut self, id: EntityId) {
-        self.surface_vehicles.remove(&id);
+        self.spacecraft.remove(&id);
     }
 
     pub fn on_sim_ticks(
@@ -80,15 +80,15 @@ impl Universe {
     }
 
     fn can_run_batch_mode(&self) -> bool {
-        self.surface_vehicles
+        self.spacecraft
             .iter()
             .all(|(_, sv)| sv.can_be_on_rails())
     }
 
-    fn step_surface_vehicles(&mut self, signals: &ControlSignals) {
+    fn step_spacecraft(&mut self, signals: &ControlSignals) {
         let stamp = self.stamp();
 
-        for (id, sv) in &mut self.surface_vehicles {
+        for (id, sv) in &mut self.spacecraft {
             let (ext, delta_throttle) = *signals
                 .piloting_commands
                 .get(&id)
@@ -118,14 +118,14 @@ impl Universe {
 
     fn update_vehicle_relative_info(&mut self) {
         let mut rel = HashMap::new();
-        for (id, sv) in &self.surface_vehicles {
+        for (id, sv) in &self.spacecraft {
             if let Some(t) = sv.target() {
                 if let Some((ego, target)) = self.pv(*id).zip(self.pv(t)) {
                     rel.insert(*id, ego - target);
                 }
             }
         }
-        for (id, sv) in &mut self.surface_vehicles {
+        for (id, sv) in &mut self.spacecraft {
             if let Some(pv) = rel.get(id) {
                 sv.target_relative_pv = Some(*pv);
             } else {
@@ -140,7 +140,7 @@ impl Universe {
         let delta_time = PHYSICS_CONSTANT_DELTA_TIME * ticks;
         self.stamp = old_stamp + delta_time;
 
-        for (_, sv) in &mut self.surface_vehicles {
+        for (_, sv) in &mut self.spacecraft {
             sv.step_on_rails(delta_time, self.stamp, &self.planets);
         }
 
@@ -159,10 +159,10 @@ impl Universe {
 
         self.thrust_particles.step();
 
-        self.step_surface_vehicles(signals);
+        self.step_spacecraft(signals);
 
         self.constellations
-            .retain(|id, _| self.surface_vehicles.contains_key(id));
+            .retain(|id, _| self.spacecraft.contains_key(id));
 
         self.update_vehicle_relative_info();
     }
@@ -191,7 +191,7 @@ impl Universe {
     }
 
     pub fn orbiter_ids(&self) -> impl Iterator<Item = EntityId> + use<'_> {
-        self.surface_vehicles.keys().into_iter().map(|id| *id)
+        self.spacecraft.keys().into_iter().map(|id| *id)
     }
 
     pub fn add_orbital_vehicle(
@@ -203,8 +203,8 @@ impl Universe {
         let mut body = RigidBody::random_spin();
         body.pv = orbit.1.pv(self.stamp).ok()?; // orbiter.pv(self.stamp, &self.planets)?;
         let controller = VehicleController::idle();
-        let os = SurfaceSpacecraftEntity::new(orbit.0, vehicle, body, controller);
-        self.surface_vehicles.insert(id, os);
+        let os = Spacecraft::new(orbit.0, vehicle, body, controller);
+        self.spacecraft.insert(id, os);
         Some(id)
     }
 
@@ -230,15 +230,15 @@ impl Universe {
 
         let controller = VehicleController::launch();
         let id = self.next_entity_id();
-        let sv = SurfaceSpacecraftEntity::new(planet_id, vehicle, body, controller);
-        self.surface_vehicles.insert(id, sv);
+        let sv = Spacecraft::new(planet_id, vehicle, body, controller);
+        self.spacecraft.insert(id, sv);
 
         Some(id)
     }
 
     pub fn lup_orbiter(&self, id: EntityId) -> Option<ObjectLookup> {
         let stamp = self.stamp;
-        let os = self.surface_vehicles.get(&id)?;
+        let os = self.spacecraft.get(&id)?;
         let pv = os.pv();
         let (_, frame_pv, _, _) = self.planets.lookup(os.parent(), stamp)?;
         let pv = frame_pv + pv;
@@ -250,7 +250,7 @@ impl Universe {
             return Some(pv);
         }
 
-        let (local, parent) = if let Some(ov) = self.surface_vehicles.get(&id) {
+        let (local, parent) = if let Some(ov) = self.spacecraft.get(&id) {
             (ov.pv(), ov.parent())
         } else {
             return None;
@@ -261,6 +261,7 @@ impl Universe {
         Some(local + parent)
     }
 
+    #[deprecated]
     pub fn lup_planet(&self, id: EntityId) -> Option<ObjectLookup> {
         let stamp = self.stamp;
         let (body, pv, _, sys) = self.planets.lookup(id, stamp)?;
@@ -268,7 +269,7 @@ impl Universe {
     }
 
     pub fn frames(&self) -> impl Iterator<Item = (PV, EntityId)> + use<'_> {
-        self.surface_vehicles
+        self.spacecraft
             .iter()
             .map(|(_, ov)| (ov.pv(), ov.parent()))
             .chain(self.planets.planet_ids().into_iter().filter_map(|id| {
@@ -307,7 +308,7 @@ pub fn orbiters_within_bounds(
     universe: &Universe,
     bounds: AABB,
 ) -> impl Iterator<Item = EntityId> + use<'_> {
-    universe.surface_vehicles.iter().filter_map(move |(id, _)| {
+    universe.spacecraft.iter().filter_map(move |(id, _)| {
         let pv = universe.pv(*id)?;
         bounds.contains(aabb_stopgap_cast(pv.pos)).then(|| *id)
     })
@@ -329,7 +330,7 @@ pub fn nearest_orbiter_or_planet(
                 body.radius
             } else {
                 universe
-                    .surface_vehicles
+                    .spacecraft
                     .get(&id.as_eid())
                     .map(|sv| sv.vehicle.bounding_radius())
                     .unwrap_or(0.0)

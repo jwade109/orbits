@@ -1,6 +1,5 @@
 use crate::prelude::*;
-pub use bevy::input::keyboard::{Key, KeyboardInput};
-pub use bevy::input::mouse::MouseButton;
+use bevy::input::keyboard::{Key, KeyboardInput};
 use starling::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
