@@ -7,11 +7,14 @@ use starling::prelude::*;
 pub struct LinearCameraController {
     center: DVec2,
     target_offset: DVec2,
-    scale: f64,
-    target_scale: f64,
+    // scale: f64,
+    // target_scale: f64,
     speed: f64,
     parent: EntityId,
     offset: DVec2,
+
+    view_distance: f64,
+    target_view_distance: f64,
 }
 
 impl CameraProjection for LinearCameraController {
@@ -45,16 +48,18 @@ impl LinearCameraController {
         Self {
             center,
             target_offset: DVec2::ZERO,
-            scale,
-            target_scale: scale,
+            // scale,
+            // target_scale: scale,
             speed,
             parent: EntityId(0),
             offset: DVec2::ZERO,
+            view_distance: 100000.0,
+            target_view_distance: 100000.0,
         }
     }
 
     pub fn scale(&self) -> f64 {
-        2.0f64.powf(self.scale)
+        1.0 / self.view_distance
     }
 
     pub fn clear_offset(&mut self) {
@@ -66,7 +71,7 @@ impl LinearCameraController {
         const CENTER_SMOOTHING: f64 = 0.1;
 
         let dt = PHYSICS_CONSTANT_DELTA_TIME.to_secs_f64();
-        self.scale += (self.target_scale - self.scale) * ((dt / SCALE_SMOOTHING).exp() - 1.0);
+        // self.scale += (self.target_scale - self.scale) * ((dt / SCALE_SMOOTHING).exp() - 1.0);
         self.offset += (self.target_offset - self.offset) * ((dt / CENTER_SMOOTHING).exp() - 1.0)
     }
 
@@ -92,7 +97,7 @@ impl LinearCameraController {
     }
 
     pub fn set_target_scale(&mut self, scale: f64) {
-        self.target_scale = scale;
+        // self.target_scale = scale;
     }
 
     pub fn offset(&self) -> DVec2 {
@@ -107,20 +112,24 @@ impl LinearCameraController {
         const SCROLL_WHEEL_DELTA: f64 = 0.5;
         const BUTTON_ZOOM_SPEED: f64 = 0.05;
 
-        let speed = self.speed * 0.01;
+        let speed = self.speed * 0.02;
 
         if input.is_scroll_down() {
-            self.target_scale -= SCROLL_WHEEL_DELTA;
+            // self.target_scale -= SCROLL_WHEEL_DELTA;
+            self.target_view_distance *= 1.4;
         }
         if input.is_scroll_up() {
-            self.target_scale += SCROLL_WHEEL_DELTA;
+            // self.target_scale += SCROLL_WHEEL_DELTA;
+            self.target_view_distance /= 1.4;
         }
 
         if input.is_pressed(KeyCode::Equal) {
-            self.target_scale += BUTTON_ZOOM_SPEED;
+            // self.target_scale += BUTTON_ZOOM_SPEED;
+            self.target_view_distance /= 1.02;
         }
         if input.is_pressed(KeyCode::Minus) {
-            self.target_scale -= BUTTON_ZOOM_SPEED;
+            // self.target_scale -= BUTTON_ZOOM_SPEED;
+            self.target_view_distance *= 1.02;
         }
 
         if input.is_pressed(KeyCode::KeyD) {
@@ -136,7 +145,10 @@ impl LinearCameraController {
             self.target_offset.y -= speed / self.scale();
         }
 
-        self.target_scale = self.target_scale.clamp(-22.0, 10.0);
+        self.target_view_distance = self.target_view_distance.clamp(10.0, 10000000.0);
+        self.view_distance += (self.target_view_distance - self.view_distance) * 0.1;
+
+        // self.target_scale = self.target_scale.clamp(-22.0, 10.0);
     }
 }
 
