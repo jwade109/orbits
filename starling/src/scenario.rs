@@ -31,31 +31,9 @@ pub enum ScenarioObject<'a> {
 
 #[deprecated]
 #[derive(Debug, Clone)]
-pub struct ObjectLookup<'a>(pub EntityId, pub ScenarioObject<'a>, pub PV);
+pub struct ObjectLookup<'a>(pub EntityId, pub ScenarioObject<'a>);
 
 impl<'a> ObjectLookup<'a> {
-    pub fn id(&self) -> EntityId {
-        self.0
-    }
-
-    pub fn pv(&self) -> PV {
-        self.2
-    }
-
-    pub fn orbiter(&self) -> Option<&'a Spacecraft> {
-        match self.1 {
-            ScenarioObject::Orbiter(o) => Some(o),
-            _ => None,
-        }
-    }
-
-    pub fn body(&self) -> Option<Body> {
-        match self.1 {
-            ScenarioObject::Body(_, b) => Some(b),
-            _ => None,
-        }
-    }
-
     pub fn named_body(&self) -> Option<(&'a String, Body)> {
         match self.1 {
             ScenarioObject::Body(s, b) => Some((s, b)),

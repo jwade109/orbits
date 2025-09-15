@@ -381,8 +381,8 @@ impl GameState {
 
         g.arrange_windows(true);
 
-        let earth_id = g.universe.lup_planet_by_name("Earth").unwrap();
-        let luna_id = g.universe.lup_planet_by_name("Luna").unwrap();
+        let earth_id = g.universe.get_planet_by_name("Earth").unwrap();
+        let luna_id = g.universe.get_planet_by_name("Luna").unwrap();
 
         let t = g.universe.stamp();
 
@@ -723,11 +723,7 @@ impl GameState {
         let ov = self.universe.spacecraft.remove(&id)?;
         let parent = ov.parent();
         let pv = ov.pv();
-        self.notify(
-            ObjectId::Planet(parent),
-            NotificationType::OrbiterDeleted(id),
-            pv.pos,
-        );
+        self.notify(parent, NotificationType::OrbiterDeleted(id), pv.pos);
         Some(())
     }
 
@@ -781,7 +777,7 @@ impl GameState {
 
     pub fn notify(
         &mut self,
-        parent: impl Into<Option<ObjectId>>,
+        parent: impl Into<Option<EntityId>>,
         kind: NotificationType,
         offset: impl Into<Option<DVec2>>,
     ) {

@@ -232,10 +232,7 @@ fn draw_global_orbit(
     color: Srgba,
     draw_nodes: bool,
 ) -> Option<()> {
-    let pv = state
-        .universe
-        .lup_planet(orbit.0)
-        .map(|lup: ObjectLookup<'_>| lup.pv())?;
+    let pv = state.universe.pv(orbit.0)?;
     draw_orbit(
         canvas,
         &orbit.1,
@@ -573,7 +570,7 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
     let sv = state.universe.spacecraft.get(&piloting)?;
 
     let planet = state.universe.lup_planet(sv.parent())?;
-    let radius = planet.body()?.radius;
+    let radius = planet.named_body()?.1.radius;
 
     let vehicle = sv.vehicle();
     let body = &sv.body;
@@ -1095,7 +1092,7 @@ fn draw_goal_markers(canvas: &mut Canvas, state: &GameState, goal: &Goal) -> Opt
             tol,
         } => {
             let sv = state.universe.spacecraft.get(vehicle_id)?;
-            let body = state.universe.lup_planet(*planet_id)?.body()?;
+            let (_, body) = state.universe.lup_planet(*planet_id)?.named_body()?;
             let orbit = SparseOrbit::new(*ra, *rp, *argp, body, Nanotime::ZERO, false)?;
             let orbit = GlobalOrbit(*planet_id, orbit);
             let current_orbit = sv.current_orbit()?;
@@ -1347,17 +1344,18 @@ pub fn draw_notifications(gizmos: &mut Gizmos, state: &GameState) {
     let ctx = &state.orbital_context;
 
     for notif in &state.notifications {
-        let p = match notif.parent {
-            None => return,
-            Some(ObjectId::Orbiter(id)) => match state.universe.pv(id) {
-                Some(pv) => pv.pos + notif.offset + notif.jitter,
-                None => continue,
-            },
-            Some(ObjectId::Planet(id)) => match state.universe.lup_planet(id) {
-                Some(lup) => lup.pv().pos + notif.offset + notif.jitter,
-                None => continue,
-            },
+
+        let parent = match notif.parent {
+            Some(p) => p,
+            None => continue,
         };
+
+        let parent_pv = match state.universe.pv(parent) {
+            Some(pv) => pv,
+            None => continue,
+        };
+
+        let p = parent_pv.pos + notif.offset + notif.jitter;
 
         let size = 20.0;
         let s = (state.wall_time - notif.wall_time).to_secs() / notif.duration().to_secs();
@@ -1774,11 +1772,12 @@ pub fn circle_entity(
         let r = SPACECRAFT_HOVER_RADIUS.max(sv.vehicle.bounding_radius() * ctx.scale());
         canvas.circle(p, gcast(r), color);
         Some(())
-    } else if let Some(lup) = universe.lup_planet(id) {
+    } else if let Some(pv) = universe.pv(id) {
+        let lup = universe.lup_planet(id)?;
         let z = ZOrdering::Planet.as_f32();
-        let p = ctx.w2c(lup.pv().pos).extend(z);
+        let p = ctx.w2c(pv.pos).extend(z);
         let r =
-            SPACECRAFT_HOVER_RADIUS.max(lup.body()?.radius * ctx.scale() + SPACECRAFT_HOVER_RADIUS);
+            SPACECRAFT_HOVER_RADIUS.max(lup.named_body()?.1.radius * ctx.scale() + SPACECRAFT_HOVER_RADIUS);
         canvas.circle(p, gcast(r), color);
         Some(())
     } else {

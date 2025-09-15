@@ -2,7 +2,7 @@ use starling::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct Notification {
-    pub parent: Option<ObjectId>,
+    pub parent: Option<EntityId>,
     pub offset: DVec2,
     pub jitter: DVec2,
     pub sim_time: Nanotime,

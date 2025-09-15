@@ -216,7 +216,7 @@ impl Universe {
         altitude: f64,
     ) -> Option<EntityId> {
         let lup = self.lup_planet(planet_id)?;
-        let body = lup.body()?;
+        let (_, body) = lup.named_body()?;
 
         let pos = rotate_f64(DVec2::X * (body.radius + altitude), angle);
 
@@ -236,13 +236,10 @@ impl Universe {
         Some(id)
     }
 
+    #[deprecated]
     pub fn lup_orbiter(&self, id: EntityId) -> Option<ObjectLookup> {
-        let stamp = self.stamp;
         let os = self.spacecraft.get(&id)?;
-        let pv = os.pv();
-        let (_, frame_pv, _, _) = self.planets.lookup(os.parent(), stamp)?;
-        let pv = frame_pv + pv;
-        Some(ObjectLookup(id, ScenarioObject::Orbiter(os), pv))
+        Some(ObjectLookup(id, ScenarioObject::Orbiter(os)))
     }
 
     pub fn pv(&self, id: EntityId) -> Option<PV> {
@@ -264,8 +261,8 @@ impl Universe {
     #[deprecated]
     pub fn lup_planet(&self, id: EntityId) -> Option<ObjectLookup> {
         let stamp = self.stamp;
-        let (body, pv, _, sys) = self.planets.lookup(id, stamp)?;
-        Some(ObjectLookup(id, ScenarioObject::Body(&sys.name, body), pv))
+        let (body, _, _, sys) = self.planets.lookup(id, stamp)?;
+        Some(ObjectLookup(id, ScenarioObject::Body(&sys.name, body)))
     }
 
     pub fn frames(&self) -> impl Iterator<Item = (PV, EntityId)> + use<'_> {
@@ -278,7 +275,7 @@ impl Universe {
             }))
     }
 
-    pub fn lup_planet_by_name(&self, name: &str) -> Option<EntityId> {
+    pub fn get_planet_by_name(&self, name: &str) -> Option<EntityId> {
         self.planets
             .planet_ids()
             .iter()
@@ -322,11 +319,12 @@ pub fn nearest_orbiter_or_planet(
     let max_dist = max_dist.into();
     let results = all_orbital_ids(universe)
         .filter_map(|id| {
+            let pv = universe.pv(id.as_eid())?;
             let lup = match id {
                 ObjectId::Orbiter(id) => universe.lup_orbiter(id),
                 ObjectId::Planet(id) => universe.lup_planet(id),
             }?;
-            let size = if let Some(body) = lup.body() {
+            let size = if let Some((_, body)) = lup.named_body() {
                 body.radius
             } else {
                 universe
@@ -335,7 +333,7 @@ pub fn nearest_orbiter_or_planet(
                     .map(|sv| sv.vehicle.bounding_radius())
                     .unwrap_or(0.0)
             };
-            let p = lup.pv().pos;
+            let p = pv.pos;
             let d = pos.distance(p);
             let passes = if let Some(m) = max_dist {
                 d <= size + m
@@ -349,17 +347,6 @@ pub fn nearest_orbiter_or_planet(
         .into_iter()
         .min_by(|(d1, _), (d2, _)| d1.total_cmp(d2))
         .map(|(_, id)| id)
-}
-
-pub fn landing_site_position(
-    universe: &Universe,
-    planet_id: EntityId,
-    angle: f64,
-) -> Option<DVec2> {
-    let lup = universe.lup_planet(planet_id)?;
-    let body = lup.body()?;
-    let center = lup.pv().pos;
-    Some(center + rotate_f64(DVec2::X * body.radius, angle))
 }
 
 pub fn nearest_relevant_body(
