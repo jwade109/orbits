@@ -44,6 +44,7 @@ impl UiFacade {
 
     pub fn get_state(&self, id: ButtonId) -> bool {
         match id {
+            ButtonId::Editor => false,
             ButtonId::Rcs => self.is_rcs,
             ButtonId::Idle => self
                 .current_vehicle_controller

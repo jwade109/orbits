@@ -1987,10 +1987,11 @@ pub fn draw_camera_info(
     }
 
     let label = format!(
-        "{} {} {:0.1}",
+        "{} {} {:0.1} {}",
         distance_str(step as f64),
         distance_str(ctx.distance()),
-        ctx.angle().to_degrees()
+        ctx.angle().to_degrees(),
+        state.universe_ticks_per_game_tick.as_str()
     );
 
     canvas

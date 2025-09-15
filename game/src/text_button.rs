@@ -8,6 +8,7 @@ use starling::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ButtonId {
+    Editor,
     Rcs,
     Idle,
     Prograde,

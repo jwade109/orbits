@@ -1,6 +1,7 @@
 ui_button_height: 32.0
 controller_cursor_speed: 6.0
 draw_transform_tree: false
+draw_thrust_particles: false
 show_debug_info: false
 
 high_volume: 0.5

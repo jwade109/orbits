@@ -53,8 +53,7 @@ impl std::fmt::Display for LinearCameraController {
 }
 
 impl LinearCameraController {
-    pub fn new(center: DVec2, scale: f64, speed: f64) -> Self {
-
+    pub fn new(center: DVec2, distance: f64) -> Self {
         Self {
             center,
             target_offset: DVec2::ZERO,
@@ -62,8 +61,8 @@ impl LinearCameraController {
             // target_scale: scale,
             parent: EntityId(0),
             offset: DVec2::ZERO,
-            view_distance: 100000.0,
-            target_view_distance: 100000.0,
+            view_distance: distance,
+            target_view_distance: distance,
             angle: 0.0,
             target_angle: 0.0,
         }

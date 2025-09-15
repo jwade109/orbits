@@ -65,7 +65,7 @@ pub struct Editor {
 impl Editor {
     pub fn new() -> Self {
         Editor {
-            camera: LinearCameraController::new(DVec2::ZERO, 18.0, 1100.0),
+            camera: LinearCameraController::new(DVec2::ZERO, 0.01),
             cursor_state: CursorState::None,
             rotation: Rotation::East,
             filepath: None,
@@ -971,13 +971,11 @@ fn other_buttons(button_height: f32, universe: &Universe) -> Node<OnClick> {
         button_height,
     );
 
-    let surface_buttons = universe.planets.planet_ids().into_iter().map(|id| {
-        Node::button(
-            "Send to Surface",
-            OnClick::SendToSurface(id),
-            Size::Grow,
-            button_height,
-        )
+    let surface_buttons = universe.planets.planet_ids().into_iter().filter_map(|id| {
+        let (name, _) = universe.named_body(id)?;
+        let s = format!("Send to {}", name);
+        let b = Node::button(s, OnClick::SendToSurface(id), Size::Grow, button_height);
+        Some(b)
     });
 
     Node::structural(Size::Grow, Size::Fit)
@@ -1043,7 +1041,10 @@ impl CameraProjection for Editor {
 
 impl Editor {
     pub fn on_render_tick(state: &mut GameState) {
-        state.editor_context.camera.handle_input(&state.input, &state.settings);
+        state
+            .editor_context
+            .camera
+            .handle_input(&state.input, &state.settings);
 
         if state.is_hovering_over_ui() {
             return;
@@ -1217,13 +1218,16 @@ impl Editor {
 
         let atmo = ctx.atmo as f32 / 10.0;
 
-        add_particles_from_vehicle(
-            &mut ctx.particles,
-            EntityId(0),
-            &ctx.vehicle,
-            &RigidBody::ZERO,
-            atmo,
-        );
+        if state.settings.draw_thrust_particles {
+            add_particles_from_vehicle(
+                &mut ctx.particles,
+                EntityId(0),
+                &ctx.vehicle,
+                &RigidBody::ZERO,
+                atmo,
+            );
+        }
+
         ctx.particles.step();
 
         ctx.build_particles.retain(|p| p.opacity() > 0.0);

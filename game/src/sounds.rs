@@ -52,7 +52,7 @@ pub fn sound_system(
             TrackTag::High => (high, 0.01),
             TrackTag::Mids => (mids, 0.01),
             TrackTag::Bass => (bass, 0.01),
-            TrackTag::Thrust => (current_vehicle_is_thrusting as u8 as f32 * 0.6, 0.5),
+            TrackTag::Thrust => (current_vehicle_is_thrusting as u8 as f32 * 0.6, 0.1),
             _ => continue,
         };
 

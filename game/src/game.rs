@@ -305,6 +305,7 @@ impl GameState {
         // }
 
         let text_labels = [
+            ButtonId::Editor,
             ButtonId::Rcs,
             ButtonId::Idle,
             ButtonId::Prograde,
@@ -401,6 +402,7 @@ impl GameState {
             ("pollux", earth_id),
             ("remora", earth_id),
             ("bellerophon", earth_id),
+            ("icecream", earth_id),
             ("pollux", luna_id),
             ("bellerophon", luna_id),
             ("remora", luna_id),
@@ -471,8 +473,8 @@ impl GameState {
             "conbot",
             "low-fuel",
             "low-fuel-dim",
-            "radar",
-            "radar-dim",
+            // "radar",
+            // "radar-dim",
             "ctrl",
             "ctrl-dim",
             "shipscope",
@@ -936,6 +938,10 @@ impl GameState {
             }
             OnClick::TextButtonClicked(id) => {
                 match id {
+                    ButtonId::Editor => {
+                        self.scene = SceneType::Editor;
+                        Some(())
+                    }
                     ButtonId::Rcs => self.toggle_rcs(),
                     ButtonId::Idle => self.set_controller_policy(VehicleControlPolicy::Idle),
                     ButtonId::Prograde => {
@@ -1266,6 +1272,14 @@ impl GameState {
 
         if combo_just_pressed(
             &self.input,
+            &[KeyCode::ControlLeft, KeyCode::ShiftLeft, KeyCode::KeyP],
+        ) {
+            self.settings.draw_thrust_particles = !self.settings.draw_thrust_particles;
+            return;
+        }
+
+        if combo_just_pressed(
+            &self.input,
             &[KeyCode::ControlLeft, KeyCode::ShiftLeft, KeyCode::KeyD],
         ) {
             self.settings.show_debug_info = !self.settings.show_debug_info;
@@ -1372,6 +1386,7 @@ impl GameState {
                 self.universe_ticks_per_game_tick.as_ticks(),
                 &signals,
                 std::time::Duration::from_millis(10),
+                self.settings.draw_thrust_particles,
             )
         }
 

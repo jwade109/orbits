@@ -75,7 +75,7 @@ pub const SPACECRAFT_HOVER_RADIUS: f64 = 30.0;
 impl OrbitalContext {
     pub fn new() -> Self {
         Self {
-            camera: LinearCameraController::new(DVec2::ZERO, 0.00002, 600.0),
+            camera: LinearCameraController::new(DVec2::ZERO, 100000.0),
             selected: HashSet::new(),
             following: None,
             show_animations: true,

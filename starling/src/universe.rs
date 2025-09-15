@@ -54,6 +54,7 @@ impl Universe {
         ticks: u32,
         signals: &ControlSignals,
         max_dur: Duration,
+        particles: bool,
     ) -> (u32, Duration, bool) {
         let start = Instant::now();
         let mut actual_ticks = 0;
@@ -67,7 +68,7 @@ impl Universe {
         } else {
             for _ in 0..ticks {
                 actual_ticks += 1;
-                self.on_sim_tick(signals);
+                self.on_sim_tick(signals, particles);
                 exec_time = std::time::Instant::now() - start;
                 if exec_time > max_dur {
                     break;
@@ -83,7 +84,7 @@ impl Universe {
         self.spacecraft.iter().all(|(_, sv)| sv.can_be_on_rails())
     }
 
-    fn step_spacecraft(&mut self, signals: &ControlSignals) {
+    fn step_spacecraft(&mut self, signals: &ControlSignals, particles: bool) {
         let stamp = self.stamp();
 
         for (id, sv) in &mut self.spacecraft {
@@ -104,13 +105,15 @@ impl Universe {
                 _ => 0.0,
             };
 
-            add_particles_from_vehicle(
-                &mut self.thrust_particles,
-                sv.planet_id,
-                &sv.vehicle,
-                &sv.body,
-                atmo as f32,
-            );
+            if particles {
+                add_particles_from_vehicle(
+                    &mut self.thrust_particles,
+                    sv.planet_id,
+                    &sv.vehicle,
+                    &sv.body,
+                    atmo as f32,
+                );
+            }
         }
     }
 
@@ -151,13 +154,13 @@ impl Universe {
         self.update_vehicle_relative_info();
     }
 
-    pub fn on_sim_tick(&mut self, signals: &ControlSignals) {
+    pub fn on_sim_tick(&mut self, signals: &ControlSignals, particles: bool) {
         self.ticks += 1;
         self.stamp += PHYSICS_CONSTANT_DELTA_TIME;
 
         self.thrust_particles.step();
 
-        self.step_spacecraft(signals);
+        self.step_spacecraft(signals, particles);
 
         self.constellations
             .retain(|id, _| self.spacecraft.contains_key(id));
