@@ -1,10 +1,10 @@
 use crate::camera_controller::*;
 use crate::canvas::Canvas;
 use crate::game::GameState;
-use crate::settings::Settings;
 use crate::input::{FrameId, InputState, MouseButt};
 use crate::onclick::OnClick;
 use crate::scenes::*;
+use crate::settings::Settings;
 use crate::sounds::EnvironmentSounds;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
@@ -136,7 +136,7 @@ impl OrbitalContext {
         let parent = state.universe.lup_planet(wrt_id)?;
 
         let r = p1.distance(pv.pos);
-        let v = (parent.named_body()?.1.mu() / r).sqrt();
+        let v = (parent.named_body().1.mu() / r).sqrt();
 
         Some(PV::from_f64(p1, (p2 - p1) * v / r))
     }
@@ -146,9 +146,9 @@ impl OrbitalContext {
         let parent_id: EntityId =
             nearest_relevant_body(&state.universe.planets, pv.pos, state.universe.stamp())?;
         let parent = state.universe.lup_planet(parent_id)?;
-        let parent_pv= state.universe.pv(parent_id)?;
+        let parent_pv = state.universe.pv(parent_id)?;
         let pv = pv - PV::pos(parent_pv.pos);
-        let (_, body) = parent.named_body()?;
+        let (_, body) = parent.named_body();
         Some(GlobalOrbit(
             parent_id,
             SparseOrbit::from_pv(pv, body, state.universe.stamp())?,
@@ -260,18 +260,12 @@ pub fn get_orbital_labels(state: &GameState) -> Vec<TextLabel> {
             None => continue,
         };
 
-        let lup = if let Some(lup) = state.universe.lup_orbiter(id) {
-            lup
-        } else if let Some(lup) = state.universe.lup_planet(id) {
-            lup
-        } else {
-            continue;
-        };
+        let named_body = state.universe.lup_planet(id).map(|lup| lup.named_body());
 
         let pw = pv.pos;
         let pc = state.orbital_context.w2c(pw);
 
-        let label = if let Some((name, body)) = lup.named_body() {
+        let label = if let Some((name, body)) = named_body {
             // distance based on world space
             let p = state.orbital_context.w2c(pw + DVec2::Y * body.radius);
             let text = name.to_uppercase();
@@ -292,7 +286,8 @@ pub fn get_orbital_labels(state: &GameState) -> Vec<TextLabel> {
 
             let r = vehicle
                 .map(|v| v.vehicle.bounding_radius() * state.orbital_context.scale() * 1.1)
-                .unwrap_or(40.0).max(40.0);
+                .unwrap_or(40.0)
+                .max(40.0);
 
             let pos = pc + Vec2::X * r as f32;
 

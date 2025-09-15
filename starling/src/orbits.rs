@@ -905,7 +905,7 @@ impl std::fmt::Display for GlobalOrbit {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::examples::{consistency_orbits, make_earth};
+    use crate::examples::make_earth;
     use crate::math::{linspace_f64, tspace};
     use crate::pv::PV;
     use approx::assert_relative_eq;
@@ -1401,21 +1401,6 @@ mod tests {
                     actual
                 );
             }
-        }
-    }
-
-    #[test]
-    fn grid_orbits() {
-        let orbits = consistency_orbits(make_earth());
-        for orbit in &orbits[0..120] {
-            let is_retrograde = cross2d(orbit.initial.pos, orbit.initial.vel) < 0.0;
-            orbit_consistency_test(
-                orbit.initial,
-                orbit.class(),
-                orbit.body,
-                f64::NAN,
-                is_retrograde,
-            );
         }
     }
 

@@ -280,7 +280,7 @@ pub fn get_goal_text(cond: &GoalCondition, state: &GameState) -> Option<String> 
             let sv = state.universe.spacecraft.get(vehicle_id)?;
             let n = sv.vehicle.name_with_id(*vehicle_id);
             let lup = state.universe.lup_planet(*planet_id)?;
-            let b = lup.named_body()?.0;
+            let b = lup.named_body().0;
             Some(format!(
                 "Place \"{}\" into the specified orbit around {}.",
                 n, b

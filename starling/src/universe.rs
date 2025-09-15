@@ -16,7 +16,7 @@ pub struct Universe {
 impl Universe {
     pub fn empty() -> Self {
         // TODO make it so you can declare zero planets lol.
-        Self::new(PlanetarySystem::new(EntityId(0), "null", Body::LUNA))
+        Self::new(PlanetarySystem::new(0, "null", Body::LUNA))
     }
 
     pub fn new(planets: PlanetarySystem) -> Self {
@@ -80,9 +80,7 @@ impl Universe {
     }
 
     fn can_run_batch_mode(&self) -> bool {
-        self.spacecraft
-            .iter()
-            .all(|(_, sv)| sv.can_be_on_rails())
+        self.spacecraft.iter().all(|(_, sv)| sv.can_be_on_rails())
     }
 
     fn step_spacecraft(&mut self, signals: &ControlSignals) {
@@ -216,7 +214,7 @@ impl Universe {
         altitude: f64,
     ) -> Option<EntityId> {
         let lup = self.lup_planet(planet_id)?;
-        let (_, body) = lup.named_body()?;
+        let (_, body) = lup.named_body();
 
         let pos = rotate_f64(DVec2::X * (body.radius + altitude), angle);
 
@@ -234,12 +232,6 @@ impl Universe {
         self.spacecraft.insert(id, sv);
 
         Some(id)
-    }
-
-    #[deprecated]
-    pub fn lup_orbiter(&self, id: EntityId) -> Option<ObjectLookup> {
-        let os = self.spacecraft.get(&id)?;
-        Some(ObjectLookup(id, ScenarioObject::Orbiter(os)))
     }
 
     pub fn pv(&self, id: EntityId) -> Option<PV> {
@@ -262,7 +254,7 @@ impl Universe {
     pub fn lup_planet(&self, id: EntityId) -> Option<ObjectLookup> {
         let stamp = self.stamp;
         let (body, _, _, sys) = self.planets.lookup(id, stamp)?;
-        Some(ObjectLookup(id, ScenarioObject::Body(&sys.name, body)))
+        Some(ObjectLookup::new((&sys.name, body)))
     }
 
     pub fn frames(&self) -> impl Iterator<Item = (PV, EntityId)> + use<'_> {
@@ -281,24 +273,18 @@ impl Universe {
             .iter()
             .filter_map(|id| {
                 let lup = self.lup_planet(*id)?;
-                Some((*id, lup.named_body()?.0))
+                Some((*id, lup.named_body().0))
             })
             .find(|s| s.1 == name)
             .map(|s| s.0)
     }
 }
 
-pub fn all_orbital_ids(universe: &Universe) -> impl Iterator<Item = ObjectId> + use<'_> {
+pub fn all_orbital_ids(universe: &Universe) -> impl Iterator<Item = EntityId> + use<'_> {
     universe
         .orbiter_ids()
-        .map(|id| ObjectId::Orbiter(id))
-        .chain(
-            universe
-                .planets
-                .planet_ids()
-                .into_iter()
-                .map(|id| ObjectId::Planet(id)),
-        )
+        .map(|id| id)
+        .chain(universe.planets.planet_ids().into_iter().map(|id| id))
 }
 
 pub fn orbiters_within_bounds(
@@ -319,17 +305,16 @@ pub fn nearest_orbiter_or_planet(
     let max_dist = max_dist.into();
     let results = all_orbital_ids(universe)
         .filter_map(|id| {
-            let pv = universe.pv(id.as_eid())?;
-            let lup = match id {
-                ObjectId::Orbiter(id) => universe.lup_orbiter(id),
-                ObjectId::Planet(id) => universe.lup_planet(id),
-            }?;
-            let size = if let Some((_, body)) = lup.named_body() {
+            let pv = universe.pv(id)?;
+
+            let named_body = universe.lup_planet(id).map(|lup| lup.named_body());
+
+            let size = if let Some((_, body)) = named_body {
                 body.radius
             } else {
                 universe
                     .spacecraft
-                    .get(&id.as_eid())
+                    .get(&id)
                     .map(|sv| sv.vehicle.bounding_radius())
                     .unwrap_or(0.0)
             };
@@ -340,7 +325,7 @@ pub fn nearest_orbiter_or_planet(
             } else {
                 true
             };
-            passes.then(|| (d, id.as_eid()))
+            passes.then(|| (d, id))
         })
         .collect::<Vec<_>>();
     results

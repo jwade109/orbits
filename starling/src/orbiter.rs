@@ -1,7 +1,7 @@
 use crate::propagator::*;
 use crate::pv::PV;
-use crate::scenario::*;
 use crate::{nanotime::Nanotime, orbits::GlobalOrbit};
+use crate::scenario::PlanetarySystem;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

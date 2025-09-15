@@ -1,45 +1,26 @@
-use crate::entities::*;
 use crate::id::*;
-use crate::math::*;
 use crate::nanotime::Nanotime;
-use crate::orbits::{Body, SparseOrbit};
-use crate::propagator::EventType;
+use crate::orbits::{Body, SparseOrbit, GlobalOrbit};
 use crate::pv::PV;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy)]
-pub struct ObjectIdTracker(EntityId);
-
-impl ObjectIdTracker {
-    pub fn new() -> Self {
-        ObjectIdTracker(EntityId(900))
-    }
-
-    pub fn next(&mut self) -> EntityId {
-        let ret = self.0;
-        self.0 .0 += 1;
-        ret
-    }
-}
-
-#[deprecated]
 #[derive(Debug, Clone)]
-pub enum ScenarioObject<'a> {
-    Orbiter(&'a Spacecraft),
-    Body(&'a String, Body),
-}
-
-#[deprecated]
-#[derive(Debug, Clone)]
-pub struct ObjectLookup<'a>(pub EntityId, pub ScenarioObject<'a>);
+pub struct ObjectLookup<'a>(&'a String, Body);
 
 impl<'a> ObjectLookup<'a> {
-    pub fn named_body(&self) -> Option<(&'a String, Body)> {
-        match self.1 {
-            ScenarioObject::Body(s, b) => Some((s, b)),
-            _ => None,
-        }
+    pub fn new<'b: 'a>(stuff: (&'b String, Body)) -> Self {
+        Self(stuff.0, stuff.1)
     }
+
+    pub fn named_body(&self) -> (&'a String, Body) {
+        (self.0, self.1)
+    }
+}
+
+pub struct PlanetaryBody {
+    name: String,
+    body: Body,
+    orbit: Option<GlobalOrbit>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -47,20 +28,20 @@ pub struct PlanetarySystem {
     pub id: EntityId,
     pub name: String,
     pub body: Body,
-    pub subsystems: Vec<(SparseOrbit, PlanetarySystem)>,
+    pub subsystems: Vec<(SparseOrbit, Self)>,
 }
 
 impl PlanetarySystem {
-    pub fn new(id: EntityId, name: impl Into<String>, body: Body) -> Self {
-        PlanetarySystem {
-            id,
+    pub fn new(id: i64, name: impl Into<String>, body: Body) -> Self {
+        Self {
+            id: EntityId(id),
             name: name.into(),
             body,
             subsystems: vec![],
         }
     }
 
-    pub fn orbit(&mut self, orbit: SparseOrbit, planets: PlanetarySystem) {
+    pub fn orbit(&mut self, orbit: SparseOrbit, planets: Self) {
         self.subsystems.push((orbit, planets));
     }
 
@@ -94,7 +75,7 @@ impl PlanetarySystem {
         stamp: Nanotime,
         wrt: PV,
         parent_id: Option<EntityId>,
-    ) -> Option<(Body, PV, Option<EntityId>, &PlanetarySystem)> {
+    ) -> Option<(Body, PV, Option<EntityId>, &Self)> {
         if self.id == id {
             return Some((self.body, wrt, parent_id, self));
         }
@@ -111,36 +92,12 @@ impl PlanetarySystem {
         None
     }
 
+    #[deprecated]
     pub fn lookup(
         &self,
         id: EntityId,
         stamp: Nanotime,
-    ) -> Option<(Body, PV, Option<EntityId>, &PlanetarySystem)> {
+    ) -> Option<(Body, PV, Option<EntityId>, &Self)> {
         self.lookup_inner(id, stamp, PV::ZERO, None)
-    }
-
-    pub fn potential_at(&self, pos: DVec2, stamp: Nanotime) -> f64 {
-        let r = pos.length().clamp(10.0, std::f64::MAX);
-        let mut ret = -self.body.mu() / r;
-        for (orbit, pl) in &self.subsystems {
-            if let Some(pv) = orbit.pv(stamp).ok() {
-                ret += pl.potential_at(pos - pv.pos, stamp);
-            }
-        }
-        ret
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct RemovalInfo {
-    pub stamp: Nanotime,
-    pub reason: EventType,
-    pub parent: EntityId,
-    pub orbit: SparseOrbit,
-}
-
-impl RemovalInfo {
-    pub fn pv(&self) -> Option<PV> {
-        self.orbit.pv(self.stamp).ok()
     }
 }
