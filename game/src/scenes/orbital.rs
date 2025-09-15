@@ -64,6 +64,10 @@ impl CameraProjection for OrbitalContext {
     fn distance(&self) -> f64 {
         self.camera.distance()
     }
+
+    fn angle(&self) -> f64 {
+        self.camera.angle()
+    }
 }
 
 pub const SPACECRAFT_HOVER_RADIUS: f64 = 30.0;

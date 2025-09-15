@@ -265,15 +265,23 @@ fn draw_orbit_between(
 
 fn draw_planets(
     canvas: &mut Canvas,
+    state: &GameState,
     planet: &PlanetarySystem,
     stamp: Nanotime,
     origin: DVec2,
     ctx: &OrbitalContext,
 ) {
     let a = match ctx.draw_mode {
-        DrawMode::Default => 0.1,
+        DrawMode::Default => 0.5,
         _ => 0.8,
     };
+
+    let target = state
+        .piloting()
+        .map(|p| state.universe.spacecraft.get(&p))
+        .flatten()
+        .map(|sv| sv.target())
+        .flatten();
 
     let screen_origin = ctx.w2c(origin);
 
@@ -290,7 +298,7 @@ fn draw_planets(
 
     canvas.sprite(
         screen_origin,
-        0.0,
+        gcast(-ctx.angle()),
         planet.name.clone(),
         ZOrdering::Orbit,
         graphics_cast(DVec2::splat(planet.body.radius) * 2.0 * ctx.scale()),
@@ -315,9 +323,18 @@ fn draw_planets(
     }
 
     for (orbit, pl) in &planet.subsystems {
+        let color = if Some(pl.id) == state.piloting() {
+            ORANGE
+        } else if target == Some(pl.id) {
+            TEAL
+        } else {
+            GRAY
+        }
+        .with_alpha(a / 2.0);
+
         if let Some(pv) = orbit.pv(stamp).ok() {
-            draw_orbit(canvas, orbit, origin, GRAY.with_alpha(a / 2.0), false, ctx);
-            draw_planets(canvas, pl, stamp, origin + pv.pos, ctx)
+            draw_orbit(canvas, orbit, origin, color, false, ctx);
+            draw_planets(canvas, state, pl, stamp, origin + pv.pos, ctx)
         }
     }
 }
@@ -578,7 +595,7 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
 
     let window_dims = state.input.screen_bounds.span;
     let rb = gcast(vehicle.bounding_radius());
-    let r = window_dims.y * 0.2;
+    let r = window_dims.y * 0.15;
 
     let zoom = 0.8 * r / rb;
 
@@ -597,7 +614,15 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
 
     circle_entity(canvas, sv.target(), ctx, &state.universe, TEAL);
 
-    draw_vehicle(canvas, vehicle, center, zoom, gcast(body.angle), true, true);
+    draw_vehicle(
+        canvas,
+        vehicle,
+        center,
+        zoom,
+        gcast(body.angle - ctx.angle()),
+        true,
+        true,
+    );
 
     {
         canvas.painter.reset();
@@ -866,7 +891,7 @@ fn draw_orbiter(canvas: &mut Canvas, state: &GameState, id: EntityId) -> Option<
             &sv.vehicle,
             screen_pos,
             gcast(ctx.scale()),
-            sv.body.angle as f32,
+            gcast(sv.body.angle - ctx.angle()),
             false,
             true,
         );
@@ -895,7 +920,14 @@ fn draw_scenario(canvas: &mut Canvas, state: &GameState) {
     let stamp = state.universe.stamp();
     let ctx = &state.orbital_context;
 
-    draw_planets(canvas, &state.universe.planets, stamp, DVec2::ZERO, ctx);
+    draw_planets(
+        canvas,
+        state,
+        &state.universe.planets,
+        stamp,
+        DVec2::ZERO,
+        ctx,
+    );
 
     let sids = state.universe.spacecraft.iter().map(|(id, _)| id);
 
@@ -1138,15 +1170,15 @@ fn draw_tutorials(canvas: &mut Canvas, state: &GameState) -> Option<()> {
     let mut y = 140.0;
 
     let draw_line = |c: &mut Canvas, y: &mut f32, s: &str, color: Srgba| {
-        c.text(s, half + Vec2::new(x, -*y) - Vec2::splat(2.0), 0.8)
+        c.text(s, half + Vec2::new(x, -*y) - Vec2::splat(2.0), 0.6)
             .set_anchor(Anchor::BottomLeft)
             .set_color(BLACK)
             .set_z_order(ZOrdering::Ui);
-        c.text(s, half + Vec2::new(x, -*y), 0.8)
+        c.text(s, half + Vec2::new(x, -*y), 0.6)
             .set_anchor(Anchor::BottomLeft)
             .set_color(color)
             .set_z_order(ZOrdering::Ui2);
-        *y += 31.0;
+        *y += 25.0;
     };
 
     let title = format!("{}. {}", tut.current + 1, chap.title.to_uppercase());
@@ -1805,22 +1837,28 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
         draw_window(canvas, window, i as u32);
     }
 
-    draw_camera_info(canvas, ctx, state.input.screen_bounds.span);
+    draw_camera_info(canvas, state, ctx, state.input.screen_bounds.span);
 
     if state.settings.draw_transform_tree {
         draw_transforms(canvas, &ctx.camera, &state.universe);
     }
 
     for (p, c, r, _) in &state.starfield {
-        if p.x <= 0.0 {
+        if p.z <= 0.0 {
             continue;
         }
-        let o = ctx.origin();
-        let q = p.as_dvec3() * 10000.0 - DVec3::new(0.0, o.x, o.y) / p.x as f64;
-        let (az, el) = crate::scenes::telescope::to_azel(q.as_vec3());
-        let p = DVec2::new(az, el).as_vec2() * 1_000.0;
-        let p = p.extend(ZOrdering::Starfield.as_f32());
-        canvas.circle(p, *r * 0.1, WHITE.mix(c, rand(0.0, 0.3)));
+
+        let p = p - ctx.origin().extend(0.0);
+
+        let meters = camera_span_meters(state.input.screen_bounds.span, ctx);
+
+        let p = DVec2::new(p.x / p.z, p.y / p.z) * meters.length() + ctx.origin();
+        let p = ctx.w2c(p);
+        canvas.circle(
+            p.extend(ZOrdering::Starfield.as_f32()),
+            *r * 0.1,
+            WHITE.mix(c, rand(0.0, 0.3)),
+        );
     }
 
     draw_piloting_overlay(canvas, state);
@@ -1894,7 +1932,12 @@ pub fn draw_transforms(canvas: &mut Canvas, ctx: &LinearCameraController, univer
     }
 }
 
-pub fn draw_camera_info(canvas: &mut Canvas, ctx: &impl CameraProjection, window_span: Vec2) {
+pub fn draw_camera_info(
+    canvas: &mut Canvas,
+    state: &GameState,
+    ctx: &impl CameraProjection,
+    window_span: Vec2,
+) {
     let meters = window_span.as_dvec2() / ctx.scale();
     let lower_bound = ctx.offset() - meters / 2.0;
     let upper_bound = ctx.offset() + meters / 2.0;
@@ -1932,19 +1975,22 @@ pub fn draw_camera_info(canvas: &mut Canvas, ctx: &impl CameraProjection, window
         10_000_000,
         50_000_000,
         100_000_000,
+        250_000_000,
+        500_000_000,
         1_000_000_000,
     ] {
         let n = dist / s;
-        if n < 40 {
+        if n < 15 {
             step = s;
             break;
         }
     }
 
     let label = format!(
-        "{} {}",
+        "{} {} {:0.1}",
         distance_str(step as f64),
-        distance_str(ctx.distance())
+        distance_str(ctx.distance()),
+        ctx.angle().to_degrees()
     );
 
     canvas
@@ -1962,12 +2008,15 @@ pub fn draw_camera_info(canvas: &mut Canvas, ctx: &impl CameraProjection, window
     let origin = ctx.origin() - ctx.offset();
 
     canvas.painter.reset();
-    canvas.painter.thickness = 2.0;
+    canvas.painter.set_color(WHITE.with_alpha(0.003));
+    canvas.painter.thickness = 1.0;
+
+    let len = state.input.screen_bounds.span.length() as f64 / ctx.scale();
 
     for x in (xl..=xu).step_by(step) {
         let wp = lower_bound.with_x(x as f64);
-        let p = ctx.w2c(origin + wp);
-        let q = p + Vec2::Y * 10.0;
+        let p = ctx.w2c(origin + wp - DVec2::Y * len);
+        let q = ctx.w2c(origin + wp + DVec2::Y * len);
         canvas.painter.line(
             p.extend(ZOrdering::ScaleIndicator.as_f32()),
             q.extend(ZOrdering::ScaleIndicator.as_f32()),
@@ -1976,8 +2025,8 @@ pub fn draw_camera_info(canvas: &mut Canvas, ctx: &impl CameraProjection, window
 
     for y in (yl..=yu).step_by(step) {
         let wp = upper_bound.with_y(y as f64);
-        let p = ctx.w2c(origin + wp);
-        let q = p - Vec2::X * 10.0;
+        let p = ctx.w2c(origin + wp - DVec2::X * len);
+        let q = ctx.w2c(origin + wp + DVec2::X * len);
         canvas.painter.line(
             p.extend(ZOrdering::ScaleIndicator.as_f32()),
             q.extend(ZOrdering::ScaleIndicator.as_f32()),

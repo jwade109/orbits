@@ -194,8 +194,6 @@ pub struct GameState {
     /// direct them to particular orbits, or manually pilot them.
     pub orbital_context: OrbitalContext,
 
-    pub telescope_context: TelescopeContext,
-
     pub editor_context: Editor,
 
     /// Wall clock, i.e. time since program began.
@@ -213,7 +211,7 @@ pub struct GameState {
     /// the assets/parts directory
     pub part_database: HashMap<String, PartPrototype>,
 
-    pub starfield: Vec<(Vec3, Srgba, f32, f32)>,
+    pub starfield: Vec<(DVec3, Srgba, f32, f32)>,
 
     pub scene: SceneType,
 
@@ -238,8 +236,8 @@ pub struct GameState {
     pub tutorial: Option<Tutorial>,
 }
 
-fn generate_starfield() -> Vec<(Vec3, Srgba, f32, f32)> {
-    (0..1000)
+fn generate_starfield() -> Vec<(DVec3, Srgba, f32, f32)> {
+    (0..6000)
         .map(|_| {
             let s = rand(0.0, 2.0);
             let color = if s < 1.0 {
@@ -248,7 +246,7 @@ fn generate_starfield() -> Vec<(Vec3, Srgba, f32, f32)> {
                 WHITE.mix(&TEAL, s - 1.0)
             };
             (
-                randvec3(1000.0, 12000.0),
+                randvec3(70000000000.0, 120000000000.0).as_dvec3(),
                 color,
                 rand(3.0, 9.0),
                 rand(700.0, 1900.0),
@@ -344,7 +342,6 @@ impl GameState {
             universe: Universe::new(planets.clone()),
             console: DebugConsole::new(),
             orbital_context: OrbitalContext::new(),
-            telescope_context: TelescopeContext::new(),
             editor_context: Editor::new(),
             wall_time: Nanotime::zero(),
             physics_duration: Nanotime::days(7),
@@ -510,7 +507,6 @@ impl Render for GameState {
         match state.scene {
             SceneType::Orbital => OrbitalContext::background_color(state),
             SceneType::Editor => Editor::background_color(state),
-            SceneType::Telescope => TelescopeContext::background_color(state),
             SceneType::MainMenu => BLACK,
         }
     }
@@ -569,7 +565,6 @@ impl Render for GameState {
         match state.scene {
             SceneType::Orbital => OrbitalContext::draw(canvas, state),
             SceneType::Editor => Editor::draw(canvas, state),
-            SceneType::Telescope => TelescopeContext::draw(canvas, state),
             SceneType::MainMenu => MainMenuContext::draw(canvas, state),
         }
     }
@@ -700,23 +695,18 @@ impl GameState {
     ) -> Option<EntityId> {
         let GlobalOrbit(parent, orbit) = global;
         let pv_local = orbit.pv(self.universe.stamp()).ok()?;
-        let perturb = PV::from_f64(
-            randvec(
-                gcast(pv_local.pos.length() * 0.005),
-                gcast(pv_local.pos.length() * 0.02),
-            ),
-            randvec(
-                gcast(pv_local.vel.length() * 0.005),
-                gcast(pv_local.vel.length() * 0.02),
-            ),
-        );
+        let perturb = PV::from_f64(randvec(0.01, 0.1), randvec(1.0, 3.0));
         let orbit = SparseOrbit::from_pv(pv_local + perturb, orbit.body, self.universe.stamp())?;
         self.universe
             .add_orbital_vehicle(vehicle, GlobalOrbit(parent, orbit))
     }
 
-    pub fn spawn_new(&mut self) -> Option<()> {
-        todo!()
+    pub fn spawn_new(&mut self) -> Option<EntityId> {
+        let id = self.piloting()?;
+        let sv = self.universe.spacecraft.get(&id)?;
+        let orbit = sv.current_orbit()?;
+        let vehicle = self.get_vehicle_by_model("buoy")?;
+        self.spawn_with_random_perturbance(orbit, vehicle)
     }
 
     pub fn delete_orbiter(&mut self, id: EntityId) -> Option<()> {
@@ -1256,6 +1246,16 @@ impl GameState {
             return;
         }
 
+        if self.input.just_pressed(KeyCode::KeyB) {
+            self.spawn_new();
+        }
+
+        if self.input.just_pressed(KeyCode::Delete) {
+            if let Some(p) = self.piloting() {
+                self.delete_orbiter(p);
+            }
+        }
+
         if combo_just_pressed(
             &self.input,
             &[KeyCode::ControlLeft, KeyCode::ShiftLeft, KeyCode::KeyT],
@@ -1303,10 +1303,6 @@ impl GameState {
                     &mut self.universe,
                     &mut self.sounds,
                 );
-            }
-            SceneType::Telescope => {
-                self.telescope_context
-                    .on_render_tick(&self.input, &self.settings);
             }
         }
     }
@@ -1390,9 +1386,6 @@ impl GameState {
             SceneType::Orbital => {
                 self.orbital_context.on_game_tick(&self.universe);
             }
-            SceneType::Telescope => {
-                self.telescope_context.on_game_tick();
-            }
             SceneType::Editor => {
                 Editor::on_game_tick(self);
             }
@@ -1465,9 +1458,6 @@ fn process_interaction(
         }
         InteractionEvent::DrawMode => {
             state.orbital_context.draw_mode = next_cycle(&state.orbital_context.draw_mode);
-        }
-        InteractionEvent::Spawn => {
-            state.spawn_new();
         }
         InteractionEvent::ToggleFullscreen => {
             let fs = WindowMode::BorderlessFullscreen(MonitorSelection::Current);

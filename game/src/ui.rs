@@ -479,7 +479,6 @@ pub fn left_right_arrows(
 pub fn layout(state: &GameState) -> Tree<OnClick> {
     match state.scene {
         SceneType::MainMenu => MainMenuContext::ui(state),
-        SceneType::Telescope => TelescopeContext::ui(state),
         SceneType::Orbital => OrbitalContext::ui(state),
         SceneType::Editor => Editor::ui(state),
     }

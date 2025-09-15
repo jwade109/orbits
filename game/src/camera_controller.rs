@@ -10,12 +10,14 @@ pub struct LinearCameraController {
     target_offset: DVec2,
     // scale: f64,
     // target_scale: f64,
-    speed: f64,
     parent: EntityId,
     offset: DVec2,
 
     view_distance: f64,
     target_view_distance: f64,
+
+    angle: f64,
+    target_angle: f64,
 }
 
 impl CameraProjection for LinearCameraController {
@@ -38,6 +40,10 @@ impl CameraProjection for LinearCameraController {
     fn distance(&self) -> f64 {
         self.view_distance
     }
+
+    fn angle(&self) -> f64 {
+        self.angle
+    }
 }
 
 impl std::fmt::Display for LinearCameraController {
@@ -54,11 +60,12 @@ impl LinearCameraController {
             target_offset: DVec2::ZERO,
             // scale,
             // target_scale: scale,
-            speed,
             parent: EntityId(0),
             offset: DVec2::ZERO,
             view_distance: 100000.0,
             target_view_distance: 100000.0,
+            angle: 0.0,
+            target_angle: 0.0,
         }
     }
 
@@ -71,12 +78,14 @@ impl LinearCameraController {
     }
 
     pub fn on_game_tick(&mut self) {
-        const SCALE_SMOOTHING: f64 = 0.1;
         const CENTER_SMOOTHING: f64 = 0.1;
+        const SCALE_SMOOTHING: f64 = 0.1;
+        const ANGLE_SMOOTHING: f64 = 0.1;
 
         let dt = PHYSICS_CONSTANT_DELTA_TIME.to_secs_f64();
         self.offset += (self.target_offset - self.offset) * ((dt / CENTER_SMOOTHING).exp() - 1.0);
         self.view_distance += (self.target_view_distance - self.view_distance) * ((dt / SCALE_SMOOTHING).exp() - 1.0);
+        self.angle += (self.target_angle - self.angle) * ((dt / ANGLE_SMOOTHING).exp() - 1.0);
     }
 
     pub fn follow(&mut self, parent: EntityId, p: DVec2) {
@@ -132,27 +141,45 @@ impl LinearCameraController {
             self.target_view_distance *= 1.02 * settings.camera_zoom_button_sensitivity;
         }
 
+        let mut delta = DVec2::ZERO;
+
         if input.is_pressed(KeyCode::KeyD) {
-            self.target_offset.x += speed / self.scale();
+            delta.x += speed / self.scale();
         }
         if input.is_pressed(KeyCode::KeyA) {
-            self.target_offset.x -= speed / self.scale();
+            delta.x -= speed / self.scale();
         }
         if input.is_pressed(KeyCode::KeyW) {
-            self.target_offset.y += speed / self.scale();
+            delta.y += speed / self.scale();
         }
         if input.is_pressed(KeyCode::KeyS) {
-            self.target_offset.y -= speed / self.scale();
+            delta.y -= speed / self.scale();
         }
 
-        self.target_view_distance = self.target_view_distance.clamp(0.001, 10000000.0);
+        self.target_offset += rotate_f64(delta, self.angle);
+
+        if input.is_pressed(KeyCode::KeyQ) {
+            self.target_angle += 0.02;
+        }
+        if input.is_pressed(KeyCode::KeyE) {
+            self.target_angle -= 0.02;
+        }
+
+        if input.just_pressed(KeyCode::KeyR) {
+            self.target_angle = 0.0;
+            self.target_offset = DVec2::ZERO;
+        }
+
+        self.target_view_distance = self.target_view_distance.clamp(0.001, 600000.0);
     }
 }
 
 pub trait CameraProjection {
     /// World to camera transform
     fn w2c(&self, p: DVec2) -> Vec2 {
-        graphics_cast((p - self.origin()) * self.scale())
+        let delta = p - self.origin();
+        let delta = rotate_f64(delta, -self.angle());
+        graphics_cast(delta * self.scale())
     }
 
     fn w2c_aabb(&self, aabb: AABB) -> AABB {
@@ -163,7 +190,9 @@ pub trait CameraProjection {
 
     /// Camera to world transform
     fn c2w(&self, p: Vec2) -> DVec2 {
-        p.as_dvec2() / self.scale() + self.origin()
+        let delta = p.as_dvec2() / self.scale();
+        let delta = rotate_f64(delta, self.angle());
+        delta + self.origin()
     }
 
     #[allow(unused)]
@@ -185,6 +214,8 @@ pub trait CameraProjection {
     fn parent(&self) -> EntityId;
 
     fn distance(&self) -> f64;
+
+    fn angle(&self) -> f64;
 }
 
 pub fn camera_span_meters(screen_bounds: Vec2, ctx: &impl CameraProjection) -> DVec2 {

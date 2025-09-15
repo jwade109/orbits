@@ -18,9 +18,7 @@ pub use crate::notifications::*;
 pub use crate::onclick::*;
 pub use crate::scenes::orbital::*;
 pub use crate::scenes::TextLabel;
-pub use crate::scenes::{
-    Anchor, MainMenuContext, Render, SceneType, StaticSpriteDescriptor, TelescopeContext,
-};
+pub use crate::scenes::{Anchor, MainMenuContext, Render, SceneType, StaticSpriteDescriptor};
 pub use crate::settings::*;
 pub use crate::sim_rate::*;
 pub use crate::sounds::*;

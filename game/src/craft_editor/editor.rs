@@ -1035,6 +1035,10 @@ impl CameraProjection for Editor {
     fn distance(&self) -> f64 {
         self.camera.distance()
     }
+
+    fn angle(&self) -> f64 {
+        self.camera.angle()
+    }
 }
 
 impl Editor {

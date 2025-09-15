@@ -1,0 +1,8 @@
+name: Buoy
+parts:
+- partname: frame
+  pos:
+  - -5
+  - -5
+  rot: East
+lines: []
