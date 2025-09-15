@@ -905,7 +905,6 @@ impl std::fmt::Display for GlobalOrbit {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::examples::make_earth;
     use crate::math::{linspace_f64, tspace};
     use crate::pv::PV;
     use approx::assert_relative_eq;

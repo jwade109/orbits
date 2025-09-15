@@ -24,7 +24,7 @@ impl Orbiter {
 
     pub fn pv(&self, stamp: Nanotime, planets: &PlanetarySystem) -> Option<PV> {
         let prop = self.propagator_at(stamp)?;
-        let (_, pv, _, _) = planets.lookup(prop.parent(), stamp)?;
+        let (_, pv, _, _) = planets.lookup_planet(prop.parent(), stamp)?;
         Some(prop.pv(stamp)? + pv)
     }
 
@@ -86,7 +86,7 @@ impl Orbiter {
             let prop = self.props.iter_mut().last().ok_or(PredictError::Lookup)?;
 
             let (_, _, _, pl) = planets
-                .lookup(prop.parent(), stamp)
+                .lookup_planet(prop.parent(), stamp)
                 .ok_or(PredictError::Lookup)?;
             let bodies = pl
                 .subsystems

@@ -333,7 +333,7 @@ fn draw_propagator(
     let (_, parent_pv, _, _) = state
         .universe
         .planets
-        .lookup(prop.parent(), state.universe.stamp())?;
+        .lookup_planet(prop.parent(), state.universe.stamp())?;
 
     draw_orbit(canvas, &prop.orbit.1, parent_pv.pos, color, false, ctx);
     if with_event {
@@ -569,8 +569,8 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
 
     let sv = state.universe.spacecraft.get(&piloting)?;
 
-    let planet = state.universe.lup_planet(sv.parent())?;
-    let radius = planet.named_body().1.radius;
+    let (_, body) = state.universe.named_body(sv.parent())?;
+    let radius = body.radius;
 
     let vehicle = sv.vehicle();
     let body = &sv.body;
@@ -1092,7 +1092,7 @@ fn draw_goal_markers(canvas: &mut Canvas, state: &GameState, goal: &Goal) -> Opt
             tol,
         } => {
             let sv = state.universe.spacecraft.get(vehicle_id)?;
-            let (_, body) = state.universe.lup_planet(*planet_id)?.named_body();
+            let (_, body) = state.universe.named_body(*planet_id)?;
             let orbit = SparseOrbit::new(*ra, *rp, *argp, body, Nanotime::ZERO, false)?;
             let orbit = GlobalOrbit(*planet_id, orbit);
             let current_orbit = sv.current_orbit()?;
@@ -1258,7 +1258,7 @@ fn draw_event(
     ctx: &impl CameraProjection,
 ) -> Option<()> {
     if let EventType::Encounter(id) = event {
-        let (body, pv, _, _) = planets.lookup(*id, stamp)?;
+        let (body, pv, _, _) = planets.lookup_planet(*id, stamp)?;
         draw_circle(
             &mut canvas.gizmos,
             ctx.w2c(pv.pos),
@@ -1469,13 +1469,13 @@ fn draw_rendezvous_info(canvas: &mut Canvas, state: &GameState) -> Option<()> {
     } else if let Some((_, _, parent, _)) = state
         .universe
         .planets
-        .lookup(target, state.universe.stamp())
+        .lookup_planet(target, state.universe.stamp())
     {
         let parent = parent?;
         let (_, _, _, sys) = state
             .universe
             .planets
-            .lookup(parent, state.universe.stamp())?;
+            .lookup_planet(parent, state.universe.stamp())?;
         let (orbit, _) = sys.subsystems.iter().find(|(_, s)| s.id == target)?;
         GlobalOrbit(parent, *orbit)
     } else {
@@ -1772,11 +1772,10 @@ pub fn circle_entity(
         canvas.circle(p, gcast(r), color);
         Some(())
     } else if let Some(pv) = universe.pv(id) {
-        let lup = universe.lup_planet(id)?;
+        let (_, body) = universe.named_body(id)?;
         let z = ZOrdering::Planet.as_f32();
         let p = ctx.w2c(pv.pos).extend(z);
-        let r = SPACECRAFT_HOVER_RADIUS
-            .max(lup.named_body().1.radius * ctx.scale() + SPACECRAFT_HOVER_RADIUS);
+        let r = SPACECRAFT_HOVER_RADIUS.max(body.radius * ctx.scale() + SPACECRAFT_HOVER_RADIUS);
         canvas.circle(p, gcast(r), color);
         Some(())
     } else {

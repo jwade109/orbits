@@ -266,14 +266,14 @@ impl Propagator {
             EventType::NumericalError => Ok(None),
             EventType::Escape(_) => {
                 let cur = planets
-                    .lookup(self.orbit.0, stamp)
+                    .lookup_planet(self.orbit.0, stamp)
                     .ok_or(BadObjectNextState::Lookup)?;
                 let reparent = match cur.2 {
                     Some(id) => id,
                     None => return Ok(None),
                 };
                 let new = planets
-                    .lookup(reparent, stamp)
+                    .lookup_planet(reparent, stamp)
                     .ok_or(BadObjectNextState::Lookup)?;
                 let pv = self
                     .orbit
@@ -287,10 +287,10 @@ impl Propagator {
             }
             EventType::Encounter(id) => {
                 let cur = planets
-                    .lookup(self.orbit.0, stamp)
+                    .lookup_planet(self.orbit.0, stamp)
                     .ok_or(BadObjectNextState::Lookup)?;
                 let new = planets
-                    .lookup(id, stamp)
+                    .lookup_planet(id, stamp)
                     .ok_or(BadObjectNextState::Lookup)?;
                 let pv = self
                     .orbit

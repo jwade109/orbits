@@ -104,7 +104,7 @@ impl Spacecraft {
         self.body.angle += self.body.angular_velocity * delta_time.to_secs_f64();
         self.body.angle = wrap_0_2pi_f64(self.body.angle);
 
-        let (parent_body, parent_pv) = match planets.lookup(self.planet_id, stamp) {
+        let (parent_body, parent_pv) = match planets.lookup_planet(self.planet_id, stamp) {
             Some((body, pv, _, _)) => (body, pv),
             None => todo!(),
         };
@@ -134,8 +134,8 @@ impl Spacecraft {
         planets: &PlanetarySystem,
         stamp: Nanotime,
     ) -> Option<()> {
-        let (_, old_parent_pv, _, _) = planets.lookup(self.planet_id, stamp)?;
-        let (_, new_parent_pv, _, _) = planets.lookup(new_parent, stamp)?;
+        let (_, old_parent_pv, _, _) = planets.lookup_planet(self.planet_id, stamp)?;
+        let (_, new_parent_pv, _, _) = planets.lookup_planet(new_parent, stamp)?;
         self.body.pv += old_parent_pv - new_parent_pv;
         self.planet_id = new_parent;
         Some(())
@@ -153,7 +153,7 @@ impl Spacecraft {
             return None;
         }
 
-        let (new_parent_body, _, _, _) = planets.lookup(new_parent_id, stamp)?;
+        let (new_parent_body, _, _, _) = planets.lookup_planet(new_parent_id, stamp)?;
         self.reparent_to(new_parent_id, planets, stamp)?;
         let altitude = self.body.pv.pos.length() - new_parent_body.radius;
         self.update_orbit(planets, altitude, new_parent_body, stamp);
@@ -167,7 +167,7 @@ impl Spacecraft {
     }
 
     pub fn step(&mut self, planets: &PlanetarySystem, stamp: Nanotime, mut ext: VehicleControl) {
-        let (parent_body, parent_pv) = match planets.lookup(self.planet_id, stamp) {
+        let (parent_body, parent_pv) = match planets.lookup_planet(self.planet_id, stamp) {
             Some((body, pv, _, _)) => (body, pv),
             None => todo!(),
         };

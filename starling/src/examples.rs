@@ -36,8 +36,8 @@ pub fn rss() -> PlanetarySystem {
     let ast_orbit =
         SparseOrbit::circular(LUNA_RADIUS * 1.5 as f64, luna_body, Nanotime::zero(), true);
 
-    luna.orbit(ast_orbit, ast);
-    earth.orbit(luna_orbit, luna);
+    luna.subsystems.push((ast_orbit, ast));
+    earth.subsystems.push((luna_orbit, luna));
 
     earth
 }

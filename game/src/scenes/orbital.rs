@@ -133,10 +133,10 @@ impl OrbitalContext {
 
         let wrt_id = nearest_relevant_body(&state.universe.planets, p1, state.universe.stamp())?;
         let pv = state.universe.pv(wrt_id)?;
-        let parent = state.universe.lup_planet(wrt_id)?;
+        let (_, body) = state.universe.named_body(wrt_id)?;
 
         let r = p1.distance(pv.pos);
-        let v = (parent.named_body().1.mu() / r).sqrt();
+        let v = (body.mu() / r).sqrt();
 
         Some(PV::from_f64(p1, (p2 - p1) * v / r))
     }
@@ -145,10 +145,9 @@ impl OrbitalContext {
         let pv = Self::cursor_pv(p1, p2, &state)?;
         let parent_id: EntityId =
             nearest_relevant_body(&state.universe.planets, pv.pos, state.universe.stamp())?;
-        let parent = state.universe.lup_planet(parent_id)?;
+        let (_, body) = state.universe.named_body(parent_id)?;
         let parent_pv = state.universe.pv(parent_id)?;
         let pv = pv - PV::pos(parent_pv.pos);
-        let (_, body) = parent.named_body();
         Some(GlobalOrbit(
             parent_id,
             SparseOrbit::from_pv(pv, body, state.universe.stamp())?,
@@ -260,7 +259,7 @@ pub fn get_orbital_labels(state: &GameState) -> Vec<TextLabel> {
             None => continue,
         };
 
-        let named_body = state.universe.lup_planet(id).map(|lup| lup.named_body());
+        let named_body = state.universe.named_body(id);
 
         let pw = pv.pos;
         let pc = state.orbital_context.w2c(pw);
@@ -351,7 +350,7 @@ impl Render for OrbitalContext {
         //     state.orbital_context.origin(),
         //     state.universe.stamp(),
         // )
-        // .map(|id| state.universe.lup_planet(id))
+        // .map(|id| state.universe.named_body(id))
         // .flatten()
         // {
         //     if let Some((s, _)) = lup.named_body() {

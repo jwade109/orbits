@@ -24,7 +24,7 @@ pub use crate::propagator::{EventType, HorizonState, Propagator};
 pub use crate::pv::*;
 pub use crate::quantities::*;
 pub use crate::region::Region;
-pub use crate::scenario::{ObjectLookup, PlanetarySystem};
+pub use crate::scenario::PlanetarySystem;
 pub use crate::surface::*;
 pub use crate::take::*;
 pub use crate::thrust_particles::*;

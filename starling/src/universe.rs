@@ -96,7 +96,7 @@ impl Universe {
 
             sv.step(&self.planets, stamp, ext);
 
-            let atmo = match self.planets.lookup(sv.parent(), stamp) {
+            let atmo = match self.planets.lookup_planet(sv.parent(), stamp) {
                 Some((body, _, _, _)) => {
                     let altitude = sv.body.pv.pos.length() - body.radius;
                     (1.0 - altitude / 200_000.0).clamp(0.0, 1.0)
@@ -213,8 +213,7 @@ impl Universe {
         angle: f64,
         altitude: f64,
     ) -> Option<EntityId> {
-        let lup = self.lup_planet(planet_id)?;
-        let (_, body) = lup.named_body();
+        let (_, body) = self.named_body(planet_id)?;
 
         let pos = rotate_f64(DVec2::X * (body.radius + altitude), angle);
 
@@ -235,7 +234,7 @@ impl Universe {
     }
 
     pub fn pv(&self, id: EntityId) -> Option<PV> {
-        if let Some((_, pv, _, _)) = self.planets.lookup(id, self.stamp) {
+        if let Some((_, pv, _, _)) = self.planets.lookup_planet(id, self.stamp) {
             return Some(pv);
         }
 
@@ -245,16 +244,16 @@ impl Universe {
             return None;
         };
 
-        let (_, parent, _, _) = self.planets.lookup(parent, self.stamp)?;
+        let (_, parent, _, _) = self.planets.lookup_planet(parent, self.stamp)?;
 
         Some(local + parent)
     }
 
     #[deprecated]
-    pub fn lup_planet(&self, id: EntityId) -> Option<ObjectLookup> {
+    pub fn named_body(&self, id: EntityId) -> Option<(&String, Body)> {
         let stamp = self.stamp;
-        let (body, _, _, sys) = self.planets.lookup(id, stamp)?;
-        Some(ObjectLookup::new((&sys.name, body)))
+        let (body, _, _, sys) = self.planets.lookup_planet(id, stamp)?;
+        Some((&sys.name, body))
     }
 
     pub fn frames(&self) -> impl Iterator<Item = (PV, EntityId)> + use<'_> {
@@ -262,8 +261,10 @@ impl Universe {
             .iter()
             .map(|(_, ov)| (ov.pv(), ov.parent()))
             .chain(self.planets.planet_ids().into_iter().filter_map(|id| {
-                let (_, pv, parent, _) = self.planets.lookup(id, self.stamp)?;
-                Some((pv, parent?))
+                let (_, _, parent, _) = self.planets.lookup_planet(id, self.stamp)?;
+                let pv_child = self.pv(id)?;
+                let pv_parent = self.pv(parent?)?;
+                Some((pv_child - pv_parent, parent?))
             }))
     }
 
@@ -272,8 +273,8 @@ impl Universe {
             .planet_ids()
             .iter()
             .filter_map(|id| {
-                let lup = self.lup_planet(*id)?;
-                Some((*id, lup.named_body().0))
+                let lup = self.named_body(*id)?;
+                Some((*id, lup.0))
             })
             .find(|s| s.1 == name)
             .map(|s| s.0)
@@ -307,7 +308,7 @@ pub fn nearest_orbiter_or_planet(
         .filter_map(|id| {
             let pv = universe.pv(id)?;
 
-            let named_body = universe.lup_planet(id).map(|lup| lup.named_body());
+            let named_body = universe.named_body(id);
 
             let size = if let Some((_, body)) = named_body {
                 body.radius
@@ -343,7 +344,7 @@ pub fn nearest_relevant_body(
         .planet_ids()
         .into_iter()
         .filter_map(|id| {
-            let (body, pv, _, _) = planets.lookup(id, stamp)?;
+            let (body, pv, _, _) = planets.lookup_planet(id, stamp)?;
             let p = pv.pos;
             let d = pos.distance(p);
             (d <= body.soi).then(|| (d, id))
