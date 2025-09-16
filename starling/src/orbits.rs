@@ -125,6 +125,12 @@ impl Body {
         soi: 12_000_000.0,
     };
 
+    pub const SMOL: Self = Self {
+        radius: 200.0,
+        mu: 10000.0,
+        soi: 4000.0,
+    };
+
     pub const fn with_mass(radius: f64, mass: f64, soi: f64) -> Self {
         Body {
             radius,

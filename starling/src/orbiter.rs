@@ -1,7 +1,7 @@
 use crate::propagator::*;
 use crate::pv::PV;
-use crate::{nanotime::Nanotime, orbits::GlobalOrbit};
 use crate::scenario::PlanetarySystem;
+use crate::{nanotime::Nanotime, orbits::GlobalOrbit};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -88,11 +88,7 @@ impl Orbiter {
             let (_, _, _, pl) = planets
                 .lookup_planet(prop.parent(), stamp)
                 .ok_or(PredictError::Lookup)?;
-            let bodies = pl
-                .subsystems
-                .iter()
-                .map(|(orbit, pl)| (pl.id, orbit, pl.body.soi))
-                .collect::<Vec<_>>();
+            let bodies = pl.bodies();
 
             prop.finish_or_compute_until(t, &bodies)?;
 

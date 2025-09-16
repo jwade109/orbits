@@ -356,24 +356,26 @@ fn draw_highlight_box(
     color: Srgba,
     z: ZOrdering,
 ) {
-    let w1 = 2.0 / PIXELS_PER_METER;
-    let w2 = 4.0 / PIXELS_PER_METER;
+    canvas.hollow_rect(ctx.w2c_aabb(aabb), z, color, gcast(0.08 * ctx.scale()));
 
-    let x1 = Vec2::X * w1;
-    let x2 = Vec2::X * w2;
+    // let w1 = 2.0 / PIXELS_PER_METER;
+    // let w2 = 4.0 / PIXELS_PER_METER;
 
-    let y1 = Vec2::Y * w1;
-    let y2 = Vec2::Y * w2;
+    // let x1 = Vec2::X * w1;
+    // let x2 = Vec2::X * w2;
 
-    let left = AABB::from_arbitrary(aabb.lower() - x1, aabb.top_left() - x2);
-    let right = AABB::from_arbitrary(aabb.bottom_right() + x1, aabb.upper() + x2);
+    // let y1 = Vec2::Y * w1;
+    // let y2 = Vec2::Y * w2;
 
-    let upper = AABB::from_arbitrary(aabb.top_left() + y1, aabb.upper() + y2);
-    let lower = AABB::from_arbitrary(aabb.lower() - y1, aabb.bottom_right() - y2);
+    // let left = AABB::from_arbitrary(aabb.lower() - x1, aabb.top_left() - x2);
+    // let right = AABB::from_arbitrary(aabb.bottom_right() + x1, aabb.upper() + x2);
 
-    for aabb in [upper, lower, left, right] {
-        canvas.rect(ctx.w2c_aabb(aabb), z, color);
-    }
+    // let upper = AABB::from_arbitrary(aabb.top_left() + y1, aabb.upper() + y2);
+    // let lower = AABB::from_arbitrary(aabb.lower() - y1, aabb.bottom_right() - y2);
+
+    // for aabb in [upper, lower, left, right] {
+    //     canvas.rect(ctx.w2c_aabb(aabb), z, color);
+    // }
 }
 
 fn highlight_part(
@@ -385,18 +387,9 @@ fn highlight_part(
 ) {
     let wh = instance.dims_meters();
     let p = instance.origin_meters();
-    let q = p + wh;
-    let r = p + Vec2::X * wh.x;
-    let s = p + Vec2::Y * wh.y;
     let aabb = AABB::from_arbitrary(p, p + wh);
 
     draw_highlight_box(canvas, aabb, ctx, color, z);
-
-    for p in [p, q, r, s] {
-        let p = p.as_dvec2();
-        let p = ctx.w2c(p);
-        draw_cross(&mut canvas.gizmos, p, gcast(0.1 * ctx.scale()), color);
-    }
 }
 
 impl Render for Editor {
@@ -971,9 +964,9 @@ fn other_buttons(button_height: f32, universe: &Universe) -> Node<OnClick> {
         button_height,
     );
 
-    let surface_buttons = universe.planets.planet_ids().into_iter().filter_map(|id| {
-        let (name, _) = universe.named_body(id)?;
-        let s = format!("Send to {}", name);
+    let surface_buttons = universe.planet_ids().into_iter().filter_map(|id| {
+        let planet = universe.get_planet(id)?;
+        let s = format!("Send to {}", planet.name);
         let b = Node::button(s, OnClick::SendToSurface(id), Size::Grow, button_height);
         Some(b)
     });

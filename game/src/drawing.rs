@@ -263,10 +263,10 @@ fn draw_orbit_between(
     Some(())
 }
 
-fn draw_planets(
+fn draw_planet(
     canvas: &mut Canvas,
     state: &GameState,
-    planet: &PlanetarySystem,
+    planet: &Planet,
     stamp: Nanotime,
     origin: DVec2,
     ctx: &OrbitalContext,
@@ -322,21 +322,21 @@ fn draw_planets(
         }
     }
 
-    for (orbit, pl) in &planet.subsystems {
-        let color = if Some(pl.id) == state.piloting() {
-            ORANGE
-        } else if target == Some(pl.id) {
-            TEAL
-        } else {
-            GRAY
-        }
-        .with_alpha(a / 2.0);
+    // for (orbit, pl) in &planet.subsystems {
+    //     let color = if Some(pl.id) == state.piloting() {
+    //         ORANGE
+    //     } else if target == Some(pl.id) {
+    //         TEAL
+    //     } else {
+    //         GRAY
+    //     }
+    //     .with_alpha(a / 2.0);
 
-        if let Some(pv) = orbit.pv(stamp).ok() {
-            draw_orbit(canvas, orbit, origin, color, false, ctx);
-            draw_planets(canvas, state, pl, stamp, origin + pv.pos, ctx)
-        }
-    }
+    //     if let Some(pv) = orbit.pv(stamp).ok() {
+    //         draw_orbit(canvas, orbit, origin, color, false, ctx);
+    //         draw_planet(canvas, state, pl, stamp, origin + pv.pos, ctx)
+    //     }
+    // }
 }
 
 fn draw_propagator(
@@ -347,24 +347,12 @@ fn draw_propagator(
     color: Srgba,
     ctx: &impl CameraProjection,
 ) -> Option<()> {
-    let (_, parent_pv, _, _) = state
-        .universe
-        .planets
-        .lookup_planet(prop.parent(), state.universe.stamp())?;
-
+    let parent_pv = state.universe.pv(prop.parent())?;
     draw_orbit(canvas, &prop.orbit.1, parent_pv.pos, color, false, ctx);
     if with_event {
         if let Some((t, e)) = prop.stamped_event() {
             let pv_end = parent_pv + prop.pv(t)?;
-            draw_event(
-                canvas,
-                &state.universe.planets,
-                &e,
-                t,
-                state.wall_time,
-                pv_end.pos,
-                ctx,
-            );
+            draw_event(canvas, &e, state.wall_time, pv_end.pos, ctx);
         }
     }
     Some(())
@@ -586,8 +574,8 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
 
     let sv = state.universe.spacecraft.get(&piloting)?;
 
-    let (_, body) = state.universe.named_body(sv.parent())?;
-    let radius = body.radius;
+    let planet = state.universe.get_planet(sv.parent())?;
+    let radius = planet.body.radius;
 
     let vehicle = sv.vehicle();
     let body = &sv.body;
@@ -832,7 +820,6 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
 fn draw_orbiter(canvas: &mut Canvas, state: &GameState, id: EntityId) -> Option<()> {
     let ctx = &state.orbital_context;
     let meters = camera_span_meters(state.input.screen_bounds.span, ctx);
-    let tracked = state.orbital_context.selected.contains(&id);
     let piloting = state.piloting() == Some(id);
     let targeting = if let Some(pilot) = state.piloting() {
         if let Some(sv) = state.universe.spacecraft.get(&pilot) {
@@ -901,8 +888,6 @@ fn draw_orbiter(canvas: &mut Canvas, state: &GameState, id: EntityId) -> Option<
         ORANGE
     } else if targeting {
         TEAL
-    } else if tracked {
-        PURPLE
     } else {
         GRAY.with_alpha(0.03)
     };
@@ -920,14 +905,15 @@ fn draw_scenario(canvas: &mut Canvas, state: &GameState) {
     let stamp = state.universe.stamp();
     let ctx = &state.orbital_context;
 
-    draw_planets(
-        canvas,
-        state,
-        &state.universe.planets,
-        stamp,
-        DVec2::ZERO,
-        ctx,
-    );
+    for id in state.universe.planet_ids() {
+        let pv = match state.universe.pv(id) {
+            Some(pv) => pv,
+            None => continue,
+        };
+        if let Some(planet) = state.universe.get_planet(id) {
+            draw_planet(canvas, state, &planet, stamp, pv.pos, ctx);
+        }
+    }
 
     let sids = state.universe.spacecraft.iter().map(|(id, _)| id);
 
@@ -1124,8 +1110,8 @@ fn draw_goal_markers(canvas: &mut Canvas, state: &GameState, goal: &Goal) -> Opt
             tol,
         } => {
             let sv = state.universe.spacecraft.get(vehicle_id)?;
-            let (_, body) = state.universe.named_body(*planet_id)?;
-            let orbit = SparseOrbit::new(*ra, *rp, *argp, body, Nanotime::ZERO, false)?;
+            let planet = state.universe.get_planet(*planet_id)?;
+            let orbit = SparseOrbit::new(*ra, *rp, *argp, planet.body, Nanotime::ZERO, false)?;
             let orbit = GlobalOrbit(*planet_id, orbit);
             let current_orbit = sv.current_orbit()?;
             let alpha = if blinking { 1.0 } else { 0.5 };
@@ -1282,22 +1268,22 @@ fn draw_event_marker_at(gizmos: &mut Gizmos, wall_time: Nanotime, event: &EventT
 
 fn draw_event(
     canvas: &mut Canvas,
-    planets: &PlanetarySystem,
+    // planets: &PlanetarySystem,
     event: &EventType,
-    stamp: Nanotime,
+    // stamp: Nanotime,
     wall_time: Nanotime,
     p: DVec2,
     ctx: &impl CameraProjection,
 ) -> Option<()> {
-    if let EventType::Encounter(id) = event {
-        let (body, pv, _, _) = planets.lookup_planet(*id, stamp)?;
-        draw_circle(
-            &mut canvas.gizmos,
-            ctx.w2c(pv.pos),
-            gcast(body.soi * ctx.scale()),
-            ORANGE.with_alpha(0.2),
-        );
-    }
+    // if let EventType::Encounter(id) = event {
+    //     let (body, pv, _, _) = planets.lookup_planet(*id, stamp)?;
+    //     draw_circle(
+    //         &mut canvas.gizmos,
+    //         ctx.w2c(pv.pos),
+    //         gcast(body.soi * ctx.scale()),
+    //         ORANGE.with_alpha(0.2),
+    //     );
+    // }
     draw_event_marker_at(&mut canvas.gizmos, wall_time, event, ctx.w2c(p));
     Some(())
 }
@@ -1498,18 +1484,20 @@ fn draw_rendezvous_info(canvas: &mut Canvas, state: &GameState) -> Option<()> {
 
     let to = if let Some(sv) = state.universe.spacecraft.get(&target) {
         sv.current_orbit()?
-    } else if let Some((_, _, parent, _)) = state
-        .universe
-        .planets
-        .lookup_planet(target, state.universe.stamp())
-    {
-        let parent = parent?;
-        let (_, _, _, sys) = state
-            .universe
-            .planets
-            .lookup_planet(parent, state.universe.stamp())?;
-        let (orbit, _) = sys.subsystems.iter().find(|(_, s)| s.id == target)?;
-        GlobalOrbit(parent, *orbit)
+    // }
+    // } else if let Some((_, _, parent, _)) = state
+    //     .universe
+    //     .planets
+    //     .lookup_planet(target, state.universe.stamp())
+    // {
+    //     return None;
+    // let parent = parent?;
+    // let (_, _, _, sys) = state
+    //     .universe
+    //     .planets
+    //     .lookup_planet(parent, state.universe.stamp())?;
+    // let (orbit, _) = sys.subsystems.iter().find(|(_, s)| s.id == target)?;
+    // GlobalOrbit(parent, *orbit)
     } else {
         return None;
     };
@@ -1804,10 +1792,11 @@ pub fn circle_entity(
         canvas.circle(p, gcast(r), color);
         Some(())
     } else if let Some(pv) = universe.pv(id) {
-        let (_, body) = universe.named_body(id)?;
+        let planet = universe.get_planet(id)?;
         let z = ZOrdering::Planet.as_f32();
         let p = ctx.w2c(pv.pos).extend(z);
-        let r = SPACECRAFT_HOVER_RADIUS.max(body.radius * ctx.scale() + SPACECRAFT_HOVER_RADIUS);
+        let r =
+            SPACECRAFT_HOVER_RADIUS.max(planet.body.radius * ctx.scale() + SPACECRAFT_HOVER_RADIUS);
         canvas.circle(p, gcast(r), color);
         Some(())
     } else {

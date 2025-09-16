@@ -4,6 +4,7 @@ draw_transform_tree: false
 draw_thrust_particles: false
 show_debug_info: false
 
+music_muted: true
 high_volume: 0.5
 mids_volume: 0.3
 low_volume: 0.1

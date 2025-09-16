@@ -257,7 +257,7 @@ fn generate_starfield() -> Vec<(DVec3, Srgba, f32, f32)> {
 
 impl GameState {
     pub fn new(args: ProgramContext) -> Self {
-        let planets = default_example();
+        let universe = rss();
 
         let part_database = match load_parts_from_dir(&args.parts_dir()) {
             Ok(d) => d,
@@ -340,7 +340,7 @@ impl GameState {
             sounds,
             input: InputState::default(),
             args: args.clone(),
-            universe: Universe::new(planets.clone()),
+            universe,
             console: DebugConsole::new(),
             orbital_context: OrbitalContext::new(),
             editor_context: Editor::new(),
@@ -369,52 +369,46 @@ impl GameState {
             tutorial,
         };
 
-        // g.spawn_window(WindowClass::Tutorial(4), randvec(100.0, 500.0));
-        // g.spawn_window(WindowClass::Hello, randvec(100.0, 500.0));
-        // g.spawn_window(WindowClass::CurrentVehicleInfo, randvec(100.0, 500.0));
-        // g.spawn_window(
-        //     WindowClass::VehicleInfo(EntityId(1002)),
-        //     randvec(100.0, 500.0),
-        // );
-
-        g.arrange_windows(true);
-
-        let earth_id = g.universe.get_planet_by_name("Earth").unwrap();
-        let luna_id = g.universe.get_planet_by_name("Luna").unwrap();
-
-        let t = g.universe.stamp();
-
-        let get_random_orbit = |pid: EntityId| {
+        let get_random_orbit = |universe: &Universe, pid: EntityId| {
             let r1 = rand(3_000_000.0, 20_000_000.0) as f64;
             let r2 = rand(3_000_000.0, 20_000_000.0) as f64;
             let argp = rand(0.0, 2.0 * PI) as f64;
-            let body = planets.lookup_planet(pid, t)?.0;
-            let r1 = body.radius + r1;
-            let r2 = body.radius + r2;
+            let planet = universe.get_planet(pid)?;
+            let r1 = planet.body.radius + r1;
+            let r2 = planet.body.radius + r2;
             let epoch = Nanotime::secs_f32(rand(0.0, 100000.0));
-            let orbit = SparseOrbit::new(r1.max(r2), r1.min(r2), argp, body, epoch, false)?;
+            let orbit = SparseOrbit::new(r1.max(r2), r1.min(r2), argp, planet.body, epoch, false)?;
             Some(GlobalOrbit(pid, orbit))
         };
 
-        let vehicles = [
-            ("spacestation", earth_id),
-            ("lander", earth_id),
-            ("pollux", earth_id),
-            ("remora", earth_id),
-            ("bellerophon", earth_id),
-            ("icecream", earth_id),
-            ("pollux", luna_id),
-            ("bellerophon", luna_id),
-            ("remora", luna_id),
-            ("remora", luna_id),
-        ];
+        // let vehicles = [
+        //     ("spacestation", "Earth"),
+        //     ("lander", "Earth"),
+        //     ("pollux", "Earth"),
+        //     ("remora", "Earth"),
+        //     ("bellerophon", "Earth"),
+        //     ("icecream", "Earth"),
+        //     ("pollux", "Luna"),
+        //     ("bellerophon", "Luna"),
+        //     ("remora", "Luna"),
+        //     ("remora", "Luna"),
+        // ];
 
-        for (name, parent) in vehicles {
-            let vehicle = g.get_vehicle_by_model(name);
-            let orbit = get_random_orbit(parent);
-            if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {
-                g.spawn_with_random_perturbance(orbit, vehicle);
-            }
+        // for (name, parent) in vehicles {
+        //     let parent = g.universe.get_planet_by_name(parent);
+        //     if let Some(parent) = parent {
+        //         let vehicle = g.get_vehicle_by_model(name);
+        //         let orbit = get_random_orbit(&g.universe, parent);
+        //         if let (Some(orbit), Some(vehicle)) = (orbit, vehicle) {
+        //             g.spawn_with_random_perturbance(orbit, vehicle);
+        //         }
+        //     }
+        // }
+
+        let vehicle = g.get_vehicle_by_model("pollux");
+
+        if let Some(v) = vehicle {
+            g.spawn_new_at(v, PV::ZERO);
         }
 
         g
@@ -473,6 +467,7 @@ impl GameState {
             "conbot",
             "low-fuel",
             "low-fuel-dim",
+            "muted",
             // "radar",
             // "radar-dim",
             "ctrl",
@@ -521,6 +516,14 @@ impl Render for GameState {
 
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         // BOOKMARK debug info
+
+        if state.settings.music_muted {
+            let half_span = state.input.screen_bounds.span / 2.0;
+            let w = 40.0;
+            let dims = Vec2::splat(w);
+            let pos = half_span - Vec2::splat(w / 2.0 + 20.0);
+            canvas.sprite(pos, 0.0, "muted", ZOrdering::Ui, dims);
+        }
 
         if state.settings.show_debug_info {
             let mut entity_info = Vec::from_iter(state.entity_info.iter());
@@ -636,38 +639,6 @@ impl GameState {
         self.orbital_context.piloting = Some(id);
     }
 
-    pub fn is_tracked(&self, id: EntityId) -> bool {
-        self.orbital_context.selected.contains(&id)
-    }
-
-    pub fn toggle_group(&mut self, gid: EntityId) {
-        // - if any of the orbiters in the group are not selected,
-        //   select all of them
-        // - if all of them are already selected, deselect all of them
-
-        let members = self.universe.get_group_members(gid);
-
-        let all_selected = members.iter().all(|id| self.is_tracked(*id));
-
-        for id in members {
-            if all_selected {
-                self.orbital_context.selected.remove(&id);
-            } else {
-                self.orbital_context.selected.insert(id);
-            }
-        }
-    }
-
-    pub fn disband_group(&mut self, gid: EntityId) {
-        self.universe.constellations.retain(|_, g| *g != gid);
-    }
-
-    pub fn create_group(&mut self, gid: EntityId) {
-        for id in &self.orbital_context.selected {
-            self.universe.constellations.insert(*id, gid.clone());
-        }
-    }
-
     pub fn get_vehicle_by_model(&self, name: &str) -> Option<Vehicle> {
         let vehicles = crate::scenes::get_list_of_vehicles(self)?;
 
@@ -711,22 +682,23 @@ impl GameState {
         self.spawn_with_random_perturbance(orbit, vehicle)
     }
 
+    pub fn spawn_new_at(&mut self, vehicle: Vehicle, pv: PV) -> Option<EntityId> {
+        let body = RigidBody {
+            pv,
+            angle: 0.0,
+            angular_velocity: 0.0,
+        };
+        let controller = VehicleController::idle();
+        let sv = Spacecraft::new(EntityId(0), vehicle, body, controller);
+        self.universe.spawn_spacecraft(sv)
+    }
+
     pub fn delete_orbiter(&mut self, id: EntityId) -> Option<()> {
         let ov = self.universe.spacecraft.remove(&id)?;
         let parent = ov.parent();
         let pv = ov.pv();
         self.notify(parent, NotificationType::OrbiterDeleted(id), pv.pos);
         Some(())
-    }
-
-    pub fn delete_objects(&mut self) {
-        self.orbital_context
-            .selected
-            .clone()
-            .into_iter()
-            .for_each(|id| {
-                self.delete_orbiter(id);
-            });
     }
 
     pub fn write_editor_to_ownship(&mut self) -> Option<()> {
@@ -820,14 +792,6 @@ impl GameState {
             OnClick::ToggleDrawMode => {
                 self.orbital_context.draw_mode = next_cycle(&self.orbital_context.draw_mode)
             }
-            OnClick::ClearTracks => self.orbital_context.selected.clear(),
-            OnClick::Group(gid) => self.toggle_group(gid),
-            OnClick::CreateGroup => {
-                // let id = self.ids.next();
-                // self.create_group(id);
-                println!("todo!");
-            }
-            OnClick::DisbandGroup(gid) => self.disband_group(gid),
             OnClick::Exit => self.shutdown_with_prompt(),
             OnClick::SimSpeed(r) => {
                 self.universe_ticks_per_game_tick = r;
@@ -1267,6 +1231,24 @@ impl GameState {
             &[KeyCode::ControlLeft, KeyCode::ShiftLeft, KeyCode::KeyT],
         ) {
             self.settings.draw_transform_tree = !self.settings.draw_transform_tree;
+            if self.settings.draw_transform_tree {
+                self.notice("Transform tree drawn");
+            } else {
+                self.notice("Transform tree hidden");
+            }
+            return;
+        }
+
+        if combo_just_pressed(
+            &self.input,
+            &[KeyCode::ControlLeft, KeyCode::ShiftLeft, KeyCode::KeyM],
+        ) {
+            self.settings.music_muted = !self.settings.music_muted;
+            if self.settings.music_muted {
+                self.notice("Music muted");
+            } else {
+                self.notice("Music unmuted")
+            }
             return;
         }
 
@@ -1275,6 +1257,11 @@ impl GameState {
             &[KeyCode::ControlLeft, KeyCode::ShiftLeft, KeyCode::KeyP],
         ) {
             self.settings.draw_thrust_particles = !self.settings.draw_thrust_particles;
+            if self.settings.draw_thrust_particles {
+                self.notice("Enabled thrust particles");
+            } else {
+                self.notice("Disabled thrust particles")
+            }
             return;
         }
 
@@ -1289,15 +1276,18 @@ impl GameState {
         if self.input.is_pressed(KeyCode::ShiftLeft) && self.input.is_pressed(KeyCode::ControlLeft)
         {
             let delta = if self.input.just_pressed(KeyCode::Minus) {
-                -1.0
+                Some(-1.0)
             } else if self.input.just_pressed(KeyCode::Equal) {
-                1.0
+                Some(1.0)
             } else {
-                0.0
+                None
             };
 
-            self.settings.ui_button_height =
-                (self.settings.ui_button_height + delta).clamp(3.0, 40.0);
+            if let Some(delta) = delta {
+                self.settings.ui_button_height =
+                    (self.settings.ui_button_height + delta).clamp(3.0, 40.0);
+                self.notice(format!("UI scale: {}", self.settings.ui_button_height));
+            }
         }
 
         self.handle_click_events();
@@ -1451,10 +1441,6 @@ fn process_interaction(
     window: &mut Window,
 ) -> Option<()> {
     match inter {
-        InteractionEvent::Delete => state.delete_objects(),
-        InteractionEvent::ClearSelection => {
-            state.orbital_context.selected.clear();
-        }
         InteractionEvent::SimSlower => {
             if let Some(t) = enum_iterator::previous(&state.universe_ticks_per_game_tick) {
                 state.universe_ticks_per_game_tick = t;
@@ -1493,20 +1479,6 @@ fn process_interaction(
             } else {
                 state.shutdown()
             }
-        }
-        InteractionEvent::ToggleObject(id) => {
-            state.orbital_context.toggle_track(*id);
-        }
-        InteractionEvent::ToggleGroup(gid) => {
-            state.toggle_group(*gid);
-        }
-        InteractionEvent::DisbandGroup(gid) => {
-            state.disband_group(*gid);
-        }
-        InteractionEvent::CreateGroup => {
-            // let gid = state.ids.next();
-            // state.create_group(gid);
-            println!("todo!");
         }
         _ => (),
     };

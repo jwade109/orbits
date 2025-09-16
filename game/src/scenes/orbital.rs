@@ -36,7 +36,6 @@ pub enum DrawMode {
 #[derive(Debug, Clone)]
 pub struct OrbitalContext {
     pub camera: LinearCameraController,
-    pub selected: HashSet<EntityId>,
     pub following: Option<EntityId>,
     pub show_animations: bool,
     pub draw_mode: DrawMode,
@@ -76,98 +75,12 @@ impl OrbitalContext {
     pub fn new() -> Self {
         Self {
             camera: LinearCameraController::new(DVec2::ZERO, 100000.0),
-            selected: HashSet::new(),
             following: None,
             show_animations: true,
             draw_mode: DrawMode::Default,
             piloting: None,
             hovered_entity: None,
         }
-    }
-
-    pub fn toggle_track(&mut self, id: EntityId) {
-        if self.selected.contains(&id) {
-            self.selected.retain(|e| *e != id);
-        } else {
-            self.selected.insert(id);
-        }
-    }
-
-    pub fn measuring_tape(state: &GameState) -> Option<(DVec2, DVec2, DVec2)> {
-        if state.is_currently_left_clicked_on_ui() {
-            return None;
-        }
-        let ctx = &state.orbital_context;
-        let a = state.input.position(MouseButt::Left, FrameId::Down)?;
-        let b = state.input.position(MouseButt::Left, FrameId::Current)?;
-        let a = ctx.c2w(a);
-        let b = ctx.c2w(b);
-        let corner = DVec2::new(a.x, b.y);
-        Some((a, b, corner))
-    }
-
-    pub fn protractor(state: &GameState) -> Option<(DVec2, DVec2, Option<DVec2>)> {
-        if state.is_currently_left_clicked_on_ui() {
-            return None;
-        }
-        let ctx = &state.orbital_context;
-        let c = state.input.position(MouseButt::Left, FrameId::Down)?;
-        let l = state.input.position(MouseButt::Left, FrameId::Current)?;
-
-        let c = ctx.c2w(c);
-
-        let (a, b) = if state
-            .input
-            .position(MouseButt::Right, FrameId::Current)
-            .is_some()
-        {
-            let r = state.input.position(MouseButt::Right, FrameId::Down)?;
-            (ctx.c2w(r), Some(ctx.c2w(l)))
-        } else {
-            (ctx.c2w(l), None)
-        };
-
-        Some((c, a, b))
-    }
-
-    pub fn cursor_pv(p1: DVec2, p2: DVec2, state: &GameState) -> Option<PV> {
-        if p1.distance(p2) < 20.0 {
-            return None;
-        }
-
-        let wrt_id = nearest_relevant_body(&state.universe.planets, p1, state.universe.stamp())?;
-        let pv = state.universe.pv(wrt_id)?;
-        let (_, body) = state.universe.named_body(wrt_id)?;
-
-        let r = p1.distance(pv.pos);
-        let v = (body.mu() / r).sqrt();
-
-        Some(PV::from_f64(p1, (p2 - p1) * v / r))
-    }
-
-    pub fn cursor_orbit(p1: DVec2, p2: DVec2, state: &GameState) -> Option<GlobalOrbit> {
-        let pv = Self::cursor_pv(p1, p2, &state)?;
-        let parent_id: EntityId =
-            nearest_relevant_body(&state.universe.planets, pv.pos, state.universe.stamp())?;
-        let (_, body) = state.universe.named_body(parent_id)?;
-        let parent_pv = state.universe.pv(parent_id)?;
-        let pv = pv - PV::pos(parent_pv.pos);
-        Some(GlobalOrbit(
-            parent_id,
-            SparseOrbit::from_pv(pv, body, state.universe.stamp())?,
-        ))
-    }
-
-    pub fn left_cursor_orbit(state: &GameState) -> Option<GlobalOrbit> {
-        if state.is_currently_left_clicked_on_ui() {
-            return None;
-        }
-        let ctx = &state.orbital_context;
-        let a = state.input.position(MouseButt::Left, FrameId::Down)?;
-        let b = state.input.position(MouseButt::Left, FrameId::Current)?;
-        let a = ctx.c2w(a);
-        let b = ctx.c2w(b);
-        Self::cursor_orbit(a, b, state)
     }
 
     pub fn on_game_tick(&mut self, universe: &Universe) {
@@ -178,10 +91,6 @@ impl OrbitalContext {
         }
 
         self.camera.on_game_tick();
-
-        let mut track_list = self.selected.clone();
-        track_list.retain(|o| universe.spacecraft.contains_key(o));
-        self.selected = track_list;
     }
 
     pub fn on_render_tick(
@@ -263,15 +172,17 @@ pub fn get_orbital_labels(state: &GameState) -> Vec<TextLabel> {
             None => continue,
         };
 
-        let named_body = state.universe.named_body(id);
+        let planet = state.universe.get_planet(id);
 
         let pw = pv.pos;
         let pc = state.orbital_context.w2c(pw);
 
-        let label = if let Some((name, body)) = named_body {
+        let label = if let Some(planet) = planet {
             // distance based on world space
-            let p = state.orbital_context.w2c(pw + DVec2::Y * body.radius);
-            let text = name.to_uppercase();
+            let p = state
+                .orbital_context
+                .w2c(pw + DVec2::Y * planet.body.radius);
+            let text = planet.name.to_uppercase();
             let pos = p + Vec2::Y * 50.0;
             TextLabel::new(text, pos, 1.0).with_color(WHITE.with_alpha(alpha))
         } else {
@@ -354,10 +265,10 @@ impl Render for OrbitalContext {
         //     state.orbital_context.origin(),
         //     state.universe.stamp(),
         // )
-        // .map(|id| state.universe.named_body(id))
+        // .map(|id| state.universe.get_planet(id))
         // .flatten()
         // {
-        //     if let Some((s, _)) = lup.named_body() {
+        //     if let Some((s, _)) = lup.get_planet() {
         //         let color: Srgba = body_color_lup
         //             .get(s.as_str())
         //             .unwrap_or(&Srgba::from(crate::sprites::hashable_to_color(s)))

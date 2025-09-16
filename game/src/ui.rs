@@ -402,22 +402,6 @@ pub fn piloting_buttons(state: &GameState, width: Size) -> Node<OnClick> {
     wrapper
 }
 
-pub fn selected_button(state: &GameState, width: Size) -> Node<OnClick> {
-    let s = format!("{} selected", state.orbital_context.selected.len());
-    let b = Node::button(
-        s,
-        OnClick::SelectedCount,
-        width,
-        state.settings.ui_button_height,
-    )
-    .enabled(false);
-    if state.orbital_context.selected.is_empty() {
-        b
-    } else {
-        delete_wrapper(OnClick::ClearTracks, b, state.settings.ui_button_height)
-    }
-}
-
 pub fn orbiter_list(
     state: &GameState,
     root: &mut Node<OnClick>,

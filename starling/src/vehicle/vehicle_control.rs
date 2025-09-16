@@ -314,6 +314,7 @@ pub enum VehicleControlStatus {
     NoVelocityVector,
     ComingAbout,
     HoldingAttitude,
+    NoParentBody,
 }
 
 impl VehicleControlStatus {

@@ -116,10 +116,6 @@ impl Spacecraft {
         let alt = self.body.pv.pos.length() - parent_body.radius;
         self.altitude = Some(alt);
 
-        if alt < 2_000.0 {
-            self.orbit = None;
-        }
-
         if let VehicleControlPolicy::HoldAttitude(Some(a)) = self.controller.mode() {
             self.body.angle = *a;
             self.body.angular_velocity = 0.0;
@@ -273,7 +269,7 @@ impl Spacecraft {
         parent_body: Body,
         stamp: Nanotime,
     ) {
-        self.orbit = if altitude > 2_000.0 {
+        self.orbit = if altitude > 10.0 {
             SparseOrbit::from_pv(self.body.pv, parent_body, stamp)
         } else {
             None

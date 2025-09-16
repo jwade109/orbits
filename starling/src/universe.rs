@@ -8,27 +8,30 @@ pub struct Universe {
     ticks: u128,
     next_entity_id: EntityId,
     pub spacecraft: HashMap<EntityId, Spacecraft>,
-    pub planets: PlanetarySystem,
-    pub constellations: HashMap<EntityId, EntityId>,
+    planets: PlanetarySystem,
     pub thrust_particles: ThrustParticleEffects,
 }
 
 impl Universe {
     pub fn empty() -> Self {
         // TODO make it so you can declare zero planets lol.
-        Self::new(PlanetarySystem::new(0, "null", Body::LUNA))
+        Self::new(PlanetarySystem::new(0, "Asteroid", Body::SMOL))
     }
 
-    pub fn new(planets: PlanetarySystem) -> Self {
+    pub(crate) fn new(planets: PlanetarySystem) -> Self {
         Self {
             stamp: Nanotime::zero(),
             ticks: 0,
             next_entity_id: EntityId(1002),
             spacecraft: HashMap::new(),
             planets,
-            constellations: HashMap::new(),
             thrust_particles: ThrustParticleEffects::new(),
         }
+    }
+
+    #[deprecated]
+    pub fn planets(&self) -> &PlanetarySystem {
+        &self.planets
     }
 
     pub fn stamp(&self) -> Nanotime {
@@ -162,37 +165,17 @@ impl Universe {
 
         self.step_spacecraft(signals, particles);
 
-        self.constellations
-            .retain(|id, _| self.spacecraft.contains_key(id));
-
         self.update_vehicle_relative_info();
-    }
-
-    pub fn get_group_members(&mut self, gid: EntityId) -> Vec<EntityId> {
-        self.constellations
-            .iter()
-            .filter_map(|(id, g)| (*g == gid).then(|| *id))
-            .collect()
-    }
-
-    pub fn group_membership(&self, id: &EntityId) -> Option<EntityId> {
-        self.constellations.get(id).cloned()
-    }
-
-    pub fn unique_groups(&self) -> Vec<EntityId> {
-        let mut s: Vec<EntityId> = self
-            .constellations
-            .iter()
-            .map(|(_, gid)| *gid)
-            .collect::<HashSet<_>>()
-            .into_iter()
-            .collect();
-        s.sort();
-        s
     }
 
     pub fn orbiter_ids(&self) -> impl Iterator<Item = EntityId> + use<'_> {
         self.spacecraft.keys().into_iter().map(|id| *id)
+    }
+
+    pub fn spawn_spacecraft(&mut self, sv: Spacecraft) -> Option<EntityId> {
+        let id = self.next_entity_id();
+        self.spacecraft.insert(id, sv)?;
+        Some(id)
     }
 
     pub fn add_orbital_vehicle(
@@ -216,9 +199,9 @@ impl Universe {
         angle: f64,
         altitude: f64,
     ) -> Option<EntityId> {
-        let (_, body) = self.named_body(planet_id)?;
+        let planet = self.get_planet(planet_id)?;
 
-        let pos = rotate_f64(DVec2::X * (body.radius + altitude), angle);
+        let pos = rotate_f64(DVec2::X * (planet.body.radius + altitude), angle);
 
         let vel = randvec(2.0, 7.0);
 
@@ -252,11 +235,20 @@ impl Universe {
         Some(local + parent)
     }
 
-    #[deprecated]
-    pub fn named_body(&self, id: EntityId) -> Option<(&String, Body)> {
+    pub fn get_planet(&self, id: EntityId) -> Option<Planet> {
         let stamp = self.stamp;
         let (body, _, _, sys) = self.planets.lookup_planet(id, stamp)?;
-        Some((&sys.name, body))
+
+        let planet = Planet {
+            name: sys.name().to_string(),
+            body,
+        };
+
+        Some(planet)
+    }
+
+    pub fn planet_ids(&self) -> Vec<EntityId> {
+        self.planets.planet_ids()
     }
 
     pub fn frames(&self) -> impl Iterator<Item = (PV, EntityId)> + use<'_> {
@@ -276,11 +268,10 @@ impl Universe {
             .planet_ids()
             .iter()
             .filter_map(|id| {
-                let lup = self.named_body(*id)?;
-                Some((*id, lup.0))
+                let planet = self.get_planet(*id)?;
+                (planet.name == name).then(|| *id)
             })
-            .find(|s| s.1 == name)
-            .map(|s| s.0)
+            .next()
     }
 }
 
@@ -311,10 +302,10 @@ pub fn nearest_orbiter_or_planet(
         .filter_map(|id| {
             let pv = universe.pv(id)?;
 
-            let named_body = universe.named_body(id);
+            let planet = universe.get_planet(id);
 
-            let size = if let Some((_, body)) = named_body {
-                body.radius
+            let size = if let Some(planet) = planet {
+                planet.body.radius
             } else {
                 universe
                     .spacecraft
