@@ -281,7 +281,7 @@ impl Propagator {
                     .pv(stamp)
                     .map_err(|_| BadObjectNextState::BadPosition)?;
                 let dv = cur.1 - new.1;
-                let orbit = SparseOrbit::from_pv(pv + dv, new.0, stamp)
+                let orbit = SparseOrbit::from_pv(pv + dv, new.0.body, stamp)
                     .ok_or(BadObjectNextState::BadOrbit)?;
                 Ok(Some(Propagator::new(GlobalOrbit(reparent, orbit), stamp)))
             }
@@ -298,7 +298,7 @@ impl Propagator {
                     .pv(stamp)
                     .map_err(|_| BadObjectNextState::BadPosition)?;
                 let dv = cur.1 - new.1;
-                let orbit = SparseOrbit::from_pv(pv + dv, new.0, stamp)
+                let orbit = SparseOrbit::from_pv(pv + dv, new.0.body, stamp)
                     .ok_or(BadObjectNextState::BadOrbit)?;
                 Ok(Some(Propagator::new(GlobalOrbit(id, orbit), stamp)))
             }

@@ -2,16 +2,18 @@ use crate::id::*;
 use crate::nanotime::Nanotime;
 use crate::orbits::{Body, SparseOrbit};
 use crate::pv::PV;
-use crate::quantities::*;
 use crate::universe::Universe;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct PlanetarySystem {
-    id: EntityId,
-    name: String,
-    body: Body,
-    subsystems: Vec<(SparseOrbit, Self)>,
+pub enum PlanetarySystem {
+    Void,
+    Planet {
+        id: EntityId,
+        name: String,
+        body: Body,
+        subsystems: Vec<(SparseOrbit, Self)>,
+    },
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -22,7 +24,7 @@ pub struct Planet {
 
 impl PlanetarySystem {
     pub fn new(id: i64, name: impl Into<String>, body: Body) -> Self {
-        Self {
+        Self::Planet {
             id: EntityId(id),
             name: name.into(),
             body,
@@ -30,54 +32,67 @@ impl PlanetarySystem {
         }
     }
 
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
     pub fn planet_ids(&self) -> Vec<EntityId> {
-        let mut ret = vec![self.id];
-        for (_, sub) in &self.subsystems {
-            ret.extend_from_slice(&sub.planet_ids())
+        match self {
+            Self::Void => vec![],
+            Self::Planet {
+                id,
+                name: _,
+                body: _,
+                subsystems,
+            } => {
+                let mut ret = vec![*id];
+                for (_, sub) in subsystems {
+                    ret.extend_from_slice(&sub.planet_ids())
+                }
+                ret
+            }
         }
-        ret
     }
 
     fn lookup_inner(
         &self,
-        id: EntityId,
+        lup_id: EntityId,
         stamp: Nanotime,
         wrt: PV,
         parent_id: Option<EntityId>,
-    ) -> Option<(Body, PV, Option<EntityId>, &Self)> {
-        if self.id == id {
-            return Some((self.body, wrt, parent_id, self));
-        }
-
-        for (orbit, pl) in &self.subsystems {
-            if let Some(pv) = orbit.pv(stamp).ok() {
-                let ret = pl.lookup_inner(id, stamp, wrt + pv, Some(self.id));
-                if let Some((body, pv, parent, sys)) = ret {
-                    return Some((body, pv, parent, sys));
+    ) -> Option<(Planet, PV, Option<EntityId>, &Self)> {
+        match self {
+            Self::Void => None,
+            Self::Planet {
+                id,
+                name,
+                body,
+                subsystems,
+            } => {
+                if lup_id == *id {
+                    let planet = Planet {
+                        name: name.clone(),
+                        body: *body,
+                    };
+                    return Some((planet, wrt, parent_id, self));
                 }
+
+                for (orbit, pl) in subsystems {
+                    if let Some(pv) = orbit.pv(stamp).ok() {
+                        let ret = pl.lookup_inner(lup_id, stamp, wrt + pv, Some(*id));
+                        if let Some((body, pv, parent, sys)) = ret {
+                            return Some((body, pv, parent, sys));
+                        }
+                    }
+                }
+
+                None
             }
         }
-
-        None
     }
 
     pub fn lookup_planet(
         &self,
         id: EntityId,
         stamp: Nanotime,
-    ) -> Option<(Body, PV, Option<EntityId>, &Self)> {
+    ) -> Option<(Planet, PV, Option<EntityId>, &Self)> {
         self.lookup_inner(id, stamp, PV::ZERO, None)
-    }
-
-    pub fn bodies(&self) -> Vec<(EntityId, &SparseOrbit, f64)> {
-        self.subsystems
-            .iter()
-            .map(|(orbit, pl)| (pl.id, orbit, pl.body.soi))
-            .collect::<Vec<_>>()
     }
 }
 

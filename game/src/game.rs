@@ -2,13 +2,10 @@ use crate::prelude::*;
 use bevy::color::palettes::css::*;
 use bevy::core_pipeline::bloom::Bloom;
 use bevy::core_pipeline::smaa::Smaa;
-use bevy::input::gamepad::Gamepad;
 use bevy::prelude::*;
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::view::RenderLayers;
-use bevy::window::WindowMode;
 use clap::Parser;
-use enum_iterator::next_cycle;
 use image::DynamicImage;
 use layout::layout::Tree;
 use starling::prelude::*;
@@ -35,47 +32,6 @@ fn get_entity_info(world: &mut World) {
     game.entity_info = entity_info;
 }
 
-fn combo_just_pressed(input: &InputState, keys: &[KeyCode]) -> bool {
-    if let Some(l) = keys.last() {
-        keys.iter().all(|k| input.is_pressed(*k)) && input.just_pressed(*l)
-    } else {
-        false
-    }
-}
-
-fn gamepad_usage_system(gamepads: Query<(&Name, &Gamepad)>, mut state: ResMut<GameState>) {
-    for (_name, gamepad) in &gamepads {
-        for button in gamepad.get_just_pressed() {
-            dbg!((button, state.cursor_position, true));
-        }
-        for button in gamepad.get_just_released() {
-            dbg!((button, state.cursor_position, false));
-        }
-
-        if gamepad.just_pressed(GamepadButton::South) {
-            let wb = state.input.screen_bounds.span;
-            let n = state.ui.at(state.cursor_position, wb);
-            if let Some(event) = n
-                .map(|n| n.is_enabled().then(|| n.on_click()))
-                .flatten()
-                .flatten()
-                .cloned()
-            {
-                state.on_button_event(event);
-            }
-        }
-
-        let speed = state.settings.controller_cursor_speed;
-
-        if let Some(left_stick_x) = gamepad.get(GamepadAxis::LeftStickX) {
-            state.cursor_position += Vec2::X * left_stick_x * speed;
-        }
-        if let Some(left_stick_y) = gamepad.get(GamepadAxis::LeftStickY) {
-            state.cursor_position += Vec2::Y * left_stick_y * speed;
-        }
-    }
-}
-
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, init_system);
@@ -93,7 +49,6 @@ impl Plugin for GamePlugin {
                 crate::drawing::draw_game_state,
                 crate::sprites::update_static_sprites,
                 crate::sprites::update_background_color,
-                gamepad_usage_system,
                 crate::ui::do_text_labels,
             )
                 .chain(),
@@ -102,7 +57,6 @@ impl Plugin for GamePlugin {
         app.add_systems(
             FixedUpdate,
             (
-                handle_interactions,
                 // physics
                 on_game_tick,
                 // rendering
@@ -408,7 +362,7 @@ impl GameState {
         let vehicle = g.get_vehicle_by_model("pollux");
 
         if let Some(v) = vehicle {
-            g.spawn_new_at(v, PV::ZERO);
+            g.spawn_new_at(v, EntityId(0), PV::ZERO);
         }
 
         g
@@ -622,7 +576,7 @@ fn get_vehicle_info_contents(
         distance_str_v(pv.pos),
         velocity_str_v(pv.vel),
         sv.controller.mode().to_status_str(),
-        sv.orbit
+        sv.current_orbit()
             .map(|o| format!("{}", o))
             .unwrap_or("N/A".to_string()),
     );
@@ -677,19 +631,21 @@ impl GameState {
     pub fn spawn_new(&mut self) -> Option<EntityId> {
         let id = self.piloting()?;
         let sv = self.universe.spacecraft.get(&id)?;
-        let orbit = sv.current_orbit()?;
+        let parent = sv.parent();
+        let perturb = PV::from_f64(randvec(0.01, 0.1), randvec(1.0, 3.0));
+        let pv = sv.pv() + perturb;
         let vehicle = self.get_vehicle_by_model("buoy")?;
-        self.spawn_with_random_perturbance(orbit, vehicle)
+        self.spawn_new_at(vehicle, parent, pv)
     }
 
-    pub fn spawn_new_at(&mut self, vehicle: Vehicle, pv: PV) -> Option<EntityId> {
+    pub fn spawn_new_at(&mut self, vehicle: Vehicle, parent: EntityId, pv: PV) -> Option<EntityId> {
         let body = RigidBody {
             pv,
             angle: 0.0,
             angular_velocity: 0.0,
         };
         let controller = VehicleController::idle();
-        let sv = Spacecraft::new(EntityId(0), vehicle, body, controller);
+        let sv = Spacecraft::new(parent, vehicle, body, controller);
         self.universe.spawn_spacecraft(sv)
     }
 
@@ -789,9 +745,6 @@ impl GameState {
         match id {
             OnClick::CurrentBody(id) => self.orbital_context.following = Some(id),
             OnClick::Orbiter(id) => self.orbital_context.following = Some(id),
-            OnClick::ToggleDrawMode => {
-                self.orbital_context.draw_mode = next_cycle(&self.orbital_context.draw_mode)
-            }
             OnClick::Exit => self.shutdown_with_prompt(),
             OnClick::SimSpeed(r) => {
                 self.universe_ticks_per_game_tick = r;
@@ -1052,7 +1005,7 @@ impl GameState {
         return Some(());
     }
 
-    fn handle_click_events(&mut self) {
+    pub fn handle_click_events(&mut self) {
         use FrameId::*;
         use MouseButt::*;
 
@@ -1117,197 +1070,30 @@ impl GameState {
     pub fn on_render_tick(&mut self) {
         self.render_ticks += 1;
 
-        let mut take = Take::from_opt(self.input.position(MouseButt::Hover, FrameId::Current));
-
-        if self.input.just_pressed(KeyCode::KeyK) {
-            if let Some(t) = &mut self.tutorial {
-                t.prev();
-            }
-        }
-
-        if self.input.just_pressed(KeyCode::KeyL) {
-            if let Some(t) = &mut self.tutorial {
-                let force = self.input.is_pressed(KeyCode::ControlLeft);
-                t.next(force);
-            }
-        }
-
-        if self
-            .input
-            .on_frame(MouseButt::Right, FrameId::Down)
-            .is_some()
-            && self.input.is_pressed(KeyCode::ShiftLeft)
-        {
-            if let Some(p) = take.take() {
-                self.spawn_window(WindowClass::Hello, p);
-                return;
-            }
-        }
-
-        self.windows.sort_by_key(|w| w.is_focused as u8);
-
-        let mut events = Vec::new();
-
-        for button in &mut self.buttons {
-            if let Some(e) = button.on_mouse_move(&mut take) {
-                events.push(e);
-            }
-        }
-
-        for window in self.windows.iter_mut().rev() {
-            window.on_mouse_move(&mut take);
-
-            for e in &self.input.keyboard_events {
-                if let Some(e) = window.on_key(e) {
-                    events.push(e);
-                }
-            }
-        }
-
-        if self.input.just_pressed(KeyCode::KeyH) {
-            self.reset_camera();
-        }
-
-        if self.input.just_pressed(KeyCode::KeyV) {
-            self.zoom_to_vehicle(true);
-        }
-
-        if self.input.just_pressed(KeyCode::KeyY) {
-            self.arrange_windows(false);
-        }
-
-        if self.input.just_pressed(KeyCode::KeyJ) {
-            self.arrange_windows(true);
-        }
-
-        if self.console.is_active() {
-            if let Some((decl, args)) = self.console.process_input(&mut self.input) {
-                decl.execute(self, args);
-            }
+        if on_global_render_tick(self) {
             return;
         }
-
-        if let Some(_) = self.input.on_frame(MouseButt::Left, FrameId::Down) {
-            for button in &mut self.buttons {
-                button.on_left_mouse_down();
-            }
-            for window in &mut self.windows {
-                if let Some(e) = window.on_left_mouse_down() {
-                    events.push(e);
-                }
-            }
-        }
-
-        if let Some(_) = self.input.on_frame(MouseButt::Left, FrameId::Up) {
-            for button in &mut self.buttons {
-                if let Some(e) = button.on_left_mouse_up() {
-                    events.push(e);
-                }
-            }
-            for window in &mut self.windows {
-                window.on_left_mouse_up();
-            }
-        }
-
-        if !events.is_empty() {
-            for e in events {
-                self.on_button_event(e);
-            }
-            return;
-        }
-
-        if self.input.just_pressed(KeyCode::KeyB) {
-            self.spawn_new();
-        }
-
-        if self.input.just_pressed(KeyCode::Delete) {
-            if let Some(p) = self.piloting() {
-                self.delete_orbiter(p);
-            }
-        }
-
-        if combo_just_pressed(
-            &self.input,
-            &[KeyCode::ControlLeft, KeyCode::ShiftLeft, KeyCode::KeyT],
-        ) {
-            self.settings.draw_transform_tree = !self.settings.draw_transform_tree;
-            if self.settings.draw_transform_tree {
-                self.notice("Transform tree drawn");
-            } else {
-                self.notice("Transform tree hidden");
-            }
-            return;
-        }
-
-        if combo_just_pressed(
-            &self.input,
-            &[KeyCode::ControlLeft, KeyCode::ShiftLeft, KeyCode::KeyM],
-        ) {
-            self.settings.music_muted = !self.settings.music_muted;
-            if self.settings.music_muted {
-                self.notice("Music muted");
-            } else {
-                self.notice("Music unmuted")
-            }
-            return;
-        }
-
-        if combo_just_pressed(
-            &self.input,
-            &[KeyCode::ControlLeft, KeyCode::ShiftLeft, KeyCode::KeyP],
-        ) {
-            self.settings.draw_thrust_particles = !self.settings.draw_thrust_particles;
-            if self.settings.draw_thrust_particles {
-                self.notice("Enabled thrust particles");
-            } else {
-                self.notice("Disabled thrust particles")
-            }
-            return;
-        }
-
-        if combo_just_pressed(
-            &self.input,
-            &[KeyCode::ControlLeft, KeyCode::ShiftLeft, KeyCode::KeyD],
-        ) {
-            self.settings.show_debug_info = !self.settings.show_debug_info;
-            return;
-        }
-
-        if self.input.is_pressed(KeyCode::ShiftLeft) && self.input.is_pressed(KeyCode::ControlLeft)
-        {
-            let delta = if self.input.just_pressed(KeyCode::Minus) {
-                Some(-1.0)
-            } else if self.input.just_pressed(KeyCode::Equal) {
-                Some(1.0)
-            } else {
-                None
-            };
-
-            if let Some(delta) = delta {
-                self.settings.ui_button_height =
-                    (self.settings.ui_button_height + delta).clamp(3.0, 40.0);
-                self.notice(format!("UI scale: {}", self.settings.ui_button_height));
-            }
-        }
-
-        self.handle_click_events();
-
-        let on_ui = self.is_hovering_over_ui() || take.take().is_none();
 
         match self.scene {
             SceneType::Editor => {
-                Editor::on_render_tick(self);
+                on_editor_render_tick(self);
             }
-            SceneType::MainMenu => (),
             SceneType::Orbital => {
-                self.orbital_context.on_render_tick(
-                    on_ui,
-                    &self.input,
-                    &self.settings,
-                    &mut self.universe,
-                    &mut self.sounds,
-                );
+                on_orbital_render_tick(self);
             }
+            _ => (),
+        }
+    }
+
+    pub fn sim_slower(&mut self) {
+        if let Some(t) = enum_iterator::previous(&self.universe_ticks_per_game_tick) {
+            self.universe_ticks_per_game_tick = t;
+        }
+    }
+
+    pub fn sim_faster(&mut self) {
+        if let Some(t) = enum_iterator::next(&self.universe_ticks_per_game_tick) {
+            self.universe_ticks_per_game_tick = t;
         }
     }
 
@@ -1435,63 +1221,11 @@ fn on_render_tick(mut state: ResMut<GameState>) {
 pub const MIN_SIM_SPEED: u32 = 0;
 pub const MAX_SIM_SPEED: u32 = 1000000;
 
-fn process_interaction(
-    inter: &InteractionEvent,
-    state: &mut GameState,
-    window: &mut Window,
-) -> Option<()> {
-    match inter {
-        InteractionEvent::SimSlower => {
-            if let Some(t) = enum_iterator::previous(&state.universe_ticks_per_game_tick) {
-                state.universe_ticks_per_game_tick = t;
-            }
-        }
-        InteractionEvent::SetSim(r) => {
-            state.universe_ticks_per_game_tick = *r;
-        }
-        InteractionEvent::SimFaster => {
-            if let Some(t) = enum_iterator::next(&state.universe_ticks_per_game_tick) {
-                state.universe_ticks_per_game_tick = t;
-            }
-        }
-        InteractionEvent::SimPause => {
-            state.paused = !state.paused;
-        }
-        InteractionEvent::DrawMode => {
-            state.orbital_context.draw_mode = next_cycle(&state.orbital_context.draw_mode);
-        }
-        InteractionEvent::ToggleFullscreen => {
-            let fs = WindowMode::BorderlessFullscreen(MonitorSelection::Current);
-            window.mode = if window.mode == fs {
-                WindowMode::Windowed
-            } else {
-                fs
-            };
-        }
-        InteractionEvent::ToggleDebugConsole => {
-            state.console.toggle();
-        }
-        InteractionEvent::Escape => {
-            if state.console.is_active() {
-                state.console.hide()
-            } else if !state.is_exit_prompt {
-                state.is_exit_prompt = true;
-            } else {
-                state.shutdown()
-            }
-        }
-        _ => (),
-    };
-    Some(())
-}
-
-fn handle_interactions(
-    mut events: EventReader<InteractionEvent>,
-    mut state: ResMut<GameState>,
-    mut window: Single<&mut Window>,
-) {
-    for e in events.read() {
-        debug!("Interaction event: {e:?}");
-        process_interaction(e, &mut state, &mut window);
-    }
+fn process_interaction(state: &mut GameState, window: &mut Window) {
+    // let fs = WindowMode::BorderlessFullscreen(MonitorSelection::Current);
+    // window.mode = if window.mode == fs {
+    //     WindowMode::Windowed
+    // } else {
+    //     fs
+    // };
 }

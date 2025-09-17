@@ -6,13 +6,10 @@ pub struct Spacecraft {
     pub vehicle: Vehicle,
     pub body: RigidBody,
     pub controller: VehicleController,
-    pub orbit: Option<SparseOrbit>,
-    pub reference_orbit_age: Nanotime,
+    // pub orbit: Option<SparseOrbit>,
+    reference_orbit_age: Nanotime,
     target: Option<EntityId>,
-    orbiter: Option<Orbiter>,
-    altitude: Option<f64>,
     clamped_to_ground: bool,
-    pub target_relative_pv: Option<PV>,
     throttle: f32,
     is_rcs: bool,
 }
@@ -29,20 +26,18 @@ impl Spacecraft {
             vehicle,
             body,
             controller,
-            orbit: None,
+            // orbit: None,
             reference_orbit_age: Nanotime::ZERO,
             target: None,
-            orbiter: None,
-            altitude: None,
             clamped_to_ground: false,
-            target_relative_pv: None,
             throttle: 0.7,
             is_rcs: false,
         }
     }
 
     pub fn current_orbit(&self) -> Option<GlobalOrbit> {
-        Some(GlobalOrbit(self.planet_id, self.orbit?))
+        None
+        // Some(GlobalOrbit(self.planet_id, self.orbit?))
     }
 
     pub fn vehicle(&self) -> &Vehicle {
@@ -81,30 +76,26 @@ impl Spacecraft {
         self.is_rcs = !self.is_rcs;
     }
 
-    pub fn props(&self) -> impl Iterator<Item = &Propagator> + use<'_> {
-        self.orbiter.iter().flat_map(|o| o.props())
-    }
-
     pub fn step_on_rails(
         &mut self,
         delta_time: Nanotime,
         stamp: Nanotime,
         planets: &PlanetarySystem,
     ) {
-        if let Some(pv) = &self.orbit.map(|o| o.pv(stamp).ok()).flatten() {
-            self.body.pv = *pv;
-        } else {
-            let accel = BodyFrameAccel {
-                linear: DVec2::ZERO,
-                angular: 0.0,
-            };
-            self.body.on_sim_tick(accel, DVec2::ZERO, delta_time);
-        }
+        // if let Some(pv) = &self.orbit.map(|o| o.pv(stamp).ok()).flatten() {
+        //     self.body.pv = *pv;
+        // } else {
+        let accel = BodyFrameAccel {
+            linear: DVec2::ZERO,
+            angular: 0.0,
+        };
+        self.body.on_sim_tick(accel, DVec2::ZERO, delta_time);
+        // }
 
         self.body.angle += self.body.angular_velocity * delta_time.to_secs_f64();
         self.body.angle = wrap_0_2pi_f64(self.body.angle);
 
-        let (parent_body, parent_pv) = match planets.lookup_planet(self.planet_id, stamp) {
+        let (parent_planet, parent_pv) = match planets.lookup_planet(self.planet_id, stamp) {
             Some((body, pv, _, _)) => (body, pv),
             None => todo!(),
         };
@@ -112,9 +103,6 @@ impl Spacecraft {
         if self.clamped_to_ground {
             self.body.angle = self.body.pv.pos.to_angle();
         }
-
-        let alt = self.body.pv.pos.length() - parent_body.radius;
-        self.altitude = Some(alt);
 
         if let VehicleControlPolicy::HoldAttitude(Some(a)) = self.controller.mode() {
             self.body.angle = *a;
@@ -149,10 +137,10 @@ impl Spacecraft {
             return None;
         }
 
-        let (new_parent_body, _, _, _) = planets.lookup_planet(new_parent_id, stamp)?;
+        let (new_parent_planet, _, _, _) = planets.lookup_planet(new_parent_id, stamp)?;
         self.reparent_to(new_parent_id, planets, stamp)?;
-        let altitude = self.body.pv.pos.length() - new_parent_body.radius;
-        self.update_orbit(planets, altitude, new_parent_body, stamp);
+        let altitude = self.body.pv.pos.length() - new_parent_planet.body.radius;
+        self.update_orbit(planets, altitude, new_parent_planet.body, stamp);
         Some(())
     }
 
@@ -163,10 +151,10 @@ impl Spacecraft {
     }
 
     pub fn step(&mut self, planets: &PlanetarySystem, stamp: Nanotime, mut ext: VehicleControl) {
-        let (parent_body, parent_pv) = match planets.lookup_planet(self.planet_id, stamp) {
-            Some((body, pv, _, _)) => (body, pv),
-            None => todo!(),
-        };
+        // let (parent_planet, parent_pv) = match planets.lookup_planet(self.planet_id, stamp) {
+        //     Some((body, pv, _, _)) => (body, pv),
+        //     None => todo!(),
+        // };
 
         if !ext.plus_x.use_rcs {
             ext.plus_x.throttle *= self.throttle;
@@ -181,7 +169,9 @@ impl Spacecraft {
             ext.neg_y.throttle *= self.throttle;
         }
 
-        let gravity = parent_body.gravity(self.body.pv.pos);
+        // let gravity = parent_planet.body.gravity(self.body.pv.pos);
+
+        let gravity = DVec2::ZERO;
 
         match self.controller.mode() {
             VehicleControlPolicy::HoldAttitude(None) => {
@@ -203,13 +193,14 @@ impl Spacecraft {
                     VehicleControlStatus::UnderExternalControl
                 },
             ),
-            (VehicleControlPolicy::LaunchToOrbit(altitude), _) => enter_orbit_control_law(
-                &parent_body,
-                &self.body,
-                &self.vehicle,
-                self.orbit.as_ref(),
-                *altitude,
-            ),
+            // (VehicleControlPolicy::LaunchToOrbit(altitude), _) => enter_orbit_control_law(
+            //     &parent_planet.body,
+            //     &self.body,
+            //     &self.vehicle,
+            //     // self.orbit.as_ref(),
+            //     None,
+            //     *altitude,
+            // ),
             (VehicleControlPolicy::BurnPrograde, _) => {
                 burn_along_velocity_vector_control_law(&self.body, &self.vehicle, true)
             }
@@ -223,6 +214,7 @@ impl Spacecraft {
             (VehicleControlPolicy::PositionHold(_), _) => {
                 (VehicleControl::NULLOPT, VehicleControlStatus::Idling)
             }
+            _ => (VehicleControl::NULLOPT, VehicleControlStatus::Idling)
         };
 
         self.controller.set_status(status);
@@ -244,22 +236,19 @@ impl Spacecraft {
         self.vehicle.set_thrust_control(&ctrl);
         self.vehicle.on_sim_tick();
 
-        let alt = self.body.pv.pos.length() - parent_body.radius;
-        self.altitude = Some(alt);
-
         let accel = self.vehicle.body_frame_accel();
         self.body
             .on_sim_tick(accel, gravity, PHYSICS_CONSTANT_DELTA_TIME);
 
-        self.clamped_to_ground = self.body.clamp_with_elevation(parent_body.radius);
+        // self.clamped_to_ground = self.body.clamp_with_elevation(parent_planet.body.radius);
 
         if self.clamped_to_ground {
             self.body.angle = self.body.pv.pos.to_angle();
         }
 
-        self.reparent_if_necessary(parent_pv, planets, stamp);
+        // self.reparent_if_necessary(parent_pv, planets, stamp);
 
-        self.update_orbit(planets, alt, parent_body, stamp);
+        // self.update_orbit(planets, alt, parent_planet.body, stamp);
     }
 
     fn update_orbit(
@@ -269,11 +258,11 @@ impl Spacecraft {
         parent_body: Body,
         stamp: Nanotime,
     ) {
-        self.orbit = if altitude > 10.0 {
-            SparseOrbit::from_pv(self.body.pv, parent_body, stamp)
-        } else {
-            None
-        };
+        // self.orbit = if altitude > 10.0 {
+        //     SparseOrbit::from_pv(self.body.pv, parent_body, stamp)
+        // } else {
+        //     None
+        // };
 
         // if let Some(orbit) = self.current_orbit() {
         //     let mut orbiter = Orbiter::new(orbit, stamp);
@@ -285,14 +274,15 @@ impl Spacecraft {
     }
 
     pub fn can_be_on_rails(&self) -> bool {
-        let is_idle = match (self.controller.mode(), self.controller.status()) {
-            (VehicleControlPolicy::Idle, VehicleControlStatus::Idling) => true,
-            (VehicleControlPolicy::HoldAttitude(a), _) => a
-                .map(|a| wrap_pi_npi_f64(a - self.body.angle).abs().to_degrees() < 0.01)
-                .unwrap_or(false),
-            _ => false,
-        };
-        let has_orbit = self.orbit.is_some();
-        is_idle && (has_orbit || self.clamped_to_ground)
+        false
+        // let is_idle = match (self.controller.mode(), self.controller.status()) {
+        //     (VehicleControlPolicy::Idle, VehicleControlStatus::Idling) => true,
+        //     (VehicleControlPolicy::HoldAttitude(a), _) => a
+        //         .map(|a| wrap_pi_npi_f64(a - self.body.angle).abs().to_degrees() < 0.01)
+        //         .unwrap_or(false),
+        //     _ => false,
+        // };
+        // let has_orbit = true; // self.orbit.is_some();
+        // is_idle && (has_orbit || self.clamped_to_ground)
     }
 }

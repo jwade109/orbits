@@ -271,10 +271,7 @@ fn draw_planet(
     origin: DVec2,
     ctx: &OrbitalContext,
 ) {
-    let a = match ctx.draw_mode {
-        DrawMode::Default => 0.5,
-        _ => 0.8,
-    };
+    let a = 0.5;
 
     let target = state
         .piloting()
@@ -304,23 +301,12 @@ fn draw_planet(
         graphics_cast(DVec2::splat(planet.body.radius) * 2.0 * ctx.scale()),
     );
 
-    if ctx.draw_mode == DrawMode::Default {
-        draw_circle(
-            &mut canvas.gizmos,
-            screen_origin,
-            gcast(planet.body.soi * ctx.scale()),
-            GRAY.with_alpha(a),
-        );
-    } else {
-        for (a, ds) in [(1.0, 1.0), (0.3, 0.98), (0.1, 0.95)] {
-            draw_circle(
-                &mut canvas.gizmos,
-                screen_origin,
-                gcast(planet.body.soi * ds * ctx.scale()),
-                ORANGE.with_alpha(a),
-            );
-        }
-    }
+    draw_circle(
+        &mut canvas.gizmos,
+        screen_origin,
+        gcast(planet.body.soi * ctx.scale()),
+        GRAY.with_alpha(a),
+    );
 
     // for (orbit, pl) in &planet.subsystems {
     //     let color = if Some(pl.id) == state.piloting() {
@@ -574,12 +560,14 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
 
     let sv = state.universe.spacecraft.get(&piloting)?;
 
-    let planet = state.universe.get_planet(sv.parent())?;
-    let radius = planet.body.radius;
-
     let vehicle = sv.vehicle();
     let body = &sv.body;
-    let altitude = body.pv.pos.length() - radius;
+
+    let altitude = (|| -> Option<f64> {
+        let planet = state.universe.get_planet(sv.parent())?;
+        let radius = planet.body.radius;
+        Some(body.pv.pos.length() - radius)
+    })();
 
     let window_dims = state.input.screen_bounds.span;
     let rb = gcast(vehicle.bounding_radius());
@@ -715,11 +703,15 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
 
     draw_circle(&mut canvas.gizmos, center, r, GRAY);
 
+    let alt_str = altitude
+        .map(|a| distance_str(a))
+        .unwrap_or("N/A".to_string());
+
     canvas
         .text(
             format!(
                 "ALT {}\nHEADING {:0.0} TURNRATE {:0.0}\n{}-type vessel",
-                distance_str(altitude),
+                alt_str,
                 wrap_0_2pi_f64(body.angle).to_degrees(),
                 wrap_pi_npi_f64(body.angular_velocity).to_degrees(),
                 vehicle.model().to_uppercase()
@@ -810,9 +802,9 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
     //     icon_pos += Vec2::Y * icon_size;
     // }
 
-    for prop in sv.props() {
-        draw_propagator(canvas, state, prop, true, TEAL, ctx);
-    }
+    // for prop in sv.props() {
+    //     draw_propagator(canvas, state, prop, true, TEAL, ctx);
+    // }
 
     Some(())
 }

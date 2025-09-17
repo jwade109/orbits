@@ -442,7 +442,7 @@ pub fn burn_along_velocity_vector_control_law(
     vehicle: &Vehicle,
     prograde: bool,
 ) -> (VehicleControl, VehicleControlStatus) {
-    if body.pv.vel.length() < 5.0 {
+    if body.pv.vel.length() < 0.2 {
         return (
             VehicleControl::NULLOPT,
             VehicleControlStatus::NoVelocityVector,

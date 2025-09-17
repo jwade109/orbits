@@ -37,20 +37,20 @@ impl Action {
 
 #[derive(Debug)]
 pub struct Editor {
-    camera: LinearCameraController,
-    cursor_state: CursorState,
-    rotation: Rotation,
-    filepath: Option<PathBuf>,
-    focus_layer: Option<PartLayer>,
-    selected_part: Option<PartId>,
-    snap_info: Option<(IVec2, UVec2)>,
-    action_queue: Vec<Action>,
-    occupied: HashMap<PartLayer, HashMap<IVec2, PartId>>,
+    pub camera: LinearCameraController,
+    pub cursor_state: CursorState,
+    pub rotation: Rotation,
+    pub filepath: Option<PathBuf>,
+    pub focus_layer: Option<PartLayer>,
+    pub selected_part: Option<PartId>,
+    pub snap_info: Option<(IVec2, UVec2)>,
+    pub action_queue: Vec<Action>,
+    pub occupied: HashMap<PartLayer, HashMap<IVec2, PartId>>,
     pub vehicle: Vehicle,
-    particles: ThrustParticleEffects,
-    build_particles: Vec<BuildParticle>,
+    pub particles: ThrustParticleEffects,
+    pub build_particles: Vec<BuildParticle>,
 
-    atmo: i32,
+    pub atmo: i32,
 
     // menus
     pub show_vehicle_info: bool,
@@ -235,7 +235,7 @@ impl Editor {
         Some(())
     }
 
-    fn get_part_at(&self, p: Vec2) -> Option<(PartId, &InstantiatedPart)> {
+    pub fn get_part_at(&self, p: Vec2) -> Option<(PartId, &InstantiatedPart)> {
         let pixel_p = vround(p * PIXELS_PER_METER);
 
         for layer in [
@@ -284,7 +284,7 @@ impl Editor {
         self.update();
     }
 
-    fn try_place_part(&mut self, p: IVec2, new_part: PartPrototype) -> Option<()> {
+    pub fn try_place_part(&mut self, p: IVec2, new_part: PartPrototype) -> Option<()> {
         let layer = new_part.layer();
 
         if !self.is_layer_visible(layer) {
@@ -310,7 +310,7 @@ impl Editor {
         Some(())
     }
 
-    fn remove_part_at(&mut self, p: Vec2) {
+    pub fn remove_part_at(&mut self, p: Vec2) {
         let pixel_p = vround(p * PIXELS_PER_METER);
         if let Ok(part) = self.vehicle.remove_part_at(pixel_p, self.focus_layer) {
             self.action_queue.push(Action::Remove(
@@ -322,7 +322,7 @@ impl Editor {
         self.update();
     }
 
-    fn current_part_and_cursor_position(state: &GameState) -> Option<(IVec2, PartPrototype)> {
+    pub fn current_part_and_cursor_position(state: &GameState) -> Option<(IVec2, PartPrototype)> {
         let ctx = &state.editor_context;
         let part = state.editor_context.cursor_state.current_part()?;
         let wh = pixel_dims_with_rotation(ctx.rotation, &part).as_ivec2();
@@ -1033,102 +1033,6 @@ impl CameraProjection for Editor {
 }
 
 impl Editor {
-    pub fn on_render_tick(state: &mut GameState) {
-        state
-            .editor_context
-            .camera
-            .handle_input(&state.input, &state.settings);
-
-        if state.is_hovering_over_ui() {
-            return;
-        }
-
-        if state.input.is_pressed(KeyCode::KeyB) {
-            for _ in 0..100 {
-                state.editor_context.vehicle.build_once();
-            }
-        }
-
-        if let Some(p) = state.input.on_frame(MouseButt::Left, FrameId::Down) {
-            let p = state.editor_context.c2w(p);
-            if let Some((id, _)) = state.editor_context.get_part_at(graphics_cast(p)) {
-                state.editor_context.selected_part = Some(id)
-            } else {
-                state.editor_context.selected_part = None;
-            }
-        }
-
-        if state.input.is_pressed(KeyCode::ShiftLeft) {
-            if let Some((pos, proto)) = Editor::current_part_and_cursor_position(state) {
-                if state.editor_context.snap_info.is_none() {
-                    let rot = state.editor_context.rotation;
-                    let dims = pixel_dims_with_rotation(rot, &proto);
-                    state.editor_context.snap_info = Some((pos, dims));
-                }
-            } else {
-                state.editor_context.snap_info = None;
-            }
-        } else {
-            state.editor_context.snap_info = None;
-        }
-
-        if let Some(_) = state.input.position(MouseButt::Left, FrameId::Current) {
-            if let Some((p, part)) = Editor::current_part_and_cursor_position(state) {
-                state.editor_context.try_place_part(p, part);
-            }
-        } else if let Some(p) = state.input.on_frame(MouseButt::Right, FrameId::Down) {
-            state
-                .editor_context
-                .remove_part_at(graphics_cast(state.editor_context.c2w(p)));
-        } else if state.input.just_pressed(KeyCode::KeyQ) {
-            if state.editor_context.cursor_state.current_part().is_some() {
-                state.editor_context.cursor_state = CursorState::None;
-            } else if let Some(p) = state.input.position(MouseButt::Hover, FrameId::Current) {
-                if let Some((_, instance)) = state
-                    .editor_context
-                    .get_part_at(graphics_cast(state.editor_context.c2w(p)))
-                {
-                    let instance = instance.clone();
-                    state.editor_context.rotation = instance.rotation();
-                    state.editor_context.cursor_state =
-                        CursorState::Part(instance.prototype().clone());
-                } else {
-                    state.editor_context.cursor_state = CursorState::None;
-                }
-            }
-        }
-
-        if state.input.just_pressed(KeyCode::KeyR) {
-            state.editor_context.rotation =
-                enum_iterator::next_cycle(&state.editor_context.rotation);
-        }
-
-        if state.editor_context.focus_layer == Some(PartLayer::Plumbing) {
-            if let Some(p) = state.input.position(MouseButt::Left, FrameId::Current) {
-                let p = vfloor(graphics_cast(state.editor_context.c2w(p)) * PIXELS_PER_METER);
-                state.editor_context.vehicle.add_pipe(p);
-            }
-            if let Some(p) = state.input.position(MouseButt::Right, FrameId::Current) {
-                let p = vfloor(graphics_cast(state.editor_context.c2w(p)) * PIXELS_PER_METER);
-                state.editor_context.vehicle.remove_pipe(p);
-            }
-        }
-
-        if state.input.is_pressed(KeyCode::ControlLeft) && state.input.just_pressed(KeyCode::KeyZ) {
-            state.editor_context.undo();
-        }
-
-        if state.input.just_pressed(KeyCode::KeyO) {
-            state.editor_context.atmo += 1;
-        }
-
-        if state.input.just_pressed(KeyCode::KeyL) {
-            state.editor_context.atmo -= 1;
-        }
-
-        state.editor_context.atmo = state.editor_context.atmo.clamp(0, 10);
-    }
-
     pub fn on_game_tick(state: &mut GameState) {
         state.editor_context.camera.on_game_tick();
 

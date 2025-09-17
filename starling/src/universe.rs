@@ -15,7 +15,7 @@ pub struct Universe {
 impl Universe {
     pub fn empty() -> Self {
         // TODO make it so you can declare zero planets lol.
-        Self::new(PlanetarySystem::new(0, "Asteroid", Body::SMOL))
+        Self::new(PlanetarySystem::Void)
     }
 
     pub(crate) fn new(planets: PlanetarySystem) -> Self {
@@ -101,8 +101,8 @@ impl Universe {
             sv.step(&self.planets, stamp, ext);
 
             let atmo = match self.planets.lookup_planet(sv.parent(), stamp) {
-                Some((body, _, _, _)) => {
-                    let altitude = sv.body.pv.pos.length() - body.radius;
+                Some((planet, _, _, _)) => {
+                    let altitude = sv.body.pv.pos.length() - planet.body.radius;
                     (1.0 - altitude / 200_000.0).clamp(0.0, 1.0)
                 }
                 _ => 0.0,
@@ -116,24 +116,6 @@ impl Universe {
                     &sv.body,
                     atmo as f32,
                 );
-            }
-        }
-    }
-
-    fn update_vehicle_relative_info(&mut self) {
-        let mut rel = HashMap::new();
-        for (id, sv) in &self.spacecraft {
-            if let Some(t) = sv.target() {
-                if let Some((ego, target)) = self.pv(*id).zip(self.pv(t)) {
-                    rel.insert(*id, ego - target);
-                }
-            }
-        }
-        for (id, sv) in &mut self.spacecraft {
-            if let Some(pv) = rel.get(id) {
-                sv.target_relative_pv = Some(*pv);
-            } else {
-                sv.target_relative_pv = None;
             }
         }
     }
@@ -153,8 +135,6 @@ impl Universe {
         } else {
             self.thrust_particles.particles.clear();
         }
-
-        self.update_vehicle_relative_info();
     }
 
     pub fn on_sim_tick(&mut self, signals: &ControlSignals, particles: bool) {
@@ -164,8 +144,6 @@ impl Universe {
         self.thrust_particles.step();
 
         self.step_spacecraft(signals, particles);
-
-        self.update_vehicle_relative_info();
     }
 
     pub fn orbiter_ids(&self) -> impl Iterator<Item = EntityId> + use<'_> {
@@ -220,6 +198,10 @@ impl Universe {
     }
 
     pub fn pv(&self, id: EntityId) -> Option<PV> {
+        if id == EntityId(0) {
+            return Some(PV::ZERO);
+        }
+
         if let Some((_, pv, _, _)) = self.planets.lookup_planet(id, self.stamp) {
             return Some(pv);
         }
@@ -230,20 +212,14 @@ impl Universe {
             return None;
         };
 
-        let (_, parent, _, _) = self.planets.lookup_planet(parent, self.stamp)?;
+        let parent = self.pv(parent)?;
 
         Some(local + parent)
     }
 
     pub fn get_planet(&self, id: EntityId) -> Option<Planet> {
         let stamp = self.stamp;
-        let (body, _, _, sys) = self.planets.lookup_planet(id, stamp)?;
-
-        let planet = Planet {
-            name: sys.name().to_string(),
-            body,
-        };
-
+        let (planet, _, _, _) = self.planets.lookup_planet(id, stamp)?;
         Some(planet)
     }
 
@@ -338,10 +314,10 @@ pub fn nearest_relevant_body(
         .planet_ids()
         .into_iter()
         .filter_map(|id| {
-            let (body, pv, _, _) = planets.lookup_planet(id, stamp)?;
+            let (planet, pv, _, _) = planets.lookup_planet(id, stamp)?;
             let p = pv.pos;
             let d = pos.distance(p);
-            (d <= body.soi).then(|| (d, id))
+            (d <= planet.body.soi).then(|| (d, id))
         })
         .collect::<Vec<_>>();
     results

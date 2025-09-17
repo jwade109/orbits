@@ -1,17 +1,14 @@
 use crate::camera_controller::*;
 use crate::canvas::Canvas;
 use crate::game::GameState;
-use crate::input::{FrameId, InputState, MouseButt};
 use crate::onclick::OnClick;
 use crate::scenes::*;
-use crate::settings::Settings;
-use crate::sounds::EnvironmentSounds;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use enum_iterator::Sequence;
 use layout::layout::Tree;
 use starling::prelude::*;
-use std::collections::HashSet;
+use crate::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Sequence)]
 pub enum CursorMode {
@@ -23,22 +20,11 @@ pub enum CursorMode {
     Protractor,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Sequence)]
-pub enum DrawMode {
-    #[default]
-    Default,
-    Constellations,
-    Stability,
-    Occlusion,
-}
-
 #[allow(unused)]
 #[derive(Debug, Clone)]
 pub struct OrbitalContext {
     pub camera: LinearCameraController,
     pub following: Option<EntityId>,
-    pub show_animations: bool,
-    pub draw_mode: DrawMode,
     pub piloting: Option<EntityId>,
     pub hovered_entity: Option<EntityId>,
 }
@@ -76,8 +62,6 @@ impl OrbitalContext {
         Self {
             camera: LinearCameraController::new(DVec2::ZERO, 100000.0),
             following: None,
-            show_animations: true,
-            draw_mode: DrawMode::Default,
             piloting: None,
             hovered_entity: None,
         }
@@ -91,59 +75,6 @@ impl OrbitalContext {
         }
 
         self.camera.on_game_tick();
-    }
-
-    pub fn on_render_tick(
-        &mut self,
-        on_ui: bool,
-        input: &InputState,
-        settings: &Settings,
-        universe: &mut Universe,
-        sounds: &mut EnvironmentSounds,
-    ) {
-        self.camera.handle_input(input, settings);
-
-        if on_ui {
-            return;
-        }
-
-        self.hovered_entity = if let Some(p) = input.position(MouseButt::Hover, FrameId::Current) {
-            let dist = (SPACECRAFT_HOVER_RADIUS / self.scale()).max(0.0);
-            let w = self.c2w(p);
-            nearest_orbiter_or_planet(universe, w, dist)
-        } else {
-            None
-        };
-
-        if let Some(_) = input.on_frame(MouseButt::Left, FrameId::Down) {
-            if input.is_pressed(KeyCode::ControlLeft) {
-                self.following = self.hovered_entity;
-                self.camera.clear_offset();
-            } else {
-                if let Some(h) = self.hovered_entity {
-                    self.piloting = Some(h);
-                    sounds.play_once("soft-pulse-higher.ogg", 0.3);
-                } else {
-                    self.piloting = None;
-                    sounds.play_once("soft-pulse.ogg", 0.3);
-                }
-            }
-        }
-
-        if let Some(_) = input.on_frame(MouseButt::Right, FrameId::Down) {
-            || -> Option<()> {
-                let pilot = self.piloting?;
-                let sv = universe.spacecraft.get_mut(&pilot)?;
-                if self.hovered_entity != Some(pilot) {
-                    if sv.target() == self.hovered_entity {
-                        sv.set_target(None);
-                    } else {
-                        sv.set_target(self.hovered_entity);
-                    }
-                }
-                Some(())
-            }();
-        }
     }
 }
 
@@ -229,12 +160,7 @@ pub fn date_info(state: &GameState) -> String {
 
 impl Render for OrbitalContext {
     fn background_color(state: &GameState) -> bevy::color::Srgba {
-        match state.orbital_context.draw_mode {
-            DrawMode::Default => BLACK,
-            DrawMode::Constellations => GRAY.with_luminance(0.1),
-            DrawMode::Stability => GRAY.with_luminance(0.13),
-            DrawMode::Occlusion => GRAY.with_luminance(0.04),
-        }
+        BLACK
     }
 
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {

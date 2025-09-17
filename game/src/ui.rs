@@ -15,48 +15,10 @@ use bevy::text::TextBounds;
 use layout::layout::{Node, Size, TextJustify, Tree};
 use starling::prelude::*;
 
-#[derive(Debug, Event, Clone)]
-pub enum InteractionEvent {
-    Orbits,
-    Spawn,
-    Console,
-    Delete,
-    SimSlower,
-    SimPause,
-    SimFaster,
-    SetSim(SimRate),
-    ClearSelection,
-    ClearOrbitQueue,
-    Escape,
-    Save,
-    Restore,
-    Load(String),
-    ToggleObject(EntityId),
-    ToggleGroup(EntityId),
-    DisbandGroup(EntityId),
-    CreateGroup,
-    CursorMode,
-    DrawMode,
-    RedrawGui,
-    ToggleFullscreen,
-
-    // orbital_context operations
-    MoveLeft,
-    MoveRight,
-    MoveUp,
-    MoveDown,
-    ZoomIn,
-    ZoomOut,
-    Reset,
-
-    ToggleDebugConsole,
-}
-
 pub struct UiPlugin;
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup);
         app.add_systems(Update, (do_ui_sprites, set_bloom));
     }
 }
@@ -64,10 +26,7 @@ impl Plugin for UiPlugin {
 fn set_bloom(state: Res<GameState>, mut bloom: Single<&mut Bloom>) {
     bloom.intensity = match state.scene {
         SceneType::MainMenu => 0.6,
-        SceneType::Orbital => match state.orbital_context.draw_mode {
-            DrawMode::Default => 0.5,
-            _ => 0.1,
-        },
+        SceneType::Orbital => 0.4,
         _ => 0.1,
     }
 }
@@ -652,8 +611,4 @@ fn do_ui_sprites(
             }
         }
     }
-}
-
-fn setup(mut commands: Commands) {
-    commands.insert_resource(Events::<InteractionEvent>::default());
 }
