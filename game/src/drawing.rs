@@ -890,6 +890,26 @@ fn draw_orbiter(canvas: &mut Canvas, state: &GameState, id: EntityId) -> Option<
         }
     }
 
+    match sv.controller.mode() {
+        VehicleControlPolicy::PositionHold(waypoints) => {
+            let offset = sv.target_pv().unwrap_or(PV::ZERO);
+            for (p, _) in waypoints {
+                let r = ctx.w2c(pv.pos);
+                let q = ctx.w2c(offset.pos);
+                let p = ctx.w2c(offset.pos + p);
+                let z = ZOrdering::Waypoints.as_f32();
+                canvas.line(p, q, ZOrdering::Waypoints, TEAL);
+                canvas.line(p, r, ZOrdering::Waypoints, REBECCA_PURPLE);
+                canvas.circle(p.extend(z), 30.0, REBECCA_PURPLE);
+            }
+        }
+        _ => (),
+    }
+
+    if !piloting {
+        return Some(());
+    }
+
     Some(())
 }
 

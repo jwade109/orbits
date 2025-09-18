@@ -5,9 +5,9 @@ draw_thrust_particles: false
 show_debug_info: false
 
 music_muted: true
-high_volume: 0.5
-mids_volume: 0.3
-low_volume: 0.1
+high_volume: 0
+mids_volume: 0
+low_volume: 0
 
 camera_pan_sensitivity: 1.0
 camera_scroll_sensitivity: 1.0

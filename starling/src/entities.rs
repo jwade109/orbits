@@ -12,6 +12,7 @@ pub struct Spacecraft {
     clamped_to_ground: bool,
     throttle: f32,
     is_rcs: bool,
+    target_position: Option<PV>,
 }
 
 impl Spacecraft {
@@ -32,6 +33,7 @@ impl Spacecraft {
             clamped_to_ground: false,
             throttle: 0.7,
             is_rcs: false,
+            target_position: None,
         }
     }
 
@@ -62,6 +64,14 @@ impl Spacecraft {
 
     pub fn set_target(&mut self, id: impl Into<Option<EntityId>>) {
         self.target = id.into();
+    }
+
+    pub fn set_target_pv(&mut self, pv: impl Into<Option<PV>>) {
+        self.target_position = pv.into();
+    }
+
+    pub fn target_pv(&self) -> Option<PV> {
+        self.target_position
     }
 
     pub fn throttle(&self) -> f32 {
@@ -211,10 +221,17 @@ impl Spacecraft {
                 let angle = angle.unwrap_or(0.0);
                 attitude_control_law(angle, &self.vehicle, &self.body)
             }
-            (VehicleControlPolicy::PositionHold(_), _) => {
-                (VehicleControl::NULLOPT, VehicleControlStatus::Idling)
+            (VehicleControlPolicy::PositionHold(waypoints), _) => {
+                let offset = self.target_position.unwrap_or(PV::ZERO);
+                if let Some(pose) = waypoints.first() {
+                    let pose = (pose.0 + offset.pos, pose.1);
+                    let target_pv = PV::from_f64(pose.0, offset.vel);
+                    position_hold_control_law(target_pv, pose.1, &self.body, &self.vehicle, DVec2::ZERO)
+                } else {
+                    (VehicleControl::NULLOPT, VehicleControlStatus::Idling)
+                }
             }
-            _ => (VehicleControl::NULLOPT, VehicleControlStatus::Idling)
+            _ => (VehicleControl::NULLOPT, VehicleControlStatus::Idling),
         };
 
         self.controller.set_status(status);

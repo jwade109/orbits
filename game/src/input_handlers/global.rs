@@ -58,6 +58,11 @@ pub fn on_global_render_tick(state: &mut GameState) -> bool {
         }
     }
 
+    if state.input.just_pressed(KeyCode::Escape) {
+        state.shutdown_with_prompt();
+        return true;
+    }
+
     if state.input.just_pressed(KeyCode::KeyH) {
         state.reset_camera();
     }

@@ -2,13 +2,13 @@ use crate::camera_controller::*;
 use crate::canvas::Canvas;
 use crate::game::GameState;
 use crate::onclick::OnClick;
+use crate::prelude::*;
 use crate::scenes::*;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use enum_iterator::Sequence;
 use layout::layout::Tree;
 use starling::prelude::*;
-use crate::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Sequence)]
 pub enum CursorMode {
@@ -124,7 +124,12 @@ pub fn get_orbital_labels(state: &GameState) -> Vec<TextLabel> {
                     if ov.controller.is_idle() {
                         title
                     } else {
-                        format!("{}\n{}", title, ov.controller.mode().to_status_str())
+                        format!(
+                            "{}\n{}\n{:?}",
+                            title,
+                            ov.controller.mode().to_status_str(),
+                            ov.controller.status()
+                        )
                     }
                 })
                 .unwrap_or("UFO".to_string());

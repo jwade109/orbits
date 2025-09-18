@@ -33,6 +33,14 @@ impl<'w, 's> Canvas<'w, 's> {
         self.painter.circle(radius);
     }
 
+    pub fn line(&mut self, p: Vec2, q: Vec2, z: ZOrdering, color: Srgba) {
+        self.painter.reset();
+        self.painter.set_translation(Vec3::Z * z.as_f32());
+        self.painter.set_color(color);
+        self.painter.thickness = 3.0;
+        self.painter.line(p.extend(0.0), q.extend(0.0));
+    }
+
     pub fn square(&mut self, p: Vec2, sidelength: f32, color: Srgba) {
         draw_square(&mut self.gizmos, p, sidelength, color);
     }
@@ -82,8 +90,7 @@ impl<'w, 's> Canvas<'w, 's> {
         self.painter.reset();
         self.painter.hollow = true;
         self.painter.thickness = t;
-        self.painter
-            .set_translation(aabb.center.extend(z.as_f32()));
+        self.painter.set_translation(aabb.center.extend(z.as_f32()));
         self.painter.set_color(c.into());
         self.painter.rect(aabb.span);
     }

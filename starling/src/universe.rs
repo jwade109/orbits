@@ -90,6 +90,12 @@ impl Universe {
     fn step_spacecraft(&mut self, signals: &ControlSignals, particles: bool) {
         let stamp = self.stamp();
 
+        let pvs: HashMap<_, _> = self
+            .spacecraft
+            .iter()
+            .map(|(id, sv)| (*id, sv.pv()))
+            .collect();
+
         for (id, sv) in &mut self.spacecraft {
             let (ext, delta_throttle) = *signals
                 .piloting_commands
@@ -99,6 +105,8 @@ impl Universe {
             sv.step_throttle(delta_throttle);
 
             sv.step(&self.planets, stamp, ext);
+
+            sv.set_target_pv(sv.target().map(|t| pvs.get(&t)).flatten().cloned());
 
             let atmo = match self.planets.lookup_planet(sv.parent(), stamp) {
                 Some((planet, _, _, _)) => {

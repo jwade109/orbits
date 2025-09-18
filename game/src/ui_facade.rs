@@ -66,6 +66,11 @@ impl UiFacade {
                 .as_ref()
                 .map(|p| p.is_attitude_hold())
                 .unwrap_or(false),
+            ButtonId::Position => self
+                .current_vehicle_controller
+                .as_ref()
+                .map(|p| p.is_position_hold())
+                .unwrap_or(false),
             ButtonId::Launch => self
                 .current_vehicle_controller
                 .as_ref()

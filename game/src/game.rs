@@ -264,6 +264,7 @@ impl GameState {
             ButtonId::Idle,
             ButtonId::Prograde,
             ButtonId::Retrograde,
+            ButtonId::Position,
             ButtonId::Attitude,
             ButtonId::Launch,
         ];
@@ -320,7 +321,7 @@ impl GameState {
             buttons,
             next_window_id: 7,
             windows: Vec::new(),
-            tutorial,
+            tutorial: None,
         };
 
         let get_random_orbit = |universe: &Universe, pid: EntityId| {
@@ -335,18 +336,18 @@ impl GameState {
             Some(GlobalOrbit(pid, orbit))
         };
 
-        // let vehicles = [
-        //     ("spacestation", "Earth"),
-        //     ("lander", "Earth"),
-        //     ("pollux", "Earth"),
-        //     ("remora", "Earth"),
-        //     ("bellerophon", "Earth"),
-        //     ("icecream", "Earth"),
-        //     ("pollux", "Luna"),
-        //     ("bellerophon", "Luna"),
-        //     ("remora", "Luna"),
-        //     ("remora", "Luna"),
-        // ];
+        let vehicles = [
+            ("spacestation", "Earth"),
+            ("lander", "Earth"),
+            ("pollux", "Earth"),
+            ("remora", "Earth"),
+            ("bellerophon", "Earth"),
+            ("icecream", "Earth"),
+            ("pollux", "Luna"),
+            ("bellerophon", "Luna"),
+            ("remora", "Luna"),
+            ("remora", "Luna"),
+        ];
 
         // for (name, parent) in vehicles {
         //     let parent = g.universe.get_planet_by_name(parent);
@@ -359,10 +360,14 @@ impl GameState {
         //     }
         // }
 
-        let vehicle = g.get_vehicle_by_model("pollux");
+        for (vehicle, _) in vehicles {
+            let vehicle = g.get_vehicle_by_model(vehicle);
 
-        if let Some(v) = vehicle {
-            g.spawn_new_at(v, EntityId(0), PV::ZERO);
+            let p = randvec(100.0, 300.0).as_dvec2();
+
+            if let Some(v) = vehicle {
+                g.spawn_new_at(v, EntityId(0), PV::pos(p));
+            }
         }
 
         g
@@ -632,7 +637,7 @@ impl GameState {
         let id = self.piloting()?;
         let sv = self.universe.spacecraft.get(&id)?;
         let parent = sv.parent();
-        let perturb = PV::from_f64(randvec(0.01, 0.1), randvec(1.0, 3.0));
+        let perturb = PV::from_f64(randvec(0.01, 0.1), randvec(0.1, 0.3));
         let pv = sv.pv() + perturb;
         let vehicle = self.get_vehicle_by_model("buoy")?;
         self.spawn_new_at(vehicle, parent, pv)
@@ -866,6 +871,12 @@ impl GameState {
                     }
                     ButtonId::Retrograde => {
                         self.set_controller_policy(VehicleControlPolicy::BurnRetrograde)
+                    }
+                    ButtonId::Position => {
+                        self.set_controller_policy(VehicleControlPolicy::PositionHold(vec![(
+                            randvec(30.0, 80.0).as_dvec2(),
+                            0.0,
+                        )]))
                     }
                     ButtonId::Attitude => {
                         self.set_controller_policy(VehicleControlPolicy::HoldAttitude(None))

@@ -13,6 +13,7 @@ pub enum ButtonId {
     Idle,
     Prograde,
     Retrograde,
+    Position,
     Attitude,
     Launch,
 }

@@ -9,6 +9,21 @@ pub fn on_orbital_render_tick(state: &mut GameState) {
         .camera
         .handle_input(&state.input, &state.settings);
 
+    if state.input.just_pressed(KeyCode::Slash) {
+        state.universe_ticks_per_game_tick = SimRate::RealTime;
+        return;
+    }
+
+    if state.input.just_pressed(KeyCode::Comma) {
+        state.sim_slower();
+        return;
+    }
+
+    if state.input.just_pressed(KeyCode::Period) {
+        state.sim_faster();
+        return;
+    }
+
     state.orbital_context.hovered_entity =
         if let Some(p) = state.input.position(MouseButt::Hover, FrameId::Current) {
             let dist = (SPACECRAFT_HOVER_RADIUS / state.orbital_context.scale()).max(0.0);
