@@ -6,6 +6,7 @@ use crate::nanotime::Nanotime;
 use crate::parts::*;
 use crate::pid::PDCtrl;
 use crate::vehicle::*;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 
@@ -49,6 +50,14 @@ impl Default for ThrustAxisInfo {
     }
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct VehiclePd {
+    pub attitude_controller: PDCtrl,
+    pub vertical_controller: PDCtrl,
+    pub horizontal_controller: PDCtrl,
+    pub docking_linear_controller: PDCtrl,
+}
+
 #[derive(Debug, Clone)]
 pub struct Vehicle {
     name: String,
@@ -65,10 +74,7 @@ pub struct Vehicle {
     left: ThrustAxisInfo,
     right: ThrustAxisInfo,
 
-    pub attitude_controller: PDCtrl,
-    pub vertical_controller: PDCtrl,
-    pub horizontal_controller: PDCtrl,
-    pub docking_linear_controller: PDCtrl,
+    pub pid: VehiclePd,
 
     pub gyro: Gyro,
 
@@ -114,10 +120,12 @@ impl Vehicle {
             is_thrust_idle: false,
             discriminator: 0,
 
-            attitude_controller: PDCtrl::new(40.0, 60.0).jitter(),
-            vertical_controller: PDCtrl::new(0.03, 0.3).jitter(),
-            horizontal_controller: PDCtrl::new(0.01, 0.20).jitter(),
-            docking_linear_controller: PDCtrl::new(10.0, 300.0).jitter(),
+            pid: VehiclePd {
+                attitude_controller: PDCtrl::new(40.0, 60.0).jitter(),
+                vertical_controller: PDCtrl::new(0.03, 0.3).jitter(),
+                horizontal_controller: PDCtrl::new(0.01, 0.20).jitter(),
+                docking_linear_controller: PDCtrl::new(10.0, 300.0).jitter(),
+            },
 
             forwards: ThrustAxisInfo::default(),
             backwards: ThrustAxisInfo::default(),
@@ -879,11 +887,6 @@ impl Vehicle {
         for (_, part) in &mut self.parts {
             part.build_all();
         }
-
-        self.attitude_controller = self.attitude_controller.jitter();
-        self.vertical_controller = self.vertical_controller.jitter();
-        self.horizontal_controller = self.horizontal_controller.jitter();
-        self.docking_linear_controller = self.docking_linear_controller.jitter();
     }
 
     pub fn build_once(&mut self) {

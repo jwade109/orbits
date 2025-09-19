@@ -93,7 +93,7 @@ impl Universe {
         let pvs: HashMap<_, _> = self
             .spacecraft
             .iter()
-            .map(|(id, sv)| (*id, sv.pv()))
+            .map(|(id, sv)| (*id, (sv.pv(), sv.linear_accel())))
             .collect();
 
         for (id, sv) in &mut self.spacecraft {
@@ -106,7 +106,11 @@ impl Universe {
 
             sv.step(&self.planets, stamp, ext);
 
-            sv.set_target_pv(sv.target().map(|t| pvs.get(&t)).flatten().cloned());
+            let other_pv = sv.target().map(|t| pvs.get(&t)).flatten();
+            let this_pv = pvs.get(id);
+            let rel_pv = other_pv.zip(this_pv).map(|(t, p)| (t.0 - p.0, t.1));
+
+            sv.set_target_rel_pv(rel_pv);
 
             let atmo = match self.planets.lookup_planet(sv.parent(), stamp) {
                 Some((planet, _, _, _)) => {
@@ -160,7 +164,7 @@ impl Universe {
 
     pub fn spawn_spacecraft(&mut self, sv: Spacecraft) -> Option<EntityId> {
         let id = self.next_entity_id();
-        self.spacecraft.insert(id, sv)?;
+        self.spacecraft.insert(id, sv);
         Some(id)
     }
 

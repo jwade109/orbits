@@ -43,3 +43,7 @@ path = "bin/ast2png.rs"
 [[bin]]
 name = "epsilon"
 path = "bin/epsilon.rs"
+
+[[bin]]
+name = "pidtune"
+path = "bin/pidtune.rs"

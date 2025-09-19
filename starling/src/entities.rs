@@ -12,7 +12,7 @@ pub struct Spacecraft {
     clamped_to_ground: bool,
     throttle: f32,
     is_rcs: bool,
-    target_position: Option<PV>,
+    target_relative_position: Option<(PV, DVec2)>,
 }
 
 impl Spacecraft {
@@ -33,8 +33,17 @@ impl Spacecraft {
             clamped_to_ground: false,
             throttle: 0.7,
             is_rcs: false,
-            target_position: None,
+            target_relative_position: None,
         }
+    }
+
+    pub fn from_vehicle(vehicle: Vehicle) -> Self {
+        Self::new(
+            EntityId(0),
+            vehicle,
+            RigidBody::ZERO,
+            VehicleController::idle(),
+        )
     }
 
     pub fn current_orbit(&self) -> Option<GlobalOrbit> {
@@ -58,6 +67,11 @@ impl Spacecraft {
         self.body.pv
     }
 
+    pub fn linear_accel(&self) -> DVec2 {
+        let a = self.vehicle.body_frame_accel();
+        rotate_f64(a.linear, self.body.angle)
+    }
+
     pub fn target(&self) -> Option<EntityId> {
         self.target
     }
@@ -66,12 +80,12 @@ impl Spacecraft {
         self.target = id.into();
     }
 
-    pub fn set_target_pv(&mut self, pv: impl Into<Option<PV>>) {
-        self.target_position = pv.into();
+    pub fn set_target_rel_pv(&mut self, pv: impl Into<Option<(PV, DVec2)>>) {
+        self.target_relative_position = pv.into();
     }
 
-    pub fn target_pv(&self) -> Option<PV> {
-        self.target_position
+    pub fn target_rel_pv(&self) -> Option<(PV, DVec2)> {
+        self.target_relative_position
     }
 
     pub fn throttle(&self) -> f32 {
@@ -222,11 +236,20 @@ impl Spacecraft {
                 attitude_control_law(angle, &self.vehicle, &self.body)
             }
             (VehicleControlPolicy::PositionHold(waypoints), _) => {
-                let offset = self.target_position.unwrap_or(PV::ZERO);
+                let (target_rel, accel) = self
+                    .target_relative_position
+                    .map(|(t, accel)| (self.pv() + t, accel))
+                    .unwrap_or((PV::ZERO, DVec2::ZERO));
                 if let Some(pose) = waypoints.first() {
-                    let pose = (pose.0 + offset.pos, pose.1);
-                    let target_pv = PV::from_f64(pose.0, offset.vel);
-                    position_hold_control_law(target_pv, pose.1, &self.body, &self.vehicle, DVec2::ZERO)
+                    let pose = (pose.0 + target_rel.pos, pose.1);
+                    let target_pv = PV::from_f64(pose.0, target_rel.vel);
+                    position_hold_control_law(
+                        target_pv,
+                        pose.1,
+                        &self.body,
+                        &self.vehicle,
+                        DVec2::ZERO,
+                    )
                 } else {
                     (VehicleControl::NULLOPT, VehicleControlStatus::Idling)
                 }

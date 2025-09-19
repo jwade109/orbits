@@ -892,11 +892,11 @@ fn draw_orbiter(canvas: &mut Canvas, state: &GameState, id: EntityId) -> Option<
 
     match sv.controller.mode() {
         VehicleControlPolicy::PositionHold(waypoints) => {
-            let offset = sv.target_pv().unwrap_or(PV::ZERO);
+            let (offset, _) = sv.target_rel_pv().unwrap_or((PV::ZERO, DVec2::ZERO));
             for (p, _) in waypoints {
                 let r = ctx.w2c(pv.pos);
-                let q = ctx.w2c(offset.pos);
-                let p = ctx.w2c(offset.pos + p);
+                let q = ctx.w2c(pv.pos + offset.pos);
+                let p = ctx.w2c(pv.pos + offset.pos + p);
                 let z = ZOrdering::Waypoints.as_f32();
                 canvas.line(p, q, ZOrdering::Waypoints, TEAL);
                 canvas.line(p, r, ZOrdering::Waypoints, REBECCA_PURPLE);

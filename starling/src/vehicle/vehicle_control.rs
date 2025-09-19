@@ -96,7 +96,7 @@ fn zero_gravity_velocity_control_law(
         ctrl.plus_x.throttle = 0.0;
     }
 
-    ctrl.attitude = compute_attitude_control(body, target_angle, &vehicle.attitude_controller);
+    ctrl.attitude = compute_attitude_control(body, target_angle, &vehicle.pid.attitude_controller);
 
     (ctrl, VehicleControlStatus::VelocityError(vel_error))
 }
@@ -197,7 +197,7 @@ pub fn attitude_control_law(
     body: &RigidBody,
 ) -> (VehicleControl, VehicleControlStatus) {
     let mut cmd = VehicleControl::NULLOPT;
-    cmd.attitude = compute_attitude_control(body, target_angle, &vehicle.attitude_controller);
+    cmd.attitude = compute_attitude_control(body, target_angle, &vehicle.pid.attitude_controller);
     let attitude_error = wrap_pi_npi_f64(target_angle - body.angle);
     let stat = if attitude_error.abs() > 0.03 {
         VehicleControlStatus::ComingAbout
@@ -224,13 +224,13 @@ fn hover_control_law(
     };
 
     let horizontal_control = vehicle
-        .horizontal_controller
+        .pid.horizontal_controller
         .apply(target.x - body.pv.pos.x as f64, body.pv.vel.x as f64);
 
     // attitude controller
     let target_angle = upright_angle - horizontal_control.clamp(-PI_64 / 6.0, PI_64 / 6.0);
     let attitude_error = (body.angle - target_angle).abs();
-    let attitude = compute_attitude_control(body, target_angle, &vehicle.attitude_controller);
+    let attitude = compute_attitude_control(body, target_angle, &vehicle.pid.attitude_controller);
 
     let thrust = vehicle.max_forward_thrust();
     let accel = thrust / vehicle.total_mass().to_kg_f64();
@@ -238,7 +238,7 @@ fn hover_control_law(
 
     // vertical controller
     let error = vehicle
-        .vertical_controller
+        .pid.vertical_controller
         .apply(target.y - body.pv.pos.y as f64, body.pv.vel.y as f64);
 
     let throttle = pct + error;
@@ -292,7 +292,7 @@ pub fn velocity_control_law(
 
     // attitude controller
     // let attitude_error = (body.angle - target_angle).abs();
-    let attitude = compute_attitude_control(body, target_angle, &vehicle.attitude_controller);
+    let attitude = compute_attitude_control(body, target_angle, &vehicle.pid.attitude_controller);
 
     let vmag = body.pv.vel.length();
     let vmag_error = vel.length() - vmag;
@@ -395,7 +395,7 @@ pub fn enter_orbit_control_law(
 
     let att_and_throttle = |target_angle: f64, throttle: f32| {
         let mut cmd = VehicleControl::NULLOPT;
-        cmd.attitude = compute_attitude_control(body, target_angle, &vehicle.attitude_controller);
+        cmd.attitude = compute_attitude_control(body, target_angle, &vehicle.pid.attitude_controller);
         // let angle_error = wrap_pi_npi_f64(target_angle - body.angle);
         // if angle_error.abs() < 0.1 {
         cmd.plus_x.throttle = throttle;
@@ -475,7 +475,7 @@ pub fn burn_along_velocity_vector_control_law(
     let thrust_angle = if prograde { body.pv.vel } else { -body.pv.vel }.to_angle();
     let mut ctrl = VehicleControl::NULLOPT;
     let actual_angle = body.angle;
-    ctrl.attitude = compute_attitude_control(body, thrust_angle, &vehicle.attitude_controller);
+    ctrl.attitude = compute_attitude_control(body, thrust_angle, &vehicle.pid.attitude_controller);
     let angular_error = wrap_pi_npi_f64((thrust_angle - actual_angle).abs());
     let status = if angular_error.abs().to_degrees() < 3.0
         && body.angular_velocity.to_degrees().abs() < 3.0
@@ -498,19 +498,32 @@ pub enum VehicleControlPolicy {
     BurnPrograde,
     BurnRetrograde,
     HoldAttitude(Option<f64>),
+    BurnNorth,
+    BurnSouth,
+    BurnEast,
+    BurnWest,
 }
 
 impl VehicleControlPolicy {
+    pub fn hold_pos(pos: DVec2, angle: f64) -> Self {
+        Self::PositionHold(vec![(pos, angle)])
+    }
+
     pub fn to_status_str(&self) -> String {
         match self {
-            VehicleControlPolicy::Idle => "Idling".to_string(),
-            VehicleControlPolicy::External => "Under external control".to_string(),
-            VehicleControlPolicy::PositionHold(_) => "Holding position".to_string(),
-            VehicleControlPolicy::LaunchToOrbit(_) => "Launching to orbit".to_string(),
-            VehicleControlPolicy::BurnPrograde => "Burning prograde".to_string(),
-            VehicleControlPolicy::BurnRetrograde => "Burning retrograde".to_string(),
-            VehicleControlPolicy::HoldAttitude(_) => "Holding attitude".to_string(),
+            VehicleControlPolicy::Idle => "Idling",
+            VehicleControlPolicy::External => "Under external control",
+            VehicleControlPolicy::PositionHold(_) => "Holding position",
+            VehicleControlPolicy::LaunchToOrbit(_) => "Launching to orbit",
+            VehicleControlPolicy::BurnPrograde => "Burning prograde",
+            VehicleControlPolicy::BurnRetrograde => "Burning retrograde",
+            VehicleControlPolicy::HoldAttitude(_) => "Holding attitude",
+            VehicleControlPolicy::BurnNorth => "Burning north",
+            VehicleControlPolicy::BurnSouth => "Burning south",
+            VehicleControlPolicy::BurnEast => "Burning east",
+            VehicleControlPolicy::BurnWest => "Burning west",
         }
+        .to_string()
     }
 
     pub fn is_idle(&self) -> bool {
@@ -655,20 +668,6 @@ impl VehicleController {
             VehicleControlPolicy::PositionHold(queue) => queue.iter().cloned(),
             _ => [].iter().cloned(),
         }
-    }
-
-    pub fn go_to_next_mode(&mut self) {
-        self.mode = match self.mode {
-            VehicleControlPolicy::Idle => VehicleControlPolicy::External,
-            VehicleControlPolicy::External => VehicleControlPolicy::PositionHold(vec![]),
-            VehicleControlPolicy::PositionHold(_) => {
-                VehicleControlPolicy::LaunchToOrbit(rand(300_000.0, 700_000.0) as f64)
-            }
-            VehicleControlPolicy::LaunchToOrbit(_) => VehicleControlPolicy::BurnPrograde,
-            VehicleControlPolicy::BurnPrograde => VehicleControlPolicy::BurnRetrograde,
-            VehicleControlPolicy::BurnRetrograde => VehicleControlPolicy::HoldAttitude(None),
-            VehicleControlPolicy::HoldAttitude(_) => VehicleControlPolicy::Idle,
-        };
     }
 
     fn mark_target_achieved(&mut self) {
