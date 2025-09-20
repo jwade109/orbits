@@ -1,4 +1,5 @@
 use clap::Parser;
+use serde::{Deserialize, Serialize};
 use starling::prelude::*;
 use std::io::{LineWriter, Write};
 use std::path::PathBuf;
@@ -39,9 +40,29 @@ struct Args {
     pub angle: f64,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
 struct Simulation {
     pd: VehiclePd,
-    convergance: Option<usize>,
+    convergence: Option<usize>,
+    t: Vec<Nanotime>,
+    x: Vec<f64>,
+    y: Vec<f64>,
+    a: Vec<f64>,
+    accel: Vec<f64>,
+}
+
+impl Simulation {
+    pub fn new(pd: VehiclePd) -> Self {
+        Self {
+            pd,
+            convergence: None,
+            t: Vec::new(),
+            x: Vec::new(),
+            y: Vec::new(),
+            a: Vec::new(),
+            accel: Vec::new(),
+        }
+    }
 }
 
 fn simulate(
@@ -50,42 +71,47 @@ fn simulate(
     target_pos: DVec2,
     target_angle: f64,
 ) -> Result<Simulation, Box<dyn std::error::Error>> {
-    let mut sv = Spacecraft::from_vehicle(vehicle);
-    sv.controller
-        .set_policy(VehicleControlPolicy::hold_pos(target_pos, target_angle));
+    let mut sim = Simulation::new(vehicle.pid);
+
+    let mut n_converged = 0;
+    let mut target_angle = target_angle;
+
+    let sv = Spacecraft::from_vehicle(vehicle);
     let mut universe = Universe::empty();
     let id = universe.spawn_spacecraft(sv).ok_or("Expected ID")?;
 
     for i in 0..=ticks {
-        let sv = universe.spacecraft.get(&id).ok_or("Failed to get SV")?;
+        let t = universe.stamp();
+        let sv = universe.spacecraft.get_mut(&id).ok_or("Failed to get SV")?;
+        sv.controller
+            .set_policy(VehicleControlPolicy::hold_pos(target_pos, target_angle));
 
         let converged = sv.body.pv.pos.distance(target_pos) < 10.0
-            && sv.body.pv.vel.length() < 6.0
-            && sv.body.angular_velocity.to_degrees().abs() < 4.0;
+            && sv.body.pv.vel.length() < 3.0
+            && sv.body.angular_velocity.to_degrees().abs() < 2.0
+            && wrap_pi_npi_f64(sv.body.angle - target_angle)
+                .abs()
+                .to_degrees()
+                < 2.0;
 
-        // file.write_all(
-        //     format!(
-        //         "{},{},{:0.3},{:0.3},{:0.3},{:0.3},{:0.3},{:0.3},{}\n",
-        //         i,
-        //         universe.stamp(),
-        //         sv.body.pv.pos.x,
-        //         sv.body.pv.pos.y,
-        //         sv.body.pv.vel.x,
-        //         sv.body.pv.vel.y,
-        //         wrap_pi_npi_f64(args.angle - sv.body.angle),
-        //         sv.body.angular_velocity,
-        //         converged as u8,
-        //     )
-        //     .as_bytes(),
-        // )?;
+        if i % 10 == 0 {
+            sim.t.push(t);
+            sim.x.push(sv.body.pv.pos.x);
+            sim.y.push(sv.body.pv.pos.y);
+            sim.a.push(sv.body.angle);
+            sim.accel
+                .push(sv.vehicle.body_frame_accel().linear.length());
+        }
+
         universe.on_sim_tick(&ControlSignals::new(), false);
 
         if converged {
+            sim.convergence = Some(i);
             break;
         }
     }
 
-    todo!()
+    Ok(sim)
 }
 
 struct TuningResult {}
@@ -105,47 +131,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     std::fs::create_dir(&args.outdir)?;
 
     for n in 0..args.sims {
-        let vehicle = load_vehicle(&args.ship_path, String::new(), &parts)?;
-        let data_path = args.outdir.join(format!("sim-{}.csv", n));
-        let file = std::fs::File::create(&data_path)?;
-        let mut file = LineWriter::new(file);
-        println!("Writing to {}", data_path.display());
-        file.write_all(b"tick,time,x,y,vx,vy,angular_error,angular_rate,converged\n")?;
-
-        let mut sv = Spacecraft::from_vehicle(vehicle);
-        sv.controller
-            .set_policy(VehicleControlPolicy::hold_pos(target_pos, args.angle));
-        let mut universe = Universe::empty();
-        let id = universe.spawn_spacecraft(sv).ok_or("Expected ID")?;
-
-        for i in 0..=args.ticks {
-            let sv = universe.spacecraft.get(&id).ok_or("Failed to get SV")?;
-
-            let converged = sv.body.pv.pos.distance(target_pos) < 10.0
-                && sv.body.pv.vel.length() < 6.0
-                && sv.body.angular_velocity.to_degrees().abs() < 4.0;
-
-            file.write_all(
-                format!(
-                    "{},{},{:0.3},{:0.3},{:0.3},{:0.3},{:0.3},{:0.3},{}\n",
-                    i,
-                    universe.stamp(),
-                    sv.body.pv.pos.x,
-                    sv.body.pv.pos.y,
-                    sv.body.pv.vel.x,
-                    sv.body.pv.vel.y,
-                    wrap_pi_npi_f64(args.angle - sv.body.angle),
-                    sv.body.angular_velocity,
-                    converged as u8,
-                )
-                .as_bytes(),
-            )?;
-            universe.on_sim_tick(&ControlSignals::new(), false);
-
-            if converged {
-                break;
-            }
-        }
+        let mut vehicle = load_vehicle(&args.ship_path, String::new(), &parts)?;
+        vehicle.pid.attitude_controller = vehicle.pid.attitude_controller.jitter();
+        vehicle.pid.docking_linear_controller = vehicle.pid.docking_linear_controller.jitter();
+        vehicle.pid.horizontal_controller = vehicle.pid.horizontal_controller.jitter();
+        vehicle.pid.vertical_controller = vehicle.pid.vertical_controller.jitter();
+        let data_path = args.outdir.join(format!("sim-{}.yaml", n));
+        let sim = simulate(vehicle, args.ticks, target_pos, args.angle)?;
+        let str = serde_yaml::to_string(&sim)?;
+        std::fs::write(data_path, str)?;
     }
 
     println!("Done.");

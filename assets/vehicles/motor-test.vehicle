@@ -1,4 +1,17 @@
 name: 'Motortest'
+tuning:
+  attitude_controller:
+    kp: 46.45956039428711
+    kd: 70.35492897033691
+  vertical_controller:
+    kp: 0.028750357031822202
+    kd: 0.29831601977348327
+  horizontal_controller:
+    kp: 0.009729394912719727
+    kd: 0.1959650993347168
+  docking_linear_controller:
+    kp: 8.233541250228882
+    kd: 261.5271806716919
 parts:
 - partname: small-motor
   pos:

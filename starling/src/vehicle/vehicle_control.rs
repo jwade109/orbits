@@ -86,7 +86,7 @@ fn zero_gravity_velocity_control_law(
             ctrl.neg_y.throttle = 1.0;
             ctrl.neg_y.use_rcs = true;
         }
-        idle_angle
+        (-vel_error).to_angle()
     } else {
         idle_angle
     };

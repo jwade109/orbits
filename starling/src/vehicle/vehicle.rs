@@ -50,7 +50,7 @@ impl Default for ThrustAxisInfo {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
 pub struct VehiclePd {
     pub attitude_controller: PDCtrl,
     pub vertical_controller: PDCtrl,
@@ -91,6 +91,7 @@ impl Vehicle {
             "XYZ".into(),
             Vec::new(),
             HashSet::new(),
+            VehiclePd::default(),
         )
     }
 
@@ -99,6 +100,7 @@ impl Vehicle {
         model: String,
         prototypes: Vec<(IVec2, Rotation, PartPrototype)>,
         pipes: HashSet<IVec2>,
+        tuning: VehiclePd,
     ) -> Self {
         let mut next_part_id = PartId(0);
         let mut parts = HashMap::new();
@@ -120,12 +122,7 @@ impl Vehicle {
             is_thrust_idle: false,
             discriminator: 0,
 
-            pid: VehiclePd {
-                attitude_controller: PDCtrl::new(40.0, 60.0).jitter(),
-                vertical_controller: PDCtrl::new(0.03, 0.3).jitter(),
-                horizontal_controller: PDCtrl::new(0.01, 0.20).jitter(),
-                docking_linear_controller: PDCtrl::new(10.0, 300.0).jitter(),
-            },
+            pid: tuning,
 
             forwards: ThrustAxisInfo::default(),
             backwards: ThrustAxisInfo::default(),

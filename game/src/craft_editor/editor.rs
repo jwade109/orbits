@@ -12,7 +12,6 @@ use crate::scenes::*;
 use crate::ui::*;
 use crate::z_index::ZOrdering;
 use bevy::color::palettes::css::*;
-use bevy::input::keyboard::KeyCode;
 use bevy::prelude::*;
 use layout::layout::{Node, Size, Tree};
 use rfd::FileDialog;
@@ -204,6 +203,7 @@ impl Editor {
 
         let storage = VehicleFileStorage {
             name: state.editor_context.vehicle.model().to_string(),
+            tuning: VehiclePd::default(),
             parts,
             lines: state.editor_context.vehicle.pipes().collect(),
         };

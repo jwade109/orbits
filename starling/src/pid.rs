@@ -1,7 +1,7 @@
 use crate::math::rand;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
 pub struct PDCtrl {
     kp: f64,
     kd: f64,
@@ -18,8 +18,8 @@ impl PDCtrl {
 
     pub fn jitter(&self) -> Self {
         PDCtrl {
-            kp: self.kp * rand(0.5, 1.6) as f64,
-            kd: self.kd * rand(0.5, 1.5) as f64,
+            kp: self.kp * rand(0.8, 1.2) as f64,
+            kd: self.kd * rand(0.8, 1.2) as f64,
         }
     }
 }

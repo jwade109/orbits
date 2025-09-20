@@ -8,6 +8,7 @@ use std::path::Path;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VehicleFileStorage {
     pub name: String,
+    pub tuning: VehiclePd,
     pub parts: Vec<VehiclePartFileStorage>,
     pub lines: HashSet<IVec2>,
 }
@@ -49,6 +50,7 @@ pub fn load_vehicle(
         storage.name,
         prototypes,
         storage.lines,
+        storage.tuning,
     ))
 }
 

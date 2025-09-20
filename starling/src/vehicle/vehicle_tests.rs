@@ -19,6 +19,7 @@ mod tests {
             "".to_string(),
             vec![(IVec2::ZERO, Rotation::East, part)],
             HashSet::new(),
+            VehiclePd::default(),
         );
 
         assert_eq!(vehicle.total_mass(), Mass::kilograms(400));
@@ -51,6 +52,7 @@ mod tests {
                 (IVec2::splat(10), Rotation::East, thruster),
             ],
             HashSet::new(),
+            VehiclePd::default(),
         );
 
         assert_eq!(vehicle.total_mass(), Mass::kilograms(1200));

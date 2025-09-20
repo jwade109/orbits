@@ -1,4 +1,17 @@
 name: Bellerophon
+tuning:
+  attitude_controller:
+    kp: 41.82637671701582
+    kd: 163.36672299236682
+  vertical_controller:
+    kp: 0.02626682907752844
+    kd: 0.30825905968911727
+  horizontal_controller:
+    kp: 0.008913576776212722
+    kd: 0.1805367579028996
+  docking_linear_controller:
+    kp: 8.034779635563183
+    kd: 260.70798776157744
 parts:
 - partname: motor
   pos:
