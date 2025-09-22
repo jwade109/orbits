@@ -1,8 +1,8 @@
 name: Bellerophon
 tuning:
   attitude_controller:
-    kp: 41.82637671701582
-    kd: 163.36672299236682
+    kp: 121.06671737440288
+    kd: 947.5986139941549
   vertical_controller:
     kp: 0.02626682907752844
     kd: 0.30825905968911727

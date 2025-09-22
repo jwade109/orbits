@@ -1,7 +1,6 @@
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 use starling::prelude::*;
-use std::io::{LineWriter, Write};
 use std::path::PathBuf;
 
 /// Simulates a vehicle operating under a particular command
@@ -28,22 +27,28 @@ struct Args {
     pub sims: usize,
 
     /// Target X coordinate
-    #[arg(long, short, default_value = "50")]
+    #[arg(long, short, default_value = "50", allow_hyphen_values = true)]
     pub x: f64,
 
     /// Target Y coordinate
-    #[arg(long, short, default_value = "80")]
+    #[arg(long, short, default_value = "80", allow_hyphen_values = true)]
     pub y: f64,
 
     /// Target angle
-    #[arg(long, short, default_value = "0.3")]
+    #[arg(long, short, default_value = "0.3", allow_hyphen_values = true)]
     pub angle: f64,
+
+    /// Rate of exploration through PD coefficient space
+    #[arg(long, short, default_value = "0.2")]
+    pub exploration_rate: f32,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 struct Simulation {
     pd: VehiclePd,
-    convergence: Option<usize>,
+    convergence: Option<Nanotime>,
+    target_pos: DVec2,
+    target_angle: Vec<f64>,
     t: Vec<Nanotime>,
     x: Vec<f64>,
     y: Vec<f64>,
@@ -52,10 +57,12 @@ struct Simulation {
 }
 
 impl Simulation {
-    pub fn new(pd: VehiclePd) -> Self {
+    pub fn new(pd: VehiclePd, target_pos: DVec2) -> Self {
         Self {
             pd,
             convergence: None,
+            target_pos,
+            target_angle: Vec::new(),
             t: Vec::new(),
             x: Vec::new(),
             y: Vec::new(),
@@ -71,14 +78,13 @@ fn simulate(
     target_pos: DVec2,
     target_angle: f64,
 ) -> Result<Simulation, Box<dyn std::error::Error>> {
-    let mut sim = Simulation::new(vehicle.pid);
-
-    let mut n_converged = 0;
-    let mut target_angle = target_angle;
+    let mut sim = Simulation::new(vehicle.pid, target_pos);
 
     let sv = Spacecraft::from_vehicle(vehicle);
     let mut universe = Universe::empty();
     let id = universe.spawn_spacecraft(sv).ok_or("Expected ID")?;
+
+    let mut sum_accel = 0.0;
 
     for i in 0..=ticks {
         let t = universe.stamp();
@@ -86,27 +92,28 @@ fn simulate(
         sv.controller
             .set_policy(VehicleControlPolicy::hold_pos(target_pos, target_angle));
 
-        let converged = sv.body.pv.pos.distance(target_pos) < 10.0
-            && sv.body.pv.vel.length() < 3.0
-            && sv.body.angular_velocity.to_degrees().abs() < 2.0
-            && wrap_pi_npi_f64(sv.body.angle - target_angle)
-                .abs()
-                .to_degrees()
-                < 2.0;
+        let converged = sv.body.pv.pos.distance(target_pos) < 20.0 && sv.body.pv.vel.length() < 4.0;
+        // && sv.body.angular_velocity.to_degrees().abs() < 5.0
+        // && wrap_pi_npi_f64(sv.body.angle - target_angle)
+        //     .abs()
+        //     .to_degrees()
+        //     < 5.0;
+
+        let accel = sv.vehicle.body_frame_accel().linear.length();
+        sum_accel += accel;
 
         if i % 10 == 0 {
             sim.t.push(t);
             sim.x.push(sv.body.pv.pos.x);
             sim.y.push(sv.body.pv.pos.y);
             sim.a.push(sv.body.angle);
-            sim.accel
-                .push(sv.vehicle.body_frame_accel().linear.length());
+            sim.accel.push(sum_accel);
         }
 
         universe.on_sim_tick(&ControlSignals::new(), false);
 
         if converged {
-            sim.convergence = Some(i);
+            sim.convergence = Some(universe.stamp());
             break;
         }
     }
@@ -130,16 +137,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     std::fs::create_dir(&args.outdir)?;
 
+    let vehicle = load_vehicle(&args.ship_path, String::new(), &parts)?;
+
     for n in 0..args.sims {
-        let mut vehicle = load_vehicle(&args.ship_path, String::new(), &parts)?;
-        vehicle.pid.attitude_controller = vehicle.pid.attitude_controller.jitter();
-        vehicle.pid.docking_linear_controller = vehicle.pid.docking_linear_controller.jitter();
-        vehicle.pid.horizontal_controller = vehicle.pid.horizontal_controller.jitter();
-        vehicle.pid.vertical_controller = vehicle.pid.vertical_controller.jitter();
+        let mut vehicle = vehicle.clone();
+        if n > 0 {
+            vehicle.pid.attitude_controller = vehicle
+                .pid
+                .attitude_controller
+                .jitter(args.exploration_rate + 1.0);
+        }
+        let sim = simulate(vehicle.clone(), args.ticks, target_pos, args.angle)?;
+        // vehicle.pid.docking_linear_controller = vehicle.pid.docking_linear_controller.jitter();
+        // vehicle.pid.horizontal_controller = vehicle.pid.horizontal_controller.jitter();
+        // vehicle.pid.vertical_controller = vehicle.pid.vertical_controller.jitter();
         let data_path = args.outdir.join(format!("sim-{}.yaml", n));
-        let sim = simulate(vehicle, args.ticks, target_pos, args.angle)?;
         let str = serde_yaml::to_string(&sim)?;
         std::fs::write(data_path, str)?;
+        if sim.convergence.is_some() {
+            dbg!(sim.pd);
+        }
     }
 
     println!("Done.");

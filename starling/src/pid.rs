@@ -16,10 +16,10 @@ impl PDCtrl {
         error * self.kp - error_rate * self.kd
     }
 
-    pub fn jitter(&self) -> Self {
+    pub fn jitter(&self, magnitude: f32) -> Self {
         PDCtrl {
-            kp: self.kp * rand(0.8, 1.2) as f64,
-            kd: self.kd * rand(0.8, 1.2) as f64,
+            kp: self.kp * rand(1.0 / magnitude, magnitude) as f64,
+            kd: self.kd * rand(1.0 / magnitude, magnitude) as f64,
         }
     }
 }

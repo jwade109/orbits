@@ -363,7 +363,7 @@ impl GameState {
         for (vehicle, _) in vehicles {
             let vehicle = g.get_vehicle_by_model(vehicle);
 
-            let p = randvec(100.0, 300.0).as_dvec2();
+            let p = randvec(1000.0, 6000.0).as_dvec2();
 
             if let Some(v) = vehicle {
                 g.spawn_new_at(v, EntityId(0), PV::pos(p));

@@ -1492,28 +1492,6 @@ fn draw_rendezvous_info(canvas: &mut Canvas, state: &GameState) -> Option<()> {
 
     let target = pv.target()?;
 
-    let po = pv.current_orbit()?;
-
-    let to = if let Some(sv) = state.universe.spacecraft.get(&target) {
-        sv.current_orbit()?
-    // }
-    // } else if let Some((_, _, parent, _)) = state
-    //     .universe
-    //     .planets
-    //     .lookup_planet(target, state.universe.stamp())
-    // {
-    //     return None;
-    // let parent = parent?;
-    // let (_, _, _, sys) = state
-    //     .universe
-    //     .planets
-    //     .lookup_planet(parent, state.universe.stamp())?;
-    // let (orbit, _) = sys.subsystems.iter().find(|(_, s)| s.id == target)?;
-    // GlobalOrbit(parent, *orbit)
-    } else {
-        return None;
-    };
-
     let target_pos = state.universe.pv(target)?;
 
     let meters = camera_span_meters(state.input.screen_bounds.span, ctx);
@@ -1535,6 +1513,28 @@ fn draw_rendezvous_info(canvas: &mut Canvas, state: &GameState) -> Option<()> {
                 .set_color(WHITE.with_alpha(gcast(alpha)));
         }
     }
+
+    let po = pv.current_orbit()?;
+
+    let to = if let Some(sv) = state.universe.spacecraft.get(&target) {
+        sv.current_orbit()?
+    // }
+    // } else if let Some((_, _, parent, _)) = state
+    //     .universe
+    //     .planets
+    //     .lookup_planet(target, state.universe.stamp())
+    // {
+    //     return None;
+    // let parent = parent?;
+    // let (_, _, _, sys) = state
+    //     .universe
+    //     .planets
+    //     .lookup_planet(parent, state.universe.stamp())?;
+    // let (orbit, _) = sys.subsystems.iter().find(|(_, s)| s.id == target)?;
+    // GlobalOrbit(parent, *orbit)
+    } else {
+        return None;
+    };
 
     if po.0 != to.0 {
         return None;
