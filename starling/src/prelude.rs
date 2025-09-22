@@ -1,4 +1,5 @@
 pub use crate::aabb::{Polygon, AABB, OBB};
+pub use crate::asteroid::*;
 pub use crate::belts::AsteroidBelt;
 pub use crate::bezier::*;
 pub use crate::casts::*;

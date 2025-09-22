@@ -1,4 +1,5 @@
 pub mod aabb;
+pub mod asteroid;
 pub mod belts;
 pub mod bezier;
 pub mod casts;

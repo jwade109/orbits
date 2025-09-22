@@ -370,6 +370,10 @@ impl GameState {
             }
         }
 
+        let ast = Asteroid::random(700.0, 757250);
+
+        g.universe.spawn_asteroid(ast);
+
         g
     }
 

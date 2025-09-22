@@ -112,7 +112,15 @@ fn zero_gravity_control_law(
     let error_hat = error.pos.normalize_or_zero();
     let desired_magnitude = (distance / 40.0).clamp(0.0, 100.0);
     let desired_vel = target.vel + error_hat * desired_magnitude;
-    zero_gravity_velocity_control_law(desired_vel, target_angle, body, vehicle)
+    let vel_error = desired_vel - body.pv.vel;
+    if distance > 500.0 && vel_error.length() < 20.0 {
+        (
+            VehicleControl::NULLOPT,
+            VehicleControlStatus::DriftingTowardsTarget,
+        )
+    } else {
+        zero_gravity_velocity_control_law(desired_vel, target_angle, body, vehicle)
+    }
 }
 
 fn compute_attitude_control(body: &RigidBody, target_angle: f64, pid: &PDCtrl) -> f64 {
@@ -161,7 +169,8 @@ fn hover_control_law(
     };
 
     let horizontal_control = vehicle
-        .pid.horizontal_controller
+        .pid
+        .horizontal_controller
         .apply(target.x - body.pv.pos.x as f64, body.pv.vel.x as f64);
 
     // attitude controller
@@ -175,7 +184,8 @@ fn hover_control_law(
 
     // vertical controller
     let error = vehicle
-        .pid.vertical_controller
+        .pid
+        .vertical_controller
         .apply(target.y - body.pv.pos.y as f64, body.pv.vel.y as f64);
 
     let throttle = pct + error;
@@ -332,7 +342,8 @@ pub fn enter_orbit_control_law(
 
     let att_and_throttle = |target_angle: f64, throttle: f32| {
         let mut cmd = VehicleControl::NULLOPT;
-        cmd.attitude = compute_attitude_control(body, target_angle, &vehicle.pid.attitude_controller);
+        cmd.attitude =
+            compute_attitude_control(body, target_angle, &vehicle.pid.attitude_controller);
         // let angle_error = wrap_pi_npi_f64(target_angle - body.angle);
         // if angle_error.abs() < 0.1 {
         cmd.plus_x.throttle = throttle;

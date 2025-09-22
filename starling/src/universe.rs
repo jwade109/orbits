@@ -1,6 +1,6 @@
 use crate::control_signals::ControlSignals;
 use crate::prelude::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 pub struct Universe {
@@ -8,6 +8,7 @@ pub struct Universe {
     ticks: u128,
     next_entity_id: EntityId,
     pub spacecraft: HashMap<EntityId, Spacecraft>,
+    pub asteroids: HashMap<EntityId, Asteroid>,
     planets: PlanetarySystem,
     pub thrust_particles: ThrustParticleEffects,
 }
@@ -24,6 +25,7 @@ impl Universe {
             ticks: 0,
             next_entity_id: EntityId(1002),
             spacecraft: HashMap::new(),
+            asteroids: HashMap::new(),
             planets,
             thrust_particles: ThrustParticleEffects::new(),
         }
@@ -165,6 +167,12 @@ impl Universe {
     pub fn spawn_spacecraft(&mut self, sv: Spacecraft) -> Option<EntityId> {
         let id = self.next_entity_id();
         self.spacecraft.insert(id, sv);
+        Some(id)
+    }
+
+    pub fn spawn_asteroid(&mut self, ast: Asteroid) -> Option<EntityId> {
+        let id = self.next_entity_id();
+        self.asteroids.insert(id, ast);
         Some(id)
     }
 

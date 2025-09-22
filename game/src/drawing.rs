@@ -934,6 +934,53 @@ fn draw_scenario(canvas: &mut Canvas, state: &GameState) {
     });
 }
 
+fn draw_asteroid(canvas: &mut Canvas, state: &GameState, ast: &Asteroid) -> Option<()> {
+    let z = ZOrdering::Asteroid;
+
+    let ctx = state.orbital_context.camera;
+    let outline = linspace(0.0, 2.0 * PI, 100).into_iter().map(|t| {
+        let r = ast.radius_at(t);
+        rotate(Vec2::X * r, t).as_dvec2()
+    });
+
+    for (p, q) in outline.clone().zip(outline.clone().skip(1)) {
+        canvas.line(ctx.w2c(p), ctx.w2c(q), z, WHITE.with_alpha(0.2));
+    }
+
+    // for p in outline {
+    //     canvas.circle(ctx.w2c(p).extend(z.as_f32()), 4.0, WHITE);
+
+    //     for s in linspace_f64(0.1, 0.95, 30) {
+    //         let sample_point = DVec2::ZERO.lerp(p, s);
+    //         if let Some(c) = ast.sample_color(sample_point.as_vec2(), true) {
+    //             let c = Srgba::from_u8_array(c);
+    //             canvas.circle(ctx.w2c(sample_point).extend(z.as_f32()), 3.0, c);
+    //         }
+    //     }
+    // }
+
+    // let aabb = AABB::new(
+    //     ctx.w2c(DVec2::ZERO),
+    //     Vec2::splat(ast.max_radius() * 2.0 * gcast(ctx.scale())),
+    // );
+
+    canvas.sprite(
+        ctx.w2c(DVec2::ZERO),
+        -ctx.angle() as f32,
+        ast.sprite_name(),
+        ZOrdering::Asteroid,
+        Vec2::splat(ast.max_radius() * 2.0) * gcast(ctx.scale()),
+    );
+
+    Some(())
+}
+
+fn draw_asteroids(canvas: &mut Canvas, state: &GameState) {
+    for (_, ast) in &state.universe.asteroids {
+        draw_asteroid(canvas, state, ast);
+    }
+}
+
 fn tutorial_highlight_vessel(
     canvas: &mut Canvas,
     id: EntityId,
@@ -1870,6 +1917,8 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
     circle_entity(canvas, ctx.piloting, ctx, &state.universe, ORANGE);
 
     draw_scenario(canvas, state);
+
+    draw_asteroids(canvas, state);
 
     draw_tutorials(canvas, state);
 
