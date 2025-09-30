@@ -32,6 +32,7 @@ shellwords = "1.1.0"
 big_space = { version = "0.10.0", features = ["bevy_input", "bevy_render", "bevy_time", "camera", "debug", "i128", "i16", "i32", "i64", "i8", "libm"] }
 avian2d = "0.3.1"
 turborand = "0.10.1"
+bevy_fly_camera = "0.16.0"
 
 [[bin]]
 name = "game"

@@ -140,14 +140,14 @@ fn spawn_solar_system(
             shadows_enabled: true,
             ..default()
         },
-        // CascadeShadowConfigBuilder {
-        //     num_cascades: 4,
-        //     minimum_distance: 0.1,
-        //     maximum_distance: 10_000.0,
-        //     first_cascade_far_bound: 100.0,
-        //     overlap_proportion: 0.2,
-        // }
-        // .build(),
+        CascadeShadowConfigBuilder {
+            num_cascades: 4,
+            minimum_distance: 0.1,
+            maximum_distance: 10_000.0,
+            first_cascade_far_bound: 100.0,
+            overlap_proportion: 0.2,
+        }
+        .build(),
     ));
 
     commands.spawn_big_space_default(|root_grid| {
