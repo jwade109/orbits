@@ -20,10 +20,12 @@ fn get_entity_info(world: &mut World) {
     let mut entity_info = HashMap::new();
 
     for e in q {
-        for ci in world.inspect_entity(e.id()) {
-            let s = ci.name().to_string();
-            let count: u64 = *entity_info.get(&s).unwrap_or(&0);
-            entity_info.insert(s, count + 1);
+        if let Ok(info) = world.inspect_entity(e.id()) {
+            for ci in info {
+                let s = ci.name().to_string();
+                let count: u64 = *entity_info.get(&s).unwrap_or(&0);
+                entity_info.insert(s, count + 1);
+            }
         }
     }
 
@@ -370,7 +372,7 @@ impl GameState {
             }
         }
 
-        let ast = Asteroid::random(700.0, 757250);
+        let ast = Asteroid::random(200.0, None);
 
         g.universe.spawn_asteroid(ast);
 
@@ -1190,7 +1192,7 @@ impl GameState {
 
         match self.scene {
             SceneType::Orbital => {
-                self.orbital_context.on_game_tick(&self.universe);
+                self.orbital_context.on_game_tick(&mut self.universe);
             }
             SceneType::Editor => {
                 Editor::on_game_tick(self);

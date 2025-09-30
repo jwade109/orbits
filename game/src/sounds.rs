@@ -18,7 +18,7 @@ pub fn sound_system(
             }
         };
         let player = AudioPlayer::new(handle);
-        let mut settings = PlaybackSettings::default().with_volume(Volume::new(v));
+        let mut settings = PlaybackSettings::default().with_volume(Volume::Linear(v));
         if do_loop {
             settings.mode = PlaybackMode::Loop;
         }
@@ -53,7 +53,7 @@ pub fn sound_system(
         (_, _, true, true) => (0.8, 0.6, 0.4),
     };
 
-    for (sink, track) in &mut music_controller {
+    for (mut sink, track) in &mut music_controller {
         let (target_volume, rate) = match track {
             TrackTag::High => (high, 0.01),
             TrackTag::Mids => (mids, 0.01),
@@ -62,9 +62,9 @@ pub fn sound_system(
             _ => continue,
         };
 
-        let mut volume = sink.volume();
+        let mut volume = sink.volume().to_linear();
         volume += (target_volume - volume) * rate;
-        sink.set_volume(volume);
+        sink.set_volume(Volume::Linear(volume));
     }
 }
 

@@ -3,6 +3,7 @@ use image::RgbaImage;
 use noise::{NoiseFn, Perlin};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
+use std::collections::HashSet;
 
 #[derive(Debug, Clone, Copy)]
 struct AsteroidShapeParameter {
@@ -19,10 +20,13 @@ pub struct Asteroid {
     deposits: Vec<(Vec2, f32, u8)>,
     craters: Vec<(Vec2, f32)>,
     noise: Perlin,
+    deleted_zones: HashSet<Zone>,
+    changes: HashSet<Zone>,
 }
 
 impl Asteroid {
-    pub fn random(base_radius: f32, seed: u64) -> Self {
+    pub fn random(base_radius: f32, seed: Option<u64>) -> Self {
+        let seed = seed.unwrap_or(randint(1000, 1000000) as u64);
         let mut rng = StdRng::seed_from_u64(seed);
 
         let noise = Perlin::new(rng.gen());
@@ -52,6 +56,8 @@ impl Asteroid {
             deposits: Vec::new(),
             noise,
             craters: Vec::new(),
+            deleted_zones: HashSet::new(),
+            changes: HashSet::new(),
         };
 
         let max_r = s.max_radius();
@@ -78,6 +84,10 @@ impl Asteroid {
         s.deposits = deposits;
 
         s
+    }
+
+    pub fn seed(&self) -> u64 {
+        self.seed
     }
 
     pub fn face_dir(&self, p: Vec2) -> Vec3 {
@@ -119,7 +129,7 @@ impl Asteroid {
     }
 
     pub fn contains(&self, p: Vec2) -> bool {
-        self.signed_distance(p) >= 0.0
+        self.signed_distance(p) >= 0.0 && self.deleted_zones().all(|z| !z.aabb().contains(p))
     }
 
     pub fn signed_distance(&self, p: Vec2) -> f32 {
@@ -212,9 +222,78 @@ impl Asteroid {
         Some(c)
     }
 
-    pub fn sprite_name(&self) -> String {
-        format!("ast-{}-{:0.4}", self.seed, self.base_radius)
+    pub fn sprite_name(&self, zone: Zone) -> String {
+        format!(
+            "ast-{}-{:0.4}-{}-{}",
+            self.seed, self.base_radius, zone.index, zone.size
+        )
     }
+
+    pub fn delete_terrain(&mut self, p: DVec2) {
+        let z = get_zone(p, 10);
+        let before = self.deleted_zones.len();
+        if self.contains(z.aabb().center) {
+            self.deleted_zones.insert(z);
+        }
+        let after = self.deleted_zones.len();
+        if before != after {
+            let z = get_zone(p, 100);
+            if self.contains_zone(z) {
+                self.changes.insert(z);
+            }
+        }
+    }
+
+    pub fn deleted_zones(&self) -> impl Iterator<Item = &Zone> + use<'_> {
+        self.deleted_zones.iter()
+    }
+
+    pub fn contains_zone(&self, z: Zone) -> bool {
+        self.zones().find(|o| *o == z).is_some()
+    }
+
+    pub fn zones(&self) -> impl Iterator<Item = Zone> + use<'_> {
+        let size = 100;
+        let max_r = self.max_radius();
+        let n = (max_r as f64 / size as f64).ceil() as i32;
+        (-n..=n).flat_map(move |x| {
+            (-n..=n).map(move |y| Zone {
+                size: size,
+                index: IVec2 { x, y },
+            })
+        })
+    }
+
+    pub fn is_changed(&self, z: Zone) -> bool {
+        self.changes.contains(&z)
+    }
+
+    pub fn clear_changed(&mut self, z: Zone) {
+        self.changes.remove(&z);
+    }
+
+    pub fn changed_zones(&self) -> impl Iterator<Item = &Zone> + use<'_> {
+        self.changes.iter()
+    }
+}
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+pub struct Zone {
+    size: u32,
+    index: IVec2,
+}
+
+impl Zone {
+    pub fn aabb(&self) -> AABB {
+        let lower = self.size as f64 * self.index.as_dvec2();
+        let upper = self.size as f64 * (self.index + IVec2::ONE).as_dvec2();
+        AABB::from_arbitrary(aabb_stopgap_cast(lower), aabb_stopgap_cast(upper))
+    }
+}
+
+pub fn get_zone(pos: DVec2, size: u32) -> Zone {
+    let index = vfloor_f64(pos / size as f64);
+    Zone { size, index }
 }
 
 fn write_pixel(img: &mut RgbaImage, p: IVec2, color: [u8; 4]) {
@@ -255,13 +334,13 @@ pub fn make_asteroid_image(
 
     let world_to_img = |p: Vec2| -> IVec2 {
         let u = viewport.to_normalized(p);
-        vround(u * Vec2::new(width as f32, height as f32))
+        vfloor(u * Vec2::new(width as f32, height as f32))
     };
 
     for w in 0..width {
-        let sx = w as f32 / width as f32;
+        let sx = (w as f32 + 0.5) as f32 / width as f32;
         for h in 0..height {
-            let sy = h as f32 / height as f32;
+            let sy = (h as f32 + 0.5) as f32 / height as f32;
             let p = viewport.from_normalized(Vec2::new(sx, sy));
             let color = match ast.sample_color(p, highlight_deposits) {
                 Some(c) => c,

@@ -4,14 +4,17 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = { version = "0.15.3" }
-bevy_dylib = "0.15.0-rc.3"
-bevy_dev_tools = "0.15.0"
-bevy_egui = "0.33.0"
-bevy_vector_shapes = "0.9.2"
+bevy = { version = "0.16.0", features = ["dynamic_linking"] }
+bevy-inspector-egui = "0.33.1"
+bevy_ecs = "0.16.1"
+bevy_egui = "0.36.0"
+bevy_math = "0.16.1"
+bevy_pancam = "0.18.0"
+bevy_render = "0.16.1"
+bevy_vector_shapes = "0.10.0"
 chrono = "0.4.39"
 lazy_static = "1.5.0"
-rand = "0.8.5"
+rand = "0.9.2"
 rand_chacha = "0.3.1"
 starling = { path = "../starling" }
 layout = { path = "../layout" }
@@ -26,3 +29,18 @@ project-root = "0.2.2"
 compile-time = "0.2.0"
 textwrap = "0.16.2"
 shellwords = "1.1.0"
+big_space = { version = "0.10.0", features = ["bevy_input", "bevy_render", "bevy_time", "camera", "debug", "i128", "i16", "i32", "i64", "i8", "libm"] }
+avian2d = "0.3.1"
+turborand = "0.10.1"
+
+[[bin]]
+name = "game"
+path = "bin/game.rs"
+
+[[bin]]
+name = "big"
+path = "bin/big.rs"
+
+[[bin]]
+name = "g2"
+path = "bin/g2.rs"

@@ -893,12 +893,17 @@ fn draw_orbiter(canvas: &mut Canvas, state: &GameState, id: EntityId) -> Option<
     match sv.controller.mode() {
         VehicleControlPolicy::PositionHold(waypoints) => {
             let (offset, _) = sv.target_rel_pv().unwrap_or((PV::ZERO, DVec2::ZERO));
+            let origin = if sv.target().is_some() {
+                pv.pos
+            } else {
+                DVec2::ZERO
+            };
             for (p, _) in waypoints {
-                let r = ctx.w2c(pv.pos);
-                let q = ctx.w2c(pv.pos + offset.pos);
-                let p = ctx.w2c(pv.pos + offset.pos + p);
+                let r = ctx.w2c(origin);
+                let q = ctx.w2c(origin + offset.pos);
+                let p = ctx.w2c(origin + offset.pos + p);
                 let z = ZOrdering::Waypoints.as_f32();
-                canvas.line(p, q, ZOrdering::Waypoints, TEAL);
+                canvas.line(ctx.w2c(pv.pos), p, ZOrdering::Waypoints, TEAL);
                 canvas.line(p, r, ZOrdering::Waypoints, REBECCA_PURPLE);
                 canvas.circle(p.extend(z), 30.0, REBECCA_PURPLE);
             }
@@ -947,6 +952,23 @@ fn draw_asteroid(canvas: &mut Canvas, state: &GameState, ast: &Asteroid) -> Opti
         canvas.line(ctx.w2c(p), ctx.w2c(q), z, WHITE.with_alpha(0.2));
     }
 
+    if state.settings.show_debug_info {
+        for zone in ast.zones() {
+            let aabb = ctx.w2c_aabb(zone.aabb());
+            canvas.hollow_rect(aabb, ZOrdering::Debug, ORANGE.with_alpha(0.2), 1.0);
+        }
+
+        for zone in ast.deleted_zones() {
+            let aabb = ctx.w2c_aabb(zone.aabb());
+            canvas.hollow_rect(aabb, ZOrdering::Debug, GREEN.with_alpha(0.6), 2.0);
+        }
+
+        for zone in ast.changed_zones() {
+            let aabb = ctx.w2c_aabb(zone.aabb());
+            canvas.hollow_rect(aabb, ZOrdering::Debug, BLUE.with_alpha(1.0), 3.0);
+        }
+    }
+
     // for p in outline {
     //     canvas.circle(ctx.w2c(p).extend(z.as_f32()), 4.0, WHITE);
 
@@ -964,13 +986,17 @@ fn draw_asteroid(canvas: &mut Canvas, state: &GameState, ast: &Asteroid) -> Opti
     //     Vec2::splat(ast.max_radius() * 2.0 * gcast(ctx.scale())),
     // );
 
-    canvas.sprite(
-        ctx.w2c(DVec2::ZERO),
-        -ctx.angle() as f32,
-        ast.sprite_name(),
-        ZOrdering::Asteroid,
-        Vec2::splat(ast.max_radius() * 2.0) * gcast(ctx.scale()),
-    );
+    for zone in ast.zones() {
+        let sprite_name = ast.sprite_name(zone);
+        let bounds = zone.aabb();
+        canvas.sprite(
+            ctx.w2c(bounds.center.as_dvec2()),
+            -ctx.angle() as f32,
+            sprite_name,
+            ZOrdering::Asteroid,
+            bounds.span * gcast(ctx.scale()),
+        );
+    }
 
     Some(())
 }

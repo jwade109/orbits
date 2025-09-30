@@ -116,6 +116,15 @@ impl PartLayer {
             PartLayer::Exterior,
         ]
     }
+
+    pub fn to_z(self) -> u32 {
+        match self {
+            PartLayer::Internal => 0,
+            PartLayer::Plumbing => 1,
+            PartLayer::Structural => 2,
+            PartLayer::Exterior => 3,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

@@ -27,6 +27,7 @@ pub struct OrbitalContext {
     pub following: Option<EntityId>,
     pub piloting: Option<EntityId>,
     pub hovered_entity: Option<EntityId>,
+    pub clicked_position: Option<Vec2>,
 }
 
 impl CameraProjection for OrbitalContext {
@@ -64,10 +65,11 @@ impl OrbitalContext {
             following: None,
             piloting: None,
             hovered_entity: None,
+            clicked_position: None,
         }
     }
 
-    pub fn on_game_tick(&mut self, universe: &Universe) {
+    pub fn on_game_tick(&mut self, universe: &mut Universe) {
         if let Some(follow) = self.following {
             if let Some(pv) = universe.pv(follow) {
                 self.camera.follow(follow, pv.pos);
@@ -75,6 +77,13 @@ impl OrbitalContext {
         }
 
         self.camera.on_game_tick();
+
+        if let Some(p) = self.clicked_position {
+            let p = self.camera.c2w(p);
+            for (_, ast) in &mut universe.asteroids {
+                ast.delete_terrain(p);
+            }
+        }
     }
 }
 

@@ -56,11 +56,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     dbg!(&args);
 
-    let seed = args.seed.unwrap_or(randint(1000, 1000000) as u64);
-
-    println!("Seed: {}", seed);
-
-    let ast = Asteroid::random(args.radius, seed);
+    let ast = Asteroid::random(args.radius, args.seed);
+    println!("Seed: {}", ast.seed());
 
     let viewport = if let Some((x, y)) = args.x.zip(args.y) {
         let center = Vec2::new(x as f32 * 100.0, y as f32 * 100.0);

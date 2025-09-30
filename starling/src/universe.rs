@@ -134,6 +134,15 @@ impl Universe {
         }
     }
 
+    fn do_mining(&mut self) {
+        for (_, sv) in &self.spacecraft {
+            for (_, ast) in &mut self.asteroids {
+                let p = sv.body.pv.pos;
+                ast.delete_terrain(p);
+            }
+        }
+    }
+
     pub fn run_batch_ticks(&mut self, ticks: u32) {
         self.ticks += ticks as u128;
         let old_stamp = self.stamp;
@@ -158,6 +167,8 @@ impl Universe {
         self.thrust_particles.step();
 
         self.step_spacecraft(signals, particles);
+
+        self.do_mining();
     }
 
     pub fn orbiter_ids(&self) -> impl Iterator<Item = EntityId> + use<'_> {

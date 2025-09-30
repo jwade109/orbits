@@ -48,26 +48,35 @@ pub fn proc_gen_ship_sprites(state: &mut GameState, images: &mut Assets<Image>) 
         }
     }
 
-    for (_, ast) in &state.universe.asteroids {
-        let sprite_name = ast.sprite_name();
-        if state.image_handles.contains_key(&sprite_name) {
-            continue;
-        }
-
+    for (_, ast) in &mut state.universe.asteroids {
         use bevy::image::*;
 
-        let viewport = AABB::new(Vec2::ZERO, Vec2::splat(ast.max_radius() * 2.0));
-        let img = make_asteroid_image(ast, viewport, 2000, Some(0.3), false, false);
-        let img = image::DynamicImage::from(img);
-        let mut img = Image::from_dynamic(
-            img,
-            true,
-            RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
-        );
-        img.sampler = bevy::image::ImageSampler::nearest();
-        let dims = img.size();
-        let handle = images.add(img);
-        println!("Generated new ship sprite for asteroid \"{}\"", sprite_name);
-        state.image_handles.insert(sprite_name, (handle, dims));
+        let mut gen = Vec::new();
+
+        for zone in ast.zones() {
+            let sprite_name = ast.sprite_name(zone);
+            let is_changed = ast.is_changed(zone);
+            if state.image_handles.contains_key(&sprite_name) && !is_changed {
+                continue;
+            }
+            let viewport = zone.aabb();
+            let img = make_asteroid_image(ast, viewport, 60, None, false, false);
+            let img = image::DynamicImage::from(img);
+            let mut img = Image::from_dynamic(
+                img,
+                true,
+                RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
+            );
+            img.sampler = bevy::image::ImageSampler::nearest();
+            let dims = img.size();
+            let handle = images.add(img);
+            println!("Generated new sprite for asteroid \"{}\"", sprite_name);
+            state.image_handles.insert(sprite_name, (handle, dims));
+            gen.push(zone);
+        }
+
+        for z in gen {
+            ast.clear_changed(z);
+        }
     }
 }

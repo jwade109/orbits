@@ -112,15 +112,7 @@ fn zero_gravity_control_law(
     let error_hat = error.pos.normalize_or_zero();
     let desired_magnitude = (distance / 40.0).clamp(0.0, 100.0);
     let desired_vel = target.vel + error_hat * desired_magnitude;
-    let vel_error = desired_vel - body.pv.vel;
-    if distance > 500.0 && vel_error.length() < 20.0 {
-        (
-            VehicleControl::NULLOPT,
-            VehicleControlStatus::DriftingTowardsTarget,
-        )
-    } else {
-        zero_gravity_velocity_control_law(desired_vel, target_angle, body, vehicle)
-    }
+    zero_gravity_velocity_control_law(desired_vel, target_angle, body, vehicle)
 }
 
 fn compute_attitude_control(body: &RigidBody, target_angle: f64, pid: &PDCtrl) -> f64 {

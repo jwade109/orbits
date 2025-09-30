@@ -48,6 +48,8 @@ pub fn on_orbital_render_tick(state: &mut GameState) {
         }
     }
 
+    state.orbital_context.clicked_position = state.input.position(MouseButt::Left, FrameId::Current);
+
     if let Some(_) = state.input.on_frame(MouseButt::Right, FrameId::Down) {
         || -> Option<()> {
             let pilot = state.orbital_context.piloting?;
