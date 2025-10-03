@@ -33,6 +33,9 @@ big_space = { version = "0.10.0", features = ["bevy_input", "bevy_render", "bevy
 avian2d = "0.3.1"
 turborand = "0.10.1"
 bevy_fly_camera = "0.16.0"
+bevy_window = "0.16.1"
+egui = "0.32.3"
+egui_dock = "0.17.0"
 
 [[bin]]
 name = "game"
@@ -45,3 +48,7 @@ path = "bin/big.rs"
 [[bin]]
 name = "g2"
 path = "bin/g2.rs"
+
+[[bin]]
+name = "egui"
+path = "bin/egui.rs"

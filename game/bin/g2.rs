@@ -12,6 +12,7 @@ use clap::Parser;
 use game::args::ProgramContext;
 use starling::prelude::Vehicle;
 use std::fmt::Debug;
+use game::animated_text::AnimatedTextPlugin;
 
 fn cursor_grab(
     mut q_windows: Query<&mut Window, With<PrimaryWindow>>,
@@ -53,15 +54,9 @@ fn main() {
         .add_plugins(WorldInspectorPlugin::new())
         .add_plugins(ResourceInspectorPlugin::<ThrustParticleConfig>::new())
         .add_systems(Startup, setup)
-        .add_systems(
-            Update,
-            (
-                toggle_wireframe,
-                draw_collider_aabbs,
-                cursor_grab,
-                thrust_particles,
-            ),
-        )
+        .add_systems(Update, (toggle_wireframe, draw_collider_aabbs, cursor_grab))
+        .add_systems(FixedUpdate, thrust_particles)
+        .add_plugins(AnimatedTextPlugin)
         .run();
 }
 
@@ -83,20 +78,15 @@ fn setup(
         Transform::from_translation(Vec3::splat(11000.0).with_z(1000.0)),
     ));
 
-    commands.spawn((PointLight {
-        intensity: 10000000.0,
-        color: WHITE.mix(&RED, 0.3).into(),
-        radius: 2.0,
-        range: 10000.0,
-        ..default()
-    },));
-
     let camera_pos = Vec3::new(0.0, 200.0, 300.0);
 
     commands.spawn((
         Camera3d::default(),
         // Exposure::SUNLIGHT,
-        Bloom::ANAMORPHIC,
+        Bloom {
+            intensity: 0.4,
+            ..Bloom::NATURAL
+        },
         CascadeShadowConfigBuilder {
             num_cascades: 4,
             minimum_distance: 0.1,
@@ -139,6 +129,13 @@ fn setup(
     //         ..default()
     //     },
     // );
+
+    commands.spawn((ParticleEmitter { enabled: true }, Name::new("Emitter 1")));
+    commands.spawn((
+        ParticleEmitter { enabled: true },
+        Transform::from_xyz(-13.0, 0.0, 4.0),
+        Name::new("Emitter 2"),
+    ));
 
     let floor = Rectangle::new(5000.0, 5.0);
 
@@ -225,14 +222,22 @@ struct ThrustParticle {
     nominal_position: Vec3,
 }
 
+#[derive(Component, Debug, Reflect)]
+#[require(Transform)]
+struct ParticleEmitter {
+    enabled: bool,
+}
+
 #[derive(Resource, Reflect, Debug)]
 struct ThrustParticleConfig {
     color_a: Color,
     color_b: Color,
-    velocity: f32,
+    mean_velocity: f32,
+    velocity_spread: f32,
     spread: f32,
     discrete: bool,
     paused: bool,
+    step: bool,
     cuboids: bool,
 }
 
@@ -241,10 +246,12 @@ impl Default for ThrustParticleConfig {
         ThrustParticleConfig {
             color_a: RED.into(),
             color_b: YELLOW.into(),
-            velocity: 10.0,
+            mean_velocity: 15.0,
+            velocity_spread: 3.0,
             spread: 1.0,
             discrete: false,
             paused: false,
+            step: false,
             cuboids: true,
         }
     }
@@ -252,54 +259,72 @@ impl Default for ThrustParticleConfig {
 
 fn thrust_particles(
     mut commands: Commands,
+    emitters: Query<(&GlobalTransform, &ParticleEmitter)>,
     mut query: Query<(Entity, &mut ThrustParticle, &mut Transform)>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut std_mat: ResMut<Assets<StandardMaterial>>,
-    cfg: Res<ThrustParticleConfig>,
+    mut cfg: ResMut<ThrustParticleConfig>,
+    time_fixed: Res<Time<Fixed>>,
+    mut gizmos: Gizmos,
 ) {
-    if cfg.paused {
+    if cfg.paused && !cfg.step {
         return;
     }
+
+    cfg.step = false;
 
     let discrete_n = 3;
     let particle_size = 1.0 / discrete_n as f32;
 
     use starling::prelude::{rotate, PI};
 
-    for _ in 0..10 {
-        let angle = random(0.0, 2.0 * PI);
-        let cross = rotate(Vec2::X, angle) * random(0.2, 1.0) * cfg.spread;
-        let vel = cross.extend(random(0.2, 1.0) * cfg.velocity);
-        let color = cfg.color_a.mix(&cfg.color_b, random(0.1, 0.9));
+    for (tf, emitter) in &emitters {
+        gizmos.primitive_3d(
+            &Cuboid::from_length(2.0),
+            Isometry3d::from_translation(tf.translation()),
+            RED,
+        );
 
-        let x = random(-1.0, 1.0) * 0.8;
-        let y = random(-1.0, 1.0) * 0.8;
+        if !emitter.enabled {
+            continue;
+        }
 
-        let pos = Vec3::new(x, y, 0.0);
+        for _ in 0..8 {
+            let angle = random(0.0, 2.0 * PI);
+            let cross = rotate(Vec2::X, angle) * random(0.2, 1.0) * cfg.spread;
+            let vel = cross.extend(random(-1.0, 1.0) * cfg.velocity_spread + cfg.mean_velocity);
+            let color = cfg.color_a.mix(&cfg.color_b, random(0.1, 0.9));
 
-        let dpos = if cfg.discrete {
-            (pos * discrete_n as f32).round() / discrete_n as f32
-        } else {
-            pos
-        };
+            let x = random(-1.0, 1.0) * 1.0;
+            let y = random(-1.0, 1.0) * 1.0;
+            let z = random(-1.0, 1.0) * 1.0;
 
-        commands.spawn((
-            ThrustParticle {
-                time_remaining: 1.0,
-                velocity: vel,
-                nominal_position: pos,
-            },
-            Transform::from_translation(dpos),
-            if cfg.cuboids {
-                Mesh3d(meshes.add(Cuboid::from_size(Vec3::splat(particle_size))))
+            let pos = Vec3::new(x, y, z) + tf.translation();
+
+            let dpos = if cfg.discrete {
+                (pos * discrete_n as f32).round() / discrete_n as f32
             } else {
-                Mesh3d(meshes.add(Sphere::new(particle_size / 1.8)))
-            },
-            MeshMaterial3d(std_mat.add(color.with_alpha(0.2))),
-        ));
+                pos
+            };
+
+            commands.spawn((
+                ThrustParticle {
+                    time_remaining: random(0.6, 1.2),
+                    velocity: vel,
+                    nominal_position: pos,
+                },
+                Transform::from_translation(dpos),
+                if cfg.cuboids {
+                    Mesh3d(meshes.add(Cuboid::from_size(Vec3::splat(particle_size) * 2.0)))
+                } else {
+                    Mesh3d(meshes.add(Sphere::new(particle_size)))
+                },
+                MeshMaterial3d(std_mat.add(color)),
+            ));
+        }
     }
 
-    let dt = 0.02;
+    let dt = time_fixed.delta_secs();
 
     for (e, mut part, mut tf) in &mut query {
         part.time_remaining -= dt;
