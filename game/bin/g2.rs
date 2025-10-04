@@ -9,10 +9,10 @@ use bevy_egui::EguiPlugin;
 use bevy_fly_camera::FlyCameraPlugin;
 use bevy_inspector_egui::quick::*;
 use clap::Parser;
+use game::animated_text::*;
 use game::args::ProgramContext;
-use starling::prelude::Vehicle;
+use starling::prelude::{rand, randint, Vehicle};
 use std::fmt::Debug;
-use game::animated_text::AnimatedTextPlugin;
 
 fn cursor_grab(
     mut q_windows: Query<&mut Window, With<PrimaryWindow>>,
@@ -28,11 +28,6 @@ fn cursor_grab(
     if keys.just_pressed(KeyCode::Escape) {
         app_exit_events.send(bevy::app::AppExit::Success);
     }
-}
-
-fn random(min: f32, max: f32) -> f32 {
-    use rand::Rng;
-    rand::rng().random_range(min..=max)
 }
 
 fn main() {
@@ -54,7 +49,15 @@ fn main() {
         .add_plugins(WorldInspectorPlugin::new())
         .add_plugins(ResourceInspectorPlugin::<ThrustParticleConfig>::new())
         .add_systems(Startup, setup)
-        .add_systems(Update, (toggle_wireframe, draw_collider_aabbs, cursor_grab))
+        .add_systems(
+            Update,
+            (
+                update,
+                draw_collider_aabbs,
+                debug_draw_emitters,
+                cursor_grab,
+            ),
+        )
         .add_systems(FixedUpdate, thrust_particles)
         .add_plugins(AnimatedTextPlugin)
         .run();
@@ -122,17 +125,19 @@ fn setup(
     commands.insert_resource(ClearColor(BLACK.into()));
     commands.insert_resource(Gravity(Vec2::ZERO));
 
-    // commands.spawn(
-    //     AmbientLight {
-    //         color: WHITE.into(),
-    //         brightness: 1000.0,
-    //         ..default()
-    //     },
-    // );
-
-    commands.spawn((ParticleEmitter { enabled: true }, Name::new("Emitter 1")));
     commands.spawn((
-        ParticleEmitter { enabled: true },
+        ParticleEmitter {
+            enabled: true,
+            size: Vec3::new(2.0, 1.0, 0.2),
+        },
+        Name::new("Emitter 1"),
+    ));
+
+    commands.spawn((
+        ParticleEmitter {
+            enabled: true,
+            size: Vec3::splat(2.0),
+        },
         Transform::from_xyz(-13.0, 0.0, 4.0),
         Name::new("Emitter 2"),
     ));
@@ -162,8 +167,8 @@ fn setup(
                 .map_err(|_| "bad vehicle path")?;
 
             let name = format!("sc-{}", name);
-            let x = random(-200.0, 200.0);
-            let y = random(100.0, 300.0);
+            let x = rand(-200.0, 200.0);
+            let y = rand(100.0, 300.0);
             spacecraft(
                 &mut commands,
                 name,
@@ -199,13 +204,15 @@ fn draw_collider_aabbs(
     }
 }
 
-fn toggle_wireframe(
-    mut wireframe_config: ResMut<Wireframe2dConfig>,
-    keyboard: Res<ButtonInput<KeyCode>>,
-) {
-    // if keyboard.just_pressed(KeyCode::Space) {
-    //     wireframe_config.global = !wireframe_config.global;
-    // }
+fn update(mut events: EventWriter<SpawnAnimText>, keyboard: Res<ButtonInput<KeyCode>>) {
+    if keyboard.just_pressed(KeyCode::KeyP) {
+        events.write(SpawnAnimText {
+            color: BLUE.mix(&WHITE, rand(0.2, 0.5)),
+            text: (0..randint(1, 9))
+                .map(|_| "This is a very long label\n")
+                .collect(),
+        });
+    }
 }
 
 #[derive(Component, Debug)]
@@ -226,6 +233,7 @@ struct ThrustParticle {
 #[require(Transform)]
 struct ParticleEmitter {
     enabled: bool,
+    size: Vec3,
 }
 
 #[derive(Resource, Reflect, Debug)]
@@ -239,6 +247,7 @@ struct ThrustParticleConfig {
     paused: bool,
     step: bool,
     cuboids: bool,
+    particles_per_tick: usize,
 }
 
 impl Default for ThrustParticleConfig {
@@ -253,20 +262,34 @@ impl Default for ThrustParticleConfig {
             paused: false,
             step: false,
             cuboids: true,
+            particles_per_tick: 8,
         }
+    }
+}
+
+fn debug_draw_emitters(mut gizmos: Gizmos, emitters: Query<(&GlobalTransform, &ParticleEmitter)>) {
+    for (tf, emitter) in &emitters {
+        gizmos.primitive_3d(
+            &Cuboid::from_size(emitter.size),
+            Isometry3d::from_translation(tf.translation()),
+            RED,
+        );
     }
 }
 
 fn thrust_particles(
     mut commands: Commands,
     emitters: Query<(&GlobalTransform, &ParticleEmitter)>,
-    mut query: Query<(Entity, &mut ThrustParticle, &mut Transform)>,
+    mut particles: Query<(Entity, &mut ThrustParticle, &mut Transform)>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut std_mat: ResMut<Assets<StandardMaterial>>,
     mut cfg: ResMut<ThrustParticleConfig>,
     time_fixed: Res<Time<Fixed>>,
-    mut gizmos: Gizmos,
 ) {
+    if cfg.step {
+        cfg.paused = true;
+    }
+
     if cfg.paused && !cfg.step {
         return;
     }
@@ -279,25 +302,19 @@ fn thrust_particles(
     use starling::prelude::{rotate, PI};
 
     for (tf, emitter) in &emitters {
-        gizmos.primitive_3d(
-            &Cuboid::from_length(2.0),
-            Isometry3d::from_translation(tf.translation()),
-            RED,
-        );
-
         if !emitter.enabled {
             continue;
         }
 
-        for _ in 0..8 {
-            let angle = random(0.0, 2.0 * PI);
-            let cross = rotate(Vec2::X, angle) * random(0.2, 1.0) * cfg.spread;
-            let vel = cross.extend(random(-1.0, 1.0) * cfg.velocity_spread + cfg.mean_velocity);
-            let color = cfg.color_a.mix(&cfg.color_b, random(0.1, 0.9));
+        for _ in 0..cfg.particles_per_tick {
+            let angle = rand(0.0, 2.0 * PI);
+            let cross = rotate(Vec2::X, angle) * rand(0.2, 1.0) * cfg.spread;
+            let vel = cross.extend(rand(-1.0, 1.0) * cfg.velocity_spread + cfg.mean_velocity);
+            let color = cfg.color_a.mix(&cfg.color_b, rand(0.1, 0.9));
 
-            let x = random(-1.0, 1.0) * 1.0;
-            let y = random(-1.0, 1.0) * 1.0;
-            let z = random(-1.0, 1.0) * 1.0;
+            let x = rand(-1.0, 1.0) * emitter.size.x / 2.0;
+            let y = rand(-1.0, 1.0) * emitter.size.y / 2.0;
+            let z = rand(-1.0, 1.0) * emitter.size.z / 2.0;
 
             let pos = Vec3::new(x, y, z) + tf.translation();
 
@@ -309,7 +326,7 @@ fn thrust_particles(
 
             commands.spawn((
                 ThrustParticle {
-                    time_remaining: random(0.6, 1.2),
+                    time_remaining: rand(0.6, 1.2),
                     velocity: vel,
                     nominal_position: pos,
                 },
@@ -326,7 +343,7 @@ fn thrust_particles(
 
     let dt = time_fixed.delta_secs();
 
-    for (e, mut part, mut tf) in &mut query {
+    for (e, mut part, mut tf) in &mut particles {
         part.time_remaining -= dt;
         part.nominal_position = part.nominal_position + part.velocity * dt;
         if cfg.discrete {
@@ -367,7 +384,7 @@ fn spacecraft(
             Mass(vehicle.total_mass().to_kg_f64() as f32),
             Collider::rectangle(r as f32 * 1.5, r as f32 * 0.7),
             Visibility::default(),
-            AngularVelocity(random(-0.3, 0.3)),
+            AngularVelocity(rand(-0.3, 0.3)),
             children![
                 (
                     Transform::from_translation(Vec3::new(0.0, 0.0, 2.0))
