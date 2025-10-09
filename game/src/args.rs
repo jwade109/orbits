@@ -1,7 +1,9 @@
 use clap::Parser;
 use std::path::PathBuf;
+use bevy::prelude::*;
 
 /// Game arguments
+#[derive(Resource)]
 #[derive(Parser, Debug, Default, Clone)]
 #[command(version, about, long_about = None)]
 pub struct ProgramContext {
