@@ -22,13 +22,9 @@ pub struct Args {
     #[arg(long, short('c'))]
     pub schematic: bool,
 
-    /// Multiplier to scale up by
-    #[arg(long, short('g'), default_value = "10")]
-    pub grow: i8,
-
     /// Multiplier to scale down by
-    #[arg(long, short('x'), default_value = "0")]
-    pub scale: f32,
+    #[arg(long, short('x'), default_value = "1.0")]
+    pub scale_factor: f32,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -43,25 +39,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut img =
         generate_image(&vehicle, &args.parts_dir, args.schematic).ok_or("Empty vehicle")?;
 
-    if args.scale < 1.0 {
+    if args.scale_factor < 1.0 {
         let filter = if args.schematic {
             image::imageops::FilterType::Nearest
         } else {
             image::imageops::FilterType::CatmullRom
         };
         img = img.resize(
-            (img.width() as f32 * args.scale).round() as u32,
-            (img.height() as f32 * args.scale).round() as u32,
+            (img.width() as f32 * args.scale_factor).round() as u32,
+            (img.height() as f32 * args.scale_factor).round() as u32,
             filter,
         );
+    } else if args.scale_factor > 1.0 {
+        img = img.resize(
+            (img.width() as f32 * args.scale_factor).round() as u32,
+            (img.height() as f32 * args.scale_factor).round() as u32,
+            image::imageops::FilterType::Nearest,
+        );
     }
-
-    // scale up so viewers don't blur pixels
-    img = img.resize(
-        img.width() * 10,
-        img.height() * 10,
-        image::imageops::FilterType::Nearest,
-    );
 
     img.save(&args.out)?;
 

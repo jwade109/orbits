@@ -11,6 +11,7 @@ pub fn diagram_color(part: &PartPrototype) -> [f32; 4] {
         PartPrototype::Cargo(..) => [0.0, 0.45, 0.0, 1.0],
         PartPrototype::Thruster(..) => [1.0, 0.0, 0.0, 1.0],
         PartPrototype::Tank(..) => [1.0, 0.6, 0.0, 1.0],
+        PartPrototype::Machine(..) => [1.0, 0.2, 0.5, 1.0],
         _ => match part.layer() {
             PartLayer::Exterior => [0.2, 0.2, 0.2, 1.0],
             PartLayer::Internal => [0.4, 0.4, 0.4, 1.0],
@@ -64,8 +65,9 @@ pub fn generate_image(
                     if let Some((src, dst)) = src.zip(dst) {
                         if src.0[3] > 0 {
                             for i in 0..3 {
+                                let mix = 150.0;
                                 dst.0[i] = if schematic {
-                                    (color[i] * 255.0) as u8
+                                    ((color[i] * mix) + ((src.0[i] as f32 / 255.0) * (255.0 - mix))) as u8
                                 } else {
                                     src.0[i]
                                 };
