@@ -1,6 +1,6 @@
 
 [workspace]
-members = [
+members = ["g2",
     "game", "layout",
     "starling"
 ]

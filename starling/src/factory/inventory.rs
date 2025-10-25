@@ -96,10 +96,10 @@ impl Item {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Inventory(HashMap<Item, ItemCount>);
+pub struct Inventory(HashMap<Item, ItemSlot>);
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct ItemCount {
+pub struct ItemSlot {
     pub count: u64,
     pub capacity: u64,
 }
@@ -109,9 +109,23 @@ impl Inventory {
         Self(HashMap::new())
     }
 
+    pub fn random() -> Self {
+        let mut inv = Self::new();
+
+        for _ in 0..randint(2, 7) {
+            let item = Item::random();
+            let cap = randint(1000, 4000) as u64;
+            let count = randint(300, cap as i32) as u64;
+            inv.set_capacity(item, cap);
+            inv.add(item, count);
+        }
+
+        inv
+    }
+
     pub fn set_capacity(&mut self, item: Item, capacity: u64) {
         let count = self.count(item);
-        let info = ItemCount {
+        let info = ItemSlot {
             count: count.min(capacity),
             capacity,
         };
@@ -130,7 +144,7 @@ impl Inventory {
         self.0.clear()
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&Item, &ItemCount)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&Item, &ItemSlot)> {
         self.0.iter()
     }
 
@@ -158,6 +172,10 @@ impl Inventory {
         } else {
             0
         }
+    }
+
+    pub fn remove(&mut self, item: Item) {
+        self.0.remove(&item);
     }
 
     pub fn has(&mut self, item: Item) -> bool {
@@ -198,7 +216,7 @@ impl std::fmt::Display for Inventory {
     }
 }
 
-impl std::fmt::Display for ItemCount {
+impl std::fmt::Display for ItemSlot {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}/{}", self.count, self.capacity)
     }

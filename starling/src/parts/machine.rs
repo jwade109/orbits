@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 pub struct Machine {
     dims: UVec2,
     mass: Mass,
+    sprites: Option<usize>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -47,5 +48,9 @@ impl Machine {
 
     pub fn mass(&self) -> Mass {
         self.mass
+    }
+
+    pub fn sprites(&self) -> usize {
+        self.sprites.unwrap_or(1)
     }
 }

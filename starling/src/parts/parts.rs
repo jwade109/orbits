@@ -80,6 +80,15 @@ impl PartPrototype {
         }
     }
 
+    pub fn sprites(&self) -> usize {
+        match self {
+            Self::Generic(g) => g.sprites(),
+            Self::Cargo(c) => c.sprites(),
+            Self::Machine(m) => m.sprites(),
+            _ => 1,
+        }
+    }
+
     pub fn sprite_path(&self) -> &str {
         self.part_name()
     }

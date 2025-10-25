@@ -30,4 +30,3 @@ pub mod ui_facade;
 pub mod window;
 pub mod z_index;
 pub mod input_handlers;
-pub mod new;

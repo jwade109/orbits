@@ -47,3 +47,7 @@ path = "bin/epsilon.rs"
 [[bin]]
 name = "pidtune"
 path = "bin/pidtune.rs"
+
+[[bin]]
+name = "part2ss"
+path = "bin/part2ss.rs"

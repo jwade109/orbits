@@ -9,6 +9,7 @@ pub struct Generic {
     dims: UVec2,
     layer: PartLayer,
     mass: Mass,
+    sprites: Option<usize>,
 }
 
 impl Generic {
@@ -18,6 +19,7 @@ impl Generic {
             dims,
             layer,
             mass,
+            sprites: None,
         }
     }
 
@@ -35,5 +37,9 @@ impl Generic {
 
     pub fn mass(&self) -> Mass {
         self.mass
+    }
+
+    pub fn sprites(&self) -> usize {
+        self.sprites.unwrap_or(1)
     }
 }
