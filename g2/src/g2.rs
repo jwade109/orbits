@@ -1,10 +1,17 @@
 mod animated_text;
+mod inventory;
+mod machine;
 mod particles;
+mod recipe;
 mod spacecraft;
 
 use crate::animated_text::*;
+use crate::inventory::*;
+use crate::machine::{Machine, MachineStatus};
 use crate::particles::*;
+use crate::recipe::*;
 use crate::spacecraft::*;
+
 use avian2d::prelude::*;
 use bevy::color::palettes::css::*;
 use bevy::core_pipeline::bloom::Bloom;
@@ -143,8 +150,7 @@ struct DebugPanelState {
     message_text: String,
     sc_name: String,
     sc_pos: Vec2,
-    item: starling::prelude::Item,
-    recipe: starling::prelude::RecipeListing,
+    recipe: RecipeListing,
 }
 
 impl Default for DebugPanelState {
@@ -154,8 +160,7 @@ impl Default for DebugPanelState {
             message_text: "This is some example text!\nIt can contain newlines.".to_string(),
             sc_name: "pollux".to_string(),
             sc_pos: Vec2::Y * 50.0,
-            item: starling::prelude::Item::Bread,
-            recipe: starling::prelude::RecipeListing::HarvestBread,
+            recipe: RecipeListing::DoNothing,
         }
     }
 }
@@ -169,69 +174,6 @@ fn apply_egui_style(ui: &mut egui::Ui) {
     x.visuals.dark_mode = false;
     for x in &mut x.text_styles {
         x.1.size *= 1.2;
-    }
-}
-
-fn inventory_editor_widget(
-    id: Option<Entity>,
-    ui: &mut egui::Ui,
-    mut inventory: Query<&mut Inventory>,
-    cfg: &mut DebugPanelState,
-) {
-    let id = if let Some(id) = id {
-        id
-    } else {
-        return;
-    };
-
-    ui.label(format!("Inventory {id}"));
-
-    let mut inv = match inventory.get_mut(id) {
-        Ok(inv) => inv,
-        _ => return,
-    };
-
-    ui.horizontal(|ui| {
-        if ui.button("Clear All").clicked() {
-            inv.clear();
-        }
-        if ui.button("Random").clicked() {
-            *inv = Inventory(starling::prelude::Inventory::random());
-        }
-    });
-
-    ui.separator();
-
-    let parts: Vec<_> = starling::prelude::Item::all()
-        .map(|item| (item, format!("{:?}", item)))
-        .collect();
-
-    ui.horizontal(|ui| {
-        egui::ComboBox::from_label("")
-            .selected_text(format!("{:?}", cfg.item))
-            .show_ui(ui, |ui| {
-                for (item, name) in &parts {
-                    ui.selectable_value(&mut cfg.item, *item, name);
-                }
-            });
-        if ui.button("Add").clicked() {
-            inv.set_capacity(cfg.item, 10000);
-            inv.add(cfg.item, 100);
-        }
-    });
-
-    let items: Vec<_> = inv.iter().map(|(a, b)| (*a, *b)).collect();
-
-    for (item, slot) in items {
-        ui.separator();
-        let s = format!("{:?}: {}/{}", item, slot.count, slot.capacity);
-        ui.label(s);
-        let pr = slot.count as f32 / slot.capacity as f32;
-        ui.add(egui::ProgressBar::new(pr));
-        if ui.button("Clear").clicked() {
-            inv.take_all(item);
-            inv.remove(item);
-        }
     }
 }
 
@@ -257,7 +199,87 @@ fn con_state_widget(id: Option<Entity>, ui: &mut egui::Ui, mut con: Query<&mut C
     ui.add(egui::Checkbox::new(&mut con.should_build, "Build"));
 }
 
+fn add_inv_widget(id: Option<Entity>, ui: &mut egui::Ui, mut inventories: Query<&mut Inventory>) {
+    let id = if let Some(id) = id {
+        id
+    } else {
+        return;
+    };
+
+    ui.label(format!("Entity {id}"));
+
+    let mut inv = match inventories.get_mut(id) {
+        Ok(inv) => inv,
+        _ => return,
+    };
+
+    ui.label(format!("Mass: {} kg, Volume: {} L", inv.mass(), inv.volume()));
+
+    for slot in inv.slots_mut() {
+        ui.separator();
+
+        ui.horizontal(|ui| {
+            if ui.button("Fill").clicked() {
+                slot.fill();
+            }
+            if ui.button("Empty").clicked() {
+                slot.empty();
+            }
+        });
+
+        if let Some((item, count)) = slot.contents() {
+            let c = item.color().to_u8_array();
+            let color = egui::Color32::from_rgb(c[0], c[1], c[2]);
+
+            ui.horizontal(|ui| {
+                let size = bevy_inspector_egui::egui::Vec2::new(10.0, 10.0);
+                egui::color_picker::show_color(ui, color, size);
+                ui.label(format!(
+                    "{:?} {}/{} L ({} kg) {:?}",
+                    item,
+                    count,
+                    slot.capacity(),
+                    slot.mass(),
+                    slot.policy()
+                ));
+            });
+
+            ui.add(egui::ProgressBar::new(slot.fill_percentage()).fill(color));
+        } else {
+            ui.label("(Empty)");
+        }
+    }
+
+    // ui.horizontal(|ui| {
+    //     if ui.button("Empty").clicked() {
+    //         slot.empty();
+    //     }
+    //     if ui.button("Fill").clicked() {
+    //         slot.fill();
+    //     }
+    // });
+
+    // ui.horizontal(|ui| {
+    //     ui.label(format!("{:?}", slot.contents()));
+    //     ui.label(format!("{:?}", slot.filter()));
+    // });
+
+    // ui.horizontal(|ui| {
+    //     ui.label(format!("{:?}", slot.capacity()));
+    //     ui.label(format!("{:?}", slot.policy()));
+    // });
+
+    // if let Some((item, _)) = slot.contents() {
+    //     let color = game::sprites::hashable_to_color(&item);
+    //     let rgb = Srgba::from(color);
+    //     let rgb = rgb.to_u8_array();
+    //     let bar = egui::ProgressBar::new(slot.fill_percentage());
+    //     ui.add(bar.fill(egui::Color32::from_rgb(rgb[0], rgb[1], rgb[2])));
+    // }
+}
+
 fn machine_editor_widget(
+    commands: &mut Commands,
     id: Option<Entity>,
     ui: &mut egui::Ui,
     mut machines: Query<&mut Machine>,
@@ -268,22 +290,29 @@ fn machine_editor_widget(
     } else {
         return;
     };
-    ui.label(format!("Entity {id}"));
+    ui.label(format!("Entity: {id}"));
 
     let mut mac = match machines.get_mut(id) {
         Ok(mac) => mac,
         _ => return,
     };
 
-    ui.checkbox(&mut mac.enabled, "ON/OFF");
+    if ui
+        .button(if mac.enabled { "Turn Off" } else { "Turn On" })
+        .clicked()
+    {
+        mac.enabled = !mac.enabled;
+    }
 
     ui.add(egui::Slider::new(&mut mac.required_steps, 3..=150));
 
-    ui.label(format!("{}", mac.recipe));
+    ui.label(format!("{:?}", mac.recipe));
+    ui.label(format!("{} finished", mac.products_finished));
 
     ui.horizontal(|ui| {
         let color = match mac.status {
             MachineStatus::Off => egui::Color32::GRAY,
+            MachineStatus::NoRecipe => egui::Color32::RED,
             MachineStatus::Running => egui::Color32::GREEN,
             MachineStatus::NoRoom => egui::Color32::YELLOW,
             MachineStatus::Starved => egui::Color32::YELLOW,
@@ -306,7 +335,7 @@ fn machine_editor_widget(
         ui.add(egui::ProgressBar::new(mac.progress()));
     });
 
-    let recipes: Vec<_> = starling::prelude::RecipeListing::all()
+    let recipes: Vec<_> = RecipeListing::all()
         .map(|l| (l, format!("{:?}", l)))
         .collect();
 
@@ -320,9 +349,6 @@ fn machine_editor_widget(
             }
         });
 
-    use starling::factory::*;
-    use starling::prelude::{Recipe, RecipeListing};
-
     let recipe = match cfg.recipe {
         RecipeListing::DoNothing => Recipe::default(),
         RecipeListing::Sabatier => sabatier_reaction(),
@@ -331,11 +357,14 @@ fn machine_editor_widget(
         RecipeListing::HarvestBread => harvest_bread(),
         RecipeListing::IceMelting => ice_melting(),
         RecipeListing::IceMining => ice_mining(),
-        RecipeListing::PeopleEatThings => people_eat_things(),
+        RecipeListing::Enrichment => enrichment(),
     };
 
     if cfg.recipe != before {
-        mac.set_recipe(recipe);
+        commands.send_event(SetRecipe {
+            target: id,
+            recipe: Some(recipe),
+        });
     }
 }
 
@@ -345,27 +374,27 @@ fn egui_ui(
     mut state: Local<DebugPanelState>,
     parts: Query<(&PartInstance, &ChildOf)>,
     grids: Query<&SpacecraftGrid>,
-    inventory: Query<&mut Inventory>,
+    inventories: Query<&mut Inventory>,
     machines: Query<&mut Machine>,
     con: Query<&mut ConstructionState>,
-    selected: Res<SelectedPart>,
+    cursor: Res<PartCursor>,
 ) -> Result {
     let ctx = contexts.ctx_mut()?;
 
     egui::panel::SidePanel::new(egui::containers::panel::Side::Left, "Debug").show(ctx, |ui| {
         apply_egui_style(ui);
-        ui.set_width(250.0);
-
-        ui.collapsing("Inventory", |ui| {
-            inventory_editor_widget(selected.0, ui, inventory, &mut state);
-        });
+        ui.set_width(350.0);
 
         ui.collapsing("Machine", |ui| {
-            machine_editor_widget(selected.0, ui, machines, &mut state);
+            machine_editor_widget(&mut commands, cursor.selected, ui, machines, &mut state);
+        });
+
+        ui.collapsing("Inventory", |ui| {
+            add_inv_widget(cursor.selected, ui, inventories);
         });
 
         ui.collapsing("Construction", |ui| {
-            con_state_widget(selected.0, ui, con);
+            con_state_widget(cursor.selected, ui, con);
         });
 
         ui.collapsing("Text Notifications", |ui| {
@@ -387,14 +416,14 @@ fn egui_ui(
         });
 
         ui.collapsing("Selected", |ui| {
-            ui.label(format!("Part: {:?}", selected.0));
-            if let Some((part, _)) = selected.map(|e| parts.get(e).ok()).flatten() {
+            ui.label(format!("Part: {:?}", cursor.selected));
+            if let Some((part, _)) = cursor.selected.map(|e| parts.get(e).ok()).flatten() {
                 ui.label(format!("{part:#?}"));
             }
 
             ui.separator();
 
-            if let Some((_, parent)) = selected.map(|e| parts.get(e).ok()).flatten() {
+            if let Some((_, parent)) = cursor.selected.map(|e| parts.get(e).ok()).flatten() {
                 ui.label(format!("Spacecraft: {:#?}", parent.0));
                 if let Ok(grid) = grids.get(parent.0) {
                     ui.label(format!("{:#?}", grid));

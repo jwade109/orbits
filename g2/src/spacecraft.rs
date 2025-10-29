@@ -1,4 +1,7 @@
 use crate::animated_text::SpawnAnimText;
+use crate::inventory::Inventory;
+use crate::machine::{Machine, update_machines};
+use crate::recipe::*;
 use avian2d::prelude::*;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
@@ -6,7 +9,7 @@ use bevy::time::common_conditions::on_timer;
 use bevy_ecs::relationship::RelatedSpawnerCommands;
 use bevy_vector_shapes::prelude::*;
 use game::args::ProgramContext;
-use starling::prelude::*;
+use starling::prelude::{InstantiatedPart, InstantiatedPartVariant, Vehicle, rand};
 use std::time::Duration;
 
 pub struct SpacecraftPlugin;
@@ -19,23 +22,29 @@ impl Plugin for SpacecraftPlugin {
                 Update,
                 (
                     draw_grids,
-                    handle_events,
-                    on_change_grid_info,
+                    draw_inventories,
+                    handle_sc_events,
+                    handle_change_recipe,
                     draw_selected_part,
+                    draw_selected_grid_guides,
                 ),
             )
             .add_systems(FixedUpdate, (build_parts, update_machines))
             .add_systems(
                 FixedUpdate,
-                update_grids.run_if(on_timer(Duration::from_secs(1))),
+                update_grids.run_if(on_timer(Duration::from_millis(200))),
             )
             .add_event::<SpacecraftEvent>()
-            .insert_resource(SelectedPart(None));
+            .add_event::<SetRecipe>()
+            .insert_resource(PartCursor::default());
     }
 }
 
-#[derive(Resource, Deref, DerefMut, Debug)]
-pub struct SelectedPart(pub Option<Entity>);
+#[derive(Resource, Debug, Default)]
+pub struct PartCursor {
+    pub selected: Option<Entity>,
+    pub hovered: Option<Entity>,
+}
 
 #[derive(Event, Debug)]
 pub enum SpacecraftEvent {
@@ -44,20 +53,33 @@ pub enum SpacecraftEvent {
     Destroy { target: Entity },
 }
 
-#[derive(Component, Debug, Default, Reflect)]
+#[derive(Event, Debug)]
+pub struct SetRecipe {
+    pub target: Entity,
+    pub recipe: Option<Recipe>,
+}
+
+#[derive(Component, Debug, Default)]
 pub struct SpacecraftGrid {
     parts: usize,
     mass: f32,
+    grid_bounds: (IVec2, IVec2),
+}
+
+impl SpacecraftGrid {
+    pub fn grid_dims(&self) -> IVec2 {
+        self.grid_bounds.1 - self.grid_bounds.0
+    }
 }
 
 #[derive(Component, Debug, Deref, DerefMut)]
-pub struct PartInstance(pub starling::prelude::PartPrototype);
+pub struct PartInstance(pub starling::prelude::InstantiatedPart);
 
 #[derive(Component, Debug)]
 struct PartSprite;
 
 fn draw_grids(mut painter: ShapePainter, crafts: Query<(&GlobalTransform, &SpacecraftGrid)>) {
-    for (tf, grid) in &crafts {
+    for (tf, _) in &crafts {
         painter.reset();
         painter.set_translation(tf.translation().with_z(100.0));
         painter.set_rotation(tf.rotation());
@@ -69,76 +91,134 @@ fn draw_grids(mut painter: ShapePainter, crafts: Query<(&GlobalTransform, &Space
     }
 }
 
+fn draw_inventories(
+    mut painter: ShapePainter,
+    parts: Query<(&GlobalTransform, &PartInstance, &Inventory)>,
+) {
+    let width = 0.1;
+    for (tf, part, inventory) in parts {
+        let dims = part.prototype().dims_meters();
+
+        for slot in inventory.slots() {
+            let color = if let Some(item) = slot.item() {
+                item.color()
+            } else {
+                BLACK
+            };
+            painter.reset();
+            painter.set_translation(tf.translation().with_z(10.0));
+            painter.set_rotation(tf.rotation());
+            painter.set_color(BLACK.with_alpha(0.95));
+            painter.rect(dims + Vec2::splat(width * 3.0));
+            painter.translate(Vec3::Z);
+            painter.set_color(color.with_alpha(0.3));
+            painter.rect(dims - Vec2::splat(width * 0.5));
+            painter.translate(Vec3::Z);
+            painter.set_color(color);
+            painter.rect((dims - Vec2::splat(width)) * slot.fill_percentage());
+        }
+    }
+}
+
+fn draw_selected_grid_guides(
+    mut painter: ShapePainter,
+    grids: Query<(&GlobalTransform, &SpacecraftGrid)>,
+    parts: Query<&ChildOf, With<PartInstance>>,
+    cursor: Res<PartCursor>,
+) {
+    let id = match cursor.selected {
+        Some(c) => c,
+        None => return,
+    };
+
+    let parent = match parts.get(id) {
+        Ok(parent) => parent,
+        // might have been deleted. it's fine
+        _ => return,
+    };
+
+    let (tf, grid) = match grids.get(parent.0) {
+        Ok(e) => e,
+        // this isn't fine
+        Err(e) => {
+            error!(?e);
+            return;
+        }
+    };
+
+    painter.reset();
+    painter.set_color(RED);
+    painter.hollow = true;
+    painter.thickness = 4.0;
+    painter.thickness_type = ThicknessType::Pixels;
+    painter.set_translation(tf.translation().with_z(-50.0));
+    painter.set_rotation(tf.rotation());
+    painter.rect(grid.grid_dims().as_vec2() / 20.0);
+}
+
 fn draw_selected_part(
     mut painter: ShapePainter,
     parts: Query<(&GlobalTransform, &PartInstance)>,
-    sel: Res<SelectedPart>,
+    sel: Res<PartCursor>,
     time: Res<Time>,
 ) {
     let angle = time.elapsed_secs_f64() % (2.0 * std::f64::consts::PI);
     let angle = angle as f32;
 
-    let e = match sel.0 {
-        Some(e) => e,
-        None => return,
-    };
+    for (color, e, ring) in [
+        (TEAL.with_alpha(0.7), sel.hovered, false),
+        (ORANGE.with_alpha(0.9), sel.selected, true),
+    ] {
+        let e = match e {
+            Some(e) => e,
+            None => continue,
+        };
 
-    if let Ok((tf, part)) = parts.get(e) {
-        let r = part.dims_meters().length() / 2.0 + 0.2;
-        painter.reset();
-        painter.set_translation(tf.translation().with_z(10.0));
-        painter.set_rotation(tf.rotation());
-        painter.set_color(ORANGE);
-        painter.thickness = 0.05;
-        painter.hollow = true;
-        painter.thickness_type = ThicknessType::World;
-        painter.rect(part.dims_meters() + Vec2::splat(0.1));
-        painter.arc(r, angle, angle + 6.1);
-    }
-}
-
-fn on_change_grid_info(grids: Query<(Entity, &SpacecraftGrid), Changed<SpacecraftGrid>>) {
-    for (e, grid) in &grids {
-        info!("Changed grid: {e}, {grid:?}");
-    }
-}
-
-fn update_machines(mut machines: Query<(&mut Machine, &mut Inventory)>) {
-    for (mut m, mut inv) in &mut machines {
-        m.step_process(&mut inv);
+        if let Ok((tf, part)) = parts.get(e) {
+            let dims = part.prototype().dims_meters();
+            let r = dims.length() / 2.0 + 0.2;
+            painter.reset();
+            painter.set_translation(tf.translation().with_z(50.0));
+            painter.set_rotation(tf.rotation());
+            painter.set_color(color);
+            painter.thickness = 0.05;
+            painter.hollow = true;
+            painter.thickness_type = ThicknessType::World;
+            painter.rect(dims + Vec2::splat(0.1));
+            if ring {
+                painter.arc(r, angle, angle + 6.1);
+            }
+        }
     }
 }
 
 fn update_grids(
     mut commands: Commands,
     mut grids: Query<(Entity, &mut SpacecraftGrid, &Children)>,
-    parts: Query<&mut PartInstance>,
+    parts: Query<(&PartInstance, &Children)>,
 ) {
     for (e, mut grid, children) in &mut grids {
-        let mut mass = 0.0;
-        let n_parts = children.iter().count();
+        grid.mass = 0.0;
+        grid.parts = children.iter().count();
+        grid.grid_bounds = (IVec2::ZERO, IVec2::ZERO);
 
-        if n_parts == 0 {
+        if grid.parts == 0 {
             info!("Despawning empty grid {e}");
             commands.entity(e).despawn();
             continue;
         }
 
         for part in children.iter() {
-            if let Ok(part) = parts.get(part) {
-                mass += part.dry_mass().to_kg_f64() as f32;
+            if let Ok((part, _)) = parts.get(part) {
+                grid.mass += part.prototype().dry_mass().to_kg_f64() as f32;
+                let origin = part.origin();
+                grid.grid_bounds.0.x = grid.grid_bounds.0.x.min(origin.x);
+                grid.grid_bounds.0.y = grid.grid_bounds.0.y.min(origin.y);
+                grid.grid_bounds.1.x = grid.grid_bounds.1.x.max(origin.x);
+                grid.grid_bounds.1.y = grid.grid_bounds.1.y.max(origin.y);
             } else {
                 warn!("Bad grid child: {part}");
             }
-        }
-
-        // don't trigger change detection unless needed
-        if grid.mass != mass {
-            grid.mass = mass;
-        }
-
-        if grid.parts != n_parts {
-            grid.parts = n_parts;
         }
     }
 }
@@ -151,19 +231,32 @@ fn setup(
     let floor = Rectangle::new(5000.0, 5.0);
 
     commands.add_observer(
-        |mut trigger: Trigger<Pointer<Drag>>,
-         parts: Query<(&Name, &ChildOf)>,
-         mut sc: Query<
-            (&Name, &mut LinearVelocity, &mut AngularVelocity),
-            With<SpacecraftGrid>,
-        >| {
-            if let Ok((_, child_of)) = parts.get(trigger.target()) {
-                if let Ok((_, mut vel, mut ang)) = sc.get_mut(child_of.0) {
-                    let d = trigger.event().delta / 10.0;
-                    vel.x += d.x;
-                    vel.y += -d.y;
-                    ang.0 *= 0.95;
-                }
+        |mut trigger: Trigger<Pointer<Over>>,
+         mut cursor: ResMut<PartCursor>,
+         parts: Query<Entity, With<PartInstance>>| {
+            let e = if parts.contains(trigger.target()) {
+                Some(trigger.target())
+            } else {
+                return;
+            };
+
+            cursor.hovered = e;
+            trigger.propagate(false);
+        },
+    );
+
+    commands.add_observer(
+        |mut trigger: Trigger<Pointer<Out>>,
+         mut cursor: ResMut<PartCursor>,
+         parts: Query<Entity, With<PartInstance>>| {
+            let e = if parts.contains(trigger.target()) {
+                Some(trigger.target())
+            } else {
+                return;
+            };
+
+            if cursor.hovered == e {
+                cursor.hovered = None;
             }
             trigger.propagate(false);
         },
@@ -172,7 +265,7 @@ fn setup(
     commands.add_observer(
         |mut trigger: Trigger<Pointer<Click>>,
          mut commands: Commands,
-         mut current: ResMut<SelectedPart>,
+         mut cursor: ResMut<PartCursor>,
          parts: Query<Entity, With<PartInstance>>| {
             let e = if parts.contains(trigger.target()) {
                 Some(trigger.target())
@@ -182,7 +275,7 @@ fn setup(
 
             match trigger.button {
                 PointerButton::Primary => {
-                    current.0 = e;
+                    cursor.selected = e;
                     trigger.propagate(false);
                 }
                 PointerButton::Secondary => {
@@ -202,7 +295,32 @@ fn setup(
     ));
 }
 
-fn handle_events(
+fn handle_change_recipe(
+    mut commands: Commands,
+    mut events: EventReader<SetRecipe>,
+    mut machines: Query<(&mut Machine, &mut Inventory)>,
+) {
+    for event in events.read() {
+        info!(?event);
+        let (mut machine, mut inv) = match machines.get_mut(event.target) {
+            Ok(m) => m,
+            Err(e) => {
+                error!(?e);
+                return;
+            }
+        };
+
+        machine.set_recipe(event.recipe.clone());
+
+        if let Some(recipe) = &event.recipe {
+            *inv = Inventory::from_recipe(recipe);
+        } else {
+            *inv = Inventory::zero_slots();
+        }
+    }
+}
+
+fn handle_sc_events(
     mut commands: Commands,
     mut events: EventReader<SpacecraftEvent>,
     args: Res<ProgramContext>,
@@ -324,128 +442,6 @@ fn spawn_empty_grid<'a>(commands: &'a mut Commands, pos: Vec2, angle: f32) -> En
     ))
 }
 
-#[derive(Component, Debug, Clone, Deref, DerefMut)]
-pub struct Inventory(pub starling::prelude::Inventory);
-
-#[derive(Component, Debug, Clone)]
-pub struct Machine {
-    pub enabled: bool,
-    pub steps: u32,
-    pub required_steps: u32,
-    pub recipe: Recipe,
-    pub products_finished: u64,
-    pub status: MachineStatus,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MachineStatus {
-    Off,
-    Running,
-    NoRoom,
-    Starved,
-}
-
-impl Machine {
-    pub fn new(recipe: Recipe) -> Self {
-        Self {
-            enabled: false,
-            recipe,
-            steps: 0,
-            required_steps: randint(20, 32) as u32,
-            products_finished: 0,
-            status: MachineStatus::Off,
-        }
-    }
-
-    pub fn is_running(&self) -> bool {
-        self.status == MachineStatus::Running
-    }
-
-    pub fn progress(&self) -> f32 {
-        self.steps as f32 / self.required_steps as f32
-    }
-
-    pub fn set_recipe(&mut self, recipe: Recipe) {
-        self.recipe = recipe;
-        self.steps = 0;
-    }
-
-    fn take_inputs_if_possible(&self, inv: &mut Inventory) -> bool {
-        let has_all = self
-            .recipe
-            .inputs()
-            .all(|(item, count)| inv.count(item) >= count);
-
-        if has_all {
-            for (item, count) in self.recipe.inputs() {
-                inv.take(item, count);
-            }
-        }
-
-        has_all
-    }
-
-    fn put_inputs_if_possible(&self, inv: &mut Inventory) -> bool {
-        let can_put_all = self
-            .recipe
-            .outputs()
-            .all(|(item, count)| inv.can_store(item, count));
-
-        if can_put_all {
-            for (item, count) in self.recipe.outputs() {
-                inv.add(item, count);
-            }
-        }
-
-        can_put_all
-    }
-
-    pub fn step_process(&mut self, inv: &mut Inventory) {
-        if !self.enabled {
-            self.status = MachineStatus::Off;
-            return;
-        }
-
-        if self.steps == 0 {
-            if self.take_inputs_if_possible(inv) {
-                self.steps += 1;
-                self.status = MachineStatus::Running;
-                return;
-            } else {
-                self.status = MachineStatus::Starved;
-                return;
-            }
-        }
-
-        if self.steps > 0 && self.steps < self.required_steps {
-            self.status = MachineStatus::Running;
-            self.steps += 1;
-        } else if self.steps >= self.required_steps {
-            if self.put_inputs_if_possible(inv) {
-                self.steps = 0;
-                self.products_finished += 1;
-                self.status = MachineStatus::Running;
-            } else {
-                self.status = MachineStatus::NoRoom;
-            }
-        } else {
-            self.status = MachineStatus::Off;
-        }
-    }
-}
-
-impl std::fmt::Display for Machine {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "enabled={}, recipe={}", self.enabled, self.recipe)
-    }
-}
-
-impl Inventory {
-    fn new() -> Self {
-        Self(starling::prelude::Inventory::random())
-    }
-}
-
 fn add_part_to_grid<'a>(
     commands: &mut RelatedSpawnerCommands<'a, ChildOf>,
     part: &InstantiatedPart,
@@ -504,22 +500,24 @@ fn add_part_to_grid<'a>(
 
     let is_machine = part.as_machine().is_some();
 
-    use starling::prelude::Item;
+    let inv = if is_machine {
+        Inventory::zero_slots()
+    } else {
+        Inventory::random_single()
+    };
 
-    let recipe = Recipe::consumes(Item::Ice, 40).and_produces(Item::Water, 600);
-
-    commands
+    let part = commands
         .spawn((
             Name::new(format!("Part ({})", name)),
             Transform::from_translation(origin.extend(z))
                 .with_scale(Vec3::splat(1.0))
                 .with_rotation(Quat::from_rotation_z(part.rotation().to_angle() as f32)),
             Mesh2d(meshes.add(polygon)),
-            PartInstance(part.prototype()),
+            PartInstance(part.clone()),
             build,
         ))
-        .insert_if(Inventory::new(), || has_inventory)
-        .insert_if(Machine::new(recipe), || is_machine)
+        .insert_if(Machine::new(None), || is_machine)
+        .insert_if(inv, || has_inventory)
         .with_child((
             PartSprite,
             sprite,
