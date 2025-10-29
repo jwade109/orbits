@@ -1,6 +1,6 @@
 use crate::animated_text::SpawnAnimText;
 use crate::inventory::Inventory;
-use crate::machine::{Machine, update_machines};
+use crate::machine::{Machine, mix_inventories, update_machines};
 use crate::recipe::*;
 use avian2d::prelude::*;
 use bevy::color::palettes::css::*;
@@ -29,10 +29,10 @@ impl Plugin for SpacecraftPlugin {
                     draw_selected_grid_guides,
                 ),
             )
-            .add_systems(FixedUpdate, (build_parts, update_machines))
+            .add_systems(FixedUpdate, (build_parts, update_machines, mix_inventories))
             .add_systems(
                 FixedUpdate,
-                update_grids.run_if(on_timer(Duration::from_millis(200))),
+                update_grids.run_if(on_timer(Duration::from_millis(50))),
             )
             .add_event::<SpacecraftEvent>()
             .add_event::<SetRecipe>()
@@ -62,7 +62,7 @@ pub struct SetRecipe {
 #[derive(Component, Debug, Default)]
 pub struct SpacecraftGrid {
     parts: usize,
-    mass: f32,
+    mass: f64,
     grid_bounds: (IVec2, IVec2),
 }
 
@@ -195,7 +195,7 @@ fn draw_selected_part(
 fn update_grids(
     mut commands: Commands,
     mut grids: Query<(Entity, &mut SpacecraftGrid, &Children)>,
-    parts: Query<(&PartInstance, &Children)>,
+    parts: Query<(&PartInstance, Option<&Inventory>)>,
 ) {
     for (e, mut grid, children) in &mut grids {
         grid.mass = 0.0;
@@ -209,8 +209,11 @@ fn update_grids(
         }
 
         for part in children.iter() {
-            if let Ok((part, _)) = parts.get(part) {
-                grid.mass += part.prototype().dry_mass().to_kg_f64() as f32;
+            if let Ok((part, inv)) = parts.get(part) {
+                grid.mass += part.prototype().dry_mass().to_kg_f64();
+                if let Some(inv) = inv {
+                    grid.mass += inv.mass() as f64
+                }
                 let origin = part.origin();
                 grid.grid_bounds.0.x = grid.grid_bounds.0.x.min(origin.x);
                 grid.grid_bounds.0.y = grid.grid_bounds.0.y.min(origin.y);
@@ -296,7 +299,6 @@ fn setup(
 }
 
 fn handle_change_recipe(
-    mut commands: Commands,
     mut events: EventReader<SetRecipe>,
     mut machines: Query<(&mut Machine, &mut Inventory)>,
 ) {
@@ -506,16 +508,17 @@ fn add_part_to_grid<'a>(
         Inventory::random_single()
     };
 
-    let part = commands
+    commands
         .spawn((
             Name::new(format!("Part ({})", name)),
             Transform::from_translation(origin.extend(z))
                 .with_scale(Vec3::splat(1.0))
                 .with_rotation(Quat::from_rotation_z(part.rotation().to_angle() as f32)),
-            Mesh2d(meshes.add(polygon)),
             PartInstance(part.clone()),
+            InheritedVisibility::VISIBLE,
             build,
         ))
+        .insert_if(Mesh2d(meshes.add(polygon)), || has_inventory)
         .insert_if(Machine::new(None), || is_machine)
         .insert_if(inv, || has_inventory)
         .with_child((

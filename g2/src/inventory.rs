@@ -42,8 +42,18 @@ impl Item {
         enum_iterator::all::<Self>()
     }
 
+    pub fn all_fluids() -> impl Iterator<Item = Self> {
+        enum_iterator::all::<Self>().filter(|item| item.is_fluid())
+    }
+
     pub fn random() -> Self {
         let variants: Vec<_> = Self::all().collect();
+        let n = randint(0, variants.len() as i32);
+        variants[n as usize]
+    }
+
+    pub fn random_fluid() -> Self {
+        let variants: Vec<_> = Self::all_fluids().collect();
         let n = randint(0, variants.len() as i32);
         variants[n as usize]
     }
@@ -142,8 +152,13 @@ impl Inventory {
     }
 
     pub fn random_single() -> Self {
-        let slot =
-            InvSlot::new(SlotPolicy::Storage, 50000, ItemFilter::Any).with_item(Item::random());
+        let item = Item::random_fluid();
+        let capacity = 50000;
+        let mut slot = InvSlot::new(SlotPolicy::Storage, capacity, ItemFilter::Any).with_item(item);
+        slot.store(
+            item,
+            randint(capacity as i32 / 4, capacity as i32 / 2) as u64,
+        );
         Self(vec![slot])
     }
 
@@ -162,6 +177,10 @@ impl Inventory {
         }
 
         s
+    }
+
+    pub fn get_slot_mut(&mut self, idx: usize) -> Option<&mut InvSlot> {
+        self.0.get_mut(idx)
     }
 
     pub fn is_empty(&self) -> bool {
@@ -316,6 +335,10 @@ impl InvSlot {
         self.capacity
     }
 
+    pub fn count(&self) -> u64 {
+        self.contents.map(|(_, count)| count).unwrap_or(0)
+    }
+
     pub fn filter(&self) -> ItemFilter {
         self.filter
     }
@@ -393,6 +416,23 @@ impl InvSlot {
         }
 
         true
+    }
+
+    pub fn store_partial(&mut self, item: Item, count: u64) -> bool {
+        if let Some(contents) = &mut self.contents {
+            contents.1 = (contents.1 + count).min(self.capacity);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn store_existing_partial(&mut self, count: u64) -> bool {
+        if let Some(item) = self.item() {
+            self.store_partial(item, count)
+        } else {
+            false
+        }
     }
 
     pub fn fill_percentage(&self) -> f32 {

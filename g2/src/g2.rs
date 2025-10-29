@@ -225,6 +225,9 @@ fn add_inv_widget(id: Option<Entity>, ui: &mut egui::Ui, mut inventories: Query<
             if ui.button("Empty").clicked() {
                 slot.empty();
             }
+            if ui.button("Add").hovered() {
+                slot.store_existing_partial(slot.capacity() / 400);
+            }
         });
 
         if let Some((item, count)) = slot.contents() {
