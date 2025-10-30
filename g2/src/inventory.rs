@@ -31,6 +31,10 @@ pub enum Item {
     Milk,
     U238,
     U235,
+    Rotor,
+    Circuit,
+    TitaniumLattice,
+    PowerCell,
 }
 
 impl Item {
@@ -79,6 +83,10 @@ impl Item {
             Item::Milk => false,
             Item::U235 => true,
             Item::U238 => true,
+            Item::Rotor => todo!(),
+            Item::Circuit => todo!(),
+            Item::TitaniumLattice => todo!(),
+            Item::PowerCell => todo!(),
         }
     }
 
@@ -103,6 +111,10 @@ impl Item {
             Item::Milk => false,
             Item::U235 => false,
             Item::U238 => false,
+            Item::Rotor => todo!(),
+            Item::Circuit => todo!(),
+            Item::TitaniumLattice => todo!(),
+            Item::PowerCell => todo!(),
         }
     }
 
@@ -138,10 +150,15 @@ impl Item {
             Item::Milk => [255, 255, 255],
             Item::U235 => [66, 200, 47],
             Item::U238 => [6, 64, 43],
+            _ => todo!(),
         };
         Srgba::from_u8_array_no_alpha(arr)
     }
 }
+
+pub type Volume = u64;
+
+pub type Mass = u64;
 
 #[derive(Component, Debug, Clone, Default)]
 pub struct Inventory(Vec<InvSlot>);
@@ -151,14 +168,12 @@ impl Inventory {
         Self(Vec::new())
     }
 
-    pub fn random_single() -> Self {
-        let item = Item::random_fluid();
-        let capacity = 50000;
+    pub fn from_slots(slots: Vec<InvSlot>) -> Self {
+        Self(slots)
+    }
+
+    pub fn single(item: Item, capacity: Volume) -> Self {
         let mut slot = InvSlot::new(SlotPolicy::Storage, capacity, ItemFilter::Any).with_item(item);
-        slot.store(
-            item,
-            randint(capacity as i32 / 4, capacity as i32 / 2) as u64,
-        );
         Self(vec![slot])
     }
 
@@ -237,8 +252,37 @@ impl Inventory {
         self.0.iter().map(|s| s.mass()).sum()
     }
 
-    pub fn volume(&self) -> u64 {
-        self.0.iter().map(|s| s.volume()).sum()
+    pub fn mass_of(&self, item: Item) -> Mass {
+        self.0
+            .iter()
+            .filter_map(|s| (s.has(item)).then(|| s.mass()))
+            .sum()
+    }
+
+    pub fn capacity(&self) -> Volume {
+        self.0.iter().map(|s| s.capacity()).sum()
+    }
+
+    pub fn occupied_volume(&self) -> Volume {
+        self.0.iter().map(|s| s.occupied_volume()).sum()
+    }
+
+    pub fn available_volume(&self) -> Volume {
+        self.capacity() - self.occupied_volume()
+    }
+
+    pub fn occupied_volume_of(&self, item: Item) -> Volume {
+        self.0
+            .iter()
+            .filter_map(|s| (s.has(item)).then(|| s.occupied_volume()))
+            .sum()
+    }
+
+    pub fn available_volume_of(&self, item: Item) -> Volume {
+        self.0
+            .iter()
+            .filter_map(|s| (s.has(item)).then(|| s.available_volume()))
+            .sum()
     }
 }
 
@@ -258,29 +302,12 @@ impl std::fmt::Display for Inventory {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SlotPolicy {
+    #[default]
+    Storage,
     Input,
     Output,
-    Storage,
-}
-
-impl SlotPolicy {
-    pub fn can_take(&self) -> bool {
-        match self {
-            SlotPolicy::Input => false,
-            SlotPolicy::Output => true,
-            SlotPolicy::Storage => true,
-        }
-    }
-
-    pub fn can_store(&self) -> bool {
-        match self {
-            SlotPolicy::Input => true,
-            SlotPolicy::Output => false,
-            SlotPolicy::Storage => true,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -307,9 +334,9 @@ impl ItemFilter {
 #[derive(Component, Debug, Clone, Copy)]
 pub struct InvSlot {
     policy: SlotPolicy,
-    capacity: u64,
+    capacity: Volume,
     filter: ItemFilter,
-    contents: Option<(Item, u64)>,
+    contents: Option<(Item, Mass)>,
 }
 
 impl InvSlot {
@@ -331,7 +358,7 @@ impl InvSlot {
         self.policy
     }
 
-    pub fn capacity(&self) -> u64 {
+    pub fn capacity(&self) -> Volume {
         self.capacity
     }
 
@@ -445,14 +472,77 @@ impl InvSlot {
         self.contents.map(|(i, _)| i)
     }
 
-    pub fn mass(&self) -> u64 {
+    pub fn mass(&self) -> Mass {
         self.contents
-            .map(|(item, count)| item.density() * count / 1000)
+            .map(|(item, count)| item.density() * count)
             .unwrap_or(0)
     }
 
-    pub fn volume(&self) -> u64 {
-        // TODO
-        self.capacity
+    pub fn occupied_volume(&self) -> Volume {
+        self.contents.map(|(_, count)| count).unwrap_or(0)
+    }
+
+    pub fn available_volume(&self) -> Volume {
+        self.capacity - self.occupied_volume()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn store_single() {
+        let mut inv = Inventory::single(Item::Iron, 4000);
+
+        assert!(inv.can_store(Item::Iron, 4000));
+        assert!(inv.can_store(Item::Iron, 400));
+        assert!(inv.can_store(Item::Iron, 2300));
+        assert!(inv.can_store(Item::Iron, 0));
+
+        assert!(!inv.can_store(Item::Iron, 5000));
+        assert!(!inv.can_store(Item::Copper, 0));
+        assert!(!inv.can_store(Item::Magnesium, 500));
+
+        assert!(inv.store(Item::Iron, 1000));
+        assert!(inv.store(Item::Iron, 500));
+
+        assert!(inv.can_store(Item::Iron, 1000));
+        assert!(!inv.can_store(Item::Iron, 4000));
+    }
+
+    #[test]
+    fn multiple_slots() {
+        let mut inv = Inventory::from_slots(vec![
+            InvSlot::new(SlotPolicy::Storage, 1000, ItemFilter::Any).with_item(Item::Bread),
+            InvSlot::new(SlotPolicy::Storage, 2000, ItemFilter::Any).with_item(Item::Magnesium),
+            InvSlot::new(SlotPolicy::Storage, 1500, ItemFilter::Any).with_item(Item::Magnesium),
+            InvSlot::new(SlotPolicy::Storage, 300, ItemFilter::Any).with_item(Item::Ice),
+        ]);
+
+        assert_eq!(inv.capacity(), 4800);
+        assert_eq!(inv.occupied_volume(), 0);
+        assert_eq!(inv.available_volume(), 4800);
+
+        assert_eq!(inv.available_volume_of(Item::Bread), 1000);
+        assert_eq!(inv.available_volume_of(Item::Magnesium), 3500);
+        assert_eq!(inv.available_volume_of(Item::Ice), 300);
+
+        assert_eq!(inv.mass(), 0);
+        assert_eq!(inv.mass_of(Item::Bread), 0);
+        assert_eq!(inv.mass_of(Item::Magnesium), 0);
+        assert_eq!(inv.mass_of(Item::Ice), 0);
+
+        assert!(inv.store(Item::Bread, 1000));
+        assert!(inv.store(Item::Magnesium, 1500));
+
+        assert_eq!(inv.capacity(), 4800);
+        assert_eq!(inv.occupied_volume(), 2500);
+        assert_eq!(inv.available_volume(), 2300);
+
+        assert_eq!(inv.mass(), 2500000);
+        assert_eq!(inv.mass_of(Item::Bread), 1000000);
+        assert_eq!(inv.mass_of(Item::Magnesium), 1500000);
+        assert_eq!(inv.mass_of(Item::Ice), 0);
     }
 }

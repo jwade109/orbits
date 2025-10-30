@@ -1,5 +1,5 @@
 use crate::animated_text::SpawnAnimText;
-use crate::inventory::Inventory;
+use crate::inventory::*;
 use crate::machine::{Machine, mix_inventories, update_machines};
 use crate::recipe::*;
 use avian2d::prelude::*;
@@ -22,7 +22,7 @@ impl Plugin for SpacecraftPlugin {
                 Update,
                 (
                     draw_grids,
-                    draw_inventories,
+                    // draw_inventories,
                     handle_sc_events,
                     handle_change_recipe,
                     draw_selected_part,
@@ -505,7 +505,7 @@ fn add_part_to_grid<'a>(
     let inv = if is_machine {
         Inventory::zero_slots()
     } else {
-        Inventory::random_single()
+        Inventory::single(Item::random_fluid(), 4000)
     };
 
     commands

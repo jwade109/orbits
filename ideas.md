@@ -17,6 +17,20 @@
 - interstellar N-body physics
 - cultivation of crops/improved cultivars for fuel/food/etc
 - stellar hydrogen harvesting
+- for item exchange, vehicles keep a list of requests and supplies
+
+```txt
++ I can provide this
+- I want this
+
+Ship         | Transfer   | Station
+=============|============|==============
++ Magnesium  |            |
++ Iron       |    >>>>    | - Iron
++ Copper     |            |
+- Hydrogen   |    <<<<    | + Hydrogen
+- Oxygen     |    <<<<    | + Oxygen
+```
 
 ## Planets
 

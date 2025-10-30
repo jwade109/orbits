@@ -4,6 +4,7 @@ mod machine;
 mod particles;
 mod recipe;
 mod spacecraft;
+mod mass;
 
 use crate::animated_text::*;
 use crate::inventory::*;
@@ -213,7 +214,7 @@ fn add_inv_widget(id: Option<Entity>, ui: &mut egui::Ui, mut inventories: Query<
         _ => return,
     };
 
-    ui.label(format!("Mass: {} kg, Volume: {} L", inv.mass(), inv.volume()));
+    ui.label(format!("Mass: {} kg, Volume: {} L", inv.mass(), inv.occupied_volume()));
 
     for slot in inv.slots_mut() {
         ui.separator();
