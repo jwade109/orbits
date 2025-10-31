@@ -121,16 +121,17 @@ fn draw_inventories(
             painter.set_rotation(tf.rotation());
 
             painter.set_color(BLACK);
-            painter.rect(small_dims + Vec2::splat(width));
-
-            painter.translate(Vec3::Z);
-            painter.set_color(BLACK.with_alpha(0.9));
-            painter.rect(small_dims + Vec2::splat(width * 5.0));
+            painter.rect(small_dims + Vec2::splat(width * 2.0));
 
             painter.translate(Vec3::Z);
             painter.set_color(color);
             painter.hollow = false;
-            painter.rect((small_dims - Vec2::splat(width * 0.2)) * slot.fill_percentage());
+            let static_dims = small_dims - Vec2::splat(width * 0.2);
+            let mut dyn_dims = static_dims;
+            dyn_dims.x *= slot.fill_percentage();
+            painter.translate(Vec3::X * (dyn_dims.x / 2.0 - (static_dims.x) / 2.0));
+            painter.rect(dyn_dims);
+            painter.translate(-Vec3::X * (dyn_dims.x / 2.0 - static_dims.x / 2.0));
 
             painter.translate(Vec3::Z);
             painter.hollow = true;
@@ -523,11 +524,16 @@ fn add_part_to_grid<'a>(
 
     let is_machine = part.as_machine().is_some();
 
+    let n_slots = match part.variant() {
+        InstantiatedPartVariant::Cargo(c, _) => c.slots(),
+        _ => 1,
+    };
+
     let inv = if is_machine {
         Inventory::zero_slots()
     } else {
         let mut inv = Inventory::zero_slots();
-        for _ in 0..starling::math::randint(2, 5) {
+        for _ in 0..n_slots {
             let slot = InvSlot::new(Volume::liters(4000), ItemFilter::Any);
             inv.add_slot(slot.with_item(Item::random()));
         }

@@ -9,6 +9,7 @@ pub struct Cargo {
     max_cargo_mass: Mass,
     dims: UVec2,
     sprites: Option<usize>,
+    slots: u8,
 }
 
 impl Cargo {
@@ -19,6 +20,7 @@ impl Cargo {
             max_cargo_mass,
             dims,
             sprites: None,
+            slots: 1,
         }
     }
 
@@ -64,6 +66,10 @@ impl Cargo {
 
     pub fn sprites(&self) -> usize {
         self.sprites.unwrap_or(1)
+    }
+
+    pub fn slots(&self) -> u8 {
+        self.slots
     }
 }
 

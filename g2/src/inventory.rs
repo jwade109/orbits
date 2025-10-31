@@ -15,6 +15,7 @@ pub enum Item {
     Silicon,
     Titanium,
     Ice,
+    Plastic,
     Bread,
     /// H2O, 18 g/mol
     Water,
@@ -72,6 +73,7 @@ impl Item {
             Item::Silicon => true,
             Item::Titanium => true,
             Item::Ice => true,
+            Item::Plastic => true,
             Item::Bread => true,
             Item::Water => false,
             Item::Methane => false,
@@ -92,6 +94,35 @@ impl Item {
         }
     }
 
+    pub fn is_pellet(&self) -> bool {
+        match self {
+            Item::Iron => true,
+            Item::Copper => true,
+            Item::Magnesium => true,
+            Item::Silicon => true,
+            Item::Titanium => true,
+            Item::Ice => true,
+            Item::Plastic => true,
+            Item::Bread => false,
+            Item::Water => false,
+            Item::Methane => false,
+            Item::H2 => false,
+            Item::CO2 => false,
+            Item::O2 => false,
+            Item::Calzones => false,
+            Item::Geodes => false,
+            Item::Wheat => false,
+            Item::Corn => false,
+            Item::Milk => false,
+            Item::U235 => true,
+            Item::U238 => true,
+            Item::Rotor => false,
+            Item::Circuit => false,
+            Item::TitaniumLattice => false,
+            Item::PowerCell => false,
+        }
+    }
+
     pub fn is_fluid(&self) -> bool {
         match self {
             Item::Iron => false,
@@ -100,6 +131,7 @@ impl Item {
             Item::Silicon => false,
             Item::Titanium => false,
             Item::Ice => false,
+            Item::Plastic => false,
             Item::Bread => false,
             Item::Water => false,
             Item::Methane => true,
@@ -132,6 +164,7 @@ impl Item {
             | Item::Silicon
             | Item::Titanium
             | Item::Ice
+            | Item::Plastic
             | Item::Water
             | Item::Methane
             | Item::H2
@@ -167,6 +200,7 @@ impl Item {
             Item::Magnesium => Volume::microliters(575),
             Item::Silicon => Volume::microliters(429),
             Item::Ice => Volume::microliters(1003),
+            Item::Plastic => Volume::microliters(833),
             Item::Water => Volume::microliters(1003),
             Item::Methane => Volume::microliters(2360),
             Item::H2 => Volume::microliters(13890),
@@ -197,6 +231,7 @@ impl Item {
             Item::Silicon => [149, 153, 165],
             Item::Titanium => [135, 134, 129],
             Item::Ice => [175, 238, 238],
+            Item::Plastic => [250, 249, 246],
             Item::Bread => [153, 101, 21],
             Item::Water => [0, 105, 148],
             Item::Methane => [0, 168, 107],
@@ -210,7 +245,10 @@ impl Item {
             Item::Milk => [255, 255, 255],
             Item::U235 => [66, 200, 47],
             Item::U238 => [6, 64, 43],
-            _ => [255, 100, 100],
+            Item::Rotor => [173, 0, 0],
+            Item::Circuit => [17, 191, 11],
+            Item::TitaniumLattice => [0, 26, 128],
+            Item::PowerCell => [161, 88, 103],
         };
         Srgba::from_u8_array_no_alpha(arr)
     }
@@ -237,13 +275,13 @@ impl Inventory {
         let mut s = Self::zero_slots();
 
         for (item, count) in recipe.inputs() {
-            let capacity = item.volume_per_unit() * count * 10;
+            let capacity = item.volume_per_unit() * count * 100;
             let slot = InvSlot::new(capacity, ItemFilter::Any);
             s.0.push(slot.with_item(item));
         }
 
         for (item, count) in recipe.outputs() {
-            let capacity = item.volume_per_unit() * count * 10;
+            let capacity = item.volume_per_unit() * count * 100;
             let slot = InvSlot::new(capacity, ItemFilter::Any);
             s.0.push(slot.with_item(item));
         }
@@ -253,6 +291,10 @@ impl Inventory {
 
     pub fn add_slot(&mut self, slot: InvSlot) {
         self.0.push(slot);
+    }
+
+    pub fn get_slot(&mut self, idx: usize) -> Option<&InvSlot> {
+        self.0.get(idx)
     }
 
     pub fn get_slot_mut(&mut self, idx: usize) -> Option<&mut InvSlot> {

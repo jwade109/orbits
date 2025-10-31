@@ -225,8 +225,10 @@ fn add_inv_widget(ui: &mut egui::Ui, inv: &mut Inventory) {
                 }
             }
             if ui.button("Add Lots").hovered() {
+                let volume = slot.capacity();
                 if let Some(item) = slot.item() {
-                    slot.store_partial(item, 20);
+                    let n_items = (volume / item.volume_per_unit()).floor() as u64;
+                    slot.store_partial(item, n_items / 100);
                 }
             }
         });

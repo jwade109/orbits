@@ -7,32 +7,32 @@ use std::collections::HashMap;
 
 #[derive(Debug, Default, Clone)]
 pub struct Recipe {
-    inputs: HashMap<Item, u64>,
-    outputs: HashMap<Item, u64>,
+    inputs: Vec<(Item, u64)>,
+    outputs: Vec<(Item, u64)>,
 }
 
 impl Recipe {
     pub fn consumes(item: Item, count: u64) -> Self {
         Self {
-            inputs: HashMap::from([(item, count)]),
-            outputs: HashMap::new(),
+            inputs: vec![(item, count)],
+            outputs: Vec::new(),
         }
     }
 
     pub fn produces(item: Item, count: u64) -> Self {
         Self {
-            inputs: HashMap::new(),
-            outputs: HashMap::from([(item, count)]),
+            inputs: Vec::new(),
+            outputs: vec![(item, count)],
         }
     }
 
     pub fn and_consumes(mut self, item: Item, count: u64) -> Self {
-        self.inputs.insert(item, count);
+        self.inputs.push((item, count));
         self
     }
 
     pub fn and_produces(mut self, item: Item, count: u64) -> Self {
-        self.outputs.insert(item, count);
+        self.outputs.push((item, count));
         self
     }
 
@@ -53,11 +53,11 @@ impl Recipe {
     }
 
     pub fn is_input(&self, item: Item) -> bool {
-        self.inputs.contains_key(&item)
+        self.inputs.iter().any(|(i, _)| *i == item)
     }
 
     pub fn is_output(&self, item: Item) -> bool {
-        self.outputs.contains_key(&item)
+        self.outputs.iter().any(|(i, _)| *i == item)
     }
 }
 
@@ -69,57 +69,68 @@ impl std::fmt::Display for Recipe {
 
 pub fn sabatier_reaction() -> Recipe {
     Recipe {
-        inputs: HashMap::from([(Item::CO2, 44), (Item::H2, 8)]),
-        outputs: HashMap::from([(Item::Methane, 16), (Item::Water, 36)]),
+        inputs: vec![(Item::CO2, 44), (Item::H2, 8)],
+        outputs: vec![(Item::Methane, 16), (Item::Water, 36)],
     }
 }
 
 pub fn water_electrolysis() -> Recipe {
     Recipe {
-        inputs: HashMap::from([(Item::Water, 9)]),
-        outputs: HashMap::from([(Item::O2, 8), (Item::H2, 1)]),
+        inputs: vec![(Item::Water, 9)],
+        outputs: vec![(Item::O2, 8), (Item::H2, 1)],
     }
 }
 
 pub fn carbon_dioxide_condensation() -> Recipe {
     Recipe {
-        inputs: HashMap::from([]),
-        outputs: HashMap::from([(Item::CO2, 100)]),
+        inputs: vec![],
+        outputs: vec![(Item::CO2, 100)],
     }
 }
 
 pub fn harvest_bread() -> Recipe {
     Recipe {
-        inputs: HashMap::from([]),
-        outputs: HashMap::from([(Item::Bread, 10)]),
+        inputs: vec![],
+        outputs: vec![(Item::Bread, 10)],
     }
 }
 
 pub fn ice_melting() -> Recipe {
     Recipe {
-        inputs: HashMap::from([(Item::Ice, 500)]),
-        outputs: HashMap::from([(Item::Water, 500)]),
+        inputs: vec![(Item::Ice, 500)],
+        outputs: vec![(Item::Water, 500)],
     }
 }
 
 pub fn ice_mining() -> Recipe {
     Recipe {
-        inputs: HashMap::from([]),
-        outputs: HashMap::from([(Item::Ice, 10)]),
+        inputs: vec![],
+        outputs: vec![(Item::Ice, 10)],
     }
 }
 
 pub fn enrichment() -> Recipe {
     Recipe {
-        inputs: HashMap::from([(Item::U238, 20), (Item::U235, 10)]),
-        outputs: HashMap::from([(Item::U238, 19), (Item::U235, 11)]),
+        inputs: vec![(Item::U238, 20), (Item::U235, 10)],
+        outputs: vec![(Item::U238, 19), (Item::U235, 11)],
     }
 }
 
 pub fn titanium_lattice() -> Recipe {
     Recipe {
-        inputs: HashMap::from([(Item::Titanium, 1400), (Item::Iron, 430), (Item::Magnesium, 70)]),
-        outputs: HashMap::from([(Item::TitaniumLattice, 1)]),
+        inputs: vec![
+            (Item::Titanium, 1400),
+            (Item::Iron, 430),
+            (Item::Magnesium, 70),
+        ],
+        outputs: vec![(Item::TitaniumLattice, 1)],
+    }
+}
+
+pub fn circuits() -> Recipe {
+    Recipe {
+        inputs: vec![(Item::Copper, 23), (Item::Silicon, 45), (Item::Plastic, 22)],
+        outputs: vec![(Item::Circuit, 1)],
     }
 }
 
@@ -134,6 +145,7 @@ pub enum RecipeListing {
     IceMining,
     Enrichment,
     TitaniumLattice,
+    Circuits,
 }
 
 impl RecipeListing {
@@ -148,6 +160,7 @@ impl RecipeListing {
             RecipeListing::IceMining => ice_mining(),
             RecipeListing::Enrichment => enrichment(),
             RecipeListing::TitaniumLattice => titanium_lattice(),
+            RecipeListing::Circuits => circuits(),
         }
     }
 }

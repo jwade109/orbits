@@ -54,14 +54,22 @@ impl Machine {
             _ => return false,
         };
 
-        for (item, count) in recipe.inputs() {
-            if !inv.can_take(item, count) {
+        for (i, (item, count)) in recipe.inputs().enumerate() {
+            if let Some(slot) = inv.get_slot(i) {
+                if !slot.can_take(item, count) {
+                    return false;
+                }
+            } else {
                 return false;
             }
         }
 
-        for (item, count) in recipe.inputs() {
-            if !inv.take(item, count) {
+        for (i, (item, count)) in recipe.inputs().enumerate() {
+            if let Some(slot) = inv.get_slot_mut(i) {
+                if !slot.take(item, count) {
+                    return false;
+                }
+            } else {
                 return false;
             }
         }
@@ -75,14 +83,24 @@ impl Machine {
             _ => return false,
         };
 
-        for (item, count) in recipe.outputs() {
-            if !inv.can_store(item, count) {
+        let n_inputs = recipe.input_count();
+
+        for (i, (item, count)) in recipe.outputs().enumerate() {
+            if let Some(slot) = inv.get_slot(n_inputs + i) {
+                if !slot.can_store(item, count) {
+                    return false;
+                }
+            } else {
                 return false;
             }
         }
 
-        for (item, count) in recipe.outputs() {
-            if !inv.store(item, count) {
+        for (i, (item, count)) in recipe.outputs().enumerate() {
+            if let Some(slot) = inv.get_slot_mut(n_inputs + i) {
+                if !slot.store(item, count) {
+                    return false;
+                }
+            } else {
                 return false;
             }
         }
