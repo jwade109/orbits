@@ -1,7 +1,10 @@
 use crate::animated_text::SpawnAnimText;
 use crate::inventory::*;
-use crate::machine::{Machine, mix_inventories, update_machines};
+use crate::machine::{Machine, update_machines};
+use crate::mass::Mass;
 use crate::recipe::*;
+use crate::volume::Volume;
+
 use avian2d::prelude::*;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
@@ -22,14 +25,14 @@ impl Plugin for SpacecraftPlugin {
                 Update,
                 (
                     draw_grids,
-                    // draw_inventories,
+                    draw_inventories,
                     handle_sc_events,
                     handle_change_recipe,
                     draw_selected_part,
                     draw_selected_grid_guides,
                 ),
             )
-            .add_systems(FixedUpdate, (build_parts, update_machines, mix_inventories))
+            .add_systems(FixedUpdate, (build_parts, update_machines))
             .add_systems(
                 FixedUpdate,
                 update_grids.run_if(on_timer(Duration::from_millis(50))),
@@ -62,7 +65,7 @@ pub struct SetRecipe {
 #[derive(Component, Debug, Default)]
 pub struct SpacecraftGrid {
     parts: usize,
-    mass: f64,
+    mass: Mass,
     grid_bounds: (IVec2, IVec2),
 }
 
@@ -97,25 +100,43 @@ fn draw_inventories(
 ) {
     let width = 0.1;
     for (tf, part, inventory) in parts {
+        let n = inventory.slot_count();
         let dims = part.prototype().dims_meters();
+        let mut small_dims = dims;
+        small_dims.y /= n as f32;
 
-        for slot in inventory.slots() {
+        for (i, slot) in inventory.slots().enumerate() {
             let color = if let Some(item) = slot.item() {
                 item.color()
             } else {
                 BLACK
             };
+
+            let offset =
+                dims.y / n as f32 * (i as f32) - (dims.y / 2.0) + (dims.y / n as f32 / 2.0);
+
             painter.reset();
-            painter.set_translation(tf.translation().with_z(10.0));
+
+            painter.set_translation(tf.translation().with_z(10.0) + tf.up() * offset);
             painter.set_rotation(tf.rotation());
-            painter.set_color(BLACK.with_alpha(0.95));
-            painter.rect(dims + Vec2::splat(width * 3.0));
+
+            painter.set_color(BLACK);
+            painter.rect(small_dims + Vec2::splat(width));
+
             painter.translate(Vec3::Z);
-            painter.set_color(color.with_alpha(0.3));
-            painter.rect(dims - Vec2::splat(width * 0.5));
+            painter.set_color(BLACK.with_alpha(0.9));
+            painter.rect(small_dims + Vec2::splat(width * 5.0));
+
             painter.translate(Vec3::Z);
             painter.set_color(color);
-            painter.rect((dims - Vec2::splat(width)) * slot.fill_percentage());
+            painter.hollow = false;
+            painter.rect((small_dims - Vec2::splat(width * 0.2)) * slot.fill_percentage());
+
+            painter.translate(Vec3::Z);
+            painter.hollow = true;
+            painter.thickness = 2.0;
+            painter.thickness_type = ThicknessType::Pixels;
+            painter.rect(small_dims - Vec2::splat(width * 0.2));
         }
     }
 }
@@ -198,7 +219,7 @@ fn update_grids(
     parts: Query<(&PartInstance, Option<&Inventory>)>,
 ) {
     for (e, mut grid, children) in &mut grids {
-        grid.mass = 0.0;
+        grid.mass = Mass::ZERO;
         grid.parts = children.iter().count();
         grid.grid_bounds = (IVec2::ZERO, IVec2::ZERO);
 
@@ -210,9 +231,9 @@ fn update_grids(
 
         for part in children.iter() {
             if let Ok((part, inv)) = parts.get(part) {
-                grid.mass += part.prototype().dry_mass().to_kg_f64();
+                grid.mass += Mass::grams(part.prototype().dry_mass().to_grams());
                 if let Some(inv) = inv {
-                    grid.mass += inv.mass() as f64
+                    grid.mass += inv.mass();
                 }
                 let origin = part.origin();
                 grid.grid_bounds.0.x = grid.grid_bounds.0.x.min(origin.x);
@@ -505,7 +526,12 @@ fn add_part_to_grid<'a>(
     let inv = if is_machine {
         Inventory::zero_slots()
     } else {
-        Inventory::single(Item::random_fluid(), 4000)
+        let mut inv = Inventory::zero_slots();
+        for _ in 0..starling::math::randint(2, 5) {
+            let slot = InvSlot::new(Volume::liters(4000), ItemFilter::Any);
+            inv.add_slot(slot.with_item(Item::random()));
+        }
+        inv
     };
 
     commands

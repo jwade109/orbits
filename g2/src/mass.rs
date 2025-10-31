@@ -1,5 +1,5 @@
 use std::iter::Sum;
-use std::ops::{Add, AddAssign, Sub, SubAssign};
+use std::ops::*;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Mass(u64);
@@ -87,5 +87,12 @@ impl SubAssign for Mass {
 impl PartialOrd for Mass {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         self.0.partial_cmp(&other.0)
+    }
+}
+
+impl Mul<u64> for Mass {
+    type Output = Self;
+    fn mul(self, rhs: u64) -> Self::Output {
+        Self(self.0 * rhs)
     }
 }

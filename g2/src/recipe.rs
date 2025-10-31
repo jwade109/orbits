@@ -1,9 +1,9 @@
 #![allow(unused)]
 
-use enum_iterator::Sequence;
-use std::collections::HashMap;
 use crate::inventory::*;
+use enum_iterator::Sequence;
 use starling::prelude::randint;
+use std::collections::HashMap;
 
 #[derive(Debug, Default, Clone)]
 pub struct Recipe {
@@ -112,7 +112,14 @@ pub fn ice_mining() -> Recipe {
 pub fn enrichment() -> Recipe {
     Recipe {
         inputs: HashMap::from([(Item::U238, 20), (Item::U235, 10)]),
-        outputs: HashMap::from([(Item::U238, 15), (Item::U235, 11)]),
+        outputs: HashMap::from([(Item::U238, 19), (Item::U235, 11)]),
+    }
+}
+
+pub fn titanium_lattice() -> Recipe {
+    Recipe {
+        inputs: HashMap::from([(Item::Titanium, 1400), (Item::Iron, 430), (Item::Magnesium, 70)]),
+        outputs: HashMap::from([(Item::TitaniumLattice, 1)]),
     }
 }
 
@@ -126,6 +133,23 @@ pub enum RecipeListing {
     IceMelting,
     IceMining,
     Enrichment,
+    TitaniumLattice,
+}
+
+impl RecipeListing {
+    pub fn to_recipe(&self) -> Recipe {
+        match self {
+            RecipeListing::DoNothing => Recipe::default(),
+            RecipeListing::Sabatier => sabatier_reaction(),
+            RecipeListing::WaterElectrolysis => water_electrolysis(),
+            RecipeListing::CarbonDioxideCondensation => carbon_dioxide_condensation(),
+            RecipeListing::HarvestBread => harvest_bread(),
+            RecipeListing::IceMelting => ice_melting(),
+            RecipeListing::IceMining => ice_mining(),
+            RecipeListing::Enrichment => enrichment(),
+            RecipeListing::TitaniumLattice => titanium_lattice(),
+        }
+    }
 }
 
 impl RecipeListing {
@@ -137,5 +161,33 @@ impl RecipeListing {
         let variants: Vec<_> = Self::all().collect();
         let n = randint(0, variants.len() as i32);
         variants[n as usize]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::mass::Mass;
+
+    #[test]
+    fn consistent_masses() {
+        for listing in RecipeListing::all() {
+            let recipe = listing.to_recipe();
+
+            if recipe.input_count() == 0 || recipe.output_count() == 0 {
+                continue;
+            }
+
+            let mut input_mass = Mass::ZERO;
+            for (item, count) in recipe.inputs() {
+                input_mass += item.mass_per_unit() * count;
+            }
+            let mut output_mass = Mass::ZERO;
+            for (item, count) in recipe.outputs() {
+                output_mass += item.mass_per_unit() * count;
+            }
+            println!("{:?}, {}, {}", listing, input_mass, output_mass);
+            assert_eq!(input_mass, output_mass);
+        }
     }
 }

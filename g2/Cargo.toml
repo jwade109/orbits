@@ -38,9 +38,6 @@ bevy_window = "0.16.1"
 egui = "0.32.3"
 egui_dock = "0.17.0"
 
-[target.x86_64-pc-windows-msvc]
-linker = "rust-lld.exe"
-
 [[bin]]
 name = "g2"
 path = "src/g2.rs"

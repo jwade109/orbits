@@ -1,8 +1,6 @@
-use std::collections::HashMap;
-
 use crate::inventory::*;
 use crate::recipe::*;
-use crate::spacecraft::SpacecraftGrid;
+
 use bevy::prelude::*;
 use starling::prelude::randint;
 
@@ -134,78 +132,5 @@ impl Machine {
 pub fn update_machines(mut machines: Query<(&mut Machine, &mut Inventory)>) {
     for (mut m, mut inv) in &mut machines {
         m.step_process(&mut inv);
-    }
-}
-
-#[derive(Default, Debug)]
-struct BalanceManifest {
-    count: u64,
-    capacity: u64,
-    members: Vec<(Entity, usize)>,
-}
-
-fn update_item_count(
-    map: &mut HashMap<Item, BalanceManifest>,
-    id: Entity,
-    idx: usize,
-    slot: &InvSlot,
-) {
-    let (item, count) = if let Some(contents) = slot.contents() {
-        contents
-    } else {
-        return;
-    };
-
-    match slot.policy() {
-        SlotPolicy::Storage => (),
-        _ => return,
-    };
-
-    if let Some(bm) = map.get_mut(&item) {
-        bm.count += count;
-        bm.capacity += slot.capacity();
-        bm.members.push((id, idx));
-    } else {
-        let mut bm = BalanceManifest::default();
-        bm.count = count;
-        bm.capacity = slot.capacity();
-        bm.members.push((id, idx));
-        map.insert(item, bm);
-    }
-}
-
-pub fn mix_inventories(
-    grids: Query<&Children, With<SpacecraftGrid>>,
-    mut inventories: Query<&mut Inventory>,
-) {
-    for grid in grids {
-        let mut manifests = HashMap::new();
-
-        for child in grid {
-            if let Ok(inv) = inventories.get(*child) {
-                for (idx, slot) in inv.slots().enumerate() {
-                    update_item_count(&mut manifests, *child, idx, slot);
-                }
-            }
-        }
-        manifests.retain(|_, bm| bm.count > 0 && bm.members.len() > 1);
-
-        for (item, bm) in manifests {
-            let ideal_fill_ratio = bm.count as f64 / bm.capacity as f64;
-
-            for (entity, idx) in bm.members {
-                if let Ok(mut inv) = inventories.get_mut(entity) {
-                    if let Some(slot) = inv.get_slot_mut(idx) {
-                        let ideal_amount =
-                            (slot.capacity() as f64 * ideal_fill_ratio).round() as u64;
-                        if ideal_amount > slot.count() {
-                            slot.store(item, 100.min(ideal_amount - slot.count()));
-                        } else if ideal_amount < slot.count() {
-                            slot.take(item, 100.min(slot.count() - ideal_amount));
-                        }
-                    }
-                }
-            }
-        }
     }
 }

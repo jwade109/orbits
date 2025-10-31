@@ -1,10 +1,11 @@
 mod animated_text;
 mod inventory;
 mod machine;
+mod mass;
 mod particles;
 mod recipe;
 mod spacecraft;
-mod mass;
+mod volume;
 
 use crate::animated_text::*;
 use crate::inventory::*;
@@ -200,7 +201,66 @@ fn con_state_widget(id: Option<Entity>, ui: &mut egui::Ui, mut con: Query<&mut C
     ui.add(egui::Checkbox::new(&mut con.should_build, "Build"));
 }
 
-fn add_inv_widget(id: Option<Entity>, ui: &mut egui::Ui, mut inventories: Query<&mut Inventory>) {
+fn add_inv_widget(ui: &mut egui::Ui, inv: &mut Inventory) {
+    ui.label(format!(
+        "Mass: {}, {} / {}",
+        inv.mass(),
+        inv.occupied_volume(),
+        inv.capacity()
+    ));
+
+    for slot in inv.slots_mut() {
+        ui.separator();
+
+        ui.horizontal(|ui| {
+            if ui.button("Fill").clicked() {
+                slot.fill();
+            }
+            if ui.button("Empty").clicked() {
+                slot.empty();
+            }
+            if ui.button("Add").clicked() {
+                if let Some(item) = slot.item() {
+                    slot.store(item, 1);
+                }
+            }
+            if ui.button("Add Lots").hovered() {
+                if let Some(item) = slot.item() {
+                    slot.store_partial(item, 20);
+                }
+            }
+        });
+
+        if let Some((item, count)) = slot.contents() {
+            let c = item.color().to_u8_array();
+            let color = egui::Color32::from_rgb(c[0], c[1], c[2]);
+
+            ui.horizontal(|ui| {
+                let size = bevy_inspector_egui::egui::Vec2::new(10.0, 10.0);
+                egui::color_picker::show_color(ui, color, size);
+                ui.label(format!(
+                    "{:?} {} {}/{} ({}) {}",
+                    item,
+                    count,
+                    slot.occupied_volume(),
+                    slot.capacity(),
+                    slot.mass(),
+                    if slot.is_full() { "*" } else { "" },
+                ));
+            });
+
+            ui.add(egui::ProgressBar::new(slot.fill_percentage()).fill(color));
+        } else {
+            ui.label("(Empty)");
+        }
+    }
+}
+
+fn add_inventory_widget(
+    id: Option<Entity>,
+    ui: &mut egui::Ui,
+    inventories: &mut Query<&mut Inventory>,
+) {
     let id = if let Some(id) = id {
         id
     } else {
@@ -214,72 +274,7 @@ fn add_inv_widget(id: Option<Entity>, ui: &mut egui::Ui, mut inventories: Query<
         _ => return,
     };
 
-    ui.label(format!("Mass: {} kg, Volume: {} L", inv.mass(), inv.occupied_volume()));
-
-    for slot in inv.slots_mut() {
-        ui.separator();
-
-        ui.horizontal(|ui| {
-            if ui.button("Fill").clicked() {
-                slot.fill();
-            }
-            if ui.button("Empty").clicked() {
-                slot.empty();
-            }
-            if ui.button("Add").hovered() {
-                slot.store_existing_partial(slot.capacity() / 400);
-            }
-        });
-
-        if let Some((item, count)) = slot.contents() {
-            let c = item.color().to_u8_array();
-            let color = egui::Color32::from_rgb(c[0], c[1], c[2]);
-
-            ui.horizontal(|ui| {
-                let size = bevy_inspector_egui::egui::Vec2::new(10.0, 10.0);
-                egui::color_picker::show_color(ui, color, size);
-                ui.label(format!(
-                    "{:?} {}/{} L ({} kg) {:?}",
-                    item,
-                    count,
-                    slot.capacity(),
-                    slot.mass(),
-                    slot.policy()
-                ));
-            });
-
-            ui.add(egui::ProgressBar::new(slot.fill_percentage()).fill(color));
-        } else {
-            ui.label("(Empty)");
-        }
-    }
-
-    // ui.horizontal(|ui| {
-    //     if ui.button("Empty").clicked() {
-    //         slot.empty();
-    //     }
-    //     if ui.button("Fill").clicked() {
-    //         slot.fill();
-    //     }
-    // });
-
-    // ui.horizontal(|ui| {
-    //     ui.label(format!("{:?}", slot.contents()));
-    //     ui.label(format!("{:?}", slot.filter()));
-    // });
-
-    // ui.horizontal(|ui| {
-    //     ui.label(format!("{:?}", slot.capacity()));
-    //     ui.label(format!("{:?}", slot.policy()));
-    // });
-
-    // if let Some((item, _)) = slot.contents() {
-    //     let color = game::sprites::hashable_to_color(&item);
-    //     let rgb = Srgba::from(color);
-    //     let rgb = rgb.to_u8_array();
-    //     let bar = egui::ProgressBar::new(slot.fill_percentage());
-    //     ui.add(bar.fill(egui::Color32::from_rgb(rgb[0], rgb[1], rgb[2])));
-    // }
+    add_inv_widget(ui, &mut inv);
 }
 
 fn machine_editor_widget(
@@ -310,7 +305,23 @@ fn machine_editor_widget(
 
     ui.add(egui::Slider::new(&mut mac.required_steps, 3..=150));
 
-    ui.label(format!("{:?}", mac.recipe));
+    if let Some(recipe) = &mac.recipe {
+        if recipe.input_count() > 0 {
+            ui.label("Consumes:");
+        }
+
+        for (item, count) in recipe.inputs() {
+            ui.label(format!("  {:?}: {} ({})", item, count, item.mass_per_unit() * count));
+        }
+
+        if recipe.output_count() > 0 {
+            ui.label("Produces:");
+        }
+
+        for (item, count) in recipe.outputs() {
+            ui.label(format!("  {:?}: {} ({})", item, count, item.mass_per_unit() * count));}
+    }
+
     ui.label(format!("{} finished", mac.products_finished));
 
     ui.horizontal(|ui| {
@@ -353,18 +364,9 @@ fn machine_editor_widget(
             }
         });
 
-    let recipe = match cfg.recipe {
-        RecipeListing::DoNothing => Recipe::default(),
-        RecipeListing::Sabatier => sabatier_reaction(),
-        RecipeListing::WaterElectrolysis => water_electrolysis(),
-        RecipeListing::CarbonDioxideCondensation => carbon_dioxide_condensation(),
-        RecipeListing::HarvestBread => harvest_bread(),
-        RecipeListing::IceMelting => ice_melting(),
-        RecipeListing::IceMining => ice_mining(),
-        RecipeListing::Enrichment => enrichment(),
-    };
-
     if cfg.recipe != before {
+        let recipe = cfg.recipe.to_recipe();
+
         commands.send_event(SetRecipe {
             target: id,
             recipe: Some(recipe),
@@ -378,7 +380,7 @@ fn egui_ui(
     mut state: Local<DebugPanelState>,
     parts: Query<(&PartInstance, &ChildOf)>,
     grids: Query<&SpacecraftGrid>,
-    inventories: Query<&mut Inventory>,
+    mut inventories: Query<&mut Inventory>,
     machines: Query<&mut Machine>,
     con: Query<&mut ConstructionState>,
     cursor: Res<PartCursor>,
@@ -394,7 +396,7 @@ fn egui_ui(
         });
 
         ui.collapsing("Inventory", |ui| {
-            add_inv_widget(cursor.selected, ui, inventories);
+            add_inventory_widget(cursor.selected, ui, &mut inventories);
         });
 
         ui.collapsing("Construction", |ui| {

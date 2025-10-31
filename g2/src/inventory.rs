@@ -1,6 +1,8 @@
 #![allow(unused)]
 
+use crate::mass::Mass;
 use crate::recipe::Recipe;
+use crate::volume::Volume;
 use bevy::prelude::*;
 use enum_iterator::Sequence;
 use starling::prelude::randint;
@@ -83,10 +85,10 @@ impl Item {
             Item::Milk => false,
             Item::U235 => true,
             Item::U238 => true,
-            Item::Rotor => todo!(),
-            Item::Circuit => todo!(),
-            Item::TitaniumLattice => todo!(),
-            Item::PowerCell => todo!(),
+            Item::Rotor => true,
+            Item::Circuit => true,
+            Item::TitaniumLattice => true,
+            Item::PowerCell => true,
         }
     }
 
@@ -111,21 +113,79 @@ impl Item {
             Item::Milk => false,
             Item::U235 => false,
             Item::U238 => false,
-            Item::Rotor => todo!(),
-            Item::Circuit => todo!(),
-            Item::TitaniumLattice => todo!(),
-            Item::PowerCell => todo!(),
+            Item::Rotor => false,
+            Item::Circuit => false,
+            Item::TitaniumLattice => false,
+            Item::PowerCell => false,
         }
     }
 
-    // mass per unit volume, in kg/m^3
-    pub fn density(&self) -> u64 {
+    // most item units are grams, i.e. grams of iron ore or hydrogen gas.
+    // other items, such as rotors, circuits, beams, etc have larger masses
+    // per unit.
+    pub fn mass_per_unit(&self) -> Mass {
         match self {
-            Item::O2 => 1141,
-            Item::H2 => 71,
-            Item::Iron => 7874,
-            Item::Copper => 8935,
-            _ => 1000,
+            // "continuous" items which behave as if they're fluids
+            Item::Iron
+            | Item::Copper
+            | Item::Magnesium
+            | Item::Silicon
+            | Item::Titanium
+            | Item::Ice
+            | Item::Water
+            | Item::Methane
+            | Item::H2
+            | Item::CO2
+            | Item::O2
+            | Item::Milk
+            | Item::Corn
+            | Item::U238
+            | Item::U235 => Mass::grams(1),
+
+            // TODO revisit these.
+            Item::Corn => Mass::grams(120),
+            Item::Bread => Mass::grams(200),
+            Item::Wheat => Mass::grams(110),
+            Item::Calzones => Mass::grams(260),
+            Item::Geodes => Mass::grams(1300),
+            Item::Rotor => Mass::grams(300),
+            Item::Circuit => Mass::grams(90),
+            Item::TitaniumLattice => Mass::grams(1900),
+            Item::PowerCell => Mass::grams(930),
+        }
+    }
+
+    // volume per "one" of the thing. for items like ore, fluid, etc,
+    // this might be volume per 1 gram of the stuff.
+    // for items like rotors, bread, etc, this is the volume of one item
+    // of that type.
+    pub fn volume_per_unit(&self) -> Volume {
+        match self {
+            Item::Iron => Volume::microliters(127),
+            Item::Copper => Volume::microliters(112),
+            Item::Titanium => Volume::microliters(222),
+            Item::Magnesium => Volume::microliters(575),
+            Item::Silicon => Volume::microliters(429),
+            Item::Ice => Volume::microliters(1003),
+            Item::Water => Volume::microliters(1003),
+            Item::Methane => Volume::microliters(2360),
+            Item::H2 => Volume::microliters(13890),
+            Item::CO2 => Volume::milliliters_f64(542.853),
+            Item::O2 => Volume::microliters(872),
+            Item::Calzones => Volume::liters(2),
+            Item::Geodes => Volume::liters(3),
+            Item::Wheat => Volume::milliliters(1400),
+            Item::Corn => Volume::milliliters(1100),
+            Item::Milk => Volume::microliters(924),
+            Item::U238 => Volume::microliters(53),
+            Item::U235 => Volume::microliters(53),
+
+            // larger items
+            Item::Bread => Volume::milliliters(1500),
+            Item::Circuit => Volume::milliliters(410),
+            Item::TitaniumLattice => Volume::milliliters(3500),
+            Item::PowerCell => Volume::milliliters(1700),
+            Item::Rotor => Volume::milliliters(1200),
         }
     }
 
@@ -150,15 +210,11 @@ impl Item {
             Item::Milk => [255, 255, 255],
             Item::U235 => [66, 200, 47],
             Item::U238 => [6, 64, 43],
-            _ => todo!(),
+            _ => [255, 100, 100],
         };
         Srgba::from_u8_array_no_alpha(arr)
     }
 }
-
-pub type Volume = u64;
-
-pub type Mass = u64;
 
 #[derive(Component, Debug, Clone, Default)]
 pub struct Inventory(Vec<InvSlot>);
@@ -173,7 +229,7 @@ impl Inventory {
     }
 
     pub fn single(item: Item, capacity: Volume) -> Self {
-        let mut slot = InvSlot::new(SlotPolicy::Storage, capacity, ItemFilter::Any).with_item(item);
+        let mut slot = InvSlot::new(capacity, ItemFilter::Any).with_item(item);
         Self(vec![slot])
     }
 
@@ -181,17 +237,22 @@ impl Inventory {
         let mut s = Self::zero_slots();
 
         for (item, count) in recipe.inputs() {
-            let slot = InvSlot::new(SlotPolicy::Input, count * 10, ItemFilter::Any).with_item(item);
-            s.0.push(slot);
+            let capacity = item.volume_per_unit() * count * 10;
+            let slot = InvSlot::new(capacity, ItemFilter::Any);
+            s.0.push(slot.with_item(item));
         }
 
         for (item, count) in recipe.outputs() {
-            let slot =
-                InvSlot::new(SlotPolicy::Output, count * 10, ItemFilter::Any).with_item(item);
-            s.0.push(slot);
+            let capacity = item.volume_per_unit() * count * 10;
+            let slot = InvSlot::new(capacity, ItemFilter::Any);
+            s.0.push(slot.with_item(item));
         }
 
         s
+    }
+
+    pub fn add_slot(&mut self, slot: InvSlot) {
+        self.0.push(slot);
     }
 
     pub fn get_slot_mut(&mut self, idx: usize) -> Option<&mut InvSlot> {
@@ -240,6 +301,10 @@ impl Inventory {
         return false;
     }
 
+    pub fn slot_count(&self) -> usize {
+        self.0.len()
+    }
+
     pub fn slots(&self) -> impl Iterator<Item = &InvSlot> + use<'_> {
         self.0.iter()
     }
@@ -248,7 +313,7 @@ impl Inventory {
         self.0.iter_mut()
     }
 
-    pub fn mass(&self) -> u64 {
+    pub fn mass(&self) -> Mass {
         self.0.iter().map(|s| s.mass()).sum()
     }
 
@@ -286,30 +351,6 @@ impl Inventory {
     }
 }
 
-impl std::fmt::Display for Inventory {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.is_empty() {
-            return write!(f, "[empty inventory]");
-        }
-
-        for (i, slot) in self.iter().enumerate() {
-            write!(f, "{:?}", slot)?;
-            if i + 1 < self.len() {
-                write!(f, ", ")?;
-            }
-        }
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum SlotPolicy {
-    #[default]
-    Storage,
-    Input,
-    Output,
-}
-
 #[derive(Debug, Clone, Copy)]
 pub enum ItemFilter {
     Any,
@@ -333,16 +374,14 @@ impl ItemFilter {
 
 #[derive(Component, Debug, Clone, Copy)]
 pub struct InvSlot {
-    policy: SlotPolicy,
     capacity: Volume,
     filter: ItemFilter,
-    contents: Option<(Item, Mass)>,
+    contents: Option<(Item, u64)>,
 }
 
 impl InvSlot {
-    pub fn new(policy: SlotPolicy, capacity: u64, filter: ItemFilter) -> Self {
+    pub fn new(capacity: Volume, filter: ItemFilter) -> Self {
         Self {
-            policy,
             capacity,
             filter,
             contents: None,
@@ -352,10 +391,6 @@ impl InvSlot {
     pub fn with_item(mut self, item: Item) -> Self {
         self.contents = Some((item, 0));
         self
-    }
-
-    pub fn policy(&self) -> SlotPolicy {
-        self.policy
     }
 
     pub fn capacity(&self) -> Volume {
@@ -382,13 +417,6 @@ impl InvSlot {
         self.contents.map(|(i, _)| i == item).unwrap_or(false)
     }
 
-    pub fn add(&mut self, to_add: u64) {
-        if let Some((item, count)) = self.contents {
-            let new_count = (to_add + count).min(self.capacity);
-            self.contents = Some((item, new_count));
-        }
-    }
-
     pub fn empty(&mut self) {
         if let Some((item, _)) = self.contents {
             self.contents = Some((item, 0));
@@ -397,7 +425,8 @@ impl InvSlot {
 
     pub fn fill(&mut self) {
         if let Some((item, _)) = self.contents {
-            self.contents = Some((item, self.capacity));
+            let units_capacity = (self.capacity / item.volume_per_unit()).floor() as u64;
+            self.contents = Some((item, units_capacity));
         }
     }
 
@@ -426,8 +455,9 @@ impl InvSlot {
     // the given capacity.
     // TODO related mass and volume here.
     pub fn can_store(&self, item: Item, count: u64) -> bool {
+        let units_capacity = (self.capacity / item.volume_per_unit()).floor() as u64;
         if let Some(contents) = self.contents {
-            contents.0 == item && contents.1 + count <= self.capacity
+            contents.0 == item && contents.1 + count <= units_capacity
         } else {
             false
         }
@@ -445,27 +475,26 @@ impl InvSlot {
         true
     }
 
-    pub fn store_partial(&mut self, item: Item, count: u64) -> bool {
+    pub fn store_partial(&mut self, item: Item, count: u64) {
+        let units_capacity = (self.capacity / item.volume_per_unit()).floor() as u64;
         if let Some(contents) = &mut self.contents {
-            contents.1 = (contents.1 + count).min(self.capacity);
-            true
-        } else {
-            false
-        }
-    }
-
-    pub fn store_existing_partial(&mut self, count: u64) -> bool {
-        if let Some(item) = self.item() {
-            self.store_partial(item, count)
-        } else {
-            false
+            contents.1 = (contents.1 + count).min(units_capacity);
         }
     }
 
     pub fn fill_percentage(&self) -> f32 {
         self.contents
-            .map(|(_, c)| (c as f64 / self.capacity as f64) as f32)
+            .map(|(item, c)| {
+                let v = item.volume_per_unit() * c;
+                (v / self.capacity) as f32
+            })
             .unwrap_or(0.0)
+    }
+
+    pub fn is_full(&self) -> bool {
+        self.contents
+            .map(|(item, _)| item.volume_per_unit() > self.available_volume())
+            .unwrap_or(false)
     }
 
     pub fn item(&self) -> Option<Item> {
@@ -474,16 +503,55 @@ impl InvSlot {
 
     pub fn mass(&self) -> Mass {
         self.contents
-            .map(|(item, count)| item.density() * count)
-            .unwrap_or(0)
+            .map(|(item, count)| item.mass_per_unit() * count)
+            .unwrap_or(Mass::ZERO)
     }
 
     pub fn occupied_volume(&self) -> Volume {
-        self.contents.map(|(_, count)| count).unwrap_or(0)
+        self.contents
+            .map(|(item, count)| count * item.volume_per_unit())
+            .unwrap_or(Volume::ZERO)
     }
 
     pub fn available_volume(&self) -> Volume {
         self.capacity - self.occupied_volume()
+    }
+}
+
+impl std::fmt::Display for Inventory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.is_empty() {
+            return write!(f, "[empty inventory]");
+        }
+
+        write!(
+            f,
+            "{} slots, {} / {}\n",
+            self.0.len(),
+            self.occupied_volume(),
+            self.capacity()
+        );
+        for slot in &self.0 {
+            let item = slot
+                .contents()
+                .map(|(item, count)| format!("{:?} x{}", item, count))
+                .unwrap_or("(Empty)".to_string());
+            let full = if slot.is_full() {
+                " (full)"
+            } else {
+                " (not full)"
+            };
+            write!(
+                f,
+                " - {}, {}, {}/{}{}\n",
+                item,
+                slot.mass(),
+                slot.occupied_volume(),
+                slot.capacity(),
+                full
+            )?;
+        }
+        Ok(())
     }
 }
 
@@ -493,56 +561,85 @@ mod tests {
 
     #[test]
     fn store_single() {
-        let mut inv = Inventory::single(Item::Iron, 4000);
+        let mut inv = Inventory::single(Item::Iron, Volume::liters(4000));
 
         assert!(inv.can_store(Item::Iron, 4000));
         assert!(inv.can_store(Item::Iron, 400));
         assert!(inv.can_store(Item::Iron, 2300));
         assert!(inv.can_store(Item::Iron, 0));
 
-        assert!(!inv.can_store(Item::Iron, 5000));
+        assert!(!inv.can_store(Item::Iron, 5000000000000));
         assert!(!inv.can_store(Item::Copper, 0));
-        assert!(!inv.can_store(Item::Magnesium, 500));
+        assert!(!inv.can_store(Item::Magnesium, 5000000000000));
 
         assert!(inv.store(Item::Iron, 1000));
         assert!(inv.store(Item::Iron, 500));
 
-        assert!(inv.can_store(Item::Iron, 1000));
-        assert!(!inv.can_store(Item::Iron, 4000));
+        assert!(inv.can_store(Item::Iron, 10000));
+        assert!(!inv.can_store(Item::Iron, 400000000000));
+
+        assert_eq!(inv.mass(), Mass::grams(1500));
+        assert_eq!(inv.occupied_volume(), Volume::microliters(190500));
+
+        println!("{}", inv);
     }
 
     #[test]
     fn multiple_slots() {
         let mut inv = Inventory::from_slots(vec![
-            InvSlot::new(SlotPolicy::Storage, 1000, ItemFilter::Any).with_item(Item::Bread),
-            InvSlot::new(SlotPolicy::Storage, 2000, ItemFilter::Any).with_item(Item::Magnesium),
-            InvSlot::new(SlotPolicy::Storage, 1500, ItemFilter::Any).with_item(Item::Magnesium),
-            InvSlot::new(SlotPolicy::Storage, 300, ItemFilter::Any).with_item(Item::Ice),
+            InvSlot::new(Volume::liters(1000), ItemFilter::Any).with_item(Item::Bread),
+            InvSlot::new(Volume::liters(2000), ItemFilter::Any).with_item(Item::Magnesium),
+            InvSlot::new(Volume::liters(1500), ItemFilter::Any).with_item(Item::Magnesium),
+            InvSlot::new(Volume::liters(300), ItemFilter::Any).with_item(Item::Ice),
         ]);
 
-        assert_eq!(inv.capacity(), 4800);
-        assert_eq!(inv.occupied_volume(), 0);
-        assert_eq!(inv.available_volume(), 4800);
+        assert_eq!(inv.capacity(), Volume::liters(4800));
+        assert_eq!(inv.occupied_volume(), Volume::ZERO);
+        assert_eq!(inv.available_volume(), Volume::liters(4800));
 
-        assert_eq!(inv.available_volume_of(Item::Bread), 1000);
-        assert_eq!(inv.available_volume_of(Item::Magnesium), 3500);
-        assert_eq!(inv.available_volume_of(Item::Ice), 300);
+        assert_eq!(inv.available_volume_of(Item::Bread), Volume::liters(1000));
+        assert_eq!(
+            inv.available_volume_of(Item::Magnesium),
+            Volume::liters(3500)
+        );
+        assert_eq!(inv.available_volume_of(Item::Ice), Volume::liters(300));
 
-        assert_eq!(inv.mass(), 0);
-        assert_eq!(inv.mass_of(Item::Bread), 0);
-        assert_eq!(inv.mass_of(Item::Magnesium), 0);
-        assert_eq!(inv.mass_of(Item::Ice), 0);
+        assert_eq!(inv.mass(), Mass::ZERO);
+        assert_eq!(inv.mass_of(Item::Bread), Mass::ZERO);
+        assert_eq!(inv.mass_of(Item::Magnesium), Mass::ZERO);
+        assert_eq!(inv.mass_of(Item::Ice), Mass::ZERO);
 
-        assert!(inv.store(Item::Bread, 1000));
+        assert!(inv.store(Item::Bread, 100));
         assert!(inv.store(Item::Magnesium, 1500));
 
-        assert_eq!(inv.capacity(), 4800);
-        assert_eq!(inv.occupied_volume(), 2500);
-        assert_eq!(inv.available_volume(), 2300);
+        assert_eq!(inv.capacity(), Volume::liters(4800));
+        assert_eq!(inv.occupied_volume(), Volume::milliliters(800));
+        assert_eq!(inv.available_volume(), Volume::microliters(4799200000));
 
-        assert_eq!(inv.mass(), 2500000);
-        assert_eq!(inv.mass_of(Item::Bread), 1000000);
-        assert_eq!(inv.mass_of(Item::Magnesium), 1500000);
-        assert_eq!(inv.mass_of(Item::Ice), 0);
+        assert_eq!(inv.mass(), Mass::grams(21500));
+        assert_eq!(inv.mass_of(Item::Bread), Mass::grams(20000));
+        assert_eq!(inv.mass_of(Item::Magnesium), Mass::grams(1500));
+        assert_eq!(inv.mass_of(Item::Ice), Mass::ZERO);
+
+        println!("{}", inv);
+    }
+
+    #[test]
+    fn big_items() {
+        let mut inv = Inventory::from_slots(vec![
+            InvSlot::new(Volume::liters(100), ItemFilter::Any).with_item(Item::Rotor),
+            InvSlot::new(Volume::liters(100), ItemFilter::Any).with_item(Item::TitaniumLattice),
+            InvSlot::new(Volume::liters(100), ItemFilter::Any).with_item(Item::H2),
+        ]);
+
+        while inv.store(Item::Rotor, 1) {}
+        while inv.store(Item::TitaniumLattice, 1) {}
+        while inv.store(Item::H2, 1) {}
+
+        assert_eq!(inv.mass_of(Item::Rotor), Mass::grams(57000));
+        assert_eq!(inv.mass_of(Item::TitaniumLattice), Mass::grams(15120));
+        assert_eq!(inv.mass_of(Item::H2), Mass::grams(200000));
+
+        println!("{}", inv);
     }
 }
