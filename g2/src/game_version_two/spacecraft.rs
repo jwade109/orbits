@@ -1,11 +1,6 @@
-use crate::animated_text::SpawnAnimText;
-use crate::inventory::*;
-use crate::machine::{Machine, update_machines};
-use crate::mass::Mass;
-use crate::recipe::*;
-use crate::volume::Volume;
+use crate::game_version_two::*;
 
-use avian2d::prelude::*;
+use avian2d::prelude::{AngularVelocity, Collider, PhysicsPlugins};
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use bevy::time::common_conditions::on_timer;
@@ -32,7 +27,10 @@ impl Plugin for SpacecraftPlugin {
                     draw_selected_grid_guides,
                 ),
             )
-            .add_systems(FixedUpdate, (build_parts, update_machines))
+            .add_systems(
+                FixedUpdate,
+                (build_parts, update_machines, accelerate_spacecraft),
+            )
             .add_systems(
                 FixedUpdate,
                 update_grids.run_if(on_timer(Duration::from_millis(50))),
@@ -66,12 +64,19 @@ pub struct SetRecipe {
 pub struct SpacecraftGrid {
     parts: usize,
     mass: Mass,
-    grid_bounds: (IVec2, IVec2),
+    bounds: (Vec2, Vec2),
+    pub center_of_mass: DVec2,
+    pub velocity: DVec2,
+    pub body_frame_acceleration: DVec2,
 }
 
 impl SpacecraftGrid {
-    pub fn grid_dims(&self) -> IVec2 {
-        self.grid_bounds.1 - self.grid_bounds.0
+    pub fn dims(&self) -> Vec2 {
+        self.bounds.1 - self.bounds.0
+    }
+
+    pub fn apply_body_frame_thrust(&mut self, thrust: Vec2) {
+        self.body_frame_acceleration += thrust.as_dvec2() / self.mass.to_kg_f64()
     }
 }
 
@@ -120,7 +125,7 @@ fn draw_inventories(
             painter.set_translation(tf.translation().with_z(10.0) + tf.up() * offset);
             painter.set_rotation(tf.rotation());
 
-            painter.set_color(BLACK);
+            painter.set_color(BLACK.with_alpha(0.6));
             painter.rect(small_dims + Vec2::splat(width * 2.0));
 
             painter.translate(Vec3::Z);
@@ -175,7 +180,14 @@ fn draw_selected_grid_guides(
     painter.thickness_type = ThicknessType::Pixels;
     painter.set_translation(tf.translation().with_z(-50.0));
     painter.set_rotation(tf.rotation());
-    painter.rect(grid.grid_dims().as_vec2() / 20.0);
+    painter.rect(grid.dims());
+
+    painter.translate(grid.center_of_mass.extend(100.0).as_vec3());
+    painter.hollow = false;
+    painter.set_color(GREEN);
+    painter.circle(0.1);
+    painter.set_color(WHITE);
+    painter.circle(0.08);
 }
 
 fn draw_selected_part(
@@ -222,7 +234,8 @@ fn update_grids(
     for (e, mut grid, children) in &mut grids {
         grid.mass = Mass::ZERO;
         grid.parts = children.iter().count();
-        grid.grid_bounds = (IVec2::ZERO, IVec2::ZERO);
+        grid.bounds = (Vec2::ZERO, Vec2::ZERO);
+        grid.center_of_mass = DVec2::ZERO;
 
         if grid.parts == 0 {
             info!("Despawning empty grid {e}");
@@ -230,21 +243,27 @@ fn update_grids(
             continue;
         }
 
+        let mut com = DVec2::ZERO;
+
         for part in children.iter() {
             if let Ok((part, inv)) = parts.get(part) {
-                grid.mass += Mass::grams(part.prototype().dry_mass().to_grams());
-                if let Some(inv) = inv {
-                    grid.mass += inv.mass();
-                }
-                let origin = part.origin();
-                grid.grid_bounds.0.x = grid.grid_bounds.0.x.min(origin.x);
-                grid.grid_bounds.0.y = grid.grid_bounds.0.y.min(origin.y);
-                grid.grid_bounds.1.x = grid.grid_bounds.1.x.max(origin.x);
-                grid.grid_bounds.1.y = grid.grid_bounds.1.y.max(origin.y);
+                let part_mass = Mass::grams(part.prototype().dry_mass().to_grams());
+                let inv_mass = inv.map(|inv| inv.mass()).unwrap_or(Mass::ZERO);
+                grid.mass += part_mass + inv_mass;
+                com += (part.origin_meters() + part.dims_meters() / 2.0).as_dvec2()
+                    * (part_mass + inv_mass).to_kg_f64();
+                let origin = part.origin_meters();
+                let dims = part.dims_meters();
+                grid.bounds.0.x = grid.bounds.0.x.min(origin.x - dims.x);
+                grid.bounds.0.y = grid.bounds.0.y.min(origin.y - dims.y);
+                grid.bounds.1.x = grid.bounds.1.x.max(origin.x + dims.x);
+                grid.bounds.1.y = grid.bounds.1.y.max(origin.y + dims.y);
             } else {
                 warn!("Bad grid child: {part}");
             }
         }
+
+        grid.center_of_mass = com / grid.mass.to_kg_f64();
     }
 }
 
@@ -523,6 +542,8 @@ fn add_part_to_grid<'a>(
     };
 
     let is_machine = part.as_machine().is_some();
+    let is_thruster = part.as_thruster().is_some();
+    let is_structural = part.layer() == starling::parts::PartLayer::Structural;
 
     let n_slots = match part.variant() {
         InstantiatedPartVariant::Cargo(c, _) => c.slots(),
@@ -540,17 +561,25 @@ fn add_part_to_grid<'a>(
         inv
     };
 
-    commands
-        .spawn((
-            Name::new(format!("Part ({})", name)),
-            Transform::from_translation(origin.extend(z))
-                .with_scale(Vec3::splat(1.0))
-                .with_rotation(Quat::from_rotation_z(part.rotation().to_angle() as f32)),
-            PartInstance(part.clone()),
-            InheritedVisibility::VISIBLE,
-            build,
-        ))
-        .insert_if(Mesh2d(meshes.add(polygon)), || has_inventory)
+    let mut cmd = commands.spawn((
+        Name::new(format!("Part ({})", name)),
+        Transform::from_translation(origin.extend(z))
+            .with_rotation(Quat::from_rotation_z(part.rotation().to_angle() as f32)),
+        PartInstance(part.clone()),
+        InheritedVisibility::VISIBLE,
+        build,
+    ));
+
+    if is_thruster {
+        cmd.insert((
+            Thruster::default(),
+            Inventory::single(Item::H2, Volume::liters(10)),
+        ));
+    }
+
+    cmd
+        // for cursor picking
+        .insert_if(Mesh2d(meshes.add(polygon)), || !is_structural)
         .insert_if(Machine::new(None), || is_machine)
         .insert_if(inv, || has_inventory)
         .with_child((
@@ -582,4 +611,16 @@ fn spawn_spacecraft(
             );
         }
     });
+}
+
+fn accelerate_spacecraft(
+    mut grids: Query<(&mut Transform, &mut SpacecraftGrid)>,
+    time: Res<Time<Fixed>>,
+) {
+    let dt = time.delta_secs_f64();
+    for (mut tf, mut grid) in &mut grids {
+        let dv = tf.rotation.mul_vec3(grid.body_frame_acceleration.extend(0.0).as_vec3()).xy();
+        grid.velocity += dv.as_dvec2() * dt;
+        tf.translation += (grid.velocity * dt).as_vec2().extend(0.0);
+    }
 }

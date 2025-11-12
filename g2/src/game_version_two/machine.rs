@@ -1,8 +1,4 @@
-use crate::inventory::*;
-use crate::recipe::*;
-
-use bevy::prelude::*;
-use starling::prelude::randint;
+use crate::game_version_two::*;
 
 #[derive(Component, Debug, Clone)]
 pub struct Machine {
@@ -21,6 +17,12 @@ pub enum MachineStatus {
     Running,
     NoRoom,
     Starved,
+}
+
+impl MachineStatus {
+    pub fn is_running(&self) -> bool {
+        *self == MachineStatus::Running
+    }
 }
 
 impl Machine {

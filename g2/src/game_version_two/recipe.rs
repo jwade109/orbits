@@ -1,9 +1,6 @@
 #![allow(unused)]
 
-use crate::inventory::*;
-use enum_iterator::Sequence;
-use starling::prelude::randint;
-use std::collections::HashMap;
+use crate::game_version_two::*;
 
 #[derive(Debug, Default, Clone)]
 pub struct Recipe {
@@ -180,7 +177,7 @@ impl RecipeListing {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mass::Mass;
+    use crate::game_version_two::Mass;
 
     #[test]
     fn consistent_masses() {

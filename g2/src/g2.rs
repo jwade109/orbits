@@ -1,30 +1,15 @@
-mod animated_text;
-mod inventory;
-mod machine;
-mod mass;
-mod particles;
-mod recipe;
-mod spacecraft;
-mod volume;
+mod game_version_two;
 
-use crate::animated_text::*;
-use crate::inventory::*;
-use crate::machine::{Machine, MachineStatus};
-use crate::particles::*;
-use crate::recipe::*;
-use crate::spacecraft::*;
+use crate::game_version_two::*;
 
 use avian2d::prelude::*;
 use bevy::color::palettes::css::*;
 use bevy::core_pipeline::bloom::Bloom;
 use bevy::input::mouse::MouseWheel;
-use bevy::prelude::*;
 use bevy::sprite::Wireframe2dPlugin;
 use bevy_egui::{EguiContexts, EguiPlugin, EguiPrimaryContextPass, egui};
 use bevy_inspector_egui::quick::*;
-use bevy_vector_shapes::prelude::*;
 use game::args::ProgramContext;
-use starling::prelude::rand;
 
 fn main() {
     App::new()
@@ -50,6 +35,7 @@ fn main() {
         .add_plugins(WorldInspectorPlugin::new())
         .add_systems(EguiPrimaryContextPass, egui_ui)
         .add_plugins(Shape2dPlugin::default())
+        .add_plugins(ThrusterPlugin::default())
         // plugins I've implemented
         .add_plugins(ParticlePlugin)
         .add_plugins(AnimatedTextPlugin)
@@ -201,6 +187,18 @@ fn con_state_widget(id: Option<Entity>, ui: &mut egui::Ui, mut con: Query<&mut C
     ui.add(egui::Checkbox::new(&mut con.should_build, "Build"));
 }
 
+fn add_thruster_widget(ui: &mut egui::Ui, thruster: &mut Thruster) {
+    ui.label(format!("{:#?}", thruster));
+
+    let s = if thruster.on { "ON " } else { "OFF" };
+
+    if ui.button(s).clicked() {
+        thruster.toggle();
+    }
+
+    running_status_widget(ui, thruster.status);
+}
+
 fn add_inv_widget(ui: &mut egui::Ui, inv: &mut Inventory) {
     ui.label(format!(
         "Mass: {}, {} / {}",
@@ -279,6 +277,24 @@ fn add_inventory_widget(
     add_inv_widget(ui, &mut inv);
 }
 
+fn running_status_widget(ui: &mut egui::Ui, status: MachineStatus) {
+    let color = match status {
+        MachineStatus::Off => egui::Color32::GRAY,
+        MachineStatus::NoRecipe => egui::Color32::RED,
+        MachineStatus::Running => egui::Color32::GREEN,
+        MachineStatus::NoRoom => egui::Color32::YELLOW,
+        MachineStatus::Starved => egui::Color32::YELLOW,
+    };
+
+    ui.horizontal(|ui| {
+        egui::color_picker::show_color(ui, color, bevy_inspector_egui::egui::Vec2::new(10.0, 10.0));
+        if status.is_running() {
+            ui.add(egui::Spinner::new().color(color));
+        }
+        ui.label(format!("{:?}", status));
+    });
+}
+
 fn machine_editor_widget(
     commands: &mut Commands,
     id: Option<Entity>,
@@ -313,7 +329,12 @@ fn machine_editor_widget(
         }
 
         for (item, count) in recipe.inputs() {
-            ui.label(format!("  {:?}: {} ({})", item, count, item.mass_per_unit() * count));
+            ui.label(format!(
+                "  {:?}: {} ({})",
+                item,
+                count,
+                item.mass_per_unit() * count
+            ));
         }
 
         if recipe.output_count() > 0 {
@@ -321,28 +342,18 @@ fn machine_editor_widget(
         }
 
         for (item, count) in recipe.outputs() {
-            ui.label(format!("  {:?}: {} ({})", item, count, item.mass_per_unit() * count));}
+            ui.label(format!(
+                "  {:?}: {} ({})",
+                item,
+                count,
+                item.mass_per_unit() * count
+            ));
+        }
     }
 
     ui.label(format!("{} finished", mac.products_finished));
 
-    ui.horizontal(|ui| {
-        let color = match mac.status {
-            MachineStatus::Off => egui::Color32::GRAY,
-            MachineStatus::NoRecipe => egui::Color32::RED,
-            MachineStatus::Running => egui::Color32::GREEN,
-            MachineStatus::NoRoom => egui::Color32::YELLOW,
-            MachineStatus::Starved => egui::Color32::YELLOW,
-        };
-
-        egui::color_picker::show_color(ui, color, bevy_inspector_egui::egui::Vec2::new(10.0, 10.0));
-
-        if mac.is_running() {
-            ui.add(egui::Spinner::new().color(color));
-        }
-
-        ui.label(format!("{:?}", mac.status));
-    });
+    running_status_widget(ui, mac.status);
 
     ui.horizontal(|ui| {
         ui.label(format!("{}/{}", mac.steps, mac.required_steps));
@@ -383,11 +394,42 @@ fn egui_ui(
     parts: Query<(&PartInstance, &ChildOf)>,
     grids: Query<&SpacecraftGrid>,
     mut inventories: Query<&mut Inventory>,
+    mut thrusters: Query<&mut Thruster>,
     machines: Query<&mut Machine>,
     con: Query<&mut ConstructionState>,
     cursor: Res<PartCursor>,
 ) -> Result {
     let ctx = contexts.ctx_mut()?;
+
+    let e = cursor.hovered.or(cursor.selected);
+
+    if let Some(e) = e {
+        egui::panel::SidePanel::new(egui::containers::panel::Side::Right, "Part Info").show(
+            ctx,
+            |ui| {
+                apply_egui_style(ui);
+                ui.set_width(350.0);
+
+                if let Ok((instance, _)) = parts.get(e) {
+                    ui.collapsing("Part Data", |ui| {
+                        ui.label(format!("{:#?}", instance.0));
+                    });
+                }
+
+                if let Ok(mut inventory) = inventories.get_mut(e) {
+                    ui.separator();
+                    ui.heading("Inventory");
+                    add_inv_widget(ui, &mut inventory);
+                }
+
+                if let Ok(mut thruster) = thrusters.get_mut(e) {
+                    ui.separator();
+                    ui.heading("Thruster");
+                    add_thruster_widget(ui, &mut thruster);
+                }
+            },
+        );
+    }
 
     egui::panel::SidePanel::new(egui::containers::panel::Side::Left, "Debug").show(ctx, |ui| {
         apply_egui_style(ui);
@@ -424,13 +466,6 @@ fn egui_ui(
         });
 
         ui.collapsing("Selected", |ui| {
-            ui.label(format!("Part: {:?}", cursor.selected));
-            if let Some((part, _)) = cursor.selected.map(|e| parts.get(e).ok()).flatten() {
-                ui.label(format!("{part:#?}"));
-            }
-
-            ui.separator();
-
             if let Some((_, parent)) = cursor.selected.map(|e| parts.get(e).ok()).flatten() {
                 ui.label(format!("Spacecraft: {:#?}", parent.0));
                 if let Ok(grid) = grids.get(parent.0) {
