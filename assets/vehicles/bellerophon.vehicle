@@ -453,6 +453,11 @@ parts:
   - 223
   - -60
   rot: South
+- partname: cpu
+  pos:
+  - 220
+  - -55
+  rot: East
 - partname: tank21
   pos:
   - 83

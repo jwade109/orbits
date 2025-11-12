@@ -40,17 +40,21 @@ impl Plugin for ThrusterPlugin {
 
 fn draw_thrusters(
     mut painter: ShapePainter,
-    thrusters: Query<(&GlobalTransform, &PartInstance), With<Thruster>>,
+    thrusters: Query<(&GlobalTransform, &Thruster, &PartInstance)>,
 ) {
-    for (location, part) in &thrusters {
+    for (location, thruster, part) in &thrusters {
         painter.reset();
-        painter.set_color(Srgba::RED);
+
+        let color = match thruster.on {
+            true => Srgba::RED.with_alpha(0.7),
+            false => Srgba::GREEN.with_alpha(0.05),
+        };
+
+        painter.set_color(color);
         painter.set_translation(location.translation());
         painter.set_rotation(location.rotation());
-        painter.hollow = true;
-        painter.thickness_type = ThicknessType::Pixels;
-        painter.thickness = 3.0;
         let dims = part.prototype().dims_meters();
+        painter.translate(-dims.x * Vec2::X.extend(0.0));
         painter.rect(dims);
     }
 }

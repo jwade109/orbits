@@ -1,7 +1,7 @@
 use std::iter::Sum;
 use std::ops::*;
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub struct Mass(u64);
 
 impl Mass {
@@ -40,6 +40,18 @@ impl Mass {
 }
 
 impl std::fmt::Display for Mass {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.0 < 1000 {
+            write!(f, "{} g", self.0)
+        } else if self.0 < 1000000 {
+            write!(f, "{:0.1} kg", self.0 as f32 / 1000.0)
+        } else {
+            write!(f, "{:0.1} t", (self.0 / 1000) as f32 / 1000.0)
+        }
+    }
+}
+
+impl std::fmt::Debug for Mass {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.0 < 1000 {
             write!(f, "{} g", self.0)

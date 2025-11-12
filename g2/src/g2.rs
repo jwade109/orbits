@@ -40,6 +40,7 @@ fn main() {
         .add_plugins(ParticlePlugin)
         .add_plugins(AnimatedTextPlugin)
         .add_plugins(SpacecraftPlugin)
+        .add_plugins(ComputerPlugin)
         .add_systems(Startup, setup)
         .add_systems(Update, control_camera)
         .run();
@@ -199,6 +200,18 @@ fn add_thruster_widget(ui: &mut egui::Ui, thruster: &mut Thruster) {
     running_status_widget(ui, thruster.status);
 }
 
+fn add_computer_widget(ui: &mut egui::Ui, computer: &mut Computer) {
+    ui.label(format!("{:#?}", computer));
+
+    let s = if computer.on { "ON " } else { "OFF" };
+
+    if ui.button(s).clicked() {
+        computer.toggle();
+    }
+
+    running_status_widget(ui, computer.status);
+}
+
 fn add_inv_widget(ui: &mut egui::Ui, inv: &mut Inventory) {
     ui.label(format!(
         "Mass: {}, {} / {}",
@@ -295,25 +308,7 @@ fn running_status_widget(ui: &mut egui::Ui, status: MachineStatus) {
     });
 }
 
-fn machine_editor_widget(
-    commands: &mut Commands,
-    id: Option<Entity>,
-    ui: &mut egui::Ui,
-    mut machines: Query<&mut Machine>,
-    cfg: &mut DebugPanelState,
-) {
-    let id = if let Some(id) = id {
-        id
-    } else {
-        return;
-    };
-    ui.label(format!("Entity: {id}"));
-
-    let mut mac = match machines.get_mut(id) {
-        Ok(mac) => mac,
-        _ => return,
-    };
-
+fn add_machine_widget(id: Entity, commands: &mut Commands, ui: &mut egui::Ui, mac: &mut Machine) {
     if ui
         .button(if mac.enabled { "Turn Off" } else { "Turn On" })
         .clicked()
@@ -323,7 +318,7 @@ fn machine_editor_widget(
 
     ui.add(egui::Slider::new(&mut mac.required_steps, 3..=150));
 
-    if let Some(recipe) = &mac.recipe {
+    if let Some(recipe) = mac.recipe() {
         if recipe.input_count() > 0 {
             ui.label("Consumes:");
         }
@@ -367,24 +362,44 @@ fn machine_editor_widget(
         .map(|l| (l, format!("{:?}", l)))
         .collect();
 
-    let before = cfg.recipe;
+    let before = mac.recipe;
+    let mut current = before;
 
     egui::ComboBox::from_label("")
-        .selected_text(format!("{:?}", cfg.recipe))
+        .selected_text(format!("{:?}", current))
         .show_ui(ui, |ui| {
             for (listing, name) in &recipes {
-                ui.selectable_value(&mut cfg.recipe, *listing, name);
+                ui.selectable_value(&mut current, *listing, name);
             }
         });
 
-    if cfg.recipe != before {
-        let recipe = cfg.recipe.to_recipe();
-
+    if current != before {
         commands.send_event(SetRecipe {
             target: id,
-            recipe: Some(recipe),
+            recipe: current,
         });
     }
+}
+
+fn machine_editor_widget(
+    commands: &mut Commands,
+    id: Option<Entity>,
+    ui: &mut egui::Ui,
+    mut machines: Query<&mut Machine>,
+) {
+    let id = if let Some(id) = id {
+        id
+    } else {
+        return;
+    };
+    ui.label(format!("Entity: {id}"));
+
+    let mut mac = match machines.get_mut(id) {
+        Ok(mac) => mac,
+        _ => return,
+    };
+
+    add_machine_widget(id, commands, ui, &mut mac);
 }
 
 fn egui_ui(
@@ -395,7 +410,8 @@ fn egui_ui(
     grids: Query<&SpacecraftGrid>,
     mut inventories: Query<&mut Inventory>,
     mut thrusters: Query<&mut Thruster>,
-    machines: Query<&mut Machine>,
+    mut computers: Query<&mut Computer>,
+    mut machines: Query<&mut Machine>,
     con: Query<&mut ConstructionState>,
     cursor: Res<PartCursor>,
 ) -> Result {
@@ -427,6 +443,18 @@ fn egui_ui(
                     ui.heading("Thruster");
                     add_thruster_widget(ui, &mut thruster);
                 }
+
+                if let Ok(mut computer) = computers.get_mut(e) {
+                    ui.separator();
+                    ui.heading("Computer");
+                    add_computer_widget(ui, &mut computer);
+                }
+
+                if let Ok(mut machine) = machines.get_mut(e) {
+                    ui.separator();
+                    ui.heading("Machine");
+                    add_machine_widget(e, &mut commands, ui, &mut machine);
+                }
             },
         );
     }
@@ -436,7 +464,7 @@ fn egui_ui(
         ui.set_width(350.0);
 
         ui.collapsing("Machine", |ui| {
-            machine_editor_widget(&mut commands, cursor.selected, ui, machines, &mut state);
+            machine_editor_widget(&mut commands, cursor.selected, ui, machines);
         });
 
         ui.collapsing("Inventory", |ui| {

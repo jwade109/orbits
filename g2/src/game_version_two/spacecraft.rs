@@ -3,12 +3,10 @@ use crate::game_version_two::*;
 use avian2d::prelude::{AngularVelocity, Collider, PhysicsPlugins};
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
-use bevy::time::common_conditions::on_timer;
 use bevy_ecs::relationship::RelatedSpawnerCommands;
 use bevy_vector_shapes::prelude::*;
 use game::args::ProgramContext;
 use starling::prelude::{InstantiatedPart, InstantiatedPartVariant, Vehicle, rand};
-use std::time::Duration;
 
 pub struct SpacecraftPlugin;
 
@@ -57,7 +55,7 @@ pub enum SpacecraftEvent {
 #[derive(Event, Debug)]
 pub struct SetRecipe {
     pub target: Entity,
-    pub recipe: Option<Recipe>,
+    pub recipe: RecipeListing,
 }
 
 #[derive(Component, Debug, Default)]
@@ -355,11 +353,8 @@ fn handle_change_recipe(
 
         machine.set_recipe(event.recipe.clone());
 
-        if let Some(recipe) = &event.recipe {
-            *inv = Inventory::from_recipe(recipe);
-        } else {
-            *inv = Inventory::zero_slots();
-        }
+        let recipe = event.recipe.to_recipe();
+        *inv = Inventory::from_recipe(&recipe);
     }
 }
 
@@ -543,6 +538,7 @@ fn add_part_to_grid<'a>(
 
     let is_machine = part.as_machine().is_some();
     let is_thruster = part.as_thruster().is_some();
+    let is_computer = part.is_computer();
     let is_structural = part.layer() == starling::parts::PartLayer::Structural;
 
     let n_slots = match part.variant() {
@@ -577,10 +573,14 @@ fn add_part_to_grid<'a>(
         ));
     }
 
+    if is_computer {
+        cmd.insert(Computer::default());
+    }
+
     cmd
         // for cursor picking
         .insert_if(Mesh2d(meshes.add(polygon)), || !is_structural)
-        .insert_if(Machine::new(None), || is_machine)
+        .insert_if(Machine::new(RecipeListing::DoNothing), || is_machine)
         .insert_if(inv, || has_inventory)
         .with_child((
             PartSprite,
@@ -619,7 +619,10 @@ fn accelerate_spacecraft(
 ) {
     let dt = time.delta_secs_f64();
     for (mut tf, mut grid) in &mut grids {
-        let dv = tf.rotation.mul_vec3(grid.body_frame_acceleration.extend(0.0).as_vec3()).xy();
+        let dv = tf
+            .rotation
+            .mul_vec3(grid.body_frame_acceleration.extend(0.0).as_vec3())
+            .xy();
         grid.velocity += dv.as_dvec2() * dt;
         tf.translation += (grid.velocity * dt).as_vec2().extend(0.0);
     }

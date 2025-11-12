@@ -73,10 +73,10 @@ parts:
   - 24
   - -11
   rot: West
-- partname: tank11
+- partname: cpu
   pos:
-  - -6
-  - 15
+  - -5
+  - 16
   rot: North
 - partname: rcs
   pos:

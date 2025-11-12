@@ -5,13 +5,14 @@ pub struct Machine {
     pub enabled: bool,
     pub steps: u32,
     pub required_steps: u32,
-    pub recipe: Option<Recipe>,
+    pub recipe: RecipeListing,
     pub products_finished: u64,
     pub status: MachineStatus,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum MachineStatus {
+    #[default]
     Off,
     NoRecipe,
     Running,
@@ -26,10 +27,10 @@ impl MachineStatus {
 }
 
 impl Machine {
-    pub fn new(recipe: impl Into<Option<Recipe>>) -> Self {
+    pub fn new(recipe: RecipeListing) -> Self {
         Self {
             enabled: true,
-            recipe: recipe.into(),
+            recipe,
             steps: 0,
             required_steps: randint(20, 32) as u32,
             products_finished: 0,
@@ -45,13 +46,21 @@ impl Machine {
         self.steps as f32 / self.required_steps as f32
     }
 
-    pub fn set_recipe(&mut self, recipe: impl Into<Option<Recipe>>) {
-        self.recipe = recipe.into();
+    pub fn set_recipe(&mut self, recipe: RecipeListing) {
+        self.recipe = recipe;
         self.steps = 0;
     }
 
+    pub fn recipe(&self) -> Option<Recipe> {
+        if self.recipe == RecipeListing::DoNothing {
+            None
+        } else {
+            Some(self.recipe.to_recipe())
+        }
+    }
+
     fn take_inputs_if_possible(&self, inv: &mut Inventory) -> bool {
-        let recipe = match &self.recipe {
+        let recipe = match self.recipe() {
             Some(r) => r,
             _ => return false,
         };
@@ -80,7 +89,7 @@ impl Machine {
     }
 
     fn store_outputs_if_possible(&self, inv: &mut Inventory) -> bool {
-        let recipe = match &self.recipe {
+        let recipe = match self.recipe() {
             Some(r) => r,
             _ => return false,
         };
@@ -111,7 +120,7 @@ impl Machine {
     }
 
     pub fn step_process(&mut self, inv: &mut Inventory) {
-        if self.recipe.is_none() {
+        if self.recipe().is_none() {
             self.status = MachineStatus::NoRecipe;
             return;
         }

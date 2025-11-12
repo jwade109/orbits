@@ -407,4 +407,12 @@ impl InstantiatedPart {
             None
         }
     }
+
+    pub fn is_computer(&self) -> bool {
+        if let InstantiatedPartVariant::Generic(g) = &self.variant {
+            g.is_computer()
+        } else {
+            false
+        }
+    }
 }
