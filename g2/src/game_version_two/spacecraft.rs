@@ -12,35 +12,53 @@ pub struct SpacecraftPlugin;
 
 impl Plugin for SpacecraftPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(PhysicsPlugins::default())
-            .add_systems(Startup, setup)
-            .add_systems(
-                Update,
-                (
-                    draw_grids,
-                    draw_inventories,
-                    handle_sc_events,
-                    handle_change_recipe,
-                    draw_selected_part,
-                    draw_selected_grid_guides,
-                ),
-            )
-            .add_systems(
-                FixedUpdate,
-                (build_parts, update_machines, accelerate_spacecraft),
-            )
-            .add_systems(
-                FixedUpdate,
-                update_grids.run_if(on_timer(Duration::from_millis(50))),
-            )
-            .add_event::<SpacecraftEvent>()
-            .add_event::<SetRecipe>()
-            .insert_resource(PartCursor::default());
+        app.add_plugins(PhysicsPlugins::default());
+        app.insert_state(DebugGrids::Drawn);
+        app.insert_state(DebugInventories::Drawn);
+
+        app.add_systems(
+            Update,
+            (
+                draw_grids.run_if(in_state(DebugGrids::Drawn)),
+                draw_inventories.run_if(in_state(DebugInventories::Drawn)),
+                handle_sc_events,
+                handle_change_recipe,
+                draw_selected_part,
+                draw_selected_grid_guides,
+            ),
+        );
+
+        app.add_systems(
+            FixedUpdate,
+            (
+                build_parts,
+                update_machines,
+                accelerate_spacecraft,
+                update_grids,
+            ),
+        );
+
+        app.add_event::<SpacecraftEvent>();
+        app.add_event::<SetRecipe>();
+
+        app.insert_resource(CursorInfo::default());
     }
 }
 
+#[derive(States, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum DebugGrids {
+    Hidden,
+    Drawn,
+}
+
+#[derive(States, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum DebugInventories {
+    Hidden,
+    Drawn,
+}
+
 #[derive(Resource, Debug, Default)]
-pub struct PartCursor {
+pub struct CursorInfo {
     pub selected: Option<Entity>,
     pub hovered: Option<Entity>,
 }
@@ -153,7 +171,7 @@ fn draw_selected_grid_guides(
     mut painter: ShapePainter,
     grids: Query<(&GlobalTransform, &SpacecraftGrid)>,
     parts: Query<&ChildOf, With<PartInstance>>,
-    cursor: Res<PartCursor>,
+    cursor: Res<CursorInfo>,
 ) {
     let id = match cursor.selected {
         Some(c) => c,
@@ -195,7 +213,7 @@ fn draw_selected_grid_guides(
 fn draw_selected_part(
     mut painter: ShapePainter,
     parts: Query<(&GlobalTransform, &PartInstance)>,
-    sel: Res<PartCursor>,
+    sel: Res<CursorInfo>,
     time: Res<Time>,
 ) {
     let angle = time.elapsed_secs_f64() % (2.0 * std::f64::consts::PI);
@@ -267,78 +285,6 @@ fn update_grids(
 
         grid.center_of_mass = (com / grid.mass.to_kg_f64()).as_vec2();
     }
-}
-
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
-    let floor = Rectangle::new(5000.0, 5.0);
-
-    commands.add_observer(
-        |mut trigger: Trigger<Pointer<Over>>,
-         mut cursor: ResMut<PartCursor>,
-         parts: Query<Entity, With<PartInstance>>| {
-            let e = if parts.contains(trigger.target()) {
-                Some(trigger.target())
-            } else {
-                return;
-            };
-
-            cursor.hovered = e;
-            trigger.propagate(false);
-        },
-    );
-
-    commands.add_observer(
-        |mut trigger: Trigger<Pointer<Out>>,
-         mut cursor: ResMut<PartCursor>,
-         parts: Query<Entity, With<PartInstance>>| {
-            let e = if parts.contains(trigger.target()) {
-                Some(trigger.target())
-            } else {
-                return;
-            };
-
-            if cursor.hovered == e {
-                cursor.hovered = None;
-            }
-            trigger.propagate(false);
-        },
-    );
-
-    commands.add_observer(
-        |mut trigger: Trigger<Pointer<Click>>,
-         mut commands: Commands,
-         mut cursor: ResMut<PartCursor>,
-         parts: Query<Entity, With<PartInstance>>| {
-            let e = if parts.contains(trigger.target()) {
-                Some(trigger.target())
-            } else {
-                return;
-            };
-
-            match trigger.button {
-                PointerButton::Primary => {
-                    cursor.selected = e;
-                    trigger.propagate(false);
-                }
-                PointerButton::Secondary => {
-                    e.map(|e| commands.entity(e).despawn());
-                    trigger.propagate(false);
-                }
-                PointerButton::Middle => (),
-            };
-        },
-    );
-
-    commands.spawn((
-        Transform::default().rotate_z(30.0f32.to_radians()),
-        Collider::from(floor),
-        Mesh2d(meshes.add(floor)),
-        MeshMaterial2d(materials.add(Color::from(GRAY.with_alpha(0.4)))),
-    ));
 }
 
 fn handle_change_recipe(

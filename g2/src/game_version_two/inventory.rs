@@ -10,6 +10,8 @@ pub enum Item {
     Silicon,
     Titanium,
     Ice,
+    Stone,
+    Concrete,
     Plastic,
     Bread,
     /// H2O, 18 g/mol
@@ -45,11 +47,21 @@ impl Item {
     }
 
     pub fn all_fluids() -> impl Iterator<Item = Self> {
-        enum_iterator::all::<Self>().filter(|item| item.is_fluid())
+        Self::all().filter(|item| item.is_fluid())
+    }
+
+    pub fn all_mineable() -> impl Iterator<Item = Self> {
+        Self::all().filter(|item| item.is_mineable())
     }
 
     pub fn random() -> Self {
         let variants: Vec<_> = Self::all().collect();
+        let n = randint(0, variants.len() as i32);
+        variants[n as usize]
+    }
+
+    pub fn random_mineable() -> Self {
+        let variants: Vec<_> = Self::all_mineable().collect();
         let n = randint(0, variants.len() as i32);
         variants[n as usize]
     }
@@ -68,6 +80,8 @@ impl Item {
             Item::Silicon => true,
             Item::Titanium => true,
             Item::Ice => true,
+            Item::Stone => true,
+            Item::Concrete => true,
             Item::Plastic => true,
             Item::Bread => true,
             Item::Water => false,
@@ -97,6 +111,8 @@ impl Item {
             Item::Silicon => true,
             Item::Titanium => true,
             Item::Ice => true,
+            Item::Stone => true,
+            Item::Concrete => true,
             Item::Plastic => true,
             Item::Bread => false,
             Item::Water => false,
@@ -126,6 +142,8 @@ impl Item {
             Item::Silicon => false,
             Item::Titanium => false,
             Item::Ice => false,
+            Item::Stone => false,
+            Item::Concrete => false,
             Item::Plastic => false,
             Item::Bread => false,
             Item::Water => false,
@@ -147,6 +165,15 @@ impl Item {
         }
     }
 
+    pub fn is_mineable(&self) -> bool {
+        match self {
+            Item::Iron | Item::Copper | Item::Magnesium | Item::U238 | Item::Geodes | Item::Ice => {
+                true
+            }
+            _ => false,
+        }
+    }
+
     // most item units are grams, i.e. grams of iron ore or hydrogen gas.
     // other items, such as rotors, circuits, beams, etc have larger masses
     // per unit.
@@ -159,6 +186,8 @@ impl Item {
             | Item::Silicon
             | Item::Titanium
             | Item::Ice
+            | Item::Stone
+            | Item::Concrete
             | Item::Plastic
             | Item::Water
             | Item::Methane
@@ -195,6 +224,8 @@ impl Item {
             Item::Magnesium => Volume::microliters(575),
             Item::Silicon => Volume::microliters(429),
             Item::Ice => Volume::microliters(1003),
+            Item::Stone => Volume::microliters(265),
+            Item::Concrete => Volume::microliters(280),
             Item::Plastic => Volume::microliters(833),
             Item::Water => Volume::microliters(1003),
             Item::Methane => Volume::microliters(2360),
@@ -226,6 +257,8 @@ impl Item {
             Item::Silicon => [149, 153, 165],
             Item::Titanium => [135, 134, 129],
             Item::Ice => [175, 238, 238],
+            Item::Stone => [70, 70, 70],
+            Item::Concrete => [213, 207, 207],
             Item::Plastic => [250, 249, 246],
             Item::Bread => [153, 101, 21],
             Item::Water => [0, 105, 148],

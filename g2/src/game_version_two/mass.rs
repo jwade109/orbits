@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use std::iter::Sum;
 use std::ops::*;
 

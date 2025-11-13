@@ -46,8 +46,10 @@ impl std::fmt::Display for Mass {
             write!(f, "{} g", self.0)
         } else if self.0 < 1000000 {
             write!(f, "{:0.1} kg", self.0 as f32 / 1000.0)
-        } else {
+        } else if self.0 < 1000000000 {
             write!(f, "{:0.1} t", (self.0 / 1000) as f32 / 1000.0)
+        } else {
+            write!(f, "{:0.1} kt", (self.0 / 1000000) as f32 / 1000.0)
         }
     }
 }

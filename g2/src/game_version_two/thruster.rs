@@ -35,9 +35,19 @@ pub struct ThrusterPlugin;
 
 impl Plugin for ThrusterPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, draw_thrusters);
+        app.add_systems(
+            Update,
+            draw_thrusters.run_if(in_state(DebugThrusters::Drawn)),
+        );
         app.add_systems(FixedUpdate, (consume_fuel, apply_thrust_to_grids));
+        app.insert_state(DebugThrusters::Drawn);
     }
+}
+
+#[derive(States, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum DebugThrusters {
+    Hidden,
+    Drawn,
 }
 
 fn draw_thrusters(
@@ -94,7 +104,7 @@ fn apply_thrust_to_grids(
     }
 
     for (thruster, transform, parent) in thrusters {
-        if !thruster.on {
+        if !thruster.status.is_running() {
             continue;
         }
 
