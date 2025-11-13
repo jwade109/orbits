@@ -233,7 +233,7 @@ impl Spacecraft {
             }
             (VehicleControlPolicy::HoldAttitude(angle), _) => {
                 let angle = angle.unwrap_or(0.0);
-                attitude_control_law(angle, &self.vehicle, &self.body)
+                attitude_control_law(angle, &self.vehicle.pid.attitude_controller, &self.body)
             }
             (VehicleControlPolicy::PositionHold(waypoints), _) => {
                 let (target_rel, accel) = self

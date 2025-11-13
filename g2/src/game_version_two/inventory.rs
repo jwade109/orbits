@@ -323,6 +323,23 @@ impl Inventory {
         return false;
     }
 
+    // fills all available space with whatever the slots are set to
+    pub fn fill(&mut self) {
+        for slot in &mut self.0 {
+            slot.fill();
+        }
+    }
+
+    // Fills all available space in this inventory with the given item.
+    // Returns how much was added.
+    pub fn fill_with(&mut self, item: Item) -> u64 {
+        let mut count = 0;
+        for slot in &mut self.0.iter_mut() {
+            count += slot.fill_with(item);
+        }
+        count
+    }
+
     pub fn can_take(&self, item: Item, count: u64) -> bool {
         // TODO this doesn't cover the case where multiple slots
         // combined can provide the given amount
@@ -460,10 +477,24 @@ impl InvSlot {
         }
     }
 
-    pub fn fill(&mut self) {
-        if let Some((item, _)) = self.contents {
+    // fills this slot with the slot's set item, if possible.
+    // returns the amount that was added.
+    pub fn fill(&mut self) -> u64 {
+        if let Some((item, count)) = self.contents {
             let units_capacity = (self.capacity / item.volume_per_unit()).floor() as u64;
+            let added = units_capacity - count;
             self.contents = Some((item, units_capacity));
+            added
+        } else {
+            0
+        }
+    }
+
+    pub fn fill_with(&mut self, item: Item) -> u64 {
+        if let Some((contents, _)) = self.contents {
+            if contents == item { self.fill() } else { 0 }
+        } else {
+            0
         }
     }
 

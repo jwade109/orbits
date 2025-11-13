@@ -139,7 +139,6 @@ struct DebugPanelState {
     message_text: String,
     sc_name: String,
     sc_pos: Vec2,
-    recipe: RecipeListing,
 }
 
 impl Default for DebugPanelState {
@@ -149,7 +148,6 @@ impl Default for DebugPanelState {
             message_text: "This is some example text!\nIt can contain newlines.".to_string(),
             sc_name: "pollux".to_string(),
             sc_pos: Vec2::Y * 50.0,
-            recipe: RecipeListing::DoNothing,
         }
     }
 }
@@ -205,11 +203,37 @@ fn add_computer_widget(ui: &mut egui::Ui, computer: &mut Computer) {
 
     let s = if computer.on { "ON " } else { "OFF" };
 
+    ui.separator();
+
     if ui.button(s).clicked() {
         computer.toggle();
     }
-
     running_status_widget(ui, computer.status);
+
+    ui.separator();
+
+    ui.label("Pose Hold");
+    ui.horizontal(|ui| {
+        ui.label("X");
+        ui.add(egui::Slider::new(
+            &mut computer.position_hold.x,
+            -1000.0..=1000.0,
+        ));
+    });
+    ui.horizontal(|ui| {
+        ui.label("Y");
+        ui.add(egui::Slider::new(
+            &mut computer.position_hold.y,
+            -1000.0..=1000.0,
+        ));
+    });
+    ui.horizontal(|ui| {
+        ui.label("HDG");
+        ui.add(egui::Slider::new(
+            &mut computer.attitude_hold,
+            -std::f32::consts::PI..=std::f32::consts::PI,
+        ));
+    });
 }
 
 fn add_inv_widget(ui: &mut egui::Ui, inv: &mut Inventory) {
@@ -316,7 +340,7 @@ fn add_machine_widget(id: Entity, commands: &mut Commands, ui: &mut egui::Ui, ma
         mac.enabled = !mac.enabled;
     }
 
-    ui.add(egui::Slider::new(&mut mac.required_steps, 3..=150));
+    ui.add(egui::Slider::new(&mut mac.required_steps, 3..=2000));
 
     if let Some(recipe) = mac.recipe() {
         if recipe.input_count() > 0 {
@@ -349,10 +373,6 @@ fn add_machine_widget(id: Entity, commands: &mut Commands, ui: &mut egui::Ui, ma
     ui.label(format!("{} finished", mac.products_finished));
 
     running_status_widget(ui, mac.status);
-
-    ui.horizontal(|ui| {
-        ui.label(format!("{}/{}", mac.steps, mac.required_steps));
-    });
 
     ui.horizontal(|ui| {
         ui.add(egui::ProgressBar::new(mac.progress()));

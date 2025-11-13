@@ -63,9 +63,11 @@ pub struct SpacecraftGrid {
     parts: usize,
     mass: Mass,
     bounds: (Vec2, Vec2),
-    pub center_of_mass: DVec2,
+    pub center_of_mass: Vec2,
     pub velocity: DVec2,
+    pub angular_velocity: f64,
     pub body_frame_acceleration: DVec2,
+    pub angular_acceleration: f32,
 }
 
 impl SpacecraftGrid {
@@ -73,8 +75,10 @@ impl SpacecraftGrid {
         self.bounds.1 - self.bounds.0
     }
 
-    pub fn apply_body_frame_thrust(&mut self, thrust: Vec2) {
-        self.body_frame_acceleration += thrust.as_dvec2() / self.mass.to_kg_f64()
+    pub fn apply_body_frame_thrust(&mut self, thrust: Vec2, torque: f32) {
+        self.body_frame_acceleration += thrust.as_dvec2() / self.mass.to_kg_f64();
+        // TODO change to moment of inertia
+        self.angular_acceleration += 0.1 * (torque as f64 / self.mass.to_kg_f64()) as f32;
     }
 }
 
@@ -180,7 +184,7 @@ fn draw_selected_grid_guides(
     painter.set_rotation(tf.rotation());
     painter.rect(grid.dims());
 
-    painter.translate(grid.center_of_mass.extend(100.0).as_vec3());
+    painter.translate(grid.center_of_mass.extend(100.0));
     painter.hollow = false;
     painter.set_color(GREEN);
     painter.circle(0.1);
@@ -233,7 +237,7 @@ fn update_grids(
         grid.mass = Mass::ZERO;
         grid.parts = children.iter().count();
         grid.bounds = (Vec2::ZERO, Vec2::ZERO);
-        grid.center_of_mass = DVec2::ZERO;
+        grid.center_of_mass = Vec2::ZERO;
 
         if grid.parts == 0 {
             info!("Despawning empty grid {e}");
@@ -261,7 +265,7 @@ fn update_grids(
             }
         }
 
-        grid.center_of_mass = com / grid.mass.to_kg_f64();
+        grid.center_of_mass = (com / grid.mass.to_kg_f64()).as_vec2();
     }
 }
 
@@ -566,11 +570,17 @@ fn add_part_to_grid<'a>(
         build,
     ));
 
-    if is_thruster {
-        cmd.insert((
-            Thruster::default(),
-            Inventory::single(Item::H2, Volume::liters(10)),
-        ));
+    if let Some((model, _)) = part.as_thruster() {
+        let mut inv = Inventory::single(Item::H2, Volume::liters(10));
+        // inv.fill();
+
+        let thruster = if model.is_rcs {
+            Thruster::new(3000.0, true)
+        } else {
+            Thruster::new(40000.0, false)
+        };
+
+        cmd.insert((thruster, inv));
     }
 
     if is_computer {
@@ -619,11 +629,14 @@ fn accelerate_spacecraft(
 ) {
     let dt = time.delta_secs_f64();
     for (mut tf, mut grid) in &mut grids {
-        let dv = tf
+        let world_frame_accel = tf
             .rotation
             .mul_vec3(grid.body_frame_acceleration.extend(0.0).as_vec3())
             .xy();
-        grid.velocity += dv.as_dvec2() * dt;
+        let da = grid.angular_acceleration as f64 * dt;
+        grid.velocity += world_frame_accel.as_dvec2() * dt;
+        grid.angular_velocity += da;
         tf.translation += (grid.velocity * dt).as_vec2().extend(0.0);
+        tf.rotate_axis(Dir3::Z, (grid.angular_velocity * dt) as f32);
     }
 }

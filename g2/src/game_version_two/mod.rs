@@ -20,11 +20,14 @@ pub use spacecraft::*;
 pub use thruster::*;
 pub use volume::*;
 
+pub use bevy::color::palettes::css::*;
 pub use bevy::math::DVec2;
 pub use bevy::prelude::*;
 pub use bevy::time::common_conditions::on_timer;
 pub use bevy_vector_shapes::prelude::*;
 pub use enum_iterator::Sequence;
-pub use starling::prelude::rand;
-pub use starling::prelude::randint;
+pub use starling::prelude::{
+    PDCtrl, PV, RigidBody, Vehicle, VehicleControl, VehicleControlStatus, attitude_control_law,
+    cross2d, rand, randint, wrap_pi_npi_f64,
+};
 pub use std::time::Duration;

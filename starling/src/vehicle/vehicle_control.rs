@@ -130,12 +130,13 @@ fn compute_attitude_control(body: &RigidBody, target_angle: f64, pid: &PDCtrl) -
 
 pub fn attitude_control_law(
     target_angle: f64,
-    vehicle: &Vehicle,
+    pid: &PDCtrl,
     body: &RigidBody,
 ) -> (VehicleControl, VehicleControlStatus) {
     let mut cmd = VehicleControl::NULLOPT;
-    cmd.attitude = compute_attitude_control(body, target_angle, &vehicle.pid.attitude_controller);
-    let attitude_error = wrap_pi_npi_f64(target_angle - body.angle);
+    dbg!(target_angle, body.angle);
+    cmd.attitude = compute_attitude_control(body, target_angle, pid);
+    let attitude_error = dbg!(wrap_pi_npi_f64(target_angle - body.angle));
     let stat = if attitude_error.abs() > 0.03 {
         VehicleControlStatus::ComingAbout
     } else {
@@ -250,7 +251,7 @@ pub fn velocity_control_law(
     cmd
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum VehicleControlStatus {
     Done,
     WaitingForInput,
@@ -260,6 +261,7 @@ pub enum VehicleControlStatus {
     RaisingPeriapsis(i32),
     ExecutingLaunchProgram,
     CoastingToApoapsis(i32),
+    #[default]
     Idling,
     Whatever,
     InProgress,
