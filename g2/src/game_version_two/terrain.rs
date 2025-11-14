@@ -58,20 +58,25 @@ pub struct TerrainChunk {
 
 const LATTICE_POINTS_PER_CHUNK_SIDE: usize = 10;
 
+fn lattice_point_world_pos(g: IVec2, x: usize, y: usize) -> Vec2 {
+    let buttom_left = g.as_vec2() * CHUNK_WIDTH - Vec2::splat(CHUNK_WIDTH) / 2.0;
+    let off = lattice_point_rel_pos(x, y);
+    buttom_left + off
+}
+
+fn lattice_point_rel_pos(x: usize, y: usize) -> Vec2 {
+    let xoff = (x as f32) / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32 * CHUNK_WIDTH;
+    let yoff = (y as f32) / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32 * CHUNK_WIDTH;
+    Vec2::new(xoff, yoff)
+}
+
 #[derive(Debug)]
 pub struct DenseChunkData {
     points: [[f32; LATTICE_POINTS_PER_CHUNK_SIDE]; LATTICE_POINTS_PER_CHUNK_SIDE],
 }
 
-fn lattice_point_world_pos(g: IVec2, x: usize, y: usize) -> Vec2 {
-    let buttom_left = g.as_vec2() * CHUNK_WIDTH - Vec2::splat(CHUNK_WIDTH) / 2.0;
-    let xoff = (x as f32) / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32 * CHUNK_WIDTH;
-    let yoff = (y as f32) / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32 * CHUNK_WIDTH;
-    buttom_left + Vec2::new(xoff, yoff)
-}
-
 impl DenseChunkData {
-    fn new(pos: IVec2) -> Self {
+    fn new(pos: IVec2, z: f32) -> Self {
         let simplex = Simplex::new(1);
 
         let mut ret = Self {
@@ -81,7 +86,7 @@ impl DenseChunkData {
         for x in 0..LATTICE_POINTS_PER_CHUNK_SIDE {
             for y in 0..LATTICE_POINTS_PER_CHUNK_SIDE {
                 let p_world = lattice_point_world_pos(pos, x, y);
-                let noise = simplex.get([p_world.x as f64 / 100.0, p_world.y as f64 / 100.0, 0.0]);
+                let noise = simplex.get([p_world.x as f64 / 100.0, p_world.y as f64 / 100.0, z as f64]);
                 ret.points[x][y] = noise as f32 + 0.5;
             }
         }
@@ -116,7 +121,7 @@ fn insert_tiles(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(TerrainImage(handle));
 
     for x in -30..=30 {
-        for y in -7..=0 {
+        for y in -7..0 {
             commands.send_event(GenerateChunk {
                 pos: IVec2::new(x, y),
                 material: None,
@@ -247,18 +252,46 @@ fn draw_hovered_grid(
 
 fn generate_mesh_data(chunk: &TerrainChunk) -> Mesh {
     if let Some(dense) = &chunk.dense {
-        // let usage = RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD;
-        // let positions = vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]];
-        // let normals = vec![[0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0]];
-        // let uvs = vec![[0.0, 0.0], [0.0, 0.0], [0.0, 0.0]];
-        // let indices = vec![0, 1, 2];
-        // let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, usage);
-        // mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-        // mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-        // mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-        // mesh.insert_indices(Indices::U32(indices));
-        // mesh
-        Rectangle::from_size(Vec2::splat(0.1)).into()
+        let usage = RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD;
+        let mut positions = Vec::new();
+        let mut normals = Vec::new();
+        let mut uvs = Vec::new();
+        let mut indices = Vec::new();
+
+        for x in 0..(LATTICE_POINTS_PER_CHUNK_SIDE - 1) {
+            for y in 0..(LATTICE_POINTS_PER_CHUNK_SIDE - 1) {
+                let value = dense.points[x][y];
+                if value < 0.5 {
+                    continue;
+                }
+                let p = IVec2::new(x as i32, y as i32).as_vec2()
+                    / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32
+                    - Vec2::splat(0.5);
+                let n = positions.len() as u32;
+                let w = 1.0 / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32;
+                let pos = [
+                    [p.x, p.y, 0.0],
+                    [p.x + w, p.y, 0.0],
+                    [p.x, p.y + w, 0.0],
+                    [p.x + w, p.y + w, 0.0],
+                ];
+                positions.extend_from_slice(&pos);
+
+                for _ in 0..4 {
+                    normals.push([0.0, 0.0, 1.0]);
+                    uvs.push([0.0, 0.0]);
+                }
+
+                indices.extend_from_slice(&[n, n + 1, n + 2, n + 1, n + 2, n + 3]);
+            }
+        }
+
+        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, usage);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+        mesh.insert_indices(Indices::U32(indices));
+        mesh
     } else {
         Rectangle::default().into()
     }
@@ -268,11 +301,13 @@ fn densify_chunks(
     mut chunks: Query<&mut TerrainChunk>,
     map: Res<ChunkMap>,
     mut messages: EventReader<DensifyChunk>,
+    time: Res<Time>,
 ) {
+    let z = time.elapsed_secs() / 5.0;
     for msg in messages.read() {
         if let Some(e) = map.get(&msg.pos) {
             if let Ok(mut chunk) = chunks.get_mut(*e) {
-                chunk.dense = Some(DenseChunkData::new(chunk.pos));
+                chunk.dense = Some(DenseChunkData::new(chunk.pos, z));
             }
         } else {
             warn!("Failed to densify nonexistent chunk: {}", msg.pos);
@@ -281,10 +316,16 @@ fn densify_chunks(
 }
 
 fn update_meshes(
-    mut chunks: Query<(&mut Mesh2d, &TerrainChunk)>,
+    mut chunks: Query<(&mut Mesh2d, &mut TerrainChunk)>,
     mut meshes: ResMut<Assets<Mesh>>,
+    time: Res<Time>,
 ) {
+    let z = time.elapsed_secs() / 5.0;
     for (mut mesh, mut chunk) in &mut chunks {
+        let pos = chunk.pos;
+        if let Some(dense) = &mut chunk.dense {
+            *dense = DenseChunkData::new(pos, z)
+        }
         let new_mesh = generate_mesh_data(&chunk);
         *mesh = meshes.add(new_mesh).into();
     }
@@ -298,12 +339,12 @@ fn draw_dense_lattice_values(
     for (chunk, transform) in chunks {
         let origin = transform.translation().xy();
         if let Some(dense) = &chunk.dense {
-            for x in 0..LATTICE_POINTS_PER_CHUNK_SIDE {
-                for y in 0..LATTICE_POINTS_PER_CHUNK_SIDE {
+            for x in 0..(LATTICE_POINTS_PER_CHUNK_SIDE - 1) {
+                for y in 0..(LATTICE_POINTS_PER_CHUNK_SIDE - 1) {
                     let value = dense.points[x][y];
                     let u = x as f32 / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32;
                     let v = y as f32 / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32;
-                    let color = Srgba::new(0.3 + u * 0.7, 0.3 + v * 0.7, 0.6, 1.0);
+                    let color = Srgba::new(0.3 + u * 0.7, 0.3 + v * 0.7, 0.6, 0.6);
                     painter.set_color(color);
                     let p = lattice_point_world_pos(chunk.pos, x, y);
                     painter.set_translation(p.extend(10.0));
