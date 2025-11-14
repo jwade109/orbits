@@ -26,7 +26,7 @@ fn main() {
         // )
         // 3rd-party plugins
         // .add_plugins(MeshPickingPlugin)
-        // .add_plugins(Wireframe2dPlugin::default())
+        .add_plugins(Wireframe2dPlugin::default())
         .add_plugins(EguiPlugin::default())
         // .add_plugins(WorldInspectorPlugin::new())
         .add_systems(EguiPrimaryContextPass, egui_ui)
@@ -39,9 +39,13 @@ fn main() {
         .add_plugins(ComputerPlugin)
         .add_plugins(TerrainPlugin)
         .add_plugins(CursorPlugin)
-        .add_systems(Startup, setup)
+        .add_systems(Startup, (setup, toggle_wireframe))
         .add_systems(Update, control_camera)
         .run();
+}
+
+fn toggle_wireframe(mut wireframe_config: ResMut<Wireframe2dConfig>) {
+    wireframe_config.global = !wireframe_config.global;
 }
 
 fn control_camera(

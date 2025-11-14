@@ -121,8 +121,6 @@ fn simulate(
     Ok(sim)
 }
 
-struct TuningResult {}
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 

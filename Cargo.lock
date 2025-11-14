@@ -3221,6 +3221,7 @@ dependencies = [
  "layout",
  "lazy_static",
  "names",
+ "noise",
  "project-root",
  "rand 0.9.2",
  "rand_chacha 0.3.1",

@@ -340,7 +340,6 @@ fn handle_sc_events(
                     *pos,
                     *angle,
                     &vehicle,
-                    &mut meshes,
                     &mut asset_server,
                     &args,
                     &mut texture_atlas_layouts,
@@ -360,7 +359,6 @@ fn handle_sc_events(
                     add_part_to_grid(
                         parent,
                         &instance,
-                        &mut meshes,
                         &mut asset_server,
                         &args,
                         &mut texture_atlas_layouts,
@@ -433,7 +431,6 @@ fn spawn_empty_grid<'a>(commands: &'a mut Commands, pos: Vec2, angle: f32) -> En
 fn add_part_to_grid<'a>(
     commands: &mut RelatedSpawnerCommands<'a, ChildOf>,
     part: &InstantiatedPart,
-    meshes: &mut ResMut<Assets<Mesh>>,
     asset_server: &mut ResMut<AssetServer>,
     args: &Res<ProgramContext>,
     texture_atlas_layouts: &mut ResMut<Assets<TextureAtlasLayout>>,
@@ -535,7 +532,6 @@ fn add_part_to_grid<'a>(
 
     cmd
         // for cursor picking
-        .insert_if(Mesh2d(meshes.add(polygon)), || !is_structural)
         .insert_if(Machine::new(RecipeListing::DoNothing), || is_machine)
         .insert_if(inv, || has_inventory)
         .with_child((
@@ -550,21 +546,13 @@ fn spawn_spacecraft(
     pos: Vec2,
     angle: f32,
     vehicle: &Vehicle,
-    meshes: &mut ResMut<Assets<Mesh>>,
     asset_server: &mut ResMut<AssetServer>,
     args: &Res<ProgramContext>,
     texture_atlas_layouts: &mut ResMut<Assets<TextureAtlasLayout>>,
 ) {
     spawn_empty_grid(commands, pos, angle).with_children(|parent| {
         for (_, part) in vehicle.parts() {
-            add_part_to_grid(
-                parent,
-                part,
-                meshes,
-                asset_server,
-                args,
-                texture_atlas_layouts,
-            );
+            add_part_to_grid(parent, part, asset_server, args, texture_atlas_layouts);
         }
     });
 }

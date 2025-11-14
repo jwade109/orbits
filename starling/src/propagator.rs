@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use crate::id::EntityId;
 use crate::nanotime::Nanotime;
 use crate::orbits::{GlobalOrbit, SparseOrbit};

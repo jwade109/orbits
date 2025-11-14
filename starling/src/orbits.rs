@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use crate::aabb::{AABB, OBB};
 use crate::id::EntityId;
 use crate::math::*;
