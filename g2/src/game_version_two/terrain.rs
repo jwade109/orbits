@@ -19,25 +19,25 @@ impl Plugin for TerrainPlugin {
                 generate_tiles,
                 delete_chunks,
                 densify_chunks,
-                throwaway_generate_chunks_input,
-                // draw_dense_lattice_values,
+                draw_highlighted_lattice_points,
+                draw_dense_lattice_values,
             ),
         );
     }
 }
-
-#[derive(Resource, Default, Deref, DerefMut)]
-pub struct ChunkMap(HashMap<IVec2, Entity>);
 
 pub fn to_grid(pos: Vec2) -> IVec2 {
     (pos / CHUNK_WIDTH).round().as_ivec2()
 }
 
 pub fn chunk_bounds(g: IVec2) -> (Vec2, Vec2) {
-    let p = g.as_vec2() * CHUNK_WIDTH;
+    let p = g.as_vec2() * CHUNK_WIDTH - Vec2::splat(CHUNK_WIDTH) / 2.0;
     let q = (g + IVec2::ONE).as_vec2() * CHUNK_WIDTH;
     (p, q)
 }
+
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct ChunkMap(HashMap<IVec2, Entity>);
 
 impl ChunkMap {
     pub fn lup(&self, pos: Vec2) -> Option<Entity> {
@@ -45,9 +45,6 @@ impl ChunkMap {
         self.0.get(&g).cloned()
     }
 }
-
-#[derive(Resource)]
-struct TerrainImage(Handle<Image>);
 
 #[derive(Component, Debug)]
 pub struct TerrainChunk {
@@ -95,6 +92,12 @@ impl DenseChunkData {
         ret
     }
 
+    fn solid() -> Self {
+        Self {
+            points: [[1.0; LATTICE_POINTS_PER_CHUNK_SIDE]; LATTICE_POINTS_PER_CHUNK_SIDE],
+        }
+    }
+
     fn is_solid(&self) -> bool {
         self.points.iter().all(|arr| arr.iter().all(|x| *x > 0.5))
     }
@@ -127,7 +130,6 @@ const CHUNK_WIDTH: f32 = 50.0;
 fn insert_tiles(mut commands: Commands, asset_server: Res<AssetServer>) {
     let image = Image::default();
     let handle = asset_server.add(image);
-    commands.insert_resource(TerrainImage(handle));
 
     for x in -30..=30 {
         for y in -7..0 {
@@ -144,29 +146,24 @@ fn generate_tiles(
     mut commands: Commands,
     mut messages: EventReader<GenerateChunk>,
     mut chunk_map: ResMut<ChunkMap>,
-    terrain_image: Res<TerrainImage>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     for msg in messages.read() {
         if chunk_map.contains_key(&msg.pos) {
-            warn!("Chunk already generated: {}", msg.pos);
             continue;
         }
 
-        let mut s = Sprite::from_image(terrain_image.0.clone());
         let contents = chance(0.02)
             .then(|| Item::random_mineable())
             .unwrap_or(Item::Stone);
 
         let contents = msg.material.unwrap_or(contents);
 
-        s.color = contents.color().into();
-
         let chunk = TerrainChunk {
             pos: msg.pos,
             contents,
-            dense: None,
+            dense: Some(DenseChunkData::solid()),
         };
 
         if msg.log {
@@ -201,38 +198,8 @@ fn delete_chunks(
             if msg.log {
                 info!("Deleting chunk {}", msg.pos);
             }
-        } else {
-            warn!("Chunk to delete does not exist: {}", msg.pos);
         }
         chunk_map.remove(&msg.pos);
-    }
-}
-
-fn throwaway_generate_chunks_input(
-    mut commands: Commands,
-    mouse: Res<CursorWorldPosition>,
-    mut sel: ResMut<CursorInfo>,
-    btn: Res<ButtonInput<MouseButton>>,
-    map: Res<ChunkMap>,
-) {
-    if let Some(p) = mouse.get() {
-        sel.hovered = map.lup(p);
-        if btn.pressed(MouseButton::Left) {
-            let g = to_grid(p);
-            commands.send_event(GenerateChunk {
-                pos: g,
-                material: Some(Item::Concrete),
-                log: false,
-            });
-        }
-        if btn.pressed(MouseButton::Right) {
-            let g = to_grid(p);
-            commands.send_event(DeleteChunk { pos: g, log: false });
-        }
-        if btn.pressed(MouseButton::Middle) {
-            let g = to_grid(p);
-            commands.send_event(DensifyChunk { pos: g });
-        }
     }
 }
 
@@ -269,10 +236,8 @@ fn inverse_lerp(a: f32, b: f32, value: f32) -> f32 {
 
 fn marching_cubes_mesh(dense: &DenseChunkData) -> Mesh {
     let usage = RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD;
-    let mut positions = Vec::new();
-    let mut normals = Vec::new();
-    let mut uvs = Vec::new();
-    let mut indices = Vec::new();
+
+    let mut builder = MeshMaker::default();
 
     // combine tiles in the corner for fun
     let mut combined_tiles = HashSet::new();
@@ -304,9 +269,9 @@ fn marching_cubes_mesh(dense: &DenseChunkData) -> Mesh {
 
     for x in 0..(LATTICE_POINTS_PER_CHUNK_SIDE - 1) {
         for y in 0..(LATTICE_POINTS_PER_CHUNK_SIDE - 1) {
-            if combined_tiles.contains(&(x, y)) {
-                continue;
-            }
+            // if combined_tiles.contains(&(x, y)) {
+            //     continue;
+            // }
 
             let value = dense.points[x][y];
 
@@ -340,200 +305,156 @@ fn marching_cubes_mesh(dense: &DenseChunkData) -> Mesh {
                 0 => (),
                 1 => {
                     // bottom left corner
-                    positions.push(to_arr(bottom_left));
-                    positions.push(to_arr(left));
-                    positions.push(to_arr(bottom));
-
-                    for _ in 0..3 {
-                        normals.push([0.0, 0.0, 1.0]);
-                        uvs.push([0.0, 0.0]);
-                    }
-
-                    indices.push((positions.len() - 3) as u32);
-                    indices.push((positions.len() - 2) as u32);
-                    indices.push((positions.len() - 1) as u32);
+                    builder.triangle([bottom_left, left, bottom]);
                 }
                 2 => {
                     // bottom right corner
-                    positions.push(to_arr(bottom_right));
-                    positions.push(to_arr(right));
-                    positions.push(to_arr(bottom));
-
-                    for _ in 0..3 {
-                        normals.push([0.0, 0.0, 1.0]);
-                        uvs.push([0.0, 0.0]);
-                    }
-
-                    indices.push((positions.len() - 3) as u32);
-                    indices.push((positions.len() - 2) as u32);
-                    indices.push((positions.len() - 1) as u32);
+                    builder.triangle([bottom_right, right, bottom]);
                 }
                 3 => {
                     // bottom half
-                    positions.push(to_arr(bottom_left));
-                    positions.push(to_arr(bottom_right));
-                    positions.push(to_arr(right));
-                    positions.push(to_arr(left));
+                    builder.positions.push(to_arr(bottom_left));
+                    builder.positions.push(to_arr(bottom_right));
+                    builder.positions.push(to_arr(right));
+                    builder.positions.push(to_arr(left));
 
                     for _ in 0..4 {
-                        normals.push([0.0, 0.0, 1.0]);
-                        uvs.push([0.0, 0.0]);
+                        builder.normals.push([0.0, 0.0, 1.0]);
+                        builder.uvs.push([0.0, 0.0]);
                     }
 
-                    indices.push((positions.len() - 4) as u32);
-                    indices.push((positions.len() - 3) as u32);
-                    indices.push((positions.len() - 2) as u32);
-                    indices.push((positions.len() - 4) as u32);
-                    indices.push((positions.len() - 2) as u32);
-                    indices.push((positions.len() - 1) as u32);
+                    builder.indices.push((builder.positions.len() - 4) as u32);
+                    builder.indices.push((builder.positions.len() - 3) as u32);
+                    builder.indices.push((builder.positions.len() - 2) as u32);
+                    builder.indices.push((builder.positions.len() - 4) as u32);
+                    builder.indices.push((builder.positions.len() - 2) as u32);
+                    builder.indices.push((builder.positions.len() - 1) as u32);
                 }
                 4 => {
                     // top right corner
-                    positions.push(to_arr(top_right));
-                    positions.push(to_arr(right));
-                    positions.push(to_arr(top));
-
-                    for _ in 0..3 {
-                        normals.push([0.0, 0.0, 1.0]);
-                        uvs.push([0.0, 0.0]);
-                    }
-
-                    indices.push((positions.len() - 3) as u32);
-                    indices.push((positions.len() - 2) as u32);
-                    indices.push((positions.len() - 1) as u32);
+                    builder.triangle([top_right, right, top]);
                 }
                 6 => {
                     // right half
-                    positions.push(to_arr(top_right));
-                    positions.push(to_arr(bottom_right));
-                    positions.push(to_arr(bottom));
-                    positions.push(to_arr(top));
+                    builder.positions.push(to_arr(top_right));
+                    builder.positions.push(to_arr(bottom_right));
+                    builder.positions.push(to_arr(bottom));
+                    builder.positions.push(to_arr(top));
 
                     for _ in 0..4 {
-                        normals.push([0.0, 0.0, 1.0]);
-                        uvs.push([0.0, 0.0]);
+                        builder.normals.push([0.0, 0.0, 1.0]);
+                        builder.uvs.push([0.0, 0.0]);
                     }
 
-                    indices.push((positions.len() - 4) as u32);
-                    indices.push((positions.len() - 3) as u32);
-                    indices.push((positions.len() - 2) as u32);
-                    indices.push((positions.len() - 4) as u32);
-                    indices.push((positions.len() - 2) as u32);
-                    indices.push((positions.len() - 1) as u32);
+                    builder.indices.push((builder.positions.len() - 4) as u32);
+                    builder.indices.push((builder.positions.len() - 3) as u32);
+                    builder.indices.push((builder.positions.len() - 2) as u32);
+                    builder.indices.push((builder.positions.len() - 4) as u32);
+                    builder.indices.push((builder.positions.len() - 2) as u32);
+                    builder.indices.push((builder.positions.len() - 1) as u32);
                 }
                 7 => {
-                    let n = positions.len() as u32;
+                    let n = builder.positions.len() as u32;
 
-                    positions.push(to_arr(bottom_left));
-                    positions.push(to_arr(bottom_right));
-                    positions.push(to_arr(top_right));
-                    positions.push(to_arr(top));
-                    positions.push(to_arr(left));
+                    builder.positions.push(to_arr(bottom_left));
+                    builder.positions.push(to_arr(bottom_right));
+                    builder.positions.push(to_arr(top_right));
+                    builder.positions.push(to_arr(top));
+                    builder.positions.push(to_arr(left));
 
                     for _ in 0..5 {
-                        normals.push([0.0, 0.0, 1.0]);
-                        uvs.push([0.0, 0.0]);
+                        builder.normals.push([0.0, 0.0, 1.0]);
+                        builder.uvs.push([0.0, 0.0]);
                     }
 
-                    indices.push(n);
-                    indices.push(n + 1);
-                    indices.push(n + 4);
+                    builder.indices.push(n);
+                    builder.indices.push(n + 1);
+                    builder.indices.push(n + 4);
 
-                    indices.push(n + 1);
-                    indices.push(n + 2);
-                    indices.push(n + 4);
+                    builder.indices.push(n + 1);
+                    builder.indices.push(n + 2);
+                    builder.indices.push(n + 4);
 
-                    indices.push(n + 2);
-                    indices.push(n + 3);
-                    indices.push(n + 4);
+                    builder.indices.push(n + 2);
+                    builder.indices.push(n + 3);
+                    builder.indices.push(n + 4);
                 }
                 8 => {
                     // top left corner
-                    positions.push(to_arr(top_left));
-                    positions.push(to_arr(left));
-                    positions.push(to_arr(top));
-
-                    for _ in 0..3 {
-                        normals.push([0.0, 0.0, 1.0]);
-                        uvs.push([0.0, 0.0]);
-                    }
-
-                    indices.push((positions.len() - 3) as u32);
-                    indices.push((positions.len() - 2) as u32);
-                    indices.push((positions.len() - 1) as u32);
+                    builder.triangle([top_left, left, top]);
                 }
                 9 => {
                     // left half
-                    positions.push(to_arr(top_left));
-                    positions.push(to_arr(bottom_left));
-                    positions.push(to_arr(bottom));
-                    positions.push(to_arr(top));
+                    builder.positions.push(to_arr(top_left));
+                    builder.positions.push(to_arr(bottom_left));
+                    builder.positions.push(to_arr(bottom));
+                    builder.positions.push(to_arr(top));
 
                     for _ in 0..4 {
-                        normals.push([0.0, 0.0, 1.0]);
-                        uvs.push([0.0, 0.0]);
+                        builder.normals.push([0.0, 0.0, 1.0]);
+                        builder.uvs.push([0.0, 0.0]);
                     }
 
-                    indices.push((positions.len() - 4) as u32);
-                    indices.push((positions.len() - 3) as u32);
-                    indices.push((positions.len() - 2) as u32);
-                    indices.push((positions.len() - 4) as u32);
-                    indices.push((positions.len() - 2) as u32);
-                    indices.push((positions.len() - 1) as u32);
+                    builder.indices.push((builder.positions.len() - 4) as u32);
+                    builder.indices.push((builder.positions.len() - 3) as u32);
+                    builder.indices.push((builder.positions.len() - 2) as u32);
+                    builder.indices.push((builder.positions.len() - 4) as u32);
+                    builder.indices.push((builder.positions.len() - 2) as u32);
+                    builder.indices.push((builder.positions.len() - 1) as u32);
                 }
                 11 => {
-                    let n = positions.len() as u32;
+                    let n = builder.positions.len() as u32;
 
-                    positions.push(to_arr(bottom_left));
-                    positions.push(to_arr(bottom_right));
-                    positions.push(to_arr(top_left));
-                    positions.push(to_arr(top));
-                    positions.push(to_arr(right));
+                    builder.positions.push(to_arr(bottom_left));
+                    builder.positions.push(to_arr(bottom_right));
+                    builder.positions.push(to_arr(top_left));
+                    builder.positions.push(to_arr(top));
+                    builder.positions.push(to_arr(right));
 
                     for _ in 0..5 {
-                        normals.push([0.0, 0.0, 1.0]);
-                        uvs.push([0.0, 0.0]);
+                        builder.normals.push([0.0, 0.0, 1.0]);
+                        builder.uvs.push([0.0, 0.0]);
                     }
 
-                    indices.push(n);
-                    indices.push(n + 1);
-                    indices.push(n + 2);
+                    builder.indices.push(n);
+                    builder.indices.push(n + 1);
+                    builder.indices.push(n + 2);
 
-                    indices.push(n + 2);
-                    indices.push(n + 3);
-                    indices.push(n + 4);
+                    builder.indices.push(n + 2);
+                    builder.indices.push(n + 3);
+                    builder.indices.push(n + 4);
 
-                    indices.push(n + 1);
-                    indices.push(n + 2);
-                    indices.push(n + 4);
+                    builder.indices.push(n + 1);
+                    builder.indices.push(n + 2);
+                    builder.indices.push(n + 4);
                 }
                 _ => {
-                    positions.push(to_arr(bottom_left));
-                    positions.push(to_arr(bottom_right));
-                    positions.push(to_arr(top_left));
-                    positions.push(to_arr(top_right));
+                    builder.positions.push(to_arr(bottom_left));
+                    builder.positions.push(to_arr(bottom_right));
+                    builder.positions.push(to_arr(top_left));
+                    builder.positions.push(to_arr(top_right));
 
                     for _ in 0..4 {
-                        normals.push([0.0, 0.0, 1.0]);
-                        uvs.push([0.0, 0.0]);
+                        builder.normals.push([0.0, 0.0, 1.0]);
+                        builder.uvs.push([0.0, 0.0]);
                     }
 
-                    indices.push((positions.len() - 4) as u32);
-                    indices.push((positions.len() - 3) as u32);
-                    indices.push((positions.len() - 2) as u32);
-                    indices.push((positions.len() - 3) as u32);
-                    indices.push((positions.len() - 2) as u32);
-                    indices.push((positions.len() - 1) as u32);
+                    builder.indices.push((builder.positions.len() - 4) as u32);
+                    builder.indices.push((builder.positions.len() - 3) as u32);
+                    builder.indices.push((builder.positions.len() - 2) as u32);
+                    builder.indices.push((builder.positions.len() - 3) as u32);
+                    builder.indices.push((builder.positions.len() - 2) as u32);
+                    builder.indices.push((builder.positions.len() - 1) as u32);
                 }
             }
         }
     }
 
     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, usage);
-    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-    mesh.insert_indices(Indices::U32(indices));
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, builder.positions);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, builder.normals);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, builder.uvs);
+    mesh.insert_indices(Indices::U32(builder.indices));
     mesh
 }
 
@@ -561,7 +482,7 @@ fn densify_chunks(
     for msg in messages.read() {
         if let Some(e) = map.get(&msg.pos) {
             if let Ok(mut chunk) = chunks.get_mut(*e) {
-                chunk.dense = Some(DenseChunkData::new(chunk.pos, 0.0));
+                chunk.dense = Some(DenseChunkData::new(chunk.pos, z));
             }
         } else {
             warn!("Failed to densify nonexistent chunk: {}", msg.pos);
@@ -570,18 +491,13 @@ fn densify_chunks(
 }
 
 fn update_meshes(
-    mut chunks: Query<(&mut Mesh2d, &mut TerrainChunk)>,
+    mut chunks: Query<(&mut Mesh2d, &mut TerrainChunk), Changed<TerrainChunk>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    time: Res<Time>,
 ) {
-    let z = time.elapsed_secs() / 20.0;
     for (mut mesh, mut chunk) in &mut chunks {
-        let pos = chunk.pos;
-        if let Some(dense) = &mut chunk.dense {
-            *dense = DenseChunkData::new(pos, 0.0)
-        }
         let new_mesh = generate_mesh_data(&chunk);
         *mesh = meshes.add(new_mesh).into();
+        info!("Updated mesh for chunk {}", chunk.pos);
     }
 }
 
@@ -613,6 +529,50 @@ fn draw_dense_lattice_values(
                     painter.thickness = 1.0;
                     painter.set_color(WHITE);
                     painter.circle(0.7);
+                }
+            }
+        }
+    }
+}
+
+fn draw_highlighted_lattice_points(
+    mut painter: ShapePainter,
+    map: Res<ChunkMap>,
+    cursor: Res<CursorWorldPosition>,
+    mut chunks: Query<&mut TerrainChunk>,
+    btn: Res<ButtonInput<MouseButton>>,
+) {
+    let pos = match cursor.get() {
+        Some(p) => p,
+        _ => return,
+    };
+
+    let g = to_grid(pos);
+    let (lower, upper) = chunk_bounds(g);
+    let u = (pos - lower) / CHUNK_WIDTH;
+
+    let lattice_idx = (u * (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32)
+        .round()
+        .as_ivec2();
+
+    let (x, y) = (lattice_idx.x as usize, lattice_idx.y as usize);
+
+    dbg!((u, g, lattice_idx));
+
+    let world = lattice_point_world_pos(g, lattice_idx.x as usize, lattice_idx.y as usize);
+
+    painter.reset();
+    painter.set_translation(world.extend(100.0));
+    painter.circle(0.1);
+
+    if let Some(e) = map.get(&g) {
+        if let Ok(mut chunk) = chunks.get_mut(*e) {
+            if let Some(dense) = &mut chunk.dense {
+                if btn.pressed(MouseButton::Left) {
+                    dense.points[x][y] = 1.0;
+                }
+                if btn.pressed(MouseButton::Right) {
+                    dense.points[x][y] = 0.0;
                 }
             }
         }

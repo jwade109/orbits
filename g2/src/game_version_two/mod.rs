@@ -13,6 +13,7 @@ mod spacecraft;
 mod terrain;
 mod thruster;
 mod volume;
+mod mesh_builder;
 
 pub use animated_text::*;
 pub use computer::*;
@@ -27,6 +28,7 @@ pub use spacecraft::*;
 pub use terrain::*;
 pub use thruster::*;
 pub use volume::*;
+pub use mesh_builder::*;
 
 pub use bevy::color::palettes::css::*;
 pub use bevy::math::DVec2;

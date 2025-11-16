@@ -45,7 +45,7 @@ fn main() {
 }
 
 fn toggle_wireframe(mut wireframe_config: ResMut<Wireframe2dConfig>) {
-    wireframe_config.global = !wireframe_config.global;
+    // wireframe_config.global = !wireframe_config.global;
 }
 
 fn control_camera(
