@@ -20,7 +20,7 @@ impl Plugin for TerrainPlugin {
                 delete_chunks,
                 densify_chunks,
                 throwaway_generate_chunks_input,
-                draw_dense_lattice_values,
+                // draw_dense_lattice_values,
             ),
         );
     }
@@ -86,12 +86,21 @@ impl DenseChunkData {
         for x in 0..LATTICE_POINTS_PER_CHUNK_SIDE {
             for y in 0..LATTICE_POINTS_PER_CHUNK_SIDE {
                 let p_world = lattice_point_world_pos(pos, x, y);
-                let noise = simplex.get([p_world.x as f64 / 100.0, p_world.y as f64 / 100.0, z as f64]);
+                let noise =
+                    simplex.get([p_world.x as f64 / 100.0, p_world.y as f64 / 100.0, z as f64]);
                 ret.points[x][y] = noise as f32 + 0.5;
             }
         }
 
         ret
+    }
+
+    fn is_solid(&self) -> bool {
+        self.points.iter().all(|arr| arr.iter().all(|x| *x > 0.5))
+    }
+
+    fn is_empty(&self) -> bool {
+        self.points.iter().all(|arr| arr.iter().all(|x| *x < 0.5))
     }
 }
 
@@ -250,48 +259,293 @@ fn draw_hovered_grid(
     }
 }
 
-fn generate_mesh_data(chunk: &TerrainChunk) -> Mesh {
-    if let Some(dense) = &chunk.dense {
-        let usage = RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD;
-        let mut positions = Vec::new();
-        let mut normals = Vec::new();
-        let mut uvs = Vec::new();
-        let mut indices = Vec::new();
+fn inverse_lerp(a: f32, b: f32, value: f32) -> f32 {
+    if a == b {
+        return 0.0;
+    }
 
-        for x in 0..(LATTICE_POINTS_PER_CHUNK_SIDE - 1) {
-            for y in 0..(LATTICE_POINTS_PER_CHUNK_SIDE - 1) {
+    return (value - a) / (b - a);
+}
+
+fn marching_cubes_mesh(dense: &DenseChunkData) -> Mesh {
+    let usage = RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD;
+    let mut positions = Vec::new();
+    let mut normals = Vec::new();
+    let mut uvs = Vec::new();
+    let mut indices = Vec::new();
+
+    // combine tiles in the corner for fun
+    let mut combined_tiles = HashSet::new();
+
+    let mut n = LATTICE_POINTS_PER_CHUNK_SIDE - 2;
+
+    while n > 1 {
+        let mut solid = true;
+        for x in 1..n {
+            for y in 1..n {
                 let value = dense.points[x][y];
-                if value < 0.5 {
-                    continue;
-                }
-                let p = IVec2::new(x as i32, y as i32).as_vec2()
-                    / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32
-                    - Vec2::splat(0.5);
-                let n = positions.len() as u32;
-                let w = 1.0 / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32;
-                let pos = [
-                    [p.x, p.y, 0.0],
-                    [p.x + w, p.y, 0.0],
-                    [p.x, p.y + w, 0.0],
-                    [p.x + w, p.y + w, 0.0],
-                ];
-                positions.extend_from_slice(&pos);
-
-                for _ in 0..4 {
-                    normals.push([0.0, 0.0, 1.0]);
-                    uvs.push([0.0, 0.0]);
-                }
-
-                indices.extend_from_slice(&[n, n + 1, n + 2, n + 1, n + 2, n + 3]);
+                solid &= value > 0.5;
             }
         }
 
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, usage);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-        mesh.insert_indices(Indices::U32(indices));
-        mesh
+        if !solid {
+            n -= 1;
+            continue;
+        }
+
+        for x in 1..n {
+            for y in 1..n {
+                combined_tiles.insert((x, y));
+            }
+        }
+
+        break;
+    }
+
+    for x in 0..(LATTICE_POINTS_PER_CHUNK_SIDE - 1) {
+        for y in 0..(LATTICE_POINTS_PER_CHUNK_SIDE - 1) {
+            if combined_tiles.contains(&(x, y)) {
+                continue;
+            }
+
+            let value = dense.points[x][y];
+
+            let bitmask = ((dense.points[x][y] > 0.5) as u8)
+                | ((dense.points[x + 1][y] > 0.5) as u8) << 1
+                | ((dense.points[x + 1][y + 1] > 0.5) as u8) << 2
+                | ((dense.points[x][y + 1] > 0.5) as u8) << 3;
+
+            // let left = inverse_lerp(dense.points[x][y], dense.points[x][y + 1], 0.5);
+            // let top = inverse_lerp(dense.points[x][y + 1], dense.points[x + 1][y + 1], 0.5);
+            // let right = inverse_lerp(dense.points[x + 1][y], dense.points[x + 1][y + 1], 0.5);
+            // let bottom = inverse_lerp(dense.points[x][y], dense.points[x + 1][y], 0.5);
+
+            let square_size = 1.0 / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32;
+
+            let bottom_left = IVec2::new(x as i32, y as i32).as_vec2()
+                / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32
+                - Vec2::splat(0.5);
+
+            let top_right = bottom_left + Vec2::splat(square_size);
+            let bottom_right = bottom_left + Vec2::X * square_size;
+            let top_left = bottom_left + Vec2::Y * square_size;
+            let left = bottom_left + Vec2::Y * square_size * 0.5;
+            let bottom = bottom_left + Vec2::X * square_size * 0.5;
+            let right = top_right - Vec2::Y * square_size * 0.5;
+            let top = top_right - Vec2::X * square_size * 0.5;
+
+            let to_arr = |p: Vec2| [p.x, p.y, 0.0];
+
+            match bitmask {
+                0 => (),
+                1 => {
+                    // bottom left corner
+                    positions.push(to_arr(bottom_left));
+                    positions.push(to_arr(left));
+                    positions.push(to_arr(bottom));
+
+                    for _ in 0..3 {
+                        normals.push([0.0, 0.0, 1.0]);
+                        uvs.push([0.0, 0.0]);
+                    }
+
+                    indices.push((positions.len() - 3) as u32);
+                    indices.push((positions.len() - 2) as u32);
+                    indices.push((positions.len() - 1) as u32);
+                }
+                2 => {
+                    // bottom right corner
+                    positions.push(to_arr(bottom_right));
+                    positions.push(to_arr(right));
+                    positions.push(to_arr(bottom));
+
+                    for _ in 0..3 {
+                        normals.push([0.0, 0.0, 1.0]);
+                        uvs.push([0.0, 0.0]);
+                    }
+
+                    indices.push((positions.len() - 3) as u32);
+                    indices.push((positions.len() - 2) as u32);
+                    indices.push((positions.len() - 1) as u32);
+                }
+                3 => {
+                    // bottom half
+                    positions.push(to_arr(bottom_left));
+                    positions.push(to_arr(bottom_right));
+                    positions.push(to_arr(right));
+                    positions.push(to_arr(left));
+
+                    for _ in 0..4 {
+                        normals.push([0.0, 0.0, 1.0]);
+                        uvs.push([0.0, 0.0]);
+                    }
+
+                    indices.push((positions.len() - 4) as u32);
+                    indices.push((positions.len() - 3) as u32);
+                    indices.push((positions.len() - 2) as u32);
+                    indices.push((positions.len() - 4) as u32);
+                    indices.push((positions.len() - 2) as u32);
+                    indices.push((positions.len() - 1) as u32);
+                }
+                4 => {
+                    // top right corner
+                    positions.push(to_arr(top_right));
+                    positions.push(to_arr(right));
+                    positions.push(to_arr(top));
+
+                    for _ in 0..3 {
+                        normals.push([0.0, 0.0, 1.0]);
+                        uvs.push([0.0, 0.0]);
+                    }
+
+                    indices.push((positions.len() - 3) as u32);
+                    indices.push((positions.len() - 2) as u32);
+                    indices.push((positions.len() - 1) as u32);
+                }
+                6 => {
+                    // right half
+                    positions.push(to_arr(top_right));
+                    positions.push(to_arr(bottom_right));
+                    positions.push(to_arr(bottom));
+                    positions.push(to_arr(top));
+
+                    for _ in 0..4 {
+                        normals.push([0.0, 0.0, 1.0]);
+                        uvs.push([0.0, 0.0]);
+                    }
+
+                    indices.push((positions.len() - 4) as u32);
+                    indices.push((positions.len() - 3) as u32);
+                    indices.push((positions.len() - 2) as u32);
+                    indices.push((positions.len() - 4) as u32);
+                    indices.push((positions.len() - 2) as u32);
+                    indices.push((positions.len() - 1) as u32);
+                }
+                7 => {
+                    let n = positions.len() as u32;
+
+                    positions.push(to_arr(bottom_left));
+                    positions.push(to_arr(bottom_right));
+                    positions.push(to_arr(top_right));
+                    positions.push(to_arr(top));
+                    positions.push(to_arr(left));
+
+                    for _ in 0..5 {
+                        normals.push([0.0, 0.0, 1.0]);
+                        uvs.push([0.0, 0.0]);
+                    }
+
+                    indices.push(n);
+                    indices.push(n + 1);
+                    indices.push(n + 4);
+
+                    indices.push(n + 1);
+                    indices.push(n + 2);
+                    indices.push(n + 4);
+
+                    indices.push(n + 2);
+                    indices.push(n + 3);
+                    indices.push(n + 4);
+                }
+                8 => {
+                    // top left corner
+                    positions.push(to_arr(top_left));
+                    positions.push(to_arr(left));
+                    positions.push(to_arr(top));
+
+                    for _ in 0..3 {
+                        normals.push([0.0, 0.0, 1.0]);
+                        uvs.push([0.0, 0.0]);
+                    }
+
+                    indices.push((positions.len() - 3) as u32);
+                    indices.push((positions.len() - 2) as u32);
+                    indices.push((positions.len() - 1) as u32);
+                }
+                9 => {
+                    // left half
+                    positions.push(to_arr(top_left));
+                    positions.push(to_arr(bottom_left));
+                    positions.push(to_arr(bottom));
+                    positions.push(to_arr(top));
+
+                    for _ in 0..4 {
+                        normals.push([0.0, 0.0, 1.0]);
+                        uvs.push([0.0, 0.0]);
+                    }
+
+                    indices.push((positions.len() - 4) as u32);
+                    indices.push((positions.len() - 3) as u32);
+                    indices.push((positions.len() - 2) as u32);
+                    indices.push((positions.len() - 4) as u32);
+                    indices.push((positions.len() - 2) as u32);
+                    indices.push((positions.len() - 1) as u32);
+                }
+                11 => {
+                    let n = positions.len() as u32;
+
+                    positions.push(to_arr(bottom_left));
+                    positions.push(to_arr(bottom_right));
+                    positions.push(to_arr(top_left));
+                    positions.push(to_arr(top));
+                    positions.push(to_arr(right));
+
+                    for _ in 0..5 {
+                        normals.push([0.0, 0.0, 1.0]);
+                        uvs.push([0.0, 0.0]);
+                    }
+
+                    indices.push(n);
+                    indices.push(n + 1);
+                    indices.push(n + 2);
+
+                    indices.push(n + 2);
+                    indices.push(n + 3);
+                    indices.push(n + 4);
+
+                    indices.push(n + 1);
+                    indices.push(n + 2);
+                    indices.push(n + 4);
+                }
+                _ => {
+                    positions.push(to_arr(bottom_left));
+                    positions.push(to_arr(bottom_right));
+                    positions.push(to_arr(top_left));
+                    positions.push(to_arr(top_right));
+
+                    for _ in 0..4 {
+                        normals.push([0.0, 0.0, 1.0]);
+                        uvs.push([0.0, 0.0]);
+                    }
+
+                    indices.push((positions.len() - 4) as u32);
+                    indices.push((positions.len() - 3) as u32);
+                    indices.push((positions.len() - 2) as u32);
+                    indices.push((positions.len() - 3) as u32);
+                    indices.push((positions.len() - 2) as u32);
+                    indices.push((positions.len() - 1) as u32);
+                }
+            }
+        }
+    }
+
+    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, usage);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+    mesh.insert_indices(Indices::U32(indices));
+    mesh
+}
+
+fn generate_mesh_data(chunk: &TerrainChunk) -> Mesh {
+    if let Some(dense) = &chunk.dense {
+        if dense.is_empty() {
+            Rectangle::new(0.1, 0.1).into()
+        } else if dense.is_solid() {
+            Rectangle::default().into()
+        } else {
+            marching_cubes_mesh(dense)
+        }
     } else {
         Rectangle::default().into()
     }
@@ -307,7 +561,7 @@ fn densify_chunks(
     for msg in messages.read() {
         if let Some(e) = map.get(&msg.pos) {
             if let Ok(mut chunk) = chunks.get_mut(*e) {
-                chunk.dense = Some(DenseChunkData::new(chunk.pos, z));
+                chunk.dense = Some(DenseChunkData::new(chunk.pos, 0.0));
             }
         } else {
             warn!("Failed to densify nonexistent chunk: {}", msg.pos);
@@ -320,11 +574,11 @@ fn update_meshes(
     mut meshes: ResMut<Assets<Mesh>>,
     time: Res<Time>,
 ) {
-    let z = time.elapsed_secs() / 5.0;
+    let z = time.elapsed_secs() / 20.0;
     for (mut mesh, mut chunk) in &mut chunks {
         let pos = chunk.pos;
         if let Some(dense) = &mut chunk.dense {
-            *dense = DenseChunkData::new(pos, z)
+            *dense = DenseChunkData::new(pos, 0.0)
         }
         let new_mesh = generate_mesh_data(&chunk);
         *mesh = meshes.add(new_mesh).into();
@@ -339,17 +593,26 @@ fn draw_dense_lattice_values(
     for (chunk, transform) in chunks {
         let origin = transform.translation().xy();
         if let Some(dense) = &chunk.dense {
+            if dense.is_empty() || dense.is_solid() {
+                continue;
+            }
             for x in 0..(LATTICE_POINTS_PER_CHUNK_SIDE - 1) {
                 for y in 0..(LATTICE_POINTS_PER_CHUNK_SIDE - 1) {
                     let value = dense.points[x][y];
                     let u = x as f32 / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32;
                     let v = y as f32 / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32;
-                    let color = Srgba::new(0.3 + u * 0.7, 0.3 + v * 0.7, 0.6, 0.6);
-                    painter.set_color(color);
+                    // let color = Srgba::new(0.3 + u * 0.7, 0.3 + v * 0.7, 0.6, 0.6);
+                    // painter.set_color(color);
                     let p = lattice_point_world_pos(chunk.pos, x, y);
                     painter.set_translation(p.extend(10.0));
-                    let w = CHUNK_WIDTH / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32;
-                    painter.rect(Vec2::splat(value * w));
+                    // let w = CHUNK_WIDTH / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32;
+                    // painter.rect(Vec2::splat(value * w));
+
+                    painter.hollow = value < 0.5;
+                    painter.thickness_type = ThicknessType::Pixels;
+                    painter.thickness = 1.0;
+                    painter.set_color(WHITE);
+                    painter.circle(0.7);
                 }
             }
         }
