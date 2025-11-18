@@ -422,7 +422,10 @@ fn spawn_empty_grid<'a>(commands: &'a mut Commands, pos: Vec2, angle: f32) -> En
     commands.spawn((
         Name::new("Grid"),
         Transform::from_translation(pos.extend(0.0)).with_rotation(Quat::from_rotation_z(angle)),
-        SpacecraftGrid::default(),
+        SpacecraftGrid {
+            velocity: randvec(2.0, 4.0).as_dvec2(),
+            ..default()
+        },
         Visibility::default(),
         AngularVelocity(0.0),
     ))
@@ -487,6 +490,7 @@ fn add_part_to_grid<'a>(
     let is_thruster = part.as_thruster().is_some();
     let is_computer = part.is_computer();
     let is_structural = part.layer() == starling::parts::PartLayer::Structural;
+    let is_excavator = chance(0.04);
 
     let n_slots = match part.variant() {
         InstantiatedPartVariant::Cargo(c, _) => c.slots(),
@@ -527,7 +531,16 @@ fn add_part_to_grid<'a>(
     }
 
     if is_computer {
-        cmd.insert(Computer::default());
+        let mut cpu = Computer::default();
+        // cpu.on = true;
+        cmd.insert(cpu);
+    }
+
+    if is_excavator {
+        cmd.insert(Excavator {
+            is_enabled: chance(0.9),
+            radius: rand(3.0, 12.0),
+        });
     }
 
     cmd
