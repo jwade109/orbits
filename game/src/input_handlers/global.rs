@@ -13,51 +13,6 @@ fn combo_just_pressed(input: &InputState, keys: &[KeyCode]) -> bool {
 pub fn on_global_render_tick(state: &mut GameState) -> bool {
     let mut take = Take::from_opt(state.input.position(MouseButt::Hover, FrameId::Current));
 
-    if state.input.just_pressed(KeyCode::KeyK) {
-        if let Some(t) = &mut state.tutorial {
-            t.prev();
-        }
-    }
-
-    if state.input.just_pressed(KeyCode::KeyL) {
-        if let Some(t) = &mut state.tutorial {
-            let force = state.input.is_pressed(KeyCode::ControlLeft);
-            t.next(force);
-        }
-    }
-
-    if state
-        .input
-        .on_frame(MouseButt::Right, FrameId::Down)
-        .is_some()
-        && state.input.is_pressed(KeyCode::ShiftLeft)
-    {
-        if let Some(p) = take.take() {
-            state.spawn_window(WindowClass::Hello, p);
-            return true;
-        }
-    }
-
-    state.windows.sort_by_key(|w| w.is_focused as u8);
-
-    let mut events = Vec::new();
-
-    for button in &mut state.buttons {
-        if let Some(e) = button.on_mouse_move(&mut take) {
-            events.push(e);
-        }
-    }
-
-    for window in state.windows.iter_mut().rev() {
-        window.on_mouse_move(&mut take);
-
-        for e in &state.input.keyboard_events {
-            if let Some(e) = window.on_key(e) {
-                events.push(e);
-            }
-        }
-    }
-
     if state.input.just_pressed(KeyCode::Escape) {
         state.shutdown_with_prompt();
         return true;
@@ -71,46 +26,9 @@ pub fn on_global_render_tick(state: &mut GameState) -> bool {
         state.zoom_to_vehicle(true);
     }
 
-    if state.input.just_pressed(KeyCode::KeyY) {
-        state.arrange_windows(false);
-    }
-
-    if state.input.just_pressed(KeyCode::KeyJ) {
-        state.arrange_windows(true);
-    }
-
     if state.console.is_active() {
         if let Some((decl, args)) = state.console.process_input(&mut state.input) {
             decl.execute(state, args);
-        }
-        return true;
-    }
-
-    if let Some(_) = state.input.on_frame(MouseButt::Left, FrameId::Down) {
-        for button in &mut state.buttons {
-            button.on_left_mouse_down();
-        }
-        for window in &mut state.windows {
-            if let Some(e) = window.on_left_mouse_down() {
-                events.push(e);
-            }
-        }
-    }
-
-    if let Some(_) = state.input.on_frame(MouseButt::Left, FrameId::Up) {
-        for button in &mut state.buttons {
-            if let Some(e) = button.on_left_mouse_up() {
-                events.push(e);
-            }
-        }
-        for window in &mut state.windows {
-            window.on_left_mouse_up();
-        }
-    }
-
-    if !events.is_empty() {
-        for e in events {
-            state.on_button_event(e);
         }
         return true;
     }

@@ -1,6 +1,5 @@
 use crate::canvas::Canvas;
 use crate::onclick::OnClick;
-use crate::ui_facade::UiFacade;
 use starling::prelude::*;
 
 pub trait Interactive: Send + Sync {
@@ -15,8 +14,6 @@ pub trait Interactive: Send + Sync {
     }
 
     fn step(&mut self) -> Option<OnClick>;
-
-    fn update(&mut self, _facade: &UiFacade) {}
 
     fn draw(&self, _canvas: &mut Canvas) {}
 }

@@ -1,5 +1,4 @@
 pub mod args;
-pub mod button;
 pub mod camera_controller;
 pub mod canvas;
 pub mod commands;
@@ -23,10 +22,6 @@ pub mod settings;
 pub mod sim_rate;
 pub mod sounds;
 pub mod sprites;
-pub mod text_button;
-pub mod tutorial;
 pub mod ui;
-pub mod ui_facade;
-pub mod window;
 pub mod z_index;
 pub mod input_handlers;

@@ -167,8 +167,6 @@ pub struct GameState {
     /// the assets/parts directory
     pub part_database: HashMap<String, PartPrototype>,
 
-    pub starfield: Vec<(DVec3, Srgba, f32, f32)>,
-
     pub scene: SceneType,
 
     pub current_orbit: Option<usize>,
@@ -184,31 +182,6 @@ pub struct GameState {
     pub image_handles: HashMap<String, (Handle<Image>, UVec2)>,
 
     pub vehicle_names: Vec<String>,
-
-    pub buttons: Vec<Box<dyn Interactive>>,
-    pub next_window_id: u32,
-    pub windows: Vec<UiWindow>,
-
-    pub tutorial: Option<Tutorial>,
-}
-
-fn generate_starfield() -> Vec<(DVec3, Srgba, f32, f32)> {
-    (0..6000)
-        .map(|_| {
-            let s = rand(0.0, 2.0);
-            let color = if s < 1.0 {
-                RED.mix(&YELLOW, s)
-            } else {
-                WHITE.mix(&TEAL, s - 1.0)
-            };
-            (
-                randvec3(70000000000.0, 120000000000.0).as_dvec3(),
-                color,
-                rand(3.0, 9.0),
-                rand(700.0, 1900.0),
-            )
-        })
-        .collect()
 }
 
 impl GameState {
@@ -245,48 +218,6 @@ impl GameState {
             }
         };
 
-        let mut buttons: Vec<Box<dyn Interactive>> = Vec::new();
-        // let w = 60.0;
-        // let s = w + 10.0;
-        // for (i, (onclick, text, sp)) in [
-        //     (OnClick::ZoomToOrbit, "Zoom To Orbit", ""),
-        //     (OnClick::ZoomToVehicle, "Zoom To Vehicle", ""),
-        // ]
-        // .into_iter()
-        // .enumerate()
-        // {
-        //     let p = Vec2::new(-900.0, i as f32 * s);
-        //     let b = ExpandButton::new(text, onclick, p, Vec2::splat(w), sp);
-        //     buttons.push(Box::new(b));
-        // }
-
-        let text_labels = [
-            ButtonId::Editor,
-            ButtonId::Rcs,
-            ButtonId::Idle,
-            ButtonId::Prograde,
-            ButtonId::Retrograde,
-            ButtonId::Position,
-            ButtonId::Attitude,
-            ButtonId::Launch,
-        ];
-
-        let mut origin = Vec2::ZERO;
-        for s in text_labels {
-            let text = format!("{:?}", s).to_ascii_uppercase();
-            let ts = TextButton::new(origin, text, s);
-            origin.x += ts.bounds().span.x + 10.0;
-            buttons.push(Box::new(ts));
-        }
-
-        let tutorial = match load_tutorial_from_file(&args.tutorial_path()) {
-            Ok(t) => Some(t),
-            Err(e) => {
-                error!(e);
-                None
-            }
-        };
-
         let mut g = GameState {
             render_ticks: 0,
             game_ticks: 0,
@@ -310,8 +241,7 @@ impl GameState {
             paused: false,
             exec_time: std::time::Duration::new(0, 0),
             part_database,
-            starfield: generate_starfield(),
-            scene: SceneType::Orbital,
+            scene: SceneType::Editor,
             current_orbit: None,
             ui: Tree::new(),
             notifications: Vec::new(),
@@ -320,22 +250,6 @@ impl GameState {
             sprites: Vec::new(),
             image_handles: HashMap::new(),
             vehicle_names,
-            buttons,
-            next_window_id: 7,
-            windows: Vec::new(),
-            tutorial: None,
-        };
-
-        let get_random_orbit = |universe: &Universe, pid: EntityId| {
-            let r1 = rand(3_000_000.0, 20_000_000.0) as f64;
-            let r2 = rand(3_000_000.0, 20_000_000.0) as f64;
-            let argp = rand(0.0, 2.0 * PI) as f64;
-            let planet = universe.get_planet(pid)?;
-            let r1 = planet.body.radius + r1;
-            let r2 = planet.body.radius + r2;
-            let epoch = Nanotime::secs_f32(rand(0.0, 100000.0));
-            let orbit = SparseOrbit::new(r1.max(r2), r1.min(r2), argp, planet.body, epoch, false)?;
-            Some(GlobalOrbit(pid, orbit))
         };
 
         let vehicles = [
@@ -855,43 +769,6 @@ impl GameState {
             OnClick::ZoomToOrbit => {
                 self.zoom_to_vehicle(false);
             }
-            OnClick::CloseWindow(id) => {
-                self.close_window(id);
-            }
-            OnClick::MinimizeWindow(id) => {
-                self.minimize_window(id);
-            }
-            OnClick::MaximizeWindow(id) => {
-                self.maximize_window(id);
-            }
-            OnClick::TextButtonClicked(id) => {
-                match id {
-                    ButtonId::Editor => {
-                        self.scene = SceneType::Editor;
-                        Some(())
-                    }
-                    ButtonId::Rcs => self.toggle_rcs(),
-                    ButtonId::Idle => self.set_controller_policy(VehicleControlPolicy::Idle),
-                    ButtonId::Prograde => {
-                        self.set_controller_policy(VehicleControlPolicy::BurnPrograde)
-                    }
-                    ButtonId::Retrograde => {
-                        self.set_controller_policy(VehicleControlPolicy::BurnRetrograde)
-                    }
-                    ButtonId::Position => {
-                        self.set_controller_policy(VehicleControlPolicy::PositionHold(vec![(
-                            randvec(30.0, 80.0).as_dvec2(),
-                            0.0,
-                        )]))
-                    }
-                    ButtonId::Attitude => {
-                        self.set_controller_policy(VehicleControlPolicy::HoldAttitude(None))
-                    }
-                    ButtonId::Launch => {
-                        self.set_controller_policy(VehicleControlPolicy::LaunchToOrbit(300_000.0))
-                    }
-                };
-            }
 
             // BOOKMARK unhandled event
             _ => info!("Unhandled button event: {id:?}"),
@@ -1031,65 +908,62 @@ impl GameState {
         }
     }
 
-    pub fn next_window_id(&mut self) -> u32 {
-        let id = self.next_window_id;
-        self.next_window_id += 1;
-        id
-    }
-
-    pub fn spawn_window(&mut self, class: WindowClass, p: Vec2) {
-        for window in &mut self.windows {
-            window.is_focused = false;
-        }
-        let id = self.next_window_id();
-        let mut window = UiWindow::new(id, class);
-        window.set_origin(p);
-        window.is_focused = true;
-        self.windows.push(window);
-    }
-
-    pub fn close_window(&mut self, id: u32) {
-        self.windows.retain(|w| w.id != id);
-    }
-
-    pub fn minimize_window(&mut self, id: u32) {
-        if let Some(w) = self.windows.iter_mut().find(|w| w.id == id) {
-            w.minimize();
-        }
-    }
-
-    pub fn maximize_window(&mut self, id: u32) {
-        if let Some(w) = self.windows.iter_mut().find(|w| w.id == id) {
-            w.maximize();
-        }
-    }
-
-    pub fn arrange_windows(&mut self, minimized: bool) {
-        let half = self.input.screen_bounds.span / 2.0;
-        let half = half.with_x(-half.x);
-        let mut origin = Vec2::new(90.0, -70.0) + half;
-        let delta_y = if minimized { 40.0 } else { 150.0 };
-        for window in &mut self.windows {
-            if window.static_content_dims.x + origin.x > half.x.abs() - 50.0 {
-                origin.x = half.x + 90.0;
-                origin.y -= delta_y;
-            }
-            if minimized {
-                window.minimize();
-            } else {
-                window.maximize();
-            }
-            window.set_target_pos(origin);
-            origin += Vec2::new(window.static_content_dims.x + 15.0, 0.0);
-        }
-    }
-
     pub fn on_render_tick(&mut self) {
         self.render_ticks += 1;
 
-        if on_global_render_tick(self) {
+        let mut take = Take::from_opt(self.input.position(MouseButt::Hover, FrameId::Current));
+
+        let mut events = Vec::new();
+
+        if self.input.just_pressed(KeyCode::KeyH) {
+            self.reset_camera();
+        }
+
+        if self.input.just_pressed(KeyCode::KeyV) {
+            self.zoom_to_vehicle(true);
+        }
+
+        if self.console.is_active() {
+            if let Some((decl, args)) = self.console.process_input(&mut self.input) {
+                decl.execute(self, args);
+            }
             return;
         }
+
+        if !events.is_empty() {
+            for e in events {
+                self.on_button_event(e);
+            }
+            return;
+        }
+
+        if self.input.just_pressed(KeyCode::KeyB) {
+            self.spawn_new();
+        }
+
+        if self.input.just_pressed(KeyCode::Delete) {
+            if let Some(p) = self.piloting() {
+                self.delete_orbiter(p);
+            }
+        }
+
+        if self.input.is_pressed(KeyCode::ShiftLeft) && self.input.is_pressed(KeyCode::ControlLeft)
+        {
+            let delta = if self.input.just_pressed(KeyCode::Minus) {
+                -1.0
+            } else if self.input.just_pressed(KeyCode::Equal) {
+                1.0
+            } else {
+                0.0
+            };
+
+            self.settings.ui_button_height =
+                (self.settings.ui_button_height + delta).clamp(3.0, 40.0);
+        }
+
+        self.handle_click_events();
+
+        let on_ui = self.is_hovering_over_ui() || take.take().is_none();
 
         match self.scene {
             SceneType::Editor => {
@@ -1116,34 +990,6 @@ impl GameState {
 
     pub fn on_game_tick(&mut self) {
         self.game_ticks += 1;
-
-        let facade = UiFacade::new(self);
-        for button in &mut self.buttons {
-            button.update(&facade);
-            button.step();
-        }
-
-        for window in &mut self.windows {
-            match window.class {
-                WindowClass::CurrentVehicleInfo => {
-                    let fb_title = "Current Vehicle".to_string();
-                    let fb_contents =
-                        "No current vehicle.\n\nSelect a vehicle by clicking on it".to_string();
-                    (window.title, window.contents) =
-                        get_vehicle_info_contents(&self.universe, self.orbital_context.piloting)
-                            .unwrap_or((fb_title, fb_contents));
-                }
-                WindowClass::VehicleInfo(e) => {
-                    let fb_title = format!("Vehicle {}", e);
-                    let fb_contents = format!("No vehicle with id {}.", e);
-                    (window.title, window.contents) =
-                        get_vehicle_info_contents(&self.universe, Some(e))
-                            .unwrap_or((fb_title, fb_contents));
-                }
-                _ => (),
-            }
-            window.step();
-        }
 
         let mut signals = ControlSignals::new();
 
@@ -1198,19 +1044,6 @@ impl GameState {
                 Editor::on_game_tick(self);
             }
             _ => (),
-        }
-
-        // this is the worst. but whatever
-        if let Some(mut t) = self.tutorial.clone() {
-            let finished = t.update(self);
-            if finished {
-                if t.is_complete() {
-                    self.sounds.play_once("nyt-crossword.ogg", 0.5);
-                } else {
-                    self.sounds.play_once("modern-button-click.ogg", 1.0);
-                }
-            }
-            self.tutorial = Some(t);
         }
     }
 }

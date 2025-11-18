@@ -410,7 +410,7 @@ impl Render for Editor {
         let layers = layer_selection(state);
         let vehicles = vehicle_selection(state);
 
-        let other_buttons = other_buttons(state.settings.ui_button_height, &state.universe);
+        let other_buttons = other_buttons(state.settings.ui_button_height);
         // let actions = action_queue(&state.editor_context.action_queue);
 
         let part_buttons = if let Some(id) = state.editor_context.selected_part {
@@ -945,7 +945,7 @@ fn action_queue(button_height: f32, queue: &Vec<Action>) -> Node<OnClick> {
         )
 }
 
-fn other_buttons(button_height: f32, universe: &Universe) -> Node<OnClick> {
+fn other_buttons(button_height: f32) -> Node<OnClick> {
     let rotate = Node::button("Rotate", OnClick::RotateCraft, Size::Grow, button_height);
 
     let normalize = Node::button(
@@ -964,13 +964,6 @@ fn other_buttons(button_height: f32, universe: &Universe) -> Node<OnClick> {
         button_height,
     );
 
-    let surface_buttons = universe.planet_ids().into_iter().filter_map(|id| {
-        let planet = universe.get_planet(id)?;
-        let s = format!("Send to {}", planet.name);
-        let b = Node::button(s, OnClick::SendToSurface(id), Size::Grow, button_height);
-        Some(b)
-    });
-
     Node::structural(Size::Grow, Size::Fit)
         .with_color(UI_BACKGROUND_COLOR)
         .down()
@@ -980,7 +973,6 @@ fn other_buttons(button_height: f32, universe: &Universe) -> Node<OnClick> {
         .with_child(normalize)
         .with_child(Node::hline())
         .with_child(toggle_info)
-        .with_children(surface_buttons)
 }
 
 fn layer_selection(state: &GameState) -> Node<OnClick> {
