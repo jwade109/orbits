@@ -65,11 +65,11 @@ fn draw_computers(mut painter: ShapePainter, computers: Query<(&Computer, &Globa
         let pointing =
             transform.translation().xy() + Vec2::from_angle(computer.attitude_hold) * 10.0;
 
-        painter.set_color(TEAL);
-        painter.set_translation(Vec3::ZERO);
-        painter.line(transform.translation().with_z(60.0), target);
-        painter.set_translation(target);
-        painter.circle(0.5);
+        // painter.set_color(TEAL);
+        // painter.set_translation(Vec3::ZERO);
+        // painter.line(transform.translation().with_z(60.0), target);
+        // painter.set_translation(target);
+        // painter.circle(0.5);
 
         painter.set_color(GREEN);
         painter.set_translation(Vec3::ZERO);
@@ -118,6 +118,10 @@ fn do_maneuvers(
                         body_frame_thrust(&thruster, transform, grid.center_of_mass);
                     if torque.abs() > 0.5 && ctrl.attitude.abs() > 0.5 && thruster.is_rcs {
                         thruster.on = torque.signum() as f64 == ctrl.attitude.signum();
+                    } else if !thruster.is_rcs {
+                        if chance(0.03) {
+                            thruster.on = !thruster.on;
+                        }
                     } else {
                         thruster.on = false;
                     }

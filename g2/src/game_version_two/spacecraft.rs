@@ -532,7 +532,8 @@ fn add_part_to_grid<'a>(
 
     if is_computer {
         let mut cpu = Computer::default();
-        // cpu.on = true;
+        cpu.attitude_hold = rand(0.0, 2.0);
+        cpu.on = true;
         cmd.insert(cpu);
     }
 

@@ -134,9 +134,8 @@ pub fn attitude_control_law(
     body: &RigidBody,
 ) -> (VehicleControl, VehicleControlStatus) {
     let mut cmd = VehicleControl::NULLOPT;
-    dbg!(target_angle, body.angle);
     cmd.attitude = compute_attitude_control(body, target_angle, pid);
-    let attitude_error = dbg!(wrap_pi_npi_f64(target_angle - body.angle));
+    let attitude_error = wrap_pi_npi_f64(target_angle - body.angle);
     let stat = if attitude_error.abs() > 0.03 {
         VehicleControlStatus::ComingAbout
     } else {

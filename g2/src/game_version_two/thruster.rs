@@ -74,11 +74,12 @@ fn draw_thrusters(
 fn consume_fuel(mut thrusters: Query<(&mut Thruster, &mut Inventory)>) {
     for (mut thruster, mut inv) in &mut thrusters {
         thruster.status = if thruster.on {
-            if inv.take(Item::H2, 1) {
-                MachineStatus::Running
-            } else {
-                MachineStatus::Starved
-            }
+            MachineStatus::Running
+            // if inv.take(Item::H2, 1) {
+            //     MachineStatus::Running
+            // } else {
+            //     MachineStatus::Starved
+            // }
         } else {
             MachineStatus::Off
         };
