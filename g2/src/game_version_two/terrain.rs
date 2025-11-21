@@ -182,7 +182,11 @@ fn insert_tiles(mut commands: Commands, asset_server: Res<AssetServer>) {
     let handle = asset_server.add(image);
 
     for x in -30..=30 {
-        for y in -7..12 {
+        for y in -30..=30 {
+            let r = Vec2::new(x as f32, y as f32);
+            if r.length() > 16.8 {
+                continue;
+            }
             commands.send_event(GenerateChunk {
                 pos: IVec2::new(x, y),
                 material: None,
@@ -339,7 +343,7 @@ fn inverse_lerp(a: f32, b: f32, value: f32) -> f32 {
     return (value - a) / (b - a);
 }
 
-const VERY_DARK_COLOR: f32 = 0.1;
+const VERY_DARK_COLOR: f32 = 0.2;
 const DARK_COLOR: f32 = 0.15;
 const MEDIUM_COLOR: f32 = 0.25;
 const LIGHT_COLOR: f32 = 0.3;
@@ -378,7 +382,7 @@ fn marching_cubes_mesh(dense: &DenseChunkData) -> Mesh {
                 let bottom_right = bottom_left + Vec2::X * square_size;
                 let top_left = bottom_left + Vec2::Y * square_size;
 
-                let lerp = true;
+                let lerp = false;
 
                 let lerp_point = |vx: f32, vy: f32, px: Vec2, py: Vec2| {
                     let t = inverse_lerp(vx, vy, level);

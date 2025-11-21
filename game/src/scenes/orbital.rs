@@ -4,7 +4,6 @@ use crate::game::GameState;
 use crate::onclick::OnClick;
 use crate::prelude::*;
 use crate::scenes::*;
-use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use enum_iterator::Sequence;
 use layout::layout::Tree;
@@ -173,7 +172,7 @@ pub fn date_info(state: &GameState) -> String {
 }
 
 impl Render for OrbitalContext {
-    fn background_color(state: &GameState) -> bevy::color::Srgba {
+    fn background_color(_state: &GameState) -> bevy::color::Srgba {
         BLACK
     }
 

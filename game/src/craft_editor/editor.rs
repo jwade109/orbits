@@ -205,7 +205,6 @@ impl Editor {
             name: state.editor_context.vehicle.model().to_string(),
             tuning: VehiclePd::default(),
             parts,
-            lines: state.editor_context.vehicle.pipes().collect(),
         };
 
         let s = serde_yaml::to_string(&storage).ok()?;
@@ -588,51 +587,6 @@ impl Render for Editor {
         }
 
         for layer in PartLayer::draw_order() {
-            if layer == PartLayer::Plumbing
-                && (ctx.focus_layer == Some(PartLayer::Internal)
-                    || ctx.focus_layer == Some(PartLayer::Plumbing)
-                    || ctx.focus_layer.is_none())
-            {
-                // draw the pipes themselves
-                let is_focus = ctx.focus_layer == Some(PartLayer::Plumbing);
-                for pipe in ctx.vehicle.pipes() {
-                    let color = if is_focus { PURPLE } else { DARK_SLATE_GRAY };
-                    let p = pipe.as_vec2() / PIXELS_PER_METER;
-                    let q = (pipe + IVec2::ONE).as_vec2() / PIXELS_PER_METER;
-                    let aabb = AABB::from_arbitrary(p, q).scale_about_center(1.2);
-                    canvas.rect(ctx.w2c_aabb(aabb), ZOrdering::EditorPipe, color);
-                }
-
-                for group in ctx.vehicle.conn_groups() {
-                    for joint in group.points() {
-                        let p = joint.as_vec2() / PIXELS_PER_METER;
-                        let q = (joint + IVec2::ONE).as_vec2() / PIXELS_PER_METER;
-                        let aabb = AABB::from_arbitrary(p, q).scale_about_center(1.5);
-                        canvas.rect(ctx.w2c_aabb(aabb), ZOrdering::EditorPipeJoint, ORANGE);
-                    }
-                }
-
-                // highlight parts in this connectivity group
-                if is_focus {
-                    for (group_id, group) in ctx.vehicle.conn_groups().enumerate() {
-                        let color = crate::sprites::hashable_to_color(&group_id);
-                        let color: Srgba = color.into();
-                        for id in group.ids() {
-                            if let Some(part) = ctx.vehicle.get_part(id) {
-                                highlight_part(
-                                    canvas,
-                                    part,
-                                    ctx,
-                                    color.with_alpha(0.02),
-                                    ZOrdering::EditorConnGroupHighlight,
-                                );
-                            }
-                        }
-                    }
-                }
-                continue;
-            }
-
             for (_, instance) in ctx
                 .vehicle
                 .parts()
@@ -643,11 +597,8 @@ impl Render for Editor {
 
                 let alpha = match (ctx.focus_layer, layer) {
                     (None, _) => 1.0,
-                    (_, PartLayer::Plumbing) => continue,
                     (Some(PartLayer::Internal), PartLayer::Internal) => 1.0,
                     (Some(PartLayer::Internal), _) => 0.02,
-                    (Some(PartLayer::Plumbing), PartLayer::Internal) => 0.7,
-                    (Some(PartLayer::Plumbing), _) => 0.02,
                     (Some(PartLayer::Structural), PartLayer::Structural) => 1.0,
                     (Some(PartLayer::Structural), _) => 0.02,
                     (Some(PartLayer::Exterior), PartLayer::Exterior) => 1.0,
@@ -670,7 +621,6 @@ impl Render for Editor {
                     PartLayer::Exterior => ZOrdering::EditorExteriorPart,
                     PartLayer::Internal => ZOrdering::EditorInteriorPart,
                     PartLayer::Structural => ZOrdering::EditorStructuralPart,
-                    PartLayer::Plumbing => ZOrdering::EditorPipe,
                 };
 
                 canvas
@@ -806,17 +756,6 @@ impl Render for Editor {
                             TEAL.with_alpha(0.6),
                             ZOrdering::EditorMouseoverPartHighlight,
                         );
-                        for (other, other_instance) in ctx.vehicle.parts() {
-                            if ctx.vehicle.is_connected(id, *other) {
-                                highlight_part(
-                                    canvas,
-                                    other_instance,
-                                    ctx,
-                                    YELLOW.with_alpha(0.4),
-                                    ZOrdering::EditorConnGroupHighlight,
-                                )
-                            }
-                        }
                     }
                 }
             }

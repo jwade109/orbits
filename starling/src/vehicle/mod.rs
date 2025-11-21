@@ -4,7 +4,6 @@ mod rigid_body;
 mod sprite_generation;
 mod vehicle;
 mod vehicle_control;
-mod vehicle_tests;
 
 pub use connectivity_group::*;
 pub use file_storage::*;

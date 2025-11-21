@@ -261,22 +261,8 @@ fn draw_orbit_between(
     Some(())
 }
 
-fn draw_planet(
-    canvas: &mut Canvas,
-    state: &GameState,
-    planet: &Planet,
-    stamp: Nanotime,
-    origin: DVec2,
-    ctx: &OrbitalContext,
-) {
+fn draw_planet(canvas: &mut Canvas, planet: &Planet, origin: DVec2, ctx: &OrbitalContext) {
     let a = 0.5;
-
-    let target = state
-        .piloting()
-        .map(|p| state.universe.spacecraft.get(&p))
-        .flatten()
-        .map(|sv| sv.target())
-        .flatten();
 
     let screen_origin = ctx.w2c(origin);
 
@@ -321,25 +307,6 @@ fn draw_planet(
     //         draw_planet(canvas, state, pl, stamp, origin + pv.pos, ctx)
     //     }
     // }
-}
-
-fn draw_propagator(
-    canvas: &mut Canvas,
-    state: &GameState,
-    prop: &Propagator,
-    with_event: bool,
-    color: Srgba,
-    ctx: &impl CameraProjection,
-) -> Option<()> {
-    let parent_pv = state.universe.pv(prop.parent())?;
-    draw_orbit(canvas, &prop.orbit.1, parent_pv.pos, color, false, ctx);
-    if with_event {
-        if let Some((t, e)) = prop.stamped_event() {
-            let pv_end = parent_pv + prop.pv(t)?;
-            draw_event(canvas, &e, state.wall_time, pv_end.pos, ctx);
-        }
-    }
-    Some(())
 }
 
 pub fn to_srgba(fl: [f32; 4]) -> Srgba {
@@ -898,7 +865,6 @@ fn draw_orbiter(canvas: &mut Canvas, state: &GameState, id: EntityId) -> Option<
             };
             for (p, _) in waypoints {
                 let r = ctx.w2c(origin);
-                let q = ctx.w2c(origin + offset.pos);
                 let p = ctx.w2c(origin + offset.pos + p);
                 let z = ZOrdering::Waypoints.as_f32();
                 canvas.line(ctx.w2c(pv.pos), p, ZOrdering::Waypoints, TEAL);
@@ -917,7 +883,6 @@ fn draw_orbiter(canvas: &mut Canvas, state: &GameState, id: EntityId) -> Option<
 }
 
 fn draw_scenario(canvas: &mut Canvas, state: &GameState) {
-    let stamp = state.universe.stamp();
     let ctx = &state.orbital_context;
 
     for id in state.universe.planet_ids() {
@@ -926,7 +891,7 @@ fn draw_scenario(canvas: &mut Canvas, state: &GameState) {
             None => continue,
         };
         if let Some(planet) = state.universe.get_planet(id) {
-            draw_planet(canvas, state, &planet, stamp, pv.pos, ctx);
+            draw_planet(canvas, &planet, pv.pos, ctx);
         }
     }
 
@@ -935,54 +900,6 @@ fn draw_scenario(canvas: &mut Canvas, state: &GameState) {
     sids.for_each(|id| {
         draw_orbiter(canvas, state, *id);
     });
-}
-
-fn draw_event_marker_at(gizmos: &mut Gizmos, wall_time: Nanotime, event: &EventType, p: Vec2) {
-    let blinking = is_blinking(wall_time);
-
-    if !blinking {
-        match event {
-            EventType::NumericalError => return,
-            EventType::Collide(_) => return,
-            _ => (),
-        }
-    }
-
-    let color = match event {
-        EventType::Collide(_) => {
-            draw_x(gizmos, p, 40.0, RED);
-            return;
-        }
-        EventType::NumericalError => YELLOW,
-        EventType::Encounter(_) => GREEN,
-        EventType::Escape(_) => TEAL,
-        EventType::Impulse(_) => PURPLE,
-    };
-
-    draw_circle(gizmos, p, 15.0, color.with_alpha(0.8));
-    draw_circle(gizmos, p, 6.0, color.with_alpha(0.8));
-}
-
-fn draw_event(
-    canvas: &mut Canvas,
-    // planets: &PlanetarySystem,
-    event: &EventType,
-    // stamp: Nanotime,
-    wall_time: Nanotime,
-    p: DVec2,
-    ctx: &impl CameraProjection,
-) -> Option<()> {
-    // if let EventType::Encounter(id) = event {
-    //     let (body, pv, _, _) = planets.lookup_planet(*id, stamp)?;
-    //     draw_circle(
-    //         &mut canvas.gizmos,
-    //         ctx.w2c(pv.pos),
-    //         gcast(body.soi * ctx.scale()),
-    //         ORANGE.with_alpha(0.2),
-    //     );
-    // }
-    draw_event_marker_at(&mut canvas.gizmos, wall_time, event, ctx.w2c(p));
-    Some(())
 }
 
 pub fn is_blinking(wall_time: Nanotime) -> bool {

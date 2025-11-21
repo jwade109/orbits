@@ -2,7 +2,7 @@ use crate::math::*;
 use crate::parts::*;
 use crate::vehicle::*;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::Path;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10,7 +10,6 @@ pub struct VehicleFileStorage {
     pub name: String,
     pub tuning: VehiclePd,
     pub parts: Vec<VehiclePartFileStorage>,
-    pub lines: HashSet<IVec2>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -49,7 +48,6 @@ pub fn load_vehicle(
         name,
         storage.name,
         prototypes,
-        storage.lines,
         storage.tuning,
     ))
 }

@@ -70,17 +70,6 @@ pub fn on_editor_render_tick(state: &mut GameState) {
         state.editor_context.rotation = enum_iterator::next_cycle(&state.editor_context.rotation);
     }
 
-    if state.editor_context.focus_layer == Some(PartLayer::Plumbing) {
-        if let Some(p) = state.input.position(MouseButt::Left, FrameId::Current) {
-            let p = vfloor(graphics_cast(state.editor_context.c2w(p)) * PIXELS_PER_METER);
-            state.editor_context.vehicle.add_pipe(p);
-        }
-        if let Some(p) = state.input.position(MouseButt::Right, FrameId::Current) {
-            let p = vfloor(graphics_cast(state.editor_context.c2w(p)) * PIXELS_PER_METER);
-            state.editor_context.vehicle.remove_pipe(p);
-        }
-    }
-
     if state.input.is_pressed(KeyCode::ControlLeft) && state.input.just_pressed(KeyCode::KeyZ) {
         state.editor_context.undo();
     }

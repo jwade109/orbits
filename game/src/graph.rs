@@ -97,7 +97,7 @@ impl Graph {
             .as_dvec2()
     }
 
-    pub fn signals(&self) -> impl Iterator<Item = Signal> + use<'_> {
+    pub fn signals(&'_ self) -> impl Iterator<Item = Signal<'_>> + use<'_> {
         self.signals.iter().map(|(y, color)| Signal {
             graph: self,
             x: &self.x,

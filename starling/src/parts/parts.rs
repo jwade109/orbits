@@ -97,7 +97,6 @@ impl PartPrototype {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Sequence, Hash, Deserialize, Serialize)]
 pub enum PartLayer {
     Internal,
-    Plumbing,
     Structural,
     Exterior,
 }
@@ -111,16 +110,14 @@ impl PartLayer {
         [
             PartLayer::Structural,
             PartLayer::Internal,
-            PartLayer::Plumbing,
             PartLayer::Exterior,
         ]
         .into_iter()
     }
 
-    pub fn draw_order() -> [PartLayer; 4] {
+    pub fn draw_order() -> [PartLayer; 3] {
         [
             PartLayer::Internal,
-            PartLayer::Plumbing,
             PartLayer::Structural,
             PartLayer::Exterior,
         ]
@@ -129,7 +126,6 @@ impl PartLayer {
     pub fn to_z(self) -> u32 {
         match self {
             PartLayer::Internal => 0,
-            PartLayer::Plumbing => 1,
             PartLayer::Structural => 2,
             PartLayer::Exterior => 3,
         }

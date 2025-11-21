@@ -446,7 +446,6 @@ fn add_part_to_grid<'a>(
 
     let (z, _alpha, _t, d) = match part.layer() {
         starling::parts::PartLayer::Internal => (0.0, 1.0, 0.5, 0.0),
-        starling::parts::PartLayer::Plumbing => return,
         starling::parts::PartLayer::Structural => (0.02, 0.7, 0.7, 0.05),
         starling::parts::PartLayer::Exterior => (0.04, 0.2, 0.8, 0.1),
     };
@@ -533,7 +532,7 @@ fn add_part_to_grid<'a>(
     if is_computer {
         let mut cpu = Computer::default();
         cpu.attitude_hold = rand(0.0, 2.0);
-        cpu.on = true;
+        // cpu.on = true;
         cmd.insert(cpu);
     }
 

@@ -485,30 +485,6 @@ fn keyboard_control_law(input: &InputState) -> VehicleControl {
     ctrl
 }
 
-fn get_vehicle_info_contents(
-    universe: &Universe,
-    id: Option<EntityId>,
-) -> Option<(String, String)> {
-    let id = id?;
-    let sv = universe.spacecraft.get(&id)?;
-    let pv = sv.body.pv;
-
-    let title = sv.vehicle.name_with_id(id);
-
-    let contents = format!(
-        "{}-type vessel\n{}\n{}\nMODE {}\nORB {}",
-        sv.vehicle.model(),
-        distance_str_v(pv.pos),
-        velocity_str_v(pv.vel),
-        sv.controller.mode().to_status_str(),
-        sv.current_orbit()
-            .map(|o| format!("{}", o))
-            .unwrap_or("N/A".to_string()),
-    );
-
-    Some((title, contents))
-}
-
 impl GameState {
     pub fn reload(&mut self) {
         *self = GameState::new(self.args.clone());
@@ -911,10 +887,6 @@ impl GameState {
     pub fn on_render_tick(&mut self) {
         self.render_ticks += 1;
 
-        let mut take = Take::from_opt(self.input.position(MouseButt::Hover, FrameId::Current));
-
-        let mut events = Vec::new();
-
         if self.input.just_pressed(KeyCode::KeyH) {
             self.reset_camera();
         }
@@ -926,13 +898,6 @@ impl GameState {
         if self.console.is_active() {
             if let Some((decl, args)) = self.console.process_input(&mut self.input) {
                 decl.execute(self, args);
-            }
-            return;
-        }
-
-        if !events.is_empty() {
-            for e in events {
-                self.on_button_event(e);
             }
             return;
         }
@@ -962,8 +927,6 @@ impl GameState {
         }
 
         self.handle_click_events();
-
-        let on_ui = self.is_hovering_over_ui() || take.take().is_none();
 
         match self.scene {
             SceneType::Editor => {
@@ -1070,12 +1033,3 @@ fn on_render_tick(mut state: ResMut<GameState>) {
 
 pub const MIN_SIM_SPEED: u32 = 0;
 pub const MAX_SIM_SPEED: u32 = 1000000;
-
-fn process_interaction(state: &mut GameState, window: &mut Window) {
-    // let fs = WindowMode::BorderlessFullscreen(MonitorSelection::Current);
-    // window.mode = if window.mode == fs {
-    //     WindowMode::Windowed
-    // } else {
-    //     fs
-    // };
-}

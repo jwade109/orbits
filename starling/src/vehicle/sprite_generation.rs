@@ -16,7 +16,6 @@ pub fn diagram_color(part: &PartPrototype) -> [f32; 4] {
             PartLayer::Exterior => [0.2, 0.2, 0.2, 1.0],
             PartLayer::Internal => [0.4, 0.4, 0.4, 1.0],
             PartLayer::Structural => [0.9, 0.9, 0.9, 1.0],
-            PartLayer::Plumbing => [0.6, 0.0, 0.6, 1.0],
         },
     }
 }

@@ -7,7 +7,7 @@ use crate::parts::*;
 use crate::pid::PDCtrl;
 use crate::vehicle::*;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
 fn rocket_equation(ve: f64, m0: Mass, m1: Mass) -> f64 {
@@ -62,10 +62,8 @@ pub struct VehiclePd {
 pub struct Vehicle {
     name: String,
     model: String,
-    pipes: HashSet<IVec2>,
     next_part_id: PartId,
     parts: HashMap<PartId, InstantiatedPart>,
-    conn_groups: Vec<ConnectivityGroup>,
     is_thrust_idle: bool,
     discriminator: u64,
 
@@ -90,7 +88,6 @@ impl Vehicle {
             "Unnamed Ship".into(),
             "XYZ".into(),
             Vec::new(),
-            HashSet::new(),
             VehiclePd::default(),
         )
     }
@@ -99,7 +96,6 @@ impl Vehicle {
         name: String,
         model: String,
         prototypes: Vec<(IVec2, Rotation, PartPrototype)>,
-        pipes: HashSet<IVec2>,
         tuning: VehiclePd,
     ) -> Self {
         let mut next_part_id = PartId(0);
@@ -117,8 +113,6 @@ impl Vehicle {
             model,
             next_part_id,
             parts,
-            pipes,
-            conn_groups: Vec::new(),
             is_thrust_idle: false,
             discriminator: 0,
 
@@ -144,20 +138,6 @@ impl Vehicle {
 
     pub fn discriminator(&self) -> u64 {
         self.discriminator
-    }
-
-    pub fn add_pipe(&mut self, p: IVec2) {
-        self.pipes.insert(p);
-        self.update();
-    }
-
-    pub fn remove_pipe(&mut self, p: IVec2) {
-        self.pipes.remove(&p);
-        self.update();
-    }
-
-    pub fn has_pipe(&mut self, p: IVec2) -> bool {
-        self.pipes.contains(&p)
     }
 
     fn get_next_part_id(&mut self) -> PartId {
@@ -243,60 +223,7 @@ impl Vehicle {
 
     pub fn clear(&mut self) {
         self.parts.clear();
-        self.pipes.clear();
         self.update();
-    }
-
-    fn construct_connectivity(&mut self) {
-        // visit all pipe locations
-        let mut all_pipes = self.pipes.clone();
-        let mut open_set = HashSet::new();
-
-        let mut conn_groups = Vec::new();
-
-        while let Some(p) = all_pipes.iter().next() {
-            open_set.insert(*p);
-
-            let mut local_graph = ConnectivityGroup::new();
-
-            while let Some(p) = open_set.iter().next().cloned() {
-                open_set.remove(&p);
-                if !all_pipes.contains(&p) {
-                    continue;
-                }
-                all_pipes.remove(&p);
-
-                local_graph.add_transport_line(p);
-
-                if let Some(id) = self.get_part_at(p, PartLayer::Internal) {
-                    if let Some(q) = local_graph.get_pos(id) {
-                        let center = if let Some(part) = self.get_part(id) {
-                            part.origin() + part.dims_grid().as_ivec2() / 2
-                        } else {
-                            IVec2::ZERO
-                        };
-                        if p.distance_squared(center) < q.distance_squared(center) {
-                            local_graph.connect(id, p);
-                        }
-                    } else {
-                        local_graph.connect(id, p);
-                    }
-                }
-
-                for off in [IVec2::X, IVec2::Y, -IVec2::X, -IVec2::Y] {
-                    let neighbor = p - off;
-                    if self.pipes.contains(&neighbor) {
-                        open_set.insert(neighbor);
-                    }
-                }
-            }
-
-            if local_graph.len() > 1 {
-                conn_groups.push(local_graph);
-            }
-        }
-
-        self.conn_groups = conn_groups;
     }
 
     fn update_discriminator(&mut self) {
@@ -384,22 +311,9 @@ impl Vehicle {
         self.right.max_thrust = self.max_thrust_along_heading(-PI_64 / 2.0, false);
     }
 
-    pub fn conn_groups(&self) -> impl Iterator<Item = &ConnectivityGroup> + use<'_> {
-        self.conn_groups.iter()
-    }
-
-    pub fn is_connected(&self, id_a: PartId, id_b: PartId) -> bool {
-        self.conn_groups.iter().any(|g| g.is_connected(id_a, id_b))
-    }
-
     fn update(&mut self) {
-        self.construct_connectivity();
         self.update_discriminator();
         self.update_physical_quantities();
-    }
-
-    pub fn pipes(&self) -> impl Iterator<Item = IVec2> + use<'_> {
-        self.pipes.iter().cloned()
     }
 
     pub fn parts(&self) -> impl Iterator<Item = (&PartId, &InstantiatedPart)> + use<'_> {
@@ -771,30 +685,6 @@ impl Vehicle {
                 machines.push(id);
             }
         }
-
-        let mut tank_ids = HashSet::new();
-
-        for id in machines {
-            for conn in &self.conn_groups {
-                if !conn.contains(*id) {
-                    continue;
-                }
-                for other in conn.ids() {
-                    if other == *id {
-                        continue;
-                    }
-                    tank_ids.insert(other);
-                }
-            }
-        }
-
-        for id in tank_ids {
-            if let Some(p) = self.parts.get_mut(&id) {
-                if let Some((t, d)) = p.as_tank_mut() {
-                    t.put(Item::H2, Mass::kilograms(3), d);
-                }
-            }
-        }
     }
 
     pub fn body_frame_accel(&self) -> BodyFrameAccel {
@@ -936,9 +826,6 @@ impl Vehicle {
         self.parts.iter_mut().for_each(|(_, p)| {
             p.set_origin(p.origin() - avg);
         });
-
-        let new_pipes = self.pipes.iter().map(|p| p - avg).collect();
-        self.pipes = new_pipes;
 
         self.update();
     }
