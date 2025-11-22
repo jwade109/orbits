@@ -111,7 +111,7 @@ fn setup(mut commands: Commands) -> Result {
     ));
 
     commands.send_event(SpacecraftEvent::SpawnVehicle {
-        name: "pollux".to_string(),
+        name: "miner".to_string(),
         pos: Vec2::new(0.0, 20.0),
         angle: rand(-0.2, 0.3),
     });

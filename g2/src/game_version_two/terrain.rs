@@ -31,7 +31,7 @@ impl Plugin for TerrainPlugin {
 }
 
 pub fn to_grid(pos: Vec2) -> IVec2 {
-    (pos / CHUNK_WIDTH).round().as_ivec2()
+    (pos / CHUNK_WIDTH).floor().as_ivec2()
 }
 
 pub fn to_grid_and_lattice(pos: Vec2) -> (IVec2, UVec2) {
@@ -47,9 +47,9 @@ pub fn to_grid_and_lattice(pos: Vec2) -> (IVec2, UVec2) {
 }
 
 pub fn chunk_bounds(g: IVec2) -> (Vec2, Vec2) {
-    let p = g.as_vec2() * CHUNK_WIDTH - Vec2::splat(CHUNK_WIDTH) / 2.0;
-    let q = (g + IVec2::ONE).as_vec2() * CHUNK_WIDTH;
-    (p, q)
+    let lower = g.as_vec2() * CHUNK_WIDTH;
+    let upper = lower + Vec2::splat(CHUNK_WIDTH);
+    (lower, upper)
 }
 
 #[derive(Resource, Default, Deref, DerefMut)]
@@ -96,9 +96,9 @@ impl TerrainChunk {
 const LATTICE_POINTS_PER_CHUNK_SIDE: usize = 20;
 
 fn lattice_point_world_pos(g: IVec2, l: IVec2) -> Vec2 {
-    let buttom_left = g.as_vec2() * CHUNK_WIDTH - Vec2::splat(CHUNK_WIDTH) / 2.0;
+    let (lower, _) = chunk_bounds(g);
     let off = lattice_point_rel_pos(l);
-    buttom_left + off
+    lower + off
 }
 
 fn lattice_point_rel_pos(l: IVec2) -> Vec2 {
@@ -112,6 +112,11 @@ pub struct DenseChunkData {
     points: [[f32; LATTICE_POINTS_PER_CHUNK_SIDE]; LATTICE_POINTS_PER_CHUNK_SIDE],
 }
 
+fn asteroid_field(simplex: &Simplex, pos: Vec2) -> f32 {
+    let noise = simplex.get([pos.x as f64 / 100.0, pos.y as f64 / 100.0, 0.0]);
+    (noise as f32 + 0.5) * 0.3 + 0.7
+}
+
 impl DenseChunkData {
     fn new(pos: IVec2, z: f32) -> Self {
         let simplex = Simplex::new(1);
@@ -123,9 +128,7 @@ impl DenseChunkData {
         for x in 0..LATTICE_POINTS_PER_CHUNK_SIDE {
             for y in 0..LATTICE_POINTS_PER_CHUNK_SIDE {
                 let p_world = lattice_point_world_pos(pos, IVec2::new(x as i32, y as i32));
-                let noise =
-                    simplex.get([p_world.x as f64 / 100.0, p_world.y as f64 / 100.0, z as f64]);
-                ret.points[x][y] = (noise as f32 + 0.5) * 0.3 + 0.7;
+                ret.points[x][y] = asteroid_field(&simplex, p_world);
             }
         }
 
@@ -164,6 +167,7 @@ pub struct DeleteChunk {
 pub struct Excavate {
     pos: Vec2,
     radius: f32,
+    is_fill: bool,
 }
 
 #[derive(Component, Debug, Clone, Copy)]
@@ -184,7 +188,7 @@ fn insert_tiles(mut commands: Commands, asset_server: Res<AssetServer>) {
     for x in -30..=30 {
         for y in -30..=30 {
             let r = Vec2::new(x as f32, y as f32);
-            if r.length() > 16.8 {
+            if r.length() > 12.8 {
                 continue;
             }
             commands.send_event(GenerateChunk {
@@ -224,7 +228,9 @@ fn generate_tiles(
             info!("Generating chunk {}: {:?}", msg.pos, chunk);
         }
 
-        let transform = Transform::from_translation(msg.pos.as_vec2().extend(0.0) * CHUNK_WIDTH);
+        let transform = Transform::from_translation(
+            (msg.pos.as_vec2() * CHUNK_WIDTH + Vec2::splat(CHUNK_WIDTH / 2.0)).extend(0.0),
+        );
 
         if chance(0.02) {
             let item = Item::random_mineable();
@@ -252,7 +258,7 @@ fn generate_tiles(
         }
 
         let bg_mesh = Mesh2d(meshes.add(Rectangle::from_length(CHUNK_WIDTH)));
-        let bg_material = MeshMaterial2d(materials.add(Color::from(Srgba::gray(VERY_DARK_COLOR))));
+        let bg_material = MeshMaterial2d(materials.add(Color::from(Srgba::gray(0.2))));
         let child = commands
             .spawn((
                 bg_mesh,
@@ -300,6 +306,14 @@ fn draw_hovered_grid(
     map: Res<ChunkMap>,
     cursor: Res<CursorWorldPosition>,
 ) {
+    let z = 120.0;
+    let length = 3000.0;
+
+    painter.reset();
+    painter.set_color(RED);
+    painter.line((Vec3::X * -length).with_z(z), (Vec3::X * length).with_z(z));
+    painter.line((Vec3::Y * -length).with_z(z), (Vec3::Y * length).with_z(z));
+
     let cursor: Vec2 = match cursor.get() {
         Some(p) => p,
         _ => return,
@@ -314,23 +328,23 @@ fn draw_hovered_grid(
             painter.thickness_type = ThicknessType::Pixels;
             painter.rect(Vec2::splat(CHUNK_WIDTH));
 
-            // painter.reset();
-            // if let Some(dense) = &chunk.dense {
-            //     for x in 0..LATTICE_POINTS_PER_CHUNK_SIDE {
-            //         for y in 0..LATTICE_POINTS_PER_CHUNK_SIDE {
-            //             let value = dense.points[x][y];
-            //             let u = x as f32 / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32;
-            //             let v = y as f32 / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32;
-            //             let color = Srgba::new(0.3 + u * 0.7, 0.3 + v * 0.7, 0.6, 0.6);
-            //             painter.set_color(color);
-            //             let l = IVec2::new(x as i32, y as i32);
-            //             let p = lattice_point_world_pos(chunk.pos, l);
-            //             painter.set_translation(p.extend(10.0));
-            //             let w = CHUNK_WIDTH / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32;
-            //             painter.rect(Vec2::splat(value * w));
-            //         }
-            //     }
-            // }
+            painter.reset();
+            if let Some(dense) = &chunk.dense {
+                for x in 0..LATTICE_POINTS_PER_CHUNK_SIDE {
+                    for y in 0..LATTICE_POINTS_PER_CHUNK_SIDE {
+                        let value = dense.points[x][y];
+                        let u = x as f32 / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32;
+                        let v = y as f32 / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32;
+                        let color = Srgba::new(0.3 + u * 0.7, 0.3 + v * 0.7, 0.6, 0.6);
+                        painter.set_color(color);
+                        let l = IVec2::new(x as i32, y as i32);
+                        let p = lattice_point_world_pos(chunk.pos, l);
+                        painter.set_translation(p.extend(10.0));
+                        let w = CHUNK_WIDTH / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32;
+                        painter.rect(Vec2::splat(value * w));
+                    }
+                }
+            }
         }
     }
 }
@@ -343,7 +357,7 @@ fn inverse_lerp(a: f32, b: f32, value: f32) -> f32 {
     return (value - a) / (b - a);
 }
 
-const VERY_DARK_COLOR: f32 = 0.2;
+const VERY_DARK_COLOR: f32 = 0.1;
 const DARK_COLOR: f32 = 0.15;
 const MEDIUM_COLOR: f32 = 0.25;
 const LIGHT_COLOR: f32 = 0.3;
@@ -497,11 +511,6 @@ fn generate_mesh_data(chunk: &TerrainChunk) -> (Mesh, Srgba) {
     if let Some(dense) = &chunk.dense {
         if dense.is_empty() {
             (Rectangle::new(0.1, 0.1).into(), RED)
-        } else if dense.is_solid() {
-            (
-                Rectangle::from_size(Vec2::splat(CHUNK_WIDTH)).into(),
-                Srgba::gray(LIGHT_COLOR),
-            )
         } else {
             (marching_cubes_mesh(dense), WHITE)
         }
@@ -546,7 +555,6 @@ fn excavate_chunks(
 ) {
     for dig in messages.read() {
         let center = to_grid(dig.pos);
-
         for xi in center.x - 1..=center.x + 1 {
             for yi in center.y - 1..=center.y + 1 {
                 let g = IVec2::new(xi, yi);
@@ -571,8 +579,14 @@ fn excavate_chunks(
                     for y in 0..LATTICE_POINTS_PER_CHUNK_SIDE {
                         let world_pos = lattice_point_world_pos(g, IVec2::new(x as i32, y as i32));
                         let d = world_pos.distance(dig.pos);
-                        let value = (0.5 * d / dig.radius).clamp(0.0, 1.0);
-                        if dense.points[x][y] > value {
+                        let (value, trigger) = if dig.is_fill {
+                            let value = (1.0 - (0.5 * d / dig.radius)).clamp(0.0, 1.0);
+                            (value, dense.points[x][y] < value)
+                        } else {
+                            let value = (0.5 * d / dig.radius).clamp(0.0, 1.0);
+                            (value, dense.points[x][y] > value)
+                        };
+                        if trigger {
                             dense.points[x][y] += (value - dense.points[x][y]) * 0.1;
                             needs_mesh_update = true;
                         }
@@ -615,7 +629,19 @@ fn draw_highlighted_lattice_points(
     painter.circle(0.1);
 
     if btn.pressed(MouseButton::Left) {
-        let dig = Excavate { pos, radius: 12.0 };
+        let dig = Excavate {
+            pos,
+            radius: 12.0,
+            is_fill: false,
+        };
+        commands.send_event(dig);
+    }
+    if btn.pressed(MouseButton::Right) {
+        let dig = Excavate {
+            pos,
+            radius: 12.0,
+            is_fill: true,
+        };
         commands.send_event(dig);
     }
 }
@@ -633,6 +659,7 @@ fn process_excavators(
         let msg = Excavate {
             pos,
             radius: ex.radius,
+            is_fill: false,
         };
         events.write(msg);
     }
@@ -683,7 +710,7 @@ fn spawn_flood_fill(
         _ => return,
     };
 
-    if btn.just_pressed(MouseButton::Right) {
+    if btn.just_pressed(MouseButton::Middle) {
         let (g, l) = to_grid_and_lattice(pos);
         let global = g * (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as i32 + l.as_ivec2();
         let flood = TerrainFloodFill::new(global);
@@ -731,7 +758,6 @@ fn update_flood_fill(
                 flood.open_set.remove(&gl);
 
                 let (g, l) = global_to_gl(gl);
-                println!("{:?}", (g, l));
                 if let Some(e) = map.get(&g) {
                     if let Ok(chunk) = chunks.get(*e) {
                         if !chunk.is_occupied(l) {
@@ -748,7 +774,7 @@ fn update_flood_fill(
                             }
                         }
                     } else {
-                        println!("Bad chunk!");
+                        error!("Bad chunk!");
                     }
                 }
             } else {

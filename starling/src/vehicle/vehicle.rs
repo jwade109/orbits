@@ -481,16 +481,6 @@ impl Vehicle {
         // self.thrusters().any(|(t, d)| d.is_thrusting(t))
     }
 
-    pub fn has_radar(&self) -> bool {
-        self.radars().count() > 0
-    }
-
-    pub fn supports_bots(&self) -> bool {
-        self.parts
-            .iter()
-            .any(|(_, p)| p.as_machine().is_some() || p.as_radar().is_some())
-    }
-
     pub fn average_linear_exhaust_velocity(&self) -> f64 {
         let linear_thrusters: Vec<_> = self.thrusters().filter(|(t, _)| !t.is_rcs()).collect();
 
@@ -707,16 +697,6 @@ impl Vehicle {
         }
         self.set_all_thrusters(0.0);
         self.is_thrusting = false;
-    }
-
-    pub fn radars(&self) -> impl Iterator<Item = &Radar> + use<'_> {
-        self.parts.iter().filter_map(|(_, p)| p.as_radar())
-    }
-
-    pub fn magnetorquers(
-        &self,
-    ) -> impl Iterator<Item = (&Magnetorquer, &MagnetorquerInstanceData)> + use<'_> {
-        self.parts.iter().filter_map(|(_, p)| p.as_magnetorquer())
     }
 
     pub fn tanks(&self) -> impl Iterator<Item = (&TankModel, &TankInstanceData)> + use<'_> {

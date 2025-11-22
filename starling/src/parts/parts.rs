@@ -12,9 +12,7 @@ pub const PIXELS_PER_METER: f32 = 20.0;
 pub enum PartPrototype {
     Thruster(ThrusterModel),
     Tank(TankModel),
-    Radar(Radar),
     Cargo(Cargo),
-    Magnetorquer(Magnetorquer),
     Machine(Machine),
     Generic(Generic),
 }
@@ -32,9 +30,7 @@ impl PartPrototype {
         match self {
             Self::Thruster(p) => p.dims(),
             Self::Tank(p) => p.dims(),
-            Self::Radar(p) => p.dims(),
             Self::Cargo(p) => p.dims(),
-            Self::Magnetorquer(p) => p.dims(),
             Self::Generic(p) => p.dims(),
             Self::Machine(p) => p.dims(),
         }
@@ -48,21 +44,18 @@ impl PartPrototype {
         match self {
             Self::Thruster(p) => p.part_name(),
             Self::Tank(p) => p.part_name(),
-            Self::Radar(p) => p.part_name(),
             Self::Cargo(p) => p.part_name(),
-            Self::Magnetorquer(p) => p.part_name(),
             Self::Generic(p) => p.part_name(),
             Self::Machine(p) => p.part_name(),
         }
     }
 
+    #[deprecated]
     pub fn dry_mass(&self) -> Mass {
         match self {
             Self::Thruster(p) => p.mass(),
             Self::Tank(p) => p.dry_mass(),
-            Self::Radar(p) => p.mass(),
             Self::Cargo(p) => p.empty_mass(),
-            Self::Magnetorquer(p) => p.mass(),
             Self::Generic(p) => p.mass(),
             Self::Machine(p) => p.mass(),
         }
@@ -72,9 +65,7 @@ impl PartPrototype {
         match self {
             Self::Thruster(..) => PartLayer::Internal,
             Self::Tank(..) => PartLayer::Internal,
-            Self::Radar(..) => PartLayer::Internal,
             Self::Cargo(..) => PartLayer::Internal,
-            Self::Magnetorquer(..) => PartLayer::Internal,
             Self::Generic(p) => p.layer(),
             Self::Machine(..) => PartLayer::Internal,
         }
@@ -136,9 +127,7 @@ impl PartLayer {
 pub enum InstantiatedPartVariant {
     Thruster(ThrusterModel, ThrusterInstanceData),
     Tank(TankModel, TankInstanceData),
-    Radar(Radar),
     Cargo(Cargo, CargoInstanceData),
-    Magnetorquer(Magnetorquer, MagnetorquerInstanceData),
     Machine(Machine, MachineInstanceData),
     Generic(Generic),
 }
@@ -179,10 +168,6 @@ impl InstantiatedPart {
             PartPrototype::Machine(m) => {
                 InstantiatedPartVariant::Machine(m, MachineInstanceData::default())
             }
-            PartPrototype::Magnetorquer(m) => {
-                InstantiatedPartVariant::Magnetorquer(m, MagnetorquerInstanceData::new())
-            }
-            PartPrototype::Radar(r) => InstantiatedPartVariant::Radar(r),
             PartPrototype::Tank(t) => InstantiatedPartVariant::Tank(t, TankInstanceData::default()),
             PartPrototype::Thruster(t) => {
                 InstantiatedPartVariant::Thruster(t, ThrusterInstanceData::new())
@@ -203,9 +188,7 @@ impl InstantiatedPart {
         match self.variant.clone() {
             InstantiatedPartVariant::Thruster(t, _) => PartPrototype::Thruster(t),
             InstantiatedPartVariant::Tank(t, _) => PartPrototype::Tank(t),
-            InstantiatedPartVariant::Radar(r) => PartPrototype::Radar(r),
             InstantiatedPartVariant::Cargo(c, _) => PartPrototype::Cargo(c),
-            InstantiatedPartVariant::Magnetorquer(m, _) => PartPrototype::Magnetorquer(m),
             InstantiatedPartVariant::Machine(m, _) => PartPrototype::Machine(m),
             InstantiatedPartVariant::Generic(g) => PartPrototype::Generic(g),
         }
@@ -223,9 +206,7 @@ impl InstantiatedPart {
         match &self.variant {
             InstantiatedPartVariant::Thruster(t, _) => t.mass(),
             InstantiatedPartVariant::Tank(t, d) => t.dry_mass() + d.contents_mass(),
-            InstantiatedPartVariant::Radar(r) => r.mass(),
             InstantiatedPartVariant::Cargo(c, d) => c.empty_mass() + d.contents_mass(),
-            InstantiatedPartVariant::Magnetorquer(m, _) => m.mass(),
             InstantiatedPartVariant::Machine(m, _) => m.mass(),
             InstantiatedPartVariant::Generic(g) => g.mass(),
         }
@@ -378,37 +359,19 @@ impl InstantiatedPart {
         }
     }
 
-    pub fn as_magnetorquer(&self) -> Option<(&Magnetorquer, &MagnetorquerInstanceData)> {
-        if let InstantiatedPartVariant::Magnetorquer(m, d) = &self.variant {
-            Some((m, d))
-        } else {
-            None
-        }
-    }
-
-    pub fn as_magnetorquer_mut(
-        &mut self,
-    ) -> Option<(&Magnetorquer, &mut MagnetorquerInstanceData)> {
-        if let InstantiatedPartVariant::Magnetorquer(m, d) = &mut self.variant {
-            Some((m, d))
-        } else {
-            None
-        }
-    }
-
-    pub fn as_radar(&self) -> Option<&Radar> {
-        if let InstantiatedPartVariant::Radar(r) = &self.variant {
-            Some(r)
-        } else {
-            None
-        }
-    }
-
     pub fn is_computer(&self) -> bool {
         if let InstantiatedPartVariant::Generic(g) = &self.variant {
             g.is_computer()
         } else {
             false
+        }
+    }
+
+    pub fn excavator_data(&self) -> Option<&ExcavatorProto> {
+        if let InstantiatedPartVariant::Generic(g) = &self.variant {
+            g.excavator_data()
+        } else {
+            None
         }
     }
 }

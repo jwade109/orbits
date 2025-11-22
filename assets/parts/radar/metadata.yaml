@@ -1,4 +1,5 @@
-!Radar
+!Generic
   mass: 2600000
   layer: Internal
   dims: [40, 31]
+  name: "radar"

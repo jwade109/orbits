@@ -27,7 +27,7 @@ impl MeshMaker {
     }
 
     pub fn set_color(&mut self, color: Srgba) {
-        self.color = color;
+        self.color = color.with_alpha(0.4);
     }
 
     pub fn triangle(&mut self, points: [Vec2; 3]) {

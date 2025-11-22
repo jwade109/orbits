@@ -38,6 +38,7 @@ bevy_window = "0.16.1"
 egui = "0.32.3"
 egui_dock = "0.17.0"
 noise = "0.9.0"
+early_returns = "0.4.0"
 
 [[bin]]
 name = "g2"

@@ -1,0 +1,235 @@
+name: XYZ
+tuning:
+  attitude_controller:
+    kp: 0.0
+    kd: 0.0
+  vertical_controller:
+    kp: 0.0
+    kd: 0.0
+  horizontal_controller:
+    kp: 0.0
+    kd: 0.0
+  docking_linear_controller:
+    kp: 0.0
+    kd: 0.0
+parts:
+- partname: frame2
+  pos:
+  - 0
+  - 10
+  rot: East
+- partname: rcs
+  pos:
+  - 20
+  - 23
+  rot: West
+- partname: frame2
+  pos:
+  - 0
+  - -20
+  rot: East
+- partname: rcs
+  pos:
+  - -14
+  - 20
+  rot: South
+- partname: rcs
+  pos:
+  - -20
+  - -24
+  rot: North
+- partname: tank22
+  pos:
+  - 10
+  - -10
+  rot: East
+- partname: frame22
+  pos:
+  - -10
+  - -10
+  rot: East
+- partname: frame22
+  pos:
+  - -30
+  - -10
+  rot: East
+- partname: frame2
+  pos:
+  - -10
+  - 10
+  rot: East
+- partname: angled-frame
+  pos:
+  - -20
+  - 20
+  rot: East
+- partname: rcs
+  pos:
+  - -24
+  - 23
+  rot: East
+- partname: small-motor
+  pos:
+  - -39
+  - -20
+  rot: East
+- partname: frame2
+  pos:
+  - 20
+  - 10
+  rot: East
+- partname: rcs
+  pos:
+  - -20
+  - 20
+  rot: South
+- partname: angled-frame
+  pos:
+  - 10
+  - 20
+  rot: North
+- partname: cpu
+  pos:
+  - -9
+  - 10
+  rot: East
+- partname: rcs
+  pos:
+  - 20
+  - -29
+  rot: West
+- partname: rcs
+  pos:
+  - 8
+  - -24
+  rot: North
+- partname: small-motor
+  pos:
+  - 22
+  - -20
+  rot: West
+- partname: frame22
+  pos:
+  - 10
+  - -10
+  rot: East
+- partname: rcs
+  pos:
+  - 14
+  - 20
+  rot: South
+- partname: tank11
+  pos:
+  - 0
+  - -20
+  rot: East
+- partname: rcs
+  pos:
+  - 14
+  - -24
+  rot: North
+- partname: small-motor
+  pos:
+  - -39
+  - 10
+  rot: East
+- partname: angled-frame
+  pos:
+  - 10
+  - -30
+  rot: West
+- partname: rcs
+  pos:
+  - -24
+  - -29
+  rot: East
+- partname: small-motor
+  pos:
+  - 22
+  - 10
+  rot: West
+- partname: frame2
+  pos:
+  - 10
+  - -20
+  rot: East
+- partname: frame2
+  pos:
+  - 20
+  - -20
+  rot: East
+- partname: frame2
+  pos:
+  - -10
+  - -20
+  rot: East
+- partname: frame2
+  pos:
+  - -30
+  - 10
+  rot: East
+- partname: tank22
+  pos:
+  - -10
+  - -10
+  rot: East
+- partname: tank22
+  pos:
+  - -30
+  - -10
+  rot: East
+- partname: frame2
+  pos:
+  - -20
+  - 10
+  rot: East
+- partname: excavator
+  pos:
+  - 30
+  - -10
+  rot: East
+- partname: angled-frame
+  pos:
+  - -20
+  - -30
+  rot: South
+- partname: rcs
+  pos:
+  - 8
+  - 20
+  rot: South
+- partname: frame2
+  pos:
+  - 10
+  - 10
+  rot: East
+- partname: rcs
+  pos:
+  - -14
+  - -24
+  rot: North
+- partname: tank11
+  pos:
+  - -10
+  - -20
+  rot: East
+- partname: tank11
+  pos:
+  - 0
+  - 10
+  rot: East
+- partname: frame2
+  pos:
+  - -20
+  - -20
+  rot: East
+- partname: frame2
+  pos:
+  - -30
+  - -20
+  rot: East
+- partname: excavator
+  pos:
+  - -55
+  - -10
+  rot: West

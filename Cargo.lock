@@ -2715,6 +2715,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "early_returns"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f35939d2566726ef86224c6cad7c04b170af2b1eab68693f7db74efcc10065ba"
+
+[[package]]
 name = "ecolor"
 version = "0.32.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3213,6 +3219,7 @@ dependencies = [
  "chrono",
  "clap 4.5.48",
  "compile-time",
+ "early_returns",
  "egui",
  "egui_dock",
  "enum-iterator",

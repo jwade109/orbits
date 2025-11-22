@@ -25,6 +25,8 @@ impl Plugin for SpacecraftPlugin {
                 handle_change_recipe,
                 draw_selected_part,
                 draw_selected_grid_guides,
+                draw_spacecraft_spatial_lookups,
+                update_cursor_spacecraft,
             ),
         );
 
@@ -35,6 +37,7 @@ impl Plugin for SpacecraftPlugin {
                 update_machines,
                 accelerate_spacecraft,
                 update_grids,
+                update_spacecraft_grid_map,
             ),
         );
 
@@ -42,6 +45,7 @@ impl Plugin for SpacecraftPlugin {
         app.add_event::<SetRecipe>();
 
         app.insert_resource(CursorInfo::default());
+        app.insert_resource(GridSpatialLookup::default());
     }
 }
 
@@ -478,9 +482,7 @@ fn add_part_to_grid<'a>(
     let has_inventory = match part.variant() {
         InstantiatedPartVariant::Thruster(..) => false,
         InstantiatedPartVariant::Tank(..) => true,
-        InstantiatedPartVariant::Radar(..) => false,
         InstantiatedPartVariant::Cargo(..) => true,
-        InstantiatedPartVariant::Magnetorquer(..) => false,
         InstantiatedPartVariant::Machine(..) => true,
         InstantiatedPartVariant::Generic(..) => false,
     };
@@ -489,7 +491,6 @@ fn add_part_to_grid<'a>(
     let is_thruster = part.as_thruster().is_some();
     let is_computer = part.is_computer();
     let is_structural = part.layer() == starling::parts::PartLayer::Structural;
-    let is_excavator = chance(0.04);
 
     let n_slots = match part.variant() {
         InstantiatedPartVariant::Cargo(c, _) => c.slots(),
@@ -536,10 +537,10 @@ fn add_part_to_grid<'a>(
         cmd.insert(cpu);
     }
 
-    if is_excavator {
+    if let Some(data) = part.excavator_data() {
         cmd.insert(Excavator {
             is_enabled: chance(0.9),
-            radius: rand(3.0, 12.0),
+            radius: data.radius,
         });
     }
 
@@ -586,4 +587,71 @@ fn accelerate_spacecraft(
         tf.translation += (grid.velocity * dt).as_vec2().extend(0.0);
         tf.rotate_axis(Dir3::Z, (grid.angular_velocity * dt) as f32);
     }
+}
+
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct GridSpatialLookup(HashMap<IVec2, Vec<Entity>>);
+
+impl GridSpatialLookup {
+    pub fn lup(&self, pos: Vec2) -> Option<&Vec<Entity>> {
+        let g = to_grid(pos);
+        self.0.get(&g)
+    }
+
+    pub fn add(&mut self, g: IVec2, e: Entity) {
+        if let Some(mut v) = self.get_mut(&g) {
+            v.push(e);
+        } else {
+            self.insert(g, vec![e]);
+        }
+    }
+}
+
+fn update_spacecraft_grid_map(
+    grids: Query<(Entity, &GlobalTransform), With<SpacecraftGrid>>,
+    mut map: ResMut<GridSpatialLookup>,
+) {
+    map.clear();
+    for (e, grid) in grids {
+        let p = grid.translation().xy();
+        let g = to_grid(p);
+        map.add(g, e);
+    }
+}
+
+fn draw_spacecraft_spatial_lookups(mut painter: ShapePainter, mut map: ResMut<GridSpatialLookup>) {
+    for (g, _) in map.iter() {
+        painter.reset();
+        painter.set_color(ORANGE);
+        painter.hollow = true;
+        painter.thickness_type = ThicknessType::Pixels;
+        painter.thickness = 12.0;
+        let (lower, upper) = chunk_bounds(*g);
+        let center = (upper + lower) / 2.0;
+        painter.set_translation(center.extend(80.0));
+        painter.rect(upper - lower);
+    }
+}
+
+fn update_cursor_spacecraft(
+    mut cursor: ResMut<CursorInfo>,
+    map: Res<GridSpatialLookup>,
+    pos: Res<CursorWorldPosition>,
+    grids: Query<&Children, With<SpacecraftGrid>>,
+    parts: Query<Entity, With<PartInstance>>,
+) {
+    cursor.hovered = None;
+
+    let pos = some_or_return!(pos.get());
+    let grid_ids = some_or_return!(map.lup(pos));
+    let grid_id = some_or_return!(grid_ids.iter().next());
+    let children = ok_or_return!(grids.get(*grid_id));
+
+    for id in children {
+        let part = ok_or_continue!(parts.get(*id));
+        cursor.hovered = Some(part);
+        break;
+    }
+
+    cursor.selected = cursor.hovered;
 }

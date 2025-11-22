@@ -1,5 +1,6 @@
 use crate::factory::Mass;
 use crate::math::*;
+use crate::parts::excavator::ExcavatorProto;
 use crate::parts::PartLayer;
 use serde::{Deserialize, Serialize};
 
@@ -11,6 +12,7 @@ pub struct Generic {
     mass: Mass,
     sprites: Option<usize>,
     is_computer: Option<bool>,
+    excavator_data: Option<ExcavatorProto>,
 }
 
 impl Generic {
@@ -22,6 +24,7 @@ impl Generic {
             mass,
             sprites: None,
             is_computer: None,
+            excavator_data: None,
         }
     }
 
@@ -47,5 +50,9 @@ impl Generic {
 
     pub fn is_computer(&self) -> bool {
         self.is_computer.unwrap_or(false)
+    }
+
+    pub fn excavator_data(&self) -> Option<&ExcavatorProto> {
+        self.excavator_data.as_ref()
     }
 }
