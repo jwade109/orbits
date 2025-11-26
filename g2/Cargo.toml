@@ -2,6 +2,7 @@
 name = "g2"
 version = "0.1.0"
 edition = "2024"
+default-run = "game"
 
 [dependencies]
 bevy = { version = "0.16.0" }
@@ -41,5 +42,5 @@ noise = "0.9.0"
 early_returns = "0.4.0"
 
 [[bin]]
-name = "g2"
-path = "src/g2.rs"
+name = "game"
+path = "src/main.rs"
