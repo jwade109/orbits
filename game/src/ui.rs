@@ -24,11 +24,7 @@ impl Plugin for UiPlugin {
 }
 
 fn set_bloom(state: Res<GameState>, mut bloom: Single<&mut Bloom>) {
-    bloom.intensity = match state.scene {
-        SceneType::MainMenu => 0.6,
-        SceneType::Orbital => 0.4,
-        _ => 0.1,
-    }
+    bloom.intensity = 0.1;
 }
 
 pub fn do_text_labels(
@@ -103,12 +99,6 @@ pub fn top_bar(state: &GameState) -> Node<OnClick> {
         .with_color(UI_BACKGROUND_COLOR)
         .with_child(Node::button("Save", OnClick::Save, 80, Size::Grow))
         .with_child(Node::button("Load", OnClick::Load, 80, Size::Grow))
-        .with_child(Node::vline())
-        .with_children(SceneType::all().map(|st| {
-            let s = format!("{:?}", st);
-            let id = OnClick::GoToScene(st);
-            Node::button(s, id, 120, state.settings.ui_button_height).enabled(state.scene != st)
-        }))
         .with_child(Node::vline())
         .with_children(SimRate::all().map(|r| {
             let s = r.as_str();
@@ -420,12 +410,7 @@ pub fn left_right_arrows(
 }
 
 pub fn layout(state: &GameState) -> Tree<OnClick> {
-    match state.scene {
-        SceneType::MainMenu => MainMenuContext::ui(state),
-        SceneType::Orbital => OrbitalContext::ui(state),
-        SceneType::Editor => Editor::ui(state),
-    }
-    .unwrap_or(Tree::new())
+    Editor::ui(state).unwrap_or(Tree::new())
 }
 
 #[derive(Component)]

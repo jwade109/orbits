@@ -167,8 +167,6 @@ pub struct GameState {
     /// the assets/parts directory
     pub part_database: HashMap<String, PartPrototype>,
 
-    pub scene: SceneType,
-
     pub current_orbit: Option<usize>,
 
     pub ui: Tree<OnClick>,
@@ -241,7 +239,6 @@ impl GameState {
             paused: false,
             exec_time: std::time::Duration::new(0, 0),
             part_database,
-            scene: SceneType::Editor,
             current_orbit: None,
             ui: Tree::new(),
             notifications: Vec::new(),
@@ -380,17 +377,11 @@ impl GameState {
 
 impl Render for GameState {
     fn background_color(state: &GameState) -> Srgba {
-        match state.scene {
-            SceneType::Orbital => OrbitalContext::background_color(state),
-            SceneType::Editor => Editor::background_color(state),
-            SceneType::MainMenu => BLACK,
-        }
+        Editor::background_color(state)
     }
 
     fn ui(state: &GameState) -> Option<Tree<OnClick>> {
-        match state.scene {
-            _ => None,
-        }
+        None
     }
 
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
@@ -446,11 +437,9 @@ impl Render for GameState {
                 .set_z_order(ZOrdering::Debug2);
         }
 
-        match state.scene {
-            SceneType::Orbital => OrbitalContext::draw(canvas, state),
-            SceneType::Editor => Editor::draw(canvas, state),
-            SceneType::MainMenu => MainMenuContext::draw(canvas, state),
-        }
+        Editor::draw(canvas, state);
+
+        Some(())
     }
 }
 
@@ -625,17 +614,11 @@ impl GameState {
     }
 
     pub fn save(&mut self) -> Option<()> {
-        match self.scene {
-            SceneType::Editor => Editor::save_to_file(self),
-            _ => None,
-        }
+        Editor::save_to_file(self)
     }
 
     pub fn load(&mut self) -> Option<()> {
-        match self.scene {
-            SceneType::Editor => Editor::load_from_file(self),
-            _ => None,
-        }
+        Editor::load_from_file(self)
     }
 
     pub fn on_button_event(&mut self, id: OnClick) -> Option<()> {
@@ -799,7 +782,6 @@ impl GameState {
     }
 
     pub fn set_current_scene(&mut self, s: SceneType) -> Option<()> {
-        self.scene = s;
         Some(())
     }
 
@@ -928,15 +910,7 @@ impl GameState {
 
         self.handle_click_events();
 
-        match self.scene {
-            SceneType::Editor => {
-                on_editor_render_tick(self);
-            }
-            SceneType::Orbital => {
-                on_orbital_render_tick(self);
-            }
-            _ => (),
-        }
+        on_editor_render_tick(self);
     }
 
     pub fn sim_slower(&mut self) {
@@ -999,15 +973,7 @@ impl GameState {
         self.notifications
             .retain(|n| n.wall_time + n.duration() > self.wall_time);
 
-        match self.scene {
-            SceneType::Orbital => {
-                self.orbital_context.on_game_tick(&mut self.universe);
-            }
-            SceneType::Editor => {
-                Editor::on_game_tick(self);
-            }
-            _ => (),
-        }
+        Editor::on_game_tick(self);
     }
 }
 

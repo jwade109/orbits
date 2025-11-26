@@ -39,7 +39,7 @@ egui_dock = "0.17.0"
 bevy_light_2d = "0.7.0"
 
 [[bin]]
-name = "game"
+name = "ship_editor"
 path = "bin/game.rs"
 
 [[bin]]
