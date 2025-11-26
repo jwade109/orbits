@@ -428,6 +428,7 @@ fn spawn_empty_grid<'a>(commands: &'a mut Commands, pos: Vec2, angle: f32) -> En
         Transform::from_translation(pos.extend(0.0)).with_rotation(Quat::from_rotation_z(angle)),
         SpacecraftGrid {
             velocity: randvec(2.0, 4.0).as_dvec2(),
+            angular_velocity: rand(0.3, 12.0) as f64,
             ..default()
         },
         Visibility::default(),
@@ -533,7 +534,9 @@ fn add_part_to_grid<'a>(
     if is_computer {
         let mut cpu = Computer::default();
         cpu.attitude_hold = rand(0.0, 2.0);
-        // cpu.on = true;
+        cpu.position_hold = randvec(0.0, 250.0);
+        cpu.on = true;
+        cpu.pid_ctrl = PIDCtrl::new(20.0, 0.25, 50.0);
         cmd.insert(cpu);
     }
 
@@ -638,7 +641,7 @@ fn update_cursor_spacecraft(
     map: Res<GridSpatialLookup>,
     pos: Res<CursorWorldPosition>,
     grids: Query<&Children, With<SpacecraftGrid>>,
-    parts: Query<Entity, With<PartInstance>>,
+    parts: Query<Entity, (With<PartInstance>, With<Computer>)>,
 ) {
     cursor.hovered = None;
 

@@ -42,8 +42,8 @@ pub use bevy_vector_shapes::prelude::*;
 pub use enum_iterator::Sequence;
 pub use noise::{NoiseFn, Perlin, Seedable, Simplex};
 pub use starling::prelude::{
-    PDCtrl, PV, RigidBody, Vehicle, VehicleControl, VehicleControlStatus, attitude_control_law,
-    chance, cross2d, rand, randint, wrap_pi_npi_f64, randvec,
+    PDCtrl, PIDCtrl, PV, RigidBody, Vehicle, VehicleControl, VehicleControlStatus, attitude_control_law,
+    attitude_control_law_mut, chance, cross2d, rand, randint, wrap_pi_npi_f64, randvec,
 };
 pub use std::collections::{HashMap, HashSet};
 pub use std::time::Duration;

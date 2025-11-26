@@ -1,7 +1,7 @@
 use crate::math::*;
 use crate::orbits::Body;
 use crate::orbits::SparseOrbit;
-use crate::pid::PDCtrl;
+use crate::pid::{PDCtrl, PIDCtrl};
 use crate::pv::PV;
 use crate::vehicle::*;
 
@@ -128,13 +128,43 @@ fn compute_attitude_control(body: &RigidBody, target_angle: f64, pid: &PDCtrl) -
     }
 }
 
+fn compute_attitude_control_mut(body: &RigidBody, target_angle: f64, pid: &mut PIDCtrl) -> f64 {
+    if wrap_pi_npi_f64(target_angle - body.angle).abs() < 0.02 {
+        return 0.0;
+    }
+    let attitude_error = wrap_pi_npi_f64(target_angle - body.angle);
+    let x = pid.apply(attitude_error, body.angular_velocity);
+    if x.abs() > 1.0 {
+        x
+    } else {
+        0.0
+    }
+}
+
 pub fn attitude_control_law(
     target_angle: f64,
-    pid: &PDCtrl,
+    pd: &PDCtrl,
     body: &RigidBody,
 ) -> (VehicleControl, VehicleControlStatus) {
     let mut cmd = VehicleControl::NULLOPT;
-    cmd.attitude = compute_attitude_control(body, target_angle, pid);
+    cmd.attitude = compute_attitude_control(body, target_angle, pd);
+    let attitude_error = wrap_pi_npi_f64(target_angle - body.angle);
+    let stat = if attitude_error.abs() > 0.03 {
+        VehicleControlStatus::ComingAbout
+    } else {
+        cmd.attitude = 0.0;
+        VehicleControlStatus::HoldingAttitude
+    };
+    (cmd, stat)
+}
+
+pub fn attitude_control_law_mut(
+    target_angle: f64,
+    pid: &mut PIDCtrl,
+    body: &RigidBody,
+) -> (VehicleControl, VehicleControlStatus) {
+    let mut cmd = VehicleControl::NULLOPT;
+    cmd.attitude = compute_attitude_control_mut(body, target_angle, pid);
     let attitude_error = wrap_pi_npi_f64(target_angle - body.angle);
     let stat = if attitude_error.abs() > 0.03 {
         VehicleControlStatus::ComingAbout
