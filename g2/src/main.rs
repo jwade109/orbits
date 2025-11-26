@@ -67,19 +67,16 @@ fn control_camera(
     if key.pressed(KeyCode::KeyD) {
         camera.translation.x += speed;
     }
+    if key.pressed(KeyCode::Equal) {
+        camera.scale /= 1.02;
+    }
+    if key.pressed(KeyCode::Minus) {
+        camera.scale *= 1.02;
+    }
 
     use bevy::input::mouse::MouseScrollUnit;
 
     for ev in scroll.read() {
-        match ev.unit {
-            MouseScrollUnit::Line => {
-                // println!("Scroll (line units): vertical: {}, horizontal: {}", ev.y, ev.x);
-            }
-            MouseScrollUnit::Pixel => {
-                // println!("Scroll (pixel units): vertical: {}, horizontal: {}", ev.y, ev.x);
-            }
-        }
-
         if ev.y > 0.0 {
             camera.scale /= 1.15;
         } else {
@@ -112,7 +109,7 @@ fn setup(mut commands: Commands) -> Result {
 
     commands.send_event(SpacecraftEvent::SpawnVehicle {
         name: "miner".to_string(),
-        pos: Vec2::new(0.0, 20.0),
+        pos: Vec2::new(20.0, 20.0),
         angle: rand(-0.2, 0.3),
     });
 

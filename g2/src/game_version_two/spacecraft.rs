@@ -6,7 +6,6 @@ use bevy::prelude::*;
 use bevy_ecs::relationship::RelatedSpawnerCommands;
 use bevy_vector_shapes::prelude::*;
 use game::args::ProgramContext;
-use starling::prelude::{InstantiatedPart, InstantiatedPartVariant, Vehicle, rand};
 
 pub struct SpacecraftPlugin;
 
@@ -427,7 +426,7 @@ fn spawn_empty_grid<'a>(commands: &'a mut Commands, pos: Vec2, angle: f32) -> En
         Name::new("Grid"),
         Transform::from_translation(pos.extend(0.0)).with_rotation(Quat::from_rotation_z(angle)),
         SpacecraftGrid {
-            velocity: randvec(2.0, 4.0).as_dvec2(),
+            // velocity: randvec(2.0, 4.0).as_dvec2(),
             ..default()
         },
         Visibility::default(),
@@ -637,21 +636,42 @@ fn update_cursor_spacecraft(
     mut cursor: ResMut<CursorInfo>,
     map: Res<GridSpatialLookup>,
     pos: Res<CursorWorldPosition>,
-    grids: Query<&Children, With<SpacecraftGrid>>,
-    parts: Query<Entity, With<PartInstance>>,
+    grids: Query<(&GlobalTransform, &Children), With<SpacecraftGrid>>,
+    parts: Query<(Entity, &PartInstance)>,
 ) {
     cursor.hovered = None;
 
     let pos = some_or_return!(pos.get());
     let grid_ids = some_or_return!(map.lup(pos));
     let grid_id = some_or_return!(grid_ids.iter().next());
-    let children = ok_or_return!(grids.get(*grid_id));
+    let (transform, children) = ok_or_return!(grids.get(*grid_id));
+
+    let offset = pos - transform.translation().xy();
+    let rot = Vec2::from_angle(-transform.rotation().to_axis_angle().1);
+    // rotate offset into the vehicle-fixed frame
+    let offset = rot.rotate(offset);
+
+    dbg!(offset);
 
     for id in children {
-        let part = ok_or_continue!(parts.get(*id));
-        cursor.hovered = Some(part);
-        break;
+        let (e, part) = ok_or_continue!(parts.get(*id));
+        if part.prototype().layer() != PartLayer::Internal {
+            continue;
+        }
+        let origin = part.origin_meters();
+        let dims = part.dims_meters();
+        let part_offset = offset - origin;
+        if part_offset.x >= 0.0
+            && part_offset.y >= 0.0
+            && part_offset.x <= dims.x
+            && part_offset.y <= dims.y
+        {
+            cursor.hovered = Some(e);
+            break;
+        }
     }
 
-    cursor.selected = cursor.hovered;
+    if cursor.hovered.is_some() {
+        cursor.selected = cursor.hovered;
+    }
 }
