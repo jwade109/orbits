@@ -6,7 +6,6 @@ use bevy::prelude::*;
 use bevy_ecs::relationship::RelatedSpawnerCommands;
 use bevy_vector_shapes::prelude::*;
 use game::args::ProgramContext;
-use starling::prelude::{InstantiatedPart, InstantiatedPartVariant, Vehicle, rand};
 
 pub struct SpacecraftPlugin;
 
@@ -14,7 +13,7 @@ impl Plugin for SpacecraftPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(PhysicsPlugins::default());
         app.insert_state(DebugGrids::Drawn);
-        app.insert_state(DebugInventories::Drawn);
+        app.insert_state(DebugInventories::Hidden);
 
         app.add_systems(
             Update,
@@ -83,7 +82,8 @@ pub struct SetRecipe {
 #[derive(Component, Debug, Default)]
 pub struct SpacecraftGrid {
     parts: usize,
-    mass: Mass,
+    inventory_mass: Mass,
+    parts_mass: Mass,
     bounds: (Vec2, Vec2),
     pub center_of_mass: Vec2,
     pub velocity: DVec2,
@@ -97,10 +97,14 @@ impl SpacecraftGrid {
         self.bounds.1 - self.bounds.0
     }
 
+    pub fn total_mass(&self) -> Mass {
+        self.parts_mass + self.inventory_mass
+    }
+
     pub fn apply_body_frame_thrust(&mut self, thrust: Vec2, torque: f32) {
-        self.body_frame_acceleration += thrust.as_dvec2() / self.mass.to_kg_f64();
+        self.body_frame_acceleration += thrust.as_dvec2() / self.total_mass().to_kg_f64();
         // TODO change to moment of inertia
-        self.angular_acceleration += 0.1 * (torque as f64 / self.mass.to_kg_f64()) as f32;
+        self.angular_acceleration += 0.1 * (torque as f64 / self.total_mass().to_kg_f64()) as f32;
     }
 }
 
@@ -255,8 +259,17 @@ fn update_grids(
     mut grids: Query<(Entity, &mut SpacecraftGrid, &Children)>,
     parts: Query<(&PartInstance, Option<&Inventory>)>,
 ) {
+    // TODO: we should only run this when a given grid has changed.
+    // certain events should trigger a change event:
+    //  - adding/removing a part
+    //  - starting/ending a recipe
+    //  - thrusting
+    //  - damage?
+    //  - etc
+
     for (e, mut grid, children) in &mut grids {
-        grid.mass = Mass::ZERO;
+        grid.parts_mass = Mass::ZERO;
+        grid.inventory_mass = Mass::ZERO;
         grid.parts = children.iter().count();
         grid.bounds = (Vec2::ZERO, Vec2::ZERO);
         grid.center_of_mass = Vec2::ZERO;
@@ -273,7 +286,8 @@ fn update_grids(
             if let Ok((part, inv)) = parts.get(part) {
                 let part_mass = Mass::grams(part.prototype().dry_mass().to_grams());
                 let inv_mass = inv.map(|inv| inv.mass()).unwrap_or(Mass::ZERO);
-                grid.mass += part_mass + inv_mass;
+                grid.parts_mass += part_mass;
+                grid.inventory_mass += inv_mass;
                 com += (part.origin_meters() + part.dims_meters() / 2.0).as_dvec2()
                     * (part_mass + inv_mass).to_kg_f64();
                 let origin = part.origin_meters();
@@ -287,7 +301,7 @@ fn update_grids(
             }
         }
 
-        grid.center_of_mass = (com / grid.mass.to_kg_f64()).as_vec2();
+        grid.center_of_mass = (com / grid.total_mass().to_kg_f64()).as_vec2();
     }
 }
 
@@ -427,7 +441,8 @@ fn spawn_empty_grid<'a>(commands: &'a mut Commands, pos: Vec2, angle: f32) -> En
         Name::new("Grid"),
         Transform::from_translation(pos.extend(0.0)).with_rotation(Quat::from_rotation_z(angle)),
         SpacecraftGrid {
-            velocity: randvec(2.0, 4.0).as_dvec2(),
+            // velocity: randvec(2.0, 4.0).as_dvec2(),
+            angular_velocity: 0.3,
             ..default()
         },
         Visibility::default(),
@@ -607,15 +622,29 @@ impl GridSpatialLookup {
     }
 }
 
+fn grids_in_radius(p: Vec2, r: f32) -> (IVec2, IVec2) {
+    let lower = p - Vec2::splat(r);
+    let upper = p + Vec2::splat(r);
+    let lg = to_grid(lower);
+    let ug = to_grid(upper);
+    (lg, ug)
+}
+
 fn update_spacecraft_grid_map(
-    grids: Query<(Entity, &GlobalTransform), With<SpacecraftGrid>>,
+    grids: Query<(Entity, &GlobalTransform, &SpacecraftGrid)>,
     mut map: ResMut<GridSpatialLookup>,
 ) {
     map.clear();
-    for (e, grid) in grids {
-        let p = grid.translation().xy();
-        let g = to_grid(p);
-        map.add(g, e);
+    for (e, transform, grid) in grids {
+        let p = transform.translation().xy();
+        let r = grid.dims().length();
+        let (lower, upper) = grids_in_radius(p, r);
+
+        for x in lower.x..=upper.x {
+            for y in lower.y..=upper.y {
+                map.add(IVec2::new(x, y), e);
+            }
+        }
     }
 }
 
@@ -637,21 +666,49 @@ fn update_cursor_spacecraft(
     mut cursor: ResMut<CursorInfo>,
     map: Res<GridSpatialLookup>,
     pos: Res<CursorWorldPosition>,
-    grids: Query<&Children, With<SpacecraftGrid>>,
-    parts: Query<Entity, With<PartInstance>>,
+    grids: Query<(&GlobalTransform, &Children), With<SpacecraftGrid>>,
+    parts: Query<(Entity, &PartInstance)>,
+    buttons: Res<ButtonInput<MouseButton>>,
 ) {
     cursor.hovered = None;
 
     let pos = some_or_return!(pos.get());
     let grid_ids = some_or_return!(map.lup(pos));
-    let grid_id = some_or_return!(grid_ids.iter().next());
-    let children = ok_or_return!(grids.get(*grid_id));
 
-    for id in children {
-        let part = ok_or_continue!(parts.get(*id));
-        cursor.hovered = Some(part);
-        break;
+    'outer: for grid_id in grid_ids {
+        let (transform, children) = ok_or_return!(grids.get(*grid_id));
+
+        let offset = pos - transform.translation().xy();
+        let (yaw, _pitch, _roll) = transform.rotation().to_euler(EulerRot::ZYX);
+        let rot = Vec2::from_angle(-yaw);
+        let offset = rot.rotate(offset);
+
+        for id in children {
+            let (e, part) = ok_or_continue!(parts.get(*id));
+            if part.prototype().layer() != PartLayer::Internal {
+                continue;
+            }
+            let origin = part.origin_meters();
+            let dims = part.dims_meters();
+            let part_offset = offset - origin;
+            if part_offset.x >= 0.0
+                && part_offset.y >= 0.0
+                && part_offset.x <= dims.x
+                && part_offset.y <= dims.y
+            {
+                cursor.hovered = Some(e);
+                break 'outer;
+            }
+        }
     }
 
-    cursor.selected = cursor.hovered;
+    if buttons.just_pressed(MouseButton::Left) {
+        if cursor.hovered.is_some() {
+            if cursor.hovered == cursor.selected {
+                cursor.selected = None;
+            } else {
+                cursor.selected = cursor.hovered;
+            }
+        }
+    }
 }
