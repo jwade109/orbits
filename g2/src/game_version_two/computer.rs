@@ -87,7 +87,7 @@ fn do_maneuvers(
             continue;
         }
 
-        let angle = tf.rotation().to_axis_angle().1 as f64;
+        let (yaw, _pitch, _roll) = tf.rotation().to_euler(EulerRot::ZYX);
 
         let angular_velocity = match grids.get(parent.0) {
             Ok((_, grid)) => grid.angular_velocity,
@@ -99,7 +99,7 @@ fn do_maneuvers(
 
         let body = RigidBody {
             pv: PV::pos(tf.translation().xy()),
-            angle,
+            angle: yaw as f64,
             angular_velocity,
         };
 
@@ -119,9 +119,10 @@ fn do_maneuvers(
                     if torque.abs() > 0.5 && ctrl.attitude.abs() > 0.5 && thruster.is_rcs {
                         thruster.on = torque.signum() as f64 == ctrl.attitude.signum();
                     } else if !thruster.is_rcs {
-                        if chance(0.03) {
-                            thruster.on = !thruster.on;
-                        }
+                        thruster.on = false;
+                        // if chance(0.03) {
+                        //     thruster.on = !thruster.on;
+                        // }
                     } else {
                         thruster.on = false;
                     }

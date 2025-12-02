@@ -288,6 +288,47 @@ fn machine_editor_widget(
     add_machine_widget(id, commands, ui, &mut mac);
 }
 
+pub fn part_ui(
+    ui: &mut egui::Ui,
+    e: Entity,
+    commands: &mut Commands,
+    parts: Query<(&PartInstance, &ChildOf)>,
+    inventories: &mut Query<&mut Inventory>,
+    thrusters: &mut Query<&mut Thruster>,
+    computers: &mut Query<&mut Computer>,
+    machines: &mut Query<&mut Machine>,
+) {
+    if let Ok((instance, _)) = parts.get(e) {
+        ui.collapsing("Part Data", |ui| {
+            ui.label(format!("{:#?}", instance.0));
+        });
+    }
+
+    if let Ok(mut inventory) = inventories.get_mut(e) {
+        ui.separator();
+        ui.heading("Inventory");
+        add_inv_widget(ui, &mut inventory);
+    }
+
+    if let Ok(mut thruster) = thrusters.get_mut(e) {
+        ui.separator();
+        ui.heading("Thruster");
+        add_thruster_widget(ui, &mut thruster);
+    }
+
+    if let Ok(mut computer) = computers.get_mut(e) {
+        ui.separator();
+        ui.heading("Computer");
+        add_computer_widget(ui, &mut computer);
+    }
+
+    if let Ok(mut machine) = machines.get_mut(e) {
+        ui.separator();
+        ui.heading("Machine");
+        add_machine_widget(e, commands, ui, &mut machine);
+    }
+}
+
 pub fn egui_ui(
     mut commands: Commands,
     mut contexts: EguiContexts,
@@ -306,43 +347,36 @@ pub fn egui_ui(
     let e = cursor.hovered.or(cursor.selected);
 
     if let Some(e) = e {
-        egui::panel::SidePanel::new(egui::containers::panel::Side::Right, "Part Info").show(
-            ctx,
-            |ui| {
-                apply_egui_style(ui);
-                ui.set_width(350.0);
+        egui::panel::SidePanel::new(Side::Right, "Part Info").show(ctx, |ui| {
+            apply_egui_style(ui);
+            ui.set_width(350.0);
 
-                if let Ok((instance, _)) = parts.get(e) {
-                    ui.collapsing("Part Data", |ui| {
-                        ui.label(format!("{:#?}", instance.0));
-                    });
-                }
+            if let Some(e) = cursor.selected {
+                part_ui(
+                    ui,
+                    e,
+                    &mut commands,
+                    parts,
+                    &mut inventories,
+                    &mut thrusters,
+                    &mut computers,
+                    &mut machines,
+                );
+            }
 
-                if let Ok(mut inventory) = inventories.get_mut(e) {
-                    ui.separator();
-                    ui.heading("Inventory");
-                    add_inv_widget(ui, &mut inventory);
-                }
-
-                if let Ok(mut thruster) = thrusters.get_mut(e) {
-                    ui.separator();
-                    ui.heading("Thruster");
-                    add_thruster_widget(ui, &mut thruster);
-                }
-
-                if let Ok(mut computer) = computers.get_mut(e) {
-                    ui.separator();
-                    ui.heading("Computer");
-                    add_computer_widget(ui, &mut computer);
-                }
-
-                if let Ok(mut machine) = machines.get_mut(e) {
-                    ui.separator();
-                    ui.heading("Machine");
-                    add_machine_widget(e, &mut commands, ui, &mut machine);
-                }
-            },
-        );
+            if let Some(e) = cursor.hovered {
+                part_ui(
+                    ui,
+                    e,
+                    &mut commands,
+                    parts,
+                    &mut inventories,
+                    &mut thrusters,
+                    &mut computers,
+                    &mut machines,
+                );
+            }
+        });
     }
 
     egui::panel::SidePanel::new(egui::containers::panel::Side::Left, "Debug").show(ctx, |ui| {

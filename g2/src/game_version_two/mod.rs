@@ -49,3 +49,4 @@ pub use starling::prelude::{
 };
 pub use std::collections::{HashMap, HashSet};
 pub use std::time::Duration;
+pub use egui::containers::panel::*;
