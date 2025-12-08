@@ -78,28 +78,51 @@ fn add_computer_widget(ui: &mut egui::Ui, computer: &mut Computer) {
 
     ui.separator();
 
-    ui.label("Pose Hold");
-    ui.horizontal(|ui| {
-        ui.label("X");
-        ui.add(egui::Slider::new(
-            &mut computer.position_hold.x,
-            -1000.0..=1000.0,
-        ));
-    });
-    ui.horizontal(|ui| {
-        ui.label("Y");
-        ui.add(egui::Slider::new(
-            &mut computer.position_hold.y,
-            -1000.0..=1000.0,
-        ));
-    });
-    ui.horizontal(|ui| {
-        ui.label("HDG");
-        ui.add(egui::Slider::new(
-            &mut computer.attitude_hold,
-            -std::f32::consts::PI..=std::f32::consts::PI,
-        ));
-    });
+    ui.label(format!("Mode: {:?}", &computer.mode));
+
+    let before = computer.mode;
+
+    egui::ComboBox::from_label("")
+        .selected_text(format!("{:?}", computer.mode))
+        .show_ui(ui, |ui| {
+            for mode in enum_iterator::all::<ComputerMode>() {
+                let st = format!("{:?}", mode);
+                ui.selectable_value(&mut computer.mode, mode, st);
+            }
+        });
+
+    match &mut computer.mode {
+        ComputerMode::None => (),
+        ComputerMode::Manual => (),
+        ComputerMode::AttitudeHold => {
+            ui.label("Pose Hold");
+            ui.horizontal(|ui| {
+                ui.label("HDG");
+                ui.add(egui::Slider::new(&mut computer.attitude, -5.0..=5.0));
+            });
+        }
+        ComputerMode::PositionHold => {
+            ui.label("Pose Hold");
+            ui.horizontal(|ui| {
+                ui.label("X");
+                ui.add(egui::Slider::new(
+                    &mut computer.position.x,
+                    -1000.0..=1000.0,
+                ));
+            });
+            ui.horizontal(|ui| {
+                ui.label("Y");
+                ui.add(egui::Slider::new(
+                    &mut computer.position.y,
+                    -1000.0..=1000.0,
+                ));
+            });
+            ui.horizontal(|ui| {
+                ui.label("HDG");
+                ui.add(egui::Slider::new(&mut computer.attitude, -5.0..=5.0));
+            });
+        }
+    }
 }
 
 fn add_inv_widget(ui: &mut egui::Ui, inv: &mut Inventory) {

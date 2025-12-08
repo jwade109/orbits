@@ -1,6 +1,7 @@
 #![allow(unused)]
 
 mod animated_text;
+mod camera;
 mod computer;
 mod cursor;
 mod docking_port;
@@ -17,6 +18,7 @@ mod thruster;
 mod volume;
 
 pub use animated_text::*;
+pub use camera::*;
 pub use computer::*;
 pub use cursor::*;
 pub use docking_port::*;
@@ -33,6 +35,7 @@ pub use thruster::*;
 pub use volume::*;
 
 pub use bevy::color::palettes::css::*;
+pub use bevy::input::mouse::MouseWheel;
 pub use bevy::math::DVec2;
 pub use bevy::prelude::*;
 pub use bevy::render::mesh::{Indices, PrimitiveTopology};
@@ -46,7 +49,7 @@ pub use egui::containers::panel::*;
 pub use enum_iterator::Sequence;
 pub use noise::{NoiseFn, Perlin, Seedable, Simplex};
 pub use starling::prelude::{
-    InstantiatedPart, InstantiatedPartVariant, PDCtrl, PV, PartLayer, RigidBody, Vehicle,
+    InstantiatedPart, InstantiatedPartVariant, PDCtrl, PV, PartLayer, RigidBody, Rotation, Vehicle,
     VehicleControl, VehicleControlStatus, attitude_control_law, chance, cross2d, rand, randint,
     randvec, rotate, wrap_pi_npi_f64,
 };
