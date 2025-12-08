@@ -85,6 +85,7 @@ pub struct SpacecraftGrid {
     inventory_mass: Mass,
     parts_mass: Mass,
     bounds: (Vec2, Vec2),
+    pub position: Vec2,
     pub center_of_mass: Vec2,
     pub velocity: DVec2,
     pub angular_velocity: f64,
@@ -113,6 +114,15 @@ pub struct PartInstance(pub starling::prelude::InstantiatedPart);
 
 #[derive(Component, Debug)]
 struct PartSprite;
+
+fn rect_area_moment_of_inertia(dims: Vec2) -> f32 {
+    dims.x * dims.y / 12.0 * (dims.x.powi(2) + dims.y.powi(2))
+}
+
+fn rect_area_moment_of_inertia_with_offset(distance: f32, dims: Vec2) {
+    todo!()
+    // let r = dims
+}
 
 fn draw_grids(mut painter: ShapePainter, crafts: Query<(&GlobalTransform, &SpacecraftGrid)>) {
     for (tf, _) in &crafts {
@@ -441,8 +451,9 @@ fn spawn_empty_grid<'a>(commands: &'a mut Commands, pos: Vec2, angle: f32) -> En
         Name::new("Grid"),
         Transform::from_translation(pos.extend(0.0)).with_rotation(Quat::from_rotation_z(angle)),
         SpacecraftGrid {
-            // velocity: randvec(2.0, 4.0).as_dvec2(),
-            angular_velocity: 0.3,
+            velocity: randvec(2.0, 4.0).as_dvec2() / 3.0,
+            // angular_velocity: 0.3,
+            position: pos,
             ..default()
         },
         Visibility::default(),
@@ -505,6 +516,7 @@ fn add_part_to_grid<'a>(
     let is_machine = part.as_machine().is_some();
     let is_thruster = part.as_thruster().is_some();
     let is_computer = part.is_computer();
+    let is_docking_port = part.is_docking_port();
     let is_structural = part.layer() == starling::parts::PartLayer::Structural;
 
     let n_slots = match part.variant() {
@@ -518,7 +530,7 @@ fn add_part_to_grid<'a>(
         let mut inv = Inventory::zero_slots();
         for _ in 0..n_slots {
             let slot = InvSlot::new(Volume::liters(4000), ItemFilter::Any);
-            inv.add_slot(slot.with_item(Item::random()));
+            inv.add_slot(slot.with_item(Item::U235));
         }
         inv
     };
@@ -559,6 +571,11 @@ fn add_part_to_grid<'a>(
         });
     }
 
+    if is_docking_port {
+        let docking = DockingPort::detached();
+        cmd.insert(docking);
+    }
+
     cmd
         // for cursor picking
         .insert_if(Machine::new(RecipeListing::DoNothing), || is_machine)
@@ -596,10 +613,14 @@ fn accelerate_spacecraft(
             .rotation
             .mul_vec3(grid.body_frame_acceleration.extend(0.0).as_vec3())
             .xy();
+        let (yaw, _, _) = tf.rotation.to_euler(EulerRot::ZYX);
         let da = grid.angular_acceleration as f64 * dt;
         grid.velocity += world_frame_accel.as_dvec2() * dt;
         grid.angular_velocity += da;
-        tf.translation += (grid.velocity * dt).as_vec2().extend(0.0);
+        let ds = (grid.velocity * dt).as_vec2();
+        grid.position += ds;
+        let com_world = rotate(grid.center_of_mass, yaw);
+        tf.translation = (grid.position - com_world).extend(0.0);
         tf.rotate_axis(Dir3::Z, (grid.angular_velocity * dt) as f32);
     }
 }
@@ -651,7 +672,7 @@ fn update_spacecraft_grid_map(
 fn draw_spacecraft_spatial_lookups(mut painter: ShapePainter, mut map: ResMut<GridSpatialLookup>) {
     for (g, _) in map.iter() {
         painter.reset();
-        painter.set_color(ORANGE);
+        painter.set_color(ORANGE.with_alpha(0.1));
         painter.hollow = true;
         painter.thickness_type = ThicknessType::Pixels;
         painter.thickness = 12.0;

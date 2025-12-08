@@ -12,6 +12,7 @@ pub struct Generic {
     mass: Mass,
     sprites: Option<usize>,
     is_computer: Option<bool>,
+    is_docking_port: Option<bool>,
     excavator_data: Option<ExcavatorProto>,
 }
 
@@ -24,6 +25,7 @@ impl Generic {
             mass,
             sprites: None,
             is_computer: None,
+            is_docking_port: None,
             excavator_data: None,
         }
     }
@@ -50,6 +52,10 @@ impl Generic {
 
     pub fn is_computer(&self) -> bool {
         self.is_computer.unwrap_or(false)
+    }
+
+    pub fn is_docking_port(&self) -> bool {
+        self.is_docking_port.unwrap_or(false)
     }
 
     pub fn excavator_data(&self) -> Option<&ExcavatorProto> {

@@ -119,7 +119,7 @@ fn do_maneuvers(
                     if torque.abs() > 0.5 && ctrl.attitude.abs() > 0.5 && thruster.is_rcs {
                         thruster.on = torque.signum() as f64 == ctrl.attitude.signum();
                     } else if !thruster.is_rcs {
-                        thruster.on = false;
+                        // thruster.on = false;
                         // if chance(0.03) {
                         //     thruster.on = !thruster.on;
                         // }

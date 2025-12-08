@@ -120,6 +120,7 @@ fn setup(mut commands: Commands) -> Result {
         "lander",
         "remora",
         "icecream",
+        "spacestation",
     ] {
         let x = rand(-200.0, 200.0);
         let y = rand(100.0, 300.0);

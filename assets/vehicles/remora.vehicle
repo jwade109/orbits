@@ -1,48 +1,28 @@
 name: Remora
 tuning:
   attitude_controller:
-    kp: 40.0
-    kd: 70.0
+    kp: 0.0
+    kd: 0.0
   vertical_controller:
-    kp: 0.028750357031822202
-    kd: 0.29831601977348327
+    kp: 0.0
+    kd: 0.0
   horizontal_controller:
-    kp: 0.009729394912719727
-    kd: 0.1959650993347168
+    kp: 0.0
+    kd: 0.0
   docking_linear_controller:
-    kp: 8.233541250228882
-    kd: 261.5271806716919
+    kp: 0.0
+    kd: 0.0
 parts:
-- partname: small-antenna
-  pos:
-  - 24
-  - -2
-  rot: South
-- partname: frame2
-  pos:
-  - -11
-  - 15
-  rot: North
-- partname: frame
-  pos:
-  - -36
-  - -5
-  rot: West
-- partname: rcs
-  pos:
-  - -21
-  - -29
-  rot: North
 - partname: tank21
   pos:
   - -26
-  - -25
+  - 5
   rot: North
-- partname: small-motor
+- partname: frame2
   pos:
-  - -43
-  - -5
-  rot: East
+  - -1
+  - 15
+  rot: North
 - partname: tank11
   pos:
   - -16
@@ -50,34 +30,59 @@ parts:
   rot: North
 - partname: rcs
   pos:
+  - -21
+  - 25
+  rot: South
+- partname: rcs
+  pos:
+  - -40
+  - 9
+  rot: East
+- partname: frame3
+  pos:
+  - -36
+  - -15
+  rot: East
+- partname: frame
+  pos:
+  - -6
+  - -5
+  rot: West
+- partname: small-motor
+  pos:
+  - -43
+  - -5
+  rot: East
+- partname: tank21
+  pos:
+  - -26
+  - -25
+  rot: North
+- partname: rcs
+  pos:
   - -40
   - -15
   rot: East
+- partname: tank21
+  pos:
+  - -26
+  - -15
+  rot: North
 - partname: frame2
   pos:
   - -21
   - -25
-  rot: West
-- partname: frame2
-  pos:
-  - -21
-  - 15
-  rot: North
-- partname: frame3
-  pos:
-  - -36
-  - 5
-  rot: West
-- partname: rcs
-  pos:
-  - 24
-  - -11
   rot: West
 - partname: cpu
   pos:
   - -5
   - 16
   rot: North
+- partname: tank11
+  pos:
+  - -26
+  - -5
+  rot: North
 - partname: rcs
   pos:
   - 14
@@ -85,311 +90,71 @@ parts:
   rot: South
 - partname: rcs
   pos:
+  - 9
+  - -25
+  rot: West
+- partname: frame2
+  pos:
   - -21
-  - 25
-  rot: South
+  - 15
+  rot: North
+- partname: rcs
+  pos:
+  - 14
+  - -19
+  rot: North
+- partname: frame
+  pos:
+  - -36
+  - -5
+  rot: West
 - partname: frame3
   pos:
   - -36
-  - -15
-  rot: East
-- partname: tank21
-  pos:
-  - -26
   - 5
-  rot: North
-- partname: tank11
-  pos:
-  - -6
-  - -25
-  rot: North
-- partname: tank21
-  pos:
-  - -26
-  - 15
-  rot: North
-- partname: frame2
-  pos:
-  - -11
-  - -25
   rot: West
+- partname: small-antenna
+  pos:
+  - 9
+  - 19
+  rot: South
 - partname: cargo
   pos:
   - -6
   - -15
   rot: East
+- partname: frame2
+  pos:
+  - -11
+  - -25
+  rot: West
+- partname: frame2
+  pos:
+  - -1
+  - -25
+  rot: North
 - partname: tank11
   pos:
-  - -26
-  - -5
+  - -6
+  - -25
   rot: North
-- partname: rcs
+- partname: docking-port
   pos:
   - 24
-  - 5
-  rot: West
-- partname: rcs
+  - -10
+  rot: East
+- partname: frame2
   pos:
-  - 14
-  - -19
+  - -11
+  - 15
   rot: North
 - partname: tank21
   pos:
   - -26
-  - -15
+  - 15
   rot: North
 - partname: rcs
   pos:
-  - -40
-  - 9
-  rot: East
-- partname: frame
-  pos:
-  - -6
-  - -5
-  rot: West
-lines:
-- - -22
-  - 13
-- - -4
-  - 0
-- - -7
-  - 0
-- - -9
   - -21
-- - -22
-  - 8
-- - -16
-  - 0
-- - -22
-  - -7
-- - -21
-  - 19
-- - -22
-  - -6
-- - -17
-  - 0
-- - -31
-  - 0
-- - -22
-  - 17
-- - -22
-  - -18
-- - -15
-  - 0
-- - -13
-  - -21
-- - -3
-  - 19
-- - -5
-  - 19
-- - -22
-  - 14
-- - -13
-  - 19
-- - -22
-  - -15
-- - -22
-  - -1
-- - 8
-  - 0
-- - -16
-  - -21
-- - -22
-  - -9
-- - -32
-  - 0
-- - -17
-  - -20
-- - -22
-  - 9
-- - -22
-  - 5
-- - -8
-  - 19
-- - -14
-  - -21
-- - 7
-  - 0
-- - -11
-  - 19
-- - -10
-  - 19
-- - -22
-  - 1
-- - -5
-  - 0
-- - -4
-  - -21
-- - -22
-  - 15
-- - -6
-  - 19
-- - -5
-  - -21
-- - -3
-  - 0
-- - -22
-  - -14
-- - -22
-  - 12
-- - -26
-  - 0
-- - -23
-  - 0
-- - -11
-  - -21
-- - -6
-  - -21
-- - -20
-  - 0
-- - 6
-  - 0
-- - -22
-  - -10
-- - -12
-  - 0
-- - -4
-  - 19
-- - -18
-  - 0
-- - -8
-  - -21
-- - -3
-  - -21
-- - -22
-  - 19
-- - -22
-  - 18
-- - -22
-  - -11
-- - -21
-  - -20
-- - -15
-  - 19
-- - -22
-  - 10
-- - -16
-  - -20
-- - 3
-  - 0
-- - -22
-  - -20
-- - -22
-  - -16
-- - -2
-  - 0
-- - -7
-  - 19
-- - -30
-  - 0
-- - -22
-  - 4
-- - -10
-  - -21
-- - 0
-  - 0
-- - -22
-  - 11
-- - 1
-  - 0
-- - -18
-  - 19
-- - -20
-  - -20
-- - -18
-  - -20
-- - -22
-  - 2
-- - -19
-  - 19
-- - -19
-  - 0
-- - -22
-  - -12
-- - -11
-  - 0
-- - -12
-  - -21
-- - -10
-  - 0
-- - -13
-  - 0
-- - -19
-  - -20
-- - -22
-  - 16
-- - -9
-  - 19
-- - -22
-  - 7
-- - -22
-  - 0
-- - -22
-  - -4
-- - -22
-  - 3
-- - -22
-  - -5
-- - -20
-  - 19
-- - -29
-  - 0
-- - -8
-  - 0
-- - -22
-  - -19
-- - -22
-  - 6
-- - -22
-  - -3
-- - -1
-  - -21
-- - -14
-  - 0
-- - -17
-  - 19
-- - -27
-  - 0
-- - -7
-  - -21
-- - -12
-  - 19
-- - 4
-  - 0
-- - -21
-  - 0
-- - -24
-  - 0
-- - 9
-  - 0
-- - -15
-  - -21
-- - 5
-  - 0
-- - -14
-  - 19
-- - -16
-  - 19
-- - -28
-  - 0
-- - -22
-  - -13
-- - -2
-  - -21
-- - -9
-  - 0
-- - -22
-  - -17
-- - -1
-  - 0
-- - -6
-  - 0
-- - -22
-  - -8
-- - 2
-  - 0
-- - -22
-  - -2
-- - -25
-  - 0
+  - -29
+  rot: North

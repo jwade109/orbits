@@ -3,6 +3,7 @@
 mod animated_text;
 mod computer;
 mod cursor;
+mod docking_port;
 mod editor_ui;
 mod inventory;
 mod machine;
@@ -18,6 +19,7 @@ mod volume;
 pub use animated_text::*;
 pub use computer::*;
 pub use cursor::*;
+pub use docking_port::*;
 pub use editor_ui::*;
 pub use inventory::*;
 pub use machine::*;
@@ -40,13 +42,13 @@ pub use bevy_egui::{EguiContexts, EguiPlugin, EguiPrimaryContextPass, egui};
 pub use bevy_render::render_asset::RenderAssetUsages;
 pub use bevy_vector_shapes::prelude::*;
 use early_returns::{ok_or_continue, ok_or_return, some_or_return};
+pub use egui::containers::panel::*;
 pub use enum_iterator::Sequence;
 pub use noise::{NoiseFn, Perlin, Seedable, Simplex};
 pub use starling::prelude::{
     InstantiatedPart, InstantiatedPartVariant, PDCtrl, PV, PartLayer, RigidBody, Vehicle,
     VehicleControl, VehicleControlStatus, attitude_control_law, chance, cross2d, rand, randint,
-    randvec, wrap_pi_npi_f64,
+    randvec, rotate, wrap_pi_npi_f64,
 };
 pub use std::collections::{HashMap, HashSet};
 pub use std::time::Duration;
-pub use egui::containers::panel::*;
