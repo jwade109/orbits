@@ -44,7 +44,7 @@ pub use bevy::time::common_conditions::on_timer;
 pub use bevy_egui::{EguiContexts, EguiPlugin, EguiPrimaryContextPass, egui};
 pub use bevy_render::render_asset::RenderAssetUsages;
 pub use bevy_vector_shapes::prelude::*;
-use early_returns::{ok_or_continue, ok_or_return, some_or_return};
+use early_returns::{ok_or_continue, ok_or_return, some_or_continue, some_or_return};
 pub use egui::containers::panel::*;
 pub use enum_iterator::Sequence;
 pub use noise::{NoiseFn, Perlin, Seedable, Simplex};

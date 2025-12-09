@@ -369,7 +369,7 @@ pub fn part_ui(
 
     if let Ok(mut docking_port) = docking_ports.get_mut(e) {
         ui.separator();
-        ui.heading("Docking Port");
+        ui.heading(format!("Docking Port {}", e));
         ui.label(format!("{:#?}", docking_port));
         // add_machine_widget(e, commands, ui, &mut machine);
     }

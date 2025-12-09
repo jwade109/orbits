@@ -2,17 +2,34 @@ use crate::game_version_two::*;
 
 #[derive(Component, Debug, Clone, Copy)]
 pub struct DockingPort {
-    attached_to: Option<Entity>,
+    pub attached: PortAttachment,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum PortAttachment {
+    None,
+    Seeking(Entity),
+    AttachedTo(Entity),
 }
 
 impl DockingPort {
     pub fn detached() -> Self {
-        Self { attached_to: None }
+        Self {
+            attached: PortAttachment::None,
+        }
     }
 
     pub fn attached(e: Entity) -> Self {
         Self {
-            attached_to: Some(e),
+            attached: PortAttachment::AttachedTo(e),
+        }
+    }
+
+    pub fn target(&self) -> Option<Entity> {
+        match self.attached {
+            PortAttachment::None => None,
+            PortAttachment::Seeking(entity) => Some(entity),
+            PortAttachment::AttachedTo(entity) => Some(entity),
         }
     }
 }

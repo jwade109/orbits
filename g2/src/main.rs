@@ -73,22 +73,28 @@ fn setup(mut commands: Commands) -> Result {
         angle: rand(-0.2, 0.3),
     });
 
-    for name in [
-        "pollux",
-        "remora",
-        "bellerophon",
-        "lander",
-        "remora",
-        "icecream",
-        "spacestation",
-    ] {
-        let x = rand(-200.0, 200.0);
-        let y = rand(100.0, 300.0);
-        commands.send_event(SpacecraftEvent::SpawnVehicle {
-            name: name.to_string(),
-            pos: Vec2::new(x, y),
-            angle: rand(-0.2, 0.3),
-        });
+    for _ in 0..4 {
+        for name in [
+            "pollux",
+            "remora",
+            "remora",
+            "remora",
+            "remora",
+            "remora",
+            // "bellerophon",
+            // "lander",
+            // "remora",
+            // "icecream",
+            // "spacestation",
+        ] {
+            let x = rand(-20.0, 20.0);
+            let y = rand(10.0, 30.0);
+            commands.send_event(SpacecraftEvent::SpawnVehicle {
+                name: name.to_string(),
+                pos: Vec2::new(x, y),
+                angle: rand(-0.2, 0.3),
+            });
+        }
     }
 
     Ok(())

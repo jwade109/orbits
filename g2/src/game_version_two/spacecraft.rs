@@ -26,6 +26,9 @@ impl Plugin for SpacecraftPlugin {
                 draw_selected_grid_guides,
                 draw_spacecraft_spatial_lookups,
                 update_cursor_spacecraft,
+                check_adjacent_docking_ports,
+                on_attach_event,
+                send_attach_events,
             ),
         );
 
@@ -42,6 +45,7 @@ impl Plugin for SpacecraftPlugin {
 
         app.add_event::<SpacecraftEvent>();
         app.add_event::<SetRecipe>();
+        app.add_event::<AttachPorts>();
 
         app.insert_resource(CursorInfo::default());
         app.insert_resource(GridSpatialLookup::default());
@@ -85,7 +89,6 @@ pub struct SpacecraftGrid {
     inventory_mass: Mass,
     parts_mass: Mass,
     bounds: (Vec2, Vec2),
-    pub position: Vec2,
     pub center_of_mass: Vec2,
     pub velocity: DVec2,
     pub angular_velocity: f64,
@@ -451,9 +454,8 @@ fn spawn_empty_grid<'a>(commands: &'a mut Commands, pos: Vec2, angle: f32) -> En
         Name::new("Grid"),
         Transform::from_translation(pos.extend(0.0)).with_rotation(Quat::from_rotation_z(angle)),
         SpacecraftGrid {
-            velocity: randvec(2.0, 4.0).as_dvec2() / 3.0,
+            // velocity: randvec(2.0, 4.0).as_dvec2() / 3.0,
             // angular_velocity: 0.3,
-            position: pos,
             ..default()
         },
         Visibility::default(),
@@ -618,9 +620,7 @@ fn accelerate_spacecraft(
         grid.velocity += world_frame_accel.as_dvec2() * dt;
         grid.angular_velocity += da;
         let ds = (grid.velocity * dt).as_vec2();
-        grid.position += ds;
-        let com_world = rotate(grid.center_of_mass, yaw);
-        tf.translation = (grid.position - com_world).extend(0.0);
+        tf.translation += ds.extend(0.0);
         tf.rotate_axis(Dir3::Z, (grid.angular_velocity * dt) as f32);
     }
 }
@@ -729,6 +729,108 @@ fn update_cursor_spacecraft(
                 cursor.selected = None;
             } else {
                 cursor.selected = cursor.hovered;
+            }
+        }
+    }
+}
+
+#[derive(Event, Debug)]
+pub struct AttachPorts(Entity);
+
+fn send_attach_events(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut attach: EventWriter<AttachPorts>,
+    cursor: Res<CursorInfo>,
+) {
+    if !keys.just_pressed(KeyCode::KeyJ) {
+        return;
+    }
+
+    let id = some_or_return!(cursor.selected);
+    let event = AttachPorts(id);
+    attach.write(event);
+}
+
+fn on_attach_event(
+    mut attach: EventReader<AttachPorts>,
+    ports: Query<(&DockingPort, &Transform, &ChildOf), Without<SpacecraftGrid>>,
+    mut grids: Query<&mut Transform, With<SpacecraftGrid>>,
+) {
+    for msg in attach.read() {
+        dbg!(msg);
+        let (port, ownship_part, parent) = ok_or_continue!(ports.get(msg.0));
+        dbg!(port);
+        let target = some_or_continue!(port.target());
+        let (other_port, target_part, other_parent) = ok_or_continue!(ports.get(target));
+
+        if parent.0 == other_parent.0 {
+            warn!("Parents of attached ports are the same: {}", parent.0);
+            continue;
+        }
+
+        info!("Joining grids: {}, {}", parent.0, other_parent.0);
+
+        let ownship_root = ok_or_continue!(grids.get(parent.0)).clone();
+
+        let mut target_root = ok_or_continue!(grids.get_mut(other_parent.0));
+
+        let rot_180 = Quat::from_axis_angle(Vec3::Z, std::f32::consts::PI);
+
+        let target_part = Transform::from_rotation(target_part.rotation * rot_180)
+            .with_translation(target_part.translation);
+
+        let dst = ownship_root * *ownship_part * target_part;
+
+        *target_root = dst;
+    }
+}
+
+fn check_adjacent_docking_ports(
+    mut painter: ShapePainter,
+    mut ports: Query<(Entity, &GlobalTransform, &mut DockingPort)>,
+) {
+    let mut port_map: HashMap<IVec2, Vec<(Entity, Vec2)>> = HashMap::new();
+
+    for (e, transform, port) in &ports {
+        let pos = transform.translation().xy();
+        let g = to_grid(pos);
+        port_map
+            .entry(g)
+            .and_modify(|v| v.push((e, pos)))
+            .or_insert(vec![(e, pos)]);
+    }
+
+    for (_, entities) in port_map {
+        if entities.len() < 2 {
+            continue;
+        }
+
+        for i in 1..entities.len() {
+            for j in 0..i {
+                let (a, p1) = entities[i];
+                let (b, p2) = entities[j];
+                if p1.distance(p2) < 2.0 {
+                    let z = 180.0;
+                    let q1 = p1.extend(z);
+                    let q2 = p2.extend(z);
+                    painter.reset();
+                    painter.hollow = true;
+                    painter.thickness = 7.0;
+                    painter.thickness_type = ThicknessType::Pixels;
+                    painter.line(q1, q2);
+                    painter.set_translation(q1);
+                    painter.circle(1.0);
+                    painter.set_translation(q2);
+                    painter.circle(1.0);
+
+                    if let Ok((_, _, mut port)) = ports.get_mut(a) {
+                        port.attached = PortAttachment::Seeking(b);
+                    }
+
+                    if let Ok((_, _, mut port)) = ports.get_mut(b) {
+                        port.attached = PortAttachment::Seeking(a);
+                    }
+                }
             }
         }
     }
