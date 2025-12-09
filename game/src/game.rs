@@ -443,6 +443,7 @@ impl Render for GameState {
     }
 }
 
+#[deprecated]
 fn keyboard_control_law(input: &InputState) -> VehicleControl {
     let mut ctrl = VehicleControl::NULLOPT;
 

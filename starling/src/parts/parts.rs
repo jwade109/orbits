@@ -367,6 +367,14 @@ impl InstantiatedPart {
         }
     }
 
+    pub fn is_docking_port(&self) -> bool {
+        if let InstantiatedPartVariant::Generic(g) = &self.variant {
+            g.is_docking_port()
+        } else {
+            false
+        }
+    }
+
     pub fn excavator_data(&self) -> Option<&ExcavatorProto> {
         if let InstantiatedPartVariant::Generic(g) = &self.variant {
             g.excavator_data()

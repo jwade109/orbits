@@ -1,42 +1,202 @@
 name: Oasis
 tuning:
   attitude_controller:
-    kp: 46.45956039428711
-    kd: 70.35492897033691
+    kp: 0.0
+    kd: 0.0
   vertical_controller:
-    kp: 0.028750357031822202
-    kd: 0.29831601977348327
+    kp: 0.0
+    kd: 0.0
   horizontal_controller:
-    kp: 0.009729394912719727
-    kd: 0.1959650993347168
+    kp: 0.0
+    kd: 0.0
   docking_linear_controller:
-    kp: 8.233541250228882
-    kd: 261.5271806716919
+    kp: 0.0
+    kd: 0.0
 parts:
+- partname: angled-frame
+  pos:
+  - -65
+  - 5
+  rot: North
+- partname: radar
+  pos:
+  - -32
+  - 55
+  rot: East
 - partname: rcs
   pos:
-  - 75
+  - 154
+  - 5
+  rot: South
+- partname: rcs
+  pos:
+  - -70
+  - -49
+  rot: North
+- partname: solarpanel
+  pos:
+  - 128
+  - 5
+  rot: North
+- partname: chemical-plant
+  pos:
+  - -15
+  - 35
+  rot: North
+- partname: docking-port
+  pos:
+  - -60
+  - -66
+  rot: South
+- partname: tank22
+  pos:
+  - -35
+  - 25
+  rot: North
+- partname: angled-frame
+  pos:
+  - -45
+  - 45
+  rot: North
+- partname: angled-frame
+  pos:
+  - 60
+  - -55
+  rot: South
+- partname: tank21
+  pos:
+  - -50
+  - -5
+  rot: South
+- partname: solarpanel
+  pos:
+  - 112
+  - 5
+  rot: North
+- partname: solarpanel
+  pos:
+  - -144
+  - -70
+  rot: South
+- partname: rcs
+  pos:
+  - -81
   - -9
   rot: North
-- partname: battery
+- partname: small-antenna
   pos:
-  - 0
+  - 9
+  - 55
+  rot: East
+- partname: frame3
+  pos:
+  - 120
   - -5
+  rot: East
+- partname: angled-frame
+  pos:
+  - -70
+  - -55
+  rot: West
+- partname: docking-port
+  pos:
+  - 40
+  - -66
   rot: South
 - partname: frame22
   pos:
   - -35
   - 5
   rot: North
-- partname: frame3
+- partname: battery
   pos:
-  - 60
-  - -45
-  rot: North
-- partname: frame3
-  pos:
-  - -80
+  - 9
   - -5
+  rot: South
+- partname: solarpanel
+  pos:
+  - -112
+  - -70
+  rot: South
+- partname: rcs
+  pos:
+  - -164
+  - -6
+  rot: East
+- partname: solarpanel
+  pos:
+  - 96
+  - -70
+  rot: South
+- partname: rcs
+  pos:
+  - 148
+  - 5
+  rot: South
+- partname: solarpanel
+  pos:
+  - 96
+  - 5
+  rot: North
+- partname: rcs
+  pos:
+  - -74
+  - -46
+  rot: East
+- partname: rcs
+  pos:
+  - -164
+  - 0
+  rot: East
+- partname: tank21
+  pos:
+  - 30
+  - -5
+  rot: South
+- partname: rcs
+  pos:
+  - 70
+  - -45
+  rot: West
+- partname: rcs
+  pos:
+  - -160
+  - 5
+  rot: South
+- partname: rcs
+  pos:
+  - 154
+  - -9
+  rot: North
+- partname: rcs
+  pos:
+  - 64
+  - -49
+  rot: North
+- partname: battery
+  pos:
+  - 0
+  - -5
+  rot: South
+- partname: frame3
+  pos:
+  - -160
+  - -5
+  rot: East
+- partname: solarpanel
+  pos:
+  - 128
+  - -70
+  rot: South
+- partname: docking-port
+  pos:
+  - -10
+  - -66
+  rot: South
+- partname: small-antenna
+  pos:
+  - 15
+  - 55
   rot: East
 - partname: chemical-plant
   pos:
@@ -45,163 +205,108 @@ parts:
   rot: North
 - partname: rcs
   pos:
-  - -70
-  - -49
-  rot: North
-- partname: tank22
+  - -55
+  - 45
+  rot: South
+- partname: frame22
   pos:
-  - -35
+  - -55
   - 25
   rot: North
-- partname: rcs
+- partname: frame3
   pos:
-  - 64
-  - -49
-  rot: North
-- partname: container
-  pos:
-  - -60
-  - -55
-  rot: West
-- partname: angled-frame
-  pos:
-  - 45
-  - 5
+  - 0
+  - -5
   rot: East
-- partname: frame2
+- partname: frame3
   pos:
-  - -25
-  - 45
-  rot: West
-- partname: rcs
+  - -80
+  - -5
+  rot: East
+- partname: frame3
   pos:
-  - 45
-  - 39
-  rot: West
+  - 35
+  - 5
+  rot: North
 - partname: solarpanel
   pos:
-  - -112
+  - -128
   - -70
   rot: South
-- partname: frame3
+- partname: rcs
   pos:
-  - 80
-  - -5
+  - -154
+  - -9
+  rot: North
+- partname: rcs
+  pos:
+  - -59
+  - 39
   rot: East
-- partname: frame3
+- partname: tank11
   pos:
-  - -40
-  - -5
-  rot: East
-- partname: tank22
+  - 35
+  - 25
+  rot: West
+- partname: rcs
   pos:
-  - -55
-  - 5
+  - -160
+  - -9
   rot: North
 - partname: frame3
   pos:
   - 40
   - -5
   rot: East
-- partname: frame3
-  pos:
-  - -5
-  - 35
-  rot: West
-- partname: frame2
-  pos:
-  - -35
-  - 45
-  rot: West
-- partname: rcs
-  pos:
-  - -59
-  - 39
-  rot: East
-- partname: rcs
-  pos:
-  - -55
-  - 45
-  rot: South
-- partname: cargo
-  pos:
-  - -15
-  - 5
-  rot: North
-- partname: tank21
-  pos:
-  - 30
-  - -5
-  rot: South
-- partname: frame22
-  pos:
-  - -55
-  - 5
-  rot: North
-- partname: solarpanel
-  pos:
-  - 96
-  - -70
-  rot: South
-- partname: angled-frame
-  pos:
-  - -45
-  - 45
-  rot: North
 - partname: cpu
   pos:
   - -9
   - -4
   rot: South
+- partname: tank21
+  pos:
+  - -30
+  - -5
+  rot: South
 - partname: rcs
   pos:
-  - 148
-  - 5
-  rot: South
-- partname: frame3
-  pos:
-  - -15
-  - 5
-  rot: South
-- partname: frame3
-  pos:
-  - 0
-  - -5
-  rot: East
-- partname: frame22
+  - 75
+  - -9
+  rot: North
+- partname: tank22
   pos:
   - -55
   - 25
   rot: North
+- partname: rcs
+  pos:
+  - 45
+  - 39
+  rot: West
+- partname: frame3
+  pos:
+  - -40
+  - -5
+  rot: East
 - partname: solarpanel
   pos:
-  - -128
+  - -112
   - 5
   rot: North
-- partname: tank22
+- partname: frame3
   pos:
-  - -35
-  - 5
-  rot: North
+  - -5
+  - 35
+  rot: West
 - partname: rcs
   pos:
   - -154
   - 5
   rot: South
-- partname: tank21
+- partname: angled-frame
   pos:
-  - -50
-  - -5
-  rot: South
-- partname: battery
-  pos:
-  - 9
-  - -5
-  rot: South
-- partname: frame3
-  pos:
-  - -160
-  - -5
+  - 45
+  - 5
   rot: East
 - partname: rcs
   pos:
@@ -210,44 +315,64 @@ parts:
   rot: West
 - partname: rcs
   pos:
-  - 39
-  - 55
+  - 75
+  - 5
   rot: South
-- partname: angled-frame
+- partname: frame3
+  pos:
+  - -70
+  - -45
+  rot: North
+- partname: frame2
+  pos:
+  - -25
+  - 45
+  rot: West
+- partname: frame3
   pos:
   - 60
-  - -55
-  rot: South
-- partname: solarpanel
-  pos:
-  - -112
-  - 5
-  rot: North
-- partname: solarpanel
-  pos:
-  - 96
-  - 5
-  rot: North
-- partname: solarpanel
-  pos:
-  - 112
-  - 5
+  - -45
   rot: North
 - partname: rcs
   pos:
-  - -81
+  - 148
   - -9
+  rot: North
+- partname: tank22
+  pos:
+  - -35
+  - 5
+  rot: North
+- partname: chemical-plant
+  pos:
+  - 15
+  - 5
+  rot: West
+- partname: solarpanel
+  pos:
+  - -144
+  - 5
   rot: North
 - partname: battery
   pos:
   - 18
   - -5
   rot: South
-- partname: rcs
+- partname: solarpanel
   pos:
-  - -154
-  - -9
+  - 112
+  - -70
+  rot: South
+- partname: tank22
+  pos:
+  - -55
+  - 5
   rot: North
+- partname: container
+  pos:
+  - -60
+  - -55
+  rot: West
 - partname: frame3
   pos:
   - -120
@@ -255,172 +380,61 @@ parts:
   rot: East
 - partname: frame3
   pos:
-  - 35
-  - 5
-  rot: North
+  - 80
+  - -5
+  rot: East
+- partname: frame2
+  pos:
+  - -35
+  - 45
+  rot: West
+- partname: rcs
+  pos:
+  - 39
+  - 55
+  rot: South
 - partname: solarpanel
   pos:
   - -128
-  - -70
+  - 5
+  rot: North
+- partname: frame22
+  pos:
+  - -35
+  - 25
+  rot: North
+- partname: frame3
+  pos:
+  - -15
+  - 5
   rot: South
 - partname: tank11
   pos:
   - 35
   - 15
+  rot: West
+- partname: frame22
+  pos:
+  - -55
+  - 5
+  rot: North
+- partname: tank11
+  pos:
+  - 35
+  - 5
   rot: West
 - partname: rcs
   pos:
   - -81
   - 5
   rot: South
+- partname: cargo
+  pos:
+  - -15
+  - 5
+  rot: North
 - partname: rcs
   pos:
   - 160
   - -6
   rot: West
-- partname: rcs
-  pos:
-  - -74
-  - -46
-  rot: East
-- partname: tank11
-  pos:
-  - 35
-  - 5
-  rot: West
-- partname: frame22
-  pos:
-  - -35
-  - 25
-  rot: North
-- partname: chemical-plant
-  pos:
-  - 15
-  - 5
-  rot: West
-- partname: solarpanel
-  pos:
-  - -144
-  - -70
-  rot: South
-- partname: angled-frame
-  pos:
-  - -65
-  - 5
-  rot: North
-- partname: tank22
-  pos:
-  - -55
-  - 25
-  rot: North
-- partname: tank21
-  pos:
-  - -30
-  - -5
-  rot: South
-- partname: small-antenna
-  pos:
-  - 15
-  - 55
-  rot: East
-- partname: rcs
-  pos:
-  - 75
-  - 5
-  rot: South
-- partname: frame3
-  pos:
-  - 120
-  - -5
-  rot: East
-- partname: small-antenna
-  pos:
-  - 9
-  - 55
-  rot: East
-- partname: rcs
-  pos:
-  - -164
-  - 0
-  rot: East
-- partname: rcs
-  pos:
-  - 70
-  - -45
-  rot: West
-- partname: solarpanel
-  pos:
-  - 112
-  - -70
-  rot: South
-- partname: solarpanel
-  pos:
-  - 128
-  - -70
-  rot: South
-- partname: rcs
-  pos:
-  - -164
-  - -6
-  rot: East
-- partname: radar
-  pos:
-  - -32
-  - 55
-  rot: East
-- partname: tank11
-  pos:
-  - 35
-  - 25
-  rot: West
-- partname: angled-frame
-  pos:
-  - -70
-  - -55
-  rot: West
-- partname: rcs
-  pos:
-  - 154
-  - 5
-  rot: South
-- partname: frame3
-  pos:
-  - -70
-  - -45
-  rot: North
-- partname: rcs
-  pos:
-  - 148
-  - -9
-  rot: North
-- partname: rcs
-  pos:
-  - -160
-  - 5
-  rot: South
-- partname: rcs
-  pos:
-  - -160
-  - -9
-  rot: North
-- partname: solarpanel
-  pos:
-  - 128
-  - 5
-  rot: North
-- partname: solarpanel
-  pos:
-  - -144
-  - 5
-  rot: North
-- partname: rcs
-  pos:
-  - 154
-  - -9
-  rot: North
-- partname: chemical-plant
-  pos:
-  - -15
-  - 35
-  rot: North
-lines: []
