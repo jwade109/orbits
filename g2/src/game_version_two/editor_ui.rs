@@ -95,14 +95,29 @@ fn add_computer_widget(ui: &mut egui::Ui, computer: &mut Computer) {
         ComputerMode::None => (),
         ComputerMode::Manual => (),
         ComputerMode::AttitudeHold => {
-            ui.label("Pose Hold");
+            ui.label("Attitude Hold");
             ui.horizontal(|ui| {
                 ui.label("HDG");
                 ui.add(egui::Slider::new(&mut computer.attitude, -5.0..=5.0));
             });
         }
+        ComputerMode::VelocityHold => {
+            ui.label("Velocity Hold");
+            ui.horizontal(|ui| {
+                ui.label("HDG");
+                ui.add(egui::Slider::new(&mut computer.attitude, -5.0..=5.0));
+            });
+            ui.horizontal(|ui| {
+                ui.label("X");
+                ui.add(egui::Slider::new(&mut computer.velocity.x, -500.0..=500.0));
+            });
+            ui.horizontal(|ui| {
+                ui.label("Y");
+                ui.add(egui::Slider::new(&mut computer.velocity.y, -500.0..=500.0));
+            });
+        }
         ComputerMode::PositionHold => {
-            ui.label("Pose Hold");
+            ui.label("Position Hold");
             ui.horizontal(|ui| {
                 ui.label("X");
                 ui.add(egui::Slider::new(

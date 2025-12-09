@@ -56,19 +56,29 @@ impl VehicleControl {
     }
 }
 
-fn zero_gravity_velocity_control_law(
+pub fn zero_gravity_velocity_control_law(
     desired_vel: DVec2,
     idle_angle: f64,
     body: &RigidBody,
-    vehicle: &Vehicle,
+    attitude_controller: &PDCtrl,
 ) -> (VehicleControl, VehicleControlStatus) {
     let vel_error = body.pv.vel - desired_vel;
     let mut ctrl = VehicleControl::NULLOPT;
 
-    let target_angle = if vel_error.length() > 5.0 {
-        ctrl.plus_x.throttle = (0.2 + vel_error.length() / 10.0).clamp(0.0, 1.0) as f32;
-        (-vel_error).to_angle()
-    } else if vel_error.length() > 0.3 {
+    let (target_angle, status) = if vel_error.length() > 5.0 {
+        // ctrl.plus_x.throttle = (0.2 + vel_error.length() / 10.0).clamp(0.0, 1.0) as f32;
+        let target_angle = (-vel_error).to_angle();
+        let attitude_error = wrap_pi_npi_f64(target_angle - body.angle);
+        if attitude_error.to_degrees().abs() < 2.0 {
+            ctrl.plus_x.throttle = 1.0;
+        }
+
+        (target_angle, VehicleControlStatus::VelocityError(vel_error))
+    } else {
+        (idle_angle, VehicleControlStatus::HoldingAttitude)
+    };
+
+    if vel_error.length() > 0.3 && vel_error.length() < 6.0 {
         let body_frame_error = rotate_f64(vel_error, -body.angle);
         if body_frame_error.x < -0.1 {
             ctrl.plus_x.throttle = 1.0;
@@ -78,41 +88,33 @@ fn zero_gravity_velocity_control_law(
             ctrl.neg_x.throttle = 1.0;
             ctrl.neg_x.use_rcs = true;
         }
-        if body_frame_error.y < -0.1 {
+        if body_frame_error.y > 0.1 {
             ctrl.plus_y.throttle = 1.0;
             ctrl.plus_y.use_rcs = true;
         }
-        if body_frame_error.y > 0.1 {
+        if body_frame_error.y < -0.1 {
             ctrl.neg_y.throttle = 1.0;
             ctrl.neg_y.use_rcs = true;
         }
-        (-vel_error).to_angle()
-    } else {
-        idle_angle
-    };
-
-    let attitude_error = wrap_pi_npi_f64(target_angle - body.angle);
-    if attitude_error.to_degrees().abs() > 5.0 {
-        ctrl.plus_x.throttle = 0.0;
     }
 
-    ctrl.attitude = compute_attitude_control(body, target_angle, &vehicle.pid.attitude_controller);
+    ctrl.attitude = compute_attitude_control(body, target_angle, attitude_controller);
 
-    (ctrl, VehicleControlStatus::VelocityError(vel_error))
+    (ctrl, status)
 }
 
-fn zero_gravity_control_law(
+pub fn zero_gravity_control_law(
     target: PV,
     target_angle: f64,
     body: &RigidBody,
-    vehicle: &Vehicle,
+    attitude_controller: &PDCtrl,
 ) -> (VehicleControl, VehicleControlStatus) {
     let error = target - body.pv;
     let distance = error.pos.length();
     let error_hat = error.pos.normalize_or_zero();
     let desired_magnitude = (distance / 40.0).clamp(0.0, 100.0);
     let desired_vel = target.vel + error_hat * desired_magnitude;
-    zero_gravity_velocity_control_law(desired_vel, target_angle, body, vehicle)
+    zero_gravity_velocity_control_law(desired_vel, target_angle, body, attitude_controller)
 }
 
 fn compute_attitude_control(body: &RigidBody, target_angle: f64, pid: &PDCtrl) -> f64 {
@@ -206,7 +208,7 @@ pub fn position_hold_control_law(
     if gravity.length() > 0.0 {
         hover_control_law(target.pos, gravity, vehicle, body)
     } else {
-        zero_gravity_control_law(target, target_angle, body, vehicle)
+        zero_gravity_control_law(target, target_angle, body, &vehicle.pid.attitude_controller)
     }
 }
 

@@ -50,8 +50,9 @@ pub use enum_iterator::Sequence;
 pub use noise::{NoiseFn, Perlin, Seedable, Simplex};
 pub use starling::prelude::{
     InstantiatedPart, InstantiatedPartVariant, PDCtrl, PV, PartLayer, RigidBody, Rotation, Vehicle,
-    VehicleControl, VehicleControlStatus, attitude_control_law, chance, cross2d, rand, randint,
-    randvec, rotate, wrap_pi_npi_f64,
+    VehicleControl, VehicleControlStatus, attitude_control_law, chance, cross2d,
+    position_hold_control_law, rand, randint, randvec, rotate, wrap_pi_npi_f64,
+    zero_gravity_control_law, zero_gravity_velocity_control_law,
 };
 pub use std::collections::{HashMap, HashSet};
 pub use std::time::Duration;

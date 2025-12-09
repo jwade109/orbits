@@ -20,6 +20,7 @@ pub struct Computer {
     pub iters: u64,
     pub mode: ComputerMode,
     pub attitude: f32,
+    pub velocity: Vec2,
     pub position: Vec2,
     pub vehicle_control: VehicleControl,
     pub control_status: VehicleControlStatus,
@@ -31,6 +32,7 @@ pub enum ComputerMode {
     None,
     Manual,
     AttitudeHold,
+    VelocityHold,
     PositionHold,
 }
 
@@ -52,7 +54,11 @@ fn update_computers(computers: Query<&mut Computer>) {
     }
 }
 
-fn draw_computers(mut painter: ShapePainter, computers: Query<(&Computer, &GlobalTransform)>) {
+fn draw_computers(
+    mut painter: ShapePainter,
+    computers: Query<(&Computer, &GlobalTransform)>,
+    camera: Single<&Transform, With<Camera>>,
+) {
     for (computer, transform) in computers {
         if !computer.on {
             continue;
@@ -80,77 +86,94 @@ fn draw_computers(mut painter: ShapePainter, computers: Query<(&Computer, &Globa
 
         let pointing = transform.translation().xy() + Vec2::from_angle(computer.attitude) * 10.0;
 
-        // painter.set_color(TEAL);
-        // painter.set_translation(Vec3::ZERO);
-        // painter.line(transform.translation().with_z(60.0), target);
-        // painter.set_translation(target);
-        // painter.circle(0.5);
+        let z = 60.0;
 
         painter.reset();
         painter.set_color(TEAL);
         painter.set_translation(Vec3::ZERO);
-        painter.line(transform.translation().with_z(60.0), pointing.extend(60.0));
+        painter.line(
+            transform.translation().with_z(z),
+            computer.position.extend(z),
+        );
+        painter.set_translation(computer.position.extend(z));
+        painter.circle(4.0 * camera.scale.x);
+
+        painter.reset();
+        painter.set_color(TEAL);
+        painter.set_translation(Vec3::ZERO);
+        painter.line(transform.translation().with_z(z), pointing.extend(z));
     }
 }
 
 fn do_maneuvers(
-    grids: Query<(&Children, &SpacecraftGrid)>,
+    grids: Query<(&Children, &SpacecraftGrid, &Transform)>,
     computers: Query<(&mut Computer, &GlobalTransform, &ChildOf)>,
     mut thrusters: Query<(&mut Thruster, &Transform, &PartInstance)>,
     manual: Res<ManualControl>,
 ) {
-    for (mut computer, tf, parent) in computers {
+    for (mut computer, _, parent) in computers {
         if !computer.on {
             continue;
         }
 
-        let (yaw, _pitch, _roll) = tf.rotation().to_euler(EulerRot::ZYX);
+        let (_, grid, transform) = ok_or_continue!(grids.get(parent.0));
 
-        let angular_velocity = match grids.get(parent.0) {
-            Ok((_, grid)) => grid.angular_velocity,
-            Err(e) => {
-                error!(?e);
-                0.0
-            }
-        };
+        let (yaw, _pitch, _roll) = transform.rotation.to_euler(EulerRot::ZYX);
 
         let body = RigidBody {
-            pv: PV::pos(tf.translation().xy()),
+            pv: PV::from_f64(transform.translation.xy(), grid.velocity),
             angle: yaw as f64,
-            angular_velocity,
+            angular_velocity: grid.angular_velocity,
         };
 
         let pd = PDCtrl::new(20.0, 50.0);
+
+        let placeholder = Vehicle::new();
 
         let (ctrl, status) = match computer.mode {
             ComputerMode::None => {
                 continue;
             }
             ComputerMode::Manual => (manual.0, VehicleControlStatus::UnderExternalControl),
-            _ => attitude_control_law(computer.attitude as f64, &pd, &body),
+            ComputerMode::AttitudeHold => {
+                attitude_control_law(computer.attitude as f64, &pd, &body)
+            }
+            ComputerMode::VelocityHold => zero_gravity_velocity_control_law(
+                computer.velocity.as_dvec2(),
+                computer.attitude as f64,
+                &body,
+                &pd,
+            ),
+            ComputerMode::PositionHold => zero_gravity_control_law(
+                PV::pos(computer.position),
+                computer.attitude as f64,
+                &body,
+                &pd,
+            ),
         };
 
         computer.vehicle_control = ctrl;
         computer.control_status = status;
 
-        if let Ok((children, grid)) = grids.get(parent.0) {
+        if let Ok((children, grid, _)) = grids.get(parent.0) {
             for child in children {
                 if let Ok((mut thruster, transform, part)) = thrusters.get_mut(*child) {
+                    let tac = match part.rotation() {
+                        Rotation::East => ctrl.plus_x,
+                        Rotation::North => ctrl.neg_y,
+                        Rotation::West => ctrl.neg_x,
+                        Rotation::South => ctrl.plus_y,
+                    };
                     let (thrust, torque) =
                         body_frame_thrust(&thruster, transform, grid.center_of_mass);
-                    if torque.abs() > 0.5 && ctrl.attitude.abs() > 0.5 && thruster.is_rcs {
-                        thruster.on = torque.signum() as f64 == ctrl.attitude.signum();
-                    } else if !thruster.is_rcs {
-                        let unit = transform.local_x().round().as_i8vec3();
-                        let tac = match part.rotation() {
-                            Rotation::East => ctrl.plus_x,
-                            Rotation::North => ctrl.neg_y,
-                            Rotation::West => ctrl.neg_x,
-                            Rotation::South => ctrl.plus_y,
-                        };
-                        thruster.on = tac.throttle > 0.0;
+                    if thruster.is_rcs {
+                        let can_torque = torque.abs() > 0.5 && ctrl.attitude.abs() > 0.5;
+                        let is_torque =
+                            can_torque && torque.signum() as f64 == ctrl.attitude.signum();
+                        let is_linear = tac.throttle > 0.0 && tac.use_rcs;
+                        thruster.on = is_linear || is_torque;
                     } else {
-                        thruster.on = false;
+                        thruster.on = !tac.use_rcs && tac.throttle > 0.0;
                     }
                 }
             }
