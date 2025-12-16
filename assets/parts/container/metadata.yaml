@@ -4,5 +4,5 @@
   layer: Internal
   name: "container"
   dims: [120, 50]
-  sprites: 16
+  # sprites: 16
   slots: 1

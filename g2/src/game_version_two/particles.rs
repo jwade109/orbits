@@ -3,6 +3,8 @@ use bevy::prelude::*;
 use bevy_inspector_egui::quick::ResourceInspectorPlugin;
 use starling::prelude::rand;
 
+use crate::game_version_two::*;
+
 pub struct ParticlePlugin;
 
 impl Plugin for ParticlePlugin {
@@ -49,7 +51,7 @@ impl Default for ThrustParticleConfig {
         ThrustParticleConfig {
             color_a: RED.with_alpha(0.8).into(),
             color_b: YELLOW.with_alpha(0.6).into(),
-            mean_velocity: 15.0,
+            mean_velocity: 20.0,
             velocity_spread: 3.0,
             spread: 1.0,
             discrete: false,
@@ -64,7 +66,8 @@ impl Default for ThrustParticleConfig {
 
 fn thrust_particles(
     mut commands: Commands,
-    emitters: Query<(&GlobalTransform, &ParticleEmitter)>,
+    grids: Query<&SpacecraftGrid>,
+    emitters: Query<(&GlobalTransform, &ParticleEmitter, &ChildOf)>,
     mut particles: Query<(Entity, &mut ThrustParticle, &mut Transform)>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
@@ -82,24 +85,28 @@ fn thrust_particles(
     cfg.step = false;
 
     let discrete_n = 3;
-    let particle_size = 0.5;
+    let particle_size = 0.07;
 
-    use starling::prelude::{rotate, PI};
+    use starling::prelude::{PI, rotate};
 
-    for (tf, emitter) in &emitters {
+    for (tf, emitter, parent) in &emitters {
         if !emitter.enabled {
             continue;
         }
 
+        let grid = ok_or_continue!(grids.get(parent.0));
+
         for _ in 0..cfg.particles_per_tick {
-            let angle = rand(0.0, 2.0 * PI);
-            let vel = rotate(Vec2::X, angle) * cfg.mean_velocity;
             let color = cfg.color_a.mix(&cfg.color_b, rand(0.1, 0.9));
 
             let x = rand(-1.0, 1.0) * emitter.size.x / 2.0;
             let y = rand(-1.0, 1.0) * emitter.size.y / 2.0;
 
             let pos = Vec2::new(x, y) + tf.translation().xy();
+
+            let angle = rand(-1.0, 1.0) * 0.3;
+            let vel = (tf.left() * cfg.mean_velocity).xy() * rand(0.3, 1.0);
+            let vel = grid.velocity.as_vec2() + rotate(vel, angle);
 
             let dpos = if cfg.discrete {
                 (pos * discrete_n as f32).round() / discrete_n as f32
@@ -108,9 +115,8 @@ fn thrust_particles(
             };
 
             commands.spawn((
-                Name::new("Particle"),
                 ThrustParticle {
-                    time_remaining: rand(0.6, 1.2),
+                    time_remaining: rand(0.05, 0.1),
                     velocity: vel,
                     nominal_position: pos,
                 },
@@ -130,7 +136,7 @@ fn thrust_particles(
 
     for (e, mut part, mut tf) in &mut particles {
         part.time_remaining -= dt;
-        part.velocity.y += 6.0 * dt;
+        // part.velocity.y += 6.0 * dt;
         part.nominal_position = part.nominal_position + part.velocity * dt;
         tf.translation = if cfg.discrete {
             (part.nominal_position * discrete_n as f32).round() / discrete_n as f32

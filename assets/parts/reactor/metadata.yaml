@@ -1,0 +1,5 @@
+!Generic
+  mass: 360000
+  layer: Internal
+  name: "reactor"
+  dims: [20, 20]

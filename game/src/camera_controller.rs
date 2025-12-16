@@ -157,11 +157,6 @@ impl LinearCameraController {
 
         self.target_offset += rotate_f64(delta, self.angle);
 
-        if input.just_pressed(KeyCode::KeyR) {
-            self.target_angle = 0.0;
-            self.target_offset = DVec2::ZERO;
-        }
-
         self.target_view_distance = self.target_view_distance.clamp(0.001, 600000.0);
     }
 }

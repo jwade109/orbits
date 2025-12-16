@@ -3,4 +3,4 @@
   layer: Structural
   name: "frame3"
   dims: [40, 10]
-  sprites: 18
+  # sprites: 18

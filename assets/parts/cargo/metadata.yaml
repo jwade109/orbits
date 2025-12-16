@@ -4,5 +4,5 @@
   layer: Internal
   name: "cargo"
   dims: [30, 30]
-  sprites: 30
+  # sprites: 30
   slots: 4

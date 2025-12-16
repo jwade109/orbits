@@ -12,6 +12,7 @@ mod mass;
 mod mesh_builder;
 mod particles;
 mod recipe;
+mod settings;
 mod spacecraft;
 mod terrain;
 mod thruster;
@@ -29,6 +30,7 @@ pub use mass::*;
 pub use mesh_builder::*;
 pub use particles::*;
 pub use recipe::*;
+pub use settings::*;
 pub use spacecraft::*;
 pub use terrain::*;
 pub use thruster::*;
@@ -48,6 +50,8 @@ use early_returns::{ok_or_continue, ok_or_return, some_or_continue, some_or_retu
 pub use egui::containers::panel::*;
 pub use enum_iterator::Sequence;
 pub use noise::{NoiseFn, Perlin, Seedable, Simplex};
+pub use serde::{Deserialize, Serialize};
+pub use serde_yaml::{from_str, to_string};
 pub use starling::prelude::{
     InstantiatedPart, InstantiatedPartVariant, PDCtrl, PV, PartLayer, RigidBody, Rotation, Vehicle,
     VehicleControl, VehicleControlStatus, attitude_control_law, chance, cross2d,
@@ -55,4 +59,5 @@ pub use starling::prelude::{
     zero_gravity_control_law, zero_gravity_velocity_control_law,
 };
 pub use std::collections::{HashMap, HashSet};
+pub use std::path::{Path, PathBuf};
 pub use std::time::Duration;

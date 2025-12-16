@@ -191,9 +191,9 @@ fn keyboard_control_law(keys: &ButtonInput<KeyCode>) -> VehicleControl {
 
     if docking_mode {
         ctrl.plus_x.throttle = keys.pressed(KeyCode::ArrowUp) as u8 as f32;
-        ctrl.plus_y.throttle = keys.pressed(KeyCode::ArrowLeft) as u8 as f32;
+        ctrl.plus_y.throttle = keys.pressed(KeyCode::ArrowRight) as u8 as f32;
         ctrl.neg_x.throttle = keys.pressed(KeyCode::ArrowDown) as u8 as f32;
-        ctrl.neg_y.throttle = keys.pressed(KeyCode::ArrowRight) as u8 as f32;
+        ctrl.neg_y.throttle = keys.pressed(KeyCode::ArrowLeft) as u8 as f32;
     } else {
         ctrl.plus_x.throttle = keys.pressed(KeyCode::ArrowUp) as u8 as f32;
         ctrl.neg_x.throttle = keys.pressed(KeyCode::ArrowDown) as u8 as f32;

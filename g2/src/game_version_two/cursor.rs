@@ -6,17 +6,20 @@ pub struct CursorPlugin;
 
 impl Plugin for CursorPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(CursorWorldPosition(None));
+        app.insert_resource(CursorWorldPosition::default());
         app.add_systems(Update, (update_mouse_world_pos, draw_cursor_pos));
     }
 }
 
-#[derive(Resource, Deref, DerefMut)]
-pub struct CursorWorldPosition(Option<Vec2>);
+#[derive(Resource, Default)]
+pub struct CursorWorldPosition {
+    pos: Option<Vec2>,
+    pub on_egui: bool,
+}
 
 impl CursorWorldPosition {
     pub fn get(&self) -> Option<Vec2> {
-        self.0
+        (!self.on_egui).then(|| self.pos).flatten()
     }
 }
 
@@ -42,7 +45,7 @@ fn update_mouse_world_pos(
 ) {
     let (camera, camera_transform) = *camera;
 
-    coords.0 = if let Some(world_position) = window
+    coords.pos = if let Some(world_position) = window
         .cursor_position()
         .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor).ok())
         .map(|ray| ray.origin.truncate())

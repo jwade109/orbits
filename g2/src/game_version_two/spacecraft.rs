@@ -12,14 +12,12 @@ pub struct SpacecraftPlugin;
 impl Plugin for SpacecraftPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(PhysicsPlugins::default());
-        app.insert_state(DebugGrids::Drawn);
-        app.insert_state(DebugInventories::Hidden);
 
         app.add_systems(
             Update,
             (
-                draw_grids.run_if(in_state(DebugGrids::Drawn)),
-                draw_inventories.run_if(in_state(DebugInventories::Drawn)),
+                draw_grids,
+                draw_inventories,
                 handle_sc_events,
                 handle_change_recipe,
                 draw_selected_part,
@@ -29,6 +27,8 @@ impl Plugin for SpacecraftPlugin {
                 check_adjacent_docking_ports,
                 on_attach_event,
                 send_attach_events,
+                draw_docking_port_info,
+                update_thruster_emitters,
             ),
         );
 
@@ -50,18 +50,6 @@ impl Plugin for SpacecraftPlugin {
         app.insert_resource(CursorInfo::default());
         app.insert_resource(GridSpatialLookup::default());
     }
-}
-
-#[derive(States, Debug, Hash, PartialEq, Eq, Clone, Copy)]
-pub enum DebugGrids {
-    Hidden,
-    Drawn,
-}
-
-#[derive(States, Debug, Hash, PartialEq, Eq, Clone, Copy)]
-pub enum DebugInventories {
-    Hidden,
-    Drawn,
 }
 
 #[derive(Resource, Debug, Default)]
@@ -127,23 +115,40 @@ fn rect_area_moment_of_inertia_with_offset(distance: f32, dims: Vec2) {
     // let r = dims
 }
 
-fn draw_grids(mut painter: ShapePainter, crafts: Query<(&GlobalTransform, &SpacecraftGrid)>) {
-    for (tf, _) in &crafts {
+fn draw_grids(
+    mut painter: ShapePainter,
+    crafts: Query<(&GlobalTransform, &SpacecraftGrid)>,
+    settings: Res<Settings>,
+) {
+    if !settings.draw_spacecraft_grids {
+        return;
+    }
+
+    for (tf, grid) in &crafts {
         painter.reset();
         painter.set_translation(tf.translation().with_z(100.0));
         painter.set_rotation(tf.rotation());
         painter.set_color(TEAL);
-        painter.thickness = 4.0;
+        painter.thickness = 6.0;
         painter.hollow = true;
         painter.thickness_type = ThicknessType::Pixels;
-        painter.rect(Vec2::ONE * 0.2);
+        painter.rect(Vec2::ONE * 0.4);
+
+        painter.translate(grid.center_of_mass.extend(100.0));
+        painter.set_color(GREEN);
+        painter.rect(Vec2::ONE * 0.4);
     }
 }
 
 fn draw_inventories(
     mut painter: ShapePainter,
     parts: Query<(&GlobalTransform, &PartInstance, &Inventory)>,
+    settings: Res<Settings>,
 ) {
+    if !settings.draw_debug_inventories {
+        return;
+    }
+
     let width = 0.1;
     for (tf, part, inventory) in parts {
         let n = inventory.slot_count();
@@ -222,13 +227,6 @@ fn draw_selected_grid_guides(
     painter.set_translation(tf.translation().with_z(-50.0));
     painter.set_rotation(tf.rotation());
     painter.rect(grid.dims());
-
-    painter.translate(grid.center_of_mass.extend(100.0));
-    painter.hollow = false;
-    painter.set_color(GREEN);
-    painter.circle(0.1);
-    painter.set_color(WHITE);
-    painter.circle(0.08);
 }
 
 fn draw_selected_part(
@@ -532,7 +530,7 @@ fn add_part_to_grid<'a>(
         let mut inv = Inventory::zero_slots();
         for _ in 0..n_slots {
             let slot = InvSlot::new(Volume::liters(4000), ItemFilter::Any);
-            inv.add_slot(slot.with_item(Item::U235));
+            inv.add_slot(slot.with_item(Item::random()));
         }
         inv
     };
@@ -556,13 +554,19 @@ fn add_part_to_grid<'a>(
             Thruster::new(40000.0, false)
         };
 
-        cmd.insert((thruster, inv));
+        let particles = ParticleEmitter {
+            enabled: chance(0.05),
+            size: Vec3::splat(0.05),
+        };
+
+        cmd.insert((thruster, inv, particles));
     }
 
     if is_computer {
         let mut cpu = Computer::default();
-        cpu.mode = ComputerMode::AttitudeHold;
+        cpu.mode = ComputerMode::Manual;
         cpu.attitude = rand(0.0, 2.0);
+        cpu.on = false;
         cmd.insert(cpu);
     }
 
@@ -669,7 +673,15 @@ fn update_spacecraft_grid_map(
     }
 }
 
-fn draw_spacecraft_spatial_lookups(mut painter: ShapePainter, mut map: ResMut<GridSpatialLookup>) {
+fn draw_spacecraft_spatial_lookups(
+    mut painter: ShapePainter,
+    mut map: ResMut<GridSpatialLookup>,
+    settings: Res<Settings>,
+) {
+    if !settings.draw_spatial_lut {
+        return;
+    }
+
     for (g, _) in map.iter() {
         painter.reset();
         painter.set_color(ORANGE.with_alpha(0.1));
@@ -742,7 +754,7 @@ fn send_attach_events(
     mut attach: EventWriter<AttachPorts>,
     cursor: Res<CursorInfo>,
 ) {
-    if !keys.just_pressed(KeyCode::KeyJ) {
+    if !keys.pressed(KeyCode::KeyJ) {
         return;
     }
 
@@ -751,10 +763,20 @@ fn send_attach_events(
     attach.write(event);
 }
 
+fn target_docking_transform(
+    ownship: &Transform,
+    port_a: &Transform,
+    port_b: &Transform,
+) -> Transform {
+    let inv_port_b = Transform::from_rotation(port_b.rotation.conjugate());
+    // let rot_180 = Quat::from_axis_angle(Vec3::Z, std::f32::consts::PI);
+    *ownship * *port_a * inv_port_b
+}
+
 fn on_attach_event(
     mut attach: EventReader<AttachPorts>,
     ports: Query<(&DockingPort, &Transform, &ChildOf), Without<SpacecraftGrid>>,
-    mut grids: Query<&mut Transform, With<SpacecraftGrid>>,
+    mut grids: Query<(&mut Transform, &mut SpacecraftGrid)>,
 ) {
     for msg in attach.read() {
         dbg!(msg);
@@ -770,34 +792,45 @@ fn on_attach_event(
 
         info!("Joining grids: {}, {}", parent.0, other_parent.0);
 
-        let ownship_root = ok_or_continue!(grids.get(parent.0)).clone();
+        let (ownship_root, grid) = ok_or_continue!(grids.get(parent.0));
 
-        let mut target_root = ok_or_continue!(grids.get_mut(other_parent.0));
+        let ownship_root = ownship_root.clone();
+        let velocity = grid.velocity;
+        let angular_velocity = grid.angular_velocity;
 
-        let rot_180 = Quat::from_axis_angle(Vec3::Z, std::f32::consts::PI);
+        let additional_velocity = ownship_part
+            .translation
+            .cross((Vec3::Z * angular_velocity as f32))
+            .xy()
+            .as_dvec2();
 
-        let target_part = Transform::from_rotation(target_part.rotation * rot_180)
-            .with_translation(target_part.translation);
+        let (mut target_root, mut grid) = ok_or_continue!(grids.get_mut(other_parent.0));
 
-        let dst = ownship_root * *ownship_part * target_part;
+        *target_root = target_docking_transform(&ownship_root, &ownship_part, &target_part);
 
-        *target_root = dst;
+        grid.velocity = velocity + additional_velocity;
+        grid.angular_velocity = angular_velocity;
     }
 }
 
-fn check_adjacent_docking_ports(
-    mut painter: ShapePainter,
-    mut ports: Query<(Entity, &GlobalTransform, &mut DockingPort)>,
-) {
-    let mut port_map: HashMap<IVec2, Vec<(Entity, Vec2)>> = HashMap::new();
+pub const DOCKING_PORT_RADIUS: f32 = 5.0;
 
-    for (e, transform, port) in &ports {
+fn check_adjacent_docking_ports(
+    mut commands: Commands,
+    mut painter: ShapePainter,
+    mut ports: Query<(Entity, &GlobalTransform, &mut DockingPort, &ChildOf)>,
+) {
+    let mut port_map: HashMap<IVec2, Vec<(Entity, Vec2, Entity)>> = HashMap::new();
+
+    for (e, transform, mut port, parent) in &mut ports {
+        port.attached = PortAttachment::None;
+
         let pos = transform.translation().xy();
         let g = to_grid(pos);
         port_map
             .entry(g)
-            .and_modify(|v| v.push((e, pos)))
-            .or_insert(vec![(e, pos)]);
+            .and_modify(|v| v.push((e, pos, parent.0)))
+            .or_insert(vec![(e, pos, parent.0)]);
     }
 
     for (_, entities) in port_map {
@@ -807,31 +840,62 @@ fn check_adjacent_docking_ports(
 
         for i in 1..entities.len() {
             for j in 0..i {
-                let (a, p1) = entities[i];
-                let (b, p2) = entities[j];
-                if p1.distance(p2) < 2.0 {
-                    let z = 180.0;
-                    let q1 = p1.extend(z);
-                    let q2 = p2.extend(z);
-                    painter.reset();
-                    painter.hollow = true;
-                    painter.thickness = 7.0;
-                    painter.thickness_type = ThicknessType::Pixels;
-                    painter.line(q1, q2);
-                    painter.set_translation(q1);
-                    painter.circle(1.0);
-                    painter.set_translation(q2);
-                    painter.circle(1.0);
+                let (a, p1, pa) = entities[i];
+                let (b, p2, pb) = entities[j];
 
-                    if let Ok((_, _, mut port)) = ports.get_mut(a) {
-                        port.attached = PortAttachment::Seeking(b);
-                    }
+                // these ports are attached to the same ship!
+                if pa == pb {
+                    continue;
+                }
 
-                    if let Ok((_, _, mut port)) = ports.get_mut(b) {
-                        port.attached = PortAttachment::Seeking(a);
-                    }
+                if p1.distance(p2) < DOCKING_PORT_RADIUS {
+                    let mut port_a = ok_or_continue!(ports.get_mut(a));
+                    port_a.2.attached = PortAttachment::Seeking(b);
+
+                    let mut port_b = ok_or_continue!(ports.get_mut(b));
+                    port_b.2.attached = PortAttachment::Seeking(a);
                 }
             }
         }
+    }
+}
+
+fn draw_docking_port_info(
+    mut painter: ShapePainter,
+    settings: Res<Settings>,
+    ports: Query<(&DockingPort, &GlobalTransform)>,
+) {
+    if !settings.draw_docking_port_info {
+        return;
+    }
+
+    let z = 250.0;
+
+    for (port, tf) in ports {
+        let p1 = tf.translation().xy();
+
+        let target_id = some_or_continue!(port.target());
+        let (target_port, target_tf) = ok_or_continue!(ports.get(target_id));
+
+        let p2 = target_tf.translation().xy();
+
+        let q1 = p1.extend(z);
+        let q2 = p2.extend(z);
+        painter.reset();
+        painter.set_color(ORANGE);
+        painter.hollow = true;
+        painter.thickness = 2.0;
+        painter.thickness_type = ThicknessType::Pixels;
+        painter.line(q1, q2);
+        painter.set_translation(q1);
+        painter.circle(0.2);
+        painter.set_translation(q2);
+        painter.circle(0.2);
+    }
+}
+
+fn update_thruster_emitters(mut thrusters: Query<(&Thruster, &mut ParticleEmitter)>) {
+    for (t, mut p) in thrusters {
+        p.enabled = t.on && t.status == MachineStatus::Running;
     }
 }

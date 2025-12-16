@@ -35,25 +35,20 @@ pub struct ThrusterPlugin;
 
 impl Plugin for ThrusterPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            draw_thrusters.run_if(in_state(DebugThrusters::Drawn)),
-        );
+        app.add_systems(Update, draw_thrusters);
         app.add_systems(FixedUpdate, (consume_fuel, apply_thrust_to_grids));
-        app.insert_state(DebugThrusters::Drawn);
     }
-}
-
-#[derive(States, Debug, Hash, PartialEq, Eq, Clone, Copy)]
-pub enum DebugThrusters {
-    Hidden,
-    Drawn,
 }
 
 fn draw_thrusters(
     mut painter: ShapePainter,
     thrusters: Query<(&GlobalTransform, &Thruster, &PartInstance)>,
+    settings: Res<Settings>,
 ) {
+    if !settings.draw_thruster_states {
+        return;
+    }
+
     for (location, thruster, part) in &thrusters {
         painter.reset();
 

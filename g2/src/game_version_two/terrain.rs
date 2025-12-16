@@ -305,6 +305,7 @@ fn draw_hovered_grid(
     chunks: Query<(&GlobalTransform, &TerrainChunk)>,
     map: Res<ChunkMap>,
     cursor: Res<CursorWorldPosition>,
+    settings: Res<Settings>,
 ) {
     let z = 120.0;
     let length = 3000.0;
@@ -328,23 +329,25 @@ fn draw_hovered_grid(
             painter.thickness_type = ThicknessType::Pixels;
             painter.rect(Vec2::splat(CHUNK_WIDTH));
 
-            // painter.reset();
-            // if let Some(dense) = &chunk.dense {
-            //     for x in 0..LATTICE_POINTS_PER_CHUNK_SIDE {
-            //         for y in 0..LATTICE_POINTS_PER_CHUNK_SIDE {
-            //             let value = dense.points[x][y];
-            //             let u = x as f32 / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32;
-            //             let v = y as f32 / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32;
-            //             let color = Srgba::new(0.3 + u * 0.7, 0.3 + v * 0.7, 0.6, 0.6);
-            //             painter.set_color(color);
-            //             let l = IVec2::new(x as i32, y as i32);
-            //             let p = lattice_point_world_pos(chunk.pos, l);
-            //             painter.set_translation(p.extend(10.0));
-            //             let w = CHUNK_WIDTH / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32;
-            //             painter.rect(Vec2::splat(value * w));
-            //         }
-            //     }
-            // }
+            if settings.draw_terrain_rgb {
+                painter.reset();
+                if let Some(dense) = &chunk.dense {
+                    for x in 0..LATTICE_POINTS_PER_CHUNK_SIDE {
+                        for y in 0..LATTICE_POINTS_PER_CHUNK_SIDE {
+                            let value = dense.points[x][y];
+                            let u = x as f32 / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32;
+                            let v = y as f32 / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32;
+                            let color = Srgba::new(0.3 + u * 0.7, 0.3 + v * 0.7, 0.6, 0.6);
+                            painter.set_color(color);
+                            let l = IVec2::new(x as i32, y as i32);
+                            let p = lattice_point_world_pos(chunk.pos, l);
+                            painter.set_translation(p.extend(10.0));
+                            let w = CHUNK_WIDTH / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32;
+                            painter.rect(Vec2::splat(value * w));
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -606,6 +609,7 @@ fn draw_highlighted_lattice_points(
     cursor: Res<CursorWorldPosition>,
     mut chunks: Query<&mut TerrainChunk>,
     btn: Res<ButtonInput<MouseButton>>,
+    info: Res<CursorInfo>,
 ) {
     let pos = match cursor.get() {
         Some(p) => p,
@@ -622,27 +626,23 @@ fn draw_highlighted_lattice_points(
 
     let (x, y) = (lattice_idx.x as usize, lattice_idx.y as usize);
 
-    // let world = lattice_point_world_pos(g, lattice_idx);
-
-    // painter.reset();
-    // painter.set_translation(world.extend(100.0));
-    // painter.circle(0.1);
-
-    if btn.pressed(MouseButton::Left) {
-        let dig = Excavate {
-            pos,
-            radius: 12.0,
-            is_fill: false,
-        };
-        commands.send_event(dig);
-    }
-    if btn.pressed(MouseButton::Right) {
-        let dig = Excavate {
-            pos,
-            radius: 12.0,
-            is_fill: true,
-        };
-        commands.send_event(dig);
+    if info.hovered.is_none() {
+        if btn.pressed(MouseButton::Left) {
+            let dig = Excavate {
+                pos,
+                radius: 12.0,
+                is_fill: false,
+            };
+            commands.send_event(dig);
+        }
+        if btn.pressed(MouseButton::Right) {
+            let dig = Excavate {
+                pos,
+                radius: 12.0,
+                is_fill: true,
+            };
+            commands.send_event(dig);
+        }
     }
 }
 

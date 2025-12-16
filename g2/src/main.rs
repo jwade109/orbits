@@ -39,19 +39,22 @@ fn main() {
         .add_plugins(TerrainPlugin)
         .add_plugins(CursorPlugin)
         .add_plugins(CameraPlugin)
-        .add_systems(Startup, (setup, toggle_wireframe))
+        .add_systems(Startup, setup)
+        .add_systems(Update, update_wireframe)
         .run();
 }
 
-fn toggle_wireframe(mut wireframe_config: ResMut<Wireframe2dConfig>) {
-    // wireframe_config.global = !wireframe_config.global;
+fn update_wireframe(mut wireframe_config: ResMut<Wireframe2dConfig>, settings: Res<Settings>) {
+    wireframe_config.global = settings.show_wireframes;
 }
 
 fn setup(mut commands: Commands) -> Result {
-    commands.insert_resource(ProgramContext::default());
+    let ctx = ProgramContext::default();
+    let settings = Settings::from_file(&ctx.settings_path()).unwrap_or(Settings::default());
 
+    commands.insert_resource(ctx);
+    commands.insert_resource(settings);
     commands.insert_resource(ClearColor(BLACK.into()));
-
     commands.insert_resource(Gravity(Vec2::ZERO));
 
     commands.spawn((
@@ -73,28 +76,22 @@ fn setup(mut commands: Commands) -> Result {
         angle: rand(-0.2, 0.3),
     });
 
-    for _ in 0..4 {
-        for name in [
-            "pollux",
-            "remora",
-            "remora",
-            "remora",
-            "remora",
-            "remora",
-            // "bellerophon",
-            // "lander",
-            // "remora",
-            // "icecream",
-            // "spacestation",
-        ] {
-            let x = rand(-20.0, 20.0);
-            let y = rand(10.0, 30.0);
-            commands.send_event(SpacecraftEvent::SpawnVehicle {
-                name: name.to_string(),
-                pos: Vec2::new(x, y),
-                angle: rand(-0.2, 0.3),
-            });
-        }
+    for name in [
+        "pollux", "pollux", "remora",
+        // "bellerophon",
+        // "lander",
+        // "remora",
+        // "icecream",
+        "spacestation",
+        "remora", "remora", "remora", "remora", "remora",
+    ] {
+        let x = rand(-20.0, 20.0);
+        let y = rand(-20.0, 20.0);
+        commands.send_event(SpacecraftEvent::SpawnVehicle {
+            name: name.to_string(),
+            pos: Vec2::new(x + 25.0, y + 25.0),
+            angle: rand(-0.2, 0.3),
+        });
     }
 
     Ok(())

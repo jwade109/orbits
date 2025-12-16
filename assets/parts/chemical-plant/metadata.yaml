@@ -2,4 +2,4 @@
   mass: 960000
   layer: Internal
   dims: [20, 30]
-  sprites: 15
+  # sprites: 15
