@@ -6,10 +6,17 @@ impl Plugin for ComputerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             FixedUpdate,
-            ((update_computers, do_maneuvers).run_if(on_timer(Duration::from_millis(100))),),
+            ((update_computers, do_maneuvers)
+                .in_set(Sets::Physics)
+                .run_if(on_timer(Duration::from_millis(100))),),
         )
-        .add_systems(Update, (draw_computers, human_control))
-        .insert_resource(ManualControl::default());
+        .add_systems(
+            Update,
+            (human_control, handle_hold_here_commands).in_set(Sets::PrePhysics),
+        )
+        .add_systems(PostUpdate, draw_computers.in_set(Sets::Draw))
+        .insert_resource(ManualControl::default())
+        .add_event::<HoldHereCommand>();
     }
 }
 
@@ -29,11 +36,43 @@ pub struct Computer {
 #[derive(Sequence, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ComputerMode {
     #[default]
-    None,
+    Idle,
     Manual,
     AttitudeHold,
     VelocityHold,
     PositionHold,
+}
+
+impl ComputerMode {
+    pub fn needs_attitude(&self) -> bool {
+        match self {
+            ComputerMode::Idle => false,
+            ComputerMode::Manual => false,
+            ComputerMode::AttitudeHold => true,
+            ComputerMode::VelocityHold => true,
+            ComputerMode::PositionHold => true,
+        }
+    }
+
+    pub fn needs_velocity(&self) -> bool {
+        match self {
+            ComputerMode::Idle => false,
+            ComputerMode::Manual => false,
+            ComputerMode::AttitudeHold => false,
+            ComputerMode::VelocityHold => true,
+            ComputerMode::PositionHold => false,
+        }
+    }
+
+    pub fn needs_position(&self) -> bool {
+        match self {
+            ComputerMode::Idle => false,
+            ComputerMode::Manual => false,
+            ComputerMode::AttitudeHold => false,
+            ComputerMode::VelocityHold => false,
+            ComputerMode::PositionHold => true,
+        }
+    }
 }
 
 impl Computer {
@@ -54,6 +93,34 @@ fn update_computers(computers: Query<&mut Computer>) {
     }
 }
 
+fn draw_waypoint(
+    painter: &mut ShapePainter,
+    pos: Vec3,
+    attitude: Option<f32>,
+    color: Srgba,
+    scale: f32,
+) {
+    painter.reset();
+    painter.set_translation(pos);
+    painter.set_color(color);
+    painter.hollow = true;
+    painter.thickness_type = ThicknessType::Pixels;
+    painter.thickness = 3.0;
+    painter.circle(16.0 * scale);
+    painter.hollow = false;
+    painter.circle(4.0 * scale);
+
+    if let Some(attitude) = attitude {
+        let pointing = Vec2::from_angle(attitude) * 75.0 * scale;
+        painter.reset();
+        painter.set_color(color);
+        painter.set_translation(pos);
+        painter.thickness_type = ThicknessType::Pixels;
+        painter.thickness = 3.0;
+        painter.line(Vec3::ZERO, pointing.extend(pos.z));
+    }
+}
+
 fn draw_computers(
     mut painter: ShapePainter,
     computers: Query<(&Computer, &GlobalTransform)>,
@@ -64,44 +131,43 @@ fn draw_computers(
             continue;
         }
 
-        painter.reset();
-        painter.set_translation(transform.translation().with_z(60.0));
-        painter.set_rotation(transform.rotation());
+        const COMPUTER_AXIS_Z: f32 = 120.0;
 
-        let color = if computer.on {
-            YELLOW.with_alpha(0.3)
-        } else {
-            GRAY.with_alpha(0.3)
-        };
-
-        painter.hollow = true;
-        painter.thickness_type = ThicknessType::Pixels;
-        painter.thickness = 3.0;
-        painter.set_color(color);
-        painter.circle(0.3);
-        painter.set_color(RED);
-        painter.line(Vec3::ZERO, Vec3::X * 2.0);
-        painter.set_color(GREEN);
-        painter.line(Vec3::ZERO, Vec3::Y * 2.0);
-
-        let pointing = transform.translation().xy() + Vec2::from_angle(computer.attitude) * 10.0;
+        {
+            // axes
+            painter.reset();
+            painter.set_translation(transform.translation().with_z(COMPUTER_AXIS_Z));
+            painter.set_rotation(transform.rotation());
+            painter.hollow = true;
+            painter.thickness_type = ThicknessType::Pixels;
+            painter.thickness = 3.0;
+            painter.set_color(YELLOW.with_alpha(0.3));
+            painter.circle(0.3);
+            painter.set_color(RED);
+            painter.line(Vec3::ZERO, Vec3::X * 2.0);
+            painter.set_color(GREEN);
+            painter.line(Vec3::ZERO, Vec3::Y * 2.0);
+        }
 
         let z = 60.0;
 
-        painter.reset();
-        painter.set_color(TEAL);
-        painter.set_translation(Vec3::ZERO);
-        painter.line(
-            transform.translation().with_z(z),
-            computer.position.extend(z),
-        );
-        painter.set_translation(computer.position.extend(z));
-        painter.circle(4.0 * camera.scale.x);
-
-        painter.reset();
-        painter.set_color(TEAL);
-        painter.set_translation(Vec3::ZERO);
-        painter.line(transform.translation().with_z(z), pointing.extend(z));
+        if computer.mode.needs_position() {
+            draw_waypoint(
+                &mut painter,
+                computer.position.extend(z),
+                computer.mode.needs_attitude().then(|| computer.attitude),
+                LIME,
+                camera.scale.x,
+            );
+        } else if computer.mode.needs_attitude() {
+            draw_waypoint(
+                &mut painter,
+                transform.translation().with_z(COMPUTER_AXIS_Z),
+                Some(computer.attitude),
+                LIME,
+                camera.scale.x,
+            );
+        }
     }
 }
 
@@ -131,9 +197,7 @@ fn do_maneuvers(
         let placeholder = Vehicle::new();
 
         let (ctrl, status) = match computer.mode {
-            ComputerMode::None => {
-                continue;
-            }
+            ComputerMode::Idle => (VehicleControl::NULLOPT, VehicleControlStatus::Idling),
             ComputerMode::Manual => (manual.0, VehicleControlStatus::UnderExternalControl),
             ComputerMode::AttitudeHold => {
                 attitude_control_law(computer.attitude as f64, &pd, &body)
@@ -217,4 +281,30 @@ fn keyboard_control_law(keys: &ButtonInput<KeyCode>) -> VehicleControl {
 
 fn human_control(keys: Res<ButtonInput<KeyCode>>, mut ctrl: ResMut<ManualControl>) {
     ctrl.0 = keyboard_control_law(&keys);
+}
+
+#[derive(Event, Debug)]
+pub struct HoldHereCommand(pub Entity);
+
+fn handle_hold_here_commands(
+    mut reader: EventReader<HoldHereCommand>,
+    grids: Query<&GlobalTransform, With<SpacecraftGrid>>,
+    mut computers: Query<(&mut Computer, &ChildOf)>,
+) {
+    for msg in reader.read() {
+        info!("Hold here issued: {:?}", msg);
+
+        let (mut computer, parent) = ok_or_continue!(computers.get_mut(msg.0));
+
+        info!("Parent vehicle is {}", parent.0);
+
+        let transform = ok_or_continue!(grids.get(parent.0));
+        let pos = transform.translation();
+        let (yaw, _, _) = transform.rotation().to_euler(EulerRot::ZYX);
+
+        computer.position = pos.xy();
+        computer.attitude = yaw;
+        computer.mode = ComputerMode::PositionHold;
+        computer.on = true;
+    }
 }

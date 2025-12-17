@@ -6,9 +6,10 @@ pub struct Settings {
     pub draw_spacecraft_grids: bool,
     pub draw_terrain_rgb: bool,
     pub show_wireframes: bool,
-    pub draw_debug_inventories: bool,
-    pub draw_docking_port_info: bool,
+    pub draw_inventories: bool,
+    pub draw_docking_info: bool,
     pub draw_thruster_states: bool,
+    pub dig_with_mouse: bool,
 }
 
 impl Settings {
@@ -26,9 +27,10 @@ impl Default for Settings {
             draw_spacecraft_grids: false,
             draw_terrain_rgb: false,
             show_wireframes: false,
-            draw_debug_inventories: false,
-            draw_docking_port_info: false,
+            draw_inventories: false,
+            draw_docking_info: false,
             draw_thruster_states: false,
+            dig_with_mouse: false,
         }
     }
 }

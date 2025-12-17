@@ -11,7 +11,7 @@ impl Plugin for ParticlePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(ThrustParticleConfig::default())
             .add_systems(FixedUpdate, thrust_particles)
-            .add_systems(Update, debug_draw_emitters)
+            .add_systems(PostUpdate, debug_draw_emitters.in_set(Sets::Draw))
             .add_plugins(ResourceInspectorPlugin::<ThrustParticleConfig>::new());
     }
 }
@@ -72,7 +72,7 @@ fn thrust_particles(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut cfg: ResMut<ThrustParticleConfig>,
-    time_fixed: Res<Time<Fixed>>,
+    time_fixed: Res<Time>,
 ) {
     if cfg.step {
         cfg.paused = true;

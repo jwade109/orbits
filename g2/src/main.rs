@@ -28,7 +28,6 @@ fn main() {
         .add_plugins(Wireframe2dPlugin::default())
         .add_plugins(EguiPlugin::default())
         // .add_plugins(WorldInspectorPlugin::new())
-        .add_systems(EguiPrimaryContextPass, egui_ui)
         .add_plugins(Shape2dPlugin::default())
         .add_plugins(ThrusterPlugin::default())
         // plugins I've implemented
@@ -37,10 +36,36 @@ fn main() {
         .add_plugins(SpacecraftPlugin)
         .add_plugins(ComputerPlugin)
         .add_plugins(TerrainPlugin)
-        .add_plugins(CursorPlugin)
         .add_plugins(CameraPlugin)
+        .add_systems(EguiPrimaryContextPass, egui_ui)
         .add_systems(Startup, setup)
-        .add_systems(Update, update_wireframe)
+        .add_systems(Update, update_wireframe.in_set(Sets::Misc))
+        .configure_sets(
+            Update,
+            (
+                Sets::Input,
+                Sets::PrePhysics,
+                Sets::Physics,
+                Sets::PostPhysics,
+                Sets::Misc,
+            )
+                .chain(),
+        )
+        .configure_sets(
+            FixedUpdate,
+            (
+                Sets::Input,
+                Sets::PrePhysics,
+                Sets::Physics,
+                Sets::PostPhysics,
+                Sets::Misc,
+            )
+                .chain(),
+        )
+        .configure_sets(
+            PostUpdate,
+            (Sets::Draw, Sets::PostPhysics).after(TransformSystem::TransformPropagate),
+        )
         .run();
 }
 
@@ -77,13 +102,20 @@ fn setup(mut commands: Commands) -> Result {
     });
 
     for name in [
-        "pollux", "pollux", "remora",
+        "pollux",
+        "pollux",
+        "remora",
         // "bellerophon",
         // "lander",
         // "remora",
         // "icecream",
         "spacestation",
-        "remora", "remora", "remora", "remora", "remora",
+        "remora",
+        "remora",
+        "remora",
+        "remora",
+        "remora",
+        "foundation",
     ] {
         let x = rand(-20.0, 20.0);
         let y = rand(-20.0, 20.0);

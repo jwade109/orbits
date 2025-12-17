@@ -64,9 +64,12 @@ fn add_thruster_widget(ui: &mut egui::Ui, thruster: &mut Thruster) {
     running_status_widget(ui, thruster.status);
 }
 
-fn add_computer_widget(ui: &mut egui::Ui, computer: &mut Computer) {
-    ui.label(format!("{:#?}", computer));
-
+fn add_computer_widget(
+    ui: &mut egui::Ui,
+    e: Entity,
+    computer: &mut Computer,
+    commands: &mut Commands,
+) {
     let s = if computer.on { "ON " } else { "OFF" };
 
     ui.separator();
@@ -78,9 +81,20 @@ fn add_computer_widget(ui: &mut egui::Ui, computer: &mut Computer) {
 
     ui.separator();
 
+    ui.label(format!("Iters: {}", computer.iters));
     ui.label(format!("Mode: {:?}", &computer.mode));
 
-    let before = computer.mode;
+    ui.collapsing("Control Vector", |ui| {
+        ui.label(format!("{:#?}", &computer.vehicle_control));
+    });
+
+    ui.collapsing("Control Status", |ui| {
+        ui.label(format!("{:#?}", &computer.control_status));
+    });
+
+    if ui.button("Hold Here").clicked() {
+        commands.send_event(HoldHereCommand(e));
+    }
 
     egui::ComboBox::from_label("")
         .selected_text(format!("{:?}", computer.mode))
@@ -92,7 +106,7 @@ fn add_computer_widget(ui: &mut egui::Ui, computer: &mut Computer) {
         });
 
     match &mut computer.mode {
-        ComputerMode::None => (),
+        ComputerMode::Idle => (),
         ComputerMode::Manual => (),
         ComputerMode::AttitudeHold => {
             ui.label("Attitude Hold");
@@ -358,7 +372,7 @@ pub fn part_ui(
     if let Ok(mut computer) = computers.get_mut(e) {
         ui.separator();
         ui.heading("Computer");
-        add_computer_widget(ui, &mut computer);
+        add_computer_widget(ui, e, &mut computer, commands);
     }
 
     if let Ok(mut machine) = machines.get_mut(e) {
@@ -442,14 +456,9 @@ pub fn egui_ui(
         ui.checkbox(&mut settings.draw_spacecraft_grids, "draw_spacecraft_grids");
         ui.checkbox(&mut settings.draw_terrain_rgb, "draw_terrain_rgb");
         ui.checkbox(&mut settings.show_wireframes, "show_wireframes");
-        ui.checkbox(
-            &mut settings.draw_debug_inventories,
-            "draw_debug_inventories",
-        );
-        ui.checkbox(
-            &mut settings.draw_docking_port_info,
-            "draw_docking_port_info",
-        );
+        ui.checkbox(&mut settings.draw_inventories, "draw_inventories");
+        ui.checkbox(&mut settings.draw_docking_info, "draw_docking_info");
+        ui.checkbox(&mut settings.dig_with_mouse, "dig_with_mouse");
         ui.separator();
 
         ui.collapsing("Construction", |ui| {

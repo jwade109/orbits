@@ -610,6 +610,7 @@ fn draw_highlighted_lattice_points(
     mut chunks: Query<&mut TerrainChunk>,
     btn: Res<ButtonInput<MouseButton>>,
     info: Res<CursorInfo>,
+    settings: Res<Settings>,
 ) {
     let pos = match cursor.get() {
         Some(p) => p,
@@ -627,7 +628,7 @@ fn draw_highlighted_lattice_points(
     let (x, y) = (lattice_idx.x as usize, lattice_idx.y as usize);
 
     if info.hovered.is_none() {
-        if btn.pressed(MouseButton::Left) {
+        if btn.pressed(MouseButton::Left) && settings.dig_with_mouse {
             let dig = Excavate {
                 pos,
                 radius: 12.0,
@@ -635,7 +636,7 @@ fn draw_highlighted_lattice_points(
             };
             commands.send_event(dig);
         }
-        if btn.pressed(MouseButton::Right) {
+        if btn.pressed(MouseButton::Right) && settings.dig_with_mouse {
             let dig = Excavate {
                 pos,
                 radius: 12.0,

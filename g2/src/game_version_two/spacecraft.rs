@@ -14,33 +14,36 @@ impl Plugin for SpacecraftPlugin {
         app.add_plugins(PhysicsPlugins::default());
 
         app.add_systems(
-            Update,
+            PostUpdate,
             (
                 draw_grids,
                 draw_inventories,
-                handle_sc_events,
-                handle_change_recipe,
                 draw_selected_part,
                 draw_selected_grid_guides,
                 draw_spacecraft_spatial_lookups,
-                update_cursor_spacecraft,
-                check_adjacent_docking_ports,
-                on_attach_event,
-                send_attach_events,
-                draw_docking_port_info,
-                update_thruster_emitters,
-            ),
+                draw_docking_info,
+            )
+                .in_set(Sets::Draw),
         );
+
+        app.add_systems(Update, update_cursor_spacecraft.in_set(Sets::Input));
 
         app.add_systems(
             FixedUpdate,
             (
+                handle_sc_events,
+                handle_change_recipe,
+                check_adjacent_docking_ports,
+                on_attach_event,
+                send_attach_events,
+                update_thruster_emitters,
                 build_parts,
                 update_machines,
                 accelerate_spacecraft,
                 update_grids,
                 update_spacecraft_grid_map,
-            ),
+            )
+                .in_set(Sets::Physics),
         );
 
         app.add_event::<SpacecraftEvent>();
@@ -145,7 +148,7 @@ fn draw_inventories(
     parts: Query<(&GlobalTransform, &PartInstance, &Inventory)>,
     settings: Res<Settings>,
 ) {
-    if !settings.draw_debug_inventories {
+    if !settings.draw_inventories {
         return;
     }
 
@@ -572,7 +575,7 @@ fn add_part_to_grid<'a>(
 
     if let Some(data) = part.excavator_data() {
         cmd.insert(Excavator {
-            is_enabled: chance(0.9),
+            is_enabled: true,
             radius: data.radius,
         });
     }
@@ -736,6 +739,7 @@ fn update_cursor_spacecraft(
     }
 
     if buttons.just_pressed(MouseButton::Left) {
+        info!("Clicked!");
         if cursor.hovered.is_some() {
             if cursor.hovered == cursor.selected {
                 cursor.selected = None;
@@ -860,12 +864,12 @@ fn check_adjacent_docking_ports(
     }
 }
 
-fn draw_docking_port_info(
+fn draw_docking_info(
     mut painter: ShapePainter,
     settings: Res<Settings>,
     ports: Query<(&DockingPort, &GlobalTransform)>,
 ) {
-    if !settings.draw_docking_port_info {
+    if !settings.draw_docking_info {
         return;
     }
 
