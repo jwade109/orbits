@@ -1,4 +1,3 @@
-pub mod cargo;
 pub mod computer;
 pub mod docking_port;
 pub mod excavator;
@@ -11,7 +10,6 @@ pub mod rotation;
 pub mod tank;
 pub mod thruster;
 
-pub use cargo::*;
 pub use computer::*;
 pub use docking_port::*;
 pub use excavator::*;

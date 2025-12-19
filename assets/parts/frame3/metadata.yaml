@@ -1,6 +1,5 @@
-!Generic
-  mass: 305000
-  layer: Structural
-  name: "frame3"
-  dims: [40, 10]
-  # sprites: 18
+mass: 305000
+layer: Structural
+name: "frame3"
+dims: [40, 10]
+# sprites: 18

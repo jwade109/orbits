@@ -1,6 +1,5 @@
-!Generic
-  mass: 18000
-  layer: Exterior
-  name: "plate"
-  dims: [10, 10]
-  # sprites: 51
+mass: 18000
+layer: Exterior
+name: "plate"
+dims: [10, 10]
+# sprites: 51

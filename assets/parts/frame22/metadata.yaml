@@ -1,5 +1,4 @@
-!Generic
-  mass: 165000
-  layer: Structural
-  name: "frame22"
-  dims: [20, 20]
+mass: 165000
+layer: Structural
+name: "frame22"
+dims: [20, 20]

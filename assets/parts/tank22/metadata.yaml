@@ -1,7 +1,5 @@
-!Tank
-  name: "tank22"
-  dry_mass: 650000
-  mass: 650000
-  current_fluid_mass: 0
-  item: H2
-  dims: [20, 20]
+name: "tank22"
+mass: 650000
+dims: [20, 20]
+inventory_data:
+  slots: 1

@@ -1,5 +1,3 @@
-use crate::factory::Mass;
-use crate::math::*;
 use serde::{Deserialize, Serialize};
 
 /// Definition of a thruster model.
@@ -36,23 +34,9 @@ impl ThrusterModel {
             particle_scale: 1.0,
         }
     }
-
-    pub fn max_thrust(&self) -> f64 {
-        self.thrust
-    }
 }
 
 // TODO make this a per-thruster setting.
 // deep throttling is not a given for all rocket motors
 // and is in fact rather rare. KSP has spoiled us.
 const _THRUSTER_DEAD_BAND: f32 = 0.0; // minimum 0 percent throttle
-
-impl ThrusterModel {
-    pub fn is_rcs(&self) -> bool {
-        self.is_rcs
-    }
-
-    pub fn model_name(&self) -> &str {
-        &self.model
-    }
-}

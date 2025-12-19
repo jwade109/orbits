@@ -1,4 +1,5 @@
 name: "tank11"
-dry_mass: 230000
 mass: 230000
 dims: [10, 10]
+inventory_data:
+  slots: 1

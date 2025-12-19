@@ -1,5 +1,4 @@
-!Generic
-  mass: 260000
-  layer: Internal
-  name: "battery"
-  dims: [9, 9]
+mass: 260000
+layer: Internal
+name: "battery"
+dims: [9, 9]

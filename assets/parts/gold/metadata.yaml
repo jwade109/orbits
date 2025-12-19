@@ -1,6 +1,4 @@
-!Generic
-  mass: 12000
-  layer: Exterior
-  name: "gold"
-  dims: [10, 10]
-
+mass: 12000
+layer: Exterior
+name: "gold"
+dims: [10, 10]

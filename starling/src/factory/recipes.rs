@@ -1,6 +1,7 @@
 use crate::factory::*;
 use crate::math::*;
 use enum_iterator::Sequence;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Debug, Default, Clone)]
@@ -138,7 +139,7 @@ pub fn people_eat_things() -> Recipe {
     }
 }
 
-#[derive(Debug, Clone, Copy, Sequence, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Sequence, PartialEq, Eq, Deserialize, Serialize)]
 pub enum RecipeListing {
     DoNothing, // TODO maybe don't keep this
     Sabatier,

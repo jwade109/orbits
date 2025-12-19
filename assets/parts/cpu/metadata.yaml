@@ -1,7 +1,6 @@
-!Generic
-  mass: 320000
-  layer: Internal
-  name: "cpu"
-  dims: [8, 9]
-  computer_data:
-    frequency: 10
+mass: 320000
+layer: Internal
+name: "cpu"
+dims: [8, 9]
+computer_data:
+  frequency: 10

@@ -508,26 +508,7 @@ fn add_part_to_grid<'a>(
         },
     );
 
-    let has_inventory = part.inventory_data().is_some();
-    let is_machine = part.machine_data().is_some();
-    let is_thruster = part.thruster_data().is_some();
-    let is_structural = part.layer() == starling::parts::PartLayer::Structural;
-
-    let n_slots = 1;
-
-    let inv = if is_machine {
-        Inventory::zero_slots()
-    } else {
-        let mut inv = Inventory::zero_slots();
-        for _ in 0..n_slots {
-            let slot = InvSlot::new(Volume::liters(4000), ItemFilter::Any);
-            inv.add_slot(slot.with_item(Item::random()));
-        }
-        inv
-    };
-
     let mut cmd = commands.spawn((
-        Name::new(format!("Part ({})", name)),
         Transform::from_translation(origin.extend(z))
             .with_rotation(Quat::from_rotation_z(part.rotation().to_angle() as f32)),
         PartInstance(part.clone()),
@@ -535,7 +516,36 @@ fn add_part_to_grid<'a>(
         build,
     ));
 
-    // THRUSTER COMPONENT
+    // INVENTORY COMPONENT ==================================================
+
+    let n_slots = part.inventory_data().map(|inv| inv.slots).unwrap_or(0);
+    let inv = if part.machine_data().is_some() {
+        Some(Inventory::zero_slots())
+    } else if n_slots > 0 {
+        let mut inv = Inventory::zero_slots();
+        for _ in 0..n_slots {
+            let slot = InvSlot::new(Volume::liters(4000), ItemFilter::Any);
+            inv.add_slot(slot.with_item(Item::random()));
+        }
+        Some(inv)
+    } else {
+        None
+    };
+
+    if let Some(inv) = inv {
+        cmd.insert(inv);
+    }
+
+    // MACHINE COMPONENT ==================================================
+
+    if let Some(data) = part.machine_data() {
+        // TODO use the data
+        let machine = Machine::new(RecipeListing::DoNothing);
+        cmd.insert(machine);
+    }
+
+    // THRUSTER COMPONENT ==================================================
+
     if let Some(model) = part.thruster_data() {
         let mut inv = Inventory::single(Item::H2, Volume::liters(10));
         // inv.fill();
@@ -554,6 +564,8 @@ fn add_part_to_grid<'a>(
         cmd.insert((thruster, inv, particles));
     }
 
+    // COMPUTER COMPONENT ==================================================
+
     if let Some(cpu) = part.computer_data() {
         let mut cpu = Computer::default();
         cpu.mode = ComputerMode::Manual;
@@ -562,6 +574,8 @@ fn add_part_to_grid<'a>(
         cmd.insert(cpu);
     }
 
+    // EXCAVATOR COMPONENT ==================================================
+
     if let Some(data) = part.excavator_data() {
         cmd.insert(Excavator {
             is_enabled: true,
@@ -569,20 +583,20 @@ fn add_part_to_grid<'a>(
         });
     }
 
+    // DOCKING PORT COMPONENT ===============================================
+
     if let Some(data) = part.docking_port_data() {
         let docking = DockingPort::detached();
         cmd.insert(docking);
     }
 
-    cmd
-        // for cursor picking
-        .insert_if(Machine::new(RecipeListing::DoNothing), || is_machine)
-        .insert_if(inv, || has_inventory)
-        .with_child((
-            PartSprite,
-            sprite,
-            Transform::from_scale(Vec3::splat(1.0 / 20.0)),
-        ));
+    // SPRITE CHILD ENTITY ===============================================
+
+    cmd.with_child((
+        PartSprite,
+        sprite,
+        Transform::from_scale(Vec3::splat(1.0 / 20.0)),
+    ));
 }
 
 fn spawn_spacecraft(
