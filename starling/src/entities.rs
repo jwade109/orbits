@@ -275,8 +275,6 @@ impl Spacecraft {
 
         self.controller
             .check_target_achieved(&self.body, gravity.length() > 0.0);
-        self.vehicle.set_thrust_control(&ctrl);
-        self.vehicle.on_sim_tick();
 
         let accel = self.vehicle.body_frame_accel();
         self.body

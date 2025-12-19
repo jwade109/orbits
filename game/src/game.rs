@@ -699,23 +699,6 @@ impl GameState {
             }
             OnClick::NormalizeCraft => self.editor_context.normalize_coordinates(),
             OnClick::ReloadGame => _ = self.reload(),
-            OnClick::SetRecipe(id, recipe) => {
-                if self.editor_context.vehicle.set_recipe(id, recipe) {
-                    self.notice(format!("Set recipe for part {:?} to {:?}", id, recipe));
-                } else {
-                    self.notice(format!(
-                        "Failed to set recipe for part {:?} to {:?}",
-                        id, recipe
-                    ));
-                }
-            }
-            OnClick::ClearContents(id) => {
-                if self.editor_context.vehicle.clear_contents(id) {
-                    self.notice(format!("Cleared inventory for part {:?}", id));
-                } else {
-                    self.notice(format!("Failed to clear inventory for part {:?}", id));
-                }
-            }
             OnClick::SetControllerPolicy(policy) => {
                 self.set_controller_policy(policy);
             }

@@ -592,9 +592,6 @@ impl Render for Editor {
                 .parts()
                 .filter(|(_, p)| p.prototype().layer() == layer)
             {
-                let detailed_part_info =
-                    ctx.focus_layer == Some(PartLayer::Internal) && ctx.show_vehicle_info;
-
                 let alpha = match (ctx.focus_layer, layer) {
                     (None, _) => 1.0,
                     (Some(PartLayer::Internal), PartLayer::Internal) => 1.0,
@@ -605,7 +602,6 @@ impl Render for Editor {
                     (Some(PartLayer::Exterior), _) => 0.02,
                 };
 
-                let dims = instance.dims_meters().as_dvec2();
                 let sprite_dims = instance.prototype().dims_meters();
                 let center = instance.center_meters().as_dvec2();
                 let p = instance.percent_built();
@@ -632,23 +628,6 @@ impl Render for Editor {
                         graphics_cast(sprite_dims.as_dvec2() * ctx.scale()),
                     )
                     .set_color(WHITE.with_alpha(alpha));
-
-                if detailed_part_info {
-                    if let Some((_, d)) = instance.as_machine() {
-                        let pct = d.percent_complete() as f64;
-                        let lower = center - dims / 2.0;
-                        let upper = lower + DVec2::new(dims.x * pct, 0.1 * ctx.scale());
-                        let aabb = AABB::from_arbitrary(
-                            aabb_stopgap_cast(lower),
-                            aabb_stopgap_cast(upper),
-                        );
-                        canvas.rect(
-                            ctx.w2c_aabb(aabb),
-                            ZOrdering::EditorTankFill,
-                            RED.with_alpha(0.7),
-                        );
-                    }
-                }
             }
         }
 
@@ -943,10 +922,6 @@ impl Editor {
                 }
             }
         }
-
-        ctx.vehicle.on_sim_tick();
-
-        ctx.vehicle.set_all_thrusters(1.0);
 
         for particle in &mut ctx.build_particles {
             particle.on_sim_tick();

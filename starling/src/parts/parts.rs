@@ -128,7 +128,7 @@ pub enum InstantiatedPartVariant {
     Thruster(ThrusterModel, ThrusterInstanceData),
     Tank(TankModel, TankInstanceData),
     Cargo(Cargo, CargoInstanceData),
-    Machine(Machine, MachineInstanceData),
+    Machine(Machine),
     Generic(Generic),
 }
 
@@ -165,9 +165,7 @@ impl InstantiatedPart {
         let variant = match proto {
             PartPrototype::Cargo(c) => InstantiatedPartVariant::Cargo(c, CargoInstanceData::new()),
             PartPrototype::Generic(g) => InstantiatedPartVariant::Generic(g),
-            PartPrototype::Machine(m) => {
-                InstantiatedPartVariant::Machine(m, MachineInstanceData::default())
-            }
+            PartPrototype::Machine(m) => InstantiatedPartVariant::Machine(m),
             PartPrototype::Tank(t) => InstantiatedPartVariant::Tank(t, TankInstanceData::default()),
             PartPrototype::Thruster(t) => {
                 InstantiatedPartVariant::Thruster(t, ThrusterInstanceData::new())
@@ -189,7 +187,7 @@ impl InstantiatedPart {
             InstantiatedPartVariant::Thruster(t, _) => PartPrototype::Thruster(t),
             InstantiatedPartVariant::Tank(t, _) => PartPrototype::Tank(t),
             InstantiatedPartVariant::Cargo(c, _) => PartPrototype::Cargo(c),
-            InstantiatedPartVariant::Machine(m, _) => PartPrototype::Machine(m),
+            InstantiatedPartVariant::Machine(m) => PartPrototype::Machine(m),
             InstantiatedPartVariant::Generic(g) => PartPrototype::Generic(g),
         }
     }
@@ -207,7 +205,7 @@ impl InstantiatedPart {
             InstantiatedPartVariant::Thruster(t, _) => t.mass(),
             InstantiatedPartVariant::Tank(t, d) => t.dry_mass() + d.contents_mass(),
             InstantiatedPartVariant::Cargo(c, d) => c.empty_mass() + d.contents_mass(),
-            InstantiatedPartVariant::Machine(m, _) => m.mass(),
+            InstantiatedPartVariant::Machine(m) => m.mass(),
             InstantiatedPartVariant::Generic(g) => g.mass(),
         }
     }
@@ -311,17 +309,9 @@ impl InstantiatedPart {
         }
     }
 
-    pub fn as_machine(&self) -> Option<(&Machine, &MachineInstanceData)> {
-        if let InstantiatedPartVariant::Machine(m, d) = &self.variant {
-            Some((m, d))
-        } else {
-            None
-        }
-    }
-
-    pub fn as_machine_mut(&mut self) -> Option<(&Machine, &mut MachineInstanceData)> {
-        if let InstantiatedPartVariant::Machine(m, d) = &mut self.variant {
-            Some((m, d))
+    pub fn as_machine(&self) -> Option<&Machine> {
+        if let InstantiatedPartVariant::Machine(m) = &self.variant {
+            Some(m)
         } else {
             None
         }

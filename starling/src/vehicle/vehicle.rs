@@ -576,139 +576,16 @@ impl Vehicle {
         body_frame_force / mass
     }
 
-    pub fn set_thrust_control(&mut self, control: &VehicleControl) {
-        let is_nullopt = control.is_nullopt();
-
-        self.is_thrusting = false;
-
-        // self.gyro.increase_speed_by(control.attitude);
-        // self.gyro.step();
-
-        // let saturated = self.gyro.saturation() > 0.2;
-        // let dir = self.gyro.angular_velocity.signum();
-
-        if self.is_thrust_idle && is_nullopt {
-            // nothing to do
-            return;
-        }
-
-        let com = self.center_of_mass();
-
-        for (_, part) in &mut self.parts {
-            let rot = part.rotation();
-            let center_of_thrust = part.center_meters().as_dvec2();
-            let u = rotate_f64(DVec2::X, part.rotation().to_angle());
-            if let Some((t, d)) = part.as_thruster_mut() {
-                // if t.is_rcs && !saturated {
-                //     d.set_throttle(0.0);
-                //     continue;
-                // }
-
-                let linear_command = match rot {
-                    Rotation::East => control.plus_x,
-                    Rotation::North => control.plus_y,
-                    Rotation::West => control.neg_x,
-                    Rotation::South => control.neg_y,
-                };
-
-                let throttle = if t.is_rcs {
-                    // this is an RCS thruster
-
-                    let linear_throttle = if linear_command.use_rcs {
-                        // we're using RCS for linear translation
-                        linear_command.throttle
-                    } else {
-                        0.0
-                    };
-
-                    // also fire this thruster if it turns the vehicle
-                    // the right way
-                    let is_torque = {
-                        let torque = cross2d(center_of_thrust - com, u);
-                        torque.signum() == control.attitude.signum() // && torque.signum() == dir
-                    };
-                    linear_throttle
-                        + if is_torque {
-                            control.attitude.abs() as f32
-                        } else {
-                            0.0
-                        }
-                } else {
-                    if !linear_command.use_rcs {
-                        linear_command.throttle
-                    } else {
-                        0.0
-                    }
-                };
-
-                self.is_thrusting |= throttle > 0.0;
-
-                d.set_throttle(throttle);
-            }
-        }
-
-        self.is_thrust_idle = is_nullopt;
-    }
-
-    pub fn on_sim_tick(&mut self) {
-        let mut machines = Vec::new();
-
-        for (id, part) in &mut self.parts {
-            if part.percent_built() < 1.0 {
-                continue;
-            }
-
-            if let Some((t, d)) = part.as_thruster_mut() {
-                d.on_sim_tick(t);
-            }
-
-            if let Some((_, d)) = part.as_machine_mut() {
-                d.on_sim_tick();
-                machines.push(id);
-            }
-        }
-    }
-
     pub fn body_frame_accel(&self) -> BodyFrameAccel {
         let linear = self.current_body_frame_linear_acceleration();
         let angular = self.current_angular_acceleration();
         BodyFrameAccel { linear, angular }
     }
 
-    pub fn set_all_thrusters(&mut self, throttle: f32) {
-        for (_, part) in &mut self.parts {
-            if let Some((_, d)) = part.as_thruster_mut() {
-                d.set_throttle(throttle);
-            }
-        }
-    }
-
-    pub fn zero_all_thrusters(&mut self) {
-        if !self.is_thrusting {
-            return;
-        }
-        self.set_all_thrusters(0.0);
-        self.is_thrusting = false;
-    }
-
     pub fn thrusters(
         &self,
     ) -> impl Iterator<Item = (&ThrusterModel, &ThrusterInstanceData)> + use<'_> {
         self.parts.iter().filter_map(|(_, p)| p.as_thruster())
-    }
-
-    pub fn set_recipe(&mut self, id: PartId, recipe: RecipeListing) -> bool {
-        if let Some(part) = self.parts.get_mut(&id) {
-            if let Some((_, d)) = part.as_machine_mut() {
-                d.recipe = recipe;
-                return true;
-            }
-        }
-        false
-    }
-
-    pub fn clear_contents(&mut self, id: PartId) -> bool {
-        false
     }
 
     pub fn bounding_radius(&self) -> f64 {
