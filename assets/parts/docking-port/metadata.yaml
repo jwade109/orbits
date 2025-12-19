@@ -3,4 +3,5 @@
   layer: Internal
   name: "docking-port"
   dims: [11, 20]
-  is_docking_port: true
+  docking_port_data:
+    radius: 5.0

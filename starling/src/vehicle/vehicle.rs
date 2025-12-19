@@ -67,11 +67,6 @@ pub struct Vehicle {
     is_thrust_idle: bool,
     discriminator: u64,
 
-    forwards: ThrustAxisInfo,
-    backwards: ThrustAxisInfo,
-    left: ThrustAxisInfo,
-    right: ThrustAxisInfo,
-
     pub pid: VehiclePd,
 
     pub gyro: Gyro,
@@ -117,11 +112,6 @@ impl Vehicle {
             discriminator: 0,
 
             pid: tuning,
-
-            forwards: ThrustAxisInfo::default(),
-            backwards: ThrustAxisInfo::default(),
-            left: ThrustAxisInfo::default(),
-            right: ThrustAxisInfo::default(),
 
             gyro: Gyro::new(),
 
@@ -304,11 +294,6 @@ impl Vehicle {
                 center.as_dvec2() * weight
             })
             .sum();
-
-        self.forwards.max_thrust = self.max_thrust_along_heading(0.0, false);
-        self.left.max_thrust = self.max_thrust_along_heading(PI_64 / 2.0, false);
-        self.backwards.max_thrust = self.max_thrust_along_heading(PI_64, false);
-        self.right.max_thrust = self.max_thrust_along_heading(-PI_64 / 2.0, false);
     }
 
     fn update(&mut self) {
@@ -334,7 +319,7 @@ impl Vehicle {
     }
 
     pub fn is_controllable(&self) -> bool {
-        self.forwards.max_thrust > 0.0
+        false
     }
 
     pub fn dry_mass(&self) -> Mass {
@@ -357,56 +342,12 @@ impl Vehicle {
         0
     }
 
-    pub fn max_thrust(&self) -> f64 {
-        if self.thruster_count() == 0 {
-            0.0
-        } else {
-            self.thrusters().map(|(t, _)| t.max_thrust()).sum()
-        }
-    }
-
-    fn thrust_along_heading(&self, angle: f64, rcs: bool, current: bool) -> f64 {
-        if self.thruster_count() == 0 {
-            return 0.0;
-        }
-
-        let u = rotate_f64(DVec2::X, angle);
-
-        let mut sum = 0.0;
-
-        for (_, part) in &self.parts {
-            if let Some((t, d)) = part.as_thruster() {
-                if t.is_rcs != rcs {
-                    continue;
-                }
-                let v = rotate_f64(DVec2::X, part.rotation().to_angle());
-                let dot = u.dot(v).max(0.0);
-                sum += dot
-                    * if current {
-                        t.current_thrust(d)
-                    } else {
-                        t.max_thrust()
-                    };
-            }
-        }
-
-        sum
-    }
-
     pub fn max_forward_thrust(&self) -> f64 {
-        self.forwards.max_thrust
+        0.0
     }
 
     pub fn max_backwards_thrust(&self) -> f64 {
-        self.backwards.max_thrust
-    }
-
-    pub fn max_thrust_along_heading(&self, angle: f64, rcs: bool) -> f64 {
-        self.thrust_along_heading(angle, rcs, false)
-    }
-
-    pub fn current_thrust_along_heading(&self, angle: f64, rcs: bool) -> f64 {
-        self.thrust_along_heading(angle, rcs, true)
+        0.0
     }
 
     pub fn center_of_mass(&self) -> DVec2 {
@@ -415,16 +356,6 @@ impl Vehicle {
 
     pub fn moment_of_inertia(&self) -> f64 {
         self.moment_of_inertia
-    }
-
-    pub fn accel(&self) -> f64 {
-        let thrust = self.max_thrust();
-        let mass = self.total_mass();
-        if mass == Mass::ZERO {
-            0.0
-        } else {
-            thrust / mass.to_kg_f64()
-        }
     }
 
     pub fn aabb(&self) -> AABB {
@@ -473,35 +404,6 @@ impl Vehicle {
         // self.thrusters().any(|(t, d)| d.is_thrusting(t))
     }
 
-    pub fn average_linear_exhaust_velocity(&self) -> f64 {
-        let linear_thrusters: Vec<_> = self.thrusters().filter(|(t, _)| !t.is_rcs()).collect();
-
-        let count = linear_thrusters.len();
-
-        if count == 0 {
-            return 0.0;
-        }
-
-        linear_thrusters
-            .into_iter()
-            .map(|(t, _)| t.exhaust_velocity as f64 / count as f64)
-            .sum()
-    }
-
-    pub fn fuel_consumption_rate(&self) -> f64 {
-        self.thrusters()
-            .map(|(t, d)| t.fuel_consumption_rate(d))
-            .sum()
-    }
-
-    pub fn remaining_dv(&self) -> f64 {
-        if self.total_mass() == Mass::ZERO || self.dry_mass() == Mass::ZERO {
-            return 0.0;
-        }
-        let ve = self.average_linear_exhaust_velocity();
-        rocket_equation(ve, self.total_mass(), self.dry_mass())
-    }
-
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -537,55 +439,11 @@ impl Vehicle {
     }
 
     fn current_angular_acceleration(&self) -> f64 {
-        // if !self.is_thrusting() {
-        //     return 0.0;
-        // }
-
-        let mut aa = 0.0;
-        let moa = self.moment_of_inertia();
-        let com = self.center_of_mass();
-
-        for (_, part) in &self.parts {
-            if let Some((t, d)) = part.as_thruster() {
-                let center_of_thrust = part.center_meters().as_dvec2();
-                let lever_arm = center_of_thrust - com;
-                let thrust_dir = rotate_f64(DVec2::X, part.rotation().to_angle());
-                let torque = cross2d(lever_arm, thrust_dir) * t.current_thrust(d);
-                aa += torque / moa;
-            }
-        }
-
-        aa // + self.gyro.current_torque() / self.moment_of_inertia
+        0.0
     }
 
-    fn current_body_frame_linear_acceleration(&self) -> DVec2 {
-        if !self.is_thrusting() {
-            return DVec2::ZERO;
-        }
-
-        let mut body_frame_force = DVec2::ZERO;
-        let mass = self.total_mass().to_kg_f64();
-
-        for (_, part) in &self.parts {
-            if let Some((t, d)) = part.as_thruster() {
-                let thrust_dir = rotate_f64(DVec2::X, part.rotation().to_angle());
-                body_frame_force += thrust_dir * t.current_thrust(d);
-            }
-        }
-
-        body_frame_force / mass
-    }
-
-    pub fn body_frame_accel(&self) -> BodyFrameAccel {
-        let linear = self.current_body_frame_linear_acceleration();
-        let angular = self.current_angular_acceleration();
-        BodyFrameAccel { linear, angular }
-    }
-
-    pub fn thrusters(
-        &self,
-    ) -> impl Iterator<Item = (&ThrusterModel, &ThrusterInstanceData)> + use<'_> {
-        self.parts.iter().filter_map(|(_, p)| p.as_thruster())
+    pub fn thrusters(&self) -> impl Iterator<Item = &ThrusterModel> + use<'_> {
+        self.parts.iter().filter_map(|(_, p)| p.thruster_data())
     }
 
     pub fn bounding_radius(&self) -> f64 {
@@ -662,38 +520,4 @@ impl Vehicle {
 
         self.update();
     }
-}
-
-pub fn vehicle_info(vehicle: &Vehicle) -> String {
-    let bounds = vehicle.aabb();
-    let fuel_economy = if vehicle.remaining_dv() > 0.0 {
-        vehicle.fuel_mass().to_kg_f64() / vehicle.remaining_dv()
-    } else {
-        0.0
-    };
-
-    let fuel_mass = vehicle.fuel_mass();
-    let rate = vehicle.fuel_consumption_rate();
-    let pct = vehicle.fuel_percentage() * 100.0;
-
-    [
-        format!("{}", vehicle.title()),
-        format!("Discriminator: {:0x}", vehicle.discriminator()),
-        format!("Dry mass: {}", vehicle.dry_mass()),
-        format!("Fuel: {} ({:0.0}%)", fuel_mass, pct),
-        format!("Current mass: {}", vehicle.total_mass()),
-        format!("Thrusters: {}", vehicle.thruster_count()),
-        format!("Thrust: {:0.2} kN", vehicle.max_thrust() / 1000.0),
-        format!("Tanks: {}", vehicle.tank_count()),
-        format!("Accel: {:0.2} g", vehicle.accel() / 9.81),
-        format!("BFA: {:0.2} g", vehicle.body_frame_accel().linear / 9.81),
-        format!("Ve: {:0.1} s", vehicle.average_linear_exhaust_velocity()),
-        format!("DV: {:0.1} m/s", vehicle.remaining_dv()),
-        format!("WH: {:0.2}x{:0.2}", bounds.span.x, bounds.span.y),
-        format!("Econ: {:0.2} kg-s/m", fuel_economy),
-        format!("Fuel: {:0.1}/s", rate),
-    ]
-    .into_iter()
-    .map(|s| format!("{s}\n"))
-    .collect()
 }

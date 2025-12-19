@@ -1,8 +1,4 @@
-!Tank
-  name: "tank11"
-  dry_mass: 230000
-  mass: 230000
-  current_fluid_mass: 0
-  max_fluid_mass: 1100000
-  item: H2
-  dims: [10, 10]
+name: "tank11"
+dry_mass: 230000
+mass: 230000
+dims: [10, 10]

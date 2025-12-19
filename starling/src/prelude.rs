@@ -25,7 +25,6 @@ pub use crate::region::Region;
 pub use crate::scenario::*;
 pub use crate::surface::*;
 pub use crate::take::*;
-pub use crate::thrust_particles::*;
 pub use crate::universe::*;
 pub use crate::vehicle::*;
 pub use crate::welding_particle::*;

@@ -1,24 +1,6 @@
 use crate::game_version_two::*;
 
 #[derive(Component, Deserialize, Serialize, Debug, Clone)]
-pub struct PartDefinition {
-    mass: Mass,
-    dims: UVec2,
-    layer: Option<PartLayer>,
-    excavator_data: Option<ExcavatorData>,
-    computer_data: Option<ComputerData>,
-    inventory_data: Option<InventoryData>,
-}
-
-impl PartDefinition {
-    pub fn from_file(path: &Path) -> Result<Self, Box<dyn std::error::Error>> {
-        let s = std::fs::read_to_string(path)?;
-        let settings: Self = serde_yaml::from_str(&s)?;
-        Ok(settings)
-    }
-}
-
-#[derive(Component, Deserialize, Serialize, Debug, Clone)]
 pub struct InventoryData {
     slots: usize,
 }
@@ -34,7 +16,7 @@ pub fn load_parts_from_dir(ctx: &ProgramContext) {
 
         let data_path = file.path().join("metadata.yaml");
 
-        let data = match PartDefinition::from_file(&data_path) {
+        let data = match PartPrototype::from_file(&data_path) {
             Ok(data) => data,
             Err(e) => {
                 error!("\n   Failed to load part \"{}\": {:?}\n", part_name, e);

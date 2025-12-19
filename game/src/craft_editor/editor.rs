@@ -46,7 +46,6 @@ pub struct Editor {
     pub action_queue: Vec<Action>,
     pub occupied: HashMap<PartLayer, HashMap<IVec2, PartId>>,
     pub vehicle: Vehicle,
-    pub particles: ThrustParticleEffects,
     pub build_particles: Vec<BuildParticle>,
 
     pub atmo: i32,
@@ -74,7 +73,6 @@ impl Editor {
             action_queue: Vec::new(),
             occupied: HashMap::new(),
             vehicle: Vehicle::new(),
-            particles: ThrustParticleEffects::new(),
             build_particles: Vec::new(),
             atmo: 3,
             show_vehicle_info: false,
@@ -467,8 +465,6 @@ impl Render for Editor {
             draw_aabb(canvas, ctx.w2c_aabb(aabb), GREEN);
         }
 
-        draw_thrust_particles(canvas, ctx, &ctx.particles, &Universe::empty());
-
         match &ctx.cursor_state {
             CursorState::None | CursorState::Part(_) => {
                 if let Some(p) = state.input.current() {
@@ -486,7 +482,7 @@ impl Render for Editor {
             None => "[No file open]".to_string(),
         };
 
-        let vehicle_info = vehicle_info(&ctx.vehicle);
+        let vehicle_info = String::new();
 
         let info: String = [
             filename,
@@ -571,19 +567,6 @@ impl Render for Editor {
             let com = ctx.vehicle.center_of_mass();
             draw_circle(&mut canvas.gizmos, ctx.w2c(com), 7.0, ORANGE);
             draw_x(&mut canvas.gizmos, ctx.w2c(com), 7.0, WHITE);
-
-            // thrust envelope
-            for (rcs, color) in [(false, RED), (true, BLUE)] {
-                let positions: Vec<_> = linspace_f64(0.0, 2.0 * PI_64, 200)
-                    .into_iter()
-                    .map(|a| {
-                        let thrust = ctx.vehicle.current_thrust_along_heading(a, rcs);
-                        let r = (1.0 + thrust.abs().sqrt() / 100.0) * ctx.vehicle.bounding_radius();
-                        ctx.w2c(rotate_f64(DVec2::X * r, a))
-                    })
-                    .collect();
-                canvas.gizmos.linestrip_2d(positions, color.with_alpha(0.6));
-            }
         }
 
         for layer in PartLayer::draw_order() {
@@ -928,18 +911,6 @@ impl Editor {
         }
 
         let atmo = ctx.atmo as f32 / 10.0;
-
-        if state.settings.draw_thrust_particles {
-            add_particles_from_vehicle(
-                &mut ctx.particles,
-                EntityId(0),
-                &ctx.vehicle,
-                &RigidBody::ZERO,
-                atmo,
-            );
-        }
-
-        ctx.particles.step();
 
         ctx.build_particles.retain(|p| p.opacity() > 0.0);
     }

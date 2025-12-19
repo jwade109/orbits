@@ -56,10 +56,10 @@ pub use noise::{NoiseFn, Perlin, Seedable, Simplex};
 pub use serde::{Deserialize, Serialize};
 pub use serde_yaml::{from_str, to_string};
 pub use starling::prelude::{
-    ComputerData, ExcavatorData, InstantiatedPart, InstantiatedPartVariant, PDCtrl, PV, PartLayer,
-    RigidBody, Rotation, Vehicle, VehicleControl, VehicleControlStatus, attitude_control_law,
-    chance, cross2d, position_hold_control_law, rand, randint, randvec, rotate, wrap_pi_npi_f64,
-    zero_gravity_control_law, zero_gravity_velocity_control_law,
+    ComputerData, ExcavatorData, InstantiatedPart, PDCtrl, PV, PartLayer, PartPrototype,
+    RigidBody, Rotation, ThrusterModel, Vehicle, VehicleControl, VehicleControlStatus,
+    attitude_control_law, chance, cross2d, position_hold_control_law, rand, randint, randvec,
+    rotate, wrap_pi_npi_f64, zero_gravity_control_law, zero_gravity_velocity_control_law,
 };
 pub use std::collections::{HashMap, HashSet};
 pub use std::path::{Path, PathBuf};

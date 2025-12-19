@@ -1,8 +1,7 @@
 use crate::factory::Mass;
 use crate::math::*;
-use crate::parts::computer::ComputerData;
-use crate::parts::excavator::ExcavatorData;
 use crate::parts::PartLayer;
+use crate::parts::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -12,9 +11,11 @@ pub struct Generic {
     layer: PartLayer,
     mass: Mass,
     sprites: Option<usize>,
-    is_docking_port: Option<bool>,
+    docking_port_data: Option<DockingPortData>,
     excavator_data: Option<ExcavatorData>,
     computer_data: Option<ComputerData>,
+    inventory_data: Option<InventoryData>,
+    thruster_data: Option<ThrusterModel>,
 }
 
 impl Generic {
@@ -25,9 +26,11 @@ impl Generic {
             layer,
             mass,
             sprites: None,
-            is_docking_port: None,
+            docking_port_data: None,
             excavator_data: None,
             computer_data: None,
+            inventory_data: None,
+            thruster_data: None,
         }
     }
 
@@ -55,11 +58,19 @@ impl Generic {
         self.computer_data.as_ref()
     }
 
-    pub fn is_docking_port(&self) -> bool {
-        self.is_docking_port.unwrap_or(false)
+    pub fn docking_port_data(&self) -> Option<&DockingPortData> {
+        self.docking_port_data.as_ref()
     }
 
     pub fn excavator_data(&self) -> Option<&ExcavatorData> {
         self.excavator_data.as_ref()
+    }
+
+    pub fn inventory_data(&self) -> Option<&InventoryData> {
+        self.inventory_data.as_ref()
+    }
+
+    pub fn thruster_data(&self) -> Option<&ThrusterModel> {
+        self.thruster_data.as_ref()
     }
 }

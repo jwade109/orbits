@@ -2,7 +2,6 @@
   name: "tank22"
   dry_mass: 650000
   mass: 650000
-  max_fluid_mass: 6000000
   current_fluid_mass: 0
   item: H2
   dims: [20, 20]

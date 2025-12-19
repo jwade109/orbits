@@ -1,8 +1,8 @@
-!Thruster
-  mass: 650000
-  layer: Internal
-  name: "motor"
-  dims: [29, 16]
+name: "motor"
+dims: [29, 16]
+layer: Internal
+mass: 650000
+thruster_data:
   model: "RJ2000"
   exhaust_velocity: 3750.0
   thrust: 400000.0

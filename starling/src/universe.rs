@@ -10,7 +10,6 @@ pub struct Universe {
     pub spacecraft: HashMap<EntityId, Spacecraft>,
     pub asteroids: HashMap<EntityId, Asteroid>,
     planets: PlanetarySystem,
-    pub thrust_particles: ThrustParticleEffects,
 }
 
 impl Universe {
@@ -27,7 +26,6 @@ impl Universe {
             spacecraft: HashMap::new(),
             asteroids: HashMap::new(),
             planets,
-            thrust_particles: ThrustParticleEffects::new(),
         }
     }
 
@@ -90,48 +88,7 @@ impl Universe {
     }
 
     fn step_spacecraft(&mut self, signals: &ControlSignals, particles: bool) {
-        let stamp = self.stamp();
-
-        let pvs: HashMap<_, _> = self
-            .spacecraft
-            .iter()
-            .map(|(id, sv)| (*id, (sv.pv(), sv.linear_accel())))
-            .collect();
-
-        for (id, sv) in &mut self.spacecraft {
-            let (ext, delta_throttle) = *signals
-                .piloting_commands
-                .get(&id)
-                .unwrap_or(&(VehicleControl::NULLOPT, 0.0));
-
-            sv.step_throttle(delta_throttle);
-
-            sv.step(&self.planets, stamp, ext);
-
-            let other_pv = sv.target().map(|t| pvs.get(&t)).flatten();
-            let this_pv = pvs.get(id);
-            let rel_pv = other_pv.zip(this_pv).map(|(t, p)| (t.0 - p.0, t.1));
-
-            sv.set_target_rel_pv(rel_pv);
-
-            let atmo = match self.planets.lookup_planet(sv.parent(), stamp) {
-                Some((planet, _, _, _)) => {
-                    let altitude = sv.body.pv.pos.length() - planet.body.radius;
-                    (1.0 - altitude / 200_000.0).clamp(0.0, 1.0)
-                }
-                _ => 0.0,
-            };
-
-            if particles {
-                add_particles_from_vehicle(
-                    &mut self.thrust_particles,
-                    sv.planet_id,
-                    &sv.vehicle,
-                    &sv.body,
-                    atmo as f32,
-                );
-            }
-        }
+        // whatever
     }
 
     fn do_mining(&mut self) {
@@ -144,31 +101,11 @@ impl Universe {
     }
 
     pub fn run_batch_ticks(&mut self, ticks: u32) {
-        self.ticks += ticks as u128;
-        let old_stamp = self.stamp;
-        let delta_time = PHYSICS_CONSTANT_DELTA_TIME * ticks;
-        self.stamp = old_stamp + delta_time;
-
-        for (_, sv) in &mut self.spacecraft {
-            sv.step_on_rails(delta_time, self.stamp, &self.planets);
-        }
-
-        if ticks == 1 {
-            self.thrust_particles.step();
-        } else {
-            self.thrust_particles.particles.clear();
-        }
+        // whatever
     }
 
     pub fn on_sim_tick(&mut self, signals: &ControlSignals, particles: bool) {
-        self.ticks += 1;
-        self.stamp += PHYSICS_CONSTANT_DELTA_TIME;
-
-        self.thrust_particles.step();
-
-        self.step_spacecraft(signals, particles);
-
-        self.do_mining();
+        // whatever
     }
 
     pub fn orbiter_ids(&self) -> impl Iterator<Item = EntityId> + use<'_> {

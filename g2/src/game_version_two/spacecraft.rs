@@ -508,24 +508,12 @@ fn add_part_to_grid<'a>(
         },
     );
 
-    let has_inventory = match part.variant() {
-        InstantiatedPartVariant::Thruster(..) => false,
-        InstantiatedPartVariant::Tank(..) => true,
-        InstantiatedPartVariant::Cargo(..) => true,
-        InstantiatedPartVariant::Machine(..) => true,
-        InstantiatedPartVariant::Generic(..) => false,
-    };
-
-    let is_machine = part.as_machine().is_some();
-    let is_thruster = part.as_thruster().is_some();
-    let is_computer = part.computer_data().is_some();
-    let is_docking_port = part.is_docking_port();
+    let has_inventory = part.inventory_data().is_some();
+    let is_machine = part.machine_data().is_some();
+    let is_thruster = part.thruster_data().is_some();
     let is_structural = part.layer() == starling::parts::PartLayer::Structural;
 
-    let n_slots = match part.variant() {
-        InstantiatedPartVariant::Cargo(c, _) => c.slots(),
-        _ => 1,
-    };
+    let n_slots = 1;
 
     let inv = if is_machine {
         Inventory::zero_slots()
@@ -547,7 +535,8 @@ fn add_part_to_grid<'a>(
         build,
     ));
 
-    if let Some((model, _)) = part.as_thruster() {
+    // THRUSTER COMPONENT
+    if let Some(model) = part.thruster_data() {
         let mut inv = Inventory::single(Item::H2, Volume::liters(10));
         // inv.fill();
 
@@ -565,7 +554,7 @@ fn add_part_to_grid<'a>(
         cmd.insert((thruster, inv, particles));
     }
 
-    if is_computer {
+    if let Some(cpu) = part.computer_data() {
         let mut cpu = Computer::default();
         cpu.mode = ComputerMode::Manual;
         cpu.attitude = rand(0.0, 2.0);
@@ -580,7 +569,7 @@ fn add_part_to_grid<'a>(
         });
     }
 
-    if is_docking_port {
+    if let Some(data) = part.docking_port_data() {
         let docking = DockingPort::detached();
         cmd.insert(docking);
     }
