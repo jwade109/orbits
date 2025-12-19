@@ -410,25 +410,7 @@ impl Render for Editor {
         let other_buttons = other_buttons(state.settings.ui_button_height);
         // let actions = action_queue(&state.editor_context.action_queue);
 
-        let part_buttons = if let Some(id) = state.editor_context.selected_part {
-            if let Some(instance) = state.editor_context.vehicle.get_part(id) {
-                Some(part_ui_layout(
-                    state.settings.ui_button_height,
-                    id,
-                    instance,
-                ))
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-
-        let right_column = Node::column(400)
-            .invisible()
-            .with_child(other_buttons)
-            // .with_child(actions)
-            .with_child(part_buttons);
+        let right_column = Node::column(400).invisible().with_child(other_buttons);
 
         let main_area = Node::grow()
             .invisible()
@@ -909,8 +891,6 @@ impl Editor {
         for particle in &mut ctx.build_particles {
             particle.on_sim_tick();
         }
-
-        let atmo = ctx.atmo as f32 / 10.0;
 
         ctx.build_particles.retain(|p| p.opacity() > 0.0);
     }

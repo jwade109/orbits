@@ -5,7 +5,6 @@ use crate::math::*;
 use crate::nanotime::Nanotime;
 use crate::parts::*;
 use crate::pid::PDCtrl;
-use crate::vehicle::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -38,17 +37,6 @@ pub fn occupied_pixels(pos: IVec2, rot: Rotation, part: &PartPrototype) -> Vec<I
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PartId(u64);
-
-#[derive(Debug, Clone, Copy)]
-pub struct ThrustAxisInfo {
-    max_thrust: f64,
-}
-
-impl Default for ThrustAxisInfo {
-    fn default() -> Self {
-        Self { max_thrust: 0.0 }
-    }
-}
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
 pub struct VehiclePd {

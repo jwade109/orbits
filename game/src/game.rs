@@ -139,6 +139,7 @@ pub struct GameState {
 
     /// All the game entities and logic therein. This should be able to run
     /// autonomously without any user input with on_sim_tick.
+    #[deprecated]
     pub universe: Universe,
 
     /// Stores information and provides an API for interacting with the simulation
@@ -146,6 +147,7 @@ pub struct GameState {
     ///
     /// Additional information allows the user to select spacecraft and
     /// direct them to particular orbits, or manually pilot them.
+    #[deprecated]
     pub orbital_context: OrbitalContext,
 
     pub editor_context: Editor,

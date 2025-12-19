@@ -53,8 +53,7 @@ impl PartPrototype {
         &self.name
     }
 
-    #[deprecated]
-    pub fn dry_mass(&self) -> Mass {
+    pub fn part_mass(&self) -> Mass {
         self.mass
     }
 

@@ -79,6 +79,7 @@ pub struct SpacecraftGrid {
     parts: usize,
     inventory_mass: Mass,
     parts_mass: Mass,
+    moment_of_inertia: f64,
     bounds: (Vec2, Vec2),
     pub center_of_mass: Vec2,
     pub velocity: DVec2,
@@ -99,7 +100,7 @@ impl SpacecraftGrid {
     pub fn apply_body_frame_thrust(&mut self, thrust: Vec2, torque: f32) {
         self.body_frame_acceleration += thrust.as_dvec2() / self.total_mass().to_kg_f64();
         // TODO change to moment of inertia
-        self.angular_acceleration += 0.1 * (torque as f64 / self.total_mass().to_kg_f64()) as f32;
+        self.angular_acceleration += (torque as f64 / self.moment_of_inertia) as f32;
     }
 }
 
@@ -298,7 +299,7 @@ fn update_grids(
 
         for part in children.iter() {
             if let Ok((part, inv)) = parts.get(part) {
-                let part_mass = Mass::grams(part.prototype().dry_mass().to_grams());
+                let part_mass = Mass::grams(part.prototype().part_mass().to_grams());
                 let inv_mass = inv.map(|inv| inv.mass()).unwrap_or(Mass::ZERO);
                 grid.parts_mass += part_mass;
                 grid.inventory_mass += inv_mass;
@@ -315,6 +316,7 @@ fn update_grids(
             }
         }
 
+        grid.moment_of_inertia = grid.total_mass().to_kg_f64() * 10.0;
         grid.center_of_mass = (com / grid.total_mass().to_kg_f64()).as_vec2();
     }
 }
