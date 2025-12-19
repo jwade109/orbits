@@ -330,12 +330,7 @@ impl Vehicle {
     }
 
     pub fn fuel_percentage(&self) -> f64 {
-        let max_fuel_mass: Mass = self.tanks().map(|(t, _)| t.max_fluid_mass).sum();
-        if max_fuel_mass == Mass::ZERO {
-            return 0.0;
-        }
-        let current_fuel_mass: Mass = self.tanks().map(|(_, d)| d.contents_mass()).sum();
-        current_fuel_mass.to_kg_f64() / max_fuel_mass.to_kg_f64()
+        0.0
     }
 
     pub fn is_controllable(&self) -> bool {
@@ -347,10 +342,7 @@ impl Vehicle {
     }
 
     pub fn fuel_mass(&self) -> Mass {
-        if self.parts.is_empty() {
-            return Mass::ZERO;
-        }
-        self.tanks().map(|(_, d)| d.contents_mass()).sum()
+        Mass::ZERO
     }
 
     pub fn total_mass(&self) -> Mass {
@@ -362,7 +354,7 @@ impl Vehicle {
     }
 
     pub fn tank_count(&self) -> usize {
-        self.tanks().count()
+        0
     }
 
     pub fn max_thrust(&self) -> f64 {
@@ -699,10 +691,6 @@ impl Vehicle {
         self.is_thrusting = false;
     }
 
-    pub fn tanks(&self) -> impl Iterator<Item = (&TankModel, &TankInstanceData)> + use<'_> {
-        self.parts.iter().filter_map(|(_, p)| p.as_tank())
-    }
-
     pub fn thrusters(
         &self,
     ) -> impl Iterator<Item = (&ThrusterModel, &ThrusterInstanceData)> + use<'_> {
@@ -720,19 +708,7 @@ impl Vehicle {
     }
 
     pub fn clear_contents(&mut self, id: PartId) -> bool {
-        if let Some(part) = self.parts.get_mut(&id) {
-            if let Some((_, d)) = part.as_tank_mut() {
-                d.clear_contents();
-                return true;
-            }
-
-            if let Some((_, d)) = part.as_cargo_mut() {
-                d.clear_contents();
-                return true;
-            }
-        }
-
-        return false;
+        false
     }
 
     pub fn bounding_radius(&self) -> f64 {

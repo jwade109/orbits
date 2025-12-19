@@ -3,4 +3,5 @@
   layer: Internal
   name: "cpu"
   dims: [8, 9]
-  is_computer: true
+  computer_data:
+    frequency: 10

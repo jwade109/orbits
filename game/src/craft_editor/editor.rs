@@ -634,40 +634,6 @@ impl Render for Editor {
                     .set_color(WHITE.with_alpha(alpha));
 
                 if detailed_part_info {
-                    if let Some((t, d)) = instance.as_tank() {
-                        let pct = t.percent_filled(d);
-                        let lower = center - dims / 2.0;
-                        let upper = lower + DVec2::new(dims.x, dims.y * pct);
-                        let aabb = AABB::from_arbitrary(
-                            aabb_stopgap_cast(lower),
-                            aabb_stopgap_cast(upper),
-                        );
-                        let color: Srgba = crate::sprites::hashable_to_color(&d.item()).into();
-                        let aabb = ctx.w2c_aabb(aabb);
-                        canvas.rect(aabb, ZOrdering::EditorTankFill, color.with_alpha(0.7));
-
-                        if let Some(item) = d.item() {
-                            let s = aabb.span.x.min(aabb.span.y) * 0.7;
-                            let path = item.to_sprite_name();
-                            canvas
-                                .sprite(
-                                    aabb.center,
-                                    0.0,
-                                    "cloud",
-                                    ZOrdering::EditorItemBackground,
-                                    Vec2::splat(s),
-                                )
-                                .set_color(BLACK);
-                            canvas.sprite(
-                                aabb.center,
-                                0.0,
-                                path,
-                                ZOrdering::EditorItem,
-                                Vec2::splat(s),
-                            );
-                        }
-                    }
-
                     if let Some((_, d)) = instance.as_machine() {
                         let pct = d.percent_complete() as f64;
                         let lower = center - dims / 2.0;
@@ -682,69 +648,12 @@ impl Render for Editor {
                             RED.with_alpha(0.7),
                         );
                     }
-
-                    if let Some((c, d)) = instance.as_cargo() {
-                        let mut lower = center - dims / 2.0;
-
-                        for (item, mass) in d.contents() {
-                            let pct = mass.to_kg_f64() / c.capacity_mass().to_kg_f64();
-                            let upper = lower + DVec2::new(dims.x, dims.y * pct);
-                            let aabb = AABB::from_arbitrary(
-                                aabb_stopgap_cast(lower),
-                                aabb_stopgap_cast(upper),
-                            );
-                            let color = crate::sprites::hashable_to_color(&item);
-                            let aabb = ctx.w2c_aabb(aabb);
-                            canvas.rect(aabb, ZOrdering::EditorTankFill, color.with_alpha(0.4));
-
-                            let s = aabb.span.x.min(aabb.span.y) * 0.7;
-                            let path = item.to_sprite_name();
-                            canvas
-                                .sprite(
-                                    aabb.center,
-                                    0.0,
-                                    "cloud",
-                                    ZOrdering::EditorItemBackground,
-                                    Vec2::splat(s),
-                                )
-                                .set_color(BLACK);
-
-                            canvas.sprite(
-                                aabb.center,
-                                0.0,
-                                path,
-                                ZOrdering::EditorItem,
-                                Vec2::splat(s),
-                            );
-
-                            lower.y += dims.y * pct;
-                        }
-                    }
                 }
             }
         }
 
         if let Some(cursor) = state.input.position(MouseButt::Hover, FrameId::Current) {
             let c = ctx.c2w(cursor);
-
-            // let discrete = vround(c);
-
-            // for dx in -20..=20 {
-            //     for dy in -20..=20 {
-            //         let s = IVec2::new(dx, dy);
-            //         let p = discrete - s;
-            //         let d = (s.length_squared() as f32).sqrt();
-            //         let alpha = 0.2 * (1.0 - d / 100.0);
-            //         if alpha > 0.01 {
-            //             draw_diamond(
-            //                 &mut canvas.gizmos,
-            //                 ctx.w2c(p.as_vec2()),
-            //                 7.0,
-            //                 GRAY.with_alpha(alpha),
-            //             );
-            //         }
-            //     }
-            // }
 
             if Self::current_part_and_cursor_position(state).is_none() {
                 if let Some((id, _)) = ctx.get_part_at(graphics_cast(c)) {
@@ -769,7 +678,6 @@ impl Render for Editor {
                 GREEN.with_alpha(0.4),
                 ZOrdering::EditorMouseoverPartHighlight,
             );
-            // canvas.text(format!("{:#?}", instance), Vec2::new(300.0, 400.0), 0.6);
         }
 
         if let Some((p, current_part)) = Self::current_part_and_cursor_position(state) {

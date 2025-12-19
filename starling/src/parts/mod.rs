@@ -1,4 +1,5 @@
 pub mod cargo;
+pub mod computer;
 pub mod excavator;
 pub mod generic;
 pub mod gyro;
@@ -9,6 +10,7 @@ pub mod tank;
 pub mod thruster;
 
 pub use cargo::*;
+pub use computer::*;
 pub use excavator::*;
 pub use generic::*;
 pub use gyro::*;

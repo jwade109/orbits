@@ -295,22 +295,6 @@ impl InstantiatedPart {
         ret
     }
 
-    pub fn as_tank(&self) -> Option<(&TankModel, &TankInstanceData)> {
-        if let InstantiatedPartVariant::Tank(t, d) = &self.variant {
-            Some((t, d))
-        } else {
-            None
-        }
-    }
-
-    pub fn as_tank_mut(&mut self) -> Option<(&TankModel, &mut TankInstanceData)> {
-        if let InstantiatedPartVariant::Tank(t, d) = &mut self.variant {
-            Some((t, d))
-        } else {
-            None
-        }
-    }
-
     pub fn as_thruster(&self) -> Option<(&ThrusterModel, &ThrusterInstanceData)> {
         if let InstantiatedPartVariant::Thruster(t, d) = &self.variant {
             Some((t, d))
@@ -343,27 +327,11 @@ impl InstantiatedPart {
         }
     }
 
-    pub fn as_cargo(&self) -> Option<(&Cargo, &CargoInstanceData)> {
-        if let InstantiatedPartVariant::Cargo(c, d) = &self.variant {
-            Some((c, d))
-        } else {
-            None
-        }
-    }
-
-    pub fn as_cargo_mut(&mut self) -> Option<(&Cargo, &mut CargoInstanceData)> {
-        if let InstantiatedPartVariant::Cargo(c, d) = &mut self.variant {
-            Some((c, d))
-        } else {
-            None
-        }
-    }
-
-    pub fn is_computer(&self) -> bool {
+    pub fn computer_data(&self) -> Option<&ComputerData> {
         if let InstantiatedPartVariant::Generic(g) = &self.variant {
-            g.is_computer()
+            g.computer_data()
         } else {
-            false
+            None
         }
     }
 
@@ -375,7 +343,7 @@ impl InstantiatedPart {
         }
     }
 
-    pub fn excavator_data(&self) -> Option<&ExcavatorProto> {
+    pub fn excavator_data(&self) -> Option<&ExcavatorData> {
         if let InstantiatedPartVariant::Generic(g) = &self.variant {
             g.excavator_data()
         } else {

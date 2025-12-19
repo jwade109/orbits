@@ -26,13 +26,6 @@ pub fn on_global_render_tick(state: &mut GameState) -> bool {
         state.zoom_to_vehicle(true);
     }
 
-    if state.console.is_active() {
-        if let Some((decl, args)) = state.console.process_input(&mut state.input) {
-            decl.execute(state, args);
-        }
-        return true;
-    }
-
     if state.input.just_pressed(KeyCode::KeyB) {
         state.spawn_new();
     }

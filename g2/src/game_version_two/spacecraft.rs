@@ -518,7 +518,7 @@ fn add_part_to_grid<'a>(
 
     let is_machine = part.as_machine().is_some();
     let is_thruster = part.as_thruster().is_some();
-    let is_computer = part.is_computer();
+    let is_computer = part.computer_data().is_some();
     let is_docking_port = part.is_docking_port();
     let is_structural = part.layer() == starling::parts::PartLayer::Structural;
 

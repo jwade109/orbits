@@ -134,8 +134,6 @@ pub struct GameState {
     /// and button presses and holds.
     pub input: InputState,
 
-    pub console: DebugConsole,
-
     /// Contains CLI arguments
     pub args: ProgramContext,
 
@@ -227,7 +225,6 @@ impl GameState {
             input: InputState::default(),
             args: args.clone(),
             universe,
-            console: DebugConsole::new(),
             orbital_context: OrbitalContext::new(),
             editor_context: Editor::new(),
             wall_time: Nanotime::zero(),
@@ -583,7 +580,6 @@ impl GameState {
     pub fn notice(&mut self, s: impl Into<String>) {
         let s = s.into();
         info!("Notice: {s}");
-        self.console.log(s);
     }
 
     pub fn notify(
@@ -876,13 +872,6 @@ impl GameState {
 
         if self.input.just_pressed(KeyCode::KeyV) {
             self.zoom_to_vehicle(true);
-        }
-
-        if self.console.is_active() {
-            if let Some((decl, args)) = self.console.process_input(&mut self.input) {
-                decl.execute(self, args);
-            }
-            return;
         }
 
         if self.input.just_pressed(KeyCode::KeyB) {

@@ -1,9 +1,7 @@
 pub use crate::args::*;
 pub use crate::camera_controller::*;
 pub use crate::canvas::*;
-pub use crate::commands::*;
 pub use crate::craft_editor::*;
-pub use crate::debug_console::*;
 pub use crate::drawing::*;
 pub use crate::game::*;
 pub use crate::generate_ship_sprites::*;

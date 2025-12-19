@@ -77,6 +77,8 @@ fn setup(mut commands: Commands) -> Result {
     let ctx = ProgramContext::default();
     let settings = Settings::from_file(&ctx.settings_path()).unwrap_or(Settings::default());
 
+    load_parts_from_dir(&ctx);
+
     commands.insert_resource(ctx);
     commands.insert_resource(settings);
     commands.insert_resource(ClearColor(BLACK.into()));

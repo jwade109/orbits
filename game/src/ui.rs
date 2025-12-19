@@ -186,65 +186,6 @@ pub fn exit_prompt_overlay(button_height: f32, w: f32, h: f32) -> Node<OnClick> 
         .with_child(Node::grow().invisible())
 }
 
-pub fn console_overlay(state: &GameState) -> Node<OnClick> {
-    let dims = state.input.screen_bounds.span;
-
-    let button_height = state.settings.ui_button_height * 0.6;
-    let offset = "   ";
-    let cursor = if crate::drawing::is_blinking(state.wall_time) {
-        "_"
-    } else {
-        ""
-    };
-
-    let spacer = Node::grow().invisible();
-
-    let cmd = Node::row(button_height)
-        .with_text(format!("{}> {}{}", offset, state.console.cmd(), cursor))
-        .with_justify(TextJustify::Left)
-        .with_color(UI_BACKGROUND_COLOR);
-
-    let get_line_node = |text: &str| {
-        Node::new(Size::Grow, button_height)
-            .with_text(format!("{}  {}", offset, text))
-            .with_color(UI_BACKGROUND_COLOR)
-            .with_justify(TextJustify::Left)
-    };
-
-    const TERMINAL_LINES: usize = 40;
-
-    let mut lines: Vec<_> = state
-        .console
-        .lines()
-        .iter()
-        .rev()
-        .take(TERMINAL_LINES)
-        .rev()
-        .map(|l| get_line_node(l))
-        .collect();
-
-    while lines.len() < TERMINAL_LINES + 1 {
-        let n = get_line_node("");
-        lines.push(n);
-    }
-
-    let terminal = Node::new(Size::Grow, Size::Fit)
-        .down()
-        .with_color(UI_BACKGROUND_COLOR)
-        .tight()
-        .with_child(Node::hline())
-        .with_children(lines.into_iter())
-        .with_child(Node::hline())
-        .with_child(cmd);
-
-    Node::new(dims.x, dims.y)
-        .invisible()
-        .tight()
-        .down()
-        .with_child(spacer)
-        .with_child(terminal)
-}
-
 pub fn delete_wrapper(ondelete: OnClick, button: Node<OnClick>, box_size: f32) -> Node<OnClick> {
     let x_button = {
         let s = "X";
@@ -504,10 +445,6 @@ fn do_ui_sprites(
     }
 
     let mut ui = layout(&state);
-
-    if state.console.is_active() {
-        ui.add_layout(console_overlay(&state), Vec2::ZERO)
-    }
 
     if state.is_exit_prompt {
         ui.add_layout(
