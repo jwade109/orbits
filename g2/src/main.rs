@@ -76,9 +76,9 @@ fn update_wireframe(mut wireframe_config: ResMut<Wireframe2dConfig>, settings: R
 fn setup(mut commands: Commands) -> Result {
     let ctx = ProgramContext::default();
     let settings = Settings::from_file(&ctx.settings_path()).unwrap_or(Settings::default());
+    let parts = load_parts_from_dir(&ctx).unwrap_or(PartDatabase::default());
 
-    load_parts_from_dir(&ctx);
-
+    commands.insert_resource(parts);
     commands.insert_resource(ctx);
     commands.insert_resource(settings);
     commands.insert_resource(ClearColor(BLACK.into()));
@@ -97,17 +97,11 @@ fn setup(mut commands: Commands) -> Result {
         },
     ));
 
-    commands.send_event(SpacecraftEvent::SpawnVehicle {
-        name: "miner".to_string(),
-        pos: Vec2::new(20.0, 20.0),
-        angle: rand(-0.2, 0.3),
-    });
-
     for name in [
         "pollux",
         "pollux",
         "remora",
-        // "bellerophon",
+        "bellerophon",
         // "lander",
         // "remora",
         // "icecream",
@@ -118,9 +112,10 @@ fn setup(mut commands: Commands) -> Result {
         "remora",
         "remora",
         "foundation",
+        "miner",
     ] {
-        let x = rand(-20.0, 20.0);
-        let y = rand(-20.0, 20.0);
+        let x = rand(-100.0, 100.0);
+        let y = rand(-100.0, 100.0);
         commands.send_event(SpacecraftEvent::SpawnVehicle {
             name: name.to_string(),
             pos: Vec2::new(x + 25.0, y + 25.0),

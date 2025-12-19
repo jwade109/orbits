@@ -1,17 +1,19 @@
 use crate::game_version_two::*;
 
-#[derive(Component, Deserialize, Serialize, Debug, Clone)]
-pub struct InventoryData {
-    slots: usize,
-}
+#[derive(Resource, Default, Debug, Deref, DerefMut)]
+pub struct PartDatabase(HashMap<String, PartPrototype>);
 
-pub fn load_parts_from_dir(ctx: &ProgramContext) {
+pub fn load_parts_from_dir(
+    ctx: &ProgramContext,
+) -> Result<PartDatabase, Box<dyn std::error::Error>> {
     info!(?ctx);
 
     let parts_dir = ctx.parts_dir();
 
-    for file in ok_or_return!(std::fs::read_dir(&parts_dir)) {
-        let file = ok_or_continue!(file);
+    let mut db = PartDatabase::default();
+
+    for file in std::fs::read_dir(&parts_dir)? {
+        let file = file?;
         let part_name = ok_or_continue!(file.file_name().into_string());
 
         let data_path = file.path().join("metadata.yaml");
@@ -25,5 +27,9 @@ pub fn load_parts_from_dir(ctx: &ProgramContext) {
         };
 
         info!("{} -> {:?}", part_name, data);
+
+        db.insert(part_name, data);
     }
+
+    Ok(db)
 }
