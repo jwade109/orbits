@@ -18,7 +18,7 @@ jobs:
     - uses: actions/checkout@v4
     - name: Install packages
       run: |
-        sudo apt install -y g++ pkg-config libx11-dev libasound2-dev libudev-dev libxkbcommon-x11-0
+        sudo apt install -y g++ pkg-config libx11-dev libasound2-dev libxkbcommon-x11-0
     - name: Build
       run: cargo build
     - name: Run tests

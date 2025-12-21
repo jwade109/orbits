@@ -5,7 +5,6 @@ use crate::math::*;
 use crate::nanotime::Nanotime;
 use crate::parts::*;
 use crate::pid::PDCtrl;
-use crate::vehicle::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -39,17 +38,6 @@ pub fn occupied_pixels(pos: IVec2, rot: Rotation, part: &PartPrototype) -> Vec<I
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PartId(u64);
 
-#[derive(Debug, Clone, Copy)]
-pub struct ThrustAxisInfo {
-    max_thrust: f64,
-}
-
-impl Default for ThrustAxisInfo {
-    fn default() -> Self {
-        Self { max_thrust: 0.0 }
-    }
-}
-
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
 pub struct VehiclePd {
     pub attitude_controller: PDCtrl,
@@ -66,11 +54,6 @@ pub struct Vehicle {
     parts: HashMap<PartId, InstantiatedPart>,
     is_thrust_idle: bool,
     discriminator: u64,
-
-    forwards: ThrustAxisInfo,
-    backwards: ThrustAxisInfo,
-    left: ThrustAxisInfo,
-    right: ThrustAxisInfo,
 
     pub pid: VehiclePd,
 
@@ -117,11 +100,6 @@ impl Vehicle {
             discriminator: 0,
 
             pid: tuning,
-
-            forwards: ThrustAxisInfo::default(),
-            backwards: ThrustAxisInfo::default(),
-            left: ThrustAxisInfo::default(),
-            right: ThrustAxisInfo::default(),
 
             gyro: Gyro::new(),
 
@@ -304,11 +282,6 @@ impl Vehicle {
                 center.as_dvec2() * weight
             })
             .sum();
-
-        self.forwards.max_thrust = self.max_thrust_along_heading(0.0, false);
-        self.left.max_thrust = self.max_thrust_along_heading(PI_64 / 2.0, false);
-        self.backwards.max_thrust = self.max_thrust_along_heading(PI_64, false);
-        self.right.max_thrust = self.max_thrust_along_heading(-PI_64 / 2.0, false);
     }
 
     fn update(&mut self) {
@@ -330,16 +303,11 @@ impl Vehicle {
     }
 
     pub fn fuel_percentage(&self) -> f64 {
-        let max_fuel_mass: Mass = self.tanks().map(|(t, _)| t.max_fluid_mass).sum();
-        if max_fuel_mass == Mass::ZERO {
-            return 0.0;
-        }
-        let current_fuel_mass: Mass = self.tanks().map(|(_, d)| d.contents_mass()).sum();
-        current_fuel_mass.to_kg_f64() / max_fuel_mass.to_kg_f64()
+        0.0
     }
 
     pub fn is_controllable(&self) -> bool {
-        self.forwards.max_thrust > 0.0
+        false
     }
 
     pub fn dry_mass(&self) -> Mass {
@@ -347,10 +315,7 @@ impl Vehicle {
     }
 
     pub fn fuel_mass(&self) -> Mass {
-        if self.parts.is_empty() {
-            return Mass::ZERO;
-        }
-        self.tanks().map(|(_, d)| d.contents_mass()).sum()
+        Mass::ZERO
     }
 
     pub fn total_mass(&self) -> Mass {
@@ -362,59 +327,15 @@ impl Vehicle {
     }
 
     pub fn tank_count(&self) -> usize {
-        self.tanks().count()
-    }
-
-    pub fn max_thrust(&self) -> f64 {
-        if self.thruster_count() == 0 {
-            0.0
-        } else {
-            self.thrusters().map(|(t, _)| t.max_thrust()).sum()
-        }
-    }
-
-    fn thrust_along_heading(&self, angle: f64, rcs: bool, current: bool) -> f64 {
-        if self.thruster_count() == 0 {
-            return 0.0;
-        }
-
-        let u = rotate_f64(DVec2::X, angle);
-
-        let mut sum = 0.0;
-
-        for (_, part) in &self.parts {
-            if let Some((t, d)) = part.as_thruster() {
-                if t.is_rcs != rcs {
-                    continue;
-                }
-                let v = rotate_f64(DVec2::X, part.rotation().to_angle());
-                let dot = u.dot(v).max(0.0);
-                sum += dot
-                    * if current {
-                        t.current_thrust(d)
-                    } else {
-                        t.max_thrust()
-                    };
-            }
-        }
-
-        sum
+        0
     }
 
     pub fn max_forward_thrust(&self) -> f64 {
-        self.forwards.max_thrust
+        0.0
     }
 
     pub fn max_backwards_thrust(&self) -> f64 {
-        self.backwards.max_thrust
-    }
-
-    pub fn max_thrust_along_heading(&self, angle: f64, rcs: bool) -> f64 {
-        self.thrust_along_heading(angle, rcs, false)
-    }
-
-    pub fn current_thrust_along_heading(&self, angle: f64, rcs: bool) -> f64 {
-        self.thrust_along_heading(angle, rcs, true)
+        0.0
     }
 
     pub fn center_of_mass(&self) -> DVec2 {
@@ -423,16 +344,6 @@ impl Vehicle {
 
     pub fn moment_of_inertia(&self) -> f64 {
         self.moment_of_inertia
-    }
-
-    pub fn accel(&self) -> f64 {
-        let thrust = self.max_thrust();
-        let mass = self.total_mass();
-        if mass == Mass::ZERO {
-            0.0
-        } else {
-            thrust / mass.to_kg_f64()
-        }
     }
 
     pub fn aabb(&self) -> AABB {
@@ -481,35 +392,6 @@ impl Vehicle {
         // self.thrusters().any(|(t, d)| d.is_thrusting(t))
     }
 
-    pub fn average_linear_exhaust_velocity(&self) -> f64 {
-        let linear_thrusters: Vec<_> = self.thrusters().filter(|(t, _)| !t.is_rcs()).collect();
-
-        let count = linear_thrusters.len();
-
-        if count == 0 {
-            return 0.0;
-        }
-
-        linear_thrusters
-            .into_iter()
-            .map(|(t, _)| t.exhaust_velocity as f64 / count as f64)
-            .sum()
-    }
-
-    pub fn fuel_consumption_rate(&self) -> f64 {
-        self.thrusters()
-            .map(|(t, d)| t.fuel_consumption_rate(d))
-            .sum()
-    }
-
-    pub fn remaining_dv(&self) -> f64 {
-        if self.total_mass() == Mass::ZERO || self.dry_mass() == Mass::ZERO {
-            return 0.0;
-        }
-        let ve = self.average_linear_exhaust_velocity();
-        rocket_equation(ve, self.total_mass(), self.dry_mass())
-    }
-
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -545,194 +427,11 @@ impl Vehicle {
     }
 
     fn current_angular_acceleration(&self) -> f64 {
-        // if !self.is_thrusting() {
-        //     return 0.0;
-        // }
-
-        let mut aa = 0.0;
-        let moa = self.moment_of_inertia();
-        let com = self.center_of_mass();
-
-        for (_, part) in &self.parts {
-            if let Some((t, d)) = part.as_thruster() {
-                let center_of_thrust = part.center_meters().as_dvec2();
-                let lever_arm = center_of_thrust - com;
-                let thrust_dir = rotate_f64(DVec2::X, part.rotation().to_angle());
-                let torque = cross2d(lever_arm, thrust_dir) * t.current_thrust(d);
-                aa += torque / moa;
-            }
-        }
-
-        aa // + self.gyro.current_torque() / self.moment_of_inertia
+        0.0
     }
 
-    fn current_body_frame_linear_acceleration(&self) -> DVec2 {
-        if !self.is_thrusting() {
-            return DVec2::ZERO;
-        }
-
-        let mut body_frame_force = DVec2::ZERO;
-        let mass = self.total_mass().to_kg_f64();
-
-        for (_, part) in &self.parts {
-            if let Some((t, d)) = part.as_thruster() {
-                let thrust_dir = rotate_f64(DVec2::X, part.rotation().to_angle());
-                body_frame_force += thrust_dir * t.current_thrust(d);
-            }
-        }
-
-        body_frame_force / mass
-    }
-
-    pub fn set_thrust_control(&mut self, control: &VehicleControl) {
-        let is_nullopt = control.is_nullopt();
-
-        self.is_thrusting = false;
-
-        // self.gyro.increase_speed_by(control.attitude);
-        // self.gyro.step();
-
-        // let saturated = self.gyro.saturation() > 0.2;
-        // let dir = self.gyro.angular_velocity.signum();
-
-        if self.is_thrust_idle && is_nullopt {
-            // nothing to do
-            return;
-        }
-
-        let com = self.center_of_mass();
-
-        for (_, part) in &mut self.parts {
-            let rot = part.rotation();
-            let center_of_thrust = part.center_meters().as_dvec2();
-            let u = rotate_f64(DVec2::X, part.rotation().to_angle());
-            if let Some((t, d)) = part.as_thruster_mut() {
-                // if t.is_rcs && !saturated {
-                //     d.set_throttle(0.0);
-                //     continue;
-                // }
-
-                let linear_command = match rot {
-                    Rotation::East => control.plus_x,
-                    Rotation::North => control.plus_y,
-                    Rotation::West => control.neg_x,
-                    Rotation::South => control.neg_y,
-                };
-
-                let throttle = if t.is_rcs {
-                    // this is an RCS thruster
-
-                    let linear_throttle = if linear_command.use_rcs {
-                        // we're using RCS for linear translation
-                        linear_command.throttle
-                    } else {
-                        0.0
-                    };
-
-                    // also fire this thruster if it turns the vehicle
-                    // the right way
-                    let is_torque = {
-                        let torque = cross2d(center_of_thrust - com, u);
-                        torque.signum() == control.attitude.signum() // && torque.signum() == dir
-                    };
-                    linear_throttle
-                        + if is_torque {
-                            control.attitude.abs() as f32
-                        } else {
-                            0.0
-                        }
-                } else {
-                    if !linear_command.use_rcs {
-                        linear_command.throttle
-                    } else {
-                        0.0
-                    }
-                };
-
-                self.is_thrusting |= throttle > 0.0;
-
-                d.set_throttle(throttle);
-            }
-        }
-
-        self.is_thrust_idle = is_nullopt;
-    }
-
-    pub fn on_sim_tick(&mut self) {
-        let mut machines = Vec::new();
-
-        for (id, part) in &mut self.parts {
-            if part.percent_built() < 1.0 {
-                continue;
-            }
-
-            if let Some((t, d)) = part.as_thruster_mut() {
-                d.on_sim_tick(t);
-            }
-
-            if let Some((_, d)) = part.as_machine_mut() {
-                d.on_sim_tick();
-                machines.push(id);
-            }
-        }
-    }
-
-    pub fn body_frame_accel(&self) -> BodyFrameAccel {
-        let linear = self.current_body_frame_linear_acceleration();
-        let angular = self.current_angular_acceleration();
-        BodyFrameAccel { linear, angular }
-    }
-
-    pub fn set_all_thrusters(&mut self, throttle: f32) {
-        for (_, part) in &mut self.parts {
-            if let Some((_, d)) = part.as_thruster_mut() {
-                d.set_throttle(throttle);
-            }
-        }
-    }
-
-    pub fn zero_all_thrusters(&mut self) {
-        if !self.is_thrusting {
-            return;
-        }
-        self.set_all_thrusters(0.0);
-        self.is_thrusting = false;
-    }
-
-    pub fn tanks(&self) -> impl Iterator<Item = (&TankModel, &TankInstanceData)> + use<'_> {
-        self.parts.iter().filter_map(|(_, p)| p.as_tank())
-    }
-
-    pub fn thrusters(
-        &self,
-    ) -> impl Iterator<Item = (&ThrusterModel, &ThrusterInstanceData)> + use<'_> {
-        self.parts.iter().filter_map(|(_, p)| p.as_thruster())
-    }
-
-    pub fn set_recipe(&mut self, id: PartId, recipe: RecipeListing) -> bool {
-        if let Some(part) = self.parts.get_mut(&id) {
-            if let Some((_, d)) = part.as_machine_mut() {
-                d.recipe = recipe;
-                return true;
-            }
-        }
-        false
-    }
-
-    pub fn clear_contents(&mut self, id: PartId) -> bool {
-        if let Some(part) = self.parts.get_mut(&id) {
-            if let Some((_, d)) = part.as_tank_mut() {
-                d.clear_contents();
-                return true;
-            }
-
-            if let Some((_, d)) = part.as_cargo_mut() {
-                d.clear_contents();
-                return true;
-            }
-        }
-
-        return false;
+    pub fn thrusters(&self) -> impl Iterator<Item = &ThrusterModel> + use<'_> {
+        self.parts.iter().filter_map(|(_, p)| p.thruster_data())
     }
 
     pub fn bounding_radius(&self) -> f64 {
@@ -809,38 +508,4 @@ impl Vehicle {
 
         self.update();
     }
-}
-
-pub fn vehicle_info(vehicle: &Vehicle) -> String {
-    let bounds = vehicle.aabb();
-    let fuel_economy = if vehicle.remaining_dv() > 0.0 {
-        vehicle.fuel_mass().to_kg_f64() / vehicle.remaining_dv()
-    } else {
-        0.0
-    };
-
-    let fuel_mass = vehicle.fuel_mass();
-    let rate = vehicle.fuel_consumption_rate();
-    let pct = vehicle.fuel_percentage() * 100.0;
-
-    [
-        format!("{}", vehicle.title()),
-        format!("Discriminator: {:0x}", vehicle.discriminator()),
-        format!("Dry mass: {}", vehicle.dry_mass()),
-        format!("Fuel: {} ({:0.0}%)", fuel_mass, pct),
-        format!("Current mass: {}", vehicle.total_mass()),
-        format!("Thrusters: {}", vehicle.thruster_count()),
-        format!("Thrust: {:0.2} kN", vehicle.max_thrust() / 1000.0),
-        format!("Tanks: {}", vehicle.tank_count()),
-        format!("Accel: {:0.2} g", vehicle.accel() / 9.81),
-        format!("BFA: {:0.2} g", vehicle.body_frame_accel().linear / 9.81),
-        format!("Ve: {:0.1} s", vehicle.average_linear_exhaust_velocity()),
-        format!("DV: {:0.1} m/s", vehicle.remaining_dv()),
-        format!("WH: {:0.2}x{:0.2}", bounds.span.x, bounds.span.y),
-        format!("Econ: {:0.2} kg-s/m", fuel_economy),
-        format!("Fuel: {:0.1}/s", rate),
-    ]
-    .into_iter()
-    .map(|s| format!("{s}\n"))
-    .collect()
 }

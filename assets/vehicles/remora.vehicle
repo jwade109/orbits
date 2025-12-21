@@ -13,86 +13,106 @@ tuning:
     kp: 0.0
     kd: 0.0
 parts:
+- partname: rcs
+  pos:
+  - 32
+  - 15
+  rot: South
+- partname: rcs
+  pos:
+  - 32
+  - -19
+  rot: North
+- partname: tank11
+  pos:
+  - -26
+  - -5
+  rot: North
+- partname: tank21
+  pos:
+  - -26
+  - -15
+  rot: North
+- partname: frame3
+  pos:
+  - 4
+  - 5
+  rot: West
+- partname: frame2
+  pos:
+  - -11
+  - 15
+  rot: North
+- partname: cpu
+  pos:
+  - -5
+  - 16
+  rot: North
+- partname: rcs
+  pos:
+  - -36
+  - -19
+  rot: North
+- partname: tank11
+  pos:
+  - -6
+  - -25
+  rot: North
+- partname: frame2
+  pos:
+  - -11
+  - -25
+  rot: West
+- partname: docking-port
+  pos:
+  - 39
+  - -10
+  rot: East
+- partname: frame3
+  pos:
+  - -36
+  - 5
+  rot: West
 - partname: tank21
   pos:
   - -26
   - 5
   rot: North
-- partname: frame2
-  pos:
-  - -1
-  - 15
-  rot: North
-- partname: tank11
-  pos:
-  - -16
-  - -5
-  rot: North
-- partname: rcs
-  pos:
-  - -21
-  - 25
-  rot: South
 - partname: rcs
   pos:
   - -40
   - 9
-  rot: East
-- partname: frame3
-  pos:
-  - -36
-  - -15
   rot: East
 - partname: frame
   pos:
   - -6
   - -5
   rot: West
-- partname: small-motor
-  pos:
-  - -43
-  - -5
-  rot: East
-- partname: tank21
-  pos:
-  - -26
-  - -25
-  rot: North
 - partname: rcs
   pos:
-  - -40
-  - -15
-  rot: East
-- partname: tank21
-  pos:
-  - -26
-  - -15
+  - -3
+  - -29
   rot: North
-- partname: frame2
+- partname: frame3
   pos:
-  - -21
-  - -25
+  - 4
+  - -5
   rot: West
-- partname: cpu
+- partname: rcs
   pos:
-  - -5
-  - 16
-  rot: North
-- partname: tank11
-  pos:
-  - -26
-  - -5
+  - 3
+  - -29
   rot: North
 - partname: rcs
   pos:
-  - 14
-  - 15
+  - 44
+  - 10
+  rot: West
+- partname: rcs
+  pos:
+  - -3
+  - 25
   rot: South
-- partname: rcs
-  pos:
-  - 9
-  - -25
-  rot: West
 - partname: frame2
   pos:
   - -21
@@ -100,24 +120,44 @@ parts:
   rot: North
 - partname: rcs
   pos:
-  - 14
-  - -19
+  - 3
+  - 25
+  rot: South
+- partname: tank21
+  pos:
+  - -26
+  - -25
   rot: North
 - partname: frame
   pos:
   - -36
   - -5
   rot: West
+- partname: frame2
+  pos:
+  - -1
+  - -25
+  rot: North
 - partname: frame3
   pos:
   - -36
-  - 5
-  rot: West
-- partname: small-antenna
+  - -15
+  rot: East
+- partname: frame2
   pos:
-  - 9
-  - 19
-  rot: South
+  - -1
+  - 15
+  rot: North
+- partname: small-motor
+  pos:
+  - -43
+  - -5
+  rot: East
+- partname: rcs
+  pos:
+  - 44
+  - -16
+  rot: West
 - partname: cargo
   pos:
   - -6
@@ -125,36 +165,31 @@ parts:
   rot: East
 - partname: frame2
   pos:
-  - -11
+  - -21
   - -25
   rot: West
-- partname: frame2
+- partname: frame3
   pos:
-  - -1
-  - -25
-  rot: North
+  - 4
+  - -15
+  rot: West
+- partname: rcs
+  pos:
+  - -36
+  - 15
+  rot: South
 - partname: tank11
   pos:
-  - -6
-  - -25
+  - -16
+  - -5
   rot: North
-- partname: docking-port
+- partname: rcs
   pos:
-  - 24
-  - -10
+  - -40
+  - -15
   rot: East
-- partname: frame2
-  pos:
-  - -11
-  - 15
-  rot: North
 - partname: tank21
   pos:
   - -26
   - 15
-  rot: North
-- partname: rcs
-  pos:
-  - -21
-  - -29
   rot: North

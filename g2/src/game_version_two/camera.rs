@@ -4,7 +4,12 @@ pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (control_camera, track_selected_spacecraft).chain());
+        app.add_systems(Update, (control_camera, track_selected_spacecraft).chain())
+            // update_mouse_world_pos
+            .add_systems(PostUpdate, update_mouse_world_pos.in_set(Sets::PostPhysics))
+            // draw the mouse cursor
+            .add_systems(PostUpdate, draw_cursor_pos.in_set(Sets::Draw))
+            .insert_resource(CursorWorldPosition::default());
     }
 }
 
@@ -57,4 +62,47 @@ fn track_selected_spacecraft(
     let part = ok_or_return!(parts.get(id));
     let grid = ok_or_return!(grids.get(part.0));
     camera.translation = grid.translation();
+}
+
+#[derive(Resource, Default)]
+pub struct CursorWorldPosition {
+    pos: Option<Vec2>,
+    pub on_egui: bool,
+}
+
+impl CursorWorldPosition {
+    pub fn get(&self) -> Option<Vec2> {
+        (!self.on_egui).then(|| self.pos).flatten()
+    }
+}
+
+fn draw_cursor_pos(
+    mut painter: ShapePainter,
+    pos: Res<CursorWorldPosition>,
+    camera: Single<&Transform, With<Camera>>,
+) {
+    if let Some(p) = pos.get() {
+        painter.reset();
+        painter.set_translation(p.extend(100.0));
+        painter.set_color(Srgba::gray(0.4).with_alpha(0.6));
+        painter.circle(3.0 * camera.scale.x);
+    }
+}
+
+fn update_mouse_world_pos(
+    mut coords: ResMut<CursorWorldPosition>,
+    window: Single<&Window>,
+    camera: Single<(&Camera, &GlobalTransform)>,
+) {
+    let (camera, camera_transform) = *camera;
+
+    coords.pos = if let Some(world_position) = window
+        .cursor_position()
+        .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor).ok())
+        .map(|ray| ray.origin.truncate())
+    {
+        Some(world_position)
+    } else {
+        None
+    };
 }

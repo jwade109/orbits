@@ -316,7 +316,6 @@ pub fn to_srgba(fl: [f32; 4]) -> Srgba {
 pub fn draw_thruster(
     gizmos: &mut Gizmos,
     thruster: &ThrusterModel,
-    data: &ThrusterInstanceData,
     part_dims: Vec2,
     center: Vec2,
     scale: f32,
@@ -335,84 +334,24 @@ pub fn draw_thruster(
     let c1 = to_srgba(thruster.primary_color);
     let c2 = to_srgba(thruster.secondary_color);
 
-    if data.is_thrusting(thruster) {
-        let ul = rotate(u, thruster.plume_angle);
-        let ur = rotate(u, -thruster.plume_angle);
+    let ul = rotate(u, thruster.plume_angle);
+    let ur = rotate(u, -thruster.plume_angle);
 
-        for s in linspace(0.0, 1.0, 13) {
-            let length = thruster.plume_length
-                * rand(0.6, 1.0)
-                * data.throttle()
-                * ((s - 0.5) * PI).abs().cos();
+    for s in linspace(0.0, 1.0, 13) {
+        let length = thruster.plume_length * rand(0.6, 1.0) * ((s - 0.5) * PI).abs().cos();
 
-            let p4 = p2 + ul * length * scale;
-            let p5 = p3 + ur * length * scale;
+        let p4 = p2 + ul * length * scale;
+        let p5 = p3 + ur * length * scale;
 
-            let color = c1.mix(&c2, rand(0.0, 1.0));
-            let u = p2.lerp(p3, s);
-            let v = p4.lerp(p5, s);
-            gizmos.line_2d(u, v, color);
-        }
+        let color = c1.mix(&c2, rand(0.0, 1.0));
+        let u = p2.lerp(p3, s);
+        let v = p4.lerp(p5, s);
+        gizmos.line_2d(u, v, color);
     }
 }
 
 pub fn vehicle_sprite_path(disc: u64) -> String {
     format!("vehicle-{}", disc)
-}
-
-pub fn draw_vehicle(
-    canvas: &mut Canvas,
-    vehicle: &Vehicle,
-    pos: Vec2,
-    scale: f32,
-    angle: f32,
-    outline: bool,
-    thrusters: bool,
-) {
-    if outline {
-        for (_, part) in vehicle.parts_in_draw_order() {
-            let color = diagram_color(&part.prototype());
-            let color = Srgba::from_f32_array(color);
-            let dims = part.dims_meters();
-            let center = rotate(part.center_meters(), angle) * scale;
-            let obb = OBB::new(
-                AABB::from_arbitrary(scale * -dims / 2.0, scale * dims / 2.0),
-                angle,
-            )
-            .offset(center + pos);
-            draw_obb(canvas, &obb, color, false);
-            draw_obb(canvas, &obb, color.with_alpha(0.1), true);
-        }
-    }
-
-    let geo = vehicle.aabb().center;
-
-    if !outline {
-        canvas.sprite(
-            pos + rotate(geo, angle) * scale,
-            angle,
-            vehicle_sprite_path(vehicle.discriminator()),
-            ZOrdering::Vehicle,
-            vehicle.aabb().span * scale,
-        );
-    }
-
-    if thrusters {
-        for (_, part) in vehicle.parts() {
-            let dims = part.prototype().dims_meters();
-            if let Some((thruster, data)) = part.as_thruster() {
-                draw_thruster(
-                    &mut canvas.gizmos,
-                    thruster,
-                    data,
-                    dims,
-                    pos + rotate(part.center_meters() * scale, angle),
-                    scale,
-                    gcast(part.rotation().to_angle()) + angle,
-                );
-            }
-        }
-    }
 }
 
 fn draw_prograde_marker(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
@@ -554,16 +493,6 @@ pub fn draw_piloting_overlay(canvas: &mut Canvas, state: &GameState) -> Option<(
     );
 
     circle_entity(canvas, sv.target(), ctx, &state.universe, TEAL);
-
-    draw_vehicle(
-        canvas,
-        vehicle,
-        center,
-        zoom,
-        gcast(body.angle - ctx.angle()),
-        true,
-        true,
-    );
 
     {
         canvas.painter.reset();
@@ -827,18 +756,6 @@ fn draw_orbiter(canvas: &mut Canvas, state: &GameState, id: EntityId) -> Option<
         draw_diamond(&mut canvas.gizmos, screen_pos, 28.0, RED);
     } else if !sv.can_be_on_rails() && blinking {
         draw_diamond(&mut canvas.gizmos, screen_pos, 28.0, TEAL);
-    }
-
-    if meters.max_element() < 2500.0 {
-        draw_vehicle(
-            canvas,
-            &sv.vehicle,
-            screen_pos,
-            gcast(ctx.scale()),
-            gcast(sv.body.angle - ctx.angle()),
-            false,
-            true,
-        );
     }
 
     let color = if piloting {
@@ -1450,13 +1367,6 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
     );
 
     draw_notifications(&mut canvas.gizmos, &state);
-
-    draw_thrust_particles(
-        canvas,
-        ctx,
-        &state.universe.thrust_particles,
-        &state.universe,
-    );
 }
 
 pub fn draw_game_state(gizmos: Gizmos, mut state: ResMut<GameState>, painter: ShapePainter) {
@@ -1471,15 +1381,8 @@ pub fn draw_game_state(gizmos: Gizmos, mut state: ResMut<GameState>, painter: Sh
 pub fn draw_transforms(canvas: &mut Canvas, ctx: &LinearCameraController, universe: &Universe) {
     let camera_pv = PV::pos(ctx.offset());
 
-    let particle_transforms = universe
-        .thrust_particles
-        .particles
-        .iter()
-        .map(|t| (t.pv, t.parent));
-
     for (pv, parent) in universe
         .frames()
-        .chain(particle_transforms)
         .chain([(camera_pv, ctx.parent())])
     {
         let parent_pv = match universe.pv(parent) {
@@ -1615,47 +1518,5 @@ pub fn draw_camera_info(
             (c + p).extend(ZOrdering::ScaleIndicator.as_f32()),
             (c + q).extend(ZOrdering::ScaleIndicator.as_f32()),
         );
-    }
-}
-
-pub fn draw_thrust_particles(
-    canvas: &mut Canvas,
-    ctx: &impl CameraProjection,
-    particles: &ThrustParticleEffects,
-    universe: &Universe,
-) {
-    for particle in &particles.particles {
-        // TODO this is needlessly expensive. lots of particles will have
-        // the same parent transform
-        let parent_pv = if particle.parent == EntityId(0) {
-            PV::ZERO
-        } else {
-            match universe.pv(particle.parent) {
-                Some(pv) => pv,
-                None => continue,
-            }
-        };
-
-        let p = ctx.w2c(particle.pv.pos + parent_pv.pos);
-        let age = particle.age.to_secs();
-        let alpha = (1.0 - age / particle.lifetime.to_secs())
-            .powi(3)
-            .clamp(0.0, 1.0)
-            * (particle.atmo * 0.8 + 0.2);
-        let c1 = Srgba::from_f32_array(particle.initial_color);
-        let c2 = Srgba::from_f32_array(particle.final_color);
-        let color = c1.mix(&c2, age.clamp(0.0, 1.0).sqrt());
-        let size = (1.0 + age * 12.0) * particle.scale;
-        let ramp_up = (age * 40.0).clamp(0.0, 1.0);
-        let stretch = (8.0 * (1.0 - age * 2.0)).max(1.0);
-        canvas
-            .sprite(
-                p,
-                particle.angle,
-                "cloud",
-                ZOrdering::ThrustParticles,
-                Vec2::new(size * stretch * ramp_up, size * ramp_up) * gcast(ctx.scale()),
-            )
-            .set_color(color.with_alpha(color.alpha * alpha));
     }
 }

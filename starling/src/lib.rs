@@ -26,7 +26,6 @@ pub mod region;
 pub mod scenario;
 pub mod surface;
 pub mod take;
-pub mod thrust_particles;
 pub mod universe;
 pub mod vehicle;
 pub mod welding_particle;

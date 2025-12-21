@@ -46,7 +46,6 @@ pub struct Editor {
     pub action_queue: Vec<Action>,
     pub occupied: HashMap<PartLayer, HashMap<IVec2, PartId>>,
     pub vehicle: Vehicle,
-    pub particles: ThrustParticleEffects,
     pub build_particles: Vec<BuildParticle>,
 
     pub atmo: i32,
@@ -74,7 +73,6 @@ impl Editor {
             action_queue: Vec::new(),
             occupied: HashMap::new(),
             vehicle: Vehicle::new(),
-            particles: ThrustParticleEffects::new(),
             build_particles: Vec::new(),
             atmo: 3,
             show_vehicle_info: false,
@@ -412,25 +410,7 @@ impl Render for Editor {
         let other_buttons = other_buttons(state.settings.ui_button_height);
         // let actions = action_queue(&state.editor_context.action_queue);
 
-        let part_buttons = if let Some(id) = state.editor_context.selected_part {
-            if let Some(instance) = state.editor_context.vehicle.get_part(id) {
-                Some(part_ui_layout(
-                    state.settings.ui_button_height,
-                    id,
-                    instance,
-                ))
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-
-        let right_column = Node::column(400)
-            .invisible()
-            .with_child(other_buttons)
-            // .with_child(actions)
-            .with_child(part_buttons);
+        let right_column = Node::column(400).invisible().with_child(other_buttons);
 
         let main_area = Node::grow()
             .invisible()
@@ -467,8 +447,6 @@ impl Render for Editor {
             draw_aabb(canvas, ctx.w2c_aabb(aabb), GREEN);
         }
 
-        draw_thrust_particles(canvas, ctx, &ctx.particles, &Universe::empty());
-
         match &ctx.cursor_state {
             CursorState::None | CursorState::Part(_) => {
                 if let Some(p) = state.input.current() {
@@ -486,7 +464,7 @@ impl Render for Editor {
             None => "[No file open]".to_string(),
         };
 
-        let vehicle_info = vehicle_info(&ctx.vehicle);
+        let vehicle_info = String::new();
 
         let info: String = [
             filename,
@@ -571,19 +549,6 @@ impl Render for Editor {
             let com = ctx.vehicle.center_of_mass();
             draw_circle(&mut canvas.gizmos, ctx.w2c(com), 7.0, ORANGE);
             draw_x(&mut canvas.gizmos, ctx.w2c(com), 7.0, WHITE);
-
-            // thrust envelope
-            for (rcs, color) in [(false, RED), (true, BLUE)] {
-                let positions: Vec<_> = linspace_f64(0.0, 2.0 * PI_64, 200)
-                    .into_iter()
-                    .map(|a| {
-                        let thrust = ctx.vehicle.current_thrust_along_heading(a, rcs);
-                        let r = (1.0 + thrust.abs().sqrt() / 100.0) * ctx.vehicle.bounding_radius();
-                        ctx.w2c(rotate_f64(DVec2::X * r, a))
-                    })
-                    .collect();
-                canvas.gizmos.linestrip_2d(positions, color.with_alpha(0.6));
-            }
         }
 
         for layer in PartLayer::draw_order() {
@@ -592,9 +557,6 @@ impl Render for Editor {
                 .parts()
                 .filter(|(_, p)| p.prototype().layer() == layer)
             {
-                let detailed_part_info =
-                    ctx.focus_layer == Some(PartLayer::Internal) && ctx.show_vehicle_info;
-
                 let alpha = match (ctx.focus_layer, layer) {
                     (None, _) => 1.0,
                     (Some(PartLayer::Internal), PartLayer::Internal) => 1.0,
@@ -605,7 +567,6 @@ impl Render for Editor {
                     (Some(PartLayer::Exterior), _) => 0.02,
                 };
 
-                let dims = instance.dims_meters().as_dvec2();
                 let sprite_dims = instance.prototype().dims_meters();
                 let center = instance.center_meters().as_dvec2();
                 let p = instance.percent_built();
@@ -632,119 +593,11 @@ impl Render for Editor {
                         graphics_cast(sprite_dims.as_dvec2() * ctx.scale()),
                     )
                     .set_color(WHITE.with_alpha(alpha));
-
-                if detailed_part_info {
-                    if let Some((t, d)) = instance.as_tank() {
-                        let pct = t.percent_filled(d);
-                        let lower = center - dims / 2.0;
-                        let upper = lower + DVec2::new(dims.x, dims.y * pct);
-                        let aabb = AABB::from_arbitrary(
-                            aabb_stopgap_cast(lower),
-                            aabb_stopgap_cast(upper),
-                        );
-                        let color: Srgba = crate::sprites::hashable_to_color(&d.item()).into();
-                        let aabb = ctx.w2c_aabb(aabb);
-                        canvas.rect(aabb, ZOrdering::EditorTankFill, color.with_alpha(0.7));
-
-                        if let Some(item) = d.item() {
-                            let s = aabb.span.x.min(aabb.span.y) * 0.7;
-                            let path = item.to_sprite_name();
-                            canvas
-                                .sprite(
-                                    aabb.center,
-                                    0.0,
-                                    "cloud",
-                                    ZOrdering::EditorItemBackground,
-                                    Vec2::splat(s),
-                                )
-                                .set_color(BLACK);
-                            canvas.sprite(
-                                aabb.center,
-                                0.0,
-                                path,
-                                ZOrdering::EditorItem,
-                                Vec2::splat(s),
-                            );
-                        }
-                    }
-
-                    if let Some((_, d)) = instance.as_machine() {
-                        let pct = d.percent_complete() as f64;
-                        let lower = center - dims / 2.0;
-                        let upper = lower + DVec2::new(dims.x * pct, 0.1 * ctx.scale());
-                        let aabb = AABB::from_arbitrary(
-                            aabb_stopgap_cast(lower),
-                            aabb_stopgap_cast(upper),
-                        );
-                        canvas.rect(
-                            ctx.w2c_aabb(aabb),
-                            ZOrdering::EditorTankFill,
-                            RED.with_alpha(0.7),
-                        );
-                    }
-
-                    if let Some((c, d)) = instance.as_cargo() {
-                        let mut lower = center - dims / 2.0;
-
-                        for (item, mass) in d.contents() {
-                            let pct = mass.to_kg_f64() / c.capacity_mass().to_kg_f64();
-                            let upper = lower + DVec2::new(dims.x, dims.y * pct);
-                            let aabb = AABB::from_arbitrary(
-                                aabb_stopgap_cast(lower),
-                                aabb_stopgap_cast(upper),
-                            );
-                            let color = crate::sprites::hashable_to_color(&item);
-                            let aabb = ctx.w2c_aabb(aabb);
-                            canvas.rect(aabb, ZOrdering::EditorTankFill, color.with_alpha(0.4));
-
-                            let s = aabb.span.x.min(aabb.span.y) * 0.7;
-                            let path = item.to_sprite_name();
-                            canvas
-                                .sprite(
-                                    aabb.center,
-                                    0.0,
-                                    "cloud",
-                                    ZOrdering::EditorItemBackground,
-                                    Vec2::splat(s),
-                                )
-                                .set_color(BLACK);
-
-                            canvas.sprite(
-                                aabb.center,
-                                0.0,
-                                path,
-                                ZOrdering::EditorItem,
-                                Vec2::splat(s),
-                            );
-
-                            lower.y += dims.y * pct;
-                        }
-                    }
-                }
             }
         }
 
         if let Some(cursor) = state.input.position(MouseButt::Hover, FrameId::Current) {
             let c = ctx.c2w(cursor);
-
-            // let discrete = vround(c);
-
-            // for dx in -20..=20 {
-            //     for dy in -20..=20 {
-            //         let s = IVec2::new(dx, dy);
-            //         let p = discrete - s;
-            //         let d = (s.length_squared() as f32).sqrt();
-            //         let alpha = 0.2 * (1.0 - d / 100.0);
-            //         if alpha > 0.01 {
-            //             draw_diamond(
-            //                 &mut canvas.gizmos,
-            //                 ctx.w2c(p.as_vec2()),
-            //                 7.0,
-            //                 GRAY.with_alpha(alpha),
-            //             );
-            //         }
-            //     }
-            // }
 
             if Self::current_part_and_cursor_position(state).is_none() {
                 if let Some((id, _)) = ctx.get_part_at(graphics_cast(c)) {
@@ -769,7 +622,6 @@ impl Render for Editor {
                 GREEN.with_alpha(0.4),
                 ZOrdering::EditorMouseoverPartHighlight,
             );
-            // canvas.text(format!("{:#?}", instance), Vec2::new(300.0, 400.0), 0.6);
         }
 
         if let Some((p, current_part)) = Self::current_part_and_cursor_position(state) {
@@ -1036,27 +888,9 @@ impl Editor {
             }
         }
 
-        ctx.vehicle.on_sim_tick();
-
-        ctx.vehicle.set_all_thrusters(1.0);
-
         for particle in &mut ctx.build_particles {
             particle.on_sim_tick();
         }
-
-        let atmo = ctx.atmo as f32 / 10.0;
-
-        if state.settings.draw_thrust_particles {
-            add_particles_from_vehicle(
-                &mut ctx.particles,
-                EntityId(0),
-                &ctx.vehicle,
-                &RigidBody::ZERO,
-                atmo,
-            );
-        }
-
-        ctx.particles.step();
 
         ctx.build_particles.retain(|p| p.opacity() > 0.0);
     }

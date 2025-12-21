@@ -64,9 +64,12 @@ fn add_thruster_widget(ui: &mut egui::Ui, thruster: &mut Thruster) {
     running_status_widget(ui, thruster.status);
 }
 
-fn add_computer_widget(ui: &mut egui::Ui, computer: &mut Computer) {
-    ui.label(format!("{:#?}", computer));
-
+fn add_computer_widget(
+    ui: &mut egui::Ui,
+    e: Entity,
+    computer: &mut Computer,
+    commands: &mut Commands,
+) {
     let s = if computer.on { "ON " } else { "OFF" };
 
     ui.separator();
@@ -78,9 +81,20 @@ fn add_computer_widget(ui: &mut egui::Ui, computer: &mut Computer) {
 
     ui.separator();
 
+    ui.label(format!("Iters: {}", computer.iters));
     ui.label(format!("Mode: {:?}", &computer.mode));
 
-    let before = computer.mode;
+    ui.collapsing("Control Vector", |ui| {
+        ui.label(format!("{:#?}", &computer.vehicle_control));
+    });
+
+    ui.collapsing("Control Status", |ui| {
+        ui.label(format!("{:#?}", &computer.control_status));
+    });
+
+    if ui.button("Hold Here").clicked() {
+        commands.send_event(HoldHereCommand(e));
+    }
 
     egui::ComboBox::from_label("")
         .selected_text(format!("{:?}", computer.mode))
@@ -92,7 +106,7 @@ fn add_computer_widget(ui: &mut egui::Ui, computer: &mut Computer) {
         });
 
     match &mut computer.mode {
-        ComputerMode::None => (),
+        ComputerMode::Idle => (),
         ComputerMode::Manual => (),
         ComputerMode::AttitudeHold => {
             ui.label("Attitude Hold");
@@ -122,14 +136,14 @@ fn add_computer_widget(ui: &mut egui::Ui, computer: &mut Computer) {
                 ui.label("X");
                 ui.add(egui::Slider::new(
                     &mut computer.position.x,
-                    -1000.0..=1000.0,
+                    -100000.0..=100000.0,
                 ));
             });
             ui.horizontal(|ui| {
                 ui.label("Y");
                 ui.add(egui::Slider::new(
                     &mut computer.position.y,
-                    -1000.0..=1000.0,
+                    -100000.0..=100000.0,
                 ));
             });
             ui.horizontal(|ui| {
@@ -358,7 +372,7 @@ pub fn part_ui(
     if let Ok(mut computer) = computers.get_mut(e) {
         ui.separator();
         ui.heading("Computer");
-        add_computer_widget(ui, &mut computer);
+        add_computer_widget(ui, e, &mut computer, commands);
     }
 
     if let Ok(mut machine) = machines.get_mut(e) {
@@ -369,7 +383,7 @@ pub fn part_ui(
 
     if let Ok(mut docking_port) = docking_ports.get_mut(e) {
         ui.separator();
-        ui.heading("Docking Port");
+        ui.heading(format!("Docking Port {}", e));
         ui.label(format!("{:#?}", docking_port));
         // add_machine_widget(e, commands, ui, &mut machine);
     }
@@ -386,8 +400,10 @@ pub fn egui_ui(
     mut computers: Query<&mut Computer>,
     mut machines: Query<&mut Machine>,
     mut docking_ports: Query<&mut DockingPort>,
+    mut settings: ResMut<Settings>,
     con: Query<&mut ConstructionState>,
     cursor: Res<CursorInfo>,
+    mut mouse: ResMut<CursorWorldPosition>,
 ) -> Result {
     let ctx = contexts.ctx_mut()?;
 
@@ -413,17 +429,19 @@ pub fn egui_ui(
             }
 
             if let Some(e) = cursor.hovered {
-                part_ui(
-                    ui,
-                    e,
-                    &mut commands,
-                    parts,
-                    &mut inventories,
-                    &mut thrusters,
-                    &mut computers,
-                    &mut machines,
-                    &mut docking_ports,
-                );
+                if cursor.hovered != cursor.selected {
+                    part_ui(
+                        ui,
+                        e,
+                        &mut commands,
+                        parts,
+                        &mut inventories,
+                        &mut thrusters,
+                        &mut computers,
+                        &mut machines,
+                        &mut docking_ports,
+                    );
+                }
             }
         });
     }
@@ -432,13 +450,16 @@ pub fn egui_ui(
         apply_egui_style(ui);
         ui.set_width(350.0);
 
-        ui.collapsing("Machine", |ui| {
-            machine_editor_widget(&mut commands, cursor.selected, ui, machines);
-        });
-
-        ui.collapsing("Inventory", |ui| {
-            add_inventory_widget(cursor.selected, ui, &mut inventories);
-        });
+        ui.separator();
+        ui.heading("Settings");
+        ui.checkbox(&mut settings.draw_spatial_lut, "draw_spatial_lut");
+        ui.checkbox(&mut settings.draw_spacecraft_grids, "draw_spacecraft_grids");
+        ui.checkbox(&mut settings.draw_terrain_rgb, "draw_terrain_rgb");
+        ui.checkbox(&mut settings.show_wireframes, "show_wireframes");
+        ui.checkbox(&mut settings.draw_inventories, "draw_inventories");
+        ui.checkbox(&mut settings.draw_docking_info, "draw_docking_info");
+        ui.checkbox(&mut settings.dig_with_mouse, "dig_with_mouse");
+        ui.separator();
 
         ui.collapsing("Construction", |ui| {
             con_state_widget(cursor.selected, ui, con);
@@ -462,14 +483,17 @@ pub fn egui_ui(
             }
         });
 
-        let x = ui.collapsing("Selected Grid", |ui| {
-            if let Some((_, parent)) = cursor.selected.map(|e| parts.get(e).ok()).flatten() {
-                ui.label(format!("Spacecraft: {:#?}", parent.0));
-                if let Ok(grid) = grids.get(parent.0) {
-                    ui.label(format!("{:#?}", grid));
-                }
+        if let Some((_, parent)) = e.map(|e| parts.get(e).ok()).flatten() {
+            ui.separator();
+            ui.heading("Selected Grid");
+            ui.label(format!("Spacecraft: {:#?}", parent.0));
+            ui.label(format!("Part: {:?}", e));
+            ui.separator();
+            if let Ok(grid) = grids.get(parent.0) {
+                ui.label(format!("{:#?}", grid));
             }
-        });
+            ui.separator();
+        }
 
         ui.collapsing("Spawn Spacecraft", |ui| {
             ui.horizontal(|ui| {
@@ -498,5 +522,8 @@ pub fn egui_ui(
             }
         });
     });
+
+    mouse.on_egui = ctx.is_pointer_over_area();
+
     Ok(())
 }

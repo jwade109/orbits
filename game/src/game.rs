@@ -134,13 +134,12 @@ pub struct GameState {
     /// and button presses and holds.
     pub input: InputState,
 
-    pub console: DebugConsole,
-
     /// Contains CLI arguments
     pub args: ProgramContext,
 
     /// All the game entities and logic therein. This should be able to run
     /// autonomously without any user input with on_sim_tick.
+    #[deprecated]
     pub universe: Universe,
 
     /// Stores information and provides an API for interacting with the simulation
@@ -148,6 +147,7 @@ pub struct GameState {
     ///
     /// Additional information allows the user to select spacecraft and
     /// direct them to particular orbits, or manually pilot them.
+    #[deprecated]
     pub orbital_context: OrbitalContext,
 
     pub editor_context: Editor,
@@ -227,7 +227,6 @@ impl GameState {
             input: InputState::default(),
             args: args.clone(),
             universe,
-            console: DebugConsole::new(),
             orbital_context: OrbitalContext::new(),
             editor_context: Editor::new(),
             wall_time: Nanotime::zero(),
@@ -583,7 +582,6 @@ impl GameState {
     pub fn notice(&mut self, s: impl Into<String>) {
         let s = s.into();
         info!("Notice: {s}");
-        self.console.log(s);
     }
 
     pub fn notify(
@@ -703,23 +701,6 @@ impl GameState {
             }
             OnClick::NormalizeCraft => self.editor_context.normalize_coordinates(),
             OnClick::ReloadGame => _ = self.reload(),
-            OnClick::SetRecipe(id, recipe) => {
-                if self.editor_context.vehicle.set_recipe(id, recipe) {
-                    self.notice(format!("Set recipe for part {:?} to {:?}", id, recipe));
-                } else {
-                    self.notice(format!(
-                        "Failed to set recipe for part {:?} to {:?}",
-                        id, recipe
-                    ));
-                }
-            }
-            OnClick::ClearContents(id) => {
-                if self.editor_context.vehicle.clear_contents(id) {
-                    self.notice(format!("Cleared inventory for part {:?}", id));
-                } else {
-                    self.notice(format!("Failed to clear inventory for part {:?}", id));
-                }
-            }
             OnClick::SetControllerPolicy(policy) => {
                 self.set_controller_policy(policy);
             }
@@ -876,13 +857,6 @@ impl GameState {
 
         if self.input.just_pressed(KeyCode::KeyV) {
             self.zoom_to_vehicle(true);
-        }
-
-        if self.console.is_active() {
-            if let Some((decl, args)) = self.console.process_input(&mut self.input) {
-                decl.execute(self, args);
-            }
-            return;
         }
 
         if self.input.just_pressed(KeyCode::KeyB) {

@@ -99,9 +99,6 @@ fn simulate(
         //     .to_degrees()
         //     < 5.0;
 
-        let accel = sv.vehicle.body_frame_accel().linear.length();
-        sum_accel += accel;
-
         if i % 10 == 0 {
             sim.t.push(t);
             sim.x.push(sv.body.pv.pos.x);

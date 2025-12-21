@@ -1,9 +1,11 @@
 #![allow(unused)]
 
+use crate::game_version_two::*;
+
 use std::iter::Sum;
 use std::ops::*;
 
-#[derive(Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Mass(u64);
 
 impl Mass {

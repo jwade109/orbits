@@ -1,6 +1,6 @@
-!Generic
-  mass: 400000
-  layer: Internal
-  name: "docking-port"
-  dims: [11, 20]
-  is_docking_port: true
+mass: 40000
+layer: Internal
+name: "docking-port"
+dims: [11, 20]
+docking_port_data:
+  radius: 5.0

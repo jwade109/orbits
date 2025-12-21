@@ -1,17 +1,21 @@
-pub mod cargo;
+pub mod computer;
+pub mod docking_port;
 pub mod excavator;
 pub mod generic;
 pub mod gyro;
+pub mod inventory;
 pub mod machine;
 pub mod parts;
 pub mod rotation;
 pub mod tank;
 pub mod thruster;
 
-pub use cargo::*;
+pub use computer::*;
+pub use docking_port::*;
 pub use excavator::*;
 pub use generic::*;
 pub use gyro::*;
+pub use inventory::*;
 pub use machine::*;
 pub use parts::*;
 pub use rotation::*;

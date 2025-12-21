@@ -1,5 +1,4 @@
-!Generic
-  mass: 360000
-  layer: Internal
-  name: "wmata7000"
-  dims: [455, 69]
+mass: 360000
+layer: Internal
+name: "wmata7000"
+dims: [455, 69]

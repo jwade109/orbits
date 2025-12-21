@@ -1,5 +1,11 @@
-!Machine
-  mass: 960000
-  layer: Internal
-  dims: [20, 30]
-  sprites: 15
+mass: 960000
+layer: Internal
+dims: [20, 30]
+name: "chemical-plant"
+# sprites: 15
+machine_data:
+  whatever: "wow"
+# TODO we shouldn't need to include this component;
+# all machines manage their own inventories
+inventory_data:
+  slots: 3

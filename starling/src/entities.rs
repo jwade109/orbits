@@ -69,11 +69,6 @@ impl Spacecraft {
         self.body.pv
     }
 
-    pub fn linear_accel(&self) -> DVec2 {
-        let a = self.vehicle.body_frame_accel();
-        rotate_f64(a.linear, self.body.angle)
-    }
-
     pub fn target(&self) -> Option<EntityId> {
         self.target
     }
@@ -275,12 +270,6 @@ impl Spacecraft {
 
         self.controller
             .check_target_achieved(&self.body, gravity.length() > 0.0);
-        self.vehicle.set_thrust_control(&ctrl);
-        self.vehicle.on_sim_tick();
-
-        let accel = self.vehicle.body_frame_accel();
-        self.body
-            .on_sim_tick(accel, gravity, PHYSICS_CONSTANT_DELTA_TIME);
 
         // self.clamped_to_ground = self.body.clamp_with_elevation(parent_planet.body.radius);
 

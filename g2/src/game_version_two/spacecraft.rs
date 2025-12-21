@@ -12,52 +12,47 @@ pub struct SpacecraftPlugin;
 impl Plugin for SpacecraftPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(PhysicsPlugins::default());
-        app.insert_state(DebugGrids::Drawn);
-        app.insert_state(DebugInventories::Hidden);
 
         app.add_systems(
-            Update,
+            PostUpdate,
             (
-                draw_grids.run_if(in_state(DebugGrids::Drawn)),
-                draw_inventories.run_if(in_state(DebugInventories::Drawn)),
-                handle_sc_events,
-                handle_change_recipe,
+                draw_grids,
+                draw_inventories,
                 draw_selected_part,
                 draw_selected_grid_guides,
                 draw_spacecraft_spatial_lookups,
-                update_cursor_spacecraft,
-            ),
+                draw_docking_info,
+            )
+                .in_set(Sets::Draw),
         );
+
+        app.add_systems(Update, update_cursor_spacecraft.in_set(Sets::Input));
 
         app.add_systems(
             FixedUpdate,
             (
+                handle_sc_events,
+                handle_change_recipe,
+                check_adjacent_docking_ports,
+                on_attach_event,
+                send_attach_events,
+                update_thruster_emitters,
                 build_parts,
                 update_machines,
                 accelerate_spacecraft,
                 update_grids,
                 update_spacecraft_grid_map,
-            ),
+            )
+                .in_set(Sets::Physics),
         );
 
         app.add_event::<SpacecraftEvent>();
         app.add_event::<SetRecipe>();
+        app.add_event::<AttachPorts>();
 
         app.insert_resource(CursorInfo::default());
         app.insert_resource(GridSpatialLookup::default());
     }
-}
-
-#[derive(States, Debug, Hash, PartialEq, Eq, Clone, Copy)]
-pub enum DebugGrids {
-    Hidden,
-    Drawn,
-}
-
-#[derive(States, Debug, Hash, PartialEq, Eq, Clone, Copy)]
-pub enum DebugInventories {
-    Hidden,
-    Drawn,
 }
 
 #[derive(Resource, Debug, Default)]
@@ -84,8 +79,8 @@ pub struct SpacecraftGrid {
     parts: usize,
     inventory_mass: Mass,
     parts_mass: Mass,
+    moment_of_inertia: f64,
     bounds: (Vec2, Vec2),
-    pub position: Vec2,
     pub center_of_mass: Vec2,
     pub velocity: DVec2,
     pub angular_velocity: f64,
@@ -105,7 +100,7 @@ impl SpacecraftGrid {
     pub fn apply_body_frame_thrust(&mut self, thrust: Vec2, torque: f32) {
         self.body_frame_acceleration += thrust.as_dvec2() / self.total_mass().to_kg_f64();
         // TODO change to moment of inertia
-        self.angular_acceleration += 0.1 * (torque as f64 / self.total_mass().to_kg_f64()) as f32;
+        self.angular_acceleration += (torque as f64 / self.moment_of_inertia) as f32;
     }
 }
 
@@ -124,23 +119,40 @@ fn rect_area_moment_of_inertia_with_offset(distance: f32, dims: Vec2) {
     // let r = dims
 }
 
-fn draw_grids(mut painter: ShapePainter, crafts: Query<(&GlobalTransform, &SpacecraftGrid)>) {
-    for (tf, _) in &crafts {
+fn draw_grids(
+    mut painter: ShapePainter,
+    crafts: Query<(&GlobalTransform, &SpacecraftGrid)>,
+    settings: Res<Settings>,
+) {
+    if !settings.draw_spacecraft_grids {
+        return;
+    }
+
+    for (tf, grid) in &crafts {
         painter.reset();
         painter.set_translation(tf.translation().with_z(100.0));
         painter.set_rotation(tf.rotation());
         painter.set_color(TEAL);
-        painter.thickness = 4.0;
+        painter.thickness = 6.0;
         painter.hollow = true;
         painter.thickness_type = ThicknessType::Pixels;
-        painter.rect(Vec2::ONE * 0.2);
+        painter.rect(Vec2::ONE * 0.4);
+
+        painter.translate(grid.center_of_mass.extend(100.0));
+        painter.set_color(GREEN);
+        painter.rect(Vec2::ONE * 0.4);
     }
 }
 
 fn draw_inventories(
     mut painter: ShapePainter,
     parts: Query<(&GlobalTransform, &PartInstance, &Inventory)>,
+    settings: Res<Settings>,
 ) {
+    if !settings.draw_inventories {
+        return;
+    }
+
     let width = 0.1;
     for (tf, part, inventory) in parts {
         let n = inventory.slot_count();
@@ -219,13 +231,6 @@ fn draw_selected_grid_guides(
     painter.set_translation(tf.translation().with_z(-50.0));
     painter.set_rotation(tf.rotation());
     painter.rect(grid.dims());
-
-    painter.translate(grid.center_of_mass.extend(100.0));
-    painter.hollow = false;
-    painter.set_color(GREEN);
-    painter.circle(0.1);
-    painter.set_color(WHITE);
-    painter.circle(0.08);
 }
 
 fn draw_selected_part(
@@ -294,7 +299,7 @@ fn update_grids(
 
         for part in children.iter() {
             if let Ok((part, inv)) = parts.get(part) {
-                let part_mass = Mass::grams(part.prototype().dry_mass().to_grams());
+                let part_mass = Mass::grams(part.prototype().part_mass().to_grams());
                 let inv_mass = inv.map(|inv| inv.mass()).unwrap_or(Mass::ZERO);
                 grid.parts_mass += part_mass;
                 grid.inventory_mass += inv_mass;
@@ -311,6 +316,7 @@ fn update_grids(
             }
         }
 
+        grid.moment_of_inertia = grid.total_mass().to_kg_f64() * 10.0;
         grid.center_of_mass = (com / grid.total_mass().to_kg_f64()).as_vec2();
     }
 }
@@ -451,9 +457,8 @@ fn spawn_empty_grid<'a>(commands: &'a mut Commands, pos: Vec2, angle: f32) -> En
         Name::new("Grid"),
         Transform::from_translation(pos.extend(0.0)).with_rotation(Quat::from_rotation_z(angle)),
         SpacecraftGrid {
-            velocity: randvec(2.0, 4.0).as_dvec2() / 3.0,
+            // velocity: randvec(2.0, 4.0).as_dvec2() / 3.0,
             // angular_velocity: 0.3,
-            position: pos,
             ..default()
         },
         Visibility::default(),
@@ -505,38 +510,7 @@ fn add_part_to_grid<'a>(
         },
     );
 
-    let has_inventory = match part.variant() {
-        InstantiatedPartVariant::Thruster(..) => false,
-        InstantiatedPartVariant::Tank(..) => true,
-        InstantiatedPartVariant::Cargo(..) => true,
-        InstantiatedPartVariant::Machine(..) => true,
-        InstantiatedPartVariant::Generic(..) => false,
-    };
-
-    let is_machine = part.as_machine().is_some();
-    let is_thruster = part.as_thruster().is_some();
-    let is_computer = part.is_computer();
-    let is_docking_port = part.is_docking_port();
-    let is_structural = part.layer() == starling::parts::PartLayer::Structural;
-
-    let n_slots = match part.variant() {
-        InstantiatedPartVariant::Cargo(c, _) => c.slots(),
-        _ => 1,
-    };
-
-    let inv = if is_machine {
-        Inventory::zero_slots()
-    } else {
-        let mut inv = Inventory::zero_slots();
-        for _ in 0..n_slots {
-            let slot = InvSlot::new(Volume::liters(4000), ItemFilter::Any);
-            inv.add_slot(slot.with_item(Item::U235));
-        }
-        inv
-    };
-
     let mut cmd = commands.spawn((
-        Name::new(format!("Part ({})", name)),
         Transform::from_translation(origin.extend(z))
             .with_rotation(Quat::from_rotation_z(part.rotation().to_angle() as f32)),
         PartInstance(part.clone()),
@@ -544,7 +518,37 @@ fn add_part_to_grid<'a>(
         build,
     ));
 
-    if let Some((model, _)) = part.as_thruster() {
+    // INVENTORY COMPONENT ==================================================
+
+    let n_slots = part.inventory_data().map(|inv| inv.slots).unwrap_or(0);
+    let inv = if part.machine_data().is_some() {
+        Some(Inventory::zero_slots())
+    } else if n_slots > 0 {
+        let mut inv = Inventory::zero_slots();
+        for _ in 0..n_slots {
+            let slot = InvSlot::new(Volume::liters(4000), ItemFilter::Any);
+            inv.add_slot(slot.with_item(Item::random()));
+        }
+        Some(inv)
+    } else {
+        None
+    };
+
+    if let Some(inv) = inv {
+        cmd.insert(inv);
+    }
+
+    // MACHINE COMPONENT ==================================================
+
+    if let Some(data) = part.machine_data() {
+        // TODO use the data
+        let machine = Machine::new(RecipeListing::DoNothing);
+        cmd.insert(machine);
+    }
+
+    // THRUSTER COMPONENT ==================================================
+
+    if let Some(model) = part.thruster_data() {
         let mut inv = Inventory::single(Item::H2, Volume::liters(10));
         // inv.fill();
 
@@ -554,37 +558,47 @@ fn add_part_to_grid<'a>(
             Thruster::new(40000.0, false)
         };
 
-        cmd.insert((thruster, inv));
+        let particles = ParticleEmitter {
+            enabled: chance(0.05),
+            size: Vec3::splat(0.05),
+        };
+
+        cmd.insert((thruster, inv, particles));
     }
 
-    if is_computer {
+    // COMPUTER COMPONENT ==================================================
+
+    if let Some(cpu) = part.computer_data() {
         let mut cpu = Computer::default();
-        cpu.mode = ComputerMode::AttitudeHold;
+        cpu.mode = ComputerMode::Manual;
         cpu.attitude = rand(0.0, 2.0);
+        cpu.on = false;
         cmd.insert(cpu);
     }
 
+    // EXCAVATOR COMPONENT ==================================================
+
     if let Some(data) = part.excavator_data() {
         cmd.insert(Excavator {
-            is_enabled: chance(0.9),
+            is_enabled: true,
             radius: data.radius,
         });
     }
 
-    if is_docking_port {
+    // DOCKING PORT COMPONENT ===============================================
+
+    if let Some(data) = part.docking_port_data() {
         let docking = DockingPort::detached();
         cmd.insert(docking);
     }
 
-    cmd
-        // for cursor picking
-        .insert_if(Machine::new(RecipeListing::DoNothing), || is_machine)
-        .insert_if(inv, || has_inventory)
-        .with_child((
-            PartSprite,
-            sprite,
-            Transform::from_scale(Vec3::splat(1.0 / 20.0)),
-        ));
+    // SPRITE CHILD ENTITY ===============================================
+
+    cmd.with_child((
+        PartSprite,
+        sprite,
+        Transform::from_scale(Vec3::splat(1.0 / 20.0)),
+    ));
 }
 
 fn spawn_spacecraft(
@@ -618,9 +632,7 @@ fn accelerate_spacecraft(
         grid.velocity += world_frame_accel.as_dvec2() * dt;
         grid.angular_velocity += da;
         let ds = (grid.velocity * dt).as_vec2();
-        grid.position += ds;
-        let com_world = rotate(grid.center_of_mass, yaw);
-        tf.translation = (grid.position - com_world).extend(0.0);
+        tf.translation += ds.extend(0.0);
         tf.rotate_axis(Dir3::Z, (grid.angular_velocity * dt) as f32);
     }
 }
@@ -669,7 +681,15 @@ fn update_spacecraft_grid_map(
     }
 }
 
-fn draw_spacecraft_spatial_lookups(mut painter: ShapePainter, mut map: ResMut<GridSpatialLookup>) {
+fn draw_spacecraft_spatial_lookups(
+    mut painter: ShapePainter,
+    mut map: ResMut<GridSpatialLookup>,
+    settings: Res<Settings>,
+) {
+    if !settings.draw_spatial_lut {
+        return;
+    }
+
     for (g, _) in map.iter() {
         painter.reset();
         painter.set_color(ORANGE.with_alpha(0.1));
@@ -724,6 +744,7 @@ fn update_cursor_spacecraft(
     }
 
     if buttons.just_pressed(MouseButton::Left) {
+        info!("Clicked!");
         if cursor.hovered.is_some() {
             if cursor.hovered == cursor.selected {
                 cursor.selected = None;
@@ -731,5 +752,159 @@ fn update_cursor_spacecraft(
                 cursor.selected = cursor.hovered;
             }
         }
+    }
+}
+
+#[derive(Event, Debug)]
+pub struct AttachPorts(Entity);
+
+fn send_attach_events(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut attach: EventWriter<AttachPorts>,
+    cursor: Res<CursorInfo>,
+) {
+    if !keys.pressed(KeyCode::KeyJ) {
+        return;
+    }
+
+    let id = some_or_return!(cursor.selected);
+    let event = AttachPorts(id);
+    attach.write(event);
+}
+
+fn target_docking_transform(
+    ownship: &Transform,
+    port_a: &Transform,
+    port_b: &Transform,
+) -> Transform {
+    let inv_port_b = Transform::from_rotation(port_b.rotation.conjugate());
+    // let rot_180 = Quat::from_axis_angle(Vec3::Z, std::f32::consts::PI);
+    *ownship * *port_a * inv_port_b
+}
+
+fn on_attach_event(
+    mut attach: EventReader<AttachPorts>,
+    ports: Query<(&DockingPort, &Transform, &ChildOf), Without<SpacecraftGrid>>,
+    mut grids: Query<(&mut Transform, &mut SpacecraftGrid)>,
+) {
+    for msg in attach.read() {
+        dbg!(msg);
+        let (port, ownship_part, parent) = ok_or_continue!(ports.get(msg.0));
+        dbg!(port);
+        let target = some_or_continue!(port.target());
+        let (other_port, target_part, other_parent) = ok_or_continue!(ports.get(target));
+
+        if parent.0 == other_parent.0 {
+            warn!("Parents of attached ports are the same: {}", parent.0);
+            continue;
+        }
+
+        info!("Joining grids: {}, {}", parent.0, other_parent.0);
+
+        let (ownship_root, grid) = ok_or_continue!(grids.get(parent.0));
+
+        let ownship_root = ownship_root.clone();
+        let velocity = grid.velocity;
+        let angular_velocity = grid.angular_velocity;
+
+        let additional_velocity = ownship_part
+            .translation
+            .cross((Vec3::Z * angular_velocity as f32))
+            .xy()
+            .as_dvec2();
+
+        let (mut target_root, mut grid) = ok_or_continue!(grids.get_mut(other_parent.0));
+
+        *target_root = target_docking_transform(&ownship_root, &ownship_part, &target_part);
+
+        grid.velocity = velocity + additional_velocity;
+        grid.angular_velocity = angular_velocity;
+    }
+}
+
+pub const DOCKING_PORT_RADIUS: f32 = 5.0;
+
+fn check_adjacent_docking_ports(
+    mut commands: Commands,
+    mut painter: ShapePainter,
+    mut ports: Query<(Entity, &GlobalTransform, &mut DockingPort, &ChildOf)>,
+) {
+    let mut port_map: HashMap<IVec2, Vec<(Entity, Vec2, Entity)>> = HashMap::new();
+
+    for (e, transform, mut port, parent) in &mut ports {
+        port.attached = PortAttachment::None;
+
+        let pos = transform.translation().xy();
+        let g = to_grid(pos);
+        port_map
+            .entry(g)
+            .and_modify(|v| v.push((e, pos, parent.0)))
+            .or_insert(vec![(e, pos, parent.0)]);
+    }
+
+    for (_, entities) in port_map {
+        if entities.len() < 2 {
+            continue;
+        }
+
+        for i in 1..entities.len() {
+            for j in 0..i {
+                let (a, p1, pa) = entities[i];
+                let (b, p2, pb) = entities[j];
+
+                // these ports are attached to the same ship!
+                if pa == pb {
+                    continue;
+                }
+
+                if p1.distance(p2) < DOCKING_PORT_RADIUS {
+                    let mut port_a = ok_or_continue!(ports.get_mut(a));
+                    port_a.2.attached = PortAttachment::Seeking(b);
+
+                    let mut port_b = ok_or_continue!(ports.get_mut(b));
+                    port_b.2.attached = PortAttachment::Seeking(a);
+                }
+            }
+        }
+    }
+}
+
+fn draw_docking_info(
+    mut painter: ShapePainter,
+    settings: Res<Settings>,
+    ports: Query<(&DockingPort, &GlobalTransform)>,
+) {
+    if !settings.draw_docking_info {
+        return;
+    }
+
+    let z = 250.0;
+
+    for (port, tf) in ports {
+        let p1 = tf.translation().xy();
+
+        let target_id = some_or_continue!(port.target());
+        let (target_port, target_tf) = ok_or_continue!(ports.get(target_id));
+
+        let p2 = target_tf.translation().xy();
+
+        let q1 = p1.extend(z);
+        let q2 = p2.extend(z);
+        painter.reset();
+        painter.set_color(ORANGE);
+        painter.hollow = true;
+        painter.thickness = 2.0;
+        painter.thickness_type = ThicknessType::Pixels;
+        painter.line(q1, q2);
+        painter.set_translation(q1);
+        painter.circle(0.2);
+        painter.set_translation(q2);
+        painter.circle(0.2);
+    }
+}
+
+fn update_thruster_emitters(mut thrusters: Query<(&Thruster, &mut ParticleEmitter)>) {
+    for (t, mut p) in thrusters {
+        p.enabled = t.on && t.status == MachineStatus::Running;
     }
 }

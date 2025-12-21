@@ -1,5 +1,4 @@
-!Generic
-  mass: 1
-  layer: Exterior
-  name: "nothing"
-  dims: [10, 10]
+mass: 1
+layer: Exterior
+name: "nothing"
+dims: [10, 10]

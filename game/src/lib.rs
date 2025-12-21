@@ -1,13 +1,10 @@
 pub mod args;
 pub mod camera_controller;
 pub mod canvas;
-pub mod commands;
 pub mod craft_editor;
-pub mod debug_console;
 pub mod drawing;
 pub mod game;
 pub mod generate_ship_sprites;
-pub mod goals;
 pub mod graph;
 pub mod input;
 pub mod interactive;
