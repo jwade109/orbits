@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use crate::game_version_two::*;
+use serde::{Deserialize, Serialize};
 
 use std::iter::Sum;
 use std::ops::*;

@@ -11,6 +11,7 @@ pub struct Settings {
     pub draw_thruster_states: bool,
     pub dig_with_mouse: bool,
     pub follow_selected: bool,
+    pub infinite_fuel: bool,
 }
 
 impl Settings {
@@ -33,6 +34,7 @@ impl Default for Settings {
             draw_thruster_states: false,
             dig_with_mouse: false,
             follow_selected: true,
+            infinite_fuel: false,
         }
     }
 }

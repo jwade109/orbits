@@ -29,6 +29,11 @@ impl Volume {
         Self(l * Self::MICROLITERS_PER_LITER)
     }
 
+    pub fn liters_f32(l: f32) -> Self {
+        let milliliters = (l.max(0.0) * 1000.0).round() as u64;
+        Self(milliliters * Self::MICROLITERS_PER_MILLILITER)
+    }
+
     pub fn to_microliters(&self) -> u64 {
         self.0
     }

@@ -1,7 +1,9 @@
 mod inventory;
-mod mass;
+mod item_filter;
+mod machine_status;
 mod recipes;
 
 pub use inventory::*;
-pub use mass::*;
+pub use item_filter::*;
+pub use machine_status::*;
 pub use recipes::*;

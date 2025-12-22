@@ -37,11 +37,11 @@ pub fn apply_egui_style(ui: &mut egui::Ui) {
     }
 }
 
-pub fn item_dropdown(ui: &mut egui::Ui, selected: &mut Item, title: &str) {
+pub fn item_dropdown(ui: &mut egui::Ui, selected: &mut Item, title: &str, filter: &ItemFilter) {
     egui::ComboBox::from_label(title)
         .selected_text(format!("{:?}", selected))
         .show_ui(ui, |ui| {
-            for item in Item::all() {
+            for item in Item::all_that_passes(filter) {
                 let text = format!("{:?}", item);
                 ui.selectable_value(selected, item, text);
             }
@@ -78,7 +78,9 @@ fn debug_ui(
                 .text("Count"),
         );
 
-        item_dropdown(ui, &mut panel_state.item, "Item");
+        let filter = ItemFilter::Any;
+
+        item_dropdown(ui, &mut panel_state.item, "Item", &filter);
 
         if ui.button("Initiate").clicked() {
             let transfer = DebugInventoryTransfer {

@@ -1,4 +1,4 @@
-use crate::starling::factory::Mass;
+use crate::starling::units::Mass;
 use crate::starling::math::*;
 use serde::{Deserialize, Serialize};
 use bevy::math::UVec2;

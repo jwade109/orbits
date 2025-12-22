@@ -22,6 +22,7 @@ impl Plugin for SpacecraftPlugin {
                 draw_selected_grid_guides,
                 draw_spacecraft_spatial_lookups,
                 draw_docking_info,
+                // draw_transforms,
             )
                 .in_set(Sets::Draw),
         );
@@ -176,7 +177,7 @@ fn draw_inventories(
             painter.set_translation(tf.translation().with_z(10.0) + tf.up() * offset);
             painter.set_rotation(tf.rotation());
 
-            painter.set_color(BLACK.with_alpha(0.6));
+            painter.set_color(BLACK);
             painter.rect(small_dims + Vec2::splat(width * 2.0));
 
             painter.translate(Vec3::Z);
@@ -525,8 +526,9 @@ fn add_part_to_grid<'a>(
     if let Some(data) = part.inventory_data() {
         let mut inv = Inventory::zero_slots();
         for _ in 0..data.slots {
-            let slot = InvSlot::new(Volume::liters(4000), ItemFilter::Any);
-            inv.add_slot(slot.with_item(Item::random()));
+            let item = Item::random_with_filter(&data.filter).expect("Expected an item");
+            let slot = InvSlot::new(Volume::liters_f32(data.volume_liters), data.filter.clone());
+            inv.add_slot(slot.with_item(item));
         }
         cmd.insert(inv);
     }
@@ -545,8 +547,12 @@ fn add_part_to_grid<'a>(
     // THRUSTER COMPONENT ==================================================
 
     if let Some(model) = part.thruster_data() {
-        let mut inv = Inventory::single(Item::H2, Volume::liters(10));
-        // inv.fill();
+        let mut inv = Inventory::zero_slots();
+
+        let mut slot =
+            InvSlot::new(Volume::liters(5), ItemFilter::Item(Item::H2)).with_item(Item::H2);
+        slot.fill();
+        inv.add_slot(slot);
 
         let thruster = if model.is_rcs {
             Thruster::new(3000.0, true)
@@ -778,13 +784,16 @@ fn send_attach_events(
 }
 
 fn target_docking_transform(
-    ownship: &Transform,
-    port_a: &Transform,
-    port_b: &Transform,
+    ownship: Transform,
+    port_a: Transform,
+    port_b: Transform,
 ) -> Transform {
-    let inv_port_b = Transform::from_rotation(port_b.rotation.conjugate());
-    // let rot_180 = Quat::from_axis_angle(Vec3::Z, std::f32::consts::PI);
-    *ownship * *port_a * inv_port_b
+    let inv_port_b = port_b.with_rotation(port_b.rotation.conjugate());
+
+    let inv_port_a = port_a.with_rotation(port_a.rotation.conjugate());
+
+    let rot_180 = Quat::from_axis_angle(Vec3::Z, std::f32::consts::PI);
+    ownship * port_a * inv_port_b * Transform::from_rotation(rot_180)
 }
 
 fn on_attach_event(
@@ -820,7 +829,7 @@ fn on_attach_event(
 
         let (mut target_root, mut grid) = ok_or_continue!(grids.get_mut(other_parent.0));
 
-        *target_root = target_docking_transform(&ownship_root, &ownship_part, &target_part);
+        *target_root = target_docking_transform(ownship_root, *ownship_part, *target_part);
 
         grid.velocity = velocity + additional_velocity;
         grid.angular_velocity = angular_velocity;
@@ -911,5 +920,22 @@ fn draw_docking_info(
 fn update_thruster_emitters(mut thrusters: Query<(&Thruster, &mut ParticleEmitter)>) {
     for (t, mut p) in thrusters {
         p.enabled = t.on && t.status == MachineStatus::Running;
+    }
+}
+
+fn draw_transforms(mut painter: ShapePainter, query: Query<&GlobalTransform>) {
+    for tf in query {
+
+        let p = tf.translation().with_z(600.0);
+        let r = tf.right();
+        let u = tf.up();
+
+        painter.reset();
+        painter.thickness = 1.0;
+        painter.thickness_type = ThicknessType::Pixels;
+        painter.set_color(RED);
+        painter.line(p, p + (r * 0.3).with_z(0.0));
+        painter.set_color(GREEN);
+        painter.line(p, p + (u * 0.3).with_z(0.0));
     }
 }

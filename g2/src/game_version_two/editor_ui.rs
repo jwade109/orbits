@@ -178,9 +178,11 @@ fn add_inv_widget(ui: &mut egui::Ui, inv: &mut Inventory) {
             let c = item.color().to_u8_array();
             let color = egui::Color32::from_rgb(c[0], c[1], c[2]);
 
+            let filter = slot.filter();
+
             let mut selected = item;
             let title = format!("Slot {}", i);
-            item_dropdown(ui, &mut selected, &title);
+            item_dropdown(ui, &mut selected, &title, filter);
 
             if selected != item {
                 info!("Switched item: {:?}", selected);
@@ -199,6 +201,8 @@ fn add_inv_widget(ui: &mut egui::Ui, inv: &mut Inventory) {
                     if slot.is_full() { "*" } else { "" },
                 ));
             });
+
+            ui.label(format!("Filter: {:?}", filter));
 
             ui.add(egui::ProgressBar::new(slot.fill_percentage()).fill(color));
         } else {
@@ -456,6 +460,7 @@ pub fn egui_ui(
         ui.checkbox(&mut settings.draw_docking_info, "draw_docking_info");
         ui.checkbox(&mut settings.dig_with_mouse, "dig_with_mouse");
         ui.checkbox(&mut settings.follow_selected, "follow_selected");
+        ui.checkbox(&mut settings.infinite_fuel, "infinite_fuel");
         ui.separator();
 
         ui.collapsing("Construction", |ui| {

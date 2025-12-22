@@ -1,37 +1,35 @@
 use crate::starling::factory::*;
 use crate::starling::math::*;
 use enum_iterator::Sequence;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 #[derive(Debug, Default, Clone)]
 pub struct Recipe {
-    inputs: HashMap<Item, u64>,
-    outputs: HashMap<Item, u64>,
+    inputs: Vec<(Item, u64)>,
+    outputs: Vec<(Item, u64)>,
 }
 
 impl Recipe {
     pub fn consumes(item: Item, count: u64) -> Self {
         Self {
-            inputs: HashMap::from([(item, count)]),
-            outputs: HashMap::new(),
+            inputs: vec![(item, count)],
+            outputs: Vec::new(),
         }
     }
 
     pub fn produces(item: Item, count: u64) -> Self {
         Self {
-            inputs: HashMap::new(),
-            outputs: HashMap::from([(item, count)]),
+            inputs: Vec::new(),
+            outputs: vec![(item, count)],
         }
     }
 
     pub fn and_consumes(mut self, item: Item, count: u64) -> Self {
-        self.inputs.insert(item, count);
+        self.inputs.push((item, count));
         self
     }
 
     pub fn and_produces(mut self, item: Item, count: u64) -> Self {
-        self.outputs.insert(item, count);
+        self.outputs.push((item, count));
         self
     }
 
@@ -52,11 +50,11 @@ impl Recipe {
     }
 
     pub fn is_input(&self, item: Item) -> bool {
-        self.inputs.contains_key(&item)
+        self.inputs.iter().any(|(i, _)| *i == item)
     }
 
     pub fn is_output(&self, item: Item) -> bool {
-        self.outputs.contains_key(&item)
+        self.outputs.iter().any(|(i, _)| *i == item)
     }
 }
 
@@ -66,81 +64,9 @@ impl std::fmt::Display for Recipe {
     }
 }
 
-pub fn apply_recipe(inv: &mut Inventory, recipe: &Recipe) -> bool {
-    for (item, count) in &recipe.inputs {
-        if inv.count(*item) < *count {
-            return false;
-        }
-    }
-
-    for (item, count) in &recipe.outputs {
-        if !inv.can_store(*item, *count) {
-            return false;
-        }
-    }
-
-    for (item, count) in &recipe.inputs {
-        inv.take(*item, *count);
-    }
-
-    for (item, count) in &recipe.outputs {
-        inv.add(*item, *count);
-    }
-
-    return true;
-}
-
-pub fn sabatier_reaction() -> Recipe {
-    Recipe {
-        inputs: HashMap::from([(Item::CO2, 44), (Item::H2, 8)]),
-        outputs: HashMap::from([(Item::Methane, 16), (Item::Water, 36)]),
-    }
-}
-
-pub fn water_electrolysis() -> Recipe {
-    Recipe {
-        inputs: HashMap::from([(Item::Water, 9)]),
-        outputs: HashMap::from([(Item::O2, 8), (Item::H2, 1)]),
-    }
-}
-
-pub fn carbon_dioxide_condensation() -> Recipe {
-    Recipe {
-        inputs: HashMap::from([]),
-        outputs: HashMap::from([(Item::CO2, 100)]),
-    }
-}
-
-pub fn harvest_bread() -> Recipe {
-    Recipe {
-        inputs: HashMap::from([]),
-        outputs: HashMap::from([(Item::Bread, 10)]),
-    }
-}
-
-pub fn ice_melting() -> Recipe {
-    Recipe {
-        inputs: HashMap::from([(Item::Ice, 500)]),
-        outputs: HashMap::from([(Item::Water, 500)]),
-    }
-}
-
-pub fn ice_mining() -> Recipe {
-    Recipe {
-        inputs: HashMap::from([]),
-        outputs: HashMap::from([(Item::Ice, 10)]),
-    }
-}
-
-pub fn people_eat_things() -> Recipe {
-    Recipe {
-        inputs: HashMap::from([(Item::Water, 1_000_000), (Item::Bread, 1_000_000)]),
-        outputs: HashMap::from([(Item::People, 1)]),
-    }
-}
-
-#[derive(Debug, Clone, Copy, Sequence, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Default, Debug, Clone, Copy, Sequence, PartialEq, Eq)]
 pub enum RecipeListing {
+    #[default]
     DoNothing, // TODO maybe don't keep this
     Sabatier,
     WaterElectrolysis,
@@ -148,7 +74,26 @@ pub enum RecipeListing {
     HarvestBread,
     IceMelting,
     IceMining,
-    PeopleEatThings,
+    Enrichment,
+    TitaniumLattice,
+    Circuits,
+}
+
+impl RecipeListing {
+    pub fn to_recipe(&self) -> Recipe {
+        match self {
+            RecipeListing::DoNothing => Recipe::default(),
+            RecipeListing::Sabatier => sabatier_reaction(),
+            RecipeListing::WaterElectrolysis => water_electrolysis(),
+            RecipeListing::CarbonDioxideCondensation => carbon_dioxide_condensation(),
+            RecipeListing::HarvestBread => harvest_bread(),
+            RecipeListing::IceMelting => ice_melting(),
+            RecipeListing::IceMining => ice_mining(),
+            RecipeListing::Enrichment => enrichment(),
+            RecipeListing::TitaniumLattice => titanium_lattice(),
+            RecipeListing::Circuits => circuits(),
+        }
+    }
 }
 
 impl RecipeListing {
@@ -160,5 +105,72 @@ impl RecipeListing {
         let variants: Vec<_> = Self::all().collect();
         let n = randint(0, variants.len() as i32);
         variants[n as usize]
+    }
+}
+
+pub fn sabatier_reaction() -> Recipe {
+    Recipe {
+        inputs: vec![(Item::CO2, 44), (Item::H2, 8)],
+        outputs: vec![(Item::Methane, 16), (Item::Water, 36)],
+    }
+}
+
+pub fn water_electrolysis() -> Recipe {
+    Recipe {
+        inputs: vec![(Item::Water, 9)],
+        outputs: vec![(Item::O2, 8), (Item::H2, 1)],
+    }
+}
+
+pub fn carbon_dioxide_condensation() -> Recipe {
+    Recipe {
+        inputs: vec![],
+        outputs: vec![(Item::CO2, 100)],
+    }
+}
+
+pub fn harvest_bread() -> Recipe {
+    Recipe {
+        inputs: vec![],
+        outputs: vec![(Item::Bread, 10)],
+    }
+}
+
+pub fn ice_melting() -> Recipe {
+    Recipe {
+        inputs: vec![(Item::Ice, 500)],
+        outputs: vec![(Item::Water, 500)],
+    }
+}
+
+pub fn ice_mining() -> Recipe {
+    Recipe {
+        inputs: vec![],
+        outputs: vec![(Item::Ice, 10)],
+    }
+}
+
+pub fn enrichment() -> Recipe {
+    Recipe {
+        inputs: vec![(Item::U238, 20), (Item::U235, 10)],
+        outputs: vec![(Item::U238, 19), (Item::U235, 11)],
+    }
+}
+
+pub fn titanium_lattice() -> Recipe {
+    Recipe {
+        inputs: vec![
+            (Item::Titanium, 1400),
+            (Item::Iron, 430),
+            (Item::Magnesium, 70),
+        ],
+        outputs: vec![(Item::TitaniumLattice, 1)],
+    }
+}
+
+pub fn circuits() -> Recipe {
+    Recipe {
+        inputs: vec![(Item::Copper, 23), (Item::Silicon, 45), (Item::Plastic, 22)],
+        outputs: vec![(Item::Circuit, 1)],
     }
 }

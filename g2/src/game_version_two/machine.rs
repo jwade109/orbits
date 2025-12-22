@@ -12,22 +12,6 @@ pub struct Machine {
     pub status: MachineStatus,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum MachineStatus {
-    #[default]
-    Off,
-    NoRecipe,
-    Running,
-    NoRoom,
-    Starved,
-}
-
-impl MachineStatus {
-    pub fn is_running(&self) -> bool {
-        *self == MachineStatus::Running
-    }
-}
-
 impl Machine {
     pub fn new(recipe: RecipeListing) -> Self {
         Self {
