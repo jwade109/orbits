@@ -18,18 +18,6 @@ impl Default for DebugPanelState {
     }
 }
 
-fn apply_egui_style(ui: &mut egui::Ui) {
-    let x = ui.style_mut();
-    x.spacing.window_margin = egui::Margin::same(40);
-    x.spacing.item_spacing.y = 5.0;
-    x.spacing.button_padding.x = 5.0;
-    x.spacing.button_padding.y = 5.0;
-    x.visuals.dark_mode = false;
-    for x in &mut x.text_styles {
-        x.1.size *= 1.2;
-    }
-}
-
 fn con_state_widget(id: Option<Entity>, ui: &mut egui::Ui, mut con: Query<&mut ConstructionState>) {
     let id = if let Some(id) = id {
         id
@@ -162,7 +150,7 @@ fn add_inv_widget(ui: &mut egui::Ui, inv: &mut Inventory) {
         inv.capacity()
     ));
 
-    for slot in inv.slots_mut() {
+    for (i, slot) in inv.slots_mut().enumerate() {
         ui.separator();
 
         ui.horizontal(|ui| {
@@ -189,6 +177,14 @@ fn add_inv_widget(ui: &mut egui::Ui, inv: &mut Inventory) {
         if let Some((item, count)) = slot.contents() {
             let c = item.color().to_u8_array();
             let color = egui::Color32::from_rgb(c[0], c[1], c[2]);
+
+            let mut selected = item;
+            let title = format!("Slot {}", i);
+            item_dropdown(ui, &mut selected, &title);
+
+            if selected != item {
+                info!("Switched item: {:?}", selected);
+            }
 
             ui.horizontal(|ui| {
                 let size = bevy_inspector_egui::egui::Vec2::new(10.0, 10.0);
@@ -232,7 +228,7 @@ fn add_inventory_widget(
     add_inv_widget(ui, &mut inv);
 }
 
-fn running_status_widget(ui: &mut egui::Ui, status: MachineStatus) {
+pub fn running_status_widget(ui: &mut egui::Ui, status: MachineStatus) {
     let color = match status {
         MachineStatus::Off => egui::Color32::GRAY,
         MachineStatus::NoRecipe => egui::Color32::RED,
@@ -402,7 +398,7 @@ pub fn egui_ui(
     mut docking_ports: Query<&mut DockingPort>,
     mut settings: ResMut<Settings>,
     con: Query<&mut ConstructionState>,
-    cursor: Res<CursorInfo>,
+    cursor: Res<SelectedSpacecraft>,
     mut mouse: ResMut<CursorWorldPosition>,
 ) -> Result {
     let ctx = contexts.ctx_mut()?;
@@ -459,6 +455,7 @@ pub fn egui_ui(
         ui.checkbox(&mut settings.draw_inventories, "draw_inventories");
         ui.checkbox(&mut settings.draw_docking_info, "draw_docking_info");
         ui.checkbox(&mut settings.dig_with_mouse, "dig_with_mouse");
+        ui.checkbox(&mut settings.follow_selected, "follow_selected");
         ui.separator();
 
         ui.collapsing("Construction", |ui| {

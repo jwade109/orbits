@@ -5,3 +5,4 @@ dims: [120, 50]
 # sprites: 16
 inventory_data:
   slots: 1
+  filter: Pellets

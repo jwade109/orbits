@@ -10,6 +10,7 @@ pub struct Settings {
     pub draw_docking_info: bool,
     pub draw_thruster_states: bool,
     pub dig_with_mouse: bool,
+    pub follow_selected: bool,
 }
 
 impl Settings {
@@ -31,6 +32,7 @@ impl Default for Settings {
             draw_docking_info: false,
             draw_thruster_states: false,
             dig_with_mouse: false,
+            follow_selected: true,
         }
     }
 }

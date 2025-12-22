@@ -438,28 +438,34 @@ impl Inventory {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum ItemFilter {
     Any,
-    Fluids,
     Solid,
+    Liquid,
+    Pellets,
+    Manufactured,
+    Foodstuffs,
+    Item(Item),
+    Many(Vec<Item>),
 }
 
 impl ItemFilter {
-    pub fn all() -> impl Iterator<Item = ItemFilter> {
-        [ItemFilter::Any, ItemFilter::Fluids, ItemFilter::Solid].into_iter()
-    }
-
     pub fn passes(&self, item: Item) -> bool {
         match self {
             ItemFilter::Any => true,
-            ItemFilter::Fluids => item.is_fluid(),
+            ItemFilter::Liquid => item.is_fluid(),
             ItemFilter::Solid => item.is_solid_cargo(),
+            ItemFilter::Pellets => todo!(),
+            ItemFilter::Manufactured => todo!(),
+            ItemFilter::Foodstuffs => todo!(),
+            ItemFilter::Item(item) => todo!(),
+            ItemFilter::Many(items) => todo!(),
         }
     }
 }
 
-#[derive(Component, Debug, Clone, Copy)]
+#[derive(Component, Debug, Clone)]
 pub struct InvSlot {
     capacity: Volume,
     filter: ItemFilter,
@@ -488,8 +494,8 @@ impl InvSlot {
         self.contents.map(|(_, count)| count).unwrap_or(0)
     }
 
-    pub fn filter(&self) -> ItemFilter {
-        self.filter
+    pub fn filter(&self) -> &ItemFilter {
+        &self.filter
     }
 
     pub fn contents(&self) -> Option<(Item, u64)> {
@@ -654,6 +660,28 @@ impl std::fmt::Display for Inventory {
         }
         Ok(())
     }
+}
+
+/// moves item from one inventory to another without leaving either inventory
+/// in a state which would destroy or duplicate items
+pub fn atomic_transfer(
+    src: &mut Inventory,
+    dst: &mut Inventory,
+    item: Item,
+    count: u64,
+) -> MachineStatus {
+    if !src.can_take(item, count) {
+        return MachineStatus::Starved;
+    }
+
+    if !dst.can_store(item, count) {
+        return MachineStatus::NoRoom;
+    }
+
+    src.take(item, count);
+    dst.store(item, count);
+
+    return MachineStatus::Running;
 }
 
 #[cfg(test)]

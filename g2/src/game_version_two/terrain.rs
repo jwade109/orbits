@@ -609,7 +609,7 @@ fn draw_highlighted_lattice_points(
     cursor: Res<CursorWorldPosition>,
     mut chunks: Query<&mut TerrainChunk>,
     btn: Res<ButtonInput<MouseButton>>,
-    info: Res<CursorInfo>,
+    info: Res<SelectedSpacecraft>,
     settings: Res<Settings>,
 ) {
     let pos = match cursor.get() {

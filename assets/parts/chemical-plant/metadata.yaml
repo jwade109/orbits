@@ -5,7 +5,3 @@ name: "chemical-plant"
 # sprites: 15
 machine_data:
   whatever: "wow"
-# TODO we shouldn't need to include this component;
-# all machines manage their own inventories
-inventory_data:
-  slots: 3

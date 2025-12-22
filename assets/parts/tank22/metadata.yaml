@@ -3,3 +3,4 @@ mass: 650000
 dims: [20, 20]
 inventory_data:
   slots: 1
+  filter: Liquid

@@ -53,11 +53,16 @@ fn control_camera(
 }
 
 fn track_selected_spacecraft(
-    cursor: Res<CursorInfo>,
+    cursor: Res<SelectedSpacecraft>,
     grids: Query<&GlobalTransform, With<SpacecraftGrid>>,
     parts: Query<&ChildOf, With<PartInstance>>,
+    settings: Res<Settings>,
     mut camera: Single<&mut Transform, With<Camera>>,
 ) {
+    if !settings.follow_selected {
+        return;
+    }
+
     let id = some_or_return!(cursor.selected);
     let part = ok_or_return!(parts.get(id));
     let grid = ok_or_return!(grids.get(part.0));

@@ -18,6 +18,7 @@ mod system_sets;
 mod terrain;
 mod thruster;
 mod volume;
+mod inventory_transfer;
 
 pub use animated_text::*;
 pub use camera::*;
@@ -37,6 +38,7 @@ pub use system_sets::*;
 pub use terrain::*;
 pub use thruster::*;
 pub use volume::*;
+pub use inventory_transfer::*;
 
 pub use bevy::color::palettes::css::*;
 pub use bevy::input::mouse::MouseWheel;

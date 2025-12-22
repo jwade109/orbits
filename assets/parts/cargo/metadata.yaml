@@ -4,3 +4,4 @@ name: "cargo"
 dims: [30, 30]
 inventory_data:
   slots: 4
+  filter: Solid

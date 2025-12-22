@@ -50,15 +50,16 @@ impl Plugin for SpacecraftPlugin {
         app.add_event::<SetRecipe>();
         app.add_event::<AttachPorts>();
 
-        app.insert_resource(CursorInfo::default());
+        app.insert_resource(SelectedSpacecraft::default());
         app.insert_resource(GridSpatialLookup::default());
     }
 }
 
 #[derive(Resource, Debug, Default)]
-pub struct CursorInfo {
+pub struct SelectedSpacecraft {
     pub selected: Option<Entity>,
     pub hovered: Option<Entity>,
+    pub secondary: Option<Entity>,
 }
 
 #[derive(Event, Debug)]
@@ -201,7 +202,7 @@ fn draw_selected_grid_guides(
     mut painter: ShapePainter,
     grids: Query<(&GlobalTransform, &SpacecraftGrid)>,
     parts: Query<&ChildOf, With<PartInstance>>,
-    cursor: Res<CursorInfo>,
+    cursor: Res<SelectedSpacecraft>,
 ) {
     let id = match cursor.selected {
         Some(c) => c,
@@ -236,15 +237,16 @@ fn draw_selected_grid_guides(
 fn draw_selected_part(
     mut painter: ShapePainter,
     parts: Query<(&GlobalTransform, &PartInstance)>,
-    sel: Res<CursorInfo>,
+    sel: Res<SelectedSpacecraft>,
     time: Res<Time>,
 ) {
     let angle = time.elapsed_secs_f64() % (2.0 * std::f64::consts::PI);
     let angle = angle as f32;
 
     for (color, e, ring) in [
-        (TEAL.with_alpha(0.7), sel.hovered, false),
-        (ORANGE.with_alpha(0.9), sel.selected, true),
+        (RED.with_alpha(0.8), sel.hovered, false),
+        (ORANGE, sel.selected, false),
+        (TEAL, sel.secondary, false),
     ] {
         let e = match e {
             Some(e) => e,
@@ -253,15 +255,15 @@ fn draw_selected_part(
 
         if let Ok((tf, part)) = parts.get(e) {
             let dims = part.prototype().dims_meters();
-            let r = dims.length() / 2.0 + 0.2;
+            let r = dims.length() / 2.0 + 0.5;
             painter.reset();
             painter.set_translation(tf.translation().with_z(50.0));
             painter.set_rotation(tf.rotation());
             painter.set_color(color);
-            painter.thickness = 0.05;
+            painter.thickness = 0.1;
             painter.hollow = true;
             painter.thickness_type = ThicknessType::World;
-            painter.rect(dims + Vec2::splat(0.1));
+            painter.rect(dims + Vec2::splat(0.2));
             if ring {
                 painter.arc(r, angle, angle + 6.1);
             }
@@ -520,21 +522,12 @@ fn add_part_to_grid<'a>(
 
     // INVENTORY COMPONENT ==================================================
 
-    let n_slots = part.inventory_data().map(|inv| inv.slots).unwrap_or(0);
-    let inv = if part.machine_data().is_some() {
-        Some(Inventory::zero_slots())
-    } else if n_slots > 0 {
+    if let Some(data) = part.inventory_data() {
         let mut inv = Inventory::zero_slots();
-        for _ in 0..n_slots {
+        for _ in 0..data.slots {
             let slot = InvSlot::new(Volume::liters(4000), ItemFilter::Any);
             inv.add_slot(slot.with_item(Item::random()));
         }
-        Some(inv)
-    } else {
-        None
-    };
-
-    if let Some(inv) = inv {
         cmd.insert(inv);
     }
 
@@ -544,6 +537,9 @@ fn add_part_to_grid<'a>(
         // TODO use the data
         let machine = Machine::new(RecipeListing::DoNothing);
         cmd.insert(machine);
+
+        let inv = Inventory::zero_slots();
+        cmd.insert(inv);
     }
 
     // THRUSTER COMPONENT ==================================================
@@ -704,7 +700,7 @@ fn draw_spacecraft_spatial_lookups(
 }
 
 fn update_cursor_spacecraft(
-    mut cursor: ResMut<CursorInfo>,
+    mut cursor: ResMut<SelectedSpacecraft>,
     map: Res<GridSpatialLookup>,
     pos: Res<CursorWorldPosition>,
     grids: Query<(&GlobalTransform, &Children), With<SpacecraftGrid>>,
@@ -744,12 +740,21 @@ fn update_cursor_spacecraft(
     }
 
     if buttons.just_pressed(MouseButton::Left) {
-        info!("Clicked!");
         if cursor.hovered.is_some() {
             if cursor.hovered == cursor.selected {
                 cursor.selected = None;
             } else {
                 cursor.selected = cursor.hovered;
+            }
+        }
+    }
+
+    if buttons.just_pressed(MouseButton::Right) {
+        if cursor.hovered.is_some() {
+            if cursor.hovered == cursor.secondary {
+                cursor.secondary = None;
+            } else {
+                cursor.secondary = cursor.hovered;
             }
         }
     }
@@ -761,7 +766,7 @@ pub struct AttachPorts(Entity);
 fn send_attach_events(
     keys: Res<ButtonInput<KeyCode>>,
     mut attach: EventWriter<AttachPorts>,
-    cursor: Res<CursorInfo>,
+    cursor: Res<SelectedSpacecraft>,
 ) {
     if !keys.pressed(KeyCode::KeyJ) {
         return;
