@@ -5,8 +5,8 @@ use crate::z_index::ZOrdering;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 pub use bevy::sprite::Anchor;
-use layout::layout::Tree;
-use starling::math::Vec2;
+use crate::layout::layout::Tree;
+use bevy::math::Vec2;
 
 #[derive(Debug, Clone)]
 pub struct TextLabel {

@@ -5,7 +5,7 @@ use crate::{
 };
 use bevy::prelude::*;
 pub use bevy_vector_shapes::prelude::*;
-use starling::aabb::AABB;
+use crate::starling::aabb::AABB;
 
 pub struct Canvas<'w, 's> {
     pub gizmos: Gizmos<'w, 's>,

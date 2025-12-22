@@ -1,7 +1,7 @@
 use crate::scenes::CursorMode;
 use crate::scenes::SceneType;
 use crate::sim_rate::SimRate;
-use starling::prelude::*;
+use crate::starling::prelude::*;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, PartialEq)]

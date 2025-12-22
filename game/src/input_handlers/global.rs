@@ -1,6 +1,6 @@
 use crate::prelude::*;
 use bevy::input::keyboard::KeyCode;
-use starling::prelude::*;
+use crate::starling::prelude::*;
 
 fn combo_just_pressed(input: &InputState, keys: &[KeyCode]) -> bool {
     if let Some(l) = keys.last() {

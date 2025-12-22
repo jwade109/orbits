@@ -1,7 +1,7 @@
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use lazy_static::lazy_static;
-use starling::prelude::*;
+use crate::starling::prelude::*;
 
 pub struct Signal<'a> {
     graph: &'a Graph,

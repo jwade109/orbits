@@ -1,6 +1,6 @@
 use crate::prelude::*;
 use bevy::input::keyboard::KeyCode;
-use starling::prelude::*;
+use crate::starling::prelude::*;
 
 pub fn on_editor_render_tick(state: &mut GameState) {
     state

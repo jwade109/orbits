@@ -57,7 +57,7 @@ pub use game::args::ProgramContext;
 pub use noise::{NoiseFn, Perlin, Seedable, Simplex};
 pub use serde::{Deserialize, Serialize};
 pub use serde_yaml::{from_str, to_string};
-pub use starling::prelude::{
+pub use game::starling::prelude::{
     ComputerData, ExcavatorData, InstantiatedPart, PDCtrl, PV, PartLayer, PartPrototype,
     RigidBody, Rotation, ThrusterModel, Vehicle, VehicleControl, VehicleControlStatus,
     attitude_control_law, chance, cross2d, position_hold_control_law, rand, randint, randvec,

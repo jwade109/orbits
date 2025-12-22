@@ -1,6 +1,6 @@
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
-use starling::prelude::*;
+use game::starling::prelude::*;
 
 pub struct AnimatedTextPlugin;
 

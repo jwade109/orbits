@@ -12,8 +12,8 @@ use bevy::render::{
 };
 use bevy::sprite::Anchor;
 use bevy::text::TextBounds;
-use layout::layout::{Node, Size, TextJustify, Tree};
-use starling::prelude::*;
+use crate::layout::layout::{Node, Size, TextJustify, Tree};
+use crate::starling::prelude::*;
 
 pub struct UiPlugin;
 
@@ -125,30 +125,14 @@ pub fn basic_scenes_layout(state: &GameState) -> Tree<OnClick> {
     }
 
     let top_bar = top_bar(state);
-    let notif_bar = notification_bar(state, Size::Fixed(900.0));
 
     let layout = Node::new(vb.span.x, vb.span.y)
         .tight()
         .invisible()
         .down()
-        .with_child(top_bar)
-        .with_child(notif_bar);
+        .with_child(top_bar);
 
     Tree::new().with_layout(layout, Vec2::ZERO)
-}
-
-pub fn notification_bar(state: &GameState, width: Size) -> Node<OnClick> {
-    Node::new(width, Size::Fit)
-        .down()
-        .tight()
-        .invisible()
-        .with_children(state.notifications.iter().rev().take(20).rev().map(|n| {
-            let s = format!("{}", n);
-            Node::new(width, 28)
-                .with_text(s)
-                .with_justify(TextJustify::Left)
-                .with_color([0.0, 0.0, 0.0, 0.0])
-        }))
 }
 
 #[deprecated]

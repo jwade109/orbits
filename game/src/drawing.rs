@@ -2,14 +2,13 @@ use bevy::color::palettes::basic::*;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use bevy_vector_shapes::prelude::*;
-use starling::prelude::*;
+use crate::starling::prelude::*;
 
 use crate::camera_controller::*;
 use crate::canvas::Canvas;
 use crate::game::GameState;
 use crate::graph::*;
 use crate::input::*;
-use crate::notifications::*;
 use crate::scenes::*;
 use crate::z_index::*;
 
@@ -75,51 +74,6 @@ pub fn fill_aabb(canvas: &mut Canvas, aabb: AABB, color: Srgba) {
 pub fn draw_and_fill_aabb(canvas: &mut Canvas, aabb: AABB, color: Srgba) {
     fill_aabb(canvas, aabb, color);
     draw_aabb(canvas, aabb, color);
-}
-
-#[allow(unused)]
-fn draw_region(
-    canvas: &mut Canvas,
-    region: Region,
-    ctx: &impl CameraProjection,
-    color: Srgba,
-    origin: DVec2,
-) {
-    match region {
-        Region::AABB(aabb) => {
-            let p1 = ctx.w2c(aabb.lower().as_dvec2());
-            let p2 = ctx.w2c(aabb.upper().as_dvec2());
-            draw_aabb(canvas, AABB::from_arbitrary(p1, p2), color)
-        }
-        Region::OrbitRange(a, b) => {
-            draw_orbit(canvas, &a, origin, color, false, ctx);
-            draw_orbit(canvas, &b, origin, color, false, ctx);
-            for angle in linspace_f64(0.0, 2.0 * PI_64, 40) {
-                let u = rotate_f64(DVec2::X, angle);
-                let p1 = origin + u * a.radius_at_angle(angle);
-                let p2 = origin + u * b.radius_at_angle(angle);
-                canvas.gizmos.line_2d(
-                    graphics_cast(p1),
-                    graphics_cast(p2),
-                    color.with_alpha(color.alpha * 0.2),
-                );
-            }
-        }
-        Region::NearOrbit(orbit, dist) => {
-            draw_orbit(canvas, &orbit, origin, color, false, ctx);
-            for angle in linspace_f64(0.0, 2.0 * PI_64, 40) {
-                let u = rotate_f64(DVec2::X, angle);
-                let r = orbit.radius_at_angle(angle);
-                let p1 = (r + dist) * u;
-                let p2 = (r - dist) * u;
-                let p1 = ctx.w2c(p1);
-                let p2 = ctx.w2c(p2);
-                canvas
-                    .gizmos
-                    .line_2d(p1, p2, color.with_alpha(color.alpha * 0.2));
-            }
-        }
-    }
 }
 
 pub fn draw_obb(canvas: &mut Canvas, obb: &OBB, color: Srgba, fill: bool) {
@@ -889,58 +843,6 @@ pub fn is_blinking(wall_time: Nanotime) -> bool {
 //     Some(())
 // }
 
-pub fn draw_notifications(gizmos: &mut Gizmos, state: &GameState) {
-    let ctx = &state.orbital_context;
-
-    for notif in &state.notifications {
-        let parent = match notif.parent {
-            Some(p) => p,
-            None => continue,
-        };
-
-        let parent_pv = match state.universe.pv(parent) {
-            Some(pv) => pv,
-            None => continue,
-        };
-
-        let p = parent_pv.pos + notif.offset + notif.jitter;
-
-        let size = 20.0;
-        let s = (state.wall_time - notif.wall_time).to_secs() / notif.duration().to_secs();
-        let a = (1.0 - 2.0 * s).max(0.2);
-
-        let p = ctx.w2c(p);
-
-        match notif.kind {
-            NotificationType::OrbiterCrashed(_) => {
-                draw_diamond(gizmos, p, size, RED.with_alpha(a));
-            }
-            NotificationType::OrbiterEscaped(_) => {
-                draw_diamond(gizmos, p, size, TEAL.with_alpha(a));
-            }
-            NotificationType::NumericalError(_) => {
-                draw_diamond(gizmos, p, size, YELLOW.with_alpha(a));
-            }
-            NotificationType::OrbiterDeleted(_) => {
-                draw_x(gizmos, p, size, RED.with_alpha(a));
-            }
-            NotificationType::ManeuverStarted(_) => {
-                draw_diamond(gizmos, p, size, ORANGE.with_alpha(a));
-            }
-            NotificationType::ManeuverComplete(_) => {
-                // TODO fix circle size
-                // draw_circle(gizmos, p, size / 2.0, GREEN.with_alpha(a));
-            }
-            NotificationType::ManeuverFailed(_) => {
-                draw_square(gizmos, p, size, RED.with_alpha(a));
-            }
-            NotificationType::NotControllable(_) => (),
-            NotificationType::OrbitChanged(_) => (),
-            NotificationType::Notice(_) => (),
-        }
-    }
-}
-
 pub fn draw_graph(
     canvas: &mut Canvas,
     graph: &Graph,
@@ -1095,218 +997,6 @@ pub fn draw_bezier(gizmos: &mut Gizmos, bezier: &Bezier, color: Srgba) {
     gizmos.linestrip_2d(points, color);
 }
 
-pub fn draw_factory(canvas: &mut Canvas, factory: &Factory, _aabb: AABB, _stamp: Nanotime) {
-    // draw_aabb(&mut canvas.gizmos, aabb, WHITE.with_alpha(0.3));
-
-    // let mut text_pos = aabb.top_center() + Vec2::Y * 20.0;
-
-    // canvas.text(format!("{}", factory.stamp().to_date()), text_pos, 0.7);
-
-    // for (_, plant) in factory.plants() {
-    //     text_pos += Vec2::Y * 24.0;
-    //     canvas.text(format!("{}", plant.recipe()), text_pos, 0.7);
-    // }
-
-    // for storage in factory.storage() {
-    //     text_pos += Vec2::Y * 24.0;
-    //     canvas.text(format!("{:?}", storage), text_pos, 0.7);
-    // }
-
-    if factory.storage_count() + factory.plant_count() == 0 {
-        return;
-    }
-
-    // canvas.text(
-    //     format!("{:?}", factory.get_next_relevant_plant()),
-    //     Vec2::ZERO,
-    //     1.3,
-    // );
-
-    let n = factory.storage_count() + factory.plant_count();
-
-    let storage_width = 50.0;
-    let plant_width = 70.0;
-
-    let id_to_pos = |id: u64| {
-        let angle = id as f32 * 2.0 * PI / n as f32;
-        rotate(Vec2::X * 300.0, angle)
-    };
-
-    for (id, storage) in factory.storage() {
-        let center = id_to_pos(id);
-        let aabb = AABB::new(center, Vec2::splat(storage_width));
-        let color = crate::sprites::hashable_to_color(&storage.item());
-        draw_aabb(canvas, aabb, color.into());
-
-        canvas.text(
-            format!(
-                "{:?} {} / {}",
-                storage.item(),
-                Mass::grams(storage.count()),
-                Mass::grams(storage.capacity())
-            ),
-            center + Vec2::Y * storage_width,
-            0.6,
-        );
-
-        let filled = storage.fill_percent();
-        let aabb_fill = AABB::from_arbitrary(
-            aabb.lower(),
-            aabb.bottom_right() + Vec2::Y * aabb.span.y * filled,
-        );
-        canvas
-            .sprite(
-                aabb_fill.center,
-                0.0,
-                "error",
-                ZOrdering::Factory,
-                aabb_fill.span,
-            )
-            .set_color(color);
-
-        canvas.sprite(
-            aabb.center,
-            0.0,
-            format!("item-{}", storage.item().to_sprite_name()),
-            ZOrdering::Factory,
-            Vec2::splat(storage_width),
-        );
-    }
-
-    // let input_port_center = |id: u64, i: usize| {
-    //     let center = id_to_pos(id);
-    //     let aabb = AABB::new(center, Vec2::splat(plant_width));
-    //     let bl = aabb.lower();
-    // };
-
-    for (plant_id, plant) in factory.plants() {
-        let center = id_to_pos(plant_id);
-        let aabb = AABB::new(center, Vec2::splat(plant_width));
-        draw_aabb(canvas, aabb, WHITE);
-
-        canvas.text(plant.name().to_uppercase(), aabb.center, 0.6);
-
-        {
-            let progress = plant.progress();
-            let bl = aabb.bottom_right();
-            let tr = bl + Vec2::new(plant_width * 0.15, progress * plant_width);
-            canvas.rect(AABB::from_arbitrary(bl, tr), ZOrdering::Factory, RED);
-        }
-
-        {
-            let d = plant_width * 0.2;
-            let lc = if plant.is_enabled() { YELLOW } else { GRAY };
-            let bc = if plant.is_blocked() { ORANGE } else { GRAY };
-            let sc = if plant.is_starved() { BLUE } else { GRAY };
-            let wc = if plant.is_working() { GREEN } else { RED };
-
-            let mut tr = aabb.top_left() - Vec2::new(d, 0.0);
-            for color in [lc, bc, sc, wc] {
-                let bl = tr - Vec2::splat(d);
-                canvas.rect(AABB::from_arbitrary(bl, tr), ZOrdering::Factory, color);
-                tr -= Vec2::Y * d * 1.4;
-            }
-        }
-
-        let recipe = plant.recipe();
-
-        // draw inputs
-        let input_count = recipe.input_count();
-        if input_count > 0 {
-            for (i, (item, _)) in recipe.inputs().enumerate() {
-                let color = crate::sprites::hashable_to_color(&item);
-                let width = plant_width / input_count as f32;
-                let height = plant_width / 4.0;
-                let bl = aabb.lower() + Vec2::X * i as f32 * width;
-                let tr = bl + Vec2::new(width, height);
-                let aabb = AABB::from_arbitrary(bl, tr);
-                canvas.rect(aabb, ZOrdering::Factory, color);
-            }
-        }
-
-        // draw outputs
-        let output_count = recipe.output_count();
-        if output_count > 0 {
-            for (i, (item, _)) in recipe.outputs().enumerate() {
-                let color = crate::sprites::hashable_to_color(&item);
-                let width = plant_width / output_count as f32;
-                let height = plant_width / 4.0;
-                let bl = aabb.lower() + Vec2::new(i as f32 * width, plant_width * 0.75);
-                let tr = bl + Vec2::new(width, height);
-                let aabb = AABB::from_arbitrary(bl, tr);
-                canvas.rect(aabb, ZOrdering::Factory, color);
-            }
-        }
-
-        for port in plant.input_ports() {
-            let conn_id = match port.connected_to() {
-                Some(id) => id,
-                None => continue,
-            };
-            let color = crate::sprites::hashable_to_color(&port.item());
-            let start = center - Vec2::Y * plant_width / 2.5;
-            let end = id_to_pos(conn_id);
-            let bezier = Bezier::new(vec![start, start - Vec2::Y * 200.0, Vec2::ZERO, end]);
-            draw_bezier(&mut canvas.gizmos, &bezier, color.into());
-        }
-
-        for port in plant.output_ports() {
-            let conn_id = match port.connected_to() {
-                Some(id) => id,
-                None => continue,
-            };
-            let color = crate::sprites::hashable_to_color(&port.item());
-            let start = center + Vec2::Y * plant_width / 2.5;
-            let end = id_to_pos(conn_id);
-            let bezier = Bezier::new(vec![start, start + Vec2::Y * 200.0, Vec2::ZERO, end]);
-            draw_bezier(&mut canvas.gizmos, &bezier, color.into());
-        }
-    }
-
-    // bar graph representation
-
-    // let column_width = aabb.span.x / n as f32;
-    // let sprite_size = 50.0;
-
-    // let mut bl = aabb.lower();
-
-    // for (_, storage) in factory.storage() {
-    //     let item = storage.item();
-    //     let color = crate::sprites::hashable_to_color(&item);
-    //     let dims = Vec2::new(
-    //         column_width,
-    //         aabb.span.y * storage.count() as f32 / storage.capacity() as f32,
-    //     );
-    //     let aabb = AABB::from_arbitrary(bl, bl + dims);
-    //     canvas
-    //         .sprite(aabb.center, 0.0, "error", 0.0, aabb.span)
-    //         .set_color(color);
-
-    //     let mut bottom = aabb.bottom_center() - Vec2::Y * 15.0;
-    //     canvas.text(format!("{:?}", item), bottom, 0.7);
-    //     bottom -= Vec2::Y * 20.0;
-    //     canvas.text(format!("{}", Mass::grams(storage.count())), bottom, 0.7);
-    //     bottom -= Vec2::Y * 20.0;
-    //     canvas.text(format!("{}", Mass::grams(storage.capacity())), bottom, 0.7);
-
-    //     let sprite_name = item.to_string().to_lowercase();
-    //     bottom -= Vec2::Y * sprite_size;
-    //     canvas.sprite(bottom, 0.0, sprite_name, 0.0, Vec2::splat(sprite_size));
-
-    //     bl += Vec2::X * column_width;
-    // }
-
-    // for (_, plant) in factory.plants() {
-    //     let color = crate::sprites::hashable_to_color(plant.recipe());
-    //     let dims = Vec2::new(column_width, aabb.span.y * plant.progress());
-    //     let aabb = AABB::from_arbitrary(bl, bl + dims);
-    //     canvas
-    //         .sprite(aabb.center, 0.0, "error", 0.0, aabb.span)
-    //         .set_color(color);
-    //     bl += Vec2::X * column_width;
-    // }
-}
-
 pub fn circle_entity(
     canvas: &mut Canvas,
     id: impl Into<Option<EntityId>>,
@@ -1365,8 +1055,6 @@ pub fn draw_orbital_view(canvas: &mut Canvas, state: &GameState) {
         20.0,
         RED.with_alpha(0.2),
     );
-
-    draw_notifications(&mut canvas.gizmos, &state);
 }
 
 pub fn draw_game_state(gizmos: Gizmos, mut state: ResMut<GameState>, painter: ShapePainter) {

@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::render::render_asset::RenderAssetUsages;
 use image::RgbaImage;
-use starling::prelude::*;
+use crate::starling::prelude::*;
 use std::path::Path;
 
 use crate::drawing::vehicle_sprite_path;

@@ -7,8 +7,8 @@ use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::view::RenderLayers;
 use clap::Parser;
 use image::DynamicImage;
-use layout::layout::Tree;
-use starling::prelude::*;
+use crate::layout::layout::Tree;
+use crate::starling::prelude::*;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -171,8 +171,6 @@ pub struct GameState {
 
     pub ui: Tree<OnClick>,
 
-    pub notifications: Vec<Notification>,
-
     pub is_exit_prompt: bool,
 
     pub text_labels: Vec<TextLabel>,
@@ -240,7 +238,6 @@ impl GameState {
             part_database,
             current_orbit: None,
             ui: Tree::new(),
-            notifications: Vec::new(),
             is_exit_prompt: false,
             text_labels: Vec::new(),
             sprites: Vec::new(),
@@ -543,7 +540,6 @@ impl GameState {
         let ov = self.universe.spacecraft.remove(&id)?;
         let parent = ov.parent();
         let pv = ov.pv();
-        self.notify(parent, NotificationType::OrbiterDeleted(id), pv.pos);
         Some(())
     }
 
@@ -582,29 +578,6 @@ impl GameState {
     pub fn notice(&mut self, s: impl Into<String>) {
         let s = s.into();
         info!("Notice: {s}");
-    }
-
-    pub fn notify(
-        &mut self,
-        parent: impl Into<Option<EntityId>>,
-        kind: NotificationType,
-        offset: impl Into<Option<DVec2>>,
-    ) {
-        let notif = Notification {
-            parent: parent.into(),
-            offset: offset.into().unwrap_or(DVec2::ZERO),
-            jitter: DVec2::ZERO,
-            sim_time: self.universe.stamp(),
-            wall_time: self.wall_time,
-            extra_time: Nanotime::secs_f32(rand(0.0, 1.0)),
-            kind,
-        };
-
-        if self.notifications.iter().any(|e| notif.is_duplicate(e)) {
-            return;
-        }
-
-        self.notifications.push(notif);
     }
 
     pub fn light_source(&self) -> Vec2 {
@@ -942,11 +915,6 @@ impl GameState {
         }
 
         self.wall_time += PHYSICS_CONSTANT_DELTA_TIME;
-
-        self.notifications.iter_mut().for_each(|n| n.jitter());
-
-        self.notifications
-            .retain(|n| n.wall_time + n.duration() > self.wall_time);
 
         Editor::on_game_tick(self);
     }

@@ -1,7 +1,6 @@
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use bevy_inspector_egui::quick::ResourceInspectorPlugin;
-use starling::prelude::rand;
 
 use crate::game_version_two::*;
 
@@ -86,8 +85,6 @@ fn thrust_particles(
 
     let discrete_n = 3;
     let particle_size = 0.07;
-
-    use starling::prelude::{PI, rotate};
 
     for (tf, emitter, parent) in &emitters {
         if !emitter.enabled {

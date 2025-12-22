@@ -2,8 +2,8 @@ use crate::game::GameState;
 use bevy::input::keyboard::KeyboardInput;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
-use starling::nanotime::Nanotime;
-use starling::prelude::AABB;
+use crate::starling::nanotime::Nanotime;
+use crate::starling::prelude::AABB;
 
 const DOUBLE_CLICK_DURATION: Nanotime = Nanotime::millis(300);
 

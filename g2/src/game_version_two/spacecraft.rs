@@ -106,7 +106,7 @@ impl SpacecraftGrid {
 }
 
 #[derive(Component, Debug, Deref, DerefMut)]
-pub struct PartInstance(pub starling::prelude::InstantiatedPart);
+pub struct PartInstance(pub game::starling::prelude::InstantiatedPart);
 
 #[derive(Component, Debug)]
 struct PartSprite;
@@ -361,9 +361,9 @@ fn handle_sc_events(
         match event {
             SpacecraftEvent::SpawnVehicle { name, pos, angle } => {
                 let vehicle_path = args.vehicle_dir().join(format!("{}.vehicle", name));
-                let parts = starling::vehicle::load_parts_from_dir(&args.parts_dir())?;
+                let parts = game::starling::vehicle::load_parts_from_dir(&args.parts_dir())?;
                 let vehicle = if let Ok(vehicle) =
-                    starling::vehicle::load_vehicle(&vehicle_path, "".to_string(), &parts)
+                    game::starling::vehicle::load_vehicle(&vehicle_path, "".to_string(), &parts)
                 {
                     vehicle
                 } else {
@@ -382,12 +382,12 @@ fn handle_sc_events(
                 );
             }
             SpacecraftEvent::SpawnPart { name, pos, angle } => {
-                let parts = starling::vehicle::load_parts_from_dir(&args.parts_dir())?;
+                let parts = game::starling::vehicle::load_parts_from_dir(&args.parts_dir())?;
                 let part = parts.get(name).ok_or("bad part")?;
                 let instance = InstantiatedPart::from_prototype(
                     part.clone(),
                     IVec2::ZERO,
-                    starling::prelude::Rotation::East,
+                    game::starling::prelude::Rotation::East,
                 );
 
                 let mut grid = spawn_empty_grid(&mut commands, *pos, *angle);
@@ -482,9 +482,9 @@ fn add_part_to_grid<'a>(
     let pixel_dims = part.prototype().dims();
 
     let (z, _alpha, _t, d) = match part.layer() {
-        starling::parts::PartLayer::Internal => (0.0, 1.0, 0.5, 0.0),
-        starling::parts::PartLayer::Structural => (0.02, 0.7, 0.7, 0.05),
-        starling::parts::PartLayer::Exterior => (0.04, 0.2, 0.8, 0.1),
+        game::starling::parts::PartLayer::Internal => (0.0, 1.0, 0.5, 0.0),
+        game::starling::parts::PartLayer::Structural => (0.02, 0.7, 0.7, 0.05),
+        game::starling::parts::PartLayer::Exterior => (0.04, 0.2, 0.8, 0.1),
     };
 
     let dims = dims - d;
