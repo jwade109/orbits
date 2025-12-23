@@ -606,7 +606,7 @@ fn add_part_to_grid<'a>(
     // DOCKING PORT COMPONENT ===============================================
 
     if let Some(data) = part.docking_port_data() {
-        let docking = DockingPort::detached();
+        let docking = DockingPort::new(data.distance);
         cmd.insert(docking);
     }
 

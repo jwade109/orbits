@@ -3,6 +3,7 @@ use crate::game_version_two::*;
 #[derive(Component, Debug, Clone, Copy)]
 pub struct DockingPort {
     pub attached: PortAttachment,
+    pub distance: f32,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -13,15 +14,10 @@ pub enum PortAttachment {
 }
 
 impl DockingPort {
-    pub fn detached() -> Self {
+    pub fn new(distance: f32) -> Self {
         Self {
             attached: PortAttachment::None,
-        }
-    }
-
-    pub fn attached(e: Entity) -> Self {
-        Self {
-            attached: PortAttachment::AttachedTo(e),
+            distance,
         }
     }
 
@@ -100,8 +96,14 @@ pub fn on_attach_event(
             .xy()
             .as_dvec2();
 
-        let port_a = Transform::from_translation(port_a.translation + port_a.forward() * 2.0);
-        let port_b = Transform::from_translation(port_b.translation + port_b.forward() * 2.0);
+        let mut port_a = *port_a;
+        let mut port_b = *port_b;
+
+        port_a.translation += port_a.local_x() * port.distance;
+        port_b.translation += port_b.local_x() * other_port.distance;
+
+        // let port_a = Transform::from_translation(port_a.translation + port_a.forward() * 2.0);
+        // let port_b = Transform::from_translation(port_b.translation + port_b.forward() * 2.0);
 
         let (mut target_root, mut grid) = ok_or_continue!(grids.get_mut(other_parent.0));
 
@@ -112,24 +114,41 @@ pub fn on_attach_event(
     }
 }
 
-pub const DOCKING_PORT_RADIUS: f32 = 5.0;
+pub const DOCKING_PORT_RADIUS: f32 = 6.0;
 
 pub fn check_adjacent_docking_ports(
     mut commands: Commands,
     mut painter: ShapePainter,
     mut ports: Query<(Entity, &GlobalTransform, &mut DockingPort, &ChildOf)>,
 ) {
-    let mut port_map: HashMap<IVec2, Vec<(Entity, Vec2, Entity)>> = HashMap::new();
+    #[derive(Clone, Copy)]
+    struct PortInfo {
+        port: Entity,
+        parent: Entity,
+        pos: Vec2,
+        normal: Dir3,
+    };
+
+    let mut port_map: HashMap<IVec2, Vec<PortInfo>> = HashMap::new();
 
     for (e, transform, mut port, parent) in &mut ports {
         port.attached = PortAttachment::None;
 
         let pos = transform.translation().xy();
+        let normal = transform.right();
         let g = to_grid(pos);
+
+        let info = PortInfo {
+            port: e,
+            parent: parent.0,
+            pos,
+            normal,
+        };
+
         port_map
             .entry(g)
-            .and_modify(|v| v.push((e, pos, parent.0)))
-            .or_insert(vec![(e, pos, parent.0)]);
+            .and_modify(|v| v.push(info))
+            .or_insert(vec![info]);
     }
 
     for (_, entities) in port_map {
@@ -139,20 +158,35 @@ pub fn check_adjacent_docking_ports(
 
         for i in 1..entities.len() {
             for j in 0..i {
-                let (a, p1, pa) = entities[i];
-                let (b, p2, pb) = entities[j];
+                let info_a = &entities[i];
+                let info_b = &entities[j];
 
                 // these ports are attached to the same ship!
-                if pa == pb {
+                if info_a.port == info_b.port {
                     continue;
                 }
 
-                if p1.distance(p2) < DOCKING_PORT_RADIUS {
-                    let mut port_a = ok_or_continue!(ports.get_mut(a));
-                    port_a.2.attached = PortAttachment::Seeking(b);
+                let dot_a = info_a
+                    .normal
+                    .dot((info_b.pos - info_a.pos).extend(0.0).normalize_or_zero())
+                    .clamp(0.0, 1.0);
 
-                    let mut port_b = ok_or_continue!(ports.get_mut(b));
-                    port_b.2.attached = PortAttachment::Seeking(a);
+                let dot_b = info_b
+                    .normal
+                    .dot((info_a.pos - info_b.pos).extend(0.0).normalize_or_zero())
+                    .clamp(0.0, 1.0);
+
+                let dot = dot_a * dot_b;
+
+                let distance = info_a.pos.distance(info_b.pos);
+                let seeking = distance < DOCKING_PORT_RADIUS && dot > 0.85;
+
+                if seeking {
+                    let mut port_a = ok_or_continue!(ports.get_mut(info_a.port));
+                    port_a.2.attached = PortAttachment::Seeking(info_b.port);
+
+                    let mut port_b = ok_or_continue!(ports.get_mut(info_b.port));
+                    port_b.2.attached = PortAttachment::Seeking(info_a.port);
                 }
             }
         }
