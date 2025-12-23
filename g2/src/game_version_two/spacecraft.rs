@@ -1,6 +1,5 @@
 use crate::game_version_two::*;
 
-use avian2d::prelude::{AngularVelocity, Collider, PhysicsPlugins};
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use bevy_ecs::relationship::RelatedSpawnerCommands;
@@ -11,8 +10,6 @@ pub struct SpacecraftPlugin;
 
 impl Plugin for SpacecraftPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(PhysicsPlugins::default());
-
         app.add_systems(
             PostUpdate,
             (
@@ -68,6 +65,16 @@ pub enum SpacecraftEvent {
     SpawnVehicle { name: String, pos: Vec2, angle: f32 },
     SpawnPart { name: String, pos: Vec2, angle: f32 },
     Destroy { target: Entity },
+}
+
+impl SpacecraftEvent {
+    pub fn spawn(name: impl Into<String>, pos: Vec2, angle: f32) -> Self {
+        Self::SpawnVehicle {
+            name: name.into(),
+            pos,
+            angle,
+        }
+    }
 }
 
 #[derive(Event, Debug)]
@@ -130,9 +137,11 @@ fn draw_grids(
         return;
     }
 
+    const Z_SPACECRAFT_GRID_MARKERS: f32 = 100.0;
+
     for (tf, grid) in &crafts {
         painter.reset();
-        painter.set_translation(tf.translation().with_z(100.0));
+        painter.set_translation(tf.translation().with_z(Z_SPACECRAFT_GRID_MARKERS));
         painter.set_rotation(tf.rotation());
         painter.set_color(TEAL);
         painter.thickness = 6.0;
@@ -140,7 +149,7 @@ fn draw_grids(
         painter.thickness_type = ThicknessType::Pixels;
         painter.rect(Vec2::ONE * 0.4);
 
-        painter.translate(grid.center_of_mass.extend(100.0));
+        painter.translate(grid.center_of_mass.extend(Z_SPACECRAFT_GRID_MARKERS));
         painter.set_color(GREEN);
         painter.rect(Vec2::ONE * 0.4);
     }
@@ -154,6 +163,8 @@ fn draw_inventories(
     if !settings.draw_inventories {
         return;
     }
+
+    const Z_DEBUG_INVENTORY_LAYER: f32 = 0.05;
 
     let width = 0.1;
     for (tf, part, inventory) in parts {
@@ -174,7 +185,9 @@ fn draw_inventories(
 
             painter.reset();
 
-            painter.set_translation(tf.translation().with_z(10.0) + tf.up() * offset);
+            painter.set_translation(
+                tf.translation().with_z(Z_DEBUG_INVENTORY_LAYER) + tf.up() * offset,
+            );
             painter.set_rotation(tf.rotation());
 
             painter.set_color(BLACK);
@@ -225,12 +238,14 @@ fn draw_selected_grid_guides(
         }
     };
 
+    const Z_SPACECRAFT_GRID_BOUNDARIES: f32 = -50.0;
+
     painter.reset();
     painter.set_color(RED);
     painter.hollow = true;
     painter.thickness = 4.0;
     painter.thickness_type = ThicknessType::Pixels;
-    painter.set_translation(tf.translation().with_z(-50.0));
+    painter.set_translation(tf.translation().with_z(Z_SPACECRAFT_GRID_BOUNDARIES));
     painter.set_rotation(tf.rotation());
     painter.rect(grid.dims());
 }
@@ -243,6 +258,8 @@ fn draw_selected_part(
 ) {
     let angle = time.elapsed_secs_f64() % (2.0 * std::f64::consts::PI);
     let angle = angle as f32;
+
+    const Z_SELECTED_PART: f32 = 1.0;
 
     for (color, e, ring) in [
         (RED.with_alpha(0.8), sel.hovered, false),
@@ -258,7 +275,7 @@ fn draw_selected_part(
             let dims = part.prototype().dims_meters();
             let r = dims.length() / 2.0 + 0.5;
             painter.reset();
-            painter.set_translation(tf.translation().with_z(50.0));
+            painter.set_translation(tf.translation().with_z(Z_SELECTED_PART));
             painter.set_rotation(tf.rotation());
             painter.set_color(color);
             painter.thickness = 0.1;
@@ -369,7 +386,7 @@ fn handle_sc_events(
                     vehicle
                 } else {
                     commands.send_event(SpawnAnimText::new(format!("Bad vehicle path: {}", name)));
-                    continue;
+                    panic!();
                 };
 
                 spawn_spacecraft(
@@ -465,7 +482,6 @@ fn spawn_empty_grid<'a>(commands: &'a mut Commands, pos: Vec2, angle: f32) -> En
             ..default()
         },
         Visibility::default(),
-        AngularVelocity(0.0),
     ))
 }
 
@@ -783,11 +799,7 @@ fn send_attach_events(
     attach.write(event);
 }
 
-fn target_docking_transform(
-    ownship: Transform,
-    port_a: Transform,
-    port_b: Transform,
-) -> Transform {
+fn target_docking_transform(ownship: Transform, port_a: Transform, port_b: Transform) -> Transform {
     let inv_port_b = port_b.with_rotation(port_b.rotation.conjugate());
 
     let inv_port_a = port_a.with_rotation(port_a.rotation.conjugate());
@@ -925,7 +937,6 @@ fn update_thruster_emitters(mut thrusters: Query<(&Thruster, &mut ParticleEmitte
 
 fn draw_transforms(mut painter: ShapePainter, query: Query<&GlobalTransform>) {
     for tf in query {
-
         let p = tf.translation().with_z(600.0);
         let r = tf.right();
         let u = tf.up();

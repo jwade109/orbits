@@ -4,8 +4,8 @@ pub struct InventoryTransferPlugin;
 
 impl Plugin for InventoryTransferPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(FixedUpdate, process_transfers.in_set(Sets::Physics))
-            .add_systems(PostUpdate, draw_transfers.in_set(Sets::Draw))
+        app.add_systems(FixedUpdate, process_pipes.in_set(Sets::Physics))
+            .add_systems(PostUpdate, draw_pipes.in_set(Sets::Draw))
             .add_systems(EguiPrimaryContextPass, debug_ui);
     }
 }
@@ -53,7 +53,7 @@ fn debug_ui(
     mut contexts: EguiContexts,
     mut panel_state: Local<DebugPanelState>,
     selected: Res<SelectedSpacecraft>,
-    transfers: Query<(Entity, &DebugInventoryTransfer)>,
+    pipes: Query<(Entity, &Pipe)>,
 ) -> Result {
     let primary = match selected.selected {
         Some(id) => id,
@@ -83,7 +83,7 @@ fn debug_ui(
         item_dropdown(ui, &mut panel_state.item, "Item", &filter);
 
         if ui.button("Initiate").clicked() {
-            let transfer = DebugInventoryTransfer {
+            let transfer = Pipe {
                 from: primary,
                 to: secondary,
                 item: panel_state.item,
@@ -94,7 +94,7 @@ fn debug_ui(
             commands.spawn(transfer);
         }
 
-        for (e, transfer) in transfers {
+        for (e, transfer) in pipes {
             ui.separator();
             ui.label(format!("{:#?}", transfer));
             running_status_widget(ui, transfer.status);
@@ -108,7 +108,7 @@ fn debug_ui(
 }
 
 #[derive(Component, Debug)]
-pub struct DebugInventoryTransfer {
+pub struct Pipe {
     from: Entity,
     to: Entity,
     item: Item,
@@ -116,41 +116,39 @@ pub struct DebugInventoryTransfer {
     status: MachineStatus,
 }
 
-fn process_transfers(
-    mut transfers: Query<&mut DebugInventoryTransfer>,
-    mut inventories: Query<&mut Inventory>,
-) {
-    for mut transfer in transfers {
-        if transfer.from == transfer.to {
+fn process_pipes(mut pipe: Query<&mut Pipe>, mut inventories: Query<&mut Inventory>) {
+    for mut pipe in pipe {
+        if pipe.from == pipe.to {
             continue;
         }
 
-        let [mut src, mut dst] =
-            ok_or_continue!(inventories.get_many_mut([transfer.from, transfer.to]));
+        let [mut src, mut dst] = ok_or_continue!(inventories.get_many_mut([pipe.from, pipe.to]));
 
-        transfer.status = atomic_transfer(&mut src, &mut dst, transfer.item, transfer.count);
+        pipe.status = atomic_transfer(&mut src, &mut dst, pipe.item, pipe.count);
     }
 }
 
-const Z_INVENTORY_TRANSFER: f32 = 500.0;
+const Z_PIPE_LAYER: f32 = 0.06;
 
-fn draw_transfers(
+fn draw_pipes(
     mut painter: ShapePainter,
-    transfers: Query<&DebugInventoryTransfer>,
+    pipes: Query<&Pipe>,
     transforms: Query<&GlobalTransform, With<Inventory>>,
 ) {
-    for transfer in transfers {
+    for transfer in pipes {
         let a = ok_or_continue!(transforms.get(transfer.from));
         let b = ok_or_continue!(transforms.get(transfer.to));
 
         painter.reset();
-        painter.set_translation(Vec3::Z * Z_INVENTORY_TRANSFER);
-        painter.set_color(RED);
-        painter.thickness = 12.0;
-        painter.thickness_type = ThicknessType::Pixels;
-        painter.line(
-            a.translation().with_z(Z_INVENTORY_TRANSFER),
-            b.translation().with_z(Z_INVENTORY_TRANSFER),
-        );
+        painter.set_translation(Vec3::Z * Z_PIPE_LAYER);
+
+        for (color, thickness) in [(LIGHT_GRAY, 0.11), (GRAY, 0.07)] {
+            painter.set_color(color);
+            painter.thickness = thickness;
+            painter.line(
+                a.translation().with_z(Z_PIPE_LAYER),
+                b.translation().with_z(Z_PIPE_LAYER),
+            );
+        }
     }
 }

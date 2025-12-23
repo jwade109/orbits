@@ -2,7 +2,6 @@ mod game_version_two;
 
 use crate::game_version_two::*;
 
-use avian2d::prelude::*;
 use bevy::core_pipeline::bloom::Bloom;
 use game::args::ProgramContext;
 
@@ -83,7 +82,6 @@ fn setup(mut commands: Commands) -> Result {
     commands.insert_resource(ctx);
     commands.insert_resource(settings);
     commands.insert_resource(ClearColor(BLACK.into()));
-    commands.insert_resource(Gravity(Vec2::ZERO));
 
     commands.spawn((
         Camera2d::default(),

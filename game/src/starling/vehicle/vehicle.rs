@@ -426,10 +426,6 @@ impl Vehicle {
         format!("{} {}", title, id)
     }
 
-    fn current_angular_acceleration(&self) -> f64 {
-        0.0
-    }
-
     pub fn thrusters(&self) -> impl Iterator<Item = &ThrusterModel> + use<'_> {
         self.parts.iter().filter_map(|(_, p)| p.thruster_data())
     }
