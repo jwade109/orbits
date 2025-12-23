@@ -100,43 +100,58 @@ fn add_computer_widget(
             ui.label("Attitude Hold");
             ui.horizontal(|ui| {
                 ui.label("HDG");
-                ui.add(egui::Slider::new(&mut computer.attitude, -5.0..=5.0));
+                ui.add(
+                    egui::Slider::new(&mut computer.attitude, -5.0..=5.0)
+                        .clamping(egui::SliderClamping::Never),
+                );
             });
         }
         ComputerMode::VelocityHold => {
             ui.label("Velocity Hold");
             ui.horizontal(|ui| {
                 ui.label("HDG");
-                ui.add(egui::Slider::new(&mut computer.attitude, -5.0..=5.0));
+                ui.add(
+                    egui::Slider::new(&mut computer.attitude, -5.0..=5.0)
+                        .clamping(egui::SliderClamping::Never),
+                );
             });
             ui.horizontal(|ui| {
                 ui.label("X");
-                ui.add(egui::Slider::new(&mut computer.velocity.x, -500.0..=500.0));
+                ui.add(
+                    egui::Slider::new(&mut computer.velocity.x, -50.0..=50.0)
+                        .clamping(egui::SliderClamping::Never),
+                );
             });
             ui.horizontal(|ui| {
                 ui.label("Y");
-                ui.add(egui::Slider::new(&mut computer.velocity.y, -500.0..=500.0));
+                ui.add(
+                    egui::Slider::new(&mut computer.velocity.y, -50.0..=50.0)
+                        .clamping(egui::SliderClamping::Never),
+                );
             });
         }
         ComputerMode::PositionHold => {
             ui.label("Position Hold");
             ui.horizontal(|ui| {
                 ui.label("X");
-                ui.add(egui::Slider::new(
-                    &mut computer.position.x,
-                    -100000.0..=100000.0,
-                ));
+                ui.add(
+                    egui::Slider::new(&mut computer.position.x, -50.0..=50.0)
+                        .clamping(egui::SliderClamping::Never),
+                );
             });
             ui.horizontal(|ui| {
                 ui.label("Y");
-                ui.add(egui::Slider::new(
-                    &mut computer.position.y,
-                    -100000.0..=100000.0,
-                ));
+                ui.add(
+                    egui::Slider::new(&mut computer.position.y, -50.0..=50.0)
+                        .clamping(egui::SliderClamping::Never),
+                );
             });
             ui.horizontal(|ui| {
                 ui.label("HDG");
-                ui.add(egui::Slider::new(&mut computer.attitude, -5.0..=5.0));
+                ui.add(
+                    egui::Slider::new(&mut computer.attitude, -5.0..=5.0)
+                        .clamping(egui::SliderClamping::Never),
+                );
             });
         }
     }

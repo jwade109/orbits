@@ -38,3 +38,20 @@ impl Default for Settings {
         }
     }
 }
+
+pub fn save_settings_on_change(ctx: Res<ProgramContext>, settings: Res<Settings>) {
+    if !settings.is_changed() {
+        return;
+    }
+
+    let filepath = ctx.settings_path();
+
+    match serde_yaml::to_string(&*settings) {
+        Ok(s) => {
+            std::fs::write(filepath, s);
+        }
+        Err(e) => {
+            error!("Failed to write settings: {:?}", e);
+        }
+    }
+}
