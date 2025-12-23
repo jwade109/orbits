@@ -33,6 +33,12 @@ impl DockingPort {
 #[derive(Event, Debug)]
 pub struct AttachPorts(Entity);
 
+#[derive(Event, Debug)]
+pub struct FuseGrids {
+    host_grid: Entity,
+    target_grid: Entity,
+}
+
 pub fn send_attach_events(
     keys: Res<ButtonInput<KeyCode>>,
     mut attach: EventWriter<AttachPorts>,
@@ -66,19 +72,18 @@ pub fn target_docking_transform(
 }
 
 pub fn on_attach_event(
+    mut fuse: EventWriter<FuseGrids>,
     mut attach: EventReader<AttachPorts>,
     ports: Query<(&DockingPort, &Transform, &ChildOf), Without<SpacecraftGrid>>,
     mut grids: Query<(&mut Transform, &mut SpacecraftGrid)>,
 ) {
     for msg in attach.read() {
-        dbg!(msg);
         let (port, port_a, parent) = ok_or_continue!(ports.get(msg.0));
-        dbg!(port);
         let target = some_or_continue!(port.target());
         let (other_port, port_b, other_parent) = ok_or_continue!(ports.get(target));
 
         if parent.0 == other_parent.0 {
-            warn!("Parents of attached ports are the same: {}", parent.0);
+            // warn!("Parents of attached ports are the same: {}", parent.0);
             continue;
         }
 
@@ -111,6 +116,25 @@ pub fn on_attach_event(
 
         grid.velocity = velocity + additional_velocity;
         grid.angular_velocity = angular_velocity;
+
+        fuse.write(FuseGrids {
+            host_grid: parent.0,
+            target_grid: other_parent.0,
+        });
+    }
+}
+
+pub fn on_fuse_grids_event(
+    mut commands: Commands,
+    mut events: EventReader<FuseGrids>,
+    grids: Query<&Children, With<SpacecraftGrid>>,
+) {
+    for event in events.read() {
+        info!("Fusing grids {} and {}", event.host_grid, event.target_grid);
+        let target_grid = ok_or_continue!(grids.get(event.target_grid));
+        for t in target_grid {
+            commands.entity(*t).set_parent_in_place(event.host_grid);
+        }
     }
 }
 

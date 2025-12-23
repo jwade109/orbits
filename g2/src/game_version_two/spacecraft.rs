@@ -33,20 +33,24 @@ impl Plugin for SpacecraftPlugin {
                 handle_change_recipe,
                 check_adjacent_docking_ports,
                 on_attach_event,
+                on_fuse_grids_event,
                 send_attach_events,
                 update_thruster_emitters,
                 build_parts,
                 update_machines,
                 accelerate_spacecraft,
+                despawn_empty_grids,
                 update_grids,
                 update_spacecraft_grid_map,
             )
+                .chain()
                 .in_set(Sets::Physics),
         );
 
         app.add_event::<SpacecraftEvent>();
         app.add_event::<SetRecipe>();
         app.add_event::<AttachPorts>();
+        app.add_event::<FuseGrids>();
 
         app.insert_resource(SelectedSpacecraft::default());
         app.insert_resource(GridSpatialLookup::default());
@@ -286,6 +290,16 @@ fn draw_selected_part(
                 painter.arc(r, angle, angle + 6.1);
             }
         }
+    }
+}
+
+fn despawn_empty_grids(
+    mut commands: Commands,
+    mut grids: Query<Entity, (With<SpacecraftGrid>, Without<Children>)>,
+) {
+    for e in grids {
+        info!("Despawning empty grid {e}");
+        commands.entity(e).despawn();
     }
 }
 
@@ -701,14 +715,17 @@ fn update_spacecraft_grid_map(
 
 fn draw_spacecraft_spatial_lookups(
     mut painter: ShapePainter,
-    mut map: ResMut<GridSpatialLookup>,
+    map: Res<GridSpatialLookup>,
+    transforms: Query<&GlobalTransform>,
     settings: Res<Settings>,
 ) {
     if !settings.draw_spatial_lut {
         return;
     }
 
-    for (g, _) in map.iter() {
+    const Z_SPATIAL_LUT_DEBUG: f32 = 20.0;
+
+    for (g, entities) in map.iter() {
         painter.reset();
         painter.set_color(ORANGE.with_alpha(0.1));
         painter.hollow = true;
@@ -716,8 +733,16 @@ fn draw_spacecraft_spatial_lookups(
         painter.thickness = 12.0;
         let (lower, upper) = chunk_bounds(*g);
         let center = (upper + lower) / 2.0;
-        painter.set_translation(center.extend(80.0));
+        painter.set_translation(center.extend(Z_SPATIAL_LUT_DEBUG));
         painter.rect(upper - lower);
+
+        for e in entities {
+            let tf = ok_or_continue!(transforms.get(*e));
+            painter.reset();
+            painter.set_translation(tf.translation().with_z(Z_SPATIAL_LUT_DEBUG));
+            painter.set_color(RED.with_alpha(0.3));
+            painter.circle(2.0);
+        }
     }
 }
 
@@ -736,6 +761,11 @@ fn update_cursor_spacecraft(
 
     'outer: for grid_id in grid_ids {
         let (transform, children) = ok_or_return!(grids.get(*grid_id));
+
+        if children.is_empty() {
+            warn!("Empty grid!");
+            continue;
+        }
 
         let offset = pos - transform.translation().xy();
         let (yaw, _pitch, _roll) = transform.rotation().to_euler(EulerRot::ZYX);
