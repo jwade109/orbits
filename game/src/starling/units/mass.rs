@@ -41,6 +41,10 @@ impl Mass {
     pub fn clamp(&self, lower: Self, upper: Self) -> Self {
         Mass(self.0.clamp(lower.0, upper.0))
     }
+
+    pub fn is_zero(&self) -> bool {
+        self.0 == 0
+    }
 }
 
 impl std::fmt::Display for Mass {

@@ -45,7 +45,7 @@ pub fn spawn_flood_fill(
 
     if btn.just_pressed(MouseButton::Middle) {
         let (g, l) = to_grid_and_lattice(pos);
-        let global = g * (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as i32 + l.as_ivec2();
+        let global = g * TILES_PER_CHUNK_SIDE as i32 + l.as_ivec2();
         let flood = TerrainFloodFill::new(global);
         commands.spawn(flood);
     }
@@ -107,12 +107,12 @@ pub fn update_flood_fill(
 }
 
 pub fn draw_flood_fill(mut painter: ShapePainter, flood: Query<&TerrainFloodFill>) {
-    let w = CHUNK_WIDTH / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32 * 0.93;
+    let w = CHUNK_WIDTH / TILES_PER_CHUNK_SIDE as f32 * 0.93;
     painter.reset();
     painter.set_color(GREEN.with_alpha(0.4));
     for flood in flood {
         for global in &flood.void_space {
-            let pos = lattice_point_world_pos(IVec2::ZERO, *global);
+            let pos = lattice_point_center_world_pos(IVec2::ZERO, *global);
             painter.set_translation(pos.extend(20.0));
             painter.rect(Vec2::splat(w));
         }

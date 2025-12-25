@@ -69,7 +69,7 @@ fn track_selected_spacecraft(
     camera.translation = grid.translation();
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Debug)]
 pub struct CursorWorldPosition {
     pos: Option<Vec2>,
     pub on_egui: bool,

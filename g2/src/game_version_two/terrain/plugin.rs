@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_egui::EguiPrimaryContextPass;
 
 use super::debug_systems;
 use super::flood_fill;
@@ -29,14 +30,17 @@ impl Plugin for TerrainPlugin {
                 systems::process_excavators,
                 // debug rendering
                 debug_systems::draw_excavators,
-                debug_systems::draw_hovered_grid,
+                debug_systems::draw_hovered_grid_and_tile,
                 debug_systems::draw_highlighted_lattice_points,
                 // flood fill stuff. just a demo for cave detection.
                 // not a serious endeavor.
                 flood_fill::spawn_flood_fill,
                 flood_fill::update_flood_fill,
                 flood_fill::draw_flood_fill,
-            ),
+            )
+                .chain(),
         );
+
+        app.add_systems(EguiPrimaryContextPass, debug_systems::debug_ui);
     }
 }

@@ -55,31 +55,6 @@ pub fn generate_tiles(
             (msg.pos.as_vec2() * CHUNK_WIDTH + Vec2::splat(CHUNK_WIDTH / 2.0)).extend(0.0),
         );
 
-        if chance(0.02) {
-            let item = Item::random_mineable();
-            let n = randint(50, 80);
-            for _ in 0..n {
-                let offset = randvec(0.1, CHUNK_WIDTH);
-                let transform = Transform::from_translation(
-                    (msg.pos.as_vec2() * CHUNK_WIDTH + offset).extend(-5.0),
-                );
-                let capacity = randint(2000, 200000) as u64 * item.volume_per_unit();
-                let ore = Inventory::single(item, capacity);
-                let r = rand(4.0, 9.0);
-                let angle = rand(0.0, std::f32::consts::PI * 2.0);
-                let a = Vec2::from_angle(angle) * r;
-                let b = Vec2::from_angle(angle + std::f32::consts::PI * 2.0 / 3.0) * r;
-                let c = Vec2::from_angle(angle + std::f32::consts::PI * 4.0 / 3.0) * r;
-                let mesh = Mesh2d(meshes.add(Triangle2d::new(a, b, c)));
-                let mut color = item.color();
-                color.red = (color.red + rand(-0.04, 0.04)).clamp(0.0, 1.0);
-                color.green = (color.green + rand(-0.04, 0.04)).clamp(0.0, 1.0);
-                color.blue = (color.blue + rand(-0.04, 0.04)).clamp(0.0, 1.0);
-                let material = MeshMaterial2d(materials.add(Color::from(color)));
-                commands.spawn((ore, transform, OreDeposit, mesh, material));
-            }
-        }
-
         let bg_mesh = Mesh2d(meshes.add(Rectangle::from_length(CHUNK_WIDTH)));
         let bg_material = MeshMaterial2d(materials.add(Color::from(Srgba::gray(0.2))));
         let child = commands
@@ -179,23 +154,25 @@ pub fn excavate_chunks(
 
                 let mut needs_mesh_update = false;
 
-                for x in 0..LATTICE_POINTS_PER_CHUNK_SIDE {
-                    for y in 0..LATTICE_POINTS_PER_CHUNK_SIDE {
-                        let world_pos = lattice_point_world_pos(g, IVec2::new(x as i32, y as i32));
-                        let d = world_pos.distance(dig.pos);
-                        let (value, trigger) = if dig.is_fill {
-                            let value = (1.0 - (0.5 * d / dig.radius)).clamp(0.0, 1.0);
-                            (value, dense.points[x][y] < value)
-                        } else {
-                            let value = (0.5 * d / dig.radius).clamp(0.0, 1.0);
-                            (value, dense.points[x][y] > value)
-                        };
-                        if trigger {
-                            dense.points[x][y] += (value - dense.points[x][y]) * 0.1;
-                            needs_mesh_update = true;
-                        }
-                    }
-                }
+                // for x in 0..LATTICE_POINTS_PER_CHUNK_SIDE {
+                //     for y in 0..LATTICE_POINTS_PER_CHUNK_SIDE {
+                //         let world_pos = lattice_point_center_world_pos(g, IVec2::new(x as i32, y as i32));
+                //         let d = world_pos.distance(dig.pos);
+                //         let (value, trigger) = if dig.is_fill {
+                //             let value = (1.0 - (0.5 * d / dig.radius)).clamp(0.0, 1.0);
+                //             (value, dense.points[x][y] < value)
+                //         } else {
+                //             let value = (0.5 * d / dig.radius).clamp(0.0, 1.0);
+                //             (value, dense.points[x][y] > value)
+                //         };
+                //         if trigger {
+                //             let delta_mass_kg =
+                //                 (value - dense.points[x][y].mass.to_kg_f64() as f32) * 0.1;
+                //             dense.points[x][y].apply_delta_mass(delta_mass_kg);
+                //             needs_mesh_update = true;
+                //         }
+                //     }
+                // }
 
                 chunk.needs_mesh_update |= needs_mesh_update;
             }

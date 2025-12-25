@@ -1,18 +1,20 @@
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
+use bevy_egui::EguiContexts;
 use bevy_vector_shapes::prelude::*;
 
 use crate::game_version_two::{CursorWorldPosition, SelectedSpacecraft, Settings};
 
 use super::constants::*;
 use super::messages::*;
+use super::terrain_helper::TerrainHelper;
 use super::types::*;
+use super::utils::to_grid_and_lattice;
 use super::utils::*;
 
-pub fn draw_hovered_grid(
+pub fn draw_hovered_grid_and_tile(
     mut painter: ShapePainter,
-    chunks: Query<(&GlobalTransform, &TerrainChunk)>,
-    map: Res<ChunkMap>,
+    terrain: TerrainHelper,
     cursor: Res<CursorWorldPosition>,
     settings: Res<Settings>,
 ) {
@@ -24,40 +26,57 @@ pub fn draw_hovered_grid(
     painter.line((Vec3::X * -length).with_z(z), (Vec3::X * length).with_z(z));
     painter.line((Vec3::Y * -length).with_z(z), (Vec3::Y * length).with_z(z));
 
-    let cursor: Vec2 = match cursor.get() {
+    let cursor = match cursor.get() {
         Some(p) => p,
         _ => return,
     };
 
-    if let Some(e) = map.lup(cursor) {
-        if let Ok((tf, chunk)) = chunks.get(e) {
-            painter.reset();
-            painter.set_translation(tf.translation());
-            painter.hollow = true;
-            painter.thickness = 2.0;
-            painter.thickness_type = ThicknessType::Pixels;
-            painter.rect(Vec2::splat(CHUNK_WIDTH));
+    let (g, l) = to_grid_and_lattice(cursor);
 
-            if settings.draw_terrain_rgb {
-                painter.reset();
-                if let Some(dense) = &chunk.dense {
-                    for x in 0..LATTICE_POINTS_PER_CHUNK_SIDE {
-                        for y in 0..LATTICE_POINTS_PER_CHUNK_SIDE {
-                            let value = dense.points[x][y];
-                            let u = x as f32 / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32;
-                            let v = y as f32 / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32;
-                            let color = Srgba::new(0.3 + u * 0.7, 0.3 + v * 0.7, 0.6, 0.6);
-                            painter.set_color(color);
-                            let l = IVec2::new(x as i32, y as i32);
-                            let p = lattice_point_world_pos(chunk.pos, l);
-                            painter.set_translation(p.extend(10.0));
-                            let w = CHUNK_WIDTH / (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32;
-                            painter.rect(Vec2::splat(value * w));
-                        }
+    if let Some(chunk) = terrain.chunk_at(cursor) {
+        let center = chunk_center(g);
+
+        painter.reset();
+        painter.set_translation(center.extend(0.0));
+        painter.hollow = true;
+        painter.thickness = 2.0;
+        painter.thickness_type = ThicknessType::Pixels;
+        painter.rect(Vec2::splat(CHUNK_WIDTH));
+
+        if settings.draw_terrain_rgb {
+            painter.reset();
+            if let Some(dense) = &chunk.dense {
+                for x in 0..TILES_PER_CHUNK_SIDE {
+                    for y in 0..TILES_PER_CHUNK_SIDE {
+                        let tile = &dense.points[x][y];
+                        let value = tile.mass.to_kg_f64().clamp(0.0, 1.0) as f32;
+                        let u = x as f32 / TILES_PER_CHUNK_SIDE as f32;
+                        let v = y as f32 / TILES_PER_CHUNK_SIDE as f32;
+                        let color = Srgba::new(0.3 + u * 0.7, 0.3 + v * 0.7, 0.6, 0.6);
+                        painter.set_color(color);
+                        let l = IVec2::new(x as i32, y as i32);
+                        let p = lattice_point_center_world_pos(chunk.pos, l);
+                        painter.set_translation(p.extend(10.0));
+                        let w = CHUNK_WIDTH / TILES_PER_CHUNK_SIDE as f32;
+                        painter.rect(Vec2::splat(value * w));
                     }
                 }
             }
         }
+    }
+
+    const Z_HOVER_TILE_DEBUG: f32 = 1.0;
+
+    if let Some(tile) = terrain.chunk_at(cursor) {
+        let center = lattice_point_center_world_pos(g, l.as_ivec2());
+
+        painter.reset();
+        painter.set_color(GREEN.with_alpha(0.8));
+        painter.set_translation(center.extend(Z_HOVER_TILE_DEBUG));
+        painter.hollow = true;
+        painter.thickness = 2.0;
+        painter.thickness_type = ThicknessType::Pixels;
+        painter.rect(Vec2::splat(CHUNK_WIDTH / TILES_PER_CHUNK_SIDE as f32));
     }
 }
 
@@ -79,9 +98,7 @@ pub fn draw_highlighted_lattice_points(
     let (lower, upper) = chunk_bounds(g);
     let u = (pos - lower) / CHUNK_WIDTH;
 
-    let lattice_idx = (u * (LATTICE_POINTS_PER_CHUNK_SIDE - 1) as f32)
-        .round()
-        .as_ivec2();
+    let lattice_idx = (u * TILES_PER_CHUNK_SIDE as f32).round().as_ivec2();
 
     let (x, y) = (lattice_idx.x as usize, lattice_idx.y as usize);
 
@@ -117,4 +134,23 @@ pub fn draw_excavators(
         painter.hollow = true;
         painter.circle(ex.radius);
     }
+}
+
+pub fn debug_ui(
+    mut commands: Commands,
+    mut contexts: EguiContexts,
+    cursor: Res<CursorWorldPosition>,
+    terrain: TerrainHelper,
+) -> Result {
+    let ctx = contexts.ctx_mut()?;
+
+    egui::Window::new("Hovered Tile").show(ctx, |ui| {
+        crate::game_version_two::apply_egui_style(ui);
+        if let Some(pos) = cursor.get() {
+            let tile = terrain.tile_at(pos);
+            ui.label(format!("{:#?}", tile));
+        }
+    });
+
+    Ok(())
 }

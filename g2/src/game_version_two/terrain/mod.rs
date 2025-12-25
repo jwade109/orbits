@@ -7,6 +7,7 @@ pub mod systems;
 pub mod types;
 pub mod unorganized;
 pub mod utils;
+pub mod terrain_helper;
 
 pub use messages::*;
 pub use plugin::*;

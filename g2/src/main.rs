@@ -3,6 +3,7 @@ mod game_version_two;
 use crate::game_version_two::*;
 
 use bevy::core_pipeline::bloom::Bloom;
+use bevy_ecs::schedule::{LogLevel, ScheduleBuildSettings};
 use game::args::ProgramContext;
 
 fn main() {
@@ -15,15 +16,12 @@ fn main() {
                     ..default()
                 }),
         )
-        // .insert_gizmo_config(
-        //     PhysicsGizmos {
-        //         aabb_color: Some(Color::WHITE),
-        //         ..default()
-        //     },
-        //     GizmoConfig::default(),
-        // )
-        // 3rd-party plugins
-        // .add_plugins(MeshPickingPlugin)
+        .edit_schedule(Update, |schedule| {
+            schedule.set_build_settings(ScheduleBuildSettings {
+                ambiguity_detection: LogLevel::Warn,
+                ..default()
+            });
+        })
         .add_plugins(Wireframe2dPlugin::default())
         .add_plugins(EguiPlugin::default())
         // .add_plugins(WorldInspectorPlugin::new())
