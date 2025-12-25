@@ -10,8 +10,8 @@ impl Plugin for ParticlePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(ThrustParticleConfig::default())
             .add_systems(FixedUpdate, thrust_particles)
-            .add_systems(PostUpdate, debug_draw_emitters.in_set(Sets::Draw))
-            .add_plugins(ResourceInspectorPlugin::<ThrustParticleConfig>::new());
+            .add_systems(PostUpdate, debug_draw_emitters.in_set(Sets::Draw));
+        // .add_plugins(ResourceInspectorPlugin::<ThrustParticleConfig>::new());
     }
 }
 

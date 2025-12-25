@@ -2,7 +2,7 @@ use bevy::color::palettes::css::*;
 use bevy::color::palettes::tailwind::*;
 use bevy::prelude::*;
 use game::starling::factory::Item;
-use game::starling::math::chance;
+use game::starling::math::{chance, rand};
 use game::starling::units::Mass;
 use noise::{NoiseFn, Perlin, Seedable, Simplex};
 use std::collections::HashMap;
@@ -53,7 +53,7 @@ impl Excavator {
         Self {
             is_enabled: true,
             radius,
-            timer: Timer::from_seconds(0.25, TimerMode::Repeating),
+            timer: Timer::from_seconds(0.07, TimerMode::Repeating),
         }
     }
 }
@@ -151,10 +151,11 @@ pub struct DenseChunkData {
 }
 
 fn asteroid_field(simplex: &Simplex, pos: Vec2) -> Mass {
-    let kg = if pos.length() < 300.0 { 900.0 } else { 0.0 };
-    // let noise = simplex.get([pos.x as f64 / 100.0, pos.y as f64 / 100.0, 0.0]);
-    // let kg = (noise as f32 + 0.5) * 0.3 + 0.7;
-    Mass::from_kg_f32(kg)
+    // let kg = rand(400.0, 1200.0);
+    let noise = simplex.get([pos.x as f64 / 100.0, pos.y as f64 / 100.0, 0.0]);
+    let kg = (noise as f32 + 0.5) * 0.3 + 0.7;
+    let kg = if pos.length() < 300.0 { kg } else { 0.0 };
+    Mass::from_kg_f32(kg * 1200.0)
 }
 
 impl DenseChunkData {

@@ -333,6 +333,10 @@ impl Inventory {
         s
     }
 
+    pub fn clear(&mut self) {
+        self.0.iter_mut().for_each(|s| s.empty());
+    }
+
     pub fn add_slot(&mut self, slot: InvSlot) {
         self.0.push(slot);
     }

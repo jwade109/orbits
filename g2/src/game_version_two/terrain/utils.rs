@@ -59,96 +59,104 @@ pub fn inverse_lerp(a: f32, b: f32, value: f32) -> f32 {
 fn marching_cubes_mesh(dense: &DenseChunkData) -> Mesh {
     let mut builder = MeshMaker::default();
 
-    for x in 0..TILES_PER_CHUNK_SIDE {
-        for y in 0..TILES_PER_CHUNK_SIDE {
-            let value = dense.points[x][y];
+    let mass_levels = [Mass::ZERO, Mass::kilograms(500), Mass::kilograms(1000)];
 
-            builder.set_color(value.substrate.color());
+    let square_size = CHUNK_WIDTH / TILES_PER_CHUNK_SIDE as f32;
 
-            let xu = (x + 1).clamp(0, TILES_PER_CHUNK_SIDE - 1);
-            let yu = (y + 1).clamp(0, TILES_PER_CHUNK_SIDE - 1);
+    for (i, level) in mass_levels.into_iter().enumerate() {
+        let color = Srgba::gray(0.4 + i as f32 / 10.0);
+        builder.set_color(color);
 
-            let bitmask = ((dense.points[x][y].mass > Mass::ZERO) as u8)
-                | ((dense.points[xu][y].mass > Mass::ZERO) as u8) << 1
-                | ((dense.points[xu][yu].mass > Mass::ZERO) as u8) << 2
-                | ((dense.points[x][yu].mass > Mass::ZERO) as u8) << 3;
+        for x in 0..TILES_PER_CHUNK_SIDE - 1 {
+            for y in 0..TILES_PER_CHUNK_SIDE - 1 {
+                let value = dense.points[x][y];
 
-            let square_size = 1.0 / TILES_PER_CHUNK_SIDE as f32 * CHUNK_WIDTH;
+                let xu = x + 1;
+                let yu = y + 1;
 
-            let bottom_left = (IVec2::new(x as i32, y as i32).as_vec2()
-                / TILES_PER_CHUNK_SIDE as f32
-                - Vec2::splat(0.5))
-                * CHUNK_WIDTH;
-            let top_right = bottom_left + Vec2::splat(square_size);
-            let bottom_right = bottom_left + Vec2::X * square_size;
-            let top_left = bottom_left + Vec2::Y * square_size;
+                let bitmask = ((dense.points[x][y].mass > level) as u8)
+                    | ((dense.points[xu][y].mass > level) as u8) << 1
+                    | ((dense.points[xu][yu].mass > level) as u8) << 2
+                    | ((dense.points[x][yu].mass > level) as u8) << 3;
 
-            let left = bottom_left + Vec2::Y * square_size * 0.5;
-            let bottom = bottom_left + Vec2::X * square_size * 0.5;
-            let right = top_right - Vec2::Y * square_size * 0.5;
-            let top = top_right - Vec2::X * square_size * 0.5;
+                let bottom_left = (IVec2::new(x as i32, y as i32).as_vec2()
+                    / TILES_PER_CHUNK_SIDE as f32
+                    - Vec2::splat(0.5))
+                    * CHUNK_WIDTH;
 
-            let to_arr = |p: Vec2| [p.x, p.y, 0.0];
+                let bottom_left = bottom_left + Vec2::splat(square_size / 2.0);
 
-            match bitmask {
-                0 => (),
-                1 => {
-                    // bottom left corner
-                    builder.triangle([bottom_left, left, bottom]);
-                }
-                2 => {
-                    // bottom right corner
-                    builder.triangle([bottom_right, right, bottom]);
-                }
-                3 => {
-                    // bottom half
-                    builder.rectangle([bottom_left, bottom_right, right, left]);
-                }
-                4 => {
-                    // top right corner
-                    builder.triangle([top_right, right, top]);
-                }
-                5 => {
-                    // bottom left corner
-                    builder.triangle([bottom_left, left, bottom]);
-                    // top right corner
-                    builder.triangle([top_right, right, top]);
-                }
-                6 => {
-                    // right half
-                    builder.rectangle([top_right, bottom_right, bottom, top]);
-                }
-                7 => {
-                    builder.pentagon([bottom_left, bottom_right, top_right, top, left]);
-                }
-                8 => {
-                    // top left corner
-                    builder.triangle([top_left, left, top]);
-                }
-                9 => {
-                    // left half
-                    builder.rectangle([top_left, bottom_left, bottom, top]);
-                }
-                10 => {
-                    // bottom right corner
-                    builder.triangle([bottom_right, right, bottom]);
-                    // top left corner
-                    builder.triangle([top_left, left, top]);
-                }
-                11 => {
-                    builder.pentagon([bottom_left, bottom_right, right, top, top_left]);
-                }
-                12 => {
-                    builder.rectangle([top_left, top_right, right, left]);
-                }
-                13 => {
-                    builder.pentagon([bottom_left, bottom, right, top_right, top_left]);
-                }
-                14 => {
-                    builder.pentagon([bottom, bottom_right, top_right, top_left, left]);
-                }
-                _ => {
-                    builder.rectangle([bottom_left, bottom_right, top_right, top_left]);
+                let top_right = bottom_left + Vec2::splat(square_size);
+                let bottom_right = bottom_left + Vec2::X * square_size;
+                let top_left = bottom_left + Vec2::Y * square_size;
+
+                let left = bottom_left + Vec2::Y * square_size * 0.5;
+                let bottom = bottom_left + Vec2::X * square_size * 0.5;
+                let right = top_right - Vec2::Y * square_size * 0.5;
+                let top = top_right - Vec2::X * square_size * 0.5;
+
+                let to_arr = |p: Vec2| [p.x, p.y, 0.0];
+
+                match bitmask {
+                    0 => (),
+                    1 => {
+                        // bottom left corner
+                        builder.triangle([bottom_left, left, bottom]);
+                    }
+                    2 => {
+                        // bottom right corner
+                        builder.triangle([bottom_right, right, bottom]);
+                    }
+                    3 => {
+                        // bottom half
+                        builder.rectangle([bottom_left, bottom_right, right, left]);
+                    }
+                    4 => {
+                        // top right corner
+                        builder.triangle([top_right, right, top]);
+                    }
+                    5 => {
+                        // bottom left corner
+                        builder.triangle([bottom_left, left, bottom]);
+                        // top right corner
+                        builder.triangle([top_right, right, top]);
+                    }
+                    6 => {
+                        // right half
+                        builder.rectangle([top_right, bottom_right, bottom, top]);
+                    }
+                    7 => {
+                        builder.pentagon([bottom_left, bottom_right, top_right, top, left]);
+                    }
+                    8 => {
+                        // top left corner
+                        builder.triangle([top_left, left, top]);
+                    }
+                    9 => {
+                        // left half
+                        builder.rectangle([top_left, bottom_left, bottom, top]);
+                    }
+                    10 => {
+                        // bottom right corner
+                        builder.triangle([bottom_right, right, bottom]);
+                        // top left corner
+                        builder.triangle([top_left, left, top]);
+                    }
+                    11 => {
+                        builder.pentagon([bottom_left, bottom_right, right, top, top_left]);
+                    }
+                    12 => {
+                        builder.rectangle([top_left, top_right, right, left]);
+                    }
+                    13 => {
+                        builder.pentagon([bottom_left, bottom, right, top_right, top_left]);
+                    }
+                    14 => {
+                        builder.pentagon([bottom, bottom_right, top_right, top_left, left]);
+                    }
+                    _ => {
+                        builder.rectangle([bottom_left, bottom_right, top_right, top_left]);
+                    }
                 }
             }
         }
@@ -197,8 +205,8 @@ pub fn generate_mesh_data(chunk: &TerrainChunk) -> (Mesh, Srgba) {
         if dense.is_empty() {
             (Rectangle::new(0.1, 0.1).into(), RED)
         } else {
-            (simple_mesh(dense), WHITE)
             // (simple_mesh(dense), WHITE)
+            (marching_cubes_mesh(dense), WHITE)
         }
     } else {
         (Rectangle::from_size(Vec2::splat(CHUNK_WIDTH)).into(), WHITE)

@@ -103,15 +103,21 @@ fn setup(mut commands: Commands) -> Result {
 
     let off = Vec2::splat(20.0);
 
-    commands.send_event(SpacecraftEvent::SpawnVehicle {
-        name: "remora".to_string(),
-        pos: off + Vec2::ZERO,
-        angle: 0.0,
-    });
+    // commands.send_event(SpacecraftEvent::SpawnVehicle {
+    //     name: "remora".to_string(),
+    //     pos: off + Vec2::ZERO,
+    //     angle: 0.0,
+    // });
+
+    // commands.send_event(SpacecraftEvent::SpawnVehicle {
+    //     name: "pollux".to_string(),
+    //     pos: off + Vec2::X * 4.0,
+    //     angle: 1.57,
+    // });
 
     commands.send_event(SpacecraftEvent::SpawnVehicle {
-        name: "pollux".to_string(),
-        pos: off + Vec2::X * 4.0,
+        name: "miner".to_string(),
+        pos: off + Vec2::splat(4.0),
         angle: 1.57,
     });
 
@@ -130,7 +136,7 @@ fn setup(mut commands: Commands) -> Result {
         // "remora",
         // "remora",
         // "foundation",
-        "miner",
+        // "miner",
     ] {
         let x = rand(-100.0, 100.0);
         let y = rand(-100.0, 100.0);

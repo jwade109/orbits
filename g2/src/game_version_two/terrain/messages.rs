@@ -23,7 +23,6 @@ pub struct Excavate {
 
 #[derive(Event, Debug, Clone, Copy)]
 pub struct MineToInventory {
-    pub chunk: IVec2,
-    pub tile: UVec2,
     pub inventory: Entity,
+    pub pos: Vec2,
 }

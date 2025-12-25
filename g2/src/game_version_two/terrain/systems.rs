@@ -39,12 +39,6 @@ pub fn generate_tiles(
             continue;
         }
 
-        let contents = chance(0.02)
-            .then(|| Item::random_mineable())
-            .unwrap_or(Item::Stone);
-
-        let contents = msg.material.unwrap_or(contents);
-
         let chunk = TerrainChunk {
             pos: msg.pos,
             dense: Some(DenseChunkData::new(msg.pos, 0.0)),
@@ -59,28 +53,10 @@ pub fn generate_tiles(
             (msg.pos.as_vec2() * CHUNK_WIDTH + Vec2::splat(CHUNK_WIDTH / 2.0)).extend(0.0),
         );
 
-        let bg_mesh = Mesh2d(meshes.add(Rectangle::from_length(CHUNK_WIDTH)));
-        let bg_material = MeshMaterial2d(materials.add(Color::from(Srgba::gray(0.2))));
-        let child = commands
-            .spawn((
-                bg_mesh,
-                bg_material,
-                Visibility::Visible,
-                Transform::from_xyz(0.0, 0.0, -10.0),
-            ))
-            .id();
-
         let mesh = Mesh2d(meshes.add(Rectangle::from_length(CHUNK_WIDTH)));
         let material = MeshMaterial2d(materials.add(Color::default()));
 
         let mut e = commands.spawn((chunk, transform, mesh, material));
-
-        e.add_child(child);
-
-        let vol = Volume::liters(randint(1000, 10000) as u64);
-        let mut inv = Inventory::single(contents, vol);
-        inv.fill();
-        e.insert(inv);
 
         chunk_map.insert(msg.pos, e.id());
     }
@@ -146,7 +122,9 @@ pub fn excavate_chunks(
 
         let delta = Mass::kilograms(150);
 
-        chunk.needs_mesh_update |= tile.mine(delta);
+        tile.mine(delta);
+
+        chunk.needs_mesh_update = true;
 
         // for xi in center.x - 1..=center.x + 1 {
         //     for yi in center.y - 1..=center.y + 1 {
@@ -211,10 +189,10 @@ pub fn process_excavators(
 
         if ex.timer.just_finished() {
             let pos = (tf.translation() + offset).xy();
+            let offset = randvec(0.0, 1.5);
             let (g, l) = to_grid_and_lattice(pos);
             let msg = MineToInventory {
-                chunk: g,
-                tile: l,
+                pos: pos + offset,
                 inventory: e,
             };
             events.write(msg);
@@ -233,19 +211,23 @@ pub fn process_mine_to_inventory(
     for event in events.read() {
         info!(?event);
 
+        let (chunk, tile) = to_grid_and_lattice(event.pos);
+
         let Ok(mut inv) = inventories.get_mut(event.inventory) else {
             error!("Failed to get inventory: {}", event.inventory);
             continue;
         };
 
-        let e = some_or_continue!(chunk_map.get(&event.chunk));
+        let e = some_or_continue!(chunk_map.get(&chunk));
         let mut chunk = ok_or_continue!(chunks.get_mut(*e));
         let mut dense = some_or_continue!(chunk.dense.as_mut());
-        let mut tile = &mut dense.points[event.tile.x as usize][event.tile.y as usize];
+        let mut tile = &mut dense.points[tile.x as usize][tile.y as usize];
 
         if tile.mass.is_zero() {
             continue;
         }
+
+        let old_mass = tile.mass;
 
         let count = 10000;
         let item = tile.substrate.yields();
@@ -257,7 +239,7 @@ pub fn process_mine_to_inventory(
             successes.push(event.clone());
         }
 
-        if tile.mass.is_zero() {
+        if tile.mass != old_mass {
             chunk.needs_mesh_update = true;
         }
     }
@@ -267,11 +249,9 @@ pub fn process_mine_to_inventory(
 
 pub fn spawn_mining_visuals(In(chunks): In<Vec<MineToInventory>>, mut commands: Commands) {
     for event in chunks {
-        let center = lattice_point_center_world_pos(event.chunk, event.tile.as_ivec2());
-        let center = center + randvec(0.1, 1.0) * 1.5;
         let indicator = MiningIndicator {
             remaining: Timer::from_seconds(1.0, TimerMode::Once),
-            pos: center,
+            pos: event.pos,
         };
         commands.spawn(indicator);
     }
