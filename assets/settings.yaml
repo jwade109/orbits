@@ -5,6 +5,6 @@ show_wireframes: false
 draw_inventories: true
 draw_docking_info: false
 draw_thruster_states: false
-dig_with_mouse: true
+dig_with_mouse: false
 follow_selected: true
 infinite_fuel: true

@@ -500,9 +500,7 @@ impl InvSlot {
     }
 
     pub fn empty(&mut self) {
-        if let Some((item, _)) = self.contents {
-            self.contents = Some((item, 0));
-        }
+        self.contents = None;
     }
 
     // fills this slot with the slot's set item, if possible.
@@ -550,11 +548,15 @@ impl InvSlot {
         true
     }
 
-    // a slot can store a given amount of item IFF it has a set item,
-    // and its current storage plus the new count would be less or equal to
-    // the given capacity.
+    // a slot can store a given amount of item IFF
+    // its current storage plus the new count would be less or equal to
+    // the given capacity, and its filter accepts the item.
     // TODO related mass and volume here.
     pub fn can_store(&self, item: Item, count: u64) -> bool {
+        if !self.filter.passes(item) {
+            return false;
+        }
+
         let units_capacity = (self.capacity / item.volume_per_unit()).floor() as u64;
         if let Some(contents) = self.contents {
             contents.0 == item && contents.1 + count <= units_capacity

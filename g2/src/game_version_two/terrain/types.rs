@@ -22,8 +22,8 @@ pub enum Substrate {
 impl Substrate {
     pub fn yields(&self) -> Item {
         match self {
-            Substrate::Rock => Item::Ice,
-            Substrate::Dirt => Item::Bread,
+            Substrate::Rock => Item::Stone,
+            Substrate::Dirt => Item::Ice,
             Substrate::IronOre => Item::Iron,
             Substrate::CopperOre => Item::Copper,
             Substrate::UraniumOre => Item::U238,
@@ -78,6 +78,10 @@ pub struct TerrainChunk {
 impl TerrainChunk {
     pub fn is_empty(&self) -> bool {
         self.dense.as_ref().map(|d| d.is_empty()).unwrap_or(true)
+    }
+
+    pub fn tile(&self, l: IVec2) -> Option<&Tile> {
+        self.dense.as_ref().map(|d| d.tile(l)).flatten()
     }
 
     pub fn is_occupied(&self, l: IVec2) -> bool {
@@ -147,7 +151,7 @@ pub struct DenseChunkData {
 }
 
 fn asteroid_field(simplex: &Simplex, pos: Vec2) -> Mass {
-    let kg = if pos.length() < 300.0 { 10000.0 } else { 0.0 };
+    let kg = if pos.length() < 300.0 { 900.0 } else { 0.0 };
     // let noise = simplex.get([pos.x as f64 / 100.0, pos.y as f64 / 100.0, 0.0]);
     // let kg = (noise as f32 + 0.5) * 0.3 + 0.7;
     Mass::from_kg_f32(kg)
@@ -182,6 +186,20 @@ impl DenseChunkData {
         ret
     }
 
+    pub fn tile(&self, l: IVec2) -> Option<&Tile> {
+        if l.x < 0
+            || l.x >= TILES_PER_CHUNK_SIDE as i32
+            || l.y < 0
+            || l.y >= TILES_PER_CHUNK_SIDE as i32
+        {
+            return None;
+        }
+        let x = l.x as usize;
+        let y = l.y as usize;
+
+        Some(&self.points[x][y])
+    }
+
     pub fn is_solid(&self) -> bool {
         self.points
             .iter()
@@ -193,4 +211,10 @@ impl DenseChunkData {
             .iter()
             .all(|arr| arr.iter().all(|x| x.mass == Mass::ZERO))
     }
+}
+
+#[derive(Component)]
+pub struct MiningIndicator {
+    pub remaining: Timer,
+    pub pos: Vec2,
 }

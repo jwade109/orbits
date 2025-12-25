@@ -1,4 +1,6 @@
+use bevy::color::palettes::css::*;
 use bevy::prelude::*;
+use bevy_vector_shapes::prelude::*;
 use early_returns::ok_or_continue;
 use early_returns::some_or_continue;
 use game::starling::prelude::*;
@@ -203,10 +205,12 @@ pub fn process_excavators(
             continue;
         }
 
+        let offset = tf.right() * 4.0;
+
         ex.timer.tick(time.delta());
 
         if ex.timer.just_finished() {
-            let pos = tf.translation().xy();
+            let pos = (tf.translation() + offset).xy();
             let (g, l) = to_grid_and_lattice(pos);
             let msg = MineToInventory {
                 chunk: g,
@@ -223,7 +227,9 @@ pub fn process_mine_to_inventory(
     chunk_map: Res<ChunkMap>,
     mut chunks: Query<&mut TerrainChunk>,
     mut inventories: Query<&mut Inventory>,
-) {
+) -> Vec<MineToInventory> {
+    let mut successes = Vec::new();
+
     for event in events.read() {
         info!(?event);
 
@@ -237,8 +243,59 @@ pub fn process_mine_to_inventory(
         let mut dense = some_or_continue!(chunk.dense.as_mut());
         let mut tile = &mut dense.points[event.tile.x as usize][event.tile.y as usize];
 
-        inv.store(tile.substrate.yields(), 1000);
+        if tile.mass.is_zero() {
+            continue;
+        }
 
-        chunk.needs_mesh_update |= tile.mine(Mass::kilograms(150));
+        let count = 10000;
+        let item = tile.substrate.yields();
+        let mass = item.mass_per_unit() * count;
+
+        let status = atomic_mine(&mut tile, &mut inv, item, count);
+
+        if status == MachineStatus::Running {
+            successes.push(event.clone());
+        }
+
+        if tile.mass.is_zero() {
+            chunk.needs_mesh_update = true;
+        }
+    }
+
+    successes
+}
+
+pub fn spawn_mining_visuals(In(chunks): In<Vec<MineToInventory>>, mut commands: Commands) {
+    for event in chunks {
+        let center = lattice_point_center_world_pos(event.chunk, event.tile.as_ivec2());
+        let center = center + randvec(0.1, 1.0) * 1.5;
+        let indicator = MiningIndicator {
+            remaining: Timer::from_seconds(1.0, TimerMode::Once),
+            pos: center,
+        };
+        commands.spawn(indicator);
+    }
+}
+
+pub fn process_mining_visuals(
+    mut commands: Commands,
+    mut painter: ShapePainter,
+    indicators: Query<(Entity, &mut MiningIndicator)>,
+    time: Res<Time<Fixed>>,
+) {
+    painter.reset();
+    let dt = time.delta();
+    let side_length = CHUNK_WIDTH / TILES_PER_CHUNK_SIDE as f32 / 4.0;
+    for (e, mut ind) in indicators {
+        ind.remaining.tick(dt);
+        let remaining = ind.remaining.remaining().as_secs_f32();
+        let color = ORANGE.with_alpha(remaining * 0.5 + 0.5);
+        painter.set_color(color);
+        painter.set_translation(ind.pos.extend(3.0));
+        painter.rect(Vec2::splat(side_length));
+
+        if ind.remaining.finished() {
+            commands.entity(e).despawn();
+        }
     }
 }

@@ -1,5 +1,8 @@
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
+use game::starling::prelude::Inventory;
+use game::starling::prelude::Item;
+use game::starling::prelude::MachineStatus;
 use game::starling::units::Mass;
 
 use crate::game_version_two::MeshMaker;
@@ -215,4 +218,23 @@ pub fn global_to_gl(gl: IVec2) -> (IVec2, IVec2) {
         l.y += n as i32;
     }
     (g, l)
+}
+
+/// moves items from a tile to an inventory, if possible,
+/// without leaving either in a state where matter is
+/// created or destroyed
+pub fn atomic_mine(src: &mut Tile, dst: &mut Inventory, item: Item, count: u64) -> MachineStatus {
+    if !dst.can_store(item, count) {
+        return MachineStatus::NoRoom;
+    }
+
+    if src.mass.is_zero() {
+        return MachineStatus::Starved;
+    }
+
+    let mass = item.mass_per_unit() * count;
+    dst.store(item, count);
+    src.mine(mass);
+
+    MachineStatus::Running
 }
