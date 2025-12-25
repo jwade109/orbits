@@ -1,4 +1,4 @@
-use bevy::prelude::{Event, IVec2, Vec2};
+use bevy::prelude::{Entity, Event, IVec2, UVec2, Vec2};
 use game::starling::factory::Item;
 
 #[derive(Event, Debug, Clone, Copy)]
@@ -19,4 +19,11 @@ pub struct Excavate {
     pub pos: Vec2,
     pub radius: f32,
     pub is_fill: bool,
+}
+
+#[derive(Event, Debug, Clone, Copy)]
+pub struct MineToInventory {
+    pub chunk: IVec2,
+    pub tile: UVec2,
+    pub inventory: Entity,
 }

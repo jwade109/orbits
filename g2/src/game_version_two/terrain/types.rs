@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use super::constants::*;
 use super::utils::*;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Substrate {
     Rock,
     Dirt,
@@ -22,7 +22,7 @@ pub enum Substrate {
 impl Substrate {
     pub fn yields(&self) -> Item {
         match self {
-            Substrate::Rock => Item::Geodes,
+            Substrate::Rock => Item::Ice,
             Substrate::Dirt => Item::Bread,
             Substrate::IronOre => Item::Iron,
             Substrate::CopperOre => Item::Copper,
@@ -41,10 +41,21 @@ impl Substrate {
     }
 }
 
-#[derive(Component, Debug, Clone, Copy)]
+#[derive(Component, Debug, Clone)]
 pub struct Excavator {
     pub is_enabled: bool,
     pub radius: f32,
+    pub timer: Timer,
+}
+
+impl Excavator {
+    pub fn new(radius: f32) -> Self {
+        Self {
+            is_enabled: true,
+            radius,
+            timer: Timer::from_seconds(0.25, TimerMode::Repeating),
+        }
+    }
 }
 
 #[derive(Resource, Default, Deref, DerefMut)]
@@ -99,6 +110,24 @@ impl Tile {
     pub fn apply_delta_mass(&mut self, delta_mass_kg: f32) {
         if delta_mass_kg > 0.0 {
             let delta = Mass::from_kg_f32(delta_mass_kg);
+        }
+    }
+
+    pub fn has_some(&self, substrate: Substrate) -> bool {
+        self.substrate == substrate && !self.mass.is_zero()
+    }
+
+    /// reduces mass of this tile by delta.
+    /// return true if the tile was reduced to zero mass.
+    pub fn mine(&mut self, delta: Mass) -> bool {
+        if self.mass.is_zero() {
+            false
+        } else if self.mass <= delta {
+            self.mass = Mass::ZERO;
+            true
+        } else {
+            self.mass -= delta;
+            false
         }
     }
 }

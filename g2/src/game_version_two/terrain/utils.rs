@@ -56,18 +56,19 @@ pub fn inverse_lerp(a: f32, b: f32, value: f32) -> f32 {
 fn marching_cubes_mesh(dense: &DenseChunkData) -> Mesh {
     let mut builder = MeshMaker::default();
 
-    let color = DARK_GRAY;
-
-    builder.set_color(color);
-
     for x in 0..TILES_PER_CHUNK_SIDE {
         for y in 0..TILES_PER_CHUNK_SIDE {
             let value = dense.points[x][y];
 
+            builder.set_color(value.substrate.color());
+
+            let xu = (x + 1).clamp(0, TILES_PER_CHUNK_SIDE - 1);
+            let yu = (y + 1).clamp(0, TILES_PER_CHUNK_SIDE - 1);
+
             let bitmask = ((dense.points[x][y].mass > Mass::ZERO) as u8)
-                | ((dense.points[x + 1][y].mass > Mass::ZERO) as u8) << 1
-                | ((dense.points[x + 1][y + 1].mass > Mass::ZERO) as u8) << 2
-                | ((dense.points[x][y + 1].mass > Mass::ZERO) as u8) << 3;
+                | ((dense.points[xu][y].mass > Mass::ZERO) as u8) << 1
+                | ((dense.points[xu][yu].mass > Mass::ZERO) as u8) << 2
+                | ((dense.points[x][yu].mass > Mass::ZERO) as u8) << 3;
 
             let square_size = 1.0 / TILES_PER_CHUNK_SIDE as f32 * CHUNK_WIDTH;
 
@@ -194,6 +195,7 @@ pub fn generate_mesh_data(chunk: &TerrainChunk) -> (Mesh, Srgba) {
             (Rectangle::new(0.1, 0.1).into(), RED)
         } else {
             (simple_mesh(dense), WHITE)
+            // (simple_mesh(dense), WHITE)
         }
     } else {
         (Rectangle::from_size(Vec2::splat(CHUNK_WIDTH)).into(), WHITE)

@@ -558,9 +558,9 @@ fn add_part_to_grid<'a>(
     if let Some(data) = part.inventory_data() {
         let mut inv = Inventory::zero_slots();
         for _ in 0..data.slots {
-            let item = Item::random_with_filter(&data.filter).expect("Expected an item");
+            // let item = Item::random_with_filter(&data.filter).expect("Expected an item");
             let slot = InvSlot::new(Volume::liters_f32(data.volume_liters), data.filter.clone());
-            inv.add_slot(slot.with_item(item));
+            inv.add_slot(slot);
         }
         cmd.insert(inv);
     }
@@ -613,10 +613,7 @@ fn add_part_to_grid<'a>(
     // EXCAVATOR COMPONENT ==================================================
 
     if let Some(data) = part.excavator_data() {
-        cmd.insert(Excavator {
-            is_enabled: true,
-            radius: data.radius,
-        });
+        cmd.insert(Excavator::new(data.radius));
     }
 
     // DOCKING PORT COMPONENT ===============================================

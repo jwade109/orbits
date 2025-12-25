@@ -4,3 +4,8 @@ name: "excavator"
 dims: [25, 20]
 excavator_data:
   radius: 9.0
+inventory_data:
+  slots: 5
+  filter: Solid
+  volume_liters: 60
+

@@ -1,4 +1,6 @@
 use bevy::prelude::*;
+use early_returns::ok_or_continue;
+use early_returns::some_or_continue;
 use game::starling::prelude::*;
 
 use super::constants::*;
@@ -133,68 +135,110 @@ pub fn excavate_chunks(
     mut chunks: Query<&mut TerrainChunk>,
 ) {
     for dig in messages.read() {
-        let center = to_grid(dig.pos);
-        for xi in center.x - 1..=center.x + 1 {
-            for yi in center.y - 1..=center.y + 1 {
-                let g = IVec2::new(xi, yi);
-                let chunk_id = match map.get(&g) {
-                    Some(id) => id,
-                    _ => continue,
-                };
+        let (g, l) = to_grid_and_lattice(dig.pos);
 
-                let mut chunk = match chunks.get_mut(*chunk_id) {
-                    Ok(mut chunk) => chunk,
-                    _ => continue,
-                };
+        let e = some_or_continue!(map.get(&g));
+        let mut chunk = ok_or_continue!(chunks.get_mut(*e));
+        let dense = some_or_continue!(chunk.dense.as_mut());
+        let tile = &mut dense.points[l.x as usize][l.y as usize];
 
-                let dense = match &mut chunk.dense {
-                    Some(dense) => dense,
-                    _ => continue,
-                };
+        let delta = Mass::kilograms(150);
 
-                let mut needs_mesh_update = false;
+        chunk.needs_mesh_update |= tile.mine(delta);
 
-                // for x in 0..LATTICE_POINTS_PER_CHUNK_SIDE {
-                //     for y in 0..LATTICE_POINTS_PER_CHUNK_SIDE {
-                //         let world_pos = lattice_point_center_world_pos(g, IVec2::new(x as i32, y as i32));
-                //         let d = world_pos.distance(dig.pos);
-                //         let (value, trigger) = if dig.is_fill {
-                //             let value = (1.0 - (0.5 * d / dig.radius)).clamp(0.0, 1.0);
-                //             (value, dense.points[x][y] < value)
-                //         } else {
-                //             let value = (0.5 * d / dig.radius).clamp(0.0, 1.0);
-                //             (value, dense.points[x][y] > value)
-                //         };
-                //         if trigger {
-                //             let delta_mass_kg =
-                //                 (value - dense.points[x][y].mass.to_kg_f64() as f32) * 0.1;
-                //             dense.points[x][y].apply_delta_mass(delta_mass_kg);
-                //             needs_mesh_update = true;
-                //         }
-                //     }
-                // }
+        // for xi in center.x - 1..=center.x + 1 {
+        //     for yi in center.y - 1..=center.y + 1 {
+        //         let g = IVec2::new(xi, yi);
+        //         let chunk_id = match map.get(&g) {
+        //             Some(id) => id,
+        //             _ => continue,
+        //         };
 
-                chunk.needs_mesh_update |= needs_mesh_update;
-            }
-        }
+        //         let mut chunk = match chunks.get_mut(*chunk_id) {
+        //             Ok(mut chunk) => chunk,
+        //             _ => continue,
+        //         };
+
+        //         let dense = match &mut chunk.dense {
+        //             Some(dense) => dense,
+        //             _ => continue,
+        //         };
+
+        //         let mut needs_mesh_update = false;
+
+        //         // for x in 0..TILES_PER_CHUNK_SIDE {
+        //         //     for y in 0..TILES_PER_CHUNK_SIDE {
+        //         //         let world_pos =
+        //         //             lattice_point_center_world_pos(g, IVec2::new(x as i32, y as i32));
+        //         //         let d = world_pos.distance(dig.pos);
+        //         //         let (value, trigger) = if dig.is_fill {
+        //         //             let value = (1.0 - (0.5 * d / dig.radius)).clamp(0.0, 1.0);
+        //         //             (value, dense.points[x][y] < value)
+        //         //         } else {
+        //         //             let value = (0.5 * d / dig.radius).clamp(0.0, 1.0);
+        //         //             (value, dense.points[x][y] > value)
+        //         //         };
+        //         //         if trigger {
+        //         //             let delta_mass_kg =
+        //         //                 (value - dense.points[x][y].mass.to_kg_f64() as f32) * 0.1;
+        //         //             dense.points[x][y].apply_delta_mass(delta_mass_kg);
+        //         //             needs_mesh_update = true;
+        //         //         }
+        //         //     }
+        //         // }
+
+        //         chunk.needs_mesh_update |= needs_mesh_update;
+        //     }
+        // }
     }
 }
 
 pub fn process_excavators(
-    mut events: EventWriter<Excavate>,
-    excavators: Query<(&GlobalTransform, &Excavator)>,
+    mut events: EventWriter<MineToInventory>,
+    excavators: Query<(Entity, &GlobalTransform, &mut Excavator)>,
+    time: Res<Time<Fixed>>,
 ) {
-    for (tf, ex) in excavators {
+    for (e, tf, mut ex) in excavators {
         if !ex.is_enabled {
             continue;
         }
 
-        let pos = tf.translation().xy();
-        let msg = Excavate {
-            pos,
-            radius: ex.radius,
-            is_fill: false,
+        ex.timer.tick(time.delta());
+
+        if ex.timer.just_finished() {
+            let pos = tf.translation().xy();
+            let (g, l) = to_grid_and_lattice(pos);
+            let msg = MineToInventory {
+                chunk: g,
+                tile: l,
+                inventory: e,
+            };
+            events.write(msg);
+        }
+    }
+}
+
+pub fn process_mine_to_inventory(
+    mut events: EventReader<MineToInventory>,
+    chunk_map: Res<ChunkMap>,
+    mut chunks: Query<&mut TerrainChunk>,
+    mut inventories: Query<&mut Inventory>,
+) {
+    for event in events.read() {
+        info!(?event);
+
+        let Ok(mut inv) = inventories.get_mut(event.inventory) else {
+            error!("Failed to get inventory: {}", event.inventory);
+            continue;
         };
-        events.write(msg);
+
+        let e = some_or_continue!(chunk_map.get(&event.chunk));
+        let mut chunk = ok_or_continue!(chunks.get_mut(*e));
+        let mut dense = some_or_continue!(chunk.dense.as_mut());
+        let mut tile = &mut dense.points[event.tile.x as usize][event.tile.y as usize];
+
+        inv.store(tile.substrate.yields(), 1000);
+
+        chunk.needs_mesh_update |= tile.mine(Mass::kilograms(150));
     }
 }

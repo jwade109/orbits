@@ -17,6 +17,7 @@ impl Plugin for TerrainPlugin {
         app.add_event::<messages::GenerateChunk>();
         app.add_event::<messages::DeleteChunk>();
         app.add_event::<messages::Excavate>();
+        app.add_event::<messages::MineToInventory>();
 
         app.add_systems(Startup, systems::insert_tiles);
 
@@ -28,6 +29,7 @@ impl Plugin for TerrainPlugin {
                 systems::delete_chunks,
                 systems::excavate_chunks,
                 systems::process_excavators,
+                systems::process_mine_to_inventory,
                 // debug rendering
                 debug_systems::draw_excavators,
                 debug_systems::draw_hovered_grid_and_tile,

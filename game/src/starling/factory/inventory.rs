@@ -559,7 +559,7 @@ impl InvSlot {
         if let Some(contents) = self.contents {
             contents.0 == item && contents.1 + count <= units_capacity
         } else {
-            false
+            true
         }
     }
 
@@ -570,6 +570,10 @@ impl InvSlot {
 
         if let Some(contents) = &mut self.contents {
             contents.1 += count;
+        } else {
+            // TODO this is a bug. what if `count` is greater than capacity?
+            // will we allow partial stores?
+            self.contents = Some((item, count));
         }
 
         true
