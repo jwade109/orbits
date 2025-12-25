@@ -6,6 +6,8 @@ use bevy_ecs::relationship::RelatedSpawnerCommands;
 use bevy_vector_shapes::prelude::*;
 use game::args::ProgramContext;
 
+use crate::game_version_two::terrain::types::Excavator;
+
 pub struct SpacecraftPlugin;
 
 impl Plugin for SpacecraftPlugin {

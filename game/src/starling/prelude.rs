@@ -7,7 +7,9 @@ pub use crate::starling::construction_bot::*;
 pub use crate::starling::control::OrbitalController;
 pub use crate::starling::control_signals::*;
 pub use crate::starling::entities::*;
-pub use crate::starling::factory::{Item, ItemFilter, MachineStatus, Recipe, RecipeListing};
+pub use crate::starling::factory::{
+    Inventory, Item, ItemFilter, MachineStatus, Recipe, RecipeListing,
+};
 pub use crate::starling::id::EntityId;
 pub use crate::starling::lpf::*;
 pub use crate::starling::math::*;
