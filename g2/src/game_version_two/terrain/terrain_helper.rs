@@ -25,4 +25,12 @@ impl TerrainHelper<'_, '_> {
         let tile = &dense.points[l.x as usize][l.y as usize];
         Some(tile)
     }
+
+    pub fn tile_at_global(&self, gl: IVec2) -> Option<&Tile> {
+        let (g, l) = global_to_gl(gl);
+        let e = self.grid.get(&g)?;
+        let chunk = self.chunks.get(*e).ok()?;
+        let tile = chunk.tile(l)?;
+        Some(tile)
+    }
 }

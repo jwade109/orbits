@@ -128,8 +128,9 @@ pub fn draw_excavators(
 ) {
     for (tf, ex) in excavators {
         painter.reset();
-        painter.set_translation(tf.translation().with_z(60.0));
-        let color = if ex.is_enabled { GREEN } else { RED }.with_alpha(0.4);
+        let center = ex.effector_center(tf);
+        painter.set_translation(center.with_z(5.0));
+        let color = if ex.is_on { GREEN } else { RED }.with_alpha(0.4);
         painter.set_color(color);
         painter.hollow = true;
         painter.circle(ex.radius);
@@ -141,14 +142,48 @@ pub fn debug_ui(
     mut contexts: EguiContexts,
     cursor: Res<CursorWorldPosition>,
     terrain: TerrainHelper,
+    settings: Res<Settings>,
 ) -> Result {
+    if !settings.show_terrain_info {
+        return Ok(());
+    }
+
     let ctx = contexts.ctx_mut()?;
 
-    egui::Window::new("Hovered Tile").show(ctx, |ui| {
+    let Some(pos) = cursor.get_anyway() else {
+        return Ok(());
+    };
+
+    let Some(chunk) = terrain.chunk_at(pos) else {
+        return Ok(());
+    };
+
+    let (g, l) = to_grid_and_lattice(pos);
+
+    egui::Window::new("Terrain Data").show(ctx, |ui| {
         crate::game_version_two::apply_egui_style(ui);
-        if let Some(pos) = cursor.get() {
-            let tile = terrain.tile_at(pos);
-            ui.label(format!("{:#?}", tile));
+        ui.label(format!("Chunk pos: {}", g));
+        ui.label(format!("Tile pos: {}", l));
+        ui.label(format!("Global: {}", to_global(g, l.as_ivec2())));
+        ui.label(format!("Is dense: {}", chunk.dense.is_some()));
+        ui.label(format!("Mass: {}", chunk.mass()));
+
+        let mut substrates: Vec<_> = chunk.substrates().into_iter().collect();
+        substrates.sort();
+
+        if substrates.is_empty() {
+        } else {
+            ui.label("Substrates:");
+            for sub in substrates {
+                let mass = chunk.mass_of(sub);
+                ui.label(format!(" - {:?}: {}", sub, mass));
+            }
+        }
+
+        if let Some(tile) = terrain.tile_at(pos) {
+            ui.separator();
+            ui.label(format!("Substrate: {:?}", tile.substrate));
+            ui.label(format!("Mass: {}", tile.mass));
         }
     });
 

@@ -3,9 +3,8 @@ layer: Internal
 name: "excavator"
 dims: [25, 20]
 excavator_data:
-  radius: 9.0
+  radius: 2.0
 inventory_data:
   slots: 5
   filter: Solid
-  volume_liters: 60
-
+  volume_liters: 400

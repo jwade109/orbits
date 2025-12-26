@@ -55,7 +55,6 @@ pub fn inverse_lerp(a: f32, b: f32, value: f32) -> f32 {
     return (value - a) / (b - a);
 }
 
-#[deprecated(note = "Temporarily shelving this for simpler rendering.")]
 fn marching_cubes_mesh(dense: &DenseChunkData) -> Mesh {
     let mut builder = MeshMaker::default();
 
@@ -211,6 +210,10 @@ pub fn generate_mesh_data(chunk: &TerrainChunk) -> (Mesh, Srgba) {
     } else {
         (Rectangle::from_size(Vec2::splat(CHUNK_WIDTH)).into(), WHITE)
     }
+}
+
+pub fn to_global(g: IVec2, l: IVec2) -> IVec2 {
+    g * TILES_PER_CHUNK_SIDE as i32 + l
 }
 
 pub fn global_to_gl(gl: IVec2) -> (IVec2, IVec2) {

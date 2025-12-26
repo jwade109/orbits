@@ -79,6 +79,10 @@ impl CursorWorldPosition {
     pub fn get(&self) -> Option<Vec2> {
         (!self.on_egui).then(|| self.pos).flatten()
     }
+
+    pub fn get_anyway(&self) -> Option<Vec2> {
+        self.pos
+    }
 }
 
 fn draw_cursor_pos(

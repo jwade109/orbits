@@ -12,12 +12,12 @@ use super::utils::*;
 
 /// startup system to spawn new tiles
 pub fn insert_tiles(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let ast = Asteroid::random(600.0, Some(12));
+
+    commands.insert_resource(Ast(ast));
+
     for x in -30..=30 {
         for y in -30..=30 {
-            let r = Vec2::new(x as f32, y as f32);
-            if r.length() > 12.8 {
-                continue;
-            }
             commands.send_event(GenerateChunk {
                 pos: IVec2::new(x, y),
                 material: None,
@@ -33,6 +33,7 @@ pub fn generate_tiles(
     mut chunk_map: ResMut<ChunkMap>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    asteroid: Res<Ast>,
 ) {
     for msg in messages.read() {
         if chunk_map.contains_key(&msg.pos) {
@@ -41,7 +42,7 @@ pub fn generate_tiles(
 
         let chunk = TerrainChunk {
             pos: msg.pos,
-            dense: Some(DenseChunkData::new(msg.pos, 0.0)),
+            dense: Some(DenseChunkData::new(msg.pos, 0.0, &asteroid)),
             needs_mesh_update: true,
         };
 
@@ -179,17 +180,19 @@ pub fn process_excavators(
     time: Res<Time<Fixed>>,
 ) {
     for (e, tf, mut ex) in excavators {
-        if !ex.is_enabled {
+        if !ex.is_on {
+            ex.status = MachineStatus::Off;
+            ex.last_op_status = MachineStatus::Off;
             continue;
         }
 
-        let offset = tf.right() * 4.0;
+        ex.status = MachineStatus::Running;
 
         ex.timer.tick(time.delta());
 
         if ex.timer.just_finished() {
-            let pos = (tf.translation() + offset).xy();
-            let offset = randvec(0.0, 1.5);
+            let pos = ex.effector_center(tf).xy();
+            let offset = randvec(0.0, ex.radius);
             let (g, l) = to_grid_and_lattice(pos);
             let msg = MineToInventory {
                 pos: pos + offset,
@@ -204,16 +207,14 @@ pub fn process_mine_to_inventory(
     mut events: EventReader<MineToInventory>,
     chunk_map: Res<ChunkMap>,
     mut chunks: Query<&mut TerrainChunk>,
-    mut inventories: Query<&mut Inventory>,
-) -> Vec<MineToInventory> {
+    mut excavators: Query<(&mut Inventory, &mut Excavator)>,
+) -> Vec<(Vec2, MiningFailure)> {
     let mut successes = Vec::new();
 
     for event in events.read() {
-        info!(?event);
-
         let (chunk, tile) = to_grid_and_lattice(event.pos);
 
-        let Ok(mut inv) = inventories.get_mut(event.inventory) else {
+        let Ok((mut inv, mut ex)) = excavators.get_mut(event.inventory) else {
             error!("Failed to get inventory: {}", event.inventory);
             continue;
         };
@@ -224,6 +225,8 @@ pub fn process_mine_to_inventory(
         let mut tile = &mut dense.points[tile.x as usize][tile.y as usize];
 
         if tile.mass.is_zero() {
+            successes.push((event.pos, MiningFailure::NoMaterial));
+            ex.last_op_status = MachineStatus::Starved;
             continue;
         }
 
@@ -233,11 +236,15 @@ pub fn process_mine_to_inventory(
         let item = tile.substrate.yields();
         let mass = item.mass_per_unit() * count;
 
-        let status = atomic_mine(&mut tile, &mut inv, item, count);
+        ex.last_op_status = atomic_mine(&mut tile, &mut inv, item, count);
 
-        if status == MachineStatus::Running {
-            successes.push(event.clone());
-        }
+        let status = if ex.last_op_status == MachineStatus::Running {
+            MiningFailure::Ok
+        } else {
+            MiningFailure::NoRoom
+        };
+
+        successes.push((event.pos, status));
 
         if tile.mass != old_mass {
             chunk.needs_mesh_update = true;
@@ -247,11 +254,12 @@ pub fn process_mine_to_inventory(
     successes
 }
 
-pub fn spawn_mining_visuals(In(chunks): In<Vec<MineToInventory>>, mut commands: Commands) {
-    for event in chunks {
+pub fn spawn_mining_visuals(In(chunks): In<Vec<(Vec2, MiningFailure)>>, mut commands: Commands) {
+    for (pos, success) in chunks {
         let indicator = MiningIndicator {
             remaining: Timer::from_seconds(1.0, TimerMode::Once),
-            pos: event.pos,
+            pos,
+            success,
         };
         commands.spawn(indicator);
     }
@@ -269,7 +277,12 @@ pub fn process_mining_visuals(
     for (e, mut ind) in indicators {
         ind.remaining.tick(dt);
         let remaining = ind.remaining.remaining().as_secs_f32();
-        let color = ORANGE.with_alpha(remaining * 0.5 + 0.5);
+        let color = match ind.success {
+            MiningFailure::Ok => ORANGE,
+            MiningFailure::NoRoom => RED,
+            MiningFailure::NoMaterial => TEAL,
+        }
+        .with_alpha(remaining * 0.5 + 0.5);
         painter.set_color(color);
         painter.set_translation(ind.pos.extend(3.0));
         painter.rect(Vec2::splat(side_length));

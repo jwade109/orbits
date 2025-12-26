@@ -12,6 +12,7 @@ pub struct Settings {
     pub dig_with_mouse: bool,
     pub follow_selected: bool,
     pub infinite_fuel: bool,
+    pub show_terrain_info: bool,
 }
 
 impl Settings {
@@ -35,6 +36,7 @@ impl Default for Settings {
             dig_with_mouse: false,
             follow_selected: true,
             infinite_fuel: false,
+            show_terrain_info: false,
         }
     }
 }
