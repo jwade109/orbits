@@ -61,6 +61,9 @@ fn new_editor_ui(
             if ui.button("Open").clicked() {
                 game.load();
             }
+            if ui.button("Rotate").clicked() {
+                game.editor_context.rotate_craft();
+            }
         });
 
     egui::Window::new("Parts").show(ctx, |ui| {
