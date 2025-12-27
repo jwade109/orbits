@@ -1,3 +1,5 @@
+use bevy::color::palettes::tailwind::GRAY_400;
+
 use crate::game_version_two::*;
 
 pub struct InventoryTransferPlugin;
@@ -142,13 +144,61 @@ fn draw_pipes(
         painter.reset();
         painter.set_translation(Vec3::Z * Z_PIPE_LAYER);
 
-        for (color, thickness) in [(LIGHT_GRAY, 0.11), (GRAY, 0.07)] {
+        for (color, thickness) in [(GRAY_400, 0.07)] {
             painter.set_color(color);
             painter.thickness = thickness;
+            painter.cap = Cap::Square;
             painter.line(
                 a.translation().with_z(Z_PIPE_LAYER),
                 b.translation().with_z(Z_PIPE_LAYER),
             );
         }
     }
+}
+
+/// computes where the bend in a pipe is, based on its starting and
+/// ending location. pipes that begin and end on the same x- or y-value
+/// do not bend, so this will return None.
+fn get_bend_location(from: impl Into<IVec2>, to: impl Into<IVec2>, x_first: bool) -> Option<IVec2> {
+    let from = from.into();
+    let to = to.into();
+
+    if from.x == to.x || from.y == to.y {
+        return None;
+    }
+
+    // x_first determines which axis will be traversed first.
+    // x_first = true:
+    //     (0, 0) to (1, 1) should pass through (1, 0)
+    // x_first = false:
+    //     (0, 0) to (1, 1) should pass through (0, 1)
+
+    Some(if x_first {
+        IVec2::new(to.x, from.y)
+    } else {
+        IVec2::new(from.x, to.y)
+    })
+}
+
+#[test]
+fn pipe_path_computation() {
+    assert_eq!(
+        get_bend_location((0, 0), (1, 1), true),
+        Some(IVec2::new(1, 0))
+    );
+
+    assert_eq!(
+        get_bend_location((0, 0), (1, 1), false),
+        Some(IVec2::new(0, 1))
+    );
+
+    assert_eq!(
+        get_bend_location((3, 2), (-4, 10), true),
+        Some(IVec2::new(-4, 2))
+    );
+
+    assert_eq!(
+        get_bend_location((3, 2), (-4, 10), false),
+        Some(IVec2::new(3, 10))
+    );
 }
