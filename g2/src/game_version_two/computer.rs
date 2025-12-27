@@ -194,8 +194,6 @@ fn do_maneuvers(
 
         let pd = PDCtrl::new(20.0, 50.0);
 
-        let placeholder = Vehicle::new();
-
         let (ctrl, status) = match computer.mode {
             ComputerMode::Idle => (VehicleControl::NULLOPT, VehicleControlStatus::Idling),
             ComputerMode::Manual => (manual.0, VehicleControlStatus::UnderExternalControl),

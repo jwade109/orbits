@@ -23,7 +23,7 @@ pub fn diagram_color(part: &PartPrototype) -> [f32; 4] {
 }
 
 pub fn generate_image(
-    vehicle: &Vehicle,
+    vehicle: &Blueprint,
     parts_dir: &Path,
     schematic: bool,
 ) -> Option<DynamicImage> {

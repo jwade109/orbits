@@ -1,11 +1,11 @@
 draw_spatial_lut: false
-draw_spacecraft_grids: false
+draw_spacecraft_grids: true
 draw_terrain_rgb: false
 show_wireframes: false
-draw_inventories: false
-draw_docking_info: false
+draw_inventories: true
+draw_docking_info: true
 draw_thruster_states: false
-dig_with_mouse: true
-follow_selected: true
+dig_with_mouse: false
+follow_selected: false
 infinite_fuel: true
-show_terrain_info: true
+show_terrain_info: false

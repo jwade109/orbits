@@ -397,7 +397,7 @@ fn handle_sc_events(
                 let vehicle_path = args.vehicle_dir().join(format!("{}.vehicle", name));
                 let parts = game::starling::vehicle::load_parts_from_dir(&args.parts_dir())?;
                 let vehicle = if let Ok(vehicle) =
-                    game::starling::vehicle::load_vehicle(&vehicle_path, "".to_string(), &parts)
+                    game::starling::vehicle::load_vehicle(&vehicle_path, &parts)
                 {
                     vehicle
                 } else {
@@ -636,7 +636,7 @@ fn spawn_spacecraft(
     commands: &mut Commands,
     pos: Vec2,
     angle: f32,
-    vehicle: &Vehicle,
+    vehicle: &Blueprint,
     asset_server: &mut ResMut<AssetServer>,
     args: &Res<ProgramContext>,
     texture_atlas_layouts: &mut ResMut<Assets<TextureAtlasLayout>>,
@@ -813,7 +813,7 @@ fn update_cursor_spacecraft(
 
 fn update_thruster_emitters(mut thrusters: Query<(&Thruster, &mut ParticleEmitter)>) {
     for (t, mut p) in thrusters {
-        p.enabled = t.on && t.status == MachineStatus::Running;
+        p.enabled = false; // t.on && t.status == MachineStatus::Running;
     }
 }
 

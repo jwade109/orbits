@@ -32,7 +32,7 @@ impl std::error::Error for NoPartError {}
 pub fn load_vehicle(
     path: &Path,
     parts: &HashMap<String, PartPrototype>,
-) -> Result<Vehicle, Box<dyn std::error::Error>> {
+) -> Result<Blueprint, Box<dyn std::error::Error>> {
     let s = std::fs::read_to_string(path)?;
     let storage: VehicleFileStorage = serde_yaml::from_str(&s)?;
     let mut prototypes = Vec::new();
@@ -42,7 +42,7 @@ pub fn load_vehicle(
             .ok_or(Box::new(NoPartError(part.partname.clone())))?;
         prototypes.push((part.pos, part.rot, proto.clone()));
     }
-    Ok(Vehicle::from_parts(prototypes))
+    Ok(Blueprint::from_parts(prototypes))
 }
 
 fn part_from_path(path: &Path) -> Result<PartPrototype, String> {

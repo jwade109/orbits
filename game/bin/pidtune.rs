@@ -60,7 +60,7 @@ impl Simulation {
 }
 
 fn simulate(
-    vehicle: Vehicle,
+    vehicle: Blueprint,
     ticks: usize,
     target_pos: DVec2,
     target_angle: f64,

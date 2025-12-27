@@ -113,7 +113,7 @@ impl Universe {
 
     pub fn add_orbital_vehicle(
         &mut self,
-        vehicle: Vehicle,
+        vehicle: Blueprint,
         orbit: GlobalOrbit,
     ) -> Option<EntityId> {
         let id = self.next_entity_id();

@@ -111,10 +111,10 @@ impl PartLayer {
 
 #[derive(Debug, Clone)]
 pub struct InstantiatedPart {
-    pos: IVec2,
-    rot: Rotation,
-    dims: UVec2,
-    proto: PartPrototype,
+    pub pos: IVec2,
+    pub rot: Rotation,
+    pub dims: UVec2,
+    pub proto: PartPrototype,
 }
 
 pub fn pixel_dims_with_rotation(rot: Rotation, part: &PartPrototype) -> UVec2 {

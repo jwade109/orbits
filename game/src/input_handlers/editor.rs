@@ -1,6 +1,6 @@
 use crate::prelude::*;
-use bevy::input::keyboard::KeyCode;
 use crate::starling::prelude::*;
+use bevy::input::keyboard::KeyCode;
 
 pub fn on_editor_render_tick(state: &mut GameState) {
     state
@@ -36,8 +36,25 @@ pub fn on_editor_render_tick(state: &mut GameState) {
     }
 
     if let Some(_) = state.input.position(MouseButt::Left, FrameId::Current) {
+        // place a single part
         if let Some((p, part)) = Editor::current_part_and_cursor_position(state) {
-            state.editor_context.try_place_part(p, part);
+            state
+                .editor_context
+                .try_place_part(p, part, state.editor_context.rotation);
+        }
+
+        if let Some(bp) = state.editor_context.cursor_state.blueprint() {
+            if let Some(pos) = state.input.position(MouseButt::Hover, FrameId::Current) {
+                let pos = vround_f64(state.editor_context.c2w(pos) * PIXELS_PER_METER as f64);
+                let bp = bp.clone();
+                for (_, part) in bp.parts() {
+                    let p = part.pos;
+                    let proto = part.proto.clone();
+                    state
+                        .editor_context
+                        .try_place_part(pos + p, proto, part.rot);
+                }
+            }
         }
     } else if let Some(p) = state.input.on_frame(MouseButt::Right, FrameId::Down) {
         state

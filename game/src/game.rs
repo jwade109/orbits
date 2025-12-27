@@ -39,7 +39,11 @@ fn get_entity_info(world: &mut World) {
     game.entity_info = entity_info;
 }
 
-fn new_editor_ui(mut contexts: EguiContexts, mut game: ResMut<GameState>) -> Result {
+fn new_editor_ui(
+    mut contexts: EguiContexts,
+    mut game: ResMut<GameState>,
+    keys: Res<ButtonInput<KeyCode>>,
+) -> Result {
     let ctx = contexts.ctx_mut()?;
 
     use egui::Align2;
@@ -71,12 +75,20 @@ fn new_editor_ui(mut contexts: EguiContexts, mut game: ResMut<GameState>) -> Res
         }
     });
 
+    let ctrl_pressed = keys.pressed(KeyCode::ControlLeft);
+
     egui::Window::new("Vehicles").show(ctx, |ui| {
         apply_egui_style(ui);
         if let Some(vehicles) = get_list_of_vehicles(&game) {
             for (name, path) in vehicles {
                 if ui.button(name).clicked() {
-                    Editor::load_vehicle(&path, &mut game);
+                    if ctrl_pressed {
+                        if let Ok(bp) = load_vehicle(&path, &game.part_database) {
+                            game.editor_context.cursor_state = CursorState::Blueprint(bp);
+                        }
+                    } else {
+                        Editor::load_vehicle(&path, &mut game);
+                    }
                 }
             }
         }
@@ -519,7 +531,7 @@ impl GameState {
         unimplemented!()
     }
 
-    pub fn get_vehicle_by_model(&self, name: &str) -> Option<Vehicle> {
+    pub fn get_vehicle_by_model(&self, name: &str) -> Option<Blueprint> {
         let vehicles = crate::scenes::get_list_of_vehicles(self)?;
 
         if vehicles.is_empty() {
@@ -538,7 +550,7 @@ impl GameState {
     pub fn spawn_with_random_perturbance(
         &mut self,
         global: GlobalOrbit,
-        vehicle: Vehicle,
+        vehicle: Blueprint,
     ) -> Option<EntityId> {
         let GlobalOrbit(parent, orbit) = global;
         let pv_local = orbit.pv(self.universe.stamp()).ok()?;
@@ -548,7 +560,12 @@ impl GameState {
             .add_orbital_vehicle(vehicle, GlobalOrbit(parent, orbit))
     }
 
-    pub fn spawn_new_at(&mut self, vehicle: Vehicle, parent: EntityId, pv: PV) -> Option<EntityId> {
+    pub fn spawn_new_at(
+        &mut self,
+        vehicle: Blueprint,
+        parent: EntityId,
+        pv: PV,
+    ) -> Option<EntityId> {
         let body = RigidBody {
             pv,
             angle: 0.0,
@@ -669,7 +686,7 @@ impl GameState {
         Some(())
     }
 
-    pub fn get_random_vehicle(&self) -> Option<Vehicle> {
+    pub fn get_random_vehicle(&self) -> Option<Blueprint> {
         let vehicles = crate::scenes::get_list_of_vehicles(self).unwrap_or(vec![]);
 
         if vehicles.is_empty() {

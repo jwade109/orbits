@@ -6,7 +6,6 @@ use crate::drawing::*;
 use crate::game::GameState;
 use crate::input::InputState;
 use crate::input::{FrameId, MouseButt};
-use crate::names::*;
 use crate::scenes::*;
 use crate::starling::prelude::*;
 use crate::z_index::ZOrdering;
@@ -43,7 +42,7 @@ pub struct Editor {
     pub snap_info: Option<(IVec2, UVec2)>,
     pub action_queue: Vec<Action>,
     pub occupied: HashMap<PartLayer, HashMap<IVec2, PartId>>,
-    pub vehicle: Vehicle,
+    pub blueprint: Blueprint,
 
     pub atmo: i32,
 
@@ -63,20 +62,20 @@ impl Editor {
             snap_info: None,
             action_queue: Vec::new(),
             occupied: HashMap::new(),
-            vehicle: Vehicle::new(),
+            blueprint: Blueprint::new(),
             atmo: 3,
             show_vehicle_info: false,
         }
     }
 
     pub fn remove_part(&mut self, id: PartId) {
-        self.vehicle.remove_part(id);
+        self.blueprint.remove_part(id);
     }
 
     pub fn undo(&mut self) -> Option<()> {
         let action = self.action_queue.pop()?;
         match action {
-            Action::Add(pos, _, proto) => match self.vehicle.remove_part_at(pos, proto.layer()) {
+            Action::Add(pos, _, proto) => match self.blueprint.remove_part_at(pos, proto.layer()) {
                 Ok(p) => println!("Removed {:?}", p),
                 Err(s) => println!("Failed to remove: {}", s),
             },
@@ -86,7 +85,7 @@ impl Editor {
     }
 
     pub fn selected_part(&self) -> Option<&InstantiatedPart> {
-        self.vehicle.get_part(self.selected_part?)
+        self.blueprint.get_part(self.selected_part?)
     }
 
     pub fn cursor_box(&self, input: &InputState) -> Option<AABB> {
@@ -100,24 +99,24 @@ impl Editor {
 
     pub fn new_craft(&mut self) {
         self.filepath = None;
-        self.vehicle = Vehicle::new();
+        self.blueprint = Blueprint::new();
         self.cursor_state = CursorState::None;
         self.update();
     }
 
     pub fn write_image_to_file(&self, args: &ProgramContext) {
-        write_image_to_file(&self.vehicle, args, "vehicle");
+        write_image_to_file(&self.blueprint, args, "vehicle");
     }
 
     pub fn rotate_craft(&mut self) {
         let new_instances: Vec<_> = self
-            .vehicle
+            .blueprint
             .parts()
             .map(|(_, instance)| instance.rotated())
             .collect();
-        self.vehicle.clear();
+        self.blueprint.clear();
         for instance in new_instances {
-            self.vehicle
+            self.blueprint
                 .add_part(instance.prototype(), instance.origin(), instance.rotation());
         }
         self.update();
@@ -165,7 +164,7 @@ impl Editor {
 
         let parts = state
             .editor_context
-            .vehicle
+            .blueprint
             .parts()
             .map(|(_, instance)| VehiclePartFileStorage {
                 partname: instance.prototype().sprite_path().to_string(),
@@ -194,10 +193,11 @@ impl Editor {
             }
         };
 
-        state.editor_context.vehicle = vehicle;
+        state.editor_context.blueprint = vehicle;
         state.editor_context.filepath = Some(path.to_path_buf());
         state.editor_context.update();
         state.editor_context.action_queue.clear();
+        state.editor_context.cursor_state = CursorState::None;
         Some(())
     }
 
@@ -215,7 +215,7 @@ impl Editor {
 
             if let Some(occ) = self.occupied.get(&layer) {
                 if let Some(idx) = occ.get(&pixel_p) {
-                    return Some((*idx, self.vehicle.get_part(*idx)?));
+                    return Some((*idx, self.blueprint.get_part(*idx)?));
                 }
             }
         }
@@ -225,7 +225,7 @@ impl Editor {
 
     fn update(&mut self) {
         self.occupied.clear();
-        for (id, instance) in self.vehicle.parts() {
+        for (id, instance) in self.blueprint.parts() {
             let pixels = occupied_pixels(
                 instance.origin(),
                 instance.rotation(),
@@ -246,18 +246,23 @@ impl Editor {
     }
 
     fn add_part(&mut self, p: IVec2, rot: Rotation, proto: PartPrototype) {
-        self.vehicle.add_part(proto, p, rot);
+        self.blueprint.add_part(proto, p, rot);
         self.update();
     }
 
-    pub fn try_place_part(&mut self, p: IVec2, new_part: PartPrototype) -> Option<()> {
+    pub fn try_place_part(
+        &mut self,
+        p: IVec2,
+        new_part: PartPrototype,
+        rot: Rotation,
+    ) -> Option<()> {
         let layer = new_part.layer();
 
         if !self.is_layer_visible(layer) {
             return None;
         }
 
-        let new_pixels = occupied_pixels(p, self.rotation, &new_part);
+        let new_pixels = occupied_pixels(p, rot, &new_part);
 
         if let Some(occ) = self.occupied.get(&layer) {
             for p in &new_pixels {
@@ -267,10 +272,9 @@ impl Editor {
             }
         }
 
-        self.vehicle.add_part(new_part.clone(), p, self.rotation);
+        self.blueprint.add_part(new_part.clone(), p, rot);
 
-        self.action_queue
-            .push(Action::Add(p, self.rotation, new_part));
+        self.action_queue.push(Action::Add(p, rot, new_part));
 
         self.update();
         Some(())
@@ -278,7 +282,7 @@ impl Editor {
 
     pub fn remove_part_at(&mut self, p: Vec2) {
         let pixel_p = vround(p * PIXELS_PER_METER);
-        if let Ok(part) = self.vehicle.remove_part_at(pixel_p, self.focus_layer) {
+        if let Ok(part) = self.blueprint.remove_part_at(pixel_p, self.focus_layer) {
             self.action_queue.push(Action::Remove(
                 part.origin(),
                 part.rotation(),
@@ -358,6 +362,51 @@ fn highlight_part(
     draw_highlight_box(canvas, aabb, ctx, color, z);
 }
 
+fn draw_blueprint(
+    canvas: &mut Canvas,
+    offset: DVec2,
+    blueprint: &Blueprint,
+    ctx: &impl CameraProjection,
+    focus_layer: Option<PartLayer>,
+) {
+    for layer in PartLayer::draw_order() {
+        for (_, instance) in blueprint
+            .parts()
+            .filter(|(_, p)| p.prototype().layer() == layer)
+        {
+            let alpha = match (focus_layer, layer) {
+                (None, _) => 1.0,
+                (Some(PartLayer::Internal), PartLayer::Internal) => 1.0,
+                (Some(PartLayer::Internal), _) => 0.02,
+                (Some(PartLayer::Structural), PartLayer::Structural) => 1.0,
+                (Some(PartLayer::Structural), _) => 0.02,
+                (Some(PartLayer::Exterior), PartLayer::Exterior) => 1.0,
+                (Some(PartLayer::Exterior), _) => 0.02,
+            };
+
+            let sprite_dims = instance.prototype().dims_meters();
+            let center = instance.center_meters().as_dvec2();
+            let sprite_name = instance.prototype().sprite_path().to_string();
+
+            let z_index = match layer {
+                PartLayer::Exterior => ZOrdering::EditorExteriorPart,
+                PartLayer::Internal => ZOrdering::EditorInteriorPart,
+                PartLayer::Structural => ZOrdering::EditorStructuralPart,
+            };
+
+            canvas
+                .sprite(
+                    ctx.w2c(offset + center),
+                    gcast(instance.rotation().to_angle()),
+                    sprite_name,
+                    z_index,
+                    graphics_cast(sprite_dims.as_dvec2() * ctx.scale()),
+                )
+                .set_color(WHITE.with_alpha(alpha));
+        }
+    }
+}
+
 impl Render for Editor {
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         let ctx = &state.editor_context;
@@ -370,16 +419,12 @@ impl Render for Editor {
             draw_aabb(canvas, ctx.w2c_aabb(aabb), GREEN);
         }
 
-        match &ctx.cursor_state {
-            CursorState::None | CursorState::Part(_) => {
-                if let Some(p) = state.input.current() {
-                    let p = p.extend(ZOrdering::EditorCursor.as_f32());
-                    canvas.circle(p, 4.0, WHITE);
-                }
-            }
+        if let Some(p) = state.input.current() {
+            let p = p.extend(ZOrdering::EditorCursor.as_f32());
+            canvas.circle(p, 4.0, WHITE);
         }
 
-        let radius = ctx.vehicle.bounding_radius();
+        let radius = ctx.blueprint.bounding_radius();
 
         let filename = match &state.editor_context.filepath {
             Some(p) => format!("[{}]", p.display()),
@@ -390,7 +435,7 @@ impl Render for Editor {
 
         let info: String = [
             filename,
-            format!("{} parts", state.editor_context.vehicle.parts().count()),
+            format!("{} parts", state.editor_context.blueprint.parts().count()),
             format!("Rotation: {:?}", state.editor_context.rotation),
         ]
         .into_iter()
@@ -428,7 +473,7 @@ impl Render for Editor {
                             continue;
                         }
                         visited_parts.insert(*idx);
-                        if let Some(instance) = ctx.vehicle.get_part(*idx) {
+                        if let Some(instance) = ctx.blueprint.get_part(*idx) {
                             highlight_part(
                                 canvas,
                                 instance,
@@ -451,50 +496,19 @@ impl Render for Editor {
             );
         }
 
-        for layer in PartLayer::draw_order() {
-            for (_, instance) in ctx
-                .vehicle
-                .parts()
-                .filter(|(_, p)| p.prototype().layer() == layer)
-            {
-                let alpha = match (ctx.focus_layer, layer) {
-                    (None, _) => 1.0,
-                    (Some(PartLayer::Internal), PartLayer::Internal) => 1.0,
-                    (Some(PartLayer::Internal), _) => 0.02,
-                    (Some(PartLayer::Structural), PartLayer::Structural) => 1.0,
-                    (Some(PartLayer::Structural), _) => 0.02,
-                    (Some(PartLayer::Exterior), PartLayer::Exterior) => 1.0,
-                    (Some(PartLayer::Exterior), _) => 0.02,
-                };
-
-                let sprite_dims = instance.prototype().dims_meters();
-                let center = instance.center_meters().as_dvec2();
-                let sprite_name = instance.prototype().sprite_path().to_string();
-
-                let z_index = match layer {
-                    PartLayer::Exterior => ZOrdering::EditorExteriorPart,
-                    PartLayer::Internal => ZOrdering::EditorInteriorPart,
-                    PartLayer::Structural => ZOrdering::EditorStructuralPart,
-                };
-
-                canvas
-                    .sprite(
-                        ctx.w2c(center),
-                        gcast(instance.rotation().to_angle()),
-                        sprite_name,
-                        z_index,
-                        graphics_cast(sprite_dims.as_dvec2() * ctx.scale()),
-                    )
-                    .set_color(WHITE.with_alpha(alpha));
-            }
-        }
+        draw_blueprint(canvas, DVec2::ZERO, &ctx.blueprint, ctx, ctx.focus_layer);
 
         if let Some(cursor) = state.input.position(MouseButt::Hover, FrameId::Current) {
             let c = ctx.c2w(cursor);
 
+            if let Some(bp) = ctx.cursor_state.blueprint() {
+                let c = (c * 20.0).round() / 20.0;
+                draw_blueprint(canvas, c, bp, ctx, ctx.focus_layer);
+            }
+
             if Self::current_part_and_cursor_position(state).is_none() {
                 if let Some((id, _)) = ctx.get_part_at(graphics_cast(c)) {
-                    if let Some(instance) = ctx.vehicle.get_part(id) {
+                    if let Some(instance) = ctx.blueprint.get_part(id) {
                         highlight_part(
                             canvas,
                             instance,
@@ -578,7 +592,7 @@ impl Editor {
     }
 }
 
-pub fn write_image_to_file(vehicle: &Vehicle, ctx: &ProgramContext, name: &str) -> Option<()> {
+pub fn write_image_to_file(vehicle: &Blueprint, ctx: &ProgramContext, name: &str) -> Option<()> {
     let outpath: String = format!("/tmp/{}.png", name);
     println!("Writing vehicle to path {}", outpath);
     let img = generate_image(vehicle, &ctx.parts_dir(), false)?;

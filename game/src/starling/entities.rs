@@ -5,7 +5,7 @@ use crate::starling::prelude::*;
 #[derive(Debug)]
 pub struct Spacecraft {
     pub planet_id: EntityId,
-    pub vehicle: Vehicle,
+    pub vehicle: Blueprint,
     pub body: RigidBody,
     pub controller: VehicleController,
     // pub orbit: Option<SparseOrbit>,
@@ -20,7 +20,7 @@ pub struct Spacecraft {
 impl Spacecraft {
     pub fn new(
         planet_id: EntityId,
-        vehicle: Vehicle,
+        vehicle: Blueprint,
         body: RigidBody,
         controller: VehicleController,
     ) -> Self {
@@ -39,7 +39,7 @@ impl Spacecraft {
         }
     }
 
-    pub fn from_vehicle(vehicle: Vehicle) -> Self {
+    pub fn from_vehicle(vehicle: Blueprint) -> Self {
         Self::new(
             EntityId(0),
             vehicle,
@@ -53,11 +53,11 @@ impl Spacecraft {
         // Some(GlobalOrbit(self.planet_id, self.orbit?))
     }
 
-    pub fn vehicle(&self) -> &Vehicle {
+    pub fn vehicle(&self) -> &Blueprint {
         &self.vehicle
     }
 
-    pub fn overwrite_vehicle(&mut self, vehicle: Vehicle) {
+    pub fn overwrite_vehicle(&mut self, vehicle: Blueprint) {
         self.vehicle = vehicle;
     }
 

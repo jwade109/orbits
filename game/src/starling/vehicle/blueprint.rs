@@ -32,12 +32,12 @@ pub fn occupied_pixels(pos: IVec2, rot: Rotation, part: &PartPrototype) -> Vec<I
 pub struct PartId(u64);
 
 #[derive(Debug, Clone)]
-pub struct Vehicle {
+pub struct Blueprint {
     next_part_id: PartId,
     parts: HashMap<PartId, InstantiatedPart>,
 }
 
-impl Vehicle {
+impl Blueprint {
     pub fn new() -> Self {
         Self {
             next_part_id: PartId(0),

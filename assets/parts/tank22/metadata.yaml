@@ -3,5 +3,5 @@ mass: 650000
 dims: [20, 20]
 inventory_data:
   slots: 1
-  filter: !Item H2
+  filter: Liquid
   volume_liters: 50

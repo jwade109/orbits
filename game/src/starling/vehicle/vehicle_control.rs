@@ -207,7 +207,7 @@ const MASS_PLACEHOLDER: Mass = Mass::from_kg_f32(1000.0);
 fn hover_control_law(
     target: DVec2,
     gravity: DVec2,
-    vehicle: &Vehicle,
+    vehicle: &Blueprint,
     body: &RigidBody,
 ) -> (VehicleControl, VehicleControlStatus) {
     unimplemented!()
@@ -256,7 +256,7 @@ pub fn position_hold_control_law(
     target: PV,
     target_angle: f64,
     body: &RigidBody,
-    vehicle: &Vehicle,
+    vehicle: &Blueprint,
     gravity: DVec2,
 ) -> (VehicleControl, VehicleControlStatus) {
     if gravity.length() > 0.0 {
@@ -337,7 +337,7 @@ fn to_int_percent(x: f64) -> i32 {
 pub fn enter_orbit_control_law(
     planet: &Body,
     body: &RigidBody,
-    vehicle: &Vehicle,
+    vehicle: &Blueprint,
     orbit: Option<&SparseOrbit>,
     target_altitude: f64,
 ) -> (VehicleControl, VehicleControlStatus) {
@@ -437,7 +437,7 @@ pub fn enter_orbit_control_law(
 
 pub fn burn_along_velocity_vector_control_law(
     body: &RigidBody,
-    vehicle: &Vehicle,
+    vehicle: &Blueprint,
     prograde: bool,
 ) -> (VehicleControl, VehicleControlStatus) {
     if body.pv.vel.length() < 0.2 {

@@ -51,7 +51,7 @@ pub use game::args::ProgramContext;
 pub use game::starling::factory::*;
 pub use game::starling::prelude::{
     ComputerData, ExcavatorData, InstantiatedPart, Item, MachineStatus, Mass, PDCtrl, PV,
-    PartLayer, PartPrototype, Recipe, RecipeListing, RigidBody, Rotation, ThrusterModel, Vehicle,
+    PartLayer, PartPrototype, Recipe, RecipeListing, RigidBody, Rotation, ThrusterModel, Blueprint,
     VehicleControl, VehicleControlStatus, Volume, attitude_control_law, chance, cross2d,
     position_hold_control_law, rand, randint, randvec, rotate, wrap_pi_npi_f64,
     zero_gravity_control_law, zero_gravity_velocity_control_law,

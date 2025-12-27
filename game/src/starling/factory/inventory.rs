@@ -320,14 +320,14 @@ impl Inventory {
 
         for (item, count) in recipe.inputs() {
             let capacity = item.volume_per_unit() * count * 100;
-            let slot = InvSlot::new(capacity, ItemFilter::Any);
-            s.0.push(slot.with_item(item));
+            let slot = InvSlot::new(capacity, ItemFilter::Item(item));
+            s.0.push(slot);
         }
 
         for (item, count) in recipe.outputs() {
             let capacity = item.volume_per_unit() * count * 100;
-            let slot = InvSlot::new(capacity, ItemFilter::Any);
-            s.0.push(slot.with_item(item));
+            let slot = InvSlot::new(capacity, ItemFilter::Item(item));
+            s.0.push(slot);
         }
 
         s
