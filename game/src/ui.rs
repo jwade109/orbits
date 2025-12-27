@@ -1,8 +1,9 @@
 use crate::game::GameState;
 use crate::input::{FrameId, MouseButt};
+use crate::layout::layout::{Node, Size, TextJustify, Tree};
 use crate::onclick::OnClick;
 use crate::scenes::*;
-use crate::sim_rate::SimRate;
+use crate::starling::prelude::*;
 use bevy::core_pipeline::bloom::Bloom;
 use bevy::prelude::*;
 use bevy::render::{
@@ -12,8 +13,6 @@ use bevy::render::{
 };
 use bevy::sprite::Anchor;
 use bevy::text::TextBounds;
-use crate::layout::layout::{Node, Size, TextJustify, Tree};
-use crate::starling::prelude::*;
 
 pub struct UiPlugin;
 
@@ -100,21 +99,6 @@ pub fn top_bar(state: &GameState) -> Node<OnClick> {
         .with_child(Node::button("Save", OnClick::Save, 80, Size::Grow))
         .with_child(Node::button("Load", OnClick::Load, 80, Size::Grow))
         .with_child(Node::vline())
-        .with_children(SimRate::all().map(|r| {
-            let s = r.as_str();
-            let id = OnClick::SimSpeed(r);
-            Node::button(s, id, 50, state.settings.ui_button_height)
-                .enabled(state.universe_ticks_per_game_tick != r)
-        }))
-        .with_child(
-            Node::text(
-                Size::Grow,
-                state.settings.ui_button_height,
-                crate::scenes::orbital::date_info(state),
-            )
-            .enabled(false),
-        )
-        .with_child(Node::vline())
         .with_child(Node::button("Exit", OnClick::Exit, 80, Size::Grow))
 }
 
@@ -191,133 +175,6 @@ pub fn delete_wrapper(ondelete: OnClick, button: Node<OnClick>, box_size: f32) -
         .with_child(button)
 }
 
-pub fn piloting_buttons(state: &GameState, width: Size) -> Node<OnClick> {
-    let mut wrapper = Node::new(width, Size::Fit)
-        .down()
-        .invisible()
-        .with_padding(0.0);
-
-    let target = if let Some(p) = state.orbital_context.piloting {
-        if let Some(sv) = state.universe.spacecraft.get(&p) {
-            sv.target()
-        } else {
-            None
-        }
-    } else {
-        None
-    };
-
-    let _x = if let Some(p) = state.orbital_context.piloting {
-        wrapper.add_child({
-            let s = format!("Piloting {}", p);
-            let b = Node::button(
-                s,
-                OnClick::Orbiter(p),
-                Size::Grow,
-                state.settings.ui_button_height,
-            );
-            delete_wrapper(OnClick::ClearPilot, b, state.settings.ui_button_height)
-        });
-    } else if let Some(p) = state.orbital_context.following {
-        if state.universe.spacecraft.contains_key(&p) {
-            wrapper.add_child({
-                let s = format!("Pilot {}", p);
-                Node::button(
-                    s,
-                    OnClick::SetPilot(p),
-                    Size::Grow,
-                    state.settings.ui_button_height,
-                )
-            });
-        }
-    } else {
-        wrapper.add_child(
-            Node::button(
-                "No craft selected",
-                OnClick::Nullopt,
-                Size::Grow,
-                state.settings.ui_button_height,
-            )
-            .enabled(false),
-        );
-    };
-
-    let _y = if let Some(p) = target {
-        wrapper.add_child({
-            let s = format!("Targeting {}", p);
-            let b = Node::button(
-                s,
-                OnClick::Orbiter(p),
-                Size::Grow,
-                state.settings.ui_button_height,
-            );
-            delete_wrapper(OnClick::ClearTarget, b, state.settings.ui_button_height)
-        });
-        true
-    } else if let Some(p) = state.orbital_context.following {
-        if state.universe.spacecraft.contains_key(&p) {
-            wrapper.add_child({
-                let s = format!("Target {}", p);
-                Node::button(
-                    s,
-                    OnClick::SetTarget(p),
-                    Size::Grow,
-                    state.settings.ui_button_height,
-                )
-            });
-            true
-        } else {
-            false
-        }
-    } else {
-        false
-    };
-
-    wrapper
-}
-
-pub fn orbiter_list(
-    state: &GameState,
-    root: &mut Node<OnClick>,
-    max_cells: usize,
-    mut ids: Vec<EntityId>,
-) {
-    ids.sort();
-
-    let rows = (ids.len().min(max_cells) as f32 / 4.0).ceil() as u32;
-    let grid = Node::grid(
-        Size::Grow,
-        rows * state.settings.ui_button_height as u32,
-        rows,
-        4,
-        4.0,
-        |i| {
-            if i as usize > max_cells {
-                return None;
-            }
-            let id = ids.get(i as usize)?;
-            let s = format!("{id}");
-            Some(
-                Node::grow()
-                    .with_on_click(OnClick::Orbiter(*id))
-                    .with_text(s)
-                    .enabled(Some(*id) != state.orbital_context.following),
-            )
-        },
-    );
-    root.add_child(grid);
-
-    if ids.len() > max_cells {
-        let n = ids.len() - max_cells;
-        let s = format!("...And {} more", n);
-        root.add_child(
-            Node::new(Size::Grow, state.settings.ui_button_height)
-                .with_text(s)
-                .enabled(false),
-        );
-    }
-}
-
 pub fn left_right_arrows(
     width: impl Into<Size>,
     height: impl Into<Size>,
@@ -335,7 +192,20 @@ pub fn left_right_arrows(
 }
 
 pub fn layout(state: &GameState) -> Tree<OnClick> {
-    Editor::ui(state).unwrap_or(Tree::new())
+    Tree::new()
+    // Editor::ui(state).unwrap_or(Tree::new())
+}
+
+pub fn apply_egui_style(ui: &mut egui::Ui) {
+    let x = ui.style_mut();
+    x.spacing.window_margin = egui::Margin::same(40);
+    x.spacing.item_spacing.y = 5.0;
+    x.spacing.button_padding.x = 5.0;
+    x.spacing.button_padding.y = 5.0;
+    x.visuals.dark_mode = false;
+    for x in &mut x.text_styles {
+        x.1.size *= 1.2;
+    }
 }
 
 #[derive(Component)]

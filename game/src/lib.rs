@@ -15,7 +15,6 @@ pub mod onclick;
 pub mod prelude;
 pub mod scenes;
 pub mod settings;
-pub mod sim_rate;
 pub mod sounds;
 pub mod sprites;
 pub mod starling;

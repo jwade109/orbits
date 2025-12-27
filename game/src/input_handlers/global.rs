@@ -1,6 +1,6 @@
 use crate::prelude::*;
-use bevy::input::keyboard::KeyCode;
 use crate::starling::prelude::*;
+use bevy::input::keyboard::KeyCode;
 
 fn combo_just_pressed(input: &InputState, keys: &[KeyCode]) -> bool {
     if let Some(l) = keys.last() {
@@ -24,16 +24,6 @@ pub fn on_global_render_tick(state: &mut GameState) -> bool {
 
     if state.input.just_pressed(KeyCode::KeyV) {
         state.zoom_to_vehicle(true);
-    }
-
-    if state.input.just_pressed(KeyCode::KeyB) {
-        state.spawn_new();
-    }
-
-    if state.input.just_pressed(KeyCode::Delete) {
-        if let Some(p) = state.piloting() {
-            state.delete_orbiter(p);
-        }
     }
 
     if combo_just_pressed(

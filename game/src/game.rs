@@ -1,14 +1,19 @@
+#![allow(unused)]
+#![allow(deprecated)]
+
+use crate::layout::layout::Tree;
 use crate::prelude::*;
+use crate::starling::prelude::*;
+use crate::ui::apply_egui_style;
 use bevy::color::palettes::css::*;
 use bevy::core_pipeline::bloom::Bloom;
 use bevy::core_pipeline::smaa::Smaa;
 use bevy::prelude::*;
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::view::RenderLayers;
+use bevy_egui::{EguiContexts, EguiPrimaryContextPass};
 use clap::Parser;
 use image::DynamicImage;
-use crate::layout::layout::Tree;
-use crate::starling::prelude::*;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -34,6 +39,64 @@ fn get_entity_info(world: &mut World) {
     game.entity_info = entity_info;
 }
 
+fn new_editor_ui(mut contexts: EguiContexts, mut game: ResMut<GameState>) -> Result {
+    let ctx = contexts.ctx_mut()?;
+
+    use egui::Align2;
+
+    egui::Window::new("General")
+        .anchor(Align2::RIGHT_TOP, (0.0, 0.0))
+        .show(ctx, |ui| {
+            apply_egui_style(ui);
+            if ui.button("Close").clicked() {
+                game.shutdown();
+            }
+            if ui.button("Save").clicked() {
+                game.save();
+            }
+            if ui.button("Open").clicked() {
+                game.load();
+            }
+        });
+
+    egui::Window::new("Parts").show(ctx, |ui| {
+        apply_egui_style(ui);
+        let mut names: Vec<_> = game.part_database.keys().cloned().collect();
+        names.sort();
+        for name in names {
+            let resp = ui.button(&name);
+            if resp.clicked() {
+                Editor::set_current_part(&mut game, &name)
+            }
+        }
+    });
+
+    egui::Window::new("Vehicles").show(ctx, |ui| {
+        apply_egui_style(ui);
+        if let Some(vehicles) = get_list_of_vehicles(&game) {
+            for (name, path) in vehicles {
+                if ui.button(name).clicked() {
+                    Editor::load_vehicle(&path, &mut game);
+                }
+            }
+        }
+    });
+
+    egui::Window::new("Layers").show(ctx, |ui| {
+        apply_egui_style(ui);
+        for layer in PartLayer::all() {
+            let old_active = game.editor_context.is_layer_visible(layer);
+            let mut active = old_active;
+
+            if ui.checkbox(&mut active, format!("{:?}", layer)).clicked() {
+                game.editor_context.toggle_layer(layer);
+            }
+        }
+    });
+
+    Ok(())
+}
+
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, init_system);
@@ -41,6 +104,8 @@ impl Plugin for GamePlugin {
         app.insert_resource(Time::<Fixed>::from_duration(
             PHYSICS_CONSTANT_DELTA_TIME.to_duration(),
         ));
+
+        app.add_systems(EguiPrimaryContextPass, new_editor_ui);
 
         app.add_systems(
             Update,
@@ -142,21 +207,12 @@ pub struct GameState {
     #[deprecated]
     pub universe: Universe,
 
-    /// Stores information and provides an API for interacting with the simulation
-    /// from the perspective of a global solar/planetary system view.
-    ///
-    /// Additional information allows the user to select spacecraft and
-    /// direct them to particular orbits, or manually pilot them.
-    #[deprecated]
-    pub orbital_context: OrbitalContext,
-
     pub editor_context: Editor,
 
     /// Wall clock, i.e. time since program began.
     pub wall_time: Nanotime,
 
     pub physics_duration: Nanotime,
-    pub universe_ticks_per_game_tick: SimRate,
     pub paused: bool,
     pub exec_time: std::time::Duration,
     pub actual_universe_ticks_per_game_tick: u32,
@@ -225,11 +281,9 @@ impl GameState {
             input: InputState::default(),
             args: args.clone(),
             universe,
-            orbital_context: OrbitalContext::new(),
             editor_context: Editor::new(),
             wall_time: Nanotime::zero(),
             physics_duration: Nanotime::days(7),
-            universe_ticks_per_game_tick: SimRate::RealTime,
             actual_universe_ticks_per_game_tick: 0,
             using_batch_mode: false,
             force_batch_mode: false,
@@ -372,10 +426,6 @@ impl GameState {
 }
 
 impl Render for GameState {
-    fn background_color(state: &GameState) -> Srgba {
-        Editor::background_color(state)
-    }
-
     fn ui(state: &GameState) -> Option<Tree<OnClick>> {
         None
     }
@@ -399,10 +449,6 @@ impl Render for GameState {
             let debug_info: String = [
                 format!("Wall time: {}", state.wall_time),
                 format!("Universe time: {}", state.universe.stamp()),
-                format!(
-                    "Ideal universe ticks per game tick: {}",
-                    state.universe_ticks_per_game_tick.as_ticks(),
-                ),
                 format!(
                     "Actual universe ticks per game tick: {}",
                     state.actual_universe_ticks_per_game_tick
@@ -477,7 +523,7 @@ impl GameState {
     }
 
     pub fn set_piloting(&mut self, id: EntityId) {
-        self.orbital_context.piloting = Some(id);
+        unimplemented!()
     }
 
     pub fn get_vehicle_by_model(&self, name: &str) -> Option<Vehicle> {
@@ -498,10 +544,6 @@ impl GameState {
         Some(vehicle)
     }
 
-    pub fn piloting(&self) -> Option<EntityId> {
-        self.orbital_context.piloting
-    }
-
     pub fn spawn_with_random_perturbance(
         &mut self,
         global: GlobalOrbit,
@@ -513,16 +555,6 @@ impl GameState {
         let orbit = SparseOrbit::from_pv(pv_local + perturb, orbit.body, self.universe.stamp())?;
         self.universe
             .add_orbital_vehicle(vehicle, GlobalOrbit(parent, orbit))
-    }
-
-    pub fn spawn_new(&mut self) -> Option<EntityId> {
-        let id = self.piloting()?;
-        let sv = self.universe.spacecraft.get(&id)?;
-        let parent = sv.parent();
-        let perturb = PV::from_f64(randvec(0.01, 0.1), randvec(0.1, 0.3));
-        let pv = sv.pv() + perturb;
-        let vehicle = self.get_vehicle_by_model("buoy")?;
-        self.spawn_new_at(vehicle, parent, pv)
     }
 
     pub fn spawn_new_at(&mut self, vehicle: Vehicle, parent: EntityId, pv: PV) -> Option<EntityId> {
@@ -540,38 +572,6 @@ impl GameState {
         let ov = self.universe.spacecraft.remove(&id)?;
         let parent = ov.parent();
         let pv = ov.pv();
-        Some(())
-    }
-
-    pub fn write_editor_to_ownship(&mut self) -> Option<()> {
-        let id = match self.piloting() {
-            Some(p) => p,
-            None => {
-                self.notice("No ownship to write to");
-                return None;
-            }
-        };
-
-        let ov = match self.universe.spacecraft.get_mut(&id) {
-            Some(v) => v,
-            None => {
-                self.notice(format!("Failed to find vehicle for id {}", id));
-                return None;
-            }
-        };
-
-        let new_vehicle = self.editor_context.vehicle.clone();
-
-        let old_title = ov.vehicle().name().to_string();
-        let new_title = new_vehicle.name().to_string();
-
-        ov.overwrite_vehicle(new_vehicle);
-
-        self.notice(format!(
-            "Successfully overwrite vehicle {}, \"{}\" -> \"{}\"",
-            id, old_title, new_title
-        ));
-
         Some(())
     }
 
@@ -599,12 +599,7 @@ impl GameState {
         dbg!(&id);
 
         match id {
-            OnClick::CurrentBody(id) => self.orbital_context.following = Some(id),
-            OnClick::Orbiter(id) => self.orbital_context.following = Some(id),
             OnClick::Exit => self.shutdown_with_prompt(),
-            OnClick::SimSpeed(r) => {
-                self.universe_ticks_per_game_tick = r;
-            }
             OnClick::TogglePause => self.paused = !self.paused,
             OnClick::Nullopt => (),
             OnClick::Save => {
@@ -615,22 +610,6 @@ impl GameState {
             }
             OnClick::GoToScene(s) => {
                 self.set_current_scene(s);
-            }
-            OnClick::ClearPilot => self.orbital_context.piloting = None,
-            OnClick::ClearTarget => {
-                if let Some(p) = self.piloting() {
-                    if let Some(sv) = self.universe.spacecraft.get_mut(&p) {
-                        sv.set_target(None);
-                    }
-                }
-            }
-            OnClick::SetPilot(p) => self.orbital_context.piloting = Some(p),
-            OnClick::SetTarget(t) => {
-                if let Some(p) = self.piloting() {
-                    if let Some(sv) = self.universe.spacecraft.get_mut(&p) {
-                        sv.set_target(t);
-                    }
-                }
             }
             OnClick::SelectPart(name) => Editor::set_current_part(self, &name),
             OnClick::ToggleLayer(layer) => self.editor_context.toggle_layer(layer),
@@ -692,34 +671,17 @@ impl GameState {
     }
 
     pub fn toggle_rcs(&mut self) -> Option<()> {
-        let id = self.piloting()?;
-        let sv = self.universe.spacecraft.get_mut(&id)?;
-        sv.toggle_rcs();
-        Some(())
+        unimplemented!()
     }
 
     pub fn zoom_to_vehicle(&mut self, vehicle: bool) -> Option<()> {
-        let scale = if vehicle { 0.01 } else { 1000000.0 };
-        self.orbital_context.following = Some(self.piloting()?);
-        self.orbital_context.camera.set_target_offset(DVec2::ZERO);
-        self.orbital_context.camera.set_target_view_distance(scale);
         Some(())
     }
 
-    pub fn reset_camera(&mut self) {
-        self.orbital_context.following = None;
-        self.orbital_context.camera.follow(EntityId(0), DVec2::ZERO);
-        self.orbital_context.camera.set_target_offset(DVec2::ZERO);
-        self.orbital_context
-            .camera
-            .set_target_view_distance(1000000.0);
-    }
+    pub fn reset_camera(&mut self) {}
 
     pub fn set_controller_policy(&mut self, policy: VehicleControlPolicy) -> Option<()> {
-        let piloting = self.piloting()?;
-        let sv = self.universe.spacecraft.get_mut(&piloting)?;
-        sv.controller.set_policy(policy);
-        Some(())
+        unimplemented!()
     }
 
     pub fn shutdown_with_prompt(&mut self) {
@@ -832,16 +794,6 @@ impl GameState {
             self.zoom_to_vehicle(true);
         }
 
-        if self.input.just_pressed(KeyCode::KeyB) {
-            self.spawn_new();
-        }
-
-        if self.input.just_pressed(KeyCode::Delete) {
-            if let Some(p) = self.piloting() {
-                self.delete_orbiter(p);
-            }
-        }
-
         if self.input.is_pressed(KeyCode::ShiftLeft) && self.input.is_pressed(KeyCode::ControlLeft)
         {
             let delta = if self.input.just_pressed(KeyCode::Minus) {
@@ -861,42 +813,14 @@ impl GameState {
         on_editor_render_tick(self);
     }
 
-    pub fn sim_slower(&mut self) {
-        if let Some(t) = enum_iterator::previous(&self.universe_ticks_per_game_tick) {
-            self.universe_ticks_per_game_tick = t;
-        }
-    }
+    pub fn sim_slower(&mut self) {}
 
-    pub fn sim_faster(&mut self) {
-        if let Some(t) = enum_iterator::next(&self.universe_ticks_per_game_tick) {
-            self.universe_ticks_per_game_tick = t;
-        }
-    }
+    pub fn sim_faster(&mut self) {}
 
     pub fn on_game_tick(&mut self) {
         self.game_ticks += 1;
 
         let mut signals = ControlSignals::new();
-
-        if let Some(id) = self.piloting() {
-            let cmd = keyboard_control_law(&self.input);
-
-            let throttle_rate = if self.input.is_pressed(KeyCode::BracketRight) {
-                1.0
-            } else if self.input.is_pressed(KeyCode::BracketLeft) {
-                -1.0
-            } else {
-                0.0
-            };
-
-            if !cmd.is_nullopt() || throttle_rate != 0.0 {
-                signals.piloting_commands.insert(id, (cmd, throttle_rate));
-            }
-        }
-
-        if !signals.is_empty() {
-            self.universe_ticks_per_game_tick = SimRate::RealTime;
-        }
 
         // BOOKMARK gameloop
         self.actual_universe_ticks_per_game_tick = 0;
@@ -907,7 +831,7 @@ impl GameState {
                 self.exec_time,
                 self.using_batch_mode,
             ) = self.universe.on_sim_ticks(
-                self.universe_ticks_per_game_tick.as_ticks(),
+                1,
                 &signals,
                 std::time::Duration::from_millis(10),
                 self.settings.draw_thrust_particles,
@@ -932,8 +856,6 @@ fn on_game_tick(
     }
 
     state.entity_count = entities.iter().count() as u64;
-
-    crate::generate_ship_sprites::proc_gen_ship_sprites(&mut state, &mut images);
 }
 
 fn on_render_tick(mut state: ResMut<GameState>) {

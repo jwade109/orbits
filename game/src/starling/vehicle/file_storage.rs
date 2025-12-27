@@ -1,10 +1,10 @@
 use crate::starling::math::*;
 use crate::starling::parts::*;
 use crate::starling::vehicle::*;
+use bevy::math::IVec2;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
-use bevy::math::IVec2;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VehicleFileStorage {
@@ -45,12 +45,7 @@ pub fn load_vehicle(
             .ok_or(Box::new(NoPartError(part.partname.clone())))?;
         prototypes.push((part.pos, part.rot, proto.clone()));
     }
-    Ok(Vehicle::from_parts(
-        name,
-        storage.name,
-        prototypes,
-        storage.tuning,
-    ))
+    Ok(Vehicle::from_parts(name, storage.name, prototypes))
 }
 
 fn part_from_path(path: &Path) -> Result<PartPrototype, String> {

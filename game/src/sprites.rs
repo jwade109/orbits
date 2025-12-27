@@ -1,5 +1,6 @@
 use crate::game::GameState;
 use crate::scenes::*;
+use bevy::color::palettes::css::GRAY;
 use bevy::prelude::*;
 
 pub fn hashable_to_color(h: &impl std::hash::Hash) -> Hsla {
@@ -11,11 +12,8 @@ pub fn hashable_to_color(h: &impl std::hash::Hash) -> Hsla {
     Hsla::new(hue, 1.0, 0.5, 1.0)
 }
 
-pub fn update_background_color(
-    mut camera: Single<&mut Camera, With<crate::game::BackgroundCamera>>,
-    state: Res<GameState>,
-) {
-    let c = GameState::background_color(&state);
+pub fn update_background_color(mut camera: Single<&mut Camera>) {
+    let c = GRAY.with_luminance(0.12);
 
     camera.clear_color = ClearColorConfig::Custom(c.with_alpha(0.0).into());
 }

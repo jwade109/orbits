@@ -1,3 +1,5 @@
+use game::ui::apply_egui_style;
+
 use crate::game_version_two::{types::Excavator, *};
 
 pub struct DebugPanelState {

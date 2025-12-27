@@ -3,6 +3,7 @@ use crate::starling::orbits::Body;
 use crate::starling::orbits::SparseOrbit;
 use crate::starling::pid::PDCtrl;
 use crate::starling::pv::PV;
+use crate::starling::units::Mass;
 use crate::starling::vehicle::*;
 
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
@@ -199,6 +200,10 @@ pub fn attitude_control_law(
     (cmd, VehicleControlStatus::AttitudeHold { error })
 }
 
+// removed variables from `Vehicle`
+pub const PLACEHOLDER_PD: PDCtrl = PDCtrl::new(50.0, 20.0);
+const MASS_PLACEHOLDER: Mass = Mass::from_kg_f32(1000.0);
+
 fn hover_control_law(
     target: DVec2,
     gravity: DVec2,
@@ -214,26 +219,20 @@ fn hover_control_law(
         target
     };
 
-    let horizontal_control = vehicle
-        .pid
-        .horizontal_controller
-        .apply(target.x - body.pv.pos.x as f64, body.pv.vel.x as f64);
+    let horizontal_control =
+        PLACEHOLDER_PD.apply(target.x - body.pv.pos.x as f64, body.pv.vel.x as f64);
 
     // attitude controller
     let target_angle = upright_angle - horizontal_control.clamp(-PI_64 / 6.0, PI_64 / 6.0);
     let attitude_error = (body.angle - target_angle).abs();
-    let (attitude, _) =
-        compute_attitude_control(body, target_angle, &vehicle.pid.attitude_controller);
+    let (attitude, _) = compute_attitude_control(body, target_angle, &PLACEHOLDER_PD);
 
     let thrust = vehicle.max_forward_thrust();
-    let accel = thrust / vehicle.total_mass().to_kg_f64();
+    let accel = thrust / MASS_PLACEHOLDER.to_kg_f64();
     let pct = gravity.length() / accel;
 
     // vertical controller
-    let error = vehicle
-        .pid
-        .vertical_controller
-        .apply(target.y - body.pv.pos.y as f64, body.pv.vel.y as f64);
+    let error = PLACEHOLDER_PD.apply(target.y - body.pv.pos.y as f64, body.pv.vel.y as f64);
 
     let throttle = pct + error;
 
@@ -261,7 +260,7 @@ pub fn position_hold_control_law(
     if gravity.length() > 0.0 {
         hover_control_law(target.pos, gravity, vehicle, body)
     } else {
-        zero_gravity_control_law(target, target_angle, body, &vehicle.pid.attitude_controller)
+        zero_gravity_control_law(target, target_angle, body, &PLACEHOLDER_PD)
     }
 }
 
@@ -286,8 +285,7 @@ pub fn velocity_control_law(
 
     // attitude controller
     // let attitude_error = (body.angle - target_angle).abs();
-    let (attitude, _) =
-        compute_attitude_control(body, target_angle, &vehicle.pid.attitude_controller);
+    let (attitude, _) = compute_attitude_control(body, target_angle, &PLACEHOLDER_PD);
 
     let vmag = body.pv.vel.length();
     let vmag_error = vel.length() - vmag;
@@ -297,7 +295,7 @@ pub fn velocity_control_law(
     let extra_throttle = pid.apply(vmag_error, 0.0);
 
     let thrust = vehicle.max_forward_thrust();
-    let accel = thrust / vehicle.total_mass().to_kg_f64();
+    let accel = thrust / MASS_PLACEHOLDER.to_kg_f64();
     let pct = gravity.length() / accel + extra_throttle;
 
     cmd.attitude = attitude;
@@ -409,8 +407,7 @@ pub fn enter_orbit_control_law(
 
     let att_and_throttle = |target_angle: f64, throttle: f32| {
         let mut cmd = VehicleControl::NULLOPT;
-        (cmd.attitude, _) =
-            compute_attitude_control(body, target_angle, &vehicle.pid.attitude_controller);
+        (cmd.attitude, _) = compute_attitude_control(body, target_angle, &PLACEHOLDER_PD);
         // let angle_error = wrap_pi_npi_f64(target_angle - body.angle);
         // if angle_error.abs() < 0.1 {
         cmd.plus_x.throttle = throttle;
@@ -463,7 +460,7 @@ pub fn enter_orbit_control_law(
             (VehicleControl::NULLOPT, VehicleControlStatus::InProgress)
         }
     } else {
-        let max_accel = vehicle.max_forward_thrust() / vehicle.total_mass().to_kg_f64();
+        let max_accel = vehicle.max_forward_thrust() / MASS_PLACEHOLDER.to_kg_f64();
         let target_accel = 16.0;
         let throttle = target_accel / max_accel;
         (
@@ -490,8 +487,7 @@ pub fn burn_along_velocity_vector_control_law(
     let thrust_angle = if prograde { body.pv.vel } else { -body.pv.vel }.to_angle();
     let mut ctrl = VehicleControl::NULLOPT;
     let actual_angle = body.angle;
-    (ctrl.attitude, _) =
-        compute_attitude_control(body, thrust_angle, &vehicle.pid.attitude_controller);
+    (ctrl.attitude, _) = compute_attitude_control(body, thrust_angle, &PLACEHOLDER_PD);
     let angular_error = wrap_pi_npi_f64((thrust_angle - actual_angle).abs());
     let status = if angular_error.abs().to_degrees() < 3.0
         && body.angular_velocity.to_degrees().abs() < 3.0

@@ -25,20 +25,9 @@ pub fn sound_system(
         commands.spawn((player, settings, track));
     }
 
-    let sv = state
-        .piloting()
-        .map(|id| state.universe.spacecraft.get(&id))
-        .flatten();
+    let current_vehicle_is_thrusting = false;
 
-    let current_vehicle_is_thrusting = {
-        if let Some(sv) = sv {
-            sv.vehicle.is_thrusting()
-        } else {
-            false
-        }
-    };
-
-    let has_current = state.piloting().is_some();
+    let has_current = false;
 
     let (high, mids, bass) = match (
         state.settings.music_muted,

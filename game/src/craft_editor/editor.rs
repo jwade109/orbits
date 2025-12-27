@@ -391,10 +391,6 @@ fn highlight_part(
 }
 
 impl Render for Editor {
-    fn background_color(_state: &GameState) -> bevy::color::Srgba {
-        GRAY.with_luminance(0.12)
-    }
-
     fn ui(state: &GameState) -> Option<Tree<OnClick>> {
         use crate::ui::*;
 
@@ -545,11 +541,6 @@ impl Render for Editor {
                 gcast(radius * ctx.scale()),
                 RED.with_alpha(0.1),
             );
-
-            // COM
-            let com = ctx.vehicle.center_of_mass();
-            draw_circle(&mut canvas.gizmos, ctx.w2c(com), 7.0, ORANGE);
-            draw_x(&mut canvas.gizmos, ctx.w2c(com), 7.0, WHITE);
         }
 
         for layer in PartLayer::draw_order() {
@@ -899,11 +890,7 @@ impl Editor {
 
 pub fn write_image_to_file(vehicle: &Vehicle, ctx: &ProgramContext, name: &str) -> Option<()> {
     let outpath: String = format!("/tmp/{}.png", name);
-    println!(
-        "Writing vehicle {} to path {}",
-        vehicle.discriminator(),
-        outpath
-    );
+    println!("Writing vehicle to path {}", outpath);
     let img = generate_image(vehicle, &ctx.parts_dir(), false)?;
     img.save(outpath).ok()
 }

@@ -33,7 +33,7 @@ impl Mass {
         self.0 as f64 / Self::GRAMS_PER_KILOGRAM as f64
     }
 
-    pub fn from_kg_f32(kg: f32) -> Self {
+    pub const fn from_kg_f32(kg: f32) -> Self {
         let grams = (kg.abs() * Self::GRAMS_PER_KILOGRAM as f32).round() as u64;
         Self(grams)
     }

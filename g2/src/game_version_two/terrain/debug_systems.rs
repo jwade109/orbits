@@ -2,6 +2,7 @@ use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use bevy_egui::EguiContexts;
 use bevy_vector_shapes::prelude::*;
+use game::ui::apply_egui_style;
 
 use crate::game_version_two::{CursorWorldPosition, SelectedSpacecraft, Settings};
 
@@ -161,7 +162,7 @@ pub fn debug_ui(
     let (g, l) = to_grid_and_lattice(pos);
 
     egui::Window::new("Terrain Data").show(ctx, |ui| {
-        crate::game_version_two::apply_egui_style(ui);
+        apply_egui_style(ui);
         ui.label(format!("Chunk pos: {}", g));
         ui.label(format!("Tile pos: {}", l));
         ui.label(format!("Global: {}", to_global(g, l.as_ivec2())));

@@ -124,8 +124,6 @@ impl StaticSpriteDescriptor {
 }
 
 pub trait Render {
-    fn background_color(state: &GameState) -> Srgba;
-
     fn ui(state: &GameState) -> Option<Tree<OnClick>>;
 
     fn draw(_canvas: &mut Canvas, _state: &GameState) -> Option<()> {

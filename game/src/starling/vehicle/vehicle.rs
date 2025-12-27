@@ -7,7 +7,7 @@ use crate::starling::pid::PDCtrl;
 use crate::starling::units::Mass;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 
 fn rocket_equation(ve: f64, m0: Mass, m1: Mass) -> f64 {
     ve * (m0.to_kg_f64() / m1.to_kg_f64()).ln()
@@ -52,34 +52,17 @@ pub struct Vehicle {
     model: String,
     next_part_id: PartId,
     parts: HashMap<PartId, InstantiatedPart>,
-    is_thrust_idle: bool,
-    discriminator: u64,
-
-    pub pid: VehiclePd,
-
-    pub gyro: Gyro,
-
-    center_of_mass: DVec2,
-    total_mass: Mass,
-    moment_of_inertia: f64,
-    is_thrusting: bool,
 }
 
 impl Vehicle {
     pub fn new() -> Self {
-        Self::from_parts(
-            "Unnamed Ship".into(),
-            "XYZ".into(),
-            Vec::new(),
-            VehiclePd::default(),
-        )
+        Self::from_parts("Unnamed Ship".into(), "XYZ".into(), Vec::new())
     }
 
     pub fn from_parts(
         name: String,
         model: String,
         prototypes: Vec<(IVec2, Rotation, PartPrototype)>,
-        tuning: VehiclePd,
     ) -> Self {
         let mut next_part_id = PartId(0);
         let mut parts = HashMap::new();
@@ -91,31 +74,12 @@ impl Vehicle {
             next_part_id.0 += 1;
         }
 
-        let mut ret = Self {
+        Self {
             name,
             model,
             next_part_id,
             parts,
-            is_thrust_idle: false,
-            discriminator: 0,
-
-            pid: tuning,
-
-            gyro: Gyro::new(),
-
-            center_of_mass: DVec2::ZERO,
-            total_mass: Mass::ZERO,
-            moment_of_inertia: 0.0,
-            is_thrusting: false,
-        };
-
-        ret.update();
-
-        ret
-    }
-
-    pub fn discriminator(&self) -> u64 {
-        self.discriminator
+        }
     }
 
     fn get_next_part_id(&mut self) -> PartId {
@@ -128,7 +92,6 @@ impl Vehicle {
         let id = self.get_next_part_id();
         let instance = InstantiatedPart::from_prototype(proto, pos, rot);
         self.parts.insert(id, instance);
-        self.update();
         id
     }
 
@@ -195,98 +158,11 @@ impl Vehicle {
 
     pub fn remove_part(&mut self, id: PartId) -> Option<InstantiatedPart> {
         let part = self.parts.remove(&id);
-        self.update();
         part
     }
 
     pub fn clear(&mut self) {
         self.parts.clear();
-        self.update();
-    }
-
-    fn update_discriminator(&mut self) {
-        let mut hash = std::hash::DefaultHasher::new();
-        if self.parts.is_empty() {
-            self.discriminator = 0;
-            return;
-        }
-
-        let mut hash_stuff = Vec::new();
-
-        for (_, part) in &self.parts {
-            let stuff = (
-                part.origin(),
-                part.rotation(),
-                part.prototype().part_name().to_string(),
-            );
-            hash_stuff.push(stuff);
-        }
-
-        hash_stuff.sort_by(|(pa, ra, na), (pb, rb, nb)| {
-            use std::cmp::Ordering;
-            match pa.x.cmp(&pb.x) {
-                Ordering::Less => return Ordering::Less,
-                Ordering::Equal => (),
-                Ordering::Greater => return Ordering::Greater,
-            };
-
-            match pa.y.cmp(&pb.y) {
-                Ordering::Less => return Ordering::Less,
-                Ordering::Equal => (),
-                Ordering::Greater => return Ordering::Greater,
-            };
-
-            match ra.cmp(&rb) {
-                Ordering::Less => return Ordering::Less,
-                Ordering::Equal => (),
-                Ordering::Greater => return Ordering::Greater,
-            };
-
-            na.cmp(&nb)
-        });
-
-        for elem in hash_stuff {
-            elem.hash(&mut hash);
-        }
-
-        self.discriminator = hash.finish();
-    }
-
-    fn update_physical_quantities(&mut self) {
-        self.total_mass = if self.parts.is_empty() {
-            Mass::kilograms(100)
-        } else {
-            self.parts.iter().map(|(_, p)| p.total_mass()).sum()
-        };
-
-        self.moment_of_inertia = if self.parts.is_empty() {
-            1000.0
-        } else {
-            let com = self.center_of_mass();
-            let mut moa = 0.0;
-            for (_, part) in &self.parts {
-                let mass = part.total_mass();
-                let center = part.center_meters().as_dvec2();
-                let rsq = center.distance_squared(com);
-                moa += rsq * mass.to_kg_f64()
-            }
-            moa
-        };
-
-        self.center_of_mass = self
-            .parts
-            .iter()
-            .map(|(_, p)| {
-                let center = p.origin().as_vec2() / PIXELS_PER_METER + p.dims_meters() / 2.0;
-                let weight = p.total_mass().to_kg_f64() / self.total_mass.to_kg_f64();
-                center.as_dvec2() * weight
-            })
-            .sum();
-    }
-
-    fn update(&mut self) {
-        self.update_discriminator();
-        self.update_physical_quantities();
     }
 
     pub fn parts(&self) -> impl Iterator<Item = (&PartId, &InstantiatedPart)> + use<'_> {
@@ -300,26 +176,6 @@ impl Vehicle {
             .map(|l| self.parts.iter().filter(move |(_, p)| p.layer() == l))
             .into_iter()
             .flat_map(|p| p.into_iter())
-    }
-
-    pub fn fuel_percentage(&self) -> f64 {
-        0.0
-    }
-
-    pub fn is_controllable(&self) -> bool {
-        false
-    }
-
-    pub fn dry_mass(&self) -> Mass {
-        self.total_mass() - self.fuel_mass()
-    }
-
-    pub fn fuel_mass(&self) -> Mass {
-        Mass::ZERO
-    }
-
-    pub fn total_mass(&self) -> Mass {
-        self.total_mass
     }
 
     pub fn thruster_count(&self) -> usize {
@@ -336,14 +192,6 @@ impl Vehicle {
 
     pub fn max_backwards_thrust(&self) -> f64 {
         0.0
-    }
-
-    pub fn center_of_mass(&self) -> DVec2 {
-        self.center_of_mass
-    }
-
-    pub fn moment_of_inertia(&self) -> f64 {
-        self.moment_of_inertia
     }
 
     pub fn aabb(&self) -> AABB {
@@ -380,16 +228,6 @@ impl Vehicle {
             }
         }
         min.zip(max)
-    }
-
-    pub fn low_fuel(&self) -> bool {
-        false
-        // self.is_controllable() && self.remaining_dv() < 50.0
-    }
-
-    pub fn is_thrusting(&self) -> bool {
-        self.is_thrusting
-        // self.thrusters().any(|(t, d)| d.is_thrusting(t))
     }
 
     pub fn name(&self) -> &str {
@@ -501,7 +339,5 @@ impl Vehicle {
         self.parts.iter_mut().for_each(|(_, p)| {
             p.set_origin(p.origin() - avg);
         });
-
-        self.update();
     }
 }

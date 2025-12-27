@@ -1,4 +1,5 @@
 use bevy::color::palettes::tailwind::GRAY_400;
+use game::ui::apply_egui_style;
 
 use crate::game_version_two::*;
 
@@ -24,18 +25,6 @@ impl Default for DebugPanelState {
             item: Item::H2,
             count: 500,
         }
-    }
-}
-
-pub fn apply_egui_style(ui: &mut egui::Ui) {
-    let x = ui.style_mut();
-    x.spacing.window_margin = egui::Margin::same(40);
-    x.spacing.item_spacing.y = 5.0;
-    x.spacing.button_padding.x = 5.0;
-    x.spacing.button_padding.y = 5.0;
-    x.visuals.dark_mode = false;
-    for x in &mut x.text_styles {
-        x.1.size *= 1.2;
     }
 }
 
