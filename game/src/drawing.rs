@@ -457,25 +457,6 @@ pub fn draw_graph(
     Some(())
 }
 
-pub fn draw_ui_layout(canvas: &mut Canvas, state: &GameState) -> Option<()> {
-    let wb = state.input.screen_bounds.span;
-
-    for layout in state.ui.layouts() {
-        for n in layout.iter() {
-            if n.text_content().map(|t| t.is_empty()).unwrap_or(true) {
-                continue;
-            }
-            let aabb = n.aabb_camera(wb);
-            let p = state.input.position(MouseButt::Hover, FrameId::Current);
-            if p.map(|p| aabb.contains(p)).unwrap_or(false) {
-                draw_aabb(canvas, n.aabb_camera(wb), RED);
-            }
-        }
-    }
-
-    Some(())
-}
-
 pub fn draw_bezier(gizmos: &mut Gizmos, bezier: &Bezier, color: Srgba) {
     let points: Vec<_> = linspace(0.0, 1.0, 20)
         .into_iter()

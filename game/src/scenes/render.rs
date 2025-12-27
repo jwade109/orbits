@@ -3,10 +3,9 @@ use crate::game::GameState;
 use crate::onclick::OnClick;
 use crate::z_index::ZOrdering;
 use bevy::color::palettes::css::*;
+use bevy::math::Vec2;
 use bevy::prelude::*;
 pub use bevy::sprite::Anchor;
-use crate::layout::layout::Tree;
-use bevy::math::Vec2;
 
 #[derive(Debug, Clone)]
 pub struct TextLabel {
@@ -124,8 +123,6 @@ impl StaticSpriteDescriptor {
 }
 
 pub trait Render {
-    fn ui(state: &GameState) -> Option<Tree<OnClick>>;
-
     fn draw(_canvas: &mut Canvas, _state: &GameState) -> Option<()> {
         None
     }

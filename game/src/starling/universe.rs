@@ -87,19 +87,6 @@ impl Universe {
         self.spacecraft.iter().all(|(_, sv)| sv.can_be_on_rails())
     }
 
-    fn step_spacecraft(&mut self, signals: &ControlSignals, particles: bool) {
-        // whatever
-    }
-
-    fn do_mining(&mut self) {
-        for (_, sv) in &self.spacecraft {
-            for (_, ast) in &mut self.asteroids {
-                let p = sv.body.pv.pos;
-                ast.delete_terrain(p);
-            }
-        }
-    }
-
     pub fn run_batch_ticks(&mut self, ticks: u32) {
         // whatever
     }

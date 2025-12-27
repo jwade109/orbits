@@ -1,7 +1,6 @@
 #![allow(unused)]
 #![allow(deprecated)]
 
-use crate::layout::layout::Tree;
 use crate::prelude::*;
 use crate::starling::prelude::*;
 use crate::ui::apply_egui_style;
@@ -12,6 +11,7 @@ use bevy::prelude::*;
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::view::RenderLayers;
 use bevy_egui::{EguiContexts, EguiPrimaryContextPass};
+use clap::builder::FalseyValueParser;
 use clap::Parser;
 use image::DynamicImage;
 use std::collections::HashMap;
@@ -225,8 +225,6 @@ pub struct GameState {
 
     pub current_orbit: Option<usize>,
 
-    pub ui: Tree<OnClick>,
-
     pub is_exit_prompt: bool,
 
     pub text_labels: Vec<TextLabel>,
@@ -291,7 +289,6 @@ impl GameState {
             exec_time: std::time::Duration::new(0, 0),
             part_database,
             current_orbit: None,
-            ui: Tree::new(),
             is_exit_prompt: false,
             text_labels: Vec::new(),
             sprites: Vec::new(),
@@ -426,10 +423,6 @@ impl GameState {
 }
 
 impl Render for GameState {
-    fn ui(state: &GameState) -> Option<Tree<OnClick>> {
-        None
-    }
-
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         // BOOKMARK debug info
 
@@ -721,67 +714,19 @@ impl GameState {
         Some(vehicle)
     }
 
-    pub fn current_hover_ui(&self) -> Option<&OnClick> {
-        let wb = self.input.screen_bounds.span;
-        let p = self.input.position(MouseButt::Hover, FrameId::Current)?;
-        self.ui.at(p, wb).map(|n| n.on_click()).flatten()
-    }
-
     pub fn is_hovering_over_ui(&self) -> bool {
-        let wb = self.input.screen_bounds.span;
-        let p = match self.input.position(MouseButt::Hover, FrameId::Current) {
-            Some(p) => p,
-            None => return false,
-        };
-        self.ui.at(p, wb).map(|n| n.is_visible()).unwrap_or(false)
+        false
     }
 
     pub fn is_currently_left_clicked_on_ui(&self) -> bool {
-        let wb = self.input.screen_bounds.span;
-        if self
-            .input
-            .position(MouseButt::Left, FrameId::Current)
-            .is_none()
-        {
-            return false;
-        }
-        let p = match self.input.position(MouseButt::Left, FrameId::Down) {
-            Some(p) => p,
-            None => return false,
-        };
-        self.ui.at(p, wb).map(|n| n.is_visible()).unwrap_or(false)
+        false
     }
 
     fn maybe_trigger_click_event(&mut self) -> Option<()> {
-        use FrameId::*;
-        use MouseButt::*;
-
-        let wb = self.input.screen_bounds.span;
-
-        let p = self.input.position(Left, Down)?;
-        let q = self.input.position(Left, Up)?;
-        let n = self.ui.at(p, wb)?;
-        let m = self.ui.at(q, wb)?;
-        if !n.is_enabled() || !m.is_enabled() {
-            return None;
-        }
-        let n = n.on_click()?;
-        let m = m.on_click()?;
-        // TODO this whole function is terrible
-        if n == m {
-            self.on_button_event(n.clone());
-        }
-        return Some(());
+        None
     }
 
-    pub fn handle_click_events(&mut self) {
-        use FrameId::*;
-        use MouseButt::*;
-
-        if self.input.on_frame(Left, Up).is_some() {
-            self.maybe_trigger_click_event();
-        }
-    }
+    pub fn handle_click_events(&mut self) {}
 
     pub fn on_render_tick(&mut self) {
         self.render_ticks += 1;

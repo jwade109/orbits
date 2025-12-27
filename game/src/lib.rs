@@ -9,7 +9,6 @@ pub mod graph;
 pub mod input;
 pub mod input_handlers;
 pub mod keybindings;
-pub mod layout;
 pub mod names;
 pub mod onclick;
 pub mod prelude;

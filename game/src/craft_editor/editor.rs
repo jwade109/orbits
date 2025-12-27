@@ -6,12 +6,9 @@ use crate::drawing::*;
 use crate::game::GameState;
 use crate::input::InputState;
 use crate::input::{FrameId, MouseButt};
-use crate::layout::layout::{Node, Size, Tree};
 use crate::names::*;
-use crate::onclick::OnClick;
 use crate::scenes::*;
 use crate::starling::prelude::*;
-use crate::ui::*;
 use crate::z_index::ZOrdering;
 use bevy::color::palettes::css::*;
 use bevy::math::DVec2;
@@ -391,48 +388,6 @@ fn highlight_part(
 }
 
 impl Render for Editor {
-    fn ui(state: &GameState) -> Option<Tree<OnClick>> {
-        use crate::ui::*;
-
-        let vb = state.input.screen_bounds;
-        if vb.span.x == 0.0 || vb.span.y == 0.0 {
-            return None;
-        }
-
-        let top_bar = top_bar(state);
-        let parts = part_selection(state);
-        let layers = layer_selection(state);
-        let vehicles = vehicle_selection(state);
-
-        let other_buttons = other_buttons(state.settings.ui_button_height);
-        // let actions = action_queue(&state.editor_context.action_queue);
-
-        let right_column = Node::column(400).invisible().with_child(other_buttons);
-
-        let main_area = Node::grow()
-            .invisible()
-            .with_child(parts)
-            .with_child(
-                Node::fit()
-                    .down()
-                    .with_padding(0.0)
-                    .invisible()
-                    .with_child(layers),
-            )
-            .with_child(vehicles)
-            .with_child(Node::grow().invisible())
-            .with_child(right_column);
-
-        let layout = Node::structural(vb.span.x, vb.span.y)
-            .tight()
-            .invisible()
-            .down()
-            .with_child(top_bar)
-            .with_child(main_area);
-
-        Some(Tree::new().with_layout(layout, Vec2::ZERO))
-    }
-
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         let ctx = &state.editor_context;
         draw_cross(&mut canvas.gizmos, ctx.w2c(DVec2::ZERO), 10.0, GRAY);
@@ -655,34 +610,6 @@ impl Render for Editor {
     }
 }
 
-fn expandable_menu(button_height: f32, text: &str, onclick: OnClick) -> Node<OnClick> {
-    Node::structural(300, Size::Fit)
-        .down()
-        .with_color(UI_BACKGROUND_COLOR)
-        .with_child(Node::button(text, onclick, Size::Grow, button_height))
-}
-
-fn part_selection(state: &GameState) -> Node<OnClick> {
-    let mut part_names: Vec<_> = state.part_database.keys().collect();
-    part_names.sort();
-
-    let mut n = expandable_menu(
-        state.settings.ui_button_height,
-        "Parts",
-        OnClick::TogglePartsMenuCollapsed,
-    );
-
-    if !state.editor_context.parts_menu_collapsed {
-        n.add_child(Node::hline());
-        n.add_children(part_names.into_iter().map(|s| {
-            let onclick = OnClick::SelectPart(s.clone());
-            Node::button(s, onclick, Size::Grow, state.settings.ui_button_height)
-        }));
-    }
-
-    n
-}
-
 pub fn get_list_of_vehicles(state: &GameState) -> Option<Vec<(String, PathBuf)>> {
     let mut ret = vec![];
     if let Ok(paths) = std::fs::read_dir(&state.args.vehicle_dir()) {
@@ -694,91 +621,6 @@ pub fn get_list_of_vehicles(state: &GameState) -> Option<Vec<(String, PathBuf)>>
         }
     }
     Some(ret)
-}
-
-fn vehicle_selection(state: &GameState) -> Node<OnClick> {
-    let vehicles = get_list_of_vehicles(state).unwrap_or(vec![]);
-
-    let mut n = expandable_menu(
-        state.settings.ui_button_height,
-        "Vehicles",
-        OnClick::ToggleVehiclesMenuCollapsed,
-    );
-
-    if !state.editor_context.vehicles_menu_collapsed {
-        n.add_child(Node::hline());
-        n.add_children(vehicles.into_iter().map(|(name, path)| {
-            let onclick = OnClick::LoadVehicle(path);
-            Node::button(name, onclick, Size::Grow, state.settings.ui_button_height)
-        }));
-    }
-
-    n
-}
-
-#[allow(unused)]
-fn action_queue(button_height: f32, queue: &Vec<Action>) -> Node<OnClick> {
-    Node::structural(Size::Grow, Size::Fit)
-        .with_color(UI_BACKGROUND_COLOR)
-        .down()
-        .with_children(
-            queue
-                .iter()
-                .map(|a| Node::text(Size::Grow, button_height, format!("{}", a.to_string()))),
-        )
-}
-
-fn other_buttons(button_height: f32) -> Node<OnClick> {
-    let rotate = Node::button("Rotate", OnClick::RotateCraft, Size::Grow, button_height);
-
-    let normalize = Node::button(
-        "Normalize",
-        OnClick::NormalizeCraft,
-        Size::Grow,
-        button_height,
-    );
-
-    let new_button = Node::button("New", OnClick::OpenNewCraft, Size::Grow, button_height);
-
-    let toggle_info = Node::button(
-        "Info",
-        OnClick::ToggleVehicleInfo,
-        Size::Grow,
-        button_height,
-    );
-
-    Node::structural(Size::Grow, Size::Fit)
-        .with_color(UI_BACKGROUND_COLOR)
-        .down()
-        .with_child(new_button)
-        .with_child(Node::hline())
-        .with_child(rotate)
-        .with_child(normalize)
-        .with_child(Node::hline())
-        .with_child(toggle_info)
-}
-
-fn layer_selection(state: &GameState) -> Node<OnClick> {
-    let mut n = expandable_menu(
-        state.settings.ui_button_height,
-        "Layers",
-        OnClick::ToggleLayersMenuCollapsed,
-    );
-
-    if !state.editor_context.layers_menu_collapsed {
-        n.add_child(Node::hline());
-        n.add_children(enum_iterator::all::<PartLayer>().into_iter().map(|p| {
-            let s = format!("{:?}", p);
-            let onclick = OnClick::ToggleLayer(p);
-            let mut n = Node::button(s, onclick, Size::Grow, state.settings.ui_button_height);
-            if !state.editor_context.is_layer_visible(p) {
-                n = n.with_color(GRAY.to_f32_array());
-            }
-            n
-        }));
-    }
-
-    n
 }
 
 impl CameraProjection for Editor {
