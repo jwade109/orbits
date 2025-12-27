@@ -3,7 +3,6 @@ pub use crate::starling::asteroid::*;
 pub use crate::starling::belts::AsteroidBelt;
 pub use crate::starling::bezier::*;
 pub use crate::starling::casts::*;
-pub use crate::starling::construction_bot::*;
 pub use crate::starling::control::OrbitalController;
 pub use crate::starling::control_signals::*;
 pub use crate::starling::entities::*;

@@ -8,8 +8,6 @@ use std::path::Path;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VehicleFileStorage {
-    pub name: String,
-    pub tuning: VehiclePd,
     pub parts: Vec<VehiclePartFileStorage>,
 }
 
@@ -33,7 +31,6 @@ impl std::error::Error for NoPartError {}
 
 pub fn load_vehicle(
     path: &Path,
-    name: String,
     parts: &HashMap<String, PartPrototype>,
 ) -> Result<Vehicle, Box<dyn std::error::Error>> {
     let s = std::fs::read_to_string(path)?;
@@ -45,7 +42,7 @@ pub fn load_vehicle(
             .ok_or(Box::new(NoPartError(part.partname.clone())))?;
         prototypes.push((part.pos, part.rot, proto.clone()));
     }
-    Ok(Vehicle::from_parts(name, storage.name, prototypes))
+    Ok(Vehicle::from_parts(prototypes))
 }
 
 fn part_from_path(path: &Path) -> Result<PartPrototype, String> {

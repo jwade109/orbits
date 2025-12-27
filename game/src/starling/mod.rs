@@ -3,7 +3,6 @@ pub mod asteroid;
 pub mod belts;
 pub mod bezier;
 pub mod casts;
-pub mod construction_bot;
 pub mod control;
 pub mod control_signals;
 pub mod entities;

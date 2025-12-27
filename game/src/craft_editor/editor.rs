@@ -174,11 +174,7 @@ impl Editor {
             })
             .collect();
 
-        let storage = VehicleFileStorage {
-            name: state.editor_context.vehicle.model().to_string(),
-            tuning: VehiclePd::default(),
-            parts,
-        };
+        let storage = VehicleFileStorage { parts };
 
         let s = serde_yaml::to_string(&storage).ok()?;
         std::fs::write(choice, s).ok()
@@ -190,8 +186,7 @@ impl Editor {
     }
 
     pub fn load_vehicle(path: &Path, state: &mut GameState) -> Option<()> {
-        let name = get_random_ship_name(&state.vehicle_names);
-        let vehicle = match load_vehicle(path, name, &state.part_database) {
+        let vehicle = match load_vehicle(path, &state.part_database) {
             Ok(v) => v,
             Err(e) => {
                 state.notice(format!("Failed to load vehicle: {}", e));

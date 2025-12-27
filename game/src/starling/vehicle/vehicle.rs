@@ -1,17 +1,10 @@
-use crate::starling::aabb::AABB;
-use crate::starling::id::EntityId;
 use crate::starling::math::*;
 use crate::starling::nanotime::Nanotime;
 use crate::starling::parts::*;
 use crate::starling::pid::PDCtrl;
-use crate::starling::units::Mass;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::hash::Hash;
-
-fn rocket_equation(ve: f64, m0: Mass, m1: Mass) -> f64 {
-    ve * (m0.to_kg_f64() / m1.to_kg_f64()).ln()
-}
 
 #[allow(unused)]
 fn mass_after_maneuver(ve: f64, m0: f64, dv: f64) -> f64 {
@@ -38,32 +31,21 @@ pub fn occupied_pixels(pos: IVec2, rot: Rotation, part: &PartPrototype) -> Vec<I
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PartId(u64);
 
-#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
-pub struct VehiclePd {
-    pub attitude_controller: PDCtrl,
-    pub vertical_controller: PDCtrl,
-    pub horizontal_controller: PDCtrl,
-    pub docking_linear_controller: PDCtrl,
-}
-
 #[derive(Debug, Clone)]
 pub struct Vehicle {
-    name: String,
-    model: String,
     next_part_id: PartId,
     parts: HashMap<PartId, InstantiatedPart>,
 }
 
 impl Vehicle {
     pub fn new() -> Self {
-        Self::from_parts("Unnamed Ship".into(), "XYZ".into(), Vec::new())
+        Self {
+            next_part_id: PartId(0),
+            parts: HashMap::new(),
+        }
     }
 
-    pub fn from_parts(
-        name: String,
-        model: String,
-        prototypes: Vec<(IVec2, Rotation, PartPrototype)>,
-    ) -> Self {
+    pub fn from_parts(prototypes: Vec<(IVec2, Rotation, PartPrototype)>) -> Self {
         let mut next_part_id = PartId(0);
         let mut parts = HashMap::new();
 
@@ -75,8 +57,6 @@ impl Vehicle {
         }
 
         Self {
-            name,
-            model,
             next_part_id,
             parts,
         }
@@ -167,40 +147,6 @@ impl Vehicle {
 
     pub fn parts(&self) -> impl Iterator<Item = (&PartId, &InstantiatedPart)> + use<'_> {
         self.parts.iter()
-    }
-
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn name_with_id(&self, id: EntityId) -> String {
-        format!("{} {}", self.name, id)
-    }
-
-    pub fn set_name(&mut self, name: String) {
-        self.name = name;
-    }
-
-    pub fn model(&self) -> &str {
-        &self.model
-    }
-
-    pub fn set_model(&mut self, model: String) {
-        self.model = model;
-    }
-
-    pub fn title(&self) -> String {
-        let model = if self.model.len() >= 3 {
-            self.model[0..3].to_uppercase()
-        } else {
-            self.model.to_uppercase()
-        };
-        format!("{} {}", model, self.name)
-    }
-
-    pub fn title_with_id(&self, id: EntityId) -> String {
-        let title = self.title();
-        format!("{} {}", title, id)
     }
 
     pub fn bounding_radius(&self) -> f64 {

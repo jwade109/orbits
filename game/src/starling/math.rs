@@ -1,10 +1,5 @@
 use crate::starling::nanotime::Nanotime;
-// pub use glam::f32::Vec2;
-// pub use glam::f32::Vec3;
-// pub use glam::f64::DVec2;
-// pub use glam::f64::DVec3;
-// pub use glam::i32::IVec2;
-// pub use glam::u32::UVec2;
+use crate::starling::units::Mass;
 use names::Generator;
 use rand::Rng;
 
@@ -210,6 +205,10 @@ pub fn wrap_pi_npi(x: f32) -> f32 {
 
 pub fn wrap_pi_npi_f64(x: f64) -> f64 {
     f64::atan2(x.sin(), x.cos())
+}
+
+pub fn rocket_equation(ve: f64, m0: Mass, m1: Mass) -> f64 {
+    ve * (m0.to_kg_f64() / m1.to_kg_f64()).ln()
 }
 
 #[cfg(test)]

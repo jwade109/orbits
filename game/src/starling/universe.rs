@@ -125,33 +125,6 @@ impl Universe {
         Some(id)
     }
 
-    pub fn add_surface_vehicle(
-        &mut self,
-        planet_id: EntityId,
-        vehicle: Vehicle,
-        angle: f64,
-        altitude: f64,
-    ) -> Option<EntityId> {
-        let planet = self.get_planet(planet_id)?;
-
-        let pos = rotate_f64(DVec2::X * (planet.body.radius + altitude), angle);
-
-        let vel = randvec(2.0, 7.0);
-
-        let body = RigidBody {
-            pv: PV::from_f64(pos, vel),
-            angle: PI_64 / 2.0,
-            angular_velocity: 0.0,
-        };
-
-        let controller = VehicleController::launch();
-        let id = self.next_entity_id();
-        let sv = Spacecraft::new(planet_id, vehicle, body, controller);
-        self.spacecraft.insert(id, sv);
-
-        Some(id)
-    }
-
     pub fn pv(&self, id: EntityId) -> Option<PV> {
         if id == EntityId(0) {
             return Some(PV::ZERO);

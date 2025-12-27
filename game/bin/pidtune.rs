@@ -43,19 +43,6 @@ struct Args {
     pub exploration_rate: f32,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-struct Simulation {
-    pd: VehiclePd,
-    convergence: Option<Nanotime>,
-    target_pos: DVec2,
-    target_angle: Vec<f64>,
-    t: Vec<Nanotime>,
-    x: Vec<f64>,
-    y: Vec<f64>,
-    a: Vec<f64>,
-    accel: Vec<f64>,
-}
-
 impl Simulation {
     pub fn new(pd: VehiclePd, target_pos: DVec2) -> Self {
         Self {

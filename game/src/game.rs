@@ -530,7 +530,7 @@ impl GameState {
 
         let name = get_random_ship_name(&self.vehicle_names);
 
-        let mut vehicle = load_vehicle(path, name, &self.part_database).ok()?;
+        let mut vehicle = load_vehicle(path, &self.part_database).ok()?;
 
         Some(vehicle)
     }
@@ -619,17 +619,6 @@ impl GameState {
             OnClick::ToggleVehicleInfo => {
                 self.editor_context.show_vehicle_info = !self.editor_context.show_vehicle_info;
             }
-            OnClick::SendToSurface(e) => {
-                let mut vehicle = self.editor_context.vehicle.clone();
-                let name = get_random_ship_name(&self.vehicle_names);
-                vehicle.set_name(name);
-                self.universe.add_surface_vehicle(
-                    e,
-                    vehicle,
-                    (PI / 2.0 + rand(-0.01, 0.01)) as f64,
-                    rand(10.0, 30.0) as f64,
-                );
-            }
             OnClick::ReloadGame => _ = self.reload(),
             OnClick::SetControllerPolicy(policy) => {
                 self.set_controller_policy(policy);
@@ -692,7 +681,7 @@ impl GameState {
 
         let name = get_random_ship_name(&self.vehicle_names);
 
-        let mut vehicle = load_vehicle(path, name, &self.part_database).ok()?;
+        let mut vehicle = load_vehicle(path, &self.part_database).ok()?;
 
         Some(vehicle)
     }
