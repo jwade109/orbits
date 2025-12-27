@@ -210,44 +210,46 @@ fn hover_control_law(
     vehicle: &Vehicle,
     body: &RigidBody,
 ) -> (VehicleControl, VehicleControlStatus) {
-    let upright_angle = (-gravity).to_angle();
+    unimplemented!()
 
-    let target = if target.distance(body.pv.pos) > 250.0 {
-        let d = target - body.pv.pos;
-        d.normalize_or_zero() * 250.0 + body.pv.pos
-    } else {
-        target
-    };
+    // let upright_angle = (-gravity).to_angle();
 
-    let horizontal_control =
-        PLACEHOLDER_PD.apply(target.x - body.pv.pos.x as f64, body.pv.vel.x as f64);
+    // let target = if target.distance(body.pv.pos) > 250.0 {
+    //     let d = target - body.pv.pos;
+    //     d.normalize_or_zero() * 250.0 + body.pv.pos
+    // } else {
+    //     target
+    // };
 
-    // attitude controller
-    let target_angle = upright_angle - horizontal_control.clamp(-PI_64 / 6.0, PI_64 / 6.0);
-    let attitude_error = (body.angle - target_angle).abs();
-    let (attitude, _) = compute_attitude_control(body, target_angle, &PLACEHOLDER_PD);
+    // let horizontal_control =
+    //     PLACEHOLDER_PD.apply(target.x - body.pv.pos.x as f64, body.pv.vel.x as f64);
 
-    let thrust = vehicle.max_forward_thrust();
-    let accel = thrust / MASS_PLACEHOLDER.to_kg_f64();
-    let pct = gravity.length() / accel;
+    // // attitude controller
+    // let target_angle = upright_angle - horizontal_control.clamp(-PI_64 / 6.0, PI_64 / 6.0);
+    // let attitude_error = (body.angle - target_angle).abs();
+    // let (attitude, _) = compute_attitude_control(body, target_angle, &PLACEHOLDER_PD);
 
-    // vertical controller
-    let error = PLACEHOLDER_PD.apply(target.y - body.pv.pos.y as f64, body.pv.vel.y as f64);
+    // let thrust = vehicle.max_forward_thrust();
+    // let accel = thrust / MASS_PLACEHOLDER.to_kg_f64();
+    // let pct = gravity.length() / accel;
 
-    let throttle = pct + error;
+    // // vertical controller
+    // let error = PLACEHOLDER_PD.apply(target.y - body.pv.pos.y as f64, body.pv.vel.y as f64);
 
-    let mut ctrl = VehicleControl::NULLOPT;
+    // let throttle = pct + error;
 
-    let status = if attitude_error < 0.7 {
-        ctrl.plus_x.throttle = throttle as f32;
-        VehicleControlStatus::TurningToHover
-    } else {
-        VehicleControlStatus::Hovering
-    };
+    // let mut ctrl = VehicleControl::NULLOPT;
 
-    ctrl.attitude = attitude;
+    // let status = if attitude_error < 0.7 {
+    //     ctrl.plus_x.throttle = throttle as f32;
+    //     VehicleControlStatus::TurningToHover
+    // } else {
+    //     VehicleControlStatus::Hovering
+    // };
 
-    (ctrl, status)
+    // ctrl.attitude = attitude;
+
+    // (ctrl, status)
 }
 
 pub fn position_hold_control_law(
@@ -262,46 +264,6 @@ pub fn position_hold_control_law(
     } else {
         zero_gravity_control_law(target, target_angle, body, &PLACEHOLDER_PD)
     }
-}
-
-pub fn velocity_control_law(
-    vel: DVec2,
-    body: &RigidBody,
-    vehicle: &Vehicle,
-    gravity: DVec2,
-) -> VehicleControl {
-    if gravity.length() == 0.0 {
-        return VehicleControl::NULLOPT;
-    }
-
-    let mut cmd = VehicleControl::NULLOPT;
-
-    let upright_angle = vel.to_angle();
-    let velocity_error = vel - body.pv.vel;
-    let heading_dir = velocity_error - gravity;
-    let target_angle = heading_dir
-        .to_angle()
-        .clamp(upright_angle - 0.2 * PI_64, upright_angle + 0.2 * PI_64);
-
-    // attitude controller
-    // let attitude_error = (body.angle - target_angle).abs();
-    let (attitude, _) = compute_attitude_control(body, target_angle, &PLACEHOLDER_PD);
-
-    let vmag = body.pv.vel.length();
-    let vmag_error = vel.length() - vmag;
-
-    let pid = PDCtrl::new(0.3, 30.0);
-
-    let extra_throttle = pid.apply(vmag_error, 0.0);
-
-    let thrust = vehicle.max_forward_thrust();
-    let accel = thrust / MASS_PLACEHOLDER.to_kg_f64();
-    let pct = gravity.length() / accel + extra_throttle;
-
-    cmd.attitude = attitude;
-    cmd.plus_x.throttle = pct as f32;
-
-    cmd
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
@@ -460,7 +422,8 @@ pub fn enter_orbit_control_law(
             (VehicleControl::NULLOPT, VehicleControlStatus::InProgress)
         }
     } else {
-        let max_accel = vehicle.max_forward_thrust() / MASS_PLACEHOLDER.to_kg_f64();
+        // TODO big placeholder energy
+        let max_accel = 5.0;
         let target_accel = 16.0;
         let throttle = target_accel / max_accel;
         (

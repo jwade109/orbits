@@ -532,8 +532,6 @@ impl GameState {
 
         let mut vehicle = load_vehicle(path, name, &self.part_database).ok()?;
 
-        vehicle.build_all();
-
         Some(vehicle)
     }
 
@@ -609,17 +607,6 @@ impl GameState {
             OnClick::LoadVehicle(path) => _ = Editor::load_vehicle(&path, self),
             OnClick::ConfirmExitDialog => self.shutdown(),
             OnClick::DismissExitDialog => self.is_exit_prompt = false,
-            OnClick::TogglePartsMenuCollapsed => {
-                self.editor_context.parts_menu_collapsed = !self.editor_context.parts_menu_collapsed
-            }
-            OnClick::ToggleVehiclesMenuCollapsed => {
-                self.editor_context.vehicles_menu_collapsed =
-                    !self.editor_context.vehicles_menu_collapsed
-            }
-            OnClick::ToggleLayersMenuCollapsed => {
-                self.editor_context.layers_menu_collapsed =
-                    !self.editor_context.layers_menu_collapsed
-            }
             OnClick::OpenNewCraft => {
                 self.editor_context.new_craft();
             }
@@ -634,7 +621,6 @@ impl GameState {
             }
             OnClick::SendToSurface(e) => {
                 let mut vehicle = self.editor_context.vehicle.clone();
-                vehicle.build_all();
                 let name = get_random_ship_name(&self.vehicle_names);
                 vehicle.set_name(name);
                 self.universe.add_surface_vehicle(
@@ -644,7 +630,6 @@ impl GameState {
                     rand(10.0, 30.0) as f64,
                 );
             }
-            OnClick::NormalizeCraft => self.editor_context.normalize_coordinates(),
             OnClick::ReloadGame => _ = self.reload(),
             OnClick::SetControllerPolicy(policy) => {
                 self.set_controller_policy(policy);
@@ -708,8 +693,6 @@ impl GameState {
         let name = get_random_ship_name(&self.vehicle_names);
 
         let mut vehicle = load_vehicle(path, name, &self.part_database).ok()?;
-
-        vehicle.build_all();
 
         Some(vehicle)
     }

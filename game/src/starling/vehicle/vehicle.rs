@@ -169,67 +169,6 @@ impl Vehicle {
         self.parts.iter()
     }
 
-    pub fn parts_in_draw_order(
-        &self,
-    ) -> impl Iterator<Item = (&PartId, &InstantiatedPart)> + use<'_> {
-        PartLayer::draw_order()
-            .map(|l| self.parts.iter().filter(move |(_, p)| p.layer() == l))
-            .into_iter()
-            .flat_map(|p| p.into_iter())
-    }
-
-    pub fn thruster_count(&self) -> usize {
-        self.thrusters().count()
-    }
-
-    pub fn tank_count(&self) -> usize {
-        0
-    }
-
-    pub fn max_forward_thrust(&self) -> f64 {
-        0.0
-    }
-
-    pub fn max_backwards_thrust(&self) -> f64 {
-        0.0
-    }
-
-    pub fn aabb(&self) -> AABB {
-        let mut ret: Option<AABB> = None;
-        for (_, instance) in &self.parts {
-            let dims = instance.dims_meters();
-            let pos = instance.origin().as_vec2() / crate::starling::parts::parts::PIXELS_PER_METER;
-            let aabb = AABB::from_arbitrary(pos, pos + dims);
-            if let Some(r) = ret.as_mut() {
-                r.include(&pos);
-                r.include(&(pos + dims));
-            } else {
-                ret = Some(aabb);
-            }
-        }
-        ret.unwrap_or(AABB::unit())
-    }
-
-    pub fn pixel_bounds(&self) -> Option<(IVec2, IVec2)> {
-        let mut min: Option<IVec2> = None;
-        let mut max: Option<IVec2> = None;
-        for (_, instance) in &self.parts {
-            let dims = instance.dims_grid();
-            let origin = instance.origin();
-            let upper = origin + dims.as_ivec2();
-            if let Some((min, max)) = min.as_mut().zip(max.as_mut()) {
-                min.x = min.x.min(origin.x);
-                min.y = min.y.min(origin.y);
-                max.x = max.x.max(upper.x);
-                max.y = max.y.max(upper.y);
-            } else {
-                min = Some(origin);
-                max = Some(upper);
-            }
-        }
-        min.zip(max)
-    }
-
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -264,80 +203,8 @@ impl Vehicle {
         format!("{} {}", title, id)
     }
 
-    pub fn thrusters(&self) -> impl Iterator<Item = &ThrusterModel> + use<'_> {
-        self.parts.iter().filter_map(|(_, p)| p.thruster_data())
-    }
-
     pub fn bounding_radius(&self) -> f64 {
-        let aabb = self.aabb();
-        let mut r: f64 = 0.0;
-        for c in aabb.corners() {
-            r = r.max(c.length() as f64);
-        }
-        r
-    }
-
-    pub fn build_part(&mut self, id: PartId) {
-        if let Some(part) = self.parts.get_mut(&id) {
-            part.build();
-        }
-    }
-
-    pub fn build_all(&mut self) {
-        for (_, part) in &mut self.parts {
-            part.build_all();
-        }
-    }
-
-    pub fn build_once(&mut self) {
-        for layer in PartLayer::build_order() {
-            let layer_is_built = self
-                .parts
-                .iter()
-                .filter(|(_, p)| p.prototype().layer() == layer)
-                .all(|(_, p)| p.percent_built() == 1.0);
-
-            if layer_is_built {
-                continue;
-            }
-
-            for (_, instance) in &mut self.parts {
-                if instance.prototype().layer() != layer {
-                    continue;
-                }
-
-                if instance.percent_built() < 1.0 {
-                    if rand(0.0, 1.0) < 0.8 {
-                        instance.build();
-                    }
-                }
-            }
-            return;
-        }
-    }
-
-    pub fn normalize_coordinates(&mut self) {
-        if self.parts.len() == 0 {
-            return;
-        }
-
-        let mut min: IVec2 = IVec2::ZERO;
-        let mut max: IVec2 = IVec2::ZERO;
-
-        self.parts.iter().for_each(|(_, instance)| {
-            let dims = instance.dims_grid();
-            let p = instance.origin();
-            let q = p + dims.as_ivec2();
-            min.x = min.x.min(p.x);
-            min.y = min.y.min(p.y);
-            max.x = max.x.max(q.x);
-            max.y = max.y.max(q.y);
-        });
-
-        let avg = min + (max - min) / 2;
-
-        self.parts.iter_mut().for_each(|(_, p)| {
-            p.set_origin(p.origin() - avg);
-        });
+        // BIG TODO
+        50.0
     }
 }

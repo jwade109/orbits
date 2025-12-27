@@ -1,7 +1,7 @@
 use crate::starling::aabb::*;
-use crate::starling::units::Mass;
 use crate::starling::math::*;
 use crate::starling::parts::*;
+use crate::starling::units::Mass;
 use bevy::math::UVec2;
 use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
@@ -111,8 +111,6 @@ impl PartLayer {
 
 #[derive(Debug, Clone)]
 pub struct InstantiatedPart {
-    builds_performed: u32,
-    builds_required: u32,
     pos: IVec2,
     rot: Rotation,
     dims: UVec2,
@@ -140,8 +138,6 @@ impl InstantiatedPart {
         let dims = proto.dims();
 
         Self {
-            builds_performed: 0,
-            builds_required: (dims.x * dims.y).clamp(30, 2000),
             pos,
             rot,
             dims,
@@ -159,24 +155,6 @@ impl InstantiatedPart {
 
     pub fn total_mass(&self) -> Mass {
         self.proto.mass
-    }
-
-    pub fn build(&mut self) {
-        if self.builds_performed < self.builds_required {
-            self.builds_performed += 1;
-        }
-    }
-
-    pub fn build_all(&mut self) {
-        self.builds_performed = self.builds_required;
-    }
-
-    pub fn percent_built(&self) -> f32 {
-        (self.builds_performed as f32 / self.builds_required as f32).clamp(0.0, 1.0)
-    }
-
-    pub fn is_built(&self) -> bool {
-        self.builds_performed == self.builds_required
     }
 
     pub fn dims_grid(&self) -> UVec2 {

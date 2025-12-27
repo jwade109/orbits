@@ -12,12 +12,6 @@ pub fn on_editor_render_tick(state: &mut GameState) {
         return;
     }
 
-    if state.input.is_pressed(KeyCode::KeyB) {
-        for _ in 0..100 {
-            state.editor_context.vehicle.build_once();
-        }
-    }
-
     if let Some(p) = state.input.on_frame(MouseButt::Left, FrameId::Down) {
         let p = state.editor_context.c2w(p);
         if let Some((id, _)) = state.editor_context.get_part_at(graphics_cast(p)) {

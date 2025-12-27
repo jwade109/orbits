@@ -44,18 +44,11 @@ pub struct Editor {
     pub action_queue: Vec<Action>,
     pub occupied: HashMap<PartLayer, HashMap<IVec2, PartId>>,
     pub vehicle: Vehicle,
-    pub build_particles: Vec<BuildParticle>,
 
     pub atmo: i32,
 
     // menus
     pub show_vehicle_info: bool,
-    pub parts_menu_collapsed: bool,
-    pub vehicles_menu_collapsed: bool,
-    pub layers_menu_collapsed: bool,
-
-    // construction bots
-    pub bots: Vec<ConBot>,
 }
 
 impl Editor {
@@ -71,19 +64,8 @@ impl Editor {
             action_queue: Vec::new(),
             occupied: HashMap::new(),
             vehicle: Vehicle::new(),
-            build_particles: Vec::new(),
             atmo: 3,
             show_vehicle_info: false,
-            parts_menu_collapsed: false,
-            vehicles_menu_collapsed: true,
-            layers_menu_collapsed: false,
-            bots: (0..24)
-                .map(|_| {
-                    let p = randvec(10.0, 50.0);
-                    let v = randvec(3.0, 6.0);
-                    ConBot::new(PV::from_f64(p, v))
-                })
-                .collect(),
         }
     }
 
@@ -138,11 +120,6 @@ impl Editor {
             self.vehicle
                 .add_part(instance.prototype(), instance.origin(), instance.rotation());
         }
-        self.update();
-    }
-
-    pub fn normalize_coordinates(&mut self) {
-        self.vehicle.normalize_coordinates();
         self.update();
     }
 
@@ -225,7 +202,6 @@ impl Editor {
         state.editor_context.vehicle = vehicle;
         state.editor_context.filepath = Some(path.to_path_buf());
         state.editor_context.update();
-        state.editor_context.vehicles_menu_collapsed = true;
         state.editor_context.action_queue.clear();
         Some(())
     }
@@ -409,7 +385,6 @@ impl Render for Editor {
         }
 
         let radius = ctx.vehicle.bounding_radius();
-        let bounds = ctx.vehicle.aabb();
 
         let filename = match &state.editor_context.filepath {
             Some(p) => format!("[{}]", p.display()),
@@ -429,27 +404,12 @@ impl Render for Editor {
 
         let info = format!("{}{}", info, vehicle_info);
 
-        let world_pos = Vec2::new(0.0, bounds.lower().y - 1.0).as_dvec2();
-        canvas
-            .text(info, ctx.w2c(world_pos), gcast(0.01 * ctx.scale()))
-            .set_anchor(Anchor::TopLeft);
-        let world_pos = Vec2::new(0.0, bounds.upper().y + 1.0).as_dvec2();
-        canvas
-            .text(
-                format!(
-                    "{}-type vessel\n\"{}\"",
-                    state.editor_context.vehicle.model(),
-                    state.editor_context.vehicle.name()
-                ),
-                ctx.w2c(world_pos),
-                gcast(0.01 * ctx.scale()),
-            )
-            .set_anchor(Anchor::BottomLeft);
+        // TODO re-add info!
 
         // axes
         {
-            let length = bounds.span.x as f64 * 1.5;
-            let width = bounds.span.y as f64 * 1.5;
+            let length = 30.0;
+            let width = 30.0;
             let o = ctx.w2c(DVec2::ZERO);
             let p = ctx.w2c(DVec2::X * length);
             let q = ctx.w2c(DVec2::Y * width);
@@ -488,8 +448,6 @@ impl Render for Editor {
         }
 
         if ctx.show_vehicle_info {
-            draw_aabb(canvas, ctx.w2c_aabb(bounds), TEAL.with_alpha(0.1));
-
             draw_circle(
                 &mut canvas.gizmos,
                 ctx.w2c(DVec2::ZERO),
@@ -516,14 +474,7 @@ impl Render for Editor {
 
                 let sprite_dims = instance.prototype().dims_meters();
                 let center = instance.center_meters().as_dvec2();
-                let p = instance.percent_built();
                 let sprite_name = instance.prototype().sprite_path().to_string();
-                let sprite_name = if p == 1.0 {
-                    sprite_name.to_string()
-                } else {
-                    let idx = (p * 10.0).floor() as i32;
-                    format!("{}-building-{}", sprite_name, idx)
-                };
 
                 let z_index = match layer {
                     PartLayer::Exterior => ZOrdering::EditorExteriorPart,
@@ -583,29 +534,6 @@ impl Render for Editor {
             );
         }
 
-        for particle in &ctx.build_particles {
-            let p = ctx.w2c(particle.pos());
-            canvas.rect(
-                AABB::new(p, Vec2::splat(0.03) * gcast(ctx.scale())),
-                ZOrdering::EditorWeldingParticles,
-                YELLOW.with_alpha(particle.opacity()),
-            );
-        }
-
-        for bot in &ctx.bots {
-            canvas.sprite(
-                ctx.w2c(bot.pos()),
-                gcast(bot.angle()),
-                "conbot",
-                ZOrdering::EditorConbot,
-                Vec2::splat(0.3) * gcast(ctx.scale()),
-            );
-            if let Some(t) = bot.target_pos() {
-                let p = ctx.w2c(t).extend(ZOrdering::EditorConbot.as_f32());
-                canvas.circle(p, 12.0, PURPLE.with_alpha(0.2));
-            }
-        }
-
         Some(())
     }
 }
@@ -652,81 +580,6 @@ impl CameraProjection for Editor {
 impl Editor {
     pub fn on_game_tick(state: &mut GameState) {
         state.editor_context.camera.on_game_tick();
-
-        let ctx = &mut state.editor_context;
-
-        let all_parts: HashSet<_> = ctx
-            .vehicle
-            .parts()
-            .filter_map(|(id, p)| (p.percent_built() < 1.0).then(|| *id))
-            .collect();
-
-        let assigned_parts: HashSet<_> = ctx.bots.iter().filter_map(|b| b.target_part()).collect();
-
-        let mut unbuilt_parts: Vec<_> = ctx
-            .vehicle
-            .parts()
-            .filter_map(|(id, p)| {
-                (p.percent_built() < 1.0 && !assigned_parts.contains(id)).then(|| {
-                    let origin = p.origin_meters();
-                    let dims = p.dims_meters();
-                    (*id, AABB::from_arbitrary(origin, origin + dims))
-                })
-            })
-            .collect();
-
-        for bot in &mut ctx.bots {
-            if let Some(id) = bot.target_part() {
-                if !all_parts.contains(&id) {
-                    bot.clear_target_part();
-                    bot.set_target_pos(randvec(50.0, 60.0).as_dvec2())
-                }
-            }
-
-            if bot.target_part().is_none() {
-                if let Some(pos) = bot.target_pos() {
-                    if pos.length() < 10.0 {
-                        bot.set_target_pos(randvec(50.0, 60.0).as_dvec2())
-                    }
-                }
-            }
-
-            if bot.target_part().is_none() && !unbuilt_parts.is_empty() {
-                let n = randint(0, unbuilt_parts.len() as i32);
-                let (id, bounds) = unbuilt_parts[n as usize];
-                unbuilt_parts.remove(n as usize);
-                bot.set_target_part(id);
-                let pos = bounds.uniform_sample().as_dvec2();
-                bot.set_target_pos(pos);
-            }
-
-            bot.on_sim_tick();
-        }
-
-        for bot in &ctx.bots {
-            let tpos = match bot.target_pos() {
-                Some(pos) => pos,
-                None => continue,
-            };
-
-            if bot.pos().distance(tpos) > 1.0 {
-                continue;
-            }
-
-            if let Some(id) = bot.target_part() {
-                for _ in 0..10 {
-                    let particle = BuildParticle::new(bot.pos());
-                    ctx.build_particles.push(particle);
-                    ctx.vehicle.build_part(id);
-                }
-            }
-        }
-
-        for particle in &mut ctx.build_particles {
-            particle.on_sim_tick();
-        }
-
-        ctx.build_particles.retain(|p| p.opacity() > 0.0);
     }
 }
 
