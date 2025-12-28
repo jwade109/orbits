@@ -109,9 +109,18 @@ impl PartLayer {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PartCoord(pub IVec2);
+
+impl PartCoord {
+    pub fn to_real(&self) -> Vec2 {
+        self.0.as_vec2() / PIXELS_PER_METER
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct InstantiatedPart {
-    pub pos: IVec2,
+    pub pos: PartCoord,
     pub rot: Rotation,
     pub dims: UVec2,
     pub proto: PartPrototype,
@@ -138,7 +147,7 @@ impl InstantiatedPart {
         let dims = proto.dims();
 
         Self {
-            pos,
+            pos: PartCoord(pos),
             rot,
             dims,
             proto,
@@ -167,20 +176,20 @@ impl InstantiatedPart {
 
     pub fn center_meters(&self) -> Vec2 {
         let dims = rotate_dims(self.rot, self.dims.as_vec2() / PIXELS_PER_METER);
-        let origin = self.pos.as_vec2() / PIXELS_PER_METER;
+        let origin = self.pos.to_real();
         origin + dims / 2.0
     }
 
-    pub fn origin(&self) -> IVec2 {
+    pub fn origin(&self) -> PartCoord {
         self.pos
     }
 
     pub fn origin_meters(&self) -> Vec2 {
-        self.pos.as_vec2() / PIXELS_PER_METER
+        self.pos.to_real()
     }
 
     pub fn set_origin(&mut self, p: IVec2) {
-        self.pos = p;
+        self.pos.0 = p;
     }
 
     pub fn with_origin(&self, p: IVec2) -> Self {
@@ -191,10 +200,7 @@ impl InstantiatedPart {
 
     pub fn obb(&self, angle: f32, scale: f32, pos: Vec2) -> OBB {
         let dims = self.dims_meters();
-        let center = rotate(
-            self.origin().as_vec2() / crate::starling::prelude::PIXELS_PER_METER + dims / 2.0,
-            angle,
-        ) * scale;
+        let center = rotate(self.origin().to_real() + dims / 2.0, angle) * scale;
         OBB::new(
             AABB::from_arbitrary(scale * -dims / 2.0, scale * dims / 2.0),
             angle,
@@ -213,7 +219,7 @@ impl InstantiatedPart {
     pub fn rotated(&self) -> Self {
         let mut ret = self.clone();
         let old_half_dims = ret.dims_grid().as_vec2() / 2.0;
-        let old_center = ret.origin().as_vec2() + old_half_dims;
+        let old_center = ret.origin().0.as_vec2() + old_half_dims;
         let new_center = rotate(old_center, PI / 2.0);
         ret.set_rotation(enum_iterator::next_cycle(&ret.rotation()));
         let new_half_dims = ret.dims_grid().as_vec2() / 2.0;

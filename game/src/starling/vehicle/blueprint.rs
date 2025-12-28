@@ -96,7 +96,7 @@ impl Blueprint {
 
                 let origin = instance.origin();
                 let dims = instance.dims_grid().as_ivec2();
-                let p = p - origin;
+                let p = p - origin.0;
                 p.x >= 0 && p.y >= 0 && p.x <= dims.x && p.y <= dims.y
             });
 
@@ -152,5 +152,20 @@ impl Blueprint {
     pub fn bounding_radius(&self) -> f64 {
         // BIG TODO
         50.0
+    }
+
+    pub fn rotate(&mut self) {
+        let new_instances: Vec<_> = self
+            .parts()
+            .map(|(_, instance)| instance.rotated())
+            .collect();
+        self.clear();
+        for instance in new_instances {
+            self.add_part(
+                instance.prototype(),
+                instance.origin().0,
+                instance.rotation(),
+            );
+        }
     }
 }

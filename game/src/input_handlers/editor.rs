@@ -52,7 +52,7 @@ pub fn on_editor_render_tick(state: &mut GameState) {
                     let proto = part.proto.clone();
                     state
                         .editor_context
-                        .try_place_part(pos + p, proto, part.rot);
+                        .try_place_part(pos + p.0, proto, part.rot);
                 }
             }
         }
@@ -78,7 +78,12 @@ pub fn on_editor_render_tick(state: &mut GameState) {
     }
 
     if state.input.just_pressed(KeyCode::KeyR) {
-        state.editor_context.rotation = enum_iterator::next_cycle(&state.editor_context.rotation);
+        if let Some(bp) = state.editor_context.cursor_state.blueprint_mut() {
+            bp.rotate();
+        } else {
+            state.editor_context.rotation =
+                enum_iterator::next_cycle(&state.editor_context.rotation);
+        }
     }
 
     if state.input.is_pressed(KeyCode::ControlLeft) && state.input.just_pressed(KeyCode::KeyZ) {

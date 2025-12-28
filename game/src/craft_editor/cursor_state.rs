@@ -22,4 +22,11 @@ impl CursorState {
             _ => None,
         }
     }
+
+    pub fn blueprint_mut(&mut self) -> Option<&mut Blueprint> {
+        match self {
+            Self::Blueprint(bp) => Some(bp),
+            _ => None,
+        }
+    }
 }

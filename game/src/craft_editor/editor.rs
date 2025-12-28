@@ -18,14 +18,14 @@ use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
 pub enum Action {
-    Add(IVec2, Rotation, PartPrototype),
+    Add(PartId),
     Remove(IVec2, Rotation, PartPrototype),
 }
 
 impl Action {
     pub fn to_string(&self) -> String {
         match self {
-            Self::Add(_, _, proto) => format!("Add {}", proto.part_name()),
+            Self::Add(id) => format!("Add #{:?}", id),
             Self::Remove(_, _, proto) => format!("Remove {}", proto.part_name()),
         }
     }
@@ -75,9 +75,9 @@ impl Editor {
     pub fn undo(&mut self) -> Option<()> {
         let action = self.action_queue.pop()?;
         match action {
-            Action::Add(pos, _, proto) => match self.blueprint.remove_part_at(pos, proto.layer()) {
-                Ok(p) => println!("Removed {:?}", p),
-                Err(s) => println!("Failed to remove: {}", s),
+            Action::Add(id) => match self.blueprint.remove_part(id) {
+                Some(p) => println!("Removed {:?}", p),
+                None => println!("Failed to remove"),
             },
             Action::Remove(pos, rot, proto) => self.add_part(pos, rot, proto),
         }
@@ -109,16 +109,7 @@ impl Editor {
     }
 
     pub fn rotate_craft(&mut self) {
-        let new_instances: Vec<_> = self
-            .blueprint
-            .parts()
-            .map(|(_, instance)| instance.rotated())
-            .collect();
-        self.blueprint.clear();
-        for instance in new_instances {
-            self.blueprint
-                .add_part(instance.prototype(), instance.origin(), instance.rotation());
-        }
+        self.blueprint.rotate();
         self.update();
     }
 
@@ -168,7 +159,7 @@ impl Editor {
             .parts()
             .map(|(_, instance)| VehiclePartFileStorage {
                 partname: instance.prototype().sprite_path().to_string(),
-                pos: instance.origin(),
+                pos: instance.origin().0,
                 rot: instance.rotation(),
             })
             .collect();
@@ -227,7 +218,7 @@ impl Editor {
         self.occupied.clear();
         for (id, instance) in self.blueprint.parts() {
             let pixels = occupied_pixels(
-                instance.origin(),
+                instance.origin().0,
                 instance.rotation(),
                 &instance.prototype(),
             );
@@ -272,9 +263,9 @@ impl Editor {
             }
         }
 
-        self.blueprint.add_part(new_part.clone(), p, rot);
+        let id = self.blueprint.add_part(new_part.clone(), p, rot);
 
-        self.action_queue.push(Action::Add(p, rot, new_part));
+        self.action_queue.push(Action::Add(id));
 
         self.update();
         Some(())
@@ -284,7 +275,7 @@ impl Editor {
         let pixel_p = vround(p * PIXELS_PER_METER);
         if let Ok(part) = self.blueprint.remove_part_at(pixel_p, self.focus_layer) {
             self.action_queue.push(Action::Remove(
-                part.origin(),
+                part.origin().0,
                 part.rotation(),
                 part.prototype(),
             ));
