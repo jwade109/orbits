@@ -6,3 +6,4 @@ inventory_data:
   slots: 4
   filter: Solid
   volume_liters: 3000
+  is_fuel: false

@@ -42,7 +42,9 @@ fn main() {
             (
                 update_wireframe,
                 save_settings_on_change.run_if(on_timer(std::time::Duration::from_secs(1))),
+                toggle_inv_on_alt,
             )
+                .chain()
                 .in_set(Sets::Misc),
         )
         .configure_sets(
@@ -148,4 +150,10 @@ fn setup(mut commands: Commands) -> Result {
     }
 
     Ok(())
+}
+
+fn toggle_inv_on_alt(keys: Res<ButtonInput<KeyCode>>, mut settings: ResMut<Settings>) {
+    if keys.just_pressed(KeyCode::AltLeft) {
+        settings.draw_inventories = !settings.draw_inventories;
+    }
 }

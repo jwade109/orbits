@@ -6,4 +6,5 @@ dims: [120, 50]
 inventory_data:
   slots: 1
   filter: Solid
-  volume_liters: 400
+  volume_liters: 14000
+  is_fuel: false

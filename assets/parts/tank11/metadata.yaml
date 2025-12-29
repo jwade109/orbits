@@ -4,4 +4,5 @@ dims: [10, 10]
 inventory_data:
   slots: 1
   filter: Liquid
-  volume_liters: 10
+  volume_liters: 200
+  is_fuel: true

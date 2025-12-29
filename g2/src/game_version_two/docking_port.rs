@@ -117,10 +117,10 @@ pub fn on_attach_event(
         grid.velocity = velocity + additional_velocity;
         grid.angular_velocity = angular_velocity;
 
-        fuse.write(FuseGrids {
-            host_grid: parent.0,
-            target_grid: other_parent.0,
-        });
+        // fuse.write(FuseGrids {
+        //     host_grid: parent.0,
+        //     target_grid: other_parent.0,
+        // });
     }
 }
 
@@ -128,6 +128,7 @@ pub fn on_fuse_grids_event(
     mut commands: Commands,
     mut events: EventReader<FuseGrids>,
     grids: Query<&Children, With<SpacecraftGrid>>,
+    mut parts: Query<&mut Transform, With<PartInstance>>,
 ) {
     for event in events.read() {
         info!("Fusing grids {} and {}", event.host_grid, event.target_grid);

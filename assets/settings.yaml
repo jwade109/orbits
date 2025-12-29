@@ -1,5 +1,5 @@
 draw_spatial_lut: false
-draw_spacecraft_grids: true
+draw_spacecraft_grids: false
 draw_terrain_rgb: false
 show_wireframes: false
 draw_inventories: true

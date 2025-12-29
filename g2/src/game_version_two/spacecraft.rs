@@ -94,6 +94,7 @@ pub struct SpacecraftGrid {
     parts: usize,
     inventory_mass: Mass,
     parts_mass: Mass,
+    fuel_mass: Mass,
     moment_of_inertia: f64,
     bounds: (Vec2, Vec2),
     pub center_of_mass: Vec2,
@@ -109,7 +110,7 @@ impl SpacecraftGrid {
     }
 
     pub fn total_mass(&self) -> Mass {
-        self.parts_mass + self.inventory_mass
+        self.parts_mass + self.inventory_mass + self.fuel_mass
     }
 
     pub fn apply_body_frame_thrust(&mut self, thrust: Vec2, torque: f32) {
@@ -305,10 +306,13 @@ fn despawn_empty_grids(
     }
 }
 
+#[derive(Component)]
+pub struct FuelInventory;
+
 fn update_grids(
     mut commands: Commands,
     mut grids: Query<(Entity, &mut SpacecraftGrid, &Children)>,
-    parts: Query<(&PartInstance, Option<&Inventory>)>,
+    parts: Query<(&PartInstance, Option<&Inventory>, Option<&FuelInventory>)>,
 ) {
     // TODO: we should only run this when a given grid has changed.
     // certain events should trigger a change event:
@@ -321,6 +325,7 @@ fn update_grids(
     for (e, mut grid, children) in &mut grids {
         grid.parts_mass = Mass::ZERO;
         grid.inventory_mass = Mass::ZERO;
+        grid.fuel_mass = Mass::ZERO;
         grid.parts = children.iter().count();
         grid.bounds = (Vec2::ZERO, Vec2::ZERO);
         grid.center_of_mass = Vec2::ZERO;
@@ -334,11 +339,15 @@ fn update_grids(
         let mut com = DVec2::ZERO;
 
         for part in children.iter() {
-            if let Ok((part, inv)) = parts.get(part) {
+            if let Ok((part, inv, fuel)) = parts.get(part) {
                 let part_mass = Mass::grams(part.prototype().part_mass().to_grams());
                 let inv_mass = inv.map(|inv| inv.mass()).unwrap_or(Mass::ZERO);
+                if fuel.is_some() {
+                    grid.fuel_mass += inv_mass;
+                } else {
+                    grid.inventory_mass += inv_mass;
+                }
                 grid.parts_mass += part_mass;
-                grid.inventory_mass += inv_mass;
                 com += (part.origin_meters() + part.dims_meters() / 2.0).as_dvec2()
                     * (part_mass + inv_mass).to_kg_f64();
                 let origin = part.origin_meters();
@@ -563,6 +572,9 @@ fn add_part_to_grid<'a>(
             inv.add_slot(slot);
         }
         cmd.insert(inv);
+        if data.is_fuel {
+            cmd.insert(FuelInventory);
+        }
     }
 
     // MACHINE COMPONENT ==================================================
@@ -597,7 +609,7 @@ fn add_part_to_grid<'a>(
             size: Vec3::splat(0.05),
         };
 
-        cmd.insert((thruster, inv, particles));
+        cmd.insert((thruster, inv, particles, FuelInventory));
     }
 
     // COMPUTER COMPONENT ==================================================
