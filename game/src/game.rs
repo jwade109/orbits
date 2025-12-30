@@ -52,6 +52,9 @@ fn new_editor_ui(
         .anchor(Align2::RIGHT_TOP, (0.0, 0.0))
         .show(ctx, |ui| {
             apply_egui_style(ui);
+
+            ui.label(format!("{:?}", game.editor_context.cursor_state));
+
             if ui.button("Close").clicked() {
                 game.shutdown();
             }
@@ -63,6 +66,9 @@ fn new_editor_ui(
             }
             if ui.button("Rotate").clicked() {
                 game.editor_context.rotate_craft();
+            }
+            if ui.button("Pipe").clicked() {
+                game.editor_context.enter_pipe_mode();
             }
         });
 
@@ -106,6 +112,28 @@ fn new_editor_ui(
             if ui.checkbox(&mut active, format!("{:?}", layer)).clicked() {
                 game.editor_context.toggle_layer(layer);
             }
+        }
+    });
+
+    egui::Window::new("Part Info").show(ctx, |ui| {
+        let Some(cursor) = Editor::current_cursor_coord(&game) else {
+            return;
+        };
+
+        ui.label(format!("Cursor: {:?}", cursor));
+
+        for layer in PartLayer::all() {
+            let Some(bp) = game.editor_context.blueprint.get_part_at(cursor, layer) else {
+                continue;
+            };
+
+            let Some(part) = game.editor_context.blueprint.get_part(bp) else {
+                continue;
+            };
+
+            ui.separator();
+            ui.heading(format!("{:?} layer", layer));
+            ui.label(format!("{:#?}", part));
         }
     });
 
@@ -704,10 +732,6 @@ impl GameState {
         let mut vehicle = load_vehicle(path, &self.part_database).ok()?;
 
         Some(vehicle)
-    }
-
-    pub fn is_hovering_over_ui(&self) -> bool {
-        false
     }
 
     pub fn is_currently_left_clicked_on_ui(&self) -> bool {

@@ -5,6 +5,7 @@ pub mod generic;
 pub mod inventory;
 pub mod machine;
 pub mod parts;
+pub mod pipe;
 pub mod rotation;
 pub mod thruster;
 
@@ -15,5 +16,6 @@ pub use generic::*;
 pub use inventory::*;
 pub use machine::*;
 pub use parts::*;
+pub use pipe::*;
 pub use rotation::*;
 pub use thruster::*;

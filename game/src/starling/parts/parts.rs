@@ -113,12 +113,18 @@ impl PartLayer {
 pub struct PartCoord(IVec2);
 
 impl PartCoord {
+    pub const CELL_WIDTH: f32 = 1.0 / GRID_CELLS_PER_METER;
+
     pub fn new(p: IVec2) -> Self {
         Self(p)
     }
 
     pub fn to_meters(&self) -> Vec2 {
         self.0.as_vec2() / GRID_CELLS_PER_METER
+    }
+
+    pub fn to_meters_center(&self) -> Vec2 {
+        (self.0.as_vec2() + Vec2::splat(0.5)) / GRID_CELLS_PER_METER
     }
 
     pub fn from_meters_floored(p: impl Into<DVec2>) -> Self {
@@ -149,6 +155,12 @@ impl std::ops::Sub for PartCoord {
     type Output = Self;
     fn sub(self, rhs: Self) -> Self::Output {
         Self(self.0 - rhs.0)
+    }
+}
+
+impl Into<PartCoord> for (i32, i32) {
+    fn into(self) -> PartCoord {
+        PartCoord(IVec2::new(self.0, self.1))
     }
 }
 

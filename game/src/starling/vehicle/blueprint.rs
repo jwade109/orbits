@@ -96,7 +96,7 @@ impl Blueprint {
                 let dims = instance.dims_grid().as_ivec2();
                 let p = p - origin;
                 let inner = p.inner();
-                inner.x >= 0 && inner.y >= 0 && inner.x <= dims.x && inner.y <= dims.y
+                inner.x >= 0 && inner.y >= 0 && inner.x < dims.x && inner.y < dims.y
             });
 
             if let Some((id, _)) = found {

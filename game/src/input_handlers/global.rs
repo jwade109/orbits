@@ -91,5 +91,5 @@ pub fn on_global_render_tick(state: &mut GameState) -> bool {
 
     state.handle_click_events();
 
-    state.is_hovering_over_ui() || take.take().is_none()
+    false
 }

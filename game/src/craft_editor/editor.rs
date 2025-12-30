@@ -113,6 +113,10 @@ impl Editor {
         self.update();
     }
 
+    pub fn enter_pipe_mode(&mut self) {
+        self.cursor_state = CursorState::Pipe(CursorPipeData::default());
+    }
+
     pub fn set_current_part(state: &mut GameState, name: &String) {
         if let Some(part) = state.part_database.get(name).cloned() {
             state.editor_context.cursor_state = CursorState::Part(part);
@@ -147,6 +151,90 @@ impl Editor {
         } else {
             Some(layer)
         };
+    }
+
+    pub fn on_right_click_down(state: &mut GameState, p: Vec2) {
+        info!("on_right_click_down");
+        state
+            .editor_context
+            .remove_part_at(graphics_cast(state.editor_context.c2w(p)));
+    }
+
+    pub fn on_left_click_down(state: &mut GameState, p: Vec2) {
+        info!("on_left_click_down");
+        let p = state.editor_context.c2w(p);
+        if let Some((id, _)) = state.editor_context.get_part_at(graphics_cast(p)) {
+            state.editor_context.selected_part = Some(id)
+        } else {
+            state.editor_context.selected_part = None;
+        }
+
+        if let Some(c) = Editor::current_cursor_coord(state) {
+            if let Some(data) = state.editor_context.cursor_state.pipe_mut() {
+                data.start_position = Some(c);
+            }
+        }
+    }
+
+    pub fn on_left_click_held(state: &mut GameState, p: Vec2) {
+        if let Some(c) = Editor::current_cursor_coord(state) {
+            if let Some(data) = state.editor_context.cursor_state.pipe_mut() {
+                data.end_position = Some(c);
+            }
+        }
+    }
+
+    pub fn on_left_click_release(state: &mut GameState) {
+        info!("on_left_click_release");
+        dbg!(&state.editor_context.cursor_state);
+        if let Some(data) = state.editor_context.cursor_state.pipe_mut() {
+            data.start_position = None;
+            data.end_position = None;
+        }
+    }
+
+    pub fn process_holding_shift(state: &mut GameState) {
+        if state.input.is_pressed(KeyCode::ShiftLeft) {
+            if let Some((pos, proto)) = Editor::current_part_and_cursor_position(state) {
+                if state.editor_context.snap_info.is_none() {
+                    let rot = state.editor_context.rotation;
+                    let dims = pixel_dims_with_rotation(rot, &proto);
+                    state.editor_context.snap_info = Some((pos, dims));
+                }
+            } else {
+                state.editor_context.snap_info = None;
+            }
+        } else {
+            state.editor_context.snap_info = None;
+        }
+    }
+
+    pub fn on_press_q(state: &mut GameState) {
+        if state.editor_context.cursor_state.current_part().is_some() {
+            state.editor_context.cursor_state = CursorState::None;
+        } else if let Some(p) = state.input.position(MouseButt::Hover, FrameId::Current) {
+            if let Some((_, instance)) = state
+                .editor_context
+                .get_part_at(graphics_cast(state.editor_context.c2w(p)))
+            {
+                let instance = instance.clone();
+                state.editor_context.rotation = instance.rotation();
+                state.editor_context.cursor_state = CursorState::Part(instance.prototype().clone());
+            } else {
+                state.editor_context.cursor_state = CursorState::None;
+            }
+        }
+    }
+
+    pub fn on_press_r(state: &mut GameState) {
+        if let Some(bp) = state.editor_context.cursor_state.blueprint_mut() {
+            bp.rotate();
+        } else if let Some(data) = state.editor_context.cursor_state.pipe_mut() {
+            data.x_first = !data.x_first;
+        } else {
+            state.editor_context.rotation =
+                enum_iterator::next_cycle(&state.editor_context.rotation);
+        }
     }
 
     pub fn save_to_file(state: &mut GameState) -> Option<()> {
@@ -283,6 +371,12 @@ impl Editor {
         self.update();
     }
 
+    pub fn current_cursor_coord(state: &GameState) -> Option<PartCoord> {
+        let pos = state.input.position(MouseButt::Hover, FrameId::Current)?;
+        let pos = PartCoord::from_meters_floored(state.editor_context.c2w(pos));
+        Some(pos)
+    }
+
     pub fn current_part_and_cursor_position(
         state: &GameState,
     ) -> Option<(PartCoord, PartPrototype)> {
@@ -383,6 +477,30 @@ fn draw_blueprint(
     }
 }
 
+fn draw_cell(canvas: &mut Canvas, c: PartCoord, ctx: &impl CameraProjection, color: Srgba) {
+    let lower = ctx.w2c(c.to_meters().as_dvec2());
+    let upper = ctx.w2c((c + PartCoord::new(IVec2::ONE)).to_meters().as_dvec2());
+    canvas.rect(AABB::from_arbitrary(lower, upper), ZOrdering::Debug2, color);
+}
+
+fn draw_pipe(canvas: &mut Canvas, pipe: &PipeGeometry, ctx: &impl CameraProjection, color: Srgba) {
+    let pipe_thickness = PartCoord::CELL_WIDTH * 0.7 * ctx.scale() as f32;
+    match pipe.segments() {
+        PipeSegments::Single(a, b) => {
+            let a = ctx.w2c(a.to_meters_center().as_dvec2());
+            let b = ctx.w2c(b.to_meters_center().as_dvec2());
+            canvas.line_t(a, b, ZOrdering::Debug, pipe_thickness, color);
+        }
+        PipeSegments::Double(a, b, c) => {
+            let a = ctx.w2c(a.to_meters_center().as_dvec2());
+            let b = ctx.w2c(b.to_meters_center().as_dvec2());
+            let c = ctx.w2c(c.to_meters_center().as_dvec2());
+            canvas.line_t(a, b, ZOrdering::Debug, pipe_thickness, color);
+            canvas.line_t(b, c, ZOrdering::Debug, pipe_thickness, color);
+        }
+    }
+}
+
 impl Render for Editor {
     fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         let ctx = &state.editor_context;
@@ -454,6 +572,24 @@ impl Render for Editor {
                 let t = ctx.w2c(top.to_meters().as_dvec2());
                 let b = ctx.w2c(bottom.to_meters().as_dvec2());
                 canvas.gizmos.line_2d(t, b, GRAY.with_alpha(0.1));
+            }
+        }
+
+        // current cursor position
+        {
+            if let Some(cursor) = Editor::current_cursor_coord(state) {
+                draw_cell(canvas, cursor, ctx, RED.with_alpha(0.5));
+            }
+        }
+
+        // pipe
+        {
+            let p = state.editor_context.cursor_state.pipe();
+            let c = Editor::current_cursor_coord(state);
+            if let Some((p, c)) = p.zip(c) {
+                if let Some(geo) = p.pipe_geometry() {
+                    draw_pipe(canvas, &geo, ctx, GREEN);
+                }
             }
         }
 
