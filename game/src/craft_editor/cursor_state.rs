@@ -1,6 +1,6 @@
 use crate::starling::prelude::*;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct CursorPipeData {
     pub start_position: Option<PartCoord>,
     pub end_position: Option<PartCoord>,
@@ -9,6 +9,10 @@ pub struct CursorPipeData {
 
 impl CursorPipeData {
     pub fn pipe_geometry(&self) -> Option<PipeGeometry> {
+        if self.start_position == self.end_position {
+            return None;
+        }
+
         Some(PipeGeometry {
             start: self.start_position?,
             end: self.end_position?,

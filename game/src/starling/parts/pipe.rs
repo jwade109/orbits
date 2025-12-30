@@ -1,7 +1,8 @@
 use super::parts::PartCoord;
 use bevy::math::IVec2;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct PipeGeometry {
     pub start: PartCoord,
     pub end: PartCoord,

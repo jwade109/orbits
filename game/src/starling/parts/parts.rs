@@ -164,6 +164,12 @@ impl Into<PartCoord> for (i32, i32) {
     }
 }
 
+impl std::fmt::Display for PartCoord {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}, {})", self.0.x, self.0.y)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct InstantiatedPart {
     pub pos: PartCoord,

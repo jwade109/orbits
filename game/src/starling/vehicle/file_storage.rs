@@ -1,7 +1,6 @@
 use crate::starling::math::*;
 use crate::starling::parts::*;
 use crate::starling::vehicle::*;
-use bevy::math::IVec2;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
@@ -9,6 +8,7 @@ use std::path::Path;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VehicleFileStorage {
     pub parts: Vec<VehiclePartFileStorage>,
+    pub pipes: Option<Vec<PipeFileStorage>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16,6 +16,11 @@ pub struct VehiclePartFileStorage {
     pub partname: String,
     pub pos: PartCoord,
     pub rot: Rotation,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PipeFileStorage {
+    pub geometry: PipeGeometry,
 }
 
 #[derive(Debug)]
@@ -42,7 +47,13 @@ pub fn load_vehicle(
             .ok_or(Box::new(NoPartError(part.partname.clone())))?;
         prototypes.push((part.pos, part.rot, proto.clone()));
     }
-    Ok(Blueprint::from_parts(prototypes))
+    let pipes = storage
+        .pipes
+        .unwrap_or(vec![])
+        .iter()
+        .map(|p| p.geometry)
+        .collect();
+    Ok(Blueprint::from_parts(prototypes, pipes))
 }
 
 fn part_from_path(path: &Path) -> Result<PartPrototype, String> {

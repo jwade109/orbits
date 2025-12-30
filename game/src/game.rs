@@ -133,7 +133,29 @@ fn new_editor_ui(
 
             ui.separator();
             ui.heading(format!("{:?} layer", layer));
-            ui.label(format!("{:#?}", part));
+            ui.label(format!("{}", part.proto.part_name()));
+        }
+    });
+
+    egui::Window::new("Pipes").show(ctx, |ui| {
+        let n = game.editor_context.blueprint.pipes().count();
+        ui.label(format!("{} pipes", n));
+        ui.separator();
+
+        let pipes: Vec<_> = game
+            .editor_context
+            .blueprint
+            .pipes()
+            .map(|(id, p)| (*id, *p))
+            .collect();
+
+        for (id, pipe) in pipes {
+            ui.label(format!("Start: {}", pipe.start));
+            ui.label(format!("End: {}", pipe.end));
+            if ui.button("Delete").clicked() {
+                game.editor_context.blueprint.remove_part(id);
+            }
+            ui.separator();
         }
     });
 

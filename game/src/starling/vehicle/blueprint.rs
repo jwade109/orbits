@@ -33,6 +33,7 @@ pub struct PartId(u64);
 pub struct Blueprint {
     next_part_id: PartId,
     parts: HashMap<PartId, InstantiatedPart>,
+    pipes: HashMap<PartId, PipeGeometry>,
 }
 
 impl Blueprint {
@@ -40,10 +41,14 @@ impl Blueprint {
         Self {
             next_part_id: PartId(0),
             parts: HashMap::new(),
+            pipes: HashMap::new(),
         }
     }
 
-    pub fn from_parts(prototypes: Vec<(PartCoord, Rotation, PartPrototype)>) -> Self {
+    pub fn from_parts(
+        prototypes: Vec<(PartCoord, Rotation, PartPrototype)>,
+        pipes: Vec<PipeGeometry>,
+    ) -> Self {
         let mut next_part_id = PartId(0);
         let mut parts = HashMap::new();
 
@@ -54,10 +59,17 @@ impl Blueprint {
             next_part_id.0 += 1;
         }
 
-        Self {
+        let mut s = Self {
             next_part_id,
             parts,
+            pipes: HashMap::new(),
+        };
+
+        for pipe in pipes {
+            s.add_pipe(pipe);
         }
+
+        s
     }
 
     fn get_next_part_id(&mut self) -> PartId {
@@ -107,37 +119,35 @@ impl Blueprint {
         None
     }
 
-    pub fn remove_part_at(
-        &mut self,
-        p: PartCoord,
-        layer: impl Into<Option<PartLayer>>,
-    ) -> Result<InstantiatedPart, &'static str> {
+    pub fn remove_part_at(&mut self, p: PartCoord, layer: impl Into<Option<PartLayer>>) -> bool {
         let layer = layer.into();
 
         if let Some(layer) = layer {
-            let id = self
-                .get_part_at(p, layer)
-                .ok_or("No part at given position and layer")?;
-            self.remove_part(id).ok_or("No part with given ID")
+            if let Some(id) = self.get_part_at(p, layer) {
+                self.remove_part(id)
+            } else {
+                false
+            }
         } else {
             let mut layers = PartLayer::draw_order();
             layers.reverse();
             for layer in layers {
-                if let Some(part) = self
-                    .get_part_at(p, layer)
-                    .map(|id| self.remove_part(id))
-                    .flatten()
-                {
-                    return Ok(part);
+                if self.remove_part_at(p, layer) {
+                    return true;
                 }
             }
-            Err("No part found")
+            false
         }
     }
 
-    pub fn remove_part(&mut self, id: PartId) -> Option<InstantiatedPart> {
-        let part = self.parts.remove(&id);
-        part
+    pub fn remove_part(&mut self, id: PartId) -> bool {
+        if self.parts.remove(&id).is_some() {
+            return true;
+        }
+        if self.pipes.remove(&id).is_some() {
+            return true;
+        }
+        false
     }
 
     pub fn clear(&mut self) {
@@ -148,9 +158,19 @@ impl Blueprint {
         self.parts.iter()
     }
 
+    pub fn pipes(&self) -> impl Iterator<Item = (&PartId, &PipeGeometry)> + use<'_> {
+        self.pipes.iter()
+    }
+
     pub fn bounding_radius(&self) -> f64 {
         // BIG TODO
         50.0
+    }
+
+    pub fn add_pipe(&mut self, pipe: PipeGeometry) -> PartId {
+        let id = self.get_next_part_id();
+        self.pipes.insert(id, pipe);
+        id
     }
 
     pub fn rotate(&mut self) {

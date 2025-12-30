@@ -33,6 +33,14 @@ impl<'w, 's> Canvas<'w, 's> {
         self.painter.circle(radius);
     }
 
+    pub fn fill_circle<'a>(&'a mut self, p: Vec3, radius: f32, color: Srgba) {
+        self.painter.reset();
+        self.painter.set_translation(p);
+        self.painter.set_color(color);
+        self.painter.hollow = false;
+        self.painter.circle(radius);
+    }
+
     pub fn line(&mut self, p: Vec2, q: Vec2, z: ZOrdering, color: Srgba) {
         self.painter.reset();
         self.painter.set_translation(Vec3::Z * z.as_f32());

@@ -10,6 +10,7 @@ use crate::scenes::*;
 use crate::starling::prelude::*;
 use crate::z_index::ZOrdering;
 use bevy::color::palettes::css::*;
+use bevy::color::palettes::tailwind::*;
 use bevy::math::DVec2;
 use bevy::prelude::*;
 use rfd::FileDialog;
@@ -75,11 +76,12 @@ impl Editor {
     pub fn undo(&mut self) -> Option<()> {
         let action = self.action_queue.pop()?;
         match action {
-            Action::Add(id) => match self.blueprint.remove_part(id) {
-                Some(p) => println!("Removed {:?}", p),
-                None => println!("Failed to remove"),
-            },
+            // Action::Add(id) => match self.blueprint.remove_part(id) {
+            //     Some(p) => println!("Removed {:?}", p),
+            //     None => println!("Failed to remove"),
+            // },
             Action::Remove(pos, rot, proto) => self.add_part(pos, rot, proto),
+            _ => println!("oh no!"),
         }
         Some(())
     }
@@ -187,6 +189,11 @@ impl Editor {
     pub fn on_left_click_release(state: &mut GameState) {
         info!("on_left_click_release");
         dbg!(&state.editor_context.cursor_state);
+        if let Some(data) = state.editor_context.cursor_state.pipe().cloned() {
+            if let Some(pipe) = data.pipe_geometry() {
+                state.editor_context.blueprint.add_pipe(pipe);
+            }
+        }
         if let Some(data) = state.editor_context.cursor_state.pipe_mut() {
             data.start_position = None;
             data.end_position = None;
@@ -252,7 +259,17 @@ impl Editor {
             })
             .collect();
 
-        let storage = VehicleFileStorage { parts };
+        let pipes = state
+            .editor_context
+            .blueprint
+            .pipes()
+            .map(|(_, pipe)| PipeFileStorage { geometry: *pipe })
+            .collect();
+
+        let storage = VehicleFileStorage {
+            parts,
+            pipes: Some(pipes),
+        };
 
         let s = serde_yaml::to_string(&storage).ok()?;
         std::fs::write(choice, s).ok()
@@ -361,12 +378,13 @@ impl Editor {
 
     pub fn remove_part_at(&mut self, p: Vec2) {
         let pixel_p = PartCoord::from_meters_floored(p);
-        if let Ok(part) = self.blueprint.remove_part_at(pixel_p, self.focus_layer) {
-            self.action_queue.push(Action::Remove(
-                part.origin(),
-                part.rotation(),
-                part.prototype(),
-            ));
+        if self.blueprint.remove_part_at(pixel_p, self.focus_layer) {
+            println!("TODO restore undo behavior!");
+            // self.action_queue.push(Action::Remove(
+            //     part.origin(),
+            //     part.rotation(),
+            //     part.prototype(),
+            // ));
         }
         self.update();
     }
@@ -475,6 +493,10 @@ fn draw_blueprint(
                 .set_color(WHITE.with_alpha(alpha));
         }
     }
+
+    for (_, pipe) in blueprint.pipes() {
+        draw_pipe(canvas, pipe, ctx, GRAY_400, GRAY_600);
+    }
 }
 
 fn draw_cell(canvas: &mut Canvas, c: PartCoord, ctx: &impl CameraProjection, color: Srgba) {
@@ -483,20 +505,33 @@ fn draw_cell(canvas: &mut Canvas, c: PartCoord, ctx: &impl CameraProjection, col
     canvas.rect(AABB::from_arbitrary(lower, upper), ZOrdering::Debug2, color);
 }
 
-fn draw_pipe(canvas: &mut Canvas, pipe: &PipeGeometry, ctx: &impl CameraProjection, color: Srgba) {
-    let pipe_thickness = PartCoord::CELL_WIDTH * 0.7 * ctx.scale() as f32;
+fn draw_pipe(
+    canvas: &mut Canvas,
+    pipe: &PipeGeometry,
+    ctx: &impl CameraProjection,
+    pipe_color: Srgba,
+    node_color: Srgba,
+) {
+    let pipe_thickness = PartCoord::CELL_WIDTH * 0.2 * ctx.scale() as f32;
+    let node_radius = PartCoord::CELL_WIDTH * 0.2 * ctx.scale() as f32;
+    let node_z = ZOrdering::Debug;
+    let pipe_z = ZOrdering::Debug2;
     match pipe.segments() {
         PipeSegments::Single(a, b) => {
             let a = ctx.w2c(a.to_meters_center().as_dvec2());
             let b = ctx.w2c(b.to_meters_center().as_dvec2());
-            canvas.line_t(a, b, ZOrdering::Debug, pipe_thickness, color);
+            canvas.fill_circle(a.extend(node_z.as_f32()), node_radius, node_color);
+            canvas.fill_circle(b.extend(node_z.as_f32()), node_radius, node_color);
+            canvas.line_t(a, b, pipe_z, pipe_thickness, pipe_color);
         }
         PipeSegments::Double(a, b, c) => {
             let a = ctx.w2c(a.to_meters_center().as_dvec2());
             let b = ctx.w2c(b.to_meters_center().as_dvec2());
             let c = ctx.w2c(c.to_meters_center().as_dvec2());
-            canvas.line_t(a, b, ZOrdering::Debug, pipe_thickness, color);
-            canvas.line_t(b, c, ZOrdering::Debug, pipe_thickness, color);
+            canvas.fill_circle(a.extend(node_z.as_f32()), node_radius, node_color);
+            canvas.fill_circle(c.extend(node_z.as_f32()), node_radius, node_color);
+            canvas.line_t(a, b, pipe_z, pipe_thickness, pipe_color);
+            canvas.line_t(b, c, pipe_z, pipe_thickness, pipe_color);
         }
     }
 }
@@ -584,11 +619,9 @@ impl Render for Editor {
 
         // pipe
         {
-            let p = state.editor_context.cursor_state.pipe();
-            let c = Editor::current_cursor_coord(state);
-            if let Some((p, c)) = p.zip(c) {
+            if let Some(p) = state.editor_context.cursor_state.pipe() {
                 if let Some(geo) = p.pipe_geometry() {
-                    draw_pipe(canvas, &geo, ctx, GREEN);
+                    draw_pipe(canvas, &geo, ctx, GRAY_400, GRAY_600);
                 }
             }
         }
