@@ -80,14 +80,14 @@ pub fn update_flood_fill(
                     if let Ok(chunk) = chunks.get(*e) {
                         if !chunk.is_occupied(l) {
                             flood.void_space.insert(gl);
-                            let left = gl - IVec2::X;
-                            let right = gl + IVec2::X;
-                            let bottom = gl - IVec2::Y;
-                            let top = gl + IVec2::Y;
 
-                            for n in [left, right, bottom, top] {
-                                if !flood.visited.contains(&n) {
-                                    flood.open_set.insert(n);
+                            for x in -1..=1 {
+                                for y in -1..=1 {
+                                    let off = IVec2::new(x, y);
+                                    let n = gl + off;
+                                    if !flood.visited.contains(&n) {
+                                        flood.open_set.insert(n);
+                                    }
                                 }
                             }
                         }
