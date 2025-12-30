@@ -193,7 +193,7 @@ impl Editor {
     }
 
     pub fn get_part_at(&self, p: Vec2) -> Option<(PartId, &InstantiatedPart)> {
-        let pixel_p = PartCoord::from_meters(p);
+        let pixel_p = PartCoord::from_meters_floored(p);
 
         for layer in [
             PartLayer::Exterior,
@@ -272,7 +272,7 @@ impl Editor {
     }
 
     pub fn remove_part_at(&mut self, p: Vec2) {
-        let pixel_p = PartCoord::from_meters(p);
+        let pixel_p = PartCoord::from_meters_floored(p);
         if let Ok(part) = self.blueprint.remove_part_at(pixel_p, self.focus_layer) {
             self.action_queue.push(Action::Remove(
                 part.origin(),
@@ -290,7 +290,7 @@ impl Editor {
         let part = state.editor_context.cursor_state.current_part()?;
         let wh = pixel_dims_with_rotation(ctx.rotation, &part).as_ivec2();
         let pos = state.input.position(MouseButt::Hover, FrameId::Current)?;
-        let pos = PartCoord::from_meters(state.editor_context.c2w(pos));
+        let pos = PartCoord::from_meters_floored(state.editor_context.c2w(pos));
         let pos = if let Some((snap_pos, dims)) = state.editor_context.snap_info {
             let dims = dims.as_ivec2();
             let delta = pos - snap_pos;
@@ -339,11 +339,12 @@ fn highlight_part(
 
 fn draw_blueprint(
     canvas: &mut Canvas,
-    offset: DVec2,
+    offset: PartCoord,
     blueprint: &Blueprint,
     ctx: &impl CameraProjection,
     focus_layer: Option<PartLayer>,
 ) {
+    let offset = offset.to_meters();
     for layer in PartLayer::draw_order() {
         for (_, instance) in blueprint
             .parts()
@@ -371,7 +372,7 @@ fn draw_blueprint(
 
             canvas
                 .sprite(
-                    ctx.w2c(offset + center),
+                    ctx.w2c(offset.as_dvec2() + center),
                     gcast(instance.rotation().to_angle()),
                     sprite_name,
                     z_index,
@@ -438,20 +439,21 @@ impl Render for Editor {
 
         // gridlines
         {
-            for x in -30..=30 {
+            let n = 100;
+            for x in -n..=n {
                 let top = PartCoord::new(IVec2::new(x, 50));
                 let bottom = PartCoord::new(IVec2::new(x, -50));
                 let t = ctx.w2c(top.to_meters().as_dvec2());
                 let b = ctx.w2c(bottom.to_meters().as_dvec2());
-                canvas.gizmos.line_2d(t, b, GRAY.with_alpha(0.3));
+                canvas.gizmos.line_2d(t, b, GRAY.with_alpha(0.1));
             }
 
-            for y in -30..=30 {
+            for y in -n..=n {
                 let top = PartCoord::new(IVec2::new(50, y));
                 let bottom = PartCoord::new(IVec2::new(-50, y));
                 let t = ctx.w2c(top.to_meters().as_dvec2());
                 let b = ctx.w2c(bottom.to_meters().as_dvec2());
-                canvas.gizmos.line_2d(t, b, GRAY.with_alpha(0.3));
+                canvas.gizmos.line_2d(t, b, GRAY.with_alpha(0.1));
             }
         }
 
@@ -490,13 +492,19 @@ impl Render for Editor {
             );
         }
 
-        draw_blueprint(canvas, DVec2::ZERO, &ctx.blueprint, ctx, ctx.focus_layer);
+        draw_blueprint(
+            canvas,
+            PartCoord::new(IVec2::ZERO),
+            &ctx.blueprint,
+            ctx,
+            ctx.focus_layer,
+        );
 
         if let Some(cursor) = state.input.position(MouseButt::Hover, FrameId::Current) {
             let c = ctx.c2w(cursor);
 
             if let Some(bp) = ctx.cursor_state.blueprint() {
-                let c = (c * 20.0).round() / 20.0;
+                let c = PartCoord::from_meters_floored(c);
                 draw_blueprint(canvas, c, bp, ctx, ctx.focus_layer);
             }
 

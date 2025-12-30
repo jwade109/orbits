@@ -1,5 +1,5 @@
 mass: 18000
 layer: Exterior
 name: "plate"
-dims: [10, 10]
+dims: [2, 2]
 # sprites: 51

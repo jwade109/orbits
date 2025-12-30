@@ -1,4 +1,4 @@
 mass: 90000
 layer: Structural
 name: "frame"
-dims: [10, 10]
+dims: [2, 2]

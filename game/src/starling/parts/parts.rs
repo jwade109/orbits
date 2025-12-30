@@ -121,8 +121,16 @@ impl PartCoord {
         self.0.as_vec2() / GRID_CELLS_PER_METER
     }
 
-    pub fn from_meters(p: impl Into<DVec2>) -> Self {
+    pub fn from_meters_floored(p: impl Into<DVec2>) -> Self {
+        Self(vfloor(p.into().as_vec2() * GRID_CELLS_PER_METER))
+    }
+
+    pub fn from_meters_rounded(p: impl Into<DVec2>) -> Self {
         Self(vround(p.into().as_vec2() * GRID_CELLS_PER_METER))
+    }
+
+    pub fn from_meters_ceiled(p: impl Into<DVec2>) -> Self {
+        Self(vceil(p.into().as_vec2() * GRID_CELLS_PER_METER))
     }
 
     pub fn inner(&self) -> IVec2 {

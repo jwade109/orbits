@@ -1,6 +1,6 @@
 name: "tank22"
 mass: 650000
-dims: [20, 20]
+dims: [4, 4]
 inventory_data:
   slots: 1
   filter: Liquid

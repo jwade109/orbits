@@ -521,45 +521,26 @@ fn add_part_to_grid<'a>(
     let dims_rot = part.dims_meters();
     let origin = part.origin_meters() + dims_rot / 2.0;
 
-    let pixel_dims = part.prototype().dims();
-
-    let (z, _alpha, _t, d) = match part.layer() {
+    let (z, _, _, d) = match part.layer() {
         game::starling::parts::PartLayer::Internal => (0.0, 1.0, 0.5, 0.0),
         game::starling::parts::PartLayer::Structural => (0.02, 0.7, 0.7, 0.05),
         game::starling::parts::PartLayer::Exterior => (0.04, 0.2, 0.8, 0.1),
     };
-
-    let dims = dims - d;
-    let polygon = Rectangle::new(dims.x, dims.y);
 
     let path = args.part_sprite_path(part.prototype().part_name());
     let texture = asset_server.load(path);
 
     let name = part.prototype().part_name().to_string();
 
-    let n_sprites = part.prototype().sprites();
-    let layout = TextureAtlasLayout::from_grid(pixel_dims, n_sprites as u32, 1, None, None);
-    let texture_atlas_layout = texture_atlas_layouts.add(layout);
-    let build = ConstructionState {
-        current: 0,
-        last: n_sprites - 1,
-        should_build: true,
-    };
+    let mut sprite = Sprite::from_image(texture);
 
-    let sprite = Sprite::from_atlas_image(
-        texture,
-        TextureAtlas {
-            layout: texture_atlas_layout,
-            index: 0,
-        },
-    );
+    sprite.custom_size = Some(dims);
 
     let mut cmd = commands.spawn((
         Transform::from_translation(origin.extend(z))
             .with_rotation(Quat::from_rotation_z(part.rotation().to_angle() as f32)),
         PartInstance(part.clone()),
         InheritedVisibility::VISIBLE,
-        build,
     ));
 
     // INVENTORY COMPONENT ==================================================
@@ -637,11 +618,7 @@ fn add_part_to_grid<'a>(
 
     // SPRITE CHILD ENTITY ===============================================
 
-    cmd.with_child((
-        PartSprite,
-        sprite,
-        Transform::from_scale(Vec3::splat(1.0 / 20.0)),
-    ));
+    cmd.with_child((PartSprite, sprite));
 }
 
 fn spawn_spacecraft(

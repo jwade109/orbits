@@ -1,5 +1,5 @@
 name: "motor"
-dims: [29, 16]
+dims: [6, 3]
 layer: Internal
 mass: 650000
 thruster_data:

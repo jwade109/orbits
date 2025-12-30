@@ -1,7 +1,7 @@
 mass: 220000
 layer: Internal
 name: "small-motor"
-dims: [17, 10]
+dims: [3, 2]
 thruster_data:
   model: "P40N"
   exhaust_velocity: 4700.0

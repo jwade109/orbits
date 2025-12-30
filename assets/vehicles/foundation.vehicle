@@ -1,181 +1,181 @@
 parts:
 - partname: rcs
   pos:
-  - 63
-  - 10
+  - 13
+  - 2
   rot: South
 - partname: rcs
   pos:
-  - 57
-  - -14
+  - 11
+  - -3
   rot: North
 - partname: angled-frame
   pos:
-  - -40
+  - -8
   - 0
   rot: North
 - partname: rcs
   pos:
-  - -20
-  - -24
+  - -4
+  - -5
   rot: North
 - partname: reactor
   pos:
-  - -10
-  - -10
+  - -2
+  - -2
   rot: East
 - partname: rcs
   pos:
-  - -24
-  - -20
+  - -5
+  - -4
   rot: East
 - partname: motor
   pos:
-  - -59
-  - -8
+  - -12
+  - -2
   rot: East
 - partname: tank22
   pos:
-  - 30
-  - -10
+  - 6
+  - -2
   rot: East
-- partname: tank22
-  pos:
-  - 50
-  - -10
-  rot: East
-- partname: angled-frame
-  pos:
-  - 20
-  - -20
-  rot: South
 - partname: tank22
   pos:
   - 10
-  - -10
+  - -2
   rot: East
 - partname: angled-frame
   pos:
-  - -30
-  - -20
+  - 4
+  - -4
+  rot: South
+- partname: tank22
+  pos:
+  - 2
+  - -2
+  rot: East
+- partname: angled-frame
+  pos:
+  - -6
+  - -4
   rot: West
 - partname: docking-port
   pos:
-  - 70
-  - -10
+  - 14
+  - -2
   rot: East
 - partname: angled-frame
   pos:
-  - -30
-  - 10
+  - -6
+  - 2
   rot: North
 - partname: frame22
   pos:
-  - 50
-  - -10
+  - 10
+  - -2
   rot: East
 - partname: tank22
   pos:
-  - -30
-  - -10
+  - -6
+  - -2
   rot: East
 - partname: frame22
   pos:
-  - 30
-  - -10
+  - 6
+  - -2
   rot: East
 - partname: rcs
   pos:
-  - 20
-  - 14
+  - 4
+  - 3
   rot: West
 - partname: cpu
   pos:
-  - 1
-  - 10
+  - 0
+  - 2
   rot: East
 - partname: rcs
   pos:
-  - -14
-  - 20
+  - -3
+  - 4
   rot: South
 - partname: rcs
   pos:
-  - 23
-  - 10
+  - 5
+  - 2
   rot: South
 - partname: frame3
   pos:
-  - -20
-  - 10
+  - -4
+  - 2
   rot: East
 - partname: rcs
   pos:
-  - -31
-  - 10
+  - -6
+  - 2
   rot: South
 - partname: rcs
   pos:
-  - -20
-  - 20
+  - -4
+  - 4
   rot: South
 - partname: rcs
   pos:
-  - 20
-  - -20
+  - 4
+  - -4
   rot: West
 - partname: frame22
   pos:
-  - -30
-  - -10
+  - -6
+  - -2
   rot: East
 - partname: rcs
   pos:
-  - -31
-  - -14
+  - -6
+  - -3
   rot: North
 - partname: rcs
   pos:
-  - -24
-  - 14
+  - -5
+  - 3
   rot: East
 - partname: frame22
   pos:
-  - 10
-  - -10
+  - 2
+  - -2
   rot: East
 - partname: rcs
   pos:
-  - 63
-  - -14
+  - 13
+  - -3
   rot: North
 - partname: rcs
   pos:
-  - 57
-  - 10
+  - 11
+  - 2
   rot: South
 - partname: frame3
   pos:
-  - -20
-  - -20
+  - -4
+  - -4
   rot: East
 - partname: angled-frame
   pos:
-  - 20
-  - 10
+  - 4
+  - 2
   rot: East
 - partname: rcs
   pos:
-  - 23
-  - -14
+  - 5
+  - -3
   rot: North
 - partname: rcs
   pos:
-  - -14
-  - -24
+  - -3
+  - -5
   rot: North
 - partname: angled-frame
   pos:
-  - -40
-  - -10
+  - -8
+  - -2
   rot: West

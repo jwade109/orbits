@@ -1,4 +1,4 @@
 mass: 2600000
 layer: Internal
-dims: [40, 31]
+dims: [8, 6]
 name: "radar"

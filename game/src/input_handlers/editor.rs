@@ -45,7 +45,7 @@ pub fn on_editor_render_tick(state: &mut GameState) {
 
         if let Some(bp) = state.editor_context.cursor_state.blueprint() {
             if let Some(pos) = state.input.position(MouseButt::Hover, FrameId::Current) {
-                let pos = PartCoord::from_meters(state.editor_context.c2w(pos));
+                let pos = PartCoord::from_meters_floored(state.editor_context.c2w(pos));
                 let bp = bp.clone();
                 for (_, part) in bp.parts() {
                     let proto = part.proto.clone();

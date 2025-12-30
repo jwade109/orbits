@@ -1,7 +1,7 @@
 mass: 1670000
 layer: Internal
 name: "excavator"
-dims: [25, 20]
+dims: [5, 4]
 excavator_data:
   radius: 2.0
 inventory_data:

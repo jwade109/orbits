@@ -1,7 +1,7 @@
 mass: 24000000
 layer: Internal
 name: "container"
-dims: [120, 50]
+dims: [24, 10]
 # sprites: 16
 inventory_data:
   slots: 1

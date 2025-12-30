@@ -1,339 +1,326 @@
 name: 'Democracy'
-tuning:
-  attitude_controller:
-    kp: 46.45956039428711
-    kd: 70.35492897033691
-  vertical_controller:
-    kp: 0.028750357031822202
-    kd: 0.29831601977348327
-  horizontal_controller:
-    kp: 0.009729394912719727
-    kd: 0.1959650993347168
-  docking_linear_controller:
-    kp: 8.233541250228882
-    kd: 261.5271806716919
 parts:
 - partname: rcs
   pos:
-  - -49
-  - -20
+  - -10
+  - -4
   rot: East
 - partname: gold
   pos:
-  - 5
-  - -5
+  - 1
+  - -1
   rot: West
 - partname: rcs
   pos:
-  - 38
-  - -14
+  - 8
+  - -3
   rot: North
 - partname: tank21
   pos:
-  - -49
   - -10
+  - -2
   rot: West
 - partname: rcs
   pos:
-  - 38
-  - 10
+  - 8
+  - 2
   rot: South
 - partname: solarpanel
   pos:
-  - 12
-  - -80
+  - 2
+  - -16
   rot: South
 - partname: solarpanel
   pos:
-  - 12
-  - 15
+  - 2
+  - 3
   rot: North
 - partname: cargo
   pos:
-  - 5
-  - -15
+  - 1
+  - -3
   rot: East
 - partname: small-motor
   pos:
-  - -72
-  - 1
+  - -14
+  - 0
   rot: East
 - partname: cpu
   pos:
-  - -15
-  - -4
+  - -3
+  - -1
   rot: East
 - partname: rcs
   pos:
-  - -49
-  - 14
+  - -10
+  - 3
   rot: East
 - partname: gold
   pos:
-  - 15
-  - -5
+  - 3
+  - -1
   rot: West
 - partname: rcs
   pos:
-  - -35
-  - -20
+  - -7
+  - -4
   rot: West
 - partname: rcs
   pos:
-  - -55
-  - -14
+  - -11
+  - -3
   rot: North
 - partname: plate
   pos:
-  - -45
-  - -5
+  - -9
+  - -1
   rot: West
 - partname: plate
   pos:
-  - -35
-  - -5
+  - -7
+  - -1
   rot: West
 - partname: small-motor
   pos:
-  - -72
-  - -11
+  - -14
+  - -2
   rot: East
 - partname: frame2
   pos:
-  - -5
-  - -5
+  - -1
+  - -1
   rot: East
 - partname: gold
   pos:
-  - 25
-  - -5
+  - 5
+  - -1
   rot: West
 - partname: rcs
   pos:
-  - -35
-  - 14
+  - -7
+  - 3
   rot: West
 - partname: plate
   pos:
-  - -25
   - -5
+  - -1
   rot: West
 - partname: frame3
   pos:
-  - -55
+  - -11
   - 0
   rot: East
 - partname: rcs
   pos:
-  - -28
-  - 10
+  - -6
+  - 2
   rot: South
 - partname: frame2
   pos:
-  - 35
-  - -10
+  - 7
+  - -2
   rot: West
 - partname: frame3
   pos:
-  - -55
-  - -10
+  - -11
+  - -2
   rot: East
 - partname: battery
   pos:
-  - -4
-  - -5
+  - -1
+  - -1
   rot: East
 - partname: tank21
   pos:
-  - -39
-  - -10
+  - -8
+  - -2
   rot: West
 - partname: antenna
   pos:
-  - 45
-  - -27
+  - 9
+  - -5
   rot: South
 - partname: frame2
   pos:
-  - -45
-  - 10
+  - -9
+  - 2
   rot: East
 - partname: gold
   pos:
-  - 35
-  - -10
+  - 7
+  - -2
   rot: West
 - partname: frame2
   pos:
-  - 35
+  - 7
   - 0
   rot: West
 - partname: rcs
   pos:
-  - -28
-  - -14
+  - -6
+  - -3
   rot: North
 - partname: frame2
   pos:
-  - -45
-  - -20
+  - -9
+  - -4
   rot: North
 - partname: rcs
   pos:
-  - -55
-  - 10
+  - -11
+  - 2
   rot: South
 - partname: plate
   pos:
-  - -55
-  - -5
+  - -11
+  - -1
   rot: West
 - partname: gold
   pos:
-  - 35
+  - 7
   - 0
   rot: West
 - partname: frame2
   pos:
-  - -15
-  - -5
+  - -3
+  - -1
   rot: East
 - partname: small-antenna
   pos:
-  - -21
-  - -30
+  - -4
+  - -6
   rot: West
 - partname: tank21
   pos:
-  - -29
-  - -10
+  - -6
+  - -2
   rot: West
 lines:
 - - -30
-  - -4
+  - -1
 - - -44
-  - -4
+  - -1
 - - -44
-  - 4
+  - 1
 - - -45
-  - -6
+  - -1
 - - -34
-  - -3
+  - -1
 - - -44
-  - 2
+  - 0
 - - -48
-  - -6
+  - -1
 - - -36
   - 0
 - - -55
-  - 5
+  - 1
 - - -26
-  - -4
+  - -1
 - - -55
-  - -6
-- - -44
-  - -6
-- - -51
-  - -6
-- - -47
-  - -6
+  - -1
 - - -44
   - -1
+- - -51
+  - -1
+- - -47
+  - -1
+- - -44
+  - 0
 - - -57
-  - 5
+  - 1
 - - -44
   - 0
 - - -29
-  - -4
+  - -1
 - - -28
-  - -4
+  - -1
 - - -52
-  - -6
+  - -1
 - - -46
-  - 5
+  - 1
 - - -45
-  - 5
+  - 1
 - - -47
-  - 5
+  - 1
 - - -53
-  - -6
+  - -1
 - - -53
-  - 5
+  - 1
 - - -25
-  - -4
+  - -1
 - - -34
-  - -2
+  - 0
 - - -41
   - 0
 - - -24
-  - -4
+  - -1
 - - -54
-  - -6
+  - -1
 - - -48
-  - 5
+  - 1
 - - -34
   - 0
 - - -37
   - 0
 - - -49
-  - 5
+  - 1
 - - -39
   - 0
 - - -49
-  - -6
+  - -1
 - - -57
-  - -6
+  - -1
 - - -35
   - 0
 - - -44
-  - 3
-- - -50
-  - -6
-- - -58
-  - -6
-- - -44
   - 1
+- - -50
+  - -1
+- - -58
+  - -1
+- - -44
+  - 0
 - - -43
   - 0
 - - -54
-  - 5
+  - 1
 - - -42
   - 0
 - - -27
-  - -4
-- - -44
-  - -2
-- - -34
   - -1
+- - -44
+  - 0
+- - -34
+  - 0
 - - -58
-  - 5
+  - 1
 - - -44
-  - -3
+  - -1
 - - -44
-  - 5
+  - 1
 - - -56
-  - -6
+  - -1
 - - -44
-  - -5
+  - -1
 - - -40
   - 0
 - - -51
-  - 5
+  - 1
 - - -52
-  - 5
+  - 1
 - - -56
-  - 5
+  - 1
 - - -46
-  - -6
+  - -1
 - - -34
-  - -4
+  - -1
 - - -32
-  - -4
+  - -1
 - - -33
-  - -4
+  - -1
 - - -31
-  - -4
+  - -1
 - - -38
   - 0
 - - -50
-  - 5
+  - 1

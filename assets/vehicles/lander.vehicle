@@ -1,311 +1,311 @@
 parts:
-- partname: frame2
-  pos:
-  - 23
-  - 5
-  rot: West
-- partname: motor
-  pos:
-  - -36
-  - -22
-  rot: East
-- partname: frame2
-  pos:
-  - 23
-  - -5
-  rot: West
-- partname: docking-port
-  pos:
-  - 33
-  - -10
-  rot: East
-- partname: plate
-  pos:
-  - -17
-  - 0
-  rot: North
-- partname: small-antenna
-  pos:
-  - 23
-  - 15
-  rot: South
-- partname: frame2
-  pos:
-  - -12
-  - -45
-  rot: North
-- partname: frame2
-  pos:
-  - 13
-  - 5
-  rot: East
 - partname: rcs
+  pos:
+  - 3
+  - -6
+  rot: North
+- partname: frame2
+  pos:
+  - 3
+  - -3
+  rot: East
+- partname: battery
+  pos:
+  - 3
+  - -5
+  rot: East
+- partname: gold
+  pos:
+  - -5
+  - 1
+  rot: North
+- partname: gold
+  pos:
+  - -5
+  - -5
+  rot: North
+- partname: gold
+  pos:
+  - -5
+  - 3
+  rot: North
+- partname: tank21
   pos:
   - -2
-  - 39
-  rot: West
-- partname: frame3
+  - 5
+  rot: South
+- partname: plate
   pos:
-  - -17
-  - 15
-  rot: East
-- partname: rcs
+  - -1
+  - 4
+  rot: North
+- partname: frame2
   pos:
-  - 23
-  - -27
-  rot: West
-- partname: frame3
+  - 0
+  - -7
+  rot: North
+- partname: plate
   pos:
-  - -42
-  - -35
+  - -3
+  - -2
+  rot: North
+- partname: frame
+  pos:
+  - -3
+  - -3
   rot: East
 - partname: angled-frame
   pos:
-  - 23
-  - 15
+  - 5
+  - -5
+  rot: South
+- partname: tank21
+  pos:
+  - -1
+  - -5
+  rot: South
+- partname: frame2
+  pos:
+  - 1
+  - 1
+  rot: East
+- partname: tank21
+  pos:
+  - -1
+  - 3
+  rot: South
+- partname: docking-port
+  pos:
+  - 7
+  - -2
+  rot: East
+- partname: rcs
+  pos:
+  - 5
+  - -5
+  rot: West
+- partname: frame3
+  pos:
+  - -3
+  - 3
+  rot: East
+- partname: motor
+  pos:
+  - -7
+  - 1
+  rot: East
+- partname: plate
+  pos:
+  - -3
+  - -4
+  rot: North
+- partname: rcs
+  pos:
+  - -3
+  - -9
+  rot: East
+- partname: tank11
+  pos:
+  - 5
+  - -3
+  rot: East
+- partname: frame2
+  pos:
+  - 3
+  - -1
+  rot: East
+- partname: frame
+  pos:
+  - -3
+  - 1
+  rot: East
+- partname: plate
+  pos:
+  - -3
+  - 0
+  rot: North
+- partname: plate
+  pos:
+  - -3
+  - 2
+  rot: North
+- partname: gold
+  pos:
+  - -5
+  - -1
+  rot: North
+- partname: frame2
+  pos:
+  - 3
+  - 1
+  rot: East
+- partname: plate
+  pos:
+  - 1
+  - -6
+  rot: North
+- partname: plate
+  pos:
+  - 1
+  - -1
+  rot: North
+- partname: tank11
+  pos:
+  - 5
+  - -1
+  rot: West
+- partname: rcs
+  pos:
+  - -3
+  - 8
   rot: East
 - partname: cpu
   pos:
-  - 14
-  - 16
-  rot: East
-- partname: plate
-  pos:
   - 3
-  - -30
-  rot: North
-- partname: plate
-  pos:
-  - -17
-  - 10
-  rot: North
-- partname: plate
-  pos:
-  - -7
-  - 20
-  rot: North
-- partname: tank21
-  pos:
-  - -7
-  - 15
-  rot: South
-- partname: frame3
-  pos:
-  - -17
-  - -25
+  - 3
   rot: East
-- partname: rcs
-  pos:
-  - -16
-  - 39
-  rot: East
-- partname: rcs
-  pos:
-  - -12
-  - 45
-  rot: South
 - partname: frame2
   pos:
-  - 3
-  - -15
-  rot: East
-- partname: gold
-  pos:
-  - -27
-  - 15
-  rot: North
-- partname: frame
-  pos:
-  - -17
-  - -15
-  rot: East
-- partname: plate
-  pos:
-  - 3
-  - 20
-  rot: North
-- partname: rcs
-  pos:
-  - 17
-  - 25
-  rot: South
-- partname: frame2
-  pos:
-  - 23
-  - -15
+  - 5
+  - -3
   rot: West
-- partname: motor
-  pos:
-  - -36
-  - 6
-  rot: East
 - partname: frame2
   pos:
-  - -12
-  - 35
-  rot: East
-- partname: gold
-  pos:
-  - -27
-  - -15
-  rot: North
-- partname: tank11
-  pos:
-  - 23
+  - 0
   - 5
   rot: East
-- partname: tank21
+- partname: rcs
   pos:
-  - -12
-  - 25
-  rot: South
+  - 0
+  - 8
+  rot: West
 - partname: angled-frame
   pos:
-  - 23
-  - -25
-  rot: South
-- partname: rcs
-  pos:
-  - 23
-  - 21
-  rot: West
-- partname: rcs
-  pos:
-  - -16
-  - -45
+  - 5
+  - 3
   rot: East
-- partname: frame2
+- partname: tank21
   pos:
   - -2
-  - -35
-  rot: North
-- partname: gold
-  pos:
-  - -27
-  - 5
-  rot: North
-- partname: tank21
-  pos:
-  - -12
-  - -35
-  rot: South
-- partname: plate
-  pos:
   - -7
-  - -30
-  rot: North
-- partname: frame2
-  pos:
-  - 3
-  - 5
-  rot: East
-- partname: tank11
-  pos:
-  - 23
-  - -5
-  rot: West
-- partname: gold
-  pos:
-  - -27
-  - -5
-  rot: North
-- partname: tank11
-  pos:
-  - 23
-  - -15
-  rot: East
-- partname: frame
-  pos:
-  - -17
-  - -5
-  rot: East
-- partname: plate
-  pos:
-  - 3
-  - -5
-  rot: North
-- partname: tank21
-  pos:
-  - -7
-  - -25
   rot: South
 - partname: cargo
   pos:
-  - -7
-  - -15
-  rot: East
-- partname: frame2
-  pos:
-  - -2
-  - 25
-  rot: East
-- partname: gold
-  pos:
-  - -27
-  - -25
-  rot: North
-- partname: rcs
-  pos:
-  - -2
-  - -45
-  rot: West
-- partname: small-motor
-  pos:
-  - -38
-  - -5
-  rot: East
-- partname: small-antenna
-  pos:
-  - 23
-  - -21
-  rot: South
-- partname: frame
-  pos:
-  - -17
-  - 5
-  rot: East
-- partname: frame2
-  pos:
-  - 13
-  - -15
+  - -1
+  - -3
   rot: East
 - partname: plate
   pos:
-  - -7
-  - -5
+  - -1
+  - -6
   rot: North
 - partname: frame3
   pos:
-  - -42
-  - 25
+  - -3
+  - -5
+  rot: East
+- partname: motor
+  pos:
+  - -7
+  - -4
   rot: East
 - partname: rcs
   pos:
-  - 17
-  - -29
+  - 0
+  - -9
+  rot: West
+- partname: frame2
+  pos:
+  - 5
+  - 1
+  rot: West
+- partname: plate
+  pos:
+  - 1
+  - 4
   rot: North
 - partname: frame2
   pos:
-  - 13
-  - -5
+  - 5
+  - -1
+  rot: West
+- partname: frame3
+  pos:
+  - -8
+  - 5
   rot: East
+- partname: rcs
+  pos:
+  - 3
+  - 5
+  rot: South
+- partname: frame2
+  pos:
+  - -2
+  - 7
+  rot: East
+- partname: frame3
+  pos:
+  - -8
+  - -7
+  rot: East
+- partname: small-antenna
+  pos:
+  - 5
+  - -4
+  rot: South
+- partname: rcs
+  pos:
+  - 5
+  - 4
+  rot: West
+- partname: frame2
+  pos:
+  - -2
+  - -9
+  rot: North
+- partname: frame
+  pos:
+  - -3
+  - -1
+  rot: East
+- partname: small-motor
+  pos:
+  - -6
+  - -1
+  rot: East
+- partname: small-antenna
+  pos:
+  - 5
+  - 3
+  rot: South
 - partname: plate
   pos:
-  - -17
-  - -10
+  - -1
+  - -1
   rot: North
 - partname: rcs
   pos:
-  - -12
-  - -49
-  rot: North
-- partname: plate
+  - -2
+  - 9
+  rot: South
+- partname: rcs
   pos:
-  - -17
-  - -20
+  - -2
+  - -10
   rot: North
-- partname: battery
+- partname: tank11
   pos:
-  - 14
-  - -24
+  - 5
+  - 1
   rot: East
+- partname: frame2
+  pos:
+  - 1
+  - -3
+  rot: East
+- partname: gold
+  pos:
+  - -5
+  - -3
+  rot: North

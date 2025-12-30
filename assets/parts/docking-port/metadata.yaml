@@ -1,7 +1,7 @@
 mass: 40000
 layer: Internal
 name: "docking-port"
-dims: [5, 20]
+dims: [1, 4]
 docking_port_data:
   radius: 5.0
   distance: 0.125

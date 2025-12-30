@@ -1,4 +1,4 @@
 mass: 600000
 layer: Internal
 name: "solarpanel"
-dims: [65, 16]
+dims: [13, 3]
