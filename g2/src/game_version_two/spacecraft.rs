@@ -429,7 +429,7 @@ fn handle_sc_events(
                 let part = parts.get(name).ok_or("bad part")?;
                 let instance = InstantiatedPart::from_prototype(
                     part.clone(),
-                    IVec2::ZERO,
+                    PartCoord::new(IVec2::ZERO),
                     game::starling::prelude::Rotation::East,
                 );
 

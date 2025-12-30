@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 // TODO reduce scope of this constant
-pub const PIXELS_PER_METER: f32 = 20.0;
+pub const GRID_CELLS_PER_METER: f32 = 4.0;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct PartPrototype {
@@ -47,7 +47,7 @@ impl PartPrototype {
     }
 
     pub fn dims_meters(&self) -> Vec2 {
-        self.dims().as_vec2() / PIXELS_PER_METER
+        self.dims().as_vec2() / GRID_CELLS_PER_METER
     }
 
     pub fn part_name(&self) -> &str {
@@ -109,12 +109,38 @@ impl PartLayer {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct PartCoord(pub IVec2);
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct PartCoord(IVec2);
 
 impl PartCoord {
-    pub fn to_real(&self) -> Vec2 {
-        self.0.as_vec2() / PIXELS_PER_METER
+    pub fn new(p: IVec2) -> Self {
+        Self(p)
+    }
+
+    pub fn to_meters(&self) -> Vec2 {
+        self.0.as_vec2() / GRID_CELLS_PER_METER
+    }
+
+    pub fn from_meters(p: impl Into<DVec2>) -> Self {
+        Self(vround(p.into().as_vec2() * GRID_CELLS_PER_METER))
+    }
+
+    pub fn inner(&self) -> IVec2 {
+        self.0
+    }
+}
+
+impl std::ops::Add for PartCoord {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self::Output {
+        Self(self.0 + rhs.0)
+    }
+}
+
+impl std::ops::Sub for PartCoord {
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self(self.0 - rhs.0)
     }
 }
 
@@ -143,11 +169,11 @@ pub fn meters_with_rotation(rot: Rotation, part: &PartPrototype) -> Vec2 {
 }
 
 impl InstantiatedPart {
-    pub fn from_prototype(proto: PartPrototype, pos: IVec2, rot: Rotation) -> Self {
+    pub fn from_prototype(proto: PartPrototype, pos: PartCoord, rot: Rotation) -> Self {
         let dims = proto.dims();
 
         Self {
-            pos: PartCoord(pos),
+            pos,
             rot,
             dims,
             proto,
@@ -175,8 +201,8 @@ impl InstantiatedPart {
     }
 
     pub fn center_meters(&self) -> Vec2 {
-        let dims = rotate_dims(self.rot, self.dims.as_vec2() / PIXELS_PER_METER);
-        let origin = self.pos.to_real();
+        let dims = rotate_dims(self.rot, self.dims.as_vec2() / GRID_CELLS_PER_METER);
+        let origin = self.pos.to_meters();
         origin + dims / 2.0
     }
 
@@ -185,7 +211,7 @@ impl InstantiatedPart {
     }
 
     pub fn origin_meters(&self) -> Vec2 {
-        self.pos.to_real()
+        self.pos.to_meters()
     }
 
     pub fn set_origin(&mut self, p: IVec2) {
@@ -200,7 +226,7 @@ impl InstantiatedPart {
 
     pub fn obb(&self, angle: f32, scale: f32, pos: Vec2) -> OBB {
         let dims = self.dims_meters();
-        let center = rotate(self.origin().to_real() + dims / 2.0, angle) * scale;
+        let center = rotate(self.origin().to_meters() + dims / 2.0, angle) * scale;
         OBB::new(
             AABB::from_arbitrary(scale * -dims / 2.0, scale * dims / 2.0),
             angle,

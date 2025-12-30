@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Clone)]
 pub enum Action {
     Add(PartId),
-    Remove(IVec2, Rotation, PartPrototype),
+    Remove(PartCoord, Rotation, PartPrototype),
 }
 
 impl Action {
@@ -39,9 +39,9 @@ pub struct Editor {
     pub filepath: Option<PathBuf>,
     pub focus_layer: Option<PartLayer>,
     pub selected_part: Option<PartId>,
-    pub snap_info: Option<(IVec2, UVec2)>,
+    pub snap_info: Option<(PartCoord, UVec2)>,
     pub action_queue: Vec<Action>,
-    pub occupied: HashMap<PartLayer, HashMap<IVec2, PartId>>,
+    pub occupied: HashMap<PartLayer, HashMap<PartCoord, PartId>>,
     pub blueprint: Blueprint,
 
     pub atmo: i32,
@@ -159,7 +159,7 @@ impl Editor {
             .parts()
             .map(|(_, instance)| VehiclePartFileStorage {
                 partname: instance.prototype().sprite_path().to_string(),
-                pos: instance.origin().0,
+                pos: instance.origin(),
                 rot: instance.rotation(),
             })
             .collect();
@@ -193,7 +193,7 @@ impl Editor {
     }
 
     pub fn get_part_at(&self, p: Vec2) -> Option<(PartId, &InstantiatedPart)> {
-        let pixel_p = vround(p * PIXELS_PER_METER);
+        let pixel_p = PartCoord::from_meters(p);
 
         for layer in [
             PartLayer::Exterior,
@@ -217,8 +217,8 @@ impl Editor {
     fn update(&mut self) {
         self.occupied.clear();
         for (id, instance) in self.blueprint.parts() {
-            let pixels = occupied_pixels(
-                instance.origin().0,
+            let pixels = occupied_cells(
+                instance.origin(),
                 instance.rotation(),
                 &instance.prototype(),
             );
@@ -236,14 +236,14 @@ impl Editor {
         }
     }
 
-    fn add_part(&mut self, p: IVec2, rot: Rotation, proto: PartPrototype) {
+    fn add_part(&mut self, p: PartCoord, rot: Rotation, proto: PartPrototype) {
         self.blueprint.add_part(proto, p, rot);
         self.update();
     }
 
     pub fn try_place_part(
         &mut self,
-        p: IVec2,
+        p: PartCoord,
         new_part: PartPrototype,
         rot: Rotation,
     ) -> Option<()> {
@@ -253,7 +253,7 @@ impl Editor {
             return None;
         }
 
-        let new_pixels = occupied_pixels(p, rot, &new_part);
+        let new_pixels = occupied_cells(p, rot, &new_part);
 
         if let Some(occ) = self.occupied.get(&layer) {
             for p in &new_pixels {
@@ -272,10 +272,10 @@ impl Editor {
     }
 
     pub fn remove_part_at(&mut self, p: Vec2) {
-        let pixel_p = vround(p * PIXELS_PER_METER);
+        let pixel_p = PartCoord::from_meters(p);
         if let Ok(part) = self.blueprint.remove_part_at(pixel_p, self.focus_layer) {
             self.action_queue.push(Action::Remove(
-                part.origin().0,
+                part.origin(),
                 part.rotation(),
                 part.prototype(),
             ));
@@ -283,28 +283,31 @@ impl Editor {
         self.update();
     }
 
-    pub fn current_part_and_cursor_position(state: &GameState) -> Option<(IVec2, PartPrototype)> {
+    pub fn current_part_and_cursor_position(
+        state: &GameState,
+    ) -> Option<(PartCoord, PartPrototype)> {
         let ctx = &state.editor_context;
         let part = state.editor_context.cursor_state.current_part()?;
         let wh = pixel_dims_with_rotation(ctx.rotation, &part).as_ivec2();
         let pos = state.input.position(MouseButt::Hover, FrameId::Current)?;
-        let pos = vround_f64(state.editor_context.c2w(pos) * PIXELS_PER_METER as f64);
+        let pos = PartCoord::from_meters(state.editor_context.c2w(pos));
         let pos = if let Some((snap_pos, dims)) = state.editor_context.snap_info {
             let dims = dims.as_ivec2();
             let delta = pos - snap_pos;
-            let xi = if delta.x < 0 {
-                delta.x / dims.x - 1
+            let inner = delta.inner();
+            let xi = if inner.x < 0 {
+                inner.x / dims.x - 1
             } else {
-                delta.x / dims.x
+                inner.x / dims.x
             };
-            let yi = if delta.y < 0 {
-                delta.y / dims.y - 1
+            let yi = if inner.y < 0 {
+                inner.y / dims.y - 1
             } else {
-                delta.y / dims.y
+                inner.y / dims.y
             };
-            snap_pos + IVec2::new(xi * dims.x, yi * dims.y)
+            snap_pos + PartCoord::new(IVec2::new(xi * dims.x, yi * dims.y))
         } else {
-            pos - wh / 2
+            pos - PartCoord::new(wh / 2)
         };
         Some((pos, part))
     }
@@ -318,25 +321,6 @@ fn draw_highlight_box(
     z: ZOrdering,
 ) {
     canvas.hollow_rect(ctx.w2c_aabb(aabb), z, color, gcast(0.08 * ctx.scale()));
-
-    // let w1 = 2.0 / PIXELS_PER_METER;
-    // let w2 = 4.0 / PIXELS_PER_METER;
-
-    // let x1 = Vec2::X * w1;
-    // let x2 = Vec2::X * w2;
-
-    // let y1 = Vec2::Y * w1;
-    // let y2 = Vec2::Y * w2;
-
-    // let left = AABB::from_arbitrary(aabb.lower() - x1, aabb.top_left() - x2);
-    // let right = AABB::from_arbitrary(aabb.bottom_right() + x1, aabb.upper() + x2);
-
-    // let upper = AABB::from_arbitrary(aabb.top_left() + y1, aabb.upper() + y2);
-    // let lower = AABB::from_arbitrary(aabb.lower() - y1, aabb.bottom_right() - y2);
-
-    // for aabb in [upper, lower, left, right] {
-    //     canvas.rect(ctx.w2c_aabb(aabb), z, color);
-    // }
 }
 
 fn highlight_part(
@@ -404,8 +388,8 @@ impl Render for Editor {
         draw_cross(&mut canvas.gizmos, ctx.w2c(DVec2::ZERO), 10.0, GRAY);
 
         if let Some((pos, dims)) = ctx.snap_info {
-            let lower = pos.as_vec2() / PIXELS_PER_METER;
-            let upper = lower + dims.as_vec2() / PIXELS_PER_METER;
+            let lower = pos.to_meters();
+            let upper = (pos + PartCoord::new(dims.as_ivec2())).to_meters();
             let aabb = AABB::from_arbitrary(lower, upper);
             draw_aabb(canvas, ctx.w2c_aabb(aabb), GREEN);
         }
@@ -452,8 +436,27 @@ impl Render for Editor {
             canvas.gizmos.line_2d(o, nq, GREEN.with_alpha(0.1));
         }
 
+        // gridlines
+        {
+            for x in -30..=30 {
+                let top = PartCoord::new(IVec2::new(x, 50));
+                let bottom = PartCoord::new(IVec2::new(x, -50));
+                let t = ctx.w2c(top.to_meters().as_dvec2());
+                let b = ctx.w2c(bottom.to_meters().as_dvec2());
+                canvas.gizmos.line_2d(t, b, GRAY.with_alpha(0.3));
+            }
+
+            for y in -30..=30 {
+                let top = PartCoord::new(IVec2::new(50, y));
+                let bottom = PartCoord::new(IVec2::new(-50, y));
+                let t = ctx.w2c(top.to_meters().as_dvec2());
+                let b = ctx.w2c(bottom.to_meters().as_dvec2());
+                canvas.gizmos.line_2d(t, b, GRAY.with_alpha(0.3));
+            }
+        }
+
         if let Some((p, current_part)) = Self::current_part_and_cursor_position(state) {
-            let current_pixels = occupied_pixels(p, ctx.rotation, &current_part);
+            let current_pixels = occupied_cells(p, ctx.rotation, &current_part);
 
             let mut visited_parts = HashSet::new();
 
@@ -526,11 +529,13 @@ impl Render for Editor {
             let dims = pixel_dims_with_rotation(ctx.rotation, &current_part);
             let sprite_dims = current_part.dims();
             canvas.sprite(
-                ctx.w2c((p.as_dvec2() + dims.as_dvec2() / 2.0) / PIXELS_PER_METER as f64),
+                ctx.w2c(
+                    (p.inner().as_dvec2() + dims.as_dvec2() / 2.0) / GRID_CELLS_PER_METER as f64,
+                ),
                 gcast(ctx.rotation.to_angle()),
                 current_part.sprite_path().to_string(),
                 ZOrdering::EditorCursor,
-                sprite_dims.as_vec2() / PIXELS_PER_METER * gcast(ctx.scale()),
+                sprite_dims.as_vec2() / GRID_CELLS_PER_METER * gcast(ctx.scale()),
             );
         }
 

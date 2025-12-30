@@ -14,7 +14,7 @@ pub struct VehicleFileStorage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VehiclePartFileStorage {
     pub partname: String,
-    pub pos: IVec2,
+    pub pos: PartCoord,
     pub rot: Rotation,
 }
 

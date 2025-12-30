@@ -45,14 +45,13 @@ pub fn on_editor_render_tick(state: &mut GameState) {
 
         if let Some(bp) = state.editor_context.cursor_state.blueprint() {
             if let Some(pos) = state.input.position(MouseButt::Hover, FrameId::Current) {
-                let pos = vround_f64(state.editor_context.c2w(pos) * PIXELS_PER_METER as f64);
+                let pos = PartCoord::from_meters(state.editor_context.c2w(pos));
                 let bp = bp.clone();
                 for (_, part) in bp.parts() {
-                    let p = part.pos;
                     let proto = part.proto.clone();
                     state
                         .editor_context
-                        .try_place_part(pos + p.0, proto, part.rot);
+                        .try_place_part(pos + part.pos, proto, part.rot);
                 }
             }
         }

@@ -11,7 +11,6 @@ pub struct Generic {
     dims: UVec2,
     layer: PartLayer,
     mass: Mass,
-    sprites: Option<usize>,
     docking_port_data: Option<DockingPortData>,
     excavator_data: Option<ExcavatorData>,
     computer_data: Option<ComputerData>,
@@ -26,7 +25,6 @@ impl Generic {
             dims,
             layer,
             mass,
-            sprites: None,
             docking_port_data: None,
             excavator_data: None,
             computer_data: None,
@@ -52,7 +50,7 @@ impl Generic {
     }
 
     pub fn sprites(&self) -> usize {
-        self.sprites.unwrap_or(1)
+        1
     }
 
     pub fn computer_data(&self) -> Option<&ComputerData> {

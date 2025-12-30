@@ -5,11 +5,11 @@ mod camera;
 mod computer;
 mod docking_port;
 mod editor_ui;
-mod pipe;
 mod machine;
 mod mesh_builder;
 mod part;
 mod particles;
+mod pipe;
 mod recipe;
 mod settings;
 mod spacecraft;
@@ -22,11 +22,11 @@ pub use camera::*;
 pub use computer::*;
 pub use docking_port::*;
 pub use editor_ui::*;
-pub use pipe::*;
 pub use machine::*;
 pub use mesh_builder::*;
 pub use part::*;
 pub use particles::*;
+pub use pipe::*;
 pub use recipe::*;
 pub use settings::*;
 pub use spacecraft::*;
@@ -50,10 +50,10 @@ pub use enum_iterator::Sequence;
 pub use game::args::ProgramContext;
 pub use game::starling::factory::*;
 pub use game::starling::prelude::{
-    ComputerData, ExcavatorData, InstantiatedPart, Item, MachineStatus, Mass, PDCtrl, PV,
-    PartLayer, PartPrototype, Recipe, RecipeListing, RigidBody, Rotation, ThrusterModel, Blueprint,
-    VehicleControl, VehicleControlStatus, Volume, attitude_control_law, chance, cross2d,
-    position_hold_control_law, rand, randint, randvec, rotate, wrap_pi_npi_f64,
+    Blueprint, ComputerData, ExcavatorData, InstantiatedPart, Item, MachineStatus, Mass, PDCtrl,
+    PV, PartCoord, PartLayer, PartPrototype, Recipe, RecipeListing, RigidBody, Rotation,
+    ThrusterModel, VehicleControl, VehicleControlStatus, Volume, attitude_control_law, chance,
+    cross2d, position_hold_control_law, rand, randint, randvec, rotate, wrap_pi_npi_f64,
     zero_gravity_control_law, zero_gravity_velocity_control_law,
 };
 pub use serde::{Deserialize, Serialize};

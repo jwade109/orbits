@@ -1,8 +1,6 @@
 use crate::starling::math::*;
 use crate::starling::nanotime::Nanotime;
 use crate::starling::parts::*;
-use crate::starling::pid::PDCtrl;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::hash::Hash;
 
@@ -16,12 +14,12 @@ pub const PHYSICS_CONSTANT_UPDATE_RATE: u32 = 40;
 pub const PHYSICS_CONSTANT_DELTA_TIME: Nanotime =
     Nanotime::millis(1000 / PHYSICS_CONSTANT_UPDATE_RATE as i64);
 
-pub fn occupied_pixels(pos: IVec2, rot: Rotation, part: &PartPrototype) -> Vec<IVec2> {
+pub fn occupied_cells(pos: PartCoord, rot: Rotation, part: &PartPrototype) -> Vec<PartCoord> {
     let mut ret = vec![];
     let wh = pixel_dims_with_rotation(rot, part);
     for w in 0..wh.x {
         for h in 0..wh.y {
-            let p = pos + UVec2::new(w, h).as_ivec2();
+            let p = pos + PartCoord::new(UVec2::new(w, h).as_ivec2());
             ret.push(p);
         }
     }
@@ -45,7 +43,7 @@ impl Blueprint {
         }
     }
 
-    pub fn from_parts(prototypes: Vec<(IVec2, Rotation, PartPrototype)>) -> Self {
+    pub fn from_parts(prototypes: Vec<(PartCoord, Rotation, PartPrototype)>) -> Self {
         let mut next_part_id = PartId(0);
         let mut parts = HashMap::new();
 
@@ -68,7 +66,7 @@ impl Blueprint {
         ret
     }
 
-    pub fn add_part(&mut self, proto: PartPrototype, pos: IVec2, rot: Rotation) -> PartId {
+    pub fn add_part(&mut self, proto: PartPrototype, pos: PartCoord, rot: Rotation) -> PartId {
         let id = self.get_next_part_id();
         let instance = InstantiatedPart::from_prototype(proto, pos, rot);
         self.parts.insert(id, instance);
@@ -79,7 +77,7 @@ impl Blueprint {
         self.parts.get(&id)
     }
 
-    pub fn get_part_at(&self, p: IVec2, layer: impl Into<Option<PartLayer>>) -> Option<PartId> {
+    pub fn get_part_at(&self, p: PartCoord, layer: impl Into<Option<PartLayer>>) -> Option<PartId> {
         let layer: Option<PartLayer> = layer.into();
 
         for part_layer in enum_iterator::reverse_all::<PartLayer>() {
@@ -96,8 +94,9 @@ impl Blueprint {
 
                 let origin = instance.origin();
                 let dims = instance.dims_grid().as_ivec2();
-                let p = p - origin.0;
-                p.x >= 0 && p.y >= 0 && p.x <= dims.x && p.y <= dims.y
+                let p = p - origin;
+                let inner = p.inner();
+                inner.x >= 0 && inner.y >= 0 && inner.x <= dims.x && inner.y <= dims.y
             });
 
             if let Some((id, _)) = found {
@@ -110,7 +109,7 @@ impl Blueprint {
 
     pub fn remove_part_at(
         &mut self,
-        p: IVec2,
+        p: PartCoord,
         layer: impl Into<Option<PartLayer>>,
     ) -> Result<InstantiatedPart, &'static str> {
         let layer = layer.into();
@@ -161,11 +160,7 @@ impl Blueprint {
             .collect();
         self.clear();
         for instance in new_instances {
-            self.add_part(
-                instance.prototype(),
-                instance.origin().0,
-                instance.rotation(),
-            );
+            self.add_part(instance.prototype(), instance.origin(), instance.rotation());
         }
     }
 }
