@@ -39,13 +39,11 @@ pub struct Editor {
     pub rotation: Rotation,
     pub filepath: Option<PathBuf>,
     pub focus_layer: Option<PartLayer>,
-    pub selected_part: Option<PartId>,
+    pub selected_parts: HashSet<PartId>,
     pub snap_info: Option<(PartCoord, UVec2)>,
     pub action_queue: Vec<Action>,
     pub occupied: HashMap<PartLayer, HashMap<PartCoord, PartId>>,
     pub blueprint: Blueprint,
-
-    pub atmo: i32,
 
     // menus
     pub show_vehicle_info: bool,
@@ -59,12 +57,11 @@ impl Editor {
             rotation: Rotation::East,
             filepath: None,
             focus_layer: None,
-            selected_part: None,
+            selected_parts: HashSet::new(),
             snap_info: None,
             action_queue: Vec::new(),
             occupied: HashMap::new(),
             blueprint: Blueprint::new(),
-            atmo: 3,
             show_vehicle_info: false,
         }
     }
@@ -84,10 +81,6 @@ impl Editor {
             _ => println!("oh no!"),
         }
         Some(())
-    }
-
-    pub fn selected_part(&self) -> Option<&InstantiatedPart> {
-        self.blueprint.get_part(self.selected_part?)
     }
 
     pub fn cursor_box(&self, input: &InputState) -> Option<AABB> {
@@ -117,6 +110,10 @@ impl Editor {
 
     pub fn enter_pipe_mode(&mut self) {
         self.cursor_state = CursorState::Pipe(CursorPipeData::default());
+    }
+
+    pub fn enter_select_mode(&mut self) {
+        self.cursor_state = CursorState::Select(SelectedState::default());
     }
 
     pub fn set_current_part(state: &mut GameState, name: &String) {
@@ -162,13 +159,42 @@ impl Editor {
             .remove_part_at(graphics_cast(state.editor_context.c2w(p)));
     }
 
-    pub fn on_left_click_down(state: &mut GameState, p: Vec2) {
+    pub fn on_ctrl_c(state: &mut GameState) {
+        info!("on_ctrl_c");
+
+        if state.editor_context.selected_parts.is_empty() {
+            return;
+        }
+
+        let mut blueprint = Blueprint::new();
+        for id in &state.editor_context.selected_parts {
+            if let Some(part) = state.editor_context.blueprint.get_part(*id) {
+                blueprint.add_part(part.prototype(), part.pos, part.rotation());
+            }
+        }
+
+        blueprint.normalize_coordinates();
+
+        state.editor_context.cursor_state = CursorState::Blueprint(blueprint);
+    }
+
+    pub fn on_left_click_down(state: &mut GameState, p: Vec2, is_shift: bool) {
         info!("on_left_click_down");
         let p = state.editor_context.c2w(p);
+
         if let Some((id, _)) = state.editor_context.get_part_at(graphics_cast(p)) {
-            state.editor_context.selected_part = Some(id)
+            if is_shift {
+                state.editor_context.selected_parts.insert(id);
+            } else {
+                state.editor_context.selected_parts.clear();
+                state.editor_context.selected_parts.insert(id);
+            }
         } else {
-            state.editor_context.selected_part = None;
+            state.editor_context.selected_parts.clear();
+        }
+
+        if let Some(data) = state.editor_context.cursor_state.sel_mut() {
+            data.update_start(p);
         }
 
         if let Some(c) = Editor::current_cursor_coord(state) {
@@ -183,12 +209,17 @@ impl Editor {
             if let Some(data) = state.editor_context.cursor_state.pipe_mut() {
                 data.end_position = Some(c);
             }
+            if let Some(p) = state.input.position(MouseButt::Hover, FrameId::Current) {
+                let p = state.editor_context.c2w(p);
+                if let Some(data) = state.editor_context.cursor_state.sel_mut() {
+                    data.update_end(p);
+                }
+            }
         }
     }
 
     pub fn on_left_click_release(state: &mut GameState) {
         info!("on_left_click_release");
-        dbg!(&state.editor_context.cursor_state);
         if let Some(data) = state.editor_context.cursor_state.pipe().cloned() {
             if let Some(pipe) = data.pipe_geometry() {
                 state.editor_context.blueprint.add_pipe(pipe);
@@ -197,6 +228,10 @@ impl Editor {
         if let Some(data) = state.editor_context.cursor_state.pipe_mut() {
             data.start_position = None;
             data.end_position = None;
+        }
+        if let Some(sel) = state.editor_context.cursor_state.sel_mut() {
+            sel.update_start(None);
+            sel.update_end(None);
         }
     }
 
@@ -457,6 +492,23 @@ fn draw_blueprint(
     focus_layer: Option<PartLayer>,
 ) {
     let offset = offset.to_meters();
+
+    // axes
+    {
+        canvas.line(
+            ctx.w2c(offset.as_dvec2()),
+            ctx.w2c((offset + Vec2::X * 5.0).as_dvec2()),
+            ZOrdering::Debug,
+            RED,
+        );
+        canvas.line(
+            ctx.w2c(offset.as_dvec2()),
+            ctx.w2c((offset + Vec2::Y * 5.0).as_dvec2()),
+            ZOrdering::Debug,
+            GREEN,
+        );
+    }
+
     for layer in PartLayer::draw_order() {
         for (_, instance) in blueprint
             .parts()
@@ -470,6 +522,7 @@ fn draw_blueprint(
                 (Some(PartLayer::Structural), _) => 0.02,
                 (Some(PartLayer::Exterior), PartLayer::Exterior) => 1.0,
                 (Some(PartLayer::Exterior), _) => 0.02,
+                _ => continue,
             };
 
             let sprite_dims = instance.prototype().dims_meters();
@@ -480,6 +533,7 @@ fn draw_blueprint(
                 PartLayer::Exterior => ZOrdering::EditorExteriorPart,
                 PartLayer::Internal => ZOrdering::EditorInteriorPart,
                 PartLayer::Structural => ZOrdering::EditorStructuralPart,
+                _ => continue,
             };
 
             canvas
@@ -495,7 +549,7 @@ fn draw_blueprint(
     }
 
     for (_, pipe) in blueprint.pipes() {
-        draw_pipe(canvas, pipe, ctx, GRAY_400, GRAY_600);
+        draw_pipe(canvas, pipe, offset, ctx, GRAY_400, GRAY_600);
     }
 }
 
@@ -508,26 +562,27 @@ fn draw_cell(canvas: &mut Canvas, c: PartCoord, ctx: &impl CameraProjection, col
 fn draw_pipe(
     canvas: &mut Canvas,
     pipe: &PipeGeometry,
+    offset: Vec2,
     ctx: &impl CameraProjection,
     pipe_color: Srgba,
     node_color: Srgba,
 ) {
     let pipe_thickness = PartCoord::CELL_WIDTH * 0.2 * ctx.scale() as f32;
     let node_radius = PartCoord::CELL_WIDTH * 0.2 * ctx.scale() as f32;
-    let node_z = ZOrdering::Debug;
-    let pipe_z = ZOrdering::Debug2;
+    let node_z = ZOrdering::EditorPipeJoint;
+    let pipe_z = ZOrdering::EditorPipe;
     match pipe.segments() {
         PipeSegments::Single(a, b) => {
-            let a = ctx.w2c(a.to_meters_center().as_dvec2());
-            let b = ctx.w2c(b.to_meters_center().as_dvec2());
+            let a = ctx.w2c(offset.as_dvec2() + a.to_meters_center().as_dvec2());
+            let b = ctx.w2c(offset.as_dvec2() + b.to_meters_center().as_dvec2());
             canvas.fill_circle(a.extend(node_z.as_f32()), node_radius, node_color);
             canvas.fill_circle(b.extend(node_z.as_f32()), node_radius, node_color);
             canvas.line_t(a, b, pipe_z, pipe_thickness, pipe_color);
         }
         PipeSegments::Double(a, b, c) => {
-            let a = ctx.w2c(a.to_meters_center().as_dvec2());
-            let b = ctx.w2c(b.to_meters_center().as_dvec2());
-            let c = ctx.w2c(c.to_meters_center().as_dvec2());
+            let a = ctx.w2c(offset.as_dvec2() + a.to_meters_center().as_dvec2());
+            let b = ctx.w2c(offset.as_dvec2() + b.to_meters_center().as_dvec2());
+            let c = ctx.w2c(offset.as_dvec2() + c.to_meters_center().as_dvec2());
             canvas.fill_circle(a.extend(node_z.as_f32()), node_radius, node_color);
             canvas.fill_circle(c.extend(node_z.as_f32()), node_radius, node_color);
             canvas.line_t(a, b, pipe_z, pipe_thickness, pipe_color);
@@ -546,6 +601,12 @@ impl Render for Editor {
             let upper = (pos + PartCoord::new(dims.as_ivec2())).to_meters();
             let aabb = AABB::from_arbitrary(lower, upper);
             draw_aabb(canvas, ctx.w2c_aabb(aabb), GREEN);
+        }
+
+        if let Some(sel) = ctx.cursor_state.selected() {
+            if let Some(aabb) = sel.aabb() {
+                draw_aabb(canvas, ctx.w2c_aabb(aabb), RED);
+            }
         }
 
         if let Some(p) = state.input.current() {
@@ -574,21 +635,6 @@ impl Render for Editor {
         let info = format!("{}{}", info, vehicle_info);
 
         // TODO re-add info!
-
-        // axes
-        {
-            let length = 30.0;
-            let width = 30.0;
-            let o = ctx.w2c(DVec2::ZERO);
-            let p = ctx.w2c(DVec2::X * length);
-            let q = ctx.w2c(DVec2::Y * width);
-            let np = ctx.w2c(-DVec2::X * length);
-            let nq = ctx.w2c(-DVec2::Y * width);
-            canvas.gizmos.line_2d(o, p, RED.with_alpha(0.3));
-            canvas.gizmos.line_2d(o, q, GREEN.with_alpha(0.3));
-            canvas.gizmos.line_2d(o, np, RED.with_alpha(0.1));
-            canvas.gizmos.line_2d(o, nq, GREEN.with_alpha(0.1));
-        }
 
         // gridlines
         {
@@ -621,7 +667,7 @@ impl Render for Editor {
         {
             if let Some(p) = state.editor_context.cursor_state.pipe() {
                 if let Some(geo) = p.pipe_geometry() {
-                    draw_pipe(canvas, &geo, ctx, GRAY_400, GRAY_600);
+                    draw_pipe(canvas, &geo, Vec2::ZERO, ctx, GRAY_400, GRAY_600);
                 }
             }
         }
@@ -692,7 +738,10 @@ impl Render for Editor {
             }
         }
 
-        if let Some(instance) = ctx.selected_part() {
+        for part in &ctx.selected_parts {
+            let Some(instance) = ctx.blueprint.get_part(*part) else {
+                continue;
+            };
             highlight_part(
                 canvas,
                 instance,

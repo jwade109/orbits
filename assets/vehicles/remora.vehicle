@@ -1,140 +1,99 @@
-name: Remora
 parts:
-- partname: frame
+- partname: frame2
   pos:
+  - 3
   - -1
-  - -1
+  rot: North
+- partname: rcs
+  pos:
+  - 2
+  - 4
   rot: West
 - partname: cargo
   pos:
   - -1
   - -3
   rot: East
-- partname: frame2
-  pos:
-  - 1
-  - 1
-  rot: North
-- partname: tank11
-  pos:
-  - -3
-  - -1
-  rot: North
-- partname: frame2
-  pos:
-  - 1
-  - -3
-  rot: East
-- partname: docking-port
-  pos:
-  - 5
-  - -2
-  rot: East
-- partname: tank21
-  pos:
-  - -5
-  - -5
-  rot: North
-- partname: frame3
-  pos:
-  - -7
-  - 1
-  rot: West
 - partname: rcs
   pos:
-  - 3
+  - -7
   - 3
   rot: South
 - partname: frame2
   pos:
-  - -2
-  - 3
-  rot: North
-- partname: rcs
-  pos:
-  - 2
+  - 0
   - -5
-  rot: West
-- partname: frame2
+  rot: North
+- partname: tank21
   pos:
-  - -4
+  - -5
   - 3
   rot: North
 - partname: frame2
   pos:
   - 0
-  - -5
+  - 3
   rot: North
 - partname: angled-frame
   pos:
   - 3
   - -3
   rot: South
-- partname: frame
+- partname: docking-port
   pos:
-  - -7
-  - -1
-  rot: West
-- partname: frame2
-  pos:
+  - 5
   - -2
-  - -5
-  rot: West
+  rot: East
 - partname: rcs
   pos:
-  - -7
+  - -8
+  - 2
+  rot: East
+- partname: frame2
+  pos:
   - -4
+  - 3
   rot: North
 - partname: small-motor
   pos:
   - -9
   - -1
   rot: East
+- partname: frame2
+  pos:
+  - 1
+  - 1
+  rot: North
+- partname: rcs
+  pos:
+  - 3
+  - 3
+  rot: South
+- partname: tank11
+  pos:
+  - -5
+  - -1
+  rot: North
 - partname: rcs
   pos:
   - -8
   - -3
   rot: East
-- partname: tank11
-  pos:
-  - -1
-  - -5
-  rot: North
-- partname: tank21
-  pos:
-  - -5
-  - 3
-  rot: North
 - partname: rcs
   pos:
-  - -8
   - 2
-  rot: East
-- partname: frame2
-  pos:
-  - -4
   - -5
   rot: West
-- partname: rcs
+- partname: frame
   pos:
   - -7
-  - 3
-  rot: South
-- partname: rcs
-  pos:
-  - 2
-  - 4
-  rot: West
-- partname: frame2
-  pos:
-  - 0
-  - 3
-  rot: North
-- partname: tank11
-  pos:
-  - -5
   - -1
-  rot: North
+  rot: West
+- partname: frame
+  pos:
+  - -1
+  - -1
+  rot: West
 - partname: tank21
   pos:
   - -5
@@ -145,11 +104,36 @@ parts:
   - -1
   - 3
   rot: North
-- partname: angled-frame
+- partname: tank21
   pos:
-  - 3
+  - -5
+  - -5
+  rot: North
+- partname: tank11
+  pos:
+  - -1
+  - -5
+  rot: North
+- partname: frame3
+  pos:
+  - -7
   - 1
+  rot: West
+- partname: frame3
+  pos:
+  - -7
+  - -3
   rot: East
+- partname: frame2
+  pos:
+  - 1
+  - -3
+  rot: East
+- partname: rcs
+  pos:
+  - -7
+  - -4
+  rot: North
 - partname: rcs
   pos:
   - 3
@@ -157,16 +141,168 @@ parts:
   rot: North
 - partname: frame2
   pos:
-  - 3
-  - -1
-  rot: North
-- partname: frame3
+  - -4
+  - -5
+  rot: West
+- partname: frame2
   pos:
-  - -7
-  - -3
-  rot: East
+  - -2
+  - -5
+  rot: West
 - partname: tank21
   pos:
   - -5
   - -3
   rot: North
+- partname: frame2
+  pos:
+  - -2
+  - 3
+  rot: North
+- partname: tank11
+  pos:
+  - -3
+  - -1
+  rot: North
+- partname: angled-frame
+  pos:
+  - 3
+  - 1
+  rot: East
+pipes:
+- geometry:
+    start:
+    - -2
+    - 3
+    end:
+    - 3
+    - 3
+    x_first: true
+- geometry:
+    start:
+    - 0
+    - -4
+    end:
+    - 2
+    - -5
+    x_first: true
+- geometry:
+    start:
+    - 0
+    - -4
+    end:
+    - 3
+    - -4
+    x_first: false
+- geometry:
+    start:
+    - -2
+    - 3
+    end:
+    - 2
+    - 4
+    x_first: true
+- geometry:
+    start:
+    - -5
+    - -4
+    end:
+    - -7
+    - -4
+    x_first: false
+- geometry:
+    start:
+    - -4
+    - -3
+    end:
+    - -4
+    - -4
+    x_first: false
+- geometry:
+    start:
+    - -4
+    - 3
+    end:
+    - -4
+    - 2
+    x_first: false
+- geometry:
+    start:
+    - -4
+    - 1
+    end:
+    - -4
+    - 0
+    x_first: false
+- geometry:
+    start:
+    - -7
+    - 3
+    end:
+    - -8
+    - 2
+    x_first: false
+- geometry:
+    start:
+    - -3
+    - -1
+    end:
+    - -3
+    - -2
+    x_first: false
+- geometry:
+    start:
+    - -4
+    - -1
+    end:
+    - -4
+    - -2
+    x_first: false
+- geometry:
+    start:
+    - -5
+    - 3
+    end:
+    - -7
+    - 3
+    x_first: false
+- geometry:
+    start:
+    - -3
+    - 1
+    end:
+    - -3
+    - 0
+    x_first: false
+- geometry:
+    start:
+    - -5
+    - -2
+    end:
+    - -7
+    - -1
+    x_first: false
+- geometry:
+    start:
+    - -2
+    - -4
+    end:
+    - -1
+    - -4
+    x_first: false
+- geometry:
+    start:
+    - -7
+    - -4
+    end:
+    - -8
+    - -3
+    x_first: false
+- geometry:
+    start:
+    - -5
+    - 1
+    end:
+    - -7
+    - 0
+    x_first: false

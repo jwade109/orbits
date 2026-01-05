@@ -1,87 +1,22 @@
 parts:
 - partname: rcs
   pos:
-  - 13
+  - 5
   - 2
   rot: South
+- partname: tank22
+  pos:
+  - 10
+  - -2
+  rot: East
 - partname: rcs
   pos:
-  - 11
   - -3
-  rot: North
-- partname: angled-frame
-  pos:
-  - -8
-  - 0
-  rot: North
-- partname: rcs
-  pos:
-  - -4
   - -5
-  rot: North
-- partname: reactor
-  pos:
-  - -2
-  - -2
-  rot: East
-- partname: rcs
-  pos:
-  - -5
-  - -4
-  rot: East
-- partname: motor
-  pos:
-  - -12
-  - -2
-  rot: East
-- partname: tank22
-  pos:
-  - 6
-  - -2
-  rot: East
-- partname: tank22
-  pos:
-  - 10
-  - -2
-  rot: East
-- partname: angled-frame
-  pos:
-  - 4
-  - -4
-  rot: South
-- partname: tank22
-  pos:
-  - 2
-  - -2
-  rot: East
-- partname: angled-frame
-  pos:
-  - -6
-  - -4
-  rot: West
-- partname: docking-port
-  pos:
-  - 14
-  - -2
-  rot: East
-- partname: angled-frame
-  pos:
-  - -6
-  - 2
   rot: North
 - partname: frame22
   pos:
-  - 10
-  - -2
-  rot: East
-- partname: tank22
-  pos:
-  - -6
-  - -2
-  rot: East
-- partname: frame22
-  pos:
-  - 6
+  - 2
   - -2
   rot: East
 - partname: rcs
@@ -89,6 +24,131 @@ parts:
   - 4
   - 3
   rot: West
+- partname: rcs
+  pos:
+  - 11
+  - -3
+  rot: North
+- partname: angled-frame
+  pos:
+  - -6
+  - 2
+  rot: North
+- partname: angled-frame
+  pos:
+  - -10
+  - -2
+  rot: West
+- partname: rcs
+  pos:
+  - 11
+  - 2
+  rot: South
+- partname: angled-frame
+  pos:
+  - -10
+  - 0
+  rot: North
+- partname: tank22
+  pos:
+  - -6
+  - -2
+  rot: East
+- partname: frame3
+  pos:
+  - -4
+  - -4
+  rot: East
+- partname: rcs
+  pos:
+  - -4
+  - 4
+  rot: South
+- partname: frame22
+  pos:
+  - 6
+  - -2
+  rot: East
+- partname: tank22
+  pos:
+  - 2
+  - -2
+  rot: East
+- partname: tank22
+  pos:
+  - 6
+  - -2
+  rot: East
+- partname: angled-frame
+  pos:
+  - 4
+  - 2
+  rot: East
+- partname: reactor
+  pos:
+  - -2
+  - -2
+  rot: East
+- partname: angled-frame
+  pos:
+  - -6
+  - -4
+  rot: West
+- partname: frame22
+  pos:
+  - 10
+  - -2
+  rot: East
+- partname: motor
+  pos:
+  - -12
+  - 0
+  rot: East
+- partname: angled-frame
+  pos:
+  - 4
+  - -4
+  rot: South
+- partname: motor
+  pos:
+  - -12
+  - -3
+  rot: East
+- partname: frame2
+  pos:
+  - -8
+  - -2
+  rot: West
+- partname: rcs
+  pos:
+  - -6
+  - -3
+  rot: North
+- partname: rcs
+  pos:
+  - -6
+  - 2
+  rot: South
+- partname: rcs
+  pos:
+  - -3
+  - 4
+  rot: South
+- partname: rcs
+  pos:
+  - 4
+  - -4
+  rot: West
+- partname: rcs
+  pos:
+  - -5
+  - 3
+  rot: East
+- partname: rcs
+  pos:
+  - 13
+  - 2
+  rot: South
 - partname: cpu
   pos:
   - 0
@@ -96,73 +156,28 @@ parts:
   rot: East
 - partname: rcs
   pos:
-  - -3
-  - 4
-  rot: South
-- partname: rcs
-  pos:
-  - 5
-  - 2
-  rot: South
-- partname: frame3
-  pos:
-  - -4
-  - 2
-  rot: East
-- partname: rcs
-  pos:
-  - -6
-  - 2
-  rot: South
-- partname: rcs
-  pos:
-  - -4
-  - 4
-  rot: South
-- partname: rcs
-  pos:
-  - 4
-  - -4
-  rot: West
-- partname: frame22
-  pos:
-  - -6
-  - -2
-  rot: East
-- partname: rcs
-  pos:
-  - -6
-  - -3
-  rot: North
-- partname: rcs
-  pos:
-  - -5
-  - 3
-  rot: East
-- partname: frame22
-  pos:
-  - 2
-  - -2
-  rot: East
-- partname: rcs
-  pos:
   - 13
   - -3
   rot: North
+- partname: docking-port
+  pos:
+  - 14
+  - -2
+  rot: East
+- partname: frame22
+  pos:
+  - -6
+  - -2
+  rot: East
+- partname: frame2
+  pos:
+  - -8
+  - 0
+  rot: North
 - partname: rcs
   pos:
-  - 11
-  - 2
-  rot: South
-- partname: frame3
-  pos:
+  - -5
   - -4
-  - -4
-  rot: East
-- partname: angled-frame
-  pos:
-  - 4
-  - 2
   rot: East
 - partname: rcs
   pos:
@@ -171,11 +186,212 @@ parts:
   rot: North
 - partname: rcs
   pos:
-  - -3
+  - -4
   - -5
   rot: North
-- partname: angled-frame
+- partname: frame3
   pos:
-  - -8
-  - -2
-  rot: West
+  - -4
+  - 2
+  rot: East
+pipes:
+- geometry:
+    start:
+    - -4
+    - 2
+    end:
+    - -6
+    - 2
+    x_first: false
+- geometry:
+    start:
+    - -4
+    - 2
+    end:
+    - -3
+    - 4
+    x_first: false
+- geometry:
+    start:
+    - 4
+    - -3
+    end:
+    - 4
+    - -4
+    x_first: false
+- geometry:
+    start:
+    - 7
+    - -1
+    end:
+    - 11
+    - 0
+    x_first: false
+- geometry:
+    start:
+    - 11
+    - 0
+    end:
+    - 11
+    - 2
+    x_first: false
+- geometry:
+    start:
+    - -4
+    - 0
+    end:
+    - -4
+    - -3
+    x_first: false
+- geometry:
+    start:
+    - 4
+    - 0
+    end:
+    - 4
+    - 2
+    x_first: false
+- geometry:
+    start:
+    - 4
+    - 2
+    end:
+    - 4
+    - 3
+    x_first: false
+- geometry:
+    start:
+    - -4
+    - 0
+    end:
+    - -4
+    - 2
+    x_first: false
+- geometry:
+    start:
+    - 4
+    - 0
+    end:
+    - 7
+    - -1
+    x_first: false
+- geometry:
+    start:
+    - 11
+    - 2
+    end:
+    - 13
+    - 2
+    x_first: false
+- geometry:
+    start:
+    - -4
+    - -3
+    end:
+    - -6
+    - -3
+    x_first: false
+- geometry:
+    start:
+    - -4
+    - -3
+    end:
+    - -5
+    - -4
+    x_first: false
+- geometry:
+    start:
+    - 11
+    - -3
+    end:
+    - 13
+    - -3
+    x_first: false
+- geometry:
+    start:
+    - 4
+    - 2
+    end:
+    - 5
+    - 2
+    x_first: false
+- geometry:
+    start:
+    - 4
+    - -3
+    end:
+    - 5
+    - -3
+    x_first: false
+- geometry:
+    start:
+    - 11
+    - 0
+    end:
+    - 11
+    - -3
+    x_first: false
+- geometry:
+    start:
+    - -4
+    - 2
+    end:
+    - -4
+    - 4
+    x_first: false
+- geometry:
+    start:
+    - -4
+    - -3
+    end:
+    - -3
+    - -5
+    x_first: false
+- geometry:
+    start:
+    - -4
+    - -3
+    end:
+    - -4
+    - -5
+    x_first: false
+- geometry:
+    start:
+    - -4
+    - 0
+    end:
+    - -7
+    - 1
+    x_first: false
+- geometry:
+    start:
+    - -4
+    - 0
+    end:
+    - -7
+    - -2
+    x_first: false
+- geometry:
+    start:
+    - -4
+    - 2
+    end:
+    - -5
+    - 3
+    x_first: false
+- geometry:
+    start:
+    - 4
+    - 0
+    end:
+    - 4
+    - -3
+    x_first: false
+- geometry:
+    start:
+    - -4
+    - 0
+    end:
+    - 4
+    - 0
+    x_first: false

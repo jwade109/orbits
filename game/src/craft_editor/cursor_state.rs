@@ -1,5 +1,7 @@
 use crate::starling::prelude::*;
 
+use std::collections::HashSet;
+
 #[derive(Debug, Default, Clone)]
 pub struct CursorPipeData {
     pub start_position: Option<PartCoord>,
@@ -21,6 +23,35 @@ impl CursorPipeData {
     }
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct SelectedState {
+    start: Option<DVec2>,
+    end: Option<DVec2>,
+}
+
+impl SelectedState {
+    pub fn update_start(&mut self, pos: impl Into<Option<DVec2>>) {
+        self.start = pos.into();
+    }
+
+    pub fn update_end(&mut self, pos: impl Into<Option<DVec2>>) {
+        self.end = pos.into();
+    }
+
+    pub fn cells(&self) -> impl Iterator<Item = PartCoord> + use<'_> {
+        self.aabb()
+            .map(|aabb| PartCoord::in_aabb(&aabb))
+            .into_iter()
+            .flatten()
+    }
+
+    pub fn aabb(&self) -> Option<AABB> {
+        let a = self.start?.as_vec2();
+        let b = self.end?.as_vec2();
+        Some(AABB::from_arbitrary(a, b))
+    }
+}
+
 #[derive(Debug, Default)]
 pub enum CursorState {
     #[default]
@@ -28,6 +59,7 @@ pub enum CursorState {
     Part(PartPrototype),
     Blueprint(Blueprint),
     Pipe(CursorPipeData),
+    Select(SelectedState),
 }
 
 impl CursorState {
@@ -62,6 +94,20 @@ impl CursorState {
     pub fn pipe_mut(&mut self) -> Option<&mut CursorPipeData> {
         match self {
             Self::Pipe(data) => Some(data),
+            _ => None,
+        }
+    }
+
+    pub fn selected(&self) -> Option<&SelectedState> {
+        match self {
+            Self::Select(sel) => Some(sel),
+            _ => None,
+        }
+    }
+
+    pub fn sel_mut(&mut self) -> Option<&mut SelectedState> {
+        match self {
+            Self::Select(sel) => Some(sel),
             _ => None,
         }
     }

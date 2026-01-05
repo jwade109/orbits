@@ -525,6 +525,7 @@ fn add_part_to_grid<'a>(
         game::starling::parts::PartLayer::Internal => (0.0, 1.0, 0.5, 0.0),
         game::starling::parts::PartLayer::Structural => (0.02, 0.7, 0.7, 0.05),
         game::starling::parts::PartLayer::Exterior => (0.04, 0.2, 0.8, 0.1),
+        _ => return,
     };
 
     let path = args.part_sprite_path(part.prototype().part_name());

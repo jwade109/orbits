@@ -122,6 +122,13 @@ impl Blueprint {
     pub fn remove_part_at(&mut self, p: PartCoord, layer: impl Into<Option<PartLayer>>) -> bool {
         let layer = layer.into();
 
+        // try to remove a pipe first
+        for id in self.get_pipes_at(p) {
+            if self.remove_part(id) {
+                return true;
+            }
+        }
+
         if let Some(layer) = layer {
             if let Some(id) = self.get_part_at(p, layer) {
                 self.remove_part(id)
@@ -152,6 +159,7 @@ impl Blueprint {
 
     pub fn clear(&mut self) {
         self.parts.clear();
+        self.pipes.clear();
     }
 
     pub fn parts(&self) -> impl Iterator<Item = (&PartId, &InstantiatedPart)> + use<'_> {
@@ -173,14 +181,69 @@ impl Blueprint {
         id
     }
 
+    pub fn get_pipes_at(&self, p: PartCoord) -> Vec<PartId> {
+        self.pipes
+            .iter()
+            .filter_map(|(id, pipe)| pipe.contains(p).then(|| *id))
+            .collect()
+    }
+
     pub fn rotate(&mut self) {
         let new_instances: Vec<_> = self
             .parts()
             .map(|(_, instance)| instance.rotated())
             .collect();
+
+        let new_pipes: Vec<_> = self.pipes.iter().map(|(_, geo)| geo.rotated()).collect();
+
         self.clear();
+
         for instance in new_instances {
             self.add_part(instance.prototype(), instance.origin(), instance.rotation());
         }
+
+        for pipe in new_pipes {
+            self.add_pipe(pipe);
+        }
+    }
+
+    pub fn bounds(&self) -> (PartCoord, PartCoord) {
+        if self.parts.is_empty() {
+            return (IVec2::ZERO.into(), IVec2::ZERO.into());
+        }
+
+        let mut lower: Option<IVec2> = None;
+        let mut upper: Option<IVec2> = None;
+
+        for (_, part) in &self.parts {
+            let l = part.pos.inner();
+            let u = l + part.dims_grid().as_ivec2();
+
+            lower = Some(
+                lower
+                    .map(|k| IVec2::new(k.x.min(l.x), k.y.min(l.y)))
+                    .unwrap_or(l),
+            );
+            upper = Some(
+                upper
+                    .map(|k| IVec2::new(k.x.max(u.x), k.y.max(u.y)))
+                    .unwrap_or(l),
+            );
+        }
+
+        (lower.unwrap().into(), upper.unwrap().into())
+    }
+
+    pub fn normalize_coordinates(&mut self) {
+        if self.parts.is_empty() {
+            return;
+        }
+
+        let (lower, upper) = self.bounds();
+        let center = (upper.inner() + lower.inner()) / 2;
+
+        self.parts.iter_mut().for_each(|(_, p)| {
+            p.pos = p.pos - PartCoord::new(center);
+        });
     }
 }

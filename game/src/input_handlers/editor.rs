@@ -8,8 +8,13 @@ pub fn on_editor_render_tick(state: &mut GameState) {
         .camera
         .handle_input(&state.input, &state.settings);
 
+    if state.input.is_pressed(KeyCode::ControlLeft) && state.input.just_pressed(KeyCode::KeyC) {
+        Editor::on_ctrl_c(state);
+    }
+
     if let Some(p) = state.input.on_frame(MouseButt::Left, FrameId::Down) {
-        Editor::on_left_click_down(state, p);
+        let is_shift = state.input.is_pressed(KeyCode::ShiftLeft);
+        Editor::on_left_click_down(state, p, is_shift);
     }
 
     if let Some(p) = state.input.on_frame(MouseButt::Left, FrameId::Current) {
@@ -31,7 +36,7 @@ pub fn on_editor_render_tick(state: &mut GameState) {
         }
 
         if let Some(bp) = state.editor_context.cursor_state.blueprint() {
-            if let Some(pos) = state.input.position(MouseButt::Hover, FrameId::Current) {
+            if let Some(pos) = state.input.on_frame(MouseButt::Left, FrameId::Down) {
                 let pos = PartCoord::from_meters_floored(state.editor_context.c2w(pos));
                 let bp = bp.clone();
                 for (_, part) in bp.parts() {
@@ -39,6 +44,9 @@ pub fn on_editor_render_tick(state: &mut GameState) {
                     state
                         .editor_context
                         .try_place_part(pos + part.pos, proto, part.rot);
+                }
+                for (_, part) in bp.pipes() {
+                    state.editor_context.blueprint.add_pipe(part.with_offset(pos));
                 }
             }
         }
@@ -59,14 +67,4 @@ pub fn on_editor_render_tick(state: &mut GameState) {
     if state.input.is_pressed(KeyCode::ControlLeft) && state.input.just_pressed(KeyCode::KeyZ) {
         state.editor_context.undo();
     }
-
-    if state.input.just_pressed(KeyCode::KeyO) {
-        state.editor_context.atmo += 1;
-    }
-
-    if state.input.just_pressed(KeyCode::KeyL) {
-        state.editor_context.atmo -= 1;
-    }
-
-    state.editor_context.atmo = state.editor_context.atmo.clamp(0, 10);
 }

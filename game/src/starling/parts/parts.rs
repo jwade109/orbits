@@ -74,6 +74,7 @@ impl PartPrototype {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Sequence, Hash, Deserialize, Serialize)]
 pub enum PartLayer {
     Internal,
+    Plumbing,
     Structural,
     Exterior,
 }
@@ -92,9 +93,10 @@ impl PartLayer {
         .into_iter()
     }
 
-    pub fn draw_order() -> [PartLayer; 3] {
+    pub fn draw_order() -> [PartLayer; 4] {
         [
             PartLayer::Internal,
+            PartLayer::Plumbing,
             PartLayer::Structural,
             PartLayer::Exterior,
         ]
@@ -103,6 +105,7 @@ impl PartLayer {
     pub fn to_z(self) -> u32 {
         match self {
             PartLayer::Internal => 0,
+            PartLayer::Plumbing => 1,
             PartLayer::Structural => 2,
             PartLayer::Exterior => 3,
         }
@@ -142,6 +145,21 @@ impl PartCoord {
     pub fn inner(&self) -> IVec2 {
         self.0
     }
+
+    pub fn to_aabb(&self) -> AABB {
+        let lower = self.to_meters();
+        let upper = (*self + PartCoord::new(IVec2::ONE)).to_meters();
+        AABB::from_arbitrary(lower, upper)
+    }
+
+    pub fn in_aabb(aabb: &AABB) -> impl Iterator<Item = Self> {
+        let lower = Self::from_meters_floored(aabb.lower()).inner();
+        let upper = Self::from_meters_floored(aabb.upper()).inner();
+
+        (lower.x..=upper.x)
+            .flat_map(move |x| (lower.y..=upper.y).map(move |y| IVec2::new(x, y)))
+            .map(|p| Self::new(p))
+    }
 }
 
 impl std::ops::Add for PartCoord {
@@ -161,6 +179,12 @@ impl std::ops::Sub for PartCoord {
 impl Into<PartCoord> for (i32, i32) {
     fn into(self) -> PartCoord {
         PartCoord(IVec2::new(self.0, self.1))
+    }
+}
+
+impl Into<PartCoord> for IVec2 {
+    fn into(self) -> PartCoord {
+        PartCoord(self)
     }
 }
 

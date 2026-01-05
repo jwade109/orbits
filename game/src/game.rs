@@ -53,7 +53,8 @@ fn new_editor_ui(
         .show(ctx, |ui| {
             apply_egui_style(ui);
 
-            ui.label(format!("{:?}", game.editor_context.cursor_state));
+            ui.label(format!("{:?}", game.editor_context.filepath));
+            ui.label(format!("{:?}", game.editor_context.focus_layer));
 
             if ui.button("Close").clicked() {
                 game.shutdown();
@@ -64,11 +65,17 @@ fn new_editor_ui(
             if ui.button("Open").clicked() {
                 game.load();
             }
+            if ui.button("Clear").clicked() {
+                game.editor_context.blueprint.clear();
+            }
             if ui.button("Rotate").clicked() {
                 game.editor_context.rotate_craft();
             }
             if ui.button("Pipe").clicked() {
                 game.editor_context.enter_pipe_mode();
+            }
+            if ui.button("Select").clicked() {
+                game.editor_context.enter_select_mode();
             }
         });
 
@@ -141,22 +148,6 @@ fn new_editor_ui(
         let n = game.editor_context.blueprint.pipes().count();
         ui.label(format!("{} pipes", n));
         ui.separator();
-
-        let pipes: Vec<_> = game
-            .editor_context
-            .blueprint
-            .pipes()
-            .map(|(id, p)| (*id, *p))
-            .collect();
-
-        for (id, pipe) in pipes {
-            ui.label(format!("Start: {}", pipe.start));
-            ui.label(format!("End: {}", pipe.end));
-            if ui.button("Delete").clicked() {
-                game.editor_context.blueprint.remove_part(id);
-            }
-            ui.separator();
-        }
     });
 
     Ok(())
@@ -320,10 +311,10 @@ impl GameState {
         };
 
         let mut sounds = EnvironmentSounds::new();
-        sounds.play_loop("winter-morning-sea-smoke-bass.ogg", 0.3, TrackTag::Bass);
-        sounds.play_loop("winter-morning-sea-smoke-mids.ogg", 0.5, TrackTag::Mids);
-        sounds.play_loop("winter-morning-sea-smoke-high.ogg", 0.5, TrackTag::High);
-        sounds.play_loop("thrust-noise.ogg", 0.0, TrackTag::Thrust);
+        // sounds.play_loop("winter-morning-sea-smoke-bass.ogg", 0.3, TrackTag::Bass);
+        // sounds.play_loop("winter-morning-sea-smoke-mids.ogg", 0.5, TrackTag::Mids);
+        // sounds.play_loop("winter-morning-sea-smoke-high.ogg", 0.5, TrackTag::High);
+        // sounds.play_loop("thrust-noise.ogg", 0.0, TrackTag::Thrust);
 
         let vehicle_names = match load_names_from_file(&args.names_path()) {
             Ok(n) => n,

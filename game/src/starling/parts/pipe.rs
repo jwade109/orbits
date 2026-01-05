@@ -1,6 +1,7 @@
 use super::parts::PartCoord;
 use bevy::math::IVec2;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct PipeGeometry {
@@ -14,12 +15,58 @@ pub enum PipeSegments {
     Double(PartCoord, PartCoord, PartCoord),
 }
 
+fn iter_points(s: PartCoord, e: PartCoord) -> HashSet<PartCoord> {
+    let s = s.inner();
+    let e = e.inner();
+    if s.x == e.x {
+        // iterate over y values
+        let range = if s.y <= e.y { s.y..=e.y } else { e.y..=s.y };
+        range.map(|y| PartCoord::new(IVec2::new(s.x, y))).collect()
+    } else {
+        // iterate over x values
+        let range = if s.x <= e.x { s.x..=e.x } else { e.x..=s.x };
+        range.map(|x| PartCoord::new(IVec2::new(x, s.y))).collect()
+    }
+}
+
 impl PipeGeometry {
     pub fn segments(&self) -> PipeSegments {
         if let Some(b) = get_bend_location(self.start, self.end, self.x_first) {
             PipeSegments::Double(self.start, b, self.end)
         } else {
             PipeSegments::Single(self.start, self.end)
+        }
+    }
+
+    pub fn points(&self) -> HashSet<PartCoord> {
+        match self.segments() {
+            PipeSegments::Single(s, e) => iter_points(s, e),
+            PipeSegments::Double(s, c, e) => {
+                let mut a = iter_points(s, c);
+                let b = iter_points(c, e);
+                a.extend(&b);
+                a
+            }
+        }
+    }
+
+    pub fn with_offset(&self, offset: PartCoord) -> Self {
+        Self {
+            start: self.start + offset,
+            end: self.end + offset,
+            x_first: self.x_first,
+        }
+    }
+
+    pub fn contains(&self, p: PartCoord) -> bool {
+        self.points().contains(&p)
+    }
+
+    pub fn rotated(&self) -> Self {
+        Self {
+            start: self.start.inner().rotate(IVec2::Y).into(),
+            end: self.end.inner().rotate(IVec2::Y).into(),
+            x_first: !self.x_first,
         }
     }
 }
