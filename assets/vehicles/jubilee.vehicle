@@ -1,4 +1,3 @@
-name: 'Jubilee'
 parts:
 - partname: small-motor
   pos:
@@ -50,11 +49,6 @@ parts:
   - 1
   - 4
   rot: South
-- partname: small-motor
-  pos:
-  - -1
-  - -10
-  rot: North
 - partname: rcs
   pos:
   - -10
@@ -160,4 +154,209 @@ parts:
   - -10
   - -1
   rot: East
-lines: []
+- partname: small-motor
+  pos:
+  - -1
+  - -10
+  rot: North
+pipes:
+- geometry:
+    start:
+    - 0
+    - 5
+    end:
+    - 0
+    - 7
+    x_first: false
+- geometry:
+    start:
+    - 0
+    - 7
+    end:
+    - 1
+    - 7
+    x_first: false
+- geometry:
+    start:
+    - 0
+    - 7
+    end:
+    - 1
+    - 9
+    x_first: false
+- geometry:
+    start:
+    - 0
+    - 7
+    end:
+    - -2
+    - 7
+    x_first: false
+- geometry:
+    start:
+    - 0
+    - 7
+    end:
+    - -2
+    - 9
+    x_first: false
+- geometry:
+    start:
+    - 0
+    - -6
+    end:
+    - 1
+    - -9
+    x_first: false
+- geometry:
+    start:
+    - 0
+    - -6
+    end:
+    - 1
+    - -10
+    x_first: false
+- geometry:
+    start:
+    - 0
+    - -6
+    end:
+    - -2
+    - -9
+    x_first: false
+- geometry:
+    start:
+    - 0
+    - -6
+    end:
+    - -2
+    - -10
+    x_first: false
+- geometry:
+    start:
+    - -6
+    - -1
+    end:
+    - -9
+    - -2
+    x_first: true
+- geometry:
+    start:
+    - -6
+    - -1
+    end:
+    - -10
+    - -2
+    x_first: true
+- geometry:
+    start:
+    - -6
+    - -1
+    end:
+    - -9
+    - 1
+    x_first: true
+- geometry:
+    start:
+    - -6
+    - -1
+    end:
+    - -10
+    - 1
+    x_first: true
+- geometry:
+    start:
+    - -3
+    - -1
+    end:
+    - -2
+    - -1
+    x_first: true
+- geometry:
+    start:
+    - -1
+    - -2
+    end:
+    - -1
+    - -3
+    x_first: true
+- geometry:
+    start:
+    - 1
+    - -1
+    end:
+    - 2
+    - -1
+    x_first: true
+- geometry:
+    start:
+    - -1
+    - 1
+    end:
+    - -1
+    - 2
+    x_first: true
+- geometry:
+    start:
+    - -1
+    - -6
+    end:
+    - -1
+    - -8
+    x_first: true
+- geometry:
+    start:
+    - -6
+    - 0
+    end:
+    - -8
+    - 0
+    x_first: true
+- geometry:
+    start:
+    - -1
+    - 7
+    end:
+    - -1
+    - 5
+    x_first: true
+- geometry:
+    start:
+    - 7
+    - -1
+    end:
+    - 5
+    - -1
+    x_first: true
+- geometry:
+    start:
+    - 5
+    - 0
+    end:
+    - 7
+    - 1
+    x_first: true
+- geometry:
+    start:
+    - 5
+    - 0
+    end:
+    - 9
+    - 1
+    x_first: true
+- geometry:
+    start:
+    - 5
+    - 0
+    end:
+    - 7
+    - -2
+    x_first: true
+- geometry:
+    start:
+    - 5
+    - 0
+    end:
+    - 9
+    - -2
+    x_first: true

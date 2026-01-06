@@ -306,3 +306,27 @@ pipes:
     - -7
     - 0
     x_first: false
+- geometry:
+    start:
+    - 5
+    - 0
+    end:
+    - 4
+    - 0
+    x_first: false
+- geometry:
+    start:
+    - 3
+    - 3
+    end:
+    - 3
+    - 2
+    x_first: false
+- geometry:
+    start:
+    - 3
+    - -3
+    end:
+    - 3
+    - -4
+    x_first: false

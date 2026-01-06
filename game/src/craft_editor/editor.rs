@@ -44,6 +44,7 @@ pub struct Editor {
     pub action_queue: Vec<Action>,
     pub occupied: HashMap<PartLayer, HashMap<PartCoord, PartId>>,
     pub blueprint: Blueprint,
+    pub graph: InventoryGraph,
 
     // menus
     pub show_vehicle_info: bool,
@@ -62,6 +63,7 @@ impl Editor {
             action_queue: Vec::new(),
             occupied: HashMap::new(),
             blueprint: Blueprint::new(),
+            graph: InventoryGraph::default(),
             show_vehicle_info: false,
         }
     }
@@ -114,6 +116,15 @@ impl Editor {
 
     pub fn enter_select_mode(&mut self) {
         self.cursor_state = CursorState::Select(SelectedState::default());
+    }
+
+    pub fn update_graph(&mut self) {
+        let graph = InventoryGraph::from_blueprint(&self.blueprint);
+        self.graph.update(graph);
+    }
+
+    pub fn randomize_graph(&mut self) {
+        self.graph.randomize_positions();
     }
 
     pub fn set_current_part(state: &mut GameState, name: &String) {
@@ -171,6 +182,9 @@ impl Editor {
             if let Some(part) = state.editor_context.blueprint.get_part(*id) {
                 blueprint.add_part(part.prototype(), part.pos, part.rotation());
             }
+            if let Some(pipe) = state.editor_context.blueprint.get_pipe(*id) {
+                blueprint.add_pipe(*pipe);
+            }
         }
 
         blueprint.normalize_coordinates();
@@ -215,7 +229,28 @@ impl Editor {
                     data.update_end(p);
                 }
             }
+
+            if let Some(data) = state.editor_context.cursor_state.selected() {
+                let mut ids = HashSet::new();
+                for c in data.cells() {
+                    for layer in PartLayer::all() {
+                        if let Some(id) = state.editor_context.blueprint.get_part_at_layer(c, layer)
+                        {
+                            ids.insert(id);
+                        }
+                    }
+                }
+                state.editor_context.selected_parts = ids;
+            }
         }
+    }
+
+    pub fn on_delete(state: &mut GameState) {
+        for id in &state.editor_context.selected_parts {
+            state.editor_context.blueprint.remove_part(*id);
+        }
+        state.editor_context.selected_parts.clear();
+        state.editor_context.update_graph();
     }
 
     pub fn on_left_click_release(state: &mut GameState) {
@@ -223,6 +258,7 @@ impl Editor {
         if let Some(data) = state.editor_context.cursor_state.pipe().cloned() {
             if let Some(pipe) = data.pipe_geometry() {
                 state.editor_context.blueprint.add_pipe(pipe);
+                state.editor_context.update_graph();
             }
         }
         if let Some(data) = state.editor_context.cursor_state.pipe_mut() {
@@ -324,11 +360,12 @@ impl Editor {
             }
         };
 
-        state.editor_context.blueprint = vehicle;
+        state.editor_context.blueprint = vehicle.clone();
         state.editor_context.filepath = Some(path.to_path_buf());
         state.editor_context.update();
         state.editor_context.action_queue.clear();
         state.editor_context.cursor_state = CursorState::None;
+        state.editor_context.update_graph();
         Some(())
     }
 
@@ -355,6 +392,7 @@ impl Editor {
     }
 
     fn update(&mut self) {
+        self.update_graph();
         self.occupied.clear();
         for (id, instance) in self.blueprint.parts() {
             let pixels = occupied_cells(
@@ -408,6 +446,7 @@ impl Editor {
         self.action_queue.push(Action::Add(id));
 
         self.update();
+
         Some(())
     }
 
@@ -644,7 +683,7 @@ impl Render for Editor {
                 let bottom = PartCoord::new(IVec2::new(x, -50));
                 let t = ctx.w2c(top.to_meters().as_dvec2());
                 let b = ctx.w2c(bottom.to_meters().as_dvec2());
-                canvas.gizmos.line_2d(t, b, GRAY.with_alpha(0.1));
+                canvas.gizmos.line_2d(t, b, GRAY.with_alpha(0.02));
             }
 
             for y in -n..=n {
@@ -652,7 +691,7 @@ impl Render for Editor {
                 let bottom = PartCoord::new(IVec2::new(-50, y));
                 let t = ctx.w2c(top.to_meters().as_dvec2());
                 let b = ctx.w2c(bottom.to_meters().as_dvec2());
-                canvas.gizmos.line_2d(t, b, GRAY.with_alpha(0.1));
+                canvas.gizmos.line_2d(t, b, GRAY.with_alpha(0.02));
             }
         }
 
@@ -765,6 +804,8 @@ impl Render for Editor {
             );
         }
 
+        draw_inventory_graph(canvas, &ctx.graph, Vec2::Y * 500.0, 0.4);
+
         Some(())
     }
 }
@@ -845,4 +886,81 @@ mod tests {
             write_image_to_file(&vehicle, &args, name);
         }
     }
+}
+
+pub fn on_editor_render_tick(state: &mut GameState) {
+    state
+        .editor_context
+        .camera
+        .handle_input(&state.input, &state.settings);
+
+    if state.input.is_pressed(KeyCode::ControlLeft) && state.input.just_pressed(KeyCode::KeyC) {
+        Editor::on_ctrl_c(state);
+    }
+
+    if state.input.just_pressed(KeyCode::Delete) {
+        Editor::on_delete(state);
+    }
+
+    if let Some(p) = state.input.on_frame(MouseButt::Left, FrameId::Down) {
+        let is_shift = state.input.is_pressed(KeyCode::ShiftLeft);
+        Editor::on_left_click_down(state, p, is_shift);
+    }
+
+    if let Some(p) = state.input.on_frame(MouseButt::Left, FrameId::Current) {
+        Editor::on_left_click_held(state, p);
+    }
+
+    if let Some(_) = state.input.on_frame(MouseButt::Left, FrameId::Up) {
+        Editor::on_left_click_release(state);
+    }
+
+    Editor::process_holding_shift(state);
+
+    if let Some(_) = state.input.position(MouseButt::Left, FrameId::Current) {
+        // place a single part
+        if let Some((p, part)) = Editor::current_part_and_cursor_position(state) {
+            state
+                .editor_context
+                .try_place_part(p, part, state.editor_context.rotation);
+        }
+
+        if let Some(bp) = state.editor_context.cursor_state.blueprint() {
+            if let Some(pos) = state.input.on_frame(MouseButt::Left, FrameId::Down) {
+                let pos = PartCoord::from_meters_floored(state.editor_context.c2w(pos));
+                let bp = bp.clone();
+                for (_, part) in bp.parts() {
+                    let proto = part.proto.clone();
+                    state
+                        .editor_context
+                        .try_place_part(pos + part.pos, proto, part.rot);
+                }
+                for (_, part) in bp.pipes() {
+                    state
+                        .editor_context
+                        .blueprint
+                        .add_pipe(part.with_offset(pos));
+                }
+                state.editor_context.update_graph();
+            }
+        }
+    }
+
+    if let Some(p) = state.input.on_frame(MouseButt::Right, FrameId::Down) {
+        Editor::on_right_click_down(state, p);
+    }
+
+    if state.input.just_pressed(KeyCode::KeyQ) {
+        Editor::on_press_q(state);
+    }
+
+    if state.input.just_pressed(KeyCode::KeyR) {
+        Editor::on_press_r(state);
+    }
+
+    if state.input.is_pressed(KeyCode::ControlLeft) && state.input.just_pressed(KeyCode::KeyZ) {
+        state.editor_context.undo();
+    }
+
+    state.editor_context.graph.step(0.01);
 }

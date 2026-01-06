@@ -1,4 +1,3 @@
-name: Satellite
 parts:
 - partname: small-antenna
   pos:
@@ -30,11 +29,6 @@ parts:
   - -2
   - -2
   rot: East
-- partname: solarpanel
-  pos:
-  - -2
-  - -15
-  rot: South
 - partname: gold
   pos:
   - -4
@@ -80,11 +74,6 @@ parts:
   - -2
   - -4
   rot: South
-- partname: solarpanel
-  pos:
-  - -2
-  - 2
-  rot: North
 - partname: frame2
   pos:
   - -2
@@ -110,4 +99,62 @@ parts:
   - -5
   - -1
   rot: East
-lines: []
+- partname: solarpanel
+  pos:
+  - -1
+  - 2
+  rot: North
+- partname: solarpanel
+  pos:
+  - -1
+  - -15
+  rot: South
+pipes:
+- geometry:
+    start:
+    - -3
+    - 0
+    end:
+    - -2
+    - 0
+    x_first: false
+- geometry:
+    start:
+    - -2
+    - 0
+    end:
+    - 0
+    - 0
+    x_first: false
+- geometry:
+    start:
+    - -2
+    - 1
+    end:
+    - -4
+    - 2
+    x_first: true
+- geometry:
+    start:
+    - -2
+    - -2
+    end:
+    - -4
+    - -3
+    x_first: true
+- geometry:
+    start:
+    - -2
+    - -2
+    end:
+    - -2
+    - -4
+    x_first: true
+- geometry:
+    start:
+    - -2
+    - 1
+    end:
+    - -2
+    - 3
+    x_first: false

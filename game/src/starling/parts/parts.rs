@@ -13,16 +13,16 @@ pub const GRID_CELLS_PER_METER: f32 = 4.0;
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct PartPrototype {
     #[deprecated]
-    name: String,
-    mass: Mass,
-    dims: UVec2,
-    layer: Option<PartLayer>,
-    excavator_data: Option<ExcavatorData>,
-    computer_data: Option<ComputerData>,
-    inventory_data: Option<InventoryData>,
-    thruster_data: Option<ThrusterModel>,
-    machine_data: Option<MachineData>,
-    docking_port_data: Option<DockingPortData>,
+    pub name: String,
+    pub mass: Mass,
+    pub dims: UVec2,
+    pub layer: Option<PartLayer>,
+    pub excavator_data: Option<ExcavatorData>,
+    pub computer_data: Option<ComputerData>,
+    pub inventory_data: Option<InventoryData>,
+    pub thruster_data: Option<ThrusterModel>,
+    pub machine_data: Option<MachineData>,
+    pub docking_port_data: Option<DockingPortData>,
 }
 
 impl PartPrototype {

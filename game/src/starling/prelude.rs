@@ -29,4 +29,5 @@ pub use crate::starling::take::*;
 pub use crate::starling::units::{Mass, Volume};
 pub use crate::starling::universe::*;
 pub use crate::starling::vehicle::*;
+pub use crate::starling::vehicle::*;
 pub use crate::starling::welding_particle::*;

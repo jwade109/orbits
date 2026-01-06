@@ -144,3 +144,124 @@ parts:
   - -10
   - -2
   rot: East
+pipes:
+- geometry:
+    start:
+    - 3
+    - 0
+    end:
+    - 2
+    - 0
+    x_first: false
+- geometry:
+    start:
+    - -4
+    - -3
+    end:
+    - 2
+    - -4
+    x_first: true
+- geometry:
+    start:
+    - -4
+    - -3
+    end:
+    - 3
+    - -3
+    x_first: true
+- geometry:
+    start:
+    - -6
+    - -3
+    end:
+    - -6
+    - -4
+    x_first: true
+- geometry:
+    start:
+    - -6
+    - 2
+    end:
+    - -6
+    - 3
+    x_first: true
+- geometry:
+    start:
+    - -7
+    - 2
+    end:
+    - -8
+    - 2
+    x_first: true
+- geometry:
+    start:
+    - -7
+    - -3
+    end:
+    - -8
+    - -3
+    x_first: true
+- geometry:
+    start:
+    - -7
+    - -2
+    end:
+    - -8
+    - -2
+    x_first: true
+- geometry:
+    start:
+    - -7
+    - 1
+    end:
+    - -8
+    - 1
+    x_first: true
+- geometry:
+    start:
+    - -7
+    - 1
+    end:
+    - -7
+    - -2
+    x_first: true
+- geometry:
+    start:
+    - 0
+    - 1
+    end:
+    - 0
+    - 3
+    x_first: true
+- geometry:
+    start:
+    - 0
+    - 1
+    end:
+    - 0
+    - -4
+    x_first: true
+- geometry:
+    start:
+    - 0
+    - 2
+    end:
+    - 3
+    - 2
+    x_first: false
+- geometry:
+    start:
+    - 0
+    - 2
+    end:
+    - 2
+    - 3
+    x_first: true
+- geometry:
+    start:
+    - -3
+    - 2
+    end:
+    - -4
+    - 2
+    x_first: true

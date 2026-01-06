@@ -1,7 +1,7 @@
 use crate::starling::math::*;
 use crate::starling::nanotime::Nanotime;
 use crate::starling::parts::*;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashSet};
 use std::hash::Hash;
 
 #[allow(unused)]
@@ -26,22 +26,22 @@ pub fn occupied_cells(pos: PartCoord, rot: Rotation, part: &PartPrototype) -> Ve
     ret
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct PartId(u64);
 
 #[derive(Debug, Clone)]
 pub struct Blueprint {
     next_part_id: PartId,
-    parts: HashMap<PartId, InstantiatedPart>,
-    pipes: HashMap<PartId, PipeGeometry>,
+    parts: BTreeMap<PartId, InstantiatedPart>,
+    pipes: BTreeMap<PartId, PipeGeometry>,
 }
 
 impl Blueprint {
     pub fn new() -> Self {
         Self {
             next_part_id: PartId(0),
-            parts: HashMap::new(),
-            pipes: HashMap::new(),
+            parts: BTreeMap::new(),
+            pipes: BTreeMap::new(),
         }
     }
 
@@ -50,7 +50,7 @@ impl Blueprint {
         pipes: Vec<PipeGeometry>,
     ) -> Self {
         let mut next_part_id = PartId(0);
-        let mut parts = HashMap::new();
+        let mut parts = BTreeMap::new();
 
         for (pos, rot, proto) in prototypes {
             let instance = InstantiatedPart::from_prototype(proto, pos, rot);
@@ -62,7 +62,7 @@ impl Blueprint {
         let mut s = Self {
             next_part_id,
             parts,
-            pipes: HashMap::new(),
+            pipes: BTreeMap::new(),
         };
 
         for pipe in pipes {
@@ -87,6 +87,33 @@ impl Blueprint {
 
     pub fn get_part(&self, id: PartId) -> Option<&InstantiatedPart> {
         self.parts.get(&id)
+    }
+
+    pub fn get_pipe(&self, id: PartId) -> Option<&PipeGeometry> {
+        self.pipes.get(&id)
+    }
+
+    pub fn get_part_at_layer(&self, p: PartCoord, layer: PartLayer) -> Option<PartId> {
+        // TODO make this spatial lookup faster
+
+        if layer == PartLayer::Plumbing {
+            let found = self.pipes.iter().find(|(_, pipe)| pipe.contains(p));
+            return found.map(|(id, _)| *id);
+        }
+
+        let found = self.parts.iter().find(|(_, instance)| {
+            if layer != instance.prototype().layer() {
+                return false;
+            }
+
+            let origin = instance.origin();
+            let dims = instance.dims_grid().as_ivec2();
+            let p = p - origin;
+            let inner = p.inner();
+            inner.x >= 0 && inner.y >= 0 && inner.x < dims.x && inner.y < dims.y
+        });
+
+        found.map(|(id, _)| *id)
     }
 
     pub fn get_part_at(&self, p: PartCoord, layer: impl Into<Option<PartLayer>>) -> Option<PartId> {
@@ -245,5 +272,32 @@ impl Blueprint {
         self.parts.iter_mut().for_each(|(_, p)| {
             p.pos = p.pos - PartCoord::new(center);
         });
+
+        self.pipes.iter_mut().for_each(|(_, p)| {
+            p.start = p.start - PartCoord::new(center);
+            p.end = p.end - PartCoord::new(center);
+        });
+    }
+
+    // for each pipe, returns that pipe's ID, and the ID of the part
+    // each end is connected to
+    pub fn pipe_connections(&self) -> Vec<(PartId, PartId, PartId)> {
+        let mut ret = Vec::new();
+        for (id, pipe) in &self.pipes {
+            let Some(s) = self.get_part_at(pipe.start, PartLayer::Internal) else {
+                continue;
+            };
+            let Some(e) = self.get_part_at(pipe.end, PartLayer::Internal) else {
+                continue;
+            };
+            ret.push((*id, s, e));
+        }
+        ret
+    }
+
+    pub fn adjacency_graph(&self) -> HashSet<(PartId, PartId)> {
+        let mut ret = HashSet::new();
+        for (id, part) in &self.parts {}
+        ret
     }
 }

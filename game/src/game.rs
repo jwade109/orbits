@@ -77,6 +77,12 @@ fn new_editor_ui(
             if ui.button("Select").clicked() {
                 game.editor_context.enter_select_mode();
             }
+            if ui.button("Update Graph").clicked() {
+                game.editor_context.update_graph();
+            }
+            if ui.button("Randomize Graph").clicked() {
+                game.editor_context.randomize_graph();
+            }
         });
 
     egui::Window::new("Parts").show(ctx, |ui| {
