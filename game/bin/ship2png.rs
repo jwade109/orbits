@@ -1,5 +1,5 @@
 use clap::Parser;
-use crate::starling::prelude::*;
+use game::starling::vehicle::{generate_image, load_parts_from_dir, load_vehicle};
 use std::path::PathBuf;
 
 /// Converts ship file to PNG
@@ -34,17 +34,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let parts = load_parts_from_dir(&args.parts_dir)?;
 
-    let vehicle = load_vehicle(&args.ship_path, String::new(), &parts)?;
+    let vehicle = load_vehicle(&args.ship_path, &parts)?;
 
-    let mut img =
-        generate_image(&vehicle, &args.parts_dir, args.schematic).ok_or("Empty vehicle")?;
+    let mut img = generate_image(&vehicle).ok_or("Empty vehicle")?;
 
     if args.scale_factor < 1.0 {
-        let filter = if args.schematic {
-            image::imageops::FilterType::Nearest
-        } else {
-            image::imageops::FilterType::CatmullRom
-        };
+        let filter = image::imageops::FilterType::Nearest;
         img = img.resize(
             (img.width() as f32 * args.scale_factor).round() as u32,
             (img.height() as f32 * args.scale_factor).round() as u32,

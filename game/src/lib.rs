@@ -10,7 +10,6 @@ pub mod keybindings;
 pub mod names;
 pub mod onclick;
 pub mod prelude;
-pub mod scenes;
 pub mod settings;
 pub mod sprites;
 pub mod starling;

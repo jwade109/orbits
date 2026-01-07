@@ -30,25 +30,25 @@ impl Asteroid {
         let seed = seed.unwrap_or(randint(1000, 1000000) as u64);
         let mut rng = StdRng::seed_from_u64(seed);
 
-        let noise = Perlin::new(rng.gen());
-        let n_params = rng.gen_range(5..=8);
+        let noise = Perlin::new(rng.random());
+        let n_params = rng.random_range(5..=8);
         let mut frequency = 1;
         let parameters = (0..n_params)
             .into_iter()
             .map(|_| {
-                let amplitude = rng.gen_range(0.0..=0.5) / frequency as f32;
-                let phase = rng.gen_range(0.0..=2.0 * PI);
+                let amplitude = rng.random_range(0.0..=0.5) / frequency as f32;
+                let phase = rng.random_range(0.0..=2.0 * PI);
                 let param: AsteroidShapeParameter = AsteroidShapeParameter {
                     amplitude,
                     frequency,
                     phase,
                 };
-                frequency += rng.gen_range(2..=5);
+                frequency += rng.random_range(2..=5);
                 param
             })
             .collect();
 
-        let n_deposits = rng.gen_range(8..30);
+        let n_deposits = rng.random_range(8..30);
 
         let mut s = Self {
             seed,
@@ -62,23 +62,23 @@ impl Asteroid {
         };
 
         let max_r = s.max_radius();
-        let n_craters = rng.gen_range(4..28);
+        let n_craters = rng.random_range(4..28);
 
         for _ in 0..n_craters {
-            let x = rng.gen_range(-max_r..=max_r);
-            let y = rng.gen_range(-max_r..=max_r);
-            let r = rng.gen_range(10.0..max_r / 3.0);
+            let x = rng.random_range(-max_r..=max_r);
+            let y = rng.random_range(-max_r..=max_r);
+            let r = rng.random_range(10.0..max_r / 3.0);
             s.craters.push((Vec2::new(x, y), r))
         }
 
         let deposits = (0..n_deposits)
             .map(|_| {
-                let theta = rng.gen_range(0.0..=2.0 * PI);
+                let theta = rng.random_range(0.0..=2.0 * PI);
                 let r_max = s.radius_at(theta);
-                let r = rng.gen_range(2.0..=r_max - 1.0);
-                let size = rng.gen_range(3.0..=base_radius * 0.3);
+                let r = rng.random_range(2.0..=r_max - 1.0);
+                let size = rng.random_range(3.0..=base_radius * 0.3);
                 let p = rotate(Vec2::X * r, theta);
-                (p, size, rng.gen_range(120..240))
+                (p, size, rng.random_range(120..240))
             })
             .collect();
 

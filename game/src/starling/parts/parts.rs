@@ -1,4 +1,5 @@
 use crate::starling::aabb::*;
+use crate::starling::factory::ItemFilter;
 use crate::starling::math::*;
 use crate::starling::parts::*;
 use crate::starling::units::Mass;
@@ -9,6 +10,17 @@ use std::path::Path;
 
 // TODO reduce scope of this constant
 pub const GRID_CELLS_PER_METER: f32 = 4.0;
+
+#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
+pub enum PartClassification {
+    Cargo,
+    FluidTank,
+    Machine,
+    Thruster,
+    Auxiliary,
+    DockingPort,
+    Other,
+}
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct PartPrototype {
@@ -30,6 +42,28 @@ impl PartPrototype {
         let s = std::fs::read_to_string(path)?;
         let settings: Self = serde_yaml::from_str(&s)?;
         Ok(settings)
+    }
+
+    pub fn classification(&self) -> PartClassification {
+        if self.docking_port_data.is_some() {
+            PartClassification::DockingPort
+        } else if self.thruster_data.is_some() {
+            PartClassification::Thruster
+        } else if self.machine_data.is_some() {
+            PartClassification::Machine
+        } else if let Some(inv) = &self.inventory_data {
+            match inv.filter {
+                ItemFilter::Liquid => PartClassification::FluidTank,
+                _ => PartClassification::Cargo,
+            }
+        } else {
+            match self.layer() {
+                PartLayer::Internal => PartClassification::Auxiliary,
+                PartLayer::Plumbing => PartClassification::Other,
+                PartLayer::Structural => PartClassification::Other,
+                PartLayer::Exterior => PartClassification::Other,
+            }
+        }
     }
 }
 

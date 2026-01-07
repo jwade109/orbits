@@ -6,10 +6,10 @@ use bevy_vector_shapes::prelude::*;
 
 use crate::camera_controller::*;
 use crate::canvas::Canvas;
+use crate::craft_editor::*;
 use crate::game::GameState;
 use crate::graph::*;
 use crate::input::*;
-use crate::scenes::*;
 use crate::z_index::*;
 
 pub fn draw_cross(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
@@ -465,7 +465,7 @@ pub fn draw_bezier(gizmos: &mut Gizmos, bezier: &Bezier, color: Srgba) {
 pub fn draw_game_state(gizmos: Gizmos, mut state: ResMut<GameState>, painter: ShapePainter) {
     let mut canvas = Canvas::new(gizmos, painter);
 
-    GameState::draw(&mut canvas, &state);
+    draw_editor(&mut canvas, &state);
 
     state.text_labels = canvas.text_labels;
     state.sprites = canvas.sprites;

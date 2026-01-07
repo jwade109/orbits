@@ -56,3 +56,7 @@ path = "bin/big.rs"
 [[bin]]
 name = "egui"
 path = "bin/egui.rs"
+
+[[bin]]
+name = "ship2png"
+path = "bin/ship2png.rs"

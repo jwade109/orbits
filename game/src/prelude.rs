@@ -9,8 +9,6 @@ pub use crate::input::*;
 pub use crate::keybindings::*;
 pub use crate::names::*;
 pub use crate::onclick::*;
-pub use crate::scenes::TextLabel;
-pub use crate::scenes::{Anchor, Render, SceneType, StaticSpriteDescriptor};
 pub use crate::settings::*;
 pub use crate::sprites::*;
 pub use crate::z_index::*;

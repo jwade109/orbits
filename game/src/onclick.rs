@@ -1,4 +1,3 @@
-use crate::scenes::SceneType;
 use crate::starling::prelude::*;
 use std::path::PathBuf;
 
@@ -25,7 +24,6 @@ pub enum OnClick {
     DeleteOrbiter,
     ClearMission,
     CommitMission,
-    GoToScene(SceneType),
     SetTarget(EntityId),
     SetPilot(EntityId),
     ClearTarget,

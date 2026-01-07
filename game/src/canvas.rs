@@ -1,9 +1,7 @@
+use crate::drawing::draw_square;
+use crate::prelude::{StaticSpriteDescriptor, TextLabel};
 use crate::starling::aabb::AABB;
 use crate::z_index::ZOrdering;
-use crate::{
-    drawing::draw_square,
-    scenes::{StaticSpriteDescriptor, TextLabel},
-};
 use bevy::prelude::*;
 pub use bevy_vector_shapes::prelude::*;
 

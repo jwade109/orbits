@@ -367,63 +367,13 @@ impl GameState {
     }
 }
 
-impl Render for GameState {
-    fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
-        // BOOKMARK debug info
-
-        if state.settings.music_muted {
-            let half_span = state.input.screen_bounds.span / 2.0;
-            let w = 40.0;
-            let dims = Vec2::splat(w);
-            let pos = half_span - Vec2::splat(w / 2.0 + 20.0);
-            canvas.sprite(pos, 0.0, "muted", ZOrdering::Ui, dims);
-        }
-
-        Editor::draw(canvas, state);
-
-        Some(())
-    }
-}
-
-#[deprecated]
-fn keyboard_control_law(input: &InputState) -> VehicleControl {
-    let mut ctrl = VehicleControl::NULLOPT;
-
-    let docking_mode = input.is_pressed(KeyCode::ControlLeft);
-
-    if docking_mode {
-        ctrl.plus_x.throttle = input.is_pressed(KeyCode::ArrowUp) as u8 as f32;
-        ctrl.plus_y.throttle = input.is_pressed(KeyCode::ArrowLeft) as u8 as f32;
-        ctrl.neg_x.throttle = input.is_pressed(KeyCode::ArrowDown) as u8 as f32;
-        ctrl.neg_y.throttle = input.is_pressed(KeyCode::ArrowRight) as u8 as f32;
-    } else {
-        ctrl.plus_x.throttle = input.is_pressed(KeyCode::ArrowUp) as u8 as f32;
-        ctrl.neg_x.throttle = input.is_pressed(KeyCode::ArrowDown) as u8 as f32;
-
-        ctrl.attitude = if input.is_pressed(KeyCode::ArrowLeft) {
-            10.0
-        } else if input.is_pressed(KeyCode::ArrowRight) {
-            -10.0
-        } else {
-            0.0
-        };
-    }
-
-    ctrl.plus_x.use_rcs = docking_mode;
-    ctrl.plus_y.use_rcs = docking_mode;
-    ctrl.neg_x.use_rcs = docking_mode;
-    ctrl.neg_y.use_rcs = docking_mode;
-
-    ctrl
-}
-
 impl GameState {
     pub fn reload(&mut self) {
         *self = GameState::new(self.args.clone());
     }
 
     pub fn get_vehicle_by_model(&self, name: &str) -> Option<Blueprint> {
-        let vehicles = crate::scenes::get_list_of_vehicles(self)?;
+        let vehicles = get_list_of_vehicles(self)?;
 
         if vehicles.is_empty() {
             return None;
@@ -468,7 +418,7 @@ impl GameState {
                 self.editor_context.new_craft();
             }
             OnClick::WriteVehicleToImage => {
-                self.editor_context.write_image_to_file(&self.args);
+                self.editor_context.write_image_to_file();
             }
             OnClick::RotateCraft => {
                 self.editor_context.rotate_craft();
@@ -500,7 +450,7 @@ impl GameState {
     }
 
     pub fn get_random_vehicle(&self) -> Option<Blueprint> {
-        let vehicles = crate::scenes::get_list_of_vehicles(self).unwrap_or(vec![]);
+        let vehicles = get_list_of_vehicles(self).unwrap_or(vec![]);
 
         if vehicles.is_empty() {
             return None;
@@ -532,10 +482,6 @@ impl GameState {
         on_editor_render_tick(self);
     }
 
-    pub fn sim_slower(&mut self) {}
-
-    pub fn sim_faster(&mut self) {}
-
     pub fn on_game_tick(&mut self) {
         Editor::on_game_tick(self);
     }
@@ -552,6 +498,3 @@ fn on_game_tick(mut state: ResMut<GameState>, mut images: ResMut<Assets<Image>>)
 fn on_render_tick(mut state: ResMut<GameState>) {
     state.on_render_tick();
 }
-
-pub const MIN_SIM_SPEED: u32 = 0;
-pub const MAX_SIM_SPEED: u32 = 1000000;

@@ -1,4 +1,3 @@
-use crate::args::ProgramContext;
 use crate::camera_controller::*;
 use crate::canvas::*;
 use crate::craft_editor::*;
@@ -6,7 +5,6 @@ use crate::drawing::*;
 use crate::game::GameState;
 use crate::input::InputState;
 use crate::input::{FrameId, MouseButt};
-use crate::scenes::*;
 use crate::starling::prelude::*;
 use crate::z_index::ZOrdering;
 use bevy::color::palettes::css::*;
@@ -101,8 +99,8 @@ impl Editor {
         self.update();
     }
 
-    pub fn write_image_to_file(&self, args: &ProgramContext) {
-        write_image_to_file(&self.blueprint, args, "vehicle");
+    pub fn write_image_to_file(&self) {
+        write_image_to_file(&self.blueprint, "vehicle");
     }
 
     pub fn rotate_craft(&mut self) {
@@ -218,7 +216,7 @@ impl Editor {
         }
     }
 
-    pub fn on_left_click_held(state: &mut GameState, p: Vec2) {
+    pub fn on_left_click_held(state: &mut GameState) {
         if let Some(c) = Editor::current_cursor_coord(state) {
             if let Some(data) = state.editor_context.cursor_state.pipe_mut() {
                 data.end_position = Some(c);
@@ -630,184 +628,160 @@ fn draw_pipe(
     }
 }
 
-impl Render for Editor {
-    fn draw(canvas: &mut Canvas, state: &GameState) -> Option<()> {
-        let ctx = &state.editor_context;
-        draw_cross(&mut canvas.gizmos, ctx.w2c(DVec2::ZERO), 10.0, GRAY);
+pub fn draw_editor(canvas: &mut Canvas, state: &GameState) -> Option<()> {
+    let ctx = &state.editor_context;
+    draw_cross(&mut canvas.gizmos, ctx.w2c(DVec2::ZERO), 10.0, GRAY);
 
-        if let Some((pos, dims)) = ctx.snap_info {
-            let lower = pos.to_meters();
-            let upper = (pos + PartCoord::new(dims.as_ivec2())).to_meters();
-            let aabb = AABB::from_arbitrary(lower, upper);
-            draw_aabb(canvas, ctx.w2c_aabb(aabb), GREEN);
+    if let Some((pos, dims)) = ctx.snap_info {
+        let lower = pos.to_meters();
+        let upper = (pos + PartCoord::new(dims.as_ivec2())).to_meters();
+        let aabb = AABB::from_arbitrary(lower, upper);
+        draw_aabb(canvas, ctx.w2c_aabb(aabb), GREEN);
+    }
+
+    if let Some(sel) = ctx.cursor_state.selected() {
+        if let Some(aabb) = sel.aabb() {
+            draw_aabb(canvas, ctx.w2c_aabb(aabb), RED);
+        }
+    }
+
+    if let Some(p) = state.input.current() {
+        let p = p.extend(ZOrdering::EditorCursor.as_f32());
+        canvas.circle(p, 4.0, WHITE);
+    }
+
+    let radius = ctx.blueprint.bounding_radius();
+
+    // gridlines
+    {
+        let n = 100;
+        for x in -n..=n {
+            let top = PartCoord::new(IVec2::new(x, 50));
+            let bottom = PartCoord::new(IVec2::new(x, -50));
+            let t = ctx.w2c(top.to_meters().as_dvec2());
+            let b = ctx.w2c(bottom.to_meters().as_dvec2());
+            canvas.gizmos.line_2d(t, b, GRAY.with_alpha(0.02));
         }
 
-        if let Some(sel) = ctx.cursor_state.selected() {
-            if let Some(aabb) = sel.aabb() {
-                draw_aabb(canvas, ctx.w2c_aabb(aabb), RED);
+        for y in -n..=n {
+            let top = PartCoord::new(IVec2::new(50, y));
+            let bottom = PartCoord::new(IVec2::new(-50, y));
+            let t = ctx.w2c(top.to_meters().as_dvec2());
+            let b = ctx.w2c(bottom.to_meters().as_dvec2());
+            canvas.gizmos.line_2d(t, b, GRAY.with_alpha(0.02));
+        }
+    }
+
+    // current cursor position
+    {
+        if let Some(cursor) = Editor::current_cursor_coord(state) {
+            draw_cell(canvas, cursor, ctx, RED.with_alpha(0.5));
+        }
+    }
+
+    // pipe
+    {
+        if let Some(p) = state.editor_context.cursor_state.pipe() {
+            if let Some(geo) = p.pipe_geometry() {
+                draw_pipe(canvas, &geo, Vec2::ZERO, ctx, GRAY_400, GRAY_600);
             }
         }
+    }
 
-        if let Some(p) = state.input.current() {
-            let p = p.extend(ZOrdering::EditorCursor.as_f32());
-            canvas.circle(p, 4.0, WHITE);
-        }
+    if let Some((p, current_part)) = Editor::current_part_and_cursor_position(state) {
+        let current_pixels = occupied_cells(p, ctx.rotation, &current_part);
 
-        let radius = ctx.blueprint.bounding_radius();
+        let mut visited_parts = HashSet::new();
 
-        let filename = match &state.editor_context.filepath {
-            Some(p) => format!("[{}]", p.display()),
-            None => "[No file open]".to_string(),
-        };
-
-        let vehicle_info = String::new();
-
-        let info: String = [
-            filename,
-            format!("{} parts", state.editor_context.blueprint.parts().count()),
-            format!("Rotation: {:?}", state.editor_context.rotation),
-        ]
-        .into_iter()
-        .map(|s| format!("{s}\n"))
-        .collect();
-
-        let info = format!("{}{}", info, vehicle_info);
-
-        // TODO re-add info!
-
-        // gridlines
-        {
-            let n = 100;
-            for x in -n..=n {
-                let top = PartCoord::new(IVec2::new(x, 50));
-                let bottom = PartCoord::new(IVec2::new(x, -50));
-                let t = ctx.w2c(top.to_meters().as_dvec2());
-                let b = ctx.w2c(bottom.to_meters().as_dvec2());
-                canvas.gizmos.line_2d(t, b, GRAY.with_alpha(0.02));
-            }
-
-            for y in -n..=n {
-                let top = PartCoord::new(IVec2::new(50, y));
-                let bottom = PartCoord::new(IVec2::new(-50, y));
-                let t = ctx.w2c(top.to_meters().as_dvec2());
-                let b = ctx.w2c(bottom.to_meters().as_dvec2());
-                canvas.gizmos.line_2d(t, b, GRAY.with_alpha(0.02));
-            }
-        }
-
-        // current cursor position
-        {
-            if let Some(cursor) = Editor::current_cursor_coord(state) {
-                draw_cell(canvas, cursor, ctx, RED.with_alpha(0.5));
-            }
-        }
-
-        // pipe
-        {
-            if let Some(p) = state.editor_context.cursor_state.pipe() {
-                if let Some(geo) = p.pipe_geometry() {
-                    draw_pipe(canvas, &geo, Vec2::ZERO, ctx, GRAY_400, GRAY_600);
-                }
-            }
-        }
-
-        if let Some((p, current_part)) = Self::current_part_and_cursor_position(state) {
-            let current_pixels = occupied_cells(p, ctx.rotation, &current_part);
-
-            let mut visited_parts = HashSet::new();
-
-            if let Some(occ) = ctx.occupied.get(&current_part.layer()) {
-                for q in &current_pixels {
-                    if let Some(idx) = occ.get(q) {
-                        if visited_parts.contains(idx) {
-                            continue;
-                        }
-                        visited_parts.insert(*idx);
-                        if let Some(instance) = ctx.blueprint.get_part(*idx) {
-                            highlight_part(
-                                canvas,
-                                instance,
-                                ctx,
-                                RED.with_alpha(0.6),
-                                ZOrdering::EditorConflictHighlight,
-                            );
-                        }
+        if let Some(occ) = ctx.occupied.get(&current_part.layer()) {
+            for q in &current_pixels {
+                if let Some(idx) = occ.get(q) {
+                    if visited_parts.contains(idx) {
+                        continue;
                     }
-                }
-            }
-        }
-
-        if ctx.show_vehicle_info {
-            draw_circle(
-                &mut canvas.gizmos,
-                ctx.w2c(DVec2::ZERO),
-                gcast(radius * ctx.scale()),
-                RED.with_alpha(0.1),
-            );
-        }
-
-        draw_blueprint(
-            canvas,
-            PartCoord::new(IVec2::ZERO),
-            &ctx.blueprint,
-            ctx,
-            ctx.focus_layer,
-        );
-
-        if let Some(cursor) = state.input.position(MouseButt::Hover, FrameId::Current) {
-            let c = ctx.c2w(cursor);
-
-            if let Some(bp) = ctx.cursor_state.blueprint() {
-                let c = PartCoord::from_meters_floored(c);
-                draw_blueprint(canvas, c, bp, ctx, ctx.focus_layer);
-            }
-
-            if Self::current_part_and_cursor_position(state).is_none() {
-                if let Some((id, _)) = ctx.get_part_at(graphics_cast(c)) {
-                    if let Some(instance) = ctx.blueprint.get_part(id) {
+                    visited_parts.insert(*idx);
+                    if let Some(instance) = ctx.blueprint.get_part(*idx) {
                         highlight_part(
                             canvas,
                             instance,
                             ctx,
-                            TEAL.with_alpha(0.6),
-                            ZOrdering::EditorMouseoverPartHighlight,
+                            RED.with_alpha(0.6),
+                            ZOrdering::EditorConflictHighlight,
                         );
                     }
                 }
             }
         }
-
-        for part in &ctx.selected_parts {
-            let Some(instance) = ctx.blueprint.get_part(*part) else {
-                continue;
-            };
-            highlight_part(
-                canvas,
-                instance,
-                ctx,
-                GREEN.with_alpha(0.4),
-                ZOrdering::EditorMouseoverPartHighlight,
-            );
-        }
-
-        if let Some((p, current_part)) = Self::current_part_and_cursor_position(state) {
-            let dims = pixel_dims_with_rotation(ctx.rotation, &current_part);
-            let sprite_dims = current_part.dims();
-            canvas.sprite(
-                ctx.w2c(
-                    (p.inner().as_dvec2() + dims.as_dvec2() / 2.0) / GRID_CELLS_PER_METER as f64,
-                ),
-                gcast(ctx.rotation.to_angle()),
-                current_part.sprite_path().to_string(),
-                ZOrdering::EditorCursor,
-                sprite_dims.as_vec2() / GRID_CELLS_PER_METER * gcast(ctx.scale()),
-            );
-        }
-
-        draw_inventory_graph(canvas, &ctx.graph, Vec2::Y * 500.0, 0.4);
-
-        Some(())
     }
+
+    if ctx.show_vehicle_info {
+        draw_circle(
+            &mut canvas.gizmos,
+            ctx.w2c(DVec2::ZERO),
+            gcast(radius * ctx.scale()),
+            RED.with_alpha(0.1),
+        );
+    }
+
+    draw_blueprint(
+        canvas,
+        PartCoord::new(IVec2::ZERO),
+        &ctx.blueprint,
+        ctx,
+        ctx.focus_layer,
+    );
+
+    if let Some(cursor) = state.input.position(MouseButt::Hover, FrameId::Current) {
+        let c = ctx.c2w(cursor);
+
+        if let Some(bp) = ctx.cursor_state.blueprint() {
+            let c = PartCoord::from_meters_floored(c);
+            draw_blueprint(canvas, c, bp, ctx, ctx.focus_layer);
+        }
+
+        if Editor::current_part_and_cursor_position(state).is_none() {
+            if let Some((id, _)) = ctx.get_part_at(graphics_cast(c)) {
+                if let Some(instance) = ctx.blueprint.get_part(id) {
+                    highlight_part(
+                        canvas,
+                        instance,
+                        ctx,
+                        TEAL.with_alpha(0.6),
+                        ZOrdering::EditorMouseoverPartHighlight,
+                    );
+                }
+            }
+        }
+    }
+
+    for part in &ctx.selected_parts {
+        let Some(instance) = ctx.blueprint.get_part(*part) else {
+            continue;
+        };
+        highlight_part(
+            canvas,
+            instance,
+            ctx,
+            GREEN.with_alpha(0.4),
+            ZOrdering::EditorMouseoverPartHighlight,
+        );
+    }
+
+    if let Some((p, current_part)) = Editor::current_part_and_cursor_position(state) {
+        let dims = pixel_dims_with_rotation(ctx.rotation, &current_part);
+        let sprite_dims = current_part.dims();
+        canvas.sprite(
+            ctx.w2c((p.inner().as_dvec2() + dims.as_dvec2() / 2.0) / GRID_CELLS_PER_METER as f64),
+            gcast(ctx.rotation.to_angle()),
+            current_part.sprite_path().to_string(),
+            ZOrdering::EditorCursor,
+            sprite_dims.as_vec2() / GRID_CELLS_PER_METER * gcast(ctx.scale()),
+        );
+    }
+
+    draw_inventory_graph(canvas, &ctx.graph, Vec2::Y * 500.0, 0.4);
+
+    Some(())
 }
 
 pub fn get_list_of_vehicles(state: &GameState) -> Option<Vec<(String, PathBuf)>> {
@@ -855,37 +829,11 @@ impl Editor {
     }
 }
 
-pub fn write_image_to_file(vehicle: &Blueprint, ctx: &ProgramContext, name: &str) -> Option<()> {
+pub fn write_image_to_file(vehicle: &Blueprint, name: &str) -> Option<()> {
     let outpath: String = format!("/tmp/{}.png", name);
     println!("Writing vehicle to path {}", outpath);
-    let img = generate_image(vehicle, &ctx.parts_dir(), false)?;
+    let img = generate_image(vehicle)?;
     img.save(outpath).ok()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn write_vehicle_to_image() {
-        let dir = project_root::get_project_root()
-            .expect("Expected project root to be discoverable")
-            .join("assets");
-
-        dbg!(&dir);
-
-        let args = ProgramContext::new(Some(dir));
-
-        let g = GameState::new(args.clone());
-
-        let vehicles = get_list_of_vehicles(&g).expect("Expected list of vehicles");
-        dbg!(vehicles);
-
-        for name in ["remora", "lander", "pollux", "manta", "spacestation"] {
-            let vehicle = g.get_vehicle_by_model(name).expect("Expected a vehicle");
-            write_image_to_file(&vehicle, &args, name);
-        }
-    }
 }
 
 pub fn on_editor_render_tick(state: &mut GameState) {
@@ -907,8 +855,8 @@ pub fn on_editor_render_tick(state: &mut GameState) {
         Editor::on_left_click_down(state, p, is_shift);
     }
 
-    if let Some(p) = state.input.on_frame(MouseButt::Left, FrameId::Current) {
-        Editor::on_left_click_held(state, p);
+    if let Some(_) = state.input.on_frame(MouseButt::Left, FrameId::Current) {
+        Editor::on_left_click_held(state);
     }
 
     if let Some(_) = state.input.on_frame(MouseButt::Left, FrameId::Up) {

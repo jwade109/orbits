@@ -1,11 +1,8 @@
 use crate::game::GameState;
-use crate::starling::nanotime::Nanotime;
 use crate::starling::prelude::AABB;
 use bevy::input::keyboard::KeyboardInput;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
-
-const DOUBLE_CLICK_DURATION: Nanotime = Nanotime::millis(300);
 
 #[derive(Debug, Clone, Copy)]
 struct MouseFrame {

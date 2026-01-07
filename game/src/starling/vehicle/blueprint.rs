@@ -1,7 +1,7 @@
 use crate::starling::math::*;
 use crate::starling::nanotime::Nanotime;
 use crate::starling::parts::*;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::BTreeMap;
 use std::hash::Hash;
 
 #[allow(unused)]
@@ -283,12 +283,6 @@ impl Blueprint {
             };
             ret.push((*id, s, e));
         }
-        ret
-    }
-
-    pub fn adjacency_graph(&self) -> HashSet<(PartId, PartId)> {
-        let mut ret = HashSet::new();
-        for (id, part) in &self.parts {}
         ret
     }
 }

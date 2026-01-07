@@ -1,5 +1,5 @@
 use crate::game::GameState;
-use crate::scenes::*;
+use crate::prelude::StaticSpriteDescriptor;
 use bevy::color::palettes::css::GRAY;
 use bevy::prelude::*;
 

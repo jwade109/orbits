@@ -1,5 +1,6 @@
 use crate::starling::prelude::*;
-use bevy::math::IVec2;
+use bevy::color::palettes::tailwind::*;
+use bevy::prelude::*;
 use image::{DynamicImage, RgbaImage};
 use std::path::Path;
 
@@ -7,82 +8,62 @@ pub fn read_image(path: &Path) -> Option<RgbaImage> {
     Some(image::open(path).ok()?.to_rgba8())
 }
 
-pub fn diagram_color(part: &PartPrototype) -> [f32; 4] {
-    [0.0, 0.45, 0.0, 1.0]
-
-    // match part {
-    //     PartPrototype::Cargo(..) => [0.0, 0.45, 0.0, 1.0],
-    //     PartPrototype::Tank(..) => [1.0, 0.6, 0.0, 1.0],
-    //     PartPrototype::Machine(..) => [1.0, 0.2, 0.5, 1.0],
-    //     _ => match part.layer() {
-    //         PartLayer::Exterior => [0.2, 0.2, 0.2, 1.0],
-    //         PartLayer::Internal => [0.4, 0.4, 0.4, 1.0],
-    //         PartLayer::Structural => [0.9, 0.9, 0.9, 1.0],
-    //     },
-    // }
+pub fn diagram_color(part: &PartPrototype) -> Srgba {
+    let cl = part.classification();
+    match cl {
+        PartClassification::Cargo => GREEN_600,
+        PartClassification::FluidTank => BLUE_500,
+        PartClassification::Machine => RED_600,
+        PartClassification::Thruster => ORANGE_300,
+        PartClassification::Auxiliary => TEAL_700,
+        PartClassification::DockingPort => GRAY_100,
+        PartClassification::Other => GRAY_400,
+    }
 }
 
-pub fn generate_image(
-    vehicle: &Blueprint,
-    parts_dir: &Path,
-    schematic: bool,
-) -> Option<DynamicImage> {
-    unimplemented!()
+pub fn generate_image(vehicle: &Blueprint) -> Option<DynamicImage> {
+    let (pixel_min, pixel_max) = vehicle.bounds();
+    let dims = (pixel_max - pixel_min).inner().as_uvec2();
+    let mut output = DynamicImage::new_rgba8(dims.x, dims.y);
+    let to_export = output.as_mut_rgba8().unwrap();
+    for layer in [PartLayer::Structural, PartLayer::Internal] {
+        for (_, instance) in vehicle.parts() {
+            if instance.prototype().layer() != layer {
+                continue;
+            }
 
-    // let (pixel_min, pixel_max) = vehicle.pixel_bounds()?;
-    // let dims = pixel_max - pixel_min;
-    // let mut img = DynamicImage::new_rgba8(dims.x as u32, dims.y as u32);
-    // let to_export = img.as_mut_rgba8().unwrap();
-    // for layer in enum_iterator::all::<PartLayer>() {
-    //     for (_, instance) in vehicle.parts() {
-    //         if instance.prototype().layer() != layer {
-    //             continue;
-    //         }
+            let dims = instance.dims_grid();
 
-    //         let path = parts_dir
-    //             .join(instance.prototype().sprite_path())
-    //             .join("skin.png");
-    //         let img = read_image(&path)?;
+            let min = pixel_min.inner();
+            let origin = instance.origin().inner();
 
-    //         let px = (instance.origin().x - pixel_min.x) as u32;
-    //         let py = (instance.origin().y - pixel_min.y) as u32;
+            let px = (origin.x - min.x) as u32;
+            let py = (origin.y - min.y) as u32;
 
-    //         let color = diagram_color(&instance.prototype());
+            let pixels_lower = UVec2::new(px, py);
+            let pixels_upper = pixels_lower + dims;
 
-    //         for x in 0..img.width() {
-    //             for y in 0..img.height() {
-    //                 let p = IVec2::new(x as i32, y as i32);
-    //                 let xp = img.width() as i32 - p.x - 1;
-    //                 let yp = img.height() as i32 - p.y - 1;
-    //                 let p = match instance.rotation() {
-    //                     Rotation::East => IVec2::new(p.x, yp),
-    //                     Rotation::North => IVec2::new(p.y, p.x),
-    //                     Rotation::West => IVec2::new(xp, p.y),
-    //                     Rotation::South => IVec2::new(yp, xp),
-    //                 }
-    //                 .as_uvec2();
+            let color: LinearRgba = diagram_color(&instance.prototype()).into();
+            let color = color.to_f32_array();
 
-    //                 let src = img.get_pixel_checked(x, y);
-    //                 let dst = to_export
-    //                     .get_pixel_mut_checked(px + p.x, to_export.height() - (py + p.y) - 1);
-    //                 if let Some((src, dst)) = src.zip(dst) {
-    //                     if src.0[3] > 0 {
-    //                         for i in 0..3 {
-    //                             let mix = 150.0;
-    //                             dst.0[i] = if schematic {
-    //                                 ((color[i] * mix) + ((src.0[i] as f32 / 255.0) * (255.0 - mix)))
-    //                                     as u8
-    //                             } else {
-    //                                 src.0[i]
-    //                             };
-    //                         }
-    //                         dst.0[3] = 255;
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
+            for x in pixels_lower.x..pixels_upper.x {
+                for y in pixels_lower.y..pixels_upper.y {
+                    let p = UVec2::new(x, y);
 
-    // Some(img)
+                    let Some(dst) =
+                        to_export.get_pixel_mut_checked(p.x, to_export.height() - p.y - 1)
+                    else {
+                        continue;
+                    };
+
+                    for i in 0..3 {
+                        dst.0[i] = (color[i] * 255.0).round() as u8;
+                    }
+                    dst.0[3] = 255;
+                }
+            }
+        }
+    }
+
+    Some(output)
 }

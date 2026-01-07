@@ -1,6 +1,5 @@
 use crate::canvas::Canvas;
 use crate::game::GameState;
-use crate::onclick::OnClick;
 use crate::z_index::ZOrdering;
 use bevy::color::palettes::css::*;
 use bevy::math::Vec2;

@@ -10,7 +10,7 @@ pub const PI: f32 = std::f32::consts::PI;
 pub const PI_64: f64 = std::f64::consts::PI;
 
 pub fn rand(min: f32, max: f32) -> f32 {
-    rand::thread_rng().gen_range(min..max)
+    rand::rng().random_range(min..max)
 }
 
 pub fn chance(pct: f32) -> bool {
@@ -18,7 +18,7 @@ pub fn chance(pct: f32) -> bool {
 }
 
 pub fn randint(min: i32, max: i32) -> i32 {
-    rand::thread_rng().gen_range(min..max)
+    rand::rng().random_range(min..max)
 }
 
 pub fn randvec(min: f32, max: f32) -> Vec2 {
