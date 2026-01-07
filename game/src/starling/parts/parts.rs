@@ -210,7 +210,7 @@ pub fn pixel_dims_with_rotation(rot: Rotation, part: &PartPrototype) -> UVec2 {
     }
 }
 
-pub fn meters_with_rotation(rot: Rotation, part: &PartPrototype) -> Vec2 {
+fn meters_with_rotation(rot: Rotation, part: &PartPrototype) -> Vec2 {
     let w = part.dims_meters();
     match rot {
         Rotation::East | Rotation::West => Vec2::new(w.x, w.y),
@@ -292,16 +292,16 @@ impl InstantiatedPart {
         self.rot = rot;
     }
 
-    pub fn rotated(&self) -> Self {
-        let mut ret = self.clone();
-        let old_half_dims = ret.dims_grid().as_vec2() / 2.0;
-        let old_center = ret.origin().0.as_vec2() + old_half_dims;
-        let new_center = rotate(old_center, PI / 2.0);
-        ret.set_rotation(enum_iterator::next_cycle(&ret.rotation()));
-        let new_half_dims = ret.dims_grid().as_vec2() / 2.0;
-        let new_corner = new_center - new_half_dims;
-        ret.set_origin(vround(new_corner));
-        ret
+    pub fn upper_left(&self) -> PartCoord {
+        let dims = self.dims_grid();
+        self.origin() + PartCoord::new(IVec2::Y * dims.y as i32)
+    }
+
+    pub fn rotate_ccw(&mut self) {
+        let upper_left = self.upper_left();
+        let new_origin = IVec2::Y.rotate(upper_left.inner());
+        self.set_rotation(enum_iterator::next_cycle(&self.rotation()));
+        self.set_origin(new_origin);
     }
 
     pub fn machine_data(&self) -> Option<&MachineData> {

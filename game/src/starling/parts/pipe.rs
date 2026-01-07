@@ -62,12 +62,10 @@ impl PipeGeometry {
         self.points().contains(&p)
     }
 
-    pub fn rotated(&self) -> Self {
-        Self {
-            start: self.start.inner().rotate(IVec2::Y).into(),
-            end: self.end.inner().rotate(IVec2::Y).into(),
-            x_first: !self.x_first,
-        }
+    pub fn rotate_ccw(&mut self) {
+        self.start = IVec2::Y.rotate(self.start.inner() + IVec2::Y).into();
+        self.end = IVec2::Y.rotate(self.end.inner() + IVec2::Y).into();
+        self.x_first = !self.x_first;
     }
 }
 

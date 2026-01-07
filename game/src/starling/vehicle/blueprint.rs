@@ -215,22 +215,13 @@ impl Blueprint {
             .collect()
     }
 
-    pub fn rotate(&mut self) {
-        let new_instances: Vec<_> = self
-            .parts()
-            .map(|(_, instance)| instance.rotated())
-            .collect();
-
-        let new_pipes: Vec<_> = self.pipes.iter().map(|(_, geo)| geo.rotated()).collect();
-
-        self.clear();
-
-        for instance in new_instances {
-            self.add_part(instance.prototype(), instance.origin(), instance.rotation());
+    pub fn rotate_ccw(&mut self) {
+        for (_, part) in &mut self.parts {
+            part.rotate_ccw();
         }
 
-        for pipe in new_pipes {
-            self.add_pipe(pipe);
+        for (_, pipe) in &mut self.pipes {
+            pipe.rotate_ccw();
         }
     }
 

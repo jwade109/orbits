@@ -106,7 +106,7 @@ impl Editor {
     }
 
     pub fn rotate_craft(&mut self) {
-        self.blueprint.rotate();
+        self.blueprint.rotate_ccw();
         self.update();
     }
 
@@ -306,7 +306,7 @@ impl Editor {
 
     pub fn on_press_r(state: &mut GameState) {
         if let Some(bp) = state.editor_context.cursor_state.blueprint_mut() {
-            bp.rotate();
+            bp.rotate_ccw();
         } else if let Some(data) = state.editor_context.cursor_state.pipe_mut() {
             data.x_first = !data.x_first;
         } else {
