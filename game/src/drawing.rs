@@ -237,10 +237,7 @@ pub fn draw_thruster(
     }
 }
 
-pub fn vehicle_sprite_path(disc: u64) -> String {
-    format!("vehicle-{}", disc)
-}
-
+#[allow(unused)]
 fn draw_prograde_marker(gizmos: &mut Gizmos, p: Vec2, size: f32, color: Srgba) {
     let mut draw_notch = |a: f32| {
         let start = p + rotate(Vec2::X * 0.5 * size, a);
@@ -472,30 +469,6 @@ pub fn draw_game_state(gizmos: Gizmos, mut state: ResMut<GameState>, painter: Sh
 
     state.text_labels = canvas.text_labels;
     state.sprites = canvas.sprites;
-}
-
-pub fn draw_transforms(canvas: &mut Canvas, ctx: &LinearCameraController, universe: &Universe) {
-    let camera_pv = PV::pos(ctx.offset());
-
-    for (pv, parent) in universe.frames().chain([(camera_pv, ctx.parent())]) {
-        let parent_pv = match universe.pv(parent) {
-            Some(p) => p,
-            None => PV::ZERO,
-        };
-
-        let p1 = ctx.w2c(pv.pos + parent_pv.pos);
-        let p2 = ctx.w2c(parent_pv.pos);
-
-        canvas.painter.reset();
-        canvas.painter.thickness = 2.0;
-        canvas.painter.set_color(GREEN);
-        let z = ZOrdering::Transforms.as_f32();
-        canvas.painter.line(p1.extend(z), p2.extend(z));
-
-        canvas.painter.hollow = true;
-        canvas.painter.set_translation(p1.extend(z));
-        canvas.painter.rect(Vec2::new(20.0, 20.0));
-    }
 }
 
 pub fn draw_camera_info(

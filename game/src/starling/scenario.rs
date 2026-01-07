@@ -2,7 +2,6 @@ use crate::starling::id::*;
 use crate::starling::nanotime::Nanotime;
 use crate::starling::orbits::{Body, SparseOrbit};
 use crate::starling::pv::PV;
-use crate::starling::universe::Universe;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -105,32 +104,4 @@ pub fn make_luna() -> (Body, SparseOrbit) {
         Body::with_mass(22.0, 10.0, 800.0),
         SparseOrbit::circular(3800.0, make_earth(), Nanotime::secs(-40), false),
     )
-}
-
-// pub fn rss() -> Universe {
-//     let earth_body = Body::with_mu(EARTH_RADIUS, EARTH_MU, EARTH_SOI);
-//     let mut earth = PlanetarySystem::new(900, "Earth", earth_body);
-
-//     let luna_body = Body::with_mu(LUNA_RADIUS, LUNA_MU, LUNA_SOI);
-//     let mut luna = PlanetarySystem::new(901, "Luna", luna_body);
-//     let luna_orbit = SparseOrbit::circular(
-//         LUNA_ORBITAL_RADIUS as f64,
-//         earth_body,
-//         Nanotime::zero(),
-//         false,
-//     );
-
-//     let ast_body = Body::with_mu(LUNA_RADIUS * 0.01, LUNA_MU * 0.0001, LUNA_RADIUS * 0.02);
-//     let ast = PlanetarySystem::new(902, "Asteroid", ast_body);
-//     let ast_orbit =
-//         SparseOrbit::circular(LUNA_RADIUS * 1.5 as f64, luna_body, Nanotime::zero(), true);
-
-//     luna.subsystems.push((ast_orbit, ast));
-//     earth.subsystems.push((luna_orbit, luna));
-
-//     Universe::new(earth)
-// }
-
-pub fn rss() -> Universe {
-    Universe::empty()
 }

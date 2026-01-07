@@ -1,20 +1,7 @@
 use crate::game::GameState;
 use crate::starling::prelude::*;
-use bevy::core_pipeline::bloom::Bloom;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
-
-pub struct UiPlugin;
-
-impl Plugin for UiPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(Update, set_bloom);
-    }
-}
-
-fn set_bloom(state: Res<GameState>, mut bloom: Single<&mut Bloom>) {
-    bloom.intensity = 0.1;
-}
 
 pub fn do_text_labels(
     mut commands: Commands,
@@ -92,17 +79,5 @@ pub fn apply_egui_style(ui: &mut egui::Ui) {
     x.visuals.dark_mode = false;
     for x in &mut x.text_styles {
         x.1.size *= 1.2;
-    }
-}
-
-fn map_bytes(image: &mut Image, func: impl Fn(&mut [u8], u32, u32, u32, u32)) {
-    let w = image.width();
-    let h = image.height();
-    for x in 0..w {
-        for y in 0..h {
-            if let Some(bytes) = image.pixel_bytes_mut(UVec3::new(x, y, 0)) {
-                func(bytes, x, y, w, h);
-            }
-        }
     }
 }

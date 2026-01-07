@@ -1,9 +1,9 @@
 use crate::game::GameState;
+use crate::starling::nanotime::Nanotime;
+use crate::starling::prelude::AABB;
 use bevy::input::keyboard::KeyboardInput;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
-use crate::starling::nanotime::Nanotime;
-use crate::starling::prelude::AABB;
 
 const DOUBLE_CLICK_DURATION: Nanotime = Nanotime::millis(300);
 
@@ -11,13 +11,6 @@ const DOUBLE_CLICK_DURATION: Nanotime = Nanotime::millis(300);
 struct MouseFrame {
     frame_no: u64,
     screen_pos: Vec2,
-    wall_time: Nanotime,
-}
-
-impl MouseFrame {
-    fn age(&self, wall_time: Nanotime) -> Nanotime {
-        wall_time - self.wall_time
-    }
 }
 
 #[derive(Default, Debug, Clone, Copy)]
@@ -99,7 +92,6 @@ pub struct InputState {
     right: CursorTravel,
     middle: CursorTravel,
 
-    on_double_click: Option<Vec2>,
     on_mouse_left_up: bool,
 
     pub screen_bounds: AABB,
@@ -139,12 +131,6 @@ impl InputState {
         self.position(MouseButt::Hover, FrameId::Current)
     }
 
-    pub fn age(&self, button: MouseButt, order: FrameId, wall_time: Nanotime) -> Option<Nanotime> {
-        let state = self.get_state(button);
-        let frame = state.frame(order)?;
-        Some(wall_time - frame.wall_time)
-    }
-
     pub fn set_buttons(&mut self, buttons: ButtonInput<KeyCode>) {
         self.buttons = buttons;
     }
@@ -173,10 +159,6 @@ impl InputState {
             ScrollDir::Up => true,
             _ => false,
         }
-    }
-
-    pub fn double_click(&self) -> Option<Vec2> {
-        self.on_double_click
     }
 
     pub fn is_pressed(&self, key: KeyCode) -> bool {
@@ -220,7 +202,6 @@ pub fn update_input_state(
     mut state: ResMut<GameState>,
 ) {
     let dims = Vec2::new(win.width(), win.height());
-    let t = state.wall_time;
 
     state.input.keyboard_events.clear();
     for event in evr_kbd.read() {
@@ -235,7 +216,6 @@ pub fn update_input_state(
         MouseFrame {
             frame_no: state.input.frame_no,
             screen_pos: p,
-            wall_time: t,
         }
     } else {
         state.input.hover.set_up();
@@ -246,19 +226,9 @@ pub fn update_input_state(
     };
 
     state.input.hover.set_down(current_frame);
-    state.input.on_double_click = None;
     state.input.on_mouse_left_up = true;
 
     if buttons.pressed(MouseButton::Left) {
-        let age = state.input.left.down().map(|f| f.age(t));
-        if state.input.left.up().is_some() {
-            if let Some(age) = age {
-                if age < DOUBLE_CLICK_DURATION {
-                    state.input.on_double_click =
-                        Some(current_frame.screen_pos - state.input.screen_bounds.span / 2.0);
-                }
-            }
-        }
         state.input.left.set_down(current_frame);
     } else {
         state.input.on_mouse_left_up = true;

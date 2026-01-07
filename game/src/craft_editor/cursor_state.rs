@@ -1,7 +1,5 @@
 use crate::starling::prelude::*;
 
-use std::collections::HashSet;
-
 #[derive(Debug, Default, Clone)]
 pub struct CursorPipeData {
     pub start_position: Option<PartCoord>,

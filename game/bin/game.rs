@@ -26,6 +26,5 @@ fn main() {
         .add_plugins(Shape2dPlugin::default())
         .add_plugins(game::game::GamePlugin {})
         .add_plugins(EguiPlugin::default())
-        .add_plugins(game::ui::UiPlugin {})
         .run();
 }

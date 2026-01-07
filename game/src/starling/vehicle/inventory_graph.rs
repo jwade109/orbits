@@ -17,16 +17,7 @@ struct GraphNode {
     vel: Vec2,
     real_pos: PartCoord,
     id: PartId,
-    slot_id: u32,
     node_type: NodeType,
-}
-
-impl GraphNode {
-    fn update(&mut self, other: &Self) {
-        self.id = other.id;
-        self.slot_id = other.slot_id;
-        self.node_type = other.node_type;
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -42,7 +33,6 @@ impl InventoryGraph {
     pub fn from_blueprint(bp: &Blueprint) -> Self {
         let mut nodes = BTreeMap::new();
         let mut edges = HashSet::new();
-        let mut next_id = 0;
         for (id, part) in bp.parts() {
             let node_type = if part.proto.thruster_data.is_some() {
                 NodeType::Thruster
@@ -63,14 +53,12 @@ impl InventoryGraph {
                 vel: Vec2::ZERO,
                 real_pos: PartCoord::new(center),
                 id: *id,
-                slot_id: 0,
                 node_type,
             };
 
             let id = NodeKey(*id);
 
             nodes.insert(id, node);
-            next_id += 1;
         }
 
         for (_, a, b) in bp.pipe_connections() {
