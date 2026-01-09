@@ -1,3 +1,4 @@
+use crate::game_version_two::tick_schedule::*;
 use crate::game_version_two::*;
 
 use bevy::color::palettes::css::*;
@@ -26,10 +27,21 @@ impl Plugin for SpacecraftPlugin {
                 .in_set(Sets::Draw),
         );
 
-        app.add_systems(Update, update_cursor_spacecraft.in_set(Sets::Input));
+        app.add_systems(EguiPrimaryContextPass, tick_control_egui);
 
         app.add_systems(
-            FixedUpdate,
+            Update,
+            (
+                update_cursor_spacecraft,
+                sysparam_api::draw_blueprint_system.pipe(sysparam_api::swallow_optional),
+            )
+                .in_set(Sets::Input),
+        );
+
+        app.add_systems(FixedUpdate, world_tick_driver_system);
+
+        app.add_systems(
+            SimTick,
             (
                 handle_sc_events,
                 handle_change_recipe,
@@ -56,6 +68,8 @@ impl Plugin for SpacecraftPlugin {
 
         app.insert_resource(SelectedSpacecraft::default());
         app.insert_resource(GridSpatialLookup::default());
+        app.insert_resource(TickSchedule::PerFrame(1));
+        app.insert_resource(Ticks(0));
     }
 }
 

@@ -4,7 +4,8 @@ use bevy_egui::EguiContexts;
 use bevy_vector_shapes::prelude::*;
 use game::ui::apply_egui_style;
 
-use crate::game_version_two::{CursorWorldPosition, SelectedSpacecraft, Settings};
+use crate::game_version_two::spacecraft::SelectedSpacecraft;
+use crate::game_version_two::{CursorWorldPosition, Settings};
 
 use super::constants::*;
 use super::messages::*;

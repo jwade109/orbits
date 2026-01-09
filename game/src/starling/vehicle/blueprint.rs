@@ -45,6 +45,15 @@ impl Blueprint {
         }
     }
 
+    pub fn merge(&mut self, other: &Blueprint) {
+        for (_, part) in &other.parts {
+            self.add_part(part.proto.clone(), part.pos, part.rot);
+        }
+        for (_, pipe) in &other.pipes {
+            self.add_pipe(*pipe);
+        }
+    }
+
     pub fn from_parts(
         prototypes: Vec<(PartCoord, Rotation, PartPrototype)>,
         pipes: Vec<PipeGeometry>,
@@ -252,22 +261,34 @@ impl Blueprint {
         (lower.unwrap().into(), upper.unwrap().into())
     }
 
+    pub fn shift(&mut self, delta: IVec2) {
+        self.parts.iter_mut().for_each(|(_, p)| {
+            p.pos = p.pos + PartCoord::new(delta);
+        });
+
+        self.pipes.iter_mut().for_each(|(_, p)| {
+            p.start = p.start + PartCoord::new(delta);
+            p.end = p.end + PartCoord::new(delta);
+        });
+    }
+
+    pub fn center(&self) -> PartCoord {
+        let (lower, upper) = self.bounds();
+        PartCoord::new((upper.inner() + lower.inner()) / 2)
+    }
+
+    pub fn dims(&self) -> UVec2 {
+        let (lower, upper) = self.bounds();
+        (upper - lower).inner().as_uvec2()
+    }
+
     pub fn normalize_coordinates(&mut self) {
         if self.parts.is_empty() {
             return;
         }
-
         let (lower, upper) = self.bounds();
         let center = (upper.inner() + lower.inner()) / 2;
-
-        self.parts.iter_mut().for_each(|(_, p)| {
-            p.pos = p.pos - PartCoord::new(center);
-        });
-
-        self.pipes.iter_mut().for_each(|(_, p)| {
-            p.start = p.start - PartCoord::new(center);
-            p.end = p.end - PartCoord::new(center);
-        });
+        self.shift(-center);
     }
 
     // for each pipe, returns that pipe's ID, and the ID of the part

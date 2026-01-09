@@ -117,10 +117,10 @@ pub fn on_attach_event(
         grid.velocity = velocity + additional_velocity;
         grid.angular_velocity = angular_velocity;
 
-        // fuse.write(FuseGrids {
-        //     host_grid: parent.0,
-        //     target_grid: other_parent.0,
-        // });
+        fuse.write(FuseGrids {
+            host_grid: parent.0,
+            target_grid: other_parent.0,
+        });
     }
 }
 

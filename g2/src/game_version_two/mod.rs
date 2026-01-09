@@ -16,6 +16,7 @@ mod spacecraft;
 mod system_sets;
 mod terrain;
 mod thruster;
+mod tick_schedule;
 
 pub use animated_text::*;
 pub use camera::*;

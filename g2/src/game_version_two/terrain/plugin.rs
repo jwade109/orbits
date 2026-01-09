@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use bevy_egui::EguiPrimaryContextPass;
 
+use crate::game_version_two::tick_schedule::SimTick;
+
 use super::debug_systems;
 use super::flood_fill;
 use super::messages;
@@ -22,7 +24,7 @@ impl Plugin for TerrainPlugin {
         app.add_systems(Startup, systems::insert_tiles);
 
         app.add_systems(
-            Update,
+            SimTick,
             (
                 systems::update_meshes,
                 systems::generate_tiles,
@@ -31,6 +33,13 @@ impl Plugin for TerrainPlugin {
                 systems::process_excavators,
                 systems::process_mine_to_inventory.pipe(systems::spawn_mining_visuals),
                 systems::process_mining_visuals,
+            )
+                .chain(),
+        );
+
+        app.add_systems(
+            Update,
+            (
                 // debug rendering
                 debug_systems::draw_excavators,
                 debug_systems::draw_hovered_grid_and_tile,
