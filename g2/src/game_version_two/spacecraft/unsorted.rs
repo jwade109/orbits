@@ -33,6 +33,8 @@ impl Plugin for SpacecraftPlugin {
         app.add_systems(
             Update,
             (
+                spawn_hose_on_keypress_system.pipe(sysparam_api::swallow_optional),
+                draw_hoses_system,
                 send_attach_events.pipe(swallow_optional),
                 update_cursor_spacecraft,
                 sysparam_api::draw_blueprint_system.pipe(sysparam_api::swallow_optional),
@@ -56,6 +58,7 @@ impl Plugin for SpacecraftPlugin {
                 despawn_empty_grids,
                 update_grids,
                 update_spacecraft_grid_map,
+                update_hose_physics_system,
             )
                 .chain()
                 .in_set(Sets::Physics),
@@ -68,7 +71,7 @@ impl Plugin for SpacecraftPlugin {
 
         app.insert_resource(SelectedSpacecraft::default());
         app.insert_resource(GridSpatialLookup::default());
-        app.insert_resource(TickSchedule::PerFrame(1));
+        app.insert_resource(TickSchedule::PerFrame(10));
         app.insert_resource(Ticks(0));
     }
 }
