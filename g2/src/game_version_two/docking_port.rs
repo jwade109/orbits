@@ -1,4 +1,4 @@
-use crate::game_version_two::*;
+use crate::game_version_two::{sysparam_api::Spacecraft, *};
 
 #[derive(Component, Debug, Clone, Copy)]
 pub struct DockingPort {
@@ -35,22 +35,27 @@ pub struct AttachPorts(Entity);
 
 #[derive(Event, Debug)]
 pub struct FuseGrids {
-    host_grid: Entity,
-    target_grid: Entity,
+    host_part: Entity,
+    target_part: Entity,
 }
 
 pub fn send_attach_events(
     keys: Res<ButtonInput<KeyCode>>,
-    mut attach: EventWriter<AttachPorts>,
-    cursor: Res<SelectedSpacecraft>,
-) {
-    if !keys.pressed(KeyCode::KeyJ) {
-        return;
+    selected: Res<SelectedSpacecraft>,
+    mut craft: Spacecraft,
+) -> Option<()> {
+    if !keys.just_pressed(KeyCode::KeyJ) {
+        return None;
     }
 
-    let id = some_or_return!(cursor.selected);
-    let event = AttachPorts(id);
-    attach.write(event);
+    let host = selected.selected?;
+    let target = selected.secondary?;
+
+    if let Err(e) = craft.merge_grids(host, target) {
+        error!("Failed to merge: {:?}", e);
+    }
+
+    Some(())
 }
 
 pub fn inverse_transform(t: Transform) -> Transform {
@@ -71,71 +76,9 @@ pub fn target_docking_transform(
     ownship * port_a * rot_180 * inv_port_b
 }
 
-pub fn on_attach_event(
-    mut fuse: EventWriter<FuseGrids>,
-    mut attach: EventReader<AttachPorts>,
-    ports: Query<(&DockingPort, &Transform, &ChildOf), Without<SpacecraftGrid>>,
-    mut grids: Query<(&mut Transform, &mut SpacecraftGrid)>,
-) {
-    for msg in attach.read() {
-        let (port, port_a, parent) = ok_or_continue!(ports.get(msg.0));
-        let target = some_or_continue!(port.target());
-        let (other_port, port_b, other_parent) = ok_or_continue!(ports.get(target));
-
-        if parent.0 == other_parent.0 {
-            // warn!("Parents of attached ports are the same: {}", parent.0);
-            continue;
-        }
-
-        info!("Joining grids: {}, {}", parent.0, other_parent.0);
-
-        let (ownship_root, grid) = ok_or_continue!(grids.get(parent.0));
-
-        let ownship_root = ownship_root.clone();
-        let velocity = grid.velocity;
-        let angular_velocity = grid.angular_velocity;
-
-        let additional_velocity = port_a
-            .translation
-            .cross((Vec3::Z * angular_velocity as f32))
-            .xy()
-            .as_dvec2();
-
-        let mut port_a = *port_a;
-        let mut port_b = *port_b;
-
-        port_a.translation += port_a.local_x() * port.distance;
-        port_b.translation += port_b.local_x() * other_port.distance;
-
-        // let port_a = Transform::from_translation(port_a.translation + port_a.forward() * 2.0);
-        // let port_b = Transform::from_translation(port_b.translation + port_b.forward() * 2.0);
-
-        let (mut target_root, mut grid) = ok_or_continue!(grids.get_mut(other_parent.0));
-
-        *target_root = target_docking_transform(ownship_root, port_a, port_b);
-
-        grid.velocity = velocity + additional_velocity;
-        grid.angular_velocity = angular_velocity;
-
-        fuse.write(FuseGrids {
-            host_grid: parent.0,
-            target_grid: other_parent.0,
-        });
-    }
-}
-
-pub fn on_fuse_grids_event(
-    mut commands: Commands,
-    mut events: EventReader<FuseGrids>,
-    grids: Query<&Children, With<SpacecraftGrid>>,
-    mut parts: Query<&mut Transform, With<PartInstance>>,
-) {
+pub fn on_fuse_grids_event(mut craft: Spacecraft, mut events: EventReader<FuseGrids>) {
     for event in events.read() {
-        info!("Fusing grids {} and {}", event.host_grid, event.target_grid);
-        let target_grid = ok_or_continue!(grids.get(event.target_grid));
-        for t in target_grid {
-            commands.entity(*t).set_parent_in_place(event.host_grid);
-        }
+        craft.merge_grids(event.host_part, event.target_part);
     }
 }
 

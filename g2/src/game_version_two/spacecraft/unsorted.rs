@@ -1,3 +1,4 @@
+use crate::game_version_two::sysparam_api::swallow_optional;
 use crate::game_version_two::tick_schedule::*;
 use crate::game_version_two::*;
 
@@ -32,6 +33,7 @@ impl Plugin for SpacecraftPlugin {
         app.add_systems(
             Update,
             (
+                send_attach_events.pipe(swallow_optional),
                 update_cursor_spacecraft,
                 sysparam_api::draw_blueprint_system.pipe(sysparam_api::swallow_optional),
             )
@@ -46,9 +48,7 @@ impl Plugin for SpacecraftPlugin {
                 handle_sc_events,
                 handle_change_recipe,
                 check_adjacent_docking_ports,
-                on_attach_event,
                 on_fuse_grids_event,
-                send_attach_events,
                 update_thruster_emitters,
                 build_parts,
                 update_machines,
