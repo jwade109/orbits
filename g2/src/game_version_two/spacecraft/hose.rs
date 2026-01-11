@@ -4,6 +4,8 @@ use bevy_vector_shapes::prelude::*;
 use early_returns::ok_or_continue;
 use game::{starling::math::randvec, z_index::ZOrdering};
 
+use super::grid_coord::GridCoord;
+
 use crate::game_version_two::{PartInstance, SelectedSpacecraft};
 
 #[derive(Debug, Clone, Copy)]
@@ -14,8 +16,8 @@ struct HoseNode {
 
 #[derive(Component, Debug)]
 pub struct Hose {
-    src: Option<Entity>,
-    dst: Option<Entity>,
+    src: Option<GridCoord>,
+    dst: Option<GridCoord>,
     src_pos: Vec2,
     dst_pos: Vec2,
     desired_length: f32,
@@ -118,7 +120,7 @@ impl Hose {
 pub fn spawn_hose_on_keypress_system(
     keys: Res<ButtonInput<KeyCode>>,
     selected: Res<SelectedSpacecraft>,
-    parts: Query<&GlobalTransform, With<PartInstance>>,
+    grids: Query<&Transform>,
     mut commands: Commands,
 ) -> Option<()> {
     if !keys.just_pressed(KeyCode::KeyH) {
@@ -128,13 +130,13 @@ pub fn spawn_hose_on_keypress_system(
     let a = selected.primary?;
     let b = selected.secondary?;
 
-    let tf_a = parts.get(a.part).ok()?;
-    let tf_b = parts.get(b.part).ok()?;
+    let tf_a = grids.get(a.grid).ok()?;
+    let tf_b = grids.get(b.grid).ok()?;
 
     let n_segments = 5;
 
-    let pa = tf_a.translation().xy();
-    let pb = tf_b.translation().xy();
+    let pa = a.grid_coord().get_transform(*tf_a).translation.xy();
+    let pb = b.grid_coord().get_transform(*tf_b).translation.xy();
 
     let mut nodes = Vec::new();
 
@@ -153,8 +155,8 @@ pub fn spawn_hose_on_keypress_system(
     }
 
     let hose = Hose {
-        src: Some(a.part),
-        dst: Some(b.part),
+        src: Some(a.grid_coord()),
+        dst: Some(b.grid_coord()),
         src_pos: pa,
         dst_pos: pb,
         desired_length,
@@ -172,19 +174,21 @@ pub fn spawn_hose_on_keypress_system(
 pub fn update_hose_physics_system(
     mut commands: Commands,
     mut hoses: Query<(Entity, &mut Hose)>,
-    transforms: Query<&GlobalTransform>,
+    transforms: Query<&Transform>,
     time: Res<Time<Fixed>>,
 ) {
     let dt = time.delta_secs();
     for (e, mut hose) in &mut hoses {
         if let Some(src) = hose.src {
-            if let Ok(tf) = transforms.get(src) {
-                hose.update_src_pos(tf.translation().xy());
+            if let Ok(tf) = transforms.get(src.grid) {
+                let tf = src.get_transform(*tf);
+                hose.update_src_pos(tf.translation.xy());
             }
         }
         if let Some(dst) = hose.dst {
-            if let Ok(tf) = transforms.get(dst) {
-                hose.update_dst_pos(tf.translation().xy());
+            if let Ok(tf) = transforms.get(dst.grid) {
+                let tf = dst.get_transform(*tf);
+                hose.update_dst_pos(tf.translation.xy());
             }
         }
 

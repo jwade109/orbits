@@ -124,6 +124,10 @@ pub fn tick_control_egui(
             ticks.set_rate(1);
         }
 
+        if ui.button("Fast").clicked() {
+            ticks.set_rate(20);
+        }
+
         ui.horizontal(|ui| {
             if ui.button("<<").clicked() {
                 ticks.slow_down();

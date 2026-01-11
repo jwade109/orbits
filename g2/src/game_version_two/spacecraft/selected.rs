@@ -6,6 +6,7 @@ use game::starling::parts::{PartCoord, PartLayer};
 
 use crate::game_version_two::CursorWorldPosition;
 
+use super::grid_coord::GridCoord;
 use super::*;
 
 #[derive(Debug, Clone, Copy)]
@@ -13,6 +14,15 @@ pub struct SelectedPointInfo {
     pub grid: Entity,
     pub part: Entity,
     pub coord: PartCoord,
+}
+
+impl SelectedPointInfo {
+    pub fn grid_coord(&self) -> GridCoord {
+        GridCoord {
+            grid: self.grid,
+            coord: self.coord,
+        }
+    }
 }
 
 #[derive(Resource, Debug, Default)]
