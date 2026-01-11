@@ -3,6 +3,7 @@ use crate::game_version_two::tick_schedule::*;
 use crate::game_version_two::*;
 
 use bevy::color::palettes::css::*;
+use bevy::color::palettes::tailwind::*;
 use bevy::prelude::*;
 use bevy_ecs::relationship::RelatedSpawnerCommands;
 use bevy_vector_shapes::prelude::*;
@@ -48,7 +49,6 @@ impl Plugin for SpacecraftPlugin {
             SimTick,
             (
                 handle_sc_events,
-                handle_change_recipe,
                 check_adjacent_docking_ports,
                 on_fuse_grids_event,
                 update_thruster_emitters,
@@ -192,46 +192,42 @@ fn draw_inventories(
 
     let width = 0.1;
     for (tf, part, inventory) in parts {
-        let n = inventory.slot_count();
-        let dims = part.prototype().dims_meters();
-        let mut small_dims = dims;
-        small_dims.y /= n as f32;
-
         for (i, slot) in inventory.slots().enumerate() {
-            let color = if let Some(item) = slot.item() {
-                item.color()
-            } else {
-                BLACK
-            };
-
-            let offset =
-                dims.y / n as f32 * (i as f32) - (dims.y / 2.0) + (dims.y / n as f32 / 2.0);
+            let (min, max) = slot.bounds();
+            let c = (max + min).to_meters() / 2.0;
+            let d = (max - min).to_meters();
+            let half_width = part.proto.dims_meters() / 2.0;
 
             painter.reset();
 
-            painter.set_translation(
-                tf.translation().with_z(Z_DEBUG_INVENTORY_LAYER) + tf.up() * offset,
-            );
+            painter.set_translation(tf.translation().with_z(Z_DEBUG_INVENTORY_LAYER));
             painter.set_rotation(tf.rotation());
+            painter.translate((c - half_width).extend(0.0));
 
-            painter.set_color(BLACK);
-            painter.rect(small_dims + Vec2::splat(width * 2.0));
+            // backdrop
+            painter.set_color(GRAY_900);
+            painter.rect(d + Vec2::splat(0.3));
+            painter.translate(Vec3::Z * 0.01);
 
-            painter.translate(Vec3::Z);
-            painter.set_color(color);
-            painter.hollow = false;
-            let static_dims = small_dims - Vec2::splat(width * 0.2);
-            let mut dyn_dims = static_dims;
-            dyn_dims.x *= slot.fill_percentage();
-            painter.translate(Vec3::X * (dyn_dims.x / 2.0 - (static_dims.x) / 2.0));
-            painter.rect(dyn_dims);
-            painter.translate(-Vec3::X * (dyn_dims.x / 2.0 - static_dims.x / 2.0));
+            // slot background
+            painter.set_color(GRAY_800);
+            painter.rect(d + Vec2::splat(0.05));
+            painter.translate(Vec3::Z * 0.01);
 
-            painter.translate(Vec3::Z);
+            let slot_size = d - Vec2::splat(0.08);
+
+            if let Some(item) = slot.item() {
+                let color = item.color();
+                painter.set_color(color);
+                let p = slot.fill_percentage();
+                painter.rect(slot_size * p);
+            };
+
             painter.hollow = true;
-            painter.thickness = 2.0;
-            painter.thickness_type = ThicknessType::Pixels;
-            painter.rect(small_dims - Vec2::splat(width * 0.2));
+            painter.thickness = 0.01;
+            painter.thickness_type = ThicknessType::World;
+            painter.set_color(GRAY_500);
+            painter.rect(slot_size);
         }
     }
 }
@@ -380,27 +376,6 @@ fn update_grids(
 
         grid.moment_of_inertia = grid.total_mass().to_kg_f64() * 10.0;
         grid.center_of_mass = (com / grid.total_mass().to_kg_f64()).as_vec2();
-    }
-}
-
-fn handle_change_recipe(
-    mut events: EventReader<SetRecipe>,
-    mut machines: Query<(&mut Machine, &mut Inventory)>,
-) {
-    for event in events.read() {
-        info!(?event);
-        let (mut machine, mut inv) = match machines.get_mut(event.target) {
-            Ok(m) => m,
-            Err(e) => {
-                error!(?e);
-                return;
-            }
-        };
-
-        machine.set_recipe(event.recipe.clone());
-
-        let recipe = event.recipe.to_recipe();
-        *inv = Inventory::from_recipe(&recipe);
     }
 }
 
@@ -565,15 +540,19 @@ fn add_part_to_grid<'a>(
 
     if let Some(data) = part.inventory_data() {
         let mut inv = Inventory::zero_slots();
-        for _ in 0..data.slots {
-            // let item = Item::random_with_filter(&data.filter).expect("Expected an item");
-            let slot = InvSlot::new(Volume::liters_f32(data.volume_liters), data.filter.clone());
+        for data in &data.slots {
+            let bounds = (data.min, data.max);
+            let mut slot = InvSlot::new(
+                Volume::liters_f32(data.volume_liters),
+                data.filter.clone(),
+                bounds,
+            );
+
+            slot.set_name(data.name.clone());
+
             inv.add_slot(slot);
         }
         cmd.insert(inv);
-        if data.is_fuel {
-            cmd.insert(FuelInventory);
-        }
     }
 
     // MACHINE COMPONENT ==================================================
@@ -582,21 +561,11 @@ fn add_part_to_grid<'a>(
         // TODO use the data
         let machine = Machine::new(RecipeListing::DoNothing);
         cmd.insert(machine);
-
-        let inv = Inventory::zero_slots();
-        cmd.insert(inv);
     }
 
     // THRUSTER COMPONENT ==================================================
 
     if let Some(model) = part.thruster_data() {
-        let mut inv = Inventory::zero_slots();
-
-        let mut slot =
-            InvSlot::new(Volume::liters(5), ItemFilter::Item(Item::H2)).with_item(Item::H2);
-        slot.fill();
-        inv.add_slot(slot);
-
         let thruster = if model.is_rcs {
             Thruster::new(3000.0, true)
         } else {
@@ -608,7 +577,7 @@ fn add_part_to_grid<'a>(
             size: Vec3::splat(0.05),
         };
 
-        cmd.insert((thruster, inv, particles, FuelInventory));
+        cmd.insert((thruster, particles, FuelInventory));
     }
 
     // COMPUTER COMPONENT ==================================================

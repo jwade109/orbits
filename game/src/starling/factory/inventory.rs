@@ -1,5 +1,6 @@
 use self::super::{ItemFilter, MachineStatus, Recipe};
 use crate::starling::math::randint;
+use crate::starling::parts::PartCoord;
 use crate::starling::units::{Mass, Volume};
 use bevy::prelude::*;
 use enum_iterator::Sequence;
@@ -310,27 +311,14 @@ impl Inventory {
         Self(slots)
     }
 
-    pub fn single(item: Item, capacity: Volume) -> Self {
-        let slot = InvSlot::new(capacity, ItemFilter::Any).with_item(item);
+    pub fn single(item: Item, capacity: Volume, bounds: (IVec2, IVec2)) -> Self {
+        let slot = InvSlot::new(capacity, ItemFilter::Any, bounds).with_item(item);
         Self(vec![slot])
     }
 
     pub fn from_recipe(recipe: &Recipe) -> Self {
-        let mut s = Self::zero_slots();
-
-        for (item, count) in recipe.inputs() {
-            let capacity = item.volume_per_unit() * count * 100;
-            let slot = InvSlot::new(capacity, ItemFilter::Item(item));
-            s.0.push(slot);
-        }
-
-        for (item, count) in recipe.outputs() {
-            let capacity = item.volume_per_unit() * count * 100;
-            let slot = InvSlot::new(capacity, ItemFilter::Item(item));
-            s.0.push(slot);
-        }
-
-        s
+        println!("TODO");
+        Self::zero_slots()
     }
 
     pub fn clear(&mut self) {
@@ -460,18 +448,34 @@ impl Inventory {
 
 #[derive(Component, Debug, Clone)]
 pub struct InvSlot {
+    name: Option<String>,
     capacity: Volume,
     filter: ItemFilter,
     contents: Option<(Item, u64)>,
+    bounds: (IVec2, IVec2),
 }
 
 impl InvSlot {
-    pub fn new(capacity: Volume, filter: ItemFilter) -> Self {
+    pub fn new(capacity: Volume, filter: ItemFilter, bounds: (IVec2, IVec2)) -> Self {
         Self {
+            name: None,
             capacity,
             filter,
             contents: None,
+            bounds,
         }
+    }
+
+    pub fn set_name(&mut self, name: Option<String>) {
+        self.name = name;
+    }
+
+    pub fn name(&self) -> Option<&String> {
+        self.name.as_ref()
+    }
+
+    pub fn bounds(&self) -> (PartCoord, PartCoord) {
+        (PartCoord::new(self.bounds.0), PartCoord::new(self.bounds.1))
     }
 
     pub fn with_item(mut self, item: Item) -> Self {
@@ -692,9 +696,11 @@ pub fn atomic_transfer(
 mod tests {
     use super::*;
 
+    const BOUNDS: (IVec2, IVec2) = (IVec2::ZERO, IVec2::ZERO);
+
     #[test]
     fn store_single() {
-        let mut inv = Inventory::single(Item::Iron, Volume::liters(4000));
+        let mut inv = Inventory::single(Item::Iron, Volume::liters(4000), BOUNDS);
 
         assert!(inv.can_store(Item::Iron, 4000));
         assert!(inv.can_store(Item::Iron, 400));
@@ -720,10 +726,10 @@ mod tests {
     #[test]
     fn multiple_slots() {
         let mut inv = Inventory::from_slots(vec![
-            InvSlot::new(Volume::liters(1000), ItemFilter::Any).with_item(Item::Bread),
-            InvSlot::new(Volume::liters(2000), ItemFilter::Any).with_item(Item::Magnesium),
-            InvSlot::new(Volume::liters(1500), ItemFilter::Any).with_item(Item::Magnesium),
-            InvSlot::new(Volume::liters(300), ItemFilter::Any).with_item(Item::Ice),
+            InvSlot::new(Volume::liters(1000), ItemFilter::Any, BOUNDS).with_item(Item::Bread),
+            InvSlot::new(Volume::liters(2000), ItemFilter::Any, BOUNDS).with_item(Item::Magnesium),
+            InvSlot::new(Volume::liters(1500), ItemFilter::Any, BOUNDS).with_item(Item::Magnesium),
+            InvSlot::new(Volume::liters(300), ItemFilter::Any, BOUNDS).with_item(Item::Ice),
         ]);
 
         assert_eq!(inv.capacity(), Volume::liters(4800));
@@ -760,9 +766,10 @@ mod tests {
     #[test]
     fn big_items() {
         let mut inv = Inventory::from_slots(vec![
-            InvSlot::new(Volume::liters(100), ItemFilter::Any).with_item(Item::Rotor),
-            InvSlot::new(Volume::liters(100), ItemFilter::Any).with_item(Item::TitaniumLattice),
-            InvSlot::new(Volume::liters(100), ItemFilter::Any).with_item(Item::H2),
+            InvSlot::new(Volume::liters(100), ItemFilter::Any, BOUNDS).with_item(Item::Rotor),
+            InvSlot::new(Volume::liters(100), ItemFilter::Any, BOUNDS)
+                .with_item(Item::TitaniumLattice),
+            InvSlot::new(Volume::liters(100), ItemFilter::Any, BOUNDS).with_item(Item::H2),
         ]);
 
         while inv.store(Item::Rotor, 1) {}

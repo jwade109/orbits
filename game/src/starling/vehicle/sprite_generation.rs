@@ -11,8 +11,7 @@ pub fn read_image(path: &Path) -> Option<RgbaImage> {
 pub fn diagram_color(part: &PartPrototype) -> Srgba {
     let cl = part.classification();
     match cl {
-        PartClassification::Cargo => GREEN_600,
-        PartClassification::FluidTank => BLUE_500,
+        PartClassification::Cargo => BLUE_500,
         PartClassification::Machine => RED_600,
         PartClassification::Thruster => ORANGE_300,
         PartClassification::Auxiliary => TEAL_700,

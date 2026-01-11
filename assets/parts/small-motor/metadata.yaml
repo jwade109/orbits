@@ -14,3 +14,9 @@ thruster_data:
   primary_color: [0.5, 0.5, 1.0, 0.7]
   secondary_color: [1.0, 1.0, 1.0, 0.5]
   particle_scale: 0.8
+inventory_data:
+  slots:
+    - filter: !Item H2
+      volume_liters: 150
+      min: [0, 0]
+      max: [3, 2]

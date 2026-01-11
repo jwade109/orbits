@@ -14,7 +14,6 @@ pub const GRID_CELLS_PER_METER: f32 = 4.0;
 #[derive(Deserialize, Serialize, Debug, Clone, Copy)]
 pub enum PartClassification {
     Cargo,
-    FluidTank,
     Machine,
     Thruster,
     Auxiliary,
@@ -51,11 +50,8 @@ impl PartPrototype {
             PartClassification::Thruster
         } else if self.machine_data.is_some() {
             PartClassification::Machine
-        } else if let Some(inv) = &self.inventory_data {
-            match inv.filter {
-                ItemFilter::Liquid => PartClassification::FluidTank,
-                _ => PartClassification::Cargo,
-            }
+        } else if let Some(_) = &self.inventory_data {
+            PartClassification::Cargo
         } else {
             match self.layer() {
                 PartLayer::Internal => PartClassification::Auxiliary,

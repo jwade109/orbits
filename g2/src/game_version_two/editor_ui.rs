@@ -187,56 +187,34 @@ fn add_inv_widget(ui: &mut egui::Ui, inv: &mut Inventory) {
     for (i, slot) in inv.slots_mut().enumerate() {
         ui.separator();
 
-        let title = format!("Modify Slot {} Contents", i);
-        ui.collapsing(title, |ui| {
-            ui.horizontal(|ui| {
-                if ui.button("Fill").clicked() {
-                    slot.fill();
-                }
-                if ui.button("Empty").clicked() {
-                    slot.empty();
-                }
-                if ui.button("Add").clicked() {
-                    if let Some(item) = slot.item() {
-                        slot.store(item, 1);
-                    }
-                }
-                // let mut selected = item;
-                // let title = format!("Slot {}", i);
-                // item_dropdown(ui, &mut selected, &title, filter);
+        if let Some(name) = slot.name() {
+            ui.label(name.to_uppercase());
+        }
 
-                // if selected != item {
-                //     info!("Switched item: {:?}", selected);
-                // }
-            });
+        let item = slot.item();
+        let count = slot.contents().map(|c| c.1).unwrap_or(0);
+        let c = item.map(|c| c.color()).unwrap_or(GRAY).to_u8_array();
+        let color = egui::Color32::from_rgb(c[0], c[1], c[2]);
+
+        let filter = slot.filter();
+
+        ui.horizontal(|ui| {
+            let size = bevy_inspector_egui::egui::Vec2::new(10.0, 10.0);
+            egui::color_picker::show_color(ui, color, size);
+            ui.label(format!(
+                "{:?} {} {}/{} ({}) {}",
+                item,
+                count,
+                slot.occupied_volume(),
+                slot.capacity(),
+                slot.mass(),
+                if slot.is_full() { "*" } else { "" },
+            ));
         });
 
-        if let Some((item, count)) = slot.contents() {
-            let c = item.color().to_u8_array();
-            let color = egui::Color32::from_rgb(c[0], c[1], c[2]);
+        ui.label(format!("Filter: {:?}", filter));
 
-            let filter = slot.filter();
-
-            ui.horizontal(|ui| {
-                let size = bevy_inspector_egui::egui::Vec2::new(10.0, 10.0);
-                egui::color_picker::show_color(ui, color, size);
-                ui.label(format!(
-                    "{:?} {} {}/{} ({}) {}",
-                    item,
-                    count,
-                    slot.occupied_volume(),
-                    slot.capacity(),
-                    slot.mass(),
-                    if slot.is_full() { "*" } else { "" },
-                ));
-            });
-
-            ui.label(format!("Filter: {:?}", filter));
-
-            ui.add(egui::ProgressBar::new(slot.fill_percentage()).fill(color));
-        } else {
-            ui.label("(Empty)");
-        }
+        ui.add(egui::ProgressBar::new(slot.fill_percentage()).fill(color));
     }
 }
 

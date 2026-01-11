@@ -3,7 +3,20 @@ layer: Internal
 name: "cargo"
 dims: [6, 6]
 inventory_data:
-  slots: 4
-  filter: Solid
-  volume_liters: 3000
-  is_fuel: false
+  slots:
+    - filter: Solid
+      volume_liters: 1200
+      min: [0, 0]
+      max: [3, 3]
+    - filter: Solid
+      volume_liters: 1200
+      min: [3, 0]
+      max: [6, 3]
+    - filter: Solid
+      volume_liters: 1200
+      min: [0, 3]
+      max: [3, 6]
+    - filter: Solid
+      volume_liters: 1200
+      min: [3, 3]
+      max: [6, 6]
