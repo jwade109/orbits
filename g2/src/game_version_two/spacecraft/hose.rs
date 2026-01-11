@@ -125,11 +125,11 @@ pub fn spawn_hose_on_keypress_system(
         return Some(());
     }
 
-    let a = selected.selected?;
+    let a = selected.primary?;
     let b = selected.secondary?;
 
-    let tf_a = parts.get(a).ok()?;
-    let tf_b = parts.get(b).ok()?;
+    let tf_a = parts.get(a.part).ok()?;
+    let tf_b = parts.get(b.part).ok()?;
 
     let n_segments = 5;
 
@@ -153,8 +153,8 @@ pub fn spawn_hose_on_keypress_system(
     }
 
     let hose = Hose {
-        src: Some(a),
-        dst: Some(b),
+        src: Some(a.part),
+        dst: Some(b.part),
         src_pos: pa,
         dst_pos: pb,
         desired_length,

@@ -20,8 +20,7 @@ impl Plugin for SpacecraftPlugin {
             (
                 draw_grids,
                 draw_inventories,
-                draw_selected_part,
-                draw_selected_grid_guides,
+                draw_selected_part_system,
                 draw_spacecraft_spatial_lookups,
                 draw_docking_info,
                 // draw_transforms,
@@ -37,7 +36,7 @@ impl Plugin for SpacecraftPlugin {
                 spawn_hose_on_keypress_system.pipe(sysparam_api::swallow_optional),
                 draw_hoses_system,
                 send_attach_events.pipe(swallow_optional),
-                update_cursor_spacecraft,
+                update_selected_spacecraft_system,
                 sysparam_api::draw_blueprint_system.pipe(sysparam_api::swallow_optional),
             )
                 .in_set(Sets::Input),
@@ -74,13 +73,6 @@ impl Plugin for SpacecraftPlugin {
         app.insert_resource(TickSchedule::PerFrame(10));
         app.insert_resource(Ticks(0));
     }
-}
-
-#[derive(Resource, Debug, Default)]
-pub struct SelectedSpacecraft {
-    pub selected: Option<Entity>,
-    pub hovered: Option<Entity>,
-    pub secondary: Option<Entity>,
 }
 
 #[derive(Event, Debug)]
@@ -228,83 +220,6 @@ fn draw_inventories(
             painter.thickness_type = ThicknessType::World;
             painter.set_color(GRAY_500);
             painter.rect(slot_size);
-        }
-    }
-}
-
-fn draw_selected_grid_guides(
-    mut painter: ShapePainter,
-    grids: Query<(&GlobalTransform, &SpacecraftGrid)>,
-    parts: Query<&ChildOf, With<PartInstance>>,
-    cursor: Res<SelectedSpacecraft>,
-) {
-    let id = match cursor.selected {
-        Some(c) => c,
-        None => return,
-    };
-
-    let parent = match parts.get(id) {
-        Ok(parent) => parent,
-        // might have been deleted. it's fine
-        _ => return,
-    };
-
-    let (tf, grid) = match grids.get(parent.0) {
-        Ok(e) => e,
-        // this isn't fine
-        Err(e) => {
-            error!(?e);
-            return;
-        }
-    };
-
-    const Z_SPACECRAFT_GRID_BOUNDARIES: f32 = -50.0;
-
-    painter.reset();
-    painter.set_color(RED);
-    painter.hollow = true;
-    painter.thickness = 4.0;
-    painter.thickness_type = ThicknessType::Pixels;
-    painter.set_translation(tf.translation().with_z(Z_SPACECRAFT_GRID_BOUNDARIES));
-    painter.set_rotation(tf.rotation());
-    painter.rect(grid.dims());
-}
-
-fn draw_selected_part(
-    mut painter: ShapePainter,
-    parts: Query<(&GlobalTransform, &PartInstance)>,
-    sel: Res<SelectedSpacecraft>,
-    time: Res<Time>,
-) {
-    let angle = time.elapsed_secs_f64() % (2.0 * std::f64::consts::PI);
-    let angle = angle as f32;
-
-    const Z_SELECTED_PART: f32 = 1.0;
-
-    for (color, e, ring) in [
-        (RED.with_alpha(0.8), sel.hovered, false),
-        (ORANGE, sel.selected, false),
-        (TEAL, sel.secondary, false),
-    ] {
-        let e = match e {
-            Some(e) => e,
-            None => continue,
-        };
-
-        if let Ok((tf, part)) = parts.get(e) {
-            let dims = part.prototype().dims_meters();
-            let r = dims.length() / 2.0 + 0.5;
-            painter.reset();
-            painter.set_translation(tf.translation().with_z(Z_SELECTED_PART));
-            painter.set_rotation(tf.rotation());
-            painter.set_color(color);
-            painter.thickness = 0.1;
-            painter.hollow = true;
-            painter.thickness_type = ThicknessType::World;
-            painter.rect(dims + Vec2::splat(0.2));
-            if ring {
-                painter.arc(r, angle, angle + 6.1);
-            }
         }
     }
 }
@@ -717,72 +632,6 @@ fn draw_spacecraft_spatial_lookups(
             painter.set_translation(tf.translation().with_z(Z_SPATIAL_LUT_DEBUG));
             painter.set_color(RED.with_alpha(0.3));
             painter.circle(2.0);
-        }
-    }
-}
-
-fn update_cursor_spacecraft(
-    mut cursor: ResMut<SelectedSpacecraft>,
-    map: Res<GridSpatialLookup>,
-    pos: Res<CursorWorldPosition>,
-    grids: Query<(&GlobalTransform, &Children), With<SpacecraftGrid>>,
-    parts: Query<(Entity, &PartInstance)>,
-    buttons: Res<ButtonInput<MouseButton>>,
-) {
-    cursor.hovered = None;
-
-    let pos = some_or_return!(pos.get());
-    let grid_ids = some_or_return!(map.lup(pos));
-
-    'outer: for grid_id in grid_ids {
-        let (transform, children) = ok_or_return!(grids.get(*grid_id));
-
-        if children.is_empty() {
-            warn!("Empty grid!");
-            continue;
-        }
-
-        let offset = pos - transform.translation().xy();
-        let (yaw, _pitch, _roll) = transform.rotation().to_euler(EulerRot::ZYX);
-        let rot = Vec2::from_angle(-yaw);
-        let offset = rot.rotate(offset);
-
-        for id in children {
-            let (e, part) = ok_or_continue!(parts.get(*id));
-            if part.prototype().layer() != PartLayer::Internal {
-                continue;
-            }
-            let origin = part.origin_meters();
-            let dims = part.dims_meters();
-            let part_offset = offset - origin;
-            if part_offset.x >= 0.0
-                && part_offset.y >= 0.0
-                && part_offset.x <= dims.x
-                && part_offset.y <= dims.y
-            {
-                cursor.hovered = Some(e);
-                break 'outer;
-            }
-        }
-    }
-
-    if buttons.just_pressed(MouseButton::Left) {
-        if cursor.hovered.is_some() {
-            if cursor.hovered == cursor.selected {
-                cursor.selected = None;
-            } else {
-                cursor.selected = cursor.hovered;
-            }
-        }
-    }
-
-    if buttons.just_pressed(MouseButton::Right) {
-        if cursor.hovered.is_some() {
-            if cursor.hovered == cursor.secondary {
-                cursor.secondary = None;
-            } else {
-                cursor.secondary = cursor.hovered;
-            }
         }
     }
 }

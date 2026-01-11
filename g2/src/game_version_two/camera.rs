@@ -4,33 +4,46 @@ pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (control_camera, track_selected_spacecraft).chain())
-            // update_mouse_world_pos
-            .add_systems(PostUpdate, update_mouse_world_pos.in_set(Sets::PostPhysics))
-            // draw the mouse cursor
-            .add_systems(PostUpdate, draw_cursor_pos.in_set(Sets::Draw))
-            .insert_resource(CursorWorldPosition::default());
+        app.add_systems(
+            Update,
+            (
+                follow_selected_on_key_f,
+                control_camera,
+                track_selected_spacecraft,
+            )
+                .chain(),
+        )
+        // update_mouse_world_pos
+        .add_systems(PostUpdate, update_mouse_world_pos.in_set(Sets::PostPhysics))
+        // draw the mouse cursor
+        .add_systems(PostUpdate, draw_cursor_pos.in_set(Sets::Draw))
+        .insert_resource(CursorWorldPosition::default());
     }
 }
 
 fn control_camera(
     mut camera: Single<&mut Transform, With<Camera>>,
     key: Res<ButtonInput<KeyCode>>,
+    mut settings: ResMut<Settings>,
     mut scroll: EventReader<MouseWheel>,
 ) {
     let speed = 9.0 * camera.scale.x;
 
     if key.pressed(KeyCode::KeyW) {
         camera.translation.y += speed;
+        settings.follow_selected = false;
     }
     if key.pressed(KeyCode::KeyS) {
         camera.translation.y -= speed;
+        settings.follow_selected = false;
     }
     if key.pressed(KeyCode::KeyA) {
         camera.translation.x -= speed;
+        settings.follow_selected = false;
     }
     if key.pressed(KeyCode::KeyD) {
         camera.translation.x += speed;
+        settings.follow_selected = false;
     }
     if key.pressed(KeyCode::Equal) {
         camera.scale /= 1.02;
@@ -52,6 +65,12 @@ fn control_camera(
     }
 }
 
+fn follow_selected_on_key_f(key: Res<ButtonInput<KeyCode>>, mut settings: ResMut<Settings>) {
+    if key.just_pressed(KeyCode::KeyF) {
+        settings.follow_selected = !settings.follow_selected;
+    }
+}
+
 fn track_selected_spacecraft(
     mut transform_params: ParamSet<(TransformHelper, Query<&mut Transform, With<Camera>>)>,
     cursor: Res<SelectedSpacecraft>,
@@ -63,8 +82,8 @@ fn track_selected_spacecraft(
         return;
     }
 
-    let id = some_or_return!(cursor.selected);
-    let part = ok_or_return!(parts.get(id));
+    let id = some_or_return!(cursor.primary);
+    let part = ok_or_return!(parts.get(id.part));
     let Ok(global) = transform_params.p0().compute_global_transform(part.0) else {
         return;
     };

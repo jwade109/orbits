@@ -46,13 +46,13 @@ fn debug_ui(
     selected: Res<SelectedSpacecraft>,
     pipes: Query<(Entity, &Pipe)>,
 ) -> Result {
-    let primary = match selected.selected {
-        Some(id) => id,
+    let primary = match selected.primary {
+        Some(id) => id.part,
         None => return Ok(()),
     };
 
     let secondary = match selected.secondary {
-        Some(id) => id,
+        Some(id) => id.part,
         None => return Ok(()),
     };
 

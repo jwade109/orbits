@@ -48,8 +48,8 @@ pub fn send_attach_events(
         return None;
     }
 
-    let host = selected.selected?;
-    let target = selected.secondary?;
+    let host = selected.primary?.part;
+    let target = selected.secondary?.part;
 
     if let Err(e) = craft.merge_grids(host, target) {
         error!("Failed to merge: {:?}", e);

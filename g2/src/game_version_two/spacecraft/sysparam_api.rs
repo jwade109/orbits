@@ -108,13 +108,13 @@ pub fn draw_blueprint_system(
     }
 
     let v_a = spacecraft
-        .get_vehicle_from_part_id(selected.selected?)
+        .get_vehicle_from_part_id(selected.primary?.part)
         .ok()?;
 
     let mut bp = spacecraft.blueprint(v_a).ok()?;
 
     if let Some(sec) = selected.secondary {
-        let v_b = spacecraft.get_vehicle_from_part_id(sec).ok()?;
+        let v_b = spacecraft.get_vehicle_from_part_id(sec.part).ok()?;
         let mut bp2: Blueprint = spacecraft.blueprint(v_b).ok()?;
         bp2.rotate_ccw();
         bp2.shift(bp.dims().as_ivec2().into());

@@ -400,17 +400,17 @@ pub fn egui_ui(
 ) -> Result {
     let ctx = contexts.ctx_mut()?;
 
-    let e = cursor.hovered.or(cursor.selected);
+    let e = cursor.hovered.or(cursor.primary);
 
     if let Some(e) = e {
         egui::panel::SidePanel::new(Side::Right, "Part Info").show(ctx, |ui| {
             apply_egui_style(ui);
             ui.set_width(350.0);
 
-            if let Some(e) = cursor.selected {
+            if let Some(e) = cursor.primary {
                 part_ui(
                     ui,
-                    e,
+                    e.part,
                     &mut commands,
                     parts,
                     &mut inventories,
@@ -420,23 +420,6 @@ pub fn egui_ui(
                     &mut docking_ports,
                     &mut excavators,
                 );
-            }
-
-            if let Some(e) = cursor.hovered {
-                if cursor.hovered != cursor.selected {
-                    part_ui(
-                        ui,
-                        e,
-                        &mut commands,
-                        parts,
-                        &mut inventories,
-                        &mut thrusters,
-                        &mut computers,
-                        &mut machines,
-                        &mut docking_ports,
-                        &mut excavators,
-                    );
-                }
             }
         });
     }
@@ -459,10 +442,6 @@ pub fn egui_ui(
         ui.checkbox(&mut settings.show_terrain_info, "show_terrain_info");
         ui.separator();
 
-        ui.collapsing("Construction", |ui| {
-            con_state_widget(cursor.selected, ui, con);
-        });
-
         ui.collapsing("Text Notifications", |ui| {
             ui.text_edit_multiline(&mut state.message_text);
             ui.color_edit_button_rgb(&mut state.message_color);
@@ -481,11 +460,10 @@ pub fn egui_ui(
             }
         });
 
-        if let Some((_, parent)) = e.map(|e| parts.get(e).ok()).flatten() {
+        if let Some((_, parent)) = e.map(|e| parts.get(e.part).ok()).flatten() {
             ui.separator();
-            ui.heading("Selected Grid");
-            ui.label(format!("Spacecraft: {:#?}", parent.0));
-            ui.label(format!("Part: {:?}", e));
+            ui.heading("Selected Parts");
+            ui.label(format!("{:#?}", cursor));
             ui.separator();
             if let Ok(grid) = grids.get(parent.0) {
                 ui.label(format!("{:#?}", grid));
