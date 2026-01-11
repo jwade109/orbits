@@ -1,6 +1,7 @@
 // #![windows_subsystem = "windows"]
 
 use bevy::prelude::*;
+use bevy_egui::EguiPlugin;
 use bevy_vector_shapes::prelude::*;
 
 fn main() {
@@ -24,6 +25,6 @@ fn main() {
         )
         .add_plugins(Shape2dPlugin::default())
         .add_plugins(game::game::GamePlugin {})
-        .add_plugins(game::ui::UiPlugin {})
+        .add_plugins(EguiPlugin::default())
         .run();
 }

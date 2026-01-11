@@ -1,0 +1,841 @@
+use crate::game_version_two::sysparam_api::swallow_optional;
+use crate::game_version_two::tick_schedule::*;
+use crate::game_version_two::*;
+
+use bevy::color::palettes::css::*;
+use bevy::prelude::*;
+use bevy_ecs::relationship::RelatedSpawnerCommands;
+use bevy_vector_shapes::prelude::*;
+use game::args::ProgramContext;
+
+use crate::game_version_two::terrain::types::Excavator;
+
+pub struct SpacecraftPlugin;
+
+impl Plugin for SpacecraftPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(
+            PostUpdate,
+            (
+                draw_grids,
+                draw_inventories,
+                draw_selected_part,
+                draw_selected_grid_guides,
+                draw_spacecraft_spatial_lookups,
+                draw_docking_info,
+                // draw_transforms,
+            )
+                .in_set(Sets::Draw),
+        );
+
+        app.add_systems(EguiPrimaryContextPass, tick_control_egui);
+
+        app.add_systems(
+            Update,
+            (
+                spawn_hose_on_keypress_system.pipe(sysparam_api::swallow_optional),
+                draw_hoses_system,
+                send_attach_events.pipe(swallow_optional),
+                update_cursor_spacecraft,
+                sysparam_api::draw_blueprint_system.pipe(sysparam_api::swallow_optional),
+            )
+                .in_set(Sets::Input),
+        );
+
+        app.add_systems(FixedUpdate, world_tick_driver_system);
+
+        app.add_systems(
+            SimTick,
+            (
+                handle_sc_events,
+                handle_change_recipe,
+                check_adjacent_docking_ports,
+                on_fuse_grids_event,
+                update_thruster_emitters,
+                build_parts,
+                update_machines,
+                accelerate_spacecraft,
+                despawn_empty_grids,
+                update_grids,
+                update_spacecraft_grid_map,
+                update_hose_physics_system,
+            )
+                .chain()
+                .in_set(Sets::Physics),
+        );
+
+        app.add_event::<SpacecraftEvent>();
+        app.add_event::<SetRecipe>();
+        app.add_event::<AttachPorts>();
+        app.add_event::<FuseGrids>();
+
+        app.insert_resource(SelectedSpacecraft::default());
+        app.insert_resource(GridSpatialLookup::default());
+        app.insert_resource(TickSchedule::PerFrame(10));
+        app.insert_resource(Ticks(0));
+    }
+}
+
+#[derive(Resource, Debug, Default)]
+pub struct SelectedSpacecraft {
+    pub selected: Option<Entity>,
+    pub hovered: Option<Entity>,
+    pub secondary: Option<Entity>,
+}
+
+#[derive(Event, Debug)]
+pub enum SpacecraftEvent {
+    SpawnVehicle { name: String, pos: Vec2, angle: f32 },
+    SpawnPart { name: String, pos: Vec2, angle: f32 },
+    Destroy { target: Entity },
+}
+
+impl SpacecraftEvent {
+    pub fn spawn(name: impl Into<String>, pos: Vec2, angle: f32) -> Self {
+        Self::SpawnVehicle {
+            name: name.into(),
+            pos,
+            angle,
+        }
+    }
+}
+
+#[derive(Event, Debug)]
+pub struct SetRecipe {
+    pub target: Entity,
+    pub recipe: RecipeListing,
+}
+
+#[derive(Component, Debug, Default)]
+pub struct SpacecraftGrid {
+    parts: usize,
+    inventory_mass: Mass,
+    parts_mass: Mass,
+    fuel_mass: Mass,
+    moment_of_inertia: f64,
+    bounds: (Vec2, Vec2),
+    pub center_of_mass: Vec2,
+    pub velocity: DVec2,
+    pub angular_velocity: f64,
+    pub body_frame_acceleration: DVec2,
+    pub angular_acceleration: f32,
+}
+
+impl SpacecraftGrid {
+    pub fn dims(&self) -> Vec2 {
+        self.bounds.1 - self.bounds.0
+    }
+
+    pub fn total_mass(&self) -> Mass {
+        self.parts_mass + self.inventory_mass + self.fuel_mass
+    }
+
+    pub fn apply_body_frame_thrust(&mut self, thrust: Vec2, torque: f32) {
+        self.body_frame_acceleration += thrust.as_dvec2() / self.total_mass().to_kg_f64();
+        // TODO change to moment of inertia
+        self.angular_acceleration += (torque as f64 / self.moment_of_inertia) as f32;
+    }
+}
+
+#[derive(Component, Debug, Deref, DerefMut)]
+pub struct PartInstance(pub game::starling::prelude::InstantiatedPart);
+
+#[derive(Component, Debug)]
+struct PartSprite;
+
+fn rect_area_moment_of_inertia(dims: Vec2) -> f32 {
+    dims.x * dims.y / 12.0 * (dims.x.powi(2) + dims.y.powi(2))
+}
+
+fn rect_area_moment_of_inertia_with_offset(distance: f32, dims: Vec2) {
+    todo!()
+    // let r = dims
+}
+
+fn draw_grids(
+    mut painter: ShapePainter,
+    crafts: Query<(&GlobalTransform, &SpacecraftGrid)>,
+    settings: Res<Settings>,
+) {
+    if !settings.draw_spacecraft_grids {
+        return;
+    }
+
+    const Z_SPACECRAFT_GRID_MARKERS: f32 = 100.0;
+
+    for (tf, grid) in &crafts {
+        painter.reset();
+        painter.set_translation(tf.translation().with_z(Z_SPACECRAFT_GRID_MARKERS));
+        painter.set_rotation(tf.rotation());
+        painter.set_color(TEAL);
+        painter.thickness = 6.0;
+        painter.hollow = true;
+        painter.thickness_type = ThicknessType::Pixels;
+        painter.rect(Vec2::ONE * 0.4);
+
+        painter.translate(grid.center_of_mass.extend(Z_SPACECRAFT_GRID_MARKERS));
+        painter.set_color(GREEN);
+        painter.rect(Vec2::ONE * 0.4);
+    }
+}
+
+fn draw_inventories(
+    mut painter: ShapePainter,
+    parts: Query<(&GlobalTransform, &PartInstance, &Inventory)>,
+    settings: Res<Settings>,
+) {
+    if !settings.draw_inventories {
+        return;
+    }
+
+    const Z_DEBUG_INVENTORY_LAYER: f32 = 0.05;
+
+    let width = 0.1;
+    for (tf, part, inventory) in parts {
+        let n = inventory.slot_count();
+        let dims = part.prototype().dims_meters();
+        let mut small_dims = dims;
+        small_dims.y /= n as f32;
+
+        for (i, slot) in inventory.slots().enumerate() {
+            let color = if let Some(item) = slot.item() {
+                item.color()
+            } else {
+                BLACK
+            };
+
+            let offset =
+                dims.y / n as f32 * (i as f32) - (dims.y / 2.0) + (dims.y / n as f32 / 2.0);
+
+            painter.reset();
+
+            painter.set_translation(
+                tf.translation().with_z(Z_DEBUG_INVENTORY_LAYER) + tf.up() * offset,
+            );
+            painter.set_rotation(tf.rotation());
+
+            painter.set_color(BLACK);
+            painter.rect(small_dims + Vec2::splat(width * 2.0));
+
+            painter.translate(Vec3::Z);
+            painter.set_color(color);
+            painter.hollow = false;
+            let static_dims = small_dims - Vec2::splat(width * 0.2);
+            let mut dyn_dims = static_dims;
+            dyn_dims.x *= slot.fill_percentage();
+            painter.translate(Vec3::X * (dyn_dims.x / 2.0 - (static_dims.x) / 2.0));
+            painter.rect(dyn_dims);
+            painter.translate(-Vec3::X * (dyn_dims.x / 2.0 - static_dims.x / 2.0));
+
+            painter.translate(Vec3::Z);
+            painter.hollow = true;
+            painter.thickness = 2.0;
+            painter.thickness_type = ThicknessType::Pixels;
+            painter.rect(small_dims - Vec2::splat(width * 0.2));
+        }
+    }
+}
+
+fn draw_selected_grid_guides(
+    mut painter: ShapePainter,
+    grids: Query<(&GlobalTransform, &SpacecraftGrid)>,
+    parts: Query<&ChildOf, With<PartInstance>>,
+    cursor: Res<SelectedSpacecraft>,
+) {
+    let id = match cursor.selected {
+        Some(c) => c,
+        None => return,
+    };
+
+    let parent = match parts.get(id) {
+        Ok(parent) => parent,
+        // might have been deleted. it's fine
+        _ => return,
+    };
+
+    let (tf, grid) = match grids.get(parent.0) {
+        Ok(e) => e,
+        // this isn't fine
+        Err(e) => {
+            error!(?e);
+            return;
+        }
+    };
+
+    const Z_SPACECRAFT_GRID_BOUNDARIES: f32 = -50.0;
+
+    painter.reset();
+    painter.set_color(RED);
+    painter.hollow = true;
+    painter.thickness = 4.0;
+    painter.thickness_type = ThicknessType::Pixels;
+    painter.set_translation(tf.translation().with_z(Z_SPACECRAFT_GRID_BOUNDARIES));
+    painter.set_rotation(tf.rotation());
+    painter.rect(grid.dims());
+}
+
+fn draw_selected_part(
+    mut painter: ShapePainter,
+    parts: Query<(&GlobalTransform, &PartInstance)>,
+    sel: Res<SelectedSpacecraft>,
+    time: Res<Time>,
+) {
+    let angle = time.elapsed_secs_f64() % (2.0 * std::f64::consts::PI);
+    let angle = angle as f32;
+
+    const Z_SELECTED_PART: f32 = 1.0;
+
+    for (color, e, ring) in [
+        (RED.with_alpha(0.8), sel.hovered, false),
+        (ORANGE, sel.selected, false),
+        (TEAL, sel.secondary, false),
+    ] {
+        let e = match e {
+            Some(e) => e,
+            None => continue,
+        };
+
+        if let Ok((tf, part)) = parts.get(e) {
+            let dims = part.prototype().dims_meters();
+            let r = dims.length() / 2.0 + 0.5;
+            painter.reset();
+            painter.set_translation(tf.translation().with_z(Z_SELECTED_PART));
+            painter.set_rotation(tf.rotation());
+            painter.set_color(color);
+            painter.thickness = 0.1;
+            painter.hollow = true;
+            painter.thickness_type = ThicknessType::World;
+            painter.rect(dims + Vec2::splat(0.2));
+            if ring {
+                painter.arc(r, angle, angle + 6.1);
+            }
+        }
+    }
+}
+
+fn despawn_empty_grids(
+    mut commands: Commands,
+    mut grids: Query<Entity, (With<SpacecraftGrid>, Without<Children>)>,
+) {
+    for e in grids {
+        info!("Despawning empty grid {e}");
+        commands.entity(e).despawn();
+    }
+}
+
+#[derive(Component)]
+pub struct FuelInventory;
+
+fn update_grids(
+    mut commands: Commands,
+    mut grids: Query<(Entity, &mut SpacecraftGrid, &Children)>,
+    parts: Query<(&PartInstance, Option<&Inventory>, Option<&FuelInventory>)>,
+) {
+    // TODO: we should only run this when a given grid has changed.
+    // certain events should trigger a change event:
+    //  - adding/removing a part
+    //  - starting/ending a recipe
+    //  - thrusting
+    //  - damage?
+    //  - etc
+
+    for (e, mut grid, children) in &mut grids {
+        grid.parts_mass = Mass::ZERO;
+        grid.inventory_mass = Mass::ZERO;
+        grid.fuel_mass = Mass::ZERO;
+        grid.parts = children.iter().count();
+        grid.bounds = (Vec2::ZERO, Vec2::ZERO);
+        grid.center_of_mass = Vec2::ZERO;
+
+        if grid.parts == 0 {
+            info!("Despawning empty grid {e}");
+            commands.entity(e).despawn();
+            continue;
+        }
+
+        let mut com = DVec2::ZERO;
+
+        for part in children.iter() {
+            if let Ok((part, inv, fuel)) = parts.get(part) {
+                let part_mass = Mass::grams(part.prototype().part_mass().to_grams());
+                let inv_mass = inv.map(|inv| inv.mass()).unwrap_or(Mass::ZERO);
+                if fuel.is_some() {
+                    grid.fuel_mass += inv_mass;
+                } else {
+                    grid.inventory_mass += inv_mass;
+                }
+                grid.parts_mass += part_mass;
+                com += (part.origin_meters() + part.dims_meters() / 2.0).as_dvec2()
+                    * (part_mass + inv_mass).to_kg_f64();
+                let origin = part.origin_meters();
+                let dims = part.dims_meters();
+                grid.bounds.0.x = grid.bounds.0.x.min(origin.x - dims.x);
+                grid.bounds.0.y = grid.bounds.0.y.min(origin.y - dims.y);
+                grid.bounds.1.x = grid.bounds.1.x.max(origin.x + dims.x);
+                grid.bounds.1.y = grid.bounds.1.y.max(origin.y + dims.y);
+            } else {
+                warn!("Bad grid child: {part}");
+            }
+        }
+
+        grid.moment_of_inertia = grid.total_mass().to_kg_f64() * 10.0;
+        grid.center_of_mass = (com / grid.total_mass().to_kg_f64()).as_vec2();
+    }
+}
+
+fn handle_change_recipe(
+    mut events: EventReader<SetRecipe>,
+    mut machines: Query<(&mut Machine, &mut Inventory)>,
+) {
+    for event in events.read() {
+        info!(?event);
+        let (mut machine, mut inv) = match machines.get_mut(event.target) {
+            Ok(m) => m,
+            Err(e) => {
+                error!(?e);
+                return;
+            }
+        };
+
+        machine.set_recipe(event.recipe.clone());
+
+        let recipe = event.recipe.to_recipe();
+        *inv = Inventory::from_recipe(&recipe);
+    }
+}
+
+fn handle_sc_events(
+    mut commands: Commands,
+    mut events: EventReader<SpacecraftEvent>,
+    args: Res<ProgramContext>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut asset_server: ResMut<AssetServer>,
+    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    spacecraft: Query<&GlobalTransform, With<SpacecraftGrid>>,
+    camera: Query<(&Camera, &GlobalTransform)>,
+) -> Result {
+    let (camera, transform) = camera.single()?;
+    for event in events.read() {
+        info!("SpacecraftGrid event: {:?}", event);
+
+        match event {
+            SpacecraftEvent::SpawnVehicle { name, pos, angle } => {
+                let vehicle_path = args.vehicle_dir().join(format!("{}.vehicle", name));
+                let parts = game::starling::vehicle::load_parts_from_dir(&args.parts_dir())?;
+                let vehicle = if let Ok(vehicle) =
+                    game::starling::vehicle::load_vehicle(&vehicle_path, &parts)
+                {
+                    vehicle
+                } else {
+                    commands.send_event(SpawnAnimText::new(format!("Bad vehicle path: {}", name)));
+                    panic!();
+                };
+
+                spawn_spacecraft(
+                    &mut commands,
+                    *pos,
+                    *angle,
+                    &vehicle,
+                    &mut asset_server,
+                    &args,
+                    &mut texture_atlas_layouts,
+                );
+            }
+            SpacecraftEvent::SpawnPart { name, pos, angle } => {
+                let parts = game::starling::vehicle::load_parts_from_dir(&args.parts_dir())?;
+                let part = parts.get(name).ok_or("bad part")?;
+                let instance = InstantiatedPart::from_prototype(
+                    part.clone(),
+                    PartCoord::new(IVec2::ZERO),
+                    game::starling::prelude::Rotation::East,
+                );
+
+                let mut grid = spawn_empty_grid(&mut commands, *pos, *angle);
+                grid.with_children(|parent| {
+                    add_part_to_grid(
+                        parent,
+                        &instance,
+                        &mut asset_server,
+                        &args,
+                        &mut texture_atlas_layouts,
+                    )
+                });
+            }
+            SpacecraftEvent::Destroy { target } => {
+                let tf = spacecraft
+                    .get(*target)
+                    .map(|v| *v)
+                    .unwrap_or(GlobalTransform::default());
+                let pos = camera.world_to_viewport(transform, tf.translation());
+                commands.entity(*target).despawn();
+                commands.send_event(SpawnAnimText {
+                    text: "Vehicle deleted".to_string(),
+                    color: RED,
+                    pos: pos.ok(),
+                });
+            }
+        }
+    }
+
+    Ok(())
+}
+
+#[derive(Component, Debug, Clone)]
+pub struct ConstructionState {
+    pub current: usize,
+    pub last: usize,
+    pub should_build: bool,
+}
+
+// randomly increments all ConstructionStates
+fn build_parts(
+    mut con: Query<(Entity, &mut ConstructionState, &Children)>,
+    mut sprites: Query<&mut Sprite, With<PartSprite>>,
+    // mut commands: Commands,
+) {
+    for (_e, mut build, children) in &mut con {
+        if rand(0.0, 1.0) < 0.1 && build.should_build {
+            if build.current < build.last {
+                build.current += 1;
+            };
+        }
+
+        if build.current == build.last {
+            // commands.entity(e).remove::<ConstructionState>();
+        }
+
+        for child in children {
+            if let Ok(mut sprite) = sprites.get_mut(*child) {
+                if let Some(atlas) = &mut sprite.texture_atlas {
+                    atlas.index = build.current;
+                }
+            }
+        }
+    }
+}
+
+fn spawn_empty_grid<'a>(commands: &'a mut Commands, pos: Vec2, angle: f32) -> EntityCommands<'a> {
+    commands.spawn((
+        Name::new("Grid"),
+        Transform::from_translation(pos.extend(0.0)).with_rotation(Quat::from_rotation_z(angle)),
+        SpacecraftGrid {
+            // velocity: randvec(2.0, 4.0).as_dvec2() / 3.0,
+            // angular_velocity: 0.3,
+            ..default()
+        },
+        Visibility::default(),
+    ))
+}
+
+fn add_part_to_grid<'a>(
+    commands: &mut RelatedSpawnerCommands<'a, ChildOf>,
+    part: &InstantiatedPart,
+    asset_server: &mut ResMut<AssetServer>,
+    args: &Res<ProgramContext>,
+    texture_atlas_layouts: &mut ResMut<Assets<TextureAtlasLayout>>,
+) {
+    let dims = part.prototype().dims_meters();
+    let dims_rot = part.dims_meters();
+    let origin = part.origin_meters() + dims_rot / 2.0;
+
+    let (z, _, _, d) = match part.layer() {
+        game::starling::parts::PartLayer::Internal => (0.0, 1.0, 0.5, 0.0),
+        game::starling::parts::PartLayer::Structural => (0.02, 0.7, 0.7, 0.05),
+        game::starling::parts::PartLayer::Exterior => (0.04, 0.2, 0.8, 0.1),
+        _ => return,
+    };
+
+    let path = args.part_sprite_path(part.prototype().part_name());
+    let texture = asset_server.load(path);
+
+    let name = part.prototype().part_name().to_string();
+
+    let mut sprite = Sprite::from_image(texture);
+
+    sprite.custom_size = Some(dims);
+
+    let mut cmd = commands.spawn((
+        Transform::from_translation(origin.extend(z))
+            .with_rotation(Quat::from_rotation_z(part.rotation().to_angle() as f32)),
+        PartInstance(part.clone()),
+        InheritedVisibility::VISIBLE,
+    ));
+
+    // INVENTORY COMPONENT ==================================================
+
+    if let Some(data) = part.inventory_data() {
+        let mut inv = Inventory::zero_slots();
+        for _ in 0..data.slots {
+            // let item = Item::random_with_filter(&data.filter).expect("Expected an item");
+            let slot = InvSlot::new(Volume::liters_f32(data.volume_liters), data.filter.clone());
+            inv.add_slot(slot);
+        }
+        cmd.insert(inv);
+        if data.is_fuel {
+            cmd.insert(FuelInventory);
+        }
+    }
+
+    // MACHINE COMPONENT ==================================================
+
+    if let Some(data) = part.machine_data() {
+        // TODO use the data
+        let machine = Machine::new(RecipeListing::DoNothing);
+        cmd.insert(machine);
+
+        let inv = Inventory::zero_slots();
+        cmd.insert(inv);
+    }
+
+    // THRUSTER COMPONENT ==================================================
+
+    if let Some(model) = part.thruster_data() {
+        let mut inv = Inventory::zero_slots();
+
+        let mut slot =
+            InvSlot::new(Volume::liters(5), ItemFilter::Item(Item::H2)).with_item(Item::H2);
+        slot.fill();
+        inv.add_slot(slot);
+
+        let thruster = if model.is_rcs {
+            Thruster::new(3000.0, true)
+        } else {
+            Thruster::new(40000.0, false)
+        };
+
+        let particles = ParticleEmitter {
+            enabled: chance(0.05),
+            size: Vec3::splat(0.05),
+        };
+
+        cmd.insert((thruster, inv, particles, FuelInventory));
+    }
+
+    // COMPUTER COMPONENT ==================================================
+
+    if let Some(cpu) = part.computer_data() {
+        let mut cpu = Computer::default();
+        cpu.mode = ComputerMode::Manual;
+        cpu.attitude = rand(0.0, 2.0);
+        cpu.on = false;
+        cmd.insert(cpu);
+    }
+
+    // EXCAVATOR COMPONENT ==================================================
+
+    if let Some(data) = part.excavator_data() {
+        cmd.insert(Excavator::new(data.radius));
+    }
+
+    // DOCKING PORT COMPONENT ===============================================
+
+    if let Some(data) = part.docking_port_data() {
+        let docking = DockingPort::new(data.distance);
+        cmd.insert(docking);
+    }
+
+    // SPRITE CHILD ENTITY ===============================================
+
+    cmd.with_child((PartSprite, sprite));
+}
+
+fn spawn_spacecraft(
+    commands: &mut Commands,
+    pos: Vec2,
+    angle: f32,
+    vehicle: &Blueprint,
+    asset_server: &mut ResMut<AssetServer>,
+    args: &Res<ProgramContext>,
+    texture_atlas_layouts: &mut ResMut<Assets<TextureAtlasLayout>>,
+) {
+    spawn_empty_grid(commands, pos, angle).with_children(|parent| {
+        for (_, part) in vehicle.parts() {
+            add_part_to_grid(parent, part, asset_server, args, texture_atlas_layouts);
+        }
+    });
+}
+
+fn accelerate_spacecraft(
+    mut grids: Query<(&mut Transform, &mut SpacecraftGrid)>,
+    time: Res<Time<Fixed>>,
+) {
+    let dt = time.delta_secs_f64();
+    for (mut tf, mut grid) in &mut grids {
+        let world_frame_accel = tf
+            .rotation
+            .mul_vec3(grid.body_frame_acceleration.extend(0.0).as_vec3())
+            .xy();
+        let (yaw, _, _) = tf.rotation.to_euler(EulerRot::ZYX);
+        let da = grid.angular_acceleration as f64 * dt;
+        grid.velocity += world_frame_accel.as_dvec2() * dt;
+        grid.angular_velocity += da;
+        let ds = (grid.velocity * dt).as_vec2();
+        tf.translation += ds.extend(0.0);
+        tf.rotate_axis(Dir3::Z, (grid.angular_velocity * dt) as f32);
+    }
+}
+
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct GridSpatialLookup(HashMap<IVec2, Vec<Entity>>);
+
+impl GridSpatialLookup {
+    pub fn lup(&self, pos: Vec2) -> Option<&Vec<Entity>> {
+        let g = to_grid(pos);
+        self.0.get(&g)
+    }
+
+    pub fn add(&mut self, g: IVec2, e: Entity) {
+        if let Some(mut v) = self.get_mut(&g) {
+            v.push(e);
+        } else {
+            self.insert(g, vec![e]);
+        }
+    }
+}
+
+fn grids_in_radius(p: Vec2, r: f32) -> (IVec2, IVec2) {
+    let lower = p - Vec2::splat(r);
+    let upper = p + Vec2::splat(r);
+    let lg = to_grid(lower);
+    let ug = to_grid(upper);
+    (lg, ug)
+}
+
+fn update_spacecraft_grid_map(
+    grids: Query<(Entity, &GlobalTransform, &SpacecraftGrid)>,
+    mut map: ResMut<GridSpatialLookup>,
+) {
+    map.clear();
+    for (e, transform, grid) in grids {
+        let p = transform.translation().xy();
+        let r = grid.dims().length();
+        let (lower, upper) = grids_in_radius(p, r);
+
+        for x in lower.x..=upper.x {
+            for y in lower.y..=upper.y {
+                map.add(IVec2::new(x, y), e);
+            }
+        }
+    }
+}
+
+fn draw_spacecraft_spatial_lookups(
+    mut painter: ShapePainter,
+    map: Res<GridSpatialLookup>,
+    transforms: Query<&GlobalTransform>,
+    settings: Res<Settings>,
+) {
+    if !settings.draw_spatial_lut {
+        return;
+    }
+
+    const Z_SPATIAL_LUT_DEBUG: f32 = 20.0;
+
+    for (g, entities) in map.iter() {
+        painter.reset();
+        painter.set_color(ORANGE.with_alpha(0.1));
+        painter.hollow = true;
+        painter.thickness_type = ThicknessType::Pixels;
+        painter.thickness = 12.0;
+        let (lower, upper) = chunk_bounds(*g);
+        let center = (upper + lower) / 2.0;
+        painter.set_translation(center.extend(Z_SPATIAL_LUT_DEBUG));
+        painter.rect(upper - lower);
+
+        for e in entities {
+            let tf = ok_or_continue!(transforms.get(*e));
+            painter.reset();
+            painter.set_translation(tf.translation().with_z(Z_SPATIAL_LUT_DEBUG));
+            painter.set_color(RED.with_alpha(0.3));
+            painter.circle(2.0);
+        }
+    }
+}
+
+fn update_cursor_spacecraft(
+    mut cursor: ResMut<SelectedSpacecraft>,
+    map: Res<GridSpatialLookup>,
+    pos: Res<CursorWorldPosition>,
+    grids: Query<(&GlobalTransform, &Children), With<SpacecraftGrid>>,
+    parts: Query<(Entity, &PartInstance)>,
+    buttons: Res<ButtonInput<MouseButton>>,
+) {
+    cursor.hovered = None;
+
+    let pos = some_or_return!(pos.get());
+    let grid_ids = some_or_return!(map.lup(pos));
+
+    'outer: for grid_id in grid_ids {
+        let (transform, children) = ok_or_return!(grids.get(*grid_id));
+
+        if children.is_empty() {
+            warn!("Empty grid!");
+            continue;
+        }
+
+        let offset = pos - transform.translation().xy();
+        let (yaw, _pitch, _roll) = transform.rotation().to_euler(EulerRot::ZYX);
+        let rot = Vec2::from_angle(-yaw);
+        let offset = rot.rotate(offset);
+
+        for id in children {
+            let (e, part) = ok_or_continue!(parts.get(*id));
+            if part.prototype().layer() != PartLayer::Internal {
+                continue;
+            }
+            let origin = part.origin_meters();
+            let dims = part.dims_meters();
+            let part_offset = offset - origin;
+            if part_offset.x >= 0.0
+                && part_offset.y >= 0.0
+                && part_offset.x <= dims.x
+                && part_offset.y <= dims.y
+            {
+                cursor.hovered = Some(e);
+                break 'outer;
+            }
+        }
+    }
+
+    if buttons.just_pressed(MouseButton::Left) {
+        if cursor.hovered.is_some() {
+            if cursor.hovered == cursor.selected {
+                cursor.selected = None;
+            } else {
+                cursor.selected = cursor.hovered;
+            }
+        }
+    }
+
+    if buttons.just_pressed(MouseButton::Right) {
+        if cursor.hovered.is_some() {
+            if cursor.hovered == cursor.secondary {
+                cursor.secondary = None;
+            } else {
+                cursor.secondary = cursor.hovered;
+            }
+        }
+    }
+}
+
+fn update_thruster_emitters(mut thrusters: Query<(&Thruster, &mut ParticleEmitter)>) {
+    for (t, mut p) in thrusters {
+        p.enabled = false; // t.on && t.status == MachineStatus::Running;
+    }
+}
+
+fn draw_transforms(mut painter: ShapePainter, query: Query<&GlobalTransform>) {
+    for tf in query {
+        let p = tf.translation().with_z(600.0);
+        let r = tf.right();
+        let u = tf.up();
+
+        painter.reset();
+        painter.thickness = 1.0;
+        painter.thickness_type = ThicknessType::Pixels;
+        painter.set_color(RED);
+        painter.line(p, p + (r * 0.3).with_z(0.0));
+        painter.set_color(GREEN);
+        painter.line(p, p + (u * 0.3).with_z(0.0));
+    }
+}

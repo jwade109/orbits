@@ -1,4 +1,4 @@
-use starling::math::randint;
+use crate::starling::math::randint;
 use std::error::Error;
 use std::fs::read_to_string;
 use std::path::Path;

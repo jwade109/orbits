@@ -1,126 +1,160 @@
-name: Satellite
-tuning:
-  attitude_controller:
-    kp: 46.45956039428711
-    kd: 70.35492897033691
-  vertical_controller:
-    kp: 0.028750357031822202
-    kd: 0.29831601977348327
-  horizontal_controller:
-    kp: 0.009729394912719727
-    kd: 0.1959650993347168
-  docking_linear_controller:
-    kp: 8.233541250228882
-    kd: 261.5271806716919
 parts:
 - partname: small-antenna
   pos:
-  - 12
+  - 2
+  - -1
+  rot: South
+- partname: rcs
+  pos:
+  - -4
   - -3
-  rot: South
-- partname: rcs
-  pos:
-  - -18
-  - -14
   rot: North
 - partname: frame2
   pos:
-  - -8
-  - -10
+  - -2
+  - -2
   rot: South
 - partname: tank21
   pos:
-  - 2
-  - -10
+  - 0
+  - -2
   rot: East
 - partname: rcs
   pos:
-  - -12
-  - 14
+  - -2
+  - 3
   rot: East
 - partname: tank21
   pos:
-  - -8
-  - -10
+  - -2
+  - -2
   rot: East
-- partname: solarpanel
-  pos:
-  - -8
-  - -75
-  rot: South
 - partname: gold
   pos:
-  - -18
+  - -4
   - 0
   rot: North
 - partname: rcs
   pos:
-  - -18
-  - 10
+  - -4
+  - 2
   rot: South
 - partname: frame2
   pos:
-  - -18
-  - -10
+  - -4
+  - -2
   rot: South
 - partname: angled-frame
   pos:
-  - -8
-  - 10
+  - -2
+  - 2
   rot: East
 - partname: frame2
   pos:
-  - -18
+  - -4
   - 0
   rot: South
 - partname: rcs
   pos:
-  - -12
-  - -20
+  - -2
+  - -4
   rot: East
 - partname: frame2
   pos:
-  - 2
+  - 0
   - 0
   rot: South
 - partname: gold
   pos:
-  - -18
-  - -10
+  - -4
+  - -2
   rot: North
 - partname: angled-frame
   pos:
-  - -8
-  - -20
+  - -2
+  - -4
   rot: South
-- partname: solarpanel
-  pos:
-  - -8
-  - 10
-  rot: North
 - partname: frame2
   pos:
-  - -8
+  - -2
   - 0
   rot: South
 - partname: plate
   pos:
-  - -8
-  - -10
+  - -2
+  - -2
   rot: South
 - partname: plate
   pos:
-  - -8
+  - -2
   - 0
   rot: South
 - partname: frame2
   pos:
-  - 2
-  - -10
+  - 0
+  - -2
   rot: South
 - partname: small-motor
   pos:
-  - -25
   - -5
+  - -1
   rot: East
-lines: []
+- partname: solarpanel
+  pos:
+  - -1
+  - 2
+  rot: North
+- partname: solarpanel
+  pos:
+  - -1
+  - -15
+  rot: South
+pipes:
+- geometry:
+    start:
+    - -3
+    - 0
+    end:
+    - -2
+    - 0
+    x_first: false
+- geometry:
+    start:
+    - -2
+    - 0
+    end:
+    - 0
+    - 0
+    x_first: false
+- geometry:
+    start:
+    - -2
+    - 1
+    end:
+    - -4
+    - 2
+    x_first: true
+- geometry:
+    start:
+    - -2
+    - -2
+    end:
+    - -4
+    - -3
+    x_first: true
+- geometry:
+    start:
+    - -2
+    - -2
+    end:
+    - -2
+    - -4
+    x_first: true
+- geometry:
+    start:
+    - -2
+    - 1
+    end:
+    - -2
+    - 3
+    x_first: false

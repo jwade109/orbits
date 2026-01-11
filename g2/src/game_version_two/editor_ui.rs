@@ -1,4 +1,6 @@
-use crate::game_version_two::*;
+use game::ui::apply_egui_style;
+
+use crate::game_version_two::{types::Excavator, *};
 
 pub struct DebugPanelState {
     message_color: [f32; 3],
@@ -15,18 +17,6 @@ impl Default for DebugPanelState {
             sc_name: "pollux".to_string(),
             sc_pos: Vec2::Y * 50.0,
         }
-    }
-}
-
-fn apply_egui_style(ui: &mut egui::Ui) {
-    let x = ui.style_mut();
-    x.spacing.window_margin = egui::Margin::same(40);
-    x.spacing.item_spacing.y = 5.0;
-    x.spacing.button_padding.x = 5.0;
-    x.spacing.button_padding.y = 5.0;
-    x.visuals.dark_mode = false;
-    for x in &mut x.text_styles {
-        x.1.size *= 1.2;
     }
 }
 
@@ -112,46 +102,78 @@ fn add_computer_widget(
             ui.label("Attitude Hold");
             ui.horizontal(|ui| {
                 ui.label("HDG");
-                ui.add(egui::Slider::new(&mut computer.attitude, -5.0..=5.0));
+                ui.add(
+                    egui::Slider::new(&mut computer.attitude, -5.0..=5.0)
+                        .clamping(egui::SliderClamping::Never),
+                );
             });
         }
         ComputerMode::VelocityHold => {
             ui.label("Velocity Hold");
             ui.horizontal(|ui| {
                 ui.label("HDG");
-                ui.add(egui::Slider::new(&mut computer.attitude, -5.0..=5.0));
+                ui.add(
+                    egui::Slider::new(&mut computer.attitude, -5.0..=5.0)
+                        .clamping(egui::SliderClamping::Never),
+                );
             });
             ui.horizontal(|ui| {
                 ui.label("X");
-                ui.add(egui::Slider::new(&mut computer.velocity.x, -500.0..=500.0));
+                ui.add(
+                    egui::Slider::new(&mut computer.velocity.x, -50.0..=50.0)
+                        .clamping(egui::SliderClamping::Never),
+                );
             });
             ui.horizontal(|ui| {
                 ui.label("Y");
-                ui.add(egui::Slider::new(&mut computer.velocity.y, -500.0..=500.0));
+                ui.add(
+                    egui::Slider::new(&mut computer.velocity.y, -50.0..=50.0)
+                        .clamping(egui::SliderClamping::Never),
+                );
             });
         }
         ComputerMode::PositionHold => {
             ui.label("Position Hold");
             ui.horizontal(|ui| {
                 ui.label("X");
-                ui.add(egui::Slider::new(
-                    &mut computer.position.x,
-                    -100000.0..=100000.0,
-                ));
+                ui.add(
+                    egui::Slider::new(&mut computer.position.x, -50.0..=50.0)
+                        .clamping(egui::SliderClamping::Never),
+                );
             });
             ui.horizontal(|ui| {
                 ui.label("Y");
-                ui.add(egui::Slider::new(
-                    &mut computer.position.y,
-                    -100000.0..=100000.0,
-                ));
+                ui.add(
+                    egui::Slider::new(&mut computer.position.y, -50.0..=50.0)
+                        .clamping(egui::SliderClamping::Never),
+                );
             });
             ui.horizontal(|ui| {
                 ui.label("HDG");
-                ui.add(egui::Slider::new(&mut computer.attitude, -5.0..=5.0));
+                ui.add(
+                    egui::Slider::new(&mut computer.attitude, -5.0..=5.0)
+                        .clamping(egui::SliderClamping::Never),
+                );
             });
         }
     }
+}
+
+fn add_excavator_widget(ui: &mut egui::Ui, e: Entity, ex: &mut Excavator, commands: &mut Commands) {
+    ui.heading(format!("Excavator {}", e));
+
+    if ui
+        .button(if ex.is_on { "Turn Off" } else { "Turn On" })
+        .clicked()
+    {
+        ex.is_on = !ex.is_on;
+    }
+
+    running_status_widget(ui, ex.status);
+    running_status_widget(ui, ex.last_op_status);
+
+    let pct = ex.timer.fraction();
+    ui.add(egui::ProgressBar::new(pct));
 }
 
 fn add_inv_widget(ui: &mut egui::Ui, inv: &mut Inventory) {
@@ -162,33 +184,38 @@ fn add_inv_widget(ui: &mut egui::Ui, inv: &mut Inventory) {
         inv.capacity()
     ));
 
-    for slot in inv.slots_mut() {
+    for (i, slot) in inv.slots_mut().enumerate() {
         ui.separator();
 
-        ui.horizontal(|ui| {
-            if ui.button("Fill").clicked() {
-                slot.fill();
-            }
-            if ui.button("Empty").clicked() {
-                slot.empty();
-            }
-            if ui.button("Add").clicked() {
-                if let Some(item) = slot.item() {
-                    slot.store(item, 1);
+        let title = format!("Modify Slot {} Contents", i);
+        ui.collapsing(title, |ui| {
+            ui.horizontal(|ui| {
+                if ui.button("Fill").clicked() {
+                    slot.fill();
                 }
-            }
-            if ui.button("Add Lots").hovered() {
-                let volume = slot.capacity();
-                if let Some(item) = slot.item() {
-                    let n_items = (volume / item.volume_per_unit()).floor() as u64;
-                    slot.store_partial(item, n_items / 100);
+                if ui.button("Empty").clicked() {
+                    slot.empty();
                 }
-            }
+                if ui.button("Add").clicked() {
+                    if let Some(item) = slot.item() {
+                        slot.store(item, 1);
+                    }
+                }
+                // let mut selected = item;
+                // let title = format!("Slot {}", i);
+                // item_dropdown(ui, &mut selected, &title, filter);
+
+                // if selected != item {
+                //     info!("Switched item: {:?}", selected);
+                // }
+            });
         });
 
         if let Some((item, count)) = slot.contents() {
             let c = item.color().to_u8_array();
             let color = egui::Color32::from_rgb(c[0], c[1], c[2]);
+
+            let filter = slot.filter();
 
             ui.horizontal(|ui| {
                 let size = bevy_inspector_egui::egui::Vec2::new(10.0, 10.0);
@@ -204,6 +231,8 @@ fn add_inv_widget(ui: &mut egui::Ui, inv: &mut Inventory) {
                 ));
             });
 
+            ui.label(format!("Filter: {:?}", filter));
+
             ui.add(egui::ProgressBar::new(slot.fill_percentage()).fill(color));
         } else {
             ui.label("(Empty)");
@@ -211,28 +240,7 @@ fn add_inv_widget(ui: &mut egui::Ui, inv: &mut Inventory) {
     }
 }
 
-fn add_inventory_widget(
-    id: Option<Entity>,
-    ui: &mut egui::Ui,
-    inventories: &mut Query<&mut Inventory>,
-) {
-    let id = if let Some(id) = id {
-        id
-    } else {
-        return;
-    };
-
-    ui.label(format!("Entity {id}"));
-
-    let mut inv = match inventories.get_mut(id) {
-        Ok(inv) => inv,
-        _ => return,
-    };
-
-    add_inv_widget(ui, &mut inv);
-}
-
-fn running_status_widget(ui: &mut egui::Ui, status: MachineStatus) {
+pub fn running_status_widget(ui: &mut egui::Ui, status: MachineStatus) {
     let color = match status {
         MachineStatus::Off => egui::Color32::GRAY,
         MachineStatus::NoRecipe => egui::Color32::RED,
@@ -350,11 +358,17 @@ pub fn part_ui(
     computers: &mut Query<&mut Computer>,
     machines: &mut Query<&mut Machine>,
     docking_ports: &mut Query<&mut DockingPort>,
+    excavators: &mut Query<&mut Excavator>,
 ) {
     if let Ok((instance, _)) = parts.get(e) {
         ui.collapsing("Part Data", |ui| {
             ui.label(format!("{:#?}", instance.0));
         });
+    }
+
+    if let Ok(mut excavator) = excavators.get_mut(e) {
+        ui.separator();
+        add_excavator_widget(ui, e, &mut excavator, commands);
     }
 
     if let Ok(mut inventory) = inventories.get_mut(e) {
@@ -400,9 +414,10 @@ pub fn egui_ui(
     mut computers: Query<&mut Computer>,
     mut machines: Query<&mut Machine>,
     mut docking_ports: Query<&mut DockingPort>,
+    mut excavators: Query<&mut Excavator>,
     mut settings: ResMut<Settings>,
     con: Query<&mut ConstructionState>,
-    cursor: Res<CursorInfo>,
+    cursor: Res<SelectedSpacecraft>,
     mut mouse: ResMut<CursorWorldPosition>,
 ) -> Result {
     let ctx = contexts.ctx_mut()?;
@@ -425,6 +440,7 @@ pub fn egui_ui(
                     &mut computers,
                     &mut machines,
                     &mut docking_ports,
+                    &mut excavators,
                 );
             }
 
@@ -440,6 +456,7 @@ pub fn egui_ui(
                         &mut computers,
                         &mut machines,
                         &mut docking_ports,
+                        &mut excavators,
                     );
                 }
             }
@@ -459,6 +476,9 @@ pub fn egui_ui(
         ui.checkbox(&mut settings.draw_inventories, "draw_inventories");
         ui.checkbox(&mut settings.draw_docking_info, "draw_docking_info");
         ui.checkbox(&mut settings.dig_with_mouse, "dig_with_mouse");
+        ui.checkbox(&mut settings.follow_selected, "follow_selected");
+        ui.checkbox(&mut settings.infinite_fuel, "infinite_fuel");
+        ui.checkbox(&mut settings.show_terrain_info, "show_terrain_info");
         ui.separator();
 
         ui.collapsing("Construction", |ui| {

@@ -1,11 +1,9 @@
+use crate::drawing::draw_square;
+use crate::prelude::{StaticSpriteDescriptor, TextLabel};
+use crate::starling::aabb::AABB;
 use crate::z_index::ZOrdering;
-use crate::{
-    drawing::draw_square,
-    scenes::{StaticSpriteDescriptor, TextLabel},
-};
 use bevy::prelude::*;
 pub use bevy_vector_shapes::prelude::*;
-use starling::aabb::AABB;
 
 pub struct Canvas<'w, 's> {
     pub gizmos: Gizmos<'w, 's>,
@@ -33,11 +31,28 @@ impl<'w, 's> Canvas<'w, 's> {
         self.painter.circle(radius);
     }
 
+    pub fn fill_circle<'a>(&'a mut self, p: Vec3, radius: f32, color: Srgba) {
+        self.painter.reset();
+        self.painter.set_translation(p);
+        self.painter.set_color(color);
+        self.painter.hollow = false;
+        self.painter.circle(radius);
+    }
+
     pub fn line(&mut self, p: Vec2, q: Vec2, z: ZOrdering, color: Srgba) {
         self.painter.reset();
         self.painter.set_translation(Vec3::Z * z.as_f32());
         self.painter.set_color(color);
         self.painter.thickness = 3.0;
+        self.painter.line(p.extend(0.0), q.extend(0.0));
+    }
+
+    pub fn line_t(&mut self, p: Vec2, q: Vec2, z: ZOrdering, t: f32, color: Srgba) {
+        self.painter.reset();
+        self.painter.set_translation(Vec3::Z * z.as_f32());
+        self.painter.set_color(color);
+        self.painter.thickness = t;
+        self.painter.thickness_type = ThicknessType::World;
         self.painter.line(p.extend(0.0), q.extend(0.0));
     }
 

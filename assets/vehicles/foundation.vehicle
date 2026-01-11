@@ -1,195 +1,373 @@
-name: XYZ
-tuning:
-  attitude_controller:
-    kp: 0.0
-    kd: 0.0
-  vertical_controller:
-    kp: 0.0
-    kd: 0.0
-  horizontal_controller:
-    kp: 0.0
-    kd: 0.0
-  docking_linear_controller:
-    kp: 0.0
-    kd: 0.0
 parts:
+- partname: angled-frame
+  pos:
+  - -6
+  - 2
+  rot: North
+- partname: rcs
+  pos:
+  - -5
+  - 3
+  rot: East
+- partname: rcs
+  pos:
+  - -6
+  - -3
+  rot: North
+- partname: angled-frame
+  pos:
+  - -6
+  - -4
+  rot: West
+- partname: rcs
+  pos:
+  - 11
+  - 2
+  rot: South
+- partname: rcs
+  pos:
+  - 11
+  - -3
+  rot: North
 - partname: tank22
   pos:
-  - 30
+  - 2
+  - -2
+  rot: East
+- partname: tank22
+  pos:
+  - 6
+  - -2
+  rot: East
+- partname: angled-frame
+  pos:
+  - 4
+  - -4
+  rot: South
+- partname: angled-frame
+  pos:
   - -10
+  - -2
+  rot: West
+- partname: rcs
+  pos:
+  - -3
+  - -5
+  rot: North
+- partname: rcs
+  pos:
+  - 5
+  - 2
+  rot: South
+- partname: angled-frame
+  pos:
+  - 4
+  - 2
   rot: East
 - partname: frame3
   pos:
-  - -20
-  - 10
+  - -4
+  - 2
   rot: East
-- partname: rcs
+- partname: frame2
   pos:
-  - 63
-  - 10
-  rot: South
-- partname: rcs
-  pos:
-  - -14
-  - -24
-  rot: North
-- partname: rcs
-  pos:
-  - 23
-  - -14
-  rot: North
-- partname: frame22
-  pos:
-  - 30
-  - -10
-  rot: East
-- partname: tank22
-  pos:
-  - -30
-  - -10
-  rot: East
-- partname: reactor
-  pos:
-  - -10
-  - -10
-  rot: East
-- partname: rcs
-  pos:
-  - -20
-  - 20
-  rot: South
-- partname: angled-frame
-  pos:
-  - -30
-  - 10
-  rot: North
-- partname: angled-frame
-  pos:
-  - 20
-  - 10
-  rot: East
-- partname: frame22
-  pos:
-  - 10
-  - -10
-  rot: East
-- partname: tank22
-  pos:
-  - 50
-  - -10
-  rot: East
-- partname: angled-frame
-  pos:
-  - -30
-  - -20
-  rot: West
-- partname: frame22
-  pos:
-  - -30
-  - -10
-  rot: East
-- partname: frame3
-  pos:
-  - -20
-  - -20
-  rot: East
-- partname: rcs
-  pos:
-  - 23
-  - 10
-  rot: South
-- partname: rcs
-  pos:
-  - -20
-  - -24
-  rot: North
-- partname: rcs
-  pos:
-  - 20
-  - -20
-  rot: West
-- partname: rcs
-  pos:
-  - -31
-  - -14
-  rot: North
-- partname: rcs
-  pos:
-  - 57
-  - 10
-  rot: South
-- partname: rcs
-  pos:
-  - -14
-  - 20
-  rot: South
-- partname: angled-frame
-  pos:
-  - -40
-  - -10
-  rot: West
-- partname: rcs
-  pos:
-  - 20
-  - 14
-  rot: West
-- partname: frame22
-  pos:
-  - 50
-  - -10
-  rot: East
-- partname: motor
-  pos:
-  - -59
   - -8
+  - -2
+  rot: West
+- partname: rcs
+  pos:
+  - -6
+  - 2
+  rot: South
+- partname: rcs
+  pos:
+  - 4
+  - 3
+  rot: West
+- partname: angled-frame
+  pos:
+  - -10
+  - 0
+  rot: North
+- partname: frame22
+  pos:
+  - 10
+  - -2
   rot: East
 - partname: rcs
   pos:
-  - -24
-  - -20
-  rot: East
-- partname: angled-frame
+  - 5
+  - -3
+  rot: North
+- partname: rcs
   pos:
-  - -40
+  - 13
+  - -3
+  rot: North
+- partname: docking-port
+  pos:
+  - 14
+  - -2
+  rot: East
+- partname: frame2
+  pos:
+  - -8
   - 0
   rot: North
 - partname: rcs
   pos:
-  - -31
-  - 10
-  rot: South
-- partname: docking-port
+  - -4
+  - -5
+  rot: North
+- partname: frame22
   pos:
-  - 70
-  - -10
+  - 2
+  - -2
+  rot: East
+- partname: reactor
+  pos:
+  - -2
+  - -2
+  rot: East
+- partname: frame22
+  pos:
+  - -6
+  - -2
   rot: East
 - partname: rcs
   pos:
-  - 63
-  - -14
-  rot: North
+  - -3
+  - 4
+  rot: South
+- partname: frame22
+  pos:
+  - 6
+  - -2
+  rot: East
+- partname: tank22
+  pos:
+  - -6
+  - -2
+  rot: East
+- partname: rcs
+  pos:
+  - 4
+  - -4
+  rot: West
+- partname: rcs
+  pos:
+  - -4
+  - 4
+  rot: South
+- partname: motor
+  pos:
+  - -12
+  - 0
+  rot: East
 - partname: tank22
   pos:
   - 10
-  - -10
+  - -2
   rot: East
-- partname: angled-frame
+- partname: motor
   pos:
-  - 20
-  - -20
-  rot: South
+  - -12
+  - -3
+  rot: East
+- partname: frame3
+  pos:
+  - -4
+  - -4
+  rot: East
 - partname: rcs
   pos:
-  - -24
-  - 14
+  - -5
+  - -4
   rot: East
+- partname: rcs
+  pos:
+  - 13
+  - 2
+  rot: South
 - partname: cpu
   pos:
-  - 1
-  - 10
+  - 0
+  - 2
   rot: East
-- partname: rcs
-  pos:
-  - 57
-  - -14
-  rot: North
+pipes:
+- geometry:
+    start:
+    - 11
+    - -2
+    end:
+    - 11
+    - -3
+    x_first: false
+- geometry:
+    start:
+    - -3
+    - -2
+    end:
+    - -4
+    - -5
+    x_first: false
+- geometry:
+    start:
+    - 4
+    - 1
+    end:
+    - 5
+    - 2
+    x_first: false
+- geometry:
+    start:
+    - 14
+    - 0
+    end:
+    - 13
+    - 0
+    x_first: false
+- geometry:
+    start:
+    - -5
+    - -2
+    end:
+    - -6
+    - -3
+    x_first: false
+- geometry:
+    start:
+    - -3
+    - -2
+    end:
+    - -3
+    - -5
+    x_first: false
+- geometry:
+    start:
+    - -4
+    - 0
+    end:
+    - -7
+    - -2
+    x_first: false
+- geometry:
+    start:
+    - -5
+    - 1
+    end:
+    - -5
+    - 3
+    x_first: false
+- geometry:
+    start:
+    - -3
+    - 1
+    end:
+    - -4
+    - 4
+    x_first: false
+- geometry:
+    start:
+    - -3
+    - 1
+    end:
+    - -3
+    - 4
+    x_first: false
+- geometry:
+    start:
+    - 4
+    - -2
+    end:
+    - 4
+    - -4
+    x_first: false
+- geometry:
+    start:
+    - 7
+    - -1
+    end:
+    - 11
+    - 0
+    x_first: false
+- geometry:
+    start:
+    - -4
+    - 0
+    end:
+    - -7
+    - 1
+    x_first: false
+- geometry:
+    start:
+    - 11
+    - 1
+    end:
+    - 11
+    - 2
+    x_first: false
+- geometry:
+    start:
+    - 13
+    - -2
+    end:
+    - 13
+    - -3
+    x_first: false
+- geometry:
+    start:
+    - -5
+    - -2
+    end:
+    - -5
+    - -4
+    x_first: false
+- geometry:
+    start:
+    - 4
+    - -2
+    end:
+    - 5
+    - -3
+    x_first: false
+- geometry:
+    start:
+    - 4
+    - 1
+    end:
+    - 4
+    - 3
+    x_first: false
+- geometry:
+    start:
+    - 4
+    - 0
+    end:
+    - 7
+    - -1
+    x_first: false
+- geometry:
+    start:
+    - 13
+    - 1
+    end:
+    - 13
+    - 2
+    x_first: false
+- geometry:
+    start:
+    - -5
+    - 1
+    end:
+    - -6
+    - 2
+    x_first: false
+- geometry:
+    start:
+    - -3
+    - 1
+    end:
+    - 2
+    - 1
+    x_first: false

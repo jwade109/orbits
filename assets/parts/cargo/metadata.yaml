@@ -1,6 +1,9 @@
 mass: 8400000
 layer: Internal
 name: "cargo"
-dims: [30, 30]
+dims: [6, 6]
 inventory_data:
   slots: 4
+  filter: Solid
+  volume_liters: 3000
+  is_fuel: false

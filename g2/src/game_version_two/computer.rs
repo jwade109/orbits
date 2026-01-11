@@ -1,14 +1,12 @@
-use crate::game_version_two::*;
+use crate::game_version_two::{tick_schedule::SimTick, *};
 
 pub struct ComputerPlugin;
 
 impl Plugin for ComputerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
-            FixedUpdate,
-            ((update_computers, do_maneuvers)
-                .in_set(Sets::Physics)
-                .run_if(on_timer(Duration::from_millis(100))),),
+            SimTick,
+            ((update_computers, do_maneuvers).in_set(Sets::Physics)),
         )
         .add_systems(
             Update,
@@ -193,8 +191,6 @@ fn do_maneuvers(
         };
 
         let pd = PDCtrl::new(20.0, 50.0);
-
-        let placeholder = Vehicle::new();
 
         let (ctrl, status) = match computer.mode {
             ComputerMode::Idle => (VehicleControl::NULLOPT, VehicleControlStatus::Idling),

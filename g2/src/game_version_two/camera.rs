@@ -53,18 +53,25 @@ fn control_camera(
 }
 
 fn track_selected_spacecraft(
-    cursor: Res<CursorInfo>,
+    mut transform_params: ParamSet<(TransformHelper, Query<&mut Transform, With<Camera>>)>,
+    cursor: Res<SelectedSpacecraft>,
     grids: Query<&GlobalTransform, With<SpacecraftGrid>>,
     parts: Query<&ChildOf, With<PartInstance>>,
-    mut camera: Single<&mut Transform, With<Camera>>,
+    settings: Res<Settings>,
 ) {
+    if !settings.follow_selected {
+        return;
+    }
+
     let id = some_or_return!(cursor.selected);
     let part = ok_or_return!(parts.get(id));
-    let grid = ok_or_return!(grids.get(part.0));
-    camera.translation = grid.translation();
+    let Ok(global) = transform_params.p0().compute_global_transform(part.0) else {
+        return;
+    };
+    transform_params.p1().single_mut().unwrap().translation = global.translation();
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Debug)]
 pub struct CursorWorldPosition {
     pos: Option<Vec2>,
     pub on_egui: bool,
@@ -73,6 +80,10 @@ pub struct CursorWorldPosition {
 impl CursorWorldPosition {
     pub fn get(&self) -> Option<Vec2> {
         (!self.on_egui).then(|| self.pos).flatten()
+    }
+
+    pub fn get_anyway(&self) -> Option<Vec2> {
+        self.pos
     }
 }
 

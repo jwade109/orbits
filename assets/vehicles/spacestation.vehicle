@@ -1,440 +1,3232 @@
-name: Oasis
-tuning:
-  attitude_controller:
-    kp: 0.0
-    kd: 0.0
-  vertical_controller:
-    kp: 0.0
-    kd: 0.0
-  horizontal_controller:
-    kp: 0.0
-    kd: 0.0
-  docking_linear_controller:
-    kp: 0.0
-    kd: 0.0
 parts:
+- partname: frame22
+  pos:
+  - -7
+  - 5
+  rot: North
+- partname: tank11
+  pos:
+  - 0
+  - -13
+  rot: West
+- partname: frame3
+  pos:
+  - 4
+  - -11
+  rot: West
+- partname: rcs
+  pos:
+  - 15
+  - 1
+  rot: South
+- partname: rcs
+  pos:
+  - 14
+  - -32
+  rot: West
+- partname: rcs
+  pos:
+  - 14
+  - -33
+  rot: West
+- partname: rcs
+  pos:
+  - 7
+  - -36
+  rot: East
+- partname: rcs
+  pos:
+  - 30
+  - -2
+  rot: North
+- partname: docking-port
+  pos:
+  - -2
+  - -14
+  rot: South
+- partname: frame2
+  pos:
+  - -2
+  - -27
+  rot: North
+- partname: docking-port
+  pos:
+  - -33
+  - -2
+  rot: West
+- partname: rcs
+  pos:
+  - 9
+  - 8
+  rot: West
+- partname: rcs
+  pos:
+  - 7
+  - -25
+  rot: East
+- partname: frame3
+  pos:
+  - 0
+  - -1
+  rot: East
 - partname: angled-frame
   pos:
-  - -65
+  - -3
+  - -17
+  rot: West
+- partname: frame3
+  pos:
+  - -3
+  - 1
+  rot: South
+- partname: frame3
+  pos:
+  - 24
+  - -1
+  rot: East
+- partname: frame22
+  pos:
+  - -11
+  - 1
+  rot: North
+- partname: rcs
+  pos:
+  - -16
+  - -2
+  rot: North
+- partname: docking-port
+  pos:
+  - 32
+  - -2
+  rot: East
+- partname: rcs
+  pos:
+  - 31
+  - 1
+  rot: South
+- partname: angled-frame
+  pos:
+  - 12
+  - -25
+  rot: East
+- partname: rcs
+  pos:
+  - -32
+  - 1
+  rot: South
+- partname: rcs
+  pos:
+  - -4
+  - -23
+  rot: East
+- partname: rcs
+  pos:
+  - 14
+  - -9
+  rot: West
+- partname: frame3
+  pos:
+  - -1
+  - -23
+  rot: South
+- partname: solarpanel
+  pos:
+  - -29
+  - -14
+  rot: South
+- partname: angled-frame
+  pos:
+  - 8
+  - -37
+  rot: West
+- partname: frame2
+  pos:
+  - 0
+  - -25
+  rot: South
+- partname: rcs
+  pos:
+  - -3
+  - -15
+  rot: South
+- partname: rcs
+  pos:
+  - 2
+  - -24
+  rot: North
+- partname: tank22
+  pos:
+  - 8
+  - -19
+  rot: North
+- partname: angled-frame
+  pos:
+  - 6
+  - -35
+  rot: West
+- partname: rcs
+  pos:
+  - 5
+  - -32
+  rot: East
+- partname: frame3
+  pos:
+  - -12
+  - -11
+  rot: West
+- partname: angled-frame
+  pos:
+  - 0
+  - -29
+  rot: South
+- partname: tank21
+  pos:
+  - -8
+  - -13
+  rot: South
+- partname: rcs
+  pos:
+  - 2
+  - -15
+  rot: South
+- partname: cpu
+  pos:
+  - -2
+  - -1
+  rot: South
+- partname: small-motor
+  pos:
+  - -1
+  - -31
+  rot: North
+- partname: angled-frame
+  pos:
+  - 9
+  - 1
+  rot: East
+- partname: rcs
+  pos:
+  - -31
+  - 1
+  rot: South
+- partname: angled-frame
+  pos:
+  - 1
+  - -17
+  rot: South
+- partname: rcs
+  pos:
+  - 3
+  - -17
+  rot: West
+- partname: frame2
+  pos:
+  - 1
+  - -23
+  rot: North
+- partname: docking-port
+  pos:
+  - -12
+  - -14
+  rot: South
+- partname: frame3
+  pos:
+  - -1
+  - 7
+  rot: West
+- partname: rcs
+  pos:
+  - -16
+  - 1
+  rot: South
+- partname: chemical-plant
+  pos:
+  - -3
+  - 7
+  rot: North
+- partname: angled-frame
+  pos:
+  - 10
+  - -37
+  rot: South
+- partname: rcs
+  pos:
+  - 5
+  - -33
+  rot: East
+- partname: angled-frame
+  pos:
+  - 30
+  - 1
+  rot: North
+- partname: tank21
+  pos:
+  - -12
+  - -13
+  rot: South
+- partname: rcs
+  pos:
+  - 12
+  - -25
+  rot: West
+- partname: frame22
+  pos:
+  - -11
+  - 5
+  rot: North
+- partname: frame3
+  pos:
+  - 16
+  - -1
+  rot: East
+- partname: tank11
+  pos:
+  - 7
+  - 3
+  rot: West
+- partname: angled-frame
+  pos:
+  - -14
+  - -11
+  rot: West
+- partname: solarpanel
+  pos:
+  - -26
+  - -14
+  rot: South
+- partname: angled-frame
+  pos:
+  - -9
+  - 9
+  rot: North
+- partname: frame2
+  pos:
+  - -2
+  - -25
+  rot: East
+- partname: chemical-plant
+  pos:
+  - 3
+  - 1
+  rot: West
+- partname: rcs
+  pos:
+  - 30
+  - 1
+  rot: South
+- partname: frame3
+  pos:
+  - -12
+  - -13
+  rot: West
+- partname: docking-port
+  pos:
+  - 8
+  - -15
+  rot: North
+- partname: rcs
+  pos:
+  - 6
+  - -25
+  rot: South
+- partname: frame22
+  pos:
+  - -7
+  - 1
+  rot: North
+- partname: cpu
+  pos:
+  - 6
+  - -29
+  rot: North
+- partname: tank21
+  pos:
+  - -2
+  - -27
+  rot: South
+- partname: frame3
+  pos:
+  - -16
+  - -1
+  rot: East
+- partname: frame2
+  pos:
+  - 0
+  - -27
+  rot: West
+- partname: rcs
+  pos:
+  - -3
+  - -24
+  rot: North
+- partname: frame22
+  pos:
+  - 8
+  - -19
+  rot: North
+- partname: tank21
+  pos:
+  - 6
+  - -1
+  rot: South
+- partname: tank22
+  pos:
+  - 8
+  - -27
+  rot: North
+- partname: frame22
+  pos:
+  - 8
+  - -27
+  rot: North
+- partname: tank21
+  pos:
+  - -10
+  - -1
+  rot: South
+- partname: battery
+  pos:
+  - 0
+  - -1
+  rot: South
+- partname: rcs
+  pos:
+  - 8
+  - 11
+  rot: South
+- partname: frame2
+  pos:
+  - -3
+  - -23
+  rot: North
+- partname: angled-frame
+  pos:
+  - 12
+  - -35
+  rot: South
+- partname: rcs
+  pos:
+  - 13
+  - -25
+  rot: South
+- partname: rcs
+  pos:
+  - -31
+  - -2
+  rot: North
+- partname: cargo
+  pos:
+  - -3
+  - 1
+  rot: North
+- partname: rcs
+  pos:
+  - 7
+  - -18
+  rot: East
+- partname: tank21
+  pos:
+  - 8
+  - -13
+  rot: South
+- partname: rcs
+  pos:
+  - 6
+  - -34
+  rot: North
+- partname: rcs
+  pos:
+  - 15
+  - -2
+  rot: North
+- partname: frame22
+  pos:
+  - 8
+  - -35
+  rot: North
+- partname: frame3
+  pos:
+  - -4
+  - -13
+  rot: West
+- partname: rcs
+  pos:
+  - -11
+  - 9
+  rot: South
+- partname: tank21
+  pos:
+  - -4
+  - -13
+  rot: South
+- partname: docking-port
+  pos:
+  - -2
+  - -15
+  rot: North
+- partname: rcs
+  pos:
+  - -12
+  - 8
+  rot: East
+- partname: tank11
+  pos:
+  - 7
+  - 1
+  rot: West
+- partname: frame3
+  pos:
+  - -8
+  - -1
+  rot: East
+- partname: tank22
+  pos:
+  - -7
+  - 5
+  rot: North
+- partname: small-antenna
+  pos:
+  - 3
+  - 11
+  rot: East
+- partname: rcs
+  pos:
+  - 12
+  - -17
+  rot: West
+- partname: tank22
+  pos:
+  - 8
+  - -23
+  rot: North
+- partname: frame3
+  pos:
+  - -24
+  - -1
+  rot: East
+- partname: frame3
+  pos:
+  - -14
+  - -9
+  rot: North
+- partname: angled-frame
+  pos:
+  - 1
+  - -21
+  rot: East
+- partname: solarpanel
+  pos:
+  - -26
+  - 1
+  rot: North
+- partname: angled-frame
+  pos:
+  - -32
+  - -3
+  rot: South
+- partname: tank22
+  pos:
+  - 8
+  - -35
+  rot: North
+- partname: angled-frame
+  pos:
+  - -2
+  - -29
+  rot: West
+- partname: angled-frame
+  pos:
+  - -3
+  - -21
+  rot: North
+- partname: frame2
+  pos:
+  - -7
+  - 9
+  rot: West
+- partname: rcs
+  pos:
+  - 3
+  - -23
+  rot: West
+- partname: rcs
+  pos:
+  - -15
+  - -9
+  rot: East
+- partname: battery
+  pos:
+  - 2
+  - -1
+  rot: South
+- partname: small-antenna
+  pos:
+  - 2
+  - 11
+  rot: East
+- partname: solarpanel
+  pos:
+  - -29
+  - 1
+  rot: North
+- partname: angled-frame
+  pos:
+  - -32
+  - 1
+  rot: East
+- partname: frame3
+  pos:
+  - 7
+  - 1
+  rot: North
+- partname: reactor
+  pos:
+  - 8
+  - -31
+  rot: North
+- partname: cargo
+  pos:
+  - -3
+  - -21
+  rot: North
+- partname: frame3
+  pos:
+  - -4
+  - -11
+  rot: West
+- partname: frame3
+  pos:
+  - 12
+  - -9
+  rot: North
+- partname: rcs
+  pos:
+  - -14
+  - -10
+  rot: North
+- partname: rcs
+  pos:
+  - 13
+  - -34
+  rot: North
+- partname: frame3
+  pos:
+  - -32
+  - -1
+  rot: East
+- partname: motor
+  pos:
+  - 8
+  - -41
+  rot: North
+- partname: frame3
+  pos:
+  - 4
+  - -13
+  rot: West
+- partname: frame3
+  pos:
+  - 8
+  - -1
+  rot: East
+- partname: frame22
+  pos:
+  - 8
+  - -23
+  rot: North
+- partname: tank22
+  pos:
+  - -11
   - 5
   rot: North
 - partname: radar
   pos:
-  - -32
-  - 55
+  - -6
+  - 11
   rot: East
-- partname: rcs
-  pos:
-  - 154
-  - 5
-  rot: South
-- partname: rcs
-  pos:
-  - -70
-  - -49
-  rot: North
-- partname: solarpanel
-  pos:
-  - 128
-  - 5
-  rot: North
-- partname: chemical-plant
-  pos:
-  - -15
-  - 35
-  rot: North
-- partname: docking-port
-  pos:
-  - -60
-  - -66
-  rot: South
-- partname: tank22
-  pos:
-  - -35
-  - 25
-  rot: North
-- partname: angled-frame
-  pos:
-  - -45
-  - 45
-  rot: North
-- partname: angled-frame
-  pos:
-  - 60
-  - -55
-  rot: South
-- partname: tank21
-  pos:
-  - -50
-  - -5
-  rot: South
-- partname: solarpanel
-  pos:
-  - 112
-  - 5
-  rot: North
-- partname: solarpanel
-  pos:
-  - -144
-  - -70
-  rot: South
-- partname: rcs
-  pos:
-  - -81
-  - -9
-  rot: North
-- partname: small-antenna
-  pos:
-  - 9
-  - 55
-  rot: East
-- partname: frame3
-  pos:
-  - 120
-  - -5
-  rot: East
-- partname: angled-frame
-  pos:
-  - -70
-  - -55
-  rot: West
-- partname: docking-port
-  pos:
-  - 40
-  - -66
-  rot: South
-- partname: frame22
-  pos:
-  - -35
-  - 5
-  rot: North
 - partname: battery
   pos:
-  - 9
-  - -5
+  - 4
+  - -1
   rot: South
-- partname: solarpanel
-  pos:
-  - -112
-  - -70
-  rot: South
-- partname: rcs
-  pos:
-  - -164
-  - -6
-  rot: East
-- partname: solarpanel
-  pos:
-  - 96
-  - -70
-  rot: South
-- partname: rcs
-  pos:
-  - 148
-  - 5
-  rot: South
-- partname: solarpanel
-  pos:
-  - 96
-  - 5
-  rot: North
-- partname: rcs
-  pos:
-  - -74
-  - -46
-  rot: East
-- partname: rcs
-  pos:
-  - -164
-  - 0
-  rot: East
 - partname: tank21
+  pos:
+  - 4
+  - -13
+  rot: South
+- partname: angled-frame
+  pos:
+  - -13
+  - 1
+  rot: North
+- partname: frame2
+  pos:
+  - -5
+  - 9
+  rot: West
+- partname: angled-frame
   pos:
   - 30
-  - -5
-  rot: South
-- partname: rcs
-  pos:
-  - 70
-  - -45
+  - -3
   rot: West
 - partname: rcs
   pos:
-  - -160
-  - 5
-  rot: South
-- partname: rcs
-  pos:
-  - 154
-  - -9
+  - 31
+  - -2
   rot: North
-- partname: rcs
-  pos:
-  - 64
-  - -49
-  rot: North
-- partname: battery
-  pos:
-  - 0
-  - -5
-  rot: South
 - partname: frame3
   pos:
-  - -160
-  - -5
+  - 6
+  - -33
+  rot: North
+- partname: chemical-plant
+  pos:
+  - 3
+  - 7
+  rot: North
+- partname: rcs
+  pos:
+  - 12
+  - -18
+  rot: West
+- partname: tank11
+  pos:
+  - 2
+  - -13
+  rot: West
+- partname: frame3
+  pos:
+  - 12
+  - -33
+  rot: North
+- partname: angled-frame
+  pos:
+  - 12
+  - -11
+  rot: South
+- partname: rcs
+  pos:
+  - -4
+  - -17
   rot: East
+- partname: tank21
+  pos:
+  - -6
+  - -1
+  rot: South
+- partname: rcs
+  pos:
+  - 7
+  - -17
+  rot: East
+- partname: docking-port
+  pos:
+  - 8
+  - -14
+  rot: South
+- partname: rcs
+  pos:
+  - -32
+  - -2
+  rot: North
+- partname: tank22
+  pos:
+  - -7
+  - 1
+  rot: North
+- partname: rcs
+  pos:
+  - 13
+  - -10
+  rot: North
+- partname: tank21
+  pos:
+  - -2
+  - -25
+  rot: West
+- partname: rcs
+  pos:
+  - 12
+  - -36
+  rot: West
+- partname: tank22
+  pos:
+  - -11
+  - 1
+  rot: North
+- partname: angled-frame
+  pos:
+  - 6
+  - -25
+  rot: North
+- partname: tank21
+  pos:
+  - 0
+  - -25
+  rot: West
+- partname: tank11
+  pos:
+  - 7
+  - 5
+  rot: West
+- partname: container
+  pos:
+  - -12
+  - -11
+  rot: West
 - partname: solarpanel
   pos:
-  - 128
-  - -70
+  - -23
+  - -14
+  rot: South
+- partname: solarpanel
+  pos:
+  - -23
+  - 1
+  rot: North
+- partname: solarpanel
+  pos:
+  - 26
+  - 1
+  rot: North
+- partname: solarpanel
+  pos:
+  - 23
+  - 1
+  rot: North
+- partname: solarpanel
+  pos:
+  - 20
+  - 1
+  rot: North
+- partname: solarpanel
+  pos:
+  - 26
+  - -14
+  rot: South
+- partname: solarpanel
+  pos:
+  - 23
+  - -14
+  rot: South
+- partname: solarpanel
+  pos:
+  - 20
+  - -14
+  rot: South
+- partname: tank11
+  pos:
+  - -32
+  - -1
+  rot: East
+- partname: rcs
+  pos:
+  - -38
+  - -6
+  rot: North
+- partname: frame2
+  pos:
+  - -38
+  - -3
+  rot: East
+- partname: battery
+  pos:
+  - -38
+  - -5
+  rot: East
+- partname: gold
+  pos:
+  - -46
+  - 1
+  rot: North
+- partname: gold
+  pos:
+  - -46
+  - -5
+  rot: North
+- partname: gold
+  pos:
+  - -46
+  - 3
+  rot: North
+- partname: tank21
+  pos:
+  - -43
+  - 5
+  rot: South
+- partname: plate
+  pos:
+  - -42
+  - 4
+  rot: North
+- partname: frame2
+  pos:
+  - -41
+  - -7
+  rot: North
+- partname: plate
+  pos:
+  - -44
+  - -2
+  rot: North
+- partname: frame
+  pos:
+  - -44
+  - -3
+  rot: East
+- partname: angled-frame
+  pos:
+  - -36
+  - -5
+  rot: South
+- partname: tank21
+  pos:
+  - -42
+  - -5
+  rot: South
+- partname: frame2
+  pos:
+  - -40
+  - 1
+  rot: East
+- partname: tank21
+  pos:
+  - -42
+  - 3
   rot: South
 - partname: docking-port
   pos:
-  - -10
-  - -66
-  rot: South
-- partname: small-antenna
-  pos:
-  - 15
-  - 55
+  - -34
+  - -2
   rot: East
-- partname: chemical-plant
+- partname: rcs
   pos:
-  - 15
-  - 35
+  - -36
+  - -5
+  rot: West
+- partname: frame3
+  pos:
+  - -44
+  - 3
+  rot: East
+- partname: motor
+  pos:
+  - -48
+  - 1
+  rot: East
+- partname: plate
+  pos:
+  - -44
+  - -4
   rot: North
 - partname: rcs
   pos:
-  - -55
-  - 45
-  rot: South
-- partname: frame22
-  pos:
-  - -55
-  - 25
-  rot: North
-- partname: frame3
-  pos:
-  - 0
-  - -5
-  rot: East
-- partname: frame3
-  pos:
-  - -80
-  - -5
-  rot: East
-- partname: frame3
-  pos:
-  - 35
-  - 5
-  rot: North
-- partname: solarpanel
-  pos:
-  - -128
-  - -70
-  rot: South
-- partname: rcs
-  pos:
-  - -154
+  - -44
   - -9
-  rot: North
-- partname: rcs
-  pos:
-  - -59
-  - 39
   rot: East
 - partname: tank11
   pos:
-  - 35
-  - 25
+  - -36
+  - -3
+  rot: East
+- partname: frame2
+  pos:
+  - -38
+  - -1
+  rot: East
+- partname: frame
+  pos:
+  - -44
+  - 1
+  rot: East
+- partname: plate
+  pos:
+  - -44
+  - 0
+  rot: North
+- partname: plate
+  pos:
+  - -44
+  - 2
+  rot: North
+- partname: gold
+  pos:
+  - -46
+  - -1
+  rot: North
+- partname: frame2
+  pos:
+  - -38
+  - 1
+  rot: East
+- partname: plate
+  pos:
+  - -40
+  - -6
+  rot: North
+- partname: plate
+  pos:
+  - -40
+  - -1
+  rot: North
+- partname: tank11
+  pos:
+  - -36
+  - -1
   rot: West
 - partname: rcs
   pos:
-  - -160
-  - -9
-  rot: North
-- partname: frame3
-  pos:
-  - 40
-  - -5
+  - -44
+  - 8
   rot: East
 - partname: cpu
   pos:
-  - -9
-  - -4
-  rot: South
-- partname: tank21
-  pos:
-  - -30
-  - -5
-  rot: South
-- partname: rcs
-  pos:
-  - 75
-  - -9
-  rot: North
-- partname: tank22
-  pos:
-  - -55
-  - 25
-  rot: North
-- partname: rcs
-  pos:
-  - 45
-  - 39
-  rot: West
-- partname: frame3
-  pos:
-  - -40
-  - -5
+  - -38
+  - 3
   rot: East
-- partname: solarpanel
+- partname: frame2
   pos:
-  - -112
-  - 5
-  rot: North
-- partname: frame3
-  pos:
-  - -5
-  - 35
+  - -36
+  - -3
   rot: West
+- partname: frame2
+  pos:
+  - -41
+  - 5
+  rot: East
 - partname: rcs
   pos:
-  - -154
-  - 5
-  rot: South
+  - -41
+  - 8
+  rot: West
 - partname: angled-frame
   pos:
-  - 45
-  - 5
+  - -36
+  - 3
   rot: East
-- partname: rcs
+- partname: tank21
   pos:
-  - 160
-  - 0
-  rot: West
-- partname: rcs
-  pos:
-  - 75
-  - 5
-  rot: South
-- partname: frame3
-  pos:
-  - -70
-  - -45
-  rot: North
-- partname: frame2
-  pos:
-  - -25
-  - 45
-  rot: West
-- partname: frame3
-  pos:
-  - 60
-  - -45
-  rot: North
-- partname: rcs
-  pos:
-  - 148
-  - -9
-  rot: North
-- partname: tank22
-  pos:
-  - -35
-  - 5
-  rot: North
-- partname: chemical-plant
-  pos:
-  - 15
-  - 5
-  rot: West
-- partname: solarpanel
-  pos:
-  - -144
-  - 5
-  rot: North
-- partname: battery
-  pos:
-  - 18
-  - -5
-  rot: South
-- partname: solarpanel
-  pos:
-  - 112
-  - -70
-  rot: South
-- partname: tank22
-  pos:
-  - -55
-  - 5
-  rot: North
-- partname: container
-  pos:
-  - -60
-  - -55
-  rot: West
-- partname: frame3
-  pos:
-  - -120
-  - -5
-  rot: East
-- partname: frame3
-  pos:
-  - 80
-  - -5
-  rot: East
-- partname: frame2
-  pos:
-  - -35
-  - 45
-  rot: West
-- partname: rcs
-  pos:
-  - 39
-  - 55
-  rot: South
-- partname: solarpanel
-  pos:
-  - -128
-  - 5
-  rot: North
-- partname: frame22
-  pos:
-  - -35
-  - 25
-  rot: North
-- partname: frame3
-  pos:
-  - -15
-  - 5
-  rot: South
-- partname: tank11
-  pos:
-  - 35
-  - 15
-  rot: West
-- partname: frame22
-  pos:
-  - -55
-  - 5
-  rot: North
-- partname: tank11
-  pos:
-  - 35
-  - 5
-  rot: West
-- partname: rcs
-  pos:
-  - -81
-  - 5
+  - -43
+  - -7
   rot: South
 - partname: cargo
   pos:
-  - -15
+  - -42
+  - -3
+  rot: East
+- partname: plate
+  pos:
+  - -42
+  - -6
+  rot: North
+- partname: frame3
+  pos:
+  - -44
+  - -5
+  rot: East
+- partname: motor
+  pos:
+  - -48
+  - -4
+  rot: East
+- partname: rcs
+  pos:
+  - -41
+  - -9
+  rot: West
+- partname: frame2
+  pos:
+  - -36
+  - 1
+  rot: West
+- partname: plate
+  pos:
+  - -40
+  - 4
+  rot: North
+- partname: frame2
+  pos:
+  - -36
+  - -1
+  rot: West
+- partname: frame3
+  pos:
+  - -49
   - 5
+  rot: East
+- partname: rcs
+  pos:
+  - -38
+  - 5
+  rot: South
+- partname: frame2
+  pos:
+  - -43
+  - 7
+  rot: East
+- partname: frame3
+  pos:
+  - -49
+  - -7
+  rot: East
+- partname: small-antenna
+  pos:
+  - -36
+  - -4
+  rot: South
+- partname: rcs
+  pos:
+  - -36
+  - 4
+  rot: West
+- partname: frame2
+  pos:
+  - -43
+  - -9
+  rot: North
+- partname: frame
+  pos:
+  - -44
+  - -1
+  rot: East
+- partname: small-motor
+  pos:
+  - -47
+  - -1
+  rot: East
+- partname: small-antenna
+  pos:
+  - -36
+  - 3
+  rot: South
+- partname: plate
+  pos:
+  - -42
+  - -1
   rot: North
 - partname: rcs
   pos:
-  - 160
-  - -6
+  - -43
+  - 9
+  rot: South
+- partname: rcs
+  pos:
+  - -43
+  - -10
+  rot: North
+- partname: tank11
+  pos:
+  - -36
+  - 1
+  rot: East
+- partname: frame2
+  pos:
+  - -40
+  - -3
+  rot: East
+- partname: gold
+  pos:
+  - -46
+  - -3
+  rot: North
+- partname: docking-port
+  pos:
+  - -12
+  - -15
+  rot: North
+- partname: frame22
+  pos:
+  - -12
+  - -19
+  rot: North
+- partname: frame22
+  pos:
+  - -12
+  - -47
+  rot: North
+- partname: tank22
+  pos:
+  - -12
+  - -19
+  rot: North
+- partname: tank22
+  pos:
+  - -12
+  - -47
+  rot: North
+- partname: docking-port
+  pos:
+  - -12
+  - -48
+  rot: South
+- partname: tank11
+  pos:
+  - 2
+  - -51
+  rot: South
+- partname: tank11
+  pos:
+  - -14
+  - -53
+  rot: North
+- partname: battery
+  pos:
+  - -14
+  - -51
+  rot: East
+- partname: plate
+  pos:
+  - -28
+  - -60
+  rot: South
+- partname: plate
+  pos:
+  - 4
+  - -56
+  rot: East
+- partname: docking-port
+  pos:
+  - -12
+  - -62
+  rot: South
+- partname: frame3
+  pos:
+  - 2
+  - -59
+  rot: North
+- partname: tank11
+  pos:
+  - -12
+  - -53
+  rot: North
+- partname: rcs
+  pos:
+  - 1
+  - -64
+  rot: North
+- partname: plate
+  pos:
+  - -26
+  - -56
+  rot: East
+- partname: frame2
+  pos:
+  - 0
+  - -49
   rot: West
+- partname: plate
+  pos:
+  - -26
+  - -60
+  rot: South
+- partname: rcs
+  pos:
+  - -22
+  - -64
+  rot: North
+- partname: angled-frame
+  pos:
+  - 2
+  - -51
+  rot: East
+- partname: rcs
+  pos:
+  - -20
+  - -48
+  rot: West
+- partname: frame2
+  pos:
+  - 0
+  - -63
+  rot: South
+- partname: frame2
+  pos:
+  - -22
+  - -61
+  rot: North
+- partname: tank21
+  pos:
+  - -14
+  - -59
+  rot: North
+- partname: motor
+  pos:
+  - -32
+  - -54
+  rot: East
+- partname: frame3
+  pos:
+  - 4
+  - -59
+  rot: South
+- partname: plate
+  pos:
+  - 0
+  - -60
+  rot: South
+- partname: rcs
+  pos:
+  - -23
+  - -48
+  rot: East
+- partname: rcs
+  pos:
+  - -20
+  - -63
+  rot: West
+- partname: cpu
+  pos:
+  - -8
+  - -51
+  rot: East
+- partname: angled-frame
+  pos:
+  - -24
+  - -61
+  rot: West
+- partname: tank11
+  pos:
+  - -8
+  - -53
+  rot: North
+- partname: rcs
+  pos:
+  - -1
+  - -63
+  rot: East
+- partname: cargo
+  pos:
+  - -4
+  - -58
+  rot: East
+- partname: frame2
+  pos:
+  - -11
+  - -57
+  rot: West
+- partname: tank11
+  pos:
+  - -10
+  - -61
+  rot: North
+- partname: plate
+  pos:
+  - 6
+  - -52
+  rot: South
+- partname: tank11
+  pos:
+  - -24
+  - -51
+  rot: South
+- partname: motor
+  pos:
+  - 6
+  - -54
+  rot: West
+- partname: frame2
+  pos:
+  - -11
+  - -55
+  rot: North
+- partname: frame3
+  pos:
+  - -6
+  - -53
+  rot: East
+- partname: small-antenna
+  pos:
+  - -4
+  - -51
+  rot: North
+- partname: plate
+  pos:
+  - 2
+  - -56
+  rot: East
+- partname: plate
+  pos:
+  - 0
+  - -52
+  rot: South
+- partname: tank11
+  pos:
+  - -10
+  - -53
+  rot: North
+- partname: frame3
+  pos:
+  - -26
+  - -59
+  rot: South
+- partname: plate
+  pos:
+  - 4
+  - -60
+  rot: South
+- partname: plate
+  pos:
+  - 2
+  - -52
+  rot: South
+- partname: frame2
+  pos:
+  - 0
+  - -51
+  rot: North
+- partname: plate
+  pos:
+  - -22
+  - -52
+  rot: South
+- partname: plate
+  pos:
+  - -22
+  - -60
+  rot: South
+- partname: small-antenna
+  pos:
+  - -20
+  - -61
+  rot: South
+- partname: rcs
+  pos:
+  - -23
+  - -63
+  rot: East
+- partname: frame3
+  pos:
+  - -28
+  - -59
+  rot: North
+- partname: frame3
+  pos:
+  - -14
+  - -51
+  rot: East
+- partname: angled-frame
+  pos:
+  - -24
+  - -51
+  rot: North
+- partname: rcs
+  pos:
+  - 2
+  - -48
+  rot: West
+- partname: plate
+  pos:
+  - 4
+  - -52
+  rot: South
+- partname: rcs
+  pos:
+  - -1
+  - -48
+  rot: East
+- partname: frame2
+  pos:
+  - -22
+  - -51
+  rot: North
+- partname: plate
+  pos:
+  - 6
+  - -56
+  rot: East
+- partname: small-antenna
+  pos:
+  - -4
+  - -61
+  rot: North
+- partname: plate
+  pos:
+  - -28
+  - -56
+  rot: East
+- partname: small-motor
+  pos:
+  - 7
+  - -56
+  rot: West
+- partname: tank11
+  pos:
+  - -12
+  - -61
+  rot: North
+- partname: frame3
+  pos:
+  - -22
+  - -53
+  rot: East
+- partname: rcs
+  pos:
+  - -22
+  - -47
+  rot: South
+- partname: motor
+  pos:
+  - -32
+  - -59
+  rot: East
+- partname: frame3
+  pos:
+  - -14
+  - -61
+  rot: East
+- partname: frame3
+  pos:
+  - -22
+  - -59
+  rot: East
+- partname: docking-port
+  pos:
+  - -12
+  - -49
+  rot: North
+- partname: tank11
+  pos:
+  - -24
+  - -61
+  rot: South
+- partname: plate
+  pos:
+  - -24
+  - -60
+  rot: South
+- partname: small-antenna
+  pos:
+  - -20
+  - -51
+  rot: South
+- partname: rcs
+  pos:
+  - 2
+  - -63
+  rot: West
+- partname: frame2
+  pos:
+  - -22
+  - -63
+  rot: East
+- partname: tank22
+  pos:
+  - -26
+  - -59
+  rot: North
+- partname: plate
+  pos:
+  - -26
+  - -52
+  rot: South
+- partname: plate
+  pos:
+  - -24
+  - -56
+  rot: East
+- partname: tank11
+  pos:
+  - -10
+  - -51
+  rot: North
+- partname: small-motor
+  pos:
+  - -30
+  - -56
+  rot: East
+- partname: angled-frame
+  pos:
+  - 2
+  - -61
+  rot: South
+- partname: rcs
+  pos:
+  - 1
+  - -47
+  rot: South
+- partname: plate
+  pos:
+  - 2
+  - -60
+  rot: South
+- partname: plate
+  pos:
+  - -28
+  - -52
+  rot: South
+- partname: tank22
+  pos:
+  - 2
+  - -55
+  rot: North
+- partname: frame3
+  pos:
+  - 6
+  - -59
+  rot: North
+- partname: tank22
+  pos:
+  - 2
+  - -59
+  rot: North
+- partname: cargo
+  pos:
+  - -22
+  - -58
+  rot: East
+- partname: frame3
+  pos:
+  - -14
+  - -53
+  rot: East
+- partname: battery
+  pos:
+  - -12
+  - -51
+  rot: East
+- partname: plate
+  pos:
+  - 6
+  - -60
+  rot: South
+- partname: frame2
+  pos:
+  - -22
+  - -49
+  rot: North
+- partname: tank21
+  pos:
+  - -10
+  - -59
+  rot: North
+- partname: chemical-plant
+  pos:
+  - -16
+  - -57
+  rot: North
+- partname: frame2
+  pos:
+  - 0
+  - -61
+  rot: West
+- partname: frame3
+  pos:
+  - -24
+  - -59
+  rot: North
+- partname: frame3
+  pos:
+  - -14
+  - -59
+  rot: East
+- partname: frame3
+  pos:
+  - -6
+  - -59
+  rot: East
+- partname: tank11
+  pos:
+  - 2
+  - -61
+  rot: South
+- partname: motor
+  pos:
+  - 6
+  - -59
+  rot: West
+- partname: chemical-plant
+  pos:
+  - -10
+  - -57
+  rot: South
+- partname: tank22
+  pos:
+  - -26
+  - -55
+  rot: North
+- partname: plate
+  pos:
+  - -24
+  - -52
+  rot: South
+- partname: frame22
+  pos:
+  - -12
+  - -23
+  rot: North
+- partname: frame22
+  pos:
+  - -12
+  - -27
+  rot: North
+- partname: frame22
+  pos:
+  - -12
+  - -31
+  rot: North
+- partname: frame22
+  pos:
+  - -12
+  - -43
+  rot: North
+- partname: frame22
+  pos:
+  - -12
+  - -39
+  rot: North
+- partname: frame22
+  pos:
+  - -12
+  - -35
+  rot: North
+- partname: tank11
+  pos:
+  - 30
+  - -1
+  rot: East
+- partname: tank21
+  pos:
+  - -17
+  - -65
+  rot: North
+- partname: cpu
+  pos:
+  - -15
+  - -67
+  rot: North
+- partname: excavator
+  pos:
+  - -7
+  - -68
+  rot: East
+- partname: frame3
+  pos:
+  - -17
+  - -67
+  rot: East
+- partname: angled-frame
+  pos:
+  - -7
+  - -65
+  rot: East
+- partname: battery
+  pos:
+  - -17
+  - -67
+  rot: North
+- partname: frame2
+  pos:
+  - -9
+  - -67
+  rot: North
+- partname: rcs
+  pos:
+  - -8
+  - -70
+  rot: North
+- partname: rcs
+  pos:
+  - -16
+  - -63
+  rot: South
+- partname: angled-frame
+  pos:
+  - -19
+  - -66
+  rot: North
+- partname: small-motor
+  pos:
+  - -20
+  - -66
+  rot: East
+- partname: rcs
+  pos:
+  - -18
+  - -69
+  rot: East
+- partname: docking-port
+  pos:
+  - -12
+  - -63
+  rot: North
+- partname: frame2
+  pos:
+  - -9
+  - -65
+  rot: North
+- partname: frame2
+  pos:
+  - -9
+  - -69
+  rot: North
+- partname: rcs
+  pos:
+  - -7
+  - -69
+  rot: West
+- partname: frame2
+  pos:
+  - -17
+  - -65
+  rot: North
+- partname: frame2
+  pos:
+  - -7
+  - -67
+  rot: North
+- partname: rcs
+  pos:
+  - -16
+  - -70
+  rot: North
+- partname: angled-frame
+  pos:
+  - -7
+  - -69
+  rot: South
+- partname: rcs
+  pos:
+  - -8
+  - -63
+  rot: South
+- partname: frame2
+  pos:
+  - -17
+  - -69
+  rot: North
+- partname: angled-frame
+  pos:
+  - -19
+  - -68
+  rot: West
+- partname: tank21
+  pos:
+  - -17
+  - -69
+  rot: North
+- partname: rcs
+  pos:
+  - -18
+  - -64
+  rot: East
+- partname: cargo
+  pos:
+  - -13
+  - -69
+  rot: East
+- partname: docking-port
+  pos:
+  - -12
+  - -70
+  rot: South
+- partname: rcs
+  pos:
+  - -7
+  - -64
+  rot: West
+- partname: small-motor
+  pos:
+  - -20
+  - -68
+  rot: East
+pipes:
+- geometry:
+    start:
+    - 10
+    - -15
+    end:
+    - 10
+    - -16
+    x_first: false
+- geometry:
+    start:
+    - 10
+    - -16
+    end:
+    - 10
+    - -21
+    x_first: false
+- geometry:
+    start:
+    - 10
+    - -21
+    end:
+    - 10
+    - -25
+    x_first: false
+- geometry:
+    start:
+    - 10
+    - -25
+    end:
+    - 12
+    - -25
+    x_first: false
+- geometry:
+    start:
+    - 12
+    - -25
+    end:
+    - 13
+    - -25
+    x_first: false
+- geometry:
+    start:
+    - 10
+    - -25
+    end:
+    - 7
+    - -25
+    x_first: false
+- geometry:
+    start:
+    - 7
+    - -25
+    end:
+    - 6
+    - -25
+    x_first: false
+- geometry:
+    start:
+    - 10
+    - -27
+    end:
+    - 10
+    - -33
+    x_first: false
+- geometry:
+    start:
+    - 10
+    - -33
+    end:
+    - 14
+    - -33
+    x_first: false
+- geometry:
+    start:
+    - 10
+    - -33
+    end:
+    - 14
+    - -32
+    x_first: true
+- geometry:
+    start:
+    - 10
+    - -33
+    end:
+    - 13
+    - -34
+    x_first: true
+- geometry:
+    start:
+    - 10
+    - -33
+    end:
+    - 6
+    - -34
+    x_first: true
+- geometry:
+    start:
+    - 10
+    - -33
+    end:
+    - 5
+    - -33
+    x_first: true
+- geometry:
+    start:
+    - 10
+    - -33
+    end:
+    - 5
+    - -32
+    x_first: true
+- geometry:
+    start:
+    - 10
+    - -33
+    end:
+    - 9
+    - -36
+    x_first: true
+- geometry:
+    start:
+    - 9
+    - -36
+    end:
+    - 7
+    - -36
+    x_first: true
+- geometry:
+    start:
+    - 9
+    - -36
+    end:
+    - 12
+    - -36
+    x_first: true
+- geometry:
+    start:
+    - 10
+    - -25
+    end:
+    - 10
+    - -27
+    x_first: true
+- geometry:
+    start:
+    - 10
+    - -15
+    end:
+    - 10
+    - -14
+    x_first: true
+- geometry:
+    start:
+    - 10
+    - -14
+    end:
+    - 10
+    - -13
+    x_first: true
+- geometry:
+    start:
+    - 9
+    - -12
+    end:
+    - 6
+    - -12
+    x_first: true
+- geometry:
+    start:
+    - 6
+    - -12
+    end:
+    - 2
+    - -12
+    x_first: true
+- geometry:
+    start:
+    - 2
+    - -12
+    end:
+    - 1
+    - -12
+    x_first: true
+- geometry:
+    start:
+    - 1
+    - -12
+    end:
+    - -3
+    - -12
+    x_first: true
+- geometry:
+    start:
+    - -3
+    - -12
+    end:
+    - -6
+    - -12
+    x_first: true
+- geometry:
+    start:
+    - -3
+    - -12
+    end:
+    - -1
+    - -14
+    x_first: true
+- geometry:
+    start:
+    - -6
+    - -12
+    end:
+    - -10
+    - -12
+    x_first: true
+- geometry:
+    start:
+    - -10
+    - -12
+    end:
+    - -10
+    - -14
+    x_first: true
+- geometry:
+    start:
+    - -3
+    - -12
+    end:
+    - -3
+    - -9
+    x_first: false
+- geometry:
+    start:
+    - -5
+    - -1
+    end:
+    - -5
+    - -3
+    x_first: false
+- geometry:
+    start:
+    - -5
+    - -1
+    end:
+    - -8
+    - -1
+    x_first: false
+- geometry:
+    start:
+    - -8
+    - 1
+    end:
+    - -8
+    - -1
+    x_first: false
+- geometry:
+    start:
+    - -8
+    - 1
+    end:
+    - -7
+    - 1
+    x_first: false
+- geometry:
+    start:
+    - -7
+    - 4
+    end:
+    - -7
+    - 5
+    x_first: false
+- geometry:
+    start:
+    - -7
+    - 5
+    end:
+    - -8
+    - 5
+    x_first: false
+- geometry:
+    start:
+    - -4
+    - 5
+    end:
+    - -3
+    - 5
+    x_first: false
+- geometry:
+    start:
+    - -4
+    - 3
+    end:
+    - -3
+    - 3
+    x_first: false
+- geometry:
+    start:
+    - 8
+    - 0
+    end:
+    - 8
+    - 1
+    x_first: false
+- geometry:
+    start:
+    - 8
+    - 2
+    end:
+    - 8
+    - 3
+    x_first: false
+- geometry:
+    start:
+    - 8
+    - 3
+    end:
+    - 8
+    - 5
+    x_first: false
+- geometry:
+    start:
+    - 7
+    - 3
+    end:
+    - 5
+    - 3
+    x_first: false
+- geometry:
+    start:
+    - 5
+    - 6
+    end:
+    - 5
+    - 7
+    x_first: false
+- geometry:
+    start:
+    - 3
+    - 9
+    end:
+    - 1
+    - 9
+    x_first: false
+- geometry:
+    start:
+    - 3
+    - 4
+    end:
+    - 2
+    - 4
+    x_first: false
+- geometry:
+    start:
+    - 8
+    - 0
+    end:
+    - 15
+    - 1
+    x_first: true
+- geometry:
+    start:
+    - 8
+    - 0
+    end:
+    - 15
+    - -2
+    x_first: true
+- geometry:
+    start:
+    - -11
+    - 8
+    end:
+    - -11
+    - 9
+    x_first: true
+- geometry:
+    start:
+    - -11
+    - 8
+    end:
+    - -12
+    - 8
+    x_first: true
+- geometry:
+    start:
+    - 8
+    - 6
+    end:
+    - 9
+    - 8
+    x_first: false
+- geometry:
+    start:
+    - 8
+    - 6
+    end:
+    - 8
+    - 11
+    x_first: false
+- geometry:
+    start:
+    - -10
+    - -1
+    end:
+    - -16
+    - -2
+    x_first: true
+- geometry:
+    start:
+    - -10
+    - -1
+    end:
+    - -16
+    - 1
+    x_first: true
+- geometry:
+    start:
+    - -12
+    - -9
+    end:
+    - -15
+    - -9
+    x_first: true
+- geometry:
+    start:
+    - -12
+    - -9
+    end:
+    - -14
+    - -10
+    x_first: true
+- geometry:
+    start:
+    - 11
+    - -9
+    end:
+    - 14
+    - -9
+    x_first: true
+- geometry:
+    start:
+    - 11
+    - -9
+    end:
+    - 13
+    - -10
+    x_first: true
+- geometry:
+    start:
+    - 0
+    - -14
+    end:
+    - 0
+    - -15
+    x_first: false
+- geometry:
+    start:
+    - 0
+    - -15
+    end:
+    - 0
+    - -16
+    x_first: false
+- geometry:
+    start:
+    - 2
+    - -16
+    end:
+    - 2
+    - -15
+    x_first: false
+- geometry:
+    start:
+    - 2
+    - -17
+    end:
+    - 3
+    - -17
+    x_first: false
+- geometry:
+    start:
+    - -3
+    - -17
+    end:
+    - -4
+    - -17
+    x_first: false
+- geometry:
+    start:
+    - -3
+    - -16
+    end:
+    - -3
+    - -15
+    x_first: false
+- geometry:
+    start:
+    - 1
+    - -24
+    end:
+    - 2
+    - -24
+    x_first: false
+- geometry:
+    start:
+    - 2
+    - -24
+    end:
+    - 3
+    - -23
+    x_first: false
+- geometry:
+    start:
+    - -2
+    - -24
+    end:
+    - -3
+    - -24
+    x_first: false
+- geometry:
+    start:
+    - -3
+    - -24
+    end:
+    - -4
+    - -23
+    x_first: false
+- geometry:
+    start:
+    - -1
+    - -21
+    end:
+    - -1
+    - -22
+    x_first: false
+- geometry:
+    start:
+    - 0
+    - -21
+    end:
+    - 0
+    - -22
+    x_first: false
+- geometry:
+    start:
+    - -1
+    - -25
+    end:
+    - -1
+    - -26
+    x_first: false
+- geometry:
+    start:
+    - -1
+    - -27
+    end:
+    - -1
+    - -29
+    x_first: false
+- geometry:
+    start:
+    - -2
+    - 8
+    end:
+    - -5
+    - 7
+    x_first: false
+- geometry:
+    start:
+    - 11
+    - -17
+    end:
+    - 12
+    - -17
+    x_first: false
+- geometry:
+    start:
+    - 11
+    - -18
+    end:
+    - 12
+    - -18
+    x_first: false
+- geometry:
+    start:
+    - 8
+    - -17
+    end:
+    - 7
+    - -17
+    x_first: false
+- geometry:
+    start:
+    - 8
+    - -18
+    end:
+    - 7
+    - -18
+    x_first: false
+- geometry:
+    start:
+    - -10
+    - -1
+    end:
+    - -31
+    - -1
+    x_first: false
+- geometry:
+    start:
+    - -31
+    - 0
+    end:
+    - -31
+    - 1
+    x_first: false
+- geometry:
+    start:
+    - -32
+    - 1
+    end:
+    - -32
+    - 0
+    x_first: false
+- geometry:
+    start:
+    - -31
+    - 0
+    end:
+    - -31
+    - -2
+    x_first: false
+- geometry:
+    start:
+    - -32
+    - 0
+    end:
+    - -32
+    - -2
+    x_first: false
+- geometry:
+    start:
+    - -32
+    - -1
+    end:
+    - -33
+    - -1
+    x_first: false
+- geometry:
+    start:
+    - -34
+    - 0
+    end:
+    - -35
+    - 0
+    x_first: false
+- geometry:
+    start:
+    - -35
+    - 0
+    end:
+    - -35
+    - 1
+    x_first: false
+- geometry:
+    start:
+    - -35
+    - 0
+    end:
+    - -35
+    - -2
+    x_first: false
+- geometry:
+    start:
+    - -36
+    - -2
+    end:
+    - -37
+    - -2
+    x_first: false
+- geometry:
+    start:
+    - -36
+    - 1
+    end:
+    - -37
+    - 1
+    x_first: false
+- geometry:
+    start:
+    - -39
+    - 2
+    end:
+    - -39
+    - 3
+    x_first: false
+- geometry:
+    start:
+    - -40
+    - 4
+    end:
+    - -40
+    - 5
+    x_first: false
+- geometry:
+    start:
+    - -39
+    - -3
+    end:
+    - -39
+    - -4
+    x_first: false
+- geometry:
+    start:
+    - -40
+    - -5
+    end:
+    - -40
+    - -6
+    x_first: false
+- geometry:
+    start:
+    - -42
+    - -4
+    end:
+    - -43
+    - -3
+    x_first: false
+- geometry:
+    start:
+    - -42
+    - 3
+    end:
+    - -43
+    - 2
+    x_first: false
+- geometry:
+    start:
+    - -43
+    - 2
+    end:
+    - -45
+    - 0
+    x_first: false
+- geometry:
+    start:
+    - -45
+    - -1
+    end:
+    - -43
+    - -3
+    x_first: true
+- geometry:
+    start:
+    - -43
+    - 6
+    end:
+    - -43
+    - 9
+    x_first: false
+- geometry:
+    start:
+    - -43
+    - 6
+    end:
+    - -44
+    - 8
+    x_first: false
+- geometry:
+    start:
+    - -43
+    - 6
+    end:
+    - -41
+    - 8
+    x_first: false
+- geometry:
+    start:
+    - -43
+    - -7
+    end:
+    - -44
+    - -9
+    x_first: false
+- geometry:
+    start:
+    - -43
+    - -7
+    end:
+    - -43
+    - -10
+    x_first: false
+- geometry:
+    start:
+    - -43
+    - -7
+    end:
+    - -41
+    - -9
+    x_first: false
+- geometry:
+    start:
+    - -38
+    - 2
+    end:
+    - -38
+    - 5
+    x_first: false
+- geometry:
+    start:
+    - -38
+    - 2
+    end:
+    - -36
+    - 4
+    x_first: false
+- geometry:
+    start:
+    - -38
+    - -3
+    end:
+    - -38
+    - -6
+    x_first: false
+- geometry:
+    start:
+    - -38
+    - -3
+    end:
+    - -36
+    - -5
+    x_first: false
+- geometry:
+    start:
+    - -34
+    - 0
+    end:
+    - -33
+    - 0
+    x_first: false
+- geometry:
+    start:
+    - 2
+    - -61
+    end:
+    - -1
+    - -63
+    x_first: true
+- geometry:
+    start:
+    - -27
+    - -53
+    end:
+    - -26
+    - -53
+    x_first: false
+- geometry:
+    start:
+    - -27
+    - -58
+    end:
+    - -26
+    - -58
+    x_first: false
+- geometry:
+    start:
+    - -23
+    - -61
+    end:
+    - -22
+    - -64
+    x_first: true
+- geometry:
+    start:
+    - -4
+    - -55
+    end:
+    - -5
+    - -55
+    x_first: false
+- geometry:
+    start:
+    - -23
+    - -61
+    end:
+    - -20
+    - -63
+    x_first: true
+- geometry:
+    start:
+    - -8
+    - -52
+    end:
+    - -9
+    - -52
+    x_first: false
+- geometry:
+    start:
+    - 3
+    - -55
+    end:
+    - 3
+    - -56
+    x_first: false
+- geometry:
+    start:
+    - -11
+    - -58
+    end:
+    - -10
+    - -58
+    x_first: false
+- geometry:
+    start:
+    - -11
+    - -59
+    end:
+    - -11
+    - -60
+    x_first: false
+- geometry:
+    start:
+    - -23
+    - -50
+    end:
+    - -23
+    - -48
+    x_first: true
+- geometry:
+    start:
+    - -24
+    - -55
+    end:
+    - -24
+    - -56
+    x_first: false
+- geometry:
+    start:
+    - -10
+    - -52
+    end:
+    - -11
+    - -52
+    x_first: false
+- geometry:
+    start:
+    - 2
+    - -61
+    end:
+    - 1
+    - -64
+    x_first: true
+- geometry:
+    start:
+    - 3
+    - -51
+    end:
+    - 3
+    - -52
+    x_first: false
+- geometry:
+    start:
+    - -10
+    - -55
+    end:
+    - -11
+    - -55
+    x_first: false
+- geometry:
+    start:
+    - -26
+    - -55
+    end:
+    - -28
+    - -55
+    x_first: false
+- geometry:
+    start:
+    - 2
+    - -50
+    end:
+    - 2
+    - -48
+    x_first: false
+- geometry:
+    start:
+    - 3
+    - -59
+    end:
+    - 3
+    - -60
+    x_first: false
+- geometry:
+    start:
+    - -16
+    - -55
+    end:
+    - -17
+    - -55
+    x_first: false
+- geometry:
+    start:
+    - -23
+    - -61
+    end:
+    - -23
+    - -63
+    x_first: true
+- geometry:
+    start:
+    - 5
+    - -53
+    end:
+    - 6
+    - -53
+    x_first: false
+- geometry:
+    start:
+    - 2
+    - -50
+    end:
+    - -1
+    - -48
+    x_first: true
+- geometry:
+    start:
+    - 2
+    - -50
+    end:
+    - 1
+    - -47
+    x_first: true
+- geometry:
+    start:
+    - -9
+    - -59
+    end:
+    - -10
+    - -60
+    x_first: false
+- geometry:
+    start:
+    - -24
+    - -51
+    end:
+    - -24
+    - -52
+    x_first: false
+- geometry:
+    start:
+    - -12
+    - -53
+    end:
+    - -13
+    - -53
+    x_first: false
+- geometry:
+    start:
+    - -9
+    - -51
+    end:
+    - -9
+    - -52
+    x_first: false
+- geometry:
+    start:
+    - 2
+    - -61
+    end:
+    - 2
+    - -63
+    x_first: true
+- geometry:
+    start:
+    - -23
+    - -50
+    end:
+    - -20
+    - -48
+    x_first: true
+- geometry:
+    start:
+    - -24
+    - -59
+    end:
+    - -24
+    - -60
+    x_first: false
+- geometry:
+    start:
+    - -23
+    - -50
+    end:
+    - -22
+    - -47
+    x_first: true
+- geometry:
+    start:
+    - 6
+    - -58
+    end:
+    - 5
+    - -58
+    x_first: false
+- geometry:
+    start:
+    - 5
+    - -55
+    end:
+    - 7
+    - -55
+    x_first: false
+- geometry:
+    start:
+    - -22
+    - -54
+    end:
+    - -23
+    - -54
+    x_first: false
+- geometry:
+    start:
+    - 1
+    - -54
+    end:
+    - 2
+    - -54
+    x_first: false
+- geometry:
+    start:
+    - -10
+    - -50
+    end:
+    - -10
+    - -49
+    x_first: false
+- geometry:
+    start:
+    - -8
+    - -53
+    end:
+    - -8
+    - -54
+    x_first: false
+- geometry:
+    start:
+    - -14
+    - -53
+    end:
+    - -14
+    - -54
+    x_first: false
+- geometry:
+    start:
+    - -12
+    - -59
+    end:
+    - -12
+    - -60
+    x_first: false
+- geometry:
+    start:
+    - -10
+    - -62
+    end:
+    - -10
+    - -59
+    x_first: false
+- geometry:
+    start:
+    - -14
+    - -58
+    end:
+    - -17
+    - -58
+    x_first: false
+- geometry:
+    start:
+    - -7
+    - -58
+    end:
+    - -4
+    - -58
+    x_first: false
+- geometry:
+    start:
+    - -11
+    - -48
+    end:
+    - -11
+    - -49
+    x_first: false
+- geometry:
+    start:
+    - -11
+    - -45
+    end:
+    - -11
+    - -48
+    x_first: false
+- geometry:
+    start:
+    - -11
+    - -45
+    end:
+    - -11
+    - -18
+    x_first: false
+- geometry:
+    start:
+    - -11
+    - -18
+    end:
+    - -11
+    - -15
+    x_first: false
+- geometry:
+    start:
+    - -11
+    - -15
+    end:
+    - -11
+    - -14
+    x_first: false
+- geometry:
+    start:
+    - 9
+    - 0
+    end:
+    - 30
+    - 0
+    x_first: false
+- geometry:
+    start:
+    - 30
+    - 0
+    end:
+    - 30
+    - 1
+    x_first: false
+- geometry:
+    start:
+    - 30
+    - 0
+    end:
+    - 31
+    - 1
+    x_first: false
+- geometry:
+    start:
+    - 30
+    - 0
+    end:
+    - 30
+    - -2
+    x_first: false
+- geometry:
+    start:
+    - 30
+    - 0
+    end:
+    - 31
+    - -2
+    x_first: false
+- geometry:
+    start:
+    - 30
+    - 0
+    end:
+    - 32
+    - 0
+    x_first: false
+- geometry:
+    start:
+    - -7
+    - -66
+    end:
+    - -8
+    - -66
+    x_first: false
+- geometry:
+    start:
+    - -14
+    - -69
+    end:
+    - -8
+    - -70
+    x_first: true
+- geometry:
+    start:
+    - -14
+    - -69
+    end:
+    - -7
+    - -69
+    x_first: true
+- geometry:
+    start:
+    - -16
+    - -69
+    end:
+    - -16
+    - -70
+    x_first: true
+- geometry:
+    start:
+    - -16
+    - -64
+    end:
+    - -16
+    - -63
+    x_first: true
+- geometry:
+    start:
+    - -17
+    - -64
+    end:
+    - -18
+    - -64
+    x_first: true
+- geometry:
+    start:
+    - -17
+    - -69
+    end:
+    - -18
+    - -69
+    x_first: true
+- geometry:
+    start:
+    - -17
+    - -68
+    end:
+    - -18
+    - -68
+    x_first: true
+- geometry:
+    start:
+    - -17
+    - -65
+    end:
+    - -18
+    - -65
+    x_first: true
+- geometry:
+    start:
+    - -17
+    - -65
+    end:
+    - -17
+    - -68
+    x_first: true
+- geometry:
+    start:
+    - -10
+    - -65
+    end:
+    - -10
+    - -63
+    x_first: true
+- geometry:
+    start:
+    - -10
+    - -65
+    end:
+    - -10
+    - -70
+    x_first: true
+- geometry:
+    start:
+    - -10
+    - -64
+    end:
+    - -7
+    - -64
+    x_first: false
+- geometry:
+    start:
+    - -10
+    - -64
+    end:
+    - -8
+    - -63
+    x_first: true
+- geometry:
+    start:
+    - -13
+    - -64
+    end:
+    - -14
+    - -64
+    x_first: true
+- geometry:
+    start:
+    - -11
+    - -62
+    end:
+    - -11
+    - -63
+    x_first: false

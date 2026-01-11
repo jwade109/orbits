@@ -10,6 +10,9 @@ pub struct Settings {
     pub draw_docking_info: bool,
     pub draw_thruster_states: bool,
     pub dig_with_mouse: bool,
+    pub follow_selected: bool,
+    pub infinite_fuel: bool,
+    pub show_terrain_info: bool,
 }
 
 impl Settings {
@@ -31,6 +34,26 @@ impl Default for Settings {
             draw_docking_info: false,
             draw_thruster_states: false,
             dig_with_mouse: false,
+            follow_selected: true,
+            infinite_fuel: false,
+            show_terrain_info: false,
+        }
+    }
+}
+
+pub fn save_settings_on_change(ctx: Res<ProgramContext>, settings: Res<Settings>) {
+    if !settings.is_changed() {
+        return;
+    }
+
+    let filepath = ctx.settings_path();
+
+    match serde_yaml::to_string(&*settings) {
+        Ok(s) => {
+            std::fs::write(filepath, s);
+        }
+        Err(e) => {
+            error!("Failed to write settings: {:?}", e);
         }
     }
 }

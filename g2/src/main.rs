@@ -2,8 +2,8 @@ mod game_version_two;
 
 use crate::game_version_two::*;
 
-use avian2d::prelude::*;
 use bevy::core_pipeline::bloom::Bloom;
+use bevy_ecs::schedule::{LogLevel, ScheduleBuildSettings};
 use game::args::ProgramContext;
 
 fn main() {
@@ -16,15 +16,12 @@ fn main() {
                     ..default()
                 }),
         )
-        // .insert_gizmo_config(
-        //     PhysicsGizmos {
-        //         aabb_color: Some(Color::WHITE),
-        //         ..default()
-        //     },
-        //     GizmoConfig::default(),
-        // )
-        // 3rd-party plugins
-        // .add_plugins(MeshPickingPlugin)
+        .edit_schedule(Update, |schedule| {
+            schedule.set_build_settings(ScheduleBuildSettings {
+                ambiguity_detection: LogLevel::Warn,
+                ..default()
+            });
+        })
         .add_plugins(Wireframe2dPlugin::default())
         .add_plugins(EguiPlugin::default())
         // .add_plugins(WorldInspectorPlugin::new())
@@ -37,9 +34,19 @@ fn main() {
         .add_plugins(ComputerPlugin)
         .add_plugins(TerrainPlugin)
         .add_plugins(CameraPlugin)
+        .add_plugins(InventoryTransferPlugin)
         .add_systems(EguiPrimaryContextPass, egui_ui)
         .add_systems(Startup, setup)
-        .add_systems(Update, update_wireframe.in_set(Sets::Misc))
+        .add_systems(
+            Update,
+            (
+                update_wireframe,
+                save_settings_on_change.run_if(on_timer(std::time::Duration::from_secs(1))),
+                toggle_inv_on_alt,
+            )
+                .chain()
+                .in_set(Sets::Misc),
+        )
         .configure_sets(
             Update,
             (
@@ -82,7 +89,6 @@ fn setup(mut commands: Commands) -> Result {
     commands.insert_resource(ctx);
     commands.insert_resource(settings);
     commands.insert_resource(ClearColor(BLACK.into()));
-    commands.insert_resource(Gravity(Vec2::ZERO));
 
     commands.spawn((
         Camera2d::default(),
@@ -97,6 +103,26 @@ fn setup(mut commands: Commands) -> Result {
         },
     ));
 
+    let off = Vec2::splat(20.0);
+
+    // commands.send_event(SpacecraftEvent::SpawnVehicle {
+    //     name: "remora".to_string(),
+    //     pos: off + Vec2::ZERO,
+    //     angle: 0.0,
+    // });
+
+    // commands.send_event(SpacecraftEvent::SpawnVehicle {
+    //     name: "pollux".to_string(),
+    //     pos: off + Vec2::X * 4.0,
+    //     angle: 1.57,
+    // });
+
+    commands.send_event(SpacecraftEvent::SpawnVehicle {
+        name: "miner".to_string(),
+        pos: off + Vec2::splat(4.0),
+        angle: 1.57,
+    });
+
     for name in [
         "pollux",
         "pollux",
@@ -105,14 +131,14 @@ fn setup(mut commands: Commands) -> Result {
         // "lander",
         // "remora",
         // "icecream",
-        "spacestation",
-        "remora",
-        "remora",
-        "remora",
-        "remora",
-        "remora",
-        "foundation",
-        "miner",
+        // "spacestation",
+        // "remora",
+        // "remora",
+        // "remora",
+        // "remora",
+        // "remora",
+        // "foundation",
+        // "miner",
     ] {
         let x = rand(-100.0, 100.0);
         let y = rand(-100.0, 100.0);
@@ -124,4 +150,10 @@ fn setup(mut commands: Commands) -> Result {
     }
 
     Ok(())
+}
+
+fn toggle_inv_on_alt(keys: Res<ButtonInput<KeyCode>>, mut settings: ResMut<Settings>) {
+    if keys.just_pressed(KeyCode::AltLeft) {
+        settings.draw_inventories = !settings.draw_inventories;
+    }
 }

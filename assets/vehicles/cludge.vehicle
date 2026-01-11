@@ -1,196 +1,183 @@
 name: Cludge
-tuning:
-  attitude_controller:
-    kp: 46.45956039428711
-    kd: 70.35492897033691
-  vertical_controller:
-    kp: 0.028750357031822202
-    kd: 0.29831601977348327
-  horizontal_controller:
-    kp: 0.009729394912719727
-    kd: 0.1959650993347168
-  docking_linear_controller:
-    kp: 8.233541250228882
-    kd: 261.5271806716919
 parts:
 - partname: container
   pos:
-  - 8
-  - 92
+  - 2
+  - 18
   rot: East
 - partname: container
   pos:
-  - 423
-  - -148
+  - 85
+  - -30
   rot: North
 - partname: container
   pos:
-  - 304
-  - -28
+  - 61
+  - -6
   rot: East
 - partname: container
   pos:
-  - -361
-  - -243
+  - -72
+  - -49
   rot: West
 - partname: container
   pos:
-  - -526
-  - -193
+  - -105
+  - -39
   rot: South
 - partname: container
   pos:
-  - 423
-  - -268
+  - 85
+  - -54
   rot: North
 - partname: container
   pos:
-  - -112
-  - 92
+  - -22
+  - 18
   rot: East
 - partname: container
   pos:
-  - 1
-  - -390
+  - 0
+  - -78
   rot: North
 - partname: container
   pos:
-  - 424
-  - -28
+  - 85
+  - -6
   rot: East
 - partname: container
   pos:
-  - 544
-  - 22
+  - 109
+  - 4
   rot: South
 - partname: container
   pos:
-  - -472
-  - 92
+  - -94
+  - 18
   rot: East
 - partname: container
   pos:
-  - 544
-  - -218
+  - 109
+  - -44
   rot: South
 - partname: container
   pos:
-  - 355
-  - 142
+  - 71
+  - 28
   rot: West
 - partname: container
   pos:
-  - -481
-  - -243
+  - -96
+  - -49
   rot: West
 - partname: container
   pos:
-  - -526
-  - 287
+  - -105
+  - 57
   rot: South
 - partname: container
   pos:
-  - 1
-  - -510
+  - 0
+  - -102
   rot: North
 - partname: container
   pos:
-  - -121
-  - -243
+  - -24
+  - -49
   rot: West
 - partname: container
   pos:
-  - -241
-  - -243
+  - -48
+  - -49
   rot: West
 - partname: container
   pos:
-  - 1
-  - -630
+  - 0
+  - -126
   rot: North
 - partname: container
   pos:
-  - 544
-  - -98
+  - 109
+  - -20
   rot: South
 - partname: container
   pos:
-  - 1
-  - -269
+  - 0
+  - -54
   rot: North
 - partname: container
   pos:
-  - 235
-  - 142
-  rot: West
-- partname: container
-  pos:
-  - -352
-  - 92
-  rot: East
-- partname: container
-  pos:
-  - 1
-  - -149
-  rot: North
-- partname: container
-  pos:
-  - 184
-  - -28
-  rot: East
-- partname: container
-  pos:
-  - 64
-  - -28
-  rot: East
-- partname: container
-  pos:
-  - -601
-  - -243
-  rot: West
-- partname: container
-  pos:
-  - -526
-  - -73
-  rot: South
-- partname: container
-  pos:
-  - -526
   - 47
-  rot: South
-- partname: container
-  pos:
-  - -526
-  - 167
-  rot: South
-- partname: container
-  pos:
-  - -56
-  - -28
-  rot: East
-- partname: container
-  pos:
-  - 475
-  - 142
+  - 28
   rot: West
 - partname: container
   pos:
-  - -232
-  - 92
+  - -70
+  - 18
   rot: East
 - partname: container
   pos:
-  - 473
-  - -268
-  rot: East
-- partname: container
-  pos:
-  - 129
-  - 22
+  - 0
+  - -30
   rot: North
 - partname: container
   pos:
-  - 115
-  - 142
+  - 37
+  - -6
+  rot: East
+- partname: container
+  pos:
+  - 13
+  - -6
+  rot: East
+- partname: container
+  pos:
+  - -120
+  - -49
+  rot: West
+- partname: container
+  pos:
+  - -105
+  - -15
+  rot: South
+- partname: container
+  pos:
+  - -105
+  - 9
+  rot: South
+- partname: container
+  pos:
+  - -105
+  - 33
+  rot: South
+- partname: container
+  pos:
+  - -11
+  - -6
+  rot: East
+- partname: container
+  pos:
+  - 95
+  - 28
+  rot: West
+- partname: container
+  pos:
+  - -46
+  - 18
+  rot: East
+- partname: container
+  pos:
+  - 95
+  - -54
+  rot: East
+- partname: container
+  pos:
+  - 26
+  - 4
+  rot: North
+- partname: container
+  pos:
+  - 23
+  - 28
   rot: West
 lines: []

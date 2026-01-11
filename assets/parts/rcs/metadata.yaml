@@ -1,7 +1,7 @@
 mass: 25000
 layer: Internal
 name: "rcs"
-dims: [4, 6]
+dims: [1, 1]
 thruster_data:
   model: "LPP50-I"
   exhaust_velocity: 2000.0

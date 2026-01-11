@@ -1,4 +1,4 @@
 mass: 260000
 layer: Internal
 name: "battery"
-dims: [9, 9]
+dims: [2, 2]

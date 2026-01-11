@@ -1,7 +1,6 @@
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use bevy_inspector_egui::quick::ResourceInspectorPlugin;
-use starling::prelude::rand;
 
 use crate::game_version_two::*;
 
@@ -11,8 +10,8 @@ impl Plugin for ParticlePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(ThrustParticleConfig::default())
             .add_systems(FixedUpdate, thrust_particles)
-            .add_systems(PostUpdate, debug_draw_emitters.in_set(Sets::Draw))
-            .add_plugins(ResourceInspectorPlugin::<ThrustParticleConfig>::new());
+            .add_systems(PostUpdate, debug_draw_emitters.in_set(Sets::Draw));
+        // .add_plugins(ResourceInspectorPlugin::<ThrustParticleConfig>::new());
     }
 }
 
@@ -86,8 +85,6 @@ fn thrust_particles(
 
     let discrete_n = 3;
     let particle_size = 0.07;
-
-    use starling::prelude::{PI, rotate};
 
     for (tf, emitter, parent) in &emitters {
         if !emitter.enabled {

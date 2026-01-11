@@ -1,7 +1,7 @@
 use crate::input::InputState;
 use bevy::input::keyboard::KeyCode;
-use starling::math::DVec2;
-use starling::prelude::*;
+use bevy::math::DVec2;
+use crate::starling::prelude::*;
 use crate::settings::Settings;
 
 #[derive(Debug, Clone, Copy)]

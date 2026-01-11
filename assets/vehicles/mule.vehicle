@@ -1,67 +1,53 @@
-name: 'Mule'
-tuning:
-  attitude_controller:
-    kp: 46.45956039428711
-    kd: 70.35492897033691
-  vertical_controller:
-    kp: 0.028750357031822202
-    kd: 0.29831601977348327
-  horizontal_controller:
-    kp: 0.009729394912719727
-    kd: 0.1959650993347168
-  docking_linear_controller:
-    kp: 8.233541250228882
-    kd: 261.5271806716919
 parts:
 - partname: rcs
   pos:
-  - 14
-  - -34
+  - 3
+  - -7
   rot: North
 - partname: tank22
   pos:
   - 0
-  - -20
+  - -4
   rot: East
 - partname: tank22
   pos:
-  - 20
-  - -20
+  - 4
+  - -4
   rot: East
 - partname: tank21
   pos:
-  - -20
-  - -30
+  - -4
+  - -6
   rot: South
 - partname: frame3
   pos:
-  - -70
-  - -20
+  - -14
+  - -4
   rot: North
 - partname: plate
   pos:
-  - 30
-  - -5
+  - 6
+  - -1
   rot: North
 - partname: frame3
   pos:
-  - -20
-  - 20
+  - -4
+  - 4
   rot: East
 - partname: tank22
   pos:
-  - 40
+  - 8
   - 0
   rot: East
 - partname: tank22
   pos:
-  - 20
+  - 4
   - 0
   rot: East
 - partname: frame2
   pos:
-  - -60
-  - -20
+  - -12
+  - -4
   rot: North
 - partname: tank22
   pos:
@@ -70,292 +56,604 @@ parts:
   rot: East
 - partname: rcs
   pos:
-  - 14
-  - 30
+  - 3
+  - 6
   rot: South
 - partname: gold
   pos:
-  - 60
-  - -15
+  - 12
+  - -3
   rot: North
 - partname: tank22
   pos:
-  - -20
-  - -20
+  - -4
+  - -4
   rot: East
 - partname: rcs
   pos:
-  - 64
-  - -24
+  - 13
+  - -5
   rot: North
 - partname: small-motor
   pos:
-  - -77
-  - 1
+  - -15
+  - 0
   rot: East
 - partname: tank21
   pos:
   - 0
-  - -30
+  - -6
   rot: South
 - partname: frame3
   pos:
-  - 60
-  - -20
+  - 12
+  - -4
   rot: South
 - partname: battery
   pos:
-  - -20
-  - 21
+  - -4
+  - 4
   rot: South
 - partname: tank22
   pos:
-  - -60
-  - -20
+  - -12
+  - -4
   rot: East
 - partname: frame3
   pos:
-  - 10
-  - -20
+  - 2
+  - -4
   rot: North
 - partname: rcs
   pos:
-  - -63
-  - -24
+  - -13
+  - -5
   rot: North
 - partname: frame3
   pos:
-  - 20
-  - -10
+  - 4
+  - -2
   rot: West
 - partname: plate
   pos:
   - 0
-  - -5
+  - -1
   rot: North
 - partname: rcs
   pos:
-  - -70
-  - 20
+  - -14
+  - 4
   rot: South
 - partname: frame3
   pos:
-  - -60
+  - -12
   - 0
   rot: East
 - partname: rcs
   pos:
-  - -63
-  - 20
+  - -13
+  - 4
   rot: South
 - partname: frame3
   pos:
-  - -20
-  - -20
+  - -4
+  - -4
   rot: South
 - partname: small-motor
   pos:
-  - 60
-  - 1
+  - 12
+  - 0
   rot: West
 - partname: rcs
   pos:
-  - -20
-  - 30
+  - -4
+  - 6
   rot: South
 - partname: frame2
   pos:
-  - 50
   - 10
+  - 2
   rot: South
 - partname: gold
   pos:
-  - 60
-  - 5
+  - 12
+  - 1
   rot: North
 - partname: tank21
   pos:
   - 0
-  - 20
+  - 4
   rot: South
 - partname: tank22
   pos:
-  - -40
-  - -20
+  - -8
+  - -4
   rot: East
 - partname: small-motor
   pos:
-  - 60
-  - -11
+  - 12
+  - -2
   rot: West
 - partname: rcs
   pos:
-  - -24
-  - -30
+  - -5
+  - -6
   rot: East
 - partname: rcs
   pos:
-  - 57
-  - -24
+  - 11
+  - -5
   rot: North
 - partname: small-motor
   pos:
-  - -77
-  - -11
-  rot: East
-- partname: plate
-  pos:
-  - 50
-  - -5
-  rot: North
-- partname: rcs
-  pos:
-  - -24
-  - 24
-  rot: East
-- partname: plate
-  pos:
-  - 40
-  - -5
-  rot: North
-- partname: rcs
-  pos:
-  - 20
-  - 24
-  rot: West
-- partname: frame2
-  pos:
-  - 50
-  - -20
-  rot: West
-- partname: frame2
-  pos:
-  - -60
-  - 10
-  rot: East
-- partname: gold
-  pos:
-  - 60
-  - -5
-  rot: North
-- partname: gold
-  pos:
-  - -70
   - -15
-  rot: North
-- partname: plate
-  pos:
-  - -10
-  - -5
-  rot: North
-- partname: rcs
-  pos:
-  - -20
-  - -34
-  rot: North
-- partname: frame3
-  pos:
-  - -20
-  - -30
-  rot: West
-- partname: plate
-  pos:
-  - -30
-  - -5
-  rot: North
-- partname: plate
-  pos:
-  - 20
-  - -5
-  rot: North
-- partname: gold
-  pos:
-  - -70
-  - 5
-  rot: North
-- partname: tank22
-  pos:
-  - 40
-  - -20
+  - -2
   rot: East
-- partname: tank22
-  pos:
-  - -20
-  - 0
-  rot: East
-- partname: plate
-  pos:
-  - -50
-  - -5
-  rot: North
-- partname: tank22
-  pos:
-  - -40
-  - 0
-  rot: East
-- partname: rcs
-  pos:
-  - 64
-  - 20
-  rot: South
-- partname: rcs
-  pos:
-  - 57
-  - 20
-  rot: South
-- partname: plate
-  pos:
-  - -40
-  - -5
-  rot: North
-- partname: frame3
-  pos:
-  - -60
-  - -10
-  rot: West
 - partname: plate
   pos:
   - 10
-  - -5
+  - -1
   rot: North
 - partname: rcs
   pos:
-  - -70
-  - -24
+  - -5
+  - 5
+  rot: East
+- partname: plate
+  pos:
+  - 8
+  - -1
+  rot: North
+- partname: rcs
+  pos:
+  - 4
+  - 5
+  rot: West
+- partname: frame2
+  pos:
+  - 10
+  - -4
+  rot: West
+- partname: frame2
+  pos:
+  - -12
+  - 2
+  rot: East
+- partname: gold
+  pos:
+  - 12
+  - -1
+  rot: North
+- partname: gold
+  pos:
+  - -14
+  - -3
+  rot: North
+- partname: plate
+  pos:
+  - -2
+  - -1
+  rot: North
+- partname: rcs
+  pos:
+  - -4
+  - -7
+  rot: North
+- partname: frame3
+  pos:
+  - -4
+  - -6
+  rot: West
+- partname: plate
+  pos:
+  - -6
+  - -1
+  rot: North
+- partname: plate
+  pos:
+  - 4
+  - -1
+  rot: North
+- partname: gold
+  pos:
+  - -14
+  - 1
   rot: North
 - partname: tank22
   pos:
-  - -60
+  - 8
+  - -4
+  rot: East
+- partname: tank22
+  pos:
+  - -4
+  - 0
+  rot: East
+- partname: plate
+  pos:
+  - -10
+  - -1
+  rot: North
+- partname: tank22
+  pos:
+  - -8
   - 0
   rot: East
 - partname: rcs
   pos:
-  - 20
-  - -30
+  - 13
+  - 4
+  rot: South
+- partname: rcs
+  pos:
+  - 11
+  - 4
+  rot: South
+- partname: plate
+  pos:
+  - -8
+  - -1
+  rot: North
+- partname: frame3
+  pos:
+  - -12
+  - -2
+  rot: West
+- partname: plate
+  pos:
+  - 2
+  - -1
+  rot: North
+- partname: rcs
+  pos:
+  - -14
+  - -5
+  rot: North
+- partname: tank22
+  pos:
+  - -12
+  - 0
+  rot: East
+- partname: rcs
+  pos:
+  - 4
+  - -6
   rot: West
 - partname: frame3
   pos:
-  - 20
+  - 4
   - 0
   rot: East
 - partname: cpu
   pos:
-  - -10
-  - 21
+  - -2
+  - 4
   rot: South
 - partname: gold
   pos:
-  - -60
-  - -5
+  - -12
+  - -1
   rot: North
 - partname: plate
   pos:
-  - -20
-  - -5
+  - -4
+  - -1
   rot: North
 - partname: gold
   pos:
-  - -70
-  - -5
+  - -14
+  - -1
   rot: North
-lines: []
+pipes:
+- geometry:
+    start:
+    - -10
+    - 0
+    end:
+    - -10
+    - -1
+    x_first: false
+- geometry:
+    start:
+    - -6
+    - 0
+    end:
+    - -6
+    - -1
+    x_first: false
+- geometry:
+    start:
+    - -2
+    - 0
+    end:
+    - -2
+    - -1
+    x_first: false
+- geometry:
+    start:
+    - 1
+    - 0
+    end:
+    - 1
+    - -1
+    x_first: false
+- geometry:
+    start:
+    - 5
+    - 0
+    end:
+    - 5
+    - -1
+    x_first: false
+- geometry:
+    start:
+    - 9
+    - 0
+    end:
+    - 9
+    - -1
+    x_first: false
+- geometry:
+    start:
+    - 8
+    - 1
+    end:
+    - 7
+    - 1
+    x_first: false
+- geometry:
+    start:
+    - 4
+    - 1
+    end:
+    - 3
+    - 1
+    x_first: false
+- geometry:
+    start:
+    - 0
+    - 1
+    end:
+    - -1
+    - 1
+    x_first: false
+- geometry:
+    start:
+    - -4
+    - 1
+    end:
+    - -5
+    - 1
+    x_first: false
+- geometry:
+    start:
+    - -8
+    - 1
+    end:
+    - -9
+    - 1
+    x_first: false
+- geometry:
+    start:
+    - -9
+    - -2
+    end:
+    - -8
+    - -2
+    x_first: false
+- geometry:
+    start:
+    - -5
+    - -2
+    end:
+    - -4
+    - -2
+    x_first: false
+- geometry:
+    start:
+    - -1
+    - -2
+    end:
+    - 0
+    - -2
+    x_first: false
+- geometry:
+    start:
+    - 3
+    - -2
+    end:
+    - 4
+    - -2
+    x_first: false
+- geometry:
+    start:
+    - 7
+    - -2
+    end:
+    - 8
+    - -2
+    x_first: false
+- geometry:
+    start:
+    - 1
+    - 3
+    end:
+    - 1
+    - 4
+    x_first: false
+- geometry:
+    start:
+    - 3
+    - 5
+    end:
+    - 3
+    - 6
+    x_first: false
+- geometry:
+    start:
+    - 3
+    - 5
+    end:
+    - 4
+    - 5
+    x_first: false
+- geometry:
+    start:
+    - 11
+    - 4
+    end:
+    - 11
+    - 3
+    x_first: false
+- geometry:
+    start:
+    - 11
+    - 3
+    end:
+    - 13
+    - 4
+    x_first: true
+- geometry:
+    start:
+    - 11
+    - -4
+    end:
+    - 11
+    - -5
+    x_first: true
+- geometry:
+    start:
+    - 11
+    - -4
+    end:
+    - 13
+    - -5
+    x_first: true
+- geometry:
+    start:
+    - 3
+    - -6
+    end:
+    - 4
+    - -6
+    x_first: true
+- geometry:
+    start:
+    - 3
+    - -6
+    end:
+    - 3
+    - -7
+    x_first: true
+- geometry:
+    start:
+    - -4
+    - -6
+    end:
+    - -5
+    - -6
+    x_first: true
+- geometry:
+    start:
+    - -4
+    - -6
+    end:
+    - -4
+    - -7
+    x_first: true
+- geometry:
+    start:
+    - -12
+    - -4
+    end:
+    - -13
+    - -5
+    x_first: true
+- geometry:
+    start:
+    - -12
+    - -4
+    end:
+    - -14
+    - -5
+    x_first: true
+- geometry:
+    start:
+    - -12
+    - 3
+    end:
+    - -13
+    - 4
+    x_first: true
+- geometry:
+    start:
+    - -12
+    - 3
+    end:
+    - -14
+    - 4
+    x_first: true
+- geometry:
+    start:
+    - -2
+    - -4
+    end:
+    - -2
+    - -5
+    x_first: false
+- geometry:
+    start:
+    - 1
+    - -4
+    end:
+    - 1
+    - -5
+    x_first: false
+- geometry:
+    start:
+    - 12
+    - 0
+    end:
+    - 11
+    - 0
+    x_first: false
+- geometry:
+    start:
+    - 11
+    - -1
+    end:
+    - 12
+    - -1
+    x_first: false
+- geometry:
+    start:
+    - -12
+    - 0
+    end:
+    - -13
+    - 0
+    x_first: false
+- geometry:
+    start:
+    - -12
+    - -1
+    end:
+    - -13
+    - -1
+    x_first: false
+- geometry:
+    start:
+    - 0
+    - 5
+    end:
+    - -4
+    - 6
+    x_first: true
+- geometry:
+    start:
+    - 0
+    - 5
+    end:
+    - -5
+    - 5
+    x_first: true

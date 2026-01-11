@@ -1,4 +1,4 @@
 mass: 140000
 layer: Internal
 name: "small-antenna"
-dims: [6, 20]
+dims: [1, 4]

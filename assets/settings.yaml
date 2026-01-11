@@ -1,21 +1,11 @@
-ui_button_height: 32.0
-controller_cursor_speed: 6.0
-draw_transform_tree: false
-show_debug_info: false
-
-music_muted: true
-high_volume: 0
-mids_volume: 0
-low_volume: 0
-
-camera_pan_sensitivity: 1.0
-camera_scroll_sensitivity: 1.0
-camera_zoom_button_sensitivity: 1.0
-
 draw_spatial_lut: false
-draw_spacecraft_grids: true
+draw_spacecraft_grids: false
 draw_terrain_rgb: false
 show_wireframes: false
-draw_debug_inventories: false
-draw_docking_port_info: true
+draw_inventories: true
+draw_docking_info: true
 draw_thruster_states: false
+dig_with_mouse: true
+follow_selected: false
+infinite_fuel: true
+show_terrain_info: true
