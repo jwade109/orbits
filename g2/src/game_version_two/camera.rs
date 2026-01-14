@@ -74,20 +74,25 @@ fn follow_selected_on_key_f(key: Res<ButtonInput<KeyCode>>, mut settings: ResMut
 fn track_selected_spacecraft(
     mut transform_params: ParamSet<(TransformHelper, Query<&mut Transform, With<Camera>>)>,
     cursor: Res<SelectedSpacecraft>,
-    grids: Query<&GlobalTransform, With<SpacecraftGrid>>,
-    parts: Query<&ChildOf, With<PartInstance>>,
     settings: Res<Settings>,
 ) {
+    transform_params.p1().single_mut().unwrap().rotation = Quat::IDENTITY;
+
     if !settings.follow_selected {
         return;
     }
 
-    let id = some_or_return!(cursor.primary);
-    let part = ok_or_return!(parts.get(id.part));
-    let Ok(global) = transform_params.p0().compute_global_transform(part.0) else {
+    let sel = some_or_return!(cursor.primary);
+
+    let Ok(global) = transform_params.p0().compute_global_transform(sel.grid) else {
         return;
     };
+
     transform_params.p1().single_mut().unwrap().translation = global.translation();
+
+    if settings.rotation_locked {
+        transform_params.p1().single_mut().unwrap().rotation = global.rotation();
+    }
 }
 
 #[derive(Resource, Default, Debug)]

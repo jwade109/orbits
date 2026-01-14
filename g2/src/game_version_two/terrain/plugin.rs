@@ -32,7 +32,7 @@ impl Plugin for TerrainPlugin {
                 systems::excavate_chunks,
                 systems::process_excavators,
                 systems::process_mine_to_inventory.pipe(systems::spawn_mining_visuals),
-                systems::process_mining_visuals,
+                systems::age_mining_visuals_system,
             )
                 .chain(),
         );
@@ -40,6 +40,7 @@ impl Plugin for TerrainPlugin {
         app.add_systems(
             Update,
             (
+                systems::render_mining_indicators_system,
                 // debug rendering
                 debug_systems::draw_excavators,
                 debug_systems::draw_hovered_grid_and_tile,

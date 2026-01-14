@@ -128,6 +128,7 @@ fn setup(mut commands: Commands) -> Result {
         "pollux",
         "remora",
         "bellerophon",
+        "debugger",
         // "lander",
         // "remora",
         // "icecream",
@@ -140,8 +141,8 @@ fn setup(mut commands: Commands) -> Result {
         // "foundation",
         // "miner",
     ] {
-        let x = rand(-100.0, 100.0);
-        let y = rand(-100.0, 100.0);
+        let x = rand(-50.0, 50.0);
+        let y = rand(-50.0, 50.0);
         commands.send_event(SpacecraftEvent::SpawnVehicle {
             name: name.to_string(),
             pos: Vec2::new(x + 25.0, y + 25.0),

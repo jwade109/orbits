@@ -8,15 +8,19 @@ inventory_data:
       volume_liters: 1200
       min: [0, 0]
       max: [3, 3]
+      name: "slot-a"
     - filter: Solid
       volume_liters: 1200
       min: [3, 0]
       max: [6, 3]
+      name: "slot-b"
     - filter: Solid
       volume_liters: 1200
       min: [0, 3]
       max: [3, 6]
+      name: "slot-c"
     - filter: Solid
       volume_liters: 1200
       min: [3, 3]
       max: [6, 6]
+      name: "slot-d"

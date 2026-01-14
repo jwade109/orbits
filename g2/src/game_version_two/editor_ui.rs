@@ -202,17 +202,16 @@ fn add_inv_widget(ui: &mut egui::Ui, inv: &mut Inventory) {
             let size = bevy_inspector_egui::egui::Vec2::new(10.0, 10.0);
             egui::color_picker::show_color(ui, color, size);
             ui.label(format!(
-                "{:?} {} {}/{} ({}) {}",
+                "{:?} {} {}/{} ({}) {} %{:?}",
                 item,
                 count,
                 slot.occupied_volume(),
                 slot.capacity(),
                 slot.mass(),
                 if slot.is_full() { "*" } else { "" },
+                filter,
             ));
         });
-
-        ui.label(format!("Filter: {:?}", filter));
 
         ui.add(egui::ProgressBar::new(slot.fill_percentage()).fill(color));
     }
@@ -298,10 +297,7 @@ fn add_machine_widget(id: Entity, commands: &mut Commands, ui: &mut egui::Ui, ma
         });
 
     if current != before {
-        commands.send_event(SetRecipe {
-            target: id,
-            recipe: current,
-        });
+        mac.set_recipe(current);
     }
 }
 
@@ -338,46 +334,40 @@ pub fn part_ui(
     docking_ports: &mut Query<&mut DockingPort>,
     excavators: &mut Query<&mut Excavator>,
 ) {
-    if let Ok((instance, _)) = parts.get(e) {
-        ui.collapsing("Part Data", |ui| {
-            ui.label(format!("{:#?}", instance.0));
-        });
-    }
-
     if let Ok(mut excavator) = excavators.get_mut(e) {
-        ui.separator();
         add_excavator_widget(ui, e, &mut excavator, commands);
     }
 
     if let Ok(mut inventory) = inventories.get_mut(e) {
-        ui.separator();
         ui.heading("Inventory");
         add_inv_widget(ui, &mut inventory);
     }
 
     if let Ok(mut thruster) = thrusters.get_mut(e) {
-        ui.separator();
         ui.heading("Thruster");
         add_thruster_widget(ui, &mut thruster);
     }
 
     if let Ok(mut computer) = computers.get_mut(e) {
-        ui.separator();
         ui.heading("Computer");
         add_computer_widget(ui, e, &mut computer, commands);
     }
 
     if let Ok(mut machine) = machines.get_mut(e) {
-        ui.separator();
         ui.heading("Machine");
         add_machine_widget(e, commands, ui, &mut machine);
     }
 
     if let Ok(mut docking_port) = docking_ports.get_mut(e) {
-        ui.separator();
         ui.heading(format!("Docking Port {}", e));
         ui.label(format!("{:#?}", docking_port));
         // add_machine_widget(e, commands, ui, &mut machine);
+    }
+
+    if let Ok((instance, _)) = parts.get(e) {
+        ui.collapsing("Part Data", |ui| {
+            ui.label(format!("{:#?}", instance.0));
+        });
     }
 }
 
@@ -400,10 +390,8 @@ pub fn egui_ui(
 ) -> Result {
     let ctx = contexts.ctx_mut()?;
 
-    let e = cursor.hovered.or(cursor.primary);
-
-    if let Some(e) = e {
-        egui::panel::SidePanel::new(Side::Right, "Part Info").show(ctx, |ui| {
+    if let Some(e) = cursor.primary {
+        egui::Window::new("Part Info").show(ctx, |ui| {
             apply_egui_style(ui);
             ui.set_width(350.0);
 
@@ -424,12 +412,8 @@ pub fn egui_ui(
         });
     }
 
-    egui::panel::SidePanel::new(egui::containers::panel::Side::Left, "Debug").show(ctx, |ui| {
+    egui::Window::new("Settings").show(ctx, |ui| {
         apply_egui_style(ui);
-        ui.set_width(350.0);
-
-        ui.separator();
-        ui.heading("Settings");
         ui.checkbox(&mut settings.draw_spatial_lut, "draw_spatial_lut");
         ui.checkbox(&mut settings.draw_spacecraft_grids, "draw_spacecraft_grids");
         ui.checkbox(&mut settings.draw_terrain_rgb, "draw_terrain_rgb");
@@ -438,66 +422,70 @@ pub fn egui_ui(
         ui.checkbox(&mut settings.draw_docking_info, "draw_docking_info");
         ui.checkbox(&mut settings.dig_with_mouse, "dig_with_mouse");
         ui.checkbox(&mut settings.follow_selected, "follow_selected");
+        ui.checkbox(&mut settings.rotation_locked, "rotation_locked");
         ui.checkbox(&mut settings.infinite_fuel, "infinite_fuel");
         ui.checkbox(&mut settings.show_terrain_info, "show_terrain_info");
-        ui.separator();
+    });
 
-        ui.collapsing("Text Notifications", |ui| {
-            ui.text_edit_multiline(&mut state.message_text);
-            ui.color_edit_button_rgb(&mut state.message_color);
+    if false {
+        egui::panel::SidePanel::new(egui::containers::panel::Side::Left, "Debug").show(ctx, |ui| {
+            apply_egui_style(ui);
+            ui.set_width(350.0);
 
-            if ui.button("Spawn Text").clicked() {
-                commands.send_event(SpawnAnimText {
-                    text: state.message_text.clone(),
-                    color: Srgba::from_f32_array([
-                        state.message_color[0],
-                        state.message_color[1],
-                        state.message_color[2],
-                        1.0,
-                    ]),
-                    pos: None,
-                });
-            }
-        });
+            ui.collapsing("Text Notifications", |ui| {
+                ui.text_edit_multiline(&mut state.message_text);
+                ui.color_edit_button_rgb(&mut state.message_color);
 
-        if let Some((_, parent)) = e.map(|e| parts.get(e.part).ok()).flatten() {
-            ui.separator();
-            ui.heading("Selected Parts");
-            ui.label(format!("{:#?}", cursor));
-            ui.separator();
-            if let Ok(grid) = grids.get(parent.0) {
-                ui.label(format!("{:#?}", grid));
-            }
-            ui.separator();
-        }
-
-        ui.collapsing("Spawn Spacecraft", |ui| {
-            ui.horizontal(|ui| {
-                ui.label("Model/Partname: ");
-                ui.text_edit_singleline(&mut state.sc_name);
-                ui.label("X: ");
-                ui.add(egui::DragValue::new(&mut state.sc_pos.x));
-                ui.label("Y: ");
-                ui.add(egui::DragValue::new(&mut state.sc_pos.y));
+                if ui.button("Spawn Text").clicked() {
+                    commands.send_event(SpawnAnimText {
+                        text: state.message_text.clone(),
+                        color: Srgba::from_f32_array([
+                            state.message_color[0],
+                            state.message_color[1],
+                            state.message_color[2],
+                            1.0,
+                        ]),
+                        pos: None,
+                    });
+                }
             });
 
-            if ui.button("Spawn Spacecraft").clicked() {
-                commands.send_event(SpacecraftEvent::SpawnVehicle {
-                    name: state.sc_name.clone(),
-                    pos: state.sc_pos,
-                    angle: rand(-0.2, 0.3),
-                });
+            if let Some(sel) = cursor.primary {
+                ui.separator();
+                if let Ok(grid) = grids.get(sel.grid) {
+                    ui.label(format!("{:#?}", grid));
+                }
+                ui.separator();
             }
 
-            if ui.button("Spawn Part").clicked() {
-                commands.send_event(SpacecraftEvent::SpawnPart {
-                    name: state.sc_name.clone(),
-                    pos: state.sc_pos,
-                    angle: rand(-0.2, 0.3),
+            ui.collapsing("Spawn Spacecraft", |ui| {
+                ui.horizontal(|ui| {
+                    ui.label("Model/Partname: ");
+                    ui.text_edit_singleline(&mut state.sc_name);
+                    ui.label("X: ");
+                    ui.add(egui::DragValue::new(&mut state.sc_pos.x));
+                    ui.label("Y: ");
+                    ui.add(egui::DragValue::new(&mut state.sc_pos.y));
                 });
-            }
+
+                if ui.button("Spawn Spacecraft").clicked() {
+                    commands.send_event(SpacecraftEvent::SpawnVehicle {
+                        name: state.sc_name.clone(),
+                        pos: state.sc_pos,
+                        angle: rand(-0.2, 0.3),
+                    });
+                }
+
+                if ui.button("Spawn Part").clicked() {
+                    commands.send_event(SpacecraftEvent::SpawnPart {
+                        name: state.sc_name.clone(),
+                        pos: state.sc_pos,
+                        angle: rand(-0.2, 0.3),
+                    });
+                }
+            });
         });
-    });
+    }
 
     mouse.on_egui = ctx.is_pointer_over_area();
 

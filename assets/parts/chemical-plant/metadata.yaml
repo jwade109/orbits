@@ -3,7 +3,7 @@ layer: Internal
 dims: [4, 6]
 name: "chemical-plant"
 machine_data:
-  whatever: "wow"
+  recipe_categories: ["chemical-plant"]
 inventory_data:
   slots:
     - name: "solid-input"

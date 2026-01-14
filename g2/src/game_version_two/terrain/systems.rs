@@ -265,17 +265,24 @@ pub fn spawn_mining_visuals(In(chunks): In<Vec<(Vec2, MiningFailure)>>, mut comm
     }
 }
 
-pub fn process_mining_visuals(
+pub fn age_mining_visuals_system(
     mut commands: Commands,
-    mut painter: ShapePainter,
     indicators: Query<(Entity, &mut MiningIndicator)>,
     time: Res<Time<Fixed>>,
 ) {
-    painter.reset();
     let dt = time.delta();
-    let side_length = CHUNK_WIDTH / TILES_PER_CHUNK_SIDE as f32 / 4.0;
     for (e, mut ind) in indicators {
         ind.remaining.tick(dt);
+        if ind.remaining.finished() {
+            commands.entity(e).despawn();
+        }
+    }
+}
+
+pub fn render_mining_indicators_system(mut painter: ShapePainter, indicators: Query<&MiningIndicator>) {
+    painter.reset();
+    let side_length = CHUNK_WIDTH / TILES_PER_CHUNK_SIDE as f32 / 4.0;
+    for ind in indicators {
         let remaining = ind.remaining.remaining().as_secs_f32();
         let color = match ind.success {
             MiningFailure::Ok => ORANGE,
@@ -286,9 +293,5 @@ pub fn process_mining_visuals(
         painter.set_color(color);
         painter.set_translation(ind.pos.extend(3.0));
         painter.rect(Vec2::splat(side_length));
-
-        if ind.remaining.finished() {
-            commands.entity(e).despawn();
-        }
     }
 }

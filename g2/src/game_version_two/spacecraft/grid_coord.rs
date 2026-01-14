@@ -4,7 +4,7 @@ use bevy::{
 };
 use game::starling::parts::PartCoord;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct GridCoord {
     pub grid: Entity,
     pub coord: PartCoord,
@@ -16,5 +16,17 @@ impl GridCoord {
         let offset = grid_tf.right() * offset.x + grid_tf.up() * offset.y;
         let translation = grid_tf.translation + offset;
         Transform::from_translation(translation)
+    }
+}
+
+impl std::fmt::Debug for GridCoord {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}-({}, {})",
+            self.grid,
+            self.coord.inner().x,
+            self.coord.inner().y
+        )
     }
 }

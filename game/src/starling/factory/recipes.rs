@@ -1,5 +1,6 @@
 use crate::starling::factory::*;
 use crate::starling::math::*;
+use crate::starling::units::Mass;
 use enum_iterator::Sequence;
 
 #[derive(Debug, Default, Clone)]
@@ -77,6 +78,7 @@ pub enum RecipeListing {
     Enrichment,
     TitaniumLattice,
     Circuits,
+    Produce(Item),
 }
 
 impl RecipeListing {
@@ -92,6 +94,12 @@ impl RecipeListing {
             RecipeListing::Enrichment => enrichment(),
             RecipeListing::TitaniumLattice => titanium_lattice(),
             RecipeListing::Circuits => circuits(),
+            RecipeListing::Produce(item) => {
+                // produce 1 kg of the stuff
+                let m = item.mass_per_unit();
+                let n = (Mass::kilograms(1).to_kg_f64() / m.to_kg_f64()).round() as u64;
+                Recipe::produces(*item, n)
+            }
         }
     }
 }

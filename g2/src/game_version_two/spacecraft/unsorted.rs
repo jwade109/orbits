@@ -28,16 +28,24 @@ impl Plugin for SpacecraftPlugin {
                 .in_set(Sets::Draw),
         );
 
-        app.add_systems(EguiPrimaryContextPass, tick_control_egui);
+        app.add_systems(
+            EguiPrimaryContextPass,
+            (tick_control_egui, hose_info_window_egui_system),
+        );
 
         app.add_systems(
             Update,
             (
+                draw_position_command_widget,
+                update_position_command_widget_system,
                 spawn_hose_on_keypress_system.pipe(sysparam_api::swallow_optional),
                 draw_hoses_system,
                 send_attach_events.pipe(swallow_optional),
                 update_selected_spacecraft_system,
+                update_selected_hose_system,
+                draw_hose_selection_area_system,
                 sysparam_api::draw_blueprint_system.pipe(sysparam_api::swallow_optional),
+                process_position_commands_system.pipe(sysparam_api::swallow_optional),
             )
                 .in_set(Sets::Input),
         );
@@ -64,13 +72,15 @@ impl Plugin for SpacecraftPlugin {
         );
 
         app.add_event::<SpacecraftEvent>();
-        app.add_event::<SetRecipe>();
         app.add_event::<AttachPorts>();
         app.add_event::<FuseGrids>();
+        app.add_event::<PositionHoldCommand>();
 
         app.insert_resource(SelectedSpacecraft::default());
+        app.insert_resource(SelectedHose::default());
         app.insert_resource(GridSpatialLookup::default());
         app.insert_resource(TickSchedule::PerFrame(10));
+        app.insert_resource(CursorPositionCommandWidget::default());
         app.insert_resource(Ticks(0));
     }
 }
@@ -90,12 +100,6 @@ impl SpacecraftEvent {
             angle,
         }
     }
-}
-
-#[derive(Event, Debug)]
-pub struct SetRecipe {
-    pub target: Entity,
-    pub recipe: RecipeListing,
 }
 
 #[derive(Component, Debug, Default)]

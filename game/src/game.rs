@@ -35,6 +35,9 @@ fn new_editor_ui(
             if ui.button("Close").clicked() {
                 game.shutdown();
             }
+            if ui.button("New").clicked() {
+                game.editor_context.new_craft();
+            }
             if ui.button("Save").clicked() {
                 game.save();
             }
