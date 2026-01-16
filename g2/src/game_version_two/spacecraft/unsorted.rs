@@ -1,4 +1,4 @@
-use crate::game_version_two::sysparam_api::swallow_optional;
+use crate::game_version_two::sysparam_api::*;
 use crate::game_version_two::tick_schedule::*;
 use crate::game_version_two::*;
 
@@ -30,12 +30,16 @@ impl Plugin for SpacecraftPlugin {
 
         app.add_systems(
             EguiPrimaryContextPass,
-            (tick_control_egui, hose_info_window_egui_system),
+            (
+                tick_control_egui,
+                hose_info_window_egui_system.pipe(sysparam_api::swallow_result),
+            ),
         );
 
         app.add_systems(
             Update,
             (
+                draw_blueprint_of_current_ship_system.pipe(sysparam_api::swallow_optional),
                 draw_position_command_widget,
                 update_position_command_widget_system,
                 spawn_hose_on_keypress_system.pipe(sysparam_api::swallow_optional),
@@ -44,7 +48,7 @@ impl Plugin for SpacecraftPlugin {
                 update_selected_spacecraft_system,
                 update_selected_hose_system,
                 draw_hose_selection_area_system,
-                sysparam_api::draw_blueprint_system.pipe(sysparam_api::swallow_optional),
+                sysparam_api::export_blueprint_system.pipe(sysparam_api::swallow_optional),
                 process_position_commands_system.pipe(sysparam_api::swallow_optional),
             )
                 .in_set(Sets::Input),
@@ -66,6 +70,7 @@ impl Plugin for SpacecraftPlugin {
                 update_grids,
                 update_spacecraft_grid_map,
                 update_hose_physics_system,
+                do_hose_inventory_transfer_system,
             )
                 .chain()
                 .in_set(Sets::Physics),

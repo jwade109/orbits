@@ -1,0 +1,13 @@
+name: "double-tank"
+mass: 500000
+dims: [6, 4]
+inventory_data:
+  slots:
+    - filter: Liquid
+      volume_liters: 1200
+      min: [0, 0]
+      max: [4, 4]
+    - filter: Liquid
+      volume_liters: 520
+      min: [4, 0]
+      max: [6, 4]

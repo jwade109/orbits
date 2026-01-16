@@ -1,6 +1,13 @@
 use bevy::prelude::*;
 use bevy_ecs::{query::QueryEntityError, system::SystemParam};
-use game::starling::vehicle::Blueprint;
+use bevy_vector_shapes::prelude::*;
+use game::{
+    starling::{
+        parts::PartLayer,
+        vehicle::{Blueprint, diagram_color},
+    },
+    z_index::ZOrdering,
+};
 
 use crate::game_version_two::{SpawnAnimText, target_docking_transform};
 
@@ -47,6 +54,30 @@ impl<'w, 's> Spacecraft<'w, 's> {
             blueprint.add_part(part.proto.clone(), part.pos, part.rot);
         }
         Ok(blueprint)
+    }
+
+    pub fn get_part_at(&self, coords: GridCoord) -> Option<Entity> {
+        let (_, children, _) = self.grids.get(coords.grid).ok()?;
+
+        if children.is_empty() {
+            warn!("Empty grid!");
+            return None;
+        }
+
+        // TODO this is very bugged.
+        for id in children {
+            let (part, _, _) = self.parts.get(*id).ok()?;
+            if part.prototype().layer() != PartLayer::Internal {
+                continue;
+            }
+            let offset = (coords.coord - part.origin()).inner();
+            let dims = part.dims.as_ivec2();
+            if offset.x >= 0 && offset.y >= 0 && offset.x <= dims.x && offset.y <= dims.y {
+                return Some(*id);
+            }
+        }
+
+        None
     }
 
     pub fn merge_grids(
@@ -97,7 +128,41 @@ impl<'w, 's> Spacecraft<'w, 's> {
     }
 }
 
-pub fn draw_blueprint_system(
+pub fn draw_blueprint_of_current_ship_system(
+    mut painter: ShapePainter,
+    spacecraft: Spacecraft,
+    selected: Res<SelectedSpacecraft>,
+) -> Option<()> {
+    let id = selected.primary?.grid;
+    let bp = spacecraft.blueprint(id).ok()?;
+
+    let z = ZOrdering::Debug2.as_f32();
+
+    for (_, part) in bp.parts() {
+        if part.layer() == PartLayer::Exterior {
+            continue;
+        }
+
+        let zoff = part.layer().to_z() as f32 / 100.0;
+
+        let center = part.center_meters();
+        let dims = part.dims_meters();
+        let color = diagram_color(&part.proto);
+
+        painter.reset();
+        painter.set_color(color.with_alpha(0.7));
+        painter.set_translation(center.extend(z + zoff));
+        painter.rect(dims);
+        painter.hollow = true;
+        painter.thickness = 0.01;
+        painter.set_color(Srgba::gray(0.3));
+        painter.rect(dims);
+    }
+
+    Some(())
+}
+
+pub fn export_blueprint_system(
     spacecraft: Spacecraft,
     selected: Res<SelectedSpacecraft>,
     keys: Res<ButtonInput<KeyCode>>,
@@ -133,3 +198,5 @@ pub fn draw_blueprint_system(
 }
 
 pub fn swallow_optional(In(_): In<Option<()>>) {}
+
+pub fn swallow_result(In(_): In<Result>) {}

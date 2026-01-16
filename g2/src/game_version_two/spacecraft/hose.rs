@@ -4,8 +4,14 @@ use bevy::prelude::*;
 use bevy_egui::EguiContexts;
 use bevy_vector_shapes::prelude::*;
 use early_returns::ok_or_continue;
+use early_returns::ok_or_return;
+use early_returns::some_or_continue;
+use early_returns::some_or_return;
 use egui::Pos2;
+use game::starling::factory::atomic_transfer;
+use game::starling::prelude::Inventory;
 use game::starling::prelude::Item;
+use game::starling::prelude::ItemFilter;
 use game::starling::prelude::MachineStatus;
 use game::ui::apply_egui_style;
 use game::{starling::math::randvec, z_index::ZOrdering};
@@ -13,6 +19,8 @@ use game::{starling::math::randvec, z_index::ZOrdering};
 use super::grid_coord::GridCoord;
 
 use crate::game_version_two::running_status_widget;
+use crate::game_version_two::sysparam_api::Spacecraft;
+use crate::game_version_two::toggle_on_off_button;
 use crate::game_version_two::{CursorWorldPosition, PartInstance, SelectedSpacecraft};
 
 #[derive(Debug, Clone, Copy)]
@@ -30,9 +38,13 @@ pub struct Hose {
     desired_length: f32,
     nodes: Vec<HoseNode>,
     opacity: f32,
-    item: Option<Item>,
+    is_on: bool,
     reversed: bool,
     status: MachineStatus,
+    ticks_per_transfer: u32,
+    current_ticks: u32,
+    item: Item,
+    count: u64,
 }
 
 #[derive(Resource, Default, Debug, Clone, Copy)]
@@ -65,6 +77,10 @@ impl Hose {
             sum += d;
         }
         sum
+    }
+
+    fn transfer_progress(&self) -> f32 {
+        self.current_ticks as f32 / self.ticks_per_transfer as f32
     }
 
     fn step_node_velocity(&mut self, dt: f32) {
@@ -192,14 +208,18 @@ pub fn spawn_hose_on_keypress_system(
         desired_length,
         nodes,
         opacity: 1.0,
-        item: None,
+        is_on: true,
+        item: Item::H2,
+        count: 5,
         reversed: false,
         status: MachineStatus::Off,
+        ticks_per_transfer: 100,
+        current_ticks: 0,
     };
 
-    info!("Spawned hose: {:?}", &hose);
+    let id = commands.spawn(hose).id();
 
-    commands.spawn(hose);
+    info!("Spawned hose: {}", id);
 
     Some(())
 }
@@ -212,6 +232,12 @@ pub fn update_hose_physics_system(
 ) {
     let dt = time.delta_secs();
     for (e, mut hose) in &mut hoses {
+        hose.status = match (hose.is_on, hose.is_connected()) {
+            (false, _) => MachineStatus::Off,
+            (true, false) => MachineStatus::Disconnected,
+            (true, true) => MachineStatus::Running,
+        };
+
         if let Some(src) = hose.src {
             if let Ok(tf) = transforms.get(src.grid) {
                 let tf = src.get_transform(*tf);
@@ -237,13 +263,43 @@ pub fn update_hose_physics_system(
     }
 }
 
-pub fn draw_hoses_system(mut painter: ShapePainter, hoses: Query<&Hose>) {
+pub fn do_hose_inventory_transfer_system(
+    hoses: Query<&mut Hose>,
+    mut inventory: Query<&mut Inventory>,
+    spacecraft: Spacecraft,
+) {
+    for mut hose in hoses {
+        if !hose.is_on {
+            hose.status = MachineStatus::Off;
+            continue;
+        }
+
+        hose.status = MachineStatus::Disconnected;
+
+        let a = some_or_continue!(hose.src);
+        let b = some_or_continue!(hose.dst);
+
+        let src = some_or_continue!(spacecraft.get_part_at(a));
+        let dst = some_or_continue!(spacecraft.get_part_at(b));
+
+        let [mut src, mut dst] = ok_or_continue!(inventory.get_many_mut([src, dst]));
+
+        hose.status = atomic_transfer(&mut src, &mut dst, hose.item, hose.count);
+    }
+}
+
+pub fn draw_hoses_system(
+    mut painter: ShapePainter,
+    hoses: Query<(Entity, &Hose)>,
+    selected: Res<SelectedHose>,
+    inventory: Query<&Inventory>,
+) {
     painter.reset();
     painter.thickness_type = ThicknessType::World;
 
     let z = ZOrdering::Debug.as_f32();
 
-    for hose in hoses {
+    for (e, hose) in hoses {
         for n in hose.nodes.windows(2) {
             let p = n[0].pos;
             let q = n[1].pos;
@@ -252,11 +308,24 @@ pub fn draw_hoses_system(mut painter: ShapePainter, hoses: Query<&Hose>) {
             painter.set_translation(Vec3::Z * z);
             painter.line(p.extend(0.0), q.extend(0.0));
             painter.thickness = 0.06;
-            painter.set_color(GRAY_900.with_alpha(hose.opacity));
+
+            let color = if selected.selected == Some(e) {
+                ORANGE_400
+            } else {
+                GRAY_900
+            };
+
+            painter.set_color(color.with_alpha(hose.opacity));
             painter.set_translation(Vec3::Z * (z + 0.03));
             painter.line(p.extend(0.0), q.extend(0.0));
         }
     }
+
+    // outline the attached inventory for the selected/hovered hose
+
+    let id = some_or_return!(selected.selected.or(selected.hovered));
+
+    let (_, hose) = ok_or_return!(hoses.get(id));
 }
 
 pub fn update_selected_hose_system(
@@ -324,10 +393,21 @@ pub fn draw_hose_selection_area_system(
     }
 }
 
+pub fn item_dropdown(ui: &mut egui::Ui, selected: &mut Item, title: &str, filter: &ItemFilter) {
+    egui::ComboBox::from_label(title)
+        .selected_text(format!("{:?}", selected))
+        .show_ui(ui, |ui| {
+            for item in Item::all_that_passes(filter) {
+                let text = format!("{:?}", item);
+                ui.selectable_value(selected, item, text);
+            }
+        });
+}
+
 pub fn hose_info_window_egui_system(
     mut contexts: EguiContexts,
     selected: ResMut<SelectedHose>,
-    hoses: Query<(Entity, &Hose)>,
+    mut hoses: Query<(Entity, &mut Hose)>,
     camera: Single<(&Camera, &GlobalTransform)>,
 ) -> Result {
     let ctx = contexts.ctx_mut()?;
@@ -336,7 +416,7 @@ pub fn hose_info_window_egui_system(
         return Ok(());
     };
 
-    let (_, hose) = hoses.get(id)?;
+    let (_, mut hose) = hoses.get_mut(id)?;
 
     let pos = camera
         .0
@@ -347,8 +427,16 @@ pub fn hose_info_window_egui_system(
         .fixed_pos(Pos2::new(pos.x, pos.y))
         .show(ctx, |ui| {
             apply_egui_style(ui);
-
             ui.heading(format!("Hose {}", id));
+
+            ui.separator();
+
+            toggle_on_off_button(ui, &mut hose.is_on);
+            item_dropdown(ui, &mut hose.item, "Item", &ItemFilter::Any);
+            running_status_widget(ui, hose.status);
+
+            ui.separator();
+
             ui.label(format!("From: {:?}", hose.src));
             ui.label(format!("To: {:?}", hose.dst));
             ui.label(format!("Desired Length: {:0.1}", hose.desired_length));
@@ -356,8 +444,6 @@ pub fn hose_info_window_egui_system(
             ui.label(format!("Item: {:?}", hose.item));
             ui.label(format!("Reversed: {:?}", hose.reversed));
             ui.label(format!("Nodes: {}", hose.nodes.len()));
-
-            running_status_widget(ui, hose.status);
         });
 
     Ok(())

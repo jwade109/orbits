@@ -159,16 +159,19 @@ fn add_computer_widget(
     }
 }
 
+pub fn toggle_on_off_button(ui: &mut egui::Ui, state: &mut bool) {
+    if ui
+        .button(if *state { "Turn Off" } else { "Turn On" })
+        .clicked()
+    {
+        *state = !*state;
+    }
+}
+
 fn add_excavator_widget(ui: &mut egui::Ui, e: Entity, ex: &mut Excavator, commands: &mut Commands) {
     ui.heading(format!("Excavator {}", e));
 
-    if ui
-        .button(if ex.is_on { "Turn Off" } else { "Turn On" })
-        .clicked()
-    {
-        ex.is_on = !ex.is_on;
-    }
-
+    toggle_on_off_button(ui, &mut ex.is_on);
     running_status_widget(ui, ex.status);
     running_status_widget(ui, ex.last_op_status);
 
@@ -224,6 +227,7 @@ pub fn running_status_widget(ui: &mut egui::Ui, status: MachineStatus) {
         MachineStatus::Running => egui::Color32::GREEN,
         MachineStatus::NoRoom => egui::Color32::YELLOW,
         MachineStatus::Starved => egui::Color32::YELLOW,
+        MachineStatus::Disconnected => egui::Color32::ORANGE,
     };
 
     ui.horizontal(|ui| {
