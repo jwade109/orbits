@@ -142,7 +142,7 @@ impl PartLayer {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub struct PartCoord(IVec2);
 
 impl PartCoord {

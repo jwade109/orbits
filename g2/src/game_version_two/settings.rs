@@ -14,6 +14,7 @@ pub struct Settings {
     pub rotation_locked: bool,
     pub infinite_fuel: bool,
     pub show_terrain_info: bool,
+    pub show_cursor_info: bool,
 }
 
 impl Settings {
@@ -39,6 +40,7 @@ impl Default for Settings {
             rotation_locked: false,
             infinite_fuel: false,
             show_terrain_info: false,
+            show_cursor_info: false,
         }
     }
 }

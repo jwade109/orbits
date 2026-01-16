@@ -99,7 +99,7 @@ pub fn process_position_commands_system(
     let id = selected.primary?.part;
 
     for event in events.read() {
-        let Ok(mut cpu) = computers.get_mut(id) else {
+        let Ok(mut cpu) = computers.get_mut(id.entity) else {
             continue;
         };
         cpu.mode = ComputerMode::PositionHold;

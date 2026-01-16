@@ -6,7 +6,7 @@ use game::starling::parts::PartCoord;
 
 #[derive(Clone, Copy)]
 pub struct GridCoord {
-    pub grid: Entity,
+    pub entity: Entity,
     pub coord: PartCoord,
 }
 
@@ -23,8 +23,8 @@ impl std::fmt::Debug for GridCoord {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{}-({}, {})",
-            self.grid,
+            "{}({}, {})",
+            self.entity,
             self.coord.inner().x,
             self.coord.inner().y
         )

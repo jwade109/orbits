@@ -84,7 +84,10 @@ fn track_selected_spacecraft(
 
     let sel = some_or_return!(cursor.primary);
 
-    let Ok(global) = transform_params.p0().compute_global_transform(sel.grid) else {
+    let Ok(global) = transform_params
+        .p0()
+        .compute_global_transform(sel.grid.entity)
+    else {
         return;
     };
 

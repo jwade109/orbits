@@ -402,7 +402,7 @@ pub fn egui_ui(
             if let Some(e) = cursor.primary {
                 part_ui(
                     ui,
-                    e.part,
+                    e.part.entity,
                     &mut commands,
                     parts,
                     &mut inventories,
@@ -429,7 +429,14 @@ pub fn egui_ui(
         ui.checkbox(&mut settings.rotation_locked, "rotation_locked");
         ui.checkbox(&mut settings.infinite_fuel, "infinite_fuel");
         ui.checkbox(&mut settings.show_terrain_info, "show_terrain_info");
+        ui.checkbox(&mut settings.show_cursor_info, "show_cursor_info");
     });
+
+    if settings.show_cursor_info {
+        egui::Window::new("Cursor Info").show(ctx, |ui| {
+            ui.label(format!("{:#?}", cursor));
+        });
+    }
 
     if false {
         egui::panel::SidePanel::new(egui::containers::panel::Side::Left, "Debug").show(ctx, |ui| {
@@ -456,7 +463,7 @@ pub fn egui_ui(
 
             if let Some(sel) = cursor.primary {
                 ui.separator();
-                if let Ok(grid) = grids.get(sel.grid) {
+                if let Ok(grid) = grids.get(sel.grid.entity) {
                     ui.label(format!("{:#?}", grid));
                 }
                 ui.separator();

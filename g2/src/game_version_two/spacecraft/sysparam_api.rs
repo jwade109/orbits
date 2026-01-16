@@ -57,7 +57,7 @@ impl<'w, 's> Spacecraft<'w, 's> {
     }
 
     pub fn get_part_at(&self, coords: GridCoord) -> Option<Entity> {
-        let (_, children, _) = self.grids.get(coords.grid).ok()?;
+        let (_, children, _) = self.grids.get(coords.entity).ok()?;
 
         if children.is_empty() {
             warn!("Empty grid!");
@@ -134,7 +134,7 @@ pub fn draw_blueprint_of_current_ship_system(
     selected: Res<SelectedSpacecraft>,
 ) -> Option<()> {
     let id = selected.primary?.grid;
-    let bp = spacecraft.blueprint(id).ok()?;
+    let bp = spacecraft.blueprint(id.entity).ok()?;
 
     let z = ZOrdering::Debug2.as_f32();
 
@@ -173,13 +173,13 @@ pub fn export_blueprint_system(
     }
 
     let v_a = spacecraft
-        .get_vehicle_from_part_id(selected.primary?.part)
+        .get_vehicle_from_part_id(selected.primary?.part.entity)
         .ok()?;
 
     let mut bp = spacecraft.blueprint(v_a).ok()?;
 
     if let Some(sec) = selected.secondary {
-        let v_b = spacecraft.get_vehicle_from_part_id(sec.part).ok()?;
+        let v_b = spacecraft.get_vehicle_from_part_id(sec.part.entity).ok()?;
         let mut bp2: Blueprint = spacecraft.blueprint(v_b).ok()?;
         bp2.rotate_ccw();
         bp2.shift(bp.dims().as_ivec2().into());

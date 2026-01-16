@@ -2,7 +2,7 @@ use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use bevy_vector_shapes::prelude::*;
 use early_returns::{ok_or_continue, ok_or_return, some_or_return};
-use game::starling::parts::{PartCoord, PartLayer};
+use game::starling::parts::{PartCoord, PartLayer, Rotation};
 
 use crate::game_version_two::CursorWorldPosition;
 
@@ -11,18 +11,8 @@ use super::*;
 
 #[derive(Debug, Clone, Copy)]
 pub struct SelectedPointInfo {
-    pub grid: Entity,
-    pub part: Entity,
-    pub coord: PartCoord,
-}
-
-impl SelectedPointInfo {
-    pub fn grid_coord(&self) -> GridCoord {
-        GridCoord {
-            grid: self.grid,
-            coord: self.coord,
-        }
-    }
+    pub grid: GridCoord,
+    pub part: GridCoord,
 }
 
 #[derive(Resource, Debug, Default)]
@@ -30,6 +20,55 @@ pub struct SelectedSpacecraft {
     pub hovered: Option<SelectedPointInfo>,
     pub primary: Option<SelectedPointInfo>,
     pub secondary: Option<SelectedPointInfo>,
+}
+
+pub fn rotate_ccw(p: PartCoord) -> PartCoord {
+    IVec2::Y.rotate(p.inner()).into()
+}
+
+/// Given the coordinate of a part in the grid, the parts rotation,
+/// and a sample point on the grid, returns sample point expressed
+/// in the part-fixed frame.
+///
+/// g: grid frame origin
+/// p: part frame origin
+/// o: sample point
+/// gp_grid: the vector from g to p, expressed in the grid frame
+/// part_rot: rotation between grid and part frame
+/// go_grid: the vector from g to o, expressed in the grid frame
+///
+/// There should be a docs image about this.
+pub fn grid_to_part_local(gp_grid: PartCoord, part_rot: Rotation, go_grid: PartCoord) -> PartCoord {
+    let po_grid = go_grid - gp_grid;
+
+    let po_part = match part_rot {
+        Rotation::East => po_grid,
+        Rotation::North => rotate_ccw(rotate_ccw(rotate_ccw(po_grid))),
+        Rotation::West => rotate_ccw(rotate_ccw(po_grid)),
+        Rotation::South => rotate_ccw(po_grid),
+    };
+
+    po_part
+}
+
+#[test]
+fn grid_to_part_local_test() {
+    assert_eq!(
+        grid_to_part_local((5, 6).into(), Rotation::East, (10, 3).into()),
+        PartCoord::new((5, -3).into())
+    );
+    assert_eq!(
+        grid_to_part_local((5, 6).into(), Rotation::North, (7, 12).into()),
+        PartCoord::new((6, -2).into())
+    );
+    assert_eq!(
+        grid_to_part_local((6, 4).into(), Rotation::West, (3, 8).into()),
+        PartCoord::new((3, -4).into())
+    );
+    assert_eq!(
+        grid_to_part_local((6, 4).into(), Rotation::South, (12, 2).into()),
+        PartCoord::new((2, 6).into())
+    );
 }
 
 pub fn update_selected_spacecraft_system(
@@ -58,26 +97,35 @@ pub fn update_selected_spacecraft_system(
         let rot = Vec2::from_angle(-yaw);
         let offset = rot.rotate(offset);
 
-        let coord = PartCoord::from_meters_floored(offset);
+        let go_grid = PartCoord::from_meters_floored(offset);
 
         for id in children {
             let (e, part) = ok_or_continue!(parts.get(*id));
             if part.prototype().layer() != PartLayer::Internal {
                 continue;
             }
-            let origin = part.origin_meters();
-            let dims = part.dims_meters();
-            let part_offset = offset - origin;
-            if part_offset.x >= 0.0
-                && part_offset.y >= 0.0
-                && part_offset.x <= dims.x
-                && part_offset.y <= dims.y
+
+            let gp_grid = part.origin();
+            let dims = part.prototype().dims.as_ivec2();
+
+            let part_local_coord = grid_to_part_local(gp_grid, part.rot, go_grid).inner();
+
+            if part_local_coord.x >= 0
+                && part_local_coord.y >= 0
+                && part_local_coord.x < dims.x
+                && part_local_coord.y < dims.y
             {
-                let info = SelectedPointInfo {
-                    grid: *grid_id,
-                    part: e,
-                    coord,
+                let grid = GridCoord {
+                    entity: *grid_id,
+                    coord: go_grid,
                 };
+
+                let part = GridCoord {
+                    entity: e,
+                    coord: part_local_coord.into(),
+                };
+
+                let info = SelectedPointInfo { grid, part };
 
                 cursor.hovered = Some(info);
                 break 'outer;
@@ -117,7 +165,7 @@ pub fn draw_selected_part_system(
             None => continue,
         };
 
-        if let Ok((tf, part)) = parts.get(e.part) {
+        if let Ok((tf, part)) = parts.get(e.part.entity) {
             let dims = part.prototype().dims_meters();
             let r = dims.length() / 2.0 + 0.5;
             painter.reset();
@@ -137,10 +185,10 @@ pub fn draw_selected_part_system(
             painter.rect(dims);
         }
 
-        if let Ok(tf) = grids.get(e.grid) {
+        if let Ok(tf) = grids.get(e.grid.entity) {
             painter.set_translation(tf.translation().with_z(Z_SELECTED_PART_OUTLINE));
             painter.set_rotation(tf.rotation());
-            let offset = e.coord.to_meters();
+            let offset = e.grid.coord.to_meters();
             painter.translate(offset.extend(0.0));
             let dims = Vec2::splat(PartCoord::CELL_WIDTH);
             painter.translate(dims.extend(0.0) / 2.0);

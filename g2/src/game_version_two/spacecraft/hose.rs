@@ -176,13 +176,13 @@ pub fn spawn_hose_on_keypress_system(
     let a = selected.primary?;
     let b = selected.secondary?;
 
-    let tf_a = grids.get(a.grid).ok()?;
-    let tf_b = grids.get(b.grid).ok()?;
+    let tf_a = grids.get(a.grid.entity).ok()?;
+    let tf_b = grids.get(b.grid.entity).ok()?;
 
     let n_segments = 5;
 
-    let pa = a.grid_coord().get_transform(*tf_a).translation.xy();
-    let pb = b.grid_coord().get_transform(*tf_b).translation.xy();
+    let pa = a.grid.get_transform(*tf_a).translation.xy();
+    let pb = b.grid.get_transform(*tf_b).translation.xy();
 
     let mut nodes = Vec::new();
 
@@ -201,8 +201,8 @@ pub fn spawn_hose_on_keypress_system(
     }
 
     let hose = Hose {
-        src: Some(a.grid_coord()),
-        dst: Some(b.grid_coord()),
+        src: Some(a.grid),
+        dst: Some(b.grid),
         src_pos: pa,
         dst_pos: pb,
         desired_length,
@@ -239,13 +239,13 @@ pub fn update_hose_physics_system(
         };
 
         if let Some(src) = hose.src {
-            if let Ok(tf) = transforms.get(src.grid) {
+            if let Ok(tf) = transforms.get(src.entity) {
                 let tf = src.get_transform(*tf);
                 hose.update_src_pos(tf.translation.xy());
             }
         }
         if let Some(dst) = hose.dst {
-            if let Ok(tf) = transforms.get(dst.grid) {
+            if let Ok(tf) = transforms.get(dst.entity) {
                 let tf = dst.get_transform(*tf);
                 hose.update_dst_pos(tf.translation.xy());
             }
