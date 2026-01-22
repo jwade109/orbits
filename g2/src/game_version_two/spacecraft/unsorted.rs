@@ -20,6 +20,7 @@ impl Plugin for SpacecraftPlugin {
             (
                 draw_grids,
                 draw_inventories,
+                draw_blueprints,
                 draw_selected_part_system,
                 draw_spacecraft_spatial_lookups,
                 draw_docking_info,
@@ -32,6 +33,7 @@ impl Plugin for SpacecraftPlugin {
             EguiPrimaryContextPass,
             (
                 tick_control_egui,
+                docking_program_egui,
                 hose_info_window_egui_system.pipe(sysparam_api::swallow_result),
             ),
         );
@@ -39,12 +41,11 @@ impl Plugin for SpacecraftPlugin {
         app.add_systems(
             Update,
             (
-                draw_blueprint_of_current_ship_system.pipe(sysparam_api::swallow_optional),
+                draw_blueprint_of_docking_program.pipe(sysparam_api::swallow_optional),
                 draw_position_command_widget,
                 update_position_command_widget_system,
                 spawn_hose_on_keypress_system.pipe(sysparam_api::swallow_optional),
                 draw_hoses_system,
-                send_attach_events.pipe(swallow_optional),
                 update_selected_spacecraft_system,
                 update_selected_hose_system,
                 draw_hose_selection_area_system,
@@ -61,7 +62,6 @@ impl Plugin for SpacecraftPlugin {
             (
                 handle_sc_events,
                 check_adjacent_docking_ports,
-                on_fuse_grids_event,
                 update_thruster_emitters,
                 build_parts,
                 update_machines,
@@ -86,6 +86,7 @@ impl Plugin for SpacecraftPlugin {
         app.insert_resource(GridSpatialLookup::default());
         app.insert_resource(TickSchedule::PerFrame(10));
         app.insert_resource(CursorPositionCommandWidget::default());
+        app.insert_resource(DockingProgram::default());
         app.insert_resource(Ticks(0));
     }
 }
@@ -180,6 +181,20 @@ fn draw_grids(
     }
 }
 
+fn draw_blueprints(
+    mut gizmos: Gizmos,
+    bps: Query<(&Blueprint, &Transform)>,
+    settings: Res<Settings>,
+) {
+    if !settings.draw_blueprints {
+        return;
+    }
+
+    for (bp, tf) in bps {
+        draw_blueprint(&mut gizmos, bp, *tf);
+    }
+}
+
 fn draw_inventories(
     mut painter: ShapePainter,
     parts: Query<(&GlobalTransform, &PartInstance, &Inventory)>,
@@ -191,7 +206,6 @@ fn draw_inventories(
 
     const Z_DEBUG_INVENTORY_LAYER: f32 = 0.05;
 
-    let width = 0.1;
     for (tf, part, inventory) in parts {
         for (i, slot) in inventory.slots().enumerate() {
             let (min, max) = slot.bounds();
@@ -235,7 +249,7 @@ fn draw_inventories(
 
 fn despawn_empty_grids(
     mut commands: Commands,
-    mut grids: Query<Entity, (With<SpacecraftGrid>, Without<Children>)>,
+    grids: Query<Entity, (With<SpacecraftGrid>, Without<Children>)>,
 ) {
     for e in grids {
         info!("Despawning empty grid {e}");
@@ -307,9 +321,7 @@ fn handle_sc_events(
     mut commands: Commands,
     mut events: EventReader<SpacecraftEvent>,
     args: Res<ProgramContext>,
-    mut meshes: ResMut<Assets<Mesh>>,
     mut asset_server: ResMut<AssetServer>,
-    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     spacecraft: Query<&GlobalTransform, With<SpacecraftGrid>>,
     camera: Query<(&Camera, &GlobalTransform)>,
 ) -> Result {
@@ -337,7 +349,6 @@ fn handle_sc_events(
                     &vehicle,
                     &mut asset_server,
                     &args,
-                    &mut texture_atlas_layouts,
                 );
             }
             SpacecraftEvent::SpawnPart { name, pos, angle } => {
@@ -351,13 +362,7 @@ fn handle_sc_events(
 
                 let mut grid = spawn_empty_grid(&mut commands, *pos, *angle);
                 grid.with_children(|parent| {
-                    add_part_to_grid(
-                        parent,
-                        &instance,
-                        &mut asset_server,
-                        &args,
-                        &mut texture_atlas_layouts,
-                    )
+                    add_part_to_grid(parent, &instance, &mut asset_server, &args)
                 });
             }
             SpacecraftEvent::Destroy { target } => {
@@ -423,6 +428,7 @@ fn spawn_empty_grid<'a>(commands: &'a mut Commands, pos: Vec2, angle: f32) -> En
             ..default()
         },
         Visibility::default(),
+        Blueprint::new(),
     ))
 }
 
@@ -431,13 +437,12 @@ fn add_part_to_grid<'a>(
     part: &InstantiatedPart,
     asset_server: &mut ResMut<AssetServer>,
     args: &Res<ProgramContext>,
-    texture_atlas_layouts: &mut ResMut<Assets<TextureAtlasLayout>>,
 ) {
     let dims = part.prototype().dims_meters();
     let dims_rot = part.dims_meters();
     let origin = part.origin_meters() + dims_rot / 2.0;
 
-    let (z, _, _, d) = match part.layer() {
+    let (z, _, _, _) = match part.layer() {
         game::starling::parts::PartLayer::Internal => (0.0, 1.0, 0.5, 0.0),
         game::starling::parts::PartLayer::Structural => (0.02, 0.7, 0.7, 0.05),
         game::starling::parts::PartLayer::Exterior => (0.04, 0.2, 0.8, 0.1),
@@ -446,8 +451,6 @@ fn add_part_to_grid<'a>(
 
     let path = args.part_sprite_path(part.prototype().part_name());
     let texture = asset_server.load(path);
-
-    let name = part.prototype().part_name().to_string();
 
     let mut sprite = Sprite::from_image(texture);
 
@@ -539,13 +542,14 @@ fn spawn_spacecraft(
     vehicle: &Blueprint,
     asset_server: &mut ResMut<AssetServer>,
     args: &Res<ProgramContext>,
-    texture_atlas_layouts: &mut ResMut<Assets<TextureAtlasLayout>>,
 ) {
-    spawn_empty_grid(commands, pos, angle).with_children(|parent| {
-        for (_, part) in vehicle.parts() {
-            add_part_to_grid(parent, part, asset_server, args, texture_atlas_layouts);
-        }
-    });
+    spawn_empty_grid(commands, pos, angle)
+        .with_children(|parent| {
+            for (_, part) in vehicle.parts() {
+                add_part_to_grid(parent, part, asset_server, args);
+            }
+        })
+        .insert(vehicle.clone());
 }
 
 fn accelerate_spacecraft(

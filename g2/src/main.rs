@@ -73,6 +73,7 @@ fn main() {
             PostUpdate,
             (Sets::Draw, Sets::PostPhysics).after(TransformSystem::TransformPropagate),
         )
+        .add_systems(Startup, update_gizmo_config)
         .run();
 }
 
@@ -80,10 +81,22 @@ fn update_wireframe(mut wireframe_config: ResMut<Wireframe2dConfig>, settings: R
     wireframe_config.global = settings.show_wireframes;
 }
 
+fn update_gizmo_config(mut config_store: ResMut<GizmoConfigStore>) {
+    let (config, _) = config_store.config_mut::<DefaultGizmoConfigGroup>();
+    config.line.width = 6.0;
+}
+
 fn setup(mut commands: Commands) -> Result {
     let ctx = ProgramContext::default();
     let settings = Settings::from_file(&ctx.settings_path()).unwrap_or(Settings::default());
     let parts = load_parts_from_dir(&ctx).unwrap_or(PartDatabase::default());
+    let save_data = match SaveData::from_file(&ctx.save_data_path()) {
+        Ok(sd) => sd,
+        Err(e) => {
+            error!("Failed to load save data: {}", e);
+            SaveData::default()
+        }
+    };
 
     commands.insert_resource(parts);
     commands.insert_resource(ctx);
@@ -103,50 +116,12 @@ fn setup(mut commands: Commands) -> Result {
         },
     ));
 
-    let off = Vec2::splat(20.0);
-
-    // commands.send_event(SpacecraftEvent::SpawnVehicle {
-    //     name: "remora".to_string(),
-    //     pos: off + Vec2::ZERO,
-    //     angle: 0.0,
-    // });
-
-    // commands.send_event(SpacecraftEvent::SpawnVehicle {
-    //     name: "pollux".to_string(),
-    //     pos: off + Vec2::X * 4.0,
-    //     angle: 1.57,
-    // });
-
-    commands.send_event(SpacecraftEvent::SpawnVehicle {
-        name: "miner".to_string(),
-        pos: off + Vec2::splat(4.0),
-        angle: 1.57,
-    });
-
-    for name in [
-        "pollux",
-        "pollux",
-        "remora",
-        "bellerophon",
-        "debugger",
-        // "lander",
-        // "remora",
-        // "icecream",
-        // "spacestation",
-        // "remora",
-        // "remora",
-        // "remora",
-        // "remora",
-        // "remora",
-        // "foundation",
-        // "miner",
-    ] {
-        let x = rand(-50.0, 50.0);
-        let y = rand(-50.0, 50.0);
+    for ship in save_data.ships {
+        info!("Spawning {}", &ship.name);
         commands.send_event(SpacecraftEvent::SpawnVehicle {
-            name: name.to_string(),
-            pos: Vec2::new(x + 25.0, y + 25.0),
-            angle: rand(-0.2, 0.3),
+            name: ship.name,
+            pos: ship.pos,
+            angle: ship.angle,
         });
     }
 

@@ -1,5 +1,3 @@
-#![allow(unused)]
-
 use crate::starling::id::EntityId;
 use crate::starling::nanotime::Nanotime;
 use crate::starling::orbits::{GlobalOrbit, SparseOrbit};

@@ -1,5 +1,3 @@
-#![allow(unused)]
-
 mod animated_text;
 mod camera;
 mod computer;
@@ -11,6 +9,7 @@ mod part;
 mod particles;
 mod pipe;
 mod recipe;
+mod save_data;
 mod settings;
 mod spacecraft;
 mod system_sets;
@@ -29,6 +28,7 @@ pub use part::*;
 pub use particles::*;
 pub use pipe::*;
 pub use recipe::*;
+pub use save_data::*;
 pub use settings::*;
 pub use spacecraft::*;
 pub use system_sets::*;

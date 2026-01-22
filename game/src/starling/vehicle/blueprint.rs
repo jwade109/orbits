@@ -1,6 +1,7 @@
 use crate::starling::math::*;
 use crate::starling::nanotime::Nanotime;
 use crate::starling::parts::*;
+use bevy::prelude::Component;
 use std::collections::BTreeMap;
 use std::hash::Hash;
 
@@ -29,7 +30,7 @@ pub fn occupied_cells(pos: PartCoord, rot: Rotation, part: &PartPrototype) -> Ve
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct PartId(u64);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Component)]
 pub struct Blueprint {
     next_part_id: PartId,
     parts: BTreeMap<PartId, InstantiatedPart>,

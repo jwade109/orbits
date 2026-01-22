@@ -39,25 +39,6 @@ pub struct FuseGrids {
     target_part: Entity,
 }
 
-pub fn send_attach_events(
-    keys: Res<ButtonInput<KeyCode>>,
-    selected: Res<SelectedSpacecraft>,
-    mut craft: Spacecraft,
-) -> Option<()> {
-    if !keys.just_pressed(KeyCode::KeyJ) {
-        return None;
-    }
-
-    let host = selected.primary?.part;
-    let target = selected.secondary?.part;
-
-    if let Err(e) = craft.merge_grids(host.entity, target.entity) {
-        error!("Failed to merge: {:?}", e);
-    }
-
-    Some(())
-}
-
 pub fn inverse_transform(t: Transform) -> Transform {
     let affine = t.compute_affine().inverse();
     let (scale, rot, tr) = affine.to_scale_rotation_translation();
@@ -74,12 +55,6 @@ pub fn target_docking_transform(
     let inv_port_b = inverse_transform(port_b);
     let rot_180 = Transform::from_rotation(Quat::from_axis_angle(Vec3::Z, std::f32::consts::PI));
     ownship * port_a * rot_180 * inv_port_b
-}
-
-pub fn on_fuse_grids_event(mut craft: Spacecraft, mut events: EventReader<FuseGrids>) {
-    for event in events.read() {
-        craft.merge_grids(event.host_part, event.target_part);
-    }
 }
 
 pub const DOCKING_PORT_RADIUS: f32 = 6.0;

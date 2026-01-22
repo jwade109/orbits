@@ -26,6 +26,10 @@ impl ProgramContext {
         self.assets_dir().join("settings.yaml")
     }
 
+    pub fn save_data_path(&self) -> PathBuf {
+        self.assets_dir().join("save_data.yaml")
+    }
+
     pub fn names_path(&self) -> PathBuf {
         self.assets_dir().join("ship_names.txt")
     }

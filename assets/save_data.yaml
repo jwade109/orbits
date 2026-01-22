@@ -1,0 +1,16 @@
+ships:
+  - name: pollux
+    pos: [0.0, 0.0]
+    angle: 0
+
+  - name: remora
+    pos: [20.0, 10.0]
+    angle: 0.7
+
+  - name: foundation
+    pos: [30.0, 0.0]
+    angle: 0.2
+
+  - name: spacestation
+    pos: [-10.0, -20.0]
+    angle: -0.05

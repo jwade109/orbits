@@ -21,4 +21,12 @@ impl Rotation {
             Self::South => PI_64 * 1.5,
         }
     }
+
+    pub fn next(&self) -> Self {
+        enum_iterator::next_cycle(self)
+    }
+
+    pub fn prev(&self) -> Self {
+        enum_iterator::previous_cycle(self)
+    }
 }

@@ -423,6 +423,7 @@ pub fn egui_ui(
         ui.checkbox(&mut settings.draw_terrain_rgb, "draw_terrain_rgb");
         ui.checkbox(&mut settings.show_wireframes, "show_wireframes");
         ui.checkbox(&mut settings.draw_inventories, "draw_inventories");
+        ui.checkbox(&mut settings.draw_blueprints, "draw_blueprints");
         ui.checkbox(&mut settings.draw_docking_info, "draw_docking_info");
         ui.checkbox(&mut settings.draw_camera_debug, "draw_camera_debug");
         ui.checkbox(&mut settings.dig_with_mouse, "dig_with_mouse");

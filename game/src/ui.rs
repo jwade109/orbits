@@ -72,7 +72,7 @@ pub const EXIT_OVERLAY_BACKGROUND_COLOR: [f32; 4] = [0.0, 0.0, 0.0, 0.95];
 
 pub fn apply_egui_style(ui: &mut egui::Ui) {
     let x = ui.style_mut();
-    x.spacing.window_margin = egui::Margin::same(40);
+    // x.spacing.window_margin = egui::Margin::same(40);
     x.spacing.item_spacing.y = 5.0;
     x.spacing.button_padding.x = 5.0;
     x.spacing.button_padding.y = 5.0;

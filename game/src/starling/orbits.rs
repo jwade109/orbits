@@ -1,5 +1,3 @@
-#![allow(unused)]
-
 use crate::starling::aabb::{AABB, OBB};
 use crate::starling::id::EntityId;
 use crate::starling::math::*;

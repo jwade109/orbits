@@ -9,6 +9,8 @@ use game::{
     z_index::ZOrdering,
 };
 
+use bevy::color::palettes::css::*;
+
 use crate::game_version_two::{SpawnAnimText, target_docking_transform};
 
 use super::*;
@@ -46,6 +48,11 @@ impl<'w, 's> Spacecraft<'w, 's> {
         Ok(child_of.0)
     }
 
+    pub fn grid_transform(&self, grid: Entity) -> Result<Transform, QueryEntityError> {
+        let (_, _, transform) = self.grids.get(grid)?;
+        Ok(*transform)
+    }
+
     pub fn blueprint(&self, e: Entity) -> Result<Blueprint, QueryEntityError> {
         let mut blueprint = Blueprint::new();
         let (_, children, _) = self.grids.get(e)?;
@@ -80,18 +87,13 @@ impl<'w, 's> Spacecraft<'w, 's> {
         None
     }
 
-    pub fn merge_grids(
-        &mut self,
+    pub fn get_merge_transform(
+        &self,
         host_part: Entity,
         target_part: Entity,
-    ) -> Result<(), QueryEntityError> {
-        info!("Merge grids with parts {}, {}", host_part, target_part);
+    ) -> Result<Transform, QueryEntityError> {
         let host_vehicle = self.get_vehicle_from_part_id(host_part)?;
         let target_vehicle = self.get_vehicle_from_part_id(target_part)?;
-        if host_vehicle == target_vehicle {
-            warn!("Tried to merge two parts of same grid: {}", host_vehicle);
-            return Ok(());
-        }
 
         let (port, parent, port_a) = self.parts.get(host_part)?;
         let (other_port, other_parent, port_b) = self.parts.get(target_part)?;
@@ -117,49 +119,10 @@ impl<'w, 's> Spacecraft<'w, 's> {
         port_a.translation += port_a.right() * off_a / 2.0;
         port_b.translation += port_b.right() * off_b / 2.0;
 
-        let (mut grid, _, mut target_root) = self.grids.get_mut(other_parent.0)?;
+        let (grid, _, target_root) = self.grids.get(other_parent.0)?;
 
-        *target_root = target_docking_transform(ownship_root, port_a, port_b);
-
-        grid.velocity = velocity + additional_velocity;
-        grid.angular_velocity = angular_velocity;
-
-        Ok(())
+        Ok(target_docking_transform(ownship_root, port_a, port_b))
     }
-}
-
-pub fn draw_blueprint_of_current_ship_system(
-    mut painter: ShapePainter,
-    spacecraft: Spacecraft,
-    selected: Res<SelectedSpacecraft>,
-) -> Option<()> {
-    let id = selected.primary?.grid;
-    let bp = spacecraft.blueprint(id.entity).ok()?;
-
-    let z = ZOrdering::Debug2.as_f32();
-
-    for (_, part) in bp.parts() {
-        if part.layer() == PartLayer::Exterior {
-            continue;
-        }
-
-        let zoff = part.layer().to_z() as f32 / 100.0;
-
-        let center = part.center_meters();
-        let dims = part.dims_meters();
-        let color = diagram_color(&part.proto);
-
-        painter.reset();
-        painter.set_color(color.with_alpha(0.7));
-        painter.set_translation(center.extend(z + zoff));
-        painter.rect(dims);
-        painter.hollow = true;
-        painter.thickness = 0.01;
-        painter.set_color(Srgba::gray(0.3));
-        painter.rect(dims);
-    }
-
-    Some(())
 }
 
 pub fn export_blueprint_system(

@@ -72,6 +72,7 @@ fn grid_to_part_local_test() {
 }
 
 pub fn update_selected_spacecraft_system(
+    mut gizmos: Gizmos,
     mut cursor: ResMut<SelectedSpacecraft>,
     map: Res<GridSpatialLookup>,
     pos: Res<CursorWorldPosition>,
@@ -81,8 +82,8 @@ pub fn update_selected_spacecraft_system(
 ) {
     cursor.hovered = None;
 
-    let pos = some_or_return!(pos.get());
-    let grid_ids = some_or_return!(map.lup(pos));
+    let mouse_pos = some_or_return!(pos.get());
+    let grid_ids = some_or_return!(map.lup(mouse_pos));
 
     'outer: for grid_id in grid_ids {
         let (transform, children) = ok_or_return!(grids.get(*grid_id));
@@ -92,7 +93,9 @@ pub fn update_selected_spacecraft_system(
             continue;
         }
 
-        let offset = pos - transform.translation().xy();
+        let grid_origin = transform.translation().xy();
+
+        let offset = mouse_pos - grid_origin;
         let (yaw, _pitch, _roll) = transform.rotation().to_euler(EulerRot::ZYX);
         let rot = Vec2::from_angle(-yaw);
         let offset = rot.rotate(offset);
@@ -115,6 +118,8 @@ pub fn update_selected_spacecraft_system(
                 && part_local_coord.x < dims.x
                 && part_local_coord.y < dims.y
             {
+                gizmos.arrow_2d(grid_origin, mouse_pos, GREEN);
+
                 let grid = GridCoord {
                     entity: *grid_id,
                     coord: go_grid,
