@@ -12,8 +12,12 @@ pub enum TickSchedule {
     Once,
 }
 
-#[derive(Resource, PartialEq, Eq, Clone, Copy, Debug)]
-pub struct Ticks(pub u64);
+#[derive(Resource, PartialEq, Eq, Clone, Copy, Debug, Default)]
+pub struct TickStatistics {
+    ticks: u64,
+    ticks_last_frame: u32,
+    dt: std::time::Duration,
+}
 
 impl TickSchedule {
     pub fn pause(&mut self) {
@@ -81,7 +85,7 @@ impl TickSchedule {
 }
 
 pub fn world_tick_driver_system(world: &mut World) {
-    let mut ticks = world.resource_mut::<TickSchedule>();
+    let mut ticks: Mut<'_, TickSchedule> = world.resource_mut::<TickSchedule>();
 
     let n = ticks.ticks_per_frame();
 
@@ -89,26 +93,44 @@ pub fn world_tick_driver_system(world: &mut World) {
         ticks.pause();
     }
 
-    let mut t = world.resource_mut::<Ticks>();
-    t.0 += n as u64;
+    let start = std::time::Instant::now();
+
+    let mut ticks = 0;
+
+    let mut dt = std::time::Duration::ZERO;
 
     for _ in 0..n {
         world.run_schedule(SimTick);
+        let now = std::time::Instant::now();
+
+        ticks += 1;
+
+        dt = now - start;
+        if dt > std::time::Duration::from_millis(12) {
+            break;
+        }
     }
+
+    let mut t = world.resource_mut::<TickStatistics>();
+
+    t.ticks += ticks;
+    t.ticks_last_frame = ticks as u32;
+    t.dt = dt;
 }
 
 pub fn tick_control_egui(
     mut contexts: EguiContexts,
     mut ticks: ResMut<TickSchedule>,
-    count: Res<Ticks>,
+    stats: Res<TickStatistics>,
 ) -> Result {
     let ctx = contexts.ctx_mut()?;
 
     egui::Window::new("Tick Rate Control").show(ctx, |ui| {
         apply_egui_style(ui);
 
-        ui.heading(format!("Tick Rate Control ({})", ticks.ticks_per_frame()));
-        ui.label(format!("tick {}", count.0));
+        ui.label(format!("tick {}", stats.ticks));
+        ui.label(format!("last frame: {}/{}", stats.ticks_last_frame, ticks.ticks_per_frame()));
+        ui.label(format!("dt: {:?}", stats.dt));
 
         let ptext = if ticks.is_paused() {
             "[>] Play"
@@ -124,9 +146,17 @@ pub fn tick_control_egui(
             ticks.set_rate(1);
         }
 
-        if ui.button("Fast").clicked() {
-            ticks.set_rate(20);
-        }
+        ui.horizontal(|ui| {
+            if ui.button("20").clicked() {
+                ticks.set_rate(20);
+            }
+            if ui.button("40").clicked() {
+                ticks.set_rate(40);
+            }
+            if ui.button("100").clicked() {
+                ticks.set_rate(100);
+            }
+        });
 
         ui.horizontal(|ui| {
             if ui.button("<<").clicked() {

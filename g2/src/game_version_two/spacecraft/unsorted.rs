@@ -87,7 +87,7 @@ impl Plugin for SpacecraftPlugin {
         app.insert_resource(TickSchedule::PerFrame(10));
         app.insert_resource(CursorPositionCommandWidget::default());
         app.insert_resource(DockingProgram::default());
-        app.insert_resource(Ticks(0));
+        app.insert_resource(TickStatistics::default());
     }
 }
 
