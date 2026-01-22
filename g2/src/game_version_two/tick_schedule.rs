@@ -3,6 +3,8 @@ use bevy_ecs::schedule::ScheduleLabel;
 use bevy_egui::EguiContexts;
 use game::ui::apply_egui_style;
 
+use crate::game_version_two::Settings;
+
 #[derive(ScheduleLabel, Hash, Debug, PartialEq, Eq, Clone, Copy)]
 pub struct SimTick;
 
@@ -122,14 +124,23 @@ pub fn tick_control_egui(
     mut contexts: EguiContexts,
     mut ticks: ResMut<TickSchedule>,
     stats: Res<TickStatistics>,
+    settings: Res<Settings>,
 ) -> Result {
+    if !settings.show_time_controls {
+        return Ok(());
+    }
+
     let ctx = contexts.ctx_mut()?;
 
     egui::Window::new("Tick Rate Control").show(ctx, |ui| {
         apply_egui_style(ui);
 
         ui.label(format!("tick {}", stats.ticks));
-        ui.label(format!("last frame: {}/{}", stats.ticks_last_frame, ticks.ticks_per_frame()));
+        ui.label(format!(
+            "last frame: {}/{}",
+            stats.ticks_last_frame,
+            ticks.ticks_per_frame()
+        ));
         ui.label(format!("dt: {:?}", stats.dt));
 
         let ptext = if ticks.is_paused() {

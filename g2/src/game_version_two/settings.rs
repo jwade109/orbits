@@ -15,6 +15,7 @@ pub struct Settings {
     pub infinite_fuel: bool,
     pub show_terrain_info: bool,
     pub show_cursor_info: bool,
+    pub show_time_controls: bool,
     pub draw_camera_debug: bool,
 }
 
@@ -42,6 +43,7 @@ impl Default for Settings {
             infinite_fuel: false,
             show_terrain_info: false,
             show_cursor_info: false,
+            show_time_controls: false,
             draw_camera_debug: false,
         }
     }

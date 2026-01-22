@@ -2,9 +2,10 @@ use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use bevy_vector_shapes::prelude::*;
 use early_returns::{ok_or_continue, ok_or_return, some_or_return};
-use game::starling::parts::{PartCoord, PartLayer, Rotation};
+use game::starling::math::rotate;
+use game::starling::parts::{PartCoord, PartLayer};
 
-use crate::game_version_two::CursorWorldPosition;
+use crate::game_version_two::{CursorWorldPosition, grid_to_part_local};
 
 use super::grid_coord::GridCoord;
 use super::*;
@@ -22,57 +23,19 @@ pub struct SelectedSpacecraft {
     pub secondary: Option<SelectedPointInfo>,
 }
 
-pub fn rotate_ccw(p: PartCoord) -> PartCoord {
-    IVec2::Y.rotate(p.inner()).into()
+fn get_yaw(transform: Transform) -> f32 {
+    let (yaw, _pitch, _roll) = transform.rotation.to_euler(EulerRot::ZYX);
+    yaw
 }
 
-/// Given the coordinate of a part in the grid, the parts rotation,
-/// and a sample point on the grid, returns sample point expressed
-/// in the part-fixed frame.
-///
-/// g: grid frame origin
-/// p: part frame origin
-/// o: sample point
-/// gp_grid: the vector from g to p, expressed in the grid frame
-/// part_rot: rotation between grid and part frame
-/// go_grid: the vector from g to o, expressed in the grid frame
-///
-/// There should be a docs image about this.
-pub fn grid_to_part_local(gp_grid: PartCoord, part_rot: Rotation, go_grid: PartCoord) -> PartCoord {
-    let po_grid = go_grid - gp_grid;
-
-    let po_part = match part_rot {
-        Rotation::East => po_grid,
-        Rotation::North => rotate_ccw(rotate_ccw(rotate_ccw(po_grid))),
-        Rotation::West => rotate_ccw(rotate_ccw(po_grid)),
-        Rotation::South => rotate_ccw(po_grid),
-    };
-
-    po_part
-}
-
-#[test]
-fn grid_to_part_local_test() {
-    assert_eq!(
-        grid_to_part_local((5, 6).into(), Rotation::East, (10, 3).into()),
-        PartCoord::new((5, -3).into())
-    );
-    assert_eq!(
-        grid_to_part_local((5, 6).into(), Rotation::North, (7, 12).into()),
-        PartCoord::new((6, -2).into())
-    );
-    assert_eq!(
-        grid_to_part_local((6, 4).into(), Rotation::West, (3, 8).into()),
-        PartCoord::new((3, -4).into())
-    );
-    assert_eq!(
-        grid_to_part_local((6, 4).into(), Rotation::South, (12, 2).into()),
-        PartCoord::new((2, 6).into())
-    );
+fn in_frame(transform: Transform, pos: Vec2) -> Vec2 {
+    let offset = pos - transform.translation.xy();
+    let yaw = get_yaw(transform);
+    rotate(offset, -yaw)
 }
 
 pub fn update_selected_spacecraft_system(
-    mut gizmos: Gizmos,
+    // mut gizmos: Gizmos,
     mut cursor: ResMut<SelectedSpacecraft>,
     map: Res<GridSpatialLookup>,
     pos: Res<CursorWorldPosition>,
@@ -109,16 +72,25 @@ pub fn update_selected_spacecraft_system(
             }
 
             let gp_grid = part.origin();
-            let dims = part.prototype().dims.as_ivec2();
+            let dims_meters = part.dims_meters();
 
-            let part_local_coord = grid_to_part_local(gp_grid, part.rot, go_grid).inner();
+            let rot = Quat::from_rotation_z(yaw);
+            let part_origin = Transform::from_isometry(Isometry3d::new(
+                (grid_origin + rotate(gp_grid.to_meters(), yaw)).extend(0.0),
+                rot,
+            ));
 
-            if part_local_coord.x >= 0
-                && part_local_coord.y >= 0
-                && part_local_coord.x < dims.x
-                && part_local_coord.y < dims.y
+            let part_local = in_frame(part_origin, mouse_pos);
+
+            // gizmos.axes(part_origin, dims_meters.min_element());
+
+            if part_local.x >= 0.0
+                && part_local.y >= 0.0
+                && part_local.x < dims_meters.x
+                && part_local.y < dims_meters.y
             {
-                gizmos.arrow_2d(grid_origin, mouse_pos, GREEN);
+                // gizmos.arrow_2d(grid_origin, mouse_pos, GREEN);
+                // gizmos.arrow_2d(part_origin.translation.xy(), mouse_pos, GREEN);
 
                 let grid = GridCoord {
                     entity: *grid_id,
@@ -127,7 +99,7 @@ pub fn update_selected_spacecraft_system(
 
                 let part = GridCoord {
                     entity: e,
-                    coord: part_local_coord.into(),
+                    coord: IVec2::ZERO.into(),
                 };
 
                 let info = SelectedPointInfo { grid, part };
@@ -152,11 +124,7 @@ pub fn draw_selected_part_system(
     grids: Query<&GlobalTransform, With<SpacecraftGrid>>,
     parts: Query<(&GlobalTransform, &PartInstance)>,
     sel: Res<SelectedSpacecraft>,
-    time: Res<Time>,
 ) {
-    let angle = time.elapsed_secs_f64() % (2.0 * std::f64::consts::PI);
-    let angle = angle as f32;
-
     const Z_SELECTED_PART: f32 = 1.0;
     const Z_SELECTED_PART_OUTLINE: f32 = 1.001;
 
@@ -172,7 +140,7 @@ pub fn draw_selected_part_system(
 
         if let Ok((tf, part)) = parts.get(e.part.entity) {
             let dims = part.prototype().dims_meters();
-            let r = dims.length() / 2.0 + 0.5;
+
             painter.reset();
             painter.set_translation(tf.translation().with_z(Z_SELECTED_PART));
             painter.set_rotation(tf.rotation());

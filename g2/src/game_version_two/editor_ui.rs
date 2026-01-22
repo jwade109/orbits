@@ -430,6 +430,7 @@ pub fn egui_ui(
         ui.checkbox(&mut settings.rotation_locked, "rotation_locked");
         ui.checkbox(&mut settings.infinite_fuel, "infinite_fuel");
         ui.checkbox(&mut settings.show_terrain_info, "show_terrain_info");
+        ui.checkbox(&mut settings.show_time_controls, "show_time_controls");
         ui.checkbox(&mut settings.show_cursor_info, "show_cursor_info");
     });
 
@@ -482,7 +483,8 @@ pub fn egui_ui(
 
                 if ui.button("Spawn Spacecraft").clicked() {
                     commands.send_event(SpacecraftEvent::SpawnVehicle {
-                        name: state.sc_name.clone(),
+                        blueprint_name: state.sc_name.clone(),
+                        ship_name: "Random Name".to_string(),
                         pos: state.sc_pos,
                         angle: rand(-0.2, 0.3),
                     });

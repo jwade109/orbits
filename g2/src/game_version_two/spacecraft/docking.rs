@@ -30,18 +30,30 @@ impl Default for DockingProgram {
 pub fn docking_program_egui(
     mut contexts: EguiContexts,
     mut pgrm: ResMut<DockingProgram>,
+    names: Query<&Name>,
     selected: Res<SelectedSpacecraft>,
-) -> Result {
-    if selected.primary.is_none() || selected.secondary.is_none() {
-        return Ok(());
+) -> Option<()> {
+    let a = selected.primary?.grid.entity;
+    let b = selected.secondary?.grid.entity;
+
+    if a == b {
+        return None;
     }
 
-    let ctx = contexts.ctx_mut()?;
+    let pri_name = names.get(a).ok()?;
+    let sec_name = names.get(b).ok()?;
+
+    let ctx = contexts.ctx_mut().ok()?;
 
     use egui::*;
 
     Window::new("Docking Program").show(ctx, |ui| {
         apply_egui_style(ui);
+
+        ui.heading(format!("Chief: {}", pri_name));
+        ui.heading(format!("Deputy: {}", sec_name));
+
+        ui.separator();
 
         ui.label(format!("Offset: {:?}", pgrm.offset));
 
@@ -69,7 +81,7 @@ pub fn docking_program_egui(
         }
     });
 
-    Ok(())
+    None
 }
 
 pub fn draw_blueprint(gizmos: &mut Gizmos, bp: &Blueprint, transform: Transform) {
@@ -99,12 +111,16 @@ pub fn draw_blueprint_of_docking_program(
     selected: Res<SelectedSpacecraft>,
     pgrm: ResMut<DockingProgram>,
 ) -> Option<()> {
-    let pri = selected.primary?;
-    let sec = selected.secondary?;
+    let a = selected.primary?.grid.entity;
+    let b = selected.secondary?.grid.entity;
 
-    let sec_bp = spacecraft.blueprint(sec.grid.entity).ok()?;
+    if a == b {
+        return None;
+    }
 
-    let pri_tf = spacecraft.grid_transform(pri.grid.entity).ok()?;
+    let sec_bp = spacecraft.blueprint(b).ok()?;
+
+    let pri_tf = spacecraft.grid_transform(a).ok()?;
 
     let mut sec_tf = pri_tf;
 

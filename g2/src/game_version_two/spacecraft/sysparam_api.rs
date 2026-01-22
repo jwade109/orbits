@@ -1,17 +1,8 @@
 use bevy::prelude::*;
 use bevy_ecs::{query::QueryEntityError, system::SystemParam};
-use bevy_vector_shapes::prelude::*;
-use game::{
-    starling::{
-        parts::PartLayer,
-        vehicle::{Blueprint, diagram_color},
-    },
-    z_index::ZOrdering,
-};
+use game::starling::{parts::PartLayer, vehicle::Blueprint};
 
-use bevy::color::palettes::css::*;
-
-use crate::game_version_two::{SpawnAnimText, target_docking_transform};
+use crate::game_version_two::target_docking_transform;
 
 use super::*;
 
@@ -124,42 +115,3 @@ impl<'w, 's> Spacecraft<'w, 's> {
         Ok(target_docking_transform(ownship_root, port_a, port_b))
     }
 }
-
-pub fn export_blueprint_system(
-    spacecraft: Spacecraft,
-    selected: Res<SelectedSpacecraft>,
-    keys: Res<ButtonInput<KeyCode>>,
-    mut writer: EventWriter<SpawnAnimText>,
-) -> Option<()> {
-    if !keys.just_pressed(KeyCode::KeyO) {
-        return Some(());
-    }
-
-    let v_a = spacecraft
-        .get_vehicle_from_part_id(selected.primary?.part.entity)
-        .ok()?;
-
-    let mut bp = spacecraft.blueprint(v_a).ok()?;
-
-    if let Some(sec) = selected.secondary {
-        let v_b = spacecraft.get_vehicle_from_part_id(sec.part.entity).ok()?;
-        let mut bp2: Blueprint = spacecraft.blueprint(v_b).ok()?;
-        bp2.rotate_ccw();
-        bp2.shift(bp.dims().as_ivec2().into());
-        bp.merge(&bp2);
-    }
-
-    let Some(img) = game::starling::vehicle::generate_image(&bp) else {
-        return Some(());
-    };
-
-    _ = img.save("/tmp/out.png");
-
-    writer.write(SpawnAnimText::new("Wrote vehicle blueprint to file"));
-
-    Some(())
-}
-
-pub fn swallow_optional(In(_): In<Option<()>>) {}
-
-pub fn swallow_result(In(_): In<Result>) {}

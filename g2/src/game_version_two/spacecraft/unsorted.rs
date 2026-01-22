@@ -1,4 +1,3 @@
-use crate::game_version_two::sysparam_api::*;
 use crate::game_version_two::tick_schedule::*;
 use crate::game_version_two::*;
 
@@ -24,7 +23,6 @@ impl Plugin for SpacecraftPlugin {
                 draw_selected_part_system,
                 draw_spacecraft_spatial_lookups,
                 draw_docking_info,
-                // draw_transforms,
             )
                 .in_set(Sets::Draw),
         );
@@ -33,24 +31,23 @@ impl Plugin for SpacecraftPlugin {
             EguiPrimaryContextPass,
             (
                 tick_control_egui,
-                docking_program_egui,
-                hose_info_window_egui_system.pipe(sysparam_api::swallow_result),
+                docking_program_egui.pipe(swallow_optional),
+                hose_info_window_egui_system.pipe(swallow_result),
             ),
         );
 
         app.add_systems(
             Update,
             (
-                draw_blueprint_of_docking_program.pipe(sysparam_api::swallow_optional),
+                draw_blueprint_of_docking_program.pipe(swallow_optional),
                 draw_position_command_widget,
                 update_position_command_widget_system,
-                spawn_hose_on_keypress_system.pipe(sysparam_api::swallow_optional),
+                spawn_hose_on_keypress_system.pipe(swallow_optional),
                 draw_hoses_system,
                 update_selected_spacecraft_system,
                 update_selected_hose_system,
                 draw_hose_selection_area_system,
-                sysparam_api::export_blueprint_system.pipe(sysparam_api::swallow_optional),
-                process_position_commands_system.pipe(sysparam_api::swallow_optional),
+                process_position_commands_system.pipe(swallow_optional),
             )
                 .in_set(Sets::Input),
         );
@@ -93,19 +90,20 @@ impl Plugin for SpacecraftPlugin {
 
 #[derive(Event, Debug)]
 pub enum SpacecraftEvent {
-    SpawnVehicle { name: String, pos: Vec2, angle: f32 },
-    SpawnPart { name: String, pos: Vec2, angle: f32 },
-    Destroy { target: Entity },
-}
-
-impl SpacecraftEvent {
-    pub fn spawn(name: impl Into<String>, pos: Vec2, angle: f32) -> Self {
-        Self::SpawnVehicle {
-            name: name.into(),
-            pos,
-            angle,
-        }
-    }
+    SpawnVehicle {
+        ship_name: String,
+        blueprint_name: String,
+        pos: Vec2,
+        angle: f32,
+    },
+    SpawnPart {
+        name: String,
+        pos: Vec2,
+        angle: f32,
+    },
+    Destroy {
+        target: Entity,
+    },
 }
 
 #[derive(Component, Debug, Default)]
@@ -330,15 +328,25 @@ fn handle_sc_events(
         info!("SpacecraftGrid event: {:?}", event);
 
         match event {
-            SpacecraftEvent::SpawnVehicle { name, pos, angle } => {
-                let vehicle_path = args.vehicle_dir().join(format!("{}.vehicle", name));
+            SpacecraftEvent::SpawnVehicle {
+                ship_name,
+                blueprint_name,
+                pos,
+                angle,
+            } => {
+                let vehicle_path = args
+                    .vehicle_dir()
+                    .join(format!("{}.vehicle", blueprint_name));
                 let parts = game::starling::vehicle::load_parts_from_dir(&args.parts_dir())?;
                 let vehicle = if let Ok(vehicle) =
                     game::starling::vehicle::load_vehicle(&vehicle_path, &parts)
                 {
                     vehicle
                 } else {
-                    commands.send_event(SpawnAnimText::new(format!("Bad vehicle path: {}", name)));
+                    commands.send_event(SpawnAnimText::new(format!(
+                        "Bad vehicle path: {}",
+                        blueprint_name
+                    )));
                     panic!();
                 };
 
@@ -346,6 +354,7 @@ fn handle_sc_events(
                     &mut commands,
                     *pos,
                     *angle,
+                    ship_name.clone(),
                     &vehicle,
                     &mut asset_server,
                     &args,
@@ -360,7 +369,7 @@ fn handle_sc_events(
                     game::starling::prelude::Rotation::East,
                 );
 
-                let mut grid = spawn_empty_grid(&mut commands, *pos, *angle);
+                let mut grid = spawn_empty_grid(&mut commands, *pos, *angle, "Grid".to_string());
                 grid.with_children(|parent| {
                     add_part_to_grid(parent, &instance, &mut asset_server, &args)
                 });
@@ -418,9 +427,14 @@ fn build_parts(
     }
 }
 
-fn spawn_empty_grid<'a>(commands: &'a mut Commands, pos: Vec2, angle: f32) -> EntityCommands<'a> {
+fn spawn_empty_grid<'a>(
+    commands: &'a mut Commands,
+    pos: Vec2,
+    angle: f32,
+    name: String,
+) -> EntityCommands<'a> {
     commands.spawn((
-        Name::new("Grid"),
+        Name::new(name),
         Transform::from_translation(pos.extend(0.0)).with_rotation(Quat::from_rotation_z(angle)),
         SpacecraftGrid {
             // velocity: randvec(2.0, 4.0).as_dvec2() / 3.0,
@@ -539,11 +553,12 @@ fn spawn_spacecraft(
     commands: &mut Commands,
     pos: Vec2,
     angle: f32,
+    name: String,
     vehicle: &Blueprint,
     asset_server: &mut ResMut<AssetServer>,
     args: &Res<ProgramContext>,
 ) {
-    spawn_empty_grid(commands, pos, angle)
+    spawn_empty_grid(commands, pos, angle, name)
         .with_children(|parent| {
             for (_, part) in vehicle.parts() {
                 add_part_to_grid(parent, part, asset_server, args);

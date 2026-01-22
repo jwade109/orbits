@@ -4,7 +4,7 @@ use crate::game_version_two::*;
 
 use bevy::core_pipeline::bloom::Bloom;
 use bevy_ecs::schedule::{LogLevel, ScheduleBuildSettings};
-use game::args::ProgramContext;
+use game::{args::ProgramContext, names::{get_random_ship_name, load_names_from_file}};
 
 fn main() {
     App::new()
@@ -86,6 +86,9 @@ fn update_gizmo_config(mut config_store: ResMut<GizmoConfigStore>) {
     config.line.width = 6.0;
 }
 
+#[derive(Resource)]
+pub struct ShipNames(pub Vec<String>);
+
 fn setup(mut commands: Commands) -> Result {
     let ctx = ProgramContext::default();
     let settings = Settings::from_file(&ctx.settings_path()).unwrap_or(Settings::default());
@@ -97,6 +100,8 @@ fn setup(mut commands: Commands) -> Result {
             SaveData::default()
         }
     };
+
+    let ship_names = load_names_from_file(&ctx.names_path()).unwrap_or(vec![]);
 
     commands.insert_resource(parts);
     commands.insert_resource(ctx);
@@ -119,11 +124,14 @@ fn setup(mut commands: Commands) -> Result {
     for ship in save_data.ships {
         info!("Spawning {}", &ship.name);
         commands.send_event(SpacecraftEvent::SpawnVehicle {
-            name: ship.name,
+            blueprint_name: ship.name,
+            ship_name: get_random_ship_name(&ship_names),
             pos: ship.pos,
             angle: ship.angle,
         });
     }
+
+    commands.insert_resource(ShipNames(ship_names));
 
     Ok(())
 }
