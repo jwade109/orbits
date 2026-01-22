@@ -10,11 +10,11 @@ pub struct Settings {
     pub draw_docking_info: bool,
     pub draw_thruster_states: bool,
     pub dig_with_mouse: bool,
-    pub follow_selected: bool,
     pub rotation_locked: bool,
     pub infinite_fuel: bool,
     pub show_terrain_info: bool,
     pub show_cursor_info: bool,
+    pub draw_camera_debug: bool,
 }
 
 impl Settings {
@@ -36,11 +36,11 @@ impl Default for Settings {
             draw_docking_info: false,
             draw_thruster_states: false,
             dig_with_mouse: false,
-            follow_selected: true,
             rotation_locked: false,
             infinite_fuel: false,
             show_terrain_info: false,
             show_cursor_info: false,
+            draw_camera_debug: false,
         }
     }
 }

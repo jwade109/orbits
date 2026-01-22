@@ -424,8 +424,8 @@ pub fn egui_ui(
         ui.checkbox(&mut settings.show_wireframes, "show_wireframes");
         ui.checkbox(&mut settings.draw_inventories, "draw_inventories");
         ui.checkbox(&mut settings.draw_docking_info, "draw_docking_info");
+        ui.checkbox(&mut settings.draw_camera_debug, "draw_camera_debug");
         ui.checkbox(&mut settings.dig_with_mouse, "dig_with_mouse");
-        ui.checkbox(&mut settings.follow_selected, "follow_selected");
         ui.checkbox(&mut settings.rotation_locked, "rotation_locked");
         ui.checkbox(&mut settings.infinite_fuel, "infinite_fuel");
         ui.checkbox(&mut settings.show_terrain_info, "show_terrain_info");

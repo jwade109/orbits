@@ -7,95 +7,175 @@ impl Plugin for CameraPlugin {
         app.add_systems(
             Update,
             (
-                follow_selected_on_key_f,
-                control_camera,
-                track_selected_spacecraft,
+                // control_camera,
+                track_followed_entity,
+                set_camera_command,
+                draw_camera_debug,
+                follow_selected_ship_on_key_f,
             )
                 .chain(),
-        )
+        );
+
+        app.add_systems(FixedUpdate, (propagate_camera_physics,).chain());
+
         // update_mouse_world_pos
-        .add_systems(PostUpdate, update_mouse_world_pos.in_set(Sets::PostPhysics))
-        // draw the mouse cursor
-        .add_systems(PostUpdate, draw_cursor_pos.in_set(Sets::Draw))
-        .insert_resource(CursorWorldPosition::default());
+        app.add_systems(PostUpdate, update_mouse_world_pos.in_set(Sets::PostPhysics))
+            // draw the mouse cursor
+            .add_systems(PostUpdate, draw_cursor_pos.in_set(Sets::Draw))
+            .insert_resource(CursorWorldPosition::default())
+            .insert_resource(CameraState::default());
     }
 }
 
-fn control_camera(
-    mut camera: Single<&mut Transform, With<Camera>>,
+#[derive(Debug, Resource)]
+struct CameraState {
+    following: Option<Entity>,
+    target_pos: Vec2,
+    target_scale: f32,
+    command: IVec3,
+}
+
+impl Default for CameraState {
+    fn default() -> Self {
+        Self {
+            following: None,
+            target_pos: Vec2::ZERO,
+            target_scale: 0.1,
+            command: IVec3::ZERO,
+        }
+    }
+}
+
+fn draw_camera_debug(
+    settings: Res<Settings>,
+    mut gizmos: Gizmos,
+    state: ResMut<CameraState>,
+    camera: Single<&Transform, With<Camera>>,
+    transforms: TransformHelper,
+) {
+    if !settings.draw_camera_debug {
+        return;
+    }
+
+    gizmos.circle_2d(
+        Isometry2d::from_translation(camera.translation.xy()),
+        20.0 * camera.scale.x,
+        RED,
+    );
+
+    gizmos.circle_2d(
+        Isometry2d::from_translation(state.target_pos),
+        20.0 * state.target_scale,
+        TEAL,
+    );
+
+    if let Some(entity) = state.following {
+        if let Ok(pos) = transforms.compute_global_transform(entity) {
+            gizmos.circle_2d(
+                Isometry2d::from_translation(pos.translation().xy()),
+                35.0 * camera.scale.x,
+                YELLOW,
+            );
+        }
+    }
+}
+
+fn set_camera_command(
     key: Res<ButtonInput<KeyCode>>,
-    mut settings: ResMut<Settings>,
+    mut state: ResMut<CameraState>,
     mut scroll: EventReader<MouseWheel>,
 ) {
-    let speed = 9.0 * camera.scale.x;
+    state.command = IVec3::ZERO;
 
     if key.pressed(KeyCode::KeyW) {
-        camera.translation.y += speed;
-        settings.follow_selected = false;
+        state.command.y = 1;
+        state.following = None;
     }
     if key.pressed(KeyCode::KeyS) {
-        camera.translation.y -= speed;
-        settings.follow_selected = false;
+        state.command.y = -1;
+        state.following = None;
     }
     if key.pressed(KeyCode::KeyA) {
-        camera.translation.x -= speed;
-        settings.follow_selected = false;
+        state.command.x = -1;
+        state.following = None;
     }
     if key.pressed(KeyCode::KeyD) {
-        camera.translation.x += speed;
-        settings.follow_selected = false;
+        state.command.x = 1;
+        state.following = None;
     }
     if key.pressed(KeyCode::Equal) {
-        camera.scale /= 1.02;
+        state.command.z = 1;
     }
     if key.pressed(KeyCode::Minus) {
-        camera.scale *= 1.02;
+        state.command.z = -1;
     }
 
     use bevy::input::mouse::MouseScrollUnit;
 
     for ev in scroll.read() {
         if ev.y > 0.0 {
-            camera.scale /= 1.15;
+            state.target_scale /= 1.05_f32.powi(3);
         } else {
-            camera.scale *= 1.15;
+            state.target_scale *= 1.05_f32.powi(3);
         }
-
-        camera.scale.z = 1.0;
     }
 }
 
-fn follow_selected_on_key_f(key: Res<ButtonInput<KeyCode>>, mut settings: ResMut<Settings>) {
-    if key.just_pressed(KeyCode::KeyF) {
-        settings.follow_selected = !settings.follow_selected;
-    }
+fn propagate_camera_physics(
+    mut state: ResMut<CameraState>,
+    mut camera: Single<&mut Transform, With<Camera>>,
+    time: Res<Time<Fixed>>,
+) {
+    let speed = 20.0 * camera.scale.x;
+    let delta_target_pos = state.command.xy().as_vec2() * speed;
+    state.target_pos += delta_target_pos;
+
+    let dt = time.delta_secs();
+    let delta = state.target_pos - camera.translation.xy();
+    camera.translation.x += delta.x * 0.15;
+    camera.translation.y += delta.y * 0.15;
+
+    let scale_scalar = match state.command.z.cmp(&0) {
+        std::cmp::Ordering::Less => 1.05,
+        std::cmp::Ordering::Equal => 1.0,
+        std::cmp::Ordering::Greater => 1.0 / 1.05,
+    };
+
+    state.target_scale *= scale_scalar;
+
+    camera.scale.x += (state.target_scale - camera.scale.x) * 0.2;
+    camera.scale.y += (state.target_scale - camera.scale.y) * 0.2;
 }
 
-fn track_selected_spacecraft(
-    mut transform_params: ParamSet<(TransformHelper, Query<&mut Transform, With<Camera>>)>,
+fn follow_selected_ship_on_key_f(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut state: ResMut<CameraState>,
+    sel: Res<SelectedSpacecraft>,
+) {
+    if !keys.just_pressed(KeyCode::KeyF) {
+        return;
+    }
+
+    let entity = some_or_return!(sel.primary).part.entity;
+
+    state.following = Some(entity);
+}
+
+fn track_followed_entity(
+    transforms: TransformHelper,
+    mut state: ResMut<CameraState>,
     cursor: Res<SelectedSpacecraft>,
     settings: Res<Settings>,
 ) {
-    transform_params.p1().single_mut().unwrap().rotation = Quat::IDENTITY;
-
-    if !settings.follow_selected {
-        return;
-    }
-
-    let sel = some_or_return!(cursor.primary);
-
-    let Ok(global) = transform_params
-        .p0()
-        .compute_global_transform(sel.grid.entity)
-    else {
+    let Some(entity) = state.following else {
         return;
     };
 
-    transform_params.p1().single_mut().unwrap().translation = global.translation();
+    let Ok(global) = transforms.compute_global_transform(entity) else {
+        return;
+    };
 
-    if settings.rotation_locked {
-        transform_params.p1().single_mut().unwrap().rotation = global.rotation();
-    }
+    state.target_pos = global.translation().xy();
 }
 
 #[derive(Resource, Default, Debug)]
