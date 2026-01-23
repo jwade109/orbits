@@ -1,16 +1,16 @@
-use crate::starling::id::EntityId;
 use crate::starling::nanotime::Nanotime;
 use crate::starling::orbits::{GlobalOrbit, SparseOrbit};
 use crate::starling::pv::PV;
 use crate::starling::scenario::*;
 use bevy::math::Vec2;
+use bevy::prelude::Entity;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub enum EventType {
-    Collide(EntityId),
-    Escape(EntityId),
-    Encounter(EntityId),
+    Collide(Entity),
+    Escape(Entity),
+    Encounter(Entity),
     Impulse(Vec2),
     NumericalError,
 }
@@ -216,7 +216,7 @@ impl Propagator {
         }
     }
 
-    pub fn parent(&self) -> EntityId {
+    pub fn parent(&self) -> Entity {
         self.orbit.0
     }
 
@@ -241,7 +241,7 @@ impl Propagator {
     pub fn finish_or_compute_until(
         &mut self,
         stamp: Nanotime,
-        bodies: &[(EntityId, &SparseOrbit, f64)],
+        bodies: &[(Entity, &SparseOrbit, f64)],
     ) -> Result<(), PredictError<Nanotime>> {
         while !self.calculated_to(stamp) {
             let e = self.next(bodies);
@@ -320,7 +320,7 @@ impl Propagator {
 
     pub fn next(
         &mut self,
-        bodies: &[(EntityId, &SparseOrbit, f64)],
+        bodies: &[(Entity, &SparseOrbit, f64)],
     ) -> Result<(), PredictError<Nanotime>> {
         let end = match self.horizon {
             HorizonState::Continuing(end) => end,

@@ -10,7 +10,6 @@ pub use crate::keybindings::*;
 pub use crate::names::*;
 pub use crate::onclick::*;
 pub use crate::settings::*;
-pub use crate::sprites::*;
 pub use crate::z_index::*;
 pub use bevy::color::palettes::css::*;
 pub use bevy::color::*;

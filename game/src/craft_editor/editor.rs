@@ -810,10 +810,6 @@ impl CameraProjection for Editor {
         self.camera.offset()
     }
 
-    fn parent(&self) -> EntityId {
-        self.camera.parent()
-    }
-
     fn distance(&self) -> f64 {
         self.camera.distance()
     }

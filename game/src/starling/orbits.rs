@@ -1,10 +1,10 @@
 use crate::starling::aabb::{AABB, OBB};
-use crate::starling::id::EntityId;
 use crate::starling::math::*;
 use crate::starling::nanotime::Nanotime;
 use crate::starling::propagator::search_condition;
 use crate::starling::pv::PV;
 use bevy::math::{DVec2, Vec2};
+use bevy::prelude::Entity;
 use serde::{Deserialize, Serialize};
 
 pub fn hyperbolic_range_ta(ecc: f32) -> f32 {
@@ -899,7 +899,7 @@ pub(crate) fn lagrange_pv(initial: impl Into<PV>, coeff: &LangrangeCoefficients)
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
-pub struct GlobalOrbit(pub EntityId, pub SparseOrbit);
+pub struct GlobalOrbit(pub Entity, pub SparseOrbit);
 
 impl std::fmt::Display for GlobalOrbit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

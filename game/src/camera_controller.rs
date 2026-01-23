@@ -1,16 +1,13 @@
 use crate::input::InputState;
+use crate::settings::Settings;
+use crate::starling::prelude::*;
 use bevy::input::keyboard::KeyCode;
 use bevy::math::DVec2;
-use crate::starling::prelude::*;
-use crate::settings::Settings;
 
 #[derive(Debug, Clone, Copy)]
 pub struct LinearCameraController {
     center: DVec2,
     target_offset: DVec2,
-    // scale: f64,
-    // target_scale: f64,
-    parent: EntityId,
     offset: DVec2,
 
     view_distance: f64,
@@ -33,10 +30,6 @@ impl CameraProjection for LinearCameraController {
         self.offset
     }
 
-    fn parent(&self) -> EntityId {
-        self.parent
-    }
-
     fn distance(&self) -> f64 {
         self.view_distance
     }
@@ -46,20 +39,11 @@ impl CameraProjection for LinearCameraController {
     }
 }
 
-impl std::fmt::Display for LinearCameraController {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}/{:0.1}", self.parent, self.offset)
-    }
-}
-
 impl LinearCameraController {
     pub fn new(center: DVec2, distance: f64) -> Self {
         Self {
             center,
             target_offset: DVec2::ZERO,
-            // scale,
-            // target_scale: scale,
-            parent: EntityId(0),
             offset: DVec2::ZERO,
             view_distance: distance,
             target_view_distance: distance,
@@ -83,21 +67,9 @@ impl LinearCameraController {
 
         let dt = PHYSICS_CONSTANT_DELTA_TIME.to_secs_f64();
         self.offset += (self.target_offset - self.offset) * ((dt / CENTER_SMOOTHING).exp() - 1.0);
-        self.view_distance += (self.target_view_distance - self.view_distance) * ((dt / SCALE_SMOOTHING).exp() - 1.0);
+        self.view_distance +=
+            (self.target_view_distance - self.view_distance) * ((dt / SCALE_SMOOTHING).exp() - 1.0);
         self.angle += (self.target_angle - self.angle) * ((dt / ANGLE_SMOOTHING).exp() - 1.0);
-    }
-
-    pub fn follow(&mut self, parent: EntityId, p: DVec2) {
-        if parent != self.parent {
-            self.target_offset = DVec2::ZERO;
-            self.offset = self.center + self.offset - p;
-        }
-        self.parent = parent;
-        self.center = p;
-    }
-
-    pub fn is_following(&self, id: EntityId) -> bool {
-        self.parent == id
     }
 
     pub fn set_center(&mut self, pos: DVec2) {
@@ -116,12 +88,7 @@ impl LinearCameraController {
         self.offset
     }
 
-    pub fn parent(&self) -> EntityId {
-        self.parent
-    }
-
     pub fn handle_input(&mut self, input: &InputState, settings: &Settings) {
-
         let speed = 9.0 * settings.camera_pan_sensitivity;
 
         if input.is_scroll_down() {
@@ -197,8 +164,6 @@ pub trait CameraProjection {
     fn scale(&self) -> f64;
 
     fn offset(&self) -> DVec2;
-
-    fn parent(&self) -> EntityId;
 
     fn distance(&self) -> f64;
 

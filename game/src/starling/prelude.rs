@@ -4,11 +4,9 @@ pub use crate::starling::belts::AsteroidBelt;
 pub use crate::starling::bezier::*;
 pub use crate::starling::casts::*;
 pub use crate::starling::control::OrbitalController;
-pub use crate::starling::control_signals::*;
 pub use crate::starling::factory::{
     Inventory, Item, ItemFilter, MachineStatus, Recipe, RecipeListing,
 };
-pub use crate::starling::id::EntityId;
 pub use crate::starling::lpf::*;
 pub use crate::starling::math::*;
 pub use crate::starling::nanotime::Nanotime;
@@ -24,6 +22,5 @@ pub use crate::starling::quantities::*;
 pub use crate::starling::region::Region;
 pub use crate::starling::scenario::*;
 pub use crate::starling::surface::*;
-pub use crate::starling::take::*;
 pub use crate::starling::units::{Mass, Volume};
 pub use crate::starling::vehicle::*;

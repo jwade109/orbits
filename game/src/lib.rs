@@ -11,7 +11,6 @@ pub mod names;
 pub mod onclick;
 pub mod prelude;
 pub mod settings;
-pub mod sprites;
 pub mod starling;
 pub mod ui;
 pub mod z_index;

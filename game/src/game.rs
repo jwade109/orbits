@@ -155,8 +155,8 @@ impl Plugin for GamePlugin {
                 crate::input::update_input_state,
                 on_render_tick,
                 crate::drawing::draw_game_state,
-                crate::sprites::update_static_sprites,
-                crate::sprites::update_background_color,
+                update_static_sprites,
+                update_background_color,
                 crate::ui::do_text_labels,
             )
                 .chain(),
@@ -164,6 +164,68 @@ impl Plugin for GamePlugin {
 
         app.add_systems(FixedUpdate, on_game_tick);
     }
+}
+
+#[derive(Component)]
+pub struct StaticSprite(usize, String);
+
+pub fn update_static_sprites(
+    mut commands: Commands,
+    state: Res<GameState>,
+    mut query: Query<(Entity, &mut Sprite, &mut Transform, &mut StaticSprite)>,
+) {
+    let sprites: Vec<StaticSpriteDescriptor> = state.sprites.clone();
+
+    let mut sprite_entities: Vec<_> = query.iter_mut().collect();
+
+    for (i, sprite) in sprites.iter().enumerate() {
+        let pos = sprite.position.extend(sprite.z_index.as_f32());
+
+        let handle = state
+            .image_handles
+            .get(&sprite.path)
+            .or(state.image_handles.get("wmata7000"));
+
+        let (handle, dims) = if let Some((handle, dims)) = handle {
+            (handle.clone(), dims.as_vec2())
+        } else {
+            (Handle::default(), Vec2::splat(100.0))
+        };
+
+        let sx = sprite.dims.x / dims.x;
+        let sy = sprite.dims.y / dims.y;
+
+        let transform = Transform::from_scale(Vec3::new(sx, sy, 1.0))
+            .with_translation(pos)
+            .with_rotation(Quat::from_rotation_z(sprite.angle));
+
+        let ent = sprite_entities.iter_mut().find(|(_, _, _, ss)| ss.0 == i);
+
+        let mut new_sprite = Sprite::from_image(handle);
+        if let Some(c) = sprite.color {
+            new_sprite.color = Color::Srgba(c);
+        }
+
+        if let Some((_, ref mut spr, ref mut tf, ref mut desc)) = ent {
+            **tf = transform;
+            **spr = new_sprite;
+            desc.1 = sprite.path.clone();
+        } else {
+            commands.spawn((new_sprite, transform, StaticSprite(i, sprite.path.clone())));
+        }
+    }
+
+    for (e, _, _, ss) in &query {
+        if ss.0 >= sprites.len() {
+            commands.entity(e).despawn();
+        }
+    }
+}
+
+pub fn update_background_color(mut camera: Single<&mut Camera>) {
+    let c = GRAY.with_luminance(0.12);
+
+    camera.clear_color = ClearColorConfig::Custom(c.with_alpha(0.0).into());
 }
 
 #[derive(Component, Debug)]

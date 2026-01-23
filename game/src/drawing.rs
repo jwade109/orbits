@@ -349,7 +349,7 @@ pub fn is_blinking(wall_time: Nanotime) -> bool {
 // fn draw_event_animation(
 //     gizmos: &mut Gizmos,
 //     state: &GameState,
-//     id: EntityId,
+//     id: Entity,
 //     ctx: &impl CameraProjection,
 // ) -> Option<()> {
 //     let obj = state.universe.orbital_vehicles.get(&id)?.orbiter();
