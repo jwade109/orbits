@@ -1,6 +1,6 @@
+use bary_core::prelude::*;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
-use bary_core::prelude::*;
 
 use crate::MeshMaker;
 

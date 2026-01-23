@@ -20,7 +20,7 @@ pub struct Pipe {
     status: MachineStatus,
 }
 
-fn process_pipes(mut pipe: Query<&mut Pipe>, mut inventories: Query<&mut Inventory>) {
+fn process_pipes(pipe: Query<&mut Pipe>, mut inventories: Query<&mut Inventory>) {
     for mut pipe in pipe {
         if pipe.from == pipe.to {
             continue;

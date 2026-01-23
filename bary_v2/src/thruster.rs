@@ -1,6 +1,5 @@
-use bary_core::prelude::Inventory;
-
 use crate::*;
+use bary_core::prelude::*;
 
 #[derive(Component, Debug, Clone, Copy)]
 pub struct Thruster {

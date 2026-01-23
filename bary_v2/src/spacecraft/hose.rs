@@ -1,21 +1,18 @@
+use bary_core::prelude::*;
+use bary_v1::ui::apply_egui_style;
+use bary_v1::z_index::ZOrdering;
 use bevy::color::palettes::css::*;
 use bevy::color::palettes::tailwind::*;
 use bevy::prelude::*;
 use bevy_egui::EguiContexts;
 use bevy_vector_shapes::prelude::*;
-use early_returns::ok_or_continue;
-use early_returns::ok_or_return;
-use early_returns::some_or_continue;
-use early_returns::some_or_return;
+use early_returns::*;
 use egui::Pos2;
-use bary_core::prelude::*;
-use bary_v1::ui::apply_egui_style;
-use bary_v1::z_index::ZOrdering;
 
 use super::grid_coord::GridCoord;
 
 use crate::running_status_widget;
-use crate::sysparam_api::Spacecraft;
+use crate::spacecraft::sysparam_api::Spacecraft;
 use crate::toggle_on_off_button;
 use crate::{CursorWorldPosition, PartInstance, SelectedSpacecraft};
 

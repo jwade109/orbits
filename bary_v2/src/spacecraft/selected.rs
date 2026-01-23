@@ -1,10 +1,10 @@
+use bary_core::prelude::*;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use bevy_vector_shapes::prelude::*;
 use early_returns::{ok_or_continue, ok_or_return, some_or_return};
-use bary_core::prelude::*;
 
-use crate::{CursorWorldPosition, grid_to_part_local};
+use crate::CursorWorldPosition;
 
 use super::grid_coord::GridCoord;
 use super::*;

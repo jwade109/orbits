@@ -1,9 +1,9 @@
-use bevy::prelude::*;
-use bevy_egui::EguiContexts;
 use bary_core::prelude::*;
 use bary_v1::ui::apply_egui_style;
+use bevy::prelude::*;
+use bevy_egui::EguiContexts;
 
-use crate::sysparam_api::Spacecraft;
+use crate::spacecraft::sysparam_api::Spacecraft;
 
 use super::SelectedSpacecraft;
 

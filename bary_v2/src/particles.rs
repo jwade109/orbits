@@ -1,3 +1,4 @@
+use bary_core::prelude::*;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use bevy_inspector_egui::quick::ResourceInspectorPlugin;

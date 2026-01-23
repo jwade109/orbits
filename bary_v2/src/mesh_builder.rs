@@ -101,8 +101,6 @@ impl MeshMaker {
         self.indices.push(n + 3);
         self.indices.push(n + 4);
 
-        let color = RED;
-
         self.colors.extend_from_slice(&[
             self.color.to_f32_array(),
             self.color.to_f32_array(),

@@ -1,11 +1,11 @@
-pub mod docking;
-pub mod grid_coord;
-pub mod hose;
-pub mod position_command;
-pub mod selected;
-pub mod sysparam_api;
-pub mod systems;
-pub mod unsorted;
+mod docking;
+mod grid_coord;
+mod hose;
+mod position_command;
+mod selected;
+mod sysparam_api;
+mod systems;
+mod unsorted;
 
 pub use docking::*;
 pub use grid_coord::*;

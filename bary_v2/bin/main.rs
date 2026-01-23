@@ -1,3 +1,4 @@
+use bary_core::prelude::*;
 use bary_v1::args::ProgramContext;
 use bary_v2::*;
 use bevy::core_pipeline::bloom::Bloom;

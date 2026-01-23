@@ -58,7 +58,9 @@ pub fn save_settings_on_change(ctx: Res<ProgramContext>, settings: Res<Settings>
 
     match serde_yaml::to_string(&*settings) {
         Ok(s) => {
-            std::fs::write(filepath, s);
+            if let Err(e) = std::fs::write(filepath, s) {
+                error!("Failed to write settings: {:?}", e);
+            }
         }
         Err(e) => {
             error!("Failed to write settings: {:?}", e);

@@ -1,6 +1,7 @@
+use bary_core::prelude::*;
 use bary_v1::ui::apply_egui_style;
-
-use crate::{types::Excavator, *};
+use bevy::prelude::*;
+use crate::*;
 
 pub struct DebugPanelState {
     message_color: [f32; 3],
