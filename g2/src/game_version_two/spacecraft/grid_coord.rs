@@ -2,7 +2,7 @@ use bevy::{
     prelude::Entity,
     transform::components::{GlobalTransform, Transform},
 };
-use game::starling::parts::PartCoord;
+use game::starling::prelude::PartCoord;
 
 #[derive(Clone, Copy)]
 pub struct GridCoord {

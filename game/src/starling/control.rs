@@ -1,4 +1,4 @@
-use crate::starling::nanotime::Nanotime;
+use crate::starling::math::Nanotime;
 use crate::starling::orbits::GlobalOrbit;
 use crate::starling::planning::{best_maneuver_plan, ManeuverPlan};
 

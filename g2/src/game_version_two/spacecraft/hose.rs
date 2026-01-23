@@ -8,13 +8,9 @@ use early_returns::ok_or_return;
 use early_returns::some_or_continue;
 use early_returns::some_or_return;
 use egui::Pos2;
-use game::starling::factory::atomic_transfer;
-use game::starling::prelude::Inventory;
-use game::starling::prelude::Item;
-use game::starling::prelude::ItemFilter;
-use game::starling::prelude::MachineStatus;
+use game::starling::prelude::*;
 use game::ui::apply_egui_style;
-use game::{starling::math::randvec, z_index::ZOrdering};
+use game::z_index::ZOrdering;
 
 use super::grid_coord::GridCoord;
 

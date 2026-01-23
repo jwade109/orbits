@@ -1,12 +1,7 @@
 use bevy::prelude::*;
 use bevy_egui::EguiContexts;
-use game::{
-    starling::{
-        parts::{PartCoord, PartLayer, Rotation},
-        vehicle::{Blueprint, diagram_color},
-    },
-    ui::apply_egui_style,
-};
+use game::starling::prelude::*;
+use game::ui::apply_egui_style;
 
 use crate::game_version_two::sysparam_api::Spacecraft;
 

@@ -1,6 +1,6 @@
 use crate::starling::factory::*;
 use crate::starling::math::*;
-use crate::starling::units::Mass;
+use crate::starling::math::Mass;
 use enum_iterator::Sequence;
 
 #[derive(Debug, Default, Clone)]

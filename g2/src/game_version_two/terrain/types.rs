@@ -1,11 +1,7 @@
 use bevy::color::palettes::css::*;
 use bevy::color::palettes::tailwind::*;
 use bevy::prelude::*;
-use game::starling::factory::Item;
-use game::starling::math::{chance, rand};
-use game::starling::prelude::Asteroid;
-use game::starling::prelude::MachineStatus;
-use game::starling::units::Mass;
+use game::starling::prelude::*;
 use noise::{NoiseFn, Perlin, Seedable, Simplex};
 use std::collections::{HashMap, HashSet};
 

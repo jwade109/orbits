@@ -1,6 +1,6 @@
 use bevy::color::palettes::tailwind::*;
 use bevy::prelude::*;
-use game::starling::math::{chance, rand, randint, randvec, rotate};
+use game::starling::prelude::*;
 use image::{ColorType, DynamicImage};
 
 pub struct Particle {

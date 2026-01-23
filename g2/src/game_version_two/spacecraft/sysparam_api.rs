@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_ecs::{query::QueryEntityError, system::SystemParam};
-use game::starling::{parts::PartLayer, vehicle::Blueprint};
+use game::starling::prelude::*;
 
 use crate::game_version_two::target_docking_transform;
 

@@ -1,4 +1,4 @@
-use crate::starling::math::PI_64;
+use super::math::PI_64;
 use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
 

@@ -1,5 +1,5 @@
 use bevy::prelude::{Entity, Event, IVec2, UVec2, Vec2};
-use game::starling::factory::Item;
+use game::starling::prelude::*;
 
 #[derive(Event, Debug, Clone, Copy)]
 pub struct GenerateChunk {

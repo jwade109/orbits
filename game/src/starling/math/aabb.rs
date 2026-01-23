@@ -1,5 +1,4 @@
-use crate::starling::math::{linspace, rand, rotate, PI};
-use bevy::math::Vec2;
+use super::math::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Debug, Clone, Copy, Deserialize, Serialize)]

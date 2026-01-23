@@ -4,7 +4,7 @@ use crate::game_version_two::*;
 
 use bevy::core_pipeline::bloom::Bloom;
 use bevy_ecs::schedule::{LogLevel, ScheduleBuildSettings};
-use game::{args::ProgramContext, names::{get_random_ship_name, load_names_from_file}};
+use game::args::ProgramContext;
 
 fn main() {
     App::new()
@@ -89,10 +89,25 @@ fn update_gizmo_config(mut config_store: ResMut<GizmoConfigStore>) {
 #[derive(Resource)]
 pub struct ShipNames(pub Vec<String>);
 
+pub fn load_names_from_file(filename: &Path) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    Ok(std::fs::read_to_string(filename)?
+        .lines()
+        .filter_map(|s| (!s.is_empty()).then(|| s.to_string()))
+        .collect())
+}
+
+pub fn get_random_ship_name(names: &Vec<String>) -> String {
+    if names.is_empty() {
+        return String::new();
+    }
+    let idx = randint(0, names.len() as i32) as usize;
+    names[idx].clone()
+}
+
 fn setup(mut commands: Commands) -> Result {
     let ctx = ProgramContext::default();
     let settings = Settings::from_file(&ctx.settings_path()).unwrap_or(Settings::default());
-    let parts = load_parts_from_dir(&ctx).unwrap_or(PartDatabase::default());
+    let parts = load_parts_from_dir_2(&ctx).unwrap_or(PartDatabase::default());
     let save_data = match SaveData::from_file(&ctx.save_data_path()) {
         Ok(sd) => sd,
         Err(e) => {

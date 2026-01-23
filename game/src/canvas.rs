@@ -1,9 +1,9 @@
 use crate::drawing::draw_square;
 use crate::prelude::{StaticSpriteDescriptor, TextLabel};
-use crate::starling::aabb::AABB;
+use crate::starling::prelude::*;
 use crate::z_index::ZOrdering;
 use bevy::prelude::*;
-pub use bevy_vector_shapes::prelude::*;
+use bevy_vector_shapes::prelude::*;
 
 pub struct Canvas<'w, 's> {
     pub gizmos: Gizmos<'w, 's>,

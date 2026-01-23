@@ -1,8 +1,5 @@
-use crate::starling::aabb::{AABB, OBB};
 use crate::starling::math::*;
-use crate::starling::nanotime::Nanotime;
 use crate::starling::propagator::search_condition;
-use crate::starling::pv::PV;
 use bevy::math::{DVec2, Vec2};
 use bevy::prelude::Entity;
 use serde::{Deserialize, Serialize};
@@ -910,8 +907,6 @@ impl std::fmt::Display for GlobalOrbit {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::starling::math::{linspace_f64, tspace};
-    use crate::starling::pv::PV;
     use approx::assert_relative_eq;
     use more_asserts::*;
 

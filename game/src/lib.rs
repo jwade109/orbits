@@ -7,7 +7,6 @@ pub mod game;
 pub mod graph;
 pub mod input;
 pub mod keybindings;
-pub mod names;
 pub mod onclick;
 pub mod prelude;
 pub mod settings;

@@ -1,4 +1,4 @@
-use super::parts::PartCoord;
+use crate::starling::math::PartCoord;
 use bevy::math::IVec2;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;

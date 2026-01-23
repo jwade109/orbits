@@ -1,4 +1,4 @@
-use crate::game_version_two::{tick_schedule::SimTick, *};
+use crate::game_version_two::*;
 
 pub struct ComputerPlugin;
 
@@ -6,7 +6,7 @@ impl Plugin for ComputerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             SimTick,
-            ((update_computers, do_maneuvers).in_set(Sets::Physics)),
+            (update_computers, do_maneuvers).in_set(Sets::Physics),
         )
         .add_systems(
             Update,
@@ -224,7 +224,7 @@ fn do_maneuvers(
                         Rotation::West => ctrl.neg_x,
                         Rotation::South => ctrl.plus_y,
                     };
-                    let (thrust, torque) =
+                    let (_thrust, torque) =
                         body_frame_thrust(&thruster, transform, grid.center_of_mass);
                     if thruster.is_rcs {
                         let can_torque = torque.abs() > 0.5 && ctrl.attitude.abs() > 0.5;

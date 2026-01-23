@@ -1,4 +1,4 @@
-use crate::game_version_two::{sysparam_api::Spacecraft, *};
+use crate::game_version_two::*;
 
 #[derive(Component, Debug, Clone, Copy)]
 pub struct DockingPort {
@@ -60,8 +60,6 @@ pub fn target_docking_transform(
 pub const DOCKING_PORT_RADIUS: f32 = 6.0;
 
 pub fn check_adjacent_docking_ports(
-    mut commands: Commands,
-    mut painter: ShapePainter,
     mut ports: Query<(Entity, &GlobalTransform, &mut DockingPort, &ChildOf)>,
 ) {
     #[derive(Clone, Copy)]
@@ -70,7 +68,7 @@ pub fn check_adjacent_docking_ports(
         parent: Entity,
         pos: Vec2,
         normal: Dir3,
-    };
+    }
 
     let mut port_map: HashMap<IVec2, Vec<PortInfo>> = HashMap::new();
 

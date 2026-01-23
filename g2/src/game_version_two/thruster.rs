@@ -1,3 +1,5 @@
+use game::starling::prelude::Inventory;
+
 use crate::game_version_two::*;
 
 #[derive(Component, Debug, Clone, Copy)]

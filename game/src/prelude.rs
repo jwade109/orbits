@@ -7,7 +7,6 @@ pub use crate::game::*;
 pub use crate::graph::*;
 pub use crate::input::*;
 pub use crate::keybindings::*;
-pub use crate::names::*;
 pub use crate::onclick::*;
 pub use crate::settings::*;
 pub use crate::z_index::*;

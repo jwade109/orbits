@@ -1,9 +1,6 @@
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
-use game::starling::prelude::Inventory;
-use game::starling::prelude::Item;
-use game::starling::prelude::MachineStatus;
-use game::starling::units::Mass;
+use game::starling::prelude::*;
 
 use crate::game_version_two::MeshMaker;
 

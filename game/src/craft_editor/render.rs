@@ -120,9 +120,3 @@ impl StaticSpriteDescriptor {
         self.color = Some(color.into());
     }
 }
-
-pub trait Render {
-    fn draw(_canvas: &mut Canvas, _state: &GameState) -> Option<()> {
-        None
-    }
-}

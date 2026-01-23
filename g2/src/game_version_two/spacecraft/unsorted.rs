@@ -1,14 +1,11 @@
-use crate::game_version_two::tick_schedule::*;
 use crate::game_version_two::*;
-
 use bevy::color::palettes::css::*;
 use bevy::color::palettes::tailwind::*;
 use bevy::prelude::*;
 use bevy_ecs::relationship::RelatedSpawnerCommands;
 use bevy_vector_shapes::prelude::*;
 use game::args::ProgramContext;
-
-use crate::game_version_two::terrain::types::Excavator;
+use game::starling::prelude::*;
 
 pub struct SpacecraftPlugin;
 
@@ -337,10 +334,8 @@ fn handle_sc_events(
                 let vehicle_path = args
                     .vehicle_dir()
                     .join(format!("{}.vehicle", blueprint_name));
-                let parts = game::starling::vehicle::load_parts_from_dir(&args.parts_dir())?;
-                let vehicle = if let Ok(vehicle) =
-                    game::starling::vehicle::load_vehicle(&vehicle_path, &parts)
-                {
+                let parts = game::starling::prelude::load_parts_from_dir(&args.parts_dir())?;
+                let vehicle = if let Ok(vehicle) = load_vehicle(&vehicle_path, &parts) {
                     vehicle
                 } else {
                     commands.send_event(SpawnAnimText::new(format!(
@@ -361,7 +356,7 @@ fn handle_sc_events(
                 );
             }
             SpacecraftEvent::SpawnPart { name, pos, angle } => {
-                let parts = game::starling::vehicle::load_parts_from_dir(&args.parts_dir())?;
+                let parts = load_parts_from_dir(&args.parts_dir())?;
                 let part = parts.get(name).ok_or("bad part")?;
                 let instance = InstantiatedPart::from_prototype(
                     part.clone(),
@@ -457,9 +452,9 @@ fn add_part_to_grid<'a>(
     let origin = part.origin_meters() + dims_rot / 2.0;
 
     let (z, _, _, _) = match part.layer() {
-        game::starling::parts::PartLayer::Internal => (0.0, 1.0, 0.5, 0.0),
-        game::starling::parts::PartLayer::Structural => (0.02, 0.7, 0.7, 0.05),
-        game::starling::parts::PartLayer::Exterior => (0.04, 0.2, 0.8, 0.1),
+        PartLayer::Internal => (0.0, 1.0, 0.5, 0.0),
+        PartLayer::Structural => (0.02, 0.7, 0.7, 0.05),
+        PartLayer::Exterior => (0.04, 0.2, 0.8, 0.1),
         _ => return,
     };
 

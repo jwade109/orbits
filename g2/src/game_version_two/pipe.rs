@@ -1,7 +1,6 @@
-use bevy::color::palettes::tailwind::GRAY_400;
-use game::ui::apply_egui_style;
-
 use crate::game_version_two::*;
+use bevy::color::palettes::tailwind::GRAY_400;
+use game::starling::prelude::*;
 
 pub struct InventoryTransferPlugin;
 

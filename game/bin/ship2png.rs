@@ -1,5 +1,5 @@
 use clap::Parser;
-use game::starling::vehicle::{generate_image, load_parts_from_dir, load_vehicle};
+use game::starling::prelude::*;
 use std::path::PathBuf;
 
 /// Converts ship file to PNG

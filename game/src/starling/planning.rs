@@ -1,8 +1,6 @@
 use crate::starling::math::*;
-use crate::starling::nanotime::Nanotime;
 use crate::starling::orbits::{vis_viva_equation, OrbitClass, SparseOrbit};
 use crate::starling::propagator::{search_condition, ConvergeError};
-use crate::starling::pv::PV;
 
 #[derive(Debug, Clone)]
 pub struct ManeuverPlan {

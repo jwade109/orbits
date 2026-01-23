@@ -298,8 +298,6 @@ pub struct GameState {
     pub text_labels: Vec<TextLabel>,
     pub sprites: Vec<StaticSpriteDescriptor>,
     pub image_handles: HashMap<String, (Handle<Image>, UVec2)>,
-
-    pub vehicle_names: Vec<String>,
 }
 
 fn read_image(path: &Path) -> Option<RgbaImage> {
@@ -324,14 +322,6 @@ impl GameState {
             }
         };
 
-        let vehicle_names = match load_names_from_file(&args.names_path()) {
-            Ok(n) => n,
-            Err(e) => {
-                error!("Failed to load vehicle names: {e}");
-                Vec::new()
-            }
-        };
-
         GameState {
             cursor_position: Vec2::ZERO,
             settings,
@@ -343,7 +333,6 @@ impl GameState {
             text_labels: Vec::new(),
             sprites: Vec::new(),
             image_handles: HashMap::new(),
-            vehicle_names,
         }
     }
 

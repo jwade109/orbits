@@ -1,9 +1,6 @@
-use crate::game_version_two::*;
-
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use game::starling::units::Mass;
+    use game::starling::prelude::*;
 
     #[test]
     fn consistent_masses() {
