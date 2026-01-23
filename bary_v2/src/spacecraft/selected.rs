@@ -66,7 +66,7 @@ pub fn update_selected_spacecraft_system(
 
         for id in children {
             let (e, part) = ok_or_continue!(parts.get(*id));
-            if part.prototype().layer() != PartLayer::Internal {
+            if part.proto.layer() != PartLayer::Internal {
                 continue;
             }
 
@@ -138,7 +138,7 @@ pub fn draw_selected_part_system(
         };
 
         if let Ok((tf, part)) = parts.get(e.part.entity) {
-            let dims = part.prototype().dims_meters();
+            let dims = part.proto.dims_meters();
 
             painter.reset();
             painter.set_translation(tf.translation().with_z(Z_SELECTED_PART));

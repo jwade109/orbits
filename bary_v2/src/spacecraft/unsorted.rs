@@ -273,7 +273,7 @@ fn update_grids(
 
         for part in children.iter() {
             if let Ok((part, inv, fuel)) = parts.get(part) {
-                let part_mass = Mass::grams(part.prototype().part_mass().to_grams());
+                let part_mass = Mass::grams(part.proto.part_mass().to_grams());
                 let inv_mass = inv.map(|inv| inv.mass()).unwrap_or(Mass::ZERO);
                 if fuel.is_some() {
                     grid.fuel_mass += inv_mass;
@@ -434,7 +434,7 @@ fn add_part_to_grid<'a>(
     asset_server: &mut ResMut<AssetServer>,
     args: &Res<ProgramContext>,
 ) {
-    let dims = part.prototype().dims_meters();
+    let dims = part.proto.dims_meters();
     let dims_rot = part.dims_meters();
     let origin = part.origin_meters() + dims_rot / 2.0;
 
@@ -445,7 +445,7 @@ fn add_part_to_grid<'a>(
         _ => return,
     };
 
-    let path = args.part_sprite_path(part.prototype().part_name());
+    let path = args.part_sprite_path(part.proto.part_name());
     let texture = asset_server.load(path);
 
     let mut sprite = Sprite::from_image(texture);
@@ -461,7 +461,7 @@ fn add_part_to_grid<'a>(
 
     // INVENTORY COMPONENT ==================================================
 
-    if let Some(data) = part.inventory_data() {
+    if let Some(data) = InstantiatedPart::inventory_data(&part.proto) {
         let mut inv = Inventory::zero_slots();
         for data in &data.slots {
             let bounds = (data.min, data.max);
@@ -480,7 +480,7 @@ fn add_part_to_grid<'a>(
 
     // MACHINE COMPONENT ==================================================
 
-    if let Some(data) = part.machine_data() {
+    if let Some(data) = InstantiatedPart::machine_data(&part.proto) {
         // TODO use the data
         let machine = Machine::new(RecipeListing::DoNothing);
         cmd.insert(machine);
@@ -488,7 +488,7 @@ fn add_part_to_grid<'a>(
 
     // THRUSTER COMPONENT ==================================================
 
-    if let Some(model) = part.thruster_data() {
+    if let Some(model) = InstantiatedPart::thruster_data(&part.proto) {
         let thruster = if model.is_rcs {
             Thruster::new(3000.0, true)
         } else {
@@ -505,7 +505,7 @@ fn add_part_to_grid<'a>(
 
     // COMPUTER COMPONENT ==================================================
 
-    if let Some(cpu) = part.computer_data() {
+    if let Some(cpu) = InstantiatedPart::computer_data(&part.proto) {
         let mut cpu = Computer::default();
         cpu.mode = ComputerMode::Manual;
         cpu.attitude = rand(0.0, 2.0);
@@ -515,13 +515,13 @@ fn add_part_to_grid<'a>(
 
     // EXCAVATOR COMPONENT ==================================================
 
-    if let Some(data) = part.excavator_data() {
+    if let Some(data) = InstantiatedPart::excavator_data(&part.proto) {
         cmd.insert(Excavator::new(data.radius));
     }
 
     // DOCKING PORT COMPONENT ===============================================
 
-    if let Some(data) = part.docking_port_data() {
+    if let Some(data) = InstantiatedPart::docking_port_data(&part.proto) {
         let docking = DockingPort::new(data.distance);
         cmd.insert(docking);
     }

@@ -61,7 +61,7 @@ fn draw_thrusters(
         painter.set_color(color);
         painter.set_translation(location.translation());
         painter.set_rotation(location.rotation());
-        let dims = part.prototype().dims_meters();
+        let dims = part.proto.dims_meters();
         painter.translate(-dims.x * Vec2::X.extend(0.0));
         painter.rect(dims);
     }

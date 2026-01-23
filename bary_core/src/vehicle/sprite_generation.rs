@@ -27,7 +27,7 @@ pub fn generate_image(vehicle: &Blueprint) -> Option<DynamicImage> {
     let to_export = output.as_mut_rgba8().unwrap();
     for layer in [PartLayer::Structural, PartLayer::Internal] {
         for (_, instance) in vehicle.parts() {
-            if instance.prototype().layer() != layer {
+            if instance.proto.layer() != layer {
                 continue;
             }
 
@@ -42,7 +42,7 @@ pub fn generate_image(vehicle: &Blueprint) -> Option<DynamicImage> {
             let pixels_lower = UVec2::new(px, py);
             let pixels_upper = pixels_lower + dims;
 
-            let color: LinearRgba = diagram_color(&instance.prototype()).into();
+            let color: LinearRgba = diagram_color(&instance.proto).into();
             let color = color.to_f32_array();
 
             for x in pixels_lower.x..pixels_upper.x {

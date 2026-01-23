@@ -110,7 +110,7 @@ impl Blueprint {
         }
 
         let found = self.parts.iter().find(|(_, instance)| {
-            if layer != instance.prototype().layer() {
+            if layer != instance.proto.layer() {
                 return false;
             }
 
@@ -130,12 +130,12 @@ impl Blueprint {
         for part_layer in enum_iterator::reverse_all::<PartLayer>() {
             let found = self.parts.iter().find(|(_, instance)| {
                 if let Some(layer) = layer {
-                    if layer != instance.prototype().layer() {
+                    if layer != instance.proto.layer() {
                         return false;
                     }
                 }
 
-                if instance.prototype().layer() != part_layer {
+                if instance.proto.layer() != part_layer {
                     return false;
                 }
 

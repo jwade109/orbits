@@ -1,3 +1,4 @@
+// TODO make these private
 pub mod computer;
 pub mod docking_port;
 pub mod excavator;
@@ -7,6 +8,7 @@ pub mod machine;
 pub mod parts;
 pub mod pipe;
 pub mod thruster;
+mod grid_placement;
 
 pub use computer::*;
 pub use docking_port::*;

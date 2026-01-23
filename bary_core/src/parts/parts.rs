@@ -137,9 +137,12 @@ impl PartLayer {
 
 #[derive(Debug, Clone)]
 pub struct InstantiatedPart {
+    pub name: String,
     pub pos: PartCoord,
     pub rot: Rotation,
     pub dims: UVec2,
+
+    #[deprecated]
     pub proto: PartPrototype,
 }
 
@@ -164,6 +167,7 @@ impl InstantiatedPart {
         let dims = proto.dims();
 
         Self {
+            name: proto.name.to_string(),
             pos,
             rot,
             dims,
@@ -171,24 +175,16 @@ impl InstantiatedPart {
         }
     }
 
-    pub fn prototype(&self) -> PartPrototype {
-        self.proto.clone()
-    }
-
     pub fn layer(&self) -> PartLayer {
-        self.prototype().layer()
-    }
-
-    pub fn total_mass(&self) -> Mass {
-        self.proto.mass
+        self.proto.layer()
     }
 
     pub fn dims_grid(&self) -> UVec2 {
-        pixel_dims_with_rotation(self.rot, &self.prototype())
+        pixel_dims_with_rotation(self.rot, &self.proto)
     }
 
     pub fn dims_meters(&self) -> Vec2 {
-        meters_with_rotation(self.rot, &self.prototype())
+        meters_with_rotation(self.rot, &self.proto)
     }
 
     pub fn center_meters(&self) -> Vec2 {
@@ -245,27 +241,27 @@ impl InstantiatedPart {
         self.set_origin(new_origin);
     }
 
-    pub fn machine_data(&self) -> Option<&MachineData> {
-        self.proto.machine_data.as_ref()
+    pub fn machine_data<'a>(proto: &'a PartPrototype) -> Option<&'a MachineData> {
+        proto.machine_data.as_ref()
     }
 
-    pub fn inventory_data(&self) -> Option<&InventoryData> {
-        self.proto.inventory_data.as_ref()
+    pub fn inventory_data<'a>(proto: &'a PartPrototype) -> Option<&'a InventoryData> {
+        proto.inventory_data.as_ref()
     }
 
-    pub fn computer_data(&self) -> Option<&ComputerData> {
-        self.proto.computer_data.as_ref()
+    pub fn computer_data<'a>(proto: &'a PartPrototype) -> Option<&'a ComputerData> {
+        proto.computer_data.as_ref()
     }
 
-    pub fn docking_port_data(&self) -> Option<&DockingPortData> {
-        self.proto.docking_port_data.as_ref()
+    pub fn docking_port_data<'a>(proto: &'a PartPrototype) -> Option<&'a DockingPortData> {
+        proto.docking_port_data.as_ref()
     }
 
-    pub fn excavator_data(&self) -> Option<&ExcavatorData> {
-        self.proto.excavator_data.as_ref()
+    pub fn excavator_data<'a>(proto: &'a PartPrototype) -> Option<&'a ExcavatorData> {
+        proto.excavator_data.as_ref()
     }
 
-    pub fn thruster_data(&self) -> Option<&ThrusterModel> {
-        self.proto.thruster_data.as_ref()
+    pub fn thruster_data<'a>(proto: &'a PartPrototype) -> Option<&'a ThrusterModel> {
+        proto.thruster_data.as_ref()
     }
 }

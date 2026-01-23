@@ -178,7 +178,7 @@ impl Editor {
         let mut blueprint = Blueprint::new();
         for id in &state.editor_context.selected_parts {
             if let Some(part) = state.editor_context.blueprint.get_part(*id) {
-                blueprint.add_part(part.prototype(), part.pos, part.rotation());
+                blueprint.add_part(part.proto.clone(), part.pos, part.rotation());
             }
             if let Some(pipe) = state.editor_context.blueprint.get_pipe(*id) {
                 blueprint.add_pipe(*pipe);
@@ -295,7 +295,7 @@ impl Editor {
             {
                 let instance = instance.clone();
                 state.editor_context.rotation = instance.rotation();
-                state.editor_context.cursor_state = CursorState::Part(instance.prototype().clone());
+                state.editor_context.cursor_state = CursorState::Part(instance.proto.clone());
             } else {
                 state.editor_context.cursor_state = CursorState::None;
             }
@@ -322,7 +322,7 @@ impl Editor {
             .blueprint
             .parts()
             .map(|(_, instance)| VehiclePartFileStorage {
-                partname: instance.prototype().sprite_path().to_string(),
+                partname: instance.proto.sprite_path().to_string(),
                 pos: instance.origin(),
                 rot: instance.rotation(),
             })
@@ -393,12 +393,8 @@ impl Editor {
         self.update_graph();
         self.occupied.clear();
         for (id, instance) in self.blueprint.parts() {
-            let pixels = occupied_cells(
-                instance.origin(),
-                instance.rotation(),
-                &instance.prototype(),
-            );
-            if let Some(occ) = self.occupied.get_mut(&instance.prototype().layer()) {
+            let pixels = occupied_cells(instance.origin(), instance.rotation(), &instance.proto);
+            if let Some(occ) = self.occupied.get_mut(&instance.proto.layer()) {
                 for p in pixels {
                     occ.insert(p, *id);
                 }
@@ -407,7 +403,7 @@ impl Editor {
                 for p in pixels {
                     occ.insert(p, *id);
                 }
-                self.occupied.insert(instance.prototype().layer(), occ);
+                self.occupied.insert(instance.proto.layer(), occ);
             }
         }
     }
@@ -455,7 +451,7 @@ impl Editor {
             // self.action_queue.push(Action::Remove(
             //     part.origin(),
             //     part.rotation(),
-            //     part.prototype(),
+            //     part.proto,
             // ));
         }
         self.update();
@@ -547,10 +543,7 @@ fn draw_blueprint(
     }
 
     for layer in PartLayer::draw_order() {
-        for (_, instance) in blueprint
-            .parts()
-            .filter(|(_, p)| p.prototype().layer() == layer)
-        {
+        for (_, instance) in blueprint.parts().filter(|(_, p)| p.proto.layer() == layer) {
             let alpha = match (focus_layer, layer) {
                 (None, _) => 1.0,
                 (Some(PartLayer::Internal), PartLayer::Internal) => 1.0,
@@ -562,9 +555,9 @@ fn draw_blueprint(
                 _ => continue,
             };
 
-            let sprite_dims = instance.prototype().dims_meters();
+            let sprite_dims = instance.proto.dims_meters();
             let center = instance.center_meters().as_dvec2();
-            let sprite_name = instance.prototype().sprite_path().to_string();
+            let sprite_name = instance.proto.sprite_path().to_string();
 
             let z_index = match layer {
                 PartLayer::Exterior => ZOrdering::EditorExteriorPart,

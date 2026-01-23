@@ -82,6 +82,12 @@ impl Into<PartCoord> for IVec2 {
     }
 }
 
+impl Into<PartCoord> for UVec2 {
+    fn into(self) -> PartCoord {
+        PartCoord(self.as_ivec2())
+    }
+}
+
 impl std::fmt::Display for PartCoord {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "({}, {})", self.0.x, self.0.y)
