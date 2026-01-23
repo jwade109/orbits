@@ -2,6 +2,8 @@
 
 ## General
 
+- barycenter: placement of spacecraft allows for
+  creation of pure baryons?
 - rendezvous/phasing
 - space stations
 - uranium enrichment -> project orion

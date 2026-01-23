@@ -1,4 +1,4 @@
 
 [workspace]
-members = ["g2", "game"]
+members = ["bary_v2", "bary_v1", "bary_core"]
 resolver = "2"

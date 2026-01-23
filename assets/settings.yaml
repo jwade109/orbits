@@ -6,7 +6,7 @@ draw_inventories: false
 draw_blueprints: false
 draw_docking_info: false
 draw_thruster_states: false
-dig_with_mouse: false
+dig_with_mouse: true
 rotation_locked: false
 infinite_fuel: true
 show_terrain_info: false
