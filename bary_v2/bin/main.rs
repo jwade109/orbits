@@ -42,34 +42,7 @@ fn main() {
                 save_settings_on_change.run_if(on_timer(std::time::Duration::from_secs(1))),
                 toggle_inv_on_alt,
             )
-                .chain()
-                .in_set(Sets::Misc),
-        )
-        .configure_sets(
-            Update,
-            (
-                Sets::Input,
-                Sets::PrePhysics,
-                Sets::Physics,
-                Sets::PostPhysics,
-                Sets::Misc,
-            )
                 .chain(),
-        )
-        .configure_sets(
-            FixedUpdate,
-            (
-                Sets::Input,
-                Sets::PrePhysics,
-                Sets::Physics,
-                Sets::PostPhysics,
-                Sets::Misc,
-            )
-                .chain(),
-        )
-        .configure_sets(
-            PostUpdate,
-            (Sets::Draw, Sets::PostPhysics).after(TransformSystem::TransformPropagate),
         )
         .add_systems(Startup, update_gizmo_config)
         .run();

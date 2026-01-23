@@ -6,17 +6,11 @@ pub struct ComputerPlugin;
 
 impl Plugin for ComputerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            SimTick,
-            (update_computers, do_maneuvers).in_set(Sets::Physics),
-        )
-        .add_systems(
-            Update,
-            (human_control, handle_hold_here_commands).in_set(Sets::PrePhysics),
-        )
-        .add_systems(PostUpdate, draw_computers.in_set(Sets::Draw))
-        .insert_resource(ManualControl::default())
-        .add_event::<HoldHereCommand>();
+        app.add_systems(SimTick, (update_computers, do_maneuvers))
+            .add_systems(Update, (human_control, handle_hold_here_commands))
+            .add_systems(PostUpdate, draw_computers)
+            .insert_resource(ManualControl::default())
+            .add_event::<HoldHereCommand>();
     }
 }
 

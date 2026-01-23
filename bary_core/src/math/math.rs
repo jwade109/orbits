@@ -240,6 +240,15 @@ pub fn grid_to_part_local(gp_grid: PartCoord, part_rot: Rotation, go_grid: PartC
     po_part
 }
 
+pub fn rect_area_moment_of_inertia(dims: Vec2) -> f32 {
+    dims.x * dims.y / 12.0 * (dims.x.powi(2) + dims.y.powi(2))
+}
+
+pub fn rect_area_moment_of_inertia_with_offset(_distance: f32, _dims: Vec2) {
+    todo!()
+    // let r = dims
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

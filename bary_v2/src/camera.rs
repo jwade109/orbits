@@ -19,9 +19,9 @@ impl Plugin for CameraPlugin {
         app.add_systems(FixedUpdate, (propagate_camera_physics,).chain());
 
         // update_mouse_world_pos
-        app.add_systems(PostUpdate, update_mouse_world_pos.in_set(Sets::PostPhysics))
+        app.add_systems(PostUpdate, update_mouse_world_pos)
             // draw the mouse cursor
-            .add_systems(PostUpdate, draw_cursor_pos.in_set(Sets::Draw))
+            .add_systems(PostUpdate, draw_cursor_pos)
             .insert_resource(CursorWorldPosition::default())
             .insert_resource(CameraState::default());
     }
@@ -124,13 +124,11 @@ fn set_camera_command(
 fn propagate_camera_physics(
     mut state: ResMut<CameraState>,
     mut camera: Single<&mut Transform, With<Camera>>,
-    time: Res<Time<Fixed>>,
 ) {
     let speed = 20.0 * camera.scale.x;
     let delta_target_pos = state.command.xy().as_vec2() * speed;
     state.target_pos += delta_target_pos;
 
-    let dt = time.delta_secs();
     let delta = state.target_pos - camera.translation.xy();
     camera.translation.x += delta.x * 0.15;
     camera.translation.y += delta.y * 0.15;
@@ -161,12 +159,7 @@ fn follow_selected_ship_on_key_f(
     state.following = Some(entity);
 }
 
-fn track_followed_entity(
-    transforms: TransformHelper,
-    mut state: ResMut<CameraState>,
-    cursor: Res<SelectedSpacecraft>,
-    settings: Res<Settings>,
-) {
+fn track_followed_entity(transforms: TransformHelper, mut state: ResMut<CameraState>) {
     let Some(entity) = state.following else {
         return;
     };

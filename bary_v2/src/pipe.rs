@@ -1,13 +1,13 @@
 use crate::*;
-use bevy::color::palettes::tailwind::GRAY_400;
 use bary_core::prelude::*;
+use bevy::color::palettes::tailwind::GRAY_400;
 
 pub struct InventoryTransferPlugin;
 
 impl Plugin for InventoryTransferPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(FixedUpdate, process_pipes.in_set(Sets::Physics))
-            .add_systems(PostUpdate, draw_pipes.in_set(Sets::Draw));
+        app.add_systems(FixedUpdate, process_pipes)
+            .add_systems(PostUpdate, draw_pipes);
     }
 }
 

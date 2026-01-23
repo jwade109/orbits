@@ -20,8 +20,7 @@ impl Plugin for SpacecraftPlugin {
                 draw_selected_part_system,
                 draw_spacecraft_spatial_lookups,
                 draw_docking_info,
-            )
-                .in_set(Sets::Draw),
+            ),
         );
 
         app.add_systems(
@@ -45,8 +44,7 @@ impl Plugin for SpacecraftPlugin {
                 update_selected_hose_system,
                 draw_hose_selection_area_system,
                 process_position_commands_system.pipe(swallow_optional),
-            )
-                .in_set(Sets::Input),
+            ),
         );
 
         app.add_systems(FixedUpdate, world_tick_driver_system);
@@ -56,7 +54,6 @@ impl Plugin for SpacecraftPlugin {
             (
                 handle_sc_events,
                 check_adjacent_docking_ports,
-                update_thruster_emitters,
                 build_parts,
                 update_machines,
                 accelerate_spacecraft,
@@ -66,8 +63,7 @@ impl Plugin for SpacecraftPlugin {
                 update_hose_physics_system,
                 do_hose_inventory_transfer_system,
             )
-                .chain()
-                .in_set(Sets::Physics),
+                .chain(),
         );
 
         app.add_event::<SpacecraftEvent>();
@@ -135,19 +131,10 @@ impl SpacecraftGrid {
 }
 
 #[derive(Component, Debug, Deref, DerefMut)]
-pub struct PartInstance(pub bary_core::prelude::InstantiatedPart);
+pub struct PartInstance(pub InstantiatedPart);
 
 #[derive(Component, Debug)]
 struct PartSprite;
-
-fn rect_area_moment_of_inertia(dims: Vec2) -> f32 {
-    dims.x * dims.y / 12.0 * (dims.x.powi(2) + dims.y.powi(2))
-}
-
-fn rect_area_moment_of_inertia_with_offset(distance: f32, dims: Vec2) {
-    todo!()
-    // let r = dims
-}
 
 fn draw_grids(
     mut painter: ShapePainter,
@@ -202,7 +189,7 @@ fn draw_inventories(
     const Z_DEBUG_INVENTORY_LAYER: f32 = 0.05;
 
     for (tf, part, inventory) in parts {
-        for (i, slot) in inventory.slots().enumerate() {
+        for slot in inventory.slots() {
             let (min, max) = slot.bounds();
             let c = (max + min).to_meters() / 2.0;
             let d = (max - min).to_meters();
@@ -572,7 +559,6 @@ fn accelerate_spacecraft(
             .rotation
             .mul_vec3(grid.body_frame_acceleration.extend(0.0).as_vec3())
             .xy();
-        let (yaw, _, _) = tf.rotation.to_euler(EulerRot::ZYX);
         let da = grid.angular_acceleration as f64 * dt;
         grid.velocity += world_frame_accel.as_dvec2() * dt;
         grid.angular_velocity += da;
@@ -592,7 +578,7 @@ impl GridSpatialLookup {
     }
 
     pub fn add(&mut self, g: IVec2, e: Entity) {
-        if let Some(mut v) = self.get_mut(&g) {
+        if let Some(v) = self.get_mut(&g) {
             v.push(e);
         } else {
             self.insert(g, vec![e]);
@@ -656,27 +642,5 @@ fn draw_spacecraft_spatial_lookups(
             painter.set_color(RED.with_alpha(0.3));
             painter.circle(2.0);
         }
-    }
-}
-
-fn update_thruster_emitters(mut thrusters: Query<(&Thruster, &mut ParticleEmitter)>) {
-    for (t, mut p) in thrusters {
-        p.enabled = false; // t.on && t.status == MachineStatus::Running;
-    }
-}
-
-fn draw_transforms(mut painter: ShapePainter, query: Query<&GlobalTransform>) {
-    for tf in query {
-        let p = tf.translation().with_z(600.0);
-        let r = tf.right();
-        let u = tf.up();
-
-        painter.reset();
-        painter.thickness = 1.0;
-        painter.thickness_type = ThicknessType::Pixels;
-        painter.set_color(RED);
-        painter.line(p, p + (r * 0.3).with_z(0.0));
-        painter.set_color(GREEN);
-        painter.line(p, p + (u * 0.3).with_z(0.0));
     }
 }

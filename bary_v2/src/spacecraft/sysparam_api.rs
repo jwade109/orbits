@@ -1,6 +1,6 @@
+use bary_core::prelude::*;
 use bevy::prelude::*;
 use bevy_ecs::{query::QueryEntityError, system::SystemParam};
-use bary_core::prelude::*;
 
 use crate::target_docking_transform;
 
@@ -83,23 +83,12 @@ impl<'w, 's> Spacecraft<'w, 's> {
         host_part: Entity,
         target_part: Entity,
     ) -> Result<Transform, QueryEntityError> {
-        let host_vehicle = self.get_vehicle_from_part_id(host_part)?;
-        let target_vehicle = self.get_vehicle_from_part_id(target_part)?;
-
         let (port, parent, port_a) = self.parts.get(host_part)?;
-        let (other_port, other_parent, port_b) = self.parts.get(target_part)?;
+        let (other_port, _, port_b) = self.parts.get(target_part)?;
 
-        let (grid, children, ownship_root) = self.grids.get(parent.0)?;
+        let (_, _, ownship_root) = self.grids.get(parent.0)?;
 
         let ownship_root = ownship_root.clone();
-        let velocity = grid.velocity;
-        let angular_velocity = grid.angular_velocity;
-
-        let additional_velocity = port_a
-            .translation
-            .cross((Vec3::Z * angular_velocity as f32))
-            .xy()
-            .as_dvec2();
 
         let mut port_a = *port_a;
         let mut port_b = *port_b;
@@ -109,8 +98,6 @@ impl<'w, 's> Spacecraft<'w, 's> {
 
         port_a.translation += port_a.right() * off_a / 2.0;
         port_b.translation += port_b.right() * off_b / 2.0;
-
-        let (grid, _, target_root) = self.grids.get(other_parent.0)?;
 
         Ok(target_docking_transform(ownship_root, port_a, port_b))
     }

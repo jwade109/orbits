@@ -1,9 +1,8 @@
+use crate::Settings;
+use bary_v1::ui::apply_egui_style;
 use bevy::prelude::*;
 use bevy_ecs::schedule::ScheduleLabel;
 use bevy_egui::EguiContexts;
-use bary_v1::ui::apply_egui_style;
-
-use crate::Settings;
 
 #[derive(ScheduleLabel, Hash, Debug, PartialEq, Eq, Clone, Copy)]
 pub struct SimTick;

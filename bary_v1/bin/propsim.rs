@@ -1,6 +1,6 @@
+use bary_core::prelude::*;
 use bevy::color::palettes::tailwind::*;
 use bevy::prelude::*;
-use bary_core::prelude::*;
 use image::{ColorType, DynamicImage};
 
 pub struct Particle {
@@ -162,6 +162,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         std::thread::sleep(std::time::Duration::from_millis(40));
     }
-
-    Ok(())
 }

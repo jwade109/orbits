@@ -172,8 +172,6 @@ pub fn spawn_hose_on_keypress_system(
     let tf_a = grids.get(a.grid.entity).ok()?;
     let tf_b = grids.get(b.grid.entity).ok()?;
 
-    let n_segments = 5;
-
     let pa = a.grid.get_transform(*tf_a).translation.xy();
     let pb = b.grid.get_transform(*tf_b).translation.xy();
 
@@ -285,7 +283,6 @@ pub fn draw_hoses_system(
     mut painter: ShapePainter,
     hoses: Query<(Entity, &Hose)>,
     selected: Res<SelectedHose>,
-    inventory: Query<&Inventory>,
 ) {
     painter.reset();
     painter.thickness_type = ThicknessType::World;

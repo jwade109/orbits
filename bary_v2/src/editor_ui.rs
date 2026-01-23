@@ -1,7 +1,7 @@
+use crate::*;
 use bary_core::prelude::*;
 use bary_v1::ui::apply_egui_style;
 use bevy::prelude::*;
-use crate::*;
 
 pub struct DebugPanelState {
     message_color: [f32; 3],
@@ -169,7 +169,7 @@ pub fn toggle_on_off_button(ui: &mut egui::Ui, state: &mut bool) {
     }
 }
 
-fn add_excavator_widget(ui: &mut egui::Ui, e: Entity, ex: &mut Excavator, commands: &mut Commands) {
+fn add_excavator_widget(ui: &mut egui::Ui, e: Entity, ex: &mut Excavator) {
     ui.heading(format!("Excavator {}", e));
 
     toggle_on_off_button(ui, &mut ex.is_on);
@@ -188,7 +188,7 @@ fn add_inv_widget(ui: &mut egui::Ui, inv: &mut Inventory) {
         inv.capacity()
     ));
 
-    for (i, slot) in inv.slots_mut().enumerate() {
+    for slot in inv.slots_mut() {
         ui.separator();
 
         if let Some(name) = slot.name() {
@@ -340,7 +340,7 @@ pub fn part_ui(
     excavators: &mut Query<&mut Excavator>,
 ) {
     if let Ok(mut excavator) = excavators.get_mut(e) {
-        add_excavator_widget(ui, e, &mut excavator, commands);
+        add_excavator_widget(ui, e, &mut excavator);
     }
 
     if let Ok(mut inventory) = inventories.get_mut(e) {
@@ -363,7 +363,7 @@ pub fn part_ui(
         add_machine_widget(e, commands, ui, &mut machine);
     }
 
-    if let Ok(mut docking_port) = docking_ports.get_mut(e) {
+    if let Ok(docking_port) = docking_ports.get_mut(e) {
         ui.heading(format!("Docking Port {}", e));
         ui.label(format!("{:#?}", docking_port));
         // add_machine_widget(e, commands, ui, &mut machine);
@@ -389,7 +389,6 @@ pub fn egui_ui(
     mut docking_ports: Query<&mut DockingPort>,
     mut excavators: Query<&mut Excavator>,
     mut settings: ResMut<Settings>,
-    con: Query<&mut ConstructionState>,
     cursor: Res<SelectedSpacecraft>,
     mut mouse: ResMut<CursorWorldPosition>,
 ) -> Result {

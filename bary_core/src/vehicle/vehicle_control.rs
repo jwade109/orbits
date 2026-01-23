@@ -196,13 +196,12 @@ pub fn attitude_control_law(
 
 // removed variables from `Vehicle`
 pub const PLACEHOLDER_PD: PDCtrl = PDCtrl::new(50.0, 20.0);
-const MASS_PLACEHOLDER: Mass = Mass::from_kg_f32(1000.0);
 
 fn hover_control_law(
-    target: DVec2,
-    gravity: DVec2,
-    vehicle: &Blueprint,
-    body: &RigidBody,
+    _target: DVec2,
+    _gravity: DVec2,
+    _vehicle: &Blueprint,
+    _body: &RigidBody,
 ) -> (VehicleControl, VehicleControlStatus) {
     unimplemented!()
 
@@ -331,7 +330,6 @@ fn to_int_percent(x: f64) -> i32 {
 pub fn enter_orbit_control_law(
     planet: &Body,
     body: &RigidBody,
-    vehicle: &Blueprint,
     orbit: Option<&SparseOrbit>,
     target_altitude: f64,
 ) -> (VehicleControl, VehicleControlStatus) {
@@ -431,7 +429,6 @@ pub fn enter_orbit_control_law(
 
 pub fn burn_along_velocity_vector_control_law(
     body: &RigidBody,
-    vehicle: &Blueprint,
     prograde: bool,
 ) -> (VehicleControl, VehicleControlStatus) {
     if body.pv.vel.length() < 0.2 {

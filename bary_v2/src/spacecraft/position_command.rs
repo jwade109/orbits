@@ -48,7 +48,6 @@ pub fn update_position_command_widget_system(
     keys: Res<ButtonInput<KeyCode>>,
     cursor: Res<CursorWorldPosition>,
     mut widget: ResMut<CursorPositionCommandWidget>,
-    selected: Res<SelectedSpacecraft>,
 ) {
     let commands_key = KeyCode::KeyE;
 
