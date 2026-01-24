@@ -89,7 +89,7 @@ fn setup(mut commands: Commands) -> Result {
 
     let ship_names = load_names_from_file(&ctx.names_path()).unwrap_or(vec![]);
 
-    commands.insert_resource(parts);
+    commands.insert_resource(PartsResource(parts));
     commands.insert_resource(ctx);
     commands.insert_resource(settings);
     commands.insert_resource(ClearColor(BLACK.into()));

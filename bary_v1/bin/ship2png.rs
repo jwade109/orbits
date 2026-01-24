@@ -1,5 +1,5 @@
-use clap::Parser;
 use bary_core::prelude::*;
+use clap::Parser;
 use std::path::PathBuf;
 
 /// Converts ship file to PNG
@@ -36,7 +36,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let vehicle = load_vehicle(&args.ship_path, &parts)?;
 
-    let mut img = generate_image(&vehicle).ok_or("Empty vehicle")?;
+    let mut img = generate_image(&vehicle, &parts).ok_or("Empty vehicle")?;
 
     if args.scale_factor < 1.0 {
         let filter = image::imageops::FilterType::Nearest;

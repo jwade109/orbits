@@ -1,9 +1,6 @@
 use crate::*;
 use bary_core::prelude::*;
 
-#[derive(Resource, Default, Debug, Deref, DerefMut)]
-pub struct PartDatabase(HashMap<String, PartPrototype>);
-
 pub fn load_parts_from_dir_2(
     ctx: &ProgramContext,
 ) -> Result<PartDatabase, Box<dyn std::error::Error>> {

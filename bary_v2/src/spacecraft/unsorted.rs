@@ -112,6 +112,7 @@ pub struct SpacecraftGrid {
     pub angular_velocity: f64,
     pub body_frame_acceleration: DVec2,
     pub angular_acceleration: f32,
+    pub is_dirty: bool,
 }
 
 impl SpacecraftGrid {
@@ -167,13 +168,14 @@ fn draw_blueprints(
     mut gizmos: Gizmos,
     bps: Query<(&Blueprint, &Transform)>,
     settings: Res<Settings>,
+    parts: Res<PartsResource>,
 ) {
     if !settings.draw_blueprints {
         return;
     }
 
     for (bp, tf) in bps {
-        draw_blueprint(&mut gizmos, bp, *tf);
+        draw_blueprint(&mut gizmos, bp, *tf, &parts);
     }
 }
 
@@ -193,7 +195,7 @@ fn draw_inventories(
             let (min, max) = slot.bounds();
             let c = (max + min).to_meters() / 2.0;
             let d = (max - min).to_meters();
-            let half_width = part.proto.dims_meters() / 2.0;
+            let half_width = part.placement.part_aligned_dims().to_meters() / 2.0;
 
             painter.reset();
 
@@ -246,6 +248,7 @@ fn update_grids(
     mut commands: Commands,
     mut grids: Query<(Entity, &mut SpacecraftGrid, &Children)>,
     parts: Query<(&PartInstance, Option<&Inventory>, Option<&FuelInventory>)>,
+    part_db: Res<PartsResource>,
 ) {
     // TODO: we should only run this when a given grid has changed.
     // certain events should trigger a change event:
@@ -256,6 +259,12 @@ fn update_grids(
     //  - etc
 
     for (e, mut grid, children) in &mut grids {
+        if !grid.is_dirty {
+            continue;
+        }
+
+        info!("Updating grid {}", e);
+
         grid.parts_mass = Mass::ZERO;
         grid.inventory_mass = Mass::ZERO;
         grid.fuel_mass = Mass::ZERO;
@@ -273,7 +282,10 @@ fn update_grids(
 
         for part in children.iter() {
             if let Ok((part, inv, fuel)) = parts.get(part) {
-                let part_mass = Mass::grams(part.proto.part_mass().to_grams());
+                let Some(proto) = part_db.get(&part.name) else {
+                    continue;
+                };
+                let part_mass = Mass::grams(proto.part_mass().to_grams());
                 let inv_mass = inv.map(|inv| inv.mass()).unwrap_or(Mass::ZERO);
                 if fuel.is_some() {
                     grid.fuel_mass += inv_mass;
@@ -296,6 +308,8 @@ fn update_grids(
 
         grid.moment_of_inertia = grid.total_mass().to_kg_f64() * 10.0;
         grid.center_of_mass = (com / grid.total_mass().to_kg_f64()).as_vec2();
+
+        grid.is_dirty = false;
     }
 }
 
@@ -306,6 +320,7 @@ fn handle_sc_events(
     mut asset_server: ResMut<AssetServer>,
     spacecraft: Query<&GlobalTransform, With<SpacecraftGrid>>,
     camera: Query<(&Camera, &GlobalTransform)>,
+    parts: Res<PartsResource>,
 ) -> Result {
     let (camera, transform) = camera.single()?;
     for event in events.read() {
@@ -321,7 +336,6 @@ fn handle_sc_events(
                 let vehicle_path = args
                     .vehicle_dir()
                     .join(format!("{}.vehicle", blueprint_name));
-                let parts = bary_core::prelude::load_parts_from_dir(&args.parts_dir())?;
                 let vehicle = if let Ok(vehicle) = load_vehicle(&vehicle_path, &parts) {
                     vehicle
                 } else {
@@ -340,6 +354,7 @@ fn handle_sc_events(
                     &vehicle,
                     &mut asset_server,
                     &args,
+                    &parts,
                 );
             }
             SpacecraftEvent::SpawnPart { name, pos, angle } => {
@@ -353,7 +368,7 @@ fn handle_sc_events(
 
                 let mut grid = spawn_empty_grid(&mut commands, *pos, *angle, "Grid".to_string());
                 grid.with_children(|parent| {
-                    add_part_to_grid(parent, &instance, &mut asset_server, &args)
+                    add_part_to_grid(parent, &instance, &mut asset_server, &args, &parts)
                 });
             }
             SpacecraftEvent::Destroy { target } => {
@@ -421,6 +436,7 @@ fn spawn_empty_grid<'a>(
         SpacecraftGrid {
             // velocity: randvec(2.0, 4.0).as_dvec2() / 3.0,
             // angular_velocity: 0.3,
+            is_dirty: true,
             ..default()
         },
         Visibility::default(),
@@ -433,8 +449,9 @@ fn add_part_to_grid<'a>(
     part: &InstantiatedPart,
     asset_server: &mut ResMut<AssetServer>,
     args: &Res<ProgramContext>,
+    parts: &PartDatabase,
 ) {
-    let dims = part.proto.dims_meters();
+    let dims = part.placement.part_aligned_dims().to_meters();
     let dims_rot = part.dims_meters();
     let origin = part.origin_meters() + dims_rot / 2.0;
 
@@ -445,10 +462,12 @@ fn add_part_to_grid<'a>(
         _ => return,
     };
 
-    let path = args.part_sprite_path(part.proto.part_name());
+    let path = args.part_sprite_path(&part.name);
     let texture = asset_server.load(path);
 
     let mut sprite = Sprite::from_image(texture);
+
+    let proto = parts.get(&part.name).unwrap();
 
     sprite.custom_size = Some(dims);
 
@@ -461,7 +480,7 @@ fn add_part_to_grid<'a>(
 
     // INVENTORY COMPONENT ==================================================
 
-    if let Some(data) = InstantiatedPart::inventory_data(&part.proto) {
+    if let Some(data) = InstantiatedPart::inventory_data(proto) {
         let mut inv = Inventory::zero_slots();
         for data in &data.slots {
             let bounds = (data.min, data.max);
@@ -480,7 +499,7 @@ fn add_part_to_grid<'a>(
 
     // MACHINE COMPONENT ==================================================
 
-    if let Some(data) = InstantiatedPart::machine_data(&part.proto) {
+    if let Some(data) = InstantiatedPart::machine_data(proto) {
         // TODO use the data
         let machine = Machine::new(RecipeListing::DoNothing);
         cmd.insert(machine);
@@ -488,24 +507,18 @@ fn add_part_to_grid<'a>(
 
     // THRUSTER COMPONENT ==================================================
 
-    if let Some(model) = InstantiatedPart::thruster_data(&part.proto) {
+    if let Some(model) = InstantiatedPart::thruster_data(proto) {
         let thruster = if model.is_rcs {
             Thruster::new(3000.0, true)
         } else {
             Thruster::new(40000.0, false)
         };
-
-        let particles = ParticleEmitter {
-            enabled: chance(0.05),
-            size: Vec3::splat(0.05),
-        };
-
-        cmd.insert((thruster, particles, FuelInventory));
+        cmd.insert((thruster, FuelInventory));
     }
 
     // COMPUTER COMPONENT ==================================================
 
-    if let Some(cpu) = InstantiatedPart::computer_data(&part.proto) {
+    if let Some(cpu) = InstantiatedPart::computer_data(proto) {
         let mut cpu = Computer::default();
         cpu.mode = ComputerMode::Manual;
         cpu.attitude = rand(0.0, 2.0);
@@ -515,13 +528,13 @@ fn add_part_to_grid<'a>(
 
     // EXCAVATOR COMPONENT ==================================================
 
-    if let Some(data) = InstantiatedPart::excavator_data(&part.proto) {
+    if let Some(data) = InstantiatedPart::excavator_data(proto) {
         cmd.insert(Excavator::new(data.radius));
     }
 
     // DOCKING PORT COMPONENT ===============================================
 
-    if let Some(data) = InstantiatedPart::docking_port_data(&part.proto) {
+    if let Some(data) = InstantiatedPart::docking_port_data(proto) {
         let docking = DockingPort::new(data.distance);
         cmd.insert(docking);
     }
@@ -539,11 +552,12 @@ fn spawn_spacecraft(
     vehicle: &Blueprint,
     asset_server: &mut ResMut<AssetServer>,
     args: &Res<ProgramContext>,
+    parts: &PartDatabase,
 ) {
     spawn_empty_grid(commands, pos, angle, name)
         .with_children(|parent| {
             for (_, part) in vehicle.parts() {
-                add_part_to_grid(parent, part, asset_server, args);
+                add_part_to_grid(parent, part, asset_server, args, parts);
             }
         })
         .insert(vehicle.clone());

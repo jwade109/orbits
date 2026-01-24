@@ -20,14 +20,14 @@ pub fn diagram_color(part: &PartPrototype) -> Srgba {
     }
 }
 
-pub fn generate_image(vehicle: &Blueprint) -> Option<DynamicImage> {
+pub fn generate_image(vehicle: &Blueprint, parts: &PartDatabase) -> Option<DynamicImage> {
     let (pixel_min, pixel_max) = vehicle.bounds();
     let dims = (pixel_max - pixel_min).inner().as_uvec2();
     let mut output = DynamicImage::new_rgba8(dims.x, dims.y);
     let to_export = output.as_mut_rgba8().unwrap();
     for layer in [PartLayer::Structural, PartLayer::Internal] {
         for (_, instance) in vehicle.parts() {
-            if instance.proto.layer() != layer {
+            if instance.layer() != layer {
                 continue;
             }
 
@@ -42,7 +42,12 @@ pub fn generate_image(vehicle: &Blueprint) -> Option<DynamicImage> {
             let pixels_lower = UVec2::new(px, py);
             let pixels_upper = pixels_lower + dims;
 
-            let color: LinearRgba = diagram_color(&instance.proto).into();
+            let color: LinearRgba = if let Some(proto) = parts.get(&instance.name) {
+                diagram_color(proto).into()
+            } else {
+                GRAY_300.into()
+            };
+
             let color = color.to_f32_array();
 
             for x in pixels_lower.x..pixels_upper.x {

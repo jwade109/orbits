@@ -71,7 +71,7 @@ fn new_editor_ui(
         for name in names {
             let resp = ui.button(&name);
             if resp.clicked() {
-                Editor::set_current_part(&mut game, &name)
+                Editor::set_current_part(&mut game, name)
             }
         }
     });
@@ -125,7 +125,7 @@ fn new_editor_ui(
 
             ui.separator();
             ui.heading(format!("{:?} layer", layer));
-            ui.label(format!("{}", part.proto.part_name()));
+            ui.label(format!("{:?}", part));
         }
     });
 
@@ -463,7 +463,7 @@ impl GameState {
             OnClick::Load => {
                 self.load();
             }
-            OnClick::SelectPart(name) => Editor::set_current_part(self, &name),
+            OnClick::SelectPart(name) => Editor::set_current_part(self, name),
             OnClick::ToggleLayer(layer) => self.editor_context.toggle_layer(layer),
             OnClick::LoadVehicle(path) => _ = Editor::load_vehicle(&path, self),
             OnClick::ConfirmExitDialog => self.shutdown(),
@@ -472,7 +472,7 @@ impl GameState {
                 self.editor_context.new_craft();
             }
             OnClick::WriteVehicleToImage => {
-                self.editor_context.write_image_to_file();
+                self.editor_context.write_image_to_file(&self.part_database);
             }
             OnClick::RotateCraft => {
                 self.editor_context.rotate_craft();

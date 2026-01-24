@@ -29,11 +29,7 @@ impl Blueprint {
 
     pub fn merge(&mut self, other: &Blueprint) {
         for (_, part) in &other.parts {
-            self.add_part(
-                part.proto.clone(),
-                part.placement.bottom_left(),
-                part.placement.rot(),
-            );
+            self.add_part_new(part.name.clone(), part.placement, part.layer());
         }
         for (_, pipe) in &other.pipes {
             self.add_pipe(*pipe);
@@ -73,9 +69,20 @@ impl Blueprint {
         ret
     }
 
-    pub fn add_part(&mut self, proto: PartPrototype, pos: PartCoord, rot: Rotation) -> PartId {
+    pub fn add_part_old(&mut self, proto: PartPrototype, pos: PartCoord, rot: Rotation) -> PartId {
+        let layer = proto.layer();
+        let placement = GridPlacement::new(pos, rot, proto.dims);
+        self.add_part_new(proto.name, placement, layer)
+    }
+
+    pub fn add_part_new(
+        &mut self,
+        name: String,
+        placement: GridPlacement,
+        layer: PartLayer,
+    ) -> PartId {
         let id = self.get_next_part_id();
-        let instance = InstantiatedPart::from_prototype(proto, pos, rot);
+        let instance = InstantiatedPart::new(name, layer, placement);
         self.parts.insert(id, instance);
         id
     }
@@ -97,7 +104,7 @@ impl Blueprint {
         }
 
         let found = self.parts.iter().find(|(_, instance)| {
-            if layer != instance.proto.layer() {
+            if layer != instance.layer() {
                 return false;
             }
 
@@ -117,12 +124,12 @@ impl Blueprint {
         for part_layer in enum_iterator::reverse_all::<PartLayer>() {
             let found = self.parts.iter().find(|(_, instance)| {
                 if let Some(layer) = layer {
-                    if layer != instance.proto.layer() {
+                    if layer != instance.layer() {
                         return false;
                     }
                 }
 
-                if instance.proto.layer() != part_layer {
+                if instance.layer() != part_layer {
                     return false;
                 }
 

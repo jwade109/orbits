@@ -5,7 +5,7 @@ use bevy_egui::EguiContexts;
 
 use crate::spacecraft::sysparam_api::Spacecraft;
 
-use super::SelectedSpacecraft;
+use super::{PartsResource, SelectedSpacecraft};
 
 #[derive(Debug, Resource)]
 pub struct DockingProgram {
@@ -79,7 +79,12 @@ pub fn docking_program_egui(
     None
 }
 
-pub fn draw_blueprint(gizmos: &mut Gizmos, bp: &Blueprint, transform: Transform) {
+pub fn draw_blueprint(
+    gizmos: &mut Gizmos,
+    bp: &Blueprint,
+    transform: Transform,
+    parts: &PartDatabase,
+) {
     for (_, part) in bp.parts() {
         if part.layer() == PartLayer::Exterior {
             continue;
@@ -87,7 +92,11 @@ pub fn draw_blueprint(gizmos: &mut Gizmos, bp: &Blueprint, transform: Transform)
 
         let part_center = part.center_meters();
         let dims = part.dims_meters();
-        let color = diagram_color(&part.proto);
+        let Some(proto) = parts.get(&part.name) else {
+            continue;
+        };
+
+        let color = diagram_color(proto);
 
         let (yaw, _pitch, _roll) = transform.rotation.to_euler(EulerRot::ZYX);
 
@@ -105,6 +114,7 @@ pub fn draw_blueprint_of_docking_program(
     spacecraft: Spacecraft,
     selected: Res<SelectedSpacecraft>,
     pgrm: ResMut<DockingProgram>,
+    parts: Res<PartsResource>,
 ) -> Option<()> {
     let a = selected.primary?.grid.entity;
     let b = selected.secondary?.grid.entity;
@@ -129,7 +139,7 @@ pub fn draw_blueprint_of_docking_program(
     gizmos.axes_2d(pri_tf, 2.0);
 
     gizmos.axes_2d(sec_tf, 2.0);
-    draw_blueprint(&mut gizmos, &sec_bp, sec_tf);
+    draw_blueprint(&mut gizmos, &sec_bp, sec_tf, &parts);
 
     Some(())
 }

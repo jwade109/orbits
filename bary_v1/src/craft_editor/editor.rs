@@ -100,8 +100,8 @@ impl Editor {
         self.update();
     }
 
-    pub fn write_image_to_file(&self) {
-        write_image_to_file(&self.blueprint, "vehicle");
+    pub fn write_image_to_file(&self, parts: &PartDatabase) {
+        write_image_to_file(&self.blueprint, parts, "vehicle");
     }
 
     pub fn rotate_craft(&mut self) {
@@ -126,10 +126,8 @@ impl Editor {
         self.graph.randomize_positions();
     }
 
-    pub fn set_current_part(state: &mut GameState, name: &String) {
-        if let Some(part) = state.part_database.get(name).cloned() {
-            state.editor_context.cursor_state = CursorState::Part(part);
-        }
+    pub fn set_current_part(state: &mut GameState, name: String) {
+        state.editor_context.cursor_state = CursorState::Part(name);
     }
 
     fn open_existing_file(&mut self) -> Option<PathBuf> {
@@ -179,7 +177,7 @@ impl Editor {
         let mut blueprint = Blueprint::new();
         for id in &state.editor_context.selected_parts {
             if let Some(part) = state.editor_context.blueprint.get_part(*id) {
-                blueprint.add_part(part.proto.clone(), part.origin(), part.rotation());
+                blueprint.add_part_new(part.name.clone(), part.placement, part.layer());
             }
             if let Some(pipe) = state.editor_context.blueprint.get_pipe(*id) {
                 blueprint.add_pipe(*pipe);
@@ -296,7 +294,7 @@ impl Editor {
             {
                 let instance = instance.clone();
                 state.editor_context.rotation = instance.rotation();
-                state.editor_context.cursor_state = CursorState::Part(instance.proto.clone());
+                state.editor_context.cursor_state = CursorState::Part(instance.name);
             } else {
                 state.editor_context.cursor_state = CursorState::None;
             }
@@ -323,7 +321,7 @@ impl Editor {
             .blueprint
             .parts()
             .map(|(_, instance)| VehiclePartFileStorage {
-                partname: instance.proto.sprite_path().to_string(),
+                partname: instance.name.clone(),
                 pos: instance.origin(),
                 rot: instance.rotation(),
             })
@@ -395,7 +393,7 @@ impl Editor {
         self.occupied.clear();
         for (id, instance) in self.blueprint.parts() {
             let pixels = instance.placement.cells();
-            if let Some(occ) = self.occupied.get_mut(&instance.proto.layer()) {
+            if let Some(occ) = self.occupied.get_mut(&instance.layer()) {
                 for p in pixels {
                     occ.insert(p, *id);
                 }
@@ -404,13 +402,15 @@ impl Editor {
                 for p in pixels {
                     occ.insert(p, *id);
                 }
-                self.occupied.insert(instance.proto.layer(), occ);
+                self.occupied.insert(instance.layer(), occ);
             }
         }
     }
 
     fn add_part(&mut self, p: PartCoord, rot: Rotation, proto: PartPrototype) {
-        self.blueprint.add_part(proto, p, rot);
+        let placement = GridPlacement::new(p, rot, proto.dims);
+        self.blueprint
+            .add_part_new(proto.name.clone(), placement, proto.layer());
         self.update();
     }
 
@@ -438,7 +438,7 @@ impl Editor {
             }
         }
 
-        let id = self.blueprint.add_part(new_part.clone(), p, rot);
+        let id = self.blueprint.add_part_new(new_part.name, gp, layer);
 
         self.action_queue.push(Action::Add(id));
 
@@ -471,7 +471,8 @@ impl Editor {
     ) -> Option<(PartCoord, PartPrototype)> {
         let ctx = &state.editor_context;
         let part = state.editor_context.cursor_state.current_part()?;
-        let wh = pixel_dims_with_rotation(ctx.rotation, &part).as_ivec2();
+        let part = state.part_database.get(part)?;
+        let wh = pixel_dims_with_rotation(ctx.rotation, part).as_ivec2();
         let pos = state.input.position(MouseButt::Hover, FrameId::Current)?;
         let pos = PartCoord::from_meters_floored(state.editor_context.c2w(pos));
         let pos = if let Some((snap_pos, dims)) = state.editor_context.snap_info {
@@ -492,7 +493,7 @@ impl Editor {
         } else {
             pos - PartCoord::new(wh / 2)
         };
-        Some((pos, part))
+        Some((pos, part.clone()))
     }
 }
 
@@ -546,7 +547,7 @@ fn draw_blueprint(
     }
 
     for layer in PartLayer::draw_order() {
-        for (_, instance) in blueprint.parts().filter(|(_, p)| p.proto.layer() == layer) {
+        for (_, instance) in blueprint.parts().filter(|(_, p)| p.layer() == layer) {
             let alpha = match (focus_layer, layer) {
                 (None, _) => 1.0,
                 (Some(PartLayer::Internal), PartLayer::Internal) => 1.0,
@@ -558,9 +559,9 @@ fn draw_blueprint(
                 _ => continue,
             };
 
-            let sprite_dims = instance.proto.dims_meters();
+            let sprite_dims = instance.placement.part_aligned_dims().to_meters();
             let center = instance.center_meters().as_dvec2();
-            let sprite_name = instance.proto.sprite_path().to_string();
+            let sprite_name = instance.name.clone();
 
             let z_index = match layer {
                 PartLayer::Exterior => ZOrdering::EditorExteriorPart,
@@ -630,14 +631,8 @@ pub fn draw_inventory_graph(canvas: &mut Canvas, graph: &InventoryGraph, offset:
     let w2p = |p: Vec2| -> Vec2 { offset + p * scale };
 
     for (_, node) in &graph.nodes {
-        // let p = ctx.w2c(node.pos.as_dvec2());
         let rect = AABB::from_wh(10.0 * scale, 10.0 * scale).with_center(w2p(node.pos));
-        let color = match node.node_type {
-            NodeType::Inventory => GREEN,
-            NodeType::Thruster => ORANGE,
-            NodeType::Machine => RED,
-            NodeType::DockingPort => WHITE,
-        };
+        let color = GREEN;
         canvas.hollow_rect(rect, z, color, 1.0);
     }
 
@@ -799,7 +794,7 @@ pub fn draw_editor(canvas: &mut Canvas, state: &GameState) -> Option<()> {
         canvas.sprite(
             ctx.w2c((p.inner().as_dvec2() + dims.as_dvec2() / 2.0) / GRID_CELLS_PER_METER as f64),
             gcast(ctx.rotation.to_angle()),
-            current_part.sprite_path().to_string(),
+            current_part.part_name().clone(),
             ZOrdering::EditorCursor,
             sprite_dims.as_vec2() / GRID_CELLS_PER_METER * gcast(ctx.scale()),
         );
@@ -851,10 +846,10 @@ impl Editor {
     }
 }
 
-pub fn write_image_to_file(vehicle: &Blueprint, name: &str) -> Option<()> {
+pub fn write_image_to_file(blueprint: &Blueprint, parts: &PartDatabase, name: &str) -> Option<()> {
     let outpath: String = format!("/tmp/{}.png", name);
-    println!("Writing vehicle to path {}", outpath);
-    let img = generate_image(vehicle)?;
+    println!("Writing blueprint to path {}", outpath);
+    let img = generate_image(blueprint, parts)?;
     img.save(outpath).ok()
 }
 
@@ -900,7 +895,7 @@ pub fn on_editor_render_tick(state: &mut GameState) {
                 let pos = PartCoord::from_meters_floored(state.editor_context.c2w(pos));
                 let bp = bp.clone();
                 for (_, part) in bp.parts() {
-                    let proto = part.proto.clone();
+                    let proto = state.part_database.get(&part.name).unwrap().clone();
                     state.editor_context.try_place_part(
                         pos + part.origin(),
                         proto,

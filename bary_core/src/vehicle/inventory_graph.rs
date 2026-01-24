@@ -2,20 +2,11 @@ use crate::prelude::*;
 use std::collections::{BTreeMap, HashSet};
 
 #[derive(Debug, Clone, Copy)]
-pub enum NodeType {
-    Inventory,
-    Thruster,
-    Machine,
-    DockingPort,
-}
-
-#[derive(Debug, Clone, Copy)]
 pub struct GraphNode {
     pub pos: Vec2,
     pub vel: Vec2,
     pub real_pos: PartCoord,
     pub id: PartId,
-    pub node_type: NodeType,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -32,18 +23,6 @@ impl InventoryGraph {
         let mut nodes = BTreeMap::new();
         let mut edges = HashSet::new();
         for (id, part) in bp.parts() {
-            let node_type = if part.proto.thruster_data.is_some() {
-                NodeType::Thruster
-            } else if part.proto.docking_port_data.is_some() {
-                NodeType::DockingPort
-            } else if part.proto.machine_data.is_some() {
-                NodeType::Machine
-            } else if part.proto.inventory_data.is_some() {
-                NodeType::Inventory
-            } else {
-                continue;
-            };
-
             let center = part.origin().inner() + part.dims_grid().as_ivec2() / 2;
 
             let node = GraphNode {
@@ -51,7 +30,6 @@ impl InventoryGraph {
                 vel: Vec2::ZERO,
                 real_pos: PartCoord::new(center),
                 id: *id,
-                node_type,
             };
 
             let id = NodeKey(*id);

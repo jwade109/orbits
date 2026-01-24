@@ -1,8 +1,10 @@
+use crate::prelude::GridPlacement;
 use crate::prelude::*;
 use bevy::math::UVec2;
+use bevy::prelude::*;
 use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
 #[derive(Deserialize, Serialize, Debug, Clone, Copy)]
 pub enum PartClassification {
@@ -14,7 +16,9 @@ pub enum PartClassification {
     Other,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+pub type PartDatabase = HashMap<String, PartPrototype>;
+
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
 pub struct PartPrototype {
     #[deprecated]
     pub name: String,
@@ -88,10 +92,6 @@ impl PartPrototype {
     pub fn sprites(&self) -> usize {
         1
     }
-
-    pub fn sprite_path(&self) -> &str {
-        self.part_name()
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Sequence, Hash, Deserialize, Serialize)]
@@ -138,10 +138,8 @@ impl PartLayer {
 #[derive(Debug, Clone)]
 pub struct InstantiatedPart {
     pub name: String,
+    layer: PartLayer,
     pub placement: GridPlacement,
-
-    #[deprecated]
-    pub proto: PartPrototype,
 }
 
 pub fn pixel_dims_with_rotation(rot: Rotation, part: &PartPrototype) -> UVec2 {
@@ -161,6 +159,14 @@ fn meters_with_rotation(rot: Rotation, part: &PartPrototype) -> Vec2 {
 }
 
 impl InstantiatedPart {
+    pub fn new(name: impl Into<String>, layer: PartLayer, placement: GridPlacement) -> Self {
+        Self {
+            name: name.into(),
+            layer,
+            placement,
+        }
+    }
+
     pub fn from_prototype(proto: PartPrototype, pos: PartCoord, rot: Rotation) -> Self {
         let dims = proto.dims();
 
@@ -168,13 +174,13 @@ impl InstantiatedPart {
 
         Self {
             name: proto.name.to_string(),
+            layer: proto.layer(),
             placement,
-            proto,
         }
     }
 
     pub fn layer(&self) -> PartLayer {
-        self.proto.layer()
+        self.layer
     }
 
     pub fn dims_grid(&self) -> UVec2 {

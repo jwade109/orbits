@@ -49,7 +49,7 @@ impl<'w, 's> Spacecraft<'w, 's> {
         let (_, children, _) = self.grids.get(e)?;
         for c in children {
             let (part, _, _) = self.parts.get(*c)?;
-            blueprint.add_part(part.proto.clone(), part.origin(), part.rotation());
+            blueprint.add_part_new(part.name.clone(), part.placement, part.layer());
         }
         Ok(blueprint)
     }
@@ -65,7 +65,7 @@ impl<'w, 's> Spacecraft<'w, 's> {
         // TODO this is very bugged.
         for id in children {
             let (part, _, _) = self.parts.get(*id).ok()?;
-            if part.proto.layer() != PartLayer::Internal {
+            if part.layer() != PartLayer::Internal {
                 continue;
             }
             let offset = (coords.coord - part.origin()).inner();
@@ -93,8 +93,8 @@ impl<'w, 's> Spacecraft<'w, 's> {
         let mut port_a = *port_a;
         let mut port_b = *port_b;
 
-        let off_a = port.proto.dims_meters().x;
-        let off_b = other_port.proto.dims_meters().x;
+        let off_a = port.placement.part_aligned_dims().to_meters().x;
+        let off_b = other_port.placement.part_aligned_dims().to_meters().x;
 
         port_a.translation += port_a.right() * off_a / 2.0;
         port_b.translation += port_b.right() * off_b / 2.0;

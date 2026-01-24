@@ -54,16 +54,16 @@ impl SelectedState {
 pub enum CursorState {
     #[default]
     None,
-    Part(PartPrototype),
+    Part(String),
     Blueprint(Blueprint),
     Pipe(CursorPipeData),
     Select(SelectedState),
 }
 
 impl CursorState {
-    pub fn current_part(&self) -> Option<PartPrototype> {
+    pub fn current_part(&self) -> Option<&String> {
         match self {
-            Self::Part(proto) => Some(proto.clone()),
+            Self::Part(proto) => Some(proto),
             _ => None,
         }
     }
