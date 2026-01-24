@@ -1,3 +1,5 @@
+use bevy::transform::components::Transform;
+
 use crate::math::*;
 
 #[derive(Clone, Copy, Debug)]
@@ -66,6 +68,19 @@ impl GridPlacement {
             Rotation::South => self.top_left(),
         }
     }
+
+    pub fn isometry(&self) -> Isometry2d {
+        let rot = self.rotation.to_angle() as f32;
+        Isometry2d::new(self.origin().to_meters(), rot.into())
+    }
+}
+
+pub fn isometry_to_transform(iso: Isometry2d) -> Transform {
+    let iso = Isometry3d::new(
+        iso.translation.extend(0.0),
+        Quat::from_rotation_z(iso.rotation.as_radians()),
+    );
+    Transform::from_isometry(iso)
 }
 
 #[cfg(test)]
@@ -74,7 +89,7 @@ mod tests {
 
     #[test]
     fn grid_placement_math_east() {
-        //
+        //        y
         //        ^
         //        |   EAST
         // (1, 4) |          (5, 4)
@@ -84,7 +99,7 @@ mod tests {
         //        |  |  |  |  |
         //        *--*--*--*--*
         //        |  |  |  |  |
-        //        *--*--*--*--*------->
+        //        *--*--*--*--*-------> x
         //      (1, 1)       (5, 1)
         //
         let gp = GridPlacement::new((1, 1), Rotation::East, (4, 3));
@@ -98,11 +113,16 @@ mod tests {
         assert_eq!(gp.top_right(), (5, 4).into());
 
         assert_eq!(gp.origin(), (1, 1).into());
+
+        assert_eq!(
+            gp.isometry(),
+            Isometry2d::new((0.25, 0.25).into(), Rot2::IDENTITY)
+        );
     }
 
     #[test]
     fn grid_placement_math_north() {
-        //
+        //              x
         //              ^
         //     NORTH    |
         // (5, 6) *--*--* (7, 6)
@@ -111,7 +131,7 @@ mod tests {
         //        |  |  |
         //        *--*--*
         //        |  |  |
-        //    <---*--*--* (7, 3)
+        //  y <---*--*--* (7, 3)
         //     (5, 3)
         //
         let gp = GridPlacement::new((5, 3), Rotation::North, (3, 2));
@@ -125,5 +145,85 @@ mod tests {
         assert_eq!(gp.top_right(), (7, 6).into());
 
         assert_eq!(gp.origin(), (7, 3).into());
+
+        assert_eq!(
+            gp.isometry(),
+            Isometry2d::new((1.75, 0.75).into(), (PI / 2.0).into())
+        )
+    }
+
+    #[test]
+    fn grid_placement_math_west() {
+        //
+        //   x <---*--*--*--* (15, 9)
+        // (12, 9) |  |  |  |
+        //         *--*--*--*
+        //   WEST  |  |  |  |
+        //         *--*--*--*
+        //         |  |  |  |
+        //         *--*--*--*
+        //         |  |  |  |
+        //         *--*--*--*
+        //      (12, 5)     | (15, 5)
+        //                  |
+        //                  v
+        //                  y
+        let gp = GridPlacement::new((12, 5), Rotation::West, (3, 4));
+
+        assert_eq!(gp.part_aligned_dims(), (3, 4).into());
+        assert_eq!(gp.grid_aligned_dims(), (3, 4).into());
+
+        assert_eq!(gp.bottom_left(), (12, 5).into());
+        assert_eq!(gp.bottom_right(), (15, 5).into());
+        assert_eq!(gp.top_left(), (12, 9).into());
+        assert_eq!(gp.top_right(), (15, 9).into());
+
+        assert_eq!(gp.origin(), (15, 9).into());
+
+        assert_eq!(
+            gp.isometry(),
+            Isometry2d::new((3.75, 2.25).into(), PI.into())
+        )
+    }
+
+    #[test]
+    fn grid_placement_math_south() {
+        //
+        //         *--*--*--*--*----> y
+        // (2, 17) |  |  |  |  | (12, 17)
+        //         *--*--*--*--*
+        //   SOUTH |  |  |  |  |
+        //         *--*--*--*--*
+        //         |  |  |  |  |
+        //       -_-*-_-*-_-*-_-*-
+        //         |  |  |  |  |
+        //         *--*--*--*--*
+        //         |  |  |  |  |
+        // (2, -8) *--*--*--*--* (12, -8)
+        //         |
+        //         |
+        //         v
+        //         x
+
+        let bottom_left = (2, -8);
+        let rot = Rotation::South;
+        let dims = (25, 10);
+
+        let gp = GridPlacement::new(bottom_left, rot, dims);
+
+        assert_eq!(gp.part_aligned_dims(), (25, 10).into());
+        assert_eq!(gp.grid_aligned_dims(), (10, 25).into());
+
+        assert_eq!(gp.bottom_left(), (2, -8).into());
+        assert_eq!(gp.bottom_right(), (12, -8).into());
+        assert_eq!(gp.top_left(), (2, 17).into());
+        assert_eq!(gp.top_right(), (12, 17).into());
+
+        assert_eq!(gp.origin(), (2, 17).into());
+
+        assert_eq!(
+            gp.isometry(),
+            Isometry2d::new((0.5, 4.25).into(), (1.5 * PI).into())
+        )
     }
 }
