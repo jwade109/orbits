@@ -3,27 +3,10 @@ use bevy::prelude::Component;
 use std::collections::BTreeMap;
 use std::hash::Hash;
 
-#[allow(unused)]
-fn mass_after_maneuver(ve: f64, m0: f64, dv: f64) -> f64 {
-    m0 / (dv / ve).exp()
-}
-
 pub const PHYSICS_CONSTANT_UPDATE_RATE: u32 = 40;
 
 pub const PHYSICS_CONSTANT_DELTA_TIME: Nanotime =
     Nanotime::millis(1000 / PHYSICS_CONSTANT_UPDATE_RATE as i64);
-
-pub fn occupied_cells(pos: PartCoord, rot: Rotation, part: &PartPrototype) -> Vec<PartCoord> {
-    let mut ret = vec![];
-    let wh = pixel_dims_with_rotation(rot, part);
-    for w in 0..wh.x {
-        for h in 0..wh.y {
-            let p = pos + PartCoord::new(UVec2::new(w, h).as_ivec2());
-            ret.push(p);
-        }
-    }
-    ret
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct PartId(u64);
@@ -46,7 +29,11 @@ impl Blueprint {
 
     pub fn merge(&mut self, other: &Blueprint) {
         for (_, part) in &other.parts {
-            self.add_part(part.proto.clone(), part.pos, part.rot);
+            self.add_part(
+                part.proto.clone(),
+                part.placement.bottom_left(),
+                part.placement.rot(),
+            );
         }
         for (_, pipe) in &other.pipes {
             self.add_pipe(*pipe);
@@ -242,7 +229,7 @@ impl Blueprint {
         let mut upper: Option<IVec2> = None;
 
         for (_, part) in &self.parts {
-            let l = part.pos.inner();
+            let l = part.placement.bottom_left().inner();
             let u = l + part.dims_grid().as_ivec2();
 
             lower = Some(
@@ -262,12 +249,12 @@ impl Blueprint {
 
     pub fn shift(&mut self, delta: IVec2) {
         self.parts.iter_mut().for_each(|(_, p)| {
-            p.pos = p.pos + PartCoord::new(delta);
+            p.placement += PartCoord::new(delta);
         });
 
         self.pipes.iter_mut().for_each(|(_, p)| {
-            p.start = p.start + PartCoord::new(delta);
-            p.end = p.end + PartCoord::new(delta);
+            p.start += PartCoord::new(delta);
+            p.end += PartCoord::new(delta);
         });
     }
 
@@ -304,5 +291,15 @@ impl Blueprint {
             ret.push((*id, s, e));
         }
         ret
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn blueprint() {
+        let mut bp = Blueprint::new();
     }
 }

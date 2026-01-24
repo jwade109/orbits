@@ -4,7 +4,6 @@ pub use crate::casts::*;
 pub use crate::control::OrbitalController;
 pub use crate::factory::*;
 pub use crate::math::*;
-pub use crate::math::{Mass, Volume};
 pub use crate::orbital_luts::lookup_ta_from_ma;
 pub use crate::orbits::{Body, GlobalOrbit, OrbitClass, SparseOrbit, hyperbolic_range_ta};
 pub use crate::parts::*;

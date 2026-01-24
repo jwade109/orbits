@@ -6,6 +6,7 @@ use crate::game::GameState;
 use crate::input::InputState;
 use crate::input::{FrameId, MouseButt};
 use crate::z_index::ZOrdering;
+use bary_core::prelude::GridPlacement;
 use bary_core::prelude::*;
 use bevy::color::palettes::css::*;
 use bevy::color::palettes::tailwind::*;
@@ -178,7 +179,7 @@ impl Editor {
         let mut blueprint = Blueprint::new();
         for id in &state.editor_context.selected_parts {
             if let Some(part) = state.editor_context.blueprint.get_part(*id) {
-                blueprint.add_part(part.proto.clone(), part.pos, part.rotation());
+                blueprint.add_part(part.proto.clone(), part.origin(), part.rotation());
             }
             if let Some(pipe) = state.editor_context.blueprint.get_pipe(*id) {
                 blueprint.add_pipe(*pipe);
@@ -393,7 +394,7 @@ impl Editor {
         self.update_graph();
         self.occupied.clear();
         for (id, instance) in self.blueprint.parts() {
-            let pixels = occupied_cells(instance.origin(), instance.rotation(), &instance.proto);
+            let pixels = instance.placement.cells();
             if let Some(occ) = self.occupied.get_mut(&instance.proto.layer()) {
                 for p in pixels {
                     occ.insert(p, *id);
@@ -425,11 +426,13 @@ impl Editor {
             return None;
         }
 
-        let new_pixels = occupied_cells(p, rot, &new_part);
+        let gp = GridPlacement::new(p, rot, new_part.dims);
+
+        let new_pixels = gp.cells();
 
         if let Some(occ) = self.occupied.get(&layer) {
-            for p in &new_pixels {
-                if occ.contains_key(p) {
+            for p in new_pixels {
+                if occ.contains_key(&p) {
                     return None;
                 }
             }
@@ -711,13 +714,14 @@ pub fn draw_editor(canvas: &mut Canvas, state: &GameState) -> Option<()> {
     }
 
     if let Some((p, current_part)) = Editor::current_part_and_cursor_position(state) {
-        let current_pixels = occupied_cells(p, ctx.rotation, &current_part);
+        let gp = GridPlacement::new(p, ctx.rotation, current_part.dims);
+        let current_pixels = gp.cells();
 
         let mut visited_parts = HashSet::new();
 
         if let Some(occ) = ctx.occupied.get(&current_part.layer()) {
-            for q in &current_pixels {
-                if let Some(idx) = occ.get(q) {
+            for q in current_pixels {
+                if let Some(idx) = occ.get(&q) {
                     if visited_parts.contains(idx) {
                         continue;
                     }
@@ -897,9 +901,11 @@ pub fn on_editor_render_tick(state: &mut GameState) {
                 let bp = bp.clone();
                 for (_, part) in bp.parts() {
                     let proto = part.proto.clone();
-                    state
-                        .editor_context
-                        .try_place_part(pos + part.pos, proto, part.rot);
+                    state.editor_context.try_place_part(
+                        pos + part.origin(),
+                        proto,
+                        part.rotation(),
+                    );
                 }
                 for (_, part) in bp.pipes() {
                     state

@@ -249,6 +249,10 @@ pub fn rect_area_moment_of_inertia_with_offset(_distance: f32, _dims: Vec2) {
     // let r = dims
 }
 
+pub fn mass_after_maneuver(ve: f64, m0: f64, dv: f64) -> f64 {
+    m0 / (dv / ve).exp()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

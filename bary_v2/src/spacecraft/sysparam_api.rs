@@ -49,7 +49,7 @@ impl<'w, 's> Spacecraft<'w, 's> {
         let (_, children, _) = self.grids.get(e)?;
         for c in children {
             let (part, _, _) = self.parts.get(*c)?;
-            blueprint.add_part(part.proto.clone(), part.pos, part.rot);
+            blueprint.add_part(part.proto.clone(), part.origin(), part.rotation());
         }
         Ok(blueprint)
     }
@@ -69,7 +69,7 @@ impl<'w, 's> Spacecraft<'w, 's> {
                 continue;
             }
             let offset = (coords.coord - part.origin()).inner();
-            let dims = part.dims.as_ivec2();
+            let dims = part.placement.part_aligned_dims().inner();
             if offset.x >= 0 && offset.y >= 0 && offset.x <= dims.x && offset.y <= dims.y {
                 return Some(*id);
             }

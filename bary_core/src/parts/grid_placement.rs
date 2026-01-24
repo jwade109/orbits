@@ -41,6 +41,10 @@ impl GridPlacement {
         }
     }
 
+    pub fn set_bottom_left(&mut self, p: PartCoord) {
+        self.bottom_left = p;
+    }
+
     pub fn bottom_left(&self) -> PartCoord {
         self.bottom_left
     }
@@ -60,6 +64,14 @@ impl GridPlacement {
         self.bottom_left + off
     }
 
+    pub fn rot(&self) -> Rotation {
+        self.rotation
+    }
+
+    pub fn set_rot(&mut self, rot: Rotation) {
+        self.rotation = rot;
+    }
+
     pub fn origin(&self) -> PartCoord {
         match self.rotation {
             Rotation::East => self.bottom_left,
@@ -73,6 +85,16 @@ impl GridPlacement {
         let rot = self.rotation.to_angle() as f32;
         Isometry2d::new(self.origin().to_meters(), rot.into())
     }
+
+    pub fn cells(&self) -> impl Iterator<Item = PartCoord> + use<'_> {
+        let wh = self.grid_aligned_dims().inner();
+        let iter_y = 0..wh.y;
+        let iter_coords = iter_y.flat_map(move |y| {
+            let iter_x = 0..wh.x;
+            iter_x.map(move |x| (x, y))
+        });
+        iter_coords.map(|p| self.bottom_left + PartCoord::new(p.into()))
+    }
 }
 
 pub fn isometry_to_transform(iso: Isometry2d) -> Transform {
@@ -81,6 +103,21 @@ pub fn isometry_to_transform(iso: Isometry2d) -> Transform {
         Quat::from_rotation_z(iso.rotation.as_radians()),
     );
     Transform::from_isometry(iso)
+}
+
+impl std::ops::Add<PartCoord> for GridPlacement {
+    type Output = GridPlacement;
+    fn add(self, rhs: PartCoord) -> Self::Output {
+        let mut s = self;
+        s.bottom_left += rhs;
+        s
+    }
+}
+
+impl std::ops::AddAssign<PartCoord> for GridPlacement {
+    fn add_assign(&mut self, rhs: PartCoord) {
+        self.bottom_left += rhs;
+    }
 }
 
 #[cfg(test)]
@@ -225,5 +262,52 @@ mod tests {
             gp.isometry(),
             Isometry2d::new((0.5, 4.25).into(), (1.5 * PI).into())
         )
+    }
+
+    #[test]
+    fn grid_placement_cells_iterator() {
+        //         x ^
+        //           |
+        //      @@@@@@
+        //      @@@@@@
+        // y <--@@@@@@
+        //      \
+        //     (3, 2)
+
+        let bottom_left = (3, 2);
+        let rot = Rotation::North;
+        let dims = (3, 6);
+
+        let gp = GridPlacement::new(bottom_left, rot, dims);
+
+        assert_eq!(gp.grid_aligned_dims(), (6, 3).into());
+
+        assert_eq!(gp.bottom_left(), (3, 2).into());
+        assert_eq!(gp.top_right(), (9, 5).into());
+
+        let mut iter = gp.cells();
+
+        assert_eq!(iter.next(), Some((3, 2).into()));
+        assert_eq!(iter.next(), Some((4, 2).into()));
+        assert_eq!(iter.next(), Some((5, 2).into()));
+        assert_eq!(iter.next(), Some((6, 2).into()));
+        assert_eq!(iter.next(), Some((7, 2).into()));
+        assert_eq!(iter.next(), Some((8, 2).into()));
+
+        assert_eq!(iter.next(), Some((3, 3).into()));
+        assert_eq!(iter.next(), Some((4, 3).into()));
+        assert_eq!(iter.next(), Some((5, 3).into()));
+        assert_eq!(iter.next(), Some((6, 3).into()));
+        assert_eq!(iter.next(), Some((7, 3).into()));
+        assert_eq!(iter.next(), Some((8, 3).into()));
+
+        assert_eq!(iter.next(), Some((3, 4).into()));
+        assert_eq!(iter.next(), Some((4, 4).into()));
+        assert_eq!(iter.next(), Some((5, 4).into()));
+        assert_eq!(iter.next(), Some((6, 4).into()));
+        assert_eq!(iter.next(), Some((7, 4).into()));
+        assert_eq!(iter.next(), Some((8, 4).into()));
+
+        assert_eq!(iter.next(), None);
     }
 }

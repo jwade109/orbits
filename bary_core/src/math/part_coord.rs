@@ -63,6 +63,12 @@ impl std::ops::Add for PartCoord {
     }
 }
 
+impl std::ops::AddAssign for PartCoord {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 += rhs.0
+    }
+}
+
 impl std::ops::Sub for PartCoord {
     type Output = Self;
     fn sub(self, rhs: Self) -> Self::Output {

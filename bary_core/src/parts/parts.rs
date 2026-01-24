@@ -138,9 +138,7 @@ impl PartLayer {
 #[derive(Debug, Clone)]
 pub struct InstantiatedPart {
     pub name: String,
-    pub pos: PartCoord,
-    pub rot: Rotation,
-    pub dims: UVec2,
+    pub placement: GridPlacement,
 
     #[deprecated]
     pub proto: PartPrototype,
@@ -166,11 +164,11 @@ impl InstantiatedPart {
     pub fn from_prototype(proto: PartPrototype, pos: PartCoord, rot: Rotation) -> Self {
         let dims = proto.dims();
 
+        let placement = GridPlacement::new(pos, rot, dims);
+
         Self {
             name: proto.name.to_string(),
-            pos,
-            rot,
-            dims,
+            placement,
             proto,
         }
     }
@@ -180,29 +178,32 @@ impl InstantiatedPart {
     }
 
     pub fn dims_grid(&self) -> UVec2 {
-        pixel_dims_with_rotation(self.rot, &self.proto)
+        self.placement.grid_aligned_dims().inner().as_uvec2()
     }
 
     pub fn dims_meters(&self) -> Vec2 {
-        meters_with_rotation(self.rot, &self.proto)
+        self.placement.grid_aligned_dims().to_meters()
     }
 
     pub fn center_meters(&self) -> Vec2 {
-        let dims = rotate_dims(self.rot, self.dims.as_vec2() / GRID_CELLS_PER_METER);
-        let origin = self.pos.to_meters();
+        let dims = rotate_dims(
+            self.placement.rot(),
+            self.placement.part_aligned_dims().to_meters(),
+        );
+        let origin = self.placement.bottom_left().to_meters();
         origin + dims / 2.0
     }
 
     pub fn origin(&self) -> PartCoord {
-        self.pos
+        self.placement.bottom_left()
     }
 
     pub fn origin_meters(&self) -> Vec2 {
-        self.pos.to_meters()
+        self.placement.bottom_left().to_meters()
     }
 
     pub fn set_origin(&mut self, p: IVec2) {
-        self.pos.0 = p;
+        self.placement.set_bottom_left(p.into());
     }
 
     pub fn with_origin(&self, p: IVec2) -> Self {
@@ -222,11 +223,11 @@ impl InstantiatedPart {
     }
 
     pub fn rotation(&self) -> Rotation {
-        self.rot
+        self.placement.rot()
     }
 
     pub fn set_rotation(&mut self, rot: Rotation) {
-        self.rot = rot;
+        self.placement.set_rot(rot);
     }
 
     pub fn upper_left(&self) -> PartCoord {
