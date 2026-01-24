@@ -1,9 +1,11 @@
+use bary_core::prelude::GridPlacement;
 use bary_core::prelude::*;
 use bary_v1::ui::apply_egui_style;
 use bevy::prelude::*;
 use bevy_egui::EguiContexts;
+use early_returns::ok_or_continue;
 
-use crate::spacecraft::sysparam_api::Spacecraft;
+use crate::{PartInstance, SpacecraftGrid, spacecraft::sysparam_api::Spacecraft};
 
 use super::{PartsResource, SelectedSpacecraft};
 
@@ -22,11 +24,20 @@ impl Default for DockingProgram {
     }
 }
 
+#[derive(Event, Debug, Clone, Copy)]
+pub struct DockingTrigger {
+    pub chief: Entity,
+    pub deputy: Entity,
+    pub offset: PartCoord,
+    pub rotation: Rotation,
+}
+
 pub fn docking_program_egui(
     mut contexts: EguiContexts,
     mut pgrm: ResMut<DockingProgram>,
     names: Query<&Name>,
     selected: Res<SelectedSpacecraft>,
+    mut triggers: EventWriter<DockingTrigger>,
 ) -> Option<()> {
     let a = selected.primary?.grid.entity;
     let b = selected.secondary?.grid.entity;
@@ -68,7 +79,13 @@ pub fn docking_program_egui(
         ui.separator();
 
         if ui.button("Dock").clicked() {
-            info!("Docking: {:?}", pgrm);
+            let trigger = DockingTrigger {
+                chief: a,
+                deputy: b,
+                offset: pgrm.offset,
+                rotation: pgrm.rotation,
+            };
+            triggers.write(trigger);
         }
 
         if ui.button("Reset").clicked() {
@@ -142,4 +159,38 @@ pub fn draw_blueprint_of_docking_program(
     draw_blueprint(&mut gizmos, &sec_bp, sec_tf, &parts);
 
     Some(())
+}
+
+pub fn process_docking_triggers(
+    mut commands: Commands,
+    mut reader: EventReader<DockingTrigger>,
+    grids: Query<&Children, With<SpacecraftGrid>>,
+    mut parts: Query<(&mut Transform, &mut PartInstance)>,
+    mut blueprints: Query<&mut Blueprint>,
+) {
+    for trigger in reader.read() {
+        info!("Docking: {:?}", trigger);
+
+        let mut bpa = ok_or_continue!(blueprints.get_mut(trigger.chief));
+
+        let deputy = ok_or_continue!(grids.get(trigger.deputy));
+
+        for d in deputy {
+            let (mut transform, mut instance) = ok_or_continue!(parts.get_mut(*d));
+
+            let new_placement = GridPlacement::new(
+                instance.placement.bottom_left() + trigger.offset,
+                instance.rotation(),
+                instance.placement.part_aligned_dims().inner().as_uvec2(),
+            );
+
+            instance.placement = new_placement;
+
+            bpa.add_part(instance.name.clone(), instance.placement, instance.layer());
+
+            *transform = isometry_to_transform(instance.placement.center_isometry());
+
+            commands.entity(*d).insert(ChildOf(trigger.chief));
+        }
+    }
 }

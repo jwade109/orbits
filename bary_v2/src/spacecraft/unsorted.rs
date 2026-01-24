@@ -62,14 +62,14 @@ impl Plugin for SpacecraftPlugin {
                 update_spacecraft_grid_map,
                 update_hose_physics_system,
                 do_hose_inventory_transfer_system,
+                process_docking_triggers,
             )
                 .chain(),
         );
 
         app.add_event::<SpacecraftEvent>();
-        app.add_event::<AttachPorts>();
-        app.add_event::<FuseGrids>();
         app.add_event::<PositionHoldCommand>();
+        app.add_event::<DockingTrigger>();
 
         app.insert_resource(SelectedSpacecraft::default());
         app.insert_resource(SelectedHose::default());

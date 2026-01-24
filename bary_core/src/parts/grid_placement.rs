@@ -81,9 +81,16 @@ impl GridPlacement {
         }
     }
 
-    pub fn isometry(&self) -> Isometry2d {
+    pub fn origin_isometry(&self) -> Isometry2d {
         let rot = self.rotation.to_angle() as f32;
         Isometry2d::new(self.origin().to_meters(), rot.into())
+    }
+
+    pub fn center_isometry(&self) -> Isometry2d {
+        let rot = self.rotation.to_angle() as f32;
+        let half_dims = self.part_aligned_dims().to_meters() / 2.0;
+        let offset = rotate(half_dims, rot);
+        Isometry2d::new(self.origin().to_meters() + offset, rot.into())
     }
 
     pub fn cells(&self) -> impl Iterator<Item = PartCoord> + use<'_> {
@@ -152,8 +159,13 @@ mod tests {
         assert_eq!(gp.origin(), (1, 1).into());
 
         assert_eq!(
-            gp.isometry(),
+            gp.origin_isometry(),
             Isometry2d::new((0.25, 0.25).into(), Rot2::IDENTITY)
+        );
+
+        assert_eq!(
+            gp.center_isometry(),
+            Isometry2d::new((0.75, 0.625).into(), Rot2::IDENTITY)
         );
     }
 
@@ -184,9 +196,14 @@ mod tests {
         assert_eq!(gp.origin(), (7, 3).into());
 
         assert_eq!(
-            gp.isometry(),
+            gp.origin_isometry(),
             Isometry2d::new((1.75, 0.75).into(), (PI / 2.0).into())
-        )
+        );
+
+        assert_eq!(
+            gp.center_isometry(),
+            Isometry2d::new((1.5, 1.125).into(), (PI / 2.0).into())
+        );
     }
 
     #[test]
@@ -218,9 +235,14 @@ mod tests {
         assert_eq!(gp.origin(), (15, 9).into());
 
         assert_eq!(
-            gp.isometry(),
+            gp.origin_isometry(),
             Isometry2d::new((3.75, 2.25).into(), PI.into())
-        )
+        );
+
+        assert_eq!(
+            gp.center_isometry(),
+            Isometry2d::new((3.375, 1.75).into(), PI.into())
+        );
     }
 
     #[test]
@@ -259,9 +281,14 @@ mod tests {
         assert_eq!(gp.origin(), (2, 17).into());
 
         assert_eq!(
-            gp.isometry(),
+            gp.origin_isometry(),
             Isometry2d::new((0.5, 4.25).into(), (1.5 * PI).into())
-        )
+        );
+
+        assert_eq!(
+            gp.center_isometry(),
+            Isometry2d::new((1.75, 1.125).into(), (1.5 * PI).into())
+        );
     }
 
     #[test]

@@ -30,15 +30,6 @@ impl DockingPort {
     }
 }
 
-#[derive(Event, Debug)]
-pub struct AttachPorts(Entity);
-
-#[derive(Event, Debug)]
-pub struct FuseGrids {
-    host_part: Entity,
-    target_part: Entity,
-}
-
 pub fn inverse_transform(t: Transform) -> Transform {
     let affine = t.compute_affine().inverse();
     let (scale, rot, tr) = affine.to_scale_rotation_translation();
@@ -65,7 +56,7 @@ pub fn check_adjacent_docking_ports(
     #[derive(Clone, Copy)]
     struct PortInfo {
         port: Entity,
-        parent: Entity,
+        _parent: Entity,
         pos: Vec2,
         normal: Dir3,
     }
@@ -81,7 +72,7 @@ pub fn check_adjacent_docking_ports(
 
         let info = PortInfo {
             port: e,
-            parent: parent.0,
+            _parent: parent.0,
             pos,
             normal,
         };
@@ -149,7 +140,7 @@ pub fn draw_docking_info(
         let p1 = tf.translation().xy();
 
         let target_id = some_or_continue!(port.target());
-        let (target_port, target_tf) = ok_or_continue!(ports.get(target_id));
+        let (_target_port, target_tf) = ok_or_continue!(ports.get(target_id));
 
         let p2 = target_tf.translation().xy();
 
