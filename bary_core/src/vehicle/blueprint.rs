@@ -1,6 +1,6 @@
 use crate::prelude::*;
 use bevy::prelude::Component;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
 
 pub const PHYSICS_CONSTANT_UPDATE_RATE: u32 = 40;
@@ -16,6 +16,7 @@ pub struct Blueprint {
     next_part_id: PartId,
     parts: BTreeMap<PartId, InstantiatedPart>,
     pipes: BTreeMap<PartId, PipeGeometry>,
+    occupied_map: HashMap<(PartCoord, PartLayer), PartId>,
 }
 
 impl Blueprint {
@@ -24,12 +25,13 @@ impl Blueprint {
             next_part_id: PartId(0),
             parts: BTreeMap::new(),
             pipes: BTreeMap::new(),
+            occupied_map: HashMap::new(),
         }
     }
 
     pub fn merge(&mut self, other: &Blueprint) {
         for (_, part) in &other.parts {
-            self.add_part_new(part.name.clone(), part.placement, part.layer());
+            self.add_part(part.name.clone(), part.placement, part.layer());
         }
         for (_, pipe) in &other.pipes {
             self.add_pipe(*pipe);
@@ -40,27 +42,19 @@ impl Blueprint {
         prototypes: Vec<(PartCoord, Rotation, PartPrototype)>,
         pipes: Vec<PipeGeometry>,
     ) -> Self {
-        let mut next_part_id = PartId(0);
-        let mut parts = BTreeMap::new();
+        let mut ret = Self::new();
 
         for (pos, rot, proto) in prototypes {
-            let instance = InstantiatedPart::from_prototype(proto, pos, rot);
-            parts.insert(next_part_id, instance);
-
-            next_part_id.0 += 1;
+            let placement = GridPlacement::new(pos, rot, proto.dims);
+            let layer = proto.layer();
+            ret.add_part(proto.name, placement, layer);
         }
-
-        let mut s = Self {
-            next_part_id,
-            parts,
-            pipes: BTreeMap::new(),
-        };
 
         for pipe in pipes {
-            s.add_pipe(pipe);
+            ret.add_pipe(pipe);
         }
 
-        s
+        ret
     }
 
     fn get_next_part_id(&mut self) -> PartId {
@@ -69,20 +63,18 @@ impl Blueprint {
         ret
     }
 
-    pub fn add_part_old(&mut self, proto: PartPrototype, pos: PartCoord, rot: Rotation) -> PartId {
-        let layer = proto.layer();
-        let placement = GridPlacement::new(pos, rot, proto.dims);
-        self.add_part_new(proto.name, placement, layer)
-    }
-
-    pub fn add_part_new(
+    pub fn add_part(
         &mut self,
-        name: String,
+        name: impl Into<String>,
         placement: GridPlacement,
         layer: PartLayer,
     ) -> PartId {
         let id = self.get_next_part_id();
         let instance = InstantiatedPart::new(name, layer, placement);
+        for p in instance.placement.cells() {
+            let k = (p, layer);
+            self.occupied_map.insert(k, id);
+        }
         self.parts.insert(id, instance);
         id
     }
@@ -177,7 +169,11 @@ impl Blueprint {
     }
 
     pub fn remove_part(&mut self, id: PartId) -> bool {
-        if self.parts.remove(&id).is_some() {
+        if let Some(instance) = self.parts.remove(&id) {
+            let layer = instance.layer();
+            for c in instance.placement.cells() {
+                self.occupied_map.remove(&(c, layer));
+            }
             return true;
         }
         if self.pipes.remove(&id).is_some() {
@@ -254,14 +250,15 @@ impl Blueprint {
         (lower.unwrap().into(), upper.unwrap().into())
     }
 
-    pub fn shift(&mut self, delta: IVec2) {
+    pub fn shift(&mut self, delta: impl Into<PartCoord>) {
+        let delta = delta.into();
         self.parts.iter_mut().for_each(|(_, p)| {
-            p.placement += PartCoord::new(delta);
+            p.placement += delta;
         });
 
         self.pipes.iter_mut().for_each(|(_, p)| {
-            p.start += PartCoord::new(delta);
-            p.end += PartCoord::new(delta);
+            p.start += delta;
+            p.end += delta;
         });
     }
 
@@ -299,6 +296,11 @@ impl Blueprint {
         }
         ret
     }
+
+    pub fn occupied(&self, p: impl Into<PartCoord>, layer: PartLayer) -> Option<PartId> {
+        let key = (p.into(), layer);
+        self.occupied_map.get(&key).cloned()
+    }
 }
 
 #[cfg(test)]
@@ -306,7 +308,143 @@ mod tests {
     use super::*;
 
     #[test]
-    fn blueprint() {
+    fn blueprint_single_layer() {
         let mut bp = Blueprint::new();
+
+        // only consider one layer for now
+        let layer = PartLayer::Structural;
+
+        //         ^
+        // ........|.................
+        // ........|.................
+        // ........|.oooooo..........
+        // ........|.oooooo..........
+        // ........o------------------>
+        // ..........................
+        // ..........................
+
+        let o_id = bp.add_part(
+            "o",
+            GridPlacement::new((2, 1), Rotation::East, (6, 2)),
+            layer,
+        );
+
+        assert_eq!(bp.occupied((1, 0), layer), None);
+        assert_eq!(bp.occupied((2, 0), layer), None);
+        assert_eq!(bp.occupied((3, 0), layer), None);
+        assert_eq!(bp.occupied((4, 0), layer), None);
+        assert_eq!(bp.occupied((5, 0), layer), None);
+        assert_eq!(bp.occupied((6, 0), layer), None);
+        assert_eq!(bp.occupied((7, 0), layer), None);
+
+        assert_eq!(bp.occupied((1, 1), layer), None);
+        assert_eq!(bp.occupied((2, 1), layer), Some(o_id));
+        assert_eq!(bp.occupied((3, 1), layer), Some(o_id));
+        assert_eq!(bp.occupied((4, 1), layer), Some(o_id));
+        assert_eq!(bp.occupied((5, 1), layer), Some(o_id));
+        assert_eq!(bp.occupied((6, 1), layer), Some(o_id));
+        assert_eq!(bp.occupied((7, 1), layer), Some(o_id));
+        assert_eq!(bp.occupied((8, 1), layer), None);
+
+        assert_eq!(bp.occupied((1, 2), layer), None);
+        assert_eq!(bp.occupied((2, 2), layer), Some(o_id));
+        assert_eq!(bp.occupied((3, 2), layer), Some(o_id));
+        assert_eq!(bp.occupied((4, 2), layer), Some(o_id));
+        assert_eq!(bp.occupied((5, 2), layer), Some(o_id));
+        assert_eq!(bp.occupied((6, 2), layer), Some(o_id));
+        assert_eq!(bp.occupied((7, 2), layer), Some(o_id));
+        assert_eq!(bp.occupied((8, 2), layer), None);
+
+        assert_eq!(bp.occupied((1, 3), layer), None);
+        assert_eq!(bp.occupied((2, 3), layer), None);
+        assert_eq!(bp.occupied((3, 3), layer), None);
+        assert_eq!(bp.occupied((4, 3), layer), None);
+        assert_eq!(bp.occupied((5, 3), layer), None);
+        assert_eq!(bp.occupied((6, 3), layer), None);
+        assert_eq!(bp.occupied((7, 3), layer), None);
+
+        //         ^
+        // ........|........xx.......
+        // ........|........xx.......
+        // ........|.oooooo.xx.......
+        // ........|.oooooo..........
+        // ........o------------------>
+        // ..........................
+        // ..........................
+
+        let x_id = bp.add_part(
+            "x",
+            GridPlacement::new((9, 2), Rotation::North, (3, 2)),
+            layer,
+        );
+
+        assert_eq!(bp.occupied((9, 2), layer), Some(x_id));
+        assert_eq!(bp.occupied((9, 3), layer), Some(x_id));
+        assert_eq!(bp.occupied((9, 4), layer), Some(x_id));
+        assert_eq!(bp.occupied((10, 2), layer), Some(x_id));
+        assert_eq!(bp.occupied((10, 3), layer), Some(x_id));
+        assert_eq!(bp.occupied((10, 4), layer), Some(x_id));
+    }
+
+    #[test]
+    fn blueprint_remove_part() {
+        let mut bp = Blueprint::new();
+
+        // only consider one layer for now
+        let layer = PartLayer::Structural;
+
+        //         ^
+        // ........|.................
+        // ........|.................
+        // ........|.oooooo..........
+        // ........|.oooooo..........
+        // ........o------------------>
+        // ..........................
+        // ..........................
+
+        let o_id = bp.add_part(
+            "o",
+            GridPlacement::new((2, 1), Rotation::East, (6, 2)),
+            layer,
+        );
+
+        assert_eq!(bp.occupied((3, 2), layer), Some(o_id));
+
+        bp.remove_part(o_id);
+
+        for x in -100..=100 {
+            for y in -100..=100 {
+                assert_eq!(bp.occupied((x, y), layer), None);
+            }
+        }
+    }
+
+    #[test]
+    fn blueprint_shift() {
+        let mut bp = Blueprint::new();
+
+        // only consider one layer for now
+        let layer = PartLayer::Structural;
+
+        //         ^
+        // ........|.................
+        // ........|.................
+        // ........|.oooooo..........
+        // ........|.oooooo..........
+        // ........o------------------>
+        // ..........................
+        // ..........................
+
+        let o_id = bp.add_part(
+            "o",
+            GridPlacement::new((2, 1), Rotation::East, (6, 2)),
+            layer,
+        );
+
+        bp.shift((7, 5));
+
+        let part = bp.get_part(o_id).expect("Expecting this to succeed");
+
+        assert_eq!(part.placement.bottom_left(), (9, 6).into());
     }
 }

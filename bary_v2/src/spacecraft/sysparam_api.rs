@@ -49,7 +49,7 @@ impl<'w, 's> Spacecraft<'w, 's> {
         let (_, children, _) = self.grids.get(e)?;
         for c in children {
             let (part, _, _) = self.parts.get(*c)?;
-            blueprint.add_part_new(part.name.clone(), part.placement, part.layer());
+            blueprint.add_part(part.name.clone(), part.placement, part.layer());
         }
         Ok(blueprint)
     }

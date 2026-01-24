@@ -293,19 +293,19 @@ mod tests {
     fn grid_to_part_local_test() {
         assert_eq!(
             grid_to_part_local((5, 6).into(), Rotation::East, (10, 3).into()),
-            PartCoord::new((5, -3).into())
+            PartCoord::new((5, -3))
         );
         assert_eq!(
             grid_to_part_local((5, 6).into(), Rotation::North, (7, 12).into()),
-            PartCoord::new((6, -2).into())
+            PartCoord::new((6, -2))
         );
         assert_eq!(
             grid_to_part_local((6, 4).into(), Rotation::West, (3, 8).into()),
-            PartCoord::new((3, -4).into())
+            PartCoord::new((3, -4))
         );
         assert_eq!(
             grid_to_part_local((6, 4).into(), Rotation::South, (12, 2).into()),
-            PartCoord::new((2, 6).into())
+            PartCoord::new((2, 6))
         );
     }
 }

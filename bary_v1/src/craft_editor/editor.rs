@@ -177,7 +177,7 @@ impl Editor {
         let mut blueprint = Blueprint::new();
         for id in &state.editor_context.selected_parts {
             if let Some(part) = state.editor_context.blueprint.get_part(*id) {
-                blueprint.add_part_new(part.name.clone(), part.placement, part.layer());
+                blueprint.add_part(part.name.clone(), part.placement, part.layer());
             }
             if let Some(pipe) = state.editor_context.blueprint.get_pipe(*id) {
                 blueprint.add_pipe(*pipe);
@@ -410,7 +410,7 @@ impl Editor {
     fn add_part(&mut self, p: PartCoord, rot: Rotation, proto: PartPrototype) {
         let placement = GridPlacement::new(p, rot, proto.dims);
         self.blueprint
-            .add_part_new(proto.name.clone(), placement, proto.layer());
+            .add_part(proto.name.clone(), placement, proto.layer());
         self.update();
     }
 
@@ -438,7 +438,7 @@ impl Editor {
             }
         }
 
-        let id = self.blueprint.add_part_new(new_part.name, gp, layer);
+        let id = self.blueprint.add_part(new_part.name, gp, layer);
 
         self.action_queue.push(Action::Add(id));
 

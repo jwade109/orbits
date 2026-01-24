@@ -26,7 +26,6 @@ impl Plugin for TerrainPlugin {
         app.add_systems(
             SimTick,
             (
-                systems::update_meshes,
                 systems::generate_tiles,
                 systems::delete_chunks,
                 systems::excavate_chunks,
@@ -36,6 +35,8 @@ impl Plugin for TerrainPlugin {
             )
                 .chain(),
         );
+
+        app.add_systems(FixedUpdate, systems::update_meshes);
 
         app.add_systems(
             Update,

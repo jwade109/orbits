@@ -93,7 +93,7 @@ impl GridPlacement {
             let iter_x = 0..wh.x;
             iter_x.map(move |x| (x, y))
         });
-        iter_coords.map(|p| self.bottom_left + PartCoord::new(p.into()))
+        iter_coords.map(|p| self.bottom_left + PartCoord::new(p))
     }
 }
 
