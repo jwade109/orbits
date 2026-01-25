@@ -102,6 +102,30 @@ impl GridPlacement {
         });
         iter_coords.map(|p| self.bottom_left + PartCoord::new(p))
     }
+
+    pub fn rotate_ccw(&mut self) {
+        let upper_left = self.top_left();
+        let new_bottom_left = IVec2::Y.rotate(upper_left.inner());
+        self.rotation = enum_iterator::next_cycle(&self.rotation);
+        self.bottom_left = new_bottom_left.into();
+    }
+
+    pub fn rotate(&mut self, rot: Rotation) {
+        let n = match rot {
+            Rotation::East => 0,
+            Rotation::North => 1,
+            Rotation::West => 2,
+            Rotation::South => 3,
+        };
+
+        for _ in 0..n {
+            self.rotate_ccw();
+        }
+    }
+
+    pub fn shift(&mut self, offset: PartCoord) {
+        self.bottom_left += offset;
+    }
 }
 
 pub fn isometry_to_transform(iso: Isometry2d) -> Transform {
@@ -110,6 +134,11 @@ pub fn isometry_to_transform(iso: Isometry2d) -> Transform {
         Quat::from_rotation_z(iso.rotation.as_radians()),
     );
     Transform::from_isometry(iso)
+}
+
+pub fn transform_to_isometry(transform: Transform) -> Isometry2d {
+    let yaw = get_yaw(transform);
+    Isometry2d::new(transform.translation.xy(), yaw.into())
 }
 
 impl std::ops::Add<PartCoord> for GridPlacement {
@@ -130,6 +159,52 @@ impl std::ops::AddAssign<PartCoord> for GridPlacement {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rotate_placement() {
+        //    ^
+        //    |
+        // @@ <---
+        // @@ |   |
+        // @@ |   |
+        //    |  ####
+        //    |  ####
+        //    *---------->
+
+        let bottom_left = (3, 1);
+        let rot = Rotation::East;
+        let dims = (4, 2);
+
+        let mut gp = GridPlacement::new(bottom_left, rot, dims);
+
+        let mut iter = gp.cells();
+
+        assert_eq!(iter.next(), Some((3, 1).into()));
+        assert_eq!(iter.next(), Some((4, 1).into()));
+        assert_eq!(iter.next(), Some((5, 1).into()));
+        assert_eq!(iter.next(), Some((6, 1).into()));
+        assert_eq!(iter.next(), Some((3, 2).into()));
+        assert_eq!(iter.next(), Some((4, 2).into()));
+        assert_eq!(iter.next(), Some((5, 2).into()));
+        assert_eq!(iter.next(), Some((6, 2).into()));
+        assert_eq!(iter.next(), None);
+
+        drop(iter);
+
+        gp.rotate_ccw();
+
+        let mut iter = gp.cells();
+
+        assert_eq!(iter.next(), Some((-3, 3).into()));
+        assert_eq!(iter.next(), Some((-2, 3).into()));
+        assert_eq!(iter.next(), Some((-3, 4).into()));
+        assert_eq!(iter.next(), Some((-2, 4).into()));
+        assert_eq!(iter.next(), Some((-3, 5).into()));
+        assert_eq!(iter.next(), Some((-2, 5).into()));
+        assert_eq!(iter.next(), Some((-3, 6).into()));
+        assert_eq!(iter.next(), Some((-2, 6).into()));
+        assert_eq!(iter.next(), None);
+    }
 
     #[test]
     fn grid_placement_math_east() {

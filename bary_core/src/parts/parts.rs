@@ -192,12 +192,8 @@ impl InstantiatedPart {
     }
 
     pub fn center_meters(&self) -> Vec2 {
-        let dims = rotate_dims(
-            self.placement.rot(),
-            self.placement.part_aligned_dims().to_meters(),
-        );
-        let origin = self.placement.bottom_left().to_meters();
-        origin + dims / 2.0
+        let iso = self.placement.center_isometry();
+        iso.translation
     }
 
     pub fn origin(&self) -> PartCoord {

@@ -22,17 +22,6 @@ pub struct SelectedSpacecraft {
     pub secondary: Option<SelectedPointInfo>,
 }
 
-fn get_yaw(transform: Transform) -> f32 {
-    let (yaw, _pitch, _roll) = transform.rotation.to_euler(EulerRot::ZYX);
-    yaw
-}
-
-fn in_frame(transform: Transform, pos: Vec2) -> Vec2 {
-    let offset = pos - transform.translation.xy();
-    let yaw = get_yaw(transform);
-    rotate(offset, -yaw)
-}
-
 pub fn update_selected_spacecraft_system(
     // mut gizmos: Gizmos,
     mut cursor: ResMut<SelectedSpacecraft>,

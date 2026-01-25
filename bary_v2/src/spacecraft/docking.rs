@@ -24,12 +24,30 @@ impl Default for DockingProgram {
     }
 }
 
+impl DockingProgram {
+    pub fn isometry(&self) -> Isometry2d {
+        Isometry2d::new(
+            self.offset.to_meters(),
+            (self.rotation.to_angle() as f32).into(),
+        )
+    }
+}
+
 #[derive(Event, Debug, Clone, Copy)]
 pub struct DockingTrigger {
     pub chief: Entity,
     pub deputy: Entity,
     pub offset: PartCoord,
     pub rotation: Rotation,
+}
+
+impl DockingTrigger {
+    pub fn isometry(&self) -> Isometry2d {
+        Isometry2d::new(
+            self.offset.to_meters(),
+            (self.rotation.to_angle() as f32).into(),
+        )
+    }
 }
 
 pub fn docking_program_egui(
@@ -99,30 +117,22 @@ pub fn docking_program_egui(
 pub fn draw_blueprint(
     gizmos: &mut Gizmos,
     bp: &Blueprint,
-    transform: Transform,
+    isometry: Isometry2d,
     parts: &PartDatabase,
 ) {
     for (_, part) in bp.parts() {
         if part.layer() == PartLayer::Exterior {
             continue;
         }
-
-        let part_center = part.center_meters();
-        let dims = part.dims_meters();
-        let Some(proto) = parts.get(&part.name) else {
+        let part_isometry = part.placement.center_isometry();
+        let dims = part.placement.part_aligned_dims().to_meters();
+        let color = if let Some(proto) = parts.get(&part.name) {
+            diagram_color(proto)
+        } else {
             continue;
         };
-
-        let color = diagram_color(proto);
-
-        let (yaw, _pitch, _roll) = transform.rotation.to_euler(EulerRot::ZYX);
-
-        let transform_center =
-            transform.translation.xy() + Vec2::from_angle(yaw).rotate(part_center);
-
-        let iso = Isometry2d::new(transform_center, yaw.into());
-
-        gizmos.rect_2d(iso, dims, color);
+        let total_isometry = isometry * part_isometry;
+        gizmos.rect_2d(total_isometry, dims, color);
     }
 }
 
@@ -141,22 +151,11 @@ pub fn draw_blueprint_of_docking_program(
     }
 
     let sec_bp = spacecraft.blueprint(b).ok()?;
-
     let pri_tf = spacecraft.grid_transform(a).ok()?;
-
-    let mut sec_tf = pri_tf;
-
-    let offset_meters = pgrm.offset.to_meters();
-
-    sec_tf.translation += sec_tf.local_x() * offset_meters.x;
-    sec_tf.translation += sec_tf.local_y() * offset_meters.y;
-
-    sec_tf.rotate_local_z(pgrm.rotation.to_angle() as f32);
-
-    gizmos.axes_2d(pri_tf, 2.0);
-
-    gizmos.axes_2d(sec_tf, 2.0);
-    draw_blueprint(&mut gizmos, &sec_bp, sec_tf, &parts);
+    let pri_isometry = transform_to_isometry(pri_tf);
+    let docking_isometry = pgrm.isometry();
+    let sec_isometry = pri_isometry * docking_isometry;
+    draw_blueprint(&mut gizmos, &sec_bp, sec_isometry, &parts);
 
     Some(())
 }
@@ -169,7 +168,7 @@ pub fn process_docking_triggers(
     mut blueprints: Query<&mut Blueprint>,
 ) {
     for trigger in reader.read() {
-        info!("Docking: {:?}", trigger);
+        info!("Docking: {:?}, {:?}", trigger, trigger.isometry());
 
         let mut bpa = ok_or_continue!(blueprints.get_mut(trigger.chief));
 
@@ -178,12 +177,9 @@ pub fn process_docking_triggers(
         for d in deputy {
             let (mut transform, mut instance) = ok_or_continue!(parts.get_mut(*d));
 
-            let new_placement = GridPlacement::new(
-                instance.placement.bottom_left() + trigger.offset,
-                instance.rotation(),
-                instance.placement.part_aligned_dims().inner().as_uvec2(),
-            );
-
+            let mut new_placement = instance.placement;
+            new_placement.rotate(trigger.rotation);
+            new_placement.shift(trigger.offset);
             instance.placement = new_placement;
 
             bpa.add_part(instance.name.clone(), instance.placement, instance.layer());

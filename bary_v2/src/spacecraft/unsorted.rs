@@ -175,7 +175,8 @@ fn draw_blueprints(
     }
 
     for (bp, tf) in bps {
-        draw_blueprint(&mut gizmos, bp, *tf, &parts);
+        let iso = transform_to_isometry(*tf);
+        draw_blueprint(&mut gizmos, bp, iso, &parts);
     }
 }
 

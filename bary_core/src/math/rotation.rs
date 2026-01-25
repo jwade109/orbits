@@ -30,3 +30,44 @@ impl Rotation {
         enum_iterator::previous_cycle(self)
     }
 }
+
+impl std::ops::Add for Rotation {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (x, Self::East) => x,
+            (Self::East, x) => x,
+            (Self::North, Self::North) => Self::West,
+            (Self::North, Self::West) => Self::South,
+            (Self::North, Self::South) => Self::East,
+            (Self::West, Self::North) => Self::South,
+            (Self::West, Self::West) => Self::East,
+            (Self::West, Self::South) => Self::North,
+            (Self::South, Self::North) => Self::East,
+            (Self::South, Self::West) => Self::North,
+            (Self::South, Self::South) => Self::West,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rotation_addition() {
+        for r1 in enum_iterator::all::<Rotation>() {
+            for r2 in enum_iterator::all::<Rotation>() {
+                let r = r1 + r2;
+
+                let a = r1 as u8;
+                let b = r2 as u8;
+                let c = r as u8;
+
+                let sum = (a + b) % 4;
+
+                assert_eq!(sum, c);
+            }
+        }
+    }
+}

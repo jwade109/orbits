@@ -1,9 +1,9 @@
 use super::*;
 
+pub use bevy::math::*;
+use bevy::prelude::Transform;
 use names::Generator;
 use rand::Rng;
-
-pub use bevy::math::*;
 
 pub const PI: f32 = std::f32::consts::PI;
 
@@ -251,6 +251,17 @@ pub fn rect_area_moment_of_inertia_with_offset(_distance: f32, _dims: Vec2) {
 
 pub fn mass_after_maneuver(ve: f64, m0: f64, dv: f64) -> f64 {
     m0 / (dv / ve).exp()
+}
+
+pub fn get_yaw(transform: Transform) -> f32 {
+    let (yaw, _pitch, _roll) = transform.rotation.to_euler(EulerRot::ZYX);
+    yaw
+}
+
+pub fn in_frame(transform: Transform, pos: Vec2) -> Vec2 {
+    let offset = pos - transform.translation.xy();
+    let yaw = get_yaw(transform);
+    rotate(offset, -yaw)
 }
 
 #[cfg(test)]
