@@ -70,24 +70,23 @@ pub fn update_selected_spacecraft_system(
 
             let part_local = in_frame(part_origin, mouse_pos);
 
-            // gizmos.axes(part_origin, dims_meters.min_element());
-
             if part_local.x >= 0.0
                 && part_local.y >= 0.0
                 && part_local.x < dims_meters.x
                 && part_local.y < dims_meters.y
             {
-                // gizmos.arrow_2d(grid_origin, mouse_pos, GREEN);
-                // gizmos.arrow_2d(part_origin.translation.xy(), mouse_pos, GREEN);
+                let part_coord = PartCoord::from_meters_floored(part_local);
 
                 let grid = GridCoord {
                     entity: *grid_id,
                     coord: go_grid,
+                    position: offset,
                 };
 
                 let part = GridCoord {
                     entity: e,
-                    coord: IVec2::ZERO.into(),
+                    coord: part_coord,
+                    position: part_local,
                 };
 
                 let info = SelectedPointInfo { grid, part };

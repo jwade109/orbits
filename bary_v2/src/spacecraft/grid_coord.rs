@@ -1,13 +1,11 @@
-use bevy::{
-    prelude::Entity,
-    transform::components::{GlobalTransform, Transform},
-};
+use bevy::prelude::*;
 use bary_core::prelude::PartCoord;
 
 #[derive(Clone, Copy)]
 pub struct GridCoord {
     pub entity: Entity,
     pub coord: PartCoord,
+    pub position: Vec2,
 }
 
 impl GridCoord {
@@ -23,10 +21,11 @@ impl std::fmt::Debug for GridCoord {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{}({}, {})",
+            "{}({}, {}) ({})",
             self.entity,
             self.coord.inner().x,
-            self.coord.inner().y
+            self.coord.inner().y,
+            self.position,
         )
     }
 }
