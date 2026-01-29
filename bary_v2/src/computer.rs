@@ -67,6 +67,10 @@ impl ComputerMode {
             ComputerMode::PositionHold => true,
         }
     }
+
+    pub fn needs_isometry(&self) -> bool {
+        self.needs_attitude() && self.needs_position()
+    }
 }
 
 impl Computer {
@@ -117,10 +121,13 @@ fn draw_waypoint(
 
 fn draw_computers(
     mut painter: ShapePainter,
-    computers: Query<(&Computer, &GlobalTransform)>,
+    blueprints: Query<&Blueprint>,
+    computers: Query<(&Computer, &GlobalTransform, &ChildOf)>,
     camera: Single<&Transform, With<Camera>>,
+    parts: Res<PartsResource>,
+    mut gizmos: Gizmos,
 ) {
-    for (computer, transform) in computers {
+    for (computer, transform, grid_id) in computers {
         if !computer.on {
             continue;
         }
@@ -161,6 +168,14 @@ fn draw_computers(
                 LIME,
                 camera.scale.x,
             );
+        }
+
+        if computer.mode.needs_isometry() {
+            let iso = Isometry2d::new(computer.position, computer.attitude.into());
+            let Ok(bp) = blueprints.get(grid_id.0) else {
+                continue;
+            };
+            draw_blueprint(&mut gizmos, bp, iso, &parts);
         }
     }
 }

@@ -1,9 +1,12 @@
+use bary_core::prelude::Blueprint;
 use bary_v1::z_index::ZOrdering;
 use bevy::color::palettes::tailwind::*;
 use bevy::prelude::*;
 use bevy_vector_shapes::prelude::*;
 
-use crate::{Computer, ComputerMode, CursorWorldPosition, SelectedSpacecraft};
+use crate::{
+    Computer, ComputerMode, CursorWorldPosition, PartsResource, SelectedSpacecraft, draw_blueprint,
+};
 
 #[derive(Resource, Debug, Default)]
 pub struct CursorPositionCommandWidget {
@@ -29,6 +32,13 @@ impl CursorPositionCommandWidget {
             }
             self.pos_up = p;
         }
+    }
+
+    pub fn isometry(&self) -> Option<Isometry2d> {
+        let down = self.pos_down?;
+        let up = self.pos_up?;
+        let angle = (up - down).to_angle();
+        Some(Isometry2d::new(down, angle.into()))
     }
 
     fn clear(&mut self) {
@@ -72,6 +82,10 @@ pub fn update_position_command_widget_system(
 pub fn draw_position_command_widget(
     mut painter: ShapePainter,
     widget: Res<CursorPositionCommandWidget>,
+    sel: Res<SelectedSpacecraft>,
+    blueprints: Query<&Blueprint>,
+    mut gizmos: Gizmos,
+    parts: Res<PartsResource>,
 ) {
     let z = ZOrdering::Debug2.as_f32();
 
@@ -88,6 +102,18 @@ pub fn draw_position_command_widget(
             painter.line(up.extend(0.0), down.extend(0.0));
         }
     }
+
+    let Some(grid_id) = sel.primary else {
+        return;
+    };
+    let Some(iso) = widget.isometry() else {
+        return;
+    };
+    let Ok(bp) = blueprints.get(grid_id.grid.entity) else {
+        return;
+    };
+
+    draw_blueprint(&mut gizmos, bp, iso, &parts);
 }
 
 pub fn on_position_commands_system(
