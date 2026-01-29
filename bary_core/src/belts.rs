@@ -113,7 +113,7 @@ impl AsteroidBelt {
     pub fn random_radius(&self, angle: f64) -> f64 {
         let (rmin, rmax) = self.radius(angle);
         let s = rand(0.0, 1.0);
-        rmin.lerp(rmax, s as f64)
+        bevy::prelude::FloatExt::lerp(rmin, rmax, s as f64)
     }
 
     pub fn random_sample(&self) -> DVec2 {

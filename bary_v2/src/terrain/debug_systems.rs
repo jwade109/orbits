@@ -1,8 +1,8 @@
+use bary_v1::ui::apply_egui_style;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use bevy_egui::EguiContexts;
 use bevy_vector_shapes::prelude::*;
-use bary_v1::ui::apply_egui_style;
 
 use crate::spacecraft::SelectedSpacecraft;
 use crate::{CursorWorldPosition, Settings};
@@ -67,25 +67,23 @@ pub fn draw_hovered_grid_and_tile(
         }
     }
 
-    const Z_HOVER_TILE_DEBUG: f32 = 1.0;
+    // const Z_HOVER_TILE_DEBUG: f32 = 1.0;
 
-    if let Some(tile) = terrain.chunk_at(cursor) {
-        let center = lattice_point_center_world_pos(g, l.as_ivec2());
+    // if let Some(tile) = terrain.chunk_at(cursor) {
+    //     let center = lattice_point_center_world_pos(g, l.as_ivec2());
 
-        painter.reset();
-        painter.set_color(GREEN.with_alpha(0.8));
-        painter.set_translation(center.extend(Z_HOVER_TILE_DEBUG));
-        painter.hollow = true;
-        painter.thickness = 2.0;
-        painter.thickness_type = ThicknessType::Pixels;
-        painter.rect(Vec2::splat(CHUNK_WIDTH / TILES_PER_CHUNK_SIDE as f32));
-    }
+    //     painter.reset();
+    //     painter.set_color(GREEN.with_alpha(0.8));
+    //     painter.set_translation(center.extend(Z_HOVER_TILE_DEBUG));
+    //     painter.hollow = true;
+    //     painter.thickness = 2.0;
+    //     painter.thickness_type = ThicknessType::Pixels;
+    //     painter.rect(Vec2::splat(CHUNK_WIDTH / TILES_PER_CHUNK_SIDE as f32));
+    // }
 }
 
-pub fn draw_highlighted_lattice_points(
+pub fn trigger_mouse_digging(
     mut commands: Commands,
-    mut painter: ShapePainter,
-    map: Res<ChunkMap>,
     cursor: Res<CursorWorldPosition>,
     btn: Res<ButtonInput<MouseButton>>,
     info: Res<SelectedSpacecraft>,
@@ -96,14 +94,6 @@ pub fn draw_highlighted_lattice_points(
         _ => return,
     };
 
-    let g = to_grid(pos);
-    let (lower, upper) = chunk_bounds(g);
-    let u = (pos - lower) / CHUNK_WIDTH;
-
-    let lattice_idx = (u * TILES_PER_CHUNK_SIDE as f32).round().as_ivec2();
-
-    let (x, y) = (lattice_idx.x as usize, lattice_idx.y as usize);
-
     if info.hovered.is_none() {
         if btn.pressed(MouseButton::Left) && settings.dig_with_mouse {
             let dig = Excavate {
@@ -111,7 +101,7 @@ pub fn draw_highlighted_lattice_points(
                 radius: 12.0,
                 is_fill: false,
             };
-            commands.send_event(dig);
+            commands.write_message(dig);
         }
         if btn.pressed(MouseButton::Right) && settings.dig_with_mouse {
             let dig = Excavate {
@@ -119,7 +109,7 @@ pub fn draw_highlighted_lattice_points(
                 radius: 12.0,
                 is_fill: true,
             };
-            commands.send_event(dig);
+            commands.write_message(dig);
         }
     }
 }
@@ -140,7 +130,6 @@ pub fn draw_excavators(
 }
 
 pub fn debug_ui(
-    mut commands: Commands,
     mut contexts: EguiContexts,
     cursor: Res<CursorWorldPosition>,
     terrain: TerrainHelper,

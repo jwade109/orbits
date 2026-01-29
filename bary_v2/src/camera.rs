@@ -16,7 +16,7 @@ impl Plugin for CameraPlugin {
                 .chain(),
         );
 
-        app.add_systems(FixedUpdate, (propagate_camera_physics,).chain());
+        app.add_systems(FixedUpdate, propagate_camera_physics);
 
         // update_mouse_world_pos
         app.add_systems(PostUpdate, update_mouse_world_pos)
@@ -83,7 +83,7 @@ fn draw_camera_debug(
 fn set_camera_command(
     key: Res<ButtonInput<KeyCode>>,
     mut state: ResMut<CameraState>,
-    mut scroll: EventReader<MouseWheel>,
+    mut scroll: MessageReader<MouseWheel>,
 ) {
     state.command = IVec3::ZERO;
 

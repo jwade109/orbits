@@ -120,9 +120,9 @@ pub fn draw_orbit(
         let d = pos.length();
         let text = format!("{} {}", text, distance_str(d));
         let anchor = if pos.x > 0.0 {
-            Anchor::CenterLeft
+            Anchor::CENTER_LEFT
         } else {
-            Anchor::CenterRight
+            Anchor::CENTER_RIGHT
         };
         canvas
             .text(text, tp, 0.6)
@@ -534,7 +534,7 @@ pub fn draw_camera_info(
 
     canvas
         .text(label, -window_span / 2.0 + Vec2::splat(40.0), 0.9)
-        .set_anchor(Anchor::CenterLeft);
+        .set_anchor(Anchor::CENTER_LEFT);
 
     let xl = (xl / step) * step;
     let xu = (xu / step) * step;

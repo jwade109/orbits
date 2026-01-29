@@ -221,7 +221,7 @@ pub fn update_hose_physics_system(
     transforms: Query<&Transform>,
     time: Res<Time<Fixed>>,
 ) {
-    let dt = time.delta_secs();
+    let dt = 1.0 / 60.0;
     for (e, mut hose) in &mut hoses {
         hose.status = match (hose.is_on, hose.is_connected()) {
             (false, _) => MachineStatus::Off,

@@ -16,10 +16,10 @@ impl Plugin for TerrainPlugin {
         app.insert_resource(types::ChunkMap::default());
 
         // messages
-        app.add_event::<messages::GenerateChunk>();
-        app.add_event::<messages::DeleteChunk>();
-        app.add_event::<messages::Excavate>();
-        app.add_event::<messages::MineToInventory>();
+        app.add_message::<messages::GenerateChunk>();
+        app.add_message::<messages::DeleteChunk>();
+        app.add_message::<messages::Excavate>();
+        app.add_message::<messages::MineToInventory>();
 
         app.add_systems(Startup, systems::insert_tiles);
 
@@ -45,7 +45,7 @@ impl Plugin for TerrainPlugin {
                 // debug rendering
                 debug_systems::draw_excavators,
                 debug_systems::draw_hovered_grid_and_tile,
-                debug_systems::draw_highlighted_lattice_points,
+                debug_systems::trigger_mouse_digging,
                 // flood fill stuff. just a demo for cave detection.
                 // not a serious endeavor.
                 flood_fill::spawn_flood_fill,

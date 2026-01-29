@@ -23,7 +23,7 @@ impl TextLabel {
             pos,
             size,
             color: WHITE,
-            anchor: Anchor::Center,
+            anchor: Anchor::CENTER,
             z_index: ZOrdering::Text,
         }
     }

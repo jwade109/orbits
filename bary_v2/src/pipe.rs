@@ -6,7 +6,7 @@ pub struct InventoryTransferPlugin;
 
 impl Plugin for InventoryTransferPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(FixedUpdate, process_pipes)
+        app.add_systems(SimTick, process_pipes)
             .add_systems(PostUpdate, draw_pipes);
     }
 }

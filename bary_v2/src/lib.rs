@@ -18,6 +18,7 @@ mod terrain;
 mod thruster;
 mod tick_schedule;
 mod utils;
+mod plots;
 
 pub use animated_text::*;
 pub use camera::*;
@@ -36,17 +37,15 @@ pub use terrain::*;
 pub use thruster::*;
 pub use tick_schedule::*;
 pub use utils::*;
+pub use plots::*;
 
 pub use bary_v1::args::ProgramContext;
 pub use bevy::color::palettes::css::*;
 pub use bevy::input::mouse::MouseWheel;
 pub use bevy::math::DVec2;
 pub use bevy::prelude::*;
-pub use bevy::render::mesh::{Indices, PrimitiveTopology};
-pub use bevy::sprite::{Wireframe2dConfig, Wireframe2dPlugin};
 pub use bevy::time::common_conditions::on_timer;
 pub use bevy_egui::{EguiContexts, EguiPlugin, EguiPrimaryContextPass, egui};
-pub use bevy_render::render_asset::RenderAssetUsages;
 pub use bevy_vector_shapes::prelude::*;
 pub use early_returns::{ok_or_continue, ok_or_return, some_or_continue, some_or_return};
 pub use enum_iterator::Sequence;

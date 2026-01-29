@@ -6,11 +6,11 @@ pub struct ComputerPlugin;
 
 impl Plugin for ComputerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(SimTick, (update_computers, do_maneuvers));
-        app.add_systems(Update, (human_control, handle_hold_here_commands));
+        app.add_systems(Update, human_control);
         app.add_systems(PostUpdate, draw_computers);
         app.insert_resource(ManualControl::default());
-        app.add_event::<HoldHereCommand>();
+
+        app.add_observer(handle_hold_here_commands);
     }
 }
 
@@ -75,7 +75,7 @@ impl Computer {
     }
 }
 
-fn update_computers(computers: Query<&mut Computer>) {
+pub fn update_computers(computers: Query<&mut Computer>) {
     for mut computer in computers {
         computer.status = match computer.on {
             true => MachineStatus::Running,
@@ -165,7 +165,7 @@ fn draw_computers(
     }
 }
 
-fn do_maneuvers(
+pub fn do_maneuvers(
     grids: Query<(&Children, &SpacecraftGrid, &Transform)>,
     computers: Query<(&mut Computer, &GlobalTransform, &ChildOf)>,
     mut thrusters: Query<(&mut Thruster, &Transform, &PartInstance)>,
@@ -238,7 +238,7 @@ fn do_maneuvers(
 }
 
 #[derive(Resource, Debug, Default)]
-struct ManualControl(VehicleControl);
+pub struct ManualControl(VehicleControl);
 
 fn keyboard_control_law(keys: &ButtonInput<KeyCode>) -> VehicleControl {
     let mut ctrl = VehicleControl::NULLOPT;
@@ -275,28 +275,28 @@ fn human_control(keys: Res<ButtonInput<KeyCode>>, mut ctrl: ResMut<ManualControl
     ctrl.0 = keyboard_control_law(&keys);
 }
 
-#[derive(Event, Debug)]
+#[derive(EntityEvent, Debug)]
 pub struct HoldHereCommand(pub Entity);
 
 fn handle_hold_here_commands(
-    mut reader: EventReader<HoldHereCommand>,
+    command: On<HoldHereCommand>,
     grids: Query<&GlobalTransform, With<SpacecraftGrid>>,
     mut computers: Query<(&mut Computer, &ChildOf)>,
-) {
-    for msg in reader.read() {
-        info!("Hold here issued: {:?}", msg);
+) -> Result {
+    info!("Hold here issued: {:?}", command);
 
-        let (mut computer, parent) = ok_or_continue!(computers.get_mut(msg.0));
+    let (mut computer, parent) = computers.get_mut(command.0)?;
 
-        info!("Parent vehicle is {}", parent.0);
+    info!("Parent vehicle is {}", parent.0);
 
-        let transform = ok_or_continue!(grids.get(parent.0));
-        let pos = transform.translation();
-        let (yaw, _, _) = transform.rotation().to_euler(EulerRot::ZYX);
+    let transform = grids.get(parent.0)?;
+    let pos = transform.translation();
+    let (yaw, _, _) = transform.rotation().to_euler(EulerRot::ZYX);
 
-        computer.position = pos.xy();
-        computer.attitude = yaw;
-        computer.mode = ComputerMode::PositionHold;
-        computer.on = true;
-    }
+    computer.position = pos.xy();
+    computer.attitude = yaw;
+    computer.mode = ComputerMode::PositionHold;
+    computer.on = true;
+
+    Ok(())
 }

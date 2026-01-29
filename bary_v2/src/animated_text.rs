@@ -1,6 +1,6 @@
+use bary_core::prelude::*;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
-use bary_core::prelude::*;
 
 pub struct AnimatedTextPlugin;
 
@@ -8,11 +8,11 @@ impl Plugin for AnimatedTextPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, (receive_events, update_lifetimes));
         app.add_systems(FixedUpdate, update_text);
-        app.add_event::<SpawnAnimText>();
+        app.add_message::<SpawnAnimText>();
     }
 }
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct SpawnAnimText {
     pub text: String,
     pub color: Srgba,
@@ -36,26 +36,26 @@ struct AnimText(String);
 struct Lifetime(f32);
 
 fn observer(
-    trigger: Trigger<Pointer<Click>>,
+    trigger: On<Pointer<Click>>,
     mut query: Query<&mut BackgroundColor, With<AnimText>>,
     mut commands: Commands,
 ) {
     match trigger.button {
         PointerButton::Primary => (),
         PointerButton::Secondary => {
-            commands.entity(trigger.target()).despawn();
+            commands.entity(trigger.entity).despawn();
             return;
         }
         PointerButton::Middle => return,
     }
 
-    if let Ok(mut c) = query.get_mut(trigger.target()) {
+    if let Ok(mut c) = query.get_mut(trigger.entity) {
         c.0 = DARK_GREEN.into();
-        commands.entity(trigger.target()).remove::<Lifetime>();
+        commands.entity(trigger.entity).remove::<Lifetime>();
     }
 }
 
-fn receive_events(mut commands: Commands, mut events: EventReader<SpawnAnimText>) {
+fn receive_events(mut commands: Commands, mut events: MessageReader<SpawnAnimText>) {
     for event in events.read() {
         let (x, y) = if let Some(pos) = event.pos {
             (Val::Px(pos.x), Val::Px(pos.y))

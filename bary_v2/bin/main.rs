@@ -1,7 +1,10 @@
 use bary_core::prelude::*;
 use bary_v1::args::ProgramContext;
 use bary_v2::*;
-use bevy::core_pipeline::bloom::Bloom;
+use bevy::{
+    post_process::bloom::Bloom,
+    sprite_render::{Wireframe2dConfig, Wireframe2dPlugin},
+};
 use bevy_ecs::schedule::{LogLevel, ScheduleBuildSettings};
 
 fn main() {
@@ -33,6 +36,7 @@ fn main() {
         .add_plugins(TerrainPlugin)
         .add_plugins(CameraPlugin)
         .add_plugins(InventoryTransferPlugin)
+        .add_plugins(plot_plugin)
         .add_systems(EguiPrimaryContextPass, egui_ui)
         .add_systems(Startup, setup)
         .add_systems(
@@ -96,10 +100,7 @@ fn setup(mut commands: Commands) -> Result {
 
     commands.spawn((
         Camera2d::default(),
-        Camera {
-            hdr: true,
-            ..default()
-        },
+        Camera::default(),
         Transform::from_xyz(0.0, 20.0, 0.0).with_scale(Vec3::splat(0.1)),
         Bloom {
             intensity: 0.2,
@@ -109,7 +110,7 @@ fn setup(mut commands: Commands) -> Result {
 
     for ship in save_data.ships {
         info!("Spawning {}", &ship.name);
-        commands.send_event(SpacecraftEvent::SpawnVehicle {
+        commands.trigger(SpacecraftEvent::SpawnVehicle {
             blueprint_name: ship.name,
             ship_name: get_random_ship_name(&ship_names),
             pos: ship.pos,

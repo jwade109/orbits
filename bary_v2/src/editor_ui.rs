@@ -84,7 +84,7 @@ fn add_computer_widget(
     });
 
     if ui.button("Hold Here").clicked() {
-        commands.send_event(HoldHereCommand(e));
+        commands.trigger(HoldHereCommand(e));
     }
 
     egui::ComboBox::from_label("")
@@ -203,7 +203,7 @@ fn add_inv_widget(ui: &mut egui::Ui, inv: &mut Inventory) {
         let filter = slot.filter();
 
         ui.horizontal(|ui| {
-            let size = bevy_inspector_egui::egui::Vec2::new(10.0, 10.0);
+            let size = egui::Vec2::new(10.0, 10.0);
             egui::color_picker::show_color(ui, color, size);
             ui.label(format!(
                 "{:?} {} {}/{} ({}) {} %{:?}",
@@ -232,7 +232,7 @@ pub fn running_status_widget(ui: &mut egui::Ui, status: MachineStatus) {
     };
 
     ui.horizontal(|ui| {
-        egui::color_picker::show_color(ui, color, bevy_inspector_egui::egui::Vec2::new(10.0, 10.0));
+        egui::color_picker::show_color(ui, color, egui::Vec2::new(10.0, 10.0));
         if status.is_running() {
             ui.add(egui::Spinner::new().color(color));
         }
@@ -450,7 +450,7 @@ pub fn egui_ui(
                 ui.color_edit_button_rgb(&mut state.message_color);
 
                 if ui.button("Spawn Text").clicked() {
-                    commands.send_event(SpawnAnimText {
+                    commands.write_message(SpawnAnimText {
                         text: state.message_text.clone(),
                         color: Srgba::from_f32_array([
                             state.message_color[0],
@@ -482,7 +482,7 @@ pub fn egui_ui(
                 });
 
                 if ui.button("Spawn Spacecraft").clicked() {
-                    commands.send_event(SpacecraftEvent::SpawnVehicle {
+                    commands.trigger(SpacecraftEvent::SpawnVehicle {
                         blueprint_name: state.sc_name.clone(),
                         ship_name: "Random Name".to_string(),
                         pos: state.sc_pos,
@@ -491,7 +491,7 @@ pub fn egui_ui(
                 }
 
                 if ui.button("Spawn Part").clicked() {
-                    commands.send_event(SpacecraftEvent::SpawnPart {
+                    commands.trigger(SpacecraftEvent::SpawnPart {
                         name: state.sc_name.clone(),
                         pos: state.sc_pos,
                         angle: rand(-0.2, 0.3),

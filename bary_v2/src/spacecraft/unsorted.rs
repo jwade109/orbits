@@ -43,7 +43,7 @@ impl Plugin for SpacecraftPlugin {
                 update_selected_spacecraft_system,
                 update_selected_hose_system,
                 draw_hose_selection_area_system,
-                process_position_commands_system.pipe(swallow_optional),
+                spawn_random_ship_on_y,
             ),
         );
 
@@ -52,7 +52,6 @@ impl Plugin for SpacecraftPlugin {
         app.add_systems(
             SimTick,
             (
-                handle_sc_events,
                 check_adjacent_docking_ports,
                 build_parts,
                 update_machines,
@@ -62,14 +61,17 @@ impl Plugin for SpacecraftPlugin {
                 update_spacecraft_grid_map,
                 update_hose_physics_system,
                 do_hose_inventory_transfer_system,
-                process_docking_triggers,
+                update_computers,
+                do_maneuvers,
+                consume_fuel,
+                apply_thrust_to_grids,
             )
                 .chain(),
         );
 
-        app.add_event::<SpacecraftEvent>();
-        app.add_event::<PositionHoldCommand>();
-        app.add_event::<DockingTrigger>();
+        app.add_observer(handle_sc_events);
+        app.add_observer(process_docking_triggers);
+        app.add_observer(on_position_commands_system.pipe(swallow_optional));
 
         app.insert_resource(SelectedSpacecraft::default());
         app.insert_resource(SelectedHose::default());
@@ -315,8 +317,8 @@ fn update_grids(
 }
 
 fn handle_sc_events(
+    event: On<SpacecraftEvent>,
     mut commands: Commands,
-    mut events: EventReader<SpacecraftEvent>,
     args: Res<ProgramContext>,
     mut asset_server: ResMut<AssetServer>,
     spacecraft: Query<&GlobalTransform, With<SpacecraftGrid>>,
@@ -324,67 +326,65 @@ fn handle_sc_events(
     parts: Res<PartsResource>,
 ) -> Result {
     let (camera, transform) = camera.single()?;
-    for event in events.read() {
-        info!("SpacecraftGrid event: {:?}", event);
+    info!("SpacecraftGrid event: {:?}", event);
 
-        match event {
-            SpacecraftEvent::SpawnVehicle {
-                ship_name,
-                blueprint_name,
-                pos,
-                angle,
-            } => {
-                let vehicle_path = args
-                    .vehicle_dir()
-                    .join(format!("{}.vehicle", blueprint_name));
-                let vehicle = if let Ok(vehicle) = load_vehicle(&vehicle_path, &parts) {
-                    vehicle
-                } else {
-                    commands.send_event(SpawnAnimText::new(format!(
-                        "Bad vehicle path: {}",
-                        blueprint_name
-                    )));
-                    panic!();
-                };
+    match event.event() {
+        SpacecraftEvent::SpawnVehicle {
+            ship_name,
+            blueprint_name,
+            pos,
+            angle,
+        } => {
+            let vehicle_path = args
+                .vehicle_dir()
+                .join(format!("{}.vehicle", blueprint_name));
+            let vehicle = if let Ok(vehicle) = load_vehicle(&vehicle_path, &parts) {
+                vehicle
+            } else {
+                commands.write_message(SpawnAnimText::new(format!(
+                    "Bad vehicle path: {}",
+                    blueprint_name
+                )));
+                panic!();
+            };
 
-                spawn_spacecraft(
-                    &mut commands,
-                    *pos,
-                    *angle,
-                    ship_name.clone(),
-                    &vehicle,
-                    &mut asset_server,
-                    &args,
-                    &parts,
-                );
-            }
-            SpacecraftEvent::SpawnPart { name, pos, angle } => {
-                let parts = load_parts_from_dir(&args.parts_dir())?;
-                let part = parts.get(name).ok_or("bad part")?;
-                let instance = InstantiatedPart::from_prototype(
-                    part.clone(),
-                    PartCoord::new(IVec2::ZERO),
-                    bary_core::prelude::Rotation::East,
-                );
+            spawn_spacecraft(
+                &mut commands,
+                *pos,
+                *angle,
+                ship_name.clone(),
+                &vehicle,
+                &mut asset_server,
+                &args,
+                &parts,
+            );
+        }
+        SpacecraftEvent::SpawnPart { name, pos, angle } => {
+            let parts = load_parts_from_dir(&args.parts_dir())?;
+            let part = parts.get(name).ok_or("bad part")?;
+            let instance = InstantiatedPart::from_prototype(
+                part.clone(),
+                PartCoord::new(IVec2::ZERO),
+                bary_core::prelude::Rotation::East,
+            );
 
-                let mut grid = spawn_empty_grid(&mut commands, *pos, *angle, "Grid".to_string());
-                grid.with_children(|parent| {
-                    add_part_to_grid(parent, &instance, &mut asset_server, &args, &parts)
-                });
-            }
-            SpacecraftEvent::Destroy { target } => {
-                let tf = spacecraft
-                    .get(*target)
-                    .map(|v| *v)
-                    .unwrap_or(GlobalTransform::default());
-                let pos = camera.world_to_viewport(transform, tf.translation());
-                commands.entity(*target).despawn();
-                commands.send_event(SpawnAnimText {
-                    text: "Vehicle deleted".to_string(),
-                    color: RED,
-                    pos: pos.ok(),
-                });
-            }
+            let mut grid = spawn_empty_grid(&mut commands, *pos, *angle, "Grid".to_string());
+            grid.with_children(|parent| {
+                add_part_to_grid(parent, &instance, &mut asset_server, &args, &parts)
+            });
+        }
+        SpacecraftEvent::Destroy { target } => {
+            let tf = spacecraft
+                .get(*target)
+                .map(|v| *v)
+                .unwrap_or(GlobalTransform::default());
+            let pos = camera.world_to_viewport(transform, tf.translation());
+            commands.entity(*target).despawn();
+            commands.write_message(SpawnAnimText {
+                text: "Vehicle deleted".to_string(),
+                color: RED,
+                pos: pos.ok(),
+            });
         }
     }
 
@@ -568,7 +568,7 @@ fn accelerate_spacecraft(
     mut grids: Query<(&mut Transform, &mut SpacecraftGrid)>,
     time: Res<Time<Fixed>>,
 ) {
-    let dt = time.delta_secs_f64();
+    let dt = 1.0 / 60.0;
     for (mut tf, mut grid) in &mut grids {
         let world_frame_accel = tf
             .rotation

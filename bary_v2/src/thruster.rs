@@ -37,7 +37,6 @@ pub struct ThrusterPlugin;
 impl Plugin for ThrusterPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(PostUpdate, draw_thrusters);
-        app.add_systems(FixedUpdate, (consume_fuel, apply_thrust_to_grids));
     }
 }
 
@@ -67,7 +66,7 @@ fn draw_thrusters(
     }
 }
 
-fn consume_fuel(mut thrusters: Query<(&mut Thruster, &mut Inventory)>, settings: Res<Settings>) {
+pub fn consume_fuel(mut thrusters: Query<(&mut Thruster, &mut Inventory)>, settings: Res<Settings>) {
     for (mut thruster, mut inv) in &mut thrusters {
         thruster.status = if thruster.on {
             if settings.infinite_fuel {
@@ -94,7 +93,7 @@ pub fn body_frame_thrust(thruster: &Thruster, transform: &Transform, com: Vec2) 
     (thrust, torque as f32)
 }
 
-fn apply_thrust_to_grids(
+pub fn apply_thrust_to_grids(
     thrusters: Query<(&Thruster, &Transform, &ChildOf)>,
     mut grids: Query<&mut SpacecraftGrid>,
 ) {

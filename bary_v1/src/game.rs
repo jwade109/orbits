@@ -1,12 +1,11 @@
 use crate::prelude::*;
 use crate::ui::apply_egui_style;
 use bary_core::prelude::*;
+use bevy::asset::RenderAssetUsages;
+use bevy::camera::visibility::RenderLayers;
 use bevy::color::palettes::css::*;
-use bevy::core_pipeline::bloom::Bloom;
-use bevy::core_pipeline::smaa::Smaa;
+use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
-use bevy::render::render_asset::RenderAssetUsages;
-use bevy::render::view::RenderLayers;
 use bevy_egui::{EguiContexts, EguiPrimaryContextPass};
 use clap::Parser;
 use image::{DynamicImage, RgbaImage};
@@ -15,12 +14,19 @@ use std::path::Path;
 
 pub struct GamePlugin;
 
+fn ui_example_system(mut contexts: EguiContexts) -> Result {
+    egui::Window::new("Hello").show(contexts.ctx_mut()?, |ui| {
+        ui.label("world");
+    });
+    Ok(())
+}
+
 fn new_editor_ui(
     mut contexts: EguiContexts,
     mut game: ResMut<GameState>,
     keys: Res<ButtonInput<KeyCode>>,
-) -> Result {
-    let ctx = contexts.ctx_mut()?;
+) {
+    let ctx = contexts.ctx_mut().unwrap();
 
     use egui::Align2;
 
@@ -134,8 +140,6 @@ fn new_editor_ui(
         ui.label(format!("{} pipes", n));
         ui.separator();
     });
-
-    Ok(())
 }
 
 impl Plugin for GamePlugin {
@@ -158,8 +162,7 @@ impl Plugin for GamePlugin {
                 update_static_sprites,
                 update_background_color,
                 crate::ui::do_text_labels,
-            )
-                .chain(),
+            ), // .chain(),
         );
 
         app.add_systems(FixedUpdate, on_game_tick);
@@ -248,7 +251,6 @@ fn init_system(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     commands.spawn((
         Camera2d,
         Camera {
-            hdr: true,
             order: 0,
             clear_color: ClearColorConfig::Custom(BLACK.with_alpha(0.0).into()),
             ..default()
@@ -258,14 +260,12 @@ fn init_system(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
             ..Bloom::OLD_SCHOOL
         },
         BackgroundCamera,
-        Smaa::default(),
         RenderLayers::layer(0),
     ));
 
     commands.spawn((
         Camera2d,
         Camera {
-            hdr: true,
             order: 1,
             clear_color: ClearColorConfig::Custom(BLACK.with_alpha(0.0).into()),
             ..default()

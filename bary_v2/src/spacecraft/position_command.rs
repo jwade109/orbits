@@ -1,7 +1,7 @@
+use bary_v1::z_index::ZOrdering;
 use bevy::color::palettes::tailwind::*;
 use bevy::prelude::*;
 use bevy_vector_shapes::prelude::*;
-use bary_v1::z_index::ZOrdering;
 
 use crate::{Computer, ComputerMode, CursorWorldPosition, SelectedSpacecraft};
 
@@ -44,7 +44,7 @@ pub struct PositionHoldCommand {
 }
 
 pub fn update_position_command_widget_system(
-    mut events: EventWriter<PositionHoldCommand>,
+    mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
     cursor: Res<CursorWorldPosition>,
     mut widget: ResMut<CursorPositionCommandWidget>,
@@ -60,7 +60,7 @@ pub fn update_position_command_widget_system(
     if keys.just_released(commands_key) {
         if let Some(msg) = widget.get_command() {
             info!("Command: {:?}", msg);
-            events.write(msg);
+            commands.trigger(msg);
         }
     }
 
@@ -90,22 +90,16 @@ pub fn draw_position_command_widget(
     }
 }
 
-pub fn process_position_commands_system(
-    mut events: EventReader<PositionHoldCommand>,
+pub fn on_position_commands_system(
+    command: On<PositionHoldCommand>,
     selected: Res<SelectedSpacecraft>,
     mut computers: Query<&mut Computer>,
 ) -> Option<()> {
     let id = selected.primary?.part;
-
-    for event in events.read() {
-        let Ok(mut cpu) = computers.get_mut(id.entity) else {
-            continue;
-        };
-        cpu.mode = ComputerMode::PositionHold;
-        cpu.position = event.pos;
-        cpu.attitude = event.angle;
-        cpu.on = true;
-    }
-
+    let mut cpu = computers.get_mut(id.entity).ok()?;
+    cpu.mode = ComputerMode::PositionHold;
+    cpu.position = command.pos;
+    cpu.attitude = command.angle;
+    cpu.on = true;
     Some(())
 }

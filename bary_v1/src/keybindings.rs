@@ -5,7 +5,7 @@ use bevy::prelude::*;
 pub fn keyboard_input(
     keys: Res<ButtonInput<KeyCode>>,
     mut state: ResMut<GameState>,
-    scroll: EventReader<MouseWheel>,
+    scroll: MessageReader<MouseWheel>,
 ) {
     state.input.set_buttons(keys.clone());
     state.input.set_scroll(scroll);

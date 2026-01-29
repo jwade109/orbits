@@ -132,7 +132,7 @@ impl InputState {
         self.buttons = buttons;
     }
 
-    pub fn set_scroll(&mut self, mut scroll: EventReader<MouseWheel>) {
+    pub fn set_scroll(&mut self, mut scroll: MessageReader<MouseWheel>) {
         self.scroll = match scroll.read().next() {
             Some(m) => match m.y.partial_cmp(&0.0) {
                 None => ScrollDir::None,
@@ -195,7 +195,7 @@ impl InputState {
 pub fn update_input_state(
     win: Single<&Window>,
     buttons: Res<ButtonInput<MouseButton>>,
-    mut evr_kbd: EventReader<KeyboardInput>,
+    mut evr_kbd: MessageReader<KeyboardInput>,
     mut state: ResMut<GameState>,
 ) {
     let dims = Vec2::new(win.width(), win.height());

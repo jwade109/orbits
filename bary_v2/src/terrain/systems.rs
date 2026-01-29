@@ -18,7 +18,7 @@ pub fn insert_tiles(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     for x in -30..=30 {
         for y in -30..=30 {
-            commands.send_event(GenerateChunk {
+            commands.write_message(GenerateChunk {
                 pos: IVec2::new(x, y),
                 material: None,
                 log: false,
@@ -29,7 +29,7 @@ pub fn insert_tiles(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 pub fn generate_tiles(
     mut commands: Commands,
-    mut messages: EventReader<GenerateChunk>,
+    mut messages: MessageReader<GenerateChunk>,
     mut chunk_map: ResMut<ChunkMap>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
@@ -65,7 +65,7 @@ pub fn generate_tiles(
 
 pub fn delete_chunks(
     mut commands: Commands,
-    mut messages: EventReader<DeleteChunk>,
+    mut messages: MessageReader<DeleteChunk>,
     mut chunk_map: ResMut<ChunkMap>,
 ) {
     for msg in messages.read() {
@@ -110,7 +110,7 @@ pub fn update_meshes(
 
 pub fn excavate_chunks(
     map: Res<ChunkMap>,
-    mut messages: EventReader<Excavate>,
+    mut messages: MessageReader<Excavate>,
     mut chunks: Query<&mut TerrainChunk>,
 ) {
     for dig in messages.read() {
@@ -175,7 +175,7 @@ pub fn excavate_chunks(
 }
 
 pub fn process_excavators(
-    mut events: EventWriter<MineToInventory>,
+    mut events: MessageWriter<MineToInventory>,
     excavators: Query<(Entity, &GlobalTransform, &mut Excavator)>,
     time: Res<Time<Fixed>>,
 ) {
@@ -204,7 +204,7 @@ pub fn process_excavators(
 }
 
 pub fn process_mine_to_inventory(
-    mut events: EventReader<MineToInventory>,
+    mut events: MessageReader<MineToInventory>,
     chunk_map: Res<ChunkMap>,
     mut chunks: Query<&mut TerrainChunk>,
     mut excavators: Query<(&mut Inventory, &mut Excavator)>,
@@ -273,7 +273,7 @@ pub fn age_mining_visuals_system(
     let dt = time.delta();
     for (e, mut ind) in indicators {
         ind.remaining.tick(dt);
-        if ind.remaining.finished() {
+        if ind.remaining.is_finished() {
             commands.entity(e).despawn();
         }
     }

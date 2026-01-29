@@ -10,6 +10,6 @@ dig_with_mouse: false
 rotation_locked: false
 infinite_fuel: true
 show_terrain_info: false
-show_cursor_info: false
+show_cursor_info: true
 show_time_controls: true
 draw_camera_debug: false

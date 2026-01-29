@@ -1,4 +1,4 @@
-use crate::Settings;
+use crate::{Plots, Settings};
 use bary_v1::ui::apply_egui_style;
 use bevy::prelude::*;
 use bevy_ecs::schedule::ScheduleLabel;
@@ -112,9 +112,17 @@ pub fn world_tick_driver_system(world: &mut World) {
         }
     }
 
+    let mut plots = world.resource_mut::<Plots>();
+
+    plots.add("tick", dt);
+
+    if ticks > 0 {
+        plots.add("time_per_tick", dt / ticks);
+    }
+
     let mut t = world.resource_mut::<TickStatistics>();
 
-    t.ticks += ticks;
+    t.ticks += ticks as u64;
     t.ticks_last_frame = ticks as u32;
     t.dt = dt;
 }
