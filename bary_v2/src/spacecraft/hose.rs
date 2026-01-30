@@ -11,6 +11,7 @@ use egui::Pos2;
 
 use super::grid_coord::GridCoord;
 
+use crate::AddHose;
 use crate::running_status_widget;
 use crate::spacecraft::sysparam_api::Spacecraft;
 use crate::toggle_on_off_button;
@@ -156,18 +157,13 @@ impl Hose {
     }
 }
 
-pub fn spawn_hose_on_keypress_system(
-    keys: Res<ButtonInput<KeyCode>>,
-    selected: Res<SelectedSpacecraft>,
+pub fn on_add_hose(
+    add_hose: On<AddHose>,
     grids: Query<&Transform>,
     mut commands: Commands,
 ) -> Option<()> {
-    if !keys.just_pressed(KeyCode::KeyH) {
-        return Some(());
-    }
-
-    let a = selected.primary?;
-    let b = selected.secondary?;
+    let a = add_hose.a;
+    let b = add_hose.b;
 
     let tf_a = grids.get(a.grid.entity).ok()?;
     let tf_b = grids.get(b.grid.entity).ok()?;

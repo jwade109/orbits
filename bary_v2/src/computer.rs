@@ -290,9 +290,6 @@ fn human_control(keys: Res<ButtonInput<KeyCode>>, mut ctrl: ResMut<ManualControl
     ctrl.0 = keyboard_control_law(&keys);
 }
 
-#[derive(EntityEvent, Debug)]
-pub struct HoldHereCommand(pub Entity);
-
 fn handle_hold_here_commands(
     command: On<HoldHereCommand>,
     grids: Query<&GlobalTransform, With<SpacecraftGrid>>,

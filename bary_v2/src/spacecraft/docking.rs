@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use bevy_egui::EguiContexts;
 use early_returns::{ok_or_continue, ok_or_return};
 
-use crate::{PartInstance, SpacecraftGrid, spacecraft::sysparam_api::Spacecraft};
+use crate::{DockingTrigger, PartInstance, SpacecraftGrid, spacecraft::sysparam_api::Spacecraft};
 
 use super::{PartsResource, SelectedSpacecraft};
 
@@ -31,14 +31,6 @@ impl DockingProgram {
             (self.rotation.to_angle() as f32).into(),
         )
     }
-}
-
-#[derive(Event, Debug, Clone, Copy)]
-pub struct DockingTrigger {
-    pub chief: Entity,
-    pub deputy: Entity,
-    pub offset: PartCoord,
-    pub rotation: Rotation,
 }
 
 impl DockingTrigger {

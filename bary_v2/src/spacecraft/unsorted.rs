@@ -35,19 +35,27 @@ impl Plugin for SpacecraftPlugin {
         app.add_systems(
             Update,
             (
+                crate::temporary_keybinds::add_hose_on_h,
+                crate::temporary_keybinds::spawn_random_ship_on_y,
+            ),
+        );
+
+        app.add_systems(
+            Update,
+            (
                 draw_blueprint_of_docking_program.pipe(swallow_optional),
                 draw_position_command_widget,
                 update_position_command_widget_system,
                 draw_slingshot_widget,
                 update_slingshot_widget_system,
-                spawn_hose_on_keypress_system.pipe(swallow_optional),
                 draw_hoses_system,
                 update_selected_spacecraft_system,
                 update_selected_hose_system,
                 draw_hose_selection_area_system,
-                spawn_random_ship_on_y,
             ),
         );
+
+        app.add_observer(on_add_hose.pipe(swallow_optional));
 
         app.add_systems(FixedUpdate, world_tick_driver_system);
 
@@ -86,24 +94,6 @@ impl Plugin for SpacecraftPlugin {
         app.insert_resource(DockingProgram::default());
         app.insert_resource(TickStatistics::default());
     }
-}
-
-#[derive(Event, Debug)]
-pub enum SpacecraftEvent {
-    SpawnVehicle {
-        ship_name: String,
-        blueprint_name: String,
-        pos: Vec2,
-        angle: f32,
-    },
-    SpawnPart {
-        name: String,
-        pos: Vec2,
-        angle: f32,
-    },
-    Destroy {
-        target: Entity,
-    },
 }
 
 #[derive(Component, Debug, Default)]

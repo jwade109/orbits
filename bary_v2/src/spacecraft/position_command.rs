@@ -5,8 +5,8 @@ use bevy::prelude::*;
 use bevy_vector_shapes::prelude::*;
 
 use crate::{
-    Computer, ComputerMode, CursorWorldPosition, PartsResource, SelectedSpacecraft, SpacecraftGrid,
-    SpawnAnimText, draw_blueprint,
+    Computer, ComputerMode, CursorWorldPosition, PartsResource, PositionHoldCommand,
+    SelectedSpacecraft, SpacecraftGrid, SpawnAnimText, draw_blueprint,
 };
 
 #[derive(Resource, Debug, Default)]
@@ -46,12 +46,6 @@ impl CursorPositionCommandWidget {
         self.pos_down = None;
         self.pos_up = None;
     }
-}
-
-#[derive(Event, Debug)]
-pub struct PositionHoldCommand {
-    pos: Vec2,
-    angle: f32,
 }
 
 pub fn update_position_command_widget_system(

@@ -5,8 +5,7 @@ use bevy::prelude::*;
 use bevy_vector_shapes::prelude::*;
 
 use crate::{
-    Computer, ComputerMode, CursorWorldPosition, PartsResource, SelectedSpacecraft, SpacecraftGrid,
-    SpawnAnimText, draw_blueprint,
+    Computer, ComputerMode, CursorWorldPosition, DeltaVelocity, PartsResource, SelectedSpacecraft, SpacecraftGrid, SpawnAnimText, draw_blueprint
 };
 
 #[derive(Resource, Debug, Default)]
@@ -38,12 +37,6 @@ impl SlingshotWidget {
         self.pos_down = None;
         self.pos_up = None;
     }
-}
-
-#[derive(Event, Debug)]
-pub struct DeltaVelocity {
-    target_grid: Entity,
-    delta_velocity: Vec2,
 }
 
 pub fn update_slingshot_widget_system(
