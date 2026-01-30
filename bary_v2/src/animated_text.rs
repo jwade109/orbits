@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use bary_core::prelude::*;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
@@ -17,6 +19,7 @@ pub struct SpawnAnimText {
     pub text: String,
     pub color: Srgba,
     pub pos: Option<Vec2>,
+    pub target: Option<Entity>,
 }
 
 impl SpawnAnimText {
@@ -25,12 +28,13 @@ impl SpawnAnimText {
             text: text.into(),
             color: BLUE,
             pos: None,
+            target: None,
         }
     }
 }
 
 #[derive(Component)]
-struct AnimText(String);
+struct AnimText(String, Option<Entity>);
 
 #[derive(Component)]
 struct Lifetime(f32);
@@ -69,7 +73,7 @@ fn receive_events(mut commands: Commands, mut events: MessageReader<SpawnAnimTex
         commands
             .spawn((
                 Text::new(""),
-                AnimText(event.text.chars().into_iter().rev().collect()),
+                AnimText(event.text.chars().into_iter().rev().collect(), event.target),
                 Node {
                     position_type: PositionType::Absolute,
                     top: y,

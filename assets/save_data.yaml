@@ -18,3 +18,11 @@ ships:
   - name: bellerophon
     pos: [-20.0, 20.0]
     angle: 0.3
+
+  - name: miner
+    pos: [20.0, 40.0]
+    angle: 0.2
+
+  - name: miner
+    pos: [25.0, 40.0]
+    angle: 0.2

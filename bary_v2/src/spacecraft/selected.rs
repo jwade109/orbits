@@ -108,8 +108,8 @@ pub fn update_selected_spacecraft_system(
 
 pub fn draw_selected_part_system(
     mut painter: ShapePainter,
-    grids: Query<&GlobalTransform, With<SpacecraftGrid>>,
-    parts: Query<(&GlobalTransform, &PartInstance)>,
+    transforms: TransformHelper,
+    parts: Query<&PartInstance>,
     sel: Res<SelectedSpacecraft>,
 ) {
     const Z_SELECTED_PART: f32 = 1.0;
@@ -125,7 +125,10 @@ pub fn draw_selected_part_system(
             None => continue,
         };
 
-        if let Ok((tf, part)) = parts.get(e.part.entity) {
+        let part = parts.get(e.part.entity);
+        let tf = transforms.compute_global_transform(e.part.entity);
+
+        if let (Ok(part), Ok(tf)) = (part, tf) {
             let dims = part.placement.part_aligned_dims().to_meters();
 
             painter.reset();
@@ -145,7 +148,7 @@ pub fn draw_selected_part_system(
             painter.rect(dims);
         }
 
-        if let Ok(tf) = grids.get(e.grid.entity) {
+        if let Ok(tf) = transforms.compute_global_transform(e.grid.entity) {
             painter.set_translation(tf.translation().with_z(Z_SELECTED_PART_OUTLINE));
             painter.set_rotation(tf.rotation());
             let offset = e.grid.coord.to_meters();

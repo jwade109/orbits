@@ -38,6 +38,8 @@ impl Plugin for SpacecraftPlugin {
                 draw_blueprint_of_docking_program.pipe(swallow_optional),
                 draw_position_command_widget,
                 update_position_command_widget_system,
+                draw_slingshot_widget,
+                update_slingshot_widget_system,
                 spawn_hose_on_keypress_system.pipe(swallow_optional),
                 draw_hoses_system,
                 update_selected_spacecraft_system,
@@ -72,12 +74,15 @@ impl Plugin for SpacecraftPlugin {
         app.add_observer(handle_sc_events);
         app.add_observer(process_docking_triggers);
         app.add_observer(on_position_commands_system.pipe(swallow_optional));
+        app.add_observer(emit_text_alert_on_position_hold);
+        app.add_observer(on_delta_v_observer.pipe(swallow_result));
 
         app.insert_resource(SelectedSpacecraft::default());
         app.insert_resource(SelectedHose::default());
         app.insert_resource(GridSpatialLookup::default());
         app.insert_resource(TickSchedule::PerFrame(10));
         app.insert_resource(CursorPositionCommandWidget::default());
+        app.insert_resource(SlingshotWidget::default());
         app.insert_resource(DockingProgram::default());
         app.insert_resource(TickStatistics::default());
     }
@@ -384,6 +389,7 @@ fn handle_sc_events(
                 text: "Vehicle deleted".to_string(),
                 color: RED,
                 pos: pos.ok(),
+                target: None,
             });
         }
     }

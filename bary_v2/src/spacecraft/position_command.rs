@@ -5,7 +5,8 @@ use bevy::prelude::*;
 use bevy_vector_shapes::prelude::*;
 
 use crate::{
-    Computer, ComputerMode, CursorWorldPosition, PartsResource, SelectedSpacecraft, draw_blueprint,
+    Computer, ComputerMode, CursorWorldPosition, PartsResource, SelectedSpacecraft, SpacecraftGrid,
+    SpawnAnimText, draw_blueprint,
 };
 
 #[derive(Resource, Debug, Default)]
@@ -116,16 +117,44 @@ pub fn draw_position_command_widget(
     draw_blueprint(&mut gizmos, bp, iso, &parts);
 }
 
+pub fn emit_text_alert_on_position_hold(
+    pos: On<PositionHoldCommand>,
+    mut writer: MessageWriter<SpawnAnimText>,
+) {
+    let info = format!(
+        "Position hold\nX: {:0.1}\nY: {:0.1}\nA: {:0.1}",
+        pos.pos.x, pos.pos.y, pos.angle
+    );
+    let txt = SpawnAnimText::new(info);
+    writer.write(txt);
+}
+
 pub fn on_position_commands_system(
     command: On<PositionHoldCommand>,
+    grids: Query<&Children, With<SpacecraftGrid>>,
     selected: Res<SelectedSpacecraft>,
     mut computers: Query<&mut Computer>,
 ) -> Option<()> {
-    let id = selected.primary?.part;
-    let mut cpu = computers.get_mut(id.entity).ok()?;
-    cpu.mode = ComputerMode::PositionHold;
-    cpu.position = command.pos;
-    cpu.attitude = command.angle;
-    cpu.on = true;
+    let id = selected.primary?.grid;
+    let grid = grids.get(id.entity).ok()?;
+
+    let mut first_cpu = true;
+
+    for child in grid {
+        let Ok(mut cpu) = computers.get_mut(*child) else {
+            continue;
+        };
+        if first_cpu {
+            cpu.mode = ComputerMode::PositionHold;
+            cpu.position = command.pos;
+            cpu.attitude = command.angle;
+            cpu.on = true;
+            first_cpu = false;
+        } else {
+            cpu.mode = ComputerMode::Idle;
+            cpu.on = false;
+        }
+    }
+
     Some(())
 }
