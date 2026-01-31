@@ -142,7 +142,7 @@ pub fn draw_blueprint_of_docking_program(
         return None;
     }
 
-    let sec_bp = spacecraft.blueprint(b).ok()?;
+    let sec_bp = spacecraft.compute_blueprint(b).ok()?;
     let pri_tf = spacecraft.grid_transform(a).ok()?;
     let pri_isometry = transform_to_isometry(pri_tf);
     let docking_isometry = pgrm.isometry();

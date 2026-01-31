@@ -12,19 +12,15 @@ pub struct Spacecraft<'w, 's> {
         'w,
         's,
         (
-            &'static mut SpacecraftGrid,
+            &'static SpacecraftGrid,
             &'static Children,
-            &'static mut Transform,
+            &'static Transform,
         ),
     >,
     parts: Query<
         'w,
         's,
-        (
-            &'static PartInstance,
-            &'static ChildOf,
-            &'static mut Transform,
-        ),
+        (&'static PartInstance, &'static ChildOf, &'static Transform),
         Without<SpacecraftGrid>,
     >,
 }
@@ -44,7 +40,12 @@ impl<'w, 's> Spacecraft<'w, 's> {
         Ok(*transform)
     }
 
-    pub fn blueprint(&self, e: Entity) -> Result<Blueprint, QueryEntityError> {
+    pub fn part_transform(&self, grid: Entity) -> Result<Transform, QueryEntityError> {
+        let (_, _, transform) = self.parts.get(grid)?;
+        Ok(*transform)
+    }
+
+    pub fn compute_blueprint(&self, e: Entity) -> Result<Blueprint, QueryEntityError> {
         let mut blueprint = Blueprint::new();
         let (_, children, _) = self.grids.get(e)?;
         for c in children {
@@ -76,6 +77,16 @@ impl<'w, 's> Spacecraft<'w, 's> {
         }
 
         None
+    }
+
+    pub fn cell_global_transform(&self, part: Entity, coord: PartCoord) -> Result<Transform, QueryEntityError> {
+        let (part, parent, part_center) = self.parts.get(part)?;
+        let (_, _, grid_transform) = self.grids.get(parent.0)?;
+        let half_dims = part.placement.part_aligned_dims().to_meters() / 2.0;
+        let offset = coord.to_meters() - half_dims + PartCoord::ONE.to_meters() / 2.0;
+        let new_translation =
+            part_center.translation + part_center.right() * offset.x + part_center.up() * offset.y;
+        Ok(*grid_transform * part_center.with_translation(new_translation))
     }
 
     pub fn get_merge_transform(

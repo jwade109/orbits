@@ -168,6 +168,9 @@ pub fn on_add_hose(
     transforms: TransformHelper,
     mut commands: Commands,
 ) -> Option<()> {
+
+    info!("Add hose: {:?}", event);
+
     let tf_a = transforms.compute_global_transform(event.start.0).ok()?;
     let tf_b = transforms.compute_global_transform(event.end.0).ok()?;
 
@@ -409,19 +412,10 @@ fn compute_part_cell_transform(
     part_center.with_translation(new_translation)
 }
 
-fn compute_part_origin_transform(part_center: Transform, placement: GridPlacement) -> Transform {
-    let offset = -placement.part_aligned_dims().to_meters() / 2.0;
-    let new_translation = part_center.translation
-        + part_center.local_x() * offset.x
-        + part_center.local_y() * offset.y;
-    part_center.with_translation(new_translation)
-}
-
 pub fn debug_draw_hose_connections(
     mut gizmos: Gizmos,
     hoses: Query<&Hose>,
-    parts: Query<&PartInstance>,
-    transforms: TransformHelper,
+    spacecraft: Spacecraft,
     settings: Res<Settings>,
 ) {
     if !settings.draw_inventory_cons {
@@ -429,42 +423,22 @@ pub fn debug_draw_hose_connections(
     }
 
     for hose in hoses {
-        let Some((src, dst)) = hose.connections() else {
-            continue;
-        };
+        let (src, dst) = some_or_continue!(hose.connections());
+        let cell_a = ok_or_continue!(spacecraft.cell_global_transform(src.0, src.1));
+        let cell_b = ok_or_continue!(spacecraft.cell_global_transform(dst.0, dst.1));
 
-        let part_center_a =
-            ok_or_continue!(transforms.compute_global_transform(src.0)).compute_transform();
-        let part_center_b =
-            ok_or_continue!(transforms.compute_global_transform(dst.0)).compute_transform();
+        gizmos.line_2d(cell_a.translation.xy(), cell_b.translation.xy(), ORANGE);
 
-        let part_a = ok_or_continue!(parts.get(src.0));
-        let part_b = ok_or_continue!(parts.get(dst.0));
-
-        gizmos.axes_2d(
-            compute_part_origin_transform(part_center_a, part_a.placement),
-            1.0,
-        );
-        gizmos.axes_2d(
-            compute_part_origin_transform(part_center_b, part_b.placement),
-            1.0,
-        );
-
-        let tf_a = compute_part_cell_transform(part_center_a, part_a.placement, src.1);
-        let tf_b = compute_part_cell_transform(part_center_b, part_b.placement, dst.1);
-
-        gizmos.line_2d(tf_a.translation.xy(), tf_b.translation.xy(), ORANGE);
-
-        gizmos.axes_2d(tf_a, 1.0);
-        gizmos.axes_2d(tf_b, 1.0);
+        gizmos.axes_2d(cell_a, 1.0);
+        gizmos.axes_2d(cell_b, 1.0);
 
         gizmos.rect_2d(
-            transform_to_isometry(tf_a),
+            transform_to_isometry(cell_a),
             Vec2::splat(PartCoord::CELL_WIDTH),
             RED,
         );
         gizmos.rect_2d(
-            transform_to_isometry(tf_b),
+            transform_to_isometry(cell_b),
             Vec2::splat(PartCoord::CELL_WIDTH),
             RED,
         );
