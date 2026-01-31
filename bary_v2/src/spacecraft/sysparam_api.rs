@@ -6,6 +6,11 @@ use crate::target_docking_transform;
 
 use super::*;
 
+pub enum CellPosition {
+    BottomLeft,
+    Center,
+}
+
 #[derive(SystemParam)]
 pub struct Spacecraft<'w, 's> {
     grids: Query<
@@ -13,14 +18,14 @@ pub struct Spacecraft<'w, 's> {
         's,
         (
             &'static SpacecraftGrid,
-            &'static Children,
+            &'static GridParts,
             &'static Transform,
         ),
     >,
     parts: Query<
         'w,
         's,
-        (&'static PartInstance, &'static ChildOf, &'static Transform),
+        (&'static PartInstance, &'static PartInGrid, &'static Transform),
         Without<SpacecraftGrid>,
     >,
 }
@@ -48,42 +53,27 @@ impl<'w, 's> Spacecraft<'w, 's> {
     pub fn compute_blueprint(&self, e: Entity) -> Result<Blueprint, QueryEntityError> {
         let mut blueprint = Blueprint::new();
         let (_, children, _) = self.grids.get(e)?;
-        for c in children {
-            let (part, _, _) = self.parts.get(*c)?;
+        for c in children.iter() {
+            let (part, _, _) = self.parts.get(c)?;
             blueprint.add_part(part.name.clone(), part.placement, part.layer());
         }
         Ok(blueprint)
     }
 
-    pub fn get_part_at(&self, coords: GridCoord) -> Option<Entity> {
-        let (_, children, _) = self.grids.get(coords.entity).ok()?;
-
-        if children.is_empty() {
-            warn!("Empty grid!");
-            return None;
-        }
-
-        // TODO this is very bugged.
-        for id in children {
-            let (part, _, _) = self.parts.get(*id).ok()?;
-            if part.layer() != PartLayer::Internal {
-                continue;
-            }
-            let offset = (coords.coord - part.origin()).inner();
-            let dims = part.placement.part_aligned_dims().inner();
-            if offset.x >= 0 && offset.y >= 0 && offset.x <= dims.x && offset.y <= dims.y {
-                return Some(*id);
-            }
-        }
-
-        None
-    }
-
-    pub fn cell_global_transform(&self, part: Entity, coord: PartCoord) -> Result<Transform, QueryEntityError> {
+    pub fn cell_global_transform(
+        &self,
+        part: Entity,
+        coord: PartCoord,
+        pos: CellPosition,
+    ) -> Result<Transform, QueryEntityError> {
         let (part, parent, part_center) = self.parts.get(part)?;
         let (_, _, grid_transform) = self.grids.get(parent.0)?;
         let half_dims = part.placement.part_aligned_dims().to_meters() / 2.0;
-        let offset = coord.to_meters() - half_dims + PartCoord::ONE.to_meters() / 2.0;
+        let cell_off = match pos {
+            CellPosition::BottomLeft => Vec2::ZERO,
+            CellPosition::Center => PartCoord::ONE.to_meters() / 2.0,
+        };
+        let offset = coord.to_meters() - half_dims + cell_off;
         let new_translation =
             part_center.translation + part_center.right() * offset.x + part_center.up() * offset.y;
         Ok(*grid_transform * part_center.with_translation(new_translation))

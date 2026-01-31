@@ -13,6 +13,8 @@ use egui::Pos2;
 use super::grid_coord::GridCoord;
 
 use crate::AddHose;
+use crate::CellPosition;
+use crate::InventoryApi;
 use crate::Settings;
 use crate::running_status_widget;
 use crate::spacecraft::sysparam_api::Spacecraft;
@@ -142,12 +144,12 @@ impl Hose {
         let distance = self.src_pos.distance(self.dst_pos);
         let dist_per_segment = distance / (self.nodes.len() - 1) as f32;
 
-        if self.is_connected() {
-            if dist_per_segment > self.rest_segment_length() * 2.0 {
-                info!("Disconnected");
-                self.dst = None;
-            }
-        }
+        // if self.is_connected() {
+        //     if dist_per_segment > self.rest_segment_length() * 2.0 {
+        //         info!("Disconnected");
+        //         self.dst = None;
+        //     }
+        // }
 
         if self.src.is_some() {
             self.nodes.first_mut().expect("Expected nonempty list").pos = self.src_pos;
@@ -166,6 +168,7 @@ impl Hose {
 pub fn on_add_hose(
     event: On<AddHose>,
     transforms: TransformHelper,
+    inventory: InventoryApi,
     mut commands: Commands,
 ) -> Option<()> {
 
@@ -209,6 +212,13 @@ pub fn on_add_hose(
         ticks_per_transfer: 100,
         current_ticks: 0,
     };
+
+    if let Ok(e) = inventory.find_container_at(event.start.0, event.start.1) {
+        info!("Found a container: {}", e);
+    }
+    if let Ok(e) = inventory.find_container_at(event.end.0, event.end.1) {
+        info!("Found a container: {}", e);
+    }
 
     let id = commands.spawn(hose).id();
 
@@ -424,8 +434,8 @@ pub fn debug_draw_hose_connections(
 
     for hose in hoses {
         let (src, dst) = some_or_continue!(hose.connections());
-        let cell_a = ok_or_continue!(spacecraft.cell_global_transform(src.0, src.1));
-        let cell_b = ok_or_continue!(spacecraft.cell_global_transform(dst.0, dst.1));
+        let cell_a = ok_or_continue!(spacecraft.cell_global_transform(src.0, src.1, CellPosition::Center));
+        let cell_b = ok_or_continue!(spacecraft.cell_global_transform(dst.0, dst.1, CellPosition::Center));
 
         gizmos.line_2d(cell_a.translation.xy(), cell_b.translation.xy(), ORANGE);
 

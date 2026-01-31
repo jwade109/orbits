@@ -116,9 +116,7 @@ pub fn world_tick_driver_system(world: &mut World) {
 
     plots.add("tick", dt);
 
-    if ticks > 0 {
-        plots.add("time_per_tick", dt / ticks);
-    }
+    plots.add("time_per_tick", if ticks > 0 { dt / ticks } else { dt });
 
     let mut t = world.resource_mut::<TickStatistics>();
 

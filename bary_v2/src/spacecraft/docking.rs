@@ -5,7 +5,9 @@ use bevy::prelude::*;
 use bevy_egui::EguiContexts;
 use early_returns::{ok_or_continue, ok_or_return};
 
-use crate::{DockingTrigger, SpacecraftGrid, spacecraft::sysparam_api::Spacecraft};
+use crate::{
+    Computer, DockingTrigger, GridParts, PartInGrid, SpacecraftGrid, spacecraft::sysparam_api::Spacecraft
+};
 
 use super::{PartsResource, SelectedSpacecraft};
 
@@ -132,7 +134,7 @@ pub fn draw_blueprint_of_docking_program(
     mut gizmos: Gizmos,
     spacecraft: Spacecraft,
     selected: Res<SelectedSpacecraft>,
-    pgrm: ResMut<DockingProgram>,
+    pgrm: Res<DockingProgram>,
     parts: Res<PartsResource>,
 ) -> Option<()> {
     let a = selected.primary?.grid.entity;
@@ -155,8 +157,9 @@ pub fn draw_blueprint_of_docking_program(
 pub fn process_docking_triggers(
     trigger: On<DockingTrigger>,
     mut commands: Commands,
-    grids: Query<&Children, With<SpacecraftGrid>>,
+    grids: Query<&GridParts, With<SpacecraftGrid>>,
     mut parts: Query<(&mut Transform, &mut PartInstance)>,
+    mut computers: Query<&mut Computer>,
     mut blueprints: Query<&mut Blueprint>,
 ) {
     info!("Docking: {:?}, {:?}", trigger, trigger.isometry());
@@ -165,8 +168,8 @@ pub fn process_docking_triggers(
 
     let deputy = ok_or_return!(grids.get(trigger.deputy));
 
-    for d in deputy {
-        let (mut transform, mut instance) = ok_or_continue!(parts.get_mut(*d));
+    for d in deputy.iter() {
+        let (mut transform, mut instance) = ok_or_continue!(parts.get_mut(d));
 
         let mut new_placement = instance.placement;
         new_placement.rotate(trigger.rotation);
@@ -177,6 +180,12 @@ pub fn process_docking_triggers(
 
         *transform = isometry_to_transform(instance.placement.center_isometry());
 
-        commands.entity(*d).insert(ChildOf(trigger.chief));
+        commands
+            .entity(d)
+            .insert((ChildOf(trigger.chief), PartInGrid(trigger.chief)));
+
+        if let Ok(mut cpu) = computers.get_mut(d) {
+            cpu.on = false;
+        }
     }
 }

@@ -21,6 +21,7 @@ impl Plugin for SpacecraftPlugin {
                 draw_spacecraft_spatial_lookups,
                 draw_docking_info,
                 debug_draw_hose_connections,
+                debug_draw_inventory_vessels,
             ),
         );
 
@@ -228,10 +229,10 @@ fn draw_inventories(
 
 fn despawn_empty_grids(
     mut commands: Commands,
-    grids: Query<Entity, (With<SpacecraftGrid>, Without<Children>)>,
+    grids: Query<(Entity, &Name), (With<SpacecraftGrid>, Without<GridParts>)>,
 ) {
-    for e in grids {
-        info!("Despawning empty grid {e}");
+    for (e, name) in grids {
+        info!("Despawning empty grid {e}: {}", name);
         commands.entity(e).despawn();
     }
 }
@@ -241,7 +242,7 @@ pub struct FuelInventory;
 
 fn update_grids(
     mut commands: Commands,
-    mut grids: Query<(Entity, &mut SpacecraftGrid, &Children)>,
+    mut grids: Query<(Entity, &mut SpacecraftGrid, &GridParts)>,
     parts: Query<(&PartInstance, Option<&Inventory>, Option<&FuelInventory>)>,
     part_db: Res<PartsResource>,
 ) {
@@ -429,6 +430,8 @@ fn add_part_to_grid<'a>(
 
     sprite.custom_size = Some(dims);
 
+    let grid_id = commands.target_entity();
+
     let mut cmd = commands.spawn((
         Transform::from_translation(origin.extend(z))
             .with_rotation(Quat::from_rotation_z(part.rotation().to_angle() as f32)),
@@ -437,6 +440,8 @@ fn add_part_to_grid<'a>(
     ));
 
     // INVENTORY COMPONENT ==================================================
+
+    let mut vessels = Vec::new();
 
     if let Some(data) = PartInstance::inventory_data(proto) {
         let mut inv = Inventory::zero_slots();
@@ -450,9 +455,18 @@ fn add_part_to_grid<'a>(
 
             slot.set_name(data.name.clone());
 
-            inv.add_slot(slot);
+            inv.add_slot(slot.clone());
+
+            let loc = ContainerLocation {
+                origin: data.min.into(),
+                dims: (data.max - data.min).into(),
+            };
+
+            vessels.push((slot, loc, ContainerInPart(cmd.id())));
         }
         cmd.insert(inv);
+
+        // trying out a new system
     }
 
     // MACHINE COMPONENT ==================================================
@@ -501,6 +515,12 @@ fn add_part_to_grid<'a>(
     // SPRITE CHILD ENTITY ===============================================
 
     cmd.with_child((PartSprite, sprite));
+
+    cmd.insert(PartInGrid(grid_id));
+
+    for vessel in vessels {
+        commands.spawn(vessel);
+    }
 }
 
 fn spawn_spacecraft(
