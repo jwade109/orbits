@@ -1,3 +1,4 @@
+use bary_core::prelude::GridPlacement;
 use bary_core::prelude::*;
 use bary_v1::ui::apply_egui_style;
 use bary_v1::z_index::ZOrdering;
@@ -12,6 +13,7 @@ use egui::Pos2;
 use super::grid_coord::GridCoord;
 
 use crate::AddHose;
+use crate::Settings;
 use crate::running_status_widget;
 use crate::spacecraft::sysparam_api::Spacecraft;
 use crate::toggle_on_off_button;
@@ -25,8 +27,8 @@ struct HoseNode {
 
 #[derive(Component, Debug)]
 pub struct Hose {
-    src: Option<GridCoord>,
-    dst: Option<GridCoord>,
+    src: Option<(Entity, PartCoord)>,
+    dst: Option<(Entity, PartCoord)>,
     src_pos: Vec2,
     dst_pos: Vec2,
     desired_length: f32,
@@ -48,6 +50,10 @@ pub struct SelectedHose {
 }
 
 impl Hose {
+    fn connections(&self) -> Option<((Entity, PartCoord), (Entity, PartCoord))> {
+        self.src.zip(self.dst)
+    }
+
     fn update_src_pos(&mut self, p: Vec2) {
         self.src_pos = p;
     }
@@ -158,18 +164,15 @@ impl Hose {
 }
 
 pub fn on_add_hose(
-    add_hose: On<AddHose>,
-    grids: Query<&Transform>,
+    event: On<AddHose>,
+    transforms: TransformHelper,
     mut commands: Commands,
 ) -> Option<()> {
-    let a = add_hose.a;
-    let b = add_hose.b;
+    let tf_a = transforms.compute_global_transform(event.start.0).ok()?;
+    let tf_b = transforms.compute_global_transform(event.end.0).ok()?;
 
-    let tf_a = grids.get(a.grid.entity).ok()?;
-    let tf_b = grids.get(b.grid.entity).ok()?;
-
-    let pa = a.grid.get_transform(*tf_a).translation.xy();
-    let pb = b.grid.get_transform(*tf_b).translation.xy();
+    let pa = tf_a.translation().xy();
+    let pb = tf_b.translation().xy();
 
     let mut nodes = Vec::new();
 
@@ -188,8 +191,8 @@ pub fn on_add_hose(
     }
 
     let hose = Hose {
-        src: Some(a.grid),
-        dst: Some(b.grid),
+        src: Some(event.start),
+        dst: Some(event.end),
         src_pos: pa,
         dst_pos: pb,
         desired_length,
@@ -214,7 +217,7 @@ pub fn on_add_hose(
 pub fn update_hose_physics_system(
     mut commands: Commands,
     mut hoses: Query<(Entity, &mut Hose)>,
-    transforms: Query<&Transform>,
+    transforms: TransformHelper,
     time: Res<Time<Fixed>>,
 ) {
     let dt = 1.0 / 60.0;
@@ -226,15 +229,15 @@ pub fn update_hose_physics_system(
         };
 
         if let Some(src) = hose.src {
-            if let Ok(tf) = transforms.get(src.entity) {
-                let tf = src.get_transform(*tf);
-                hose.update_src_pos(tf.translation.xy());
+            if let Ok(tf) = transforms.compute_global_transform(src.0) {
+                // let tf = src.get_transform(*tf);
+                hose.update_src_pos(tf.translation().xy());
             }
         }
         if let Some(dst) = hose.dst {
-            if let Ok(tf) = transforms.get(dst.entity) {
-                let tf = dst.get_transform(*tf);
-                hose.update_dst_pos(tf.translation.xy());
+            if let Ok(tf) = transforms.compute_global_transform(dst.0) {
+                // let tf = dst.get_transform(*tf);
+                hose.update_dst_pos(tf.translation().xy());
             }
         }
 
@@ -253,7 +256,6 @@ pub fn update_hose_physics_system(
 pub fn do_hose_inventory_transfer_system(
     hoses: Query<&mut Hose>,
     mut inventory: Query<&mut Inventory>,
-    spacecraft: Spacecraft,
 ) {
     for mut hose in hoses {
         if !hose.is_on {
@@ -263,11 +265,8 @@ pub fn do_hose_inventory_transfer_system(
 
         hose.status = MachineStatus::Disconnected;
 
-        let a = some_or_continue!(hose.src);
-        let b = some_or_continue!(hose.dst);
-
-        let src = some_or_continue!(spacecraft.get_part_at(a));
-        let dst = some_or_continue!(spacecraft.get_part_at(b));
+        let (src, _) = some_or_continue!(hose.src);
+        let (dst, _) = some_or_continue!(hose.dst);
 
         let [mut src, mut dst] = ok_or_continue!(inventory.get_many_mut([src, dst]));
 
@@ -388,6 +387,74 @@ pub fn item_dropdown(ui: &mut egui::Ui, selected: &mut Item, title: &str, filter
                 ui.selectable_value(selected, item, text);
             }
         });
+}
+
+/// Computes the transform (isometry - 2D position and yaw) of
+/// the center of the given cell defined by the provided PartCoord.
+fn compute_part_cell_transform(
+    part_center: Transform,
+    placement: GridPlacement,
+    coord: PartCoord,
+) -> Transform {
+    let half_dims = placement.part_aligned_dims().to_meters() / 2.0;
+    let offset = coord.to_meters() - half_dims + PartCoord::ONE.to_meters() / 2.0;
+    let new_translation =
+        part_center.translation + part_center.right() * offset.x + part_center.up() * offset.y;
+    part_center.with_translation(new_translation)
+}
+
+fn compute_part_origin_transform(ecs_transform: Transform, placement: GridPlacement) -> Transform {
+    let offset = -placement.part_aligned_dims().to_meters() / 2.0;
+    let new_translation = ecs_transform.translation
+        + ecs_transform.local_x() * offset.x
+        + ecs_transform.local_y() * offset.y;
+    ecs_transform.with_translation(new_translation)
+}
+
+pub fn debug_draw_hose_connections(
+    mut gizmos: Gizmos,
+    hoses: Query<&Hose>,
+    parts: Query<&PartInstance>,
+    transforms: TransformHelper,
+    settings: Res<Settings>,
+) {
+    if !settings.draw_inventory_cons {
+        return;
+    }
+
+    for hose in hoses {
+        let Some((src, dst)) = hose.connections() else {
+            continue;
+        };
+
+        let tf_a = ok_or_continue!(transforms.compute_global_transform(src.0)).compute_transform();
+        let tf_b = ok_or_continue!(transforms.compute_global_transform(dst.0)).compute_transform();
+
+        let part_a = ok_or_continue!(parts.get(src.0));
+        let part_b = ok_or_continue!(parts.get(dst.0));
+
+        gizmos.axes_2d(compute_part_origin_transform(tf_a, part_a.placement), 1.0);
+        gizmos.axes_2d(compute_part_origin_transform(tf_b, part_b.placement), 1.0);
+
+        let tf_a = compute_part_cell_transform(tf_a, part_a.placement, src.1);
+        let tf_b = compute_part_cell_transform(tf_b, part_b.placement, dst.1);
+
+        gizmos.line_2d(tf_a.translation.xy(), tf_b.translation.xy(), ORANGE);
+
+        gizmos.axes_2d(tf_a, 1.0);
+        gizmos.axes_2d(tf_b, 1.0);
+
+        gizmos.rect_2d(
+            transform_to_isometry(tf_a),
+            Vec2::splat(PartCoord::CELL_WIDTH),
+            RED,
+        );
+        gizmos.rect_2d(
+            transform_to_isometry(tf_b),
+            Vec2::splat(PartCoord::CELL_WIDTH),
+            RED,
+        );
+    }
 }
 
 pub fn hose_info_window_egui_system(

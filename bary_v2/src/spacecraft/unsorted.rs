@@ -20,6 +20,7 @@ impl Plugin for SpacecraftPlugin {
                 draw_selected_part_system,
                 draw_spacecraft_spatial_lookups,
                 draw_docking_info,
+                debug_draw_hose_connections,
             ),
         );
 

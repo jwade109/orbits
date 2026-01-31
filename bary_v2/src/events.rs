@@ -46,8 +46,6 @@ pub struct DeltaVelocity {
 
 #[derive(Event, Debug)]
 pub struct AddHose {
-    // pub start: (Entity, PartCoord),
-    // pub end: (Entity, PartCoord),
-    pub a: SelectedPointInfo,
-    pub b: SelectedPointInfo,
+    pub start: (Entity, PartCoord),
+    pub end: (Entity, PartCoord),
 }

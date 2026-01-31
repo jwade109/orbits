@@ -15,7 +15,10 @@ pub fn add_hose_on_h(
 
     let a = some_or_return!(sel.primary);
     let b = some_or_return!(sel.secondary);
-    commands.trigger(AddHose { a, b });
+    let start = (a.part.entity, a.part.coord);
+    let end = (b.part.entity, b.part.coord);
+
+    commands.trigger(AddHose { start, end });
 }
 
 pub fn toggle_inv_on_alt(keys: Res<ButtonInput<KeyCode>>, mut settings: ResMut<Settings>) {

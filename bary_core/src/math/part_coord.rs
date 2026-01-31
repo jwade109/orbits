@@ -12,6 +12,8 @@ pub struct PartCoord(pub IVec2);
 impl PartCoord {
     pub const CELL_WIDTH: f32 = 1.0 / GRID_CELLS_PER_METER;
 
+    pub const ONE: Self = Self(IVec2::ONE);
+
     pub fn new(p: impl Into<IVec2>) -> Self {
         Self(p.into())
     }
