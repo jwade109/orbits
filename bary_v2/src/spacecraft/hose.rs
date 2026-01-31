@@ -217,8 +217,8 @@ pub fn on_add_hose(
 pub fn update_hose_physics_system(
     mut commands: Commands,
     mut hoses: Query<(Entity, &mut Hose)>,
+    parts: Query<&PartInstance>,
     transforms: TransformHelper,
-    time: Res<Time<Fixed>>,
 ) {
     let dt = 1.0 / 60.0;
     for (e, mut hose) in &mut hoses {
@@ -230,14 +230,20 @@ pub fn update_hose_physics_system(
 
         if let Some(src) = hose.src {
             if let Ok(tf) = transforms.compute_global_transform(src.0) {
-                // let tf = src.get_transform(*tf);
-                hose.update_src_pos(tf.translation().xy());
+                if let Ok(part) = parts.get(src.0) {
+                    let part_center = tf.compute_transform();
+                    let tf = compute_part_cell_transform(part_center, part.placement, src.1);
+                    hose.update_src_pos(tf.translation.xy());
+                }
             }
         }
         if let Some(dst) = hose.dst {
             if let Ok(tf) = transforms.compute_global_transform(dst.0) {
-                // let tf = dst.get_transform(*tf);
-                hose.update_dst_pos(tf.translation().xy());
+                if let Ok(part) = parts.get(dst.0) {
+                    let part_center = tf.compute_transform();
+                    let tf = compute_part_cell_transform(part_center, part.placement, dst.1);
+                    hose.update_dst_pos(tf.translation.xy());
+                }
             }
         }
 
@@ -403,12 +409,12 @@ fn compute_part_cell_transform(
     part_center.with_translation(new_translation)
 }
 
-fn compute_part_origin_transform(ecs_transform: Transform, placement: GridPlacement) -> Transform {
+fn compute_part_origin_transform(part_center: Transform, placement: GridPlacement) -> Transform {
     let offset = -placement.part_aligned_dims().to_meters() / 2.0;
-    let new_translation = ecs_transform.translation
-        + ecs_transform.local_x() * offset.x
-        + ecs_transform.local_y() * offset.y;
-    ecs_transform.with_translation(new_translation)
+    let new_translation = part_center.translation
+        + part_center.local_x() * offset.x
+        + part_center.local_y() * offset.y;
+    part_center.with_translation(new_translation)
 }
 
 pub fn debug_draw_hose_connections(
@@ -427,17 +433,25 @@ pub fn debug_draw_hose_connections(
             continue;
         };
 
-        let tf_a = ok_or_continue!(transforms.compute_global_transform(src.0)).compute_transform();
-        let tf_b = ok_or_continue!(transforms.compute_global_transform(dst.0)).compute_transform();
+        let part_center_a =
+            ok_or_continue!(transforms.compute_global_transform(src.0)).compute_transform();
+        let part_center_b =
+            ok_or_continue!(transforms.compute_global_transform(dst.0)).compute_transform();
 
         let part_a = ok_or_continue!(parts.get(src.0));
         let part_b = ok_or_continue!(parts.get(dst.0));
 
-        gizmos.axes_2d(compute_part_origin_transform(tf_a, part_a.placement), 1.0);
-        gizmos.axes_2d(compute_part_origin_transform(tf_b, part_b.placement), 1.0);
+        gizmos.axes_2d(
+            compute_part_origin_transform(part_center_a, part_a.placement),
+            1.0,
+        );
+        gizmos.axes_2d(
+            compute_part_origin_transform(part_center_b, part_b.placement),
+            1.0,
+        );
 
-        let tf_a = compute_part_cell_transform(tf_a, part_a.placement, src.1);
-        let tf_b = compute_part_cell_transform(tf_b, part_b.placement, dst.1);
+        let tf_a = compute_part_cell_transform(part_center_a, part_a.placement, src.1);
+        let tf_b = compute_part_cell_transform(part_center_b, part_b.placement, dst.1);
 
         gizmos.line_2d(tf_a.translation.xy(), tf_b.translation.xy(), ORANGE);
 

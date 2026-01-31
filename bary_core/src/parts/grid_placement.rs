@@ -86,6 +86,10 @@ impl GridPlacement {
         Isometry2d::new(self.origin().to_meters(), rot.into())
     }
 
+    pub fn origin_transform(&self) -> Transform {
+        isometry_to_transform(self.origin_isometry())
+    }
+
     pub fn center_isometry(&self) -> Isometry2d {
         let rot = self.rotation.to_angle() as f32;
         let half_dims = self.part_aligned_dims().to_meters() / 2.0;

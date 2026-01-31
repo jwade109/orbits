@@ -1,8 +1,4 @@
 ships:
-  - name: pollux
-    pos: [0.0, 0.0]
-    angle: 0
-
   - name: remora
     pos: [20.0, 10.0]
     angle: 0.7
@@ -26,3 +22,7 @@ ships:
   - name: miner
     pos: [25.0, 40.0]
     angle: 0.2
+
+  - name: test
+    pos: [0.0, 0.0]
+    angle: 0.0

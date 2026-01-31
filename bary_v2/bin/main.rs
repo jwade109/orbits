@@ -58,7 +58,7 @@ fn update_wireframe(mut wireframe_config: ResMut<Wireframe2dConfig>, settings: R
 
 fn update_gizmo_config(mut config_store: ResMut<GizmoConfigStore>) {
     let (config, _) = config_store.config_mut::<DefaultGizmoConfigGroup>();
-    config.line.width = 6.0;
+    config.line.width = 3.0;
 }
 
 #[derive(Resource)]
