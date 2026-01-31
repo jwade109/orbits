@@ -18,6 +18,9 @@ impl Plugin for ComputerPlugin {
 pub struct Computer {
     pub on: bool,
     pub status: MachineStatus,
+    pub ticks_this_cycle: u32,
+    pub ticks_per_cycle: u32,
+    pub fired_this_tick: bool,
     pub iters: u64,
     pub mode: ComputerMode,
     pub attitude: f32,
@@ -86,7 +89,14 @@ pub fn update_computers(computers: Query<&mut Computer>) {
             false => MachineStatus::Off,
         };
         if computer.on {
-            computer.iters += 1;
+            computer.ticks_this_cycle += 1;
+            computer.fired_this_tick = computer.ticks_this_cycle == computer.ticks_per_cycle;
+            if computer.fired_this_tick {
+                computer.ticks_this_cycle = 0;
+                computer.iters += 1;
+            }
+        } else {
+            computer.fired_this_tick = false;
         }
     }
 }
@@ -187,7 +197,7 @@ pub fn do_maneuvers(
     manual: Res<ManualControl>,
 ) {
     for (mut computer, _, parent) in computers {
-        if !computer.on {
+        if !computer.fired_this_tick {
             continue;
         }
 

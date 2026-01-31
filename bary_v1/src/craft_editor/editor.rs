@@ -22,6 +22,14 @@ pub enum Action {
     Remove(PartCoord, Rotation, PartPrototype),
 }
 
+pub fn pixel_dims_with_rotation(rot: Rotation, part: &PartPrototype) -> UVec2 {
+    let dims = part.dims();
+    match rot {
+        Rotation::East | Rotation::West => UVec2::new(dims.x, dims.y),
+        Rotation::North | Rotation::South => UVec2::new(dims.y, dims.x),
+    }
+}
+
 impl Action {
     pub fn to_string(&self) -> String {
         match self {
@@ -366,7 +374,7 @@ impl Editor {
         Some(())
     }
 
-    pub fn get_part_at(&self, p: Vec2) -> Option<(PartId, &InstantiatedPart)> {
+    pub fn get_part_at(&self, p: Vec2) -> Option<(PartId, &PartInstance)> {
         let pixel_p = PartCoord::from_meters_floored(p);
 
         for layer in [
@@ -509,7 +517,7 @@ fn draw_highlight_box(
 
 fn highlight_part(
     canvas: &mut Canvas,
-    instance: &InstantiatedPart,
+    instance: &PartInstance,
     ctx: &impl CameraProjection,
     color: Srgba,
     z: ZOrdering,

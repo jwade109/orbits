@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use bevy_egui::EguiContexts;
 use early_returns::{ok_or_continue, ok_or_return};
 
-use crate::{DockingTrigger, PartInstance, SpacecraftGrid, spacecraft::sysparam_api::Spacecraft};
+use crate::{DockingTrigger, SpacecraftGrid, spacecraft::sysparam_api::Spacecraft};
 
 use super::{PartsResource, SelectedSpacecraft};
 

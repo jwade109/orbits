@@ -14,7 +14,7 @@ pub struct PartId(u64);
 #[derive(Debug, Clone, Component)]
 pub struct Blueprint {
     next_part_id: PartId,
-    parts: BTreeMap<PartId, InstantiatedPart>,
+    parts: BTreeMap<PartId, PartInstance>,
     pipes: BTreeMap<PartId, PipeGeometry>,
     occupied_map: HashMap<(PartCoord, PartLayer), PartId>,
 }
@@ -70,7 +70,7 @@ impl Blueprint {
         layer: PartLayer,
     ) -> PartId {
         let id = self.get_next_part_id();
-        let instance = InstantiatedPart::new(name, layer, placement);
+        let instance = PartInstance::new(name, layer, placement);
         for p in instance.placement.cells() {
             let k = (p, layer);
             self.occupied_map.insert(k, id);
@@ -79,7 +79,7 @@ impl Blueprint {
         id
     }
 
-    pub fn get_part(&self, id: PartId) -> Option<&InstantiatedPart> {
+    pub fn get_part(&self, id: PartId) -> Option<&PartInstance> {
         self.parts.get(&id)
     }
 
@@ -187,7 +187,7 @@ impl Blueprint {
         self.pipes.clear();
     }
 
-    pub fn parts(&self) -> impl Iterator<Item = (&PartId, &InstantiatedPart)> + use<'_> {
+    pub fn parts(&self) -> impl Iterator<Item = (&PartId, &PartInstance)> + use<'_> {
         self.parts.iter()
     }
 

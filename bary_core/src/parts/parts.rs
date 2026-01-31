@@ -135,30 +135,14 @@ impl PartLayer {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct InstantiatedPart {
+#[derive(Component, Debug, Clone)]
+pub struct PartInstance {
     pub name: String,
     layer: PartLayer,
     pub placement: GridPlacement,
 }
 
-pub fn pixel_dims_with_rotation(rot: Rotation, part: &PartPrototype) -> UVec2 {
-    let dims = part.dims();
-    match rot {
-        Rotation::East | Rotation::West => UVec2::new(dims.x, dims.y),
-        Rotation::North | Rotation::South => UVec2::new(dims.y, dims.x),
-    }
-}
-
-fn meters_with_rotation(rot: Rotation, part: &PartPrototype) -> Vec2 {
-    let w = part.dims_meters();
-    match rot {
-        Rotation::East | Rotation::West => Vec2::new(w.x, w.y),
-        Rotation::North | Rotation::South => Vec2::new(w.y, w.x),
-    }
-}
-
-impl InstantiatedPart {
+impl PartInstance {
     pub fn new(name: impl Into<String>, layer: PartLayer, placement: GridPlacement) -> Self {
         Self {
             name: name.into(),

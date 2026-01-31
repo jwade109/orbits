@@ -64,7 +64,6 @@ impl Plugin for SpacecraftPlugin {
             SimTick,
             (
                 check_adjacent_docking_ports,
-                build_parts,
                 update_machines,
                 accelerate_spacecraft,
                 despawn_empty_grids,
@@ -128,9 +127,6 @@ impl SpacecraftGrid {
         self.angular_acceleration += (torque as f64 / self.moment_of_inertia) as f32;
     }
 }
-
-#[derive(Component, Debug, Deref, DerefMut)]
-pub struct PartInstance(pub InstantiatedPart);
 
 #[derive(Component, Debug)]
 struct PartSprite;
@@ -358,7 +354,7 @@ fn handle_sc_events(
         SpacecraftEvent::SpawnPart { name, pos, angle } => {
             let parts = load_parts_from_dir(&args.parts_dir())?;
             let part = parts.get(name).ok_or("bad part")?;
-            let instance = InstantiatedPart::from_prototype(
+            let instance = PartInstance::from_prototype(
                 part.clone(),
                 PartCoord::new(IVec2::ZERO),
                 bary_core::prelude::Rotation::East,
@@ -388,40 +384,6 @@ fn handle_sc_events(
     Ok(())
 }
 
-#[derive(Component, Debug, Clone)]
-pub struct ConstructionState {
-    pub current: usize,
-    pub last: usize,
-    pub should_build: bool,
-}
-
-// randomly increments all ConstructionStates
-fn build_parts(
-    mut con: Query<(Entity, &mut ConstructionState, &Children)>,
-    mut sprites: Query<&mut Sprite, With<PartSprite>>,
-    // mut commands: Commands,
-) {
-    for (_e, mut build, children) in &mut con {
-        if rand(0.0, 1.0) < 0.1 && build.should_build {
-            if build.current < build.last {
-                build.current += 1;
-            };
-        }
-
-        if build.current == build.last {
-            // commands.entity(e).remove::<ConstructionState>();
-        }
-
-        for child in children {
-            if let Ok(mut sprite) = sprites.get_mut(*child) {
-                if let Some(atlas) = &mut sprite.texture_atlas {
-                    atlas.index = build.current;
-                }
-            }
-        }
-    }
-}
-
 fn spawn_empty_grid<'a>(
     commands: &'a mut Commands,
     pos: Vec2,
@@ -432,8 +394,6 @@ fn spawn_empty_grid<'a>(
         Name::new(name),
         Transform::from_translation(pos.extend(0.0)).with_rotation(Quat::from_rotation_z(angle)),
         SpacecraftGrid {
-            // velocity: randvec(2.0, 4.0).as_dvec2() / 3.0,
-            // angular_velocity: 0.3,
             is_dirty: true,
             ..default()
         },
@@ -444,7 +404,7 @@ fn spawn_empty_grid<'a>(
 
 fn add_part_to_grid<'a>(
     commands: &mut RelatedSpawnerCommands<'a, ChildOf>,
-    part: &InstantiatedPart,
+    part: &PartInstance,
     asset_server: &mut ResMut<AssetServer>,
     args: &Res<ProgramContext>,
     parts: &PartDatabase,
@@ -472,13 +432,13 @@ fn add_part_to_grid<'a>(
     let mut cmd = commands.spawn((
         Transform::from_translation(origin.extend(z))
             .with_rotation(Quat::from_rotation_z(part.rotation().to_angle() as f32)),
-        PartInstance(part.clone()),
+        part.clone(),
         InheritedVisibility::VISIBLE,
     ));
 
     // INVENTORY COMPONENT ==================================================
 
-    if let Some(data) = InstantiatedPart::inventory_data(proto) {
+    if let Some(data) = PartInstance::inventory_data(proto) {
         let mut inv = Inventory::zero_slots();
         for data in &data.slots {
             let bounds = (data.min, data.max);
@@ -497,7 +457,7 @@ fn add_part_to_grid<'a>(
 
     // MACHINE COMPONENT ==================================================
 
-    if let Some(data) = InstantiatedPart::machine_data(proto) {
+    if let Some(data) = PartInstance::machine_data(proto) {
         // TODO use the data
         let machine = Machine::new(RecipeListing::DoNothing);
         cmd.insert(machine);
@@ -505,7 +465,7 @@ fn add_part_to_grid<'a>(
 
     // THRUSTER COMPONENT ==================================================
 
-    if let Some(model) = InstantiatedPart::thruster_data(proto) {
+    if let Some(model) = PartInstance::thruster_data(proto) {
         let thruster = if model.is_rcs {
             Thruster::new(3000.0, true)
         } else {
@@ -516,9 +476,10 @@ fn add_part_to_grid<'a>(
 
     // COMPUTER COMPONENT ==================================================
 
-    if let Some(cpu) = InstantiatedPart::computer_data(proto) {
+    if let Some(data) = PartInstance::computer_data(proto) {
         let mut cpu = Computer::default();
         cpu.mode = ComputerMode::Manual;
+        cpu.ticks_per_cycle = data.ticks_per_cycle;
         cpu.attitude = rand(0.0, 2.0);
         cpu.on = false;
         cmd.insert(cpu);
@@ -526,13 +487,13 @@ fn add_part_to_grid<'a>(
 
     // EXCAVATOR COMPONENT ==================================================
 
-    if let Some(data) = InstantiatedPart::excavator_data(proto) {
+    if let Some(data) = PartInstance::excavator_data(proto) {
         cmd.insert(Excavator::new(data.radius));
     }
 
     // DOCKING PORT COMPONENT ===============================================
 
-    if let Some(data) = InstantiatedPart::docking_port_data(proto) {
+    if let Some(data) = PartInstance::docking_port_data(proto) {
         let docking = DockingPort::new(data.distance);
         cmd.insert(docking);
     }

@@ -17,7 +17,7 @@ use crate::Settings;
 use crate::running_status_widget;
 use crate::spacecraft::sysparam_api::Spacecraft;
 use crate::toggle_on_off_button;
-use crate::{CursorWorldPosition, PartInstance, SelectedSpacecraft};
+use crate::{CursorWorldPosition, SelectedSpacecraft};
 
 #[derive(Debug, Clone, Copy)]
 struct HoseNode {

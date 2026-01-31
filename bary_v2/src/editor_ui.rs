@@ -21,28 +21,6 @@ impl Default for DebugPanelState {
     }
 }
 
-fn con_state_widget(id: Option<Entity>, ui: &mut egui::Ui, mut con: Query<&mut ConstructionState>) {
-    let id = if let Some(id) = id {
-        id
-    } else {
-        return;
-    };
-    ui.label(format!("Entity {id}"));
-
-    let mut con = match con.get_mut(id) {
-        Ok(con) => con,
-        _ => return,
-    };
-
-    ui.label(format!("{:#?}", con));
-
-    let l = con.last;
-
-    ui.add(egui::Slider::new(&mut con.current, 0..=l));
-
-    ui.add(egui::Checkbox::new(&mut con.should_build, "Build"));
-}
-
 fn add_thruster_widget(ui: &mut egui::Ui, thruster: &mut Thruster) {
     ui.label(format!("{:#?}", thruster));
 
@@ -371,7 +349,7 @@ pub fn part_ui(
 
     if let Ok((instance, _)) = parts.get(e) {
         ui.collapsing("Part Data", |ui| {
-            ui.label(format!("{:#?}", instance.0));
+            ui.label(format!("{:#?}", instance));
         });
     }
 }
