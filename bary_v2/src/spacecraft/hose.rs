@@ -14,6 +14,7 @@ use super::grid_coord::GridCoord;
 
 use crate::AddHose;
 use crate::CellPosition;
+use crate::GridPlacementEffect;
 use crate::InventoryApi;
 use crate::Settings;
 use crate::running_status_widget;
@@ -171,7 +172,6 @@ pub fn on_add_hose(
     inventory: InventoryApi,
     mut commands: Commands,
 ) -> Option<()> {
-
     info!("Add hose: {:?}", event);
 
     let tf_a = transforms.compute_global_transform(event.start.0).ok()?;
@@ -434,8 +434,10 @@ pub fn debug_draw_hose_connections(
 
     for hose in hoses {
         let (src, dst) = some_or_continue!(hose.connections());
-        let cell_a = ok_or_continue!(spacecraft.cell_global_transform(src.0, src.1, CellPosition::Center));
-        let cell_b = ok_or_continue!(spacecraft.cell_global_transform(dst.0, dst.1, CellPosition::Center));
+        let cell_a =
+            ok_or_continue!(spacecraft.cell_global_transform(src.0, src.1, CellPosition::Center));
+        let cell_b =
+            ok_or_continue!(spacecraft.cell_global_transform(dst.0, dst.1, CellPosition::Center));
 
         gizmos.line_2d(cell_a.translation.xy(), cell_b.translation.xy(), ORANGE);
 

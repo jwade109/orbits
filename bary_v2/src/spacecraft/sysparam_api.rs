@@ -1,3 +1,4 @@
+use bary_core::prelude::GridPlacement;
 use bary_core::prelude::*;
 use bevy::prelude::*;
 use bevy_ecs::{query::QueryEntityError, system::SystemParam};
@@ -25,7 +26,11 @@ pub struct Spacecraft<'w, 's> {
     parts: Query<
         'w,
         's,
-        (&'static PartInstance, &'static PartInGrid, &'static Transform),
+        (
+            &'static PartInstance,
+            &'static PartInGrid,
+            &'static Transform,
+        ),
         Without<SpacecraftGrid>,
     >,
 }
@@ -77,6 +82,17 @@ impl<'w, 's> Spacecraft<'w, 's> {
         let new_translation =
             part_center.translation + part_center.right() * offset.x + part_center.up() * offset.y;
         Ok(*grid_transform * part_center.with_translation(new_translation))
+    }
+
+    pub fn placement_transform(
+        &self,
+        grid: Entity,
+        placement: GridPlacement,
+    ) -> Result<(Transform, Vec2), QueryEntityError> {
+        let (_, _, grid_transform) = self.grids.get(grid)?;
+        let center_transform = placement.center_transform();
+        let dims = placement.part_aligned_dims().to_meters();
+        Ok((*grid_transform * center_transform, dims))
     }
 
     pub fn get_merge_transform(

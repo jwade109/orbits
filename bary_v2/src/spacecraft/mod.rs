@@ -1,5 +1,6 @@
 mod docking;
 mod grid_coord;
+mod grid_placement_effect;
 mod hose;
 mod part_database;
 mod position_command;
@@ -12,6 +13,7 @@ mod unsorted;
 
 pub use docking::*;
 pub use grid_coord::*;
+pub use grid_placement_effect::*;
 pub use hose::*;
 pub use part_database::*;
 pub use position_command::*;

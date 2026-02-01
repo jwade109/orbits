@@ -22,6 +22,7 @@ impl Plugin for SpacecraftPlugin {
                 draw_docking_info,
                 debug_draw_hose_connections,
                 debug_draw_inventory_vessels,
+                draw_grid_placement_effects,
             ),
         );
 
@@ -39,6 +40,7 @@ impl Plugin for SpacecraftPlugin {
             (
                 crate::temporary_keybinds::add_hose_on_h,
                 crate::temporary_keybinds::spawn_random_ship_on_y,
+                crate::temporary_keybinds::spawn_grid_effect_on_p,
             ),
         );
 
@@ -54,6 +56,8 @@ impl Plugin for SpacecraftPlugin {
                 update_selected_spacecraft_system,
                 update_selected_hose_system,
                 draw_hose_selection_area_system,
+                update_grid_placement_effects,
+                despawn_grid_placement_effects,
             ),
         );
 

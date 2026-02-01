@@ -1,8 +1,12 @@
+use bary_core::prelude::GridPlacement;
 use bary_core::prelude::*;
 use bevy::prelude::*;
 use early_returns::some_or_return;
 
-use crate::{AddHose, CursorWorldPosition, SelectedSpacecraft, Settings, SpacecraftEvent};
+use crate::{
+    AddHose, CursorWorldPosition, GridPlacementEffect, SelectedSpacecraft, Settings,
+    SpacecraftEvent,
+};
 
 pub fn add_hose_on_h(
     mut commands: Commands,
@@ -48,4 +52,25 @@ pub fn spawn_random_ship_on_y(
         pos,
         angle,
     });
+}
+
+pub fn spawn_grid_effect_on_p(
+    mut commands: Commands,
+    sel: Res<SelectedSpacecraft>,
+    keys: Res<ButtonInput<KeyCode>>,
+) {
+    if !keys.just_pressed(KeyCode::KeyP) {
+        return;
+    }
+
+    let grid = some_or_return!(sel.primary).grid.entity;
+
+    let x = randint(-20, 20);
+    let y = randint(-20, 20);
+
+    let placement = GridPlacement::new((x, y), Rotation::East, (5, 3));
+
+    let effect = GridPlacementEffect::new(grid, placement);
+
+    commands.spawn(effect);
 }

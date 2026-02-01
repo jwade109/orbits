@@ -97,6 +97,10 @@ impl GridPlacement {
         Isometry2d::new(self.origin().to_meters() + offset, rot.into())
     }
 
+    pub fn center_transform(&self) -> Transform {
+        isometry_to_transform(self.center_isometry())
+    }
+
     pub fn cells(&self) -> impl Iterator<Item = PartCoord> + use<'_> {
         let wh = self.grid_aligned_dims().inner();
         let iter_y = 0..wh.y;

@@ -23,11 +23,11 @@ pub struct InventoryApi<'w, 's> {
 }
 
 impl<'w, 's> InventoryApi<'w, 's> {
-    pub fn find_container_at(
-        &self,
-        part: Entity,
-        pos: PartCoord,
-    ) -> Result<Entity, FailedLookup> {
+    pub fn get_container(&self, container: Entity) -> Result<&ContainerLocation, QueryEntityError> {
+        self.containers.get(container)
+    }
+
+    pub fn find_container_at(&self, part: Entity, pos: PartCoord) -> Result<Entity, FailedLookup> {
         let children = self.parts.get(part)?;
         for child in children.iter() {
             let loc = self.containers.get(child)?;
