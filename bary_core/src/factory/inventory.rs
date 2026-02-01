@@ -508,6 +508,10 @@ impl InvSlot {
         self.contents = None;
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.contents.is_none()
+    }
+
     // fills this slot with the slot's set item, if possible.
     // returns the amount that was added.
     pub fn fill(&mut self) -> u64 {
@@ -665,12 +669,13 @@ impl std::fmt::Display for Inventory {
 
 /// moves item from one inventory to another without leaving either inventory
 /// in a state which would destroy or duplicate items
-pub fn atomic_transfer(
-    src: &mut Inventory,
-    dst: &mut Inventory,
-    item: Item,
-    count: u64,
-) -> MachineStatus {
+pub fn atomic_transfer(src: &mut InvSlot, dst: &mut InvSlot, mass: Mass) -> MachineStatus {
+    let Some(item) = src.item() else {
+        return MachineStatus::Starved;
+    };
+
+    let count = (mass / item.mass_per_unit()).round() as u64;
+
     if !src.can_take(item, count) {
         return MachineStatus::Starved;
     }

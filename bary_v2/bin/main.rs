@@ -35,7 +35,6 @@ fn main() {
         .add_plugins(ComputerPlugin)
         .add_plugins(TerrainPlugin)
         .add_plugins(CameraPlugin)
-        .add_plugins(InventoryTransferPlugin)
         .add_plugins(plot_plugin)
         .add_systems(EguiPrimaryContextPass, egui_ui)
         .add_systems(Startup, setup)

@@ -5,6 +5,8 @@ use early_returns::ok_or_continue;
 use early_returns::some_or_continue;
 use bary_core::prelude::*;
 
+use crate::PartContainers;
+
 use super::constants::*;
 use super::messages::*;
 use super::types::*;
@@ -57,7 +59,7 @@ pub fn generate_tiles(
         let mesh = Mesh2d(meshes.add(Rectangle::from_length(CHUNK_WIDTH)));
         let material = MeshMaterial2d(materials.add(Color::default()));
 
-        let mut e = commands.spawn((chunk, transform, mesh, material));
+        let e = commands.spawn((chunk, transform, mesh, material));
 
         chunk_map.insert(msg.pos, e.id());
     }
@@ -193,7 +195,6 @@ pub fn process_excavators(
         if ex.timer.just_finished() {
             let pos = ex.effector_center(tf).xy();
             let offset = randvec(0.0, ex.radius);
-            let (g, l) = to_grid_and_lattice(pos);
             let msg = MineToInventory {
                 pos: pos + offset,
                 inventory: e,
@@ -207,25 +208,26 @@ pub fn process_mine_to_inventory(
     mut events: MessageReader<MineToInventory>,
     chunk_map: Res<ChunkMap>,
     mut chunks: Query<&mut TerrainChunk>,
-    mut excavators: Query<(&mut Inventory, &mut Excavator)>,
-) -> Vec<(Vec2, MiningFailure)> {
+    mut excavators: Query<(&PartContainers, &mut Excavator)>,
+    mut slots: Query<&mut InvSlot>,
+) -> Vec<(Vec2, MiningResult)> {
     let mut successes = Vec::new();
 
     for event in events.read() {
         let (chunk, tile) = to_grid_and_lattice(event.pos);
 
-        let Ok((mut inv, mut ex)) = excavators.get_mut(event.inventory) else {
+        let Ok((containers, mut ex)) = excavators.get_mut(event.inventory) else {
             error!("Failed to get inventory: {}", event.inventory);
             continue;
         };
 
         let e = some_or_continue!(chunk_map.get(&chunk));
         let mut chunk = ok_or_continue!(chunks.get_mut(*e));
-        let mut dense = some_or_continue!(chunk.dense.as_mut());
+        let dense = some_or_continue!(chunk.dense.as_mut());
         let mut tile = &mut dense.points[tile.x as usize][tile.y as usize];
 
         if tile.mass.is_zero() {
-            successes.push((event.pos, MiningFailure::NoMaterial));
+            successes.push((event.pos, MiningResult::NoMaterial));
             ex.last_op_status = MachineStatus::Starved;
             continue;
         }
@@ -234,14 +236,27 @@ pub fn process_mine_to_inventory(
 
         let count = 10000;
         let item = tile.substrate.yields();
-        let mass = item.mass_per_unit() * count;
 
-        ex.last_op_status = atomic_mine(&mut tile, &mut inv, item, count);
+        ex.last_op_status = MachineStatus::Disconnected;
+
+        for entity in containers.iter() {
+            let mut slot = ok_or_continue!(slots.get_mut(entity));
+            ex.last_op_status = atomic_mine(&mut tile, &mut slot, item, count);
+
+            match ex.last_op_status {
+                MachineStatus::Off => break,
+                MachineStatus::NoRecipe => break,
+                MachineStatus::Running => break,
+                MachineStatus::NoRoom => continue,
+                MachineStatus::Starved => break,
+                MachineStatus::Disconnected => break,
+            }
+        }
 
         let status = if ex.last_op_status == MachineStatus::Running {
-            MiningFailure::Ok
+            MiningResult::Ok
         } else {
-            MiningFailure::NoRoom
+            MiningResult::NoRoom
         };
 
         successes.push((event.pos, status));
@@ -254,7 +269,7 @@ pub fn process_mine_to_inventory(
     successes
 }
 
-pub fn spawn_mining_visuals(In(chunks): In<Vec<(Vec2, MiningFailure)>>, mut commands: Commands) {
+pub fn spawn_mining_visuals(In(chunks): In<Vec<(Vec2, MiningResult)>>, mut commands: Commands) {
     for (pos, success) in chunks {
         let indicator = MiningIndicator {
             remaining: Timer::from_seconds(1.0, TimerMode::Once),
@@ -285,9 +300,9 @@ pub fn render_mining_indicators_system(mut painter: ShapePainter, indicators: Qu
     for ind in indicators {
         let remaining = ind.remaining.remaining().as_secs_f32();
         let color = match ind.success {
-            MiningFailure::Ok => ORANGE,
-            MiningFailure::NoRoom => RED,
-            MiningFailure::NoMaterial => TEAL,
+            MiningResult::Ok => ORANGE,
+            MiningResult::NoRoom => RED,
+            MiningResult::NoMaterial => TEAL,
         }
         .with_alpha(remaining * 0.5 + 0.5);
         painter.set_color(color);

@@ -45,8 +45,6 @@ pub struct Hose {
     status: MachineStatus,
     ticks_per_transfer: u32,
     current_ticks: u32,
-    item: Item,
-    count: u64,
 }
 
 #[derive(Resource, Default, Debug, Clone, Copy)]
@@ -219,8 +217,6 @@ pub fn on_add_hose(
         nodes,
         opacity: 1.0,
         is_on: true,
-        item: Item::H2,
-        count: 5,
         reversed: false,
         status: MachineStatus::Off,
         ticks_per_transfer: 100,
@@ -283,10 +279,7 @@ pub fn update_hose_physics_system(
     }
 }
 
-pub fn do_hose_inventory_transfer_system(
-    hoses: Query<&mut Hose>,
-    mut inventory: Query<&mut Inventory>,
-) {
+pub fn do_hose_inventory_transfer_system(hoses: Query<&mut Hose>, mut slots: Query<&mut InvSlot>) {
     for mut hose in hoses {
         if !hose.is_on {
             hose.status = MachineStatus::Off;
@@ -295,12 +288,12 @@ pub fn do_hose_inventory_transfer_system(
 
         hose.status = MachineStatus::Disconnected;
 
-        let (src, _) = some_or_continue!(hose.src);
-        let (dst, _) = some_or_continue!(hose.dst);
+        let src = some_or_continue!(hose.src_container);
+        let dst = some_or_continue!(hose.dst_container);
 
-        let [mut src, mut dst] = ok_or_continue!(inventory.get_many_mut([src, dst]));
+        let [mut src, mut dst] = ok_or_continue!(slots.get_many_mut([src, dst]));
 
-        hose.status = atomic_transfer(&mut src, &mut dst, hose.item, hose.count);
+        hose.status = atomic_transfer(&mut src, &mut dst, Mass::grams(300));
     }
 }
 
@@ -497,7 +490,6 @@ pub fn hose_info_window_egui_system(
             ui.separator();
 
             toggle_on_off_button(ui, &mut hose.is_on);
-            item_dropdown(ui, &mut hose.item, "Item", &ItemFilter::Any);
             running_status_widget(ui, hose.status);
 
             ui.separator();
@@ -506,7 +498,6 @@ pub fn hose_info_window_egui_system(
             ui.label(format!("To: {:?}", hose.dst));
             ui.label(format!("Desired Length: {:0.1}", hose.desired_length));
             ui.label(format!("Actual Length: {:0.1}", hose.length()));
-            ui.label(format!("Item: {:?}", hose.item));
             ui.label(format!("Reversed: {:?}", hose.reversed));
             ui.label(format!("Nodes: {}", hose.nodes.len()));
 

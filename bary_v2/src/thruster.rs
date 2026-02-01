@@ -66,13 +66,21 @@ fn draw_thrusters(
     }
 }
 
-pub fn consume_fuel(mut thrusters: Query<(&mut Thruster, &mut Inventory)>, settings: Res<Settings>) {
-    for (mut thruster, mut inv) in &mut thrusters {
+pub fn consume_fuel(
+    mut thrusters: Query<(&mut Thruster, &mut PartContainers)>,
+    mut slots: Query<&mut InvSlot>,
+    settings: Res<Settings>,
+) {
+    for (mut thruster, containers) in &mut thrusters {
+        // only draw from first container for now
+        let container = containers.get(0).expect("Expected at least one container");
+        let mut slot = slots.get_mut(*container).expect("Expected a container");
+
         thruster.status = if thruster.on {
             if settings.infinite_fuel {
                 MachineStatus::Running
             } else {
-                if inv.take(Item::H2, 1) {
+                if slot.take(Item::H2, 1) {
                     MachineStatus::Running
                 } else {
                     MachineStatus::Starved

@@ -181,7 +181,8 @@ fn draw_blueprints(
 
 fn draw_inventories(
     mut painter: ShapePainter,
-    parts: Query<(&GlobalTransform, &PartInstance, &Inventory)>,
+    inventory: InventoryApi,
+    parts: Query<(&GlobalTransform, &PartInstance, &PartContainers)>,
     settings: Res<Settings>,
 ) {
     if !settings.draw_inventories {
@@ -190,9 +191,10 @@ fn draw_inventories(
 
     const Z_DEBUG_INVENTORY_LAYER: f32 = 0.05;
 
-    for (tf, part, inventory) in parts {
-        for slot in inventory.slots() {
-            let (min, max) = slot.bounds();
+    for (tf, part, containers) in parts {
+        for entity in containers.iter() {
+            let (loc, slot) = ok_or_continue!(inventory.get_container(entity));
+            let (min, max) = (loc.origin, loc.origin + loc.dims);
             let c = (max + min).to_meters() / 2.0;
             let d = (max - min).to_meters();
             let half_width = part.placement.part_aligned_dims().to_meters() / 2.0;
@@ -448,7 +450,6 @@ fn add_part_to_grid<'a>(
     let mut vessels = Vec::new();
 
     if let Some(data) = PartInstance::inventory_data(proto) {
-        let mut inv = Inventory::zero_slots();
         for data in &data.slots {
             let bounds = (data.min, data.max);
             let mut slot = InvSlot::new(
@@ -459,8 +460,6 @@ fn add_part_to_grid<'a>(
 
             slot.set_name(data.name.clone());
 
-            inv.add_slot(slot.clone());
-
             let loc = ContainerLocation {
                 origin: data.min.into(),
                 dims: (data.max - data.min).into(),
@@ -468,9 +467,6 @@ fn add_part_to_grid<'a>(
 
             vessels.push((slot, loc, ContainerInPart(cmd.id())));
         }
-        cmd.insert(inv);
-
-        // trying out a new system
     }
 
     // MACHINE COMPONENT ==================================================

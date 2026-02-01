@@ -114,3 +114,10 @@ impl Mul<u64> for Mass {
         Self(self.0 * rhs)
     }
 }
+
+impl Div<Mass> for Mass {
+    type Output = f64;
+    fn div(self, rhs: Mass) -> Self::Output {
+        self.to_kg_f64() / rhs.to_kg_f64()
+    }
+}

@@ -231,7 +231,7 @@ pub fn global_to_gl(gl: IVec2) -> (IVec2, IVec2) {
 /// moves items from a tile to an inventory, if possible,
 /// without leaving either in a state where matter is
 /// created or destroyed
-pub fn atomic_mine(src: &mut Tile, dst: &mut Inventory, item: Item, count: u64) -> MachineStatus {
+pub fn atomic_mine(src: &mut Tile, dst: &mut InvSlot, item: Item, count: u64) -> MachineStatus {
     if !dst.can_store(item, count) {
         return MachineStatus::NoRoom;
     }

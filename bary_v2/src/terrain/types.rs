@@ -272,7 +272,7 @@ impl DenseChunkData {
 #[derive(Component)]
 pub struct MiningIndicator {
     pub remaining: Timer,
-    pub success: MiningFailure,
+    pub success: MiningResult,
     pub pos: Vec2,
 }
 
@@ -280,7 +280,7 @@ pub struct MiningIndicator {
 pub struct Ast(pub Asteroid);
 
 #[derive(Debug, Clone, Copy)]
-pub enum MiningFailure {
+pub enum MiningResult {
     Ok,
     NoRoom,
     NoMaterial,
