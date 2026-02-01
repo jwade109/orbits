@@ -20,8 +20,7 @@ impl Plugin for SpacecraftPlugin {
                 draw_selected_part_system,
                 draw_spacecraft_spatial_lookups,
                 draw_docking_info,
-                debug_draw_hose_connections,
-                debug_draw_inventory_vessels,
+                debug_draw_inventory_links,
                 draw_grid_placement_effects,
             ),
         );
@@ -38,9 +37,9 @@ impl Plugin for SpacecraftPlugin {
         app.add_systems(
             Update,
             (
-                crate::temporary_keybinds::add_hose_on_h,
+                crate::temporary_keybinds::add_hose_or_pipe_on_h_or_p,
                 crate::temporary_keybinds::spawn_random_ship_on_y,
-                crate::temporary_keybinds::spawn_grid_effect_on_p,
+                crate::temporary_keybinds::spawn_grid_effect_on_r,
             ),
         );
 
@@ -62,6 +61,7 @@ impl Plugin for SpacecraftPlugin {
         );
 
         app.add_observer(on_add_hose.pipe(swallow_optional));
+        app.add_observer(on_add_pipe.pipe(swallow_result));
 
         app.add_systems(FixedUpdate, world_tick_driver_system);
 
@@ -75,7 +75,7 @@ impl Plugin for SpacecraftPlugin {
                 update_grids,
                 update_spacecraft_grid_map,
                 update_hose_physics_system,
-                do_hose_inventory_transfer_system,
+                process_inventory_links_system,
                 update_computers,
                 do_maneuvers,
                 consume_fuel,

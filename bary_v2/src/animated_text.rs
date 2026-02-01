@@ -36,6 +36,12 @@ impl SpawnAnimText {
 #[derive(Component)]
 struct AnimText(String, Option<Entity>);
 
+impl From<&str> for AnimText {
+    fn from(value: &str) -> Self {
+        Self(value.to_string(), None)
+    }
+}
+
 #[derive(Component)]
 struct Lifetime(f32);
 

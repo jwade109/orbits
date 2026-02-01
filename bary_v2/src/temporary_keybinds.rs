@@ -4,16 +4,19 @@ use bevy::prelude::*;
 use early_returns::some_or_return;
 
 use crate::{
-    AddHose, CursorWorldPosition, GridPlacementEffect, SelectedSpacecraft, Settings,
+    AddHose, AddPipe, CursorWorldPosition, GridPlacementEffect, SelectedSpacecraft, Settings,
     SpacecraftEvent,
 };
 
-pub fn add_hose_on_h(
+pub fn add_hose_or_pipe_on_h_or_p(
     mut commands: Commands,
     sel: Res<SelectedSpacecraft>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
-    if !keys.just_pressed(KeyCode::KeyH) {
+    let make_hose = keys.just_pressed(KeyCode::KeyH);
+    let make_pipe = keys.just_pressed(KeyCode::KeyP);
+
+    if !make_hose && !make_pipe {
         return;
     }
 
@@ -22,7 +25,11 @@ pub fn add_hose_on_h(
     let start = (a.part.entity, a.part.coord);
     let end = (b.part.entity, b.part.coord);
 
-    commands.trigger(AddHose { start, end });
+    if make_hose {
+        commands.trigger(AddHose { start, end });
+    } else if make_pipe {
+        commands.trigger(AddPipe { start, end });
+    }
 }
 
 pub fn toggle_inv_on_alt(keys: Res<ButtonInput<KeyCode>>, mut settings: ResMut<Settings>) {
@@ -54,12 +61,12 @@ pub fn spawn_random_ship_on_y(
     });
 }
 
-pub fn spawn_grid_effect_on_p(
+pub fn spawn_grid_effect_on_r(
     mut commands: Commands,
     sel: Res<SelectedSpacecraft>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
-    if !keys.just_pressed(KeyCode::KeyP) {
+    if !keys.just_pressed(KeyCode::KeyR) {
         return;
     }
 

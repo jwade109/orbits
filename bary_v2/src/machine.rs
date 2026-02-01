@@ -83,7 +83,7 @@ impl Machine {
 
         for (i, (item, count)) in recipe.outputs().enumerate() {
             if let Some(slot) = inv.get_slot(n_inputs + i) {
-                if !slot.can_store(item, count) {
+                if !slot.can_store(item, count).is_ok() {
                     return false;
                 }
             } else {

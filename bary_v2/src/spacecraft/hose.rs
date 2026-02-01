@@ -13,10 +13,13 @@ use egui::Pos2;
 use super::grid_coord::GridCoord;
 
 use crate::AddHose;
+use crate::AddPipe;
 use crate::CellPosition;
+use crate::FailedLookup;
 use crate::GridPlacementEffect;
 use crate::InventoryApi;
 use crate::Settings;
+use crate::SpawnAnimText;
 use crate::add_slot_widget;
 use crate::running_status_widget;
 use crate::spacecraft::sysparam_api::Spacecraft;
@@ -29,22 +32,29 @@ struct HoseNode {
     vel: Vec2,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct InventoryJoint {
+    part: Entity,
+    position: PartCoord,
+    container: Entity,
+}
+
+/// Describes a link between two inventory containers
+#[derive(Debug, Component, Clone, Copy)]
+pub struct InventoryLink {
+    src: InventoryJoint,
+    dst: InventoryJoint,
+    is_on: bool,
+    status: MachineStatus,
+}
+
 #[derive(Component, Debug)]
-pub struct Hose {
-    src: Option<(Entity, PartCoord)>,
-    dst: Option<(Entity, PartCoord)>,
-    src_container: Option<Entity>,
-    dst_container: Option<Entity>,
+pub struct HosePhysics {
     src_pos: Vec2,
     dst_pos: Vec2,
     desired_length: f32,
     nodes: Vec<HoseNode>,
     opacity: f32,
-    is_on: bool,
-    reversed: bool,
-    status: MachineStatus,
-    ticks_per_transfer: u32,
-    current_ticks: u32,
 }
 
 #[derive(Resource, Default, Debug, Clone, Copy)]
@@ -53,15 +63,7 @@ pub struct SelectedHose {
     selected: Option<Entity>,
 }
 
-impl Hose {
-    fn connections(&self) -> Option<((Entity, PartCoord), (Entity, PartCoord))> {
-        self.src.zip(self.dst)
-    }
-
-    fn containers(&self) -> Option<(Entity, Entity)> {
-        self.src_container.zip(self.dst_container)
-    }
-
+impl HosePhysics {
     fn update_src_pos(&mut self, p: Vec2) {
         self.src_pos = p;
     }
@@ -74,10 +76,6 @@ impl Hose {
         self.dst_pos = p;
     }
 
-    fn is_connected(&self) -> bool {
-        self.src.is_some() && self.dst.is_some()
-    }
-
     fn length(&self) -> f32 {
         let mut sum = 0.0;
         for n in self.nodes.windows(2) {
@@ -87,25 +85,9 @@ impl Hose {
         sum
     }
 
-    fn transfer_progress(&self) -> f32 {
-        self.current_ticks as f32 / self.ticks_per_transfer as f32
-    }
-
     fn step_node_velocity(&mut self, dt: f32) {
         for i in [0, self.nodes.len() - 1] {
-            let rest_pos = if i == 0 {
-                if self.src.is_some() {
-                    self.src_pos
-                } else {
-                    continue;
-                }
-            } else {
-                if self.dst.is_some() {
-                    self.dst_pos
-                } else {
-                    continue;
-                }
-            };
+            let rest_pos = if i == 0 { self.src_pos } else { self.dst_pos };
             let node = &mut self.nodes[i];
             let accel = (rest_pos - node.pos) * 0.2;
             node.vel += accel * dt;
@@ -157,12 +139,9 @@ impl Hose {
         //     }
         // }
 
-        if self.src.is_some() {
-            self.nodes.first_mut().expect("Expected nonempty list").pos = self.src_pos;
-        }
-        if self.dst.is_some() {
-            self.nodes.last_mut().expect("Expected nonempty list").pos = self.dst_pos;
-        }
+        self.nodes.first_mut().expect("Expected nonempty list").pos = self.src_pos;
+
+        self.nodes.last_mut().expect("Expected nonempty list").pos = self.dst_pos;
     }
 
     pub fn center(&self) -> Vec2 {
@@ -206,72 +185,112 @@ pub fn on_add_hose(
         .ok();
     let dst_container = inventory.find_container_at(event.end.0, event.end.1).ok();
 
-    let hose = Hose {
-        src: Some(event.start),
-        dst: Some(event.end),
-        src_container,
-        dst_container,
+    let hose = HosePhysics {
         src_pos: pa,
         dst_pos: pb,
         desired_length,
         nodes,
         opacity: 1.0,
-        is_on: true,
-        reversed: false,
-        status: MachineStatus::Off,
-        ticks_per_transfer: 100,
-        current_ticks: 0,
     };
-
-    if let Some((src, dst)) = hose.containers() {
-        info!("Containers: {} -> {}", src, dst);
-    }
 
     let id = commands.spawn(hose).id();
 
     info!("Spawned hose: {}", id);
 
+    if let Some((src, dst)) = src_container.zip(dst_container) {
+        let src = InventoryJoint {
+            part: event.start.0,
+            position: event.start.1,
+            container: src,
+        };
+        let dst = InventoryJoint {
+            part: event.end.0,
+            position: event.end.1,
+            container: dst,
+        };
+        let link = InventoryLink {
+            src,
+            dst,
+            is_on: true,
+            status: MachineStatus::Off,
+        };
+        info!("Established link: {:?}", link);
+        commands.entity(id).insert(link);
+    }
+
     Some(())
+}
+
+pub fn on_add_pipe(
+    event: On<AddPipe>,
+    inventory: InventoryApi,
+    spacecraft: Spacecraft,
+    mut commands: Commands,
+    mut alerts: MessageWriter<SpawnAnimText>,
+) -> Result<(), FailedLookup> {
+    info!("Add pipe: {:?}", event);
+
+    let grid_a = spacecraft.get_vehicle_from_part_id(event.start.0)?;
+    let grid_b = spacecraft.get_vehicle_from_part_id(event.end.0)?;
+
+    if grid_a != grid_b {
+        alerts.write(SpawnAnimText::new("Can't add pipe across grids"));
+        return Ok(());
+    }
+
+    let src_slot = inventory.find_container_at(event.start.0, event.start.1)?;
+    let dst_slot = inventory.find_container_at(event.end.0, event.end.1)?;
+
+    let src = InventoryJoint {
+        part: event.start.0,
+        position: event.start.1,
+        container: src_slot,
+    };
+    let dst = InventoryJoint {
+        part: event.end.0,
+        position: event.end.1,
+        container: dst_slot,
+    };
+    let link = InventoryLink {
+        src,
+        dst,
+        is_on: true,
+        status: MachineStatus::Off,
+    };
+
+    info!("Established link: {:?}", link);
+    commands.spawn(link);
+
+    Ok(())
 }
 
 pub fn update_hose_physics_system(
     mut commands: Commands,
-    mut hoses: Query<(Entity, &mut Hose)>,
+    mut hoses: Query<(Entity, &mut HosePhysics, &mut InventoryLink)>,
     parts: Query<&PartInstance>,
     transforms: TransformHelper,
 ) {
     let dt = 1.0 / 60.0;
-    for (e, mut hose) in &mut hoses {
-        hose.status = match (hose.is_on, hose.is_connected()) {
-            (false, _) => MachineStatus::Off,
-            (true, false) => MachineStatus::Disconnected,
-            (true, true) => MachineStatus::Running,
-        };
-
-        if let Some(src) = hose.src {
-            if let Ok(tf) = transforms.compute_global_transform(src.0) {
-                if let Ok(part) = parts.get(src.0) {
-                    let part_center = tf.compute_transform();
-                    let tf = compute_part_cell_transform(part_center, part.placement, src.1);
-                    hose.update_src_pos(tf.translation.xy());
-                }
+    for (e, mut hose, link) in &mut hoses {
+        if let Ok(tf) = transforms.compute_global_transform(link.src.part) {
+            if let Ok(part) = parts.get(link.src.part) {
+                let part_center = tf.compute_transform();
+                let tf =
+                    compute_part_cell_transform(part_center, part.placement, link.src.position);
+                hose.update_src_pos(tf.translation.xy());
             }
         }
-        if let Some(dst) = hose.dst {
-            if let Ok(tf) = transforms.compute_global_transform(dst.0) {
-                if let Ok(part) = parts.get(dst.0) {
-                    let part_center = tf.compute_transform();
-                    let tf = compute_part_cell_transform(part_center, part.placement, dst.1);
-                    hose.update_dst_pos(tf.translation.xy());
-                }
+
+        if let Ok(tf) = transforms.compute_global_transform(link.dst.part) {
+            if let Ok(part) = parts.get(link.dst.part) {
+                let part_center = tf.compute_transform();
+                let tf =
+                    compute_part_cell_transform(part_center, part.placement, link.dst.position);
+                hose.update_dst_pos(tf.translation.xy());
             }
         }
 
         hose.step_node_velocity(dt);
-
-        if !hose.is_connected() {
-            hose.opacity -= dt;
-        }
 
         if hose.opacity < 0.0 {
             commands.entity(e).despawn();
@@ -279,27 +298,28 @@ pub fn update_hose_physics_system(
     }
 }
 
-pub fn do_hose_inventory_transfer_system(hoses: Query<&mut Hose>, mut slots: Query<&mut InvSlot>) {
-    for mut hose in hoses {
-        if !hose.is_on {
-            hose.status = MachineStatus::Off;
+pub fn process_inventory_links_system(
+    links: Query<&mut InventoryLink>,
+    mut slots: Query<&mut InvSlot>,
+) {
+    for mut link in links {
+        if !link.is_on {
+            link.status = MachineStatus::Off;
             continue;
         }
 
-        hose.status = MachineStatus::Disconnected;
+        link.status = MachineStatus::Disconnected;
 
-        let src = some_or_continue!(hose.src_container);
-        let dst = some_or_continue!(hose.dst_container);
+        let [mut src, mut dst] =
+            ok_or_continue!(slots.get_many_mut([link.src.container, link.dst.container]));
 
-        let [mut src, mut dst] = ok_or_continue!(slots.get_many_mut([src, dst]));
-
-        hose.status = atomic_transfer(&mut src, &mut dst, Mass::grams(300));
+        link.status = atomic_transfer(&mut src, &mut dst, Mass::grams(300));
     }
 }
 
 pub fn draw_hoses_system(
     mut painter: ShapePainter,
-    hoses: Query<(Entity, &Hose)>,
+    hoses: Query<(Entity, &HosePhysics)>,
     selected: Res<SelectedHose>,
 ) {
     painter.reset();
@@ -328,18 +348,12 @@ pub fn draw_hoses_system(
             painter.line(p.extend(0.0), q.extend(0.0));
         }
     }
-
-    // outline the attached inventory for the selected/hovered hose
-
-    let id = some_or_return!(selected.selected.or(selected.hovered));
-
-    let (_, hose) = ok_or_return!(hoses.get(id));
 }
 
 pub fn update_selected_hose_system(
     mut info: ResMut<SelectedHose>,
     mouse: Res<CursorWorldPosition>,
-    hoses: Query<(Entity, &Hose)>,
+    hoses: Query<(Entity, &HosePhysics)>,
     buttons: Res<ButtonInput<MouseButton>>,
 ) {
     info.hovered = None;
@@ -378,7 +392,7 @@ const HOSE_SELECTION_AREA_WORLD_RADIUS: f32 = 0.5;
 
 pub fn draw_hose_selection_area_system(
     mut painter: ShapePainter,
-    hoses: Query<(Entity, &Hose)>,
+    hoses: Query<(Entity, &HosePhysics)>,
     selected: Res<SelectedHose>,
 ) {
     let z = ZOrdering::Debug.as_f32();
@@ -426,9 +440,9 @@ fn compute_part_cell_transform(
     part_center.with_translation(new_translation)
 }
 
-pub fn debug_draw_hose_connections(
+pub fn debug_draw_inventory_links(
     mut gizmos: Gizmos,
-    hoses: Query<&Hose>,
+    links: Query<&InventoryLink>,
     spacecraft: Spacecraft,
     settings: Res<Settings>,
 ) {
@@ -436,27 +450,39 @@ pub fn debug_draw_hose_connections(
         return;
     }
 
-    for hose in hoses {
-        let (src, dst) = some_or_continue!(hose.connections());
-        let cell_a =
-            ok_or_continue!(spacecraft.cell_global_transform(src.0, src.1, CellPosition::Center));
-        let cell_b =
-            ok_or_continue!(spacecraft.cell_global_transform(dst.0, dst.1, CellPosition::Center));
+    for link in links {
+        let cell_a = ok_or_continue!(spacecraft.cell_global_transform(
+            link.src.part,
+            link.src.position,
+            CellPosition::Center
+        ));
+        let cell_b = ok_or_continue!(spacecraft.cell_global_transform(
+            link.dst.part,
+            link.dst.position,
+            CellPosition::Center
+        ));
 
-        gizmos.line_2d(cell_a.translation.xy(), cell_b.translation.xy(), ORANGE);
+        let color = match link.status {
+            MachineStatus::Disconnected => PURPLE,
+            MachineStatus::Off => GRAY,
+            MachineStatus::NoRecipe => GRAY,
+            MachineStatus::Running => ORANGE,
+            MachineStatus::NoRoom => RED,
+            MachineStatus::Starved => YELLOW,
+            MachineStatus::BadFilter => PINK,
+        };
 
-        gizmos.axes_2d(cell_a, 1.0);
-        gizmos.axes_2d(cell_b, 1.0);
+        gizmos.line_2d(cell_a.translation.xy(), cell_b.translation.xy(), color);
 
         gizmos.rect_2d(
             transform_to_isometry(cell_a),
-            Vec2::splat(PartCoord::CELL_WIDTH),
+            Vec2::splat(PartCoord::CELL_WIDTH * 0.6),
             RED,
         );
         gizmos.rect_2d(
             transform_to_isometry(cell_b),
-            Vec2::splat(PartCoord::CELL_WIDTH),
-            RED,
+            Vec2::splat(PartCoord::CELL_WIDTH * 0.6),
+            GREEN,
         );
     }
 }
@@ -464,9 +490,10 @@ pub fn debug_draw_hose_connections(
 pub fn hose_info_window_egui_system(
     mut contexts: EguiContexts,
     selected: ResMut<SelectedHose>,
-    mut hoses: Query<(Entity, &mut Hose)>,
+    mut links: Query<(Entity, &mut InventoryLink, &HosePhysics)>,
     inventory: InventoryApi,
     camera: Single<(&Camera, &GlobalTransform)>,
+    mut commands: Commands,
 ) -> Result {
     let ctx = contexts.ctx_mut()?;
 
@@ -474,7 +501,7 @@ pub fn hose_info_window_egui_system(
         return Ok(());
     };
 
-    let (_, mut hose) = hoses.get_mut(id)?;
+    let (_, mut link, hose) = links.get_mut(id)?;
 
     let pos = camera
         .0
@@ -489,29 +516,33 @@ pub fn hose_info_window_egui_system(
 
             ui.separator();
 
-            toggle_on_off_button(ui, &mut hose.is_on);
-            running_status_widget(ui, hose.status);
+            toggle_on_off_button(ui, &mut link.is_on);
+            running_status_widget(ui, link.status);
 
             ui.separator();
 
-            ui.label(format!("From: {:?}", hose.src));
-            ui.label(format!("To: {:?}", hose.dst));
+            ui.heading("Hose Physics");
             ui.label(format!("Desired Length: {:0.1}", hose.desired_length));
             ui.label(format!("Actual Length: {:0.1}", hose.length()));
-            ui.label(format!("Reversed: {:?}", hose.reversed));
             ui.label(format!("Nodes: {}", hose.nodes.len()));
 
-            if let Some((src, dst)) = hose.containers() {
+            ui.separator();
+
+            ui.label(format!("From: {:?}", link.src));
+            ui.label(format!("To: {:?}", link.dst));
+
+            ui.heading("Containers");
+            if let Ok(container) = inventory.get_container(link.src.container) {
                 ui.separator();
-                ui.heading("Containers");
-                if let Ok(container) = inventory.get_container(src) {
-                    ui.separator();
-                    add_slot_widget(ui, container.1);
-                }
-                if let Ok(container) = inventory.get_container(dst) {
-                    ui.separator();
-                    add_slot_widget(ui, container.1);
-                }
+                add_slot_widget(ui, container.1);
+            }
+            if let Ok(container) = inventory.get_container(link.dst.container) {
+                ui.separator();
+                add_slot_widget(ui, container.1);
+            }
+
+            if ui.button("Delete").clicked() {
+                commands.entity(id).despawn();
             }
         });
 

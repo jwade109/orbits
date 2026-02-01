@@ -7,6 +7,7 @@ pub enum MachineStatus {
     NoRoom,
     Starved,
     Disconnected,
+    BadFilter,
 }
 
 impl MachineStatus {

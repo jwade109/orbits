@@ -49,3 +49,10 @@ pub struct AddHose {
     pub start: (Entity, PartCoord),
     pub end: (Entity, PartCoord),
 }
+
+#[derive(Event, Debug)]
+pub struct AddPipe {
+    // this might look different from AddHose someday
+    pub start: (Entity, PartCoord),
+    pub end: (Entity, PartCoord),
+}

@@ -210,6 +210,7 @@ pub fn running_status_widget(ui: &mut egui::Ui, status: MachineStatus) {
         MachineStatus::NoRoom => egui::Color32::YELLOW,
         MachineStatus::Starved => egui::Color32::YELLOW,
         MachineStatus::Disconnected => egui::Color32::ORANGE,
+        MachineStatus::BadFilter => egui::Color32::YELLOW,
     };
 
     ui.horizontal(|ui| {

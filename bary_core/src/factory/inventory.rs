@@ -349,7 +349,7 @@ impl Inventory {
     pub fn can_store(&self, item: Item, count: u64) -> bool {
         // TODO this doesn't cover the case where multiple slots
         // combined can store the given amount
-        self.0.iter().any(|s| s.can_store(item, count))
+        self.0.iter().any(|s| s.can_store(item, count).is_ok())
     }
 
     pub fn store(&mut self, item: Item, count: u64) -> bool {
@@ -557,21 +557,26 @@ impl InvSlot {
     // its current storage plus the new count would be less or equal to
     // the given capacity, and its filter accepts the item.
     // TODO related mass and volume here.
-    pub fn can_store(&self, item: Item, count: u64) -> bool {
+    pub fn can_store(&self, item: Item, count: u64) -> Result<(), MachineStatus> {
         if !self.filter.passes(item) {
-            return false;
+            return Err(MachineStatus::BadFilter);
         }
 
-        let units_capacity = (self.capacity / item.volume_per_unit()).floor() as u64;
+        let units_capacity: u64 = (self.capacity / item.volume_per_unit()).floor() as u64;
         if let Some(contents) = self.contents {
-            contents.0 == item && contents.1 + count <= units_capacity
+            let ok = contents.0 == item && contents.1 + count <= units_capacity;
+            if ok {
+                Ok(())
+            } else {
+                Err(MachineStatus::NoRoom)
+            }
         } else {
-            true
+            Ok(())
         }
     }
 
     pub fn store(&mut self, item: Item, count: u64) -> bool {
-        if !self.can_store(item, count) {
+        if !self.can_store(item, count).is_ok() {
             return false;
         }
 
@@ -680,8 +685,11 @@ pub fn atomic_transfer(src: &mut InvSlot, dst: &mut InvSlot, mass: Mass) -> Mach
         return MachineStatus::Starved;
     }
 
-    if !dst.can_store(item, count) {
-        return MachineStatus::NoRoom;
+    match dst.can_store(item, count) {
+        Ok(()) => (),
+        Err(status) => {
+            return status;
+        }
     }
 
     src.take(item, count);

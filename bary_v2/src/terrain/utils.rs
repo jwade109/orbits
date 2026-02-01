@@ -232,7 +232,7 @@ pub fn global_to_gl(gl: IVec2) -> (IVec2, IVec2) {
 /// without leaving either in a state where matter is
 /// created or destroyed
 pub fn atomic_mine(src: &mut Tile, dst: &mut InvSlot, item: Item, count: u64) -> MachineStatus {
-    if !dst.can_store(item, count) {
+    if !dst.can_store(item, count).is_ok() {
         return MachineStatus::NoRoom;
     }
 
@@ -242,7 +242,9 @@ pub fn atomic_mine(src: &mut Tile, dst: &mut InvSlot, item: Item, count: u64) ->
 
     let mass = item.mass_per_unit() * count;
     dst.store(item, count);
-    src.mine(mass);
+
+    // infinite mining for now
+    // src.mine(mass);
 
     MachineStatus::Running
 }

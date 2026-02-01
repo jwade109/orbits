@@ -250,6 +250,7 @@ pub fn process_mine_to_inventory(
                 MachineStatus::NoRoom => continue,
                 MachineStatus::Starved => break,
                 MachineStatus::Disconnected => break,
+                MachineStatus::BadFilter => continue,
             }
         }
 
