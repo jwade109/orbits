@@ -158,6 +158,36 @@ fn add_excavator_widget(ui: &mut egui::Ui, e: Entity, ex: &mut Excavator) {
     ui.add(egui::ProgressBar::new(pct));
 }
 
+pub fn add_slot_widget(ui: &mut egui::Ui, slot: &InvSlot) {
+    if let Some(name) = slot.name() {
+        ui.label(name.to_uppercase());
+    }
+
+    let item = slot.item();
+    let count = slot.contents().map(|c| c.1).unwrap_or(0);
+    let c = item.map(|c| c.color()).unwrap_or(GRAY).to_u8_array();
+    let color = egui::Color32::from_rgb(c[0], c[1], c[2]);
+
+    let filter = slot.filter();
+
+    ui.horizontal(|ui| {
+        let size = egui::Vec2::new(10.0, 10.0);
+        egui::color_picker::show_color(ui, color, size);
+        ui.label(format!(
+            "{:?} {} {}/{} ({}) {} %{:?}",
+            item,
+            count,
+            slot.occupied_volume(),
+            slot.capacity(),
+            slot.mass(),
+            if slot.is_full() { "*" } else { "" },
+            filter,
+        ));
+    });
+
+    ui.add(egui::ProgressBar::new(slot.fill_percentage()).fill(color));
+}
+
 fn add_inv_widget(ui: &mut egui::Ui, inv: &mut Inventory) {
     ui.label(format!(
         "Mass: {}, {} / {}",
@@ -168,34 +198,7 @@ fn add_inv_widget(ui: &mut egui::Ui, inv: &mut Inventory) {
 
     for slot in inv.slots_mut() {
         ui.separator();
-
-        if let Some(name) = slot.name() {
-            ui.label(name.to_uppercase());
-        }
-
-        let item = slot.item();
-        let count = slot.contents().map(|c| c.1).unwrap_or(0);
-        let c = item.map(|c| c.color()).unwrap_or(GRAY).to_u8_array();
-        let color = egui::Color32::from_rgb(c[0], c[1], c[2]);
-
-        let filter = slot.filter();
-
-        ui.horizontal(|ui| {
-            let size = egui::Vec2::new(10.0, 10.0);
-            egui::color_picker::show_color(ui, color, size);
-            ui.label(format!(
-                "{:?} {} {}/{} ({}) {} %{:?}",
-                item,
-                count,
-                slot.occupied_volume(),
-                slot.capacity(),
-                slot.mass(),
-                if slot.is_full() { "*" } else { "" },
-                filter,
-            ));
-        });
-
-        ui.add(egui::ProgressBar::new(slot.fill_percentage()).fill(color));
+        add_slot_widget(ui, slot);
     }
 }
 

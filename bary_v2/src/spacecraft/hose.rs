@@ -17,6 +17,7 @@ use crate::CellPosition;
 use crate::GridPlacementEffect;
 use crate::InventoryApi;
 use crate::Settings;
+use crate::add_slot_widget;
 use crate::running_status_widget;
 use crate::spacecraft::sysparam_api::Spacecraft;
 use crate::toggle_on_off_button;
@@ -32,6 +33,8 @@ struct HoseNode {
 pub struct Hose {
     src: Option<(Entity, PartCoord)>,
     dst: Option<(Entity, PartCoord)>,
+    src_container: Option<Entity>,
+    dst_container: Option<Entity>,
     src_pos: Vec2,
     dst_pos: Vec2,
     desired_length: f32,
@@ -55,6 +58,10 @@ pub struct SelectedHose {
 impl Hose {
     fn connections(&self) -> Option<((Entity, PartCoord), (Entity, PartCoord))> {
         self.src.zip(self.dst)
+    }
+
+    fn containers(&self) -> Option<(Entity, Entity)> {
+        self.src_container.zip(self.dst_container)
     }
 
     fn update_src_pos(&mut self, p: Vec2) {
@@ -101,7 +108,7 @@ impl Hose {
                     continue;
                 }
             };
-            let mut node = &mut self.nodes[i];
+            let node = &mut self.nodes[i];
             let accel = (rest_pos - node.pos) * 0.2;
             node.vel += accel * dt;
         }
@@ -143,7 +150,7 @@ impl Hose {
         }
 
         let distance = self.src_pos.distance(self.dst_pos);
-        let dist_per_segment = distance / (self.nodes.len() - 1) as f32;
+        let _dist_per_segment = distance / (self.nodes.len() - 1) as f32;
 
         // if self.is_connected() {
         //     if dist_per_segment > self.rest_segment_length() * 2.0 {
@@ -196,9 +203,16 @@ pub fn on_add_hose(
         nodes.push(node);
     }
 
+    let src_container = inventory
+        .find_container_at(event.start.0, event.start.1)
+        .ok();
+    let dst_container = inventory.find_container_at(event.end.0, event.end.1).ok();
+
     let hose = Hose {
         src: Some(event.start),
         dst: Some(event.end),
+        src_container,
+        dst_container,
         src_pos: pa,
         dst_pos: pb,
         desired_length,
@@ -213,11 +227,8 @@ pub fn on_add_hose(
         current_ticks: 0,
     };
 
-    if let Ok(e) = inventory.find_container_at(event.start.0, event.start.1) {
-        info!("Found a container: {}", e);
-    }
-    if let Ok(e) = inventory.find_container_at(event.end.0, event.end.1) {
-        info!("Found a container: {}", e);
+    if let Some((src, dst)) = hose.containers() {
+        info!("Containers: {} -> {}", src, dst);
     }
 
     let id = commands.spawn(hose).id();
@@ -461,6 +472,7 @@ pub fn hose_info_window_egui_system(
     mut contexts: EguiContexts,
     selected: ResMut<SelectedHose>,
     mut hoses: Query<(Entity, &mut Hose)>,
+    inventory: InventoryApi,
     camera: Single<(&Camera, &GlobalTransform)>,
 ) -> Result {
     let ctx = contexts.ctx_mut()?;
@@ -497,6 +509,19 @@ pub fn hose_info_window_egui_system(
             ui.label(format!("Item: {:?}", hose.item));
             ui.label(format!("Reversed: {:?}", hose.reversed));
             ui.label(format!("Nodes: {}", hose.nodes.len()));
+
+            if let Some((src, dst)) = hose.containers() {
+                ui.separator();
+                ui.heading("Containers");
+                if let Ok(container) = inventory.get_container(src) {
+                    ui.separator();
+                    add_slot_widget(ui, container.1);
+                }
+                if let Ok(container) = inventory.get_container(dst) {
+                    ui.separator();
+                    add_slot_widget(ui, container.1);
+                }
+            }
         });
 
     Ok(())
