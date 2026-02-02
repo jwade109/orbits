@@ -244,12 +244,16 @@ fn despawn_empty_grids(
 }
 
 #[derive(Component)]
-pub struct FuelInventory;
+pub struct ThrusterInventory(pub bool);
 
 fn update_grids(
     mut commands: Commands,
     mut grids: Query<(Entity, &mut SpacecraftGrid, &GridParts)>,
-    parts: Query<(&PartInstance, Option<&Inventory>, Option<&FuelInventory>)>,
+    parts: Query<(
+        &PartInstance,
+        Option<&Inventory>,
+        Option<&ThrusterInventory>,
+    )>,
     part_db: Res<PartsResource>,
 ) {
     // TODO: we should only run this when a given grid has changed.
@@ -449,6 +453,8 @@ fn add_part_to_grid<'a>(
 
     let mut vessels = Vec::new();
 
+    let is_thruster = PartInstance::thruster_data(proto).is_some();
+
     if let Some(data) = PartInstance::inventory_data(proto) {
         for data in &data.slots {
             let bounds = (data.min, data.max);
@@ -465,7 +471,12 @@ fn add_part_to_grid<'a>(
                 dims: (data.max - data.min).into(),
             };
 
-            vessels.push((slot, loc, ContainerInPart(cmd.id())));
+            vessels.push((
+                slot,
+                loc,
+                ContainerInPart(cmd.id()),
+                ThrusterInventory(is_thruster),
+            ));
         }
     }
 
@@ -485,7 +496,7 @@ fn add_part_to_grid<'a>(
         } else {
             Thruster::new(40000.0, false)
         };
-        cmd.insert((thruster, FuelInventory));
+        cmd.insert(thruster);
     }
 
     // COMPUTER COMPONENT ==================================================

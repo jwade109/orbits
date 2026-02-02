@@ -20,3 +20,4 @@ inventory_data:
       volume_liters: 150
       min: [0, 0]
       max: [3, 2]
+      name: "thruster-input"

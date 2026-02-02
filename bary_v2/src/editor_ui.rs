@@ -158,6 +158,17 @@ fn add_excavator_widget(ui: &mut egui::Ui, e: Entity, ex: &mut Excavator) {
     ui.add(egui::ProgressBar::new(pct));
 }
 
+pub fn item_container_fill_bar(ui: &mut egui::Ui, slot: &InvSlot) {
+    let item = slot.item();
+    let c = item.map(|c| c.color()).unwrap_or(BLACK).to_u8_array();
+    let color = egui::Color32::from_rgb(c[0], c[1], c[2]);
+    ui.add(
+        egui::ProgressBar::new(slot.fill_percentage())
+            .fill(color)
+            .desired_height(5.0),
+    );
+}
+
 pub fn add_slot_widget(ui: &mut egui::Ui, slot: &InvSlot) {
     if let Some(name) = slot.name() {
         ui.label(name.to_uppercase());
@@ -185,18 +196,12 @@ pub fn add_slot_widget(ui: &mut egui::Ui, slot: &InvSlot) {
         ));
     });
 
-    ui.add(egui::ProgressBar::new(slot.fill_percentage()).fill(color));
+    item_container_fill_bar(ui, slot);
 }
 
-fn add_inv_widget(ui: &mut egui::Ui, inv: &mut Inventory) {
-    ui.label(format!(
-        "Mass: {}, {} / {}",
-        inv.mass(),
-        inv.occupied_volume(),
-        inv.capacity()
-    ));
-
-    for slot in inv.slots_mut() {
+fn add_inv_widget(ui: &mut egui::Ui, containers: &PartContainers, slots: &Query<&InvSlot>) {
+    for slot in containers.iter() {
+        let slot = ok_or_continue!(slots.get(slot));
         ui.separator();
         add_slot_widget(ui, slot);
     }
@@ -314,7 +319,8 @@ pub fn part_ui(
     e: Entity,
     commands: &mut Commands,
     parts: Query<(&PartInstance, &ChildOf)>,
-    inventories: &mut Query<&mut Inventory>,
+    containers: &Query<&PartContainers>,
+    slots: &Query<&InvSlot>,
     thrusters: &mut Query<&mut Thruster>,
     computers: &mut Query<&mut Computer>,
     machines: &mut Query<&mut Machine>,
@@ -325,9 +331,9 @@ pub fn part_ui(
         add_excavator_widget(ui, e, &mut excavator);
     }
 
-    if let Ok(mut inventory) = inventories.get_mut(e) {
-        ui.heading("Inventory");
-        add_inv_widget(ui, &mut inventory);
+    if let Ok(containers) = containers.get(e) {
+        ui.heading("Containers");
+        add_inv_widget(ui, containers, &slots);
     }
 
     if let Ok(mut thruster) = thrusters.get_mut(e) {
@@ -358,13 +364,49 @@ pub fn part_ui(
     }
 }
 
+pub fn show_selected_ship_inventories(
+    mut contexts: EguiContexts,
+    grids: Query<(&GridParts, &Name)>,
+    parts: Query<&PartContainers>,
+    sel: Res<SelectedSpacecraft>,
+    slots: Query<(&InvSlot, &ThrusterInventory)>,
+) -> Result {
+    let ctx = contexts.ctx_mut()?;
+
+    let Some(e) = sel.primary else {
+        return Ok(());
+    };
+
+    let Ok((grid, name)) = grids.get(e.grid.entity) else {
+        return Ok(());
+    };
+
+    let title = format!("Ship Inventory: {}", name);
+
+    egui::Window::new(title).show(ctx, |ui| {
+        for part in grid.iter() {
+            let containers = ok_or_continue!(parts.get(part));
+            for slot in containers.iter() {
+                let (slot, is_thruster) = ok_or_continue!(slots.get(slot));
+                if is_thruster.0 {
+                    continue;
+                }
+                item_container_fill_bar(ui, slot);
+            }
+        }
+    });
+
+    Ok(())
+}
+
 pub fn egui_ui(
     mut commands: Commands,
     mut contexts: EguiContexts,
     mut state: Local<DebugPanelState>,
     parts: Query<(&PartInstance, &ChildOf)>,
     grids: Query<&SpacecraftGrid>,
-    mut inventories: Query<&mut Inventory>,
+    containers: Query<&PartContainers>,
+    slots: Query<&InvSlot>,
     mut thrusters: Query<&mut Thruster>,
     mut computers: Query<&mut Computer>,
     mut machines: Query<&mut Machine>,
@@ -387,7 +429,8 @@ pub fn egui_ui(
                     e.part.entity,
                     &mut commands,
                     parts,
-                    &mut inventories,
+                    &containers,
+                    &slots,
                     &mut thrusters,
                     &mut computers,
                     &mut machines,
