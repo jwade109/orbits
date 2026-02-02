@@ -5,16 +5,17 @@ pub struct CameraPlugin;
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
-            Update,
+            PostUpdate,
             (
                 // control_camera,
                 track_followed_entity,
                 set_camera_command,
                 draw_camera_debug,
-                follow_selected_ship_on_key_f,
             )
                 .chain(),
         );
+
+        app.add_observer(on_follow_event);
 
         app.add_systems(FixedUpdate, propagate_camera_physics);
 
@@ -25,6 +26,11 @@ impl Plugin for CameraPlugin {
             .insert_resource(CursorWorldPosition::default())
             .insert_resource(CameraState::default());
     }
+}
+
+#[derive(Event)]
+pub struct FollowEvent {
+    pub entity: Entity,
 }
 
 #[derive(Debug, Resource)]
@@ -44,6 +50,10 @@ impl Default for CameraState {
             command: IVec3::ZERO,
         }
     }
+}
+
+fn on_follow_event(event: On<FollowEvent>, mut state: ResMut<CameraState>) {
+    state.following = Some(event.entity);
 }
 
 fn draw_camera_debug(
@@ -130,8 +140,11 @@ fn propagate_camera_physics(
     state.target_pos += delta_target_pos;
 
     let delta = state.target_pos - camera.translation.xy();
-    camera.translation.x += delta.x * 0.15;
-    camera.translation.y += delta.y * 0.15;
+
+    let approach_scalar = if state.following.is_some() { 1.0 } else { 0.15 };
+
+    camera.translation.x += delta.x * approach_scalar;
+    camera.translation.y += delta.y * approach_scalar;
 
     let scale_scalar = match state.command.z.cmp(&0) {
         std::cmp::Ordering::Less => 1.05,
@@ -143,20 +156,6 @@ fn propagate_camera_physics(
 
     camera.scale.x += (state.target_scale - camera.scale.x) * 0.2;
     camera.scale.y += (state.target_scale - camera.scale.y) * 0.2;
-}
-
-fn follow_selected_ship_on_key_f(
-    keys: Res<ButtonInput<KeyCode>>,
-    mut state: ResMut<CameraState>,
-    sel: Res<SelectedSpacecraft>,
-) {
-    if !keys.just_pressed(KeyCode::KeyF) {
-        return;
-    }
-
-    let entity = some_or_return!(sel.primary).part.entity;
-
-    state.following = Some(entity);
 }
 
 fn track_followed_entity(transforms: TransformHelper, mut state: ResMut<CameraState>) {

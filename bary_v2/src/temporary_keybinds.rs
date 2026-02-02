@@ -4,11 +4,23 @@ use bevy::prelude::*;
 use early_returns::some_or_return;
 
 use crate::{
-    AddHose, AddPipe, CursorWorldPosition, GridPlacementEffect, SelectedSpacecraft, Settings,
-    SpacecraftEvent,
+    AddHose, AddPipe, CursorWorldPosition, FollowEvent, GridPlacementEffect, SelectedSpacecraft, Settings, SpacecraftEvent
 };
 
-pub fn add_hose_or_pipe_on_h_or_p(
+pub fn temporary_keybinds_plugin(app: &mut App) {
+    app.add_systems(
+        Update,
+        (
+            toggle_inv_on_alt,
+            add_hose_or_pipe_on_h_or_p,
+            spawn_random_ship_on_y,
+            spawn_grid_effect_on_r,
+            follow_selected_ship_on_key_f,
+        ),
+    );
+}
+
+fn add_hose_or_pipe_on_h_or_p(
     mut commands: Commands,
     sel: Res<SelectedSpacecraft>,
     keys: Res<ButtonInput<KeyCode>>,
@@ -32,13 +44,13 @@ pub fn add_hose_or_pipe_on_h_or_p(
     }
 }
 
-pub fn toggle_inv_on_alt(keys: Res<ButtonInput<KeyCode>>, mut settings: ResMut<Settings>) {
+fn toggle_inv_on_alt(keys: Res<ButtonInput<KeyCode>>, mut settings: ResMut<Settings>) {
     if keys.just_pressed(KeyCode::AltLeft) {
         settings.draw_inventories = !settings.draw_inventories;
     }
 }
 
-pub fn spawn_random_ship_on_y(
+fn spawn_random_ship_on_y(
     mut commands: Commands,
     pos: Res<CursorWorldPosition>,
     keys: Res<ButtonInput<KeyCode>>,
@@ -61,7 +73,7 @@ pub fn spawn_random_ship_on_y(
     });
 }
 
-pub fn spawn_grid_effect_on_r(
+fn spawn_grid_effect_on_r(
     mut commands: Commands,
     sel: Res<SelectedSpacecraft>,
     keys: Res<ButtonInput<KeyCode>>,
@@ -80,4 +92,18 @@ pub fn spawn_grid_effect_on_r(
     let effect = GridPlacementEffect::new(grid, placement);
 
     commands.spawn(effect);
+}
+
+fn follow_selected_ship_on_key_f(
+    mut commands: Commands,
+    keys: Res<ButtonInput<KeyCode>>,
+    sel: Res<SelectedSpacecraft>,
+) {
+    if !keys.just_pressed(KeyCode::KeyF) {
+        return;
+    }
+
+    let entity = some_or_return!(sel.primary).part.entity;
+
+    commands.trigger(FollowEvent { entity });
 }

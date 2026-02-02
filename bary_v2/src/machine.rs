@@ -9,17 +9,21 @@ pub struct Machine {
     pub recipe: RecipeListing,
     pub products_finished: u64,
     pub status: MachineStatus,
+    pub input_slots: Vec<usize>,
+    pub output_slots: Vec<usize>,
 }
 
 impl Machine {
-    pub fn new(recipe: RecipeListing) -> Self {
+    pub fn from_data(data: MachineData) -> Self {
         Self {
             enabled: true,
-            recipe,
+            recipe: RecipeListing::DoNothing,
             steps: 0,
             required_steps: randint(20, 32) as u32,
             products_finished: 0,
             status: MachineStatus::Off,
+            input_slots: data.input_slots,
+            output_slots: data.output_slots,
         }
     }
 
@@ -55,7 +59,10 @@ impl Machine {
         };
 
         for (i, (item, count)) in recipe.inputs().enumerate() {
-            let Some(entity) = inv.get(i) else {
+            let Some(slot_index) = self.input_slots.get(i) else {
+                return false;
+            };
+            let Some(entity) = inv.get(*slot_index) else {
                 return false;
             };
             let Ok(slot) = slots.get(*entity) else {
@@ -67,7 +74,10 @@ impl Machine {
         }
 
         for (i, (item, count)) in recipe.inputs().enumerate() {
-            let Some(entity) = inv.get(i) else {
+            let Some(slot_index) = self.input_slots.get(i) else {
+                return false;
+            };
+            let Some(entity) = inv.get(*slot_index) else {
                 return false;
             };
             let Ok(mut slot) = slots.get_mut(*entity) else {
@@ -91,22 +101,26 @@ impl Machine {
             _ => return false,
         };
 
-        let n_inputs = recipe.input_count();
-
         for (i, (item, count)) in recipe.outputs().enumerate() {
-            let Some(entity) = inv.get(n_inputs + i) else {
+            let Some(slot_index) = self.output_slots.get(i) else {
+                return false;
+            };
+            let Some(entity) = inv.get(*slot_index) else {
                 return false;
             };
             let Ok(slot) = slots.get(*entity) else {
                 return false;
             };
-            if let Err(e) = slot.can_store(item, count) {
+            if let Err(_) = slot.can_store(item, count) {
                 return false;
             }
         }
 
         for (i, (item, count)) in recipe.outputs().enumerate() {
-            let Some(entity) = inv.get(n_inputs + i) else {
+            let Some(slot_index) = self.output_slots.get(i) else {
+                return false;
+            };
+            let Some(entity) = inv.get(*slot_index) else {
                 return false;
             };
             let Ok(mut slot) = slots.get_mut(*entity) else {

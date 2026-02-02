@@ -4,6 +4,8 @@ dims: [4, 6]
 name: "chemical-plant"
 machine_data:
   recipe_categories: ["chemical-plant"]
+  input_slots: [0, 1, 2]
+  output_slots: [3, 4]
 inventory_data:
   slots:
     - name: "solid-input"

@@ -1,3 +1,4 @@
+use crate::sounds::SoundSource;
 use crate::*;
 use bary_core::prelude::*;
 use bary_v1::args::ProgramContext;
@@ -37,15 +38,6 @@ impl Plugin for SpacecraftPlugin {
         app.add_systems(
             Update,
             (
-                crate::temporary_keybinds::add_hose_or_pipe_on_h_or_p,
-                crate::temporary_keybinds::spawn_random_ship_on_y,
-                crate::temporary_keybinds::spawn_grid_effect_on_r,
-            ),
-        );
-
-        app.add_systems(
-            Update,
-            (
                 draw_blueprint_of_docking_program.pipe(swallow_optional),
                 draw_position_command_widget,
                 update_position_command_widget_system,
@@ -57,13 +49,14 @@ impl Plugin for SpacecraftPlugin {
                 draw_hose_selection_area_system,
                 update_grid_placement_effects,
                 despawn_grid_placement_effects,
-            ),
+            )
+                .chain(),
         );
 
         app.add_observer(on_add_hose.pipe(swallow_optional));
         app.add_observer(on_add_pipe.pipe(swallow_result));
 
-        app.add_systems(FixedUpdate, world_tick_driver_system);
+        app.add_systems(FixedUpdate, (world_tick_driver_system, update_volume));
 
         app.add_systems(
             SimTick,
@@ -486,7 +479,7 @@ fn add_part_to_grid(
 
     if let Some(data) = PartInstance::machine_data(proto) {
         // TODO use the data
-        let machine = Machine::new(RecipeListing::DoNothing);
+        let machine = Machine::from_data(data.clone());
         commands.entity(part_id).insert(machine);
     }
 
@@ -498,7 +491,10 @@ fn add_part_to_grid(
         } else {
             Thruster::new(40000.0, false)
         };
-        commands.entity(part_id).insert(thruster);
+
+        commands
+            .entity(part_id)
+            .insert((thruster, SoundSource("thrust-noise.ogg".into())));
     }
 
     // COMPUTER COMPONENT ==================================================

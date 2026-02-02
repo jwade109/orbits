@@ -24,7 +24,7 @@ pub fn load_parts_from_dir_2(
             }
         };
 
-        info!("{} -> {:?}", part_name, data);
+        info!("Loaded part \"{}\"", part_name);
 
         db.insert(part_name, data);
     }

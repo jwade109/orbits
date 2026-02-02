@@ -1,11 +1,14 @@
 use bary_core::prelude::*;
 use bary_v1::args::ProgramContext;
-use bary_v2::*;
+use bary_v2::{sounds::sounds_plugin, temporary_keybinds::temporary_keybinds_plugin, *};
 use bevy::{
+    audio::{AudioPlugin, SpatialScale},
     post_process::bloom::Bloom,
     sprite_render::{Wireframe2dConfig, Wireframe2dPlugin},
 };
 use bevy_ecs::schedule::{LogLevel, ScheduleBuildSettings};
+
+const AUDIO_SCALE: f32 = 10. / 100.0;
 
 fn main() {
     App::new()
@@ -14,6 +17,10 @@ fn main() {
                 .set(ImagePlugin::default_nearest())
                 .set(AssetPlugin {
                     unapproved_path_mode: bevy::asset::UnapprovedPathMode::Allow,
+                    ..default()
+                })
+                .set(AudioPlugin {
+                    default_spatial_scale: SpatialScale(Vec3::splat(AUDIO_SCALE)),
                     ..default()
                 }),
         )
@@ -25,7 +32,6 @@ fn main() {
         })
         .add_plugins(Wireframe2dPlugin::default())
         .add_plugins(EguiPlugin::default())
-        // .add_plugins(WorldInspectorPlugin::new())
         .add_plugins(Shape2dPlugin::default())
         .add_plugins(ThrusterPlugin::default())
         // plugins I've implemented
@@ -36,6 +42,8 @@ fn main() {
         .add_plugins(TerrainPlugin)
         .add_plugins(CameraPlugin)
         .add_plugins(plot_plugin)
+        // .add_plugins(sounds_plugin)
+        .add_plugins(temporary_keybinds_plugin)
         .add_systems(EguiPrimaryContextPass, egui_ui)
         .add_systems(Startup, setup)
         .add_systems(
@@ -43,7 +51,6 @@ fn main() {
             (
                 update_wireframe,
                 save_settings_on_change.run_if(on_timer(std::time::Duration::from_secs(1))),
-                bary_v2::temporary_keybinds::toggle_inv_on_alt,
             )
                 .chain(),
         )
@@ -78,7 +85,7 @@ pub fn get_random_ship_name(names: &Vec<String>) -> String {
     names[idx].clone()
 }
 
-fn setup(mut commands: Commands) -> Result {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) -> Result {
     let ctx = ProgramContext::default();
     let settings = Settings::from_file(&ctx.settings_path()).unwrap_or(Settings::default());
     let parts = load_parts_from_dir_2(&ctx).unwrap_or(PartDatabase::default());
@@ -89,6 +96,11 @@ fn setup(mut commands: Commands) -> Result {
             SaveData::default()
         }
     };
+
+    commands.spawn((
+        AudioPlayer::new(asset_server.load("building.ogg")),
+        PlaybackSettings::LOOP.with_volume(bevy::audio::Volume::Linear(0.1)),
+    ));
 
     let ship_names = load_names_from_file(&ctx.names_path()).unwrap_or(vec![]);
 
@@ -101,6 +113,7 @@ fn setup(mut commands: Commands) -> Result {
         Camera2d::default(),
         Camera::default(),
         Transform::from_xyz(0.0, 20.0, 0.0).with_scale(Vec3::splat(0.1)),
+        SpatialListener::new(20.0),
         Bloom {
             intensity: 0.2,
             ..Bloom::OLD_SCHOOL

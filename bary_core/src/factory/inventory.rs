@@ -161,7 +161,7 @@ impl Item {
             Item::Concrete => false,
             Item::Plastic => false,
             Item::Bread => false,
-            Item::Water => false,
+            Item::Water => true,
             Item::Methane => true,
             Item::H2 => true,
             Item::CO2 => true,

@@ -92,6 +92,16 @@ pub fn consume_fuel(
     }
 }
 
+pub fn update_volume(query: Query<(&Thruster, &mut SpatialAudioSink)>) {
+    for (thruster, mut sink) in query {
+        let target_volume = if thruster.on { 0.5 } else { 0.0 };
+        let actual_volume = sink.volume().to_linear();
+        let delta = (target_volume - actual_volume).clamp(-0.02, 0.02);
+        let new_volume = (actual_volume + delta).clamp(0.0, 0.5);
+        sink.set_volume(bevy::audio::Volume::Linear(new_volume));
+    }
+}
+
 pub fn body_frame_thrust(thruster: &Thruster, transform: &Transform, com: Vec2) -> (Vec2, f32) {
     let u = transform.right().xy();
     let location = transform.translation.xy();

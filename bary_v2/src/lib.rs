@@ -21,6 +21,7 @@ mod terrain;
 mod thruster;
 mod tick_schedule;
 mod utils;
+pub mod sounds;
 
 pub use animated_text::*;
 pub use camera::*;
