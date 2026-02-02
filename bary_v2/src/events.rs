@@ -24,6 +24,12 @@ pub enum SpacecraftEvent {
     },
 }
 
+#[derive(Event, Debug)]
+pub struct AttachPart {
+    pub grid: Entity,
+    pub instance: PartInstance,
+}
+
 #[derive(Event, Debug, Clone, Copy)]
 pub struct DockingTrigger {
     pub chief: Entity,

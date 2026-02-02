@@ -135,6 +135,7 @@ fn draw_computers(
     computers: Query<(&Computer, &GlobalTransform, &ChildOf)>,
     camera: Single<&Transform, With<Camera>>,
     parts: Res<PartsResource>,
+    settings: Res<Settings>,
     mut gizmos: Gizmos,
 ) {
     for (computer, transform, grid_id) in computers {
@@ -180,7 +181,7 @@ fn draw_computers(
             );
         }
 
-        if computer.mode.needs_isometry() {
+        if computer.mode.needs_isometry() && settings.draw_target_pose {
             let iso = Isometry2d::new(computer.position, computer.attitude.into());
             let Ok(bp) = blueprints.get(grid_id.0) else {
                 continue;

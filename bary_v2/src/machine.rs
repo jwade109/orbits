@@ -95,30 +95,24 @@ impl Machine {
 
         for (i, (item, count)) in recipe.outputs().enumerate() {
             let Some(entity) = inv.get(n_inputs + i) else {
-                dbg!("Failed: {}", i);
                 return false;
             };
             let Ok(slot) = slots.get(*entity) else {
-                dbg!("Failed: {}", i);
                 return false;
             };
             if let Err(e) = slot.can_store(item, count) {
-                println!("Failed: {}, {:?}, {:?}", i, slot, e);
                 return false;
             }
         }
 
         for (i, (item, count)) in recipe.outputs().enumerate() {
             let Some(entity) = inv.get(n_inputs + i) else {
-                dbg!("Failed: {}", i);
                 return false;
             };
             let Ok(mut slot) = slots.get_mut(*entity) else {
-                dbg!("Failed: {}", i);
                 return false;
             };
             if !slot.store(item, count) {
-                dbg!("Failed: {}", i);
                 return false;
             }
         }

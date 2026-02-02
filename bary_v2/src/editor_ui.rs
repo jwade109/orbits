@@ -364,41 +364,6 @@ pub fn part_ui(
     }
 }
 
-pub fn show_selected_ship_inventories(
-    mut contexts: EguiContexts,
-    grids: Query<(&GridParts, &Name)>,
-    parts: Query<&PartContainers>,
-    sel: Res<SelectedSpacecraft>,
-    slots: Query<(&InvSlot, &ThrusterInventory)>,
-) -> Result {
-    let ctx = contexts.ctx_mut()?;
-
-    let Some(e) = sel.primary else {
-        return Ok(());
-    };
-
-    let Ok((grid, name)) = grids.get(e.grid.entity) else {
-        return Ok(());
-    };
-
-    let title = format!("Ship Inventory: {}", name);
-
-    egui::Window::new(title).show(ctx, |ui| {
-        for part in grid.iter() {
-            let containers = ok_or_continue!(parts.get(part));
-            for slot in containers.iter() {
-                let (slot, is_thruster) = ok_or_continue!(slots.get(slot));
-                if is_thruster.0 {
-                    continue;
-                }
-                item_container_fill_bar(ui, slot);
-            }
-        }
-    });
-
-    Ok(())
-}
-
 pub fn egui_ui(
     mut commands: Commands,
     mut contexts: EguiContexts,
@@ -450,6 +415,7 @@ pub fn egui_ui(
         ui.checkbox(&mut settings.draw_inventories, "draw_inventories");
         ui.checkbox(&mut settings.draw_inventory_cons, "draw_inventory_cons");
         ui.checkbox(&mut settings.draw_blueprints, "draw_blueprints");
+        ui.checkbox(&mut settings.draw_target_pose, "draw_target_pose");
         ui.checkbox(&mut settings.draw_docking_info, "draw_docking_info");
         ui.checkbox(&mut settings.draw_camera_debug, "draw_camera_debug");
         ui.checkbox(&mut settings.dig_with_mouse, "dig_with_mouse");

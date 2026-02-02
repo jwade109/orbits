@@ -5,12 +5,13 @@ show_wireframes: false
 draw_inventories: true
 draw_inventory_cons: true
 draw_blueprints: false
+draw_target_pose: false
 draw_docking_info: true
 draw_thruster_states: false
 dig_with_mouse: false
 rotation_locked: false
 infinite_fuel: true
 show_terrain_info: false
-show_cursor_info: true
+show_cursor_info: false
 show_time_controls: true
 draw_camera_debug: false

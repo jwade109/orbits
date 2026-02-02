@@ -85,6 +85,7 @@ impl Plugin for SpacecraftPlugin {
         );
 
         app.add_observer(handle_sc_events);
+        app.add_observer(on_attach_part_to_grid);
         app.add_observer(process_docking_triggers);
         app.add_observer(on_position_commands_system.pipe(swallow_optional));
         app.add_observer(emit_text_alert_on_position_hold);
@@ -249,11 +250,7 @@ pub struct ThrusterInventory(pub bool);
 fn update_grids(
     mut commands: Commands,
     mut grids: Query<(Entity, &mut SpacecraftGrid, &GridParts)>,
-    parts: Query<(
-        &PartInstance,
-        Option<&Inventory>,
-        Option<&ThrusterInventory>,
-    )>,
+    parts: Query<&PartInstance>,
     part_db: Res<PartsResource>,
 ) {
     // TODO: we should only run this when a given grid has changed.
@@ -287,18 +284,13 @@ fn update_grids(
         let mut com = DVec2::ZERO;
 
         for part in children.iter() {
-            if let Ok((part, inv, fuel)) = parts.get(part) {
+            if let Ok(part) = parts.get(part) {
                 let Some(proto) = part_db.get(&part.name) else {
                     continue;
                 };
                 let part_mass = Mass::grams(proto.part_mass().to_grams());
-                let inv_mass = inv.map(|inv| inv.mass()).unwrap_or(Mass::ZERO);
-                if fuel.is_some() {
-                    grid.fuel_mass += inv_mass;
-                } else {
-                    grid.inventory_mass += inv_mass;
-                }
                 grid.parts_mass += part_mass;
+                let inv_mass = Mass::ZERO;
                 com += (part.origin_meters() + part.dims_meters() / 2.0).as_dvec2()
                     * (part_mass + inv_mass).to_kg_f64();
                 let origin = part.origin_meters();
@@ -371,10 +363,15 @@ fn handle_sc_events(
                 bary_core::prelude::Rotation::East,
             );
 
-            let mut grid = spawn_empty_grid(&mut commands, *pos, *angle, "Grid".to_string());
-            grid.with_children(|parent| {
-                add_part_to_grid(parent, &instance, &mut asset_server, &args, &parts)
-            });
+            let grid_id = spawn_empty_grid(&mut commands, *pos, *angle, "Grid".to_string()).id();
+            add_part_to_grid(
+                &mut commands,
+                grid_id,
+                &instance,
+                &mut asset_server,
+                &args,
+                &parts,
+            );
         }
         SpacecraftEvent::Destroy { target } => {
             let tf = spacecraft
@@ -395,6 +392,10 @@ fn handle_sc_events(
     Ok(())
 }
 
+fn on_attach_part_to_grid(event: On<AttachPart>) {
+    info!("Attaching part: {:?}", event);
+}
+
 fn spawn_empty_grid<'a>(
     commands: &'a mut Commands,
     pos: Vec2,
@@ -413,8 +414,9 @@ fn spawn_empty_grid<'a>(
     ))
 }
 
-fn add_part_to_grid<'a>(
-    commands: &mut RelatedSpawnerCommands<'a, ChildOf>,
+fn add_part_to_grid(
+    commands: &mut Commands,
+    grid_id: Entity,
     part: &PartInstance,
     asset_server: &mut ResMut<AssetServer>,
     args: &Res<ProgramContext>,
@@ -440,18 +442,18 @@ fn add_part_to_grid<'a>(
 
     sprite.custom_size = Some(dims);
 
-    let grid_id = commands.target_entity();
-
-    let mut cmd = commands.spawn((
-        Transform::from_translation(origin.extend(z))
-            .with_rotation(Quat::from_rotation_z(part.rotation().to_angle() as f32)),
-        part.clone(),
-        InheritedVisibility::VISIBLE,
-    ));
+    let part_id = commands
+        .spawn((
+            Transform::from_translation(origin.extend(z))
+                .with_rotation(Quat::from_rotation_z(part.rotation().to_angle() as f32)),
+            part.clone(),
+            InheritedVisibility::VISIBLE,
+            ChildOf(grid_id),
+            PartInGrid(grid_id),
+        ))
+        .id();
 
     // INVENTORY COMPONENT ==================================================
-
-    let mut vessels = Vec::new();
 
     let is_thruster = PartInstance::thruster_data(proto).is_some();
 
@@ -471,10 +473,10 @@ fn add_part_to_grid<'a>(
                 dims: (data.max - data.min).into(),
             };
 
-            vessels.push((
+            commands.spawn((
                 slot,
                 loc,
-                ContainerInPart(cmd.id()),
+                ContainerInPart(part_id),
                 ThrusterInventory(is_thruster),
             ));
         }
@@ -485,7 +487,7 @@ fn add_part_to_grid<'a>(
     if let Some(data) = PartInstance::machine_data(proto) {
         // TODO use the data
         let machine = Machine::new(RecipeListing::DoNothing);
-        cmd.insert(machine);
+        commands.entity(part_id).insert(machine);
     }
 
     // THRUSTER COMPONENT ==================================================
@@ -496,7 +498,7 @@ fn add_part_to_grid<'a>(
         } else {
             Thruster::new(40000.0, false)
         };
-        cmd.insert(thruster);
+        commands.entity(part_id).insert(thruster);
     }
 
     // COMPUTER COMPONENT ==================================================
@@ -507,31 +509,25 @@ fn add_part_to_grid<'a>(
         cpu.ticks_per_cycle = data.ticks_per_cycle;
         cpu.attitude = rand(0.0, 2.0);
         cpu.on = false;
-        cmd.insert(cpu);
+        commands.entity(part_id).insert(cpu);
     }
 
     // EXCAVATOR COMPONENT ==================================================
 
     if let Some(data) = PartInstance::excavator_data(proto) {
-        cmd.insert(Excavator::new(data.radius));
+        commands.entity(part_id).insert(Excavator::new(data.radius));
     }
 
     // DOCKING PORT COMPONENT ===============================================
 
     if let Some(data) = PartInstance::docking_port_data(proto) {
         let docking = DockingPort::new(data.distance);
-        cmd.insert(docking);
+        commands.entity(part_id).insert(docking);
     }
 
     // SPRITE CHILD ENTITY ===============================================
 
-    cmd.with_child((PartSprite, sprite));
-
-    cmd.insert(PartInGrid(grid_id));
-
-    for vessel in vessels {
-        commands.spawn(vessel);
-    }
+    commands.spawn((PartSprite, sprite, ChildOf(part_id)));
 }
 
 fn spawn_spacecraft(
@@ -544,19 +540,14 @@ fn spawn_spacecraft(
     args: &Res<ProgramContext>,
     parts: &PartDatabase,
 ) {
-    spawn_empty_grid(commands, pos, angle, name)
-        .with_children(|parent| {
-            for (_, part) in vehicle.parts() {
-                add_part_to_grid(parent, part, asset_server, args, parts);
-            }
-        })
-        .insert(vehicle.clone());
+    let grid_id = spawn_empty_grid(commands, pos, angle, name).id();
+    for (_, part) in vehicle.parts() {
+        add_part_to_grid(commands, grid_id, part, asset_server, args, parts);
+    }
+    commands.entity(grid_id).insert(vehicle.clone());
 }
 
-fn accelerate_spacecraft(
-    mut grids: Query<(&mut Transform, &mut SpacecraftGrid)>,
-    time: Res<Time<Fixed>>,
-) {
+fn accelerate_spacecraft(mut grids: Query<(&mut Transform, &mut SpacecraftGrid)>) {
     let dt = 1.0 / 60.0;
     for (mut tf, mut grid) in &mut grids {
         let world_frame_accel = tf

@@ -172,6 +172,9 @@ pub fn tick_control_egui(
             if ui.button("100").clicked() {
                 ticks.set_rate(100);
             }
+            if ui.button("500").clicked() {
+                ticks.set_rate(500);
+            }
         });
 
         ui.horizontal(|ui| {

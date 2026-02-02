@@ -123,8 +123,8 @@ pub fn sabatier_reaction() -> Recipe {
 
 pub fn water_electrolysis() -> Recipe {
     Recipe {
-        inputs: vec![(Item::Water, 9)],
-        outputs: vec![(Item::O2, 8), (Item::H2, 1)],
+        inputs: vec![(Item::Water, 9000)],
+        outputs: vec![(Item::O2, 8000), (Item::H2, 1000)],
     }
 }
 
