@@ -9,18 +9,22 @@ inventory_data:
       min: [0, 0]
       max: [3, 3]
       name: "slot-a"
+      is_fluid: false
     - filter: Solid
       volume_liters: 1200
       min: [3, 0]
       max: [6, 3]
       name: "slot-b"
+      is_fluid: false
     - filter: Solid
       volume_liters: 1200
       min: [0, 3]
       max: [3, 6]
       name: "slot-c"
+      is_fluid: false
     - filter: Solid
       volume_liters: 1200
       min: [3, 3]
       max: [6, 6]
       name: "slot-d"
+      is_fluid: false

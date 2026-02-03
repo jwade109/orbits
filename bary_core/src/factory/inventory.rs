@@ -296,6 +296,7 @@ impl Item {
     }
 }
 
+#[deprecated]
 #[derive(Component, Debug, Clone, Default)]
 pub struct Inventory(Vec<InvSlot>);
 
@@ -308,8 +309,8 @@ impl Inventory {
         Self(slots)
     }
 
-    pub fn single(item: Item, capacity: Volume, bounds: (IVec2, IVec2)) -> Self {
-        let slot = InvSlot::new(capacity, ItemFilter::Any, bounds).with_item(item);
+    pub fn single(item: Item, capacity: Volume) -> Self {
+        let slot = InvSlot::new(capacity, ItemFilter::Any, false).with_item(item);
         Self(vec![slot])
     }
 
@@ -449,17 +450,17 @@ pub struct InvSlot {
     capacity: Volume,
     filter: ItemFilter,
     contents: Option<(Item, u64)>,
-    bounds: (IVec2, IVec2),
+    is_fluid: bool,
 }
 
 impl InvSlot {
-    pub fn new(capacity: Volume, filter: ItemFilter, bounds: (IVec2, IVec2)) -> Self {
+    pub fn new(capacity: Volume, filter: ItemFilter, is_fluid: bool) -> Self {
         Self {
             name: None,
             capacity,
             filter,
             contents: None,
-            bounds,
+            is_fluid,
         }
     }
 
@@ -469,10 +470,6 @@ impl InvSlot {
 
     pub fn name(&self) -> Option<&String> {
         self.name.as_ref()
-    }
-
-    pub fn bounds(&self) -> (PartCoord, PartCoord) {
-        (PartCoord::new(self.bounds.0), PartCoord::new(self.bounds.1))
     }
 
     pub fn with_item(mut self, item: Item) -> Self {
@@ -632,6 +629,10 @@ impl InvSlot {
     pub fn available_volume(&self) -> Volume {
         self.capacity - self.occupied_volume()
     }
+
+    pub fn is_fluid(&self) -> bool {
+        self.is_fluid
+    }
 }
 
 impl std::fmt::Display for Inventory {
@@ -702,11 +703,9 @@ pub fn atomic_transfer(src: &mut InvSlot, dst: &mut InvSlot, mass: Mass) -> Mach
 mod tests {
     use super::*;
 
-    const BOUNDS: (IVec2, IVec2) = (IVec2::ZERO, IVec2::ZERO);
-
     #[test]
     fn store_single() {
-        let mut inv = Inventory::single(Item::Iron, Volume::liters(4000), BOUNDS);
+        let mut inv = Inventory::single(Item::Iron, Volume::liters(4000));
 
         assert!(inv.can_store(Item::Iron, 4000));
         assert!(inv.can_store(Item::Iron, 400));
@@ -732,10 +731,10 @@ mod tests {
     #[test]
     fn multiple_slots() {
         let mut inv = Inventory::from_slots(vec![
-            InvSlot::new(Volume::liters(1000), ItemFilter::Any, BOUNDS).with_item(Item::Bread),
-            InvSlot::new(Volume::liters(2000), ItemFilter::Any, BOUNDS).with_item(Item::Magnesium),
-            InvSlot::new(Volume::liters(1500), ItemFilter::Any, BOUNDS).with_item(Item::Magnesium),
-            InvSlot::new(Volume::liters(300), ItemFilter::Any, BOUNDS).with_item(Item::Ice),
+            InvSlot::new(Volume::liters(1000), ItemFilter::Any, false).with_item(Item::Bread),
+            InvSlot::new(Volume::liters(2000), ItemFilter::Any, false).with_item(Item::Magnesium),
+            InvSlot::new(Volume::liters(1500), ItemFilter::Any, false).with_item(Item::Magnesium),
+            InvSlot::new(Volume::liters(300), ItemFilter::Any, false).with_item(Item::Ice),
         ]);
 
         assert_eq!(inv.capacity(), Volume::liters(4800));
@@ -772,10 +771,10 @@ mod tests {
     #[test]
     fn big_items() {
         let mut inv = Inventory::from_slots(vec![
-            InvSlot::new(Volume::liters(100), ItemFilter::Any, BOUNDS).with_item(Item::Rotor),
-            InvSlot::new(Volume::liters(100), ItemFilter::Any, BOUNDS)
+            InvSlot::new(Volume::liters(100), ItemFilter::Any, false).with_item(Item::Rotor),
+            InvSlot::new(Volume::liters(100), ItemFilter::Any, false)
                 .with_item(Item::TitaniumLattice),
-            InvSlot::new(Volume::liters(100), ItemFilter::Any, BOUNDS).with_item(Item::H2),
+            InvSlot::new(Volume::liters(100), ItemFilter::Any, false).with_item(Item::H2),
         ]);
 
         while inv.store(Item::Rotor, 1) {}

@@ -176,7 +176,8 @@ fn draw_blueprints(
 fn draw_inventories(
     mut painter: ShapePainter,
     inventory: InventoryApi,
-    parts: Query<(&GlobalTransform, &PartInstance, &PartContainers)>,
+    transforms: TransformHelper,
+    parts: Query<(Entity, &PartInstance, &PartContainers)>,
     settings: Res<Settings>,
 ) {
     if !settings.draw_inventories {
@@ -185,7 +186,9 @@ fn draw_inventories(
 
     const Z_DEBUG_INVENTORY_LAYER: f32 = 0.05;
 
-    for (tf, part, containers) in parts {
+    for (e, part, containers) in parts {
+        let tf = ok_or_continue!(transforms.compute_global_transform(e));
+
         for entity in containers.iter() {
             let (loc, slot) = ok_or_continue!(inventory.get_container(entity));
             let (min, max) = (loc.origin, loc.origin + loc.dims);
@@ -203,6 +206,10 @@ fn draw_inventories(
             painter.set_color(GRAY_900);
             painter.rect(d + Vec2::splat(0.3));
             painter.translate(Vec3::Z * 0.01);
+
+            if slot.is_fluid() {
+                painter.corner_radii = Vec4::splat(2.0);
+            }
 
             // slot background
             painter.set_color(GRAY_800);
@@ -452,11 +459,10 @@ fn add_part_to_grid(
 
     if let Some(data) = PartInstance::inventory_data(proto) {
         for data in &data.slots {
-            let bounds = (data.min, data.max);
             let mut slot = InvSlot::new(
                 Volume::liters_f32(data.volume_liters),
                 data.filter.clone(),
-                bounds,
+                data.is_fluid.unwrap_or(false),
             );
 
             slot.set_name(data.name.clone());

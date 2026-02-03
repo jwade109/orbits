@@ -5,12 +5,14 @@ pub struct CameraPlugin;
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
-            PostUpdate,
+            Update,
             (
                 // control_camera,
                 track_followed_entity,
                 set_camera_command,
                 draw_camera_debug,
+                update_mouse_world_pos,
+                draw_cursor_pos,
             )
                 .chain(),
         );
@@ -19,12 +21,9 @@ impl Plugin for CameraPlugin {
 
         app.add_systems(FixedUpdate, propagate_camera_physics);
 
-        // update_mouse_world_pos
-        app.add_systems(PostUpdate, update_mouse_world_pos)
-            // draw the mouse cursor
-            .add_systems(PostUpdate, draw_cursor_pos)
-            .insert_resource(CursorWorldPosition::default())
-            .insert_resource(CameraState::default());
+        app.insert_resource(CursorWorldPosition::default());
+
+        app.insert_resource(CameraState::default());
     }
 }
 

@@ -7,3 +7,4 @@ inventory_data:
       volume_liters: 200
       min: [0, 0]
       max: [2, 2]
+      is_fluid: true

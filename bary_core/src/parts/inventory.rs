@@ -9,6 +9,7 @@ pub struct SlotData {
     pub min: IVec2,
     pub max: IVec2,
     pub name: Option<String>,
+    pub is_fluid: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

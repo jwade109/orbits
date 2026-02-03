@@ -7,7 +7,9 @@ inventory_data:
       volume_liters: 1200
       min: [0, 0]
       max: [4, 4]
+      is_fluid: true
     - filter: Liquid
       volume_liters: 520
       min: [4, 0]
       max: [6, 4]
+      is_fluid: true
