@@ -440,7 +440,7 @@ fn compute_part_cell_transform(
     part_center.with_translation(new_translation)
 }
 
-pub fn debug_draw_inventory_links(
+pub fn draw_debug_inventory_links(
     mut gizmos: Gizmos,
     links: Query<&InventoryLink>,
     spacecraft: Spacecraft,

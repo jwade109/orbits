@@ -6,11 +6,13 @@ use bevy::prelude::*;
 use bevy_egui::{EguiContexts, EguiPrimaryContextPass};
 use std::time::Duration;
 
+use crate::system_sets::DrawSet;
+
 use super::*;
 
 pub fn plot_plugin(app: &mut App) {
     app.insert_resource(Plots::default());
-    app.add_systems(Update, draw_plots);
+    app.add_systems(Update, draw_plots.in_set(DrawSet));
     app.add_systems(EguiPrimaryContextPass, plots_egui);
 }
 

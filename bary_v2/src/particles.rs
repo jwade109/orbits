@@ -2,6 +2,7 @@ use bary_core::prelude::*;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 
+use crate::system_sets::DrawSet;
 use crate::*;
 
 pub struct ParticlePlugin;
@@ -10,7 +11,7 @@ impl Plugin for ParticlePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(ThrustParticleConfig::default())
             .add_systems(FixedUpdate, thrust_particles)
-            .add_systems(PostUpdate, debug_draw_emitters);
+            .add_systems(PostUpdate, debug_draw_emitters.in_set(DrawSet));
     }
 }
 

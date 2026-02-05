@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy_egui::EguiPrimaryContextPass;
 
+use crate::system_sets::DrawSet;
 use crate::tick_schedule::SimTick;
 
 use super::debug_systems;
@@ -43,16 +44,15 @@ impl Plugin for TerrainPlugin {
             (
                 systems::render_mining_indicators_system,
                 // debug rendering
-                debug_systems::draw_excavators,
-                debug_systems::draw_hovered_grid_and_tile,
+                debug_systems::draw_excavators.in_set(DrawSet),
+                debug_systems::draw_hovered_grid_and_tile.in_set(DrawSet),
                 debug_systems::trigger_mouse_digging,
                 // flood fill stuff. just a demo for cave detection.
                 // not a serious endeavor.
                 flood_fill::spawn_flood_fill,
                 flood_fill::update_flood_fill,
-                flood_fill::draw_flood_fill,
-            )
-                .chain(),
+                flood_fill::draw_flood_fill.in_set(DrawSet),
+            ),
         );
 
         app.add_systems(EguiPrimaryContextPass, debug_systems::debug_ui);

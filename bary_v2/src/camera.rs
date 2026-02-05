@@ -1,3 +1,4 @@
+use crate::system_sets::CameraSet;
 use crate::*;
 
 pub struct CameraPlugin;
@@ -14,7 +15,7 @@ impl Plugin for CameraPlugin {
                 update_mouse_world_pos,
                 draw_cursor_pos,
             )
-                .chain(),
+                .in_set(CameraSet),
         );
 
         app.add_observer(on_follow_event);

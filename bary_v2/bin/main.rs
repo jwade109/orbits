@@ -1,6 +1,7 @@
 use bary_core::prelude::*;
 use bary_v1::args::ProgramContext;
-use bary_v2::{sounds::sounds_plugin, temporary_keybinds::temporary_keybinds_plugin, *};
+use bary_v2::*;
+use bary_v2::{system_sets::*, temporary_keybinds::temporary_keybinds_plugin};
 use bevy::{
     audio::{AudioPlugin, SpatialScale},
     post_process::bloom::Bloom,
@@ -11,51 +12,94 @@ use bevy_ecs::schedule::{LogLevel, ScheduleBuildSettings};
 const AUDIO_SCALE: f32 = 10. / 100.0;
 
 fn main() {
-    App::new()
-        .add_plugins(
-            DefaultPlugins
-                .set(ImagePlugin::default_nearest())
-                .set(AssetPlugin {
-                    unapproved_path_mode: bevy::asset::UnapprovedPathMode::Allow,
-                    ..default()
-                })
-                .set(AudioPlugin {
-                    default_spatial_scale: SpatialScale(Vec3::splat(AUDIO_SCALE)),
-                    ..default()
-                }),
-        )
-        .edit_schedule(Update, |schedule| {
-            schedule.set_build_settings(ScheduleBuildSettings {
-                ambiguity_detection: LogLevel::Warn,
+    let mut app = App::new();
+
+    app.edit_schedule(Update, |schedule| {
+        schedule.set_build_settings(ScheduleBuildSettings {
+            ambiguity_detection: LogLevel::Warn,
+            hierarchy_detection: LogLevel::Warn,
+            auto_insert_apply_deferred: true,
+            use_shortnames: true,
+            report_sets: true,
+        });
+    });
+
+    app.edit_schedule(FixedUpdate, |schedule| {
+        schedule.set_build_settings(ScheduleBuildSettings {
+            ambiguity_detection: LogLevel::Warn,
+            hierarchy_detection: LogLevel::Warn,
+            auto_insert_apply_deferred: true,
+            use_shortnames: true,
+            report_sets: true,
+        });
+    });
+
+    app.edit_schedule(PostUpdate, |schedule| {
+        schedule.set_build_settings(ScheduleBuildSettings {
+            ambiguity_detection: LogLevel::Warn,
+            hierarchy_detection: LogLevel::Warn,
+            auto_insert_apply_deferred: true,
+            use_shortnames: true,
+            report_sets: true,
+        });
+    });
+
+    app.edit_schedule(SimTick, |schedule| {
+        schedule.set_build_settings(ScheduleBuildSettings {
+            ambiguity_detection: LogLevel::Warn,
+            hierarchy_detection: LogLevel::Warn,
+            auto_insert_apply_deferred: true,
+            use_shortnames: true,
+            report_sets: true,
+        });
+    });
+
+    app.add_plugins(
+        DefaultPlugins
+            .set(ImagePlugin::default_nearest())
+            .set(AssetPlugin {
+                unapproved_path_mode: bevy::asset::UnapprovedPathMode::Allow,
                 ..default()
-            });
-        })
-        .add_plugins(Wireframe2dPlugin::default())
-        .add_plugins(EguiPlugin::default())
-        .add_plugins(Shape2dPlugin::default())
-        .add_plugins(ThrusterPlugin::default())
-        // plugins I've implemented
-        .add_plugins(ParticlePlugin)
-        .add_plugins(AnimatedTextPlugin)
-        .add_plugins(SpacecraftPlugin)
-        .add_plugins(ComputerPlugin)
-        .add_plugins(TerrainPlugin)
-        .add_plugins(CameraPlugin)
-        .add_plugins(plot_plugin)
-        // .add_plugins(sounds_plugin)
-        .add_plugins(temporary_keybinds_plugin)
-        .add_systems(EguiPrimaryContextPass, egui_ui)
-        .add_systems(Startup, setup)
-        .add_systems(
-            Update,
-            (
-                update_wireframe,
-                save_settings_on_change.run_if(on_timer(std::time::Duration::from_secs(1))),
-            )
-                .chain(),
+            })
+            .set(AudioPlugin {
+                default_spatial_scale: SpatialScale(Vec3::splat(AUDIO_SCALE)),
+                ..default()
+            }),
+    )
+    .add_plugins(Wireframe2dPlugin::default())
+    .add_plugins(EguiPlugin::default())
+    .add_plugins(Shape2dPlugin::default())
+    .add_plugins(ThrusterPlugin::default())
+    // plugins I've implemented
+    .add_plugins(ParticlePlugin)
+    .add_plugins(animated_text_plugin)
+    .add_plugins(SpacecraftPlugin)
+    .add_plugins(ComputerPlugin)
+    .add_plugins(TerrainPlugin)
+    .add_plugins(CameraPlugin)
+    .add_plugins(plot_plugin)
+    // .add_plugins(sounds_plugin)
+    .add_plugins(temporary_keybinds_plugin)
+    .add_systems(EguiPrimaryContextPass, egui_ui)
+    .add_systems(Startup, setup);
+
+    app.add_systems(
+        Update,
+        (
+            update_wireframe,
+            save_settings_on_change.run_if(on_timer(std::time::Duration::from_secs(1))),
         )
-        .add_systems(Startup, update_gizmo_config)
-        .run();
+            .chain(),
+    );
+
+    app.add_systems(Startup, update_gizmo_config);
+
+    app.configure_sets(
+        Update,
+        (KeybindsSet, SimulationSet, CameraSet, DrawSet).chain(),
+    );
+
+    app.run();
 }
 
 fn update_wireframe(mut wireframe_config: ResMut<Wireframe2dConfig>, settings: Res<Settings>) {

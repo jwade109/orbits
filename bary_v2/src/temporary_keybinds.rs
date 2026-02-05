@@ -4,7 +4,8 @@ use bevy::prelude::*;
 use early_returns::some_or_return;
 
 use crate::{
-    AddHose, AddPipe, CursorWorldPosition, FollowEvent, GridPlacementEffect, SelectedSpacecraft, Settings, SpacecraftEvent
+    system_sets::KeybindsSet, AddHose, AddPipe, CursorWorldPosition, FollowEvent,
+    GridPlacementEffect, SelectedSpacecraft, Settings, SpacecraftEvent,
 };
 
 pub fn temporary_keybinds_plugin(app: &mut App) {
@@ -16,7 +17,8 @@ pub fn temporary_keybinds_plugin(app: &mut App) {
             spawn_random_ship_on_y,
             spawn_grid_effect_on_r,
             follow_selected_ship_on_key_f,
-        ),
+        )
+            .in_set(KeybindsSet),
     );
 }
 

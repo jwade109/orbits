@@ -1,4 +1,4 @@
-use crate::*;
+use crate::{system_sets::DrawSet, *};
 use bary_core::prelude::*;
 
 #[derive(Component, Debug, Clone, Copy)]
@@ -36,7 +36,7 @@ pub struct ThrusterPlugin;
 
 impl Plugin for ThrusterPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PostUpdate, draw_thrusters);
+        app.add_systems(PostUpdate, draw_thrusters.in_set(DrawSet));
     }
 }
 

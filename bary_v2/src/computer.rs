@@ -1,13 +1,13 @@
 use bary_core::prelude::*;
 
-use crate::*;
+use crate::{system_sets::DrawSet, *};
 
 pub struct ComputerPlugin;
 
 impl Plugin for ComputerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, human_control);
-        app.add_systems(PostUpdate, draw_computers);
+        app.add_systems(PostUpdate, draw_computers.in_set(DrawSet));
         app.insert_resource(ManualControl::default());
 
         app.add_observer(handle_hold_here_commands);

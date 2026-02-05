@@ -4,12 +4,14 @@ use bevy::prelude::*;
 use bevy::time::Stopwatch;
 use early_returns::ok_or_continue;
 
+use crate::system_sets::DrawSet;
+
 pub fn sounds_plugin(app: &mut App) {
     app.add_systems(
         Update,
         (
-            draw_sound_emitter_locations,
-            draw_spatial_listeners,
+            draw_sound_emitter_locations.in_set(DrawSet),
+            draw_spatial_listeners.in_set(DrawSet),
             add_sinks_to_indicator_flags,
         ),
     );

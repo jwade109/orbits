@@ -15,13 +15,14 @@ mod plots;
 mod recipe;
 mod save_data;
 mod settings;
+pub mod sounds;
 mod spacecraft;
+pub mod system_sets;
 pub mod temporary_keybinds;
 mod terrain;
 mod thruster;
 mod tick_schedule;
 mod utils;
-pub mod sounds;
 
 pub use animated_text::*;
 pub use camera::*;

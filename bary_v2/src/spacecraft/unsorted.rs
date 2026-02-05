@@ -1,4 +1,5 @@
 use crate::sounds::SoundSource;
+use crate::system_sets::*;
 use crate::*;
 use bary_core::prelude::*;
 use bary_v1::args::ProgramContext;
@@ -21,9 +22,10 @@ impl Plugin for SpacecraftPlugin {
                 draw_selected_part_system,
                 draw_spacecraft_spatial_lookups,
                 draw_docking_info,
-                debug_draw_inventory_links,
+                draw_debug_inventory_links,
                 draw_grid_placement_effects,
-            ),
+            )
+                .in_set(DrawSet),
         );
 
         app.add_systems(
@@ -38,19 +40,25 @@ impl Plugin for SpacecraftPlugin {
         app.add_systems(
             Update,
             (
-                draw_blueprint_of_docking_program.pipe(swallow_optional),
-                draw_position_command_widget,
                 update_position_command_widget_system,
-                draw_slingshot_widget,
                 update_slingshot_widget_system,
-                draw_hoses_system,
                 update_selected_spacecraft_system,
                 update_selected_hose_system,
-                draw_hose_selection_area_system,
                 update_grid_placement_effects,
+            ),
+        );
+
+        app.add_systems(
+            Update,
+            (
+                draw_blueprint_of_docking_program.pipe(swallow_optional),
+                draw_position_command_widget,
+                draw_slingshot_widget,
+                draw_hoses_system,
+                draw_hose_selection_area_system,
                 despawn_grid_placement_effects,
             )
-                .chain(),
+                .in_set(DrawSet),
         );
 
         app.add_observer(on_add_hose.pipe(swallow_optional));
@@ -74,7 +82,7 @@ impl Plugin for SpacecraftPlugin {
                 consume_fuel,
                 apply_thrust_to_grids,
             )
-                .chain(),
+                .in_set(SimulationSet),
         );
 
         app.add_observer(handle_sc_events);

@@ -4,14 +4,10 @@ use bary_core::prelude::*;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 
-pub struct AnimatedTextPlugin;
-
-impl Plugin for AnimatedTextPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(Update, (receive_events, update_lifetimes));
-        app.add_systems(FixedUpdate, update_text);
-        app.add_message::<SpawnAnimText>();
-    }
+pub fn animated_text_plugin(app: &mut App) {
+    app.add_systems(Update, (receive_events, update_lifetimes));
+    app.add_systems(FixedUpdate, update_text);
+    app.add_message::<SpawnAnimText>();
 }
 
 #[derive(Message)]
@@ -34,11 +30,11 @@ impl SpawnAnimText {
 }
 
 #[derive(Component)]
-struct AnimText(String, Option<Entity>);
+struct AnimText(String);
 
 impl From<&str> for AnimText {
     fn from(value: &str) -> Self {
-        Self(value.to_string(), None)
+        Self(value.to_string())
     }
 }
 
@@ -79,7 +75,7 @@ fn receive_events(mut commands: Commands, mut events: MessageReader<SpawnAnimTex
         commands
             .spawn((
                 Text::new(""),
-                AnimText(event.text.chars().into_iter().rev().collect(), event.target),
+                AnimText(event.text.chars().into_iter().rev().collect()),
                 Node {
                     position_type: PositionType::Absolute,
                     top: y,
