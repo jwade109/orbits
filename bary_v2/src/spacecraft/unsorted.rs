@@ -64,7 +64,7 @@ impl Plugin for SpacecraftPlugin {
         app.add_observer(on_add_hose.pipe(swallow_optional));
         app.add_observer(on_add_pipe.pipe(swallow_result));
 
-        app.add_systems(FixedUpdate, (world_tick_driver_system, update_volume));
+        app.add_systems(FixedUpdate, world_tick_driver_system);
 
         app.add_systems(
             SimTick,
@@ -79,10 +79,8 @@ impl Plugin for SpacecraftPlugin {
                 process_inventory_links_system,
                 update_computers,
                 do_maneuvers,
-                consume_fuel,
-                apply_thrust_to_grids,
             )
-                .in_set(SimulationSet),
+                .in_set(SimulationSet::Misc),
         );
 
         app.add_observer(handle_sc_events);

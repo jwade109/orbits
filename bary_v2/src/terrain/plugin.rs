@@ -24,18 +24,18 @@ impl Plugin for TerrainPlugin {
 
         app.add_systems(Startup, systems::insert_tiles);
 
-        app.add_systems(
-            SimTick,
-            (
-                systems::generate_tiles,
-                systems::delete_chunks,
-                systems::excavate_chunks,
-                systems::process_excavators,
-                systems::process_mine_to_inventory.pipe(systems::spawn_mining_visuals),
-                systems::age_mining_visuals_system,
-            )
-                .chain(),
-        );
+        // app.add_systems(
+        //     SimTick,
+        //     (
+        //         systems::generate_tiles,
+        //         systems::delete_chunks,
+        //         systems::excavate_chunks,
+        //         systems::process_excavators,
+        //         systems::process_mine_to_inventory.pipe(systems::spawn_mining_visuals),
+        //         systems::age_mining_visuals_system,
+        //     )
+        //         .chain(),
+        // );
 
         app.add_systems(FixedUpdate, systems::update_meshes);
 

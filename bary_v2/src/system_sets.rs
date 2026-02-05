@@ -4,7 +4,10 @@ use bevy::prelude::*;
 pub struct KeybindsSet;
 
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
-pub struct SimulationSet;
+pub enum SimulationSet {
+    Thruster,
+    Misc,
+}
 
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 pub struct DrawSet;

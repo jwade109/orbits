@@ -1,5 +1,9 @@
-use crate::{system_sets::DrawSet, *};
+use crate::{
+    system_sets::{DrawSet, SimulationSet},
+    *,
+};
 use bary_core::prelude::*;
+use std::time::Duration;
 
 #[derive(Component, Debug, Clone, Copy)]
 pub struct Thruster {
@@ -7,6 +11,7 @@ pub struct Thruster {
     pub status: MachineStatus,
     pub max_thrust: f32,
     pub is_rcs: bool,
+    pub burn_time: Duration,
 }
 
 impl Thruster {
@@ -16,6 +21,7 @@ impl Thruster {
             status: MachineStatus::Off,
             max_thrust,
             is_rcs,
+            burn_time: Duration::ZERO,
         }
     }
 
@@ -31,13 +37,26 @@ impl Thruster {
     }
 }
 
-#[derive(Default)]
-pub struct ThrusterPlugin;
+pub fn body_frame_thrust(thruster: &Thruster, transform: &Transform, com: Vec2) -> (Vec2, f32) {
+    let u = transform.right().xy();
+    let location = transform.translation.xy();
+    let lever_arm = location - com;
+    let thrust = thruster.max_thrust * u;
+    let torque = cross2d(lever_arm, thrust);
+    (thrust, torque as f32)
+}
 
-impl Plugin for ThrusterPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(PostUpdate, draw_thrusters.in_set(DrawSet));
-    }
+// PLUGIN AND SYSTEMS
+
+pub fn thruster_plugin(app: &mut App) {
+    app.add_systems(Update, draw_thrusters.in_set(DrawSet));
+    app.add_systems(
+        SimTick,
+        (consume_fuel, apply_thrust_to_grids)
+            .chain()
+            .in_set(SimulationSet::Thruster),
+    );
+    app.add_systems(FixedUpdate, update_volume);
 }
 
 fn draw_thrusters(
@@ -66,7 +85,7 @@ fn draw_thrusters(
     }
 }
 
-pub fn consume_fuel(
+fn consume_fuel(
     mut thrusters: Query<(&mut Thruster, &mut PartContainers)>,
     mut slots: Query<&mut InvSlot>,
     settings: Res<Settings>,
@@ -89,10 +108,14 @@ pub fn consume_fuel(
         } else {
             MachineStatus::Off
         };
+
+        if thruster.status == MachineStatus::Running {
+            thruster.burn_time += Duration::from_millis(20);
+        }
     }
 }
 
-pub fn update_volume(query: Query<(&Thruster, &mut SpatialAudioSink)>) {
+fn update_volume(query: Query<(&Thruster, &mut SpatialAudioSink)>) {
     for (thruster, mut sink) in query {
         let target_volume = if thruster.on { 0.5 } else { 0.0 };
         let actual_volume = sink.volume().to_linear();
@@ -102,16 +125,7 @@ pub fn update_volume(query: Query<(&Thruster, &mut SpatialAudioSink)>) {
     }
 }
 
-pub fn body_frame_thrust(thruster: &Thruster, transform: &Transform, com: Vec2) -> (Vec2, f32) {
-    let u = transform.right().xy();
-    let location = transform.translation.xy();
-    let lever_arm = location - com;
-    let thrust = thruster.max_thrust * u;
-    let torque = cross2d(lever_arm, thrust);
-    (thrust, torque as f32)
-}
-
-pub fn apply_thrust_to_grids(
+fn apply_thrust_to_grids(
     thrusters: Query<(&Thruster, &Transform, &ChildOf)>,
     mut grids: Query<&mut SpacecraftGrid>,
 ) {

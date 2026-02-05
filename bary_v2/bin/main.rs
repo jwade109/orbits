@@ -68,20 +68,24 @@ fn main() {
     )
     .add_plugins(Wireframe2dPlugin::default())
     .add_plugins(EguiPlugin::default())
-    .add_plugins(Shape2dPlugin::default())
-    .add_plugins(ThrusterPlugin::default())
+    .add_plugins(Shape2dPlugin::default());
+
+    // handles thrusters applying force to their grids,
+    // consuming fuel from their inventories, etc
+    app.add_plugins(thruster_plugin);
+
     // plugins I've implemented
-    .add_plugins(ParticlePlugin)
-    .add_plugins(animated_text_plugin)
-    .add_plugins(SpacecraftPlugin)
-    .add_plugins(ComputerPlugin)
-    .add_plugins(TerrainPlugin)
-    .add_plugins(CameraPlugin)
-    .add_plugins(plot_plugin)
-    // .add_plugins(sounds_plugin)
-    .add_plugins(temporary_keybinds_plugin)
-    .add_systems(EguiPrimaryContextPass, egui_ui)
-    .add_systems(Startup, setup);
+    app.add_plugins(ParticlePlugin)
+        .add_plugins(animated_text_plugin)
+        .add_plugins(SpacecraftPlugin)
+        .add_plugins(ComputerPlugin)
+        .add_plugins(TerrainPlugin)
+        .add_plugins(CameraPlugin)
+        .add_plugins(plot_plugin)
+        // .add_plugins(sounds_plugin)
+        .add_plugins(temporary_keybinds_plugin)
+        .add_systems(EguiPrimaryContextPass, egui_ui)
+        .add_systems(Startup, setup);
 
     app.add_systems(
         Update,
@@ -96,7 +100,26 @@ fn main() {
 
     app.configure_sets(
         Update,
-        (KeybindsSet, SimulationSet, CameraSet, DrawSet).chain(),
+        (
+            KeybindsSet,
+            SimulationSet::Misc,
+            SimulationSet::Thruster,
+            CameraSet,
+            DrawSet,
+        )
+            .chain(),
+    );
+
+    app.configure_sets(
+        SimTick,
+        (
+            KeybindsSet,
+            SimulationSet::Misc,
+            SimulationSet::Thruster,
+            CameraSet,
+            DrawSet,
+        )
+            .chain(),
     );
 
     app.run();
