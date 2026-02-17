@@ -102,7 +102,7 @@ mod tests {
 
     #[test]
     fn test_the_world() {
-        let (mut rl, thread) = raylib::init();
+        let (mut rl, thread) = raylib::init().log_level(TraceLogLevel::LOG_WARNING).build();
         let texture = rl
             .load_texture(&thread, "../assets/parts/cargo/skin.png")
             .unwrap();
