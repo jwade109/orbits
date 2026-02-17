@@ -2,6 +2,7 @@ mod asteroid;
 mod belts;
 mod casts;
 mod control;
+mod entity;
 mod factory;
 mod math;
 mod orbital_luts;

@@ -2,6 +2,7 @@ pub use crate::asteroid::*;
 pub use crate::belts::AsteroidBelt;
 pub use crate::casts::*;
 pub use crate::control::OrbitalController;
+pub use crate::entity::*;
 pub use crate::factory::*;
 pub use crate::math::*;
 pub use crate::orbital_luts::lookup_ta_from_ma;

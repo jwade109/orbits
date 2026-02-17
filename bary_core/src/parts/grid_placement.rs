@@ -1,5 +1,3 @@
-use bevy::transform::components::Transform;
-
 use crate::math::*;
 
 #[derive(Clone, Copy, Debug)]
@@ -83,22 +81,24 @@ impl GridPlacement {
 
     pub fn origin_isometry(&self) -> Isometry2d {
         let rot = self.rotation.to_angle() as f32;
-        Isometry2d::new(self.origin().to_meters(), rot.into())
+        Isometry2d::new(self.origin().to_meters(), rot)
     }
 
-    pub fn origin_transform(&self) -> Transform {
-        isometry_to_transform(self.origin_isometry())
+    pub fn origin_transform(&self) -> ! {
+        todo!()
+        // isometry_to_transform(self.origin_isometry())
     }
 
     pub fn center_isometry(&self) -> Isometry2d {
         let rot = self.rotation.to_angle() as f32;
         let half_dims = self.part_aligned_dims().to_meters() / 2.0;
         let offset = rotate(half_dims, rot);
-        Isometry2d::new(self.origin().to_meters() + offset, rot.into())
+        Isometry2d::new(self.origin().to_meters() + offset, rot)
     }
 
-    pub fn center_transform(&self) -> Transform {
-        isometry_to_transform(self.center_isometry())
+    pub fn center_transform(&self) -> ! {
+        todo!()
+        // isometry_to_transform(self.center_isometry())
     }
 
     pub fn cells(&self) -> impl Iterator<Item = PartCoord> + use<'_> {
@@ -136,18 +136,18 @@ impl GridPlacement {
     }
 }
 
-pub fn isometry_to_transform(iso: Isometry2d) -> Transform {
-    let iso = Isometry3d::new(
-        iso.translation.extend(0.0),
-        Quat::from_rotation_z(iso.rotation.as_radians()),
-    );
-    Transform::from_isometry(iso)
-}
+// pub fn isometry_to_transform(iso: Isometry2d) -> Transform {
+//     let iso = Isometry3d::new(
+//         iso.translation.extend(0.0),
+//         Quat::from_rotation_z(iso.rotation.as_radians()),
+//     );
+//     Transform::from_isometry(iso)
+// }
 
-pub fn transform_to_isometry(transform: Transform) -> Isometry2d {
-    let yaw = get_yaw(transform);
-    Isometry2d::new(transform.translation.xy(), yaw.into())
-}
+// pub fn transform_to_isometry(transform: Transform) -> Isometry2d {
+//     let yaw = get_yaw(transform);
+//     Isometry2d::new(transform.translation.xy(), yaw.into())
+// }
 
 impl std::ops::Add<PartCoord> for GridPlacement {
     type Output = GridPlacement;
@@ -243,12 +243,12 @@ mod tests {
 
         assert_eq!(
             gp.origin_isometry(),
-            Isometry2d::new((0.25, 0.25).into(), Rot2::IDENTITY)
+            Isometry2d::new((0.25, 0.25).into(), 0.0)
         );
 
         assert_eq!(
             gp.center_isometry(),
-            Isometry2d::new((0.75, 0.625).into(), Rot2::IDENTITY)
+            Isometry2d::new((0.75, 0.625).into(), 0.0)
         );
     }
 

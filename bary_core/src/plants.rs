@@ -1,5 +1,4 @@
 use crate::prelude::*;
-use bevy::math::Vec2;
 
 #[derive(Debug, Clone)]
 pub struct Segment {

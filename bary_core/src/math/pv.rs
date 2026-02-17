@@ -1,4 +1,4 @@
-use bevy::math::{DVec2, Vec2};
+use crate::math::{DVec2, Vec2};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Deserialize, Serialize)]

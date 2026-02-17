@@ -1,13 +1,12 @@
-use crate::math::*;
 use crate::orbits::{Body, SparseOrbit};
-use bevy::prelude::Entity;
+use crate::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum PlanetarySystem {
     Void,
     Planet {
-        id: Entity,
+        id: EntityId,
         name: String,
         body: Body,
         subsystems: Vec<(SparseOrbit, Self)>,
@@ -21,7 +20,7 @@ pub struct Planet {
 }
 
 impl PlanetarySystem {
-    pub fn new(id: Entity, name: impl Into<String>, body: Body) -> Self {
+    pub fn new(id: EntityId, name: impl Into<String>, body: Body) -> Self {
         Self::Planet {
             id,
             name: name.into(),
@@ -30,7 +29,7 @@ impl PlanetarySystem {
         }
     }
 
-    pub fn planet_ids(&self) -> Vec<Entity> {
+    pub fn planet_ids(&self) -> Vec<EntityId> {
         match self {
             Self::Void => vec![],
             Self::Planet {
@@ -50,11 +49,11 @@ impl PlanetarySystem {
 
     fn lookup_inner(
         &self,
-        lup_id: Entity,
+        lup_id: EntityId,
         stamp: Nanotime,
         wrt: PV,
-        parent_id: Option<Entity>,
-    ) -> Option<(Planet, PV, Option<Entity>, &Self)> {
+        parent_id: Option<EntityId>,
+    ) -> Option<(Planet, PV, Option<EntityId>, &Self)> {
         match self {
             Self::Void => None,
             Self::Planet {
@@ -87,9 +86,9 @@ impl PlanetarySystem {
 
     pub fn lookup_planet(
         &self,
-        id: Entity,
+        id: EntityId,
         stamp: Nanotime,
-    ) -> Option<(Planet, PV, Option<Entity>, &Self)> {
+    ) -> Option<(Planet, PV, Option<EntityId>, &Self)> {
         self.lookup_inner(id, stamp, PV::ZERO, None)
     }
 }

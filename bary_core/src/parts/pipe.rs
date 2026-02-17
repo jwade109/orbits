@@ -1,5 +1,5 @@
+use crate::math::IVec2;
 use crate::prelude::*;
-use bevy::math::IVec2;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 

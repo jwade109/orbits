@@ -33,7 +33,7 @@ impl std::fmt::Display for NoPartError {
 impl std::error::Error for NoPartError {}
 
 pub fn load_vehicle(
-    path: &Path,
+    path: impl AsRef<Path>,
     parts: &HashMap<String, PartPrototype>,
 ) -> Result<Blueprint, Box<dyn std::error::Error>> {
     let s = std::fs::read_to_string(path)?;
@@ -57,10 +57,13 @@ pub fn load_vehicle(
 fn part_from_path(path: &Path) -> Result<PartPrototype, String> {
     let data_path = path.join("metadata.yaml");
     let s = std::fs::read_to_string(&data_path).map_err(|_| "Failed to load metadata file")?;
-    serde_yaml::from_str(&s).map_err(|e| format!("Failed to parse metadata file: {}", e))
+    serde_yaml::from_str(&s)
+        .map_err(|e| format!("Failed to parse metadata file at {}: {}", path.display(), e))
 }
 
-pub fn load_parts_from_dir(path: &Path) -> Result<HashMap<String, PartPrototype>, String> {
+pub fn load_parts_from_dir(
+    path: impl AsRef<Path>,
+) -> Result<HashMap<String, PartPrototype>, String> {
     let mut ret = HashMap::new();
     if let Ok(paths) = std::fs::read_dir(path) {
         for path in paths {

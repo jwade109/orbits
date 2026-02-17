@@ -1,5 +1,4 @@
 use crate::prelude::*;
-use bevy::math::Vec2;
 use image::RgbaImage;
 use noise::{NoiseFn, Perlin};
 use rand::rngs::StdRng;

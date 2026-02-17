@@ -1,7 +1,6 @@
 use super::*;
 
-pub use bevy::math::*;
-use bevy::prelude::Transform;
+pub use glam::{DVec2, DVec3, IVec2, IVec3, UVec2, UVec3, Vec2, Vec3};
 use names::Generator;
 use rand::Rng;
 
@@ -253,13 +252,27 @@ pub fn mass_after_maneuver(ve: f64, m0: f64, dv: f64) -> f64 {
     m0 / (dv / ve).exp()
 }
 
-pub fn get_yaw(transform: Transform) -> f32 {
-    let (yaw, _pitch, _roll) = transform.rotation.to_euler(EulerRot::ZYX);
-    yaw
+#[derive(Debug, Default, PartialEq, Clone, Copy)]
+pub struct Isometry2d {
+    pub translation: Vec2,
+    pub rotation: f32,
 }
 
-pub fn in_frame(transform: Transform, pos: Vec2) -> Vec2 {
-    let offset = pos - transform.translation.xy();
+impl Isometry2d {
+    pub fn new(translation: Vec2, rotation: f32) -> Self {
+        Self {
+            translation,
+            rotation,
+        }
+    }
+}
+
+pub fn get_yaw(transform: Isometry2d) -> f32 {
+    transform.rotation
+}
+
+pub fn in_frame(transform: Isometry2d, pos: Vec2) -> Vec2 {
+    let offset = pos - transform.translation;
     let yaw = get_yaw(transform);
     rotate(offset, -yaw)
 }

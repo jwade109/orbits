@@ -1,18 +1,16 @@
 use crate::prelude::*;
-use bevy::math::*;
-use bevy::prelude::Entity;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub struct AsteroidBelt {
-    parent: Entity,
+    parent: EntityId,
     inner: SparseOrbit,
     outer: SparseOrbit,
 }
 
 impl AsteroidBelt {
     pub fn new(
-        parent: Entity,
+        parent: EntityId,
         argp: f64,
         rp: f64,
         ra: f64,
@@ -55,7 +53,13 @@ impl AsteroidBelt {
         Some(Self::from_orbits(orbit.0, inner, outer))
     }
 
-    pub fn circular(parent: Entity, inner: f64, outer: f64, body: Body, retrograde: bool) -> Self {
+    pub fn circular(
+        parent: EntityId,
+        inner: f64,
+        outer: f64,
+        body: Body,
+        retrograde: bool,
+    ) -> Self {
         let inner = SparseOrbit::circular(inner, body, Nanotime::zero(), retrograde);
         let outer = SparseOrbit::circular(outer, body, Nanotime::zero(), retrograde);
         Self {
@@ -65,7 +69,7 @@ impl AsteroidBelt {
         }
     }
 
-    pub fn from_orbits(parent: Entity, inner: SparseOrbit, outer: SparseOrbit) -> Self {
+    pub fn from_orbits(parent: EntityId, inner: SparseOrbit, outer: SparseOrbit) -> Self {
         assert!(!inner.is_hyperbolic());
         assert!(!outer.is_hyperbolic());
         AsteroidBelt {
@@ -75,7 +79,7 @@ impl AsteroidBelt {
         }
     }
 
-    pub fn parent(&self) -> Entity {
+    pub fn parent(&self) -> EntityId {
         self.parent
     }
 
@@ -113,7 +117,7 @@ impl AsteroidBelt {
     pub fn random_radius(&self, angle: f64) -> f64 {
         let (rmin, rmax) = self.radius(angle);
         let s = rand(0.0, 1.0);
-        bevy::prelude::FloatExt::lerp(rmin, rmax, s as f64)
+        lerp_f64(rmin, rmax, s.into())
     }
 
     pub fn random_sample(&self) -> DVec2 {

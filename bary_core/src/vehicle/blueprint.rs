@@ -1,5 +1,4 @@
 use crate::prelude::*;
-use bevy::prelude::Component;
 use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
 
@@ -11,7 +10,7 @@ pub const PHYSICS_CONSTANT_DELTA_TIME: Nanotime =
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct PartId(u64);
 
-#[derive(Debug, Clone, Component)]
+#[derive(Debug, Clone)]
 pub struct Blueprint {
     next_part_id: PartId,
     parts: BTreeMap<PartId, PartInstance>,
@@ -198,6 +197,10 @@ impl Blueprint {
     pub fn bounding_radius(&self) -> f64 {
         // BIG TODO
         50.0
+    }
+
+    pub fn part_count(&self) -> usize {
+        self.parts.len()
     }
 
     pub fn add_pipe(&mut self, pipe: PipeGeometry) -> PartId {

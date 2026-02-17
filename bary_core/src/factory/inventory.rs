@@ -1,5 +1,4 @@
 use crate::prelude::*;
-use bevy::prelude::*;
 use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
 
@@ -263,8 +262,8 @@ impl Item {
         }
     }
 
-    pub fn color(&self) -> Srgba {
-        let arr = match self {
+    pub fn color(&self) -> [u8; 3] {
+        match self {
             Item::Iron => [165, 156, 148],
             Item::Copper => [183, 119, 41],
             Item::Magnesium => [216, 216, 216],
@@ -291,13 +290,12 @@ impl Item {
             Item::Circuit => [17, 191, 11],
             Item::TitaniumLattice => [0, 26, 128],
             Item::PowerCell => [161, 88, 103],
-        };
-        Srgba::from_u8_array_no_alpha(arr)
+        }
     }
 }
 
 #[deprecated]
-#[derive(Component, Debug, Clone, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct Inventory(Vec<InvSlot>);
 
 impl Inventory {
@@ -444,7 +442,7 @@ impl Inventory {
     }
 }
 
-#[derive(Component, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct InvSlot {
     name: Option<String>,
     capacity: Volume,

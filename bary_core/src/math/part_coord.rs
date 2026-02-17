@@ -1,6 +1,6 @@
 use super::aabb::*;
 use super::math::*;
-use bevy::prelude::{IVec2, Vec2};
+use crate::prelude::{IVec2, Vec2, UVec2};
 use serde::{Deserialize, Serialize};
 
 // TODO reduce scope of this constant

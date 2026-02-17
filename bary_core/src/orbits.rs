@@ -1,7 +1,5 @@
 use crate::prelude::*;
 use crate::propagator::search_condition;
-use bevy::math::{DVec2, Vec2};
-use bevy::prelude::Entity;
 use serde::{Deserialize, Serialize};
 
 pub fn hyperbolic_range_ta(ecc: f32) -> f32 {
@@ -896,7 +894,7 @@ pub(crate) fn lagrange_pv(initial: impl Into<PV>, coeff: &LangrangeCoefficients)
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
-pub struct GlobalOrbit(pub Entity, pub SparseOrbit);
+pub struct GlobalOrbit(pub EntityId, pub SparseOrbit);
 
 impl std::fmt::Display for GlobalOrbit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

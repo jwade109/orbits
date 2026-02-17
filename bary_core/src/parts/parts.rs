@@ -1,7 +1,6 @@
+use crate::math::UVec2;
 use crate::prelude::GridPlacement;
 use crate::prelude::*;
-use bevy::math::UVec2;
-use bevy::prelude::*;
 use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::Path};
@@ -135,7 +134,7 @@ impl PartLayer {
     }
 }
 
-#[derive(Component, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct PartInstance {
     pub name: String,
     layer: PartLayer,

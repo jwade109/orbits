@@ -4,6 +4,8 @@ dims: [3, 3]
 name: "debug-item-source"
 machine_data:
   recipe_categories: ["debug-production"]
+  input_slots: []
+  output_slots: [0]
 inventory_data:
   slots:
     - name: "output"

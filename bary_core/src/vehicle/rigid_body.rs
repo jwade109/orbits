@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use bevy::math::DVec2;
+use crate::math::DVec2;
 
 #[derive(Default, Debug, Clone, Copy)]
 pub struct BodyFrameAccel {
