@@ -6,7 +6,6 @@ pub struct Spacecraft {
     pub pos: Vector2,
     pub vel: Vector2,
     pub heading: f32,
-    texture: Texture2D,
 }
 
 impl Spacecraft {
@@ -30,12 +29,6 @@ impl Spacecraft {
         let [v1, v2, v3] = self.vertices();
         d.draw_triangle_lines(v1, v2, v3, Color::WHITE);
         d.draw_circle(self.pos.x as i32, self.pos.y as i32, 5.0, Color::RED);
-        d.draw_texture(
-            &self.texture,
-            self.pos.x as i32,
-            self.pos.y as i32,
-            Color::WHITE,
-        );
     }
 }
 
@@ -60,7 +53,7 @@ pub struct World {
 }
 
 impl World {
-    pub fn test_scene(texture: Texture2D) -> Self {
+    pub fn test_scene() -> Self {
         Self {
             camera: Camera2D {
                 offset: Vector2::new(-100.0, 0.0),
@@ -72,7 +65,6 @@ impl World {
                 pos: Vector2::new(600.0, 200.0),
                 vel: Vector2::new(6.0, 4.0),
                 heading: 0.3,
-                texture,
             },
             moon: Moon {
                 pos: Vector2::zero(),
