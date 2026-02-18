@@ -613,6 +613,7 @@ name = "bary_raylib"
 version = "0.1.0"
 dependencies = [
  "bary_core",
+ "crossbeam-queue",
  "rand 0.10.0",
  "raylib",
  "rdev",

@@ -277,6 +277,10 @@ pub fn in_frame(transform: Isometry2d, pos: Vec2) -> Vec2 {
     rotate(offset, -yaw)
 }
 
+pub fn low_pass(actual: f32, target: f32, rate: f32) -> f32 {
+    actual + (target - actual) * rate
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
