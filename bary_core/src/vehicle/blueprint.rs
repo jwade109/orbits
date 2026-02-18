@@ -451,3 +451,5 @@ mod tests {
         assert_eq!(part.placement.bottom_left(), (9, 6).into());
     }
 }
+
+pub type NamedBlueprint = (String, Blueprint);

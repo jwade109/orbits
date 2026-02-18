@@ -1,5 +1,8 @@
 use crate::components::Components;
+use crate::computer::*;
 use crate::input_state::*;
+use crate::thruster::*;
+use crate::vehicle_grid::*;
 use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use raylib::prelude::*;
@@ -18,7 +21,7 @@ impl RingParticle {
     }
 }
 
-type MaybeTexture = Option<Texture2D>;
+pub type MaybeTexture = Option<Texture2D>;
 
 pub struct World {
     pub snap_camera_to_local_planet: bool,
@@ -28,8 +31,11 @@ pub struct World {
     pub camera: Camera2D,
     pub target_camera: Camera2D,
     pub ring_particles: Components<RingParticle>,
-    pub blueprints: Components<(Blueprint, Vec2)>,
-    pub parts: Components<(PartPrototype, MaybeTexture)>,
+    pub blueprints: Components<NamedBlueprint>,
+    pub prototypes: Components<(PartPrototype, MaybeTexture)>,
+    pub thrusters: Components<Thruster>,
+    pub computers: Components<Computer>,
+    pub grids: Components<VehicleGrid>,
     pub circle_texture: MaybeTexture,
 }
 
@@ -47,35 +53,12 @@ impl World {
             target_camera: default_camera_2d(),
             ring_particles: Components::default(),
             blueprints: Components::default(),
-            parts: Components::default(),
+            prototypes: Components::default(),
+            grids: Components::default(),
+            thrusters: Components::default(),
+            computers: Components::default(),
             circle_texture: None,
         }
-    }
-
-    pub fn test_scene() -> Self {
-        let mut world = World::empty();
-
-        let parts = load_parts_from_dir("assets/parts/").expect("Parts dir");
-
-        for (_, part) in &parts {
-            world.parts.spawn((part.clone(), None));
-        }
-
-        let vehicles = [
-            ("pollux", Vec2::new(900.0, 300.0)),
-            ("bellerophon", Vec2::new(700.0, 600.0)),
-            ("remora", Vec2::new(800.0, 800.0)),
-            ("remora", Vec2::new(1400.0, 1100.0)),
-            ("spacestation", Vec2::new(1700.0, 800.0)),
-        ];
-
-        for (v, pos) in vehicles {
-            let path = format!("assets/vehicles/{}.vehicle", v);
-            let bp = load_vehicle(path, &parts).expect("Vehicle dir");
-            world.blueprints.spawn((bp, pos));
-        }
-
-        world
     }
 }
 
@@ -86,7 +69,7 @@ pub fn load_assets(
 ) {
     world.circle_texture = rl.load_texture(thread, "assets/circle.png").ok();
 
-    for (proto, tex) in world.parts.values_mut() {
+    for (proto, tex) in world.prototypes.values_mut() {
         let filename = format!("assets/parts/{}/skin.png", proto.part_name());
         *tex = rl.load_texture(thread, &filename).ok();
     }
@@ -222,6 +205,13 @@ fn snap_camera_target_to_local_up(target: &mut Camera2D) {
     target.target = glam_to_raylib(q);
 }
 
+fn propagate_grid_rigid_bodies(grids: &mut Components<VehicleGrid>) {
+    let dt = 0.02;
+    for grid in grids.values_mut() {
+        grid.isometry.translation += grid.linear_velocity * dt;
+    }
+}
+
 pub fn update_world(world: &mut World, screen_dims: Vector2) {
     world.screen_dims = screen_dims;
 
@@ -235,6 +225,7 @@ pub fn update_world(world: &mut World, screen_dims: Vector2) {
     }
     update_camera(&world.target_camera, &mut world.camera);
     spawn_random_ring_effects(&mut world.ring_particles);
+    propagate_grid_rigid_bodies(&mut world.grids);
     panic_if_escape_is_pressed(&world.input);
 
     world.event_queue.clear();
@@ -270,6 +261,16 @@ fn draw_parts_zoo(parts: &Components<(PartPrototype, MaybeTexture)>, d: &mut Ray
     }
 }
 
+fn draw_grids(grids: &Components<VehicleGrid>, d: &mut RaylibDrawHandle) {
+    for grid in grids.values() {
+        draw_blueprint(&grid.blueprint, grid.isometry.translation, d);
+        let p = grid.isometry.translation.as_ivec2();
+        d.draw_circle(p.x, p.y, 0.5, Color::RED);
+        let s = format!("{}\n{}", grid.parts.len(), grid.mass);
+        d.draw_text(&s, p.x, p.y, 6, Color::RED);
+    }
+}
+
 pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
     let Some(t) = &world.circle_texture else {
         return;
@@ -286,11 +287,8 @@ pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
     d.draw_circle_lines(0, 0, 100.0, Color::GRAY);
     d.draw_circle_lines(0, 0, 95.0, Color::GRAY);
 
-    draw_parts_zoo(&world.parts, d);
-
-    for (bp, offset) in world.blueprints.values() {
-        draw_blueprint(bp, *offset, d);
-    }
+    draw_parts_zoo(&world.prototypes, d);
+    draw_grids(&world.grids, d);
 }
 
 pub fn push_event(world: &mut World, event: Event) {

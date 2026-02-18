@@ -1,4 +1,4 @@
-use bary_raylib::world::*;
+use bary_raylib::{scenarios::dev_world, world::*};
 use crossbeam_queue::SegQueue;
 use raylib::prelude::*;
 use std::{sync::Arc, thread};
@@ -7,7 +7,7 @@ use rdev::listen;
 
 fn draw_debug_info(world: &World, d: &mut RaylibDrawHandle, text: &str) {
     let mut s = format!(
-        "{} FPS\n{:?}\n{:?}\n{:?}\n{:?}\nSnapping: {}\n{:#?}\n{:#?}\nParticles: {:#?}\nBlueprints: {:#?}\nParts: {:#?}",
+        "{} FPS\n{:?}\n{:?}\n{:?}\n{:?}\nSnapping: {}\n{:#?}\n{:#?}\nParticles: {:#?}\nBlueprints: {:#?}\nParts: {:#?}\nGrids: {:#?}\nThrusters: {:#?}\nComputers: {:#?}",
         d.get_fps(),
         d.is_cursor_on_screen(),
         d.get_mouse_position(),
@@ -18,8 +18,15 @@ fn draw_debug_info(world: &World, d: &mut RaylibDrawHandle, text: &str) {
         &world.input,
         &world.ring_particles,
         &world.blueprints,
-        &world.parts,
+        &world.prototypes,
+        &world.grids,
+        &world.thrusters,
+        &world.computers,
     );
+
+    for g in world.grids.values() {
+        s += &format!("\n- {} {} {:?}", g.mass, g.parts.len(), g.isometry);
+    }
 
     for e in &world.event_queue {
         s += &format!("\n{:?}", e);
@@ -53,7 +60,7 @@ fn main() {
 
     let mut shader = rl.load_shader(&thread, None, Some("assets/shaders/distortion.fs"));
 
-    let mut world = World::test_scene();
+    let mut world = dev_world("assets/");
 
     load_assets(&mut world, &mut rl, &thread);
 

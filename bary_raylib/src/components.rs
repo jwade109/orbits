@@ -36,6 +36,31 @@ impl<E> Components<E> {
         id
     }
 
+    pub fn despawn(&mut self, id: EntityId) -> BaryResult<E> {
+        let e = self.values.remove(&id);
+        if let Some(e) = e {
+            Ok(e)
+        } else {
+            Err(BaryError::EntityNotFound)
+        }
+    }
+
+    pub fn get(&self, id: EntityId) -> Option<&E> {
+        self.values.get(&id)
+    }
+
+    pub fn get_mut(&mut self, id: EntityId) -> Option<&mut E> {
+        self.values.get_mut(&id)
+    }
+
+    pub fn get_with_log(&self, id: EntityId) -> Option<&E> {
+        let e = self.values.get(&id);
+        if e.is_none() {
+            println!("Lookup failed: {id}");
+        }
+        e
+    }
+
     pub fn high_water_mark(&self) -> EntityId {
         self.next_id
     }
@@ -51,3 +76,10 @@ impl<E> std::fmt::Debug for Components<E> {
         )
     }
 }
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum BaryError {
+    EntityNotFound,
+}
+
+pub type BaryResult<E> = Result<E, BaryError>;
