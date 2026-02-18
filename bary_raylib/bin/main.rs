@@ -75,7 +75,7 @@ fn main() {
         rl.draw(&thread, |mut d: RaylibDrawHandle<'_>| {
             d.clear_background(Color::BLACK);
 
-            d.draw_mode2D(world.camera, |mut d, camera| {
+            d.draw_mode2D(world.camera, |mut d, _camera| {
                 // d.draw_shader_mode(&mut shader, |mut d| {
                 draw_world(&world, &mut d);
                 // });
