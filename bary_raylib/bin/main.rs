@@ -6,8 +6,10 @@ use std::{sync::Arc, thread};
 use rdev::listen;
 
 fn draw_debug_info(world: &World, d: &mut RaylibDrawHandle, text: &str) {
-    let mut s = format!(
-        "{} FPS\n{:?}\n{:?}\n{:?}\n{:?}\nSnapping: {}\n{:#?}\n{:#?}\nParticles: {:#?}\nBlueprints: {:#?}\nParts: {:#?}\nGrids: {:#?}\nThrusters: {:#?}\nComputers: {:#?}",
+    let mut s = format!("
+        {} FPS\n{:?}\n{:?}\n{:?}\n{:?}\nSnapping: {}\n{:#?}\n{:#?}\nParticles: {}
+        \nBlueprints: {:#?}\nParts: {:#?}\nGrids: {:#?}\nThrusters: {:#?}\nComputers: {:#?}\nCounter: {:#?}
+        ",
         d.get_fps(),
         d.is_cursor_on_screen(),
         d.get_mouse_position(),
@@ -16,12 +18,13 @@ fn draw_debug_info(world: &World, d: &mut RaylibDrawHandle, text: &str) {
         &world.snap_camera_to_local_planet,
         &world.camera,
         &world.input,
-        &world.ring_particles,
+        &world.particles.len(),
         &world.blueprints,
         &world.prototypes,
         &world.grids,
         &world.thrusters,
         &world.computers,
+        &world.counter,
     );
 
     for g in world.grids.values() {
@@ -60,7 +63,7 @@ fn main() {
 
     let mut shader = rl.load_shader(&thread, None, Some("assets/shaders/distortion.fs"));
 
-    let mut world = dev_world("assets/");
+    let mut world = dev_world("assets/").unwrap();
 
     load_assets(&mut world, &mut rl, &thread);
 

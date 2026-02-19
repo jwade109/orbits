@@ -52,36 +52,45 @@ pub fn grid_from_blueprint(
 }
 
 pub fn spawn_grid_from_blueprint(
+    counter: &mut EntityCounter,
     prototypes: &Components<(PartPrototype, MaybeTexture)>,
     grids: &mut Components<VehicleGrid>,
     thrusters: &mut Components<Thruster>,
     computers: &mut Components<Computer>,
     pos: Vec2,
     bp: &Blueprint,
-) -> Option<EntityId> {
-    let mut grid = grid_from_blueprint(bp, &prototypes)?;
+) -> BaryResult<EntityId> {
+    let mut grid = grid_from_blueprint(bp, &prototypes).ok_or(BaryError::BadBlueprint)?;
     grid.isometry.translation = pos;
     grid.linear_velocity = randvec(3.0, 12.0);
-    let grid_id = grids.spawn(grid.clone());
-    let spawned_grid = grids.get_mut(grid_id)?;
-    for (_placement, part_id) in &grid.parts {
-        let (part, _texture) = prototypes.get_with_log(*part_id)?;
+
+    let grid_id = counter.get_id();
+    grids.spawn(grid_id, grid.clone());
+    let spawned_grid = grids.get_mut(grid_id).ok_or(BaryError::EntityNotFound)?;
+
+    for (_placement, prototype_id) in &grid.parts {
+        let part_id = counter.get_id();
+        let (part, _texture) = prototypes
+            .get_with_log(*prototype_id)
+            .ok_or(BaryError::EntityNotFound)?;
         if let Some(_data) = &part.thruster_data {
-            let thruster_id = thrusters.spawn(Thruster {
-                prototype: *part_id,
+            let thruster = Thruster {
+                prototype: *prototype_id,
                 grid_id,
-            });
-            spawned_grid.thrusters.push(thruster_id);
+            };
+            thrusters.spawn(part_id, thruster);
+            spawned_grid.thrusters.push(part_id);
         }
         if let Some(_data) = &part.computer_data {
-            let computer_id = computers.spawn(Computer {
-                prototype: *part_id,
+            let cpu = Computer {
+                prototype: *prototype_id,
                 grid_id,
-            });
-            spawned_grid.computers.push(computer_id);
+            };
+            computers.spawn(part_id, cpu);
+            spawned_grid.computers.push(part_id);
         }
     }
-    Some(grid_id)
+    Ok(grid_id)
 }
 
 pub fn despawn_grid(
@@ -100,18 +109,74 @@ pub fn despawn_grid(
     Ok(())
 }
 
+pub fn find_blueprint_by_name<'a>(
+    blueprints: &'a Components<NamedBlueprint>,
+    name: &str,
+) -> Option<&'a Blueprint> {
+    blueprints
+        .values()
+        .find(|(n, _bp)| n == name)
+        .map(|(_, bp)| bp)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::scenarios::with_vehicle_data_loaded;
 
     #[test]
+    fn test_part_prototypes() {
+        let world = with_vehicle_data_loaded("../assets/");
+
+        let mut iter = world.prototypes.iter();
+
+        let (id, (proto, _texture)) = iter.next().unwrap();
+        assert_eq!(*id, EntityId(0));
+        assert_eq!(proto.part_name(), "angled-frame");
+
+        let (id, (proto, _texture)) = iter.next().unwrap();
+        assert_eq!(*id, EntityId(1));
+        assert_eq!(proto.part_name(), "antenna");
+
+        let (id, (proto, _texture)) = iter.next().unwrap();
+        assert_eq!(*id, EntityId(2));
+        assert_eq!(proto.part_name(), "battery");
+
+        let (id, (proto, _texture)) = iter.next().unwrap();
+        assert_eq!(*id, EntityId(3));
+        assert_eq!(proto.part_name(), "cargo");
+
+        let (id, (proto, _texture)) = iter.next().unwrap();
+        assert_eq!(*id, EntityId(4));
+        assert_eq!(proto.part_name(), "chemical-plant");
+
+        let (id, (proto, _texture)) = iter.next().unwrap();
+        assert_eq!(*id, EntityId(5));
+        assert_eq!(proto.part_name(), "container");
+
+        let (id, (proto, _texture)) = iter.next().unwrap();
+        assert_eq!(*id, EntityId(6));
+        assert_eq!(proto.part_name(), "cpu");
+
+        let (id, (proto, _texture)) = iter.next().unwrap();
+        assert_eq!(*id, EntityId(7));
+        assert_eq!(proto.part_name(), "debug-item-source");
+
+        let (id, (proto, _texture)) = iter.next().unwrap();
+        assert_eq!(*id, EntityId(8));
+        assert_eq!(proto.part_name(), "docking-port");
+    }
+
+    #[test]
     fn test_vehicle_spawning_and_despawning() {
         let mut world = with_vehicle_data_loaded("../assets/");
 
-        let (_name, bp) = world.blueprints.get(EntityId(0)).unwrap();
+        // get the blueprint for the pollux
+        let bp = find_blueprint_by_name(&world.blueprints, "pollux").expect("Expected a blueprint");
 
+        // spawn that vehicle using its blueprint
         let grid_id = spawn_grid_from_blueprint(
+            &mut world.counter,
             &world.prototypes,
             &mut world.grids,
             &mut world.thrusters,
@@ -119,24 +184,45 @@ mod tests {
             Vec2::ZERO,
             &bp,
         )
-        .unwrap();
+        .expect("Expected the grid ID");
 
-        // this is the first grid in the world
-        assert_eq!(grid_id, EntityId(0));
+        let expected_grid_id = EntityId(34);
+
+        // this entity should be the same every time
+        assert_eq!(grid_id, expected_grid_id);
+
+        // the mass should already be computed
+        let grid = world.grids.get(expected_grid_id).unwrap();
+        assert_eq!(grid.mass, Mass::grams(35134000));
 
         assert_eq!(world.grids.len(), 1);
         assert_eq!(world.thrusters.len(), 18);
         assert_eq!(world.computers.len(), 1);
 
+        // get the computer entity
+        let (id, cpu) = world.computers.iter().next().unwrap();
+
+        // these entities should be the same every time
+        assert_eq!(*id, EntityId(58));
+        assert_eq!(cpu.grid_id, expected_grid_id);
+        assert_eq!(cpu.prototype, EntityId(6));
+
+        // get the prototype definition for the computer
+        let (proto, _texture) = world.prototypes.get(cpu.prototype).unwrap();
+
+        // it should be the "cpu" part
+        assert_eq!(proto.part_name(), "cpu");
+
+        // despawning should work, of course
         let result = despawn_grid(
             grid_id,
             &mut world.grids,
             &mut world.thrusters,
             &mut world.computers,
         );
-
         assert_eq!(result, Ok(()));
 
+        // now the world should be empty
         assert_eq!(world.grids.len(), 0);
         assert_eq!(world.thrusters.len(), 0);
         assert_eq!(world.computers.len(), 0);

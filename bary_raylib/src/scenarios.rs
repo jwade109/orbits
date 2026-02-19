@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use crate::components::*;
 use crate::vehicle_grid::*;
 use crate::world::*;
 use bary_core::prelude::*;
@@ -14,47 +15,48 @@ pub fn with_vehicle_data_loaded(assets_dir: &str) -> World {
     let parts = load_parts_from_dir(&parts_dir).expect("Parts dir");
 
     for (_, part) in &parts {
-        world.prototypes.spawn((part.clone(), None));
+        let id = world.counter.get_id();
+        world.prototypes.spawn(id, (part.clone(), None));
     }
 
     let vehicles = ["pollux", "bellerophon", "remora", "spacestation"];
 
     for v in vehicles {
+        let id = world.counter.get_id();
         let path = vehicles_dir.join(format!("{}.vehicle", v));
         let bp = load_vehicle(path, &parts).expect("Vehicle dir");
-        world.blueprints.spawn((v.to_string(), bp));
+        world.blueprints.spawn(id, (v.to_string(), bp));
     }
 
     world
 }
 
-pub fn dev_world(assets_dir: &str) -> World {
+pub fn dev_world(assets_dir: &str) -> BaryResult<World> {
     let mut world = with_vehicle_data_loaded(assets_dir);
 
     for (_name, bp) in world.blueprints.values() {
         let pos = randvec(1.0, 600.0);
         spawn_grid_from_blueprint(
+            &mut world.counter,
             &world.prototypes,
             &mut world.grids,
             &mut world.thrusters,
             &mut world.computers,
             pos,
             bp,
-        );
+        )?;
     }
 
-    world
+    Ok(world)
 }
 
 pub fn test_camera_snapping() -> World {
     let mut world = World::empty();
 
-    for i in 0..100 {
+    for _ in 0..100 {
         let pos = randvec(1.0, 1000.0);
         let age_left = rand(1.0, 6.0);
-        let e1 = EntityId(i);
-        let e2 = world.ring_particles.spawn(RingParticle { pos, age_left });
-        assert_eq!(e1, e2);
+        world.particles.push(RingParticle { pos, age_left });
     }
 
     world.target_camera.target = Vector2::new(100.0, 300.0);
@@ -68,7 +70,7 @@ mod tests {
 
     #[test]
     fn test_dev_scenario() {
-        let mut world = dev_world("../assets");
+        let mut world = dev_world("../assets").expect("Expected a valid world");
 
         for _ in 0..100 {
             update_world(&mut world, (1080.0, 720.0).into());

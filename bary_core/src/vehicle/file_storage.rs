@@ -1,6 +1,6 @@
 use crate::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::path::Path;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,7 +34,7 @@ impl std::error::Error for NoPartError {}
 
 pub fn load_vehicle(
     path: impl AsRef<Path>,
-    parts: &HashMap<String, PartPrototype>,
+    parts: &BTreeMap<String, PartPrototype>,
 ) -> Result<Blueprint, Box<dyn std::error::Error>> {
     let s = std::fs::read_to_string(path)?;
     let storage: VehicleFileStorage = serde_yaml::from_str(&s)?;
@@ -63,8 +63,8 @@ fn part_from_path(path: &Path) -> Result<PartPrototype, String> {
 
 pub fn load_parts_from_dir(
     path: impl AsRef<Path>,
-) -> Result<HashMap<String, PartPrototype>, String> {
-    let mut ret = HashMap::new();
+) -> Result<BTreeMap<String, PartPrototype>, String> {
+    let mut ret = BTreeMap::new();
     if let Ok(paths) = std::fs::read_dir(path) {
         for path in paths {
             if let Ok(path) = path {

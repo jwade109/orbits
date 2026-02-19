@@ -1,4 +1,4 @@
-use crate::components::Components;
+use crate::components::*;
 use crate::computer::*;
 use crate::input_state::*;
 use crate::thruster::*;
@@ -24,13 +24,14 @@ impl RingParticle {
 pub type MaybeTexture = Option<Texture2D>;
 
 pub struct World {
+    pub counter: EntityCounter,
     pub snap_camera_to_local_planet: bool,
     pub screen_dims: Vector2,
     pub input: InputState,
     pub event_queue: VecDeque<Event>,
     pub camera: Camera2D,
     pub target_camera: Camera2D,
-    pub ring_particles: Components<RingParticle>,
+    pub particles: Vec<RingParticle>,
     pub blueprints: Components<NamedBlueprint>,
     pub prototypes: Components<(PartPrototype, MaybeTexture)>,
     pub thrusters: Components<Thruster>,
@@ -42,6 +43,7 @@ pub struct World {
 impl World {
     pub fn empty() -> Self {
         Self {
+            counter: EntityCounter::default(),
             snap_camera_to_local_planet: false,
             screen_dims: Vector2::new(1500.0, 900.0),
             input: InputState::default(),
@@ -51,7 +53,7 @@ impl World {
                 ..default_camera_2d()
             },
             target_camera: default_camera_2d(),
-            ring_particles: Components::default(),
+            particles: Vec::default(),
             blueprints: Components::default(),
             prototypes: Components::default(),
             grids: Components::default(),
@@ -161,12 +163,12 @@ fn default_camera_2d() -> Camera2D {
     }
 }
 
-fn spawn_random_ring_effects(particles: &mut Components<RingParticle>) {
+fn spawn_random_ring_effects(particles: &mut Vec<RingParticle>) {
     for _ in 0..20 {
         let pos = randvec(0.0, 10000.0);
         let age_left = 1.0;
         let particle = RingParticle { pos, age_left };
-        particles.spawn(particle);
+        particles.push(particle);
     }
 }
 
@@ -224,7 +226,7 @@ pub fn update_world(world: &mut World, screen_dims: Vector2) {
     world.screen_dims = screen_dims;
 
     toggle_camera_local_normal_snapping(&world.event_queue, &mut world.snap_camera_to_local_planet);
-    update_ring_particles(&mut world.ring_particles);
+    update_ring_particles(&mut world.particles);
     update_input_state(&world.event_queue, &mut world.input);
     apply_scroll_wheel_to_camera_target(&world.event_queue, &mut world.target_camera);
     update_camera_target(&world.input, world.screen_dims, &mut world.target_camera);
@@ -232,19 +234,19 @@ pub fn update_world(world: &mut World, screen_dims: Vector2) {
         snap_camera_target_to_local_up(&mut world.target_camera);
     }
     update_camera(&world.target_camera, &mut world.camera);
-    spawn_random_ring_effects(&mut world.ring_particles);
+    spawn_random_ring_effects(&mut world.particles);
     propagate_grid_rigid_bodies(&mut world.grids);
     panic_if_escape_is_pressed(&world.input);
 
     world.event_queue.clear();
 }
 
-fn update_ring_particles(ring_particles: &mut Components<RingParticle>) {
+fn update_ring_particles(particles: &mut Vec<RingParticle>) {
     let dt = 0.02;
-    for ring in ring_particles.values_mut() {
+    for ring in particles.iter_mut() {
         ring.age_left -= dt;
     }
-    ring_particles.retain(|_, p| p.age_left > 0.0);
+    particles.retain(|p| p.age_left > 0.0);
 }
 
 fn draw_parts_zoo(parts: &Components<(PartPrototype, MaybeTexture)>, d: &mut RaylibDrawHandle) {
@@ -283,7 +285,7 @@ pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
     let Some(t) = &world.circle_texture else {
         return;
     };
-    for particle in world.ring_particles.values() {
+    for particle in &world.particles {
         d.draw_texture(
             t,
             particle.pos.x as i32,

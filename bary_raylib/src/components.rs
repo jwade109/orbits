@@ -1,8 +1,20 @@
 use bary_core::prelude::EntityId;
 use std::collections::BTreeMap;
 
-pub struct Components<E> {
+#[derive(Debug, Default)]
+pub struct EntityCounter {
     next_id: EntityId,
+}
+
+impl EntityCounter {
+    pub fn get_id(&mut self) -> EntityId {
+        let ret = self.next_id;
+        self.next_id.0 += 1;
+        ret
+    }
+}
+
+pub struct Components<E> {
     values: BTreeMap<EntityId, E>,
 }
 
@@ -22,18 +34,14 @@ impl<E> std::ops::DerefMut for Components<E> {
 impl<E> Default for Components<E> {
     fn default() -> Self {
         Self {
-            next_id: EntityId::default(),
             values: BTreeMap::default(),
         }
     }
 }
 
 impl<E> Components<E> {
-    pub fn spawn(&mut self, e: E) -> EntityId {
-        let id = self.next_id;
-        self.next_id.0 += 1;
+    pub fn spawn(&mut self, id: EntityId, e: E) {
         self.values.insert(id, e);
-        id
     }
 
     pub fn despawn(&mut self, id: EntityId) -> BaryResult<E> {
@@ -60,26 +68,18 @@ impl<E> Components<E> {
         }
         e
     }
-
-    pub fn high_water_mark(&self) -> EntityId {
-        self.next_id
-    }
 }
 
 impl<E> std::fmt::Debug for Components<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{} components, {} hwm",
-            self.values.len(),
-            self.high_water_mark()
-        )
+        write!(f, "{} components", self.values.len(),)
     }
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum BaryError {
     EntityNotFound,
+    BadBlueprint,
 }
 
 pub type BaryResult<E> = Result<E, BaryError>;
