@@ -85,8 +85,16 @@ fn update_input_state(events: &VecDeque<Event>, state: &mut InputState) {
     }
 }
 
-fn glam_to_raylib(v: Vec2) -> Vector2 {
+pub fn glam_to_raylib(v: Vec2) -> Vector2 {
     Vector2::new(v.x, v.y)
+}
+
+pub fn glam_to_raylib_swap_x(v: Vec2) -> Vector2 {
+    Vector2::new(-v.x, v.y)
+}
+
+pub fn glam_to_raylib_swap_y(v: Vec2) -> Vector2 {
+    Vector2::new(v.x, -v.y)
 }
 
 fn raylib_to_glam(v: Vector2) -> Vec2 {

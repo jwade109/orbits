@@ -265,6 +265,14 @@ impl Isometry2d {
             rotation,
         }
     }
+
+    pub fn local_x(&self) -> Vec2 {
+        rotate(Vec2::X, self.rotation)
+    }
+
+    pub fn local_y(&self) -> Vec2 {
+        rotate(Vec2::Y, self.rotation)
+    }
 }
 
 pub fn get_yaw(transform: Isometry2d) -> f32 {
