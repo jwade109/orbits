@@ -34,7 +34,7 @@ pub fn with_vehicle_data_loaded(assets_dir: &str) -> World {
 pub fn dev_world(assets_dir: &str) -> BaryResult<World> {
     let mut world = with_vehicle_data_loaded(assets_dir);
 
-    for (_name, bp) in world.blueprints.values() {
+    for (name, bp) in world.blueprints.values() {
         let pos = randvec(1.0, 600.0);
         spawn_grid_from_blueprint(
             &mut world.counter,
@@ -43,6 +43,7 @@ pub fn dev_world(assets_dir: &str) -> BaryResult<World> {
             &mut world.thrusters,
             &mut world.computers,
             pos,
+            name.clone(),
             bp,
         )?;
     }
@@ -55,8 +56,8 @@ pub fn test_camera_snapping() -> World {
 
     for _ in 0..100 {
         let pos = randvec(1.0, 1000.0);
-        let age_left = rand(1.0, 6.0);
-        world.particles.push(RingParticle { pos, age_left });
+        let time_left = rand(1.0, 6.0);
+        world.particles.push(RingParticle { pos, time_left });
     }
 
     world.target_camera.target = Vector2::new(100.0, 300.0);

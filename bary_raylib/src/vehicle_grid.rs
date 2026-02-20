@@ -6,6 +6,7 @@ use bary_core::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct VehicleGrid {
+    pub name: String,
     pub mass: Mass,
     pub isometry: Isometry2d,
     pub linear_velocity: Vec2,
@@ -27,6 +28,7 @@ fn find_part_by_name(
 }
 
 pub fn grid_from_blueprint(
+    name: String,
     bp: &Blueprint,
     prototypes: &Components<(PartPrototype, MaybeTexture)>,
 ) -> Option<VehicleGrid> {
@@ -40,9 +42,10 @@ pub fn grid_from_blueprint(
         parts.push((placement, e));
     }
     Some(VehicleGrid {
+        name,
         mass: initial_mass,
         linear_velocity: Vec2::ZERO,
-        angular_velocity: 0.0,
+        angular_velocity: 0.1,
         blueprint: bp.clone(),
         isometry: Isometry2d::default(),
         parts,
@@ -58,9 +61,10 @@ pub fn spawn_grid_from_blueprint(
     thrusters: &mut Components<Thruster>,
     computers: &mut Components<Computer>,
     pos: Vec2,
+    name: String,
     bp: &Blueprint,
 ) -> BaryResult<EntityId> {
-    let mut grid = grid_from_blueprint(bp, &prototypes).ok_or(BaryError::BadBlueprint)?;
+    let mut grid = grid_from_blueprint(name, bp, &prototypes).ok_or(BaryError::BadBlueprint)?;
     grid.isometry.translation = pos;
     grid.linear_velocity = randvec(3.0, 12.0);
 
@@ -171,8 +175,10 @@ mod tests {
     fn test_vehicle_spawning_and_despawning() {
         let mut world = with_vehicle_data_loaded("../assets/");
 
+        let name = "pollux";
+
         // get the blueprint for the pollux
-        let bp = find_blueprint_by_name(&world.blueprints, "pollux").expect("Expected a blueprint");
+        let bp = find_blueprint_by_name(&world.blueprints, name).expect("Expected a blueprint");
 
         // spawn that vehicle using its blueprint
         let grid_id = spawn_grid_from_blueprint(
@@ -182,6 +188,7 @@ mod tests {
             &mut world.thrusters,
             &mut world.computers,
             Vec2::ZERO,
+            name.to_string(),
             &bp,
         )
         .expect("Expected the grid ID");

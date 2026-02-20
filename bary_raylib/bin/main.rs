@@ -27,10 +27,6 @@ fn draw_debug_info(world: &World, d: &mut RaylibDrawHandle, text: &str) {
         &world.counter,
     );
 
-    for g in world.grids.values() {
-        s += &format!("\n- {} {} {:?}", g.mass, g.parts.len(), g.isometry);
-    }
-
     for e in &world.event_queue {
         s += &format!("\n{:?}", e);
     }
@@ -39,13 +35,16 @@ fn draw_debug_info(world: &World, d: &mut RaylibDrawHandle, text: &str) {
 }
 
 fn main() {
+    let os = std::env::consts::OS;
+    println!("{}", os);
+
     let (mut rl, thread) = raylib::init()
         .size(1080, 700)
         .title("Hello world!")
         .log_level(TraceLogLevel::LOG_WARNING)
         .msaa_4x()
         .resizable()
-        .vsync()
+        // .vsync()
         .build();
 
     let input_queue = Arc::new(SegQueue::new());
@@ -84,13 +83,7 @@ fn main() {
 
         rl.draw(&thread, |mut d: RaylibDrawHandle<'_>| {
             d.clear_background(Color::BLACK);
-
-            d.draw_mode2D(world.camera, |mut d, _camera| {
-                // d.draw_shader_mode(&mut shader, |mut d| {
-                draw_world(&world, &mut d);
-                // });
-            });
-
+            draw_world(&world, &mut d);
             draw_debug_info(&world, &mut d, &text);
         });
     }

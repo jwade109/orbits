@@ -12,12 +12,12 @@ use std::collections::VecDeque;
 #[derive(Debug)]
 pub struct RingParticle {
     pub pos: Vec2,
-    pub age_left: f32,
+    pub time_left: f32,
 }
 
 impl RingParticle {
     pub fn radius(&self) -> f32 {
-        self.age_left * 10.0
+        self.time_left * 10.0
     }
 }
 
@@ -52,7 +52,10 @@ impl World {
                 zoom: 0.1,
                 ..default_camera_2d()
             },
-            target_camera: default_camera_2d(),
+            target_camera: Camera2D {
+                zoom: 8.0,
+                ..default_camera_2d()
+            },
             particles: Vec::default(),
             blueprints: Components::default(),
             prototypes: Components::default(),
@@ -101,6 +104,10 @@ pub fn glam_to_raylib_swap_y(v: Vec2) -> Vector2 {
 
 fn raylib_to_glam(v: Vector2) -> Vec2 {
     Vec2::new(v.x, v.y)
+}
+
+fn raylib_to_glam_invert_y(v: Vector2) -> Vec2 {
+    Vec2::new(v.x, -v.y)
 }
 
 fn update_camera_target(input: &InputState, screen_dims: Vector2, target: &mut Camera2D) {
@@ -154,6 +161,47 @@ fn update_camera(target: &Camera2D, actual: &mut Camera2D) {
     actual.zoom = low_pass(actual.zoom, target.zoom, rate_translation);
 }
 
+fn get_isometry(camera: &Camera2D) -> Isometry2d {
+    Isometry2d {
+        translation: raylib_to_glam_invert_y(camera.target),
+        rotation: camera.rotation.to_radians(),
+    }
+}
+
+fn draw_text(d: &mut RaylibDrawHandle, iso: Isometry2d, text: &str) {
+    let p = glam_to_raylib_swap_y(iso.translation);
+    if !text.is_empty() {
+        d.draw_text_pro(
+            d.get_font_default(),
+            &text,
+            p,
+            Vector2::zero(),
+            -iso.rotation.to_degrees(),
+            1.5,
+            0.1,
+            Color::ORANGE,
+        );
+    }
+}
+
+fn draw_isometry_axes(d: &mut RaylibDrawHandle, iso: Isometry2d, label: &str) {
+    let x = iso.translation + iso.local_x() * 10.0;
+    let y = iso.translation + iso.local_y() * 7.0;
+
+    let p = glam_to_raylib_swap_y(iso.translation);
+    let x = glam_to_raylib_swap_y(x);
+    let y = glam_to_raylib_swap_y(y);
+
+    d.draw_circle_v(p, 0.1, Color::WHITE);
+    d.draw_circle_v(x, 0.1, Color::RED);
+    d.draw_circle_v(y, 0.1, Color::GREEN);
+
+    d.draw_line_ex(p, x, 0.1, Color::RED);
+    d.draw_line_ex(p, y, 0.1, Color::GREEN);
+
+    draw_text(d, iso, label);
+}
+
 fn default_camera_2d() -> Camera2D {
     Camera2D {
         offset: Vector2::zero(),
@@ -166,8 +214,8 @@ fn default_camera_2d() -> Camera2D {
 fn spawn_random_ring_effects(particles: &mut Vec<RingParticle>) {
     for _ in 0..20 {
         let pos = randvec(0.0, 10000.0);
-        let age_left = 1.0;
-        let particle = RingParticle { pos, age_left };
+        let time_left = 1.0;
+        let particle = RingParticle { pos, time_left };
         particles.push(particle);
     }
 }
@@ -219,6 +267,7 @@ fn propagate_grid_rigid_bodies(grids: &mut Components<VehicleGrid>) {
     let dt = 0.02;
     for grid in grids.values_mut() {
         grid.isometry.translation += grid.linear_velocity * dt;
+        grid.isometry.rotation += grid.angular_velocity * dt;
     }
 }
 
@@ -234,7 +283,9 @@ pub fn update_world(world: &mut World, screen_dims: Vector2) {
         snap_camera_target_to_local_up(&mut world.target_camera);
     }
     update_camera(&world.target_camera, &mut world.camera);
-    spawn_random_ring_effects(&mut world.particles);
+
+    // spawn_random_ring_effects(&mut world.particles);
+
     propagate_grid_rigid_bodies(&mut world.grids);
     panic_if_escape_is_pressed(&world.input);
 
@@ -244,9 +295,9 @@ pub fn update_world(world: &mut World, screen_dims: Vector2) {
 fn update_ring_particles(particles: &mut Vec<RingParticle>) {
     let dt = 0.02;
     for ring in particles.iter_mut() {
-        ring.age_left -= dt;
+        ring.time_left -= dt;
     }
-    particles.retain(|p| p.age_left > 0.0);
+    particles.retain(|p| p.time_left > 0.0);
 }
 
 fn draw_parts_zoo(parts: &Components<(PartPrototype, MaybeTexture)>, d: &mut RaylibDrawHandle) {
@@ -271,21 +322,59 @@ fn draw_parts_zoo(parts: &Components<(PartPrototype, MaybeTexture)>, d: &mut Ray
     }
 }
 
-fn draw_grids(grids: &Components<VehicleGrid>, d: &mut RaylibDrawHandle) {
-    for grid in grids.values() {
-        draw_blueprint(&grid.blueprint, grid.isometry.translation, d);
-        let p = grid.isometry.translation.as_ivec2();
-        d.draw_circle(p.x, p.y, 0.5, Color::RED);
-        let s = format!("{}\n{}", grid.parts.len(), grid.mass);
-        d.draw_text(&s, p.x, p.y, 6, Color::RED);
+fn camera_from_isometry(iso: Isometry2d) -> Camera2D {
+    Camera2D {
+        offset: Vector2::zero(),
+        target: glam_to_raylib_swap_y(iso.translation),
+        rotation: iso.rotation.to_degrees(),
+        zoom: 1.0,
     }
 }
 
-pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
-    let Some(t) = &world.circle_texture else {
-        return;
-    };
-    for particle in &world.particles {
+pub fn draw_grids(grids: &Components<VehicleGrid>, d: &mut RaylibDrawHandle, camera: &Camera2D) {
+    for grid in grids.values() {
+        if camera.zoom > 0.1 {
+            draw_blueprint(&grid.blueprint, grid.isometry, d);
+            // draw_isometry_axes(d, grid.isometry, &grid.name);
+            d.draw_circle(0, 0, 0.5, Color::RED);
+            let s = format!("{} / {}", grid.parts.len(), grid.mass);
+            draw_text(d, grid.isometry, &s);
+        }
+    }
+}
+
+fn fill_rectangle(d: &mut RaylibDrawHandle, iso: Isometry2d, dims: Vec2, color: Color) {
+    let rec = Rectangle::new(iso.translation.x, -iso.translation.y, dims.x, dims.y);
+    let origin = Vector2::new(0.0, dims.y);
+    let rotation = -iso.rotation.to_degrees();
+    d.draw_rectangle_pro(rec, origin, rotation, color);
+}
+
+fn draw_test_isos(d: &mut RaylibDrawHandle) {
+    let test_isos = [
+        (
+            Color::RED,
+            Isometry2d::new((10.0, 20.0).into(), 40.0f32.to_radians()),
+        ),
+        (
+            Color::GREEN,
+            Isometry2d::new((40.0, 12.0).into(), -10.0f32.to_radians()),
+        ),
+        (
+            Color::BLUE,
+            Isometry2d::new((70.0, 50.0).into(), d.get_time() as f32),
+        ),
+    ];
+
+    for (color, iso) in test_isos {
+        let dims = Vec2::new(10.0, 4.0);
+        fill_rectangle(d, iso, dims, color.alpha(0.5));
+        draw_isometry_axes(d, iso, "TST");
+    }
+}
+
+fn draw_particles(d: &mut RaylibDrawHandle, particles: &Vec<RingParticle>, t: &Texture2D) {
+    for particle in particles {
         d.draw_texture(
             t,
             particle.pos.x as i32,
@@ -293,19 +382,59 @@ pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
             Color::ORANGE.alpha(0.3),
         );
     }
+}
 
-    d.draw_circle_lines(0, 0, 100.0, Color::GRAY);
-    d.draw_circle_lines(0, 0, 95.0, Color::GRAY);
+fn draw_grid_far_indicators(
+    grids: &Components<VehicleGrid>,
+    d: &mut RaylibDrawHandle,
+    camera: &Camera2D,
+) {
+    if camera.zoom > 4.0 {
+        return;
+    }
 
-    draw_parts_zoo(&world.prototypes, d);
-    draw_grids(&world.grids, d);
+    for grid in grids.values() {
+        let p = glam_to_raylib_swap_y(grid.isometry.translation);
+        let q = d.get_world_to_screen2D(p, camera);
+        d.draw_circle_lines_v(q, 30.0, Color::ORANGE);
+    }
+}
+
+pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
+    let mut c = d.begin_mode2D(world.camera);
+
+    let Some(t) = &world.circle_texture else {
+        return;
+    };
+
+    draw_particles(&mut c, &world.particles, t);
+    draw_grids(&world.grids, &mut c, &world.camera);
+
+    drop(c);
+
+    draw_grid_far_indicators(&world.grids, d, &world.camera);
+
+    // draw_parts_zoo(&world.prototypes, &mut d);
+    // draw_isometry_axes(&mut d, get_isometry(&world.camera), "CAM");
+    // draw_isometry_axes(&mut d, get_isometry(&world.target_camera), "");
+    // draw_test_isos(&mut d)
 }
 
 pub fn push_event(world: &mut World, event: Event) {
     world.event_queue.push_back(event);
 }
 
-pub fn draw_blueprint(bp: &Blueprint, offset: Vec2, d: &mut RaylibDrawHandle) {
+pub fn part_isometry(root_isometry: Isometry2d, placement: GridPlacement) -> Isometry2d {
+    let part_iso = placement.origin_isometry();
+
+    // TODO replace this with std::ops::Mul
+    let rotation = root_isometry.rotation + part_iso.rotation;
+    let offset = root_isometry.local_x() * part_iso.translation.x
+        + root_isometry.local_y() * part_iso.translation.y;
+    Isometry2d::new(root_isometry.translation + offset, rotation)
+}
+
+pub fn draw_blueprint(bp: &Blueprint, isometry: Isometry2d, d: &mut RaylibDrawHandle) {
     for draw_layer in PartLayer::draw_order() {
         let color = match draw_layer {
             PartLayer::Exterior => Color::WHITE,
@@ -318,10 +447,11 @@ pub fn draw_blueprint(bp: &Blueprint, offset: Vec2, d: &mut RaylibDrawHandle) {
                 continue;
             }
 
-            let bl = offset + part.placement.bottom_left().to_meters() * 10.0;
-            let tr = offset + part.placement.top_right().to_meters() * 10.0;
-            let rectangle = Rectangle::new(bl.x, bl.y, tr.x - bl.x, tr.y - bl.y);
-            d.draw_rectangle_lines_ex(rectangle, 1.0, color);
+            let iso = part_isometry(isometry, part.placement);
+
+            let dims = part.placement.part_aligned_dims().to_meters();
+            fill_rectangle(d, iso, dims, color.alpha(0.4));
+            // d.draw_circle_v(origin, 1.0, Color::RED);
         }
     }
 }
