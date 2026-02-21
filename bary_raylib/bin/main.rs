@@ -5,28 +5,27 @@ use std::{sync::Arc, thread};
 
 use rdev::listen;
 
-fn draw_debug_info(world: &World, d: &mut RaylibDrawHandle, text: &str) {
-    let mut s = format!("
-        {} FPS\n{:?}\n{:?}\n{:?}\n{:?}\nSnapping: {}\n{:#?}\n{:#?}\nParticles: {}
-        \nBlueprints: {:#?}\nParts: {:#?}\nGrids: {:#?}\nThrusters: {:#?}\nComputers: {:#?}\nLights: {:#?}\nCounter: {:#?}
-        ",
-        d.get_fps(),
-        d.is_cursor_on_screen(),
-        d.get_mouse_position(),
-        d.get_mouse_delta(),
-        text,
-        &world.snap_camera_to_local_planet,
-        &world.camera,
-        &world.input,
-        &world.particles.len(),
-        &world.blueprints,
-        &world.prototypes,
-        &world.grids,
-        &world.thrusters,
-        &world.computers,
-        &world.lights,
-        &world.counter,
-    );
+fn draw_debug_info(world: &World, d: &mut RaylibDrawHandle) {
+    let mut s = String::new();
+
+    s += &format!("{:?}", d.get_fps());
+
+    s += &format!("\nUpdate: {:?}", world.timers.update);
+    s += &format!("\nRender: {:?}", world.timers.render);
+
+    s += &format!("\n{:?}", d.is_cursor_on_screen());
+    s += &format!("\n{:?}", d.get_mouse_position());
+    s += &format!("\n{:?}", d.get_mouse_delta());
+    s += &format!("\nCAM {:?}", &world.camera);
+    s += &format!("\nINP {:?}", &world.input);
+    s += &format!("\nPRT {:?}", &world.particles.len());
+    s += &format!("\nBP {:?}", &world.blueprints);
+    s += &format!("\nPART {:?}", &world.prototypes);
+    s += &format!("\nGRID {:?}", &world.grids);
+    s += &format!("\nTHR {:?}", &world.thrusters);
+    s += &format!("\nCPU {:?}", &world.computers);
+    s += &format!("\nLGT {:?}", &world.lights);
+    s += &format!("\nE {:?}", &world.counter);
 
     for e in &world.event_queue {
         s += &format!("\n{:?}", e);
@@ -67,8 +66,6 @@ fn main() {
 
     load_assets(&mut world, &mut rl, &thread);
 
-    let text = String::new();
-
     while !rl.window_should_close() {
         while let Some(e) = input_queue.pop() {
             push_event(&mut world, e);
@@ -83,9 +80,12 @@ fn main() {
         shader.set_shader_value(1, time as f32);
 
         rl.draw(&thread, |mut d: RaylibDrawHandle<'_>| {
+            let start = std::time::Instant::now();
             d.clear_background(Color::BLACK);
             draw_world(&world, &mut d);
-            draw_debug_info(&world, &mut d, &text);
+            let end = std::time::Instant::now();
+            world.timers.render = end - start;
+            draw_debug_info(&world, &mut d);
         });
     }
 }

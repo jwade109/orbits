@@ -9,6 +9,7 @@ use bary_core::prelude::*;
 use raylib::prelude::*;
 use rdev::Event;
 use std::collections::VecDeque;
+use std::time::Duration;
 
 #[derive(Debug)]
 pub struct RingParticle {
@@ -24,7 +25,14 @@ impl RingParticle {
 
 pub type MaybeTexture = Option<Texture2D>;
 
+#[derive(Default)]
+pub struct Timers {
+    pub update: Duration,
+    pub render: Duration,
+}
+
 pub struct World {
+    pub timers: Timers,
     pub counter: EntityCounter,
     pub snap_camera_to_local_planet: bool,
     pub screen_dims: Vector2,
@@ -45,6 +53,7 @@ pub struct World {
 impl World {
     pub fn empty() -> Self {
         Self {
+            timers: Timers::default(),
             counter: EntityCounter::default(),
             snap_camera_to_local_planet: false,
             screen_dims: Vector2::new(1500.0, 900.0),
@@ -303,6 +312,8 @@ fn draw_lights(
 }
 
 pub fn update_world(world: &mut World, screen_dims: Vector2) {
+    let start = std::time::Instant::now();
+
     world.screen_dims = screen_dims;
 
     toggle_camera_local_normal_snapping(&world.event_queue, &mut world.snap_camera_to_local_planet);
@@ -323,6 +334,10 @@ pub fn update_world(world: &mut World, screen_dims: Vector2) {
     panic_if_escape_is_pressed(&world.input);
 
     world.event_queue.clear();
+
+    let end = std::time::Instant::now();
+
+    world.timers.update = end - start;
 }
 
 fn update_ring_particles(particles: &mut Vec<RingParticle>) {
@@ -433,14 +448,51 @@ fn draw_grid_far_indicators(
     d: &mut RaylibDrawHandle,
     camera: &Camera2D,
 ) {
-    if camera.zoom > 4.0 {
+    if camera.zoom > 7.0 {
         return;
     }
+
+    let marker_radius = 30.0f32;
+
+    let mut markers = Vec::new();
 
     for grid in grids.values() {
         let p = glam_to_raylib_swap_y(grid.isometry.translation);
         let q = d.get_world_to_screen2D(p, camera);
-        d.draw_circle_lines_v(q, 30.0, Color::ORANGE);
+
+        markers.push((q, q, &grid.name));
+    }
+
+    // move the markers apart
+    for _ in 0..10 {
+        for i in 0..markers.len() {
+            for j in 0..markers.len() {
+                if i <= j {
+                    continue;
+                }
+
+                let p1 = markers[i].1;
+                let p2 = markers[j].1;
+                let delta = p2 - p1;
+                let dist = delta.length();
+                if dist < marker_radius * 2.0 {
+                    let u = delta.normalized();
+                    let delta = marker_radius * 2.0 - dist;
+                    markers[j].1 += u * delta / 2.0;
+                    markers[i].1 -= u * delta / 2.0;
+                }
+            }
+        }
+    }
+
+    // draw the markers
+    for (p, q, name) in markers {
+        d.draw_line_v(p, q, Color::ORANGE);
+        d.draw_circle_lines_v(q, marker_radius, Color::ORANGE);
+        if !name.is_empty() {
+            let q = q + Vector2::new(marker_radius + 10.0, 0.0);
+            d.draw_text_ex(d.get_font_default(), name, q, 18.0, 0.1, Color::ORANGE);
+        }
     }
 }
 

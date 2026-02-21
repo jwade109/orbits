@@ -94,10 +94,12 @@ pub fn spawn_grid_from_blueprint(
             computers.spawn(part_id, cpu);
             spawned_grid.computers.push(part_id);
         }
-        if chance(0.1) {
+        if let Some(data) = &part.thruster_data {
+            if !data.is_rcs {
+                continue;
+            }
             let pos = placement.center_isometry().translation;
             let light = Light::new(grid_id, *prototype_id, pos);
-            println!("Light: {} {} {}", grid_id, *prototype_id, part_id);
             lights.spawn(part_id, light);
             spawned_grid.lights.push(part_id);
         }
@@ -110,6 +112,7 @@ pub fn despawn_grid(
     grids: &mut Components<VehicleGrid>,
     thrusters: &mut Components<Thruster>,
     computers: &mut Components<Computer>,
+    lights: &mut Components<Light>,
 ) -> BaryResult<()> {
     let grid = grids.despawn(grid_id)?;
     for id in grid.thrusters {
@@ -117,6 +120,9 @@ pub fn despawn_grid(
     }
     for id in grid.computers {
         computers.despawn(id)?;
+    }
+    for id in grid.lights {
+        lights.despawn(id)?;
     }
     Ok(())
 }
@@ -214,6 +220,7 @@ mod tests {
         assert_eq!(world.grids.len(), 1);
         assert_eq!(world.thrusters.len(), 18);
         assert_eq!(world.computers.len(), 1);
+        assert_eq!(world.lights.len(), 12);
 
         // get the computer entity
         let (id, cpu) = world.computers.iter().next().unwrap();
@@ -235,6 +242,7 @@ mod tests {
             &mut world.grids,
             &mut world.thrusters,
             &mut world.computers,
+            &mut world.lights,
         );
         assert_eq!(result, Ok(()));
 
@@ -242,5 +250,17 @@ mod tests {
         assert_eq!(world.grids.len(), 0);
         assert_eq!(world.thrusters.len(), 0);
         assert_eq!(world.computers.len(), 0);
+        assert_eq!(world.lights.len(), 0);
+
+        // doing this again should return an error
+        let result = despawn_grid(
+            grid_id,
+            &mut world.grids,
+            &mut world.thrusters,
+            &mut world.computers,
+            &mut world.lights,
+        );
+
+        assert_eq!(result, Err(BaryError::EntityNotFound));
     }
 }
