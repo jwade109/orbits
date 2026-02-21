@@ -1,5 +1,6 @@
 use crate::components::*;
 use crate::computer::*;
+use crate::light::*;
 use crate::thruster::*;
 use crate::world::*;
 use bary_core::prelude::*;
@@ -15,6 +16,7 @@ pub struct VehicleGrid {
     pub parts: Vec<(GridPlacement, EntityId)>,
     pub thrusters: Vec<EntityId>,
     pub computers: Vec<EntityId>,
+    pub lights: Vec<EntityId>,
 }
 
 fn find_part_by_name(
@@ -51,6 +53,7 @@ pub fn grid_from_blueprint(
         parts,
         thrusters: Vec::new(),
         computers: Vec::new(),
+        lights: Vec::new(),
     })
 }
 
@@ -60,19 +63,20 @@ pub fn spawn_grid_from_blueprint(
     grids: &mut Components<VehicleGrid>,
     thrusters: &mut Components<Thruster>,
     computers: &mut Components<Computer>,
+    lights: &mut Components<Light>,
     pos: Vec2,
     name: String,
     bp: &Blueprint,
 ) -> BaryResult<EntityId> {
     let mut grid = grid_from_blueprint(name, bp, &prototypes).ok_or(BaryError::BadBlueprint)?;
     grid.isometry.translation = pos;
-    grid.linear_velocity = randvec(3.0, 12.0);
+    grid.linear_velocity = randvec(0.1, 3.0);
 
     let grid_id = counter.get_id();
     grids.spawn(grid_id, grid.clone());
     let spawned_grid = grids.get_mut(grid_id).ok_or(BaryError::EntityNotFound)?;
 
-    for (_placement, prototype_id) in &grid.parts {
+    for (placement, prototype_id) in &grid.parts {
         let part_id = counter.get_id();
         let (part, _texture) = prototypes
             .get_with_log(*prototype_id)
@@ -86,12 +90,16 @@ pub fn spawn_grid_from_blueprint(
             spawned_grid.thrusters.push(part_id);
         }
         if let Some(_data) = &part.computer_data {
-            let cpu = Computer {
-                prototype: *prototype_id,
-                grid_id,
-            };
+            let cpu = Computer::new(grid_id, *prototype_id);
             computers.spawn(part_id, cpu);
             spawned_grid.computers.push(part_id);
+        }
+        if chance(0.1) {
+            let pos = placement.center_isometry().translation;
+            let light = Light::new(grid_id, *prototype_id, pos);
+            println!("Light: {} {} {}", grid_id, *prototype_id, part_id);
+            lights.spawn(part_id, light);
+            spawned_grid.lights.push(part_id);
         }
     }
     Ok(grid_id)
@@ -187,6 +195,7 @@ mod tests {
             &mut world.grids,
             &mut world.thrusters,
             &mut world.computers,
+            &mut world.lights,
             Vec2::ZERO,
             name.to_string(),
             &bp,

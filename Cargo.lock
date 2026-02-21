@@ -620,6 +620,7 @@ version = "0.1.0"
 dependencies = [
  "bary_core",
  "crossbeam-queue",
+ "enum-iterator",
  "rand 0.10.0",
  "rapier2d",
  "raylib",

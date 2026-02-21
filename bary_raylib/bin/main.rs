@@ -8,7 +8,7 @@ use rdev::listen;
 fn draw_debug_info(world: &World, d: &mut RaylibDrawHandle, text: &str) {
     let mut s = format!("
         {} FPS\n{:?}\n{:?}\n{:?}\n{:?}\nSnapping: {}\n{:#?}\n{:#?}\nParticles: {}
-        \nBlueprints: {:#?}\nParts: {:#?}\nGrids: {:#?}\nThrusters: {:#?}\nComputers: {:#?}\nCounter: {:#?}
+        \nBlueprints: {:#?}\nParts: {:#?}\nGrids: {:#?}\nThrusters: {:#?}\nComputers: {:#?}\nLights: {:#?}\nCounter: {:#?}
         ",
         d.get_fps(),
         d.is_cursor_on_screen(),
@@ -24,6 +24,7 @@ fn draw_debug_info(world: &World, d: &mut RaylibDrawHandle, text: &str) {
         &world.grids,
         &world.thrusters,
         &world.computers,
+        &world.lights,
         &world.counter,
     );
 

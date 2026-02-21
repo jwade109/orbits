@@ -35,13 +35,14 @@ pub fn dev_world(assets_dir: &str) -> BaryResult<World> {
     let mut world = with_vehicle_data_loaded(assets_dir);
 
     for (name, bp) in world.blueprints.values() {
-        let pos = randvec(1.0, 600.0);
+        let pos = randvec(1.0, 100.0);
         spawn_grid_from_blueprint(
             &mut world.counter,
             &world.prototypes,
             &mut world.grids,
             &mut world.thrusters,
             &mut world.computers,
+            &mut world.lights,
             pos,
             name.clone(),
             bp,
@@ -97,6 +98,6 @@ mod tests {
             }
         );
         assert_eq!(world.camera.rotation, -161.56076);
-        assert_eq!(world.camera.zoom, 0.9999761);
+        assert_eq!(world.camera.zoom, 7.9997897);
     }
 }

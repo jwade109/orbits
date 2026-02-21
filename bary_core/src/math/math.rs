@@ -266,6 +266,10 @@ impl Isometry2d {
         }
     }
 
+    pub fn from_pos(translation: Vec2) -> Self {
+        Self::new(translation, 0.0)
+    }
+
     pub fn local_x(&self) -> Vec2 {
         rotate(Vec2::X, self.rotation)
     }

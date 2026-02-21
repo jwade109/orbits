@@ -1,6 +1,7 @@
 use crate::components::*;
 use crate::computer::*;
 use crate::input_state::*;
+use crate::light::*;
 use crate::thruster::*;
 use crate::vehicle_grid::*;
 use bary_core::prelude::PI;
@@ -36,6 +37,7 @@ pub struct World {
     pub prototypes: Components<(PartPrototype, MaybeTexture)>,
     pub thrusters: Components<Thruster>,
     pub computers: Components<Computer>,
+    pub lights: Components<Light>,
     pub grids: Components<VehicleGrid>,
     pub circle_texture: MaybeTexture,
 }
@@ -62,6 +64,7 @@ impl World {
             grids: Components::default(),
             thrusters: Components::default(),
             computers: Components::default(),
+            lights: Components::default(),
             circle_texture: None,
         }
     }
@@ -271,11 +274,41 @@ fn propagate_grid_rigid_bodies(grids: &mut Components<VehicleGrid>) {
     }
 }
 
+fn draw_lights(
+    d: &mut RaylibDrawHandle,
+    grids: &Components<VehicleGrid>,
+    lights: &Components<Light>,
+) {
+    for light in lights.values() {
+        let Some(grid) = grids.get(light.grid_id) else {
+            continue;
+        };
+
+        if light.is_on() {
+            let offset = grid.isometry.local_x() * light.position.x
+                + grid.isometry.local_y() * light.position.y;
+            let mut light_isometry = grid.isometry;
+            light_isometry.translation += offset;
+
+            fill_rectangle(d, light_isometry, Vec2::splat(0.1), Color::ORANGE);
+
+            for r in [1.0f32, 1.5, 3.0] {
+                let r = r.powi(2);
+                let a = 0.2 * 1.0 / r;
+                let color = Color::YELLOW.alpha(a);
+                fill_circle(d, light_isometry.translation, r, color);
+            }
+        }
+    }
+}
+
 pub fn update_world(world: &mut World, screen_dims: Vector2) {
     world.screen_dims = screen_dims;
 
     toggle_camera_local_normal_snapping(&world.event_queue, &mut world.snap_camera_to_local_planet);
     update_ring_particles(&mut world.particles);
+    update_lights(&mut world.lights);
+    update_computers(&mut world.computers);
     update_input_state(&world.event_queue, &mut world.input);
     apply_scroll_wheel_to_camera_target(&world.event_queue, &mut world.target_camera);
     update_camera_target(&world.input, world.screen_dims, &mut world.target_camera);
@@ -298,6 +331,12 @@ fn update_ring_particles(particles: &mut Vec<RingParticle>) {
         ring.time_left -= dt;
     }
     particles.retain(|p| p.time_left > 0.0);
+}
+
+fn update_lights(lights: &mut Components<Light>) {
+    for light in lights.values_mut() {
+        light.ticks += 1;
+    }
 }
 
 fn draw_parts_zoo(parts: &Components<(PartPrototype, MaybeTexture)>, d: &mut RaylibDrawHandle) {
@@ -348,6 +387,11 @@ fn fill_rectangle(d: &mut RaylibDrawHandle, iso: Isometry2d, dims: Vec2, color: 
     let origin = Vector2::new(0.0, dims.y);
     let rotation = -iso.rotation.to_degrees();
     d.draw_rectangle_pro(rec, origin, rotation, color);
+}
+
+fn fill_circle(d: &mut RaylibDrawHandle, p: Vec2, r: f32, color: Color) {
+    let center = glam_to_raylib_swap_y(p);
+    d.draw_circle_v(center, r, color);
 }
 
 fn draw_test_isos(d: &mut RaylibDrawHandle) {
@@ -409,6 +453,8 @@ pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
 
     draw_particles(&mut c, &world.particles, t);
     draw_grids(&world.grids, &mut c, &world.camera);
+
+    draw_lights(&mut c, &world.grids, &world.lights);
 
     drop(c);
 

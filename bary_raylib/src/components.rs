@@ -1,9 +1,17 @@
 use bary_core::prelude::EntityId;
 use std::collections::BTreeMap;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct EntityCounter {
     next_id: EntityId,
+}
+
+impl Default for EntityCounter {
+    fn default() -> Self {
+        Self {
+            next_id: EntityId(0),
+        }
+    }
 }
 
 impl EntityCounter {
