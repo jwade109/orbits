@@ -16,12 +16,12 @@ pub fn with_vehicle_data_loaded(assets_dir: &str, vehicles: &[&str]) -> World {
     let parts = load_parts_from_dir(&parts_dir).expect("Parts dir");
 
     for (_, part) in &parts {
-        let id = world.counter.get_id();
+        let id = world.spawner.spawn();
         world.prototypes.spawn(id, (part.clone(), None));
     }
 
     for v in vehicles {
-        let id = world.counter.get_id();
+        let id = world.spawner.spawn();
         let path = vehicles_dir.join(format!("{}.vehicle", v));
         let bp = load_vehicle(path, &parts).expect("Vehicle dir");
         world.blueprints.spawn(id, (v.to_string(), bp));
@@ -39,20 +39,13 @@ pub fn dev_world(assets_dir: &str) -> BaryResult<World> {
         .blueprint("spacestation")
         .build();
 
-    for (name, bp) in world.blueprints.values() {
-        let pos = randvec(1.0, 100.0);
-        spawn_grid_from_blueprint(
-            &mut world.counter,
-            &world.prototypes,
-            &mut world.grids,
-            &mut world.parts,
-            &mut world.thrusters,
-            &mut world.computers,
-            &mut world.lights,
-            pos,
-            name.clone(),
-            bp,
-        )?;
+    let bps = world.blueprints.clone();
+
+    for (name, bp) in bps.values() {
+        let id = spawn_grid_from_blueprint_world(&mut world, name.clone(), bp)?;
+        let grid = world.grids.try_get_mut(id)?;
+        grid.isometry.translation = randvec(10.0, 100.0);
+        grid.isometry.rotation = rand(-0.3, 0.3);
     }
 
     Ok(world)

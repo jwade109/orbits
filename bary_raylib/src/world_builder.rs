@@ -36,12 +36,12 @@ impl WorldBuilder {
             let parts = load_parts_from_dir(&parts_dir).expect("Parts dir");
 
             for (_, part) in &parts {
-                let id = world.counter.get_id();
+                let id = world.spawner.spawn();
                 world.prototypes.spawn(id, (part.clone(), None));
             }
 
             for v in self.blueprints {
-                let id = world.counter.get_id();
+                let id = world.spawner.spawn();
                 let path = vehicles_dir.join(format!("{}.vehicle", v));
                 let bp = load_vehicle(path, &parts).expect("Vehicle dir");
                 world.blueprints.spawn(id, (v.to_string(), bp));

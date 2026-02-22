@@ -42,7 +42,7 @@ pub struct World {
     pub timers: Timers,
     pub mouse_screen_position: Option<Vec2>,
     pub selection_info: SelectionInfo,
-    pub counter: EntityCounter,
+    pub spawner: EntitySpawner,
     pub follow_vehicle: Option<EntityId>,
     pub snap_camera_to_local_planet: bool,
     pub screen_dims: Vector2,
@@ -67,7 +67,7 @@ impl World {
             timers: Timers::default(),
             mouse_screen_position: None,
             selection_info: SelectionInfo::default(),
-            counter: EntityCounter::default(),
+            spawner: EntitySpawner::default(),
             snap_camera_to_local_planet: false,
             follow_vehicle: None,
             screen_dims: Vector2::new(1500.0, 900.0),
@@ -137,7 +137,12 @@ fn raylib_to_glam_invert_y(v: Vector2) -> Vec2 {
     Vec2::new(v.x, -v.y)
 }
 
-fn update_camera_target(input: &InputState, screen_dims: Vector2, target: &mut Camera2D) {
+fn update_camera_target(
+    input: &InputState,
+    screen_dims: Vector2,
+    target: &mut Camera2D,
+    follow: &mut Option<EntityId>,
+) {
     target.offset = screen_dims / 2.0;
 
     let angular_speed = 1.5;
@@ -160,21 +165,27 @@ fn update_camera_target(input: &InputState, screen_dims: Vector2, target: &mut C
     }
     if input.is_key_pressed(Key::KeyQ) {
         target.rotation += angular_speed;
+        *follow = None;
     }
     if input.is_key_pressed(Key::KeyE) {
         target.rotation -= angular_speed;
+        *follow = None;
     }
     if input.is_key_pressed(Key::KeyS) {
         target.target += up * speed;
+        *follow = None;
     }
     if input.is_key_pressed(Key::KeyW) {
         target.target -= up * speed;
+        *follow = None;
     }
     if input.is_key_pressed(Key::KeyD) {
         target.target += right * speed;
+        *follow = None;
     }
     if input.is_key_pressed(Key::KeyA) {
         target.target -= right * speed;
+        *follow = None;
     }
 }
 
@@ -409,7 +420,15 @@ pub fn update_world(world: &mut World, screen_dims: Vector2, mouse_screen_positi
     update_input_state(&world.event_queue, &mut world.input);
     apply_scroll_wheel_to_camera_target(&world.event_queue, &mut world.target_camera);
 
-    update_camera_target(&world.input, world.screen_dims, &mut world.target_camera);
+    propagate_grid_rigid_bodies(&mut world.grids);
+
+    update_camera_target(
+        &world.input,
+        world.screen_dims,
+        &mut world.target_camera,
+        &mut world.follow_vehicle,
+    );
+
     set_camera_if_following(
         world.follow_vehicle,
         &world.grids,
@@ -424,7 +443,6 @@ pub fn update_world(world: &mut World, screen_dims: Vector2, mouse_screen_positi
 
     // spawn_random_ring_effects(&mut world.particles);
 
-    propagate_grid_rigid_bodies(&mut world.grids);
     panic_if_escape_is_pressed(&world.input);
 
     world.event_queue.clear();

@@ -2,11 +2,11 @@ use bary_core::prelude::EntityId;
 use std::collections::BTreeMap;
 
 #[derive(Debug)]
-pub struct EntityCounter {
+pub struct EntitySpawner {
     next_id: EntityId,
 }
 
-impl Default for EntityCounter {
+impl Default for EntitySpawner {
     fn default() -> Self {
         Self {
             next_id: EntityId(0),
@@ -14,8 +14,8 @@ impl Default for EntityCounter {
     }
 }
 
-impl EntityCounter {
-    pub fn get_id(&mut self) -> EntityId {
+impl EntitySpawner {
+    pub fn spawn(&mut self) -> EntityId {
         let ret = self.next_id;
         self.next_id.0 += 1;
         ret

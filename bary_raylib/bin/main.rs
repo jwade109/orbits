@@ -25,7 +25,7 @@ fn draw_debug_info(world: &World, d: &mut RaylibDrawHandle) {
     s += &format!("\nTHR {:?}", &world.thrusters);
     s += &format!("\nCPU {:?}", &world.computers);
     s += &format!("\nLIT {:?}", &world.lights);
-    s += &format!("\nE {:?}", &world.counter);
+    s += &format!("\nE {:?}", &world.spawner);
 
     for e in &world.event_queue {
         s += &format!("\n{:?}", e);

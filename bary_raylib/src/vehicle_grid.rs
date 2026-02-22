@@ -67,48 +67,40 @@ pub fn grid_from_blueprint(
 /// a less demanding borrow.
 pub fn spawn_grid_from_blueprint_world(
     world: &mut World,
-    pos: Vec2,
     name: impl Into<String>,
     bp: &Blueprint,
 ) -> BaryResult<EntityId> {
     spawn_grid_from_blueprint(
-        &mut world.counter,
+        &mut world.spawner,
         &mut world.prototypes,
         &mut world.grids,
         &mut world.parts,
         &mut world.thrusters,
         &mut world.computers,
         &mut world.lights,
-        pos,
         name,
         bp,
     )
 }
 
 pub fn spawn_grid_from_blueprint(
-    counter: &mut EntityCounter,
+    counter: &mut EntitySpawner,
     prototypes: &Components<(PartPrototype, MaybeTexture)>,
     grids: &mut Components<VehicleGrid>,
     parts: &mut Components<Part>,
     thrusters: &mut Components<Thruster>,
     computers: &mut Components<Computer>,
     lights: &mut Components<Light>,
-    pos: Vec2,
     name: impl Into<String>,
     bp: &Blueprint,
 ) -> BaryResult<EntityId> {
-    let mut grid = grid_from_blueprint(name, bp, &prototypes).ok_or(BaryError::BadBlueprint)?;
-    grid.isometry.translation = pos;
-
-    grid.linear_velocity = randvec(0.1, 3.0);
-    grid.angular_velocity = rand(-0.1, 0.1);
-
-    let grid_id = counter.get_id();
+    let grid = grid_from_blueprint(name, bp, &prototypes).ok_or(BaryError::BadBlueprint)?;
+    let grid_id = counter.spawn();
     grids.spawn(grid_id, grid.clone());
     let spawned_grid = grids.get_mut(grid_id).ok_or(BaryError::EntityNotFound)?;
 
     for (placement, prototype_id) in &grid.layout {
-        let part_id = counter.get_id();
+        let part_id = counter.spawn();
 
         let part_entity = Part {
             placement: *placement,
@@ -152,13 +144,13 @@ pub fn spawn_grid_by_name_world(world: &mut World, name: &str) -> BaryResult<Ent
     let bp = find_blueprint_by_name(&world.blueprints, name)
         .ok_or(BaryError::BadBlueprint)?
         .clone();
-    spawn_grid_from_blueprint_world(world, Vec2::ZERO, name, &bp)
+    spawn_grid_from_blueprint_world(world, name, &bp)
 }
 
 pub fn insert_part_world(grid_id: EntityId, world: &mut World, name: &str) -> BaryResult<EntityId> {
     insert_part(
         grid_id,
-        &mut world.counter,
+        &mut world.spawner,
         &mut world.grids,
         &mut world.prototypes,
         &mut world.parts,
@@ -171,7 +163,7 @@ pub fn insert_part_world(grid_id: EntityId, world: &mut World, name: &str) -> Ba
 
 pub fn insert_part(
     grid_id: EntityId,
-    counter: &mut EntityCounter,
+    counter: &mut EntitySpawner,
     grids: &mut Components<VehicleGrid>,
     prototypes: &Components<(PartPrototype, MaybeTexture)>,
     parts: &mut Components<Part>,
@@ -191,7 +183,7 @@ pub fn insert_part(
         grid_id,
     };
 
-    let part_id = counter.get_id();
+    let part_id = counter.spawn();
 
     grid.parts.push(part_id);
     parts.spawn(part_id, part);
@@ -354,14 +346,13 @@ mod tests {
 
         // spawn that vehicle using its blueprint
         let grid_id = spawn_grid_from_blueprint(
-            &mut world.counter,
+            &mut world.spawner,
             &world.prototypes,
             &mut world.grids,
             &mut world.parts,
             &mut world.thrusters,
             &mut world.computers,
             &mut world.lights,
-            Vec2::ZERO,
             name.to_string(),
             &bp,
         )
@@ -437,21 +428,19 @@ mod tests {
             .blueprint("spacestation")
             .build();
 
-        let e = find_closest_grid(&world.grids, Vec2::new(100.0, 200.0));
+        assert!(find_closest_grid(&world.grids, Vec2::new(100.0, 200.0)).is_none());
 
-        assert!(e.is_none());
+        let id = spawn_grid_by_name_world(&mut world, "remora").unwrap();
+        assert_eq!(id, EntityId(34));
 
-        let bp = find_blueprint_by_name(&world.blueprints, "remora")
-            .unwrap()
-            .clone();
+        let grid = world.grids.try_get_mut(id).unwrap();
+        grid.isometry.translation = (40.0, 156.0).into();
 
-        let id = spawn_grid_from_blueprint_world(&mut world, Vec2::new(40.0, 156.0), "remora", &bp);
-
-        assert_eq!(id, Ok(EntityId(34)));
-
-        let e = find_closest_grid(&world.grids, Vec2::new(100.0, 200.0));
-
-        assert_eq!(e, Some((EntityId(34), Vec2::new(60.0, 44.0))));
+        for _ in 0..100 {
+            update_world(&mut world, (1080.0, 720.0).into(), None);
+            let e = find_closest_grid(&world.grids, Vec2::new(100.0, 200.0));
+            assert_eq!(e, Some((EntityId(34), Vec2::new(60.0, 44.0))));
+        }
     }
 
     #[test]
