@@ -45,6 +45,7 @@ pub fn dev_world(assets_dir: &str) -> BaryResult<World> {
             &mut world.counter,
             &world.prototypes,
             &mut world.grids,
+            &mut world.parts,
             &mut world.thrusters,
             &mut world.computers,
             &mut world.lights,

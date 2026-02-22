@@ -1,4 +1,4 @@
-use bary_raylib::{scenarios::dev_world, world::*, world_builder::WorldBuilder};
+use bary_raylib::{scenarios::dev_world, world::*};
 use crossbeam_queue::SegQueue;
 use raylib::prelude::*;
 use std::{sync::Arc, thread};
@@ -20,6 +20,7 @@ fn draw_debug_info(world: &World, d: &mut RaylibDrawHandle) {
     s += &format!("\nPRT {:?}", &world.particles.len());
     s += &format!("\nBP {:?}", &world.blueprints);
     s += &format!("\nPROTO {:?}", &world.prototypes);
+    s += &format!("\nPART {:?}", &world.parts);
     s += &format!("\nGRID {:?}", &world.grids);
     s += &format!("\nTHR {:?}", &world.thrusters);
     s += &format!("\nCPU {:?}", &world.computers);

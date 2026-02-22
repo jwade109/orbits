@@ -65,8 +65,16 @@ impl<E> Components<E> {
         self.values.get(&id)
     }
 
+    pub fn try_get(&self, id: EntityId) -> BaryResult<&E> {
+        self.values.get(&id).ok_or(BaryError::EntityNotFound)
+    }
+
     pub fn get_mut(&mut self, id: EntityId) -> Option<&mut E> {
         self.values.get_mut(&id)
+    }
+
+    pub fn try_get_mut(&mut self, id: EntityId) -> BaryResult<&mut E> {
+        self.values.get_mut(&id).ok_or(BaryError::EntityNotFound)
     }
 
     pub fn get_with_log(&self, id: EntityId) -> Option<&E> {
@@ -87,6 +95,7 @@ impl<E> std::fmt::Debug for Components<E> {
 #[derive(Debug, PartialEq, Eq)]
 pub enum BaryError {
     EntityNotFound,
+    BadPartName,
     BadBlueprint,
 }
 

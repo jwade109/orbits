@@ -1,6 +1,6 @@
 use crate::math::*;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct GridPlacement {
     /// the coordinate of the bottom
     /// left corner of the part

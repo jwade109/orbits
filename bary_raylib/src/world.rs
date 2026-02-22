@@ -2,6 +2,7 @@ use crate::components::*;
 use crate::computer::*;
 use crate::input_state::*;
 use crate::light::*;
+use crate::part::*;
 use crate::thruster::*;
 use crate::vehicle_grid::*;
 use bary_core::prelude::PI;
@@ -52,6 +53,7 @@ pub struct World {
     pub particles: Vec<RingParticle>,
     pub blueprints: Components<NamedBlueprint>,
     pub prototypes: Components<(PartPrototype, MaybeTexture)>,
+    pub parts: Components<Part>,
     pub thrusters: Components<Thruster>,
     pub computers: Components<Computer>,
     pub lights: Components<Light>,
@@ -82,6 +84,7 @@ impl World {
             particles: Vec::default(),
             blueprints: Components::default(),
             prototypes: Components::default(),
+            parts: Components::default(),
             grids: Components::default(),
             thrusters: Components::default(),
             computers: Components::default(),
