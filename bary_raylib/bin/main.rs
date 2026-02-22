@@ -1,4 +1,4 @@
-use bary_raylib::{scenarios::dev_world, world::*};
+use bary_raylib::{scenarios::dev_world, world::*, world_builder::WorldBuilder};
 use crossbeam_queue::SegQueue;
 use raylib::prelude::*;
 use std::{sync::Arc, thread};
@@ -13,18 +13,17 @@ fn draw_debug_info(world: &World, d: &mut RaylibDrawHandle) {
     s += &format!("\nUpdate: {:?}", world.timers.update);
     s += &format!("\nRender: {:?}", world.timers.render);
 
-    s += &format!("\n{:?}", d.is_cursor_on_screen());
-    s += &format!("\n{:?}", d.get_mouse_position());
-    s += &format!("\n{:?}", d.get_mouse_delta());
-    s += &format!("\nCAM {:?}", &world.camera);
+    s += &format!("\nMOUSE {:?}", world.mouse_screen_position);
+    s += &format!("\nCAM {:#?}", &world.camera);
+    s += &format!("\nSEL {:#?}", &world.selection_info);
     s += &format!("\nINP {:?}", &world.input);
     s += &format!("\nPRT {:?}", &world.particles.len());
     s += &format!("\nBP {:?}", &world.blueprints);
-    s += &format!("\nPART {:?}", &world.prototypes);
+    s += &format!("\nPROTO {:?}", &world.prototypes);
     s += &format!("\nGRID {:?}", &world.grids);
     s += &format!("\nTHR {:?}", &world.thrusters);
     s += &format!("\nCPU {:?}", &world.computers);
-    s += &format!("\nLGT {:?}", &world.lights);
+    s += &format!("\nLIT {:?}", &world.lights);
     s += &format!("\nE {:?}", &world.counter);
 
     for e in &world.event_queue {
@@ -74,7 +73,13 @@ fn main() {
         let w = rl.get_screen_width();
         let h = rl.get_screen_height();
 
-        update_world(&mut world, Vector2::new(w as f32, h as f32));
+        let screen_dims = Vector2::new(w as f32, h as f32);
+
+        let mouse = rl
+            .is_cursor_on_screen()
+            .then(|| raylib_to_glam(rl.get_mouse_position()));
+
+        update_world(&mut world, screen_dims, mouse);
 
         let time = rl.get_time();
         shader.set_shader_value(1, time as f32);
@@ -82,7 +87,9 @@ fn main() {
         rl.draw(&thread, |mut d: RaylibDrawHandle<'_>| {
             let start = std::time::Instant::now();
             d.clear_background(Color::BLACK);
+
             draw_world(&world, &mut d);
+
             let end = std::time::Instant::now();
             world.timers.render = end - start;
             draw_debug_info(&world, &mut d);

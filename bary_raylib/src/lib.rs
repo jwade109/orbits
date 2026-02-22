@@ -6,3 +6,4 @@ pub mod scenarios;
 pub mod thruster;
 pub mod vehicle_grid;
 pub mod world;
+pub mod world_builder;

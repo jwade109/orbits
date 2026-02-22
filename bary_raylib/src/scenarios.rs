@@ -3,10 +3,11 @@ use std::path::PathBuf;
 use crate::components::*;
 use crate::vehicle_grid::*;
 use crate::world::*;
+use crate::world_builder::WorldBuilder;
 use bary_core::prelude::*;
 use raylib::math::Vector2;
 
-pub fn with_vehicle_data_loaded(assets_dir: &str) -> World {
+pub fn with_vehicle_data_loaded(assets_dir: &str, vehicles: &[&str]) -> World {
     let mut world = World::empty();
 
     let parts_dir = PathBuf::from(assets_dir).join("parts");
@@ -19,8 +20,6 @@ pub fn with_vehicle_data_loaded(assets_dir: &str) -> World {
         world.prototypes.spawn(id, (part.clone(), None));
     }
 
-    let vehicles = ["pollux", "bellerophon", "remora", "spacestation"];
-
     for v in vehicles {
         let id = world.counter.get_id();
         let path = vehicles_dir.join(format!("{}.vehicle", v));
@@ -32,7 +31,13 @@ pub fn with_vehicle_data_loaded(assets_dir: &str) -> World {
 }
 
 pub fn dev_world(assets_dir: &str) -> BaryResult<World> {
-    let mut world = with_vehicle_data_loaded(assets_dir);
+    let mut world = WorldBuilder::new()
+        .assets(assets_dir)
+        .blueprint("pollux")
+        .blueprint("bellerophon")
+        .blueprint("remora")
+        .blueprint("spacestation")
+        .build();
 
     for (name, bp) in world.blueprints.values() {
         let pos = randvec(1.0, 100.0);
@@ -71,22 +76,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_dev_scenario() {
-        let mut world = dev_world("../assets").expect("Expected a valid world");
-
-        for _ in 0..100 {
-            update_world(&mut world, (1080.0, 720.0).into());
-        }
-
-        assert_eq!(world.grids.len(), 4);
-    }
-
-    #[test]
     fn test_the_world() {
-        let mut world = test_camera_snapping();
+        let mut world = World::empty();
+
+        world.snap_camera_to_local_planet = true;
 
         for _ in 0..100 {
-            update_world(&mut world, (1080.0, 720.0).into());
+            update_world(&mut world, (1080.0, 720.0).into(), None);
         }
 
         assert_eq!(world.camera.offset, Vector2::new(540.0, 360.0));

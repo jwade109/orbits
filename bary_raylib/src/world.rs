@@ -31,9 +31,18 @@ pub struct Timers {
     pub render: Duration,
 }
 
+#[derive(Default, Debug)]
+pub struct SelectionInfo {
+    pub camera_hovered: Option<(EntityId, Vec2)>,
+    pub mouse_hovered: Option<(EntityId, Vec2)>,
+}
+
 pub struct World {
     pub timers: Timers,
+    pub mouse_screen_position: Option<Vec2>,
+    pub selection_info: SelectionInfo,
     pub counter: EntityCounter,
+    pub follow_vehicle: Option<EntityId>,
     pub snap_camera_to_local_planet: bool,
     pub screen_dims: Vector2,
     pub input: InputState,
@@ -54,8 +63,11 @@ impl World {
     pub fn empty() -> Self {
         Self {
             timers: Timers::default(),
+            mouse_screen_position: None,
+            selection_info: SelectionInfo::default(),
             counter: EntityCounter::default(),
             snap_camera_to_local_planet: false,
+            follow_vehicle: None,
             screen_dims: Vector2::new(1500.0, 900.0),
             input: InputState::default(),
             event_queue: VecDeque::new(),
@@ -114,7 +126,7 @@ pub fn glam_to_raylib_swap_y(v: Vec2) -> Vector2 {
     Vector2::new(v.x, -v.y)
 }
 
-fn raylib_to_glam(v: Vector2) -> Vec2 {
+pub fn raylib_to_glam(v: Vector2) -> Vec2 {
     Vec2::new(v.x, v.y)
 }
 
@@ -263,6 +275,26 @@ fn toggle_camera_local_normal_snapping(events: &VecDeque<Event>, snap_camera: &m
     }
 }
 
+fn toggle_following_on_key_f(
+    events: &VecDeque<Event>,
+    sel: &SelectionInfo,
+    follow: &mut Option<EntityId>,
+) {
+    let pressed_f = events
+        .iter()
+        .any(|e| e.event_type == rdev::EventType::KeyPress(Key::KeyF));
+
+    if !pressed_f {
+        return;
+    }
+
+    let Some((id, _delta)) = sel.camera_hovered else {
+        return;
+    };
+
+    *follow = Some(id);
+}
+
 fn snap_camera_target_to_local_up(target: &mut Camera2D) {
     let r = 100.0;
     let p = raylib_to_glam(target.target);
@@ -311,18 +343,77 @@ fn draw_lights(
     }
 }
 
-pub fn update_world(world: &mut World, screen_dims: Vector2) {
+fn update_selection_info(
+    info: &mut SelectionInfo,
+    grids: &Components<VehicleGrid>,
+    camera: &Camera2D,
+    mouse_screen_position: Option<Vec2>,
+) {
+    let pos = camera.target;
+    let test_pos = raylib_to_glam_invert_y(pos);
+    info.camera_hovered = find_closest_grid(grids, test_pos);
+    // if let Some(pos) = mouse_world_position {
+    //     info.mouse_hovered = find_closest_grid(grids, pos);
+    // } else {
+    //     info.mouse_hovered = None;
+    // }
+}
+
+fn set_camera_if_following(
+    follow: Option<EntityId>,
+    grids: &Components<VehicleGrid>,
+    target: &mut Camera2D,
+    actual: &mut Camera2D,
+) {
+    let Some(follow) = follow else {
+        return;
+    };
+
+    let Some(grid) = grids.get(follow) else {
+        return;
+    };
+
+    target.target = glam_to_raylib_swap_y(grid.isometry.translation);
+    target.rotation = grid.isometry.rotation.to_degrees();
+
+    *actual = *target;
+}
+
+pub fn update_world(world: &mut World, screen_dims: Vector2, mouse_screen_position: Option<Vec2>) {
     let start = std::time::Instant::now();
 
     world.screen_dims = screen_dims;
+    world.mouse_screen_position = mouse_screen_position;
 
     toggle_camera_local_normal_snapping(&world.event_queue, &mut world.snap_camera_to_local_planet);
+    toggle_following_on_key_f(
+        &world.event_queue,
+        &world.selection_info,
+        &mut world.follow_vehicle,
+    );
+
     update_ring_particles(&mut world.particles);
     update_lights(&mut world.lights);
     update_computers(&mut world.computers);
+
+    update_selection_info(
+        &mut world.selection_info,
+        &world.grids,
+        &world.camera,
+        world.mouse_screen_position,
+    );
+
     update_input_state(&world.event_queue, &mut world.input);
     apply_scroll_wheel_to_camera_target(&world.event_queue, &mut world.target_camera);
+
     update_camera_target(&world.input, world.screen_dims, &mut world.target_camera);
+    set_camera_if_following(
+        world.follow_vehicle,
+        &world.grids,
+        &mut world.target_camera,
+        &mut world.camera,
+    );
+
     if world.snap_camera_to_local_planet {
         snap_camera_target_to_local_up(&mut world.target_camera);
     }
@@ -390,7 +481,6 @@ pub fn draw_grids(grids: &Components<VehicleGrid>, d: &mut RaylibDrawHandle, cam
         if camera.zoom > 0.1 {
             draw_blueprint(&grid.blueprint, grid.isometry, d);
             // draw_isometry_axes(d, grid.isometry, &grid.name);
-            d.draw_circle(0, 0, 0.5, Color::RED);
             let s = format!("{} / {}", grid.parts.len(), grid.mass);
             draw_text(d, grid.isometry, &s);
         }
@@ -491,7 +581,7 @@ fn draw_grid_far_indicators(
         d.draw_circle_lines_v(q, marker_radius, Color::ORANGE);
         if !name.is_empty() {
             let q = q + Vector2::new(marker_radius + 10.0, 0.0);
-            d.draw_text_ex(d.get_font_default(), name, q, 18.0, 0.1, Color::ORANGE);
+            d.draw_text_ex(d.get_font_default(), name, q, 24.0, 0.4, Color::ORANGE);
         }
     }
 }

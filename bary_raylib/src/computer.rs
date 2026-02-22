@@ -69,7 +69,6 @@ impl ComputerMode {
 impl Computer {
     pub fn new(grid_id: EntityId, prototype: EntityId) -> Self {
         let n = randint(10, 100) as u32;
-        println!("New computer: {n} per tick, {}, {}", grid_id, prototype);
         Self {
             on: true,
             status: MachineStatus::Off,

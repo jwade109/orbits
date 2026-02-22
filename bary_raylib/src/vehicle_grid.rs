@@ -47,7 +47,7 @@ pub fn grid_from_blueprint(
         name,
         mass: initial_mass,
         linear_velocity: Vec2::ZERO,
-        angular_velocity: 0.1,
+        angular_velocity: 0.0,
         blueprint: bp.clone(),
         isometry: Isometry2d::default(),
         parts,
@@ -70,7 +70,9 @@ pub fn spawn_grid_from_blueprint(
 ) -> BaryResult<EntityId> {
     let mut grid = grid_from_blueprint(name, bp, &prototypes).ok_or(BaryError::BadBlueprint)?;
     grid.isometry.translation = pos;
+
     grid.linear_velocity = randvec(0.1, 3.0);
+    grid.angular_velocity = rand(-0.1, 0.1);
 
     let grid_id = counter.get_id();
     grids.spawn(grid_id, grid.clone());
@@ -137,14 +139,48 @@ pub fn find_blueprint_by_name<'a>(
         .map(|(_, bp)| bp)
 }
 
+pub fn express_in_frame(frame: Isometry2d, point: Vec2) -> Vec2 {
+    let delta = point - frame.translation;
+    let x = frame.local_x().dot(delta);
+    let y = frame.local_y().dot(delta);
+    (x, y).into()
+}
+
+pub fn find_closest_grid(
+    grids: &Components<VehicleGrid>,
+    test_pos: Vec2,
+) -> Option<(EntityId, Vec2)> {
+    let mut best: Option<(EntityId, Vec2, f32)> = None;
+    for (e, grid) in grids.iter() {
+        let in_frame = express_in_frame(grid.isometry, test_pos);
+        let dist = in_frame.distance_squared(grid.isometry.translation);
+        if let Some(best) = &mut best {
+            if dist < best.2 {
+                best.0 = *e;
+                best.1 = in_frame;
+                best.2 = dist;
+            }
+        } else {
+            best = Some((*e, in_frame, dist));
+        }
+    }
+    best.map(|x| (x.0, x.1))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::scenarios::with_vehicle_data_loaded;
+    use crate::world_builder::WorldBuilder;
 
     #[test]
     fn test_part_prototypes() {
-        let world = with_vehicle_data_loaded("../assets/");
+        let world = WorldBuilder::new()
+            .assets("../assets")
+            .blueprint("pollux")
+            .blueprint("bellerophon")
+            .blueprint("remora")
+            .blueprint("spacestation")
+            .build();
 
         let mut iter = world.prototypes.iter();
 
@@ -187,7 +223,13 @@ mod tests {
 
     #[test]
     fn test_vehicle_spawning_and_despawning() {
-        let mut world = with_vehicle_data_loaded("../assets/");
+        let mut world = WorldBuilder::new()
+            .assets("../assets")
+            .blueprint("pollux")
+            .blueprint("bellerophon")
+            .blueprint("remora")
+            .blueprint("spacestation")
+            .build();
 
         let name = "pollux";
 
@@ -262,5 +304,20 @@ mod tests {
         );
 
         assert_eq!(result, Err(BaryError::EntityNotFound));
+    }
+
+    #[test]
+    fn nearest_grid() {
+        let world = WorldBuilder::new()
+            .assets("../assets")
+            .blueprint("pollux")
+            .blueprint("bellerophon")
+            .blueprint("remora")
+            .blueprint("spacestation")
+            .build();
+
+        let e = find_closest_grid(&world.grids, Vec2::new(100.0, 200.0));
+
+        assert!(e.is_some());
     }
 }
