@@ -3,7 +3,7 @@ use crate::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PipeGeometry {
     pub start: PartCoord,
     pub end: PartCoord,

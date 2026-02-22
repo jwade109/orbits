@@ -660,7 +660,6 @@ pub fn draw_blueprint(bp: &Blueprint, isometry: Isometry2d, d: &mut RaylibDrawHa
 
             let dims = part.placement.part_aligned_dims().to_meters();
             fill_rectangle(d, iso, dims, color.alpha(0.4));
-            // d.draw_circle_v(origin, 1.0, Color::RED);
         }
     }
 }

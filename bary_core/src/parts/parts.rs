@@ -134,7 +134,7 @@ impl PartLayer {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PartInstance {
     pub name: String,
     layer: PartLayer,

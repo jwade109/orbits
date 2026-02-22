@@ -10,7 +10,7 @@ pub const PHYSICS_CONSTANT_DELTA_TIME: Nanotime =
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct PartId(u64);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Blueprint {
     next_part_id: PartId,
     parts: BTreeMap<PartId, PartInstance>,
@@ -201,6 +201,10 @@ impl Blueprint {
 
     pub fn part_count(&self) -> usize {
         self.parts.len()
+    }
+
+    pub fn pipe_count(&self) -> usize {
+        self.pipes.len()
     }
 
     pub fn add_pipe(&mut self, pipe: PipeGeometry) -> PartId {

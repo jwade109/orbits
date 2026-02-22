@@ -13,9 +13,8 @@ pub struct VehicleGrid {
     pub isometry: Isometry2d,
     pub linear_velocity: Vec2,
     pub angular_velocity: f32,
-    pub blueprint: Blueprint,
     #[deprecated]
-    pub layout: Vec<(GridPlacement, EntityId)>,
+    pub blueprint: Blueprint,
     pub parts: Vec<EntityId>,
     pub thrusters: Vec<EntityId>,
     pub computers: Vec<EntityId>,
@@ -32,28 +31,14 @@ fn find_part_by_name(
         .map(|e| *e.0)
 }
 
-pub fn grid_from_blueprint(
-    name: impl Into<String>,
-    bp: &Blueprint,
-    prototypes: &Components<(PartPrototype, MaybeTexture)>,
-) -> Option<VehicleGrid> {
-    let mut initial_mass = Mass::ZERO;
-    let mut layout = Vec::new();
-    for part in bp.parts() {
-        let e = find_part_by_name(prototypes, &part.1.name)?;
-        let proto = prototypes.get_with_log(e)?;
-        initial_mass += proto.0.mass;
-        let placement = part.1.placement;
-        layout.push((placement, e));
-    }
+pub fn spawn_empty_grid(name: impl Into<String>, bp: &Blueprint) -> Option<VehicleGrid> {
     Some(VehicleGrid {
         name: name.into(),
-        parts_mass: initial_mass,
+        parts_mass: Mass::ZERO,
         linear_velocity: Vec2::ZERO,
         angular_velocity: 0.0,
         blueprint: bp.clone(),
         isometry: Isometry2d::default(),
-        layout,
         parts: Vec::new(),
         thrusters: Vec::new(),
         computers: Vec::new(),
@@ -94,7 +79,7 @@ pub fn spawn_grid_from_blueprint(
     name: impl Into<String>,
     bp: &Blueprint,
 ) -> BaryResult<EntityId> {
-    let grid = grid_from_blueprint(name, bp, &prototypes).ok_or(BaryError::BadBlueprint)?;
+    let grid = spawn_empty_grid(name, bp).ok_or(BaryError::BadBlueprint)?;
     let grid_id = counter.spawn();
     grids.spawn(grid_id, grid.clone());
     grids.get_mut(grid_id).ok_or(BaryError::EntityNotFound)?;
@@ -146,8 +131,11 @@ pub fn insert_part_by_name(
     let proto_id = find_part_by_name(prototypes, &instance.name).ok_or(BaryError::BadPartName)?;
     let (proto, _texture) = prototypes.try_get(proto_id)?;
 
+    grid.parts_mass += proto.mass;
+
     let part = Part {
         placement: instance.placement,
+        layer: instance.layer(),
         prototype: proto_id,
         grid_id,
     };
@@ -242,6 +230,22 @@ pub fn find_closest_grid(
         }
     }
     best.map(|x| (x.0, x.1))
+}
+
+pub fn get_blueprint(
+    grids: &Components<VehicleGrid>,
+    parts: &Components<Part>,
+    prototypes: &Components<(PartPrototype, MaybeTexture)>,
+    grid_id: EntityId,
+) -> BaryResult<Blueprint> {
+    let grid = grids.try_get(grid_id)?;
+    let mut bp = Blueprint::new();
+    for part_id in &grid.parts {
+        let part = parts.try_get(*part_id)?;
+        let (proto, _texture) = prototypes.try_get(part.prototype)?;
+        bp.add_part(proto.name.to_string(), part.placement, part.layer);
+    }
+    Ok(bp)
 }
 
 #[cfg(test)]
@@ -484,5 +488,38 @@ mod tests {
         let id = spawn_grid_by_name_world(&mut world, "spacestation").unwrap();
         let mass = world.grids.try_get(id).unwrap().parts_mass;
         assert_eq!(mass, Mass::grams(145638000));
+    }
+
+    #[test]
+    fn calculate_blueprints() {
+        let mut world = WorldBuilder::new()
+            .assets("../assets")
+            .blueprint("pollux")
+            .blueprint("bellerophon")
+            .blueprint("remora")
+            .blueprint("spacestation")
+            .build();
+
+        let expected = find_blueprint_by_name(&world.blueprints, "pollux")
+            .unwrap()
+            .clone();
+
+        let id = spawn_grid_by_name_world(&mut world, "pollux").unwrap();
+
+        let actual = get_blueprint(&world.grids, &world.parts, &world.prototypes, id).unwrap();
+
+        assert_eq!(actual.part_count(), expected.part_count());
+
+        for (a, b) in actual.parts().zip(expected.parts()) {
+            assert_eq!(a.0, b.0);
+            assert_eq!(a.1, b.1);
+        }
+
+        // TODO this test needs to be revived once pipes are added
+        // to the new ECS
+        // assert_eq!(actual.pipe_count(), expected.pipe_count());
+
+        // failing because pipes aren't implemented.
+        // assert_eq!(actual, expected);
     }
 }
