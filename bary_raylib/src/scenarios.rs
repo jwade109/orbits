@@ -57,28 +57,15 @@ pub fn dev_world(assets_dir: &str) -> BaryResult<World> {
     Ok(world)
 }
 
-pub fn test_camera_snapping() -> World {
-    let mut world = World::empty();
-
-    for _ in 0..100 {
-        let pos = randvec(1.0, 1000.0);
-        let time_left = rand(1.0, 6.0);
-        world.particles.push(RingParticle { pos, time_left });
-    }
-
-    world.target_camera.target = Vector2::new(100.0, 300.0);
-    world.snap_camera_to_local_planet = true;
-    world
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_the_world() {
+    fn snap_camera_to_local_planet() {
         let mut world = World::empty();
 
+        world.target_camera.target = Vector2::new(100.0, 300.0);
         world.snap_camera_to_local_planet = true;
 
         for _ in 0..100 {

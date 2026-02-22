@@ -30,7 +30,7 @@ fn find_part_by_name(
 }
 
 pub fn grid_from_blueprint(
-    name: String,
+    name: impl Into<String>,
     bp: &Blueprint,
     prototypes: &Components<(PartPrototype, MaybeTexture)>,
 ) -> Option<VehicleGrid> {
@@ -44,7 +44,7 @@ pub fn grid_from_blueprint(
         parts.push((placement, e));
     }
     Some(VehicleGrid {
-        name,
+        name: name.into(),
         mass: initial_mass,
         linear_velocity: Vec2::ZERO,
         angular_velocity: 0.0,
@@ -57,6 +57,29 @@ pub fn grid_from_blueprint(
     })
 }
 
+/// Spawns a grid which matches the given blueprint.
+/// This function requires exclusive world access.
+/// Use [`spawn_grid_from_blueprint`] if you need
+/// a less demanding borrow.
+pub fn spawn_grid_from_blueprint_world(
+    world: &mut World,
+    pos: Vec2,
+    name: impl Into<String>,
+    bp: &Blueprint,
+) -> BaryResult<EntityId> {
+    spawn_grid_from_blueprint(
+        &mut world.counter,
+        &mut world.prototypes,
+        &mut world.grids,
+        &mut world.thrusters,
+        &mut world.computers,
+        &mut world.lights,
+        pos,
+        name,
+        bp,
+    )
+}
+
 pub fn spawn_grid_from_blueprint(
     counter: &mut EntityCounter,
     prototypes: &Components<(PartPrototype, MaybeTexture)>,
@@ -65,7 +88,7 @@ pub fn spawn_grid_from_blueprint(
     computers: &mut Components<Computer>,
     lights: &mut Components<Light>,
     pos: Vec2,
-    name: String,
+    name: impl Into<String>,
     bp: &Blueprint,
 ) -> BaryResult<EntityId> {
     let mut grid = grid_from_blueprint(name, bp, &prototypes).ok_or(BaryError::BadBlueprint)?;
@@ -308,7 +331,7 @@ mod tests {
 
     #[test]
     fn nearest_grid() {
-        let world = WorldBuilder::new()
+        let mut world = WorldBuilder::new()
             .assets("../assets")
             .blueprint("pollux")
             .blueprint("bellerophon")
@@ -318,6 +341,18 @@ mod tests {
 
         let e = find_closest_grid(&world.grids, Vec2::new(100.0, 200.0));
 
-        assert!(e.is_some());
+        assert!(e.is_none());
+
+        let bp = find_blueprint_by_name(&world.blueprints, "remora")
+            .unwrap()
+            .clone();
+
+        let id = spawn_grid_from_blueprint_world(&mut world, Vec2::new(40.0, 156.0), "remora", &bp);
+
+        assert_eq!(id, Ok(EntityId(34)));
+
+        let e = find_closest_grid(&world.grids, Vec2::new(100.0, 200.0));
+
+        assert_eq!(e, Some((EntityId(34), Vec2::new(60.0, 44.0))));
     }
 }
