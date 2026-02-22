@@ -497,7 +497,7 @@ fn camera_from_isometry(iso: Isometry2d) -> Camera2D {
     }
 }
 
-pub fn draw_grids(
+pub fn draw_grid_blueprints(
     d: &mut RaylibDrawHandle,
     grids: &Components<VehicleGrid>,
     parts: &Components<Part>,
@@ -624,13 +624,15 @@ pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
     };
 
     draw_particles(&mut c, &world.particles, t);
-    draw_grids(
-        &mut c,
-        &world.grids,
-        &world.parts,
-        &world.prototypes,
-        &world.camera,
-    );
+    // draw_grid_blueprints(
+    //     &mut c,
+    //     &world.grids,
+    //     &world.parts,
+    //     &world.prototypes,
+    //     &world.camera,
+    // );
+
+    draw_parts(&mut c, &world.grids, &world.parts, &world.camera);
 
     draw_lights(&mut c, &world.grids, &world.lights);
 
@@ -675,6 +677,47 @@ pub fn draw_blueprint(bp: &Blueprint, isometry: Isometry2d, d: &mut RaylibDrawHa
 
             let dims = part.placement.part_aligned_dims().to_meters();
             fill_rectangle(d, iso, dims, color.alpha(0.4));
+        }
+    }
+}
+
+pub fn is_zoomed_out(camera: &Camera2D) -> bool {
+    camera.zoom > 0.1
+}
+
+pub fn draw_parts(
+    d: &mut RaylibDrawHandle,
+    grids: &Components<VehicleGrid>,
+    parts: &Components<Part>,
+    camera: &Camera2D,
+) {
+    for grid in grids.values() {
+        let root_isometry = grid.isometry;
+        for draw_layer in PartLayer::draw_order() {
+            let color = match draw_layer {
+                PartLayer::Exterior => Color::WHITE,
+                PartLayer::Internal => Color::BLUE,
+                PartLayer::Plumbing => continue,
+                PartLayer::Structural => Color::GRAY,
+            };
+            for part_id in &grid.parts {
+                let Ok(part) = parts.try_get(*part_id) else {
+                    continue;
+                };
+
+                if part.layer != draw_layer {
+                    continue;
+                }
+
+                let iso = part_isometry(root_isometry, part.placement);
+                let dims = part.placement.part_aligned_dims().to_meters();
+                fill_rectangle(d, iso, dims, color);
+            }
+        }
+
+        if is_zoomed_out(camera) {
+            let s = format!("{} / {}", grid.parts.len(), grid.parts_mass);
+            draw_text(d, grid.isometry, &s);
         }
     }
 }
