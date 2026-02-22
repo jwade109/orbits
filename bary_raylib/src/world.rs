@@ -497,10 +497,19 @@ fn camera_from_isometry(iso: Isometry2d) -> Camera2D {
     }
 }
 
-pub fn draw_grids(grids: &Components<VehicleGrid>, d: &mut RaylibDrawHandle, camera: &Camera2D) {
-    for grid in grids.values() {
+pub fn draw_grids(
+    d: &mut RaylibDrawHandle,
+    grids: &Components<VehicleGrid>,
+    parts: &Components<Part>,
+    prototypes: &Components<(PartPrototype, MaybeTexture)>,
+    camera: &Camera2D,
+) {
+    for (grid_id, grid) in grids.iter() {
         if camera.zoom > 0.1 {
-            draw_blueprint(&grid.blueprint, grid.isometry, d);
+            let Ok(bp) = get_blueprint(grids, parts, prototypes, *grid_id) else {
+                continue;
+            };
+            draw_blueprint(&bp, grid.isometry, d);
             // draw_isometry_axes(d, grid.isometry, &grid.name);
             let s = format!("{} / {}", grid.parts.len(), grid.parts_mass);
             draw_text(d, grid.isometry, &s);
@@ -615,7 +624,13 @@ pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
     };
 
     draw_particles(&mut c, &world.particles, t);
-    draw_grids(&world.grids, &mut c, &world.camera);
+    draw_grids(
+        &mut c,
+        &world.grids,
+        &world.parts,
+        &world.prototypes,
+        &world.camera,
+    );
 
     draw_lights(&mut c, &world.grids, &world.lights);
 

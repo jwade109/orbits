@@ -13,8 +13,6 @@ pub struct VehicleGrid {
     pub isometry: Isometry2d,
     pub linear_velocity: Vec2,
     pub angular_velocity: f32,
-    #[deprecated]
-    pub blueprint: Blueprint,
     pub parts: Vec<EntityId>,
     pub thrusters: Vec<EntityId>,
     pub computers: Vec<EntityId>,
@@ -37,7 +35,6 @@ pub fn spawn_empty_grid(name: impl Into<String>, bp: &Blueprint) -> Option<Vehic
         parts_mass: Mass::ZERO,
         linear_velocity: Vec2::ZERO,
         angular_velocity: 0.0,
-        blueprint: bp.clone(),
         isometry: Isometry2d::default(),
         parts: Vec::new(),
         thrusters: Vec::new(),
