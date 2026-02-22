@@ -502,7 +502,7 @@ pub fn draw_grids(grids: &Components<VehicleGrid>, d: &mut RaylibDrawHandle, cam
         if camera.zoom > 0.1 {
             draw_blueprint(&grid.blueprint, grid.isometry, d);
             // draw_isometry_axes(d, grid.isometry, &grid.name);
-            let s = format!("{} / {}", grid.parts.len(), grid.mass);
+            let s = format!("{} / {}", grid.parts.len(), grid.parts_mass);
             draw_text(d, grid.isometry, &s);
         }
     }

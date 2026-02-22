@@ -9,7 +9,7 @@ use bary_core::prelude::*;
 #[derive(Debug, Clone)]
 pub struct VehicleGrid {
     pub name: String,
-    pub mass: Mass,
+    pub parts_mass: Mass,
     pub isometry: Isometry2d,
     pub linear_velocity: Vec2,
     pub angular_velocity: f32,
@@ -48,7 +48,7 @@ pub fn grid_from_blueprint(
     }
     Some(VehicleGrid {
         name: name.into(),
-        mass: initial_mass,
+        parts_mass: initial_mass,
         linear_velocity: Vec2::ZERO,
         angular_velocity: 0.0,
         blueprint: bp.clone(),
@@ -97,45 +97,11 @@ pub fn spawn_grid_from_blueprint(
     let grid = grid_from_blueprint(name, bp, &prototypes).ok_or(BaryError::BadBlueprint)?;
     let grid_id = counter.spawn();
     grids.spawn(grid_id, grid.clone());
-    let spawned_grid = grids.get_mut(grid_id).ok_or(BaryError::EntityNotFound)?;
-
-    for (placement, prototype_id) in &grid.layout {
-        let part_id = counter.spawn();
-
-        let part_entity = Part {
-            placement: *placement,
-            prototype: *prototype_id,
-            grid_id,
-        };
-
-        parts.spawn(part_id, part_entity);
-        spawned_grid.parts.push(part_id);
-
-        let (part, _texture) = prototypes
-            .get_with_log(*prototype_id)
-            .ok_or(BaryError::EntityNotFound)?;
-        if let Some(_data) = &part.thruster_data {
-            let thruster = Thruster {
-                prototype: *prototype_id,
-                grid_id,
-            };
-            thrusters.spawn(part_id, thruster);
-            spawned_grid.thrusters.push(part_id);
-        }
-        if let Some(_data) = &part.computer_data {
-            let cpu = Computer::new(grid_id, *prototype_id);
-            computers.spawn(part_id, cpu);
-            spawned_grid.computers.push(part_id);
-        }
-        if let Some(data) = &part.thruster_data {
-            if !data.is_rcs {
-                continue;
-            }
-            let pos = placement.center_isometry().translation;
-            let light = Light::new(grid_id, *prototype_id, pos);
-            lights.spawn(part_id, light);
-            spawned_grid.lights.push(part_id);
-        }
+    grids.get_mut(grid_id).ok_or(BaryError::EntityNotFound)?;
+    for (_id, proto) in bp.parts() {
+        insert_part_by_name(
+            grid_id, counter, grids, prototypes, parts, thrusters, computers, lights, proto,
+        )?;
     }
     Ok(grid_id)
 }
@@ -147,8 +113,12 @@ pub fn spawn_grid_by_name_world(world: &mut World, name: &str) -> BaryResult<Ent
     spawn_grid_from_blueprint_world(world, name, &bp)
 }
 
-pub fn insert_part_world(grid_id: EntityId, world: &mut World, name: &str) -> BaryResult<EntityId> {
-    insert_part(
+pub fn insert_part_by_name_world(
+    grid_id: EntityId,
+    world: &mut World,
+    instance: &PartInstance,
+) -> BaryResult<EntityId> {
+    insert_part_by_name(
         grid_id,
         &mut world.spawner,
         &mut world.grids,
@@ -157,11 +127,11 @@ pub fn insert_part_world(grid_id: EntityId, world: &mut World, name: &str) -> Ba
         &mut world.thrusters,
         &mut world.computers,
         &mut world.lights,
-        name,
+        instance,
     )
 }
 
-pub fn insert_part(
+pub fn insert_part_by_name(
     grid_id: EntityId,
     counter: &mut EntitySpawner,
     grids: &mut Components<VehicleGrid>,
@@ -170,15 +140,14 @@ pub fn insert_part(
     thrusters: &mut Components<Thruster>,
     computers: &mut Components<Computer>,
     lights: &mut Components<Light>,
-    name: &str,
+    instance: &PartInstance,
 ) -> BaryResult<EntityId> {
     let grid = grids.try_get_mut(grid_id)?;
-    let proto_id = find_part_by_name(prototypes, name).ok_or(BaryError::BadPartName)?;
+    let proto_id = find_part_by_name(prototypes, &instance.name).ok_or(BaryError::BadPartName)?;
     let (proto, _texture) = prototypes.try_get(proto_id)?;
-    let placement = GridPlacement::new((0, 0), Rotation::East, proto.dims);
 
     let part = Part {
-        placement,
+        placement: instance.placement,
         prototype: proto_id,
         grid_id,
     };
@@ -203,7 +172,7 @@ pub fn insert_part(
     }
     if let Some(data) = &proto.thruster_data {
         if data.is_rcs {
-            let pos = placement.center_isometry().translation;
+            let pos = instance.placement.center_isometry().translation;
             let light = Light::new(grid_id, proto_id, pos);
             lights.spawn(part_id, light);
             grid.lights.push(part_id);
@@ -365,7 +334,7 @@ mod tests {
 
         // the mass should already be computed
         let grid = world.grids.get(expected_grid_id).unwrap();
-        assert_eq!(grid.mass, Mass::grams(35134000));
+        assert_eq!(grid.parts_mass, Mass::grams(35134000));
 
         assert_eq!(world.grids.len(), 1);
         assert_eq!(world.parts.len(), 98);
@@ -454,6 +423,9 @@ mod tests {
 
         let proto_id = find_part_by_name(&world.prototypes, part_name).unwrap();
 
+        let (proto, _texture) = world.prototypes.try_get(proto_id).unwrap();
+        let dims = proto.dims;
+
         assert_eq!(proto_id, EntityId(16));
 
         let grid_id = spawn_grid_by_name_world(&mut world, "pollux").unwrap();
@@ -463,7 +435,13 @@ mod tests {
 
         assert_eq!(grid_id, EntityId(31));
 
-        let id = insert_part_world(grid_id, &mut world, part_name).unwrap();
+        let instance = PartInstance::new(
+            part_name,
+            PartLayer::Internal,
+            GridPlacement::new((2, 3), Rotation::East, dims),
+        );
+
+        let id = insert_part_by_name_world(grid_id, &mut world, &instance).unwrap();
 
         assert_eq!(id, EntityId(130));
 
@@ -474,10 +452,37 @@ mod tests {
         assert_eq!(
             part.placement,
             // TODO allow insertion at a given placement
-            GridPlacement::new((0, 0), Rotation::East, (6, 3))
+            GridPlacement::new((2, 3), Rotation::East, (6, 3))
         );
 
         assert_eq!(world.parts.len(), 99);
         assert_eq!(world.thrusters.len(), 19);
+    }
+
+    #[test]
+    fn parts_mass() {
+        let mut world = WorldBuilder::new()
+            .assets("../assets")
+            .blueprint("pollux")
+            .blueprint("bellerophon")
+            .blueprint("remora")
+            .blueprint("spacestation")
+            .build();
+
+        let id = spawn_grid_by_name_world(&mut world, "pollux").unwrap();
+        let mass = world.grids.try_get(id).unwrap().parts_mass;
+        assert_eq!(mass, Mass::grams(35134000));
+
+        let id = spawn_grid_by_name_world(&mut world, "bellerophon").unwrap();
+        let mass = world.grids.try_get(id).unwrap().parts_mass;
+        assert_eq!(mass, Mass::grams(178051000));
+
+        let id = spawn_grid_by_name_world(&mut world, "remora").unwrap();
+        let mass = world.grids.try_get(id).unwrap().parts_mass;
+        assert_eq!(mass, Mass::grams(12339000));
+
+        let id = spawn_grid_by_name_world(&mut world, "spacestation").unwrap();
+        let mass = world.grids.try_get(id).unwrap().parts_mass;
+        assert_eq!(mass, Mass::grams(145638000));
     }
 }
