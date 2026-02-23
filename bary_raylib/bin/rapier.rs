@@ -1,5 +1,5 @@
 use bary_core::prelude::*;
-use bary_raylib::world::{glam_to_raylib, glam_to_raylib_swap_x, glam_to_raylib_swap_y};
+use bary_raylib::world::{glam_to_raylib_swap_x, glam_to_raylib_swap_y};
 use rapier2d::prelude::*;
 use raylib::prelude::*;
 

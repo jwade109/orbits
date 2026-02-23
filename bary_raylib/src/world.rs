@@ -336,6 +336,15 @@ fn propagate_grid_rigid_bodies(grids: &mut Components<VehicleGrid>) {
     }
 }
 
+fn draw_light_source(d: &mut RaylibDrawHandle, p: Vec2, r_scale: f32, color: Color) {
+    for r in [1.0f32, 1.5, 3.0] {
+        let r = r_scale * r.powi(2);
+        let a = 0.2 * 1.0 / r;
+        let color = color.alpha(a);
+        fill_circle(d, p, r, color);
+    }
+}
+
 fn draw_lights(
     d: &mut RaylibDrawHandle,
     grids: &Components<VehicleGrid>,
@@ -353,14 +362,54 @@ fn draw_lights(
             light_isometry.translation += offset;
 
             fill_rectangle(d, light_isometry, Vec2::splat(0.1), Color::ORANGE);
+            draw_light_source(d, light_isometry.translation, 1.0, Color::YELLOW);
+        }
+    }
+}
 
-            for r in [1.0f32, 1.5, 3.0] {
-                let r = r.powi(2);
-                let a = 0.2 * 1.0 / r;
-                let color = Color::YELLOW.alpha(a);
-                fill_circle(d, light_isometry.translation, r, color);
+fn update_thrusters(thrusters: &mut Components<Thruster>, grids: &mut Components<VehicleGrid>) {
+    for t in thrusters.values_mut() {
+        if t.is_on && chance(0.05) {
+            t.is_on = false;
+            if let Ok(grid) = grids.try_get_mut(t.grid_id) {
+                grid.requires_thruster_update = true;
+            }
+        } else if !t.is_on && chance(0.01) {
+            t.is_on = true;
+            if let Ok(grid) = grids.try_get_mut(t.grid_id) {
+                grid.requires_thruster_update = true;
             }
         }
+    }
+}
+
+fn draw_thrusters(
+    d: &mut RaylibDrawHandle,
+    grids: &Components<VehicleGrid>,
+    parts: &Components<Part>,
+    thrusters: &Components<Thruster>,
+) {
+    for (e, t) in thrusters.iter() {
+        if !t.is_on {
+            continue;
+        }
+
+        let Ok(grid) = grids.try_get(t.grid_id) else {
+            continue;
+        };
+        let Ok(part) = parts.try_get(*e) else {
+            continue;
+        };
+
+        let mut iso = part_isometry(grid.isometry, part.placement);
+        let mut dims = part.placement.part_aligned_dims().to_meters();
+        let p = iso.translation + iso.local_y() * dims.y / 2.0;
+        dims.x *= 2.0;
+        let offset = iso.local_x() * dims.x;
+        iso.translation -= offset;
+
+        fill_rectangle(d, iso, dims, Color::RED);
+        draw_light_source(d, p, dims.x, Color::RED);
     }
 }
 
@@ -435,6 +484,7 @@ pub fn update_world(world: &mut World, screen_dims: Vector2, mouse_screen_positi
     update_ring_particles(&mut world.particles);
     update_lights(&mut world.lights);
     update_computers(&mut world.computers);
+    update_thrusters(&mut world.thrusters, &mut world.grids);
 
     update_selection_info(
         &mut world.selection_info,
@@ -664,7 +714,7 @@ pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
     // );
 
     draw_parts(&mut c, &world.grids, &world.parts, &world.camera);
-
+    draw_thrusters(&mut c, &world.grids, &world.parts, &world.thrusters);
     draw_lights(&mut c, &world.grids, &world.lights);
 
     _ = draw_nearest_grids(&mut c, &world.grids, &world.selection_info);
@@ -726,7 +776,6 @@ pub fn draw_parts(
     camera: &Camera2D,
 ) {
     for grid in grids.values() {
-        let root_isometry = grid.isometry;
         for draw_layer in PartLayer::draw_order() {
             let color = match draw_layer {
                 PartLayer::Exterior => Color::WHITE,
@@ -743,7 +792,7 @@ pub fn draw_parts(
                     continue;
                 }
 
-                let iso = part_isometry(root_isometry, part.placement);
+                let iso = part_isometry(grid.isometry, part.placement);
                 let dims = part.placement.part_aligned_dims().to_meters();
                 fill_rectangle(d, iso, dims, color);
             }

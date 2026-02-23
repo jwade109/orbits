@@ -17,6 +17,7 @@ pub struct VehicleGrid {
     pub thrusters: Vec<EntityId>,
     pub computers: Vec<EntityId>,
     pub lights: Vec<EntityId>,
+    pub requires_thruster_update: bool,
 }
 
 fn find_part_by_name(
@@ -40,6 +41,7 @@ pub fn spawn_empty_grid(name: impl Into<String>, bp: &Blueprint) -> Option<Vehic
         thrusters: Vec::new(),
         computers: Vec::new(),
         lights: Vec::new(),
+        requires_thruster_update: false,
     })
 }
 
@@ -144,6 +146,7 @@ pub fn insert_part_by_name(
 
     if let Some(_data) = &proto.thruster_data {
         let thruster = Thruster {
+            is_on: chance(0.3),
             prototype: proto_id,
             grid_id,
         };

@@ -36,7 +36,7 @@ pub struct Light {
 impl Light {
     pub fn new(grid_id: EntityId, prototype_id: EntityId, pos: Vec2) -> Self {
         let total = 600;
-        let on = randint(150, 190) as u32;
+        let on = randint(10, 30) as u32;
         let delay = randint(0, total) as u32;
         Self {
             cycle: DutyCycle::new(on, total as u32, delay),
