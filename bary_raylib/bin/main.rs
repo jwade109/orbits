@@ -12,10 +12,9 @@ fn draw_debug_info(world: &World, d: &mut RaylibDrawHandle) {
 
     s += &format!("\nUpdate: {:08} us", world.timers.update.as_micros());
     s += &format!("\nRender: {:08} us", world.timers.render.as_micros());
+    s += &format!("\nTotal:  {:08} us", world.timers.total.as_micros());
 
     s += &format!("\nMOUSE {:?}", world.mouse_screen_position);
-    s += &format!("\nCAM {:#?}", &world.camera);
-    s += &format!("\nSEL {:#?}", &world.selection_info);
     s += &format!("\nINP {:?}", &world.input);
     s += &format!("\nPRT {:?}", &world.particles.len());
     s += &format!("\nBP {:?}", &world.blueprints);
@@ -69,6 +68,8 @@ fn main() {
     load_assets(&mut world, &mut rl, &thread);
 
     while !rl.window_should_close() {
+        let loop_start = std::time::Instant::now();
+
         while let Some(e) = input_queue.pop() {
             push_event(&mut world, e);
         }
@@ -84,8 +85,8 @@ fn main() {
 
         update_world(&mut world, screen_dims, mouse);
 
-        let time = rl.get_time();
-        shader.set_shader_value(1, time as f32);
+        // let time = rl.get_time();
+        // shader.set_shader_value(1, time as f32);
 
         rl.draw(&thread, |mut d: RaylibDrawHandle<'_>| {
             let start = std::time::Instant::now();
@@ -95,6 +96,7 @@ fn main() {
 
             let end = std::time::Instant::now();
             world.timers.render = end - start;
+            world.timers.total = end - loop_start;
             draw_debug_info(&world, &mut d);
         });
     }

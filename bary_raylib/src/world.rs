@@ -32,6 +32,7 @@ pub type MaybeFont = Option<Font>;
 pub struct Timers {
     pub update: Duration,
     pub render: Duration,
+    pub total: Duration,
 }
 
 #[derive(Default, Debug)]
