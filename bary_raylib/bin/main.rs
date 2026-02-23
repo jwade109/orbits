@@ -10,8 +10,8 @@ fn draw_debug_info(world: &World, d: &mut RaylibDrawHandle) {
 
     s += &format!("{:?}", d.get_fps());
 
-    s += &format!("\nUpdate: {:?}", world.timers.update);
-    s += &format!("\nRender: {:?}", world.timers.render);
+    s += &format!("\nUpdate: {:08} us", world.timers.update.as_micros());
+    s += &format!("\nRender: {:08} us", world.timers.render.as_micros());
 
     s += &format!("\nMOUSE {:?}", world.mouse_screen_position);
     s += &format!("\nCAM {:#?}", &world.camera);
@@ -31,7 +31,9 @@ fn draw_debug_info(world: &World, d: &mut RaylibDrawHandle) {
         s += &format!("\n{:?}", e);
     }
 
-    d.draw_text(&s, 12, 12, 20, Color::WHITE);
+    if let Some(font) = &world.lato_regular {
+        d.draw_text_ex(&font, &s, Vector2::new(12.0, 12.0), 20.0, 0.0, Color::WHITE);
+    }
 }
 
 fn main() {

@@ -26,6 +26,8 @@ impl RingParticle {
 
 pub type MaybeTexture = Option<Texture2D>;
 
+pub type MaybeFont = Option<Font>;
+
 #[derive(Default)]
 pub struct Timers {
     pub update: Duration,
@@ -58,7 +60,9 @@ pub struct World {
     pub computers: Components<Computer>,
     pub lights: Components<Light>,
     pub grids: Components<VehicleGrid>,
+
     pub circle_texture: MaybeTexture,
+    pub lato_regular: MaybeFont,
 }
 
 impl World {
@@ -90,6 +94,7 @@ impl World {
             computers: Components::default(),
             lights: Components::default(),
             circle_texture: None,
+            lato_regular: None,
         }
     }
 }
@@ -100,6 +105,7 @@ pub fn load_assets(
     thread: &raylib::RaylibThread,
 ) {
     world.circle_texture = rl.load_texture(thread, "assets/circle.png").ok();
+    world.lato_regular = rl.load_font(thread, "assets/fonts/Lato-Regular.ttf").ok();
 
     for (proto, tex) in world.prototypes.values_mut() {
         let filename = format!("assets/parts/{}/skin.png", proto.part_name());
@@ -357,6 +363,11 @@ fn draw_lights(
     }
 }
 
+fn screen_to_world(camera: &Camera2D, screen_pos: Vector2) -> Vec2 {
+    let delta = raylib_to_glam_invert_y(screen_pos - camera.offset);
+    delta + raylib_to_glam_invert_y(camera.target)
+}
+
 fn update_selection_info(
     info: &mut SelectionInfo,
     grids: &Components<VehicleGrid>,
@@ -390,7 +401,21 @@ fn set_camera_if_following(
     target.target = glam_to_raylib_swap_y(grid.isometry.translation);
     target.rotation = grid.isometry.rotation.to_degrees();
 
-    *actual = *target;
+    actual.offset = target.offset;
+    actual.target = target.target;
+    actual.rotation = target.rotation;
+}
+
+fn draw_nearest_grids(
+    d: &mut RaylibDrawHandle,
+    grids: &Components<VehicleGrid>,
+    sel: &SelectionInfo,
+) -> BaryResult<()> {
+    if let Some((grid_id, _)) = sel.camera_hovered {
+        let grid = grids.try_get(grid_id)?;
+        draw_circle(d, grid.isometry.translation, 15.0, Color::RED);
+    }
+    Ok(())
 }
 
 pub fn update_world(world: &mut World, screen_dims: Vector2, mouse_screen_position: Option<Vec2>) {
@@ -529,6 +554,11 @@ fn fill_circle(d: &mut RaylibDrawHandle, p: Vec2, r: f32, color: Color) {
     d.draw_circle_v(center, r, color);
 }
 
+fn draw_circle(d: &mut RaylibDrawHandle, p: Vec2, r: f32, color: Color) {
+    let center = glam_to_raylib_swap_y(p);
+    d.draw_circle_lines_v(center, r, color);
+}
+
 fn draw_test_isos(d: &mut RaylibDrawHandle) {
     let test_isos = [
         (
@@ -636,13 +666,16 @@ pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
 
     draw_lights(&mut c, &world.grids, &world.lights);
 
+    _ = draw_nearest_grids(&mut c, &world.grids, &world.selection_info);
+
+    // draw_isometry_axes(&mut c, get_isometry(&world.camera), "CAM");
+    // draw_isometry_axes(&mut c, get_isometry(&world.target_camera), "");
+
     drop(c);
 
     draw_grid_far_indicators(&world.grids, d, &world.camera);
 
     // draw_parts_zoo(&world.prototypes, &mut d);
-    // draw_isometry_axes(&mut d, get_isometry(&world.camera), "CAM");
-    // draw_isometry_axes(&mut d, get_isometry(&world.target_camera), "");
     // draw_test_isos(&mut d)
 }
 

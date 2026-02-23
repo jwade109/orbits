@@ -46,6 +46,8 @@ pub fn dev_world(assets_dir: &str) -> BaryResult<World> {
         let grid = world.grids.try_get_mut(id)?;
         grid.isometry.translation = randvec(10.0, 100.0);
         grid.isometry.rotation = rand(-0.3, 0.3);
+        grid.angular_velocity = rand(-0.1, 0.1);
+        grid.linear_velocity = randvec(0.1, 1.0);
     }
 
     Ok(world)

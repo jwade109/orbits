@@ -215,7 +215,7 @@ pub fn find_closest_grid(
     let mut best: Option<(EntityId, Vec2, f32)> = None;
     for (e, grid) in grids.iter() {
         let in_frame = express_in_frame(grid.isometry, test_pos);
-        let dist = in_frame.distance_squared(grid.isometry.translation);
+        let dist = in_frame.length_squared();
         if let Some(best) = &mut best {
             if dist < best.2 {
                 best.0 = *e;
