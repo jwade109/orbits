@@ -1,5 +1,5 @@
-use crate::prelude::*;
 use crate::math::UVec2;
+use crate::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

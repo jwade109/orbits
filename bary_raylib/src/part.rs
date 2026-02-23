@@ -5,6 +5,6 @@ pub struct Part {
     // TODO this field is kinda duplicated
     // with the prototype information.
     pub layer: PartLayer,
-    pub prototype: EntityId,
-    pub grid_id: EntityId,
+    pub prototype: Ent,
+    pub grid_id: Ent,
 }

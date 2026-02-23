@@ -3,14 +3,14 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub struct AsteroidBelt {
-    parent: EntityId,
+    parent: Ent,
     inner: SparseOrbit,
     outer: SparseOrbit,
 }
 
 impl AsteroidBelt {
     pub fn new(
-        parent: EntityId,
+        parent: Ent,
         argp: f64,
         rp: f64,
         ra: f64,
@@ -53,13 +53,7 @@ impl AsteroidBelt {
         Some(Self::from_orbits(orbit.0, inner, outer))
     }
 
-    pub fn circular(
-        parent: EntityId,
-        inner: f64,
-        outer: f64,
-        body: Body,
-        retrograde: bool,
-    ) -> Self {
+    pub fn circular(parent: Ent, inner: f64, outer: f64, body: Body, retrograde: bool) -> Self {
         let inner = SparseOrbit::circular(inner, body, Nanotime::zero(), retrograde);
         let outer = SparseOrbit::circular(outer, body, Nanotime::zero(), retrograde);
         Self {
@@ -69,7 +63,7 @@ impl AsteroidBelt {
         }
     }
 
-    pub fn from_orbits(parent: EntityId, inner: SparseOrbit, outer: SparseOrbit) -> Self {
+    pub fn from_orbits(parent: Ent, inner: SparseOrbit, outer: SparseOrbit) -> Self {
         assert!(!inner.is_hyperbolic());
         assert!(!outer.is_hyperbolic());
         AsteroidBelt {
@@ -79,7 +73,7 @@ impl AsteroidBelt {
         }
     }
 
-    pub fn parent(&self) -> EntityId {
+    pub fn parent(&self) -> Ent {
         self.parent
     }
 

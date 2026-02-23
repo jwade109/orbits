@@ -38,8 +38,8 @@ pub struct Timers {
 
 #[derive(Default, Debug)]
 pub struct SelectionInfo {
-    pub camera_hovered: Option<(EntityId, Vec2)>,
-    pub mouse_hovered: Option<(EntityId, Vec2)>,
+    pub camera_hovered: Option<(Ent, Vec2)>,
+    pub mouse_hovered: Option<(Ent, Vec2)>,
 }
 
 pub struct World {
@@ -47,7 +47,7 @@ pub struct World {
     pub mouse_screen_position: Option<Vec2>,
     pub selection_info: SelectionInfo,
     pub spawner: EntitySpawner,
-    pub follow_vehicle: Option<EntityId>,
+    pub follow_vehicle: Option<Ent>,
     pub snap_camera_to_local_planet: bool,
     pub screen_dims: Vector2,
     pub input: InputState,
@@ -62,7 +62,7 @@ pub struct World {
     pub computers: Components<Computer>,
     pub lights: Components<Light>,
     pub grids: Components<VehicleGrid>,
-    pub grids_to_update: BTreeSet<EntityId>,
+    pub grids_to_update: BTreeSet<Ent>,
     pub circle_texture: MaybeTexture,
     pub lato_regular: MaybeFont,
 }
@@ -150,7 +150,7 @@ fn update_camera_target(
     input: &InputState,
     screen_dims: Vector2,
     target: &mut Camera2D,
-    follow: &mut Option<EntityId>,
+    follow: &mut Option<Ent>,
 ) {
     target.offset = screen_dims / 2.0;
 
@@ -301,7 +301,7 @@ fn toggle_camera_local_normal_snapping(events: &VecDeque<Event>, snap_camera: &m
 fn toggle_following_on_key_f(
     events: &VecDeque<Event>,
     sel: &SelectionInfo,
-    follow: &mut Option<EntityId>,
+    follow: &mut Option<Ent>,
 ) {
     let pressed_f = events
         .iter()
@@ -371,7 +371,7 @@ fn draw_lights(
 
 fn draw_grids_if_updated_this_frame(
     d: &mut RaylibDrawHandle,
-    updates: &BTreeSet<EntityId>,
+    updates: &BTreeSet<Ent>,
     grids: &Components<VehicleGrid>,
 ) {
     for e in updates {
@@ -382,7 +382,7 @@ fn draw_grids_if_updated_this_frame(
     }
 }
 
-fn update_thrusters(thrusters: &mut Components<Thruster>) -> BTreeSet<EntityId> {
+fn update_thrusters(thrusters: &mut Components<Thruster>) -> BTreeSet<Ent> {
     let mut grids_to_update = BTreeSet::new();
     for t in thrusters.values_mut() {
         if t.is_on && chance(0.005) {
@@ -448,7 +448,7 @@ fn update_selection_info(
 }
 
 fn set_camera_if_following(
-    follow: Option<EntityId>,
+    follow: Option<Ent>,
     grids: &Components<VehicleGrid>,
     target: &mut Camera2D,
     actual: &mut Camera2D,

@@ -1,4 +1,7 @@
-use bevy::{asset::RenderAssetUsages, mesh::{Indices, PrimitiveTopology}};
+use bevy::{
+    asset::RenderAssetUsages,
+    mesh::{Indices, PrimitiveTopology},
+};
 
 use crate::*;
 
@@ -54,7 +57,6 @@ impl MeshMaker {
     }
 
     pub fn rectangle(&mut self, points: [Vec2; 4]) {
-
         let n = self.positions.len() as u32;
 
         self.positions.push(to_arr(points[0]));
@@ -67,7 +69,8 @@ impl MeshMaker {
             self.uvs.push([0.0, 0.0]);
         }
 
-        self.indices.extend_from_slice(&[n, n + 1, n + 2, n, n + 2, n + 3]);
+        self.indices
+            .extend_from_slice(&[n, n + 1, n + 2, n, n + 2, n + 3]);
 
         self.colors.extend_from_slice(&[
             self.color.to_f32_array(),

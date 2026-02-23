@@ -28,13 +28,13 @@ impl DutyCycle {
 pub struct Light {
     pub cycle: DutyCycle,
     pub ticks: u32,
-    pub grid_id: EntityId,
-    pub prototype_id: EntityId,
+    pub grid_id: Ent,
+    pub prototype_id: Ent,
     pub position: Vec2,
 }
 
 impl Light {
-    pub fn new(grid_id: EntityId, prototype_id: EntityId, pos: Vec2) -> Self {
+    pub fn new(grid_id: Ent, prototype_id: Ent, pos: Vec2) -> Self {
         let total = 6000;
         let on = randint(10, 30) as u32;
         let delay = randint(0, total) as u32;

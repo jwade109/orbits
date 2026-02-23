@@ -1,9 +1,9 @@
+use bary_core::prelude::*;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 use bevy_vector_shapes::prelude::*;
 use early_returns::ok_or_continue;
 use early_returns::some_or_continue;
-use bary_core::prelude::*;
 
 use crate::PartContainers;
 
@@ -295,7 +295,10 @@ pub fn age_mining_visuals_system(
     }
 }
 
-pub fn render_mining_indicators_system(mut painter: ShapePainter, indicators: Query<&MiningIndicator>) {
+pub fn render_mining_indicators_system(
+    mut painter: ShapePainter,
+    indicators: Query<&MiningIndicator>,
+) {
     painter.reset();
     let side_length = CHUNK_WIDTH / TILES_PER_CHUNK_SIDE as f32 / 4.0;
     for ind in indicators {

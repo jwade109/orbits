@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 pub enum PlanetarySystem {
     Void,
     Planet {
-        id: EntityId,
+        id: Ent,
         name: String,
         body: Body,
         subsystems: Vec<(SparseOrbit, Self)>,
@@ -20,7 +20,7 @@ pub struct Planet {
 }
 
 impl PlanetarySystem {
-    pub fn new(id: EntityId, name: impl Into<String>, body: Body) -> Self {
+    pub fn new(id: Ent, name: impl Into<String>, body: Body) -> Self {
         Self::Planet {
             id,
             name: name.into(),
@@ -29,7 +29,7 @@ impl PlanetarySystem {
         }
     }
 
-    pub fn planet_ids(&self) -> Vec<EntityId> {
+    pub fn planet_ids(&self) -> Vec<Ent> {
         match self {
             Self::Void => vec![],
             Self::Planet {
@@ -49,11 +49,11 @@ impl PlanetarySystem {
 
     fn lookup_inner(
         &self,
-        lup_id: EntityId,
+        lup_id: Ent,
         stamp: Nanotime,
         wrt: PV,
-        parent_id: Option<EntityId>,
-    ) -> Option<(Planet, PV, Option<EntityId>, &Self)> {
+        parent_id: Option<Ent>,
+    ) -> Option<(Planet, PV, Option<Ent>, &Self)> {
         match self {
             Self::Void => None,
             Self::Planet {
@@ -86,9 +86,9 @@ impl PlanetarySystem {
 
     pub fn lookup_planet(
         &self,
-        id: EntityId,
+        id: Ent,
         stamp: Nanotime,
-    ) -> Option<(Planet, PV, Option<EntityId>, &Self)> {
+    ) -> Option<(Planet, PV, Option<Ent>, &Self)> {
         self.lookup_inner(id, stamp, PV::ZERO, None)
     }
 }

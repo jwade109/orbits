@@ -1,10 +1,9 @@
+use bevy::prelude::*;
 use clap::Parser;
 use std::path::PathBuf;
-use bevy::prelude::*;
 
 /// Game arguments
-#[derive(Resource)]
-#[derive(Parser, Debug, Default, Clone)]
+#[derive(Resource, Parser, Debug, Default, Clone)]
 #[command(version, about, long_about = None)]
 pub struct ProgramContext {
     /// Directory for game assets and saved files
@@ -19,7 +18,9 @@ impl ProgramContext {
 
     pub fn assets_dir(&self) -> PathBuf {
         let current_dir = std::env::current_dir().unwrap_or(PathBuf::new());
-        self.assets_dir.clone().unwrap_or(current_dir.join("assets"))
+        self.assets_dir
+            .clone()
+            .unwrap_or(current_dir.join("assets"))
     }
 
     pub fn settings_path(&self) -> PathBuf {

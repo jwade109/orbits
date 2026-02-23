@@ -16,8 +16,8 @@ pub struct Computer {
     pub position: Vec2,
     pub vehicle_control: VehicleControl,
     pub control_status: VehicleControlStatus,
-    pub grid_id: EntityId,
-    pub prototype: EntityId,
+    pub grid_id: Ent,
+    pub prototype: Ent,
 }
 
 #[derive(Sequence, Default, Debug, Clone, Copy, PartialEq, Eq)]
@@ -67,7 +67,7 @@ impl ComputerMode {
 }
 
 impl Computer {
-    pub fn new(grid_id: EntityId, prototype: EntityId) -> Self {
+    pub fn new(grid_id: Ent, prototype: Ent) -> Self {
         let n = randint(10, 100) as u32;
         Self {
             on: true,

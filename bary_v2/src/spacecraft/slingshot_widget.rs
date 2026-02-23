@@ -5,7 +5,8 @@ use bevy::prelude::*;
 use bevy_vector_shapes::prelude::*;
 
 use crate::{
-    Computer, ComputerMode, CursorWorldPosition, DeltaVelocity, PartsResource, SelectedSpacecraft, SpacecraftGrid, SpawnAnimText, draw_blueprint
+    Computer, ComputerMode, CursorWorldPosition, DeltaVelocity, PartsResource, SelectedSpacecraft,
+    SpacecraftGrid, SpawnAnimText, draw_blueprint,
 };
 
 #[derive(Resource, Debug, Default)]

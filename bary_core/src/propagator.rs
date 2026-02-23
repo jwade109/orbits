@@ -5,9 +5,9 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub enum EventType {
-    Collide(EntityId),
-    Escape(EntityId),
-    Encounter(EntityId),
+    Collide(Ent),
+    Escape(Ent),
+    Encounter(Ent),
     Impulse(Vec2),
     NumericalError,
 }
@@ -213,7 +213,7 @@ impl Propagator {
         }
     }
 
-    pub fn parent(&self) -> EntityId {
+    pub fn parent(&self) -> Ent {
         self.orbit.0
     }
 
@@ -238,7 +238,7 @@ impl Propagator {
     pub fn finish_or_compute_until(
         &mut self,
         stamp: Nanotime,
-        bodies: &[(EntityId, &SparseOrbit, f64)],
+        bodies: &[(Ent, &SparseOrbit, f64)],
     ) -> Result<(), PredictError<Nanotime>> {
         while !self.calculated_to(stamp) {
             let e = self.next(bodies);
@@ -317,7 +317,7 @@ impl Propagator {
 
     pub fn next(
         &mut self,
-        bodies: &[(EntityId, &SparseOrbit, f64)],
+        bodies: &[(Ent, &SparseOrbit, f64)],
     ) -> Result<(), PredictError<Nanotime>> {
         let end = match self.horizon {
             HorizonState::Continuing(end) => end,

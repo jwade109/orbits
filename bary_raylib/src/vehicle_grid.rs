@@ -16,10 +16,10 @@ pub struct VehicleGrid {
     pub linear_acceleration: Vec2,
     pub angular_acceleration: f32,
     pub external_thrust: IVec2,
-    pub parts: Vec<EntityId>,
-    pub thrusters: Vec<EntityId>,
-    pub computers: Vec<EntityId>,
-    pub lights: Vec<EntityId>,
+    pub parts: Vec<Ent>,
+    pub thrusters: Vec<Ent>,
+    pub computers: Vec<Ent>,
+    pub lights: Vec<Ent>,
     pub requires_thruster_update: bool,
 }
 
@@ -53,7 +53,7 @@ pub fn spawn_grid_from_blueprint(
     lights: &mut Components<Light>,
     name: impl Into<String>,
     bp: &Blueprint,
-) -> BaryResult<EntityId> {
+) -> BaryResult<Ent> {
     let grid = VehicleGrid::with_name(name);
     let grid_id = counter.spawn();
     grids.spawn(grid_id, grid.clone());
@@ -75,7 +75,7 @@ pub mod world {
         world: &mut World,
         name: impl Into<String>,
         bp: &Blueprint,
-    ) -> BaryResult<EntityId> {
+    ) -> BaryResult<Ent> {
         super::spawn_grid_from_blueprint(
             &mut world.spawner,
             &mut world.prototypes,
@@ -91,12 +91,12 @@ pub mod world {
 
     /// Spawns an empty grid with the given name.
     /// Exclusive version of [`super::spawn_empty_grid`].
-    pub fn spawn_empty_grid(world: &mut World, name: &str) -> EntityId {
+    pub fn spawn_empty_grid(world: &mut World, name: &str) -> Ent {
         super::spawn_empty_grid(&mut world.spawner, &mut world.grids, name)
     }
 
     /// Spawns a new grid according to a named blueprint.
-    pub fn spawn_grid_by_name(world: &mut World, name: &str) -> BaryResult<EntityId> {
+    pub fn spawn_grid_by_name(world: &mut World, name: &str) -> BaryResult<Ent> {
         let bp = find::blueprint_by_name(&world.blueprints, name)
             .ok_or(BaryError::BadBlueprint)?
             .clone();
@@ -106,10 +106,10 @@ pub mod world {
     /// Inserts a part into an existing grid.
     /// Exclusive version of [`super::insert_part`].
     pub fn insert_part(
-        grid_id: EntityId,
+        grid_id: Ent,
         world: &mut World,
         instance: &PartInstance,
-    ) -> BaryResult<EntityId> {
+    ) -> BaryResult<Ent> {
         super::insert_part(
             grid_id,
             &mut world.spawner,
@@ -127,7 +127,7 @@ pub mod world {
     /// in the root grid if necessary.
     /// Exclusive version of [`super::set_thruster_state`].
     pub fn set_thruster_state(
-        thruster_id: EntityId,
+        thruster_id: Ent,
         world: &mut World,
         new_state: bool,
     ) -> BaryResult<()> {
@@ -146,7 +146,7 @@ pub fn spawn_empty_grid(
     spawner: &mut EntitySpawner,
     grids: &mut Components<VehicleGrid>,
     name: &str,
-) -> EntityId {
+) -> Ent {
     let grid = VehicleGrid::with_name(name);
     let id = spawner.spawn();
     grids.spawn(id, grid);
@@ -154,7 +154,7 @@ pub fn spawn_empty_grid(
 }
 
 pub fn insert_part(
-    grid_id: EntityId,
+    grid_id: Ent,
     counter: &mut EntitySpawner,
     grids: &mut Components<VehicleGrid>,
     prototypes: &Components<(PartPrototype, MaybeTexture)>,
@@ -163,7 +163,7 @@ pub fn insert_part(
     computers: &mut Components<Computer>,
     lights: &mut Components<Light>,
     instance: &PartInstance,
-) -> BaryResult<EntityId> {
+) -> BaryResult<Ent> {
     let grid = grids.try_get_mut(grid_id)?;
     let proto_id = find::part_by_name(prototypes, &instance.name).ok_or(BaryError::BadPartName)?;
     let (proto, _texture) = prototypes.try_get(proto_id)?;
@@ -210,7 +210,7 @@ pub fn insert_part(
 }
 
 pub fn despawn_grid(
-    grid_id: EntityId,
+    grid_id: Ent,
     grids: &mut Components<VehicleGrid>,
     parts: &mut Components<Part>,
     thrusters: &mut Components<Thruster>,
@@ -249,18 +249,15 @@ pub mod find {
     pub fn part_by_name(
         prototypes: &Components<(PartPrototype, MaybeTexture)>,
         name: &str,
-    ) -> Option<EntityId> {
+    ) -> Option<Ent> {
         prototypes
             .iter()
             .find(|(_, (proto, _))| proto.part_name() == name)
             .map(|e| *e.0)
     }
 
-    pub fn closest_grid(
-        grids: &Components<VehicleGrid>,
-        test_pos: Vec2,
-    ) -> Option<(EntityId, Vec2)> {
-        let mut best: Option<(EntityId, Vec2, f32)> = None;
+    pub fn closest_grid(grids: &Components<VehicleGrid>, test_pos: Vec2) -> Option<(Ent, Vec2)> {
+        let mut best: Option<(Ent, Vec2, f32)> = None;
         for (e, grid) in grids.iter() {
             let in_frame = express_in_frame(grid.isometry, test_pos);
             let dist = in_frame.length_squared();
@@ -282,7 +279,7 @@ pub fn get_blueprint(
     grids: &Components<VehicleGrid>,
     parts: &Components<Part>,
     prototypes: &Components<(PartPrototype, MaybeTexture)>,
-    grid_id: EntityId,
+    grid_id: Ent,
 ) -> BaryResult<Blueprint> {
     let grid = grids.try_get(grid_id)?;
     let mut bp = Blueprint::new();
@@ -295,7 +292,7 @@ pub fn get_blueprint(
 }
 
 pub fn get_sum_linear_forces(
-    grid_id: EntityId,
+    grid_id: Ent,
     grids: &Components<VehicleGrid>,
     parts: &Components<Part>,
     thrusters: &Components<Thruster>,
@@ -313,7 +310,7 @@ pub fn get_sum_linear_forces(
 }
 
 fn set_thruster_state(
-    thruster_id: EntityId,
+    thruster_id: Ent,
     grids: &mut Components<VehicleGrid>,
     thrusters: &mut Components<Thruster>,
     parts: &Components<Part>,
@@ -362,39 +359,39 @@ mod tests {
         let mut iter = world.prototypes.iter();
 
         let (id, (proto, _texture)) = iter.next().unwrap();
-        assert_eq!(*id, EntityId(0));
+        assert_eq!(*id, Ent(0));
         assert_eq!(proto.part_name(), "angled-frame");
 
         let (id, (proto, _texture)) = iter.next().unwrap();
-        assert_eq!(*id, EntityId(1));
+        assert_eq!(*id, Ent(1));
         assert_eq!(proto.part_name(), "antenna");
 
         let (id, (proto, _texture)) = iter.next().unwrap();
-        assert_eq!(*id, EntityId(2));
+        assert_eq!(*id, Ent(2));
         assert_eq!(proto.part_name(), "battery");
 
         let (id, (proto, _texture)) = iter.next().unwrap();
-        assert_eq!(*id, EntityId(3));
+        assert_eq!(*id, Ent(3));
         assert_eq!(proto.part_name(), "cargo");
 
         let (id, (proto, _texture)) = iter.next().unwrap();
-        assert_eq!(*id, EntityId(4));
+        assert_eq!(*id, Ent(4));
         assert_eq!(proto.part_name(), "chemical-plant");
 
         let (id, (proto, _texture)) = iter.next().unwrap();
-        assert_eq!(*id, EntityId(5));
+        assert_eq!(*id, Ent(5));
         assert_eq!(proto.part_name(), "container");
 
         let (id, (proto, _texture)) = iter.next().unwrap();
-        assert_eq!(*id, EntityId(6));
+        assert_eq!(*id, Ent(6));
         assert_eq!(proto.part_name(), "cpu");
 
         let (id, (proto, _texture)) = iter.next().unwrap();
-        assert_eq!(*id, EntityId(7));
+        assert_eq!(*id, Ent(7));
         assert_eq!(proto.part_name(), "debug-item-source");
 
         let (id, (proto, _texture)) = iter.next().unwrap();
-        assert_eq!(*id, EntityId(8));
+        assert_eq!(*id, Ent(8));
         assert_eq!(proto.part_name(), "docking-port");
     }
 
@@ -427,7 +424,7 @@ mod tests {
         )
         .expect("Expected the grid ID");
 
-        let expected_grid_id = EntityId(34);
+        let expected_grid_id = Ent(34);
 
         // this entity should be the same every time
         assert_eq!(grid_id, expected_grid_id);
@@ -446,9 +443,9 @@ mod tests {
         let (id, cpu) = world.computers.iter().next().unwrap();
 
         // these entities should be the same every time
-        assert_eq!(*id, EntityId(58));
+        assert_eq!(*id, Ent(58));
         assert_eq!(cpu.grid_id, expected_grid_id);
-        assert_eq!(cpu.prototype, EntityId(6));
+        assert_eq!(cpu.prototype, Ent(6));
 
         // get the prototype definition for the computer
         let (proto, _texture) = world.prototypes.get(cpu.prototype).unwrap();
@@ -500,7 +497,7 @@ mod tests {
         assert!(find::closest_grid(&world.grids, Vec2::new(100.0, 200.0)).is_none());
 
         let id = world::spawn_grid_by_name(&mut world, "remora").unwrap();
-        assert_eq!(id, EntityId(34));
+        assert_eq!(id, Ent(34));
 
         let grid = world.grids.try_get_mut(id).unwrap();
         grid.isometry.translation = (40.0, 156.0).into();
@@ -508,7 +505,7 @@ mod tests {
         for _ in 0..100 {
             update_world(&mut world, (1080.0, 720.0).into(), None);
             let e = find::closest_grid(&world.grids, Vec2::new(100.0, 200.0));
-            assert_eq!(e, Some((EntityId(34), Vec2::new(60.0, 44.0))));
+            assert_eq!(e, Some((Ent(34), Vec2::new(60.0, 44.0))));
         }
     }
 
@@ -526,14 +523,14 @@ mod tests {
         let (proto, _texture) = world.prototypes.try_get(proto_id).unwrap();
         let dims = proto.dims;
 
-        assert_eq!(proto_id, EntityId(16));
+        assert_eq!(proto_id, Ent(16));
 
         let grid_id = world::spawn_grid_by_name(&mut world, "pollux").unwrap();
 
         assert_eq!(world.parts.len(), 98);
         assert_eq!(world.thrusters.len(), 18);
 
-        assert_eq!(grid_id, EntityId(31));
+        assert_eq!(grid_id, Ent(31));
 
         let instance = PartInstance::new(
             part_name,
@@ -543,7 +540,7 @@ mod tests {
 
         let id = world::insert_part(grid_id, &mut world, &instance).unwrap();
 
-        assert_eq!(id, EntityId(130));
+        assert_eq!(id, Ent(130));
 
         let part = world.parts.get(id).unwrap();
 
@@ -640,7 +637,7 @@ mod tests {
             GridPlacement::new((0, 0), Rotation::East, (3, 3)),
         );
 
-        let result = world::insert_part(EntityId(103), &mut world, &instance);
+        let result = world::insert_part(Ent(103), &mut world, &instance);
 
         assert_eq!(result, Err(BaryError::EntityNotFound));
     }
@@ -656,7 +653,7 @@ mod tests {
         assert_eq!(grid.parts.len(), 0);
         assert_eq!(grid.parts_mass, Mass::ZERO);
 
-        assert_eq!(grid_id, EntityId(30));
+        assert_eq!(grid_id, Ent(30));
 
         let instance_a = PartInstance::new(
             "motor",
@@ -680,8 +677,8 @@ mod tests {
         assert_eq!(grid.thrusters, vec![a_id, b_id]);
         assert_eq!(grid.parts_mass, Mass::grams(870000));
 
-        assert_eq!(a_id, EntityId(31));
-        assert_eq!(b_id, EntityId(32));
+        assert_eq!(a_id, Ent(31));
+        assert_eq!(b_id, Ent(32));
 
         let r1 = world::set_thruster_state(a_id, &mut world, true);
         let r2 = world::set_thruster_state(b_id, &mut world, true);

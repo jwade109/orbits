@@ -6,7 +6,8 @@ use bevy_egui::EguiContexts;
 use early_returns::{ok_or_continue, ok_or_return};
 
 use crate::{
-    Computer, DockingTrigger, GridParts, PartInGrid, SpacecraftGrid, spacecraft::sysparam_api::Spacecraft
+    Computer, DockingTrigger, GridParts, PartInGrid, SpacecraftGrid,
+    spacecraft::sysparam_api::Spacecraft,
 };
 
 use super::{PartsResource, SelectedSpacecraft};

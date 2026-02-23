@@ -1,5 +1,5 @@
-use bevy::prelude::{Entity, Message, IVec2, UVec2, Vec2};
 use bary_core::prelude::*;
+use bevy::prelude::{Entity, IVec2, Message, UVec2, Vec2};
 
 #[derive(Message, Debug, Clone, Copy)]
 pub struct GenerateChunk {

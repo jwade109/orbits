@@ -1,7 +1,7 @@
+use bary_core::prelude::*;
 use bevy::color::palettes::css::*;
 use bevy::color::palettes::tailwind::*;
 use bevy::prelude::*;
-use bary_core::prelude::*;
 use noise::{NoiseFn, Perlin, Seedable, Simplex};
 use std::collections::{HashMap, HashSet};
 

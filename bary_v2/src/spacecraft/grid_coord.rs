@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use bary_core::prelude::PartCoord;
+use bevy::prelude::*;
 
 #[derive(Clone, Copy)]
 pub struct GridCoord {

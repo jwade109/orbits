@@ -1,21 +1,19 @@
-use bary_core::prelude::EntityId;
+use bary_core::prelude::Ent;
 use std::collections::BTreeMap;
 
 #[derive(Debug)]
 pub struct EntitySpawner {
-    next_id: EntityId,
+    next_id: Ent,
 }
 
 impl Default for EntitySpawner {
     fn default() -> Self {
-        Self {
-            next_id: EntityId(0),
-        }
+        Self { next_id: Ent(0) }
     }
 }
 
 impl EntitySpawner {
-    pub fn spawn(&mut self) -> EntityId {
+    pub fn spawn(&mut self) -> Ent {
         let ret = self.next_id;
         self.next_id.0 += 1;
         ret
@@ -23,11 +21,11 @@ impl EntitySpawner {
 }
 
 pub struct Components<E> {
-    values: BTreeMap<EntityId, E>,
+    values: BTreeMap<Ent, E>,
 }
 
 impl<E> std::ops::Deref for Components<E> {
-    type Target = BTreeMap<EntityId, E>;
+    type Target = BTreeMap<Ent, E>;
     fn deref(&self) -> &Self::Target {
         &self.values
     }
@@ -48,11 +46,11 @@ impl<E> Default for Components<E> {
 }
 
 impl<E> Components<E> {
-    pub fn spawn(&mut self, id: EntityId, e: E) {
+    pub fn spawn(&mut self, id: Ent, e: E) {
         self.values.insert(id, e);
     }
 
-    pub fn despawn(&mut self, id: EntityId) -> BaryResult<E> {
+    pub fn despawn(&mut self, id: Ent) -> BaryResult<E> {
         let e = self.values.remove(&id);
         if let Some(e) = e {
             Ok(e)
@@ -61,23 +59,23 @@ impl<E> Components<E> {
         }
     }
 
-    pub fn get(&self, id: EntityId) -> Option<&E> {
+    pub fn get(&self, id: Ent) -> Option<&E> {
         self.values.get(&id)
     }
 
-    pub fn try_get(&self, id: EntityId) -> BaryResult<&E> {
+    pub fn try_get(&self, id: Ent) -> BaryResult<&E> {
         self.values.get(&id).ok_or(BaryError::EntityNotFound)
     }
 
-    pub fn get_mut(&mut self, id: EntityId) -> Option<&mut E> {
+    pub fn get_mut(&mut self, id: Ent) -> Option<&mut E> {
         self.values.get_mut(&id)
     }
 
-    pub fn try_get_mut(&mut self, id: EntityId) -> BaryResult<&mut E> {
+    pub fn try_get_mut(&mut self, id: Ent) -> BaryResult<&mut E> {
         self.values.get_mut(&id).ok_or(BaryError::EntityNotFound)
     }
 
-    pub fn get_with_log(&self, id: EntityId) -> Option<&E> {
+    pub fn get_with_log(&self, id: Ent) -> Option<&E> {
         let e = self.values.get(&id);
         if e.is_none() {
             println!("Lookup failed: {id}");
