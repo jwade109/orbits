@@ -283,10 +283,19 @@ pub fn get_yaw(transform: Isometry2d) -> f32 {
     transform.rotation
 }
 
+// TODO duplicate
 pub fn in_frame(transform: Isometry2d, pos: Vec2) -> Vec2 {
     let offset = pos - transform.translation;
     let yaw = get_yaw(transform);
     rotate(offset, -yaw)
+}
+
+// TODO duplicate
+pub fn express_in_frame(frame: Isometry2d, point: Vec2) -> Vec2 {
+    let delta = point - frame.translation;
+    let x = frame.local_x().dot(delta);
+    let y = frame.local_y().dot(delta);
+    (x, y).into()
 }
 
 pub fn low_pass(actual: f32, target: f32, rate: f32) -> f32 {
@@ -347,5 +356,19 @@ mod tests {
             grid_to_part_local((6, 4).into(), Rotation::South, (12, 2).into()),
             PartCoord::new((2, 6))
         );
+    }
+
+    #[test]
+    fn into_isometry_frame() {
+        let iso = Isometry2d::new((3.4, 12.1).into(), 0.3);
+
+        let point = Vec2::new(17.3, 20.9);
+
+        let in_frame = in_frame(iso, point);
+        let in_frame_2 = express_in_frame(iso, point);
+
+        assert_eq!(in_frame, in_frame_2);
+
+        assert_eq!(in_frame, Vec2::new(15.879754, 4.2992296));
     }
 }

@@ -439,7 +439,7 @@ fn update_selection_info(
 ) {
     let pos = camera.target;
     let test_pos = raylib_to_glam_invert_y(pos);
-    info.camera_hovered = find_closest_grid(grids, test_pos);
+    info.camera_hovered = find::closest_grid(grids, test_pos);
     // if let Some(pos) = mouse_world_position {
     //     info.mouse_hovered = find_closest_grid(grids, pos);
     // } else {

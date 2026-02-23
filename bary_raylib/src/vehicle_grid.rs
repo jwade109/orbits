@@ -15,6 +15,7 @@ pub struct VehicleGrid {
     pub angular_velocity: f32,
     pub linear_acceleration: Vec2,
     pub angular_acceleration: f32,
+    pub external_thrust: IVec2,
     pub parts: Vec<EntityId>,
     pub thrusters: Vec<EntityId>,
     pub computers: Vec<EntityId>,
@@ -31,6 +32,7 @@ impl VehicleGrid {
             angular_velocity: 0.0,
             linear_acceleration: Vec2::ZERO,
             angular_acceleration: 0.0,
+            external_thrust: IVec2::ZERO,
             isometry: Isometry2d::default(),
             parts: Vec::new(),
             thrusters: Vec::new(),
@@ -38,33 +40,6 @@ impl VehicleGrid {
             lights: Vec::new(),
             requires_thruster_update: false,
         }
-    }
-}
-
-fn find_part_by_name(
-    prototypes: &Components<(PartPrototype, MaybeTexture)>,
-    name: &str,
-) -> Option<EntityId> {
-    prototypes
-        .iter()
-        .find(|(_, (proto, _))| proto.part_name() == name)
-        .map(|e| *e.0)
-}
-
-pub fn make_empty_grid(name: impl Into<String>) -> VehicleGrid {
-    VehicleGrid {
-        name: name.into(),
-        parts_mass: Mass::ZERO,
-        linear_velocity: Vec2::ZERO,
-        angular_velocity: 0.0,
-        linear_acceleration: Vec2::ZERO,
-        angular_acceleration: 0.0,
-        isometry: Isometry2d::default(),
-        parts: Vec::new(),
-        thrusters: Vec::new(),
-        computers: Vec::new(),
-        lights: Vec::new(),
-        requires_thruster_update: false,
     }
 }
 
@@ -94,10 +69,8 @@ pub fn spawn_grid_from_blueprint(
 pub mod world {
     use super::*;
 
-    /// Spawns a grid which matches the given blueprint.
-    /// This function requires exclusive world access.
-    /// Use [`spawn_grid_from_blueprint`] if you need
-    /// a less demanding borrow.
+    /// Spawns a grid according to the given blueprint.
+    /// Exclusive version of [`super::spawn_grid_from_blueprint`].
     pub fn spawn_grid_from_blueprint(
         world: &mut World,
         name: impl Into<String>,
@@ -116,17 +89,22 @@ pub mod world {
         )
     }
 
+    /// Spawns an empty grid with the given name.
+    /// Exclusive version of [`super::spawn_empty_grid`].
     pub fn spawn_empty_grid(world: &mut World, name: &str) -> EntityId {
         super::spawn_empty_grid(&mut world.spawner, &mut world.grids, name)
     }
 
+    /// Spawns a new grid according to a named blueprint.
     pub fn spawn_grid_by_name(world: &mut World, name: &str) -> BaryResult<EntityId> {
-        let bp = find_blueprint_by_name(&world.blueprints, name)
+        let bp = find::blueprint_by_name(&world.blueprints, name)
             .ok_or(BaryError::BadBlueprint)?
             .clone();
         spawn_grid_from_blueprint(world, name, &bp)
     }
 
+    /// Inserts a part into an existing grid.
+    /// Exclusive version of [`super::insert_part`].
     pub fn insert_part(
         grid_id: EntityId,
         world: &mut World,
@@ -144,14 +122,32 @@ pub mod world {
             instance,
         )
     }
+
+    /// Sets the state of a given thruster, modifying related quantities
+    /// in the root grid if necessary.
+    /// Exclusive version of [`super::set_thruster_state`].
+    pub fn set_thruster_state(
+        thruster_id: EntityId,
+        world: &mut World,
+        new_state: bool,
+    ) -> BaryResult<()> {
+        super::set_thruster_state(
+            thruster_id,
+            &mut world.grids,
+            &mut world.thrusters,
+            &world.parts,
+            new_state,
+        )
+    }
 }
 
+/// Spawns an empty vehicle grid.
 pub fn spawn_empty_grid(
     spawner: &mut EntitySpawner,
     grids: &mut Components<VehicleGrid>,
     name: &str,
 ) -> EntityId {
-    let grid = make_empty_grid(name);
+    let grid = VehicleGrid::with_name(name);
     let id = spawner.spawn();
     grids.spawn(id, grid);
     id
@@ -169,7 +165,7 @@ pub fn insert_part(
     instance: &PartInstance,
 ) -> BaryResult<EntityId> {
     let grid = grids.try_get_mut(grid_id)?;
-    let proto_id = find_part_by_name(prototypes, &instance.name).ok_or(BaryError::BadPartName)?;
+    let proto_id = find::part_by_name(prototypes, &instance.name).ok_or(BaryError::BadPartName)?;
     let (proto, _texture) = prototypes.try_get(proto_id)?;
 
     grid.parts_mass += proto.mass;
@@ -188,7 +184,7 @@ pub fn insert_part(
 
     if let Some(data) = &proto.thruster_data {
         let thruster = Thruster {
-            is_on: chance(0.3),
+            is_on: false,
             thrust_millinewtons: (data.thrust * 1000.0).round() as i32,
             prototype: proto_id,
             grid_id,
@@ -237,42 +233,49 @@ pub fn despawn_grid(
     Ok(())
 }
 
-pub fn find_blueprint_by_name<'a>(
-    blueprints: &'a Components<NamedBlueprint>,
-    name: &str,
-) -> Option<&'a Blueprint> {
-    blueprints
-        .values()
-        .find(|(n, _bp)| n == name)
-        .map(|(_, bp)| bp)
-}
+pub mod find {
+    use super::*;
 
-pub fn express_in_frame(frame: Isometry2d, point: Vec2) -> Vec2 {
-    let delta = point - frame.translation;
-    let x = frame.local_x().dot(delta);
-    let y = frame.local_y().dot(delta);
-    (x, y).into()
-}
-
-pub fn find_closest_grid(
-    grids: &Components<VehicleGrid>,
-    test_pos: Vec2,
-) -> Option<(EntityId, Vec2)> {
-    let mut best: Option<(EntityId, Vec2, f32)> = None;
-    for (e, grid) in grids.iter() {
-        let in_frame = express_in_frame(grid.isometry, test_pos);
-        let dist = in_frame.length_squared();
-        if let Some(best) = &mut best {
-            if dist < best.2 {
-                best.0 = *e;
-                best.1 = in_frame;
-                best.2 = dist;
-            }
-        } else {
-            best = Some((*e, in_frame, dist));
-        }
+    pub fn blueprint_by_name<'a>(
+        blueprints: &'a Components<NamedBlueprint>,
+        name: &str,
+    ) -> Option<&'a Blueprint> {
+        blueprints
+            .values()
+            .find(|(n, _bp)| n == name)
+            .map(|(_, bp)| bp)
     }
-    best.map(|x| (x.0, x.1))
+
+    pub fn part_by_name(
+        prototypes: &Components<(PartPrototype, MaybeTexture)>,
+        name: &str,
+    ) -> Option<EntityId> {
+        prototypes
+            .iter()
+            .find(|(_, (proto, _))| proto.part_name() == name)
+            .map(|e| *e.0)
+    }
+
+    pub fn closest_grid(
+        grids: &Components<VehicleGrid>,
+        test_pos: Vec2,
+    ) -> Option<(EntityId, Vec2)> {
+        let mut best: Option<(EntityId, Vec2, f32)> = None;
+        for (e, grid) in grids.iter() {
+            let in_frame = express_in_frame(grid.isometry, test_pos);
+            let dist = in_frame.length_squared();
+            if let Some(best) = &mut best {
+                if dist < best.2 {
+                    best.0 = *e;
+                    best.1 = in_frame;
+                    best.2 = dist;
+                }
+            } else {
+                best = Some((*e, in_frame, dist));
+            }
+        }
+        best.map(|x| (x.0, x.1))
+    }
 }
 
 pub fn get_blueprint(
@@ -307,6 +310,38 @@ pub fn get_sum_linear_forces(
         sum += thrust;
     }
     Ok(sum)
+}
+
+fn set_thruster_state(
+    thruster_id: EntityId,
+    grids: &mut Components<VehicleGrid>,
+    thrusters: &mut Components<Thruster>,
+    parts: &Components<Part>,
+    new_state: bool,
+) -> BaryResult<()> {
+    let thruster = thrusters.try_get_mut(thruster_id)?;
+
+    if new_state == thruster.is_on {
+        return Ok(());
+    }
+
+    let part = parts.try_get(thruster_id)?;
+    let grid = grids.try_get_mut(thruster.grid_id)?;
+
+    thruster.is_on = new_state;
+
+    let dir = match part.placement.rot() {
+        Rotation::East => IVec2::X,
+        Rotation::North => IVec2::Y,
+        Rotation::West => -IVec2::X,
+        Rotation::South => -IVec2::Y,
+    };
+
+    let mul = if new_state { 1 } else { -1 };
+    let thrust_vec = mul * dir * thruster.thrust_millinewtons;
+    grid.external_thrust += thrust_vec;
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -376,7 +411,7 @@ mod tests {
         let name = "pollux";
 
         // get the blueprint for the pollux
-        let bp = find_blueprint_by_name(&world.blueprints, name).expect("Expected a blueprint");
+        let bp = find::blueprint_by_name(&world.blueprints, name).expect("Expected a blueprint");
 
         // spawn that vehicle using its blueprint
         let grid_id = spawn_grid_from_blueprint(
@@ -462,7 +497,7 @@ mod tests {
             .blueprint("spacestation")
             .build();
 
-        assert!(find_closest_grid(&world.grids, Vec2::new(100.0, 200.0)).is_none());
+        assert!(find::closest_grid(&world.grids, Vec2::new(100.0, 200.0)).is_none());
 
         let id = world::spawn_grid_by_name(&mut world, "remora").unwrap();
         assert_eq!(id, EntityId(34));
@@ -472,7 +507,7 @@ mod tests {
 
         for _ in 0..100 {
             update_world(&mut world, (1080.0, 720.0).into(), None);
-            let e = find_closest_grid(&world.grids, Vec2::new(100.0, 200.0));
+            let e = find::closest_grid(&world.grids, Vec2::new(100.0, 200.0));
             assert_eq!(e, Some((EntityId(34), Vec2::new(60.0, 44.0))));
         }
     }
@@ -486,7 +521,7 @@ mod tests {
 
         let part_name = "motor";
 
-        let proto_id = find_part_by_name(&world.prototypes, part_name).unwrap();
+        let proto_id = find::part_by_name(&world.prototypes, part_name).unwrap();
 
         let (proto, _texture) = world.prototypes.try_get(proto_id).unwrap();
         let dims = proto.dims;
@@ -561,7 +596,7 @@ mod tests {
             .blueprint("spacestation")
             .build();
 
-        let expected = find_blueprint_by_name(&world.blueprints, "pollux")
+        let expected = find::blueprint_by_name(&world.blueprints, "pollux")
             .unwrap()
             .clone();
 
@@ -598,10 +633,20 @@ mod tests {
         let result = world::insert_part(id, &mut world, &instance);
 
         assert_eq!(result, Err(BaryError::BadPartName));
+
+        let instance = PartInstance::new(
+            "cargo",
+            PartLayer::Internal,
+            GridPlacement::new((0, 0), Rotation::East, (3, 3)),
+        );
+
+        let result = world::insert_part(EntityId(103), &mut world, &instance);
+
+        assert_eq!(result, Err(BaryError::EntityNotFound));
     }
 
     #[test]
-    fn basic_thruster_firing() {
+    fn set_thruster_state() {
         let mut world = WorldBuilder::new().assets("../assets/").build();
 
         let grid_id = world::spawn_empty_grid(&mut world, "whatever");
@@ -638,13 +683,40 @@ mod tests {
         assert_eq!(a_id, EntityId(31));
         assert_eq!(b_id, EntityId(32));
 
-        world.thrusters.try_get_mut(a_id).unwrap().is_on = true;
-        world.thrusters.try_get_mut(b_id).unwrap().is_on = true;
+        let r1 = world::set_thruster_state(a_id, &mut world, true);
+        let r2 = world::set_thruster_state(b_id, &mut world, true);
+
+        assert_eq!(r1, Ok(()));
+        assert_eq!(r2, Ok(()));
 
         let sum =
             get_sum_linear_forces(grid_id, &world.grids, &world.parts, &world.thrusters).unwrap();
 
         assert_eq!(sum.x, 400000.0);
         assert_eq!(sum.y, 320000.0);
+
+        let grid = world.grids.try_get(grid_id).unwrap();
+
+        assert_eq!(grid.external_thrust, IVec2::new(400000000, 320000000));
+
+        let r1 = world::set_thruster_state(a_id, &mut world, false);
+        let r2 = world::set_thruster_state(b_id, &mut world, true);
+
+        assert_eq!(r1, Ok(()));
+        assert_eq!(r2, Ok(()));
+
+        let grid = world.grids.try_get(grid_id).unwrap();
+
+        assert_eq!(grid.external_thrust, IVec2::new(0, 320000000));
+
+        let r1 = world::set_thruster_state(a_id, &mut world, false);
+        let r2 = world::set_thruster_state(b_id, &mut world, false);
+
+        assert_eq!(r1, Ok(()));
+        assert_eq!(r2, Ok(()));
+
+        let grid = world.grids.try_get(grid_id).unwrap();
+
+        assert_eq!(grid.external_thrust, IVec2::new(0, 0));
     }
 }
