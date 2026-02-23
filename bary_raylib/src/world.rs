@@ -333,7 +333,9 @@ fn snap_camera_target_to_local_up(target: &mut Camera2D) {
 fn propagate_grid_rigid_bodies(grids: &mut Components<VehicleGrid>) {
     let dt = 0.02;
     for grid in grids.values_mut() {
+        let accel = grid.linear_acceleration();
         grid.isometry.translation += grid.linear_velocity * dt;
+        grid.linear_velocity += accel * dt;
         grid.isometry.rotation += grid.angular_velocity * dt;
     }
 }
@@ -497,7 +499,7 @@ pub fn update_world(world: &mut World, screen_dims: Vector2, mouse_screen_positi
     update_ring_particles(&mut world.particles);
     // update_lights(&mut world.lights);
     update_computers(&mut world.computers);
-    world.grids_to_update = update_thrusters(&mut world.thrusters);
+    // world.grids_to_update = update_thrusters(&mut world.thrusters);
 
     update_selection_info(
         &mut world.selection_info,

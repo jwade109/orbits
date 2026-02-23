@@ -137,7 +137,7 @@ impl PartLayer {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PartInstance {
     pub name: String,
-    layer: PartLayer,
+    pub layer: PartLayer,
     pub placement: GridPlacement,
 }
 
@@ -150,7 +150,7 @@ impl PartInstance {
         }
     }
 
-    pub fn from_prototype(proto: PartPrototype, pos: PartCoord, rot: Rotation) -> Self {
+    pub fn from_prototype(proto: &PartPrototype, pos: PartCoord, rot: Rotation) -> Self {
         let dims = proto.dims();
 
         let placement = GridPlacement::new(pos, rot, dims);

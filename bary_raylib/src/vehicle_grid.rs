@@ -13,8 +13,6 @@ pub struct VehicleGrid {
     pub isometry: Isometry2d,
     pub linear_velocity: Vec2,
     pub angular_velocity: f32,
-    pub linear_acceleration: Vec2,
-    pub angular_acceleration: f32,
     pub external_thrust: IVec2,
     pub parts: Vec<Ent>,
     pub thrusters: Vec<Ent>,
@@ -30,8 +28,6 @@ impl VehicleGrid {
             parts_mass: Mass::ZERO,
             linear_velocity: Vec2::ZERO,
             angular_velocity: 0.0,
-            linear_acceleration: Vec2::ZERO,
-            angular_acceleration: 0.0,
             external_thrust: IVec2::ZERO,
             isometry: Isometry2d::default(),
             parts: Vec::new(),
@@ -40,6 +36,10 @@ impl VehicleGrid {
             lights: Vec::new(),
             requires_thruster_update: false,
         }
+    }
+
+    pub fn linear_acceleration(&self) -> Vec2 {
+        (self.external_thrust.as_vec2() / 1000.0) / (self.parts_mass.to_kg_f64() as f32)
     }
 }
 
@@ -185,6 +185,7 @@ pub fn insert_part(
     if let Some(data) = &proto.thruster_data {
         let thruster = Thruster {
             is_on: false,
+            is_rcs: data.is_rcs,
             thrust_millinewtons: (data.thrust * 1000.0).round() as i32,
             prototype: proto_id,
             grid_id,
@@ -307,6 +308,25 @@ pub fn get_sum_linear_forces(
         sum += thrust;
     }
     Ok(sum)
+}
+
+pub fn get_parts_center_of_mass(grid_id: Ent, world: &World) -> BaryResult<Vec2> {
+    let grid = world.grids.try_get(grid_id)?;
+    let mut total_mass = Mass::ZERO;
+    for part_id in &grid.parts {
+        let part = world.parts.try_get(*part_id)?;
+        let (proto, _texture) = world.prototypes.try_get(part.prototype)?;
+        total_mass += proto.mass;
+    }
+    let mut com = Vec2::ZERO;
+    for part_id in &grid.parts {
+        let part = world.parts.try_get(*part_id)?;
+        let (proto, _texture) = world.prototypes.try_get(part.prototype)?;
+        let center = part.placement.center_isometry();
+        let mass_portion = proto.mass.to_kg_f64() / total_mass.to_kg_f64();
+        com += center.translation * mass_portion as f32;
+    }
+    Ok(com)
 }
 
 fn set_thruster_state(
@@ -715,5 +735,83 @@ mod tests {
         let grid = world.grids.try_get(grid_id).unwrap();
 
         assert_eq!(grid.external_thrust, IVec2::new(0, 0));
+    }
+
+    #[test]
+    fn parts_center_of_mass() {
+        let mut world = WorldBuilder::new()
+            .assets("../assets/")
+            .blueprint("pollux")
+            .build();
+
+        let id = world::spawn_grid_by_name(&mut world, "pollux").unwrap();
+        let com = get_parts_center_of_mass(id, &mut world).unwrap();
+
+        // TODO is this right? possibly. seems close enough
+        assert_eq!(com, Vec2::new(0.001067417, 0.022271877));
+
+        let cargo_id = find::part_by_name(&world.prototypes, "cargo").unwrap();
+        let (cargo_proto, _texture) = world.prototypes.try_get(cargo_id).unwrap();
+
+        assert_eq!(cargo_proto.dims, (6, 6).into());
+        assert_eq!(cargo_proto.dims_meters(), (1.5, 1.5).into());
+
+        let instance = PartInstance::from_prototype(cargo_proto, (0, 0).into(), Rotation::East);
+
+        let grid_id = world::spawn_empty_grid(&mut world, "whatever");
+        _ = world::insert_part(grid_id, &mut world, &instance);
+
+        let com = get_parts_center_of_mass(grid_id, &mut world).unwrap();
+
+        assert_eq!(com, Vec2::splat(0.75));
+    }
+
+    #[test]
+    fn pure_linear_acceleration() {
+        let mut world = WorldBuilder::new().assets("../assets/").build();
+
+        // modifying the prototype for motor so it has easy quantities
+        let proto_id = find::part_by_name(&world.prototypes, "motor").unwrap();
+        let (proto, _) = world.prototypes.try_get_mut(proto_id).unwrap();
+
+        proto.mass = Mass::kilograms(1000);
+        if let Some(t) = &mut proto.thruster_data {
+            // 3500 newtons
+            t.thrust = 3500.0;
+        }
+
+        let grid_id = world::spawn_empty_grid(&mut world, "testbed");
+
+        let instance = PartInstance {
+            name: "motor".to_string(),
+            layer: PartLayer::Internal,
+            placement: GridPlacement::new((0, 0), Rotation::East, (6, 3)),
+        };
+
+        let thruster_id = world::insert_part(grid_id, &mut world, &instance).unwrap();
+
+        // obviously, turn the main thruster on
+        let r = world::set_thruster_state(thruster_id, &mut world, true);
+        assert_eq!(r, Ok(()));
+
+        let grid = world.grids.try_get(grid_id).unwrap();
+
+        assert_eq!(grid.external_thrust, IVec2::new(3500000, 0));
+        assert_eq!(grid.parts_mass, Mass::kilograms(1000));
+
+        // body frame acceleration should be 3.5 m/s^2
+        assert_eq!(grid.linear_acceleration(), Vec2::new(3.5, 0.0));
+
+        // run the simulation for 2 seconds at 50 Hz
+        for _ in 0..100 {
+            update_world(&mut world, (1080.0, 720.0).into(), None);
+        }
+
+        let iso = world.grids.try_get(grid_id).unwrap().isometry;
+
+        // this is an approximation of the following
+        // continuous time kinematic equation:
+        // d = 1/2 at^2  --> 0.5 * 3.5 * 2^2 = 7
+        assert_eq!(iso.translation, Vec2::new(6.9299994, 0.0));
     }
 }

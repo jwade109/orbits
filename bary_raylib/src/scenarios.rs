@@ -50,6 +50,20 @@ pub fn dev_world(assets_dir: &str) -> BaryResult<World> {
         grid.linear_velocity = randvec(0.1, 1.0);
     }
 
+    let grid_id = world::spawn_empty_grid(&mut world, "testbed");
+
+    let instance = PartInstance {
+        name: "motor".to_string(),
+        layer: PartLayer::Internal,
+        placement: GridPlacement::new((0, 0), Rotation::East, (6, 3)),
+    };
+
+    let thruster_id = world::insert_part(grid_id, &mut world, &instance).unwrap();
+
+    // obviously, turn the main thruster on
+    let r = world::set_thruster_state(thruster_id, &mut world, true);
+    assert_eq!(r, Ok(()));
+
     Ok(world)
 }
 
