@@ -42,7 +42,7 @@ pub fn dev_world(assets_dir: &str) -> BaryResult<World> {
     let bps = world.blueprints.clone();
 
     for (name, bp) in bps.values() {
-        let id = spawn_grid_from_blueprint_world(&mut world, name.clone(), bp)?;
+        let id = world::spawn_grid_from_blueprint(&mut world, name.clone(), bp)?;
         let grid = world.grids.try_get_mut(id)?;
         grid.isometry.translation = randvec(10.0, 100.0);
         grid.isometry.rotation = rand(-0.3, 0.3);

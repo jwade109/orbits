@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ThrusterModel {
     pub model: String,
-    thrust: f64,
+    pub thrust: f64,
     pub exhaust_velocity: f32,
     pub is_rcs: bool,
     pub throttle_rate: f32,

@@ -14,6 +14,8 @@ fn draw_debug_info(world: &World, d: &mut RaylibDrawHandle) {
     s += &format!("\nRender: {:08} us", world.timers.render.as_micros());
     s += &format!("\nTotal:  {:08} us", world.timers.total.as_micros());
 
+    s += &format!("\nZoom: {:0.3}", world.camera.zoom);
+
     s += &format!("\nMOUSE {:?}", world.mouse_screen_position);
     s += &format!("\nINP {:?}", &world.input);
     s += &format!("\nPRT {:?}", &world.particles.len());
@@ -24,6 +26,7 @@ fn draw_debug_info(world: &World, d: &mut RaylibDrawHandle) {
     s += &format!("\nTHR {:?}", &world.thrusters);
     s += &format!("\nCPU {:?}", &world.computers);
     s += &format!("\nLIT {:?}", &world.lights);
+    s += &format!("\nUP {}", &world.grids_to_update.len());
     s += &format!("\nE {:?}", &world.spawner);
 
     for e in &world.event_queue {

@@ -9,6 +9,7 @@ use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use raylib::prelude::*;
 use rdev::Event;
+use std::collections::BTreeSet;
 use std::collections::VecDeque;
 use std::time::Duration;
 
@@ -61,7 +62,7 @@ pub struct World {
     pub computers: Components<Computer>,
     pub lights: Components<Light>,
     pub grids: Components<VehicleGrid>,
-
+    pub grids_to_update: BTreeSet<EntityId>,
     pub circle_texture: MaybeTexture,
     pub lato_regular: MaybeFont,
 }
@@ -94,6 +95,7 @@ impl World {
             thrusters: Components::default(),
             computers: Components::default(),
             lights: Components::default(),
+            grids_to_update: BTreeSet::new(),
             circle_texture: None,
             lato_regular: None,
         }
@@ -367,20 +369,31 @@ fn draw_lights(
     }
 }
 
-fn update_thrusters(thrusters: &mut Components<Thruster>, grids: &mut Components<VehicleGrid>) {
+fn draw_grids_if_updated_this_frame(
+    d: &mut RaylibDrawHandle,
+    updates: &BTreeSet<EntityId>,
+    grids: &Components<VehicleGrid>,
+) {
+    for e in updates {
+        let Ok(grid) = grids.try_get(*e) else {
+            continue;
+        };
+        draw_circle(d, grid.isometry.translation, 10.0, Color::PURPLE);
+    }
+}
+
+fn update_thrusters(thrusters: &mut Components<Thruster>) -> BTreeSet<EntityId> {
+    let mut grids_to_update = BTreeSet::new();
     for t in thrusters.values_mut() {
-        if t.is_on && chance(0.05) {
+        if t.is_on && chance(0.005) {
             t.is_on = false;
-            if let Ok(grid) = grids.try_get_mut(t.grid_id) {
-                grid.requires_thruster_update = true;
-            }
-        } else if !t.is_on && chance(0.01) {
+            grids_to_update.insert(t.grid_id);
+        } else if !t.is_on && chance(0.001) {
             t.is_on = true;
-            if let Ok(grid) = grids.try_get_mut(t.grid_id) {
-                grid.requires_thruster_update = true;
-            }
+            grids_to_update.insert(t.grid_id);
         }
     }
+    grids_to_update
 }
 
 fn draw_thrusters(
@@ -482,9 +495,9 @@ pub fn update_world(world: &mut World, screen_dims: Vector2, mouse_screen_positi
     );
 
     update_ring_particles(&mut world.particles);
-    update_lights(&mut world.lights);
+    // update_lights(&mut world.lights);
     update_computers(&mut world.computers);
-    update_thrusters(&mut world.thrusters, &mut world.grids);
+    world.grids_to_update = update_thrusters(&mut world.thrusters);
 
     update_selection_info(
         &mut world.selection_info,
@@ -719,6 +732,8 @@ pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
 
     _ = draw_nearest_grids(&mut c, &world.grids, &world.selection_info);
 
+    draw_grids_if_updated_this_frame(&mut c, &world.grids_to_update, &world.grids);
+
     // draw_isometry_axes(&mut c, get_isometry(&world.camera), "CAM");
     // draw_isometry_axes(&mut c, get_isometry(&world.target_camera), "");
 
@@ -776,25 +791,27 @@ pub fn draw_parts(
     camera: &Camera2D,
 ) {
     for grid in grids.values() {
-        for draw_layer in PartLayer::draw_order() {
-            let color = match draw_layer {
-                PartLayer::Exterior => Color::WHITE,
-                PartLayer::Internal => Color::BLUE,
-                PartLayer::Plumbing => continue,
-                PartLayer::Structural => Color::GRAY,
-            };
-            for part_id in &grid.parts {
-                let Ok(part) = parts.try_get(*part_id) else {
-                    continue;
+        if camera.zoom > 2.0 {
+            for draw_layer in PartLayer::draw_order() {
+                let color = match draw_layer {
+                    PartLayer::Exterior => Color::WHITE,
+                    PartLayer::Internal => Color::BLUE,
+                    PartLayer::Plumbing => continue,
+                    PartLayer::Structural => Color::GRAY,
                 };
+                for part_id in &grid.parts {
+                    let Ok(part) = parts.try_get(*part_id) else {
+                        continue;
+                    };
 
-                if part.layer != draw_layer {
-                    continue;
+                    if part.layer != draw_layer {
+                        continue;
+                    }
+
+                    let iso = part_isometry(grid.isometry, part.placement);
+                    let dims = part.placement.part_aligned_dims().to_meters();
+                    fill_rectangle(d, iso, dims, color);
                 }
-
-                let iso = part_isometry(grid.isometry, part.placement);
-                let dims = part.placement.part_aligned_dims().to_meters();
-                fill_rectangle(d, iso, dims, color);
             }
         }
 
