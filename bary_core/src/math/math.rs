@@ -252,33 +252,6 @@ pub fn mass_after_maneuver(ve: f64, m0: f64, dv: f64) -> f64 {
     m0 / (dv / ve).exp()
 }
 
-#[derive(Debug, Default, PartialEq, Clone, Copy)]
-pub struct Isometry2d {
-    pub translation: Vec2,
-    pub rotation: f32,
-}
-
-impl Isometry2d {
-    pub fn new(translation: Vec2, rotation: f32) -> Self {
-        Self {
-            translation,
-            rotation,
-        }
-    }
-
-    pub fn from_pos(translation: Vec2) -> Self {
-        Self::new(translation, 0.0)
-    }
-
-    pub fn local_x(&self) -> Vec2 {
-        rotate(Vec2::X, self.rotation)
-    }
-
-    pub fn local_y(&self) -> Vec2 {
-        rotate(Vec2::Y, self.rotation)
-    }
-}
-
 pub fn get_yaw(transform: Isometry2d) -> f32 {
     transform.rotation
 }

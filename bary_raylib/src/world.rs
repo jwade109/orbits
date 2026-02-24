@@ -44,7 +44,7 @@ pub struct SelectionInfo {
 
 pub struct World {
     pub timers: Timers,
-    pub mouse_screen_position: Option<Vec2>,
+    pub mouse_screen_position: Option<Vector2>,
     pub selection_info: SelectionInfo,
     pub spawner: EntitySpawner,
     pub follow_vehicle: Option<Ent>,
@@ -429,24 +429,25 @@ fn draw_thrusters(
 }
 
 fn screen_to_world(camera: &Camera2D, screen_pos: Vector2) -> Vec2 {
-    let delta = raylib_to_glam_invert_y(screen_pos - camera.offset);
-    delta + raylib_to_glam_invert_y(camera.target)
+    let delta = raylib_to_glam_invert_y(screen_pos - camera.offset) / camera.zoom;
+    rotate(delta, camera.rotation.to_radians()) + raylib_to_glam_invert_y(camera.target)
 }
 
 fn update_selection_info(
     info: &mut SelectionInfo,
     grids: &Components<VehicleGrid>,
     camera: &Camera2D,
-    mouse_screen_position: Option<Vec2>,
+    mouse_screen_position: Option<Vector2>,
 ) {
     let pos = camera.target;
     let test_pos = raylib_to_glam_invert_y(pos);
     info.camera_hovered = find::closest_grid(grids, test_pos);
-    // if let Some(pos) = mouse_world_position {
-    //     info.mouse_hovered = find_closest_grid(grids, pos);
-    // } else {
-    //     info.mouse_hovered = None;
-    // }
+    if let Some(pos) = mouse_screen_position {
+        let pos = screen_to_world(camera, pos);
+        info.mouse_hovered = find::closest_grid(grids, pos);
+    } else {
+        info.mouse_hovered = None;
+    }
 }
 
 fn set_camera_if_following(
@@ -480,10 +481,18 @@ fn draw_nearest_grids(
         let grid = grids.try_get(grid_id)?;
         draw_circle(d, grid.isometry.translation, 15.0, Color::RED);
     }
+    if let Some((grid_id, _)) = sel.mouse_hovered {
+        let grid = grids.try_get(grid_id)?;
+        draw_circle(d, grid.isometry.translation, 16.0, Color::GREEN);
+    }
     Ok(())
 }
 
-pub fn update_world(world: &mut World, screen_dims: Vector2, mouse_screen_position: Option<Vec2>) {
+pub fn update_world(
+    world: &mut World,
+    screen_dims: Vector2,
+    mouse_screen_position: Option<Vector2>,
+) {
     let start = std::time::Instant::now();
 
     world.screen_dims = screen_dims;
@@ -530,6 +539,7 @@ pub fn update_world(world: &mut World, screen_dims: Vector2, mouse_screen_positi
     if world.snap_camera_to_local_planet {
         snap_camera_target_to_local_up(&mut world.target_camera);
     }
+
     update_camera(&world.target_camera, &mut world.camera);
 
     // spawn_random_ring_effects(&mut world.particles);
@@ -712,6 +722,19 @@ fn draw_grid_far_indicators(
     }
 }
 
+fn draw_mouse_world_position(
+    d: &mut RaylibDrawHandle,
+    mouse_screen_position: Option<Vector2>,
+    camera: &Camera2D,
+) {
+    let Some(screen_pos) = mouse_screen_position else {
+        return;
+    };
+
+    let world_pos = screen_to_world(camera, screen_pos);
+    draw_circle(d, world_pos, 1.0, Color::WHITE);
+}
+
 pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
     let mut c = d.begin_mode2D(world.camera);
 
@@ -735,6 +758,8 @@ pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
     _ = draw_nearest_grids(&mut c, &world.grids, &world.selection_info);
 
     draw_grids_if_updated_this_frame(&mut c, &world.grids_to_update, &world.grids);
+
+    draw_mouse_world_position(&mut c, world.mouse_screen_position, &world.camera);
 
     // draw_isometry_axes(&mut c, get_isometry(&world.camera), "CAM");
     // draw_isometry_axes(&mut c, get_isometry(&world.target_camera), "");

@@ -10,9 +10,17 @@ fn draw_debug_info(world: &World, d: &mut RaylibDrawHandle) {
 
     s += &format!("{:?}", d.get_fps());
 
-    s += &format!("\nUpdate: {:08} us", world.timers.update.as_micros());
-    s += &format!("\nRender: {:08} us", world.timers.render.as_micros());
-    s += &format!("\nTotal:  {:08} us", world.timers.total.as_micros());
+    let fmt_time = |d: std::time::Duration| {
+        format!(
+            "    {:09} ns\n    {:05.04} ms",
+            d.as_nanos(),
+            d.as_nanos() as f64 / 1000000.0
+        )
+    };
+
+    s += &format!("\nU\n{}", fmt_time(world.timers.update));
+    s += &format!("\nR\n{}", fmt_time(world.timers.render));
+    s += &format!("\nT\n{}", fmt_time(world.timers.total));
 
     s += &format!("\nZoom: {:0.3}", world.camera.zoom);
 
@@ -82,9 +90,7 @@ fn main() {
 
         let screen_dims = Vector2::new(w as f32, h as f32);
 
-        let mouse = rl
-            .is_cursor_on_screen()
-            .then(|| raylib_to_glam(rl.get_mouse_position()));
+        let mouse = rl.is_cursor_on_screen().then(|| rl.get_mouse_position());
 
         update_world(&mut world, screen_dims, mouse);
 

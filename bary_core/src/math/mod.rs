@@ -1,5 +1,6 @@
 mod aabb;
 mod bezier;
+mod isometry;
 mod lpf;
 mod mass;
 mod math;
@@ -11,6 +12,7 @@ mod volume;
 
 pub use aabb::*;
 pub use bezier::*;
+pub use isometry::*;
 pub use lpf::*;
 pub use mass::*;
 pub use math::*;

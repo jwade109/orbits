@@ -23,3 +23,10 @@ path = "bin/kb.rs"
 [[bin]]
 name = "rapier"
 path = "bin/rapier.rs"
+
+[dev-dependencies]
+criterion = "0.5.1"
+
+[[bench]]
+name = "my_benchmark"
+harness = false
