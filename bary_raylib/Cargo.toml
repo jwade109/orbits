@@ -11,6 +11,7 @@ rdev = "0.5.3"
 crossbeam-queue = "0.3.12"
 rapier2d = "0.32.0"
 enum-iterator = "2.3.0"
+steamworks = "0.12.2"
 
 [[bin]]
 name = "main"
@@ -23,6 +24,10 @@ path = "bin/kb.rs"
 [[bin]]
 name = "rapier"
 path = "bin/rapier.rs"
+
+[[bin]]
+name = "steam"
+path = "bin/steam.rs"
 
 [dev-dependencies]
 criterion = "0.5.1"

@@ -154,9 +154,9 @@ fn update_camera_target(
 ) {
     target.offset = screen_dims / 2.0;
 
-    let angular_speed = 1.5;
-    let speed = 22.0 / target.zoom;
-    let zoom_scale = 1.03;
+    let angular_speed = 2.5;
+    let speed = 40.0 / target.zoom;
+    let zoom_scale = 1.07;
 
     // camera rotation is stored as degrees!
     // why would raylib do this to me.
@@ -199,8 +199,8 @@ fn update_camera_target(
 }
 
 fn update_camera(target: &Camera2D, actual: &mut Camera2D) {
-    let rate_translation = 0.1;
-    let rate_rotation = 0.1;
+    let rate_translation = 0.2;
+    let rate_rotation = 0.2;
     actual.offset = target.offset;
     actual.target.x = low_pass(actual.target.x, target.target.x, rate_translation);
     actual.target.y = low_pass(actual.target.y, target.target.y, rate_translation);
@@ -284,8 +284,8 @@ fn apply_scroll_wheel_to_camera_target(events: &VecDeque<Event>, target: &mut Ca
     }
 }
 
-fn panic_if_escape_is_pressed(input: &InputState) {
-    if input.is_key_pressed(Key::Escape) {
+fn panic_on_ctrl_c(input: &InputState) {
+    if input.is_key_pressed(Key::ControlLeft) && input.is_key_pressed(Key::KeyC) {
         panic!();
     }
 }
@@ -311,7 +311,7 @@ fn toggle_following_on_key_f(
         return;
     }
 
-    let Some((id, _delta)) = sel.camera_hovered else {
+    let Some((id, _delta)) = sel.mouse_hovered else {
         return;
     };
 
@@ -450,11 +450,10 @@ fn update_selection_info(
     }
 }
 
-fn set_camera_if_following(
+fn set_target_camera_if_following(
     follow: Option<Ent>,
     grids: &Components<VehicleGrid>,
     target: &mut Camera2D,
-    actual: &mut Camera2D,
 ) {
     let Some(follow) = follow else {
         return;
@@ -466,10 +465,6 @@ fn set_camera_if_following(
 
     target.target = glam_to_raylib_swap_y(grid.isometry.translation);
     target.rotation = grid.isometry.rotation.to_degrees();
-
-    actual.offset = target.offset;
-    actual.target = target.target;
-    actual.rotation = target.rotation;
 }
 
 fn draw_nearest_grids(
@@ -529,12 +524,7 @@ pub fn update_world(
         &mut world.follow_vehicle,
     );
 
-    set_camera_if_following(
-        world.follow_vehicle,
-        &world.grids,
-        &mut world.target_camera,
-        &mut world.camera,
-    );
+    set_target_camera_if_following(world.follow_vehicle, &world.grids, &mut world.target_camera);
 
     if world.snap_camera_to_local_planet {
         snap_camera_target_to_local_up(&mut world.target_camera);
@@ -544,7 +534,7 @@ pub fn update_world(
 
     // spawn_random_ring_effects(&mut world.particles);
 
-    panic_if_escape_is_pressed(&world.input);
+    panic_on_ctrl_c(&world.input);
 
     world.event_queue.clear();
 
@@ -717,7 +707,14 @@ fn draw_grid_far_indicators(
         d.draw_circle_lines_v(q, marker_radius, Color::ORANGE);
         if !name.is_empty() {
             let q = q + Vector2::new(marker_radius + 10.0, 0.0);
-            d.draw_text_ex(d.get_font_default(), name, q, 24.0, 0.4, Color::ORANGE);
+            d.draw_text_ex(
+                d.get_font_default(),
+                name,
+                q,
+                24.0,
+                0.4,
+                Color::ORANGE.alpha(0.5),
+            );
         }
     }
 }
@@ -732,17 +729,36 @@ fn draw_mouse_world_position(
     };
 
     let world_pos = screen_to_world(camera, screen_pos);
-    draw_circle(d, world_pos, 1.0, Color::WHITE);
+    let r = 10.0 / camera.zoom;
+    draw_circle(d, world_pos, r, Color::WHITE);
+}
+
+fn draw_line(d: &mut RaylibDrawHandle, start: Vec2, end: Vec2, color: Color) {
+    let start = glam_to_raylib_swap_y(start);
+    let end = glam_to_raylib_swap_y(end);
+    d.draw_line_v(start, end, color);
+}
+
+fn draw_origin_and_range_indicators(d: &mut RaylibDrawHandle) {
+    let c = Color::GRAY;
+    draw_line(d, -Vec2::X * 10000.0, Vec2::X * 10000.0, c.alpha(0.4));
+    draw_line(d, -Vec2::Y * 10000.0, Vec2::Y * 10000.0, c.alpha(0.4));
+    draw_line(d, Vec2::ZERO, Vec2::X * 10.0, c);
+    draw_line(d, Vec2::ZERO, Vec2::Y * 10.0, c);
+    for r in (1000..=10000).step_by(1000) {
+        draw_circle(d, Vec2::ZERO, r as f32, Color::GRAY.alpha(0.2));
+    }
 }
 
 pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
     let mut c = d.begin_mode2D(world.camera);
 
-    let Some(t) = &world.circle_texture else {
-        return;
+    draw_origin_and_range_indicators(&mut c);
+
+    if let Some(t) = &world.circle_texture {
+        draw_particles(&mut c, &world.particles, t);
     };
 
-    draw_particles(&mut c, &world.particles, t);
     // draw_grid_blueprints(
     //     &mut c,
     //     &world.grids,

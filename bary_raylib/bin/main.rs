@@ -2,6 +2,7 @@ use bary_raylib::{scenarios::dev_world, world::*};
 use crossbeam_queue::SegQueue;
 use raylib::prelude::*;
 use std::{sync::Arc, thread};
+use steamworks::{Client, PersonaStateChange};
 
 use rdev::listen;
 
@@ -50,6 +51,23 @@ fn main() {
     let os = std::env::consts::OS;
     println!("{}", os);
 
+    let client = Client::init().unwrap();
+
+    let _cb = client.register_callback(|p: PersonaStateChange| {
+        println!("Got callback: {:?}", p);
+    });
+
+    let mm = client.matchmaking();
+
+    mm.create_lobby(steamworks::LobbyType::FriendsOnly, 12, |r| match r {
+        Ok(id) => {
+            println!("Created new lobby: {:?}", id);
+        }
+        Err(e) => {
+            println!("Failed to create lobby: {:?}", e);
+        }
+    });
+
     let (mut rl, thread) = raylib::init()
         .size(1080, 700)
         .title("Hello world!")
@@ -69,8 +87,9 @@ fn main() {
         }
     });
 
-    rl.set_target_fps(144);
+    rl.set_target_fps(60);
     rl.maximize_window();
+    rl.set_exit_key(None);
 
     let mut shader = rl.load_shader(&thread, None, Some("assets/shaders/distortion.fs"));
 
@@ -78,7 +97,11 @@ fn main() {
 
     load_assets(&mut world, &mut rl, &thread);
 
+    rl.hide_cursor();
+
     while !rl.window_should_close() {
+        client.run_callbacks();
+
         let loop_start = std::time::Instant::now();
 
         while let Some(e) = input_queue.pop() {
