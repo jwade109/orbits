@@ -5,7 +5,6 @@ use crate::vehicle_grid::*;
 use crate::world::*;
 use crate::world_builder::WorldBuilder;
 use bary_core::prelude::*;
-use raylib::math::Vector2;
 
 pub fn with_vehicle_data_loaded(assets_dir: &str, vehicles: &[&str]) -> World {
     let mut world = World::empty();
@@ -56,6 +55,7 @@ pub fn dev_world(assets_dir: &str) -> BaryResult<World> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use raylib::math::Vector2;
 
     #[test]
     fn snap_camera_to_local_planet() {

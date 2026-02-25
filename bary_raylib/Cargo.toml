@@ -16,6 +16,9 @@ renet = "2.0.0"
 renet_netcode = "2.0.0"
 serde = { version = "1.0.228", features = ["derive"] }
 bincode = "1.3.3"
+log = "0.4.29"
+env_logger = "0.11.9"
+simple_logger = "5.2.0"
 
 [[bin]]
 name = "main"

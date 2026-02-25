@@ -95,7 +95,7 @@ fn main() {
     rl.maximize_window();
     rl.set_exit_key(None);
 
-    let mut shader = rl.load_shader(&thread, None, Some("assets/shaders/distortion.fs"));
+    let shader = rl.load_shader(&thread, None, Some("assets/shaders/distortion.fs"));
 
     let mut world = dev_world("assets/").unwrap();
     let mut assets = Assets::default();
@@ -120,7 +120,7 @@ fn main() {
 
         let mouse = rl.is_cursor_on_screen().then(|| rl.get_mouse_position());
 
-        update_world_logged(&mut world, screen_dims, mouse);
+        update_world(&mut world, screen_dims, mouse);
 
         // let time = rl.get_time();
         // shader.set_shader_value(1, time as f32);

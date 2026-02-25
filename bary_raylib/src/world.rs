@@ -489,20 +489,6 @@ fn draw_nearest_grids(
     Ok(())
 }
 
-pub fn update_world_logged(
-    world: &mut World,
-    screen_dims: Vector2,
-    mouse_screen_position: Option<Vector2>,
-) {
-    if world.ticks % 120 == 0 {
-        println!(
-            "Running world -- tick {}, {:?}",
-            world.ticks, world.timers.update
-        );
-    }
-    update_world(world, screen_dims, mouse_screen_position);
-}
-
 pub fn update_world(
     world: &mut World,
     screen_dims: Vector2,
