@@ -40,7 +40,7 @@ fn server_thread() {
 
 fn main() {
     simple_logger::SimpleLogger::new()
-        .with_level(log::LevelFilter::Info)
+        .with_level(log::LevelFilter::Debug)
         .env()
         .init()
         .unwrap();

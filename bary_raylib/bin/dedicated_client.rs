@@ -40,11 +40,8 @@ fn main() {
 
     let args: Vec<String> = std::env::args().collect();
 
-    let addr = &args[1];
-    let username = &args[2];
-
-    println!("Address:  {}", addr);
-    println!("Username: {}", username);
+    let username = &args[1];
+    let addr = &args[2];
 
     let mut client = Client::new(addr, username);
 
