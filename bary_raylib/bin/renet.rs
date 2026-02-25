@@ -8,7 +8,8 @@ use std::{
 
 use renet::{ClientId, ConnectionConfig, DefaultChannel, RenetClient, RenetServer, ServerEvent};
 use renet_netcode::{
-    ClientAuthentication, NetcodeClientTransport, NetcodeServerTransport, ServerAuthentication, ServerConfig, NETCODE_USER_DATA_BYTES,
+    ClientAuthentication, NETCODE_USER_DATA_BYTES, NetcodeClientTransport, NetcodeServerTransport,
+    ServerAuthentication, ServerConfig,
 };
 
 // Helper struct to pass an username in the user data
@@ -67,7 +68,9 @@ fn server(public_addr: SocketAddr) {
     let connection_config = ConnectionConfig::default();
     let mut server: RenetServer = RenetServer::new(connection_config);
 
-    let current_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap();
+    let current_time = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap();
     let server_config = ServerConfig {
         current_time,
         max_clients: 64,
@@ -120,7 +123,9 @@ fn server(public_addr: SocketAddr) {
         }
 
         for client_id in server.clients_id() {
-            while let Some(message) = server.receive_message(client_id, DefaultChannel::ReliableOrdered) {
+            while let Some(message) =
+                server.receive_message(client_id, DefaultChannel::ReliableOrdered)
+            {
                 let text = String::from_utf8(message.into()).unwrap();
                 let username = usernames.get(&client_id).unwrap();
                 println!("Client {} ({}) sent text: {}", username, client_id, text);
@@ -143,7 +148,9 @@ fn client(server_addr: SocketAddr, username: Username) {
     let mut client = RenetClient::new(connection_config);
 
     let socket = UdpSocket::bind("127.0.0.1:0").unwrap();
-    let current_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap();
+    let current_time = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap();
     let client_id = current_time.as_millis() as u64;
     let authentication = ClientAuthentication::Unsecure {
         server_addr,
@@ -166,7 +173,9 @@ fn client(server_addr: SocketAddr, username: Username) {
 
         if client.is_connected() {
             match stdin_channel.try_recv() {
-                Ok(text) => client.send_message(DefaultChannel::ReliableOrdered, text.as_bytes().to_vec()),
+                Ok(text) => {
+                    client.send_message(DefaultChannel::ReliableOrdered, text.as_bytes().to_vec())
+                }
                 Err(TryRecvError::Empty) => {}
                 Err(TryRecvError::Disconnected) => panic!("Channel disconnected"),
             }
@@ -184,10 +193,12 @@ fn client(server_addr: SocketAddr, username: Username) {
 
 fn spawn_stdin_channel() -> Receiver<String> {
     let (tx, rx) = mpsc::channel::<String>();
-    thread::spawn(move || loop {
-        let mut buffer = String::new();
-        std::io::stdin().read_line(&mut buffer).unwrap();
-        tx.send(buffer.trim_end().to_string()).unwrap();
+    thread::spawn(move || {
+        loop {
+            let mut buffer = String::new();
+            std::io::stdin().read_line(&mut buffer).unwrap();
+            tx.send(buffer.trim_end().to_string()).unwrap();
+        }
     });
     rx
 }

@@ -1,3 +1,4 @@
+use bary_raylib::multiplayer::*;
 use bary_raylib::scenarios::dev_world;
 use bary_raylib::world::update_world_logged;
 use std::{
@@ -15,32 +16,6 @@ use renet_netcode::{
 
 const PROTOCOL_ID: u64 = 7;
 
-// Helper struct to pass an username in the user data
-struct Username(String);
-
-impl Username {
-    fn to_netcode_user_data(&self) -> [u8; NETCODE_USER_DATA_BYTES] {
-        let mut user_data = [0u8; NETCODE_USER_DATA_BYTES];
-        if self.0.len() > NETCODE_USER_DATA_BYTES - 8 {
-            panic!("Username is too big");
-        }
-        user_data[0..8].copy_from_slice(&(self.0.len() as u64).to_le_bytes());
-        user_data[8..self.0.len() + 8].copy_from_slice(self.0.as_bytes());
-
-        user_data
-    }
-
-    fn from_user_data(user_data: &[u8; NETCODE_USER_DATA_BYTES]) -> Self {
-        let mut buffer = [0u8; 8];
-        buffer.copy_from_slice(&user_data[0..8]);
-        let mut len = u64::from_le_bytes(buffer) as usize;
-        len = len.min(NETCODE_USER_DATA_BYTES - 8);
-        let data = user_data[8..len + 8].to_vec();
-        let username = String::from_utf8(data).unwrap();
-        Self(username)
-    }
-}
-
 fn spawn_stdin_channel() -> Receiver<String> {
     let (tx, rx) = mpsc::channel::<String>();
     thread::spawn(move || {
@@ -53,55 +28,82 @@ fn spawn_stdin_channel() -> Receiver<String> {
     rx
 }
 
-fn client(server_addr: SocketAddr, username: Username) {
-    let connection_config = ConnectionConfig::default();
-    let mut client = RenetClient::new(connection_config);
+struct Client {
+    client: RenetClient,
+    transport: NetcodeClientTransport,
+    last_updated: Instant,
+}
 
-    let socket = UdpSocket::bind("127.0.0.1:0").unwrap();
-    let current_time = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap();
-    let client_id = current_time.as_millis() as u64;
-    let authentication = ClientAuthentication::Unsecure {
-        server_addr,
-        client_id,
-        user_data: Some(username.to_netcode_user_data()),
-        protocol_id: PROTOCOL_ID,
-    };
+impl Client {
+    pub fn new() -> Self {
+        let username = Username("Bob".to_string());
+        let server_addr = "127.0.0.1:8000".parse().unwrap();
+        let connection_config = ConnectionConfig::default();
+        let client = RenetClient::new(connection_config);
 
-    let mut transport = NetcodeClientTransport::new(current_time, authentication, socket).unwrap();
-    let stdin_channel: Receiver<String> = spawn_stdin_channel();
+        let socket = UdpSocket::bind("127.0.0.1:0").unwrap();
+        let current_time = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap();
+        let client_id = current_time.as_millis() as u64;
+        let authentication = ClientAuthentication::Unsecure {
+            server_addr,
+            client_id,
+            user_data: Some(username.to_netcode_user_data()),
+            protocol_id: PROTOCOL_ID,
+        };
 
-    let mut last_updated = Instant::now();
-    loop {
+        let transport = NetcodeClientTransport::new(current_time, authentication, socket).unwrap();
+
+        let last_updated = Instant::now();
+
+        Self {
+            client,
+            transport,
+            last_updated,
+        }
+    }
+
+    pub fn update(&mut self) {
         let now = Instant::now();
-        let duration = now - last_updated;
-        last_updated = now;
+        let duration = now - self.last_updated;
+        self.last_updated = now;
 
-        client.update(duration);
-        transport.update(duration, &mut client).unwrap();
+        self.client.update(duration);
+        self.transport.update(duration, &mut self.client).unwrap();
 
-        if client.is_connected() {
-            match stdin_channel.try_recv() {
-                Ok(text) => {
-                    client.send_message(DefaultChannel::ReliableOrdered, text.as_bytes().to_vec())
-                }
-                Err(TryRecvError::Empty) => {}
-                Err(TryRecvError::Disconnected) => panic!("Channel disconnected"),
-            }
-
-            while let Some(text) = client.receive_message(DefaultChannel::ReliableOrdered) {
+        if self.client.is_connected() {
+            while let Some(text) = self.client.receive_message(DefaultChannel::ReliableOrdered) {
                 let text = String::from_utf8(text.into()).unwrap();
                 println!("{}", text);
             }
         }
 
-        transport.send_packets(&mut client).unwrap();
-        thread::sleep(Duration::from_millis(50));
+        self.transport.send_packets(&mut self.client).unwrap();
+    }
+
+    pub fn send_message(&mut self, msg: Vec<u8>) {
+        self.client
+            .send_message(DefaultChannel::ReliableOrdered, msg);
     }
 }
 
 fn main() {
-    let addr = "127.0.0.1:8000".parse().unwrap();
-    client(addr, Username("Bob".to_string()));
+    let mut client = Client::new();
+
+    let stdin_channel: Receiver<String> = spawn_stdin_channel();
+
+    loop {
+        client.update();
+
+        match stdin_channel.try_recv() {
+            Ok(text) => {
+                let msg = ClientMessage { message: text };
+                let msg = bincode::serialize(&msg).unwrap();
+                client.send_message(msg);
+            }
+            Err(TryRecvError::Empty) => {}
+            Err(TryRecvError::Disconnected) => panic!("Channel disconnected"),
+        }
+    }
 }

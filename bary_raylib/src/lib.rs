@@ -2,6 +2,7 @@ pub mod components;
 pub mod computer;
 pub mod input_state;
 pub mod light;
+pub mod multiplayer;
 pub mod part;
 pub mod scenarios;
 pub mod thruster;

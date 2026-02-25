@@ -495,7 +495,10 @@ pub fn update_world_logged(
     mouse_screen_position: Option<Vector2>,
 ) {
     if world.ticks % 120 == 0 {
-        println!("Running world -- tick {}, {:?}", world.ticks, world.timers.update);
+        println!(
+            "Running world -- tick {}, {:?}",
+            world.ticks, world.timers.update
+        );
     }
     update_world(world, screen_dims, mouse_screen_position);
 }
