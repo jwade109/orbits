@@ -12,6 +12,8 @@ crossbeam-queue = "0.3.12"
 rapier2d = "0.32.0"
 enum-iterator = "2.3.0"
 steamworks = "0.12.2"
+renet = "2.0.0"
+renet_netcode = "2.0.0"
 
 [[bin]]
 name = "main"
@@ -28,6 +30,18 @@ path = "bin/rapier.rs"
 [[bin]]
 name = "steam"
 path = "bin/steam.rs"
+
+[[bin]]
+name = "renet"
+path = "bin/renet.rs"
+
+[[bin]]
+name = "dedicated_server"
+path = "bin/dedicated_server.rs"
+
+[[bin]]
+name = "dedicated_client"
+path = "bin/dedicated_client.rs"
 
 [dev-dependencies]
 criterion = "0.5.1"

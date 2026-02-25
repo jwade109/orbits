@@ -17,7 +17,7 @@ pub fn with_vehicle_data_loaded(assets_dir: &str, vehicles: &[&str]) -> World {
 
     for (_, part) in &parts {
         let id = world.spawner.spawn();
-        world.prototypes.spawn(id, (part.clone(), None));
+        world.prototypes.spawn(id, part.clone());
     }
 
     for v in vehicles {

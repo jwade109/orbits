@@ -9,6 +9,7 @@ use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use raylib::prelude::*;
 use rdev::Event;
+use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::VecDeque;
 use std::time::Duration;
@@ -42,7 +43,15 @@ pub struct SelectionInfo {
     pub mouse_hovered: Option<(Ent, Vec2)>,
 }
 
+#[derive(Default)]
+pub struct Assets {
+    pub circle_texture: MaybeTexture,
+    pub lato_regular: MaybeFont,
+    pub part_textures: BTreeMap<String, Texture2D>,
+}
+
 pub struct World {
+    pub ticks: u64,
     pub timers: Timers,
     pub mouse_screen_position: Option<Vector2>,
     pub selection_info: SelectionInfo,
@@ -56,20 +65,19 @@ pub struct World {
     pub target_camera: Camera2D,
     pub particles: Vec<RingParticle>,
     pub blueprints: Components<NamedBlueprint>,
-    pub prototypes: Components<(PartPrototype, MaybeTexture)>,
+    pub prototypes: Components<PartPrototype>,
     pub parts: Components<Part>,
     pub thrusters: Components<Thruster>,
     pub computers: Components<Computer>,
     pub lights: Components<Light>,
     pub grids: Components<VehicleGrid>,
     pub grids_to_update: BTreeSet<Ent>,
-    pub circle_texture: MaybeTexture,
-    pub lato_regular: MaybeFont,
 }
 
 impl World {
     pub fn empty() -> Self {
         Self {
+            ticks: 0,
             timers: Timers::default(),
             mouse_screen_position: None,
             selection_info: SelectionInfo::default(),
@@ -96,24 +104,22 @@ impl World {
             computers: Components::default(),
             lights: Components::default(),
             grids_to_update: BTreeSet::new(),
-            circle_texture: None,
-            lato_regular: None,
         }
     }
 }
 
 pub fn load_assets(
-    world: &mut World,
+    assets: &mut Assets,
     rl: &mut raylib::RaylibHandle,
     thread: &raylib::RaylibThread,
 ) {
-    world.circle_texture = rl.load_texture(thread, "assets/circle.png").ok();
-    world.lato_regular = rl.load_font(thread, "assets/fonts/Lato-Regular.ttf").ok();
+    assets.circle_texture = rl.load_texture(thread, "assets/circle.png").ok();
+    assets.lato_regular = rl.load_font(thread, "assets/fonts/Lato-Regular.ttf").ok();
 
-    for (proto, tex) in world.prototypes.values_mut() {
-        let filename = format!("assets/parts/{}/skin.png", proto.part_name());
-        *tex = rl.load_texture(thread, &filename).ok();
-    }
+    // for (proto, tex) in assets.part_textures.values_mut() {
+    //     let filename = format!("assets/parts/{}/skin.png", proto.part_name());
+    //     *tex = rl.load_texture(thread, &filename).ok();
+    // }
 }
 
 fn update_input_state(events: &VecDeque<Event>, state: &mut InputState) {
@@ -483,11 +489,24 @@ fn draw_nearest_grids(
     Ok(())
 }
 
+pub fn update_world_logged(
+    world: &mut World,
+    screen_dims: Vector2,
+    mouse_screen_position: Option<Vector2>,
+) {
+    if world.ticks % 120 == 0 {
+        println!("Running world -- tick {}, {:?}", world.ticks, world.timers.update);
+    }
+    update_world(world, screen_dims, mouse_screen_position);
+}
+
 pub fn update_world(
     world: &mut World,
     screen_dims: Vector2,
     mouse_screen_position: Option<Vector2>,
 ) {
+    world.ticks += 1;
+
     let start = std::time::Instant::now();
 
     world.screen_dims = screen_dims;
@@ -557,19 +576,19 @@ fn update_lights(lights: &mut Components<Light>) {
     }
 }
 
-fn draw_parts_zoo(parts: &Components<(PartPrototype, MaybeTexture)>, d: &mut RaylibDrawHandle) {
+fn draw_parts_zoo(parts: &Components<PartPrototype>, d: &mut RaylibDrawHandle) {
     let x = 0;
     let mut y = 0;
-    for (proto, texture) in parts.values() {
-        if let Some(t) = texture {
-            d.draw_texture_ex(
-                t,
-                Vector2::new(x as f32, y as f32),
-                0.0,
-                1.0 / 5.0,
-                Color::WHITE,
-            );
-        }
+    for proto in parts.values() {
+        // if let Some(t) = texture {
+        //     d.draw_texture_ex(
+        //         t,
+        //         Vector2::new(x as f32, y as f32),
+        //         0.0,
+        //         1.0 / 5.0,
+        //         Color::WHITE,
+        //     );
+        // }
 
         let rect = Rectangle::new(x as f32, y as f32, proto.dims.x as f32, proto.dims.y as f32);
 
@@ -592,7 +611,7 @@ pub fn draw_grid_blueprints(
     d: &mut RaylibDrawHandle,
     grids: &Components<VehicleGrid>,
     parts: &Components<Part>,
-    prototypes: &Components<(PartPrototype, MaybeTexture)>,
+    prototypes: &Components<PartPrototype>,
     camera: &Camera2D,
 ) {
     for (grid_id, grid) in grids.iter() {
@@ -755,10 +774,6 @@ pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
 
     draw_origin_and_range_indicators(&mut c);
 
-    if let Some(t) = &world.circle_texture {
-        draw_particles(&mut c, &world.particles, t);
-    };
-
     // draw_grid_blueprints(
     //     &mut c,
     //     &world.grids,
@@ -784,8 +799,42 @@ pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
 
     draw_grid_far_indicators(&world.grids, d, &world.camera);
 
+    draw_focused_grid_info(d, world.follow_vehicle, &world.grids, world.screen_dims);
+
     // draw_parts_zoo(&world.prototypes, &mut d);
     // draw_test_isos(&mut d)
+}
+
+fn draw_focused_grid_info(
+    d: &mut RaylibDrawHandle,
+    follow: Option<Ent>,
+    grids: &Components<VehicleGrid>,
+    screen_dims: Vector2,
+) {
+    let Some(id) = follow else {
+        return;
+    };
+    let Ok(grid) = grids.try_get(id) else {
+        return;
+    };
+
+    let font_size = 32;
+    let text = format!("{:0.2} m/s", grid.linear_velocity);
+
+    let width = d.measure_text(&text, font_size);
+    let pos = Vector2::new(
+        screen_dims.x / 2.0 - width as f32 / 2.0,
+        screen_dims.y - 50.0,
+    );
+
+    d.draw_text_ex(
+        d.get_font_default(),
+        &text,
+        pos,
+        font_size as f32,
+        3.0,
+        Color::WHITE,
+    );
 }
 
 pub fn push_event(world: &mut World, event: Event) {

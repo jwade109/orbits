@@ -45,7 +45,7 @@ impl VehicleGrid {
 
 pub fn spawn_grid_from_blueprint(
     counter: &mut EntitySpawner,
-    prototypes: &Components<(PartPrototype, MaybeTexture)>,
+    prototypes: &Components<PartPrototype>,
     grids: &mut Components<VehicleGrid>,
     parts: &mut Components<Part>,
     thrusters: &mut Components<Thruster>,
@@ -157,7 +157,7 @@ pub fn insert_part(
     grid_id: Ent,
     counter: &mut EntitySpawner,
     grids: &mut Components<VehicleGrid>,
-    prototypes: &Components<(PartPrototype, MaybeTexture)>,
+    prototypes: &Components<PartPrototype>,
     parts: &mut Components<Part>,
     thrusters: &mut Components<Thruster>,
     computers: &mut Components<Computer>,
@@ -166,7 +166,7 @@ pub fn insert_part(
 ) -> BaryResult<Ent> {
     let grid = grids.try_get_mut(grid_id)?;
     let proto_id = find::part_by_name(prototypes, &instance.name).ok_or(BaryError::BadPartName)?;
-    let (proto, _texture) = prototypes.try_get(proto_id)?;
+    let proto = prototypes.try_get(proto_id)?;
 
     grid.parts_mass += proto.mass;
 
@@ -247,13 +247,10 @@ pub mod find {
             .map(|(_, bp)| bp)
     }
 
-    pub fn part_by_name(
-        prototypes: &Components<(PartPrototype, MaybeTexture)>,
-        name: &str,
-    ) -> Option<Ent> {
+    pub fn part_by_name(prototypes: &Components<PartPrototype>, name: &str) -> Option<Ent> {
         prototypes
             .iter()
-            .find(|(_, (proto, _))| proto.part_name() == name)
+            .find(|(_, proto)| proto.part_name() == name)
             .map(|e| *e.0)
     }
 
@@ -279,14 +276,14 @@ pub mod find {
 pub fn get_blueprint(
     grids: &Components<VehicleGrid>,
     parts: &Components<Part>,
-    prototypes: &Components<(PartPrototype, MaybeTexture)>,
+    prototypes: &Components<PartPrototype>,
     grid_id: Ent,
 ) -> BaryResult<Blueprint> {
     let grid = grids.try_get(grid_id)?;
     let mut bp = Blueprint::new();
     for part_id in &grid.parts {
         let part = parts.try_get(*part_id)?;
-        let (proto, _texture) = prototypes.try_get(part.prototype)?;
+        let proto = prototypes.try_get(part.prototype)?;
         bp.add_part(proto.name.to_string(), part.placement, part.layer);
     }
     Ok(bp)
@@ -315,13 +312,13 @@ pub fn get_parts_center_of_mass(grid_id: Ent, world: &World) -> BaryResult<Vec2>
     let mut total_mass = Mass::ZERO;
     for part_id in &grid.parts {
         let part = world.parts.try_get(*part_id)?;
-        let (proto, _texture) = world.prototypes.try_get(part.prototype)?;
+        let proto = world.prototypes.try_get(part.prototype)?;
         total_mass += proto.mass;
     }
     let mut com = Vec2::ZERO;
     for part_id in &grid.parts {
         let part = world.parts.try_get(*part_id)?;
-        let (proto, _texture) = world.prototypes.try_get(part.prototype)?;
+        let proto = world.prototypes.try_get(part.prototype)?;
         let center = part.placement.center_isometry();
         let mass_portion = proto.mass.to_kg_f64() / total_mass.to_kg_f64();
         com += center.translation * mass_portion as f32;
@@ -378,39 +375,39 @@ mod tests {
 
         let mut iter = world.prototypes.iter();
 
-        let (id, (proto, _texture)) = iter.next().unwrap();
+        let (id, proto) = iter.next().unwrap();
         assert_eq!(*id, Ent(0));
         assert_eq!(proto.part_name(), "angled-frame");
 
-        let (id, (proto, _texture)) = iter.next().unwrap();
+        let (id, proto) = iter.next().unwrap();
         assert_eq!(*id, Ent(1));
         assert_eq!(proto.part_name(), "antenna");
 
-        let (id, (proto, _texture)) = iter.next().unwrap();
+        let (id, proto) = iter.next().unwrap();
         assert_eq!(*id, Ent(2));
         assert_eq!(proto.part_name(), "battery");
 
-        let (id, (proto, _texture)) = iter.next().unwrap();
+        let (id, proto) = iter.next().unwrap();
         assert_eq!(*id, Ent(3));
         assert_eq!(proto.part_name(), "cargo");
 
-        let (id, (proto, _texture)) = iter.next().unwrap();
+        let (id, proto) = iter.next().unwrap();
         assert_eq!(*id, Ent(4));
         assert_eq!(proto.part_name(), "chemical-plant");
 
-        let (id, (proto, _texture)) = iter.next().unwrap();
+        let (id, proto) = iter.next().unwrap();
         assert_eq!(*id, Ent(5));
         assert_eq!(proto.part_name(), "container");
 
-        let (id, (proto, _texture)) = iter.next().unwrap();
+        let (id, proto) = iter.next().unwrap();
         assert_eq!(*id, Ent(6));
         assert_eq!(proto.part_name(), "cpu");
 
-        let (id, (proto, _texture)) = iter.next().unwrap();
+        let (id, proto) = iter.next().unwrap();
         assert_eq!(*id, Ent(7));
         assert_eq!(proto.part_name(), "debug-item-source");
 
-        let (id, (proto, _texture)) = iter.next().unwrap();
+        let (id, proto) = iter.next().unwrap();
         assert_eq!(*id, Ent(8));
         assert_eq!(proto.part_name(), "docking-port");
     }
@@ -468,7 +465,7 @@ mod tests {
         assert_eq!(cpu.prototype, Ent(6));
 
         // get the prototype definition for the computer
-        let (proto, _texture) = world.prototypes.get(cpu.prototype).unwrap();
+        let proto = world.prototypes.get(cpu.prototype).unwrap();
 
         // it should be the "cpu" part
         assert_eq!(proto.part_name(), "cpu");
@@ -540,7 +537,7 @@ mod tests {
 
         let proto_id = find::part_by_name(&world.prototypes, part_name).unwrap();
 
-        let (proto, _texture) = world.prototypes.try_get(proto_id).unwrap();
+        let proto = world.prototypes.try_get(proto_id).unwrap();
         let dims = proto.dims;
 
         assert_eq!(proto_id, Ent(16));
@@ -751,7 +748,7 @@ mod tests {
         assert_eq!(com, Vec2::new(0.001067417, 0.022271877));
 
         let cargo_id = find::part_by_name(&world.prototypes, "cargo").unwrap();
-        let (cargo_proto, _texture) = world.prototypes.try_get(cargo_id).unwrap();
+        let cargo_proto = world.prototypes.try_get(cargo_id).unwrap();
 
         assert_eq!(cargo_proto.dims, (6, 6).into());
         assert_eq!(cargo_proto.dims_meters(), (1.5, 1.5).into());
@@ -772,7 +769,7 @@ mod tests {
 
         // modifying the prototype for motor so it has easy quantities
         let proto_id = find::part_by_name(&world.prototypes, "motor").unwrap();
-        let (proto, _) = world.prototypes.try_get_mut(proto_id).unwrap();
+        let proto = world.prototypes.try_get_mut(proto_id).unwrap();
 
         proto.mass = Mass::kilograms(1000);
         if let Some(t) = &mut proto.thruster_data {

@@ -6,22 +6,24 @@ use steamworks::{Client, PersonaStateChange};
 
 use rdev::listen;
 
-fn draw_debug_info(world: &World, d: &mut RaylibDrawHandle) {
+fn draw_debug_info(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
     let mut s = String::new();
 
     s += &format!("{:?}", d.get_fps());
 
-    let fmt_time = |d: std::time::Duration| {
+    let fmt_time = |d: std::time::Duration, t: std::time::Duration| {
+        let p = d.as_secs_f64() / t.as_secs_f64();
         format!(
-            "    {:09} ns\n    {:05.04} ms",
+            "    {:09} ns\n    {:05.04} ms\n    {:3.1}%",
             d.as_nanos(),
-            d.as_nanos() as f64 / 1000000.0
+            d.as_nanos() as f64 / 1000000.0,
+            p * 100.0
         )
     };
 
-    s += &format!("\nU\n{}", fmt_time(world.timers.update));
-    s += &format!("\nR\n{}", fmt_time(world.timers.render));
-    s += &format!("\nT\n{}", fmt_time(world.timers.total));
+    s += &format!("\nU\n{}", fmt_time(world.timers.update, world.timers.total));
+    s += &format!("\nR\n{}", fmt_time(world.timers.render, world.timers.total));
+    s += &format!("\nT\n{}", fmt_time(world.timers.total, world.timers.total));
 
     s += &format!("\nZoom: {:0.3}", world.camera.zoom);
 
@@ -42,7 +44,7 @@ fn draw_debug_info(world: &World, d: &mut RaylibDrawHandle) {
         s += &format!("\n{:?}", e);
     }
 
-    if let Some(font) = &world.lato_regular {
+    if let Some(font) = &assets.lato_regular {
         d.draw_text_ex(&font, &s, Vector2::new(12.0, 12.0), 20.0, 0.0, Color::WHITE);
     }
 }
@@ -51,22 +53,24 @@ fn main() {
     let os = std::env::consts::OS;
     println!("{}", os);
 
-    let client = Client::init().unwrap();
+    let client = Client::init();
 
-    let _cb = client.register_callback(|p: PersonaStateChange| {
-        println!("Got callback: {:?}", p);
-    });
+    if let Ok(client) = &client {
+        let _cb = client.register_callback(|p: PersonaStateChange| {
+            println!("Got callback: {:?}", p);
+        });
 
-    let mm = client.matchmaking();
+        let mm = client.matchmaking();
 
-    mm.create_lobby(steamworks::LobbyType::FriendsOnly, 12, |r| match r {
-        Ok(id) => {
-            println!("Created new lobby: {:?}", id);
-        }
-        Err(e) => {
-            println!("Failed to create lobby: {:?}", e);
-        }
-    });
+        mm.create_lobby(steamworks::LobbyType::FriendsOnly, 12, |r| match r {
+            Ok(id) => {
+                println!("Created new lobby: {:?}", id);
+            }
+            Err(e) => {
+                println!("Failed to create lobby: {:?}", e);
+            }
+        });
+    }
 
     let (mut rl, thread) = raylib::init()
         .size(1080, 700)
@@ -94,13 +98,14 @@ fn main() {
     let mut shader = rl.load_shader(&thread, None, Some("assets/shaders/distortion.fs"));
 
     let mut world = dev_world("assets/").unwrap();
+    let mut assets = Assets::default();
 
-    load_assets(&mut world, &mut rl, &thread);
+    load_assets(&mut assets, &mut rl, &thread);
 
     rl.hide_cursor();
 
     while !rl.window_should_close() {
-        client.run_callbacks();
+        _ = client.as_ref().map(|c| c.run_callbacks());
 
         let loop_start = std::time::Instant::now();
 
@@ -115,7 +120,7 @@ fn main() {
 
         let mouse = rl.is_cursor_on_screen().then(|| rl.get_mouse_position());
 
-        update_world(&mut world, screen_dims, mouse);
+        update_world_logged(&mut world, screen_dims, mouse);
 
         // let time = rl.get_time();
         // shader.set_shader_value(1, time as f32);
@@ -129,7 +134,7 @@ fn main() {
             let end = std::time::Instant::now();
             world.timers.render = end - start;
             world.timers.total = end - loop_start;
-            draw_debug_info(&world, &mut d);
+            draw_debug_info(&world, &assets, &mut d);
         });
     }
 }
