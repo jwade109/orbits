@@ -1,5 +1,4 @@
-use super::transactions::Transaction;
-use bary_core::prelude::Vec2;
+use crate::multiplayer::*;
 use renet_netcode::NETCODE_USER_DATA_BYTES;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -11,7 +10,7 @@ pub const PROTOCOL_ID: u64 = 7;
 
 pub const SERVER_ADDR: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 5000);
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug)]
 pub enum ClientMessage {
     Pong(u64, Duration),
     Introduction { username: String },
@@ -19,11 +18,17 @@ pub enum ClientMessage {
     Transaction(Transaction),
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug)]
 pub enum ServerMessage {
     Ping(u64, Duration),
     Text(String),
     Transaction(Transaction),
+}
+
+impl ServerMessage {
+    pub fn transaction(tick: u64, action: Action) -> Self {
+        Self::Transaction(Transaction::new(tick, action))
+    }
 }
 
 pub fn get_current_time() -> Duration {

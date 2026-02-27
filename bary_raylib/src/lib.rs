@@ -12,5 +12,6 @@ pub mod systems;
 pub mod thruster;
 pub mod utils;
 pub mod vehicle_grid;
+pub mod wall_timer;
 pub mod world;
 pub mod world_builder;

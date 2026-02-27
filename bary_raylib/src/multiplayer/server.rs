@@ -22,6 +22,7 @@ pub struct Server {
     pub transport: NetcodeServerTransport,
     pub usernames: BTreeMap<ClientId, String>,
     pub messages: Vec<ClientMessage>,
+    pub last_updated: Instant,
 }
 
 impl Server {
@@ -49,6 +50,7 @@ impl Server {
             transport,
             usernames,
             messages: vec![],
+            last_updated: Instant::now(),
         }
     }
 
@@ -58,7 +60,9 @@ impl Server {
             .broadcast_message(DefaultChannel::ReliableOrdered, message);
     }
 
-    pub fn update(&mut self, duration: Duration) -> Result<(), std::io::Error> {
+    pub fn update(&mut self) {
+        let now = Instant::now();
+        let duration = now - self.last_updated;
         self.server.update(duration);
         self.transport.update(duration, &mut self.server).unwrap();
 
@@ -102,7 +106,7 @@ impl Server {
 
         self.transport.send_packets(&mut self.server);
 
-        Ok(())
+        self.last_updated = now;
     }
 }
 
@@ -119,7 +123,7 @@ mod tests {
         let dur = Duration::from_millis(10);
 
         for _ in 0..20 {
-            _ = server.update(dur);
+            _ = server.update();
             client.update();
             std::thread::sleep(dur);
         }

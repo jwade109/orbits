@@ -3,7 +3,7 @@ use bary_core::prelude::Ent;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct EntitySpawner {
     next_id: Ent,
 }
@@ -19,6 +19,10 @@ impl EntitySpawner {
         let ret = self.next_id;
         self.next_id.0 += 1;
         ret
+    }
+
+    pub fn next(&self) -> Ent {
+        self.next_id
     }
 }
 

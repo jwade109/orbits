@@ -2,6 +2,7 @@ use crate::components::*;
 use crate::computer::*;
 use crate::input_state::*;
 use crate::light::*;
+use crate::multiplayer::Action;
 use crate::multiplayer::Transaction;
 use crate::part::*;
 use crate::ring_particle::RingParticle;
@@ -69,7 +70,18 @@ pub struct World {
     pub lights: Components<Light>,
     pub grids: Components<VehicleGrid>,
     pub grids_to_update: BTreeSet<Ent>,
-    pub outgoing_messages: Vec<Transaction>,
+}
+
+impl std::fmt::Debug for World {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "World({}, {} grids, {})",
+            self.ticks,
+            self.grids.len(),
+            self.spawner.next()
+        )
+    }
 }
 
 impl World {
@@ -102,9 +114,13 @@ impl World {
             computers: Components::default(),
             lights: Components::default(),
             grids_to_update: BTreeSet::new(),
-            outgoing_messages: Vec::new(),
         }
     }
+}
+
+pub fn size_in_bytes(world: &World) -> usize {
+    let bytes = bincode::serialize(world).unwrap();
+    bytes.len()
 }
 
 pub fn load_assets(
@@ -223,7 +239,7 @@ fn ping_on_c(
     events: &VecDeque<Event>,
     camera: &Camera2D,
     mouse_screen_position: Option<Vec2>,
-    transactions: &mut Vec<Transaction>,
+    transactions: &mut Vec<Action>,
 ) {
     let Some(screen_pos) = mouse_screen_position else {
         return;
@@ -238,7 +254,7 @@ fn ping_on_c(
     if pressed_c {
         let particle = RingParticle::new(pos);
         particles.push(particle);
-        transactions.push(Transaction::Ping(pos));
+        transactions.push(Action::Ping(pos));
     }
 }
 
@@ -350,10 +366,14 @@ fn set_target_camera_if_following(
     target.rotation = grid.isometry.rotation.to_degrees();
 }
 
-pub fn update_world(world: &mut World, screen_dims: Vec2, mouse_screen_position: Option<Vec2>) {
+pub fn update_world(
+    world: &mut World,
+    screen_dims: Vec2,
+    mouse_screen_position: Option<Vec2>,
+) -> Vec<Action> {
     world.ticks += 1;
 
-    world.outgoing_messages.clear();
+    let mut outgoing_messages = Vec::new();
 
     let start = std::time::Instant::now();
 
@@ -408,7 +428,7 @@ pub fn update_world(world: &mut World, screen_dims: Vec2, mouse_screen_position:
         &world.event_queue,
         &world.camera,
         world.mouse_screen_position,
-        &mut world.outgoing_messages,
+        &mut outgoing_messages,
     );
 
     world.event_queue.clear();
@@ -416,6 +436,8 @@ pub fn update_world(world: &mut World, screen_dims: Vec2, mouse_screen_position:
     let end = std::time::Instant::now();
 
     world.timers.update = end - start;
+
+    outgoing_messages
 }
 
 fn update_ring_particles(particles: &mut Vec<RingParticle>) {

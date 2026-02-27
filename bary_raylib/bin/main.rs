@@ -12,11 +12,7 @@ use steamworks::{LobbyChatMsg, LobbyEnter, PersonaStateChange};
 use rdev::listen;
 
 fn draw_debug_info(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
-
-    let bytes = bincode::serialize(&world).unwrap();
-
-    dbg!(bytes.len());
-
+    let size = size_in_bytes(world);
     let mut s = String::new();
 
     s += &format!("{:?}", d.get_fps());
@@ -41,6 +37,7 @@ fn draw_debug_info(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
         d.get_time(),
         world.ticks as f64 / d.get_time()
     );
+    s += &format!("\nMemory: {:0.3} kb", size as f64 / 1000.0);
     s += &format!("\nZoom: {:0.3}", world.camera.zoom);
 
     s += &format!("\nMOUSE {:?}", world.mouse_screen_position);
@@ -193,10 +190,11 @@ fn main() {
             .is_cursor_on_screen()
             .then(|| raylib_to_glam(rl.get_mouse_position()));
 
-        update_world(&mut world, screen_dims, mouse);
+        let outgoing_messages = update_world(&mut world, screen_dims, mouse);
 
-        for msg in &world.outgoing_messages {
-            outgoing_network_queue.push(msg.clone());
+        for msg in outgoing_messages {
+            let transaction = Transaction::new(world.ticks, msg);
+            outgoing_network_queue.push(transaction);
         }
 
         let time = rl.get_time();
