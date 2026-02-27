@@ -3,7 +3,6 @@ use crate::computer::*;
 use crate::input_state::*;
 use crate::light::*;
 use crate::multiplayer::Action;
-use crate::multiplayer::Transaction;
 use crate::part::*;
 use crate::ring_particle::RingParticle;
 use crate::systems::*;
@@ -13,6 +12,7 @@ use crate::vehicle_grid::*;
 use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use log::{debug, info};
+use rand::rngs::StdRng;
 use raylib::prelude::*;
 use rdev::Event;
 use serde::{Deserialize, Serialize};
@@ -23,14 +23,14 @@ pub type MaybeTexture = Option<Texture2D>;
 
 pub type MaybeFont = Option<Font>;
 
-#[derive(Default, Deserialize, Serialize)]
+#[derive(Default, Deserialize, Serialize, Clone)]
 pub struct Timers {
     pub update: Duration,
     pub render: Duration,
     pub total: Duration,
 }
 
-#[derive(Default, Debug, Deserialize, Serialize)]
+#[derive(Default, Debug, Deserialize, Serialize, Clone)]
 pub struct SelectionInfo {
     pub camera_hovered: Option<(Ent, Vec2)>,
     pub mouse_hovered: Option<(Ent, Vec2)>,
@@ -43,7 +43,7 @@ pub struct Assets {
     pub part_textures: BTreeMap<String, Texture2D>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct World {
     pub ticks: u64,
     pub timers: Timers,
@@ -258,6 +258,20 @@ fn ping_on_c(
     }
 }
 
+fn spawn_random_ship_on_p(world: &mut World) {
+    let pressed_p = world
+        .event_queue
+        .iter()
+        .any(|e| e.event_type == rdev::EventType::KeyPress(Key::KeyP));
+
+    if pressed_p {
+        if let Ok(grid_id) = world::spawn_grid_by_name(world, "remora") {
+            let pos = randvec(10.0, 200.0);
+            _ = world::set_grid_position(world, grid_id, pos);
+        }
+    }
+}
+
 fn reset_camera_on_ctrl_r(input: &InputState, target: &mut Camera2D) {
     if input.is_key_pressed(Key::ControlLeft) && input.is_key_pressed(Key::KeyR) {
         debug!("Reset camera");
@@ -366,19 +380,12 @@ fn set_target_camera_if_following(
     target.rotation = grid.isometry.rotation.to_degrees();
 }
 
-pub fn update_world(
-    world: &mut World,
-    screen_dims: Vec2,
-    mouse_screen_position: Option<Vec2>,
-) -> Vec<Action> {
+pub fn update_world(world: &mut World) -> Vec<Action> {
     world.ticks += 1;
 
     let mut outgoing_messages = Vec::new();
 
     let start = std::time::Instant::now();
-
-    world.screen_dims = screen_dims;
-    world.mouse_screen_position = mouse_screen_position;
 
     toggle_camera_local_normal_snapping(&world.event_queue, &mut world.snap_camera_to_local_planet);
     toggle_following_on_key_f(
@@ -388,7 +395,7 @@ pub fn update_world(
     );
 
     update_ring_particles(&mut world.particles);
-    // update_lights(&mut world.lights);
+    update_lights(&mut world.lights);
     update_computers(&mut world.computers);
     // world.grids_to_update = update_thrusters(&mut world.thrusters);
 
@@ -423,6 +430,7 @@ pub fn update_world(
     // spawn_random_ring_effects(&mut world.particles);
 
     panic_on_ctrl_d(&world.input);
+
     ping_on_c(
         &mut world.particles,
         &world.event_queue,
@@ -430,6 +438,8 @@ pub fn update_world(
         world.mouse_screen_position,
         &mut outgoing_messages,
     );
+
+    spawn_random_ship_on_p(world);
 
     world.event_queue.clear();
 

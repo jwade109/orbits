@@ -37,16 +37,16 @@ pub fn dev_world(assets_dir: &str) -> BaryResult<World> {
         .blueprint("spacestation")
         .build();
 
-    // let bps = world.blueprints.clone();
+    let bps = world.blueprints.clone();
 
-    // for (name, bp) in bps.values() {
-    //     let id = world::spawn_grid_from_blueprint(&mut world, name.clone(), bp)?;
-    //     let grid = world.grids.try_get_mut(id)?;
-    //     grid.isometry.translation = randvec(10.0, 100.0);
-    //     grid.isometry.rotation = rand(-0.3, 0.3);
-    //     grid.angular_velocity = rand(-0.1, 0.1);
-    //     grid.linear_velocity = randvec(0.1, 1.0);
-    // }
+    for (name, bp) in bps.values() {
+        let id = world::spawn_grid_from_blueprint(&mut world, name.clone(), bp)?;
+        let grid = world.grids.try_get_mut(id)?;
+        grid.isometry.translation = randvec(10.0, 100.0);
+        grid.isometry.rotation = rand(-0.3, 0.3);
+        grid.angular_velocity = rand(-0.1, 0.1);
+        grid.linear_velocity = randvec(0.1, 1.0);
+    }
 
     Ok(world)
 }
@@ -64,7 +64,7 @@ mod tests {
         world.snap_camera_to_local_planet = true;
 
         for _ in 0..100 {
-            update_world(&mut world, (1080.0, 720.0).into(), None);
+            update_world(&mut world);
         }
 
         assert_eq!(world.camera.offset, Vector2::new(540.0, 360.0));

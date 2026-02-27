@@ -26,7 +26,7 @@ impl EntitySpawner {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct Components<E> {
     values: BTreeMap<Ent, E>,
 }

@@ -1,3 +1,5 @@
+use crate::multiplayer::Transaction;
+
 use super::common::*;
 use log::{debug, info};
 use renet::*;
@@ -14,7 +16,6 @@ pub struct UserInfo {
     pub last_ping_sent: Instant,
     pub last_message_received: Instant,
     pub expected_ping_check: u64,
-    pub username: Option<String>,
 }
 
 pub struct Server {
@@ -26,7 +27,7 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new(host_username: String) -> Self {
+    pub fn new() -> Self {
         let socket: UdpSocket = UdpSocket::bind(SERVER_ADDR).unwrap();
         let current_time = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
@@ -60,7 +61,9 @@ impl Server {
             .broadcast_message(DefaultChannel::ReliableOrdered, message);
     }
 
-    pub fn update(&mut self) {
+    pub fn update(&mut self) -> Vec<Transaction> {
+        let mut messages = Vec::new();
+
         let now = Instant::now();
         let duration = now - self.last_updated;
         self.server.update(duration);
@@ -70,16 +73,12 @@ impl Server {
             match event {
                 ServerEvent::ClientConnected { client_id } => {
                     info!("Client connected: {}", client_id);
-                    // let user_data = self.transport.user_data(client_id).unwrap();
-                    // let username = Username::from_user_data(&user_data).0;
-                    // self.usernames.insert(client_id, username.clone());
                 }
                 ServerEvent::ClientDisconnected {
                     client_id,
                     reason: _,
                 } => {
                     info!("Client disconnected: {}", client_id);
-                    self.usernames.remove(&client_id);
                 }
             }
         }
@@ -92,13 +91,14 @@ impl Server {
                 if let Ok(message) = bincode::deserialize::<ClientMessage>(&message) {
                     debug!("Received message from client {}: {:?}", client_id, message);
                     if let ClientMessage::Transaction(tr) = message {
-                        let forward = ServerMessage::Transaction(tr);
+                        let forward = ServerMessage::Transaction(tr.clone());
                         let bytes = bincode::serialize(&forward).unwrap();
                         self.server.broadcast_message_except(
                             client_id,
                             DefaultChannel::ReliableOrdered,
                             bytes,
-                        )
+                        );
+                        messages.push(tr);
                     }
                 }
             }
@@ -107,6 +107,8 @@ impl Server {
         self.transport.send_packets(&mut self.server);
 
         self.last_updated = now;
+
+        messages
     }
 }
 
@@ -117,7 +119,7 @@ mod tests {
 
     #[test]
     fn test_connection() {
-        let mut server = Server::new("whatever".to_string());
+        let mut server = Server::new();
         let mut client = Client::new();
 
         let dur = Duration::from_millis(10);

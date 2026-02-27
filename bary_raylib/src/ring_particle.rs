@@ -2,7 +2,7 @@ use bary_core::prelude::*;
 use raylib::color::Color;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct RingParticle {
     pub pos: Vec2,
     age: f32,

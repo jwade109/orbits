@@ -1,12 +1,13 @@
 use bary_core::prelude::*;
 use bary_raylib::draw::draw_world;
 use bary_raylib::multiplayer::*;
+use bary_raylib::systems::*;
 use bary_raylib::utils::raylib_to_glam;
-use bary_raylib::{scenarios::dev_world, world::*};
-use crossbeam_queue::SegQueue;
+use bary_raylib::world::*;
+use bary_raylib::world_builder::WorldBuilder;
 use raylib::prelude::*;
+use std::thread;
 use std::time::Duration;
-use std::{sync::Arc, thread};
 use steamworks::{LobbyChatMsg, LobbyEnter, PersonaStateChange};
 
 use rdev::listen;
@@ -62,7 +63,7 @@ fn draw_debug_info(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
     }
 }
 
-fn network_thread(incoming: Arc<SegQueue<ServerMessage>>, outgoing: Arc<SegQueue<Transaction>>) {
+fn network_thread(incoming: MessageQueue<ServerMessage>, outgoing: MessageQueue<Transaction>) {
     let mut client = Client::new();
     let dur = Duration::from_millis(50);
 
@@ -126,7 +127,7 @@ fn main() {
         // .vsync()
         .build();
 
-    let input_queue = Arc::new(SegQueue::new());
+    let input_queue = new_message_queue();
     let thread_copy = input_queue.clone();
     let _input_thread = thread::spawn(|| {
         if let Err(error) = listen(move |e| thread_copy.push(e)) {
@@ -134,23 +135,34 @@ fn main() {
         }
     });
 
-    let incoming_network_queue = Arc::new(SegQueue::new());
+    let incoming_network_queue = new_message_queue();
     let incoming_network_queue_copy = incoming_network_queue.clone();
 
-    let outgoing_network_queue = Arc::new(SegQueue::new());
+    let outgoing_network_queue = new_message_queue();
     let outgoing_network_queue_copy = outgoing_network_queue.clone();
 
     let _network_thread = thread::spawn(|| {
         network_thread(incoming_network_queue_copy, outgoing_network_queue_copy);
     });
 
-    rl.set_target_fps(60);
-    rl.maximize_window();
+    rl.set_target_fps(240);
+    // rl.maximize_window();
     rl.set_exit_key(None);
 
     let mut shader = rl.load_shader(&thread, None, Some("assets/shaders/distortion.fs"));
 
-    let mut world = dev_world("assets/").unwrap();
+    let mut world = WorldBuilder::new()
+        .assets("assets/")
+        .blueprint("pollux")
+        .blueprint("bellerophon")
+        .blueprint("remora")
+        .blueprint("spacestation")
+        .build();
+
+    _ = world::spawn_grid_by_name(&mut world, "pollux");
+
+    let mut runner = WorldRunner::new(world);
+
     let mut assets = Assets::default();
 
     load_assets(&mut assets, &mut rl, &thread);
@@ -171,13 +183,13 @@ fn main() {
             };
 
             if is_release || rl.is_window_focused() {
-                push_event(&mut world, e);
+                push_event(&mut runner.world, e);
             }
         }
 
         while let Some(n) = incoming_network_queue.pop() {
             if let ServerMessage::Transaction(tr) = n {
-                apply_transaction(&mut world, tr);
+                apply_transaction(&mut runner.world, tr);
             }
         }
 
@@ -190,10 +202,13 @@ fn main() {
             .is_cursor_on_screen()
             .then(|| raylib_to_glam(rl.get_mouse_position()));
 
-        let outgoing_messages = update_world(&mut world, screen_dims, mouse);
+        runner.world.screen_dims = screen_dims;
+        runner.world.mouse_screen_position = mouse;
+
+        let outgoing_messages = runner.update();
 
         for msg in outgoing_messages {
-            let transaction = Transaction::new(world.ticks, msg);
+            let transaction = Transaction::new(runner.world.ticks, msg);
             outgoing_network_queue.push(transaction);
         }
 
@@ -204,12 +219,12 @@ fn main() {
             let start = std::time::Instant::now();
             d.clear_background(Color::BLACK);
 
-            draw_world(&world, &mut d);
+            draw_world(&runner.world, &mut d);
 
             let end = std::time::Instant::now();
-            world.timers.render = end - start;
-            world.timers.total = end - loop_start;
-            draw_debug_info(&world, &assets, &mut d);
+            runner.world.timers.render = end - start;
+            runner.world.timers.total = end - loop_start;
+            draw_debug_info(&runner.world, &assets, &mut d);
         });
     }
 }

@@ -1,64 +1,80 @@
-use bary_core::prelude::{chance, randvec};
 use bary_raylib::multiplayer::*;
 use bary_raylib::scenarios::dev_world;
 use bary_raylib::wall_timer::WallTimer;
-use bary_raylib::world::update_world;
-use log::info;
+use log::{info, warn};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
 pub struct ServerApp {
+    runner: WorldRunner,
+    incoming_transactions: MessageQueue<Transaction>,
+    outgoing_transactions: MessageQueue<Transaction>,
     _server_thread: JoinHandle<()>,
-    _world_thread: JoinHandle<()>,
+    world_echo_timer: WallTimer,
+    sync_timer: WallTimer,
 }
 
 impl ServerApp {
     pub fn new() -> Self {
+        let incoming_transactions = new_message_queue();
+        let outgoing_transactions = new_message_queue();
+
         Self {
-            _server_thread: std::thread::spawn(server_thread),
-            _world_thread: std::thread::spawn(world_thread),
+            runner: WorldRunner::new(dev_world("assets").unwrap()),
+            incoming_transactions: incoming_transactions.clone(),
+            outgoing_transactions: outgoing_transactions.clone(),
+            _server_thread: std::thread::spawn(|| {
+                server_thread(incoming_transactions, outgoing_transactions)
+            }),
+            world_echo_timer: WallTimer::with_dur(Duration::from_secs(3)),
+            sync_timer: WallTimer::with_dur(Duration::from_secs(5)),
+        }
+    }
+
+    pub fn update(&mut self) {
+        while let Some(tr) = self.incoming_transactions.pop() {
+            warn!("Got a transaction! {:?}", tr);
+        }
+
+        if self.world_echo_timer.tick() {
+            info!("Running world: {:?}", self.runner.world);
+        }
+
+        let _outgoing = self.runner.update();
+
+        if self.sync_timer.tick() {
+            let tr = Transaction::new(
+                self.runner.world.ticks,
+                Action::FastForwardTo(self.runner.world.ticks),
+            );
+            self.outgoing_transactions.push(tr);
+            warn!("Sending sync packet");
         }
     }
 }
 
-fn world_thread() {
-    let mut world = dev_world("assets").unwrap();
-
-    const WORLD_TICKS_PER_SECOND: u64 = 50;
-    const MILLISECONDS_PER_TICK: u64 = 1000 / WORLD_TICKS_PER_SECOND;
-
-    let mut update_timer = WallTimer::with_dur(Duration::from_millis(MILLISECONDS_PER_TICK));
-    let mut echo_timer = WallTimer::with_dur(Duration::from_secs(1));
-
-    loop {
-        if echo_timer.tick() {
-            info!("Running world: {:?}", world);
-        }
-
-        if update_timer.tick() {
-            update_world(&mut world, (1080.0, 720.0).into(), None);
-        }
-    }
-}
-
-fn server_thread() {
-    let mut server = Server::new("idgaf".to_string());
+fn server_thread(
+    incoming_queue: MessageQueue<Transaction>,
+    outgoing_queue: MessageQueue<Transaction>,
+) {
+    let mut server = Server::new();
 
     let mut update_timer = WallTimer::with_dur(Duration::from_millis(50));
-    let mut echo_timer = WallTimer::with_dur(Duration::from_millis(1000));
+    let mut echo_timer = WallTimer::with_dur(Duration::from_millis(3000));
 
     loop {
         if update_timer.tick() {
-            server.update();
+            for msg in server.update() {
+                incoming_queue.push(msg);
+            }
         }
 
         if echo_timer.tick() {
             info!("{} users connected", server.server.clients_id().len());
-            // if chance(0.2) {
-            //     let p = randvec(10.0, 150.0);
-            //     let action = Action::SpawnShipAt("remora".to_string(), p);
-            //     server.broadcast(ServerMessage::transaction(0, action));
-            // }
+        }
+
+        while let Some(tr) = outgoing_queue.pop() {
+            server.broadcast(ServerMessage::Transaction(tr));
         }
     }
 }
@@ -72,7 +88,9 @@ fn main() {
 
     println!("Starting dedicated server...");
 
-    let _app = ServerApp::new();
+    let mut app = ServerApp::new();
 
-    loop {}
+    loop {
+        app.update();
+    }
 }

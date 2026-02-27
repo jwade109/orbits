@@ -21,7 +21,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     assert_eq!(world.grids.len(), 4);
 
     c.bench_function("world_update", |b| {
-        b.iter(|| black_box(update_world(&mut world, (1500.0, 900.0).into(), None)))
+        b.iter(|| black_box(update_world(&mut world)))
     });
 }
 

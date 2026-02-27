@@ -1,7 +1,7 @@
 use bary_core::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct DutyCycle {
     /// number of ticks spent high
     pub on: u32,
@@ -27,7 +27,7 @@ impl DutyCycle {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct Light {
     pub cycle: DutyCycle,
     pub ticks: u32,
@@ -37,12 +37,12 @@ pub struct Light {
 }
 
 impl Light {
-    pub fn new(grid_id: Ent, prototype_id: Ent, pos: Vec2) -> Self {
-        let total = 6000;
-        let on = randint(10, 30) as u32;
-        let delay = randint(0, total) as u32;
+    pub fn new(grid_id: Ent, prototype_id: Ent, pos: Vec2, idx: u32) -> Self {
+        let total = 600;
+        let on = 150;
+        let delay = idx * 50;
         Self {
-            cycle: DutyCycle::new(on, total as u32, delay),
+            cycle: DutyCycle::new(on, total, delay),
             ticks: 0,
             grid_id,
             prototype_id,

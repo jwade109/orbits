@@ -184,7 +184,8 @@ pub fn insert_part(
     if let Some(data) = &proto.thruster_data {
         if data.is_rcs {
             let pos = instance.placement.center_isometry().translation;
-            let light = Light::new(grid_id, proto_id, pos);
+            let light_idx = lights.len();
+            let light = Light::new(grid_id, proto_id, pos, light_idx as u32);
             lights.spawn(part_id, light);
             grid.lights.push(part_id);
         }
@@ -517,7 +518,7 @@ mod tests {
         grid.isometry.translation = (40.0, 156.0).into();
 
         for _ in 0..100 {
-            update_world(&mut world, (1080.0, 720.0).into(), None);
+            update_world(&mut world);
             let e = find::closest_grid(&world.grids, Vec2::new(100.0, 200.0));
             assert_eq!(e, Some((Ent(34), Vec2::new(60.0, 44.0))));
         }
@@ -798,7 +799,7 @@ mod tests {
 
         // run the simulation for 2 seconds at 50 Hz
         for _ in 0..100 {
-            update_world(&mut world, (1080.0, 720.0).into(), None);
+            update_world(&mut world);
         }
 
         let iso = world.grids.try_get(grid_id).unwrap().isometry;

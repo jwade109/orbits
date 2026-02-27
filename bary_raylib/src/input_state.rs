@@ -1,7 +1,7 @@
 pub use rdev::Key;
 use std::collections::HashSet;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct InputState {
     buttons: HashSet<Key>,
 }

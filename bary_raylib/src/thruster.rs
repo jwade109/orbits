@@ -1,7 +1,7 @@
 use bary_core::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct Thruster {
     pub is_on: bool,
     pub is_rcs: bool,

@@ -1,17 +1,18 @@
-use crate::systems::*;
 use crate::world::World;
+use crate::{systems::*, world::update_world};
 use bary_core::prelude::*;
-use log::info;
+use log::{info, warn};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum Action {
     Ping(Vec2),
     SpawnShipAt(String, Vec2),
     LoadWorld(World),
+    FastForwardTo(u64),
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Transaction {
     tick: u64,
     action: Action,
@@ -39,6 +40,18 @@ pub fn apply_transaction(world: &mut World, transaction: Transaction) {
         }
         Action::LoadWorld(new_world) => {
             *world = new_world;
+        }
+        Action::FastForwardTo(tick) => {
+            if world.ticks < tick {
+                let delta = tick - world.ticks;
+                warn!("Fast forwarding by {} ticks", delta);
+                while world.ticks < tick {
+                    update_world(world);
+                }
+            } else {
+                let delta = world.ticks - tick;
+                warn!("Already ahead of fast forward directive by {} ticks", delta);
+            }
         }
     }
 }

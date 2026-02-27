@@ -1,10 +1,21 @@
-use crate::multiplayer::*;
+use crate::{
+    multiplayer::*,
+    world::{World, update_world},
+};
+use crossbeam_queue::SegQueue;
 use renet_netcode::NETCODE_USER_DATA_BYTES;
 use serde::{Deserialize, Serialize};
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
-    time::{Duration, SystemTime},
+    sync::Arc,
+    time::{Duration, Instant, SystemTime},
 };
+
+pub type MessageQueue<T> = Arc<SegQueue<T>>;
+
+pub fn new_message_queue<T>() -> MessageQueue<T> {
+    Arc::new(SegQueue::new())
+}
 
 pub const PROTOCOL_ID: u64 = 7;
 
@@ -18,7 +29,7 @@ pub enum ClientMessage {
     Transaction(Transaction),
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub enum ServerMessage {
     Ping(u64, Duration),
     Text(String),
@@ -60,5 +71,34 @@ impl Username {
         let data = user_data[8..len + 8].to_vec();
         let username = String::from_utf8(data).unwrap();
         Self(username)
+    }
+}
+
+pub struct WorldRunner {
+    pub world: World,
+    last_update: Instant,
+}
+
+impl WorldRunner {
+    pub const TICK_DURATION: Duration = Duration::from_millis(20);
+
+    pub fn new(world: World) -> Self {
+        let now = Instant::now();
+        Self {
+            world,
+            last_update: now,
+        }
+    }
+
+    pub fn update(&mut self) -> Vec<Action> {
+        let now = Instant::now();
+        let mut delta = now - self.last_update;
+        let mut ret = Vec::new();
+        while delta > Self::TICK_DURATION {
+            delta -= Self::TICK_DURATION;
+            ret.extend_from_slice(&update_world(&mut self.world));
+            self.last_update += Self::TICK_DURATION;
+        }
+        ret
     }
 }
