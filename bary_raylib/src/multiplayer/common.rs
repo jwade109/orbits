@@ -1,3 +1,4 @@
+use super::transactions::Transaction;
 use bary_core::prelude::Vec2;
 use renet_netcode::NETCODE_USER_DATA_BYTES;
 use serde::{Deserialize, Serialize};
@@ -15,13 +16,14 @@ pub enum ClientMessage {
     Pong(u64, Duration),
     Introduction { username: String },
     Text(String),
+    Transaction(Transaction),
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub enum ServerMessage {
     Ping(u64, Duration),
-    ShipPosition(Vec2),
     Text(String),
+    Transaction(Transaction),
 }
 
 pub fn get_current_time() -> Duration {

@@ -112,12 +112,10 @@ impl Client {
                         info!("Latency: {:?}", latency);
                         self.send_message(ClientMessage::Pong(*check, new_stamp));
                     }
-                    ServerMessage::ShipPosition(ship_pos) => {
-                        info!("Ship position: ~ {}", ship_pos);
-                    }
                     ServerMessage::Text(msg) => {
                         info!("Server message: ~ {}", msg);
                     }
+                    ServerMessage::Transaction(_tr) => {}
                 }
 
                 messages.push(msg);

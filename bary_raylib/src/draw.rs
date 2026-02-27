@@ -238,7 +238,7 @@ fn draw_test_isos(d: &mut RaylibDrawHandle) {
 fn draw_particles(d: &mut RaylibDrawHandle, particles: &Vec<RingParticle>) {
     for particle in particles {
         let r = particle.radius();
-        draw_circle(d, particle.pos, r, Color::ORANGE);
+        fill_circle(d, particle.pos, r, particle.color());
     }
 }
 

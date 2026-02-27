@@ -35,6 +35,8 @@ pub fn spawn_grid_from_blueprint(
 }
 
 pub mod world {
+    use crate::ring_particle::RingParticle;
+
     use super::*;
 
     /// Spawns a grid according to the given blueprint.
@@ -55,6 +57,12 @@ pub mod world {
             name,
             bp,
         )
+    }
+
+    pub fn set_grid_position(world: &mut World, grid_id: Ent, pos: Vec2) -> BaryResult<()> {
+        let grid = world.grids.try_get_mut(grid_id)?;
+        grid.isometry.translation = pos;
+        Ok(())
     }
 
     /// Spawns an empty grid with the given name.
@@ -106,6 +114,11 @@ pub mod world {
             &world.parts,
             new_state,
         )
+    }
+
+    pub fn ping(world: &mut World, pos: Vec2) {
+        let part = RingParticle::new(pos);
+        world.particles.push(part);
     }
 }
 

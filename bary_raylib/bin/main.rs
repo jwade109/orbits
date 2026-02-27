@@ -29,6 +29,12 @@ fn draw_debug_info(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
     s += &format!("\nR\n{}", fmt_time(world.timers.render, world.timers.total));
     s += &format!("\nT\n{}", fmt_time(world.timers.total, world.timers.total));
 
+    s += &format!(
+        "\n{} {} {}",
+        world.ticks,
+        d.get_time(),
+        world.ticks as f64 / d.get_time()
+    );
     s += &format!("\nZoom: {:0.3}", world.camera.zoom);
 
     s += &format!("\nMOUSE {:?}", world.mouse_screen_position);
@@ -53,15 +59,20 @@ fn draw_debug_info(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
     }
 }
 
-fn network_thread(queue: Arc<SegQueue<ServerMessage>>) {
+fn network_thread(incoming: Arc<SegQueue<ServerMessage>>, outgoing: Arc<SegQueue<Transaction>>) {
     let mut client = Client::new();
     let dur = Duration::from_millis(50);
 
     loop {
         let msgs = client.update();
         for msg in msgs {
-            queue.push(msg);
+            incoming.push(msg);
         }
+
+        while let Some(out) = outgoing.pop() {
+            client.send_message(ClientMessage::Transaction(out));
+        }
+
         std::thread::sleep(dur);
     }
 }
@@ -120,10 +131,14 @@ fn main() {
         }
     });
 
-    let network_queue = Arc::new(SegQueue::new());
-    let thread_copy = network_queue.clone();
+    let incoming_network_queue = Arc::new(SegQueue::new());
+    let incoming_network_queue_copy = incoming_network_queue.clone();
+
+    let outgoing_network_queue = Arc::new(SegQueue::new());
+    let outgoing_network_queue_copy = outgoing_network_queue.clone();
+
     let _network_thread = thread::spawn(|| {
-        network_thread(thread_copy);
+        network_thread(incoming_network_queue_copy, outgoing_network_queue_copy);
     });
 
     rl.set_target_fps(60);
@@ -140,7 +155,7 @@ fn main() {
     rl.hide_cursor();
 
     while !rl.window_should_close() {
-        _ = client.as_ref().map(|c| c.run_callbacks());
+        // _ = client.as_ref().map(|c| c.run_callbacks());
 
         let loop_start = std::time::Instant::now();
 
@@ -157,11 +172,9 @@ fn main() {
             }
         }
 
-        while let Some(n) = network_queue.pop() {
-            warn!("Got message: {:?}", n);
-
-            if let ServerMessage::ShipPosition(p) = n {
-                enqueue_network_ship_position(&mut world, p);
+        while let Some(n) = incoming_network_queue.pop() {
+            if let ServerMessage::Transaction(tr) = n {
+                apply_transaction(&mut world, tr);
             }
         }
 
@@ -173,6 +186,10 @@ fn main() {
         let mouse = rl.is_cursor_on_screen().then(|| rl.get_mouse_position());
 
         update_world(&mut world, screen_dims, mouse);
+
+        for msg in &world.outgoing_messages {
+            outgoing_network_queue.push(msg.clone());
+        }
 
         let time = rl.get_time();
         shader.set_shader_value(1, time as f32);

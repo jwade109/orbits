@@ -2,6 +2,7 @@ use crate::components::*;
 use crate::computer::*;
 use crate::input_state::*;
 use crate::light::*;
+use crate::multiplayer::Transaction;
 use crate::part::*;
 use crate::ring_particle::RingParticle;
 use crate::systems::*;
@@ -62,6 +63,7 @@ pub struct World {
     pub lights: Components<Light>,
     pub grids: Components<VehicleGrid>,
     pub grids_to_update: BTreeSet<Ent>,
+    pub outgoing_messages: Vec<Transaction>,
 }
 
 impl World {
@@ -94,6 +96,7 @@ impl World {
             computers: Components::default(),
             lights: Components::default(),
             grids_to_update: BTreeSet::new(),
+            outgoing_messages: Vec::new(),
         }
     }
 }
@@ -185,15 +188,6 @@ fn update_camera(target: &Camera2D, actual: &mut Camera2D) {
     actual.zoom = low_pass(actual.zoom, target.zoom, rate_translation);
 }
 
-fn spawn_random_ring_effects(particles: &mut Vec<RingParticle>) {
-    for _ in 0..20 {
-        let pos = randvec(0.0, 10000.0);
-        let time_left = 1.0;
-        let particle = RingParticle { pos, time_left };
-        particles.push(particle);
-    }
-}
-
 fn apply_scroll_wheel_to_camera_target(events: &VecDeque<Event>, target: &mut Camera2D) {
     let scale = 1.15;
     for e in events {
@@ -215,6 +209,30 @@ fn panic_on_ctrl_d(input: &InputState) {
     if input.is_key_pressed(Key::ControlLeft) && input.is_key_pressed(Key::KeyD) {
         info!("Exiting.");
         panic!();
+    }
+}
+
+fn ping_on_c(
+    particles: &mut Vec<RingParticle>,
+    events: &VecDeque<Event>,
+    camera: &Camera2D,
+    mouse_screen_position: Option<Vector2>,
+    transactions: &mut Vec<Transaction>,
+) {
+    let Some(screen_pos) = mouse_screen_position else {
+        return;
+    };
+
+    let pos = screen_to_world(camera, screen_pos);
+
+    let pressed_c = events
+        .iter()
+        .any(|e| e.event_type == rdev::EventType::KeyPress(Key::KeyC));
+
+    if pressed_c {
+        let particle = RingParticle::new(pos);
+        particles.push(particle);
+        transactions.push(Transaction::Ping(pos));
     }
 }
 
@@ -326,20 +344,14 @@ fn set_target_camera_if_following(
     target.rotation = grid.isometry.rotation.to_degrees();
 }
 
-pub fn enqueue_network_ship_position(world: &mut World, pos: Vec2) {
-    let part = RingParticle {
-        pos,
-        time_left: 2.0,
-    };
-    world.particles.push(part);
-}
-
 pub fn update_world(
     world: &mut World,
     screen_dims: Vector2,
     mouse_screen_position: Option<Vector2>,
 ) {
     world.ticks += 1;
+
+    world.outgoing_messages.clear();
 
     let start = std::time::Instant::now();
 
@@ -389,6 +401,13 @@ pub fn update_world(
     // spawn_random_ring_effects(&mut world.particles);
 
     panic_on_ctrl_d(&world.input);
+    ping_on_c(
+        &mut world.particles,
+        &world.event_queue,
+        &world.camera,
+        world.mouse_screen_position,
+        &mut world.outgoing_messages,
+    );
 
     world.event_queue.clear();
 
@@ -398,11 +417,10 @@ pub fn update_world(
 }
 
 fn update_ring_particles(particles: &mut Vec<RingParticle>) {
-    let dt = 0.02;
     for ring in particles.iter_mut() {
-        ring.time_left -= dt;
+        ring.step()
     }
-    particles.retain(|p| p.time_left > 0.0);
+    particles.retain(|p| p.is_alive());
 }
 
 fn update_lights(lights: &mut Components<Light>) {

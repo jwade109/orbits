@@ -1,4 +1,4 @@
-use bary_core::prelude::{randint, randvec};
+use bary_core::prelude::{chance, randint, randvec};
 use bary_raylib::multiplayer::*;
 use bary_raylib::scenarios::dev_world;
 use bary_raylib::world::update_world;
@@ -51,14 +51,20 @@ fn server_thread() {
             }
         }
 
-        server.broadcast(ServerMessage::Ping(
-            randint(1, 1000000) as u64,
-            get_current_time(),
-        ));
+        // server.broadcast(ServerMessage::Ping(
+        //     randint(1, 1000000) as u64,
+        //     get_current_time(),
+        // ));
 
         let p = randvec(1.0, 100.0);
 
-        server.broadcast(ServerMessage::ShipPosition(p));
+        // server.broadcast(ServerMessage::Transaction(Transaction::Ping(p)));
+
+        if chance(0.05) {
+            server.broadcast(ServerMessage::Transaction(Transaction::SpawnShip(
+                "remora".to_string(),
+            )));
+        }
 
         info!("{} users connected", server.server.clients_id().len());
 

@@ -1,6 +1,5 @@
 use super::common::*;
-use bary_core::prelude::*;
-use log::{error, info, warn};
+use log::{debug, info};
 use renet::*;
 use renet_netcode::*;
 use std::collections::BTreeMap;
@@ -87,7 +86,16 @@ impl Server {
                 .receive_message(client_id, DefaultChannel::ReliableOrdered)
             {
                 if let Ok(message) = bincode::deserialize::<ClientMessage>(&message) {
-                    info!("Received message from client {}: {:?}", client_id, message);
+                    debug!("Received message from client {}: {:?}", client_id, message);
+                    if let ClientMessage::Transaction(tr) = message {
+                        let forward = ServerMessage::Transaction(tr);
+                        let bytes = bincode::serialize(&forward).unwrap();
+                        self.server.broadcast_message_except(
+                            client_id,
+                            DefaultChannel::ReliableOrdered,
+                            bytes,
+                        )
+                    }
                 }
             }
         }
