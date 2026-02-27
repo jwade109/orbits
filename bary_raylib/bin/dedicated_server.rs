@@ -41,6 +41,18 @@ fn server_thread() {
 
         dbg!(server.transport.addresses());
 
+        for id in server.server.clients_id() {
+            if let Ok(info) = server.server.network_info(id) {
+                println!(
+                    "{} {} {} {}",
+                    info.bytes_received_per_second,
+                    info.bytes_sent_per_second,
+                    info.packet_loss,
+                    info.rtt
+                );
+            }
+        }
+
         server.broadcast(ServerMessage::Ping(
             randint(1, 1000000) as u64,
             get_current_time(),

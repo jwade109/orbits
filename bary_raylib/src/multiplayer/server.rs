@@ -97,3 +97,25 @@ impl Server {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn test_connection() {
+        let mut server = Server::new("whatever".to_string());
+        let mut client = Client::new();
+
+        let dur = Duration::from_millis(10);
+
+        for _ in 0..20 {
+            _ = server.update(dur);
+            client.update();
+            std::thread::sleep(dur);
+        }
+
+        assert_eq!(client.is_connected(), true);
+    }
+}
