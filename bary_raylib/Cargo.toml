@@ -37,12 +37,8 @@ name = "steam"
 path = "bin/steam.rs"
 
 [[bin]]
-name = "dedicated_server"
-path = "bin/dedicated_server.rs"
-
-[[bin]]
-name = "dedicated_client"
-path = "bin/dedicated_client.rs"
+name = "server"
+path = "bin/server.rs"
 
 [dev-dependencies]
 criterion = "0.5.1"
