@@ -1,11 +1,9 @@
-use std::path::PathBuf;
-
-use crate::components::*;
 use crate::result::BaryResult;
-use crate::vehicle_grid::*;
+use crate::systems::*;
 use crate::world::*;
 use crate::world_builder::WorldBuilder;
 use bary_core::prelude::*;
+use std::path::PathBuf;
 
 pub fn with_vehicle_data_loaded(assets_dir: &str, vehicles: &[&str]) -> World {
     let mut world = World::empty();
