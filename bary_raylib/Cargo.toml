@@ -37,10 +37,6 @@ name = "steam"
 path = "bin/steam.rs"
 
 [[bin]]
-name = "renet"
-path = "bin/renet.rs"
-
-[[bin]]
 name = "dedicated_server"
 path = "bin/dedicated_server.rs"
 
