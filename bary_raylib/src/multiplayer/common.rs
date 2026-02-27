@@ -21,6 +21,7 @@ pub enum ClientMessage {
 pub enum ServerMessage {
     Ping(u64, Duration),
     ShipPosition(Vec2),
+    Text(String),
 }
 
 pub fn get_current_time() -> Duration {

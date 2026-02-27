@@ -1,8 +1,11 @@
+use bary_raylib::multiplayer::*;
 use bary_raylib::{scenarios::dev_world, world::*};
 use crossbeam_queue::SegQueue;
+use log::warn;
 use raylib::prelude::*;
+use std::time::Duration;
 use std::{sync::Arc, thread};
-use steamworks::{Client, LobbyChatMsg, LobbyEnter, PersonaStateChange};
+use steamworks::{LobbyChatMsg, LobbyEnter, PersonaStateChange};
 
 use rdev::listen;
 
@@ -49,11 +52,30 @@ fn draw_debug_info(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
     }
 }
 
+fn network_thread(queue: Arc<SegQueue<ServerMessage>>) {
+    let mut client = Client::new();
+    let dur = Duration::from_millis(50);
+
+    loop {
+        let msgs = client.update();
+        for msg in msgs {
+            queue.push(msg);
+        }
+        std::thread::sleep(dur);
+    }
+}
+
 fn main() {
+    simple_logger::SimpleLogger::new()
+        .with_level(log::LevelFilter::Debug)
+        .env()
+        .init()
+        .unwrap();
+
     let os = std::env::consts::OS;
     println!("{}", os);
 
-    let client = Client::init();
+    let client = steamworks::Client::init();
 
     if let Ok(client) = &client {
         let _cb = client.register_callback(|p: PersonaStateChange| {
@@ -90,13 +112,17 @@ fn main() {
         .build();
 
     let input_queue = Arc::new(SegQueue::new());
-
     let thread_copy = input_queue.clone();
-
     let _input_thread = thread::spawn(|| {
         if let Err(error) = listen(move |e| thread_copy.push(e)) {
             println!("Error: {:?}", error)
         }
+    });
+
+    let network_queue = Arc::new(SegQueue::new());
+    let thread_copy = network_queue.clone();
+    let _network_thread = thread::spawn(|| {
+        network_thread(thread_copy);
     });
 
     rl.set_target_fps(60);
@@ -118,7 +144,24 @@ fn main() {
         let loop_start = std::time::Instant::now();
 
         while let Some(e) = input_queue.pop() {
-            push_event(&mut world, e);
+            // process release events even if the window isn't focused!
+            let is_release = match e.event_type {
+                rdev::EventType::ButtonRelease(_) => true,
+                rdev::EventType::KeyRelease(_) => true,
+                _ => false,
+            };
+
+            if is_release || rl.is_window_focused() {
+                push_event(&mut world, e);
+            }
+        }
+
+        while let Some(n) = network_queue.pop() {
+            warn!("Got message: {:?}", n);
+
+            if let ServerMessage::ShipPosition(p) = n {
+                enqueue_network_ship_position(&mut world, p);
+            }
         }
 
         let w = rl.get_screen_width();

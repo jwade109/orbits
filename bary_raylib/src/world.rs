@@ -2,6 +2,7 @@ use crate::components::*;
 use crate::computer::*;
 use crate::input_state::*;
 use crate::light::*;
+use crate::multiplayer::*;
 use crate::part::*;
 use crate::thruster::*;
 use crate::vehicle_grid::*;
@@ -290,9 +291,17 @@ fn apply_scroll_wheel_to_camera_target(events: &VecDeque<Event>, target: &mut Ca
     }
 }
 
-fn panic_on_ctrl_c(input: &InputState) {
-    if input.is_key_pressed(Key::ControlLeft) && input.is_key_pressed(Key::KeyC) {
+fn panic_on_ctrl_d(input: &InputState) {
+    if input.is_key_pressed(Key::ControlLeft) && input.is_key_pressed(Key::KeyD) {
         panic!();
+    }
+}
+
+fn reset_camera_on_ctrl_r(input: &InputState, target: &mut Camera2D) {
+    if input.is_key_pressed(Key::ControlLeft) && input.is_key_pressed(Key::KeyR) {
+        target.target = Vector2::zero();
+        target.rotation = 0.0;
+        target.zoom = 8.0;
     }
 }
 
@@ -489,6 +498,14 @@ fn draw_nearest_grids(
     Ok(())
 }
 
+pub fn enqueue_network_ship_position(world: &mut World, pos: Vec2) {
+    let part = RingParticle {
+        pos,
+        time_left: 2.0,
+    };
+    world.particles.push(part);
+}
+
 pub fn update_world(
     world: &mut World,
     screen_dims: Vector2,
@@ -538,11 +555,12 @@ pub fn update_world(
         snap_camera_target_to_local_up(&mut world.target_camera);
     }
 
+    reset_camera_on_ctrl_r(&world.input, &mut world.target_camera);
     update_camera(&world.target_camera, &mut world.camera);
 
     // spawn_random_ring_effects(&mut world.particles);
 
-    panic_on_ctrl_c(&world.input);
+    panic_on_ctrl_d(&world.input);
 
     world.event_queue.clear();
 
@@ -656,14 +674,10 @@ fn draw_test_isos(d: &mut RaylibDrawHandle) {
     }
 }
 
-fn draw_particles(d: &mut RaylibDrawHandle, particles: &Vec<RingParticle>, t: &Texture2D) {
+fn draw_particles(d: &mut RaylibDrawHandle, particles: &Vec<RingParticle>) {
     for particle in particles {
-        d.draw_texture(
-            t,
-            particle.pos.x as i32,
-            particle.pos.y as i32,
-            Color::ORANGE.alpha(0.3),
-        );
+        let r = particle.radius();
+        draw_circle(d, particle.pos, r, Color::ORANGE);
     }
 }
 
@@ -780,6 +794,8 @@ pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
     draw_grids_if_updated_this_frame(&mut c, &world.grids_to_update, &world.grids);
 
     draw_mouse_world_position(&mut c, world.mouse_screen_position, &world.camera);
+
+    draw_particles(&mut c, &world.particles);
 
     // draw_isometry_axes(&mut c, get_isometry(&world.camera), "CAM");
     // draw_isometry_axes(&mut c, get_isometry(&world.target_camera), "");

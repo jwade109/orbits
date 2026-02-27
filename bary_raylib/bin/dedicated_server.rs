@@ -1,4 +1,4 @@
-use bary_core::prelude::randint;
+use bary_core::prelude::{randint, randvec};
 use bary_raylib::multiplayer::*;
 use bary_raylib::scenarios::dev_world;
 use bary_raylib::world::update_world;
@@ -35,11 +35,9 @@ fn server_thread() {
 
         last_update = now;
 
-        if now - last_log < Duration::from_secs(5) {
+        if now - last_log < Duration::from_millis(500) {
             continue;
         }
-
-        dbg!(server.transport.addresses());
 
         for id in server.server.clients_id() {
             if let Ok(info) = server.server.network_info(id) {
@@ -57,6 +55,10 @@ fn server_thread() {
             randint(1, 1000000) as u64,
             get_current_time(),
         ));
+
+        let p = randvec(1.0, 100.0);
+
+        server.broadcast(ServerMessage::ShipPosition(p));
 
         info!("{} users connected", server.server.clients_id().len());
 
