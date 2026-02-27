@@ -1,3 +1,4 @@
+use crate::result::*;
 use bary_core::prelude::Ent;
 use std::collections::BTreeMap;
 
@@ -89,12 +90,3 @@ impl<E> std::fmt::Debug for Components<E> {
         write!(f, "{} components", self.values.len(),)
     }
 }
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum BaryError {
-    EntityNotFound,
-    BadPartName,
-    BadBlueprint,
-}
-
-pub type BaryResult<E> = Result<E, BaryError>;

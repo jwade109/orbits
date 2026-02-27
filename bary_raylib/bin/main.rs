@@ -1,3 +1,4 @@
+use bary_raylib::draw::draw_world;
 use bary_raylib::multiplayer::*;
 use bary_raylib::{scenarios::dev_world, world::*};
 use crossbeam_queue::SegQueue;

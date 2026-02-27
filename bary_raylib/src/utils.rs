@@ -1,0 +1,53 @@
+use bary_core::prelude::*;
+use raylib::prelude::*;
+
+pub fn glam_to_raylib(v: Vec2) -> Vector2 {
+    Vector2::new(v.x, v.y)
+}
+
+pub fn glam_to_raylib_swap_x(v: Vec2) -> Vector2 {
+    Vector2::new(-v.x, v.y)
+}
+
+pub fn glam_to_raylib_swap_y(v: Vec2) -> Vector2 {
+    Vector2::new(v.x, -v.y)
+}
+
+pub fn raylib_to_glam(v: Vector2) -> Vec2 {
+    Vec2::new(v.x, v.y)
+}
+
+pub fn raylib_to_glam_invert_y(v: Vector2) -> Vec2 {
+    Vec2::new(v.x, -v.y)
+}
+
+pub fn part_isometry(root_isometry: Isometry2d, placement: GridPlacement) -> Isometry2d {
+    let part_iso = placement.origin_isometry();
+
+    // TODO replace this with std::ops::Mul
+    let rotation = root_isometry.rotation + part_iso.rotation;
+    let offset = root_isometry.local_x() * part_iso.translation.x
+        + root_isometry.local_y() * part_iso.translation.y;
+    Isometry2d::new(root_isometry.translation + offset, rotation)
+}
+
+pub fn get_isometry(camera: &Camera2D) -> Isometry2d {
+    Isometry2d {
+        translation: raylib_to_glam_invert_y(camera.target),
+        rotation: camera.rotation.to_radians(),
+    }
+}
+
+pub fn default_camera_2d() -> Camera2D {
+    Camera2D {
+        offset: Vector2::zero(),
+        target: Vector2::zero(),
+        rotation: 0.0,
+        zoom: 1.0,
+    }
+}
+
+pub fn screen_to_world(camera: &Camera2D, screen_pos: Vector2) -> Vec2 {
+    let delta = raylib_to_glam_invert_y(screen_pos - camera.offset) / camera.zoom;
+    rotate(delta, camera.rotation.to_radians()) + raylib_to_glam_invert_y(camera.target)
+}

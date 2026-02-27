@@ -2,9 +2,12 @@ use crate::components::*;
 use crate::computer::*;
 use crate::light::*;
 use crate::part::*;
+use crate::result::BaryError;
+use crate::result::BaryResult;
 use crate::thruster::*;
 use crate::world::*;
 use bary_core::prelude::*;
+use log::{debug, info};
 
 #[derive(Debug, Clone)]
 pub struct VehicleGrid {
@@ -54,7 +57,9 @@ pub fn spawn_grid_from_blueprint(
     name: impl Into<String>,
     bp: &Blueprint,
 ) -> BaryResult<Ent> {
-    let grid = VehicleGrid::with_name(name);
+    let s = name.into();
+    info!("Spawning grid with name \"{}\" from blueprint", s);
+    let grid = VehicleGrid::with_name(s);
     let grid_id = counter.spawn();
     grids.spawn(grid_id, grid.clone());
     grids.get_mut(grid_id).ok_or(BaryError::EntityNotFound)?;
@@ -130,7 +135,7 @@ pub mod world {
         thruster_id: Ent,
         world: &mut World,
         new_state: bool,
-    ) -> BaryResult<()> {
+    ) -> BaryResult<bool> {
         super::set_thruster_state(
             thruster_id,
             &mut world.grids,
@@ -147,6 +152,7 @@ pub fn spawn_empty_grid(
     grids: &mut Components<VehicleGrid>,
     name: &str,
 ) -> Ent {
+    debug!("Spawning empty grid with name {}", name);
     let grid = VehicleGrid::with_name(name);
     let id = spawner.spawn();
     grids.spawn(id, grid);
@@ -164,6 +170,7 @@ pub fn insert_part(
     lights: &mut Components<Light>,
     instance: &PartInstance,
 ) -> BaryResult<Ent> {
+    debug!("Inserting part {} into grid {}", instance.name, grid_id);
     let grid = grids.try_get_mut(grid_id)?;
     let proto_id = find::part_by_name(prototypes, &instance.name).ok_or(BaryError::BadPartName)?;
     let proto = prototypes.try_get(proto_id)?;
@@ -235,23 +242,37 @@ pub fn despawn_grid(
 }
 
 pub mod find {
+    use log::error;
+
     use super::*;
 
     pub fn blueprint_by_name<'a>(
         blueprints: &'a Components<NamedBlueprint>,
         name: &str,
     ) -> Option<&'a Blueprint> {
-        blueprints
+        let result = blueprints
             .values()
             .find(|(n, _bp)| n == name)
-            .map(|(_, bp)| bp)
+            .map(|(_, bp)| bp);
+
+        if result.is_none() {
+            error!("Failed to get blueprint with name {}", name);
+        }
+
+        result
     }
 
     pub fn part_by_name(prototypes: &Components<PartPrototype>, name: &str) -> Option<Ent> {
-        prototypes
+        let result = prototypes
             .iter()
             .find(|(_, proto)| proto.part_name() == name)
-            .map(|e| *e.0)
+            .map(|e| *e.0);
+
+        if result.is_none() {
+            error!("Failed to get part with name {}", name);
+        }
+
+        result
     }
 
     pub fn closest_grid(grids: &Components<VehicleGrid>, test_pos: Vec2) -> Option<(Ent, Vec2)> {
@@ -332,11 +353,11 @@ fn set_thruster_state(
     thrusters: &mut Components<Thruster>,
     parts: &Components<Part>,
     new_state: bool,
-) -> BaryResult<()> {
+) -> BaryResult<bool> {
     let thruster = thrusters.try_get_mut(thruster_id)?;
 
     if new_state == thruster.is_on {
-        return Ok(());
+        return Ok(false);
     }
 
     let part = parts.try_get(thruster_id)?;
@@ -355,7 +376,7 @@ fn set_thruster_state(
     let thrust_vec = mul * dir * thruster.thrust_millinewtons;
     grid.external_thrust += thrust_vec;
 
-    Ok(())
+    Ok(true)
 }
 
 #[cfg(test)]
@@ -700,8 +721,8 @@ mod tests {
         let r1 = world::set_thruster_state(a_id, &mut world, true);
         let r2 = world::set_thruster_state(b_id, &mut world, true);
 
-        assert_eq!(r1, Ok(()));
-        assert_eq!(r2, Ok(()));
+        assert_eq!(r1, Ok(true));
+        assert_eq!(r2, Ok(true));
 
         let sum =
             get_sum_linear_forces(grid_id, &world.grids, &world.parts, &world.thrusters).unwrap();
@@ -716,8 +737,8 @@ mod tests {
         let r1 = world::set_thruster_state(a_id, &mut world, false);
         let r2 = world::set_thruster_state(b_id, &mut world, true);
 
-        assert_eq!(r1, Ok(()));
-        assert_eq!(r2, Ok(()));
+        assert_eq!(r1, Ok(true));
+        assert_eq!(r2, Ok(false));
 
         let grid = world.grids.try_get(grid_id).unwrap();
 
@@ -726,8 +747,8 @@ mod tests {
         let r1 = world::set_thruster_state(a_id, &mut world, false);
         let r2 = world::set_thruster_state(b_id, &mut world, false);
 
-        assert_eq!(r1, Ok(()));
-        assert_eq!(r2, Ok(()));
+        assert_eq!(r1, Ok(false));
+        assert_eq!(r2, Ok(true));
 
         let grid = world.grids.try_get(grid_id).unwrap();
 
@@ -789,7 +810,7 @@ mod tests {
 
         // obviously, turn the main thruster on
         let r = world::set_thruster_state(thruster_id, &mut world, true);
-        assert_eq!(r, Ok(()));
+        assert_eq!(r, Ok(true));
 
         let grid = world.grids.try_get(grid_id).unwrap();
 

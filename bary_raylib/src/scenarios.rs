@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use crate::components::*;
+use crate::result::BaryResult;
 use crate::vehicle_grid::*;
 use crate::world::*;
 use crate::world_builder::WorldBuilder;
