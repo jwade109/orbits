@@ -1,59 +1,10 @@
 use super::common::*;
+use bary_core::prelude::randint;
 use log::{error, info};
 use renet::*;
 use renet_netcode::*;
 use std::net::*;
-use std::time::{Instant, SystemTime};
-
-fn create_renet_client(
-    username: String,
-    server_addr: SocketAddr,
-) -> (RenetClient, NetcodeClientTransport) {
-    let connection_config = ConnectionConfig::default();
-    let client = RenetClient::new(connection_config);
-
-    let socket = UdpSocket::bind("127.0.0.1:0").unwrap();
-    let current_time = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap();
-    let client_id = current_time.as_millis() as u64;
-    let authentication = ClientAuthentication::Unsecure {
-        server_addr,
-        client_id,
-        user_data: Some(Username(username).to_netcode_user_data()),
-        protocol_id: PROTOCOL_ID,
-    };
-
-    let transport = NetcodeClientTransport::new(current_time, authentication, socket).unwrap();
-
-    (client, transport)
-}
-
-// Helper struct to pass an username in the user data
-pub struct Username(pub String);
-
-impl Username {
-    pub fn to_netcode_user_data(&self) -> [u8; NETCODE_USER_DATA_BYTES] {
-        let mut user_data = [0u8; NETCODE_USER_DATA_BYTES];
-        if self.0.len() > NETCODE_USER_DATA_BYTES - 8 {
-            panic!("Username is too big");
-        }
-        user_data[0..8].copy_from_slice(&(self.0.len() as u64).to_le_bytes());
-        user_data[8..self.0.len() + 8].copy_from_slice(self.0.as_bytes());
-
-        user_data
-    }
-
-    pub fn from_user_data(user_data: &[u8; NETCODE_USER_DATA_BYTES]) -> Self {
-        let mut buffer = [0u8; 8];
-        buffer.copy_from_slice(&user_data[0..8]);
-        let mut len = u64::from_le_bytes(buffer) as usize;
-        len = len.min(NETCODE_USER_DATA_BYTES - 8);
-        let data = user_data[8..len + 8].to_vec();
-        let username = String::from_utf8(data).unwrap();
-        Self(username)
-    }
-}
+use std::time::Instant;
 
 pub struct Client {
     client: RenetClient,
@@ -64,10 +15,24 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(addr: &str, username: &str) -> Self {
-        info!("Connecting to server {} with username {}", addr, username);
+    pub fn new() -> Self {
+        let username = format!("u{}", randint(1, 1000000));
 
-        let (client, transport) = create_renet_client(username.to_string(), addr.parse().unwrap());
+        let client = RenetClient::new(ConnectionConfig::default());
+
+        let client_id = (get_current_time().as_micros() % 1000000000) as u64;
+
+        let socket = UdpSocket::bind("127.0.0.1:0").unwrap();
+        let current_time = get_current_time();
+
+        let authentication = ClientAuthentication::Unsecure {
+            server_addr: SERVER_ADDR,
+            client_id,
+            user_data: None,
+            protocol_id: 0,
+        };
+
+        let transport = NetcodeClientTransport::new(current_time, authentication, socket).unwrap();
 
         let last_updated = Instant::now();
 
@@ -90,8 +55,10 @@ impl Client {
         self.last_updated = now;
 
         self.client.update(duration);
+
         if let Err(e) = self.transport.update(duration, &mut self.client) {
             error!("Failed to update network transport: {}", e);
+            panic!();
         }
 
         if self.client.is_connected() {

@@ -2,7 +2,7 @@ use bary_raylib::{scenarios::dev_world, world::*};
 use crossbeam_queue::SegQueue;
 use raylib::prelude::*;
 use std::{sync::Arc, thread};
-use steamworks::{Client, PersonaStateChange};
+use steamworks::{Client, LobbyChatMsg, LobbyEnter, PersonaStateChange};
 
 use rdev::listen;
 
@@ -60,6 +60,14 @@ fn main() {
             println!("Got callback: {:?}", p);
         });
 
+        let _cb2 = client.register_callback(|p: LobbyChatMsg| {
+            println!("Got callback: {:?}", p);
+        });
+
+        let _cb3 = client.register_callback(|p: LobbyEnter| {
+            println!("Got callback: {:?}", p);
+        });
+
         let mm = client.matchmaking();
 
         mm.create_lobby(steamworks::LobbyType::FriendsOnly, 12, |r| match r {
@@ -95,7 +103,7 @@ fn main() {
     rl.maximize_window();
     rl.set_exit_key(None);
 
-    let shader = rl.load_shader(&thread, None, Some("assets/shaders/distortion.fs"));
+    let mut shader = rl.load_shader(&thread, None, Some("assets/shaders/distortion.fs"));
 
     let mut world = dev_world("assets/").unwrap();
     let mut assets = Assets::default();
@@ -122,8 +130,8 @@ fn main() {
 
         update_world(&mut world, screen_dims, mouse);
 
-        // let time = rl.get_time();
-        // shader.set_shader_value(1, time as f32);
+        let time = rl.get_time();
+        shader.set_shader_value(1, time as f32);
 
         rl.draw(&thread, |mut d: RaylibDrawHandle<'_>| {
             let start = std::time::Instant::now();

@@ -33,22 +33,18 @@ fn send_stdin_channel_to_server(channel: &Receiver<String>, client: &mut Client)
 
 fn main() {
     simple_logger::SimpleLogger::new()
-        .with_level(log::LevelFilter::Info)
+        .with_level(log::LevelFilter::Debug)
         .env()
         .init()
         .unwrap();
 
-    let args: Vec<String> = std::env::args().collect();
-
-    let username = &args[1];
-    let addr = &args[2];
-
-    let mut client = Client::new(addr, username);
+    let mut client = Client::new();
 
     let stdin_channel: Receiver<String> = spawn_stdin_channel();
 
     loop {
         client.update();
         send_stdin_channel_to_server(&stdin_channel, &mut client);
+        std::thread::sleep(std::time::Duration::from_millis(100));
     }
 }

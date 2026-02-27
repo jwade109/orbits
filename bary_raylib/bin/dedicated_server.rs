@@ -1,3 +1,4 @@
+use bary_core::prelude::randint;
 use bary_raylib::multiplayer::*;
 use bary_raylib::scenarios::dev_world;
 use bary_raylib::world::update_world;
@@ -20,21 +21,34 @@ fn world_thread() {
 }
 
 fn server_thread() {
-    let mut server = Server::new();
+    let mut server = Server::new("idgaf".to_string());
     let mut last_update = Instant::now();
+    let mut last_log = Instant::now();
 
     loop {
-        server.update();
+        std::thread::sleep(std::time::Duration::from_millis(100));
 
         let now = Instant::now();
+        let dt = now - last_update;
 
-        if now - last_update < Duration::from_secs(5) {
+        _ = server.update(dt);
+
+        last_update = now;
+
+        if now - last_log < Duration::from_secs(5) {
             continue;
         }
 
-        info!("{} users connected", server.users.len());
+        dbg!(server.transport.addresses());
 
-        last_update = now;
+        server.broadcast(ServerMessage::Ping(
+            randint(1, 1000000) as u64,
+            get_current_time(),
+        ));
+
+        info!("{} users connected", server.server.clients_id().len());
+
+        last_log = now;
     }
 }
 
