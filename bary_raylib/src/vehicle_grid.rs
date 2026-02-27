@@ -1,15 +1,7 @@
-use crate::components::*;
-use crate::computer::*;
-use crate::light::*;
-use crate::part::*;
-use crate::result::BaryError;
-use crate::result::BaryResult;
-use crate::thruster::*;
-use crate::world::*;
 use bary_core::prelude::*;
-use log::{debug, info};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct VehicleGrid {
     pub name: String,
     pub parts_mass: Mass,

@@ -14,6 +14,7 @@ use bary_core::prelude::*;
 use log::{debug, info};
 use raylib::prelude::*;
 use rdev::Event;
+use serde::{Deserialize, Serialize};
 use std::collections::*;
 use std::time::Duration;
 
@@ -21,14 +22,14 @@ pub type MaybeTexture = Option<Texture2D>;
 
 pub type MaybeFont = Option<Font>;
 
-#[derive(Default)]
+#[derive(Default, Deserialize, Serialize)]
 pub struct Timers {
     pub update: Duration,
     pub render: Duration,
     pub total: Duration,
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Deserialize, Serialize)]
 pub struct SelectionInfo {
     pub camera_hovered: Option<(Ent, Vec2)>,
     pub mouse_hovered: Option<(Ent, Vec2)>,
@@ -41,18 +42,23 @@ pub struct Assets {
     pub part_textures: BTreeMap<String, Texture2D>,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct World {
     pub ticks: u64,
     pub timers: Timers,
-    pub mouse_screen_position: Option<Vector2>,
+    pub mouse_screen_position: Option<Vec2>,
     pub selection_info: SelectionInfo,
     pub spawner: EntitySpawner,
     pub follow_vehicle: Option<Ent>,
     pub snap_camera_to_local_planet: bool,
-    pub screen_dims: Vector2,
+    pub screen_dims: Vec2,
+    #[serde(skip)]
     pub input: InputState,
+    #[serde(skip)]
     pub event_queue: VecDeque<Event>,
+    #[serde(skip)]
     pub camera: Camera2D,
+    #[serde(skip)]
     pub target_camera: Camera2D,
     pub particles: Vec<RingParticle>,
     pub blueprints: Components<NamedBlueprint>,
@@ -76,7 +82,7 @@ impl World {
             spawner: EntitySpawner::default(),
             snap_camera_to_local_planet: false,
             follow_vehicle: None,
-            screen_dims: Vector2::new(1500.0, 900.0),
+            screen_dims: Vec2::new(1500.0, 900.0),
             input: InputState::default(),
             event_queue: VecDeque::new(),
             camera: Camera2D {
@@ -128,11 +134,11 @@ fn update_input_state(events: &VecDeque<Event>, state: &mut InputState) {
 
 fn update_camera_target(
     input: &InputState,
-    screen_dims: Vector2,
+    screen_dims: Vec2,
     target: &mut Camera2D,
     follow: &mut Option<Ent>,
 ) {
-    target.offset = screen_dims / 2.0;
+    target.offset = glam_to_raylib(screen_dims / 2.0);
 
     let angular_speed = 2.5;
     let speed = 40.0 / target.zoom;
@@ -216,7 +222,7 @@ fn ping_on_c(
     particles: &mut Vec<RingParticle>,
     events: &VecDeque<Event>,
     camera: &Camera2D,
-    mouse_screen_position: Option<Vector2>,
+    mouse_screen_position: Option<Vec2>,
     transactions: &mut Vec<Transaction>,
 ) {
     let Some(screen_pos) = mouse_screen_position else {
@@ -314,7 +320,7 @@ fn update_selection_info(
     info: &mut SelectionInfo,
     grids: &Components<VehicleGrid>,
     camera: &Camera2D,
-    mouse_screen_position: Option<Vector2>,
+    mouse_screen_position: Option<Vec2>,
 ) {
     let pos = camera.target;
     let test_pos = raylib_to_glam_invert_y(pos);
@@ -344,11 +350,7 @@ fn set_target_camera_if_following(
     target.rotation = grid.isometry.rotation.to_degrees();
 }
 
-pub fn update_world(
-    world: &mut World,
-    screen_dims: Vector2,
-    mouse_screen_position: Option<Vector2>,
-) {
+pub fn update_world(world: &mut World, screen_dims: Vec2, mouse_screen_position: Option<Vec2>) {
     world.ticks += 1;
 
     world.outgoing_messages.clear();

@@ -1,6 +1,7 @@
 use crate::prelude::*;
+use serde::{Deserialize, Serialize};
 
-#[derive(Default, Debug, Clone, Copy, PartialEq)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
 pub struct ThrustAxisControl {
     pub use_rcs: bool,
     pub throttle: f32,
@@ -13,7 +14,7 @@ impl ThrustAxisControl {
     };
 }
 
-#[derive(Default, Debug, Clone, Copy, PartialEq)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
 pub struct VehicleControl {
     pub plus_x: ThrustAxisControl,
     pub plus_y: ThrustAxisControl,
@@ -259,14 +260,14 @@ pub fn position_hold_control_law(
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default, Deserialize, Serialize)]
 pub struct SetpointError<T, E = T> {
     target: T,
     actual: T,
     error: E,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default, Deserialize, Serialize)]
 pub enum VehicleControlStatus {
     Done,
     WaitingForInput,

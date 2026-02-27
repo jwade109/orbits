@@ -1,8 +1,9 @@
 use crate::components::*;
 use bary_core::prelude::*;
 use enum_iterator::Sequence;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Computer {
     pub on: bool,
     pub status: MachineStatus,
@@ -20,7 +21,7 @@ pub struct Computer {
     pub prototype: Ent,
 }
 
-#[derive(Sequence, Default, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Sequence, Default, Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 pub enum ComputerMode {
     #[default]
     Idle,

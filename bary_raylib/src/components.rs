@@ -1,8 +1,9 @@
 use crate::result::*;
 use bary_core::prelude::Ent;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct EntitySpawner {
     next_id: Ent,
 }
@@ -21,6 +22,7 @@ impl EntitySpawner {
     }
 }
 
+#[derive(Deserialize, Serialize)]
 pub struct Components<E> {
     values: BTreeMap<Ent, E>,
 }

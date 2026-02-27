@@ -134,7 +134,7 @@ impl PartLayer {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct PartInstance {
     pub name: String,
     pub layer: PartLayer,

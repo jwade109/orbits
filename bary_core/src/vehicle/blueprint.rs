@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
 
@@ -7,10 +8,10 @@ pub const PHYSICS_CONSTANT_UPDATE_RATE: u32 = 40;
 pub const PHYSICS_CONSTANT_DELTA_TIME: Nanotime =
     Nanotime::millis(1000 / PHYSICS_CONSTANT_UPDATE_RATE as i64);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Deserialize, Serialize)]
 pub struct PartId(u64);
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Blueprint {
     next_part_id: PartId,
     parts: BTreeMap<PartId, PartInstance>,

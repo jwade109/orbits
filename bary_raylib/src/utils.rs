@@ -47,7 +47,8 @@ pub fn default_camera_2d() -> Camera2D {
     }
 }
 
-pub fn screen_to_world(camera: &Camera2D, screen_pos: Vector2) -> Vec2 {
-    let delta = raylib_to_glam_invert_y(screen_pos - camera.offset) / camera.zoom;
+pub fn screen_to_world(camera: &Camera2D, screen_pos: Vec2) -> Vec2 {
+    // this is gross
+    let delta = raylib_to_glam_invert_y(glam_to_raylib(screen_pos) - camera.offset) / camera.zoom;
     rotate(delta, camera.rotation.to_radians()) + raylib_to_glam_invert_y(camera.target)
 }

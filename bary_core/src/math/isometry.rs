@@ -1,6 +1,7 @@
 use crate::math::*;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default, PartialEq, Clone, Copy)]
+#[derive(Debug, Default, PartialEq, Clone, Copy, Deserialize, Serialize)]
 pub struct Isometry2d {
     pub translation: Vec2,
     pub rotation: f32,

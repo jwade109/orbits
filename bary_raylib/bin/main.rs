@@ -1,8 +1,9 @@
+use bary_core::prelude::*;
 use bary_raylib::draw::draw_world;
 use bary_raylib::multiplayer::*;
+use bary_raylib::utils::raylib_to_glam;
 use bary_raylib::{scenarios::dev_world, world::*};
 use crossbeam_queue::SegQueue;
-use log::warn;
 use raylib::prelude::*;
 use std::time::Duration;
 use std::{sync::Arc, thread};
@@ -11,6 +12,11 @@ use steamworks::{LobbyChatMsg, LobbyEnter, PersonaStateChange};
 use rdev::listen;
 
 fn draw_debug_info(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
+
+    let bytes = bincode::serialize(&world).unwrap();
+
+    dbg!(bytes.len());
+
     let mut s = String::new();
 
     s += &format!("{:?}", d.get_fps());
@@ -181,9 +187,11 @@ fn main() {
         let w = rl.get_screen_width();
         let h = rl.get_screen_height();
 
-        let screen_dims = Vector2::new(w as f32, h as f32);
+        let screen_dims = Vec2::new(w as f32, h as f32);
 
-        let mouse = rl.is_cursor_on_screen().then(|| rl.get_mouse_position());
+        let mouse = rl
+            .is_cursor_on_screen()
+            .then(|| raylib_to_glam(rl.get_mouse_position()));
 
         update_world(&mut world, screen_dims, mouse);
 

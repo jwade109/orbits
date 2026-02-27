@@ -101,7 +101,7 @@ fn draw_focused_grid_info(
     d: &mut RaylibDrawHandle,
     follow: Option<Ent>,
     grids: &Components<VehicleGrid>,
-    screen_dims: Vector2,
+    screen_dims: Vec2,
 ) {
     let Some(id) = follow else {
         return;
@@ -304,7 +304,7 @@ fn draw_grid_far_indicators(
 
 fn draw_mouse_world_position(
     d: &mut RaylibDrawHandle,
-    mouse_screen_position: Option<Vector2>,
+    mouse_screen_position: Option<Vec2>,
     camera: &Camera2D,
 ) {
     let Some(screen_pos) = mouse_screen_position else {

@@ -1,6 +1,7 @@
 use crate::math::*;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct GridPlacement {
     /// the coordinate of the bottom
     /// left corner of the part
