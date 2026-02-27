@@ -72,11 +72,11 @@ mod tests {
         assert_eq!(
             world.camera.target,
             Vector2 {
-                x: 99.997345,
-                y: 299.99207
+                x: 99.999985,
+                y: 299.99994
             }
         );
-        assert_eq!(world.camera.rotation, -161.56076);
-        assert_eq!(world.camera.zoom, 7.9997897);
+        assert_eq!(world.camera.rotation, -161.56502);
+        assert_eq!(world.camera.zoom, 7.999999);
     }
 }
