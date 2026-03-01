@@ -67,7 +67,7 @@ mod tests {
         }
 
         assert_eq!(world.camera.target, Vec2::new(99.999985, 299.99994));
-        assert_eq!(world.camera.rotation, 161.56502f32.to_radians());
+        assert_eq!(world.camera.rotation, 2.8198416);
         assert_eq!(world.camera.zoom, 7.999999);
     }
 }
