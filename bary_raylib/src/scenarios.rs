@@ -54,28 +54,20 @@ pub fn dev_world(assets_dir: &str) -> BaryResult<World> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use raylib::math::Vector2;
 
     #[test]
     fn snap_camera_to_local_planet() {
         let mut world = World::empty();
 
-        world.target_camera.target = Vector2::new(100.0, 300.0);
+        world.target_camera.target = Vec2::new(100.0, 300.0);
         world.snap_camera_to_local_planet = true;
 
         for _ in 0..100 {
             update_world(&mut world);
         }
 
-        assert_eq!(world.camera.offset, Vector2::new(540.0, 360.0));
-        assert_eq!(
-            world.camera.target,
-            Vector2 {
-                x: 99.999985,
-                y: 299.99994
-            }
-        );
-        assert_eq!(world.camera.rotation, -161.56502);
+        assert_eq!(world.camera.target, Vec2::new(99.999985, 299.99994));
+        assert_eq!(world.camera.rotation, 161.56502f32.to_radians());
         assert_eq!(world.camera.zoom, 7.999999);
     }
 }

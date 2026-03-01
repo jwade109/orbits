@@ -31,6 +31,13 @@ pub fn apply_transaction(world: &mut World, transaction: Transaction) {
     );
     match transaction.action {
         Action::Ping(pos) => {
+            if world.ticks < transaction.tick {
+                let delta = transaction.tick - world.ticks;
+                warn!("Ping is ahead by {} ticks", delta);
+            } else if transaction.tick < world.ticks {
+                let delta = world.ticks - transaction.tick;
+                warn!("Ping is late by {} ticks", delta);
+            }
             world::ping(world, pos);
         }
         Action::SpawnShipAt(name, pos) => {
@@ -48,7 +55,7 @@ pub fn apply_transaction(world: &mut World, transaction: Transaction) {
                 while world.ticks < tick {
                     update_world(world);
                 }
-            } else {
+            } else if tick < world.ticks {
                 let delta = world.ticks - tick;
                 warn!("Already ahead of fast forward directive by {} ticks", delta);
             }

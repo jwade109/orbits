@@ -1,3 +1,5 @@
+use crate::camera::Camera;
+use crate::camera::to_raylib_camera;
 use crate::components::*;
 use crate::computer::*;
 use crate::input_state::*;
@@ -12,7 +14,6 @@ use crate::vehicle_grid::*;
 use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use log::{debug, info};
-use rand::rngs::StdRng;
 use raylib::prelude::*;
 use rdev::Event;
 use serde::{Deserialize, Serialize};
@@ -57,10 +58,8 @@ pub struct World {
     pub input: InputState,
     #[serde(skip)]
     pub event_queue: VecDeque<Event>,
-    #[serde(skip)]
-    pub camera: Camera2D,
-    #[serde(skip)]
-    pub target_camera: Camera2D,
+    pub camera: Camera,
+    pub target_camera: Camera,
     pub particles: Vec<RingParticle>,
     pub blueprints: Components<NamedBlueprint>,
     pub prototypes: Components<PartPrototype>,
@@ -97,13 +96,13 @@ impl World {
             screen_dims: Vec2::new(1500.0, 900.0),
             input: InputState::default(),
             event_queue: VecDeque::new(),
-            camera: Camera2D {
+            camera: Camera {
                 zoom: 0.1,
-                ..default_camera_2d()
+                ..Camera::default()
             },
-            target_camera: Camera2D {
+            target_camera: Camera {
                 zoom: 8.0,
-                ..default_camera_2d()
+                ..Camera::default()
             },
             particles: Vec::default(),
             blueprints: Components::default(),
@@ -148,25 +147,13 @@ fn update_input_state(events: &VecDeque<Event>, state: &mut InputState) {
     }
 }
 
-fn update_camera_target(
-    input: &InputState,
-    screen_dims: Vec2,
-    target: &mut Camera2D,
-    follow: &mut Option<Ent>,
-) {
-    target.offset = glam_to_raylib(screen_dims / 2.0);
-
-    let angular_speed = 2.5;
+fn update_camera_target(input: &InputState, target: &mut Camera, follow: &mut Option<Ent>) {
+    let angular_speed = 2.5f32.to_radians();
     let speed = 40.0 / target.zoom;
     let zoom_scale = 1.07;
 
-    // camera rotation is stored as degrees!
-    // why would raylib do this to me.
-    let right = rotate(Vec2::X, -target.rotation.to_radians());
+    let right = rotate(Vec2::X, target.rotation);
     let up = rotate(right, PI / 2.0);
-
-    let right = glam_to_raylib(right);
-    let up = glam_to_raylib(up);
 
     if input.is_key_pressed(Key::Minus) {
         target.zoom /= zoom_scale;
@@ -183,11 +170,11 @@ fn update_camera_target(
         *follow = None;
     }
     if input.is_key_pressed(Key::KeyS) {
-        target.target += up * speed;
+        target.target -= up * speed;
         *follow = None;
     }
     if input.is_key_pressed(Key::KeyW) {
-        target.target -= up * speed;
+        target.target += up * speed;
         *follow = None;
     }
     if input.is_key_pressed(Key::KeyD) {
@@ -200,17 +187,16 @@ fn update_camera_target(
     }
 }
 
-fn update_camera(target: &Camera2D, actual: &mut Camera2D) {
+fn update_camera(target: &Camera, actual: &mut Camera) {
     let rate_translation = 0.2;
     let rate_rotation = 0.2;
-    actual.offset = target.offset;
     actual.target.x = low_pass(actual.target.x, target.target.x, rate_translation);
     actual.target.y = low_pass(actual.target.y, target.target.y, rate_translation);
     actual.rotation = low_pass(actual.rotation, target.rotation, rate_rotation);
     actual.zoom = low_pass(actual.zoom, target.zoom, rate_translation);
 }
 
-fn apply_scroll_wheel_to_camera_target(events: &VecDeque<Event>, target: &mut Camera2D) {
+fn apply_scroll_wheel_to_camera_target(events: &VecDeque<Event>, target: &mut Camera) {
     let scale = 1.15;
     for e in events {
         if let rdev::EventType::Wheel {
@@ -237,15 +223,17 @@ fn panic_on_ctrl_d(input: &InputState) {
 fn ping_on_c(
     particles: &mut Vec<RingParticle>,
     events: &VecDeque<Event>,
-    camera: &Camera2D,
+    camera: &Camera,
     mouse_screen_position: Option<Vec2>,
     transactions: &mut Vec<Action>,
+    screen_dims: Vec2,
 ) {
     let Some(screen_pos) = mouse_screen_position else {
         return;
     };
 
-    let pos = screen_to_world(camera, screen_pos);
+    let raylib_camera = to_raylib_camera(camera, screen_dims);
+    let pos = screen_to_world(&raylib_camera, screen_pos);
 
     let pressed_c = events
         .iter()
@@ -272,10 +260,10 @@ fn spawn_random_ship_on_p(world: &mut World) {
     }
 }
 
-fn reset_camera_on_ctrl_r(input: &InputState, target: &mut Camera2D) {
+fn reset_camera_on_ctrl_r(input: &InputState, target: &mut Camera) {
     if input.is_key_pressed(Key::ControlLeft) && input.is_key_pressed(Key::KeyR) {
         debug!("Reset camera");
-        target.target = Vector2::zero();
+        target.target = Vec2::ZERO;
         target.rotation = 0.0;
         target.zoom = 8.0;
     }
@@ -310,16 +298,16 @@ fn toggle_following_on_key_f(
     *follow = Some(id);
 }
 
-fn snap_camera_target_to_local_up(target: &mut Camera2D) {
+fn snap_camera_target_to_local_up(target: &mut Camera) {
     let r = 100.0;
-    let p = raylib_to_glam(target.target);
-    let q = if p.length() < r {
-        p.normalize_or_zero() * r
+    let q = if target.target.length() < r {
+        target.target.normalize_or_zero() * r
     } else {
-        p
+        target.target
     };
-    target.rotation = -(q.to_angle() + PI / 2.0).to_degrees();
-    target.target = glam_to_raylib(q);
+
+    target.rotation = q.to_angle() + PI / 2.0;
+    target.target = q;
 }
 
 fn propagate_grid_rigid_bodies(grids: &mut Components<VehicleGrid>) {
@@ -349,14 +337,14 @@ fn update_thrusters(thrusters: &mut Components<Thruster>) -> BTreeSet<Ent> {
 fn update_selection_info(
     info: &mut SelectionInfo,
     grids: &Components<VehicleGrid>,
-    camera: &Camera2D,
+    camera: &Camera,
     mouse_screen_position: Option<Vec2>,
+    screen_dims: Vec2,
 ) {
-    let pos = camera.target;
-    let test_pos = raylib_to_glam_invert_y(pos);
-    info.camera_hovered = find::closest_grid(grids, test_pos);
+    let raylib_camera = to_raylib_camera(camera, screen_dims);
+    info.camera_hovered = find::closest_grid(grids, camera.target);
     if let Some(pos) = mouse_screen_position {
-        let pos = screen_to_world(camera, pos);
+        let pos = screen_to_world(&raylib_camera, pos);
         info.mouse_hovered = find::closest_grid(grids, pos);
     } else {
         info.mouse_hovered = None;
@@ -366,7 +354,7 @@ fn update_selection_info(
 fn set_target_camera_if_following(
     follow: Option<Ent>,
     grids: &Components<VehicleGrid>,
-    target: &mut Camera2D,
+    target: &mut Camera,
 ) {
     let Some(follow) = follow else {
         return;
@@ -376,7 +364,7 @@ fn set_target_camera_if_following(
         return;
     };
 
-    target.target = glam_to_raylib_swap_y(grid.isometry.translation);
+    target.target = grid.isometry.translation;
     target.rotation = grid.isometry.rotation.to_degrees();
 }
 
@@ -404,6 +392,7 @@ pub fn update_world(world: &mut World) -> Vec<Action> {
         &world.grids,
         &world.camera,
         world.mouse_screen_position,
+        world.screen_dims,
     );
 
     update_input_state(&world.event_queue, &mut world.input);
@@ -413,7 +402,6 @@ pub fn update_world(world: &mut World) -> Vec<Action> {
 
     update_camera_target(
         &world.input,
-        world.screen_dims,
         &mut world.target_camera,
         &mut world.follow_vehicle,
     );
@@ -437,6 +425,7 @@ pub fn update_world(world: &mut World) -> Vec<Action> {
         &world.camera,
         world.mouse_screen_position,
         &mut outgoing_messages,
+        world.screen_dims,
     );
 
     spawn_random_ship_on_p(world);

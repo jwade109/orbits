@@ -1,3 +1,4 @@
+pub mod camera;
 pub mod components;
 pub mod computer;
 pub mod draw;

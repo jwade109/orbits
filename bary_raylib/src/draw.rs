@@ -1,5 +1,6 @@
 use std::collections::BTreeSet;
 
+use crate::camera::to_raylib_camera;
 use crate::components::Components;
 use crate::light::Light;
 use crate::part::*;
@@ -60,7 +61,9 @@ fn draw_origin_and_range_indicators(d: &mut RaylibDrawHandle) {
 }
 
 pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
-    let mut c = d.begin_mode2D(world.camera);
+    let raylib_camera = to_raylib_camera(&world.camera, world.screen_dims);
+
+    let mut c = d.begin_mode2D(raylib_camera);
 
     draw_origin_and_range_indicators(&mut c);
 
@@ -72,7 +75,7 @@ pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
     //     &world.camera,
     // );
 
-    draw_parts(&mut c, &world.grids, &world.parts, &world.camera);
+    draw_parts(&mut c, &world.grids, &world.parts, &raylib_camera);
     draw_thrusters(&mut c, &world.grids, &world.parts, &world.thrusters);
     draw_lights(&mut c, &world.grids, &world.lights);
 
@@ -80,7 +83,7 @@ pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
 
     draw_grids_if_updated_this_frame(&mut c, &world.grids_to_update, &world.grids);
 
-    draw_mouse_world_position(&mut c, world.mouse_screen_position, &world.camera);
+    draw_mouse_world_position(&mut c, world.mouse_screen_position, &raylib_camera);
 
     draw_particles(&mut c, &world.particles);
 
@@ -89,7 +92,7 @@ pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
 
     drop(c);
 
-    draw_grid_far_indicators(&world.grids, d, &world.camera);
+    draw_grid_far_indicators(&world.grids, d, &raylib_camera);
 
     draw_focused_grid_info(d, world.follow_vehicle, &world.grids, world.screen_dims);
 
