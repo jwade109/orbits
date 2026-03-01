@@ -52,3 +52,26 @@ pub fn screen_to_world(camera: &Camera2D, screen_pos: Vec2) -> Vec2 {
     let delta = raylib_to_glam_invert_y(glam_to_raylib(screen_pos) - camera.offset) / camera.zoom;
     rotate(delta, camera.rotation.to_radians()) + raylib_to_glam_invert_y(camera.target)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn screen_to_world_conversion() {
+        let screen_width = Vector2::new(1080.0, 720.0);
+
+        let camera = Camera2D {
+            offset: screen_width / 2.0,
+            target: Vector2::new(100.0, 120.0),
+            rotation: 0.32,
+            zoom: 1.2,
+        };
+
+        let screen_pos = Vec2::new(560.0, 293.0);
+
+        let world_pos = screen_to_world(&camera, screen_pos);
+
+        assert_eq!(world_pos, Vec2::new(116.354576, -64.07446));
+    }
+}
