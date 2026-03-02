@@ -1,5 +1,4 @@
 use crate::camera::Camera;
-use crate::camera::to_raylib_camera;
 use crate::components::*;
 use crate::computer::*;
 use crate::input_state::*;
@@ -8,6 +7,7 @@ use crate::multiplayer::Action;
 use crate::part::*;
 use crate::ring_particle::RingParticle;
 use crate::systems::*;
+use crate::text_readout::Readout;
 use crate::thruster::*;
 use crate::utils::*;
 use crate::vehicle_grid::*;
@@ -50,6 +50,7 @@ pub struct Assets {
 pub struct World {
     pub ticks: u64,
     pub timers: Timers,
+    pub readout: Readout,
     pub mouse_screen_position: Option<Vec2>,
     pub selection_info: SelectionInfo,
     pub spawner: EntitySpawner,
@@ -90,6 +91,7 @@ impl World {
         Self {
             ticks: 0,
             timers: Timers::default(),
+            readout: Readout::new(),
             mouse_screen_position: None,
             selection_info: SelectionInfo::default(),
             spawner: EntitySpawner::default(),
