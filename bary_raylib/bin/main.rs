@@ -32,12 +32,7 @@ fn draw_debug_info(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
     s += &format!("\nR\n{}", fmt_time(world.timers.render, world.timers.total));
     s += &format!("\nT\n{}", fmt_time(world.timers.total, world.timers.total));
 
-    s += &format!(
-        "\n{} {} {}",
-        world.ticks,
-        d.get_time(),
-        world.ticks as f64 / d.get_time()
-    );
+    s += &format!("\n{}", world.ticks);
     s += &format!("\nMemory: {:0.3} kb", size as f64 / 1000.0);
     s += &format!("\nZoom: {:0.3}", world.camera.zoom);
 

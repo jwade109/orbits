@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use crate::camera::to_raylib_camera;
+use crate::camera::{Camera, to_raylib_camera};
 use crate::components::Components;
 use crate::light::Light;
 use crate::part::*;
@@ -83,7 +83,21 @@ pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
 
     draw_grids_if_updated_this_frame(&mut c, &world.grids_to_update, &world.grids);
 
-    draw_mouse_world_position(&mut c, world.mouse_screen_position, &raylib_camera);
+    draw_focused_grid_cursor(
+        &mut c,
+        &world.grids,
+        world.mouse_screen_position,
+        &world.camera,
+        world.screen_dims,
+        world.follow_vehicle,
+    );
+
+    draw_mouse_world_position(
+        &mut c,
+        world.mouse_screen_position,
+        &world.camera,
+        world.screen_dims,
+    );
 
     draw_particles(&mut c, &world.particles);
 
@@ -100,6 +114,67 @@ pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
     // draw_test_isos(&mut d)
 }
 
+fn draw_text_centered(d: &mut RaylibDrawHandle, text: &str, pos: Vector2, font_size: i32) {
+    let width = d.measure_text(&text, font_size);
+    let pos = Vector2::new(pos.x - width as f32 / 2.0, pos.y);
+
+    d.draw_text_ex(
+        d.get_font_default(),
+        &text,
+        pos,
+        font_size as f32,
+        3.0,
+        Color::WHITE,
+    );
+}
+
+fn draw_focused_grid_cursor(
+    d: &mut RaylibDrawHandle,
+    grids: &Components<VehicleGrid>,
+    mouse_screen_position: Option<Vec2>,
+    camera: &Camera,
+    screen_dims: Vec2,
+    follow: Option<Ent>,
+) {
+    let Some(screen_pos) = mouse_screen_position else {
+        return;
+    };
+    let Some(id) = follow else {
+        return;
+    };
+    let Ok(grid) = grids.try_get(id) else {
+        return;
+    };
+
+    let world_pos = screen_to_world(camera, screen_pos, screen_dims);
+
+    let mut iso = grid.isometry;
+
+    let coord = PartCoord::from_meters_floored(in_frame(iso, world_pos));
+
+    let color = if grid.has_part_at(coord) {
+        Color::GREEN.alpha(0.8)
+    } else {
+        Color::RED.alpha(0.8)
+    };
+
+    let offset = coord.to_meters();
+
+    iso.translation += iso.local_x() * offset.x;
+    iso.translation += iso.local_y() * offset.y;
+
+    let size = PartCoord::CELL_WIDTH;
+
+    let x_axis = grid.isometry.translation + iso.local_x() * 10.0;
+    let y_axis = grid.isometry.translation + iso.local_y() * 10.0;
+
+    draw_line(d, grid.isometry.translation, x_axis, Color::RED);
+    draw_line(d, grid.isometry.translation, y_axis, Color::GREEN);
+    draw_circle(d, grid.isometry.translation, 0.15, Color::BLUE);
+
+    fill_rectangle(d, iso, Vec2::splat(size), color);
+}
+
 fn draw_focused_grid_info(
     d: &mut RaylibDrawHandle,
     follow: Option<Ent>,
@@ -113,23 +188,22 @@ fn draw_focused_grid_info(
         return;
     };
 
-    let font_size = 32;
-    let text = format!("{:0.2} m/s", grid.linear_velocity);
+    let font_size = 26;
 
-    let width = d.measure_text(&text, font_size);
-    let pos = Vector2::new(
-        screen_dims.x / 2.0 - width as f32 / 2.0,
-        screen_dims.y - 50.0,
-    );
+    let title_label = format!("\"{}\"", grid.name);
+    let parts_label = format!("{} parts - {}", grid.parts.len(), grid.parts_mass);
+    let vel_label = format!("{:0.2} m/s", grid.linear_velocity);
 
-    d.draw_text_ex(
-        d.get_font_default(),
-        &text,
-        pos,
-        font_size as f32,
-        3.0,
-        Color::WHITE,
-    );
+    let labels = [
+        (title_label, screen_dims.x / 2.0, 20.0),
+        (parts_label, screen_dims.x / 2.0, 50.0),
+        (vel_label, screen_dims.x / 2.0, screen_dims.y - 50.0),
+    ];
+
+    for (label, x, y) in labels {
+        let pos = Vector2::new(x, y);
+        draw_text_centered(d, &label, pos, font_size);
+    }
 }
 
 pub fn draw_blueprint(bp: &Blueprint, isometry: Isometry2d, d: &mut RaylibDrawHandle) {
@@ -186,11 +260,6 @@ pub fn draw_parts(
                     fill_rectangle(d, iso, dims, color);
                 }
             }
-        }
-
-        if is_zoomed_out(camera) {
-            let s = format!("{} / {}", grid.parts.len(), grid.parts_mass);
-            draw_text(d, grid.isometry, &s);
         }
     }
 }
@@ -308,13 +377,14 @@ fn draw_grid_far_indicators(
 fn draw_mouse_world_position(
     d: &mut RaylibDrawHandle,
     mouse_screen_position: Option<Vec2>,
-    camera: &Camera2D,
+    camera: &Camera,
+    screen_dims: Vec2,
 ) {
     let Some(screen_pos) = mouse_screen_position else {
         return;
     };
 
-    let world_pos = screen_to_world(camera, screen_pos);
+    let world_pos = screen_to_world(camera, screen_pos, screen_dims);
     let r = 10.0 / camera.zoom;
     draw_circle(d, world_pos, r, Color::WHITE);
 }

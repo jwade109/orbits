@@ -232,8 +232,7 @@ fn ping_on_c(
         return;
     };
 
-    let raylib_camera = to_raylib_camera(camera, screen_dims);
-    let pos = screen_to_world(&raylib_camera, screen_pos);
+    let pos = screen_to_world(camera, screen_pos, screen_dims);
 
     let pressed_c = events
         .iter()
@@ -341,10 +340,9 @@ fn update_selection_info(
     mouse_screen_position: Option<Vec2>,
     screen_dims: Vec2,
 ) {
-    let raylib_camera = to_raylib_camera(camera, screen_dims);
     info.camera_hovered = find::closest_grid(grids, camera.target);
     if let Some(pos) = mouse_screen_position {
-        let pos = screen_to_world(&raylib_camera, pos);
+        let pos = screen_to_world(camera, pos, screen_dims);
         info.mouse_hovered = find::closest_grid(grids, pos);
     } else {
         info.mouse_hovered = None;
@@ -355,6 +353,7 @@ fn set_target_camera_if_following(
     follow: Option<Ent>,
     grids: &Components<VehicleGrid>,
     target: &mut Camera,
+    actual: &mut Camera,
 ) {
     let Some(follow) = follow else {
         return;
@@ -365,7 +364,10 @@ fn set_target_camera_if_following(
     };
 
     target.target = grid.isometry.translation;
-    target.rotation = grid.isometry.rotation.to_degrees();
+    target.rotation = grid.isometry.rotation;
+
+    actual.target = target.target;
+    actual.rotation = target.rotation;
 }
 
 pub fn update_world(world: &mut World) -> Vec<Action> {
@@ -406,7 +408,12 @@ pub fn update_world(world: &mut World) -> Vec<Action> {
         &mut world.follow_vehicle,
     );
 
-    set_target_camera_if_following(world.follow_vehicle, &world.grids, &mut world.target_camera);
+    set_target_camera_if_following(
+        world.follow_vehicle,
+        &world.grids,
+        &mut world.target_camera,
+        &mut world.camera,
+    );
 
     if world.snap_camera_to_local_planet {
         snap_camera_target_to_local_up(&mut world.target_camera);

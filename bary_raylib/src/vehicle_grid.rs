@@ -1,5 +1,6 @@
 use bary_core::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct VehicleGrid {
@@ -14,6 +15,9 @@ pub struct VehicleGrid {
     pub computers: Vec<Ent>,
     pub lights: Vec<Ent>,
     pub requires_thruster_update: bool,
+
+    // TODO this is not tested in any way.
+    pub occupancy: BTreeSet<(i32, i32)>,
 }
 
 impl VehicleGrid {
@@ -30,10 +34,17 @@ impl VehicleGrid {
             computers: Vec::new(),
             lights: Vec::new(),
             requires_thruster_update: false,
+            occupancy: BTreeSet::new(),
         }
     }
 
     pub fn linear_acceleration(&self) -> Vec2 {
         (self.external_thrust.as_vec2() / 1000.0) / (self.parts_mass.to_kg_f64() as f32)
+    }
+
+    /// TODO test this.
+    pub fn has_part_at(&self, p: PartCoord) -> bool {
+        let p = (p.0.x, p.0.y);
+        self.occupancy.contains(&p)
     }
 }

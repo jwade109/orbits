@@ -165,6 +165,11 @@ pub fn insert_part(
     grid.parts.push(part_id);
     parts.spawn(part_id, part);
 
+    for cell in instance.placement.cells() {
+        // TODO test this!
+        grid.occupancy.insert((cell.0.x, cell.0.y));
+    }
+
     if let Some(data) = &proto.thruster_data {
         let thruster = Thruster {
             is_on: false,
