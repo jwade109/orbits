@@ -5,9 +5,11 @@ pub enum BaryError {
     BadBlueprint,
     FailedToSaveBlueprint,
     FailedToSaveGrid,
+    SaveAlreadyExists,
     IoError(String),
     SerdeYaml(String),
-    Toml(toml::ser::Error),
+    TomlSer(toml::ser::Error),
+    TomlDe(toml::de::Error),
 }
 
 pub type BaryResult<E> = Result<E, BaryError>;
@@ -26,6 +28,12 @@ impl From<serde_yaml::Error> for BaryError {
 
 impl From<toml::ser::Error> for BaryError {
     fn from(value: toml::ser::Error) -> Self {
-        Self::Toml(value)
+        Self::TomlSer(value)
+    }
+}
+
+impl From<toml::de::Error> for BaryError {
+    fn from(value: toml::de::Error) -> Self {
+        Self::TomlDe(value)
     }
 }
