@@ -60,6 +60,7 @@ pub mod world {
     }
 
     pub fn set_grid_isometry(world: &mut World, grid_id: Ent, iso: Isometry2d) -> BaryResult<()> {
+        info!("Setting isometry of grid {} to {:?}", grid_id, iso);
         let grid = world.grids.try_get_mut(grid_id)?;
         grid.isometry = iso;
         Ok(())
