@@ -15,6 +15,7 @@ use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use log::{debug, info};
 use raylib::prelude::*;
+use rdev::Button;
 use rdev::Event;
 use serde::{Deserialize, Serialize};
 use std::collections::*;
@@ -35,6 +36,7 @@ pub struct Timers {
 pub struct SelectionInfo {
     pub camera_hovered: Option<(Ent, Vec2)>,
     pub mouse_hovered: Option<(Ent, Vec2)>,
+    pub selected: Option<(Ent, Vec2)>,
 }
 
 #[derive(Default)]
@@ -190,9 +192,21 @@ fn update_camera_target(input: &InputState, target: &mut Camera, follow: &mut Op
 fn update_camera(target: &Camera, actual: &mut Camera) {
     let rate_translation = 0.2;
     let rate_rotation = 0.2;
-    actual.isometry.translation.x = low_pass(actual.isometry.translation.x, target.isometry.translation.x, rate_translation);
-    actual.isometry.translation.y = low_pass(actual.isometry.translation.y, target.isometry.translation.y, rate_translation);
-    actual.isometry.rotation = low_pass(actual.isometry.rotation, target.isometry.rotation, rate_rotation);
+    actual.isometry.translation.x = low_pass(
+        actual.isometry.translation.x,
+        target.isometry.translation.x,
+        rate_translation,
+    );
+    actual.isometry.translation.y = low_pass(
+        actual.isometry.translation.y,
+        target.isometry.translation.y,
+        rate_translation,
+    );
+    actual.isometry.rotation = low_pass(
+        actual.isometry.rotation,
+        target.isometry.rotation,
+        rate_rotation,
+    );
     actual.zoom = low_pass(actual.zoom, target.zoom, rate_translation);
 }
 
@@ -245,13 +259,14 @@ fn ping_on_c(
     }
 }
 
-fn spawn_random_ship_on_p(world: &mut World) {
-    let pressed_p = world
-        .event_queue
+fn is_key_just_pressed(events: &VecDeque<Event>, key: Key) -> bool {
+    events
         .iter()
-        .any(|e| e.event_type == rdev::EventType::KeyPress(Key::KeyP));
+        .any(|e| e.event_type == rdev::EventType::KeyPress(key))
+}
 
-    if pressed_p {
+fn spawn_random_ship_on_p(world: &mut World) {
+    if is_key_just_pressed(&world.event_queue, Key::KeyP) {
         if let Ok(grid_id) = world::spawn_grid_by_name(world, "remora") {
             let pos = randvec(10.0, 200.0);
             _ = world::set_grid_isometry(world, grid_id, Isometry2d::from_pos(pos));
@@ -290,11 +305,45 @@ fn toggle_following_on_key_f(
         return;
     }
 
-    let Some((id, _delta)) = sel.mouse_hovered else {
+    let Some((id, _delta)) = sel.selected else {
         return;
     };
 
     *follow = Some(id);
+}
+
+fn print_info_for_parts_under_cursor_on_i(
+    events: &VecDeque<Event>,
+    grids: &Components<VehicleGrid>,
+    parts: &Components<Part>,
+    sel: &SelectionInfo,
+    camera: &Camera,
+    mouse_screen_position: Option<Vec2>,
+    screen_dims: Vec2,
+) {
+    let Some(screen_pos) = mouse_screen_position else {
+        return;
+    };
+
+    let Some((grid_id, _offset)) = sel.selected else {
+        return;
+    };
+
+    if !is_key_just_pressed(events, Key::KeyI) {
+        return;
+    }
+
+    let Ok(grid) = grids.try_get(grid_id) else {
+        return;
+    };
+
+    let world_pos = screen_to_world(camera, screen_pos, screen_dims);
+
+    let iso = grid.isometry;
+
+    let coord = PartCoord::from_meters_floored(in_frame(iso, world_pos));
+
+    get_parts_at(grid, parts, coord);
 }
 
 fn snap_camera_target_to_local_up(target: &mut Camera) {
@@ -340,10 +389,10 @@ fn update_selection_info(
     mouse_screen_position: Option<Vec2>,
     screen_dims: Vec2,
 ) {
-    info.camera_hovered = find::closest_grid(grids, camera.isometry.translation);
+    info.camera_hovered = find::closest_grid(grids, camera.isometry.translation, 100.0);
     if let Some(pos) = mouse_screen_position {
         let pos = screen_to_world(camera, pos, screen_dims);
-        info.mouse_hovered = find::closest_grid(grids, pos);
+        info.mouse_hovered = find::closest_grid(grids, pos, 100.0);
     } else {
         info.mouse_hovered = None;
     }
@@ -370,6 +419,20 @@ fn set_target_camera_if_following(
     actual.isometry.rotation = target.isometry.rotation;
 }
 
+fn select_hovered_vehicle_on_click(events: &VecDeque<Event>, sel: &mut SelectionInfo) {
+    let is_clicked = events.iter().any(|e| match e.event_type {
+        rdev::EventType::ButtonPress(Button::Left) => true,
+        _ => false,
+    });
+
+    if !is_clicked {
+        return;
+    }
+
+    sel.selected = sel.mouse_hovered;
+    info!("Selected {:?}", sel.selected)
+}
+
 pub fn update_world(world: &mut World) -> Vec<Action> {
     world.ticks += 1;
 
@@ -383,6 +446,8 @@ pub fn update_world(world: &mut World) -> Vec<Action> {
         &world.selection_info,
         &mut world.follow_vehicle,
     );
+
+    select_hovered_vehicle_on_click(&world.event_queue, &mut world.selection_info);
 
     update_ring_particles(&mut world.particles);
     update_lights(&mut world.lights);
@@ -418,6 +483,16 @@ pub fn update_world(world: &mut World) -> Vec<Action> {
     if world.snap_camera_to_local_planet {
         snap_camera_target_to_local_up(&mut world.target_camera);
     }
+
+    print_info_for_parts_under_cursor_on_i(
+        &world.event_queue,
+        &world.grids,
+        &world.parts,
+        &world.selection_info,
+        &world.camera,
+        world.mouse_screen_position,
+        world.screen_dims,
+    );
 
     reset_camera_on_ctrl_r(&world.input, &mut world.target_camera);
     update_camera(&world.target_camera, &mut world.camera);

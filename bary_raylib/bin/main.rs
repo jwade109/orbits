@@ -156,6 +156,7 @@ fn main() {
         .spawn("remora", Isometry2d::from_pos(randvec(20.0, 40.0)))
         .spawn("remora", Isometry2d::from_pos(randvec(20.0, 40.0)))
         .spawn("remora", Isometry2d::from_pos(randvec(20.0, 40.0)))
+        .spawn("bellerophon", (130.0, 50.0, 0.1))
         .build();
 
     let mut runner = WorldRunner::new(world);

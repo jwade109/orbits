@@ -80,17 +80,18 @@ pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
     draw_thrusters(&mut c, &world.grids, &world.parts, &world.thrusters);
     draw_lights(&mut c, &world.grids, &world.lights);
 
-    _ = draw_nearest_grids(&mut c, &world.grids, &world.selection_info);
+    _ = draw_selection_info(&mut c, &world.grids, &world.selection_info);
 
     draw_grids_if_updated_this_frame(&mut c, &world.grids_to_update, &world.grids);
 
     draw_focused_grid_cursor(
         &mut c,
         &world.grids,
+        &world.parts,
         world.mouse_screen_position,
         &world.camera,
         world.screen_dims,
-        world.follow_vehicle,
+        &world.selection_info,
     );
 
     draw_mouse_world_position(
@@ -109,7 +110,7 @@ pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
 
     draw_grid_far_indicators(&world.grids, d, &raylib_camera);
 
-    draw_focused_grid_info(d, world.follow_vehicle, &world.grids, world.screen_dims);
+    draw_selected_grid_info(d, &world.selection_info, &world.grids, world.screen_dims);
 
     // draw_parts_zoo(&world.prototypes, &mut d);
     // draw_test_isos(&mut d)
@@ -129,18 +130,32 @@ fn draw_text_centered(d: &mut RaylibDrawHandle, text: &str, pos: Vector2, font_s
     );
 }
 
+fn draw_grid_placement(
+    d: &mut RaylibDrawHandle,
+    root: Isometry2d,
+    pl: GridPlacement,
+    color: Color,
+) {
+    let bottom_left = pl.bottom_left().to_meters();
+    let dims = pl.grid_aligned_dims().to_meters();
+    let mut iso = root;
+    iso.translation += iso.local_x() * bottom_left.x + iso.local_y() * bottom_left.y;
+    fill_rectangle(d, iso, dims, color);
+}
+
 fn draw_focused_grid_cursor(
     d: &mut RaylibDrawHandle,
     grids: &Components<VehicleGrid>,
+    parts: &Components<Part>,
     mouse_screen_position: Option<Vec2>,
     camera: &Camera,
     screen_dims: Vec2,
-    follow: Option<Ent>,
+    sel: &SelectionInfo,
 ) {
     let Some(screen_pos) = mouse_screen_position else {
         return;
     };
-    let Some(id) = follow else {
+    let Some((id, _offset)) = sel.selected else {
         return;
     };
     let Ok(grid) = grids.try_get(id) else {
@@ -159,6 +174,10 @@ fn draw_focused_grid_cursor(
         Color::RED.alpha(0.8)
     };
 
+    for (_part_id, part) in get_parts_at(grid, parts, coord) {
+        draw_grid_placement(d, grid.isometry, part.placement, Color::PURPLE.alpha(0.3));
+    }
+
     let offset = coord.to_meters();
 
     iso.translation += iso.local_x() * offset.x;
@@ -176,13 +195,13 @@ fn draw_focused_grid_cursor(
     fill_rectangle(d, iso, Vec2::splat(size), color);
 }
 
-fn draw_focused_grid_info(
+fn draw_selected_grid_info(
     d: &mut RaylibDrawHandle,
-    follow: Option<Ent>,
+    sel: &SelectionInfo,
     grids: &Components<VehicleGrid>,
     screen_dims: Vec2,
 ) {
-    let Some(id) = follow else {
+    let Some((id, _offset)) = sel.selected else {
         return;
     };
     let Ok(grid) = grids.try_get(id) else {
@@ -435,7 +454,7 @@ fn draw_circle(d: &mut RaylibDrawHandle, p: Vec2, r: f32, color: Color) {
     d.draw_circle_lines_v(center, r, color);
 }
 
-fn draw_nearest_grids(
+fn draw_selection_info(
     d: &mut RaylibDrawHandle,
     grids: &Components<VehicleGrid>,
     sel: &SelectionInfo,
@@ -447,6 +466,11 @@ fn draw_nearest_grids(
     if let Some((grid_id, _)) = sel.mouse_hovered {
         let grid = grids.try_get(grid_id)?;
         draw_circle(d, grid.isometry.translation, 16.0, Color::GREEN);
+    }
+    if let Some((grid_id, _)) = sel.selected {
+        let grid = grids.try_get(grid_id)?;
+        draw_circle(d, grid.isometry.translation, 17.0, Color::BLUE);
+        draw_circle(d, grid.isometry.translation, 18.0, Color::BLUE);
     }
     Ok(())
 }

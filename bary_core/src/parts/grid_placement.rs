@@ -135,6 +135,13 @@ impl GridPlacement {
     pub fn shift(&mut self, offset: PartCoord) {
         self.bottom_left += offset;
     }
+
+    pub fn contains(&self, coord: PartCoord) -> bool {
+        // TODO(optimization) this doesn't have to be a loop,
+        // can just do the math
+        // TODO(testing) test this
+        self.cells().any(|c| c == coord)
+    }
 }
 
 // pub fn isometry_to_transform(iso: Isometry2d) -> Transform {

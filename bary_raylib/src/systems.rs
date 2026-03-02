@@ -258,11 +258,19 @@ pub mod find {
         result
     }
 
-    pub fn closest_grid(grids: &Components<VehicleGrid>, test_pos: Vec2) -> Option<(Ent, Vec2)> {
+    pub fn closest_grid(
+        grids: &Components<VehicleGrid>,
+        test_pos: Vec2,
+        dist_limit: impl Into<Option<f32>>,
+    ) -> Option<(Ent, Vec2)> {
         let mut best: Option<(Ent, Vec2, f32)> = None;
+        let dist_limit = dist_limit.into().unwrap_or(std::f32::INFINITY);
         for (e, grid) in grids.iter() {
             let in_frame = express_in_frame(grid.isometry, test_pos);
             let dist = in_frame.length_squared();
+            if dist > dist_limit {
+                continue;
+            }
             if let Some(best) = &mut best {
                 if dist < best.2 {
                     best.0 = *e;
@@ -360,6 +368,28 @@ fn set_thruster_state(
     grid.external_thrust += thrust_vec;
 
     Ok(true)
+}
+
+// TODO(testing)
+pub fn get_parts_at<'a>(
+    grid: &VehicleGrid,
+    parts: &'a Components<Part>,
+    coord: PartCoord,
+) -> Vec<(Ent, &'a Part)> {
+    // TODO(optimization) can make VehicleGrid keep a spatial LUT for this
+    let mut ret = Vec::new();
+    for part_id in &grid.parts {
+        let Ok(part) = parts.try_get(*part_id) else {
+            continue;
+        };
+
+        if !part.placement.contains(coord) {
+            continue;
+        }
+
+        ret.push((*part_id, part));
+    }
+    ret
 }
 
 #[cfg(test)]
@@ -515,7 +545,7 @@ mod tests {
             .blueprint("spacestation")
             .build();
 
-        assert!(find::closest_grid(&world.grids, Vec2::new(100.0, 200.0)).is_none());
+        assert!(find::closest_grid(&world.grids, Vec2::new(100.0, 200.0), None).is_none());
 
         let id = world::spawn_grid_by_name(&mut world, "remora").unwrap();
         assert_eq!(id, Ent(34));
@@ -525,7 +555,8 @@ mod tests {
 
         for _ in 0..100 {
             update_world(&mut world);
-            let e = find::closest_grid(&world.grids, Vec2::new(100.0, 200.0));
+            let test_pos = Vec2::new(100.0, 200.0);
+            let e = find::closest_grid(&world.grids, test_pos, None);
             assert_eq!(e, Some((Ent(34), Vec2::new(60.0, 44.0))));
         }
     }

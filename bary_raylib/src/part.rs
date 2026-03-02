@@ -1,7 +1,7 @@
 use bary_core::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Part {
     pub placement: GridPlacement,
     // TODO this field is kinda duplicated

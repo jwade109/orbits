@@ -29,8 +29,8 @@ impl WorldBuilder {
         self
     }
 
-    pub fn spawn(mut self, name: &str, iso: Isometry2d) -> Self {
-        self.spawns.push((name.to_string(), iso));
+    pub fn spawn(mut self, name: &str, iso: impl Into<Isometry2d>) -> Self {
+        self.spawns.push((name.to_string(), iso.into()));
         self
     }
 
