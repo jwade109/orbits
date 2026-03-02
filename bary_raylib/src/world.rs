@@ -50,6 +50,7 @@ pub struct Assets {
 pub struct World {
     pub ticks: u64,
     pub timers: Timers,
+    #[serde(skip)]
     pub readout: Readout,
     pub mouse_screen_position: Option<Vec2>,
     pub selection_info: SelectionInfo,
@@ -71,7 +72,6 @@ pub struct World {
     pub computers: Components<Computer>,
     pub lights: Components<Light>,
     pub grids: Components<VehicleGrid>,
-    pub grids_to_update: BTreeSet<Ent>,
 }
 
 impl std::fmt::Debug for World {
@@ -116,7 +116,6 @@ impl World {
             thrusters: Components::default(),
             computers: Components::default(),
             lights: Components::default(),
-            grids_to_update: BTreeSet::new(),
         }
     }
 }
@@ -243,6 +242,7 @@ fn ping_on_c(
     mouse_screen_position: Option<Vec2>,
     transactions: &mut Vec<Action>,
     screen_dims: Vec2,
+    chat: &mut Readout,
 ) {
     let Some(screen_pos) = mouse_screen_position else {
         return;
@@ -258,6 +258,7 @@ fn ping_on_c(
         let particle = RingParticle::new(pos);
         particles.push(particle);
         transactions.push(Action::Ping(pos));
+        chat.log(format!("Pinged {}", pos));
     }
 }
 
@@ -370,18 +371,14 @@ fn propagate_grid_rigid_bodies(grids: &mut Components<VehicleGrid>) {
     }
 }
 
-fn update_thrusters(thrusters: &mut Components<Thruster>) -> BTreeSet<Ent> {
-    let mut grids_to_update = BTreeSet::new();
+fn update_thrusters(thrusters: &mut Components<Thruster>) {
     for t in thrusters.values_mut() {
         if t.is_on && chance(0.005) {
             t.is_on = false;
-            grids_to_update.insert(t.grid_id);
         } else if !t.is_on && chance(0.001) {
             t.is_on = true;
-            grids_to_update.insert(t.grid_id);
         }
     }
-    grids_to_update
 }
 
 fn update_selection_info(
@@ -454,7 +451,6 @@ pub fn update_world(world: &mut World) -> Vec<Action> {
     update_ring_particles(&mut world.particles);
     update_lights(&mut world.lights);
     update_computers(&mut world.computers);
-    // world.grids_to_update = update_thrusters(&mut world.thrusters);
 
     update_selection_info(
         &mut world.selection_info,
@@ -510,7 +506,10 @@ pub fn update_world(world: &mut World) -> Vec<Action> {
         world.mouse_screen_position,
         &mut outgoing_messages,
         world.screen_dims,
+        &mut world.readout,
     );
+
+    world.readout.drop_old_messages();
 
     spawn_random_ship_on_p(world);
 

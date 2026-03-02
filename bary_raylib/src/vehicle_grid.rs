@@ -14,7 +14,6 @@ pub struct VehicleGrid {
     pub thrusters: Vec<Ent>,
     pub computers: Vec<Ent>,
     pub lights: Vec<Ent>,
-    pub requires_thruster_update: bool,
 
     // TODO this is not tested in any way.
     pub occupancy: BTreeSet<(i32, i32)>,
@@ -33,7 +32,6 @@ impl VehicleGrid {
             thrusters: Vec::new(),
             computers: Vec::new(),
             lights: Vec::new(),
-            requires_thruster_update: false,
             occupancy: BTreeSet::new(),
         }
     }

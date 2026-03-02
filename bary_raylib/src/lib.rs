@@ -6,6 +6,7 @@ pub mod input_state;
 pub mod light;
 pub mod multiplayer;
 pub mod part;
+pub mod persistence;
 pub mod result;
 pub mod ring_particle;
 pub mod systems;

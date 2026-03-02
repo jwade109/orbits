@@ -121,6 +121,10 @@ pub mod world {
         let part = RingParticle::new(pos);
         world.particles.push(part);
     }
+
+    pub fn get_blueprint(world: &World, grid_id: Ent) -> BaryResult<Blueprint> {
+        super::get_blueprint(&world.grids, &world.parts, &world.prototypes, grid_id)
+    }
 }
 
 /// Spawns an empty vehicle grid.

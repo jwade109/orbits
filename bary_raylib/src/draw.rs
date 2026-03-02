@@ -7,6 +7,7 @@ use crate::part::*;
 use crate::result::BaryResult;
 use crate::ring_particle::*;
 use crate::systems::*;
+use crate::text_readout::{Readout, format_log};
 use crate::thruster::Thruster;
 use crate::utils::*;
 use crate::vehicle_grid::*;
@@ -82,8 +83,6 @@ pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
 
     _ = draw_selection_info(&mut c, &world.grids, &world.selection_info);
 
-    draw_grids_if_updated_this_frame(&mut c, &world.grids_to_update, &world.grids);
-
     draw_focused_grid_cursor(
         &mut c,
         &world.grids,
@@ -112,8 +111,22 @@ pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
 
     draw_selected_grid_info(d, &world.selection_info, &world.grids, world.screen_dims);
 
+    draw_chat(d, &world.readout, world.screen_dims);
+
     // draw_parts_zoo(&world.prototypes, &mut d);
     // draw_test_isos(&mut d)
+}
+
+fn draw_chat(d: &mut RaylibDrawHandle, readout: &Readout, screen_dims: Vec2) {
+    let font_size = 18;
+    let x = 10;
+    let mut y = screen_dims.y as i32 - font_size - 10;
+
+    for log in readout.logs() {
+        let t = format_log(log);
+        d.draw_text(&t, x, y, font_size, Color::WHITE);
+        y -= font_size;
+    }
 }
 
 fn draw_text_centered(d: &mut RaylibDrawHandle, text: &str, pos: Vector2, font_size: i32) {

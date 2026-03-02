@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use crate::vehicle::blueprint;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -75,4 +76,32 @@ pub fn load_parts_from_dir(
         }
     }
     Ok(ret)
+}
+
+pub fn save_vehicle(path: impl AsRef<Path>, blueprint: &Blueprint) -> Result<(), &'static str> {
+    let parts = blueprint
+        .parts()
+        .map(|(_, instance)| VehiclePartFileStorage {
+            partname: instance.name.clone(),
+            pos: instance.origin(),
+            rot: instance.rotation(),
+        })
+        .collect();
+
+    let pipes = blueprint
+        .pipes()
+        .map(|(_, pipe)| PipeFileStorage { geometry: *pipe })
+        .collect();
+
+    let storage = VehicleFileStorage {
+        parts,
+        pipes: Some(pipes),
+    };
+
+    let s = serde_yaml::to_string(&storage)
+        .ok()
+        .ok_or("Failed to serialize")?;
+    std::fs::write(path.as_ref(), s)
+        .ok()
+        .ok_or("Failed to write to file")
 }

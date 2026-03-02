@@ -46,7 +46,6 @@ fn draw_debug_info(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
     s += &format!("\nTHR {:?}", &world.thrusters);
     s += &format!("\nCPU {:?}", &world.computers);
     s += &format!("\nLIT {:?}", &world.lights);
-    s += &format!("\nUP {}", &world.grids_to_update.len());
     s += &format!("\nE {:?}", &world.spawner);
 
     for e in &world.event_queue {
@@ -54,7 +53,7 @@ fn draw_debug_info(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
     }
 
     if let Some(font) = &assets.lato_regular {
-        d.draw_text_ex(&font, &s, Vector2::new(12.0, 12.0), 20.0, 0.0, Color::WHITE);
+        d.draw_text_ex(&font, &s, Vector2::new(12.0, 12.0), 16.0, 0.0, Color::WHITE);
     }
 }
 
