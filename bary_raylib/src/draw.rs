@@ -134,13 +134,15 @@ fn draw_grid_placement(
     d: &mut RaylibDrawHandle,
     root: Isometry2d,
     pl: GridPlacement,
-    color: Color,
+    fill: Color,
+    border: Color,
 ) {
     let bottom_left = pl.bottom_left().to_meters();
     let dims = pl.grid_aligned_dims().to_meters();
     let mut iso = root;
     iso.translation += iso.local_x() * bottom_left.x + iso.local_y() * bottom_left.y;
-    fill_rectangle(d, iso, dims, color);
+    fill_rectangle(d, iso, dims, fill);
+    draw_rectangle(d, iso, dims, border);
 }
 
 fn draw_focused_grid_cursor(
@@ -175,7 +177,13 @@ fn draw_focused_grid_cursor(
     };
 
     for (_part_id, part) in get_parts_at(grid, parts, coord) {
-        draw_grid_placement(d, grid.isometry, part.placement, Color::PURPLE.alpha(0.3));
+        draw_grid_placement(
+            d,
+            grid.isometry,
+            part.placement,
+            Color::PURPLE.alpha(0.3),
+            Color::WHITE,
+        );
     }
 
     let offset = coord.to_meters();
@@ -434,6 +442,18 @@ fn draw_parts_zoo(parts: &Components<PartPrototype>, d: &mut RaylibDrawHandle) {
         d.draw_rectangle_lines_ex(rect, 0.3, Color::TEAL.alpha(0.7));
 
         y += proto.dims.y as i32 + 1;
+    }
+}
+
+fn draw_rectangle(d: &mut RaylibDrawHandle, iso: Isometry2d, dims: Vec2, color: Color) {
+    let xoff = iso.local_x() * dims.x;
+    let yoff = iso.local_y() * dims.y;
+    let w = glam_to_raylib_swap_y(iso.translation);
+    let x = glam_to_raylib_swap_y(iso.translation + xoff);
+    let y = glam_to_raylib_swap_y(iso.translation + xoff + yoff);
+    let z = glam_to_raylib_swap_y(iso.translation + yoff);
+    for window in [w, x, y, z, w].windows(2) {
+        d.draw_line_ex(window[0], window[1], 0.05, color);
     }
 }
 

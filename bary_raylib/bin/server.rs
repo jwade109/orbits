@@ -1,6 +1,7 @@
+use bary_core::prelude::*;
 use bary_raylib::multiplayer::*;
-use bary_raylib::scenarios::dev_world;
 use bary_raylib::wall_timer::WallTimer;
+use bary_raylib::world_builder::WorldBuilder;
 use log::{info, warn};
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -19,8 +20,20 @@ impl ServerApp {
         let incoming_transactions = new_message_queue();
         let outgoing_transactions = new_message_queue();
 
+        let world = WorldBuilder::new()
+            .assets("assets/")
+            .blueprint("pollux")
+            .blueprint("bellerophon")
+            .blueprint("remora")
+            .blueprint("spacestation")
+            .spawn("pollux", Isometry2d::IDENTITY)
+            .spawn("remora", Isometry2d::from_pos(randvec(20.0, 40.0)))
+            .spawn("remora", Isometry2d::from_pos(randvec(20.0, 40.0)))
+            .spawn("remora", Isometry2d::from_pos(randvec(20.0, 40.0)))
+            .build();
+
         Self {
-            runner: WorldRunner::new(dev_world("assets").unwrap()),
+            runner: WorldRunner::new(world),
             incoming_transactions: incoming_transactions.clone(),
             outgoing_transactions: outgoing_transactions.clone(),
             _server_thread: std::thread::spawn(|| {

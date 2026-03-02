@@ -8,7 +8,6 @@ pub mod multiplayer;
 pub mod part;
 pub mod result;
 pub mod ring_particle;
-pub mod scenarios;
 pub mod systems;
 pub mod text_readout;
 pub mod thruster;
