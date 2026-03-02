@@ -63,6 +63,7 @@ fn draw_origin_and_range_indicators(d: &mut RaylibDrawHandle) {
 pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
     let raylib_camera = to_raylib_camera(&world.camera, world.screen_dims);
 
+    // this apparently is incredibly slow; curious
     let mut c = d.begin_mode2D(raylib_camera);
 
     draw_origin_and_range_indicators(&mut c);
@@ -101,8 +102,8 @@ pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
 
     draw_particles(&mut c, &world.particles);
 
-    // draw_isometry_axes(&mut c, get_isometry(&world.camera), "CAM");
-    // draw_isometry_axes(&mut c, get_isometry(&world.target_camera), "");
+    // draw_isometry_axes(&mut c, world.camera.isometry, "CAM");
+    // draw_isometry_axes(&mut c, world.target_camera.isometry, "");
 
     drop(c);
 

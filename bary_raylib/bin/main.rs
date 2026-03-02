@@ -146,15 +146,17 @@ fn main() {
 
     let mut shader = rl.load_shader(&thread, None, Some("assets/shaders/distortion.fs"));
 
-    let mut world = WorldBuilder::new()
+    let world = WorldBuilder::new()
         .assets("assets/")
         .blueprint("pollux")
         .blueprint("bellerophon")
         .blueprint("remora")
         .blueprint("spacestation")
+        .spawn("pollux", Isometry2d::IDENTITY)
+        .spawn("remora", Isometry2d::from_pos(randvec(20.0, 40.0)))
+        .spawn("remora", Isometry2d::from_pos(randvec(20.0, 40.0)))
+        .spawn("remora", Isometry2d::from_pos(randvec(20.0, 40.0)))
         .build();
-
-    _ = world::spawn_grid_by_name(&mut world, "pollux");
 
     let mut runner = WorldRunner::new(world);
 

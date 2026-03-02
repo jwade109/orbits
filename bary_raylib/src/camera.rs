@@ -6,10 +6,7 @@ use crate::utils::glam_to_raylib;
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub struct Camera {
-    /// camera target position in world coordinates
-    pub target: Vec2,
-    /// camera rotation in radians
-    pub rotation: f32,
+    pub isometry: Isometry2d,
     /// camera zoom in raylib units, or whatever
     pub zoom: f32,
 }
@@ -17,8 +14,7 @@ pub struct Camera {
 impl Default for Camera {
     fn default() -> Self {
         Self {
-            target: Vec2::ZERO,
-            rotation: 0.0,
+            isometry: Isometry2d::IDENTITY,
             zoom: 1.0,
         }
     }
@@ -27,8 +23,11 @@ impl Default for Camera {
 pub fn to_raylib_camera(camera: &Camera, screen_dims: Vec2) -> Camera2D {
     Camera2D {
         offset: glam_to_raylib(screen_dims) / 2.0,
-        target: Vector2::new(camera.target.x, -camera.target.y),
-        rotation: camera.rotation.to_degrees(),
+        target: Vector2::new(
+            camera.isometry.translation.x,
+            -camera.isometry.translation.y,
+        ),
+        rotation: camera.isometry.rotation.to_degrees(),
         zoom: camera.zoom,
     }
 }

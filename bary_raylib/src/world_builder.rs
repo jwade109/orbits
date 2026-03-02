@@ -1,11 +1,13 @@
 use std::path::PathBuf;
 
-use crate::world::World;
+use crate::systems::*;
+use crate::world::*;
 use bary_core::prelude::*;
 
 pub struct WorldBuilder {
     assets_dir: Option<String>,
     blueprints: Vec<String>,
+    spawns: Vec<(String, Isometry2d)>,
 }
 
 impl WorldBuilder {
@@ -13,6 +15,7 @@ impl WorldBuilder {
         Self {
             assets_dir: None,
             blueprints: Vec::new(),
+            spawns: Vec::new(),
         }
     }
 
@@ -23,6 +26,11 @@ impl WorldBuilder {
 
     pub fn blueprint(mut self, name: &str) -> Self {
         self.blueprints.push(name.to_string());
+        self
+    }
+
+    pub fn spawn(mut self, name: &str, iso: Isometry2d) -> Self {
+        self.spawns.push((name.to_string(), iso));
         self
     }
 
@@ -45,6 +53,12 @@ impl WorldBuilder {
                 let path = vehicles_dir.join(format!("{}.vehicle", v));
                 let bp = load_vehicle(path, &parts).expect("Vehicle dir");
                 world.blueprints.spawn(id, (v.to_string(), bp));
+            }
+        }
+
+        for (name, iso) in self.spawns {
+            if let Ok(id) = world::spawn_grid_by_name(&mut world, &name) {
+                _ = world::set_grid_isometry(&mut world, id, iso);
             }
         }
 

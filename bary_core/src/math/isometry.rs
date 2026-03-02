@@ -8,10 +8,22 @@ pub struct Isometry2d {
 }
 
 impl Isometry2d {
+    pub const IDENTITY: Self = Self {
+        translation: Vec2::ZERO,
+        rotation: 0.0,
+    };
+
     pub fn new(translation: Vec2, rotation: f32) -> Self {
         Self {
             translation,
             rotation,
+        }
+    }
+
+    pub fn from_pos(pos: Vec2) -> Self {
+        Self {
+            translation: pos,
+            rotation: 0.0,
         }
     }
 
@@ -28,6 +40,15 @@ impl std::ops::Mul for Isometry2d {
     type Output = Self;
     fn mul(self, rhs: Self) -> Self::Output {
         Isometry2d::new(self.translation + rhs.translation, 0.0)
+    }
+}
+
+impl From<(f32, f32, f32)> for Isometry2d {
+    fn from((x, y, r): (f32, f32, f32)) -> Self {
+        Self {
+            translation: Vec2::new(x, y),
+            rotation: r,
+        }
     }
 }
 

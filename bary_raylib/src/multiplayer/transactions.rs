@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum Action {
     Ping(Vec2),
-    SpawnShipAt(String, Vec2),
+    SpawnShipAt(String, Isometry2d),
     LoadWorld(World),
     FastForwardTo(u64),
 }
@@ -40,9 +40,9 @@ pub fn apply_transaction(world: &mut World, transaction: Transaction) {
             }
             world::ping(world, pos);
         }
-        Action::SpawnShipAt(name, pos) => {
+        Action::SpawnShipAt(name, iso) => {
             if let Ok(grid_id) = world::spawn_grid_by_name(world, &name) {
-                _ = world::set_grid_position(world, grid_id, pos);
+                _ = world::set_grid_isometry(world, grid_id, iso);
             }
         }
         Action::LoadWorld(new_world) => {

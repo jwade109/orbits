@@ -152,7 +152,7 @@ fn update_camera_target(input: &InputState, target: &mut Camera, follow: &mut Op
     let speed = 40.0 / target.zoom;
     let zoom_scale = 1.07;
 
-    let right = rotate(Vec2::X, target.rotation);
+    let right = rotate(Vec2::X, target.isometry.rotation);
     let up = rotate(right, PI / 2.0);
 
     if input.is_key_pressed(Key::Minus) {
@@ -162,27 +162,27 @@ fn update_camera_target(input: &InputState, target: &mut Camera, follow: &mut Op
         target.zoom *= zoom_scale;
     }
     if input.is_key_pressed(Key::KeyQ) {
-        target.rotation += angular_speed;
+        target.isometry.rotation += angular_speed;
         *follow = None;
     }
     if input.is_key_pressed(Key::KeyE) {
-        target.rotation -= angular_speed;
+        target.isometry.rotation -= angular_speed;
         *follow = None;
     }
     if input.is_key_pressed(Key::KeyS) {
-        target.target -= up * speed;
+        target.isometry.translation -= up * speed;
         *follow = None;
     }
     if input.is_key_pressed(Key::KeyW) {
-        target.target += up * speed;
+        target.isometry.translation += up * speed;
         *follow = None;
     }
     if input.is_key_pressed(Key::KeyD) {
-        target.target += right * speed;
+        target.isometry.translation += right * speed;
         *follow = None;
     }
     if input.is_key_pressed(Key::KeyA) {
-        target.target -= right * speed;
+        target.isometry.translation -= right * speed;
         *follow = None;
     }
 }
@@ -190,9 +190,9 @@ fn update_camera_target(input: &InputState, target: &mut Camera, follow: &mut Op
 fn update_camera(target: &Camera, actual: &mut Camera) {
     let rate_translation = 0.2;
     let rate_rotation = 0.2;
-    actual.target.x = low_pass(actual.target.x, target.target.x, rate_translation);
-    actual.target.y = low_pass(actual.target.y, target.target.y, rate_translation);
-    actual.rotation = low_pass(actual.rotation, target.rotation, rate_rotation);
+    actual.isometry.translation.x = low_pass(actual.isometry.translation.x, target.isometry.translation.x, rate_translation);
+    actual.isometry.translation.y = low_pass(actual.isometry.translation.y, target.isometry.translation.y, rate_translation);
+    actual.isometry.rotation = low_pass(actual.isometry.rotation, target.isometry.rotation, rate_rotation);
     actual.zoom = low_pass(actual.zoom, target.zoom, rate_translation);
 }
 
@@ -254,7 +254,7 @@ fn spawn_random_ship_on_p(world: &mut World) {
     if pressed_p {
         if let Ok(grid_id) = world::spawn_grid_by_name(world, "remora") {
             let pos = randvec(10.0, 200.0);
-            _ = world::set_grid_position(world, grid_id, pos);
+            _ = world::set_grid_isometry(world, grid_id, Isometry2d::from_pos(pos));
         }
     }
 }
@@ -262,8 +262,8 @@ fn spawn_random_ship_on_p(world: &mut World) {
 fn reset_camera_on_ctrl_r(input: &InputState, target: &mut Camera) {
     if input.is_key_pressed(Key::ControlLeft) && input.is_key_pressed(Key::KeyR) {
         debug!("Reset camera");
-        target.target = Vec2::ZERO;
-        target.rotation = 0.0;
+        target.isometry.translation = Vec2::ZERO;
+        target.isometry.rotation = 0.0;
         target.zoom = 8.0;
     }
 }
@@ -299,14 +299,14 @@ fn toggle_following_on_key_f(
 
 fn snap_camera_target_to_local_up(target: &mut Camera) {
     let r = 100.0;
-    let q = if target.target.length() < r {
-        target.target.normalize_or_zero() * r
+    let q = if target.isometry.translation.length() < r {
+        target.isometry.translation.normalize_or_zero() * r
     } else {
-        target.target
+        target.isometry.translation
     };
 
-    target.rotation = q.to_angle() + PI / 2.0;
-    target.target = q;
+    target.isometry.rotation = q.to_angle() + PI / 2.0;
+    target.isometry.translation = q;
 }
 
 fn propagate_grid_rigid_bodies(grids: &mut Components<VehicleGrid>) {
@@ -340,7 +340,7 @@ fn update_selection_info(
     mouse_screen_position: Option<Vec2>,
     screen_dims: Vec2,
 ) {
-    info.camera_hovered = find::closest_grid(grids, camera.target);
+    info.camera_hovered = find::closest_grid(grids, camera.isometry.translation);
     if let Some(pos) = mouse_screen_position {
         let pos = screen_to_world(camera, pos, screen_dims);
         info.mouse_hovered = find::closest_grid(grids, pos);
@@ -363,11 +363,11 @@ fn set_target_camera_if_following(
         return;
     };
 
-    target.target = grid.isometry.translation;
-    target.rotation = grid.isometry.rotation;
+    target.isometry.translation = grid.isometry.translation;
+    target.isometry.rotation = grid.isometry.rotation;
 
-    actual.target = target.target;
-    actual.rotation = target.rotation;
+    actual.isometry.translation = target.isometry.translation;
+    actual.isometry.rotation = target.isometry.rotation;
 }
 
 pub fn update_world(world: &mut World) -> Vec<Action> {

@@ -32,13 +32,6 @@ pub fn part_isometry(root_isometry: Isometry2d, placement: GridPlacement) -> Iso
     Isometry2d::new(root_isometry.translation + offset, rotation)
 }
 
-pub fn get_isometry(camera: &Camera) -> Isometry2d {
-    Isometry2d {
-        translation: camera.target,
-        rotation: camera.rotation,
-    }
-}
-
 pub fn default_camera_2d() -> Camera2D {
     Camera2D {
         offset: Vector2::zero(),
@@ -53,7 +46,8 @@ pub fn screen_to_world(camera: &Camera, screen_pos: Vec2, screen_dims: Vec2) -> 
     let offset = screen_dims / 2.0;
     let delta =
         raylib_to_glam_invert_y(glam_to_raylib(screen_pos) - glam_to_raylib(offset)) / camera.zoom;
-    rotate(delta, camera.rotation) + raylib_to_glam(glam_to_raylib(camera.target))
+    rotate(delta, camera.isometry.rotation)
+        + raylib_to_glam(glam_to_raylib(camera.isometry.translation))
 }
 
 #[cfg(test)]
@@ -69,8 +63,7 @@ mod tests {
         let target = Vec2::new(100.0, 120.0);
 
         let camera = Camera {
-            target,
-            rotation: 34.0f32.to_radians(),
+            isometry: Isometry2d::new(target, 34.0f32.to_radians()),
             zoom: 1.2,
         };
 

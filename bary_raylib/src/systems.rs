@@ -59,9 +59,9 @@ pub mod world {
         )
     }
 
-    pub fn set_grid_position(world: &mut World, grid_id: Ent, pos: Vec2) -> BaryResult<()> {
+    pub fn set_grid_isometry(world: &mut World, grid_id: Ent, iso: Isometry2d) -> BaryResult<()> {
         let grid = world.grids.try_get_mut(grid_id)?;
-        grid.isometry.translation = pos;
+        grid.isometry = iso;
         Ok(())
     }
 
