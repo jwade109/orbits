@@ -35,7 +35,7 @@ pub fn spawn_grid_from_blueprint(
 }
 
 pub mod world {
-    use crate::ring_particle::RingParticle;
+    use crate::ring_particle::PingParticle;
 
     use super::*;
 
@@ -118,7 +118,7 @@ pub mod world {
     }
 
     pub fn ping(world: &mut World, pos: Vec2) {
-        let part = RingParticle::new(pos);
+        let part = PingParticle::new(pos);
         world.particles.push(part);
     }
 

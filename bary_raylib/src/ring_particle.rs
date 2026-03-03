@@ -3,12 +3,12 @@ use raylib::color::Color;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct RingParticle {
+pub struct PingParticle {
     pub pos: Vec2,
     age: f32,
 }
 
-impl RingParticle {
+impl PingParticle {
     pub fn new(pos: Vec2) -> Self {
         Self { pos, age: 0.0 }
     }
@@ -19,11 +19,11 @@ impl RingParticle {
     }
 
     pub fn radius(&self) -> f32 {
-        self.age * 20.0
+        5.0
     }
 
     fn alpha(&self) -> f32 {
-        (1.0 - self.age * 2.0).clamp(0.0, 1.0)
+        1.0
     }
 
     pub fn color(&self) -> Color {
@@ -31,6 +31,10 @@ impl RingParticle {
     }
 
     pub fn is_alive(&self) -> bool {
-        self.age < 0.5
+        self.age < 4.0
+    }
+
+    pub fn is_visible(&self) -> bool {
+        self.age % 1.0 < 0.5
     }
 }

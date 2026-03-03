@@ -9,6 +9,7 @@ pub mod part;
 pub mod persistence;
 pub mod result;
 pub mod ring_particle;
+pub mod sounds;
 pub mod systems;
 pub mod text_readout;
 pub mod thruster;

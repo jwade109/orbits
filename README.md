@@ -9,3 +9,4 @@ to discover the hidden jelly-filled center of the galaxy.
 - `TODO(slow)` - it's slower than I think it can/should be, but not sure how
 - `TODO(deprecated)` - this needs to be removed
 - `TODO(testing)` - this thing needs to be verified with test cases
+- `TODO(cleanup)` - this can be less lines of code

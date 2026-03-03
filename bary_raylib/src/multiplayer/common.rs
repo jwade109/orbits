@@ -1,5 +1,6 @@
 use crate::{
     multiplayer::*,
+    sounds::SoundEffects,
     world::{World, update_world},
 };
 use crossbeam_queue::SegQueue;
@@ -90,15 +91,18 @@ impl WorldRunner {
         }
     }
 
-    pub fn update(&mut self) -> Vec<Action> {
+    pub fn update(&mut self) -> (Vec<Action>, SoundEffects) {
         let now = Instant::now();
         let mut delta = now - self.last_update;
         let mut ret = Vec::new();
+        let mut sounds = SoundEffects::default();
         while delta > Self::TICK_DURATION {
             delta -= Self::TICK_DURATION;
-            ret.extend_from_slice(&update_world(&mut self.world));
+            let (actions, s) = update_world(&mut self.world);
+            ret.extend_from_slice(&actions);
+            sounds.effects.extend_from_slice(&s.effects);
             self.last_update += Self::TICK_DURATION;
         }
-        ret
+        (ret, sounds)
     }
 }

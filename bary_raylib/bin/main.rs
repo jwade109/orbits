@@ -5,6 +5,7 @@ use bary_raylib::systems::*;
 use bary_raylib::utils::raylib_to_glam;
 use bary_raylib::world::*;
 use bary_raylib::world_builder::WorldBuilder;
+use log::*;
 use raylib::prelude::*;
 use std::thread;
 use std::time::Duration;
@@ -115,7 +116,7 @@ fn main() {
     let (mut rl, thread) = raylib::init()
         .size(1080, 700)
         .title("Hello world!")
-        .log_level(TraceLogLevel::LOG_WARNING)
+        .log_level(TraceLogLevel::LOG_INFO)
         .msaa_4x()
         .resizable()
         // .vsync()
@@ -145,6 +146,8 @@ fn main() {
 
     let mut shader = rl.load_shader(&thread, None, Some("assets/shaders/distortion.fs"));
 
+    let audio = raylib::audio::RaylibAudio::init_audio_device().unwrap();
+
     let world = WorldBuilder::new()
         .assets("assets/")
         .blueprint("pollux")
@@ -152,9 +155,9 @@ fn main() {
         .blueprint("remora")
         .blueprint("spacestation")
         .spawn("pollux", Isometry2d::IDENTITY)
-        .spawn("remora", Isometry2d::from_pos(randvec(20.0, 40.0)))
-        .spawn("remora", Isometry2d::from_pos(randvec(20.0, 40.0)))
-        .spawn("remora", Isometry2d::from_pos(randvec(20.0, 40.0)))
+        .spawn("remora", (10.0, 30.0, 0.1))
+        .spawn("remora", (-9.0, 12.0, -0.3))
+        .spawn("remora", (-7.0, 23.0, 0.7))
         .spawn("bellerophon", (130.0, 50.0, 0.1))
         .build();
 
@@ -165,6 +168,8 @@ fn main() {
     load_assets(&mut assets, &mut rl, &thread);
 
     rl.hide_cursor();
+
+    let mut active_sounds = Vec::new();
 
     while !rl.window_should_close() {
         // _ = client.as_ref().map(|c| c.run_callbacks());
@@ -202,11 +207,27 @@ fn main() {
         runner.world.screen_dims = screen_dims;
         runner.world.mouse_screen_position = mouse;
 
-        let outgoing_messages = runner.update();
+        let (outgoing_messages, sounds) = runner.update();
 
         for msg in outgoing_messages {
             let transaction = Transaction::new(runner.world.ticks, msg);
             outgoing_network_queue.push(transaction);
+        }
+
+        for sound in sounds.effects {
+            info!("Sound: {:?}", sound);
+            let path = sound.to_path();
+            let sound = match audio.new_sound(path) {
+                Ok(s) => s,
+                Err(e) => {
+                    error!("Failed to load sound: {}", e);
+                    continue;
+                }
+            };
+
+            sound.play();
+
+            active_sounds.push(sound);
         }
 
         let time = rl.get_time();
@@ -216,7 +237,7 @@ fn main() {
             let start = std::time::Instant::now();
             d.clear_background(Color::BLACK);
 
-            draw_world(&runner.world, &mut d);
+            draw_world(&runner.world, &assets, &mut d);
 
             let end = std::time::Instant::now();
             runner.world.timers.render = end - start;

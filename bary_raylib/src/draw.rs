@@ -11,8 +11,8 @@ use crate::text_readout::{Readout, format_log};
 use crate::thruster::Thruster;
 use crate::utils::*;
 use crate::vehicle_grid::*;
-use crate::world::SelectionInfo;
 use crate::world::World;
+use crate::world::{Assets, SelectionInfo};
 use bary_core::prelude::*;
 use raylib::prelude::*;
 
@@ -61,7 +61,7 @@ fn draw_origin_and_range_indicators(d: &mut RaylibDrawHandle) {
     }
 }
 
-pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
+pub fn draw_world(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
     let raylib_camera = to_raylib_camera(&world.camera, world.screen_dims);
 
     // this apparently is incredibly slow; curious
@@ -111,20 +111,27 @@ pub fn draw_world(world: &World, d: &mut RaylibDrawHandle) {
 
     draw_selected_grid_info(d, &world.selection_info, &world.grids, world.screen_dims);
 
-    draw_chat(d, &world.readout, world.screen_dims);
+    draw_chat(d, &world.readout, world.screen_dims, assets);
 
     // draw_parts_zoo(&world.prototypes, &mut d);
     // draw_test_isos(&mut d)
 }
 
-fn draw_chat(d: &mut RaylibDrawHandle, readout: &Readout, screen_dims: Vec2) {
-    let font_size = 18;
+fn draw_chat(d: &mut RaylibDrawHandle, readout: &Readout, screen_dims: Vec2, assets: &Assets) {
+    let font_size = 22f32;
     let x = 10;
-    let mut y = screen_dims.y as i32 - font_size - 10;
+    let mut y = screen_dims.y - font_size - 10.0;
 
     for log in readout.logs() {
         let t = format_log(log);
-        d.draw_text(&t, x, y, font_size, Color::WHITE);
+
+        let pos = Vector2::new(x as f32, y as f32);
+
+        if let Some(font) = &assets.lato_regular {
+            d.draw_text_ex(font, &t, pos, font_size, 0.0, Color::WHITE);
+        } else {
+            d.draw_text_ex(d.get_font_default(), &t, pos, font_size, 0.0, Color::WHITE);
+        }
         y -= font_size;
     }
 }
@@ -186,7 +193,7 @@ fn draw_focused_grid_cursor(
     let color = if grid.has_part_at(coord) {
         Color::GREEN.alpha(0.8)
     } else {
-        Color::RED.alpha(0.8)
+        return;
     };
 
     for (_part_id, part) in get_parts_at(grid, parts, coord) {
@@ -348,10 +355,13 @@ fn draw_test_isos(d: &mut RaylibDrawHandle) {
     }
 }
 
-fn draw_particles(d: &mut RaylibDrawHandle, particles: &Vec<RingParticle>) {
+fn draw_particles(d: &mut RaylibDrawHandle, particles: &Vec<PingParticle>) {
     for particle in particles {
         let r = particle.radius();
-        fill_circle(d, particle.pos, r, particle.color());
+        if particle.is_visible() {
+            draw_circle(d, particle.pos, r, particle.color());
+            fill_circle(d, particle.pos, r / 10.0, particle.color());
+        }
     }
 }
 

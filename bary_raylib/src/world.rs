@@ -5,7 +5,8 @@ use crate::input_state::*;
 use crate::light::*;
 use crate::multiplayer::Action;
 use crate::part::*;
-use crate::ring_particle::RingParticle;
+use crate::ring_particle::PingParticle;
+use crate::sounds::*;
 use crate::systems::*;
 use crate::text_readout::Readout;
 use crate::thruster::*;
@@ -64,7 +65,7 @@ pub struct World {
     pub event_queue: VecDeque<Event>,
     pub camera: Camera,
     pub target_camera: Camera,
-    pub particles: Vec<RingParticle>,
+    pub particles: Vec<PingParticle>,
     pub blueprints: Components<NamedBlueprint>,
     pub prototypes: Components<PartPrototype>,
     pub parts: Components<Part>,
@@ -72,6 +73,7 @@ pub struct World {
     pub computers: Components<Computer>,
     pub lights: Components<Light>,
     pub grids: Components<VehicleGrid>,
+    pub sounds: SoundEffects,
 }
 
 impl std::fmt::Debug for World {
@@ -116,6 +118,7 @@ impl World {
             thrusters: Components::default(),
             computers: Components::default(),
             lights: Components::default(),
+            sounds: SoundEffects::default(),
         }
     }
 }
@@ -235,14 +238,16 @@ fn panic_on_ctrl_d(input: &InputState) {
     }
 }
 
-fn ping_on_c(
-    particles: &mut Vec<RingParticle>,
+fn ping_on_alt_left_click(
+    particles: &mut Vec<PingParticle>,
+    input: &InputState,
     events: &VecDeque<Event>,
     camera: &Camera,
     mouse_screen_position: Option<Vec2>,
     transactions: &mut Vec<Action>,
     screen_dims: Vec2,
     chat: &mut Readout,
+    sounds: &mut SoundEffects,
 ) {
     let Some(screen_pos) = mouse_screen_position else {
         return;
@@ -250,15 +255,19 @@ fn ping_on_c(
 
     let pos = screen_to_world(camera, screen_pos, screen_dims);
 
-    let pressed_c = events
+    // TODO(cleanup) use a function here
+    let left_click = events
         .iter()
-        .any(|e| e.event_type == rdev::EventType::KeyPress(Key::KeyC));
+        .any(|e| e.event_type == rdev::EventType::ButtonPress(Button::Left));
 
-    if pressed_c {
-        let particle = RingParticle::new(pos);
+    let alt = input.is_key_pressed(Key::Alt);
+
+    if left_click && alt {
+        let particle = PingParticle::new(pos);
         particles.push(particle);
         transactions.push(Action::Ping(pos));
         chat.log(format!("Pinged {}", pos));
+        sounds.effects.push(SoundEffect::Close);
     }
 }
 
@@ -432,8 +441,10 @@ fn select_hovered_vehicle_on_click(events: &VecDeque<Event>, sel: &mut Selection
     info!("Selected {:?}", sel.selected)
 }
 
-pub fn update_world(world: &mut World) -> Vec<Action> {
+pub fn update_world(world: &mut World) -> (Vec<Action>, SoundEffects) {
     world.ticks += 1;
+
+    world.sounds.effects.clear();
 
     let mut outgoing_messages = Vec::new();
 
@@ -499,14 +510,16 @@ pub fn update_world(world: &mut World) -> Vec<Action> {
 
     panic_on_ctrl_d(&world.input);
 
-    ping_on_c(
+    ping_on_alt_left_click(
         &mut world.particles,
+        &world.input,
         &world.event_queue,
         &world.camera,
         world.mouse_screen_position,
         &mut outgoing_messages,
         world.screen_dims,
         &mut world.readout,
+        &mut world.sounds,
     );
 
     world.readout.drop_old_messages();
@@ -519,10 +532,13 @@ pub fn update_world(world: &mut World) -> Vec<Action> {
 
     world.timers.update = end - start;
 
-    outgoing_messages
+    let sounds = world.sounds.clone();
+    world.sounds = SoundEffects::default();
+
+    (outgoing_messages, sounds)
 }
 
-fn update_ring_particles(particles: &mut Vec<RingParticle>) {
+fn update_ring_particles(particles: &mut Vec<PingParticle>) {
     for ring in particles.iter_mut() {
         ring.step()
     }
