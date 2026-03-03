@@ -34,10 +34,43 @@ pub fn spawn_grid_from_blueprint(
     Ok(grid_id)
 }
 
+pub fn update_grid_acceleration(
+    grids: &mut Components<VehicleGrid>,
+    thrusters: &Components<Thruster>,
+    parts: &Components<Part>,
+) {
+    for grid in grids.values_mut() {
+        grid.forces = Isometry2d::IDENTITY;
+        for thruster_id in &grid.thrusters {
+            let Ok(thruster) = thrusters.try_get(*thruster_id) else {
+                continue;
+            };
+
+            if !thruster.is_on {
+                continue;
+            }
+
+            let Ok(part) = parts.try_get(*thruster_id) else {
+                continue;
+            };
+
+            let iso = part.placement.center_isometry();
+            let thrust_vector = part.placement.rot().to_dir().as_vec2() * thruster.thrust;
+            let torque = cross2d(iso.translation, thrust_vector);
+            grid.forces.translation += thrust_vector;
+            grid.forces.rotation += torque as f32;
+        }
+    }
+}
+
 pub mod world {
     use crate::ring_particle::PingParticle;
 
     use super::*;
+
+    pub fn update_grid_acceleration(world: &mut World) {
+        super::update_grid_acceleration(&mut world.grids, &world.thrusters, &world.parts);
+    }
 
     /// Spawns a grid according to the given blueprint.
     /// Exclusive version of [`super::spawn_grid_from_blueprint`].
@@ -62,7 +95,7 @@ pub mod world {
     pub fn set_grid_isometry(world: &mut World, grid_id: Ent, iso: Isometry2d) -> BaryResult<()> {
         info!("Setting isometry of grid {} to {:?}", grid_id, iso);
         let grid = world.grids.try_get_mut(grid_id)?;
-        grid.isometry = iso;
+        grid.pose = iso;
         Ok(())
     }
 
@@ -100,21 +133,16 @@ pub mod world {
         )
     }
 
-    /// Sets the state of a given thruster, modifying related quantities
-    /// in the root grid if necessary.
+    /// Sets the state of a given thruster.
+    /// Does not modify the corresponding grid's acceleration.
+    /// TODO(cleanup) this doesn't really need to be a function.
     /// Exclusive version of [`super::set_thruster_state`].
     pub fn set_thruster_state(
         thruster_id: Ent,
         world: &mut World,
         new_state: bool,
-    ) -> BaryResult<bool> {
-        super::set_thruster_state(
-            thruster_id,
-            &mut world.grids,
-            &mut world.thrusters,
-            &world.parts,
-            new_state,
-        )
+    ) -> BaryResult<()> {
+        super::set_thruster_state(thruster_id, &mut world.thrusters, new_state)
     }
 
     pub fn ping(world: &mut World, pos: Vec2) {
@@ -176,7 +204,8 @@ pub fn insert_part(
         let thruster = Thruster {
             is_on: false,
             is_rcs: data.is_rcs,
-            thrust_millinewtons: (data.thrust * 1000.0).round() as i32,
+            // TODO(gross)
+            thrust: data.thrust as f32,
             prototype: proto_id,
             grid_id,
         };
@@ -267,7 +296,7 @@ pub mod find {
         let mut best: Option<(Ent, Vec2, f32)> = None;
         let dist_limit = dist_limit.into().unwrap_or(std::f32::INFINITY);
         for (e, grid) in grids.iter() {
-            let in_frame = express_in_frame(grid.isometry, test_pos);
+            let in_frame = express_in_frame(grid.pose, test_pos);
             let dist = in_frame.length_squared();
             if dist > dist_limit {
                 continue;
@@ -313,8 +342,7 @@ pub fn get_sum_linear_forces(
     for part_id in &grid.thrusters {
         let thruster = thrusters.try_get(*part_id)?;
         let part = parts.try_get(*part_id)?;
-        let thrust = thruster.thrust_millinewtons as f32 / 1000.0;
-        let thrust = rotate(Vec2::X, part.placement.rot().to_angle() as f32) * thrust;
+        let thrust = rotate(Vec2::X, part.placement.rot().to_angle() as f32) * thruster.thrust;
         sum += thrust;
     }
     Ok(sum)
@@ -341,34 +369,12 @@ pub fn get_parts_center_of_mass(grid_id: Ent, world: &World) -> BaryResult<Vec2>
 
 fn set_thruster_state(
     thruster_id: Ent,
-    grids: &mut Components<VehicleGrid>,
     thrusters: &mut Components<Thruster>,
-    parts: &Components<Part>,
     new_state: bool,
-) -> BaryResult<bool> {
+) -> BaryResult<()> {
     let thruster = thrusters.try_get_mut(thruster_id)?;
-
-    if new_state == thruster.is_on {
-        return Ok(false);
-    }
-
-    let part = parts.try_get(thruster_id)?;
-    let grid = grids.try_get_mut(thruster.grid_id)?;
-
     thruster.is_on = new_state;
-
-    let dir = match part.placement.rot() {
-        Rotation::East => IVec2::X,
-        Rotation::North => IVec2::Y,
-        Rotation::West => -IVec2::X,
-        Rotation::South => -IVec2::Y,
-    };
-
-    let mul = if new_state { 1 } else { -1 };
-    let thrust_vec = mul * dir * thruster.thrust_millinewtons;
-    grid.external_thrust += thrust_vec;
-
-    Ok(true)
+    Ok(())
 }
 
 // TODO(testing)
@@ -552,7 +558,7 @@ mod tests {
         assert_eq!(id, Ent(34));
 
         let grid = world.grids.try_get_mut(id).unwrap();
-        grid.isometry.translation = (40.0, 156.0).into();
+        grid.pose.translation = (40.0, 156.0).into();
 
         for _ in 0..100 {
             update_world(&mut world);
@@ -736,8 +742,10 @@ mod tests {
         let r1 = world::set_thruster_state(a_id, &mut world, true);
         let r2 = world::set_thruster_state(b_id, &mut world, true);
 
-        assert_eq!(r1, Ok(true));
-        assert_eq!(r2, Ok(true));
+        world::update_grid_acceleration(&mut world);
+
+        assert_eq!(r1, Ok(()));
+        assert_eq!(r2, Ok(()));
 
         let sum =
             get_sum_linear_forces(grid_id, &world.grids, &world.parts, &world.thrusters).unwrap();
@@ -747,27 +755,31 @@ mod tests {
 
         let grid = world.grids.try_get(grid_id).unwrap();
 
-        assert_eq!(grid.external_thrust, IVec2::new(400000000, 320000000));
+        assert_eq!(grid.forces.translation, Vec2::new(400000.0, 320000.0));
 
         let r1 = world::set_thruster_state(a_id, &mut world, false);
         let r2 = world::set_thruster_state(b_id, &mut world, true);
 
-        assert_eq!(r1, Ok(true));
-        assert_eq!(r2, Ok(false));
+        world::update_grid_acceleration(&mut world);
+
+        assert_eq!(r1, Ok(()));
+        assert_eq!(r2, Ok(()));
 
         let grid = world.grids.try_get(grid_id).unwrap();
 
-        assert_eq!(grid.external_thrust, IVec2::new(0, 320000000));
+        assert_eq!(grid.forces.translation, Vec2::new(0.0, 320000.0));
 
         let r1 = world::set_thruster_state(a_id, &mut world, false);
         let r2 = world::set_thruster_state(b_id, &mut world, false);
 
-        assert_eq!(r1, Ok(false));
-        assert_eq!(r2, Ok(true));
+        world::update_grid_acceleration(&mut world);
+
+        assert_eq!(r1, Ok(()));
+        assert_eq!(r2, Ok(()));
 
         let grid = world.grids.try_get(grid_id).unwrap();
 
-        assert_eq!(grid.external_thrust, IVec2::new(0, 0));
+        assert_eq!(grid.forces.translation, IVec2::new(0, 0).as_vec2());
     }
 
     #[test]
@@ -825,11 +837,13 @@ mod tests {
 
         // obviously, turn the main thruster on
         let r = world::set_thruster_state(thruster_id, &mut world, true);
-        assert_eq!(r, Ok(true));
+        assert_eq!(r, Ok(()));
+
+        world::update_grid_acceleration(&mut world);
 
         let grid = world.grids.try_get(grid_id).unwrap();
 
-        assert_eq!(grid.external_thrust, IVec2::new(3500000, 0));
+        assert_eq!(grid.forces.translation, Vec2::new(3500.0, 0.0));
         assert_eq!(grid.parts_mass, Mass::kilograms(1000));
 
         // body frame acceleration should be 3.5 m/s^2
@@ -840,7 +854,7 @@ mod tests {
             update_world(&mut world);
         }
 
-        let iso = world.grids.try_get(grid_id).unwrap().isometry;
+        let iso = world.grids.try_get(grid_id).unwrap().pose;
 
         // this is an approximation of the following
         // continuous time kinematic equation:

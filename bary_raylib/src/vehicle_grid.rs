@@ -58,10 +58,10 @@ impl PartOccupancy {
 pub struct VehicleGrid {
     pub name: String,
     pub parts_mass: Mass,
-    pub isometry: Isometry2d,
-    pub linear_velocity: Vec2,
-    pub angular_velocity: f32,
-    pub external_thrust: IVec2,
+    pub moment_of_inertia: f32,
+    pub pose: Isometry2d,
+    pub velocity: Isometry2d,
+    pub forces: Isometry2d,
     pub parts: Vec<Ent>,
     pub thrusters: Vec<Ent>,
     pub computers: Vec<Ent>,
@@ -77,10 +77,10 @@ impl VehicleGrid {
         VehicleGrid {
             name: name.into(),
             parts_mass: Mass::ZERO,
-            linear_velocity: Vec2::ZERO,
-            angular_velocity: 0.0,
-            external_thrust: IVec2::ZERO,
-            isometry: Isometry2d::default(),
+            moment_of_inertia: 1000000.0,
+            pose: Isometry2d::IDENTITY,
+            velocity: Isometry2d::IDENTITY,
+            forces: Isometry2d::IDENTITY,
             parts: Vec::new(),
             thrusters: Vec::new(),
             computers: Vec::new(),
@@ -90,7 +90,11 @@ impl VehicleGrid {
     }
 
     pub fn linear_acceleration(&self) -> Vec2 {
-        (self.external_thrust.as_vec2() / 1000.0) / (self.parts_mass.to_kg_f64() as f32)
+        self.forces.translation / self.parts_mass.to_kg_f64() as f32
+    }
+
+    pub fn angular_acceleration(&self) -> f32 {
+        self.forces.rotation / self.moment_of_inertia
     }
 
     /// TODO test this.

@@ -85,7 +85,7 @@ pub fn load_world(dir: impl AsRef<Path>) -> BaryResult<World> {
 
 #[cfg(test)]
 mod tests {
-    use crate::world_builder::WorldBuilder;
+    use crate::{world::update_world, world_builder::WorldBuilder};
 
     use super::*;
 
@@ -97,7 +97,7 @@ mod tests {
             std::fs::remove_dir_all(save_path).unwrap();
         }
 
-        let world = WorldBuilder::new()
+        let mut world = WorldBuilder::new()
             .assets("../assets/")
             .blueprint("pollux")
             .blueprint("remora")
@@ -106,6 +106,10 @@ mod tests {
             .spawn("pollux", (120.0, 43.0, 0.4))
             .spawn("remora", (-30.0, 21.0, -0.1))
             .build();
+
+        for _ in 0..1000 {
+            update_world(&mut world);
+        }
 
         let r = save_world(save_path, &world, false);
         assert_eq!(r, Ok(()));

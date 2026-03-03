@@ -1,29 +1,41 @@
 [values.34]
 name = "pollux"
 parts_mass = 35134000
-linear_velocity = [0.0, 0.0]
-angular_velocity = 0.0
-external_thrust = [0, 0]
+moment_of_inertia = 1000000.0
 parts = [35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132]
 thrusters = [43, 47, 49, 53, 56, 57, 61, 67, 81, 85, 87, 92, 95, 96, 103, 109, 111, 129]
 computers = [58]
 lights = [43, 47, 49, 56, 57, 61, 81, 85, 87, 95, 103, 111]
 
-[values.34.isometry]
+[values.34.pose]
 translation = [120.0, 43.0]
 rotation = 0.4
+
+[values.34.velocity]
+translation = [0.0, 0.0]
+rotation = 0.0
+
+[values.34.forces]
+translation = [0.0, 0.0]
+rotation = 0.0
 
 [values.133]
 name = "remora"
 parts_mass = 12339000
-linear_velocity = [0.0, 0.0]
-angular_velocity = 0.0
-external_thrust = [0, 0]
+moment_of_inertia = 1000000.0
 parts = [134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164]
 thrusters = [135, 137, 143, 145, 147, 148, 149, 156, 157]
 computers = [152]
 lights = [135, 137, 143, 147, 148, 149, 156, 157]
 
-[values.133.isometry]
+[values.133.pose]
 translation = [-30.0, 21.0]
 rotation = -0.1
+
+[values.133.velocity]
+translation = [0.0, 0.0]
+rotation = 0.0
+
+[values.133.forces]
+translation = [0.0, 0.0]
+rotation = 0.0

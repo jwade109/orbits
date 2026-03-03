@@ -22,7 +22,6 @@ use rdev::Event;
 use serde::{Deserialize, Serialize};
 use std::collections::*;
 use std::time::Duration;
-use std::time::Instant;
 
 pub type MaybeTexture = Option<Texture2D>;
 
@@ -356,40 +355,6 @@ fn toggle_following_on_key_f(
     *follow = Some(id);
 }
 
-fn print_info_for_parts_under_cursor_on_i(
-    events: &VecDeque<Event>,
-    grids: &Components<VehicleGrid>,
-    parts: &Components<Part>,
-    sel: &SelectionInfo,
-    camera: &Camera,
-    mouse_screen_position: Option<Vec2>,
-    screen_dims: Vec2,
-) {
-    let Some(screen_pos) = mouse_screen_position else {
-        return;
-    };
-
-    let Some((grid_id, _offset)) = sel.selected else {
-        return;
-    };
-
-    if !is_key_just_pressed(events, Key::KeyI) {
-        return;
-    }
-
-    let Ok(grid) = grids.try_get(grid_id) else {
-        return;
-    };
-
-    let world_pos = screen_to_world(camera, screen_pos, screen_dims);
-
-    let iso = grid.isometry;
-
-    let coord = PartCoord::from_meters_floored(in_frame(iso, world_pos));
-
-    get_parts_at(grid, parts, coord);
-}
-
 fn snap_camera_target_to_local_up(target: &mut Camera) {
     let r = 100.0;
     let q = if target.isometry.translation.length() < r {
@@ -406,17 +371,19 @@ fn propagate_grid_rigid_bodies(grids: &mut Components<VehicleGrid>) {
     let dt = 0.02;
     for grid in grids.values_mut() {
         let accel = grid.linear_acceleration();
-        grid.isometry.translation += grid.linear_velocity * dt;
-        grid.linear_velocity += accel * dt;
-        grid.isometry.rotation += grid.angular_velocity * dt;
+        let omega = grid.angular_acceleration();
+        grid.pose.translation += grid.velocity.translation * dt;
+        grid.velocity.translation += accel * dt;
+        grid.pose.rotation += grid.velocity.rotation * dt;
+        grid.velocity.rotation += omega * dt;
     }
 }
 
 fn update_thrusters(thrusters: &mut Components<Thruster>) {
     for t in thrusters.values_mut() {
-        if t.is_on && chance(0.005) {
+        if t.is_on && chance(0.03) {
             t.is_on = false;
-        } else if !t.is_on && chance(0.001) {
+        } else if !t.is_on && chance(0.005) {
             t.is_on = true;
         }
     }
@@ -459,7 +426,7 @@ fn update_mouseover_part_info(
 
     let world_pos = screen_to_world(camera, screen_pos, screen_dims);
 
-    let coord = PartCoord::from_meters_floored(in_frame(grid.isometry, world_pos));
+    let coord = PartCoord::from_meters_floored(in_frame(grid.pose, world_pos));
 
     let occ = grid.get_parts_at(coord).unwrap_or(&PartOccupancy::EMPTY);
 
@@ -480,8 +447,8 @@ fn set_target_camera_if_following(
         return;
     };
 
-    target.isometry.translation = grid.isometry.translation;
-    target.isometry.rotation = grid.isometry.rotation;
+    target.isometry.translation = grid.pose.translation;
+    target.isometry.rotation = grid.pose.rotation;
 
     actual.isometry.translation = target.isometry.translation;
     actual.isometry.rotation = target.isometry.rotation;
@@ -521,6 +488,8 @@ pub fn update_world(world: &mut World) -> (Vec<Action>, SoundEffects) {
     update_ring_particles(&mut world.particles);
     update_lights(&mut world.lights);
     update_computers(&mut world.computers);
+    // update_thrusters(&mut world.thrusters);
+    update_grid_acceleration(&mut world.grids, &world.thrusters, &world.parts);
 
     update_selection_info(
         &mut world.selection_info,
@@ -559,16 +528,6 @@ pub fn update_world(world: &mut World) -> (Vec<Action>, SoundEffects) {
     if world.snap_camera_to_local_planet {
         snap_camera_target_to_local_up(&mut world.target_camera);
     }
-
-    print_info_for_parts_under_cursor_on_i(
-        &world.event_queue,
-        &world.grids,
-        &world.parts,
-        &world.selection_info,
-        &world.camera,
-        world.mouse_screen_position,
-        world.screen_dims,
-    );
 
     reset_camera_on_ctrl_r(&world.input, &mut world.target_camera);
     update_camera(&world.target_camera, &mut world.camera);

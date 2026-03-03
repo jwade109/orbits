@@ -1,10 +1,10 @@
 [values.58]
 on = true
-status = "Off"
-ticks_this_cycle = 0
-ticks_per_cycle = 30
+status = "Running"
+ticks_this_cycle = 34
+ticks_per_cycle = 42
 fired_this_tick = false
-iters = 0
+iters = 23
 mode = "Idle"
 attitude = 0.0
 velocity = [0.0, 0.0]
@@ -34,11 +34,11 @@ throttle = 0.0
 
 [values.152]
 on = true
-status = "Off"
-ticks_this_cycle = 0
-ticks_per_cycle = 96
+status = "Running"
+ticks_this_cycle = 80
+ticks_per_cycle = 92
 fired_this_tick = false
-iters = 0
+iters = 10
 mode = "Idle"
 attitude = 0.0
 velocity = [0.0, 0.0]

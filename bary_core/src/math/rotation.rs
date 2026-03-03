@@ -1,4 +1,4 @@
-use super::math::PI_64;
+use super::math::{IVec2, PI_64};
 use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
 
@@ -19,6 +19,15 @@ impl Rotation {
             Self::North => PI_64 * 0.5,
             Self::West => PI_64,
             Self::South => PI_64 * 1.5,
+        }
+    }
+
+    pub fn to_dir(&self) -> IVec2 {
+        match self {
+            Self::East => IVec2::X,
+            Self::North => IVec2::Y,
+            Self::West => -IVec2::X,
+            Self::South => -IVec2::Y,
         }
     }
 
