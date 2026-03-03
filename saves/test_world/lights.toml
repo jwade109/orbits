@@ -1,0 +1,219 @@
+[values.43]
+ticks = 0
+grid_id = 34
+prototype_id = 20
+position = [2.875, -2.125]
+
+[values.43.cycle]
+on = 150
+off = 450
+delay = 0
+
+[values.47]
+ticks = 0
+grid_id = 34
+prototype_id = 20
+position = [-2.875, -2.125]
+
+[values.47.cycle]
+on = 150
+off = 450
+delay = 50
+
+[values.49]
+ticks = 0
+grid_id = 34
+prototype_id = 20
+position = [-2.375, 1.875]
+
+[values.49.cycle]
+on = 150
+off = 450
+delay = 100
+
+[values.56]
+ticks = 0
+grid_id = 34
+prototype_id = 20
+position = [-3.125, 1.875]
+
+[values.56.cycle]
+on = 150
+off = 450
+delay = 150
+
+[values.57]
+ticks = 0
+grid_id = 34
+prototype_id = 20
+position = [-2.375, -1.875]
+
+[values.57.cycle]
+on = 150
+off = 450
+delay = 200
+
+[values.61]
+ticks = 0
+grid_id = 34
+prototype_id = 20
+position = [2.375, -1.875]
+
+[values.61.cycle]
+on = 150
+off = 450
+delay = 250
+
+[values.81]
+ticks = 0
+grid_id = 34
+prototype_id = 20
+position = [-3.125, -1.875]
+
+[values.81.cycle]
+on = 150
+off = 450
+delay = 300
+
+[values.85]
+ticks = 0
+grid_id = 34
+prototype_id = 20
+position = [3.125, 1.875]
+
+[values.85.cycle]
+on = 150
+off = 450
+delay = 350
+
+[values.87]
+ticks = 0
+grid_id = 34
+prototype_id = 20
+position = [2.375, 1.875]
+
+[values.87.cycle]
+on = 150
+off = 450
+delay = 400
+
+[values.95]
+ticks = 0
+grid_id = 34
+prototype_id = 20
+position = [-2.875, 2.125]
+
+[values.95.cycle]
+on = 150
+off = 450
+delay = 450
+
+[values.103]
+ticks = 0
+grid_id = 34
+prototype_id = 20
+position = [3.125, -1.875]
+
+[values.103.cycle]
+on = 150
+off = 450
+delay = 500
+
+[values.111]
+ticks = 0
+grid_id = 34
+prototype_id = 20
+position = [2.875, 2.125]
+
+[values.111.cycle]
+on = 150
+off = 450
+delay = 550
+
+[values.135]
+ticks = 0
+grid_id = 133
+prototype_id = 20
+position = [0.625, 1.125]
+
+[values.135.cycle]
+on = 150
+off = 450
+delay = 0
+
+[values.137]
+ticks = 0
+grid_id = 133
+prototype_id = 20
+position = [-1.625, 0.875]
+
+[values.137.cycle]
+on = 150
+off = 450
+delay = 50
+
+[values.143]
+ticks = 0
+grid_id = 133
+prototype_id = 20
+position = [-1.875, 0.625]
+
+[values.143.cycle]
+on = 150
+off = 450
+delay = 100
+
+[values.147]
+ticks = 0
+grid_id = 133
+prototype_id = 20
+position = [0.875, 0.875]
+
+[values.147.cycle]
+on = 150
+off = 450
+delay = 150
+
+[values.148]
+ticks = 0
+grid_id = 133
+prototype_id = 20
+position = [-1.875, -0.625]
+
+[values.148.cycle]
+on = 150
+off = 450
+delay = 200
+
+[values.149]
+ticks = 0
+grid_id = 133
+prototype_id = 20
+position = [0.625, -1.125]
+
+[values.149.cycle]
+on = 150
+off = 450
+delay = 250
+
+[values.156]
+ticks = 0
+grid_id = 133
+prototype_id = 20
+position = [-1.625, -0.875]
+
+[values.156.cycle]
+on = 150
+off = 450
+delay = 300
+
+[values.157]
+ticks = 0
+grid_id = 133
+prototype_id = 20
+position = [0.875, -0.875]
+
+[values.157.cycle]
+on = 150
+off = 450
+delay = 350

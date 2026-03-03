@@ -1,0 +1,188 @@
+[values.43]
+is_on = false
+is_rcs = true
+thrust_millinewtons = 4000000
+prototype = 20
+grid_id = 34
+
+[values.47]
+is_on = false
+is_rcs = true
+thrust_millinewtons = 4000000
+prototype = 20
+grid_id = 34
+
+[values.49]
+is_on = false
+is_rcs = true
+thrust_millinewtons = 4000000
+prototype = 20
+grid_id = 34
+
+[values.53]
+is_on = false
+is_rcs = false
+thrust_millinewtons = 400000000
+prototype = 16
+grid_id = 34
+
+[values.56]
+is_on = false
+is_rcs = true
+thrust_millinewtons = 4000000
+prototype = 20
+grid_id = 34
+
+[values.57]
+is_on = false
+is_rcs = true
+thrust_millinewtons = 4000000
+prototype = 20
+grid_id = 34
+
+[values.61]
+is_on = false
+is_rcs = true
+thrust_millinewtons = 4000000
+prototype = 20
+grid_id = 34
+
+[values.67]
+is_on = false
+is_rcs = false
+thrust_millinewtons = 400000000
+prototype = 16
+grid_id = 34
+
+[values.81]
+is_on = false
+is_rcs = true
+thrust_millinewtons = 4000000
+prototype = 20
+grid_id = 34
+
+[values.85]
+is_on = false
+is_rcs = true
+thrust_millinewtons = 4000000
+prototype = 20
+grid_id = 34
+
+[values.87]
+is_on = false
+is_rcs = true
+thrust_millinewtons = 4000000
+prototype = 20
+grid_id = 34
+
+[values.92]
+is_on = false
+is_rcs = false
+thrust_millinewtons = 320000000
+prototype = 24
+grid_id = 34
+
+[values.95]
+is_on = false
+is_rcs = true
+thrust_millinewtons = 4000000
+prototype = 20
+grid_id = 34
+
+[values.96]
+is_on = false
+is_rcs = false
+thrust_millinewtons = 400000000
+prototype = 16
+grid_id = 34
+
+[values.103]
+is_on = false
+is_rcs = true
+thrust_millinewtons = 4000000
+prototype = 20
+grid_id = 34
+
+[values.109]
+is_on = false
+is_rcs = false
+thrust_millinewtons = 320000000
+prototype = 24
+grid_id = 34
+
+[values.111]
+is_on = false
+is_rcs = true
+thrust_millinewtons = 4000000
+prototype = 20
+grid_id = 34
+
+[values.129]
+is_on = false
+is_rcs = false
+thrust_millinewtons = 400000000
+prototype = 16
+grid_id = 34
+
+[values.135]
+is_on = false
+is_rcs = true
+thrust_millinewtons = 4000000
+prototype = 20
+grid_id = 133
+
+[values.137]
+is_on = false
+is_rcs = true
+thrust_millinewtons = 4000000
+prototype = 20
+grid_id = 133
+
+[values.143]
+is_on = false
+is_rcs = true
+thrust_millinewtons = 4000000
+prototype = 20
+grid_id = 133
+
+[values.145]
+is_on = false
+is_rcs = false
+thrust_millinewtons = 320000000
+prototype = 24
+grid_id = 133
+
+[values.147]
+is_on = false
+is_rcs = true
+thrust_millinewtons = 4000000
+prototype = 20
+grid_id = 133
+
+[values.148]
+is_on = false
+is_rcs = true
+thrust_millinewtons = 4000000
+prototype = 20
+grid_id = 133
+
+[values.149]
+is_on = false
+is_rcs = true
+thrust_millinewtons = 4000000
+prototype = 20
+grid_id = 133
+
+[values.156]
+is_on = false
+is_rcs = true
+thrust_millinewtons = 4000000
+prototype = 20
+grid_id = 133
+
+[values.157]
+is_on = false
+is_rcs = true
+thrust_millinewtons = 4000000
+prototype = 20
+grid_id = 133

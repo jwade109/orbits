@@ -68,6 +68,7 @@ pub struct VehicleGrid {
     pub lights: Vec<Ent>,
 
     // TODO this is not tested in any way.
+    #[serde(skip)]
     pub occupancy: BTreeMap<(i32, i32), PartOccupancy>,
 }
 
