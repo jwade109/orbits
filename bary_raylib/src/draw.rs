@@ -1,13 +1,13 @@
 use std::collections::BTreeSet;
 
 use crate::camera::{Camera, to_raylib_camera};
+use crate::chat::{Chat, format_log};
 use crate::components::Components;
 use crate::light::Light;
 use crate::part::*;
 use crate::result::BaryResult;
 use crate::ring_particle::*;
 use crate::systems::*;
-use crate::chat::{Chat, format_log};
 use crate::thruster::Thruster;
 use crate::utils::*;
 use crate::vehicle_grid::*;
@@ -83,15 +83,7 @@ pub fn draw_world(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
 
     _ = draw_selection_info(&mut c, &world.grids, &world.selection_info);
 
-    draw_focused_grid_cursor(
-        &mut c,
-        &world.grids,
-        &world.parts,
-        world.mouse_screen_position,
-        &world.camera,
-        world.screen_dims,
-        &world.selection_info,
-    );
+    draw_focused_grid_cursor(&mut c, &world.grids, &world.parts, &world.selection_info);
 
     draw_mouse_world_position(
         &mut c,
@@ -169,14 +161,8 @@ fn draw_focused_grid_cursor(
     d: &mut RaylibDrawHandle,
     grids: &Components<VehicleGrid>,
     parts: &Components<Part>,
-    mouse_screen_position: Option<Vec2>,
-    camera: &Camera,
-    screen_dims: Vec2,
     sel: &SelectionInfo,
 ) {
-    let Some(screen_pos) = mouse_screen_position else {
-        return;
-    };
     let Some((id, _offset)) = sel.selected else {
         return;
     };
@@ -184,43 +170,36 @@ fn draw_focused_grid_cursor(
         return;
     };
 
-    let world_pos = screen_to_world(camera, screen_pos, screen_dims);
-
-    let mut iso = grid.isometry;
-
-    let coord = PartCoord::from_meters_floored(in_frame(iso, world_pos));
-
-    let color = if grid.has_part_at(coord) {
-        Color::GREEN.alpha(0.8)
-    } else {
-        return;
-    };
-
-    for (_part_id, part) in get_parts_at(grid, parts, coord) {
-        draw_grid_placement(
-            d,
-            grid.isometry,
-            part.placement,
-            Color::PURPLE.alpha(0.3),
-            Color::WHITE,
-        );
-    }
-
-    let offset = coord.to_meters();
-
-    iso.translation += iso.local_x() * offset.x;
-    iso.translation += iso.local_y() * offset.y;
-
     let size = PartCoord::CELL_WIDTH;
 
-    let x_axis = grid.isometry.translation + iso.local_x() * 10.0;
-    let y_axis = grid.isometry.translation + iso.local_y() * 10.0;
+    for info in [sel.mouseover_part_info, sel.selected_part_info] {
+        let Some((coord, occ)) = info else {
+            continue;
+        };
 
+        // cursor
+        let iso = grid.isometry.offset(coord.to_meters());
+        fill_rectangle(d, iso, Vec2::splat(size), Color::GREEN);
+
+        for id in occ.iter() {
+            if let Ok(part) = parts.try_get(id) {
+                draw_grid_placement(
+                    d,
+                    grid.isometry,
+                    part.placement,
+                    Color::PURPLE.alpha(0.3),
+                    Color::WHITE,
+                );
+            }
+        }
+    }
+
+    // axes
+    let x_axis = grid.isometry.offset(Vec2::X * 10.0).translation;
+    let y_axis = grid.isometry.offset(Vec2::Y * 10.0).translation;
     draw_line(d, grid.isometry.translation, x_axis, Color::RED);
     draw_line(d, grid.isometry.translation, y_axis, Color::GREEN);
     draw_circle(d, grid.isometry.translation, 0.15, Color::BLUE);
-
-    fill_rectangle(d, iso, Vec2::splat(size), color);
 }
 
 fn draw_selected_grid_info(

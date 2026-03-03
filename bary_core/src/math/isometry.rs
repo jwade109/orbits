@@ -34,6 +34,12 @@ impl Isometry2d {
     pub fn local_y(&self) -> Vec2 {
         rotate(Vec2::Y, self.rotation)
     }
+
+    pub fn offset(&self, offset: Vec2) -> Self {
+        let mut ret = *self;
+        ret.translation += ret.local_x() * offset.x + ret.local_y() * offset.y;
+        ret
+    }
 }
 
 impl std::ops::Mul for Isometry2d {

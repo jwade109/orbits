@@ -1,6 +1,58 @@
 use bary_core::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use std::collections::BTreeMap;
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, Default)]
+pub struct PartOccupancy {
+    internal: Option<Ent>,
+    structural: Option<Ent>,
+    external: Option<Ent>,
+    plumbing: Option<Ent>,
+}
+
+impl PartOccupancy {
+    pub const EMPTY: Self = Self::new();
+
+    pub const fn new() -> Self {
+        Self {
+            internal: None,
+            structural: None,
+            external: None,
+            plumbing: None,
+        }
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = Ent> + use<'_> {
+        [self.internal, self.structural, self.external, self.plumbing]
+            .into_iter()
+            .filter_map(|e| e)
+    }
+
+    pub fn mark_internal(&mut self, id: impl Into<Option<Ent>>) {
+        self.internal = id.into();
+    }
+
+    pub fn mark_structural(&mut self, id: impl Into<Option<Ent>>) {
+        self.internal = id.into();
+    }
+
+    pub fn mark_external(&mut self, id: impl Into<Option<Ent>>) {
+        self.external = id.into();
+    }
+
+    pub fn mark_plumbing(&mut self, id: impl Into<Option<Ent>>) {
+        self.plumbing = id.into();
+    }
+
+    pub fn mark(&mut self, layer: PartLayer, id: impl Into<Option<Ent>>) {
+        match layer {
+            PartLayer::Internal => self.mark_internal(id),
+            PartLayer::Structural => self.mark_internal(id),
+            PartLayer::Exterior => self.mark_external(id),
+            PartLayer::Plumbing => self.mark_plumbing(id),
+        }
+    }
+}
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct VehicleGrid {
@@ -16,7 +68,7 @@ pub struct VehicleGrid {
     pub lights: Vec<Ent>,
 
     // TODO this is not tested in any way.
-    pub occupancy: BTreeSet<(i32, i32)>,
+    pub occupancy: BTreeMap<(i32, i32), PartOccupancy>,
 }
 
 impl VehicleGrid {
@@ -32,7 +84,7 @@ impl VehicleGrid {
             thrusters: Vec::new(),
             computers: Vec::new(),
             lights: Vec::new(),
-            occupancy: BTreeSet::new(),
+            occupancy: BTreeMap::new(),
         }
     }
 
@@ -41,8 +93,24 @@ impl VehicleGrid {
     }
 
     /// TODO test this.
-    pub fn has_part_at(&self, p: PartCoord) -> bool {
+    pub fn get_parts_at(&self, p: PartCoord) -> Option<&PartOccupancy> {
         let p = (p.0.x, p.0.y);
-        self.occupancy.contains(&p)
+        self.occupancy.get(&p)
+    }
+
+    pub fn mark_occupied(&mut self, placement: GridPlacement, layer: PartLayer, id: Ent) {
+        for cell in placement.cells() {
+            let key = (cell.0.x, cell.0.y);
+            self.occupancy
+                .entry(key)
+                .and_modify(|e| {
+                    e.mark(layer, id);
+                })
+                .or_insert({
+                    let mut occ = PartOccupancy::default();
+                    occ.mark(layer, id);
+                    occ
+                });
+        }
     }
 }

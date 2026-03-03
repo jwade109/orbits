@@ -40,6 +40,8 @@ pub struct SelectionInfo {
     pub camera_hovered: Option<(Ent, Vec2)>,
     pub mouse_hovered: Option<(Ent, Vec2)>,
     pub selected: Option<(Ent, Vec2)>,
+    pub mouseover_part_info: Option<(PartCoord, PartOccupancy)>,
+    pub selected_part_info: Option<(PartCoord, PartOccupancy)>,
 }
 
 #[derive(Default)]
@@ -301,6 +303,12 @@ fn is_key_just_pressed(events: &VecDeque<Event>, key: Key) -> bool {
         .any(|e| e.event_type == rdev::EventType::KeyPress(key))
 }
 
+fn is_button_just_pressed(events: &VecDeque<Event>, button: Button) -> bool {
+    events
+        .iter()
+        .any(|e| e.event_type == rdev::EventType::ButtonPress(button))
+}
+
 fn spawn_random_ship_on_p(world: &mut World) {
     if is_key_just_pressed(&world.event_queue, Key::KeyP) {
         if let Ok(grid_id) = world::spawn_grid_by_name(world, "remora") {
@@ -430,6 +438,34 @@ fn update_selection_info(
     }
 }
 
+fn update_mouseover_part_info(
+    sel: &mut SelectionInfo,
+    grids: &Components<VehicleGrid>,
+    mouse_screen_position: Option<Vec2>,
+    screen_dims: Vec2,
+    camera: &Camera,
+) {
+    sel.mouseover_part_info = None;
+
+    let Some(screen_pos) = mouse_screen_position else {
+        return;
+    };
+    let Some((id, _offset)) = sel.selected else {
+        return;
+    };
+    let Ok(grid) = grids.try_get(id) else {
+        return;
+    };
+
+    let world_pos = screen_to_world(camera, screen_pos, screen_dims);
+
+    let coord = PartCoord::from_meters_floored(in_frame(grid.isometry, world_pos));
+
+    let occ = grid.get_parts_at(coord).unwrap_or(&PartOccupancy::EMPTY);
+
+    sel.mouseover_part_info = Some((coord, *occ));
+}
+
 fn set_target_camera_if_following(
     follow: Option<Ent>,
     grids: &Components<VehicleGrid>,
@@ -452,16 +488,15 @@ fn set_target_camera_if_following(
 }
 
 fn select_hovered_vehicle_on_click(events: &VecDeque<Event>, sel: &mut SelectionInfo) {
-    let is_clicked = events.iter().any(|e| match e.event_type {
-        rdev::EventType::ButtonPress(Button::Left) => true,
-        _ => false,
-    });
+    let is_clicked = is_button_just_pressed(events, Button::Left);
 
     if !is_clicked {
         return;
     }
 
     sel.selected = sel.mouse_hovered;
+    sel.selected_part_info = sel.mouseover_part_info;
+
     info!("Selected {:?}", sel.selected)
 }
 
@@ -493,6 +528,14 @@ pub fn update_world(world: &mut World) -> (Vec<Action>, SoundEffects) {
         &world.camera,
         world.mouse_screen_position,
         world.screen_dims,
+    );
+
+    update_mouseover_part_info(
+        &mut world.selection_info,
+        &world.grids,
+        world.mouse_screen_position,
+        world.screen_dims,
+        &world.camera,
     );
 
     update_input_state(&world.event_queue, &mut world.input);
