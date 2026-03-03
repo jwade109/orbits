@@ -7,7 +7,7 @@ use crate::part::*;
 use crate::result::BaryResult;
 use crate::ring_particle::*;
 use crate::systems::*;
-use crate::text_readout::{Readout, format_log};
+use crate::chat::{Chat, format_log};
 use crate::thruster::Thruster;
 use crate::utils::*;
 use crate::vehicle_grid::*;
@@ -111,18 +111,18 @@ pub fn draw_world(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
 
     draw_selected_grid_info(d, &world.selection_info, &world.grids, world.screen_dims);
 
-    draw_chat(d, &world.readout, world.screen_dims, assets);
+    draw_chat(d, &world.chat, world.screen_dims, assets);
 
     // draw_parts_zoo(&world.prototypes, &mut d);
     // draw_test_isos(&mut d)
 }
 
-fn draw_chat(d: &mut RaylibDrawHandle, readout: &Readout, screen_dims: Vec2, assets: &Assets) {
+fn draw_chat(d: &mut RaylibDrawHandle, chat: &Chat, screen_dims: Vec2, assets: &Assets) {
     let font_size = 22f32;
     let x = 10;
     let mut y = screen_dims.y - font_size - 10.0;
 
-    for log in readout.logs() {
+    for log in chat.logs() {
         let t = format_log(log);
 
         let pos = Vector2::new(x as f32, y as f32);

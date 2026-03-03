@@ -38,6 +38,7 @@ fn draw_debug_info(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
     s += &format!("\nZoom: {:0.3}", world.camera.zoom);
 
     s += &format!("\nMOUSE {:?}", world.mouse_screen_position);
+    s += &format!("\nSEL {:?}", world.selection_info);
     s += &format!("\nINP {:?}", &world.input);
     s += &format!("\nPRT {:?}", &world.particles.len());
     s += &format!("\nBP {:?}", &world.blueprints);

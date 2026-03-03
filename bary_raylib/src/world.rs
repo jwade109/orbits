@@ -1,14 +1,15 @@
 use crate::camera::Camera;
+use crate::chat::Chat;
 use crate::components::*;
 use crate::computer::*;
 use crate::input_state::*;
 use crate::light::*;
 use crate::multiplayer::Action;
 use crate::part::*;
+use crate::persistence::save_world;
 use crate::ring_particle::PingParticle;
 use crate::sounds::*;
 use crate::systems::*;
-use crate::text_readout::Readout;
 use crate::thruster::*;
 use crate::utils::*;
 use crate::vehicle_grid::*;
@@ -21,6 +22,7 @@ use rdev::Event;
 use serde::{Deserialize, Serialize};
 use std::collections::*;
 use std::time::Duration;
+use std::time::Instant;
 
 pub type MaybeTexture = Option<Texture2D>;
 
@@ -52,7 +54,7 @@ pub struct World {
     pub ticks: u64,
     pub timers: Timers,
     #[serde(skip)]
-    pub readout: Readout,
+    pub chat: Chat,
     pub mouse_screen_position: Option<Vec2>,
     pub selection_info: SelectionInfo,
     pub spawner: EntitySpawner,
@@ -93,7 +95,7 @@ impl World {
         Self {
             ticks: 0,
             timers: Timers::default(),
-            readout: Readout::new(),
+            chat: Chat::default(),
             mouse_screen_position: None,
             selection_info: SelectionInfo::default(),
             spawner: EntitySpawner::default(),
@@ -238,6 +240,28 @@ fn panic_on_ctrl_d(input: &InputState) {
     }
 }
 
+fn save_on_ctrl_s(world: &mut World) {
+    let pressed_ctrl = world.input.is_key_pressed(Key::ControlLeft);
+    let pressed_s = is_key_just_pressed(&world.event_queue, Key::KeyS);
+
+    if !(pressed_ctrl && pressed_s) {
+        return;
+    }
+
+    let now = chrono::offset::Local::now();
+    let filename = format!("./saves/world-{}/", now.format("%Y-%m-%d-%H-%M-%S"));
+    match save_world(&filename, world, true) {
+        Ok(_) => {
+            let s = format!("Saved to {}", filename);
+            world.chat.log(s);
+        }
+        Err(e) => {
+            let s = format!("Failed to save: {:?}", e);
+            world.chat.log(s);
+        }
+    }
+}
+
 fn ping_on_alt_left_click(
     particles: &mut Vec<PingParticle>,
     input: &InputState,
@@ -246,7 +270,7 @@ fn ping_on_alt_left_click(
     mouse_screen_position: Option<Vec2>,
     transactions: &mut Vec<Action>,
     screen_dims: Vec2,
-    chat: &mut Readout,
+    chat: &mut Chat,
     sounds: &mut SoundEffects,
 ) {
     let Some(screen_pos) = mouse_screen_position else {
@@ -510,6 +534,8 @@ pub fn update_world(world: &mut World) -> (Vec<Action>, SoundEffects) {
 
     panic_on_ctrl_d(&world.input);
 
+    save_on_ctrl_s(world);
+
     ping_on_alt_left_click(
         &mut world.particles,
         &world.input,
@@ -518,11 +544,11 @@ pub fn update_world(world: &mut World) -> (Vec<Action>, SoundEffects) {
         world.mouse_screen_position,
         &mut outgoing_messages,
         world.screen_dims,
-        &mut world.readout,
+        &mut world.chat,
         &mut world.sounds,
     );
 
-    world.readout.drop_old_messages();
+    world.chat.drop_old_messages();
 
     spawn_random_ship_on_p(world);
 

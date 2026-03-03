@@ -11,7 +11,7 @@ pub mod result;
 pub mod ring_particle;
 pub mod sounds;
 pub mod systems;
-pub mod text_readout;
+pub mod chat;
 pub mod thruster;
 pub mod utils;
 pub mod vehicle_grid;

@@ -1,10 +1,8 @@
 use crate::result::*;
-use crate::systems::*;
 use crate::world::World;
 use bary_core::prelude::*;
 use log::*;
-use serde::Deserialize;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 pub fn save_world(dir: impl AsRef<Path>, world: &World, overwrite: bool) -> BaryResult<()> {
     let dir = dir.as_ref();
@@ -59,7 +57,6 @@ pub fn load_world(dir: impl AsRef<Path>) -> BaryResult<World> {
     let dir = dir.as_ref();
     info!("Loading world from {}", dir.display());
 
-    let blueprints_dir = dir.join("blueprints");
     let grids_path = dir.join("grids.toml");
     let parts_path = dir.join("parts.toml");
     let thrusters_path = dir.join("thrusters.toml");
@@ -67,8 +64,6 @@ pub fn load_world(dir: impl AsRef<Path>) -> BaryResult<World> {
     let lights_path = dir.join("lights.toml");
 
     let mut world = World::empty();
-
-    // world.parts = Ok(World::empty())
 
     let s = std::fs::read_to_string(grids_path)?;
     world.grids = toml::from_str(&s)?;
@@ -78,6 +73,12 @@ pub fn load_world(dir: impl AsRef<Path>) -> BaryResult<World> {
 
     let s = std::fs::read_to_string(lights_path)?;
     world.lights = toml::from_str(&s)?;
+
+    let s = std::fs::read_to_string(thrusters_path)?;
+    world.thrusters = toml::from_str(&s)?;
+
+    let s = std::fs::read_to_string(computers_path)?;
+    world.computers = toml::from_str(&s)?;
 
     Ok(world)
 }

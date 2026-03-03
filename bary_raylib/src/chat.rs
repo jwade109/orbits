@@ -3,18 +3,18 @@ use log::debug;
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone)]
-pub struct ReadoutLog {
+pub struct ChatLog {
     instant: Instant,
     local_time: DateTime<Local>,
     text: String,
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct Readout {
-    lines: Vec<ReadoutLog>,
+pub struct Chat {
+    lines: Vec<ChatLog>,
 }
 
-pub fn format_log(log: &ReadoutLog) -> String {
+pub fn format_log(log: &ChatLog) -> String {
     format!(
         "[{}] {}",
         log.local_time.format("%Y-%m-%d %H:%M:%S"),
@@ -22,12 +22,12 @@ pub fn format_log(log: &ReadoutLog) -> String {
     )
 }
 
-impl Readout {
+impl Chat {
     pub fn log(&mut self, s: impl Into<String>) {
         let local_time = chrono::offset::Local::now();
         let s = s.into();
         debug!("{:?}: {}", local_time, s);
-        self.lines.push(ReadoutLog {
+        self.lines.push(ChatLog {
             instant: Instant::now(),
             local_time,
             text: s,
@@ -40,17 +40,7 @@ impl Readout {
             .retain(|l| now - l.instant < Duration::from_secs(5));
     }
 
-    pub fn logs(&self) -> impl Iterator<Item = &ReadoutLog> + use<'_> {
+    pub fn logs(&self) -> impl Iterator<Item = &ChatLog> + use<'_> {
         self.lines.iter()
-    }
-
-    pub fn new() -> Self {
-        let mut ret = Self::default();
-
-        for _ in 0..20 {
-            ret.log("Implement me!");
-        }
-
-        ret
     }
 }
