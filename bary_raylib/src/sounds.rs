@@ -2,8 +2,13 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub enum SoundEffect {
-    Close,
+    Ping,
     Crossword,
+    Open,
+    Close,
+    Follow,
+    LeaveFollow,
+    MouseoverPart,
 }
 
 impl SoundEffect {
@@ -19,7 +24,12 @@ pub struct SoundEffects {
 
 pub fn get_sound_effect_asset_path(effect: SoundEffect) -> &'static str {
     match effect {
-        SoundEffect::Close => "assets/sfx/close-window.wav",
+        SoundEffect::Ping => "assets/sfx/ping.wav",
         SoundEffect::Crossword => "assets/sfx/nyt-crossword.ogg",
+        SoundEffect::Open => "assets/sfx/soft-sine-open.wav",
+        SoundEffect::Close => "assets/sfx/soft-sine-close.wav",
+        SoundEffect::Follow => "assets/sfx/follow.wav",
+        SoundEffect::LeaveFollow => "assets/sfx/leave-follow.wav",
+        SoundEffect::MouseoverPart => "assets/sfx/mouseover-part.wav",
     }
 }

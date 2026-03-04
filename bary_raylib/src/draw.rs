@@ -224,16 +224,18 @@ fn draw_selected_grid_info(
 
     let title_label = format!("\"{}\"", grid.name);
     let parts_label = format!("{} parts - {}", grid.parts.len(), grid.parts_mass);
+    let pos_label = format!("{:0.2} m", grid.pose.translation);
     let vel_label = format!("{:0.2} m/s", grid.velocity.translation);
-    let accel_label = format!("{:0.2} m/s^2", grid.linear_acceleration());
+    let acc_label = format!("{:0.2} m/s^2", grid.linear_acceleration());
 
     let hx = screen_dims.x / 2.0;
 
     let labels = [
         (title_label, hx, 20.0),
         (parts_label, hx, 50.0),
-        (vel_label, hx + 150.0, screen_dims.y - 50.0),
-        (accel_label, hx - 150.0, screen_dims.y - 50.0),
+        (pos_label, hx, screen_dims.y - 50.0),
+        (vel_label, hx + 300.0, screen_dims.y - 50.0),
+        (acc_label, hx - 300.0, screen_dims.y - 50.0),
     ];
 
     for (label, x, y) in labels {
@@ -339,6 +341,7 @@ pub fn draw_grid_blueprints(
     }
 }
 
+#[allow(unused)]
 fn draw_test_isos(d: &mut RaylibDrawHandle) {
     let test_isos = [
         (
@@ -453,6 +456,7 @@ fn draw_line(d: &mut RaylibDrawHandle, start: Vec2, end: Vec2, color: Color) {
     d.draw_line_v(start, end, color);
 }
 
+#[allow(unused)]
 fn draw_parts_zoo(parts: &Components<PartPrototype>, d: &mut RaylibDrawHandle) {
     let x = 0;
     let mut y = 0;
@@ -567,6 +571,7 @@ fn draw_thrusters(
         let Ok(grid) = grids.try_get(t.grid_id) else {
             continue;
         };
+
         let Ok(part) = parts.try_get(*e) else {
             continue;
         };
@@ -583,6 +588,7 @@ fn draw_thrusters(
     }
 }
 
+#[allow(unused)]
 fn draw_grids_if_updated_this_frame(
     d: &mut RaylibDrawHandle,
     updates: &BTreeSet<Ent>,

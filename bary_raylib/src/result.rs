@@ -6,6 +6,7 @@ pub enum BaryError {
     FailedToSaveBlueprint,
     FailedToSaveGrid,
     SaveAlreadyExists,
+    NoPrimaryComputer,
     IoError(String),
     SerdeYaml(String),
     TomlSer(toml::ser::Error),

@@ -1,17 +1,22 @@
 [values.58]
-on = true
-status = "Running"
+on = false
+status = "Off"
 ticks_this_cycle = 0
 ticks_per_cycle = 20
-fired_this_tick = true
-iters = 50
+fired_this_tick = false
+iters = 0
 mode = "Idle"
-attitude = 0.0
-velocity = [0.0, 0.0]
-position = [0.0, 0.0]
 control_status = "Idling"
 grid_id = 34
 prototype = 6
+
+[values.58.pose]
+translation = [0.0, 0.0]
+rotation = 0.0
+
+[values.58.velocity]
+translation = [0.0, 0.0]
+rotation = 0.0
 
 [values.58.vehicle_control]
 attitude = 0.0
@@ -33,19 +38,24 @@ use_rcs = false
 throttle = 0.0
 
 [values.152]
-on = true
-status = "Running"
+on = false
+status = "Off"
 ticks_this_cycle = 0
 ticks_per_cycle = 20
-fired_this_tick = true
-iters = 50
+fired_this_tick = false
+iters = 0
 mode = "Idle"
-attitude = 0.0
-velocity = [0.0, 0.0]
-position = [0.0, 0.0]
 control_status = "Idling"
 grid_id = 133
 prototype = 6
+
+[values.152.pose]
+translation = [0.0, 0.0]
+rotation = 0.0
+
+[values.152.velocity]
+translation = [0.0, 0.0]
+rotation = 0.0
 
 [values.152.vehicle_control]
 attitude = 0.0
@@ -67,19 +77,24 @@ use_rcs = false
 throttle = 0.0
 
 [values.244]
-on = true
-status = "Running"
+on = false
+status = "Off"
 ticks_this_cycle = 0
 ticks_per_cycle = 20
-fired_this_tick = true
-iters = 50
+fired_this_tick = false
+iters = 0
 mode = "Idle"
-attitude = 0.0
-velocity = [0.0, 0.0]
-position = [0.0, 0.0]
 control_status = "Idling"
 grid_id = 165
 prototype = 6
+
+[values.244.pose]
+translation = [0.0, 0.0]
+rotation = 0.0
+
+[values.244.velocity]
+translation = [0.0, 0.0]
+rotation = 0.0
 
 [values.244.vehicle_control]
 attitude = 0.0

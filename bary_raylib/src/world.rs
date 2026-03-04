@@ -156,10 +156,17 @@ fn update_input_state(events: &VecDeque<Event>, state: &mut InputState) {
     }
 }
 
-fn update_camera_target(input: &InputState, target: &mut Camera, follow: &mut Option<Ent>) {
+fn update_camera_target(
+    input: &InputState,
+    target: &mut Camera,
+    follow: &mut Option<Ent>,
+    sounds: &mut SoundEffects,
+) {
     let angular_speed = 2.5f32.to_radians();
     let speed = 40.0 / target.zoom;
     let zoom_scale = 1.07;
+
+    let old_follow = *follow;
 
     let right = rotate(Vec2::X, target.isometry.rotation);
     let up = rotate(right, PI / 2.0);
@@ -193,6 +200,10 @@ fn update_camera_target(input: &InputState, target: &mut Camera, follow: &mut Op
     if input.is_key_pressed(Key::KeyA) {
         target.isometry.translation -= right * speed;
         *follow = None;
+    }
+
+    if old_follow.is_some() && follow.is_none() {
+        sounds.effects.push(SoundEffect::LeaveFollow);
     }
 }
 
@@ -292,7 +303,7 @@ fn ping_on_alt_left_click(
         particles.push(particle);
         transactions.push(Action::Ping(pos));
         chat.log(format!("Pinged {}", pos));
-        sounds.effects.push(SoundEffect::Close);
+        sounds.effects.push(SoundEffect::Ping);
     }
 }
 
@@ -339,6 +350,7 @@ fn toggle_following_on_key_f(
     events: &VecDeque<Event>,
     sel: &SelectionInfo,
     follow: &mut Option<Ent>,
+    sounds: &mut SoundEffects,
 ) {
     let pressed_f = events
         .iter()
@@ -353,6 +365,8 @@ fn toggle_following_on_key_f(
     };
 
     *follow = Some(grid_id);
+
+    sounds.effects.push(SoundEffect::Follow);
 }
 
 fn snap_camera_target_to_local_up(target: &mut Camera) {
@@ -380,17 +394,64 @@ fn propagate_grid_rigid_bodies(grids: &mut Components<VehicleGrid>) {
     }
 }
 
-fn update_thrusters(thrusters: &mut Components<Thruster>) -> BTreeSet<Ent> {
+fn update_thrusters(
+    thrusters: &mut Components<Thruster>,
+    grids: &Components<VehicleGrid>,
+    parts: &Components<Part>,
+    computers: &Components<Computer>,
+) -> BTreeSet<Ent> {
     let mut needs_update = BTreeSet::new();
-    // for t in thrusters.values_mut() {
-    //     if t.is_on && chance(0.02) {
-    //         t.is_on = false;
-    //         needs_update.insert(t.grid_id);
-    //     } else if !t.is_on && chance(0.001) {
-    //         t.is_on = true;
-    //         needs_update.insert(t.grid_id);
-    //     }
-    // }
+
+    for (grid_id, grid) in grids.iter() {
+        let Some(cpu_id) = grid.computers.first() else {
+            continue;
+        };
+        let Ok(cpu) = computers.try_get(*cpu_id) else {
+            continue;
+        };
+        if !cpu.fired_this_tick {
+            continue;
+        }
+
+        for thruster_id in &grid.thrusters {
+            let Ok(thruster) = thrusters.try_get_mut(*thruster_id) else {
+                continue;
+            };
+            let Ok(part) = parts.try_get(*thruster_id) else {
+                continue;
+            };
+
+            let ctrl = cpu.vehicle_control;
+
+            let tac = match part.placement.rot() {
+                Rotation::East => ctrl.plus_x,
+                Rotation::North => ctrl.neg_y,
+                Rotation::West => ctrl.neg_x,
+                Rotation::South => ctrl.plus_y,
+            };
+
+            // TODO(optimization) reduce lookups by storing isometry on the thruster?
+            let isometry = part.placement.center_isometry();
+            let center_of_thrust = isometry.translation;
+            let rotation = part.placement.rot();
+            let wrench = body_frame_wrench(thruster.thrust, center_of_thrust, rotation, Vec2::ZERO);
+
+            if thruster.is_rcs {
+                let can_torque = wrench.rotation.abs() > 0.5 && ctrl.attitude.abs() > 0.5;
+                let is_torque =
+                    can_torque && wrench.rotation.signum() as f64 == ctrl.attitude.signum();
+                let is_linear = tac.throttle > 0.0 && tac.use_rcs;
+                thruster.is_on = is_linear || is_torque;
+            } else {
+                thruster.is_on = !tac.use_rcs && tac.throttle > 0.0;
+            }
+
+            thruster.last_controlled_by = Some(*cpu_id);
+        }
+
+        needs_update.insert(*grid_id);
+    }
+
     needs_update
 }
 
@@ -417,7 +478,10 @@ fn update_mouseover_part_info(
     mouse_screen_position: Option<Vec2>,
     screen_dims: Vec2,
     camera: &Camera,
+    sounds: &mut SoundEffects,
 ) {
+    let old_mouseover = sel.mouseover_part_info.map(|(_, occ)| occ);
+
     sel.mouseover_part_info = None;
 
     let Some(screen_pos) = mouse_screen_position else {
@@ -437,6 +501,10 @@ fn update_mouseover_part_info(
     let occ = grid.get_parts_at(coord).unwrap_or(&PartOccupancy::EMPTY);
 
     sel.mouseover_part_info = Some((coord, *occ));
+
+    if old_mouseover != sel.mouseover_part_info.map(|(_, occ)| occ) {
+        sounds.effects.push(SoundEffect::MouseoverPart);
+    }
 }
 
 fn set_target_camera_if_following(
@@ -460,7 +528,11 @@ fn set_target_camera_if_following(
     actual.isometry.rotation = target.isometry.rotation;
 }
 
-fn select_hovered_vehicle_on_click(events: &VecDeque<Event>, sel: &mut SelectionInfo) {
+fn select_hovered_vehicle_on_click(
+    events: &VecDeque<Event>,
+    sel: &mut SelectionInfo,
+    sounds: &mut SoundEffects,
+) {
     let is_clicked = is_button_just_pressed(events, Button::Left);
 
     if !is_clicked {
@@ -475,7 +547,13 @@ fn select_hovered_vehicle_on_click(events: &VecDeque<Event>, sel: &mut Selection
         sel.selected_part_info = sel.mouseover_part_info;
     }
 
-    info!("Selected {:?}", sel.selected_grid)
+    if sel.selected_grid.is_some() {
+        sounds.effects.push(SoundEffect::Open);
+    } else if old_grid.is_some() {
+        sounds.effects.push(SoundEffect::Close);
+    }
+
+    info!("Selected {:?}", sel.selected_grid);
 }
 
 pub fn update_computers(computers: &mut Components<Computer>, grids: &Components<VehicleGrid>) {
@@ -501,11 +579,8 @@ pub fn update_computers(computers: &mut Components<Computer>, grids: &Components
 
         if computer.fired_this_tick {
             if computer.pose.translation == Vec2::ZERO {
-                computer.pose.translation = randvec(100.0, 300.0);
+                computer.pose.translation = randvec(100.0, 5000.0);
                 computer.pose.rotation = rand(0.1, 0.7);
-            } else {
-                computer.pose.translation += randvec(0.0, 2.0);
-                computer.pose.rotation += rand(-0.05, 0.05);
             }
 
             let actual = PV::from_f64(grid.pose.translation, grid.velocity.translation);
@@ -542,14 +617,24 @@ pub fn update_world(world: &mut World) -> (Vec<Action>, SoundEffects) {
         &world.event_queue,
         &world.selection_info,
         &mut world.follow_vehicle,
+        &mut world.sounds,
     );
 
-    select_hovered_vehicle_on_click(&world.event_queue, &mut world.selection_info);
+    select_hovered_vehicle_on_click(
+        &world.event_queue,
+        &mut world.selection_info,
+        &mut world.sounds,
+    );
 
     update_ring_particles(&mut world.particles);
     update_lights(&mut world.lights);
     update_computers(&mut world.computers, &world.grids);
-    let dirty_set = update_thrusters(&mut world.thrusters);
+    let dirty_set = update_thrusters(
+        &mut world.thrusters,
+        &world.grids,
+        &world.parts,
+        &world.computers,
+    );
     update_grid_acceleration(dirty_set, &mut world.grids, &world.thrusters, &world.parts);
 
     update_selection_info(
@@ -566,6 +651,7 @@ pub fn update_world(world: &mut World) -> (Vec<Action>, SoundEffects) {
         world.mouse_screen_position,
         world.screen_dims,
         &world.camera,
+        &mut world.sounds,
     );
 
     update_input_state(&world.event_queue, &mut world.input);
@@ -577,6 +663,7 @@ pub fn update_world(world: &mut World) -> (Vec<Action>, SoundEffects) {
         &world.input,
         &mut world.target_camera,
         &mut world.follow_vehicle,
+        &mut world.sounds,
     );
 
     set_target_camera_if_following(

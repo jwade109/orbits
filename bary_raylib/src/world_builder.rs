@@ -8,6 +8,7 @@ pub struct WorldBuilder {
     assets_dir: Option<String>,
     blueprints: Vec<String>,
     spawns: Vec<(String, Isometry2d)>,
+    waypoints: Vec<(String, Isometry2d)>,
 }
 
 impl WorldBuilder {
@@ -16,6 +17,7 @@ impl WorldBuilder {
             assets_dir: None,
             blueprints: Vec::new(),
             spawns: Vec::new(),
+            waypoints: Vec::new(),
         }
     }
 
@@ -36,6 +38,12 @@ impl WorldBuilder {
 
     pub fn spawn(mut self, name: &str, iso: impl Into<Isometry2d>) -> Self {
         self.spawns.push((name.to_string(), iso.into()));
+        self
+    }
+
+    pub fn waypoint(mut self, grid_name: &str, waypoint: impl Into<Isometry2d>) -> Self {
+        self.waypoints
+            .push((grid_name.to_string(), waypoint.into()));
         self
     }
 
@@ -64,6 +72,13 @@ impl WorldBuilder {
         for (name, iso) in self.spawns {
             if let Ok(id) = world::spawn_grid_by_name(&mut world, &name) {
                 _ = world::set_grid_isometry(&mut world, id, iso);
+            }
+        }
+
+        for (name, waypoint) in self.waypoints {
+            if let Some(grid_id) = find::grid_by_name(&world.grids, &name) {
+                _ = world::set_primary_computer_waypoint(grid_id, waypoint, &mut world);
+                _ = world::set_primary_computer_state(grid_id, true, &mut world);
             }
         }
 

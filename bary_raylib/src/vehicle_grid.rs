@@ -2,7 +2,7 @@ use bary_core::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, Default)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, Default, PartialEq, Eq)]
 pub struct PartOccupancy {
     pub internal: Option<Ent>,
     pub structural: Option<Ent>,

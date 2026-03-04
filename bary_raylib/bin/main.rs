@@ -37,8 +37,6 @@ fn draw_debug_info(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
     s += &format!("\nMemory: {:0.3} kb", size as f64 / 1000.0);
     s += &format!("\nZoom: {:0.3}", world.camera.zoom);
 
-    s += &format!("\nMPI {:#?}", world.selection_info.mouseover_part_info);
-    s += &format!("\nSPI {:#?}", world.selection_info.selected_part_info);
     s += &format!("\nMOUSE {:?}", world.mouse_screen_position);
     s += &format!("\nINP {:?}", &world.input);
     s += &format!("\nPRT {:?}", &world.particles.len());
@@ -161,6 +159,8 @@ fn main() {
         .spawn("remora", (-9.0, 12.0, -0.3))
         .spawn("remora", (-7.0, 23.0, 0.7))
         .spawn("bellerophon", (130.0, 50.0, 0.1))
+        .waypoint("pollux", (300.0, 200.0, 0.3))
+        .waypoint("remora", (3000.0, 7000.0, 0.0))
         .build();
 
     let mut runner = WorldRunner::new(world);
@@ -227,6 +227,7 @@ fn main() {
                 }
             };
 
+            sound.set_volume(0.4);
             sound.play();
 
             active_sounds.push(sound);

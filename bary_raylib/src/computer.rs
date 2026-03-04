@@ -68,7 +68,7 @@ impl ComputerMode {
 impl Computer {
     pub fn new(grid_id: Ent, prototype: Ent) -> Self {
         Self {
-            on: true,
+            on: false,
             status: MachineStatus::Off,
             ticks_this_cycle: 0,
             ticks_per_cycle: 20,

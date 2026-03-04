@@ -36,6 +36,19 @@ pub fn spawn_grid_from_blueprint(
     Ok(grid_id)
 }
 
+pub fn body_frame_wrench(
+    thrust: f32,
+    center_of_thrust: Vec2,
+    rotation: Rotation,
+    com: Vec2,
+) -> Isometry2d {
+    let u = rotation.to_dir();
+    let lever_arm = center_of_thrust - com;
+    let thrust = thrust * u.as_vec2();
+    let torque = cross2d(lever_arm, thrust);
+    Isometry2d::new(thrust, torque as f32)
+}
+
 pub fn update_grid_acceleration(
     dirty_set: BTreeSet<Ent>,
     grids: &mut Components<VehicleGrid>,
@@ -60,19 +73,72 @@ pub fn update_grid_acceleration(
                 continue;
             };
 
-            let iso = part.placement.center_isometry();
-            let thrust_vector = part.placement.rot().to_dir().as_vec2() * thruster.thrust;
-            let torque = cross2d(iso.translation, thrust_vector);
-            grid.body_frame_forces.translation += thrust_vector;
-            grid.body_frame_forces.rotation += torque as f32;
+            let center_of_thrust = part.placement.center_isometry().translation;
+            let rotation = part.placement.rot();
+            let wrench = body_frame_wrench(thruster.thrust, center_of_thrust, rotation, Vec2::ZERO);
+            grid.body_frame_forces.translation += wrench.translation;
+            grid.body_frame_forces.rotation += wrench.rotation;
         }
     }
+}
+
+/// Sets the waypoint field of the primary computer,
+/// if the provided grid has one. If it does, the ID of the primary
+/// computer will be returned.
+/// TODO(testing) test this.
+pub fn set_primary_computer_waypoint(
+    grid_id: Ent,
+    waypoint: Isometry2d,
+    grids: &Components<VehicleGrid>,
+    computers: &mut Components<Computer>,
+) -> BaryResult<Ent> {
+    let primary_cpu_id = find::primary_computer_id(grid_id, grids)?;
+    let computer = computers.try_get_mut(primary_cpu_id)?;
+    computer.pose = waypoint;
+    Ok(primary_cpu_id)
+}
+
+/// Turns the primary computer of the given grid on or off,
+/// returning the entity ID of the computer if it was found.
+/// TODO(testing) test this.
+pub fn set_primary_computer_state(
+    grid_id: Ent,
+    new_state: bool,
+    grids: &Components<VehicleGrid>,
+    computers: &mut Components<Computer>,
+) -> BaryResult<Ent> {
+    let primary_cpu_id = find::primary_computer_id(grid_id, grids)?;
+    let computer = computers.try_get_mut(primary_cpu_id)?;
+    computer.on = new_state;
+    Ok(primary_cpu_id)
 }
 
 pub mod world {
     use crate::ring_particle::PingParticle;
 
     use super::*;
+
+    /// Sets the waypoint field of the primary computer,
+    /// if the provided grid has one. If it does, the ID of the primary
+    /// computer will be returned.
+    /// TODO(testing) test this.
+    pub fn set_primary_computer_waypoint(
+        grid_id: Ent,
+        waypoint: Isometry2d,
+        world: &mut World,
+    ) -> BaryResult<Ent> {
+        super::set_primary_computer_waypoint(grid_id, waypoint, &world.grids, &mut world.computers)
+    }
+
+    /// Turns the primary computer of the given grid on or off,
+    /// returning the entity ID of the computer if it was found.
+    pub fn set_primary_computer_state(
+        grid_id: Ent,
+        new_state: bool,
+        world: &mut World,
+    ) -> BaryResult<Ent> {
+        super::set_primary_computer_state(grid_id, new_state, &world.grids, &mut world.computers)
+    }
 
     pub fn update_grid_acceleration(dirty_set: BTreeSet<Ent>, world: &mut World) {
         super::update_grid_acceleration(
@@ -190,7 +256,10 @@ pub fn insert_part(
     lights: &mut Components<Light>,
     instance: &PartInstance,
 ) -> BaryResult<Ent> {
-    debug!("Inserting part \"{}\" into grid \"{}\" in layer {:?}", instance.name, grid_id, instance.layer);
+    debug!(
+        "Inserting part \"{}\" into grid \"{}\" in layer {:?}",
+        instance.name, grid_id, instance.layer
+    );
     let grid = grids.try_get_mut(grid_id)?;
     let proto_id = find::part_by_name(prototypes, &instance.name).ok_or(BaryError::BadPartName)?;
     let proto = prototypes.try_get(proto_id)?;
@@ -221,6 +290,7 @@ pub fn insert_part(
             thrust: data.thrust as f32,
             prototype: proto_id,
             grid_id,
+            last_controlled_by: None,
         };
         thrusters.spawn(part_id, thruster);
         grid.thrusters.push(part_id);
@@ -272,6 +342,11 @@ pub mod find {
 
     use super::*;
 
+    pub fn primary_computer_id(grid_id: Ent, grids: &Components<VehicleGrid>) -> BaryResult<Ent> {
+        let grid = grids.try_get(grid_id)?;
+        Ok(*grid.computers.first().ok_or(BaryError::NoPrimaryComputer)?)
+    }
+
     pub fn blueprint_by_name<'a>(
         blueprints: &'a Components<NamedBlueprint>,
         name: &str,
@@ -304,6 +379,15 @@ pub mod find {
     pub fn grid_pose(grids: &Components<VehicleGrid>, grid_id: Ent) -> Option<Isometry2d> {
         let grid = grids.try_get(grid_id).ok()?;
         Some(grid.pose)
+    }
+
+    /// Returns the ID of the first grid in the components list with
+    /// the given name. Buyer beware: grid names are not unique! This
+    /// only promises to return any grid with the given name, if one exists.
+    pub fn grid_by_name(grids: &Components<VehicleGrid>, name: &str) -> Option<Ent> {
+        grids
+            .iter()
+            .find_map(|(id, grid)| (grid.name == name).then(|| *id))
     }
 
     pub fn closest_grid(
@@ -402,6 +486,7 @@ pub fn get_parts_at<'a>(
     coord: PartCoord,
 ) -> Vec<(Ent, &'a Part)> {
     // TODO(optimization) can make VehicleGrid keep a spatial LUT for this
+    // TODO(cleanup) it does! now use it
     let mut ret = Vec::new();
     for part_id in &grid.parts {
         let Ok(part) = parts.try_get(*part_id) else {
