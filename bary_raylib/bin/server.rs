@@ -21,7 +21,7 @@ impl ServerApp {
         let outgoing_transactions = new_message_queue();
 
         let world = WorldBuilder::new()
-            .assets("assets/")
+            .assets()
             .blueprint("pollux")
             .blueprint("bellerophon")
             .blueprint("remora")

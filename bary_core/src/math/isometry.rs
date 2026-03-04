@@ -40,6 +40,10 @@ impl Isometry2d {
         ret.translation += ret.local_x() * offset.x + ret.local_y() * offset.y;
         ret
     }
+
+    pub fn to_tuple(&self) -> (f32, f32, f32) {
+        (self.translation.x, self.translation.y, self.rotation)
+    }
 }
 
 impl std::ops::Mul for Isometry2d {

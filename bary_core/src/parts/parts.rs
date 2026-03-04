@@ -19,7 +19,6 @@ pub type PartDatabase = HashMap<String, PartPrototype>;
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
 pub struct PartPrototype {
-    #[deprecated]
     pub name: String,
     pub mass: Mass,
     pub dims: UVec2,

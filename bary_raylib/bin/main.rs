@@ -149,7 +149,7 @@ fn main() {
     let audio = raylib::audio::RaylibAudio::init_audio_device().unwrap();
 
     let world = WorldBuilder::new()
-        .assets("assets/")
+        .assets()
         .blueprint("pollux")
         .blueprint("bellerophon")
         .blueprint("remora")

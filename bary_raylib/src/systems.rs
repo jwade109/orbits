@@ -300,6 +300,11 @@ pub mod find {
         result
     }
 
+    pub fn grid_pose(grids: &Components<VehicleGrid>, grid_id: Ent) -> Option<Isometry2d> {
+        let grid = grids.try_get(grid_id).ok()?;
+        Some(grid.pose)
+    }
+
     pub fn closest_grid(
         grids: &Components<VehicleGrid>,
         test_pos: Vec2,
@@ -419,7 +424,7 @@ mod tests {
     #[test]
     fn part_prototypes() {
         let world = WorldBuilder::new()
-            .assets("../assets")
+            .test_assets()
             .blueprint("pollux")
             .blueprint("bellerophon")
             .blueprint("remora")
@@ -468,7 +473,7 @@ mod tests {
     #[test]
     fn vehicle_spawning_and_despawning() {
         let mut world = WorldBuilder::new()
-            .assets("../assets")
+            .test_assets()
             .blueprint("pollux")
             .blueprint("bellerophon")
             .blueprint("remora")
@@ -557,7 +562,7 @@ mod tests {
     #[test]
     fn nearest_grid() {
         let mut world = WorldBuilder::new()
-            .assets("../assets")
+            .test_assets()
             .blueprint("pollux")
             .blueprint("bellerophon")
             .blueprint("remora")
@@ -583,7 +588,7 @@ mod tests {
     #[test]
     fn insert_parts() {
         let mut world = WorldBuilder::new()
-            .assets("../assets")
+            .test_assets()
             .blueprint("pollux")
             .build();
 
@@ -630,7 +635,7 @@ mod tests {
     #[test]
     fn parts_mass() {
         let mut world = WorldBuilder::new()
-            .assets("../assets")
+            .test_assets()
             .blueprint("pollux")
             .blueprint("bellerophon")
             .blueprint("remora")
@@ -657,7 +662,7 @@ mod tests {
     #[test]
     fn calculate_blueprints() {
         let mut world = WorldBuilder::new()
-            .assets("../assets")
+            .test_assets()
             .blueprint("pollux")
             .blueprint("bellerophon")
             .blueprint("remora")
@@ -689,7 +694,7 @@ mod tests {
 
     #[test]
     fn bad_part_insertion() {
-        let mut world = WorldBuilder::new().assets("../assets/").build();
+        let mut world = WorldBuilder::new().test_assets().build();
         let id = world::spawn_empty_grid(&mut world, "whatever");
 
         let instance = PartInstance::new(
@@ -715,7 +720,7 @@ mod tests {
 
     #[test]
     fn set_thruster_state() {
-        let mut world = WorldBuilder::new().assets("../assets/").build();
+        let mut world = WorldBuilder::new().test_assets().build();
 
         let grid_id = world::spawn_empty_grid(&mut world, "whatever");
 
@@ -803,7 +808,7 @@ mod tests {
     #[test]
     fn parts_center_of_mass() {
         let mut world = WorldBuilder::new()
-            .assets("../assets/")
+            .test_assets()
             .blueprint("pollux")
             .build();
 
@@ -831,7 +836,7 @@ mod tests {
 
     #[test]
     fn pure_linear_acceleration() {
-        let mut world = WorldBuilder::new().assets("../assets/").build();
+        let mut world = WorldBuilder::new().test_assets().build();
 
         // modifying the prototype for motor so it has easy quantities
         let proto_id = find::part_by_name(&world.prototypes, "small-motor").unwrap();
@@ -883,12 +888,179 @@ mod tests {
 
         let iso = world.grids.try_get(grid_id).unwrap().pose;
 
-        assert_eq!(iso.rotation, 0.0);
-
         // this is an approximation of the following
         // continuous time kinematic equation:
         // d = 1/2 at^2  --> 0.5 * 3.5 * 2^2 = 7
         assert_eq!(iso.translation, Vec2::new(6.9299994, 0.0));
+        assert_eq!(iso.rotation, 0.0);
+    }
+
+    #[test]
+    fn under_linear_and_angular_acceleration() {
+        let mut world = World::empty();
+
+        let part_name = "test-motor";
+
+        let thruster_data = ThrusterModel {
+            model: "test-motor-model".to_string(),
+            thrust: 8000.0,
+            exhaust_velocity: 6000.0,
+            is_rcs: false,
+            throttle_rate: 0.0,
+            primary_color: [0.0, 0.0, 0.0, 0.0],
+            secondary_color: [0.0, 0.0, 0.0, 0.0],
+            plume_length: 1.0,
+            plume_angle: 0.1,
+            minimum_throttle: 0.0,
+            particle_scale: 1.0,
+        };
+
+        let proto = PartPrototype {
+            name: part_name.to_string(),
+            mass: Mass::kilograms(1000),
+            dims: UVec2::new(4, 2),
+            layer: Some(PartLayer::Internal),
+            excavator_data: None,
+            computer_data: None,
+            inventory_data: None,
+            thruster_data: Some(thruster_data),
+            machine_data: None,
+            docking_port_data: None,
+        };
+
+        let dims = proto.dims;
+
+        let proto_id = world.spawner.spawn();
+        world.prototypes.spawn(proto_id, proto);
+
+        let placement = GridPlacement::new((0, 0), Rotation::East, dims);
+
+        let grid_id = world::spawn_empty_grid(&mut world, "testbed");
+
+        let instance = PartInstance {
+            name: part_name.to_string(),
+            layer: PartLayer::Internal,
+            placement,
+        };
+
+        use find::grid_pose;
+
+        let thruster_id = world::insert_part(grid_id, &mut world, &instance).unwrap();
+
+        _ = world::set_thruster_state(thruster_id, &mut world, true);
+        world::update_grid_acceleration([grid_id].into(), &mut world);
+
+        assert_eq!(grid_pose(&world.grids, grid_id), Some(Isometry2d::IDENTITY));
+
+        let expected_poses = [
+            (0.0, 0.0, 0.0),
+            (0.0032, 0.0, -0.000008),
+            (0.0095999995, 0.0, -0.000024),
+            (0.019199999, -0.000000025599999, -0.000048),
+            (0.031999998, -0.000000128, -0.00008),
+            (0.047999997, -0.00000038399997, -0.00012),
+            (0.06719999, -0.00000089599996, -0.000168),
+            (0.08959999, -0.0000017919999, -0.00022399999),
+            (0.11519998, -0.0000032255998, -0.00028799998),
+            (0.14399998, -0.0000053759995, -0.00035999998),
+            (0.17599997, -0.000008448, -0.00043999997),
+            (0.21119997, -0.000012671999, -0.00052799995),
+            (0.24959996, -0.000018304, -0.0006239999),
+            (0.29119995, -0.000025625599, -0.0007279999),
+            (0.33599994, -0.000034943998, -0.0008399999),
+            (0.38399994, -0.000046591995, -0.00095999986),
+            (0.43519992, -0.000060927992, -0.0010879998),
+            (0.4895999, -0.00007833599, -0.0012239998),
+            (0.5471999, -0.00009922558, -0.0013679997),
+            (0.60799986, -0.00012403197, -0.0015199997),
+            (0.6719998, -0.00015321597, -0.0016799996),
+            (0.73919976, -0.00018726396, -0.0018479996),
+            (0.80959976, -0.00022668793, -0.0020239996),
+            (0.8831997, -0.0002720255, -0.0022079996),
+            (0.9599996, -0.00032383986, -0.0023999996),
+            (1.0399996, -0.00038271982, -0.0025999995),
+            (1.1231996, -0.0004492798, -0.0028079995),
+            (1.2095995, -0.00052415975, -0.0030239995),
+            (1.2991995, -0.0006080253, -0.0032479996),
+            (1.3919994, -0.0007015676, -0.0034799995),
+            (1.4879992, -0.0008055035, -0.0037199995),
+            (1.5871991, -0.0009205754, -0.0039679995),
+            (1.6895989, -0.0010475513, -0.0042239996),
+            (1.7951987, -0.0011872246, -0.0044879997),
+            (1.9039985, -0.0013404149, -0.00476),
+            (2.0159984, -0.0015079665, -0.0050399997),
+            (2.1311982, -0.0016907502, -0.0053279996),
+            (2.2495978, -0.0018896619, -0.0056239995),
+            (2.3711975, -0.002105623, -0.0059279995),
+            (2.495997, -0.0023395808, -0.0062399996),
+            (2.6239965, -0.0025925082, -0.0065599997),
+            (2.7551959, -0.0028654034, -0.006888),
+            (2.8895953, -0.0031592904, -0.007224),
+            (3.0271945, -0.0034752188, -0.007568),
+            (3.1679938, -0.0038142637, -0.00792),
+            (3.311993, -0.004177526, -0.00828),
+            (3.459192, -0.004566132, -0.008648),
+            (3.609591, -0.0049812337, -0.009024),
+            (3.7631898, -0.0054240087, -0.009408),
+            (3.9199884, -0.0058956603, -0.0098),
+            (4.079987, -0.006397417, -0.0102),
+            (4.2431855, -0.006930533, -0.010608001),
+            (4.4095836, -0.0074962885, -0.011024),
+            (4.5791817, -0.008095989, -0.011448),
+            (4.7519794, -0.008730966, -0.011879999),
+            (4.927977, -0.009402575, -0.012319999),
+            (5.1071744, -0.0101122, -0.0127679985),
+            (5.289572, -0.010861248, -0.013223998),
+            (5.4751687, -0.011651152, -0.013687998),
+            (5.663965, -0.012483371, -0.014159998),
+            (5.8559613, -0.013359391, -0.014639998),
+            (6.0511575, -0.014280722, -0.015127998),
+            (6.249553, -0.015248898, -0.015623998),
+            (6.4511485, -0.016265484, -0.016127998),
+            (6.6559434, -0.017332062, -0.016639998),
+            (6.863938, -0.018450249, -0.017159998),
+            (7.075132, -0.019621681, -0.017687999),
+            (7.2895255, -0.020848023, -0.018223999),
+            (7.5071187, -0.022130962, -0.018768),
+            (7.727911, -0.023472216, -0.01932),
+            (7.951903, -0.024873523, -0.01988),
+            (8.179094, -0.026336651, -0.020448),
+            (8.409485, -0.02786339, -0.021023998),
+            (8.643075, -0.02945556, -0.021607997),
+            (8.879865, -0.031115, -0.022199996),
+            (9.119853, -0.03284358, -0.022799995),
+            (9.363041, -0.03464319, -0.023407994),
+            (9.609427, -0.03651576, -0.024023993),
+            (9.859014, -0.038463227, -0.024647992),
+            (10.111798, -0.040487565, -0.025279991),
+            (10.367783, -0.042590767, -0.02591999),
+            (10.6269655, -0.044774856, -0.02656799),
+            (10.889348, -0.04704188, -0.02722399),
+            (11.154929, -0.049393915, -0.027887989),
+            (11.423709, -0.051833052, -0.028559988),
+            (11.695687, -0.05436142, -0.029239988),
+            (11.970864, -0.05698117, -0.029927988),
+            (12.24924, -0.05969447, -0.030623987),
+            (12.530814, -0.062503524, -0.031327985),
+            (12.815587, -0.06541056, -0.032039985),
+            (13.103559, -0.06841783, -0.032759983),
+            (13.394729, -0.071527615, -0.033487983),
+            (13.689096, -0.07474221, -0.03422398),
+            (13.986663, -0.07806395, -0.03496798),
+            (14.287427, -0.08149518, -0.03571998),
+            (14.59139, -0.08503829, -0.03647998),
+            (14.89855, -0.088695675, -0.03724798),
+            (15.208908, -0.092469774, -0.03802398),
+            (15.522464, -0.09636304, -0.038807977),
+            (15.839217, -0.10037795, -0.039599977),
+        ];
+
+        for _ in 0..100 {
+            let expected = expected_poses[world.ticks as usize];
+            update_world(&mut world);
+            let pose = find::grid_pose(&world.grids, grid_id).unwrap().to_tuple();
+            assert_eq!(pose, expected);
+        }
     }
 
     #[cfg(test)]

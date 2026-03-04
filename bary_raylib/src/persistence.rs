@@ -98,7 +98,7 @@ mod tests {
         }
 
         let mut world = WorldBuilder::new()
-            .assets("../assets/")
+            .test_assets()
             .blueprint("pollux")
             .blueprint("remora")
             .blueprint("bellerophon")

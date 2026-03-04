@@ -19,8 +19,13 @@ impl WorldBuilder {
         }
     }
 
-    pub fn assets(mut self, assets_dir: &str) -> Self {
-        self.assets_dir = Some(assets_dir.to_string());
+    pub fn assets(mut self) -> Self {
+        self.assets_dir = Some("./assets/".to_string());
+        self
+    }
+
+    pub fn test_assets(mut self) -> Self {
+        self.assets_dir = Some("../assets/".to_string());
         self
     }
 
