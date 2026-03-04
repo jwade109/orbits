@@ -14,7 +14,7 @@ pub struct Camera {
 impl Default for Camera {
     fn default() -> Self {
         Self {
-            isometry: Isometry2d::IDENTITY,
+            isometry: Isometry2d::ZERO,
             zoom: 1.0,
         }
     }

@@ -3,6 +3,7 @@ use std::collections::BTreeSet;
 use crate::camera::{Camera, to_raylib_camera};
 use crate::chat::{Chat, format_log};
 use crate::components::Components;
+use crate::computer::Computer;
 use crate::light::Light;
 use crate::part::*;
 use crate::result::BaryResult;
@@ -80,6 +81,8 @@ pub fn draw_world(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
     draw_parts(&mut c, &world.grids, &world.parts, &raylib_camera);
     draw_thrusters(&mut c, &world.grids, &world.parts, &world.thrusters);
     draw_lights(&mut c, &world.grids, &world.lights);
+
+    draw_computer_target_isometry(&mut c, &world.computers, &world.grids);
 
     _ = draw_selection_info(&mut c, &world.grids, &world.selection_info);
 
@@ -289,8 +292,8 @@ pub fn draw_parts(
                         PartClassification::Auxiliary => Color::YELLOW,
                         PartClassification::DockingPort => Color::ORANGE,
                         PartClassification::Computer => Color::RED,
-                        PartClassification::Structure => Color::GRAY.alpha(0.2),
-                        PartClassification::Decoration => Color::WHITE.alpha(0.2),
+                        PartClassification::Structure => Color::GRAY.alpha(0.7),
+                        PartClassification::Decoration => Color::WHITE.alpha(0.7),
                         PartClassification::Other => Color::GRAY,
                     };
 
@@ -300,6 +303,19 @@ pub fn draw_parts(
                 }
             }
         }
+    }
+}
+
+pub fn draw_computer_target_isometry(
+    d: &mut RaylibDrawHandle,
+    computers: &Components<Computer>,
+    grids: &Components<VehicleGrid>,
+) {
+    for cpu in computers.values() {
+        let Ok(grid) = grids.try_get(cpu.grid_id) else {
+            continue;
+        };
+        draw_isometry_axes(d, cpu.pose, &grid.name, Vec2::new(5.0, 3.0));
     }
 }
 

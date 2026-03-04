@@ -156,7 +156,7 @@ fn main() {
         .blueprint("bellerophon")
         .blueprint("remora")
         .blueprint("spacestation")
-        .spawn("pollux", Isometry2d::IDENTITY)
+        .spawn("pollux", Isometry2d::ZERO)
         .spawn("remora", (10.0, 30.0, 0.1))
         .spawn("remora", (-9.0, 12.0, -0.3))
         .spawn("remora", (-7.0, 23.0, 0.7))

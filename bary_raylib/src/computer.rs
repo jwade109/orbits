@@ -1,4 +1,3 @@
-use crate::components::*;
 use bary_core::prelude::*;
 use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
@@ -12,9 +11,8 @@ pub struct Computer {
     pub fired_this_tick: bool,
     pub iters: u64,
     pub mode: ComputerMode,
-    pub attitude: f32,
-    pub velocity: Vec2,
-    pub position: Vec2,
+    pub pose: Isometry2d,
+    pub velocity: Isometry2d,
     pub vehicle_control: VehicleControl,
     pub control_status: VehicleControlStatus,
     pub grid_id: Ent,
@@ -77,9 +75,8 @@ impl Computer {
             fired_this_tick: false,
             iters: 0,
             mode: ComputerMode::Idle,
-            attitude: 0.0,
-            velocity: Vec2::ZERO,
-            position: Vec2::ZERO,
+            pose: Isometry2d::ZERO,
+            velocity: Isometry2d::ZERO,
             vehicle_control: VehicleControl::NULLOPT,
             control_status: VehicleControlStatus::Idling,
             grid_id,

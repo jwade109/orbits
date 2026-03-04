@@ -46,7 +46,7 @@ pub fn update_grid_acceleration(
         let Ok(grid) = grids.try_get_mut(grid_id) else {
             continue;
         };
-        grid.body_frame_forces = Isometry2d::IDENTITY;
+        grid.body_frame_forces = Isometry2d::ZERO;
         for thruster_id in &grid.thrusters {
             let Ok(thruster) = thrusters.try_get(*thruster_id) else {
                 continue;
@@ -951,7 +951,7 @@ mod tests {
         _ = world::set_thruster_state(thruster_id, &mut world, true);
         world::update_grid_acceleration([grid_id].into(), &mut world);
 
-        assert_eq!(grid_pose(&world.grids, grid_id), Some(Isometry2d::IDENTITY));
+        assert_eq!(grid_pose(&world.grids, grid_id), Some(Isometry2d::ZERO));
 
         let expected_poses = [
             (0.0, 0.0, 0.0),

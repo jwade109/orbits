@@ -250,11 +250,11 @@ pub fn position_hold_control_law(
     target: PV,
     target_angle: f64,
     body: &RigidBody,
-    vehicle: &Blueprint,
     gravity: DVec2,
 ) -> (VehicleControl, VehicleControlStatus) {
     if gravity.length() > 0.0 {
-        hover_control_law(target.pos, gravity, vehicle, body)
+        let vehicle = Blueprint::new();
+        hover_control_law(target.pos, gravity, &vehicle, body)
     } else {
         zero_gravity_control_law(target, target_angle, body, &PLACEHOLDER_PD)
     }

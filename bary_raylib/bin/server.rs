@@ -26,7 +26,7 @@ impl ServerApp {
             .blueprint("bellerophon")
             .blueprint("remora")
             .blueprint("spacestation")
-            .spawn("pollux", Isometry2d::IDENTITY)
+            .spawn("pollux", Isometry2d::ZERO)
             .spawn("remora", Isometry2d::from_pos(randvec(20.0, 40.0)))
             .spawn("remora", Isometry2d::from_pos(randvec(20.0, 40.0)))
             .spawn("remora", Isometry2d::from_pos(randvec(20.0, 40.0)))

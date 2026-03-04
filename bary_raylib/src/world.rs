@@ -480,6 +480,10 @@ fn select_hovered_vehicle_on_click(events: &VecDeque<Event>, sel: &mut Selection
 
 pub fn update_computers(computers: &mut Components<Computer>, grids: &Components<VehicleGrid>) {
     for computer in computers.values_mut() {
+        let Ok(grid) = grids.try_get(computer.grid_id) else {
+            continue;
+        };
+
         computer.status = match computer.on {
             true => MachineStatus::Running,
             false => MachineStatus::Off,
@@ -493,6 +497,33 @@ pub fn update_computers(computers: &mut Components<Computer>, grids: &Components
             }
         } else {
             computer.fired_this_tick = false;
+        }
+
+        if computer.fired_this_tick {
+            if computer.pose.translation == Vec2::ZERO {
+                computer.pose.translation = randvec(100.0, 300.0);
+                computer.pose.rotation = rand(0.1, 0.7);
+            } else {
+                computer.pose.translation += randvec(0.0, 2.0);
+                computer.pose.rotation += rand(-0.05, 0.05);
+            }
+
+            let actual = PV::from_f64(grid.pose.translation, grid.velocity.translation);
+            let target = PV::from_f64(computer.pose.translation, computer.velocity.translation);
+            let body = RigidBody {
+                pv: actual,
+                angle: grid.pose.rotation as f64,
+                angular_velocity: grid.velocity.rotation as f64,
+            };
+            let (ctrl, status) = position_hold_control_law(
+                target,
+                computer.pose.rotation as f64,
+                &body,
+                DVec2::ZERO,
+            );
+
+            computer.vehicle_control = ctrl;
+            computer.control_status = status;
         }
     }
 }

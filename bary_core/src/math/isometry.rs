@@ -8,7 +8,7 @@ pub struct Isometry2d {
 }
 
 impl Isometry2d {
-    pub const IDENTITY: Self = Self {
+    pub const ZERO: Self = Self {
         translation: Vec2::ZERO,
         rotation: 0.0,
     };
