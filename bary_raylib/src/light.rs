@@ -30,7 +30,6 @@ impl DutyCycle {
 #[derive(Deserialize, Serialize, Clone, Copy, Debug)]
 pub struct Light {
     pub cycle: DutyCycle,
-    pub ticks: u32,
     pub grid_id: Ent,
     pub prototype_id: Ent,
     pub position: Vec2,
@@ -43,15 +42,14 @@ impl Light {
         let delay = idx * 50;
         Self {
             cycle: DutyCycle::new(on, total, delay),
-            ticks: 0,
             grid_id,
             prototype_id,
             position: pos,
         }
     }
 
-    pub fn is_on(&self) -> bool {
-        self.cycle.is_on(self.ticks)
+    pub fn is_on(&self, t: u32) -> bool {
+        self.cycle.is_on(t)
     }
 }
 

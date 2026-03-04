@@ -1,7 +1,18 @@
+use crate::components::Components;
 use bary_core::prelude::*;
 use raylib::prelude::*;
 
-pub fn draw_window(d: &mut RaylibDrawHandle, title: &str, text: &str, origin: IVec2, font: &Font) {
+pub fn draw_window(d: &mut RaylibDrawHandle, window: &Window, font: &Font) {
+    draw_window_inner(d, &window.title, &window.content, window.origin, font);
+}
+
+fn draw_window_inner(
+    d: &mut RaylibDrawHandle,
+    title: &str,
+    text: &str,
+    origin: IVec2,
+    font: &Font,
+) {
     let font_size = 23;
     let spacing = 1.0;
     let padding = 7;
@@ -69,4 +80,14 @@ pub fn draw_window(d: &mut RaylibDrawHandle, title: &str, text: &str, origin: IV
         spacing,
         Color::WHITE,
     );
+}
+
+pub struct Window {
+    pub origin: IVec2,
+    pub title: String,
+    pub content: String,
+}
+
+pub struct UiState {
+    windows: Components<Window>,
 }

@@ -632,7 +632,6 @@ pub fn update_world(world: &mut World) -> (Vec<Action>, SoundEffects) {
     );
 
     update_ring_particles(&mut world.particles);
-    update_lights(&mut world.lights);
     update_computers(&mut world.computers, &world.grids);
     let dirty_set = update_thrusters(
         &mut world.thrusters,
@@ -724,12 +723,6 @@ fn update_ring_particles(particles: &mut Vec<PingParticle>) {
         ring.step()
     }
     particles.retain(|p| p.is_alive());
-}
-
-fn update_lights(lights: &mut Components<Light>) {
-    for light in lights.values_mut() {
-        light.ticks += 1;
-    }
 }
 
 pub fn push_event(world: &mut World, event: Event) {

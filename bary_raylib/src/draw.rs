@@ -10,7 +10,7 @@ use crate::result::BaryResult;
 use crate::ring_particle::*;
 use crate::systems::*;
 use crate::thruster::Thruster;
-use crate::ui::draw_window;
+use crate::ui::{Window, draw_window};
 use crate::utils::*;
 use crate::vehicle_grid::*;
 use crate::world::World;
@@ -81,7 +81,7 @@ pub fn draw_world(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
 
     draw_parts(&mut c, &world.grids, &world.parts, &raylib_camera);
     draw_thrusters(&mut c, &world.grids, &world.parts, &world.thrusters);
-    draw_lights(&mut c, &world.grids, &world.lights);
+    draw_lights(&mut c, &world.grids, &world.lights, world.ticks as u32);
 
     draw_computer_target_isometry(&mut c, &world.computers, &world.grids);
 
@@ -586,8 +586,14 @@ fn draw_selected_part_info(d: &mut RaylibDrawHandle, world: &World, assets: &Ass
         }
     }
 
+    let window = Window {
+        origin: IVec2::new(200, 60),
+        title: "Part Info".to_string(),
+        content: s,
+    };
+
     if let Some(font) = &assets.fira_code {
-        draw_window(d, "Part Info", &s, IVec2::new(200, 60), font);
+        draw_window(d, &window, font);
     }
 }
 
@@ -640,13 +646,14 @@ fn draw_lights(
     d: &mut RaylibDrawHandle,
     grids: &Components<VehicleGrid>,
     lights: &Components<Light>,
+    ticks: u32,
 ) {
     for light in lights.values() {
         let Some(grid) = grids.get(light.grid_id) else {
             continue;
         };
 
-        if light.is_on() {
+        if light.is_on(ticks) {
             let offset =
                 grid.pose.local_x() * light.position.x + grid.pose.local_y() * light.position.y;
             let mut light_isometry = grid.pose;
