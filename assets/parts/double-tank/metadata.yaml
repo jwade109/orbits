@@ -1,5 +1,6 @@
 name: "double-tank"
 mass: 500000
+layer: Internal
 dims: [6, 4]
 inventory_data:
   slots:

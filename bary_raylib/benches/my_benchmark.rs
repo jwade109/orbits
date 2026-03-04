@@ -6,7 +6,7 @@ use std::hint::black_box;
 
 fn criterion_benchmark(c: &mut Criterion) {
     let mut world = WorldBuilder::new()
-        .assets("../assets/")
+        .test_assets()
         .blueprint("pollux")
         .blueprint("bellerophon")
         .blueprint("remora")

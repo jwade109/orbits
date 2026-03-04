@@ -69,12 +69,11 @@ impl ComputerMode {
 
 impl Computer {
     pub fn new(grid_id: Ent, prototype: Ent) -> Self {
-        let n = randint(10, 100) as u32;
         Self {
             on: true,
             status: MachineStatus::Off,
             ticks_this_cycle: 0,
-            ticks_per_cycle: n,
+            ticks_per_cycle: 20,
             fired_this_tick: false,
             iters: 0,
             mode: ComputerMode::Idle,
@@ -90,25 +89,6 @@ impl Computer {
 
     pub fn toggle(&mut self) {
         self.on = !self.on;
-    }
-}
-
-pub fn update_computers(computers: &mut Components<Computer>) {
-    for computer in computers.values_mut() {
-        computer.status = match computer.on {
-            true => MachineStatus::Running,
-            false => MachineStatus::Off,
-        };
-        if computer.on {
-            computer.ticks_this_cycle += 1;
-            computer.fired_this_tick = computer.ticks_this_cycle == computer.ticks_per_cycle;
-            if computer.fired_this_tick {
-                computer.ticks_this_cycle = 0;
-                computer.iters += 1;
-            }
-        } else {
-            computer.fired_this_tick = false;
-        }
     }
 }
 

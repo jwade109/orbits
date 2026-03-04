@@ -37,6 +37,8 @@ fn draw_debug_info(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
     s += &format!("\nMemory: {:0.3} kb", size as f64 / 1000.0);
     s += &format!("\nZoom: {:0.3}", world.camera.zoom);
 
+    s += &format!("\nMPI {:#?}", world.selection_info.mouseover_part_info);
+    s += &format!("\nSPI {:#?}", world.selection_info.selected_part_info);
     s += &format!("\nMOUSE {:?}", world.mouse_screen_position);
     s += &format!("\nINP {:?}", &world.input);
     s += &format!("\nPRT {:?}", &world.particles.len());

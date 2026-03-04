@@ -36,9 +36,9 @@ pub struct Timers {
 
 #[derive(Default, Debug, Deserialize, Serialize, Clone)]
 pub struct SelectionInfo {
-    pub camera_hovered: Option<(Ent, Vec2)>,
-    pub mouse_hovered: Option<(Ent, Vec2)>,
-    pub selected: Option<(Ent, Vec2)>,
+    pub camera_hovered: Option<Ent>,
+    pub mouse_hovered: Option<Ent>,
+    pub selected_grid: Option<Ent>,
     pub mouseover_part_info: Option<(PartCoord, PartOccupancy)>,
     pub selected_part_info: Option<(PartCoord, PartOccupancy)>,
 }
@@ -348,11 +348,11 @@ fn toggle_following_on_key_f(
         return;
     }
 
-    let Some((id, _delta)) = sel.selected else {
+    let Some(grid_id) = sel.selected_grid else {
         return;
     };
 
-    *follow = Some(id);
+    *follow = Some(grid_id);
 }
 
 fn snap_camera_target_to_local_up(target: &mut Camera) {
@@ -401,10 +401,11 @@ fn update_selection_info(
     mouse_screen_position: Option<Vec2>,
     screen_dims: Vec2,
 ) {
-    info.camera_hovered = find::closest_grid(grids, camera.isometry.translation, 100.0);
+    info.camera_hovered =
+        find::closest_grid(grids, camera.isometry.translation, 100.0).map(|e| e.0);
     if let Some(pos) = mouse_screen_position {
         let pos = screen_to_world(camera, pos, screen_dims);
-        info.mouse_hovered = find::closest_grid(grids, pos, 100.0);
+        info.mouse_hovered = find::closest_grid(grids, pos, 100.0).map(|e| e.0);
     } else {
         info.mouse_hovered = None;
     }
@@ -422,10 +423,10 @@ fn update_mouseover_part_info(
     let Some(screen_pos) = mouse_screen_position else {
         return;
     };
-    let Some((id, _offset)) = sel.selected else {
+    let Some(grid_id) = sel.selected_grid else {
         return;
     };
-    let Ok(grid) = grids.try_get(id) else {
+    let Ok(grid) = grids.try_get(grid_id) else {
         return;
     };
 
@@ -466,10 +467,34 @@ fn select_hovered_vehicle_on_click(events: &VecDeque<Event>, sel: &mut Selection
         return;
     }
 
-    sel.selected = sel.mouse_hovered;
-    sel.selected_part_info = sel.mouseover_part_info;
+    let old_grid = sel.selected_grid;
 
-    info!("Selected {:?}", sel.selected)
+    sel.selected_grid = sel.mouse_hovered;
+
+    if old_grid.is_some() {
+        sel.selected_part_info = sel.mouseover_part_info;
+    }
+
+    info!("Selected {:?}", sel.selected_grid)
+}
+
+pub fn update_computers(computers: &mut Components<Computer>, grids: &Components<VehicleGrid>) {
+    for computer in computers.values_mut() {
+        computer.status = match computer.on {
+            true => MachineStatus::Running,
+            false => MachineStatus::Off,
+        };
+        if computer.on {
+            computer.ticks_this_cycle += 1;
+            computer.fired_this_tick = computer.ticks_this_cycle == computer.ticks_per_cycle;
+            if computer.fired_this_tick {
+                computer.ticks_this_cycle = 0;
+                computer.iters += 1;
+            }
+        } else {
+            computer.fired_this_tick = false;
+        }
+    }
 }
 
 pub fn update_world(world: &mut World) -> (Vec<Action>, SoundEffects) {
@@ -492,7 +517,7 @@ pub fn update_world(world: &mut World) -> (Vec<Action>, SoundEffects) {
 
     update_ring_particles(&mut world.particles);
     update_lights(&mut world.lights);
-    update_computers(&mut world.computers);
+    update_computers(&mut world.computers, &world.grids);
     let dirty_set = update_thrusters(&mut world.thrusters);
     update_grid_acceleration(dirty_set, &mut world.grids, &world.thrusters, &world.parts);
 
@@ -581,15 +606,6 @@ fn update_ring_particles(particles: &mut Vec<PingParticle>) {
 fn update_lights(lights: &mut Components<Light>) {
     for light in lights.values_mut() {
         light.ticks += 1;
-    }
-}
-
-fn camera_from_isometry(iso: Isometry2d) -> Camera2D {
-    Camera2D {
-        offset: Vector2::zero(),
-        target: glam_to_raylib_swap_y(iso.translation),
-        rotation: iso.rotation.to_degrees(),
-        zoom: 1.0,
     }
 }
 

@@ -32,17 +32,17 @@ fn draw_text(d: &mut RaylibDrawHandle, iso: Isometry2d, text: &str) {
     }
 }
 
-fn draw_isometry_axes(d: &mut RaylibDrawHandle, iso: Isometry2d, label: &str) {
-    let x = iso.translation + iso.local_x() * 10.0;
-    let y = iso.translation + iso.local_y() * 7.0;
+fn draw_isometry_axes(d: &mut RaylibDrawHandle, iso: Isometry2d, label: &str, scale: Vec2) {
+    let x = iso.translation + iso.local_x() * scale.x;
+    let y = iso.translation + iso.local_y() * scale.y;
 
     let p = glam_to_raylib_swap_y(iso.translation);
     let x = glam_to_raylib_swap_y(x);
     let y = glam_to_raylib_swap_y(y);
 
-    d.draw_circle_v(p, 0.1, Color::WHITE);
-    d.draw_circle_v(x, 0.1, Color::RED);
-    d.draw_circle_v(y, 0.1, Color::GREEN);
+    // d.draw_circle_v(p, 0.1, Color::WHITE);
+    // d.draw_circle_v(x, 0.1, Color::RED);
+    // d.draw_circle_v(y, 0.1, Color::GREEN);
 
     d.draw_line_ex(p, x, 0.1, Color::RED);
     d.draw_line_ex(p, y, 0.1, Color::GREEN);
@@ -105,6 +105,8 @@ pub fn draw_world(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
 
     draw_chat(d, &world.chat, world.screen_dims, assets);
 
+    draw_selected_part_info(d, &world);
+
     // draw_parts_zoo(&world.prototypes, &mut d);
     // draw_test_isos(&mut d)
 }
@@ -163,10 +165,10 @@ fn draw_focused_grid_cursor(
     parts: &Components<Part>,
     sel: &SelectionInfo,
 ) {
-    let Some((id, _offset)) = sel.selected else {
+    let Some(grid_id) = sel.selected_grid else {
         return;
     };
-    let Ok(grid) = grids.try_get(id) else {
+    let Ok(grid) = grids.try_get(grid_id) else {
         return;
     };
 
@@ -208,10 +210,10 @@ fn draw_selected_grid_info(
     grids: &Components<VehicleGrid>,
     screen_dims: Vec2,
 ) {
-    let Some((id, _offset)) = sel.selected else {
+    let Some(grid_id) = sel.selected_grid else {
         return;
     };
-    let Ok(grid) = grids.try_get(id) else {
+    let Ok(grid) = grids.try_get(grid_id) else {
         return;
     };
 
@@ -271,12 +273,6 @@ pub fn draw_parts(
     for grid in grids.values() {
         if camera.zoom > 2.0 {
             for draw_layer in PartLayer::draw_order() {
-                let color = match draw_layer {
-                    PartLayer::Exterior => Color::WHITE,
-                    PartLayer::Internal => Color::BLUE,
-                    PartLayer::Plumbing => continue,
-                    PartLayer::Structural => Color::GRAY,
-                };
                 for part_id in &grid.parts {
                     let Ok(part) = parts.try_get(*part_id) else {
                         continue;
@@ -285,6 +281,18 @@ pub fn draw_parts(
                     if part.layer != draw_layer {
                         continue;
                     }
+
+                    let color = match part.classification {
+                        PartClassification::Cargo => Color::GREEN,
+                        PartClassification::Machine => Color::PURPLE,
+                        PartClassification::Thruster => Color::MAROON,
+                        PartClassification::Auxiliary => Color::YELLOW,
+                        PartClassification::DockingPort => Color::ORANGE,
+                        PartClassification::Computer => Color::RED,
+                        PartClassification::Structure => Color::GRAY.alpha(0.2),
+                        PartClassification::Decoration => Color::WHITE.alpha(0.2),
+                        PartClassification::Other => Color::GRAY,
+                    };
 
                     let iso = part_isometry(grid.pose, part.placement);
                     let dims = part.placement.part_aligned_dims().to_meters();
@@ -334,7 +342,7 @@ fn draw_test_isos(d: &mut RaylibDrawHandle) {
     for (color, iso) in test_isos {
         let dims = Vec2::new(10.0, 4.0);
         fill_rectangle(d, iso, dims, color.alpha(0.5));
-        draw_isometry_axes(d, iso, "TST");
+        draw_isometry_axes(d, iso, "TST", Vec2::splat(8.0));
     }
 }
 
@@ -485,20 +493,48 @@ fn draw_selection_info(
     grids: &Components<VehicleGrid>,
     sel: &SelectionInfo,
 ) -> BaryResult<()> {
-    if let Some((grid_id, _)) = sel.camera_hovered {
+    if let Some(grid_id) = sel.camera_hovered {
         let grid = grids.try_get(grid_id)?;
         draw_circle(d, grid.pose.translation, 15.0, Color::RED);
     }
-    if let Some((grid_id, _)) = sel.mouse_hovered {
+    if let Some(grid_id) = sel.mouse_hovered {
         let grid = grids.try_get(grid_id)?;
         draw_circle(d, grid.pose.translation, 16.0, Color::GREEN);
     }
-    if let Some((grid_id, _)) = sel.selected {
+    if let Some(grid_id) = sel.selected_grid {
         let grid = grids.try_get(grid_id)?;
         draw_circle(d, grid.pose.translation, 17.0, Color::BLUE);
         draw_circle(d, grid.pose.translation, 18.0, Color::BLUE);
     }
     Ok(())
+}
+
+fn draw_selected_part_info(d: &mut RaylibDrawHandle, world: &World) {
+    let Some((_coord, occ)) = world.selection_info.selected_part_info else {
+        return;
+    };
+
+    let mut s = format!("{:?}", occ.to_array());
+
+    for part_id in occ.iter() {
+        let Ok(part) = world.parts.try_get(part_id) else {
+            return;
+        };
+
+        s += &format!("\n{}: {:?}", part_id, part);
+
+        if let Ok(proto) = world.prototypes.try_get(part.prototype) {
+            s += &format!("\n{:?}", proto.name);
+        }
+        if let Ok(cpu) = world.computers.try_get(part_id) {
+            s += &format!("\n{:#?}", cpu);
+        }
+        if let Ok(thruster) = world.thrusters.try_get(part_id) {
+            s += &format!("\n{:#?}", thruster);
+        }
+    }
+
+    d.draw_text(&s, 200, 20, 18, Color::ORANGE);
 }
 
 fn draw_thrusters(

@@ -12,17 +12,20 @@ pub enum PartClassification {
     Thruster,
     Auxiliary,
     DockingPort,
+    Computer,
+    Structure,
+    Decoration,
     Other,
 }
 
 pub type PartDatabase = HashMap<String, PartPrototype>;
 
-#[derive(Deserialize, Serialize, Debug, Clone, Default)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct PartPrototype {
     pub name: String,
     pub mass: Mass,
     pub dims: UVec2,
-    pub layer: Option<PartLayer>,
+    pub layer: PartLayer,
     pub excavator_data: Option<ExcavatorData>,
     pub computer_data: Option<ComputerData>,
     pub inventory_data: Option<InventoryData>,
@@ -47,12 +50,14 @@ impl PartPrototype {
             PartClassification::Machine
         } else if let Some(_) = &self.inventory_data {
             PartClassification::Cargo
+        } else if let Some(_) = &self.computer_data {
+            PartClassification::Computer
         } else {
             match self.layer() {
                 PartLayer::Internal => PartClassification::Auxiliary,
                 PartLayer::Plumbing => PartClassification::Other,
-                PartLayer::Structural => PartClassification::Other,
-                PartLayer::Exterior => PartClassification::Other,
+                PartLayer::Structural => PartClassification::Structure,
+                PartLayer::Exterior => PartClassification::Decoration,
             }
         }
     }
@@ -84,7 +89,7 @@ impl PartPrototype {
     }
 
     pub fn layer(&self) -> PartLayer {
-        self.layer.unwrap_or(PartLayer::Internal)
+        self.layer
     }
 
     pub fn sprites(&self) -> usize {

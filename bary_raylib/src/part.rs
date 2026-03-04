@@ -9,4 +9,5 @@ pub struct Part {
     pub layer: PartLayer,
     pub prototype: Ent,
     pub grid_id: Ent,
+    pub classification: PartClassification,
 }

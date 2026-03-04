@@ -190,7 +190,7 @@ pub fn insert_part(
     lights: &mut Components<Light>,
     instance: &PartInstance,
 ) -> BaryResult<Ent> {
-    debug!("Inserting part {} into grid {}", instance.name, grid_id);
+    debug!("Inserting part \"{}\" into grid \"{}\" in layer {:?}", instance.name, grid_id, instance.layer);
     let grid = grids.try_get_mut(grid_id)?;
     let proto_id = find::part_by_name(prototypes, &instance.name).ok_or(BaryError::BadPartName)?;
     let proto = prototypes.try_get(proto_id)?;
@@ -203,6 +203,7 @@ pub fn insert_part(
         layer: instance.layer(),
         prototype: proto_id,
         grid_id,
+        classification: proto.classification(),
     };
 
     let part_id = counter.spawn();
@@ -919,7 +920,7 @@ mod tests {
             name: part_name.to_string(),
             mass: Mass::kilograms(1000),
             dims: UVec2::new(4, 2),
-            layer: Some(PartLayer::Internal),
+            layer: PartLayer::Internal,
             excavator_data: None,
             computer_data: None,
             inventory_data: None,

@@ -4,10 +4,10 @@ use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, Default)]
 pub struct PartOccupancy {
-    internal: Option<Ent>,
-    structural: Option<Ent>,
-    external: Option<Ent>,
-    plumbing: Option<Ent>,
+    pub internal: Option<Ent>,
+    pub structural: Option<Ent>,
+    pub external: Option<Ent>,
+    pub plumbing: Option<Ent>,
 }
 
 impl PartOccupancy {
@@ -22,6 +22,10 @@ impl PartOccupancy {
         }
     }
 
+    pub fn to_array(&self) -> [Option<Ent>; 4] {
+        [self.internal, self.structural, self.external, self.plumbing]
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = Ent> + use<'_> {
         [self.internal, self.structural, self.external, self.plumbing]
             .into_iter()
@@ -33,7 +37,7 @@ impl PartOccupancy {
     }
 
     pub fn mark_structural(&mut self, id: impl Into<Option<Ent>>) {
-        self.internal = id.into();
+        self.structural = id.into();
     }
 
     pub fn mark_external(&mut self, id: impl Into<Option<Ent>>) {
@@ -47,7 +51,7 @@ impl PartOccupancy {
     pub fn mark(&mut self, layer: PartLayer, id: impl Into<Option<Ent>>) {
         match layer {
             PartLayer::Internal => self.mark_internal(id),
-            PartLayer::Structural => self.mark_internal(id),
+            PartLayer::Structural => self.mark_structural(id),
             PartLayer::Exterior => self.mark_external(id),
             PartLayer::Plumbing => self.mark_plumbing(id),
         }
