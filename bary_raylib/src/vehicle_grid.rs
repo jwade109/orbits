@@ -33,10 +33,15 @@ impl PartOccupancy {
         [self.internal, self.structural, self.external, self.plumbing]
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = Ent> + use<'_> {
-        [self.internal, self.structural, self.external, self.plumbing]
-            .into_iter()
-            .filter_map(|e| e)
+    pub fn iter(&self) -> impl Iterator<Item = (PartLayer, Ent)> + use<'_> {
+        [
+            self.internal.map(|e| (PartLayer::Internal, e)),
+            self.structural.map(|e| (PartLayer::Structural, e)),
+            self.external.map(|e| (PartLayer::Exterior, e)),
+            self.plumbing.map(|e| (PartLayer::Plumbing, e)),
+        ]
+        .into_iter()
+        .filter_map(|e| e)
     }
 
     pub fn mark_internal(&mut self, id: impl Into<Option<Ent>>) {

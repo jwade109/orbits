@@ -33,7 +33,11 @@ fn draw_debug_info(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
     s += &format!("\nR\n{}", fmt_time(world.timers.render, world.timers.total));
     s += &format!("\nT\n{}", fmt_time(world.timers.total, world.timers.total));
 
-    s += &format!("\n{}", world.ticks);
+    s += &format!(
+        "\n{} {:0.1}",
+        world.ticks,
+        apparent_elapsed_time(world).as_secs_f64()
+    );
     s += &format!("\nMemory: {:0.3} kb", size as f64 / 1000.0);
     s += &format!("\nZoom: {:0.3}", world.camera.zoom);
 
@@ -140,7 +144,7 @@ fn main() {
         network_thread(incoming_network_queue_copy, outgoing_network_queue_copy);
     });
 
-    rl.set_target_fps(240);
+    // rl.set_target_fps(240);
     // rl.maximize_window();
     rl.set_exit_key(None);
 

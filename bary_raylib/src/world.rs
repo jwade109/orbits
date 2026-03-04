@@ -47,6 +47,7 @@ pub struct SelectionInfo {
 pub struct Assets {
     pub circle_texture: MaybeTexture,
     pub lato_regular: MaybeFont,
+    pub fira_code: MaybeFont,
     pub part_textures: BTreeMap<String, Texture2D>,
 }
 
@@ -138,7 +139,8 @@ pub fn load_assets(
 ) {
     debug!("Loading assets");
     assets.circle_texture = rl.load_texture(thread, "assets/circle.png").ok();
-    assets.lato_regular = rl.load_font(thread, "assets/fonts/Lato-Regular.ttf").ok();
+    assets.lato_regular = rl.load_font_ex(thread, "assets/fonts/Lato-Regular.ttf", 48, None).ok();
+    assets.fira_code = rl.load_font_ex(thread, "assets/fonts/FiraCode-Bold.ttf", 128, None).ok();
 
     // for (proto, tex) in assets.part_textures.values_mut() {
     //     let filename = format!("assets/parts/{}/skin.png", proto.part_name());

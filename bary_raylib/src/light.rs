@@ -1,7 +1,7 @@
 use bary_core::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, Copy, Debug)]
 pub struct DutyCycle {
     /// number of ticks spent high
     pub on: u32,
@@ -27,7 +27,7 @@ impl DutyCycle {
     }
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, Copy, Debug)]
 pub struct Light {
     pub cycle: DutyCycle,
     pub ticks: u32,

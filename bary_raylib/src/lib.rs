@@ -1,4 +1,5 @@
 pub mod camera;
+pub mod chat;
 pub mod components;
 pub mod computer;
 pub mod draw;
@@ -11,8 +12,8 @@ pub mod result;
 pub mod ring_particle;
 pub mod sounds;
 pub mod systems;
-pub mod chat;
 pub mod thruster;
+pub mod ui;
 pub mod utils;
 pub mod vehicle_grid;
 pub mod wall_timer;

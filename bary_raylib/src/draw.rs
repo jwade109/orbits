@@ -10,6 +10,7 @@ use crate::result::BaryResult;
 use crate::ring_particle::*;
 use crate::systems::*;
 use crate::thruster::Thruster;
+use crate::ui::draw_window;
 use crate::utils::*;
 use crate::vehicle_grid::*;
 use crate::world::World;
@@ -108,7 +109,7 @@ pub fn draw_world(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
 
     draw_chat(d, &world.chat, world.screen_dims, assets);
 
-    draw_selected_part_info(d, &world);
+    draw_selected_part_info(d, &world, assets);
 
     // draw_parts_zoo(&world.prototypes, &mut d);
     // draw_test_isos(&mut d)
@@ -186,7 +187,7 @@ fn draw_focused_grid_cursor(
         let iso = grid.pose.offset(coord.to_meters());
         fill_rectangle(d, iso, Vec2::splat(size), Color::GREEN);
 
-        for id in occ.iter() {
+        for (_layer, id) in occ.iter() {
             if let Ok(part) = parts.try_get(id) {
                 draw_grid_placement(
                     d,
@@ -529,32 +530,65 @@ fn draw_selection_info(
     Ok(())
 }
 
-fn draw_selected_part_info(d: &mut RaylibDrawHandle, world: &World) {
-    let Some((_coord, occ)) = world.selection_info.selected_part_info else {
+fn computer_info_str(cpu: &Computer) -> (String, usize) {
+    let lines = [
+        format!("CPU INFO ==="),
+        format!("\n  On: {}", cpu.on),
+        format!("\n  Status: {:?}", cpu.status),
+        format!("\n  Ticks: {}", cpu.ticks_this_cycle),
+        format!("\n  Fired: {}", cpu.fired_this_tick),
+        format!("\n  Mode: {:?}", cpu.mode),
+        format!("\n  Pose: {:?}", cpu.pose.to_tuple()),
+        format!("\n  Vel: {:?}", cpu.velocity.to_tuple()),
+    ];
+
+    let len = lines.len();
+    (lines.into_iter().collect(), len)
+}
+
+fn draw_selected_part_info(d: &mut RaylibDrawHandle, world: &World, assets: &Assets) {
+    let Some((coord, occ)) = world.selection_info.selected_part_info else {
         return;
     };
 
-    let mut s = format!("{:?}", occ.to_array());
+    let mut s = format!("At {}: {:?}", coord, occ.to_array());
 
-    for part_id in occ.iter() {
+    for (layer, part_id) in occ.iter() {
         let Ok(part) = world.parts.try_get(part_id) else {
             return;
         };
 
-        s += &format!("\n{}: {:?}", part_id, part);
+        s += &format!("\n\nPart ID: {}", part_id);
+        s += &format!(
+            "\nPlacement: {:?} {} {:?}",
+            layer,
+            part.placement.bottom_left(),
+            part.placement.rot()
+        );
 
         if let Ok(proto) = world.prototypes.try_get(part.prototype) {
-            s += &format!("\n{:?}", proto.name);
+            s += &format!(
+                "\nPrototype: {} {} {:?}",
+                proto.name,
+                proto.mass,
+                proto.classification()
+            );
         }
         if let Ok(cpu) = world.computers.try_get(part_id) {
-            s += &format!("\n{:#?}", cpu);
+            let info = computer_info_str(cpu);
+            s += &format!("\n{}", info.0);
         }
         if let Ok(thruster) = world.thrusters.try_get(part_id) {
             s += &format!("\n{:#?}", thruster);
         }
+        if let Ok(light) = world.lights.try_get(part_id) {
+            s += &format!("\n{:#?}", light);
+        }
     }
 
-    d.draw_text(&s, 200, 20, 18, Color::ORANGE);
+    if let Some(font) = &assets.fira_code {
+        draw_window(d, "Part Info", &s, IVec2::new(200, 60), font);
+    }
 }
 
 fn draw_thrusters(
