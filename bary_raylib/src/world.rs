@@ -480,7 +480,7 @@ fn update_mouseover_part_info(
     camera: &Camera,
     sounds: &mut SoundEffects,
 ) {
-    let old_mouseover = sel.mouseover_part_info.map(|(_, occ)| occ);
+    let old_parts = sel.mouseover_part_info.map(|(_, occ)| occ);
 
     sel.mouseover_part_info = None;
 
@@ -502,7 +502,10 @@ fn update_mouseover_part_info(
 
     sel.mouseover_part_info = Some((coord, *occ));
 
-    if old_mouseover != sel.mouseover_part_info.map(|(_, occ)| occ) {
+    let new_parts = sel.mouseover_part_info.map(|(_, occ)| occ);
+    let has_new_parts = new_parts.map(|e| e.has_any()).unwrap_or(false);
+
+    if old_parts != new_parts && has_new_parts {
         sounds.effects.push(SoundEffect::MouseoverPart);
     }
 }

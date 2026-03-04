@@ -22,6 +22,13 @@ impl PartOccupancy {
         }
     }
 
+    pub fn has_any(&self) -> bool {
+        self.internal.is_some()
+            || self.structural.is_some()
+            || self.external.is_some()
+            || self.plumbing.is_some()
+    }
+
     pub fn to_array(&self) -> [Option<Ent>; 4] {
         [self.internal, self.structural, self.external, self.plumbing]
     }

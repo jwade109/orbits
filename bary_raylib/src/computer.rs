@@ -71,7 +71,7 @@ impl Computer {
             on: false,
             status: MachineStatus::Off,
             ticks_this_cycle: 0,
-            ticks_per_cycle: 20,
+            ticks_per_cycle: 45,
             fired_this_tick: false,
             iters: 0,
             mode: ComputerMode::Idle,

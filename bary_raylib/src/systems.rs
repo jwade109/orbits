@@ -10,6 +10,13 @@ use crate::vehicle_grid::*;
 use crate::world::*;
 use bary_core::prelude::*;
 use log::{debug, info};
+use std::time::Duration;
+
+pub const TICKS_PER_SECOND: u64 = 50;
+
+pub fn apparent_elapsed_time(world: &World) -> Duration {
+    Duration::from_millis(1000 / TICKS_PER_SECOND * world.ticks)
+}
 
 pub fn spawn_grid_from_blueprint(
     counter: &mut EntitySpawner,
@@ -1149,27 +1156,64 @@ mod tests {
         }
     }
 
-    #[cfg(test)]
-    mod tests {
-        use super::*;
+    #[test]
+    fn snap_camera_to_local_planet() {
+        let mut world = World::empty();
 
-        #[test]
-        fn snap_camera_to_local_planet() {
-            let mut world = World::empty();
+        world.target_camera.isometry.translation = Vec2::new(100.0, 300.0);
+        world.snap_camera_to_local_planet = true;
 
-            world.target_camera.isometry.translation = Vec2::new(100.0, 300.0);
-            world.snap_camera_to_local_planet = true;
+        for _ in 0..100 {
+            update_world(&mut world);
+        }
 
-            for _ in 0..100 {
+        assert_eq!(
+            world.camera.isometry.translation,
+            Vec2::new(99.999985, 299.99994)
+        );
+        assert_eq!(world.camera.isometry.rotation, 2.8198416);
+        assert_eq!(world.camera.zoom, 7.999999);
+    }
+
+    #[test]
+    fn vehicle_arrives_at_its_destination() {
+        // disclaimer: this is a very fragile test, and can be affected
+        // by fuel requirements, changing ship design, etc.
+        // I wouldn't be surprised if I have to get rid of it.
+        // But it's good for now.
+
+        let waypoint: Isometry2d = (600.0, 800.0, 0.5).into();
+
+        let mut world = WorldBuilder::new()
+            .test_assets()
+            .blueprint("pollux")
+            .spawn("pollux", Isometry2d::ZERO)
+            .waypoint("pollux", waypoint)
+            .build();
+
+        let grid_id = find::grid_by_name(&world.grids, "pollux").unwrap();
+
+        for _ in 0..20 {
+            for _ in 0..1000 {
                 update_world(&mut world);
             }
 
-            assert_eq!(
-                world.camera.isometry.translation,
-                Vec2::new(99.999985, 299.99994)
+            let elapsed = apparent_elapsed_time(&world);
+            let pose = find::grid_pose(&world.grids, grid_id).unwrap().to_tuple();
+            println!(
+                "{} ({:0.1}): {}, {}, {}",
+                world.ticks,
+                elapsed.as_secs_f64(),
+                pose.0,
+                pose.1,
+                pose.2
             );
-            assert_eq!(world.camera.isometry.rotation, 2.8198416);
-            assert_eq!(world.camera.zoom, 7.999999);
         }
+
+        let pose = find::grid_pose(&world.grids, grid_id).unwrap();
+        let error = pose.translation - waypoint.translation;
+
+        assert!(error.x.abs() < 3.0);
+        assert!(error.y.abs() < 3.0);
     }
 }
