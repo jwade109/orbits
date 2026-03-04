@@ -1,10 +1,10 @@
 [values.58]
 on = true
 status = "Running"
-ticks_this_cycle = 34
-ticks_per_cycle = 42
+ticks_this_cycle = 64
+ticks_per_cycle = 78
 fired_this_tick = false
-iters = 23
+iters = 12
 mode = "Idle"
 attitude = 0.0
 velocity = [0.0, 0.0]
@@ -35,10 +35,10 @@ throttle = 0.0
 [values.152]
 on = true
 status = "Running"
-ticks_this_cycle = 80
-ticks_per_cycle = 92
+ticks_this_cycle = 54
+ticks_per_cycle = 86
 fired_this_tick = false
-iters = 10
+iters = 11
 mode = "Idle"
 attitude = 0.0
 velocity = [0.0, 0.0]
@@ -63,5 +63,39 @@ use_rcs = false
 throttle = 0.0
 
 [values.152.vehicle_control.neg_y]
+use_rcs = false
+throttle = 0.0
+
+[values.244]
+on = true
+status = "Running"
+ticks_this_cycle = 1
+ticks_per_cycle = 27
+fired_this_tick = false
+iters = 37
+mode = "Idle"
+attitude = 0.0
+velocity = [0.0, 0.0]
+position = [0.0, 0.0]
+control_status = "Idling"
+grid_id = 165
+prototype = 6
+
+[values.244.vehicle_control]
+attitude = 0.0
+
+[values.244.vehicle_control.plus_x]
+use_rcs = false
+throttle = 0.0
+
+[values.244.vehicle_control.plus_y]
+use_rcs = false
+throttle = 0.0
+
+[values.244.vehicle_control.neg_x]
+use_rcs = false
+throttle = 0.0
+
+[values.244.vehicle_control.neg_y]
 use_rcs = false
 throttle = 0.0

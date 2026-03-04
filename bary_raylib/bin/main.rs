@@ -86,32 +86,32 @@ fn main() {
     let os = std::env::consts::OS;
     println!("{}", os);
 
-    let client = steamworks::Client::init();
+    // let client = steamworks::Client::init();
 
-    if let Ok(client) = &client {
-        let _cb = client.register_callback(|p: PersonaStateChange| {
-            println!("Got callback: {:?}", p);
-        });
+    // if let Ok(client) = &client {
+    //     let _cb = client.register_callback(|p: PersonaStateChange| {
+    //         println!("Got callback: {:?}", p);
+    //     });
 
-        let _cb2 = client.register_callback(|p: LobbyChatMsg| {
-            println!("Got callback: {:?}", p);
-        });
+    //     let _cb2 = client.register_callback(|p: LobbyChatMsg| {
+    //         println!("Got callback: {:?}", p);
+    //     });
 
-        let _cb3 = client.register_callback(|p: LobbyEnter| {
-            println!("Got callback: {:?}", p);
-        });
+    //     let _cb3 = client.register_callback(|p: LobbyEnter| {
+    //         println!("Got callback: {:?}", p);
+    //     });
 
-        let mm = client.matchmaking();
+    //     let mm = client.matchmaking();
 
-        mm.create_lobby(steamworks::LobbyType::FriendsOnly, 12, |r| match r {
-            Ok(id) => {
-                println!("Created new lobby: {:?}", id);
-            }
-            Err(e) => {
-                println!("Failed to create lobby: {:?}", e);
-            }
-        });
-    }
+    //     mm.create_lobby(steamworks::LobbyType::FriendsOnly, 12, |r| match r {
+    //         Ok(id) => {
+    //             println!("Created new lobby: {:?}", id);
+    //         }
+    //         Err(e) => {
+    //             println!("Failed to create lobby: {:?}", e);
+    //         }
+    //     });
+    // }
 
     let (mut rl, thread) = raylib::init()
         .size(1080, 700)

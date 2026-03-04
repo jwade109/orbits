@@ -186,3 +186,451 @@ is_rcs = true
 thrust = 4000.0
 prototype = 20
 grid_id = 133
+
+[values.175]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.187]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.188]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.192]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.193]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.194]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.195]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.196]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.197]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.202]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.204]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.205]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.207]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.223]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.224]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.226]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.229]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.230]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.232]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.233]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.238]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.245]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.247]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.250]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.252]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.256]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.257]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.261]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.263]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.270]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.274]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.280]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.282]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.284]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.289]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.290]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.294]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.295]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.298]
+is_on = false
+is_rcs = false
+thrust = 400000.0
+prototype = 16
+grid_id = 165
+
+[values.304]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.311]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.312]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.323]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.324]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.325]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.335]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.337]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.342]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.343]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.345]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.352]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.357]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.359]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.365]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.366]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.369]
+is_on = false
+is_rcs = false
+thrust = 400000.0
+prototype = 16
+grid_id = 165
+
+[values.375]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.385]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.386]
+is_on = false
+is_rcs = false
+thrust = 400000.0
+prototype = 16
+grid_id = 165
+
+[values.390]
+is_on = false
+is_rcs = false
+thrust = 400000.0
+prototype = 16
+grid_id = 165
+
+[values.392]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.394]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.397]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165
+
+[values.401]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+prototype = 20
+grid_id = 165

@@ -105,6 +105,7 @@ mod tests {
             .blueprint("foundation")
             .spawn("pollux", (120.0, 43.0, 0.4))
             .spawn("remora", (-30.0, 21.0, -0.1))
+            .spawn("bellerophon", (50.0, 109.0, 1.4))
             .build();
 
         for _ in 0..1000 {
@@ -122,7 +123,7 @@ mod tests {
 
         let world = load_world(save_path).expect("Expected successful load");
 
-        assert_eq!(world.grids.len(), 2);
-        assert_eq!(world.parts.len(), 129);
+        assert_eq!(world.grids.len(), 3);
+        assert_eq!(world.parts.len(), 374);
     }
 }

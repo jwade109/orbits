@@ -61,7 +61,7 @@ pub struct VehicleGrid {
     pub moment_of_inertia: f32,
     pub pose: Isometry2d,
     pub velocity: Isometry2d,
-    pub forces: Isometry2d,
+    pub body_frame_forces: Isometry2d,
     pub parts: Vec<Ent>,
     pub thrusters: Vec<Ent>,
     pub computers: Vec<Ent>,
@@ -77,10 +77,10 @@ impl VehicleGrid {
         VehicleGrid {
             name: name.into(),
             parts_mass: Mass::ZERO,
-            moment_of_inertia: 1000000.0,
+            moment_of_inertia: 0.0,
             pose: Isometry2d::IDENTITY,
             velocity: Isometry2d::IDENTITY,
-            forces: Isometry2d::IDENTITY,
+            body_frame_forces: Isometry2d::IDENTITY,
             parts: Vec::new(),
             thrusters: Vec::new(),
             computers: Vec::new(),
@@ -90,11 +90,11 @@ impl VehicleGrid {
     }
 
     pub fn linear_acceleration(&self) -> Vec2 {
-        self.forces.translation / self.parts_mass.to_kg_f64() as f32
+        self.body_frame_forces.translation / self.parts_mass.to_kg_f64() as f32
     }
 
     pub fn angular_acceleration(&self) -> f32 {
-        self.forces.rotation / self.moment_of_inertia
+        self.body_frame_forces.rotation / self.moment_of_inertia
     }
 
     /// TODO test this.

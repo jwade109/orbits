@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use crate::components::*;
 use crate::computer::*;
 use crate::light::*;
@@ -35,12 +37,16 @@ pub fn spawn_grid_from_blueprint(
 }
 
 pub fn update_grid_acceleration(
+    dirty_set: BTreeSet<Ent>,
     grids: &mut Components<VehicleGrid>,
     thrusters: &Components<Thruster>,
     parts: &Components<Part>,
 ) {
-    for grid in grids.values_mut() {
-        grid.forces = Isometry2d::IDENTITY;
+    for grid_id in dirty_set {
+        let Ok(grid) = grids.try_get_mut(grid_id) else {
+            continue;
+        };
+        grid.body_frame_forces = Isometry2d::IDENTITY;
         for thruster_id in &grid.thrusters {
             let Ok(thruster) = thrusters.try_get(*thruster_id) else {
                 continue;
@@ -57,8 +63,8 @@ pub fn update_grid_acceleration(
             let iso = part.placement.center_isometry();
             let thrust_vector = part.placement.rot().to_dir().as_vec2() * thruster.thrust;
             let torque = cross2d(iso.translation, thrust_vector);
-            grid.forces.translation += thrust_vector;
-            grid.forces.rotation += torque as f32;
+            grid.body_frame_forces.translation += thrust_vector;
+            grid.body_frame_forces.rotation += torque as f32;
         }
     }
 }
@@ -68,8 +74,13 @@ pub mod world {
 
     use super::*;
 
-    pub fn update_grid_acceleration(world: &mut World) {
-        super::update_grid_acceleration(&mut world.grids, &world.thrusters, &world.parts);
+    pub fn update_grid_acceleration(dirty_set: BTreeSet<Ent>, world: &mut World) {
+        super::update_grid_acceleration(
+            dirty_set,
+            &mut world.grids,
+            &world.thrusters,
+            &world.parts,
+        );
     }
 
     /// Spawns a grid according to the given blueprint.
@@ -185,6 +196,7 @@ pub fn insert_part(
     let proto = prototypes.try_get(proto_id)?;
 
     grid.parts_mass += proto.mass;
+    grid.moment_of_inertia += proto.mass.to_kg_f64() as f32 * 100.0;
 
     let part = Part {
         placement: instance.placement,
@@ -742,7 +754,7 @@ mod tests {
         let r1 = world::set_thruster_state(a_id, &mut world, true);
         let r2 = world::set_thruster_state(b_id, &mut world, true);
 
-        world::update_grid_acceleration(&mut world);
+        world::update_grid_acceleration([grid_id].into(), &mut world);
 
         assert_eq!(r1, Ok(()));
         assert_eq!(r2, Ok(()));
@@ -755,31 +767,37 @@ mod tests {
 
         let grid = world.grids.try_get(grid_id).unwrap();
 
-        assert_eq!(grid.forces.translation, Vec2::new(400000.0, 320000.0));
+        assert_eq!(
+            grid.body_frame_forces.translation,
+            Vec2::new(400000.0, 320000.0)
+        );
 
         let r1 = world::set_thruster_state(a_id, &mut world, false);
         let r2 = world::set_thruster_state(b_id, &mut world, true);
 
-        world::update_grid_acceleration(&mut world);
+        world::update_grid_acceleration([grid_id].into(), &mut world);
 
         assert_eq!(r1, Ok(()));
         assert_eq!(r2, Ok(()));
 
         let grid = world.grids.try_get(grid_id).unwrap();
 
-        assert_eq!(grid.forces.translation, Vec2::new(0.0, 320000.0));
+        assert_eq!(grid.body_frame_forces.translation, Vec2::new(0.0, 320000.0));
 
         let r1 = world::set_thruster_state(a_id, &mut world, false);
         let r2 = world::set_thruster_state(b_id, &mut world, false);
 
-        world::update_grid_acceleration(&mut world);
+        world::update_grid_acceleration([grid_id].into(), &mut world);
 
         assert_eq!(r1, Ok(()));
         assert_eq!(r2, Ok(()));
 
         let grid = world.grids.try_get(grid_id).unwrap();
 
-        assert_eq!(grid.forces.translation, IVec2::new(0, 0).as_vec2());
+        assert_eq!(
+            grid.body_frame_forces.translation,
+            IVec2::new(0, 0).as_vec2()
+        );
     }
 
     #[test]
@@ -816,7 +834,7 @@ mod tests {
         let mut world = WorldBuilder::new().assets("../assets/").build();
 
         // modifying the prototype for motor so it has easy quantities
-        let proto_id = find::part_by_name(&world.prototypes, "motor").unwrap();
+        let proto_id = find::part_by_name(&world.prototypes, "small-motor").unwrap();
         let proto = world.prototypes.try_get_mut(proto_id).unwrap();
 
         proto.mass = Mass::kilograms(1000);
@@ -825,29 +843,38 @@ mod tests {
             t.thrust = 3500.0;
         }
 
+        let dims = proto.dims;
+
         let grid_id = world::spawn_empty_grid(&mut world, "testbed");
 
         let instance = PartInstance {
-            name: "motor".to_string(),
+            name: "small-motor".to_string(),
             layer: PartLayer::Internal,
-            placement: GridPlacement::new((0, 0), Rotation::East, (6, 3)),
+            placement: GridPlacement::new((0, -1), Rotation::East, dims),
         };
 
         let thruster_id = world::insert_part(grid_id, &mut world, &instance).unwrap();
+
+        let center_isometry = instance.placement.center_isometry();
+
+        let com = get_parts_center_of_mass(grid_id, &world);
+        assert_eq!(com, Ok(Vec2::X * center_isometry.translation.x));
 
         // obviously, turn the main thruster on
         let r = world::set_thruster_state(thruster_id, &mut world, true);
         assert_eq!(r, Ok(()));
 
-        world::update_grid_acceleration(&mut world);
+        world::update_grid_acceleration([grid_id].into(), &mut world);
 
         let grid = world.grids.try_get(grid_id).unwrap();
 
-        assert_eq!(grid.forces.translation, Vec2::new(3500.0, 0.0));
+        assert_eq!(grid.body_frame_forces.translation, Vec2::new(3500.0, 0.0));
+        assert_eq!(grid.body_frame_forces.rotation, 0.0);
         assert_eq!(grid.parts_mass, Mass::kilograms(1000));
 
         // body frame acceleration should be 3.5 m/s^2
         assert_eq!(grid.linear_acceleration(), Vec2::new(3.5, 0.0));
+        assert_eq!(grid.angular_acceleration(), 0.0);
 
         // run the simulation for 2 seconds at 50 Hz
         for _ in 0..100 {
@@ -855,6 +882,8 @@ mod tests {
         }
 
         let iso = world.grids.try_get(grid_id).unwrap().pose;
+
+        assert_eq!(iso.rotation, 0.0);
 
         // this is an approximation of the following
         // continuous time kinematic equation:

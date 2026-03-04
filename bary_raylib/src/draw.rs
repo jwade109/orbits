@@ -220,11 +220,15 @@ fn draw_selected_grid_info(
     let title_label = format!("\"{}\"", grid.name);
     let parts_label = format!("{} parts - {}", grid.parts.len(), grid.parts_mass);
     let vel_label = format!("{:0.2} m/s", grid.velocity.translation);
+    let accel_label = format!("{:0.2} m/s^2", grid.linear_acceleration());
+
+    let hx = screen_dims.x / 2.0;
 
     let labels = [
-        (title_label, screen_dims.x / 2.0, 20.0),
-        (parts_label, screen_dims.x / 2.0, 50.0),
-        (vel_label, screen_dims.x / 2.0, screen_dims.y - 50.0),
+        (title_label, hx, 20.0),
+        (parts_label, hx, 50.0),
+        (vel_label, hx + 150.0, screen_dims.y - 50.0),
+        (accel_label, hx - 150.0, screen_dims.y - 50.0),
     ];
 
     for (label, x, y) in labels {

@@ -1287,3 +1287,2453 @@ grid_id = 133
 bottom_left = [-7, -3]
 rotation = "East"
 part_local_dims = [8, 2]
+
+[values.166]
+layer = "Internal"
+prototype = 27
+grid_id = 165
+
+[values.166.placement]
+bottom_left = [17, 2]
+rotation = "East"
+part_local_dims = [2, 4]
+
+[values.167]
+layer = "Structural"
+prototype = 0
+grid_id = 165
+
+[values.167.placement]
+bottom_left = [-7, -12]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.168]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.168.placement]
+bottom_left = [-5, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.169]
+layer = "Internal"
+prototype = 27
+grid_id = 165
+
+[values.169.placement]
+bottom_left = [-9, -1]
+rotation = "South"
+part_local_dims = [2, 4]
+
+[values.170]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.170.placement]
+bottom_left = [1, -5]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.171]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.171.placement]
+bottom_left = [-7, -1]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.172]
+layer = "Internal"
+prototype = 27
+grid_id = 165
+
+[values.172.placement]
+bottom_left = [-33, -1]
+rotation = "South"
+part_local_dims = [2, 4]
+
+[values.173]
+layer = "Internal"
+prototype = 8
+grid_id = 165
+
+[values.173.placement]
+bottom_left = [3, 15]
+rotation = "North"
+part_local_dims = [1, 4]
+
+[values.174]
+layer = "Structural"
+prototype = 12
+grid_id = 165
+
+[values.174.placement]
+bottom_left = [-37, -12]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.175]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.175.placement]
+bottom_left = [-35, 12]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.176]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.176.placement]
+bottom_left = [27, -1]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.177]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.177.placement]
+bottom_left = [3, -13]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.178]
+layer = "Structural"
+prototype = 0
+grid_id = 165
+
+[values.178.placement]
+bottom_left = [15, 10]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.179]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.179.placement]
+bottom_left = [-3, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.180]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.180.placement]
+bottom_left = [3, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.181]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.181.placement]
+bottom_left = [1, -1]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.182]
+layer = "Structural"
+prototype = 12
+grid_id = 165
+
+[values.182.placement]
+bottom_left = [3, 13]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.183]
+layer = "Structural"
+prototype = 12
+grid_id = 165
+
+[values.183.placement]
+bottom_left = [-41, 6]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.184]
+layer = "Internal"
+prototype = 27
+grid_id = 165
+
+[values.184.placement]
+bottom_left = [-41, -4]
+rotation = "East"
+part_local_dims = [2, 4]
+
+[values.185]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.185.placement]
+bottom_left = [-37, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.186]
+layer = "Internal"
+prototype = 8
+grid_id = 165
+
+[values.186.placement]
+bottom_left = [-23, 15]
+rotation = "North"
+part_local_dims = [1, 4]
+
+[values.187]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.187.placement]
+bottom_left = [42, 12]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.188]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.188.placement]
+bottom_left = [-39, 10]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.189]
+layer = "Structural"
+prototype = 12
+grid_id = 165
+
+[values.189.placement]
+bottom_left = [-23, -15]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.190]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.190.placement]
+bottom_left = [7, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.191]
+layer = "Structural"
+prototype = 0
+grid_id = 165
+
+[values.191.placement]
+bottom_left = [-19, 5]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.192]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.192.placement]
+bottom_left = [47, 9]
+rotation = "West"
+part_local_dims = [1, 1]
+
+[values.193]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.193.placement]
+bottom_left = [-37, 12]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.194]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.194.placement]
+bottom_left = [-32, -13]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.195]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.195.placement]
+bottom_left = [19, -13]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.196]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.196.placement]
+bottom_left = [-41, -9]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.197]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.197.placement]
+bottom_left = [-41, 8]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.198]
+layer = "Structural"
+prototype = 12
+grid_id = 165
+
+[values.198.placement]
+bottom_left = [5, 13]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.199]
+layer = "Internal"
+prototype = 27
+grid_id = 165
+
+[values.199.placement]
+bottom_left = [-41, 0]
+rotation = "East"
+part_local_dims = [2, 4]
+
+[values.200]
+layer = "Internal"
+prototype = 27
+grid_id = 165
+
+[values.200.placement]
+bottom_left = [17, -6]
+rotation = "East"
+part_local_dims = [2, 4]
+
+[values.201]
+layer = "Internal"
+prototype = 5
+grid_id = 165
+
+[values.201.placement]
+bottom_left = [-33, 1]
+rotation = "East"
+part_local_dims = [24, 10]
+
+[values.202]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.202.placement]
+bottom_left = [47, -8]
+rotation = "West"
+part_local_dims = [1, 1]
+
+[values.203]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.203.placement]
+bottom_left = [-11, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.204]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.204.placement]
+bottom_left = [-11, 12]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.205]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.205.placement]
+bottom_left = [17, 12]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.206]
+layer = "Internal"
+prototype = 8
+grid_id = 165
+
+[values.206.placement]
+bottom_left = [-23, -16]
+rotation = "South"
+part_local_dims = [1, 4]
+
+[values.207]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.207.placement]
+bottom_left = [43, 12]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.208]
+layer = "Structural"
+prototype = 0
+grid_id = 165
+
+[values.208.placement]
+bottom_left = [-39, -12]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.209]
+layer = "Structural"
+prototype = 12
+grid_id = 165
+
+[values.209.placement]
+bottom_left = [45, 0]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.210]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.210.placement]
+bottom_left = [-21, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.211]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.211.placement]
+bottom_left = [-35, -12]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.212]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.212.placement]
+bottom_left = [-35, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.213]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.213.placement]
+bottom_left = [1, 3]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.214]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.214.placement]
+bottom_left = [19, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.215]
+layer = "Structural"
+prototype = 0
+grid_id = 165
+
+[values.215.placement]
+bottom_left = [45, -12]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.216]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.216.placement]
+bottom_left = [45, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.217]
+layer = "Internal"
+prototype = 27
+grid_id = 165
+
+[values.217.placement]
+bottom_left = [-17, -1]
+rotation = "South"
+part_local_dims = [2, 4]
+
+[values.218]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.218.placement]
+bottom_left = [-17, -1]
+rotation = "West"
+part_local_dims = [8, 2]
+
+[values.219]
+layer = "Structural"
+prototype = 0
+grid_id = 165
+
+[values.219.placement]
+bottom_left = [-41, 8]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.220]
+layer = "Structural"
+prototype = 0
+grid_id = 165
+
+[values.220.placement]
+bottom_left = [-39, 10]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.221]
+layer = "Structural"
+prototype = 0
+grid_id = 165
+
+[values.221.placement]
+bottom_left = [7, 5]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.222]
+layer = "Structural"
+prototype = 0
+grid_id = 165
+
+[values.222.placement]
+bottom_left = [-43, -8]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.223]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.223.placement]
+bottom_left = [-40, 9]
+rotation = "East"
+part_local_dims = [1, 1]
+
+[values.224]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.224.placement]
+bottom_left = [-36, -13]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.225]
+layer = "Structural"
+prototype = 0
+grid_id = 165
+
+[values.225.placement]
+bottom_left = [-11, 10]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.226]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.226.placement]
+bottom_left = [-37, -13]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.227]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.227.placement]
+bottom_left = [31, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.228]
+layer = "Structural"
+prototype = 12
+grid_id = 165
+
+[values.228.placement]
+bottom_left = [3, -15]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.229]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.229.placement]
+bottom_left = [44, 12]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.230]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.230.placement]
+bottom_left = [47, 8]
+rotation = "West"
+part_local_dims = [1, 1]
+
+[values.231]
+layer = "Internal"
+prototype = 8
+grid_id = 165
+
+[values.231.placement]
+bottom_left = [47, -6]
+rotation = "East"
+part_local_dims = [1, 4]
+
+[values.232]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.232.placement]
+bottom_left = [-34, 12]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.233]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.233.placement]
+bottom_left = [-9, 12]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.234]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.234.placement]
+bottom_left = [17, 4]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.235]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.235.placement]
+bottom_left = [27, 3]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.236]
+layer = "Internal"
+prototype = 5
+grid_id = 165
+
+[values.236.placement]
+bottom_left = [19, 1]
+rotation = "East"
+part_local_dims = [24, 10]
+
+[values.237]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.237.placement]
+bottom_left = [-43, 4]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.238]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.238.placement]
+bottom_left = [41, -13]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.239]
+layer = "Structural"
+prototype = 0
+grid_id = 165
+
+[values.239.placement]
+bottom_left = [-43, 6]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.240]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.240.placement]
+bottom_left = [-41, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.241]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.241.placement]
+bottom_left = [-25, -1]
+rotation = "West"
+part_local_dims = [8, 2]
+
+[values.242]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.242.placement]
+bottom_left = [-13, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.243]
+layer = "Structural"
+prototype = 0
+grid_id = 165
+
+[values.243.placement]
+bottom_left = [-25, 5]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.244]
+layer = "Internal"
+prototype = 6
+grid_id = 165
+
+[values.244.placement]
+bottom_left = [43, 8]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.245]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.245.placement]
+bottom_left = [-42, 7]
+rotation = "East"
+part_local_dims = [1, 1]
+
+[values.246]
+layer = "Internal"
+prototype = 27
+grid_id = 165
+
+[values.246.placement]
+bottom_left = [-9, -6]
+rotation = "East"
+part_local_dims = [2, 4]
+
+[values.247]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.247.placement]
+bottom_left = [-38, 10]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.248]
+layer = "Structural"
+prototype = 13
+grid_id = 165
+
+[values.248.placement]
+bottom_left = [-39, -10]
+rotation = "East"
+part_local_dims = [4, 4]
+
+[values.249]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.249.placement]
+bottom_left = [-31, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.250]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.250.placement]
+bottom_left = [-7, 12]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.251]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.251.placement]
+bottom_left = [27, -5]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.252]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.252.placement]
+bottom_left = [-10, -13]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.253]
+layer = "Structural"
+prototype = 0
+grid_id = 165
+
+[values.253.placement]
+bottom_left = [19, 10]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.254]
+layer = "Internal"
+prototype = 8
+grid_id = 165
+
+[values.254.placement]
+bottom_left = [3, -16]
+rotation = "South"
+part_local_dims = [1, 4]
+
+[values.255]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.255.placement]
+bottom_left = [-25, -5]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.256]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.256.placement]
+bottom_left = [15, 12]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.257]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.257.placement]
+bottom_left = [-11, -13]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.258]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.258.placement]
+bottom_left = [19, -1]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.259]
+layer = "Internal"
+prototype = 27
+grid_id = 165
+
+[values.259.placement]
+bottom_left = [-41, -8]
+rotation = "East"
+part_local_dims = [2, 4]
+
+[values.260]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.260.placement]
+bottom_left = [35, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.261]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.261.placement]
+bottom_left = [-6, -13]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.262]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.262.placement]
+bottom_left = [27, 1]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.263]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.263.placement]
+bottom_left = [42, -13]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.264]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.264.placement]
+bottom_left = [-21, -13]
+rotation = "North"
+part_local_dims = [8, 2]
+
+[values.265]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.265.placement]
+bottom_left = [17, -12]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.266]
+layer = "Structural"
+prototype = 12
+grid_id = 165
+
+[values.266.placement]
+bottom_left = [45, -2]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.267]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.267.placement]
+bottom_left = [-15, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.268]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.268.placement]
+bottom_left = [3, 5]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.269]
+layer = "Structural"
+prototype = 0
+grid_id = 165
+
+[values.269.placement]
+bottom_left = [41, 10]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.270]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.270.placement]
+bottom_left = [-10, 12]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.271]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.271.placement]
+bottom_left = [1, -3]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.272]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.272.placement]
+bottom_left = [21, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.273]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.273.placement]
+bottom_left = [-23, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.274]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.274.placement]
+bottom_left = [-8, -13]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.275]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.275.placement]
+bottom_left = [-25, -3]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.276]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.276.placement]
+bottom_left = [-21, 5]
+rotation = "North"
+part_local_dims = [8, 2]
+
+[values.277]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.277.placement]
+bottom_left = [-23, 5]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.278]
+layer = "Structural"
+prototype = 0
+grid_id = 165
+
+[values.278.placement]
+bottom_left = [-33, 10]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.279]
+layer = "Internal"
+prototype = 27
+grid_id = 165
+
+[values.279.placement]
+bottom_left = [-29, -1]
+rotation = "South"
+part_local_dims = [2, 4]
+
+[values.280]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.280.placement]
+bottom_left = [-42, -8]
+rotation = "East"
+part_local_dims = [1, 1]
+
+[values.281]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.281.placement]
+bottom_left = [35, -1]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.282]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.282.placement]
+bottom_left = [47, -10]
+rotation = "West"
+part_local_dims = [1, 1]
+
+[values.283]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.283.placement]
+bottom_left = [29, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.284]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.284.placement]
+bottom_left = [-38, -11]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.285]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.285.placement]
+bottom_left = [-25, 1]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.286]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.286.placement]
+bottom_left = [-33, -1]
+rotation = "West"
+part_local_dims = [8, 2]
+
+[values.287]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.287.placement]
+bottom_left = [-7, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.288]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.288.placement]
+bottom_left = [13, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.289]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.289.placement]
+bottom_left = [-34, -13]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.290]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.290.placement]
+bottom_left = [-35, -13]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.291]
+layer = "Internal"
+prototype = 27
+grid_id = 165
+
+[values.291.placement]
+bottom_left = [-41, 4]
+rotation = "East"
+part_local_dims = [2, 4]
+
+[values.292]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.292.placement]
+bottom_left = [-9, -12]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.293]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.293.placement]
+bottom_left = [1, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.294]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.294.placement]
+bottom_left = [20, -13]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.295]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.295.placement]
+bottom_left = [47, 7]
+rotation = "West"
+part_local_dims = [1, 1]
+
+[values.296]
+layer = "Internal"
+prototype = 5
+grid_id = 165
+
+[values.296.placement]
+bottom_left = [-7, 1]
+rotation = "East"
+part_local_dims = [24, 10]
+
+[values.297]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.297.placement]
+bottom_left = [-29, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.298]
+layer = "Internal"
+prototype = 16
+grid_id = 165
+
+[values.298.placement]
+bottom_left = [-47, 0]
+rotation = "East"
+part_local_dims = [6, 3]
+
+[values.299]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.299.placement]
+bottom_left = [39, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.300]
+layer = "Structural"
+prototype = 0
+grid_id = 165
+
+[values.300.placement]
+bottom_left = [45, 10]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.301]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.301.placement]
+bottom_left = [-25, 3]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.302]
+layer = "Internal"
+prototype = 5
+grid_id = 165
+
+[values.302.placement]
+bottom_left = [-7, -11]
+rotation = "West"
+part_local_dims = [24, 10]
+
+[values.303]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.303.placement]
+bottom_left = [-9, 4]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.304]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.304.placement]
+bottom_left = [18, -13]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.305]
+layer = "Structural"
+prototype = 0
+grid_id = 165
+
+[values.305.placement]
+bottom_left = [-19, -7]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.306]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.306.placement]
+bottom_left = [-33, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.307]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.307.placement]
+bottom_left = [-39, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.308]
+layer = "Internal"
+prototype = 27
+grid_id = 165
+
+[values.308.placement]
+bottom_left = [-39, -6]
+rotation = "South"
+part_local_dims = [2, 4]
+
+[values.309]
+layer = "Structural"
+prototype = 13
+grid_id = 165
+
+[values.309.placement]
+bottom_left = [-39, 6]
+rotation = "East"
+part_local_dims = [4, 4]
+
+[values.310]
+layer = "Structural"
+prototype = 13
+grid_id = 165
+
+[values.310.placement]
+bottom_left = [-43, 0]
+rotation = "South"
+part_local_dims = [4, 4]
+
+[values.311]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.311.placement]
+bottom_left = [-36, 12]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.312]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.312.placement]
+bottom_left = [43, -13]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.313]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.313.placement]
+bottom_left = [9, -1]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.314]
+layer = "Internal"
+prototype = 28
+grid_id = 165
+
+[values.314.placement]
+bottom_left = [-39, 0]
+rotation = "South"
+part_local_dims = [4, 4]
+
+[values.315]
+layer = "Structural"
+prototype = 0
+grid_id = 165
+
+[values.315.placement]
+bottom_left = [-33, -12]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.316]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.316.placement]
+bottom_left = [-35, 4]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.317]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.317.placement]
+bottom_left = [37, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.318]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.318.placement]
+bottom_left = [5, -13]
+rotation = "North"
+part_local_dims = [8, 2]
+
+[values.319]
+layer = "Structural"
+prototype = 0
+grid_id = 165
+
+[values.319.placement]
+bottom_left = [-7, 10]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.320]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.320.placement]
+bottom_left = [-25, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.321]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.321.placement]
+bottom_left = [11, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.322]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.322.placement]
+bottom_left = [-9, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.323]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.323.placement]
+bottom_left = [16, 12]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.324]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.324.placement]
+bottom_left = [-8, 12]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.325]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.325.placement]
+bottom_left = [20, 12]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.326]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.326.placement]
+bottom_left = [-1, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.327]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.327.placement]
+bottom_left = [45, 2]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.328]
+layer = "Internal"
+prototype = 5
+grid_id = 165
+
+[values.328.placement]
+bottom_left = [-33, -11]
+rotation = "West"
+part_local_dims = [24, 10]
+
+[values.329]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.329.placement]
+bottom_left = [-19, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.330]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.330.placement]
+bottom_left = [33, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.331]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.331.placement]
+bottom_left = [-27, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.332]
+layer = "Structural"
+prototype = 0
+grid_id = 165
+
+[values.332.placement]
+bottom_left = [-11, -12]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.333]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.333.placement]
+bottom_left = [5, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.334]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.334.placement]
+bottom_left = [15, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.335]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.335.placement]
+bottom_left = [-33, 12]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.336]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.336.placement]
+bottom_left = [5, 5]
+rotation = "North"
+part_local_dims = [8, 2]
+
+[values.337]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.337.placement]
+bottom_left = [19, 12]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.338]
+layer = "Structural"
+prototype = 0
+grid_id = 165
+
+[values.338.placement]
+bottom_left = [-41, -10]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.339]
+layer = "Structural"
+prototype = 0
+grid_id = 165
+
+[values.339.placement]
+bottom_left = [7, -7]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.340]
+layer = "Structural"
+prototype = 0
+grid_id = 165
+
+[values.340.placement]
+bottom_left = [1, -7]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.341]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.341.placement]
+bottom_left = [-17, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.342]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.342.placement]
+bottom_left = [-32, 12]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.343]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.343.placement]
+bottom_left = [44, -13]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.344]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.344.placement]
+bottom_left = [43, 4]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.345]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.345.placement]
+bottom_left = [16, -13]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.346]
+layer = "Structural"
+prototype = 0
+grid_id = 165
+
+[values.346.placement]
+bottom_left = [41, -12]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.347]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.347.placement]
+bottom_left = [27, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.348]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.348.placement]
+bottom_left = [23, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.349]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.349.placement]
+bottom_left = [-35, -4]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.350]
+layer = "Structural"
+prototype = 13
+grid_id = 165
+
+[values.350.placement]
+bottom_left = [-43, -4]
+rotation = "South"
+part_local_dims = [4, 4]
+
+[values.351]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.351.placement]
+bottom_left = [-9, -4]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.352]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.352.placement]
+bottom_left = [-9, -13]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.353]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.353.placement]
+bottom_left = [9, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.354]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.354.placement]
+bottom_left = [27, -3]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.355]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.355.placement]
+bottom_left = [43, -4]
+rotation = "North"
+part_local_dims = [8, 2]
+
+[values.356]
+layer = "Structural"
+prototype = 0
+grid_id = 165
+
+[values.356.placement]
+bottom_left = [-25, -7]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.357]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.357.placement]
+bottom_left = [-33, -13]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.358]
+layer = "Internal"
+prototype = 28
+grid_id = 165
+
+[values.358.placement]
+bottom_left = [-39, -4]
+rotation = "South"
+part_local_dims = [4, 4]
+
+[values.359]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.359.placement]
+bottom_left = [-6, 12]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.360]
+layer = "Internal"
+prototype = 27
+grid_id = 165
+
+[values.360.placement]
+bottom_left = [-13, -1]
+rotation = "South"
+part_local_dims = [2, 4]
+
+[values.361]
+layer = "Structural"
+prototype = 0
+grid_id = 165
+
+[values.361.placement]
+bottom_left = [15, -12]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.362]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.362.placement]
+bottom_left = [17, -4]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.363]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.363.placement]
+bottom_left = [43, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.364]
+layer = "Structural"
+prototype = 12
+grid_id = 165
+
+[values.364.placement]
+bottom_left = [-37, 10]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.365]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.365.placement]
+bottom_left = [47, -9]
+rotation = "West"
+part_local_dims = [1, 1]
+
+[values.366]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.366.placement]
+bottom_left = [15, -13]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.367]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.367.placement]
+bottom_left = [-43, -6]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.368]
+layer = "Internal"
+prototype = 27
+grid_id = 165
+
+[values.368.placement]
+bottom_left = [-5, -1]
+rotation = "South"
+part_local_dims = [2, 4]
+
+[values.369]
+layer = "Internal"
+prototype = 16
+grid_id = 165
+
+[values.369.placement]
+bottom_left = [-47, 3]
+rotation = "East"
+part_local_dims = [6, 3]
+
+[values.370]
+layer = "Internal"
+prototype = 8
+grid_id = 165
+
+[values.370.placement]
+bottom_left = [47, 2]
+rotation = "East"
+part_local_dims = [1, 4]
+
+[values.371]
+layer = "Internal"
+prototype = 28
+grid_id = 165
+
+[values.371.placement]
+bottom_left = [-39, 6]
+rotation = "East"
+part_local_dims = [4, 4]
+
+[values.372]
+layer = "Structural"
+prototype = 0
+grid_id = 165
+
+[values.372.placement]
+bottom_left = [1, 5]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.373]
+layer = "Internal"
+prototype = 27
+grid_id = 165
+
+[values.373.placement]
+bottom_left = [-9, 2]
+rotation = "East"
+part_local_dims = [2, 4]
+
+[values.374]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.374.placement]
+bottom_left = [43, -12]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.375]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.375.placement]
+bottom_left = [-40, -10]
+rotation = "East"
+part_local_dims = [1, 1]
+
+[values.376]
+layer = "Structural"
+prototype = 12
+grid_id = 165
+
+[values.376.placement]
+bottom_left = [-21, 13]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.377]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.377.placement]
+bottom_left = [1, 1]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.378]
+layer = "Internal"
+prototype = 27
+grid_id = 165
+
+[values.378.placement]
+bottom_left = [-21, -1]
+rotation = "South"
+part_local_dims = [2, 4]
+
+[values.379]
+layer = "Internal"
+prototype = 5
+grid_id = 165
+
+[values.379.placement]
+bottom_left = [19, -11]
+rotation = "West"
+part_local_dims = [24, 10]
+
+[values.380]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.380.placement]
+bottom_left = [25, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.381]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.381.placement]
+bottom_left = [-23, -13]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.382]
+layer = "Structural"
+prototype = 13
+grid_id = 165
+
+[values.382.placement]
+bottom_left = [-39, -4]
+rotation = "South"
+part_local_dims = [4, 4]
+
+[values.383]
+layer = "Structural"
+prototype = 12
+grid_id = 165
+
+[values.383.placement]
+bottom_left = [-23, 13]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.384]
+layer = "Structural"
+prototype = 0
+grid_id = 165
+
+[values.384.placement]
+bottom_left = [19, -12]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.385]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.385.placement]
+bottom_left = [-7, -13]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.386]
+layer = "Internal"
+prototype = 16
+grid_id = 165
+
+[values.386.placement]
+bottom_left = [-47, -3]
+rotation = "East"
+part_local_dims = [6, 3]
+
+[values.387]
+layer = "Structural"
+prototype = 14
+grid_id = 165
+
+[values.387.placement]
+bottom_left = [45, -10]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.388]
+layer = "Internal"
+prototype = 28
+grid_id = 165
+
+[values.388.placement]
+bottom_left = [-39, -10]
+rotation = "East"
+part_local_dims = [4, 4]
+
+[values.389]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.389.placement]
+bottom_left = [41, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.390]
+layer = "Internal"
+prototype = 16
+grid_id = 165
+
+[values.390.placement]
+bottom_left = [-47, -6]
+rotation = "East"
+part_local_dims = [6, 3]
+
+[values.391]
+layer = "Internal"
+prototype = 27
+grid_id = 165
+
+[values.391.placement]
+bottom_left = [-39, 4]
+rotation = "South"
+part_local_dims = [2, 4]
+
+[values.392]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.392.placement]
+bottom_left = [-39, -11]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.393]
+layer = "Structural"
+prototype = 12
+grid_id = 165
+
+[values.393.placement]
+bottom_left = [5, -15]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.394]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.394.placement]
+bottom_left = [18, 12]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.395]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.395.placement]
+bottom_left = [-43, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.396]
+layer = "Structural"
+prototype = 12
+grid_id = 165
+
+[values.396.placement]
+bottom_left = [-21, -15]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.397]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.397.placement]
+bottom_left = [41, 12]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.398]
+layer = "Structural"
+prototype = 12
+grid_id = 165
+
+[values.398.placement]
+bottom_left = [-41, -8]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.399]
+layer = "Exterior"
+prototype = 18
+grid_id = 165
+
+[values.399.placement]
+bottom_left = [17, -1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.400]
+layer = "Internal"
+prototype = 27
+grid_id = 165
+
+[values.400.placement]
+bottom_left = [-25, -1]
+rotation = "South"
+part_local_dims = [2, 4]
+
+[values.401]
+layer = "Internal"
+prototype = 20
+grid_id = 165
+
+[values.401.placement]
+bottom_left = [17, -13]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.402]
+layer = "Structural"
+prototype = 13
+grid_id = 165
+
+[values.402.placement]
+bottom_left = [-39, 0]
+rotation = "South"
+part_local_dims = [4, 4]
+
+[values.403]
+layer = "Internal"
+prototype = 26
+grid_id = 165
+
+[values.403.placement]
+bottom_left = [-35, 10]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.404]
+layer = "Internal"
+prototype = 26
+grid_id = 165
+
+[values.404.placement]
+bottom_left = [-35, -12]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.405]
+layer = "Internal"
+prototype = 26
+grid_id = 165
+
+[values.405.placement]
+bottom_left = [-9, -12]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.406]
+layer = "Internal"
+prototype = 26
+grid_id = 165
+
+[values.406.placement]
+bottom_left = [-9, 10]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.407]
+layer = "Internal"
+prototype = 26
+grid_id = 165
+
+[values.407.placement]
+bottom_left = [17, 10]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.408]
+layer = "Internal"
+prototype = 26
+grid_id = 165
+
+[values.408.placement]
+bottom_left = [17, -12]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.409]
+layer = "Internal"
+prototype = 26
+grid_id = 165
+
+[values.409.placement]
+bottom_left = [43, -12]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.410]
+layer = "Internal"
+prototype = 26
+grid_id = 165
+
+[values.410.placement]
+bottom_left = [43, 10]
+rotation = "East"
+part_local_dims = [2, 2]

@@ -370,8 +370,9 @@ fn snap_camera_target_to_local_up(target: &mut Camera) {
 fn propagate_grid_rigid_bodies(grids: &mut Components<VehicleGrid>) {
     let dt = 0.02;
     for grid in grids.values_mut() {
-        let accel = grid.linear_acceleration();
+        let body_frame_accel = grid.linear_acceleration();
         let omega = grid.angular_acceleration();
+        let accel = rotate(body_frame_accel, grid.pose.rotation);
         grid.pose.translation += grid.velocity.translation * dt;
         grid.velocity.translation += accel * dt;
         grid.pose.rotation += grid.velocity.rotation * dt;
@@ -379,14 +380,18 @@ fn propagate_grid_rigid_bodies(grids: &mut Components<VehicleGrid>) {
     }
 }
 
-fn update_thrusters(thrusters: &mut Components<Thruster>) {
-    for t in thrusters.values_mut() {
-        if t.is_on && chance(0.03) {
-            t.is_on = false;
-        } else if !t.is_on && chance(0.005) {
-            t.is_on = true;
-        }
-    }
+fn update_thrusters(thrusters: &mut Components<Thruster>) -> BTreeSet<Ent> {
+    let mut needs_update = BTreeSet::new();
+    // for t in thrusters.values_mut() {
+    //     if t.is_on && chance(0.02) {
+    //         t.is_on = false;
+    //         needs_update.insert(t.grid_id);
+    //     } else if !t.is_on && chance(0.001) {
+    //         t.is_on = true;
+    //         needs_update.insert(t.grid_id);
+    //     }
+    // }
+    needs_update
 }
 
 fn update_selection_info(
@@ -488,8 +493,8 @@ pub fn update_world(world: &mut World) -> (Vec<Action>, SoundEffects) {
     update_ring_particles(&mut world.particles);
     update_lights(&mut world.lights);
     update_computers(&mut world.computers);
-    // update_thrusters(&mut world.thrusters);
-    update_grid_acceleration(&mut world.grids, &world.thrusters, &world.parts);
+    let dirty_set = update_thrusters(&mut world.thrusters);
+    update_grid_acceleration(dirty_set, &mut world.grids, &world.thrusters, &world.parts);
 
     update_selection_info(
         &mut world.selection_info,
