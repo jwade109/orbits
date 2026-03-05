@@ -13,8 +13,6 @@ use std::thread;
 use std::time::Duration;
 use steamworks::{LobbyChatMsg, LobbyEnter, PersonaStateChange};
 
-use rdev::listen;
-
 fn draw_debug_info(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
     let size = size_in_bytes(world);
     let mut s = String::new();
@@ -44,7 +42,6 @@ fn draw_debug_info(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
     s += &format!("\nZoom: {:0.3}", world.camera.zoom);
 
     s += &format!("\nMOUSE {:?}", world.mouse_screen_position);
-    s += &format!("\nINP {:?}", &world.input);
     s += &format!("\nPRT {:?}", &world.particles.len());
     s += &format!("\nBP {:?}", &world.blueprints);
     s += &format!("\nPROTO {:?}", &world.prototypes);
@@ -110,14 +107,6 @@ fn main() {
         // .vsync()
         .build();
 
-    let input_queue = new_message_queue();
-    let thread_copy = input_queue.clone();
-    let _input_thread = thread::spawn(|| {
-        if let Err(error) = listen(move |e| thread_copy.push(e)) {
-            println!("Error: {:?}", error)
-        }
-    });
-
     // rl.set_target_fps(240);
     // rl.maximize_window();
     rl.set_exit_key(None);
@@ -126,7 +115,7 @@ fn main() {
 
     let audio = raylib::audio::RaylibAudio::init_audio_device().unwrap();
 
-    let mut app = new_app();
+    let mut app = new_app(false);
 
     let mut assets = Assets::default();
 
@@ -141,7 +130,7 @@ fn main() {
 
         let loop_start = std::time::Instant::now();
 
-        while let Some(e) = input_queue.pop() {
+        while let Some(e) = app.input_queue.pop() {
             // process release events even if the window isn't focused!
             let is_release = match e.event_type {
                 rdev::EventType::ButtonRelease(_) => true,
@@ -156,7 +145,7 @@ fn main() {
 
         while let Some(n) = app.incoming_network_queue.pop() {
             if let ServerMessage::Transaction(tr) = n {
-                apply_transaction(&mut app.runner.world, tr);
+                apply_transaction(&mut app.runner.world, &mut app.input, tr);
             }
         }
 
@@ -172,7 +161,7 @@ fn main() {
         app.runner.world.screen_dims = screen_dims;
         app.runner.world.mouse_screen_position = mouse;
 
-        let (outgoing_messages, sounds) = app.runner.update();
+        let (outgoing_messages, sounds) = app.runner.update(&mut app.input);
 
         for msg in outgoing_messages {
             let transaction = Transaction::new(app.runner.world.ticks, msg);

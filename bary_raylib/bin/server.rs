@@ -1,4 +1,5 @@
 use bary_core::prelude::*;
+use bary_raylib::input_state::InputState;
 use bary_raylib::multiplayer::*;
 use bary_raylib::wall_timer::WallTimer;
 use bary_raylib::world_builder::WorldBuilder;
@@ -53,7 +54,9 @@ impl ServerApp {
             info!("Running world: {:?}", self.runner.world);
         }
 
-        let _outgoing = self.runner.update();
+        let mut input = InputState::default();
+
+        let _outgoing = self.runner.update(&mut input);
 
         if self.sync_timer.tick() {
             let tr = Transaction::new(

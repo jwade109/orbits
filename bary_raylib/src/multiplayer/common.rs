@@ -1,7 +1,5 @@
 use crate::{
-    multiplayer::*,
-    sounds::SoundEffects,
-    world::{World, update_world},
+    input_state::InputState, multiplayer::*, sounds::SoundEffects, world::{World, update_world}
 };
 use crossbeam_queue::SegQueue;
 use renet_netcode::NETCODE_USER_DATA_BYTES;
@@ -91,14 +89,14 @@ impl WorldRunner {
         }
     }
 
-    pub fn update(&mut self) -> (Vec<Action>, SoundEffects) {
+    pub fn update(&mut self, input: &mut InputState) -> (Vec<Action>, SoundEffects) {
         let now = Instant::now();
         let mut delta = now - self.last_update;
         let mut ret = Vec::new();
         let mut sounds = SoundEffects::default();
         while delta > Self::TICK_DURATION {
             delta -= Self::TICK_DURATION;
-            let (actions, s) = update_world(&mut self.world);
+            let (actions, s) = update_world(&mut self.world, input);
             ret.extend_from_slice(&actions);
             sounds.effects.extend_from_slice(&s.effects);
             self.last_update += Self::TICK_DURATION;

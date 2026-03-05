@@ -1,3 +1,4 @@
+use crate::input_state::InputState;
 use crate::world::World;
 use crate::{systems::*, world::update_world};
 use bary_core::prelude::*;
@@ -24,7 +25,7 @@ impl Transaction {
     }
 }
 
-pub fn apply_transaction(world: &mut World, transaction: Transaction) {
+pub fn apply_transaction(world: &mut World, input: &mut InputState, transaction: Transaction) {
     info!(
         "Applying transation {:?} at tick {}",
         transaction, world.ticks
@@ -53,7 +54,7 @@ pub fn apply_transaction(world: &mut World, transaction: Transaction) {
                 let delta = tick - world.ticks;
                 warn!("Fast forwarding by {} ticks", delta);
                 while world.ticks < tick {
-                    update_world(world);
+                    update_world(world, input);
                 }
             } else if tick < world.ticks {
                 let delta = world.ticks - tick;

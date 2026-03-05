@@ -85,7 +85,7 @@ pub fn load_world(dir: impl AsRef<Path>) -> BaryResult<World> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{world::update_world, world_builder::WorldBuilder};
+    use crate::{input_state::InputState, world::update_world, world_builder::WorldBuilder};
 
     use super::*;
 
@@ -108,8 +108,10 @@ mod tests {
             .spawn("bellerophon", (50.0, 109.0, 1.4))
             .build();
 
+        let mut input = InputState::default();
+
         for _ in 0..1000 {
-            update_world(&mut world);
+            update_world(&mut world, &mut input);
         }
 
         let r = save_world(save_path, &world, false);

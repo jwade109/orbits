@@ -64,8 +64,6 @@ pub struct World {
     pub snap_camera_to_local_planet: bool,
     pub screen_dims: Vec2,
     #[serde(skip)]
-    pub input: InputState,
-    #[serde(skip)]
     pub event_queue: VecDeque<Event>,
     pub camera: Camera,
     pub target_camera: Camera,
@@ -104,7 +102,6 @@ impl World {
             snap_camera_to_local_planet: false,
             follow_vehicle: None,
             screen_dims: Vec2::new(1500.0, 900.0),
-            input: InputState::default(),
             event_queue: VecDeque::new(),
             camera: Camera {
                 zoom: 0.1,
@@ -254,8 +251,8 @@ fn panic_on_ctrl_d(input: &InputState) {
     }
 }
 
-fn save_on_ctrl_s(world: &mut World) {
-    let pressed_ctrl = world.input.is_key_pressed(Key::ControlLeft);
+fn save_on_ctrl_s(world: &mut World, input: &InputState) {
+    let pressed_ctrl = input.is_key_pressed(Key::ControlLeft);
     let pressed_s = is_key_just_pressed(&world.event_queue, Key::KeyS);
 
     if !(pressed_ctrl && pressed_s) {
@@ -608,7 +605,8 @@ pub fn update_computers(computers: &mut Components<Computer>, grids: &Components
     }
 }
 
-pub fn update_world(world: &mut World) -> (Vec<Action>, SoundEffects) {
+#[deprecated(note = "Input state should be removed")]
+pub fn update_world(world: &mut World, input: &mut InputState) -> (Vec<Action>, SoundEffects) {
     world.ticks += 1;
 
     world.sounds.effects.clear();
@@ -658,13 +656,13 @@ pub fn update_world(world: &mut World) -> (Vec<Action>, SoundEffects) {
         &mut world.sounds,
     );
 
-    update_input_state(&world.event_queue, &mut world.input);
+    update_input_state(&world.event_queue, input);
     apply_scroll_wheel_to_camera_target(&world.event_queue, &mut world.target_camera);
 
     propagate_grid_rigid_bodies(&mut world.grids);
 
     update_camera_target(
-        &world.input,
+        &input,
         &mut world.target_camera,
         &mut world.follow_vehicle,
         &mut world.sounds,
@@ -681,18 +679,18 @@ pub fn update_world(world: &mut World) -> (Vec<Action>, SoundEffects) {
         snap_camera_target_to_local_up(&mut world.target_camera);
     }
 
-    reset_camera_on_ctrl_r(&world.input, &mut world.target_camera);
+    reset_camera_on_ctrl_r(&input, &mut world.target_camera);
     update_camera(&world.target_camera, &mut world.camera);
 
     // spawn_random_ring_effects(&mut world.particles);
 
-    panic_on_ctrl_d(&world.input);
+    panic_on_ctrl_d(&input);
 
-    save_on_ctrl_s(world);
+    save_on_ctrl_s(world, &input);
 
     ping_on_alt_left_click(
         &mut world.particles,
-        &world.input,
+        &input,
         &world.event_queue,
         &world.camera,
         world.mouse_screen_position,
