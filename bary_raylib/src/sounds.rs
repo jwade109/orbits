@@ -17,10 +17,7 @@ impl SoundEffect {
     }
 }
 
-#[derive(Default, Debug, Clone, Deserialize, Serialize)]
-pub struct SoundEffects {
-    pub effects: Vec<SoundEffect>,
-}
+pub type SoundEffects = Vec<SoundEffect>;
 
 pub fn get_sound_effect_asset_path(effect: SoundEffect) -> &'static str {
     match effect {

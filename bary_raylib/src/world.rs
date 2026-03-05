@@ -74,7 +74,6 @@ pub struct World {
     pub computers: Components<Computer>,
     pub lights: Components<Light>,
     pub grids: Components<VehicleGrid>,
-    pub sounds: SoundEffects,
 }
 
 impl std::fmt::Debug for World {
@@ -117,7 +116,6 @@ impl World {
             thrusters: Components::default(),
             computers: Components::default(),
             lights: Components::default(),
-            sounds: SoundEffects::default(),
         }
     }
 }
@@ -162,6 +160,10 @@ fn update_camera_target(
     let right = rotate(Vec2::X, target.isometry.rotation);
     let up = rotate(right, PI / 2.0);
 
+    if input.is_key_pressed(Key::ControlLeft) {
+        return;
+    }
+
     if input.is_key_pressed(Key::Minus) {
         target.zoom /= zoom_scale;
     }
@@ -194,7 +196,7 @@ fn update_camera_target(
     }
 
     if old_follow.is_some() && follow.is_none() {
-        sounds.effects.push(SoundEffect::LeaveFollow);
+        sounds.push(SoundEffect::LeaveFollow);
     }
 }
 
@@ -219,82 +221,97 @@ fn update_camera(target: &Camera, actual: &mut Camera) {
     actual.zoom = low_pass(actual.zoom, target.zoom, rate_translation);
 }
 
-fn apply_scroll_wheel_to_camera_target(events: &Vec<Event>, target: &mut Camera) {
-    let scale = 1.15;
-    for e in events {
-        if let rdev::EventType::Wheel {
-            delta_x: _,
-            delta_y,
-        } = e.event_type
-        {
-            if delta_y > 0 {
-                target.zoom *= scale;
-            } else if delta_y < 0 {
-                target.zoom /= scale;
+mod input_handlers {
+
+    use super::*;
+
+    pub fn apply_scroll_wheel_to_camera_target(delta_y: i64, target: &mut Camera) {
+        let scale = 1.15;
+        if delta_y > 0 {
+            target.zoom *= scale;
+        } else if delta_y < 0 {
+            target.zoom /= scale;
+        }
+    }
+
+    pub fn panic_on_ctrl_d(input: &InputState) {
+        if input.is_key_pressed(Key::ControlLeft) {
+            info!("Exiting.");
+            panic!();
+        }
+    }
+
+    pub fn save_on_ctrl_s(world: &mut World, input: &InputState) {
+        let pressed_ctrl = input.is_key_pressed(Key::ControlLeft);
+
+        if !pressed_ctrl {
+            return;
+        }
+
+        let now = chrono::offset::Local::now();
+        let filename = format!("./saves/world-{}/", now.format("%Y-%m-%d-%H-%M-%S"));
+        match save_world(&filename, world, true) {
+            Ok(_) => {
+                let s = format!("Saved to {}", filename);
+                world.chat.log(s);
+            }
+            Err(e) => {
+                let s = format!("Failed to save: {:?}", e);
+                world.chat.log(s);
             }
         }
     }
-}
 
-fn panic_on_ctrl_d(input: &InputState) {
-    if input.is_key_pressed(Key::ControlLeft) && input.is_key_pressed(Key::KeyD) {
-        info!("Exiting.");
-        panic!();
-    }
-}
-
-fn save_on_ctrl_s(world: &mut World, input: &InputState, event_queue: &Vec<Event>) {
-    let pressed_ctrl = input.is_key_pressed(Key::ControlLeft);
-    let pressed_s = is_key_just_pressed(event_queue, Key::KeyS);
-
-    if !(pressed_ctrl && pressed_s) {
-        return;
+    pub fn toggle_following_on_key_f(world: &mut World, sounds: &mut SoundEffects) {
+        let Some(grid_id) = world.selection_info.selected_grid else {
+            return;
+        };
+        debug!("Following {}", grid_id);
+        world.follow_vehicle = Some(grid_id);
+        sounds.push(SoundEffect::Follow);
     }
 
-    let now = chrono::offset::Local::now();
-    let filename = format!("./saves/world-{}/", now.format("%Y-%m-%d-%H-%M-%S"));
-    match save_world(&filename, world, true) {
-        Ok(_) => {
-            let s = format!("Saved to {}", filename);
-            world.chat.log(s);
+    pub fn ping_on_alt_left_click(
+        world: &mut World,
+        input: &InputState,
+        actions: &mut Vec<Action>,
+        sounds: &mut SoundEffects,
+    ) {
+        let Some(screen_pos) = world.mouse_screen_position else {
+            return;
+        };
+
+        if !input.is_key_pressed(Key::Alt) {
+            return;
         }
-        Err(e) => {
-            let s = format!("Failed to save: {:?}", e);
-            world.chat.log(s);
-        }
-    }
-}
 
-fn ping_on_alt_left_click(
-    particles: &mut Vec<PingParticle>,
-    input: &InputState,
-    events: &Vec<Event>,
-    camera: &Camera,
-    mouse_screen_position: Option<Vec2>,
-    transactions: &mut Vec<Action>,
-    screen_dims: Vec2,
-    chat: &mut Chat,
-    sounds: &mut SoundEffects,
-) {
-    let Some(screen_pos) = mouse_screen_position else {
-        return;
-    };
+        let pos = screen_to_world(&world.camera, screen_pos, world.screen_dims);
 
-    let pos = screen_to_world(camera, screen_pos, screen_dims);
-
-    // TODO(cleanup) use a function here
-    let left_click = events
-        .iter()
-        .any(|e| e.event_type == rdev::EventType::ButtonPress(Button::Left));
-
-    let alt = input.is_key_pressed(Key::Alt);
-
-    if left_click && alt {
         let particle = PingParticle::new(pos);
-        particles.push(particle);
-        transactions.push(Action::Ping(pos));
-        chat.log(format!("Pinged {}", pos));
-        sounds.effects.push(SoundEffect::Ping);
+        world.particles.push(particle);
+        actions.push(Action::Ping(pos));
+        world.chat.log(format!("Pinged {}", pos));
+        sounds.push(SoundEffect::Ping);
+    }
+
+    pub fn toggle_camera_local_normal_snapping_on_t(world: &mut World) {
+        world.snap_camera_to_local_planet ^= true;
+    }
+
+    pub fn reset_camera_on_ctrl_r(world: &mut World, input: &InputState) {
+        if input.is_key_pressed(Key::ControlLeft) {
+            debug!("Reset camera");
+            world.target_camera.isometry.translation = Vec2::ZERO;
+            world.target_camera.isometry.rotation = 0.0;
+            world.target_camera.zoom = 8.0;
+        }
+    }
+
+    pub fn spawn_random_ship_on_p(world: &mut World) {
+        if let Ok(grid_id) = world::spawn_grid_by_name(world, "remora") {
+            let pos = randvec(10.0, 200.0);
+            _ = world::set_grid_isometry(world, grid_id, Isometry2d::from_pos(pos));
+        }
     }
 }
 
@@ -308,56 +325,6 @@ fn is_button_just_pressed(events: &Vec<Event>, button: Button) -> bool {
     events
         .iter()
         .any(|e| e.event_type == rdev::EventType::ButtonPress(button))
-}
-
-fn spawn_random_ship_on_p(world: &mut World, event_queue: &Vec<Event>) {
-    if is_key_just_pressed(event_queue, Key::KeyP) {
-        if let Ok(grid_id) = world::spawn_grid_by_name(world, "remora") {
-            let pos = randvec(10.0, 200.0);
-            _ = world::set_grid_isometry(world, grid_id, Isometry2d::from_pos(pos));
-        }
-    }
-}
-
-fn reset_camera_on_ctrl_r(input: &InputState, target: &mut Camera) {
-    if input.is_key_pressed(Key::ControlLeft) && input.is_key_pressed(Key::KeyR) {
-        debug!("Reset camera");
-        target.isometry.translation = Vec2::ZERO;
-        target.isometry.rotation = 0.0;
-        target.zoom = 8.0;
-    }
-}
-
-fn toggle_camera_local_normal_snapping(events: &Vec<Event>, snap_camera: &mut bool) {
-    for e in events {
-        if let rdev::EventType::KeyPress(Key::KeyT) = e.event_type {
-            debug!("Toggle snap camera");
-            *snap_camera ^= true;
-        }
-    }
-}
-
-fn toggle_following_on_key_f(
-    events: &Vec<Event>,
-    sel: &SelectionInfo,
-    follow: &mut Option<Ent>,
-    sounds: &mut SoundEffects,
-) {
-    let pressed_f = events
-        .iter()
-        .any(|e| e.event_type == rdev::EventType::KeyPress(Key::KeyF));
-
-    if !pressed_f {
-        return;
-    }
-
-    let Some(grid_id) = sel.selected_grid else {
-        return;
-    };
-
-    *follow = Some(grid_id);
-
-    sounds.effects.push(SoundEffect::Follow);
 }
 
 fn snap_camera_target_to_local_up(target: &mut Camera) {
@@ -497,7 +464,7 @@ fn update_mouseover_part_info(
     let has_new_parts = new_parts.map(|e| e.has_any()).unwrap_or(false);
 
     if old_parts != new_parts && has_new_parts {
-        sounds.effects.push(SoundEffect::MouseoverPart);
+        sounds.push(SoundEffect::MouseoverPart);
     }
 }
 
@@ -522,17 +489,7 @@ fn set_target_camera_if_following(
     actual.isometry.rotation = target.isometry.rotation;
 }
 
-fn select_hovered_vehicle_on_click(
-    events: &Vec<Event>,
-    sel: &mut SelectionInfo,
-    sounds: &mut SoundEffects,
-) {
-    let is_clicked = is_button_just_pressed(events, Button::Left);
-
-    if !is_clicked {
-        return;
-    }
-
+fn select_hovered_vehicle_on_click(sel: &mut SelectionInfo, sounds: &mut SoundEffects) {
     let old_grid = sel.selected_grid;
 
     sel.selected_grid = sel.mouse_hovered;
@@ -542,9 +499,9 @@ fn select_hovered_vehicle_on_click(
     }
 
     if sel.selected_grid.is_some() {
-        sounds.effects.push(SoundEffect::Open);
+        sounds.push(SoundEffect::Open);
     } else if old_grid.is_some() {
-        sounds.effects.push(SoundEffect::Close);
+        sounds.push(SoundEffect::Close);
     }
 
     info!("Selected {:?}", sel.selected_grid);
@@ -638,29 +595,58 @@ pub fn do_internal_world_physics(world: &mut World) {
     world.timers.physics = end - start;
 }
 
-#[deprecated]
-pub fn update_world_silly(
+pub fn process_event(
     world: &mut World,
-    input: &InputState,
-    event_queue: Vec<Event>,
-) -> (Vec<Action>, SoundEffects) {
-    world.sounds.effects.clear();
+    input: &mut InputState,
+    event: &rdev::Event,
+) -> (SoundEffects, Vec<Action>) {
+    let mut actions = Vec::new();
+    let mut sounds = SoundEffects::new();
 
+    if let rdev::EventType::KeyPress(k) = event.event_type {
+        input.set_pressed(k);
+    } else if let rdev::EventType::KeyRelease(k) = event.event_type {
+        input.set_released(k);
+    }
+
+    match event.event_type {
+        rdev::EventType::KeyPress(key) => match key {
+            Key::KeyS => input_handlers::save_on_ctrl_s(world, input),
+            Key::KeyF => input_handlers::toggle_following_on_key_f(world, &mut sounds),
+            Key::KeyT => input_handlers::toggle_camera_local_normal_snapping_on_t(world),
+            Key::KeyR => input_handlers::reset_camera_on_ctrl_r(world, input),
+            Key::KeyD => input_handlers::panic_on_ctrl_d(input),
+            Key::KeyP => input_handlers::spawn_random_ship_on_p(world),
+            _ => (),
+        },
+        rdev::EventType::KeyRelease(_key) => (),
+        rdev::EventType::ButtonPress(button) => match button {
+            Button::Left => {
+                input_handlers::ping_on_alt_left_click(world, input, &mut actions, &mut sounds);
+                select_hovered_vehicle_on_click(&mut world.selection_info, &mut sounds);
+            }
+            _ => (),
+        },
+        rdev::EventType::ButtonRelease(_button) => (),
+        rdev::EventType::MouseMove { x: _, y: _ } => (),
+        rdev::EventType::Wheel {
+            delta_x: _,
+            delta_y,
+        } => {
+            input_handlers::apply_scroll_wheel_to_camera_target(delta_y, &mut world.target_camera);
+        }
+    }
+
+    (sounds, actions)
+}
+
+#[deprecated]
+pub fn update_world_silly(world: &mut World, input: &InputState) -> (Vec<Action>, SoundEffects) {
     do_internal_world_physics(world);
 
     let input_start = std::time::Instant::now();
 
-    let mut outgoing_messages = Vec::new();
-
-    toggle_camera_local_normal_snapping(&event_queue, &mut world.snap_camera_to_local_planet);
-    toggle_following_on_key_f(
-        &event_queue,
-        &world.selection_info,
-        &mut world.follow_vehicle,
-        &mut world.sounds,
-    );
-
-    select_hovered_vehicle_on_click(&event_queue, &mut world.selection_info, &mut world.sounds);
+    let mut sounds = SoundEffects::default();
 
     update_selection_info(
         &mut world.selection_info,
@@ -676,47 +662,20 @@ pub fn update_world_silly(
         world.mouse_screen_position,
         world.screen_dims,
         &world.camera,
-        &mut world.sounds,
+        &mut sounds,
     );
-
-    apply_scroll_wheel_to_camera_target(&event_queue, &mut world.target_camera);
 
     update_camera_target(
         &input,
         &mut world.target_camera,
         &mut world.follow_vehicle,
-        &mut world.sounds,
+        &mut sounds,
     );
-
-    reset_camera_on_ctrl_r(&input, &mut world.target_camera);
-
-    // spawn_random_ring_effects(&mut world.particles);
-
-    panic_on_ctrl_d(&input);
-
-    save_on_ctrl_s(world, &input, &event_queue);
-
-    ping_on_alt_left_click(
-        &mut world.particles,
-        &input,
-        &event_queue,
-        &world.camera,
-        world.mouse_screen_position,
-        &mut outgoing_messages,
-        world.screen_dims,
-        &mut world.chat,
-        &mut world.sounds,
-    );
-
-    spawn_random_ship_on_p(world, &event_queue);
-
-    let sounds = world.sounds.clone();
-    world.sounds = SoundEffects::default();
 
     let end = std::time::Instant::now();
     world.timers.input = end - input_start;
 
-    (outgoing_messages, sounds)
+    (Vec::new(), sounds)
 }
 
 fn update_ring_particles(particles: &mut Vec<PingParticle>) {

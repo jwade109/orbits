@@ -93,21 +93,16 @@ impl WorldRunner {
         }
     }
 
-    pub fn update(
-        &mut self,
-        input: &InputState,
-        events: Vec<Event>,
-    ) -> (Vec<Action>, SoundEffects) {
+    pub fn update(&mut self, input: &InputState) -> (Vec<Action>, SoundEffects) {
         let now = Instant::now();
         let mut delta = now - self.last_update;
         let mut ret = Vec::new();
         let mut sounds = SoundEffects::default();
         while delta > Self::TICK_DURATION {
             delta -= Self::TICK_DURATION;
-            // TODO(bug) cloning the event queue will result in a bug
-            let (actions, s) = update_world_silly(&mut self.world, input, events.clone());
+            let (actions, s) = update_world_silly(&mut self.world, input);
             ret.extend_from_slice(&actions);
-            sounds.effects.extend_from_slice(&s.effects);
+            sounds.extend_from_slice(&s);
             self.last_update += Self::TICK_DURATION;
         }
         (ret, sounds)

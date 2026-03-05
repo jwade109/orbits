@@ -3,6 +3,7 @@ use bary_raylib::app::new_app;
 use bary_raylib::draw;
 use bary_raylib::input_state::InputState;
 use bary_raylib::multiplayer::*;
+use bary_raylib::sounds::SoundEffects;
 use bary_raylib::systems::*;
 use bary_raylib::ui;
 use bary_raylib::utils::raylib_to_glam;
@@ -61,16 +62,6 @@ fn draw_debug_info(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
     }
 }
 
-fn update_input_state(events: &Vec<rdev::Event>, state: &mut InputState) {
-    for e in events {
-        if let rdev::EventType::KeyPress(k) = e.event_type {
-            state.set_pressed(k);
-        } else if let rdev::EventType::KeyRelease(k) = e.event_type {
-            state.set_released(k);
-        }
-    }
-}
-
 fn main() {
     simple_logger::SimpleLogger::new()
         .with_level(log::LevelFilter::Debug)
@@ -117,8 +108,8 @@ fn main() {
         // .vsync()
         .build();
 
-    // rl.set_target_fps(240);
-    // rl.maximize_window();
+    rl.set_target_fps(120);
+    rl.maximize_window();
     rl.set_exit_key(None);
 
     let mut shader = rl.load_shader(&thread, None, Some("assets/shaders/distortion.fs"));
@@ -140,7 +131,8 @@ fn main() {
 
         let loop_start = std::time::Instant::now();
 
-        let mut events = Vec::new();
+        let mut sounds = SoundEffects::new();
+        let mut actions = Vec::new();
 
         while let Some(e) = app.input_queue.pop() {
             // process release events even if the window isn't focused!
@@ -151,7 +143,10 @@ fn main() {
             };
 
             if is_release || rl.is_window_focused() {
-                events.push(e);
+                let (event_sounds, event_actions) =
+                    process_event(&mut app.runner.world, &mut app.input, &e);
+                sounds.extend(event_sounds);
+                actions.extend(event_actions);
             }
         }
 
@@ -173,17 +168,17 @@ fn main() {
         app.runner.world.screen_dims = screen_dims;
         app.runner.world.mouse_screen_position = mouse;
 
-        update_input_state(&events, &mut app.input);
+        let (update_actions, update_sounds) = app.runner.update(&mut app.input);
 
-        let (outgoing_messages, sounds) = app.runner.update(&mut app.input, events);
+        sounds.extend(update_sounds);
+        actions.extend(update_actions);
 
-        for msg in outgoing_messages {
+        for msg in actions {
             let transaction = Transaction::new(app.runner.world.ticks, msg);
             app.outgoing_network_queue.push(transaction);
         }
 
-        for sound in sounds.effects {
-            info!("Sound: {:?}", sound);
+        for sound in sounds {
             let path = sound.to_path();
             let sound = match audio.new_sound(path) {
                 Ok(s) => s,
@@ -198,6 +193,8 @@ fn main() {
 
             active_sounds.push(sound);
         }
+
+        active_sounds.retain(|s| s.is_playing());
 
         let time = rl.get_time();
         shader.set_shader_value(1, time as f32);
