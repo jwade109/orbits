@@ -115,6 +115,12 @@ pub fn draw_world(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
     // draw_test_isos(&mut d)
 }
 
+pub fn draw_mouse_screen_position(d: &mut RaylibDrawHandle, mouse_screen_position: Option<Vec2>) {
+    if let Some(pos) = mouse_screen_position {
+        d.draw_circle(pos.x as i32, pos.y as i32, 4.0, Color::GRAY);
+    }
+}
+
 fn draw_chat(d: &mut RaylibDrawHandle, chat: &Chat, screen_dims: Vec2, assets: &Assets) {
     let font_size = 22f32;
     let x = 10;

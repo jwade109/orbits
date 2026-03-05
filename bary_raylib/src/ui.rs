@@ -1,6 +1,5 @@
 use crate::{
     components::{Components, EntitySpawner},
-    part,
     world::{Assets, World},
 };
 use bary_core::prelude::*;
@@ -120,6 +119,24 @@ struct WindowLocation {
     is_focused: bool,
 }
 
+impl WindowLocation {
+    fn to_rect(&self) -> Rectangle {
+        let o = self.origin.as_vec2();
+        let s = self.dims.as_vec2();
+        Rectangle::new(o.x, o.y, s.x, s.y)
+    }
+
+    fn contains(&self, pos: Vec2) -> bool {
+        let delta = pos - self.origin.as_vec2();
+        let d = self.dims.as_vec2();
+        delta.x >= 0.0 && delta.y >= 0.0 && delta.x <= d.x && delta.y <= d.y
+    }
+
+    fn contains_opt(&self, pos: Option<Vec2>) -> bool {
+        pos.map(|p| self.contains(p)).unwrap_or(false)
+    }
+}
+
 struct GridInfoWindow {
     grid_id: Ent,
 }
@@ -135,10 +152,21 @@ pub struct UiState {
     location: Components<WindowLocation>,
 }
 
-pub fn draw_ui(d: &mut RaylibDrawHandle, ui: &UiState, world: &World, assets: &Assets) {
-    let Some(font) = &assets.fira_code else {
-        return;
-    };
+pub fn update_ui_state(ui: &mut UiState, mouse_screen_position: Option<Vec2>) {
+    for loc in ui.location.values_mut() {
+        loc.is_focused = loc.contains_opt(mouse_screen_position);
+    }
+}
+
+fn draw_window_bounding_boxes(d: &mut RaylibDrawHandle, locs: &Components<WindowLocation>) {
+    for loc in locs.values() {
+        let rec = loc.to_rect();
+        d.draw_rectangle_lines_ex(rec, 1.0, Color::RED);
+    }
+}
+
+pub fn compile_windows(ui: &UiState, world: &World) -> Vec<Window> {
+    let mut ret = Vec::new();
 
     for (id, grid_info) in ui.grid_info.iter() {
         let Ok(loc) = ui.location.try_get(*id) else {
@@ -151,7 +179,7 @@ pub fn draw_ui(d: &mut RaylibDrawHandle, ui: &UiState, world: &World, assets: &A
         let content = format!("{:#?}", grid.body_frame_forces);
         let title = format!("Grid {} Info", grid_info.grid_id);
         let window = Window::new(loc.origin, title, content, loc.is_focused);
-        draw_window(d, &window, font);
+        ret.push(window);
     }
 
     for (id, part_info) in ui.part_info.iter() {
@@ -165,6 +193,24 @@ pub fn draw_ui(d: &mut RaylibDrawHandle, ui: &UiState, world: &World, assets: &A
         let content = format!("{:#?}", part);
         let title = format!("Part {} Info", part_info.part_id);
         let window = Window::new(loc.origin, title, content, loc.is_focused);
+        ret.push(window);
+    }
+
+    ret
+}
+
+pub fn draw_ui(d: &mut RaylibDrawHandle, world: &World, ui: &UiState, assets: &Assets) {
+    let windows = compile_windows(ui, world);
+    draw_windows(d, assets, &windows);
+    draw_window_bounding_boxes(d, &ui.location);
+}
+
+fn draw_windows(d: &mut RaylibDrawHandle, assets: &Assets, windows: &[Window]) {
+    let Some(font) = &assets.fira_code else {
+        return;
+    };
+
+    for window in windows {
         draw_window(d, &window, font);
     }
 }
@@ -186,7 +232,7 @@ impl UiState {
             WindowLocation {
                 origin: IVec2::splat(200),
                 dims: IVec2::new(500, 700),
-                is_focused: false,
+                is_focused: true,
             },
         );
         self.grid_info.spawn(id, GridInfoWindow { grid_id });

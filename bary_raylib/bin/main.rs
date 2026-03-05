@@ -1,11 +1,9 @@
 use bary_core::prelude::*;
-use bary_raylib::draw::draw_world;
+use bary_raylib::app::new_app;
+use bary_raylib::draw;
 use bary_raylib::multiplayer::*;
 use bary_raylib::systems::*;
-use bary_raylib::ui::UiState;
-use bary_raylib::ui::Window;
-use bary_raylib::ui::draw_ui;
-use bary_raylib::ui::draw_window;
+use bary_raylib::ui;
 use bary_raylib::utils::raylib_to_glam;
 use bary_raylib::world::*;
 use bary_raylib::world_builder::WorldBuilder;
@@ -66,24 +64,6 @@ fn draw_debug_info(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
     }
 }
 
-fn network_thread(incoming: MessageQueue<ServerMessage>, outgoing: MessageQueue<Transaction>) {
-    let mut client = Client::new();
-    let dur = Duration::from_millis(50);
-
-    loop {
-        let msgs = client.update();
-        for msg in msgs {
-            incoming.push(msg);
-        }
-
-        while let Some(out) = outgoing.pop() {
-            client.send_message(ClientMessage::Transaction(out));
-        }
-
-        std::thread::sleep(dur);
-    }
-}
-
 fn main() {
     simple_logger::SimpleLogger::new()
         .with_level(log::LevelFilter::Debug)
@@ -138,16 +118,6 @@ fn main() {
         }
     });
 
-    let incoming_network_queue = new_message_queue();
-    let incoming_network_queue_copy = incoming_network_queue.clone();
-
-    let outgoing_network_queue = new_message_queue();
-    let outgoing_network_queue_copy = outgoing_network_queue.clone();
-
-    let _network_thread = thread::spawn(|| {
-        network_thread(incoming_network_queue_copy, outgoing_network_queue_copy);
-    });
-
     // rl.set_target_fps(240);
     // rl.maximize_window();
     rl.set_exit_key(None);
@@ -156,22 +126,7 @@ fn main() {
 
     let audio = raylib::audio::RaylibAudio::init_audio_device().unwrap();
 
-    let world = WorldBuilder::new()
-        .assets()
-        .blueprint("pollux")
-        .blueprint("bellerophon")
-        .blueprint("remora")
-        .blueprint("spacestation")
-        .spawn("pollux", Isometry2d::ZERO)
-        .spawn("remora", (10.0, 30.0, 0.1))
-        .spawn("remora", (-9.0, 12.0, -0.3))
-        .spawn("remora", (-7.0, 23.0, 0.7))
-        .spawn("bellerophon", (130.0, 50.0, 0.1))
-        .waypoint("pollux", (300.0, 200.0, 0.3))
-        .waypoint("remora", (3000.0, 7000.0, 0.0))
-        .build();
-
-    let mut runner = WorldRunner::new(world);
+    let mut app = new_app();
 
     let mut assets = Assets::default();
 
@@ -180,30 +135,6 @@ fn main() {
     rl.hide_cursor();
 
     let mut active_sounds = Vec::new();
-
-    let mut ui_state = UiState::new();
-
-    let window = Window {
-        title: "Hello!".to_string(),
-        content: "This is an example window.\n\nMore text also.".to_string(),
-        origin: IVec2::new(700, 200),
-        is_focused: false,
-    };
-
-    let grid_id = find::grid_by_name(&runner.world.grids, "pollux").unwrap();
-
-    ui_state.track_grid_info(grid_id);
-
-    let part_id = runner
-        .world
-        .grids
-        .try_get(grid_id)
-        .unwrap()
-        .parts
-        .first()
-        .unwrap();
-
-    ui_state.track_part_info(*part_id);
 
     while !rl.window_should_close() {
         // _ = client.as_ref().map(|c| c.run_callbacks());
@@ -219,13 +150,13 @@ fn main() {
             };
 
             if is_release || rl.is_window_focused() {
-                push_event(&mut runner.world, e);
+                push_event(&mut app.runner.world, e);
             }
         }
 
-        while let Some(n) = incoming_network_queue.pop() {
+        while let Some(n) = app.incoming_network_queue.pop() {
             if let ServerMessage::Transaction(tr) = n {
-                apply_transaction(&mut runner.world, tr);
+                apply_transaction(&mut app.runner.world, tr);
             }
         }
 
@@ -238,14 +169,14 @@ fn main() {
             .is_cursor_on_screen()
             .then(|| raylib_to_glam(rl.get_mouse_position()));
 
-        runner.world.screen_dims = screen_dims;
-        runner.world.mouse_screen_position = mouse;
+        app.runner.world.screen_dims = screen_dims;
+        app.runner.world.mouse_screen_position = mouse;
 
-        let (outgoing_messages, sounds) = runner.update();
+        let (outgoing_messages, sounds) = app.runner.update();
 
         for msg in outgoing_messages {
-            let transaction = Transaction::new(runner.world.ticks, msg);
-            outgoing_network_queue.push(transaction);
+            let transaction = Transaction::new(app.runner.world.ticks, msg);
+            app.outgoing_network_queue.push(transaction);
         }
 
         for sound in sounds.effects {
@@ -268,18 +199,22 @@ fn main() {
         let time = rl.get_time();
         shader.set_shader_value(1, time as f32);
 
+        ui::update_ui_state(&mut app.ui_state, app.runner.world.mouse_screen_position);
+
         rl.draw(&thread, |mut d: RaylibDrawHandle<'_>| {
             let start = std::time::Instant::now();
             d.clear_background(Color::BLACK);
 
-            draw_world(&runner.world, &assets, &mut d);
+            draw::draw_world(&app.runner.world, &assets, &mut d);
 
-            draw_ui(&mut d, &ui_state, &runner.world, &assets);
+            ui::draw_ui(&mut d, &app.runner.world, &app.ui_state, &assets);
+
+            draw::draw_mouse_screen_position(&mut d, app.runner.world.mouse_screen_position);
 
             let end = std::time::Instant::now();
-            runner.world.timers.render = end - start;
-            runner.world.timers.total = end - loop_start;
-            draw_debug_info(&runner.world, &assets, &mut d);
+            app.runner.world.timers.render = end - start;
+            app.runner.world.timers.total = end - loop_start;
+            draw_debug_info(&app.runner.world, &assets, &mut d);
         });
     }
 }
