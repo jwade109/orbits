@@ -9,6 +9,7 @@ pub enum SoundEffect {
     Follow,
     LeaveFollow,
     MouseoverPart,
+    DestroyPart,
 }
 
 impl SoundEffect {
@@ -28,5 +29,6 @@ pub fn get_sound_effect_asset_path(effect: SoundEffect) -> &'static str {
         SoundEffect::Follow => "assets/sfx/follow.wav",
         SoundEffect::LeaveFollow => "assets/sfx/leave-follow.wav",
         SoundEffect::MouseoverPart => "assets/sfx/mouseover-part.wav",
+        SoundEffect::DestroyPart => "assets/sfx/destroy-part.wav",
     }
 }

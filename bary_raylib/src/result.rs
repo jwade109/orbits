@@ -1,3 +1,5 @@
+use bary_core::prelude::PartCoord;
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum BaryError {
     EntityNotFound,
@@ -7,6 +9,7 @@ pub enum BaryError {
     FailedToSaveGrid,
     SaveAlreadyExists,
     NoPrimaryComputer,
+    NoPartsAt(PartCoord),
     IoError(String),
     SerdeYaml(String),
     TomlSer(toml::ser::Error),

@@ -1,7 +1,6 @@
 use bary_core::prelude::*;
 use bary_raylib::app::new_app;
 use bary_raylib::draw;
-use bary_raylib::input_state::InputState;
 use bary_raylib::multiplayer::*;
 use bary_raylib::sounds::SoundEffects;
 use bary_raylib::systems::*;
@@ -102,7 +101,7 @@ fn main() {
     let (mut rl, thread) = raylib::init()
         .size(1080, 700)
         .title("Hello world!")
-        .log_level(TraceLogLevel::LOG_INFO)
+        .log_level(TraceLogLevel::LOG_WARNING)
         .msaa_4x()
         .resizable()
         // .vsync()

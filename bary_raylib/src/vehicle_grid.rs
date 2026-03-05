@@ -1,6 +1,7 @@
 use bary_core::prelude::*;
+use log::*;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, Default, PartialEq, Eq)]
 pub struct PartOccupancy {
@@ -8,6 +9,12 @@ pub struct PartOccupancy {
     pub structural: Option<Ent>,
     pub external: Option<Ent>,
     pub plumbing: Option<Ent>,
+}
+
+fn clear_if_equal(val: &mut Option<Ent>, other: Ent) {
+    if *val == Some(other) {
+        *val = None;
+    }
 }
 
 impl PartOccupancy {
@@ -20,6 +27,12 @@ impl PartOccupancy {
             external: None,
             plumbing: None,
         }
+    }
+
+    // TODO(testing) especially with to_array
+    pub fn top(&self) -> Option<Ent> {
+        let arr: Vec<_> = self.to_array().iter().filter_map(|e| *e).collect();
+        arr.last().map(|e| *e)
     }
 
     pub fn has_any(&self) -> bool {
@@ -67,6 +80,13 @@ impl PartOccupancy {
             PartLayer::Exterior => self.mark_external(id),
             PartLayer::Plumbing => self.mark_plumbing(id),
         }
+    }
+
+    pub fn remove(&mut self, part_id: Ent) {
+        clear_if_equal(&mut self.internal, part_id);
+        clear_if_equal(&mut self.structural, part_id);
+        clear_if_equal(&mut self.external, part_id);
+        clear_if_equal(&mut self.plumbing, part_id);
     }
 }
 
@@ -132,6 +152,61 @@ impl VehicleGrid {
                     occ.mark(layer, id);
                     occ
                 });
+        }
+    }
+
+    pub fn remove_from_index(&mut self, id: Ent) {
+        for occ in self.occupancy.values_mut() {
+            occ.remove(id);
+        }
+
+        self.occupancy.retain(|_, e| e.has_any());
+
+        self.parts.retain(|e| *e != id);
+        self.thrusters.retain(|e| *e != id);
+        self.computers.retain(|e| *e != id);
+        self.lights.retain(|e| *e != id);
+    }
+
+    pub fn assess_integrity(&self) {
+        let mut unvisited = BTreeSet::new();
+
+        for key in self.occupancy.keys() {
+            unvisited.insert(*key);
+        }
+
+        let get_neighbors = |(x, y): (i32, i32)| [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)];
+
+        while let Some(seed) = unvisited.first().cloned() {
+            let mut parts = BTreeSet::new();
+
+            let mut open_set: BTreeSet<(i32, i32)> = [seed].into();
+            let mut count = 0;
+            let mut closed_set = BTreeSet::new();
+            while let Some(current) = open_set.pop_first() {
+                if closed_set.contains(&current) {
+                    continue;
+                }
+                closed_set.insert(current);
+                if !unvisited.contains(&current) {
+                    continue;
+                };
+                unvisited.remove(&current);
+
+                if let Some(occ) = self.occupancy.get(&current) {
+                    for (_, id) in occ.iter() {
+                        parts.insert(id);
+                    }
+                }
+
+                count += 1;
+
+                for n in get_neighbors(current) {
+                    open_set.insert(n);
+                }
+            }
+
+            warn!("seed: {:?}, cells: {}, parts: {}", seed, count, parts.len());
         }
     }
 }

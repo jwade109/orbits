@@ -109,7 +109,7 @@ pub fn draw_world(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
 
     draw_chat(d, &world.chat, world.screen_dims, assets);
 
-    draw_selected_part_info(d, &world, assets);
+    draw_hovered_part_info(d, &world, assets);
 
     // draw_parts_zoo(&world.prototypes, &mut d);
     // draw_test_isos(&mut d)
@@ -552,8 +552,8 @@ fn computer_info_str(cpu: &Computer) -> (String, usize) {
     (lines.into_iter().collect(), len)
 }
 
-fn draw_selected_part_info(d: &mut RaylibDrawHandle, world: &World, assets: &Assets) {
-    let Some((coord, occ)) = world.selection_info.selected_part_info else {
+fn draw_hovered_part_info(d: &mut RaylibDrawHandle, world: &World, assets: &Assets) {
+    let Some((coord, occ)) = world.selection_info.mouseover_part_info else {
         return;
     };
 

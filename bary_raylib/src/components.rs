@@ -1,5 +1,6 @@
 use crate::result::*;
 use bary_core::prelude::Ent;
+use log::error;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -63,6 +64,12 @@ impl<E> Components<E> {
             Ok(e)
         } else {
             Err(BaryError::EntityNotFound)
+        }
+    }
+
+    pub fn despawn_or_log(&mut self, id: Ent) {
+        if let Err(e) = self.despawn(id) {
+            error!("Failed to despawn {}: {:?}", id, e);
         }
     }
 

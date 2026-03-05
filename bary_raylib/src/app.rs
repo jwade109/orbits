@@ -73,11 +73,11 @@ pub fn new_app(multiplayer: bool) -> App {
         }
     });
 
-    let mut ui_state = UiState::new();
+    let ui_state = UiState::new();
 
-    let grid_id = find::grid_by_name(&world.grids, "pollux").unwrap();
+    // let grid_id = find::grid_by_name(&world.grids, "pollux").unwrap();
 
-    ui_state.track_grid_info(grid_id);
+    // ui_state.track_grid_info(grid_id);
 
     App {
         runner: WorldRunner::new(world),

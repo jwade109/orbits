@@ -7,6 +7,8 @@ use crate::light::*;
 use crate::multiplayer::Action;
 use crate::part::*;
 use crate::persistence::save_world;
+use crate::result::BaryError;
+use crate::result::BaryResult;
 use crate::ring_particle::PingParticle;
 use crate::sounds::*;
 use crate::systems::*;
@@ -15,7 +17,7 @@ use crate::utils::*;
 use crate::vehicle_grid::*;
 use bary_core::prelude::PI;
 use bary_core::prelude::*;
-use log::{debug, info};
+use log::*;
 use raylib::prelude::*;
 use rdev::Button;
 use rdev::Event;
@@ -221,9 +223,80 @@ fn update_camera(target: &Camera, actual: &mut Camera) {
     actual.zoom = low_pass(actual.zoom, target.zoom, rate_translation);
 }
 
-mod input_handlers {
+// TODO(testing) very important to test!
+pub fn remove_part(world: &mut World, part_id: Ent) -> BaryResult<()> {
+    debug!("Removing part {}", part_id);
+    let part = world.parts.try_get(part_id)?;
+    let grid_id = part.grid_id;
+    let proto = world.prototypes.try_get(part.prototype)?;
+    let grid = world.grids.try_get_mut(grid_id)?;
+    let name = grid.name.clone();
+
+    if grid.thrusters.contains(&part_id) {
+        world.thrusters.despawn(part_id)?;
+    }
+    if grid.computers.contains(&part_id) {
+        world.computers.despawn(part_id)?;
+    }
+    if grid.lights.contains(&part_id) {
+        world.lights.despawn(part_id)?;
+    }
+
+    grid.remove_from_index(part_id);
+    grid.parts_mass -= proto.mass;
+
+    world.parts.despawn(part_id)?;
+
+    grid.assess_integrity();
+
+    if grid.parts.is_empty() {
+        world.grids.despawn(grid_id)?;
+        world.chat.log(format!("Deleted empty grid \"{}\"", name));
+    }
+
+    Ok(())
+}
+
+pub fn remove_top_part_at(world: &mut World, grid_id: Ent, coord: PartCoord) -> BaryResult<Ent> {
+    warn!("Destroying top part at {} in grid {}", coord, grid_id);
+
+    let grid = world.grids.try_get(grid_id)?;
+    let top_part = grid
+        .get_parts_at(coord)
+        .map(|occ| occ.top())
+        .flatten()
+        .ok_or(BaryError::NoPartsAt(coord))?;
+
+    debug!("Top part is {}", top_part);
+
+    remove_part(world, top_part)?;
+
+    Ok(top_part)
+}
+
+pub mod input_handlers {
 
     use super::*;
+
+    pub fn destroy_top_layer_part_at_mouseover(world: &mut World, sounds: &mut SoundEffects) {
+        let Some(grid_id) = world.selection_info.selected_grid else {
+            return;
+        };
+
+        let Some((coord, _occ)) = world.selection_info.mouseover_part_info else {
+            return;
+        };
+
+        match remove_top_part_at(world, grid_id, coord) {
+            Ok(id) => {
+                info!("Removed part {}", id);
+                sounds.push(SoundEffect::DestroyPart);
+            }
+            Err(e) => {
+                error!("Failed to remove: {:?}", e);
+            }
+        }
+    }
 
     pub fn apply_scroll_wheel_to_camera_target(delta_y: i64, target: &mut Camera) {
         let scale = 1.15;
@@ -625,7 +698,9 @@ pub fn process_event(
                 input_handlers::ping_on_alt_left_click(world, input, &mut actions, &mut sounds);
                 select_hovered_vehicle_on_click(&mut world.selection_info, &mut sounds);
             }
-            _ => (),
+            Button::Right => input_handlers::destroy_top_layer_part_at_mouseover(world, &mut sounds),
+            Button::Middle => (),
+            Button::Unknown(_) => (),
         },
         rdev::EventType::ButtonRelease(_button) => (),
         rdev::EventType::MouseMove { x: _, y: _ } => (),
