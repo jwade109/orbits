@@ -63,8 +63,6 @@ pub struct World {
     pub follow_vehicle: Option<Ent>,
     pub snap_camera_to_local_planet: bool,
     pub screen_dims: Vec2,
-    #[serde(skip)]
-    pub event_queue: VecDeque<Event>,
     pub camera: Camera,
     pub target_camera: Camera,
     pub particles: Vec<PingParticle>,
@@ -102,7 +100,6 @@ impl World {
             snap_camera_to_local_planet: false,
             follow_vehicle: None,
             screen_dims: Vec2::new(1500.0, 900.0),
-            event_queue: VecDeque::new(),
             camera: Camera {
                 zoom: 0.1,
                 ..Camera::default()
@@ -136,23 +133,17 @@ pub fn load_assets(
 ) {
     debug!("Loading assets");
     assets.circle_texture = rl.load_texture(thread, "assets/circle.png").ok();
-    assets.lato_regular = rl.load_font_ex(thread, "assets/fonts/Lato-Regular.ttf", 48, None).ok();
-    assets.fira_code = rl.load_font_ex(thread, "assets/fonts/FiraCode-Bold.ttf", 128, None).ok();
+    assets.lato_regular = rl
+        .load_font_ex(thread, "assets/fonts/Lato-Regular.ttf", 48, None)
+        .ok();
+    assets.fira_code = rl
+        .load_font_ex(thread, "assets/fonts/FiraCode-Bold.ttf", 128, None)
+        .ok();
 
     // for (proto, tex) in assets.part_textures.values_mut() {
     //     let filename = format!("assets/parts/{}/skin.png", proto.part_name());
     //     *tex = rl.load_texture(thread, &filename).ok();
     // }
-}
-
-fn update_input_state(events: &VecDeque<Event>, state: &mut InputState) {
-    for e in events {
-        if let rdev::EventType::KeyPress(k) = e.event_type {
-            state.set_pressed(k);
-        } else if let rdev::EventType::KeyRelease(k) = e.event_type {
-            state.set_released(k);
-        }
-    }
 }
 
 fn update_camera_target(
@@ -227,7 +218,7 @@ fn update_camera(target: &Camera, actual: &mut Camera) {
     actual.zoom = low_pass(actual.zoom, target.zoom, rate_translation);
 }
 
-fn apply_scroll_wheel_to_camera_target(events: &VecDeque<Event>, target: &mut Camera) {
+fn apply_scroll_wheel_to_camera_target(events: &Vec<Event>, target: &mut Camera) {
     let scale = 1.15;
     for e in events {
         if let rdev::EventType::Wheel {
@@ -251,9 +242,9 @@ fn panic_on_ctrl_d(input: &InputState) {
     }
 }
 
-fn save_on_ctrl_s(world: &mut World, input: &InputState) {
+fn save_on_ctrl_s(world: &mut World, input: &InputState, event_queue: &Vec<Event>) {
     let pressed_ctrl = input.is_key_pressed(Key::ControlLeft);
-    let pressed_s = is_key_just_pressed(&world.event_queue, Key::KeyS);
+    let pressed_s = is_key_just_pressed(event_queue, Key::KeyS);
 
     if !(pressed_ctrl && pressed_s) {
         return;
@@ -276,7 +267,7 @@ fn save_on_ctrl_s(world: &mut World, input: &InputState) {
 fn ping_on_alt_left_click(
     particles: &mut Vec<PingParticle>,
     input: &InputState,
-    events: &VecDeque<Event>,
+    events: &Vec<Event>,
     camera: &Camera,
     mouse_screen_position: Option<Vec2>,
     transactions: &mut Vec<Action>,
@@ -306,20 +297,20 @@ fn ping_on_alt_left_click(
     }
 }
 
-fn is_key_just_pressed(events: &VecDeque<Event>, key: Key) -> bool {
+fn is_key_just_pressed(events: &Vec<Event>, key: Key) -> bool {
     events
         .iter()
         .any(|e| e.event_type == rdev::EventType::KeyPress(key))
 }
 
-fn is_button_just_pressed(events: &VecDeque<Event>, button: Button) -> bool {
+fn is_button_just_pressed(events: &Vec<Event>, button: Button) -> bool {
     events
         .iter()
         .any(|e| e.event_type == rdev::EventType::ButtonPress(button))
 }
 
-fn spawn_random_ship_on_p(world: &mut World) {
-    if is_key_just_pressed(&world.event_queue, Key::KeyP) {
+fn spawn_random_ship_on_p(world: &mut World, event_queue: &Vec<Event>) {
+    if is_key_just_pressed(event_queue, Key::KeyP) {
         if let Ok(grid_id) = world::spawn_grid_by_name(world, "remora") {
             let pos = randvec(10.0, 200.0);
             _ = world::set_grid_isometry(world, grid_id, Isometry2d::from_pos(pos));
@@ -336,7 +327,7 @@ fn reset_camera_on_ctrl_r(input: &InputState, target: &mut Camera) {
     }
 }
 
-fn toggle_camera_local_normal_snapping(events: &VecDeque<Event>, snap_camera: &mut bool) {
+fn toggle_camera_local_normal_snapping(events: &Vec<Event>, snap_camera: &mut bool) {
     for e in events {
         if let rdev::EventType::KeyPress(Key::KeyT) = e.event_type {
             debug!("Toggle snap camera");
@@ -346,7 +337,7 @@ fn toggle_camera_local_normal_snapping(events: &VecDeque<Event>, snap_camera: &m
 }
 
 fn toggle_following_on_key_f(
-    events: &VecDeque<Event>,
+    events: &Vec<Event>,
     sel: &SelectionInfo,
     follow: &mut Option<Ent>,
     sounds: &mut SoundEffects,
@@ -531,7 +522,7 @@ fn set_target_camera_if_following(
 }
 
 fn select_hovered_vehicle_on_click(
-    events: &VecDeque<Event>,
+    events: &Vec<Event>,
     sel: &mut SelectionInfo,
     sounds: &mut SoundEffects,
 ) {
@@ -605,8 +596,17 @@ pub fn update_computers(computers: &mut Components<Computer>, grids: &Components
     }
 }
 
+pub fn update_world(world: &mut World) -> (Vec<Action>, SoundEffects) {
+    let mut input = InputState::default();
+    update_world_silly(world, &mut input, vec![])
+}
+
 #[deprecated(note = "Input state should be removed")]
-pub fn update_world(world: &mut World, input: &mut InputState) -> (Vec<Action>, SoundEffects) {
+pub fn update_world_silly(
+    world: &mut World,
+    input: &InputState,
+    event_queue: Vec<Event>,
+) -> (Vec<Action>, SoundEffects) {
     world.ticks += 1;
 
     world.sounds.effects.clear();
@@ -615,19 +615,15 @@ pub fn update_world(world: &mut World, input: &mut InputState) -> (Vec<Action>, 
 
     let start = std::time::Instant::now();
 
-    toggle_camera_local_normal_snapping(&world.event_queue, &mut world.snap_camera_to_local_planet);
+    toggle_camera_local_normal_snapping(&event_queue, &mut world.snap_camera_to_local_planet);
     toggle_following_on_key_f(
-        &world.event_queue,
+        &event_queue,
         &world.selection_info,
         &mut world.follow_vehicle,
         &mut world.sounds,
     );
 
-    select_hovered_vehicle_on_click(
-        &world.event_queue,
-        &mut world.selection_info,
-        &mut world.sounds,
-    );
+    select_hovered_vehicle_on_click(&event_queue, &mut world.selection_info, &mut world.sounds);
 
     update_ring_particles(&mut world.particles);
     update_computers(&mut world.computers, &world.grids);
@@ -656,8 +652,7 @@ pub fn update_world(world: &mut World, input: &mut InputState) -> (Vec<Action>, 
         &mut world.sounds,
     );
 
-    update_input_state(&world.event_queue, input);
-    apply_scroll_wheel_to_camera_target(&world.event_queue, &mut world.target_camera);
+    apply_scroll_wheel_to_camera_target(&event_queue, &mut world.target_camera);
 
     propagate_grid_rigid_bodies(&mut world.grids);
 
@@ -686,12 +681,12 @@ pub fn update_world(world: &mut World, input: &mut InputState) -> (Vec<Action>, 
 
     panic_on_ctrl_d(&input);
 
-    save_on_ctrl_s(world, &input);
+    save_on_ctrl_s(world, &input, &event_queue);
 
     ping_on_alt_left_click(
         &mut world.particles,
         &input,
-        &world.event_queue,
+        &event_queue,
         &world.camera,
         world.mouse_screen_position,
         &mut outgoing_messages,
@@ -702,9 +697,7 @@ pub fn update_world(world: &mut World, input: &mut InputState) -> (Vec<Action>, 
 
     world.chat.drop_old_messages();
 
-    spawn_random_ship_on_p(world);
-
-    world.event_queue.clear();
+    spawn_random_ship_on_p(world, &event_queue);
 
     let end = std::time::Instant::now();
 
@@ -721,8 +714,4 @@ fn update_ring_particles(particles: &mut Vec<PingParticle>) {
         ring.step()
     }
     particles.retain(|p| p.is_alive());
-}
-
-pub fn push_event(world: &mut World, event: Event) {
-    world.event_queue.push_back(event);
 }

@@ -8,7 +8,7 @@ use std::hint::black_box;
 fn run_for_one_hour(world: &mut World, input: &mut InputState) {
     let ticks = TICKS_PER_SECOND * 3600;
     for _ in 0..ticks {
-        update_world(world, input);
+        update_world(world);
     }
 }
 
@@ -23,7 +23,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     let mut input = InputState::default();
 
     c.bench_function("world_update", |b| {
-        b.iter(|| black_box(update_world(&mut world, &mut input)))
+        b.iter(|| black_box(update_world(&mut world)))
     });
 
     c.bench_function("run_for_one_hour", |b| {

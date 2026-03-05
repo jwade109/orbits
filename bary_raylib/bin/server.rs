@@ -56,7 +56,7 @@ impl ServerApp {
 
         let mut input = InputState::default();
 
-        let _outgoing = self.runner.update(&mut input);
+        let _outgoing = self.runner.update(&mut input, vec![]);
 
         if self.sync_timer.tick() {
             let tr = Transaction::new(

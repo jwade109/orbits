@@ -1,7 +1,11 @@
 use crate::{
-    input_state::InputState, multiplayer::*, sounds::SoundEffects, world::{World, update_world}
+    input_state::InputState,
+    multiplayer::*,
+    sounds::SoundEffects,
+    world::{World, update_world, update_world_silly},
 };
 use crossbeam_queue::SegQueue;
+use rdev::Event;
 use renet_netcode::NETCODE_USER_DATA_BYTES;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -89,14 +93,19 @@ impl WorldRunner {
         }
     }
 
-    pub fn update(&mut self, input: &mut InputState) -> (Vec<Action>, SoundEffects) {
+    pub fn update(
+        &mut self,
+        input: &InputState,
+        events: Vec<Event>,
+    ) -> (Vec<Action>, SoundEffects) {
         let now = Instant::now();
         let mut delta = now - self.last_update;
         let mut ret = Vec::new();
         let mut sounds = SoundEffects::default();
         while delta > Self::TICK_DURATION {
             delta -= Self::TICK_DURATION;
-            let (actions, s) = update_world(&mut self.world, input);
+            // TODO(bug) cloning the event queue will result in a bug
+            let (actions, s) = update_world_silly(&mut self.world, input, events.clone());
             ret.extend_from_slice(&actions);
             sounds.effects.extend_from_slice(&s.effects);
             self.last_update += Self::TICK_DURATION;

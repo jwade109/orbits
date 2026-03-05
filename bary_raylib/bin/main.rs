@@ -1,6 +1,7 @@
 use bary_core::prelude::*;
 use bary_raylib::app::new_app;
 use bary_raylib::draw;
+use bary_raylib::input_state::InputState;
 use bary_raylib::multiplayer::*;
 use bary_raylib::systems::*;
 use bary_raylib::ui;
@@ -52,12 +53,18 @@ fn draw_debug_info(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
     s += &format!("\nLIT {:?}", &world.lights);
     s += &format!("\nE {:?}", &world.spawner);
 
-    for e in &world.event_queue {
-        s += &format!("\n{:?}", e);
-    }
-
     if let Some(font) = &assets.lato_regular {
         d.draw_text_ex(&font, &s, Vector2::new(12.0, 12.0), 16.0, 0.0, Color::WHITE);
+    }
+}
+
+fn update_input_state(events: &Vec<rdev::Event>, state: &mut InputState) {
+    for e in events {
+        if let rdev::EventType::KeyPress(k) = e.event_type {
+            state.set_pressed(k);
+        } else if let rdev::EventType::KeyRelease(k) = e.event_type {
+            state.set_released(k);
+        }
     }
 }
 
@@ -130,6 +137,8 @@ fn main() {
 
         let loop_start = std::time::Instant::now();
 
+        let mut events = Vec::new();
+
         while let Some(e) = app.input_queue.pop() {
             // process release events even if the window isn't focused!
             let is_release = match e.event_type {
@@ -139,13 +148,13 @@ fn main() {
             };
 
             if is_release || rl.is_window_focused() {
-                push_event(&mut app.runner.world, e);
+                events.push(e);
             }
         }
 
         while let Some(n) = app.incoming_network_queue.pop() {
             if let ServerMessage::Transaction(tr) = n {
-                apply_transaction(&mut app.runner.world, &mut app.input, tr);
+                apply_transaction(&mut app.runner.world, tr);
             }
         }
 
@@ -161,7 +170,9 @@ fn main() {
         app.runner.world.screen_dims = screen_dims;
         app.runner.world.mouse_screen_position = mouse;
 
-        let (outgoing_messages, sounds) = app.runner.update(&mut app.input);
+        update_input_state(&events, &mut app.input);
+
+        let (outgoing_messages, sounds) = app.runner.update(&mut app.input, events);
 
         for msg in outgoing_messages {
             let transaction = Transaction::new(app.runner.world.ticks, msg);

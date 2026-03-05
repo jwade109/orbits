@@ -670,10 +670,8 @@ mod tests {
         let grid = world.grids.try_get_mut(id).unwrap();
         grid.pose.translation = (40.0, 156.0).into();
 
-        let mut input = InputState::default();
-
         for _ in 0..100 {
-            update_world(&mut world, &mut input);
+            update_world(&mut world);
             let test_pos = Vec2::new(100.0, 200.0);
             let e = find::closest_grid(&world.grids, test_pos, None);
             assert_eq!(e, Some((Ent(34), Vec2::new(60.0, 44.0))));
@@ -980,7 +978,7 @@ mod tests {
 
         // run the simulation for 2 seconds at 50 Hz
         for _ in 0..100 {
-            update_world(&mut world, &mut input);
+            update_world(&mut world);
         }
 
         let iso = world.grids.try_get(grid_id).unwrap().pose;
@@ -1152,11 +1150,9 @@ mod tests {
             (15.839217, -0.10037795, -0.039599977),
         ];
 
-        let mut input = InputState::default();
-
         for _ in 0..100 {
             let expected = expected_poses[world.ticks as usize];
-            update_world(&mut world, &mut input);
+            update_world(&mut world);
             let pose = find::grid_pose(&world.grids, grid_id).unwrap().to_tuple();
             assert_eq!(pose, expected);
         }
@@ -1169,10 +1165,8 @@ mod tests {
         world.target_camera.isometry.translation = Vec2::new(100.0, 300.0);
         world.snap_camera_to_local_planet = true;
 
-        let mut input = InputState::default();
-
         for _ in 0..100 {
-            update_world(&mut world, &mut input);
+            update_world(&mut world);
         }
 
         assert_eq!(
@@ -1201,11 +1195,9 @@ mod tests {
 
         let grid_id = find::grid_by_name(&world.grids, "pollux").unwrap();
 
-        let mut input = InputState::default();
-
         for _ in 0..20 {
             for _ in 0..1000 {
-                update_world(&mut world, &mut input);
+                update_world(&mut world);
             }
 
             let elapsed = apparent_elapsed_time(&world);

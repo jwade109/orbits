@@ -25,7 +25,7 @@ impl Transaction {
     }
 }
 
-pub fn apply_transaction(world: &mut World, input: &mut InputState, transaction: Transaction) {
+pub fn apply_transaction(world: &mut World, transaction: Transaction) {
     info!(
         "Applying transation {:?} at tick {}",
         transaction, world.ticks
@@ -54,7 +54,7 @@ pub fn apply_transaction(world: &mut World, input: &mut InputState, transaction:
                 let delta = tick - world.ticks;
                 warn!("Fast forwarding by {} ticks", delta);
                 while world.ticks < tick {
-                    update_world(world, input);
+                    update_world(world);
                 }
             } else if tick < world.ticks {
                 let delta = world.ticks - tick;

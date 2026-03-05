@@ -108,10 +108,8 @@ mod tests {
             .spawn("bellerophon", (50.0, 109.0, 1.4))
             .build();
 
-        let mut input = InputState::default();
-
         for _ in 0..1000 {
-            update_world(&mut world, &mut input);
+            update_world(&mut world);
         }
 
         let r = save_world(save_path, &world, false);
