@@ -29,7 +29,8 @@ pub type MaybeFont = Option<Font>;
 
 #[derive(Default, Deserialize, Serialize, Clone)]
 pub struct Timers {
-    pub update: Duration,
+    pub physics: Duration,
+    pub input: Duration,
     pub render: Duration,
     pub total: Duration,
 }
@@ -597,23 +598,59 @@ pub fn update_computers(computers: &mut Components<Computer>, grids: &Components
 }
 
 pub fn update_world(world: &mut World) -> (Vec<Action>, SoundEffects) {
-    let mut input = InputState::default();
-    update_world_silly(world, &mut input, vec![])
+    // let mut input = InputState::default();
+    // update_world_silly(world, &mut input, vec![])
+    do_internal_world_physics(world);
+    (vec![], SoundEffects::default())
 }
 
-#[deprecated(note = "Input state should be removed")]
+pub fn do_internal_world_physics(world: &mut World) {
+    let start = std::time::Instant::now();
+    world.ticks += 1;
+    update_ring_particles(&mut world.particles);
+    let dirty_set = update_thrusters(
+        &mut world.thrusters,
+        &world.grids,
+        &world.parts,
+        &world.computers,
+    );
+    update_grid_acceleration(dirty_set, &mut world.grids, &world.thrusters, &world.parts);
+    update_computers(&mut world.computers, &world.grids);
+    propagate_grid_rigid_bodies(&mut world.grids);
+
+    set_target_camera_if_following(
+        world.follow_vehicle,
+        &world.grids,
+        &mut world.target_camera,
+        &mut world.camera,
+    );
+
+    if world.snap_camera_to_local_planet {
+        snap_camera_target_to_local_up(&mut world.target_camera);
+    }
+
+    update_camera(&world.target_camera, &mut world.camera);
+
+    world.chat.drop_old_messages();
+
+    let end = std::time::Instant::now();
+
+    world.timers.physics = end - start;
+}
+
+#[deprecated]
 pub fn update_world_silly(
     world: &mut World,
     input: &InputState,
     event_queue: Vec<Event>,
 ) -> (Vec<Action>, SoundEffects) {
-    world.ticks += 1;
-
     world.sounds.effects.clear();
 
-    let mut outgoing_messages = Vec::new();
+    do_internal_world_physics(world);
 
-    let start = std::time::Instant::now();
+    let input_start = std::time::Instant::now();
+
+    let mut outgoing_messages = Vec::new();
 
     toggle_camera_local_normal_snapping(&event_queue, &mut world.snap_camera_to_local_planet);
     toggle_following_on_key_f(
@@ -624,16 +661,6 @@ pub fn update_world_silly(
     );
 
     select_hovered_vehicle_on_click(&event_queue, &mut world.selection_info, &mut world.sounds);
-
-    update_ring_particles(&mut world.particles);
-    update_computers(&mut world.computers, &world.grids);
-    let dirty_set = update_thrusters(
-        &mut world.thrusters,
-        &world.grids,
-        &world.parts,
-        &world.computers,
-    );
-    update_grid_acceleration(dirty_set, &mut world.grids, &world.thrusters, &world.parts);
 
     update_selection_info(
         &mut world.selection_info,
@@ -654,8 +681,6 @@ pub fn update_world_silly(
 
     apply_scroll_wheel_to_camera_target(&event_queue, &mut world.target_camera);
 
-    propagate_grid_rigid_bodies(&mut world.grids);
-
     update_camera_target(
         &input,
         &mut world.target_camera,
@@ -663,19 +688,7 @@ pub fn update_world_silly(
         &mut world.sounds,
     );
 
-    set_target_camera_if_following(
-        world.follow_vehicle,
-        &world.grids,
-        &mut world.target_camera,
-        &mut world.camera,
-    );
-
-    if world.snap_camera_to_local_planet {
-        snap_camera_target_to_local_up(&mut world.target_camera);
-    }
-
     reset_camera_on_ctrl_r(&input, &mut world.target_camera);
-    update_camera(&world.target_camera, &mut world.camera);
 
     // spawn_random_ring_effects(&mut world.particles);
 
@@ -695,16 +708,13 @@ pub fn update_world_silly(
         &mut world.sounds,
     );
 
-    world.chat.drop_old_messages();
-
     spawn_random_ship_on_p(world, &event_queue);
-
-    let end = std::time::Instant::now();
-
-    world.timers.update = end - start;
 
     let sounds = world.sounds.clone();
     world.sounds = SoundEffects::default();
+
+    let end = std::time::Instant::now();
+    world.timers.input = end - input_start;
 
     (outgoing_messages, sounds)
 }

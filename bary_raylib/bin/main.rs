@@ -7,7 +7,6 @@ use bary_raylib::systems::*;
 use bary_raylib::ui;
 use bary_raylib::utils::raylib_to_glam;
 use bary_raylib::world::*;
-use bary_raylib::world_builder::WorldBuilder;
 use log::*;
 use raylib::prelude::*;
 use std::thread;
@@ -30,7 +29,11 @@ fn draw_debug_info(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
         )
     };
 
-    s += &format!("\nU\n{}", fmt_time(world.timers.update, world.timers.total));
+    s += &format!(
+        "\nP\n{}",
+        fmt_time(world.timers.physics, world.timers.total)
+    );
+    s += &format!("\nI\n{}", fmt_time(world.timers.input, world.timers.total));
     s += &format!("\nR\n{}", fmt_time(world.timers.render, world.timers.total));
     s += &format!("\nT\n{}", fmt_time(world.timers.total, world.timers.total));
 
