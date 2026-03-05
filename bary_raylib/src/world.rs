@@ -278,6 +278,29 @@ pub mod input_handlers {
 
     use super::*;
 
+    pub fn command_selected_ship_to_waypoint(world: &mut World, sounds: &mut SoundEffects) {
+        let Some(grid_id) = world.selection_info.selected_grid else {
+            return;
+        };
+
+        let Some(screen_pos) = world.mouse_screen_position else {
+            return;
+        };
+
+        let world_pos = screen_to_world(&world.camera, screen_pos, world.screen_dims);
+
+        let waypoint = Isometry2d::new(world_pos, 0.0);
+
+        if let Err(e) = world::set_primary_computer_waypoint(grid_id, waypoint, world) {
+            error!("Failed to set waypoint: {e:?}");
+        }
+        if let Err(e) = world::set_primary_computer_state(grid_id, true, world) {
+            error!("Failed to turn primary computer on: {e:?}");
+        }
+
+        sounds.push(SoundEffect::SetWaypoint);
+    }
+
     pub fn destroy_top_layer_part_at_mouseover(world: &mut World, sounds: &mut SoundEffects) {
         let Some(grid_id) = world.selection_info.selected_grid else {
             return;
@@ -698,8 +721,10 @@ pub fn process_event(
                 input_handlers::ping_on_alt_left_click(world, input, &mut actions, &mut sounds);
                 select_hovered_vehicle_on_click(&mut world.selection_info, &mut sounds);
             }
-            Button::Right => input_handlers::destroy_top_layer_part_at_mouseover(world, &mut sounds),
-            Button::Middle => (),
+            Button::Right => {
+                input_handlers::destroy_top_layer_part_at_mouseover(world, &mut sounds)
+            }
+            Button::Middle => input_handlers::command_selected_ship_to_waypoint(world, &mut sounds),
             Button::Unknown(_) => (),
         },
         rdev::EventType::ButtonRelease(_button) => (),
