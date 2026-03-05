@@ -1,5 +1,4 @@
 [values.43]
-ticks = 1000
 grid_id = 34
 prototype_id = 20
 position = [2.875, -2.125]
@@ -10,7 +9,6 @@ off = 450
 delay = 0
 
 [values.47]
-ticks = 1000
 grid_id = 34
 prototype_id = 20
 position = [-2.875, -2.125]
@@ -21,7 +19,6 @@ off = 450
 delay = 50
 
 [values.49]
-ticks = 1000
 grid_id = 34
 prototype_id = 20
 position = [-2.375, 1.875]
@@ -32,7 +29,6 @@ off = 450
 delay = 100
 
 [values.56]
-ticks = 1000
 grid_id = 34
 prototype_id = 20
 position = [-3.125, 1.875]
@@ -43,7 +39,6 @@ off = 450
 delay = 150
 
 [values.57]
-ticks = 1000
 grid_id = 34
 prototype_id = 20
 position = [-2.375, -1.875]
@@ -54,7 +49,6 @@ off = 450
 delay = 200
 
 [values.61]
-ticks = 1000
 grid_id = 34
 prototype_id = 20
 position = [2.375, -1.875]
@@ -65,7 +59,6 @@ off = 450
 delay = 250
 
 [values.81]
-ticks = 1000
 grid_id = 34
 prototype_id = 20
 position = [-3.125, -1.875]
@@ -76,7 +69,6 @@ off = 450
 delay = 300
 
 [values.85]
-ticks = 1000
 grid_id = 34
 prototype_id = 20
 position = [3.125, 1.875]
@@ -87,7 +79,6 @@ off = 450
 delay = 350
 
 [values.87]
-ticks = 1000
 grid_id = 34
 prototype_id = 20
 position = [2.375, 1.875]
@@ -98,7 +89,6 @@ off = 450
 delay = 400
 
 [values.95]
-ticks = 1000
 grid_id = 34
 prototype_id = 20
 position = [-2.875, 2.125]
@@ -109,7 +99,6 @@ off = 450
 delay = 450
 
 [values.103]
-ticks = 1000
 grid_id = 34
 prototype_id = 20
 position = [3.125, -1.875]
@@ -120,7 +109,6 @@ off = 450
 delay = 500
 
 [values.111]
-ticks = 1000
 grid_id = 34
 prototype_id = 20
 position = [2.875, 2.125]
@@ -131,7 +119,6 @@ off = 450
 delay = 550
 
 [values.135]
-ticks = 1000
 grid_id = 133
 prototype_id = 20
 position = [0.625, 1.125]
@@ -142,7 +129,6 @@ off = 450
 delay = 0
 
 [values.137]
-ticks = 1000
 grid_id = 133
 prototype_id = 20
 position = [-1.625, 0.875]
@@ -153,7 +139,6 @@ off = 450
 delay = 50
 
 [values.143]
-ticks = 1000
 grid_id = 133
 prototype_id = 20
 position = [-1.875, 0.625]
@@ -164,7 +149,6 @@ off = 450
 delay = 100
 
 [values.147]
-ticks = 1000
 grid_id = 133
 prototype_id = 20
 position = [0.875, 0.875]
@@ -175,7 +159,6 @@ off = 450
 delay = 150
 
 [values.148]
-ticks = 1000
 grid_id = 133
 prototype_id = 20
 position = [-1.875, -0.625]
@@ -186,7 +169,6 @@ off = 450
 delay = 200
 
 [values.149]
-ticks = 1000
 grid_id = 133
 prototype_id = 20
 position = [0.625, -1.125]
@@ -197,7 +179,6 @@ off = 450
 delay = 250
 
 [values.156]
-ticks = 1000
 grid_id = 133
 prototype_id = 20
 position = [-1.625, -0.875]
@@ -208,7 +189,6 @@ off = 450
 delay = 300
 
 [values.157]
-ticks = 1000
 grid_id = 133
 prototype_id = 20
 position = [0.875, -0.875]
@@ -219,7 +199,6 @@ off = 450
 delay = 350
 
 [values.175]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-8.625, 3.125]
@@ -230,7 +209,6 @@ off = 450
 delay = 400
 
 [values.187]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [10.625, 3.125]
@@ -241,7 +219,6 @@ off = 450
 delay = 450
 
 [values.188]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-9.625, 2.625]
@@ -252,7 +229,6 @@ off = 450
 delay = 500
 
 [values.192]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [11.875, 2.375]
@@ -263,7 +239,6 @@ off = 450
 delay = 550
 
 [values.193]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-9.125, 3.125]
@@ -274,7 +249,6 @@ off = 450
 delay = 0
 
 [values.194]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-7.875, -3.125]
@@ -285,7 +259,6 @@ off = 450
 delay = 50
 
 [values.195]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [4.875, -3.125]
@@ -296,7 +269,6 @@ off = 450
 delay = 100
 
 [values.196]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-10.125, -2.125]
@@ -307,7 +279,6 @@ off = 450
 delay = 150
 
 [values.197]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-10.125, 2.125]
@@ -318,7 +289,6 @@ off = 450
 delay = 200
 
 [values.202]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [11.875, -1.875]
@@ -329,7 +299,6 @@ off = 450
 delay = 250
 
 [values.204]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-2.625, 3.125]
@@ -340,7 +309,6 @@ off = 450
 delay = 300
 
 [values.205]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [4.375, 3.125]
@@ -351,7 +319,6 @@ off = 450
 delay = 350
 
 [values.207]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [10.875, 3.125]
@@ -362,7 +329,6 @@ off = 450
 delay = 400
 
 [values.223]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-9.875, 2.375]
@@ -373,7 +339,6 @@ off = 450
 delay = 450
 
 [values.224]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-8.875, -3.125]
@@ -384,7 +349,6 @@ off = 450
 delay = 500
 
 [values.226]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-9.125, -3.125]
@@ -395,7 +359,6 @@ off = 450
 delay = 550
 
 [values.229]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [11.125, 3.125]
@@ -406,7 +369,6 @@ off = 450
 delay = 0
 
 [values.230]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [11.875, 2.125]
@@ -417,7 +379,6 @@ off = 450
 delay = 50
 
 [values.232]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-8.375, 3.125]
@@ -428,7 +389,6 @@ off = 450
 delay = 100
 
 [values.233]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-2.125, 3.125]
@@ -439,7 +399,6 @@ off = 450
 delay = 150
 
 [values.238]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [10.375, -3.125]
@@ -450,7 +409,6 @@ off = 450
 delay = 200
 
 [values.245]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-10.375, 1.875]
@@ -461,7 +419,6 @@ off = 450
 delay = 250
 
 [values.247]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-9.375, 2.625]
@@ -472,7 +429,6 @@ off = 450
 delay = 300
 
 [values.250]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-1.625, 3.125]
@@ -483,7 +439,6 @@ off = 450
 delay = 350
 
 [values.252]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-2.375, -3.125]
@@ -494,7 +449,6 @@ off = 450
 delay = 400
 
 [values.256]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [3.875, 3.125]
@@ -505,7 +459,6 @@ off = 450
 delay = 450
 
 [values.257]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-2.625, -3.125]
@@ -516,7 +469,6 @@ off = 450
 delay = 500
 
 [values.261]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-1.375, -3.125]
@@ -527,7 +479,6 @@ off = 450
 delay = 550
 
 [values.263]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [10.625, -3.125]
@@ -538,7 +489,6 @@ off = 450
 delay = 0
 
 [values.270]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-2.375, 3.125]
@@ -549,7 +499,6 @@ off = 450
 delay = 50
 
 [values.274]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-1.875, -3.125]
@@ -560,7 +509,6 @@ off = 450
 delay = 100
 
 [values.280]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-10.375, -1.875]
@@ -571,7 +519,6 @@ off = 450
 delay = 150
 
 [values.282]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [11.875, -2.375]
@@ -582,7 +529,6 @@ off = 450
 delay = 200
 
 [values.284]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-9.375, -2.625]
@@ -593,7 +539,6 @@ off = 450
 delay = 250
 
 [values.289]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-8.375, -3.125]
@@ -604,7 +549,6 @@ off = 450
 delay = 300
 
 [values.290]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-8.625, -3.125]
@@ -615,7 +559,6 @@ off = 450
 delay = 350
 
 [values.294]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [5.125, -3.125]
@@ -626,7 +569,6 @@ off = 450
 delay = 400
 
 [values.295]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [11.875, 1.875]
@@ -637,7 +579,6 @@ off = 450
 delay = 450
 
 [values.304]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [4.625, -3.125]
@@ -648,7 +589,6 @@ off = 450
 delay = 500
 
 [values.311]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-8.875, 3.125]
@@ -659,7 +599,6 @@ off = 450
 delay = 550
 
 [values.312]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [10.875, -3.125]
@@ -670,7 +609,6 @@ off = 450
 delay = 0
 
 [values.323]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [4.125, 3.125]
@@ -681,7 +619,6 @@ off = 450
 delay = 50
 
 [values.324]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-1.875, 3.125]
@@ -692,7 +629,6 @@ off = 450
 delay = 100
 
 [values.325]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [5.125, 3.125]
@@ -703,7 +639,6 @@ off = 450
 delay = 150
 
 [values.335]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-8.125, 3.125]
@@ -714,7 +649,6 @@ off = 450
 delay = 200
 
 [values.337]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [4.875, 3.125]
@@ -725,7 +659,6 @@ off = 450
 delay = 250
 
 [values.342]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-7.875, 3.125]
@@ -736,7 +669,6 @@ off = 450
 delay = 300
 
 [values.343]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [11.125, -3.125]
@@ -747,7 +679,6 @@ off = 450
 delay = 350
 
 [values.345]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [4.125, -3.125]
@@ -758,7 +689,6 @@ off = 450
 delay = 400
 
 [values.352]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-2.125, -3.125]
@@ -769,7 +699,6 @@ off = 450
 delay = 450
 
 [values.357]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-8.125, -3.125]
@@ -780,7 +709,6 @@ off = 450
 delay = 500
 
 [values.359]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-1.375, 3.125]
@@ -791,7 +719,6 @@ off = 450
 delay = 550
 
 [values.365]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [11.875, -2.125]
@@ -802,7 +729,6 @@ off = 450
 delay = 0
 
 [values.366]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [3.875, -3.125]
@@ -813,7 +739,6 @@ off = 450
 delay = 50
 
 [values.375]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-9.875, -2.375]
@@ -824,7 +749,6 @@ off = 450
 delay = 100
 
 [values.385]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-1.625, -3.125]
@@ -835,7 +759,6 @@ off = 450
 delay = 150
 
 [values.392]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [-9.625, -2.625]
@@ -846,7 +769,6 @@ off = 450
 delay = 200
 
 [values.394]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [4.625, 3.125]
@@ -857,7 +779,6 @@ off = 450
 delay = 250
 
 [values.397]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [10.375, 3.125]
@@ -868,7 +789,6 @@ off = 450
 delay = 300
 
 [values.401]
-ticks = 1000
 grid_id = 165
 prototype_id = 20
 position = [4.375, -3.125]

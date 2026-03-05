@@ -1,54 +1,63 @@
-use crate::components::Components;
+use crate::{
+    components::{Components, EntitySpawner},
+    part,
+    world::{Assets, World},
+};
 use bary_core::prelude::*;
 use raylib::prelude::*;
 
 pub fn draw_window(d: &mut RaylibDrawHandle, window: &Window, font: &Font) {
-    draw_window_inner(d, &window.title, &window.content, window.origin, font);
-}
-
-fn draw_window_inner(
-    d: &mut RaylibDrawHandle,
-    title: &str,
-    text: &str,
-    origin: IVec2,
-    font: &Font,
-) {
     let font_size = 23;
     let spacing = 1.0;
     let padding = 7;
-    let child_gap = 7;
+    let child_gap = 0;
+    let shadow_width = if window.is_focused { 11 } else { 3 };
 
-    let title_dims = font.measure_text(&title, font_size as f32, spacing);
+    let title_dims = font.measure_text(&window.title, font_size as f32, spacing);
     let title_dims = IVec2::new(title_dims.x as i32, title_dims.y as i32);
     let header_height: i32 = title_dims.y + padding * 2;
 
-    let title_text_origin = origin + IVec2::splat(padding);
+    let title_text_origin = window.origin + IVec2::splat(padding);
 
-    let text_dims = font.measure_text(text, font_size as f32, spacing);
+    let text_dims = font.measure_text(&window.content, font_size as f32, spacing);
     let text_dims = IVec2::new(text_dims.x as i32, text_dims.y as i32);
     let content_dims = text_dims + IVec2::splat(2 * padding);
     let window_dims =
         content_dims + IVec2::new(2 * padding, child_gap + 2 * padding + header_height);
 
-    let content_origin = origin + IVec2::new(padding, padding + header_height + child_gap);
+    let content_origin = window.origin + IVec2::new(padding, padding + header_height + child_gap);
     let text_origin = content_origin + IVec2::splat(padding);
+
+    let shadow_origin = window.origin - IVec2::splat(shadow_width);
+    let shadow_dims = window_dims + IVec2::splat(shadow_width * 2);
+
+    let alpha = if window.is_focused { 1.0 } else { 0.2 };
+
+    // shadow
+    d.draw_rectangle(
+        shadow_origin.x,
+        shadow_origin.y,
+        shadow_dims.x,
+        shadow_dims.y,
+        Color::BLACK.alpha(0.7),
+    );
 
     // whole window
     d.draw_rectangle(
-        origin.x,
-        origin.y,
+        window.origin.x,
+        window.origin.y,
         window_dims.x,
         window_dims.y,
-        Color::GRAY,
+        Color::GRAY.alpha(alpha),
     );
 
     // window header
     d.draw_rectangle(
-        origin.x,
-        origin.y,
+        window.origin.x,
+        window.origin.y,
         window_dims.x,
         header_height,
-        Color::ORANGE,
+        Color::ORANGE.alpha(alpha),
     );
 
     // content area
@@ -57,7 +66,7 @@ fn draw_window_inner(
         content_origin.y,
         content_dims.x,
         content_dims.y,
-        Color::new(40, 40, 40, 255),
+        Color::new(40, 40, 40, 255).alpha(alpha),
     );
 
     let position = Vector2::new(text_origin.x as f32, text_origin.y as f32);
@@ -65,20 +74,20 @@ fn draw_window_inner(
 
     d.draw_text_ex(
         font,
-        title,
+        &window.title,
         Vector2::new(title_text_origin.x as f32, title_text_origin.y as f32),
         font_size as f32,
         spacing,
-        Color::BLACK,
+        Color::BLACK.alpha(alpha),
     );
 
     d.draw_text_ex(
         font,
-        &text,
+        &window.content,
         position,
         font_size as f32,
         spacing,
-        Color::WHITE,
+        Color::WHITE.alpha(alpha),
     );
 }
 
@@ -86,8 +95,113 @@ pub struct Window {
     pub origin: IVec2,
     pub title: String,
     pub content: String,
+    pub is_focused: bool,
+}
+
+impl Window {
+    pub fn new(
+        origin: IVec2,
+        title: impl Into<String>,
+        content: impl Into<String>,
+        is_focused: bool,
+    ) -> Self {
+        Self {
+            origin,
+            title: title.into(),
+            content: content.into(),
+            is_focused,
+        }
+    }
+}
+
+struct WindowLocation {
+    origin: IVec2,
+    dims: IVec2,
+    is_focused: bool,
+}
+
+struct GridInfoWindow {
+    grid_id: Ent,
+}
+
+struct PartInfoWindow {
+    part_id: Ent,
 }
 
 pub struct UiState {
-    windows: Components<Window>,
+    spawner: EntitySpawner,
+    grid_info: Components<GridInfoWindow>,
+    part_info: Components<PartInfoWindow>,
+    location: Components<WindowLocation>,
+}
+
+pub fn draw_ui(d: &mut RaylibDrawHandle, ui: &UiState, world: &World, assets: &Assets) {
+    let Some(font) = &assets.fira_code else {
+        return;
+    };
+
+    for (id, grid_info) in ui.grid_info.iter() {
+        let Ok(loc) = ui.location.try_get(*id) else {
+            continue;
+        };
+        let Ok(grid) = world.grids.try_get(grid_info.grid_id) else {
+            continue;
+        };
+
+        let content = format!("{:#?}", grid.body_frame_forces);
+        let title = format!("Grid {} Info", grid_info.grid_id);
+        let window = Window::new(loc.origin, title, content, loc.is_focused);
+        draw_window(d, &window, font);
+    }
+
+    for (id, part_info) in ui.part_info.iter() {
+        let Ok(loc) = ui.location.try_get(*id) else {
+            continue;
+        };
+        let Ok(part) = world.parts.try_get(part_info.part_id) else {
+            continue;
+        };
+
+        let content = format!("{:#?}", part);
+        let title = format!("Part {} Info", part_info.part_id);
+        let window = Window::new(loc.origin, title, content, loc.is_focused);
+        draw_window(d, &window, font);
+    }
+}
+
+impl UiState {
+    pub fn new() -> Self {
+        Self {
+            spawner: EntitySpawner::default(),
+            grid_info: Components::default(),
+            part_info: Components::default(),
+            location: Components::default(),
+        }
+    }
+
+    pub fn track_grid_info(&mut self, grid_id: Ent) {
+        let id = self.spawner.spawn();
+        self.location.spawn(
+            id,
+            WindowLocation {
+                origin: IVec2::splat(200),
+                dims: IVec2::new(500, 700),
+                is_focused: false,
+            },
+        );
+        self.grid_info.spawn(id, GridInfoWindow { grid_id });
+    }
+
+    pub fn track_part_info(&mut self, part_id: Ent) {
+        let id = self.spawner.spawn();
+        self.location.spawn(
+            id,
+            WindowLocation {
+                origin: IVec2::new(600, 170),
+                dims: IVec2::new(500, 700),
+                is_focused: true,
+            },
+        );
+        self.part_info.spawn(id, PartInfoWindow { part_id });
+    }
 }

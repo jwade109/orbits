@@ -2,6 +2,10 @@ use bary_core::prelude::*;
 use bary_raylib::draw::draw_world;
 use bary_raylib::multiplayer::*;
 use bary_raylib::systems::*;
+use bary_raylib::ui::UiState;
+use bary_raylib::ui::Window;
+use bary_raylib::ui::draw_ui;
+use bary_raylib::ui::draw_window;
 use bary_raylib::utils::raylib_to_glam;
 use bary_raylib::world::*;
 use bary_raylib::world_builder::WorldBuilder;
@@ -177,6 +181,30 @@ fn main() {
 
     let mut active_sounds = Vec::new();
 
+    let mut ui_state = UiState::new();
+
+    let window = Window {
+        title: "Hello!".to_string(),
+        content: "This is an example window.\n\nMore text also.".to_string(),
+        origin: IVec2::new(700, 200),
+        is_focused: false,
+    };
+
+    let grid_id = find::grid_by_name(&runner.world.grids, "pollux").unwrap();
+
+    ui_state.track_grid_info(grid_id);
+
+    let part_id = runner
+        .world
+        .grids
+        .try_get(grid_id)
+        .unwrap()
+        .parts
+        .first()
+        .unwrap();
+
+    ui_state.track_part_info(*part_id);
+
     while !rl.window_should_close() {
         // _ = client.as_ref().map(|c| c.run_callbacks());
 
@@ -245,6 +273,8 @@ fn main() {
             d.clear_background(Color::BLACK);
 
             draw_world(&runner.world, &assets, &mut d);
+
+            draw_ui(&mut d, &ui_state, &runner.world, &assets);
 
             let end = std::time::Instant::now();
             runner.world.timers.render = end - start;

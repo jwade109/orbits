@@ -71,6 +71,8 @@ pub fn draw_world(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
 
     draw_origin_and_range_indicators(&mut c);
 
+    draw_computer_target_isometry(&mut c, &world.computers, &world.grids);
+
     // draw_grid_blueprints(
     //     &mut c,
     //     &world.grids,
@@ -82,8 +84,6 @@ pub fn draw_world(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
     draw_parts(&mut c, &world.grids, &world.parts, &raylib_camera);
     draw_thrusters(&mut c, &world.grids, &world.parts, &world.thrusters);
     draw_lights(&mut c, &world.grids, &world.lights, world.ticks as u32);
-
-    draw_computer_target_isometry(&mut c, &world.computers, &world.grids);
 
     _ = draw_selection_info(&mut c, &world.grids, &world.selection_info);
 
@@ -590,6 +590,7 @@ fn draw_selected_part_info(d: &mut RaylibDrawHandle, world: &World, assets: &Ass
         origin: IVec2::new(200, 60),
         title: "Part Info".to_string(),
         content: s,
+        is_focused: true,
     };
 
     if let Some(font) = &assets.fira_code {
