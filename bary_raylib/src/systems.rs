@@ -125,6 +125,19 @@ pub mod world {
 
     use super::*;
 
+    pub fn toggle_tracking(world: &mut World, grid_id: Ent) -> BaryResult<bool> {
+        let tracking = if world.tracking.contains_key(&grid_id) {
+            world.tracking.despawn(grid_id)?;
+            info!("Removed tracking for grid {}", grid_id);
+            false
+        } else {
+            world.tracking.spawn(grid_id, Tracker::default());
+            info!("Enabled tracking for grid {}", grid_id);
+            true
+        };
+        Ok(tracking)
+    }
+
     /// Sets the waypoint field of the primary computer,
     /// if the provided grid has one. If it does, the ID of the primary
     /// computer will be returned.

@@ -1,11 +1,8 @@
 use crate::{
-    input_state::InputState,
-    multiplayer::*,
-    sounds::SoundEffects,
-    world::{World, update_world, update_world_silly},
+    input_state::InputState, multiplayer::*, sounds::SoundEffects, systems::apparent_elapsed_time,
+    world::*,
 };
 use crossbeam_queue::SegQueue;
-use rdev::Event;
 use renet_netcode::NETCODE_USER_DATA_BYTES;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -80,31 +77,31 @@ impl Username {
 pub struct WorldRunner {
     pub world: World,
     last_update: Instant,
+    nominal_world_duration: Duration,
 }
 
 impl WorldRunner {
     pub const TICK_DURATION: Duration = Duration::from_millis(20);
+    pub const SPEED: u32 = 3;
 
     pub fn new(world: World) -> Self {
         let now = Instant::now();
         Self {
             world,
             last_update: now,
+            nominal_world_duration: Duration::ZERO,
         }
     }
 
     pub fn update(&mut self, input: &InputState) -> (Vec<Action>, SoundEffects) {
         let now = Instant::now();
-        let mut delta = now - self.last_update;
-        let mut ret = Vec::new();
-        let mut sounds = SoundEffects::default();
-        while delta > Self::TICK_DURATION {
-            delta -= Self::TICK_DURATION;
-            let (actions, s) = update_world_silly(&mut self.world, input);
-            ret.extend_from_slice(&actions);
-            sounds.extend_from_slice(&s);
-            self.last_update += Self::TICK_DURATION;
+        let delta = now - self.last_update;
+        self.nominal_world_duration += delta * Self::SPEED;
+        self.last_update = now;
+        let (actions, sounds) = update_world_with_input_stuff(&mut self.world, input);
+        while apparent_elapsed_time(&mut self.world) < self.nominal_world_duration {
+            update_world(&mut self.world);
         }
-        (ret, sounds)
+        (actions, sounds)
     }
 }

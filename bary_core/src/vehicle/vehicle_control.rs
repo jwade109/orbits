@@ -196,7 +196,7 @@ pub fn attitude_control_law(
 }
 
 // removed variables from `Vehicle`
-pub const PLACEHOLDER_PD: PDCtrl = PDCtrl::new(50.0, 20.0);
+pub const PLACEHOLDER_PD: PDCtrl = PDCtrl::new(50.0, 250.0);
 
 fn hover_control_law(
     _target: DVec2,

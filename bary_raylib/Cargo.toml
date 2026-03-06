@@ -43,6 +43,10 @@ path = "bin/steam.rs"
 name = "server"
 path = "bin/server.rs"
 
+[[bin]]
+name = "traj"
+path = "bin/traj.rs"
+
 [dev-dependencies]
 criterion = "0.5.1"
 

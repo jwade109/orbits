@@ -54,6 +54,26 @@ pub struct Assets {
     pub part_textures: BTreeMap<String, Texture2D>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct Tracker {
+    pos: VecDeque<Vec2>,
+}
+
+impl Tracker {
+    pub const MAX_LEN: usize = 500;
+
+    pub fn iter(&self) -> impl Iterator<Item = &Vec2> + use<'_> {
+        self.pos.iter()
+    }
+
+    pub fn add(&mut self, pos: Vec2) {
+        self.pos.push_back(pos);
+        if self.pos.len() > Self::MAX_LEN {
+            self.pos.pop_front();
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct World {
     pub ticks: u64,
@@ -76,6 +96,7 @@ pub struct World {
     pub computers: Components<Computer>,
     pub lights: Components<Light>,
     pub grids: Components<VehicleGrid>,
+    pub tracking: Components<Tracker>,
 }
 
 impl std::fmt::Debug for World {
@@ -118,6 +139,7 @@ impl World {
             thrusters: Components::default(),
             computers: Components::default(),
             lights: Components::default(),
+            tracking: Components::default(),
         }
     }
 }
@@ -174,11 +196,11 @@ fn update_camera_target(
     }
     if input.is_key_pressed(Key::KeyQ) {
         target.isometry.rotation += angular_speed;
-        *follow = None;
+        // *follow = None;
     }
     if input.is_key_pressed(Key::KeyE) {
         target.isometry.rotation -= angular_speed;
-        *follow = None;
+        // *follow = None;
     }
     if input.is_key_pressed(Key::KeyS) {
         target.isometry.translation -= up * speed;
@@ -390,8 +412,17 @@ pub mod input_handlers {
         sounds.push(SoundEffect::Ping);
     }
 
-    pub fn toggle_camera_local_normal_snapping_on_t(world: &mut World) {
-        world.snap_camera_to_local_planet ^= true;
+    pub fn toggle_tracking_for_selected_grid(world: &mut World) {
+        let Some(grid_id) = world.selection_info.selected_grid else {
+            return;
+        };
+        match world::toggle_tracking(world, grid_id) {
+            Ok(true) => world.chat.log(format!("Enabled tracking for {}", grid_id)),
+            Ok(false) => world.chat.log(format!("Disabled tracking for {}", grid_id)),
+            Err(e) => world
+                .chat
+                .log(format!("Failed to toggle tracking: {:?}", e)),
+        }
     }
 
     pub fn reset_camera_on_ctrl_r(world: &mut World, input: &InputState) {
@@ -579,10 +610,10 @@ fn set_target_camera_if_following(
     };
 
     target.isometry.translation = grid.pose.translation;
-    target.isometry.rotation = grid.pose.rotation;
+    // target.isometry.rotation = grid.pose.rotation;
 
     actual.isometry.translation = target.isometry.translation;
-    actual.isometry.rotation = target.isometry.rotation;
+    // actual.isometry.rotation = target.isometry.rotation;
 }
 
 fn select_hovered_vehicle_on_click(sel: &mut SelectionInfo, sounds: &mut SoundEffects) {
@@ -650,14 +681,32 @@ pub fn update_computers(computers: &mut Components<Computer>, grids: &Components
     }
 }
 
-pub fn update_world(world: &mut World) -> (Vec<Action>, SoundEffects) {
-    // let mut input = InputState::default();
-    // update_world_silly(world, &mut input, vec![])
-    do_internal_world_physics(world);
-    (vec![], SoundEffects::default())
+pub fn update_trackers(
+    trackers: &mut Components<Tracker>,
+    grids: &Components<VehicleGrid>,
+    ticks: u64,
+) {
+    if ticks % 100 > 0 {
+        return;
+    }
+
+    let mut to_despawn = BTreeSet::new();
+
+    for (grid_id, tracker) in trackers.iter_mut() {
+        let Ok(grid) = grids.try_get(*grid_id) else {
+            to_despawn.insert(*grid_id);
+            continue;
+        };
+        let pos = grid.pose.translation;
+        tracker.add(pos);
+    }
+
+    for id in to_despawn {
+        _ = trackers.despawn(id);
+    }
 }
 
-pub fn do_internal_world_physics(world: &mut World) {
+pub fn update_world(world: &mut World) {
     let start = std::time::Instant::now();
     world.ticks += 1;
     update_ring_particles(&mut world.particles);
@@ -670,6 +719,7 @@ pub fn do_internal_world_physics(world: &mut World) {
     update_grid_acceleration(dirty_set, &mut world.grids, &world.thrusters, &world.parts);
     update_computers(&mut world.computers, &world.grids);
     propagate_grid_rigid_bodies(&mut world.grids);
+    update_trackers(&mut world.tracking, &world.grids, world.ticks);
 
     set_target_camera_if_following(
         world.follow_vehicle,
@@ -709,7 +759,7 @@ pub fn process_event(
         rdev::EventType::KeyPress(key) => match key {
             Key::KeyS => input_handlers::save_on_ctrl_s(world, input),
             Key::KeyF => input_handlers::toggle_following_on_key_f(world, &mut sounds),
-            Key::KeyT => input_handlers::toggle_camera_local_normal_snapping_on_t(world),
+            Key::KeyT => input_handlers::toggle_tracking_for_selected_grid(world),
             Key::KeyR => input_handlers::reset_camera_on_ctrl_r(world, input),
             Key::KeyD => input_handlers::panic_on_ctrl_d(input),
             Key::KeyP => input_handlers::spawn_random_ship_on_p(world),
@@ -741,9 +791,7 @@ pub fn process_event(
 }
 
 #[deprecated]
-pub fn update_world_silly(world: &mut World, input: &InputState) -> (Vec<Action>, SoundEffects) {
-    do_internal_world_physics(world);
-
+pub fn update_world_with_input_stuff(world: &mut World, input: &InputState) -> (Vec<Action>, SoundEffects) {
     let input_start = std::time::Instant::now();
 
     let mut sounds = SoundEffects::default();

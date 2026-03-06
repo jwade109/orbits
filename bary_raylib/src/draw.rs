@@ -13,8 +13,9 @@ use crate::thruster::Thruster;
 use crate::ui::{Window, draw_window};
 use crate::utils::*;
 use crate::vehicle_grid::*;
-use crate::world::World;
 use crate::world::{Assets, SelectionInfo};
+use crate::world::{Tracker, World};
+use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use raylib::prelude::*;
 
@@ -63,6 +64,21 @@ fn draw_origin_and_range_indicators(d: &mut RaylibDrawHandle) {
     }
 }
 
+fn draw_trackers(
+    d: &mut RaylibDrawHandle,
+    trackers: &Components<Tracker>,
+    grids: &Components<VehicleGrid>,
+) {
+    for (grid_id, tracker) in trackers.iter() {
+        let current = grids.try_get(*grid_id).map(|g| g.pose.translation).ok();
+        let mut strip: Vec<_> = tracker.iter().map(|p| glam_to_raylib_swap_y(*p)).collect();
+        if let Some(c) = current {
+            strip.push(glam_to_raylib_swap_y(c));
+        }
+        d.draw_line_strip(&strip, Color::RED)
+    }
+}
+
 pub fn draw_world(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
     let raylib_camera = to_raylib_camera(&world.camera, world.screen_dims);
 
@@ -73,6 +89,8 @@ pub fn draw_world(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
 
     draw_computer_target_isometry(&mut c, &world.computers, &world.grids);
 
+    draw_trackers(&mut c, &world.tracking, &world.grids);
+
     // draw_grid_blueprints(
     //     &mut c,
     //     &world.grids,
@@ -82,8 +100,20 @@ pub fn draw_world(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
     // );
 
     draw_parts(&mut c, &world.grids, &world.parts, &raylib_camera);
-    draw_thrusters(&mut c, &world.grids, &world.parts, &world.thrusters);
-    draw_lights(&mut c, &world.grids, &world.lights, world.ticks as u32);
+    draw_thrusters(
+        &mut c,
+        &world.grids,
+        &world.parts,
+        &world.thrusters,
+        &world.camera,
+    );
+    draw_lights(
+        &mut c,
+        &world.grids,
+        &world.lights,
+        world.ticks as u32,
+        &world.camera,
+    );
 
     _ = draw_selection_info(&mut c, &world.grids, &world.selection_info);
 
@@ -104,6 +134,8 @@ pub fn draw_world(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
     drop(c);
 
     draw_grid_far_indicators(&world.grids, d, &raylib_camera);
+
+    draw_waypoint_far_indicators(&world.grids, &world.computers, d, &raylib_camera);
 
     draw_selected_grid_info(d, &world.selection_info, &world.grids, world.screen_dims);
 
@@ -282,34 +314,36 @@ pub fn draw_parts(
     parts: &Components<Part>,
     camera: &Camera2D,
 ) {
+    if camera.zoom < 2.0 {
+        return;
+    }
+
     for grid in grids.values() {
-        if camera.zoom > 2.0 {
-            for draw_layer in PartLayer::draw_order() {
-                for part_id in &grid.parts {
-                    let Ok(part) = parts.try_get(*part_id) else {
-                        continue;
-                    };
+        for draw_layer in PartLayer::draw_order() {
+            for part_id in &grid.parts {
+                let Ok(part) = parts.try_get(*part_id) else {
+                    continue;
+                };
 
-                    if part.layer != draw_layer {
-                        continue;
-                    }
-
-                    let color = match part.classification {
-                        PartClassification::Cargo => Color::GREEN,
-                        PartClassification::Machine => Color::PURPLE,
-                        PartClassification::Thruster => Color::MAROON,
-                        PartClassification::Auxiliary => Color::YELLOW,
-                        PartClassification::DockingPort => Color::ORANGE,
-                        PartClassification::Computer => Color::RED,
-                        PartClassification::Structure => Color::GRAY.alpha(0.7),
-                        PartClassification::Decoration => Color::WHITE.alpha(0.7),
-                        PartClassification::Other => Color::GRAY,
-                    };
-
-                    let iso = part_isometry(grid.pose, part.placement);
-                    let dims = part.placement.part_aligned_dims().to_meters();
-                    fill_rectangle(d, iso, dims, color);
+                if part.layer != draw_layer {
+                    continue;
                 }
+
+                let color = match part.classification {
+                    PartClassification::Cargo => Color::GREEN,
+                    PartClassification::Machine => Color::PURPLE,
+                    PartClassification::Thruster => Color::MAROON,
+                    PartClassification::Auxiliary => Color::YELLOW,
+                    PartClassification::DockingPort => Color::ORANGE,
+                    PartClassification::Computer => Color::RED,
+                    PartClassification::Structure => Color::GRAY.alpha(0.7),
+                    PartClassification::Decoration => Color::WHITE.alpha(0.7),
+                    PartClassification::Other => Color::GRAY,
+                };
+
+                let iso = part_isometry(grid.pose, part.placement);
+                let dims = part.placement.part_aligned_dims().to_meters();
+                fill_rectangle(d, iso, dims, color);
             }
         }
     }
@@ -382,6 +416,29 @@ fn draw_particles(d: &mut RaylibDrawHandle, particles: &Vec<PingParticle>) {
     }
 }
 
+fn draw_waypoint_far_indicators(
+    grids: &Components<VehicleGrid>,
+    computers: &Components<Computer>,
+    d: &mut RaylibDrawHandle,
+    camera: &Camera2D,
+) {
+    if camera.zoom > 7.0 {
+        return;
+    }
+
+    let marker_radius = 11.0f32;
+
+    for cpu in computers.values() {
+        if !cpu.on {
+            continue;
+        }
+
+        let pos = glam_to_raylib_swap_y(cpu.pose.translation);
+        let pos = d.get_world_to_screen2D(pos, camera);
+        d.draw_circle_lines_v(pos, marker_radius, Color::GRAY);
+    }
+}
+
 fn draw_grid_far_indicators(
     grids: &Components<VehicleGrid>,
     d: &mut RaylibDrawHandle,
@@ -391,7 +448,7 @@ fn draw_grid_far_indicators(
         return;
     }
 
-    let marker_radius = 30.0f32;
+    let marker_radius = 14.0f32;
 
     let mut markers = Vec::new();
 
@@ -399,7 +456,7 @@ fn draw_grid_far_indicators(
         let p = glam_to_raylib_swap_y(grid.pose.translation);
         let q = d.get_world_to_screen2D(p, camera);
 
-        markers.push((q, q, &grid.name));
+        markers.push((q, q, grid.pose.rotation, &grid.name));
     }
 
     // move the markers apart
@@ -424,9 +481,25 @@ fn draw_grid_far_indicators(
         }
     }
 
+    let get_triangle = |center: Vector2, angle: f32| {
+        let o = raylib_to_glam_invert_y(center);
+        let u = Vec2::X * marker_radius;
+        let a = o + rotate(u, angle);
+        let b = o + rotate(u, angle + PI * 0.75);
+        let c = o + rotate(u, angle - PI * 0.75);
+
+        (
+            glam_to_raylib_swap_y(a),
+            glam_to_raylib_swap_y(b),
+            glam_to_raylib_swap_y(c),
+        )
+    };
+
     // draw the markers
-    for (p, q, name) in markers {
+    for (p, q, angle, name) in markers {
         d.draw_line_v(p, q, Color::ORANGE);
+        let (v1, v2, v3) = get_triangle(q, angle);
+        d.draw_triangle(v1, v2, v3, Color::ORANGE);
         d.draw_circle_lines_v(q, marker_radius, Color::ORANGE);
         if !name.is_empty() {
             let q = q + Vector2::new(marker_radius + 10.0, 0.0);
@@ -609,7 +682,12 @@ fn draw_thrusters(
     grids: &Components<VehicleGrid>,
     parts: &Components<Part>,
     thrusters: &Components<Thruster>,
+    camera: &Camera,
 ) {
+    if camera.zoom < 2.0 {
+        return;
+    }
+
     for (e, t) in thrusters.iter() {
         if !t.is_on {
             continue;
@@ -654,7 +732,12 @@ fn draw_lights(
     grids: &Components<VehicleGrid>,
     lights: &Components<Light>,
     ticks: u32,
+    camera: &Camera,
 ) {
+    if camera.zoom < 2.0 {
+        return;
+    }
+
     for light in lights.values() {
         let Some(grid) = grids.get(light.grid_id) else {
             continue;
@@ -667,7 +750,7 @@ fn draw_lights(
             light_isometry.translation += offset;
 
             fill_rectangle(d, light_isometry, Vec2::splat(0.1), Color::ORANGE);
-            draw_light_source(d, light_isometry.translation, 1.0, Color::YELLOW);
+            draw_light_source(d, light_isometry.translation, 0.1, Color::YELLOW);
         }
     }
 }
