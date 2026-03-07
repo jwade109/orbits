@@ -13,6 +13,7 @@ pub mod result;
 pub mod ring_particle;
 pub mod sounds;
 pub mod systems;
+pub mod tests;
 pub mod thruster;
 pub mod ui;
 pub mod utils;

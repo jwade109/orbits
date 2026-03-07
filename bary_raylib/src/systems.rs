@@ -285,7 +285,6 @@ pub fn insert_part(
     let proto = prototypes.try_get(proto_id)?;
 
     grid.parts_mass += proto.mass;
-    grid.moment_of_inertia += proto.mass.to_kg_f64() as f32 * 100.0;
 
     let part = Part {
         placement: instance.placement,
@@ -297,7 +296,7 @@ pub fn insert_part(
 
     let part_id = counter.spawn();
 
-    grid.parts.push(part_id);
+    grid.parts.insert(part_id);
     parts.spawn(part_id, part);
 
     grid.mark_occupied(instance.placement, instance.layer(), part_id);
@@ -313,12 +312,12 @@ pub fn insert_part(
             last_controlled_by: None,
         };
         thrusters.spawn(part_id, thruster);
-        grid.thrusters.push(part_id);
+        grid.thrusters.insert(part_id);
     }
     if let Some(_data) = &proto.computer_data {
         let cpu = Computer::new(grid_id, proto_id);
         computers.spawn(part_id, cpu);
-        grid.computers.push(part_id);
+        grid.computers.insert(part_id);
     }
     if let Some(data) = &proto.thruster_data {
         if data.is_rcs {
@@ -326,7 +325,7 @@ pub fn insert_part(
             let light_idx = lights.len();
             let light = Light::new(grid_id, proto_id, pos, light_idx as u32);
             lights.spawn(part_id, light);
-            grid.lights.push(part_id);
+            grid.lights.insert(part_id);
         }
     }
 
@@ -489,6 +488,17 @@ pub fn get_parts_center_of_mass(grid_id: Ent, world: &World) -> BaryResult<Vec2>
     Ok(com)
 }
 
+pub fn get_sum_part_masses(world: &World, grid_id: Ent) -> BaryResult<Mass> {
+    let grid = world.grids.try_get(grid_id)?;
+    let mut sum = Mass::ZERO;
+    for part_id in &grid.parts {
+        let part = world.parts.try_get(*part_id)?;
+        let proto = world.prototypes.try_get(part.prototype)?;
+        sum += proto.mass;
+    }
+    Ok(sum)
+}
+
 fn set_thruster_state(
     thruster_id: Ent,
     thrusters: &mut Components<Thruster>,
@@ -499,33 +509,10 @@ fn set_thruster_state(
     Ok(())
 }
 
-// TODO(testing)
-pub fn get_parts_at<'a>(
-    grid: &VehicleGrid,
-    parts: &'a Components<Part>,
-    coord: PartCoord,
-) -> Vec<(Ent, &'a Part)> {
-    // TODO(optimization) can make VehicleGrid keep a spatial LUT for this
-    // TODO(cleanup) it does! now use it
-    let mut ret = Vec::new();
-    for part_id in &grid.parts {
-        let Ok(part) = parts.try_get(*part_id) else {
-            continue;
-        };
-
-        if !part.placement.contains(coord) {
-            continue;
-        }
-
-        ret.push((*part_id, part));
-    }
-    ret
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{input_state::InputState, world_builder::WorldBuilder};
+    use crate::world_builder::WorldBuilder;
 
     #[test]
     fn part_prototypes() {
@@ -855,8 +842,8 @@ mod tests {
         let grid = world.grids.try_get(grid_id).unwrap();
 
         assert_eq!(grid.parts.len(), 2);
-        assert_eq!(grid.parts, vec![a_id, b_id]);
-        assert_eq!(grid.thrusters, vec![a_id, b_id]);
+        assert_eq!(grid.parts, [a_id, b_id].into());
+        assert_eq!(grid.thrusters, [a_id, b_id].into());
         assert_eq!(grid.parts_mass, Mass::grams(870000));
 
         assert_eq!(a_id, Ent(31));
@@ -986,8 +973,6 @@ mod tests {
         // body frame acceleration should be 3.5 m/s^2
         assert_eq!(grid.linear_acceleration(), Vec2::new(3.5, 0.0));
         assert_eq!(grid.angular_acceleration(), 0.0);
-
-        let mut input = InputState::default();
 
         // run the simulation for 2 seconds at 50 Hz
         for _ in 0..100 {

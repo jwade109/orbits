@@ -43,7 +43,6 @@ pub struct SelectionInfo {
     pub mouse_hovered: Option<Ent>,
     pub selected_grid: Option<Ent>,
     pub mouseover_part_info: Option<(PartCoord, PartOccupancy)>,
-    pub selected_part_info: Option<(PartCoord, PartOccupancy)>,
 }
 
 #[derive(Default)]
@@ -245,38 +244,10 @@ fn update_camera(target: &Camera, actual: &mut Camera) {
     actual.zoom = low_pass(actual.zoom, target.zoom, rate_translation);
 }
 
-// TODO(testing) very important to test!
-pub fn remove_part(world: &mut World, part_id: Ent) -> BaryResult<()> {
-    debug!("Removing part {}", part_id);
-    let part = world.parts.try_get(part_id)?;
-    let grid_id = part.grid_id;
-    let proto = world.prototypes.try_get(part.prototype)?;
-    let grid = world.grids.try_get_mut(grid_id)?;
-    let name = grid.name.clone();
-
-    if grid.thrusters.contains(&part_id) {
-        world.thrusters.despawn(part_id)?;
-    }
-    if grid.computers.contains(&part_id) {
-        world.computers.despawn(part_id)?;
-    }
-    if grid.lights.contains(&part_id) {
-        world.lights.despawn(part_id)?;
-    }
-
-    grid.remove_from_index(part_id);
-    grid.parts_mass -= proto.mass;
-
-    world.parts.despawn(part_id)?;
-
-    grid.assess_integrity();
-
-    if grid.parts.is_empty() {
-        world.grids.despawn(grid_id)?;
-        world.chat.log(format!("Deleted empty grid \"{}\"", name));
-    }
-
-    Ok(())
+pub fn remove_part(world: &mut World, part_id: Ent) -> BaryResult<Ent> {
+    let grid_id = remove_part_without_integrity_check(world, part_id)?;
+    split_grid_if_necessary_todo_implement_me(world, grid_id)?;
+    Ok(grid_id)
 }
 
 pub fn remove_top_part_at(world: &mut World, grid_id: Ent, coord: PartCoord) -> BaryResult<Ent> {
@@ -585,7 +556,9 @@ fn update_mouseover_part_info(
 
     let occ = grid.get_parts_at(coord).unwrap_or(&PartOccupancy::EMPTY);
 
-    sel.mouseover_part_info = Some((coord, *occ));
+    if occ.has_any() {
+        sel.mouseover_part_info = Some((coord, *occ));
+    }
 
     let new_parts = sel.mouseover_part_info.map(|(_, occ)| occ);
     let has_new_parts = new_parts.map(|e| e.has_any()).unwrap_or(false);
@@ -621,17 +594,11 @@ fn select_hovered_vehicle_on_click(sel: &mut SelectionInfo, sounds: &mut SoundEf
 
     sel.selected_grid = sel.mouse_hovered;
 
-    if old_grid.is_some() {
-        sel.selected_part_info = sel.mouseover_part_info;
-    }
-
     if sel.selected_grid.is_some() {
         sounds.push(SoundEffect::Open);
     } else if old_grid.is_some() {
         sounds.push(SoundEffect::Close);
     }
-
-    info!("Selected {:?}", sel.selected_grid);
 }
 
 pub fn update_computers(computers: &mut Components<Computer>, grids: &Components<VehicleGrid>) {
@@ -791,7 +758,10 @@ pub fn process_event(
 }
 
 #[deprecated]
-pub fn update_world_with_input_stuff(world: &mut World, input: &InputState) -> (Vec<Action>, SoundEffects) {
+pub fn update_world_with_input_stuff(
+    world: &mut World,
+    input: &InputState,
+) -> (Vec<Action>, SoundEffects) {
     let input_start = std::time::Instant::now();
 
     let mut sounds = SoundEffects::default();

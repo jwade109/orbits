@@ -41,6 +41,6 @@ impl Chat {
     }
 
     pub fn logs(&self) -> impl Iterator<Item = &ChatLog> + use<'_> {
-        self.lines.iter()
+        self.lines.iter().rev()
     }
 }

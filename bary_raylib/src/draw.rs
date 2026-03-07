@@ -115,6 +115,8 @@ pub fn draw_world(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
         &world.camera,
     );
 
+    draw_grid_outlines(&mut c, &world.grids);
+
     _ = draw_selection_info(&mut c, &world.grids, &world.selection_info);
 
     draw_focused_grid_cursor(&mut c, &world.grids, &world.parts, &world.selection_info);
@@ -216,7 +218,7 @@ fn draw_focused_grid_cursor(
 
     let size = PartCoord::CELL_WIDTH;
 
-    for info in [sel.mouseover_part_info, sel.selected_part_info] {
+    for info in [sel.mouseover_part_info] {
         let Some((coord, occ)) = info else {
             continue;
         };
@@ -306,6 +308,16 @@ pub fn draw_blueprint(bp: &Blueprint, isometry: Isometry2d, d: &mut RaylibDrawHa
 
 pub fn is_zoomed_out(camera: &Camera2D) -> bool {
     camera.zoom > 0.1
+}
+
+pub fn draw_grid_outlines(d: &mut RaylibDrawHandle, grids: &Components<VehicleGrid>) {
+    for grid in grids.values() {
+        let bottom_left = PartCoord::new(grid.bounds.0).to_meters();
+        let top_right = PartCoord::new(grid.bounds.1).to_meters();
+        let bl_iso = grid.pose.offset(bottom_left);
+        let dims = top_right - bottom_left;
+        draw_rectangle(d, bl_iso, dims, Color::WHITE);
+    }
 }
 
 pub fn draw_parts(
