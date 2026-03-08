@@ -31,10 +31,6 @@ name = "kb"
 path = "bin/kb.rs"
 
 [[bin]]
-name = "rapier"
-path = "bin/rapier.rs"
-
-[[bin]]
 name = "steam"
 path = "bin/steam.rs"
 
