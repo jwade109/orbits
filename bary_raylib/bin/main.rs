@@ -1,5 +1,7 @@
 use bary_core::prelude::*;
 use bary_raylib::app::new_app;
+use bary_raylib::command_prompt::cmd_handle_input_event;
+use bary_raylib::command_prompt::draw_command_prompt;
 use bary_raylib::draw;
 use bary_raylib::multiplayer::*;
 use bary_raylib::sounds::SoundEffects;
@@ -134,6 +136,8 @@ fn main() {
         let mut actions = Vec::new();
 
         while let Some(e) = app.input_queue.pop() {
+            cmd_handle_input_event(&mut app.cmd, &e);
+
             // process release events even if the window isn't focused!
             let is_release = match e.event_type {
                 rdev::EventType::ButtonRelease(_) => true,
@@ -141,12 +145,23 @@ fn main() {
                 _ => false,
             };
 
-            if is_release || rl.is_window_focused() {
+            let should_send_to_world = if rl.is_window_focused() {
+                is_release || !app.cmd.is_focused()
+            } else {
+                is_release
+            };
+
+            if should_send_to_world {
                 let (event_sounds, event_actions) =
                     process_event(&mut app.runner.world, &mut app.input, &e);
                 sounds.extend(event_sounds);
                 actions.extend(event_actions);
             }
+        }
+
+        while let Some(action) = app.cmd.pop_action() {
+            let tr = Transaction::new(0, action);
+            apply_transaction(&mut app.runner.world, tr);
         }
 
         while let Some(n) = app.incoming_network_queue.pop() {
@@ -214,6 +229,7 @@ fn main() {
             app.runner.world.timers.render = end - start;
             app.runner.world.timers.total = end - loop_start;
             draw_debug_info(&app.runner.world, &assets, &mut d);
+            draw_command_prompt(&mut d, &app.cmd, &assets);
         });
     }
 }

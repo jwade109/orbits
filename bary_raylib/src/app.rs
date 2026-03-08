@@ -1,10 +1,10 @@
 use crate::input_state::InputState;
 use crate::multiplayer::*;
-use crate::systems::find;
 use crate::ui::UiState;
 use crate::world_builder::WorldBuilder;
 use std::thread::JoinHandle;
 use std::time::Duration;
+use crate::command_prompt::CommandPrompt;
 
 fn network_thread(incoming: MessageQueue<ServerMessage>, outgoing: MessageQueue<Transaction>) {
     let mut client = Client::new();
@@ -35,6 +35,8 @@ pub struct App {
 
     pub _input_thread: JoinHandle<()>,
     pub input_queue: MessageQueue<rdev::Event>,
+
+    pub cmd: CommandPrompt,
 }
 
 pub fn new_app(multiplayer: bool) -> App {
@@ -88,5 +90,6 @@ pub fn new_app(multiplayer: bool) -> App {
         outgoing_network_queue,
         _input_thread,
         input_queue,
+        cmd: CommandPrompt::new(),
     }
 }

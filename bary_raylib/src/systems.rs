@@ -88,7 +88,7 @@ pub fn update_grid_acceleration(
 /// if the provided grid has one. If it does, the ID of the primary
 /// computer will be returned.
 /// TODO(testing) test this.
-pub fn set_primary_computer_waypoint(
+pub fn set_primary_computer_waypoint_c(
     grid_id: Ent,
     waypoint: Isometry2d,
     grids: &Components<VehicleGrid>,
@@ -103,7 +103,7 @@ pub fn set_primary_computer_waypoint(
 /// Turns the primary computer of the given grid on or off,
 /// returning the entity ID of the computer if it was found.
 /// TODO(testing) test this.
-pub fn set_primary_computer_state(
+pub fn set_primary_computer_state_c(
     grid_id: Ent,
     new_state: bool,
     grids: &Components<VehicleGrid>,
@@ -148,7 +148,7 @@ pub mod world {
         waypoint: Isometry2d,
         world: &mut World,
     ) -> BaryResult<Ent> {
-        super::set_primary_computer_waypoint(grid_id, waypoint, &world.grids, &mut world.computers)
+        super::set_primary_computer_waypoint_c(grid_id, waypoint, &world.grids, &mut world.computers)
     }
 
     /// Turns the primary computer of the given grid on or off,
@@ -158,7 +158,7 @@ pub mod world {
         new_state: bool,
         world: &mut World,
     ) -> BaryResult<Ent> {
-        super::set_primary_computer_state(grid_id, new_state, &world.grids, &mut world.computers)
+        super::set_primary_computer_state_c(grid_id, new_state, &world.grids, &mut world.computers)
     }
 
     pub fn update_grid_acceleration(dirty_set: BTreeSet<Ent>, world: &mut World) {

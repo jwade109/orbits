@@ -1,4 +1,5 @@
 use crate::input_state::InputState;
+use crate::ops;
 use crate::world::World;
 use crate::{systems::*, world::update_world};
 use bary_core::prelude::*;
@@ -11,6 +12,7 @@ pub enum Action {
     SpawnShipAt(String, Isometry2d),
     LoadWorld(World),
     FastForwardTo(u64),
+    SetWaypoint { grid_id: Ent, waypoint: Isometry2d },
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -60,6 +62,10 @@ pub fn apply_transaction(world: &mut World, transaction: Transaction) {
                 let delta = world.ticks - tick;
                 warn!("Already ahead of fast forward directive by {} ticks", delta);
             }
+        }
+        Action::SetWaypoint { grid_id, waypoint } => {
+            ops::set_primary_computer_waypoint(grid_id, waypoint, world);
+            ops::set_primary_computer_state(grid_id, true, world);
         }
     }
 }

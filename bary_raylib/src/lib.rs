@@ -1,6 +1,7 @@
 pub mod app;
 pub mod camera;
 pub mod chat;
+pub mod command_prompt;
 pub mod components;
 pub mod draw;
 pub mod input_state;
@@ -39,11 +40,15 @@ pub mod query {
 /// since using several in succession might perform duplicate lookups.
 pub mod ops {
     pub use crate::systems::insert_part_c;
+    pub use crate::systems::set_primary_computer_state_c;
+    pub use crate::systems::set_primary_computer_waypoint_c;
     pub use crate::systems::spawn_empty_grid;
     pub use crate::systems::spawn_empty_grid_c;
     pub use crate::systems::world::insert_part;
     pub use crate::systems::world::set_grid_pose;
     pub use crate::systems::world::set_grid_vel;
+    pub use crate::systems::world::set_primary_computer_state;
+    pub use crate::systems::world::set_primary_computer_waypoint;
     pub use crate::vehicle::grid::detach_part_from_parent;
     pub use crate::vehicle::grid::duplicate_part_to_new_grid;
     pub use crate::vehicle::grid::remove_part_without_integrity_check;

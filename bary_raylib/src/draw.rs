@@ -3,6 +3,7 @@ use std::collections::BTreeSet;
 use crate::camera::{Camera, to_raylib_camera};
 use crate::chat::{Chat, format_log};
 use crate::components::Components;
+use crate::query;
 use crate::result::BaryResult;
 use crate::ring_particle::*;
 use crate::systems::*;
@@ -134,13 +135,15 @@ pub fn draw_world(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
 
     draw_grid_far_indicators(&world.grids, d, &raylib_camera);
 
-    draw_waypoint_far_indicators(&world.grids, &world.computers, d, &raylib_camera);
+    draw_waypoint_far_indicators(&world.computers, d, &raylib_camera);
 
     draw_selected_grid_info(d, &world.selection_info, &world.grids, world.screen_dims);
 
     draw_chat(d, &world.chat, world.screen_dims, assets);
 
-    draw_hovered_part_info(d, &world, assets);
+    draw_selected_grid_primary_computer_info(d, world, assets);
+
+    draw_hovered_part_info(d, world, assets);
 
     // draw_parts_zoo(&world.prototypes, &mut d);
     // draw_test_isos(&mut d)
@@ -426,7 +429,6 @@ fn draw_particles(d: &mut RaylibDrawHandle, particles: &Vec<PingParticle>) {
 }
 
 fn draw_waypoint_far_indicators(
-    grids: &Components<VehicleGrid>,
     computers: &Components<Computer>,
     d: &mut RaylibDrawHandle,
     camera: &Camera2D,
@@ -461,17 +463,12 @@ fn draw_grid_far_indicators(
 
     let mut markers = Vec::new();
 
-    for grid in grids.values() {
+    for (id, grid) in grids.iter() {
         let p = glam_to_raylib_swap_y(grid.pose.translation);
         let q = d.get_world_to_screen2D(p, camera);
 
-        markers.push((
-            q,
-            q,
-            grid.pose.rotation,
-            &grid.name,
-            !grid.computers.is_empty(),
-        ));
+        let name = format!("{} {}", id, grid.name);
+        markers.push((q, q, grid.pose.rotation, name, !grid.computers.is_empty()));
     }
 
     // move the markers apart
@@ -525,7 +522,7 @@ fn draw_grid_far_indicators(
         d.draw_circle_lines_v(q, marker_radius, color);
         if !name.is_empty() {
             let q = q + Vector2::new(marker_radius + 10.0, 0.0);
-            d.draw_text_ex(d.get_font_default(), name, q, 24.0, 0.4, color.alpha(0.5));
+            d.draw_text_ex(d.get_font_default(), &name, q, 24.0, 0.4, color.alpha(0.5));
         }
     }
 }
@@ -631,6 +628,7 @@ fn computer_info_str(cpu: &Computer) -> (String, usize) {
         format!("\n  Status: {:?}", cpu.status),
         format!("\n  Ticks: {}", cpu.ticks_this_cycle),
         format!("\n  Fired: {}", cpu.fired_this_tick),
+        format!("\n  Iters: {}", cpu.iters),
         format!("\n  Mode: {:?}", cpu.mode),
         format!("\n  Pose: {:?}", cpu.pose.to_tuple()),
         format!("\n  Vel: {:?}", cpu.velocity.to_tuple()),
@@ -638,6 +636,51 @@ fn computer_info_str(cpu: &Computer) -> (String, usize) {
 
     let len = lines.len();
     (lines.into_iter().collect(), len)
+}
+
+fn draw_selected_grid_primary_computer_info(
+    d: &mut RaylibDrawHandle,
+    world: &World,
+    assets: &Assets,
+) {
+    let Some(grid_id) = world.selection_info.selected_grid else {
+        return;
+    };
+
+    let Ok(cpu_id) = query::primary_computer_id(grid_id, &world.grids) else {
+        return;
+    };
+
+    let Ok(part) = world.parts.try_get(cpu_id) else {
+        return;
+    };
+
+    let mut content = format!("Part ID: {}", cpu_id);
+
+    if let Ok(proto) = world.prototypes.try_get(part.prototype) {
+        content += &format!(
+            "\nPrototype: {} {} {:?}",
+            proto.name,
+            proto.mass,
+            proto.classification()
+        );
+    }
+
+    if let Ok(cpu) = world.computers.try_get(cpu_id) {
+        let info = computer_info_str(cpu);
+        content += &format!("\n{}", info.0);
+    }
+
+    let window = Window {
+        origin: IVec2::new(800, 60),
+        title: "Computer Info".to_string(),
+        content,
+        is_focused: true,
+    };
+
+    if let Some(font) = &assets.fira_code {
+        draw_window(d, &window, font);
+    }
 }
 
 fn draw_hovered_part_info(d: &mut RaylibDrawHandle, world: &World, assets: &Assets) {
