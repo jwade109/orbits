@@ -258,7 +258,9 @@ pub fn remove_top_part_at(world: &mut World, grid_id: Ent, coord: PartCoord) -> 
 
     debug!("Top part is {}", top_part);
 
-    remove_part(world, top_part)?;
+    // remove_part(world, top_part)?;
+
+    duplicate_part_to_new_grid(world, top_part)?;
 
     Ok(top_part)
 }
@@ -281,10 +283,17 @@ pub mod input_handlers {
         let waypoint = Isometry2d::new(world_pos, 0.0);
 
         if let Err(e) = world::set_primary_computer_waypoint(grid_id, waypoint, world) {
-            error!("Failed to set waypoint: {e:?}");
+            world.chat.log(format!("Failed to set waypoint: {e:?}"));
+            sounds.push(SoundEffect::GenericFailure);
+            return;
         }
+
         if let Err(e) = world::set_primary_computer_state(grid_id, true, world) {
-            error!("Failed to turn primary computer on: {e:?}");
+            world
+                .chat
+                .log(format!("Failed to turn primary computer on: {e:?}"));
+            sounds.push(SoundEffect::GenericFailure);
+            return;
         }
 
         sounds.push(SoundEffect::SetWaypoint);
@@ -404,7 +413,7 @@ pub mod input_handlers {
     pub fn spawn_random_ship_on_p(world: &mut World) {
         if let Ok(grid_id) = world::spawn_grid_by_name(world, "remora") {
             let pos = randvec(10.0, 200.0);
-            _ = world::set_grid_isometry(world, grid_id, Isometry2d::from_pos(pos));
+            _ = world::set_grid_pose(world, grid_id, Isometry2d::from_pos(pos));
         }
     }
 }

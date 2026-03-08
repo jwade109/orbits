@@ -11,6 +11,7 @@ pub enum SoundEffect {
     MouseoverPart,
     DestroyPart,
     SetWaypoint,
+    GenericFailure,
 }
 
 impl SoundEffect {
@@ -32,5 +33,6 @@ pub fn get_sound_effect_asset_path(effect: SoundEffect) -> &'static str {
         SoundEffect::MouseoverPart => "assets/sfx/mouseover-part.wav",
         SoundEffect::DestroyPart => "assets/sfx/destroy-part.wav",
         SoundEffect::SetWaypoint => "assets/sfx/soft-pulse.ogg",
+        SoundEffect::GenericFailure => "assets/sfx/generic-failure.wav",
     }
 }

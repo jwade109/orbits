@@ -43,7 +43,7 @@ pub fn apply_transaction(world: &mut World, transaction: Transaction) {
         }
         Action::SpawnShipAt(name, iso) => {
             if let Ok(grid_id) = world::spawn_grid_by_name(world, &name) {
-                _ = world::set_grid_isometry(world, grid_id, iso);
+                _ = world::set_grid_pose(world, grid_id, iso);
             }
         }
         Action::LoadWorld(new_world) => {

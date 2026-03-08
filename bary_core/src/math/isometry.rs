@@ -55,6 +55,16 @@ impl std::ops::Mul for Isometry2d {
     }
 }
 
+impl std::ops::Add for Isometry2d {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self::Output {
+        Self::new(
+            self.translation + rhs.translation,
+            self.rotation + rhs.rotation,
+        )
+    }
+}
+
 impl From<(f32, f32, f32)> for Isometry2d {
     fn from((x, y, r): (f32, f32, f32)) -> Self {
         Self {

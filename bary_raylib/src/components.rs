@@ -63,7 +63,7 @@ impl<E> Components<E> {
         if let Some(e) = e {
             Ok(e)
         } else {
-            Err(BaryError::EntityNotFound)
+            Err(BaryError::EntityNotFound(id))
         }
     }
 
@@ -78,7 +78,7 @@ impl<E> Components<E> {
     }
 
     pub fn try_get(&self, id: Ent) -> BaryResult<&E> {
-        self.values.get(&id).ok_or(BaryError::EntityNotFound)
+        self.values.get(&id).ok_or(BaryError::EntityNotFound(id))
     }
 
     pub fn get_mut(&mut self, id: Ent) -> Option<&mut E> {
@@ -86,7 +86,7 @@ impl<E> Components<E> {
     }
 
     pub fn try_get_mut(&mut self, id: Ent) -> BaryResult<&mut E> {
-        self.values.get_mut(&id).ok_or(BaryError::EntityNotFound)
+        self.values.get_mut(&id).ok_or(BaryError::EntityNotFound(id))
     }
 
     pub fn get_with_log(&self, id: Ent) -> Option<&E> {

@@ -71,7 +71,7 @@ impl WorldBuilder {
 
         for (name, iso) in self.spawns {
             if let Ok(id) = world::spawn_grid_by_name(&mut world, &name) {
-                _ = world::set_grid_isometry(&mut world, id, iso);
+                _ = world::set_grid_pose(&mut world, id, iso);
             }
         }
 

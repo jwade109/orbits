@@ -1,8 +1,8 @@
-use bary_core::prelude::PartCoord;
+use bary_core::prelude::*;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum BaryError {
-    EntityNotFound,
+    EntityNotFound(Ent),
     BadPartName,
     BadBlueprint,
     FailedToSaveBlueprint,

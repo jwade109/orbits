@@ -39,7 +39,15 @@ pub mod query {
 /// since using several in succession might perform duplicate lookups.
 pub mod ops {
     pub use crate::systems::insert_part_c;
+    pub use crate::systems::spawn_empty_grid;
+    pub use crate::systems::spawn_empty_grid_c;
     pub use crate::systems::world::insert_part;
+    pub use crate::systems::world::set_grid_pose;
+    pub use crate::systems::world::set_grid_vel;
+    pub use crate::vehicle::grid::duplicate_part_to_new_grid;
     pub use crate::vehicle::grid::remove_part_without_integrity_check;
     pub use crate::vehicle::grid::split_grid_if_necessary_todo_implement_me;
+    pub use crate::world::update_computers;
+    pub use crate::world::update_trackers;
+    pub use crate::world::update_world;
 }

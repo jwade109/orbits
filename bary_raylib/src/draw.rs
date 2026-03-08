@@ -465,7 +465,13 @@ fn draw_grid_far_indicators(
         let p = glam_to_raylib_swap_y(grid.pose.translation);
         let q = d.get_world_to_screen2D(p, camera);
 
-        markers.push((q, q, grid.pose.rotation, &grid.name));
+        markers.push((
+            q,
+            q,
+            grid.pose.rotation,
+            &grid.name,
+            !grid.computers.is_empty(),
+        ));
     }
 
     // move the markers apart
@@ -505,21 +511,21 @@ fn draw_grid_far_indicators(
     };
 
     // draw the markers
-    for (p, q, angle, name) in markers {
-        d.draw_line_v(p, q, Color::ORANGE);
-        let (v1, v2, v3) = get_triangle(q, angle);
-        d.draw_triangle(v1, v2, v3, Color::ORANGE);
-        d.draw_circle_lines_v(q, marker_radius, Color::ORANGE);
+    for (p, q, angle, name, is_controllable) in markers {
+        let color = if is_controllable {
+            Color::ORANGE
+        } else {
+            Color::GRAY
+        };
+        d.draw_line_v(p, q, color);
+        if is_controllable {
+            let (v1, v2, v3) = get_triangle(q, angle);
+            d.draw_triangle(v1, v2, v3, color);
+        }
+        d.draw_circle_lines_v(q, marker_radius, color);
         if !name.is_empty() {
             let q = q + Vector2::new(marker_radius + 10.0, 0.0);
-            d.draw_text_ex(
-                d.get_font_default(),
-                name,
-                q,
-                24.0,
-                0.4,
-                Color::ORANGE.alpha(0.5),
-            );
+            d.draw_text_ex(d.get_font_default(), name, q, 24.0, 0.4, color.alpha(0.5));
         }
     }
 }

@@ -1,3 +1,4 @@
+use crate::ops;
 use bary_core::prelude::*;
 use log::*;
 use serde::{Deserialize, Serialize};
@@ -326,6 +327,27 @@ pub fn remove_part_without_integrity_check(
     Ok(instance)
 }
 
+pub fn duplicate_part_to_new_grid(world: &mut World, part_id: Ent) -> BaryResult<Ent> {
+    let part = world.parts.try_get(part_id)?;
+    let grid = world.grids.try_get(part.grid_id)?;
+    let new_name = format!("{}-debris", grid.name);
+    let new_grid_pose = grid.pose + Isometry2d::new(randvec(3.0, 10.0), rand(0.0, PI));
+    let new_grid_vel = grid.velocity + Isometry2d::new(randvec(3.0, 10.0), 0.0);
+    let proto = world.prototypes.try_get(part.prototype)?;
+    let mut placement = part.placement;
+    placement.set_bottom_left((0, 0).into());
+    let instance = PartInstance {
+        name: proto.name.clone(),
+        layer: proto.layer,
+        placement: placement,
+    };
+    let new_grid_id = ops::spawn_empty_grid(world, new_name);
+    ops::set_grid_pose(world, new_grid_id, new_grid_pose)?;
+    ops::set_grid_vel(world, new_grid_id, new_grid_vel)?;
+    let new_part_id = ops::insert_part(new_grid_id, world, &instance)?;
+    Ok(new_part_id)
+}
+
 pub fn split_grid_if_necessary_todo_implement_me(world: &World, grid_id: Ent) -> BaryResult<usize> {
     let grid = world.grids.try_get(grid_id)?;
     let groups = grid.assess_integrity();
@@ -400,7 +422,7 @@ mod tests {
         // this should fail if the grid ID is bad, obviously.
         let result = split_grid_if_necessary_todo_implement_me(&world, Ent(0));
 
-        assert_eq!(result, Err(BaryError::EntityNotFound));
+        assert_eq!(result, Err(BaryError::EntityNotFound(Ent(0))));
 
         let result = split_grid_if_necessary_todo_implement_me(&world, grid_id);
 

@@ -30,7 +30,6 @@ pub fn spawn_grid_from_blueprint(
     let grid = VehicleGrid::with_name(s);
     let grid_id = counter.spawn();
     grids.spawn(grid_id, grid.clone());
-    grids.get_mut(grid_id).ok_or(BaryError::EntityNotFound)?;
     for (_id, proto) in bp.parts() {
         insert_part_c(
             grid_id, counter, grids, prototypes, parts, thrusters, computers, lights, proto,
@@ -116,6 +115,12 @@ pub fn set_primary_computer_state(
     Ok(primary_cpu_id)
 }
 
+/// Spawns an empty grid with the given name.
+/// Exclusive version of [`super::spawn_empty_grid`].
+pub fn spawn_empty_grid(world: &mut World, name: impl Into<String>) -> Ent {
+    spawn_empty_grid_c(&mut world.spawner, &mut world.grids, name)
+}
+
 pub mod world {
     use crate::ring_particle::PingParticle;
 
@@ -185,17 +190,18 @@ pub mod world {
         )
     }
 
-    pub fn set_grid_isometry(world: &mut World, grid_id: Ent, iso: Isometry2d) -> BaryResult<()> {
+    pub fn set_grid_pose(world: &mut World, grid_id: Ent, iso: Isometry2d) -> BaryResult<()> {
         info!("Setting isometry of grid {} to {:?}", grid_id, iso);
         let grid = world.grids.try_get_mut(grid_id)?;
         grid.pose = iso;
         Ok(())
     }
 
-    /// Spawns an empty grid with the given name.
-    /// Exclusive version of [`super::spawn_empty_grid`].
-    pub fn spawn_empty_grid(world: &mut World, name: &str) -> Ent {
-        super::spawn_empty_grid(&mut world.spawner, &mut world.grids, name)
+    pub fn set_grid_vel(world: &mut World, grid_id: Ent, vel: Isometry2d) -> BaryResult<()> {
+        info!("Setting velocity of grid {} to {:?}", grid_id, vel);
+        let grid = world.grids.try_get_mut(grid_id)?;
+        grid.velocity = vel;
+        Ok(())
     }
 
     /// Spawns a new grid according to a named blueprint.
@@ -249,11 +255,12 @@ pub mod world {
 }
 
 /// Spawns an empty vehicle grid.
-pub fn spawn_empty_grid(
+pub fn spawn_empty_grid_c(
     spawner: &mut EntitySpawner,
     grids: &mut Components<VehicleGrid>,
-    name: &str,
+    name: impl Into<String>,
 ) -> Ent {
+    let name = name.into();
     debug!("Spawning empty grid with name {}", name);
     let grid = VehicleGrid::with_name(name);
     let id = spawner.spawn();
@@ -654,7 +661,7 @@ mod tests {
             &mut world.lights,
         );
 
-        assert_eq!(result, Err(BaryError::EntityNotFound));
+        assert_eq!(result, Err(BaryError::EntityNotFound(grid_id)));
 
         assert_world_is_consistent(&world);
     }
@@ -803,7 +810,7 @@ mod tests {
     #[test]
     fn bad_part_insertion() {
         let mut world = WorldBuilder::new().test_assets().build();
-        let id = world::spawn_empty_grid(&mut world, "whatever");
+        let id = spawn_empty_grid(&mut world, "whatever");
 
         let instance = PartInstance::new(
             "dingus",
@@ -823,7 +830,7 @@ mod tests {
 
         let result = world::insert_part(Ent(103), &mut world, &instance);
 
-        assert_eq!(result, Err(BaryError::EntityNotFound));
+        assert_eq!(result, Err(BaryError::EntityNotFound(Ent(103))));
 
         assert_world_is_consistent(&world);
     }
@@ -832,7 +839,7 @@ mod tests {
     fn set_thruster_state() {
         let mut world = WorldBuilder::new().test_assets().build();
 
-        let grid_id = world::spawn_empty_grid(&mut world, "whatever");
+        let grid_id = spawn_empty_grid(&mut world, "whatever");
 
         let grid = world.grids.try_get(grid_id).unwrap();
 
@@ -936,7 +943,7 @@ mod tests {
 
         let instance = PartInstance::from_prototype(cargo_proto, (0, 0).into(), Rotation::East);
 
-        let grid_id = world::spawn_empty_grid(&mut world, "whatever");
+        let grid_id = spawn_empty_grid(&mut world, "whatever");
         _ = world::insert_part(grid_id, &mut world, &instance);
 
         let com = get_parts_center_of_mass(grid_id, &mut world).unwrap();
@@ -960,7 +967,7 @@ mod tests {
 
         let dims = proto.dims;
 
-        let grid_id = world::spawn_empty_grid(&mut world, "testbed");
+        let grid_id = spawn_empty_grid(&mut world, "testbed");
 
         let instance = PartInstance {
             name: "small-motor".to_string(),
@@ -1045,7 +1052,7 @@ mod tests {
 
         let placement = GridPlacement::new((0, 0), Rotation::East, dims);
 
-        let grid_id = world::spawn_empty_grid(&mut world, "testbed");
+        let grid_id = spawn_empty_grid(&mut world, "testbed");
 
         let instance = PartInstance {
             name: part_name.to_string(),
