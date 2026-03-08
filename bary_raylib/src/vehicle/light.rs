@@ -30,21 +30,15 @@ impl DutyCycle {
 #[derive(Deserialize, Serialize, Clone, Copy, Debug)]
 pub struct Light {
     pub cycle: DutyCycle,
-    pub grid_id: Ent,
-    pub prototype_id: Ent,
-    pub position: Vec2,
 }
 
 impl Light {
-    pub fn new(grid_id: Ent, prototype_id: Ent, pos: Vec2, idx: u32) -> Self {
+    pub fn new(idx: u32) -> Self {
         let total = 600;
         let on = 150;
         let delay = idx * 50;
         Self {
             cycle: DutyCycle::new(on, total, delay),
-            grid_id,
-            prototype_id,
-            position: pos,
         }
     }
 

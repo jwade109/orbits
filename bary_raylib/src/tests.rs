@@ -14,20 +14,6 @@ pub fn computer_bidirectional_pointers_are_consistent(world: &World) {
     }
 }
 
-pub fn light_bidirectional_pointers_are_consistent(world: &World) {
-    for (grid_id, grid) in world.grids.iter() {
-        for id in &grid.lights {
-            let light = world.lights.try_get(*id).unwrap();
-            assert_eq!(light.grid_id, *grid_id);
-        }
-    }
-
-    for (id, light) in world.lights.iter() {
-        let grid = world.grids.try_get(light.grid_id).unwrap();
-        assert!(grid.lights.contains(id));
-    }
-}
-
 pub fn part_bidirectional_pointers_are_consistent(world: &World) {
     for (grid_id, grid) in world.grids.iter() {
         for id in &grid.parts {
@@ -53,6 +39,5 @@ pub fn mass_of_grids_is_accurate(world: &World) {
 pub fn assert_world_is_consistent(world: &World) {
     mass_of_grids_is_accurate(world);
     computer_bidirectional_pointers_are_consistent(world);
-    light_bidirectional_pointers_are_consistent(world);
     part_bidirectional_pointers_are_consistent(world);
 }

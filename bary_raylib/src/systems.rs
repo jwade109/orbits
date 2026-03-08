@@ -317,9 +317,8 @@ pub fn insert_part_c(
     }
     if let Some(data) = &proto.thruster_data {
         if data.is_rcs {
-            let pos = instance.placement.center_isometry().translation;
             let light_idx = lights.len();
-            let light = Light::new(grid_id, proto_id, pos, light_idx as u32);
+            let light = Light::new(light_idx as u32);
             lights.spawn(part_id, light);
             grid.lights.insert(part_id);
         }

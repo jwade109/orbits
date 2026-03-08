@@ -9,7 +9,6 @@ raylib = "5.5.1"
 bary_core = { path = "../bary_core" }
 rdev = "0.5.3"
 crossbeam-queue = "0.3.12"
-rapier2d = "0.32.0"
 enum-iterator = "2.3.0"
 steamworks = "0.12.2"
 renet = "2.0.0"

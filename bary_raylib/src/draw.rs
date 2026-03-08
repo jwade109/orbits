@@ -106,6 +106,7 @@ pub fn draw_world(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
     draw_lights(
         &mut c,
         &world.grids,
+        &world.parts,
         &world.lights,
         world.ticks as u32,
         &world.camera,
@@ -738,6 +739,7 @@ fn draw_grids_if_updated_this_frame(
 fn draw_lights(
     d: &mut RaylibDrawHandle,
     grids: &Components<VehicleGrid>,
+    parts: &Components<Part>,
     lights: &Components<Light>,
     ticks: u32,
     camera: &Camera,
@@ -746,20 +748,21 @@ fn draw_lights(
         return;
     }
 
-    for light in lights.values() {
-        let Some(grid) = grids.get(light.grid_id) else {
+    for (light_id, light) in lights.iter() {
+        if !light.is_on(ticks) {
+            continue;
+        }
+
+        let Ok(part) = parts.try_get(*light_id) else {
+            continue;
+        };
+        let Ok(grid) = grids.try_get(part.grid_id) else {
             continue;
         };
 
-        if light.is_on(ticks) {
-            let offset =
-                grid.pose.local_x() * light.position.x + grid.pose.local_y() * light.position.y;
-            let mut light_isometry = grid.pose;
-            light_isometry.translation += offset;
-
-            fill_rectangle(d, light_isometry, Vec2::splat(0.1), Color::ORANGE);
-            draw_light_source(d, light_isometry.translation, 0.1, Color::YELLOW);
-        }
+        let light_isometry = grid.pose * part.placement.center_isometry();
+        fill_rectangle(d, light_isometry, Vec2::splat(0.1), Color::ORANGE);
+        draw_light_source(d, light_isometry.translation, 0.1, Color::YELLOW);
     }
 }
 

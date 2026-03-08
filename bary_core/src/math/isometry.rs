@@ -49,7 +49,9 @@ impl Isometry2d {
 impl std::ops::Mul for Isometry2d {
     type Output = Self;
     fn mul(self, rhs: Self) -> Self::Output {
-        Isometry2d::new(self.translation + rhs.translation, 0.0)
+        let mut ret = self.offset(rhs.translation);
+        ret.rotation += rhs.rotation;
+        ret
     }
 }
 
@@ -65,7 +67,6 @@ impl From<(f32, f32, f32)> for Isometry2d {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nalgebra::{Isometry2, Vector2};
 
     #[test]
     fn isometry_mul() {
@@ -75,19 +76,7 @@ mod tests {
 
         let iso = a * b * c;
 
-        // assert_eq!(iso.translation, (2.8, 0.5999999).into());
-        // assert_eq!(iso.rotation, 0.0);
-
-        let x = Isometry2::new(Vector2::new(2.3, 4.0), 0.1);
-        let y = Isometry2::new(Vector2::new(0.5, -3.4), 0.6);
-        let z = Isometry2::new(Vector2::new(-0.4, 12.1), -0.9);
-
-        let res = x * y * z;
-
-        assert_eq!(
-            res.translation.vector,
-            Vector2::new(-4.96403519125163, 9.663805937625362)
-        );
-        assert_eq!(res.rotation.angle(), -0.20000000000000007);
+        assert_eq!(iso.translation, (-4.9640365, 9.663805).into());
+        assert_eq!(iso.rotation, -0.19999993);
     }
 }

@@ -1,797 +1,397 @@
-[values.43]
-grid_id = 34
-prototype_id = 20
-position = [2.875, -2.125]
-
 [values.43.cycle]
 on = 150
 off = 450
 delay = 0
-
-[values.47]
-grid_id = 34
-prototype_id = 20
-position = [-2.875, -2.125]
 
 [values.47.cycle]
 on = 150
 off = 450
 delay = 50
 
-[values.49]
-grid_id = 34
-prototype_id = 20
-position = [-2.375, 1.875]
-
 [values.49.cycle]
 on = 150
 off = 450
 delay = 100
-
-[values.56]
-grid_id = 34
-prototype_id = 20
-position = [-3.125, 1.875]
 
 [values.56.cycle]
 on = 150
 off = 450
 delay = 150
 
-[values.57]
-grid_id = 34
-prototype_id = 20
-position = [-2.375, -1.875]
-
 [values.57.cycle]
 on = 150
 off = 450
 delay = 200
-
-[values.61]
-grid_id = 34
-prototype_id = 20
-position = [2.375, -1.875]
 
 [values.61.cycle]
 on = 150
 off = 450
 delay = 250
 
-[values.81]
-grid_id = 34
-prototype_id = 20
-position = [-3.125, -1.875]
-
 [values.81.cycle]
 on = 150
 off = 450
 delay = 300
-
-[values.85]
-grid_id = 34
-prototype_id = 20
-position = [3.125, 1.875]
 
 [values.85.cycle]
 on = 150
 off = 450
 delay = 350
 
-[values.87]
-grid_id = 34
-prototype_id = 20
-position = [2.375, 1.875]
-
 [values.87.cycle]
 on = 150
 off = 450
 delay = 400
-
-[values.95]
-grid_id = 34
-prototype_id = 20
-position = [-2.875, 2.125]
 
 [values.95.cycle]
 on = 150
 off = 450
 delay = 450
 
-[values.103]
-grid_id = 34
-prototype_id = 20
-position = [3.125, -1.875]
-
 [values.103.cycle]
 on = 150
 off = 450
 delay = 500
-
-[values.111]
-grid_id = 34
-prototype_id = 20
-position = [2.875, 2.125]
 
 [values.111.cycle]
 on = 150
 off = 450
 delay = 550
 
-[values.135]
-grid_id = 133
-prototype_id = 20
-position = [0.625, 1.125]
-
 [values.135.cycle]
 on = 150
 off = 450
 delay = 0
-
-[values.137]
-grid_id = 133
-prototype_id = 20
-position = [-1.625, 0.875]
 
 [values.137.cycle]
 on = 150
 off = 450
 delay = 50
 
-[values.143]
-grid_id = 133
-prototype_id = 20
-position = [-1.875, 0.625]
-
 [values.143.cycle]
 on = 150
 off = 450
 delay = 100
-
-[values.147]
-grid_id = 133
-prototype_id = 20
-position = [0.875, 0.875]
 
 [values.147.cycle]
 on = 150
 off = 450
 delay = 150
 
-[values.148]
-grid_id = 133
-prototype_id = 20
-position = [-1.875, -0.625]
-
 [values.148.cycle]
 on = 150
 off = 450
 delay = 200
-
-[values.149]
-grid_id = 133
-prototype_id = 20
-position = [0.625, -1.125]
 
 [values.149.cycle]
 on = 150
 off = 450
 delay = 250
 
-[values.156]
-grid_id = 133
-prototype_id = 20
-position = [-1.625, -0.875]
-
 [values.156.cycle]
 on = 150
 off = 450
 delay = 300
-
-[values.157]
-grid_id = 133
-prototype_id = 20
-position = [0.875, -0.875]
 
 [values.157.cycle]
 on = 150
 off = 450
 delay = 350
 
-[values.175]
-grid_id = 165
-prototype_id = 20
-position = [-8.625, 3.125]
-
 [values.175.cycle]
 on = 150
 off = 450
 delay = 400
-
-[values.187]
-grid_id = 165
-prototype_id = 20
-position = [10.625, 3.125]
 
 [values.187.cycle]
 on = 150
 off = 450
 delay = 450
 
-[values.188]
-grid_id = 165
-prototype_id = 20
-position = [-9.625, 2.625]
-
 [values.188.cycle]
 on = 150
 off = 450
 delay = 500
-
-[values.192]
-grid_id = 165
-prototype_id = 20
-position = [11.875, 2.375]
 
 [values.192.cycle]
 on = 150
 off = 450
 delay = 550
 
-[values.193]
-grid_id = 165
-prototype_id = 20
-position = [-9.125, 3.125]
-
 [values.193.cycle]
 on = 150
 off = 450
 delay = 0
-
-[values.194]
-grid_id = 165
-prototype_id = 20
-position = [-7.875, -3.125]
 
 [values.194.cycle]
 on = 150
 off = 450
 delay = 50
 
-[values.195]
-grid_id = 165
-prototype_id = 20
-position = [4.875, -3.125]
-
 [values.195.cycle]
 on = 150
 off = 450
 delay = 100
-
-[values.196]
-grid_id = 165
-prototype_id = 20
-position = [-10.125, -2.125]
 
 [values.196.cycle]
 on = 150
 off = 450
 delay = 150
 
-[values.197]
-grid_id = 165
-prototype_id = 20
-position = [-10.125, 2.125]
-
 [values.197.cycle]
 on = 150
 off = 450
 delay = 200
-
-[values.202]
-grid_id = 165
-prototype_id = 20
-position = [11.875, -1.875]
 
 [values.202.cycle]
 on = 150
 off = 450
 delay = 250
 
-[values.204]
-grid_id = 165
-prototype_id = 20
-position = [-2.625, 3.125]
-
 [values.204.cycle]
 on = 150
 off = 450
 delay = 300
-
-[values.205]
-grid_id = 165
-prototype_id = 20
-position = [4.375, 3.125]
 
 [values.205.cycle]
 on = 150
 off = 450
 delay = 350
 
-[values.207]
-grid_id = 165
-prototype_id = 20
-position = [10.875, 3.125]
-
 [values.207.cycle]
 on = 150
 off = 450
 delay = 400
-
-[values.223]
-grid_id = 165
-prototype_id = 20
-position = [-9.875, 2.375]
 
 [values.223.cycle]
 on = 150
 off = 450
 delay = 450
 
-[values.224]
-grid_id = 165
-prototype_id = 20
-position = [-8.875, -3.125]
-
 [values.224.cycle]
 on = 150
 off = 450
 delay = 500
-
-[values.226]
-grid_id = 165
-prototype_id = 20
-position = [-9.125, -3.125]
 
 [values.226.cycle]
 on = 150
 off = 450
 delay = 550
 
-[values.229]
-grid_id = 165
-prototype_id = 20
-position = [11.125, 3.125]
-
 [values.229.cycle]
 on = 150
 off = 450
 delay = 0
-
-[values.230]
-grid_id = 165
-prototype_id = 20
-position = [11.875, 2.125]
 
 [values.230.cycle]
 on = 150
 off = 450
 delay = 50
 
-[values.232]
-grid_id = 165
-prototype_id = 20
-position = [-8.375, 3.125]
-
 [values.232.cycle]
 on = 150
 off = 450
 delay = 100
-
-[values.233]
-grid_id = 165
-prototype_id = 20
-position = [-2.125, 3.125]
 
 [values.233.cycle]
 on = 150
 off = 450
 delay = 150
 
-[values.238]
-grid_id = 165
-prototype_id = 20
-position = [10.375, -3.125]
-
 [values.238.cycle]
 on = 150
 off = 450
 delay = 200
-
-[values.245]
-grid_id = 165
-prototype_id = 20
-position = [-10.375, 1.875]
 
 [values.245.cycle]
 on = 150
 off = 450
 delay = 250
 
-[values.247]
-grid_id = 165
-prototype_id = 20
-position = [-9.375, 2.625]
-
 [values.247.cycle]
 on = 150
 off = 450
 delay = 300
-
-[values.250]
-grid_id = 165
-prototype_id = 20
-position = [-1.625, 3.125]
 
 [values.250.cycle]
 on = 150
 off = 450
 delay = 350
 
-[values.252]
-grid_id = 165
-prototype_id = 20
-position = [-2.375, -3.125]
-
 [values.252.cycle]
 on = 150
 off = 450
 delay = 400
-
-[values.256]
-grid_id = 165
-prototype_id = 20
-position = [3.875, 3.125]
 
 [values.256.cycle]
 on = 150
 off = 450
 delay = 450
 
-[values.257]
-grid_id = 165
-prototype_id = 20
-position = [-2.625, -3.125]
-
 [values.257.cycle]
 on = 150
 off = 450
 delay = 500
-
-[values.261]
-grid_id = 165
-prototype_id = 20
-position = [-1.375, -3.125]
 
 [values.261.cycle]
 on = 150
 off = 450
 delay = 550
 
-[values.263]
-grid_id = 165
-prototype_id = 20
-position = [10.625, -3.125]
-
 [values.263.cycle]
 on = 150
 off = 450
 delay = 0
-
-[values.270]
-grid_id = 165
-prototype_id = 20
-position = [-2.375, 3.125]
 
 [values.270.cycle]
 on = 150
 off = 450
 delay = 50
 
-[values.274]
-grid_id = 165
-prototype_id = 20
-position = [-1.875, -3.125]
-
 [values.274.cycle]
 on = 150
 off = 450
 delay = 100
-
-[values.280]
-grid_id = 165
-prototype_id = 20
-position = [-10.375, -1.875]
 
 [values.280.cycle]
 on = 150
 off = 450
 delay = 150
 
-[values.282]
-grid_id = 165
-prototype_id = 20
-position = [11.875, -2.375]
-
 [values.282.cycle]
 on = 150
 off = 450
 delay = 200
-
-[values.284]
-grid_id = 165
-prototype_id = 20
-position = [-9.375, -2.625]
 
 [values.284.cycle]
 on = 150
 off = 450
 delay = 250
 
-[values.289]
-grid_id = 165
-prototype_id = 20
-position = [-8.375, -3.125]
-
 [values.289.cycle]
 on = 150
 off = 450
 delay = 300
-
-[values.290]
-grid_id = 165
-prototype_id = 20
-position = [-8.625, -3.125]
 
 [values.290.cycle]
 on = 150
 off = 450
 delay = 350
 
-[values.294]
-grid_id = 165
-prototype_id = 20
-position = [5.125, -3.125]
-
 [values.294.cycle]
 on = 150
 off = 450
 delay = 400
-
-[values.295]
-grid_id = 165
-prototype_id = 20
-position = [11.875, 1.875]
 
 [values.295.cycle]
 on = 150
 off = 450
 delay = 450
 
-[values.304]
-grid_id = 165
-prototype_id = 20
-position = [4.625, -3.125]
-
 [values.304.cycle]
 on = 150
 off = 450
 delay = 500
-
-[values.311]
-grid_id = 165
-prototype_id = 20
-position = [-8.875, 3.125]
 
 [values.311.cycle]
 on = 150
 off = 450
 delay = 550
 
-[values.312]
-grid_id = 165
-prototype_id = 20
-position = [10.875, -3.125]
-
 [values.312.cycle]
 on = 150
 off = 450
 delay = 0
-
-[values.323]
-grid_id = 165
-prototype_id = 20
-position = [4.125, 3.125]
 
 [values.323.cycle]
 on = 150
 off = 450
 delay = 50
 
-[values.324]
-grid_id = 165
-prototype_id = 20
-position = [-1.875, 3.125]
-
 [values.324.cycle]
 on = 150
 off = 450
 delay = 100
-
-[values.325]
-grid_id = 165
-prototype_id = 20
-position = [5.125, 3.125]
 
 [values.325.cycle]
 on = 150
 off = 450
 delay = 150
 
-[values.335]
-grid_id = 165
-prototype_id = 20
-position = [-8.125, 3.125]
-
 [values.335.cycle]
 on = 150
 off = 450
 delay = 200
-
-[values.337]
-grid_id = 165
-prototype_id = 20
-position = [4.875, 3.125]
 
 [values.337.cycle]
 on = 150
 off = 450
 delay = 250
 
-[values.342]
-grid_id = 165
-prototype_id = 20
-position = [-7.875, 3.125]
-
 [values.342.cycle]
 on = 150
 off = 450
 delay = 300
-
-[values.343]
-grid_id = 165
-prototype_id = 20
-position = [11.125, -3.125]
 
 [values.343.cycle]
 on = 150
 off = 450
 delay = 350
 
-[values.345]
-grid_id = 165
-prototype_id = 20
-position = [4.125, -3.125]
-
 [values.345.cycle]
 on = 150
 off = 450
 delay = 400
-
-[values.352]
-grid_id = 165
-prototype_id = 20
-position = [-2.125, -3.125]
 
 [values.352.cycle]
 on = 150
 off = 450
 delay = 450
 
-[values.357]
-grid_id = 165
-prototype_id = 20
-position = [-8.125, -3.125]
-
 [values.357.cycle]
 on = 150
 off = 450
 delay = 500
-
-[values.359]
-grid_id = 165
-prototype_id = 20
-position = [-1.375, 3.125]
 
 [values.359.cycle]
 on = 150
 off = 450
 delay = 550
 
-[values.365]
-grid_id = 165
-prototype_id = 20
-position = [11.875, -2.125]
-
 [values.365.cycle]
 on = 150
 off = 450
 delay = 0
-
-[values.366]
-grid_id = 165
-prototype_id = 20
-position = [3.875, -3.125]
 
 [values.366.cycle]
 on = 150
 off = 450
 delay = 50
 
-[values.375]
-grid_id = 165
-prototype_id = 20
-position = [-9.875, -2.375]
-
 [values.375.cycle]
 on = 150
 off = 450
 delay = 100
-
-[values.385]
-grid_id = 165
-prototype_id = 20
-position = [-1.625, -3.125]
 
 [values.385.cycle]
 on = 150
 off = 450
 delay = 150
 
-[values.392]
-grid_id = 165
-prototype_id = 20
-position = [-9.625, -2.625]
-
 [values.392.cycle]
 on = 150
 off = 450
 delay = 200
-
-[values.394]
-grid_id = 165
-prototype_id = 20
-position = [4.625, 3.125]
 
 [values.394.cycle]
 on = 150
 off = 450
 delay = 250
 
-[values.397]
-grid_id = 165
-prototype_id = 20
-position = [10.375, 3.125]
-
 [values.397.cycle]
 on = 150
 off = 450
 delay = 300
-
-[values.401]
-grid_id = 165
-prototype_id = 20
-position = [4.375, -3.125]
 
 [values.401.cycle]
 on = 150
