@@ -1,12 +1,8 @@
 use std::collections::BTreeSet;
 
 use crate::components::*;
-use crate::computer::*;
-use crate::light::*;
-use crate::part::*;
 use crate::result::*;
-use crate::thruster::*;
-use crate::vehicle_grid::*;
+use crate::vehicle::*;
 use crate::world::*;
 use bary_core::prelude::*;
 use log::{debug, info};
@@ -36,7 +32,7 @@ pub fn spawn_grid_from_blueprint(
     grids.spawn(grid_id, grid.clone());
     grids.get_mut(grid_id).ok_or(BaryError::EntityNotFound)?;
     for (_id, proto) in bp.parts() {
-        insert_part(
+        insert_part_c(
             grid_id, counter, grids, prototypes, parts, thrusters, computers, lights, proto,
         )?;
     }
@@ -211,13 +207,13 @@ pub mod world {
     }
 
     /// Inserts a part into an existing grid.
-    /// Exclusive version of [`super::insert_part`].
+    /// Exclusive version of [`super::insert_part_c`].
     pub fn insert_part(
         grid_id: Ent,
         world: &mut World,
         instance: &PartInstance,
     ) -> BaryResult<Ent> {
-        super::insert_part(
+        super::insert_part_c(
             grid_id,
             &mut world.spawner,
             &mut world.grids,
@@ -265,7 +261,7 @@ pub fn spawn_empty_grid(
     id
 }
 
-pub fn insert_part(
+pub fn insert_part_c(
     grid_id: Ent,
     counter: &mut EntitySpawner,
     grids: &mut Components<VehicleGrid>,
@@ -281,7 +277,7 @@ pub fn insert_part(
         instance.name, grid_id, instance.layer
     );
     let grid = grids.try_get_mut(grid_id)?;
-    let proto_id = find::part_by_name(prototypes, &instance.name).ok_or(BaryError::BadPartName)?;
+    let proto_id = find::proto_by_name(prototypes, &instance.name).ok_or(BaryError::BadPartName)?;
     let proto = prototypes.try_get(proto_id)?;
 
     grid.parts_mass += proto.mass;
@@ -361,9 +357,31 @@ pub mod find {
 
     use super::*;
 
+    /// Produces the entity ID corresponding to a grid's primary CPU,
+    /// which by convention is just the first element in the computer index.
     pub fn primary_computer_id(grid_id: Ent, grids: &Components<VehicleGrid>) -> BaryResult<Ent> {
         let grid = grids.try_get(grid_id)?;
         Ok(*grid.computers.first().ok_or(BaryError::NoPrimaryComputer)?)
+    }
+
+    pub fn sum_part_masses(
+        grids: &Components<VehicleGrid>,
+        parts: &Components<Part>,
+        prototypes: &Components<PartPrototype>,
+        grid_id: Ent,
+    ) -> BaryResult<Mass> {
+        let grid = grids.try_get(grid_id)?;
+        let mut sum = Mass::ZERO;
+        for part_id in &grid.parts {
+            let part = parts.try_get(*part_id)?;
+            let proto = prototypes.try_get(part.prototype)?;
+            sum += proto.mass;
+        }
+        Ok(sum)
+    }
+
+    pub fn sum_part_masses_w(world: &World, grid_id: Ent) -> BaryResult<Mass> {
+        sum_part_masses(&world.grids, &world.parts, &world.prototypes, grid_id)
     }
 
     pub fn blueprint_by_name<'a>(
@@ -382,17 +400,12 @@ pub mod find {
         result
     }
 
-    pub fn part_by_name(prototypes: &Components<PartPrototype>, name: &str) -> Option<Ent> {
-        let result = prototypes
+    /// Produces whatever prototype has the given name, if any.
+    pub fn proto_by_name(prototypes: &Components<PartPrototype>, name: &str) -> Option<Ent> {
+        prototypes
             .iter()
             .find(|(_, proto)| proto.part_name() == name)
-            .map(|e| *e.0);
-
-        if result.is_none() {
-            error!("Failed to get part with name {}", name);
-        }
-
-        result
+            .map(|e| *e.0)
     }
 
     pub fn grid_pose(grids: &Components<VehicleGrid>, grid_id: Ent) -> Option<Isometry2d> {
@@ -401,7 +414,9 @@ pub mod find {
     }
 
     /// Returns the ID of the first grid in the components list with
-    /// the given name. Buyer beware: grid names are not unique! This
+    /// the given name.
+    ///
+    /// Buyer beware: grid names are not unique! This
     /// only promises to return any grid with the given name, if one exists.
     pub fn grid_by_name(grids: &Components<VehicleGrid>, name: &str) -> Option<Ent> {
         grids
@@ -488,17 +503,6 @@ pub fn get_parts_center_of_mass(grid_id: Ent, world: &World) -> BaryResult<Vec2>
     Ok(com)
 }
 
-pub fn get_sum_part_masses(world: &World, grid_id: Ent) -> BaryResult<Mass> {
-    let grid = world.grids.try_get(grid_id)?;
-    let mut sum = Mass::ZERO;
-    for part_id in &grid.parts {
-        let part = world.parts.try_get(*part_id)?;
-        let proto = world.prototypes.try_get(part.prototype)?;
-        sum += proto.mass;
-    }
-    Ok(sum)
-}
-
 fn set_thruster_state(
     thruster_id: Ent,
     thrusters: &mut Components<Thruster>,
@@ -512,7 +516,7 @@ fn set_thruster_state(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::world_builder::WorldBuilder;
+    use crate::{tests::assert_world_is_consistent, world_builder::WorldBuilder};
 
     #[test]
     fn part_prototypes() {
@@ -561,6 +565,8 @@ mod tests {
         let (id, proto) = iter.next().unwrap();
         assert_eq!(*id, Ent(8));
         assert_eq!(proto.part_name(), "docking-port");
+
+        assert_world_is_consistent(&world);
     }
 
     #[test]
@@ -650,6 +656,8 @@ mod tests {
         );
 
         assert_eq!(result, Err(BaryError::EntityNotFound));
+
+        assert_world_is_consistent(&world);
     }
 
     #[test]
@@ -676,6 +684,8 @@ mod tests {
             let e = find::closest_grid(&world.grids, test_pos, None);
             assert_eq!(e, Some((Ent(34), Vec2::new(60.0, 44.0))));
         }
+
+        assert_world_is_consistent(&world);
     }
 
     #[test]
@@ -687,7 +697,7 @@ mod tests {
 
         let part_name = "motor";
 
-        let proto_id = find::part_by_name(&world.prototypes, part_name).unwrap();
+        let proto_id = find::proto_by_name(&world.prototypes, part_name).unwrap();
 
         let proto = world.prototypes.try_get(proto_id).unwrap();
         let dims = proto.dims;
@@ -723,6 +733,8 @@ mod tests {
 
         assert_eq!(world.parts.len(), 99);
         assert_eq!(world.thrusters.len(), 19);
+
+        assert_world_is_consistent(&world);
     }
 
     #[test]
@@ -750,6 +762,8 @@ mod tests {
         let id = world::spawn_grid_by_name(&mut world, "spacestation").unwrap();
         let mass = world.grids.try_get(id).unwrap().parts_mass;
         assert_eq!(mass, Mass::grams(145638000));
+
+        assert_world_is_consistent(&world);
     }
 
     #[test]
@@ -783,6 +797,8 @@ mod tests {
 
         // failing because pipes aren't implemented.
         // assert_eq!(actual, expected);
+
+        assert_world_is_consistent(&world);
     }
 
     #[test]
@@ -809,6 +825,8 @@ mod tests {
         let result = world::insert_part(Ent(103), &mut world, &instance);
 
         assert_eq!(result, Err(BaryError::EntityNotFound));
+
+        assert_world_is_consistent(&world);
     }
 
     #[test]
@@ -911,7 +929,7 @@ mod tests {
         // TODO is this right? possibly. seems close enough
         assert_eq!(com, Vec2::new(0.001067417, 0.022271877));
 
-        let cargo_id = find::part_by_name(&world.prototypes, "cargo").unwrap();
+        let cargo_id = find::proto_by_name(&world.prototypes, "cargo").unwrap();
         let cargo_proto = world.prototypes.try_get(cargo_id).unwrap();
 
         assert_eq!(cargo_proto.dims, (6, 6).into());
@@ -932,7 +950,7 @@ mod tests {
         let mut world = WorldBuilder::new().test_assets().build();
 
         // modifying the prototype for motor so it has easy quantities
-        let proto_id = find::part_by_name(&world.prototypes, "small-motor").unwrap();
+        let proto_id = find::proto_by_name(&world.prototypes, "small-motor").unwrap();
         let proto = world.prototypes.try_get_mut(proto_id).unwrap();
 
         proto.mass = Mass::kilograms(1000);

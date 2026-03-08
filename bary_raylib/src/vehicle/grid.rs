@@ -282,18 +282,26 @@ pub fn move_part(
 /// about that grid. This does not perform an integrity check, and might
 /// leave the parent grid in a state where it should be split up into
 /// several grids.
+///
 /// TODO(bug) It also doesn't update the grid's acceleration, so if a thruster
 /// is removed while it's firing that acceleration will remain until the grid's
 /// acceleration is recalculated.
+///
 /// Returns the grid which was modified, if any.
-// TODO(testing) very, VERY important to test!
-pub fn remove_part_without_integrity_check(world: &mut World, part_id: Ent) -> BaryResult<Ent> {
+///
+/// TODO(testing) very, VERY important to test!
+pub fn remove_part_without_integrity_check(
+    world: &mut World,
+    part_id: Ent,
+) -> BaryResult<PartInstance> {
     world.chat.log(format!("Removing part {}", part_id));
     let part = world.parts.try_get(part_id)?;
     let grid_id = part.grid_id;
     let proto = world.prototypes.try_get(part.prototype)?;
     let grid = world.grids.try_get_mut(grid_id)?;
     let name = grid.name.clone();
+
+    let instance = PartInstance::new(&proto.name, proto.layer, part.placement);
 
     if grid.thrusters.contains(&part_id) {
         world.thrusters.despawn(part_id)?;
@@ -315,7 +323,7 @@ pub fn remove_part_without_integrity_check(world: &mut World, part_id: Ent) -> B
         world.chat.log(format!("Deleted empty grid \"{}\"", name));
     }
 
-    Ok(grid_id)
+    Ok(instance)
 }
 
 pub fn split_grid_if_necessary_todo_implement_me(world: &World, grid_id: Ent) -> BaryResult<usize> {
@@ -327,8 +335,8 @@ pub fn split_grid_if_necessary_todo_implement_me(world: &World, grid_id: Ent) ->
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::query;
     use crate::result::BaryError;
-    use crate::systems::find;
     use crate::tests::assert_world_is_consistent;
     use crate::world_builder::WorldBuilder;
 
@@ -340,7 +348,7 @@ mod tests {
             .spawn("pollux", (0.0, 0.0, 0.0))
             .build();
 
-        let grid_id = find::grid_by_name(&world.grids, "pollux").unwrap();
+        let grid_id = query::grid_by_name(&world.grids, "pollux").unwrap();
         let grid = world.grids.try_get(grid_id).unwrap();
         let parts: Vec<_> = grid.parts.iter().collect();
 
@@ -359,14 +367,24 @@ mod tests {
         let op_b = remove_part_without_integrity_check(&mut world, part_b);
         let op_c = remove_part_without_integrity_check(&mut world, part_c);
 
-        assert_eq!(op_a, Ok(grid_id));
-        assert_eq!(op_b, Ok(grid_id));
-        assert_eq!(op_c, Ok(grid_id));
+        let placement_a = GridPlacement::new((-12, -9), Rotation::North, (1, 1));
+        let placement_b = GridPlacement::new((10, -5), Rotation::South, (2, 2));
+        let placement_c = GridPlacement::new((10, 3), Rotation::South, (2, 2));
+
+        let part_a = PartInstance::new("rcs", PartLayer::Internal, placement_a);
+        let part_b = PartInstance::new("plate", PartLayer::Exterior, placement_b);
+        let part_c = PartInstance::new("plate", PartLayer::Exterior, placement_c);
+
+        assert_eq!(op_a, Ok(part_a));
+        assert_eq!(op_b, Ok(part_b));
+        assert_eq!(op_c, Ok(part_c));
 
         let grid = world.grids.try_get(grid_id).unwrap();
 
         assert_eq!(grid.parts_mass, Mass::grams(35073000));
         assert_eq!(grid.parts.len(), 95);
+
+        assert_world_is_consistent(&world);
     }
 
     #[test]
@@ -377,7 +395,7 @@ mod tests {
             .spawn("pollux", (0.0, 0.0, 0.0))
             .build();
 
-        let grid_id = find::grid_by_name(&world.grids, "pollux").unwrap();
+        let grid_id = query::grid_by_name(&world.grids, "pollux").unwrap();
 
         // this should fail if the grid ID is bad, obviously.
         let result = split_grid_if_necessary_todo_implement_me(&world, Ent(0));
@@ -407,7 +425,7 @@ mod tests {
 
         for part_id in parts {
             let r = remove_part_without_integrity_check(&mut world, part_id);
-            assert_eq!(r, Ok(grid_id));
+            assert!(r.is_ok());
         }
 
         let grid = world.grids.try_get(grid_id).unwrap();
@@ -432,7 +450,7 @@ mod tests {
 
         for part_id in parts {
             let r = remove_part_without_integrity_check(&mut world, part_id);
-            assert_eq!(r, Ok(grid_id));
+            assert!(r.is_ok());
         }
 
         let grid = world.grids.try_get(grid_id).unwrap();

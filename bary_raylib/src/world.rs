@@ -1,20 +1,16 @@
 use crate::camera::Camera;
 use crate::chat::Chat;
 use crate::components::*;
-use crate::computer::*;
 use crate::input_state::*;
-use crate::light::*;
 use crate::multiplayer::Action;
-use crate::part::*;
 use crate::persistence::save_world;
 use crate::result::BaryError;
 use crate::result::BaryResult;
 use crate::ring_particle::PingParticle;
 use crate::sounds::*;
 use crate::systems::*;
-use crate::thruster::*;
 use crate::utils::*;
-use crate::vehicle_grid::*;
+use crate::vehicle::*;
 use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use log::*;
@@ -244,10 +240,10 @@ fn update_camera(target: &Camera, actual: &mut Camera) {
     actual.zoom = low_pass(actual.zoom, target.zoom, rate_translation);
 }
 
-pub fn remove_part(world: &mut World, part_id: Ent) -> BaryResult<Ent> {
-    let grid_id = remove_part_without_integrity_check(world, part_id)?;
-    split_grid_if_necessary_todo_implement_me(world, grid_id)?;
-    Ok(grid_id)
+pub fn remove_part(world: &mut World, part_id: Ent) -> BaryResult<PartInstance> {
+    let instance = remove_part_without_integrity_check(world, part_id)?;
+    // split_grid_if_necessary_todo_implement_me(world, grid_id)?;
+    Ok(instance)
 }
 
 pub fn remove_top_part_at(world: &mut World, grid_id: Ent, coord: PartCoord) -> BaryResult<Ent> {
