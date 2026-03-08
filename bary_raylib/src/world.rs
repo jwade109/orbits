@@ -260,7 +260,7 @@ pub fn remove_top_part_at(world: &mut World, grid_id: Ent, coord: PartCoord) -> 
 
     // remove_part(world, top_part)?;
 
-    duplicate_part_to_new_grid(world, top_part)?;
+    detach_part_from_parent(world, top_part)?;
 
     Ok(top_part)
 }
