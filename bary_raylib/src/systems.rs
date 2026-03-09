@@ -292,6 +292,7 @@ pub fn insert_part_c(
     let part = Part {
         placement: instance.placement,
         layer: instance.layer(),
+        mass: proto.mass,
         prototype: proto_id,
         grid_id,
         classification: proto.classification(),
@@ -310,8 +311,6 @@ pub fn insert_part_c(
             is_rcs: data.is_rcs,
             // TODO(gross)
             thrust: data.thrust as f32,
-            prototype: proto_id,
-            grid_id,
             last_controlled_by: None,
         };
         thrusters.spawn(part_id, thruster);

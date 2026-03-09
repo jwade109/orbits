@@ -6,6 +6,7 @@ pub struct Part {
     pub placement: GridPlacement,
     // TODO this field is kinda duplicated
     // with the prototype information.
+    pub mass: Mass,
     pub layer: PartLayer,
     pub prototype: Ent,
     pub grid_id: Ent,

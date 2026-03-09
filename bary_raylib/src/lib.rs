@@ -52,7 +52,7 @@ pub mod ops {
     pub use crate::vehicle::grid::detach_part_from_parent;
     pub use crate::vehicle::grid::duplicate_part_to_new_grid;
     pub use crate::vehicle::grid::remove_part_without_integrity_check;
-    pub use crate::vehicle::grid::split_grid_if_necessary_todo_implement_me;
+    pub use crate::vehicle::grid::split_grid_if_necessary;
     pub use crate::world::update_computers;
     pub use crate::world::update_trackers;
     pub use crate::world::update_world;

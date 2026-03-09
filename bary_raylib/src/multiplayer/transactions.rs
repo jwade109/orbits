@@ -64,8 +64,8 @@ pub fn apply_transaction(world: &mut World, transaction: Transaction) {
             }
         }
         Action::SetWaypoint { grid_id, waypoint } => {
-            ops::set_primary_computer_waypoint(grid_id, waypoint, world);
-            ops::set_primary_computer_state(grid_id, true, world);
+            _ = ops::set_primary_computer_waypoint(grid_id, waypoint, world);
+            _ = ops::set_primary_computer_state(grid_id, true, world);
         }
     }
 }

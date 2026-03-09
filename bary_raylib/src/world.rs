@@ -16,7 +16,6 @@ use bary_core::prelude::*;
 use log::*;
 use raylib::prelude::*;
 use rdev::Button;
-use rdev::Event;
 use serde::{Deserialize, Serialize};
 use std::collections::*;
 use std::time::Duration;
@@ -242,7 +241,7 @@ fn update_camera(target: &Camera, actual: &mut Camera) {
 
 pub fn remove_part(world: &mut World, part_id: Ent) -> BaryResult<PartInstance> {
     let instance = remove_part_without_integrity_check(world, part_id)?;
-    // split_grid_if_necessary_todo_implement_me(world, grid_id)?;
+    // split_grid_if_necessary(world, grid_id)?;
     Ok(instance)
 }
 
@@ -416,18 +415,6 @@ pub mod input_handlers {
             _ = world::set_grid_pose(world, grid_id, Isometry2d::from_pos(pos));
         }
     }
-}
-
-fn is_key_just_pressed(events: &Vec<Event>, key: Key) -> bool {
-    events
-        .iter()
-        .any(|e| e.event_type == rdev::EventType::KeyPress(key))
-}
-
-fn is_button_just_pressed(events: &Vec<Event>, button: Button) -> bool {
-    events
-        .iter()
-        .any(|e| e.event_type == rdev::EventType::ButtonPress(button))
 }
 
 fn snap_camera_target_to_local_up(target: &mut Camera) {

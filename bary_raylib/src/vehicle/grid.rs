@@ -1,4 +1,6 @@
+use crate::components::Components;
 use crate::ops;
+use crate::vehicle::Part;
 use bary_core::prelude::*;
 use log::*;
 use serde::{Deserialize, Serialize};
@@ -194,7 +196,7 @@ impl VehicleGrid {
         self.update_bounds();
     }
 
-    pub fn assess_integrity(&self) -> Vec<BTreeSet<Ent>> {
+    pub fn calculate_islands(&self) -> Vec<BTreeSet<Ent>> {
         let mut unvisited = BTreeSet::new();
 
         for key in self.occupancy.keys() {
@@ -209,7 +211,6 @@ impl VehicleGrid {
             let mut parts = BTreeSet::new();
 
             let mut open_set: BTreeSet<(i32, i32)> = [seed].into();
-            let mut count = 0;
             let mut closed_set = BTreeSet::new();
             while let Some(current) = open_set.pop_first() {
                 if closed_set.contains(&current) {
@@ -227,17 +228,15 @@ impl VehicleGrid {
                     }
                 }
 
-                count += 1;
-
                 for n in get_neighbors(current) {
                     open_set.insert(n);
                 }
             }
 
-            warn!("seed: {:?}, cells: {}, parts: {}", seed, count, parts.len());
-
             ret.push(parts);
         }
+
+        ret.sort_by_key(|e| -(e.len() as i32));
 
         ret
     }
@@ -347,15 +346,88 @@ pub fn duplicate_part_to_new_grid(world: &mut World, part_id: Ent) -> BaryResult
 }
 
 pub fn detach_part_from_parent(world: &mut World, part_id: Ent) -> BaryResult<Ent> {
+    let part = world.parts.try_get(part_id)?;
+    let grid_id = part.grid_id;
     let new_part_id = duplicate_part_to_new_grid(world, part_id)?;
     remove_part_without_integrity_check(world, part_id)?;
+    split_grid_if_necessary(world, grid_id)?;
     Ok(new_part_id)
 }
 
-pub fn split_grid_if_necessary_todo_implement_me(world: &World, grid_id: Ent) -> BaryResult<usize> {
+pub fn split_grid_if_necessary(
+    world: &mut World,
+    grid_id: Ent,
+) -> BaryResult<Vec<Ent>> {
     let grid = world.grids.try_get(grid_id)?;
-    let groups = grid.assess_integrity();
-    Ok(groups.len())
+    let islands = grid.calculate_islands();
+    if islands.is_empty() {
+        // TODO debatable
+        return Ok(vec![]);
+    }
+    if islands.len() == 1 {
+        return Ok(vec![]);
+    }
+
+    let mut ids = Vec::new();
+    let rebuilt = rebuild_index_from_islands(grid, &islands, &world.parts)?;
+
+    for (i, r) in rebuilt.into_iter().enumerate() {
+        if i == 0 {
+            world.grids.insert(grid_id, r);
+            ids.push(grid_id);
+        } else {
+            // r.velocity.translation += randvec(0.1, 0.2);
+            // r.velocity.rotation += rand(-0.05, 0.05);
+            let id = world.spawner.spawn();
+            for part_id in &r.parts {
+                if let Ok(part) = world.parts.try_get_mut(*part_id) {
+                    part.grid_id = id;
+                }
+            }
+            world.grids.spawn(id, r);
+            ids.push(id);
+        }
+    }
+
+    Ok(ids)
+}
+
+pub fn rebuild_index_from_island(
+    src: &VehicleGrid,
+    island: &BTreeSet<Ent>,
+    parts: &Components<Part>,
+) -> BaryResult<VehicleGrid> {
+    let mut dst = VehicleGrid::with_name("from_island");
+    dst.pose = src.pose;
+    dst.velocity = src.velocity;
+    for part_id in island.iter().map(|i| *i) {
+        let part = parts.try_get(part_id)?;
+        dst.parts_mass += part.mass;
+        dst.parts.insert(part_id);
+        dst.mark_occupied(part.placement, part.layer, part_id);
+        if src.thrusters.contains(&part_id) {
+            dst.thrusters.insert(part_id);
+        }
+        if src.computers.contains(&part_id) {
+            dst.computers.insert(part_id);
+        }
+        if src.lights.contains(&part_id) {
+            dst.lights.insert(part_id);
+        }
+    }
+
+    Ok(dst)
+}
+
+pub fn rebuild_index_from_islands(
+    src: &VehicleGrid,
+    islands: &Vec<BTreeSet<Ent>>,
+    parts: &Components<Part>,
+) -> BaryResult<Vec<VehicleGrid>> {
+    islands
+        .iter()
+        .map(|island| rebuild_index_from_island(src, island, parts))
+        .collect()
 }
 
 #[cfg(test)]
@@ -365,6 +437,64 @@ mod tests {
     use crate::result::BaryError;
     use crate::tests::assert_world_is_consistent;
     use crate::world_builder::WorldBuilder;
+
+    #[test]
+    fn rebuilding_grid_from_islands() {
+        let mut world = WorldBuilder::new()
+            .test_assets()
+            .blueprint("pollux")
+            .spawn("pollux", (0.0, 0.0, 0.0))
+            .build();
+
+        let grid_id = query::grid_by_name(&world.grids, "pollux").unwrap();
+        let grid = world.grids.try_get(grid_id).unwrap();
+
+        assert_eq!(grid.parts_mass, Mass::grams(35134000));
+        assert_eq!(grid.parts.len(), 98);
+
+        // slice a thing down the middle of the ship
+        let mut parts = BTreeSet::new();
+        let x = 0;
+        for y in -10..=10 {
+            if let Some(occ) = grid.occupancy.get(&(x, y)) {
+                for (_, id) in occ.iter() {
+                    parts.insert(id);
+                }
+            }
+        }
+
+        for part_id in parts {
+            let r = remove_part_without_integrity_check(&mut world, part_id);
+            assert!(r.is_ok());
+        }
+
+        let mut grid = world.grids.try_get(grid_id).unwrap().clone();
+        let islands = grid.calculate_islands();
+
+        assert_eq!(islands.len(), 2);
+
+        let rebuilt = rebuild_index_from_islands(&mut grid, &islands, &world.parts).unwrap();
+
+        assert_eq!(rebuilt.len(), 2);
+
+        let ra = &rebuilt[0];
+        let rb = &rebuilt[1];
+
+        assert_eq!(ra.parts.len(), 45);
+        assert_eq!(rb.parts.len(), 40);
+
+        assert_eq!(ra.thrusters.len(), 9);
+        assert_eq!(rb.thrusters.len(), 9);
+
+        assert_eq!(ra.computers.len(), 0);
+        assert_eq!(rb.computers.len(), 1);
+
+        assert_eq!(ra.lights.len(), 6);
+        assert_eq!(rb.lights.len(), 6);
+
+        assert_eq!(ra.parts_mass, Mass::grams(16817000));
+        assert_eq!(rb.parts_mass, Mass::grams(14797000));
+    }
 
     #[test]
     fn removing_parts_from_grid() {
@@ -424,13 +554,13 @@ mod tests {
         let grid_id = query::grid_by_name(&world.grids, "pollux").unwrap();
 
         // this should fail if the grid ID is bad, obviously.
-        let result = split_grid_if_necessary_todo_implement_me(&world, Ent(0));
+        let result = split_grid_if_necessary(&mut world, Ent(0));
 
         assert_eq!(result, Err(BaryError::EntityNotFound(Ent(0))));
 
-        let result = split_grid_if_necessary_todo_implement_me(&world, grid_id);
+        let result = split_grid_if_necessary(&mut world, grid_id);
 
-        assert_eq!(result, Ok(1));
+        assert_eq!(result, Ok(vec![]));
 
         let grid = world.grids.try_get(grid_id).unwrap();
         assert_eq!(grid.parts_mass, Mass::grams(35134000));
@@ -454,38 +584,13 @@ mod tests {
             assert!(r.is_ok());
         }
 
-        let grid = world.grids.try_get(grid_id).unwrap();
-        assert_eq!(grid.parts_mass, Mass::grams(32004000));
-        assert_eq!(grid.parts.len(), 90);
+        let result = split_grid_if_necessary(&mut world, grid_id);
 
-        let result = split_grid_if_necessary_todo_implement_me(&world, grid_id);
-
-        assert_eq!(result, Ok(2));
-
-        // another slice
-        let mut parts = BTreeSet::new();
-        for i in 0..5 {
-            if let Some(occ) = grid.occupancy.get(&(-i, i)) {
-                for (_, id) in occ.iter() {
-                    parts.insert(id);
-                }
-            }
-        }
-
-        assert_eq!(parts.len(), 5);
-
-        for part_id in parts {
-            let r = remove_part_without_integrity_check(&mut world, part_id);
-            assert!(r.is_ok());
-        }
+        assert_eq!(result, Ok(vec![Ent(31), Ent(130)]));
 
         let grid = world.grids.try_get(grid_id).unwrap();
-        assert_eq!(grid.parts_mass, Mass::grams(30239000));
-        assert_eq!(grid.parts.len(), 85);
-
-        let result = split_grid_if_necessary_todo_implement_me(&world, grid_id);
-
-        assert_eq!(result, Ok(3));
+        assert_eq!(grid.parts_mass, Mass::grams(17757000));
+        assert_eq!(grid.parts.len(), 52);
 
         assert_world_is_consistent(&world);
     }

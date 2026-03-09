@@ -621,7 +621,19 @@ fn draw_selection_info(
     Ok(())
 }
 
-fn computer_info_str(cpu: &Computer) -> (String, usize) {
+fn grid_info_str(grid: &VehicleGrid) -> String {
+    let lines = [
+        format!("GRID INFO ==="),
+        format!("\n  Parts: {}", grid.parts.len()),
+        format!("\n  Thrusters: {}", grid.thrusters.len()),
+        format!("\n  Computers: {}", grid.computers.len()),
+        format!("\n  Parts mass: {}", grid.parts_mass),
+    ];
+
+    lines.into_iter().collect()
+}
+
+fn computer_info_str(cpu: &Computer) -> String {
     let lines = [
         format!("CPU INFO ==="),
         format!("\n  On: {}", cpu.on),
@@ -634,8 +646,7 @@ fn computer_info_str(cpu: &Computer) -> (String, usize) {
         format!("\n  Vel: {:?}", cpu.velocity.to_tuple()),
     ];
 
-    let len = lines.len();
-    (lines.into_iter().collect(), len)
+    lines.into_iter().collect()
 }
 
 fn draw_selected_grid_primary_computer_info(
@@ -647,33 +658,22 @@ fn draw_selected_grid_primary_computer_info(
         return;
     };
 
-    let Ok(cpu_id) = query::primary_computer_id(grid_id, &world.grids) else {
+    let Ok(grid) = world.grids.try_get(grid_id) else {
         return;
     };
 
-    let Ok(part) = world.parts.try_get(cpu_id) else {
-        return;
+    let mut content = grid_info_str(grid);
+
+    if let Some(cpu_id) = grid.computers.first() {
+        if let Ok(cpu) = world.computers.try_get(*cpu_id) {
+            let info = computer_info_str(cpu);
+            content += &format!("\n{}", info);
+        }
     };
-
-    let mut content = format!("Part ID: {}", cpu_id);
-
-    if let Ok(proto) = world.prototypes.try_get(part.prototype) {
-        content += &format!(
-            "\nPrototype: {} {} {:?}",
-            proto.name,
-            proto.mass,
-            proto.classification()
-        );
-    }
-
-    if let Ok(cpu) = world.computers.try_get(cpu_id) {
-        let info = computer_info_str(cpu);
-        content += &format!("\n{}", info.0);
-    }
 
     let window = Window {
         origin: IVec2::new(800, 60),
-        title: "Computer Info".to_string(),
+        title: "Grid Info".to_string(),
         content,
         is_focused: true,
     };
@@ -713,7 +713,7 @@ fn draw_hovered_part_info(d: &mut RaylibDrawHandle, world: &World, assets: &Asse
         }
         if let Ok(cpu) = world.computers.try_get(part_id) {
             let info = computer_info_str(cpu);
-            s += &format!("\n{}", info.0);
+            s += &format!("\n{}", info);
         }
         if let Ok(thruster) = world.thrusters.try_get(part_id) {
             s += &format!("\n{:#?}", thruster);
@@ -751,11 +751,11 @@ fn draw_thrusters(
             continue;
         }
 
-        let Ok(grid) = grids.try_get(t.grid_id) else {
+        let Ok(part) = parts.try_get(*e) else {
             continue;
         };
 
-        let Ok(part) = parts.try_get(*e) else {
+        let Ok(grid) = grids.try_get(part.grid_id) else {
             continue;
         };
 
