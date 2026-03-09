@@ -148,7 +148,12 @@ pub mod world {
         waypoint: Isometry2d,
         world: &mut World,
     ) -> BaryResult<Ent> {
-        super::set_primary_computer_waypoint_c(grid_id, waypoint, &world.grids, &mut world.computers)
+        super::set_primary_computer_waypoint_c(
+            grid_id,
+            waypoint,
+            &world.grids,
+            &mut world.computers,
+        )
     }
 
     /// Turns the primary computer of the given grid on or off,
@@ -333,7 +338,28 @@ pub fn insert_part_c(
     Ok(part_id)
 }
 
-pub fn despawn_grid(
+pub fn despawn_grid(world: &mut World, grid_id: Ent) -> BaryResult<()> {
+    despawn_grid_c(
+        grid_id,
+        &mut world.grids,
+        &mut world.parts,
+        &mut world.thrusters,
+        &mut world.computers,
+        &mut world.lights,
+    )
+}
+
+pub fn despawn_all_vehicles(world: &mut World) -> usize {
+    let ret = world.grids.len();
+    world.grids.clear();
+    world.parts.clear();
+    world.lights.clear();
+    world.computers.clear();
+    world.thrusters.clear();
+    ret
+}
+
+pub fn despawn_grid_c(
     grid_id: Ent,
     grids: &mut Components<VehicleGrid>,
     parts: &mut Components<Part>,
@@ -633,14 +659,7 @@ mod tests {
         assert_eq!(proto.part_name(), "cpu");
 
         // despawning should work, of course
-        let result = despawn_grid(
-            grid_id,
-            &mut world.grids,
-            &mut world.parts,
-            &mut world.thrusters,
-            &mut world.computers,
-            &mut world.lights,
-        );
+        let result = despawn_grid(&mut world, grid_id);
         assert_eq!(result, Ok(()));
 
         // now the world should be empty
@@ -651,14 +670,7 @@ mod tests {
         assert_eq!(world.lights.len(), 0);
 
         // doing this again should return an error
-        let result = despawn_grid(
-            grid_id,
-            &mut world.grids,
-            &mut world.parts,
-            &mut world.thrusters,
-            &mut world.computers,
-            &mut world.lights,
-        );
+        let result = despawn_grid(&mut world, grid_id);
 
         assert_eq!(result, Err(BaryError::EntityNotFound(grid_id)));
 

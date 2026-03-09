@@ -312,8 +312,8 @@ pub mod input_handlers {
                 info!("Removed part {}", id);
                 sounds.push(SoundEffect::DestroyPart);
             }
-            Err(e) => {
-                error!("Failed to remove: {:?}", e);
+            Err(_e) => {
+                // don't care.
             }
         }
     }

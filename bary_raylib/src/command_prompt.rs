@@ -104,6 +104,28 @@ fn parse_waypoint(args: &ArgsMap) -> Result<Action, ParseError> {
     })
 }
 
+fn parse_goto(args: &ArgsMap) -> Result<Action, ParseError> {
+    let grid_name = parse_arg(args, "grid_name")?;
+    Ok(Action::LookAt(grid_name))
+}
+
+fn parse_edit(args: &ArgsMap) -> Result<Action, ParseError> {
+    let grid_id = Ent(parse_arg(args, "grid_id")?);
+    dbg!(grid_id);
+    Err(ParseError::CommandNotFound)
+}
+
+fn parse_find(args: &ArgsMap) -> Result<Action, ParseError> {
+    let grid_id = Ent(parse_arg(args, "grid_id")?);
+    dbg!(grid_id);
+    Err(ParseError::CommandNotFound)
+}
+
+fn parse_despawn(args: &ArgsMap) -> Result<Action, ParseError> {
+    let grid_id = Ent(parse_arg(args, "grid_id")?);
+    Ok(Action::DespawnGrid(grid_id))
+}
+
 fn parse_placeholder(_args: &ArgsMap) -> Result<Action, ParseError> {
     Err(ParseError::CommandNotFound)
 }
@@ -140,14 +162,15 @@ impl CommandPrompt {
             lines: Vec::new(),
             suggest_text: String::new(),
             commands: vec![
-                Command::new("goto", vec!["grid_id"], parse_placeholder),
+                Command::new("goto", vec!["grid_name"], parse_goto),
                 Command::new("spawn", vec!["bp_name", "x", "y"], parse_spawn),
-                Command::new("edit", vec!["grid_id"], parse_placeholder),
-                Command::new("find", vec!["grid_name"], parse_placeholder),
+                Command::new("edit", vec!["grid_id"], parse_edit),
+                Command::new("despawn", vec!["grid_id"], parse_despawn),
+                Command::new("find", vec!["grid_name"], parse_find),
                 Command::new("ping", vec!["x", "y"], parse_ping),
                 Command::new("waypoint", vec!["grid_id", "x", "y"], parse_waypoint),
                 Command::new("save", vec![], parse_placeholder),
-                Command::new("exit", vec![], parse_placeholder),
+                Command::new("exit", vec![], |_args| panic!()),
             ],
         }
     }

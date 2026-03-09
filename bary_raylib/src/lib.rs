@@ -39,6 +39,8 @@ pub mod query {
 /// direct manipulation of world entities, though potentially costlier
 /// since using several in succession might perform duplicate lookups.
 pub mod ops {
+    pub use crate::systems::despawn_all_vehicles;
+    pub use crate::systems::despawn_grid;
     pub use crate::systems::insert_part_c;
     pub use crate::systems::set_primary_computer_state_c;
     pub use crate::systems::set_primary_computer_waypoint_c;

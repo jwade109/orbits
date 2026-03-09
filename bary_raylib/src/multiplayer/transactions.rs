@@ -1,6 +1,6 @@
 use crate::input_state::InputState;
-use crate::ops;
 use crate::world::World;
+use crate::{ops, query};
 use crate::{systems::*, world::update_world};
 use bary_core::prelude::*;
 use log::{info, warn};
@@ -13,6 +13,9 @@ pub enum Action {
     LoadWorld(World),
     FastForwardTo(u64),
     SetWaypoint { grid_id: Ent, waypoint: Isometry2d },
+    LookAt(String),
+    DespawnGrid(Ent),
+    ClearWorld,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -66,6 +69,18 @@ pub fn apply_transaction(world: &mut World, transaction: Transaction) {
         Action::SetWaypoint { grid_id, waypoint } => {
             _ = ops::set_primary_computer_waypoint(grid_id, waypoint, world);
             _ = ops::set_primary_computer_state(grid_id, true, world);
+        }
+        Action::LookAt(name) => {
+            if let Some(grid_id) = query::grid_by_name(&world.grids, &name) {
+                world.follow_vehicle = Some(grid_id);
+                world.target_camera.zoom = 15.0;
+            }
+        }
+        Action::ClearWorld => {
+            ops::despawn_all_vehicles(world);
+        }
+        Action::DespawnGrid(grid_id) => {
+            _ = ops::despawn_grid(world, grid_id);
         }
     }
 }
