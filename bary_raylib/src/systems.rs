@@ -227,28 +227,6 @@ pub mod world {
         spawn_grid_from_blueprint(world, name, &bp)
     }
 
-    /// Inserts a part into an existing grid.
-    /// Exclusive version of [`super::insert_part_c`].
-    pub fn insert_part(
-        grid_id: Ent,
-        world: &mut World,
-        instance: &PartInstance,
-        update_props: bool,
-    ) -> BaryResult<Ent> {
-        super::insert_part_c(
-            grid_id,
-            &mut world.spawner,
-            &mut world.grids,
-            &mut world.prototypes,
-            &mut world.parts,
-            &mut world.thrusters,
-            &mut world.computers,
-            &mut world.lights,
-            instance,
-            update_props,
-        )
-    }
-
     /// Sets the state of a given thruster.
     /// Does not modify the corresponding grid's acceleration.
     /// TODO(cleanup) this doesn't really need to be a function.
@@ -283,6 +261,28 @@ pub fn spawn_empty_grid_c(
     let id = spawner.spawn();
     grids.spawn(id, grid);
     id
+}
+
+/// Inserts a part into an existing grid.
+/// Exclusive version of [`insert_part_c`].
+pub fn insert_part(
+    grid_id: Ent,
+    world: &mut World,
+    instance: &PartInstance,
+    update_props: bool,
+) -> BaryResult<Ent> {
+    insert_part_c(
+        grid_id,
+        &mut world.spawner,
+        &mut world.grids,
+        &mut world.prototypes,
+        &mut world.parts,
+        &mut world.thrusters,
+        &mut world.computers,
+        &mut world.lights,
+        instance,
+        update_props,
+    )
 }
 
 pub fn insert_part_c(
@@ -783,7 +783,7 @@ mod tests {
             GridPlacement::new((2, 3), Rotation::East, dims),
         );
 
-        let id = world::insert_part(grid_id, &mut world, &instance, true).unwrap();
+        let id = insert_part(grid_id, &mut world, &instance, true).unwrap();
 
         assert_eq!(id, Ent(130));
 
@@ -878,7 +878,7 @@ mod tests {
             GridPlacement::new((0, 0), Rotation::East, (3, 3)),
         );
 
-        let result = world::insert_part(id, &mut world, &instance, true);
+        let result = insert_part(id, &mut world, &instance, true);
 
         assert_eq!(result, Err(BaryError::BadPartName));
 
@@ -888,7 +888,7 @@ mod tests {
             GridPlacement::new((0, 0), Rotation::East, (3, 3)),
         );
 
-        let result = world::insert_part(Ent(103), &mut world, &instance, true);
+        let result = insert_part(Ent(103), &mut world, &instance, true);
 
         assert_eq!(result, Err(BaryError::EntityNotFound(Ent(103))));
 
@@ -920,8 +920,8 @@ mod tests {
             GridPlacement::new((0, 0), Rotation::North, (4, 2)),
         );
 
-        let a_id = world::insert_part(grid_id, &mut world, &instance_a, true).unwrap();
-        let b_id = world::insert_part(grid_id, &mut world, &instance_b, true).unwrap();
+        let a_id = insert_part(grid_id, &mut world, &instance_a, true).unwrap();
+        let b_id = insert_part(grid_id, &mut world, &instance_b, true).unwrap();
 
         let grid = world.grids.try_get(grid_id).unwrap();
 
@@ -1004,7 +1004,7 @@ mod tests {
         let instance = PartInstance::from_prototype(cargo_proto, (0, 0).into(), Rotation::East);
 
         let grid_id = spawn_empty_grid(&mut world, "whatever");
-        _ = world::insert_part(grid_id, &mut world, &instance, true);
+        _ = insert_part(grid_id, &mut world, &instance, true);
 
         let (_mass, com) =
             get_grid_physical_props_by_id(grid_id, &world.grids, &world.parts).unwrap();
@@ -1036,7 +1036,7 @@ mod tests {
             placement: GridPlacement::new((0, -1), Rotation::East, dims),
         };
 
-        let thruster_id = world::insert_part(grid_id, &mut world, &instance, true).unwrap();
+        let thruster_id = insert_part(grid_id, &mut world, &instance, true).unwrap();
 
         let center_isometry = instance.placement.center_isometry();
 
@@ -1124,7 +1124,7 @@ mod tests {
 
         use find::grid_pose;
 
-        let thruster_id = world::insert_part(grid_id, &mut world, &instance, true).unwrap();
+        let thruster_id = insert_part(grid_id, &mut world, &instance, true).unwrap();
 
         _ = world::set_thruster_state(thruster_id, &mut world, true);
         world::update_grid_acceleration([grid_id].into(), &mut world);

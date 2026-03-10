@@ -44,6 +44,7 @@ pub mod query {
 pub mod ops {
     pub use crate::systems::despawn_all_vehicles;
     pub use crate::systems::despawn_grid;
+    pub use crate::systems::insert_part;
     pub use crate::systems::insert_part_c;
     pub use crate::systems::set_primary_computer_state_c;
     pub use crate::systems::set_primary_computer_waypoint_c;
@@ -52,7 +53,6 @@ pub mod ops {
     pub use crate::systems::update_grid_acceleration;
     pub use crate::systems::update_grid_physical_props;
     pub use crate::systems::update_grid_physical_props_by_id;
-    pub use crate::systems::world::insert_part;
     pub use crate::systems::world::set_grid_pose;
     pub use crate::systems::world::set_grid_vel;
     pub use crate::systems::world::set_primary_computer_state;

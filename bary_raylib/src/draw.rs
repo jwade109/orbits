@@ -3,6 +3,7 @@ use std::collections::BTreeSet;
 use crate::camera::{Camera, to_raylib_camera};
 use crate::chat::{Chat, format_log};
 use crate::components::Components;
+use crate::query::primary_computer_id;
 use crate::result::BaryResult;
 use crate::ring_particle::*;
 use crate::systems::*;
@@ -107,6 +108,7 @@ pub fn draw_world(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
         &mut c,
         &world.grids,
         &world.parts,
+        &world.computers,
         &world.lights,
         world.ticks as u32,
         &world.camera,
@@ -792,6 +794,7 @@ fn draw_lights(
     d: &mut RaylibDrawHandle,
     grids: &Components<VehicleGrid>,
     parts: &Components<Part>,
+    computers: &Components<Computer>,
     lights: &Components<Light>,
     ticks: u32,
     camera: &Camera,
@@ -800,26 +803,33 @@ fn draw_lights(
         return;
     }
 
-    for (light_id, light) in lights.iter() {
-        if !light.is_on(ticks) {
-            continue;
-        }
-
-        let Ok(part) = parts.try_get(*light_id) else {
+    for grid in grids.values() {
+        let Some(cpu_id) = grid.computers.first() else {
             continue;
         };
 
-        let Ok(grid) = grids.try_get(part.grid_id) else {
+        let Ok(cpu) = computers.try_get(*cpu_id) else {
             continue;
         };
 
-        if grid.computers.is_empty() {
-            continue;
-        }
+        for light_id in &grid.lights {
+            let Ok(light) = lights.try_get(*light_id) else {
+                continue;
+            };
+            let Ok(part) = parts.try_get(*light_id) else {
+                continue;
+            };
 
-        let light_isometry = grid.pose * part.placement.center_isometry();
-        fill_rectangle(d, light_isometry, Vec2::splat(0.1), Color::ORANGE);
-        draw_light_source(d, light_isometry.translation, 0.1, Color::YELLOW);
+            let rate = if cpu.on { 4 } else { 1 };
+
+            if !light.is_on(ticks * rate) {
+                continue;
+            }
+
+            let light_isometry = grid.pose * part.placement.center_isometry();
+            fill_rectangle(d, light_isometry, Vec2::splat(0.1), Color::ORANGE);
+            draw_light_source(d, light_isometry.translation, 0.1, Color::YELLOW);
+        }
     }
 }
 

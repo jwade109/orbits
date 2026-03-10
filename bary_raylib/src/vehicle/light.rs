@@ -34,9 +34,9 @@ pub struct Light {
 
 impl Light {
     pub fn new(idx: u32) -> Self {
-        let total = 600;
-        let on = 150;
-        let delay = idx * 50;
+        let total = 2000;
+        let on = 900;
+        let delay = idx * 400;
         Self {
             cycle: DutyCycle::new(on, total, delay),
         }
