@@ -32,6 +32,9 @@ pub mod query {
     pub use crate::systems::find::proto_by_name;
     pub use crate::systems::find::sum_part_masses;
     pub use crate::systems::find::sum_part_masses_w;
+    pub use crate::systems::get_grid_physical_props;
+    pub use crate::systems::get_grid_physical_props_by_id;
+    pub use crate::systems::get_sum_linear_forces;
 }
 
 /// A namespace of functions which perform operations in the simulation world
@@ -46,6 +49,9 @@ pub mod ops {
     pub use crate::systems::set_primary_computer_waypoint_c;
     pub use crate::systems::spawn_empty_grid;
     pub use crate::systems::spawn_empty_grid_c;
+    pub use crate::systems::update_grid_acceleration;
+    pub use crate::systems::update_grid_physical_props;
+    pub use crate::systems::update_grid_physical_props_by_id;
     pub use crate::systems::world::insert_part;
     pub use crate::systems::world::set_grid_pose;
     pub use crate::systems::world::set_grid_vel;
@@ -53,6 +59,7 @@ pub mod ops {
     pub use crate::systems::world::set_primary_computer_waypoint;
     pub use crate::vehicle::grid::detach_part_from_parent;
     pub use crate::vehicle::grid::duplicate_part_to_new_grid;
+    pub use crate::vehicle::grid::rebuild_index_from_island;
     pub use crate::vehicle::grid::remove_part_without_integrity_check;
     pub use crate::vehicle::grid::split_grid_if_necessary;
     pub use crate::world::update_computers;

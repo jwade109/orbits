@@ -3,7 +3,6 @@ use std::collections::BTreeSet;
 use crate::camera::{Camera, to_raylib_camera};
 use crate::chat::{Chat, format_log};
 use crate::components::Components;
-use crate::query;
 use crate::result::BaryResult;
 use crate::ring_particle::*;
 use crate::systems::*;
@@ -317,6 +316,10 @@ pub fn draw_grid_outlines(d: &mut RaylibDrawHandle, grids: &Components<VehicleGr
         let bl_iso = grid.pose.offset(bottom_left);
         let dims = top_right - bottom_left;
         draw_rectangle(d, bl_iso, dims, Color::WHITE);
+
+        let com = grid.pose.offset(grid.center_of_mass);
+        fill_circle(d, com.translation, 0.5, Color::RED);
+        draw_circle(d, com.translation, 1.0, Color::RED);
     }
 }
 
@@ -805,9 +808,14 @@ fn draw_lights(
         let Ok(part) = parts.try_get(*light_id) else {
             continue;
         };
+
         let Ok(grid) = grids.try_get(part.grid_id) else {
             continue;
         };
+
+        if grid.computers.is_empty() {
+            continue;
+        }
 
         let light_isometry = grid.pose * part.placement.center_isometry();
         fill_rectangle(d, light_isometry, Vec2::splat(0.1), Color::ORANGE);

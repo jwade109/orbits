@@ -240,7 +240,7 @@ fn update_camera(target: &Camera, actual: &mut Camera) {
 }
 
 pub fn remove_part(world: &mut World, part_id: Ent) -> BaryResult<PartInstance> {
-    let instance = remove_part_without_integrity_check(world, part_id)?;
+    let instance = remove_part_without_integrity_check(world, part_id, true)?;
     // split_grid_if_necessary(world, grid_id)?;
     Ok(instance)
 }
@@ -415,6 +415,12 @@ pub mod input_handlers {
             _ = world::set_grid_pose(world, grid_id, Isometry2d::from_pos(pos));
         }
     }
+
+    pub fn update_center_of_mass_on_m(world: &mut World) {
+        for grid in world.grids.values_mut() {
+            _ = update_grid_physical_props(grid, &world.parts);
+        }
+    }
 }
 
 fn snap_camera_target_to_local_up(target: &mut Camera) {
@@ -482,7 +488,12 @@ fn update_thrusters(
             let isometry = part.placement.center_isometry();
             let center_of_thrust = isometry.translation;
             let rotation = part.placement.rot();
-            let wrench = body_frame_wrench(thruster.thrust, center_of_thrust, rotation, Vec2::ZERO);
+            let wrench = body_frame_wrench(
+                thruster.thrust,
+                center_of_thrust,
+                rotation,
+                grid.center_of_mass,
+            );
 
             if thruster.is_rcs {
                 let can_torque = wrench.rotation.abs() > 0.5 && ctrl.attitude.abs() > 0.5;
@@ -722,6 +733,7 @@ pub fn process_event(
             Key::KeyR => input_handlers::reset_camera_on_ctrl_r(world, input),
             Key::KeyD => input_handlers::panic_on_ctrl_d(input),
             Key::KeyP => input_handlers::spawn_random_ship_on_p(world),
+            Key::KeyM => input_handlers::update_center_of_mass_on_m(world),
             _ => (),
         },
         rdev::EventType::KeyRelease(_key) => (),

@@ -32,9 +32,14 @@ pub fn spawn_grid_from_blueprint(
     grids.spawn(grid_id, grid.clone());
     for (_id, proto) in bp.parts() {
         insert_part_c(
-            grid_id, counter, grids, prototypes, parts, thrusters, computers, lights, proto,
+            grid_id, counter, grids, prototypes, parts, thrusters, computers, lights, proto, false,
         )?;
     }
+
+    let grid = grids.try_get_mut(grid_id)?;
+
+    update_grid_physical_props(grid, parts)?;
+
     Ok(grid_id)
 }
 
@@ -77,7 +82,12 @@ pub fn update_grid_acceleration(
 
             let center_of_thrust = part.placement.center_isometry().translation;
             let rotation = part.placement.rot();
-            let wrench = body_frame_wrench(thruster.thrust, center_of_thrust, rotation, Vec2::ZERO);
+            let wrench = body_frame_wrench(
+                thruster.thrust,
+                center_of_thrust,
+                rotation,
+                grid.center_of_mass,
+            );
             grid.body_frame_forces.translation += wrench.translation;
             grid.body_frame_forces.rotation += wrench.rotation;
         }
@@ -223,6 +233,7 @@ pub mod world {
         grid_id: Ent,
         world: &mut World,
         instance: &PartInstance,
+        update_props: bool,
     ) -> BaryResult<Ent> {
         super::insert_part_c(
             grid_id,
@@ -234,6 +245,7 @@ pub mod world {
             &mut world.computers,
             &mut world.lights,
             instance,
+            update_props,
         )
     }
 
@@ -283,6 +295,7 @@ pub fn insert_part_c(
     computers: &mut Components<Computer>,
     lights: &mut Components<Light>,
     instance: &PartInstance,
+    update_props: bool,
 ) -> BaryResult<Ent> {
     debug!(
         "Inserting part \"{}\" into grid \"{}\" in layer {:?}",
@@ -291,8 +304,6 @@ pub fn insert_part_c(
     let grid = grids.try_get_mut(grid_id)?;
     let proto_id = find::proto_by_name(prototypes, &instance.name).ok_or(BaryError::BadPartName)?;
     let proto = prototypes.try_get(proto_id)?;
-
-    grid.parts_mass += proto.mass;
 
     let part = Part {
         placement: instance.placement,
@@ -333,6 +344,10 @@ pub fn insert_part_c(
             lights.spawn(part_id, light);
             grid.lights.insert(part_id);
         }
+    }
+
+    if update_props {
+        update_grid_physical_props_by_id(grid_id, grids, parts);
     }
 
     Ok(part_id)
@@ -400,18 +415,24 @@ pub mod find {
         parts: &Components<Part>,
         prototypes: &Components<PartPrototype>,
         grid_id: Ent,
-    ) -> BaryResult<Mass> {
+    ) -> BaryResult<(Mass, Vec2)> {
         let grid = grids.try_get(grid_id)?;
         let mut sum = Mass::ZERO;
+        let mut com = DVec2::ZERO;
         for part_id in &grid.parts {
             let part = parts.try_get(*part_id)?;
             let proto = prototypes.try_get(part.prototype)?;
             sum += proto.mass;
+            let center = part.placement.center_isometry().translation;
+            com += center.as_dvec2();
         }
-        Ok(sum)
+        if !sum.is_zero() {
+            com /= sum.to_kg_f64();
+        }
+        Ok((sum, com.as_vec2()))
     }
 
-    pub fn sum_part_masses_w(world: &World, grid_id: Ent) -> BaryResult<Mass> {
+    pub fn sum_part_masses_w(world: &World, grid_id: Ent) -> BaryResult<(Mass, Vec2)> {
         sum_part_masses(&world.grids, &world.parts, &world.prototypes, grid_id)
     }
 
@@ -515,23 +536,51 @@ pub fn get_sum_linear_forces(
     Ok(sum)
 }
 
-pub fn get_parts_center_of_mass(grid_id: Ent, world: &World) -> BaryResult<Vec2> {
-    let grid = world.grids.try_get(grid_id)?;
+pub fn update_grid_physical_props_by_id(
+    grid_id: Ent,
+    grids: &mut Components<VehicleGrid>,
+    parts: &Components<Part>,
+) -> BaryResult<()> {
+    let grid = grids.try_get_mut(grid_id)?;
+    update_grid_physical_props(grid, parts)
+}
+
+pub fn update_grid_physical_props(
+    grid: &mut VehicleGrid,
+    parts: &Components<Part>,
+) -> BaryResult<()> {
+    let (mass, com) = get_grid_physical_props(grid, parts)?;
+    grid.parts_mass = mass;
+    grid.center_of_mass = com;
+    Ok(())
+}
+
+pub fn get_grid_physical_props_by_id(
+    grid_id: Ent,
+    grids: &Components<VehicleGrid>,
+    parts: &Components<Part>,
+) -> BaryResult<(Mass, Vec2)> {
+    let grid = grids.try_get(grid_id)?;
+    get_grid_physical_props(grid, parts)
+}
+
+pub fn get_grid_physical_props(
+    grid: &VehicleGrid,
+    parts: &Components<Part>,
+) -> BaryResult<(Mass, Vec2)> {
     let mut total_mass = Mass::ZERO;
     for part_id in &grid.parts {
-        let part = world.parts.try_get(*part_id)?;
-        let proto = world.prototypes.try_get(part.prototype)?;
-        total_mass += proto.mass;
+        let part = parts.try_get(*part_id)?;
+        total_mass += part.mass;
     }
     let mut com = Vec2::ZERO;
     for part_id in &grid.parts {
-        let part = world.parts.try_get(*part_id)?;
-        let proto = world.prototypes.try_get(part.prototype)?;
+        let part = parts.try_get(*part_id)?;
         let center = part.placement.center_isometry();
-        let mass_portion = proto.mass.to_kg_f64() / total_mass.to_kg_f64();
+        let mass_portion = part.mass.to_kg_f64() / total_mass.to_kg_f64();
         com += center.translation * mass_portion as f32;
     }
-    Ok(com)
+    Ok((total_mass, com))
 }
 
 fn set_thruster_state(
@@ -734,7 +783,7 @@ mod tests {
             GridPlacement::new((2, 3), Rotation::East, dims),
         );
 
-        let id = world::insert_part(grid_id, &mut world, &instance).unwrap();
+        let id = world::insert_part(grid_id, &mut world, &instance, true).unwrap();
 
         assert_eq!(id, Ent(130));
 
@@ -829,7 +878,7 @@ mod tests {
             GridPlacement::new((0, 0), Rotation::East, (3, 3)),
         );
 
-        let result = world::insert_part(id, &mut world, &instance);
+        let result = world::insert_part(id, &mut world, &instance, true);
 
         assert_eq!(result, Err(BaryError::BadPartName));
 
@@ -839,7 +888,7 @@ mod tests {
             GridPlacement::new((0, 0), Rotation::East, (3, 3)),
         );
 
-        let result = world::insert_part(Ent(103), &mut world, &instance);
+        let result = world::insert_part(Ent(103), &mut world, &instance, true);
 
         assert_eq!(result, Err(BaryError::EntityNotFound(Ent(103))));
 
@@ -871,8 +920,8 @@ mod tests {
             GridPlacement::new((0, 0), Rotation::North, (4, 2)),
         );
 
-        let a_id = world::insert_part(grid_id, &mut world, &instance_a).unwrap();
-        let b_id = world::insert_part(grid_id, &mut world, &instance_b).unwrap();
+        let a_id = world::insert_part(grid_id, &mut world, &instance_a, true).unwrap();
+        let b_id = world::insert_part(grid_id, &mut world, &instance_b, true).unwrap();
 
         let grid = world.grids.try_get(grid_id).unwrap();
 
@@ -941,7 +990,7 @@ mod tests {
             .build();
 
         let id = world::spawn_grid_by_name(&mut world, "pollux").unwrap();
-        let com = get_parts_center_of_mass(id, &mut world).unwrap();
+        let (_mass, com) = get_grid_physical_props_by_id(id, &world.grids, &world.parts).unwrap();
 
         // TODO is this right? possibly. seems close enough
         assert_eq!(com, Vec2::new(0.001067417, 0.022271877));
@@ -955,9 +1004,10 @@ mod tests {
         let instance = PartInstance::from_prototype(cargo_proto, (0, 0).into(), Rotation::East);
 
         let grid_id = spawn_empty_grid(&mut world, "whatever");
-        _ = world::insert_part(grid_id, &mut world, &instance);
+        _ = world::insert_part(grid_id, &mut world, &instance, true);
 
-        let com = get_parts_center_of_mass(grid_id, &mut world).unwrap();
+        let (_mass, com) =
+            get_grid_physical_props_by_id(grid_id, &world.grids, &world.parts).unwrap();
 
         assert_eq!(com, Vec2::splat(0.75));
     }
@@ -986,12 +1036,13 @@ mod tests {
             placement: GridPlacement::new((0, -1), Rotation::East, dims),
         };
 
-        let thruster_id = world::insert_part(grid_id, &mut world, &instance).unwrap();
+        let thruster_id = world::insert_part(grid_id, &mut world, &instance, true).unwrap();
 
         let center_isometry = instance.placement.center_isometry();
 
-        let com = get_parts_center_of_mass(grid_id, &world);
-        assert_eq!(com, Ok(Vec2::X * center_isometry.translation.x));
+        let (_mass, com) =
+            get_grid_physical_props_by_id(grid_id, &world.grids, &world.parts).unwrap();
+        assert_eq!(com, Vec2::X * center_isometry.translation.x);
 
         // obviously, turn the main thruster on
         let r = world::set_thruster_state(thruster_id, &mut world, true);
@@ -1073,7 +1124,7 @@ mod tests {
 
         use find::grid_pose;
 
-        let thruster_id = world::insert_part(grid_id, &mut world, &instance).unwrap();
+        let thruster_id = world::insert_part(grid_id, &mut world, &instance, true).unwrap();
 
         _ = world::set_thruster_state(thruster_id, &mut world, true);
         world::update_grid_acceleration([grid_id].into(), &mut world);

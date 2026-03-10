@@ -1,8 +1,7 @@
-use crate::components::Components;
 use crate::ops;
 use crate::vehicle::Part;
+use crate::{components::Components, ops::update_grid_physical_props_by_id};
 use bary_core::prelude::*;
-use log::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -99,6 +98,7 @@ impl PartOccupancy {
 pub struct VehicleGrid {
     pub name: String,
     pub parts_mass: Mass,
+    pub center_of_mass: Vec2,
     pub pose: Isometry2d,
     pub velocity: Isometry2d,
     pub body_frame_forces: Isometry2d,
@@ -117,10 +117,15 @@ pub struct VehicleGrid {
 }
 
 impl VehicleGrid {
+    pub fn empty() -> Self {
+        Self::with_name("")
+    }
+
     pub fn with_name(name: impl Into<String>) -> Self {
         VehicleGrid {
             name: name.into(),
             parts_mass: Mass::ZERO,
+            center_of_mass: Vec2::ZERO,
             pose: Isometry2d::ZERO,
             velocity: Isometry2d::ZERO,
             body_frame_forces: Isometry2d::ZERO,
@@ -131,6 +136,10 @@ impl VehicleGrid {
             bounds: (IVec2::ZERO, IVec2::ZERO),
             occupancy: BTreeMap::new(),
         }
+    }
+
+    pub fn parts_mass(&self) -> Mass {
+        self.parts_mass
     }
 
     pub fn linear_acceleration(&self) -> Vec2 {
@@ -293,6 +302,7 @@ pub fn move_part(
 pub fn remove_part_without_integrity_check(
     world: &mut World,
     part_id: Ent,
+    update_props: bool,
 ) -> BaryResult<PartInstance> {
     world.chat.log(format!("Removing part {}", part_id));
     let part = world.parts.try_get(part_id)?;
@@ -314,13 +324,17 @@ pub fn remove_part_without_integrity_check(
     }
 
     grid.remove_from_index(part_id);
-    grid.parts_mass -= proto.mass;
+    grid.parts_mass -= part.mass;
 
     world.parts.despawn(part_id)?;
 
     if grid.parts.is_empty() {
         world.grids.despawn(grid_id)?;
         world.chat.log(format!("Deleted empty grid \"{}\"", name));
+    }
+
+    if update_props {
+        update_grid_physical_props_by_id(grid_id, &mut world.grids, &world.parts);
     }
 
     Ok(instance)
@@ -341,7 +355,7 @@ pub fn duplicate_part_to_new_grid(world: &mut World, part_id: Ent) -> BaryResult
     let new_grid_id = ops::spawn_empty_grid(world, new_name);
     ops::set_grid_pose(world, new_grid_id, new_part_pose)?;
     ops::set_grid_vel(world, new_grid_id, new_grid_vel)?;
-    let new_part_id = ops::insert_part(new_grid_id, world, &instance)?;
+    let new_part_id = ops::insert_part(new_grid_id, world, &instance, true)?;
     Ok(new_part_id)
 }
 
@@ -349,15 +363,12 @@ pub fn detach_part_from_parent(world: &mut World, part_id: Ent) -> BaryResult<En
     let part = world.parts.try_get(part_id)?;
     let grid_id = part.grid_id;
     let new_part_id = duplicate_part_to_new_grid(world, part_id)?;
-    remove_part_without_integrity_check(world, part_id)?;
+    remove_part_without_integrity_check(world, part_id, true)?;
     split_grid_if_necessary(world, grid_id)?;
     Ok(new_part_id)
 }
 
-pub fn split_grid_if_necessary(
-    world: &mut World,
-    grid_id: Ent,
-) -> BaryResult<Vec<Ent>> {
+pub fn split_grid_if_necessary(world: &mut World, grid_id: Ent) -> BaryResult<Vec<Ent>> {
     let grid = world.grids.try_get(grid_id)?;
     let islands = grid.calculate_islands();
     if islands.is_empty() {
@@ -387,6 +398,10 @@ pub fn split_grid_if_necessary(
             world.grids.spawn(id, r);
             ids.push(id);
         }
+    }
+
+    for id in &ids {
+        update_grid_physical_props_by_id(*id, &mut world.grids, &world.parts)?;
     }
 
     Ok(ids)
@@ -464,7 +479,7 @@ mod tests {
         }
 
         for part_id in parts {
-            let r = remove_part_without_integrity_check(&mut world, part_id);
+            let r = remove_part_without_integrity_check(&mut world, part_id, true);
             assert!(r.is_ok());
         }
 
@@ -519,9 +534,9 @@ mod tests {
         assert_eq!(part_b, Ent(52));
         assert_eq!(part_c, Ent(69));
 
-        let op_a = remove_part_without_integrity_check(&mut world, part_a);
-        let op_b = remove_part_without_integrity_check(&mut world, part_b);
-        let op_c = remove_part_without_integrity_check(&mut world, part_c);
+        let op_a = remove_part_without_integrity_check(&mut world, part_a, false);
+        let op_b = remove_part_without_integrity_check(&mut world, part_b, false);
+        let op_c = remove_part_without_integrity_check(&mut world, part_c, true);
 
         let placement_a = GridPlacement::new((-12, -9), Rotation::North, (1, 1));
         let placement_b = GridPlacement::new((10, -5), Rotation::South, (2, 2));
@@ -580,7 +595,7 @@ mod tests {
         assert_eq!(parts.len(), 8);
 
         for part_id in parts {
-            let r = remove_part_without_integrity_check(&mut world, part_id);
+            let r = remove_part_without_integrity_check(&mut world, part_id, true);
             assert!(r.is_ok());
         }
 
@@ -588,9 +603,13 @@ mod tests {
 
         assert_eq!(result, Ok(vec![Ent(31), Ent(130)]));
 
-        let grid = world.grids.try_get(grid_id).unwrap();
+        let grid = world.grids.try_get(Ent(31)).unwrap();
         assert_eq!(grid.parts_mass, Mass::grams(17757000));
         assert_eq!(grid.parts.len(), 52);
+
+        let grid = world.grids.try_get(Ent(130)).unwrap();
+        assert_eq!(grid.parts_mass, Mass::grams(14247000));
+        assert_eq!(grid.parts.len(), 38);
 
         assert_world_is_consistent(&world);
     }
