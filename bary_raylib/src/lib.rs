@@ -57,11 +57,11 @@ pub mod ops {
     pub use crate::systems::world::set_grid_vel;
     pub use crate::systems::world::set_primary_computer_state;
     pub use crate::systems::world::set_primary_computer_waypoint;
-    pub use crate::vehicle::grid::detach_part_from_parent;
-    pub use crate::vehicle::grid::duplicate_part_to_new_grid;
-    pub use crate::vehicle::grid::rebuild_index_from_island;
-    pub use crate::vehicle::grid::remove_part_without_integrity_check;
-    pub use crate::vehicle::grid::split_grid_if_necessary;
+    pub use crate::vehicle::systems::detach_part_from_parent;
+    pub use crate::vehicle::systems::duplicate_part_to_new_grid;
+    pub use crate::vehicle::systems::rebuild_index_from_island;
+    pub use crate::vehicle::systems::remove_part_without_integrity_check;
+    pub use crate::vehicle::systems::split_grid_if_necessary;
     pub use crate::world::update_computers;
     pub use crate::world::update_trackers;
     pub use crate::world::update_world;

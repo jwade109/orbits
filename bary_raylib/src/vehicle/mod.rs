@@ -3,6 +3,9 @@ pub mod grid;
 pub mod light;
 pub mod part;
 pub mod thruster;
+pub mod systems;
+
+mod tests;
 
 pub use computer::*;
 pub use grid::*;

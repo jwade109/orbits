@@ -347,7 +347,7 @@ pub fn insert_part_c(
     }
 
     if update_props {
-        update_grid_physical_props_by_id(grid_id, grids, parts);
+        update_grid_physical_props_by_id(grid_id, grids, parts)?;
     }
 
     Ok(part_id)
@@ -539,7 +539,7 @@ pub fn get_sum_linear_forces(
 pub fn update_grid_physical_props_by_id(
     grid_id: Ent,
     grids: &mut Components<VehicleGrid>,
-    parts: &Components<Part>,
+    parts: &mut Components<Part>,
 ) -> BaryResult<()> {
     let grid = grids.try_get_mut(grid_id)?;
     update_grid_physical_props(grid, parts)
@@ -547,11 +547,22 @@ pub fn update_grid_physical_props_by_id(
 
 pub fn update_grid_physical_props(
     grid: &mut VehicleGrid,
-    parts: &Components<Part>,
+    parts: &mut Components<Part>,
 ) -> BaryResult<()> {
+    let offset = -grid.bounds.0;
+    grid.occupancy.clear();
+    grid.update_bounds();
+
+    for part_id in grid.parts.clone() {
+        let part = parts.try_get_mut(part_id)?;
+        part.placement.shift(offset.into());
+        grid.mark_occupied(part.placement, part.layer, part_id);
+    }
+
     let (mass, com) = get_grid_physical_props(grid, parts)?;
     grid.parts_mass = mass;
     grid.center_of_mass = com;
+
     Ok(())
 }
 

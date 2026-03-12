@@ -3,6 +3,7 @@ use crate::chat::Chat;
 use crate::components::*;
 use crate::input_state::*;
 use crate::multiplayer::Action;
+use crate::ops;
 use crate::persistence::save_world;
 use crate::result::BaryError;
 use crate::result::BaryResult;
@@ -50,21 +51,32 @@ pub struct Assets {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct Tracker {
-    pos: VecDeque<Vec2>,
+    origin: VecDeque<Vec2>,
+    center_of_mass: VecDeque<Vec2>,
+    centroid: VecDeque<Vec2>,
 }
 
 impl Tracker {
     pub const MAX_LEN: usize = 500;
 
-    pub fn iter(&self) -> impl Iterator<Item = &Vec2> + use<'_> {
-        self.pos.iter()
+    pub fn series(&self) -> [&VecDeque<Vec2>; 3] {
+        [&self.origin, &self.center_of_mass, &self.centroid]
     }
 
-    pub fn add(&mut self, pos: Vec2) {
-        self.pos.push_back(pos);
-        if self.pos.len() > Self::MAX_LEN {
-            self.pos.pop_front();
+    fn enqueue(hist: &mut VecDeque<Vec2>, pose: Isometry2d) {
+        hist.push_back(pose.translation);
+        if hist.len() > Self::MAX_LEN {
+            hist.pop_front();
         }
+    }
+
+    pub fn add(&mut self, grid: &VehicleGrid) {
+        Self::enqueue(&mut self.origin, grid.pose);
+        Self::enqueue(
+            &mut self.center_of_mass,
+            grid.pose.offset(grid.center_of_mass),
+        );
+        Self::enqueue(&mut self.centroid, grid.pose.offset(grid.centroid()));
     }
 }
 
@@ -240,7 +252,7 @@ fn update_camera(target: &Camera, actual: &mut Camera) {
 }
 
 pub fn remove_part(world: &mut World, part_id: Ent) -> BaryResult<PartInstance> {
-    let instance = remove_part_without_integrity_check(world, part_id, true)?;
+    let instance = ops::remove_part_without_integrity_check(world, part_id, true)?;
     // split_grid_if_necessary(world, grid_id)?;
     Ok(instance)
 }
@@ -259,7 +271,7 @@ pub fn remove_top_part_at(world: &mut World, grid_id: Ent, coord: PartCoord) -> 
 
     // remove_part(world, top_part)?;
 
-    detach_part_from_parent(world, top_part)?;
+    ops::detach_part_from_parent(world, top_part)?;
 
     Ok(top_part)
 }
@@ -418,7 +430,7 @@ pub mod input_handlers {
 
     pub fn update_center_of_mass_on_m(world: &mut World) {
         for grid in world.grids.values_mut() {
-            _ = update_grid_physical_props(grid, &world.parts);
+            _ = update_grid_physical_props(grid, &mut world.parts);
         }
     }
 }
@@ -656,7 +668,7 @@ pub fn update_trackers(
     grids: &Components<VehicleGrid>,
     ticks: u64,
 ) {
-    if ticks % 100 > 0 {
+    if ticks % 20 > 0 {
         return;
     }
 
@@ -667,8 +679,7 @@ pub fn update_trackers(
             to_despawn.insert(*grid_id);
             continue;
         };
-        let pos = grid.pose.translation;
-        tracker.add(pos);
+        tracker.add(grid);
     }
 
     for id in to_despawn {

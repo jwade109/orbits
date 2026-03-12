@@ -85,7 +85,7 @@ pub fn load_world(dir: impl AsRef<Path>) -> BaryResult<World> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{input_state::InputState, world::update_world, world_builder::WorldBuilder};
+    use crate::{world::update_world, world_builder::WorldBuilder};
 
     use super::*;
 

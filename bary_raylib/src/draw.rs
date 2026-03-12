@@ -1,9 +1,6 @@
-use std::collections::BTreeSet;
-
 use crate::camera::{Camera, to_raylib_camera};
 use crate::chat::{Chat, format_log};
 use crate::components::Components;
-use crate::query::primary_computer_id;
 use crate::result::BaryResult;
 use crate::ring_particle::*;
 use crate::systems::*;
@@ -61,18 +58,14 @@ fn draw_origin_and_range_indicators(d: &mut RaylibDrawHandle) {
     }
 }
 
-fn draw_trackers(
-    d: &mut RaylibDrawHandle,
-    trackers: &Components<Tracker>,
-    grids: &Components<VehicleGrid>,
-) {
-    for (grid_id, tracker) in trackers.iter() {
-        let current = grids.try_get(*grid_id).map(|g| g.pose.translation).ok();
-        let mut strip: Vec<_> = tracker.iter().map(|p| glam_to_raylib_swap_y(*p)).collect();
-        if let Some(c) = current {
-            strip.push(glam_to_raylib_swap_y(c));
+fn draw_trackers(d: &mut RaylibDrawHandle, trackers: &Components<Tracker>) {
+    for tracker in trackers.values() {
+        let series = tracker.series();
+        let colors = [Color::RED, Color::GREEN, Color::BLUE];
+        for (s, c) in series.iter().zip(colors) {
+            let strip: Vec<_> = s.iter().map(|p| glam_to_raylib_swap_y(*p)).collect();
+            d.draw_line_strip(&strip, c)
         }
-        d.draw_line_strip(&strip, Color::RED)
     }
 }
 
@@ -85,8 +78,6 @@ pub fn draw_world(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
     draw_origin_and_range_indicators(&mut c);
 
     draw_computer_target_isometry(&mut c, &world.computers, &world.grids);
-
-    draw_trackers(&mut c, &world.tracking, &world.grids);
 
     // draw_grid_blueprints(
     //     &mut c,
@@ -131,6 +122,8 @@ pub fn draw_world(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
 
     // draw_isometry_axes(&mut c, world.camera.isometry, "CAM");
     // draw_isometry_axes(&mut c, world.target_camera.isometry, "");
+
+    draw_trackers(&mut c, &world.tracking);
 
     drop(c);
 
@@ -320,8 +313,8 @@ pub fn draw_grid_outlines(d: &mut RaylibDrawHandle, grids: &Components<VehicleGr
         draw_rectangle(d, bl_iso, dims, Color::WHITE);
 
         let com = grid.pose.offset(grid.center_of_mass);
-        fill_circle(d, com.translation, 0.5, Color::RED);
-        draw_circle(d, com.translation, 1.0, Color::RED);
+        fill_circle(d, com.translation, 0.1, Color::RED);
+        draw_circle(d, com.translation, 0.2, Color::RED);
     }
 }
 
@@ -684,7 +677,7 @@ fn draw_selected_grid_primary_computer_info(
     };
 
     if let Some(font) = &assets.fira_code {
-        draw_window(d, &window, font);
+        // draw_window(d, &window, font);
     }
 }
 
@@ -773,20 +766,6 @@ fn draw_thrusters(
 
         fill_rectangle(d, iso, dims, Color::RED);
         draw_light_source(d, p, dims.x, Color::RED);
-    }
-}
-
-#[allow(unused)]
-fn draw_grids_if_updated_this_frame(
-    d: &mut RaylibDrawHandle,
-    updates: &BTreeSet<Ent>,
-    grids: &Components<VehicleGrid>,
-) {
-    for e in updates {
-        let Ok(grid) = grids.try_get(*e) else {
-            continue;
-        };
-        draw_circle(d, grid.pose.translation, 10.0, Color::PURPLE);
     }
 }
 
