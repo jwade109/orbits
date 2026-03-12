@@ -277,8 +277,8 @@ mod tests {
 
         // slice a thing down the middle of the ship
         let mut parts = BTreeSet::new();
-        let x = 0;
-        for y in -10..=10 {
+        let x = 22;
+        for y in 0..40 {
             if let Some(occ) = grid.occupancy.get(&(x, y)) {
                 for (_, id) in occ.iter() {
                     parts.insert(id);
@@ -346,9 +346,9 @@ mod tests {
         let op_b = remove_part_without_integrity_check(&mut world, part_b, false);
         let op_c = remove_part_without_integrity_check(&mut world, part_c, true);
 
-        let placement_a = GridPlacement::new((-12, -9), Rotation::North, (1, 1));
-        let placement_b = GridPlacement::new((10, -5), Rotation::South, (2, 2));
-        let placement_c = GridPlacement::new((10, 3), Rotation::South, (2, 2));
+        let placement_a = GridPlacement::new((10, 0), Rotation::North, (1, 1));
+        let placement_b = GridPlacement::new((32, 4), Rotation::South, (2, 2));
+        let placement_c = GridPlacement::new((32, 12), Rotation::South, (2, 2));
 
         let part_a = PartInstance::new("rcs", PartLayer::Internal, placement_a);
         let part_b = PartInstance::new("plate", PartLayer::Exterior, placement_b);
@@ -391,8 +391,8 @@ mod tests {
 
         // slice a thing down the middle of the ship
         let mut parts = BTreeSet::new();
-        let x = 2;
-        for y in -10..=10 {
+        let x = 25;
+        for y in 0..40 {
             if let Some(occ) = grid.occupancy.get(&(x, y)) {
                 for (_, id) in occ.iter() {
                     parts.insert(id);

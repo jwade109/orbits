@@ -284,9 +284,8 @@ impl Blueprint {
         if self.parts.is_empty() {
             return;
         }
-        let (lower, upper) = self.bounds();
-        let center = (upper.inner() + lower.inner()) / 2;
-        self.shift(-center);
+        let (lower, _upper) = self.bounds();
+        self.shift(-lower.0);
     }
 
     // for each pipe, returns that pipe's ID, and the ID of the part
