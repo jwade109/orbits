@@ -594,7 +594,7 @@ fn set_target_camera_if_following(
         return;
     };
 
-    target.isometry.translation = grid.particle_location.translation;
+    target.isometry.translation = grid.centroid_isometry().translation;
     // target.isometry.rotation = grid.pose.rotation;
 
     actual.isometry.translation = target.isometry.translation;

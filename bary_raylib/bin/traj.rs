@@ -3,7 +3,7 @@ use std::io::Write;
 
 use bary_core::prelude::*;
 use bary_raylib::{
-    systems::{TICKS_PER_SECOND, apparent_elapsed_time, find},
+    systems::{TICKS_PER_SECOND, find, get_thruster_levels},
     world::update_world,
     world_builder::WorldBuilder,
 };
@@ -16,9 +16,15 @@ struct SimEpoch {
     target_x: f32,
     target_y: f32,
     target_angle: f32,
+    thrusters: Vec<bool>,
 }
 
-fn run_simulation(vehicle_name: &str, waypoint: Isometry2d, steps: usize, secs_per_step: f32) -> Vec<SimEpoch> {
+fn run_simulation(
+    vehicle_name: &str,
+    waypoint: Isometry2d,
+    steps: usize,
+    secs_per_step: f32,
+) -> Vec<SimEpoch> {
     let mut world = WorldBuilder::new()
         .assets()
         .blueprint(vehicle_name)
@@ -38,6 +44,10 @@ fn run_simulation(vehicle_name: &str, waypoint: Isometry2d, steps: usize, secs_p
 
         let pose = find::grid_origin(&world.grids, grid_id).unwrap().to_tuple();
 
+        let thrusters = get_thruster_levels(grid_id, &world.grids, &world.thrusters).unwrap();
+
+        let thrusters = thrusters.into_iter().map(|e| e.1).collect();
+
         let epoch = SimEpoch {
             ticks: world.ticks,
             x: pose.0,
@@ -46,6 +56,7 @@ fn run_simulation(vehicle_name: &str, waypoint: Isometry2d, steps: usize, secs_p
             target_x: waypoint.translation.x,
             target_y: waypoint.translation.y,
             target_angle: waypoint.rotation,
+            thrusters,
         };
 
         ret.push(epoch);
@@ -64,12 +75,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let epochs = run_simulation("bellerophon", waypoint, 1000, 1.0);
     let mut file = File::create("sim.csv").unwrap();
 
-    write!(file, "ticks,x,y,a,tx,ty,ta\n")?;
+    write!(file, "ticks,x,y,a,tx,ty,ta,thrusters\n")?;
 
     for epoch in epochs {
         write!(
             file,
-            "{},{:0.3},{:0.3},{:0.3},{:0.3},{:0.3},{:0.3}\n",
+            "{},{:0.3},{:0.3},{:0.3},{:0.3},{:0.3},{:0.3},\"{:?}\"\n",
             epoch.ticks,
             epoch.x,
             epoch.y,
@@ -77,6 +88,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             epoch.target_x,
             epoch.target_y,
             epoch.target_angle,
+            epoch.thrusters,
         )?;
     }
 

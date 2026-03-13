@@ -398,6 +398,20 @@ pub fn despawn_grid_c(
     Ok(())
 }
 
+pub fn get_thruster_levels(
+    grid_id: Ent,
+    grids: &Components<VehicleGrid>,
+    thrusters: &Components<Thruster>,
+) -> BaryResult<Vec<(Ent, bool)>> {
+    let grid = grids.try_get(grid_id)?;
+    let mut results = Vec::new();
+    for thruster_id in &grid.thrusters {
+        let thruster = thrusters.try_get(*thruster_id)?;
+        results.push((*thruster_id, thruster.is_on));
+    }
+    Ok(results)
+}
+
 pub mod find {
     use log::error;
 
@@ -489,7 +503,7 @@ pub mod find {
         let mut best: Option<(Ent, Vec2, f32)> = None;
         let dist_limit = dist_limit.into().unwrap_or(std::f32::INFINITY);
         for (e, grid) in grids.iter() {
-            let in_frame = express_in_frame(grid.origin(), test_pos);
+            let in_frame = express_in_frame(grid.centroid_isometry(), test_pos);
             let dist = in_frame.length_squared();
             if dist > dist_limit {
                 continue;
@@ -758,7 +772,10 @@ mod tests {
         assert_eq!(id, Ent(34));
 
         let grid = world.grids.try_get_mut(id).unwrap();
-        grid.particle_location.translation = Vec2::new(40.0, 156.0) + grid.center_of_mass;
+        grid.particle_location.translation = Vec2::new(40.0, 156.0);
+
+        println!("{:?}", grid.origin());
+        println!("{:?}", grid.centroid_isometry());
 
         for _ in 0..100 {
             update_world(&mut world);

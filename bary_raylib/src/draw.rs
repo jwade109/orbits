@@ -58,10 +58,14 @@ fn draw_origin_and_range_indicators(d: &mut RaylibDrawHandle) {
     }
 }
 
+const CENTROID_COLOR: Color = Color::GREEN;
+const CENTER_OF_MASS_COLOR: Color = Color::RED;
+const ORIGIN_COLOR: Color = Color::BLUE;
+
 fn draw_trackers(d: &mut RaylibDrawHandle, trackers: &Components<Tracker>) {
     for tracker in trackers.values() {
         let series = tracker.series();
-        let colors = [Color::RED, Color::GREEN, Color::BLUE];
+        let colors = [ORIGIN_COLOR, CENTER_OF_MASS_COLOR, CENTROID_COLOR];
         for (s, c) in series.iter().zip(colors) {
             let strip: Vec<_> = s.iter().map(|p| glam_to_raylib_swap_y(*p)).collect();
             d.draw_line_strip(&strip, c)
@@ -310,15 +314,31 @@ pub fn is_zoomed_out(camera: &Camera2D) -> bool {
 pub fn draw_grid_outlines(d: &mut RaylibDrawHandle, grids: &Components<VehicleGrid>) {
     for grid in grids.values() {
         let origin = grid.origin();
+        let pose = grid.particle_location;
+        let centroid = grid.centroid_isometry();
         let bottom_left = PartCoord::new(grid.bounds.0).to_meters();
         let top_right = PartCoord::new(grid.bounds.1).to_meters();
         let bl_iso = origin.offset(bottom_left);
         let dims = top_right - bottom_left;
         draw_rectangle(d, bl_iso, dims, Color::WHITE);
 
-        let com = origin.offset(grid.center_of_mass);
-        fill_circle(d, com.translation, 0.1, Color::RED);
-        draw_circle(d, com.translation, 0.2, Color::RED);
+        let markers = [
+            (origin, ORIGIN_COLOR),
+            (centroid, CENTROID_COLOR),
+            (pose, CENTER_OF_MASS_COLOR),
+        ];
+
+        for (p, _color) in markers {
+            fill_circle(d, p.translation, 0.11, Color::BLACK);
+        }
+
+        for (p, c) in markers {
+            draw_circle(d, p.translation, 0.1, c);
+        }
+
+        for (p, c) in markers {
+            fill_circle(d, p.translation, 0.05, c);
+        }
     }
 }
 
@@ -612,19 +632,18 @@ fn draw_selection_info(
 ) -> BaryResult<()> {
     if let Some(grid_id) = sel.camera_hovered {
         let grid = grids.try_get(grid_id)?;
-        let loc = grid.particle_location;
+        let loc = grid.centroid_isometry();
         draw_circle(d, loc.translation, 15.0, Color::RED);
     }
     if let Some(grid_id) = sel.mouse_hovered {
         let grid = grids.try_get(grid_id)?;
-        let loc = grid.particle_location;
+        let loc = grid.centroid_isometry();
         draw_circle(d, loc.translation, 16.0, Color::GREEN);
     }
     if let Some(grid_id) = sel.selected_grid {
         let grid = grids.try_get(grid_id)?;
-        let loc = grid.particle_location;
+        let loc = grid.centroid_isometry();
         draw_circle(d, loc.translation, 17.0, Color::BLUE);
-        draw_circle(d, loc.translation, 18.0, Color::BLUE);
     }
     Ok(())
 }
