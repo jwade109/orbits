@@ -1140,7 +1140,7 @@ mod tests {
             placement,
         };
 
-        use find::grid_origin;
+        use find::grid_pose;
 
         let thruster_id = insert_part(grid_id, &mut world, &instance, true).unwrap();
 
@@ -1151,7 +1151,7 @@ mod tests {
 
         assert_eq!(grid.center_of_mass, Vec2::new(0.5, 0.25));
 
-        assert_eq!(grid_origin(&world.grids, grid_id), Some(Isometry2d::ZERO));
+        assert_eq!(grid_pose(&world.grids, grid_id), Some(Isometry2d::ZERO));
 
         let expected_poses = [
             (0.000000000000, 0.000000000000, 0.000000000000),
@@ -1259,7 +1259,7 @@ mod tests {
         for i in 0..100 {
             let expected = expected_poses[world.ticks as usize];
             update_world(&mut world);
-            let pose = find::grid_origin(&world.grids, grid_id).unwrap().to_tuple();
+            let pose = find::grid_pose(&world.grids, grid_id).unwrap().to_tuple();
             assert_eq!(pose, expected, "Epoch {}", i);
             // println!("({:0.12}, {:0.12}, {:0.12}),", pose.0, pose.1, pose.2);
         }
