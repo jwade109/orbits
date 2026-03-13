@@ -212,20 +212,22 @@ fn draw_focused_grid_cursor(
 
     let size = PartCoord::CELL_WIDTH;
 
+    let origin = grid.origin();
+
     for info in [sel.mouseover_part_info] {
         let Some((coord, occ)) = info else {
             continue;
         };
 
         // cursor
-        let iso = grid.pose.offset(coord.to_meters());
+        let iso = origin.offset(coord.to_meters());
         fill_rectangle(d, iso, Vec2::splat(size), Color::GREEN);
 
         for (_layer, id) in occ.iter() {
             if let Ok(part) = parts.try_get(id) {
                 draw_grid_placement(
                     d,
-                    grid.pose,
+                    origin,
                     part.placement,
                     Color::PURPLE.alpha(0.3),
                     Color::WHITE,
@@ -235,11 +237,12 @@ fn draw_focused_grid_cursor(
     }
 
     // axes
-    let x_axis = grid.pose.offset(Vec2::X * 10.0).translation;
-    let y_axis = grid.pose.offset(Vec2::Y * 10.0).translation;
-    draw_line(d, grid.pose.translation, x_axis, Color::RED);
-    draw_line(d, grid.pose.translation, y_axis, Color::GREEN);
-    draw_circle(d, grid.pose.translation, 0.15, Color::BLUE);
+    let origin = grid.origin();
+    let x_axis = origin.offset(Vec2::X * 10.0).translation;
+    let y_axis = origin.offset(Vec2::Y * 10.0).translation;
+    draw_line(d, origin.translation, x_axis, Color::RED);
+    draw_line(d, origin.translation, y_axis, Color::GREEN);
+    draw_circle(d, origin.translation, 0.15, Color::BLUE);
 }
 
 fn draw_selected_grid_info(
@@ -259,7 +262,7 @@ fn draw_selected_grid_info(
 
     let title_label = format!("\"{}\"", grid.name);
     let parts_label = format!("{} parts - {}", grid.parts.len(), grid.parts_mass);
-    let pos_label = format!("{:0.2} m", grid.pose.translation);
+    let pos_label = format!("{:0.2} m", grid.particle_location.translation);
     let vel_label = format!("{:0.2} m/s", grid.velocity.translation);
     let acc_label = format!("{:0.2} m/s^2", grid.linear_acceleration());
 
@@ -306,13 +309,14 @@ pub fn is_zoomed_out(camera: &Camera2D) -> bool {
 
 pub fn draw_grid_outlines(d: &mut RaylibDrawHandle, grids: &Components<VehicleGrid>) {
     for grid in grids.values() {
+        let origin = grid.origin();
         let bottom_left = PartCoord::new(grid.bounds.0).to_meters();
         let top_right = PartCoord::new(grid.bounds.1).to_meters();
-        let bl_iso = grid.pose.offset(bottom_left);
+        let bl_iso = origin.offset(bottom_left);
         let dims = top_right - bottom_left;
         draw_rectangle(d, bl_iso, dims, Color::WHITE);
 
-        let com = grid.pose.offset(grid.center_of_mass);
+        let com = origin.offset(grid.center_of_mass);
         fill_circle(d, com.translation, 0.1, Color::RED);
         draw_circle(d, com.translation, 0.2, Color::RED);
     }
@@ -329,6 +333,7 @@ pub fn draw_parts(
     }
 
     for grid in grids.values() {
+        let origin = grid.origin();
         for draw_layer in PartLayer::draw_order() {
             for part_id in &grid.parts {
                 let Ok(part) = parts.try_get(*part_id) else {
@@ -351,7 +356,7 @@ pub fn draw_parts(
                     PartClassification::Other => Color::GRAY,
                 };
 
-                let iso = part_isometry(grid.pose, part.placement);
+                let iso = part_isometry(origin, part.placement);
                 let dims = part.placement.part_aligned_dims().to_meters();
                 fill_rectangle(d, iso, dims, color);
             }
@@ -384,10 +389,11 @@ pub fn draw_grid_blueprints(
             let Ok(bp) = get_blueprint(grids, parts, prototypes, *grid_id) else {
                 continue;
             };
-            draw_blueprint(&bp, grid.pose, d);
+            let origin = grid.origin();
+            draw_blueprint(&bp, origin, d);
             // draw_isometry_axes(d, grid.pose, &grid.name);
             let s = format!("{} / {}", grid.parts.len(), grid.parts_mass);
-            draw_text(d, grid.pose, &s);
+            draw_text(d, origin, &s);
         }
     }
 }
@@ -462,11 +468,12 @@ fn draw_grid_far_indicators(
     let mut markers = Vec::new();
 
     for (id, grid) in grids.iter() {
-        let p = glam_to_raylib_swap_y(grid.pose.translation);
+        let loc = grid.particle_location;
+        let p = glam_to_raylib_swap_y(loc.translation);
         let q = d.get_world_to_screen2D(p, camera);
 
         let name = format!("{} {}", id, grid.name);
-        markers.push((q, q, grid.pose.rotation, name, !grid.computers.is_empty()));
+        markers.push((q, q, loc.rotation, name, !grid.computers.is_empty()));
     }
 
     // move the markers apart
@@ -605,16 +612,19 @@ fn draw_selection_info(
 ) -> BaryResult<()> {
     if let Some(grid_id) = sel.camera_hovered {
         let grid = grids.try_get(grid_id)?;
-        draw_circle(d, grid.pose.translation, 15.0, Color::RED);
+        let loc = grid.particle_location;
+        draw_circle(d, loc.translation, 15.0, Color::RED);
     }
     if let Some(grid_id) = sel.mouse_hovered {
         let grid = grids.try_get(grid_id)?;
-        draw_circle(d, grid.pose.translation, 16.0, Color::GREEN);
+        let loc = grid.particle_location;
+        draw_circle(d, loc.translation, 16.0, Color::GREEN);
     }
     if let Some(grid_id) = sel.selected_grid {
         let grid = grids.try_get(grid_id)?;
-        draw_circle(d, grid.pose.translation, 17.0, Color::BLUE);
-        draw_circle(d, grid.pose.translation, 18.0, Color::BLUE);
+        let loc = grid.particle_location;
+        draw_circle(d, loc.translation, 17.0, Color::BLUE);
+        draw_circle(d, loc.translation, 18.0, Color::BLUE);
     }
     Ok(())
 }
@@ -757,7 +767,9 @@ fn draw_thrusters(
             continue;
         };
 
-        let mut iso = part_isometry(grid.pose, part.placement);
+        let origin = grid.origin();
+
+        let mut iso = part_isometry(origin, part.placement);
         let mut dims = part.placement.part_aligned_dims().to_meters();
         let p = iso.translation + iso.local_y() * dims.y / 2.0;
         dims.x *= 2.0;
@@ -791,6 +803,8 @@ fn draw_lights(
             continue;
         };
 
+        let origin = grid.origin();
+
         for light_id in &grid.lights {
             let Ok(light) = lights.try_get(*light_id) else {
                 continue;
@@ -805,7 +819,7 @@ fn draw_lights(
                 continue;
             }
 
-            let light_isometry = grid.pose * part.placement.center_isometry();
+            let light_isometry = origin * part.placement.center_isometry();
             fill_rectangle(d, light_isometry, Vec2::splat(0.1), Color::ORANGE);
             draw_light_source(d, light_isometry.translation, 0.1, Color::YELLOW);
         }

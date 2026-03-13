@@ -36,7 +36,7 @@ fn run_simulation(vehicle_name: &str, waypoint: Isometry2d, steps: usize, secs_p
             update_world(&mut world);
         }
 
-        let pose = find::grid_pose(&world.grids, grid_id).unwrap().to_tuple();
+        let pose = find::grid_origin(&world.grids, grid_id).unwrap().to_tuple();
 
         let epoch = SimEpoch {
             ticks: world.ticks,

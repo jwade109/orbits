@@ -95,7 +95,7 @@ pub struct VehicleGrid {
     pub name: String,
     pub parts_mass: Mass,
     pub center_of_mass: Vec2,
-    pub pose: Isometry2d,
+    pub particle_location: Isometry2d,
     pub velocity: Isometry2d,
     pub body_frame_forces: Isometry2d,
     pub parts: BTreeSet<Ent>,
@@ -117,12 +117,16 @@ impl VehicleGrid {
         Self::with_name("")
     }
 
+    pub fn origin(&self) -> Isometry2d {
+        self.particle_location.offset(-self.center_of_mass)
+    }
+
     pub fn with_name(name: impl Into<String>) -> Self {
         VehicleGrid {
             name: name.into(),
             parts_mass: Mass::ZERO,
             center_of_mass: Vec2::ZERO,
-            pose: Isometry2d::ZERO,
+            particle_location: Isometry2d::ZERO,
             velocity: Isometry2d::ZERO,
             body_frame_forces: Isometry2d::ZERO,
             parts: BTreeSet::new(),
@@ -142,6 +146,12 @@ impl VehicleGrid {
         let lower = PartCoord::new(self.bounds.0).to_meters();
         let upper = PartCoord::new(self.bounds.1).to_meters();
         (upper + lower) / 2.0
+    }
+
+    pub fn centroid_isometry(&self) -> Isometry2d {
+        let c = self.centroid();
+        let origin = self.origin();
+        origin.offset(c)
     }
 
     pub fn linear_acceleration(&self) -> Vec2 {

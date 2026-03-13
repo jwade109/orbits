@@ -71,12 +71,9 @@ impl Tracker {
     }
 
     pub fn add(&mut self, grid: &VehicleGrid) {
-        Self::enqueue(&mut self.origin, grid.pose);
-        Self::enqueue(
-            &mut self.center_of_mass,
-            grid.pose.offset(grid.center_of_mass),
-        );
-        Self::enqueue(&mut self.centroid, grid.pose.offset(grid.centroid()));
+        Self::enqueue(&mut self.origin, grid.origin());
+        Self::enqueue(&mut self.center_of_mass, grid.particle_location);
+        Self::enqueue(&mut self.centroid, grid.centroid_isometry());
     }
 }
 
@@ -452,10 +449,10 @@ fn propagate_grid_rigid_bodies(grids: &mut Components<VehicleGrid>) {
     for grid in grids.values_mut() {
         let body_frame_accel = grid.linear_acceleration();
         let omega = grid.angular_acceleration();
-        let accel = rotate(body_frame_accel, grid.pose.rotation);
-        grid.pose.translation += grid.velocity.translation * dt;
+        let accel = rotate(body_frame_accel, grid.particle_location.rotation);
+        grid.particle_location.translation += grid.velocity.translation * dt;
         grid.velocity.translation += accel * dt;
-        grid.pose.rotation += grid.velocity.rotation * dt;
+        grid.particle_location.rotation += grid.velocity.rotation * dt;
         grid.velocity.rotation += omega * dt;
     }
 }
@@ -566,8 +563,8 @@ fn update_mouseover_part_info(
     };
 
     let world_pos = screen_to_world(camera, screen_pos, screen_dims);
-
-    let coord = PartCoord::from_meters_floored(in_frame(grid.pose, world_pos));
+    let origin = grid.origin();
+    let coord = PartCoord::from_meters_floored(in_frame(origin, world_pos));
 
     let occ = grid.get_parts_at(coord).unwrap_or(&PartOccupancy::EMPTY);
 
@@ -597,7 +594,7 @@ fn set_target_camera_if_following(
         return;
     };
 
-    target.isometry.translation = grid.pose.translation;
+    target.isometry.translation = grid.particle_location.translation;
     // target.isometry.rotation = grid.pose.rotation;
 
     actual.isometry.translation = target.isometry.translation;
@@ -643,11 +640,13 @@ pub fn update_computers(computers: &mut Components<Computer>, grids: &Components
                 computer.pose.rotation = rand(0.1, 0.7);
             }
 
-            let actual = PV::from_f64(grid.pose.translation, grid.velocity.translation);
+            let pose = grid.particle_location;
+
+            let actual = PV::from_f64(pose.translation, grid.velocity.translation);
             let target = PV::from_f64(computer.pose.translation, computer.velocity.translation);
             let body = RigidBody {
                 pv: actual,
-                angle: grid.pose.rotation as f64,
+                angle: pose.rotation as f64,
                 angular_velocity: grid.velocity.rotation as f64,
             };
             let (ctrl, status) = position_hold_control_law(

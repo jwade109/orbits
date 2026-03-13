@@ -64,7 +64,7 @@ pub fn duplicate_part_to_new_grid(world: &mut World, part_id: Ent) -> BaryResult
     let part = world.parts.try_get(part_id)?;
     let grid = world.grids.try_get(part.grid_id)?;
     let new_name = format!("{}-debris", grid.name);
-    let new_part_pose = grid.pose * part.placement.origin_isometry();
+    let new_part_pose = grid.origin() * part.placement.origin_isometry();
     let new_grid_vel = grid.velocity + Isometry2d::new(randvec(1.0, 3.0), rand(-0.1, 0.1));
     let proto = world.prototypes.try_get(part.prototype)?;
     let instance = PartInstance {
@@ -133,7 +133,7 @@ pub fn rebuild_index_from_island(
     parts: &Components<Part>,
 ) -> BaryResult<VehicleGrid> {
     let mut dst = VehicleGrid::with_name("from_island");
-    dst.pose = src.pose;
+    dst.particle_location = src.particle_location;
     dst.velocity = src.velocity;
     for part_id in island.iter().map(|i| *i) {
         let part = parts.try_get(part_id)?;

@@ -208,7 +208,7 @@ pub mod world {
     pub fn set_grid_pose(world: &mut World, grid_id: Ent, iso: Isometry2d) -> BaryResult<()> {
         info!("Setting isometry of grid {} to {:?}", grid_id, iso);
         let grid = world.grids.try_get_mut(grid_id)?;
-        grid.pose = iso;
+        grid.particle_location = iso;
         Ok(())
     }
 
@@ -460,9 +460,14 @@ pub mod find {
             .map(|e| *e.0)
     }
 
+    pub fn grid_origin(grids: &Components<VehicleGrid>, grid_id: Ent) -> Option<Isometry2d> {
+        let grid = grids.try_get(grid_id).ok()?;
+        Some(grid.origin())
+    }
+
     pub fn grid_pose(grids: &Components<VehicleGrid>, grid_id: Ent) -> Option<Isometry2d> {
         let grid = grids.try_get(grid_id).ok()?;
-        Some(grid.pose)
+        Some(grid.particle_location)
     }
 
     /// Returns the ID of the first grid in the components list with
@@ -484,7 +489,7 @@ pub mod find {
         let mut best: Option<(Ent, Vec2, f32)> = None;
         let dist_limit = dist_limit.into().unwrap_or(std::f32::INFINITY);
         for (e, grid) in grids.iter() {
-            let in_frame = express_in_frame(grid.pose, test_pos);
+            let in_frame = express_in_frame(grid.origin(), test_pos);
             let dist = in_frame.length_squared();
             if dist > dist_limit {
                 continue;
@@ -753,7 +758,7 @@ mod tests {
         assert_eq!(id, Ent(34));
 
         let grid = world.grids.try_get_mut(id).unwrap();
-        grid.pose.translation = (40.0, 156.0).into();
+        grid.particle_location.translation = Vec2::new(40.0, 156.0) + grid.center_of_mass;
 
         for _ in 0..100 {
             update_world(&mut world);
@@ -1078,7 +1083,7 @@ mod tests {
             update_world(&mut world);
         }
 
-        let iso = world.grids.try_get(grid_id).unwrap().pose;
+        let iso = world.grids.try_get(grid_id).unwrap().particle_location;
 
         // this is an approximation of the following
         // continuous time kinematic equation:
@@ -1135,7 +1140,7 @@ mod tests {
             placement,
         };
 
-        use find::grid_pose;
+        use find::grid_origin;
 
         let thruster_id = insert_part(grid_id, &mut world, &instance, true).unwrap();
 
@@ -1146,7 +1151,7 @@ mod tests {
 
         assert_eq!(grid.center_of_mass, Vec2::new(0.5, 0.25));
 
-        assert_eq!(grid_pose(&world.grids, grid_id), Some(Isometry2d::ZERO));
+        assert_eq!(grid_origin(&world.grids, grid_id), Some(Isometry2d::ZERO));
 
         let expected_poses = [
             (0.000000000000, 0.000000000000, 0.000000000000),
@@ -1254,7 +1259,7 @@ mod tests {
         for i in 0..100 {
             let expected = expected_poses[world.ticks as usize];
             update_world(&mut world);
-            let pose = find::grid_pose(&world.grids, grid_id).unwrap().to_tuple();
+            let pose = find::grid_origin(&world.grids, grid_id).unwrap().to_tuple();
             assert_eq!(pose, expected, "Epoch {}", i);
             // println!("({:0.12}, {:0.12}, {:0.12}),", pose.0, pose.1, pose.2);
         }

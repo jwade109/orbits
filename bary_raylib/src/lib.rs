@@ -27,7 +27,7 @@ pub mod query {
     pub use crate::systems::find::blueprint_by_name;
     pub use crate::systems::find::closest_grid;
     pub use crate::systems::find::grid_by_name;
-    pub use crate::systems::find::grid_pose;
+    pub use crate::systems::find::grid_origin;
     pub use crate::systems::find::primary_computer_id;
     pub use crate::systems::find::proto_by_name;
     pub use crate::systems::find::sum_part_masses;
