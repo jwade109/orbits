@@ -1,7 +1,7 @@
 pub mod app;
 pub mod camera;
 pub mod chat;
-pub mod command_prompt;
+pub mod cmd;
 pub mod components;
 pub mod draw;
 pub mod input_state;

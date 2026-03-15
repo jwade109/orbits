@@ -1,16 +1,14 @@
-use std::collections::{BTreeMap, VecDeque};
-
+use super::commands::*;
 use crate::{multiplayer::Action, world::Assets};
 use bary_core::prelude::*;
 use raylib::prelude::*;
+use std::collections::VecDeque;
 
 pub struct Command {
     entrypoint: String,
     params: Vec<String>,
     func: Box<dyn Fn(&ArgsMap) -> Result<Action, ParseError>>,
 }
-
-type ArgsMap = BTreeMap<String, String>;
 
 impl Command {
     fn new(
@@ -61,75 +59,6 @@ impl Command {
     }
 }
 
-#[derive(Debug)]
-enum ParseError {
-    BadKey,
-    BadValue,
-    WrongArgumentCount,
-    CommandNotFound,
-}
-
-fn parse_arg<T>(args: &ArgsMap, key: &'static str) -> Result<T, ParseError>
-where
-    T: std::str::FromStr,
-{
-    let arg = args.get(key).ok_or(ParseError::BadKey)?;
-    arg.parse().map_err(|_| ParseError::BadValue)
-}
-
-fn parse_ping(args: &ArgsMap) -> Result<Action, ParseError> {
-    let x = parse_arg(args, "x")?;
-    let y = parse_arg(args, "y")?;
-    Ok(Action::Ping(Vec2::new(x, y)))
-}
-
-fn parse_spawn(args: &ArgsMap) -> Result<Action, ParseError> {
-    let bp = parse_arg(args, "bp_name")?;
-    let x = parse_arg(args, "x")?;
-    let y = parse_arg(args, "y")?;
-    Ok(Action::SpawnShipAt(
-        bp,
-        Isometry2d::from_pos(Vec2::new(x, y)),
-    ))
-}
-
-fn parse_waypoint(args: &ArgsMap) -> Result<Action, ParseError> {
-    let grid_id = parse_arg(args, "grid_id")?;
-    let x = parse_arg(args, "x")?;
-    let y = parse_arg(args, "y")?;
-    let pos = Vec2::new(x, y);
-    Ok(Action::SetWaypoint {
-        grid_id: Ent(grid_id),
-        waypoint: Isometry2d::from_pos(pos),
-    })
-}
-
-fn parse_goto(args: &ArgsMap) -> Result<Action, ParseError> {
-    let grid_name = parse_arg(args, "grid_name")?;
-    Ok(Action::LookAt(grid_name))
-}
-
-fn parse_edit(args: &ArgsMap) -> Result<Action, ParseError> {
-    let grid_id = Ent(parse_arg(args, "grid_id")?);
-    dbg!(grid_id);
-    Err(ParseError::CommandNotFound)
-}
-
-fn parse_find(args: &ArgsMap) -> Result<Action, ParseError> {
-    let grid_id = Ent(parse_arg(args, "grid_id")?);
-    dbg!(grid_id);
-    Err(ParseError::CommandNotFound)
-}
-
-fn parse_despawn(args: &ArgsMap) -> Result<Action, ParseError> {
-    let grid_id = Ent(parse_arg(args, "grid_id")?);
-    Ok(Action::DespawnGrid(grid_id))
-}
-
-fn parse_placeholder(_args: &ArgsMap) -> Result<Action, ParseError> {
-    Err(ParseError::CommandNotFound)
-}
-
 enum Severity {
     Info,
     Error,
@@ -162,14 +91,14 @@ impl CommandPrompt {
             lines: Vec::new(),
             suggest_text: String::new(),
             commands: vec![
-                Command::new("goto", vec!["grid_name"], parse_goto),
-                Command::new("spawn", vec!["bp_name", "x", "y"], parse_spawn),
-                Command::new("edit", vec!["grid_id"], parse_edit),
-                Command::new("despawn", vec!["grid_id"], parse_despawn),
-                Command::new("find", vec!["grid_name"], parse_find),
-                Command::new("ping", vec!["x", "y"], parse_ping),
-                Command::new("waypoint", vec!["grid_id", "x", "y"], parse_waypoint),
-                Command::new("save", vec![], parse_placeholder),
+                Command::new("goto", vec!["grid_name"], cmd_goto),
+                Command::new("spawn", vec!["bp_name", "x", "y"], cmd_spawn),
+                Command::new("edit", vec!["grid_id"], cmd_edit),
+                Command::new("despawn", vec!["grid_id"], cmd_despawn),
+                Command::new("find", vec!["grid_name"], cmd_find),
+                Command::new("ping", vec!["x", "y"], cmd_ping),
+                Command::new("waypoint", vec!["grid_id", "x", "y"], cmd_waypoint),
+                Command::new("save", vec![], cmd_placeholder),
                 Command::new("exit", vec![], |_args| panic!()),
             ],
         }

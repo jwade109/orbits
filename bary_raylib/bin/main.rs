@@ -1,7 +1,6 @@
 use bary_core::prelude::*;
 use bary_raylib::app::new_app;
-use bary_raylib::command_prompt::cmd_handle_input_event;
-use bary_raylib::command_prompt::draw_command_prompt;
+use bary_raylib::cmd::prompt::*;
 use bary_raylib::draw;
 use bary_raylib::multiplayer::*;
 use bary_raylib::sounds::SoundEffects;

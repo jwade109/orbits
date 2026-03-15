@@ -4,7 +4,7 @@ use crate::ui::UiState;
 use crate::world_builder::WorldBuilder;
 use std::thread::JoinHandle;
 use std::time::Duration;
-use crate::command_prompt::CommandPrompt;
+use crate::cmd::prompt::CommandPrompt;
 
 fn network_thread(incoming: MessageQueue<ServerMessage>, outgoing: MessageQueue<Transaction>) {
     let mut client = Client::new();
