@@ -24,7 +24,6 @@ pub fn remove_part_without_integrity_check(
     part_id: Ent,
     update_props: bool,
 ) -> BaryResult<PartInstance> {
-    world.chat.log(format!("Removing part {}", part_id));
     let part = world.parts.try_get(part_id)?;
     let grid_id = part.grid_id;
     let proto = world.prototypes.try_get(part.prototype)?;
@@ -50,7 +49,6 @@ pub fn remove_part_without_integrity_check(
 
     if grid.parts.is_empty() {
         world.grids.despawn(grid_id)?;
-        world.chat.log(format!("Deleted empty grid \"{}\"", name));
     }
 
     if update_props {

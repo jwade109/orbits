@@ -14,7 +14,12 @@ use std::thread;
 use std::time::Duration;
 use steamworks::{LobbyChatMsg, LobbyEnter, PersonaStateChange};
 
-fn draw_debug_info(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
+fn draw_debug_info(
+    world: &World,
+    client: &ClientSpecificInfo,
+    assets: &Assets,
+    d: &mut RaylibDrawHandle,
+) {
     let size = size_in_bytes(world);
     let mut s = String::new();
 
@@ -46,7 +51,7 @@ fn draw_debug_info(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
     s += &format!("\nMemory: {:0.3} kb", size as f64 / 1000.0);
     s += &format!("\nZoom: {:0.3}", world.camera.zoom);
 
-    s += &format!("\nMOUSE {:?}", world.mouse_screen_position);
+    s += &format!("\nMOUSE {:?}", client.mouse_screen_position);
     s += &format!("\nPRT {:?}", &world.particles.len());
     s += &format!("\nBP {:?}", &world.blueprints);
     s += &format!("\nPROTO {:?}", &world.prototypes);
@@ -151,8 +156,12 @@ fn main() {
             };
 
             if should_send_to_world {
-                let (event_sounds, event_actions) =
-                    process_event(&mut app.runner.world, &mut app.input, &e);
+                let (event_sounds, event_actions) = process_event(
+                    &mut app.runner.world,
+                    &mut app.runner.client_info,
+                    &mut app.input,
+                    &e,
+                );
                 sounds.extend(event_sounds);
                 actions.extend(event_actions);
             }
@@ -178,8 +187,8 @@ fn main() {
             .is_cursor_on_screen()
             .then(|| raylib_to_glam(rl.get_mouse_position()));
 
-        app.runner.world.screen_dims = screen_dims;
-        app.runner.world.mouse_screen_position = mouse;
+        app.runner.client_info.screen_dims = screen_dims;
+        app.runner.client_info.mouse_screen_position = mouse;
 
         let (update_actions, update_sounds) = app.runner.update(&mut app.input);
 
@@ -212,22 +221,27 @@ fn main() {
         let time = rl.get_time();
         shader.set_shader_value(1, time as f32);
 
-        ui::update_ui_state(&mut app.ui_state, app.runner.world.mouse_screen_position);
+        ui::update_ui_state(
+            &mut app.ui_state,
+            app.runner.client_info.mouse_screen_position,
+        );
 
         rl.draw(&thread, |mut d: RaylibDrawHandle<'_>| {
             let start = std::time::Instant::now();
             d.clear_background(Color::BLACK);
 
-            draw::draw_world(&app.runner.world, &assets, &mut d);
+            draw::draw_world(&app.runner.world, &app.runner.client_info, &assets, &mut d);
 
             ui::draw_ui(&mut d, &app.runner.world, &app.ui_state, &assets);
 
-            draw::draw_mouse_screen_position(&mut d, app.runner.world.mouse_screen_position);
+            draw::draw_mouse_screen_position(&mut d, app.runner.client_info.mouse_screen_position);
 
             let end = std::time::Instant::now();
+
             app.runner.world.timers.render = end - start;
             app.runner.world.timers.total = end - loop_start;
-            draw_debug_info(&app.runner.world, &assets, &mut d);
+
+            draw_debug_info(&app.runner.world, &app.runner.client_info, &assets, &mut d);
             draw_command_prompt(&mut d, &app.cmd, &assets);
         });
     }

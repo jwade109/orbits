@@ -7,7 +7,7 @@ use crate::systems::*;
 use crate::ui::{Window, draw_window};
 use crate::utils::*;
 use crate::vehicle::*;
-use crate::world::{Assets, SelectionInfo};
+use crate::world::{Assets, ClientSpecificInfo, SelectionInfo};
 use crate::world::{Tracker, World};
 use bary_core::prelude::PI;
 use bary_core::prelude::*;
@@ -73,8 +73,13 @@ fn draw_trackers(d: &mut RaylibDrawHandle, trackers: &Components<Tracker>) {
     }
 }
 
-pub fn draw_world(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
-    let raylib_camera = to_raylib_camera(&world.camera, world.screen_dims);
+pub fn draw_world(
+    world: &World,
+    client: &ClientSpecificInfo,
+    assets: &Assets,
+    d: &mut RaylibDrawHandle,
+) {
+    let raylib_camera = to_raylib_camera(&world.camera, client.screen_dims);
 
     // this apparently is incredibly slow; curious
     let mut c = d.begin_mode2D(raylib_camera);
@@ -117,9 +122,9 @@ pub fn draw_world(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
 
     draw_mouse_world_position(
         &mut c,
-        world.mouse_screen_position,
+        client.mouse_screen_position,
         &world.camera,
-        world.screen_dims,
+        client.screen_dims,
     );
 
     draw_particles(&mut c, &world.particles);
@@ -135,9 +140,9 @@ pub fn draw_world(world: &World, assets: &Assets, d: &mut RaylibDrawHandle) {
 
     draw_waypoint_far_indicators(&world.computers, d, &raylib_camera);
 
-    draw_selected_grid_info(d, &world.selection_info, &world.grids, world.screen_dims);
+    draw_selected_grid_info(d, &world.selection_info, &world.grids, client.screen_dims);
 
-    draw_chat(d, &world.chat, world.screen_dims, assets);
+    draw_chat(d, &client.chat, client.screen_dims, assets);
 
     draw_selected_grid_primary_computer_info(d, world, assets);
 

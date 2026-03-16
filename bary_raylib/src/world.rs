@@ -77,20 +77,28 @@ impl Tracker {
     }
 }
 
+pub struct ClientSpecificInfo {
+    pub chat: Chat,
+    pub mouse_screen_position: Option<Vec2>,
+    pub screen_dims: Vec2,
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct World {
     pub ticks: u64,
     pub timers: Timers,
-    #[serde(skip)]
-    pub chat: Chat,
-    pub mouse_screen_position: Option<Vec2>,
     pub selection_info: SelectionInfo,
-    pub spawner: EntitySpawner,
+
+    // viewport
     pub follow_vehicle: Option<Ent>,
     pub snap_camera_to_local_planet: bool,
-    pub screen_dims: Vec2,
+
+    // camera info
     pub camera: Camera,
     pub target_camera: Camera,
+
+    // components - to be synchronized between clients
+    pub spawner: EntitySpawner,
     pub particles: Vec<PingParticle>,
     pub blueprints: Components<NamedBlueprint>,
     pub prototypes: Components<PartPrototype>,
@@ -114,18 +122,25 @@ impl std::fmt::Debug for World {
     }
 }
 
+impl ClientSpecificInfo {
+    pub fn new() -> Self {
+        Self {
+            chat: Chat::default(),
+            mouse_screen_position: None,
+            screen_dims: Vec2::new(1500.0, 900.0),
+        }
+    }
+}
+
 impl World {
     pub fn empty() -> Self {
         Self {
             ticks: 0,
             timers: Timers::default(),
-            chat: Chat::default(),
-            mouse_screen_position: None,
             selection_info: SelectionInfo::default(),
             spawner: EntitySpawner::default(),
             snap_camera_to_local_planet: false,
             follow_vehicle: None,
-            screen_dims: Vec2::new(1500.0, 900.0),
             camera: Camera {
                 zoom: 0.1,
                 ..Camera::default()
@@ -277,27 +292,31 @@ pub mod input_handlers {
 
     use super::*;
 
-    pub fn command_selected_ship_to_waypoint(world: &mut World, sounds: &mut SoundEffects) {
+    pub fn command_selected_ship_to_waypoint(
+        world: &mut World,
+        client: &mut ClientSpecificInfo,
+        sounds: &mut SoundEffects,
+    ) {
         let Some(grid_id) = world.selection_info.selected_grid else {
             return;
         };
 
-        let Some(screen_pos) = world.mouse_screen_position else {
+        let Some(screen_pos) = client.mouse_screen_position else {
             return;
         };
 
-        let world_pos = screen_to_world(&world.camera, screen_pos, world.screen_dims);
+        let world_pos = screen_to_world(&world.camera, screen_pos, client.screen_dims);
 
         let waypoint = Isometry2d::new(world_pos, 0.0);
 
         if let Err(e) = world::set_primary_computer_waypoint(grid_id, waypoint, world) {
-            world.chat.log(format!("Failed to set waypoint: {e:?}"));
+            client.chat.log(format!("Failed to set waypoint: {e:?}"));
             sounds.push(SoundEffect::GenericFailure);
             return;
         }
 
         if let Err(e) = world::set_primary_computer_state(grid_id, true, world) {
-            world
+            client
                 .chat
                 .log(format!("Failed to turn primary computer on: {e:?}"));
             sounds.push(SoundEffect::GenericFailure);
@@ -343,7 +362,7 @@ pub mod input_handlers {
         }
     }
 
-    pub fn save_on_ctrl_s(world: &mut World, input: &InputState) {
+    pub fn save_on_ctrl_s(world: &mut World, client: &mut ClientSpecificInfo, input: &InputState) {
         let pressed_ctrl = input.is_key_pressed(Key::ControlLeft);
 
         if !pressed_ctrl {
@@ -355,11 +374,11 @@ pub mod input_handlers {
         match save_world(&filename, world, true) {
             Ok(_) => {
                 let s = format!("Saved to {}", filename);
-                world.chat.log(s);
+                client.chat.log(s);
             }
             Err(e) => {
                 let s = format!("Failed to save: {:?}", e);
-                world.chat.log(s);
+                client.chat.log(s);
             }
         }
     }
@@ -375,11 +394,12 @@ pub mod input_handlers {
 
     pub fn ping_on_alt_left_click(
         world: &mut World,
+        client: &mut ClientSpecificInfo,
         input: &InputState,
         actions: &mut Vec<Action>,
         sounds: &mut SoundEffects,
     ) {
-        let Some(screen_pos) = world.mouse_screen_position else {
+        let Some(screen_pos) = client.mouse_screen_position else {
             return;
         };
 
@@ -387,23 +407,25 @@ pub mod input_handlers {
             return;
         }
 
-        let pos = screen_to_world(&world.camera, screen_pos, world.screen_dims);
+        let pos = screen_to_world(&world.camera, screen_pos, client.screen_dims);
 
         let particle = PingParticle::new(pos);
         world.particles.push(particle);
         actions.push(Action::Ping(pos));
-        world.chat.log(format!("Pinged {}", pos));
+        client.chat.log(format!("Pinged {}", pos));
         sounds.push(SoundEffect::Ping);
     }
 
-    pub fn toggle_tracking_for_selected_grid(world: &mut World) {
+    pub fn toggle_tracking_for_selected_grid(world: &mut World, client: &mut ClientSpecificInfo) {
         let Some(grid_id) = world.selection_info.selected_grid else {
             return;
         };
         match world::toggle_tracking(world, grid_id) {
-            Ok(true) => world.chat.log(format!("Enabled tracking for {}", grid_id)),
-            Ok(false) => world.chat.log(format!("Disabled tracking for {}", grid_id)),
-            Err(e) => world
+            Ok(true) => client.chat.log(format!("Enabled tracking for {}", grid_id)),
+            Ok(false) => client
+                .chat
+                .log(format!("Disabled tracking for {}", grid_id)),
+            Err(e) => client
                 .chat
                 .log(format!("Failed to toggle tracking: {:?}", e)),
         }
@@ -714,8 +736,6 @@ pub fn update_world(world: &mut World) {
 
     update_camera(&world.target_camera, &mut world.camera);
 
-    world.chat.drop_old_messages();
-
     let end = std::time::Instant::now();
 
     world.timers.physics = end - start;
@@ -723,6 +743,7 @@ pub fn update_world(world: &mut World) {
 
 pub fn process_event(
     world: &mut World,
+    client: &mut ClientSpecificInfo,
     input: &mut InputState,
     event: &rdev::Event,
 ) -> (SoundEffects, Vec<Action>) {
@@ -737,9 +758,9 @@ pub fn process_event(
 
     match event.event_type {
         rdev::EventType::KeyPress(key) => match key {
-            Key::KeyS => input_handlers::save_on_ctrl_s(world, input),
+            Key::KeyS => input_handlers::save_on_ctrl_s(world, client, input),
             Key::KeyF => input_handlers::toggle_following_on_key_f(world, &mut sounds),
-            Key::KeyT => input_handlers::toggle_tracking_for_selected_grid(world),
+            Key::KeyT => input_handlers::toggle_tracking_for_selected_grid(world, client),
             Key::KeyR => input_handlers::reset_camera_on_ctrl_r(world, input),
             Key::KeyD => input_handlers::panic_on_ctrl_d(input),
             Key::KeyP => input_handlers::spawn_random_ship_on_p(world),
@@ -749,13 +770,21 @@ pub fn process_event(
         rdev::EventType::KeyRelease(_key) => (),
         rdev::EventType::ButtonPress(button) => match button {
             Button::Left => {
-                input_handlers::ping_on_alt_left_click(world, input, &mut actions, &mut sounds);
+                input_handlers::ping_on_alt_left_click(
+                    world,
+                    client,
+                    input,
+                    &mut actions,
+                    &mut sounds,
+                );
                 select_hovered_vehicle_on_click(&mut world.selection_info, &mut sounds);
             }
             Button::Right => {
                 input_handlers::destroy_top_layer_part_at_mouseover(world, &mut sounds)
             }
-            Button::Middle => input_handlers::command_selected_ship_to_waypoint(world, &mut sounds),
+            Button::Middle => {
+                input_handlers::command_selected_ship_to_waypoint(world, client, &mut sounds)
+            }
             Button::Unknown(_) => (),
         },
         rdev::EventType::ButtonRelease(_button) => (),
@@ -774,6 +803,7 @@ pub fn process_event(
 #[deprecated]
 pub fn update_world_with_input_stuff(
     world: &mut World,
+    client: &mut ClientSpecificInfo,
     input: &InputState,
 ) -> (Vec<Action>, SoundEffects) {
     let input_start = std::time::Instant::now();
@@ -784,15 +814,15 @@ pub fn update_world_with_input_stuff(
         &mut world.selection_info,
         &world.grids,
         &world.camera,
-        world.mouse_screen_position,
-        world.screen_dims,
+        client.mouse_screen_position,
+        client.screen_dims,
     );
 
     update_mouseover_part_info(
         &mut world.selection_info,
         &world.grids,
-        world.mouse_screen_position,
-        world.screen_dims,
+        client.mouse_screen_position,
+        client.screen_dims,
         &world.camera,
         &mut sounds,
     );

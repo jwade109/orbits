@@ -69,6 +69,11 @@ pub fn cmd_despawn(args: &ArgsMap) -> Result<Action, ParseError> {
     Ok(Action::DespawnGrid(grid_id))
 }
 
+pub fn cmd_set_speed(args: &ArgsMap) -> Result<Action, ParseError> {
+    let speed = parse_arg(args, "speed")?;
+    Ok(Action::SetSpeed(speed))
+}
+
 pub fn cmd_placeholder(_args: &ArgsMap) -> Result<Action, ParseError> {
     Err(ParseError::CommandNotFound)
 }

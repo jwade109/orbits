@@ -16,6 +16,7 @@ pub enum Action {
     LookAt(String),
     DespawnGrid(Ent),
     ClearWorld,
+    SetSpeed(u32),
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -81,6 +82,9 @@ pub fn apply_transaction(world: &mut World, transaction: Transaction) {
         }
         Action::DespawnGrid(grid_id) => {
             _ = ops::despawn_grid(world, grid_id);
+        }
+        Action::SetSpeed(speed) => {
+            println!("TODO {}", speed);
         }
     }
 }

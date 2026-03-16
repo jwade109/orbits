@@ -75,6 +75,7 @@ impl Username {
 }
 
 pub struct WorldRunner {
+    pub client_info: ClientSpecificInfo,
     pub world: World,
     last_update: Instant,
     nominal_world_duration: Duration,
@@ -82,11 +83,12 @@ pub struct WorldRunner {
 
 impl WorldRunner {
     pub const TICK_DURATION: Duration = Duration::from_millis(20);
-    pub const SPEED: u32 = 3;
+    pub const SPEED: u32 = 20;
 
     pub fn new(world: World) -> Self {
         let now = Instant::now();
         Self {
+            client_info: ClientSpecificInfo::new(),
             world,
             last_update: now,
             nominal_world_duration: Duration::ZERO,
@@ -98,7 +100,8 @@ impl WorldRunner {
         let delta = now - self.last_update;
         self.nominal_world_duration += delta * Self::SPEED;
         self.last_update = now;
-        let (actions, sounds) = update_world_with_input_stuff(&mut self.world, input);
+        let (actions, sounds) =
+            update_world_with_input_stuff(&mut self.world, &mut self.client_info, input);
         while apparent_elapsed_time(&mut self.world) < self.nominal_world_duration {
             update_world(&mut self.world);
         }
