@@ -1,11 +1,9 @@
-use std::collections::BTreeSet;
-
 use crate::components::*;
 use crate::result::*;
-use crate::sim::vehicle::*;
-use crate::sim::world::*;
+use crate::sim::*;
 use bary_core::prelude::*;
 use log::{debug, info};
+use std::collections::BTreeSet;
 use std::time::Duration;
 
 pub const TICKS_PER_SECOND: u64 = 50;

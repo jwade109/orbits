@@ -1,5 +1,5 @@
 use crate::camera::Camera;
-use crate::chat::Chat;
+use crate::client::*;
 use crate::components::*;
 use crate::input_state::*;
 use crate::multiplayer::Action;
@@ -15,15 +15,10 @@ use crate::utils::*;
 use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use log::*;
-use raylib::prelude::*;
 use rdev::Button;
 use serde::{Deserialize, Serialize};
 use std::collections::*;
 use std::time::Duration;
-
-pub type MaybeTexture = Option<Texture2D>;
-
-pub type MaybeFont = Option<Font>;
 
 #[derive(Default, Deserialize, Serialize, Clone)]
 pub struct Timers {
@@ -31,57 +26,6 @@ pub struct Timers {
     pub input: Duration,
     pub render: Duration,
     pub total: Duration,
-}
-
-#[derive(Default, Debug, Deserialize, Serialize, Clone)]
-pub struct SelectionInfo {
-    pub camera_hovered: Option<Ent>,
-    pub mouse_hovered: Option<Ent>,
-    pub selected_grid: Option<Ent>,
-    pub mouseover_part_info: Option<(PartCoord, PartOccupancy)>,
-}
-
-#[derive(Default)]
-pub struct Assets {
-    pub circle_texture: MaybeTexture,
-    pub lato_regular: MaybeFont,
-    pub fira_code: MaybeFont,
-    pub part_textures: BTreeMap<String, Texture2D>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
-pub struct Tracker {
-    origin: VecDeque<Vec2>,
-    center_of_mass: VecDeque<Vec2>,
-    centroid: VecDeque<Vec2>,
-}
-
-impl Tracker {
-    pub const MAX_LEN: usize = 500;
-
-    pub fn series(&self) -> [&VecDeque<Vec2>; 3] {
-        [&self.origin, &self.center_of_mass, &self.centroid]
-    }
-
-    fn enqueue(hist: &mut VecDeque<Vec2>, pose: Isometry2d) {
-        hist.push_back(pose.translation);
-        if hist.len() > Self::MAX_LEN {
-            hist.pop_front();
-        }
-    }
-
-    pub fn add(&mut self, grid: &VehicleGrid) {
-        Self::enqueue(&mut self.origin, grid.origin());
-        Self::enqueue(&mut self.center_of_mass, grid.particle_location);
-        Self::enqueue(&mut self.centroid, grid.centroid_isometry());
-    }
-}
-
-pub struct ClientSpecificInfo {
-    pub chat: Chat,
-    pub mouse_screen_position: Option<Vec2>,
-    pub screen_dims: Vec2,
-    pub selection_info: SelectionInfo,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -122,17 +66,6 @@ impl std::fmt::Debug for World {
     }
 }
 
-impl ClientSpecificInfo {
-    pub fn new() -> Self {
-        Self {
-            chat: Chat::default(),
-            mouse_screen_position: None,
-            screen_dims: Vec2::new(1500.0, 900.0),
-            selection_info: SelectionInfo::default(),
-        }
-    }
-}
-
 impl World {
     pub fn empty() -> Self {
         Self {
@@ -165,26 +98,6 @@ impl World {
 pub fn size_in_bytes(world: &World) -> usize {
     let bytes = bincode::serialize(world).unwrap();
     bytes.len()
-}
-
-pub fn load_assets(
-    assets: &mut Assets,
-    rl: &mut raylib::RaylibHandle,
-    thread: &raylib::RaylibThread,
-) {
-    debug!("Loading assets");
-    assets.circle_texture = rl.load_texture(thread, "assets/circle.png").ok();
-    assets.lato_regular = rl
-        .load_font_ex(thread, "assets/fonts/Lato-Regular.ttf", 48, None)
-        .ok();
-    assets.fira_code = rl
-        .load_font_ex(thread, "assets/fonts/FiraCode-Bold.ttf", 128, None)
-        .ok();
-
-    // for (proto, tex) in assets.part_textures.values_mut() {
-    //     let filename = format!("assets/parts/{}/skin.png", proto.part_name());
-    //     *tex = rl.load_texture(thread, &filename).ok();
-    // }
 }
 
 fn update_camera_target(

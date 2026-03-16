@@ -1,5 +1,7 @@
 use bary_core::prelude::*;
 use bary_raylib::app::new_app;
+use bary_raylib::assets::*;
+use bary_raylib::client::*;
 use bary_raylib::cmd::prompt::*;
 use bary_raylib::multiplayer::*;
 use bary_raylib::render::draw;

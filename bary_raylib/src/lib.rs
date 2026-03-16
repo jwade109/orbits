@@ -1,6 +1,7 @@
 pub mod app;
+pub mod assets;
 pub mod camera;
-pub mod chat;
+pub mod client;
 pub mod cmd;
 pub mod components;
 pub mod input_state;
@@ -54,11 +55,11 @@ pub mod ops {
     pub use crate::sim::systems::world::set_grid_vel;
     pub use crate::sim::systems::world::set_primary_computer_state;
     pub use crate::sim::systems::world::set_primary_computer_waypoint;
-    pub use crate::sim::vehicle::systems::detach_part_from_parent;
-    pub use crate::sim::vehicle::systems::duplicate_part_to_new_grid;
-    pub use crate::sim::vehicle::systems::rebuild_index_from_island;
-    pub use crate::sim::vehicle::systems::remove_part_without_integrity_check;
-    pub use crate::sim::vehicle::systems::split_grid_if_necessary;
+    pub use crate::sim::vehicle::detach_part_from_parent;
+    pub use crate::sim::vehicle::duplicate_part_to_new_grid;
+    pub use crate::sim::vehicle::rebuild_index_from_island;
+    pub use crate::sim::vehicle::remove_part_without_integrity_check;
+    pub use crate::sim::vehicle::split_grid_if_necessary;
     pub use crate::sim::world::update_computers;
     pub use crate::sim::world::update_trackers;
     pub use crate::sim::world::update_world;

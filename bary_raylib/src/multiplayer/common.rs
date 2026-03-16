@@ -1,3 +1,4 @@
+use crate::client::*;
 use crate::{
     input_state::InputState, multiplayer::*, sim::systems::apparent_elapsed_time, sim::world::*,
     sounds::SoundEffects,
