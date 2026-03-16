@@ -155,7 +155,7 @@ fn update_camera_target(
     }
 }
 
-fn update_camera(target: &Camera, actual: &mut Camera) {
+fn animate_camera_towards_target(target: &Camera, actual: &mut Camera) {
     let rate_translation = 0.2;
     let rate_rotation = 0.2;
     actual.isometry.translation.x = low_pass(
@@ -662,8 +662,6 @@ pub fn update_world(world: &mut World) {
         snap_camera_target_to_local_up(&mut world.target_camera);
     }
 
-    update_camera(&world.target_camera, &mut world.camera);
-
     let end = std::time::Instant::now();
 
     world.timers.physics = end - start;
@@ -761,6 +759,8 @@ pub fn update_world_with_input_stuff(
         &mut world.follow_vehicle,
         &mut sounds,
     );
+
+    animate_camera_towards_target(&world.target_camera, &mut world.camera);
 
     let end = std::time::Instant::now();
     world.timers.input = end - input_start;
