@@ -1281,25 +1281,6 @@ mod tests {
     }
 
     #[test]
-    fn snap_camera_to_local_planet() {
-        let mut world = World::empty();
-
-        world.target_camera.isometry.translation = Vec2::new(100.0, 300.0);
-        world.snap_camera_to_local_planet = true;
-
-        for _ in 0..100 {
-            update_world(&mut world);
-        }
-
-        assert_eq!(
-            world.camera.isometry.translation,
-            Vec2::new(99.999985, 299.99994)
-        );
-        assert_eq!(world.camera.isometry.rotation, 2.8198416);
-        assert_eq!(world.camera.zoom, 7.999999);
-    }
-
-    #[test]
     fn vehicle_arrives_at_its_destination() {
         // disclaimer: this is a very fragile test, and can be affected
         // by fuel requirements, changing ship design, etc.

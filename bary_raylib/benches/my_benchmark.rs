@@ -19,12 +19,23 @@ fn criterion_benchmark(c: &mut Criterion) {
         .waypoint("pollux", (100.0, 200.0, 0.0))
         .build();
 
-    c.bench_function("world_update", |b| {
+    c.bench_function("world_update_pollux", |b| {
         b.iter(|| black_box(update_world(&mut world)))
     });
 
     c.bench_function("run_for_one_hour", |b| {
         b.iter(|| black_box(run_for_one_hour(&mut world)))
+    });
+
+    let mut world = WorldBuilder::new()
+        .test_assets()
+        .blueprint("bellerophon")
+        .spawn("bellerophon", (0.0, 0.0, 0.0))
+        .waypoint("bellerophon", (100.0, 200.0, 0.0))
+        .build();
+
+    c.bench_function("world_update_bellerophon", |b| {
+        b.iter(|| black_box(update_world(&mut world)))
     });
 }
 

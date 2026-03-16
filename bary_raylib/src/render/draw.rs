@@ -126,10 +126,10 @@ pub fn draw_world(
 
     draw_particles(&mut c, &world.particles);
 
-    // draw_isometry_axes(&mut c, world.camera.isometry, "CAM");
-    // draw_isometry_axes(&mut c, world.target_camera.isometry, "");
-
     draw_trackers(&mut c, &world.tracking);
+
+    draw_isometry_axes(&mut c, world.camera.isometry, "CAM", Vec2::splat(5.0));
+    draw_isometry_axes(&mut c, world.target_camera.isometry, "", Vec2::splat(5.0));
 
     drop(c);
 
@@ -145,8 +145,19 @@ pub fn draw_world(
 
     draw_hovered_part_info(d, world, client, assets);
 
+    if let Viewport::Editor(_) = client.viewport {
+        draw_editor_state(d);
+    }
+
     // draw_parts_zoo(&world.prototypes, &mut d);
     // draw_test_isos(&mut d)
+}
+
+pub fn draw_editor_state(d: &mut RaylibDrawHandle) {
+    let w = d.get_screen_width();
+    let h = d.get_screen_height();
+
+    d.draw_rectangle_lines(3, 3, w - 5, h - 5, Color::BLUE);
 }
 
 pub fn draw_mouse_screen_position(d: &mut RaylibDrawHandle, mouse_screen_position: Option<Vec2>) {

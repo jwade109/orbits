@@ -12,6 +12,8 @@ pub enum SoundEffect {
     DestroyPart,
     SetWaypoint,
     GenericFailure,
+    OpenEditor,
+    LeaveEditor,
 }
 
 impl SoundEffect {
@@ -34,5 +36,7 @@ pub fn get_sound_effect_asset_path(effect: SoundEffect) -> &'static str {
         SoundEffect::DestroyPart => "assets/sfx/destroy-part.wav",
         SoundEffect::SetWaypoint => "assets/sfx/soft-pulse.ogg",
         SoundEffect::GenericFailure => "assets/sfx/generic-failure.wav",
+        SoundEffect::OpenEditor => "assets/sfx/open-editor.wav",
+        SoundEffect::LeaveEditor => "assets/sfx/leave-editor.wav",
     }
 }

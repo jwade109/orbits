@@ -1,6 +1,7 @@
+use crate::client::ClientSpecificInfo;
 use crate::sim::world::World;
 use crate::{ops, query};
-use crate::{sim::world::update_world, sim::systems::*};
+use crate::{sim::systems::*, sim::world::update_world};
 use bary_core::prelude::*;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
@@ -30,7 +31,11 @@ impl Transaction {
     }
 }
 
-pub fn apply_transaction(world: &mut World, transaction: Transaction) {
+pub fn apply_transaction(
+    world: &mut World,
+    client: &mut ClientSpecificInfo,
+    transaction: Transaction,
+) {
     info!(
         "Applying transation {:?} at tick {}",
         transaction, world.ticks
@@ -72,7 +77,7 @@ pub fn apply_transaction(world: &mut World, transaction: Transaction) {
         }
         Action::LookAt(name) => {
             if let Some(grid_id) = query::grid_by_name(&world.grids, &name) {
-                world.follow_vehicle = Some(grid_id);
+                client.viewport.look_at(grid_id);
                 world.target_camera.zoom = 15.0;
             }
         }

@@ -23,7 +23,6 @@ use std::time::Duration;
 #[derive(Default, Deserialize, Serialize, Clone)]
 pub struct Timers {
     pub physics: Duration,
-    pub input: Duration,
     pub render: Duration,
     pub total: Duration,
 }
@@ -32,10 +31,6 @@ pub struct Timers {
 pub struct World {
     pub ticks: u64,
     pub timers: Timers,
-
-    // viewport
-    pub follow_vehicle: Option<Ent>,
-    pub snap_camera_to_local_planet: bool,
 
     // camera info
     pub camera: Camera,
@@ -72,8 +67,6 @@ impl World {
             ticks: 0,
             timers: Timers::default(),
             spawner: EntitySpawner::default(),
-            snap_camera_to_local_planet: false,
-            follow_vehicle: None,
             camera: Camera {
                 zoom: 0.1,
                 ..Camera::default()
@@ -100,7 +93,7 @@ pub fn size_in_bytes(world: &World) -> usize {
     bytes.len()
 }
 
-fn update_camera_target(
+fn camera_moves_with_wasd(
     input: &InputState,
     target: &mut Camera,
     follow: &mut Option<Ent>,
@@ -308,16 +301,12 @@ pub mod input_handlers {
         }
     }
 
-    pub fn toggle_following_on_key_f(
-        world: &mut World,
-        client: &mut ClientSpecificInfo,
-        sounds: &mut SoundEffects,
-    ) {
+    pub fn toggle_following_on_key_f(client: &mut ClientSpecificInfo, sounds: &mut SoundEffects) {
         let Some(grid_id) = client.selection_info.selected_grid else {
             return;
         };
         debug!("Following {}", grid_id);
-        world.follow_vehicle = Some(grid_id);
+        client.viewport.look_at(grid_id);
         sounds.push(SoundEffect::Follow);
     }
 
@@ -369,6 +358,16 @@ pub mod input_handlers {
         }
     }
 
+    pub fn lock_rotation_on_key_r(client: &mut ClientSpecificInfo, input: &InputState) {
+        if input.is_key_pressed(Key::ControlLeft) {
+            return;
+        }
+        if let Viewport::Free(fly) = &mut client.viewport {
+            debug!("Toggle lock rotation");
+            fly.lock_rotation ^= true;
+        }
+    }
+
     pub fn spawn_random_ship_on_p(world: &mut World) {
         if let Ok(grid_id) = spawn_grid_by_name(world, "remora") {
             let pos = randvec(10.0, 200.0);
@@ -381,18 +380,34 @@ pub mod input_handlers {
             _ = update_grid_physical_props(grid, &mut world.parts);
         }
     }
-}
 
-fn snap_camera_target_to_local_up(target: &mut Camera) {
-    let r = 100.0;
-    let q = if target.isometry.translation.length() < r {
-        target.isometry.translation.normalize_or_zero() * r
-    } else {
-        target.isometry.translation
-    };
+    pub fn toggle_ship_editor_on_i(client: &mut ClientSpecificInfo, sounds: &mut SoundEffects) {
+        let next = match &client.viewport {
+            Viewport::Editor(editor) => {
+                sounds.push(SoundEffect::LeaveEditor);
+                Viewport::Free(FreeFlying {
+                    follow_vehicle: Some(editor.vehicle),
+                    lock_rotation: true,
+                })
+            }
+            Viewport::Free(_) => {
+                let Some(id) = client.selection_info.selected_grid else {
+                    return;
+                };
 
-    target.isometry.rotation = q.to_angle() + PI / 2.0;
-    target.isometry.translation = q;
+                sounds.push(SoundEffect::OpenEditor);
+
+                Viewport::Editor(EditorState {
+                    vehicle: id,
+                    camera_offset: Vec2::ZERO,
+                    rotation: Rotation::East,
+                })
+            }
+        };
+
+        info!("Switched viewport to {:?}", next);
+        client.viewport = next;
+    }
 }
 
 fn propagate_grid_rigid_bodies(grids: &mut Components<VehicleGrid>) {
@@ -532,6 +547,7 @@ fn update_mouseover_part_info(
 
 fn set_target_camera_if_following(
     follow: Option<Ent>,
+    lock_rotation: bool,
     grids: &Components<VehicleGrid>,
     target: &mut Camera,
     actual: &mut Camera,
@@ -544,11 +560,14 @@ fn set_target_camera_if_following(
         return;
     };
 
-    target.isometry.translation = grid.centroid_isometry().translation;
-    // target.isometry.rotation = grid.pose.rotation;
+    let iso = grid.centroid_isometry();
+
+    target.isometry.translation = iso.translation;
+    if lock_rotation {
+        target.isometry.rotation = iso.rotation;
+    }
 
     actual.isometry.translation = target.isometry.translation;
-    // actual.isometry.rotation = target.isometry.rotation;
 }
 
 fn select_hovered_vehicle_on_click(sel: &mut SelectionInfo, sounds: &mut SoundEffects) {
@@ -651,17 +670,6 @@ pub fn update_world(world: &mut World) {
     propagate_grid_rigid_bodies(&mut world.grids);
     update_trackers(&mut world.tracking, &world.grids, world.ticks);
 
-    set_target_camera_if_following(
-        world.follow_vehicle,
-        &world.grids,
-        &mut world.target_camera,
-        &mut world.camera,
-    );
-
-    if world.snap_camera_to_local_planet {
-        snap_camera_target_to_local_up(&mut world.target_camera);
-    }
-
     let end = std::time::Instant::now();
 
     world.timers.physics = end - start;
@@ -685,12 +693,16 @@ pub fn process_event(
     match event.event_type {
         rdev::EventType::KeyPress(key) => match key {
             Key::KeyS => input_handlers::save_on_ctrl_s(world, client, input),
-            Key::KeyF => input_handlers::toggle_following_on_key_f(world, client, &mut sounds),
+            Key::KeyF => input_handlers::toggle_following_on_key_f(client, &mut sounds),
             Key::KeyT => input_handlers::toggle_tracking_for_selected_grid(world, client),
-            Key::KeyR => input_handlers::reset_camera_on_ctrl_r(world, input),
+            Key::KeyR => {
+                input_handlers::reset_camera_on_ctrl_r(world, input);
+                input_handlers::lock_rotation_on_key_r(client, input);
+            }
             Key::KeyD => input_handlers::panic_on_ctrl_d(input),
             Key::KeyP => input_handlers::spawn_random_ship_on_p(world),
             Key::KeyM => input_handlers::update_center_of_mass_on_m(world),
+            Key::KeyI => input_handlers::toggle_ship_editor_on_i(client, &mut sounds),
             _ => (),
         },
         rdev::EventType::KeyRelease(_key) => (),
@@ -726,14 +738,11 @@ pub fn process_event(
     (sounds, actions)
 }
 
-#[deprecated]
-pub fn update_world_with_input_stuff(
+pub fn post_simulation_update(
     world: &mut World,
     client: &mut ClientSpecificInfo,
     input: &InputState,
 ) -> (Vec<Action>, SoundEffects) {
-    let input_start = std::time::Instant::now();
-
     let mut sounds = SoundEffects::default();
 
     update_selection_info(
@@ -753,19 +762,48 @@ pub fn update_world_with_input_stuff(
         &mut sounds,
     );
 
-    update_camera_target(
-        &input,
-        &mut world.target_camera,
-        &mut world.follow_vehicle,
-        &mut sounds,
-    );
+    match &mut client.viewport {
+        Viewport::Free(fly) => {
+            set_target_camera_if_following(
+                fly.follow_vehicle,
+                fly.lock_rotation,
+                &world.grids,
+                &mut world.target_camera,
+                &mut world.camera,
+            );
+
+            camera_moves_with_wasd(
+                &input,
+                &mut world.target_camera,
+                &mut fly.follow_vehicle,
+                &mut sounds,
+            );
+        }
+        Viewport::Editor(editor) => {
+            set_cams_to_grid_pose(
+                editor.vehicle,
+                &world.grids,
+                &mut world.target_camera,
+                &mut world.camera,
+            );
+        }
+    }
 
     animate_camera_towards_target(&world.target_camera, &mut world.camera);
 
-    let end = std::time::Instant::now();
-    world.timers.input = end - input_start;
-
     (Vec::new(), sounds)
+}
+
+fn set_cams_to_grid_pose(
+    grid_id: Ent,
+    grids: &Components<VehicleGrid>,
+    target: &mut Camera,
+    actual: &mut Camera,
+) {
+    if let Ok(grid) = grids.try_get(grid_id) {
+        target.isometry = grid.centroid_isometry();
+        actual.isometry = target.isometry;
+    }
 }
 
 fn update_ring_particles(particles: &mut Vec<PingParticle>) {

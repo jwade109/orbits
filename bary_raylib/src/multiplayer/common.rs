@@ -101,11 +101,13 @@ impl WorldRunner {
         let delta = now - self.last_update;
         self.nominal_world_duration += delta * Self::SPEED;
         self.last_update = now;
-        let (actions, sounds) =
-            update_world_with_input_stuff(&mut self.world, &mut self.client_info, input);
         while apparent_elapsed_time(&mut self.world) < self.nominal_world_duration {
             update_world(&mut self.world);
         }
+
+        let (actions, sounds) =
+            post_simulation_update(&mut self.world, &mut self.client_info, input);
+
         (actions, sounds)
     }
 }

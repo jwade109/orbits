@@ -41,7 +41,6 @@ fn draw_debug_info(
         "\nP\n{}",
         fmt_time(world.timers.physics, world.timers.total)
     );
-    s += &format!("\nI\n{}", fmt_time(world.timers.input, world.timers.total));
     s += &format!("\nR\n{}", fmt_time(world.timers.render, world.timers.total));
     s += &format!("\nT\n{}", fmt_time(world.timers.total, world.timers.total));
 
@@ -171,12 +170,12 @@ fn main() {
 
         while let Some(action) = app.cmd.pop_action() {
             let tr = Transaction::new(0, action);
-            apply_transaction(&mut app.runner.world, tr);
+            apply_transaction(&mut app.runner.world, &mut app.runner.client_info, tr);
         }
 
         while let Some(n) = app.incoming_network_queue.pop() {
             if let ServerMessage::Transaction(tr) = n {
-                apply_transaction(&mut app.runner.world, tr);
+                apply_transaction(&mut app.runner.world, &mut app.runner.client_info, tr);
             }
         }
 
