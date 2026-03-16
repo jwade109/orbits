@@ -3,15 +3,15 @@ use crate::chat::Chat;
 use crate::components::*;
 use crate::input_state::*;
 use crate::multiplayer::Action;
-use crate::ops;
+use crate::ops::detach_part_from_parent;
+use crate::ops::remove_part_without_integrity_check;
 use crate::persistence::save_world;
+use crate::query::closest_grid;
 use crate::result::BaryError;
 use crate::result::BaryResult;
-use crate::ring_particle::PingParticle;
+use crate::sim::*;
 use crate::sounds::*;
-use crate::systems::*;
 use crate::utils::*;
-use crate::vehicle::*;
 use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use log::*;
@@ -81,13 +81,13 @@ pub struct ClientSpecificInfo {
     pub chat: Chat,
     pub mouse_screen_position: Option<Vec2>,
     pub screen_dims: Vec2,
+    pub selection_info: SelectionInfo,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct World {
     pub ticks: u64,
     pub timers: Timers,
-    pub selection_info: SelectionInfo,
 
     // viewport
     pub follow_vehicle: Option<Ent>,
@@ -128,6 +128,7 @@ impl ClientSpecificInfo {
             chat: Chat::default(),
             mouse_screen_position: None,
             screen_dims: Vec2::new(1500.0, 900.0),
+            selection_info: SelectionInfo::default(),
         }
     }
 }
@@ -137,7 +138,6 @@ impl World {
         Self {
             ticks: 0,
             timers: Timers::default(),
-            selection_info: SelectionInfo::default(),
             spawner: EntitySpawner::default(),
             snap_camera_to_local_planet: false,
             follow_vehicle: None,
@@ -264,7 +264,7 @@ fn update_camera(target: &Camera, actual: &mut Camera) {
 }
 
 pub fn remove_part(world: &mut World, part_id: Ent) -> BaryResult<PartInstance> {
-    let instance = ops::remove_part_without_integrity_check(world, part_id, true)?;
+    let instance = remove_part_without_integrity_check(world, part_id, true)?;
     // split_grid_if_necessary(world, grid_id)?;
     Ok(instance)
 }
@@ -283,12 +283,20 @@ pub fn remove_top_part_at(world: &mut World, grid_id: Ent, coord: PartCoord) -> 
 
     // remove_part(world, top_part)?;
 
-    ops::detach_part_from_parent(world, top_part)?;
+    detach_part_from_parent(world, top_part)?;
 
     Ok(top_part)
 }
 
 pub mod input_handlers {
+
+    use crate::sim::systems::{
+        update_grid_physical_props,
+        world::{
+            set_grid_pose, set_primary_computer_state, set_primary_computer_waypoint,
+            spawn_grid_by_name, toggle_tracking,
+        },
+    };
 
     use super::*;
 
@@ -297,7 +305,7 @@ pub mod input_handlers {
         client: &mut ClientSpecificInfo,
         sounds: &mut SoundEffects,
     ) {
-        let Some(grid_id) = world.selection_info.selected_grid else {
+        let Some(grid_id) = client.selection_info.selected_grid else {
             return;
         };
 
@@ -309,13 +317,13 @@ pub mod input_handlers {
 
         let waypoint = Isometry2d::new(world_pos, 0.0);
 
-        if let Err(e) = world::set_primary_computer_waypoint(grid_id, waypoint, world) {
+        if let Err(e) = set_primary_computer_waypoint(grid_id, waypoint, world) {
             client.chat.log(format!("Failed to set waypoint: {e:?}"));
             sounds.push(SoundEffect::GenericFailure);
             return;
         }
 
-        if let Err(e) = world::set_primary_computer_state(grid_id, true, world) {
+        if let Err(e) = set_primary_computer_state(grid_id, true, world) {
             client
                 .chat
                 .log(format!("Failed to turn primary computer on: {e:?}"));
@@ -326,12 +334,16 @@ pub mod input_handlers {
         sounds.push(SoundEffect::SetWaypoint);
     }
 
-    pub fn destroy_top_layer_part_at_mouseover(world: &mut World, sounds: &mut SoundEffects) {
-        let Some(grid_id) = world.selection_info.selected_grid else {
+    pub fn destroy_top_layer_part_at_mouseover(
+        world: &mut World,
+        client: &mut ClientSpecificInfo,
+        sounds: &mut SoundEffects,
+    ) {
+        let Some(grid_id) = client.selection_info.selected_grid else {
             return;
         };
 
-        let Some((coord, _occ)) = world.selection_info.mouseover_part_info else {
+        let Some((coord, _occ)) = client.selection_info.mouseover_part_info else {
             return;
         };
 
@@ -383,8 +395,12 @@ pub mod input_handlers {
         }
     }
 
-    pub fn toggle_following_on_key_f(world: &mut World, sounds: &mut SoundEffects) {
-        let Some(grid_id) = world.selection_info.selected_grid else {
+    pub fn toggle_following_on_key_f(
+        world: &mut World,
+        client: &mut ClientSpecificInfo,
+        sounds: &mut SoundEffects,
+    ) {
+        let Some(grid_id) = client.selection_info.selected_grid else {
             return;
         };
         debug!("Following {}", grid_id);
@@ -417,10 +433,10 @@ pub mod input_handlers {
     }
 
     pub fn toggle_tracking_for_selected_grid(world: &mut World, client: &mut ClientSpecificInfo) {
-        let Some(grid_id) = world.selection_info.selected_grid else {
+        let Some(grid_id) = client.selection_info.selected_grid else {
             return;
         };
-        match world::toggle_tracking(world, grid_id) {
+        match toggle_tracking(world, grid_id) {
             Ok(true) => client.chat.log(format!("Enabled tracking for {}", grid_id)),
             Ok(false) => client
                 .chat
@@ -441,9 +457,9 @@ pub mod input_handlers {
     }
 
     pub fn spawn_random_ship_on_p(world: &mut World) {
-        if let Ok(grid_id) = world::spawn_grid_by_name(world, "remora") {
+        if let Ok(grid_id) = spawn_grid_by_name(world, "remora") {
             let pos = randvec(10.0, 200.0);
-            _ = world::set_grid_pose(world, grid_id, Isometry2d::from_pos(pos));
+            _ = set_grid_pose(world, grid_id, Isometry2d::from_pos(pos));
         }
     }
 
@@ -552,11 +568,10 @@ fn update_selection_info(
     mouse_screen_position: Option<Vec2>,
     screen_dims: Vec2,
 ) {
-    info.camera_hovered =
-        find::closest_grid(grids, camera.isometry.translation, 100.0).map(|e| e.0);
+    info.camera_hovered = closest_grid(grids, camera.isometry.translation, 100.0).map(|e| e.0);
     if let Some(pos) = mouse_screen_position {
         let pos = screen_to_world(camera, pos, screen_dims);
-        info.mouse_hovered = find::closest_grid(grids, pos, 100.0).map(|e| e.0);
+        info.mouse_hovered = super::systems::find::closest_grid(grids, pos, 100.0).map(|e| e.0);
     } else {
         info.mouse_hovered = None;
     }
@@ -759,7 +774,7 @@ pub fn process_event(
     match event.event_type {
         rdev::EventType::KeyPress(key) => match key {
             Key::KeyS => input_handlers::save_on_ctrl_s(world, client, input),
-            Key::KeyF => input_handlers::toggle_following_on_key_f(world, &mut sounds),
+            Key::KeyF => input_handlers::toggle_following_on_key_f(world, client, &mut sounds),
             Key::KeyT => input_handlers::toggle_tracking_for_selected_grid(world, client),
             Key::KeyR => input_handlers::reset_camera_on_ctrl_r(world, input),
             Key::KeyD => input_handlers::panic_on_ctrl_d(input),
@@ -777,10 +792,10 @@ pub fn process_event(
                     &mut actions,
                     &mut sounds,
                 );
-                select_hovered_vehicle_on_click(&mut world.selection_info, &mut sounds);
+                select_hovered_vehicle_on_click(&mut client.selection_info, &mut sounds);
             }
             Button::Right => {
-                input_handlers::destroy_top_layer_part_at_mouseover(world, &mut sounds)
+                input_handlers::destroy_top_layer_part_at_mouseover(world, client, &mut sounds)
             }
             Button::Middle => {
                 input_handlers::command_selected_ship_to_waypoint(world, client, &mut sounds)
@@ -811,7 +826,7 @@ pub fn update_world_with_input_stuff(
     let mut sounds = SoundEffects::default();
 
     update_selection_info(
-        &mut world.selection_info,
+        &mut client.selection_info,
         &world.grids,
         &world.camera,
         client.mouse_screen_position,
@@ -819,7 +834,7 @@ pub fn update_world_with_input_stuff(
     );
 
     update_mouseover_part_info(
-        &mut world.selection_info,
+        &mut client.selection_info,
         &world.grids,
         client.mouse_screen_position,
         client.screen_dims,

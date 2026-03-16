@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
-use crate::systems::*;
-use crate::world::*;
+use crate::sim::systems::*;
+use crate::sim::world::*;
 use bary_core::prelude::*;
 
 pub struct WorldBuilder {

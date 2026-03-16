@@ -3,8 +3,8 @@ use std::io::Write;
 
 use bary_core::prelude::*;
 use bary_raylib::{
-    systems::{TICKS_PER_SECOND, find, get_thruster_levels},
-    world::update_world,
+    sim::systems::{TICKS_PER_SECOND, find, get_thruster_levels},
+    sim::world::update_world,
     world_builder::WorldBuilder,
 };
 

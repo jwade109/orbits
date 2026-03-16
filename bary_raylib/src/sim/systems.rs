@@ -2,8 +2,8 @@ use std::collections::BTreeSet;
 
 use crate::components::*;
 use crate::result::*;
-use crate::vehicle::*;
-use crate::world::*;
+use crate::sim::vehicle::*;
+use crate::sim::world::*;
 use bary_core::prelude::*;
 use log::{debug, info};
 use std::time::Duration;
@@ -132,7 +132,7 @@ pub fn spawn_empty_grid(world: &mut World, name: impl Into<String>) -> Ent {
 }
 
 pub mod world {
-    use crate::ring_particle::PingParticle;
+    use crate::sim::PingParticle;
 
     use super::*;
 

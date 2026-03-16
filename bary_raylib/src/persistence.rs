@@ -1,5 +1,5 @@
 use crate::result::*;
-use crate::world::World;
+use crate::sim::world::World;
 use bary_core::prelude::*;
 use log::*;
 use std::path::Path;
@@ -85,7 +85,7 @@ pub fn load_world(dir: impl AsRef<Path>) -> BaryResult<World> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{world::update_world, world_builder::WorldBuilder};
+    use crate::{sim::world::update_world, world_builder::WorldBuilder};
 
     use super::*;
 

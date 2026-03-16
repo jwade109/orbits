@@ -1,11 +1,12 @@
 use super::grid::*;
 use crate::ops;
-use crate::vehicle::Part;
-use crate::{components::Components, ops::update_grid_physical_props_by_id};
+use crate::sim::vehicle::Part;
+use crate::{components::Components};
+use crate::sim::update_grid_physical_props_by_id;
 use bary_core::prelude::*;
 use std::collections::BTreeSet;
 
-use crate::{result::BaryResult, world::World};
+use crate::{result::BaryResult, sim::world::World};
 
 /// Removes a part from its parent grid, updating any relevant quantities
 /// about that grid. This does not perform an integrity check, and might
@@ -28,7 +29,6 @@ pub fn remove_part_without_integrity_check(
     let grid_id = part.grid_id;
     let proto = world.prototypes.try_get(part.prototype)?;
     let grid = world.grids.try_get_mut(grid_id)?;
-    let name = grid.name.clone();
 
     let instance = PartInstance::new(&proto.name, proto.layer, part.placement);
 
@@ -52,7 +52,7 @@ pub fn remove_part_without_integrity_check(
     }
 
     if update_props {
-        update_grid_physical_props_by_id(grid_id, &mut world.grids, &mut world.parts);
+        update_grid_physical_props_by_id(grid_id, &mut world.grids, &mut world.parts)?;
     }
 
     Ok(instance)

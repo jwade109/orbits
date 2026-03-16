@@ -2,13 +2,9 @@ use crate::camera::{Camera, to_raylib_camera};
 use crate::chat::{Chat, format_log};
 use crate::components::Components;
 use crate::result::BaryResult;
-use crate::ring_particle::*;
-use crate::systems::*;
+use crate::sim::*;
 use crate::ui::{Window, draw_window};
 use crate::utils::*;
-use crate::vehicle::*;
-use crate::world::{Assets, ClientSpecificInfo, SelectionInfo};
-use crate::world::{Tracker, World};
 use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use raylib::prelude::*;
@@ -116,9 +112,9 @@ pub fn draw_world(
 
     draw_grid_outlines(&mut c, &world.grids);
 
-    _ = draw_selection_info(&mut c, &world.grids, &world.selection_info);
+    _ = draw_selection_info(&mut c, &world.grids, &client.selection_info);
 
-    draw_focused_grid_cursor(&mut c, &world.grids, &world.parts, &world.selection_info);
+    draw_focused_grid_cursor(&mut c, &world.grids, &world.parts, &client.selection_info);
 
     draw_mouse_world_position(
         &mut c,
@@ -140,13 +136,13 @@ pub fn draw_world(
 
     draw_waypoint_far_indicators(&world.computers, d, &raylib_camera);
 
-    draw_selected_grid_info(d, &world.selection_info, &world.grids, client.screen_dims);
+    draw_selected_grid_info(d, &client.selection_info, &world.grids, client.screen_dims);
 
     draw_chat(d, &client.chat, client.screen_dims, assets);
 
-    draw_selected_grid_primary_computer_info(d, world, assets);
+    draw_selected_grid_primary_computer_info(d, world, client, assets);
 
-    draw_hovered_part_info(d, world, assets);
+    draw_hovered_part_info(d, world, client, assets);
 
     // draw_parts_zoo(&world.prototypes, &mut d);
     // draw_test_isos(&mut d)
@@ -684,9 +680,10 @@ fn computer_info_str(cpu: &Computer) -> String {
 fn draw_selected_grid_primary_computer_info(
     d: &mut RaylibDrawHandle,
     world: &World,
+    client: &ClientSpecificInfo,
     assets: &Assets,
 ) {
-    let Some(grid_id) = world.selection_info.selected_grid else {
+    let Some(grid_id) = client.selection_info.selected_grid else {
         return;
     };
 
@@ -715,8 +712,13 @@ fn draw_selected_grid_primary_computer_info(
     }
 }
 
-fn draw_hovered_part_info(d: &mut RaylibDrawHandle, world: &World, assets: &Assets) {
-    let Some((coord, occ)) = world.selection_info.mouseover_part_info else {
+fn draw_hovered_part_info(
+    d: &mut RaylibDrawHandle,
+    world: &World,
+    client: &ClientSpecificInfo,
+    assets: &Assets,
+) {
+    let Some((coord, occ)) = client.selection_info.mouseover_part_info else {
         return;
     };
 

@@ -1,7 +1,6 @@
-use crate::input_state::InputState;
-use crate::world::World;
+use crate::sim::world::World;
 use crate::{ops, query};
-use crate::{systems::*, world::update_world};
+use crate::{sim::world::update_world, sim::systems::*};
 use bary_core::prelude::*;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};

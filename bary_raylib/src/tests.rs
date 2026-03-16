@@ -1,5 +1,4 @@
-use crate::world::World;
-use crate::{ops, query};
+use crate::sim::{systems::get_grid_physical_props_by_id, world::World};
 
 pub fn computer_bidirectional_pointers_are_consistent(world: &World) {
     for (grid_id, grid) in world.grids.iter() {
@@ -31,8 +30,7 @@ pub fn part_bidirectional_pointers_are_consistent(world: &World) {
 
 pub fn mass_of_grids_is_accurate(world: &World) {
     for (grid_id, grid) in world.grids.iter() {
-        let expected =
-            query::get_grid_physical_props_by_id(*grid_id, &world.grids, &world.parts).unwrap();
+        let expected = get_grid_physical_props_by_id(*grid_id, &world.grids, &world.parts).unwrap();
         let actual = (grid.parts_mass, grid.center_of_mass);
         assert_eq!(actual.0, expected.0);
         assert_eq!(
