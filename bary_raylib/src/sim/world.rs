@@ -93,6 +93,17 @@ pub fn size_in_bytes(world: &World) -> usize {
     bytes.len()
 }
 
+fn camera_zooms_with_plus_minus(input: &InputState, target: &mut Camera) {
+    let zoom_scale = 1.07;
+
+    if input.is_key_pressed(Key::Minus) {
+        target.zoom /= zoom_scale;
+    }
+    if input.is_key_pressed(Key::Equal) {
+        target.zoom *= zoom_scale;
+    }
+}
+
 fn camera_moves_with_wasd(
     input: &InputState,
     target: &mut Camera,
@@ -101,7 +112,6 @@ fn camera_moves_with_wasd(
 ) {
     let angular_speed = 2.5f32.to_radians();
     let speed = 40.0 / target.zoom;
-    let zoom_scale = 1.07;
 
     let old_follow = *follow;
 
@@ -112,12 +122,6 @@ fn camera_moves_with_wasd(
         return;
     }
 
-    if input.is_key_pressed(Key::Minus) {
-        target.zoom /= zoom_scale;
-    }
-    if input.is_key_pressed(Key::Equal) {
-        target.zoom *= zoom_scale;
-    }
     if input.is_key_pressed(Key::KeyQ) {
         target.isometry.rotation += angular_speed;
         // *follow = None;
@@ -196,11 +200,14 @@ pub fn remove_top_part_at(world: &mut World, grid_id: Ent, coord: PartCoord) -> 
 
 pub mod input_handlers {
 
-    use crate::sim::systems::{
-        update_grid_physical_props,
-        world::{
-            set_grid_pose, set_primary_computer_state, set_primary_computer_waypoint,
-            spawn_grid_by_name, toggle_tracking,
+    use crate::{
+        client,
+        sim::systems::{
+            update_grid_physical_props,
+            world::{
+                set_grid_pose, set_primary_computer_state, set_primary_computer_waypoint,
+                spawn_grid_by_name, toggle_tracking,
+            },
         },
     };
 
@@ -368,6 +375,16 @@ pub mod input_handlers {
         }
     }
 
+    pub fn rotate_editor_part_on_key_r(client: &mut ClientSpecificInfo, input: &InputState) {
+        if input.is_key_pressed(Key::ControlLeft) {
+            return;
+        }
+        if let Viewport::Editor(editor) = &mut client.viewport {
+            editor.part_rotation = editor.part_rotation.next();
+            client.chat.log("Rotated");
+        }
+    }
+
     pub fn spawn_random_ship_on_p(world: &mut World) {
         if let Ok(grid_id) = spawn_grid_by_name(world, "remora") {
             let pos = randvec(10.0, 200.0);
@@ -400,13 +417,53 @@ pub mod input_handlers {
                 Viewport::Editor(EditorState {
                     vehicle: id,
                     camera_offset: Vec2::ZERO,
-                    rotation: Rotation::East,
+                    camera_rotation: Rotation::East,
+                    prototype_id: None,
+                    part_rotation: Rotation::East,
+                    layer: None,
                 })
             }
         };
 
         info!("Switched viewport to {:?}", next);
         client.viewport = next;
+    }
+
+    pub fn pipette_part_if_in_editor_on_q(world: &World, client: &mut ClientSpecificInfo) {
+        let Viewport::Editor(editor) = &mut client.viewport else {
+            return;
+        };
+
+        editor.prototype_id = None;
+
+        let Some(hovered_grid) = client.selection_info.mouse_hovered else {
+            return;
+        };
+
+        if editor.vehicle != hovered_grid {
+            return;
+        }
+
+        let Some((_part_coord, occ)) = client.selection_info.mouseover_part_info else {
+            return;
+        };
+
+        let Some(part_id) = occ.top() else {
+            return;
+        };
+
+        let Ok(part) = world.parts.try_get(part_id) else {
+            return;
+        };
+
+        let Ok(proto) = world.prototypes.try_get(part.prototype) else {
+            return;
+        };
+
+        editor.prototype_id = Some(part.prototype);
+
+        let s = format!("{:?} {:?}", editor.prototype_id, proto.name);
+        client.chat.log(s);
     }
 }
 
@@ -698,11 +755,13 @@ pub fn process_event(
             Key::KeyR => {
                 input_handlers::reset_camera_on_ctrl_r(world, input);
                 input_handlers::lock_rotation_on_key_r(client, input);
+                input_handlers::rotate_editor_part_on_key_r(client, input);
             }
             Key::KeyD => input_handlers::panic_on_ctrl_d(input),
             Key::KeyP => input_handlers::spawn_random_ship_on_p(world),
             Key::KeyM => input_handlers::update_center_of_mass_on_m(world),
             Key::KeyI => input_handlers::toggle_ship_editor_on_i(client, &mut sounds),
+            Key::KeyQ => input_handlers::pipette_part_if_in_editor_on_q(world, client),
             _ => (),
         },
         rdev::EventType::KeyRelease(_key) => (),
@@ -778,8 +837,12 @@ pub fn post_simulation_update(
                 &mut fly.follow_vehicle,
                 &mut sounds,
             );
+
+            camera_zooms_with_plus_minus(input, &mut world.target_camera);
         }
         Viewport::Editor(editor) => {
+            camera_zooms_with_plus_minus(input, &mut world.target_camera);
+
             set_cams_to_grid_pose(
                 editor.vehicle,
                 &world.grids,
@@ -802,6 +865,7 @@ fn set_cams_to_grid_pose(
 ) {
     if let Ok(grid) = grids.try_get(grid_id) {
         target.isometry = grid.centroid_isometry();
+        target.zoom = target.zoom.clamp(20.0, 150.0);
         actual.isometry = target.isometry;
     }
 }

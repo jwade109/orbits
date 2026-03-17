@@ -2,7 +2,9 @@ use crate::assets::*;
 use crate::camera::{Camera, to_raylib_camera};
 use crate::client::*;
 use crate::components::Components;
+use crate::query::grid_origin;
 use crate::result::BaryResult;
+use crate::sim::find::grid_pose;
 use crate::sim::*;
 use crate::ui::{Window, draw_window};
 use crate::utils::*;
@@ -130,6 +132,8 @@ pub fn draw_world(
 
     draw_isometry_axes(&mut c, world.camera.isometry, "CAM", Vec2::splat(5.0));
     draw_isometry_axes(&mut c, world.target_camera.isometry, "", Vec2::splat(5.0));
+
+    draw_editor_part(&mut c, world, client);
 
     drop(c);
 
@@ -355,6 +359,56 @@ pub fn draw_grid_outlines(d: &mut RaylibDrawHandle, grids: &Components<VehicleGr
     }
 }
 
+pub fn draw_editor_part(d: &mut RaylibDrawHandle, world: &World, client: &ClientSpecificInfo) {
+    let Viewport::Editor(editor) = &client.viewport else {
+        return;
+    };
+
+    let Some(proto_id) = editor.prototype_id else {
+        return;
+    };
+
+    let Some((coord, _occ)) = client.selection_info.mouseover_part_info else {
+        return;
+    };
+
+    let Ok(proto) = world.prototypes.try_get(proto_id) else {
+        return;
+    };
+
+    let Some(grid_pose) = grid_origin(&world.grids, editor.vehicle) else {
+        return;
+    };
+
+    let cl = proto.classification();
+    let pl = GridPlacement::new(coord, editor.part_rotation, proto.dims);
+    let iso = grid_pose * pl.origin_isometry();
+
+    draw_part(d, pl, cl, iso);
+}
+
+pub fn draw_part(
+    d: &mut RaylibDrawHandle,
+    pl: GridPlacement,
+    cl: PartClassification,
+    iso: Isometry2d,
+) {
+    let color = match cl {
+        PartClassification::Cargo => Color::GREEN,
+        PartClassification::Machine => Color::PURPLE,
+        PartClassification::Thruster => Color::MAROON,
+        PartClassification::Auxiliary => Color::YELLOW,
+        PartClassification::DockingPort => Color::ORANGE,
+        PartClassification::Computer => Color::RED,
+        PartClassification::Structure => Color::GRAY.alpha(0.7),
+        PartClassification::Decoration => Color::WHITE.alpha(0.7),
+        PartClassification::Other => Color::GRAY,
+    };
+
+    let dims = pl.part_aligned_dims().to_meters();
+    fill_rectangle(d, iso, dims, color);
+}
+
 pub fn draw_parts(
     d: &mut RaylibDrawHandle,
     grids: &Components<VehicleGrid>,
@@ -377,21 +431,8 @@ pub fn draw_parts(
                     continue;
                 }
 
-                let color = match part.classification {
-                    PartClassification::Cargo => Color::GREEN,
-                    PartClassification::Machine => Color::PURPLE,
-                    PartClassification::Thruster => Color::MAROON,
-                    PartClassification::Auxiliary => Color::YELLOW,
-                    PartClassification::DockingPort => Color::ORANGE,
-                    PartClassification::Computer => Color::RED,
-                    PartClassification::Structure => Color::GRAY.alpha(0.7),
-                    PartClassification::Decoration => Color::WHITE.alpha(0.7),
-                    PartClassification::Other => Color::GRAY,
-                };
-
                 let iso = part_isometry(origin, part.placement);
-                let dims = part.placement.part_aligned_dims().to_meters();
-                fill_rectangle(d, iso, dims, color);
+                draw_part(d, part.placement, part.classification, iso);
             }
         }
     }

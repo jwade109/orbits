@@ -1,5 +1,5 @@
 use super::Chat;
-use crate::sim::PartOccupancy;
+use crate::{camera::Camera, sim::PartOccupancy};
 use bary_core::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -15,7 +15,10 @@ pub struct SelectionInfo {
 pub struct EditorState {
     pub vehicle: Ent,
     pub camera_offset: Vec2,
-    pub rotation: Rotation,
+    pub camera_rotation: Rotation,
+    pub prototype_id: Option<Ent>,
+    pub part_rotation: Rotation,
+    pub layer: Option<PartLayer>,
 }
 
 #[derive(Debug)]
