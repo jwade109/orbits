@@ -58,7 +58,7 @@ pub mod ops {
     pub use crate::sim::vehicle::detach_part_from_parent;
     pub use crate::sim::vehicle::duplicate_part_to_new_grid;
     pub use crate::sim::vehicle::rebuild_index_from_island;
-    pub use crate::sim::vehicle::remove_part_without_integrity_check;
+    pub use crate::sim::vehicle::destroy_part_without_integrity_check;
     pub use crate::sim::vehicle::split_grid_if_necessary;
     pub use crate::sim::world::update_computers;
     pub use crate::sim::world::update_trackers;

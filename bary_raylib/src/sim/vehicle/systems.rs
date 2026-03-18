@@ -1,8 +1,8 @@
 use super::grid::*;
+use crate::components::Components;
 use crate::ops;
-use crate::sim::vehicle::Part;
-use crate::{components::Components};
 use crate::sim::update_grid_physical_props_by_id;
+use crate::sim::vehicle::Part;
 use bary_core::prelude::*;
 use std::collections::BTreeSet;
 
@@ -20,11 +20,11 @@ use crate::{result::BaryResult, sim::world::World};
 /// Returns the grid which was modified, if any.
 ///
 /// TODO(testing) very, VERY important to test!
-pub fn remove_part_without_integrity_check(
+pub fn destroy_part_without_integrity_check(
     world: &mut World,
     part_id: Ent,
     update_props: bool,
-) -> BaryResult<PartInstance> {
+) -> BaryResult<(PartInstance, Ent)> {
     let part = world.parts.try_get(part_id)?;
     let grid_id = part.grid_id;
     let proto = world.prototypes.try_get(part.prototype)?;
@@ -55,7 +55,7 @@ pub fn remove_part_without_integrity_check(
         update_grid_physical_props_by_id(grid_id, &mut world.grids, &mut world.parts)?;
     }
 
-    Ok(instance)
+    Ok((instance, grid_id))
 }
 
 pub fn duplicate_part_to_new_grid(world: &mut World, part_id: Ent) -> BaryResult<Ent> {
@@ -81,7 +81,7 @@ pub fn detach_part_from_parent(world: &mut World, part_id: Ent) -> BaryResult<En
     let part = world.parts.try_get(part_id)?;
     let grid_id = part.grid_id;
     let new_part_id = duplicate_part_to_new_grid(world, part_id)?;
-    remove_part_without_integrity_check(world, part_id, true)?;
+    destroy_part_without_integrity_check(world, part_id, true)?;
     split_grid_if_necessary(world, grid_id)?;
     Ok(new_part_id)
 }

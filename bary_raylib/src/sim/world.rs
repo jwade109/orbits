@@ -3,8 +3,8 @@ use crate::client::*;
 use crate::components::*;
 use crate::input_state::*;
 use crate::multiplayer::Action;
+use crate::ops::destroy_part_without_integrity_check;
 use crate::ops::detach_part_from_parent;
-use crate::ops::remove_part_without_integrity_check;
 use crate::persistence::save_world;
 use crate::query::closest_grid;
 use crate::result::BaryError;
@@ -175,13 +175,17 @@ fn animate_camera_towards_target(target: &Camera, actual: &mut Camera) {
     actual.zoom = low_pass(actual.zoom, target.zoom, rate_translation);
 }
 
-pub fn remove_part(world: &mut World, part_id: Ent) -> BaryResult<PartInstance> {
-    let instance = remove_part_without_integrity_check(world, part_id, true)?;
-    // split_grid_if_necessary(world, grid_id)?;
-    Ok(instance)
+pub fn destroy_part(world: &mut World, part_id: Ent) -> BaryResult<(PartInstance, Ent)> {
+    let (instance, grid_id) = destroy_part_without_integrity_check(world, part_id, true)?;
+    split_grid_if_necessary(world, grid_id)?;
+    Ok((instance, grid_id))
 }
 
-pub fn remove_top_part_at(world: &mut World, grid_id: Ent, coord: PartCoord) -> BaryResult<Ent> {
+pub fn destroy_top_part_at(
+    world: &mut World,
+    grid_id: Ent,
+    coord: PartCoord,
+) -> BaryResult<(PartInstance, Ent)> {
     warn!("Destroying top part at {} in grid {}", coord, grid_id);
 
     let grid = world.grids.try_get(grid_id)?;
@@ -193,7 +197,20 @@ pub fn remove_top_part_at(world: &mut World, grid_id: Ent, coord: PartCoord) -> 
 
     debug!("Top part is {}", top_part);
 
-    // remove_part(world, top_part)?;
+    destroy_part(world, top_part)
+}
+
+pub fn detach_top_part_at(world: &mut World, grid_id: Ent, coord: PartCoord) -> BaryResult<Ent> {
+    warn!("Detaching top part at {} in grid {}", coord, grid_id);
+
+    let grid = world.grids.try_get(grid_id)?;
+    let top_part = grid
+        .get_parts_at(coord)
+        .map(|occ| occ.top())
+        .flatten()
+        .ok_or(BaryError::NoPartsAt(coord))?;
+
+    debug!("Top part is {}", top_part);
 
     detach_part_from_parent(world, top_part)?;
 
@@ -259,9 +276,9 @@ pub mod input_handlers {
             return;
         };
 
-        match remove_top_part_at(world, grid_id, coord) {
-            Ok(id) => {
-                info!("Removed part {}", id);
+        match destroy_top_part_at(world, grid_id, coord) {
+            Ok((instance, grid_id)) => {
+                info!("Removed part {:?}, grid {}", instance, grid_id);
                 sounds.push(SoundEffect::DestroyPart);
             }
             Err(_e) => {

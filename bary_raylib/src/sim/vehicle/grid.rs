@@ -220,7 +220,7 @@ mod tests {
         }
 
         for part_id in parts {
-            let r = remove_part_without_integrity_check(&mut world, part_id, true);
+            let r = destroy_part_without_integrity_check(&mut world, part_id, true);
             assert!(r.is_ok());
         }
 
@@ -275,9 +275,9 @@ mod tests {
         assert_eq!(part_b, Ent(52));
         assert_eq!(part_c, Ent(69));
 
-        let op_a = remove_part_without_integrity_check(&mut world, part_a, false);
-        let op_b = remove_part_without_integrity_check(&mut world, part_b, false);
-        let op_c = remove_part_without_integrity_check(&mut world, part_c, true);
+        let op_a = destroy_part_without_integrity_check(&mut world, part_a, false);
+        let op_b = destroy_part_without_integrity_check(&mut world, part_b, false);
+        let op_c = destroy_part_without_integrity_check(&mut world, part_c, true);
 
         let placement_a = GridPlacement::new((10, 0), Rotation::North, (1, 1));
         let placement_b = GridPlacement::new((32, 4), Rotation::South, (2, 2));
@@ -287,9 +287,9 @@ mod tests {
         let part_b = PartInstance::new("plate", PartLayer::Exterior, placement_b);
         let part_c = PartInstance::new("plate", PartLayer::Exterior, placement_c);
 
-        assert_eq!(op_a, Ok(part_a));
-        assert_eq!(op_b, Ok(part_b));
-        assert_eq!(op_c, Ok(part_c));
+        assert_eq!(op_a, Ok((part_a, grid_id)));
+        assert_eq!(op_b, Ok((part_b, grid_id)));
+        assert_eq!(op_c, Ok((part_c, grid_id)));
 
         let grid = world.grids.try_get(grid_id).unwrap();
 
@@ -336,7 +336,7 @@ mod tests {
         assert_eq!(parts.len(), 8);
 
         for part_id in parts {
-            let r = remove_part_without_integrity_check(&mut world, part_id, true);
+            let r = destroy_part_without_integrity_check(&mut world, part_id, true);
             assert!(r.is_ok());
         }
 
