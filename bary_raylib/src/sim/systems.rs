@@ -566,8 +566,6 @@ pub fn update_grid_physical_props(
     grid: &mut VehicleGrid,
     parts: &mut Components<Part>,
 ) -> BaryResult<()> {
-    let (_old_mass, old_com) = get_grid_physical_props(grid, parts)?;
-
     let offset = -grid.bounds.0;
     grid.occupancy.clear();
     grid.update_bounds();
@@ -581,10 +579,6 @@ pub fn update_grid_physical_props(
     let (mass, com) = get_grid_physical_props(grid, parts)?;
     grid.parts_mass = mass;
     grid.center_of_mass = com;
-
-    if old_com != com {
-        grid.particle_location = grid.particle_location.offset(com - old_com);
-    }
 
     Ok(())
 }
