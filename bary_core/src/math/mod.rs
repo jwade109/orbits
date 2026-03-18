@@ -1,4 +1,5 @@
 mod aabb;
+mod angle;
 mod bezier;
 mod isometry;
 mod lpf;
@@ -11,6 +12,7 @@ mod rotation;
 mod volume;
 
 pub use aabb::*;
+pub use angle::*;
 pub use bezier::*;
 pub use isometry::*;
 pub use lpf::*;

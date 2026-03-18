@@ -1,5 +1,5 @@
 use super::Chat;
-use crate::{sim::PartOccupancy};
+use crate::sim::PartOccupancy;
 use bary_core::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -33,9 +33,13 @@ pub enum Viewport {
 }
 
 impl Viewport {
-    pub fn look_at(&mut self, id: Ent) {
+    pub fn look_at(&mut self, id: Ent) -> bool {
         if let Self::Free(fly) = self {
+            let ret = fly.follow_vehicle != Some(id);
             fly.follow_vehicle = Some(id);
+            ret
+        } else {
+            false
         }
     }
 

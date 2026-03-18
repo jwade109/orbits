@@ -311,9 +311,10 @@ pub mod input_handlers {
         let Some(grid_id) = client.selection_info.selected_grid else {
             return;
         };
-        debug!("Following {}", grid_id);
-        client.viewport.look_at(grid_id);
-        sounds.push(SoundEffect::Follow);
+        if client.viewport.look_at(grid_id) {
+            sounds.push(SoundEffect::Follow);
+            debug!("Following {}", grid_id);
+        }
     }
 
     pub fn ping_on_alt_left_click(
