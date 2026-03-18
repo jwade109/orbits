@@ -84,7 +84,6 @@ pub struct WorldRunner {
 
 impl WorldRunner {
     pub const TICK_DURATION: Duration = Duration::from_millis(20);
-    pub const SPEED: u32 = 20;
 
     pub fn new(world: World) -> Self {
         let now = Instant::now();
@@ -99,7 +98,7 @@ impl WorldRunner {
     pub fn update(&mut self, input: &InputState) -> (Vec<Action>, SoundEffects) {
         let now = Instant::now();
         let delta = now - self.last_update;
-        self.nominal_world_duration += delta * Self::SPEED;
+        self.nominal_world_duration += delta * self.world.tick_rate;
         self.last_update = now;
         while apparent_elapsed_time(&mut self.world) < self.nominal_world_duration {
             update_world(&mut self.world);

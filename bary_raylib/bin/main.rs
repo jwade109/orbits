@@ -190,6 +190,7 @@ fn main() {
 
         app.runner.client_info.screen_dims = screen_dims;
         app.runner.client_info.mouse_screen_position = mouse;
+        app.runner.client_info.is_holding_shift = app.input.is_key_pressed(rdev::Key::ShiftLeft);
 
         let (update_actions, update_sounds) = app.runner.update(&mut app.input);
 

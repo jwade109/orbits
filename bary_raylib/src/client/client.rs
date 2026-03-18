@@ -1,11 +1,10 @@
 use super::Chat;
-use crate::{camera::Camera, sim::PartOccupancy};
+use crate::{sim::PartOccupancy};
 use bary_core::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Debug, Deserialize, Serialize, Clone)]
 pub struct SelectionInfo {
-    pub camera_hovered: Option<Ent>,
     pub mouse_hovered: Option<Ent>,
     pub selected_grid: Option<Ent>,
     pub mouseover_part_info: Option<(PartCoord, PartOccupancy)>,
@@ -39,6 +38,13 @@ impl Viewport {
             fly.follow_vehicle = Some(id);
         }
     }
+
+    pub fn is_real_view(&self) -> bool {
+        match self {
+            Self::Free(_) => true,
+            _ => false,
+        }
+    }
 }
 
 pub struct ClientSpecificInfo {
@@ -47,6 +53,7 @@ pub struct ClientSpecificInfo {
     pub screen_dims: Vec2,
     pub selection_info: SelectionInfo,
     pub viewport: Viewport,
+    pub is_holding_shift: bool,
 }
 
 impl ClientSpecificInfo {
@@ -60,6 +67,7 @@ impl ClientSpecificInfo {
                 follow_vehicle: None,
                 lock_rotation: false,
             }),
+            is_holding_shift: false,
         }
     }
 }

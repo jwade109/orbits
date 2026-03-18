@@ -633,6 +633,7 @@ dependencies = [
  "chrono",
  "criterion",
  "crossbeam-queue",
+ "early_returns",
  "enum-iterator",
  "env_logger",
  "log",

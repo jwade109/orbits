@@ -99,7 +99,7 @@ impl CommandPrompt {
                 Command::new("find", vec!["grid_name"], cmd_find),
                 Command::new("ping", vec!["x", "y"], cmd_ping),
                 Command::new("waypoint", vec!["grid_id", "x", "y"], cmd_waypoint),
-                Command::new("setspeed", vec!["speed"], cmd_set_speed),
+                Command::new("speed", vec!["speed"], cmd_set_speed),
                 Command::new("save", vec![], cmd_placeholder),
                 Command::new("exit", vec![], |_args| panic!()),
             ],

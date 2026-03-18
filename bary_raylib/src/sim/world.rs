@@ -30,6 +30,7 @@ pub struct Timers {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct World {
     pub ticks: u64,
+    pub tick_rate: u32,
     pub timers: Timers,
 
     // camera info
@@ -65,6 +66,7 @@ impl World {
     pub fn empty() -> Self {
         Self {
             ticks: 0,
+            tick_rate: 10,
             timers: Timers::default(),
             spawner: EntitySpawner::default(),
             camera: Camera {
@@ -200,14 +202,11 @@ pub fn remove_top_part_at(world: &mut World, grid_id: Ent, coord: PartCoord) -> 
 
 pub mod input_handlers {
 
-    use crate::{
-        client,
-        sim::systems::{
-            update_grid_physical_props,
-            world::{
-                set_grid_pose, set_primary_computer_state, set_primary_computer_waypoint,
-                spawn_grid_by_name, toggle_tracking,
-            },
+    use crate::sim::systems::{
+        update_grid_physical_props,
+        world::{
+            set_grid_pose, set_primary_computer_state, set_primary_computer_waypoint,
+            spawn_grid_by_name, toggle_tracking,
         },
     };
 
@@ -398,41 +397,63 @@ pub mod input_handlers {
         }
     }
 
-    pub fn toggle_ship_editor_on_i(client: &mut ClientSpecificInfo, sounds: &mut SoundEffects) {
-        let next = match &client.viewport {
-            Viewport::Editor(editor) => {
-                sounds.push(SoundEffect::LeaveEditor);
-                Viewport::Free(FreeFlying {
-                    follow_vehicle: Some(editor.vehicle),
-                    lock_rotation: true,
-                })
-            }
-            Viewport::Free(_) => {
-                let Some(id) = client.selection_info.selected_grid else {
-                    return;
-                };
+    pub fn leave_ship_editor_on_escape(
+        world: &mut World,
+        client: &mut ClientSpecificInfo,
+        sounds: &mut SoundEffects,
+    ) {
+        let Viewport::Editor(editor) = &client.viewport else {
+            return;
+        };
+        client.viewport = Viewport::Free(FreeFlying {
+            follow_vehicle: Some(editor.vehicle),
+            lock_rotation: false,
+        });
 
-                sounds.push(SoundEffect::OpenEditor);
+        world.target_camera.zoom = 20.0;
+        world.target_camera.isometry.rotation = 0.0;
 
-                Viewport::Editor(EditorState {
-                    vehicle: id,
-                    camera_offset: Vec2::ZERO,
-                    camera_rotation: Rotation::East,
-                    prototype_id: None,
-                    part_rotation: Rotation::East,
-                    layer: None,
-                })
-            }
+        client.chat.log("Left ship editor");
+        sounds.push(SoundEffect::LeaveEditor);
+    }
+
+    pub fn enter_ship_editor_on_enter(
+        world: &mut World,
+        client: &mut ClientSpecificInfo,
+        sounds: &mut SoundEffects,
+    ) {
+        let Viewport::Free(_) = &client.viewport else {
+            return;
         };
 
-        info!("Switched viewport to {:?}", next);
-        client.viewport = next;
+        let Some(id) = client.selection_info.selected_grid else {
+            return;
+        };
+
+        client.viewport = Viewport::Editor(EditorState {
+            vehicle: id,
+            camera_offset: Vec2::ZERO,
+            camera_rotation: Rotation::East,
+            prototype_id: None,
+            part_rotation: Rotation::East,
+            layer: None,
+        });
+
+        world.target_camera.zoom = 40.0;
+
+        client.chat.log("Switched to ship editor");
+        sounds.push(SoundEffect::OpenEditor);
     }
 
     pub fn pipette_part_if_in_editor_on_q(world: &World, client: &mut ClientSpecificInfo) {
         let Viewport::Editor(editor) = &mut client.viewport else {
             return;
         };
+
+        if editor.prototype_id.is_some() {
+            editor.prototype_id = None;
+            return;
+        }
 
         editor.prototype_id = None;
 
@@ -461,6 +482,7 @@ pub mod input_handlers {
         };
 
         editor.prototype_id = Some(part.prototype);
+        editor.part_rotation = part.placement.rot();
 
         let s = format!("{:?} {:?}", editor.prototype_id, proto.name);
         client.chat.log(s);
@@ -553,7 +575,6 @@ fn update_selection_info(
     mouse_screen_position: Option<Vec2>,
     screen_dims: Vec2,
 ) {
-    info.camera_hovered = closest_grid(grids, camera.isometry.translation, 100.0).map(|e| e.0);
     if let Some(pos) = mouse_screen_position {
         let pos = screen_to_world(camera, pos, screen_dims);
         info.mouse_hovered = super::systems::find::closest_grid(grids, pos, 100.0).map(|e| e.0);
@@ -590,9 +611,9 @@ fn update_mouseover_part_info(
 
     let occ = grid.get_parts_at(coord).unwrap_or(&PartOccupancy::EMPTY);
 
-    if occ.has_any() {
-        sel.mouseover_part_info = Some((coord, *occ));
-    }
+    // if occ.has_any() {
+    sel.mouseover_part_info = Some((coord, *occ));
+    // }
 
     let new_parts = sel.mouseover_part_info.map(|(_, occ)| occ);
     let has_new_parts = new_parts.map(|e| e.has_any()).unwrap_or(false);
@@ -637,6 +658,37 @@ fn select_hovered_vehicle_on_click(sel: &mut SelectionInfo, sounds: &mut SoundEf
     } else if old_grid.is_some() {
         sounds.push(SoundEffect::Close);
     }
+}
+
+fn editor_try_place_part_on_click(world: &mut World, client: &mut ClientSpecificInfo) {
+    let Viewport::Editor(e) = &mut client.viewport else {
+        return;
+    };
+    let Some((coord, occ)) = client.selection_info.mouseover_part_info else {
+        return;
+    };
+
+    client
+        .chat
+        .log(format!("Clicked on the editor! {:?} {:?}", coord, occ));
+
+    let Some(proto_id) = e.prototype_id else {
+        return;
+    };
+
+    let Ok(proto) = world.prototypes.try_get(proto_id) else {
+        return;
+    };
+
+    let placement = GridPlacement::new(coord, e.part_rotation, proto.dims);
+
+    let instance = PartInstance {
+        name: proto.name.clone(),
+        layer: proto.layer,
+        placement,
+    };
+
+    _ = insert_part(e.vehicle, world, &instance, true);
 }
 
 pub fn update_computers(computers: &mut Components<Computer>, grids: &Components<VehicleGrid>) {
@@ -760,8 +812,9 @@ pub fn process_event(
             Key::KeyD => input_handlers::panic_on_ctrl_d(input),
             Key::KeyP => input_handlers::spawn_random_ship_on_p(world),
             Key::KeyM => input_handlers::update_center_of_mass_on_m(world),
-            Key::KeyI => input_handlers::toggle_ship_editor_on_i(client, &mut sounds),
             Key::KeyQ => input_handlers::pipette_part_if_in_editor_on_q(world, client),
+            Key::Return => input_handlers::enter_ship_editor_on_enter(world, client, &mut sounds),
+            Key::Escape => input_handlers::leave_ship_editor_on_escape(world, client, &mut sounds),
             _ => (),
         },
         rdev::EventType::KeyRelease(_key) => (),
@@ -775,6 +828,7 @@ pub fn process_event(
                     &mut sounds,
                 );
                 select_hovered_vehicle_on_click(&mut client.selection_info, &mut sounds);
+                editor_try_place_part_on_click(world, client);
             }
             Button::Right => {
                 input_handlers::destroy_top_layer_part_at_mouseover(world, client, &mut sounds)
@@ -803,6 +857,8 @@ pub fn post_simulation_update(
     input: &InputState,
 ) -> (Vec<Action>, SoundEffects) {
     let mut sounds = SoundEffects::default();
+
+    client.chat.drop_old_messages();
 
     update_selection_info(
         &mut client.selection_info,

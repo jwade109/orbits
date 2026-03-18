@@ -1,8 +1,8 @@
+use super::PartOccupancy;
+use crate::sim::*;
 use bary_core::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
-use super::PartOccupancy;
-use crate::sim::*;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct VehicleGrid {
@@ -75,6 +75,15 @@ impl VehicleGrid {
     pub fn angular_acceleration(&self) -> f32 {
         let moment_of_inertia = self.parts_mass.to_kg_f64() as f32 * 100.0;
         self.body_frame_forces.rotation / moment_of_inertia
+    }
+
+    pub fn bounding_radius(&self) -> f32 {
+        let half_dims = self.dims().to_meters() / 2.0;
+        half_dims.length() * 1.03
+    }
+
+    pub fn dims(&self) -> PartCoord {
+        PartCoord::new(self.bounds.1 - self.bounds.0)
     }
 
     /// TODO test this.

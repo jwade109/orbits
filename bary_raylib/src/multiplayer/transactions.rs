@@ -88,7 +88,9 @@ pub fn apply_transaction(
             _ = ops::despawn_grid(world, grid_id);
         }
         Action::SetSpeed(speed) => {
-            println!("TODO {}", speed);
+            world.tick_rate = speed;
+            let s = format!("Set tick rate to {}", speed);
+            client.chat.log(s);
         }
     }
 }

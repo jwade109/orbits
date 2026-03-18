@@ -3,13 +3,12 @@ use crate::camera::{Camera, to_raylib_camera};
 use crate::client::*;
 use crate::components::Components;
 use crate::query::grid_origin;
-use crate::result::BaryResult;
-use crate::sim::find::grid_pose;
 use crate::sim::*;
 use crate::ui::{Window, draw_window};
 use crate::utils::*;
 use bary_core::prelude::PI;
 use bary_core::prelude::*;
+use early_returns::*;
 use raylib::prelude::*;
 
 fn draw_text(d: &mut RaylibDrawHandle, iso: Isometry2d, text: &str) {
@@ -85,37 +84,42 @@ pub fn draw_world(
 
     draw_origin_and_range_indicators(&mut c);
 
-    draw_computer_target_isometry(&mut c, &world.computers, &world.grids);
-
-    // draw_grid_blueprints(
-    //     &mut c,
-    //     &world.grids,
-    //     &world.parts,
-    //     &world.prototypes,
-    //     &world.camera,
-    // );
-
-    draw_parts(&mut c, &world.grids, &world.parts, &raylib_camera);
-    draw_thrusters(
+    draw_parts(
         &mut c,
         &world.grids,
         &world.parts,
-        &world.thrusters,
-        &world.camera,
-    );
-    draw_lights(
-        &mut c,
-        &world.grids,
-        &world.parts,
-        &world.computers,
-        &world.lights,
-        world.ticks as u32,
-        &world.camera,
+        &raylib_camera,
+        &client.viewport,
     );
 
-    draw_grid_outlines(&mut c, &world.grids);
+    if client.viewport.is_real_view() {
+        draw_computer_target_isometry(&mut c, &world.computers, &world.grids);
 
-    _ = draw_selection_info(&mut c, &world.grids, &client.selection_info);
+        draw_selection_info(&mut c, &world.grids, &client.selection_info);
+
+        draw_lights(
+            &mut c,
+            &world.grids,
+            &world.parts,
+            &world.computers,
+            &world.lights,
+            world.ticks as u32,
+            &world.camera,
+        );
+
+        draw_thruster_plumes(
+            &mut c,
+            &world.grids,
+            &world.parts,
+            &world.thrusters,
+            &world.camera,
+        );
+    } else if let Viewport::Editor(e) = &client.viewport {
+        draw_grid_lines(&mut c, &world.grids, e);
+        if client.is_holding_shift {
+            draw_grid_outlines(&mut c, &world.grids);
+        }
+    }
 
     draw_focused_grid_cursor(&mut c, &world.grids, &world.parts, &client.selection_info);
 
@@ -130,8 +134,8 @@ pub fn draw_world(
 
     draw_trackers(&mut c, &world.tracking);
 
-    draw_isometry_axes(&mut c, world.camera.isometry, "CAM", Vec2::splat(5.0));
-    draw_isometry_axes(&mut c, world.target_camera.isometry, "", Vec2::splat(5.0));
+    // draw_isometry_axes(&mut c, world.camera.isometry, "CAM", Vec2::splat(5.0));
+    // draw_isometry_axes(&mut c, world.target_camera.isometry, "", Vec2::splat(5.0));
 
     draw_editor_part(&mut c, world, client);
 
@@ -147,10 +151,10 @@ pub fn draw_world(
 
     draw_selected_grid_primary_computer_info(d, world, client, assets);
 
-    draw_hovered_part_info(d, world, client, assets);
-
     if let Viewport::Editor(_) = client.viewport {
         draw_editor_state(d);
+    } else {
+        draw_hovered_part_info(d, world, client, assets);
     }
 
     // draw_parts_zoo(&world.prototypes, &mut d);
@@ -382,31 +386,48 @@ pub fn draw_editor_part(d: &mut RaylibDrawHandle, world: &World, client: &Client
 
     let cl = proto.classification();
     let pl = GridPlacement::new(coord, editor.part_rotation, proto.dims);
-    let iso = grid_pose * pl.origin_isometry();
-
-    draw_part(d, pl, cl, iso);
+    draw_part(d, pl, cl, grid_pose, false);
+    draw_part_arrow(d, pl, grid_pose);
 }
 
 pub fn draw_part(
     d: &mut RaylibDrawHandle,
     pl: GridPlacement,
     cl: PartClassification,
-    iso: Isometry2d,
+    grid_isometry: Isometry2d,
+    grayed: bool,
 ) {
-    let color = match cl {
-        PartClassification::Cargo => Color::GREEN,
-        PartClassification::Machine => Color::PURPLE,
-        PartClassification::Thruster => Color::MAROON,
-        PartClassification::Auxiliary => Color::YELLOW,
-        PartClassification::DockingPort => Color::ORANGE,
-        PartClassification::Computer => Color::RED,
-        PartClassification::Structure => Color::GRAY.alpha(0.7),
-        PartClassification::Decoration => Color::WHITE.alpha(0.7),
-        PartClassification::Other => Color::GRAY,
+    let color = if grayed {
+        Color::GRAY.alpha(0.2)
+    } else {
+        match cl {
+            PartClassification::Cargo => Color::GREEN,
+            PartClassification::Machine => Color::PURPLE,
+            PartClassification::Thruster => Color::MAROON,
+            PartClassification::Auxiliary => Color::YELLOW,
+            PartClassification::DockingPort => Color::ORANGE,
+            PartClassification::Computer => Color::RED,
+            PartClassification::Structure => Color::GRAY.alpha(0.7),
+            PartClassification::Decoration => Color::WHITE.alpha(0.7),
+            PartClassification::Other => Color::GRAY,
+        }
     };
 
+    let iso = grid_isometry * pl.origin_isometry();
     let dims = pl.part_aligned_dims().to_meters();
     fill_rectangle(d, iso, dims, color);
+}
+
+pub fn draw_part_arrow(d: &mut RaylibDrawHandle, pl: GridPlacement, grid_isometry: Isometry2d) {
+    let center = grid_isometry * pl.center_isometry();
+    let dims = pl.part_aligned_dims().to_meters();
+    let length = 0.2;
+    let bottom_mid = center.offset(Vec2::X * (dims.x / 2.0 + length / 8.0));
+    let v1 = glam_to_raylib_swap_y(bottom_mid.offset(Vec2::Y * length).translation);
+    let v2 = glam_to_raylib_swap_y(bottom_mid.offset(-Vec2::Y * length).translation);
+    let v3 = glam_to_raylib_swap_y(bottom_mid.offset(Vec2::X * length).translation);
+
+    d.draw_triangle(v1, v2, v3, Color::GREENYELLOW);
 }
 
 pub fn draw_parts(
@@ -414,12 +435,21 @@ pub fn draw_parts(
     grids: &Components<VehicleGrid>,
     parts: &Components<Part>,
     camera: &Camera2D,
+    viewport: &Viewport,
 ) {
     if camera.zoom < 2.0 {
         return;
     }
 
-    for grid in grids.values() {
+    let focus_vehicle = if let Viewport::Editor(e) = viewport {
+        Some(e.vehicle)
+    } else {
+        None
+    };
+
+    for (grid_id, grid) in grids.iter() {
+        let is_grayed_out = focus_vehicle.is_some() && focus_vehicle != Some(*grid_id);
+
         let origin = grid.origin();
         for draw_layer in PartLayer::draw_order() {
             for part_id in &grid.parts {
@@ -431,8 +461,13 @@ pub fn draw_parts(
                     continue;
                 }
 
-                let iso = part_isometry(origin, part.placement);
-                draw_part(d, part.placement, part.classification, iso);
+                draw_part(
+                    d,
+                    part.placement,
+                    part.classification,
+                    origin,
+                    is_grayed_out,
+                );
             }
         }
     }
@@ -542,12 +577,18 @@ fn draw_grid_far_indicators(
     let mut markers = Vec::new();
 
     for (id, grid) in grids.iter() {
-        let loc = grid.particle_location;
+        let loc = grid.centroid_isometry();
         let p = glam_to_raylib_swap_y(loc.translation);
         let q = d.get_world_to_screen2D(p, camera);
 
         let name = format!("{} {}", id, grid.name);
-        markers.push((q, q, loc.rotation, name, !grid.computers.is_empty()));
+        markers.push((
+            q,
+            q,
+            loc.rotation - camera.rotation.to_radians(),
+            name,
+            !grid.computers.is_empty(),
+        ));
     }
 
     // move the markers apart
@@ -683,23 +724,19 @@ fn draw_selection_info(
     d: &mut RaylibDrawHandle,
     grids: &Components<VehicleGrid>,
     sel: &SelectionInfo,
-) -> BaryResult<()> {
-    if let Some(grid_id) = sel.camera_hovered {
-        let grid = grids.try_get(grid_id)?;
-        let loc = grid.centroid_isometry();
-        draw_circle(d, loc.translation, 15.0, Color::RED);
-    }
+) {
     if let Some(grid_id) = sel.mouse_hovered {
-        let grid = grids.try_get(grid_id)?;
+        let grid = ok_or_return!(grids.try_get(grid_id));
         let loc = grid.centroid_isometry();
-        draw_circle(d, loc.translation, 16.0, Color::GREEN);
+        let r = grid.bounding_radius() * 1.4;
+        draw_circle(d, loc.translation, r, Color::GREEN);
     }
     if let Some(grid_id) = sel.selected_grid {
-        let grid = grids.try_get(grid_id)?;
+        let grid = ok_or_return!(grids.try_get(grid_id));
         let loc = grid.centroid_isometry();
-        draw_circle(d, loc.translation, 17.0, Color::BLUE);
+        let r = grid.bounding_radius() * 1.4 + 0.5;
+        draw_circle(d, loc.translation, r, Color::BLUE);
     }
-    Ok(())
 }
 
 fn grid_info_str(grid: &VehicleGrid) -> String {
@@ -822,7 +859,31 @@ fn draw_hovered_part_info(
     }
 }
 
-fn draw_thrusters(
+fn draw_grid_lines(
+    d: &mut RaylibDrawHandle,
+    grids: &Components<VehicleGrid>,
+    editor: &EditorState,
+) {
+    let grid = ok_or_return!(grids.try_get(editor.vehicle));
+    let iso = grid.origin();
+    let dims = grid.dims().to_meters();
+
+    let x = (-2, dims.x.ceil() as i32 + 2);
+    let y = (-2, dims.y.ceil() as i32 + 2);
+
+    for x in x.0..=x.1 {
+        let start = iso.offset(Vec2::new(x as f32, y.0 as f32)).translation;
+        let end = iso.offset(Vec2::new(x as f32, y.1 as f32)).translation;
+        draw_line(d, start, end, Color::GRAY.alpha(0.5));
+    }
+    for y in y.0..=y.1 {
+        let start = iso.offset(Vec2::new(x.0 as f32, y as f32)).translation;
+        let end = iso.offset(Vec2::new(x.1 as f32, y as f32)).translation;
+        draw_line(d, start, end, Color::GRAY.alpha(0.5));
+    }
+}
+
+fn draw_thruster_plumes(
     d: &mut RaylibDrawHandle,
     grids: &Components<VehicleGrid>,
     parts: &Components<Part>,
