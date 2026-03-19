@@ -112,6 +112,10 @@ impl GridPlacement {
         iter_coords.map(|p| self.bottom_left + PartCoord::new(p))
     }
 
+    pub fn cell_count(&self) -> u32 {
+        self.part_local_dims.x * self.part_local_dims.y
+    }
+
     pub fn rotate_ccw(&mut self) {
         let upper_left = self.top_left();
         let new_bottom_left = IVec2::Y.rotate(upper_left.inner());

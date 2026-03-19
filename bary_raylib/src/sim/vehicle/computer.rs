@@ -15,7 +15,6 @@ pub struct Computer {
     pub velocity: Isometry2d,
     pub vehicle_control: VehicleControl,
     pub control_status: VehicleControlStatus,
-    pub grid_id: Ent,
     pub prototype: Ent,
 }
 
@@ -79,7 +78,6 @@ impl Computer {
             velocity: Isometry2d::ZERO,
             vehicle_control: VehicleControl::NULLOPT,
             control_status: VehicleControlStatus::Idling,
-            grid_id,
             prototype,
         }
     }

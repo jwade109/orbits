@@ -100,9 +100,7 @@ pub fn split_grid_if_necessary(world: &mut World, grid_id: Ent) -> BaryResult<Ve
     let mut ids = Vec::new();
     let rebuilt = rebuild_index_from_islands(grid, &islands, &world.parts)?;
 
-    for (i, mut r) in rebuilt.into_iter().enumerate() {
-        r.velocity.translation += randvec(0.1, 0.2);
-        r.velocity.rotation += rand(-0.05, 0.05);
+    for (i, r) in rebuilt.into_iter().enumerate() {
         if i == 0 {
             world.grids.insert(grid_id, r);
             ids.push(grid_id);

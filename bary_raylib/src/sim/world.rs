@@ -37,6 +37,9 @@ pub struct World {
     pub camera: Camera,
     pub target_camera: Camera,
 
+    // debug info
+    pub grid_acceleration_updates: u64,
+
     // components - to be synchronized between clients
     pub spawner: EntitySpawner,
     pub particles: Vec<PingParticle>,
@@ -77,6 +80,7 @@ impl World {
                 zoom: 8.0,
                 ..Camera::default()
             },
+            grid_acceleration_updates: 0,
             particles: Vec::default(),
             blueprints: Components::default(),
             prototypes: Components::default(),
@@ -529,6 +533,10 @@ fn update_thrusters(
     let mut needs_update = BTreeSet::new();
 
     for (grid_id, grid) in grids.iter() {
+        if grid.thrusters.is_empty() {
+            continue;
+        }
+
         let Some(cpu_id) = grid.computers.first() else {
             continue;
         };
@@ -538,6 +546,8 @@ fn update_thrusters(
         if !cpu.fired_this_tick {
             continue;
         }
+
+        let mut thruster_changed = false;
 
         for thruster_id in &grid.thrusters {
             let Ok(thruster) = thrusters.try_get_mut(*thruster_id) else {
@@ -567,6 +577,8 @@ fn update_thrusters(
                 grid.center_of_mass,
             );
 
+            let old_val = thruster.is_on;
+
             if thruster.is_rcs {
                 let can_torque = wrench.rotation.abs() > 0.5 && ctrl.attitude.abs() > 0.5;
                 let is_torque =
@@ -577,10 +589,14 @@ fn update_thrusters(
                 thruster.is_on = !tac.use_rcs && tac.throttle > 0.0;
             }
 
+            thruster_changed |= old_val != thruster.is_on;
+
             thruster.last_controlled_by = Some(*cpu_id);
         }
 
-        needs_update.insert(*grid_id);
+        if thruster_changed {
+            needs_update.insert(*grid_id);
+        }
     }
 
     needs_update
@@ -709,9 +725,17 @@ fn editor_try_place_part_on_click(world: &mut World, client: &mut ClientSpecific
     _ = insert_part(e.vehicle, world, &instance, true);
 }
 
-pub fn update_computers(computers: &mut Components<Computer>, grids: &Components<VehicleGrid>) {
-    for computer in computers.values_mut() {
-        let Ok(grid) = grids.try_get(computer.grid_id) else {
+pub fn update_computers(
+    computers: &mut Components<Computer>,
+    parts: &Components<Part>,
+    grids: &Components<VehicleGrid>,
+) {
+    for (cpu_id, computer) in computers.iter_mut() {
+        let Ok(part) = parts.try_get(*cpu_id) else {
+            continue;
+        };
+
+        let Ok(grid) = grids.try_get(part.grid_id) else {
             continue;
         };
 
@@ -792,8 +816,9 @@ pub fn update_world(world: &mut World) {
         &world.parts,
         &world.computers,
     );
+    world.grid_acceleration_updates += dirty_set.len() as u64;
     update_grid_acceleration(dirty_set, &mut world.grids, &world.thrusters, &world.parts);
-    update_computers(&mut world.computers, &world.grids);
+    update_computers(&mut world.computers, &world.parts, &world.grids);
     propagate_grid_rigid_bodies(&mut world.grids);
     update_trackers(&mut world.tracking, &world.grids, world.ticks);
 

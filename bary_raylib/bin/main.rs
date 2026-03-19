@@ -8,6 +8,7 @@ use bary_raylib::render::draw;
 use bary_raylib::sim::systems::*;
 use bary_raylib::sim::world::*;
 use bary_raylib::sounds::SoundEffects;
+use bary_raylib::tests::is_world_consistent;
 use bary_raylib::ui;
 use bary_raylib::utils::raylib_to_glam;
 use log::*;
@@ -51,6 +52,7 @@ fn draw_debug_info(
     );
     s += &format!("\nMemory: {:0.3} kb", size as f64 / 1000.0);
     s += &format!("\nZoom: {:0.3}", world.camera.zoom);
+    s += &format!("\nUpdates: {}", world.grid_acceleration_updates);
 
     s += &format!("\nMOUSE {:?}", client.mouse_screen_position);
     s += &format!("\nPRT {:?}", &world.particles.len());
@@ -216,6 +218,10 @@ fn main() {
             sound.play();
 
             active_sounds.push(sound);
+        }
+
+        if let Err(e) = is_world_consistent(&app.runner.world) {
+            println!("Badness: {:?}", e);
         }
 
         active_sounds.retain(|s| s.is_playing());

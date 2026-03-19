@@ -98,13 +98,13 @@ pub fn update_grid_acceleration(
 /// TODO(testing) test this.
 pub fn set_primary_computer_waypoint_c(
     grid_id: Ent,
-    waypoint: Isometry2d,
+    waypoint: impl Into<Isometry2d>,
     grids: &Components<VehicleGrid>,
     computers: &mut Components<Computer>,
 ) -> BaryResult<Ent> {
     let primary_cpu_id = find::primary_computer_id(grid_id, grids)?;
     let computer = computers.try_get_mut(primary_cpu_id)?;
-    computer.pose = waypoint;
+    computer.pose = waypoint.into();
     Ok(primary_cpu_id)
 }
 
@@ -153,7 +153,7 @@ pub mod world {
     /// TODO(testing) test this.
     pub fn set_primary_computer_waypoint(
         grid_id: Ent,
-        waypoint: Isometry2d,
+        waypoint: impl Into<Isometry2d>,
         world: &mut World,
     ) -> BaryResult<Ent> {
         super::set_primary_computer_waypoint_c(
@@ -726,7 +726,6 @@ mod tests {
 
         // these entities should be the same every time
         assert_eq!(*id, Ent(58));
-        assert_eq!(cpu.grid_id, expected_grid_id);
         assert_eq!(cpu.prototype, Ent(6));
 
         // get the prototype definition for the computer

@@ -93,7 +93,7 @@ pub fn draw_world(
     );
 
     if client.viewport.is_real_view() {
-        draw_computer_target_isometry(&mut c, &world.computers, &world.grids);
+        draw_computer_target_isometry(&mut c, &world.computers, &world.parts, &world.grids);
 
         draw_selection_info(&mut c, &world.grids, &client.selection_info);
 
@@ -116,6 +116,7 @@ pub fn draw_world(
         );
     } else if let Viewport::Editor(e) = &client.viewport {
         draw_grid_lines(&mut c, &world.grids, e);
+        draw_thruster_classification(&mut c, &world.grids, &world.parts, &world.thrusters);
         if client.is_holding_shift {
             draw_grid_outlines(&mut c, &world.grids);
         }
@@ -248,14 +249,21 @@ fn draw_focused_grid_cursor(
         let iso = origin.offset(coord.to_meters());
         fill_rectangle(d, iso, Vec2::splat(size), Color::GREEN);
 
-        for (_layer, id) in occ.iter() {
+        for (layer, id) in occ.iter() {
+            let border_color = match layer {
+                PartLayer::Internal => Color::WHITE,
+                PartLayer::Exterior => Color::PURPLE,
+                PartLayer::Structural => Color::RED,
+                _ => continue,
+            };
+
             if let Ok(part) = parts.try_get(id) {
                 draw_grid_placement(
                     d,
                     origin,
                     part.placement,
                     Color::PURPLE.alpha(0.3),
-                    Color::WHITE,
+                    border_color,
                 );
             }
         }
@@ -330,6 +338,40 @@ pub fn draw_blueprint(bp: &Blueprint, isometry: Isometry2d, d: &mut RaylibDrawHa
 
 pub fn is_zoomed_out(camera: &Camera2D) -> bool {
     camera.zoom > 0.1
+}
+
+pub fn draw_thruster_classification(
+    d: &mut RaylibDrawHandle,
+    grids: &Components<VehicleGrid>,
+    parts: &Components<Part>,
+    thrusters: &Components<Thruster>,
+) {
+    for grid in grids.values() {
+        let root = grid.origin();
+        for thruster_id in &grid.thrusters {
+            let part = ok_or_continue!(parts.try_get(*thruster_id));
+            let thruster = ok_or_continue!(thrusters.try_get(*thruster_id));
+            let part_iso = part.placement.center_isometry();
+            let wrench = body_frame_wrench(
+                thruster.thrust,
+                part_iso.translation,
+                part.placement.rot(),
+                grid.center_of_mass,
+            );
+
+            let color = if !thruster.is_rcs {
+                Color::TEAL
+            } else {
+                if wrench.rotation > 0.0 {
+                    Color::RED
+                } else {
+                    Color::GREEN
+                }
+            };
+
+            draw_grid_placement(d, root, part.placement, color.alpha(0.7), Color::MAROON);
+        }
+    }
 }
 
 pub fn draw_grid_outlines(d: &mut RaylibDrawHandle, grids: &Components<VehicleGrid>) {
@@ -476,10 +518,15 @@ pub fn draw_parts(
 pub fn draw_computer_target_isometry(
     d: &mut RaylibDrawHandle,
     computers: &Components<Computer>,
+    parts: &Components<Part>,
     grids: &Components<VehicleGrid>,
 ) {
-    for cpu in computers.values() {
-        let Ok(grid) = grids.try_get(cpu.grid_id) else {
+    for (cpu_id, cpu) in computers.iter() {
+        let Ok(part) = parts.try_get(*cpu_id) else {
+            continue;
+        };
+
+        let Ok(grid) = grids.try_get(part.grid_id) else {
             continue;
         };
         draw_isometry_axes(d, cpu.pose, &grid.name, Vec2::new(5.0, 3.0));
