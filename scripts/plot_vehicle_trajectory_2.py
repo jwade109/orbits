@@ -9,7 +9,9 @@ def main():
     infile = sys.argv[1]
     data = pd.read_csv(infile)
 
-    _, axs = plt.subplots(2, 2)
+    print(data)
+
+    _, axs = plt.subplots(4, 2)
 
     axs[0, 0].plot(data.ticks, data.x, label="x")
     axs[0, 0].plot(data.ticks, data.tx, label="tx")
@@ -30,6 +32,23 @@ def main():
     axs[1, 1].plot(data.tx, data.ty, "*", label="Target")
     axs[1, 1].grid()
     axs[1, 1].legend()
+
+    axs[2, 0].plot(data.ticks, data.updates, label="Acceleration Updates")
+    axs[2, 0].grid()
+    axs[2, 0].legend()
+
+    axs[2, 1].plot(data.ticks, data.thrusters, label="# Thrusters Firing")
+    axs[2, 1].grid()
+    axs[2, 1].legend()
+
+    axs[3, 0].plot(data.ticks, data.vx, label="X Velocity")
+    axs[3, 0].plot(data.ticks, data.vy, label="Y Velocity")
+    axs[3, 0].grid()
+    axs[3, 0].legend()
+
+    axs[3, 1].plot(data.ticks, data.va, label="Angular Velocity")
+    axs[3, 1].grid()
+    axs[3, 1].legend()
 
     plt.show()
 

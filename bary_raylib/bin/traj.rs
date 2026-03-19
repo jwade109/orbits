@@ -10,18 +10,16 @@ use bary_raylib::{
 
 struct SimEpoch {
     ticks: u64,
-    x: f32,
-    y: f32,
-    angle: f32,
-    target_x: f32,
-    target_y: f32,
-    target_angle: f32,
-    thrusters: Vec<bool>,
+    pose: Isometry2d,
+    vel: Isometry2d,
+    target: Isometry2d,
+    acc_updates: u64,
+    thrusters_firing: u32,
 }
 
 fn run_simulation(
     vehicle_name: &str,
-    waypoint: Isometry2d,
+    target: Isometry2d,
     steps: usize,
     secs_per_step: f32,
 ) -> Vec<SimEpoch> {
@@ -29,7 +27,7 @@ fn run_simulation(
         .assets()
         .blueprint(vehicle_name)
         .spawn(vehicle_name, (0.0, 0.0, 0.0))
-        .waypoint(vehicle_name, waypoint)
+        .waypoint(vehicle_name, target)
         .build();
 
     let grid_id = find::grid_by_name(&world.grids, vehicle_name).unwrap();
@@ -42,21 +40,20 @@ fn run_simulation(
             update_world(&mut world);
         }
 
-        let pose = find::grid_origin(&world.grids, grid_id).unwrap().to_tuple();
+        let pose = find::grid_pose(&world.grids, grid_id).unwrap();
+        let vel = find::grid_vel(&world.grids, grid_id).unwrap();
 
         let thrusters = get_thruster_levels(grid_id, &world.grids, &world.thrusters).unwrap();
 
-        let thrusters = thrusters.into_iter().map(|e| e.1).collect();
+        let thrusters_firing = thrusters.into_iter().map(|e| e.1 as u32).sum();
 
         let epoch = SimEpoch {
             ticks: world.ticks,
-            x: pose.0,
-            y: pose.1,
-            angle: pose.2,
-            target_x: waypoint.translation.x,
-            target_y: waypoint.translation.y,
-            target_angle: waypoint.rotation,
-            thrusters,
+            pose,
+            vel,
+            target,
+            acc_updates: world.grid_acceleration_updates,
+            thrusters_firing,
         };
 
         ret.push(epoch);
@@ -66,29 +63,36 @@ fn run_simulation(
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // let args: Vec<_> = std::env::args().collect();
-    // let outfile = args[1];
+    let args: Vec<_> = std::env::args().collect();
 
-    let pos = randvec(3000.0, 12000.0);
-    let waypoint = Isometry2d::new(pos, 0.0);
+    let ship_name = args.get(1).unwrap();
+    let x: f32 = args.get(2).unwrap().parse().unwrap();
+    let y: f32 = args.get(3).unwrap().parse().unwrap();
+    let r: f32 = args.get(4).unwrap().parse().unwrap();
 
-    let epochs = run_simulation("bellerophon", waypoint, 1000, 1.0);
+    let waypoint = Isometry2d::new((x, y).into(), r);
+
+    let epochs = run_simulation(ship_name, waypoint, 1000, 0.1);
     let mut file = File::create("sim.csv").unwrap();
 
-    write!(file, "ticks,x,y,a,tx,ty,ta,thrusters\n")?;
+    write!(file, "ticks,x,y,a,vx,vy,va,tx,ty,ta,updates,thrusters\n")?;
 
     for epoch in epochs {
         write!(
             file,
-            "{},{:0.3},{:0.3},{:0.3},{:0.3},{:0.3},{:0.3},\"{:?}\"\n",
+            "{},{:0.3},{:0.3},{:0.3},{:0.3},{:0.3},{:0.3},{:0.3},{:0.3},{:0.3},{},{}\n",
             epoch.ticks,
-            epoch.x,
-            epoch.y,
-            epoch.angle,
-            epoch.target_x,
-            epoch.target_y,
-            epoch.target_angle,
-            epoch.thrusters,
+            epoch.pose.translation.x,
+            epoch.pose.translation.y,
+            epoch.pose.rotation,
+            epoch.vel.translation.x,
+            epoch.vel.translation.y,
+            epoch.vel.rotation,
+            epoch.target.translation.x,
+            epoch.target.translation.y,
+            epoch.target.rotation,
+            epoch.acc_updates,
+            epoch.thrusters_firing,
         )?;
     }
 

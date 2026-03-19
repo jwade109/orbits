@@ -482,6 +482,11 @@ pub mod find {
         Some(grid.particle_location)
     }
 
+    pub fn grid_vel(grids: &Components<VehicleGrid>, grid_id: Ent) -> Option<Isometry2d> {
+        let grid = grids.try_get(grid_id).ok()?;
+        Some(grid.velocity)
+    }
+
     /// Returns the ID of the first grid in the components list with
     /// the given name.
     ///
