@@ -1,4 +1,4 @@
-use bary_core::prelude::{Ent, Isometry2d, Mass, Vec2};
+use bary_core::prelude::*;
 
 use crate::{
     ops::{set_grid_pose, set_primary_computer_state, set_primary_computer_waypoint},
@@ -12,7 +12,7 @@ use crate::{
 };
 
 #[test]
-fn ship_assembly() {
+fn build_ship_on_another_ship_then_navigate() {
     let mut world = WorldBuilder::new()
         .test_assets()
         .blueprint("remora")
@@ -61,14 +61,28 @@ fn ship_assembly() {
         assert!(set_primary_computer_state(id, true, &mut world).is_ok());
     }
 
-    for _ in 0..3000 {
-        for _ in 0..100 {
+    for _ in 0..20 {
+        for _ in 0..1000 {
             update_world(&mut world);
         }
 
         let pa = grid_pose(&world.grids, grid_id).unwrap();
         let pb = grid_pose(&world.grids, next_id).unwrap();
 
-        println!("{} {:?} {:?}", world.ticks, pa.to_tuple(), pb.to_tuple());
+        let a1 = Angle::radians(pa.rotation);
+        let a2 = Angle::radians(pb.rotation);
+
+        println!(
+            "{} {:?} {:?} {a1} {a2}",
+            world.ticks,
+            pa.to_tuple(),
+            pb.to_tuple()
+        );
     }
+
+    let pa = grid_pose(&world.grids, grid_id).unwrap();
+    let pb = grid_pose(&world.grids, next_id).unwrap();
+
+    assert_eq!(pa.to_tuple(), (499.92654, 799.72156, -5.9987755));
+    assert_eq!(pb.to_tuple(), (499.41153, 799.95984, -5.9996347));
 }

@@ -770,15 +770,15 @@ mod tests {
 
         let grid = world.grids.try_get_mut(id).unwrap();
         grid.particle_location.translation = Vec2::new(40.0, 156.0);
+        grid.particle_location.rotation = 30.0f32.to_radians();
 
-        println!("{:?}", grid.origin());
-        println!("{:?}", grid.centroid_isometry());
+        let centroid = grid.centroid_isometry();
 
         for _ in 0..100 {
             update_world(&mut world);
-            let test_pos = Vec2::new(100.0, 200.0);
+            let test_pos = centroid.offset(Vec2::new(100.0, 200.0)).translation;
             let e = find::closest_grid(&world.grids, test_pos, None);
-            assert_eq!(e, Some((Ent(34), Vec2::new(60.0, 44.0))));
+            assert_eq!(e, Some((Ent(34), Vec2::new(99.99999, 199.99998))));
         }
 
         assert_world_is_consistent(&world);
@@ -810,10 +810,12 @@ mod tests {
         let instance = PartInstance::new(
             part_name,
             PartLayer::Internal,
-            GridPlacement::new((2, 3), Rotation::East, dims),
+            GridPlacement::new((2, 20), Rotation::East, dims),
         );
 
         let id = insert_part(grid_id, &mut world, &instance, true).unwrap();
+
+        assert_world_is_consistent(&world);
 
         assert_eq!(id, Ent(130));
 
@@ -824,13 +826,11 @@ mod tests {
         assert_eq!(
             part.placement,
             // TODO allow insertion at a given placement
-            GridPlacement::new((2, 3), Rotation::East, (6, 3))
+            GridPlacement::new((2, 20), Rotation::East, (6, 3))
         );
 
         assert_eq!(world.parts.len(), 99);
         assert_eq!(world.thrusters.len(), 19);
-
-        assert_world_is_consistent(&world);
     }
 
     #[test]
@@ -1313,6 +1313,8 @@ mod tests {
                 pose.2
             );
         }
+
+        assert_eq!(world.grid_acceleration_updates, 96);
 
         let pose = find::grid_pose(&world.grids, grid_id).unwrap();
         let error = pose.translation - waypoint.translation;

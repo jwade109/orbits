@@ -7,7 +7,6 @@ fired_this_tick = false
 iters = 0
 mode = "Idle"
 control_status = "Idling"
-grid_id = 34
 prototype = 6
 
 [values.58.pose]
@@ -46,7 +45,6 @@ fired_this_tick = false
 iters = 0
 mode = "Idle"
 control_status = "Idling"
-grid_id = 133
 prototype = 6
 
 [values.152.pose]
@@ -85,7 +83,6 @@ fired_this_tick = false
 iters = 0
 mode = "Idle"
 control_status = "Idling"
-grid_id = 165
 prototype = 6
 
 [values.244.pose]
