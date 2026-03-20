@@ -3,6 +3,12 @@ use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ScheduledCommand {
+    pub ticks: u64,
+    pub command: VehicleControl,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Computer {
     pub on: bool,
     pub status: MachineStatus,
@@ -16,6 +22,7 @@ pub struct Computer {
     pub vehicle_control: VehicleControl,
     pub control_status: VehicleControlStatus,
     pub prototype: Ent,
+    pub command_queue: Vec<ScheduledCommand>,
 }
 
 #[derive(Sequence, Default, Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
@@ -65,7 +72,7 @@ impl ComputerMode {
 }
 
 impl Computer {
-    pub fn new(grid_id: Ent, prototype: Ent) -> Self {
+    pub fn new(prototype: Ent) -> Self {
         Self {
             on: false,
             status: MachineStatus::Off,
@@ -79,75 +86,75 @@ impl Computer {
             vehicle_control: VehicleControl::NULLOPT,
             control_status: VehicleControlStatus::Idling,
             prototype,
+            command_queue: Vec::new(),
         }
     }
 
     pub fn toggle(&mut self) {
         self.on = !self.on;
     }
+
+    pub fn enqueue_commands(&mut self) {
+        self.command_queue = vec![
+            ScheduledCommand {
+                ticks: 100,
+                command: VehicleControl {
+                    attitude: 1.0,
+                    ..VehicleControl::NULLOPT
+                },
+            },
+            ScheduledCommand {
+                ticks: 500,
+                command: VehicleControl {
+                    attitude: -1.0,
+                    ..VehicleControl::NULLOPT
+                },
+            },
+            ScheduledCommand {
+                ticks: 900,
+                command: VehicleControl::NULLOPT,
+            },
+            ScheduledCommand {
+                ticks: 2000,
+                command: VehicleControl::FORWARD,
+            },
+            ScheduledCommand {
+                ticks: 2005,
+                command: VehicleControl::NULLOPT,
+            },
+            ScheduledCommand {
+                ticks: 4000,
+                command: VehicleControl {
+                    attitude: 1.0,
+                    ..VehicleControl::NULLOPT
+                },
+            },
+            ScheduledCommand {
+                ticks: 4400,
+                command: VehicleControl {
+                    attitude: -1.0,
+                    ..VehicleControl::NULLOPT
+                },
+            },
+            ScheduledCommand {
+                ticks: 4800,
+                command: VehicleControl::NULLOPT,
+            },
+            ScheduledCommand {
+                ticks: 4900,
+                command: VehicleControl::FORWARD,
+            },
+            ScheduledCommand {
+                ticks: 4905,
+                command: VehicleControl::NULLOPT,
+            },
+            ScheduledCommand {
+                ticks: 10000,
+                command: VehicleControl::NULLOPT,
+            },
+        ];
+    }
 }
-
-// fn draw_computers(
-//     mut painter: ShapePainter,
-//     blueprints: Query<&Blueprint>,
-//     computers: Query<(&Computer, &GlobalTransform, &ChildOf)>,
-//     camera: Single<&Transform, With<Camera>>,
-//     parts: Res<PartsResource>,
-//     settings: Res<Settings>,
-//     mut gizmos: Gizmos,
-// ) {
-//     for (computer, transform, grid_id) in computers {
-//         if !computer.on {
-//             continue;
-//         }
-
-//         const COMPUTER_AXIS_Z: f32 = 120.0;
-
-//         {
-//             // axes
-//             painter.reset();
-//             painter.set_translation(transform.translation().with_z(COMPUTER_AXIS_Z));
-//             painter.set_rotation(transform.rotation());
-//             painter.hollow = true;
-//             painter.thickness_type = ThicknessType::Pixels;
-//             painter.thickness = 3.0;
-//             painter.set_color(YELLOW.with_alpha(0.3));
-//             painter.circle(0.3);
-//             painter.set_color(RED);
-//             painter.line(Vec3::ZERO, Vec3::X * 2.0);
-//             painter.set_color(GREEN);
-//             painter.line(Vec3::ZERO, Vec3::Y * 2.0);
-//         }
-
-//         let z = 60.0;
-
-//         if computer.mode.needs_position() {
-//             draw_waypoint(
-//                 &mut painter,
-//                 computer.position.extend(z),
-//                 computer.mode.needs_attitude().then(|| computer.attitude),
-//                 LIME,
-//                 camera.scale.x,
-//             );
-//         } else if computer.mode.needs_attitude() {
-//             draw_waypoint(
-//                 &mut painter,
-//                 transform.translation().with_z(COMPUTER_AXIS_Z),
-//                 Some(computer.attitude),
-//                 LIME,
-//                 camera.scale.x,
-//             );
-//         }
-
-//         if computer.mode.needs_isometry() && settings.draw_target_pose {
-//             let iso = Isometry2d::new(computer.position, computer.attitude.into());
-//             let Ok(bp) = blueprints.get(grid_id.0) else {
-//                 continue;
-//             };
-//             draw_blueprint(&mut gizmos, bp, iso, &parts);
-//         }
-//     }
-// }
 
 // pub fn do_maneuvers(
 //     grids: Components<VehicleGrid>,

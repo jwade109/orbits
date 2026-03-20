@@ -8,6 +8,7 @@ iters = 0
 mode = "Idle"
 control_status = "Idling"
 prototype = 6
+command_queue = []
 
 [values.58.pose]
 translation = [0.0, 0.0]
@@ -46,6 +47,7 @@ iters = 0
 mode = "Idle"
 control_status = "Idling"
 prototype = 6
+command_queue = []
 
 [values.152.pose]
 translation = [0.0, 0.0]
@@ -84,6 +86,7 @@ iters = 0
 mode = "Idle"
 control_status = "Idling"
 prototype = 6
+command_queue = []
 
 [values.244.pose]
 translation = [0.0, 0.0]

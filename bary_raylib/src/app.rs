@@ -1,10 +1,10 @@
+use crate::cmd::prompt::CommandPrompt;
 use crate::input_state::InputState;
 use crate::multiplayer::*;
 use crate::ui::UiState;
 use crate::world_builder::WorldBuilder;
 use std::thread::JoinHandle;
 use std::time::Duration;
-use crate::cmd::prompt::CommandPrompt;
 
 fn network_thread(incoming: MessageQueue<ServerMessage>, outgoing: MessageQueue<Transaction>) {
     let mut client = Client::new();
@@ -51,8 +51,11 @@ pub fn new_app(multiplayer: bool) -> App {
         .spawn("remora", (-9.0, 12.0, -0.3))
         .spawn("remora", (-7.0, 23.0, 0.7))
         .spawn("bellerophon", (130.0, 50.0, 0.1))
-        .waypoint("pollux", (300.0, 200.0, 0.3))
-        .waypoint("remora", (3000.0, 7000.0, 0.0))
+        .commands("pollux")
+        .commands("remora")
+        // .waypoint("pollux", (300.0, 200.0, 0.3))
+        // .waypoint("remora", (3000.0, 7000.0, 0.0))
+        .waypoint("bellerophon", (200.0, 800.0, 0.0))
         .build();
 
     let incoming_network_queue = new_message_queue();

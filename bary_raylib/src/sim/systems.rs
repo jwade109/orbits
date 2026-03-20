@@ -164,6 +164,16 @@ pub mod world {
         )
     }
 
+    pub fn enqueue_commands_on_primary_computer(
+        grid_id: Ent,
+        world: &mut World,
+    ) -> BaryResult<Ent> {
+        let primary_cpu_id = find::primary_computer_id(grid_id, &world.grids)?;
+        let computer = world.computers.try_get_mut(primary_cpu_id)?;
+        computer.enqueue_commands();
+        Ok(primary_cpu_id)
+    }
+
     /// Turns the primary computer of the given grid on or off,
     /// returning the entity ID of the computer if it was found.
     pub fn set_primary_computer_state(
@@ -331,7 +341,7 @@ pub fn insert_part_c(
         grid.thrusters.insert(part_id);
     }
     if let Some(_data) = &proto.computer_data {
-        let cpu = Computer::new(grid_id, proto_id);
+        let cpu = Computer::new(proto_id);
         computers.spawn(part_id, cpu);
         grid.computers.insert(part_id);
     }

@@ -28,7 +28,8 @@ def main():
     axs[0, 1].grid()
     axs[0, 1].legend()
 
-    axs[1, 1].plot(data.x, data.y, ".-", label="Ground Track")
+    axs[1, 1].plot(data.x, data.y, label="Ground Track")
+    axs[1, 1].scatter(data.x, data.y, s=data.thrusters, c="black")
     axs[1, 1].plot(data.tx, data.ty, "*", label="Target")
     axs[1, 1].grid()
     axs[1, 1].legend()

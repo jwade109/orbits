@@ -12,6 +12,40 @@ use crate::{
 };
 
 #[test]
+fn vehicle_pathing_is_deterministic() {
+    let mut w1 = WorldBuilder::new()
+        .test_assets()
+        .blueprint("remora")
+        .spawn("remora", Isometry2d::ZERO)
+        // .waypoint("remora", (100.0, 400.0, 0.1))
+        .commands("remora")
+        .build();
+
+    let mut w2 = WorldBuilder::new()
+        .test_assets()
+        .blueprint("remora")
+        .spawn("remora", Isometry2d::ZERO)
+        // .waypoint("remora", (100.0, 400.0, 0.1))
+        .commands("remora")
+        .build();
+
+    for _ in 0..10000 {
+        update_world(&mut w1);
+        update_world(&mut w2);
+
+        assert_eq!(w1.ticks, w2.ticks);
+
+        for (g1, g2) in w1.grids.values().zip(w2.grids.values()) {
+            assert_eq!(
+                g1.particle_location, g2.particle_location,
+                "Failed on tick {}",
+                w1.ticks
+            );
+        }
+    }
+}
+
+#[test]
 fn build_ship_on_another_ship_then_navigate() {
     let mut world = WorldBuilder::new()
         .test_assets()
