@@ -1,11 +1,13 @@
+use std::collections::{BTreeMap, BTreeSet};
+
 use bary_core::prelude::*;
 
 use crate::{
     ops::{set_grid_pose, set_primary_computer_state, set_primary_computer_waypoint},
-    query::{blueprint_by_name, grid_by_name},
+    query::{blueprint_by_name, grid_by_name, grid_origin},
     sim::{
-        find::grid_pose, get_grid_physical_props_by_id, insert_part, split_grid_if_necessary,
-        update_world,
+        PartOccupancy, destroy_part, find::grid_pose, get_grid_physical_props_by_id, insert_part,
+        split_grid_if_necessary, update_world,
     },
     tests::assert_world_is_consistent,
     world_builder::WorldBuilder,
@@ -119,4 +121,77 @@ fn build_ship_on_another_ship_then_navigate() {
 
     assert_eq!(pa.to_tuple(), (499.92654, 799.72156, -5.9987755));
     assert_eq!(pb.to_tuple(), (499.41153, 799.95984, -5.9996347));
+}
+
+#[test]
+fn splitting_vehicle_should_preserve_part_coordinates() {
+    let mut world = WorldBuilder::new()
+        .test_assets()
+        .blueprint("bellerophon")
+        .spawn("bellerophon", Isometry2d::ZERO)
+        .build();
+
+    let grid_id = grid_by_name(&world.grids, "bellerophon").unwrap();
+
+    assert_eq!(grid_id, Ent(31));
+
+    assert_eq!(world.grids.len(), 1);
+    assert_eq!(world.parts.len(), 245);
+
+    let grid = world.grids.try_get(grid_id).unwrap();
+
+    assert_eq!(grid.origin(), (-12.278557, -4.0040426, 0.0).into());
+    assert_eq!(grid.particle_location, Isometry2d::ZERO);
+
+    let mut part_coords = BTreeMap::new();
+    for (part_id, part) in world.parts.iter() {
+        let center = grid.origin() * part.placement.center_isometry();
+        part_coords.insert(*part_id, center);
+    }
+
+    assert_world_is_consistent(&world);
+
+    let mut parts_to_destroy = BTreeSet::new();
+    for y in 0..100 {
+        let c = PartCoord::new((32, y));
+        let occ = grid.get_parts_at(c).unwrap_or(&PartOccupancy::EMPTY);
+        for (_layer, id) in occ.iter() {
+            parts_to_destroy.insert(id);
+        }
+    }
+
+    assert_eq!(parts_to_destroy.len(), 5);
+
+    let new_grid_id = world.spawner.next();
+
+    for part_id in parts_to_destroy {
+        let part = world.parts.try_get(part_id).unwrap();
+        let proto = world.prototypes.try_get(part.prototype).unwrap();
+        println!("Destroying {}: {:?}", part_id, proto.name);
+        let result = destroy_part(&mut world, part_id);
+        assert!(result.is_ok());
+    }
+
+    assert_world_is_consistent(&world);
+
+    let grid_a = world.grids.try_get(grid_id).unwrap();
+    let grid_b = world.grids.try_get(new_grid_id).unwrap();
+
+    assert_eq!(grid_a.parts_mass, Mass::grams(112097000));
+    assert_eq!(grid_b.parts_mass, Mass::grams(17231000));
+
+    assert_eq!(grid_a.parts.len(), 141);
+    assert_eq!(grid_b.parts.len(), 99);
+
+    // this is bad
+    assert_eq!(grid_a.particle_location, Isometry2d::ZERO);
+    assert_eq!(grid_b.particle_location, Isometry2d::ZERO);
+
+    assert_eq!(world.grids.len(), 2);
+
+    // let mut part_coords = BTreeMap::new();
+    // for (part_id, part) in world.parts.iter() {
+    //     let center = grid.origin() * part.placement.center_isometry();
+    //     part_coords.insert(part_id, center);
+    // }
 }
