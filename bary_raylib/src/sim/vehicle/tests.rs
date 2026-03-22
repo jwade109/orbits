@@ -6,8 +6,8 @@ use crate::{
     ops::{set_grid_pose, set_primary_computer_state, set_primary_computer_waypoint},
     query::{blueprint_by_name, grid_by_name, grid_origin},
     sim::{
-        PartOccupancy, destroy_part, find::grid_pose, get_grid_physical_props_by_id, insert_part,
-        split_grid_if_necessary, update_world,
+        PartOccupancy, World, destroy_part, find::grid_pose, get_grid_physical_props_by_id,
+        insert_part, split_grid_if_necessary, update_world,
     },
     tests::assert_world_is_consistent,
     world_builder::WorldBuilder,
@@ -143,13 +143,36 @@ fn splitting_vehicle_should_preserve_part_coordinates() {
     assert_eq!(grid.origin(), (-12.278557, -4.0040426, 0.0).into());
     assert_eq!(grid.particle_location, Isometry2d::ZERO);
 
-    let mut part_coords = BTreeMap::new();
+    let mut gt_part_coords = BTreeMap::new();
     for (part_id, part) in world.parts.iter() {
         let center = grid.origin() * part.placement.center_isometry();
-        part_coords.insert(*part_id, center);
+        gt_part_coords.insert(*part_id, center);
     }
 
     assert_world_is_consistent(&world);
+
+    let test_part_coords = |w: &World| {
+        let mut new_part_coords = BTreeMap::new();
+        for (part_id, part) in w.parts.iter() {
+            let grid = w.grids.try_get(part.grid_id).unwrap();
+            let center = grid.origin() * part.placement.center_isometry();
+            new_part_coords.insert(part_id, (part.grid_id, center));
+        }
+        for (id, (_grid_id, actual)) in new_part_coords {
+            let expected = gt_part_coords.get(id).unwrap();
+            let delta = expected.translation - actual.translation;
+
+            assert!(
+                delta.length() < 0.01,
+                "Expected to find part {} at {}, was actually at {}",
+                id,
+                expected.translation,
+                actual.translation,
+            );
+        }
+    };
+
+    // parts' location in the world should never change beyond this point
 
     let mut parts_to_destroy = BTreeSet::new();
     for y in 0..100 {
@@ -170,6 +193,11 @@ fn splitting_vehicle_should_preserve_part_coordinates() {
         println!("Destroying {}: {:?}", part_id, proto.name);
         let result = destroy_part(&mut world, part_id);
         assert!(result.is_ok());
+
+        // test this condition only when the grid is still whole
+        if world.grids.len() == 1 {
+            test_part_coords(&world);
+        }
     }
 
     assert_world_is_consistent(&world);
@@ -184,14 +212,10 @@ fn splitting_vehicle_should_preserve_part_coordinates() {
     assert_eq!(grid_b.parts.len(), 99);
 
     // this is bad
-    assert_eq!(grid_a.particle_location, Isometry2d::ZERO);
-    assert_eq!(grid_b.particle_location, Isometry2d::ZERO);
+    // assert_eq!(grid_a.particle_location, Isometry2d::ZERO);
+    // assert_eq!(grid_b.particle_location, Isometry2d::ZERO);
 
     assert_eq!(world.grids.len(), 2);
 
-    // let mut part_coords = BTreeMap::new();
-    // for (part_id, part) in world.parts.iter() {
-    //     let center = grid.origin() * part.placement.center_isometry();
-    //     part_coords.insert(part_id, center);
-    // }
+    // test_part_coords(&world);
 }

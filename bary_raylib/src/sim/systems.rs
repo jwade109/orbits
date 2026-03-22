@@ -591,7 +591,15 @@ pub fn update_grid_physical_props(
         grid.mark_occupied(part.placement, part.layer, part_id);
     }
 
+    let old_com = grid.center_of_mass;
+
     let (mass, com) = get_grid_physical_props(grid, parts)?;
+
+    let delta = com - old_com;
+
+    info!("Delta COM: {} - {} = {}", com, old_com, delta);
+
+    grid.particle_location.translation += delta;
     grid.parts_mass = mass;
     grid.center_of_mass = com;
 

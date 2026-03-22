@@ -28,6 +28,9 @@ fn draw_debug_info(
 
     s += &format!("{:?}", d.get_fps());
 
+    let consist = is_world_consistent(world);
+    s += &format!("\nOK: {consist:?}");
+
     let fmt_time = |d: std::time::Duration, t: std::time::Duration| {
         let p = d.as_secs_f64() / t.as_secs_f64();
         format!(
@@ -218,10 +221,6 @@ fn main() {
             sound.play();
 
             active_sounds.push(sound);
-        }
-
-        if let Err(e) = is_world_consistent(&app.runner.world) {
-            println!("Badness: {:?}", e);
         }
 
         active_sounds.retain(|s| s.is_playing());
