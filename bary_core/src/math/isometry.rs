@@ -74,6 +74,15 @@ impl From<(f32, f32, f32)> for Isometry2d {
     }
 }
 
+impl From<(Vec2, f32)> for Isometry2d {
+    fn from((translation, rotation): (Vec2, f32)) -> Self {
+        Self {
+            translation,
+            rotation,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

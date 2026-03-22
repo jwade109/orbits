@@ -128,7 +128,7 @@ fn splitting_vehicle_should_preserve_part_coordinates() {
     let mut world = WorldBuilder::new()
         .test_assets()
         .blueprint("bellerophon")
-        .spawn("bellerophon", Isometry2d::ZERO)
+        .spawn("bellerophon", (0.0, 0.0, 0.3))
         .build();
 
     let grid_id = grid_by_name(&world.grids, "bellerophon").unwrap();
@@ -140,8 +140,8 @@ fn splitting_vehicle_should_preserve_part_coordinates() {
 
     let grid = world.grids.try_get(grid_id).unwrap();
 
-    assert_eq!(grid.origin(), (-12.278557, -4.0040426, 0.0).into());
-    assert_eq!(grid.particle_location, Isometry2d::ZERO);
+    assert_eq!(grid.origin(), (-10.546879, -7.4537697, 0.3).into());
+    assert_eq!(grid.particle_location, (0.0, 0.0, 0.3).into());
 
     let mut gt_part_coords = BTreeMap::new();
     for (part_id, part) in world.parts.iter() {
@@ -211,11 +211,7 @@ fn splitting_vehicle_should_preserve_part_coordinates() {
     assert_eq!(grid_a.parts.len(), 141);
     assert_eq!(grid_b.parts.len(), 99);
 
-    // this is bad
-    // assert_eq!(grid_a.particle_location, Isometry2d::ZERO);
-    // assert_eq!(grid_b.particle_location, Isometry2d::ZERO);
-
     assert_eq!(world.grids.len(), 2);
 
-    // test_part_coords(&world);
+    test_part_coords(&world);
 }

@@ -647,7 +647,10 @@ fn set_thruster_state(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{tests::assert_world_is_consistent, world_builder::WorldBuilder};
+    use crate::{
+        query::grid_origin, sim::find::grid_pose, tests::assert_world_is_consistent,
+        world_builder::WorldBuilder,
+    };
 
     #[test]
     fn part_prototypes() {
@@ -1067,6 +1070,42 @@ mod tests {
     }
 
     #[test]
+    fn adding_part_to_empty_grid_retains_origin_pose() {
+        // this caught me by surprise, but this is actually perfectly consistent behavior;
+        // adding a part to an empty grid will retain the _origin_ of that grid,
+        // NOT the center of mass, in the inertial frame.
+
+        let mut world = WorldBuilder::new().test_assets().build();
+
+        let grid_id = spawn_empty_grid(&mut world, "empty");
+        let pose = grid_pose(&world.grids, grid_id).unwrap();
+        let origin = grid_origin(&world.grids, grid_id).unwrap();
+        assert_eq!(pose, Isometry2d::ZERO);
+        assert_eq!(origin, Isometry2d::ZERO);
+
+        // insert a frame
+        let instance = PartInstance {
+            name: "frame".to_string(),
+            layer: PartLayer::Structural,
+            placement: GridPlacement::new((1, 1), Rotation::East, (2, 2)),
+        };
+
+        let result = insert_part(grid_id, &mut world, &instance, true);
+        assert!(result.is_ok());
+
+        let part_dims = instance.placement.grid_aligned_dims().to_meters();
+
+        assert_eq!(part_dims, Vec2::splat(0.5));
+
+        let pose = grid_pose(&world.grids, grid_id).unwrap();
+        let origin = grid_origin(&world.grids, grid_id).unwrap();
+        assert_eq!(pose, (part_dims / 2.0, 0.0).into());
+        assert_eq!(origin, Isometry2d::ZERO);
+
+        assert_world_is_consistent(&world);
+    }
+
+    #[test]
     fn pure_linear_acceleration() {
         let mut world = WorldBuilder::new().test_assets().build();
 
@@ -1105,7 +1144,9 @@ mod tests {
 
         world::update_grid_acceleration([grid_id].into(), &mut world);
 
-        let grid = world.grids.try_get(grid_id).unwrap();
+        let grid = world.grids.try_get_mut(grid_id).unwrap();
+
+        grid.particle_location.translation = Vec2::ZERO;
 
         assert_eq!(grid.body_frame_forces.translation, Vec2::new(3500.0, 0.0));
         assert_eq!(grid.body_frame_forces.rotation, 0.0);
@@ -1184,7 +1225,9 @@ mod tests {
         _ = world::set_thruster_state(thruster_id, &mut world, true);
         world::update_grid_acceleration([grid_id].into(), &mut world);
 
-        let grid = world.grids.try_get(grid_id).unwrap();
+        let grid = world.grids.try_get_mut(grid_id).unwrap();
+
+        grid.particle_location.translation = Vec2::ZERO;
 
         assert_eq!(grid.center_of_mass, Vec2::new(0.5, 0.25));
 

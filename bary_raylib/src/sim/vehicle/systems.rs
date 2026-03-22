@@ -4,7 +4,8 @@ use crate::ops;
 use crate::sim::update_grid_physical_props_by_id;
 use crate::sim::vehicle::Part;
 use bary_core::prelude::*;
-use std::collections::BTreeSet;
+use log::info;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{result::BaryResult, sim::world::World};
 
@@ -97,6 +98,17 @@ pub fn split_grid_if_necessary(world: &mut World, grid_id: Ent) -> BaryResult<Ve
         return Ok(vec![]);
     }
 
+    let mut key_parts = BTreeMap::new();
+    for island in &islands {
+        let Some(key_part) = island.first() else {
+            continue;
+        };
+        let part = world.parts.try_get(*key_part)?;
+        let pose = grid.origin() * part.placement.origin_isometry();
+        info!("Position of {}: {:?}", key_part, pose);
+        key_parts.insert(*key_part, pose);
+    }
+
     let mut ids = Vec::new();
     let rebuilt = rebuild_index_from_islands(grid, &islands, &world.parts)?;
 
@@ -118,6 +130,21 @@ pub fn split_grid_if_necessary(world: &mut World, grid_id: Ent) -> BaryResult<Ve
 
     for id in &ids {
         update_grid_physical_props_by_id(*id, &mut world.grids, &mut world.parts)?;
+    }
+
+    for island in &islands {
+        let Some(key_part) = island.first() else {
+            continue;
+        };
+        let Some(old_pose) = key_parts.get(key_part) else {
+            continue;
+        };
+        let part = world.parts.try_get(*key_part)?;
+        let grid = world.grids.try_get_mut(part.grid_id)?;
+        let pose = grid.origin() * part.placement.origin_isometry();
+        let delta = pose.translation - old_pose.translation;
+        info!("Position of {}: {:?}, was {:?}", key_part, pose, old_pose);
+        grid.particle_location.translation -= delta;
     }
 
     Ok(ids)
