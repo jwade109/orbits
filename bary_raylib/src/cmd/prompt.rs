@@ -102,6 +102,7 @@ impl CommandPrompt {
                 Command::new("speed", vec!["speed"], cmd_set_speed),
                 Command::new("save", vec![], cmd_placeholder),
                 Command::new("exit", vec![], |_args| panic!()),
+                Command::new("setcpu", vec!["state"], cmd_set_cpu),
             ],
         }
     }
@@ -304,7 +305,7 @@ pub fn draw_command_prompt(d: &mut RaylibDrawHandle, cmd: &CommandPrompt, assets
 
     let padding = 30;
     let line_gap = 10;
-    let font_size = 52;
+    let font_size = 36;
 
     let rect_height = font_size + padding * 2 + (font_size + line_gap) * cmd.lines.len() as i32;
     let rect_origin = IVec2::new(0, height - rect_height);

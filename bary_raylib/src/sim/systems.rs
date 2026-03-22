@@ -599,7 +599,7 @@ pub fn update_grid_physical_props(
 
     info!("Delta COM: {} - {} = {}", com, old_com, delta);
 
-    grid.particle_location.translation += delta;
+    grid.particle_location.translation += rotate(delta, grid.particle_location.rotation);
     grid.parts_mass = mass;
     grid.center_of_mass = com;
 

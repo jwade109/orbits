@@ -77,3 +77,8 @@ pub fn cmd_set_speed(args: &ArgsMap) -> Result<Action, ParseError> {
 pub fn cmd_placeholder(_args: &ArgsMap) -> Result<Action, ParseError> {
     Err(ParseError::CommandNotFound)
 }
+
+pub fn cmd_set_cpu(args: &ArgsMap) -> Result<Action, ParseError> {
+    let state = parse_arg(args, "state")?;
+    Ok(Action::SetCpuSelectedGrid(state))
+}

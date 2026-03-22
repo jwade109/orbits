@@ -17,6 +17,7 @@ pub enum Action {
     DespawnGrid(Ent),
     ClearWorld,
     SetSpeed(u32),
+    SetCpuSelectedGrid(bool),
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -91,6 +92,16 @@ pub fn apply_transaction(
             world.tick_rate = speed;
             let s = format!("Set tick rate to {}", speed);
             client.chat.log(s);
+        }
+        Action::SetCpuSelectedGrid(state) => {
+            if let Some(grid_id) = client.selection_info.selected_grid {
+                _ = ops::set_primary_computer_state(grid_id, state, world);
+                client
+                    .chat
+                    .log(format!("Set CPU on grid {} to {}", grid_id, state));
+            } else {
+                client.chat.log("No grid selected");
+            }
         }
     }
 }

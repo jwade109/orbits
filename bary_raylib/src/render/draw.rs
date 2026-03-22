@@ -117,9 +117,10 @@ pub fn draw_world(
     } else if let Viewport::Editor(e) = &client.viewport {
         draw_grid_lines(&mut c, &world.grids, e);
         draw_thruster_classification(&mut c, &world.grids, &world.parts, &world.thrusters);
-        if client.is_holding_shift {
-            draw_grid_outlines(&mut c, &world.grids);
-        }
+    }
+
+    if client.is_holding_shift {
+        draw_grid_outlines(&mut c, &world.grids);
     }
 
     draw_focused_grid_cursor(&mut c, &world.grids, &world.parts, &client.selection_info);
@@ -990,6 +991,10 @@ fn draw_lights(
             continue;
         };
 
+        if !cpu.on {
+            continue;
+        }
+
         let origin = grid.origin();
 
         for light_id in &grid.lights {
@@ -1000,7 +1005,7 @@ fn draw_lights(
                 continue;
             };
 
-            let rate = if cpu.on { 4 } else { 1 };
+            let rate = 3;
 
             if !light.is_on(ticks * rate) {
                 continue;

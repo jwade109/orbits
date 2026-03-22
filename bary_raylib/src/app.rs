@@ -61,7 +61,7 @@ pub fn new_app(multiplayer: bool) -> App {
     let world = WorldBuilder::new()
         .assets()
         .blueprint("bellerophon")
-        .spawn("bellerophon", (0.0, 0.0, 0.0))
+        .spawn("bellerophon", (0.0, 0.0, 0.3))
         .build();
 
     let incoming_network_queue = new_message_queue();
