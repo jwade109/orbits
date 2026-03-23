@@ -9,7 +9,6 @@ pub struct WorldBuilder {
     blueprints: Vec<String>,
     spawns: Vec<(String, Isometry2d)>,
     waypoints: Vec<(String, Isometry2d)>,
-    with_commands: Vec<String>,
 }
 
 impl WorldBuilder {
@@ -19,7 +18,6 @@ impl WorldBuilder {
             blueprints: Vec::new(),
             spawns: Vec::new(),
             waypoints: Vec::new(),
-            with_commands: Vec::new(),
         }
     }
 
@@ -40,11 +38,6 @@ impl WorldBuilder {
 
     pub fn spawn(mut self, name: &str, iso: impl Into<Isometry2d>) -> Self {
         self.spawns.push((name.to_string(), iso.into()));
-        self
-    }
-
-    pub fn commands(mut self, name: &str) -> Self {
-        self.with_commands.push(name.to_string());
         self
     }
 
@@ -87,13 +80,6 @@ impl WorldBuilder {
                 _ = world::set_primary_computer_waypoint(grid_id, waypoint, &mut world);
                 _ = world::set_primary_computer_state(grid_id, true, &mut world);
                 _ = world::toggle_tracking(&mut world, grid_id);
-            }
-        }
-
-        for name in self.with_commands {
-            if let Some(grid_id) = find::grid_by_name(&world.grids, &name) {
-                _ = world::enqueue_commands_on_primary_computer(grid_id, &mut world);
-                _ = world::set_primary_computer_state(grid_id, true, &mut world);
             }
         }
 

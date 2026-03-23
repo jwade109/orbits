@@ -24,6 +24,7 @@ pub fn save_world(dir: impl AsRef<Path>, world: &World, overwrite: bool) -> Bary
     let thrusters_path = dir.join("thrusters.toml");
     let computers_path = dir.join("computers.toml");
     let lights_path = dir.join("lights.toml");
+    let prototypes_path = dir.join("prototypes.toml");
 
     std::fs::create_dir(&blueprints_dir)?;
 
@@ -49,6 +50,9 @@ pub fn save_world(dir: impl AsRef<Path>, world: &World, overwrite: bool) -> Bary
 
     let s = toml::to_string(&world.lights)?;
     std::fs::write(lights_path, s)?;
+
+    let s = toml::to_string(&world.prototypes)?;
+    std::fs::write(prototypes_path, s)?;
 
     Ok(())
 }
@@ -106,6 +110,7 @@ mod tests {
             .spawn("pollux", (120.0, 43.0, 0.4))
             .spawn("remora", (-30.0, 21.0, -0.1))
             .spawn("bellerophon", (50.0, 109.0, 1.4))
+            .waypoint("pollux", (50.0, 300.0, 0.2))
             .build();
 
         for _ in 0..1000 {

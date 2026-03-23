@@ -530,7 +530,12 @@ pub fn draw_computer_target_isometry(
         let Ok(grid) = grids.try_get(part.grid_id) else {
             continue;
         };
-        draw_isometry_axes(d, cpu.pose, &grid.name, Vec2::new(5.0, 3.0));
+
+        let Some(pose) = cpu.current_waypoint() else {
+            continue;
+        };
+
+        draw_isometry_axes(d, pose, &grid.name, Vec2::new(5.0, 3.0));
     }
 }
 
@@ -605,7 +610,11 @@ fn draw_waypoint_far_indicators(
             continue;
         }
 
-        let pos = glam_to_raylib_swap_y(cpu.pose.translation);
+        let Some(wp) = cpu.current_waypoint() else {
+            continue;
+        };
+
+        let pos = glam_to_raylib_swap_y(wp.translation);
         let pos = d.get_world_to_screen2D(pos, camera);
         d.draw_circle_lines_v(pos, marker_radius, Color::GRAY);
     }
@@ -800,17 +809,19 @@ fn grid_info_str(grid: &VehicleGrid) -> String {
 }
 
 fn computer_info_str(cpu: &Computer) -> String {
-    let lines = [
+    let mut lines = vec![
         format!("CPU INFO ==="),
         format!("\n  On: {}", cpu.on),
         format!("\n  Status: {:?}", cpu.status),
         format!("\n  Ticks: {}", cpu.ticks_this_cycle),
         format!("\n  Fired: {}", cpu.fired_this_tick),
         format!("\n  Iters: {}", cpu.iters),
-        format!("\n  Mode: {:?}", cpu.mode),
-        format!("\n  Pose: {:?}", cpu.pose.to_tuple()),
-        format!("\n  Vel: {:?}", cpu.velocity.to_tuple()),
     ];
+
+    for cmd in &cpu.command_queue {
+        let line = format!("\n  - {}", cmd);
+        lines.push(line);
+    }
 
     lines.into_iter().collect()
 }
@@ -846,7 +857,7 @@ fn draw_selected_grid_primary_computer_info(
     };
 
     if let Some(font) = &assets.fira_code {
-        // draw_window(d, &window, font);
+        draw_window(d, &window, font);
     }
 }
 
@@ -903,7 +914,7 @@ fn draw_hovered_part_info(
     };
 
     if let Some(font) = &assets.fira_code {
-        draw_window(d, &window, font);
+        // draw_window(d, &window, font);
     }
 }
 

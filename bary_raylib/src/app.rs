@@ -51,8 +51,6 @@ pub fn new_app(multiplayer: bool) -> App {
         .spawn("remora", (-9.0, 12.0, -0.3))
         .spawn("remora", (-7.0, 23.0, 0.7))
         .spawn("bellerophon", (130.0, 50.0, 0.1))
-        .commands("pollux")
-        .commands("remora")
         .waypoint("pollux", (300.0, 200.0, 0.3))
         .waypoint("remora", (3000.0, 7000.0, 0.0))
         .waypoint("bellerophon", (200.0, 800.0, 0.0))

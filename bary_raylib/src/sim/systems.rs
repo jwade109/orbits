@@ -104,7 +104,8 @@ pub fn set_primary_computer_waypoint_c(
 ) -> BaryResult<Ent> {
     let primary_cpu_id = find::primary_computer_id(grid_id, grids)?;
     let computer = computers.try_get_mut(primary_cpu_id)?;
-    computer.pose = waypoint.into();
+    let command = TimedInstruction::perp(Instruction::HoldPosition(waypoint.into()));
+    computer.command_queue = vec![command];
     Ok(primary_cpu_id)
 }
 
@@ -162,16 +163,6 @@ pub mod world {
             &world.grids,
             &mut world.computers,
         )
-    }
-
-    pub fn enqueue_commands_on_primary_computer(
-        grid_id: Ent,
-        world: &mut World,
-    ) -> BaryResult<Ent> {
-        let primary_cpu_id = find::primary_computer_id(grid_id, &world.grids)?;
-        let computer = world.computers.try_get_mut(primary_cpu_id)?;
-        computer.enqueue_commands();
-        Ok(primary_cpu_id)
     }
 
     /// Turns the primary computer of the given grid on or off,

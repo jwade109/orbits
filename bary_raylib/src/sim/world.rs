@@ -734,74 +734,6 @@ fn editor_try_place_part_on_click(world: &mut World, client: &mut ClientSpecific
     _ = insert_part(e.vehicle, world, &instance, true);
 }
 
-pub fn update_computers(
-    computers: &mut Components<Computer>,
-    parts: &Components<Part>,
-    grids: &Components<VehicleGrid>,
-    ticks: u64,
-) {
-    for (cpu_id, computer) in computers.iter_mut() {
-        let Ok(part) = parts.try_get(*cpu_id) else {
-            continue;
-        };
-
-        let command = if let Some(cmd) = computer.command_queue.first() {
-            if cmd.ticks == ticks {
-                info!("Doing command: {cmd:?}");
-                let cmd = cmd.command.clone();
-                computer.command_queue.remove(0);
-                Some(cmd)
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-
-        computer.status = match computer.on {
-            true => MachineStatus::Running,
-            false => MachineStatus::Off,
-        };
-
-        if computer.on {
-            computer.ticks_this_cycle += 1;
-            computer.fired_this_tick = computer.ticks_this_cycle == computer.ticks_per_cycle;
-            if computer.fired_this_tick {
-                computer.ticks_this_cycle = 0;
-                computer.iters += 1;
-            }
-        } else {
-            computer.fired_this_tick = false;
-        }
-
-        if let Some(command) = command {
-            computer.vehicle_control = command;
-            computer.control_status = VehicleControlStatus::ExecutingLaunchProgram;
-        } else if computer.fired_this_tick && computer.command_queue.is_empty() {
-            let Ok(grid) = grids.try_get(part.grid_id) else {
-                continue;
-            };
-            let pose = grid.particle_location;
-
-            let actual = PV::from_f64(pose.translation, grid.velocity.translation);
-            let target = PV::from_f64(computer.pose.translation, computer.velocity.translation);
-            let body = RigidBody {
-                pv: actual,
-                angle: pose.rotation as f64,
-                angular_velocity: grid.velocity.rotation as f64,
-            };
-            let (ctrl, status) = position_hold_control_law(
-                target,
-                computer.pose.rotation as f64,
-                &body,
-                DVec2::ZERO,
-            );
-            computer.vehicle_control = ctrl;
-            computer.control_status = status;
-        }
-    }
-}
-
 pub fn update_trackers(
     trackers: &mut Components<Tracker>,
     grids: &Components<VehicleGrid>,
@@ -838,12 +770,7 @@ pub fn update_world(world: &mut World) {
     );
     world.grid_acceleration_updates += dirty_set.len() as u64;
     update_grid_acceleration(dirty_set, &mut world.grids, &world.thrusters, &world.parts);
-    update_computers(
-        &mut world.computers,
-        &world.parts,
-        &world.grids,
-        world.ticks,
-    );
+    update_computers(&mut world.computers, &world.parts, &world.grids);
     propagate_grid_rigid_bodies(&mut world.grids);
     update_trackers(&mut world.tracking, &world.grids, world.ticks);
 

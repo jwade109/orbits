@@ -4,7 +4,7 @@ use bary_core::prelude::*;
 
 use crate::{
     ops::{set_grid_pose, set_primary_computer_state, set_primary_computer_waypoint},
-    query::{blueprint_by_name, grid_by_name, grid_origin},
+    query::{blueprint_by_name, grid_by_name},
     sim::{
         PartOccupancy, World, destroy_part, find::grid_pose, get_grid_physical_props_by_id,
         insert_part, split_grid_if_necessary, update_world,
@@ -19,16 +19,14 @@ fn vehicle_pathing_is_deterministic() {
         .test_assets()
         .blueprint("remora")
         .spawn("remora", Isometry2d::ZERO)
-        // .waypoint("remora", (100.0, 400.0, 0.1))
-        .commands("remora")
+        .waypoint("remora", (100.0, 400.0, 0.1))
         .build();
 
     let mut w2 = WorldBuilder::new()
         .test_assets()
         .blueprint("remora")
         .spawn("remora", Isometry2d::ZERO)
-        // .waypoint("remora", (100.0, 400.0, 0.1))
-        .commands("remora")
+        .waypoint("remora", (100.0, 400.0, 0.1))
         .build();
 
     for _ in 0..10000 {

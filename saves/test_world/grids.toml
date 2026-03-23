@@ -9,16 +9,16 @@ lights = [43, 47, 49, 56, 57, 61, 81, 85, 87, 95, 103, 111]
 bounds = [[0, 0], [44, 18]]
 
 [values.34.particle_location]
-translation = [120.0, 43.0]
-rotation = 0.4
+translation = [112.923584, 88.90808]
+rotation = 0.40205774
 
 [values.34.velocity]
-translation = [0.0, 0.0]
-rotation = 0.0
+translation = [-1.2657671, 4.3843045]
+rotation = 0.00007344118
 
 [values.34.body_frame_forces]
-translation = [0.0, 0.0]
-rotation = 0.0
+translation = [0.0, 8000.0]
+rotation = -8.521484
 
 [values.133]
 name = "remora"

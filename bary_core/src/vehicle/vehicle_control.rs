@@ -32,7 +32,7 @@ impl VehicleControl {
         attitude: 0.0,
     };
 
-    pub const FORWARD: Self = Self {
+    pub const FORWARD_MAIN: Self = Self {
         plus_x: ThrustAxisControl {
             use_rcs: false,
             throttle: 1.0,
@@ -42,6 +42,28 @@ impl VehicleControl {
         neg_y: ThrustAxisControl::NULLOPT,
         attitude: 0.0,
     };
+
+    pub fn rcs(forward: bool, left: bool, right: bool, backward: bool) -> Self {
+        Self {
+            plus_x: ThrustAxisControl {
+                use_rcs: true,
+                throttle: forward as u8 as f32,
+            },
+            plus_y: ThrustAxisControl {
+                use_rcs: true,
+                throttle: left as u8 as f32,
+            },
+            neg_x: ThrustAxisControl {
+                use_rcs: true,
+                throttle: backward as u8 as f32,
+            },
+            neg_y: ThrustAxisControl {
+                use_rcs: true,
+                throttle: right as u8 as f32,
+            },
+            attitude: 0.0,
+        }
+    }
 
     pub fn is_nullopt(&self) -> bool {
         self.plus_x.throttle == 0.0

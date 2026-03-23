@@ -1,22 +1,11 @@
 [values.58]
-on = false
-status = "Off"
+on = true
+status = "Running"
 ticks_this_cycle = 0
 ticks_per_cycle = 5
-fired_this_tick = false
-iters = 0
-mode = "Idle"
-control_status = "Idling"
+fired_this_tick = true
+iters = 200
 prototype = 6
-command_queue = []
-
-[values.58.pose]
-translation = [0.0, 0.0]
-rotation = 0.0
-
-[values.58.velocity]
-translation = [0.0, 0.0]
-rotation = 0.0
 
 [values.58.vehicle_control]
 attitude = 0.0
@@ -34,8 +23,14 @@ use_rcs = false
 throttle = 0.0
 
 [values.58.vehicle_control.neg_y]
-use_rcs = false
-throttle = 0.0
+use_rcs = true
+throttle = 1.0
+
+[[values.58.command_queue]]
+
+[values.58.command_queue.instruction.HoldPosition]
+translation = [50.0, 300.0]
+rotation = 0.2
 
 [values.152]
 on = false
@@ -44,18 +39,7 @@ ticks_this_cycle = 0
 ticks_per_cycle = 5
 fired_this_tick = false
 iters = 0
-mode = "Idle"
-control_status = "Idling"
 prototype = 6
-command_queue = []
-
-[values.152.pose]
-translation = [0.0, 0.0]
-rotation = 0.0
-
-[values.152.velocity]
-translation = [0.0, 0.0]
-rotation = 0.0
 
 [values.152.vehicle_control]
 attitude = 0.0
@@ -76,6 +60,67 @@ throttle = 0.0
 use_rcs = false
 throttle = 0.0
 
+[[values.152.command_queue]]
+duration = 300
+
+[values.152.command_queue.instruction.Ctrl]
+attitude = 0.0
+
+[values.152.command_queue.instruction.Ctrl.plus_x]
+use_rcs = true
+throttle = 1.0
+
+[values.152.command_queue.instruction.Ctrl.plus_y]
+use_rcs = true
+throttle = 0.0
+
+[values.152.command_queue.instruction.Ctrl.neg_x]
+use_rcs = true
+throttle = 0.0
+
+[values.152.command_queue.instruction.Ctrl.neg_y]
+use_rcs = true
+throttle = 0.0
+
+[[values.152.command_queue]]
+duration = 300
+
+[values.152.command_queue.instruction.Ctrl]
+attitude = 0.0
+
+[values.152.command_queue.instruction.Ctrl.plus_x]
+use_rcs = true
+throttle = 1.0
+
+[values.152.command_queue.instruction.Ctrl.plus_y]
+use_rcs = true
+throttle = 1.0
+
+[values.152.command_queue.instruction.Ctrl.neg_x]
+use_rcs = true
+throttle = 0.0
+
+[values.152.command_queue.instruction.Ctrl.neg_y]
+use_rcs = true
+throttle = 0.0
+
+[[values.152.command_queue]]
+duration = 20000
+instruction = "Drift"
+
+[[values.152.command_queue]]
+duration = 20000
+
+[values.152.command_queue.instruction.HoldPosition]
+translation = [0.0, 0.0]
+rotation = 0.0
+
+[[values.152.command_queue]]
+
+[values.152.command_queue.instruction.HoldPosition]
+translation = [100.0, 100.0]
+rotation = 0.0
+
 [values.244]
 on = false
 status = "Off"
@@ -83,18 +128,7 @@ ticks_this_cycle = 0
 ticks_per_cycle = 5
 fired_this_tick = false
 iters = 0
-mode = "Idle"
-control_status = "Idling"
 prototype = 6
-command_queue = []
-
-[values.244.pose]
-translation = [0.0, 0.0]
-rotation = 0.0
-
-[values.244.velocity]
-translation = [0.0, 0.0]
-rotation = 0.0
 
 [values.244.vehicle_control]
 attitude = 0.0
@@ -114,3 +148,64 @@ throttle = 0.0
 [values.244.vehicle_control.neg_y]
 use_rcs = false
 throttle = 0.0
+
+[[values.244.command_queue]]
+duration = 300
+
+[values.244.command_queue.instruction.Ctrl]
+attitude = 0.0
+
+[values.244.command_queue.instruction.Ctrl.plus_x]
+use_rcs = true
+throttle = 1.0
+
+[values.244.command_queue.instruction.Ctrl.plus_y]
+use_rcs = true
+throttle = 0.0
+
+[values.244.command_queue.instruction.Ctrl.neg_x]
+use_rcs = true
+throttle = 0.0
+
+[values.244.command_queue.instruction.Ctrl.neg_y]
+use_rcs = true
+throttle = 0.0
+
+[[values.244.command_queue]]
+duration = 300
+
+[values.244.command_queue.instruction.Ctrl]
+attitude = 0.0
+
+[values.244.command_queue.instruction.Ctrl.plus_x]
+use_rcs = true
+throttle = 1.0
+
+[values.244.command_queue.instruction.Ctrl.plus_y]
+use_rcs = true
+throttle = 1.0
+
+[values.244.command_queue.instruction.Ctrl.neg_x]
+use_rcs = true
+throttle = 0.0
+
+[values.244.command_queue.instruction.Ctrl.neg_y]
+use_rcs = true
+throttle = 0.0
+
+[[values.244.command_queue]]
+duration = 20000
+instruction = "Drift"
+
+[[values.244.command_queue]]
+duration = 20000
+
+[values.244.command_queue.instruction.HoldPosition]
+translation = [0.0, 0.0]
+rotation = 0.0
+
+[[values.244.command_queue]]
+
+[values.244.command_queue.instruction.HoldPosition]
+translation = [100.0, 100.0]
+rotation = 0.0

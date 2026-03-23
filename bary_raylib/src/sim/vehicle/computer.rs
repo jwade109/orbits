@@ -1,11 +1,98 @@
 use bary_core::prelude::*;
-use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ScheduledCommand {
-    pub ticks: u64,
-    pub command: VehicleControl,
+use crate::{
+    components::Components,
+    sim::{Part, VehicleGrid},
+};
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+pub enum Instruction {
+    Ctrl(VehicleControl),
+    HoldPosition(Isometry2d),
+    Drift,
+}
+
+impl Instruction {
+    pub fn rcs_left() -> Self {
+        Self::Ctrl(VehicleControl::rcs(false, true, false, false))
+    }
+
+    pub fn rcs_right() -> Self {
+        Self::Ctrl(VehicleControl::rcs(false, false, true, false))
+    }
+
+    pub fn rcs_forward() -> Self {
+        Self::Ctrl(VehicleControl::rcs(true, false, false, false))
+    }
+
+    pub fn rcs_backward() -> Self {
+        Self::Ctrl(VehicleControl::rcs(false, false, false, true))
+    }
+}
+
+impl std::fmt::Display for Instruction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Instruction::Ctrl(_vehicle_control) => {
+                write!(f, "CTRL")
+            }
+            Instruction::HoldPosition(iso) => {
+                write!(
+                    f,
+                    "HP {:0.2} {:0.2} {:0.2}",
+                    iso.translation.x, iso.translation.y, iso.rotation
+                )
+            }
+            Instruction::Drift => {
+                write!(f, "DRIFT")
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+pub struct TimedInstruction {
+    pub duration: Option<u64>,
+    pub instruction: Instruction,
+}
+
+impl TimedInstruction {
+    pub fn perp(instruction: Instruction) -> Self {
+        Self {
+            duration: None,
+            instruction,
+        }
+    }
+
+    pub fn timed(ticks: u64, instruction: Instruction) -> Self {
+        Self {
+            duration: Some(ticks),
+            instruction,
+        }
+    }
+
+    pub fn tick(&mut self) {
+        if let Some(dur) = &mut self.duration {
+            if *dur > 0 {
+                *dur -= 1;
+            }
+        }
+    }
+
+    pub fn is_complete(&self) -> bool {
+        self.duration.map(|d| d == 0).unwrap_or(false)
+    }
+}
+
+impl std::fmt::Display for TimedInstruction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(ticks) = self.duration {
+            write!(f, "{}, for {} ticks", self.instruction, ticks)
+        } else {
+            write!(f, "{}", self.instruction)
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -16,59 +103,9 @@ pub struct Computer {
     pub ticks_per_cycle: u32,
     pub fired_this_tick: bool,
     pub iters: u64,
-    pub mode: ComputerMode,
-    pub pose: Isometry2d,
-    pub velocity: Isometry2d,
     pub vehicle_control: VehicleControl,
-    pub control_status: VehicleControlStatus,
     pub prototype: Ent,
-    pub command_queue: Vec<ScheduledCommand>,
-}
-
-#[derive(Sequence, Default, Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
-pub enum ComputerMode {
-    #[default]
-    Idle,
-    Manual,
-    AttitudeHold,
-    VelocityHold,
-    PositionHold,
-}
-
-impl ComputerMode {
-    pub fn needs_attitude(&self) -> bool {
-        match self {
-            ComputerMode::Idle => false,
-            ComputerMode::Manual => false,
-            ComputerMode::AttitudeHold => true,
-            ComputerMode::VelocityHold => true,
-            ComputerMode::PositionHold => true,
-        }
-    }
-
-    pub fn needs_velocity(&self) -> bool {
-        match self {
-            ComputerMode::Idle => false,
-            ComputerMode::Manual => false,
-            ComputerMode::AttitudeHold => false,
-            ComputerMode::VelocityHold => true,
-            ComputerMode::PositionHold => false,
-        }
-    }
-
-    pub fn needs_position(&self) -> bool {
-        match self {
-            ComputerMode::Idle => false,
-            ComputerMode::Manual => false,
-            ComputerMode::AttitudeHold => false,
-            ComputerMode::VelocityHold => false,
-            ComputerMode::PositionHold => true,
-        }
-    }
-
-    pub fn needs_isometry(&self) -> bool {
-        self.needs_attitude() && self.needs_position()
-    }
+    pub command_queue: Vec<TimedInstruction>,
 }
 
 impl Computer {
@@ -80,79 +117,113 @@ impl Computer {
             ticks_per_cycle: 5,
             fired_this_tick: false,
             iters: 0,
-            mode: ComputerMode::Idle,
-            pose: Isometry2d::ZERO,
-            velocity: Isometry2d::ZERO,
             vehicle_control: VehicleControl::NULLOPT,
-            control_status: VehicleControlStatus::Idling,
             prototype,
-            command_queue: Vec::new(),
+            command_queue: vec![
+                TimedInstruction::timed(300, Instruction::rcs_forward()),
+                TimedInstruction::timed(150, Instruction::rcs_right()),
+                TimedInstruction::timed(150, Instruction::rcs_left()),
+                TimedInstruction::timed(80, Instruction::rcs_backward()),
+                TimedInstruction::timed(20000, Instruction::Drift),
+                TimedInstruction::timed(20000, Instruction::HoldPosition((0.0, 0.0, 0.0).into())),
+                TimedInstruction::perp(Instruction::HoldPosition((100.0, 100.0, 0.0).into())),
+            ],
+        }
+    }
+
+    pub fn tick_forward(&mut self) {
+        self.status = match self.on {
+            true => MachineStatus::Running,
+            false => MachineStatus::Off,
+        };
+
+        if self.on {
+            self.ticks_this_cycle += 1;
+            self.fired_this_tick = self.ticks_this_cycle == self.ticks_per_cycle;
+            if self.fired_this_tick {
+                self.ticks_this_cycle = 0;
+                self.iters += 1;
+            }
+            if let Some(ins) = self.command_queue.first_mut() {
+                ins.tick();
+                if ins.is_complete() {
+                    self.command_queue.remove(0);
+                }
+            }
+        } else {
+            self.fired_this_tick = false;
+        }
+    }
+
+    pub fn current_instruction(&self) -> Option<Instruction> {
+        let cmd = self.command_queue.first()?;
+        Some(cmd.instruction)
+    }
+
+    pub fn current_control(&self) -> Option<VehicleControl> {
+        let cmd = self.command_queue.first()?;
+        if let Instruction::Ctrl(ctrl) = cmd.instruction {
+            Some(ctrl)
+        } else if let Instruction::Drift = cmd.instruction {
+            Some(VehicleControl::NULLOPT)
+        } else {
+            None
+        }
+    }
+
+    pub fn current_waypoint(&self) -> Option<Isometry2d> {
+        let cmd = self.command_queue.first()?;
+        if let Instruction::HoldPosition(wp) = cmd.instruction {
+            Some(wp)
+        } else {
+            None
         }
     }
 
     pub fn toggle(&mut self) {
         self.on = !self.on;
     }
+}
 
-    pub fn enqueue_commands(&mut self) {
-        self.command_queue = vec![
-            ScheduledCommand {
-                ticks: 100,
-                command: VehicleControl {
-                    attitude: 1.0,
-                    ..VehicleControl::NULLOPT
-                },
-            },
-            ScheduledCommand {
-                ticks: 500,
-                command: VehicleControl {
-                    attitude: -1.0,
-                    ..VehicleControl::NULLOPT
-                },
-            },
-            ScheduledCommand {
-                ticks: 900,
-                command: VehicleControl::NULLOPT,
-            },
-            ScheduledCommand {
-                ticks: 2000,
-                command: VehicleControl::FORWARD,
-            },
-            ScheduledCommand {
-                ticks: 2005,
-                command: VehicleControl::NULLOPT,
-            },
-            ScheduledCommand {
-                ticks: 4000,
-                command: VehicleControl {
-                    attitude: 1.0,
-                    ..VehicleControl::NULLOPT
-                },
-            },
-            ScheduledCommand {
-                ticks: 4400,
-                command: VehicleControl {
-                    attitude: -1.0,
-                    ..VehicleControl::NULLOPT
-                },
-            },
-            ScheduledCommand {
-                ticks: 4800,
-                command: VehicleControl::NULLOPT,
-            },
-            ScheduledCommand {
-                ticks: 4900,
-                command: VehicleControl::FORWARD,
-            },
-            ScheduledCommand {
-                ticks: 4905,
-                command: VehicleControl::NULLOPT,
-            },
-            ScheduledCommand {
-                ticks: 10000,
-                command: VehicleControl::NULLOPT,
-            },
-        ];
+pub fn update_computers(
+    computers: &mut Components<Computer>,
+    parts: &Components<Part>,
+    grids: &Components<VehicleGrid>,
+) {
+    for (cpu_id, computer) in computers.iter_mut() {
+        computer.tick_forward();
+
+        if !computer.fired_this_tick {
+            continue;
+        }
+
+        if let Some(ctrl) = computer.current_control() {
+            computer.vehicle_control = ctrl;
+        } else if let Some(target_pose) = computer.current_waypoint() {
+            let Ok(part) = parts.try_get(*cpu_id) else {
+                continue;
+            };
+
+            let Ok(grid) = grids.try_get(part.grid_id) else {
+                continue;
+            };
+
+            let pose = grid.particle_location;
+
+            let target = PV::from_f64(target_pose.translation, Vec2::ZERO);
+            let actual = PV::from_f64(pose.translation, grid.velocity.translation);
+
+            let body = RigidBody {
+                pv: actual,
+                angle: pose.rotation as f64,
+                angular_velocity: grid.velocity.rotation as f64,
+            };
+
+            let (ctrl, _status) =
+                position_hold_control_law(target, target_pose.rotation as f64, &body, DVec2::ZERO);
+
+            computer.vehicle_control = ctrl;
+        }
     }
 }
 

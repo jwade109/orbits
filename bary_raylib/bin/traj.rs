@@ -28,7 +28,6 @@ fn run_simulation(
         .blueprint(vehicle_name)
         .spawn(vehicle_name, (0.0, 0.0, 0.0))
         .waypoint(vehicle_name, target)
-        .commands(vehicle_name)
         .build();
 
     let grid_id = find::grid_by_name(&world.grids, vehicle_name).unwrap();
