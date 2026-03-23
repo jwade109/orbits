@@ -5,61 +5,6 @@ use bary_core::prelude::*;
 use raylib::prelude::*;
 use std::collections::VecDeque;
 
-pub struct Command {
-    entrypoint: String,
-    params: Vec<String>,
-    func: Box<dyn Fn(&ArgsMap) -> Result<Action, ParseError>>,
-}
-
-impl Command {
-    fn new(
-        entrypoint: &'static str,
-        params: Vec<&'static str>,
-        f: impl Fn(&ArgsMap) -> Result<Action, ParseError> + 'static,
-    ) -> Self {
-        Self {
-            entrypoint: entrypoint.to_string(),
-            params: params.iter().map(|s| s.to_string()).collect(),
-            func: Box::new(f),
-        }
-    }
-
-    fn to_suggestion(&self) -> String {
-        let mut ret = self.entrypoint.clone();
-        for param in &self.params {
-            ret += &format!(" [{}]", param);
-        }
-        ret
-    }
-
-    fn parse_partial_args(&self, args: &[String]) -> Vec<(Option<String>, Option<String>)> {
-        let mut ret = Vec::new();
-
-        for i in 0..self.params.len().max(args.len()) {
-            let p = self.params.get(i);
-            let a = args.get(i);
-            ret.push((p.cloned(), a.cloned()));
-        }
-        ret
-    }
-
-    fn parse_complete_args(&self, args: &[String]) -> Option<ArgsMap> {
-        let mut ret = ArgsMap::new();
-        for (i, param) in self.params.iter().enumerate() {
-            let arg = args.get(i)?;
-            ret.insert(param.clone(), arg.clone());
-        }
-        Some(ret)
-    }
-
-    fn parse(&self, args: &[String]) -> Result<Action, ParseError> {
-        let args = self
-            .parse_complete_args(args)
-            .ok_or(ParseError::WrongArgumentCount)?;
-        (self.func)(&args)
-    }
-}
-
 enum Severity {
     Info,
     Error,
@@ -91,19 +36,7 @@ impl CommandPrompt {
             queued_commands: VecDeque::new(),
             lines: Vec::new(),
             suggest_text: String::new(),
-            commands: vec![
-                Command::new("goto", vec!["grid_name"], cmd_goto),
-                Command::new("spawn", vec!["bp_name", "x", "y"], cmd_spawn),
-                Command::new("edit", vec!["grid_id"], cmd_edit),
-                Command::new("despawn", vec!["grid_id"], cmd_despawn),
-                Command::new("find", vec!["grid_name"], cmd_find),
-                Command::new("ping", vec!["x", "y"], cmd_ping),
-                Command::new("waypoint", vec!["grid_id", "x", "y"], cmd_waypoint),
-                Command::new("speed", vec!["speed"], cmd_set_speed),
-                Command::new("save", vec![], cmd_placeholder),
-                Command::new("exit", vec![], |_args| panic!()),
-                Command::new("setcpu", vec!["state"], cmd_set_cpu),
-            ],
+            commands: all_commands(),
         }
     }
 
@@ -113,11 +46,6 @@ impl CommandPrompt {
         }
         self.contents.pop();
         self.update_suggest_text();
-    }
-
-    fn info(&mut self, s: impl Into<String>) {
-        let s = s.into();
-        self.lines.push((s, Severity::Info));
     }
 
     fn error(&mut self, s: impl Into<String>) {

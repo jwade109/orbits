@@ -51,14 +51,16 @@ pub mod ops {
     pub use crate::sim::systems::update_grid_acceleration;
     pub use crate::sim::systems::update_grid_physical_props;
     pub use crate::sim::systems::update_grid_physical_props_by_id;
+    pub use crate::sim::systems::world::set_all_thrusters;
     pub use crate::sim::systems::world::set_grid_pose;
     pub use crate::sim::systems::world::set_grid_vel;
     pub use crate::sim::systems::world::set_primary_computer_state;
     pub use crate::sim::systems::world::set_primary_computer_waypoint;
+    pub use crate::sim::systems::world::set_thruster_state;
+    pub use crate::sim::vehicle::destroy_part_without_integrity_check;
     pub use crate::sim::vehicle::detach_part_from_parent;
     pub use crate::sim::vehicle::duplicate_part_to_new_grid;
     pub use crate::sim::vehicle::rebuild_index_from_island;
-    pub use crate::sim::vehicle::destroy_part_without_integrity_check;
     pub use crate::sim::vehicle::split_grid_if_necessary;
     pub use crate::sim::world::update_computers;
     pub use crate::sim::world::update_trackers;

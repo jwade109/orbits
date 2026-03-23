@@ -184,6 +184,16 @@ pub mod world {
         super::set_primary_computer_state_c(grid_id, new_state, &world.grids, &mut world.computers)
     }
 
+    pub fn set_all_thrusters(grid_id: Ent, new_state: bool, world: &mut World) -> BaryResult<()> {
+        let grid = world.grids.try_get(grid_id)?;
+        for thruster_id in &grid.thrusters {
+            let thruster = world.thrusters.try_get_mut(*thruster_id)?;
+            thruster.is_on = new_state;
+        }
+        update_grid_acceleration([grid_id].into(), world);
+        Ok(())
+    }
+
     pub fn update_grid_acceleration(dirty_set: BTreeSet<Ent>, world: &mut World) {
         super::update_grid_acceleration(
             dirty_set,

@@ -51,6 +51,8 @@ impl Viewport {
     }
 }
 
+/// Information that doesn't *in general* need to be synchronized across
+/// clients in multiplayer.
 pub struct ClientSpecificInfo {
     pub chat: Chat,
     pub mouse_screen_position: Option<Vec2>,

@@ -96,6 +96,7 @@ pub fn apply_transaction(
         Action::SetCpuSelectedGrid(state) => {
             if let Some(grid_id) = client.selection_info.selected_grid {
                 _ = ops::set_primary_computer_state(grid_id, state, world);
+                _ = ops::set_all_thrusters(grid_id, false, world);
                 client
                     .chat
                     .log(format!("Set CPU on grid {} to {}", grid_id, state));

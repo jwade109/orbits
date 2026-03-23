@@ -179,17 +179,17 @@ fn animate_camera_towards_target(target: &Camera, actual: &mut Camera) {
     actual.zoom = low_pass(actual.zoom, target.zoom, rate_translation);
 }
 
-pub fn destroy_part(world: &mut World, part_id: Ent) -> BaryResult<(PartInstance, Ent)> {
+pub fn destroy_part(world: &mut World, part_id: Ent) -> BaryResult<(PartInstance, Ent, Vec<Ent>)> {
     let (instance, grid_id) = destroy_part_without_integrity_check(world, part_id, true)?;
-    split_grid_if_necessary(world, grid_id)?;
-    Ok((instance, grid_id))
+    let grids = split_grid_if_necessary(world, grid_id)?;
+    Ok((instance, grid_id, grids))
 }
 
 pub fn destroy_top_part_at(
     world: &mut World,
     grid_id: Ent,
     coord: PartCoord,
-) -> BaryResult<(PartInstance, Ent)> {
+) -> BaryResult<(PartInstance, Ent, Vec<Ent>)> {
     warn!("Destroying top part at {} in grid {}", coord, grid_id);
 
     let grid = world.grids.try_get(grid_id)?;
@@ -281,9 +281,18 @@ pub mod input_handlers {
         };
 
         match destroy_top_part_at(world, grid_id, coord) {
-            Ok((instance, grid_id)) => {
+            Ok((instance, grid_id, grids)) => {
                 info!("Removed part {:?}, grid {}", instance, grid_id);
                 sounds.push(SoundEffect::DestroyPart);
+
+                for grid_id in grids {
+                    let Ok(grid) = world.grids.try_get_mut(grid_id) else {
+                        continue;
+                    };
+
+                    grid.velocity.translation += randvec(0.01, 0.03);
+                    grid.velocity.rotation += rand(-0.02, 0.02);
+                }
             }
             Err(_e) => {
                 // don't care.
