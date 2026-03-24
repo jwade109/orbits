@@ -3,11 +3,29 @@ use crate::sim::PartOccupancy;
 use bary_core::prelude::*;
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Deserialize, Serialize, Clone, Copy)]
+pub struct GridLocation {
+    pub grid_id: Ent,
+    pub coord: PartCoord,
+}
+
+impl GridLocation {
+    pub fn new(grid_id: Ent, coord: PartCoord) -> Self {
+        Self { grid_id, coord }
+    }
+}
+
 #[derive(Default, Debug, Deserialize, Serialize, Clone)]
 pub struct SelectionInfo {
-    pub mouse_hovered: Option<Ent>,
-    pub selected_grid: Option<Ent>,
+    pub hovered: Option<GridLocation>,
     pub mouseover_part_info: Option<(PartCoord, PartOccupancy)>,
+    pub selected: Vec<GridLocation>,
+}
+
+impl SelectionInfo {
+    pub fn first_selected_grid(&self) -> Option<Ent> {
+        self.selected.first().map(|e| e.grid_id)
+    }
 }
 
 #[derive(Debug)]

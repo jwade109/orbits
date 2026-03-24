@@ -141,6 +141,10 @@ pub fn draw_world(
 
     draw_editor_part(&mut c, world, client);
 
+    draw_selected_part_cursors(&mut c, world, client);
+
+    draw_hovered_part_cursor(&mut c, world, client);
+
     drop(c);
 
     draw_grid_far_indicators(&world.grids, d, &raylib_camera);
@@ -161,6 +165,49 @@ pub fn draw_world(
 
     // draw_parts_zoo(&world.prototypes, &mut d);
     // draw_test_isos(&mut d)
+}
+
+pub fn draw_selected_part_cursors(
+    d: &mut RaylibDrawHandle,
+    world: &World,
+    client: &ClientSpecificInfo,
+) {
+    for loc in &client.selection_info.selected {
+        let grid = ok_or_continue!(world.grids.try_get(loc.grid_id));
+        let occ = some_or_continue!(grid.get_parts_at(loc.coord));
+        for (_layer, id) in occ.iter() {
+            let part = ok_or_continue!(world.parts.try_get(id));
+            draw_grid_placement(
+                d,
+                grid.origin(),
+                part.placement,
+                Color::WHITE.alpha(0.0),
+                Color::ORANGE,
+            );
+        }
+    }
+}
+
+pub fn draw_hovered_part_cursor(
+    d: &mut RaylibDrawHandle,
+    world: &World,
+    client: &ClientSpecificInfo,
+) {
+    let gridloc = some_or_return!(client.selection_info.hovered);
+    let grid = ok_or_return!(world.grids.try_get(gridloc.grid_id));
+
+    let occ = grid
+        .get_parts_at(gridloc.coord)
+        .unwrap_or(&PartOccupancy::EMPTY);
+
+    let color = if occ.has_any() {
+        Color::GREEN
+    } else {
+        Color::GRAY
+    };
+
+    let iso = grid.origin().offset(gridloc.coord.to_meters());
+    draw_rectangle(d, iso, Vec2::splat(PartCoord::CELL_WIDTH), color);
 }
 
 pub fn draw_editor_state(d: &mut RaylibDrawHandle) {
@@ -230,7 +277,7 @@ fn draw_focused_grid_cursor(
     parts: &Components<Part>,
     sel: &SelectionInfo,
 ) {
-    let Some(grid_id) = sel.selected_grid else {
+    let Some(grid_id) = sel.first_selected_grid() else {
         return;
     };
     let Ok(grid) = grids.try_get(grid_id) else {
@@ -247,8 +294,8 @@ fn draw_focused_grid_cursor(
         };
 
         // cursor
-        let iso = origin.offset(coord.to_meters());
-        fill_rectangle(d, iso, Vec2::splat(size), Color::GREEN);
+        // let iso = origin.offset(coord.to_meters());
+        // fill_rectangle(d, iso, Vec2::splat(size), Color::GREEN);
 
         for (layer, id) in occ.iter() {
             let border_color = match layer {
@@ -269,14 +316,6 @@ fn draw_focused_grid_cursor(
             }
         }
     }
-
-    // axes
-    let origin = grid.origin();
-    let x_axis = origin.offset(Vec2::X * 10.0).translation;
-    let y_axis = origin.offset(Vec2::Y * 10.0).translation;
-    draw_line(d, origin.translation, x_axis, Color::RED);
-    draw_line(d, origin.translation, y_axis, Color::GREEN);
-    draw_circle(d, origin.translation, 0.15, Color::BLUE);
 }
 
 fn draw_selected_grid_info(
@@ -285,7 +324,7 @@ fn draw_selected_grid_info(
     grids: &Components<VehicleGrid>,
     screen_dims: Vec2,
 ) {
-    let Some(grid_id) = sel.selected_grid else {
+    let Some(grid_id) = sel.first_selected_grid() else {
         return;
     };
     let Ok(grid) = grids.try_get(grid_id) else {
@@ -403,6 +442,14 @@ pub fn draw_grid_outlines(d: &mut RaylibDrawHandle, grids: &Components<VehicleGr
         for (p, c) in markers {
             fill_circle(d, p.translation, 0.05, c);
         }
+
+        // axes
+        let origin = grid.origin();
+        let x_axis = origin.offset(Vec2::X * 10.0).translation;
+        let y_axis = origin.offset(Vec2::Y * 10.0).translation;
+        draw_line(d, origin.translation, x_axis, Color::RED);
+        draw_line(d, origin.translation, y_axis, Color::GREEN);
+        draw_circle(d, origin.translation, 0.15, Color::BLUE);
     }
 }
 
@@ -782,13 +829,13 @@ fn draw_selection_info(
     grids: &Components<VehicleGrid>,
     sel: &SelectionInfo,
 ) {
-    if let Some(grid_id) = sel.mouse_hovered {
-        let grid = ok_or_return!(grids.try_get(grid_id));
+    if let Some(gridloc) = sel.hovered {
+        let grid = ok_or_return!(grids.try_get(gridloc.grid_id));
         let loc = grid.centroid_isometry();
         let r = grid.bounding_radius() * 1.4;
         draw_circle(d, loc.translation, r, Color::GREEN);
     }
-    if let Some(grid_id) = sel.selected_grid {
+    if let Some(grid_id) = sel.first_selected_grid() {
         let grid = ok_or_return!(grids.try_get(grid_id));
         let loc = grid.centroid_isometry();
         let r = grid.bounding_radius() * 1.4 + 0.5;
@@ -832,7 +879,7 @@ fn draw_selected_grid_primary_computer_info(
     client: &ClientSpecificInfo,
     assets: &Assets,
 ) {
-    let Some(grid_id) = client.selection_info.selected_grid else {
+    let Some(grid_id) = client.selection_info.first_selected_grid() else {
         return;
     };
 
@@ -867,11 +914,19 @@ fn draw_hovered_part_info(
     client: &ClientSpecificInfo,
     assets: &Assets,
 ) {
-    let Some((coord, occ)) = client.selection_info.mouseover_part_info else {
-        return;
-    };
+    let gridloc = some_or_return!(client.selection_info.hovered);
+    let grid = ok_or_return!(world.grids.try_get(gridloc.grid_id));
 
-    let mut s = format!("At {}: {:?}", coord, occ.to_array());
+    let occ = grid
+        .get_parts_at(gridloc.coord)
+        .unwrap_or(&PartOccupancy::EMPTY);
+
+    let mut s = format!(
+        "At {}-{}: {:?}",
+        gridloc.grid_id,
+        gridloc.coord,
+        occ.to_array()
+    );
 
     for (layer, part_id) in occ.iter() {
         let Ok(part) = world.parts.try_get(part_id) else {
@@ -914,7 +969,7 @@ fn draw_hovered_part_info(
     };
 
     if let Some(font) = &assets.fira_code {
-        // draw_window(d, &window, font);
+        draw_window(d, &window, font);
     }
 }
 

@@ -58,6 +58,8 @@ fn draw_debug_info(
     s += &format!("\nUpdates: {}", world.grid_acceleration_updates);
 
     s += &format!("\nMOUSE {:?}", client.mouse_screen_position);
+    s += &format!("\nHOVER {:?}", client.selection_info.hovered);
+    s += &format!("\nSLCT {:?}", client.selection_info.selected);
     s += &format!("\nPRT {:?}", &world.particles.len());
     s += &format!("\nBP {:?}", &world.blueprints);
     s += &format!("\nPROTO {:?}", &world.prototypes);

@@ -14,6 +14,8 @@ use crate::sounds::*;
 use crate::utils::*;
 use bary_core::prelude::PI;
 use bary_core::prelude::*;
+use early_returns::ok_or_return;
+use early_returns::some_or_return;
 use log::*;
 use rdev::Button;
 use serde::{Deserialize, Serialize};
@@ -261,7 +263,7 @@ pub mod input_handlers {
         client: &mut ClientSpecificInfo,
         sounds: &mut SoundEffects,
     ) {
-        let Some(grid_id) = client.selection_info.selected_grid else {
+        let Some(grid_id) = client.selection_info.first_selected_grid() else {
             return;
         };
 
@@ -295,7 +297,7 @@ pub mod input_handlers {
         client: &mut ClientSpecificInfo,
         sounds: &mut SoundEffects,
     ) {
-        let Some(grid_id) = client.selection_info.selected_grid else {
+        let Some(grid_id) = client.selection_info.first_selected_grid() else {
             return;
         };
 
@@ -361,7 +363,7 @@ pub mod input_handlers {
     }
 
     pub fn toggle_following_on_key_f(client: &mut ClientSpecificInfo, sounds: &mut SoundEffects) {
-        let Some(grid_id) = client.selection_info.selected_grid else {
+        let Some(grid_id) = client.selection_info.first_selected_grid() else {
             return;
         };
         if client.viewport.look_at(grid_id) {
@@ -395,7 +397,7 @@ pub mod input_handlers {
     }
 
     pub fn toggle_tracking_for_selected_grid(world: &mut World, client: &mut ClientSpecificInfo) {
-        let Some(grid_id) = client.selection_info.selected_grid else {
+        let Some(grid_id) = client.selection_info.first_selected_grid() else {
             return;
         };
         match toggle_tracking(world, grid_id) {
@@ -480,7 +482,7 @@ pub mod input_handlers {
             return;
         };
 
-        let Some(id) = client.selection_info.selected_grid else {
+        let Some(id) = client.selection_info.first_selected_grid() else {
             return;
         };
 
@@ -512,11 +514,11 @@ pub mod input_handlers {
 
         editor.prototype_id = None;
 
-        let Some(hovered_grid) = client.selection_info.mouse_hovered else {
+        let Some(hovered_grid) = client.selection_info.hovered else {
             return;
         };
 
-        if editor.vehicle != hovered_grid {
+        if editor.vehicle != hovered_grid.grid_id {
             return;
         }
 
@@ -634,19 +636,25 @@ fn update_thrusters(
     needs_update
 }
 
-fn update_selection_info(
-    info: &mut SelectionInfo,
+fn update_actual_hover_part_info(
+    sel: &mut SelectionInfo,
     grids: &Components<VehicleGrid>,
-    camera: &Camera,
     mouse_screen_position: Option<Vec2>,
     screen_dims: Vec2,
+    camera: &Camera,
 ) {
-    if let Some(pos) = mouse_screen_position {
-        let pos = screen_to_world(camera, pos, screen_dims);
-        info.mouse_hovered = super::systems::find::closest_grid(grids, pos, 100.0).map(|e| e.0);
-    } else {
-        info.mouse_hovered = None;
+    sel.hovered = None;
+    let screen_pos = some_or_return!(mouse_screen_position);
+    let world_pos = screen_to_world(camera, screen_pos, screen_dims);
+    let (grid_id, offset) = some_or_return!(find::closest_grid(grids, world_pos, None));
+    let dist = offset.length();
+    let grid = ok_or_return!(grids.try_get(grid_id));
+    if 2.0 * grid.bounding_radius() < dist {
+        return;
     }
+    let origin = grid.origin();
+    let coord = PartCoord::from_meters_floored(in_frame(origin, world_pos));
+    sel.hovered = Some(GridLocation::new(grid_id, coord));
 }
 
 fn update_mouseover_part_info(
@@ -664,7 +672,7 @@ fn update_mouseover_part_info(
     let Some(screen_pos) = mouse_screen_position else {
         return;
     };
-    let Some(grid_id) = sel.selected_grid else {
+    let Some(grid_id) = sel.first_selected_grid() else {
         return;
     };
     let Ok(grid) = grids.try_get(grid_id) else {
@@ -714,12 +722,25 @@ fn set_target_camera_if_following(
     actual.isometry.translation = target.isometry.translation;
 }
 
-fn select_hovered_vehicle_on_click(sel: &mut SelectionInfo, sounds: &mut SoundEffects) {
-    let old_grid = sel.selected_grid;
+fn select_hovered_grid_loc_on_click(
+    sel: &mut SelectionInfo,
+    input: &InputState,
+    sounds: &mut SoundEffects,
+) {
+    let old_grid = sel.first_selected_grid();
 
-    sel.selected_grid = sel.mouse_hovered;
+    let Some(hovered) = sel.hovered else {
+        sel.selected.clear();
+        return;
+    };
 
-    if sel.selected_grid.is_some() {
+    if input.is_key_pressed(Key::ShiftLeft) {
+        sel.selected.push(hovered);
+    } else {
+        sel.selected = vec![hovered];
+    }
+
+    if sel.first_selected_grid().is_some() {
         sounds.push(SoundEffect::Open);
     } else if old_grid.is_some() {
         sounds.push(SoundEffect::Close);
@@ -845,7 +866,7 @@ pub fn process_event(
                     &mut actions,
                     &mut sounds,
                 );
-                select_hovered_vehicle_on_click(&mut client.selection_info, &mut sounds);
+                select_hovered_grid_loc_on_click(&mut client.selection_info, input, &mut sounds);
                 editor_try_place_part_on_click(world, client);
             }
             Button::Right => {
@@ -869,21 +890,19 @@ pub fn process_event(
     (sounds, actions)
 }
 
-pub fn post_simulation_update(
+pub fn pre_simulation_update(
     world: &mut World,
     client: &mut ClientSpecificInfo,
-    input: &InputState,
-) -> (Vec<Action>, SoundEffects) {
+    _input: &InputState,
+) {
     let mut sounds = SoundEffects::default();
 
-    client.chat.drop_old_messages();
-
-    update_selection_info(
+    update_actual_hover_part_info(
         &mut client.selection_info,
         &world.grids,
-        &world.camera,
         client.mouse_screen_position,
         client.screen_dims,
+        &world.camera,
     );
 
     update_mouseover_part_info(
@@ -894,6 +913,16 @@ pub fn post_simulation_update(
         &world.camera,
         &mut sounds,
     );
+}
+
+pub fn post_simulation_update(
+    world: &mut World,
+    client: &mut ClientSpecificInfo,
+    input: &InputState,
+) -> (Vec<Action>, SoundEffects) {
+    let mut sounds = SoundEffects::default();
+
+    client.chat.drop_old_messages();
 
     match &mut client.viewport {
         Viewport::Free(fly) => {
