@@ -212,20 +212,14 @@ pub fn destroy_part(world: &mut World, part_id: Ent) -> BaryResult<(PartInstance
 
 pub fn destroy_top_part_at(
     world: &mut World,
-    grid_id: Ent,
-    coord: PartCoord,
+    loc: GridLocation,
 ) -> BaryResult<(PartInstance, Ent, Vec<Ent>)> {
-    warn!("Destroying top part at {} in grid {}", coord, grid_id);
-
-    let grid = world.grids.try_get(grid_id)?;
+    let grid = world.grids.try_get(loc.grid_id)?;
     let top_part = grid
-        .get_parts_at(coord)
+        .get_parts_at(loc.coord)
         .map(|occ| occ.top())
         .flatten()
-        .ok_or(BaryError::NoPartsAt(coord))?;
-
-    debug!("Top part is {}", top_part);
-
+        .ok_or(BaryError::NoPartsAt(loc.coord))?;
     destroy_part(world, top_part)
 }
 
@@ -292,20 +286,28 @@ pub mod input_handlers {
         sounds.push(SoundEffect::SetWaypoint);
     }
 
+    pub fn explode_at_mouseover(world: &mut World, client: &mut ClientSpecificInfo) {
+        let loc = some_or_return!(client.selection_info.hovered);
+        dbg!(loc);
+        let p = loc.coord.inner();
+        let r = 2;
+        for x in p.x - r..=p.x + r {
+            for y in p.y - r..=p.y + r {
+                let mut loc = loc;
+                loc.coord.0 = (x, y).into();
+                _ = destroy_top_part_at(world, loc);
+            }
+        }
+    }
+
     pub fn destroy_top_layer_part_at_mouseover(
         world: &mut World,
         client: &mut ClientSpecificInfo,
         sounds: &mut SoundEffects,
     ) {
-        let Some(grid_id) = client.selection_info.first_selected_grid() else {
-            return;
-        };
+        let loc = some_or_return!(client.selection_info.hovered);
 
-        let Some((coord, _occ)) = client.selection_info.mouseover_part_info else {
-            return;
-        };
-
-        match destroy_top_part_at(world, grid_id, coord) {
+        match destroy_top_part_at(world, loc) {
             Ok((instance, grid_id, grids)) => {
                 info!("Removed part {:?}, grid {}", instance, grid_id);
                 sounds.push(SoundEffect::DestroyPart);
@@ -854,6 +856,7 @@ pub fn process_event(
             Key::KeyQ => input_handlers::pipette_part_if_in_editor_on_q(world, client),
             Key::Return => input_handlers::enter_ship_editor_on_enter(world, client, &mut sounds),
             Key::Escape => input_handlers::leave_ship_editor_on_escape(world, client, &mut sounds),
+            Key::KeyC => input_handlers::explode_at_mouseover(world, client),
             _ => (),
         },
         rdev::EventType::KeyRelease(_key) => (),
