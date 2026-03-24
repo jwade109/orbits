@@ -1,12 +1,12 @@
 use crate::camera::Camera;
 use crate::client::*;
 use crate::components::*;
+use crate::constants::*;
 use crate::input_state::*;
 use crate::multiplayer::Action;
 use crate::ops::destroy_part_without_integrity_check;
 use crate::ops::detach_part_from_parent;
 use crate::persistence::save_world;
-use crate::query::closest_grid;
 use crate::result::BaryError;
 use crate::result::BaryResult;
 use crate::sim::*;
@@ -110,6 +110,23 @@ fn camera_zooms_with_plus_minus(input: &InputState, target: &mut Camera) {
     }
 }
 
+fn editor_offset_moves_with_wasd(input: &InputState, offset: &mut Vec2, zoom: f32) {
+    let speed = 20.0 / zoom;
+
+    if input.is_key_pressed(Key::KeyS) {
+        offset.y -= speed;
+    }
+    if input.is_key_pressed(Key::KeyW) {
+        offset.y += speed;
+    }
+    if input.is_key_pressed(Key::KeyD) {
+        offset.x += speed;
+    }
+    if input.is_key_pressed(Key::KeyA) {
+        offset.x -= speed;
+    }
+}
+
 fn camera_moves_with_wasd(
     input: &InputState,
     target: &mut Camera,
@@ -156,6 +173,12 @@ fn camera_moves_with_wasd(
     if old_follow.is_some() && follow.is_none() {
         sounds.push(SoundEffect::LeaveFollow);
     }
+}
+
+fn editor_actual_offset_smooth_animation(target: Vec2, actual: &mut Vec2) {
+    let rate_translation = 0.2;
+    actual.x = low_pass(actual.x, target.x, rate_translation);
+    actual.y = low_pass(actual.y, target.y, rate_translation);
 }
 
 fn animate_camera_towards_target(target: &Camera, actual: &mut Camera) {
@@ -463,7 +486,8 @@ pub mod input_handlers {
 
         client.viewport = Viewport::Editor(EditorState {
             vehicle: id,
-            camera_offset: Vec2::ZERO,
+            target_offset: Vec2::ZERO,
+            actual_offset: Vec2::ZERO,
             camera_rotation: Rotation::East,
             prototype_id: None,
             part_rotation: Rotation::East,
@@ -521,15 +545,14 @@ pub mod input_handlers {
 }
 
 fn propagate_grid_rigid_bodies(grids: &mut Components<VehicleGrid>) {
-    let dt = 0.02;
     for grid in grids.values_mut() {
         let body_frame_accel = grid.linear_acceleration();
         let omega = grid.angular_acceleration();
         let accel = rotate(body_frame_accel, grid.particle_location.rotation);
-        grid.particle_location.translation += grid.velocity.translation * dt;
-        grid.velocity.translation += accel * dt;
-        grid.particle_location.rotation += grid.velocity.rotation * dt;
-        grid.velocity.rotation += omega * dt;
+        grid.particle_location.translation += grid.velocity.translation * NOMINAL_DT;
+        grid.velocity.translation += accel * NOMINAL_DT;
+        grid.particle_location.rotation += grid.velocity.rotation * NOMINAL_DT;
+        grid.velocity.rotation += omega * NOMINAL_DT;
     }
 }
 
@@ -894,9 +917,14 @@ pub fn post_simulation_update(
         Viewport::Editor(editor) => {
             camera_zooms_with_plus_minus(input, &mut world.target_camera);
 
+            editor_offset_moves_with_wasd(input, &mut editor.target_offset, world.camera.zoom);
+
+            editor_actual_offset_smooth_animation(editor.target_offset, &mut editor.actual_offset);
+
             set_cams_to_grid_pose(
                 editor.vehicle,
                 &world.grids,
+                editor.actual_offset,
                 &mut world.target_camera,
                 &mut world.camera,
             );
@@ -911,12 +939,13 @@ pub fn post_simulation_update(
 fn set_cams_to_grid_pose(
     grid_id: Ent,
     grids: &Components<VehicleGrid>,
+    offset: Vec2,
     target: &mut Camera,
     actual: &mut Camera,
 ) {
     if let Ok(grid) = grids.try_get(grid_id) {
-        target.isometry = grid.centroid_isometry();
-        target.zoom = target.zoom.clamp(20.0, 150.0);
+        target.isometry = grid.centroid_isometry().offset(offset);
+        target.zoom = target.zoom.clamp(EDITOR_MINIMUM_ZOOM, EDITOR_MAXIMUM_ZOOM);
         actual.isometry = target.isometry;
     }
 }

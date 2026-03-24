@@ -13,7 +13,8 @@ pub struct SelectionInfo {
 #[derive(Debug)]
 pub struct EditorState {
     pub vehicle: Ent,
-    pub camera_offset: Vec2,
+    pub target_offset: Vec2,
+    pub actual_offset: Vec2,
     pub camera_rotation: Rotation,
     pub prototype_id: Option<Ent>,
     pub part_rotation: Rotation,
