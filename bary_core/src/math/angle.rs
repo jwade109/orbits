@@ -1,6 +1,7 @@
 use crate::math::wrap_pi_npi;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub struct Angle(f32);
 
 impl Angle {

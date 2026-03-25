@@ -7,7 +7,7 @@ use bary_raylib::{
     query::primary_computer_id,
     sim::{
         TimedInstruction,
-        systems::{TICKS_PER_SECOND, find, get_thruster_levels},
+        systems::{find, get_thruster_levels},
         world::update_world,
     },
     world_builder::WorldBuilder,
@@ -18,8 +18,17 @@ use serde::{Deserialize, Serialize};
 struct SimSpec {
     ship_name: String,
     instructions: Vec<TimedInstruction>,
-    steps: u64,
-    secs_per_step: f32,
+    ticks_per_epoch: u64,
+}
+
+impl SimSpec {
+    fn duration(&self) -> u64 {
+        let mut sum = 0;
+        for instr in &self.instructions {
+            sum += instr.duration.unwrap_or(0);
+        }
+        sum + 1000
+    }
 }
 
 fn load_sim_file(filename: &str) -> Result<SimSpec, Box<dyn std::error::Error>> {
@@ -32,7 +41,8 @@ struct SimEpoch {
     ticks: u64,
     pose: Isometry2d,
     vel: Isometry2d,
-    target: Option<Isometry2d>,
+    target_position: Option<Vec2>,
+    target_attitude: Option<f32>,
     acc_updates: u64,
     thrusters_firing: u32,
 }
@@ -40,8 +50,8 @@ struct SimEpoch {
 fn run_simulation(
     vehicle_name: &str,
     instructions: Vec<TimedInstruction>,
-    steps: u64,
-    secs_per_step: f32,
+    ticks: u64,
+    ticks_per_epoch: u64,
 ) -> Vec<SimEpoch> {
     let mut world = WorldBuilder::new()
         .assets()
@@ -61,16 +71,19 @@ fn run_simulation(
 
     let mut ret = Vec::new();
 
-    for _ in 0..steps {
-        let ticks = (secs_per_step * TICKS_PER_SECOND as f32).ceil() as u64;
-        for _ in 0..ticks {
-            update_world(&mut world);
+    for _ in 0..ticks {
+        update_world(&mut world);
+
+        if ticks % ticks_per_epoch > 0 {
+            continue;
         }
 
         let cpu_id = primary_computer_id(grid_id, &world.grids).unwrap();
         let cpu = world.computers.try_get(cpu_id).unwrap();
-        let pose = find::grid_pose(&world.grids, grid_id).unwrap();
+        let mut pose = find::grid_pose(&world.grids, grid_id).unwrap();
         let vel = find::grid_vel(&world.grids, grid_id).unwrap();
+
+        pose.rotation = Angle::radians(pose.rotation).as_rad();
 
         let thrusters = get_thruster_levels(grid_id, &world.grids, &world.thrusters).unwrap();
 
@@ -80,7 +93,8 @@ fn run_simulation(
             ticks: world.ticks,
             pose,
             vel,
-            target: cpu.current_waypoint(),
+            target_position: cpu.current_waypoint().map(|e| e.translation),
+            target_attitude: cpu.current_angle().map(|e| e.as_rad()),
             acc_updates: world.grid_acceleration_updates,
             thrusters_firing,
         };
@@ -101,9 +115,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let epochs = run_simulation(
         &spec.ship_name,
         spec.instructions.clone(),
-        spec.steps,
-        spec.secs_per_step,
+        spec.duration(),
+        spec.ticks_per_epoch,
     );
+
     let mut file = File::create("sim.csv").unwrap();
 
     write!(file, "ticks,x,y,a,vx,vy,va,tx,ty,ta,updates,thrusters\n")?;
@@ -119,15 +134,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             epoch.vel.translation.x,
             epoch.vel.translation.y,
             epoch.vel.rotation,
-            epoch
-                .target
-                .map(|t| t.translation.x)
-                .unwrap_or(std::f32::NAN),
-            epoch
-                .target
-                .map(|t| t.translation.y)
-                .unwrap_or(std::f32::NAN),
-            epoch.target.map(|t| t.rotation).unwrap_or(std::f32::NAN),
+            epoch.target_position.map(|t| t.x).unwrap_or(std::f32::NAN),
+            epoch.target_position.map(|t| t.y).unwrap_or(std::f32::NAN),
+            epoch.target_attitude.unwrap_or(std::f32::NAN),
             epoch.acc_updates,
             epoch.thrusters_firing,
         )?;

@@ -10,6 +10,8 @@ use crate::{
 pub enum Instruction {
     Ctrl(VehicleControl),
     HoldPosition(Isometry2d),
+    HoldAttitude(Angle),
+    PointAt(Vec2),
     Drift,
 }
 
@@ -46,6 +48,12 @@ impl std::fmt::Display for Instruction {
             }
             Instruction::Drift => {
                 write!(f, "DRIFT")
+            }
+            Instruction::HoldAttitude(angle) => {
+                write!(f, " HDG {:0.2}", angle)
+            }
+            Instruction::PointAt(pos) => {
+                write!(f, " POINT {:0.2}", pos)
             }
         }
     }
@@ -171,6 +179,19 @@ impl Computer {
         }
     }
 
+    pub fn current_angle(&self) -> Option<Angle> {
+        if let Some(wp) = self.current_waypoint() {
+            return Some(Angle::radians(wp.rotation));
+        }
+        let cmd = self.command_queue.first()?;
+
+        match cmd.instruction {
+            Instruction::HoldAttitude(hdg) => Some(hdg),
+            Instruction::HoldPosition(iso) => Some(Angle::radians(iso.rotation)),
+            _ => None,
+        }
+    }
+
     pub fn current_waypoint(&self) -> Option<Isometry2d> {
         let cmd = self.command_queue.first()?;
         if let Instruction::HoldPosition(wp) = cmd.instruction {
@@ -221,6 +242,28 @@ pub fn update_computers(
 
             let (ctrl, _status) =
                 position_hold_control_law(target, target_pose.rotation as f64, &body, DVec2::ZERO);
+
+            computer.vehicle_control = ctrl;
+        } else if let Some(target) = computer.current_angle() {
+            let Ok(part) = parts.try_get(*cpu_id) else {
+                continue;
+            };
+
+            let Ok(grid) = grids.try_get(part.grid_id) else {
+                continue;
+            };
+
+            let actual = Angle::radians(grid.particle_location.rotation);
+
+            let body = RigidBody {
+                pv: PV::ZERO,
+                angle: actual.as_rad() as f64,
+                angular_velocity: grid.velocity.rotation as f64,
+            };
+
+            let pid = PDCtrl::new(20.0, 50.0);
+
+            let (ctrl, _status) = attitude_control_law(target.as_rad() as f64, &pid, &body);
 
             computer.vehicle_control = ctrl;
         }
