@@ -4267,6 +4267,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "layout"
+version = "0.1.0"
+dependencies = [
+ "bary_core",
+ "glam",
+ "svg",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

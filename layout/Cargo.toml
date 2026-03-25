@@ -1,0 +1,13 @@
+[package]
+name = "layout"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+glam = { version = "0.30.9", features = ["serde"] }
+bary_core = { path = "../bary_core" }
+svg = "0.18.0"
+
+[[bin]]
+name = "main"
+path = "bin/main.rs"
