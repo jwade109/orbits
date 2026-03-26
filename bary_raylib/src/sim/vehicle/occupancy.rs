@@ -80,6 +80,15 @@ impl PartOccupancy {
         }
     }
 
+    pub fn at_layer(&self, layer: PartLayer) -> Option<Ent> {
+        match layer {
+            PartLayer::Internal => self.internal,
+            PartLayer::Plumbing => self.plumbing,
+            PartLayer::Structural => self.structural,
+            PartLayer::Exterior => self.external,
+        }
+    }
+
     pub fn remove(&mut self, part_id: Ent) {
         clear_if_equal(&mut self.internal, part_id);
         clear_if_equal(&mut self.structural, part_id);

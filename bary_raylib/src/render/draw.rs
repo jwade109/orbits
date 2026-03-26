@@ -114,13 +114,15 @@ pub fn draw_world(
             &world.thrusters,
             &world.camera,
         );
+
+        draw_trackers(&mut c, &world.tracking);
     } else if let Viewport::Editor(e) = &client.viewport {
         draw_grid_lines(&mut c, &world.grids, e);
-        draw_thruster_classification(&mut c, &world.grids, &world.parts, &world.thrusters);
     }
 
     if client.is_holding_shift {
         draw_grid_outlines(&mut c, &world.grids);
+        draw_thruster_classification(&mut c, &world.grids, &world.parts, &world.thrusters);
     }
 
     draw_focused_grid_cursor(&mut c, &world.grids, &world.parts, &client.selection_info);
@@ -133,8 +135,6 @@ pub fn draw_world(
     );
 
     draw_particles(&mut c, &world.particles);
-
-    draw_trackers(&mut c, &world.tracking);
 
     // draw_isometry_axes(&mut c, world.camera.isometry, "CAM", Vec2::splat(5.0));
     // draw_isometry_axes(&mut c, world.target_camera.isometry, "", Vec2::splat(5.0));
@@ -476,7 +476,7 @@ pub fn draw_editor_part(d: &mut RaylibDrawHandle, world: &World, client: &Client
 
     let cl = proto.classification();
     let pl = GridPlacement::new(coord, editor.part_rotation, proto.dims);
-    draw_part(d, pl, cl, grid_pose, false);
+    draw_part(d, pl, cl, grid_pose, false, false);
     draw_part_arrow(d, pl, grid_pose);
 }
 
@@ -486,6 +486,7 @@ pub fn draw_part(
     cl: PartClassification,
     grid_isometry: Isometry2d,
     grayed: bool,
+    border: bool,
 ) {
     let color = if grayed {
         Color::GRAY.alpha(0.2)
@@ -506,6 +507,10 @@ pub fn draw_part(
     let iso = grid_isometry * pl.origin_isometry();
     let dims = pl.part_aligned_dims().to_meters();
     fill_rectangle(d, iso, dims, color);
+
+    if border {
+        draw_rectangle(d, iso, dims, Color::WHITE);
+    }
 }
 
 pub fn draw_part_arrow(d: &mut RaylibDrawHandle, pl: GridPlacement, grid_isometry: Isometry2d) {
@@ -531,14 +536,14 @@ pub fn draw_parts(
         return;
     }
 
-    let focus_vehicle = if let Viewport::Editor(e) = viewport {
-        Some(e.vehicle)
+    let (focus_vehicle, focus_layer) = if let Viewport::Editor(e) = viewport {
+        (Some(e.vehicle), e.layer)
     } else {
-        None
+        (None, None)
     };
 
     for (grid_id, grid) in grids.iter() {
-        let is_grayed_out = focus_vehicle.is_some() && focus_vehicle != Some(*grid_id);
+        let is_focus_vehicle = focus_vehicle == Some(*grid_id) || focus_vehicle.is_none();
 
         let origin = grid.origin();
         for draw_layer in PartLayer::draw_order() {
@@ -551,12 +556,17 @@ pub fn draw_parts(
                     continue;
                 }
 
+                let is_focus_layer = Some(part.layer) == focus_layer || focus_layer.is_none();
+
+                let is_shown = is_focus_layer && is_focus_vehicle;
+
                 draw_part(
                     d,
                     part.placement,
                     part.classification,
                     origin,
-                    is_grayed_out,
+                    !is_shown,
+                    is_shown && focus_layer.is_some(),
                 );
             }
         }
@@ -896,7 +906,7 @@ fn draw_selected_grid_primary_computer_info(
         }
     };
 
-    let window = Window {
+    let _window = Window {
         origin: IVec2::new(800, 60),
         title: "Grid Info".to_string(),
         content,
@@ -904,7 +914,7 @@ fn draw_selected_grid_primary_computer_info(
     };
 
     if let Some(font) = &assets.fira_code {
-        draw_window(d, &window, font);
+        // draw_window(d, &window, font);
     }
 }
 

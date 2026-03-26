@@ -210,16 +210,43 @@ pub fn destroy_part(world: &mut World, part_id: Ent) -> BaryResult<(PartInstance
     Ok((instance, grid_id, grids))
 }
 
+pub fn destroy_part_batch(_world: &mut World, _parts: &[Ent]) -> BaryResult<()> {
+    todo!()
+}
+
+pub fn explode_grid_at(loc: GridLocation, world: &mut World) {
+    let p = loc.coord.inner();
+    let r = 2;
+    for x in p.x - r..=p.x + r {
+        for y in p.y - r..=p.y + r {
+            let mut loc = loc;
+            loc.coord.0 = (x, y).into();
+            _ = destroy_top_part_at(world, loc);
+        }
+    }
+}
+
+pub fn get_part_at(world: &World, loc: GridLocation, layer: PartLayer) -> BaryResult<Ent> {
+    let grid = world.grids.try_get(loc.grid_id)?;
+    let occ = grid
+        .get_parts_at(loc.coord)
+        .ok_or(BaryError::NoPartsAt(loc.coord))?;
+    occ.at_layer(layer).ok_or(BaryError::NoPartsInLayer(layer))
+}
+
+pub fn get_top_part_at(world: &World, loc: GridLocation) -> BaryResult<Ent> {
+    let grid = world.grids.try_get(loc.grid_id)?;
+    grid.get_parts_at(loc.coord)
+        .map(|occ| occ.top())
+        .flatten()
+        .ok_or(BaryError::NoPartsAt(loc.coord))
+}
+
 pub fn destroy_top_part_at(
     world: &mut World,
     loc: GridLocation,
 ) -> BaryResult<(PartInstance, Ent, Vec<Ent>)> {
-    let grid = world.grids.try_get(loc.grid_id)?;
-    let top_part = grid
-        .get_parts_at(loc.coord)
-        .map(|occ| occ.top())
-        .flatten()
-        .ok_or(BaryError::NoPartsAt(loc.coord))?;
+    let top_part = get_top_part_at(world, loc)?;
     destroy_part(world, top_part)
 }
 
@@ -241,6 +268,8 @@ pub fn detach_top_part_at(world: &mut World, grid_id: Ent, coord: PartCoord) -> 
 }
 
 pub mod input_handlers {
+
+    use enum_iterator::Sequence;
 
     use crate::sim::systems::{
         set_grid_pose, set_primary_computer_state, set_primary_computer_waypoint,
@@ -285,16 +314,7 @@ pub mod input_handlers {
 
     pub fn explode_at_mouseover(world: &mut World, client: &mut ClientSpecificInfo) {
         let loc = some_or_return!(client.selection_info.hovered);
-        dbg!(loc);
-        let p = loc.coord.inner();
-        let r = 2;
-        for x in p.x - r..=p.x + r {
-            for y in p.y - r..=p.y + r {
-                let mut loc = loc;
-                loc.coord.0 = (x, y).into();
-                _ = destroy_top_part_at(world, loc);
-            }
-        }
+        explode_grid_at(loc, world);
     }
 
     pub fn destroy_top_layer_part_at_mouseover(
@@ -331,6 +351,21 @@ pub mod input_handlers {
         } else if delta_y < 0 {
             target.zoom /= scale;
         }
+    }
+
+    pub fn editor_layer_shift_on_page_key(client: &mut ClientSpecificInfo, is_up: bool) {
+        let Viewport::Editor(editor) = &mut client.viewport else {
+            return;
+        };
+
+        editor.layer = if is_up {
+            editor.layer.next().unwrap_or(editor.layer)
+        } else {
+            editor.layer.previous().unwrap_or(editor.layer)
+        };
+
+        let s = format!("Set editor layer to {:?}", editor.layer);
+        client.chat.log(s);
     }
 
     pub fn panic_on_ctrl_d(input: &InputState) {
@@ -492,7 +527,7 @@ pub mod input_handlers {
             camera_rotation: Rotation::East,
             prototype_id: None,
             part_rotation: Rotation::East,
-            layer: None,
+            layer: Some(PartLayer::Internal),
         });
 
         world.target_camera.zoom = 40.0;
@@ -848,6 +883,8 @@ pub fn process_event(
                 input_handlers::lock_rotation_on_key_r(client, input);
                 input_handlers::rotate_editor_part_on_key_r(client, input);
             }
+            Key::PageDown => input_handlers::editor_layer_shift_on_page_key(client, true),
+            Key::PageUp => input_handlers::editor_layer_shift_on_page_key(client, false),
             Key::KeyD => input_handlers::panic_on_ctrl_d(input),
             Key::KeyP => input_handlers::spawn_random_ship_on_p(world),
             Key::KeyM => input_handlers::update_center_of_mass_on_m(world),

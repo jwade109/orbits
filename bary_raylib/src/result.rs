@@ -10,6 +10,7 @@ pub enum BaryError {
     SaveAlreadyExists,
     NoPrimaryComputer,
     NoPartsAt(PartCoord),
+    NoPartsInLayer(PartLayer),
     IoError(String),
     SerdeYaml(String),
     TomlSer(toml::ser::Error),
