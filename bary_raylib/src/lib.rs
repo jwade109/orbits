@@ -4,6 +4,7 @@ pub mod camera;
 pub mod client;
 pub mod cmd;
 pub mod components;
+pub mod constants;
 pub mod input_state;
 pub mod multiplayer;
 pub mod persistence;

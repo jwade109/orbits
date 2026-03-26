@@ -1,3 +1,4 @@
+use crate::constants::NOMINAL_DT;
 use bary_core::prelude::*;
 use raylib::color::Color;
 use serde::{Deserialize, Serialize};
@@ -14,8 +15,7 @@ impl PingParticle {
     }
 
     pub fn step(&mut self) {
-        let dt = 0.02;
-        self.age += dt;
+        self.age += NOMINAL_DT;
     }
 
     pub fn radius(&self) -> f32 {

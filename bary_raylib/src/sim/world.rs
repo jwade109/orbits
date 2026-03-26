@@ -1,6 +1,7 @@
 use crate::camera::Camera;
 use crate::client::*;
 use crate::components::*;
+use crate::constants::*;
 use crate::input_state::*;
 use crate::multiplayer::Action;
 use crate::ops::destroy_part_without_integrity_check;
@@ -13,6 +14,8 @@ use crate::sounds::*;
 use crate::utils::*;
 use bary_core::prelude::PI;
 use bary_core::prelude::*;
+use early_returns::ok_or_return;
+use early_returns::some_or_return;
 use log::*;
 use rdev::Button;
 use serde::{Deserialize, Serialize};
@@ -109,6 +112,23 @@ fn camera_zooms_with_plus_minus(input: &InputState, target: &mut Camera) {
     }
 }
 
+fn editor_offset_moves_with_wasd(input: &InputState, offset: &mut Vec2, zoom: f32) {
+    let speed = 20.0 / zoom;
+
+    if input.is_key_pressed(Key::KeyS) {
+        offset.y -= speed;
+    }
+    if input.is_key_pressed(Key::KeyW) {
+        offset.y += speed;
+    }
+    if input.is_key_pressed(Key::KeyD) {
+        offset.x += speed;
+    }
+    if input.is_key_pressed(Key::KeyA) {
+        offset.x -= speed;
+    }
+}
+
 fn camera_moves_with_wasd(
     input: &InputState,
     target: &mut Camera,
@@ -157,6 +177,12 @@ fn camera_moves_with_wasd(
     }
 }
 
+fn editor_actual_offset_smooth_animation(target: Vec2, actual: &mut Vec2) {
+    let rate_translation = 0.2;
+    actual.x = low_pass(actual.x, target.x, rate_translation);
+    actual.y = low_pass(actual.y, target.y, rate_translation);
+}
+
 fn animate_camera_towards_target(target: &Camera, actual: &mut Camera) {
     let rate_translation = 0.2;
     let rate_rotation = 0.2;
@@ -186,20 +212,14 @@ pub fn destroy_part(world: &mut World, part_id: Ent) -> BaryResult<(PartInstance
 
 pub fn destroy_top_part_at(
     world: &mut World,
-    grid_id: Ent,
-    coord: PartCoord,
+    loc: GridLocation,
 ) -> BaryResult<(PartInstance, Ent, Vec<Ent>)> {
-    warn!("Destroying top part at {} in grid {}", coord, grid_id);
-
-    let grid = world.grids.try_get(grid_id)?;
+    let grid = world.grids.try_get(loc.grid_id)?;
     let top_part = grid
-        .get_parts_at(coord)
+        .get_parts_at(loc.coord)
         .map(|occ| occ.top())
         .flatten()
-        .ok_or(BaryError::NoPartsAt(coord))?;
-
-    debug!("Top part is {}", top_part);
-
+        .ok_or(BaryError::NoPartsAt(loc.coord))?;
     destroy_part(world, top_part)
 }
 
@@ -234,7 +254,7 @@ pub mod input_handlers {
         client: &mut ClientSpecificInfo,
         sounds: &mut SoundEffects,
     ) {
-        let Some(grid_id) = client.selection_info.selected_grid else {
+        let Some(grid_id) = client.selection_info.first_selected_grid() else {
             return;
         };
 
@@ -263,20 +283,28 @@ pub mod input_handlers {
         sounds.push(SoundEffect::SetWaypoint);
     }
 
+    pub fn explode_at_mouseover(world: &mut World, client: &mut ClientSpecificInfo) {
+        let loc = some_or_return!(client.selection_info.hovered);
+        dbg!(loc);
+        let p = loc.coord.inner();
+        let r = 2;
+        for x in p.x - r..=p.x + r {
+            for y in p.y - r..=p.y + r {
+                let mut loc = loc;
+                loc.coord.0 = (x, y).into();
+                _ = destroy_top_part_at(world, loc);
+            }
+        }
+    }
+
     pub fn destroy_top_layer_part_at_mouseover(
         world: &mut World,
         client: &mut ClientSpecificInfo,
         sounds: &mut SoundEffects,
     ) {
-        let Some(grid_id) = client.selection_info.selected_grid else {
-            return;
-        };
+        let loc = some_or_return!(client.selection_info.hovered);
 
-        let Some((coord, _occ)) = client.selection_info.mouseover_part_info else {
-            return;
-        };
-
-        match destroy_top_part_at(world, grid_id, coord) {
+        match destroy_top_part_at(world, loc) {
             Ok((instance, grid_id, grids)) => {
                 info!("Removed part {:?}, grid {}", instance, grid_id);
                 sounds.push(SoundEffect::DestroyPart);
@@ -334,7 +362,7 @@ pub mod input_handlers {
     }
 
     pub fn toggle_following_on_key_f(client: &mut ClientSpecificInfo, sounds: &mut SoundEffects) {
-        let Some(grid_id) = client.selection_info.selected_grid else {
+        let Some(grid_id) = client.selection_info.first_selected_grid() else {
             return;
         };
         if client.viewport.look_at(grid_id) {
@@ -368,7 +396,7 @@ pub mod input_handlers {
     }
 
     pub fn toggle_tracking_for_selected_grid(world: &mut World, client: &mut ClientSpecificInfo) {
-        let Some(grid_id) = client.selection_info.selected_grid else {
+        let Some(grid_id) = client.selection_info.first_selected_grid() else {
             return;
         };
         match toggle_tracking(world, grid_id) {
@@ -453,13 +481,14 @@ pub mod input_handlers {
             return;
         };
 
-        let Some(id) = client.selection_info.selected_grid else {
+        let Some(id) = client.selection_info.first_selected_grid() else {
             return;
         };
 
         client.viewport = Viewport::Editor(EditorState {
             vehicle: id,
-            camera_offset: Vec2::ZERO,
+            target_offset: Vec2::ZERO,
+            actual_offset: Vec2::ZERO,
             camera_rotation: Rotation::East,
             prototype_id: None,
             part_rotation: Rotation::East,
@@ -484,11 +513,11 @@ pub mod input_handlers {
 
         editor.prototype_id = None;
 
-        let Some(hovered_grid) = client.selection_info.mouse_hovered else {
+        let Some(hovered_grid) = client.selection_info.hovered else {
             return;
         };
 
-        if editor.vehicle != hovered_grid {
+        if editor.vehicle != hovered_grid.grid_id {
             return;
         }
 
@@ -517,15 +546,14 @@ pub mod input_handlers {
 }
 
 fn propagate_grid_rigid_bodies(grids: &mut Components<VehicleGrid>) {
-    let dt = 0.02;
     for grid in grids.values_mut() {
         let body_frame_accel = grid.linear_acceleration();
         let omega = grid.angular_acceleration();
         let accel = rotate(body_frame_accel, grid.particle_location.rotation);
-        grid.particle_location.translation += grid.velocity.translation * dt;
-        grid.velocity.translation += accel * dt;
-        grid.particle_location.rotation += grid.velocity.rotation * dt;
-        grid.velocity.rotation += omega * dt;
+        grid.particle_location.translation += grid.velocity.translation * NOMINAL_DT;
+        grid.velocity.translation += accel * NOMINAL_DT;
+        grid.particle_location.rotation += grid.velocity.rotation * NOMINAL_DT;
+        grid.velocity.rotation += omega * NOMINAL_DT;
     }
 }
 
@@ -607,19 +635,25 @@ fn update_thrusters(
     needs_update
 }
 
-fn update_selection_info(
-    info: &mut SelectionInfo,
+fn update_actual_hover_part_info(
+    sel: &mut SelectionInfo,
     grids: &Components<VehicleGrid>,
-    camera: &Camera,
     mouse_screen_position: Option<Vec2>,
     screen_dims: Vec2,
+    camera: &Camera,
 ) {
-    if let Some(pos) = mouse_screen_position {
-        let pos = screen_to_world(camera, pos, screen_dims);
-        info.mouse_hovered = super::systems::find::closest_grid(grids, pos, 100.0).map(|e| e.0);
-    } else {
-        info.mouse_hovered = None;
+    sel.hovered = None;
+    let screen_pos = some_or_return!(mouse_screen_position);
+    let world_pos = screen_to_world(camera, screen_pos, screen_dims);
+    let (grid_id, offset) = some_or_return!(find::closest_grid(grids, world_pos, None));
+    let dist = offset.length();
+    let grid = ok_or_return!(grids.try_get(grid_id));
+    if 2.0 * grid.bounding_radius() < dist {
+        return;
     }
+    let origin = grid.origin();
+    let coord = PartCoord::from_meters_floored(in_frame(origin, world_pos));
+    sel.hovered = Some(GridLocation::new(grid_id, coord));
 }
 
 fn update_mouseover_part_info(
@@ -637,7 +671,7 @@ fn update_mouseover_part_info(
     let Some(screen_pos) = mouse_screen_position else {
         return;
     };
-    let Some(grid_id) = sel.selected_grid else {
+    let Some(grid_id) = sel.first_selected_grid() else {
         return;
     };
     let Ok(grid) = grids.try_get(grid_id) else {
@@ -687,12 +721,25 @@ fn set_target_camera_if_following(
     actual.isometry.translation = target.isometry.translation;
 }
 
-fn select_hovered_vehicle_on_click(sel: &mut SelectionInfo, sounds: &mut SoundEffects) {
-    let old_grid = sel.selected_grid;
+fn select_hovered_grid_loc_on_click(
+    sel: &mut SelectionInfo,
+    input: &InputState,
+    sounds: &mut SoundEffects,
+) {
+    let old_grid = sel.first_selected_grid();
 
-    sel.selected_grid = sel.mouse_hovered;
+    let Some(hovered) = sel.hovered else {
+        sel.selected.clear();
+        return;
+    };
 
-    if sel.selected_grid.is_some() {
+    if input.is_key_pressed(Key::ShiftLeft) {
+        sel.selected.push(hovered);
+    } else {
+        sel.selected = vec![hovered];
+    }
+
+    if sel.first_selected_grid().is_some() {
         sounds.push(SoundEffect::Open);
     } else if old_grid.is_some() {
         sounds.push(SoundEffect::Close);
@@ -807,6 +854,7 @@ pub fn process_event(
             Key::KeyQ => input_handlers::pipette_part_if_in_editor_on_q(world, client),
             Key::Return => input_handlers::enter_ship_editor_on_enter(world, client, &mut sounds),
             Key::Escape => input_handlers::leave_ship_editor_on_escape(world, client, &mut sounds),
+            Key::KeyC => input_handlers::explode_at_mouseover(world, client),
             _ => (),
         },
         rdev::EventType::KeyRelease(_key) => (),
@@ -819,7 +867,7 @@ pub fn process_event(
                     &mut actions,
                     &mut sounds,
                 );
-                select_hovered_vehicle_on_click(&mut client.selection_info, &mut sounds);
+                select_hovered_grid_loc_on_click(&mut client.selection_info, input, &mut sounds);
                 editor_try_place_part_on_click(world, client);
             }
             Button::Right => {
@@ -843,21 +891,19 @@ pub fn process_event(
     (sounds, actions)
 }
 
-pub fn post_simulation_update(
+pub fn pre_simulation_update(
     world: &mut World,
     client: &mut ClientSpecificInfo,
-    input: &InputState,
-) -> (Vec<Action>, SoundEffects) {
+    _input: &InputState,
+) {
     let mut sounds = SoundEffects::default();
 
-    client.chat.drop_old_messages();
-
-    update_selection_info(
+    update_actual_hover_part_info(
         &mut client.selection_info,
         &world.grids,
-        &world.camera,
         client.mouse_screen_position,
         client.screen_dims,
+        &world.camera,
     );
 
     update_mouseover_part_info(
@@ -868,6 +914,16 @@ pub fn post_simulation_update(
         &world.camera,
         &mut sounds,
     );
+}
+
+pub fn post_simulation_update(
+    world: &mut World,
+    client: &mut ClientSpecificInfo,
+    input: &InputState,
+) -> (Vec<Action>, SoundEffects) {
+    let mut sounds = SoundEffects::default();
+
+    client.chat.drop_old_messages();
 
     match &mut client.viewport {
         Viewport::Free(fly) => {
@@ -891,9 +947,14 @@ pub fn post_simulation_update(
         Viewport::Editor(editor) => {
             camera_zooms_with_plus_minus(input, &mut world.target_camera);
 
+            editor_offset_moves_with_wasd(input, &mut editor.target_offset, world.camera.zoom);
+
+            editor_actual_offset_smooth_animation(editor.target_offset, &mut editor.actual_offset);
+
             set_cams_to_grid_pose(
                 editor.vehicle,
                 &world.grids,
+                editor.actual_offset,
                 &mut world.target_camera,
                 &mut world.camera,
             );
@@ -908,12 +969,13 @@ pub fn post_simulation_update(
 fn set_cams_to_grid_pose(
     grid_id: Ent,
     grids: &Components<VehicleGrid>,
+    offset: Vec2,
     target: &mut Camera,
     actual: &mut Camera,
 ) {
     if let Ok(grid) = grids.try_get(grid_id) {
-        target.isometry = grid.centroid_isometry();
-        target.zoom = target.zoom.clamp(20.0, 150.0);
+        target.isometry = grid.centroid_isometry().offset(offset);
+        target.zoom = target.zoom.clamp(EDITOR_MINIMUM_ZOOM, EDITOR_MAXIMUM_ZOOM);
         actual.isometry = target.isometry;
     }
 }

@@ -100,6 +100,9 @@ impl WorldRunner {
         let delta = now - self.last_update;
         self.nominal_world_duration += delta * self.world.tick_rate;
         self.last_update = now;
+
+        pre_simulation_update(&mut self.world, &mut self.client_info, input);
+
         while apparent_elapsed_time(&mut self.world) < self.nominal_world_duration {
             update_world(&mut self.world);
         }
