@@ -60,13 +60,20 @@ const CENTROID_COLOR: Color = Color::GREEN;
 const CENTER_OF_MASS_COLOR: Color = Color::RED;
 const ORIGIN_COLOR: Color = Color::BLUE;
 
-fn draw_trackers(d: &mut RaylibDrawHandle, trackers: &Components<Tracker>) {
+fn draw_trackers(d: &mut RaylibDrawHandle, trackers: &Components<Tracker>, detailed: bool) {
     for tracker in trackers.values() {
         let series = tracker.series();
-        let colors = [ORIGIN_COLOR, CENTER_OF_MASS_COLOR, CENTROID_COLOR];
-        for (s, c) in series.iter().zip(colors) {
+
+        if detailed {
+            let colors = [ORIGIN_COLOR, CENTER_OF_MASS_COLOR, CENTROID_COLOR];
+            for (s, c) in series.iter().zip(colors) {
+                let strip: Vec<_> = s.iter().map(|p| glam_to_raylib_swap_y(*p)).collect();
+                d.draw_line_strip(&strip, c)
+            }
+        } else {
+            let s = tracker.center_of_mass();
             let strip: Vec<_> = s.iter().map(|p| glam_to_raylib_swap_y(*p)).collect();
-            d.draw_line_strip(&strip, c)
+            d.draw_line_strip(&strip, Color::GRAY.alpha(0.7));
         }
     }
 }
@@ -115,7 +122,7 @@ pub fn draw_world(
             &world.camera,
         );
 
-        draw_trackers(&mut c, &world.tracking);
+        draw_trackers(&mut c, &world.tracking, client.is_holding_shift);
     } else if let Viewport::Editor(e) = &client.viewport {
         draw_grid_lines(&mut c, &world.grids, e);
     }

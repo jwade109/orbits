@@ -115,6 +115,10 @@ fn camera_zooms_with_plus_minus(input: &InputState, target: &mut Camera) {
 fn editor_offset_moves_with_wasd(input: &InputState, offset: &mut Vec2, zoom: f32) {
     let speed = 20.0 / zoom;
 
+    if input.is_key_pressed(Key::ControlLeft) {
+        return;
+    }
+
     if input.is_key_pressed(Key::KeyS) {
         offset.y -= speed;
     }
@@ -313,8 +317,28 @@ pub mod input_handlers {
     }
 
     pub fn explode_at_mouseover(world: &mut World, client: &mut ClientSpecificInfo) {
+        if !client.viewport.is_real_view() {
+            return;
+        }
         let loc = some_or_return!(client.selection_info.hovered);
         explode_grid_at(loc, world);
+    }
+
+    pub fn editor_copy_on_control_c(
+        world: &World,
+        client: &mut ClientSpecificInfo,
+        input: &InputState,
+    ) {
+        if !input.is_key_pressed(Key::ControlLeft) {
+            return;
+        }
+
+        let editor = some_or_return!(client.viewport.editor());
+        let grid = some_or_return!(world.grids.get(editor.vehicle));
+
+        let s = format!("TODO Ctrl-C behavior: {}", grid.name);
+
+        client.chat.log(s);
     }
 
     pub fn destroy_top_layer_part_at_mouseover(
@@ -528,6 +552,7 @@ pub mod input_handlers {
             prototype_id: None,
             part_rotation: Rotation::East,
             layer: Some(PartLayer::Internal),
+            select_start: None,
         });
 
         world.target_camera.zoom = 40.0;
@@ -781,35 +806,36 @@ fn select_hovered_grid_loc_on_click(
     }
 }
 
-fn editor_try_place_part_on_click(world: &mut World, client: &mut ClientSpecificInfo) {
-    let Viewport::Editor(e) = &mut client.viewport else {
-        return;
-    };
-    let Some((coord, occ)) = client.selection_info.mouseover_part_info else {
-        return;
-    };
+fn editor_on_release_left_click(client: &mut ClientSpecificInfo) {
+    let e = some_or_return!(client.viewport.editor_mut());
+    debug!("Editor left click release");
+    e.select_start = None;
+}
 
-    client
-        .chat
-        .log(format!("Clicked on the editor! {:?} {:?}", coord, occ));
+fn editor_on_left_click(world: &mut World, client: &mut ClientSpecificInfo) {
+    let e = some_or_return!(client.viewport.editor_mut());
 
-    let Some(proto_id) = e.prototype_id else {
-        return;
-    };
+    debug!("Clicked on editor");
 
-    let Ok(proto) = world.prototypes.try_get(proto_id) else {
-        return;
-    };
+    e.select_start = None;
 
-    let placement = GridPlacement::new(coord, e.part_rotation, proto.dims);
+    let (coord, _occ) = some_or_return!(client.selection_info.mouseover_part_info);
 
-    let instance = PartInstance {
-        name: proto.name.clone(),
-        layer: proto.layer,
-        placement,
-    };
+    if let Some(proto_id) = e.prototype_id {
+        let proto = ok_or_return!(world.prototypes.try_get(proto_id));
 
-    _ = insert_part(e.vehicle, world, &instance, true);
+        let placement = GridPlacement::new(coord, e.part_rotation, proto.dims);
+
+        let instance = PartInstance {
+            name: proto.name.clone(),
+            layer: proto.layer,
+            placement,
+        };
+
+        _ = insert_part(e.vehicle, world, &instance, true);
+    } else {
+        e.select_start = Some(coord);
+    }
 }
 
 pub fn update_trackers(
@@ -891,7 +917,10 @@ pub fn process_event(
             Key::KeyQ => input_handlers::pipette_part_if_in_editor_on_q(world, client),
             Key::Return => input_handlers::enter_ship_editor_on_enter(world, client, &mut sounds),
             Key::Escape => input_handlers::leave_ship_editor_on_escape(world, client, &mut sounds),
-            Key::KeyC => input_handlers::explode_at_mouseover(world, client),
+            Key::KeyC => {
+                input_handlers::explode_at_mouseover(world, client);
+                input_handlers::editor_copy_on_control_c(world, client, input);
+            }
             _ => (),
         },
         rdev::EventType::KeyRelease(_key) => (),
@@ -905,7 +934,7 @@ pub fn process_event(
                     &mut sounds,
                 );
                 select_hovered_grid_loc_on_click(&mut client.selection_info, input, &mut sounds);
-                editor_try_place_part_on_click(world, client);
+                editor_on_left_click(world, client);
             }
             Button::Right => {
                 input_handlers::destroy_top_layer_part_at_mouseover(world, client, &mut sounds)
@@ -915,7 +944,10 @@ pub fn process_event(
             }
             Button::Unknown(_) => (),
         },
-        rdev::EventType::ButtonRelease(_button) => (),
+        rdev::EventType::ButtonRelease(button) => match button {
+            Button::Left => editor_on_release_left_click(client),
+            _ => (),
+        },
         rdev::EventType::MouseMove { x: _, y: _ } => (),
         rdev::EventType::Wheel {
             delta_x: _,

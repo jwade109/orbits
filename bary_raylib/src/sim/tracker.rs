@@ -17,6 +17,10 @@ impl Tracker {
         [&self.origin, &self.center_of_mass, &self.centroid]
     }
 
+    pub fn center_of_mass(&self) -> &VecDeque<Vec2> {
+        &self.center_of_mass
+    }
+
     fn enqueue(hist: &mut VecDeque<Vec2>, pose: Isometry2d) {
         hist.push_back(pose.translation);
         if hist.len() > Self::MAX_LEN {

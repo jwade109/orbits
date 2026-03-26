@@ -37,6 +37,7 @@ pub struct EditorState {
     pub prototype_id: Option<Ent>,
     pub part_rotation: Rotation,
     pub layer: Option<PartLayer>,
+    pub select_start: Option<PartCoord>,
 }
 
 #[derive(Debug)]
@@ -66,6 +67,20 @@ impl Viewport {
         match self {
             Self::Free(_) => true,
             _ => false,
+        }
+    }
+
+    pub fn editor(&self) -> Option<&EditorState> {
+        match self {
+            Self::Editor(e) => Some(e),
+            _ => None,
+        }
+    }
+
+    pub fn editor_mut(&mut self) -> Option<&mut EditorState> {
+        match self {
+            Self::Editor(e) => Some(e),
+            _ => None,
         }
     }
 }
