@@ -1,8 +1,8 @@
-use crate::sim::{VehicleGrid, systems::get_grid_physical_props_by_id, world::World};
+use crate::sim::{systems::get_grid_physical_props_by_id, world::World};
 use anyhow::ensure;
 
 pub fn computer_pointers_are_consistent(world: &World) -> Result<(), anyhow::Error> {
-    for (grid_id, grid) in world.grids.iter() {
+    for (_grid_id, grid) in world.grids.iter() {
         for id in &grid.computers {
             ensure!(world.computers.try_get(*id).is_ok());
         }

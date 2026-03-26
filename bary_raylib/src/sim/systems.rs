@@ -12,7 +12,7 @@ pub fn apparent_elapsed_time(world: &World) -> Duration {
     Duration::from_millis(1000 / TICKS_PER_SECOND * world.ticks)
 }
 
-pub fn spawn_grid_from_blueprint(
+pub fn spawn_grid_from_blueprint_c(
     counter: &mut EntitySpawner,
     prototypes: &Components<PartPrototype>,
     grids: &mut Components<VehicleGrid>,
@@ -54,7 +54,7 @@ pub fn body_frame_wrench(
     Isometry2d::new(thrust, torque as f32)
 }
 
-pub fn update_grid_acceleration(
+pub fn update_grid_acceleration_c(
     dirty_set: BTreeSet<Ent>,
     grids: &mut Components<VehicleGrid>,
     thrusters: &Components<Thruster>,
@@ -130,132 +130,112 @@ pub fn spawn_empty_grid(world: &mut World, name: impl Into<String>) -> Ent {
     spawn_empty_grid_c(&mut world.spawner, &mut world.grids, name)
 }
 
-pub mod world {
-    use crate::sim::PingParticle;
+pub fn toggle_tracking(world: &mut World, grid_id: Ent) -> BaryResult<bool> {
+    let tracking = if world.tracking.contains_key(&grid_id) {
+        world.tracking.despawn(grid_id)?;
+        info!("Removed tracking for grid {}", grid_id);
+        false
+    } else {
+        world.tracking.spawn(grid_id, Tracker::default());
+        info!("Enabled tracking for grid {}", grid_id);
+        true
+    };
+    Ok(tracking)
+}
 
-    use super::*;
+/// Sets the waypoint field of the primary computer,
+/// if the provided grid has one. If it does, the ID of the primary
+/// computer will be returned.
+/// TODO(testing) test this.
+pub fn set_primary_computer_waypoint(
+    grid_id: Ent,
+    waypoint: impl Into<Isometry2d>,
+    world: &mut World,
+) -> BaryResult<Ent> {
+    super::set_primary_computer_waypoint_c(grid_id, waypoint, &world.grids, &mut world.computers)
+}
 
-    pub fn toggle_tracking(world: &mut World, grid_id: Ent) -> BaryResult<bool> {
-        let tracking = if world.tracking.contains_key(&grid_id) {
-            world.tracking.despawn(grid_id)?;
-            info!("Removed tracking for grid {}", grid_id);
-            false
-        } else {
-            world.tracking.spawn(grid_id, Tracker::default());
-            info!("Enabled tracking for grid {}", grid_id);
-            true
-        };
-        Ok(tracking)
+/// Turns the primary computer of the given grid on or off,
+/// returning the entity ID of the computer if it was found.
+pub fn set_primary_computer_state(
+    grid_id: Ent,
+    new_state: bool,
+    world: &mut World,
+) -> BaryResult<Ent> {
+    super::set_primary_computer_state_c(grid_id, new_state, &world.grids, &mut world.computers)
+}
+
+pub fn set_all_thrusters(grid_id: Ent, new_state: bool, world: &mut World) -> BaryResult<()> {
+    let grid = world.grids.try_get(grid_id)?;
+    for thruster_id in &grid.thrusters {
+        let thruster = world.thrusters.try_get_mut(*thruster_id)?;
+        thruster.is_on = new_state;
     }
+    update_grid_acceleration([grid_id].into(), world);
+    Ok(())
+}
 
-    /// Sets the waypoint field of the primary computer,
-    /// if the provided grid has one. If it does, the ID of the primary
-    /// computer will be returned.
-    /// TODO(testing) test this.
-    pub fn set_primary_computer_waypoint(
-        grid_id: Ent,
-        waypoint: impl Into<Isometry2d>,
-        world: &mut World,
-    ) -> BaryResult<Ent> {
-        super::set_primary_computer_waypoint_c(
-            grid_id,
-            waypoint,
-            &world.grids,
-            &mut world.computers,
-        )
-    }
+pub fn update_grid_acceleration(dirty_set: BTreeSet<Ent>, world: &mut World) {
+    update_grid_acceleration_c(dirty_set, &mut world.grids, &world.thrusters, &world.parts);
+}
 
-    /// Turns the primary computer of the given grid on or off,
-    /// returning the entity ID of the computer if it was found.
-    pub fn set_primary_computer_state(
-        grid_id: Ent,
-        new_state: bool,
-        world: &mut World,
-    ) -> BaryResult<Ent> {
-        super::set_primary_computer_state_c(grid_id, new_state, &world.grids, &mut world.computers)
-    }
+/// Spawns a grid according to the given blueprint.
+/// Exclusive version of [`super::spawn_grid_from_blueprint`].
+pub fn spawn_grid_from_blueprint(
+    world: &mut World,
+    name: impl Into<String>,
+    bp: &Blueprint,
+) -> BaryResult<Ent> {
+    spawn_grid_from_blueprint_c(
+        &mut world.spawner,
+        &mut world.prototypes,
+        &mut world.grids,
+        &mut world.parts,
+        &mut world.thrusters,
+        &mut world.computers,
+        &mut world.lights,
+        name,
+        bp,
+    )
+}
 
-    pub fn set_all_thrusters(grid_id: Ent, new_state: bool, world: &mut World) -> BaryResult<()> {
-        let grid = world.grids.try_get(grid_id)?;
-        for thruster_id in &grid.thrusters {
-            let thruster = world.thrusters.try_get_mut(*thruster_id)?;
-            thruster.is_on = new_state;
-        }
-        update_grid_acceleration([grid_id].into(), world);
-        Ok(())
-    }
+pub fn set_grid_pose(world: &mut World, grid_id: Ent, iso: Isometry2d) -> BaryResult<()> {
+    info!("Setting isometry of grid {} to {:?}", grid_id, iso);
+    let grid = world.grids.try_get_mut(grid_id)?;
+    grid.particle_location = iso;
+    Ok(())
+}
 
-    pub fn update_grid_acceleration(dirty_set: BTreeSet<Ent>, world: &mut World) {
-        super::update_grid_acceleration(
-            dirty_set,
-            &mut world.grids,
-            &world.thrusters,
-            &world.parts,
-        );
-    }
+pub fn set_grid_vel(world: &mut World, grid_id: Ent, vel: Isometry2d) -> BaryResult<()> {
+    info!("Setting velocity of grid {} to {:?}", grid_id, vel);
+    let grid = world.grids.try_get_mut(grid_id)?;
+    grid.velocity = vel;
+    Ok(())
+}
 
-    /// Spawns a grid according to the given blueprint.
-    /// Exclusive version of [`super::spawn_grid_from_blueprint`].
-    pub fn spawn_grid_from_blueprint(
-        world: &mut World,
-        name: impl Into<String>,
-        bp: &Blueprint,
-    ) -> BaryResult<Ent> {
-        super::spawn_grid_from_blueprint(
-            &mut world.spawner,
-            &mut world.prototypes,
-            &mut world.grids,
-            &mut world.parts,
-            &mut world.thrusters,
-            &mut world.computers,
-            &mut world.lights,
-            name,
-            bp,
-        )
-    }
+/// Spawns a new grid according to a named blueprint.
+pub fn spawn_grid_by_name(world: &mut World, name: &str) -> BaryResult<Ent> {
+    let bp = find::blueprint_by_name(&world.blueprints, name)
+        .ok_or(BaryError::BadBlueprint)?
+        .clone();
+    spawn_grid_from_blueprint(world, name, &bp)
+}
 
-    pub fn set_grid_pose(world: &mut World, grid_id: Ent, iso: Isometry2d) -> BaryResult<()> {
-        info!("Setting isometry of grid {} to {:?}", grid_id, iso);
-        let grid = world.grids.try_get_mut(grid_id)?;
-        grid.particle_location = iso;
-        Ok(())
-    }
+/// Sets the state of a given thruster.
+/// Does not modify the corresponding grid's acceleration.
+/// TODO(cleanup) this doesn't really need to be a function.
+/// Exclusive version of [`set_thruster_state_c`].
+pub fn set_thruster_state(thruster_id: Ent, world: &mut World, new_state: bool) -> BaryResult<()> {
+    set_thruster_state_c(thruster_id, &mut world.thrusters, new_state)
+}
 
-    pub fn set_grid_vel(world: &mut World, grid_id: Ent, vel: Isometry2d) -> BaryResult<()> {
-        info!("Setting velocity of grid {} to {:?}", grid_id, vel);
-        let grid = world.grids.try_get_mut(grid_id)?;
-        grid.velocity = vel;
-        Ok(())
-    }
+pub fn ping(world: &mut World, pos: Vec2) {
+    let part = PingParticle::new(pos);
+    world.particles.push(part);
+}
 
-    /// Spawns a new grid according to a named blueprint.
-    pub fn spawn_grid_by_name(world: &mut World, name: &str) -> BaryResult<Ent> {
-        let bp = find::blueprint_by_name(&world.blueprints, name)
-            .ok_or(BaryError::BadBlueprint)?
-            .clone();
-        spawn_grid_from_blueprint(world, name, &bp)
-    }
-
-    /// Sets the state of a given thruster.
-    /// Does not modify the corresponding grid's acceleration.
-    /// TODO(cleanup) this doesn't really need to be a function.
-    /// Exclusive version of [`super::set_thruster_state`].
-    pub fn set_thruster_state(
-        thruster_id: Ent,
-        world: &mut World,
-        new_state: bool,
-    ) -> BaryResult<()> {
-        super::set_thruster_state(thruster_id, &mut world.thrusters, new_state)
-    }
-
-    pub fn ping(world: &mut World, pos: Vec2) {
-        let part = PingParticle::new(pos);
-        world.particles.push(part);
-    }
-
-    pub fn get_blueprint(world: &World, grid_id: Ent) -> BaryResult<Blueprint> {
-        super::get_blueprint(&world.grids, &world.parts, &world.prototypes, grid_id)
-    }
+pub fn get_blueprint(world: &World, grid_id: Ent) -> BaryResult<Blueprint> {
+    get_blueprint_c(&world.grids, &world.parts, &world.prototypes, grid_id)
 }
 
 /// Spawns an empty vehicle grid.
@@ -536,7 +516,7 @@ pub mod find {
     }
 }
 
-pub fn get_blueprint(
+pub fn get_blueprint_c(
     grids: &Components<VehicleGrid>,
     parts: &Components<Part>,
     prototypes: &Components<PartPrototype>,
@@ -635,7 +615,7 @@ pub fn get_grid_physical_props(
     Ok((total_mass, com))
 }
 
-fn set_thruster_state(
+fn set_thruster_state_c(
     thruster_id: Ent,
     thrusters: &mut Components<Thruster>,
     new_state: bool,
@@ -720,7 +700,7 @@ mod tests {
         let bp = find::blueprint_by_name(&world.blueprints, name).expect("Expected a blueprint");
 
         // spawn that vehicle using its blueprint
-        let grid_id = spawn_grid_from_blueprint(
+        let grid_id = spawn_grid_from_blueprint_c(
             &mut world.spawner,
             &world.prototypes,
             &mut world.grids,
@@ -792,7 +772,7 @@ mod tests {
 
         assert!(find::closest_grid(&world.grids, Vec2::new(100.0, 200.0), None).is_none());
 
-        let id = world::spawn_grid_by_name(&mut world, "remora").unwrap();
+        let id = spawn_grid_by_name(&mut world, "remora").unwrap();
         assert_eq!(id, Ent(34));
 
         let grid = world.grids.try_get_mut(id).unwrap();
@@ -827,7 +807,7 @@ mod tests {
 
         assert_eq!(proto_id, Ent(16));
 
-        let grid_id = world::spawn_grid_by_name(&mut world, "pollux").unwrap();
+        let grid_id = spawn_grid_by_name(&mut world, "pollux").unwrap();
 
         assert_eq!(world.parts.len(), 98);
         assert_eq!(world.thrusters.len(), 18);
@@ -870,19 +850,19 @@ mod tests {
             .blueprint("spacestation")
             .build();
 
-        let id = world::spawn_grid_by_name(&mut world, "pollux").unwrap();
+        let id = spawn_grid_by_name(&mut world, "pollux").unwrap();
         let mass = world.grids.try_get(id).unwrap().parts_mass;
         assert_eq!(mass, Mass::grams(35134000));
 
-        let id = world::spawn_grid_by_name(&mut world, "bellerophon").unwrap();
+        let id = spawn_grid_by_name(&mut world, "bellerophon").unwrap();
         let mass = world.grids.try_get(id).unwrap().parts_mass;
         assert_eq!(mass, Mass::grams(178051000));
 
-        let id = world::spawn_grid_by_name(&mut world, "remora").unwrap();
+        let id = spawn_grid_by_name(&mut world, "remora").unwrap();
         let mass = world.grids.try_get(id).unwrap().parts_mass;
         assert_eq!(mass, Mass::grams(12339000));
 
-        let id = world::spawn_grid_by_name(&mut world, "spacestation").unwrap();
+        let id = spawn_grid_by_name(&mut world, "spacestation").unwrap();
         let mass = world.grids.try_get(id).unwrap().parts_mass;
         assert_eq!(mass, Mass::grams(145638000));
 
@@ -905,9 +885,9 @@ mod tests {
 
         expected.normalize_coordinates();
 
-        let id = world::spawn_grid_by_name(&mut world, "pollux").unwrap();
+        let id = spawn_grid_by_name(&mut world, "pollux").unwrap();
 
-        let actual = get_blueprint(&world.grids, &world.parts, &world.prototypes, id).unwrap();
+        let actual = get_blueprint_c(&world.grids, &world.parts, &world.prototypes, id).unwrap();
 
         assert_eq!(actual.part_count(), expected.part_count());
 
@@ -955,7 +935,7 @@ mod tests {
     }
 
     #[test]
-    fn set_thruster_state() {
+    fn setting_thruster_state() {
         let mut world = WorldBuilder::new().test_assets().build();
 
         let grid_id = spawn_empty_grid(&mut world, "whatever");
@@ -992,10 +972,10 @@ mod tests {
         assert_eq!(a_id, Ent(31));
         assert_eq!(b_id, Ent(32));
 
-        let r1 = world::set_thruster_state(a_id, &mut world, true);
-        let r2 = world::set_thruster_state(b_id, &mut world, true);
+        let r1 = set_thruster_state(a_id, &mut world, true);
+        let r2 = set_thruster_state(b_id, &mut world, true);
 
-        world::update_grid_acceleration([grid_id].into(), &mut world);
+        update_grid_acceleration([grid_id].into(), &mut world);
 
         assert_eq!(r1, Ok(()));
         assert_eq!(r2, Ok(()));
@@ -1013,10 +993,10 @@ mod tests {
             Vec2::new(400000.0, 320000.0)
         );
 
-        let r1 = world::set_thruster_state(a_id, &mut world, false);
-        let r2 = world::set_thruster_state(b_id, &mut world, true);
+        let r1 = set_thruster_state(a_id, &mut world, false);
+        let r2 = set_thruster_state(b_id, &mut world, true);
 
-        world::update_grid_acceleration([grid_id].into(), &mut world);
+        update_grid_acceleration([grid_id].into(), &mut world);
 
         assert_eq!(r1, Ok(()));
         assert_eq!(r2, Ok(()));
@@ -1025,10 +1005,10 @@ mod tests {
 
         assert_eq!(grid.body_frame_forces.translation, Vec2::new(0.0, 320000.0));
 
-        let r1 = world::set_thruster_state(a_id, &mut world, false);
-        let r2 = world::set_thruster_state(b_id, &mut world, false);
+        let r1 = set_thruster_state(a_id, &mut world, false);
+        let r2 = set_thruster_state(b_id, &mut world, false);
 
-        world::update_grid_acceleration([grid_id].into(), &mut world);
+        update_grid_acceleration([grid_id].into(), &mut world);
 
         assert_eq!(r1, Ok(()));
         assert_eq!(r2, Ok(()));
@@ -1048,7 +1028,7 @@ mod tests {
             .blueprint("pollux")
             .build();
 
-        let id = world::spawn_grid_by_name(&mut world, "pollux").unwrap();
+        let id = spawn_grid_by_name(&mut world, "pollux").unwrap();
         let (_mass, com) = get_grid_physical_props_by_id(id, &world.grids, &world.parts).unwrap();
 
         assert_eq!(com, Vec2::new(5.5010653, 2.272271));
@@ -1140,10 +1120,10 @@ mod tests {
         );
 
         // obviously, turn the main thruster on
-        let r = world::set_thruster_state(thruster_id, &mut world, true);
+        let r = set_thruster_state(thruster_id, &mut world, true);
         assert_eq!(r, Ok(()));
 
-        world::update_grid_acceleration([grid_id].into(), &mut world);
+        update_grid_acceleration([grid_id].into(), &mut world);
 
         let grid = world.grids.try_get_mut(grid_id).unwrap();
 
@@ -1223,8 +1203,8 @@ mod tests {
 
         let thruster_id = insert_part(grid_id, &mut world, &instance, true).unwrap();
 
-        _ = world::set_thruster_state(thruster_id, &mut world, true);
-        world::update_grid_acceleration([grid_id].into(), &mut world);
+        _ = set_thruster_state(thruster_id, &mut world, true);
+        update_grid_acceleration([grid_id].into(), &mut world);
 
         let grid = world.grids.try_get_mut(grid_id).unwrap();
 

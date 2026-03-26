@@ -83,14 +83,36 @@ use_rcs = true
 throttle = 0.0
 
 [[values.152.command_queue]]
-duration = 300
+duration = 150
 
 [values.152.command_queue.instruction.Ctrl]
 attitude = 0.0
 
 [values.152.command_queue.instruction.Ctrl.plus_x]
 use_rcs = true
+throttle = 0.0
+
+[values.152.command_queue.instruction.Ctrl.plus_y]
+use_rcs = true
+throttle = 0.0
+
+[values.152.command_queue.instruction.Ctrl.neg_x]
+use_rcs = true
+throttle = 0.0
+
+[values.152.command_queue.instruction.Ctrl.neg_y]
+use_rcs = true
 throttle = 1.0
+
+[[values.152.command_queue]]
+duration = 150
+
+[values.152.command_queue.instruction.Ctrl]
+attitude = 0.0
+
+[values.152.command_queue.instruction.Ctrl.plus_x]
+use_rcs = true
+throttle = 0.0
 
 [values.152.command_queue.instruction.Ctrl.plus_y]
 use_rcs = true
@@ -99,6 +121,28 @@ throttle = 1.0
 [values.152.command_queue.instruction.Ctrl.neg_x]
 use_rcs = true
 throttle = 0.0
+
+[values.152.command_queue.instruction.Ctrl.neg_y]
+use_rcs = true
+throttle = 0.0
+
+[[values.152.command_queue]]
+duration = 80
+
+[values.152.command_queue.instruction.Ctrl]
+attitude = 0.0
+
+[values.152.command_queue.instruction.Ctrl.plus_x]
+use_rcs = true
+throttle = 0.0
+
+[values.152.command_queue.instruction.Ctrl.plus_y]
+use_rcs = true
+throttle = 0.0
+
+[values.152.command_queue.instruction.Ctrl.neg_x]
+use_rcs = true
+throttle = 1.0
 
 [values.152.command_queue.instruction.Ctrl.neg_y]
 use_rcs = true
@@ -172,14 +216,36 @@ use_rcs = true
 throttle = 0.0
 
 [[values.244.command_queue]]
-duration = 300
+duration = 150
 
 [values.244.command_queue.instruction.Ctrl]
 attitude = 0.0
 
 [values.244.command_queue.instruction.Ctrl.plus_x]
 use_rcs = true
+throttle = 0.0
+
+[values.244.command_queue.instruction.Ctrl.plus_y]
+use_rcs = true
+throttle = 0.0
+
+[values.244.command_queue.instruction.Ctrl.neg_x]
+use_rcs = true
+throttle = 0.0
+
+[values.244.command_queue.instruction.Ctrl.neg_y]
+use_rcs = true
 throttle = 1.0
+
+[[values.244.command_queue]]
+duration = 150
+
+[values.244.command_queue.instruction.Ctrl]
+attitude = 0.0
+
+[values.244.command_queue.instruction.Ctrl.plus_x]
+use_rcs = true
+throttle = 0.0
 
 [values.244.command_queue.instruction.Ctrl.plus_y]
 use_rcs = true
@@ -188,6 +254,28 @@ throttle = 1.0
 [values.244.command_queue.instruction.Ctrl.neg_x]
 use_rcs = true
 throttle = 0.0
+
+[values.244.command_queue.instruction.Ctrl.neg_y]
+use_rcs = true
+throttle = 0.0
+
+[[values.244.command_queue]]
+duration = 80
+
+[values.244.command_queue.instruction.Ctrl]
+attitude = 0.0
+
+[values.244.command_queue.instruction.Ctrl.plus_x]
+use_rcs = true
+throttle = 0.0
+
+[values.244.command_queue.instruction.Ctrl.plus_y]
+use_rcs = true
+throttle = 0.0
+
+[values.244.command_queue.instruction.Ctrl.neg_x]
+use_rcs = true
+throttle = 1.0
 
 [values.244.command_queue.instruction.Ctrl.neg_y]
 use_rcs = true

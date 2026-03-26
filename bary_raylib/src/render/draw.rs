@@ -548,7 +548,7 @@ pub fn draw_grid_blueprints(
 ) {
     for (grid_id, grid) in grids.iter() {
         if camera.zoom > 0.1 {
-            let Ok(bp) = get_blueprint(grids, parts, prototypes, *grid_id) else {
+            let Ok(bp) = get_blueprint_c(grids, parts, prototypes, *grid_id) else {
                 continue;
             };
             let origin = grid.origin();

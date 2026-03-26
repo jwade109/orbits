@@ -6,7 +6,6 @@ use crate::multiplayer::Action;
 use crate::ops::destroy_part_without_integrity_check;
 use crate::ops::detach_part_from_parent;
 use crate::persistence::save_world;
-use crate::query::closest_grid;
 use crate::result::BaryError;
 use crate::result::BaryResult;
 use crate::sim::*;
@@ -224,11 +223,8 @@ pub fn detach_top_part_at(world: &mut World, grid_id: Ent, coord: PartCoord) -> 
 pub mod input_handlers {
 
     use crate::sim::systems::{
-        update_grid_physical_props,
-        world::{
-            set_grid_pose, set_primary_computer_state, set_primary_computer_waypoint,
-            spawn_grid_by_name, toggle_tracking,
-        },
+        set_grid_pose, set_primary_computer_state, set_primary_computer_waypoint,
+        spawn_grid_by_name, toggle_tracking, update_grid_physical_props,
     };
 
     use super::*;
@@ -768,8 +764,9 @@ pub fn update_world(world: &mut World) {
         &world.parts,
         &world.computers,
     );
+
     world.grid_acceleration_updates += dirty_set.len() as u64;
-    update_grid_acceleration(dirty_set, &mut world.grids, &world.thrusters, &world.parts);
+    update_grid_acceleration_c(dirty_set, &mut world.grids, &world.thrusters, &world.parts);
     update_computers(&mut world.computers, &world.parts, &world.grids);
     propagate_grid_rigid_bodies(&mut world.grids);
     update_trackers(&mut world.tracking, &world.grids, world.ticks);

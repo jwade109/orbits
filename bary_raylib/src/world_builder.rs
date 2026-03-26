@@ -70,16 +70,16 @@ impl WorldBuilder {
         }
 
         for (name, iso) in self.spawns {
-            if let Ok(id) = world::spawn_grid_by_name(&mut world, &name) {
-                _ = world::set_grid_pose(&mut world, id, iso);
+            if let Ok(id) = spawn_grid_by_name(&mut world, &name) {
+                _ = set_grid_pose(&mut world, id, iso);
             }
         }
 
         for (name, waypoint) in self.waypoints {
             if let Some(grid_id) = find::grid_by_name(&world.grids, &name) {
-                _ = world::set_primary_computer_waypoint(grid_id, waypoint, &mut world);
-                _ = world::set_primary_computer_state(grid_id, true, &mut world);
-                _ = world::toggle_tracking(&mut world, grid_id);
+                _ = set_primary_computer_waypoint(grid_id, waypoint, &mut world);
+                _ = set_primary_computer_state(grid_id, true, &mut world);
+                _ = toggle_tracking(&mut world, grid_id);
             }
         }
 

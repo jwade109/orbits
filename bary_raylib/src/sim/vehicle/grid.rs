@@ -1,5 +1,4 @@
 use super::PartOccupancy;
-use crate::sim::*;
 use bary_core::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -191,6 +190,7 @@ mod tests {
     use super::*;
     use crate::query;
     use crate::result::BaryError;
+    use crate::sim::*;
     use crate::tests::assert_world_is_consistent;
     use crate::world_builder::WorldBuilder;
 

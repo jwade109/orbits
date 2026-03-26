@@ -50,11 +50,11 @@ pub fn apply_transaction(
                 let delta = world.ticks - transaction.tick;
                 warn!("Ping is late by {} ticks", delta);
             }
-            world::ping(world, pos);
+            ping(world, pos);
         }
         Action::SpawnShipAt(name, iso) => {
-            if let Ok(grid_id) = world::spawn_grid_by_name(world, &name) {
-                _ = world::set_grid_pose(world, grid_id, iso);
+            if let Ok(grid_id) = spawn_grid_by_name(world, &name) {
+                _ = set_grid_pose(world, grid_id, iso);
             }
         }
         Action::LoadWorld(new_world) => {
