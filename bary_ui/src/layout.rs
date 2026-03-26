@@ -68,7 +68,7 @@ pub enum TextJustify {
 
 #[derive(Debug, Clone, Copy)]
 pub struct NodeStyle {
-    layout: LayoutDir,
+    bary_ui: LayoutDir,
     child_gap: f32,
     padding: f32,
     visible: bool,
@@ -110,7 +110,7 @@ impl<MessageType> Node<MessageType> {
             enabled: true,
             sprite: None,
             style: NodeStyle {
-                layout: LayoutDir::LeftToRight,
+                bary_ui: LayoutDir::LeftToRight,
                 child_gap: 10.0,
                 padding: 10.0,
                 visible: true,
@@ -239,8 +239,8 @@ impl<MessageType> Node<MessageType> {
         self
     }
 
-    pub fn with_layout(mut self, layout: LayoutDir) -> Self {
-        self.style.layout = layout;
+    pub fn with_layout(mut self, bary_ui: LayoutDir) -> Self {
+        self.style.bary_ui = bary_ui;
         self
     }
 
@@ -254,12 +254,12 @@ impl<MessageType> Node<MessageType> {
     }
 
     pub fn right(mut self) -> Self {
-        self.style.layout = LayoutDir::LeftToRight;
+        self.style.bary_ui = LayoutDir::LeftToRight;
         self
     }
 
     pub fn down(mut self) -> Self {
-        self.style.layout = LayoutDir::TopToBottom;
+        self.style.bary_ui = LayoutDir::TopToBottom;
         self
     }
 
@@ -386,7 +386,7 @@ impl<MessageType> Node<MessageType> {
 }
 
 fn sum_fixed_dims<'a, MessageType: 'a>(
-    layout: LayoutDir,
+    bary_ui: LayoutDir,
     nodes: impl Iterator<Item = &'a Node<MessageType>>,
     padding: f32,
     childgap: f32,
@@ -396,7 +396,7 @@ fn sum_fixed_dims<'a, MessageType: 'a>(
 
     for node in nodes {
         let dims = node.fixed_dims();
-        match layout {
+        match bary_ui {
             LayoutDir::LeftToRight => {
                 sx += dims.x + childgap;
                 sy = sy.max(dims.y);
@@ -409,14 +409,14 @@ fn sum_fixed_dims<'a, MessageType: 'a>(
     }
 
     if sx > 0.0 {
-        match layout {
+        match bary_ui {
             LayoutDir::LeftToRight => sx -= childgap,
             _ => (),
         }
     }
 
     if sy > 0.0 {
-        match layout {
+        match bary_ui {
             LayoutDir::TopToBottom => sy -= childgap,
             _ => (),
         }
@@ -441,7 +441,7 @@ fn populate_positions<'a, MessageType: 'a>(
     root.children.iter_mut().for_each(|n| {
         let dim = n.calculated_dims();
         let o = Vec2::new(px, py);
-        match root.style.layout {
+        match root.style.bary_ui {
             LayoutDir::LeftToRight => px += dim.x + root.style.child_gap,
             LayoutDir::TopToBottom => py += dim.y + root.style.child_gap,
         }
@@ -460,10 +460,10 @@ fn assign_layers<MessageType>(root: &mut Node<MessageType>, layer: u32) {
 pub fn populate_fit_sizes<MessageType>(root: &mut Node<MessageType>) {
     if root.is_leaf() {
         if root.desired_width.is_fit() {
-            root.calculated_width = Some(0.0);
+            root.calculated_width = Some(5.0);
         }
         if root.desired_height.is_fit() {
-            root.calculated_height = Some(0.0);
+            root.calculated_height = Some(5.0);
         }
         return;
     }
@@ -471,7 +471,7 @@ pub fn populate_fit_sizes<MessageType>(root: &mut Node<MessageType>) {
     root.children.iter_mut().for_each(|n| populate_fit_sizes(n));
 
     let dims = sum_fixed_dims(
-        root.style.layout,
+        root.style.bary_ui,
         root.children.iter(),
         root.style.padding,
         root.style.child_gap,
@@ -494,7 +494,7 @@ pub fn populate_grow_sizes<MessageType>(root: &mut Node<MessageType>) {
     let n_to_grow: u32 = root
         .children
         .iter()
-        .map(|n| match root.style.layout {
+        .map(|n| match root.style.bary_ui {
             LayoutDir::LeftToRight => n.desired_width.is_grow(),
             LayoutDir::TopToBottom => n.desired_height.is_grow(),
         } as u32)
@@ -504,7 +504,7 @@ pub fn populate_grow_sizes<MessageType>(root: &mut Node<MessageType>) {
     let mut h = root.calculated_height.unwrap_or(0.0) - root.style.padding * 2.0;
 
     for c in &root.children {
-        match root.style.layout {
+        match root.style.bary_ui {
             LayoutDir::LeftToRight => {
                 w -= (c.calculated_width.unwrap_or(0.0) + root.style.child_gap)
             }
@@ -516,7 +516,7 @@ pub fn populate_grow_sizes<MessageType>(root: &mut Node<MessageType>) {
 
     let n_to_grow = n_to_grow.max(1);
 
-    match root.style.layout {
+    match root.style.bary_ui {
         LayoutDir::LeftToRight => {
             w += root.style.child_gap;
             w /= n_to_grow as f32;
@@ -567,8 +567,8 @@ impl<MessageType> Tree<MessageType> {
     }
 
     pub fn at(&self, p: Vec2, wb: Vec2) -> Option<&Node<MessageType>> {
-        for layout in self.roots.iter().rev() {
-            let mut candidates: Vec<&Node<MessageType>> = layout
+        for bary_ui in self.roots.iter().rev() {
+            let mut candidates: Vec<&Node<MessageType>> = bary_ui
                 .iter()
                 .filter(|n| n.aabb_camera(wb).contains(p))
                 .filter(|n| n.is_visible())

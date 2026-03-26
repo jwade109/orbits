@@ -7,6 +7,7 @@ edition = "2024"
 rand = "0.10.0"
 raylib = "5.5.1"
 bary_core = { path = "../bary_core" }
+bary_ui = { path = "../bary_ui" }
 rdev = "0.5.3"
 crossbeam-queue = "0.3.12"
 enum-iterator = "2.3.0"
@@ -23,6 +24,8 @@ serde_yaml = "0.9.34"
 toml = "1.0.3"
 early_returns = "0.4.0"
 anyhow = "1.0.102"
+clap = { version = "4.6.0", features = ["derive"] }
+clay-layout = "0.4.0"
 
 [[bin]]
 name = "main"
@@ -43,6 +46,14 @@ path = "bin/server.rs"
 [[bin]]
 name = "traj"
 path = "bin/traj.rs"
+
+[[bin]]
+name = "ui"
+path = "bin/ui.rs"
+
+[[bin]]
+name = "clay"
+path = "bin/clay.rs"
 
 [dev-dependencies]
 criterion = "0.5.1"
