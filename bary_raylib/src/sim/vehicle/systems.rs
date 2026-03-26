@@ -154,8 +154,9 @@ pub fn rebuild_index_from_island(
     src: &VehicleGrid,
     island: &BTreeSet<Ent>,
     parts: &Components<Part>,
+    name: String,
 ) -> BaryResult<VehicleGrid> {
-    let mut dst = VehicleGrid::with_name("from_island");
+    let mut dst = VehicleGrid::with_name(name);
     dst.particle_location = src.particle_location;
     dst.velocity = src.velocity;
     for part_id in island.iter().map(|i| *i) {
@@ -184,6 +185,6 @@ pub fn rebuild_index_from_islands(
 ) -> BaryResult<Vec<VehicleGrid>> {
     islands
         .iter()
-        .map(|island| rebuild_index_from_island(src, island, parts))
+        .map(|island| rebuild_index_from_island(src, island, parts, src.name.clone()))
         .collect()
 }
