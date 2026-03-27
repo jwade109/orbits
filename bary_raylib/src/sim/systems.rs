@@ -2,7 +2,7 @@ use crate::components::*;
 use crate::result::*;
 use crate::sim::*;
 use bary_core::prelude::*;
-use log::{debug, info};
+use log::*;
 use std::collections::BTreeSet;
 use std::time::Duration;
 
@@ -274,6 +274,16 @@ pub fn insert_part(
     )
 }
 
+pub fn can_insert_part_c(
+    grid_id: Ent,
+    pl: GridPlacement,
+    layer: PartLayer,
+    grids: &Components<VehicleGrid>,
+) -> BaryResult<bool> {
+    let grid = grids.try_get(grid_id)?;
+    Ok(grid.can_insert_part(pl, layer))
+}
+
 pub fn insert_part_c(
     grid_id: Ent,
     counter: &mut EntitySpawner,
@@ -291,6 +301,12 @@ pub fn insert_part_c(
         instance.name, grid_id, instance.layer
     );
     let grid = grids.try_get_mut(grid_id)?;
+
+    if !grid.can_insert_part(instance.placement, instance.layer) {
+        warn!("Can't insert part!");
+        return Err(BaryError::GridSpaceOccupied);
+    }
+
     let proto_id = find::proto_by_name(prototypes, &instance.name).ok_or(BaryError::BadPartName)?;
     let proto = prototypes.try_get(proto_id)?;
 

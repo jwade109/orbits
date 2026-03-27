@@ -30,6 +30,17 @@ impl VehicleGrid {
         Self::with_name("")
     }
 
+    pub fn can_insert_part(&self, pl: GridPlacement, layer: PartLayer) -> bool {
+        for cell in pl.cells() {
+            if let Some(occ) = self.get_parts_at(cell) {
+                if occ.at_layer(layer).is_some() {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
     pub fn origin(&self) -> Isometry2d {
         self.particle_location.offset(-self.center_of_mass)
     }

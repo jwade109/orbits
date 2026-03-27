@@ -9,6 +9,7 @@ pub enum BaryError {
     FailedToSaveGrid,
     SaveAlreadyExists,
     NoPrimaryComputer,
+    GridSpaceOccupied,
     NoPartsAt(PartCoord),
     NoPartsInLayer(PartLayer),
     IoError(String),
