@@ -3,6 +3,7 @@ use bary_raylib::app::new_app;
 use bary_raylib::assets::*;
 use bary_raylib::client::*;
 use bary_raylib::cmd::prompt::*;
+use bary_raylib::imgui;
 use bary_raylib::multiplayer::*;
 use bary_raylib::render::draw;
 use bary_raylib::sim::systems::*;
@@ -19,7 +20,7 @@ use steamworks::{LobbyChatMsg, LobbyEnter, PersonaStateChange};
 
 fn draw_debug_info(
     world: &World,
-    client: &ClientSpecificInfo,
+    _client: &ClientSpecificInfo,
     assets: &Assets,
     d: &mut RaylibDrawHandle,
 ) {
@@ -247,6 +248,8 @@ fn main() {
             d.clear_background(Color::BLACK);
 
             draw::draw_world(&app.runner.world, &app.runner.client_info, &assets, &mut d);
+
+            imgui::imgui_entrypoint(&mut d, &mut app.runner.world, &mut app.runner.client_info);
 
             ui::draw_ui(&mut d, &app.runner.world, &app.ui_state, &assets);
 

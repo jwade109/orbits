@@ -593,14 +593,10 @@ pub mod input_handlers {
 
         let part_id = some_or_return!(part_id);
         let part = ok_or_return!(world.parts.try_get(part_id));
-        let proto = ok_or_return!(world.prototypes.try_get(part.prototype));
 
         editor.prototype_id = Some(part.prototype);
         editor.part_rotation = part.placement.rot();
         editor.layer = Some(part.layer);
-
-        let s = format!("{:?} {:?}", editor.prototype_id, proto.name);
-        client.chat.log(s);
     }
 }
 
@@ -812,6 +808,14 @@ pub fn update_trackers(
 
     let mut to_despawn = BTreeSet::new();
 
+    for (grid_id, grid) in grids.iter() {
+        let is_controllable = !grid.computers.is_empty();
+        if trackers.try_get(*grid_id).is_err() && is_controllable {
+            let tracker = Tracker::default();
+            trackers.spawn(*grid_id, tracker);
+        }
+    }
+
     for (grid_id, tracker) in trackers.iter_mut() {
         let Ok(grid) = grids.try_get(*grid_id) else {
             to_despawn.insert(*grid_id);
@@ -872,8 +876,8 @@ pub fn process_event(
                 input_handlers::lock_rotation_on_key_r(client, input);
                 input_handlers::rotate_editor_part_on_key_r(client, input);
             }
-            Key::PageDown => input_handlers::editor_layer_shift_on_page_key(client, true),
-            Key::PageUp => input_handlers::editor_layer_shift_on_page_key(client, false),
+            Key::DownArrow => input_handlers::editor_layer_shift_on_page_key(client, true),
+            Key::UpArrow => input_handlers::editor_layer_shift_on_page_key(client, false),
             Key::KeyD => input_handlers::panic_on_ctrl_d(input),
             Key::KeyP => input_handlers::spawn_random_ship_on_p(world),
             Key::KeyM => input_handlers::update_center_of_mass_on_m(world),
