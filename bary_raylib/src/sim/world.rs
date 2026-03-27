@@ -387,9 +387,6 @@ pub mod input_handlers {
         } else {
             enum_iterator::next_cycle(&editor.layer)
         };
-
-        let s = format!("Set editor layer to {:?}", editor.layer);
-        client.chat.log(s);
     }
 
     pub fn panic_on_ctrl_d(input: &InputState) {
@@ -582,7 +579,10 @@ pub mod input_handlers {
         };
 
         let grid = ok_or_return!(world.grids.try_get(editor.vehicle));
-        let occ = some_or_return!(grid.get_parts_at(coord));
+        let Some(occ) = grid.get_parts_at(coord) else {
+            editor.layer = None;
+            return;
+        };
 
         // use the focus layer to pipette if it's available; otherwise, use the top one
         let part_id = if let Some(layer) = editor.layer {
@@ -597,6 +597,7 @@ pub mod input_handlers {
 
         editor.prototype_id = Some(part.prototype);
         editor.part_rotation = part.placement.rot();
+        editor.layer = Some(part.layer);
 
         let s = format!("{:?} {:?}", editor.prototype_id, proto.name);
         client.chat.log(s);

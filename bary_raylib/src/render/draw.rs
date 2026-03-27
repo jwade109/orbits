@@ -152,6 +152,8 @@ pub fn draw_world(
 
     draw_hovered_part_cursor(&mut c, world, client);
 
+    draw_editor_selection_region(&mut c, client, world);
+
     drop(c);
 
     draw_grid_far_indicators(&world.grids, d, &raylib_camera);
@@ -165,6 +167,7 @@ pub fn draw_world(
     draw_selected_grid_primary_computer_info(d, world, client, assets);
 
     if let Viewport::Editor(_) = client.viewport {
+        draw_all_parts_in_layer(d, client, world);
         draw_editor_layer_indicator(d, client);
         draw_editor_state(d);
     } else {
@@ -194,6 +197,26 @@ pub fn draw_selected_part_cursors(
             );
         }
     }
+}
+
+pub fn draw_editor_selection_region(
+    d: &mut RaylibDrawHandle,
+    client: &ClientSpecificInfo,
+    world: &World,
+) {
+    let editor = some_or_return!(client.viewport.editor());
+    let grid = ok_or_return!(world.grids.try_get(editor.vehicle));
+    // TODO(cleanup) replace this with an editor-specific coordinate
+    // without grid info - the editor can only edit one grid at a time
+    let hovered = some_or_return!(client.selection_info.hovered);
+    let hovered = hovered.coord;
+    let select_start = some_or_return!(editor.select_start);
+
+    let start = grid.origin().offset(select_start.to_meters());
+    draw_rectangle(d, start, Vec2::splat(PartCoord::CELL_WIDTH), Color::TEAL);
+    let end = grid.origin().offset(hovered.to_meters());
+    draw_rectangle(d, end, Vec2::splat(PartCoord::CELL_WIDTH), Color::TEAL);
+    draw_line(d, start.translation, end.translation, Color::TEAL);
 }
 
 pub fn draw_hovered_part_cursor(
@@ -465,14 +488,80 @@ pub fn draw_editor_part(d: &mut RaylibDrawHandle, world: &World, client: &Client
     draw_part_arrow(d, pl, grid_pose);
 }
 
+pub fn get_hovered_prototype(client: &ClientSpecificInfo, world: &World) -> Option<Ent> {
+    let editor = client.viewport.editor()?;
+    let layer = editor.layer?;
+    // TODO use editor hovered!
+    let coord = client.selection_info.hovered?.coord;
+    let grid = world.grids.try_get(editor.vehicle).ok()?;
+    let occ = grid.get_parts_at(coord)?;
+    let part_id = occ.at_layer(layer)?;
+    let part = world.parts.try_get(part_id).ok()?;
+    Some(part.prototype)
+}
+
+pub fn draw_all_parts_in_layer(
+    d: &mut RaylibDrawHandle,
+    client: &ClientSpecificInfo,
+    world: &World,
+) {
+    let editor = some_or_return!(client.viewport.editor());
+    let layer = some_or_return!(editor.layer);
+    let mouse_pos = client.mouse_screen_position.unwrap_or(Vec2::NAN);
+
+    let height = d.get_render_height();
+
+    let bottom_left = IVec2::new(50, height - 50);
+    let font_size = 18;
+    let box_width = 200;
+    let box_height = 40;
+    let padding = 2;
+
+    let mut y = bottom_left.y;
+
+    let hovered_proto = get_hovered_prototype(client, world);
+
+    for (proto_id, proto) in world.prototypes.iter().rev() {
+        if proto.layer != layer {
+            continue;
+        }
+        let is_hovered = Some(*proto_id) == hovered_proto;
+        let is_selected = Some(*proto_id) == editor.prototype_id;
+        y -= box_height + padding;
+        let xc = bottom_left.x as f32 + box_width as f32 / 2.0;
+        let yc = y as f32 + box_height as f32 / 2.0;
+        let center = Vec2::new(xc, yc);
+        let alpha = 0.96;
+
+        let color = if is_selected {
+            Color::ORANGE
+        } else if is_hovered {
+            Color::YELLOW
+        } else {
+            Color::DARKSLATEGRAY
+        };
+
+        let aabb = AABB::from_wh(box_width as f32, box_height as f32).with_center(center);
+
+        let xc = bottom_left.x as f32 + box_width as f32 / 2.0;
+        let yc = y as f32 + box_height as f32 / 4.0;
+        let center = Vector2::new(xc, yc);
+        d.draw_rectangle(bottom_left.x, y, box_width, box_height, color.alpha(alpha));
+        if aabb.contains(mouse_pos) {
+            d.draw_rectangle_lines(bottom_left.x, y, box_width, box_height, Color::WHITE);
+        }
+        draw_text_centered(d, &proto.name, center, font_size);
+    }
+}
+
 pub fn draw_editor_layer_indicator(d: &mut RaylibDrawHandle, client: &ClientSpecificInfo) {
     let editor = some_or_return!(client.viewport.editor());
 
     let boxes = [
-        (PartLayer::Internal, Color::ORANGE),
-        (PartLayer::Plumbing, Color::PURPLE),
-        (PartLayer::Structural, Color::GRAY),
         (PartLayer::Exterior, Color::WHITE),
+        (PartLayer::Structural, Color::GRAY),
+        (PartLayer::Plumbing, Color::PURPLE),
+        (PartLayer::Internal, Color::ORANGE),
     ];
 
     let width = d.get_render_width();
@@ -481,8 +570,12 @@ pub fn draw_editor_layer_indicator(d: &mut RaylibDrawHandle, client: &ClientSpec
     let font_size = 18;
     let box_width = 200;
     let box_height = 40;
+    let padding = 2;
     let bottom_right = IVec2::new(width - 50, height - 50);
-    let dims = IVec2::new(box_width, boxes.len() as i32 * box_height);
+    let dims = IVec2::new(
+        box_width,
+        boxes.len() as i32 * box_height + padding * (boxes.len() as i32 - 1),
+    );
     let origin = bottom_right - dims;
 
     let mut y = origin.y;
@@ -496,7 +589,7 @@ pub fn draw_editor_layer_indicator(d: &mut RaylibDrawHandle, client: &ClientSpec
         let alpha = if is_focused { 1.0 } else { 0.2 };
         d.draw_rectangle(origin.x, y, box_width, box_height, color.alpha(alpha));
         draw_text_centered(d, &text, center, font_size);
-        y += box_height;
+        y += box_height + padding;
     }
 }
 

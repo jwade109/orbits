@@ -57,21 +57,28 @@ fn draw_debug_info(
     s += &format!("\nZoom: {:0.3}", world.camera.zoom);
     s += &format!("\nUpdates: {}", world.grid_acceleration_updates);
 
-    s += &format!("\nMOUSE {:?}", client.mouse_screen_position);
-    s += &format!("\nHOVER {:?}", client.selection_info.hovered);
-    s += &format!("\nSLCT {:?}", client.selection_info.selected);
-    s += &format!("\nPRT {:?}", &world.particles.len());
-    s += &format!("\nBP {:?}", &world.blueprints);
-    s += &format!("\nPROTO {:?}", &world.prototypes);
-    s += &format!("\nPART {:?}", &world.parts);
-    s += &format!("\nGRID {:?}", &world.grids);
-    s += &format!("\nTHR {:?}", &world.thrusters);
-    s += &format!("\nCPU {:?}", &world.computers);
-    s += &format!("\nLIT {:?}", &world.lights);
-    s += &format!("\nE {:?}", &world.spawner);
+    // s += &format!("\nMOUSE {:?}", client.mouse_screen_position);
+    // s += &format!("\nHOVER {:?}", client.selection_info.hovered);
+    // s += &format!("\nSLCT {:?}", client.selection_info.selected);
+    // s += &format!("\nPRT {:?}", &world.particles.len());
+    // s += &format!("\nBP {:?}", &world.blueprints);
+    // s += &format!("\nPROTO {:?}", &world.prototypes);
+    // s += &format!("\nPART {:?}", &world.parts);
+    // s += &format!("\nGRID {:?}", &world.grids);
+    // s += &format!("\nTHR {:?}", &world.thrusters);
+    // s += &format!("\nCPU {:?}", &world.computers);
+    // s += &format!("\nLIT {:?}", &world.lights);
+    // s += &format!("\nE {:?}", &world.spawner);
 
     if let Some(font) = &assets.lato_regular {
-        d.draw_text_ex(&font, &s, Vector2::new(12.0, 12.0), 16.0, 0.0, Color::WHITE);
+        d.draw_text_ex(
+            &font,
+            &s,
+            Vector2::new(12.0, 12.0),
+            16.0,
+            0.0,
+            Color::WHITE.alpha(0.4),
+        );
     }
 }
 
