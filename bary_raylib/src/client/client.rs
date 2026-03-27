@@ -18,7 +18,6 @@ impl GridLocation {
 #[derive(Default, Debug, Deserialize, Serialize, Clone)]
 pub struct SelectionInfo {
     pub hovered: Option<GridLocation>,
-    pub mouseover_part_info: Option<(PartCoord, PartOccupancy)>,
     pub selected: Vec<GridLocation>,
 }
 

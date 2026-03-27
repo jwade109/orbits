@@ -165,6 +165,7 @@ pub fn draw_world(
     draw_selected_grid_primary_computer_info(d, world, client, assets);
 
     if let Viewport::Editor(_) = client.viewport {
+        draw_editor_layer_indicator(d, client);
         draw_editor_state(d);
     } else {
         draw_hovered_part_info(d, world, client, assets);
@@ -291,36 +292,28 @@ fn draw_focused_grid_cursor(
         return;
     };
 
-    let size = PartCoord::CELL_WIDTH;
-
     let origin = grid.origin();
 
-    for info in [sel.mouseover_part_info] {
-        let Some((coord, occ)) = info else {
-            continue;
+    let info = some_or_return!(sel.hovered);
+    let grid = ok_or_return!(grids.try_get(info.grid_id));
+    let occ = some_or_return!(grid.get_parts_at(info.coord));
+
+    for (layer, id) in occ.iter() {
+        let border_color = match layer {
+            PartLayer::Internal => Color::WHITE,
+            PartLayer::Exterior => Color::PURPLE,
+            PartLayer::Structural => Color::RED,
+            _ => continue,
         };
 
-        // cursor
-        // let iso = origin.offset(coord.to_meters());
-        // fill_rectangle(d, iso, Vec2::splat(size), Color::GREEN);
-
-        for (layer, id) in occ.iter() {
-            let border_color = match layer {
-                PartLayer::Internal => Color::WHITE,
-                PartLayer::Exterior => Color::PURPLE,
-                PartLayer::Structural => Color::RED,
-                _ => continue,
-            };
-
-            if let Ok(part) = parts.try_get(id) {
-                draw_grid_placement(
-                    d,
-                    origin,
-                    part.placement,
-                    Color::PURPLE.alpha(0.3),
-                    border_color,
-                );
-            }
+        if let Ok(part) = parts.try_get(id) {
+            draw_grid_placement(
+                d,
+                origin,
+                part.placement,
+                Color::PURPLE.alpha(0.3),
+                border_color,
+            );
         }
     }
 }
@@ -461,30 +454,50 @@ pub fn draw_grid_outlines(d: &mut RaylibDrawHandle, grids: &Components<VehicleGr
 }
 
 pub fn draw_editor_part(d: &mut RaylibDrawHandle, world: &World, client: &ClientSpecificInfo) {
-    let Viewport::Editor(editor) = &client.viewport else {
-        return;
-    };
-
-    let Some(proto_id) = editor.prototype_id else {
-        return;
-    };
-
-    let Some((coord, _occ)) = client.selection_info.mouseover_part_info else {
-        return;
-    };
-
-    let Ok(proto) = world.prototypes.try_get(proto_id) else {
-        return;
-    };
-
-    let Some(grid_pose) = grid_origin(&world.grids, editor.vehicle) else {
-        return;
-    };
-
+    let editor = some_or_return!(client.viewport.editor());
+    let proto_id = some_or_return!(editor.prototype_id);
+    let loc = some_or_return!(client.selection_info.hovered);
+    let proto = ok_or_return!(world.prototypes.try_get(proto_id));
+    let grid_pose = some_or_return!(grid_origin(&world.grids, editor.vehicle));
     let cl = proto.classification();
-    let pl = GridPlacement::new(coord, editor.part_rotation, proto.dims);
+    let pl = GridPlacement::new(loc.coord, editor.part_rotation, proto.dims);
     draw_part(d, pl, cl, grid_pose, false, false);
     draw_part_arrow(d, pl, grid_pose);
+}
+
+pub fn draw_editor_layer_indicator(d: &mut RaylibDrawHandle, client: &ClientSpecificInfo) {
+    let editor = some_or_return!(client.viewport.editor());
+
+    let boxes = [
+        (PartLayer::Internal, Color::ORANGE),
+        (PartLayer::Plumbing, Color::PURPLE),
+        (PartLayer::Structural, Color::GRAY),
+        (PartLayer::Exterior, Color::WHITE),
+    ];
+
+    let width = d.get_render_width();
+    let height = d.get_render_height();
+
+    let font_size = 18;
+    let box_width = 200;
+    let box_height = 40;
+    let bottom_right = IVec2::new(width - 50, height - 50);
+    let dims = IVec2::new(box_width, boxes.len() as i32 * box_height);
+    let origin = bottom_right - dims;
+
+    let mut y = origin.y;
+
+    for (layer, color) in boxes {
+        let xc = origin.x as f32 + box_width as f32 / 2.0;
+        let yc = y as f32 + box_height as f32 / 4.0;
+        let center = Vector2::new(xc, yc);
+        let text = format!("{:?}", layer);
+        let is_focused = Some(layer) == editor.layer || editor.layer.is_none();
+        let alpha = if is_focused { 1.0 } else { 0.2 };
+        d.draw_rectangle(origin.x, y, box_width, box_height, color.alpha(alpha));
+        draw_text_centered(d, &text, center, font_size);
+        y += box_height;
+    }
 }
 
 pub fn draw_part(
@@ -495,20 +508,22 @@ pub fn draw_part(
     grayed: bool,
     border: bool,
 ) {
+    let class_color = match cl {
+        PartClassification::Cargo => Color::GREEN,
+        PartClassification::Machine => Color::PURPLE,
+        PartClassification::Thruster => Color::MAROON,
+        PartClassification::Auxiliary => Color::YELLOW,
+        PartClassification::DockingPort => Color::ORANGE,
+        PartClassification::Computer => Color::RED,
+        PartClassification::Structure => Color::GRAY.alpha(0.7),
+        PartClassification::Decoration => Color::WHITE.alpha(0.7),
+        PartClassification::Other => Color::GRAY,
+    };
+
     let color = if grayed {
         Color::GRAY.alpha(0.2)
     } else {
-        match cl {
-            PartClassification::Cargo => Color::GREEN,
-            PartClassification::Machine => Color::PURPLE,
-            PartClassification::Thruster => Color::MAROON,
-            PartClassification::Auxiliary => Color::YELLOW,
-            PartClassification::DockingPort => Color::ORANGE,
-            PartClassification::Computer => Color::RED,
-            PartClassification::Structure => Color::GRAY.alpha(0.7),
-            PartClassification::Decoration => Color::WHITE.alpha(0.7),
-            PartClassification::Other => Color::GRAY,
-        }
+        class_color
     };
 
     let iso = grid_isometry * pl.origin_isometry();

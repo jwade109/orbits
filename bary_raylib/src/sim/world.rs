@@ -383,9 +383,9 @@ pub mod input_handlers {
         };
 
         editor.layer = if is_up {
-            editor.layer.next().unwrap_or(editor.layer)
+            enum_iterator::previous_cycle(&editor.layer)
         } else {
-            editor.layer.previous().unwrap_or(editor.layer)
+            enum_iterator::next_cycle(&editor.layer)
         };
 
         let s = format!("Set editor layer to {:?}", editor.layer);
@@ -562,40 +562,38 @@ pub mod input_handlers {
     }
 
     pub fn pipette_part_if_in_editor_on_q(world: &World, client: &mut ClientSpecificInfo) {
-        let Viewport::Editor(editor) = &mut client.viewport else {
-            return;
-        };
+        let editor = some_or_return!(client.viewport.editor_mut());
 
         if editor.prototype_id.is_some() {
             editor.prototype_id = None;
             return;
         }
-
         editor.prototype_id = None;
 
-        let Some(hovered_grid) = client.selection_info.hovered else {
-            return;
+        // TODO(cleanup) replace this with an editor-specific hovered location!
+        // it should not be possible to hover over another grid when editing one.
+        // this ought to only be a PartCoord
+        let coord = {
+            let loc = some_or_return!(client.selection_info.hovered);
+            if editor.vehicle != loc.grid_id {
+                return;
+            }
+            loc.coord
         };
 
-        if editor.vehicle != hovered_grid.grid_id {
-            return;
-        }
+        let grid = ok_or_return!(world.grids.try_get(editor.vehicle));
+        let occ = some_or_return!(grid.get_parts_at(coord));
 
-        let Some((_part_coord, occ)) = client.selection_info.mouseover_part_info else {
-            return;
+        // use the focus layer to pipette if it's available; otherwise, use the top one
+        let part_id = if let Some(layer) = editor.layer {
+            occ.at_layer(layer)
+        } else {
+            occ.top()
         };
 
-        let Some(part_id) = occ.top() else {
-            return;
-        };
-
-        let Ok(part) = world.parts.try_get(part_id) else {
-            return;
-        };
-
-        let Ok(proto) = world.prototypes.try_get(part.prototype) else {
-            return;
-        };
+        let part_id = some_or_return!(part_id);
+        let part = ok_or_return!(world.parts.try_get(part_id));
+        let proto = ok_or_return!(world.prototypes.try_get(part.prototype));
 
         editor.prototype_id = Some(part.prototype);
         editor.part_rotation = part.placement.rot();
@@ -716,46 +714,6 @@ fn update_actual_hover_part_info(
     sel.hovered = Some(GridLocation::new(grid_id, coord));
 }
 
-fn update_mouseover_part_info(
-    sel: &mut SelectionInfo,
-    grids: &Components<VehicleGrid>,
-    mouse_screen_position: Option<Vec2>,
-    screen_dims: Vec2,
-    camera: &Camera,
-    sounds: &mut SoundEffects,
-) {
-    let old_parts = sel.mouseover_part_info.map(|(_, occ)| occ);
-
-    sel.mouseover_part_info = None;
-
-    let Some(screen_pos) = mouse_screen_position else {
-        return;
-    };
-    let Some(grid_id) = sel.first_selected_grid() else {
-        return;
-    };
-    let Ok(grid) = grids.try_get(grid_id) else {
-        return;
-    };
-
-    let world_pos = screen_to_world(camera, screen_pos, screen_dims);
-    let origin = grid.origin();
-    let coord = PartCoord::from_meters_floored(in_frame(origin, world_pos));
-
-    let occ = grid.get_parts_at(coord).unwrap_or(&PartOccupancy::EMPTY);
-
-    // if occ.has_any() {
-    sel.mouseover_part_info = Some((coord, *occ));
-    // }
-
-    let new_parts = sel.mouseover_part_info.map(|(_, occ)| occ);
-    let has_new_parts = new_parts.map(|e| e.has_any()).unwrap_or(false);
-
-    if old_parts != new_parts && has_new_parts {
-        sounds.push(SoundEffect::MouseoverPart);
-    }
-}
-
 fn set_target_camera_if_following(
     follow: Option<Ent>,
     lock_rotation: bool,
@@ -819,7 +777,11 @@ fn editor_on_left_click(world: &mut World, client: &mut ClientSpecificInfo) {
 
     e.select_start = None;
 
-    let (coord, _occ) = some_or_return!(client.selection_info.mouseover_part_info);
+    // TODO(cleanup) replace with an editor-specific thing
+    let coord = {
+        let loc = some_or_return!(client.selection_info.hovered);
+        loc.coord
+    };
 
     if let Some(proto_id) = e.prototype_id {
         let proto = ok_or_return!(world.prototypes.try_get(proto_id));
@@ -965,23 +927,12 @@ pub fn pre_simulation_update(
     client: &mut ClientSpecificInfo,
     _input: &InputState,
 ) {
-    let mut sounds = SoundEffects::default();
-
     update_actual_hover_part_info(
         &mut client.selection_info,
         &world.grids,
         client.mouse_screen_position,
         client.screen_dims,
         &world.camera,
-    );
-
-    update_mouseover_part_info(
-        &mut client.selection_info,
-        &world.grids,
-        client.mouse_screen_position,
-        client.screen_dims,
-        &world.camera,
-        &mut sounds,
     );
 }
 
