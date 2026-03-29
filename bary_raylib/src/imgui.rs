@@ -4,6 +4,7 @@ use crate::render::draw::*;
 use crate::sim::{Computer, VehicleGrid, World};
 use crate::sounds::*;
 use crate::ui::{Window, draw_window};
+use crate::utils::glam_to_raylib;
 use bary_core::prelude::*;
 use early_returns::*;
 use raylib::prelude::*;
@@ -36,24 +37,23 @@ pub fn imgui_all_parts_in_layer(
         let is_hovered = Some(*proto_id) == hovered_proto;
         let is_selected = Some(*proto_id) == editor.prototype_id;
         y -= box_height + padding;
+
         let xc = bottom_left.x as f32 + box_width as f32 / 2.0;
         let yc = y as f32 + box_height as f32 / 2.0;
         let center = Vec2::new(xc, yc);
+
         let alpha = 0.96;
 
         let color = if is_selected {
             Color::ORANGE
         } else if is_hovered {
-            Color::YELLOW
+            Color::TEAL
         } else {
             Color::DARKSLATEGRAY
         };
 
         let aabb = AABB::from_wh(box_width as f32, box_height as f32).with_center(center);
 
-        let xc = bottom_left.x as f32 + box_width as f32 / 2.0;
-        let yc = y as f32 + box_height as f32 / 4.0;
-        let center = Vector2::new(xc, yc);
         d.draw_rectangle(bottom_left.x, y, box_width, box_height, color.alpha(alpha));
         if aabb.contains(mouse_pos) {
             d.draw_rectangle_lines(bottom_left.x, y, box_width, box_height, Color::WHITE);
@@ -62,7 +62,7 @@ pub fn imgui_all_parts_in_layer(
                 sounds.push(SoundEffect::PickLayer);
             }
         }
-        draw_text_centered(d, &proto.name, center, font_size);
+        draw_text_centered(d, &proto.name, glam_to_raylib(center), font_size);
     }
 }
 
@@ -104,14 +104,12 @@ pub fn imgui_editor_layer_indicator(
         let center = Vec2::new(xc, yc);
         let aabb = AABB::from_wh(box_width as f32, box_height as f32).with_center(center);
 
-        let xc = origin.x as f32 + box_width as f32 / 2.0;
-        let yc = y as f32 + box_height as f32 / 4.0;
-        let center = Vector2::new(xc, yc);
         let text = format!("{:?}", layer);
         let is_focused = Some(layer) == editor.layer || editor.layer.is_none();
         let alpha = if is_focused { 1.0 } else { 0.2 };
         d.draw_rectangle(origin.x, y, box_width, box_height, color.alpha(alpha));
-        draw_text_centered(d, &text, center, font_size);
+
+        draw_text_centered(d, &text, glam_to_raylib(center), font_size);
 
         if aabb.contains(mouse_pos) {
             d.draw_rectangle_lines(bottom_left.x, y, box_width, box_height, Color::WHITE);

@@ -258,21 +258,15 @@ pub fn draw_text_centered(d: &mut RaylibDrawHandle, text: &str, pos: Vector2, fo
         return;
     }
 
-    let spacing = 10;
-
-    d.set_text_line_spacing(spacing);
-
-    let nominal_width = d.measure_text(&text, font_size) as f32;
-    let pos = Vector2::new(pos.x, pos.y);
-    d.draw_circle(pos.x as i32, pos.y as i32, 3.0, Color::RED);
-
-    let q = Vector2::new(pos.x + nominal_width, pos.y);
-    d.draw_line_ex(pos, q, 2.0, Color::RED);
+    let spacing = 3.0;
+    let font = d.get_font_default();
+    let dims = font.measure_text(&text, font_size as f32, spacing);
+    let text_origin = Vector2::new(pos.x - dims.x / 2.0, pos.y - dims.y / 2.0);
 
     d.draw_text_ex(
         d.get_font_default(),
         &text,
-        pos,
+        text_origin,
         font_size as f32,
         spacing as f32,
         Color::WHITE,

@@ -137,6 +137,7 @@ fn camera_moves_with_wasd(
     input: &InputState,
     target: &mut Camera,
     follow: &mut Option<Ent>,
+    lock_rotation: &mut bool,
     sounds: &mut SoundEffects,
 ) {
     let angular_speed = 2.5f32.to_radians();
@@ -153,11 +154,11 @@ fn camera_moves_with_wasd(
 
     if input.is_key_pressed(Key::KeyQ) {
         target.isometry.rotation += angular_speed;
-        // *follow = None;
+        *lock_rotation = false;
     }
     if input.is_key_pressed(Key::KeyE) {
         target.isometry.rotation -= angular_speed;
-        // *follow = None;
+        *lock_rotation = false;
     }
     if input.is_key_pressed(Key::KeyS) {
         target.isometry.translation -= up * speed;
@@ -273,8 +274,6 @@ pub fn detach_top_part_at(world: &mut World, grid_id: Ent, coord: PartCoord) -> 
 
 pub mod input_handlers {
 
-    use enum_iterator::Sequence;
-
     use crate::sim::systems::{
         set_grid_pose, set_primary_computer_state, set_primary_computer_waypoint,
         spawn_grid_by_name, toggle_tracking, update_grid_physical_props,
@@ -384,9 +383,9 @@ pub mod input_handlers {
         };
 
         editor.layer = if is_up {
-            enum_iterator::previous_cycle(&editor.layer)
-        } else {
             enum_iterator::next_cycle(&editor.layer)
+        } else {
+            enum_iterator::previous_cycle(&editor.layer)
         };
     }
 
@@ -465,6 +464,12 @@ pub mod input_handlers {
                 .chat
                 .log(format!("Failed to toggle tracking: {:?}", e)),
         }
+    }
+
+    pub fn destroy_selected_parts(_world: &mut World, client: &mut ClientSpecificInfo) {
+        let free = some_or_return!(client.viewport.free());
+        let s = format!("TODO DESTROY PARTS: {:?}", free.selection_info.selected);
+        client.chat.log(s);
     }
 
     pub fn reset_camera_on_ctrl_r(world: &mut World, input: &InputState) {
@@ -774,7 +779,11 @@ fn editor_on_release_left_click(client: &mut ClientSpecificInfo) {
     e.select_start = None;
 }
 
-fn editor_on_left_click(world: &mut World, client: &mut ClientSpecificInfo) {
+fn editor_on_left_click(
+    world: &mut World,
+    client: &mut ClientSpecificInfo,
+    sounds: &mut SoundEffects,
+) {
     let e = some_or_return!(client.viewport.editor_mut());
 
     debug!("Clicked on editor");
@@ -794,7 +803,18 @@ fn editor_on_left_click(world: &mut World, client: &mut ClientSpecificInfo) {
             placement,
         };
 
-        _ = insert_part(e.vehicle, world, &instance, true);
+        let result = insert_part(e.vehicle, world, &instance, true);
+
+        match result {
+            Ok(ent) => {
+                info!("Inserted part {ent}");
+                sounds.push(SoundEffect::InsertPart);
+            }
+            Err(error) => {
+                warn!("Failed to insert: {error:?}");
+                sounds.push(SoundEffect::GenericFailure);
+            }
+        }
     } else {
         e.select_start = Some(coord);
     }
@@ -879,8 +899,10 @@ pub fn process_event(
                 input_handlers::lock_rotation_on_key_r(client, input);
                 input_handlers::rotate_editor_part_on_key_r(client, input);
             }
-            Key::DownArrow => input_handlers::editor_layer_shift_on_page_key(client, true),
-            Key::UpArrow => input_handlers::editor_layer_shift_on_page_key(client, false),
+            Key::Delete => input_handlers::destroy_selected_parts(world, client),
+            Key::DownArrow => input_handlers::editor_layer_shift_on_page_key(client, false),
+            Key::UpArrow => input_handlers::editor_layer_shift_on_page_key(client, true),
+            Key::KeyE => input_handlers::editor_layer_shift_on_page_key(client, true),
             Key::KeyD => input_handlers::panic_on_ctrl_d(input),
             Key::KeyP => input_handlers::spawn_random_ship_on_p(world),
             Key::KeyM => input_handlers::update_center_of_mass_on_m(world),
@@ -904,7 +926,7 @@ pub fn process_event(
                     &mut sounds,
                 );
                 select_hovered_grid_loc_on_click(client, input, &mut sounds);
-                editor_on_left_click(world, client);
+                editor_on_left_click(world, client, &mut sounds);
             }
             Button::Right => {
                 input_handlers::destroy_top_layer_part_at_mouseover(world, client, &mut sounds)
@@ -967,6 +989,7 @@ pub fn post_simulation_update(
                 &input,
                 &mut world.target_camera,
                 &mut fly.follow_vehicle,
+                &mut fly.lock_rotation,
                 &mut sounds,
             );
 

@@ -15,6 +15,7 @@ pub enum SoundEffect {
     OpenEditor,
     LeaveEditor,
     PickLayer,
+    InsertPart,
 }
 
 impl SoundEffect {
@@ -40,5 +41,6 @@ pub fn get_sound_effect_asset_path(effect: SoundEffect) -> &'static str {
         SoundEffect::OpenEditor => "assets/sfx/open-editor.wav",
         SoundEffect::LeaveEditor => "assets/sfx/leave-editor.wav",
         SoundEffect::PickLayer => "assets/sfx/low-blip.wav",
+        SoundEffect::InsertPart => "assets/sfx/insert-part.wav",
     }
 }
