@@ -1,7 +1,9 @@
+use crate::assets::Assets;
 use crate::client::ClientSpecificInfo;
 use crate::render::draw::*;
-use crate::sim::World;
+use crate::sim::{Computer, VehicleGrid, World};
 use crate::sounds::*;
+use crate::ui::{Window, draw_window};
 use bary_core::prelude::*;
 use early_returns::*;
 use raylib::prelude::*;
@@ -123,12 +125,139 @@ pub fn imgui_editor_layer_indicator(
     }
 }
 
+fn grid_info_str(grid: &VehicleGrid) -> String {
+    let lines = [
+        format!("GRID INFO ==="),
+        format!("\n  Parts: {}", grid.parts.len()),
+        format!("\n  Thrusters: {}", grid.thrusters.len()),
+        format!("\n  Computers: {}", grid.computers.len()),
+        format!("\n  Parts mass: {}", grid.parts_mass),
+    ];
+
+    lines.into_iter().collect()
+}
+
+fn computer_info_str(cpu: &Computer) -> String {
+    let mut lines = vec![
+        format!("CPU INFO ==="),
+        format!("\n  On: {}", cpu.on),
+        format!("\n  Status: {:?}", cpu.status),
+        format!("\n  Ticks: {}", cpu.ticks_this_cycle),
+        format!("\n  Fired: {}", cpu.fired_this_tick),
+        format!("\n  Iters: {}", cpu.iters),
+    ];
+
+    for cmd in &cpu.command_queue {
+        let line = format!("\n  - {}", cmd);
+        lines.push(line);
+    }
+
+    lines.into_iter().collect()
+}
+
+fn imgui_selected_grid_primary_computer_info(
+    d: &mut RaylibDrawHandle,
+    world: &World,
+    client: &ClientSpecificInfo,
+    assets: &Assets,
+) {
+    let free = some_or_return!(client.viewport.free());
+    let grid_id = some_or_return!(free.selection_info.first_selected_grid());
+    let grid = ok_or_return!(world.grids.try_get(grid_id));
+
+    let mut content = grid_info_str(grid);
+
+    if let Some(cpu_id) = grid.computers.first() {
+        if let Ok(cpu) = world.computers.try_get(*cpu_id) {
+            let info = computer_info_str(cpu);
+            content += &format!("\n{}", info);
+        }
+    };
+
+    let window = Window {
+        origin: IVec2::new(800, 60),
+        title: "Grid Info".to_string(),
+        content,
+        is_focused: true,
+    };
+
+    if let Some(font) = &assets.fira_code {
+        draw_window(d, &window, font);
+    }
+}
+
+fn imgui_hovered_part_info(
+    d: &mut RaylibDrawHandle,
+    world: &World,
+    client: &ClientSpecificInfo,
+    assets: &Assets,
+) {
+    let mouse_pos = some_or_return!(client.mouse_screen_position);
+    let gridloc = some_or_return!(client.hovered_grid_loc());
+    let grid = ok_or_return!(world.grids.try_get(gridloc.grid_id));
+    let occ = some_or_return!(grid.get_parts_at(gridloc.coord));
+
+    let mut s = format!(
+        "At {}-{}: {:?}",
+        gridloc.grid_id,
+        gridloc.coord,
+        occ.to_array()
+    );
+
+    for (layer, part_id) in occ.iter() {
+        let Ok(part) = world.parts.try_get(part_id) else {
+            return;
+        };
+
+        s += &format!("\n\nPart ID: {}", part_id);
+        s += &format!(
+            "\nPlacement: {:?} {} {:?}",
+            layer,
+            part.placement.bottom_left(),
+            part.placement.rot()
+        );
+
+        if let Ok(proto) = world.prototypes.try_get(part.prototype) {
+            s += &format!(
+                "\nPrototype: {} {} {:?}",
+                proto.name,
+                proto.mass,
+                proto.classification()
+            );
+        }
+        if let Ok(cpu) = world.computers.try_get(part_id) {
+            let info = computer_info_str(cpu);
+            s += &format!("\n{}", info);
+        }
+        if let Ok(thruster) = world.thrusters.try_get(part_id) {
+            s += &format!("\n{:#?}", thruster);
+        }
+        if let Ok(light) = world.lights.try_get(part_id) {
+            s += &format!("\n{:#?}", light);
+        }
+    }
+
+    let window = Window {
+        origin: mouse_pos.as_ivec2(),
+        title: "Part Info".to_string(),
+        content: s,
+        is_focused: true,
+    };
+
+    if let Some(font) = &assets.fira_code {
+        draw_window(d, &window, font);
+    }
+}
+
 pub fn imgui_entrypoint(
     d: &mut RaylibDrawHandle,
     world: &mut World,
     client: &mut ClientSpecificInfo,
     sounds: &mut SoundEffects,
+    assets: &Assets,
 ) {
     imgui_editor_layer_indicator(d, client, sounds);
     imgui_all_parts_in_layer(d, client, world, sounds);
+    imgui_selected_grid_primary_computer_info(d, world, client, assets);
+    imgui_hovered_part_info(d, world, client, assets);
 }

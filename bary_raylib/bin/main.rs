@@ -236,6 +236,7 @@ fn main() {
                 &mut app.runner.world,
                 &mut app.runner.client_info,
                 &mut sounds,
+                &assets,
             );
 
             ui::draw_ui(&mut d, &app.runner.world, &app.ui_state, &assets);

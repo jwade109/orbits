@@ -94,7 +94,14 @@ pub fn apply_transaction(
             client.chat.log(s);
         }
         Action::SetCpuSelectedGrid(state) => {
-            if let Some(grid_id) = client.selection_info.first_selected_grid() {
+            let grid_id = match &client.viewport {
+                crate::client::Viewport::Editor(e) => Some(e.vehicle),
+                crate::client::Viewport::Free(f) => {
+                    f.selection_info.selected.first().map(|e| e.grid_id)
+                }
+            };
+
+            if let Some(grid_id) = grid_id {
                 _ = ops::set_primary_computer_state(grid_id, state, world);
                 _ = ops::set_all_thrusters(grid_id, false, world);
                 client

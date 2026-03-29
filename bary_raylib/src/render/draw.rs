@@ -102,7 +102,7 @@ pub fn draw_world(
     if client.viewport.is_real_view() {
         draw_computer_target_isometry(&mut c, &world.computers, &world.parts, &world.grids);
 
-        draw_selection_info(&mut c, &world.grids, &client.selection_info);
+        draw_selection_info(&mut c, &world.grids, &client);
 
         draw_lights(
             &mut c,
@@ -132,7 +132,7 @@ pub fn draw_world(
         draw_thruster_classification(&mut c, &world.grids, &world.parts, &world.thrusters);
     }
 
-    draw_focused_grid_cursor(&mut c, &world.grids, &world.parts, &client.selection_info);
+    draw_focused_grid_cursor(&mut c, &world.grids, &world.parts, &client);
 
     draw_mouse_world_position(
         &mut c,
@@ -160,17 +160,9 @@ pub fn draw_world(
 
     draw_waypoint_far_indicators(&world.computers, d, &raylib_camera);
 
-    draw_selected_grid_info(d, &client.selection_info, &world.grids, client.screen_dims);
+    draw_selected_grid_info(d, &client, &world.grids, client.screen_dims);
 
     draw_chat(d, &client.chat, client.screen_dims, assets);
-
-    draw_selected_grid_primary_computer_info(d, world, client, assets);
-
-    if let Viewport::Editor(_) = client.viewport {
-        draw_editor_state(d);
-    } else {
-        draw_hovered_part_info(d, world, client, assets);
-    }
 
     // draw_parts_zoo(&world.prototypes, &mut d);
     // draw_test_isos(&mut d)
@@ -181,7 +173,8 @@ pub fn draw_selected_part_cursors(
     world: &World,
     client: &ClientSpecificInfo,
 ) {
-    for loc in &client.selection_info.selected {
+    let free = some_or_return!(client.viewport.free());
+    for loc in &free.selection_info.selected {
         let grid = ok_or_continue!(world.grids.try_get(loc.grid_id));
         let occ = some_or_continue!(grid.get_parts_at(loc.coord));
         for (_layer, id) in occ.iter() {
@@ -204,12 +197,8 @@ pub fn draw_editor_selection_region(
 ) {
     let editor = some_or_return!(client.viewport.editor());
     let grid = ok_or_return!(world.grids.try_get(editor.vehicle));
-    // TODO(cleanup) replace this with an editor-specific coordinate
-    // without grid info - the editor can only edit one grid at a time
-    let hovered = some_or_return!(client.selection_info.hovered);
-    let hovered = hovered.coord;
+    let hovered = some_or_return!(editor.hovered);
     let select_start = some_or_return!(editor.select_start);
-
     let start = grid.origin().offset(select_start.to_meters());
     draw_rectangle(d, start, Vec2::splat(PartCoord::CELL_WIDTH), Color::TEAL);
     let end = grid.origin().offset(hovered.to_meters());
@@ -222,7 +211,7 @@ pub fn draw_hovered_part_cursor(
     world: &World,
     client: &ClientSpecificInfo,
 ) {
-    let gridloc = some_or_return!(client.selection_info.hovered);
+    let gridloc = some_or_return!(client.hovered_grid_loc());
     let grid = ok_or_return!(world.grids.try_get(gridloc.grid_id));
 
     let occ = grid
@@ -237,13 +226,6 @@ pub fn draw_hovered_part_cursor(
 
     let iso = grid.origin().offset(gridloc.coord.to_meters());
     draw_rectangle(d, iso, Vec2::splat(PartCoord::CELL_WIDTH), color);
-}
-
-pub fn draw_editor_state(d: &mut RaylibDrawHandle) {
-    let w = d.get_screen_width();
-    let h = d.get_screen_height();
-
-    d.draw_rectangle_lines(3, 3, w - 5, h - 5, Color::BLUE);
 }
 
 pub fn draw_mouse_screen_position(d: &mut RaylibDrawHandle, mouse_screen_position: Option<Vec2>) {
@@ -272,15 +254,27 @@ fn draw_chat(d: &mut RaylibDrawHandle, chat: &Chat, screen_dims: Vec2, assets: &
 }
 
 pub fn draw_text_centered(d: &mut RaylibDrawHandle, text: &str, pos: Vector2, font_size: i32) {
-    let width = d.measure_text(&text, font_size);
-    let pos = Vector2::new(pos.x - width as f32 / 2.0, pos.y);
+    if text.is_empty() {
+        return;
+    }
+
+    let spacing = 10;
+
+    d.set_text_line_spacing(spacing);
+
+    let nominal_width = d.measure_text(&text, font_size) as f32;
+    let pos = Vector2::new(pos.x, pos.y);
+    d.draw_circle(pos.x as i32, pos.y as i32, 3.0, Color::RED);
+
+    let q = Vector2::new(pos.x + nominal_width, pos.y);
+    d.draw_line_ex(pos, q, 2.0, Color::RED);
 
     d.draw_text_ex(
         d.get_font_default(),
         &text,
         pos,
         font_size as f32,
-        3.0,
+        spacing as f32,
         Color::WHITE,
     );
 }
@@ -304,20 +298,12 @@ fn draw_focused_grid_cursor(
     d: &mut RaylibDrawHandle,
     grids: &Components<VehicleGrid>,
     parts: &Components<Part>,
-    sel: &SelectionInfo,
+    client: &ClientSpecificInfo,
 ) {
-    let Some(grid_id) = sel.first_selected_grid() else {
-        return;
-    };
-    let Ok(grid) = grids.try_get(grid_id) else {
-        return;
-    };
-
+    let loc = some_or_return!(client.hovered_grid_loc());
+    let grid = ok_or_return!(grids.try_get(loc.grid_id));
+    let occ = some_or_return!(grid.get_parts_at(loc.coord));
     let origin = grid.origin();
-
-    let info = some_or_return!(sel.hovered);
-    let grid = ok_or_return!(grids.try_get(info.grid_id));
-    let occ = some_or_return!(grid.get_parts_at(info.coord));
 
     for (layer, id) in occ.iter() {
         let border_color = match layer {
@@ -341,16 +327,12 @@ fn draw_focused_grid_cursor(
 
 fn draw_selected_grid_info(
     d: &mut RaylibDrawHandle,
-    sel: &SelectionInfo,
+    client: &ClientSpecificInfo,
     grids: &Components<VehicleGrid>,
     screen_dims: Vec2,
 ) {
-    let Some(grid_id) = sel.first_selected_grid() else {
-        return;
-    };
-    let Ok(grid) = grids.try_get(grid_id) else {
-        return;
-    };
+    let grid_id = some_or_return!(client.focused_grid_id());
+    let grid = ok_or_return!(grids.try_get(grid_id));
 
     let font_size = 26;
 
@@ -477,11 +459,11 @@ pub fn draw_grid_outlines(d: &mut RaylibDrawHandle, grids: &Components<VehicleGr
 pub fn draw_editor_part(d: &mut RaylibDrawHandle, world: &World, client: &ClientSpecificInfo) {
     let editor = some_or_return!(client.viewport.editor());
     let proto_id = some_or_return!(editor.prototype_id);
-    let loc = some_or_return!(client.selection_info.hovered);
+    let coord = some_or_return!(editor.hovered);
     let proto = ok_or_return!(world.prototypes.try_get(proto_id));
     let grid_pose = some_or_return!(grid_origin(&world.grids, editor.vehicle));
     let cl = proto.classification();
-    let pl = GridPlacement::new(loc.coord, editor.part_rotation, proto.dims);
+    let pl = GridPlacement::new(coord, editor.part_rotation, proto.dims);
     draw_part(d, pl, cl, grid_pose, false, false);
     draw_part_arrow(d, pl, grid_pose);
 }
@@ -489,8 +471,7 @@ pub fn draw_editor_part(d: &mut RaylibDrawHandle, world: &World, client: &Client
 pub fn get_hovered_prototype(client: &ClientSpecificInfo, world: &World) -> Option<Ent> {
     let editor = client.viewport.editor()?;
     let layer = editor.layer?;
-    // TODO use editor hovered!
-    let coord = client.selection_info.hovered?.coord;
+    let coord = editor.hovered?;
     let grid = world.grids.try_get(editor.vehicle).ok()?;
     let occ = grid.get_parts_at(coord)?;
     let part_id = occ.at_layer(layer)?;
@@ -857,149 +838,20 @@ fn draw_circle(d: &mut RaylibDrawHandle, p: Vec2, r: f32, color: Color) {
 fn draw_selection_info(
     d: &mut RaylibDrawHandle,
     grids: &Components<VehicleGrid>,
-    sel: &SelectionInfo,
+    client: &ClientSpecificInfo,
 ) {
-    if let Some(gridloc) = sel.hovered {
+    let free = some_or_return!(client.viewport.free());
+    if let Some(gridloc) = free.selection_info.hovered {
         let grid = ok_or_return!(grids.try_get(gridloc.grid_id));
         let loc = grid.centroid_isometry();
         let r = grid.bounding_radius() * 1.4;
         draw_circle(d, loc.translation, r, Color::GREEN);
     }
-    if let Some(grid_id) = sel.first_selected_grid() {
-        let grid = ok_or_return!(grids.try_get(grid_id));
+    for loc in &free.selection_info.selected {
+        let grid = ok_or_return!(grids.try_get(loc.grid_id));
         let loc = grid.centroid_isometry();
         let r = grid.bounding_radius() * 1.4 + 0.5;
-        draw_circle(d, loc.translation, r, Color::BLUE);
-    }
-}
-
-fn grid_info_str(grid: &VehicleGrid) -> String {
-    let lines = [
-        format!("GRID INFO ==="),
-        format!("\n  Parts: {}", grid.parts.len()),
-        format!("\n  Thrusters: {}", grid.thrusters.len()),
-        format!("\n  Computers: {}", grid.computers.len()),
-        format!("\n  Parts mass: {}", grid.parts_mass),
-    ];
-
-    lines.into_iter().collect()
-}
-
-fn computer_info_str(cpu: &Computer) -> String {
-    let mut lines = vec![
-        format!("CPU INFO ==="),
-        format!("\n  On: {}", cpu.on),
-        format!("\n  Status: {:?}", cpu.status),
-        format!("\n  Ticks: {}", cpu.ticks_this_cycle),
-        format!("\n  Fired: {}", cpu.fired_this_tick),
-        format!("\n  Iters: {}", cpu.iters),
-    ];
-
-    for cmd in &cpu.command_queue {
-        let line = format!("\n  - {}", cmd);
-        lines.push(line);
-    }
-
-    lines.into_iter().collect()
-}
-
-fn draw_selected_grid_primary_computer_info(
-    d: &mut RaylibDrawHandle,
-    world: &World,
-    client: &ClientSpecificInfo,
-    assets: &Assets,
-) {
-    let Some(grid_id) = client.selection_info.first_selected_grid() else {
-        return;
-    };
-
-    let Ok(grid) = world.grids.try_get(grid_id) else {
-        return;
-    };
-
-    let mut content = grid_info_str(grid);
-
-    if let Some(cpu_id) = grid.computers.first() {
-        if let Ok(cpu) = world.computers.try_get(*cpu_id) {
-            let info = computer_info_str(cpu);
-            content += &format!("\n{}", info);
-        }
-    };
-
-    let _window = Window {
-        origin: IVec2::new(800, 60),
-        title: "Grid Info".to_string(),
-        content,
-        is_focused: true,
-    };
-
-    if let Some(font) = &assets.fira_code {
-        // draw_window(d, &window, font);
-    }
-}
-
-fn draw_hovered_part_info(
-    d: &mut RaylibDrawHandle,
-    world: &World,
-    client: &ClientSpecificInfo,
-    assets: &Assets,
-) {
-    let gridloc = some_or_return!(client.selection_info.hovered);
-    let grid = ok_or_return!(world.grids.try_get(gridloc.grid_id));
-
-    let occ = grid
-        .get_parts_at(gridloc.coord)
-        .unwrap_or(&PartOccupancy::EMPTY);
-
-    let mut s = format!(
-        "At {}-{}: {:?}",
-        gridloc.grid_id,
-        gridloc.coord,
-        occ.to_array()
-    );
-
-    for (layer, part_id) in occ.iter() {
-        let Ok(part) = world.parts.try_get(part_id) else {
-            return;
-        };
-
-        s += &format!("\n\nPart ID: {}", part_id);
-        s += &format!(
-            "\nPlacement: {:?} {} {:?}",
-            layer,
-            part.placement.bottom_left(),
-            part.placement.rot()
-        );
-
-        if let Ok(proto) = world.prototypes.try_get(part.prototype) {
-            s += &format!(
-                "\nPrototype: {} {} {:?}",
-                proto.name,
-                proto.mass,
-                proto.classification()
-            );
-        }
-        if let Ok(cpu) = world.computers.try_get(part_id) {
-            let info = computer_info_str(cpu);
-            s += &format!("\n{}", info);
-        }
-        if let Ok(thruster) = world.thrusters.try_get(part_id) {
-            s += &format!("\n{:#?}", thruster);
-        }
-        if let Ok(light) = world.lights.try_get(part_id) {
-            s += &format!("\n{:#?}", light);
-        }
-    }
-
-    let window = Window {
-        origin: IVec2::new(200, 60),
-        title: "Part Info".to_string(),
-        content: s,
-        is_focused: true,
-    };
-
-    if let Some(font) = &assets.fira_code {
-        draw_window(d, &window, font);
+        draw_circle(d, loc.translation, r, Color::ORANGE);
     }
 }
 

@@ -1,5 +1,4 @@
 use super::Chat;
-use crate::sim::PartOccupancy;
 use bary_core::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -22,6 +21,16 @@ pub struct SelectionInfo {
 }
 
 impl SelectionInfo {
+    pub fn selecting(grid_id: Ent) -> Self {
+        Self {
+            hovered: None,
+            selected: vec![GridLocation {
+                grid_id,
+                coord: PartCoord((-1000, -1000).into()),
+            }],
+        }
+    }
+
     pub fn first_selected_grid(&self) -> Option<Ent> {
         self.selected.first().map(|e| e.grid_id)
     }
@@ -37,12 +46,14 @@ pub struct EditorState {
     pub part_rotation: Rotation,
     pub layer: Option<PartLayer>,
     pub select_start: Option<PartCoord>,
+    pub hovered: Option<PartCoord>,
 }
 
 #[derive(Debug)]
 pub struct FreeFlying {
     pub follow_vehicle: Option<Ent>,
     pub lock_rotation: bool,
+    pub selection_info: SelectionInfo,
 }
 
 #[derive(Debug)]
@@ -69,6 +80,20 @@ impl Viewport {
         }
     }
 
+    pub fn free(&self) -> Option<&FreeFlying> {
+        match self {
+            Self::Free(free) => Some(free),
+            _ => None,
+        }
+    }
+
+    pub fn free_mut(&mut self) -> Option<&mut FreeFlying> {
+        match self {
+            Self::Free(free) => Some(free),
+            _ => None,
+        }
+    }
+
     pub fn editor(&self) -> Option<&EditorState> {
         match self {
             Self::Editor(e) => Some(e),
@@ -90,7 +115,6 @@ pub struct ClientSpecificInfo {
     pub chat: Chat,
     pub mouse_screen_position: Option<Vec2>,
     pub screen_dims: Vec2,
-    pub selection_info: SelectionInfo,
     pub viewport: Viewport,
     pub is_holding_shift: bool,
 }
@@ -101,12 +125,32 @@ impl ClientSpecificInfo {
             chat: Chat::default(),
             mouse_screen_position: None,
             screen_dims: Vec2::new(1500.0, 900.0),
-            selection_info: SelectionInfo::default(),
             viewport: Viewport::Free(FreeFlying {
                 follow_vehicle: None,
                 lock_rotation: false,
+                selection_info: SelectionInfo::default(),
             }),
             is_holding_shift: false,
+        }
+    }
+
+    pub fn hovered_grid_loc(&self) -> Option<GridLocation> {
+        match &self.viewport {
+            Viewport::Editor(e) => {
+                let coord = e.hovered?;
+                Some(GridLocation {
+                    grid_id: e.vehicle,
+                    coord,
+                })
+            }
+            Viewport::Free(f) => f.selection_info.hovered,
+        }
+    }
+
+    pub fn focused_grid_id(&self) -> Option<Ent> {
+        match &self.viewport {
+            Viewport::Editor(e) => Some(e.vehicle),
+            Viewport::Free(f) => f.selection_info.first_selected_grid(),
         }
     }
 }

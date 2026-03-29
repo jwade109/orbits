@@ -7,7 +7,7 @@ use bary_core::prelude::*;
 use raylib::prelude::*;
 
 pub fn draw_window(d: &mut RaylibDrawHandle, window: &Window, font: &Font) {
-    let font_size = 23;
+    let font_size = 15;
     let spacing = 1.0;
     let padding = 7;
     let child_gap = 0;

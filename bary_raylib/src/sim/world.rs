@@ -282,45 +282,46 @@ pub mod input_handlers {
 
     use super::*;
 
-    pub fn command_selected_ship_to_waypoint(
+    pub fn command_selected_ships_to_waypoint(
         world: &mut World,
         client: &mut ClientSpecificInfo,
         sounds: &mut SoundEffects,
     ) {
-        let Some(grid_id) = client.selection_info.first_selected_grid() else {
-            return;
-        };
-
-        let Some(screen_pos) = client.mouse_screen_position else {
-            return;
-        };
-
+        let free = some_or_return!(client.viewport.free());
+        let screen_pos = some_or_return!(client.mouse_screen_position);
         let world_pos = screen_to_world(&world.camera, screen_pos, client.screen_dims);
 
-        let waypoint = Isometry2d::new(world_pos, 0.0);
+        let mut successes = 0;
 
-        if let Err(e) = set_primary_computer_waypoint(grid_id, waypoint, world) {
-            client.chat.log(format!("Failed to set waypoint: {e:?}"));
-            sounds.push(SoundEffect::GenericFailure);
-            return;
+        for (i, loc) in free.selection_info.selected.iter().enumerate() {
+            let offset = Vec2::X * 30.0 * i as f32;
+            let waypoint = Isometry2d::new(world_pos + offset, 0.0);
+
+            if let Err(e) = set_primary_computer_waypoint(loc.grid_id, waypoint, world) {
+                client.chat.log(format!("Failed to set waypoint: {e:?}"));
+                continue;
+            }
+
+            if let Err(e) = set_primary_computer_state(loc.grid_id, true, world) {
+                client
+                    .chat
+                    .log(format!("Failed to turn primary computer on: {e:?}"));
+                continue;
+            }
+
+            successes += 1;
         }
 
-        if let Err(e) = set_primary_computer_state(grid_id, true, world) {
-            client
-                .chat
-                .log(format!("Failed to turn primary computer on: {e:?}"));
+        if successes == free.selection_info.selected.len() {
+            sounds.push(SoundEffect::SetWaypoint);
+        } else {
             sounds.push(SoundEffect::GenericFailure);
-            return;
         }
-
-        sounds.push(SoundEffect::SetWaypoint);
     }
 
     pub fn explode_at_mouseover(world: &mut World, client: &mut ClientSpecificInfo) {
-        if !client.viewport.is_real_view() {
-            return;
-        }
-        let loc = some_or_return!(client.selection_info.hovered);
+        let free = some_or_return!(client.viewport.free());
+        let loc = some_or_return!(free.selection_info.hovered);
         explode_grid_at(loc, world);
     }
 
@@ -346,7 +347,7 @@ pub mod input_handlers {
         client: &mut ClientSpecificInfo,
         sounds: &mut SoundEffects,
     ) {
-        let loc = some_or_return!(client.selection_info.hovered);
+        let loc = some_or_return!(client.hovered_grid_loc());
 
         match destroy_top_part_at(world, loc) {
             Ok((instance, grid_id, grids)) => {
@@ -418,9 +419,9 @@ pub mod input_handlers {
     }
 
     pub fn toggle_following_on_key_f(client: &mut ClientSpecificInfo, sounds: &mut SoundEffects) {
-        let Some(grid_id) = client.selection_info.first_selected_grid() else {
-            return;
-        };
+        let free = some_or_return!(client.viewport.free());
+        let grid_id = some_or_return!(free.selection_info.first_selected_grid());
+
         if client.viewport.look_at(grid_id) {
             sounds.push(SoundEffect::Follow);
             debug!("Following {}", grid_id);
@@ -452,9 +453,9 @@ pub mod input_handlers {
     }
 
     pub fn toggle_tracking_for_selected_grid(world: &mut World, client: &mut ClientSpecificInfo) {
-        let Some(grid_id) = client.selection_info.first_selected_grid() else {
-            return;
-        };
+        let free = some_or_return!(client.viewport.free());
+        let grid_id = some_or_return!(free.selection_info.first_selected_grid());
+
         match toggle_tracking(world, grid_id) {
             Ok(true) => client.chat.log(format!("Enabled tracking for {}", grid_id)),
             Ok(false) => client
@@ -516,9 +517,11 @@ pub mod input_handlers {
         let Viewport::Editor(editor) = &client.viewport else {
             return;
         };
+
         client.viewport = Viewport::Free(FreeFlying {
             follow_vehicle: Some(editor.vehicle),
             lock_rotation: false,
+            selection_info: SelectionInfo::selecting(editor.vehicle),
         });
 
         world.target_camera.zoom = 20.0;
@@ -533,14 +536,8 @@ pub mod input_handlers {
         client: &mut ClientSpecificInfo,
         sounds: &mut SoundEffects,
     ) {
-        let Viewport::Free(_) = &client.viewport else {
-            return;
-        };
-
-        let Some(grid_id) = client.selection_info.first_selected_grid() else {
-            return;
-        };
-
+        let free = some_or_return!(client.viewport.free());
+        let grid_id = some_or_return!(free.selection_info.first_selected_grid());
         let grid = ok_or_return!(world.grids.try_get(grid_id));
 
         let centroid = grid.centroid();
@@ -554,6 +551,7 @@ pub mod input_handlers {
             part_rotation: Rotation::East,
             layer: Some(PartLayer::Internal),
             select_start: None,
+            hovered: None,
         });
 
         world.target_camera.zoom = 40.0;
@@ -571,16 +569,7 @@ pub mod input_handlers {
         }
         editor.prototype_id = None;
 
-        // TODO(cleanup) replace this with an editor-specific hovered location!
-        // it should not be possible to hover over another grid when editing one.
-        // this ought to only be a PartCoord
-        let coord = {
-            let loc = some_or_return!(client.selection_info.hovered);
-            if editor.vehicle != loc.grid_id {
-                return;
-            }
-            loc.coord
-        };
+        let coord = some_or_return!(editor.hovered);
 
         let grid = ok_or_return!(world.grids.try_get(editor.vehicle));
         let Some(occ) = grid.get_parts_at(coord) else {
@@ -695,24 +684,37 @@ fn update_thrusters(
 }
 
 fn update_actual_hover_part_info(
-    sel: &mut SelectionInfo,
+    client: &mut ClientSpecificInfo,
     grids: &Components<VehicleGrid>,
     mouse_screen_position: Option<Vec2>,
     screen_dims: Vec2,
     camera: &Camera,
 ) {
-    sel.hovered = None;
-    let screen_pos = some_or_return!(mouse_screen_position);
-    let world_pos = screen_to_world(camera, screen_pos, screen_dims);
-    let (grid_id, offset) = some_or_return!(find::closest_grid(grids, world_pos, None));
-    let dist = offset.length();
-    let grid = ok_or_return!(grids.try_get(grid_id));
-    if 2.0 * grid.bounding_radius() < dist {
-        return;
+    if let Some(free) = client.viewport.free_mut() {
+        free.selection_info.hovered = None;
+        let screen_pos = some_or_return!(mouse_screen_position);
+        let world_pos = screen_to_world(camera, screen_pos, screen_dims);
+        let (grid_id, offset) = some_or_return!(find::closest_grid(grids, world_pos, None));
+        let dist = offset.length();
+        let grid = ok_or_return!(grids.try_get(grid_id));
+        if 2.0 * grid.bounding_radius() < dist {
+            return;
+        }
+        let origin = grid.origin();
+        let coord = PartCoord::from_meters_floored(in_frame(origin, world_pos));
+        free.selection_info.hovered = Some(GridLocation::new(grid_id, coord));
+    } else if let Some(editor) = client.viewport.editor_mut() {
+        editor.hovered = None;
+        let grid = ok_or_return!(grids.try_get(editor.vehicle));
+        let screen_pos = some_or_return!(mouse_screen_position);
+        let world_pos = screen_to_world(camera, screen_pos, screen_dims);
+        // TODO(cleanup) completely unnecessary. shouldn't need to get the world coordinates
+        // or the grid's coordinates to get this vector. just ask how far the camera is from
+        // the grid in question!
+        let local_pos = in_frame(grid.origin(), world_pos);
+        let coord = PartCoord::from_meters_floored(local_pos);
+        editor.hovered = Some(coord);
     }
-    let origin = grid.origin();
-    let coord = PartCoord::from_meters_floored(in_frame(origin, world_pos));
-    sel.hovered = Some(GridLocation::new(grid_id, coord));
 }
 
 fn set_target_camera_if_following(
@@ -741,24 +743,25 @@ fn set_target_camera_if_following(
 }
 
 fn select_hovered_grid_loc_on_click(
-    sel: &mut SelectionInfo,
+    client: &mut ClientSpecificInfo,
     input: &InputState,
     sounds: &mut SoundEffects,
 ) {
-    let old_grid = sel.first_selected_grid();
+    let free = some_or_return!(client.viewport.free_mut());
+    let old_grid = free.selection_info.first_selected_grid();
 
-    let Some(hovered) = sel.hovered else {
-        sel.selected.clear();
+    let Some(hovered) = free.selection_info.hovered else {
+        free.selection_info.selected.clear();
         return;
     };
 
     if input.is_key_pressed(Key::ShiftLeft) {
-        sel.selected.push(hovered);
+        free.selection_info.selected.push(hovered);
     } else {
-        sel.selected = vec![hovered];
+        free.selection_info.selected = vec![hovered];
     }
 
-    if sel.first_selected_grid().is_some() {
+    if free.selection_info.first_selected_grid().is_some() {
         sounds.push(SoundEffect::Open);
     } else if old_grid.is_some() {
         sounds.push(SoundEffect::Close);
@@ -778,11 +781,7 @@ fn editor_on_left_click(world: &mut World, client: &mut ClientSpecificInfo) {
 
     e.select_start = None;
 
-    // TODO(cleanup) replace with an editor-specific thing
-    let coord = {
-        let loc = some_or_return!(client.selection_info.hovered);
-        loc.coord
-    };
+    let coord = some_or_return!(e.hovered);
 
     if let Some(proto_id) = e.prototype_id {
         let proto = ok_or_return!(world.prototypes.try_get(proto_id));
@@ -904,14 +903,14 @@ pub fn process_event(
                     &mut actions,
                     &mut sounds,
                 );
-                select_hovered_grid_loc_on_click(&mut client.selection_info, input, &mut sounds);
+                select_hovered_grid_loc_on_click(client, input, &mut sounds);
                 editor_on_left_click(world, client);
             }
             Button::Right => {
                 input_handlers::destroy_top_layer_part_at_mouseover(world, client, &mut sounds)
             }
             Button::Middle => {
-                input_handlers::command_selected_ship_to_waypoint(world, client, &mut sounds)
+                input_handlers::command_selected_ships_to_waypoint(world, client, &mut sounds)
             }
             Button::Unknown(_) => (),
         },
@@ -937,7 +936,7 @@ pub fn pre_simulation_update(
     _input: &InputState,
 ) {
     update_actual_hover_part_info(
-        &mut client.selection_info,
+        client,
         &world.grids,
         client.mouse_screen_position,
         client.screen_dims,
