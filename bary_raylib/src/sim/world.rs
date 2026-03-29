@@ -324,12 +324,8 @@ pub mod input_handlers {
         explode_grid_at(loc, world);
     }
 
-    pub fn editor_copy_on_control_c(
-        world: &World,
-        client: &mut ClientSpecificInfo,
-        input: &InputState,
-    ) {
-        if !input.is_key_pressed(Key::ControlLeft) {
+    pub fn editor_copy_on_control_c(world: &World, client: &mut ClientSpecificInfo) {
+        if !client.input.is_key_pressed(Key::ControlLeft) {
             return;
         }
 
@@ -396,8 +392,8 @@ pub mod input_handlers {
         }
     }
 
-    pub fn save_on_ctrl_s(world: &mut World, client: &mut ClientSpecificInfo, input: &InputState) {
-        let pressed_ctrl = input.is_key_pressed(Key::ControlLeft);
+    pub fn save_on_ctrl_s(world: &mut World, client: &mut ClientSpecificInfo) {
+        let pressed_ctrl = client.input.is_key_pressed(Key::ControlLeft);
 
         if !pressed_ctrl {
             return;
@@ -430,7 +426,6 @@ pub mod input_handlers {
     pub fn ping_on_alt_left_click(
         world: &mut World,
         client: &mut ClientSpecificInfo,
-        input: &InputState,
         actions: &mut Vec<Action>,
         sounds: &mut SoundEffects,
     ) {
@@ -438,7 +433,7 @@ pub mod input_handlers {
             return;
         };
 
-        if !input.is_key_pressed(Key::Alt) {
+        if !client.input.is_key_pressed(Key::Alt) {
             return;
         }
 
@@ -481,8 +476,8 @@ pub mod input_handlers {
         }
     }
 
-    pub fn lock_rotation_on_key_r(client: &mut ClientSpecificInfo, input: &InputState) {
-        if input.is_key_pressed(Key::ControlLeft) {
+    pub fn lock_rotation_on_key_r(client: &mut ClientSpecificInfo) {
+        if client.input.is_key_pressed(Key::ControlLeft) {
             return;
         }
         if let Viewport::Free(fly) = &mut client.viewport {
@@ -491,8 +486,8 @@ pub mod input_handlers {
         }
     }
 
-    pub fn rotate_editor_part_on_key_r(client: &mut ClientSpecificInfo, input: &InputState) {
-        if input.is_key_pressed(Key::ControlLeft) {
+    pub fn rotate_editor_part_on_key_r(client: &mut ClientSpecificInfo) {
+        if client.input.is_key_pressed(Key::ControlLeft) {
             return;
         }
         if let Viewport::Editor(editor) = &mut client.viewport {
@@ -747,11 +742,7 @@ fn set_target_camera_if_following(
     actual.isometry.translation = target.isometry.translation;
 }
 
-fn select_hovered_grid_loc_on_click(
-    client: &mut ClientSpecificInfo,
-    input: &InputState,
-    sounds: &mut SoundEffects,
-) {
+fn select_hovered_grid_loc_on_click(client: &mut ClientSpecificInfo, sounds: &mut SoundEffects) {
     let free = some_or_return!(client.viewport.free_mut());
     let old_grid = free.selection_info.first_selected_grid();
 
@@ -760,7 +751,7 @@ fn select_hovered_grid_loc_on_click(
         return;
     };
 
-    if input.is_key_pressed(Key::ShiftLeft) {
+    if client.input.is_key_pressed(Key::ShiftLeft) {
         free.selection_info.selected.push(hovered);
     } else {
         free.selection_info.selected = vec![hovered];
@@ -877,33 +868,32 @@ pub fn update_world(world: &mut World) {
 pub fn process_event(
     world: &mut World,
     client: &mut ClientSpecificInfo,
-    input: &mut InputState,
     event: &rdev::Event,
 ) -> (SoundEffects, Vec<Action>) {
     let mut actions = Vec::new();
     let mut sounds = SoundEffects::new();
 
     if let rdev::EventType::KeyPress(k) = event.event_type {
-        input.set_pressed(k);
+        client.input.set_pressed(k);
     } else if let rdev::EventType::KeyRelease(k) = event.event_type {
-        input.set_released(k);
+        client.input.set_released(k);
     }
 
     match event.event_type {
         rdev::EventType::KeyPress(key) => match key {
-            Key::KeyS => input_handlers::save_on_ctrl_s(world, client, input),
+            Key::KeyS => input_handlers::save_on_ctrl_s(world, client),
             Key::KeyF => input_handlers::toggle_following_on_key_f(client, &mut sounds),
             Key::KeyT => input_handlers::toggle_tracking_for_selected_grid(world, client),
             Key::KeyR => {
-                input_handlers::reset_camera_on_ctrl_r(world, input);
-                input_handlers::lock_rotation_on_key_r(client, input);
-                input_handlers::rotate_editor_part_on_key_r(client, input);
+                input_handlers::reset_camera_on_ctrl_r(world, &client.input);
+                input_handlers::lock_rotation_on_key_r(client);
+                input_handlers::rotate_editor_part_on_key_r(client);
             }
             Key::Delete => input_handlers::destroy_selected_parts(world, client),
             Key::DownArrow => input_handlers::editor_layer_shift_on_page_key(client, false),
             Key::UpArrow => input_handlers::editor_layer_shift_on_page_key(client, true),
             Key::KeyE => input_handlers::editor_layer_shift_on_page_key(client, true),
-            Key::KeyD => input_handlers::panic_on_ctrl_d(input),
+            Key::KeyD => input_handlers::panic_on_ctrl_d(&mut client.input),
             Key::KeyP => input_handlers::spawn_random_ship_on_p(world),
             Key::KeyM => input_handlers::update_center_of_mass_on_m(world),
             Key::KeyQ => input_handlers::pipette_part_if_in_editor_on_q(world, client),
@@ -911,21 +901,15 @@ pub fn process_event(
             Key::Escape => input_handlers::leave_ship_editor_on_escape(world, client, &mut sounds),
             Key::KeyC => {
                 input_handlers::explode_at_mouseover(world, client);
-                input_handlers::editor_copy_on_control_c(world, client, input);
+                input_handlers::editor_copy_on_control_c(world, client);
             }
             _ => (),
         },
         rdev::EventType::KeyRelease(_key) => (),
         rdev::EventType::ButtonPress(button) => match button {
             Button::Left => {
-                input_handlers::ping_on_alt_left_click(
-                    world,
-                    client,
-                    input,
-                    &mut actions,
-                    &mut sounds,
-                );
-                select_hovered_grid_loc_on_click(client, input, &mut sounds);
+                input_handlers::ping_on_alt_left_click(world, client, &mut actions, &mut sounds);
+                select_hovered_grid_loc_on_click(client, &mut sounds);
                 editor_on_left_click(world, client, &mut sounds);
             }
             Button::Right => {
@@ -955,8 +939,10 @@ pub fn process_event(
 pub fn pre_simulation_update(
     world: &mut World,
     client: &mut ClientSpecificInfo,
-    _input: &InputState,
+    _sounds: &mut SoundEffects,
 ) {
+    client.ticks += 1;
+
     update_actual_hover_part_info(
         client,
         &world.grids,
@@ -966,14 +952,22 @@ pub fn pre_simulation_update(
     );
 }
 
+fn test_button_boundaries_with_key_y(input: &InputState, sounds: &mut SoundEffects) {
+    if input.just_pressed_debounced(Key::KeyY) {
+        sounds.push(SoundEffect::Open);
+    } else if input.just_released(Key::KeyY) {
+        sounds.push(SoundEffect::Close);
+    }
+}
+
 pub fn post_simulation_update(
     world: &mut World,
     client: &mut ClientSpecificInfo,
-    input: &InputState,
-) -> (Vec<Action>, SoundEffects) {
-    let mut sounds = SoundEffects::default();
-
+    sounds: &mut SoundEffects,
+) {
     client.chat.drop_old_messages();
+
+    test_button_boundaries_with_key_y(&client.input, sounds);
 
     match &mut client.viewport {
         Viewport::Free(fly) => {
@@ -986,19 +980,23 @@ pub fn post_simulation_update(
             );
 
             camera_moves_with_wasd(
-                &input,
+                &client.input,
                 &mut world.target_camera,
                 &mut fly.follow_vehicle,
                 &mut fly.lock_rotation,
-                &mut sounds,
+                sounds,
             );
 
-            camera_zooms_with_plus_minus(input, &mut world.target_camera);
+            camera_zooms_with_plus_minus(&client.input, &mut world.target_camera);
         }
         Viewport::Editor(editor) => {
-            camera_zooms_with_plus_minus(input, &mut world.target_camera);
+            camera_zooms_with_plus_minus(&client.input, &mut world.target_camera);
 
-            editor_offset_moves_with_wasd(input, &mut editor.target_offset, world.camera.zoom);
+            editor_offset_moves_with_wasd(
+                &client.input,
+                &mut editor.target_offset,
+                world.camera.zoom,
+            );
 
             editor_actual_offset_smooth_animation(editor.target_offset, &mut editor.actual_offset);
 
@@ -1013,8 +1011,6 @@ pub fn post_simulation_update(
     }
 
     animate_camera_towards_target(&world.target_camera, &mut world.camera);
-
-    (Vec::new(), sounds)
 }
 
 fn set_cams_to_grid_pose(

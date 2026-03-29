@@ -14,20 +14,19 @@ use bary_raylib::ui;
 use bary_raylib::utils::raylib_to_glam;
 use log::*;
 use raylib::prelude::*;
-use std::thread;
-use std::time::Duration;
-use steamworks::{LobbyChatMsg, LobbyEnter, PersonaStateChange};
+
+// use std::thread;
+// use std::time::Duration;
+// use steamworks::{LobbyChatMsg, LobbyEnter, PersonaStateChange};
 
 fn draw_debug_info(
     world: &World,
-    _client: &ClientSpecificInfo,
+    client: &ClientSpecificInfo,
     assets: &Assets,
     d: &mut RaylibDrawHandle,
 ) {
     let size = size_in_bytes(world);
     let mut s = String::new();
-
-    s += &format!("{:?}", d.get_fps());
 
     let consist = is_world_consistent(world);
     s += &format!("\nOK: {consist:?}");
@@ -50,10 +49,12 @@ fn draw_debug_info(
     s += &format!("\nT\n{}", fmt_time(world.timers.total, world.timers.total));
 
     s += &format!(
-        "\n{} {:0.1}",
+        "\nW {} {:0.1}",
         world.ticks,
         apparent_elapsed_time(world).as_secs_f64()
     );
+
+    s += &format!("\nC {} {} fps", client.ticks, d.get_fps());
     s += &format!("\nMemory: {:0.3} kb", size as f64 / 1000.0);
     s += &format!("\nZoom: {:0.3}", world.camera.zoom);
     s += &format!("\nUpdates: {}", world.grid_acceleration_updates);
@@ -81,6 +82,30 @@ fn draw_debug_info(
             Color::WHITE.alpha(0.4),
         );
     }
+}
+
+fn handle_sounds<'a>(
+    sounds: SoundEffects,
+    audio: &'a RaylibAudio,
+    active_sounds: &mut Vec<Sound<'a>>,
+) {
+    for sound in sounds {
+        let path = sound.to_path();
+        let sound = match audio.new_sound(path) {
+            Ok(s) => s,
+            Err(e) => {
+                error!("Failed to load sound: {}", e);
+                continue;
+            }
+        };
+
+        sound.set_volume(0.4);
+        sound.play();
+
+        active_sounds.push(sound);
+    }
+
+    active_sounds.retain(|s| s.is_playing());
 }
 
 fn main() {
@@ -126,7 +151,6 @@ fn main() {
         .log_level(TraceLogLevel::LOG_WARNING)
         .msaa_4x()
         .resizable()
-        // .vsync()
         .build();
 
     rl.set_target_fps(120);
@@ -172,12 +196,8 @@ fn main() {
             };
 
             if should_send_to_world {
-                let (event_sounds, event_actions) = process_event(
-                    &mut app.runner.world,
-                    &mut app.runner.client_info,
-                    &mut app.input,
-                    &e,
-                );
+                let (event_sounds, event_actions) =
+                    process_event(&mut app.runner.world, &mut app.runner.client_info, &e);
                 sounds.extend(event_sounds);
                 actions.extend(event_actions);
             }
@@ -205,9 +225,8 @@ fn main() {
 
         app.runner.client_info.screen_dims = screen_dims;
         app.runner.client_info.mouse_screen_position = mouse;
-        app.runner.client_info.is_holding_shift = app.input.is_key_pressed(rdev::Key::ShiftLeft);
 
-        let (update_actions, update_sounds) = app.runner.update(&mut app.input);
+        let (update_actions, update_sounds) = app.runner.update();
 
         sounds.extend(update_sounds);
         actions.extend(update_actions);
@@ -231,13 +250,7 @@ fn main() {
 
             draw::draw_world(&app.runner.world, &app.runner.client_info, &assets, &mut d);
 
-            imgui::imgui_entrypoint(
-                &mut d,
-                &mut app.runner.world,
-                &mut app.runner.client_info,
-                &mut sounds,
-                &assets,
-            );
+            imgui::imgui_entrypoint(&mut d, &mut app, &mut sounds, &assets);
 
             ui::draw_ui(&mut d, &app.runner.world, &app.ui_state, &assets);
 
@@ -249,25 +262,10 @@ fn main() {
             app.runner.world.timers.total = end - loop_start;
 
             draw_debug_info(&app.runner.world, &app.runner.client_info, &assets, &mut d);
-            draw_command_prompt(&mut d, &app.cmd, &assets);
         });
 
-        for sound in sounds {
-            let path = sound.to_path();
-            let sound = match audio.new_sound(path) {
-                Ok(s) => s,
-                Err(e) => {
-                    error!("Failed to load sound: {}", e);
-                    continue;
-                }
-            };
+        handle_sounds(sounds, &audio, &mut active_sounds);
 
-            sound.set_volume(0.4);
-            sound.play();
-
-            active_sounds.push(sound);
-        }
-
-        active_sounds.retain(|s| s.is_playing());
+        app.runner.client_info.input.on_frame_boundary();
     }
 }

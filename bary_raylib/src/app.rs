@@ -27,7 +27,6 @@ fn network_thread(incoming: MessageQueue<ServerMessage>, outgoing: MessageQueue<
 pub struct App {
     pub runner: WorldRunner,
     pub ui_state: UiState,
-    pub input: InputState,
 
     pub _network_thread: JoinHandle<()>,
     pub incoming_network_queue: MessageQueue<ServerMessage>,
@@ -79,14 +78,9 @@ pub fn new_app(multiplayer: bool) -> App {
 
     let ui_state = UiState::new();
 
-    // let grid_id = find::grid_by_name(&world.grids, "pollux").unwrap();
-
-    // ui_state.track_grid_info(grid_id);
-
     App {
         runner: WorldRunner::new(world),
         ui_state,
-        input: InputState::default(),
         _network_thread,
         incoming_network_queue,
         outgoing_network_queue,

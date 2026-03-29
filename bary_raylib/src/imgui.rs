@@ -1,5 +1,7 @@
+use crate::app::App;
 use crate::assets::Assets;
 use crate::client::ClientSpecificInfo;
+use crate::cmd::prompt::draw_command_prompt;
 use crate::render::draw::*;
 use crate::sim::{Computer, VehicleGrid, World};
 use crate::sounds::*;
@@ -112,10 +114,14 @@ pub fn imgui_editor_layer_indicator(
         draw_text_centered(d, &text, glam_to_raylib(center), font_size);
 
         if aabb.contains(mouse_pos) {
+            dbg!(&client.input);
             d.draw_rectangle_lines(bottom_left.x, y, box_width, box_height, Color::WHITE);
-            if editor.layer != Some(layer) {
-                editor.layer = Some(layer);
-                sounds.push(SoundEffect::PickLayer);
+
+            if client.input.just_pressed_debounced(rdev::Key::KeyZ) {
+                if editor.layer != Some(layer) {
+                    editor.layer = Some(layer);
+                    sounds.push(SoundEffect::PickLayer);
+                }
             }
         }
 
@@ -249,13 +255,29 @@ fn imgui_hovered_part_info(
 
 pub fn imgui_entrypoint(
     d: &mut RaylibDrawHandle,
-    world: &mut World,
-    client: &mut ClientSpecificInfo,
+    app: &mut App,
     sounds: &mut SoundEffects,
     assets: &Assets,
 ) {
-    imgui_editor_layer_indicator(d, client, sounds);
-    imgui_all_parts_in_layer(d, client, world, sounds);
-    imgui_selected_grid_primary_computer_info(d, world, client, assets);
-    imgui_hovered_part_info(d, world, client, assets);
+    imgui_editor_layer_indicator(d, &mut app.runner.client_info, sounds);
+    imgui_all_parts_in_layer(
+        d,
+        &mut app.runner.client_info,
+        &mut app.runner.world,
+        sounds,
+    );
+    imgui_selected_grid_primary_computer_info(
+        d,
+        &mut app.runner.world,
+        &mut app.runner.client_info,
+        assets,
+    );
+    imgui_hovered_part_info(
+        d,
+        &mut app.runner.world,
+        &mut app.runner.client_info,
+        assets,
+    );
+
+    draw_command_prompt(d, &app.cmd, &assets);
 }

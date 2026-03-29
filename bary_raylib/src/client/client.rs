@@ -1,3 +1,5 @@
+use crate::input_state::InputState;
+
 use super::Chat;
 use bary_core::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -112,16 +114,20 @@ impl Viewport {
 /// Information that doesn't *in general* need to be synchronized across
 /// clients in multiplayer.
 pub struct ClientSpecificInfo {
+    pub ticks: u64,
     pub chat: Chat,
     pub mouse_screen_position: Option<Vec2>,
     pub screen_dims: Vec2,
     pub viewport: Viewport,
+    #[deprecated]
     pub is_holding_shift: bool,
+    pub input: InputState,
 }
 
 impl ClientSpecificInfo {
     pub fn new() -> Self {
         Self {
+            ticks: 0,
             chat: Chat::default(),
             mouse_screen_position: None,
             screen_dims: Vec2::new(1500.0, 900.0),
@@ -131,6 +137,7 @@ impl ClientSpecificInfo {
                 selection_info: SelectionInfo::default(),
             }),
             is_holding_shift: false,
+            input: InputState::default(),
         }
     }
 

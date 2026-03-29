@@ -1,15 +1,11 @@
-use crate::client::*;
-use crate::{
-    input_state::InputState, multiplayer::*, sim::systems::apparent_elapsed_time, sim::world::*,
-    sounds::SoundEffects,
-};
+use crate::multiplayer::*;
 use crossbeam_queue::SegQueue;
 use renet_netcode::NETCODE_USER_DATA_BYTES;
 use serde::{Deserialize, Serialize};
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     sync::Arc,
-    time::{Duration, Instant, SystemTime},
+    time::{Duration, SystemTime},
 };
 
 pub type MessageQueue<T> = Arc<SegQueue<T>>;
@@ -72,44 +68,5 @@ impl Username {
         let data = user_data[8..len + 8].to_vec();
         let username = String::from_utf8(data).unwrap();
         Self(username)
-    }
-}
-
-pub struct WorldRunner {
-    pub client_info: ClientSpecificInfo,
-    pub world: World,
-    last_update: Instant,
-    nominal_world_duration: Duration,
-}
-
-impl WorldRunner {
-    pub const TICK_DURATION: Duration = Duration::from_millis(20);
-
-    pub fn new(world: World) -> Self {
-        let now = Instant::now();
-        Self {
-            client_info: ClientSpecificInfo::new(),
-            world,
-            last_update: now,
-            nominal_world_duration: Duration::ZERO,
-        }
-    }
-
-    pub fn update(&mut self, input: &InputState) -> (Vec<Action>, SoundEffects) {
-        let now = Instant::now();
-        let delta = now - self.last_update;
-        self.nominal_world_duration += delta * self.world.tick_rate;
-        self.last_update = now;
-
-        pre_simulation_update(&mut self.world, &mut self.client_info, input);
-
-        while apparent_elapsed_time(&mut self.world) < self.nominal_world_duration {
-            update_world(&mut self.world);
-        }
-
-        let (actions, sounds) =
-            post_simulation_update(&mut self.world, &mut self.client_info, input);
-
-        (actions, sounds)
     }
 }
