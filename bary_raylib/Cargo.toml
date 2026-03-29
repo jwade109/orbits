@@ -25,7 +25,6 @@ toml = "1.0.3"
 early_returns = "0.4.0"
 anyhow = "1.0.102"
 clap = { version = "4.6.0", features = ["derive"] }
-clay-layout = "0.4.0"
 
 [[bin]]
 name = "main"
@@ -50,10 +49,6 @@ path = "bin/traj.rs"
 [[bin]]
 name = "ui"
 path = "bin/ui.rs"
-
-[[bin]]
-name = "clay"
-path = "bin/clay.rs"
 
 [dev-dependencies]
 criterion = "0.5.1"

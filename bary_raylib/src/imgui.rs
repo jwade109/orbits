@@ -1,6 +1,7 @@
 use crate::client::ClientSpecificInfo;
 use crate::render::draw::*;
 use crate::sim::World;
+use crate::sounds::*;
 use bary_core::prelude::*;
 use early_returns::*;
 use raylib::prelude::*;
@@ -9,6 +10,7 @@ pub fn imgui_all_parts_in_layer(
     d: &mut RaylibDrawHandle,
     client: &mut ClientSpecificInfo,
     world: &World,
+    sounds: &mut SoundEffects,
 ) {
     let hovered_proto = get_hovered_prototype(client, world);
     let editor = some_or_return!(client.viewport.editor_mut());
@@ -53,13 +55,20 @@ pub fn imgui_all_parts_in_layer(
         d.draw_rectangle(bottom_left.x, y, box_width, box_height, color.alpha(alpha));
         if aabb.contains(mouse_pos) {
             d.draw_rectangle_lines(bottom_left.x, y, box_width, box_height, Color::WHITE);
-            editor.prototype_id = Some(*proto_id);
+            if editor.prototype_id != Some(*proto_id) {
+                editor.prototype_id = Some(*proto_id);
+                sounds.push(SoundEffect::PickLayer);
+            }
         }
         draw_text_centered(d, &proto.name, center, font_size);
     }
 }
 
-pub fn imgui_editor_layer_indicator(d: &mut RaylibDrawHandle, client: &mut ClientSpecificInfo) {
+pub fn imgui_editor_layer_indicator(
+    d: &mut RaylibDrawHandle,
+    client: &mut ClientSpecificInfo,
+    sounds: &mut SoundEffects,
+) {
     let editor = some_or_return!(client.viewport.editor_mut());
     let mouse_pos = client.mouse_screen_position.unwrap_or(Vec2::NAN);
 
@@ -104,7 +113,10 @@ pub fn imgui_editor_layer_indicator(d: &mut RaylibDrawHandle, client: &mut Clien
 
         if aabb.contains(mouse_pos) {
             d.draw_rectangle_lines(bottom_left.x, y, box_width, box_height, Color::WHITE);
-            editor.layer = Some(layer);
+            if editor.layer != Some(layer) {
+                editor.layer = Some(layer);
+                sounds.push(SoundEffect::PickLayer);
+            }
         }
 
         y += box_height + padding;
@@ -115,7 +127,8 @@ pub fn imgui_entrypoint(
     d: &mut RaylibDrawHandle,
     world: &mut World,
     client: &mut ClientSpecificInfo,
+    sounds: &mut SoundEffects,
 ) {
-    imgui_editor_layer_indicator(d, client);
-    imgui_all_parts_in_layer(d, client, world);
+    imgui_editor_layer_indicator(d, client, sounds);
+    imgui_all_parts_in_layer(d, client, world, sounds);
 }

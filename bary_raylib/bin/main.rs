@@ -217,6 +217,40 @@ fn main() {
             app.outgoing_network_queue.push(transaction);
         }
 
+        let time = rl.get_time();
+        shader.set_shader_value(1, time as f32);
+
+        ui::update_ui_state(
+            &mut app.ui_state,
+            app.runner.client_info.mouse_screen_position,
+        );
+
+        rl.draw(&thread, |mut d: RaylibDrawHandle<'_>| {
+            let start = std::time::Instant::now();
+            d.clear_background(Color::BLACK);
+
+            draw::draw_world(&app.runner.world, &app.runner.client_info, &assets, &mut d);
+
+            imgui::imgui_entrypoint(
+                &mut d,
+                &mut app.runner.world,
+                &mut app.runner.client_info,
+                &mut sounds,
+            );
+
+            ui::draw_ui(&mut d, &app.runner.world, &app.ui_state, &assets);
+
+            draw::draw_mouse_screen_position(&mut d, app.runner.client_info.mouse_screen_position);
+
+            let end = std::time::Instant::now();
+
+            app.runner.world.timers.render = end - start;
+            app.runner.world.timers.total = end - loop_start;
+
+            draw_debug_info(&app.runner.world, &app.runner.client_info, &assets, &mut d);
+            draw_command_prompt(&mut d, &app.cmd, &assets);
+        });
+
         for sound in sounds {
             let path = sound.to_path();
             let sound = match audio.new_sound(path) {
@@ -234,34 +268,5 @@ fn main() {
         }
 
         active_sounds.retain(|s| s.is_playing());
-
-        let time = rl.get_time();
-        shader.set_shader_value(1, time as f32);
-
-        ui::update_ui_state(
-            &mut app.ui_state,
-            app.runner.client_info.mouse_screen_position,
-        );
-
-        rl.draw(&thread, |mut d: RaylibDrawHandle<'_>| {
-            let start = std::time::Instant::now();
-            d.clear_background(Color::BLACK);
-
-            draw::draw_world(&app.runner.world, &app.runner.client_info, &assets, &mut d);
-
-            imgui::imgui_entrypoint(&mut d, &mut app.runner.world, &mut app.runner.client_info);
-
-            ui::draw_ui(&mut d, &app.runner.world, &app.ui_state, &assets);
-
-            draw::draw_mouse_screen_position(&mut d, app.runner.client_info.mouse_screen_position);
-
-            let end = std::time::Instant::now();
-
-            app.runner.world.timers.render = end - start;
-            app.runner.world.timers.total = end - loop_start;
-
-            draw_debug_info(&app.runner.world, &app.runner.client_info, &assets, &mut d);
-            draw_command_prompt(&mut d, &app.cmd, &assets);
-        });
     }
 }

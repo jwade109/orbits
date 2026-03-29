@@ -537,14 +537,18 @@ pub mod input_handlers {
             return;
         };
 
-        let Some(id) = client.selection_info.first_selected_grid() else {
+        let Some(grid_id) = client.selection_info.first_selected_grid() else {
             return;
         };
 
+        let grid = ok_or_return!(world.grids.try_get(grid_id));
+
+        let centroid = grid.centroid();
+
         client.viewport = Viewport::Editor(EditorState {
-            vehicle: id,
-            target_offset: Vec2::ZERO,
-            actual_offset: Vec2::ZERO,
+            vehicle: grid_id,
+            target_offset: centroid,
+            actual_offset: centroid,
             camera_rotation: Rotation::East,
             prototype_id: None,
             part_rotation: Rotation::East,
@@ -999,7 +1003,7 @@ fn set_cams_to_grid_pose(
     actual: &mut Camera,
 ) {
     if let Ok(grid) = grids.try_get(grid_id) {
-        target.isometry = grid.centroid_isometry().offset(offset);
+        target.isometry = grid.origin().offset(offset);
         target.zoom = target.zoom.clamp(EDITOR_MINIMUM_ZOOM, EDITOR_MAXIMUM_ZOOM);
         actual.isometry = target.isometry;
     }

@@ -469,7 +469,6 @@ dependencies = [
  "bincode",
  "chrono",
  "clap 4.6.0",
- "clay-layout",
  "criterion",
  "crossbeam-queue",
  "early_returns",
@@ -820,15 +819,6 @@ name = "clap_lex"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a822ea5bc7590f9d40f1ba12c0dc3c2760f3482c6984db1573ad11031420831"
-
-[[package]]
-name = "clay-layout"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9093371d1d7b694c06c4a1707f80432cad37393a4e86cbf9aa9f42373445223e"
-dependencies = [
- "cc",
-]
 
 [[package]]
 name = "cmake"
