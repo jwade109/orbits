@@ -15,8 +15,8 @@ fn criterion_benchmark(c: &mut Criterion) {
     let mut world = WorldBuilder::new()
         .test_assets()
         .blueprint("pollux")
-        .spawn("pollux", (0.0, 0.0, 0.0))
-        .waypoint("pollux", (100.0, 200.0, 0.0))
+        .spawn("pollux", "polly", (0.0, 0.0, 0.0))
+        .waypoint("polly", (100.0, 200.0, 0.0))
         .build();
 
     c.bench_function("world_update_pollux", |b| {
@@ -30,8 +30,8 @@ fn criterion_benchmark(c: &mut Criterion) {
     let mut world = WorldBuilder::new()
         .test_assets()
         .blueprint("bellerophon")
-        .spawn("bellerophon", (0.0, 0.0, 0.0))
-        .waypoint("bellerophon", (100.0, 200.0, 0.0))
+        .spawn("bellerophon", "billy", (0.0, 0.0, 0.0))
+        .waypoint("billy", (100.0, 200.0, 0.0))
         .build();
 
     c.bench_function("world_update_bellerophon", |b| {

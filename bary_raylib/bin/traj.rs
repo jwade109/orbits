@@ -48,18 +48,18 @@ struct SimEpoch {
 }
 
 fn run_simulation(
-    vehicle_name: &str,
+    bp_name: &str,
     instructions: Vec<TimedInstruction>,
     ticks: u64,
     ticks_per_epoch: u64,
 ) -> Vec<SimEpoch> {
     let mut world = WorldBuilder::new()
         .assets()
-        .blueprint(vehicle_name)
-        .spawn(vehicle_name, (0.0, 0.0, 0.0))
+        .blueprint(bp_name)
+        .spawn(bp_name, "simba", (0.0, 0.0, 0.0))
         .build();
 
-    let grid_id = find::grid_by_name(&world.grids, vehicle_name).unwrap();
+    let grid_id = find::grid_by_name(&world.grids, "simba").unwrap();
 
     _ = ops::set_primary_computer_state(grid_id, true, &mut world);
 

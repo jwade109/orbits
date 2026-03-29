@@ -24,22 +24,29 @@ impl WorldRunner {
         }
     }
 
-    pub fn update(&mut self) -> (Vec<Action>, SoundEffects) {
+    pub fn update(
+        &mut self,
+        debug: &mut DebugInfo,
+        sounds: &mut SoundEffects,
+        _actions: &mut Vec<Action>,
+    ) {
         let now = Instant::now();
         let delta = now - self.last_update;
         self.nominal_world_duration += delta * self.world.tick_rate;
         self.last_update = now;
 
-        let mut sounds = SoundEffects::new();
+        pre_simulation_update(&mut self.world, &mut self.client_info, sounds);
 
-        pre_simulation_update(&mut self.world, &mut self.client_info, &mut sounds);
+        let pre_physics = Instant::now();
 
         while apparent_elapsed_time(&mut self.world) < self.nominal_world_duration {
             update_world(&mut self.world);
         }
 
-        post_simulation_update(&mut self.world, &mut self.client_info, &mut sounds);
+        let post_physics = Instant::now();
 
-        (vec![], sounds)
+        debug.timers.physics = post_physics - pre_physics;
+
+        post_simulation_update(&mut self.world, &mut self.client_info, sounds);
     }
 }

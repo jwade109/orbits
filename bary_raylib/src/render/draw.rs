@@ -2,6 +2,7 @@ use crate::assets::*;
 use crate::camera::{Camera, to_raylib_camera};
 use crate::client::*;
 use crate::components::Components;
+use crate::imgui::ZOOM_NEAR_FAR_THRESHOLD;
 use crate::query::grid_origin;
 use crate::sim::*;
 use crate::ui::{Window, draw_window};
@@ -84,7 +85,7 @@ pub fn draw_world(
     assets: &Assets,
     d: &mut RaylibDrawHandle,
 ) {
-    let raylib_camera = to_raylib_camera(&world.camera, client.screen_dims);
+    let raylib_camera = to_raylib_camera(&client.camera, client.screen_dims);
 
     // this apparently is incredibly slow; curious
     let mut c = d.begin_mode2D(raylib_camera);
@@ -99,6 +100,8 @@ pub fn draw_world(
         &client.viewport,
     );
 
+    let is_holding_shift = client.input.is_key_pressed(rdev::Key::ShiftLeft);
+
     if client.viewport.is_real_view() {
         draw_computer_target_isometry(&mut c, &world.computers, &world.parts, &world.grids);
 
@@ -111,7 +114,7 @@ pub fn draw_world(
             &world.computers,
             &world.lights,
             world.ticks as u32,
-            &world.camera,
+            &client.camera,
         );
 
         draw_thruster_plumes(
@@ -119,15 +122,15 @@ pub fn draw_world(
             &world.grids,
             &world.parts,
             &world.thrusters,
-            &world.camera,
+            &client.camera,
         );
 
-        draw_trackers(&mut c, &world.tracking, client.is_holding_shift);
+        draw_trackers(&mut c, &world.tracking, is_holding_shift);
     } else if let Viewport::Editor(e) = &client.viewport {
         draw_grid_lines(&mut c, &world.grids, e);
     }
 
-    if client.is_holding_shift {
+    if is_holding_shift {
         draw_grid_outlines(&mut c, &world.grids);
         draw_thruster_classification(&mut c, &world.grids, &world.parts, &world.thrusters);
     }
@@ -137,7 +140,7 @@ pub fn draw_world(
     draw_mouse_world_position(
         &mut c,
         client.mouse_screen_position,
-        &world.camera,
+        &client.camera,
         client.screen_dims,
     );
 
@@ -155,8 +158,6 @@ pub fn draw_world(
     draw_editor_selection_region(&mut c, client, world);
 
     drop(c);
-
-    draw_grid_far_indicators(&world.grids, d, &raylib_camera);
 
     draw_waypoint_far_indicators(&world.computers, d, &raylib_camera);
 
@@ -253,23 +254,55 @@ fn draw_chat(d: &mut RaylibDrawHandle, chat: &Chat, screen_dims: Vec2, assets: &
     }
 }
 
-pub fn draw_text_centered(d: &mut RaylibDrawHandle, text: &str, pos: Vector2, font_size: i32) {
+pub fn draw_text_centered(
+    d: &mut RaylibDrawHandle,
+    font: &Font,
+    text: &str,
+    pos: Vector2,
+    font_size: i32,
+    color: Color,
+) {
     if text.is_empty() {
         return;
     }
 
-    let spacing = 3.0;
-    let font = d.get_font_default();
+    let spacing = 1.0;
     let dims = font.measure_text(&text, font_size as f32, spacing);
     let text_origin = Vector2::new(pos.x - dims.x / 2.0, pos.y - dims.y / 2.0);
 
     d.draw_text_ex(
-        d.get_font_default(),
+        font,
         &text,
         text_origin,
         font_size as f32,
         spacing as f32,
-        Color::WHITE,
+        color,
+    );
+}
+
+pub fn draw_text_centered_weak(
+    d: &mut RaylibDrawHandle,
+    font: &WeakFont,
+    text: &str,
+    pos: Vector2,
+    font_size: i32,
+    color: Color,
+) {
+    if text.is_empty() {
+        return;
+    }
+
+    let spacing = 1.0;
+    let dims = font.measure_text(&text, font_size as f32, spacing);
+    let text_origin = Vector2::new(pos.x - dims.x / 2.0, pos.y - dims.y / 2.0);
+
+    d.draw_text_ex(
+        font,
+        &text,
+        text_origin,
+        font_size as f32,
+        spacing as f32,
+        color,
     );
 }
 
@@ -346,9 +379,11 @@ fn draw_selected_grid_info(
         (acc_label, hx - 300.0, screen_dims.y - 50.0),
     ];
 
+    let font = d.get_font_default();
+
     for (label, x, y) in labels {
         let pos = Vector2::new(x, y);
-        draw_text_centered(d, &label, pos, font_size);
+        draw_text_centered_weak(d, &font, &label, pos, font_size, Color::WHITE);
     }
 }
 
@@ -651,7 +686,7 @@ fn draw_waypoint_far_indicators(
     d: &mut RaylibDrawHandle,
     camera: &Camera2D,
 ) {
-    if camera.zoom > 7.0 {
+    if camera.zoom > ZOOM_NEAR_FAR_THRESHOLD {
         return;
     }
 
@@ -669,90 +704,6 @@ fn draw_waypoint_far_indicators(
         let pos = glam_to_raylib_swap_y(wp.translation);
         let pos = d.get_world_to_screen2D(pos, camera);
         d.draw_circle_lines_v(pos, marker_radius, Color::GRAY);
-    }
-}
-
-fn draw_grid_far_indicators(
-    grids: &Components<VehicleGrid>,
-    d: &mut RaylibDrawHandle,
-    camera: &Camera2D,
-) {
-    if camera.zoom > 7.0 {
-        return;
-    }
-
-    let marker_radius = 14.0f32;
-
-    let mut markers = Vec::new();
-
-    for (id, grid) in grids.iter() {
-        let loc = grid.centroid_isometry();
-        let p = glam_to_raylib_swap_y(loc.translation);
-        let q = d.get_world_to_screen2D(p, camera);
-
-        let name = format!("{} {}", id, grid.name);
-        markers.push((
-            q,
-            q,
-            loc.rotation - camera.rotation.to_radians(),
-            name,
-            !grid.computers.is_empty(),
-        ));
-    }
-
-    // move the markers apart
-    for _ in 0..10 {
-        for i in 0..markers.len() {
-            for j in 0..markers.len() {
-                if i <= j {
-                    continue;
-                }
-
-                let p1 = markers[i].1;
-                let p2 = markers[j].1;
-                let delta = p2 - p1;
-                let dist = delta.length();
-                if dist < marker_radius * 2.0 {
-                    let u = delta.normalized();
-                    let delta = marker_radius * 2.0 - dist;
-                    markers[j].1 += u * delta / 2.0;
-                    markers[i].1 -= u * delta / 2.0;
-                }
-            }
-        }
-    }
-
-    let get_triangle = |center: Vector2, angle: f32| {
-        let o = raylib_to_glam_invert_y(center);
-        let u = Vec2::X * marker_radius;
-        let a = o + rotate(u, angle);
-        let b = o + rotate(u, angle + PI * 0.75);
-        let c = o + rotate(u, angle - PI * 0.75);
-
-        (
-            glam_to_raylib_swap_y(a),
-            glam_to_raylib_swap_y(b),
-            glam_to_raylib_swap_y(c),
-        )
-    };
-
-    // draw the markers
-    for (p, q, angle, name, is_controllable) in markers {
-        let color = if is_controllable {
-            Color::ORANGE
-        } else {
-            Color::GRAY
-        };
-        d.draw_line_v(p, q, color);
-        if is_controllable {
-            let (v1, v2, v3) = get_triangle(q, angle);
-            d.draw_triangle(v1, v2, v3, color);
-        }
-        d.draw_circle_lines_v(q, marker_radius, color);
-        if !name.is_empty() {
-            let q = q + Vector2::new(marker_radius + 10.0, 0.0);
-            d.draw_text_ex(d.get_font_default(), &name, q, 24.0, 0.4, color.alpha(0.5));
-        }
     }
 }
 

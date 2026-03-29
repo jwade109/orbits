@@ -2,13 +2,16 @@ use crate::camera::Camera;
 use crate::client::*;
 use crate::components::*;
 use crate::constants::*;
+use crate::imgui::ZOOM_FAR_AWAY;
+use crate::imgui::ZOOM_NEAR_FAR_THRESHOLD;
+use crate::imgui::ZOOM_NEAR_VEHICLE;
 use crate::input_state::*;
 use crate::multiplayer::Action;
 use crate::ops::destroy_part_without_integrity_check;
 use crate::ops::detach_part_from_parent;
-use crate::persistence::save_world;
 use crate::result::BaryError;
 use crate::result::BaryResult;
+use crate::sim::input_handlers;
 use crate::sim::*;
 use crate::sounds::*;
 use crate::utils::*;
@@ -20,24 +23,11 @@ use log::*;
 use rdev::Button;
 use serde::{Deserialize, Serialize};
 use std::collections::*;
-use std::time::Duration;
-
-#[derive(Default, Deserialize, Serialize, Clone)]
-pub struct Timers {
-    pub physics: Duration,
-    pub render: Duration,
-    pub total: Duration,
-}
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct World {
     pub ticks: u64,
     pub tick_rate: u32,
-    pub timers: Timers,
-
-    // camera info
-    pub camera: Camera,
-    pub target_camera: Camera,
 
     // debug info
     pub grid_acceleration_updates: u64,
@@ -53,6 +43,9 @@ pub struct World {
     pub lights: Components<Light>,
     pub grids: Components<VehicleGrid>,
     pub tracking: Components<Tracker>,
+
+    // TODO might move this to assets.
+    pub ship_names: Vec<String>,
 }
 
 impl std::fmt::Debug for World {
@@ -72,16 +65,7 @@ impl World {
         Self {
             ticks: 0,
             tick_rate: 2,
-            timers: Timers::default(),
             spawner: EntitySpawner::default(),
-            camera: Camera {
-                zoom: 0.1,
-                ..Camera::default()
-            },
-            target_camera: Camera {
-                zoom: 8.0,
-                ..Camera::default()
-            },
             grid_acceleration_updates: 0,
             particles: Vec::default(),
             blueprints: Components::default(),
@@ -92,6 +76,14 @@ impl World {
             computers: Components::default(),
             lights: Components::default(),
             tracking: Components::default(),
+            ship_names: vec![
+                "Gary".to_string(),
+                "Sally".to_string(),
+                "Juliet".to_string(),
+                "Violet".to_string(),
+                "Charlie".to_string(),
+                "Orville".to_string(),
+            ],
         }
     }
 }
@@ -272,327 +264,6 @@ pub fn detach_top_part_at(world: &mut World, grid_id: Ent, coord: PartCoord) -> 
     Ok(top_part)
 }
 
-pub mod input_handlers {
-
-    use crate::sim::systems::{
-        set_grid_pose, set_primary_computer_state, set_primary_computer_waypoint,
-        spawn_grid_by_name, toggle_tracking, update_grid_physical_props,
-    };
-
-    use super::*;
-
-    pub fn command_selected_ships_to_waypoint(
-        world: &mut World,
-        client: &mut ClientSpecificInfo,
-        sounds: &mut SoundEffects,
-    ) {
-        let free = some_or_return!(client.viewport.free());
-        let screen_pos = some_or_return!(client.mouse_screen_position);
-        let world_pos = screen_to_world(&world.camera, screen_pos, client.screen_dims);
-
-        let mut successes = 0;
-
-        for (i, loc) in free.selection_info.selected.iter().enumerate() {
-            let offset = Vec2::X * 30.0 * i as f32;
-            let waypoint = Isometry2d::new(world_pos + offset, 0.0);
-
-            if let Err(e) = set_primary_computer_waypoint(loc.grid_id, waypoint, world) {
-                client.chat.log(format!("Failed to set waypoint: {e:?}"));
-                continue;
-            }
-
-            if let Err(e) = set_primary_computer_state(loc.grid_id, true, world) {
-                client
-                    .chat
-                    .log(format!("Failed to turn primary computer on: {e:?}"));
-                continue;
-            }
-
-            successes += 1;
-        }
-
-        if successes == free.selection_info.selected.len() {
-            sounds.push(SoundEffect::SetWaypoint);
-        } else {
-            sounds.push(SoundEffect::GenericFailure);
-        }
-    }
-
-    pub fn explode_at_mouseover(world: &mut World, client: &mut ClientSpecificInfo) {
-        let free = some_or_return!(client.viewport.free());
-        let loc = some_or_return!(free.selection_info.hovered);
-        explode_grid_at(loc, world);
-    }
-
-    pub fn editor_copy_on_control_c(world: &World, client: &mut ClientSpecificInfo) {
-        if !client.input.is_key_pressed(Key::ControlLeft) {
-            return;
-        }
-
-        let editor = some_or_return!(client.viewport.editor());
-        let grid = some_or_return!(world.grids.get(editor.vehicle));
-
-        let s = format!("TODO Ctrl-C behavior: {}", grid.name);
-
-        client.chat.log(s);
-    }
-
-    pub fn destroy_top_layer_part_at_mouseover(
-        world: &mut World,
-        client: &mut ClientSpecificInfo,
-        sounds: &mut SoundEffects,
-    ) {
-        let loc = some_or_return!(client.hovered_grid_loc());
-
-        match destroy_top_part_at(world, loc) {
-            Ok((instance, grid_id, grids)) => {
-                info!("Removed part {:?}, grid {}", instance, grid_id);
-                sounds.push(SoundEffect::DestroyPart);
-
-                for grid_id in grids {
-                    let Ok(grid) = world.grids.try_get_mut(grid_id) else {
-                        continue;
-                    };
-
-                    grid.velocity.translation += randvec(0.01, 0.03);
-                    grid.velocity.rotation += rand(-0.02, 0.02);
-                }
-            }
-            Err(_e) => {
-                // don't care.
-            }
-        }
-    }
-
-    pub fn apply_scroll_wheel_to_camera_target(delta_y: i64, target: &mut Camera) {
-        let scale = 1.15;
-        if delta_y > 0 {
-            target.zoom *= scale;
-        } else if delta_y < 0 {
-            target.zoom /= scale;
-        }
-    }
-
-    pub fn editor_layer_shift_on_page_key(client: &mut ClientSpecificInfo, is_up: bool) {
-        let Viewport::Editor(editor) = &mut client.viewport else {
-            return;
-        };
-
-        editor.layer = if is_up {
-            enum_iterator::next_cycle(&editor.layer)
-        } else {
-            enum_iterator::previous_cycle(&editor.layer)
-        };
-    }
-
-    pub fn panic_on_ctrl_d(input: &InputState) {
-        if input.is_key_pressed(Key::ControlLeft) {
-            info!("Exiting.");
-            panic!();
-        }
-    }
-
-    pub fn save_on_ctrl_s(world: &mut World, client: &mut ClientSpecificInfo) {
-        let pressed_ctrl = client.input.is_key_pressed(Key::ControlLeft);
-
-        if !pressed_ctrl {
-            return;
-        }
-
-        let now = chrono::offset::Local::now();
-        let filename = format!("./saves/world-{}/", now.format("%Y-%m-%d-%H-%M-%S"));
-        match save_world(&filename, world, true) {
-            Ok(_) => {
-                let s = format!("Saved to {}", filename);
-                client.chat.log(s);
-            }
-            Err(e) => {
-                let s = format!("Failed to save: {:?}", e);
-                client.chat.log(s);
-            }
-        }
-    }
-
-    pub fn toggle_following_on_key_f(client: &mut ClientSpecificInfo, sounds: &mut SoundEffects) {
-        let free = some_or_return!(client.viewport.free());
-        let grid_id = some_or_return!(free.selection_info.first_selected_grid());
-
-        if client.viewport.look_at(grid_id) {
-            sounds.push(SoundEffect::Follow);
-            debug!("Following {}", grid_id);
-        }
-    }
-
-    pub fn ping_on_alt_left_click(
-        world: &mut World,
-        client: &mut ClientSpecificInfo,
-        actions: &mut Vec<Action>,
-        sounds: &mut SoundEffects,
-    ) {
-        let Some(screen_pos) = client.mouse_screen_position else {
-            return;
-        };
-
-        if !client.input.is_key_pressed(Key::Alt) {
-            return;
-        }
-
-        let pos = screen_to_world(&world.camera, screen_pos, client.screen_dims);
-
-        let particle = PingParticle::new(pos);
-        world.particles.push(particle);
-        actions.push(Action::Ping(pos));
-        client.chat.log(format!("Pinged {}", pos));
-        sounds.push(SoundEffect::Ping);
-    }
-
-    pub fn toggle_tracking_for_selected_grid(world: &mut World, client: &mut ClientSpecificInfo) {
-        let free = some_or_return!(client.viewport.free());
-        let grid_id = some_or_return!(free.selection_info.first_selected_grid());
-
-        match toggle_tracking(world, grid_id) {
-            Ok(true) => client.chat.log(format!("Enabled tracking for {}", grid_id)),
-            Ok(false) => client
-                .chat
-                .log(format!("Disabled tracking for {}", grid_id)),
-            Err(e) => client
-                .chat
-                .log(format!("Failed to toggle tracking: {:?}", e)),
-        }
-    }
-
-    pub fn destroy_selected_parts(_world: &mut World, client: &mut ClientSpecificInfo) {
-        let free = some_or_return!(client.viewport.free());
-        let s = format!("TODO DESTROY PARTS: {:?}", free.selection_info.selected);
-        client.chat.log(s);
-    }
-
-    pub fn reset_camera_on_ctrl_r(world: &mut World, input: &InputState) {
-        if input.is_key_pressed(Key::ControlLeft) {
-            debug!("Reset camera");
-            world.target_camera.isometry.translation = Vec2::ZERO;
-            world.target_camera.isometry.rotation = 0.0;
-            world.target_camera.zoom = 8.0;
-        }
-    }
-
-    pub fn lock_rotation_on_key_r(client: &mut ClientSpecificInfo) {
-        if client.input.is_key_pressed(Key::ControlLeft) {
-            return;
-        }
-        if let Viewport::Free(fly) = &mut client.viewport {
-            debug!("Toggle lock rotation");
-            fly.lock_rotation ^= true;
-        }
-    }
-
-    pub fn rotate_editor_part_on_key_r(client: &mut ClientSpecificInfo) {
-        if client.input.is_key_pressed(Key::ControlLeft) {
-            return;
-        }
-        if let Viewport::Editor(editor) = &mut client.viewport {
-            editor.part_rotation = editor.part_rotation.next();
-            client.chat.log("Rotated");
-        }
-    }
-
-    pub fn spawn_random_ship_on_p(world: &mut World) {
-        if let Ok(grid_id) = spawn_grid_by_name(world, "remora") {
-            let pos = randvec(10.0, 200.0);
-            _ = set_grid_pose(world, grid_id, Isometry2d::from_pos(pos));
-        }
-    }
-
-    pub fn update_center_of_mass_on_m(world: &mut World) {
-        for grid in world.grids.values_mut() {
-            _ = update_grid_physical_props(grid, &mut world.parts);
-        }
-    }
-
-    pub fn leave_ship_editor_on_escape(
-        world: &mut World,
-        client: &mut ClientSpecificInfo,
-        sounds: &mut SoundEffects,
-    ) {
-        let Viewport::Editor(editor) = &client.viewport else {
-            return;
-        };
-
-        client.viewport = Viewport::Free(FreeFlying {
-            follow_vehicle: Some(editor.vehicle),
-            lock_rotation: false,
-            selection_info: SelectionInfo::selecting(editor.vehicle),
-        });
-
-        world.target_camera.zoom = 20.0;
-        world.target_camera.isometry.rotation = 0.0;
-
-        client.chat.log("Left ship editor");
-        sounds.push(SoundEffect::LeaveEditor);
-    }
-
-    pub fn enter_ship_editor_on_enter(
-        world: &mut World,
-        client: &mut ClientSpecificInfo,
-        sounds: &mut SoundEffects,
-    ) {
-        let free = some_or_return!(client.viewport.free());
-        let grid_id = some_or_return!(free.selection_info.first_selected_grid());
-        let grid = ok_or_return!(world.grids.try_get(grid_id));
-
-        let centroid = grid.centroid();
-
-        client.viewport = Viewport::Editor(EditorState {
-            vehicle: grid_id,
-            target_offset: centroid,
-            actual_offset: centroid,
-            camera_rotation: Rotation::East,
-            prototype_id: None,
-            part_rotation: Rotation::East,
-            layer: Some(PartLayer::Internal),
-            select_start: None,
-            hovered: None,
-        });
-
-        world.target_camera.zoom = 40.0;
-
-        client.chat.log("Switched to ship editor");
-        sounds.push(SoundEffect::OpenEditor);
-    }
-
-    pub fn pipette_part_if_in_editor_on_q(world: &World, client: &mut ClientSpecificInfo) {
-        let editor = some_or_return!(client.viewport.editor_mut());
-
-        if editor.prototype_id.is_some() {
-            editor.prototype_id = None;
-            return;
-        }
-        editor.prototype_id = None;
-
-        let coord = some_or_return!(editor.hovered);
-
-        let grid = ok_or_return!(world.grids.try_get(editor.vehicle));
-        let Some(occ) = grid.get_parts_at(coord) else {
-            editor.layer = None;
-            return;
-        };
-
-        // use the focus layer to pipette if it's available; otherwise, use the top one
-        let part_id = if let Some(layer) = editor.layer {
-            occ.at_layer(layer)
-        } else {
-            occ.top()
-        };
-
-        let part_id = some_or_return!(part_id);
-        let part = ok_or_return!(world.parts.try_get(part_id));
-
-        editor.prototype_id = Some(part.prototype);
-        editor.part_rotation = part.placement.rot();
-        editor.layer = Some(part.layer);
-    }
-}
-
 fn propagate_grid_rigid_bodies(grids: &mut Components<VehicleGrid>) {
     for grid in grids.values_mut() {
         let body_frame_accel = grid.linear_acceleration();
@@ -683,17 +354,14 @@ fn update_thrusters(
     needs_update
 }
 
-fn update_actual_hover_part_info(
-    client: &mut ClientSpecificInfo,
-    grids: &Components<VehicleGrid>,
-    mouse_screen_position: Option<Vec2>,
-    screen_dims: Vec2,
-    camera: &Camera,
-) {
+fn update_actual_hover_part_info(client: &mut ClientSpecificInfo, grids: &Components<VehicleGrid>) {
+    let mouse_screen_position = client.mouse_screen_position;
+    let screen_dims = client.screen_dims;
+
     if let Some(free) = client.viewport.free_mut() {
         free.selection_info.hovered = None;
         let screen_pos = some_or_return!(mouse_screen_position);
-        let world_pos = screen_to_world(camera, screen_pos, screen_dims);
+        let world_pos = screen_to_world(&client.camera, screen_pos, screen_dims);
         let (grid_id, offset) = some_or_return!(find::closest_grid(grids, world_pos, None));
         let dist = offset.length();
         let grid = ok_or_return!(grids.try_get(grid_id));
@@ -707,7 +375,7 @@ fn update_actual_hover_part_info(
         editor.hovered = None;
         let grid = ok_or_return!(grids.try_get(editor.vehicle));
         let screen_pos = some_or_return!(mouse_screen_position);
-        let world_pos = screen_to_world(camera, screen_pos, screen_dims);
+        let world_pos = screen_to_world(&client.camera, screen_pos, screen_dims);
         // TODO(cleanup) completely unnecessary. shouldn't need to get the world coordinates
         // or the grid's coordinates to get this vector. just ask how far the camera is from
         // the grid in question!
@@ -844,7 +512,6 @@ pub fn update_trackers(
 }
 
 pub fn update_world(world: &mut World) {
-    let start = std::time::Instant::now();
     world.ticks += 1;
     update_ring_particles(&mut world.particles);
     let dirty_set = update_thrusters(
@@ -859,10 +526,6 @@ pub fn update_world(world: &mut World) {
     update_computers(&mut world.computers, &world.parts, &world.grids);
     propagate_grid_rigid_bodies(&mut world.grids);
     update_trackers(&mut world.tracking, &world.grids, world.ticks);
-
-    let end = std::time::Instant::now();
-
-    world.timers.physics = end - start;
 }
 
 pub fn process_event(
@@ -885,7 +548,7 @@ pub fn process_event(
             Key::KeyF => input_handlers::toggle_following_on_key_f(client, &mut sounds),
             Key::KeyT => input_handlers::toggle_tracking_for_selected_grid(world, client),
             Key::KeyR => {
-                input_handlers::reset_camera_on_ctrl_r(world, &client.input);
+                input_handlers::reset_camera_on_ctrl_r(client);
                 input_handlers::lock_rotation_on_key_r(client);
                 input_handlers::rotate_editor_part_on_key_r(client);
             }
@@ -897,8 +560,8 @@ pub fn process_event(
             Key::KeyP => input_handlers::spawn_random_ship_on_p(world),
             Key::KeyM => input_handlers::update_center_of_mass_on_m(world),
             Key::KeyQ => input_handlers::pipette_part_if_in_editor_on_q(world, client),
-            Key::Return => input_handlers::enter_ship_editor_on_enter(world, client, &mut sounds),
-            Key::Escape => input_handlers::leave_ship_editor_on_escape(world, client, &mut sounds),
+            Key::KeyG => input_handlers::enter_ship_editor(world, client, &mut sounds),
+            Key::Escape => input_handlers::leave_ship_editor_on_escape(client, &mut sounds),
             Key::KeyC => {
                 input_handlers::explode_at_mouseover(world, client);
                 input_handlers::editor_copy_on_control_c(world, client);
@@ -929,7 +592,7 @@ pub fn process_event(
             delta_x: _,
             delta_y,
         } => {
-            input_handlers::apply_scroll_wheel_to_camera_target(delta_y, &mut world.target_camera);
+            input_handlers::apply_scroll_wheel_to_camera_target(delta_y, &mut client.target_camera);
         }
     }
 
@@ -943,13 +606,7 @@ pub fn pre_simulation_update(
 ) {
     client.ticks += 1;
 
-    update_actual_hover_part_info(
-        client,
-        &world.grids,
-        client.mouse_screen_position,
-        client.screen_dims,
-        &world.camera,
-    );
+    update_actual_hover_part_info(client, &world.grids);
 }
 
 fn test_button_boundaries_with_key_y(input: &InputState, sounds: &mut SoundEffects) {
@@ -958,6 +615,21 @@ fn test_button_boundaries_with_key_y(input: &InputState, sounds: &mut SoundEffec
     } else if input.just_released(Key::KeyY) {
         sounds.push(SoundEffect::Close);
     }
+}
+
+fn zoom_in_on_key_v(client: &mut ClientSpecificInfo) {
+    if !client.input.just_pressed_debounced(Key::KeyV) {
+        return;
+    }
+
+    let grid_id = some_or_return!(client.focused_grid_id());
+    let free = some_or_return!(client.viewport.free_mut());
+    if client.target_camera.zoom < ZOOM_NEAR_VEHICLE {
+        client.target_camera.zoom = ZOOM_NEAR_VEHICLE;
+    } else {
+        client.target_camera.zoom = ZOOM_FAR_AWAY;
+    }
+    free.follow_vehicle = Some(grid_id);
 }
 
 pub fn post_simulation_update(
@@ -969,33 +641,35 @@ pub fn post_simulation_update(
 
     test_button_boundaries_with_key_y(&client.input, sounds);
 
+    zoom_in_on_key_v(client);
+
     match &mut client.viewport {
         Viewport::Free(fly) => {
             set_target_camera_if_following(
                 fly.follow_vehicle,
                 fly.lock_rotation,
                 &world.grids,
-                &mut world.target_camera,
-                &mut world.camera,
+                &mut client.target_camera,
+                &mut client.camera,
             );
 
             camera_moves_with_wasd(
                 &client.input,
-                &mut world.target_camera,
+                &mut client.target_camera,
                 &mut fly.follow_vehicle,
                 &mut fly.lock_rotation,
                 sounds,
             );
 
-            camera_zooms_with_plus_minus(&client.input, &mut world.target_camera);
+            camera_zooms_with_plus_minus(&client.input, &mut client.target_camera);
         }
         Viewport::Editor(editor) => {
-            camera_zooms_with_plus_minus(&client.input, &mut world.target_camera);
+            camera_zooms_with_plus_minus(&client.input, &mut client.target_camera);
 
             editor_offset_moves_with_wasd(
                 &client.input,
                 &mut editor.target_offset,
-                world.camera.zoom,
+                client.camera.zoom,
             );
 
             editor_actual_offset_smooth_animation(editor.target_offset, &mut editor.actual_offset);
@@ -1004,13 +678,13 @@ pub fn post_simulation_update(
                 editor.vehicle,
                 &world.grids,
                 editor.actual_offset,
-                &mut world.target_camera,
-                &mut world.camera,
+                &mut client.target_camera,
+                &mut client.camera,
             );
         }
     }
 
-    animate_camera_towards_target(&world.target_camera, &mut world.camera);
+    animate_camera_towards_target(&client.target_camera, &mut client.camera);
 }
 
 fn set_cams_to_grid_pose(

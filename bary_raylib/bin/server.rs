@@ -1,6 +1,8 @@
 use bary_core::prelude::*;
+use bary_raylib::client::DebugInfo;
 use bary_raylib::input_state::InputState;
 use bary_raylib::multiplayer::*;
+use bary_raylib::sounds::SoundEffects;
 use bary_raylib::wall_timer::WallTimer;
 use bary_raylib::world_builder::WorldBuilder;
 use log::{info, warn};
@@ -27,10 +29,10 @@ impl ServerApp {
             .blueprint("bellerophon")
             .blueprint("remora")
             .blueprint("spacestation")
-            .spawn("pollux", Isometry2d::ZERO)
-            .spawn("remora", Isometry2d::from_pos(randvec(20.0, 40.0)))
-            .spawn("remora", Isometry2d::from_pos(randvec(20.0, 40.0)))
-            .spawn("remora", Isometry2d::from_pos(randvec(20.0, 40.0)))
+            .spawn("pollux", "", Isometry2d::ZERO)
+            .spawn("remora", "", Isometry2d::from_pos(randvec(20.0, 40.0)))
+            .spawn("remora", "", Isometry2d::from_pos(randvec(20.0, 40.0)))
+            .spawn("remora", "", Isometry2d::from_pos(randvec(20.0, 40.0)))
             .build();
 
         Self {
@@ -54,9 +56,11 @@ impl ServerApp {
             info!("Running world: {:?}", self.runner.world);
         }
 
-        let mut input = InputState::default();
+        let mut sounds = SoundEffects::default();
+        let mut actions = Vec::new();
+        let mut debug = DebugInfo::default();
 
-        let _outgoing = self.runner.update(&mut input);
+        let _outgoing = self.runner.update(&mut debug, &mut sounds, &mut actions);
 
         if self.sync_timer.tick() {
             let tr = Transaction::new(

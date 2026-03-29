@@ -1,4 +1,4 @@
-use crate::input_state::InputState;
+use crate::{camera::Camera, input_state::InputState};
 
 use super::Chat;
 use bary_core::prelude::*;
@@ -116,11 +116,11 @@ impl Viewport {
 pub struct ClientSpecificInfo {
     pub ticks: u64,
     pub chat: Chat,
+    pub camera: Camera,
+    pub target_camera: Camera,
     pub mouse_screen_position: Option<Vec2>,
     pub screen_dims: Vec2,
     pub viewport: Viewport,
-    #[deprecated]
-    pub is_holding_shift: bool,
     pub input: InputState,
 }
 
@@ -129,6 +129,15 @@ impl ClientSpecificInfo {
         Self {
             ticks: 0,
             chat: Chat::default(),
+            // camera info
+            camera: Camera {
+                zoom: 0.1,
+                ..Camera::default()
+            },
+            target_camera: Camera {
+                zoom: 8.0,
+                ..Camera::default()
+            },
             mouse_screen_position: None,
             screen_dims: Vec2::new(1500.0, 900.0),
             viewport: Viewport::Free(FreeFlying {
@@ -136,7 +145,6 @@ impl ClientSpecificInfo {
                 lock_rotation: false,
                 selection_info: SelectionInfo::default(),
             }),
-            is_holding_shift: false,
             input: InputState::default(),
         }
     }

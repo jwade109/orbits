@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use crate::assets::Assets;
+use crate::assets::load_names_from_file;
 use crate::sim::systems::*;
 use crate::sim::world::*;
 use bary_core::prelude::*;
@@ -7,7 +9,7 @@ use bary_core::prelude::*;
 pub struct WorldBuilder {
     assets_dir: Option<String>,
     blueprints: Vec<String>,
-    spawns: Vec<(String, Isometry2d)>,
+    spawns: Vec<(String, Option<String>, Isometry2d)>,
     waypoints: Vec<(String, Isometry2d)>,
 }
 
@@ -36,8 +38,15 @@ impl WorldBuilder {
         self
     }
 
-    pub fn spawn(mut self, name: &str, iso: impl Into<Isometry2d>) -> Self {
-        self.spawns.push((name.to_string(), iso.into()));
+    pub fn spawn(
+        mut self,
+        bp_name: &str,
+        name: impl Into<String>,
+        iso: impl Into<Isometry2d>,
+    ) -> Self {
+        let name = name.into();
+        let name = if name.is_empty() { None } else { Some(name) };
+        self.spawns.push((bp_name.to_string(), name, iso.into()));
         self
     }
 
@@ -53,8 +62,10 @@ impl WorldBuilder {
         if let Some(assets_dir) = self.assets_dir {
             let parts_dir = PathBuf::from(&assets_dir).join("parts");
             let vehicles_dir = PathBuf::from(&assets_dir).join("vehicles");
-
             let parts = load_parts_from_dir(&parts_dir).expect("Parts dir");
+
+            let ship_names_path = PathBuf::from(&assets_dir).join("ship_names.txt");
+            world.ship_names = load_names_from_file(ship_names_path).unwrap_or(vec![]);
 
             for (_, part) in &parts {
                 let id = world.spawner.spawn();
@@ -69,8 +80,13 @@ impl WorldBuilder {
             }
         }
 
-        for (name, iso) in self.spawns {
-            if let Ok(id) = spawn_grid_by_name(&mut world, &name) {
+        for (bp_name, name, iso) in self.spawns {
+            let id = match name {
+                Some(name) => spawn_grid_by_name(&mut world, &bp_name, &name),
+                None => spawn_grid_with_random_name(&mut world, &bp_name),
+            };
+
+            if let Ok(id) = id {
                 _ = set_grid_pose(&mut world, id, iso);
             }
         }
@@ -80,6 +96,8 @@ impl WorldBuilder {
                 _ = set_primary_computer_waypoint(grid_id, waypoint, &mut world);
                 _ = set_primary_computer_state(grid_id, true, &mut world);
                 _ = toggle_tracking(&mut world, grid_id);
+            } else {
+                log::warn!("Failed to find grid with name {name}");
             }
         }
 

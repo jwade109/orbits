@@ -1,10 +1,10 @@
 [values.58]
-on = true
-status = "Running"
+on = false
+status = "Off"
 ticks_this_cycle = 0
 ticks_per_cycle = 5
-fired_this_tick = true
-iters = 200
+fired_this_tick = false
+iters = 0
 prototype = 6
 
 [values.58.vehicle_control]
@@ -23,14 +23,113 @@ use_rcs = false
 throttle = 0.0
 
 [values.58.vehicle_control.neg_y]
+use_rcs = false
+throttle = 0.0
+
+[[values.58.command_queue]]
+duration = 300
+
+[values.58.command_queue.instruction.Ctrl]
+attitude = 0.0
+
+[values.58.command_queue.instruction.Ctrl.plus_x]
+use_rcs = true
+throttle = 1.0
+
+[values.58.command_queue.instruction.Ctrl.plus_y]
+use_rcs = true
+throttle = 0.0
+
+[values.58.command_queue.instruction.Ctrl.neg_x]
+use_rcs = true
+throttle = 0.0
+
+[values.58.command_queue.instruction.Ctrl.neg_y]
+use_rcs = true
+throttle = 0.0
+
+[[values.58.command_queue]]
+duration = 150
+
+[values.58.command_queue.instruction.Ctrl]
+attitude = 0.0
+
+[values.58.command_queue.instruction.Ctrl.plus_x]
+use_rcs = true
+throttle = 0.0
+
+[values.58.command_queue.instruction.Ctrl.plus_y]
+use_rcs = true
+throttle = 0.0
+
+[values.58.command_queue.instruction.Ctrl.neg_x]
+use_rcs = true
+throttle = 0.0
+
+[values.58.command_queue.instruction.Ctrl.neg_y]
 use_rcs = true
 throttle = 1.0
 
 [[values.58.command_queue]]
+duration = 150
+
+[values.58.command_queue.instruction.Ctrl]
+attitude = 0.0
+
+[values.58.command_queue.instruction.Ctrl.plus_x]
+use_rcs = true
+throttle = 0.0
+
+[values.58.command_queue.instruction.Ctrl.plus_y]
+use_rcs = true
+throttle = 1.0
+
+[values.58.command_queue.instruction.Ctrl.neg_x]
+use_rcs = true
+throttle = 0.0
+
+[values.58.command_queue.instruction.Ctrl.neg_y]
+use_rcs = true
+throttle = 0.0
+
+[[values.58.command_queue]]
+duration = 80
+
+[values.58.command_queue.instruction.Ctrl]
+attitude = 0.0
+
+[values.58.command_queue.instruction.Ctrl.plus_x]
+use_rcs = true
+throttle = 0.0
+
+[values.58.command_queue.instruction.Ctrl.plus_y]
+use_rcs = true
+throttle = 0.0
+
+[values.58.command_queue.instruction.Ctrl.neg_x]
+use_rcs = true
+throttle = 1.0
+
+[values.58.command_queue.instruction.Ctrl.neg_y]
+use_rcs = true
+throttle = 0.0
+
+[[values.58.command_queue]]
+duration = 20000
+instruction = "Drift"
+
+[[values.58.command_queue]]
+duration = 20000
 
 [values.58.command_queue.instruction.HoldPosition]
-translation = [50.0, 300.0]
-rotation = 0.2
+translation = [0.0, 0.0]
+rotation = 0.0
+
+[[values.58.command_queue]]
+
+[values.58.command_queue.instruction.HoldPosition]
+translation = [100.0, 100.0]
+rotation = 0.0
 
 [values.152]
 on = false

@@ -1,3 +1,4 @@
+pub mod input_handlers;
 pub mod ring_particle;
 pub mod systems;
 pub mod tracker;

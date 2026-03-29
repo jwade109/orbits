@@ -23,6 +23,7 @@ fn draw_debug_info(
     world: &World,
     client: &ClientSpecificInfo,
     assets: &Assets,
+    debug: &DebugInfo,
     d: &mut RaylibDrawHandle,
 ) {
     let size = size_in_bytes(world);
@@ -43,10 +44,10 @@ fn draw_debug_info(
 
     s += &format!(
         "\nP\n{}",
-        fmt_time(world.timers.physics, world.timers.total)
+        fmt_time(debug.timers.physics, debug.timers.total)
     );
-    s += &format!("\nR\n{}", fmt_time(world.timers.render, world.timers.total));
-    s += &format!("\nT\n{}", fmt_time(world.timers.total, world.timers.total));
+    s += &format!("\nR\n{}", fmt_time(debug.timers.render, debug.timers.total));
+    s += &format!("\nT\n{}", fmt_time(debug.timers.total, debug.timers.total));
 
     s += &format!(
         "\nW {} {:0.1}",
@@ -56,7 +57,7 @@ fn draw_debug_info(
 
     s += &format!("\nC {} {} fps", client.ticks, d.get_fps());
     s += &format!("\nMemory: {:0.3} kb", size as f64 / 1000.0);
-    s += &format!("\nZoom: {:0.3}", world.camera.zoom);
+    s += &format!("\nZoom: {:0.3}", client.camera.zoom);
     s += &format!("\nUpdates: {}", world.grid_acceleration_updates);
 
     // s += &format!("\nMOUSE {:?}", client.mouse_screen_position);
@@ -217,19 +218,15 @@ fn main() {
         let w = rl.get_screen_width();
         let h = rl.get_screen_height();
 
-        let screen_dims = Vec2::new(w as f32, h as f32);
+        app.runner.client_info.screen_dims = Vec2::new(w as f32, h as f32);
 
         let mouse = rl
             .is_cursor_on_screen()
             .then(|| raylib_to_glam(rl.get_mouse_position()));
 
-        app.runner.client_info.screen_dims = screen_dims;
         app.runner.client_info.mouse_screen_position = mouse;
 
-        let (update_actions, update_sounds) = app.runner.update();
-
-        sounds.extend(update_sounds);
-        actions.extend(update_actions);
+        app.runner.update(&mut app.debug_info, &mut sounds, &mut actions);
 
         for msg in actions {
             let transaction = Transaction::new(app.runner.world.ticks, msg);
@@ -258,10 +255,16 @@ fn main() {
 
             let end = std::time::Instant::now();
 
-            app.runner.world.timers.render = end - start;
-            app.runner.world.timers.total = end - loop_start;
+            app.debug_info.timers.render = end - start;
+            app.debug_info.timers.total = end - loop_start;
 
-            draw_debug_info(&app.runner.world, &app.runner.client_info, &assets, &mut d);
+            draw_debug_info(
+                &app.runner.world,
+                &app.runner.client_info,
+                &assets,
+                &app.debug_info,
+                &mut d,
+            );
         });
 
         handle_sounds(sounds, &audio, &mut active_sounds);

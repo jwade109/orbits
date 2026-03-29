@@ -52,8 +52,8 @@ pub fn apply_transaction(
             }
             ping(world, pos);
         }
-        Action::SpawnShipAt(name, iso) => {
-            if let Ok(grid_id) = spawn_grid_by_name(world, &name) {
+        Action::SpawnShipAt(bp_name, iso) => {
+            if let Ok(grid_id) = spawn_grid_with_random_name(world, &bp_name) {
                 _ = set_grid_pose(world, grid_id, iso);
             }
         }
@@ -79,7 +79,7 @@ pub fn apply_transaction(
         Action::LookAt(name) => {
             if let Some(grid_id) = query::grid_by_name(&world.grids, &name) {
                 client.viewport.look_at(grid_id);
-                world.target_camera.zoom = 15.0;
+                client.target_camera.zoom = 15.0;
             }
         }
         Action::ClearWorld => {

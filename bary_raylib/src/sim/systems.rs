@@ -1,3 +1,4 @@
+use crate::assets::get_random_ship_name;
 use crate::components::*;
 use crate::result::*;
 use crate::sim::*;
@@ -213,9 +214,14 @@ pub fn set_grid_vel(world: &mut World, grid_id: Ent, vel: Isometry2d) -> BaryRes
     Ok(())
 }
 
+pub fn spawn_grid_with_random_name(world: &mut World, bp_name: &str) -> BaryResult<Ent> {
+    let name = get_random_ship_name(&world.ship_names);
+    spawn_grid_by_name(world, bp_name, &name)
+}
+
 /// Spawns a new grid according to a named blueprint.
-pub fn spawn_grid_by_name(world: &mut World, name: &str) -> BaryResult<Ent> {
-    let bp = find::blueprint_by_name(&world.blueprints, name)
+pub fn spawn_grid_by_name(world: &mut World, bp_name: &str, name: &str) -> BaryResult<Ent> {
+    let bp = find::blueprint_by_name(&world.blueprints, bp_name)
         .ok_or(BaryError::BadBlueprint)?
         .clone();
     spawn_grid_from_blueprint(world, name, &bp)
@@ -296,10 +302,6 @@ pub fn insert_part_c(
     instance: &PartInstance,
     update_props: bool,
 ) -> BaryResult<Ent> {
-    debug!(
-        "Inserting part \"{}\" into grid \"{}\" in layer {:?}",
-        instance.name, grid_id, instance.layer
-    );
     let grid = grids.try_get_mut(grid_id)?;
 
     if !grid.can_insert_part(instance.placement, instance.layer) {
@@ -788,7 +790,7 @@ mod tests {
 
         assert!(find::closest_grid(&world.grids, Vec2::new(100.0, 200.0), None).is_none());
 
-        let id = spawn_grid_by_name(&mut world, "remora").unwrap();
+        let id = spawn_grid_with_random_name(&mut world, "remora").unwrap();
         assert_eq!(id, Ent(34));
 
         let grid = world.grids.try_get_mut(id).unwrap();
@@ -823,7 +825,7 @@ mod tests {
 
         assert_eq!(proto_id, Ent(16));
 
-        let grid_id = spawn_grid_by_name(&mut world, "pollux").unwrap();
+        let grid_id = spawn_grid_with_random_name(&mut world, "pollux").unwrap();
 
         assert_eq!(world.parts.len(), 98);
         assert_eq!(world.thrusters.len(), 18);
@@ -866,19 +868,19 @@ mod tests {
             .blueprint("spacestation")
             .build();
 
-        let id = spawn_grid_by_name(&mut world, "pollux").unwrap();
+        let id = spawn_grid_with_random_name(&mut world, "pollux").unwrap();
         let mass = world.grids.try_get(id).unwrap().parts_mass;
         assert_eq!(mass, Mass::grams(35134000));
 
-        let id = spawn_grid_by_name(&mut world, "bellerophon").unwrap();
+        let id = spawn_grid_with_random_name(&mut world, "bellerophon").unwrap();
         let mass = world.grids.try_get(id).unwrap().parts_mass;
         assert_eq!(mass, Mass::grams(178051000));
 
-        let id = spawn_grid_by_name(&mut world, "remora").unwrap();
+        let id = spawn_grid_with_random_name(&mut world, "remora").unwrap();
         let mass = world.grids.try_get(id).unwrap().parts_mass;
         assert_eq!(mass, Mass::grams(12339000));
 
-        let id = spawn_grid_by_name(&mut world, "spacestation").unwrap();
+        let id = spawn_grid_with_random_name(&mut world, "spacestation").unwrap();
         let mass = world.grids.try_get(id).unwrap().parts_mass;
         assert_eq!(mass, Mass::grams(145638000));
 
@@ -901,7 +903,7 @@ mod tests {
 
         expected.normalize_coordinates();
 
-        let id = spawn_grid_by_name(&mut world, "pollux").unwrap();
+        let id = spawn_grid_with_random_name(&mut world, "pollux").unwrap();
 
         let actual = get_blueprint_c(&world.grids, &world.parts, &world.prototypes, id).unwrap();
 
@@ -1044,7 +1046,7 @@ mod tests {
             .blueprint("pollux")
             .build();
 
-        let id = spawn_grid_by_name(&mut world, "pollux").unwrap();
+        let id = spawn_grid_with_random_name(&mut world, "pollux").unwrap();
         let (_mass, com) = get_grid_physical_props_by_id(id, &world.grids, &world.parts).unwrap();
 
         assert_eq!(com, Vec2::new(5.5010653, 2.272271));
@@ -1354,11 +1356,11 @@ mod tests {
         let mut world = WorldBuilder::new()
             .test_assets()
             .blueprint("pollux")
-            .spawn("pollux", Isometry2d::ZERO)
-            .waypoint("pollux", waypoint)
+            .spawn("pollux", "fran", Isometry2d::ZERO)
+            .waypoint("fran", waypoint)
             .build();
 
-        let grid_id = find::grid_by_name(&world.grids, "pollux").unwrap();
+        let grid_id = find::grid_by_name(&world.grids, "fran").unwrap();
 
         for _ in 0..20 {
             for _ in 0..1000 {

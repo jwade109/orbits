@@ -210,10 +210,10 @@ mod tests {
         let mut world = WorldBuilder::new()
             .test_assets()
             .blueprint("pollux")
-            .spawn("pollux", (0.0, 0.0, 0.0))
+            .spawn("pollux", "harriet", (0.0, 0.0, 0.0))
             .build();
 
-        let grid_id = query::grid_by_name(&world.grids, "pollux").unwrap();
+        let grid_id = query::grid_by_name(&world.grids, "harriet").unwrap();
         let grid = world.grids.try_get(grid_id).unwrap();
 
         assert_eq!(grid.parts_mass, Mass::grams(35134000));
@@ -268,10 +268,10 @@ mod tests {
         let mut world = WorldBuilder::new()
             .test_assets()
             .blueprint("pollux")
-            .spawn("pollux", (0.0, 0.0, 0.0))
+            .spawn("pollux", "ted", (0.0, 0.0, 0.0))
             .build();
 
-        let grid_id = query::grid_by_name(&world.grids, "pollux").unwrap();
+        let grid_id = query::grid_by_name(&world.grids, "ted").unwrap();
         let grid = world.grids.try_get(grid_id).unwrap();
         let parts: Vec<_> = grid.parts.iter().collect();
 
@@ -315,10 +315,10 @@ mod tests {
         let mut world = WorldBuilder::new()
             .test_assets()
             .blueprint("pollux")
-            .spawn("pollux", (0.0, 0.0, 0.0))
+            .spawn("pollux", "julia", (0.0, 0.0, 0.0))
             .build();
 
-        let grid_id = query::grid_by_name(&world.grids, "pollux").unwrap();
+        let grid_id = query::grid_by_name(&world.grids, "julia").unwrap();
 
         // this should fail if the grid ID is bad, obviously.
         let result = split_grid_if_necessary(&mut world, Ent(0));

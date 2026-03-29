@@ -18,14 +18,14 @@ fn vehicle_pathing_is_deterministic() {
     let mut w1 = WorldBuilder::new()
         .test_assets()
         .blueprint("remora")
-        .spawn("remora", Isometry2d::ZERO)
+        .spawn("remora", "", Isometry2d::ZERO)
         .waypoint("remora", (100.0, 400.0, 0.1))
         .build();
 
     let mut w2 = WorldBuilder::new()
         .test_assets()
         .blueprint("remora")
-        .spawn("remora", Isometry2d::ZERO)
+        .spawn("remora", "", Isometry2d::ZERO)
         .waypoint("remora", (100.0, 400.0, 0.1))
         .build();
 
@@ -50,10 +50,10 @@ fn build_ship_on_another_ship_then_navigate() {
     let mut world = WorldBuilder::new()
         .test_assets()
         .blueprint("remora")
-        .spawn("remora", Isometry2d::ZERO)
+        .spawn("remora", "ursula", Isometry2d::ZERO)
         .build();
 
-    let grid_id = grid_by_name(&world.grids, "remora").unwrap();
+    let grid_id = grid_by_name(&world.grids, "ursula").unwrap();
     let bp = blueprint_by_name(&world.blueprints, "remora")
         .unwrap()
         .clone();
@@ -126,10 +126,10 @@ fn splitting_vehicle_should_preserve_part_coordinates() {
     let mut world = WorldBuilder::new()
         .test_assets()
         .blueprint("bellerophon")
-        .spawn("bellerophon", (0.0, 0.0, 0.3))
+        .spawn("bellerophon", "kyle", (0.0, 0.0, 0.3))
         .build();
 
-    let grid_id = grid_by_name(&world.grids, "bellerophon").unwrap();
+    let grid_id = grid_by_name(&world.grids, "kyle").unwrap();
 
     assert_eq!(grid_id, Ent(31));
 

@@ -1,5 +1,5 @@
+use crate::client::DebugInfo;
 use crate::cmd::prompt::CommandPrompt;
-use crate::input_state::InputState;
 use crate::multiplayer::*;
 use crate::ui::UiState;
 use crate::world_builder::WorldBuilder;
@@ -27,6 +27,7 @@ fn network_thread(incoming: MessageQueue<ServerMessage>, outgoing: MessageQueue<
 pub struct App {
     pub runner: WorldRunner,
     pub ui_state: UiState,
+    pub debug_info: DebugInfo,
 
     pub _network_thread: JoinHandle<()>,
     pub incoming_network_queue: MessageQueue<ServerMessage>,
@@ -46,14 +47,11 @@ pub fn new_app(multiplayer: bool) -> App {
         .blueprint("remora")
         .blueprint("spacestation")
         .blueprint("foundation")
-        .spawn("pollux", (0.0, 0.0, 0.0))
-        .spawn("remora", (10.0, 30.0, 0.1))
-        .spawn("remora", (-9.0, 12.0, -0.3))
-        .spawn("remora", (-7.0, 23.0, 0.7))
-        .spawn("bellerophon", (130.0, 50.0, 0.1))
-        .waypoint("pollux", (300.0, 200.0, 0.3))
-        .waypoint("remora", (3000.0, 7000.0, 0.0))
-        .waypoint("bellerophon", (200.0, 800.0, 0.0))
+        .spawn("pollux", "", (0.0, 0.0, 0.0))
+        .spawn("remora", "", (10.0, 30.0, 0.1))
+        .spawn("remora", "", (-9.0, 12.0, -0.3))
+        .spawn("remora", "", (-7.0, 23.0, 0.7))
+        .spawn("bellerophon", "", (130.0, 50.0, 0.1))
         .build();
 
     let incoming_network_queue = new_message_queue();
@@ -80,6 +78,7 @@ pub fn new_app(multiplayer: bool) -> App {
 
     App {
         runner: WorldRunner::new(world),
+        debug_info: DebugInfo::default(),
         ui_state,
         _network_thread,
         incoming_network_queue,

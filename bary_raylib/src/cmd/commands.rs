@@ -63,6 +63,7 @@ pub enum ParseError {
     BadValue,
     WrongArgumentCount,
     CommandNotFound,
+    NotImplemented
 }
 
 pub type ArgsMap = BTreeMap<String, String>;
@@ -108,15 +109,13 @@ pub fn cmd_goto(args: &ArgsMap) -> Result<Action, ParseError> {
 }
 
 pub fn cmd_edit(args: &ArgsMap) -> Result<Action, ParseError> {
-    let grid_id = Ent(parse_arg(args, "grid_id")?);
-    dbg!(grid_id);
-    Err(ParseError::CommandNotFound)
+    let _grid_id = Ent(parse_arg(args, "grid_id")?);
+    Err(ParseError::NotImplemented)
 }
 
 pub fn cmd_find(args: &ArgsMap) -> Result<Action, ParseError> {
-    let grid_id = Ent(parse_arg(args, "grid_id")?);
-    dbg!(grid_id);
-    Err(ParseError::CommandNotFound)
+    let _grid_id = Ent(parse_arg(args, "grid_id")?);
+    Err(ParseError::NotImplemented)
 }
 
 pub fn cmd_despawn(args: &ArgsMap) -> Result<Action, ParseError> {
@@ -130,7 +129,7 @@ pub fn cmd_set_speed(args: &ArgsMap) -> Result<Action, ParseError> {
 }
 
 pub fn cmd_placeholder(_args: &ArgsMap) -> Result<Action, ParseError> {
-    Err(ParseError::CommandNotFound)
+    Err(ParseError::NotImplemented)
 }
 
 pub fn cmd_set_cpu(args: &ArgsMap) -> Result<Action, ParseError> {

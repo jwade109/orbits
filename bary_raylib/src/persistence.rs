@@ -107,9 +107,9 @@ mod tests {
             .blueprint("remora")
             .blueprint("bellerophon")
             .blueprint("foundation")
-            .spawn("pollux", (120.0, 43.0, 0.4))
-            .spawn("remora", (-30.0, 21.0, -0.1))
-            .spawn("bellerophon", (50.0, 109.0, 1.4))
+            .spawn("pollux", "billy", (120.0, 43.0, 0.4))
+            .spawn("remora", "sally", (-30.0, 21.0, -0.1))
+            .spawn("bellerophon", "eisenhower", (50.0, 109.0, 1.4))
             .waypoint("pollux", (50.0, 300.0, 0.2))
             .build();
 
