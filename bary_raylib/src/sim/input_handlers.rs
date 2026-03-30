@@ -23,7 +23,11 @@ pub fn command_selected_ships_to_waypoint(
     let mut successes = 0;
 
     for (i, loc) in free.selection_info.selected.iter().enumerate() {
-        let offset = Vec2::X * 30.0 * i as f32;
+        let offset = if i == 0 {
+            Vec2::ZERO
+        } else {
+            randvec(200.0, 700.0)
+        };
         let waypoint = Isometry2d::new(world_pos + offset, 0.0);
 
         if let Err(e) = set_primary_computer_waypoint(loc.grid_id, waypoint, world) {

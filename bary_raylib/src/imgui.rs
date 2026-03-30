@@ -137,7 +137,7 @@ pub fn imgui_editor_layer_indicator(
         if aabb.contains(mouse_pos) {
             d.draw_rectangle_lines(bottom_left.x, y, box_width, box_height, Color::WHITE);
 
-            if client.input.just_pressed_debounced(rdev::Key::KeyZ) {
+            if client.input.just_pressed_debounced(rdev::Button::Left) {
                 if editor.layer != Some(layer) {
                     editor.layer = Some(layer);
                     sounds.push(SoundEffect::PickLayer);
@@ -379,10 +379,10 @@ fn draw_grid_far_indicators(
         if !name.is_empty() {
             let color = if is_hovered {
                 Color::WHITE
-            } else if is_controllable {
-                Color::WHITE.alpha(0.3)
+            } else if is_controllable && client.input.is_key_pressed(rdev::Key::ShiftLeft) {
+                Color::WHITE.alpha(0.4)
             } else {
-                Color::WHEAT.alpha(0.02)
+                Color::WHEAT.alpha(0.0)
             };
             let q = q - Vector2::new(0.0, 35.0);
             if let Some(font) = font {

@@ -1,6 +1,7 @@
 use crate::client::DebugInfo;
 use crate::cmd::prompt::CommandPrompt;
 use crate::multiplayer::*;
+use crate::sim::spawn_stars;
 use crate::ui::UiState;
 use crate::world_builder::WorldBuilder;
 use std::thread::JoinHandle;
@@ -40,7 +41,7 @@ pub struct App {
 }
 
 pub fn new_app(multiplayer: bool) -> App {
-    let world = WorldBuilder::new()
+    let mut world = WorldBuilder::new()
         .assets()
         .blueprint("pollux")
         .blueprint("bellerophon")
@@ -53,6 +54,9 @@ pub fn new_app(multiplayer: bool) -> App {
         .spawn("remora", "", (-7.0, 23.0, 0.7))
         .spawn("bellerophon", "", (130.0, 50.0, 0.1))
         .build();
+
+    let stars = spawn_stars(&mut world.spawner);
+    world.stars = stars;
 
     let incoming_network_queue = new_message_queue();
     let incoming_network_queue_copy = incoming_network_queue.clone();

@@ -85,6 +85,8 @@ pub fn draw_world(
     assets: &Assets,
     d: &mut RaylibDrawHandle,
 ) {
+    draw_stars(d, &world.stars, &client.camera, client.screen_dims);
+
     let raylib_camera = to_raylib_camera(&client.camera, client.screen_dims);
 
     // this apparently is incredibly slow; curious
@@ -349,6 +351,24 @@ fn draw_focused_grid_cursor(
                 border_color,
             );
         }
+    }
+}
+
+fn draw_stars(
+    d: &mut RaylibDrawHandle,
+    stars: &Components<Star>,
+    camera: &Camera,
+    screen_dims: Vec2,
+) {
+    for star in stars.values() {
+        let offset = star.pos - camera.isometry.translation;
+        let offset = offset.with_y(-offset.y);
+        let offset = camera.zoom * rotate(offset, camera.isometry.rotation) + screen_dims / 2.0;
+        d.draw_pixel(
+            offset.x as i32,
+            offset.y as i32,
+            Color::WHITE.alpha(star.alpha),
+        );
     }
 }
 

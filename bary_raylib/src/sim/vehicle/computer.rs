@@ -13,6 +13,7 @@ pub enum Instruction {
     HoldAttitude(Angle),
     PointAt(Vec2),
     Drift,
+    DeltaV(Vec2),
 }
 
 impl Instruction {
@@ -50,10 +51,13 @@ impl std::fmt::Display for Instruction {
                 write!(f, "DRIFT")
             }
             Instruction::HoldAttitude(angle) => {
-                write!(f, " HDG {:0.2}", angle)
+                write!(f, "HDG {:0.2}", angle)
             }
             Instruction::PointAt(pos) => {
-                write!(f, " POINT {:0.2}", pos)
+                write!(f, "POINT {:0.2}", pos)
+            }
+            Instruction::DeltaV(dv) => {
+                write!(f, "DV {:0.2}", dv)
             }
         }
     }
@@ -119,7 +123,7 @@ pub struct Computer {
 impl Computer {
     pub fn new(prototype: Ent) -> Self {
         Self {
-            on: false,
+            on: true,
             status: MachineStatus::Off,
             ticks_this_cycle: 0,
             ticks_per_cycle: 5,
@@ -128,13 +132,14 @@ impl Computer {
             vehicle_control: VehicleControl::NULLOPT,
             prototype,
             command_queue: vec![
-                TimedInstruction::timed(300, Instruction::rcs_forward()),
-                TimedInstruction::timed(150, Instruction::rcs_right()),
-                TimedInstruction::timed(150, Instruction::rcs_left()),
-                TimedInstruction::timed(80, Instruction::rcs_backward()),
-                TimedInstruction::timed(20000, Instruction::Drift),
-                TimedInstruction::timed(20000, Instruction::HoldPosition((0.0, 0.0, 0.0).into())),
-                TimedInstruction::perp(Instruction::HoldPosition((100.0, 100.0, 0.0).into())),
+                TimedInstruction::perp(Instruction::DeltaV(Vec2::X * 100.0)),
+                // TimedInstruction::timed(300, Instruction::rcs_forward()),
+                // TimedInstruction::timed(150, Instruction::rcs_right()),
+                // TimedInstruction::timed(150, Instruction::rcs_left()),
+                // TimedInstruction::timed(80, Instruction::rcs_backward()),
+                // TimedInstruction::timed(20000, Instruction::Drift),
+                // TimedInstruction::timed(20000, Instruction::HoldPosition((0.0, 0.0, 0.0).into())),
+                // TimedInstruction::perp(Instruction::HoldPosition((100.0, 100.0, 0.0).into())),
             ],
         }
     }
@@ -168,6 +173,11 @@ impl Computer {
         Some(cmd.instruction)
     }
 
+    pub fn current_instruction_mut(&mut self) -> Option<&mut Instruction> {
+        let cmd = self.command_queue.first_mut()?;
+        Some(&mut cmd.instruction)
+    }
+
     pub fn current_control(&self) -> Option<VehicleControl> {
         let cmd = self.command_queue.first()?;
         if let Instruction::Ctrl(ctrl) = cmd.instruction {
@@ -188,6 +198,22 @@ impl Computer {
         match cmd.instruction {
             Instruction::HoldAttitude(hdg) => Some(hdg),
             Instruction::HoldPosition(iso) => Some(Angle::radians(iso.rotation)),
+            _ => None,
+        }
+    }
+
+    pub fn delta_v(&self) -> Option<Vec2> {
+        let cmd = self.current_instruction()?;
+        match cmd {
+            Instruction::DeltaV(dv) => Some(dv),
+            _ => None,
+        }
+    }
+
+    pub fn delta_v_mut(&mut self) -> Option<&mut Vec2> {
+        let cmd = self.current_instruction_mut()?;
+        match cmd {
+            Instruction::DeltaV(dv) => Some(dv),
             _ => None,
         }
     }
@@ -264,6 +290,25 @@ pub fn update_computers(
             let pid = PDCtrl::new(20.0, 50.0);
 
             let (ctrl, _status) = attitude_control_law(target.as_rad() as f64, &pid, &body);
+
+            computer.vehicle_control = ctrl;
+        } else if let Some(dv) = computer.delta_v_mut() {
+            *dv -= Vec2::splat(0.1);
+            let Ok(part) = parts.try_get(*cpu_id) else {
+                continue;
+            };
+
+            let Ok(grid) = grids.try_get(part.grid_id) else {
+                continue;
+            };
+            let target = dv.to_angle();
+            let pid = PDCtrl::new(20.0, 50.0);
+            let body = RigidBody {
+                pv: PV::ZERO,
+                angle: grid.particle_location.rotation as f64,
+                angular_velocity: grid.velocity.rotation as f64,
+            };
+            let (ctrl, _status) = attitude_control_law(target as f64, &pid, &body);
 
             computer.vehicle_control = ctrl;
         }

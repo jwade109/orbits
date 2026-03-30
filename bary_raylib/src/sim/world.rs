@@ -3,7 +3,6 @@ use crate::client::*;
 use crate::components::*;
 use crate::constants::*;
 use crate::imgui::ZOOM_FAR_AWAY;
-use crate::imgui::ZOOM_NEAR_FAR_THRESHOLD;
 use crate::imgui::ZOOM_NEAR_VEHICLE;
 use crate::input_state::*;
 use crate::multiplayer::Action;
@@ -43,9 +42,30 @@ pub struct World {
     pub lights: Components<Light>,
     pub grids: Components<VehicleGrid>,
     pub tracking: Components<Tracker>,
+    pub stars: Components<Star>,
 
     // TODO might move this to assets.
     pub ship_names: Vec<String>,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct Star {
+    pub pos: Vec2,
+    pub alpha: f32,
+}
+
+pub fn spawn_stars(spawner: &mut EntitySpawner) -> Components<Star> {
+    let n_stars = 4000;
+    let mut stars = Components::default();
+    for _ in 0..n_stars {
+        let star = Star {
+            pos: randvec(0.0, 10000.0),
+            alpha: rand(0.5, 1.0),
+        };
+        let id = spawner.spawn();
+        stars.spawn(id, star);
+    }
+    stars
 }
 
 impl std::fmt::Debug for World {
@@ -76,6 +96,7 @@ impl World {
             computers: Components::default(),
             lights: Components::default(),
             tracking: Components::default(),
+            stars: Components::default(),
             ship_names: vec![
                 "Gary".to_string(),
                 "Sally".to_string(),
@@ -540,6 +561,10 @@ pub fn process_event(
         client.input.set_pressed(k);
     } else if let rdev::EventType::KeyRelease(k) = event.event_type {
         client.input.set_released(k);
+    } else if let rdev::EventType::ButtonPress(mb) = event.event_type {
+        client.input.set_pressed(mb);
+    } else if let rdev::EventType::ButtonRelease(mb) = event.event_type {
+        client.input.set_released(mb);
     }
 
     match event.event_type {
