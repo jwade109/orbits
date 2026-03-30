@@ -21,6 +21,7 @@ pub fn spawn_grid_from_blueprint_c(
     thrusters: &mut Components<Thruster>,
     computers: &mut Components<Computer>,
     lights: &mut Components<Light>,
+    inventories: &mut Components<Inventory>,
     name: impl Into<String>,
     bp: &Blueprint,
 ) -> BaryResult<Ent> {
@@ -31,7 +32,17 @@ pub fn spawn_grid_from_blueprint_c(
     grids.spawn(grid_id, grid.clone());
     for (_id, proto) in bp.parts() {
         insert_part_c(
-            grid_id, counter, grids, prototypes, parts, thrusters, computers, lights, proto, false,
+            grid_id,
+            counter,
+            grids,
+            prototypes,
+            parts,
+            thrusters,
+            computers,
+            lights,
+            inventories,
+            proto,
+            false,
         )?;
     }
 
@@ -195,6 +206,7 @@ pub fn spawn_grid_from_blueprint(
         &mut world.thrusters,
         &mut world.computers,
         &mut world.lights,
+        &mut world.inventories,
         name,
         bp,
     )
@@ -275,6 +287,7 @@ pub fn insert_part(
         &mut world.thrusters,
         &mut world.computers,
         &mut world.lights,
+        &mut world.inventories,
         instance,
         update_props,
     )
@@ -299,6 +312,7 @@ pub fn insert_part_c(
     thrusters: &mut Components<Thruster>,
     computers: &mut Components<Computer>,
     lights: &mut Components<Light>,
+    inventories: &mut Components<Inventory>,
     instance: &PartInstance,
     update_props: bool,
 ) -> BaryResult<Ent> {
@@ -328,6 +342,27 @@ pub fn insert_part_c(
 
     grid.mark_occupied(instance.placement, instance.layer(), part_id);
 
+    if let Some(inv) = &proto.inventory_data {
+        info!("Inventory data:");
+        for slot in &inv.slots {
+            info!(" -- {:?}", slot);
+        }
+
+        let slots = inv
+            .slots
+            .iter()
+            .map(|slot| {
+                InvSlot::new(
+                    Volume::liters_f32(slot.volume_liters),
+                    slot.filter.clone(),
+                    slot.is_fluid.unwrap_or(false),
+                )
+            })
+            .collect();
+
+        let inventory = Inventory::from_slots(slots);
+        inventories.spawn(part_id, inventory);
+    }
     if let Some(data) = &proto.thruster_data {
         let thruster = Thruster {
             is_on: false,
@@ -715,21 +750,13 @@ mod tests {
         let name = "pollux";
 
         // get the blueprint for the pollux
-        let bp = find::blueprint_by_name(&world.blueprints, name).expect("Expected a blueprint");
+        let bp = find::blueprint_by_name(&world.blueprints, name)
+            .expect("Expected a blueprint")
+            .clone();
 
         // spawn that vehicle using its blueprint
-        let grid_id = spawn_grid_from_blueprint_c(
-            &mut world.spawner,
-            &world.prototypes,
-            &mut world.grids,
-            &mut world.parts,
-            &mut world.thrusters,
-            &mut world.computers,
-            &mut world.lights,
-            name.to_string(),
-            &bp,
-        )
-        .expect("Expected the grid ID");
+        let grid_id = spawn_grid_from_blueprint(&mut world, name.to_string(), &bp)
+            .expect("Expected the grid ID");
 
         let expected_grid_id = Ent(34);
 
@@ -974,7 +1001,7 @@ mod tests {
         let instance_b = PartInstance::new(
             "small-motor",
             PartLayer::Internal,
-            GridPlacement::new((0, 0), Rotation::North, (4, 2)),
+            GridPlacement::new((3, 3), Rotation::North, (4, 2)),
         );
 
         let a_id = insert_part(grid_id, &mut world, &instance_a, true).unwrap();

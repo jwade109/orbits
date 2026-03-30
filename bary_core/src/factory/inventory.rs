@@ -294,8 +294,7 @@ impl Item {
     }
 }
 
-#[deprecated]
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct Inventory(Vec<InvSlot>);
 
 impl Inventory {
@@ -442,7 +441,7 @@ impl Inventory {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct InvSlot {
     name: Option<String>,
     capacity: Volume,

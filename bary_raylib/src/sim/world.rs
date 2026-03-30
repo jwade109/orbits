@@ -42,6 +42,7 @@ pub struct World {
     pub lights: Components<Light>,
     pub grids: Components<VehicleGrid>,
     pub tracking: Components<Tracker>,
+    pub inventories: Components<Inventory>,
     pub stars: Components<Star>,
 
     // TODO might move this to assets.
@@ -97,6 +98,7 @@ impl World {
             computers: Components::default(),
             lights: Components::default(),
             tracking: Components::default(),
+            inventories: Components::default(),
             stars: Components::default(),
             ship_names: vec![
                 "Gary".to_string(),

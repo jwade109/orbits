@@ -269,6 +269,9 @@ fn imgui_hovered_part_info(
         if let Ok(light) = world.lights.try_get(part_id) {
             s += &format!("\n{:#?}", light);
         }
+        if let Ok(inv) = world.inventories.try_get(part_id) {
+            s += &format!("\n{:#?}", inv);
+        }
     }
 
     let window = Window {

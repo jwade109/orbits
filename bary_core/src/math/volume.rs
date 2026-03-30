@@ -1,9 +1,10 @@
+use serde::{Deserialize, Serialize};
 use std::iter::Sum;
 use std::ops::*;
 
 // strong type representing volume.
 // the underlying integer is the volume in microliters.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Volume(u64);
 
 impl Volume {
