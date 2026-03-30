@@ -1,6 +1,5 @@
-use crate::{camera::Camera, input_state::InputState};
-
 use super::Chat;
+use crate::{camera::Camera, client::EditorState, input_state::InputState};
 use bary_core::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -36,19 +35,6 @@ impl SelectionInfo {
     pub fn first_selected_grid(&self) -> Option<Ent> {
         self.selected.first().map(|e| e.grid_id)
     }
-}
-
-#[derive(Debug)]
-pub struct EditorState {
-    pub vehicle: Ent,
-    pub target_offset: Vec2,
-    pub actual_offset: Vec2,
-    pub camera_rotation: Rotation,
-    pub prototype_id: Option<Ent>,
-    pub part_rotation: Rotation,
-    pub layer: Option<PartLayer>,
-    pub select_start: Option<PartCoord>,
-    pub hovered: Option<PartCoord>,
 }
 
 #[derive(Debug)]

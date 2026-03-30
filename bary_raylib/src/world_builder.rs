@@ -1,10 +1,8 @@
-use std::path::PathBuf;
-
-use crate::assets::Assets;
 use crate::assets::load_names_from_file;
 use crate::sim::systems::*;
 use crate::sim::world::*;
 use bary_core::prelude::*;
+use std::path::PathBuf;
 
 pub struct WorldBuilder {
     assets_dir: Option<String>,

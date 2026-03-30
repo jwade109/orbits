@@ -5,9 +5,7 @@ use crate::components::Components;
 use crate::imgui::ZOOM_NEAR_FAR_THRESHOLD;
 use crate::query::grid_origin;
 use crate::sim::*;
-use crate::ui::{Window, draw_window};
 use crate::utils::*;
-use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use early_returns::*;
 use raylib::prelude::*;
@@ -361,7 +359,8 @@ fn draw_stars(
     screen_dims: Vec2,
 ) {
     for star in stars.values() {
-        let offset = star.pos - camera.isometry.translation;
+        let xy = Vec2::new(star.pos.x, star.pos.y);
+        let offset = (xy - camera.isometry.translation) * star.pos.z;
         let offset = offset.with_y(-offset.y);
         let offset = camera.zoom * rotate(offset, camera.isometry.rotation) + screen_dims / 2.0;
         d.draw_pixel(

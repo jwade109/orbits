@@ -1,6 +1,5 @@
 use bary_core::prelude::*;
 use bary_raylib::client::DebugInfo;
-use bary_raylib::input_state::InputState;
 use bary_raylib::multiplayer::*;
 use bary_raylib::sounds::SoundEffects;
 use bary_raylib::wall_timer::WallTimer;

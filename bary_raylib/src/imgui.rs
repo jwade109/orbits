@@ -300,14 +300,6 @@ fn draw_grid_far_indicators(
 
     let mut markers = Vec::new();
 
-    struct MarkerInfo {
-        id: Ent,
-        is_controllable: bool,
-        is_hovered: bool,
-        rotation: f32,
-        name: String,
-    }
-
     for (id, grid) in grids.iter() {
         let loc = grid.centroid_isometry();
         let p = glam_to_raylib_swap_y(loc.translation);
