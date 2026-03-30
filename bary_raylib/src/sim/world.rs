@@ -43,6 +43,7 @@ pub struct World {
     pub grids: Components<VehicleGrid>,
     pub tracking: Components<Tracker>,
     pub inventories: Components<Inventory>,
+    pub machines: Components<Machine>,
     pub stars: Components<Star>,
 
     // TODO might move this to assets.
@@ -99,6 +100,7 @@ impl World {
             lights: Components::default(),
             tracking: Components::default(),
             inventories: Components::default(),
+            machines: Components::default(),
             stars: Components::default(),
             ship_names: vec![
                 "Gary".to_string(),
@@ -535,6 +537,22 @@ pub fn update_trackers(
     }
 }
 
+pub fn fill_inventories_at_random(world: &mut World) {
+    for inv in world.inventories.values_mut() {
+        for slot in inv.slots_mut() {
+            let item = if slot.is_empty() {
+                Item::random_with_filter(slot.filter())
+            } else {
+                slot.item()
+            };
+
+            if let Some(item) = item {
+                slot.store_partial(item, 1000);
+            }
+        }
+    }
+}
+
 pub fn update_world(world: &mut World) {
     world.ticks += 1;
     update_ring_particles(&mut world.particles);
@@ -550,6 +568,12 @@ pub fn update_world(world: &mut World) {
     update_computers(&mut world.computers, &world.parts, &world.grids);
     propagate_grid_rigid_bodies(&mut world.grids);
     update_trackers(&mut world.tracking, &world.grids, world.ticks);
+
+    let ticks_per_minute = TICKS_PER_SECOND * 60;
+
+    if world.ticks % ticks_per_minute == 0 {
+        fill_inventories_at_random(world);
+    }
 }
 
 pub fn process_event(

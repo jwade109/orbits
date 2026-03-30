@@ -161,6 +161,8 @@ pub fn draw_world(
 
     draw_waypoint_far_indicators(&world.computers, d, &raylib_camera);
 
+    draw_primary_grid_inventory_summary(d, world, client);
+
     draw_selected_grid_info(d, &client, &world.grids, client.screen_dims);
 
     draw_chat(d, &client.chat, client.screen_dims, assets);
@@ -368,6 +370,72 @@ fn draw_stars(
             offset.y as i32,
             Color::WHITE.alpha(star.alpha),
         );
+    }
+}
+
+fn draw_primary_grid_inventory_summary(
+    d: &mut RaylibDrawHandle,
+    world: &World,
+    client: &ClientSpecificInfo,
+) {
+    let free = some_or_return!(client.viewport.free());
+    let sel_loc = some_or_return!(free.selection_info.selected.first());
+    let grid = ok_or_return!(world.grids.try_get(sel_loc.grid_id));
+    let coord = if let Some(hover) = free.selection_info.hovered {
+        if hover.grid_id == sel_loc.grid_id {
+            Some(hover.coord)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    let occ = coord
+        .map(|c| grid.get_parts_at(c))
+        .flatten()
+        .unwrap_or(&PartOccupancy::EMPTY);
+
+    let bar_width = 350;
+    let small_bar_height = 5;
+    let large_bar_height = 20;
+    let highlight_width = 7;
+    let bar_spacing = 1;
+
+    let origin_x = d.get_render_width() - bar_width;
+    let mut y = bar_spacing;
+
+    for part_id in &grid.parts {
+        let inv = ok_or_continue!(world.inventories.try_get(*part_id));
+        for slot in inv.slots() {
+            let item = slot.item();
+            let c = item.map(|i| i.color()).unwrap_or([30, 30, 30]);
+            let color = Color::new(c[0], c[1], c[2], 255);
+            let width = bar_width as f32 * slot.fill_percentage();
+            let is_hovered = occ.contains(*part_id);
+
+            let bar_height = if is_hovered {
+                large_bar_height
+            } else {
+                small_bar_height
+            };
+
+            d.draw_rectangle(origin_x, y, bar_width, bar_height, Color::BLACK);
+            d.draw_rectangle(origin_x, y, width as i32, bar_height, color);
+
+            if is_hovered {
+                d.draw_rectangle(
+                    origin_x - highlight_width,
+                    y,
+                    highlight_width,
+                    bar_height,
+                    Color::WHITE,
+                );
+            }
+
+            y += bar_height + bar_spacing;
+            d.draw_line(origin_x, y, origin_x + bar_width, y, Color::SLATEGRAY);
+        }
     }
 }
 

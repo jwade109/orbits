@@ -589,6 +589,8 @@ impl InvSlot {
         let units_capacity = (self.capacity / item.volume_per_unit()).floor() as u64;
         if let Some(contents) = &mut self.contents {
             contents.1 = (contents.1 + count).min(units_capacity);
+        } else {
+            self.contents = Some((item, count.min(units_capacity)));
         }
     }
 

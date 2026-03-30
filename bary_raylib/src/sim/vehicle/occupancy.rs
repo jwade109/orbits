@@ -40,6 +40,10 @@ impl PartOccupancy {
             || self.plumbing.is_some()
     }
 
+    pub fn contains(&self, part_id: Ent) -> bool {
+        self.to_array().iter().any(|e| *e == Some(part_id))
+    }
+
     pub fn to_array(&self) -> [Option<Ent>; 4] {
         [self.internal, self.structural, self.external, self.plumbing]
     }

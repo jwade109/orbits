@@ -1,7 +1,11 @@
-use crate::*;
-use bary_core::prelude::*;
+use serde::{Deserialize, Serialize};
 
-#[derive(Component, Debug, Clone)]
+use crate::{
+    factory::{Inventory, MachineStatus, Recipe, RecipeListing},
+    parts::MachineData,
+};
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Machine {
     pub enabled: bool,
     pub steps: u32,
@@ -19,7 +23,7 @@ impl Machine {
             enabled: true,
             recipe: RecipeListing::DoNothing,
             steps: 0,
-            required_steps: randint(20, 32) as u32,
+            required_steps: 100,
             products_finished: 0,
             status: MachineStatus::Off,
             input_slots: data.input_slots,
@@ -48,11 +52,7 @@ impl Machine {
         }
     }
 
-    fn take_inputs_if_possible(
-        &self,
-        inv: &PartContainers,
-        slots: &mut Query<&mut InvSlot>,
-    ) -> bool {
+    fn take_inputs_if_possible(&self, inv: &mut Inventory) -> bool {
         let recipe = match self.recipe() {
             Some(r) => r,
             _ => return false,
@@ -62,10 +62,7 @@ impl Machine {
             let Some(slot_index) = self.input_slots.get(i) else {
                 return false;
             };
-            let Some(entity) = inv.get(*slot_index) else {
-                return false;
-            };
-            let Ok(slot) = slots.get(*entity) else {
+            let Some(slot) = inv.get_slot(*slot_index) else {
                 return false;
             };
             if !slot.can_take(item, count) {
@@ -77,10 +74,7 @@ impl Machine {
             let Some(slot_index) = self.input_slots.get(i) else {
                 return false;
             };
-            let Some(entity) = inv.get(*slot_index) else {
-                return false;
-            };
-            let Ok(mut slot) = slots.get_mut(*entity) else {
+            let Some(slot) = inv.get_slot_mut(*slot_index) else {
                 return false;
             };
             if !slot.take(item, count) {
@@ -91,11 +85,7 @@ impl Machine {
         return true;
     }
 
-    fn store_outputs_if_possible(
-        &self,
-        inv: &PartContainers,
-        slots: &mut Query<&mut InvSlot>,
-    ) -> bool {
+    fn store_outputs_if_possible(&self, inv: &mut Inventory) -> bool {
         let recipe = match self.recipe() {
             Some(r) => r,
             _ => return false,
@@ -105,10 +95,7 @@ impl Machine {
             let Some(slot_index) = self.output_slots.get(i) else {
                 return false;
             };
-            let Some(entity) = inv.get(*slot_index) else {
-                return false;
-            };
-            let Ok(slot) = slots.get(*entity) else {
+            let Some(slot) = inv.get_slot(*slot_index) else {
                 return false;
             };
             if let Err(_) = slot.can_store(item, count) {
@@ -120,10 +107,7 @@ impl Machine {
             let Some(slot_index) = self.output_slots.get(i) else {
                 return false;
             };
-            let Some(entity) = inv.get(*slot_index) else {
-                return false;
-            };
-            let Ok(mut slot) = slots.get_mut(*entity) else {
+            let Some(slot) = inv.get_slot_mut(*slot_index) else {
                 return false;
             };
             if !slot.store(item, count) {
@@ -134,7 +118,7 @@ impl Machine {
         return true;
     }
 
-    pub fn step_process(&mut self, inv: &PartContainers, slots: &mut Query<&mut InvSlot>) {
+    pub fn step_process(&mut self, inv: &mut Inventory) {
         if self.recipe().is_none() {
             self.status = MachineStatus::NoRecipe;
             return;
@@ -146,7 +130,7 @@ impl Machine {
         }
 
         if self.steps == 0 {
-            if self.take_inputs_if_possible(inv, slots) {
+            if self.take_inputs_if_possible(inv) {
                 self.steps += 1;
                 self.status = MachineStatus::Running;
                 return;
@@ -160,7 +144,7 @@ impl Machine {
             self.status = MachineStatus::Running;
             self.steps += 1;
         } else if self.steps >= self.required_steps {
-            if self.store_outputs_if_possible(inv, slots) {
+            if self.store_outputs_if_possible(inv) {
                 self.steps = 0;
                 self.products_finished += 1;
                 self.status = MachineStatus::Running;
@@ -170,14 +154,5 @@ impl Machine {
         } else {
             self.status = MachineStatus::Off;
         }
-    }
-}
-
-pub fn update_machines(
-    mut machines: Query<(&mut Machine, &PartContainers)>,
-    mut slots: Query<&mut InvSlot>,
-) {
-    for (mut m, inv) in &mut machines {
-        m.step_process(inv, &mut slots);
     }
 }

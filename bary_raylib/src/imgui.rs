@@ -179,6 +179,17 @@ fn computer_info_str(cpu: &Computer) -> String {
     lines.into_iter().collect()
 }
 
+fn inventory_info_str(inv: &Inventory) -> String {
+    let mut lines = vec![format!("INVENTORY")];
+
+    for slot in inv.slots() {
+        let line = format!("\n  - {:?}", slot);
+        lines.push(line);
+    }
+
+    lines.into_iter().collect()
+}
+
 fn imgui_selected_grid_primary_computer_info(
     d: &mut RaylibDrawHandle,
     world: &World,
@@ -269,8 +280,12 @@ fn imgui_hovered_part_info(
         if let Ok(light) = world.lights.try_get(part_id) {
             s += &format!("\n{:#?}", light);
         }
+        if let Ok(mac) = world.machines.try_get(part_id) {
+            s += &format!("\n{:#?}", mac);
+        }
         if let Ok(inv) = world.inventories.try_get(part_id) {
-            s += &format!("\n{:#?}", inv);
+            let info = inventory_info_str(inv);
+            s += &format!("\n{}", info);
         }
     }
 

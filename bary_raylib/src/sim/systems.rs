@@ -22,6 +22,7 @@ pub fn spawn_grid_from_blueprint_c(
     computers: &mut Components<Computer>,
     lights: &mut Components<Light>,
     inventories: &mut Components<Inventory>,
+    machines: &mut Components<Machine>,
     name: impl Into<String>,
     bp: &Blueprint,
 ) -> BaryResult<Ent> {
@@ -41,6 +42,7 @@ pub fn spawn_grid_from_blueprint_c(
             computers,
             lights,
             inventories,
+            machines,
             proto,
             false,
         )?;
@@ -207,6 +209,7 @@ pub fn spawn_grid_from_blueprint(
         &mut world.computers,
         &mut world.lights,
         &mut world.inventories,
+        &mut world.machines,
         name,
         bp,
     )
@@ -288,6 +291,7 @@ pub fn insert_part(
         &mut world.computers,
         &mut world.lights,
         &mut world.inventories,
+        &mut world.machines,
         instance,
         update_props,
     )
@@ -313,6 +317,7 @@ pub fn insert_part_c(
     computers: &mut Components<Computer>,
     lights: &mut Components<Light>,
     inventories: &mut Components<Inventory>,
+    machines: &mut Components<Machine>,
     instance: &PartInstance,
     update_props: bool,
 ) -> BaryResult<Ent> {
@@ -362,6 +367,10 @@ pub fn insert_part_c(
 
         let inventory = Inventory::from_slots(slots);
         inventories.spawn(part_id, inventory);
+    }
+    if let Some(data) = &proto.machine_data {
+        let machine = Machine::from_data(data.clone());
+        machines.spawn(part_id, machine);
     }
     if let Some(data) = &proto.thruster_data {
         let thruster = Thruster {

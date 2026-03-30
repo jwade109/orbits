@@ -1,5 +1,6 @@
 use crate::prelude::*;
 use enum_iterator::Sequence;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default, Clone)]
 pub struct Recipe {
@@ -63,7 +64,7 @@ impl std::fmt::Display for Recipe {
     }
 }
 
-#[derive(Default, Debug, Clone, Copy, Sequence, PartialEq, Eq)]
+#[derive(Default, Debug, Clone, Copy, Sequence, PartialEq, Eq, Deserialize, Serialize)]
 pub enum RecipeListing {
     #[default]
     DoNothing, // TODO maybe don't keep this

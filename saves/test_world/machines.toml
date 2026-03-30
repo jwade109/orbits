@@ -1,0 +1,19 @@
+[values.123]
+enabled = true
+steps = 0
+required_steps = 100
+recipe = "DoNothing"
+products_finished = 0
+status = "Off"
+input_slots = [0, 1, 2]
+output_slots = [3, 4]
+
+[values.130]
+enabled = true
+steps = 0
+required_steps = 100
+recipe = "DoNothing"
+products_finished = 0
+status = "Off"
+input_slots = [0, 1, 2]
+output_slots = [3, 4]

@@ -25,6 +25,8 @@ pub fn save_world(dir: impl AsRef<Path>, world: &World, overwrite: bool) -> Bary
     let computers_path = dir.join("computers.toml");
     let lights_path = dir.join("lights.toml");
     let prototypes_path = dir.join("prototypes.toml");
+    let inventories_path = dir.join("inventories.toml");
+    let machines_path = dir.join("machines.toml");
 
     std::fs::create_dir(&blueprints_dir)?;
 
@@ -53,6 +55,12 @@ pub fn save_world(dir: impl AsRef<Path>, world: &World, overwrite: bool) -> Bary
 
     let s = toml::to_string(&world.prototypes)?;
     std::fs::write(prototypes_path, s)?;
+
+    let s = toml::to_string(&world.inventories)?;
+    std::fs::write(inventories_path, s)?;
+
+    let s = toml::to_string(&world.machines)?;
+    std::fs::write(machines_path, s)?;
 
     Ok(())
 }
