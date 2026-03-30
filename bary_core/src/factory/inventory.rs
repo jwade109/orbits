@@ -307,13 +307,14 @@ impl Inventory {
     }
 
     pub fn single(item: Item, capacity: Volume) -> Self {
-        let slot = InvSlot::new(capacity, ItemFilter::Any, false).with_item(item);
+        let slot = InvSlot::new(
+            capacity,
+            ItemFilter::Any,
+            false,
+            (PartCoord::ZERO, PartCoord::ZERO),
+        )
+        .with_item(item);
         Self(vec![slot])
-    }
-
-    pub fn from_recipe(recipe: &Recipe) -> Self {
-        println!("TODO");
-        Self::zero_slots()
     }
 
     pub fn clear(&mut self) {
@@ -448,17 +449,28 @@ pub struct InvSlot {
     filter: ItemFilter,
     contents: Option<(Item, u64)>,
     is_fluid: bool,
+    location: (PartCoord, PartCoord),
 }
 
 impl InvSlot {
-    pub fn new(capacity: Volume, filter: ItemFilter, is_fluid: bool) -> Self {
+    pub fn new(
+        capacity: Volume,
+        filter: ItemFilter,
+        is_fluid: bool,
+        location: (PartCoord, PartCoord),
+    ) -> Self {
         Self {
             name: None,
             capacity,
             filter,
             contents: None,
             is_fluid,
+            location,
         }
+    }
+
+    pub fn location(&self) -> (PartCoord, PartCoord) {
+        self.location
     }
 
     pub fn set_name(&mut self, name: Option<String>) {
@@ -729,11 +741,15 @@ mod tests {
 
     #[test]
     fn multiple_slots() {
+        let loc = (PartCoord::ZERO, PartCoord::ZERO);
+
         let mut inv = Inventory::from_slots(vec![
-            InvSlot::new(Volume::liters(1000), ItemFilter::Any, false).with_item(Item::Bread),
-            InvSlot::new(Volume::liters(2000), ItemFilter::Any, false).with_item(Item::Magnesium),
-            InvSlot::new(Volume::liters(1500), ItemFilter::Any, false).with_item(Item::Magnesium),
-            InvSlot::new(Volume::liters(300), ItemFilter::Any, false).with_item(Item::Ice),
+            InvSlot::new(Volume::liters(1000), ItemFilter::Any, false, loc).with_item(Item::Bread),
+            InvSlot::new(Volume::liters(2000), ItemFilter::Any, false, loc)
+                .with_item(Item::Magnesium),
+            InvSlot::new(Volume::liters(1500), ItemFilter::Any, false, loc)
+                .with_item(Item::Magnesium),
+            InvSlot::new(Volume::liters(300), ItemFilter::Any, false, loc).with_item(Item::Ice),
         ]);
 
         assert_eq!(inv.capacity(), Volume::liters(4800));
@@ -769,11 +785,13 @@ mod tests {
 
     #[test]
     fn big_items() {
+        let loc = (PartCoord::ZERO, PartCoord::ZERO);
+
         let mut inv = Inventory::from_slots(vec![
-            InvSlot::new(Volume::liters(100), ItemFilter::Any, false).with_item(Item::Rotor),
-            InvSlot::new(Volume::liters(100), ItemFilter::Any, false)
+            InvSlot::new(Volume::liters(100), ItemFilter::Any, false, loc).with_item(Item::Rotor),
+            InvSlot::new(Volume::liters(100), ItemFilter::Any, false, loc)
                 .with_item(Item::TitaniumLattice),
-            InvSlot::new(Volume::liters(100), ItemFilter::Any, false).with_item(Item::H2),
+            InvSlot::new(Volume::liters(100), ItemFilter::Any, false, loc).with_item(Item::H2),
         ]);
 
         while inv.store(Item::Rotor, 1) {}

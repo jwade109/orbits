@@ -77,6 +77,35 @@ fn draw_trackers(d: &mut RaylibDrawHandle, trackers: &Components<Tracker>, detai
     }
 }
 
+fn draw_inventories(
+    d: &mut RaylibDrawHandle,
+    grids: &Components<VehicleGrid>,
+    parts: &Components<Part>,
+    inventories: &Components<Inventory>,
+) {
+    for grid in grids.values() {
+        let origin = grid.origin();
+        for part_id in &grid.parts {
+            let inv = ok_or_continue!(inventories.try_get(*part_id));
+            let part = ok_or_continue!(parts.try_get(*part_id));
+            let part_root = origin * part.placement.origin_isometry();
+
+            for slot in inv.slots() {
+                let (min, max) = slot.location();
+                let dims = (max - min).inner().as_uvec2();
+                let pl = GridPlacement::new(min, Rotation::East, dims);
+                let color = if let Some(item) = slot.item() {
+                    let c = item.color();
+                    Color::new(c[0], c[1], c[2], 200)
+                } else {
+                    Color::GRAY.alpha(0.6)
+                };
+                draw_grid_placement(d, part_root, pl, color, Color::BLACK);
+            }
+        }
+    }
+}
+
 pub fn draw_world(
     world: &World,
     client: &ClientSpecificInfo,
@@ -101,6 +130,11 @@ pub fn draw_world(
     );
 
     let is_holding_shift = client.input.is_key_pressed(rdev::Key::ShiftLeft);
+    let is_holding_alt = client.input.is_key_pressed(rdev::Key::Alt);
+
+    if is_holding_alt {
+        draw_inventories(&mut c, &world.grids, &world.parts, &world.inventories);
+    }
 
     if client.viewport.is_real_view() {
         draw_computer_target_isometry(&mut c, &world.computers, &world.parts, &world.grids);

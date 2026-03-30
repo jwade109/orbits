@@ -348,19 +348,15 @@ pub fn insert_part_c(
     grid.mark_occupied(instance.placement, instance.layer(), part_id);
 
     if let Some(inv) = &proto.inventory_data {
-        info!("Inventory data:");
-        for slot in &inv.slots {
-            info!(" -- {:?}", slot);
-        }
-
         let slots = inv
             .slots
             .iter()
-            .map(|slot| {
+            .map(|data| {
                 InvSlot::new(
-                    Volume::liters_f32(slot.volume_liters),
-                    slot.filter.clone(),
-                    slot.is_fluid.unwrap_or(false),
+                    Volume::liters_f32(data.volume_liters),
+                    data.filter.clone(),
+                    data.is_fluid.unwrap_or(false),
+                    (data.min.into(), data.max.into()),
                 )
             })
             .collect();
