@@ -21,9 +21,9 @@ impl Machine {
     pub fn from_data(data: MachineData) -> Self {
         Self {
             enabled: true,
-            recipe: RecipeListing::DoNothing,
+            recipe: RecipeListing::CarbonDioxideCondensation,
             steps: 0,
-            required_steps: 100,
+            required_steps: 1000,
             products_finished: 0,
             status: MachineStatus::Off,
             input_slots: data.input_slots,

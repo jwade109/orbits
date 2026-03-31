@@ -16,6 +16,7 @@ use crate::sounds::*;
 use crate::utils::*;
 use bary_core::prelude::PI;
 use bary_core::prelude::*;
+use early_returns::ok_or_continue;
 use early_returns::ok_or_return;
 use early_returns::some_or_return;
 use log::*;
@@ -45,6 +46,7 @@ pub struct World {
     pub inventories: Components<Inventory>,
     pub machines: Components<Machine>,
     pub stars: Components<Star>,
+    pub pipes: Components<Pipe>,
 
     // TODO might move this to assets.
     pub ship_names: Vec<String>,
@@ -102,6 +104,7 @@ impl World {
             inventories: Components::default(),
             machines: Components::default(),
             stars: Components::default(),
+            pipes: Components::default(),
             ship_names: vec![
                 "Gary".to_string(),
                 "Sally".to_string(),
@@ -458,9 +461,60 @@ fn select_hovered_grid_loc_on_click(client: &mut ClientSpecificInfo, sounds: &mu
     }
 }
 
-fn editor_on_release_left_click(client: &mut ClientSpecificInfo) {
+pub fn get_part_at_layer(
+    grid: &VehicleGrid,
+    coord: PartCoord,
+    layer: PartLayer,
+) -> BaryResult<Ent> {
+    grid.get_parts_at(coord)
+        .ok_or(BaryError::NoPartsAt(coord))?
+        .at_layer(PartLayer::Internal)
+        .ok_or(BaryError::NoPartsInLayer(layer))
+}
+
+pub fn insert_pipe_at(
+    grid_id: Ent,
+    src: PartCoord,
+    dst: PartCoord,
+    world: &mut World,
+) -> BaryResult<Ent> {
+    let grid = world.grids.try_get(grid_id)?;
+    let src_part = get_part_at_layer(grid, src, PartLayer::Internal)?;
+    let dst_part = get_part_at_layer(grid, dst, PartLayer::Internal)?;
+
+    let pipe = Pipe {
+        src: PipeJoint {
+            part_id: src_part,
+            offset: PartCoord::ZERO,
+        },
+        dst: PipeJoint {
+            part_id: dst_part,
+            offset: PartCoord::ZERO,
+        },
+    };
+
+    let id = world.spawner.spawn();
+    world.pipes.spawn(id, pipe);
+
+    Ok(id)
+}
+
+fn editor_on_release_left_click(client: &mut ClientSpecificInfo, world: &mut World) {
     let e = some_or_return!(client.viewport.editor_mut());
     debug!("Editor left click release");
+
+    let src = e.select_start;
+    let dst = e.hovered;
+
+    if let (Some(src), Some(dst)) = (src, dst) {
+        if e.layer == Some(PartLayer::Plumbing) {
+            if let Err(e) = insert_pipe_at(e.vehicle, src, dst, world) {
+                let s = format!("Failed to insert pipe: {:?}", e);
+                client.chat.log(s);
+            }
+        }
+    }
+
     e.select_start = None;
 }
 
@@ -547,9 +601,17 @@ pub fn fill_inventories_at_random(world: &mut World) {
             };
 
             if let Some(item) = item {
-                slot.store_partial(item, 1000);
+                let n = randint(1, 1000);
+                slot.store_partial(item, n as u64);
             }
         }
+    }
+}
+
+pub fn update_machines(world: &mut World) {
+    for (part_id, machine) in world.machines.iter_mut() {
+        let inv = ok_or_continue!(world.inventories.try_get_mut(*part_id));
+        machine.step_process(inv);
     }
 }
 
@@ -569,11 +631,12 @@ pub fn update_world(world: &mut World) {
     propagate_grid_rigid_bodies(&mut world.grids);
     update_trackers(&mut world.tracking, &world.grids, world.ticks);
 
-    let ticks_per_minute = TICKS_PER_SECOND * 60;
+    // let ticks_per_minute = TICKS_PER_SECOND * 60;
+    // if world.ticks % ticks_per_minute == 0 {
+    // fill_inventories_at_random(world);
+    // }
 
-    if world.ticks % ticks_per_minute == 0 {
-        fill_inventories_at_random(world);
-    }
+    update_machines(world);
 }
 
 pub fn process_event(
@@ -636,7 +699,7 @@ pub fn process_event(
             Button::Unknown(_) => (),
         },
         rdev::EventType::ButtonRelease(button) => match button {
-            Button::Left => editor_on_release_left_click(client),
+            Button::Left => editor_on_release_left_click(client, world),
             _ => (),
         },
         rdev::EventType::MouseMove { x: _, y: _ } => (),

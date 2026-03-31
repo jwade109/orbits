@@ -4,13 +4,14 @@ use crate::client::*;
 use crate::components::Components;
 use crate::imgui::ZOOM_NEAR_FAR_THRESHOLD;
 use crate::query::grid_origin;
+use crate::result::BaryResult;
 use crate::sim::*;
 use crate::utils::*;
 use bary_core::prelude::*;
 use early_returns::*;
 use raylib::prelude::*;
 
-fn draw_text(d: &mut RaylibDrawHandle, iso: Isometry2d, text: &str) {
+fn draw_text(d: &mut RaylibDrawHandle, iso: Isometry2d, text: &str, font_size: f32) {
     let p = glam_to_raylib_swap_y(iso.translation);
     if !text.is_empty() {
         d.draw_text_pro(
@@ -19,7 +20,7 @@ fn draw_text(d: &mut RaylibDrawHandle, iso: Isometry2d, text: &str) {
             p,
             Vector2::zero(),
             -iso.rotation.to_degrees(),
-            1.5,
+            font_size,
             0.1,
             Color::ORANGE,
         );
@@ -41,7 +42,7 @@ fn draw_isometry_axes(d: &mut RaylibDrawHandle, iso: Isometry2d, label: &str, sc
     d.draw_line_ex(p, x, 0.1, Color::RED);
     d.draw_line_ex(p, y, 0.1, Color::GREEN);
 
-    draw_text(d, iso, label);
+    draw_text(d, iso, label, scale.max_element());
 }
 
 fn draw_origin_and_range_indicators(d: &mut RaylibDrawHandle) {
@@ -132,10 +133,6 @@ pub fn draw_world(
     let is_holding_shift = client.input.is_key_pressed(rdev::Key::ShiftLeft);
     let is_holding_alt = client.input.is_key_pressed(rdev::Key::Alt);
 
-    if is_holding_alt {
-        draw_inventories(&mut c, &world.grids, &world.parts, &world.inventories);
-    }
-
     if client.viewport.is_real_view() {
         draw_computer_target_isometry(&mut c, &world.computers, &world.parts, &world.grids);
 
@@ -162,6 +159,8 @@ pub fn draw_world(
         draw_trackers(&mut c, &world.tracking, is_holding_shift);
     } else if let Viewport::Editor(e) = &client.viewport {
         draw_grid_lines(&mut c, &world.grids, e);
+
+        draw_pipes(&mut c, &world.grids, &world.parts, &world.pipes);
     }
 
     if is_holding_shift {
@@ -190,6 +189,10 @@ pub fn draw_world(
     draw_hovered_part_cursor(&mut c, world, client);
 
     draw_editor_selection_region(&mut c, client, world);
+
+    if is_holding_alt {
+        draw_inventories(&mut c, &world.grids, &world.parts, &world.inventories);
+    }
 
     drop(c);
 
@@ -763,7 +766,7 @@ pub fn draw_grid_blueprints(
             draw_blueprint(&bp, origin, d);
             // draw_isometry_axes(d, grid.pose, &grid.name);
             let s = format!("{} / {}", grid.parts.len(), grid.parts_mass);
-            draw_text(d, origin, &s);
+            draw_text(d, origin, &s, 1.5);
         }
     }
 }
@@ -918,6 +921,43 @@ fn draw_selection_info(
         let loc = grid.centroid_isometry();
         let r = grid.bounding_radius() * 1.4 + 0.5;
         draw_circle(d, loc.translation, r, Color::ORANGE);
+    }
+}
+
+fn get_pipe_joint_location(
+    joint: PipeJoint,
+    grids: &Components<VehicleGrid>,
+    parts: &Components<Part>,
+) -> BaryResult<Isometry2d> {
+    let part = parts.try_get(joint.part_id)?;
+    let grid = grids.try_get(part.grid_id)?;
+    let grid_root = grid.origin();
+    let part_root = part.placement.origin_isometry();
+    let offset = joint.offset.to_meters();
+    Ok(grid_root * part_root.offset(offset))
+}
+
+fn draw_pipes(
+    d: &mut RaylibDrawHandle,
+    grids: &Components<VehicleGrid>,
+    parts: &Components<Part>,
+    pipes: &Components<Pipe>,
+) {
+    for pipe in pipes.values() {
+        let src = ok_or_continue!(get_pipe_joint_location(pipe.src, grids, parts));
+        let dst = ok_or_continue!(get_pipe_joint_location(pipe.dst, grids, parts));
+
+        let dims = Vec2::new(0.6, 0.6) * PartCoord::CELL_WIDTH;
+
+        let half_cell = Vec2::splat(PartCoord::CELL_WIDTH) / 2.0;
+        let offset = half_cell - dims / 2.0;
+
+        let p = src.offset(half_cell).translation;
+        let q = dst.offset(half_cell).translation;
+
+        draw_rectangle(d, src.offset(offset), dims, Color::GREEN);
+        draw_rectangle(d, dst.offset(offset), dims, Color::RED);
+        draw_line(d, p, q, Color::TEAL);
     }
 }
 

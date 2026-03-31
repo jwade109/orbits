@@ -609,8 +609,8 @@ impl InvSlot {
     pub fn fill_percentage(&self) -> f32 {
         self.contents
             .map(|(item, c)| {
-                let v = item.volume_per_unit() * c;
-                (v / self.capacity) as f32
+                let cap = (self.capacity / item.volume_per_unit()).floor() as u64;
+                (c as f64 / cap as f64) as f32
             })
             .unwrap_or(0.0)
     }

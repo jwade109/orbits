@@ -3,6 +3,8 @@ use crate::components::*;
 use crate::result::*;
 use crate::sim::*;
 use bary_core::prelude::*;
+use chrono::NaiveDate;
+use chrono::NaiveDateTime;
 use log::*;
 use std::collections::BTreeSet;
 use std::time::Duration;
@@ -11,6 +13,15 @@ pub const TICKS_PER_SECOND: u64 = 50;
 
 pub fn apparent_elapsed_time(world: &World) -> Duration {
     Duration::from_millis(1000 / TICKS_PER_SECOND * world.ticks)
+}
+
+pub fn apparent_datetime(world: &World) -> NaiveDateTime {
+    let dur = apparent_elapsed_time(world);
+    let epoch = NaiveDate::from_ymd_opt(2310, 7, 8)
+        .unwrap()
+        .and_hms_opt(3, 0, 0)
+        .unwrap();
+    epoch + dur
 }
 
 pub fn spawn_grid_from_blueprint_c(

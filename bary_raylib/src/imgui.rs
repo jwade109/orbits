@@ -183,7 +183,16 @@ fn inventory_info_str(inv: &Inventory) -> String {
     let mut lines = vec![format!("INVENTORY")];
 
     for slot in inv.slots() {
-        let line = format!("\n  - {:?}", slot);
+        let line = if slot.is_empty() {
+            format!("\n  - Empty - {:?}", slot.filter())
+        } else {
+            format!(
+                "\n  - {:?} ({:0.1}%) {}",
+                slot.contents(),
+                100.0 * slot.fill_percentage(),
+                slot.mass(),
+            )
+        };
         lines.push(line);
     }
 
@@ -191,7 +200,7 @@ fn inventory_info_str(inv: &Inventory) -> String {
 }
 
 fn imgui_selected_grid_primary_computer_info(
-    d: &mut RaylibDrawHandle,
+    _d: &mut RaylibDrawHandle,
     world: &World,
     client: &ClientSpecificInfo,
     assets: &Assets,
@@ -211,15 +220,15 @@ fn imgui_selected_grid_primary_computer_info(
 
     let title = format!("Grid Info: \"{}\"", grid.name);
 
-    let window = Window {
+    let _window = Window {
         origin: IVec2::new(800, 60),
         title,
         content,
         is_focused: true,
     };
 
-    if let Some(font) = &assets.fira_code {
-        draw_window(d, &window, font);
+    if let Some(_font) = &assets.lato_regular {
+        // draw_window(d, &window, font);
     }
 }
 
@@ -296,7 +305,7 @@ fn imgui_hovered_part_info(
         is_focused: true,
     };
 
-    if let Some(font) = &assets.fira_code {
+    if let Some(font) = &assets.lato_regular {
         draw_window(d, &window, font);
     }
 }
@@ -369,7 +378,7 @@ fn draw_grid_far_indicators(
         )
     };
 
-    let font = &assets.fira_code;
+    let font = &assets.lato_regular;
 
     // draw the markers
     for (id, p, q, angle, name, is_controllable) in markers {
@@ -430,6 +439,7 @@ pub fn imgui_entrypoint(
         &mut app.runner.world,
         sounds,
     );
+
     imgui_selected_grid_primary_computer_info(
         d,
         &mut app.runner.world,

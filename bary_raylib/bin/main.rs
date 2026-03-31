@@ -50,9 +50,10 @@ fn draw_debug_info(
     s += &format!("\nT\n{}", fmt_time(debug.timers.total, debug.timers.total));
 
     s += &format!(
-        "\nW {} {:0.1}",
+        "\nW {} {:0.1} {}",
         world.ticks,
-        apparent_elapsed_time(world).as_secs_f64()
+        apparent_elapsed_time(world).as_secs_f64(),
+        apparent_datetime(world).format("%b %d %Y %I:%M:%S %p"),
     );
 
     s += &format!("\nC {} {} fps", client.ticks, d.get_fps());
@@ -226,7 +227,8 @@ fn main() {
 
         app.runner.client_info.mouse_screen_position = mouse;
 
-        app.runner.update(&mut app.debug_info, &mut sounds, &mut actions);
+        app.runner
+            .update(&mut app.debug_info, &mut sounds, &mut actions);
 
         for msg in actions {
             let transaction = Transaction::new(app.runner.world.ticks, msg);

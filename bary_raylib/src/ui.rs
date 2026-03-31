@@ -7,11 +7,11 @@ use bary_core::prelude::*;
 use raylib::prelude::*;
 
 pub fn draw_window(d: &mut RaylibDrawHandle, window: &Window, font: &Font) {
-    let font_size = 15;
+    let font_size = 18;
     let spacing = 1.0;
-    let padding = 7;
+    let padding = 3;
     let child_gap = 0;
-    let shadow_width = if window.is_focused { 11 } else { 3 };
+    let shadow_width = 3;
 
     let title_dims = font.measure_text(&window.title, font_size as f32, spacing);
     let title_dims = IVec2::new(title_dims.x as i32, title_dims.y as i32);
@@ -33,6 +33,8 @@ pub fn draw_window(d: &mut RaylibDrawHandle, window: &Window, font: &Font) {
 
     let alpha = if window.is_focused { 1.0 } else { 0.2 };
 
+    let gray = Color::new(20, 20, 20, 255);
+
     // shadow
     d.draw_rectangle(
         shadow_origin.x,
@@ -48,7 +50,7 @@ pub fn draw_window(d: &mut RaylibDrawHandle, window: &Window, font: &Font) {
         window.origin.y,
         window_dims.x,
         window_dims.y,
-        Color::GRAY.alpha(alpha),
+        gray.alpha(alpha),
     );
 
     // window header
@@ -57,7 +59,7 @@ pub fn draw_window(d: &mut RaylibDrawHandle, window: &Window, font: &Font) {
         window.origin.y,
         window_dims.x,
         header_height,
-        Color::ORANGE.alpha(alpha),
+        gray.alpha(alpha),
     );
 
     // content area
@@ -78,7 +80,7 @@ pub fn draw_window(d: &mut RaylibDrawHandle, window: &Window, font: &Font) {
         Vector2::new(title_text_origin.x as f32, title_text_origin.y as f32),
         font_size as f32,
         spacing,
-        Color::BLACK.alpha(alpha),
+        Color::WHITE.alpha(alpha),
     );
 
     d.draw_text_ex(
