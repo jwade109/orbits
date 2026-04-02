@@ -43,7 +43,7 @@ pub fn grid_parts_do_not_intersect(world: &World) -> Result<(), anyhow::Error> {
         let mut expected_cells = 0;
         for part_id in &grid.parts {
             let part = world.parts.try_get(*part_id).unwrap();
-            let n_cells = part.placement.cell_count();
+            let n_cells = part.region.cell_count();
             expected_cells += n_cells;
         }
 

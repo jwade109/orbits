@@ -30,7 +30,7 @@ impl VehicleGrid {
         Self::with_name("")
     }
 
-    pub fn can_insert_part(&self, pl: GridPlacement, layer: PartLayer) -> bool {
+    pub fn can_insert_part(&self, pl: GridRegion, layer: PartLayer) -> bool {
         for cell in pl.cells() {
             if let Some(occ) = self.get_parts_at(cell) {
                 if occ.at_layer(layer).is_some() {
@@ -119,8 +119,8 @@ impl VehicleGrid {
         self.bounds = bounds.unwrap_or((IVec2::ZERO, IVec2::ZERO));
     }
 
-    pub fn mark_occupied(&mut self, placement: GridPlacement, layer: PartLayer, id: Ent) {
-        for cell in placement.cells() {
+    pub fn mark_occupied(&mut self, region: GridRegion, layer: PartLayer, id: Ent) {
+        for cell in region.cells() {
             let key = (cell.0.x, cell.0.y);
             self.occupancy
                 .entry(key)
@@ -290,13 +290,13 @@ mod tests {
         let op_b = destroy_part_without_integrity_check(&mut world, part_b, false);
         let op_c = destroy_part_without_integrity_check(&mut world, part_c, true);
 
-        let placement_a = GridPlacement::new((10, 0), Rotation::North, (1, 1));
-        let placement_b = GridPlacement::new((32, 4), Rotation::South, (2, 2));
-        let placement_c = GridPlacement::new((32, 12), Rotation::South, (2, 2));
+        let region_a = GridRegion::new((10, 0), Rotation::North, (1, 1));
+        let region_b = GridRegion::new((32, 4), Rotation::South, (2, 2));
+        let region_c = GridRegion::new((32, 12), Rotation::South, (2, 2));
 
-        let part_a = PartInstance::new("rcs", PartLayer::Internal, placement_a);
-        let part_b = PartInstance::new("plate", PartLayer::Exterior, placement_b);
-        let part_c = PartInstance::new("plate", PartLayer::Exterior, placement_c);
+        let part_a = PartInstance::new("rcs", PartLayer::Internal, region_a);
+        let part_b = PartInstance::new("plate", PartLayer::Exterior, region_b);
+        let part_c = PartInstance::new("plate", PartLayer::Exterior, region_c);
 
         assert_eq!(op_a, Ok((part_a, grid_id)));
         assert_eq!(op_b, Ok((part_b, grid_id)));

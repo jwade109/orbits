@@ -2,7 +2,7 @@ use crate::math::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
-pub struct GridPlacement {
+pub struct GridRegion {
     /// the coordinate of the bottom
     /// left corner of the part
     bottom_left: PartCoord,
@@ -16,7 +16,7 @@ pub struct GridPlacement {
     part_local_dims: UVec2,
 }
 
-impl GridPlacement {
+impl GridRegion {
     pub fn new(bottom_left: impl Into<PartCoord>, rot: Rotation, dims: impl Into<UVec2>) -> Self {
         Self {
             bottom_left: bottom_left.into(),
@@ -156,8 +156,8 @@ impl GridPlacement {
     }
 }
 
-impl std::ops::Add<PartCoord> for GridPlacement {
-    type Output = GridPlacement;
+impl std::ops::Add<PartCoord> for GridRegion {
+    type Output = GridRegion;
     fn add(self, rhs: PartCoord) -> Self::Output {
         let mut s = self;
         s.bottom_left += rhs;
@@ -165,7 +165,7 @@ impl std::ops::Add<PartCoord> for GridPlacement {
     }
 }
 
-impl std::ops::AddAssign<PartCoord> for GridPlacement {
+impl std::ops::AddAssign<PartCoord> for GridRegion {
     fn add_assign(&mut self, rhs: PartCoord) {
         self.bottom_left += rhs;
     }
@@ -190,7 +190,7 @@ mod tests {
         let rot = Rotation::East;
         let dims = (4, 2);
 
-        let mut gp = GridPlacement::new(bottom_left, rot, dims);
+        let mut gp = GridRegion::new(bottom_left, rot, dims);
 
         let mut iter = gp.cells();
 
@@ -236,7 +236,7 @@ mod tests {
         //        *--*--*--*--*-------> x
         //      (1, 1)       (5, 1)
         //
-        let gp = GridPlacement::new((1, 1), Rotation::East, (4, 3));
+        let gp = GridRegion::new((1, 1), Rotation::East, (4, 3));
 
         assert_eq!(gp.part_aligned_dims(), (4, 3).into());
         assert_eq!(gp.grid_aligned_dims(), (4, 3).into());
@@ -273,7 +273,7 @@ mod tests {
         //  y <---*--*--* (7, 3)
         //     (5, 3)
         //
-        let gp = GridPlacement::new((5, 3), Rotation::North, (3, 2));
+        let gp = GridRegion::new((5, 3), Rotation::North, (3, 2));
 
         assert_eq!(gp.part_aligned_dims(), (3, 2).into());
         assert_eq!(gp.grid_aligned_dims(), (2, 3).into());
@@ -312,7 +312,7 @@ mod tests {
         //                  |
         //                  v
         //                  y
-        let gp = GridPlacement::new((12, 5), Rotation::West, (3, 4));
+        let gp = GridRegion::new((12, 5), Rotation::West, (3, 4));
 
         assert_eq!(gp.part_aligned_dims(), (3, 4).into());
         assert_eq!(gp.grid_aligned_dims(), (3, 4).into());
@@ -358,7 +358,7 @@ mod tests {
         let rot = Rotation::South;
         let dims = (25, 10);
 
-        let gp = GridPlacement::new(bottom_left, rot, dims);
+        let gp = GridRegion::new(bottom_left, rot, dims);
 
         assert_eq!(gp.part_aligned_dims(), (25, 10).into());
         assert_eq!(gp.grid_aligned_dims(), (10, 25).into());
@@ -395,7 +395,7 @@ mod tests {
         let rot = Rotation::North;
         let dims = (3, 6);
 
-        let gp = GridPlacement::new(bottom_left, rot, dims);
+        let gp = GridRegion::new(bottom_left, rot, dims);
 
         assert_eq!(gp.grid_aligned_dims(), (6, 3).into());
 

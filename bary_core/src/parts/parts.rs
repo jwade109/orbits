@@ -1,5 +1,5 @@
 use crate::math::UVec2;
-use crate::prelude::GridPlacement;
+use crate::prelude::GridRegion;
 use crate::prelude::*;
 use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
@@ -142,27 +142,27 @@ impl PartLayer {
 pub struct PartInstance {
     pub name: String,
     pub layer: PartLayer,
-    pub placement: GridPlacement,
+    pub region: GridRegion,
 }
 
 impl PartInstance {
-    pub fn new(name: impl Into<String>, layer: PartLayer, placement: GridPlacement) -> Self {
+    pub fn new(name: impl Into<String>, layer: PartLayer, region: GridRegion) -> Self {
         Self {
             name: name.into(),
             layer,
-            placement,
+            region,
         }
     }
 
     pub fn from_prototype(proto: &PartPrototype, pos: PartCoord, rot: Rotation) -> Self {
         let dims = proto.dims();
 
-        let placement = GridPlacement::new(pos, rot, dims);
+        let region = GridRegion::new(pos, rot, dims);
 
         Self {
             name: proto.name.to_string(),
             layer: proto.layer(),
-            placement,
+            region,
         }
     }
 
@@ -171,28 +171,28 @@ impl PartInstance {
     }
 
     pub fn dims_grid(&self) -> UVec2 {
-        self.placement.grid_aligned_dims().inner().as_uvec2()
+        self.region.grid_aligned_dims().inner().as_uvec2()
     }
 
     pub fn dims_meters(&self) -> Vec2 {
-        self.placement.grid_aligned_dims().to_meters()
+        self.region.grid_aligned_dims().to_meters()
     }
 
     pub fn center_meters(&self) -> Vec2 {
-        let iso = self.placement.center_isometry();
+        let iso = self.region.center_isometry();
         iso.translation
     }
 
     pub fn origin(&self) -> PartCoord {
-        self.placement.bottom_left()
+        self.region.bottom_left()
     }
 
     pub fn origin_meters(&self) -> Vec2 {
-        self.placement.bottom_left().to_meters()
+        self.region.bottom_left().to_meters()
     }
 
     pub fn set_origin(&mut self, p: IVec2) {
-        self.placement.set_bottom_left(p.into());
+        self.region.set_bottom_left(p.into());
     }
 
     pub fn with_origin(&self, p: IVec2) -> Self {
@@ -212,11 +212,11 @@ impl PartInstance {
     }
 
     pub fn rotation(&self) -> Rotation {
-        self.placement.rot()
+        self.region.rot()
     }
 
     pub fn set_rotation(&mut self, rot: Rotation) {
-        self.placement.set_rot(rot);
+        self.region.set_rot(rot);
     }
 
     pub fn upper_left(&self) -> PartCoord {

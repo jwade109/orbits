@@ -31,7 +31,7 @@ impl Blueprint {
 
     pub fn merge(&mut self, other: &Blueprint) {
         for (_, part) in &other.parts {
-            self.add_part(part.name.clone(), part.placement, part.layer());
+            self.add_part(part.name.clone(), part.region, part.layer());
         }
         for (_, pipe) in &other.pipes {
             self.add_pipe(*pipe);
@@ -45,9 +45,9 @@ impl Blueprint {
         let mut ret = Self::new();
 
         for (pos, rot, proto) in prototypes {
-            let placement = GridPlacement::new(pos, rot, proto.dims);
+            let region = GridRegion::new(pos, rot, proto.dims);
             let layer = proto.layer();
-            ret.add_part(proto.name, placement, layer);
+            ret.add_part(proto.name, region, layer);
         }
 
         for pipe in pipes {
@@ -66,12 +66,12 @@ impl Blueprint {
     pub fn add_part(
         &mut self,
         name: impl Into<String>,
-        placement: GridPlacement,
+        region: GridRegion,
         layer: PartLayer,
     ) -> PartId {
         let id = self.get_next_part_id();
-        let instance = PartInstance::new(name, layer, placement);
-        for p in instance.placement.cells() {
+        let instance = PartInstance::new(name, layer, region);
+        for p in instance.region.cells() {
             let k = (p, layer);
             self.occupied_map.insert(k, id);
         }
@@ -171,7 +171,7 @@ impl Blueprint {
     pub fn remove_part(&mut self, id: PartId) -> bool {
         if let Some(instance) = self.parts.remove(&id) {
             let layer = instance.layer();
-            for c in instance.placement.cells() {
+            for c in instance.region.cells() {
                 self.occupied_map.remove(&(c, layer));
             }
             return true;
@@ -240,7 +240,7 @@ impl Blueprint {
         let mut upper: Option<IVec2> = None;
 
         for (_, part) in &self.parts {
-            let l = part.placement.bottom_left().inner();
+            let l = part.region.bottom_left().inner();
             let u = l + part.dims_grid().as_ivec2();
 
             lower = Some(
@@ -261,7 +261,7 @@ impl Blueprint {
     pub fn shift(&mut self, delta: impl Into<PartCoord>) {
         let delta = delta.into();
         self.parts.iter_mut().for_each(|(_, p)| {
-            p.placement += delta;
+            p.region += delta;
         });
 
         self.pipes.iter_mut().for_each(|(_, p)| {
@@ -332,7 +332,7 @@ mod tests {
 
         let o_id = bp.add_part(
             "o",
-            GridPlacement::new((2, 1), Rotation::East, (6, 2)),
+            GridRegion::new((2, 1), Rotation::East, (6, 2)),
             layer,
         );
 
@@ -381,7 +381,7 @@ mod tests {
 
         let x_id = bp.add_part(
             "x",
-            GridPlacement::new((9, 2), Rotation::North, (3, 2)),
+            GridRegion::new((9, 2), Rotation::North, (3, 2)),
             layer,
         );
 
@@ -411,7 +411,7 @@ mod tests {
 
         let o_id = bp.add_part(
             "o",
-            GridPlacement::new((2, 1), Rotation::East, (6, 2)),
+            GridRegion::new((2, 1), Rotation::East, (6, 2)),
             layer,
         );
 
@@ -444,7 +444,7 @@ mod tests {
 
         let o_id = bp.add_part(
             "o",
-            GridPlacement::new((2, 1), Rotation::East, (6, 2)),
+            GridRegion::new((2, 1), Rotation::East, (6, 2)),
             layer,
         );
 
@@ -452,7 +452,7 @@ mod tests {
 
         let part = bp.get_part(o_id).expect("Expecting this to succeed");
 
-        assert_eq!(part.placement.bottom_left(), (9, 6).into());
+        assert_eq!(part.region.bottom_left(), (9, 6).into());
     }
 }
 

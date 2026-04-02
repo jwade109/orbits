@@ -269,16 +269,16 @@ fn imgui_hovered_part_info(
 
     for (layer, part_id) in occ.iter() {
         let part = ok_or_continue!(world.parts.try_get(part_id));
-        let part_local = part.placement.to_local(gridloc.coord);
+        let part_local = part.region.to_local(gridloc.coord);
 
         s += &format!("\n\nPart ID: {}", part_id);
         s += &format!("\nPart local coord: {}", part_local);
 
         s += &format!(
-            "\nPlacement: {:?} {} {:?}",
+            "\nRegion: {:?} {} {:?}",
             layer,
-            part.placement.bottom_left(),
-            part.placement.rot()
+            part.region.bottom_left(),
+            part.region.rot()
         );
 
         if let Ok(proto) = world.prototypes.try_get(part.prototype) {

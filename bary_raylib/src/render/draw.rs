@@ -89,19 +89,19 @@ fn draw_inventories(
         for part_id in &grid.parts {
             let inv = ok_or_continue!(inventories.try_get(*part_id));
             let part = ok_or_continue!(parts.try_get(*part_id));
-            let part_root = origin * part.placement.origin_isometry();
+            let part_root = origin * part.region.origin_isometry();
 
             for slot in inv.slots() {
                 let (min, max) = slot.location();
                 let dims = (max - min).inner().as_uvec2();
-                let pl = GridPlacement::new(min, Rotation::East, dims);
+                let pl = GridRegion::new(min, Rotation::East, dims);
                 let color = if let Some(item) = slot.item() {
                     let c = item.color();
                     Color::new(c[0], c[1], c[2], 200)
                 } else {
                     Color::GRAY.alpha(0.6)
                 };
-                draw_grid_placement(d, part_root, pl, color, Color::BLACK);
+                draw_grid_region(d, part_root, pl, color, Color::BLACK);
             }
         }
     }
@@ -219,10 +219,10 @@ pub fn draw_selected_part_cursors(
         let occ = some_or_continue!(grid.get_parts_at(loc.coord));
         for (_layer, id) in occ.iter() {
             let part = ok_or_continue!(world.parts.try_get(id));
-            draw_grid_placement(
+            draw_grid_region(
                 d,
                 grid.origin(),
-                part.placement,
+                part.region,
                 Color::WHITE.alpha(0.0),
                 Color::ORANGE,
             );
@@ -371,10 +371,10 @@ pub fn draw_text_centered_weak(
     );
 }
 
-fn draw_grid_placement(
+fn draw_grid_region(
     d: &mut RaylibDrawHandle,
     root: Isometry2d,
-    pl: GridPlacement,
+    pl: GridRegion,
     fill: Color,
     border: Color,
 ) {
@@ -406,19 +406,19 @@ fn draw_outline_hovered_parts(
         };
 
         if let Ok(part) = parts.try_get(id) {
-            draw_grid_placement(
+            draw_grid_region(
                 d,
                 origin,
-                part.placement,
+                part.region,
                 Color::PURPLE.alpha(0.3),
                 border_color,
             );
 
-            let mut pl = part.placement;
+            let mut pl = part.region;
 
             for _ in 0..4 {
                 pl.rotate_ccw();
-                draw_grid_placement(d, origin, pl, Color::WHITE.alpha(0.0), Color::YELLOW);
+                draw_grid_region(d, origin, pl, Color::WHITE.alpha(0.0), Color::YELLOW);
                 draw_grid_lattice_point(d, grid, pl.origin(), Color::YELLOW);
             }
         }
@@ -558,9 +558,9 @@ pub fn draw_blueprint(bp: &Blueprint, isometry: Isometry2d, d: &mut RaylibDrawHa
                 continue;
             }
 
-            let iso = part_isometry(isometry, part.placement);
+            let iso = part_isometry(isometry, part.region);
 
-            let dims = part.placement.part_aligned_dims().to_meters();
+            let dims = part.region.part_aligned_dims().to_meters();
             fill_rectangle(d, iso, dims, color.alpha(0.4));
         }
     }
@@ -581,11 +581,11 @@ pub fn draw_thruster_classification(
         for thruster_id in &grid.thrusters {
             let part = ok_or_continue!(parts.try_get(*thruster_id));
             let thruster = ok_or_continue!(thrusters.try_get(*thruster_id));
-            let part_iso = part.placement.center_isometry();
+            let part_iso = part.region.center_isometry();
             let wrench = body_frame_wrench(
                 thruster.thrust,
                 part_iso.translation,
-                part.placement.rot(),
+                part.region.rot(),
                 grid.center_of_mass,
             );
 
@@ -599,7 +599,7 @@ pub fn draw_thruster_classification(
                 }
             };
 
-            draw_grid_placement(d, root, part.placement, color.alpha(0.7), Color::MAROON);
+            draw_grid_region(d, root, part.region, color.alpha(0.7), Color::MAROON);
         }
     }
 }
@@ -650,7 +650,7 @@ pub fn draw_editor_part(d: &mut RaylibDrawHandle, world: &World, client: &Client
     let proto = ok_or_return!(world.prototypes.try_get(proto_id));
     let grid_pose = some_or_return!(grid_origin(&world.grids, editor.vehicle));
     let cl = proto.classification();
-    let pl = GridPlacement::new(coord, editor.part_rotation, proto.dims);
+    let pl = GridRegion::new(coord, editor.part_rotation, proto.dims);
     draw_part(d, pl, cl, grid_pose, false, false);
     draw_part_arrow(d, pl, grid_pose);
 }
@@ -668,7 +668,7 @@ pub fn get_hovered_prototype(client: &ClientSpecificInfo, world: &World) -> Opti
 
 pub fn draw_part(
     d: &mut RaylibDrawHandle,
-    pl: GridPlacement,
+    pl: GridRegion,
     cl: PartClassification,
     grid_isometry: Isometry2d,
     grayed: bool,
@@ -701,7 +701,7 @@ pub fn draw_part(
     }
 }
 
-pub fn draw_part_arrow(d: &mut RaylibDrawHandle, pl: GridPlacement, grid_isometry: Isometry2d) {
+pub fn draw_part_arrow(d: &mut RaylibDrawHandle, pl: GridRegion, grid_isometry: Isometry2d) {
     let center = grid_isometry * pl.center_isometry();
     let dims = pl.part_aligned_dims().to_meters();
     let length = 0.2;
@@ -750,7 +750,7 @@ pub fn draw_parts(
 
                 draw_part(
                     d,
-                    part.placement,
+                    part.region,
                     part.classification,
                     origin,
                     !is_shown,
@@ -966,7 +966,7 @@ fn get_pipe_joint_location(
     let part = parts.try_get(joint.part_id)?;
     let grid = grids.try_get(part.grid_id)?;
     let grid_root = grid.origin();
-    let part_root = part.placement.origin_isometry();
+    let part_root = part.region.origin_isometry();
     let offset = joint.offset.to_meters();
     Ok(grid_root * part_root.offset(offset))
 }
@@ -1045,8 +1045,8 @@ fn draw_thruster_plumes(
 
         let origin = grid.origin();
 
-        let mut iso = part_isometry(origin, part.placement);
-        let mut dims = part.placement.part_aligned_dims().to_meters();
+        let mut iso = part_isometry(origin, part.region);
+        let mut dims = part.region.part_aligned_dims().to_meters();
         let p = iso.translation + iso.local_y() * dims.y / 2.0;
         dims.x *= 2.0;
         let offset = iso.local_x() * dims.x;
@@ -1099,7 +1099,7 @@ fn draw_lights(
                 continue;
             }
 
-            let light_isometry = origin * part.placement.center_isometry();
+            let light_isometry = origin * part.region.center_isometry();
             fill_rectangle(d, light_isometry, Vec2::splat(0.1), Color::ORANGE);
             draw_light_source(d, light_isometry.translation, 0.1, Color::YELLOW);
         }

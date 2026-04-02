@@ -64,7 +64,7 @@ fn build_ship_on_another_ship_then_navigate() {
 
     for (_id, instance) in bp.parts() {
         let mut instance = instance.clone();
-        instance.placement.shift((20, 20).into());
+        instance.region.shift((20, 20).into());
         assert!(insert_part(grid_id, &mut world, &instance, true).is_ok());
     }
 
@@ -147,7 +147,7 @@ fn splitting_vehicle_should_preserve_part_coordinates() {
 
     let mut gt_part_coords = BTreeMap::new();
     for (part_id, part) in world.parts.iter() {
-        let center = grid.origin() * part.placement.center_isometry();
+        let center = grid.origin() * part.region.center_isometry();
         gt_part_coords.insert(*part_id, center);
     }
 
@@ -157,7 +157,7 @@ fn splitting_vehicle_should_preserve_part_coordinates() {
         let mut new_part_coords = BTreeMap::new();
         for (part_id, part) in w.parts.iter() {
             let grid = w.grids.try_get(part.grid_id).unwrap();
-            let center = grid.origin() * part.placement.center_isometry();
+            let center = grid.origin() * part.region.center_isometry();
             new_part_coords.insert(part_id, (part.grid_id, center));
         }
         for (id, (_grid_id, actual)) in new_part_coords {
@@ -255,7 +255,7 @@ fn get_inventory_at_grid_location() {
     let proto_id = world.spawner.spawn();
     world.prototypes.spawn(proto_id, proto.clone());
 
-    let pl = GridPlacement::new((-3, 2), Rotation::North, proto.dims);
+    let pl = GridRegion::new((-3, 2), Rotation::North, proto.dims);
     let instance = PartInstance::new("test-cargo", PartLayer::Internal, pl);
     let part_id = insert_part(grid_id, &mut world, &instance, true).unwrap();
 

@@ -22,8 +22,8 @@ pub fn raylib_to_glam_invert_y(v: Vector2) -> Vec2 {
     Vec2::new(v.x, -v.y)
 }
 
-pub fn part_isometry(root_isometry: Isometry2d, placement: GridPlacement) -> Isometry2d {
-    let part_iso = placement.origin_isometry();
+pub fn part_isometry(root_isometry: Isometry2d, region: GridRegion) -> Isometry2d {
+    let part_iso = region.origin_isometry();
 
     // TODO replace this with std::ops::Mul
     let rotation = root_isometry.rotation + part_iso.rotation;

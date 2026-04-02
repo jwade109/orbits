@@ -318,6 +318,6 @@ pub fn pipette_part_if_in_editor_on_q(world: &World, client: &mut ClientSpecific
     let part = ok_or_return!(world.parts.try_get(part_id));
 
     editor.prototype_id = Some(part.prototype);
-    editor.part_rotation = part.placement.rot();
+    editor.part_rotation = part.region.rot();
     editor.layer = Some(part.layer);
 }

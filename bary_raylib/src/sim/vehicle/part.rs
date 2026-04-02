@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Part {
-    pub placement: GridPlacement,
+    pub region: GridRegion,
     // TODO this field is kinda duplicated
     // with the prototype information.
     pub mass: Mass,

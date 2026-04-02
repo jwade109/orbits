@@ -340,7 +340,7 @@ fn update_thrusters(
 
             let ctrl = cpu.vehicle_control;
 
-            let tac = match part.placement.rot() {
+            let tac = match part.region.rot() {
                 Rotation::East => ctrl.plus_x,
                 Rotation::North => ctrl.neg_y,
                 Rotation::West => ctrl.neg_x,
@@ -348,9 +348,9 @@ fn update_thrusters(
             };
 
             // TODO(optimization) reduce lookups by storing isometry on the thruster?
-            let isometry = part.placement.center_isometry();
+            let isometry = part.region.center_isometry();
             let center_of_thrust = isometry.translation;
-            let rotation = part.placement.rot();
+            let rotation = part.region.rot();
             let wrench = body_frame_wrench(
                 thruster.thrust,
                 center_of_thrust,
@@ -534,12 +534,12 @@ fn editor_on_left_click(
     if let Some(proto_id) = e.prototype_id {
         let proto = ok_or_return!(world.prototypes.try_get(proto_id));
 
-        let placement = GridPlacement::new(coord, e.part_rotation, proto.dims);
+        let region = GridRegion::new(coord, e.part_rotation, proto.dims);
 
         let instance = PartInstance {
             name: proto.name.clone(),
             layer: proto.layer,
-            placement,
+            region,
         };
 
         let result = insert_part(e.vehicle, world, &instance, true);

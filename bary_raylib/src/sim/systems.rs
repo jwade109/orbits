@@ -103,8 +103,8 @@ pub fn update_grid_acceleration_c(
                 continue;
             };
 
-            let center_of_thrust = part.placement.center_isometry().translation;
-            let rotation = part.placement.rot();
+            let center_of_thrust = part.region.center_isometry().translation;
+            let rotation = part.region.rot();
             let wrench = body_frame_wrench(
                 thruster.thrust,
                 center_of_thrust,
@@ -310,7 +310,7 @@ pub fn insert_part(
 
 pub fn can_insert_part_c(
     grid_id: Ent,
-    pl: GridPlacement,
+    pl: GridRegion,
     layer: PartLayer,
     grids: &Components<VehicleGrid>,
 ) -> BaryResult<bool> {
@@ -334,7 +334,7 @@ pub fn insert_part_c(
 ) -> BaryResult<Ent> {
     let grid = grids.try_get_mut(grid_id)?;
 
-    if !grid.can_insert_part(instance.placement, instance.layer) {
+    if !grid.can_insert_part(instance.region, instance.layer) {
         warn!("Can't insert part!");
         return Err(BaryError::GridSpaceOccupied);
     }
@@ -343,7 +343,7 @@ pub fn insert_part_c(
     let proto = prototypes.try_get(proto_id)?;
 
     let part = Part {
-        placement: instance.placement,
+        region: instance.region,
         layer: instance.layer(),
         mass: proto.mass,
         prototype: proto_id,
@@ -356,7 +356,7 @@ pub fn insert_part_c(
     grid.parts.insert(part_id);
     parts.spawn(part_id, part);
 
-    grid.mark_occupied(instance.placement, instance.layer(), part_id);
+    grid.mark_occupied(instance.region, instance.layer(), part_id);
 
     if let Some(inv) = &proto.inventory_data {
         let slots = inv
@@ -497,7 +497,7 @@ pub mod find {
             let part = parts.try_get(*part_id)?;
             let proto = prototypes.try_get(part.prototype)?;
             sum += proto.mass;
-            let center = part.placement.center_isometry().translation;
+            let center = part.region.center_isometry().translation;
             com += center.as_dvec2();
         }
         if !sum.is_zero() {
@@ -628,7 +628,7 @@ pub fn get_blueprint_c(
     for part_id in &grid.parts {
         let part = parts.try_get(*part_id)?;
         let proto = prototypes.try_get(part.prototype)?;
-        bp.add_part(proto.name.to_string(), part.placement, part.layer);
+        bp.add_part(proto.name.to_string(), part.region, part.layer);
     }
     Ok(bp)
 }
@@ -644,7 +644,7 @@ pub fn get_sum_linear_forces(
     for part_id in &grid.thrusters {
         let thruster = thrusters.try_get(*part_id)?;
         let part = parts.try_get(*part_id)?;
-        let thrust = rotate(Vec2::X, part.placement.rot().to_angle() as f32) * thruster.thrust;
+        let thrust = rotate(Vec2::X, part.region.rot().to_angle() as f32) * thruster.thrust;
         sum += thrust;
     }
     Ok(sum)
@@ -669,8 +669,8 @@ pub fn update_grid_physical_props(
 
     for part_id in grid.parts.clone() {
         let part = parts.try_get_mut(part_id)?;
-        part.placement.shift(offset.into());
-        grid.mark_occupied(part.placement, part.layer, part_id);
+        part.region.shift(offset.into());
+        grid.mark_occupied(part.region, part.layer, part_id);
     }
 
     let old_com = grid.center_of_mass;
@@ -709,7 +709,7 @@ pub fn get_grid_physical_props(
     let mut com = Vec2::ZERO;
     for part_id in &grid.parts {
         let part = parts.try_get(*part_id)?;
-        let center = part.placement.center_isometry();
+        let center = part.region.center_isometry();
         let mass_portion = part.mass.to_kg_f64() / total_mass.to_kg_f64();
         com += center.translation * mass_portion as f32;
     }
@@ -910,7 +910,7 @@ mod tests {
         let instance = PartInstance::new(
             part_name,
             PartLayer::Internal,
-            GridPlacement::new((2, 20), Rotation::East, dims),
+            GridRegion::new((2, 20), Rotation::East, dims),
         );
 
         let id = insert_part(grid_id, &mut world, &instance, true).unwrap();
@@ -924,9 +924,9 @@ mod tests {
         assert_eq!(part.grid_id, grid_id);
         assert_eq!(part.prototype, proto_id);
         assert_eq!(
-            part.placement,
-            // TODO allow insertion at a given placement
-            GridPlacement::new((2, 20), Rotation::East, (6, 3))
+            part.region,
+            // TODO allow insertion at a given region
+            GridRegion::new((2, 20), Rotation::East, (6, 3))
         );
 
         assert_eq!(world.parts.len(), 99);
@@ -1007,7 +1007,7 @@ mod tests {
         let instance = PartInstance::new(
             "dingus",
             PartLayer::Internal,
-            GridPlacement::new((0, 0), Rotation::East, (3, 3)),
+            GridRegion::new((0, 0), Rotation::East, (3, 3)),
         );
 
         let result = insert_part(id, &mut world, &instance, true);
@@ -1017,7 +1017,7 @@ mod tests {
         let instance = PartInstance::new(
             "cargo",
             PartLayer::Internal,
-            GridPlacement::new((0, 0), Rotation::East, (3, 3)),
+            GridRegion::new((0, 0), Rotation::East, (3, 3)),
         );
 
         let result = insert_part(Ent(103), &mut world, &instance, true);
@@ -1043,13 +1043,13 @@ mod tests {
         let instance_a = PartInstance::new(
             "motor",
             PartLayer::Internal,
-            GridPlacement::new((0, 0), Rotation::East, (6, 3)),
+            GridRegion::new((0, 0), Rotation::East, (6, 3)),
         );
 
         let instance_b = PartInstance::new(
             "small-motor",
             PartLayer::Internal,
-            GridPlacement::new((3, 3), Rotation::North, (4, 2)),
+            GridRegion::new((3, 3), Rotation::North, (4, 2)),
         );
 
         let a_id = insert_part(grid_id, &mut world, &instance_a, true).unwrap();
@@ -1161,13 +1161,13 @@ mod tests {
         let instance = PartInstance {
             name: "frame".to_string(),
             layer: PartLayer::Structural,
-            placement: GridPlacement::new((1, 1), Rotation::East, (2, 2)),
+            region: GridRegion::new((1, 1), Rotation::East, (2, 2)),
         };
 
         let result = insert_part(grid_id, &mut world, &instance, true);
         assert!(result.is_ok());
 
-        let part_dims = instance.placement.grid_aligned_dims().to_meters();
+        let part_dims = instance.region.grid_aligned_dims().to_meters();
 
         assert_eq!(part_dims, Vec2::splat(0.5));
 
@@ -1200,17 +1200,14 @@ mod tests {
         let instance = PartInstance {
             name: "small-motor".to_string(),
             layer: PartLayer::Internal,
-            placement: GridPlacement::new((0, -1), Rotation::East, dims),
+            region: GridRegion::new((0, -1), Rotation::East, dims),
         };
 
         let thruster_id = insert_part(grid_id, &mut world, &instance, true).unwrap();
 
         let (_mass, com) =
             get_grid_physical_props_by_id(grid_id, &world.grids, &world.parts).unwrap();
-        assert_eq!(
-            com,
-            instance.placement.grid_aligned_dims().to_meters() / 2.0
-        );
+        assert_eq!(com, instance.region.grid_aligned_dims().to_meters() / 2.0);
 
         // obviously, turn the main thruster on
         let r = set_thruster_state(thruster_id, &mut world, true);
@@ -1282,14 +1279,14 @@ mod tests {
         let proto_id = world.spawner.spawn();
         world.prototypes.spawn(proto_id, proto);
 
-        let placement = GridPlacement::new((0, 0), Rotation::East, dims);
+        let region = GridRegion::new((0, 0), Rotation::East, dims);
 
         let grid_id = spawn_empty_grid(&mut world, "testbed");
 
         let instance = PartInstance {
             name: part_name.to_string(),
             layer: PartLayer::Internal,
-            placement,
+            region,
         };
 
         use find::grid_pose;

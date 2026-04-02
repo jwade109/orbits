@@ -31,7 +31,7 @@ pub fn destroy_part_without_integrity_check(
     let proto = world.prototypes.try_get(part.prototype)?;
     let grid = world.grids.try_get_mut(grid_id)?;
 
-    let instance = PartInstance::new(&proto.name, proto.layer, part.placement);
+    let instance = PartInstance::new(&proto.name, proto.layer, part.region);
 
     if grid.thrusters.contains(&part_id) {
         world.thrusters.despawn(part_id)?;
@@ -63,13 +63,13 @@ pub fn duplicate_part_to_new_grid(world: &mut World, part_id: Ent) -> BaryResult
     let part = world.parts.try_get(part_id)?;
     let grid = world.grids.try_get(part.grid_id)?;
     let new_name = format!("{}-debris", grid.name);
-    let new_part_pose = grid.origin() * part.placement.origin_isometry();
+    let new_part_pose = grid.origin() * part.region.origin_isometry();
     let new_grid_vel = grid.velocity + Isometry2d::new(randvec(1.0, 3.0), rand(-0.1, 0.1));
     let proto = world.prototypes.try_get(part.prototype)?;
     let instance = PartInstance {
         name: proto.name.clone(),
         layer: proto.layer,
-        placement: GridPlacement::new((0, 0), Rotation::East, proto.dims),
+        region: GridRegion::new((0, 0), Rotation::East, proto.dims),
     };
     let new_grid_id = ops::spawn_empty_grid(world, new_name);
     ops::set_grid_pose(world, new_grid_id, new_part_pose)?;
@@ -104,7 +104,7 @@ pub fn split_grid_if_necessary(world: &mut World, grid_id: Ent) -> BaryResult<Ve
             continue;
         };
         let part = world.parts.try_get(*key_part)?;
-        let pose = grid.origin() * part.placement.origin_isometry();
+        let pose = grid.origin() * part.region.origin_isometry();
         info!("Position of {}: {:?}", key_part, pose);
         key_parts.insert(*key_part, pose);
     }
@@ -141,7 +141,7 @@ pub fn split_grid_if_necessary(world: &mut World, grid_id: Ent) -> BaryResult<Ve
         };
         let part = world.parts.try_get(*key_part)?;
         let grid = world.grids.try_get_mut(part.grid_id)?;
-        let pose = grid.origin() * part.placement.origin_isometry();
+        let pose = grid.origin() * part.region.origin_isometry();
         let delta = pose.translation - old_pose.translation;
         info!("Position of {}: {:?}, was {:?}", key_part, pose, old_pose);
         grid.particle_location.translation -= delta;
@@ -163,7 +163,7 @@ pub fn rebuild_index_from_island(
         let part = parts.try_get(part_id)?;
         dst.parts_mass += part.mass;
         dst.parts.insert(part_id);
-        dst.mark_occupied(part.placement, part.layer, part_id);
+        dst.mark_occupied(part.region, part.layer, part_id);
         if src.thrusters.contains(&part_id) {
             dst.thrusters.insert(part_id);
         }
