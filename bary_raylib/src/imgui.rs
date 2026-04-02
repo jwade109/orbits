@@ -262,7 +262,7 @@ fn imgui_hovered_part_info(
         occ.to_array()
     );
 
-    let slot = find::get_slot_c(gridloc, &world.grids, &world.inventories);
+    let slot = find::get_slot_c(gridloc, &world.grids, &world.parts, &world.inventories);
     if let Ok(slot) = slot {
         s += &format!("\n\nInventory slot here: {}\n", slot_info_str(slot));
     }

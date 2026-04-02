@@ -295,13 +295,14 @@ fn get_inventory_at_grid_location() {
         coord: PartCoord::ZERO,
     };
 
-    let inv_slot = find::inventory_at_c(loc, &world.grids, &world.inventories).unwrap();
+    let inv_slot =
+        find::inventory_at_c(loc, &world.grids, &world.parts, &world.inventories).unwrap();
 
     assert_eq!(inv_slot, (part_id, 0));
 
     loc.coord = (4, 7).into();
 
-    let failure = find::inventory_at_c(loc, &world.grids, &world.inventories);
+    let failure = find::inventory_at_c(loc, &world.grids, &world.parts, &world.inventories);
 
     assert_eq!(failure, Err(BaryError::NoPartsAt((4, 7).into())));
 }

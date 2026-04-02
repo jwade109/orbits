@@ -563,9 +563,10 @@ pub mod find {
     pub fn get_slot_c<'a>(
         loc: GridLocation,
         grids: &Components<VehicleGrid>,
+        parts: &Components<Part>,
         inventories: &'a Components<Inventory>,
     ) -> BaryResult<&'a InvSlot> {
-        let (part_id, slot_id) = inventory_at_c(loc, grids, inventories)?;
+        let (part_id, slot_id) = inventory_at_c(loc, grids, parts, inventories)?;
         let inv = inventories.try_get(part_id)?;
         inv.get_slot(slot_id).ok_or(BaryError::NoInvSlot(slot_id))
     }
@@ -573,7 +574,7 @@ pub mod find {
     pub fn inventory_at_c(
         loc: GridLocation,
         grids: &Components<VehicleGrid>,
-        // parts: &Components<Part>,
+        parts: &Components<Part>,
         inventories: &Components<Inventory>,
     ) -> BaryResult<(Ent, usize)> {
         let grid = grids.try_get(loc.grid_id)?;
@@ -583,11 +584,11 @@ pub mod find {
         let part_id = occ
             .at_layer(PartLayer::Internal)
             .ok_or(BaryError::NoPartsInLayer(PartLayer::Internal))?;
-
-        // let part = parts.try_get(part_id)?;
-
-        // TODO inventory index
-        Ok((part_id, 0))
+        let inv = inventories.try_get(part_id)?;
+        let part = parts.try_get(part_id)?;
+        let local = part.region.to_local(loc.coord);
+        let idx = inv.get_slot_idx(local).ok_or(BaryError::NoInvAt(loc))?;
+        Ok((part_id, idx))
     }
 
     pub fn closest_grid(

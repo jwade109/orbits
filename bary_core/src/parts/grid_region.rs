@@ -148,11 +148,21 @@ impl GridRegion {
     }
 
     pub fn to_local(&self, grid: PartCoord) -> PartCoord {
-        PartCoord::ZERO
+        match self.rotation {
+            Rotation::East => grid - self.bottom_left,
+            Rotation::North => PartCoord::ZERO,
+            Rotation::West => PartCoord::ZERO,
+            Rotation::South => PartCoord::ZERO,
+        }
     }
 
     pub fn to_global(&self, local: PartCoord) -> PartCoord {
-        PartCoord::ZERO
+        match self.rotation {
+            Rotation::East => local + self.bottom_left,
+            Rotation::North => PartCoord::ZERO,
+            Rotation::West => PartCoord::ZERO,
+            Rotation::South => PartCoord::ZERO,
+        }
     }
 }
 

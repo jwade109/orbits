@@ -345,6 +345,17 @@ impl Inventory {
         self.0.iter()
     }
 
+    pub fn get_slot_idx(&self, p: PartCoord) -> Option<usize> {
+        for (i, slot) in self.slots().enumerate() {
+            let offset = (p - slot.location.0).inner();
+            let max = slot.location.1.inner();
+            if offset.x < max.x && offset.y < max.y && offset.x >= 0 && offset.y >= 0 {
+                return Some(i);
+            }
+        }
+        None
+    }
+
     pub fn can_store(&self, item: Item, count: u64) -> bool {
         // TODO this doesn't cover the case where multiple slots
         // combined can store the given amount
