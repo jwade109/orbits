@@ -631,10 +631,10 @@ pub fn update_world(world: &mut World) {
     propagate_grid_rigid_bodies(&mut world.grids);
     update_trackers(&mut world.tracking, &world.grids, world.ticks);
 
-    // let ticks_per_minute = TICKS_PER_SECOND * 60;
-    // if world.ticks % ticks_per_minute == 0 {
-    // fill_inventories_at_random(world);
-    // }
+    let ticks_per_minute = TICKS_PER_SECOND * 60;
+    if world.ticks % ticks_per_minute == 0 {
+        fill_inventories_at_random(world);
+    }
 
     update_machines(world);
 }

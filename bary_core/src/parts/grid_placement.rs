@@ -146,20 +146,15 @@ impl GridPlacement {
         // TODO(testing) test this
         self.cells().any(|c| c == coord)
     }
+
+    pub fn to_local(&self, grid: PartCoord) -> PartCoord {
+        PartCoord::ZERO
+    }
+
+    pub fn to_global(&self, local: PartCoord) -> PartCoord {
+        PartCoord::ZERO
+    }
 }
-
-// pub fn isometry_to_transform(iso: Isometry2d) -> Transform {
-//     let iso = Isometry3d::new(
-//         iso.translation.extend(0.0),
-//         Quat::from_rotation_z(iso.rotation.as_radians()),
-//     );
-//     Transform::from_isometry(iso)
-// }
-
-// pub fn transform_to_isometry(transform: Transform) -> Isometry2d {
-//     let yaw = get_yaw(transform);
-//     Isometry2d::new(transform.translation.xy(), yaw.into())
-// }
 
 impl std::ops::Add<PartCoord> for GridPlacement {
     type Output = GridPlacement;

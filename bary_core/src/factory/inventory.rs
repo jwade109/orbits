@@ -325,7 +325,7 @@ impl Inventory {
         self.0.push(slot);
     }
 
-    pub fn get_slot(&mut self, idx: usize) -> Option<&InvSlot> {
+    pub fn get_slot(&self, idx: usize) -> Option<&InvSlot> {
         self.0.get(idx)
     }
 

@@ -12,6 +12,7 @@ pub enum BaryError {
     GridSpaceOccupied,
     NoPartsAt(PartCoord),
     NoPartsInLayer(PartLayer),
+    NoInvSlot(usize),
     IoError(String),
     SerdeYaml(String),
     TomlSer(toml::ser::Error),

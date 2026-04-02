@@ -168,7 +168,7 @@ pub fn draw_world(
         draw_thruster_classification(&mut c, &world.grids, &world.parts, &world.thrusters);
     }
 
-    draw_focused_grid_cursor(&mut c, &world.grids, &world.parts, &client);
+    draw_outline_hovered_parts(&mut c, &world.grids, &world.parts, &client);
 
     draw_mouse_world_position(
         &mut c,
@@ -246,6 +246,27 @@ pub fn draw_editor_selection_region(
     draw_line(d, start.translation, end.translation, Color::TEAL);
 }
 
+pub fn draw_grid_coord(
+    d: &mut RaylibDrawHandle,
+    grid: &VehicleGrid,
+    coord: PartCoord,
+    color: Color,
+) {
+    let iso = grid.origin().offset(coord.to_meters());
+    draw_rectangle(d, iso, Vec2::splat(PartCoord::CELL_WIDTH), color);
+}
+
+pub fn draw_grid_lattice_point(
+    d: &mut RaylibDrawHandle,
+    grid: &VehicleGrid,
+    coord: PartCoord,
+    color: Color,
+) {
+    let dims = Vec2::splat(PartCoord::CELL_WIDTH * 0.5);
+    let iso = grid.origin().offset(coord.to_meters() - dims / 2.0);
+    draw_rectangle(d, iso, dims, color);
+}
+
 pub fn draw_hovered_part_cursor(
     d: &mut RaylibDrawHandle,
     world: &World,
@@ -264,8 +285,13 @@ pub fn draw_hovered_part_cursor(
         Color::GRAY
     };
 
-    let iso = grid.origin().offset(gridloc.coord.to_meters());
-    draw_rectangle(d, iso, Vec2::splat(PartCoord::CELL_WIDTH), color);
+    draw_grid_coord(d, grid, gridloc.coord, color);
+
+    let mut coord = gridloc.coord;
+    for _ in 0..4 {
+        coord = coord.rotated_ccw();
+        draw_grid_coord(d, grid, coord, Color::RED);
+    }
 }
 
 pub fn draw_mouse_screen_position(d: &mut RaylibDrawHandle, mouse_screen_position: Option<Vec2>) {
@@ -360,7 +386,7 @@ fn draw_grid_placement(
     draw_rectangle(d, iso, dims, border);
 }
 
-fn draw_focused_grid_cursor(
+fn draw_outline_hovered_parts(
     d: &mut RaylibDrawHandle,
     grids: &Components<VehicleGrid>,
     parts: &Components<Part>,
@@ -387,6 +413,14 @@ fn draw_focused_grid_cursor(
                 Color::PURPLE.alpha(0.3),
                 border_color,
             );
+
+            let mut pl = part.placement;
+
+            for _ in 0..4 {
+                pl.rotate_ccw();
+                draw_grid_placement(d, origin, pl, Color::WHITE.alpha(0.0), Color::YELLOW);
+                draw_grid_lattice_point(d, grid, pl.origin(), Color::YELLOW);
+            }
         }
     }
 }

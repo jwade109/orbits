@@ -5,7 +5,7 @@ use crate::client::ClientSpecificInfo;
 use crate::cmd::prompt::draw_command_prompt;
 use crate::components::Components;
 use crate::render::draw::*;
-use crate::sim::{Computer, VehicleGrid, World};
+use crate::sim::{Computer, VehicleGrid, World, find};
 use crate::sounds::*;
 use crate::ui::{Window, draw_window};
 use crate::utils::*;
@@ -179,20 +179,24 @@ fn computer_info_str(cpu: &Computer) -> String {
     lines.into_iter().collect()
 }
 
+fn slot_info_str(slot: &InvSlot) -> String {
+    if let Some(contents) = slot.contents() {
+        format!(
+            "\n  - {:?} ({:0.1}%) {}",
+            contents,
+            100.0 * slot.fill_percentage(),
+            slot.mass(),
+        )
+    } else {
+        format!("\n  - Empty - {:?}", slot.filter())
+    }
+}
+
 fn inventory_info_str(inv: &Inventory) -> String {
     let mut lines = vec![format!("INVENTORY")];
 
     for slot in inv.slots() {
-        let line = if slot.is_empty() {
-            format!("\n  - Empty - {:?}", slot.filter())
-        } else {
-            format!(
-                "\n  - {:?} ({:0.1}%) {}",
-                slot.contents(),
-                100.0 * slot.fill_percentage(),
-                slot.mass(),
-            )
-        };
+        let line = slot_info_str(slot);
         lines.push(line);
     }
 
@@ -258,12 +262,18 @@ fn imgui_hovered_part_info(
         occ.to_array()
     );
 
+    let slot = find::get_slot_c(gridloc, &world.grids, &world.inventories);
+    if let Ok(slot) = slot {
+        s += &format!("\n\nInventory slot here: {}\n", slot_info_str(slot));
+    }
+
     for (layer, part_id) in occ.iter() {
-        let Ok(part) = world.parts.try_get(part_id) else {
-            return;
-        };
+        let part = ok_or_continue!(world.parts.try_get(part_id));
+        let part_local = part.placement.to_local(gridloc.coord);
 
         s += &format!("\n\nPart ID: {}", part_id);
+        s += &format!("\nPart local coord: {}", part_local);
+
         s += &format!(
             "\nPlacement: {:?} {} {:?}",
             layer,

@@ -473,6 +473,8 @@ pub fn get_thruster_levels(
 pub mod find {
     use log::error;
 
+    use crate::client::GridLocation;
+
     use super::*;
 
     /// Produces the entity ID corresponding to a grid's primary CPU,
@@ -556,6 +558,36 @@ pub mod find {
         grids
             .iter()
             .find_map(|(id, grid)| (grid.name == name).then(|| *id))
+    }
+
+    pub fn get_slot_c<'a>(
+        loc: GridLocation,
+        grids: &Components<VehicleGrid>,
+        inventories: &'a Components<Inventory>,
+    ) -> BaryResult<&'a InvSlot> {
+        let (part_id, slot_id) = inventory_at_c(loc, grids, inventories)?;
+        let inv = inventories.try_get(part_id)?;
+        inv.get_slot(slot_id).ok_or(BaryError::NoInvSlot(slot_id))
+    }
+
+    pub fn inventory_at_c(
+        loc: GridLocation,
+        grids: &Components<VehicleGrid>,
+        // parts: &Components<Part>,
+        inventories: &Components<Inventory>,
+    ) -> BaryResult<(Ent, usize)> {
+        let grid = grids.try_get(loc.grid_id)?;
+        let occ = grid
+            .get_parts_at(loc.coord)
+            .ok_or(BaryError::NoPartsAt(loc.coord))?;
+        let part_id = occ
+            .at_layer(PartLayer::Internal)
+            .ok_or(BaryError::NoPartsInLayer(PartLayer::Internal))?;
+
+        // let part = parts.try_get(part_id)?;
+
+        // TODO inventory index
+        Ok((part_id, 0))
     }
 
     pub fn closest_grid(

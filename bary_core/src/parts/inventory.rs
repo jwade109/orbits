@@ -2,7 +2,7 @@ use crate::math::IVec2;
 use crate::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct SlotData {
     pub filter: ItemFilter,
     pub volume_liters: f32,

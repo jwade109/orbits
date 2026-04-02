@@ -3,11 +3,15 @@ use std::collections::{BTreeMap, BTreeSet};
 use bary_core::prelude::*;
 
 use crate::{
+    client::GridLocation,
     ops::{set_grid_pose, set_primary_computer_state, set_primary_computer_waypoint},
     query::{blueprint_by_name, grid_by_name},
+    result::BaryError,
     sim::{
-        PartOccupancy, World, destroy_part, find::grid_pose, get_grid_physical_props_by_id,
-        insert_part, split_grid_if_necessary, update_world,
+        PartOccupancy, World, destroy_part,
+        find::{self, grid_pose},
+        get_grid_physical_props_by_id, insert_part, spawn_empty_grid, split_grid_if_necessary,
+        update_world,
     },
     tests::assert_world_is_consistent,
     world_builder::WorldBuilder,
@@ -212,4 +216,92 @@ fn splitting_vehicle_should_preserve_part_coordinates() {
     assert_eq!(world.grids.len(), 2);
 
     test_part_coords(&world);
+}
+
+#[test]
+fn get_inventory_at_grid_location() {
+    let mut world = World::empty();
+
+    let grid_id = spawn_empty_grid(&mut world, "whatever");
+
+    let slots = vec![
+        SlotData {
+            min: IVec2::ZERO,
+            max: IVec2::ONE,
+            ..SlotData::default()
+        },
+        SlotData {
+            min: IVec2::ONE,
+            max: IVec2::splat(2),
+            ..SlotData::default()
+        },
+    ];
+
+    let inv_data = InventoryData { slots };
+
+    let proto = PartPrototype {
+        name: "test-cargo".to_string(),
+        mass: Mass::grams(1000),
+        dims: UVec2::new(6, 4),
+        layer: PartLayer::Internal,
+        excavator_data: None,
+        computer_data: None,
+        inventory_data: Some(inv_data),
+        thruster_data: None,
+        machine_data: None,
+        docking_port_data: None,
+    };
+
+    let proto_id = world.spawner.spawn();
+    world.prototypes.spawn(proto_id, proto.clone());
+
+    let pl = GridPlacement::new((-3, 2), Rotation::North, proto.dims);
+    let instance = PartInstance::new("test-cargo", PartLayer::Internal, pl);
+    let part_id = insert_part(grid_id, &mut world, &instance, true).unwrap();
+
+    for part in world.parts.values() {
+        println!("- {:?}", part);
+    }
+
+    for inv in world.inventories.values() {
+        for slot in inv.slots() {
+            println!("- {:?}", slot);
+        }
+    }
+
+    let grid = world.grids.try_get(grid_id).unwrap();
+
+    for x in 0..3 {
+        for y in 0..6 {
+            let occ = grid.get_parts_at((x, y).into());
+            assert!(occ.is_some(), "{}, {}", x, y);
+        }
+    }
+
+    assert_eq!(grid.bounds, ((0, 0).into(), (4, 6).into()));
+
+    // the part looks like this in the grid frame, with inventories
+    // indicated by @, #, %
+    //
+    //    --%%%%--
+    //    --%%%%--
+    //    ----@@--
+    //    ----@@--
+    //    ------##
+    //    ------##
+
+    let mut loc = GridLocation {
+        grid_id,
+        coord: PartCoord::ZERO,
+    };
+
+    let inv_slot = find::inventory_at_c(loc, &world.grids, &world.inventories).unwrap();
+
+    assert_eq!(inv_slot, (part_id, 0));
+
+    loc.coord = (4, 7).into();
+
+    let failure = find::inventory_at_c(loc, &world.grids, &world.inventories);
+
+    assert_eq!(failure, Err(BaryError::NoPartsAt((4, 7).into())));
 }

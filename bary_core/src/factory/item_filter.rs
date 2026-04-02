@@ -1,8 +1,9 @@
 use self::super::Item;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub enum ItemFilter {
+    #[default]
     Any,
     Solid,
     Liquid,

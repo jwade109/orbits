@@ -57,6 +57,44 @@ impl PartCoord {
             .flat_map(move |x| (lower.y..=upper.y).map(move |y| IVec2::new(x, y)))
             .map(|p| Self::new(p))
     }
+
+    pub fn rotated_ccw(&self) -> Self {
+        let v = self.inner() + IVec2::Y;
+        let v = IVec2::new(-v.y, v.x);
+        v.into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rotating_part_coords() {
+        let v = PartCoord::ZERO.rotated_ccw();
+        assert_eq!(v, (-1, 0).into());
+
+        let v = v.rotated_ccw();
+        assert_eq!(v, (-1, -1).into());
+
+        let v = v.rotated_ccw();
+        assert_eq!(v, (0, -1).into());
+
+        let v = v.rotated_ccw();
+        assert_eq!(v, (0, 0).into());
+
+        let v = PartCoord::ONE.rotated_ccw();
+        assert_eq!(v, (-2, 1).into());
+
+        let v = v.rotated_ccw();
+        assert_eq!(v, (-2, -2).into());
+
+        let v = v.rotated_ccw();
+        assert_eq!(v, (1, -2).into());
+
+        let v = v.rotated_ccw();
+        assert_eq!(v, (1, 1).into());
+    }
 }
 
 impl std::ops::Add for PartCoord {
