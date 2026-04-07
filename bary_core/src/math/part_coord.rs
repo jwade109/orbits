@@ -1,5 +1,6 @@
 use super::aabb::*;
 use super::math::*;
+use crate::math::Rotation;
 use crate::prelude::{IVec2, UVec2, Vec2};
 use serde::{Deserialize, Serialize};
 
@@ -62,6 +63,15 @@ impl PartCoord {
         let v = self.inner() + IVec2::Y;
         let v = IVec2::new(-v.y, v.x);
         v.into()
+    }
+
+    pub fn origin_with(&self, rot: Rotation) -> Self {
+        match rot {
+            Rotation::East => *self,
+            Rotation::North => *self + IVec2::X.into(),
+            Rotation::West => *self + IVec2::ONE.into(),
+            Rotation::South => *self + IVec2::Y.into(),
+        }
     }
 }
 

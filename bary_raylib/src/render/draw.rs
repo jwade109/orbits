@@ -21,7 +21,7 @@ fn draw_text(d: &mut RaylibDrawHandle, iso: Isometry2d, text: &str, font_size: f
             Vector2::zero(),
             -iso.rotation.to_degrees(),
             font_size,
-            0.1,
+            font_size / 20.0,
             Color::ORANGE,
         );
     }
@@ -107,6 +107,49 @@ fn draw_inventories(
     }
 }
 
+fn draw_stuff_for_angela(d: &mut RaylibDrawHandle, world: &World, client: &ClientSpecificInfo) {
+    let loc = some_or_return!(client.hovered_grid_loc());
+    let grid = ok_or_return!(world.grids.try_get(loc.grid_id));
+    let occ = some_or_return!(grid.get_parts_at(loc.coord));
+    let part_id = some_or_return!(occ.top());
+    let part = ok_or_return!(world.parts.try_get(part_id));
+
+    draw_grid_region(
+        d,
+        grid.origin(),
+        part.region,
+        Color::WHITE.alpha(0.1),
+        Color::WHITE,
+    );
+
+    let e = part.region.origin().inner();
+
+    let rotation = part.region.rot();
+
+    draw_grid_lattice_point(d, grid, e.into(), Color::PURPLE);
+
+    let p = loc.coord.origin_with(rotation).inner();
+
+    // draw_grid_lattice_point(d, grid, p.into(), Color::RED);
+
+    let u = p - e;
+
+    let v = match rotation {
+        Rotation::East => u,
+        Rotation::North => IVec2::new(u.y, -u.x),
+        Rotation::West => IVec2::new(-u.x, -u.y),
+        Rotation::South => IVec2::new(-u.y, u.x),
+    };
+
+    let v = PartCoord::new(v);
+
+    let marker_iso =
+        grid.origin() * part.region.origin_isometry().offset(v.to_meters());
+    fill_circle(d, marker_iso.translation, 0.08, Color::RED);
+    let s = format!("{} {}", part_id, v);
+    draw_text(d, marker_iso.with_rotation(0.0), &s, 0.3)
+}
+
 pub fn draw_world(
     world: &World,
     client: &ClientSpecificInfo,
@@ -168,7 +211,9 @@ pub fn draw_world(
         draw_thruster_classification(&mut c, &world.grids, &world.parts, &world.thrusters);
     }
 
-    draw_outline_hovered_parts(&mut c, &world.grids, &world.parts, &client);
+    // draw_outline_hovered_parts(&mut c, &world.grids, &world.parts, &client);
+
+    draw_stuff_for_angela(&mut c, world, client);
 
     draw_mouse_world_position(
         &mut c,
@@ -286,12 +331,6 @@ pub fn draw_hovered_part_cursor(
     };
 
     draw_grid_coord(d, grid, gridloc.coord, color);
-
-    let mut coord = gridloc.coord;
-    for _ in 0..4 {
-        coord = coord.rotated_ccw();
-        draw_grid_coord(d, grid, coord, Color::RED);
-    }
 }
 
 pub fn draw_mouse_screen_position(d: &mut RaylibDrawHandle, mouse_screen_position: Option<Vec2>) {
@@ -414,13 +453,8 @@ fn draw_outline_hovered_parts(
                 border_color,
             );
 
-            let mut pl = part.region;
-
-            for _ in 0..4 {
-                pl.rotate_ccw();
-                draw_grid_region(d, origin, pl, Color::WHITE.alpha(0.0), Color::YELLOW);
-                draw_grid_lattice_point(d, grid, pl.origin(), Color::YELLOW);
-            }
+            let pl = part.region;
+            draw_grid_lattice_point(d, grid, pl.origin(), Color::YELLOW);
         }
     }
 }

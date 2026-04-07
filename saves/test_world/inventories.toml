@@ -1,41 +1,41 @@
 [[values.35]]
 capacity = 200000000
 filter = "Liquid"
-contents = ["H2", 1000]
 is_fluid = true
+location = [[0, 0], [2, 2]]
 
 [[values.36]]
 capacity = 200000000
 filter = "Liquid"
-contents = ["O2", 1000]
 is_fluid = true
+location = [[0, 0], [2, 2]]
 
 [[values.42]]
 capacity = 200000000
 filter = "Liquid"
-contents = ["O2", 1000]
 is_fluid = true
+location = [[0, 0], [2, 2]]
 
 [[values.43]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.43.filter]
 Item = "H2"
 
 [[values.47]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.47.filter]
 Item = "H2"
 
 [[values.49]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.49.filter]
 Item = "H2"
@@ -43,29 +43,29 @@ Item = "H2"
 [[values.52]]
 capacity = 520000000
 filter = "Liquid"
-contents = ["Water", 1000]
 is_fluid = true
+location = [[0, 0], [2, 4]]
 
 [[values.53]]
 capacity = 300000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [6, 3]]
 
 [values.53.filter]
 Item = "H2"
 
 [[values.56]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.56.filter]
 Item = "H2"
 
 [[values.57]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.57.filter]
 Item = "H2"
@@ -73,13 +73,13 @@ Item = "H2"
 [[values.60]]
 capacity = 200000000
 filter = "Liquid"
-contents = ["Water", 1000]
 is_fluid = true
+location = [[0, 0], [2, 2]]
 
 [[values.61]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.61.filter]
 Item = "H2"
@@ -87,43 +87,43 @@ Item = "H2"
 [[values.62]]
 capacity = 1200000000
 filter = "Solid"
-contents = ["TitaniumLattice", 342]
 is_fluid = false
+location = [[0, 0], [3, 3]]
 
 [[values.62]]
 capacity = 1200000000
 filter = "Solid"
-contents = ["TitaniumLattice", 342]
 is_fluid = false
+location = [[3, 0], [6, 3]]
 
 [[values.62]]
 capacity = 1200000000
 filter = "Solid"
-contents = ["U238", 1000]
 is_fluid = false
+location = [[0, 3], [3, 6]]
 
 [[values.62]]
 capacity = 1200000000
 filter = "Solid"
-contents = ["U235", 1000]
 is_fluid = false
+location = [[3, 3], [6, 6]]
 
 [[values.64]]
 capacity = 200000000
 filter = "Liquid"
-contents = ["Methane", 1000]
 is_fluid = true
+location = [[0, 0], [2, 2]]
 
 [[values.66]]
 capacity = 200000000
 filter = "Liquid"
-contents = ["H2", 1000]
 is_fluid = true
+location = [[0, 0], [2, 2]]
 
 [[values.67]]
 capacity = 300000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [6, 3]]
 
 [values.67.filter]
 Item = "H2"
@@ -131,37 +131,37 @@ Item = "H2"
 [[values.73]]
 capacity = 200000000
 filter = "Liquid"
-contents = ["Water", 1000]
 is_fluid = true
+location = [[0, 0], [2, 2]]
 
 [[values.81]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.81.filter]
 Item = "H2"
 
 [[values.85]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.85.filter]
 Item = "H2"
 
 [[values.87]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.87.filter]
 Item = "H2"
 
 [[values.92]]
 capacity = 150000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [3, 2]]
 
 [values.92.filter]
 Item = "H2"
@@ -169,21 +169,21 @@ Item = "H2"
 [[values.93]]
 capacity = 200000000
 filter = "Liquid"
-contents = ["Water", 1000]
 is_fluid = true
+location = [[0, 0], [2, 2]]
 
 [[values.95]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.95.filter]
 Item = "H2"
 
 [[values.96]]
 capacity = 300000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [6, 3]]
 
 [values.96.filter]
 Item = "H2"
@@ -191,13 +191,13 @@ Item = "H2"
 [[values.100]]
 capacity = 200000000
 filter = "Liquid"
-contents = ["CO2", 368]
 is_fluid = true
+location = [[0, 0], [2, 2]]
 
 [[values.103]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.103.filter]
 Item = "H2"
@@ -205,27 +205,27 @@ Item = "H2"
 [[values.105]]
 capacity = 1200000000
 filter = "Liquid"
-contents = ["Methane", 1000]
 is_fluid = true
+location = [[0, 0], [4, 4]]
 
 [[values.108]]
 capacity = 200000000
 filter = "Liquid"
-contents = ["CO2", 368]
 is_fluid = true
+location = [[0, 0], [2, 2]]
 
 [[values.109]]
 capacity = 150000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [3, 2]]
 
 [values.109.filter]
 Item = "H2"
 
 [[values.111]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.111.filter]
 Item = "H2"
@@ -233,85 +233,85 @@ Item = "H2"
 [[values.114]]
 capacity = 1200000000
 filter = "Liquid"
-contents = ["H2", 1000]
 is_fluid = true
+location = [[0, 0], [4, 4]]
 
 [[values.116]]
 capacity = 1200000000
 filter = "Liquid"
-contents = ["CO2", 1000]
 is_fluid = true
+location = [[0, 0], [4, 4]]
 
 [[values.117]]
 capacity = 1200000000
 filter = "Solid"
-contents = ["Copper", 1000]
 is_fluid = false
+location = [[0, 0], [3, 3]]
 
 [[values.117]]
 capacity = 1200000000
 filter = "Solid"
-contents = ["Stone", 1000]
 is_fluid = false
+location = [[3, 0], [6, 3]]
 
 [[values.117]]
 capacity = 1200000000
 filter = "Solid"
-contents = ["Copper", 1000]
 is_fluid = false
+location = [[0, 3], [3, 6]]
 
 [[values.117]]
 capacity = 1200000000
 filter = "Solid"
-contents = ["Corn", 1000]
 is_fluid = false
+location = [[3, 3], [6, 6]]
 
 [[values.122]]
 capacity = 520000000
 filter = "Liquid"
-contents = ["Water", 1000]
 is_fluid = true
+location = [[0, 0], [2, 4]]
 
 [[values.123]]
 capacity = 100000000
 filter = "Any"
-contents = ["Copper", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [[values.123]]
 capacity = 100000000
 filter = "Any"
-contents = ["Bread", 66]
 is_fluid = true
+location = [[0, 1], [1, 2]]
 
 [[values.123]]
 capacity = 100000000
 filter = "Any"
-contents = ["TitaniumLattice", 28]
 is_fluid = false
+location = [[0, 2], [1, 3]]
 
 [[values.123]]
 capacity = 100000000
 filter = "Any"
-contents = ["Corn", 90]
 is_fluid = true
+location = [[3, 4], [4, 5]]
 
 [[values.123]]
 capacity = 100000000
 filter = "Any"
-contents = ["Copper", 1000]
 is_fluid = true
+location = [[3, 5], [4, 6]]
 
 [[values.128]]
 capacity = 200000000
 filter = "Liquid"
-contents = ["O2", 1000]
 is_fluid = true
+location = [[0, 0], [2, 2]]
 
 [[values.129]]
 capacity = 300000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [6, 3]]
 
 [values.129.filter]
 Item = "H2"
@@ -319,43 +319,43 @@ Item = "H2"
 [[values.130]]
 capacity = 100000000
 filter = "Any"
-contents = ["U238", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [[values.130]]
 capacity = 100000000
 filter = "Any"
-contents = ["PowerCell", 58]
 is_fluid = true
+location = [[0, 1], [1, 2]]
 
 [[values.130]]
 capacity = 100000000
 filter = "Any"
-contents = ["Plastic", 1000]
 is_fluid = false
+location = [[0, 2], [1, 3]]
 
 [[values.130]]
 capacity = 100000000
 filter = "Any"
-contents = ["U238", 1000]
 is_fluid = true
+location = [[3, 4], [4, 5]]
 
 [[values.130]]
 capacity = 100000000
 filter = "Any"
-contents = ["Rotor", 83]
 is_fluid = true
+location = [[3, 5], [4, 6]]
 
 [[values.131]]
 capacity = 1200000000
 filter = "Liquid"
-contents = ["Water", 1000]
 is_fluid = true
+location = [[0, 0], [4, 4]]
 
 [[values.135]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.135.filter]
 Item = "H2"
@@ -363,31 +363,31 @@ Item = "H2"
 [[values.136]]
 capacity = 1200000000
 filter = "Solid"
-contents = ["Stone", 1000]
 is_fluid = false
+location = [[0, 0], [3, 3]]
 
 [[values.136]]
 capacity = 1200000000
 filter = "Solid"
-contents = ["Wheat", 857]
 is_fluid = false
+location = [[3, 0], [6, 3]]
 
 [[values.136]]
 capacity = 1200000000
 filter = "Solid"
-contents = ["Ice", 1000]
 is_fluid = false
+location = [[0, 3], [3, 6]]
 
 [[values.136]]
 capacity = 1200000000
 filter = "Solid"
-contents = ["Plastic", 1000]
 is_fluid = false
+location = [[3, 3], [6, 6]]
 
 [[values.137]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.137.filter]
 Item = "H2"
@@ -395,45 +395,45 @@ Item = "H2"
 [[values.139]]
 capacity = 520000000
 filter = "Liquid"
-contents = ["Methane", 1000]
 is_fluid = true
+location = [[0, 0], [2, 4]]
 
 [[values.143]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.143.filter]
 Item = "H2"
 
 [[values.145]]
 capacity = 150000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [3, 2]]
 
 [values.145.filter]
 Item = "H2"
 
 [[values.147]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.147.filter]
 Item = "H2"
 
 [[values.148]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.148.filter]
 Item = "H2"
 
 [[values.149]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.149.filter]
 Item = "H2"
@@ -441,27 +441,27 @@ Item = "H2"
 [[values.153]]
 capacity = 520000000
 filter = "Liquid"
-contents = ["H2", 1000]
 is_fluid = true
+location = [[0, 0], [2, 4]]
 
 [[values.154]]
 capacity = 200000000
 filter = "Liquid"
-contents = ["Water", 1000]
 is_fluid = true
+location = [[0, 0], [2, 2]]
 
 [[values.156]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.156.filter]
 Item = "H2"
 
 [[values.157]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.157.filter]
 Item = "H2"
@@ -469,37 +469,37 @@ Item = "H2"
 [[values.162]]
 capacity = 1200000000
 filter = "Liquid"
-contents = ["Methane", 1000]
 is_fluid = true
+location = [[0, 0], [4, 4]]
 
 [[values.162]]
 capacity = 520000000
 filter = "Liquid"
-contents = ["H2", 1000]
 is_fluid = true
+location = [[4, 0], [6, 4]]
 
 [[values.166]]
 capacity = 520000000
 filter = "Liquid"
-contents = ["O2", 1000]
 is_fluid = true
+location = [[0, 0], [2, 4]]
 
 [[values.169]]
 capacity = 520000000
 filter = "Liquid"
-contents = ["O2", 1000]
 is_fluid = true
+location = [[0, 0], [2, 4]]
 
 [[values.172]]
 capacity = 520000000
 filter = "Liquid"
-contents = ["Methane", 1000]
 is_fluid = true
+location = [[0, 0], [2, 4]]
 
 [[values.175]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.175.filter]
 Item = "H2"
@@ -507,69 +507,69 @@ Item = "H2"
 [[values.184]]
 capacity = 520000000
 filter = "Liquid"
-contents = ["Methane", 1000]
 is_fluid = true
+location = [[0, 0], [2, 4]]
 
 [[values.187]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.187.filter]
 Item = "H2"
 
 [[values.188]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.188.filter]
 Item = "H2"
 
 [[values.192]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.192.filter]
 Item = "H2"
 
 [[values.193]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.193.filter]
 Item = "H2"
 
 [[values.194]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.194.filter]
 Item = "H2"
 
 [[values.195]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.195.filter]
 Item = "H2"
 
 [[values.196]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.196.filter]
 Item = "H2"
 
 [[values.197]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.197.filter]
 Item = "H2"
@@ -577,49 +577,49 @@ Item = "H2"
 [[values.199]]
 capacity = 520000000
 filter = "Liquid"
-contents = ["Water", 1000]
 is_fluid = true
+location = [[0, 0], [2, 4]]
 
 [[values.200]]
 capacity = 520000000
 filter = "Liquid"
-contents = ["O2", 1000]
 is_fluid = true
+location = [[0, 0], [2, 4]]
 
 [[values.201]]
 capacity = 14000000000
 filter = "Solid"
-contents = ["U238", 1000]
 is_fluid = false
+location = [[1, 1], [23, 9]]
 
 [[values.202]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.202.filter]
 Item = "H2"
 
 [[values.204]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.204.filter]
 Item = "H2"
 
 [[values.205]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.205.filter]
 Item = "H2"
 
 [[values.207]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.207.filter]
 Item = "H2"
@@ -627,61 +627,61 @@ Item = "H2"
 [[values.217]]
 capacity = 520000000
 filter = "Liquid"
-contents = ["O2", 1000]
 is_fluid = true
+location = [[0, 0], [2, 4]]
 
 [[values.223]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.223.filter]
 Item = "H2"
 
 [[values.224]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.224.filter]
 Item = "H2"
 
 [[values.226]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.226.filter]
 Item = "H2"
 
 [[values.229]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.229.filter]
 Item = "H2"
 
 [[values.230]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.230.filter]
 Item = "H2"
 
 [[values.232]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.232.filter]
 Item = "H2"
 
 [[values.233]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.233.filter]
 Item = "H2"
@@ -689,21 +689,21 @@ Item = "H2"
 [[values.236]]
 capacity = 14000000000
 filter = "Solid"
-contents = ["Bread", 1000]
 is_fluid = false
+location = [[1, 1], [23, 9]]
 
 [[values.238]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.238.filter]
 Item = "H2"
 
 [[values.245]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.245.filter]
 Item = "H2"
@@ -711,45 +711,45 @@ Item = "H2"
 [[values.246]]
 capacity = 520000000
 filter = "Liquid"
-contents = ["H2", 1000]
 is_fluid = true
+location = [[0, 0], [2, 4]]
 
 [[values.247]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.247.filter]
 Item = "H2"
 
 [[values.250]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.250.filter]
 Item = "H2"
 
 [[values.252]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.252.filter]
 Item = "H2"
 
 [[values.256]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.256.filter]
 Item = "H2"
 
 [[values.257]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.257.filter]
 Item = "H2"
@@ -757,37 +757,37 @@ Item = "H2"
 [[values.259]]
 capacity = 520000000
 filter = "Liquid"
-contents = ["Water", 1000]
 is_fluid = true
+location = [[0, 0], [2, 4]]
 
 [[values.261]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.261.filter]
 Item = "H2"
 
 [[values.263]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.263.filter]
 Item = "H2"
 
 [[values.270]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.270.filter]
 Item = "H2"
 
 [[values.274]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.274.filter]
 Item = "H2"
@@ -795,45 +795,45 @@ Item = "H2"
 [[values.279]]
 capacity = 520000000
 filter = "Liquid"
-contents = ["Methane", 1000]
 is_fluid = true
+location = [[0, 0], [2, 4]]
 
 [[values.280]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.280.filter]
 Item = "H2"
 
 [[values.282]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.282.filter]
 Item = "H2"
 
 [[values.284]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.284.filter]
 Item = "H2"
 
 [[values.289]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.289.filter]
 Item = "H2"
 
 [[values.290]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.290.filter]
 Item = "H2"
@@ -841,21 +841,21 @@ Item = "H2"
 [[values.291]]
 capacity = 520000000
 filter = "Liquid"
-contents = ["H2", 1000]
 is_fluid = true
+location = [[0, 0], [2, 4]]
 
 [[values.294]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.294.filter]
 Item = "H2"
 
 [[values.295]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.295.filter]
 Item = "H2"
@@ -863,13 +863,13 @@ Item = "H2"
 [[values.296]]
 capacity = 14000000000
 filter = "Solid"
-contents = ["Plastic", 1000]
 is_fluid = false
+location = [[1, 1], [23, 9]]
 
 [[values.298]]
 capacity = 300000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [6, 3]]
 
 [values.298.filter]
 Item = "H2"
@@ -877,13 +877,13 @@ Item = "H2"
 [[values.302]]
 capacity = 14000000000
 filter = "Solid"
-contents = ["Magnesium", 1000]
 is_fluid = false
+location = [[1, 1], [23, 9]]
 
 [[values.304]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.304.filter]
 Item = "H2"
@@ -891,21 +891,21 @@ Item = "H2"
 [[values.308]]
 capacity = 520000000
 filter = "Liquid"
-contents = ["Methane", 1000]
 is_fluid = true
+location = [[0, 0], [2, 4]]
 
 [[values.311]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.311.filter]
 Item = "H2"
 
 [[values.312]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.312.filter]
 Item = "H2"
@@ -913,29 +913,29 @@ Item = "H2"
 [[values.314]]
 capacity = 1200000000
 filter = "Liquid"
-contents = ["O2", 1000]
 is_fluid = true
+location = [[0, 0], [4, 4]]
 
 [[values.323]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.323.filter]
 Item = "H2"
 
 [[values.324]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.324.filter]
 Item = "H2"
 
 [[values.325]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.325.filter]
 Item = "H2"
@@ -943,61 +943,61 @@ Item = "H2"
 [[values.328]]
 capacity = 14000000000
 filter = "Solid"
-contents = ["Plastic", 1000]
 is_fluid = false
+location = [[1, 1], [23, 9]]
 
 [[values.335]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.335.filter]
 Item = "H2"
 
 [[values.337]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.337.filter]
 Item = "H2"
 
 [[values.342]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.342.filter]
 Item = "H2"
 
 [[values.343]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.343.filter]
 Item = "H2"
 
 [[values.345]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.345.filter]
 Item = "H2"
 
 [[values.352]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.352.filter]
 Item = "H2"
 
 [[values.357]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.357.filter]
 Item = "H2"
@@ -1005,13 +1005,13 @@ Item = "H2"
 [[values.358]]
 capacity = 1200000000
 filter = "Liquid"
-contents = ["O2", 1000]
 is_fluid = true
+location = [[0, 0], [4, 4]]
 
 [[values.359]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.359.filter]
 Item = "H2"
@@ -1019,21 +1019,21 @@ Item = "H2"
 [[values.360]]
 capacity = 520000000
 filter = "Liquid"
-contents = ["O2", 1000]
 is_fluid = true
+location = [[0, 0], [2, 4]]
 
 [[values.365]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.365.filter]
 Item = "H2"
 
 [[values.366]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.366.filter]
 Item = "H2"
@@ -1041,13 +1041,13 @@ Item = "H2"
 [[values.368]]
 capacity = 520000000
 filter = "Liquid"
-contents = ["O2", 1000]
 is_fluid = true
+location = [[0, 0], [2, 4]]
 
 [[values.369]]
 capacity = 300000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [6, 3]]
 
 [values.369.filter]
 Item = "H2"
@@ -1055,19 +1055,19 @@ Item = "H2"
 [[values.371]]
 capacity = 1200000000
 filter = "Liquid"
-contents = ["Methane", 1000]
 is_fluid = true
+location = [[0, 0], [4, 4]]
 
 [[values.373]]
 capacity = 520000000
 filter = "Liquid"
-contents = ["CO2", 957]
 is_fluid = true
+location = [[0, 0], [2, 4]]
 
 [[values.375]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.375.filter]
 Item = "H2"
@@ -1075,27 +1075,27 @@ Item = "H2"
 [[values.378]]
 capacity = 520000000
 filter = "Liquid"
-contents = ["H2", 1000]
 is_fluid = true
+location = [[0, 0], [2, 4]]
 
 [[values.379]]
 capacity = 14000000000
 filter = "Solid"
-contents = ["Geodes", 1000]
 is_fluid = false
+location = [[1, 1], [23, 9]]
 
 [[values.385]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.385.filter]
 Item = "H2"
 
 [[values.386]]
 capacity = 300000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [6, 3]]
 
 [values.386.filter]
 Item = "H2"
@@ -1103,13 +1103,13 @@ Item = "H2"
 [[values.388]]
 capacity = 1200000000
 filter = "Liquid"
-contents = ["Methane", 1000]
 is_fluid = true
+location = [[0, 0], [4, 4]]
 
 [[values.390]]
 capacity = 300000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [6, 3]]
 
 [values.390.filter]
 Item = "H2"
@@ -1117,29 +1117,29 @@ Item = "H2"
 [[values.391]]
 capacity = 520000000
 filter = "Liquid"
-contents = ["CO2", 957]
 is_fluid = true
+location = [[0, 0], [2, 4]]
 
 [[values.392]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.392.filter]
 Item = "H2"
 
 [[values.394]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.394.filter]
 Item = "H2"
 
 [[values.397]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.397.filter]
 Item = "H2"
@@ -1147,13 +1147,13 @@ Item = "H2"
 [[values.400]]
 capacity = 520000000
 filter = "Liquid"
-contents = ["Methane", 1000]
 is_fluid = true
+location = [[0, 0], [2, 4]]
 
 [[values.401]]
 capacity = 20000000
-contents = ["H2", 1000]
 is_fluid = false
+location = [[0, 0], [1, 1]]
 
 [values.401.filter]
 Item = "H2"
@@ -1161,47 +1161,47 @@ Item = "H2"
 [[values.403]]
 capacity = 200000000
 filter = "Liquid"
-contents = ["O2", 1000]
 is_fluid = true
+location = [[0, 0], [2, 2]]
 
 [[values.404]]
 capacity = 200000000
 filter = "Liquid"
-contents = ["Water", 1000]
 is_fluid = true
+location = [[0, 0], [2, 2]]
 
 [[values.405]]
 capacity = 200000000
 filter = "Liquid"
-contents = ["H2", 1000]
 is_fluid = true
+location = [[0, 0], [2, 2]]
 
 [[values.406]]
 capacity = 200000000
 filter = "Liquid"
-contents = ["Methane", 1000]
 is_fluid = true
+location = [[0, 0], [2, 2]]
 
 [[values.407]]
 capacity = 200000000
 filter = "Liquid"
-contents = ["Water", 1000]
 is_fluid = true
+location = [[0, 0], [2, 2]]
 
 [[values.408]]
 capacity = 200000000
 filter = "Liquid"
-contents = ["Methane", 1000]
 is_fluid = true
+location = [[0, 0], [2, 2]]
 
 [[values.409]]
 capacity = 200000000
 filter = "Liquid"
-contents = ["O2", 1000]
 is_fluid = true
+location = [[0, 0], [2, 2]]
 
 [[values.410]]
 capacity = 200000000
 filter = "Liquid"
-contents = ["CO2", 368]
 is_fluid = true
+location = [[0, 0], [2, 2]]

@@ -316,7 +316,7 @@ fn imgui_hovered_part_info(
     };
 
     if let Some(font) = &assets.lato_regular {
-        draw_window(d, &window, font);
+        // draw_window(d, &window, font);
     }
 }
 

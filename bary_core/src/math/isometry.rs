@@ -41,6 +41,11 @@ impl Isometry2d {
         ret
     }
 
+    pub fn with_rotation(mut self, rotation: f32) -> Self {
+        self.rotation = rotation;
+        self
+    }
+
     pub fn to_tuple(&self) -> (f32, f32, f32) {
         (self.translation.x, self.translation.y, self.rotation)
     }
