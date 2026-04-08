@@ -290,15 +290,23 @@ fn get_inventory_at_grid_location() {
     //    ------##
     //    ------##
 
-    let mut loc = GridLocation {
-        grid_id,
-        coord: PartCoord::ZERO,
-    };
+    let mut loc = GridLocation::new(grid_id, (3, 0).into());
 
-    let inv_slot =
-        find::inventory_at_c(loc, &world.grids, &world.parts, &world.inventories).unwrap();
+    let inv_slot = find::inventory_at_c(loc, &world.grids, &world.parts, &world.inventories);
 
-    assert_eq!(inv_slot, (part_id, 0));
+    assert_eq!(inv_slot, Ok((part_id, 0)));
+
+    loc.coord = (2, 1).into();
+
+    let inv_slot = find::inventory_at_c(loc, &world.grids, &world.parts, &world.inventories);
+
+    assert_eq!(inv_slot, Ok((part_id, 1)));
+
+    loc.coord = (0, 1).into();
+
+    let failure = find::inventory_at_c(loc, &world.grids, &world.parts, &world.inventories);
+
+    assert_eq!(failure, Err(BaryError::NoInvAt((0, 1).into())));
 
     loc.coord = (4, 7).into();
 

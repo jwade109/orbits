@@ -1,7 +1,5 @@
 use bary_core::prelude::*;
 
-use crate::client::GridLocation;
-
 #[derive(Debug, PartialEq, Eq)]
 pub enum BaryError {
     EntityNotFound(Ent),
@@ -15,7 +13,7 @@ pub enum BaryError {
     NoPartsAt(PartCoord),
     NoPartsInLayer(PartLayer),
     NoInvSlot(usize),
-    NoInvAt(GridLocation),
+    NoInvAt(PartCoord),
     IoError(String),
     SerdeYaml(String),
     TomlSer(toml::ser::Error),

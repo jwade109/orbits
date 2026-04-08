@@ -250,8 +250,8 @@ layer = "Internal"
 
 [[values.16.inventory_data.slots]]
 volume_liters = 300.0
-min = [0, 0]
-max = [6, 3]
+min = [5, 1]
+max = [6, 2]
 name = "thruster-input"
 
 [values.16.inventory_data.slots.filter]
@@ -342,7 +342,7 @@ layer = "Internal"
 
 [[values.24.inventory_data.slots]]
 volume_liters = 150.0
-min = [0, 0]
+min = [2, 1]
 max = [3, 2]
 name = "thruster-input"
 
