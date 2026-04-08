@@ -694,9 +694,7 @@ pub fn process_event(
             Button::Right => {
                 input_handlers::destroy_top_layer_part_at_mouseover(world, client, &mut sounds)
             }
-            Button::Middle => {
-                input_handlers::command_selected_ships_to_waypoint(world, client, &mut sounds)
-            }
+            Button::Middle => (),
             Button::Unknown(_) => (),
         },
         rdev::EventType::ButtonRelease(button) => match button {
@@ -718,7 +716,7 @@ pub fn process_event(
 pub fn pre_simulation_update(
     world: &mut World,
     client: &mut ClientSpecificInfo,
-    _sounds: &mut SoundEffects,
+    sounds: &mut SoundEffects,
 ) {
     client.ticks += 1;
 
@@ -726,6 +724,30 @@ pub fn pre_simulation_update(
 
     if client.input.just_pressed_debounced(Key::Alt) {
         client.alt_mode ^= true;
+    }
+
+    if client.input.just_pressed_debounced(Button::Middle) {
+        if let Some(mouse_pos) = client.mouse_screen_position {
+            if let Some(free) = client.viewport.free_mut() {
+                let world_pos = screen_to_world(&client.camera, mouse_pos, client.screen_dims);
+                free.waypoint_widget = Some(world_pos);
+            }
+        }
+    }
+
+    if client.input.just_released(Button::Middle) {
+        if let Some(free) = client.viewport.free() {
+            if let Some(p) = free.waypoint_widget {
+                if let Some(mouse_pos) = client.mouse_screen_position {
+                    let q = screen_to_world(&client.camera, mouse_pos, client.screen_dims);
+                    input_handlers::command_selected_ships_to_waypoint(world, client, sounds, p, q);
+                }
+            }
+        }
+
+        if let Some(free) = client.viewport.free_mut() {
+            free.waypoint_widget = None;
+        }
     }
 }
 

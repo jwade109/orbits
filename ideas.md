@@ -20,6 +20,9 @@
 - cultivation of crops/improved cultivars for fuel/food/etc
 - stellar hydrogen harvesting
 - for item exchange, vehicles keep a list of requests and supplies
+- long-term vs short-term activities, which allow/prevent time warp
+  - orbits/coasts vs burns
+  - large autonomous machines vs small ad-hoc machines
 
 ```txt
 + I can provide this

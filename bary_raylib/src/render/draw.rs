@@ -144,9 +144,11 @@ fn draw_inventory_slot(
     };
     draw_grid_region(d, part_iso, pl, color, Color::BLACK, slot.fill_percentage());
 
+    let font_size = (pl.grid_aligned_dims().to_meters().min_element() / 5.0).max(0.08);
+
     if let Some(item) = slot.item() {
         let text = format!("{:?}", item);
-        draw_text_centered_bg(d, center_iso, &text, 0.08, camera);
+        draw_text_centered_bg(d, center_iso, &text, font_size, camera);
     }
 }
 
@@ -239,6 +241,8 @@ pub fn draw_world(
         &client.camera,
         client.screen_dims,
     );
+
+    draw_waypoint_widget(&mut c, client);
 
     draw_particles(&mut c, &world.particles);
 
@@ -844,7 +848,7 @@ pub fn draw_computer_target_isometry(
             continue;
         };
 
-        draw_isometry_axes(d, pose, &grid.name, Vec2::new(5.0, 3.0));
+        draw_isometry_axes(d, pose, &grid.name, Vec2::new(1.0, 0.4));
     }
 }
 
@@ -926,6 +930,28 @@ fn draw_waypoint_far_indicators(
         let pos = glam_to_raylib_swap_y(wp.translation);
         let pos = d.get_world_to_screen2D(pos, camera);
         d.draw_circle_lines_v(pos, marker_radius, Color::GRAY);
+    }
+}
+
+fn draw_waypoint_widget(d: &mut RaylibDrawHandle, client: &ClientSpecificInfo) {
+    let free = some_or_return!(client.viewport.free());
+    let start = some_or_return!(free.waypoint_widget);
+    let screen_pos = some_or_return!(client.mouse_screen_position);
+    let end = screen_to_world(&client.camera, screen_pos, client.screen_dims);
+    draw_line(d, start, end, Color::GRAY);
+
+    let n_ships = free.selection_info.selected.len();
+
+    for i in 0..n_ships {
+        let s = if n_ships == 1 {
+            1.0
+        } else {
+            i as f32 / (n_ships - 1) as f32
+        };
+
+        let p = start.lerp(end, s);
+
+        draw_circle(d, p, 10.0 / client.camera.zoom, Color::GRAY)
     }
 }
 

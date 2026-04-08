@@ -15,20 +15,25 @@ pub fn command_selected_ships_to_waypoint(
     world: &mut World,
     client: &mut ClientSpecificInfo,
     sounds: &mut SoundEffects,
+    p: Vec2,
+    q: Vec2,
 ) {
     let free = some_or_return!(client.viewport.free());
-    let screen_pos = some_or_return!(client.mouse_screen_position);
-    let world_pos = screen_to_world(&client.camera, screen_pos, client.screen_dims);
 
     let mut successes = 0;
 
+    let n_ships = free.selection_info.selected.len();
+
     for (i, loc) in free.selection_info.selected.iter().enumerate() {
-        let offset = if i == 0 {
-            Vec2::ZERO
+        let s = if n_ships == 1 {
+            1.0
         } else {
-            randvec(200.0, 700.0)
+            i as f32 / (n_ships - 1) as f32
         };
-        let waypoint = Isometry2d::new(world_pos + offset, 0.0);
+
+        let waypont = p.lerp(q, s);
+
+        let waypoint = Isometry2d::new(waypont, 0.0);
 
         if let Err(e) = set_primary_computer_waypoint(loc.grid_id, waypoint, world) {
             client.chat.log(format!("Failed to set waypoint: {e:?}"));
@@ -255,6 +260,7 @@ pub fn leave_ship_editor_on_escape(client: &mut ClientSpecificInfo, sounds: &mut
         follow_vehicle: Some(editor.vehicle),
         lock_rotation: false,
         selection_info: SelectionInfo::selecting(editor.vehicle),
+        waypoint_widget: None,
     });
 
     client.target_camera.zoom = 20.0;
