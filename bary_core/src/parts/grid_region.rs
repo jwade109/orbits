@@ -148,21 +148,19 @@ impl GridRegion {
     }
 
     pub fn to_local(&self, grid: PartCoord) -> PartCoord {
-        match self.rotation {
-            Rotation::East => grid - self.bottom_left,
-            Rotation::North => PartCoord::ZERO,
-            Rotation::West => PartCoord::ZERO,
-            Rotation::South => PartCoord::ZERO,
-        }
-    }
+        let e = self.origin().inner();
+        let rotation = self.rot();
+        let p = grid.origin_with(rotation).inner();
 
-    pub fn to_global(&self, local: PartCoord) -> PartCoord {
-        match self.rotation {
-            Rotation::East => local + self.bottom_left,
-            Rotation::North => PartCoord::ZERO,
-            Rotation::West => PartCoord::ZERO,
-            Rotation::South => PartCoord::ZERO,
-        }
+        let u = p - e;
+
+        let v = match rotation {
+            Rotation::East => u,
+            Rotation::North => IVec2::new(u.y, -u.x),
+            Rotation::West => IVec2::new(-u.x, -u.y),
+            Rotation::South => IVec2::new(-u.y, u.x),
+        };
+        v.into()
     }
 }
 

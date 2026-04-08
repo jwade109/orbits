@@ -108,6 +108,7 @@ pub struct ClientSpecificInfo {
     pub screen_dims: Vec2,
     pub viewport: Viewport,
     pub input: InputState,
+    pub alt_mode: bool,
 }
 
 impl ClientSpecificInfo {
@@ -132,6 +133,7 @@ impl ClientSpecificInfo {
                 selection_info: SelectionInfo::default(),
             }),
             input: InputState::default(),
+            alt_mode: false,
         }
     }
 

@@ -27,6 +27,36 @@ fn draw_text(d: &mut RaylibDrawHandle, iso: Isometry2d, text: &str, font_size: f
     }
 }
 
+fn draw_text_centered_bg(
+    d: &mut RaylibDrawHandle,
+    iso: Isometry2d,
+    text: &str,
+    font_size: f32,
+    camera: &Camera,
+) {
+    if text.is_empty() {
+        return;
+    }
+
+    let spacing = font_size / 20.0;
+    let text_iso = iso.offset(Vec2::Y * font_size);
+    let p = glam_to_raylib_swap_y(text_iso.translation);
+    let dims = d.get_font_default().measure_text(text, font_size, spacing);
+
+    fill_rectangle(d, iso, raylib_to_glam(dims), Color::BLACK);
+
+    d.draw_text_pro(
+        d.get_font_default(),
+        &text,
+        p,
+        Vector2::zero(),
+        -iso.rotation.to_degrees(),
+        font_size,
+        font_size / 20.0,
+        Color::WHITE,
+    );
+}
+
 fn draw_isometry_axes(d: &mut RaylibDrawHandle, iso: Isometry2d, label: &str, scale: Vec2) {
     let x = iso.translation + iso.local_x() * scale.x;
     let y = iso.translation + iso.local_y() * scale.y;
@@ -78,76 +108,67 @@ fn draw_trackers(d: &mut RaylibDrawHandle, trackers: &Components<Tracker>, detai
     }
 }
 
+fn draw_hovered_inventory(d: &mut RaylibDrawHandle, world: &World, client: &ClientSpecificInfo) {
+    let _free = some_or_return!(client.viewport.free());
+    let loc = some_or_return!(client.hovered_grid_loc());
+    let grid = ok_or_return!(world.grids.try_get(loc.grid_id));
+    let occ = some_or_return!(grid.get_parts_at(loc.coord));
+    let part_id = some_or_return!(occ.at_layer(PartLayer::Internal));
+    let part = ok_or_return!(world.parts.try_get(part_id));
+    let inv = ok_or_return!(world.inventories.try_get(part_id));
+    let local = part.region.to_local(loc.coord);
+    let slot_id = some_or_return!(inv.get_slot_at(local));
+    let slot = some_or_return!(inv.get_slot(slot_id));
+
+    let part_iso = grid.origin() * part.region.origin_isometry();
+    draw_inventory_slot(d, slot, part_iso, &client.camera);
+}
+
+fn draw_inventory_slot(
+    d: &mut RaylibDrawHandle,
+    slot: &InvSlot,
+    part_iso: Isometry2d,
+    camera: &Camera,
+) {
+    let (min, max) = slot.location();
+    let avg = (max + min).to_meters() / 2.0;
+    let center_iso = part_iso.offset(avg);
+
+    let dims = (max - min).inner().as_uvec2();
+    let pl = GridRegion::new(min, Rotation::East, dims);
+    let color = if let Some(item) = slot.item() {
+        let c = item.color();
+        Color::new(c[0], c[1], c[2], 200)
+    } else {
+        Color::GRAY.alpha(0.6)
+    };
+    draw_grid_region(d, part_iso, pl, color, Color::BLACK, slot.fill_percentage());
+
+    if let Some(item) = slot.item() {
+        let text = format!("{:?}", item);
+        draw_text_centered_bg(d, center_iso, &text, 0.08, camera);
+    }
+}
+
 fn draw_inventories(
     d: &mut RaylibDrawHandle,
     grids: &Components<VehicleGrid>,
     parts: &Components<Part>,
     inventories: &Components<Inventory>,
+    camera: &Camera,
 ) {
     for grid in grids.values() {
         let origin = grid.origin();
         for part_id in &grid.parts {
             let inv = ok_or_continue!(inventories.try_get(*part_id));
             let part = ok_or_continue!(parts.try_get(*part_id));
-            let part_root = origin * part.region.origin_isometry();
+            let part_iso = origin * part.region.origin_isometry();
 
             for slot in inv.slots() {
-                let (min, max) = slot.location();
-                let dims = (max - min).inner().as_uvec2();
-                let pl = GridRegion::new(min, Rotation::East, dims);
-                let color = if let Some(item) = slot.item() {
-                    let c = item.color();
-                    Color::new(c[0], c[1], c[2], 200)
-                } else {
-                    Color::GRAY.alpha(0.6)
-                };
-                draw_grid_region(d, part_root, pl, color, Color::BLACK);
+                draw_inventory_slot(d, slot, part_iso, camera);
             }
         }
     }
-}
-
-fn draw_stuff_for_angela(d: &mut RaylibDrawHandle, world: &World, client: &ClientSpecificInfo) {
-    let loc = some_or_return!(client.hovered_grid_loc());
-    let grid = ok_or_return!(world.grids.try_get(loc.grid_id));
-    let occ = some_or_return!(grid.get_parts_at(loc.coord));
-    let part_id = some_or_return!(occ.top());
-    let part = ok_or_return!(world.parts.try_get(part_id));
-
-    draw_grid_region(
-        d,
-        grid.origin(),
-        part.region,
-        Color::WHITE.alpha(0.1),
-        Color::WHITE,
-    );
-
-    let e = part.region.origin().inner();
-
-    let rotation = part.region.rot();
-
-    draw_grid_lattice_point(d, grid, e.into(), Color::PURPLE);
-
-    let p = loc.coord.origin_with(rotation).inner();
-
-    // draw_grid_lattice_point(d, grid, p.into(), Color::RED);
-
-    let u = p - e;
-
-    let v = match rotation {
-        Rotation::East => u,
-        Rotation::North => IVec2::new(u.y, -u.x),
-        Rotation::West => IVec2::new(-u.x, -u.y),
-        Rotation::South => IVec2::new(-u.y, u.x),
-    };
-
-    let v = PartCoord::new(v);
-
-    let marker_iso =
-        grid.origin() * part.region.origin_isometry().offset(v.to_meters());
-    fill_circle(d, marker_iso.translation, 0.08, Color::RED);
-    let s = format!("{} {}", part_id, v);
-    draw_text(d, marker_iso.with_rotation(0.0), &s, 0.3)
 }
 
 pub fn draw_world(
@@ -174,7 +195,6 @@ pub fn draw_world(
     );
 
     let is_holding_shift = client.input.is_key_pressed(rdev::Key::ShiftLeft);
-    let is_holding_alt = client.input.is_key_pressed(rdev::Key::Alt);
 
     if client.viewport.is_real_view() {
         draw_computer_target_isometry(&mut c, &world.computers, &world.parts, &world.grids);
@@ -211,9 +231,7 @@ pub fn draw_world(
         draw_thruster_classification(&mut c, &world.grids, &world.parts, &world.thrusters);
     }
 
-    // draw_outline_hovered_parts(&mut c, &world.grids, &world.parts, &client);
-
-    draw_stuff_for_angela(&mut c, world, client);
+    draw_outline_hovered_parts(&mut c, &world.grids, &world.parts, &client);
 
     draw_mouse_world_position(
         &mut c,
@@ -235,8 +253,16 @@ pub fn draw_world(
 
     draw_editor_selection_region(&mut c, client, world);
 
-    if is_holding_alt {
-        draw_inventories(&mut c, &world.grids, &world.parts, &world.inventories);
+    if client.alt_mode {
+        draw_inventories(
+            &mut c,
+            &world.grids,
+            &world.parts,
+            &world.inventories,
+            &client.camera,
+        );
+    } else {
+        draw_hovered_inventory(&mut c, world, client);
     }
 
     drop(c);
@@ -270,6 +296,7 @@ pub fn draw_selected_part_cursors(
                 part.region,
                 Color::WHITE.alpha(0.0),
                 Color::ORANGE,
+                1.0,
             );
         }
     }
@@ -416,12 +443,17 @@ fn draw_grid_region(
     pl: GridRegion,
     fill: Color,
     border: Color,
+    fill_pct: f32,
 ) {
     let bottom_left = pl.bottom_left().to_meters();
     let dims = pl.grid_aligned_dims().to_meters();
     let mut iso = root;
     iso.translation += iso.local_x() * bottom_left.x + iso.local_y() * bottom_left.y;
-    fill_rectangle(d, iso, dims, fill);
+
+    let mut partial_dims = dims;
+    partial_dims.x *= fill_pct;
+
+    fill_rectangle(d, iso, partial_dims, fill);
     draw_rectangle(d, iso, dims, border);
 }
 
@@ -451,10 +483,8 @@ fn draw_outline_hovered_parts(
                 part.region,
                 Color::PURPLE.alpha(0.3),
                 border_color,
+                1.0,
             );
-
-            let pl = part.region;
-            draw_grid_lattice_point(d, grid, pl.origin(), Color::YELLOW);
         }
     }
 }
@@ -633,7 +663,7 @@ pub fn draw_thruster_classification(
                 }
             };
 
-            draw_grid_region(d, root, part.region, color.alpha(0.7), Color::MAROON);
+            draw_grid_region(d, root, part.region, color.alpha(0.7), Color::MAROON, 1.0);
         }
     }
 }
@@ -951,7 +981,7 @@ fn draw_rectangle(d: &mut RaylibDrawHandle, iso: Isometry2d, dims: Vec2, color: 
     let y = glam_to_raylib_swap_y(iso.translation + xoff + yoff);
     let z = glam_to_raylib_swap_y(iso.translation + yoff);
     for window in [w, x, y, z, w].windows(2) {
-        d.draw_line_ex(window[0], window[1], 0.05, color);
+        d.draw_line_ex(window[0], window[1], 0.02, color);
     }
 }
 

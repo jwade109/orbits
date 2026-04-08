@@ -587,7 +587,7 @@ pub mod find {
         let inv = inventories.try_get(part_id)?;
         let part = parts.try_get(part_id)?;
         let local = part.region.to_local(loc.coord);
-        let idx = inv.get_slot_idx(local).ok_or(BaryError::NoInvAt(loc))?;
+        let idx = inv.get_slot_at(local).ok_or(BaryError::NoInvAt(loc))?;
         Ok((part_id, idx))
     }
 

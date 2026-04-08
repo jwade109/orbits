@@ -225,8 +225,11 @@ pub fn rotate_editor_part_on_key_r(client: &mut ClientSpecificInfo) {
         return;
     }
     if let Viewport::Editor(editor) = &mut client.viewport {
-        editor.part_rotation = editor.part_rotation.next();
-        client.chat.log("Rotated");
+        if editor.prototype_id.is_some() {
+            editor.part_rotation = editor.part_rotation.next();
+        } else {
+            editor.camera_rotation = editor.camera_rotation.next();
+        }
     }
 }
 

@@ -601,8 +601,9 @@ pub fn fill_inventories_at_random(world: &mut World) {
             };
 
             if let Some(item) = item {
-                let n = randint(1, 1000);
-                slot.store_partial(item, n as u64);
+                let n = (slot.capacity() / item.volume_per_unit() * 0.05).round();
+                let n = rand(0.1, 1.0) as f64 * n;
+                slot.store_partial(item, n.round() as u64);
             }
         }
     }
@@ -631,8 +632,8 @@ pub fn update_world(world: &mut World) {
     propagate_grid_rigid_bodies(&mut world.grids);
     update_trackers(&mut world.tracking, &world.grids, world.ticks);
 
-    let ticks_per_minute = TICKS_PER_SECOND * 60;
-    if world.ticks % ticks_per_minute == 0 {
+    let ticks_per_minute = TICKS_PER_SECOND * 4;
+    if world.ticks % ticks_per_minute == 3 {
         fill_inventories_at_random(world);
     }
 
@@ -722,6 +723,10 @@ pub fn pre_simulation_update(
     client.ticks += 1;
 
     update_actual_hover_part_info(client, &world.grids);
+
+    if client.input.just_pressed_debounced(Key::Alt) {
+        client.alt_mode ^= true;
+    }
 }
 
 fn test_button_boundaries_with_key_y(input: &InputState, sounds: &mut SoundEffects) {

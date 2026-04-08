@@ -345,10 +345,10 @@ impl Inventory {
         self.0.iter()
     }
 
-    pub fn get_slot_idx(&self, p: PartCoord) -> Option<usize> {
+    pub fn get_slot_at(&self, p: PartCoord) -> Option<usize> {
         for (i, slot) in self.slots().enumerate() {
             let offset = (p - slot.location.0).inner();
-            let max = slot.location.1.inner();
+            let max = slot.location.1.inner() - slot.location.0.inner();
             if offset.x < max.x && offset.y < max.y && offset.x >= 0 && offset.y >= 0 {
                 return Some(i);
             }

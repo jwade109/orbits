@@ -182,10 +182,12 @@ fn computer_info_str(cpu: &Computer) -> String {
 fn slot_info_str(slot: &InvSlot) -> String {
     if let Some(contents) = slot.contents() {
         format!(
-            "\n  - {:?} ({:0.1}%) {}",
+            "\n  - {:?} ({:0.1}%) {} {} {}",
             contents,
             100.0 * slot.fill_percentage(),
             slot.mass(),
+            slot.location().0,
+            slot.location().1,
         )
     } else {
         format!("\n  - Empty - {:?}", slot.filter())
@@ -250,7 +252,6 @@ fn imgui_hovered_part_info(
         return;
     }
 
-    let mouse_pos = some_or_return!(client.mouse_screen_position);
     let gridloc = some_or_return!(client.hovered_grid_loc());
     let grid = ok_or_return!(world.grids.try_get(gridloc.grid_id));
     let occ = some_or_return!(grid.get_parts_at(gridloc.coord));
@@ -264,7 +265,7 @@ fn imgui_hovered_part_info(
 
     let slot = find::get_slot_c(gridloc, &world.grids, &world.parts, &world.inventories);
     if let Ok(slot) = slot {
-        s += &format!("\n\nInventory slot here: {}\n", slot_info_str(slot));
+        s += &format!("\n\nInventory slot here: {}", slot_info_str(slot));
     }
 
     for (layer, part_id) in occ.iter() {
@@ -308,15 +309,17 @@ fn imgui_hovered_part_info(
         }
     }
 
+    let origin = vround(Vec2::new(client.screen_dims.x - 500.0, 20.0));
+
     let window = Window {
-        origin: mouse_pos.as_ivec2(),
+        origin,
         title: "Part Info".to_string(),
         content: s,
         is_focused: true,
     };
 
     if let Some(font) = &assets.lato_regular {
-        // draw_window(d, &window, font);
+        draw_window(d, &window, font);
     }
 }
 

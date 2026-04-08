@@ -18,6 +18,6 @@ inventory_data:
   slots:
     - filter: !Item H2
       volume_liters: 300
-      min: [0, 0]
-      max: [6, 3]
+      min: [5, 1]
+      max: [6, 2]
       name: "thruster-input"
