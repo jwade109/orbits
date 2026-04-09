@@ -1,0 +1,4 @@
+mass: 70000
+layer: Plumbing
+name: "debug-source"
+dims: [1, 1]

@@ -1,0 +1,4 @@
+mass: 70000
+layer: Plumbing
+name: "debug-sink"
+dims: [1, 1]

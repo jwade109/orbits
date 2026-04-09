@@ -509,6 +509,10 @@ pub fn insert_pipe_at(
     let src_joint = calculate_pipe_joint(src_loc, world)?;
     let dst_joint = calculate_pipe_joint(dst_loc, world)?;
 
+    if src_joint.part_id == dst_joint.part_id && src_joint.offset == dst_joint.offset {
+        return Err(BaryError::SameInvSlot(src_joint.part_id, src_joint.slot));
+    }
+
     let pipe = Pipe {
         src: src_joint,
         dst: dst_joint,
