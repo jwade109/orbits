@@ -14,6 +14,8 @@ pub enum BaryError {
     NoPartsInLayer(PartLayer),
     NoInvSlot(usize),
     NoInvAt(PartCoord),
+    PartHasNoInv(Ent),
+    ZeroPipeExtent,
     IoError(String),
     SerdeYaml(String),
     TomlSer(toml::ser::Error),

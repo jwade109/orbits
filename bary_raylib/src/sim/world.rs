@@ -18,6 +18,7 @@ use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use early_returns::ok_or_continue;
 use early_returns::ok_or_return;
+use early_returns::some_or_continue;
 use early_returns::some_or_return;
 use log::*;
 use rdev::Button;
@@ -472,31 +473,52 @@ pub fn get_part_at_layer(
         .ok_or(BaryError::NoPartsInLayer(layer))
 }
 
+pub fn calculate_pipe_joint(loc: GridLocation, world: &World) -> BaryResult<PipeJoint> {
+    let grid = world.grids.try_get(loc.grid_id)?;
+    let part_id = get_part_at_layer(grid, loc.coord, PartLayer::Internal)?;
+    let part_a = world.parts.try_get(part_id)?;
+    let local = part_a.region.to_local(loc.coord);
+    let src_inv = world
+        .inventories
+        .try_get(part_id)
+        .map_err(|_| BaryError::PartHasNoInv(part_id))?;
+    let slot = src_inv
+        .get_slot_at(local)
+        .ok_or(BaryError::NoInvAt(loc.coord))?;
+
+    Ok(PipeJoint {
+        part_id,
+        offset: local,
+        slot,
+    })
+}
+
 pub fn insert_pipe_at(
     grid_id: Ent,
     src: PartCoord,
     dst: PartCoord,
     world: &mut World,
-) -> BaryResult<Ent> {
-    let grid = world.grids.try_get(grid_id)?;
-    let src_part = get_part_at_layer(grid, src, PartLayer::Internal)?;
-    let dst_part = get_part_at_layer(grid, dst, PartLayer::Internal)?;
+) -> BaryResult<(Pipe, Ent)> {
+    if src == dst {
+        return Err(BaryError::ZeroPipeExtent);
+    }
+
+    let src_loc = GridLocation::new(grid_id, src);
+    let dst_loc = GridLocation::new(grid_id, dst);
+
+    let src_joint = calculate_pipe_joint(src_loc, world)?;
+    let dst_joint = calculate_pipe_joint(dst_loc, world)?;
 
     let pipe = Pipe {
-        src: PipeJoint {
-            part_id: src_part,
-            offset: PartCoord::ZERO,
-        },
-        dst: PipeJoint {
-            part_id: dst_part,
-            offset: PartCoord::ZERO,
-        },
+        src: src_joint,
+        dst: dst_joint,
+        status: MachineStatus::Off,
     };
 
     let id = world.spawner.spawn();
     world.pipes.spawn(id, pipe);
 
-    Ok(id)
+    Ok((pipe, id))
 }
 
 fn editor_on_release_left_click(client: &mut ClientSpecificInfo, world: &mut World) {
@@ -508,9 +530,15 @@ fn editor_on_release_left_click(client: &mut ClientSpecificInfo, world: &mut Wor
 
     if let (Some(src), Some(dst)) = (src, dst) {
         if e.layer == Some(PartLayer::Plumbing) {
-            if let Err(e) = insert_pipe_at(e.vehicle, src, dst, world) {
-                let s = format!("Failed to insert pipe: {:?}", e);
-                client.chat.log(s);
+            match insert_pipe_at(e.vehicle, src, dst, world) {
+                Ok((pipe, _id)) => {
+                    let s = format!("{:?}", pipe);
+                    client.chat.log(s);
+                }
+                Err(e) => {
+                    let s = format!("Failed to insert pipe: {:?}", e);
+                    client.chat.log(s);
+                }
             }
         }
     }
@@ -593,19 +621,50 @@ pub fn update_trackers(
 
 pub fn fill_inventories_at_random(world: &mut World) {
     for inv in world.inventories.values_mut() {
-        for slot in inv.slots_mut() {
-            let item = if slot.is_empty() {
-                Item::random_with_filter(slot.filter())
-            } else {
-                slot.item()
-            };
+        let slot = some_or_continue!(inv.get_slot_mut(0));
 
-            if let Some(item) = item {
-                let n = (slot.capacity() / item.volume_per_unit() * 0.05).round();
-                let n = rand(0.1, 1.0) as f64 * n;
-                slot.store_partial(item, n.round() as u64);
-            }
+        let item = if slot.is_empty() {
+            Item::random_with_filter(slot.filter())
+        } else {
+            slot.item()
+        };
+
+        if let Some(item) = item {
+            let n = (slot.capacity() / item.volume_per_unit() * 0.05).round();
+            let n = rand(0.1, 1.0) as f64 * n;
+            slot.store_partial(item, n.round() as u64);
         }
+    }
+}
+
+pub fn set_inventory_slot(
+    inventories: &mut Components<Inventory>,
+    slot: InvSlot,
+    inv_id: Ent,
+    slot_id: usize,
+) -> BaryResult<()> {
+    let inv = inventories.try_get_mut(inv_id)?;
+    let old_slot = inv
+        .get_slot_mut(slot_id)
+        .ok_or(BaryError::NoInvSlot(slot_id))?;
+    *old_slot = slot;
+    Ok(())
+}
+
+pub fn update_pipes(inventories: &mut Components<Inventory>, pipes: &mut Components<Pipe>) {
+    for pipe in pipes.values_mut() {
+        let inv_a = ok_or_continue!(inventories.try_get(pipe.src.part_id));
+        let inv_b = ok_or_continue!(inventories.try_get(pipe.dst.part_id));
+
+        let mut src = some_or_continue!(inv_a.get_slot(pipe.src.slot)).clone();
+        let mut dst = some_or_continue!(inv_b.get_slot(pipe.dst.slot)).clone();
+
+        let mass = src.mass() / 10;
+
+        pipe.status = atomic_transfer(&mut src, &mut dst, mass);
+
+        _ = set_inventory_slot(inventories, src, pipe.src.part_id, pipe.src.slot);
+        _ = set_inventory_slot(inventories, dst, pipe.dst.part_id, pipe.dst.slot);
     }
 }
 
@@ -635,6 +694,7 @@ pub fn update_world(world: &mut World) {
     let ticks_per_minute = TICKS_PER_SECOND * 4;
     if world.ticks % ticks_per_minute == 3 {
         fill_inventories_at_random(world);
+        update_pipes(&mut world.inventories, &mut world.pipes);
     }
 
     update_machines(world);
@@ -726,7 +786,7 @@ pub fn pre_simulation_update(
         client.alt_mode ^= true;
     }
 
-    if client.input.just_pressed_debounced(Button::Middle) {
+    if client.input.just_pressed_debounced(Button::Right) {
         if let Some(mouse_pos) = client.mouse_screen_position {
             if let Some(free) = client.viewport.free_mut() {
                 let world_pos = screen_to_world(&client.camera, mouse_pos, client.screen_dims);
@@ -735,7 +795,7 @@ pub fn pre_simulation_update(
         }
     }
 
-    if client.input.just_released(Button::Middle) {
+    if client.input.just_released(Button::Right) {
         if let Some(free) = client.viewport.free() {
             if let Some(p) = free.waypoint_widget {
                 if let Some(mouse_pos) = client.mouse_screen_position {

@@ -27,23 +27,19 @@ fn draw_text(d: &mut RaylibDrawHandle, iso: Isometry2d, text: &str, font_size: f
     }
 }
 
-fn draw_text_centered_bg(
-    d: &mut RaylibDrawHandle,
-    iso: Isometry2d,
-    text: &str,
-    font_size: f32,
-    camera: &Camera,
-) {
+fn draw_text_centered_bg(d: &mut RaylibDrawHandle, iso: Isometry2d, text: &str, font_size: f32) {
     if text.is_empty() {
         return;
     }
 
     let spacing = font_size / 20.0;
+    let dims = raylib_to_glam(d.get_font_default().measure_text(text, font_size, spacing));
+    let iso = iso.offset(-dims / 2.0);
+
+    fill_rectangle(d, iso, dims, Color::BLACK);
+
     let text_iso = iso.offset(Vec2::Y * font_size);
     let p = glam_to_raylib_swap_y(text_iso.translation);
-    let dims = d.get_font_default().measure_text(text, font_size, spacing);
-
-    fill_rectangle(d, iso, raylib_to_glam(dims), Color::BLACK);
 
     d.draw_text_pro(
         d.get_font_default(),
@@ -121,15 +117,10 @@ fn draw_hovered_inventory(d: &mut RaylibDrawHandle, world: &World, client: &Clie
     let slot = some_or_return!(inv.get_slot(slot_id));
 
     let part_iso = grid.origin() * part.region.origin_isometry();
-    draw_inventory_slot(d, slot, part_iso, &client.camera);
+    draw_inventory_slot(d, slot, part_iso);
 }
 
-fn draw_inventory_slot(
-    d: &mut RaylibDrawHandle,
-    slot: &InvSlot,
-    part_iso: Isometry2d,
-    camera: &Camera,
-) {
+fn draw_inventory_slot(d: &mut RaylibDrawHandle, slot: &InvSlot, part_iso: Isometry2d) {
     let (min, max) = slot.location();
     let avg = (max + min).to_meters() / 2.0;
     let center_iso = part_iso.offset(avg);
@@ -148,7 +139,7 @@ fn draw_inventory_slot(
 
     if let Some(item) = slot.item() {
         let text = format!("{:?}", item);
-        draw_text_centered_bg(d, center_iso, &text, font_size, camera);
+        draw_text_centered_bg(d, center_iso, &text, font_size);
     }
 }
 
@@ -157,7 +148,6 @@ fn draw_inventories(
     grids: &Components<VehicleGrid>,
     parts: &Components<Part>,
     inventories: &Components<Inventory>,
-    camera: &Camera,
 ) {
     for grid in grids.values() {
         let origin = grid.origin();
@@ -167,7 +157,7 @@ fn draw_inventories(
             let part_iso = origin * part.region.origin_isometry();
 
             for slot in inv.slots() {
-                draw_inventory_slot(d, slot, part_iso, camera);
+                draw_inventory_slot(d, slot, part_iso);
             }
         }
     }
@@ -258,13 +248,7 @@ pub fn draw_world(
     draw_editor_selection_region(&mut c, client, world);
 
     if client.alt_mode {
-        draw_inventories(
-            &mut c,
-            &world.grids,
-            &world.parts,
-            &world.inventories,
-            &client.camera,
-        );
+        draw_inventories(&mut c, &world.grids, &world.parts, &world.inventories);
     } else {
         draw_hovered_inventory(&mut c, world, client);
     }
@@ -976,6 +960,12 @@ fn draw_line(d: &mut RaylibDrawHandle, start: Vec2, end: Vec2, color: Color) {
     d.draw_line_v(start, end, color);
 }
 
+fn draw_line_width(d: &mut RaylibDrawHandle, start: Vec2, end: Vec2, thick: f32, color: Color) {
+    let start = glam_to_raylib_swap_y(start);
+    let end = glam_to_raylib_swap_y(end);
+    d.draw_line_ex(start, end, thick, color);
+}
+
 #[allow(unused)]
 fn draw_parts_zoo(parts: &Components<PartPrototype>, d: &mut RaylibDrawHandle) {
     let x = 0;
@@ -1079,9 +1069,15 @@ fn draw_pipes(
         let p = src.offset(half_cell).translation;
         let q = dst.offset(half_cell).translation;
 
+        let color = match pipe.status {
+            MachineStatus::NoRoom => Color::ORANGE,
+            MachineStatus::Starved => Color::BLUE,
+            _ => Color::TEAL,
+        };
+
         draw_rectangle(d, src.offset(offset), dims, Color::GREEN);
         draw_rectangle(d, dst.offset(offset), dims, Color::RED);
-        draw_line(d, p, q, Color::TEAL);
+        draw_line_width(d, p, q, 0.04, color);
     }
 }
 

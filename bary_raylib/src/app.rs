@@ -48,9 +48,11 @@ pub fn new_app(multiplayer: bool) -> App {
         .blueprint("remora")
         .blueprint("spacestation")
         .blueprint("foundation")
+        .blueprint("miner")
+        .blueprint("icecream")
         .spawn("pollux", "", (0.0, 0.0, 0.0))
         .spawn("remora", "", (10.0, 30.0, 0.1))
-        .spawn("remora", "", (-9.0, 12.0, -0.3))
+        .spawn("miner", "", (-9.0, 12.0, -0.3))
         .spawn("remora", "", (-7.0, 23.0, 0.7))
         .spawn("bellerophon", "", (130.0, 50.0, 0.1))
         .build();
