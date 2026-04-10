@@ -151,11 +151,17 @@ mass = 70000
 dims = [1, 1]
 layer = "Plumbing"
 
+[values.8.debug_portal_data]
+dir = "Sink"
+
 [values.9]
 name = "debug-source"
 mass = 70000
 dims = [1, 1]
 layer = "Plumbing"
+
+[values.9.debug_portal_data]
+dir = "Source"
 
 [values.10]
 name = "docking-port"

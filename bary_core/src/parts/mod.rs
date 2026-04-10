@@ -1,5 +1,6 @@
 // TODO make these private
 pub mod computer;
+pub mod debug_portal;
 pub mod docking_port;
 pub mod excavator;
 pub mod generic;
@@ -11,6 +12,7 @@ pub mod pipe;
 pub mod thruster;
 
 pub use computer::*;
+pub use debug_portal::*;
 pub use docking_port::*;
 pub use excavator::*;
 pub use generic::*;

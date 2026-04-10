@@ -34,6 +34,7 @@ pub fn spawn_grid_from_blueprint_c(
     lights: &mut Components<Light>,
     inventories: &mut Components<Inventory>,
     machines: &mut Components<Machine>,
+    debug_portals: &mut Components<DebugPortal>,
     name: impl Into<String>,
     bp: &Blueprint,
 ) -> BaryResult<Ent> {
@@ -54,6 +55,7 @@ pub fn spawn_grid_from_blueprint_c(
             lights,
             inventories,
             machines,
+            debug_portals,
             proto,
             false,
         )?;
@@ -221,6 +223,7 @@ pub fn spawn_grid_from_blueprint(
         &mut world.lights,
         &mut world.inventories,
         &mut world.machines,
+        &mut world.debug_portals,
         name,
         bp,
     )
@@ -303,6 +306,7 @@ pub fn insert_part(
         &mut world.lights,
         &mut world.inventories,
         &mut world.machines,
+        &mut world.debug_portals,
         instance,
         update_props,
     )
@@ -329,6 +333,7 @@ pub fn insert_part_c(
     lights: &mut Components<Light>,
     inventories: &mut Components<Inventory>,
     machines: &mut Components<Machine>,
+    debug_portals: &mut Components<DebugPortal>,
     instance: &PartInstance,
     update_props: bool,
 ) -> BaryResult<Ent> {
@@ -402,6 +407,9 @@ pub fn insert_part_c(
             lights.spawn(part_id, light);
             grid.lights.insert(part_id);
         }
+    }
+    if let Some(debug) = &proto.debug_portal_data {
+        debug_portals.spawn(part_id, *debug);
     }
 
     if update_props {
@@ -569,6 +577,18 @@ pub mod find {
         let (part_id, slot_id) = inventory_at_c(loc, grids, parts, inventories)?;
         let inv = inventories.try_get(part_id)?;
         inv.get_slot(slot_id).ok_or(BaryError::NoInvSlot(slot_id))
+    }
+
+    pub fn get_slot_mut_c<'a>(
+        loc: GridLocation,
+        grids: &Components<VehicleGrid>,
+        parts: &Components<Part>,
+        inventories: &'a mut Components<Inventory>,
+    ) -> BaryResult<&'a mut InvSlot> {
+        let (part_id, slot_id) = inventory_at_c(loc, grids, parts, inventories)?;
+        let inv = inventories.try_get_mut(part_id)?;
+        inv.get_slot_mut(slot_id)
+            .ok_or(BaryError::NoInvSlot(slot_id))
     }
 
     pub fn inventory_at_c(
@@ -1285,6 +1305,7 @@ mod tests {
             thruster_data: Some(thruster_data),
             machine_data: None,
             docking_port_data: None,
+            debug_portal_data: None,
         };
 
         let dims = proto.dims;

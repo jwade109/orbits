@@ -263,7 +263,7 @@ pub fn leave_ship_editor_on_escape(client: &mut ClientSpecificInfo, sounds: &mut
         waypoint_widget: None,
     });
 
-    client.target_camera.zoom = 20.0;
+    // client.target_camera.zoom = 20.0;
     client.target_camera.isometry.rotation = 0.0;
 
     client.chat.log("Left ship editor");
@@ -293,7 +293,7 @@ pub fn enter_ship_editor(
         hovered: None,
     });
 
-    client.target_camera.zoom = 40.0;
+    client.target_camera.zoom = client.target_camera.zoom.max(40.0);
 
     client.chat.log("Switched to ship editor");
     sounds.push(SoundEffect::OpenEditor);

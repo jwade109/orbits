@@ -248,6 +248,7 @@ fn get_inventory_at_grid_location() {
         thruster_data: None,
         machine_data: None,
         docking_port_data: None,
+        debug_portal_data: None,
     };
 
     let proto_id = world.spawner.spawn();

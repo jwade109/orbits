@@ -10,6 +10,7 @@ use crate::ops::destroy_part_without_integrity_check;
 use crate::ops::detach_part_from_parent;
 use crate::result::BaryError;
 use crate::result::BaryResult;
+use crate::sim::find::get_slot_mut_c;
 use crate::sim::input_handlers;
 use crate::sim::*;
 use crate::sounds::*;
@@ -48,6 +49,7 @@ pub struct World {
     pub machines: Components<Machine>,
     pub stars: Components<Star>,
     pub pipes: Components<Pipe>,
+    pub debug_portals: Components<DebugPortal>,
 
     // TODO might move this to assets.
     pub ship_names: Vec<String>,
@@ -106,6 +108,7 @@ impl World {
             machines: Components::default(),
             stars: Components::default(),
             pipes: Components::default(),
+            debug_portals: Components::default(),
             ship_names: vec![
                 "Gary".to_string(),
                 "Sally".to_string(),
@@ -623,20 +626,32 @@ pub fn update_trackers(
     }
 }
 
-pub fn fill_inventories_at_random(world: &mut World) {
-    for inv in world.inventories.values_mut() {
-        let slot = some_or_continue!(inv.get_slot_mut(0));
+pub fn fill_inventories_attached_to_debug_sources(world: &mut World) {
+    for (part_id, portal) in world.debug_portals.iter() {
+        let part = ok_or_continue!(world.parts.try_get(*part_id));
+        let loc = GridLocation::new(part.grid_id, part.region.origin());
+        let slot = ok_or_continue!(get_slot_mut_c(
+            loc,
+            &world.grids,
+            &world.parts,
+            &mut world.inventories
+        ));
 
-        let item = if slot.is_empty() {
-            Item::random_with_filter(slot.filter())
-        } else {
-            slot.item()
-        };
+        match portal.dir {
+            PortalDirection::Source => {
+                let item = if slot.is_empty() {
+                    Item::random_with_filter(slot.filter())
+                } else {
+                    slot.item()
+                };
 
-        if let Some(item) = item {
-            let n = (slot.capacity() / item.volume_per_unit() * 0.05).round();
-            let n = rand(0.1, 1.0) as f64 * n;
-            slot.store_partial(item, n.round() as u64);
+                if let Some(item) = item {
+                    slot.fill_with(item);
+                }
+            }
+            PortalDirection::Sink => {
+                slot.empty();
+            }
         }
     }
 }
@@ -697,7 +712,7 @@ pub fn update_world(world: &mut World) {
 
     let ticks_per_minute = TICKS_PER_SECOND * 4;
     if world.ticks % ticks_per_minute == 3 {
-        fill_inventories_at_random(world);
+        fill_inventories_attached_to_debug_sources(world);
         update_pipes(&mut world.inventories, &mut world.pipes);
     }
 
