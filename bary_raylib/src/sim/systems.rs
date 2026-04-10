@@ -783,6 +783,14 @@ mod tests {
 
         let (id, proto) = iter.next().unwrap();
         assert_eq!(*id, Ent(8));
+        assert_eq!(proto.part_name(), "debug-sink");
+
+        let (id, proto) = iter.next().unwrap();
+        assert_eq!(*id, Ent(9));
+        assert_eq!(proto.part_name(), "debug-source");
+
+        let (id, proto) = iter.next().unwrap();
+        assert_eq!(*id, Ent(10));
         assert_eq!(proto.part_name(), "docking-port");
 
         assert_world_is_consistent(&world);
@@ -809,7 +817,7 @@ mod tests {
         let grid_id = spawn_grid_from_blueprint(&mut world, name.to_string(), &bp)
             .expect("Expected the grid ID");
 
-        let expected_grid_id = Ent(34);
+        let expected_grid_id = Ent(37);
 
         // this entity should be the same every time
         assert_eq!(grid_id, expected_grid_id);
@@ -828,7 +836,7 @@ mod tests {
         let (id, cpu) = world.computers.iter().next().unwrap();
 
         // these entities should be the same every time
-        assert_eq!(*id, Ent(58));
+        assert_eq!(*id, Ent(61));
         assert_eq!(cpu.prototype, Ent(6));
 
         // get the prototype definition for the computer
@@ -869,7 +877,7 @@ mod tests {
         assert!(find::closest_grid(&world.grids, Vec2::new(100.0, 200.0), None).is_none());
 
         let id = spawn_grid_with_random_name(&mut world, "remora").unwrap();
-        assert_eq!(id, Ent(34));
+        assert_eq!(id, Ent(37));
 
         let grid = world.grids.try_get_mut(id).unwrap();
         grid.particle_location.translation = Vec2::new(40.0, 156.0);
@@ -881,7 +889,7 @@ mod tests {
             update_world(&mut world);
             let test_pos = centroid.offset(Vec2::new(100.0, 200.0)).translation;
             let e = find::closest_grid(&world.grids, test_pos, None);
-            assert_eq!(e, Some((Ent(34), Vec2::new(99.99999, 199.99998))));
+            assert_eq!(e, Some((Ent(37), Vec2::new(99.99999, 199.99998))));
         }
 
         assert_world_is_consistent(&world);
@@ -894,6 +902,8 @@ mod tests {
             .blueprint("pollux")
             .build();
 
+        let initial_id = world.spawner.next();
+
         let part_name = "motor";
 
         let proto_id = find::proto_by_name(&world.prototypes, part_name).unwrap();
@@ -901,14 +911,14 @@ mod tests {
         let proto = world.prototypes.try_get(proto_id).unwrap();
         let dims = proto.dims;
 
-        assert_eq!(proto_id, Ent(16));
+        assert_eq!(proto_id, initial_id - 16);
 
         let grid_id = spawn_grid_with_random_name(&mut world, "pollux").unwrap();
 
         assert_eq!(world.parts.len(), 98);
         assert_eq!(world.thrusters.len(), 18);
 
-        assert_eq!(grid_id, Ent(31));
+        assert_eq!(grid_id, initial_id);
 
         let instance = PartInstance::new(
             part_name,
@@ -920,7 +930,7 @@ mod tests {
 
         assert_world_is_consistent(&world);
 
-        assert_eq!(id, Ent(130));
+        assert_eq!(id, initial_id + 99);
 
         let part = world.parts.get(id).unwrap();
 
@@ -1041,7 +1051,7 @@ mod tests {
         assert_eq!(grid.parts.len(), 0);
         assert_eq!(grid.parts_mass, Mass::ZERO);
 
-        assert_eq!(grid_id, Ent(30));
+        assert_eq!(grid_id, Ent(33));
 
         let instance_a = PartInstance::new(
             "motor",
@@ -1065,8 +1075,8 @@ mod tests {
         assert_eq!(grid.thrusters, [a_id, b_id].into());
         assert_eq!(grid.parts_mass, Mass::grams(870000));
 
-        assert_eq!(a_id, Ent(31));
-        assert_eq!(b_id, Ent(32));
+        assert_eq!(a_id, Ent(34));
+        assert_eq!(b_id, Ent(35));
 
         let r1 = set_thruster_state(a_id, &mut world, true);
         let r2 = set_thruster_state(b_id, &mut world, true);

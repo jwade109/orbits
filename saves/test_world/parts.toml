@@ -1,4487 +1,4487 @@
-[values.35]
-mass = 230000
-layer = "Internal"
-prototype = 26
-grid_id = 34
-classification = "Cargo"
-
-[values.35.region]
-bottom_left = [34, 13]
-rotation = "South"
-part_local_dims = [2, 2]
-
-[values.36]
-mass = 230000
-layer = "Internal"
-prototype = 26
-grid_id = 34
-classification = "Cargo"
-
-[values.36.region]
-bottom_left = [18, 11]
-rotation = "North"
-part_local_dims = [2, 2]
-
-[values.37]
-mass = 260000
-layer = "Internal"
-prototype = 2
-grid_id = 34
-classification = "Auxiliary"
-
-[values.37.region]
-bottom_left = [18, 13]
-rotation = "East"
-part_local_dims = [2, 2]
-
 [values.38]
-mass = 18000
-layer = "Exterior"
-prototype = 18
-grid_id = 34
-classification = "Decoration"
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 37
+classification = "Cargo"
 
 [values.38.region]
-bottom_left = [4, 4]
+bottom_left = [34, 13]
 rotation = "South"
 part_local_dims = [2, 2]
 
 [values.39]
-mass = 18000
-layer = "Exterior"
-prototype = 18
-grid_id = 34
-classification = "Decoration"
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 37
+classification = "Cargo"
 
 [values.39.region]
+bottom_left = [18, 11]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.40]
+mass = 260000
+layer = "Internal"
+prototype = 2
+grid_id = 37
+classification = "Auxiliary"
+
+[values.40.region]
+bottom_left = [18, 13]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.41]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 37
+classification = "Decoration"
+
+[values.41.region]
+bottom_left = [4, 4]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.42]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 37
+classification = "Decoration"
+
+[values.42.region]
 bottom_left = [36, 8]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.40]
+[values.43]
 mass = 40000
 layer = "Internal"
-prototype = 8
-grid_id = 34
+prototype = 10
+grid_id = 37
 classification = "DockingPort"
 
-[values.40.region]
+[values.43.region]
 bottom_left = [20, 2]
 rotation = "South"
 part_local_dims = [1, 4]
 
-[values.41]
+[values.44]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 34
+prototype = 16
+grid_id = 37
 classification = "Structure"
 
-[values.41.region]
+[values.44.region]
 bottom_left = [34, 5]
 rotation = "North"
 part_local_dims = [8, 2]
 
-[values.42]
+[values.45]
 mass = 230000
 layer = "Internal"
-prototype = 26
-grid_id = 34
+prototype = 28
+grid_id = 37
 classification = "Cargo"
 
-[values.42.region]
+[values.45.region]
 bottom_left = [20, 11]
 rotation = "North"
 part_local_dims = [2, 2]
 
-[values.43]
+[values.46]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 34
+prototype = 22
+grid_id = 37
 classification = "Thruster"
 
-[values.43.region]
+[values.46.region]
 bottom_left = [33, 0]
 rotation = "North"
 part_local_dims = [1, 1]
 
-[values.44]
+[values.47]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 34
+prototype = 20
+grid_id = 37
 classification = "Decoration"
 
-[values.44.region]
+[values.47.region]
 bottom_left = [6, 8]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.45]
+[values.48]
 mass = 85000
 layer = "Structural"
-prototype = 12
-grid_id = 34
+prototype = 14
+grid_id = 37
 classification = "Structure"
 
-[values.45.region]
+[values.48.region]
 bottom_left = [32, 15]
 rotation = "West"
 part_local_dims = [2, 2]
 
-[values.46]
+[values.49]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 34
+prototype = 20
+grid_id = 37
 classification = "Decoration"
 
-[values.46.region]
+[values.49.region]
 bottom_left = [6, 4]
 rotation = "South"
 part_local_dims = [2, 2]
 
-[values.47]
+[values.50]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 34
+prototype = 22
+grid_id = 37
 classification = "Thruster"
 
-[values.47.region]
+[values.50.region]
 bottom_left = [10, 0]
 rotation = "North"
 part_local_dims = [1, 1]
 
-[values.48]
+[values.51]
 mass = 37000
 layer = "Structural"
 prototype = 0
-grid_id = 34
+grid_id = 37
 classification = "Structure"
 
-[values.48.region]
+[values.51.region]
 bottom_left = [34, 13]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.49]
+[values.52]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 34
+prototype = 22
+grid_id = 37
 classification = "Thruster"
 
-[values.49.region]
+[values.52.region]
 bottom_left = [12, 16]
 rotation = "West"
 part_local_dims = [1, 1]
 
-[values.50]
+[values.53]
 mass = 85000
 layer = "Structural"
-prototype = 12
-grid_id = 34
+prototype = 14
+grid_id = 37
 classification = "Structure"
 
-[values.50.region]
+[values.53.region]
 bottom_left = [32, 1]
 rotation = "South"
 part_local_dims = [2, 2]
 
-[values.51]
+[values.54]
 mass = 85000
 layer = "Structural"
-prototype = 12
-grid_id = 34
+prototype = 14
+grid_id = 37
 classification = "Structure"
 
-[values.51.region]
+[values.54.region]
 bottom_left = [10, 3]
 rotation = "North"
 part_local_dims = [2, 2]
 
-[values.52]
+[values.55]
 mass = 400000
 layer = "Internal"
-prototype = 27
-grid_id = 34
+prototype = 29
+grid_id = 37
 classification = "Cargo"
 
-[values.52.region]
+[values.55.region]
 bottom_left = [18, 5]
 rotation = "North"
 part_local_dims = [2, 4]
 
-[values.53]
+[values.56]
 mass = 650000
 layer = "Internal"
-prototype = 16
-grid_id = 34
+prototype = 18
+grid_id = 37
 classification = "Thruster"
 
-[values.53.region]
+[values.56.region]
 bottom_left = [0, 10]
 rotation = "East"
 part_local_dims = [6, 3]
 
-[values.54]
+[values.57]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 34
+prototype = 16
+grid_id = 37
 classification = "Structure"
 
-[values.54.region]
+[values.57.region]
 bottom_left = [36, 5]
 rotation = "South"
 part_local_dims = [8, 2]
 
-[values.55]
+[values.58]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 34
+prototype = 20
+grid_id = 37
 classification = "Decoration"
 
-[values.55.region]
+[values.58.region]
 bottom_left = [32, 4]
 rotation = "South"
 part_local_dims = [2, 2]
 
-[values.56]
+[values.59]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 34
+prototype = 22
+grid_id = 37
 classification = "Thruster"
 
-[values.56.region]
+[values.59.region]
 bottom_left = [9, 16]
 rotation = "East"
 part_local_dims = [1, 1]
 
-[values.57]
+[values.60]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 34
+prototype = 22
+grid_id = 37
 classification = "Thruster"
 
-[values.57.region]
+[values.60.region]
 bottom_left = [12, 1]
 rotation = "West"
 part_local_dims = [1, 1]
 
-[values.58]
+[values.61]
 mass = 320000
 layer = "Internal"
 prototype = 6
-grid_id = 34
+grid_id = 37
 classification = "Computer"
 
-[values.58.region]
+[values.61.region]
 bottom_left = [24, 13]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.59]
+[values.62]
 mass = 37000
 layer = "Structural"
 prototype = 0
-grid_id = 34
+grid_id = 37
 classification = "Structure"
 
-[values.59.region]
+[values.62.region]
 bottom_left = [8, 3]
 rotation = "West"
 part_local_dims = [2, 2]
 
-[values.60]
+[values.63]
 mass = 230000
 layer = "Internal"
-prototype = 26
-grid_id = 34
+prototype = 28
+grid_id = 37
 classification = "Cargo"
 
-[values.60.region]
+[values.63.region]
 bottom_left = [24, 11]
 rotation = "North"
 part_local_dims = [2, 2]
 
-[values.61]
+[values.64]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 34
+prototype = 22
+grid_id = 37
 classification = "Thruster"
 
-[values.61.region]
+[values.64.region]
 bottom_left = [31, 1]
 rotation = "East"
 part_local_dims = [1, 1]
 
-[values.62]
+[values.65]
 mass = 8400000
 layer = "Internal"
 prototype = 3
-grid_id = 34
+grid_id = 37
 classification = "Cargo"
 
-[values.62.region]
+[values.65.region]
 bottom_left = [28, 6]
 rotation = "East"
 part_local_dims = [6, 6]
 
-[values.63]
+[values.66]
 mass = 85000
 layer = "Structural"
-prototype = 12
-grid_id = 34
+prototype = 14
+grid_id = 37
 classification = "Structure"
 
-[values.63.region]
+[values.66.region]
 bottom_left = [21, 7]
 rotation = "West"
 part_local_dims = [2, 2]
 
-[values.64]
+[values.67]
 mass = 230000
 layer = "Internal"
-prototype = 26
-grid_id = 34
+prototype = 28
+grid_id = 37
 classification = "Cargo"
 
-[values.64.region]
+[values.67.region]
 bottom_left = [22, 3]
 rotation = "North"
 part_local_dims = [2, 2]
 
-[values.65]
+[values.68]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 34
+prototype = 20
+grid_id = 37
 classification = "Decoration"
 
-[values.65.region]
+[values.68.region]
 bottom_left = [38, 12]
 rotation = "South"
 part_local_dims = [2, 2]
 
-[values.66]
+[values.69]
 mass = 230000
 layer = "Internal"
-prototype = 26
-grid_id = 34
+prototype = 28
+grid_id = 37
 classification = "Cargo"
 
-[values.66.region]
+[values.69.region]
 bottom_left = [8, 13]
 rotation = "South"
 part_local_dims = [2, 2]
 
-[values.67]
+[values.70]
 mass = 650000
 layer = "Internal"
-prototype = 16
-grid_id = 34
+prototype = 18
+grid_id = 37
 classification = "Thruster"
 
-[values.67.region]
+[values.70.region]
 bottom_left = [38, 10]
 rotation = "West"
 part_local_dims = [6, 3]
 
-[values.68]
+[values.71]
 mass = 85000
 layer = "Structural"
-prototype = 12
-grid_id = 34
+prototype = 14
+grid_id = 37
 classification = "Structure"
 
-[values.68.region]
+[values.71.region]
 bottom_left = [21, 9]
 rotation = "North"
 part_local_dims = [2, 2]
 
-[values.69]
+[values.72]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 34
+prototype = 16
+grid_id = 37
 classification = "Structure"
 
-[values.69.region]
+[values.72.region]
 bottom_left = [26, 11]
 rotation = "East"
 part_local_dims = [8, 2]
 
-[values.70]
+[values.73]
 mass = 140000
 layer = "Internal"
-prototype = 23
-grid_id = 34
+prototype = 25
+grid_id = 37
 classification = "Auxiliary"
 
-[values.70.region]
+[values.73.region]
 bottom_left = [28, 13]
 rotation = "North"
 part_local_dims = [1, 4]
 
-[values.71]
+[values.74]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 34
+prototype = 20
+grid_id = 37
 classification = "Decoration"
 
-[values.71.region]
+[values.74.region]
 bottom_left = [34, 8]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.72]
+[values.75]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 34
+prototype = 20
+grid_id = 37
 classification = "Decoration"
 
-[values.72.region]
+[values.75.region]
 bottom_left = [32, 12]
 rotation = "South"
 part_local_dims = [2, 2]
 
-[values.73]
+[values.76]
 mass = 230000
 layer = "Internal"
-prototype = 26
-grid_id = 34
+prototype = 28
+grid_id = 37
 classification = "Cargo"
 
-[values.73.region]
+[values.76.region]
 bottom_left = [22, 11]
 rotation = "North"
 part_local_dims = [2, 2]
 
-[values.74]
+[values.77]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 34
+prototype = 16
+grid_id = 37
 classification = "Structure"
 
-[values.74.region]
+[values.77.region]
 bottom_left = [6, 5]
 rotation = "South"
 part_local_dims = [8, 2]
 
-[values.75]
-mass = 18000
-layer = "Exterior"
-prototype = 18
-grid_id = 34
-classification = "Decoration"
-
-[values.75.region]
-bottom_left = [36, 4]
-rotation = "South"
-part_local_dims = [2, 2]
-
-[values.76]
-mass = 18000
-layer = "Exterior"
-prototype = 18
-grid_id = 34
-classification = "Decoration"
-
-[values.76.region]
-bottom_left = [34, 12]
-rotation = "South"
-part_local_dims = [2, 2]
-
-[values.77]
-mass = 85000
-layer = "Structural"
-prototype = 12
-grid_id = 34
-classification = "Structure"
-
-[values.77.region]
-bottom_left = [32, 13]
-rotation = "North"
-part_local_dims = [2, 2]
-
 [values.78]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 34
+prototype = 20
+grid_id = 37
 classification = "Decoration"
 
 [values.78.region]
-bottom_left = [10, 12]
+bottom_left = [36, 4]
 rotation = "South"
 part_local_dims = [2, 2]
 
 [values.79]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 34
+prototype = 20
+grid_id = 37
 classification = "Decoration"
 
 [values.79.region]
-bottom_left = [10, 4]
+bottom_left = [34, 12]
 rotation = "South"
 part_local_dims = [2, 2]
 
 [values.80]
-mass = 140000
-layer = "Internal"
-prototype = 23
-grid_id = 34
-classification = "Auxiliary"
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 37
+classification = "Structure"
 
 [values.80.region]
+bottom_left = [32, 13]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.81]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 37
+classification = "Decoration"
+
+[values.81.region]
+bottom_left = [10, 12]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.82]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 37
+classification = "Decoration"
+
+[values.82.region]
+bottom_left = [10, 4]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.83]
+mass = 140000
+layer = "Internal"
+prototype = 25
+grid_id = 37
+classification = "Auxiliary"
+
+[values.83.region]
 bottom_left = [12, 3]
 rotation = "South"
 part_local_dims = [1, 4]
 
-[values.81]
+[values.84]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 34
+prototype = 22
+grid_id = 37
 classification = "Thruster"
 
-[values.81.region]
+[values.84.region]
 bottom_left = [9, 1]
 rotation = "East"
 part_local_dims = [1, 1]
 
-[values.82]
+[values.85]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 34
+prototype = 16
+grid_id = 37
 classification = "Structure"
 
-[values.82.region]
+[values.85.region]
 bottom_left = [4, 5]
 rotation = "North"
 part_local_dims = [8, 2]
 
-[values.83]
+[values.86]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 34
+prototype = 16
+grid_id = 37
 classification = "Structure"
 
-[values.83.region]
+[values.86.region]
 bottom_left = [18, 13]
 rotation = "East"
 part_local_dims = [8, 2]
 
-[values.84]
+[values.87]
 mass = 37000
 layer = "Structural"
 prototype = 0
-grid_id = 34
+grid_id = 37
 classification = "Structure"
 
-[values.84.region]
+[values.87.region]
 bottom_left = [8, 13]
 rotation = "North"
 part_local_dims = [2, 2]
 
-[values.85]
+[values.88]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 34
+prototype = 22
+grid_id = 37
 classification = "Thruster"
 
-[values.85.region]
+[values.88.region]
 bottom_left = [34, 16]
 rotation = "West"
 part_local_dims = [1, 1]
 
-[values.86]
+[values.89]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 34
+prototype = 20
+grid_id = 37
 classification = "Decoration"
 
-[values.86.region]
+[values.89.region]
 bottom_left = [36, 12]
 rotation = "South"
 part_local_dims = [2, 2]
 
-[values.87]
+[values.90]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 34
+prototype = 22
+grid_id = 37
 classification = "Thruster"
 
-[values.87.region]
+[values.90.region]
 bottom_left = [31, 16]
 rotation = "East"
 part_local_dims = [1, 1]
 
-[values.88]
+[values.91]
 mass = 85000
 layer = "Structural"
-prototype = 12
-grid_id = 34
+prototype = 14
+grid_id = 37
 classification = "Structure"
 
-[values.88.region]
+[values.91.region]
 bottom_left = [10, 13]
 rotation = "North"
 part_local_dims = [2, 2]
 
-[values.89]
+[values.92]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 34
+prototype = 20
+grid_id = 37
 classification = "Decoration"
 
-[values.89.region]
+[values.92.region]
 bottom_left = [38, 8]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.90]
+[values.93]
 mass = 140000
 layer = "Internal"
-prototype = 23
-grid_id = 34
+prototype = 25
+grid_id = 37
 classification = "Auxiliary"
 
-[values.90.region]
+[values.93.region]
 bottom_left = [28, 3]
 rotation = "North"
 part_local_dims = [1, 4]
 
-[values.91]
+[values.94]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 34
+prototype = 20
+grid_id = 37
 classification = "Decoration"
 
-[values.91.region]
+[values.94.region]
 bottom_left = [4, 8]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.92]
+[values.95]
 mass = 220000
 layer = "Internal"
-prototype = 24
-grid_id = 34
+prototype = 26
+grid_id = 37
 classification = "Thruster"
 
-[values.92.region]
+[values.95.region]
 bottom_left = [39, 8]
 rotation = "West"
 part_local_dims = [3, 2]
 
-[values.93]
+[values.96]
 mass = 230000
 layer = "Internal"
-prototype = 26
-grid_id = 34
+prototype = 28
+grid_id = 37
 classification = "Cargo"
 
-[values.93.region]
+[values.96.region]
 bottom_left = [20, 3]
 rotation = "North"
 part_local_dims = [2, 2]
 
-[values.94]
+[values.97]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 34
+prototype = 16
+grid_id = 37
 classification = "Structure"
 
-[values.94.region]
+[values.97.region]
 bottom_left = [10, 11]
 rotation = "East"
 part_local_dims = [8, 2]
 
-[values.95]
+[values.98]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 34
+prototype = 22
+grid_id = 37
 classification = "Thruster"
 
-[values.95.region]
+[values.98.region]
 bottom_left = [10, 17]
 rotation = "South"
 part_local_dims = [1, 1]
 
-[values.96]
+[values.99]
 mass = 650000
 layer = "Internal"
-prototype = 16
-grid_id = 34
+prototype = 18
+grid_id = 37
 classification = "Thruster"
 
-[values.96.region]
+[values.99.region]
 bottom_left = [0, 5]
 rotation = "East"
 part_local_dims = [6, 3]
 
-[values.97]
+[values.100]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 34
+prototype = 16
+grid_id = 37
 classification = "Structure"
 
-[values.97.region]
+[values.100.region]
 bottom_left = [18, 3]
 rotation = "East"
 part_local_dims = [8, 2]
 
-[values.98]
+[values.101]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 34
+prototype = 16
+grid_id = 37
 classification = "Structure"
 
-[values.98.region]
+[values.101.region]
 bottom_left = [10, 5]
 rotation = "East"
 part_local_dims = [8, 2]
 
-[values.99]
+[values.102]
 mass = 40000
 layer = "Internal"
-prototype = 8
-grid_id = 34
+prototype = 10
+grid_id = 37
 classification = "DockingPort"
 
-[values.99.region]
+[values.102.region]
 bottom_left = [20, 15]
 rotation = "North"
 part_local_dims = [1, 4]
 
-[values.100]
+[values.103]
 mass = 230000
 layer = "Internal"
-prototype = 26
-grid_id = 34
+prototype = 28
+grid_id = 37
 classification = "Cargo"
 
-[values.100.region]
+[values.103.region]
 bottom_left = [8, 3]
 rotation = "South"
 part_local_dims = [2, 2]
 
-[values.101]
+[values.104]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 34
+prototype = 20
+grid_id = 37
 classification = "Decoration"
 
-[values.101.region]
+[values.104.region]
 bottom_left = [8, 4]
 rotation = "South"
 part_local_dims = [2, 2]
 
-[values.102]
+[values.105]
 mass = 140000
 layer = "Internal"
-prototype = 23
-grid_id = 34
+prototype = 25
+grid_id = 37
 classification = "Auxiliary"
 
-[values.102.region]
+[values.105.region]
 bottom_left = [12, 13]
 rotation = "South"
 part_local_dims = [1, 4]
 
-[values.103]
+[values.106]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 34
+prototype = 22
+grid_id = 37
 classification = "Thruster"
 
-[values.103.region]
+[values.106.region]
 bottom_left = [34, 1]
 rotation = "West"
 part_local_dims = [1, 1]
 
-[values.104]
+[values.107]
 mass = 85000
 layer = "Structural"
-prototype = 12
-grid_id = 34
+prototype = 14
+grid_id = 37
 classification = "Structure"
 
-[values.104.region]
+[values.107.region]
 bottom_left = [10, 1]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.105]
+[values.108]
 mass = 650000
 layer = "Internal"
-prototype = 28
-grid_id = 34
+prototype = 30
+grid_id = 37
 classification = "Cargo"
 
-[values.105.region]
+[values.108.region]
 bottom_left = [6, 5]
 rotation = "North"
 part_local_dims = [4, 4]
 
-[values.106]
+[values.109]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 34
+prototype = 20
+grid_id = 37
 classification = "Decoration"
 
-[values.106.region]
+[values.109.region]
 bottom_left = [6, 12]
 rotation = "South"
 part_local_dims = [2, 2]
 
-[values.107]
+[values.110]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 34
+prototype = 20
+grid_id = 37
 classification = "Decoration"
 
-[values.107.region]
+[values.110.region]
 bottom_left = [8, 8]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.108]
+[values.111]
 mass = 230000
 layer = "Internal"
-prototype = 26
-grid_id = 34
+prototype = 28
+grid_id = 37
 classification = "Cargo"
 
-[values.108.region]
+[values.111.region]
 bottom_left = [22, 13]
 rotation = "North"
 part_local_dims = [2, 2]
 
-[values.109]
+[values.112]
 mass = 220000
 layer = "Internal"
-prototype = 24
-grid_id = 34
+prototype = 26
+grid_id = 37
 classification = "Thruster"
 
-[values.109.region]
+[values.112.region]
 bottom_left = [2, 8]
 rotation = "East"
 part_local_dims = [3, 2]
 
-[values.110]
+[values.113]
 mass = 37000
 layer = "Structural"
 prototype = 0
-grid_id = 34
+grid_id = 37
 classification = "Structure"
 
-[values.110.region]
-bottom_left = [34, 3]
-rotation = "South"
-part_local_dims = [2, 2]
-
-[values.111]
-mass = 25000
-layer = "Internal"
-prototype = 20
-grid_id = 34
-classification = "Thruster"
-
-[values.111.region]
-bottom_left = [33, 17]
-rotation = "South"
-part_local_dims = [1, 1]
-
-[values.112]
-mass = 18000
-layer = "Exterior"
-prototype = 18
-grid_id = 34
-classification = "Decoration"
-
-[values.112.region]
-bottom_left = [34, 4]
-rotation = "South"
-part_local_dims = [2, 2]
-
-[values.113]
-mass = 18000
-layer = "Exterior"
-prototype = 18
-grid_id = 34
-classification = "Decoration"
-
 [values.113.region]
-bottom_left = [4, 12]
+bottom_left = [34, 3]
 rotation = "South"
 part_local_dims = [2, 2]
 
 [values.114]
-mass = 650000
+mass = 25000
 layer = "Internal"
-prototype = 28
-grid_id = 34
-classification = "Cargo"
+prototype = 22
+grid_id = 37
+classification = "Thruster"
 
 [values.114.region]
+bottom_left = [33, 17]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.115]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 37
+classification = "Decoration"
+
+[values.115.region]
+bottom_left = [34, 4]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.116]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 37
+classification = "Decoration"
+
+[values.116.region]
+bottom_left = [4, 12]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.117]
+mass = 650000
+layer = "Internal"
+prototype = 30
+grid_id = 37
+classification = "Cargo"
+
+[values.117.region]
 bottom_left = [34, 9]
 rotation = "North"
 part_local_dims = [4, 4]
 
-[values.115]
+[values.118]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 34
+prototype = 16
+grid_id = 37
 classification = "Structure"
 
-[values.115.region]
+[values.118.region]
 bottom_left = [38, 5]
 rotation = "North"
 part_local_dims = [8, 2]
 
-[values.116]
+[values.119]
 mass = 650000
 layer = "Internal"
-prototype = 28
-grid_id = 34
+prototype = 30
+grid_id = 37
 classification = "Cargo"
 
-[values.116.region]
+[values.119.region]
 bottom_left = [34, 5]
 rotation = "North"
 part_local_dims = [4, 4]
 
-[values.117]
+[values.120]
 mass = 8400000
 layer = "Internal"
 prototype = 3
-grid_id = 34
+grid_id = 37
 classification = "Cargo"
 
-[values.117.region]
+[values.120.region]
 bottom_left = [10, 6]
 rotation = "East"
 part_local_dims = [6, 6]
 
-[values.118]
+[values.121]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 34
+prototype = 16
+grid_id = 37
 classification = "Structure"
 
-[values.118.region]
+[values.121.region]
 bottom_left = [18, 11]
 rotation = "East"
 part_local_dims = [8, 2]
 
-[values.119]
+[values.122]
 mass = 260000
 layer = "Internal"
 prototype = 2
-grid_id = 34
+grid_id = 37
 classification = "Auxiliary"
 
-[values.119.region]
+[values.122.region]
 bottom_left = [20, 13]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.120]
+[values.123]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 34
+prototype = 20
+grid_id = 37
 classification = "Decoration"
 
-[values.120.region]
+[values.123.region]
 bottom_left = [38, 4]
 rotation = "South"
 part_local_dims = [2, 2]
 
-[values.121]
+[values.124]
 mass = 85000
 layer = "Structural"
-prototype = 12
-grid_id = 34
+prototype = 14
+grid_id = 37
 classification = "Structure"
 
-[values.121.region]
+[values.124.region]
 bottom_left = [10, 15]
 rotation = "North"
 part_local_dims = [2, 2]
 
-[values.122]
+[values.125]
 mass = 400000
 layer = "Internal"
-prototype = 27
-grid_id = 34
+prototype = 29
+grid_id = 37
 classification = "Cargo"
 
-[values.122.region]
+[values.125.region]
 bottom_left = [22, 5]
 rotation = "North"
 part_local_dims = [2, 4]
 
-[values.123]
+[values.126]
 mass = 960000
 layer = "Internal"
 prototype = 4
-grid_id = 34
+grid_id = 37
 classification = "Machine"
 
-[values.123.region]
+[values.126.region]
 bottom_left = [16, 7]
 rotation = "North"
 part_local_dims = [4, 6]
 
-[values.124]
+[values.127]
 mass = 85000
 layer = "Structural"
-prototype = 12
-grid_id = 34
+prototype = 14
+grid_id = 37
 classification = "Structure"
 
-[values.124.region]
+[values.127.region]
 bottom_left = [32, 3]
 rotation = "West"
 part_local_dims = [2, 2]
 
-[values.125]
+[values.128]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 34
+prototype = 16
+grid_id = 37
 classification = "Structure"
 
-[values.125.region]
+[values.128.region]
 bottom_left = [8, 5]
 rotation = "North"
 part_local_dims = [8, 2]
 
-[values.126]
+[values.129]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 34
+prototype = 16
+grid_id = 37
 classification = "Structure"
 
-[values.126.region]
+[values.129.region]
 bottom_left = [18, 5]
 rotation = "East"
 part_local_dims = [8, 2]
 
-[values.127]
+[values.130]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 34
+prototype = 16
+grid_id = 37
 classification = "Structure"
 
-[values.127.region]
+[values.130.region]
 bottom_left = [26, 5]
 rotation = "East"
 part_local_dims = [8, 2]
 
-[values.128]
+[values.131]
 mass = 230000
 layer = "Internal"
-prototype = 26
-grid_id = 34
+prototype = 28
+grid_id = 37
 classification = "Cargo"
 
-[values.128.region]
+[values.131.region]
 bottom_left = [34, 3]
 rotation = "South"
 part_local_dims = [2, 2]
 
-[values.129]
+[values.132]
 mass = 650000
 layer = "Internal"
-prototype = 16
-grid_id = 34
+prototype = 18
+grid_id = 37
 classification = "Thruster"
 
-[values.129.region]
+[values.132.region]
 bottom_left = [38, 5]
 rotation = "West"
 part_local_dims = [6, 3]
 
-[values.130]
+[values.133]
 mass = 960000
 layer = "Internal"
 prototype = 4
-grid_id = 34
+grid_id = 37
 classification = "Machine"
 
-[values.130.region]
+[values.133.region]
 bottom_left = [22, 7]
 rotation = "South"
 part_local_dims = [4, 6]
 
-[values.131]
+[values.134]
 mass = 650000
 layer = "Internal"
-prototype = 28
-grid_id = 34
+prototype = 30
+grid_id = 37
 classification = "Cargo"
 
-[values.131.region]
+[values.134.region]
 bottom_left = [6, 9]
 rotation = "North"
 part_local_dims = [4, 4]
 
-[values.132]
+[values.135]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 34
+prototype = 20
+grid_id = 37
 classification = "Decoration"
 
-[values.132.region]
+[values.135.region]
 bottom_left = [8, 12]
 rotation = "South"
 part_local_dims = [2, 2]
 
-[values.134]
+[values.137]
 mass = 85000
 layer = "Structural"
-prototype = 12
-grid_id = 133
+prototype = 14
+grid_id = 136
 classification = "Structure"
 
-[values.134.region]
+[values.137.region]
 bottom_left = [12, 4]
 rotation = "North"
 part_local_dims = [2, 2]
 
-[values.135]
+[values.138]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 133
+prototype = 22
+grid_id = 136
 classification = "Thruster"
 
-[values.135.region]
+[values.138.region]
 bottom_left = [11, 9]
 rotation = "West"
 part_local_dims = [1, 1]
 
-[values.136]
+[values.139]
 mass = 8400000
 layer = "Internal"
 prototype = 3
-grid_id = 133
+grid_id = 136
 classification = "Cargo"
 
-[values.136.region]
+[values.139.region]
 bottom_left = [8, 2]
 rotation = "East"
 part_local_dims = [6, 6]
 
-[values.137]
+[values.140]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 133
+prototype = 22
+grid_id = 136
 classification = "Thruster"
 
-[values.137.region]
+[values.140.region]
 bottom_left = [2, 8]
 rotation = "South"
 part_local_dims = [1, 1]
 
-[values.138]
+[values.141]
 mass = 85000
 layer = "Structural"
-prototype = 12
-grid_id = 133
+prototype = 14
+grid_id = 136
 classification = "Structure"
 
-[values.138.region]
+[values.141.region]
 bottom_left = [9, 0]
 rotation = "North"
 part_local_dims = [2, 2]
 
-[values.139]
+[values.142]
 mass = 400000
 layer = "Internal"
-prototype = 27
-grid_id = 133
+prototype = 29
+grid_id = 136
 classification = "Cargo"
 
-[values.139.region]
+[values.142.region]
 bottom_left = [4, 8]
 rotation = "North"
 part_local_dims = [2, 4]
 
-[values.140]
+[values.143]
 mass = 85000
 layer = "Structural"
-prototype = 12
-grid_id = 133
+prototype = 14
+grid_id = 136
 classification = "Structure"
 
-[values.140.region]
+[values.143.region]
 bottom_left = [9, 8]
 rotation = "North"
 part_local_dims = [2, 2]
 
-[values.141]
+[values.144]
 mass = 37000
 layer = "Structural"
 prototype = 0
-grid_id = 133
+grid_id = 136
 classification = "Structure"
 
-[values.141.region]
+[values.144.region]
 bottom_left = [12, 2]
 rotation = "South"
 part_local_dims = [2, 2]
 
-[values.142]
+[values.145]
 mass = 40000
 layer = "Internal"
-prototype = 8
-grid_id = 133
+prototype = 10
+grid_id = 136
 classification = "DockingPort"
 
-[values.142.region]
+[values.145.region]
 bottom_left = [14, 3]
 rotation = "East"
 part_local_dims = [1, 4]
 
-[values.143]
+[values.146]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 133
+prototype = 22
+grid_id = 136
 classification = "Thruster"
 
-[values.143.region]
+[values.146.region]
 bottom_left = [1, 7]
 rotation = "East"
 part_local_dims = [1, 1]
 
-[values.144]
+[values.147]
 mass = 85000
 layer = "Structural"
-prototype = 12
-grid_id = 133
+prototype = 14
+grid_id = 136
 classification = "Structure"
 
-[values.144.region]
+[values.147.region]
 bottom_left = [5, 8]
 rotation = "North"
 part_local_dims = [2, 2]
 
-[values.145]
+[values.148]
 mass = 220000
 layer = "Internal"
-prototype = 24
-grid_id = 133
+prototype = 26
+grid_id = 136
 classification = "Thruster"
 
-[values.145.region]
+[values.148.region]
 bottom_left = [0, 4]
 rotation = "East"
 part_local_dims = [3, 2]
 
-[values.146]
+[values.149]
 mass = 85000
 layer = "Structural"
-prototype = 12
-grid_id = 133
+prototype = 14
+grid_id = 136
 classification = "Structure"
 
-[values.146.region]
+[values.149.region]
 bottom_left = [10, 6]
 rotation = "North"
 part_local_dims = [2, 2]
 
-[values.147]
+[values.150]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 133
+prototype = 22
+grid_id = 136
 classification = "Thruster"
 
-[values.147.region]
+[values.150.region]
 bottom_left = [12, 8]
 rotation = "South"
 part_local_dims = [1, 1]
 
-[values.148]
+[values.151]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 133
+prototype = 22
+grid_id = 136
 classification = "Thruster"
 
-[values.148.region]
+[values.151.region]
 bottom_left = [1, 2]
 rotation = "East"
 part_local_dims = [1, 1]
 
-[values.149]
+[values.152]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 133
+prototype = 22
+grid_id = 136
 classification = "Thruster"
 
-[values.149.region]
+[values.152.region]
 bottom_left = [11, 0]
 rotation = "West"
 part_local_dims = [1, 1]
 
-[values.150]
+[values.153]
 mass = 90000
 layer = "Structural"
-prototype = 11
-grid_id = 133
+prototype = 13
+grid_id = 136
 classification = "Structure"
 
-[values.150.region]
+[values.153.region]
 bottom_left = [2, 4]
 rotation = "West"
 part_local_dims = [2, 2]
 
-[values.151]
+[values.154]
 mass = 90000
 layer = "Structural"
-prototype = 11
-grid_id = 133
+prototype = 13
+grid_id = 136
 classification = "Structure"
 
-[values.151.region]
+[values.154.region]
 bottom_left = [8, 4]
 rotation = "West"
 part_local_dims = [2, 2]
 
-[values.152]
+[values.155]
 mass = 320000
 layer = "Internal"
 prototype = 6
-grid_id = 133
+grid_id = 136
 classification = "Computer"
 
-[values.152.region]
+[values.155.region]
 bottom_left = [8, 8]
 rotation = "North"
 part_local_dims = [2, 2]
 
-[values.153]
+[values.156]
 mass = 400000
 layer = "Internal"
-prototype = 27
-grid_id = 133
+prototype = 29
+grid_id = 136
 classification = "Cargo"
 
-[values.153.region]
+[values.156.region]
 bottom_left = [4, 0]
 rotation = "North"
 part_local_dims = [2, 4]
 
-[values.154]
+[values.157]
 mass = 230000
 layer = "Internal"
-prototype = 26
-grid_id = 133
+prototype = 28
+grid_id = 136
 classification = "Cargo"
 
-[values.154.region]
+[values.157.region]
 bottom_left = [8, 0]
 rotation = "North"
 part_local_dims = [2, 2]
 
-[values.155]
+[values.158]
 mass = 85000
 layer = "Structural"
-prototype = 12
-grid_id = 133
+prototype = 14
+grid_id = 136
 classification = "Structure"
 
-[values.155.region]
+[values.158.region]
 bottom_left = [10, 2]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.156]
+[values.159]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 133
+prototype = 22
+grid_id = 136
 classification = "Thruster"
 
-[values.156.region]
+[values.159.region]
 bottom_left = [2, 1]
 rotation = "North"
 part_local_dims = [1, 1]
 
-[values.157]
+[values.160]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 133
+prototype = 22
+grid_id = 136
 classification = "Thruster"
 
-[values.157.region]
+[values.160.region]
 bottom_left = [12, 1]
 rotation = "North"
 part_local_dims = [1, 1]
 
-[values.158]
+[values.161]
 mass = 85000
 layer = "Structural"
-prototype = 12
-grid_id = 133
+prototype = 14
+grid_id = 136
 classification = "Structure"
 
-[values.158.region]
+[values.161.region]
 bottom_left = [5, 0]
 rotation = "West"
 part_local_dims = [2, 2]
 
-[values.159]
+[values.162]
 mass = 85000
 layer = "Structural"
-prototype = 12
-grid_id = 133
+prototype = 14
+grid_id = 136
 classification = "Structure"
 
-[values.159.region]
+[values.162.region]
 bottom_left = [7, 0]
 rotation = "West"
 part_local_dims = [2, 2]
 
-[values.160]
+[values.163]
 mass = 85000
 layer = "Structural"
-prototype = 12
-grid_id = 133
+prototype = 14
+grid_id = 136
 classification = "Structure"
 
-[values.160.region]
+[values.163.region]
 bottom_left = [7, 8]
 rotation = "North"
 part_local_dims = [2, 2]
 
-[values.161]
+[values.164]
 mass = 37000
 layer = "Structural"
 prototype = 0
-grid_id = 133
+grid_id = 136
 classification = "Structure"
 
-[values.161.region]
+[values.164.region]
 bottom_left = [12, 6]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.162]
+[values.165]
 mass = 500000
 layer = "Internal"
-prototype = 9
-grid_id = 133
+prototype = 11
+grid_id = 136
 classification = "Cargo"
 
-[values.162.region]
+[values.165.region]
 bottom_left = [4, 2]
 rotation = "North"
 part_local_dims = [6, 4]
 
-[values.163]
+[values.166]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 133
+prototype = 16
+grid_id = 136
 classification = "Structure"
 
-[values.163.region]
+[values.166.region]
 bottom_left = [2, 6]
 rotation = "West"
 part_local_dims = [8, 2]
 
-[values.164]
+[values.167]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 133
+prototype = 16
+grid_id = 136
 classification = "Structure"
 
-[values.164.region]
+[values.167.region]
 bottom_left = [2, 2]
 rotation = "East"
 part_local_dims = [8, 2]
 
-[values.166]
+[values.169]
 mass = 400000
 layer = "Internal"
-prototype = 27
-grid_id = 165
+prototype = 29
+grid_id = 168
 classification = "Cargo"
 
-[values.166.region]
+[values.169.region]
 bottom_left = [64, 18]
 rotation = "East"
 part_local_dims = [2, 4]
 
-[values.167]
+[values.170]
 mass = 37000
 layer = "Structural"
 prototype = 0
-grid_id = 165
+grid_id = 168
 classification = "Structure"
 
-[values.167.region]
+[values.170.region]
 bottom_left = [40, 4]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.168]
+[values.171]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.168.region]
+[values.171.region]
 bottom_left = [42, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.169]
+[values.172]
 mass = 400000
 layer = "Internal"
-prototype = 27
-grid_id = 165
+prototype = 29
+grid_id = 168
 classification = "Cargo"
 
-[values.169.region]
+[values.172.region]
 bottom_left = [38, 15]
 rotation = "South"
 part_local_dims = [2, 4]
 
-[values.170]
+[values.173]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.170.region]
+[values.173.region]
 bottom_left = [48, 11]
 rotation = "East"
 part_local_dims = [8, 2]
 
-[values.171]
+[values.174]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.171.region]
+[values.174.region]
 bottom_left = [40, 15]
 rotation = "East"
 part_local_dims = [8, 2]
 
-[values.172]
+[values.175]
 mass = 400000
 layer = "Internal"
-prototype = 27
-grid_id = 165
+prototype = 29
+grid_id = 168
 classification = "Cargo"
 
-[values.172.region]
+[values.175.region]
 bottom_left = [14, 15]
 rotation = "South"
 part_local_dims = [2, 4]
 
-[values.173]
+[values.176]
 mass = 40000
 layer = "Internal"
-prototype = 8
-grid_id = 165
+prototype = 10
+grid_id = 168
 classification = "DockingPort"
 
-[values.173.region]
+[values.176.region]
 bottom_left = [50, 31]
 rotation = "North"
 part_local_dims = [1, 4]
 
-[values.174]
+[values.177]
 mass = 85000
 layer = "Structural"
-prototype = 12
-grid_id = 165
+prototype = 14
+grid_id = 168
 classification = "Structure"
 
-[values.174.region]
+[values.177.region]
 bottom_left = [10, 4]
 rotation = "North"
 part_local_dims = [2, 2]
 
-[values.175]
+[values.178]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.175.region]
+[values.178.region]
 bottom_left = [12, 28]
 rotation = "South"
 part_local_dims = [1, 1]
 
-[values.176]
+[values.179]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.176.region]
+[values.179.region]
 bottom_left = [74, 15]
 rotation = "East"
 part_local_dims = [8, 2]
 
-[values.177]
+[values.180]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.177.region]
+[values.180.region]
 bottom_left = [50, 3]
 rotation = "South"
 part_local_dims = [8, 2]
 
-[values.178]
+[values.181]
 mass = 37000
 layer = "Structural"
 prototype = 0
-grid_id = 165
+grid_id = 168
 classification = "Structure"
 
-[values.178.region]
+[values.181.region]
 bottom_left = [62, 26]
 rotation = "West"
 part_local_dims = [2, 2]
 
-[values.179]
+[values.182]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.179.region]
+[values.182.region]
 bottom_left = [44, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.180]
+[values.183]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.180.region]
+[values.183.region]
 bottom_left = [50, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.181]
+[values.184]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.181.region]
+[values.184.region]
 bottom_left = [48, 15]
 rotation = "East"
 part_local_dims = [8, 2]
 
-[values.182]
+[values.185]
 mass = 85000
 layer = "Structural"
-prototype = 12
-grid_id = 165
+prototype = 14
+grid_id = 168
 classification = "Structure"
 
-[values.182.region]
+[values.185.region]
 bottom_left = [50, 29]
 rotation = "West"
 part_local_dims = [2, 2]
 
-[values.183]
+[values.186]
 mass = 85000
 layer = "Structural"
-prototype = 12
-grid_id = 165
+prototype = 14
+grid_id = 168
 classification = "Structure"
 
-[values.183.region]
+[values.186.region]
 bottom_left = [6, 22]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.184]
+[values.187]
 mass = 400000
 layer = "Internal"
-prototype = 27
-grid_id = 165
+prototype = 29
+grid_id = 168
 classification = "Cargo"
 
-[values.184.region]
+[values.187.region]
 bottom_left = [6, 12]
 rotation = "East"
 part_local_dims = [2, 4]
 
-[values.185]
+[values.188]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.185.region]
+[values.188.region]
 bottom_left = [10, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.186]
+[values.189]
 mass = 40000
 layer = "Internal"
-prototype = 8
-grid_id = 165
+prototype = 10
+grid_id = 168
 classification = "DockingPort"
 
-[values.186.region]
+[values.189.region]
 bottom_left = [24, 31]
 rotation = "North"
 part_local_dims = [1, 4]
 
-[values.187]
+[values.190]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.187.region]
+[values.190.region]
 bottom_left = [89, 28]
 rotation = "South"
 part_local_dims = [1, 1]
 
-[values.188]
+[values.191]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.188.region]
+[values.191.region]
 bottom_left = [8, 26]
 rotation = "South"
 part_local_dims = [1, 1]
 
-[values.189]
+[values.192]
 mass = 85000
 layer = "Structural"
-prototype = 12
-grid_id = 165
+prototype = 14
+grid_id = 168
 classification = "Structure"
 
-[values.189.region]
+[values.192.region]
 bottom_left = [24, 1]
 rotation = "North"
 part_local_dims = [2, 2]
 
-[values.190]
+[values.193]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.190.region]
+[values.193.region]
 bottom_left = [54, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.191]
+[values.194]
 mass = 37000
 layer = "Structural"
 prototype = 0
-grid_id = 165
+grid_id = 168
 classification = "Structure"
 
-[values.191.region]
+[values.194.region]
 bottom_left = [28, 21]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.192]
-mass = 25000
-layer = "Internal"
-prototype = 20
-grid_id = 165
-classification = "Thruster"
-
-[values.192.region]
-bottom_left = [94, 25]
-rotation = "West"
-part_local_dims = [1, 1]
-
-[values.193]
-mass = 25000
-layer = "Internal"
-prototype = 20
-grid_id = 165
-classification = "Thruster"
-
-[values.193.region]
-bottom_left = [10, 28]
-rotation = "South"
-part_local_dims = [1, 1]
-
-[values.194]
-mass = 25000
-layer = "Internal"
-prototype = 20
-grid_id = 165
-classification = "Thruster"
-
-[values.194.region]
-bottom_left = [15, 3]
-rotation = "North"
-part_local_dims = [1, 1]
-
 [values.195]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
 [values.195.region]
-bottom_left = [66, 3]
-rotation = "North"
+bottom_left = [94, 25]
+rotation = "West"
 part_local_dims = [1, 1]
 
 [values.196]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
 [values.196.region]
-bottom_left = [6, 7]
-rotation = "North"
+bottom_left = [10, 28]
+rotation = "South"
 part_local_dims = [1, 1]
 
 [values.197]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
 [values.197.region]
+bottom_left = [15, 3]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.198]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 168
+classification = "Thruster"
+
+[values.198.region]
+bottom_left = [66, 3]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.199]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 168
+classification = "Thruster"
+
+[values.199.region]
+bottom_left = [6, 7]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.200]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 168
+classification = "Thruster"
+
+[values.200.region]
 bottom_left = [6, 24]
 rotation = "South"
 part_local_dims = [1, 1]
 
-[values.198]
+[values.201]
 mass = 85000
 layer = "Structural"
-prototype = 12
-grid_id = 165
+prototype = 14
+grid_id = 168
 classification = "Structure"
 
-[values.198.region]
+[values.201.region]
 bottom_left = [52, 29]
 rotation = "South"
 part_local_dims = [2, 2]
 
-[values.199]
+[values.202]
 mass = 400000
 layer = "Internal"
-prototype = 27
-grid_id = 165
+prototype = 29
+grid_id = 168
 classification = "Cargo"
 
-[values.199.region]
+[values.202.region]
 bottom_left = [6, 16]
 rotation = "East"
 part_local_dims = [2, 4]
 
-[values.200]
+[values.203]
 mass = 400000
 layer = "Internal"
-prototype = 27
-grid_id = 165
+prototype = 29
+grid_id = 168
 classification = "Cargo"
 
-[values.200.region]
+[values.203.region]
 bottom_left = [64, 10]
 rotation = "East"
 part_local_dims = [2, 4]
 
-[values.201]
+[values.204]
 mass = 24000000
 layer = "Internal"
 prototype = 5
-grid_id = 165
+grid_id = 168
 classification = "Cargo"
 
-[values.201.region]
+[values.204.region]
 bottom_left = [14, 17]
 rotation = "East"
 part_local_dims = [24, 10]
 
-[values.202]
+[values.205]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.202.region]
+[values.205.region]
 bottom_left = [94, 8]
 rotation = "West"
 part_local_dims = [1, 1]
 
-[values.203]
+[values.206]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.203.region]
+[values.206.region]
 bottom_left = [36, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.204]
+[values.207]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.204.region]
+[values.207.region]
 bottom_left = [36, 28]
 rotation = "South"
 part_local_dims = [1, 1]
 
-[values.205]
+[values.208]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.205.region]
+[values.208.region]
 bottom_left = [64, 28]
 rotation = "South"
 part_local_dims = [1, 1]
 
-[values.206]
+[values.209]
 mass = 40000
 layer = "Internal"
-prototype = 8
-grid_id = 165
+prototype = 10
+grid_id = 168
 classification = "DockingPort"
 
-[values.206.region]
+[values.209.region]
 bottom_left = [24, 0]
 rotation = "South"
 part_local_dims = [1, 4]
 
-[values.207]
+[values.210]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.207.region]
+[values.210.region]
 bottom_left = [90, 28]
 rotation = "South"
 part_local_dims = [1, 1]
 
-[values.208]
+[values.211]
 mass = 37000
 layer = "Structural"
 prototype = 0
-grid_id = 165
+grid_id = 168
 classification = "Structure"
 
-[values.208.region]
+[values.211.region]
 bottom_left = [8, 4]
 rotation = "West"
 part_local_dims = [2, 2]
 
-[values.209]
+[values.212]
 mass = 85000
 layer = "Structural"
-prototype = 12
-grid_id = 165
+prototype = 14
+grid_id = 168
 classification = "Structure"
 
-[values.209.region]
+[values.212.region]
 bottom_left = [92, 16]
 rotation = "South"
 part_local_dims = [2, 2]
 
-[values.210]
+[values.213]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.210.region]
+[values.213.region]
 bottom_left = [26, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.211]
+[values.214]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.211.region]
+[values.214.region]
 bottom_left = [12, 4]
 rotation = "South"
 part_local_dims = [8, 2]
 
-[values.212]
+[values.215]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.212.region]
+[values.215.region]
 bottom_left = [12, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.213]
+[values.216]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.213.region]
+[values.216.region]
 bottom_left = [48, 19]
 rotation = "East"
 part_local_dims = [8, 2]
 
-[values.214]
+[values.217]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.214.region]
+[values.217.region]
 bottom_left = [66, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.215]
+[values.218]
 mass = 37000
 layer = "Structural"
 prototype = 0
-grid_id = 165
+grid_id = 168
 classification = "Structure"
 
-[values.215.region]
+[values.218.region]
 bottom_left = [92, 4]
 rotation = "South"
 part_local_dims = [2, 2]
 
-[values.216]
+[values.219]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.216.region]
+[values.219.region]
 bottom_left = [92, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.217]
+[values.220]
 mass = 400000
 layer = "Internal"
-prototype = 27
-grid_id = 165
+prototype = 29
+grid_id = 168
 classification = "Cargo"
 
-[values.217.region]
+[values.220.region]
 bottom_left = [30, 15]
 rotation = "South"
 part_local_dims = [2, 4]
 
-[values.218]
+[values.221]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
-classification = "Structure"
-
-[values.218.region]
-bottom_left = [30, 15]
-rotation = "West"
-part_local_dims = [8, 2]
-
-[values.219]
-mass = 37000
-layer = "Structural"
-prototype = 0
-grid_id = 165
-classification = "Structure"
-
-[values.219.region]
-bottom_left = [6, 24]
-rotation = "North"
-part_local_dims = [2, 2]
-
-[values.220]
-mass = 37000
-layer = "Structural"
-prototype = 0
-grid_id = 165
-classification = "Structure"
-
-[values.220.region]
-bottom_left = [8, 26]
-rotation = "North"
-part_local_dims = [2, 2]
-
-[values.221]
-mass = 37000
-layer = "Structural"
-prototype = 0
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
 [values.221.region]
-bottom_left = [54, 21]
-rotation = "East"
-part_local_dims = [2, 2]
+bottom_left = [30, 15]
+rotation = "West"
+part_local_dims = [8, 2]
 
 [values.222]
 mass = 37000
 layer = "Structural"
 prototype = 0
-grid_id = 165
+grid_id = 168
 classification = "Structure"
 
 [values.222.region]
-bottom_left = [4, 8]
-rotation = "West"
+bottom_left = [6, 24]
+rotation = "North"
 part_local_dims = [2, 2]
 
 [values.223]
-mass = 25000
-layer = "Internal"
-prototype = 20
-grid_id = 165
-classification = "Thruster"
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 168
+classification = "Structure"
 
 [values.223.region]
-bottom_left = [7, 25]
-rotation = "East"
-part_local_dims = [1, 1]
+bottom_left = [8, 26]
+rotation = "North"
+part_local_dims = [2, 2]
 
 [values.224]
-mass = 25000
-layer = "Internal"
-prototype = 20
-grid_id = 165
-classification = "Thruster"
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 168
+classification = "Structure"
 
 [values.224.region]
-bottom_left = [11, 3]
-rotation = "North"
-part_local_dims = [1, 1]
+bottom_left = [54, 21]
+rotation = "East"
+part_local_dims = [2, 2]
 
 [values.225]
 mass = 37000
 layer = "Structural"
 prototype = 0
-grid_id = 165
+grid_id = 168
 classification = "Structure"
 
 [values.225.region]
-bottom_left = [36, 26]
+bottom_left = [4, 8]
 rotation = "West"
 part_local_dims = [2, 2]
 
 [values.226]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
 [values.226.region]
-bottom_left = [10, 3]
-rotation = "North"
+bottom_left = [7, 25]
+rotation = "East"
 part_local_dims = [1, 1]
 
 [values.227]
-mass = 18000
-layer = "Exterior"
-prototype = 18
-grid_id = 165
-classification = "Decoration"
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 168
+classification = "Thruster"
 
 [values.227.region]
-bottom_left = [78, 15]
-rotation = "East"
-part_local_dims = [2, 2]
+bottom_left = [11, 3]
+rotation = "North"
+part_local_dims = [1, 1]
 
 [values.228]
-mass = 85000
+mass = 37000
 layer = "Structural"
-prototype = 12
-grid_id = 165
+prototype = 0
+grid_id = 168
 classification = "Structure"
 
 [values.228.region]
-bottom_left = [50, 1]
-rotation = "South"
+bottom_left = [36, 26]
+rotation = "West"
 part_local_dims = [2, 2]
 
 [values.229]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
 [values.229.region]
-bottom_left = [91, 28]
-rotation = "South"
+bottom_left = [10, 3]
+rotation = "North"
 part_local_dims = [1, 1]
 
 [values.230]
-mass = 25000
-layer = "Internal"
+mass = 18000
+layer = "Exterior"
 prototype = 20
-grid_id = 165
-classification = "Thruster"
+grid_id = 168
+classification = "Decoration"
 
 [values.230.region]
-bottom_left = [94, 24]
-rotation = "West"
-part_local_dims = [1, 1]
+bottom_left = [78, 15]
+rotation = "East"
+part_local_dims = [2, 2]
 
 [values.231]
-mass = 40000
-layer = "Internal"
-prototype = 8
-grid_id = 165
-classification = "DockingPort"
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 168
+classification = "Structure"
 
 [values.231.region]
-bottom_left = [94, 10]
-rotation = "East"
-part_local_dims = [1, 4]
+bottom_left = [50, 1]
+rotation = "South"
+part_local_dims = [2, 2]
 
 [values.232]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
 [values.232.region]
-bottom_left = [13, 28]
+bottom_left = [91, 28]
 rotation = "South"
 part_local_dims = [1, 1]
 
 [values.233]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
 [values.233.region]
+bottom_left = [94, 24]
+rotation = "West"
+part_local_dims = [1, 1]
+
+[values.234]
+mass = 40000
+layer = "Internal"
+prototype = 10
+grid_id = 168
+classification = "DockingPort"
+
+[values.234.region]
+bottom_left = [94, 10]
+rotation = "East"
+part_local_dims = [1, 4]
+
+[values.235]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 168
+classification = "Thruster"
+
+[values.235.region]
+bottom_left = [13, 28]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.236]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 168
+classification = "Thruster"
+
+[values.236.region]
 bottom_left = [38, 28]
 rotation = "South"
 part_local_dims = [1, 1]
 
-[values.234]
+[values.237]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.234.region]
+[values.237.region]
 bottom_left = [64, 20]
 rotation = "South"
 part_local_dims = [8, 2]
 
-[values.235]
+[values.238]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.235.region]
+[values.238.region]
 bottom_left = [74, 19]
 rotation = "East"
 part_local_dims = [8, 2]
 
-[values.236]
+[values.239]
 mass = 24000000
 layer = "Internal"
 prototype = 5
-grid_id = 165
+grid_id = 168
 classification = "Cargo"
 
-[values.236.region]
+[values.239.region]
 bottom_left = [66, 17]
 rotation = "East"
 part_local_dims = [24, 10]
 
-[values.237]
+[values.240]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.237.region]
+[values.240.region]
 bottom_left = [4, 20]
 rotation = "East"
 part_local_dims = [8, 2]
 
-[values.238]
+[values.241]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.238.region]
+[values.241.region]
 bottom_left = [88, 3]
 rotation = "North"
 part_local_dims = [1, 1]
 
-[values.239]
+[values.242]
 mass = 37000
 layer = "Structural"
 prototype = 0
-grid_id = 165
+grid_id = 168
 classification = "Structure"
 
-[values.239.region]
+[values.242.region]
 bottom_left = [4, 22]
 rotation = "North"
 part_local_dims = [2, 2]
 
-[values.240]
+[values.243]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.240.region]
+[values.243.region]
 bottom_left = [6, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.241]
+[values.244]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.241.region]
+[values.244.region]
 bottom_left = [22, 15]
 rotation = "West"
 part_local_dims = [8, 2]
 
-[values.242]
+[values.245]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.242.region]
+[values.245.region]
 bottom_left = [34, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.243]
+[values.246]
 mass = 37000
 layer = "Structural"
 prototype = 0
-grid_id = 165
+grid_id = 168
 classification = "Structure"
 
-[values.243.region]
+[values.246.region]
 bottom_left = [22, 21]
 rotation = "North"
 part_local_dims = [2, 2]
 
-[values.244]
+[values.247]
 mass = 320000
 layer = "Internal"
 prototype = 6
-grid_id = 165
+grid_id = 168
 classification = "Computer"
 
-[values.244.region]
+[values.247.region]
 bottom_left = [90, 24]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.245]
+[values.248]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.245.region]
+[values.248.region]
 bottom_left = [5, 23]
 rotation = "East"
 part_local_dims = [1, 1]
 
-[values.246]
+[values.249]
 mass = 400000
 layer = "Internal"
-prototype = 27
-grid_id = 165
+prototype = 29
+grid_id = 168
 classification = "Cargo"
 
-[values.246.region]
+[values.249.region]
 bottom_left = [38, 10]
 rotation = "East"
 part_local_dims = [2, 4]
 
-[values.247]
+[values.250]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.247.region]
+[values.250.region]
 bottom_left = [9, 26]
 rotation = "South"
 part_local_dims = [1, 1]
 
-[values.248]
+[values.251]
 mass = 165000
 layer = "Structural"
-prototype = 13
-grid_id = 165
+prototype = 15
+grid_id = 168
 classification = "Structure"
 
-[values.248.region]
+[values.251.region]
 bottom_left = [8, 6]
 rotation = "East"
 part_local_dims = [4, 4]
 
-[values.249]
+[values.252]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.249.region]
+[values.252.region]
 bottom_left = [16, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.250]
+[values.253]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.250.region]
+[values.253.region]
 bottom_left = [40, 28]
 rotation = "South"
 part_local_dims = [1, 1]
 
-[values.251]
+[values.254]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.251.region]
+[values.254.region]
 bottom_left = [74, 11]
 rotation = "East"
 part_local_dims = [8, 2]
 
-[values.252]
+[values.255]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.252.region]
+[values.255.region]
 bottom_left = [37, 3]
 rotation = "North"
 part_local_dims = [1, 1]
 
-[values.253]
+[values.256]
 mass = 37000
 layer = "Structural"
 prototype = 0
-grid_id = 165
+grid_id = 168
 classification = "Structure"
 
-[values.253.region]
+[values.256.region]
 bottom_left = [66, 26]
 rotation = "South"
 part_local_dims = [2, 2]
 
-[values.254]
+[values.257]
 mass = 40000
 layer = "Internal"
-prototype = 8
-grid_id = 165
+prototype = 10
+grid_id = 168
 classification = "DockingPort"
 
-[values.254.region]
+[values.257.region]
 bottom_left = [50, 0]
 rotation = "South"
 part_local_dims = [1, 4]
 
-[values.255]
+[values.258]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.255.region]
+[values.258.region]
 bottom_left = [22, 11]
 rotation = "East"
 part_local_dims = [8, 2]
 
-[values.256]
+[values.259]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.256.region]
+[values.259.region]
 bottom_left = [62, 28]
 rotation = "South"
 part_local_dims = [1, 1]
 
-[values.257]
+[values.260]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.257.region]
+[values.260.region]
 bottom_left = [36, 3]
 rotation = "North"
 part_local_dims = [1, 1]
 
-[values.258]
+[values.261]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.258.region]
+[values.261.region]
 bottom_left = [66, 15]
 rotation = "East"
 part_local_dims = [8, 2]
 
-[values.259]
+[values.262]
 mass = 400000
 layer = "Internal"
-prototype = 27
-grid_id = 165
+prototype = 29
+grid_id = 168
 classification = "Cargo"
 
-[values.259.region]
+[values.262.region]
 bottom_left = [6, 8]
 rotation = "East"
 part_local_dims = [2, 4]
 
-[values.260]
+[values.263]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.260.region]
+[values.263.region]
 bottom_left = [82, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.261]
+[values.264]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.261.region]
+[values.264.region]
 bottom_left = [41, 3]
 rotation = "North"
 part_local_dims = [1, 1]
 
-[values.262]
+[values.265]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.262.region]
+[values.265.region]
 bottom_left = [74, 17]
 rotation = "East"
 part_local_dims = [8, 2]
 
-[values.263]
+[values.266]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.263.region]
+[values.266.region]
 bottom_left = [89, 3]
 rotation = "North"
 part_local_dims = [1, 1]
 
-[values.264]
+[values.267]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.264.region]
+[values.267.region]
 bottom_left = [26, 3]
 rotation = "North"
 part_local_dims = [8, 2]
 
-[values.265]
+[values.268]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.265.region]
+[values.268.region]
 bottom_left = [64, 4]
 rotation = "South"
 part_local_dims = [8, 2]
 
-[values.266]
+[values.269]
 mass = 85000
 layer = "Structural"
-prototype = 12
-grid_id = 165
+prototype = 14
+grid_id = 168
 classification = "Structure"
 
-[values.266.region]
+[values.269.region]
 bottom_left = [92, 14]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.267]
+[values.270]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.267.region]
+[values.270.region]
 bottom_left = [32, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.268]
+[values.271]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.268.region]
+[values.271.region]
 bottom_left = [50, 21]
 rotation = "South"
 part_local_dims = [8, 2]
 
-[values.269]
+[values.272]
 mass = 37000
 layer = "Structural"
 prototype = 0
-grid_id = 165
+grid_id = 168
 classification = "Structure"
 
-[values.269.region]
+[values.272.region]
 bottom_left = [88, 26]
 rotation = "West"
 part_local_dims = [2, 2]
 
-[values.270]
+[values.273]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.270.region]
+[values.273.region]
 bottom_left = [37, 28]
 rotation = "South"
 part_local_dims = [1, 1]
 
-[values.271]
+[values.274]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.271.region]
+[values.274.region]
 bottom_left = [48, 13]
 rotation = "East"
 part_local_dims = [8, 2]
 
-[values.272]
+[values.275]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.272.region]
+[values.275.region]
 bottom_left = [68, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.273]
+[values.276]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.273.region]
+[values.276.region]
 bottom_left = [24, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.274]
+[values.277]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.274.region]
+[values.277.region]
 bottom_left = [39, 3]
 rotation = "North"
 part_local_dims = [1, 1]
 
-[values.275]
+[values.278]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.275.region]
+[values.278.region]
 bottom_left = [22, 13]
 rotation = "East"
 part_local_dims = [8, 2]
 
-[values.276]
+[values.279]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.276.region]
+[values.279.region]
 bottom_left = [26, 21]
 rotation = "North"
 part_local_dims = [8, 2]
 
-[values.277]
+[values.280]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.277.region]
+[values.280.region]
 bottom_left = [24, 21]
 rotation = "South"
 part_local_dims = [8, 2]
 
-[values.278]
+[values.281]
 mass = 37000
 layer = "Structural"
 prototype = 0
-grid_id = 165
+grid_id = 168
 classification = "Structure"
 
-[values.278.region]
+[values.281.region]
 bottom_left = [14, 26]
 rotation = "South"
 part_local_dims = [2, 2]
 
-[values.279]
+[values.282]
 mass = 400000
 layer = "Internal"
-prototype = 27
-grid_id = 165
+prototype = 29
+grid_id = 168
 classification = "Cargo"
 
-[values.279.region]
+[values.282.region]
 bottom_left = [18, 15]
 rotation = "South"
 part_local_dims = [2, 4]
 
-[values.280]
+[values.283]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.280.region]
+[values.283.region]
 bottom_left = [5, 8]
 rotation = "East"
 part_local_dims = [1, 1]
 
-[values.281]
+[values.284]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.281.region]
+[values.284.region]
 bottom_left = [82, 15]
 rotation = "East"
 part_local_dims = [8, 2]
 
-[values.282]
+[values.285]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.282.region]
+[values.285.region]
 bottom_left = [94, 6]
 rotation = "West"
 part_local_dims = [1, 1]
 
-[values.283]
+[values.286]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.283.region]
+[values.286.region]
 bottom_left = [76, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.284]
+[values.287]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.284.region]
+[values.287.region]
 bottom_left = [9, 5]
 rotation = "North"
 part_local_dims = [1, 1]
 
-[values.285]
+[values.288]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.285.region]
+[values.288.region]
 bottom_left = [22, 17]
 rotation = "East"
 part_local_dims = [8, 2]
 
-[values.286]
+[values.289]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.286.region]
+[values.289.region]
 bottom_left = [14, 15]
 rotation = "West"
 part_local_dims = [8, 2]
 
-[values.287]
+[values.290]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.287.region]
+[values.290.region]
 bottom_left = [40, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.288]
+[values.291]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.288.region]
+[values.291.region]
 bottom_left = [60, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.289]
+[values.292]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.289.region]
+[values.292.region]
 bottom_left = [13, 3]
 rotation = "North"
 part_local_dims = [1, 1]
 
-[values.290]
+[values.293]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.290.region]
+[values.293.region]
 bottom_left = [12, 3]
 rotation = "North"
 part_local_dims = [1, 1]
 
-[values.291]
+[values.294]
 mass = 400000
 layer = "Internal"
-prototype = 27
-grid_id = 165
+prototype = 29
+grid_id = 168
 classification = "Cargo"
 
-[values.291.region]
+[values.294.region]
 bottom_left = [6, 20]
 rotation = "East"
 part_local_dims = [2, 4]
 
-[values.292]
+[values.295]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.292.region]
+[values.295.region]
 bottom_left = [38, 4]
 rotation = "South"
 part_local_dims = [8, 2]
 
-[values.293]
+[values.296]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.293.region]
+[values.296.region]
 bottom_left = [48, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.294]
+[values.297]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.294.region]
+[values.297.region]
 bottom_left = [67, 3]
 rotation = "North"
 part_local_dims = [1, 1]
 
-[values.295]
+[values.298]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.295.region]
+[values.298.region]
 bottom_left = [94, 23]
 rotation = "West"
 part_local_dims = [1, 1]
 
-[values.296]
+[values.299]
 mass = 24000000
 layer = "Internal"
 prototype = 5
-grid_id = 165
+grid_id = 168
 classification = "Cargo"
 
-[values.296.region]
+[values.299.region]
 bottom_left = [40, 17]
 rotation = "East"
 part_local_dims = [24, 10]
 
-[values.297]
+[values.300]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.297.region]
+[values.300.region]
 bottom_left = [18, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.298]
+[values.301]
 mass = 650000
 layer = "Internal"
-prototype = 16
-grid_id = 165
+prototype = 18
+grid_id = 168
 classification = "Thruster"
 
-[values.298.region]
+[values.301.region]
 bottom_left = [0, 16]
 rotation = "East"
 part_local_dims = [6, 3]
 
-[values.299]
+[values.302]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.299.region]
+[values.302.region]
 bottom_left = [86, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.300]
+[values.303]
 mass = 37000
 layer = "Structural"
 prototype = 0
-grid_id = 165
+grid_id = 168
 classification = "Structure"
 
-[values.300.region]
+[values.303.region]
 bottom_left = [92, 26]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.301]
+[values.304]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.301.region]
+[values.304.region]
 bottom_left = [22, 19]
 rotation = "East"
 part_local_dims = [8, 2]
 
-[values.302]
+[values.305]
 mass = 24000000
 layer = "Internal"
 prototype = 5
-grid_id = 165
+grid_id = 168
 classification = "Cargo"
 
-[values.302.region]
+[values.305.region]
 bottom_left = [40, 5]
 rotation = "West"
 part_local_dims = [24, 10]
 
-[values.303]
+[values.306]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.303.region]
+[values.306.region]
 bottom_left = [38, 20]
 rotation = "South"
 part_local_dims = [8, 2]
 
-[values.304]
+[values.307]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.304.region]
+[values.307.region]
 bottom_left = [65, 3]
 rotation = "North"
 part_local_dims = [1, 1]
 
-[values.305]
+[values.308]
 mass = 37000
 layer = "Structural"
 prototype = 0
-grid_id = 165
+grid_id = 168
 classification = "Structure"
 
-[values.305.region]
+[values.308.region]
 bottom_left = [28, 9]
 rotation = "South"
 part_local_dims = [2, 2]
 
-[values.306]
+[values.309]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.306.region]
+[values.309.region]
 bottom_left = [14, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.307]
+[values.310]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.307.region]
+[values.310.region]
 bottom_left = [8, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.308]
+[values.311]
 mass = 400000
 layer = "Internal"
-prototype = 27
-grid_id = 165
+prototype = 29
+grid_id = 168
 classification = "Cargo"
 
-[values.308.region]
+[values.311.region]
 bottom_left = [8, 10]
 rotation = "South"
 part_local_dims = [2, 4]
 
-[values.309]
+[values.312]
 mass = 165000
 layer = "Structural"
-prototype = 13
-grid_id = 165
+prototype = 15
+grid_id = 168
 classification = "Structure"
 
-[values.309.region]
+[values.312.region]
 bottom_left = [8, 22]
 rotation = "East"
 part_local_dims = [4, 4]
 
-[values.310]
+[values.313]
 mass = 165000
 layer = "Structural"
-prototype = 13
-grid_id = 165
+prototype = 15
+grid_id = 168
 classification = "Structure"
 
-[values.310.region]
+[values.313.region]
 bottom_left = [4, 16]
 rotation = "South"
 part_local_dims = [4, 4]
 
-[values.311]
+[values.314]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.311.region]
+[values.314.region]
 bottom_left = [11, 28]
 rotation = "South"
 part_local_dims = [1, 1]
 
-[values.312]
+[values.315]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.312.region]
+[values.315.region]
 bottom_left = [90, 3]
 rotation = "North"
 part_local_dims = [1, 1]
 
-[values.313]
+[values.316]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.313.region]
+[values.316.region]
 bottom_left = [56, 15]
 rotation = "East"
 part_local_dims = [8, 2]
 
-[values.314]
+[values.317]
 mass = 650000
 layer = "Internal"
-prototype = 28
-grid_id = 165
+prototype = 30
+grid_id = 168
 classification = "Cargo"
 
-[values.314.region]
+[values.317.region]
 bottom_left = [8, 16]
 rotation = "South"
 part_local_dims = [4, 4]
 
-[values.315]
+[values.318]
 mass = 37000
 layer = "Structural"
 prototype = 0
-grid_id = 165
+grid_id = 168
 classification = "Structure"
 
-[values.315.region]
+[values.318.region]
 bottom_left = [14, 4]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.316]
+[values.319]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.316.region]
+[values.319.region]
 bottom_left = [12, 20]
 rotation = "South"
 part_local_dims = [8, 2]
 
-[values.317]
+[values.320]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.317.region]
+[values.320.region]
 bottom_left = [84, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.318]
+[values.321]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.318.region]
+[values.321.region]
 bottom_left = [52, 3]
 rotation = "North"
 part_local_dims = [8, 2]
 
-[values.319]
+[values.322]
 mass = 37000
 layer = "Structural"
 prototype = 0
-grid_id = 165
+grid_id = 168
 classification = "Structure"
 
-[values.319.region]
+[values.322.region]
 bottom_left = [40, 26]
 rotation = "South"
 part_local_dims = [2, 2]
 
-[values.320]
+[values.323]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.320.region]
+[values.323.region]
 bottom_left = [22, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.321]
+[values.324]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.321.region]
+[values.324.region]
 bottom_left = [58, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.322]
+[values.325]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.322.region]
+[values.325.region]
 bottom_left = [38, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.323]
+[values.326]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.323.region]
+[values.326.region]
 bottom_left = [63, 28]
 rotation = "South"
 part_local_dims = [1, 1]
 
-[values.324]
+[values.327]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.324.region]
+[values.327.region]
 bottom_left = [39, 28]
 rotation = "South"
 part_local_dims = [1, 1]
 
-[values.325]
+[values.328]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.325.region]
+[values.328.region]
 bottom_left = [67, 28]
 rotation = "South"
 part_local_dims = [1, 1]
 
-[values.326]
+[values.329]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.326.region]
+[values.329.region]
 bottom_left = [46, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.327]
+[values.330]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.327.region]
+[values.330.region]
 bottom_left = [92, 18]
 rotation = "South"
 part_local_dims = [8, 2]
 
-[values.328]
+[values.331]
 mass = 24000000
 layer = "Internal"
 prototype = 5
-grid_id = 165
+grid_id = 168
 classification = "Cargo"
 
-[values.328.region]
+[values.331.region]
 bottom_left = [14, 5]
 rotation = "West"
 part_local_dims = [24, 10]
 
-[values.329]
-mass = 18000
-layer = "Exterior"
-prototype = 18
-grid_id = 165
-classification = "Decoration"
-
-[values.329.region]
-bottom_left = [28, 15]
-rotation = "East"
-part_local_dims = [2, 2]
-
-[values.330]
-mass = 18000
-layer = "Exterior"
-prototype = 18
-grid_id = 165
-classification = "Decoration"
-
-[values.330.region]
-bottom_left = [80, 15]
-rotation = "East"
-part_local_dims = [2, 2]
-
-[values.331]
-mass = 18000
-layer = "Exterior"
-prototype = 18
-grid_id = 165
-classification = "Decoration"
-
-[values.331.region]
-bottom_left = [20, 15]
-rotation = "East"
-part_local_dims = [2, 2]
-
 [values.332]
-mass = 37000
-layer = "Structural"
-prototype = 0
-grid_id = 165
-classification = "Structure"
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 168
+classification = "Decoration"
 
 [values.332.region]
-bottom_left = [36, 4]
-rotation = "North"
+bottom_left = [28, 15]
+rotation = "East"
 part_local_dims = [2, 2]
 
 [values.333]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
 [values.333.region]
-bottom_left = [52, 15]
+bottom_left = [80, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
 [values.334]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
 [values.334.region]
-bottom_left = [62, 15]
+bottom_left = [20, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
 [values.335]
-mass = 25000
-layer = "Internal"
-prototype = 20
-grid_id = 165
-classification = "Thruster"
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 168
+classification = "Structure"
 
 [values.335.region]
+bottom_left = [36, 4]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.336]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 168
+classification = "Decoration"
+
+[values.336.region]
+bottom_left = [52, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.337]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 168
+classification = "Decoration"
+
+[values.337.region]
+bottom_left = [62, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.338]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 168
+classification = "Thruster"
+
+[values.338.region]
 bottom_left = [14, 28]
 rotation = "South"
 part_local_dims = [1, 1]
 
-[values.336]
+[values.339]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.336.region]
+[values.339.region]
 bottom_left = [52, 21]
 rotation = "North"
 part_local_dims = [8, 2]
 
-[values.337]
+[values.340]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.337.region]
+[values.340.region]
 bottom_left = [66, 28]
 rotation = "South"
 part_local_dims = [1, 1]
 
-[values.338]
+[values.341]
 mass = 37000
 layer = "Structural"
 prototype = 0
-grid_id = 165
+grid_id = 168
 classification = "Structure"
 
-[values.338.region]
+[values.341.region]
 bottom_left = [6, 6]
 rotation = "West"
 part_local_dims = [2, 2]
 
-[values.339]
+[values.342]
 mass = 37000
 layer = "Structural"
 prototype = 0
-grid_id = 165
+grid_id = 168
 classification = "Structure"
 
-[values.339.region]
+[values.342.region]
 bottom_left = [54, 9]
 rotation = "South"
 part_local_dims = [2, 2]
 
-[values.340]
+[values.343]
 mass = 37000
 layer = "Structural"
 prototype = 0
-grid_id = 165
+grid_id = 168
 classification = "Structure"
 
-[values.340.region]
+[values.343.region]
 bottom_left = [48, 9]
 rotation = "West"
 part_local_dims = [2, 2]
 
-[values.341]
+[values.344]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.341.region]
+[values.344.region]
 bottom_left = [30, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.342]
+[values.345]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.342.region]
+[values.345.region]
 bottom_left = [15, 28]
 rotation = "South"
 part_local_dims = [1, 1]
 
-[values.343]
+[values.346]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.343.region]
+[values.346.region]
 bottom_left = [91, 3]
 rotation = "North"
 part_local_dims = [1, 1]
 
-[values.344]
+[values.347]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.344.region]
+[values.347.region]
 bottom_left = [90, 20]
 rotation = "South"
 part_local_dims = [8, 2]
 
-[values.345]
+[values.348]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.345.region]
+[values.348.region]
 bottom_left = [63, 3]
 rotation = "North"
 part_local_dims = [1, 1]
 
-[values.346]
+[values.349]
 mass = 37000
 layer = "Structural"
 prototype = 0
-grid_id = 165
+grid_id = 168
 classification = "Structure"
 
-[values.346.region]
+[values.349.region]
 bottom_left = [88, 4]
 rotation = "North"
 part_local_dims = [2, 2]
 
-[values.347]
+[values.350]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.347.region]
+[values.350.region]
 bottom_left = [74, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.348]
+[values.351]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.348.region]
+[values.351.region]
 bottom_left = [70, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.349]
+[values.352]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.349.region]
+[values.352.region]
 bottom_left = [12, 12]
 rotation = "South"
 part_local_dims = [8, 2]
 
-[values.350]
+[values.353]
 mass = 165000
 layer = "Structural"
-prototype = 13
-grid_id = 165
+prototype = 15
+grid_id = 168
 classification = "Structure"
 
-[values.350.region]
+[values.353.region]
 bottom_left = [4, 12]
 rotation = "South"
 part_local_dims = [4, 4]
 
-[values.351]
+[values.354]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.351.region]
+[values.354.region]
 bottom_left = [38, 12]
 rotation = "South"
 part_local_dims = [8, 2]
 
-[values.352]
+[values.355]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.352.region]
+[values.355.region]
 bottom_left = [38, 3]
 rotation = "North"
 part_local_dims = [1, 1]
 
-[values.353]
+[values.356]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.353.region]
+[values.356.region]
 bottom_left = [56, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.354]
+[values.357]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.354.region]
+[values.357.region]
 bottom_left = [74, 13]
 rotation = "East"
 part_local_dims = [8, 2]
 
-[values.355]
+[values.358]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.355.region]
+[values.358.region]
 bottom_left = [90, 12]
 rotation = "North"
 part_local_dims = [8, 2]
 
-[values.356]
+[values.359]
 mass = 37000
 layer = "Structural"
 prototype = 0
-grid_id = 165
+grid_id = 168
 classification = "Structure"
 
-[values.356.region]
+[values.359.region]
 bottom_left = [22, 9]
 rotation = "West"
 part_local_dims = [2, 2]
 
-[values.357]
+[values.360]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.357.region]
+[values.360.region]
 bottom_left = [14, 3]
 rotation = "North"
 part_local_dims = [1, 1]
 
-[values.358]
+[values.361]
 mass = 650000
 layer = "Internal"
-prototype = 28
-grid_id = 165
+prototype = 30
+grid_id = 168
 classification = "Cargo"
 
-[values.358.region]
+[values.361.region]
 bottom_left = [8, 12]
 rotation = "South"
 part_local_dims = [4, 4]
 
-[values.359]
+[values.362]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.359.region]
+[values.362.region]
 bottom_left = [41, 28]
 rotation = "South"
 part_local_dims = [1, 1]
 
-[values.360]
+[values.363]
 mass = 400000
 layer = "Internal"
-prototype = 27
-grid_id = 165
+prototype = 29
+grid_id = 168
 classification = "Cargo"
 
-[values.360.region]
+[values.363.region]
 bottom_left = [34, 15]
 rotation = "South"
 part_local_dims = [2, 4]
 
-[values.361]
+[values.364]
 mass = 37000
 layer = "Structural"
 prototype = 0
-grid_id = 165
+grid_id = 168
 classification = "Structure"
 
-[values.361.region]
+[values.364.region]
 bottom_left = [62, 4]
 rotation = "North"
 part_local_dims = [2, 2]
 
-[values.362]
+[values.365]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.362.region]
+[values.365.region]
 bottom_left = [64, 12]
 rotation = "South"
 part_local_dims = [8, 2]
 
-[values.363]
+[values.366]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.363.region]
+[values.366.region]
 bottom_left = [90, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.364]
+[values.367]
 mass = 85000
 layer = "Structural"
-prototype = 12
-grid_id = 165
+prototype = 14
+grid_id = 168
 classification = "Structure"
 
-[values.364.region]
+[values.367.region]
 bottom_left = [10, 26]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.365]
+[values.368]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.365.region]
+[values.368.region]
 bottom_left = [94, 7]
 rotation = "West"
 part_local_dims = [1, 1]
 
-[values.366]
+[values.369]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.366.region]
+[values.369.region]
 bottom_left = [62, 3]
 rotation = "North"
 part_local_dims = [1, 1]
 
-[values.367]
+[values.370]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.367.region]
+[values.370.region]
 bottom_left = [4, 10]
 rotation = "East"
 part_local_dims = [8, 2]
 
-[values.368]
+[values.371]
 mass = 400000
 layer = "Internal"
-prototype = 27
-grid_id = 165
+prototype = 29
+grid_id = 168
 classification = "Cargo"
 
-[values.368.region]
+[values.371.region]
 bottom_left = [42, 15]
 rotation = "South"
 part_local_dims = [2, 4]
 
-[values.369]
+[values.372]
 mass = 650000
 layer = "Internal"
-prototype = 16
-grid_id = 165
+prototype = 18
+grid_id = 168
 classification = "Thruster"
 
-[values.369.region]
+[values.372.region]
 bottom_left = [0, 19]
 rotation = "East"
 part_local_dims = [6, 3]
 
-[values.370]
+[values.373]
 mass = 40000
 layer = "Internal"
-prototype = 8
-grid_id = 165
+prototype = 10
+grid_id = 168
 classification = "DockingPort"
 
-[values.370.region]
+[values.373.region]
 bottom_left = [94, 18]
 rotation = "East"
 part_local_dims = [1, 4]
 
-[values.371]
+[values.374]
 mass = 650000
 layer = "Internal"
-prototype = 28
-grid_id = 165
+prototype = 30
+grid_id = 168
 classification = "Cargo"
 
-[values.371.region]
+[values.374.region]
 bottom_left = [8, 22]
 rotation = "East"
 part_local_dims = [4, 4]
 
-[values.372]
+[values.375]
 mass = 37000
 layer = "Structural"
 prototype = 0
-grid_id = 165
+grid_id = 168
 classification = "Structure"
 
-[values.372.region]
+[values.375.region]
 bottom_left = [48, 21]
 rotation = "North"
 part_local_dims = [2, 2]
 
-[values.373]
+[values.376]
 mass = 400000
 layer = "Internal"
-prototype = 27
-grid_id = 165
+prototype = 29
+grid_id = 168
 classification = "Cargo"
 
-[values.373.region]
+[values.376.region]
 bottom_left = [38, 18]
 rotation = "East"
 part_local_dims = [2, 4]
 
-[values.374]
+[values.377]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.374.region]
+[values.377.region]
 bottom_left = [90, 4]
 rotation = "South"
 part_local_dims = [8, 2]
 
-[values.375]
+[values.378]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.375.region]
+[values.378.region]
 bottom_left = [7, 6]
 rotation = "East"
 part_local_dims = [1, 1]
 
-[values.376]
+[values.379]
 mass = 85000
 layer = "Structural"
-prototype = 12
-grid_id = 165
+prototype = 14
+grid_id = 168
 classification = "Structure"
 
-[values.376.region]
+[values.379.region]
 bottom_left = [26, 29]
 rotation = "North"
 part_local_dims = [2, 2]
 
-[values.377]
+[values.380]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.377.region]
+[values.380.region]
 bottom_left = [48, 17]
 rotation = "East"
 part_local_dims = [8, 2]
 
-[values.378]
+[values.381]
 mass = 400000
 layer = "Internal"
-prototype = 27
-grid_id = 165
+prototype = 29
+grid_id = 168
 classification = "Cargo"
 
-[values.378.region]
+[values.381.region]
 bottom_left = [26, 15]
 rotation = "South"
 part_local_dims = [2, 4]
 
-[values.379]
+[values.382]
 mass = 24000000
 layer = "Internal"
 prototype = 5
-grid_id = 165
+grid_id = 168
 classification = "Cargo"
 
-[values.379.region]
+[values.382.region]
 bottom_left = [66, 5]
 rotation = "West"
 part_local_dims = [24, 10]
 
-[values.380]
+[values.383]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.380.region]
+[values.383.region]
 bottom_left = [72, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.381]
+[values.384]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.381.region]
+[values.384.region]
 bottom_left = [24, 3]
 rotation = "South"
 part_local_dims = [8, 2]
 
-[values.382]
+[values.385]
 mass = 165000
 layer = "Structural"
-prototype = 13
-grid_id = 165
+prototype = 15
+grid_id = 168
 classification = "Structure"
 
-[values.382.region]
+[values.385.region]
 bottom_left = [8, 12]
 rotation = "South"
 part_local_dims = [4, 4]
 
-[values.383]
+[values.386]
 mass = 85000
 layer = "Structural"
-prototype = 12
-grid_id = 165
+prototype = 14
+grid_id = 168
 classification = "Structure"
 
-[values.383.region]
+[values.386.region]
 bottom_left = [24, 29]
 rotation = "West"
 part_local_dims = [2, 2]
 
-[values.384]
+[values.387]
 mass = 37000
 layer = "Structural"
 prototype = 0
-grid_id = 165
+grid_id = 168
 classification = "Structure"
 
-[values.384.region]
+[values.387.region]
 bottom_left = [66, 4]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.385]
+[values.388]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.385.region]
+[values.388.region]
 bottom_left = [40, 3]
 rotation = "North"
 part_local_dims = [1, 1]
 
-[values.386]
+[values.389]
 mass = 650000
 layer = "Internal"
-prototype = 16
-grid_id = 165
+prototype = 18
+grid_id = 168
 classification = "Thruster"
 
-[values.386.region]
+[values.389.region]
 bottom_left = [0, 13]
 rotation = "East"
 part_local_dims = [6, 3]
 
-[values.387]
+[values.390]
 mass = 305000
 layer = "Structural"
-prototype = 14
-grid_id = 165
+prototype = 16
+grid_id = 168
 classification = "Structure"
 
-[values.387.region]
+[values.390.region]
 bottom_left = [92, 6]
 rotation = "South"
 part_local_dims = [8, 2]
 
-[values.388]
+[values.391]
 mass = 650000
 layer = "Internal"
-prototype = 28
-grid_id = 165
+prototype = 30
+grid_id = 168
 classification = "Cargo"
 
-[values.388.region]
+[values.391.region]
 bottom_left = [8, 6]
 rotation = "East"
 part_local_dims = [4, 4]
 
-[values.389]
+[values.392]
 mass = 18000
 layer = "Exterior"
-prototype = 18
-grid_id = 165
+prototype = 20
+grid_id = 168
 classification = "Decoration"
 
-[values.389.region]
+[values.392.region]
 bottom_left = [88, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.390]
+[values.393]
 mass = 650000
 layer = "Internal"
-prototype = 16
-grid_id = 165
+prototype = 18
+grid_id = 168
 classification = "Thruster"
 
-[values.390.region]
+[values.393.region]
 bottom_left = [0, 10]
 rotation = "East"
 part_local_dims = [6, 3]
 
-[values.391]
+[values.394]
 mass = 400000
 layer = "Internal"
-prototype = 27
-grid_id = 165
+prototype = 29
+grid_id = 168
 classification = "Cargo"
 
-[values.391.region]
+[values.394.region]
 bottom_left = [8, 20]
 rotation = "South"
 part_local_dims = [2, 4]
 
-[values.392]
+[values.395]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.392.region]
+[values.395.region]
 bottom_left = [8, 5]
 rotation = "North"
 part_local_dims = [1, 1]
 
-[values.393]
-mass = 85000
-layer = "Structural"
-prototype = 12
-grid_id = 165
-classification = "Structure"
-
-[values.393.region]
-bottom_left = [52, 1]
-rotation = "West"
-part_local_dims = [2, 2]
-
-[values.394]
-mass = 25000
-layer = "Internal"
-prototype = 20
-grid_id = 165
-classification = "Thruster"
-
-[values.394.region]
-bottom_left = [65, 28]
-rotation = "South"
-part_local_dims = [1, 1]
-
-[values.395]
-mass = 18000
-layer = "Exterior"
-prototype = 18
-grid_id = 165
-classification = "Decoration"
-
-[values.395.region]
-bottom_left = [4, 15]
-rotation = "East"
-part_local_dims = [2, 2]
-
 [values.396]
 mass = 85000
 layer = "Structural"
-prototype = 12
-grid_id = 165
+prototype = 14
+grid_id = 168
 classification = "Structure"
 
 [values.396.region]
-bottom_left = [26, 1]
+bottom_left = [52, 1]
 rotation = "West"
 part_local_dims = [2, 2]
 
 [values.397]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
 [values.397.region]
-bottom_left = [88, 28]
+bottom_left = [65, 28]
 rotation = "South"
 part_local_dims = [1, 1]
 
 [values.398]
-mass = 85000
-layer = "Structural"
-prototype = 12
-grid_id = 165
-classification = "Structure"
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 168
+classification = "Decoration"
 
 [values.398.region]
-bottom_left = [6, 8]
+bottom_left = [4, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
 [values.399]
-mass = 18000
-layer = "Exterior"
-prototype = 18
-grid_id = 165
-classification = "Decoration"
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 168
+classification = "Structure"
 
 [values.399.region]
+bottom_left = [26, 1]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.400]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 168
+classification = "Thruster"
+
+[values.400.region]
+bottom_left = [88, 28]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.401]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 168
+classification = "Structure"
+
+[values.401.region]
+bottom_left = [6, 8]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.402]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 168
+classification = "Decoration"
+
+[values.402.region]
 bottom_left = [64, 15]
 rotation = "East"
 part_local_dims = [2, 2]
 
-[values.400]
+[values.403]
 mass = 400000
 layer = "Internal"
-prototype = 27
-grid_id = 165
+prototype = 29
+grid_id = 168
 classification = "Cargo"
 
-[values.400.region]
+[values.403.region]
 bottom_left = [22, 15]
 rotation = "South"
 part_local_dims = [2, 4]
 
-[values.401]
+[values.404]
 mass = 25000
 layer = "Internal"
-prototype = 20
-grid_id = 165
+prototype = 22
+grid_id = 168
 classification = "Thruster"
 
-[values.401.region]
+[values.404.region]
 bottom_left = [64, 3]
 rotation = "North"
 part_local_dims = [1, 1]
 
-[values.402]
+[values.405]
 mass = 165000
 layer = "Structural"
-prototype = 13
-grid_id = 165
+prototype = 15
+grid_id = 168
 classification = "Structure"
 
-[values.402.region]
+[values.405.region]
 bottom_left = [8, 16]
 rotation = "South"
 part_local_dims = [4, 4]
 
-[values.403]
-mass = 230000
-layer = "Internal"
-prototype = 26
-grid_id = 165
-classification = "Cargo"
-
-[values.403.region]
-bottom_left = [12, 26]
-rotation = "East"
-part_local_dims = [2, 2]
-
-[values.404]
-mass = 230000
-layer = "Internal"
-prototype = 26
-grid_id = 165
-classification = "Cargo"
-
-[values.404.region]
-bottom_left = [12, 4]
-rotation = "East"
-part_local_dims = [2, 2]
-
-[values.405]
-mass = 230000
-layer = "Internal"
-prototype = 26
-grid_id = 165
-classification = "Cargo"
-
-[values.405.region]
-bottom_left = [38, 4]
-rotation = "East"
-part_local_dims = [2, 2]
-
 [values.406]
 mass = 230000
 layer = "Internal"
-prototype = 26
-grid_id = 165
+prototype = 28
+grid_id = 168
 classification = "Cargo"
 
 [values.406.region]
-bottom_left = [38, 26]
+bottom_left = [12, 26]
 rotation = "East"
 part_local_dims = [2, 2]
 
 [values.407]
 mass = 230000
 layer = "Internal"
-prototype = 26
-grid_id = 165
+prototype = 28
+grid_id = 168
 classification = "Cargo"
 
 [values.407.region]
-bottom_left = [64, 26]
+bottom_left = [12, 4]
 rotation = "East"
 part_local_dims = [2, 2]
 
 [values.408]
 mass = 230000
 layer = "Internal"
-prototype = 26
-grid_id = 165
+prototype = 28
+grid_id = 168
 classification = "Cargo"
 
 [values.408.region]
-bottom_left = [64, 4]
+bottom_left = [38, 4]
 rotation = "East"
 part_local_dims = [2, 2]
 
 [values.409]
 mass = 230000
 layer = "Internal"
-prototype = 26
-grid_id = 165
+prototype = 28
+grid_id = 168
 classification = "Cargo"
 
 [values.409.region]
-bottom_left = [90, 4]
+bottom_left = [38, 26]
 rotation = "East"
 part_local_dims = [2, 2]
 
 [values.410]
 mass = 230000
 layer = "Internal"
-prototype = 26
-grid_id = 165
+prototype = 28
+grid_id = 168
 classification = "Cargo"
 
 [values.410.region]
+bottom_left = [64, 26]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.411]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 168
+classification = "Cargo"
+
+[values.411.region]
+bottom_left = [64, 4]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.412]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 168
+classification = "Cargo"
+
+[values.412.region]
+bottom_left = [90, 4]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.413]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 168
+classification = "Cargo"
+
+[values.413.region]
 bottom_left = [90, 26]
 rotation = "East"
 part_local_dims = [2, 2]

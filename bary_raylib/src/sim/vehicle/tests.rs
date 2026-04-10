@@ -135,8 +135,6 @@ fn splitting_vehicle_should_preserve_part_coordinates() {
 
     let grid_id = grid_by_name(&world.grids, "kyle").unwrap();
 
-    assert_eq!(grid_id, Ent(31));
-
     assert_eq!(world.grids.len(), 1);
     assert_eq!(world.parts.len(), 245);
 

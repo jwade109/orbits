@@ -282,9 +282,9 @@ mod tests {
         let part_b = *parts[20];
         let part_c = *parts[37];
 
-        assert_eq!(part_a, Ent(44));
-        assert_eq!(part_b, Ent(52));
-        assert_eq!(part_c, Ent(69));
+        assert_eq!(part_a, Ent(47));
+        assert_eq!(part_b, Ent(55));
+        assert_eq!(part_c, Ent(72));
 
         let op_a = destroy_part_without_integrity_check(&mut world, part_a, false);
         let op_b = destroy_part_without_integrity_check(&mut world, part_b, false);
@@ -351,15 +351,17 @@ mod tests {
             assert!(r.is_ok());
         }
 
+        let sec_grid_id = Ent(133);
+
         let result = split_grid_if_necessary(&mut world, grid_id);
 
-        assert_eq!(result, Ok(vec![Ent(31), Ent(130)]));
+        assert_eq!(result, Ok(vec![grid_id, sec_grid_id]));
 
-        let grid = world.grids.try_get(Ent(31)).unwrap();
+        let grid = world.grids.try_get(grid_id).unwrap();
         assert_eq!(grid.parts_mass, Mass::grams(17757000));
         assert_eq!(grid.parts.len(), 52);
 
-        let grid = world.grids.try_get(Ent(130)).unwrap();
+        let grid = world.grids.try_get(sec_grid_id).unwrap();
         assert_eq!(grid.parts_mass, Mass::grams(14247000));
         assert_eq!(grid.parts.len(), 38);
 
