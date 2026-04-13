@@ -50,6 +50,12 @@ pub fn screen_to_world(camera: &Camera, screen_pos: Vec2, screen_dims: Vec2) -> 
         + raylib_to_glam(glam_to_raylib(camera.isometry.translation))
 }
 
+pub fn get_world_to_screen(camera: &Camera, world_pos: Vec2, screen_dims: Vec2) -> Vec2 {
+    let offset = screen_dims / 2.0;
+    let p = (world_pos - camera.isometry.translation) * camera.zoom;
+    rotate(p.with_y(-p.y), camera.isometry.rotation) + offset
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

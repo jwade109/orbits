@@ -6,6 +6,7 @@ use crate::cmd::prompt::draw_command_prompt;
 use crate::components::Components;
 use crate::input_state::InputState;
 use crate::render::draw::*;
+use crate::sim::find::grid_pose;
 use crate::sim::input_handlers::{
     enter_ship_editor, leave_ship_editor_on_escape, spawn_random_ship_on_p,
 };
@@ -57,7 +58,7 @@ struct LayoutHandle<'a> {
 
 impl<'a> LayoutHandle<'a> {
     pub fn button(&mut self, id: i64, text: impl Into<String>) -> ButtonResponse {
-        let dims = IVec2::new(120, 45);
+        let dims = IVec2::new(130, 30);
         let br = self.next_pos + dims;
         let aabb = AABB::from_arbitrary(self.next_pos.as_vec2(), br.as_vec2());
         let is_hot = self
@@ -154,12 +155,13 @@ impl ImGui {
     }
 
     pub fn layout<'a>(&'a mut self, pos: IVec2) -> LayoutHandle<'a> {
+        let padding = 7;
         LayoutHandle {
-            padding: 7,
+            padding,
             child_gap: 4,
             origin: pos,
-            dims: IVec2::ZERO,
-            next_pos: pos,
+            dims: IVec2::splat(padding * 2),
+            next_pos: pos + IVec2::splat(padding),
             gui: self,
             buttons: Vec::new(),
         }
@@ -229,11 +231,10 @@ pub fn imgui_test(
         client.chat.log("Clicked!");
     }
 
-    if load.hovered() {
+    if layout.button(2, "New Save").hovered() {
         client.chat.log("Hovered!");
     }
 
-    layout.button(2, "New Save");
     layout.button(3, "Settings");
     if layout.button(4, "Exit Editor").clicked() {
         leave_ship_editor_on_escape(client, sounds);
@@ -252,7 +253,20 @@ pub fn imgui_test(
 
     drop(l2);
 
+    ship_following_ui(&mut gui, client, world);
+
     gui.draw(d);
+}
+
+fn ship_following_ui(gui: &mut ImGui, client: &ClientSpecificInfo, world: &World) {
+    let grid_id = some_or_return!(client.focused_grid_id());
+    let pos = some_or_return!(grid_pose(&world.grids, grid_id));
+
+    let pos = get_world_to_screen(&client.camera, pos.translation, client.screen_dims);
+
+    let mut ui = gui.layout(pos.as_ivec2() + IVec2::X * 20);
+    ui.button(12, "Hello!");
+    ui.button(13, "Goodbye!");
 }
 
 pub fn imgui_all_parts_in_layer(
