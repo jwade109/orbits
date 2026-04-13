@@ -19,6 +19,7 @@ use early_returns::*;
 use raylib::prelude::*;
 use rdev::Key;
 
+#[derive(Clone, Debug)]
 struct Button {
     id: i64,
     origin: IVec2,
@@ -32,24 +33,83 @@ struct Button {
 
 struct ImGui {
     screen: Vec2,
-    next_pos: IVec2,
     mouse_pos: Option<Vec2>,
-    padding: i32,
     buttons: Vec<Button>,
     input: InputState,
     active: i64,
     layouts: Vec<Layout>,
 }
 
-struct Layout;
+struct Layout {
+    origin: IVec2,
+    dims: IVec2,
+}
 
 struct LayoutHandle<'a> {
+    buttons: Vec<Button>,
+    origin: IVec2,
+    dims: IVec2,
+    padding: i32,
+    child_gap: i32,
+    next_pos: IVec2,
     gui: &'a mut ImGui,
+}
+
+impl<'a> LayoutHandle<'a> {
+    pub fn button(&mut self, id: i64, text: impl Into<String>) -> ButtonResponse {
+        let dims = IVec2::new(120, 45);
+        let br = self.next_pos + dims;
+        let aabb = AABB::from_arbitrary(self.next_pos.as_vec2(), br.as_vec2());
+        let is_hot = self
+            .gui
+            .mouse_pos
+            .map(|p| aabb.contains(p))
+            .unwrap_or(false);
+        let is_pressed = is_hot && self.gui.input.is_key_pressed(rdev::Button::Left);
+        let is_just_pressed = is_hot && self.gui.input.just_pressed_debounced(rdev::Button::Left);
+        let is_just_released = is_hot && self.gui.input.just_released(rdev::Button::Left);
+
+        self.dims.x = self.dims.x.max(dims.x + self.padding * 2);
+        self.dims.y += dims.y;
+
+        if !self.buttons.is_empty() {
+            self.dims.y += self.child_gap;
+        }
+
+        if is_hot {
+            self.gui.active = id;
+        }
+
+        let button = Button {
+            id,
+            origin: self.next_pos,
+            dims,
+            text: text.into(),
+            is_hot,
+            is_pressed,
+            is_just_pressed,
+            is_just_released,
+        };
+
+        self.buttons.push(button);
+
+        self.next_pos += IVec2::new(0, dims.y + self.child_gap);
+
+        ButtonResponse {
+            is_just_pressed,
+            is_just_released,
+            is_hot,
+        }
+    }
 }
 
 impl<'a> std::ops::Drop for LayoutHandle<'a> {
     fn drop(&mut self) {
-        self.gui.layouts.push(Layout {});
+        self.gui.buttons.extend_from_slice(&self.buttons);
+        self.gui.layouts.push(Layout {
+            origin: self.origin,
+            dims: self.dims,
+        });
     }
 }
 
@@ -74,7 +134,7 @@ impl ButtonResponse {
 }
 
 impl ImGui {
-    pub fn new(screen: Vec2, pos: IVec2, mouse_pos: Option<Vec2>, input: InputState) -> Self {
+    pub fn new(screen: Vec2, mouse_pos: Option<Vec2>, input: InputState) -> Self {
         let is_on_screen = if let Some(mp) = mouse_pos {
             mp.x >= 0.0 && mp.y >= 0.0 && mp.x <= screen.x && mp.y <= screen.y
         } else {
@@ -85,9 +145,7 @@ impl ImGui {
 
         Self {
             screen,
-            next_pos: pos,
             mouse_pos,
-            padding: 7,
             buttons: Vec::new(),
             input,
             active,
@@ -95,46 +153,25 @@ impl ImGui {
         }
     }
 
-    pub fn layout<'a>(&'a mut self) -> LayoutHandle<'a> {
-        LayoutHandle { gui: self }
-    }
-
-    pub fn button(&mut self, id: i64, text: impl Into<String>) -> ButtonResponse {
-        let dims = IVec2::new(120, 45);
-        let br = self.next_pos + dims;
-        let aabb = AABB::from_arbitrary(self.next_pos.as_vec2(), br.as_vec2());
-        let is_hot = self.mouse_pos.map(|p| aabb.contains(p)).unwrap_or(false);
-        let is_pressed = is_hot && self.input.is_key_pressed(rdev::Button::Left);
-        let is_just_pressed = is_hot && self.input.just_pressed_debounced(rdev::Button::Left);
-        let is_just_released = is_hot && self.input.just_released(rdev::Button::Left);
-
-        if is_hot {
-            self.active = id;
-        }
-
-        let button = Button {
-            id,
-            origin: self.next_pos,
-            dims,
-            text: text.into(),
-            is_hot,
-            is_pressed,
-            is_just_pressed,
-            is_just_released,
-        };
-
-        self.buttons.push(button);
-
-        self.next_pos += IVec2::new(0, dims.y + self.padding);
-
-        ButtonResponse {
-            is_just_pressed,
-            is_just_released,
-            is_hot,
+    pub fn layout<'a>(&'a mut self, pos: IVec2) -> LayoutHandle<'a> {
+        LayoutHandle {
+            padding: 7,
+            child_gap: 4,
+            origin: pos,
+            dims: IVec2::ZERO,
+            next_pos: pos,
+            gui: self,
+            buttons: Vec::new(),
         }
     }
 
     pub fn draw(self, d: &mut RaylibDrawHandle) {
+        for layout in &self.layouts {
+            let p = layout.origin;
+            let s = layout.dims;
+            d.draw_rectangle(p.x, p.y, s.x, s.y, Color::GRAY);
+        }
+
         for b in &self.buttons {
             let color = if b.id == self.active {
                 Color::DARKBLUE
@@ -158,6 +195,13 @@ impl ImGui {
             let rect = Rectangle::new(0.0, 0.0, self.screen.x, self.screen.y);
             d.draw_rectangle_lines_ex(rect, 3.0, Color::RED);
         }
+
+        for layout in &self.layouts {
+            let p = layout.origin;
+            let s = layout.dims;
+            let rec = Rectangle::new(p.x as f32, p.y as f32, s.x as f32, s.y as f32);
+            d.draw_rectangle_lines_ex(rec, 3.0, Color::TEAL);
+        }
     }
 }
 
@@ -169,12 +213,13 @@ pub fn imgui_test(
 ) {
     let mut gui = ImGui::new(
         client.screen_dims,
-        IVec2::splat(400),
         client.mouse_screen_position,
         client.input.clone(),
     );
 
-    let load = gui.button(1, "Load");
+    let mut layout = gui.layout(IVec2::splat(300));
+
+    let load = layout.button(1, "Load");
 
     if load.just_released() {
         client.chat.log("Pressed!");
@@ -188,19 +233,24 @@ pub fn imgui_test(
         client.chat.log("Hovered!");
     }
 
-    gui.button(2, "New Save");
-    gui.button(3, "Settings");
-    if gui.button(4, "Exit Editor").clicked() {
+    layout.button(2, "New Save");
+    layout.button(3, "Settings");
+    if layout.button(4, "Exit Editor").clicked() {
         leave_ship_editor_on_escape(client, sounds);
     }
 
-    if gui.button(5, "Spawn Ship").clicked() {
+    if layout.button(5, "Spawn Ship").clicked() {
         spawn_random_ship_on_p(world);
     }
 
-    let layout = gui.layout();
-
     drop(layout);
+
+    let mut l2 = gui.layout(IVec2::new(800, 400));
+
+    l2.button(12, "Hello!");
+    l2.button(13, "Goodbye!");
+
+    drop(l2);
 
     gui.draw(d);
 }
