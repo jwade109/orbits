@@ -18,7 +18,12 @@ use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use early_returns::*;
 use raylib::prelude::*;
-use rdev::Key;
+
+#[derive(Debug, Copy, Clone)]
+enum LayoutDirection {
+    Down,
+    Right,
+}
 
 #[derive(Clone, Debug)]
 struct Button {
@@ -49,6 +54,7 @@ struct Layout {
 struct LayoutHandle<'a> {
     buttons: Vec<Button>,
     origin: IVec2,
+    dir: LayoutDirection,
     dims: IVec2,
     padding: i32,
     child_gap: i32,
@@ -59,8 +65,9 @@ struct LayoutHandle<'a> {
 impl<'a> LayoutHandle<'a> {
     pub fn button(&mut self, id: i64, text: impl Into<String>) -> ButtonResponse {
         let dims = IVec2::new(130, 30);
-        let br = self.next_pos + dims;
-        let aabb = AABB::from_arbitrary(self.next_pos.as_vec2(), br.as_vec2());
+        let origin = self.next_pos;
+        let br = origin + dims;
+        let aabb = AABB::from_arbitrary(origin.as_vec2(), br.as_vec2());
         let is_hot = self
             .gui
             .mouse_pos
@@ -70,11 +77,24 @@ impl<'a> LayoutHandle<'a> {
         let is_just_pressed = is_hot && self.gui.input.just_pressed_debounced(rdev::Button::Left);
         let is_just_released = is_hot && self.gui.input.just_released(rdev::Button::Left);
 
-        self.dims.x = self.dims.x.max(dims.x + self.padding * 2);
-        self.dims.y += dims.y;
+        match self.dir {
+            LayoutDirection::Down => {
+                self.dims.x = self.dims.x.max(dims.x + self.padding * 2);
+                self.dims.y += dims.y;
+                self.next_pos += IVec2::new(0, dims.y + self.child_gap);
+            }
+            LayoutDirection::Right => {
+                self.dims.y = self.dims.y.max(dims.y + self.padding * 2);
+                self.dims.x += dims.x;
+                self.next_pos += IVec2::new(dims.x + self.child_gap, 0);
+            }
+        }
 
         if !self.buttons.is_empty() {
-            self.dims.y += self.child_gap;
+            match self.dir {
+                LayoutDirection::Down => self.dims.y += self.child_gap,
+                LayoutDirection::Right => self.dims.x += self.child_gap,
+            }
         }
 
         if is_hot {
@@ -83,7 +103,7 @@ impl<'a> LayoutHandle<'a> {
 
         let button = Button {
             id,
-            origin: self.next_pos,
+            origin,
             dims,
             text: text.into(),
             is_hot,
@@ -93,8 +113,6 @@ impl<'a> LayoutHandle<'a> {
         };
 
         self.buttons.push(button);
-
-        self.next_pos += IVec2::new(0, dims.y + self.child_gap);
 
         ButtonResponse {
             is_just_pressed,
@@ -154,9 +172,10 @@ impl ImGui {
         }
     }
 
-    pub fn layout<'a>(&'a mut self, pos: IVec2) -> LayoutHandle<'a> {
+    pub fn layout<'a>(&'a mut self, pos: IVec2, dir: LayoutDirection) -> LayoutHandle<'a> {
         let padding = 7;
         LayoutHandle {
+            dir,
             padding,
             child_gap: 4,
             origin: pos,
@@ -181,7 +200,7 @@ impl ImGui {
                 Color::BLUE
             };
 
-            let offset = IVec2::new(-3, 3) * b.is_pressed as i32;
+            let offset = IVec2::new(-2, 2) * b.is_pressed as i32;
             let p = b.origin + offset;
 
             d.draw_rectangle(p.x, p.y, b.dims.x, b.dims.y, color);
@@ -219,7 +238,7 @@ pub fn imgui_test(
         client.input.clone(),
     );
 
-    let mut layout = gui.layout(IVec2::splat(300));
+    let mut layout = gui.layout(IVec2::splat(300), LayoutDirection::Down);
 
     let load = layout.button(1, "Load");
 
@@ -246,7 +265,7 @@ pub fn imgui_test(
 
     drop(layout);
 
-    let mut l2 = gui.layout(IVec2::new(800, 400));
+    let mut l2 = gui.layout(IVec2::new(800, 400), LayoutDirection::Right);
 
     l2.button(12, "Hello!");
     l2.button(13, "Goodbye!");
@@ -264,7 +283,7 @@ fn ship_following_ui(gui: &mut ImGui, client: &ClientSpecificInfo, world: &World
 
     let pos = get_world_to_screen(&client.camera, pos.translation, client.screen_dims);
 
-    let mut ui = gui.layout(pos.as_ivec2() + IVec2::X * 20);
+    let mut ui = gui.layout(pos.as_ivec2() + IVec2::X * 20, LayoutDirection::Down);
     ui.button(12, "Hello!");
     ui.button(13, "Goodbye!");
 }
