@@ -6,6 +6,9 @@ use crate::cmd::prompt::draw_command_prompt;
 use crate::components::Components;
 use crate::input_state::InputState;
 use crate::render::draw::*;
+use crate::sim::input_handlers::{
+    enter_ship_editor, leave_ship_editor_on_escape, spawn_random_ship_on_p,
+};
 use crate::sim::{Computer, VehicleGrid, World, find};
 use crate::sounds::*;
 use crate::ui::{Window, draw_window};
@@ -14,6 +17,7 @@ use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use early_returns::*;
 use raylib::prelude::*;
+use rdev::Key;
 
 struct Button {
     id: i64,
@@ -49,6 +53,26 @@ impl<'a> std::ops::Drop for LayoutHandle<'a> {
     }
 }
 
+struct ButtonResponse {
+    is_just_pressed: bool,
+    is_just_released: bool,
+    is_hot: bool,
+}
+
+impl ButtonResponse {
+    fn clicked(&self) -> bool {
+        self.is_just_released
+    }
+
+    fn hovered(&self) -> bool {
+        self.is_hot
+    }
+
+    fn just_released(&self) -> bool {
+        self.is_just_pressed
+    }
+}
+
 impl ImGui {
     pub fn new(screen: Vec2, pos: IVec2, mouse_pos: Option<Vec2>, input: InputState) -> Self {
         let is_on_screen = if let Some(mp) = mouse_pos {
@@ -75,7 +99,7 @@ impl ImGui {
         LayoutHandle { gui: self }
     }
 
-    pub fn button(&mut self, id: i64, text: impl Into<String>) {
+    pub fn button(&mut self, id: i64, text: impl Into<String>) -> ButtonResponse {
         let dims = IVec2::new(120, 45);
         let br = self.next_pos + dims;
         let aabb = AABB::from_arbitrary(self.next_pos.as_vec2(), br.as_vec2());
@@ -102,6 +126,12 @@ impl ImGui {
         self.buttons.push(button);
 
         self.next_pos += IVec2::new(0, dims.y + self.padding);
+
+        ButtonResponse {
+            is_just_pressed,
+            is_just_released,
+            is_hot,
+        }
     }
 
     pub fn draw(self, d: &mut RaylibDrawHandle) {
@@ -131,7 +161,12 @@ impl ImGui {
     }
 }
 
-pub fn imgui_test(d: &mut RaylibDrawHandle, client: &ClientSpecificInfo) {
+pub fn imgui_test(
+    d: &mut RaylibDrawHandle,
+    client: &mut ClientSpecificInfo,
+    world: &mut World,
+    sounds: &mut SoundEffects,
+) {
     let mut gui = ImGui::new(
         client.screen_dims,
         IVec2::splat(400),
@@ -139,10 +174,29 @@ pub fn imgui_test(d: &mut RaylibDrawHandle, client: &ClientSpecificInfo) {
         client.input.clone(),
     );
 
-    gui.button(1, "Load");
+    let load = gui.button(1, "Load");
+
+    if load.just_released() {
+        client.chat.log("Pressed!");
+    }
+
+    if load.clicked() {
+        client.chat.log("Clicked!");
+    }
+
+    if load.hovered() {
+        client.chat.log("Hovered!");
+    }
+
     gui.button(2, "New Save");
     gui.button(3, "Settings");
-    gui.button(4, "Credits");
+    if gui.button(4, "Exit Editor").clicked() {
+        leave_ship_editor_on_escape(client, sounds);
+    }
+
+    if gui.button(5, "Spawn Ship").clicked() {
+        spawn_random_ship_on_p(world);
+    }
 
     let layout = gui.layout();
 
@@ -605,5 +659,10 @@ pub fn imgui_entrypoint(
 
     draw_command_prompt(d, &app.cmd, &assets);
 
-    imgui_test(d, &app.runner.client_info);
+    imgui_test(
+        d,
+        &mut app.runner.client_info,
+        &mut app.runner.world,
+        sounds,
+    );
 }
