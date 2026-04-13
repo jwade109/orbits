@@ -32,7 +32,7 @@ pub struct PartPrototype {
     pub thruster_data: Option<ThrusterModel>,
     pub machine_data: Option<MachineData>,
     pub docking_port_data: Option<DockingPortData>,
-    pub debug_portal_data: Option<DebugPortal>,
+    pub debug_portal_data: Option<DebugPortalPrototype>,
 }
 
 impl PartPrototype {

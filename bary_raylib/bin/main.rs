@@ -198,10 +198,13 @@ fn main() {
             };
 
             if should_send_to_world {
-                let (event_sounds, event_actions) =
-                    process_event(&mut app.runner.world, &mut app.runner.client_info, &e);
-                sounds.extend(event_sounds);
-                actions.extend(event_actions);
+                process_event(
+                    &mut app.runner.world,
+                    &mut app.runner.client_info,
+                    &e,
+                    &mut sounds,
+                    &mut actions,
+                );
             }
         }
 

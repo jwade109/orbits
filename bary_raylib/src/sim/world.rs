@@ -280,6 +280,15 @@ pub fn destroy_top_part_at(
     destroy_part(world, top_part)
 }
 
+pub fn destroy_part_at_layer(
+    world: &mut World,
+    loc: GridLocation,
+    layer: PartLayer,
+) -> BaryResult<(PartInstance, Ent, Vec<Ent>)> {
+    let part_id = get_part_at(world, loc, layer)?;
+    destroy_part(world, part_id)
+}
+
 pub fn detach_top_part_at(world: &mut World, grid_id: Ent, coord: PartCoord) -> BaryResult<Ent> {
     warn!("Detaching top part at {} in grid {}", coord, grid_id);
 
@@ -512,7 +521,7 @@ pub fn insert_pipe_at(
     let src_joint = calculate_pipe_joint(src_loc, world)?;
     let dst_joint = calculate_pipe_joint(dst_loc, world)?;
 
-    if src_joint.part_id == dst_joint.part_id && src_joint.offset == dst_joint.offset {
+    if src_joint.part_id == dst_joint.part_id && src_joint.slot == dst_joint.slot {
         return Err(BaryError::SameInvSlot(src_joint.part_id, src_joint.slot));
     }
 
@@ -637,19 +646,13 @@ pub fn fill_inventories_attached_to_debug_sources(world: &mut World) {
             &mut world.inventories
         ));
 
-        match portal.dir {
-            PortalDirection::Source => {
-                let item = if slot.is_empty() {
-                    Item::random_with_filter(slot.filter())
-                } else {
-                    slot.item()
-                };
-
+        match portal.state {
+            PortalState::Source(item) => {
                 if let Some(item) = item {
                     slot.fill_with(item);
                 }
             }
-            PortalDirection::Sink => {
+            PortalState::Sink => {
                 slot.empty();
             }
         }
@@ -723,10 +726,9 @@ pub fn process_event(
     world: &mut World,
     client: &mut ClientSpecificInfo,
     event: &rdev::Event,
-) -> (SoundEffects, Vec<Action>) {
-    let mut actions = Vec::new();
-    let mut sounds = SoundEffects::new();
-
+    sounds: &mut SoundEffects,
+    actions: &mut Vec<Action>,
+) {
     if let rdev::EventType::KeyPress(k) = event.event_type {
         client.input.set_pressed(k);
     } else if let rdev::EventType::KeyRelease(k) = event.event_type {
@@ -740,7 +742,7 @@ pub fn process_event(
     match event.event_type {
         rdev::EventType::KeyPress(key) => match key {
             Key::KeyS => input_handlers::save_on_ctrl_s(world, client),
-            Key::KeyF => input_handlers::toggle_following_on_key_f(client, &mut sounds),
+            Key::KeyF => input_handlers::toggle_following_on_key_f(client, sounds),
             Key::KeyT => input_handlers::toggle_tracking_for_selected_grid(world, client),
             Key::KeyR => {
                 input_handlers::reset_camera_on_ctrl_r(client);
@@ -755,8 +757,8 @@ pub fn process_event(
             Key::KeyP => input_handlers::spawn_random_ship_on_p(world),
             Key::KeyM => input_handlers::update_center_of_mass_on_m(world),
             Key::KeyQ => input_handlers::pipette_part_if_in_editor_on_q(world, client),
-            Key::KeyG => input_handlers::enter_ship_editor(world, client, &mut sounds),
-            Key::Escape => input_handlers::leave_ship_editor_on_escape(client, &mut sounds),
+            Key::KeyG => input_handlers::enter_ship_editor(world, client, sounds),
+            Key::Escape => input_handlers::leave_ship_editor_on_escape(client, sounds),
             Key::KeyC => {
                 input_handlers::explode_at_mouseover(world, client);
                 input_handlers::editor_copy_on_control_c(world, client);
@@ -766,12 +768,12 @@ pub fn process_event(
         rdev::EventType::KeyRelease(_key) => (),
         rdev::EventType::ButtonPress(button) => match button {
             Button::Left => {
-                input_handlers::ping_on_alt_left_click(world, client, &mut actions, &mut sounds);
-                select_hovered_grid_loc_on_click(client, &mut sounds);
-                editor_on_left_click(world, client, &mut sounds);
+                input_handlers::ping_on_alt_left_click(world, client, actions, sounds);
+                select_hovered_grid_loc_on_click(client, sounds);
+                editor_on_left_click(world, client, sounds);
             }
             Button::Right => {
-                input_handlers::destroy_top_layer_part_at_mouseover(world, client, &mut sounds)
+                input_handlers::destroy_top_layer_part_at_mouseover(world, client, sounds)
             }
             Button::Middle => (),
             Button::Unknown(_) => (),
@@ -788,8 +790,6 @@ pub fn process_event(
             input_handlers::apply_scroll_wheel_to_camera_target(delta_y, &mut client.target_camera);
         }
     }
-
-    (sounds, actions)
 }
 
 pub fn pre_simulation_update(

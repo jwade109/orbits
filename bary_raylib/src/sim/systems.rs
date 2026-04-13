@@ -409,7 +409,8 @@ pub fn insert_part_c(
         }
     }
     if let Some(debug) = &proto.debug_portal_data {
-        debug_portals.spawn(part_id, *debug);
+        let portal = DebugPortal::from_proto(*debug);
+        debug_portals.spawn(part_id, portal);
     }
 
     if update_props {

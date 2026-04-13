@@ -81,9 +81,16 @@ pub fn destroy_top_layer_part_at_mouseover(
     client: &mut ClientSpecificInfo,
     sounds: &mut SoundEffects,
 ) {
+    let editor = some_or_return!(client.viewport.editor());
     let loc = some_or_return!(client.hovered_grid_loc());
 
-    match destroy_top_part_at(world, loc) {
+    let result = if let Some(layer) = editor.layer {
+        destroy_part_at_layer(world, loc, layer)
+    } else {
+        destroy_top_part_at(world, loc)
+    };
+
+    match result {
         Ok((instance, grid_id, grids)) => {
             info!("Removed part {:?}, grid {}", instance, grid_id);
             sounds.push(SoundEffect::DestroyPart);
@@ -263,7 +270,7 @@ pub fn leave_ship_editor_on_escape(client: &mut ClientSpecificInfo, sounds: &mut
         waypoint_widget: None,
     });
 
-    // client.target_camera.zoom = 20.0;
+    client.target_camera.zoom = 20.0;
     client.target_camera.isometry.rotation = 0.0;
 
     client.chat.log("Left ship editor");

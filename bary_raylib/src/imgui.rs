@@ -4,6 +4,7 @@ use crate::camera::to_raylib_camera;
 use crate::client::ClientSpecificInfo;
 use crate::cmd::prompt::draw_command_prompt;
 use crate::components::Components;
+use crate::input_state::InputState;
 use crate::render::draw::*;
 use crate::sim::{Computer, VehicleGrid, World, find};
 use crate::sounds::*;
@@ -13,6 +14,142 @@ use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use early_returns::*;
 use raylib::prelude::*;
+
+struct Button {
+    id: i64,
+    origin: IVec2,
+    dims: IVec2,
+    text: String,
+    is_hot: bool,
+    is_pressed: bool,
+    is_just_pressed: bool,
+    is_just_released: bool,
+}
+
+struct ImGui {
+    screen: Vec2,
+    next_pos: IVec2,
+    mouse_pos: Option<Vec2>,
+    padding: i32,
+    buttons: Vec<Button>,
+    input: InputState,
+    active: i64,
+    layouts: Vec<Layout>,
+}
+
+struct Layout;
+
+struct LayoutHandle<'a> {
+    gui: &'a mut ImGui,
+}
+
+impl<'a> std::ops::Drop for LayoutHandle<'a> {
+    fn drop(&mut self) {
+        self.gui.layouts.push(Layout {});
+    }
+}
+
+impl ImGui {
+    pub fn new(screen: Vec2, pos: IVec2, mouse_pos: Option<Vec2>, input: InputState) -> Self {
+        let is_on_screen = if let Some(mp) = mouse_pos {
+            mp.x >= 0.0 && mp.y >= 0.0 && mp.x <= screen.x && mp.y <= screen.y
+        } else {
+            false
+        };
+
+        let active = if is_on_screen { 0 } else { -1 };
+
+        Self {
+            screen,
+            next_pos: pos,
+            mouse_pos,
+            padding: 7,
+            buttons: Vec::new(),
+            input,
+            active,
+            layouts: Vec::new(),
+        }
+    }
+
+    pub fn layout<'a>(&'a mut self) -> LayoutHandle<'a> {
+        LayoutHandle { gui: self }
+    }
+
+    pub fn button(&mut self, id: i64, text: impl Into<String>) {
+        let dims = IVec2::new(120, 45);
+        let br = self.next_pos + dims;
+        let aabb = AABB::from_arbitrary(self.next_pos.as_vec2(), br.as_vec2());
+        let is_hot = self.mouse_pos.map(|p| aabb.contains(p)).unwrap_or(false);
+        let is_pressed = is_hot && self.input.is_key_pressed(rdev::Button::Left);
+        let is_just_pressed = is_hot && self.input.just_pressed_debounced(rdev::Button::Left);
+        let is_just_released = is_hot && self.input.just_released(rdev::Button::Left);
+
+        if is_hot {
+            self.active = id;
+        }
+
+        let button = Button {
+            id,
+            origin: self.next_pos,
+            dims,
+            text: text.into(),
+            is_hot,
+            is_pressed,
+            is_just_pressed,
+            is_just_released,
+        };
+
+        self.buttons.push(button);
+
+        self.next_pos += IVec2::new(0, dims.y + self.padding);
+    }
+
+    pub fn draw(self, d: &mut RaylibDrawHandle) {
+        for b in &self.buttons {
+            let color = if b.id == self.active {
+                Color::DARKBLUE
+            } else {
+                Color::BLUE
+            };
+
+            let offset = IVec2::new(-3, 3) * b.is_pressed as i32;
+            let p = b.origin + offset;
+
+            d.draw_rectangle(p.x, p.y, b.dims.x, b.dims.y, color);
+            d.draw_text(&b.text, p.x, p.y, 20, Color::WHITE);
+
+            if b.id == self.active {
+                let rect = Rectangle::new(p.x as f32, p.y as f32, b.dims.x as f32, b.dims.y as f32);
+                d.draw_rectangle_lines_ex(rect, 3.0, Color::RED);
+            }
+        }
+
+        if self.active == 0 {
+            let rect = Rectangle::new(0.0, 0.0, self.screen.x, self.screen.y);
+            d.draw_rectangle_lines_ex(rect, 3.0, Color::RED);
+        }
+    }
+}
+
+pub fn imgui_test(d: &mut RaylibDrawHandle, client: &ClientSpecificInfo) {
+    let mut gui = ImGui::new(
+        client.screen_dims,
+        IVec2::splat(400),
+        client.mouse_screen_position,
+        client.input.clone(),
+    );
+
+    gui.button(1, "Load");
+    gui.button(2, "New Save");
+    gui.button(3, "Settings");
+    gui.button(4, "Credits");
+
+    let layout = gui.layout();
+
+    drop(layout);
+
+    gui.draw(d);
+}
 
 pub fn imgui_all_parts_in_layer(
     d: &mut RaylibDrawHandle,
@@ -467,4 +604,6 @@ pub fn imgui_entrypoint(
     );
 
     draw_command_prompt(d, &app.cmd, &assets);
+
+    imgui_test(d, &app.runner.client_info);
 }
