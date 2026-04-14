@@ -1,5 +1,7 @@
 use bary_core::prelude::*;
 use bary_raylib::client::DebugInfo;
+use bary_raylib::imgui::ImGui;
+use bary_raylib::input_state::InputState;
 use bary_raylib::multiplayer::*;
 use bary_raylib::sounds::SoundEffects;
 use bary_raylib::wall_timer::WallTimer;
@@ -59,7 +61,12 @@ impl ServerApp {
         let mut actions = Vec::new();
         let mut debug = DebugInfo::default();
 
-        let _outgoing = self.runner.update(&mut debug, &mut sounds, &mut actions);
+        // weird that the server needs this
+        let mut gui = ImGui::new((0.0, 0.0).into(), None, InputState::default());
+
+        let _outgoing = self
+            .runner
+            .update(&mut debug, &mut sounds, &mut gui, &mut actions);
 
         if self.sync_timer.tick() {
             let tr = Transaction::new(

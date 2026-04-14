@@ -4,13 +4,13 @@ use bary_raylib::assets::*;
 use bary_raylib::client::*;
 use bary_raylib::cmd::prompt::*;
 use bary_raylib::imgui;
+use bary_raylib::imgui::ImGui;
 use bary_raylib::multiplayer::*;
 use bary_raylib::render::draw;
 use bary_raylib::sim::systems::*;
 use bary_raylib::sim::world::*;
 use bary_raylib::sounds::SoundEffects;
 use bary_raylib::tests::is_world_consistent;
-use bary_raylib::ui;
 use bary_raylib::utils::raylib_to_glam;
 use log::*;
 use raylib::prelude::*;
@@ -230,8 +230,14 @@ fn main() {
 
         app.runner.client_info.mouse_screen_position = mouse;
 
+        let mut gui = ImGui::new(
+            app.runner.client_info.screen_dims,
+            app.runner.client_info.mouse_screen_position,
+            app.runner.client_info.input.clone(),
+        );
+
         app.runner
-            .update(&mut app.debug_info, &mut sounds, &mut actions);
+            .update(&mut app.debug_info, &mut sounds, &mut gui, &mut actions);
 
         for msg in actions {
             let transaction = Transaction::new(app.runner.world.ticks, msg);
@@ -241,20 +247,19 @@ fn main() {
         let time = rl.get_time();
         shader.set_shader_value(1, time as f32);
 
-        ui::update_ui_state(
-            &mut app.ui_state,
-            app.runner.client_info.mouse_screen_position,
-        );
-
         rl.draw(&thread, |mut d: RaylibDrawHandle<'_>| {
             let start = std::time::Instant::now();
             d.clear_background(Color::BLACK);
 
-            draw::draw_world(&app.runner.world, &app.runner.client_info, &assets, &mut d);
+            draw::draw_world(
+                &app.runner.world,
+                &app.runner.client_info,
+                &assets,
+                &gui,
+                &mut d,
+            );
 
-            imgui::imgui_entrypoint(&mut d, &mut app, &mut sounds, &assets);
-
-            ui::draw_ui(&mut d, &app.runner.world, &app.ui_state, &assets);
+            imgui::lame_old_imgui_entrypoint(&mut d, &mut app, &mut sounds, &assets);
 
             draw::draw_mouse_screen_position(&mut d, app.runner.client_info.mouse_screen_position);
 

@@ -2,7 +2,6 @@ use crate::client::DebugInfo;
 use crate::cmd::prompt::CommandPrompt;
 use crate::multiplayer::*;
 use crate::sim::spawn_stars;
-use crate::ui::UiState;
 use crate::world_builder::WorldBuilder;
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -27,7 +26,6 @@ fn network_thread(incoming: MessageQueue<ServerMessage>, outgoing: MessageQueue<
 
 pub struct App {
     pub runner: WorldRunner,
-    pub ui_state: UiState,
     pub debug_info: DebugInfo,
 
     pub _network_thread: JoinHandle<()>,
@@ -80,12 +78,9 @@ pub fn new_app(multiplayer: bool) -> App {
         }
     });
 
-    let ui_state = UiState::new();
-
     App {
         runner: WorldRunner::new(world),
         debug_info: DebugInfo::default(),
-        ui_state,
         _network_thread,
         incoming_network_queue,
         outgoing_network_queue,

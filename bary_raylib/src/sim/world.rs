@@ -2,8 +2,8 @@ use crate::camera::Camera;
 use crate::client::*;
 use crate::components::*;
 use crate::constants::*;
-use crate::imgui::ZOOM_FAR_AWAY;
-use crate::imgui::ZOOM_NEAR_VEHICLE;
+use crate::imgui;
+use crate::imgui::*;
 use crate::input_state::*;
 use crate::multiplayer::Action;
 use crate::ops::destroy_part_without_integrity_check;
@@ -796,8 +796,11 @@ pub fn pre_simulation_update(
     world: &mut World,
     client: &mut ClientSpecificInfo,
     sounds: &mut SoundEffects,
+    gui: &mut ImGui,
 ) {
     client.ticks += 1;
+
+    imgui::hot_new_imgui_entrypoint(gui, client, world, sounds);
 
     update_actual_hover_part_info(client, &world.grids);
 

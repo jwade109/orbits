@@ -148,64 +148,11 @@ struct PartInfoWindow {
     part_id: Ent,
 }
 
-pub struct UiState {
-    spawner: EntitySpawner,
-    grid_info: Components<GridInfoWindow>,
-    part_info: Components<PartInfoWindow>,
-    location: Components<WindowLocation>,
-}
-
-pub fn update_ui_state(ui: &mut UiState, mouse_screen_position: Option<Vec2>) {
-    for loc in ui.location.values_mut() {
-        loc.is_focused = loc.contains_opt(mouse_screen_position);
-    }
-}
-
 fn draw_window_bounding_boxes(d: &mut RaylibDrawHandle, locs: &Components<WindowLocation>) {
     for loc in locs.values() {
         let rec = loc.to_rect();
         d.draw_rectangle_lines_ex(rec, 1.0, Color::RED);
     }
-}
-
-pub fn compile_windows(ui: &UiState, world: &World) -> Vec<Window> {
-    let mut ret = Vec::new();
-
-    for (id, grid_info) in ui.grid_info.iter() {
-        let Ok(loc) = ui.location.try_get(*id) else {
-            continue;
-        };
-        let Ok(grid) = world.grids.try_get(grid_info.grid_id) else {
-            continue;
-        };
-
-        let content = format!("{:#?}", grid.body_frame_forces);
-        let title = format!("Grid {} Info", grid_info.grid_id);
-        let window = Window::new(loc.origin, title, content, loc.is_focused);
-        ret.push(window);
-    }
-
-    for (id, part_info) in ui.part_info.iter() {
-        let Ok(loc) = ui.location.try_get(*id) else {
-            continue;
-        };
-        let Ok(part) = world.parts.try_get(part_info.part_id) else {
-            continue;
-        };
-
-        let content = format!("{:#?}", part);
-        let title = format!("Part {} Info", part_info.part_id);
-        let window = Window::new(loc.origin, title, content, loc.is_focused);
-        ret.push(window);
-    }
-
-    ret
-}
-
-pub fn draw_ui(d: &mut RaylibDrawHandle, world: &World, ui: &UiState, assets: &Assets) {
-    let windows = compile_windows(ui, world);
-    draw_windows(d, assets, &windows);
-    draw_window_bounding_boxes(d, &ui.location);
 }
 
 fn draw_windows(d: &mut RaylibDrawHandle, assets: &Assets, windows: &[Window]) {
@@ -215,42 +162,5 @@ fn draw_windows(d: &mut RaylibDrawHandle, assets: &Assets, windows: &[Window]) {
 
     for window in windows {
         draw_window(d, &window, font);
-    }
-}
-
-impl UiState {
-    pub fn new() -> Self {
-        Self {
-            spawner: EntitySpawner::default(),
-            grid_info: Components::default(),
-            part_info: Components::default(),
-            location: Components::default(),
-        }
-    }
-
-    pub fn track_grid_info(&mut self, grid_id: Ent) {
-        let id = self.spawner.spawn();
-        self.location.spawn(
-            id,
-            WindowLocation {
-                origin: IVec2::splat(200),
-                dims: IVec2::new(500, 700),
-                is_focused: true,
-            },
-        );
-        self.grid_info.spawn(id, GridInfoWindow { grid_id });
-    }
-
-    pub fn track_part_info(&mut self, part_id: Ent) {
-        let id = self.spawner.spawn();
-        self.location.spawn(
-            id,
-            WindowLocation {
-                origin: IVec2::new(600, 170),
-                dims: IVec2::new(500, 700),
-                is_focused: true,
-            },
-        );
-        self.part_info.spawn(id, PartInfoWindow { part_id });
     }
 }

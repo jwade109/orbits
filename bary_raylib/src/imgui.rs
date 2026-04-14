@@ -7,9 +7,7 @@ use crate::components::Components;
 use crate::input_state::InputState;
 use crate::render::draw::*;
 use crate::sim::find::grid_pose;
-use crate::sim::input_handlers::{
-    enter_ship_editor, leave_ship_editor_on_escape, spawn_random_ship_on_p,
-};
+use crate::sim::input_handlers::{leave_ship_editor_on_escape, spawn_random_ship_on_p};
 use crate::sim::{Computer, VehicleGrid, World, find};
 use crate::sounds::*;
 use crate::ui::{Window, draw_window};
@@ -20,38 +18,41 @@ use early_returns::*;
 use raylib::prelude::*;
 
 #[derive(Debug, Copy, Clone)]
-enum LayoutDirection {
+pub enum LayoutDirection {
     Down,
     Right,
 }
 
 #[derive(Clone, Debug)]
-struct Button {
+pub struct Button {
+    pub id: i64,
+    pub origin: IVec2,
+    pub dims: IVec2,
+    pub text: String,
+    pub is_hot: bool,
+    pub is_pressed: bool,
+    pub is_just_pressed: bool,
+    pub is_just_released: bool,
+}
+
+pub struct ImGui {
+    pub id_counter: i64,
+    pub screen: Vec2,
+    pub mouse_pos: Option<Vec2>,
+    pub input: InputState,
+    pub active: i64,
+    pub layouts: Vec<Layout>,
+}
+
+pub struct Layout {
+    pub id: i64,
+    pub origin: IVec2,
+    pub dims: IVec2,
+    pub buttons: Vec<Button>,
+}
+
+pub struct LayoutHandle<'a> {
     id: i64,
-    origin: IVec2,
-    dims: IVec2,
-    text: String,
-    is_hot: bool,
-    is_pressed: bool,
-    is_just_pressed: bool,
-    is_just_released: bool,
-}
-
-struct ImGui {
-    screen: Vec2,
-    mouse_pos: Option<Vec2>,
-    buttons: Vec<Button>,
-    input: InputState,
-    active: i64,
-    layouts: Vec<Layout>,
-}
-
-struct Layout {
-    origin: IVec2,
-    dims: IVec2,
-}
-
-struct LayoutHandle<'a> {
     buttons: Vec<Button>,
     origin: IVec2,
     dir: LayoutDirection,
@@ -62,12 +63,17 @@ struct LayoutHandle<'a> {
     gui: &'a mut ImGui,
 }
 
+fn ui_bounds(origin: IVec2, dims: IVec2) -> AABB {
+    let br = origin + dims;
+    AABB::from_arbitrary(origin.as_vec2(), br.as_vec2())
+}
+
 impl<'a> LayoutHandle<'a> {
-    pub fn button(&mut self, id: i64, text: impl Into<String>) -> ButtonResponse {
+    pub fn button(&mut self, text: impl Into<String>) -> ButtonResponse {
+        let id = self.gui.next_id_counter();
         let dims = IVec2::new(130, 30);
         let origin = self.next_pos;
-        let br = origin + dims;
-        let aabb = AABB::from_arbitrary(origin.as_vec2(), br.as_vec2());
+        let aabb = ui_bounds(origin, dims);
         let is_hot = self
             .gui
             .mouse_pos
@@ -124,15 +130,24 @@ impl<'a> LayoutHandle<'a> {
 
 impl<'a> std::ops::Drop for LayoutHandle<'a> {
     fn drop(&mut self) {
-        self.gui.buttons.extend_from_slice(&self.buttons);
+        let aabb = ui_bounds(self.origin, self.dims);
+        let mp = self.gui.mouse_pos.unwrap_or(Vec2::NAN);
+        let is_hot = aabb.contains(mp);
+
+        if is_hot && self.gui.active < self.id {
+            self.gui.active = self.id;
+        }
+
         self.gui.layouts.push(Layout {
+            id: self.id,
             origin: self.origin,
             dims: self.dims,
+            buttons: self.buttons.clone(),
         });
     }
 }
 
-struct ButtonResponse {
+pub struct ButtonResponse {
     is_just_pressed: bool,
     is_just_released: bool,
     is_hot: bool,
@@ -163,18 +178,25 @@ impl ImGui {
         let active = if is_on_screen { 0 } else { -1 };
 
         Self {
+            id_counter: 1,
             screen,
             mouse_pos,
-            buttons: Vec::new(),
             input,
             active,
             layouts: Vec::new(),
         }
     }
 
+    fn next_id_counter(&mut self) -> i64 {
+        let ret = self.id_counter;
+        self.id_counter += 1;
+        ret
+    }
+
     pub fn layout<'a>(&'a mut self, pos: IVec2, dir: LayoutDirection) -> LayoutHandle<'a> {
         let padding = 7;
         LayoutHandle {
+            id: self.next_id_counter(),
             dir,
             padding,
             child_gap: 4,
@@ -186,61 +208,24 @@ impl ImGui {
         }
     }
 
-    pub fn draw(self, d: &mut RaylibDrawHandle) {
-        for layout in &self.layouts {
-            let p = layout.origin;
-            let s = layout.dims;
-            d.draw_rectangle(p.x, p.y, s.x, s.y, Color::GRAY);
-        }
+    pub fn active_id(&self) -> i64 {
+        self.active
+    }
 
-        for b in &self.buttons {
-            let color = if b.id == self.active {
-                Color::DARKBLUE
-            } else {
-                Color::BLUE
-            };
-
-            let offset = IVec2::new(-2, 2) * b.is_pressed as i32;
-            let p = b.origin + offset;
-
-            d.draw_rectangle(p.x, p.y, b.dims.x, b.dims.y, color);
-            d.draw_text(&b.text, p.x, p.y, 20, Color::WHITE);
-
-            if b.id == self.active {
-                let rect = Rectangle::new(p.x as f32, p.y as f32, b.dims.x as f32, b.dims.y as f32);
-                d.draw_rectangle_lines_ex(rect, 3.0, Color::RED);
-            }
-        }
-
-        if self.active == 0 {
-            let rect = Rectangle::new(0.0, 0.0, self.screen.x, self.screen.y);
-            d.draw_rectangle_lines_ex(rect, 3.0, Color::RED);
-        }
-
-        for layout in &self.layouts {
-            let p = layout.origin;
-            let s = layout.dims;
-            let rec = Rectangle::new(p.x as f32, p.y as f32, s.x as f32, s.y as f32);
-            d.draw_rectangle_lines_ex(rec, 3.0, Color::TEAL);
-        }
+    pub fn is_hovering_gui(&self) -> bool {
+        self.active > 0
     }
 }
 
 pub fn imgui_test(
-    d: &mut RaylibDrawHandle,
+    gui: &mut ImGui,
     client: &mut ClientSpecificInfo,
     world: &mut World,
     sounds: &mut SoundEffects,
 ) {
-    let mut gui = ImGui::new(
-        client.screen_dims,
-        client.mouse_screen_position,
-        client.input.clone(),
-    );
-
     let mut layout = gui.layout(IVec2::splat(300), LayoutDirection::Down);
 
-    let load = layout.button(1, "Load");
+    let load = layout.button("Load");
 
     if load.just_released() {
         client.chat.log("Pressed!");
@@ -250,16 +235,16 @@ pub fn imgui_test(
         client.chat.log("Clicked!");
     }
 
-    if layout.button(2, "New Save").hovered() {
+    if layout.button("New Save").hovered() {
         client.chat.log("Hovered!");
     }
 
-    layout.button(3, "Settings");
-    if layout.button(4, "Exit Editor").clicked() {
+    layout.button("Settings");
+    if layout.button("Exit Editor").clicked() {
         leave_ship_editor_on_escape(client, sounds);
     }
 
-    if layout.button(5, "Spawn Ship").clicked() {
+    if layout.button("Spawn Ship").clicked() {
         spawn_random_ship_on_p(world);
     }
 
@@ -267,14 +252,12 @@ pub fn imgui_test(
 
     let mut l2 = gui.layout(IVec2::new(800, 400), LayoutDirection::Right);
 
-    l2.button(12, "Hello!");
-    l2.button(13, "Goodbye!");
+    l2.button("Hello!");
+    l2.button("Goodbye!");
 
     drop(l2);
 
-    ship_following_ui(&mut gui, client, world);
-
-    gui.draw(d);
+    ship_following_ui(gui, client, world);
 }
 
 fn ship_following_ui(gui: &mut ImGui, client: &ClientSpecificInfo, world: &World) {
@@ -284,8 +267,8 @@ fn ship_following_ui(gui: &mut ImGui, client: &ClientSpecificInfo, world: &World
     let pos = get_world_to_screen(&client.camera, pos.translation, client.screen_dims);
 
     let mut ui = gui.layout(pos.as_ivec2() + IVec2::X * 20, LayoutDirection::Down);
-    ui.button(12, "Hello!");
-    ui.button(13, "Goodbye!");
+    ui.button("Hello!");
+    ui.button("Goodbye!");
 }
 
 pub fn imgui_all_parts_in_layer(
@@ -700,7 +683,7 @@ fn draw_grid_far_indicators(
     }
 }
 
-pub fn imgui_entrypoint(
+pub fn lame_old_imgui_entrypoint(
     d: &mut RaylibDrawHandle,
     app: &mut App,
     sounds: &mut SoundEffects,
@@ -741,11 +724,26 @@ pub fn imgui_entrypoint(
     );
 
     draw_command_prompt(d, &app.cmd, &assets);
+}
 
-    imgui_test(
-        d,
-        &mut app.runner.client_info,
-        &mut app.runner.world,
-        sounds,
-    );
+fn selected_part_gui(gui: &mut ImGui, client: &ClientSpecificInfo, world: &mut World) {
+    let free = some_or_return!(client.viewport.free());
+    let x = some_or_return!(free.selection_info.selected.first());
+    // let part = some_or_ret
+    // let pos =
+
+    let mut layout = gui.layout(IVec2::splat(100), LayoutDirection::Down);
+
+    layout.button(format!("{:?}", x));
+}
+
+pub fn hot_new_imgui_entrypoint(
+    gui: &mut ImGui,
+    client: &mut ClientSpecificInfo,
+    world: &mut World,
+    sounds: &mut SoundEffects,
+) {
+    imgui_test(gui, client, world, sounds);
+
+    selected_part_gui(gui, client, world);
 }

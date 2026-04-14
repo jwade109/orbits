@@ -2,7 +2,7 @@ use crate::assets::*;
 use crate::camera::{Camera, to_raylib_camera};
 use crate::client::*;
 use crate::components::Components;
-use crate::imgui::ZOOM_NEAR_FAR_THRESHOLD;
+use crate::imgui::{ImGui, ZOOM_NEAR_FAR_THRESHOLD};
 use crate::query::grid_origin;
 use crate::result::BaryResult;
 use crate::sim::*;
@@ -167,6 +167,7 @@ pub fn draw_world(
     world: &World,
     client: &ClientSpecificInfo,
     assets: &Assets,
+    gui: &ImGui,
     d: &mut RaylibDrawHandle,
 ) {
     draw_stars(d, &world.stars, &client.camera, client.screen_dims);
@@ -262,6 +263,8 @@ pub fn draw_world(
     draw_selected_grid_info(d, &client, &world.grids, client.screen_dims);
 
     draw_chat(d, &client.chat, client.screen_dims, assets);
+
+    draw_imgui(d, gui);
 
     // draw_parts_zoo(&world.prototypes, &mut d);
     // draw_test_isos(&mut d)
@@ -914,6 +917,45 @@ fn draw_waypoint_far_indicators(
         let pos = glam_to_raylib_swap_y(wp.translation);
         let pos = d.get_world_to_screen2D(pos, camera);
         d.draw_circle_lines_v(pos, marker_radius, Color::GRAY);
+    }
+}
+
+fn draw_imgui(d: &mut RaylibDrawHandle, gui: &ImGui) {
+    for layout in &gui.layouts {
+        let p = layout.origin;
+        let s = layout.dims;
+        d.draw_rectangle(p.x, p.y, s.x, s.y, Color::GRAY);
+
+        for b in &layout.buttons {
+            let color = if b.id == gui.active {
+                Color::DARKBLUE
+            } else {
+                Color::BLUE
+            };
+
+            let offset = IVec2::new(-2, 2) * b.is_pressed as i32;
+            let p = b.origin + offset;
+
+            d.draw_rectangle(p.x, p.y, b.dims.x, b.dims.y, color);
+            d.draw_text(&b.text, p.x, p.y, 20, Color::WHITE);
+
+            if b.id == gui.active {
+                let rect = Rectangle::new(p.x as f32, p.y as f32, b.dims.x as f32, b.dims.y as f32);
+                d.draw_rectangle_lines_ex(rect, 3.0, Color::RED);
+            }
+        }
+    }
+
+    if gui.active == 0 {
+        let rect = Rectangle::new(0.0, 0.0, gui.screen.x, gui.screen.y);
+        d.draw_rectangle_lines_ex(rect, 3.0, Color::RED);
+    }
+
+    for layout in &gui.layouts {
+        let p = layout.origin;
+        let s = layout.dims;
+        let rec = Rectangle::new(p.x as f32, p.y as f32, s.x as f32, s.y as f32);
+        d.draw_rectangle_lines_ex(rec, 3.0, Color::TEAL);
     }
 }
 
