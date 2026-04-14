@@ -61,12 +61,7 @@ impl ServerApp {
         let mut actions = Vec::new();
         let mut debug = DebugInfo::default();
 
-        // weird that the server needs this
-        let mut gui = ImGui::new((0.0, 0.0).into(), None, InputState::default());
-
-        let _outgoing = self
-            .runner
-            .update(&mut debug, &mut sounds, &mut gui, &mut actions);
+        let _outgoing = self.runner.update(&mut debug, &mut sounds, &mut actions);
 
         if self.sync_timer.tick() {
             let tr = Transaction::new(

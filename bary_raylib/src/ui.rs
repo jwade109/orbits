@@ -1,8 +1,5 @@
 use crate::assets::*;
-use crate::{
-    components::{Components, EntitySpawner},
-    sim::world::World,
-};
+use crate::components::Components;
 use bary_core::prelude::*;
 use raylib::prelude::*;
 

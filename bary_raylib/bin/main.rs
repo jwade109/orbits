@@ -158,6 +158,7 @@ fn main() {
     rl.set_target_fps(120);
     rl.maximize_window();
     rl.set_exit_key(None);
+    rl.hide_cursor();
 
     let mut shader = rl.load_shader(&thread, None, Some("assets/shaders/distortion.fs"));
 
@@ -168,8 +169,6 @@ fn main() {
     let mut assets = Assets::default();
 
     load_assets(&mut assets, &mut rl, &thread);
-
-    rl.hide_cursor();
 
     let mut active_sounds = Vec::new();
 
@@ -236,8 +235,15 @@ fn main() {
             app.runner.client_info.input.clone(),
         );
 
+        imgui::hot_new_imgui_entrypoint(
+            &mut gui,
+            &mut app.runner.client_info,
+            &mut app.runner.world,
+            &mut sounds,
+        );
+
         app.runner
-            .update(&mut app.debug_info, &mut sounds, &mut gui, &mut actions);
+            .update(&mut app.debug_info, &mut sounds, &mut actions);
 
         for msg in actions {
             let transaction = Transaction::new(app.runner.world.ticks, msg);

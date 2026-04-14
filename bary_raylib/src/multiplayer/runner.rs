@@ -29,7 +29,6 @@ impl WorldRunner {
         &mut self,
         debug: &mut DebugInfo,
         sounds: &mut SoundEffects,
-        gui: &mut ImGui,
         _actions: &mut Vec<Action>,
     ) {
         let now = Instant::now();
@@ -37,7 +36,7 @@ impl WorldRunner {
         self.nominal_world_duration += delta * self.world.tick_rate;
         self.last_update = now;
 
-        pre_simulation_update(&mut self.world, &mut self.client_info, sounds, gui);
+        pre_simulation_update(&mut self.world, &mut self.client_info, sounds);
 
         let pre_physics = Instant::now();
 

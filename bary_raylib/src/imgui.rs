@@ -6,7 +6,7 @@ use crate::cmd::prompt::draw_command_prompt;
 use crate::components::Components;
 use crate::input_state::InputState;
 use crate::render::draw::*;
-use crate::sim::find::grid_pose;
+use crate::sim::find::{grid_pose, gridloc_pose};
 use crate::sim::input_handlers::{leave_ship_editor_on_escape, spawn_random_ship_on_p};
 use crate::sim::{Computer, VehicleGrid, World, find};
 use crate::sounds::*;
@@ -25,7 +25,7 @@ pub enum LayoutDirection {
 }
 
 #[derive(Clone, Debug)]
-pub struct Button {
+pub struct TextArea {
     pub id: i64,
     pub origin: IVec2,
     pub dims: IVec2,
@@ -49,12 +49,12 @@ pub struct Layout {
     pub id: i64,
     pub origin: IVec2,
     pub dims: IVec2,
-    pub buttons: Vec<Button>,
+    pub text_areas: Vec<TextArea>,
 }
 
 pub struct LayoutHandle<'a> {
     id: i64,
-    buttons: Vec<Button>,
+    text_areas: Vec<TextArea>,
     origin: IVec2,
     dir: LayoutDirection,
     dims: IVec2,
@@ -97,7 +97,7 @@ impl<'a> LayoutHandle<'a> {
             }
         }
 
-        if !self.buttons.is_empty() {
+        if !self.text_areas.is_empty() {
             match self.dir {
                 LayoutDirection::Down => self.dims.y += self.child_gap,
                 LayoutDirection::Right => self.dims.x += self.child_gap,
@@ -108,7 +108,7 @@ impl<'a> LayoutHandle<'a> {
             self.gui.active = id;
         }
 
-        let button = Button {
+        let button = TextArea {
             id,
             origin,
             dims,
@@ -119,7 +119,7 @@ impl<'a> LayoutHandle<'a> {
             is_just_released,
         };
 
-        self.buttons.push(button);
+        self.text_areas.push(button);
 
         ButtonResponse {
             is_just_pressed,
@@ -143,7 +143,7 @@ impl<'a> std::ops::Drop for LayoutHandle<'a> {
             id: self.id,
             origin: self.origin,
             dims: self.dims,
-            buttons: self.buttons.clone(),
+            text_areas: self.text_areas.clone(),
         });
     }
 }
@@ -205,7 +205,7 @@ impl ImGui {
             dims: IVec2::splat(padding * 2),
             next_pos: pos + IVec2::splat(padding),
             gui: self,
-            buttons: Vec::new(),
+            text_areas: Vec::new(),
         }
     }
 
@@ -738,13 +738,17 @@ pub fn lame_old_imgui_entrypoint(
 
 fn selected_part_gui(gui: &mut ImGui, client: &ClientSpecificInfo, world: &mut World) {
     let free = some_or_return!(client.viewport.free());
-    let x = some_or_return!(free.selection_info.selected.first());
-    // let part = some_or_ret
-    // let pos =
+    let loc = some_or_return!(free.selection_info.selected.first());
+    let grid = ok_or_return!(world.grids.try_get(loc.grid_id));
+    let part_iso = ok_or_return!(gridloc_pose(&world.grids, *loc));
+    let pos = get_world_to_screen(&client.camera, part_iso.translation, client.screen_dims);
+    let mut layout = gui.layout(vround(pos), LayoutDirection::Down);
+    let occ = grid.get_parts_at(loc.coord);
 
-    let mut layout = gui.layout(IVec2::splat(100), LayoutDirection::Down);
-
-    layout.button(format!("{:?}", x));
+    layout.button(format!("{:?}", part_iso));
+    layout.button("Follow");
+    layout.button("Set Item");
+    layout.button(format!("{:?}", occ));
 }
 
 pub fn hot_new_imgui_entrypoint(
@@ -753,7 +757,7 @@ pub fn hot_new_imgui_entrypoint(
     world: &mut World,
     sounds: &mut SoundEffects,
 ) {
-    imgui_test(gui, client, world, sounds);
+    // imgui_test(gui, client, world, sounds);
 
     selected_part_gui(gui, client, world);
 }

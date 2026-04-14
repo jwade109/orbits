@@ -938,7 +938,7 @@ fn draw_imgui(d: &mut RaylibDrawHandle, gui: &ImGui, assets: &Assets) {
             d.draw_rectangle_lines_ex(rect, 2.0, Color::RED);
         }
 
-        for b in &layout.buttons {
+        for b in &layout.text_areas {
             let color = if b.is_pressed {
                 BUTTON_PRESSED_COLOR
             } else if b.id == gui.active {

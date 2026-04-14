@@ -799,11 +799,8 @@ pub fn pre_simulation_update(
     world: &mut World,
     client: &mut ClientSpecificInfo,
     sounds: &mut SoundEffects,
-    gui: &mut ImGui,
 ) {
     client.ticks += 1;
-
-    imgui::hot_new_imgui_entrypoint(gui, client, world, sounds);
 
     update_actual_hover_part_info(client, &world.grids);
 

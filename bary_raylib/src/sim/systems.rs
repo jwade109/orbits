@@ -558,6 +558,24 @@ pub mod find {
         Some(grid.velocity)
     }
 
+    pub fn part_pose(
+        grids: &Components<VehicleGrid>,
+        parts: &Components<Part>,
+        part_id: Ent,
+    ) -> BaryResult<Isometry2d> {
+        let part = parts.try_get(part_id)?;
+        let grid = grids.try_get(part.grid_id)?;
+        Ok(grid.origin() * part.region.center_isometry())
+    }
+
+    pub fn gridloc_pose(
+        grids: &Components<VehicleGrid>,
+        loc: GridLocation,
+    ) -> BaryResult<Isometry2d> {
+        let grid = grids.try_get(loc.grid_id)?;
+        Ok(grid.origin().offset(loc.coord.to_meters()))
+    }
+
     /// Returns the ID of the first grid in the components list with
     /// the given name.
     ///
