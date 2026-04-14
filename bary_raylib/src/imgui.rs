@@ -15,6 +15,7 @@ use crate::utils::*;
 use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use early_returns::*;
+use enum_iterator::Sequence;
 use raylib::prelude::*;
 
 #[derive(Debug, Copy, Clone)]
@@ -246,6 +247,15 @@ pub fn imgui_test(
 
     if layout.button("Spawn Ship").clicked() {
         spawn_random_ship_on_p(world);
+    }
+
+    for portal in world.debug_portals.values_mut() {
+        if let PortalState::Source(item) = &mut portal.state {
+            let s = format!("{:?}", item);
+            if layout.button(s).clicked() {
+                *item = item.next().flatten();
+            }
+        }
     }
 
     drop(layout);

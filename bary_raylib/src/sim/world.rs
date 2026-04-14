@@ -681,7 +681,10 @@ pub fn update_pipes(inventories: &mut Components<Inventory>, pipes: &mut Compone
         let mut src = some_or_continue!(inv_a.get_slot(pipe.src.slot)).clone();
         let mut dst = some_or_continue!(inv_b.get_slot(pipe.dst.slot)).clone();
 
-        let mass = src.mass() / 10;
+        let mass = {
+            let m = src.mass() / 10;
+            if m.is_zero() { Mass::grams(1) } else { m }
+        };
 
         pipe.status = atomic_transfer(&mut src, &mut dst, mass);
 

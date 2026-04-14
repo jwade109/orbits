@@ -264,7 +264,7 @@ pub fn draw_world(
 
     draw_chat(d, &client.chat, client.screen_dims, assets);
 
-    draw_imgui(d, gui);
+    draw_imgui(d, gui, assets);
 
     // draw_parts_zoo(&world.prototypes, &mut d);
     // draw_test_isos(&mut d)
@@ -920,42 +920,64 @@ fn draw_waypoint_far_indicators(
     }
 }
 
-fn draw_imgui(d: &mut RaylibDrawHandle, gui: &ImGui) {
+fn draw_imgui(d: &mut RaylibDrawHandle, gui: &ImGui, assets: &Assets) {
+    const DRAW_OUTLINES: bool = false;
+
+    const BACKGROUND_COLOR: Color = Color::new(20, 20, 20, 255);
+    const BUTTON_IDLE_COLOR: Color = Color::new(40, 40, 40, 255);
+    const BUTTON_HOVERED_COLOR: Color = Color::new(50, 50, 50, 255);
+    const BUTTON_PRESSED_COLOR: Color = Color::new(120, 70, 70, 255);
+
     for layout in &gui.layouts {
         let p = layout.origin;
         let s = layout.dims;
-        d.draw_rectangle(p.x, p.y, s.x, s.y, Color::GRAY);
+        d.draw_rectangle(p.x, p.y, s.x, s.y, BACKGROUND_COLOR);
+
+        if layout.id == gui.active && DRAW_OUTLINES {
+            let rect = Rectangle::new(p.x as f32, p.y as f32, s.x as f32, s.y as f32);
+            d.draw_rectangle_lines_ex(rect, 2.0, Color::RED);
+        }
 
         for b in &layout.buttons {
-            let color = if b.id == gui.active {
-                Color::DARKBLUE
+            let color = if b.is_pressed {
+                BUTTON_PRESSED_COLOR
+            } else if b.id == gui.active {
+                BUTTON_HOVERED_COLOR
             } else {
-                Color::BLUE
+                BUTTON_IDLE_COLOR
             };
 
-            let offset = IVec2::new(-2, 2) * b.is_pressed as i32;
-            let p = b.origin + offset;
+            let p = b.origin;
 
-            d.draw_rectangle(p.x, p.y, b.dims.x, b.dims.y, color);
-            d.draw_text(&b.text, p.x, p.y, 20, Color::WHITE);
+            {
+                let mut p = p;
+                let mut dims = b.dims;
+                if b.is_pressed {
+                    let n = 4;
+                    p += IVec2::splat(n);
+                    dims -= IVec2::splat(n * 2);
+                }
+                d.draw_rectangle(p.x, p.y, dims.x, dims.y, color);
+            }
 
-            if b.id == gui.active {
+            if let Some(font) = &assets.lato_regular {
+                let tdims = font.measure_text(&b.text, 20.0, 0.0);
+                let t = glam_to_raylib(p.as_vec2()) + glam_to_raylib(b.dims.as_vec2()) / 2.0
+                    - tdims / 2.0;
+
+                d.draw_text_ex(font, &b.text, t, 20.0, 0.0, Color::WHITE);
+            }
+
+            if b.id == gui.active && DRAW_OUTLINES {
                 let rect = Rectangle::new(p.x as f32, p.y as f32, b.dims.x as f32, b.dims.y as f32);
-                d.draw_rectangle_lines_ex(rect, 3.0, Color::RED);
+                d.draw_rectangle_lines_ex(rect, 2.0, Color::RED);
             }
         }
     }
 
-    if gui.active == 0 {
+    if gui.active == 0 && DRAW_OUTLINES {
         let rect = Rectangle::new(0.0, 0.0, gui.screen.x, gui.screen.y);
-        d.draw_rectangle_lines_ex(rect, 3.0, Color::RED);
-    }
-
-    for layout in &gui.layouts {
-        let p = layout.origin;
-        let s = layout.dims;
-        let rec = Rectangle::new(p.x as f32, p.y as f32, s.x as f32, s.y as f32);
-        d.draw_rectangle_lines_ex(rec, 3.0, Color::TEAL);
+        d.draw_rectangle_lines_ex(rect, 2.0, Color::RED);
     }
 }
 

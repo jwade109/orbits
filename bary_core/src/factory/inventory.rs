@@ -552,6 +552,9 @@ impl InvSlot {
 
         if let Some(contents) = &mut self.contents {
             contents.1 -= count;
+            if contents.1 == 0 {
+                self.contents = None;
+            }
         }
 
         true
@@ -685,11 +688,15 @@ impl std::fmt::Display for Inventory {
 /// moves item from one inventory to another without leaving either inventory
 /// in a state which would destroy or duplicate items
 pub fn atomic_transfer(src: &mut InvSlot, dst: &mut InvSlot, mass: Mass) -> MachineStatus {
+    if mass.is_zero() {
+        return MachineStatus::Running;
+    }
+
     let Some(item) = src.item() else {
         return MachineStatus::Starved;
     };
 
-    let count = (mass / item.mass_per_unit()).round() as u64;
+    let count = ((mass / item.mass_per_unit()).round() as u64).max(1);
 
     if !src.can_take(item, count) {
         return MachineStatus::Starved;
