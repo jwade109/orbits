@@ -180,31 +180,21 @@ fn main() {
         let mut sounds = SoundEffects::new();
         let mut actions = Vec::new();
 
+        let mut gui = ImGui::new(
+            app.runner.client_info.screen_dims,
+            app.runner.client_info.mouse_screen_position,
+            app.runner.client_info.input.clone(),
+        );
+
+        imgui::hot_new_imgui_entrypoint(
+            &mut gui,
+            &mut app.runner.client_info,
+            &mut app.runner.world,
+            &mut sounds,
+        );
+
         while let Some(e) = app.input_queue.pop() {
-            cmd_handle_input_event(&mut app.cmd, &e);
-
-            // process release events even if the window isn't focused!
-            let is_release = match e.event_type {
-                rdev::EventType::ButtonRelease(_) => true,
-                rdev::EventType::KeyRelease(_) => true,
-                _ => false,
-            };
-
-            let should_send_to_world = if rl.is_window_focused() {
-                is_release || !app.cmd.is_focused()
-            } else {
-                is_release
-            };
-
-            if should_send_to_world {
-                process_event(
-                    &mut app.runner.world,
-                    &mut app.runner.client_info,
-                    &e,
-                    &mut sounds,
-                    &mut actions,
-                );
-            }
+            app.process_event(e, &rl, &mut sounds, &mut actions, gui.is_hovering_gui());
         }
 
         while let Some(action) = app.cmd.pop_action() {
@@ -228,19 +218,6 @@ fn main() {
             .then(|| raylib_to_glam(rl.get_mouse_position()));
 
         app.runner.client_info.mouse_screen_position = mouse;
-
-        let mut gui = ImGui::new(
-            app.runner.client_info.screen_dims,
-            app.runner.client_info.mouse_screen_position,
-            app.runner.client_info.input.clone(),
-        );
-
-        imgui::hot_new_imgui_entrypoint(
-            &mut gui,
-            &mut app.runner.client_info,
-            &mut app.runner.world,
-            &mut sounds,
-        );
 
         app.runner
             .update(&mut app.debug_info, &mut sounds, &mut actions);

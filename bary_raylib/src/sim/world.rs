@@ -731,6 +731,7 @@ pub fn process_event(
     event: &rdev::Event,
     sounds: &mut SoundEffects,
     actions: &mut Vec<Action>,
+    on_gui: bool,
 ) {
     if let rdev::EventType::KeyPress(k) = event.event_type {
         client.input.set_pressed(k);
@@ -769,18 +770,22 @@ pub fn process_event(
             _ => (),
         },
         rdev::EventType::KeyRelease(_key) => (),
-        rdev::EventType::ButtonPress(button) => match button {
-            Button::Left => {
-                input_handlers::ping_on_alt_left_click(world, client, actions, sounds);
-                select_hovered_grid_loc_on_click(client, sounds);
-                editor_on_left_click(world, client, sounds);
+        rdev::EventType::ButtonPress(button) => {
+            if !on_gui {
+                match button {
+                    Button::Left => {
+                        input_handlers::ping_on_alt_left_click(world, client, actions, sounds);
+                        select_hovered_grid_loc_on_click(client, sounds);
+                        editor_on_left_click(world, client, sounds);
+                    }
+                    Button::Right => {
+                        input_handlers::destroy_top_layer_part_at_mouseover(world, client, sounds)
+                    }
+                    Button::Middle => (),
+                    Button::Unknown(_) => (),
+                }
             }
-            Button::Right => {
-                input_handlers::destroy_top_layer_part_at_mouseover(world, client, sounds)
-            }
-            Button::Middle => (),
-            Button::Unknown(_) => (),
-        },
+        }
         rdev::EventType::ButtonRelease(button) => match button {
             Button::Left => editor_on_release_left_click(client, world),
             _ => (),

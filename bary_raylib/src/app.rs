@@ -1,8 +1,12 @@
+use raylib::RaylibHandle;
+
 use crate::client::DebugInfo;
-use crate::cmd::prompt::CommandPrompt;
-use crate::multiplayer::*;
-use crate::sim::spawn_stars;
+use crate::cmd::prompt::{CommandPrompt, cmd_handle_input_event};
+use crate::imgui::ImGui;
+use crate::sim::{process_event, spawn_stars};
+use crate::sounds::{SoundEffect, SoundEffects};
 use crate::world_builder::WorldBuilder;
+use crate::{multiplayer::*, sounds};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
@@ -36,6 +40,43 @@ pub struct App {
     pub input_queue: MessageQueue<rdev::Event>,
 
     pub cmd: CommandPrompt,
+}
+
+impl App {
+    pub fn process_event(
+        &mut self,
+        e: rdev::Event,
+        rl: &RaylibHandle,
+        sounds: &mut SoundEffects,
+        actions: &mut Vec<Action>,
+        on_gui: bool,
+    ) {
+        cmd_handle_input_event(&mut self.cmd, &e);
+
+        // process release events even if the window isn't focused!
+        let is_release = match e.event_type {
+            rdev::EventType::ButtonRelease(_) => true,
+            rdev::EventType::KeyRelease(_) => true,
+            _ => false,
+        };
+
+        let should_send_to_world = if rl.is_window_focused() {
+            is_release || !self.cmd.is_focused()
+        } else {
+            is_release
+        };
+
+        if should_send_to_world {
+            process_event(
+                &mut self.runner.world,
+                &mut self.runner.client_info,
+                &e,
+                sounds,
+                actions,
+                on_gui,
+            );
+        }
+    }
 }
 
 pub fn new_app(multiplayer: bool) -> App {
