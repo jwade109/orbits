@@ -1,12 +1,12 @@
 use raylib::RaylibHandle;
 
-use crate::client::DebugInfo;
+use crate::client::{ClientSpecificInfo, DebugInfo};
 use crate::cmd::prompt::{CommandPrompt, cmd_handle_input_event};
 use crate::imgui::ImGui;
-use crate::sim::{process_event, spawn_stars};
-use crate::sounds::{SoundEffect, SoundEffects};
+use crate::multiplayer::*;
+use crate::sim::{World, process_event, spawn_stars};
+use crate::sounds::SoundEffects;
 use crate::world_builder::WorldBuilder;
-use crate::{multiplayer::*, sounds};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
@@ -29,8 +29,10 @@ fn network_thread(incoming: MessageQueue<ServerMessage>, outgoing: MessageQueue<
 }
 
 pub struct App {
+    pub client: ClientSpecificInfo,
+    pub world: World,
     pub runner: WorldRunner,
-    pub debug_info: DebugInfo,
+    pub debug: DebugInfo,
 
     pub _network_thread: JoinHandle<()>,
     pub incoming_network_queue: MessageQueue<ServerMessage>,
@@ -46,30 +48,16 @@ impl App {
     pub fn process_event(
         &mut self,
         e: rdev::Event,
-        rl: &RaylibHandle,
         sounds: &mut SoundEffects,
         actions: &mut Vec<Action>,
         on_gui: bool,
     ) {
         cmd_handle_input_event(&mut self.cmd, &e);
 
-        // process release events even if the window isn't focused!
-        let is_release = match e.event_type {
-            rdev::EventType::ButtonRelease(_) => true,
-            rdev::EventType::KeyRelease(_) => true,
-            _ => false,
-        };
-
-        let should_send_to_world = if rl.is_window_focused() {
-            is_release || !self.cmd.is_focused()
-        } else {
-            is_release
-        };
-
-        if should_send_to_world {
+        if !self.cmd.is_focused() {
             process_event(
-                &mut self.runner.world,
-                &mut self.runner.client_info,
+                &mut self.world,
+                &mut self.client,
                 &e,
                 sounds,
                 actions,
@@ -120,8 +108,10 @@ pub fn new_app(multiplayer: bool) -> App {
     });
 
     App {
-        runner: WorldRunner::new(world),
-        debug_info: DebugInfo::default(),
+        world,
+        client: ClientSpecificInfo::new(),
+        runner: WorldRunner::new(),
+        debug: DebugInfo::default(),
         _network_thread,
         incoming_network_queue,
         outgoing_network_queue,

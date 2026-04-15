@@ -1,10 +1,7 @@
 use bary_core::prelude::*;
-use bary_raylib::app::new_app;
+use bary_raylib::app::*;
 use bary_raylib::assets::*;
-use bary_raylib::client::*;
-use bary_raylib::cmd::prompt::*;
 use bary_raylib::imgui;
-use bary_raylib::imgui::ImGui;
 use bary_raylib::multiplayer::*;
 use bary_raylib::render::draw;
 use bary_raylib::sim::systems::*;
@@ -19,13 +16,11 @@ use raylib::prelude::*;
 // use std::time::Duration;
 // use steamworks::{LobbyChatMsg, LobbyEnter, PersonaStateChange};
 
-fn draw_debug_info(
-    world: &World,
-    client: &ClientSpecificInfo,
-    assets: &Assets,
-    debug: &DebugInfo,
-    d: &mut RaylibDrawHandle,
-) {
+fn draw_debug_info(app: &App, assets: &Assets, d: &mut RaylibDrawHandle) {
+    let world = &app.world;
+    let client = &app.client;
+    let debug = &app.debug;
+
     let size = size_in_bytes(world);
     let mut s = String::new();
 
@@ -117,36 +112,6 @@ fn main() {
         .init()
         .unwrap();
 
-    let os = std::env::consts::OS;
-    println!("{}", os);
-
-    // let client = steamworks::Client::init();
-
-    // if let Ok(client) = &client {
-    //     let _cb = client.register_callback(|p: PersonaStateChange| {
-    //         println!("Got callback: {:?}", p);
-    //     });
-
-    //     let _cb2 = client.register_callback(|p: LobbyChatMsg| {
-    //         println!("Got callback: {:?}", p);
-    //     });
-
-    //     let _cb3 = client.register_callback(|p: LobbyEnter| {
-    //         println!("Got callback: {:?}", p);
-    //     });
-
-    //     let mm = client.matchmaking();
-
-    //     mm.create_lobby(steamworks::LobbyType::FriendsOnly, 12, |r| match r {
-    //         Ok(id) => {
-    //             println!("Created new lobby: {:?}", id);
-    //         }
-    //         Err(e) => {
-    //             println!("Failed to create lobby: {:?}", e);
-    //         }
-    //     });
-    // }
-
     let (mut rl, thread) = raylib::init()
         .size(1080, 700)
         .title("Hello world!")
@@ -160,8 +125,6 @@ fn main() {
     rl.set_exit_key(None);
     rl.hide_cursor();
 
-    let mut shader = rl.load_shader(&thread, None, Some("assets/shaders/distortion.fs"));
-
     let audio = raylib::audio::RaylibAudio::init_audio_device().unwrap();
 
     let mut app = new_app(false);
@@ -173,95 +136,90 @@ fn main() {
     let mut active_sounds = Vec::new();
 
     while !rl.window_should_close() {
-        // _ = client.as_ref().map(|c| c.run_callbacks());
-
         let loop_start = std::time::Instant::now();
+
+        // HANDLE INPUTS FROM RDEV LISTENER THREAD
+
+        let mut rdev_events = Vec::new();
+        while let Some(e) = app.input_queue.pop() {
+            consume_rdev_event_into_input_state(&mut app.client.input, &e);
+            rdev_events.push(e);
+        }
+
+        // GET SOME BASIC INPUT INFORMATION FROM RAYLIB
+
+        app.client.mouse_screen_position = rl
+            .is_cursor_on_screen()
+            .then(|| raylib_to_glam(rl.get_mouse_position()));
+        app.client.screen_dims =
+            Vec2::new(rl.get_screen_width() as f32, rl.get_screen_height() as f32);
+
+        // GET COMMANDS FROM THE DEBUG TERMINAL
+
+        while let Some(action) = app.cmd.pop_action() {
+            let tr = Transaction::new(0, action);
+            apply_transaction(&mut app.world, &mut app.client, tr);
+        }
+
+        // GET COMMANDS FROM THE MULTIPLAYER SERVER
+
+        while let Some(n) = app.incoming_network_queue.pop() {
+            if let ServerMessage::Transaction(tr) = n {
+                apply_transaction(&mut app.world, &mut app.client, tr);
+            }
+        }
+
+        // RUN PRE-PHYSICS, PHYSICS, AND POST-PHYSICS UPDATES
 
         let mut sounds = SoundEffects::new();
         let mut actions = Vec::new();
 
-        let mut gui = ImGui::new(
-            app.runner.client_info.screen_dims,
-            app.runner.client_info.mouse_screen_position,
-            app.runner.client_info.input.clone(),
-        );
-
-        imgui::hot_new_imgui_entrypoint(
-            &mut gui,
-            &mut app.runner.client_info,
-            &mut app.runner.world,
+        app.runner.update(
+            &mut app.world,
+            &mut app.client,
+            &mut app.debug,
             &mut sounds,
+            &mut actions,
         );
 
-        while let Some(e) = app.input_queue.pop() {
-            app.process_event(e, &rl, &mut sounds, &mut actions, gui.is_hovering_gui());
+        // CONSTRUCT IMMEDIATE-MODE GUI
+
+        let gui = imgui::imgui_pass(&mut app.client, &mut app.world);
+
+        // HANDLE RDEV EVENTS (DEPRECATED - USE INPUTSTATE)
+
+        for e in rdev_events {
+            app.process_event(e, &mut sounds, &mut actions, gui.is_hovering_gui());
         }
 
-        while let Some(action) = app.cmd.pop_action() {
-            let tr = Transaction::new(0, action);
-            apply_transaction(&mut app.runner.world, &mut app.runner.client_info, tr);
-        }
-
-        while let Some(n) = app.incoming_network_queue.pop() {
-            if let ServerMessage::Transaction(tr) = n {
-                apply_transaction(&mut app.runner.world, &mut app.runner.client_info, tr);
-            }
-        }
-
-        let w = rl.get_screen_width();
-        let h = rl.get_screen_height();
-
-        app.runner.client_info.screen_dims = Vec2::new(w as f32, h as f32);
-
-        let mouse = rl
-            .is_cursor_on_screen()
-            .then(|| raylib_to_glam(rl.get_mouse_position()));
-
-        app.runner.client_info.mouse_screen_position = mouse;
-
-        app.runner
-            .update(&mut app.debug_info, &mut sounds, &mut actions);
+        // EMIT ACTIONS TO OTHER MULTIPLAYER CLIENTS
 
         for msg in actions {
-            let transaction = Transaction::new(app.runner.world.ticks, msg);
+            let transaction = Transaction::new(app.world.ticks, msg);
             app.outgoing_network_queue.push(transaction);
         }
 
-        let time = rl.get_time();
-        shader.set_shader_value(1, time as f32);
+        // AND DRAW IT ALL
 
         rl.draw(&thread, |mut d: RaylibDrawHandle<'_>| {
             let start = std::time::Instant::now();
             d.clear_background(Color::BLACK);
 
-            draw::draw_world(
-                &app.runner.world,
-                &app.runner.client_info,
-                &assets,
-                &gui,
-                &mut d,
-            );
+            draw::draw_world(&app.world, &app.client, &assets, &gui, &mut d);
 
             imgui::lame_old_imgui_entrypoint(&mut d, &mut app, &mut sounds, &assets);
 
-            draw::draw_mouse_screen_position(&mut d, app.runner.client_info.mouse_screen_position);
+            draw::draw_mouse_screen_position(&mut d, app.client.mouse_screen_position);
 
             let end = std::time::Instant::now();
+            app.debug.timers.render = end - start;
+            app.debug.timers.total = end - loop_start;
 
-            app.debug_info.timers.render = end - start;
-            app.debug_info.timers.total = end - loop_start;
-
-            draw_debug_info(
-                &app.runner.world,
-                &app.runner.client_info,
-                &assets,
-                &app.debug_info,
-                &mut d,
-            );
+            draw_debug_info(&app, &assets, &mut d);
         });
 
         handle_sounds(sounds, &audio, &mut active_sounds);
 
-        app.runner.client_info.input.on_frame_boundary();
+        app.client.input.on_frame_boundary();
     }
 }

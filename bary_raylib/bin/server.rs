@@ -1,9 +1,6 @@
 use bary_core::prelude::*;
-use bary_raylib::client::DebugInfo;
-use bary_raylib::imgui::ImGui;
-use bary_raylib::input_state::InputState;
 use bary_raylib::multiplayer::*;
-use bary_raylib::sounds::SoundEffects;
+use bary_raylib::sim::World;
 use bary_raylib::wall_timer::WallTimer;
 use bary_raylib::world_builder::WorldBuilder;
 use log::{info, warn};
@@ -11,6 +8,7 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 pub struct ServerApp {
+    world: World,
     runner: WorldRunner,
     incoming_transactions: MessageQueue<Transaction>,
     outgoing_transactions: MessageQueue<Transaction>,
@@ -37,7 +35,8 @@ impl ServerApp {
             .build();
 
         Self {
-            runner: WorldRunner::new(world),
+            world,
+            runner: WorldRunner::new(),
             incoming_transactions: incoming_transactions.clone(),
             outgoing_transactions: outgoing_transactions.clone(),
             _server_thread: std::thread::spawn(|| {
@@ -54,20 +53,13 @@ impl ServerApp {
         }
 
         if self.world_echo_timer.tick() {
-            info!("Running world: {:?}", self.runner.world);
+            info!("Running world: {:?}", self.world);
         }
 
-        let mut sounds = SoundEffects::default();
-        let mut actions = Vec::new();
-        let mut debug = DebugInfo::default();
-
-        let _outgoing = self.runner.update(&mut debug, &mut sounds, &mut actions);
+        self.runner.update_headless(&mut self.world);
 
         if self.sync_timer.tick() {
-            let tr = Transaction::new(
-                self.runner.world.ticks,
-                Action::FastForwardTo(self.runner.world.ticks),
-            );
+            let tr = Transaction::new(self.world.ticks, Action::FastForwardTo(self.world.ticks));
             self.outgoing_transactions.push(tr);
             warn!("Sending sync packet");
         }

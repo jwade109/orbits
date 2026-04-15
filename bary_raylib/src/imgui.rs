@@ -699,39 +699,15 @@ pub fn lame_old_imgui_entrypoint(
     sounds: &mut SoundEffects,
     assets: &Assets,
 ) {
-    let raylib_camera = to_raylib_camera(
-        &app.runner.client_info.camera,
-        app.runner.client_info.screen_dims,
-    );
+    let raylib_camera = to_raylib_camera(&app.client.camera, app.client.screen_dims);
 
-    draw_grid_far_indicators(
-        &app.runner.world.grids,
-        d,
-        &app.runner.client_info,
-        &raylib_camera,
-        assets,
-    );
+    draw_grid_far_indicators(&app.world.grids, d, &app.client, &raylib_camera, assets);
 
-    imgui_editor_layer_indicator(d, &mut app.runner.client_info, sounds);
-    imgui_all_parts_in_layer(
-        d,
-        &mut app.runner.client_info,
-        &mut app.runner.world,
-        sounds,
-    );
+    imgui_editor_layer_indicator(d, &mut app.client, sounds);
+    imgui_all_parts_in_layer(d, &mut app.client, &mut app.world, sounds);
 
-    imgui_selected_grid_primary_computer_info(
-        d,
-        &mut app.runner.world,
-        &mut app.runner.client_info,
-        assets,
-    );
-    imgui_hovered_part_info(
-        d,
-        &mut app.runner.world,
-        &mut app.runner.client_info,
-        assets,
-    );
+    imgui_selected_grid_primary_computer_info(d, &mut app.world, &mut app.client, assets);
+    imgui_hovered_part_info(d, &mut app.world, &mut app.client, assets);
 
     draw_command_prompt(d, &app.cmd, &assets);
 }
@@ -745,19 +721,22 @@ fn selected_part_gui(gui: &mut ImGui, client: &ClientSpecificInfo, world: &mut W
     let mut layout = gui.layout(vround(pos), LayoutDirection::Down);
     let occ = grid.get_parts_at(loc.coord);
 
-    layout.button(format!("{:?}", part_iso));
+    let s = distance_str_v(part_iso.translation.into());
+
+    layout.button(s);
     layout.button("Follow");
     layout.button("Set Item");
     layout.button(format!("{:?}", occ));
 }
 
-pub fn hot_new_imgui_entrypoint(
-    gui: &mut ImGui,
-    client: &mut ClientSpecificInfo,
-    world: &mut World,
-    sounds: &mut SoundEffects,
-) {
-    // imgui_test(gui, client, world, sounds);
+pub fn imgui_pass(client: &mut ClientSpecificInfo, world: &mut World) -> ImGui {
+    let mut gui = ImGui::new(
+        client.screen_dims,
+        client.mouse_screen_position,
+        client.input.clone(),
+    );
 
-    selected_part_gui(gui, client, world);
+    selected_part_gui(&mut gui, client, world);
+
+    gui
 }

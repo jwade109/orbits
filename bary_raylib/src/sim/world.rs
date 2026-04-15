@@ -725,6 +725,18 @@ pub fn update_world(world: &mut World) {
     update_machines(world);
 }
 
+pub fn consume_rdev_event_into_input_state(input: &mut InputState, event: &rdev::Event) {
+    if let rdev::EventType::KeyPress(k) = event.event_type {
+        input.set_pressed(k);
+    } else if let rdev::EventType::KeyRelease(k) = event.event_type {
+        input.set_released(k);
+    } else if let rdev::EventType::ButtonPress(mb) = event.event_type {
+        input.set_pressed(mb);
+    } else if let rdev::EventType::ButtonRelease(mb) = event.event_type {
+        input.set_released(mb);
+    }
+}
+
 pub fn process_event(
     world: &mut World,
     client: &mut ClientSpecificInfo,
@@ -733,16 +745,6 @@ pub fn process_event(
     actions: &mut Vec<Action>,
     on_gui: bool,
 ) {
-    if let rdev::EventType::KeyPress(k) = event.event_type {
-        client.input.set_pressed(k);
-    } else if let rdev::EventType::KeyRelease(k) = event.event_type {
-        client.input.set_released(k);
-    } else if let rdev::EventType::ButtonPress(mb) = event.event_type {
-        client.input.set_pressed(mb);
-    } else if let rdev::EventType::ButtonRelease(mb) = event.event_type {
-        client.input.set_released(mb);
-    }
-
     match event.event_type {
         rdev::EventType::KeyPress(key) => match key {
             Key::KeyS => input_handlers::save_on_ctrl_s(world, client),
