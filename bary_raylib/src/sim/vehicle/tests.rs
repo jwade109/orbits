@@ -60,6 +60,7 @@ fn build_ship_on_another_ship_then_navigate() {
     let grid_id = grid_by_name(&world.grids, "ursula").unwrap();
     let bp = blueprint_by_name(&world.blueprints, "remora")
         .unwrap()
+        .blueprint
         .clone();
 
     for (_id, instance) in bp.parts() {

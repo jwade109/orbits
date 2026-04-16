@@ -2,6 +2,7 @@ use crate::assets::load_names_from_file;
 use crate::sim::systems::*;
 use crate::sim::world::*;
 use bary_core::prelude::*;
+use log::*;
 use std::path::PathBuf;
 
 pub struct WorldBuilder {
@@ -70,11 +71,22 @@ impl WorldBuilder {
                 world.prototypes.spawn(id, part.clone());
             }
 
-            for v in self.blueprints {
+            for name in self.blueprints {
                 let id = world.spawner.spawn();
-                let path = vehicles_dir.join(format!("{}.vehicle", v));
-                let bp = load_vehicle(path, &parts).expect("Vehicle dir");
-                world.blueprints.spawn(id, (v.to_string(), bp));
+                let path = vehicles_dir.join(format!("{}.vehicle", name));
+                let bp = load_blueprint(path, &parts).expect("Vehicle dir");
+                let bp = NamedBlueprint {
+                    name,
+                    version: 0,
+                    blueprint: bp,
+                };
+                info!(
+                    "Loaded blueprint: {} v{} ({} parts)",
+                    &bp.name,
+                    bp.version,
+                    bp.blueprint.part_count()
+                );
+                world.blueprints.spawn(id, bp);
             }
         }
 

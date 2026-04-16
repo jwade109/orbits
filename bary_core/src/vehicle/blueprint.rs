@@ -330,11 +330,7 @@ mod tests {
         // ..........................
         // ..........................
 
-        let o_id = bp.add_part(
-            "o",
-            GridRegion::new((2, 1), Rotation::East, (6, 2)),
-            layer,
-        );
+        let o_id = bp.add_part("o", GridRegion::new((2, 1), Rotation::East, (6, 2)), layer);
 
         assert_eq!(bp.occupied((1, 0), layer), None);
         assert_eq!(bp.occupied((2, 0), layer), None);
@@ -379,11 +375,7 @@ mod tests {
         // ..........................
         // ..........................
 
-        let x_id = bp.add_part(
-            "x",
-            GridRegion::new((9, 2), Rotation::North, (3, 2)),
-            layer,
-        );
+        let x_id = bp.add_part("x", GridRegion::new((9, 2), Rotation::North, (3, 2)), layer);
 
         assert_eq!(bp.occupied((9, 2), layer), Some(x_id));
         assert_eq!(bp.occupied((9, 3), layer), Some(x_id));
@@ -409,11 +401,7 @@ mod tests {
         // ..........................
         // ..........................
 
-        let o_id = bp.add_part(
-            "o",
-            GridRegion::new((2, 1), Rotation::East, (6, 2)),
-            layer,
-        );
+        let o_id = bp.add_part("o", GridRegion::new((2, 1), Rotation::East, (6, 2)), layer);
 
         assert_eq!(bp.occupied((3, 2), layer), Some(o_id));
 
@@ -442,11 +430,7 @@ mod tests {
         // ..........................
         // ..........................
 
-        let o_id = bp.add_part(
-            "o",
-            GridRegion::new((2, 1), Rotation::East, (6, 2)),
-            layer,
-        );
+        let o_id = bp.add_part("o", GridRegion::new((2, 1), Rotation::East, (6, 2)), layer);
 
         bp.shift((7, 5));
 
@@ -456,4 +440,9 @@ mod tests {
     }
 }
 
-pub type NamedBlueprint = (String, Blueprint);
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct NamedBlueprint {
+    pub name: String,
+    pub version: u32,
+    pub blueprint: Blueprint,
+}

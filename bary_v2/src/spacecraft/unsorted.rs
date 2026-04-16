@@ -339,7 +339,7 @@ fn handle_sc_events(
             let vehicle_path = args
                 .vehicle_dir()
                 .join(format!("{}.vehicle", blueprint_name));
-            let vehicle = if let Ok(vehicle) = load_vehicle(&vehicle_path, &parts) {
+            let vehicle = if let Ok(vehicle) = load_blueprint(&vehicle_path, &parts) {
                 vehicle
             } else {
                 commands.write_message(SpawnAnimText::new(format!(

@@ -34,7 +34,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let parts = load_parts_from_dir(&args.parts_dir)?;
 
-    let vehicle = load_vehicle(&args.ship_path, &parts)?;
+    let vehicle = load_blueprint(&args.ship_path, &parts)?;
 
     let mut img = generate_image(&vehicle, &parts).ok_or("Empty vehicle")?;
 

@@ -253,7 +253,7 @@ pub fn spawn_grid_by_name(world: &mut World, bp_name: &str, name: &str) -> BaryR
     let bp = find::blueprint_by_name(&world.blueprints, bp_name)
         .ok_or(BaryError::BadBlueprint)?
         .clone();
-    spawn_grid_from_blueprint(world, name, &bp)
+    spawn_grid_from_blueprint(world, name, &bp.blueprint)
 }
 
 /// Sets the state of a given thruster.
@@ -522,11 +522,8 @@ pub mod find {
     pub fn blueprint_by_name<'a>(
         blueprints: &'a Components<NamedBlueprint>,
         name: &str,
-    ) -> Option<&'a Blueprint> {
-        let result = blueprints
-            .values()
-            .find(|(n, _bp)| n == name)
-            .map(|(_, bp)| bp);
+    ) -> Option<&'a NamedBlueprint> {
+        let result = blueprints.values().find(|bp| bp.name == name);
 
         if result.is_none() {
             error!("Failed to get blueprint with name {}", name);
@@ -853,7 +850,7 @@ mod tests {
             .clone();
 
         // spawn that vehicle using its blueprint
-        let grid_id = spawn_grid_from_blueprint(&mut world, name.to_string(), &bp)
+        let grid_id = spawn_grid_from_blueprint(&mut world, name.to_string(), &bp.blueprint)
             .expect("Expected the grid ID");
 
         let expected_grid_id = Ent(37);
@@ -1028,15 +1025,15 @@ mod tests {
             .unwrap()
             .clone();
 
-        expected.normalize_coordinates();
+        expected.blueprint.normalize_coordinates();
 
         let id = spawn_grid_with_random_name(&mut world, "pollux").unwrap();
 
         let actual = get_blueprint_c(&world.grids, &world.parts, &world.prototypes, id).unwrap();
 
-        assert_eq!(actual.part_count(), expected.part_count());
+        assert_eq!(actual.part_count(), expected.blueprint.part_count());
 
-        for (a, b) in actual.parts().zip(expected.parts()) {
+        for (a, b) in actual.parts().zip(expected.blueprint.parts()) {
             assert_eq!(a.0, b.0);
             assert_eq!(a.1, b.1);
         }

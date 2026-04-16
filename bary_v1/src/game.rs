@@ -90,11 +90,11 @@ fn new_editor_ui(
             for (name, path) in vehicles {
                 if ui.button(name).clicked() {
                     if ctrl_pressed {
-                        if let Ok(bp) = load_vehicle(&path, &game.part_database) {
+                        if let Ok(bp) = load_blueprint(&path, &game.part_database) {
                             game.editor_context.cursor_state = CursorState::Blueprint(bp);
                         }
                     } else {
-                        Editor::load_vehicle(&path, &mut game);
+                        Editor::load_blueprint(&path, &mut game);
                     }
                 }
             }
@@ -435,7 +435,7 @@ impl GameState {
 
         let (_, path) = vehicles.iter().find(|(model, _)| model == name)?;
 
-        let vehicle = load_vehicle(path, &self.part_database).ok()?;
+        let vehicle = load_blueprint(path, &self.part_database).ok()?;
 
         Some(vehicle)
     }
@@ -465,7 +465,7 @@ impl GameState {
             }
             OnClick::SelectPart(name) => Editor::set_current_part(self, name),
             OnClick::ToggleLayer(layer) => self.editor_context.toggle_layer(layer),
-            OnClick::LoadVehicle(path) => _ = Editor::load_vehicle(&path, self),
+            OnClick::LoadVehicle(path) => _ = Editor::load_blueprint(&path, self),
             OnClick::ConfirmExitDialog => self.shutdown(),
             OnClick::DismissExitDialog => self.is_exit_prompt = false,
             OnClick::OpenNewCraft => {
@@ -513,7 +513,7 @@ impl GameState {
         let choice = randint(0, vehicles.len() as i32);
         let (_, path) = vehicles.get(choice as usize)?;
 
-        let vehicle = load_vehicle(path, &self.part_database).ok()?;
+        let vehicle = load_blueprint(path, &self.part_database).ok()?;
 
         Some(vehicle)
     }

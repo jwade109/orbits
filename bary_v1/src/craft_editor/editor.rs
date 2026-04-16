@@ -353,11 +353,11 @@ impl Editor {
 
     pub fn load_from_file(state: &mut GameState) -> Option<()> {
         let choice = state.editor_context.open_existing_file()?;
-        Editor::load_vehicle(&choice, state)
+        Editor::load_blueprint(&choice, state)
     }
 
-    pub fn load_vehicle(path: &Path, state: &mut GameState) -> Option<()> {
-        let vehicle = match load_vehicle(path, &state.part_database) {
+    pub fn load_blueprint(path: &Path, state: &mut GameState) -> Option<()> {
+        let vehicle = match load_blueprint(path, &state.part_database) {
             Ok(v) => v,
             Err(e) => {
                 state.notice(format!("Failed to load vehicle: {}", e));

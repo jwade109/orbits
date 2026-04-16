@@ -32,7 +32,7 @@ impl std::fmt::Display for NoPartError {
 
 impl std::error::Error for NoPartError {}
 
-pub fn load_vehicle(
+pub fn load_blueprint(
     path: impl AsRef<Path>,
     parts: &BTreeMap<String, PartPrototype>,
 ) -> Result<Blueprint, Box<dyn std::error::Error>> {
