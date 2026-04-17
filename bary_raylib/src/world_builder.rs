@@ -92,8 +92,8 @@ impl WorldBuilder {
 
         for (bp_name, name, iso) in self.spawns {
             let id = match name {
-                Some(name) => spawn_grid_by_name(&mut world, &bp_name, &name),
-                None => spawn_grid_with_random_name(&mut world, &bp_name),
+                Some(name) => spawn_grid_by_name(&mut world, &bp_name.into(), &name),
+                None => spawn_grid_with_random_name(&mut world, bp_name),
             };
 
             if let Ok(id) = id {

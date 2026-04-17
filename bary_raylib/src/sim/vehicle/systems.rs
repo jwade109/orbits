@@ -155,7 +155,7 @@ pub fn rebuild_index_from_island(
     parts: &Components<Part>,
     name: String,
 ) -> BaryResult<VehicleGrid> {
-    let mut dst = VehicleGrid::with_name(name);
+    let mut dst = VehicleGrid::with_name(name, None);
     dst.particle_location = src.particle_location;
     dst.velocity = src.velocity;
     for part_id in island.iter().map(|i| *i) {

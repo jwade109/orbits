@@ -53,7 +53,7 @@ pub fn apply_transaction(
             ping(world, pos);
         }
         Action::SpawnShipAt(bp_name, iso) => {
-            if let Ok(grid_id) = spawn_grid_with_random_name(world, &bp_name) {
+            if let Ok(grid_id) = spawn_grid_with_random_name(world, bp_name) {
                 _ = set_grid_pose(world, grid_id, iso);
             }
         }

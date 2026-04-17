@@ -6,6 +6,7 @@ use std::collections::{BTreeMap, BTreeSet};
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct VehicleGrid {
     pub name: String,
+    pub blueprint: Option<BlueprintId>,
     pub parts_mass: Mass,
     pub center_of_mass: Vec2,
     pub particle_location: Isometry2d,
@@ -28,7 +29,7 @@ pub struct VehicleGrid {
 
 impl VehicleGrid {
     pub fn empty() -> Self {
-        Self::with_name("")
+        Self::with_name("", None)
     }
 
     pub fn can_insert_part(&self, pl: GridRegion, layer: PartLayer) -> bool {
@@ -46,9 +47,10 @@ impl VehicleGrid {
         self.particle_location.offset(-self.center_of_mass)
     }
 
-    pub fn with_name(name: impl Into<String>) -> Self {
+    pub fn with_name(name: impl Into<String>, bp_id: Option<BlueprintId>) -> Self {
         VehicleGrid {
             name: name.into(),
+            blueprint: bp_id,
             parts_mass: Mass::ZERO,
             center_of_mass: Vec2::ZERO,
             particle_location: Isometry2d::ZERO,

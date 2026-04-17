@@ -11,6 +11,21 @@ pub const PHYSICS_CONSTANT_DELTA_TIME: Nanotime =
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Deserialize, Serialize)]
 pub struct PartId(u64);
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct BlueprintId(pub String, pub u32);
+
+impl From<&str> for BlueprintId {
+    fn from(value: &str) -> Self {
+        Self(value.to_string(), 0)
+    }
+}
+
+impl From<String> for BlueprintId {
+    fn from(value: String) -> Self {
+        Self(value, 0)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Blueprint {
     next_part_id: PartId,

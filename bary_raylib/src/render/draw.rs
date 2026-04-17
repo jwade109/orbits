@@ -259,7 +259,7 @@ pub fn draw_world(
 
     draw_primary_grid_inventory_summary(d, world, client);
 
-    draw_selected_grid_info(d, &client, &world.grids, client.screen_dims);
+    draw_selected_grid_info(d, &client, &world.grids, client.screen_dims, assets);
 
     draw_chat(d, &client.chat, client.screen_dims, assets);
 
@@ -569,14 +569,19 @@ fn draw_selected_grid_info(
     client: &ClientSpecificInfo,
     grids: &Components<VehicleGrid>,
     screen_dims: Vec2,
+    assets: &Assets,
 ) {
     let grid_id = some_or_return!(client.focused_grid_id());
     let grid = ok_or_return!(grids.try_get(grid_id));
 
     let font_size = 26;
 
-    let title_label = format!("\"{}\"", grid.name);
     let parts_label = format!("{} parts - {}", grid.parts.len(), grid.parts_mass);
+    let title_label = if let Some(bp) = &grid.blueprint {
+        format!("{}-{} / \"{}\"", bp.0.to_uppercase(), bp.1, grid.name)
+    } else {
+        format!("\"{}\"", grid.name)
+    };
     let pos_label = format!("{:0.2} m", grid.particle_location.translation);
     let vel_label = format!("{:0.2} m/s", grid.velocity.translation);
     let acc_label = format!("{:0.2} m/s^2", grid.linear_acceleration());
@@ -591,11 +596,11 @@ fn draw_selected_grid_info(
         (acc_label, hx - 300.0, screen_dims.y - 50.0),
     ];
 
-    let font = d.get_font_default();
-
-    for (label, x, y) in labels {
-        let pos = Vector2::new(x, y);
-        draw_text_centered_weak(d, &font, &label, pos, font_size, Color::WHITE);
+    if let Some(font) = &assets.lato_regular {
+        for (label, x, y) in labels {
+            let pos = Vector2::new(x, y);
+            draw_text_centered(d, font, &label, pos, font_size, Color::WHITE);
+        }
     }
 }
 
