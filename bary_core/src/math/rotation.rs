@@ -38,6 +38,10 @@ impl Rotation {
     pub fn prev(&self) -> Self {
         enum_iterator::previous_cycle(self)
     }
+
+    pub fn all() -> impl Iterator<Item = Self> {
+        enum_iterator::all::<Self>()
+    }
 }
 
 impl std::ops::Add for Rotation {

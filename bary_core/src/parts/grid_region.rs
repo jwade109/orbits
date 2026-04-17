@@ -1,4 +1,5 @@
 use crate::math::*;
+use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
@@ -147,10 +148,10 @@ impl GridRegion {
         self.cells().any(|c| c == coord)
     }
 
-    pub fn to_local(&self, grid: PartCoord) -> PartCoord {
+    pub fn to_local(&self, grid: impl Into<PartCoord>) -> PartCoord {
         let e = self.origin().inner();
         let rotation = self.rot();
-        let p = grid.origin_with(rotation).inner();
+        let p = grid.into().origin_with(rotation).inner();
 
         let u = p - e;
 
@@ -161,6 +162,19 @@ impl GridRegion {
             Rotation::South => IVec2::new(-u.y, u.x),
         };
         v.into()
+    }
+
+    pub fn to_global(&self, local: impl Into<PartCoord>) -> PartCoord {
+        let u = local.into().inner();
+
+        let v = match self.rot() {
+            Rotation::East => u,
+            Rotation::North => IVec2::new(-u.y - 1, u.x),
+            Rotation::West => IVec2::new(-u.x - 1, -u.y - 1),
+            Rotation::South => IVec2::new(u.y, -u.x - 1),
+        };
+
+        self.origin() + v.into()
     }
 }
 
@@ -182,6 +196,27 @@ impl std::ops::AddAssign<PartCoord> for GridRegion {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn local_global_conversions() {
+        for x in -5..=20 {
+            for y in -5..=20 {
+                for rot in Rotation::all() {
+                    let region = GridRegion::new((2, 3), rot, (2, 2));
+                    let global = (x, y);
+
+                    let local = region.to_local(global);
+
+                    assert_eq!(
+                        region.to_global(local),
+                        global.into(),
+                        "with rotation {:?}",
+                        rot
+                    );
+                }
+            }
+        }
+    }
 
     #[test]
     fn rotate_placement() {

@@ -1,5 +1,4 @@
-use crate::result::*;
-use bary_core::prelude::Ent;
+use bary_core::prelude::*;
 use log::error;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -86,7 +85,9 @@ impl<E> Components<E> {
     }
 
     pub fn try_get_mut(&mut self, id: Ent) -> BaryResult<&mut E> {
-        self.values.get_mut(&id).ok_or(BaryError::EntityNotFound(id))
+        self.values
+            .get_mut(&id)
+            .ok_or(BaryError::EntityNotFound(id))
     }
 
     pub fn get_with_log(&self, id: Ent) -> Option<&E> {

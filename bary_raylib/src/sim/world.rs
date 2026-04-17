@@ -2,14 +2,11 @@ use crate::camera::Camera;
 use crate::client::*;
 use crate::components::*;
 use crate::constants::*;
-use crate::imgui;
 use crate::imgui::*;
 use crate::input_state::*;
 use crate::multiplayer::Action;
 use crate::ops::destroy_part_without_integrity_check;
 use crate::ops::detach_part_from_parent;
-use crate::result::BaryError;
-use crate::result::BaryResult;
 use crate::sim::find::get_slot_mut_c;
 use crate::sim::input_handlers;
 use crate::sim::*;
@@ -485,13 +482,17 @@ pub fn get_part_at_layer(
         .ok_or(BaryError::NoPartsInLayer(layer))
 }
 
-pub fn calculate_pipe_joint(loc: GridLocation, world: &World) -> BaryResult<PipeJoint> {
-    let grid = world.grids.try_get(loc.grid_id)?;
+pub fn calculate_pipe_joint_c(
+    loc: GridLocation,
+    grids: &Components<VehicleGrid>,
+    parts: &Components<Part>,
+    inventories: &Components<Inventory>,
+) -> BaryResult<PipeJoint> {
+    let grid = grids.try_get(loc.grid_id)?;
     let part_id = get_part_at_layer(grid, loc.coord, PartLayer::Internal)?;
-    let part_a = world.parts.try_get(part_id)?;
+    let part_a = parts.try_get(part_id)?;
     let local = part_a.region.to_local(loc.coord);
-    let src_inv = world
-        .inventories
+    let src_inv = inventories
         .try_get(part_id)
         .map_err(|_| BaryError::PartHasNoInv(part_id))?;
     let slot = src_inv
@@ -505,11 +506,15 @@ pub fn calculate_pipe_joint(loc: GridLocation, world: &World) -> BaryResult<Pipe
     })
 }
 
-pub fn insert_pipe_at(
+pub fn insert_pipe_at_c(
     grid_id: Ent,
     src: PartCoord,
     dst: PartCoord,
-    world: &mut World,
+    spawner: &mut EntitySpawner,
+    grids: &mut Components<VehicleGrid>,
+    parts: &Components<Part>,
+    inventories: &Components<Inventory>,
+    pipes: &mut Components<Pipe>,
 ) -> BaryResult<(Pipe, Ent)> {
     if src == dst {
         return Err(BaryError::ZeroPipeExtent);
@@ -518,8 +523,10 @@ pub fn insert_pipe_at(
     let src_loc = GridLocation::new(grid_id, src);
     let dst_loc = GridLocation::new(grid_id, dst);
 
-    let src_joint = calculate_pipe_joint(src_loc, world)?;
-    let dst_joint = calculate_pipe_joint(dst_loc, world)?;
+    let src_joint = calculate_pipe_joint_c(src_loc, grids, parts, inventories)?;
+    let dst_joint = calculate_pipe_joint_c(dst_loc, grids, parts, inventories)?;
+
+    let grid = grids.try_get_mut(grid_id)?;
 
     if src_joint.part_id == dst_joint.part_id && src_joint.slot == dst_joint.slot {
         return Err(BaryError::SameInvSlot(src_joint.part_id, src_joint.slot));
@@ -531,10 +538,30 @@ pub fn insert_pipe_at(
         status: MachineStatus::Off,
     };
 
-    let id = world.spawner.spawn();
-    world.pipes.spawn(id, pipe);
+    let id = spawner.spawn();
+    pipes.spawn(id, pipe);
+
+    grid.pipes.insert(id);
 
     Ok((pipe, id))
+}
+
+pub fn insert_pipe_at(
+    grid_id: Ent,
+    src: PartCoord,
+    dst: PartCoord,
+    world: &mut World,
+) -> BaryResult<(Pipe, Ent)> {
+    insert_pipe_at_c(
+        grid_id,
+        src,
+        dst,
+        &mut world.spawner,
+        &mut world.grids,
+        &world.parts,
+        &world.inventories,
+        &mut world.pipes,
+    )
 }
 
 fn editor_on_release_left_click(client: &mut ClientSpecificInfo, world: &mut World) {

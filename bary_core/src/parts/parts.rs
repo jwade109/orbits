@@ -3,7 +3,10 @@ use crate::prelude::GridRegion;
 use crate::prelude::*;
 use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, path::Path};
+use std::{
+    collections::{BTreeMap, HashMap},
+    path::Path,
+};
 
 #[derive(Deserialize, Serialize, Debug, Clone, Copy)]
 pub enum PartClassification {
@@ -18,7 +21,7 @@ pub enum PartClassification {
     Other,
 }
 
-pub type PartDatabase = HashMap<String, PartPrototype>;
+pub type PartDatabase = BTreeMap<String, PartPrototype>;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct PartPrototype {

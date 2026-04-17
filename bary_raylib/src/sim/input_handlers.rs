@@ -278,7 +278,7 @@ pub fn leave_ship_editor_on_escape(client: &mut ClientSpecificInfo, sounds: &mut
 }
 
 pub fn enter_ship_editor(
-    world: &mut World,
+    world: &World,
     client: &mut ClientSpecificInfo,
     sounds: &mut SoundEffects,
 ) {

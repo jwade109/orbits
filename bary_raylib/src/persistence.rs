@@ -1,4 +1,3 @@
-use crate::result::*;
 use crate::sim::world::World;
 use bary_core::prelude::*;
 use log::*;
@@ -32,8 +31,8 @@ pub fn save_world(dir: impl AsRef<Path>, world: &World, overwrite: bool) -> Bary
 
     for bp in world.blueprints.values() {
         let path = blueprints_dir.join(format!("{}.bp", &bp.name));
-        if let Err(e) = save_vehicle(path, &bp.blueprint) {
-            error!("Failed to save blueprint: {}", e);
+        if let Err(e) = save_blueprint(path, &bp.blueprint) {
+            error!("Failed to save blueprint: {:?}", e);
             return Err(BaryError::FailedToSaveBlueprint);
         }
     }

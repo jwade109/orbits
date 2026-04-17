@@ -184,7 +184,7 @@ fn main() {
 
         // CONSTRUCT IMMEDIATE-MODE GUI
 
-        let gui = imgui::imgui_pass(&mut app.client, &mut app.world);
+        let gui = imgui::imgui_pass(&mut app.client, &mut app.world, &mut sounds);
 
         // HANDLE RDEV EVENTS (DEPRECATED - USE INPUTSTATE)
 

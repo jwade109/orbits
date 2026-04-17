@@ -14,6 +14,7 @@ mod plants;
 mod propagator;
 mod quantities;
 mod region;
+mod result;
 mod scenario;
 mod surface;
 mod vehicle;

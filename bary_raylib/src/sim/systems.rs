@@ -1,6 +1,5 @@
 use crate::assets::get_random_ship_name;
 use crate::components::*;
-use crate::result::*;
 use crate::sim::*;
 use bary_core::prelude::*;
 use chrono::NaiveDate;
@@ -25,7 +24,7 @@ pub fn apparent_datetime(world: &World) -> NaiveDateTime {
 }
 
 pub fn spawn_grid_from_blueprint_c(
-    counter: &mut EntitySpawner,
+    spawner: &mut EntitySpawner,
     prototypes: &Components<PartPrototype>,
     grids: &mut Components<VehicleGrid>,
     parts: &mut Components<Part>,
@@ -34,6 +33,7 @@ pub fn spawn_grid_from_blueprint_c(
     lights: &mut Components<Light>,
     inventories: &mut Components<Inventory>,
     machines: &mut Components<Machine>,
+    pipes: &mut Components<Pipe>,
     debug_portals: &mut Components<DebugPortal>,
     name: impl Into<String>,
     bp: &Blueprint,
@@ -41,12 +41,12 @@ pub fn spawn_grid_from_blueprint_c(
     let s = name.into();
     info!("Spawning grid with name \"{}\" from blueprint", s);
     let grid = VehicleGrid::with_name(s);
-    let grid_id = counter.spawn();
+    let grid_id = spawner.spawn();
     grids.spawn(grid_id, grid.clone());
     for (_id, proto) in bp.parts() {
         insert_part_c(
             grid_id,
-            counter,
+            spawner,
             grids,
             prototypes,
             parts,
@@ -59,6 +59,21 @@ pub fn spawn_grid_from_blueprint_c(
             proto,
             false,
         )?;
+    }
+
+    for (_id, pipe) in bp.pipes() {
+        if let Err(e) = insert_pipe_at_c(
+            grid_id,
+            pipe.start,
+            pipe.end,
+            spawner,
+            grids,
+            parts,
+            inventories,
+            pipes,
+        ) {
+            error!("Failed to insert pipe: {:?}", e);
+        }
     }
 
     let grid = grids.try_get_mut(grid_id)?;
@@ -223,6 +238,7 @@ pub fn spawn_grid_from_blueprint(
         &mut world.lights,
         &mut world.inventories,
         &mut world.machines,
+        &mut world.pipes,
         &mut world.debug_portals,
         name,
         bp,
@@ -270,7 +286,13 @@ pub fn ping(world: &mut World, pos: Vec2) {
 }
 
 pub fn get_blueprint(world: &World, grid_id: Ent) -> BaryResult<Blueprint> {
-    get_blueprint_c(&world.grids, &world.parts, &world.prototypes, grid_id)
+    get_blueprint_c(
+        &world.grids,
+        &world.parts,
+        &world.pipes,
+        &world.prototypes,
+        grid_id,
+    )
 }
 
 /// Spawns an empty vehicle grid.
@@ -324,7 +346,7 @@ pub fn can_insert_part_c(
 
 pub fn insert_part_c(
     grid_id: Ent,
-    counter: &mut EntitySpawner,
+    spawner: &mut EntitySpawner,
     grids: &mut Components<VehicleGrid>,
     prototypes: &Components<PartPrototype>,
     parts: &mut Components<Part>,
@@ -356,7 +378,7 @@ pub fn insert_part_c(
         classification: proto.classification(),
     };
 
-    let part_id = counter.spawn();
+    let part_id = spawner.spawn();
 
     grid.parts.insert(part_id);
     parts.spawn(part_id, part);
@@ -659,6 +681,7 @@ pub mod find {
 pub fn get_blueprint_c(
     grids: &Components<VehicleGrid>,
     parts: &Components<Part>,
+    pipes: &Components<Pipe>,
     prototypes: &Components<PartPrototype>,
     grid_id: Ent,
 ) -> BaryResult<Blueprint> {
@@ -668,6 +691,23 @@ pub fn get_blueprint_c(
         let part = parts.try_get(*part_id)?;
         let proto = prototypes.try_get(part.prototype)?;
         bp.add_part(proto.name.to_string(), part.region, part.layer);
+    }
+    for pipe_id in &grid.pipes {
+        let pipe = pipes.try_get(*pipe_id)?;
+        let src_part = parts.try_get(pipe.src.part_id)?;
+        let dst_part = parts.try_get(pipe.dst.part_id)?;
+        let start = src_part.region.to_global(pipe.src.offset);
+        let end = dst_part.region.to_global(pipe.dst.offset);
+
+        assert_eq!(src_part.region.to_local(start), pipe.src.offset);
+        assert_eq!(dst_part.region.to_local(end), pipe.dst.offset);
+
+        let geo = PipeGeometry {
+            start,
+            end,
+            x_first: false,
+        };
+        bp.add_pipe(geo);
     }
     Ok(bp)
 }
@@ -966,7 +1006,7 @@ mod tests {
 
         assert_world_is_consistent(&world);
 
-        assert_eq!(id, initial_id + 99);
+        assert_eq!(id, Ent(169));
 
         let part = world.parts.get(id).unwrap();
 
@@ -1029,7 +1069,14 @@ mod tests {
 
         let id = spawn_grid_with_random_name(&mut world, "pollux").unwrap();
 
-        let actual = get_blueprint_c(&world.grids, &world.parts, &world.prototypes, id).unwrap();
+        let actual = get_blueprint_c(
+            &world.grids,
+            &world.parts,
+            &world.pipes,
+            &world.prototypes,
+            id,
+        )
+        .unwrap();
 
         assert_eq!(actual.part_count(), expected.blueprint.part_count());
 

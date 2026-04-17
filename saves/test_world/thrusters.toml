@@ -106,440 +106,440 @@ is_rcs = false
 thrust = 400000.0
 last_controlled_by = 61
 
-[values.138]
+[values.174]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 155
+last_controlled_by = 191
 
-[values.140]
+[values.176]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 155
+last_controlled_by = 191
 
-[values.146]
+[values.182]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 155
+last_controlled_by = 191
 
-[values.148]
+[values.184]
 is_on = false
 is_rcs = false
 thrust = 320000.0
-last_controlled_by = 155
+last_controlled_by = 191
 
-[values.150]
+[values.186]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 155
+last_controlled_by = 191
 
-[values.151]
+[values.187]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 155
+last_controlled_by = 191
 
-[values.152]
+[values.188]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 155
-
-[values.159]
-is_on = false
-is_rcs = true
-thrust = 4000.0
-last_controlled_by = 155
-
-[values.160]
-is_on = false
-is_rcs = true
-thrust = 4000.0
-last_controlled_by = 155
-
-[values.178]
-is_on = false
-is_rcs = true
-thrust = 4000.0
-last_controlled_by = 247
-
-[values.190]
-is_on = false
-is_rcs = true
-thrust = 4000.0
-last_controlled_by = 247
-
-[values.191]
-is_on = false
-is_rcs = true
-thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 191
 
 [values.195]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 191
 
 [values.196]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 191
 
-[values.197]
+[values.225]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.198]
+[values.237]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.199]
+[values.238]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.200]
+[values.242]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.205]
+[values.243]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.207]
+[values.244]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.208]
+[values.245]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.210]
+[values.246]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.226]
+[values.247]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.227]
+[values.252]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.229]
+[values.254]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
-
-[values.232]
-is_on = false
-is_rcs = true
-thrust = 4000.0
-last_controlled_by = 247
-
-[values.233]
-is_on = false
-is_rcs = true
-thrust = 4000.0
-last_controlled_by = 247
-
-[values.235]
-is_on = false
-is_rcs = true
-thrust = 4000.0
-last_controlled_by = 247
-
-[values.236]
-is_on = false
-is_rcs = true
-thrust = 4000.0
-last_controlled_by = 247
-
-[values.241]
-is_on = false
-is_rcs = true
-thrust = 4000.0
-last_controlled_by = 247
-
-[values.248]
-is_on = false
-is_rcs = true
-thrust = 4000.0
-last_controlled_by = 247
-
-[values.250]
-is_on = false
-is_rcs = true
-thrust = 4000.0
-last_controlled_by = 247
-
-[values.253]
-is_on = false
-is_rcs = true
-thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
 [values.255]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.259]
+[values.257]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
-
-[values.260]
-is_on = false
-is_rcs = true
-thrust = 4000.0
-last_controlled_by = 247
-
-[values.264]
-is_on = false
-is_rcs = true
-thrust = 4000.0
-last_controlled_by = 247
-
-[values.266]
-is_on = false
-is_rcs = true
-thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
 [values.273]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.277]
+[values.274]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
+
+[values.276]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 294
+
+[values.279]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 294
+
+[values.280]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 294
+
+[values.282]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 294
 
 [values.283]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.285]
+[values.288]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.287]
+[values.295]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
-
-[values.292]
-is_on = false
-is_rcs = true
-thrust = 4000.0
-last_controlled_by = 247
-
-[values.293]
-is_on = false
-is_rcs = true
-thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
 [values.297]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.298]
+[values.300]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.301]
+[values.302]
 is_on = false
-is_rcs = false
-thrust = 400000.0
-last_controlled_by = 247
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 294
+
+[values.306]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 294
 
 [values.307]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.314]
+[values.311]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.315]
+[values.313]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.326]
+[values.320]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.327]
+[values.324]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.328]
+[values.330]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.338]
+[values.332]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
+
+[values.334]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 294
+
+[values.339]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 294
 
 [values.340]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
+
+[values.344]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 294
 
 [values.345]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
-
-[values.346]
-is_on = false
-is_rcs = true
-thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
 [values.348]
 is_on = false
-is_rcs = true
-thrust = 4000.0
-last_controlled_by = 247
+is_rcs = false
+thrust = 400000.0
+last_controlled_by = 294
 
-[values.355]
+[values.354]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.360]
+[values.361]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
 [values.362]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.368]
+[values.373]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.369]
+[values.374]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.372]
-is_on = false
-is_rcs = false
-thrust = 400000.0
-last_controlled_by = 247
-
-[values.378]
+[values.375]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.388]
+[values.385]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.389]
+[values.387]
 is_on = false
-is_rcs = false
-thrust = 400000.0
-last_controlled_by = 247
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 294
+
+[values.392]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 294
 
 [values.393]
 is_on = false
-is_rcs = false
-thrust = 400000.0
-last_controlled_by = 247
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 294
 
 [values.395]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.397]
+[values.402]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.400]
+[values.407]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
 
-[values.404]
+[values.409]
 is_on = false
 is_rcs = true
 thrust = 4000.0
-last_controlled_by = 247
+last_controlled_by = 294
+
+[values.415]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 294
+
+[values.416]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 294
+
+[values.419]
+is_on = false
+is_rcs = false
+thrust = 400000.0
+last_controlled_by = 294
+
+[values.425]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 294
+
+[values.435]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 294
+
+[values.436]
+is_on = false
+is_rcs = false
+thrust = 400000.0
+last_controlled_by = 294
+
+[values.440]
+is_on = false
+is_rcs = false
+thrust = 400000.0
+last_controlled_by = 294
+
+[values.442]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 294
+
+[values.444]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 294
+
+[values.447]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 294
+
+[values.451]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 294

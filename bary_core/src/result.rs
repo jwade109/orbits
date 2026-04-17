@@ -1,4 +1,4 @@
-use bary_core::prelude::*;
+use crate::prelude::*;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum BaryError {

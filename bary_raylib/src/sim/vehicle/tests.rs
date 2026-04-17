@@ -6,7 +6,6 @@ use crate::{
     client::GridLocation,
     ops::{set_grid_pose, set_primary_computer_state, set_primary_computer_waypoint},
     query::{blueprint_by_name, grid_by_name},
-    result::BaryError,
     sim::{
         PartOccupancy, World, destroy_part,
         find::{self, grid_pose},

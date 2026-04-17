@@ -3,11 +3,10 @@ use crate::components::Components;
 use crate::ops;
 use crate::sim::update_grid_physical_props_by_id;
 use crate::sim::vehicle::Part;
+use crate::sim::world::World;
 use bary_core::prelude::*;
 use log::info;
 use std::collections::{BTreeMap, BTreeSet};
-
-use crate::{result::BaryResult, sim::world::World};
 
 /// Removes a part from its parent grid, updating any relevant quantities
 /// about that grid. This does not perform an integrity check, and might

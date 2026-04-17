@@ -4,7 +4,6 @@ use crate::client::*;
 use crate::components::Components;
 use crate::imgui::{ImGui, ZOOM_NEAR_FAR_THRESHOLD};
 use crate::query::grid_origin;
-use crate::result::BaryResult;
 use crate::sim::*;
 use crate::utils::*;
 use bary_core::prelude::*;
@@ -839,16 +838,10 @@ pub fn draw_computer_target_isometry(
     }
 }
 
-pub fn draw_grid_blueprints(
-    d: &mut RaylibDrawHandle,
-    grids: &Components<VehicleGrid>,
-    parts: &Components<Part>,
-    prototypes: &Components<PartPrototype>,
-    camera: &Camera2D,
-) {
-    for (grid_id, grid) in grids.iter() {
+pub fn draw_grid_blueprints(d: &mut RaylibDrawHandle, world: &World, camera: &Camera2D) {
+    for (grid_id, grid) in world.grids.iter() {
         if camera.zoom > 0.1 {
-            let Ok(bp) = get_blueprint_c(grids, parts, prototypes, *grid_id) else {
+            let Ok(bp) = get_blueprint(world, *grid_id) else {
                 continue;
             };
             let origin = grid.origin();
@@ -960,12 +953,14 @@ fn draw_imgui(d: &mut RaylibDrawHandle, gui: &ImGui, assets: &Assets) {
                 d.draw_rectangle(p.x, p.y, dims.x, dims.y, color);
             }
 
+            let font_size = 24.0;
+
             if let Some(font) = &assets.lato_regular {
-                let tdims = font.measure_text(&b.text, 20.0, 0.0);
+                let tdims = font.measure_text(&b.text, font_size, 0.0);
                 let t = glam_to_raylib(p.as_vec2()) + glam_to_raylib(b.dims.as_vec2()) / 2.0
                     - tdims / 2.0;
 
-                d.draw_text_ex(font, &b.text, t, 20.0, 0.0, Color::WHITE);
+                d.draw_text_ex(font, &b.text, t, font_size, 0.0, Color::WHITE);
             }
 
             if b.id == gui.active && DRAW_OUTLINES {

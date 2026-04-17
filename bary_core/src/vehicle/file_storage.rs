@@ -77,7 +77,7 @@ pub fn load_parts_from_dir(
     Ok(ret)
 }
 
-pub fn save_vehicle(path: impl AsRef<Path>, blueprint: &Blueprint) -> Result<(), &'static str> {
+pub fn save_blueprint(path: impl AsRef<Path>, blueprint: &Blueprint) -> Result<(), BaryError> {
     let parts = blueprint
         .parts()
         .map(|(_, instance)| VehiclePartFileStorage {
@@ -97,10 +97,7 @@ pub fn save_vehicle(path: impl AsRef<Path>, blueprint: &Blueprint) -> Result<(),
         pipes: Some(pipes),
     };
 
-    let s = serde_yaml::to_string(&storage)
-        .ok()
-        .ok_or("Failed to serialize")?;
-    std::fs::write(path.as_ref(), s)
-        .ok()
-        .ok_or("Failed to write to file")
+    let s = serde_yaml::to_string(&storage)?;
+    std::fs::write(path.as_ref(), s)?;
+    Ok(())
 }

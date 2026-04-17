@@ -14,6 +14,7 @@ pub use crate::plants::Plant;
 pub use crate::propagator::{EventType, HorizonState, Propagator};
 pub use crate::quantities::*;
 pub use crate::region::Region;
+pub use crate::result::*;
 pub use crate::scenario::*;
 pub use crate::surface::*;
 pub use crate::vehicle::*;

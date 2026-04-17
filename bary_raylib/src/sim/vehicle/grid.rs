@@ -15,6 +15,7 @@ pub struct VehicleGrid {
     pub thrusters: BTreeSet<Ent>,
     pub computers: BTreeSet<Ent>,
     pub lights: BTreeSet<Ent>,
+    pub pipes: BTreeSet<Ent>,
     /// Lower bound is inclusive; upper is exclusive.
     /// Extent is upper minus lower. An empty grid
     /// will have zero extent.
@@ -57,6 +58,7 @@ impl VehicleGrid {
             thrusters: BTreeSet::new(),
             computers: BTreeSet::new(),
             lights: BTreeSet::new(),
+            pipes: BTreeSet::new(),
             bounds: (IVec2::ZERO, IVec2::ZERO),
             occupancy: BTreeMap::new(),
         }
@@ -200,7 +202,6 @@ impl VehicleGrid {
 mod tests {
     use super::*;
     use crate::query;
-    use crate::result::BaryError;
     use crate::sim::*;
     use crate::tests::assert_world_is_consistent;
     use crate::world_builder::WorldBuilder;
@@ -351,7 +352,7 @@ mod tests {
             assert!(r.is_ok());
         }
 
-        let sec_grid_id = Ent(133);
+        let sec_grid_id = Ent(169);
 
         let result = split_grid_if_necessary(&mut world, grid_id);
 

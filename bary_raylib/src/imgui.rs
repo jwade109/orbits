@@ -7,8 +7,10 @@ use crate::components::Components;
 use crate::input_state::InputState;
 use crate::render::draw::*;
 use crate::sim::find::{grid_pose, gridloc_pose};
-use crate::sim::input_handlers::{leave_ship_editor_on_escape, spawn_random_ship_on_p};
-use crate::sim::{Computer, VehicleGrid, World, find};
+use crate::sim::input_handlers::{
+    enter_ship_editor, leave_ship_editor_on_escape, spawn_random_ship_on_p,
+};
+use crate::sim::{Computer, VehicleGrid, World, find, get_blueprint};
 use crate::sounds::*;
 use crate::ui::{Window, draw_window};
 use crate::utils::*;
@@ -16,6 +18,7 @@ use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use early_returns::*;
 use enum_iterator::Sequence;
+use log::*;
 use raylib::prelude::*;
 
 #[derive(Debug, Copy, Clone)]
@@ -72,7 +75,7 @@ fn ui_bounds(origin: IVec2, dims: IVec2) -> AABB {
 impl<'a> LayoutHandle<'a> {
     pub fn button(&mut self, text: impl Into<String>) -> ButtonResponse {
         let id = self.gui.next_id_counter();
-        let dims = IVec2::new(130, 30);
+        let dims = IVec2::new(155, 40);
         let origin = self.next_pos;
         let aabb = ui_bounds(origin, dims);
         let is_hot = self
@@ -729,7 +732,68 @@ fn selected_part_gui(gui: &mut ImGui, client: &ClientSpecificInfo, world: &mut W
     layout.button(format!("{:?}", occ));
 }
 
-pub fn imgui_pass(client: &mut ClientSpecificInfo, world: &mut World) -> ImGui {
+fn save_editor_vehicle_as_blueprint(client: &mut ClientSpecificInfo, world: &World) {
+    client.chat.log("Save blueprint");
+    let editor = some_or_return!(client.viewport.editor());
+
+    let bp = get_blueprint(world, editor.vehicle);
+
+    if let Ok(bp) = bp {
+        let bytes = bincode::serialize(&bp).unwrap();
+        let digest = md5::compute(bytes);
+
+        let path = format!("/tmp/test.bp");
+
+        if let Err(e) = save_blueprint(&path, &bp) {
+            error!("Failed to save blueprint: {e:?}");
+        } else {
+            client.chat.log(format!("Saved to {}", path));
+        }
+    }
+}
+
+fn editor_gui(
+    gui: &mut ImGui,
+    world: &World,
+    client: &mut ClientSpecificInfo,
+    sounds: &mut SoundEffects,
+) {
+    let editor = some_or_return!(client.viewport.editor());
+
+    let mut layout = gui.layout(IVec2::new(100, 20), LayoutDirection::Right);
+
+    layout.button(format!("Editing {}", editor.vehicle));
+
+    if layout.button("Save").clicked() {
+        save_editor_vehicle_as_blueprint(client, world);
+    };
+    if layout.button("Exit Editor").clicked() {
+        leave_ship_editor_on_escape(client, sounds);
+    }
+}
+
+fn free_gui(
+    gui: &mut ImGui,
+    world: &World,
+    client: &mut ClientSpecificInfo,
+    sounds: &mut SoundEffects,
+) {
+    let _free = some_or_return!(client.viewport.free());
+
+    let mut layout = gui.layout(IVec2::new(100, 20), LayoutDirection::Right);
+
+    if let Some(id) = client.focused_grid_id() {
+        if layout.button(format!("Edit Grid {}", id)).clicked() {
+            enter_ship_editor(world, client, sounds);
+        }
+    }
+}
+
+pub fn imgui_pass(
+    client: &mut ClientSpecificInfo,
+    world: &mut World,
+    sounds: &mut SoundEffects,
+) -> ImGui {
     let mut gui = ImGui::new(
         client.screen_dims,
         client.mouse_screen_position,
@@ -737,6 +801,9 @@ pub fn imgui_pass(client: &mut ClientSpecificInfo, world: &mut World) -> ImGui {
     );
 
     selected_part_gui(&mut gui, client, world);
+
+    free_gui(&mut gui, world, client, sounds);
+    editor_gui(&mut gui, world, client, sounds);
 
     gui
 }

@@ -10,7 +10,6 @@ pub mod input_state;
 pub mod multiplayer;
 pub mod persistence;
 pub mod render;
-pub mod result;
 pub mod sim;
 pub mod sounds;
 pub mod tests;
