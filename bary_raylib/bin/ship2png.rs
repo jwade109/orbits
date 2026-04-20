@@ -110,7 +110,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let parts = load_parts_from_dir(&args.parts_dir)?;
 
-    let vehicle = load_blueprint(&args.ship_path, &parts)?;
+    let vehicle = load_blueprint_file(&args.ship_path, &parts)?;
 
     println!(
         "Loaded blueprint with {} parts and {} pipes",

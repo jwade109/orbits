@@ -33,6 +33,28 @@ impl std::fmt::Display for NoPartError {
 impl std::error::Error for NoPartError {}
 
 pub fn load_blueprint(
+    id: &BlueprintId,
+    assets_dir: impl AsRef<Path>,
+    parts: &BTreeMap<String, PartPrototype>,
+) -> Result<Blueprint, Box<dyn std::error::Error>> {
+    let old_path = assets_dir
+        .as_ref()
+        .join("vehicles")
+        .join(format!("{}.vehicle", id.0));
+
+    let new_path = assets_dir
+        .as_ref()
+        .join("vehicles")
+        .join(format!("{}/v{}.bp", id.0, id.1));
+
+    if old_path.exists() {
+        load_blueprint_file(old_path, parts)
+    } else {
+        load_blueprint_file(new_path, parts)
+    }
+}
+
+pub fn load_blueprint_file(
     path: impl AsRef<Path>,
     parts: &BTreeMap<String, PartPrototype>,
 ) -> Result<Blueprint, Box<dyn std::error::Error>> {

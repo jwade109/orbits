@@ -9,7 +9,7 @@ use std::path::PathBuf;
 
 pub struct WorldBuilder {
     assets_dir: Option<String>,
-    blueprints: Vec<String>,
+    blueprints: Vec<BlueprintId>,
     spawns: Vec<(String, Option<String>, Isometry2d)>,
     commands: Vec<WorldAction>,
 }
@@ -34,8 +34,8 @@ impl WorldBuilder {
         self
     }
 
-    pub fn blueprint(mut self, name: &str) -> Self {
-        self.blueprints.push(name.to_string());
+    pub fn blueprint(mut self, id: impl Into<BlueprintId>) -> Self {
+        self.blueprints.push(id.into());
         self
     }
 
@@ -81,13 +81,12 @@ impl WorldBuilder {
                 world.prototypes.spawn(id, part.clone());
             }
 
-            for name in self.blueprints {
+            for bpid in self.blueprints {
                 let id = world.spawner.spawn();
-                let path = vehicles_dir.join(format!("{}.vehicle", name));
-                let bp = load_blueprint(path, &parts).expect("Vehicle dir");
+                let bp = load_blueprint(&bpid, &assets_dir, &parts).expect("Vehicle dir");
                 let bp = NamedBlueprint {
-                    name,
-                    version: 0,
+                    name: bpid.0.clone(),
+                    version: bpid.1,
                     blueprint: bp,
                 };
                 info!(

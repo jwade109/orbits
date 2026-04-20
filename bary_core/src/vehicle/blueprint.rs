@@ -26,6 +26,12 @@ impl From<String> for BlueprintId {
     }
 }
 
+impl From<(&str, u32)> for BlueprintId {
+    fn from((name, version): (&str, u32)) -> Self {
+        Self(name.to_string(), version)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Blueprint {
     next_part_id: PartId,

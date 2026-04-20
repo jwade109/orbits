@@ -313,3 +313,22 @@ fn get_inventory_at_grid_location() {
 
     assert_eq!(failure, Err(BaryError::NoPartsAt((4, 7).into())));
 }
+
+#[test]
+fn blueprint_versions() {
+    let world = WorldBuilder::new()
+        .test_assets()
+        .blueprint(("pollux", 0))
+        .blueprint(("pollux", 1))
+        .build();
+
+    assert_eq!(world.blueprints.len(), 2);
+
+    let mut iter = world.blueprints.iter();
+
+    let v0 = iter.next().unwrap();
+    let v1 = iter.next().unwrap();
+
+    assert_eq!(*v0.0, Ent(33));
+    assert_eq!(*v1.0, Ent(34));
+}

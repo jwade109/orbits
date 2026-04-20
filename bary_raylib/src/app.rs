@@ -73,7 +73,7 @@ pub fn new_app(multiplayer: bool) -> App {
 
     let mut world = WorldBuilder::new()
         .assets()
-        .blueprint("pollux")
+        .blueprint(("pollux", 1))
         .blueprint("bellerophon")
         .blueprint("remora")
         .blueprint("spacestation")
