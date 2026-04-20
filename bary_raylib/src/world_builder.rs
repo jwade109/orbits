@@ -1,4 +1,6 @@
 use crate::assets::load_names_from_file;
+use crate::multiplayer::WorldAction;
+use crate::multiplayer::apply_world_action;
 use crate::sim::systems::*;
 use crate::sim::world::*;
 use bary_core::prelude::*;
@@ -9,7 +11,7 @@ pub struct WorldBuilder {
     assets_dir: Option<String>,
     blueprints: Vec<String>,
     spawns: Vec<(String, Option<String>, Isometry2d)>,
-    waypoints: Vec<(String, Isometry2d)>,
+    commands: Vec<WorldAction>,
 }
 
 impl WorldBuilder {
@@ -18,7 +20,7 @@ impl WorldBuilder {
             assets_dir: None,
             blueprints: Vec::new(),
             spawns: Vec::new(),
-            waypoints: Vec::new(),
+            commands: Vec::new(),
         }
     }
 
@@ -50,8 +52,16 @@ impl WorldBuilder {
     }
 
     pub fn waypoint(mut self, grid_name: &str, waypoint: impl Into<Isometry2d>) -> Self {
-        self.waypoints
-            .push((grid_name.to_string(), waypoint.into()));
+        let cmd = WorldAction::SetWaypointByName {
+            name: grid_name.to_string(),
+            waypoint: waypoint.into(),
+        };
+        self.commands.push(cmd);
+        self
+    }
+
+    pub fn command(mut self, action: WorldAction) -> Self {
+        self.commands.push(action);
         self
     }
 
@@ -101,14 +111,8 @@ impl WorldBuilder {
             }
         }
 
-        for (name, waypoint) in self.waypoints {
-            if let Some(grid_id) = find::grid_by_name(&world.grids, &name) {
-                _ = set_primary_computer_waypoint(grid_id, waypoint, &mut world);
-                _ = set_primary_computer_state(grid_id, true, &mut world);
-                _ = toggle_tracking(&mut world, grid_id);
-            } else {
-                log::warn!("Failed to find grid with name {name}");
-            }
+        for action in self.commands {
+            apply_world_action(&mut world, action);
         }
 
         world

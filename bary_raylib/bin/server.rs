@@ -59,7 +59,8 @@ impl ServerApp {
         self.runner.update_headless(&mut self.world);
 
         if self.sync_timer.tick() {
-            let tr = Transaction::new(self.world.ticks, Action::FastForwardTo(self.world.ticks));
+            let action = Action::World(WorldAction::FastForwardTo(self.world.ticks));
+            let tr = Transaction::new(self.world.ticks, action);
             self.outgoing_transactions.push(tr);
             warn!("Sending sync packet");
         }

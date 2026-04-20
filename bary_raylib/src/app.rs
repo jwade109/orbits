@@ -1,3 +1,4 @@
+use bary_core::prelude::Vec2;
 use raylib::RaylibHandle;
 
 use crate::client::{ClientSpecificInfo, DebugInfo};
@@ -68,6 +69,8 @@ impl App {
 }
 
 pub fn new_app(multiplayer: bool) -> App {
+    use WorldAction::*;
+
     let mut world = WorldBuilder::new()
         .assets()
         .blueprint("pollux")
@@ -82,6 +85,9 @@ pub fn new_app(multiplayer: bool) -> App {
         .spawn("miner", "", (-9.0, 12.0, -0.3))
         .spawn("remora", "", (-7.0, 23.0, 0.7))
         .spawn("bellerophon", "", (130.0, 50.0, 0.1))
+        .command(SetSpeed(1))
+        .command(Ping(Vec2::ZERO))
+        .command(Ping(Vec2::splat(10.0)))
         .build();
 
     let stars = spawn_stars(&mut world.spawner);

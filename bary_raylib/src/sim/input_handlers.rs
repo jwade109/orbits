@@ -187,7 +187,7 @@ pub fn ping_on_alt_left_click(
 
     let particle = PingParticle::new(pos);
     world.particles.push(particle);
-    actions.push(Action::Ping(pos));
+    actions.push(Action::World(WorldAction::Ping(pos)));
     client.chat.log(format!("Pinged {}", pos));
     sounds.push(SoundEffect::Ping);
 }

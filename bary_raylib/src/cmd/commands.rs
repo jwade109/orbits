@@ -1,4 +1,4 @@
-use crate::multiplayer::Action;
+use crate::multiplayer::*;
 use bary_core::prelude::*;
 use std::collections::BTreeMap;
 
@@ -63,7 +63,7 @@ pub enum ParseError {
     BadValue,
     WrongArgumentCount,
     CommandNotFound,
-    NotImplemented
+    NotImplemented,
 }
 
 pub type ArgsMap = BTreeMap<String, String>;
@@ -79,17 +79,17 @@ where
 pub fn cmd_ping(args: &ArgsMap) -> Result<Action, ParseError> {
     let x = parse_arg(args, "x")?;
     let y = parse_arg(args, "y")?;
-    Ok(Action::Ping(Vec2::new(x, y)))
+    Ok(Action::World(WorldAction::Ping(Vec2::new(x, y))))
 }
 
 pub fn cmd_spawn(args: &ArgsMap) -> Result<Action, ParseError> {
     let bp = parse_arg(args, "bp_name")?;
     let x = parse_arg(args, "x")?;
     let y = parse_arg(args, "y")?;
-    Ok(Action::SpawnShipAt(
+    Ok(Action::World(WorldAction::SpawnShipAt(
         bp,
         Isometry2d::from_pos(Vec2::new(x, y)),
-    ))
+    )))
 }
 
 pub fn cmd_waypoint(args: &ArgsMap) -> Result<Action, ParseError> {
@@ -97,15 +97,10 @@ pub fn cmd_waypoint(args: &ArgsMap) -> Result<Action, ParseError> {
     let x = parse_arg(args, "x")?;
     let y = parse_arg(args, "y")?;
     let pos = Vec2::new(x, y);
-    Ok(Action::SetWaypoint {
+    Ok(Action::World(WorldAction::SetWaypoint {
         grid_id: Ent(grid_id),
         waypoint: Isometry2d::from_pos(pos),
-    })
-}
-
-pub fn cmd_goto(args: &ArgsMap) -> Result<Action, ParseError> {
-    let grid_name = parse_arg(args, "grid_name")?;
-    Ok(Action::LookAt(grid_name))
+    }))
 }
 
 pub fn cmd_edit(args: &ArgsMap) -> Result<Action, ParseError> {
@@ -120,12 +115,12 @@ pub fn cmd_find(args: &ArgsMap) -> Result<Action, ParseError> {
 
 pub fn cmd_despawn(args: &ArgsMap) -> Result<Action, ParseError> {
     let grid_id = Ent(parse_arg(args, "grid_id")?);
-    Ok(Action::DespawnGrid(grid_id))
+    Ok(Action::World(WorldAction::DespawnGrid(grid_id)))
 }
 
 pub fn cmd_set_speed(args: &ArgsMap) -> Result<Action, ParseError> {
     let speed = parse_arg(args, "speed")?;
-    Ok(Action::SetSpeed(speed))
+    Ok(Action::World(WorldAction::SetSpeed(speed)))
 }
 
 pub fn cmd_placeholder(_args: &ArgsMap) -> Result<Action, ParseError> {
@@ -134,12 +129,11 @@ pub fn cmd_placeholder(_args: &ArgsMap) -> Result<Action, ParseError> {
 
 pub fn cmd_set_cpu(args: &ArgsMap) -> Result<Action, ParseError> {
     let state = parse_arg(args, "state")?;
-    Ok(Action::SetCpuSelectedGrid(state))
+    Ok(Action::Client(ClientAction::SetCpuSelectedGrid(state)))
 }
 
 pub fn all_commands() -> Vec<Command> {
     vec![
-        Command::new("goto", vec!["grid_name"], cmd_goto),
         Command::new("spawn", vec!["bp_name", "x", "y"], cmd_spawn),
         Command::new("edit", vec!["grid_id"], cmd_edit),
         Command::new("despawn", vec!["grid_id"], cmd_despawn),

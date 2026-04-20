@@ -158,14 +158,14 @@ fn main() {
 
         while let Some(action) = app.cmd.pop_action() {
             let tr = Transaction::new(0, action);
-            apply_transaction(&mut app.world, &mut app.client, tr);
+            apply_action(&mut app.world, &mut app.client, tr.action);
         }
 
         // GET COMMANDS FROM THE MULTIPLAYER SERVER
 
         while let Some(n) = app.incoming_network_queue.pop() {
             if let ServerMessage::Transaction(tr) = n {
-                apply_transaction(&mut app.world, &mut app.client, tr);
+                apply_action(&mut app.world, &mut app.client, tr.action);
             }
         }
 

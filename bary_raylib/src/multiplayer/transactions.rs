@@ -1,29 +1,38 @@
 use crate::client::ClientSpecificInfo;
+use crate::ops;
 use crate::sim::world::World;
-use crate::{ops, query};
 use crate::{sim::systems::*, sim::world::update_world};
 use bary_core::prelude::*;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub enum Action {
+pub enum WorldAction {
     Ping(Vec2),
     SpawnShipAt(String, Isometry2d),
     LoadWorld(World),
     FastForwardTo(u64),
     SetWaypoint { grid_id: Ent, waypoint: Isometry2d },
-    LookAt(String),
+    SetWaypointByName { name: String, waypoint: Isometry2d },
     DespawnGrid(Ent),
-    ClearWorld,
     SetSpeed(u32),
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub enum ClientAction {
     SetCpuSelectedGrid(bool),
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
+pub enum Action {
+    World(WorldAction),
+    Client(ClientAction),
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Transaction {
-    tick: u64,
-    action: Action,
+    pub tick: u64,
+    pub action: Action,
 }
 
 impl Transaction {
@@ -32,35 +41,27 @@ impl Transaction {
     }
 }
 
-pub fn apply_transaction(
-    world: &mut World,
-    client: &mut ClientSpecificInfo,
-    transaction: Transaction,
-) {
-    info!(
-        "Applying transation {:?} at tick {}",
-        transaction, world.ticks
-    );
-    match transaction.action {
-        Action::Ping(pos) => {
-            if world.ticks < transaction.tick {
-                let delta = transaction.tick - world.ticks;
-                warn!("Ping is ahead by {} ticks", delta);
-            } else if transaction.tick < world.ticks {
-                let delta = world.ticks - transaction.tick;
-                warn!("Ping is late by {} ticks", delta);
-            }
+pub fn apply_action(world: &mut World, client: &mut ClientSpecificInfo, action: Action) {
+    if let Action::World(action) = action {
+        apply_world_action(world, action);
+    }
+}
+
+pub fn apply_world_action(world: &mut World, action: WorldAction) {
+    info!("Applying action {:?} at tick {}", action, world.ticks);
+    match action {
+        WorldAction::Ping(pos) => {
             ping(world, pos);
         }
-        Action::SpawnShipAt(bp_name, iso) => {
+        WorldAction::SpawnShipAt(bp_name, iso) => {
             if let Ok(grid_id) = spawn_grid_with_random_name(world, bp_name) {
                 _ = set_grid_pose(world, grid_id, iso);
             }
         }
-        Action::LoadWorld(new_world) => {
+        WorldAction::LoadWorld(new_world) => {
             *world = new_world;
         }
-        Action::FastForwardTo(tick) => {
+        WorldAction::FastForwardTo(tick) => {
             if world.ticks < tick {
                 let delta = tick - world.ticks;
                 warn!("Fast forwarding by {} ticks", delta);
@@ -72,44 +73,41 @@ pub fn apply_transaction(
                 warn!("Already ahead of fast forward directive by {} ticks", delta);
             }
         }
-        Action::SetWaypoint { grid_id, waypoint } => {
+        WorldAction::SetWaypoint { grid_id, waypoint } => {
             _ = ops::set_primary_computer_waypoint(grid_id, waypoint, world);
             _ = ops::set_primary_computer_state(grid_id, true, world);
         }
-        Action::LookAt(name) => {
-            if let Some(grid_id) = query::grid_by_name(&world.grids, &name) {
-                client.viewport.look_at(grid_id);
-                client.target_camera.zoom = 15.0;
+        WorldAction::SetWaypointByName { name, waypoint } => {
+            if let Some(grid_id) = find::grid_by_name(&world.grids, &name) {
+                _ = set_primary_computer_waypoint(grid_id, waypoint, world);
+                _ = set_primary_computer_state(grid_id, true, world);
+                _ = toggle_tracking(world, grid_id);
+            } else {
+                warn!("Failed to find grid with name {name}");
             }
         }
-        Action::ClearWorld => {
-            ops::despawn_all_vehicles(world);
-        }
-        Action::DespawnGrid(grid_id) => {
+        WorldAction::DespawnGrid(grid_id) => {
             _ = ops::despawn_grid(world, grid_id);
         }
-        Action::SetSpeed(speed) => {
+        WorldAction::SetSpeed(speed) => {
             world.tick_rate = speed;
-            let s = format!("Set tick rate to {}", speed);
-            client.chat.log(s);
-        }
-        Action::SetCpuSelectedGrid(state) => {
-            let grid_id = match &client.viewport {
-                crate::client::Viewport::Editor(e) => Some(e.vehicle),
-                crate::client::Viewport::Free(f) => {
-                    f.selection_info.selected.first().map(|e| e.grid_id)
-                }
-            };
+        } // WorldAction::SetCpuSelectedGrid(state) => {
+          //     let grid_id = match &client.viewport {
+          //         crate::client::Viewport::Editor(e) => Some(e.vehicle),
+          //         crate::client::Viewport::Free(f) => {
+          //             f.selection_info.selected.first().map(|e| e.grid_id)
+          //         }
+          //     };
 
-            if let Some(grid_id) = grid_id {
-                _ = ops::set_primary_computer_state(grid_id, state, world);
-                _ = ops::set_all_thrusters(grid_id, false, world);
-                client
-                    .chat
-                    .log(format!("Set CPU on grid {} to {}", grid_id, state));
-            } else {
-                client.chat.log("No grid selected");
-            }
-        }
+          //     if let Some(grid_id) = grid_id {
+          //         _ = ops::set_primary_computer_state(grid_id, state, world);
+          //         _ = ops::set_all_thrusters(grid_id, false, world);
+          //         client
+          //             .chat
+          //             .log(format!("Set CPU on grid {} to {}", grid_id, state));
+          //     } else {
+          //         client.chat.log("No grid selected");
+          //     }
+          // }
     }
 }
