@@ -10,7 +10,7 @@ use crate::sim::find::{grid_pose, gridloc_pose};
 use crate::sim::input_handlers::{
     enter_ship_editor, leave_ship_editor_on_escape, spawn_random_ship_on_p,
 };
-use crate::sim::{Computer, VehicleGrid, World, find, get_blueprint};
+use crate::sim::{Computer, PartOccupancy, VehicleGrid, World, find, get_blueprint};
 use crate::sounds::*;
 use crate::ui::{Window, draw_window};
 use crate::utils::*;
@@ -716,10 +716,9 @@ pub fn lame_old_imgui_entrypoint(
 }
 
 fn selected_part_gui(gui: &mut ImGui, client: &ClientSpecificInfo, world: &mut World) {
-    let free = some_or_return!(client.viewport.free());
-    let loc = some_or_return!(free.selection_info.selected.first());
+    let loc = some_or_return!(client.selected_grid_loc());
     let grid = ok_or_return!(world.grids.try_get(loc.grid_id));
-    let part_iso = ok_or_return!(gridloc_pose(&world.grids, *loc));
+    let part_iso = ok_or_return!(gridloc_pose(&world.grids, loc));
     let pos = get_world_to_screen(&client.camera, part_iso.translation, client.screen_dims);
     let mut layout = gui.layout(vround(pos), LayoutDirection::Down);
     let occ = grid.get_parts_at(loc.coord);
@@ -729,7 +728,22 @@ fn selected_part_gui(gui: &mut ImGui, client: &ClientSpecificInfo, world: &mut W
     layout.button(s);
     layout.button("Follow");
     layout.button("Set Item");
-    layout.button(format!("{:?}", occ));
+
+    let occ = occ.unwrap_or(&PartOccupancy::EMPTY);
+
+    if let Some(part_id) = occ.at_layer(PartLayer::Internal) {
+        if let Ok(machine) = world.machines.try_get_mut(part_id) {
+            selectable_ui(&mut layout, &mut machine.recipe);
+        }
+    }
+
+    if let Some(part_id) = occ.at_layer(PartLayer::Plumbing) {
+        if let Ok(portal) = world.debug_portals.try_get_mut(part_id) {
+            if let PortalState::Source(item) = &mut portal.state {
+                selectable_ui(&mut layout, item);
+            }
+        }
+    }
 }
 
 fn save_editor_vehicle_as_blueprint(client: &mut ClientSpecificInfo, world: &World) {
@@ -782,6 +796,12 @@ fn free_gui(
 
     let mut layout = gui.layout(IVec2::new(100, 20), LayoutDirection::Right);
 
+    if let Some(id) = client.focused_grid_id() {
+        if layout.button(format!("Edit Grid {}", id)).clicked() {
+            enter_ship_editor(world, client, sounds);
+        }
+    }
+
     if layout.button("<<").clicked() {
         if world.tick_rate > 1 {
             world.tick_rate -= 1;
@@ -790,10 +810,22 @@ fn free_gui(
     if layout.button(">>").clicked() {
         world.tick_rate += 1;
     }
+}
 
-    if let Some(id) = client.focused_grid_id() {
-        if layout.button(format!("Edit Grid {}", id)).clicked() {
-            enter_ship_editor(world, client, sounds);
+pub fn selectable_ui<T>(layout: &mut LayoutHandle, value: &mut T)
+where
+    T: Sequence + std::fmt::Debug,
+{
+    if let Some(p) = value.previous() {
+        if layout.button("Previous").clicked() {
+            *value = p;
+        }
+    }
+    let s = format!("{:?}", value);
+    layout.button(s);
+    if let Some(n) = value.next() {
+        if layout.button("Next").clicked() {
+            *value = n;
         }
     }
 }

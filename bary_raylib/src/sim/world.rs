@@ -135,7 +135,7 @@ fn camera_zooms_with_plus_minus(input: &InputState, target: &mut Camera) {
 }
 
 fn editor_offset_moves_with_wasd(input: &InputState, offset: &mut Vec2, zoom: f32) {
-    let speed = 20.0 / zoom;
+    let speed = 40.0 / zoom;
 
     if input.is_key_pressed(Key::ControlLeft) {
         return;
@@ -743,11 +743,11 @@ pub fn update_world(world: &mut World) {
     propagate_grid_rigid_bodies(&mut world.grids);
     update_trackers(&mut world.tracking, &world.grids, world.ticks);
 
-    let ticks_per_minute = TICKS_PER_SECOND * 4;
-    if world.ticks % ticks_per_minute == 3 {
-        fill_inventories_attached_to_debug_sources(world);
-        update_pipes(&mut world.inventories, &mut world.pipes);
-    }
+    // let ticks_per_minute = TICKS_PER_SECOND * 4;
+    // if world.ticks % ticks_per_minute == 3 {
+    fill_inventories_attached_to_debug_sources(world);
+    update_pipes(&mut world.inventories, &mut world.pipes);
+    // }
 
     update_machines(world);
 }

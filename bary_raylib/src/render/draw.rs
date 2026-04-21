@@ -265,6 +265,8 @@ pub fn draw_world(
 
     draw_imgui(d, gui, assets);
 
+    draw_item_menu(d, (300, 200).into());
+
     // draw_parts_zoo(&world.prototypes, &mut d);
     // draw_test_isos(&mut d)
 }
@@ -1262,5 +1264,44 @@ fn draw_light_source(d: &mut RaylibDrawHandle, p: Vec2, r_scale: f32, color: Col
         let a = 0.2 * 1.0 / r;
         let color = color.alpha(a);
         fill_circle(d, p, r, color);
+    }
+}
+
+fn draw_item_menu(d: &mut RaylibDrawHandle, origin: IVec2) {
+    let n_cols: i32 = 5;
+
+    let item_width = 24;
+    let padding = 9;
+    let margin = 10;
+
+    let mut x = origin.x;
+    let mut y = origin.y;
+    let mut n_col = 0;
+
+    let n_items = Item::all().count() as i32;
+    let n_rows = n_items / n_cols + 1;
+
+    {
+        let bg_color = Color::new(40, 40, 40, 220);
+        let bx = origin.x - margin;
+        let by = origin.y - margin;
+        let wx = 2 * margin + n_cols * (item_width + padding) - padding;
+        let wy = 2 * margin + n_rows * (item_width + padding) - padding;
+        d.draw_rectangle(bx, by, wx, wy, bg_color);
+    }
+
+    for item in Item::all() {
+        let color = item.color();
+        let color = Color::new(color[0], color[1], color[2], 255);
+        d.draw_rectangle(x, y, item_width, item_width, color);
+
+        x += item_width + padding;
+        n_col += 1;
+
+        if n_col == n_cols {
+            x = origin.x;
+            y += item_width + padding;
+            n_col = 0;
+        }
     }
 }

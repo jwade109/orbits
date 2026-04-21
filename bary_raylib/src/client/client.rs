@@ -139,6 +139,19 @@ impl ClientSpecificInfo {
         }
     }
 
+    pub fn selected_grid_loc(&self) -> Option<GridLocation> {
+        match &self.viewport {
+            Viewport::Editor(e) => {
+                let coord = e.select_start?;
+                Some(GridLocation {
+                    grid_id: e.vehicle,
+                    coord,
+                })
+            }
+            Viewport::Free(f) => f.selection_info.selected.first().cloned(),
+        }
+    }
+
     pub fn hovered_grid_loc(&self) -> Option<GridLocation> {
         match &self.viewport {
             Viewport::Editor(e) => {
