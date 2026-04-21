@@ -35,13 +35,16 @@ pub fn spawn_grid_from_blueprint_c(
     machines: &mut Components<Machine>,
     pipes: &mut Components<Pipe>,
     debug_portals: &mut Components<DebugPortal>,
-    name: impl Into<String>,
+    grid_name: impl Into<String>,
     bp_id: Option<BlueprintId>,
     bp: &Blueprint,
 ) -> BaryResult<Ent> {
-    let s = name.into();
-    info!("Spawning grid with name \"{}\" from blueprint", s);
-    let grid = VehicleGrid::with_name(s, bp_id);
+    let grid_name = grid_name.into();
+    info!(
+        "Spawning grid with name \"{}\" from blueprint {:?}",
+        grid_name, bp_id
+    );
+    let grid = VehicleGrid::with_name(grid_name, bp_id);
     let grid_id = spawner.spawn();
     grids.spawn(grid_id, grid.clone());
     for (_id, proto) in bp.parts() {
@@ -226,7 +229,7 @@ pub fn update_grid_acceleration(dirty_set: BTreeSet<Ent>, world: &mut World) {
 /// Exclusive version of [`super::spawn_grid_from_blueprint`].
 pub fn spawn_grid_from_blueprint(
     world: &mut World,
-    name: impl Into<String>,
+    grid_name: impl Into<String>,
     bp_id: Option<&BlueprintId>,
     bp: &Blueprint,
 ) -> BaryResult<Ent> {
@@ -242,7 +245,7 @@ pub fn spawn_grid_from_blueprint(
         &mut world.machines,
         &mut world.pipes,
         &mut world.debug_portals,
-        name,
+        grid_name,
         bp_id.cloned(),
         bp,
     )
@@ -268,15 +271,19 @@ pub fn spawn_grid_with_random_name(
 ) -> BaryResult<Ent> {
     let name = get_random_ship_name(&world.ship_names);
     let bp_id = bp_id.into();
-    spawn_grid_by_name(world, &bp_id, &name)
+    spawn_grid_with_bp_id(world, &bp_id, &name)
 }
 
 /// Spawns a new grid according to a named blueprint.
-pub fn spawn_grid_by_name(world: &mut World, bp_id: &BlueprintId, name: &str) -> BaryResult<Ent> {
-    let bp = find::blueprint_by_name(&world.blueprints, &bp_id.0)
+pub fn spawn_grid_with_bp_id(
+    world: &mut World,
+    bp_id: &BlueprintId,
+    grid_name: &str,
+) -> BaryResult<Ent> {
+    let bp = find::blueprint_by_id(&world.blueprints, bp_id)
         .ok_or(BaryError::BadBlueprint)?
         .clone();
-    spawn_grid_from_blueprint(world, name, Some(bp_id), &bp.blueprint)
+    spawn_grid_from_blueprint(world, grid_name, Some(bp_id), &bp)
 }
 
 /// Sets the state of a given thruster.
@@ -548,17 +555,17 @@ pub mod find {
         sum_part_masses(&world.grids, &world.parts, &world.prototypes, grid_id)
     }
 
-    pub fn blueprint_by_name<'a>(
+    pub fn blueprint_by_id<'a>(
         blueprints: &'a Components<NamedBlueprint>,
-        name: &str,
-    ) -> Option<&'a NamedBlueprint> {
-        let result = blueprints.values().find(|bp| bp.name == name);
+        id: &BlueprintId,
+    ) -> Option<&'a Blueprint> {
+        let result = blueprints.values().find(|bp| &bp.id == id);
 
         if result.is_none() {
-            error!("Failed to get blueprint with name {}", name);
+            error!("Failed to get blueprint with ID {:?}", id);
         }
 
-        result
+        result.map(|e| &e.blueprint)
     }
 
     /// Produces whatever prototype has the given name, if any.
@@ -892,18 +899,14 @@ mod tests {
         let name = "pollux";
 
         // get the blueprint for the pollux
-        let bp = find::blueprint_by_name(&world.blueprints, name)
+        let bp = find::blueprint_by_id(&world.blueprints, &name.into())
             .expect("Expected a blueprint")
             .clone();
 
         // spawn that vehicle using its blueprint
-        let grid_id = spawn_grid_from_blueprint(
-            &mut world,
-            name.to_string(),
-            Some(&name.into()),
-            &bp.blueprint,
-        )
-        .expect("Expected the grid ID");
+        let grid_id =
+            spawn_grid_from_blueprint(&mut world, name.to_string(), Some(&name.into()), &bp)
+                .expect("Expected the grid ID");
 
         let expected_grid_id = Ent(37);
 
@@ -1074,11 +1077,11 @@ mod tests {
             .blueprint("spacestation")
             .build();
 
-        let mut expected = find::blueprint_by_name(&world.blueprints, "pollux")
+        let mut expected = find::blueprint_by_id(&world.blueprints, &"pollux".into())
             .unwrap()
             .clone();
 
-        expected.blueprint.normalize_coordinates();
+        expected.normalize_coordinates();
 
         let id = spawn_grid_with_random_name(&mut world, "pollux").unwrap();
 
@@ -1091,9 +1094,9 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(actual.part_count(), expected.blueprint.part_count());
+        assert_eq!(actual.part_count(), expected.part_count());
 
-        for (a, b) in actual.parts().zip(expected.blueprint.parts()) {
+        for (a, b) in actual.parts().zip(expected.parts()) {
             assert_eq!(a.0, b.0);
             assert_eq!(a.1, b.1);
         }

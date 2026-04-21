@@ -23,7 +23,7 @@ pub mod world_builder;
 /// of interest. Some of these are acceptable to run during sims;
 /// others should only be used to verify correctness in tests.
 pub mod query {
-    pub use crate::sim::systems::find::blueprint_by_name;
+    pub use crate::sim::systems::find::blueprint_by_id;
     pub use crate::sim::systems::find::closest_grid;
     pub use crate::sim::systems::find::grid_by_name;
     pub use crate::sim::systems::find::grid_origin;

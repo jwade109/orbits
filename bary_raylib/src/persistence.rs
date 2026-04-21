@@ -29,13 +29,13 @@ pub fn save_world(dir: impl AsRef<Path>, world: &World, overwrite: bool) -> Bary
 
     std::fs::create_dir(&blueprints_dir)?;
 
-    for bp in world.blueprints.values() {
-        let path = blueprints_dir.join(format!("{}.bp", &bp.name));
-        if let Err(e) = save_blueprint(path, &bp.blueprint) {
-            error!("Failed to save blueprint: {:?}", e);
-            return Err(BaryError::FailedToSaveBlueprint);
-        }
-    }
+    // for bp in world.blueprints.values() {
+    //     let path = blueprints_dir.join(format!("{}.bp", &bp));
+    //     if let Err(e) = save_blueprint(path, &bp.blueprint) {
+    //         error!("Failed to save blueprint: {:?}", e);
+    //         return Err(BaryError::FailedToSaveBlueprint);
+    //     }
+    // }
 
     let s = toml::to_string(&world.grids)?;
     std::fs::write(grids_path, s)?;

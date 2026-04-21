@@ -5,7 +5,7 @@ use bary_core::prelude::*;
 use crate::{
     client::GridLocation,
     ops::{set_grid_pose, set_primary_computer_state, set_primary_computer_waypoint},
-    query::{blueprint_by_name, grid_by_name},
+    query::{blueprint_by_id, grid_by_name},
     sim::{
         PartOccupancy, World, destroy_part,
         find::{self, grid_pose},
@@ -57,9 +57,8 @@ fn build_ship_on_another_ship_then_navigate() {
         .build();
 
     let grid_id = grid_by_name(&world.grids, "ursula").unwrap();
-    let bp = blueprint_by_name(&world.blueprints, "remora")
+    let bp = blueprint_by_id(&world.blueprints, &"remora".into())
         .unwrap()
-        .blueprint
         .clone();
 
     for (_id, instance) in bp.parts() {

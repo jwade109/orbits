@@ -10,7 +10,7 @@ use std::path::PathBuf;
 pub struct WorldBuilder {
     assets_dir: Option<String>,
     blueprints: Vec<BlueprintId>,
-    spawns: Vec<(String, Option<String>, Isometry2d)>,
+    spawns: Vec<(BlueprintId, Option<String>, Isometry2d)>,
     commands: Vec<WorldAction>,
 }
 
@@ -41,13 +41,13 @@ impl WorldBuilder {
 
     pub fn spawn(
         mut self,
-        bp_name: &str,
+        bp_id: impl Into<BlueprintId>,
         name: impl Into<String>,
         iso: impl Into<Isometry2d>,
     ) -> Self {
         let name = name.into();
         let name = if name.is_empty() { None } else { Some(name) };
-        self.spawns.push((bp_name.to_string(), name, iso.into()));
+        self.spawns.push((bp_id.into(), name, iso.into()));
         self
     }
 
@@ -70,7 +70,7 @@ impl WorldBuilder {
 
         if let Some(assets_dir) = self.assets_dir {
             let parts_dir = PathBuf::from(&assets_dir).join("parts");
-            let vehicles_dir = PathBuf::from(&assets_dir).join("vehicles");
+
             let parts = load_parts_from_dir(&parts_dir).expect("Parts dir");
 
             let ship_names_path = PathBuf::from(&assets_dir).join("ship_names.txt");
@@ -85,24 +85,23 @@ impl WorldBuilder {
                 let id = world.spawner.spawn();
                 let bp = load_blueprint(&bpid, &assets_dir, &parts).expect("Vehicle dir");
                 let bp = NamedBlueprint {
-                    name: bpid.0.clone(),
-                    version: bpid.1,
+                    id: bpid,
                     blueprint: bp,
                 };
                 info!(
                     "Loaded blueprint: {} v{} ({} parts)",
-                    &bp.name,
-                    bp.version,
+                    bp.id.0,
+                    bp.id.1,
                     bp.blueprint.part_count()
                 );
                 world.blueprints.spawn(id, bp);
             }
         }
 
-        for (bp_name, name, iso) in self.spawns {
+        for (bp_id, name, iso) in self.spawns {
             let id = match name {
-                Some(name) => spawn_grid_by_name(&mut world, &bp_name.into(), &name),
-                None => spawn_grid_with_random_name(&mut world, bp_name),
+                Some(name) => spawn_grid_with_bp_id(&mut world, &bp_id, &name),
+                None => spawn_grid_with_random_name(&mut world, bp_id),
             };
 
             if let Ok(id) = id {

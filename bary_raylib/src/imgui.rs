@@ -774,13 +774,22 @@ fn editor_gui(
 
 fn free_gui(
     gui: &mut ImGui,
-    world: &World,
+    world: &mut World,
     client: &mut ClientSpecificInfo,
     sounds: &mut SoundEffects,
 ) {
     let _free = some_or_return!(client.viewport.free());
 
     let mut layout = gui.layout(IVec2::new(100, 20), LayoutDirection::Right);
+
+    if layout.button("<<").clicked() {
+        if world.tick_rate > 1 {
+            world.tick_rate -= 1;
+        }
+    }
+    if layout.button(">>").clicked() {
+        world.tick_rate += 1;
+    }
 
     if let Some(id) = client.focused_grid_id() {
         if layout.button(format!("Edit Grid {}", id)).clicked() {
