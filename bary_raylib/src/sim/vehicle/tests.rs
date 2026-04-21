@@ -318,7 +318,7 @@ fn blueprint_versions() {
     let world = WorldBuilder::new()
         .test_assets()
         .blueprint(("pollux", 0))
-        .blueprint(("pollux", 1))
+        .blueprint(("pollux", 2))
         .build();
 
     assert_eq!(world.blueprints.len(), 2);
