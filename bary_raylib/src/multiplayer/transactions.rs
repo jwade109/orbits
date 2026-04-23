@@ -1,7 +1,7 @@
 use crate::client::ClientSpecificInfo;
 use crate::ops;
-use crate::sim::insert_pipe_at;
 use crate::sim::world::World;
+use crate::sim::{DebugTimers, insert_pipe_at};
 use crate::{sim::systems::*, sim::world::update_world};
 use bary_core::prelude::*;
 use early_returns::*;

@@ -22,6 +22,8 @@ use log::*;
 use rdev::Button;
 use serde::{Deserialize, Serialize};
 use std::collections::*;
+use std::time::Duration;
+use std::time::Instant;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct World {
@@ -709,7 +711,8 @@ pub fn update_pipes(inventories: &mut Components<Inventory>, pipes: &mut Compone
         let mut dst = some_or_continue!(inv_b.get_slot(pipe.dst.slot)).clone();
 
         let mass = {
-            let m = src.mass() / 10;
+            let mul = randint(140, 160);
+            let m = src.mass() / mul as u64;
             if m.is_zero() { Mass::grams(1) } else { m }
         };
 
@@ -720,35 +723,150 @@ pub fn update_pipes(inventories: &mut Components<Inventory>, pipes: &mut Compone
     }
 }
 
-pub fn update_machines(world: &mut World) {
-    for (part_id, machine) in world.machines.iter_mut() {
-        let inv = ok_or_continue!(world.inventories.try_get_mut(*part_id));
-        machine.step_process(inv);
+pub fn step_process(machine: &mut Machine, id: Ent, inv: &mut Components<Inventory>) {
+    if machine.recipe().is_none() {
+        machine.status = MachineStatus::NoRecipe;
+        return;
+    }
+
+    if !machine.enabled {
+        machine.status = MachineStatus::Off;
+        return;
+    }
+
+    if machine.steps == 0 {
+        if let Ok(inv) = inv.try_get_mut(id) {
+            if machine.take_inputs_if_possible(inv) {
+                machine.steps += 1;
+                machine.status = MachineStatus::Running;
+                return;
+            } else {
+                machine.status = MachineStatus::Starved;
+                return;
+            }
+        } else {
+            machine.status = MachineStatus::Starved;
+            return;
+        }
+    }
+
+    if machine.steps > 0 && machine.steps < machine.required_steps {
+        machine.status = MachineStatus::Running;
+        machine.steps += 1;
+    } else if machine.steps >= machine.required_steps {
+        if let Ok(inv) = inv.try_get_mut(id) {
+            if machine.store_outputs_if_possible(inv) {
+                machine.steps = 0;
+                machine.products_finished += 1;
+                machine.status = MachineStatus::Running;
+            } else {
+                machine.status = MachineStatus::NoRoom;
+            }
+        } else {
+            machine.status = MachineStatus::NoRoom;
+        }
+    } else {
+        machine.status = MachineStatus::Off;
     }
 }
 
-pub fn update_world(world: &mut World) {
+pub fn update_machines(world: &mut World) {
+    for (part_id, machine) in world.machines.iter_mut() {
+        step_process(machine, *part_id, &mut world.inventories);
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct DebugTimers {
+    pub timers: BTreeMap<String, Duration>,
+}
+
+impl DebugTimers {
+    pub fn total(&self) -> Duration {
+        self.timers.iter().map(|e| e.1).sum()
+    }
+
+    pub fn scope<'a>(&'a mut self, name: &str) -> ScopeTimer<'a> {
+        ScopeTimer {
+            timers: self,
+            name: name.to_string(),
+            start: Instant::now(),
+        }
+    }
+}
+
+impl std::ops::AddAssign for DebugTimers {
+    fn add_assign(&mut self, rhs: Self) {
+        for (k, v) in rhs.timers {
+            self.timers.entry(k).and_modify(|e| *e += v).or_insert(v);
+        }
+    }
+}
+
+pub struct ScopeTimer<'a> {
+    timers: &'a mut DebugTimers,
+    name: String,
+    start: Instant,
+}
+
+impl<'a> Drop for ScopeTimer<'a> {
+    fn drop(&mut self) {
+        let dur = Instant::now() - self.start;
+        self.timers
+            .timers
+            .entry(self.name.clone())
+            .and_modify(|e| *e += dur)
+            .or_insert(dur);
+    }
+}
+
+pub fn update_world(world: &mut World) -> DebugTimers {
     world.ticks += 1;
-    update_ring_particles(&mut world.particles);
-    let dirty_set = update_thrusters(
-        &mut world.thrusters,
-        &world.grids,
-        &world.parts,
-        &world.computers,
-    );
 
-    world.grid_acceleration_updates += dirty_set.len() as u64;
-    update_grid_acceleration_c(dirty_set, &mut world.grids, &world.thrusters, &world.parts);
-    update_computers(&mut world.computers, &world.parts, &world.grids);
-    propagate_grid_rigid_bodies(&mut world.grids);
-    update_trackers(&mut world.tracking, &world.grids, world.ticks);
+    let mut timers = DebugTimers::default();
 
-    // let ticks_per_minute = TICKS_PER_SECOND * 60;
-    // if world.ticks % ticks_per_minute == 1 {
-    update_pipes(&mut world.inventories, &mut world.pipes);
-    fill_inventories_attached_to_debug_sources(world);
-    update_machines(world);
-    // }
+    {
+        let _timer = timers.scope("grid_motion");
+
+        update_ring_particles(&mut world.particles);
+        let dirty_set = update_thrusters(
+            &mut world.thrusters,
+            &world.grids,
+            &world.parts,
+            &world.computers,
+        );
+
+        world.grid_acceleration_updates += dirty_set.len() as u64;
+        update_grid_acceleration_c(dirty_set, &mut world.grids, &world.thrusters, &world.parts);
+        update_computers(&mut world.computers, &world.parts, &world.grids);
+        propagate_grid_rigid_bodies(&mut world.grids);
+    }
+
+    {
+        let _timer = timers.scope("update_trackers");
+
+        update_trackers(&mut world.tracking, &world.grids, world.ticks);
+    }
+
+    {
+        let _timer = timers.scope("update_pipes");
+
+        update_pipes(&mut world.inventories, &mut world.pipes);
+    }
+
+    {
+        let _timer = timers.scope("fill_inventories");
+
+        fill_inventories_attached_to_debug_sources(world);
+    }
+
+    {
+        let _timer = timers.scope("update_machines");
+
+        update_machines(world);
+    }
+
+    timers
 }
 
 pub fn consume_rdev_event_into_input_state(input: &mut InputState, event: &rdev::Event) {

@@ -16,10 +16,9 @@ use raylib::prelude::*;
 // use std::time::Duration;
 // use steamworks::{LobbyChatMsg, LobbyEnter, PersonaStateChange};
 
-fn draw_debug_info(app: &App, assets: &Assets, d: &mut RaylibDrawHandle) {
+fn draw_debug_info(app: &App, assets: &Assets, timers: &DebugTimers, d: &mut RaylibDrawHandle) {
     let world = &app.world;
     let client = &app.client;
-    let debug = &app.debug;
 
     let size = size_in_bytes(world);
     let mut s = String::new();
@@ -38,13 +37,6 @@ fn draw_debug_info(app: &App, assets: &Assets, d: &mut RaylibDrawHandle) {
     };
 
     s += &format!(
-        "\nP\n{}",
-        fmt_time(debug.timers.physics, debug.timers.total)
-    );
-    s += &format!("\nR\n{}", fmt_time(debug.timers.render, debug.timers.total));
-    s += &format!("\nT\n{}", fmt_time(debug.timers.total, debug.timers.total));
-
-    s += &format!(
         "\nW {} {:0.1} {}",
         world.ticks,
         apparent_elapsed_time(world).as_secs_f64(),
@@ -55,6 +47,15 @@ fn draw_debug_info(app: &App, assets: &Assets, d: &mut RaylibDrawHandle) {
     s += &format!("\nMemory: {:0.3} kb", size as f64 / 1000.0);
     s += &format!("\nZoom: {:0.3}", client.camera.zoom);
     s += &format!("\nUpdates: {}", world.grid_acceleration_updates);
+
+    let total = timers.total();
+
+    s += &format!("\ntotal\n{}", fmt_time(total, total));
+
+    for timer in timers.timers.iter() {
+        let time = fmt_time(*timer.1, total);
+        s += &format!("\n{}\n{}", timer.0, time);
+    }
 
     // s += &format!("\nMOUSE {:?}", client.mouse_screen_position);
     // s += &format!("\nHOVER {:?}", client.selection_info.hovered);
@@ -174,17 +175,17 @@ fn main() {
         let mut sounds = SoundEffects::new();
         let mut actions = Vec::new();
 
-        app.runner.update(
-            &mut app.world,
-            &mut app.client,
-            &mut app.debug,
-            &mut sounds,
-            &mut actions,
-        );
+        let mut timers =
+            app.runner
+                .update(&mut app.world, &mut app.client, &mut sounds, &mut actions);
 
         // CONSTRUCT IMMEDIATE-MODE GUI
 
-        let gui = imgui::imgui_pass(&mut app.client, &mut app.world, &mut sounds);
+        let gui = {
+            let _timer = timers.scope("imgui");
+
+            imgui::imgui_pass(&mut app.client, &mut app.world, &mut sounds)
+        };
 
         // HANDLE RDEV EVENTS (DEPRECATED - USE INPUTSTATE)
 
@@ -202,7 +203,6 @@ fn main() {
         // AND DRAW IT ALL
 
         rl.draw(&thread, |mut d: RaylibDrawHandle<'_>| {
-            let start = std::time::Instant::now();
             d.clear_background(Color::BLACK);
 
             draw::draw_world(&app.world, &app.client, &assets, &gui, &mut d);
@@ -211,11 +211,7 @@ fn main() {
 
             draw::draw_mouse_screen_position(&mut d, app.client.mouse_screen_position);
 
-            let end = std::time::Instant::now();
-            app.debug.timers.render = end - start;
-            app.debug.timers.total = end - loop_start;
-
-            draw_debug_info(&app, &assets, &mut d);
+            draw_debug_info(&app, &assets, &timers, &mut d);
         });
 
         handle_sounds(sounds, &audio, &mut active_sounds);

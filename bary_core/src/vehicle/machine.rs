@@ -52,7 +52,7 @@ impl Machine {
         }
     }
 
-    fn take_inputs_if_possible(&self, inv: &mut Inventory) -> bool {
+    pub fn take_inputs_if_possible(&self, inv: &mut Inventory) -> bool {
         let recipe = match self.recipe() {
             Some(r) => r,
             _ => return false,
@@ -85,7 +85,7 @@ impl Machine {
         return true;
     }
 
-    fn store_outputs_if_possible(&self, inv: &mut Inventory) -> bool {
+    pub fn store_outputs_if_possible(&self, inv: &mut Inventory) -> bool {
         let recipe = match self.recipe() {
             Some(r) => r,
             _ => return false,
@@ -116,43 +116,5 @@ impl Machine {
         }
 
         return true;
-    }
-
-    pub fn step_process(&mut self, inv: &mut Inventory) {
-        if self.recipe().is_none() {
-            self.status = MachineStatus::NoRecipe;
-            return;
-        }
-
-        if !self.enabled {
-            self.status = MachineStatus::Off;
-            return;
-        }
-
-        if self.steps == 0 {
-            if self.take_inputs_if_possible(inv) {
-                self.steps += 1;
-                self.status = MachineStatus::Running;
-                return;
-            } else {
-                self.status = MachineStatus::Starved;
-                return;
-            }
-        }
-
-        if self.steps > 0 && self.steps < self.required_steps {
-            self.status = MachineStatus::Running;
-            self.steps += 1;
-        } else if self.steps >= self.required_steps {
-            if self.store_outputs_if_possible(inv) {
-                self.steps = 0;
-                self.products_finished += 1;
-                self.status = MachineStatus::Running;
-            } else {
-                self.status = MachineStatus::NoRoom;
-            }
-        } else {
-            self.status = MachineStatus::Off;
-        }
     }
 }

@@ -696,7 +696,19 @@ pub fn atomic_transfer(src: &mut InvSlot, dst: &mut InvSlot, mass: Mass) -> Mach
         return MachineStatus::Starved;
     };
 
+    if let Some(dst_item) = dst.item() {
+        if dst_item != item {
+            return MachineStatus::NoRoom;
+        }
+    }
+
+    let src_count = src.count();
+
+    let dst_available = (dst.available_volume() / item.volume_per_unit()).floor() as u64;
+
     let count = ((mass / item.mass_per_unit()).round() as u64).max(1);
+
+    let count = count.min(src_count.min(dst_available));
 
     if !src.can_take(item, count) {
         return MachineStatus::Starved;
