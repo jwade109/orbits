@@ -188,6 +188,8 @@ pub fn draw_world(
 
     let is_holding_shift = client.input.is_key_pressed(rdev::Key::ShiftLeft);
 
+    draw_pipes(&mut c, &world.grids, &world.parts, &world.pipes);
+
     if client.viewport.is_real_view() {
         draw_computer_target_isometry(&mut c, &world.computers, &world.parts, &world.grids);
 
@@ -214,8 +216,6 @@ pub fn draw_world(
         draw_trackers(&mut c, &world.tracking, is_holding_shift);
     } else if let Viewport::Editor(e) = &client.viewport {
         draw_grid_lines(&mut c, &world.grids, e);
-
-        draw_pipes(&mut c, &world.grids, &world.parts, &world.pipes);
     }
 
     if is_holding_shift {

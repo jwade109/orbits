@@ -7,20 +7,27 @@ use bary_core::prelude::*;
 use log::*;
 use std::path::PathBuf;
 
+enum WorldBuilderCommand {
+    LoadBlueprint(BlueprintId),
+    SpawnShip(BlueprintId, Option<String>, Isometry2d),
+    ModifyWorld(WorldAction),
+    InsertDebugSource(PartCoord, Item),
+    InsertPipe(PartCoord, PartCoord),
+    SetRecipe(PartCoord, RecipeListing),
+}
+
 pub struct WorldBuilder {
     assets_dir: Option<String>,
-    blueprints: Vec<BlueprintId>,
-    spawns: Vec<(BlueprintId, Option<String>, Isometry2d)>,
-    commands: Vec<WorldAction>,
+    commands: Vec<WorldBuilderCommand>,
+    cursor_grid: Option<Ent>,
 }
 
 impl WorldBuilder {
     pub fn new() -> Self {
         Self {
             assets_dir: None,
-            blueprints: Vec::new(),
-            spawns: Vec::new(),
             commands: Vec::new(),
+            cursor_grid: None,
         }
     }
 
@@ -35,7 +42,8 @@ impl WorldBuilder {
     }
 
     pub fn blueprint(mut self, id: impl Into<BlueprintId>) -> Self {
-        self.blueprints.push(id.into());
+        let cmd = WorldBuilderCommand::LoadBlueprint(id.into());
+        self.commands.push(cmd);
         self
     }
 
@@ -47,7 +55,26 @@ impl WorldBuilder {
     ) -> Self {
         let name = name.into();
         let name = if name.is_empty() { None } else { Some(name) };
-        self.spawns.push((bp_id.into(), name, iso.into()));
+        let cmd = WorldBuilderCommand::SpawnShip(bp_id.into(), name, iso.into());
+        self.commands.push(cmd);
+        self
+    }
+
+    pub fn insert_source(mut self, coord: impl Into<PartCoord>, item: Item) -> Self {
+        let cmd = WorldBuilderCommand::InsertDebugSource(coord.into(), item);
+        self.commands.push(cmd);
+        self
+    }
+
+    pub fn set_recipe(mut self, coord: impl Into<PartCoord>, recipe: RecipeListing) -> Self {
+        let cmd = WorldBuilderCommand::SetRecipe(coord.into(), recipe);
+        self.commands.push(cmd);
+        self
+    }
+
+    pub fn insert_pipe(mut self, a: impl Into<PartCoord>, b: impl Into<PartCoord>) -> Self {
+        let cmd = WorldBuilderCommand::InsertPipe(a.into(), b.into());
+        self.commands.push(cmd);
         self
     }
 
@@ -56,61 +83,105 @@ impl WorldBuilder {
             name: grid_name.to_string(),
             waypoint: waypoint.into(),
         };
+        let cmd = WorldBuilderCommand::ModifyWorld(cmd);
         self.commands.push(cmd);
         self
     }
 
     pub fn command(mut self, action: WorldAction) -> Self {
-        self.commands.push(action);
+        let cmd = WorldBuilderCommand::ModifyWorld(action);
+        self.commands.push(cmd);
         self
     }
 
-    pub fn build(self) -> World {
+    pub fn build(mut self) -> World {
         let mut world = World::empty();
 
         if let Some(assets_dir) = self.assets_dir {
             let parts_dir = PathBuf::from(&assets_dir).join("parts");
 
-            let parts = load_parts_from_dir(&parts_dir).expect("Parts dir");
-
             let ship_names_path = PathBuf::from(&assets_dir).join("ship_names.txt");
             world.ship_names = load_names_from_file(ship_names_path).unwrap_or(vec![]);
+
+            let parts = load_parts_from_dir(&parts_dir).expect("Parts dir");
 
             for (_, part) in &parts {
                 let id = world.spawner.spawn();
                 world.prototypes.spawn(id, part.clone());
             }
 
-            for bpid in self.blueprints {
-                let id = world.spawner.spawn();
-                let bp = load_blueprint(&bpid, &assets_dir, &parts).expect("Vehicle dir");
-                let bp = NamedBlueprint {
-                    id: bpid,
-                    blueprint: bp,
-                };
-                info!(
-                    "Loaded blueprint: {} v{} ({} parts)",
-                    bp.id.0,
-                    bp.id.1,
-                    bp.blueprint.part_count()
-                );
-                world.blueprints.spawn(id, bp);
+            for cmd in self.commands {
+                match cmd {
+                    WorldBuilderCommand::LoadBlueprint(bpid) => {
+                        let id = world.spawner.spawn();
+                        let bp = load_blueprint(&bpid, &assets_dir, &parts).expect("Vehicle dir");
+                        let bp = NamedBlueprint {
+                            id: bpid,
+                            blueprint: bp,
+                        };
+                        info!(
+                            "Loaded blueprint: {} v{} ({} parts)",
+                            bp.id.0,
+                            bp.id.1,
+                            bp.blueprint.part_count()
+                        );
+                        world.blueprints.spawn(id, bp);
+                    }
+                    WorldBuilderCommand::SpawnShip(bp_id, name, iso) => {
+                        let id = match name {
+                            Some(name) => spawn_grid_with_bp_id(&mut world, &bp_id, &name),
+                            None => spawn_grid_with_random_name(&mut world, bp_id),
+                        };
+
+                        match id {
+                            Ok(id) => {
+                                self.cursor_grid = Some(id);
+                                _ = set_grid_pose(&mut world, id, iso);
+                            }
+                            Err(e) => {
+                                error!("Failed to spawn grid: {e:?}");
+                            }
+                        }
+                    }
+                    WorldBuilderCommand::ModifyWorld(action) => {
+                        apply_world_action(&mut world, action);
+                    }
+                    WorldBuilderCommand::InsertDebugSource(coord, item) => {
+                        if let Some(grid_id) = self.cursor_grid {
+                            let action = WorldAction::InsertPart {
+                                grid_id,
+                                coord,
+                                rotation: Rotation::East,
+                                layer: PartLayer::Plumbing,
+                                name: "debug-source".to_string(),
+                            };
+                            apply_world_action(&mut world, action);
+                            let action = WorldAction::SetSourceItem {
+                                grid_id,
+                                coord,
+                                item,
+                            };
+                            apply_world_action(&mut world, action);
+                        }
+                    }
+                    WorldBuilderCommand::InsertPipe(src, dst) => {
+                        if let Some(grid_id) = self.cursor_grid {
+                            let action = WorldAction::InsertPipe { grid_id, src, dst };
+                            apply_world_action(&mut world, action);
+                        }
+                    }
+                    WorldBuilderCommand::SetRecipe(coord, recipe) => {
+                        if let Some(grid_id) = self.cursor_grid {
+                            let action = WorldAction::SetRecipe {
+                                grid_id,
+                                coord,
+                                recipe,
+                            };
+                            apply_world_action(&mut world, action);
+                        }
+                    }
+                }
             }
-        }
-
-        for (bp_id, name, iso) in self.spawns {
-            let id = match name {
-                Some(name) => spawn_grid_with_bp_id(&mut world, &bp_id, &name),
-                None => spawn_grid_with_random_name(&mut world, bp_id),
-            };
-
-            if let Ok(id) = id {
-                _ = set_grid_pose(&mut world, id, iso);
-            }
-        }
-
-        for action in self.commands {
-            apply_world_action(&mut world, action);
         }
 
         world

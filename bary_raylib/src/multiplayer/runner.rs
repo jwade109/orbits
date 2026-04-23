@@ -7,7 +7,6 @@ use std::time::{Duration, Instant};
 
 pub struct WorldRunner {
     last_update: Instant,
-    nominal_world_duration: Duration,
 }
 
 fn run_timer(mut func: impl FnMut()) -> Duration {
@@ -17,8 +16,12 @@ fn run_timer(mut func: impl FnMut()) -> Duration {
 }
 
 fn update_headless(world: &mut World, nominal_world_dur: Duration) {
-    while apparent_elapsed_time(world) < nominal_world_dur {
+    let start = Instant::now();
+    let max_dur = Duration::from_millis(10);
+    let mut dur = Duration::ZERO;
+    while apparent_elapsed_time(world) < nominal_world_dur && dur < max_dur {
         update_world(world);
+        dur = Instant::now() - start;
     }
 }
 
@@ -42,16 +45,16 @@ impl WorldRunner {
     pub fn new() -> Self {
         Self {
             last_update: Instant::now(),
-            nominal_world_duration: Duration::ZERO,
         }
     }
 
     pub fn update_headless(&mut self, world: &mut World) {
         let now = Instant::now();
         let delta = now - self.last_update;
-        self.nominal_world_duration += delta * world.tick_rate;
+        let world_time = apparent_elapsed_time(world);
+        let nominal_world_dur = world_time + delta * world.tick_rate;
         self.last_update = now;
-        update_headless(world, self.nominal_world_duration);
+        update_headless(world, nominal_world_dur);
     }
 
     pub fn update(
@@ -64,9 +67,10 @@ impl WorldRunner {
     ) {
         let now = Instant::now();
         let delta = now - self.last_update;
-        self.nominal_world_duration += delta * world.tick_rate;
+        let world_time = apparent_elapsed_time(world);
+        let nominal_world_dur = world_time + delta * world.tick_rate;
         self.last_update = now;
 
-        debug.timers.physics = frame_update(world, client, self.nominal_world_duration, sounds);
+        debug.timers.physics = frame_update(world, client, nominal_world_dur, sounds);
     }
 }

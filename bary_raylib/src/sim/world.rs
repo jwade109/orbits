@@ -743,13 +743,12 @@ pub fn update_world(world: &mut World) {
     propagate_grid_rigid_bodies(&mut world.grids);
     update_trackers(&mut world.tracking, &world.grids, world.ticks);
 
-    // let ticks_per_minute = TICKS_PER_SECOND * 4;
-    // if world.ticks % ticks_per_minute == 3 {
-    fill_inventories_attached_to_debug_sources(world);
+    // let ticks_per_minute = TICKS_PER_SECOND * 60;
+    // if world.ticks % ticks_per_minute == 1 {
     update_pipes(&mut world.inventories, &mut world.pipes);
-    // }
-
+    fill_inventories_attached_to_debug_sources(world);
     update_machines(world);
+    // }
 }
 
 pub fn consume_rdev_event_into_input_state(input: &mut InputState, event: &rdev::Event) {

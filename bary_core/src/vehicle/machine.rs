@@ -21,7 +21,7 @@ impl Machine {
     pub fn from_data(data: MachineData) -> Self {
         Self {
             enabled: true,
-            recipe: RecipeListing::CarbonDioxideCondensation,
+            recipe: RecipeListing::DoNothing,
             steps: 0,
             required_steps: 1000,
             products_finished: 0,
