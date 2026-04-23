@@ -1,7 +1,7 @@
 use bary_core::prelude::*;
 use bary_raylib::multiplayer::*;
 use bary_raylib::sim::World;
-use bary_raylib::wall_timer::WallTimer;
+use bary_raylib::utils::WallTimer;
 use bary_raylib::world_builder::WorldBuilder;
 use log::{info, warn};
 use std::thread::JoinHandle;

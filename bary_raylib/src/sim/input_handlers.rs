@@ -1,6 +1,6 @@
 use crate::camera::Camera;
 use crate::client::*;
-use crate::input_state::InputState;
+use crate::utils::InputState;
 use crate::multiplayer::*;
 use crate::persistence::save_world;
 use crate::sim::*;

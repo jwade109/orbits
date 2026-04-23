@@ -1,5 +1,6 @@
 use super::Chat;
-use crate::{camera::Camera, client::EditorState, input_state::InputState};
+use crate::utils::InputState;
+use crate::{camera::Camera, client::EditorState};
 use bary_core::prelude::*;
 use serde::{Deserialize, Serialize};
 

@@ -231,7 +231,7 @@ impl Computer {
     }
 }
 
-pub fn update_computers(
+pub fn sys_update_computers(
     computers: &mut Components<Computer>,
     parts: &Components<Part>,
     grids: &Components<VehicleGrid>,

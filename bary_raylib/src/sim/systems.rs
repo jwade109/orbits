@@ -100,7 +100,7 @@ pub fn body_frame_wrench(
     Isometry2d::new(thrust, torque as f32)
 }
 
-pub fn update_grid_acceleration_c(
+pub fn sys_update_grid_acceleration_c(
     dirty_set: BTreeSet<Ent>,
     grids: &mut Components<VehicleGrid>,
     thrusters: &Components<Thruster>,
@@ -222,7 +222,7 @@ pub fn set_all_thrusters(grid_id: Ent, new_state: bool, world: &mut World) -> Ba
 }
 
 pub fn update_grid_acceleration(dirty_set: BTreeSet<Ent>, world: &mut World) {
-    update_grid_acceleration_c(dirty_set, &mut world.grids, &world.thrusters, &world.parts);
+    sys_update_grid_acceleration_c(dirty_set, &mut world.grids, &world.thrusters, &world.parts);
 }
 
 /// Spawns a grid according to the given blueprint.

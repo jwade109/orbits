@@ -6,7 +6,6 @@ pub mod cmd;
 pub mod components;
 pub mod constants;
 pub mod imgui;
-pub mod input_state;
 pub mod multiplayer;
 pub mod persistence;
 pub mod render;
@@ -15,7 +14,6 @@ pub mod sounds;
 pub mod tests;
 pub mod ui;
 pub mod utils;
-pub mod wall_timer;
 pub mod world_builder;
 
 /// A namespace of functions which are potentially expensive,
@@ -63,7 +61,7 @@ pub mod ops {
     pub use crate::sim::vehicle::duplicate_part_to_new_grid;
     pub use crate::sim::vehicle::rebuild_index_from_island;
     pub use crate::sim::vehicle::split_grid_if_necessary;
-    pub use crate::sim::vehicle::update_computers;
-    pub use crate::sim::world::update_trackers;
+    pub use crate::sim::vehicle::sys_update_computers;
+    pub use crate::sim::world::sys_update_trackers;
     pub use crate::sim::world::update_world;
 }

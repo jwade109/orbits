@@ -37,7 +37,9 @@ fn draw_debug_info(app: &App, assets: &Assets, timers: &DebugTimers, d: &mut Ray
     };
 
     s += &format!(
-        "\nW {} {:0.1} {}",
+        "\nW {}/{} {} {:0.1} {}",
+        timers.ticks,
+        world.tick_rate,
         world.ticks,
         apparent_elapsed_time(world).as_secs_f64(),
         apparent_datetime(world).format("%b %d %Y %I:%M:%S %p"),
@@ -47,6 +49,7 @@ fn draw_debug_info(app: &App, assets: &Assets, timers: &DebugTimers, d: &mut Ray
     s += &format!("\nMemory: {:0.3} kb", size as f64 / 1000.0);
     s += &format!("\nZoom: {:0.3}", client.camera.zoom);
     s += &format!("\nUpdates: {}", world.grid_acceleration_updates);
+    s += &format!("\nPipes: {}", world.pipes.len());
 
     let total = timers.total();
 

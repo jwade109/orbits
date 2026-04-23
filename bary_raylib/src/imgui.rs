@@ -4,7 +4,7 @@ use crate::camera::to_raylib_camera;
 use crate::client::ClientSpecificInfo;
 use crate::cmd::prompt::draw_command_prompt;
 use crate::components::Components;
-use crate::input_state::InputState;
+use crate::utils::InputState;
 use crate::render::draw::*;
 use crate::sim::find::{grid_pose, gridloc_pose};
 use crate::sim::input_handlers::{

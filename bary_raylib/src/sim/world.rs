@@ -3,7 +3,6 @@ use crate::client::*;
 use crate::components::*;
 use crate::constants::*;
 use crate::imgui::*;
-use crate::input_state::*;
 use crate::multiplayer::Action;
 use crate::ops::destroy_part_without_integrity_check;
 use crate::ops::detach_part_from_parent;
@@ -14,10 +13,7 @@ use crate::sounds::*;
 use crate::utils::*;
 use bary_core::prelude::PI;
 use bary_core::prelude::*;
-use early_returns::ok_or_continue;
-use early_returns::ok_or_return;
-use early_returns::some_or_continue;
-use early_returns::some_or_return;
+use early_returns::*;
 use log::*;
 use rdev::Button;
 use serde::{Deserialize, Serialize};
@@ -52,27 +48,6 @@ pub struct World {
 
     // TODO might move this to assets.
     pub ship_names: Vec<String>,
-}
-
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct Star {
-    pub pos: Vec3,
-    pub alpha: f32,
-}
-
-pub fn spawn_stars(spawner: &mut EntitySpawner) -> Components<Star> {
-    let n_stars = 4000;
-    let mut stars = Components::default();
-    for _ in 0..n_stars {
-        let pos = randvec(0.0, 10000.0);
-        let star = Star {
-            pos: pos.extend(rand(0.3, 0.9)),
-            alpha: rand(0.5, 1.0),
-        };
-        let id = spawner.spawn();
-        stars.spawn(id, star);
-    }
-    stars
 }
 
 impl std::fmt::Debug for World {
@@ -305,7 +280,7 @@ pub fn detach_top_part_at(world: &mut World, grid_id: Ent, coord: PartCoord) -> 
     Ok(top_part)
 }
 
-fn propagate_grid_rigid_bodies(grids: &mut Components<VehicleGrid>) {
+fn sys_propagate_grid_rigid_bodies(grids: &mut Components<VehicleGrid>) {
     for grid in grids.values_mut() {
         let body_frame_accel = grid.linear_acceleration();
         let omega = grid.angular_acceleration();
@@ -317,7 +292,7 @@ fn propagate_grid_rigid_bodies(grids: &mut Components<VehicleGrid>) {
     }
 }
 
-fn update_thrusters(
+fn sys_update_thrusters(
     thrusters: &mut Components<Thruster>,
     grids: &Components<VehicleGrid>,
     parts: &Components<Part>,
@@ -632,7 +607,7 @@ fn editor_on_left_click(
     }
 }
 
-pub fn update_trackers(
+pub fn sys_update_trackers(
     trackers: &mut Components<Tracker>,
     grids: &Components<VehicleGrid>,
     ticks: u64,
@@ -664,7 +639,7 @@ pub fn update_trackers(
     }
 }
 
-pub fn fill_inventories_attached_to_debug_sources(world: &mut World) {
+pub fn sys_fill_inventories_attached_to_debug_sources(world: &mut World) {
     for (part_id, portal) in world.debug_portals.iter() {
         let part = ok_or_continue!(world.parts.try_get(*part_id));
         let loc = GridLocation::new(part.grid_id, part.region.origin());
@@ -702,13 +677,22 @@ pub fn set_inventory_slot(
     Ok(())
 }
 
-pub fn update_pipes(inventories: &mut Components<Inventory>, pipes: &mut Components<Pipe>) {
+pub fn sys_update_pipes(inventories: &mut Components<Inventory>, pipes: &mut Components<Pipe>) {
     for pipe in pipes.values_mut() {
         let inv_a = ok_or_continue!(inventories.try_get(pipe.src.part_id));
         let inv_b = ok_or_continue!(inventories.try_get(pipe.dst.part_id));
 
         let mut src = some_or_continue!(inv_a.get_slot(pipe.src.slot)).clone();
         let mut dst = some_or_continue!(inv_b.get_slot(pipe.dst.slot)).clone();
+
+        if src.is_empty() {
+            pipe.status = MachineStatus::Starved;
+            continue;
+        }
+        if dst.is_empty() {
+            pipe.status = MachineStatus::NoRoom;
+            continue;
+        }
 
         let mass = {
             let mul = randint(140, 160);
@@ -770,7 +754,7 @@ pub fn step_process(machine: &mut Machine, id: Ent, inv: &mut Components<Invento
     }
 }
 
-pub fn update_machines(world: &mut World) {
+pub fn sys_update_machines(world: &mut World) {
     for (part_id, machine) in world.machines.iter_mut() {
         step_process(machine, *part_id, &mut world.inventories);
     }
@@ -778,6 +762,7 @@ pub fn update_machines(world: &mut World) {
 
 #[derive(Debug, Default)]
 pub struct DebugTimers {
+    pub ticks: u64,
     pub timers: BTreeMap<String, Duration>,
 }
 
@@ -797,6 +782,7 @@ impl DebugTimers {
 
 impl std::ops::AddAssign for DebugTimers {
     fn add_assign(&mut self, rhs: Self) {
+        self.ticks += rhs.ticks;
         for (k, v) in rhs.timers {
             self.timers.entry(k).and_modify(|e| *e += v).or_insert(v);
         }
@@ -824,12 +810,13 @@ pub fn update_world(world: &mut World) -> DebugTimers {
     world.ticks += 1;
 
     let mut timers = DebugTimers::default();
+    timers.ticks += 1;
 
     {
         let _timer = timers.scope("grid_motion");
 
-        update_ring_particles(&mut world.particles);
-        let dirty_set = update_thrusters(
+        sys_update_ring_particles(&mut world.particles);
+        let dirty_set = sys_update_thrusters(
             &mut world.thrusters,
             &world.grids,
             &world.parts,
@@ -837,33 +824,33 @@ pub fn update_world(world: &mut World) -> DebugTimers {
         );
 
         world.grid_acceleration_updates += dirty_set.len() as u64;
-        update_grid_acceleration_c(dirty_set, &mut world.grids, &world.thrusters, &world.parts);
-        update_computers(&mut world.computers, &world.parts, &world.grids);
-        propagate_grid_rigid_bodies(&mut world.grids);
+        sys_update_grid_acceleration_c(dirty_set, &mut world.grids, &world.thrusters, &world.parts);
+        sys_update_computers(&mut world.computers, &world.parts, &world.grids);
+        sys_propagate_grid_rigid_bodies(&mut world.grids);
     }
 
     {
         let _timer = timers.scope("update_trackers");
 
-        update_trackers(&mut world.tracking, &world.grids, world.ticks);
+        sys_update_trackers(&mut world.tracking, &world.grids, world.ticks);
     }
 
     {
         let _timer = timers.scope("update_pipes");
 
-        update_pipes(&mut world.inventories, &mut world.pipes);
+        sys_update_pipes(&mut world.inventories, &mut world.pipes);
     }
 
     {
         let _timer = timers.scope("fill_inventories");
 
-        fill_inventories_attached_to_debug_sources(world);
+        sys_fill_inventories_attached_to_debug_sources(world);
     }
 
     {
         let _timer = timers.scope("update_machines");
 
-        update_machines(world);
+        sys_update_machines(world);
     }
 
     timers
@@ -1076,7 +1063,7 @@ fn set_cams_to_grid_pose(
     }
 }
 
-fn update_ring_particles(particles: &mut Vec<PingParticle>) {
+fn sys_update_ring_particles(particles: &mut Vec<PingParticle>) {
     for ring in particles.iter_mut() {
         ring.step()
     }
