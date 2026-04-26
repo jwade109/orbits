@@ -1,10 +1,10 @@
 use crate::camera::Camera;
 use crate::client::*;
-use crate::utils::InputState;
 use crate::multiplayer::*;
 use crate::persistence::save_world;
 use crate::sim::*;
 use crate::sounds::*;
+use crate::utils::InputState;
 use crate::utils::*;
 use bary_core::prelude::*;
 use early_returns::*;
@@ -146,7 +146,14 @@ pub fn save_on_ctrl_s(world: &mut World, client: &mut ClientSpecificInfo) {
     }
 
     let now = chrono::offset::Local::now();
-    let filename = format!("./saves/world-{}/", now.format("%Y-%m-%d-%H-%M-%S"));
+
+    let home = std::env::var("HOME").unwrap();
+
+    let filename = format!(
+        "{}/.barycenter/saves/world-{}/",
+        home,
+        now.format("%Y-%m-%d-%H-%M-%S")
+    );
     match save_world(&filename, world, true) {
         Ok(_) => {
             let s = format!("Saved to {}", filename);

@@ -96,7 +96,7 @@ pub fn load_world(dir: impl AsRef<Path>) -> BaryResult<World> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{sim::world::update_world, world_builder::WorldBuilder};
+    use crate::{sim::update_world, world_builder::WorldBuilder};
 
     use super::*;
 

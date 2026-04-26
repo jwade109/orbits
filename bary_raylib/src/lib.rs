@@ -56,12 +56,11 @@ pub mod ops {
     pub use crate::sim::systems::update_grid_acceleration;
     pub use crate::sim::systems::update_grid_physical_props;
     pub use crate::sim::systems::update_grid_physical_props_by_id;
+    pub use crate::sim::update_world;
     pub use crate::sim::vehicle::destroy_part_without_integrity_check;
     pub use crate::sim::vehicle::detach_part_from_parent;
     pub use crate::sim::vehicle::duplicate_part_to_new_grid;
     pub use crate::sim::vehicle::rebuild_index_from_island;
     pub use crate::sim::vehicle::split_grid_if_necessary;
     pub use crate::sim::vehicle::sys_update_computers;
-    pub use crate::sim::world::sys_update_trackers;
-    pub use crate::sim::world::update_world;
 }

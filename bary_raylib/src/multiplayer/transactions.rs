@@ -1,8 +1,8 @@
 use crate::client::ClientSpecificInfo;
 use crate::ops;
+use crate::sim::insert_pipe;
 use crate::sim::world::World;
-use crate::sim::{DebugTimers, insert_pipe_at};
-use crate::{sim::systems::*, sim::world::update_world};
+use crate::{sim::systems::*, sim::update_world};
 use bary_core::prelude::*;
 use early_returns::*;
 use log::{info, warn};
@@ -154,7 +154,7 @@ pub fn apply_world_action(world: &mut World, action: WorldAction) {
             }
         }
         WorldAction::InsertPipe { grid_id, src, dst } => {
-            _ = insert_pipe_at(grid_id, src, dst, world);
+            _ = insert_pipe(grid_id, src, dst, world);
         }
         WorldAction::SetRecipe {
             grid_id,

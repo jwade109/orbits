@@ -8,7 +8,7 @@ use bary_raylib::{
     sim::{
         TimedInstruction,
         systems::{find, get_thruster_levels},
-        world::update_world,
+        update_world,
     },
     world_builder::WorldBuilder,
 };
