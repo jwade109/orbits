@@ -4,7 +4,7 @@ use crate::prelude::*;
 use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::BTreeMap,
     path::Path,
 };
 

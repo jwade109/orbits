@@ -6,7 +6,6 @@ use crate::imgui::*;
 use crate::multiplayer::Action;
 use crate::ops::destroy_part_without_integrity_check;
 use crate::ops::detach_part_from_parent;
-use crate::sim::find::get_slot_mut_c;
 use crate::sim::input_handlers;
 use crate::sim::*;
 use crate::sounds::*;

@@ -14,5 +14,5 @@ pub use grid::*;
 pub use light::*;
 pub use occupancy::*;
 pub use part::*;
-pub use thruster::*;
 pub use systems::*;
+pub use thruster::*;

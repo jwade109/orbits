@@ -1,5 +1,4 @@
 use crate::math::*;
-use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]

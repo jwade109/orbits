@@ -1,25 +1,11 @@
-use crate::camera::Camera;
 use crate::client::*;
 use crate::components::*;
 use crate::constants::*;
-use crate::imgui::*;
-use crate::multiplayer::Action;
-use crate::ops::destroy_part_without_integrity_check;
-use crate::ops::detach_part_from_parent;
 use crate::sim::find::get_slot_mut_c;
-use crate::sim::input_handlers;
 use crate::sim::*;
-use crate::sounds::*;
-use crate::utils::*;
-use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use early_returns::*;
-use log::*;
-use rdev::Button;
-use serde::{Deserialize, Serialize};
 use std::collections::*;
-use std::time::Duration;
-use std::time::Instant;
 
 fn sys_propagate_grid_rigid_bodies(grids: &mut Components<VehicleGrid>) {
     for grid in grids.values_mut() {

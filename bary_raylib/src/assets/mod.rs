@@ -16,7 +16,9 @@ pub struct Assets {
     pub ship_names: Vec<String>,
 }
 
-pub fn load_names_from_file(filename: impl AsRef<Path>) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+pub fn load_names_from_file(
+    filename: impl AsRef<Path>,
+) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     Ok(std::fs::read_to_string(filename)?
         .lines()
         .filter_map(|s| (!s.is_empty()).then(|| s.to_string()))
