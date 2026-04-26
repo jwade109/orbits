@@ -689,10 +689,6 @@ pub fn sys_update_pipes(inventories: &mut Components<Inventory>, pipes: &mut Com
             pipe.status = MachineStatus::Starved;
             continue;
         }
-        if dst.is_empty() {
-            pipe.status = MachineStatus::NoRoom;
-            continue;
-        }
 
         let mass = {
             let mul = randint(140, 160);
