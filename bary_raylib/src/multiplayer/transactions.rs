@@ -1,8 +1,6 @@
 use crate::client::ClientSpecificInfo;
 use crate::ops;
-use crate::sim::insert_pipe;
-use crate::sim::world::World;
-use crate::{sim::systems::*, sim::update_world};
+use crate::sim::*;
 use bary_core::prelude::*;
 use early_returns::*;
 use log::{info, warn};
@@ -108,7 +106,7 @@ pub fn apply_world_action(world: &mut World, action: WorldAction) {
             _ = ops::set_primary_computer_state(grid_id, true, world);
         }
         WorldAction::SetWaypointByName { name, waypoint } => {
-            if let Some(grid_id) = find::grid_by_name(&world.grids, &name) {
+            if let Some(grid_id) = grid_by_name(&world.grids, &name) {
                 _ = set_primary_computer_waypoint(grid_id, waypoint, world);
                 _ = set_primary_computer_state(grid_id, true, world);
                 _ = toggle_tracking(world, grid_id);
@@ -126,7 +124,7 @@ pub fn apply_world_action(world: &mut World, action: WorldAction) {
             rotation,
             layer,
         } => {
-            let proto_id = some_or_return!(find::proto_by_name(&world.prototypes, &name));
+            let proto_id = some_or_return!(proto_by_name(&world.prototypes, &name));
             let proto = ok_or_return!(world.prototypes.try_get(proto_id));
             let region = GridRegion::new(coord, rotation, proto.dims);
 

@@ -6,12 +6,7 @@ use crate::{
     client::GridLocation,
     ops::{set_grid_pose, set_primary_computer_state, set_primary_computer_waypoint},
     query::{blueprint_by_id, grid_by_name},
-    sim::{
-        PartOccupancy, World, destroy_part,
-        find::{self, grid_pose},
-        get_grid_physical_props_by_id, insert_part, spawn_empty_grid, split_grid_if_necessary,
-        update_world,
-    },
+    sim::*,
     tests::assert_world_is_consistent,
     world_builder::WorldBuilder,
 };
@@ -290,25 +285,25 @@ fn get_inventory_at_grid_location() {
 
     let mut loc = GridLocation::new(grid_id, (3, 0).into());
 
-    let inv_slot = find::inventory_at_c(loc, &world.grids, &world.parts, &world.inventories);
+    let inv_slot = inventory_at_c(loc, &world.grids, &world.parts, &world.inventories);
 
     assert_eq!(inv_slot, Ok((part_id, 0)));
 
     loc.coord = (2, 1).into();
 
-    let inv_slot = find::inventory_at_c(loc, &world.grids, &world.parts, &world.inventories);
+    let inv_slot = inventory_at_c(loc, &world.grids, &world.parts, &world.inventories);
 
     assert_eq!(inv_slot, Ok((part_id, 1)));
 
     loc.coord = (0, 1).into();
 
-    let failure = find::inventory_at_c(loc, &world.grids, &world.parts, &world.inventories);
+    let failure = inventory_at_c(loc, &world.grids, &world.parts, &world.inventories);
 
     assert_eq!(failure, Err(BaryError::NoInvAt((0, 1).into())));
 
     loc.coord = (4, 7).into();
 
-    let failure = find::inventory_at_c(loc, &world.grids, &world.parts, &world.inventories);
+    let failure = inventory_at_c(loc, &world.grids, &world.parts, &world.inventories);
 
     assert_eq!(failure, Err(BaryError::NoPartsAt((4, 7).into())));
 }

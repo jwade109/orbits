@@ -1,4 +1,4 @@
-use crate::sim::{systems::get_grid_physical_props_by_id, world::World};
+use crate::sim::*;
 use anyhow::ensure;
 
 pub fn computer_pointers_are_consistent(world: &World) -> Result<(), anyhow::Error> {

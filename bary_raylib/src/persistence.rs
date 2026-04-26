@@ -1,4 +1,4 @@
-use crate::sim::world::World;
+use crate::sim::*;
 use bary_core::prelude::*;
 use log::*;
 use std::path::Path;

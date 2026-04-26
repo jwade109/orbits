@@ -1,5 +1,5 @@
-use bary_raylib::sim::*;
 use bary_raylib::world_builder::WorldBuilder;
+use bary_raylib::{constants::TICKS_PER_SECOND, sim::*};
 use criterion::{Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
 

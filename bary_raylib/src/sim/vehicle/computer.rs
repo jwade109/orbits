@@ -1,10 +1,6 @@
+use crate::sim::*;
 use bary_core::prelude::*;
 use serde::{Deserialize, Serialize};
-
-use crate::{
-    components::Components,
-    sim::{Part, VehicleGrid},
-};
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub enum Instruction {

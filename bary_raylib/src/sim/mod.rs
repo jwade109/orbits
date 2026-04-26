@@ -1,13 +1,16 @@
-pub mod input_handlers;
-pub mod pipe;
-pub mod ring_particle;
-pub mod star;
-pub mod systems;
-pub mod tracker;
-pub mod update;
-pub mod vehicle;
-pub mod world;
+mod components;
+mod input_handlers;
+mod pipe;
+mod ring_particle;
+mod star;
+mod systems;
+mod tracker;
+mod update;
+mod vehicle;
+mod world;
 
+pub use components::*;
+pub use input_handlers::*;
 pub use pipe::*;
 pub use ring_particle::*;
 pub use star::*;

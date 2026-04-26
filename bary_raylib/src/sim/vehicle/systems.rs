@@ -1,9 +1,6 @@
 use super::grid::*;
-use crate::components::Components;
 use crate::ops;
-use crate::sim::update_grid_physical_props_by_id;
-use crate::sim::vehicle::Part;
-use crate::sim::world::World;
+use crate::sim::*;
 use bary_core::prelude::*;
 use log::info;
 use std::collections::{BTreeMap, BTreeSet};

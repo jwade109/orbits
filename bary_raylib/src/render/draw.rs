@@ -1,9 +1,7 @@
 use crate::assets::*;
 use crate::camera::{Camera, to_raylib_camera};
 use crate::client::*;
-use crate::components::Components;
 use crate::imgui::{ImGui, ZOOM_NEAR_FAR_THRESHOLD};
-use crate::query::grid_origin;
 use crate::sim::*;
 use crate::utils::*;
 use bary_core::prelude::*;

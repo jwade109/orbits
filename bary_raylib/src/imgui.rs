@@ -3,13 +3,8 @@ use crate::assets::Assets;
 use crate::camera::to_raylib_camera;
 use crate::client::ClientSpecificInfo;
 use crate::cmd::prompt::draw_command_prompt;
-use crate::components::Components;
 use crate::render::draw::*;
-use crate::sim::find::{grid_pose, gridloc_pose};
-use crate::sim::input_handlers::{
-    enter_ship_editor, leave_ship_editor_on_escape, spawn_random_ship_on_p,
-};
-use crate::sim::{Computer, PartOccupancy, VehicleGrid, World, find, get_blueprint};
+use crate::sim::*;
 use crate::sounds::*;
 use crate::ui::{Window, draw_window};
 use crate::utils::InputState;
@@ -533,7 +528,7 @@ fn imgui_hovered_part_info(
         occ.to_array()
     );
 
-    let slot = find::get_slot_c(gridloc, &world.grids, &world.parts, &world.inventories);
+    let slot = get_slot_c(gridloc, &world.grids, &world.parts, &world.inventories);
     if let Ok(slot) = slot {
         s += &format!("\n\nInventory slot here: {}", slot_info_str(slot));
     }

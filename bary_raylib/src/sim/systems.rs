@@ -1,5 +1,6 @@
 use crate::assets::get_random_ship_name;
-use crate::components::*;
+use crate::client::GridLocation;
+use crate::constants::TICKS_PER_SECOND;
 use crate::sim::*;
 use bary_core::prelude::*;
 use chrono::NaiveDate;
@@ -7,8 +8,6 @@ use chrono::NaiveDateTime;
 use log::*;
 use std::collections::BTreeSet;
 use std::time::Duration;
-
-pub const TICKS_PER_SECOND: u64 = 50;
 
 pub fn apparent_elapsed_time(world: &World) -> Duration {
     Duration::from_millis(1000 / TICKS_PER_SECOND * world.ticks)
@@ -148,7 +147,7 @@ pub fn set_primary_computer_waypoint_c(
     grids: &Components<VehicleGrid>,
     computers: &mut Components<Computer>,
 ) -> BaryResult<Ent> {
-    let primary_cpu_id = find::primary_computer_id(grid_id, grids)?;
+    let primary_cpu_id = primary_computer_id(grid_id, grids)?;
     let computer = computers.try_get_mut(primary_cpu_id)?;
     let command = TimedInstruction::perp(Instruction::HoldPosition(waypoint.into()));
     computer.command_queue = vec![command];
@@ -164,7 +163,7 @@ pub fn set_primary_computer_state_c(
     grids: &Components<VehicleGrid>,
     computers: &mut Components<Computer>,
 ) -> BaryResult<Ent> {
-    let primary_cpu_id = find::primary_computer_id(grid_id, grids)?;
+    let primary_cpu_id = primary_computer_id(grid_id, grids)?;
     let computer = computers.try_get_mut(primary_cpu_id)?;
     computer.on = new_state;
     Ok(primary_cpu_id)
@@ -280,7 +279,7 @@ pub fn spawn_grid_with_bp_id(
     bp_id: &BlueprintId,
     grid_name: &str,
 ) -> BaryResult<Ent> {
-    let bp = find::blueprint_by_id(&world.blueprints, bp_id)
+    let bp = blueprint_by_id(&world.blueprints, bp_id)
         .ok_or(BaryError::BadBlueprint)?
         .clone();
     spawn_grid_from_blueprint(world, grid_name, Some(bp_id), &bp)
@@ -380,7 +379,7 @@ pub fn insert_part_c(
         return Err(BaryError::GridSpaceOccupied);
     }
 
-    let proto_id = find::proto_by_name(prototypes, &instance.name).ok_or(BaryError::BadPartName)?;
+    let proto_id = proto_by_name(prototypes, &instance.name).ok_or(BaryError::BadPartName)?;
     let proto = prototypes.try_get(proto_id)?;
 
     let part = Part {
@@ -515,181 +514,170 @@ pub fn get_thruster_levels(
     Ok(results)
 }
 
-pub mod find {
-    use log::error;
+/// Produces the entity ID corresponding to a grid's primary CPU,
+/// which by convention is just the first element in the computer index.
+pub fn primary_computer_id(grid_id: Ent, grids: &Components<VehicleGrid>) -> BaryResult<Ent> {
+    let grid = grids.try_get(grid_id)?;
+    Ok(*grid.computers.first().ok_or(BaryError::NoPrimaryComputer)?)
+}
 
-    use crate::client::GridLocation;
+pub fn sum_part_masses(
+    grids: &Components<VehicleGrid>,
+    parts: &Components<Part>,
+    prototypes: &Components<PartPrototype>,
+    grid_id: Ent,
+) -> BaryResult<(Mass, Vec2)> {
+    let grid = grids.try_get(grid_id)?;
+    let mut sum = Mass::ZERO;
+    let mut com = DVec2::ZERO;
+    for part_id in &grid.parts {
+        let part = parts.try_get(*part_id)?;
+        let proto = prototypes.try_get(part.prototype)?;
+        sum += proto.mass;
+        let center = part.region.center_isometry().translation;
+        com += center.as_dvec2();
+    }
+    if !sum.is_zero() {
+        com /= sum.to_kg_f64();
+    }
+    Ok((sum, com.as_vec2()))
+}
 
-    use super::*;
+pub fn sum_part_masses_w(world: &World, grid_id: Ent) -> BaryResult<(Mass, Vec2)> {
+    sum_part_masses(&world.grids, &world.parts, &world.prototypes, grid_id)
+}
 
-    /// Produces the entity ID corresponding to a grid's primary CPU,
-    /// which by convention is just the first element in the computer index.
-    pub fn primary_computer_id(grid_id: Ent, grids: &Components<VehicleGrid>) -> BaryResult<Ent> {
-        let grid = grids.try_get(grid_id)?;
-        Ok(*grid.computers.first().ok_or(BaryError::NoPrimaryComputer)?)
+pub fn blueprint_by_id<'a>(
+    blueprints: &'a Components<NamedBlueprint>,
+    id: &BlueprintId,
+) -> Option<&'a Blueprint> {
+    let result = blueprints.values().find(|bp| &bp.id == id);
+
+    if result.is_none() {
+        error!("Failed to get blueprint with ID {:?}", id);
     }
 
-    pub fn sum_part_masses(
-        grids: &Components<VehicleGrid>,
-        parts: &Components<Part>,
-        prototypes: &Components<PartPrototype>,
-        grid_id: Ent,
-    ) -> BaryResult<(Mass, Vec2)> {
-        let grid = grids.try_get(grid_id)?;
-        let mut sum = Mass::ZERO;
-        let mut com = DVec2::ZERO;
-        for part_id in &grid.parts {
-            let part = parts.try_get(*part_id)?;
-            let proto = prototypes.try_get(part.prototype)?;
-            sum += proto.mass;
-            let center = part.region.center_isometry().translation;
-            com += center.as_dvec2();
+    result.map(|e| &e.blueprint)
+}
+
+/// Produces whatever prototype has the given name, if any.
+pub fn proto_by_name(prototypes: &Components<PartPrototype>, name: &str) -> Option<Ent> {
+    prototypes
+        .iter()
+        .find(|(_, proto)| proto.part_name() == name)
+        .map(|e| *e.0)
+}
+
+pub fn grid_origin(grids: &Components<VehicleGrid>, grid_id: Ent) -> Option<Isometry2d> {
+    let grid = grids.try_get(grid_id).ok()?;
+    Some(grid.origin())
+}
+
+pub fn grid_pose(grids: &Components<VehicleGrid>, grid_id: Ent) -> Option<Isometry2d> {
+    let grid = grids.try_get(grid_id).ok()?;
+    Some(grid.particle_location)
+}
+
+pub fn grid_vel(grids: &Components<VehicleGrid>, grid_id: Ent) -> Option<Isometry2d> {
+    let grid = grids.try_get(grid_id).ok()?;
+    Some(grid.velocity)
+}
+
+pub fn part_pose(
+    grids: &Components<VehicleGrid>,
+    parts: &Components<Part>,
+    part_id: Ent,
+) -> BaryResult<Isometry2d> {
+    let part = parts.try_get(part_id)?;
+    let grid = grids.try_get(part.grid_id)?;
+    Ok(grid.origin() * part.region.center_isometry())
+}
+
+pub fn gridloc_pose(grids: &Components<VehicleGrid>, loc: GridLocation) -> BaryResult<Isometry2d> {
+    let grid = grids.try_get(loc.grid_id)?;
+    Ok(grid.origin().offset(loc.coord.to_meters()))
+}
+
+/// Returns the ID of the first grid in the components list with
+/// the given name.
+///
+/// Buyer beware: grid names are not unique! This
+/// only promises to return any grid with the given name, if one exists.
+pub fn grid_by_name(grids: &Components<VehicleGrid>, name: &str) -> Option<Ent> {
+    grids
+        .iter()
+        .find_map(|(id, grid)| (grid.name == name).then(|| *id))
+}
+
+pub fn get_slot_c<'a>(
+    loc: GridLocation,
+    grids: &Components<VehicleGrid>,
+    parts: &Components<Part>,
+    inventories: &'a Components<Inventory>,
+) -> BaryResult<&'a InvSlot> {
+    let (part_id, slot_id) = inventory_at_c(loc, grids, parts, inventories)?;
+    let inv = inventories.try_get(part_id)?;
+    inv.get_slot(slot_id).ok_or(BaryError::NoInvSlot(slot_id))
+}
+
+pub fn get_slot_mut_c<'a>(
+    loc: GridLocation,
+    grids: &Components<VehicleGrid>,
+    parts: &Components<Part>,
+    inventories: &'a mut Components<Inventory>,
+) -> BaryResult<&'a mut InvSlot> {
+    let (part_id, slot_id) = inventory_at_c(loc, grids, parts, inventories)?;
+    let inv = inventories.try_get_mut(part_id)?;
+    inv.get_slot_mut(slot_id)
+        .ok_or(BaryError::NoInvSlot(slot_id))
+}
+
+pub fn inventory_at_c(
+    loc: GridLocation,
+    grids: &Components<VehicleGrid>,
+    parts: &Components<Part>,
+    inventories: &Components<Inventory>,
+) -> BaryResult<(Ent, usize)> {
+    let grid = grids.try_get(loc.grid_id)?;
+    let occ = grid
+        .get_parts_at(loc.coord)
+        .ok_or(BaryError::NoPartsAt(loc.coord))?;
+    let part_id = occ
+        .at_layer(PartLayer::Internal)
+        .ok_or(BaryError::NoPartsInLayer(PartLayer::Internal))?;
+    let inv = inventories.try_get(part_id)?;
+    let part = parts.try_get(part_id)?;
+    let local = part.region.to_local(loc.coord);
+    let idx = inv
+        .get_slot_at(local)
+        .ok_or(BaryError::NoInvAt(loc.coord))?;
+    Ok((part_id, idx))
+}
+
+pub fn closest_grid(
+    grids: &Components<VehicleGrid>,
+    test_pos: Vec2,
+    dist_limit: impl Into<Option<f32>>,
+) -> Option<(Ent, Vec2)> {
+    let mut best: Option<(Ent, Vec2, f32)> = None;
+    let dist_limit = dist_limit.into().unwrap_or(std::f32::INFINITY);
+    for (e, grid) in grids.iter() {
+        let in_frame = express_in_frame(grid.centroid_isometry(), test_pos);
+        let dist = in_frame.length_squared();
+        if dist > dist_limit {
+            continue;
         }
-        if !sum.is_zero() {
-            com /= sum.to_kg_f64();
-        }
-        Ok((sum, com.as_vec2()))
-    }
-
-    pub fn sum_part_masses_w(world: &World, grid_id: Ent) -> BaryResult<(Mass, Vec2)> {
-        sum_part_masses(&world.grids, &world.parts, &world.prototypes, grid_id)
-    }
-
-    pub fn blueprint_by_id<'a>(
-        blueprints: &'a Components<NamedBlueprint>,
-        id: &BlueprintId,
-    ) -> Option<&'a Blueprint> {
-        let result = blueprints.values().find(|bp| &bp.id == id);
-
-        if result.is_none() {
-            error!("Failed to get blueprint with ID {:?}", id);
-        }
-
-        result.map(|e| &e.blueprint)
-    }
-
-    /// Produces whatever prototype has the given name, if any.
-    pub fn proto_by_name(prototypes: &Components<PartPrototype>, name: &str) -> Option<Ent> {
-        prototypes
-            .iter()
-            .find(|(_, proto)| proto.part_name() == name)
-            .map(|e| *e.0)
-    }
-
-    pub fn grid_origin(grids: &Components<VehicleGrid>, grid_id: Ent) -> Option<Isometry2d> {
-        let grid = grids.try_get(grid_id).ok()?;
-        Some(grid.origin())
-    }
-
-    pub fn grid_pose(grids: &Components<VehicleGrid>, grid_id: Ent) -> Option<Isometry2d> {
-        let grid = grids.try_get(grid_id).ok()?;
-        Some(grid.particle_location)
-    }
-
-    pub fn grid_vel(grids: &Components<VehicleGrid>, grid_id: Ent) -> Option<Isometry2d> {
-        let grid = grids.try_get(grid_id).ok()?;
-        Some(grid.velocity)
-    }
-
-    pub fn part_pose(
-        grids: &Components<VehicleGrid>,
-        parts: &Components<Part>,
-        part_id: Ent,
-    ) -> BaryResult<Isometry2d> {
-        let part = parts.try_get(part_id)?;
-        let grid = grids.try_get(part.grid_id)?;
-        Ok(grid.origin() * part.region.center_isometry())
-    }
-
-    pub fn gridloc_pose(
-        grids: &Components<VehicleGrid>,
-        loc: GridLocation,
-    ) -> BaryResult<Isometry2d> {
-        let grid = grids.try_get(loc.grid_id)?;
-        Ok(grid.origin().offset(loc.coord.to_meters()))
-    }
-
-    /// Returns the ID of the first grid in the components list with
-    /// the given name.
-    ///
-    /// Buyer beware: grid names are not unique! This
-    /// only promises to return any grid with the given name, if one exists.
-    pub fn grid_by_name(grids: &Components<VehicleGrid>, name: &str) -> Option<Ent> {
-        grids
-            .iter()
-            .find_map(|(id, grid)| (grid.name == name).then(|| *id))
-    }
-
-    pub fn get_slot_c<'a>(
-        loc: GridLocation,
-        grids: &Components<VehicleGrid>,
-        parts: &Components<Part>,
-        inventories: &'a Components<Inventory>,
-    ) -> BaryResult<&'a InvSlot> {
-        let (part_id, slot_id) = inventory_at_c(loc, grids, parts, inventories)?;
-        let inv = inventories.try_get(part_id)?;
-        inv.get_slot(slot_id).ok_or(BaryError::NoInvSlot(slot_id))
-    }
-
-    pub fn get_slot_mut_c<'a>(
-        loc: GridLocation,
-        grids: &Components<VehicleGrid>,
-        parts: &Components<Part>,
-        inventories: &'a mut Components<Inventory>,
-    ) -> BaryResult<&'a mut InvSlot> {
-        let (part_id, slot_id) = inventory_at_c(loc, grids, parts, inventories)?;
-        let inv = inventories.try_get_mut(part_id)?;
-        inv.get_slot_mut(slot_id)
-            .ok_or(BaryError::NoInvSlot(slot_id))
-    }
-
-    pub fn inventory_at_c(
-        loc: GridLocation,
-        grids: &Components<VehicleGrid>,
-        parts: &Components<Part>,
-        inventories: &Components<Inventory>,
-    ) -> BaryResult<(Ent, usize)> {
-        let grid = grids.try_get(loc.grid_id)?;
-        let occ = grid
-            .get_parts_at(loc.coord)
-            .ok_or(BaryError::NoPartsAt(loc.coord))?;
-        let part_id = occ
-            .at_layer(PartLayer::Internal)
-            .ok_or(BaryError::NoPartsInLayer(PartLayer::Internal))?;
-        let inv = inventories.try_get(part_id)?;
-        let part = parts.try_get(part_id)?;
-        let local = part.region.to_local(loc.coord);
-        let idx = inv
-            .get_slot_at(local)
-            .ok_or(BaryError::NoInvAt(loc.coord))?;
-        Ok((part_id, idx))
-    }
-
-    pub fn closest_grid(
-        grids: &Components<VehicleGrid>,
-        test_pos: Vec2,
-        dist_limit: impl Into<Option<f32>>,
-    ) -> Option<(Ent, Vec2)> {
-        let mut best: Option<(Ent, Vec2, f32)> = None;
-        let dist_limit = dist_limit.into().unwrap_or(std::f32::INFINITY);
-        for (e, grid) in grids.iter() {
-            let in_frame = express_in_frame(grid.centroid_isometry(), test_pos);
-            let dist = in_frame.length_squared();
-            if dist > dist_limit {
-                continue;
+        if let Some(best) = &mut best {
+            if dist < best.2 {
+                best.0 = *e;
+                best.1 = in_frame;
+                best.2 = dist;
             }
-            if let Some(best) = &mut best {
-                if dist < best.2 {
-                    best.0 = *e;
-                    best.1 = in_frame;
-                    best.2 = dist;
-                }
-            } else {
-                best = Some((*e, in_frame, dist));
-            }
+        } else {
+            best = Some((*e, in_frame, dist));
         }
-        best.map(|x| (x.0, x.1))
     }
+    best.map(|x| (x.0, x.1))
 }
 
 pub fn get_blueprint_c(
@@ -822,10 +810,7 @@ fn set_thruster_state_c(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        query::grid_origin, sim::find::grid_pose, tests::assert_world_is_consistent,
-        world_builder::WorldBuilder,
-    };
+    use crate::{tests::assert_world_is_consistent, world_builder::WorldBuilder};
 
     #[test]
     fn part_prototypes() {
@@ -899,7 +884,7 @@ mod tests {
         let name = "pollux";
 
         // get the blueprint for the pollux
-        let bp = find::blueprint_by_id(&world.blueprints, &name.into())
+        let bp = blueprint_by_id(&world.blueprints, &name.into())
             .expect("Expected a blueprint")
             .clone();
 
@@ -965,7 +950,7 @@ mod tests {
             .blueprint("spacestation")
             .build();
 
-        assert!(find::closest_grid(&world.grids, Vec2::new(100.0, 200.0), None).is_none());
+        assert!(closest_grid(&world.grids, Vec2::new(100.0, 200.0), None).is_none());
 
         let bp_id: BlueprintId = "remora".into();
         let id = spawn_grid_with_random_name(&mut world, bp_id).unwrap();
@@ -980,7 +965,7 @@ mod tests {
         for _ in 0..100 {
             update_world(&mut world);
             let test_pos = centroid.offset(Vec2::new(100.0, 200.0)).translation;
-            let e = find::closest_grid(&world.grids, test_pos, None);
+            let e = closest_grid(&world.grids, test_pos, None);
             assert_eq!(e, Some((Ent(37), Vec2::new(99.99999, 199.99998))));
         }
 
@@ -998,7 +983,7 @@ mod tests {
 
         let part_name = "motor";
 
-        let proto_id = find::proto_by_name(&world.prototypes, part_name).unwrap();
+        let proto_id = proto_by_name(&world.prototypes, part_name).unwrap();
 
         let proto = world.prototypes.try_get(proto_id).unwrap();
         let dims = proto.dims;
@@ -1077,7 +1062,7 @@ mod tests {
             .blueprint("spacestation")
             .build();
 
-        let mut expected = find::blueprint_by_id(&world.blueprints, &"pollux".into())
+        let mut expected = blueprint_by_id(&world.blueprints, &"pollux".into())
             .unwrap()
             .clone();
 
@@ -1238,7 +1223,7 @@ mod tests {
 
         assert_eq!(com, Vec2::new(5.5010653, 2.272271));
 
-        let cargo_id = find::proto_by_name(&world.prototypes, "cargo").unwrap();
+        let cargo_id = proto_by_name(&world.prototypes, "cargo").unwrap();
         let cargo_proto = world.prototypes.try_get(cargo_id).unwrap();
 
         assert_eq!(cargo_proto.dims, (6, 6).into());
@@ -1296,7 +1281,7 @@ mod tests {
         let mut world = WorldBuilder::new().test_assets().build();
 
         // modifying the prototype for motor so it has easy quantities
-        let proto_id = find::proto_by_name(&world.prototypes, "small-motor").unwrap();
+        let proto_id = proto_by_name(&world.prototypes, "small-motor").unwrap();
         let proto = world.prototypes.try_get_mut(proto_id).unwrap();
 
         proto.mass = Mass::kilograms(1000);
@@ -1401,8 +1386,6 @@ mod tests {
             layer: PartLayer::Internal,
             region,
         };
-
-        use find::grid_pose;
 
         let thruster_id = insert_part(grid_id, &mut world, &instance, true).unwrap();
 
@@ -1523,7 +1506,7 @@ mod tests {
         for i in 0..100 {
             let expected = expected_poses[world.ticks as usize];
             update_world(&mut world);
-            let pose = find::grid_pose(&world.grids, grid_id).unwrap().to_tuple();
+            let pose = grid_pose(&world.grids, grid_id).unwrap().to_tuple();
             assert_eq!(pose, expected, "Epoch {}", i);
             // println!("({:0.12}, {:0.12}, {:0.12}),", pose.0, pose.1, pose.2);
         }
@@ -1545,7 +1528,7 @@ mod tests {
             .waypoint("fran", waypoint)
             .build();
 
-        let grid_id = find::grid_by_name(&world.grids, "fran").unwrap();
+        let grid_id = grid_by_name(&world.grids, "fran").unwrap();
 
         for _ in 0..20 {
             for _ in 0..1000 {
@@ -1553,7 +1536,7 @@ mod tests {
             }
 
             let elapsed = apparent_elapsed_time(&world);
-            let pose = find::grid_pose(&world.grids, grid_id).unwrap().to_tuple();
+            let pose = grid_pose(&world.grids, grid_id).unwrap().to_tuple();
             println!(
                 "{} ({:0.1}): {}, {}, {}",
                 world.ticks,
@@ -1566,7 +1549,7 @@ mod tests {
 
         assert_eq!(world.grid_acceleration_updates, 96);
 
-        let pose = find::grid_pose(&world.grids, grid_id).unwrap();
+        let pose = grid_pose(&world.grids, grid_id).unwrap();
         let error = pose.translation - waypoint.translation;
 
         assert!(error.x.abs() < 3.0);
