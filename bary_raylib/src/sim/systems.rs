@@ -9,12 +9,12 @@ use log::*;
 use std::collections::BTreeSet;
 use std::time::Duration;
 
-pub fn apparent_elapsed_time(world: &World) -> Duration {
-    Duration::from_millis(1000 / TICKS_PER_SECOND * world.ticks)
+pub fn apparent_elapsed_time(ticks: u64) -> Duration {
+    Duration::from_millis(1000 / TICKS_PER_SECOND * ticks)
 }
 
 pub fn apparent_datetime(world: &World) -> NaiveDateTime {
-    let dur = apparent_elapsed_time(world);
+    let dur = apparent_elapsed_time(world.ticks);
     let epoch = NaiveDate::from_ymd_opt(2310, 7, 8)
         .unwrap()
         .and_hms_opt(3, 0, 0)
@@ -1535,7 +1535,7 @@ mod tests {
                 update_world(&mut world);
             }
 
-            let elapsed = apparent_elapsed_time(&world);
+            let elapsed = apparent_elapsed_time(world.ticks);
             let pose = grid_pose(&world.grids, grid_id).unwrap().to_tuple();
             println!(
                 "{} ({:0.1}): {}, {}, {}",

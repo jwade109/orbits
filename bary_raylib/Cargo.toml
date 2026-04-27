@@ -53,6 +53,10 @@ path = "bin/traj.rs"
 name = "ship2png"
 path = "bin/ship2png.rs"
 
+[[bin]]
+name = "gridventory"
+path = "bin/gridventory.rs"
+
 [dev-dependencies]
 criterion = "0.5.1"
 

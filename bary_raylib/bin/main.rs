@@ -40,7 +40,7 @@ fn draw_debug_info(app: &App, assets: &Assets, timers: &DebugTimers, d: &mut Ray
         timers.ticks,
         world.tick_rate,
         world.ticks,
-        apparent_elapsed_time(world).as_secs_f64(),
+        apparent_elapsed_time(world.ticks).as_secs_f64(),
         apparent_datetime(world).format("%b %d %Y %I:%M:%S %p"),
     );
 
