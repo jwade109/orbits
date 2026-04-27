@@ -1,15 +1,20 @@
 use bary_core::prelude::*;
+use bary_raylib::multiplayer::MessageQueue;
+use bary_raylib::utils::BasicApp;
 use bary_raylib::{
     constants::TICKS_PER_SECOND,
     multiplayer::new_message_queue,
     sim::{apparent_elapsed_time, consume_rdev_event_into_input_state},
     utils::InputState,
 };
+use crossbeam_queue::SegQueue;
 use rand::{RngExt, SeedableRng, rngs::StdRng};
 use raylib::prelude::*;
 use rayon::prelude::*;
 use std::{
     collections::BTreeSet,
+    sync::Arc,
+    thread::JoinHandle,
     time::{Duration, Instant},
 };
 
@@ -281,34 +286,12 @@ fn simulate(mut grid: GridVentory) {
 }
 
 fn raylib_window(mut grid: GridVentory) {
-    let (mut rl, thread) = raylib::init()
-        .size(1080, 700)
-        .title("Hello world!")
-        .msaa_4x()
-        .resizable()
-        .build();
+    let mut app = BasicApp::new("Gridventory Demo");
 
-    rl.set_target_fps(120);
-    rl.maximize_window();
+    while !app.handle.window_should_close() {
+        app.update_inputs();
 
-    let mut input = InputState::default();
-
-    let input_queue = new_message_queue();
-    let thread_copy = input_queue.clone();
-    let _input_thread = std::thread::spawn(|| {
-        if let Err(error) = rdev::listen(move |e| thread_copy.push(e)) {
-            println!("Error: {:?}", error)
-        }
-    });
-
-    while !rl.window_should_close() {
         let start = Instant::now();
-
-        let mut rdev_events = Vec::new();
-        while let Some(e) = input_queue.pop() {
-            consume_rdev_event_into_input_state(&mut input, &e);
-            rdev_events.push(e);
-        }
 
         for _ in 0..TICKS_PER_SECOND {
             update_inventory(&mut grid);
@@ -316,17 +299,19 @@ fn raylib_window(mut grid: GridVentory) {
 
         let elapsed = Instant::now() - start;
 
-        if input.just_pressed_debounced(rdev::Key::KeyR) {
+        if app.input.just_pressed_debounced(rdev::Key::KeyR) {
             grid = GridVentory::random(randint(100, 10000) as u64);
         }
 
-        rl.draw(&thread, |mut d| {
+        if app.input.just_pressed_debounced(rdev::Key::Escape) {
+            panic!();
+        }
+
+        app.handle.draw(&app.thread, |mut d| {
             d.clear_background(Color::BLACK);
 
             draw_gridventory(&mut d, &grid, elapsed);
         });
-
-        input.on_frame_boundary();
     }
 }
 

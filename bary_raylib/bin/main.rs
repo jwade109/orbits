@@ -139,13 +139,12 @@ fn main() {
     let mut active_sounds = Vec::new();
 
     while !rl.window_should_close() {
-        let loop_start = std::time::Instant::now();
-
         // HANDLE INPUTS FROM RDEV LISTENER THREAD
 
         let mut rdev_events = Vec::new();
         while let Some(e) = app.input_queue.pop() {
-            consume_rdev_event_into_input_state(&mut app.client.input, &e);
+            let focused = rl.is_window_focused();
+            consume_rdev_event_into_input_state(&mut app.client.input, &e, focused);
             rdev_events.push(e);
         }
 

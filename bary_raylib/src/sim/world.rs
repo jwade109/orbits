@@ -622,13 +622,21 @@ impl<'a> Drop for ScopeTimer<'a> {
     }
 }
 
-pub fn consume_rdev_event_into_input_state(input: &mut InputState, event: &rdev::Event) {
+pub fn consume_rdev_event_into_input_state(
+    input: &mut InputState,
+    event: &rdev::Event,
+    focused: bool,
+) {
     if let rdev::EventType::KeyPress(k) = event.event_type {
-        input.set_pressed(k);
+        if focused {
+            input.set_pressed(k);
+        }
     } else if let rdev::EventType::KeyRelease(k) = event.event_type {
         input.set_released(k);
     } else if let rdev::EventType::ButtonPress(mb) = event.event_type {
-        input.set_pressed(mb);
+        if focused {
+            input.set_pressed(mb);
+        }
     } else if let rdev::EventType::ButtonRelease(mb) = event.event_type {
         input.set_released(mb);
     }
