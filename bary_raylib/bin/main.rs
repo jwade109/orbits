@@ -41,7 +41,7 @@ fn draw_debug_info(app: &App, assets: &Assets, timers: &DebugTimers, d: &mut Ray
         world.tick_rate,
         world.ticks,
         apparent_elapsed_time(world.ticks).as_secs_f64(),
-        apparent_datetime(world).format("%b %d %Y %I:%M:%S %p"),
+        apparent_datetime(world.ticks).format("%b %d %Y %I:%M:%S %p"),
     );
 
     s += &format!("\nC {} {} fps", client.ticks, d.get_fps());
@@ -49,6 +49,11 @@ fn draw_debug_info(app: &App, assets: &Assets, timers: &DebugTimers, d: &mut Ray
     s += &format!("\nZoom: {:0.3}", client.camera.zoom);
     s += &format!("\nUpdates: {}", world.grid_acceleration_updates);
     s += &format!("\nPipes: {}", world.pipes.len());
+    s += &format!("\nGVs: {}", world.gridventories.len());
+
+    for gv in world.gridventories.values() {
+        s += &format!("\n{} {}", gv.is_settled, gv.mass());
+    }
 
     let total = timers.total();
 

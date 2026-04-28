@@ -1,4 +1,5 @@
 mod components;
+mod gridventory;
 mod input_handlers;
 mod pipe;
 mod ring_particle;
@@ -10,6 +11,7 @@ mod vehicle;
 mod world;
 
 pub use components::*;
+pub use gridventory::*;
 pub use input_handlers::*;
 pub use pipe::*;
 pub use ring_particle::*;

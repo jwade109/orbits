@@ -13,8 +13,8 @@ pub fn apparent_elapsed_time(ticks: u64) -> Duration {
     Duration::from_millis(1000 / TICKS_PER_SECOND * ticks)
 }
 
-pub fn apparent_datetime(world: &World) -> NaiveDateTime {
-    let dur = apparent_elapsed_time(world.ticks);
+pub fn apparent_datetime(ticks: u64) -> NaiveDateTime {
+    let dur = apparent_elapsed_time(ticks);
     let epoch = NaiveDate::from_ymd_opt(2310, 7, 8)
         .unwrap()
         .and_hms_opt(3, 0, 0)

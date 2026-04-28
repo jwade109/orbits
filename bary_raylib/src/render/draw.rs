@@ -6,6 +6,8 @@ use crate::sim::*;
 use crate::utils::*;
 use bary_core::prelude::*;
 use early_returns::*;
+use rand::rngs::StdRng;
+use rand::{RngExt, SeedableRng};
 use raylib::prelude::*;
 
 fn draw_text(d: &mut RaylibDrawHandle, iso: Isometry2d, text: &str, font_size: f32) {
@@ -265,8 +267,21 @@ pub fn draw_world(
 
     draw_item_menu(d, (300, 200).into());
 
+    draw_current_gridventory(d, client, &world.gridventories);
+
     // draw_parts_zoo(&world.prototypes, &mut d);
     // draw_test_isos(&mut d)
+}
+
+fn draw_current_gridventory(
+    d: &mut RaylibDrawHandle,
+    client: &ClientSpecificInfo,
+    gv: &Components<GridVentory>,
+) {
+    let free = some_or_return!(client.viewport.free());
+    let grid_id = some_or_return!(free.selection_info.first_selected_grid());
+    let gv = ok_or_return!(gv.try_get(grid_id));
+    draw_gridventory(d, gv);
 }
 
 pub fn draw_selected_part_cursors(
@@ -1301,5 +1316,106 @@ fn draw_item_menu(d: &mut RaylibDrawHandle, origin: IVec2) {
             y += item_width + padding;
             n_col = 0;
         }
+    }
+}
+
+pub fn draw_gridventory(d: &mut RaylibDrawHandle, grid: &GridVentory) {
+    let mut rng = StdRng::seed_from_u64(10000);
+
+    let n_cols = (grid.slots.len() as f32).sqrt().ceil() as i32 * 3 / 2;
+
+    let screen_width = d.get_screen_width();
+
+    let screen_padding = 120;
+    let padding = 3;
+
+    let render_width = screen_width - screen_padding * 2;
+
+    let width = (render_width + padding) / (n_cols + 1);
+
+    let x0 = screen_padding;
+    let y0 = screen_padding;
+
+    let slot_coord = |i: usize| {
+        let col_idx = i as i32 % n_cols;
+        let row_idx = i as i32 / n_cols;
+
+        let x = x0 + col_idx * (width + padding);
+        let y = y0 + row_idx * (width + padding);
+
+        (x, y)
+    };
+
+    let slot_coord_center = |i: usize| {
+        let (x, y) = slot_coord(i);
+        (x + width / 2, y + width / 2)
+    };
+
+    for (i, slot) in grid.slots.iter().enumerate() {
+        let (x, y) = slot_coord(i);
+        let [r, g, b] = slot.item().map(|i| i.color()).unwrap_or([30, 30, 30]);
+        let color = Color::new(r, g, b, 255);
+        let pct = slot.fill_percentage();
+        let height = (width as f32 * pct) as i32;
+        d.draw_rectangle(x, y, width, width, Color::new(20, 20, 20, 255));
+        if !slot.is_empty() {
+            d.draw_rectangle(x, y, width, height, color);
+        }
+    }
+
+    for (src, dst, status) in &grid.pipes {
+        let a = rng.random_range(-width / 3..=width / 3);
+        let b = rng.random_range(-width / 3..=width / 3);
+        let j = rng.random_range(-width / 3..=width / 3);
+        let k = rng.random_range(-width / 3..=width / 3);
+
+        let (x0, y0) = slot_coord_center(*src);
+        let (xf, yf) = slot_coord_center(*dst);
+
+        let x0 = x0 + a;
+        let y0 = y0 + b;
+        let xf = xf + j;
+        let yf = yf + k;
+
+        let color = match status {
+            MachineStatus::Off => Color::GRAY.alpha(0.3),
+            _ => Color::ORANGE.alpha(0.6),
+        };
+
+        d.draw_circle(x0, y0, 5.0, color);
+        d.draw_circle(xf, yf, 3.0, color);
+
+        let x_first = rng.random_bool(0.5);
+
+        let bend = get_bend_location((x0, y0), (xf, yf), x_first);
+
+        let p = Vector2::new(x0 as f32, y0 as f32);
+        let q = Vector2::new(xf as f32, yf as f32);
+        if let Some(o) = bend.map(|p| p.inner()) {
+            let (xb, yb) = (o.x, o.y);
+            let o = Vector2::new(xb as f32, yb as f32);
+            d.draw_line_ex(p, o, 3.0, color);
+            d.draw_line_ex(o, q, 3.0, color);
+        } else {
+            d.draw_line_ex(p, q, 3.0, color);
+        }
+    }
+
+    for index in &grid.dirty_set {
+        let (x, y) = slot_coord(*index);
+        let rec = Rectangle::new(x as f32, y as f32, width as f32, width as f32);
+        d.draw_rectangle_lines_ex(rec, 5.0, Color::BLUE);
+    }
+
+    for (index, _item) in &grid.sources {
+        let (x, y) = slot_coord(*index);
+        let rec = Rectangle::new(x as f32, y as f32, width as f32, width as f32);
+        d.draw_rectangle_lines_ex(rec, 5.0, Color::GREEN);
+    }
+
+    for index in &grid.sinks {
+        let (x, y) = slot_coord(*index);
+        let rec = Rectangle::new(x as f32, y as f32, width as f32, width as f32);
+        d.draw_rectangle_lines_ex(rec, 5.0, Color::RED);
     }
 }

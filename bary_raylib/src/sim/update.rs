@@ -222,7 +222,7 @@ pub fn update_world(world: &mut World) -> DebugTimers {
     {
         let _timer = timers.scope("update_pipes");
 
-        sys_update_pipes(&mut world.inventories, &mut world.pipes);
+        // sys_update_pipes(&mut world.inventories, &mut world.pipes);
     }
 
     {
@@ -232,10 +232,33 @@ pub fn update_world(world: &mut World) -> DebugTimers {
     }
 
     {
+        let _timer = timers.scope("grid_inventories");
+
+        sys_insert_gridventories(&world.grids, &mut world.gridventories);
+
+        sys_update_gridventories(&mut world.gridventories);
+    }
+
+    {
         let _timer = timers.scope("update_machines");
 
         sys_update_machines(world);
     }
 
     timers
+}
+
+fn sys_insert_gridventories(grids: &Components<VehicleGrid>, gv: &mut Components<GridVentory>) {
+    for (grid_id, _grid) in grids.iter() {
+        gv.entry(*grid_id).or_insert_with(|| {
+            let seed = randint(100, 1000);
+            GridVentory::random(seed as u64)
+        });
+    }
+}
+
+fn sys_update_gridventories(gv: &mut Components<GridVentory>) {
+    for gv in gv.values_mut() {
+        update_inventory(gv);
+    }
 }
