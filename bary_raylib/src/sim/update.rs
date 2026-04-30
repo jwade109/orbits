@@ -1,6 +1,7 @@
 use crate::client::*;
 use crate::constants::*;
 use crate::sim::*;
+use crate::utils::DebugTimers;
 use bary_core::prelude::*;
 use early_returns::*;
 use std::collections::*;
@@ -220,19 +221,19 @@ pub fn update_world(world: &mut World) -> DebugTimers {
     }
 
     {
-        let _timer = timers.scope("update_pipes");
+        let _timer = timers.scope("disabled_update_pipes");
 
         // sys_update_pipes(&mut world.inventories, &mut world.pipes);
     }
 
     {
-        let _timer = timers.scope("fill_inventories");
+        let _timer = timers.scope("old_fill_inventories");
 
         sys_fill_inventories_attached_to_debug_sources(world);
     }
 
     {
-        let _timer = timers.scope("grid_inventories");
+        let _timer = timers.scope("new_grid_inventories");
 
         sys_insert_gridventories(&world.grids, &mut world.gridventories);
 

@@ -1,8 +1,7 @@
 use crate::client::{ClientSpecificInfo, DebugInfo};
 use crate::cmd::prompt::{CommandPrompt, cmd_handle_input_event};
 use crate::multiplayer::*;
-use crate::sim::{World, process_event, spawn_stars};
-use crate::sounds::SoundEffects;
+use crate::sim::{World, process_scroll_wheel, spawn_stars};
 use crate::world_builder::WorldBuilder;
 use bary_core::prelude::*;
 use std::thread::JoinHandle;
@@ -43,25 +42,9 @@ pub struct App {
 }
 
 impl App {
-    pub fn process_event(
-        &mut self,
-        e: rdev::Event,
-        sounds: &mut SoundEffects,
-        actions: &mut Vec<Action>,
-        on_gui: bool,
-    ) {
+    pub fn process_event(&mut self, e: rdev::Event) {
         cmd_handle_input_event(&mut self.cmd, &e);
-
-        if !self.cmd.is_focused() {
-            process_event(
-                &mut self.world,
-                &mut self.client,
-                &e,
-                sounds,
-                actions,
-                on_gui,
-            );
-        }
+        process_scroll_wheel(&mut self.client, &e);
     }
 }
 

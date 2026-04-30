@@ -63,7 +63,7 @@ impl BasicApp {
         }
     }
 
-    pub fn frame(&mut self) {
+    pub fn frame(&mut self) -> bool {
         let now = Instant::now();
         self.last_frame = self.this_frame;
         self.this_frame = now;
@@ -72,5 +72,13 @@ impl BasicApp {
             let focused = self.handle.is_window_focused();
             consume_rdev_event_into_input_state(&mut self.input, &e, focused);
         }
+
+        if self.input.is_key_pressed(rdev::Key::ControlLeft)
+            && self.input.just_pressed(rdev::Key::KeyC)
+        {
+            return false;
+        }
+
+        !self.handle.window_should_close()
     }
 }

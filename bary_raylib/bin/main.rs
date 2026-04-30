@@ -1,13 +1,15 @@
 use bary_core::prelude::*;
 use bary_raylib::app::*;
 use bary_raylib::assets::*;
+use bary_raylib::cmd::prompt::draw_command_prompt;
 use bary_raylib::imgui;
 use bary_raylib::multiplayer::*;
 use bary_raylib::render::draw;
+use bary_raylib::render::draw::draw_pie_chart;
 use bary_raylib::sim::*;
 use bary_raylib::sounds::SoundEffects;
 use bary_raylib::tests::is_world_consistent;
-use bary_raylib::utils::raylib_to_glam;
+use bary_raylib::utils::*;
 use log::*;
 use raylib::prelude::*;
 
@@ -64,19 +66,6 @@ fn draw_debug_info(app: &App, assets: &Assets, timers: &DebugTimers, d: &mut Ray
         s += &format!("\n{}\n{}", timer.0, time);
     }
 
-    // s += &format!("\nMOUSE {:?}", client.mouse_screen_position);
-    // s += &format!("\nHOVER {:?}", client.selection_info.hovered);
-    // s += &format!("\nSLCT {:?}", client.selection_info.selected);
-    // s += &format!("\nPRT {:?}", &world.particles.len());
-    // s += &format!("\nBP {:?}", &world.blueprints);
-    // s += &format!("\nPROTO {:?}", &world.prototypes);
-    // s += &format!("\nPART {:?}", &world.parts);
-    // s += &format!("\nGRID {:?}", &world.grids);
-    // s += &format!("\nTHR {:?}", &world.thrusters);
-    // s += &format!("\nCPU {:?}", &world.computers);
-    // s += &format!("\nLIT {:?}", &world.lights);
-    // s += &format!("\nE {:?}", &world.spawner);
-
     if let Some(font) = &assets.lato_regular {
         d.draw_text_ex(
             &font,
@@ -87,6 +76,14 @@ fn draw_debug_info(app: &App, assets: &Assets, timers: &DebugTimers, d: &mut Ray
             Color::WHITE.alpha(0.4),
         );
     }
+    draw_pie_chart(
+        d,
+        100,
+        d.get_render_height() - 100,
+        80.0,
+        &timers.to_pie_chart(),
+        client.mouse_screen_position,
+    );
 }
 
 fn handle_sounds<'a>(
@@ -141,6 +138,8 @@ fn main() {
 
     load_assets(&mut assets, &mut rl, &thread);
 
+    let mut timers = DebugTimers::default();
+
     let mut active_sounds = Vec::new();
 
     while !rl.window_should_close() {
@@ -181,23 +180,38 @@ fn main() {
         let mut sounds = SoundEffects::new();
         let mut actions = Vec::new();
 
-        let mut timers =
+        pre_simulation_update(&mut app.world, &mut app.client, &mut sounds);
+
+        let mut frame_timers =
             app.runner
                 .update(&mut app.world, &mut app.client, &mut sounds, &mut actions);
+
+        post_simulation_update(&mut app.client);
 
         // CONSTRUCT IMMEDIATE-MODE GUI
 
         let gui = {
-            let _timer = timers.scope("imgui");
+            let _timer = frame_timers.scope("imgui");
 
             imgui::imgui_pass(&mut app.client, &mut app.world, &mut sounds)
         };
 
-        // HANDLE RDEV EVENTS (DEPRECATED - USE INPUTSTATE)
+        timers.update(&frame_timers);
+
+        // HANDLE RDEV EVENTS (DEPRECATED - USE NEWFANGLED EVENT HANDLER)
 
         for e in rdev_events {
-            app.process_event(e, &mut sounds, &mut actions, gui.is_hovering_gui());
+            app.process_event(e);
         }
+
+        newfangled_event_handler(
+            &mut app.world,
+            &mut app.client,
+            &mut app.cmd,
+            &mut sounds,
+            &mut actions,
+            gui.is_hovering_gui(),
+        );
 
         // EMIT ACTIONS TO OTHER MULTIPLAYER CLIENTS
 
@@ -218,6 +232,8 @@ fn main() {
             draw::draw_mouse_screen_position(&mut d, app.client.mouse_screen_position);
 
             draw_debug_info(&app, &assets, &timers, &mut d);
+
+            draw_command_prompt(&mut d, &app.cmd, &assets);
         });
 
         handle_sounds(sounds, &audio, &mut active_sounds);

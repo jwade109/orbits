@@ -39,6 +39,11 @@ impl InputState {
         self.just_pressed_debounced.contains(&key)
     }
 
+    pub fn just_pressed(&self, key: impl Into<KB>) -> bool {
+        let key = key.into();
+        self.just_pressed.contains(&key)
+    }
+
     pub fn just_released(&self, key: impl Into<KB>) -> bool {
         let key = key.into();
         self.just_released.contains(&key)
@@ -57,6 +62,22 @@ impl InputState {
         let key = key.into();
         self.currently_pressed.remove(&key);
         self.just_released.insert(key);
+    }
+
+    pub fn iter_pressed(&self) -> impl Iterator<Item = &KB> {
+        self.currently_pressed.iter()
+    }
+
+    pub fn iter_just_pressed_debounced(&self) -> impl Iterator<Item = &KB> {
+        self.just_pressed_debounced.iter()
+    }
+
+    pub fn iter_just_pressed(&self) -> impl Iterator<Item = &KB> {
+        self.just_pressed.iter()
+    }
+
+    pub fn iter_just_released(&self) -> impl Iterator<Item = &KB> {
+        self.just_released.iter()
     }
 
     pub fn on_frame_boundary(&mut self) {

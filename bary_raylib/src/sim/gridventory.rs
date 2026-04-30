@@ -5,8 +5,12 @@ use std::collections::BTreeSet;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct GridVentory {
+    pub slot_ids: Vec<Ent>,
     pub slots: Vec<InvSlot>,
+
+    pub pipe_ids: Vec<Ent>,
     pub pipes: Vec<(usize, usize, MachineStatus)>,
+
     pub sources: Vec<(usize, Item)>,
     pub sinks: Vec<usize>,
     pub dirty_set: BTreeSet<usize>,
@@ -17,8 +21,18 @@ impl GridVentory {
     pub fn random(seed: u64) -> Self {
         let mut rng = StdRng::seed_from_u64(seed);
 
-        let n_slots = rng.random_range(200..300);
-        let n_pipes = rng.random_range(30..200);
+        let n_slots = rng.random_range(20..50);
+        let n_pipes = rng.random_range(10..40);
+
+        let mut ent = Ent(100);
+
+        let slot_ids = (0..n_slots)
+            .map(|_| {
+                let id = ent;
+                ent.0 += 1;
+                id
+            })
+            .collect();
 
         let slots: Vec<InvSlot> = (0..n_slots)
             .map(|_| {
@@ -27,6 +41,14 @@ impl GridVentory {
                 let is_fluid = false;
                 let location = (PartCoord::ZERO, PartCoord::ZERO);
                 InvSlot::new(capacity, filter, is_fluid, location)
+            })
+            .collect();
+
+        let pipe_ids = (0..n_pipes)
+            .map(|_| {
+                let id = ent;
+                ent.0 += 1;
+                id
             })
             .collect();
 
@@ -50,7 +72,9 @@ impl GridVentory {
         let sinks = vec![];
 
         Self {
+            slot_ids,
             slots,
+            pipe_ids,
             pipes,
             sources,
             sinks,

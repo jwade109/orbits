@@ -3,6 +3,7 @@ use crate::camera::{Camera, to_raylib_camera};
 use crate::client::*;
 use crate::imgui::{ImGui, ZOOM_NEAR_FAR_THRESHOLD};
 use crate::sim::*;
+use crate::ui::{Window, draw_window};
 use crate::utils::*;
 use bary_core::prelude::*;
 use early_returns::*;
@@ -267,7 +268,9 @@ pub fn draw_world(
 
     draw_item_menu(d, (300, 200).into());
 
-    draw_current_gridventory(d, client, &world.gridventories);
+    if client.alt_mode && is_holding_shift {
+        draw_current_gridventory(d, client, &world.gridventories);
+    }
 
     // draw_parts_zoo(&world.prototypes, &mut d);
     // draw_test_isos(&mut d)
@@ -519,22 +522,25 @@ fn draw_primary_grid_inventory_summary(
     client: &ClientSpecificInfo,
 ) {
     let free = some_or_return!(client.viewport.free());
-    let sel_loc = some_or_return!(free.selection_info.selected.first());
-    let grid = ok_or_return!(world.grids.try_get(sel_loc.grid_id));
-    let coord = if let Some(hover) = free.selection_info.hovered {
-        if hover.grid_id == sel_loc.grid_id {
-            Some(hover.coord)
-        } else {
-            None
-        }
-    } else {
-        None
-    };
 
-    let occ = coord
-        .map(|c| grid.get_parts_at(c))
-        .flatten()
-        .unwrap_or(&PartOccupancy::EMPTY);
+    let sel_loc = some_or_return!(free.selection_info.selected.first());
+    let gridventory = ok_or_return!(world.gridventories.try_get(sel_loc.grid_id));
+
+    // let grid = ok_or_return!(world.grids.try_get(sel_loc.grid_id));
+    // let coord = if let Some(hover) = free.selection_info.hovered {
+    //     if hover.grid_id == sel_loc.grid_id {
+    //         Some(hover.coord)
+    //     } else {
+    //         None
+    //     }
+    // } else {
+    //     None
+    // };
+
+    // let occ = coord
+    //     .map(|c| grid.get_parts_at(c))
+    //     .flatten()
+    //     .unwrap_or(&PartOccupancy::EMPTY);
 
     let bar_width = 350;
     let small_bar_height = 5;
@@ -545,37 +551,37 @@ fn draw_primary_grid_inventory_summary(
     let origin_x = d.get_render_width() - bar_width;
     let mut y = bar_spacing;
 
-    for part_id in &grid.parts {
-        let inv = ok_or_continue!(world.inventories.try_get(*part_id));
-        for slot in inv.slots() {
-            let item = slot.item();
-            let c = item.map(|i| i.color()).unwrap_or([30, 30, 30]);
-            let color = Color::new(c[0], c[1], c[2], 255);
-            let width = bar_width as f32 * slot.fill_percentage();
-            let is_hovered = occ.contains(*part_id);
+    for slot in &gridventory.slots {
+        // for part_id in &grid.parts {
+        //     let inv = ok_or_continue!(world.inventories.try_get(*part_id));
+        //     for slot in inv.slots() {
+        let item = slot.item();
+        let c = item.map(|i| i.color()).unwrap_or([30, 30, 30]);
+        let color = Color::new(c[0], c[1], c[2], 255);
+        let width = bar_width as f32 * slot.fill_percentage();
+        let is_hovered = false; // occ.contains(*part_id);
 
-            let bar_height = if is_hovered {
-                large_bar_height
-            } else {
-                small_bar_height
-            };
+        let bar_height = if is_hovered {
+            large_bar_height
+        } else {
+            small_bar_height
+        };
 
-            d.draw_rectangle(origin_x, y, bar_width, bar_height, Color::BLACK);
-            d.draw_rectangle(origin_x, y, width as i32, bar_height, color);
+        d.draw_rectangle(origin_x, y, bar_width, bar_height, Color::BLACK);
+        d.draw_rectangle(origin_x, y, width as i32, bar_height, color);
 
-            if is_hovered {
-                d.draw_rectangle(
-                    origin_x - highlight_width,
-                    y,
-                    highlight_width,
-                    bar_height,
-                    Color::WHITE,
-                );
-            }
-
-            y += bar_height + bar_spacing;
-            d.draw_line(origin_x, y, origin_x + bar_width, y, Color::SLATEGRAY);
+        if is_hovered {
+            d.draw_rectangle(
+                origin_x - highlight_width,
+                y,
+                highlight_width,
+                bar_height,
+                Color::WHITE,
+            );
         }
+
+        y += bar_height + bar_spacing;
+        d.draw_line(origin_x, y, origin_x + bar_width, y, Color::SLATEGRAY);
     }
 }
 
@@ -1417,5 +1423,37 @@ pub fn draw_gridventory(d: &mut RaylibDrawHandle, grid: &GridVentory) {
         let (x, y) = slot_coord(*index);
         let rec = Rectangle::new(x as f32, y as f32, width as f32, width as f32);
         d.draw_rectangle_lines_ex(rec, 5.0, Color::RED);
+    }
+}
+
+pub fn draw_pie_chart(
+    d: &mut RaylibDrawHandle,
+    x: i32,
+    y: i32,
+    radius: f32,
+    values: &[f32],
+    mouse: Option<Vec2>,
+) {
+    let mut rng = StdRng::seed_from_u64(6);
+
+    let sum: f32 = values.iter().sum();
+    let mut a = 0.0;
+    for value in values {
+        let portion = *value / sum;
+        let da = portion * 360.0;
+        let segments = (da / 5.0).round() as i32;
+        let r = rng.random_range(40..=255);
+        let g = rng.random_range(40..=255);
+        let b = rng.random_range(40..=255);
+        let color = Color::new(r, g, b, 255);
+        let pos = Vector2::new(x as f32, y as f32);
+        d.draw_circle_sector(pos, radius, a, a + da, segments, color);
+        a += da;
+    }
+
+    let mouse_pos = some_or_return!(mouse);
+    let r = Vec2::new(x as f32, y as f32).distance(mouse_pos);
+    if r < radius {
+        d.draw_circle_lines(x, y, radius, Color::WHITE);
     }
 }

@@ -58,6 +58,10 @@ path = "bin/ship2png.rs"
 name = "gridventory"
 path = "bin/gridventory.rs"
 
+[[bin]]
+name = "action_states"
+path = "bin/action_states.rs"
+
 [dev-dependencies]
 criterion = "0.5.1"
 

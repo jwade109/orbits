@@ -53,7 +53,7 @@ impl CommandPrompt {
         self.lines.push((s, Severity::Error));
     }
 
-    fn on_enter(&mut self) {
+    pub fn on_enter(&mut self) {
         if !self.is_active {
             return;
         }
@@ -187,11 +187,11 @@ impl CommandPrompt {
 pub fn cmd_handle_input_event(cmd: &mut CommandPrompt, event: &rdev::Event) {
     if let rdev::EventType::KeyPress(k) = &event.event_type {
         match k {
-            rdev::Key::Backspace => cmd.on_backspace(),
-            rdev::Key::Return => cmd.on_enter(),
-            rdev::Key::BackQuote => cmd.focus(),
-            rdev::Key::Escape => cmd.dismiss(),
-            rdev::Key::Tab => cmd.on_tab_complete(),
+            rdev::Key::Backspace => (),
+            rdev::Key::Return => (),
+            rdev::Key::BackQuote => (),
+            rdev::Key::Escape => (),
+            rdev::Key::Tab => (),
             _ => {
                 if let Some(n) = &event.name {
                     if n.is_ascii() {
@@ -226,8 +226,8 @@ pub fn draw_command_prompt(d: &mut RaylibDrawHandle, cmd: &CommandPrompt, assets
         .map(|(c, b)| if !*b { *c } else { ' ' })
         .collect();
 
-    let display = format!("> {}", fg);
-    let display_bg = format!("> {}", bg);
+    let display = format!(" {}", fg);
+    let display_bg = format!(":{}", bg);
     let width = d.get_render_width();
     let height = d.get_render_height();
 
@@ -245,7 +245,15 @@ pub fn draw_command_prompt(d: &mut RaylibDrawHandle, cmd: &CommandPrompt, assets
             rect_origin.y,
             width,
             height,
-            Color::new(10, 10, 30, 220),
+            Color::new(0, 0, 0, 250),
+        );
+
+        d.draw_line(
+            rect_origin.x,
+            rect_origin.y,
+            rect_origin.x + width,
+            rect_origin.y,
+            Color::new(70, 70, 70, 250),
         );
     }
 

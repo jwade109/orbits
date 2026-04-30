@@ -2,6 +2,7 @@ use crate::client::*;
 use crate::multiplayer::*;
 use crate::sim::*;
 use crate::sounds::SoundEffects;
+use crate::utils::DebugTimers;
 use std::time::{Duration, Instant};
 
 pub struct WorldRunner {
@@ -29,10 +30,8 @@ fn frame_update(
     nominal_world_dur: Duration,
     sounds: &mut SoundEffects,
 ) -> DebugTimers {
-    pre_simulation_update(world, client, sounds);
     let mut timers = DebugTimers::default();
     timers += update_headless(world, nominal_world_dur);
-    post_simulation_update(world, client, sounds);
     timers
 }
 

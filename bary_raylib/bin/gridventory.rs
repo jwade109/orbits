@@ -1,5 +1,5 @@
 use bary_core::prelude::*;
-use bary_raylib::render::draw::draw_gridventory;
+use bary_raylib::render::draw::{draw_gridventory, draw_pie_chart};
 use bary_raylib::sim::apparent_datetime;
 use bary_raylib::sim::*;
 use bary_raylib::utils::BasicApp;
@@ -8,25 +8,6 @@ use rand::{RngExt, SeedableRng, rngs::StdRng};
 use raylib::prelude::*;
 use rayon::prelude::*;
 use std::time::Instant;
-
-fn draw_pie_chart(d: &mut RaylibDrawHandle, x: i32, y: i32, radius: f32, values: &[f32]) {
-    let mut rng = StdRng::seed_from_u64(6);
-
-    let sum: f32 = values.iter().sum();
-    let mut a = 0.0;
-    for value in values {
-        let portion = *value / sum;
-        let da = portion * 360.0;
-        let segments = (da / 5.0).round() as i32;
-        let r = rng.random_range(100..=255);
-        let g = rng.random_range(100..=255);
-        let b = rng.random_range(100..=255);
-        let color = Color::new(r, g, b, 255);
-        let pos = Vector2::new(x as f32, y as f32);
-        d.draw_circle_sector(pos, radius, a, a + da, segments, color);
-        a += da;
-    }
-}
 
 fn simulate(mut grid: GridVentory) {
     let total_ticks = TICKS_PER_SECOND * 3600;
@@ -80,9 +61,7 @@ fn raylib_window(mut grids: Vec<GridVentory>) {
 
     let mut times = Vec::new();
 
-    while !app.handle.window_should_close() {
-        app.frame();
-
+    while app.frame() {
         let start = Instant::now();
 
         app.fixed_50_fps(|| {
@@ -158,7 +137,8 @@ fn raylib_window(mut grids: Vec<GridVentory>) {
             let times: Vec<_> = times.iter().map(|d| d.as_secs_f32()).collect();
 
             let y = d.get_render_height() - 60;
-            draw_pie_chart(&mut d, 60, y, 50.0, &times);
+            let font = d.get_font_default();
+            draw_pie_chart(&mut d, 60, y, 50.0, &times, None);
 
             d.draw_text(&s, 400, 20, 28, Color::GRAY);
         });
