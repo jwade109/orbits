@@ -1,9 +1,10 @@
 use bary_core::prelude::*;
 use rand::{RngExt, SeedableRng, rngs::StdRng};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+use crate::constants::TICKS_PER_SECOND;
+
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct GridVentory {
     pub slot_ids: Vec<Ent>,
     pub slots: Vec<InvSlot>,
@@ -11,9 +12,9 @@ pub struct GridVentory {
     pub pipe_ids: Vec<Ent>,
     pub pipes: Vec<(usize, usize, MachineStatus)>,
 
-    pub sources: Vec<(usize, Item)>,
+    pub sources: Vec<(usize, u64, Item)>,
     pub sinks: Vec<usize>,
-    pub dirty_set: BTreeSet<usize>,
+    // pub dirty_set: BTreeSet<usize>,
     pub is_settled: bool,
 }
 
@@ -35,11 +36,15 @@ impl GridVentory {
             .collect();
 
         let slots: Vec<InvSlot> = (0..n_slots)
-            .map(|_| {
+            .map(|i| {
                 let capacity: Volume = Volume::liters(rng.random_range(10..1000));
                 let filter = ItemFilter::Any;
                 let is_fluid = false;
-                let location = (PartCoord::ZERO, PartCoord::ZERO);
+                let x = i % 10;
+                let y = i / 10;
+                let lower = PartCoord::new((x, y));
+                let upper = lower + PartCoord::ONE;
+                let location = (lower, upper);
                 InvSlot::new(capacity, filter, is_fluid, location)
             })
             .collect();
@@ -65,7 +70,7 @@ impl GridVentory {
             .map(|_| {
                 let item = Item::random();
                 let slot = rng.random_range(0..slots.len() - 1);
-                (slot, item)
+                (slot, 1000 / TICKS_PER_SECOND, item)
             })
             .collect();
 
@@ -78,7 +83,7 @@ impl GridVentory {
             pipes,
             sources,
             sinks,
-            dirty_set: BTreeSet::new(),
+            // dirty_set: BTreeSet::new(),
             is_settled: false,
         }
     }
@@ -86,16 +91,40 @@ impl GridVentory {
     pub fn mass(&self) -> Mass {
         self.slots.iter().map(|s| s.mass()).sum()
     }
+
+    pub fn add_slot(&mut self, min: impl Into<PartCoord>, max: impl Into<PartCoord>) -> usize {
+        let capacity = Volume::liters(1000);
+        let filter = ItemFilter::Any;
+        let is_fluid = false;
+        let location = (min.into(), max.into());
+        let slot = InvSlot::new(capacity, filter, is_fluid, location);
+        let id = self.slots.len();
+        self.slots.push(slot);
+        id
+    }
+
+    pub fn add_pipe(&mut self, a: usize, b: usize) {
+        self.pipes.push((a, b, MachineStatus::Off));
+    }
+
+    pub fn add_source(&mut self, a: usize) {
+        self.sources
+            .push((a, 1000 / TICKS_PER_SECOND, Item::random()));
+    }
+
+    pub fn add_sink(&mut self, a: usize) {
+        self.sinks.push(a);
+    }
 }
 
 pub fn update_inventory(grid: &mut GridVentory) {
-    grid.dirty_set.clear();
+    // grid.dirty_set.clear();
 
-    for (index, item) in &grid.sources {
+    for (index, count, item) in &grid.sources {
         let slot = &mut grid.slots[*index];
         if !slot.is_full() {
             grid.is_settled = false;
-            slot.fill_with(*item);
+            slot.store_partial(*item, *count);
         }
     }
 
@@ -134,9 +163,6 @@ pub fn update_inventory(grid: &mut GridVentory) {
             let m = src.mass() / mul as u64;
             if m.is_zero() { Mass::grams(1) } else { m }
         };
-
-        grid.dirty_set.insert(*a);
-        grid.dirty_set.insert(*b);
 
         *status = atomic_transfer(src, dst, mass);
     }

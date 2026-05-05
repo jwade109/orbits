@@ -152,6 +152,12 @@ fn main() {
             rdev_events.push(e);
         }
 
+        if app.client.input.is_key_pressed(rdev::Key::ControlLeft)
+            && app.client.input.just_pressed(rdev::Key::KeyC)
+        {
+            break;
+        }
+
         // GET SOME BASIC INPUT INFORMATION FROM RAYLIB
 
         app.client.mouse_screen_position = rl

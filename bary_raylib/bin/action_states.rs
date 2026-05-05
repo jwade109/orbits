@@ -1,4 +1,7 @@
-use bary_raylib::utils::{BasicApp, InputState, KB};
+use bary_raylib::{
+    sounds::{SoundEffect, SoundEffects},
+    utils::{BasicApp, InputState, KB},
+};
 use raylib::{color::Color, prelude::RaylibDraw};
 use std::collections::{HashMap, HashSet};
 
@@ -72,7 +75,13 @@ fn main() {
     ]);
 
     while app.frame() {
+        let mut effects = SoundEffects::default();
+
         let action = ActionState::new(&app.input, &bindings);
+
+        if app.input.just_pressed_debounced(KeyH) {
+            effects.push(SoundEffect::Open);
+        }
 
         app.handle.draw(&app.thread, |mut d| {
             d.clear_background(Color::BLACK);

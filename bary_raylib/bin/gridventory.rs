@@ -4,7 +4,6 @@ use bary_raylib::sim::apparent_datetime;
 use bary_raylib::sim::*;
 use bary_raylib::utils::BasicApp;
 use bary_raylib::{constants::TICKS_PER_SECOND, sim::apparent_elapsed_time};
-use rand::{RngExt, SeedableRng, rngs::StdRng};
 use raylib::prelude::*;
 use rayon::prelude::*;
 use std::time::Instant;
@@ -46,6 +45,29 @@ fn simulate(mut grid: GridVentory) {
     );
 }
 
+fn example_gridventory() -> GridVentory {
+    let mut grid = GridVentory::default();
+
+    let a = grid.add_slot((0, 0), (3, 2));
+
+    let mut prev = a;
+
+    for i in 3..=7 {
+        let new_idx = grid.add_slot((i, 3), (i + 1, 4));
+        grid.add_pipe(prev, new_idx);
+        prev = new_idx;
+    }
+
+    let c = grid.add_slot((4, 0), (5, 2));
+    grid.add_pipe(prev, c);
+    let c = grid.add_slot((5, 0), (6, 2));
+    grid.add_pipe(prev, c);
+
+    grid.add_source(a);
+    grid.add_sink(c);
+    grid
+}
+
 fn raylib_window(mut grids: Vec<GridVentory>) {
     if grids.is_empty() {
         panic!();
@@ -55,7 +77,7 @@ fn raylib_window(mut grids: Vec<GridVentory>) {
 
     let mut ticks = 0;
 
-    let mut rate = 8;
+    let mut rate = 1;
     let mut index = 0;
     let mut parallel = true;
 
@@ -88,6 +110,7 @@ fn raylib_window(mut grids: Vec<GridVentory>) {
             for g in &mut grids {
                 *g = GridVentory::random(randint(100, 10000) as u64);
             }
+            grids[0] = example_gridventory();
         }
 
         if app.input.just_pressed_debounced(rdev::Key::UpArrow) {
@@ -123,24 +146,25 @@ fn raylib_window(mut grids: Vec<GridVentory>) {
 
             draw_gridventory(&mut d, &grids[index]);
 
-            let s = format!(
-                "{:?} {}/{} {:?}\n{} {}\n{:00000000000000.0}",
-                apparent_datetime(ticks),
-                index + 1,
-                grids.len(),
-                app.this_frame - app.last_frame,
-                rate,
-                parallel,
-                times[index].as_nanos()
-            );
+            let s = [
+                format!("sim time: {:?}", apparent_datetime(ticks)),
+                format!("{}/{}", index + 1, grids.len()),
+                format!("settled: {}", grids[index].is_settled),
+                format!("frame_delta: {:?}", app.this_frame - app.last_frame),
+                format!("rate: {}", rate),
+                format!("multithreaded: {}", parallel),
+                format!("ms this grid: {:00000000.0}", times[index].as_millis()),
+                format!("ms total: {:00000000.0}", elapsed.as_millis()),
+            ];
+
+            let s = s.join("\n");
 
             let times: Vec<_> = times.iter().map(|d| d.as_secs_f32()).collect();
 
             let y = d.get_render_height() - 60;
-            let font = d.get_font_default();
             draw_pie_chart(&mut d, 60, y, 50.0, &times, None);
 
-            d.draw_text(&s, 400, 20, 28, Color::GRAY);
+            d.draw_text(&s, 40, 20, 22, Color::WHITE.alpha(0.5));
         });
     }
 }
@@ -173,7 +197,7 @@ fn simulate_parallel() {
 
 fn main() {
     let grids = vec![
-        GridVentory::random(12),
+        example_gridventory(),
         GridVentory::random(45),
         GridVentory::random(8),
         GridVentory::random(7),

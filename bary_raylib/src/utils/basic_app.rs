@@ -9,6 +9,7 @@ use std::time::{Duration, Instant};
 pub struct BasicApp {
     pub handle: RaylibHandle,
     pub thread: RaylibThread,
+
     pub input: InputState,
     _input_thread: JoinHandle<()>,
     input_queue: MessageQueue<rdev::Event>,
@@ -63,6 +64,16 @@ impl BasicApp {
         }
     }
 
+    pub fn should_loop(&self) -> bool {
+        if self.input.is_key_pressed(rdev::Key::ControlLeft)
+            && self.input.just_pressed(rdev::Key::KeyC)
+        {
+            return false;
+        }
+
+        !self.handle.window_should_close()
+    }
+
     pub fn frame(&mut self) -> bool {
         let now = Instant::now();
         self.last_frame = self.this_frame;
@@ -72,13 +83,6 @@ impl BasicApp {
             let focused = self.handle.is_window_focused();
             consume_rdev_event_into_input_state(&mut self.input, &e, focused);
         }
-
-        if self.input.is_key_pressed(rdev::Key::ControlLeft)
-            && self.input.just_pressed(rdev::Key::KeyC)
-        {
-            return false;
-        }
-
-        !self.handle.window_should_close()
+        self.should_loop()
     }
 }

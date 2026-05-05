@@ -10,6 +10,14 @@ fn run_for_one_hour(world: &mut World) {
     }
 }
 
+fn run_inventory_for_one_hour() {
+    let ticks = TICKS_PER_SECOND * 3600;
+    let mut grid = GridVentory::random(100);
+    for _ in 0..ticks {
+        update_inventory(&mut grid);
+    }
+}
+
 fn criterion_benchmark(c: &mut Criterion) {
     let mut world = WorldBuilder::new()
         .test_assets()
@@ -24,6 +32,10 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     c.bench_function("run_for_one_hour", |b| {
         b.iter(|| black_box(run_for_one_hour(&mut world)))
+    });
+
+    c.bench_function("run_inventory_for_one_hour", |b| {
+        b.iter(|| black_box(run_inventory_for_one_hour()))
     });
 
     let mut world = WorldBuilder::new()

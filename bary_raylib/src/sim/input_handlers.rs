@@ -131,13 +131,6 @@ pub fn editor_layer_shift_on_page_key(client: &mut ClientSpecificInfo, is_up: bo
     };
 }
 
-pub fn panic_on_ctrl_d(input: &InputState) {
-    if input.is_key_pressed(Key::ControlLeft) {
-        info!("Exiting.");
-        panic!();
-    }
-}
-
 pub fn save_on_ctrl_s(world: &mut World, client: &mut ClientSpecificInfo) {
     let pressed_ctrl = client.input.is_key_pressed(Key::ControlLeft);
 

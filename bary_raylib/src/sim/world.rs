@@ -639,10 +639,6 @@ pub fn newfangled_event_handler(
         input_handlers::editor_copy_on_control_c(world, client);
     }
 
-    if client.input.just_pressed_debounced(KeyD) {
-        input_handlers::panic_on_ctrl_d(&mut client.input);
-    }
-
     if client.input.just_pressed_debounced(KeyE) {
         input_handlers::editor_layer_shift_on_page_key(client, true);
     }
