@@ -266,7 +266,7 @@ pub fn draw_world(
 
     draw_imgui(d, gui, assets);
 
-    draw_item_menu(d, (300, 200).into());
+    // draw_item_menu(d, (300, 200).into());
 
     if client.alt_mode && is_holding_shift {
         draw_current_gridventory(d, client, &world.gridventories);
@@ -1326,6 +1326,22 @@ fn draw_item_menu(d: &mut RaylibDrawHandle, origin: IVec2) {
 }
 
 pub fn draw_gridventory(d: &mut RaylibDrawHandle, grid: &GridVentory, labels: bool) {
+    d.draw_rectangle(
+        10,
+        10,
+        d.get_screen_width() - 20,
+        d.get_screen_height() - 20,
+        Color::BLACK,
+    );
+
+    d.draw_rectangle_lines(
+        10,
+        10,
+        d.get_render_width() - 20,
+        d.get_render_height() - 20,
+        Color::GRAY,
+    );
+
     let mut min = *grid.slot_map.iter().next().unwrap().0;
     let mut max = min;
 

@@ -1,9 +1,9 @@
-use std::{collections::BTreeMap, default};
-
 use bary_core::prelude::*;
 use early_returns::{ok_or_continue, some_or_continue};
+use log::warn;
 use rand::{RngExt, SeedableRng, rngs::StdRng};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 use crate::{
     constants::TICKS_PER_SECOND,
@@ -209,7 +209,7 @@ impl GridVentory {
 
         if self.pipe_map.contains_key(&a) || self.pipe_map.contains_key(&b) {
             // return None;
-            println!("Accepting colliding pipes");
+            warn!("Accepting colliding pipes");
         }
 
         if a == b {
@@ -246,7 +246,8 @@ pub fn update_inventory(grid: &mut GridVentory) {
         let slot = &mut grid.slots[*index];
         if !slot.is_full() {
             grid.is_settled = false;
-            slot.store_partial(*item, *count);
+            // slot.store_partial(*item, *count);
+            slot.fill_with(*item);
         }
     }
 

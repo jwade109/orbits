@@ -227,13 +227,7 @@ pub fn update_world(world: &mut World) -> DebugTimers {
     }
 
     {
-        let _timer = timers.scope("old_fill_inventories");
-
-        sys_fill_inventories_attached_to_debug_sources(world);
-    }
-
-    {
-        let _timer = timers.scope("new_grid_inventories");
+        let _timer = timers.scope("gridventory:insert");
 
         sys_insert_gridventories(
             &world.grids,
@@ -241,6 +235,10 @@ pub fn update_world(world: &mut World) -> DebugTimers {
             &world.blueprints,
             &world.prototypes,
         );
+    }
+
+    {
+        let _timer = timers.scope("gridventory:update");
 
         sys_update_gridventories(&mut world.gridventories);
     }

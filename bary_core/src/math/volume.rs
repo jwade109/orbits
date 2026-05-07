@@ -81,7 +81,7 @@ impl Sum for Volume {
 impl Sub for Volume {
     type Output = Volume;
     fn sub(self, rhs: Self) -> Self::Output {
-        Self(self.0 - rhs.0)
+        Self(self.0.saturating_sub(rhs.0))
     }
 }
 
