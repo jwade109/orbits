@@ -1,7 +1,7 @@
 use self::super::Item;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+#[derive(Debug, Clone, Deserialize, Serialize, Default, PartialEq, Eq)]
 pub enum ItemFilter {
     #[default]
     Any,

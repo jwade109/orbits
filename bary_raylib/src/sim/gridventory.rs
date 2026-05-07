@@ -73,7 +73,9 @@ impl GridVentory {
                     let min: PartCoord = (u.x.min(v.x), u.y.min(v.y)).into();
                     let max: PartCoord = (u.x.max(v.x), u.y.max(v.y)).into();
                     let success = s.add_slot(Volume::liters(1000), min, max);
-                    println!("{:?} {} {}", slot.name, max - min, success.is_some());
+                    if success.is_none() {
+                        warn!("{:?} {} {}", slot.name, max - min, success.is_some());
+                    }
                 }
             }
         }
@@ -177,10 +179,6 @@ impl GridVentory {
         }
 
         self.slots.push(slot);
-
-        for i in 3..12 {
-            self.add_source(i);
-        }
 
         Some(id)
     }

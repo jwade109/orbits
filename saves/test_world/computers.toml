@@ -27,7 +27,7 @@ throttle = 0.0
 use_rcs = false
 throttle = 0.0
 
-[values.191]
+[values.155]
 on = true
 status = "Running"
 ticks_this_cycle = 0
@@ -37,26 +37,26 @@ iters = 200
 prototype = 6
 command_queue = []
 
-[values.191.vehicle_control]
+[values.155.vehicle_control]
 attitude = 0.0
 
-[values.191.vehicle_control.plus_x]
+[values.155.vehicle_control.plus_x]
 use_rcs = false
 throttle = 0.0
 
-[values.191.vehicle_control.plus_y]
+[values.155.vehicle_control.plus_y]
 use_rcs = false
 throttle = 0.0
 
-[values.191.vehicle_control.neg_x]
+[values.155.vehicle_control.neg_x]
 use_rcs = false
 throttle = 0.0
 
-[values.191.vehicle_control.neg_y]
+[values.155.vehicle_control.neg_y]
 use_rcs = false
 throttle = 0.0
 
-[values.294]
+[values.247]
 on = true
 status = "Running"
 ticks_this_cycle = 0
@@ -66,21 +66,21 @@ iters = 200
 prototype = 6
 command_queue = []
 
-[values.294.vehicle_control]
+[values.247.vehicle_control]
 attitude = 0.0
 
-[values.294.vehicle_control.plus_x]
+[values.247.vehicle_control.plus_x]
 use_rcs = false
 throttle = 0.0
 
-[values.294.vehicle_control.plus_y]
+[values.247.vehicle_control.plus_y]
 use_rcs = false
 throttle = 0.0
 
-[values.294.vehicle_control.neg_x]
+[values.247.vehicle_control.neg_x]
 use_rcs = false
 throttle = 0.0
 
-[values.294.vehicle_control.neg_y]
+[values.247.vehicle_control.neg_y]
 use_rcs = false
 throttle = 0.0

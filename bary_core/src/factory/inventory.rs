@@ -294,31 +294,25 @@ impl Item {
     }
 }
 
+#[deprecated]
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct Inventory(Vec<InvSlot>);
 
 impl Inventory {
     pub fn zero_slots() -> Self {
-        Self(Vec::new())
+        todo!()
     }
 
     pub fn from_slots(slots: Vec<InvSlot>) -> Self {
-        Self(slots)
+        todo!()
     }
 
     pub fn single(item: Item, capacity: Volume) -> Self {
-        let slot = InvSlot::new(
-            capacity,
-            ItemFilter::Any,
-            false,
-            (PartCoord::ZERO, PartCoord::ZERO),
-        )
-        .with_item(item);
-        Self(vec![slot])
+        todo!()
     }
 
     pub fn clear(&mut self) {
-        self.0.iter_mut().for_each(|s| s.empty());
+        todo!()
     }
 
     pub fn add_slot(&mut self, slot: InvSlot) {
@@ -443,7 +437,7 @@ impl Inventory {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct InvSlot {
     name: Option<String>,
     capacity: Volume,

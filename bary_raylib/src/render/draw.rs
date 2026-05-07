@@ -108,22 +108,16 @@ fn draw_hovered_inventory(d: &mut RaylibDrawHandle, world: &World, client: &Clie
     let _free = some_or_return!(client.viewport.free());
     let loc = some_or_return!(client.hovered_grid_loc());
     let grid = ok_or_return!(world.grids.try_get(loc.grid_id));
-    let occ = some_or_return!(grid.get_parts_at(loc.coord));
-    let part_id = some_or_return!(occ.at_layer(PartLayer::Internal));
-    let part = ok_or_return!(world.parts.try_get(part_id));
-    let inv = ok_or_return!(world.inventories.try_get(part_id));
-    let local = part.region.to_local(loc.coord);
-    let slot_id = some_or_return!(inv.get_slot_at(local));
-    let slot = some_or_return!(inv.get_slot(slot_id));
-
-    let part_iso = grid.origin() * part.region.origin_isometry();
-    draw_inventory_slot(d, slot, part_iso);
+    let gv = ok_or_return!(world.gridventories.try_get(loc.grid_id));
+    let slot_idx = some_or_return!(gv.slot_at(loc.coord));
+    let slot = &gv.slots[slot_idx];
+    draw_inventory_slot(d, slot, grid.origin());
 }
 
-fn draw_inventory_slot(d: &mut RaylibDrawHandle, slot: &InvSlot, part_iso: Isometry2d) {
+fn draw_inventory_slot(d: &mut RaylibDrawHandle, slot: &InvSlot, grid_iso: Isometry2d) {
     let (min, max) = slot.location();
     let avg = (max + min).to_meters() / 2.0;
-    let center_iso = part_iso.offset(avg);
+    let center_iso = grid_iso.offset(avg);
 
     let dims = (max - min).inner().as_uvec2();
     let pl = GridRegion::new(min, Rotation::East, dims);
@@ -133,7 +127,7 @@ fn draw_inventory_slot(d: &mut RaylibDrawHandle, slot: &InvSlot, part_iso: Isome
     } else {
         Color::GRAY.alpha(0.6)
     };
-    draw_grid_region(d, part_iso, pl, color, Color::BLACK, slot.fill_percentage());
+    draw_grid_region(d, grid_iso, pl, color, Color::BLACK, slot.fill_percentage());
 
     let font_size = (pl.grid_aligned_dims().to_meters().min_element() / 5.0).max(0.08);
 
@@ -146,19 +140,13 @@ fn draw_inventory_slot(d: &mut RaylibDrawHandle, slot: &InvSlot, part_iso: Isome
 fn draw_inventories(
     d: &mut RaylibDrawHandle,
     grids: &Components<VehicleGrid>,
-    parts: &Components<Part>,
-    inventories: &Components<Inventory>,
+    gvs: &Components<GridVentory>,
 ) {
-    for grid in grids.values() {
+    for (grid_id, grid) in grids.iter() {
         let origin = grid.origin();
-        for part_id in &grid.parts {
-            let inv = ok_or_continue!(inventories.try_get(*part_id));
-            let part = ok_or_continue!(parts.try_get(*part_id));
-            let part_iso = origin * part.region.origin_isometry();
-
-            for slot in inv.slots() {
-                draw_inventory_slot(d, slot, part_iso);
-            }
+        let inv = ok_or_continue!(gvs.try_get(*grid_id));
+        for slot in &inv.slots {
+            draw_inventory_slot(d, slot, origin);
         }
     }
 }
@@ -249,7 +237,7 @@ pub fn draw_world(
     draw_editor_selection_region(&mut c, client, world);
 
     if client.alt_mode {
-        draw_inventories(&mut c, &world.grids, &world.parts, &world.inventories);
+        draw_inventories(&mut c, &world.grids, &world.gridventories);
     } else {
         draw_hovered_inventory(&mut c, world, client);
     }

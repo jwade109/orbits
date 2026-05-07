@@ -398,37 +398,44 @@ pub fn insert_pipe_at_c(
     spawner: &mut EntitySpawner,
     grids: &mut Components<VehicleGrid>,
     parts: &Components<Part>,
-    inventories: &Components<Inventory>,
+    gridventories: &mut Components<GridVentory>,
     pipes: &mut Components<Pipe>,
-) -> BaryResult<(Pipe, Ent)> {
+) -> BaryResult<Ent> {
     if src == dst {
         return Err(BaryError::ZeroPipeExtent);
     }
 
-    let src_loc = GridLocation::new(grid_id, src);
-    let dst_loc = GridLocation::new(grid_id, dst);
+    // let src_loc = GridLocation::new(grid_id, src);
+    // let dst_loc = GridLocation::new(grid_id, dst);
 
-    let src_joint = calculate_pipe_joint_c(src_loc, grids, parts, inventories)?;
-    let dst_joint = calculate_pipe_joint_c(dst_loc, grids, parts, inventories)?;
+    // let src_joint = calculate_pipe_joint_c(src_loc, grids, parts, inventories)?;
+    // let dst_joint = calculate_pipe_joint_c(dst_loc, grids, parts, inventories)?;
 
-    let grid = grids.try_get_mut(grid_id)?;
+    // let grid = grids.try_get_mut(grid_id)?;
+    let gv = gridventories.try_get_mut(grid_id)?;
 
-    if src_joint.part_id == dst_joint.part_id && src_joint.slot == dst_joint.slot {
-        return Err(BaryError::SameInvSlot(src_joint.part_id, src_joint.slot));
-    }
+    gv.add_pipe_at(src, dst, NewPipeGeometry::Straight);
 
-    let pipe = Pipe {
-        src: src_joint,
-        dst: dst_joint,
-        status: MachineStatus::Off,
-    };
+    // if src_joint.part_id == dst_joint.part_id && src_joint.slot == dst_joint.slot {
+    //     return Err(BaryError::SameInvSlot(src_joint.part_id, src_joint.slot));
+    // }
+
+    // let pipe = Pipe {
+    //     src: PipeJoint {
+    //         part_id: Ent(0),
+    //         offset: (),
+    //         slot: (),
+    //     },
+    //     dst: dst_joint,
+    //     status: MachineStatus::Off,
+    // };
 
     let id = spawner.spawn();
-    pipes.spawn(id, pipe);
+    // pipes.spawn(id, pipe);
 
-    grid.pipes.insert(id);
+    // grid.pipes.insert(id);
 
-    Ok((pipe, id))
+    Ok(id)
 }
 
 pub fn insert_pipe(
@@ -436,7 +443,7 @@ pub fn insert_pipe(
     src: PartCoord,
     dst: PartCoord,
     world: &mut World,
-) -> BaryResult<(Pipe, Ent)> {
+) -> BaryResult<Ent> {
     insert_pipe_at_c(
         grid_id,
         src,
@@ -444,7 +451,7 @@ pub fn insert_pipe(
         &mut world.spawner,
         &mut world.grids,
         &world.parts,
-        &world.inventories,
+        &mut world.gridventories,
         &mut world.pipes,
     )
 }
@@ -459,8 +466,8 @@ fn editor_on_release_left_click(client: &mut ClientSpecificInfo, world: &mut Wor
     if let (Some(src), Some(dst)) = (src, dst) {
         if e.layer == Some(PartLayer::Plumbing) {
             match insert_pipe(e.vehicle, src, dst, world) {
-                Ok((pipe, _id)) => {
-                    let s = format!("{:?}", pipe);
+                Ok(id) => {
+                    let s = format!("{:?}", id);
                     client.chat.log(s);
                 }
                 Err(e) => {

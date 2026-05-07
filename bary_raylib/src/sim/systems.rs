@@ -30,7 +30,7 @@ pub fn spawn_grid_from_blueprint_c(
     thrusters: &mut Components<Thruster>,
     computers: &mut Components<Computer>,
     lights: &mut Components<Light>,
-    inventories: &mut Components<Inventory>,
+    gridventories: &mut Components<GridVentory>,
     machines: &mut Components<Machine>,
     pipes: &mut Components<Pipe>,
     debug_portals: &mut Components<DebugPortal>,
@@ -46,6 +46,8 @@ pub fn spawn_grid_from_blueprint_c(
     let grid = VehicleGrid::with_name(grid_name, bp_id);
     let grid_id = spawner.spawn();
     grids.spawn(grid_id, grid.clone());
+    gridventories.spawn(grid_id, GridVentory::default());
+
     for (_id, proto) in bp.parts() {
         insert_part_c(
             grid_id,
@@ -56,7 +58,7 @@ pub fn spawn_grid_from_blueprint_c(
             thrusters,
             computers,
             lights,
-            inventories,
+            gridventories,
             machines,
             debug_portals,
             proto,
@@ -72,7 +74,7 @@ pub fn spawn_grid_from_blueprint_c(
             spawner,
             grids,
             parts,
-            inventories,
+            gridventories,
             pipes,
         ) {
             error!("Failed to insert pipe: {:?}", e);
@@ -172,7 +174,12 @@ pub fn set_primary_computer_state_c(
 /// Spawns an empty grid with the given name.
 /// Exclusive version of [`super::spawn_empty_grid`].
 pub fn spawn_empty_grid(world: &mut World, name: impl Into<String>) -> Ent {
-    spawn_empty_grid_c(&mut world.spawner, &mut world.grids, name)
+    spawn_empty_grid_c(
+        &mut world.spawner,
+        &mut world.grids,
+        &mut world.gridventories,
+        name,
+    )
 }
 
 pub fn toggle_tracking(world: &mut World, grid_id: Ent) -> BaryResult<bool> {
@@ -240,7 +247,7 @@ pub fn spawn_grid_from_blueprint(
         &mut world.thrusters,
         &mut world.computers,
         &mut world.lights,
-        &mut world.inventories,
+        &mut world.gridventories,
         &mut world.machines,
         &mut world.pipes,
         &mut world.debug_portals,
@@ -312,6 +319,7 @@ pub fn get_blueprint(world: &World, grid_id: Ent) -> BaryResult<Blueprint> {
 pub fn spawn_empty_grid_c(
     spawner: &mut EntitySpawner,
     grids: &mut Components<VehicleGrid>,
+    gvs: &mut Components<GridVentory>,
     name: impl Into<String>,
 ) -> Ent {
     let name = name.into();
@@ -319,6 +327,7 @@ pub fn spawn_empty_grid_c(
     let grid = VehicleGrid::with_name(name, None);
     let id = spawner.spawn();
     grids.spawn(id, grid);
+    gvs.spawn(id, GridVentory::default());
     id
 }
 
@@ -339,7 +348,7 @@ pub fn insert_part(
         &mut world.thrusters,
         &mut world.computers,
         &mut world.lights,
-        &mut world.inventories,
+        &mut world.gridventories,
         &mut world.machines,
         &mut world.debug_portals,
         instance,
@@ -366,13 +375,14 @@ pub fn insert_part_c(
     thrusters: &mut Components<Thruster>,
     computers: &mut Components<Computer>,
     lights: &mut Components<Light>,
-    inventories: &mut Components<Inventory>,
+    gridventories: &mut Components<GridVentory>,
     machines: &mut Components<Machine>,
     debug_portals: &mut Components<DebugPortal>,
     instance: &PartInstance,
     update_props: bool,
 ) -> BaryResult<Ent> {
     let grid = grids.try_get_mut(grid_id)?;
+    let gv = gridventories.try_get_mut(grid_id)?;
 
     if !grid.can_insert_part(instance.region, instance.layer) {
         warn!("Can't insert part!");
@@ -398,22 +408,19 @@ pub fn insert_part_c(
 
     grid.mark_occupied(instance.region, instance.layer(), part_id);
 
-    if let Some(inv) = &proto.inventory_data {
-        let slots = inv
-            .slots
-            .iter()
-            .map(|data| {
-                InvSlot::new(
-                    Volume::liters_f32(data.volume_liters),
-                    data.filter.clone(),
-                    data.is_fluid.unwrap_or(false),
-                    (data.min.into(), data.max.into()),
-                )
-            })
-            .collect();
-
-        let inventory = Inventory::from_slots(slots);
-        inventories.spawn(part_id, inventory);
+    if let Some(data) = &proto.inventory_data {
+        for slot in &data.slots {
+            let dims = slot.max - slot.min;
+            let slot_tf = GridIsometry2d::new(slot.min, Rotation::East);
+            let part_tf = instance.region.discrete_transform();
+            let combined_tf = part_tf * slot_tf;
+            let u = combined_tf.translation;
+            let v = u + combined_tf.local_x() * dims.x + combined_tf.local_y() * dims.y;
+            let min: PartCoord = (u.x.min(v.x), u.y.min(v.y)).into();
+            let max: PartCoord = (u.x.max(v.x), u.y.max(v.y)).into();
+            let success = gv.add_slot(Volume::liters(1000), min, max);
+            println!("{:?} {} {}", slot.name, max - min, success.is_some());
+        }
     }
     if let Some(data) = &proto.machine_data {
         let machine = Machine::from_data(data.clone());
@@ -609,49 +616,22 @@ pub fn grid_by_name(grids: &Components<VehicleGrid>, name: &str) -> Option<Ent> 
         .find_map(|(id, grid)| (grid.name == name).then(|| *id))
 }
 
-pub fn get_slot_c<'a>(
+pub fn get_slot_at_c_mut<'a>(
     loc: GridLocation,
-    grids: &Components<VehicleGrid>,
-    parts: &Components<Part>,
-    inventories: &'a Components<Inventory>,
-) -> BaryResult<&'a InvSlot> {
-    let (part_id, slot_id) = inventory_at_c(loc, grids, parts, inventories)?;
-    let inv = inventories.try_get(part_id)?;
-    inv.get_slot(slot_id).ok_or(BaryError::NoInvSlot(slot_id))
+    gvs: &mut Components<GridVentory>,
+) -> BaryResult<(Ent, &mut InvSlot)> {
+    let gv = gvs.try_get_mut(loc.grid_id)?;
+    let slot_id = gv.slot_at(loc.coord).ok_or(BaryError::NoInvAt(loc.coord))?;
+    Ok((Ent(0), &mut gv.slots[slot_id]))
 }
 
-pub fn get_slot_mut_c<'a>(
+pub fn get_slot_at_c(
     loc: GridLocation,
-    grids: &Components<VehicleGrid>,
-    parts: &Components<Part>,
-    inventories: &'a mut Components<Inventory>,
-) -> BaryResult<&'a mut InvSlot> {
-    let (part_id, slot_id) = inventory_at_c(loc, grids, parts, inventories)?;
-    let inv = inventories.try_get_mut(part_id)?;
-    inv.get_slot_mut(slot_id)
-        .ok_or(BaryError::NoInvSlot(slot_id))
-}
-
-pub fn inventory_at_c(
-    loc: GridLocation,
-    grids: &Components<VehicleGrid>,
-    parts: &Components<Part>,
-    inventories: &Components<Inventory>,
-) -> BaryResult<(Ent, usize)> {
-    let grid = grids.try_get(loc.grid_id)?;
-    let occ = grid
-        .get_parts_at(loc.coord)
-        .ok_or(BaryError::NoPartsAt(loc.coord))?;
-    let part_id = occ
-        .at_layer(PartLayer::Internal)
-        .ok_or(BaryError::NoPartsInLayer(PartLayer::Internal))?;
-    let inv = inventories.try_get(part_id)?;
-    let part = parts.try_get(part_id)?;
-    let local = part.region.to_local(loc.coord);
-    let idx = inv
-        .get_slot_at(local)
-        .ok_or(BaryError::NoInvAt(loc.coord))?;
-    Ok((part_id, idx))
+    gvs: &Components<GridVentory>,
+) -> BaryResult<(Ent, &InvSlot)> {
+    let gv = gvs.try_get(loc.grid_id)?;
+    let slot_id = gv.slot_at(loc.coord).ok_or(BaryError::NoInvAt(loc.coord))?;
+    Ok((Ent(0), &gv.slots[slot_id]))
 }
 
 pub fn closest_grid(

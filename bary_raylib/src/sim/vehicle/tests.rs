@@ -250,11 +250,13 @@ fn get_inventory_at_grid_location() {
 
     let pl = GridRegion::new((-3, 2), Rotation::North, proto.dims);
     let instance = PartInstance::new("test-cargo", PartLayer::Internal, pl);
-    let part_id = insert_part(grid_id, &mut world, &instance, true).unwrap();
+    insert_part(grid_id, &mut world, &instance, true).unwrap();
 
     for part in world.parts.values() {
         println!("- {:?}", part);
     }
+
+    
 
     for inv in world.inventories.values() {
         for slot in inv.slots() {
@@ -285,25 +287,25 @@ fn get_inventory_at_grid_location() {
 
     let mut loc = GridLocation::new(grid_id, (3, 0).into());
 
-    let inv_slot = inventory_at_c(loc, &world.grids, &world.parts, &world.inventories);
+    let inv_slot = get_slot_at_c(loc, &world.gridventories).unwrap();
 
-    assert_eq!(inv_slot, Ok((part_id, 0)));
+    assert_eq!(inv_slot.0, Ent(0));
 
     loc.coord = (2, 1).into();
 
-    let inv_slot = inventory_at_c(loc, &world.grids, &world.parts, &world.inventories);
+    let inv_slot = get_slot_at_c(loc, &world.gridventories).unwrap();
 
-    assert_eq!(inv_slot, Ok((part_id, 1)));
+    assert_eq!(inv_slot.0, Ent(0));
 
     loc.coord = (0, 1).into();
 
-    let failure = inventory_at_c(loc, &world.grids, &world.parts, &world.inventories);
+    let failure = get_slot_at_c(loc, &world.gridventories);
 
     assert_eq!(failure, Err(BaryError::NoInvAt((0, 1).into())));
 
     loc.coord = (4, 7).into();
 
-    let failure = inventory_at_c(loc, &world.grids, &world.parts, &world.inventories);
+    let failure = get_slot_at_c(loc, &world.gridventories);
 
     assert_eq!(failure, Err(BaryError::NoPartsAt((4, 7).into())));
 }

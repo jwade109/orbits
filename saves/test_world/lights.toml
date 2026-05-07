@@ -58,32 +58,57 @@ on = 900
 off = 1100
 delay = 400
 
-[values.174.cycle]
+[values.138.cycle]
 on = 900
 off = 1100
 delay = 800
 
-[values.176.cycle]
+[values.140.cycle]
 on = 900
 off = 1100
 delay = 1200
 
-[values.182.cycle]
+[values.146.cycle]
 on = 900
 off = 1100
 delay = 1600
 
-[values.186.cycle]
+[values.150.cycle]
 on = 900
 off = 1100
 delay = 0
 
-[values.187.cycle]
+[values.151.cycle]
 on = 900
 off = 1100
 delay = 400
 
-[values.188.cycle]
+[values.152.cycle]
+on = 900
+off = 1100
+delay = 800
+
+[values.159.cycle]
+on = 900
+off = 1100
+delay = 1200
+
+[values.160.cycle]
+on = 900
+off = 1100
+delay = 1600
+
+[values.178.cycle]
+on = 900
+off = 1100
+delay = 0
+
+[values.190.cycle]
+on = 900
+off = 1100
+delay = 400
+
+[values.191.cycle]
 on = 900
 off = 1100
 delay = 800
@@ -98,177 +123,202 @@ on = 900
 off = 1100
 delay = 1600
 
-[values.225.cycle]
+[values.197.cycle]
 on = 900
 off = 1100
 delay = 0
 
-[values.237.cycle]
+[values.198.cycle]
 on = 900
 off = 1100
 delay = 400
 
-[values.238.cycle]
+[values.199.cycle]
 on = 900
 off = 1100
 delay = 800
 
-[values.242.cycle]
+[values.200.cycle]
 on = 900
 off = 1100
 delay = 1200
 
-[values.243.cycle]
+[values.205.cycle]
 on = 900
 off = 1100
 delay = 1600
 
-[values.244.cycle]
+[values.207.cycle]
 on = 900
 off = 1100
 delay = 0
 
-[values.245.cycle]
+[values.208.cycle]
 on = 900
 off = 1100
 delay = 400
 
-[values.246.cycle]
+[values.210.cycle]
 on = 900
 off = 1100
 delay = 800
 
-[values.247.cycle]
+[values.226.cycle]
 on = 900
 off = 1100
 delay = 1200
 
-[values.252.cycle]
+[values.227.cycle]
 on = 900
 off = 1100
 delay = 1600
 
-[values.254.cycle]
+[values.229.cycle]
 on = 900
 off = 1100
 delay = 0
+
+[values.232.cycle]
+on = 900
+off = 1100
+delay = 400
+
+[values.233.cycle]
+on = 900
+off = 1100
+delay = 800
+
+[values.235.cycle]
+on = 900
+off = 1100
+delay = 1200
+
+[values.236.cycle]
+on = 900
+off = 1100
+delay = 1600
+
+[values.241.cycle]
+on = 900
+off = 1100
+delay = 0
+
+[values.248.cycle]
+on = 900
+off = 1100
+delay = 400
+
+[values.250.cycle]
+on = 900
+off = 1100
+delay = 800
+
+[values.253.cycle]
+on = 900
+off = 1100
+delay = 1200
 
 [values.255.cycle]
 on = 900
 off = 1100
+delay = 1600
+
+[values.259.cycle]
+on = 900
+off = 1100
+delay = 0
+
+[values.260.cycle]
+on = 900
+off = 1100
 delay = 400
 
-[values.257.cycle]
+[values.264.cycle]
 on = 900
 off = 1100
 delay = 800
+
+[values.266.cycle]
+on = 900
+off = 1100
+delay = 1200
 
 [values.273.cycle]
 on = 900
 off = 1100
-delay = 1200
-
-[values.274.cycle]
-on = 900
-off = 1100
 delay = 1600
 
-[values.276.cycle]
+[values.277.cycle]
 on = 900
 off = 1100
 delay = 0
-
-[values.279.cycle]
-on = 900
-off = 1100
-delay = 400
-
-[values.280.cycle]
-on = 900
-off = 1100
-delay = 800
-
-[values.282.cycle]
-on = 900
-off = 1100
-delay = 1200
 
 [values.283.cycle]
 on = 900
 off = 1100
+delay = 400
+
+[values.285.cycle]
+on = 900
+off = 1100
+delay = 800
+
+[values.287.cycle]
+on = 900
+off = 1100
+delay = 1200
+
+[values.292.cycle]
+on = 900
+off = 1100
 delay = 1600
 
-[values.288.cycle]
+[values.293.cycle]
 on = 900
 off = 1100
 delay = 0
-
-[values.295.cycle]
-on = 900
-off = 1100
-delay = 400
 
 [values.297.cycle]
 on = 900
 off = 1100
+delay = 400
+
+[values.298.cycle]
+on = 900
+off = 1100
 delay = 800
-
-[values.300.cycle]
-on = 900
-off = 1100
-delay = 1200
-
-[values.302.cycle]
-on = 900
-off = 1100
-delay = 1600
-
-[values.306.cycle]
-on = 900
-off = 1100
-delay = 0
 
 [values.307.cycle]
 on = 900
 off = 1100
-delay = 400
-
-[values.311.cycle]
-on = 900
-off = 1100
-delay = 800
-
-[values.313.cycle]
-on = 900
-off = 1100
 delay = 1200
 
-[values.320.cycle]
+[values.314.cycle]
 on = 900
 off = 1100
 delay = 1600
 
-[values.324.cycle]
+[values.315.cycle]
 on = 900
 off = 1100
 delay = 0
 
-[values.330.cycle]
+[values.326.cycle]
 on = 900
 off = 1100
 delay = 400
 
-[values.332.cycle]
+[values.327.cycle]
 on = 900
 off = 1100
 delay = 800
 
-[values.334.cycle]
+[values.328.cycle]
 on = 900
 off = 1100
 delay = 1200
 
-[values.339.cycle]
+[values.338.cycle]
 on = 900
 off = 1100
 delay = 1600
@@ -278,122 +328,72 @@ on = 900
 off = 1100
 delay = 0
 
-[values.344.cycle]
+[values.345.cycle]
 on = 900
 off = 1100
 delay = 400
 
-[values.345.cycle]
+[values.346.cycle]
 on = 900
 off = 1100
 delay = 800
 
-[values.354.cycle]
+[values.348.cycle]
 on = 900
 off = 1100
 delay = 1200
 
-[values.361.cycle]
+[values.355.cycle]
 on = 900
 off = 1100
 delay = 1600
+
+[values.360.cycle]
+on = 900
+off = 1100
+delay = 0
 
 [values.362.cycle]
 on = 900
 off = 1100
-delay = 0
-
-[values.373.cycle]
-on = 900
-off = 1100
 delay = 400
 
-[values.374.cycle]
+[values.368.cycle]
 on = 900
 off = 1100
 delay = 800
 
-[values.375.cycle]
+[values.369.cycle]
 on = 900
 off = 1100
 delay = 1200
 
-[values.385.cycle]
+[values.378.cycle]
 on = 900
 off = 1100
 delay = 1600
 
-[values.387.cycle]
+[values.388.cycle]
 on = 900
 off = 1100
 delay = 0
-
-[values.392.cycle]
-on = 900
-off = 1100
-delay = 400
-
-[values.393.cycle]
-on = 900
-off = 1100
-delay = 800
 
 [values.395.cycle]
 on = 900
 off = 1100
-delay = 1200
-
-[values.402.cycle]
-on = 900
-off = 1100
-delay = 1600
-
-[values.407.cycle]
-on = 900
-off = 1100
-delay = 0
-
-[values.409.cycle]
-on = 900
-off = 1100
 delay = 400
 
-[values.415.cycle]
+[values.397.cycle]
 on = 900
 off = 1100
 delay = 800
 
-[values.416.cycle]
+[values.400.cycle]
 on = 900
 off = 1100
 delay = 1200
 
-[values.425.cycle]
-on = 900
-off = 1100
-delay = 1600
-
-[values.435.cycle]
-on = 900
-off = 1100
-delay = 0
-
-[values.442.cycle]
-on = 900
-off = 1100
-delay = 400
-
-[values.444.cycle]
-on = 900
-off = 1100
-delay = 800
-
-[values.447.cycle]
-on = 900
-off = 1100
-delay = 1200
-
-[values.451.cycle]
+[values.404.cycle]
 on = 900
 off = 1100
 delay = 1600

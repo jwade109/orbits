@@ -528,8 +528,8 @@ fn imgui_hovered_part_info(
         occ.to_array()
     );
 
-    let slot = get_slot_c(gridloc, &world.grids, &world.parts, &world.inventories);
-    if let Ok(slot) = slot {
+    let slot = get_slot_at_c(gridloc, &world.gridventories);
+    if let Ok((_id, slot)) = slot {
         s += &format!("\n\nInventory slot here: {}", slot_info_str(slot));
     }
 

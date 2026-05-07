@@ -96,56 +96,6 @@ fn sys_update_thrusters(
     needs_update
 }
 
-fn sys_fill_inventories_attached_to_debug_sources(world: &mut World) {
-    for (part_id, portal) in world.debug_portals.iter() {
-        let part = ok_or_continue!(world.parts.try_get(*part_id));
-        let loc = GridLocation::new(part.grid_id, part.region.origin());
-        let slot = ok_or_continue!(get_slot_mut_c(
-            loc,
-            &world.grids,
-            &world.parts,
-            &mut world.inventories
-        ));
-
-        match portal.state {
-            PortalState::Source(item) => {
-                if let Some(item) = item {
-                    slot.fill_with(item);
-                }
-            }
-            PortalState::Sink => {
-                slot.empty();
-            }
-        }
-    }
-}
-
-fn sys_update_pipes(inventories: &mut Components<Inventory>, pipes: &mut Components<Pipe>) {
-    for pipe in pipes.values_mut() {
-        let inv_a = ok_or_continue!(inventories.try_get(pipe.src.part_id));
-        let inv_b = ok_or_continue!(inventories.try_get(pipe.dst.part_id));
-
-        let mut src = some_or_continue!(inv_a.get_slot(pipe.src.slot)).clone();
-        let mut dst = some_or_continue!(inv_b.get_slot(pipe.dst.slot)).clone();
-
-        if src.is_empty() {
-            pipe.status = MachineStatus::Starved;
-            continue;
-        }
-
-        let mass = {
-            let mul = randint(140, 160);
-            let m = src.mass() / mul as u64;
-            if m.is_zero() { Mass::grams(1) } else { m }
-        };
-
-        pipe.status = atomic_transfer(&mut src, &mut dst, mass);
-
-        _ = set_inventory_slot(inventories, src, pipe.src.part_id, pipe.src.slot);
-        _ = set_inventory_slot(inventories, dst, pipe.dst.part_id, pipe.dst.slot);
-    }
-}
-
 fn sys_update_trackers(
     trackers: &mut Components<Tracker>,
     grids: &Components<VehicleGrid>,
@@ -227,17 +177,6 @@ pub fn update_world(world: &mut World) -> DebugTimers {
     }
 
     {
-        let _timer = timers.scope("gridventory:insert");
-
-        sys_insert_gridventories(
-            &world.grids,
-            &mut world.gridventories,
-            &world.blueprints,
-            &world.prototypes,
-        );
-    }
-
-    {
         let _timer = timers.scope("gridventory:update");
 
         sys_update_gridventories(&mut world.gridventories);
@@ -250,22 +189,6 @@ pub fn update_world(world: &mut World) -> DebugTimers {
     }
 
     timers
-}
-
-fn sys_insert_gridventories(
-    grids: &Components<VehicleGrid>,
-    gv: &mut Components<GridVentory>,
-    bp: &Components<NamedBlueprint>,
-    protos: &Components<PartPrototype>,
-) {
-    for (grid_id, grid) in grids.iter() {
-        if let Some(id) = &grid.blueprint {
-            if let Some(blueprint) = blueprint_by_id(bp, id) {
-                gv.entry(*grid_id)
-                    .or_insert_with(|| GridVentory::from_blueprint(blueprint, protos));
-            }
-        }
-    }
 }
 
 fn sys_update_gridventories(gv: &mut Components<GridVentory>) {
