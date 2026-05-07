@@ -235,7 +235,12 @@ pub fn update_world(world: &mut World) -> DebugTimers {
     {
         let _timer = timers.scope("new_grid_inventories");
 
-        sys_insert_gridventories(&world.grids, &mut world.gridventories);
+        sys_insert_gridventories(
+            &world.grids,
+            &mut world.gridventories,
+            &world.blueprints,
+            &world.prototypes,
+        );
 
         sys_update_gridventories(&mut world.gridventories);
     }
@@ -249,12 +254,19 @@ pub fn update_world(world: &mut World) -> DebugTimers {
     timers
 }
 
-fn sys_insert_gridventories(grids: &Components<VehicleGrid>, gv: &mut Components<GridVentory>) {
-    for (grid_id, _grid) in grids.iter() {
-        gv.entry(*grid_id).or_insert_with(|| {
-            let seed = randint(100, 1000);
-            GridVentory::random(seed as u64)
-        });
+fn sys_insert_gridventories(
+    grids: &Components<VehicleGrid>,
+    gv: &mut Components<GridVentory>,
+    bp: &Components<NamedBlueprint>,
+    protos: &Components<PartPrototype>,
+) {
+    for (grid_id, grid) in grids.iter() {
+        if let Some(id) = &grid.blueprint {
+            if let Some(blueprint) = blueprint_by_id(bp, id) {
+                gv.entry(*grid_id)
+                    .or_insert_with(|| GridVentory::from_blueprint(blueprint, protos));
+            }
+        }
     }
 }
 

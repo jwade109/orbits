@@ -284,7 +284,7 @@ fn draw_current_gridventory(
     let free = some_or_return!(client.viewport.free());
     let grid_id = some_or_return!(free.selection_info.first_selected_grid());
     let gv = ok_or_return!(gv.try_get(grid_id));
-    draw_gridventory(d, gv);
+    draw_gridventory(d, gv, true);
 }
 
 pub fn draw_selected_part_cursors(
@@ -1325,15 +1325,23 @@ fn draw_item_menu(d: &mut RaylibDrawHandle, origin: IVec2) {
     }
 }
 
-pub fn draw_gridventory(d: &mut RaylibDrawHandle, grid: &GridVentory) {
-    let mut rng = StdRng::seed_from_u64(10000);
+pub fn draw_gridventory(d: &mut RaylibDrawHandle, grid: &GridVentory, labels: bool) {
+    let mut min = *grid.slot_map.iter().next().unwrap().0;
+    let mut max = min;
 
-    let n_cols = 10;
+    for slot in grid.slot_map.keys() {
+        min.0.x = min.0.x.min(slot.0.x);
+        min.0.y = min.0.y.min(slot.0.y);
+        max.0.x = max.0.x.max(slot.0.x);
+        max.0.y = max.0.y.max(slot.0.y);
+    }
+
+    let n_cols = max.0.x - min.0.x;
 
     let screen_width = d.get_render_width();
 
     let screen_padding = 120;
-    let padding = 20;
+    let padding = 0;
 
     let render_width = screen_width - screen_padding * 2;
 
@@ -1342,10 +1350,10 @@ pub fn draw_gridventory(d: &mut RaylibDrawHandle, grid: &GridVentory) {
     let x0 = screen_padding;
     let y0 = screen_padding;
 
-    let slot_coord = |i: usize| {
-        let inv = &grid.slots[i];
-        let col_idx = inv.location().0.inner().x;
-        let row_idx = inv.location().0.inner().y;
+    let coord_to_screen = |p: PartCoord| {
+        let p = p - min;
+        let col_idx = p.inner().x;
+        let row_idx = p.inner().y;
 
         let x = x0 + col_idx * (cell_size + padding);
         let y = y0 + row_idx * (cell_size + padding);
@@ -1353,9 +1361,11 @@ pub fn draw_gridventory(d: &mut RaylibDrawHandle, grid: &GridVentory) {
         (x, y)
     };
 
-    let slot_coord_center = |i: usize| {
-        let (x, y) = slot_coord(i);
-        (x + cell_size / 2, y + cell_size / 2)
+    let to_center = |x: (i32, i32)| (x.0 + cell_size / 2, x.1 + cell_size / 2);
+
+    let slot_coord = |i: usize| {
+        let inv = &grid.slots[i];
+        coord_to_screen(inv.location().0)
     };
 
     let slot_size = |i: usize| {
@@ -1363,6 +1373,12 @@ pub fn draw_gridventory(d: &mut RaylibDrawHandle, grid: &GridVentory) {
         let span = slot.location().1 - slot.location().0;
         span.inner()
     };
+
+    for roi in &grid.roi {
+        let (x, y) = coord_to_screen(roi.bottom_left());
+        let q = coord_to_screen(roi.top_right());
+        d.draw_rectangle(x, y, q.0 - x, q.1 - y, Color::RED.alpha(0.2));
+    }
 
     for (i, slot) in grid.slots.iter().enumerate() {
         let (x, y) = slot_coord(i);
@@ -1373,32 +1389,18 @@ pub fn draw_gridventory(d: &mut RaylibDrawHandle, grid: &GridVentory) {
         let width = size.x * cell_size;
         let max_height = size.y * cell_size;
         let height = (max_height as f32 * pct) as i32;
-        d.draw_rectangle(x, y, width, max_height, Color::new(20, 20, 20, 255));
         if !slot.is_empty() {
             let y = y + max_height - height;
             d.draw_rectangle(x, y, width, height, color);
         }
-        // d.draw_rectangle_lines(x, y, width, max_height, Color::new(6, 6, 6, 255));
-
-        let s = format!("{:?}", slot.mass());
-        d.draw_text(&s, x + 10, y + 10, 24, Color::WHITE);
+        let rec = Rectangle::new(x as f32, y as f32, width as f32, max_height as f32);
+        d.draw_rectangle_lines_ex(rec, 3.0, Color::new(100, 100, 100, 255));
     }
 
-    for (src, dst, status) in &grid.pipes {
-        let a = rng.random_range(-cell_size / 3..=cell_size / 3);
-        let b = rng.random_range(-cell_size / 3..=cell_size / 3);
-        let j = rng.random_range(-cell_size / 3..=cell_size / 3);
-        let k = rng.random_range(-cell_size / 3..=cell_size / 3);
-
-        let (x0, y0) = slot_coord_center(*src);
-        let (xf, yf) = slot_coord_center(*dst);
-
-        let x0 = x0 + a;
-        let y0 = y0 + b;
-        let xf = xf + j;
-        let yf = yf + k;
-
-        let color = match status {
+    for pipe in &grid.pipes {
+        let (x0, y0) = to_center(coord_to_screen(pipe.src_coord));
+        let (xf, yf) = to_center(coord_to_screen(pipe.dst_coord));
+        let color = match pipe.status {
             MachineStatus::Off => Color::GRAY.alpha(0.3),
             _ => Color::ORANGE.alpha(0.6),
         };
@@ -1406,19 +1408,23 @@ pub fn draw_gridventory(d: &mut RaylibDrawHandle, grid: &GridVentory) {
         d.draw_circle(x0, y0, 5.0, color);
         d.draw_circle(xf, yf, 3.0, color);
 
-        let x_first = rng.random_bool(0.5);
+        let bend = match pipe.geo {
+            NewPipeGeometry::Straight => None,
+            NewPipeGeometry::XFirst => get_bend_location((x0, y0), (xf, yf), true),
+            NewPipeGeometry::YFirst => get_bend_location((x0, y0), (xf, yf), false),
+        };
 
-        let bend = get_bend_location((x0, y0), (xf, yf), x_first);
+        let thickness = 20.0;
 
         let p = Vector2::new(x0 as f32, y0 as f32);
         let q = Vector2::new(xf as f32, yf as f32);
         if let Some(o) = bend.map(|p| p.inner()) {
             let (xb, yb) = (o.x, o.y);
             let o = Vector2::new(xb as f32, yb as f32);
-            d.draw_line_ex(p, o, 3.0, color);
-            d.draw_line_ex(o, q, 3.0, color);
+            d.draw_line_ex(p, o, thickness, color);
+            d.draw_line_ex(o, q, thickness, color);
         } else {
-            d.draw_line_ex(p, q, 3.0, color);
+            d.draw_line_ex(p, q, thickness, color);
         }
     }
 
@@ -1442,6 +1448,22 @@ pub fn draw_gridventory(d: &mut RaylibDrawHandle, grid: &GridVentory) {
         let wh = size * cell_size;
         let rec = Rectangle::new(x as f32, y as f32, wh.x as f32, wh.y as f32);
         d.draw_rectangle_lines_ex(rec, 5.0, Color::RED);
+    }
+
+    if labels {
+        for (i, slot) in grid.slots.iter().enumerate() {
+            let (x, y) = slot_coord(i);
+            let s = format!("{}\n{}", slot.mass(), slot.count());
+            let dims = d.get_font_default().measure_text(&s, 24.0, 1.0);
+            d.draw_rectangle(
+                x + 10,
+                y + 10,
+                dims.x as i32,
+                dims.y as i32,
+                Color::BLACK.alpha(0.8),
+            );
+            d.draw_text(&s, x + 10, y + 10, 24, Color::WHITE);
+        }
     }
 }
 

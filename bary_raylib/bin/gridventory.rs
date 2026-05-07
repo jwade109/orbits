@@ -1,8 +1,9 @@
 use bary_core::prelude::*;
 use bary_raylib::render::draw::{draw_gridventory, draw_pie_chart};
-use bary_raylib::sim::apparent_datetime;
 use bary_raylib::sim::*;
+use bary_raylib::sim::{NewPipeGeometry, apparent_datetime};
 use bary_raylib::utils::BasicApp;
+use bary_raylib::world_builder::WorldBuilder;
 use bary_raylib::{constants::TICKS_PER_SECOND, sim::apparent_elapsed_time};
 use raylib::prelude::*;
 use rayon::prelude::*;
@@ -48,29 +49,45 @@ fn simulate(mut grid: GridVentory) {
 fn example_gridventory() -> GridVentory {
     let mut grid = GridVentory::default();
 
-    let a = grid.add_slot((0, 0), (3, 2));
+    let a = grid.add_slot(Volume::liters(1000), (0, 0), (3, 2)).unwrap();
 
-    let mut prev = a;
+    let mut prev = IVec2::new(1, 1);
 
-    for i in 3..=7 {
-        let new_idx = grid.add_slot((i, 3), (i + 1, 4));
-        grid.add_pipe(prev, new_idx);
-        prev = new_idx;
+    for i in 1..=8 {
+        let origin = IVec2::new(i, 3);
+        let upper = origin + IVec2::new(1, 2);
+        grid.add_slot(Volume::liters(100), origin, upper);
+        grid.add_pipe_at(prev, origin, NewPipeGeometry::Straight);
+        prev = origin + IVec2::Y;
     }
 
-    let c = grid.add_slot((4, 0), (5, 2));
-    grid.add_pipe(prev, c);
-    let c = grid.add_slot((5, 0), (6, 2));
-    grid.add_pipe(prev, c);
+    grid.add_slot(Volume::liters(600), (4, 0), (5, 2));
+    grid.add_pipe_at(prev, (4, 1), NewPipeGeometry::Straight);
+    let c = grid.add_slot(Volume::liters(600), (5, 0), (6, 2)).unwrap();
+    grid.add_pipe_at(prev, (5, 1), NewPipeGeometry::Straight);
 
     grid.add_source(a);
     grid.add_sink(c);
     grid
 }
 
-fn raylib_window(mut grids: Vec<GridVentory>) {
-    if grids.is_empty() {
-        panic!();
+fn raylib_window() {
+    let world = WorldBuilder::new()
+        .assets()
+        .blueprint(("pollux", 0))
+        .blueprint(("pollux", 2))
+        .blueprint(("bellerophon", 2))
+        .build();
+
+    let bp = blueprint_by_id(&world.blueprints, &("pollux", 2).into()).unwrap();
+
+    dbg!(bp);
+
+    let mut grids = Vec::new();
+
+    for bp in world.blueprints.values() {
+        let grid = GridVentory::from_blueprint(&bp.blueprint, &world.prototypes);
+        grids.push(grid);
     }
 
     let mut app = BasicApp::new("Gridventory Demo");
@@ -144,12 +161,15 @@ fn raylib_window(mut grids: Vec<GridVentory>) {
         app.handle.draw(&app.thread, |mut d| {
             d.clear_background(Color::BLACK);
 
-            draw_gridventory(&mut d, &grids[index]);
+            let labels = app.input.is_key_pressed(rdev::Key::ShiftLeft);
+
+            draw_gridventory(&mut d, &grids[index], labels);
 
             let s = [
                 format!("sim time: {:?}", apparent_datetime(ticks)),
                 format!("{}/{}", index + 1, grids.len()),
                 format!("settled: {}", grids[index].is_settled),
+                format!("mass: {}", grids[index].mass()),
                 format!("frame_delta: {:?}", app.this_frame - app.last_frame),
                 format!("rate: {}", rate),
                 format!("multithreaded: {}", parallel),
@@ -196,19 +216,5 @@ fn simulate_parallel() {
 }
 
 fn main() {
-    let grids = vec![
-        example_gridventory(),
-        GridVentory::random(45),
-        GridVentory::random(8),
-        GridVentory::random(7),
-        GridVentory::random(90),
-        GridVentory::random(8),
-        GridVentory::random(7),
-        GridVentory::random(90),
-        GridVentory::random(8),
-        GridVentory::random(7),
-        GridVentory::random(90),
-        GridVentory::random(8),
-    ];
-    raylib_window(grids);
+    raylib_window();
 }

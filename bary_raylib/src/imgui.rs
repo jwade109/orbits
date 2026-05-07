@@ -708,7 +708,7 @@ pub fn lame_old_imgui_entrypoint(
     imgui_hovered_part_info(d, &mut app.world, &mut app.client, assets);
 }
 
-fn selected_part_gui(gui: &mut ImGui, client: &ClientSpecificInfo, world: &mut World) {
+fn selected_part_gui(gui: &mut ImGui, client: &mut ClientSpecificInfo, world: &mut World) {
     let loc = some_or_return!(client.selected_grid_loc());
     let grid = ok_or_return!(world.grids.try_get(loc.grid_id));
     let part_iso = ok_or_return!(gridloc_pose(&world.grids, loc));
@@ -719,7 +719,11 @@ fn selected_part_gui(gui: &mut ImGui, client: &ClientSpecificInfo, world: &mut W
     let s = distance_str_v(part_iso.translation.into());
 
     layout.button(s);
-    layout.button("Follow");
+    if layout.button("Follow").clicked() {
+        if let Some(free) = client.viewport.free_mut() {
+            free.follow_vehicle = Some(loc.grid_id);
+        }
+    }
     layout.button("Set Item");
 
     let occ = occ.unwrap_or(&PartOccupancy::EMPTY);

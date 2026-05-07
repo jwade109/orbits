@@ -150,3 +150,15 @@ impl std::fmt::Display for PartCoord {
         write!(f, "({}, {})", self.0.x, self.0.y)
     }
 }
+
+impl std::cmp::PartialOrd for PartCoord {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some([self.0.x, self.0.y].cmp(&[other.0.x, other.0.y]))
+    }
+}
+
+impl std::cmp::Ord for PartCoord {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        [self.0.x, self.0.y].cmp(&[other.0.x, other.0.y])
+    }
+}
