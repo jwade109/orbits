@@ -85,6 +85,13 @@ impl GridRegion {
         Isometry2d::new(self.origin().to_meters(), rot)
     }
 
+    pub fn discrete_transform(&self) -> GridIsometry2d {
+        GridIsometry2d {
+            translation: self.origin().inner(),
+            rotation: self.rot(),
+        }
+    }
+
     pub fn origin_transform(&self) -> ! {
         todo!()
         // isometry_to_transform(self.origin_isometry())

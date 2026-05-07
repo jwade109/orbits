@@ -210,6 +210,18 @@ pub fn rocket_equation(ve: f64, m0: Mass, m1: Mass) -> f64 {
     ve * (m0.to_kg_f64() / m1.to_kg_f64()).ln()
 }
 
+pub fn rotate_90(p: IVec2) -> IVec2 {
+    IVec2::Y.rotate(p)
+}
+
+pub fn rotate_180(p: IVec2) -> IVec2 {
+    (-p.x, -p.y).into()
+}
+
+pub fn rotate_270(p: IVec2) -> IVec2 {
+    (-IVec2::Y).rotate(p)
+}
+
 pub fn rotate_ccw(p: PartCoord) -> PartCoord {
     IVec2::Y.rotate(p.inner()).into()
 }

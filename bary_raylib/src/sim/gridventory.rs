@@ -64,8 +64,12 @@ impl GridVentory {
             if let Some(data) = &proto.inventory_data {
                 s.roi.push(part.region);
                 for slot in &data.slots {
-                    let u = part.region.to_global(slot.min).inner();
-                    let v = part.region.to_global(slot.max).inner();
+                    let dims = slot.max - slot.min;
+                    let slot_tf = GridIsometry2d::new(slot.min, Rotation::East);
+                    let part_tf = part.region.discrete_transform();
+                    let combined_tf = part_tf * slot_tf;
+                    let u = combined_tf.translation;
+                    let v = u + combined_tf.local_x() * dims.x + combined_tf.local_y() * dims.y;
                     let min: PartCoord = (u.x.min(v.x), u.y.min(v.y)).into();
                     let max: PartCoord = (u.x.max(v.x), u.y.max(v.y)).into();
                     let success = s.add_slot(Volume::liters(1000), min, max);
@@ -156,14 +160,14 @@ impl GridVentory {
         let slot = InvSlot::new(capacity, filter, is_fluid, location);
         let id = self.slots.len();
 
-        // for x in location.0.inner().x..location.1.inner().x {
-        //     for y in location.0.inner().y..location.1.inner().y {
-        //         let c = PartCoord::new((x, y));
-        //         if self.slot_map.contains_key(&c) {
-        //             return None;
-        //         }
-        //     }
-        // }
+        for x in location.0.inner().x..location.1.inner().x {
+            for y in location.0.inner().y..location.1.inner().y {
+                let c = PartCoord::new((x, y));
+                if self.slot_map.contains_key(&c) {
+                    return None;
+                }
+            }
+        }
 
         for x in location.0.inner().x..location.1.inner().x {
             for y in location.0.inner().y..location.1.inner().y {
@@ -173,6 +177,11 @@ impl GridVentory {
         }
 
         self.slots.push(slot);
+
+        for i in 3..12 {
+            self.add_source(i);
+        }
+
         Some(id)
     }
 
