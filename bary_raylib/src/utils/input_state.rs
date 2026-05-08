@@ -69,4 +69,20 @@ impl InputState {
         self.just_released.clear();
         self.just_pressed_debounced.clear();
     }
+
+    pub fn get_currently_pressed(&self) -> impl Iterator<Item = KB> {
+        self.currently_pressed.iter().copied()
+    }
+
+    pub fn get_just_pressed(&self) -> impl Iterator<Item = KB> {
+        self.just_pressed.iter().copied()
+    }
+
+    pub fn get_just_pressed_debounced(&self) -> impl Iterator<Item = KB> {
+        self.just_pressed_debounced.iter().copied()
+    }
+
+    pub fn get_just_released(&self) -> impl Iterator<Item = KB> {
+        self.just_released.iter().copied()
+    }
 }
