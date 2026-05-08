@@ -1,0 +1,28 @@
+ship_name: bellerophon
+instructions:
+  - instruction: !HoldPosition
+      translation: [300, 100]
+      rotation: 0
+    duration: 1000
+
+  - instruction: !HoldAttitude 0.3
+    duration: 1000
+
+  - instruction: !PointAt
+     - 300
+     - 100
+  
+  # - instruction: !HoldPosition
+  #     translation: [100, 600]
+  #     rotation: 0
+  #   duration: 10000
+  
+  # - instruction: Drift
+  #   duration: 10000
+  
+  # - instruction: !HoldPosition
+  #     translation: [300, 600]
+  #     rotation: 0
+
+steps: 3000
+ticks_per_epoch: 10

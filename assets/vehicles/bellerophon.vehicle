@@ -404,11 +404,6 @@ parts:
   - -9
   - -6
   rot: East
-- partname: cpu
-  pos:
-  - 43
-  - 5
-  rot: East
 - partname: rcs
   pos:
   - -38
@@ -824,11 +819,6 @@ parts:
   - -19
   - -1
   rot: East
-- partname: cpu
-  pos:
-  - 43
-  - 3
-  rot: East
 - partname: plate
   pos:
   - 33
@@ -899,11 +889,6 @@ parts:
   - 44
   - -13
   rot: North
-- partname: cpu
-  pos:
-  - 43
-  - 6
-  rot: East
 - partname: frame3
   pos:
   - 43

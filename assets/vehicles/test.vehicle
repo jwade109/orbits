@@ -1,0 +1,42 @@
+parts:
+- partname: ruler
+  pos:
+  - 0
+  - 0
+  rot: East
+- partname: ruler
+  pos:
+  - 18
+  - 2
+  rot: North
+- partname: ruler
+  pos:
+  - -2
+  - 20
+  rot: West
+- partname: ruler
+  pos:
+  - -2
+  - 0
+  rot: South
+- partname: antenna
+  pos:
+  - 20
+  - 5
+  rot: South
+- partname: antenna
+  pos:
+  - 4
+  - 22
+  rot: East
+- partname: antenna
+  pos:
+  - -7
+  - 6
+  rot: North
+- partname: antenna
+  pos:
+  - 4
+  - -5
+  rot: West
+pipes: []

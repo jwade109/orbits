@@ -5,7 +5,24 @@ dims: [5, 4]
 excavator_data:
   radius: 2.0
 inventory_data:
-  slots: 5
-  filter: Solid
-  volume_liters: 400
-  is_fuel: false
+  slots:
+    - filter: Solid
+      volume_liters: 100
+      min: [0, 0]
+      max: [2, 1]
+      name: "slot-a"
+    - filter: Solid
+      volume_liters: 100
+      min: [0, 1]
+      max: [2, 2]
+      name: "slot-b"
+    - filter: Solid
+      volume_liters: 100
+      min: [0, 2]
+      max: [2, 3]
+      name: "slot-c"
+    - filter: Solid
+      volume_liters: 100
+      min: [0, 3]
+      max: [2, 4]
+      name: "slot-d"

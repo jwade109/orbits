@@ -1,0 +1,72 @@
+pub use rdev::Button;
+pub use rdev::Key;
+use std::collections::HashSet;
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+pub enum KB {
+    Key(Key),
+    Button(Button),
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct InputState {
+    currently_pressed: HashSet<KB>,
+    just_pressed: HashSet<KB>,
+    just_pressed_debounced: HashSet<KB>,
+    just_released: HashSet<KB>,
+}
+
+impl From<Key> for KB {
+    fn from(value: Key) -> Self {
+        KB::Key(value)
+    }
+}
+
+impl From<Button> for KB {
+    fn from(value: Button) -> Self {
+        KB::Button(value)
+    }
+}
+
+impl InputState {
+    pub fn is_key_pressed(&self, key: impl Into<KB>) -> bool {
+        let key = key.into();
+        self.currently_pressed.contains(&key)
+    }
+
+    pub fn just_pressed_debounced(&self, key: impl Into<KB>) -> bool {
+        let key = key.into();
+        self.just_pressed_debounced.contains(&key)
+    }
+
+    pub fn just_released(&self, key: impl Into<KB>) -> bool {
+        let key = key.into();
+        self.just_released.contains(&key)
+    }
+
+    pub fn just_pressed(&self, key: impl Into<KB>) -> bool {
+        let key = key.into();
+        self.just_pressed.contains(&key)
+    }
+
+    pub fn set_pressed(&mut self, key: impl Into<KB>) {
+        let key = key.into();
+        if !self.currently_pressed.contains(&key) {
+            self.just_pressed_debounced.insert(key);
+        }
+        self.currently_pressed.insert(key);
+        self.just_pressed.insert(key);
+    }
+
+    pub fn set_released(&mut self, key: impl Into<KB>) {
+        let key = key.into();
+        self.currently_pressed.remove(&key);
+        self.just_released.insert(key);
+    }
+
+    pub fn on_frame_boundary(&mut self) {
+        self.just_pressed.clear();
+        self.just_released.clear();
+        self.just_pressed_debounced.clear();
+    }
+}

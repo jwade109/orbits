@@ -3,4 +3,4 @@ layer: Internal
 name: "cpu"
 dims: [2, 2]
 computer_data:
-  frequency: 10
+  ticks_per_cycle: 5

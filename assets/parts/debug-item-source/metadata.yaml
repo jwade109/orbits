@@ -1,0 +1,15 @@
+mass: 100000
+layer: Internal
+dims: [3, 3]
+name: "debug-item-source"
+machine_data:
+  recipe_categories: ["debug-production"]
+  input_slots: []
+  output_slots: [0]
+inventory_data:
+  slots:
+    - name: "output"
+      filter: Any
+      volume_liters: 500
+      min: [0, 0]
+      max: [3, 3]

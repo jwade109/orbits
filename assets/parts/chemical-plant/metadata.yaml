@@ -2,6 +2,39 @@ mass: 960000
 layer: Internal
 dims: [4, 6]
 name: "chemical-plant"
-# sprites: 15
 machine_data:
-  whatever: "wow"
+  recipe_categories: ["chemical-plant"]
+  input_slots: [0, 1, 2]
+  output_slots: [3, 4]
+inventory_data:
+  slots:
+    - name: "solid-input"
+      filter: Any
+      volume_liters: 100
+      min: [0, 0]
+      max: [1, 1]
+      is_fluid: false
+    - name: "liquid-input-1"
+      filter: Any
+      volume_liters: 100
+      min: [0, 1]
+      max: [1, 2]
+      is_fluid: true
+    - name: "liquid-input-2"
+      filter: Any
+      volume_liters: 100
+      min: [0, 2]
+      max: [1, 3]
+      is_fluid: false
+    - name: "output-1"
+      filter: Any
+      volume_liters: 100
+      min: [3, 4]
+      max: [4, 5]
+      is_fluid: true
+    - name: "output-2"
+      filter: Any
+      volume_liters: 100
+      min: [3, 5]
+      max: [4, 6]
+      is_fluid: true

@@ -1,0 +1,373 @@
+use super::PartOccupancy;
+use bary_core::prelude::*;
+use serde::{Deserialize, Serialize};
+use std::collections::{BTreeMap, BTreeSet};
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct VehicleGrid {
+    pub name: String,
+    pub blueprint: Option<BlueprintId>,
+    pub parts_mass: Mass,
+    pub center_of_mass: Vec2,
+    pub particle_location: Isometry2d,
+    pub velocity: Isometry2d,
+    pub body_frame_forces: Isometry2d,
+    pub parts: BTreeSet<Ent>,
+    pub thrusters: BTreeSet<Ent>,
+    pub computers: BTreeSet<Ent>,
+    pub lights: BTreeSet<Ent>,
+    pub pipes: BTreeSet<Ent>,
+    /// Lower bound is inclusive; upper is exclusive.
+    /// Extent is upper minus lower. An empty grid
+    /// will have zero extent.
+    pub bounds: (IVec2, IVec2),
+
+    // TODO this is not tested in any way.
+    #[serde(skip)]
+    pub occupancy: BTreeMap<(i32, i32), PartOccupancy>,
+}
+
+impl VehicleGrid {
+    pub fn empty() -> Self {
+        Self::with_name("", None)
+    }
+
+    pub fn can_insert_part(&self, pl: GridRegion, layer: PartLayer) -> bool {
+        for cell in pl.cells() {
+            if let Some(occ) = self.get_parts_at(cell) {
+                if occ.at_layer(layer).is_some() {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
+    pub fn origin(&self) -> Isometry2d {
+        self.particle_location.offset(-self.center_of_mass)
+    }
+
+    pub fn with_name(name: impl Into<String>, bp_id: Option<BlueprintId>) -> Self {
+        VehicleGrid {
+            name: name.into(),
+            blueprint: bp_id,
+            parts_mass: Mass::ZERO,
+            center_of_mass: Vec2::ZERO,
+            particle_location: Isometry2d::ZERO,
+            velocity: Isometry2d::ZERO,
+            body_frame_forces: Isometry2d::ZERO,
+            parts: BTreeSet::new(),
+            thrusters: BTreeSet::new(),
+            computers: BTreeSet::new(),
+            lights: BTreeSet::new(),
+            pipes: BTreeSet::new(),
+            bounds: (IVec2::ZERO, IVec2::ZERO),
+            occupancy: BTreeMap::new(),
+        }
+    }
+
+    pub fn parts_mass(&self) -> Mass {
+        self.parts_mass
+    }
+
+    pub fn centroid(&self) -> Vec2 {
+        let lower = PartCoord::new(self.bounds.0).to_meters();
+        let upper = PartCoord::new(self.bounds.1).to_meters();
+        (upper + lower) / 2.0
+    }
+
+    pub fn centroid_isometry(&self) -> Isometry2d {
+        let c = self.centroid();
+        let origin = self.origin();
+        origin.offset(c)
+    }
+
+    pub fn linear_acceleration(&self) -> Vec2 {
+        self.body_frame_forces.translation / self.parts_mass.to_kg_f64() as f32
+    }
+
+    pub fn angular_acceleration(&self) -> f32 {
+        let moment_of_inertia = self.parts_mass.to_kg_f64() as f32 * 100.0;
+        self.body_frame_forces.rotation / moment_of_inertia
+    }
+
+    pub fn bounding_radius(&self) -> f32 {
+        let half_dims = self.dims().to_meters() / 2.0;
+        half_dims.length() * 1.03
+    }
+
+    pub fn dims(&self) -> PartCoord {
+        PartCoord::new(self.bounds.1 - self.bounds.0)
+    }
+
+    /// TODO test this.
+    pub fn get_parts_at(&self, p: PartCoord) -> Option<&PartOccupancy> {
+        let p = (p.0.x, p.0.y);
+        self.occupancy.get(&p)
+    }
+
+    pub fn update_bounds(&mut self) {
+        let mut bounds: Option<(IVec2, IVec2)> = None;
+        for cell in self.occupancy.keys() {
+            let lower = IVec2::new(cell.0, cell.1);
+            let upper = lower + IVec2::ONE;
+            if let Some(c) = &mut bounds {
+                c.0.x = c.0.x.min(lower.x);
+                c.0.y = c.0.y.min(lower.y);
+                c.1.x = c.1.x.max(upper.x);
+                c.1.y = c.1.y.max(upper.y);
+            } else {
+                bounds = Some((lower, upper));
+            }
+        }
+        self.bounds = bounds.unwrap_or((IVec2::ZERO, IVec2::ZERO));
+    }
+
+    pub fn mark_occupied(&mut self, region: GridRegion, layer: PartLayer, id: Ent) {
+        for cell in region.cells() {
+            let key = (cell.0.x, cell.0.y);
+            self.occupancy
+                .entry(key)
+                .and_modify(|e| {
+                    e.mark(layer, id);
+                })
+                .or_insert({
+                    let mut occ = PartOccupancy::default();
+                    occ.mark(layer, id);
+                    occ
+                });
+        }
+        self.update_bounds();
+    }
+
+    pub fn remove_from_index(&mut self, id: Ent) {
+        for occ in self.occupancy.values_mut() {
+            occ.remove(id);
+        }
+
+        self.occupancy.retain(|_, e| e.has_any());
+
+        self.parts.retain(|e| *e != id);
+        self.thrusters.retain(|e| *e != id);
+        self.computers.retain(|e| *e != id);
+        self.lights.retain(|e| *e != id);
+        self.update_bounds();
+    }
+
+    pub fn calculate_islands(&self) -> Vec<BTreeSet<Ent>> {
+        let mut unvisited = BTreeSet::new();
+
+        for key in self.occupancy.keys() {
+            unvisited.insert(*key);
+        }
+
+        let get_neighbors = |(x, y): (i32, i32)| [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)];
+
+        let mut ret = Vec::new();
+
+        while let Some(seed) = unvisited.first().cloned() {
+            let mut parts = BTreeSet::new();
+
+            let mut open_set: BTreeSet<(i32, i32)> = [seed].into();
+            let mut closed_set = BTreeSet::new();
+            while let Some(current) = open_set.pop_first() {
+                if closed_set.contains(&current) {
+                    continue;
+                }
+                closed_set.insert(current);
+                if !unvisited.contains(&current) {
+                    continue;
+                };
+                unvisited.remove(&current);
+
+                if let Some(occ) = self.occupancy.get(&current) {
+                    for (_, id) in occ.iter() {
+                        parts.insert(id);
+                    }
+                }
+
+                for n in get_neighbors(current) {
+                    open_set.insert(n);
+                }
+            }
+
+            ret.push(parts);
+        }
+
+        ret.sort_by_key(|e| -(e.len() as i32));
+
+        ret
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::query;
+    use crate::sim::*;
+    use crate::tests::assert_world_is_consistent;
+    use crate::world_builder::WorldBuilder;
+
+    #[test]
+    fn rebuilding_grid_from_islands() {
+        let mut world = WorldBuilder::new()
+            .test_assets()
+            .blueprint("pollux")
+            .spawn("pollux", "harriet", (0.0, 0.0, 0.0))
+            .build();
+
+        let grid_id = query::grid_by_name(&world.grids, "harriet").unwrap();
+        let grid = world.grids.try_get(grid_id).unwrap();
+
+        assert_eq!(grid.parts_mass, Mass::grams(35134000));
+        assert_eq!(grid.parts.len(), 98);
+
+        // slice a thing down the middle of the ship
+        let mut parts = BTreeSet::new();
+        let x = 22;
+        for y in 0..40 {
+            if let Some(occ) = grid.occupancy.get(&(x, y)) {
+                for (_, id) in occ.iter() {
+                    parts.insert(id);
+                }
+            }
+        }
+
+        for part_id in parts {
+            let r = destroy_part_without_integrity_check(&mut world, part_id, true);
+            assert!(r.is_ok());
+        }
+
+        let mut grid = world.grids.try_get(grid_id).unwrap().clone();
+        let islands = grid.calculate_islands();
+
+        assert_eq!(islands.len(), 2);
+
+        let rebuilt = rebuild_index_from_islands(&mut grid, &islands, &world.parts).unwrap();
+
+        assert_eq!(rebuilt.len(), 2);
+
+        let ra = &rebuilt[0];
+        let rb = &rebuilt[1];
+
+        assert_eq!(ra.parts.len(), 45);
+        assert_eq!(rb.parts.len(), 40);
+
+        assert_eq!(ra.thrusters.len(), 9);
+        assert_eq!(rb.thrusters.len(), 9);
+
+        assert_eq!(ra.computers.len(), 0);
+        assert_eq!(rb.computers.len(), 1);
+
+        assert_eq!(ra.lights.len(), 6);
+        assert_eq!(rb.lights.len(), 6);
+
+        assert_eq!(ra.parts_mass, Mass::grams(16817000));
+        assert_eq!(rb.parts_mass, Mass::grams(14797000));
+    }
+
+    #[test]
+    fn removing_parts_from_grid() {
+        let mut world = WorldBuilder::new()
+            .test_assets()
+            .blueprint("pollux")
+            .spawn("pollux", "ted", (0.0, 0.0, 0.0))
+            .build();
+
+        let grid_id = query::grid_by_name(&world.grids, "ted").unwrap();
+        let grid = world.grids.try_get(grid_id).unwrap();
+        let parts: Vec<_> = grid.parts.iter().collect();
+
+        assert_eq!(grid.parts_mass, Mass::grams(35134000));
+        assert_eq!(grid.parts.len(), 98);
+
+        let part_a = *parts[12];
+        let part_b = *parts[20];
+        let part_c = *parts[37];
+
+        assert_eq!(part_a, Ent(47));
+        assert_eq!(part_b, Ent(55));
+        assert_eq!(part_c, Ent(72));
+
+        let op_a = destroy_part_without_integrity_check(&mut world, part_a, false);
+        let op_b = destroy_part_without_integrity_check(&mut world, part_b, false);
+        let op_c = destroy_part_without_integrity_check(&mut world, part_c, true);
+
+        let region_a = GridRegion::new((10, 0), Rotation::North, (1, 1));
+        let region_b = GridRegion::new((32, 4), Rotation::South, (2, 2));
+        let region_c = GridRegion::new((32, 12), Rotation::South, (2, 2));
+
+        let part_a = PartInstance::new("rcs", PartLayer::Internal, region_a);
+        let part_b = PartInstance::new("plate", PartLayer::Exterior, region_b);
+        let part_c = PartInstance::new("plate", PartLayer::Exterior, region_c);
+
+        assert_eq!(op_a, Ok((part_a, grid_id)));
+        assert_eq!(op_b, Ok((part_b, grid_id)));
+        assert_eq!(op_c, Ok((part_c, grid_id)));
+
+        let grid = world.grids.try_get(grid_id).unwrap();
+
+        assert_eq!(grid.parts_mass, Mass::grams(35073000));
+        assert_eq!(grid.parts.len(), 95);
+
+        assert_world_is_consistent(&world);
+    }
+
+    #[test]
+    fn split_grid_into_two_grids() {
+        let mut world = WorldBuilder::new()
+            .test_assets()
+            .blueprint("pollux")
+            .spawn("pollux", "julia", (0.0, 0.0, 0.0))
+            .build();
+
+        let grid_id = query::grid_by_name(&world.grids, "julia").unwrap();
+
+        // this should fail if the grid ID is bad, obviously.
+        let result = split_grid_if_necessary(&mut world, Ent(0));
+
+        assert_eq!(result, Err(BaryError::EntityNotFound(Ent(0))));
+
+        let result = split_grid_if_necessary(&mut world, grid_id);
+
+        assert_eq!(result, Ok(vec![]));
+
+        let grid = world.grids.try_get(grid_id).unwrap();
+        assert_eq!(grid.parts_mass, Mass::grams(35134000));
+        assert_eq!(grid.parts.len(), 98);
+
+        // slice a thing down the middle of the ship
+        let mut parts = BTreeSet::new();
+        let x = 25;
+        for y in 0..40 {
+            if let Some(occ) = grid.occupancy.get(&(x, y)) {
+                for (_, id) in occ.iter() {
+                    parts.insert(id);
+                }
+            }
+        }
+
+        assert_eq!(parts.len(), 8);
+
+        for part_id in parts {
+            let r = destroy_part_without_integrity_check(&mut world, part_id, true);
+            assert!(r.is_ok());
+        }
+
+        let sec_grid_id = Ent(169);
+
+        let result = split_grid_if_necessary(&mut world, grid_id);
+
+        assert_eq!(result, Ok(vec![grid_id, sec_grid_id]));
+
+        let grid = world.grids.try_get(grid_id).unwrap();
+        assert_eq!(grid.parts_mass, Mass::grams(17757000));
+        assert_eq!(grid.parts.len(), 52);
+
+        let grid = world.grids.try_get(sec_grid_id).unwrap();
+        assert_eq!(grid.parts_mass, Mass::grams(14247000));
+        assert_eq!(grid.parts.len(), 38);
+
+        assert_world_is_consistent(&world);
+    }
+}

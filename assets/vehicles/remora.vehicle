@@ -69,11 +69,6 @@ parts:
   - 3
   - 3
   rot: South
-- partname: tank11
-  pos:
-  - -5
-  - -1
-  rot: North
 - partname: rcs
   pos:
   - -8
@@ -94,11 +89,6 @@ parts:
   - -1
   - -1
   rot: West
-- partname: tank21
-  pos:
-  - -5
-  - 1
-  rot: North
 - partname: cpu
   pos:
   - -1
@@ -114,16 +104,6 @@ parts:
   - -1
   - -5
   rot: North
-- partname: frame3
-  pos:
-  - -7
-  - 1
-  rot: West
-- partname: frame3
-  pos:
-  - -7
-  - -3
-  rot: East
 - partname: frame2
   pos:
   - 1
@@ -149,25 +129,30 @@ parts:
   - -2
   - -5
   rot: West
-- partname: tank21
-  pos:
-  - -5
-  - -3
-  rot: North
 - partname: frame2
   pos:
   - -2
   - 3
-  rot: North
-- partname: tank11
-  pos:
-  - -3
-  - -1
   rot: North
 - partname: angled-frame
   pos:
   - 3
   - 1
+  rot: East
+- partname: double-tank
+  pos:
+  - -5
+  - -3
+  rot: North
+- partname: frame3
+  pos:
+  - -7
+  - 1
+  rot: West
+- partname: frame3
+  pos:
+  - -7
+  - -3
   rot: East
 pipes:
 - geometry:
@@ -212,30 +197,6 @@ pipes:
     x_first: false
 - geometry:
     start:
-    - -4
-    - -3
-    end:
-    - -4
-    - -4
-    x_first: false
-- geometry:
-    start:
-    - -4
-    - 3
-    end:
-    - -4
-    - 2
-    x_first: false
-- geometry:
-    start:
-    - -4
-    - 1
-    end:
-    - -4
-    - 0
-    x_first: false
-- geometry:
-    start:
     - -7
     - 3
     end:
@@ -244,43 +205,11 @@ pipes:
     x_first: false
 - geometry:
     start:
-    - -3
-    - -1
-    end:
-    - -3
-    - -2
-    x_first: false
-- geometry:
-    start:
-    - -4
-    - -1
-    end:
-    - -4
-    - -2
-    x_first: false
-- geometry:
-    start:
     - -5
     - 3
     end:
     - -7
     - 3
-    x_first: false
-- geometry:
-    start:
-    - -3
-    - 1
-    end:
-    - -3
-    - 0
-    x_first: false
-- geometry:
-    start:
-    - -5
-    - -2
-    end:
-    - -7
-    - -1
     x_first: false
 - geometry:
     start:
@@ -297,14 +226,6 @@ pipes:
     end:
     - -8
     - -3
-    x_first: false
-- geometry:
-    start:
-    - -5
-    - 1
-    end:
-    - -7
-    - 0
     x_first: false
 - geometry:
     start:
