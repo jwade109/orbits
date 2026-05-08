@@ -251,6 +251,8 @@ pub fn draw_world(
         draw_hovered_inventory(&mut c, world, client);
     }
 
+    // draw_parts_zoo(&world.prototypes, &mut c);
+
     drop(c);
 
     draw_waypoint_far_indicators(&world.computers, d, &raylib_camera);
@@ -263,9 +265,8 @@ pub fn draw_world(
 
     draw_imgui(d, gui, assets);
 
-    draw_item_menu(d, (300, 200).into());
+    // draw_item_menu(d, (300, 200).into());
 
-    // draw_parts_zoo(&world.prototypes, &mut d);
     // draw_test_isos(&mut d)
 }
 

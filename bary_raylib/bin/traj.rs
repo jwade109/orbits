@@ -2,16 +2,7 @@ use std::fs::File;
 use std::io::Write;
 
 use bary_core::prelude::*;
-use bary_raylib::{
-    ops,
-    query::primary_computer_id,
-    sim::{
-        TimedInstruction,
-        systems::{find, get_thruster_levels},
-        update_world,
-    },
-    world_builder::WorldBuilder,
-};
+use bary_raylib::{ops, query::primary_computer_id, sim::*, world_builder::WorldBuilder};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -59,11 +50,11 @@ fn run_simulation(
         .spawn(bp_name, "simba", (0.0, 0.0, 0.0))
         .build();
 
-    let grid_id = find::grid_by_name(&world.grids, "simba").unwrap();
+    let grid_id = grid_by_name(&world.grids, "simba").unwrap();
 
     _ = ops::set_primary_computer_state(grid_id, true, &mut world);
 
-    let cpu_id = find::primary_computer_id(grid_id, &world.grids).unwrap();
+    let cpu_id = primary_computer_id(grid_id, &world.grids).unwrap();
 
     let cpu = world.computers.try_get_mut(cpu_id).unwrap();
 
@@ -80,8 +71,8 @@ fn run_simulation(
 
         let cpu_id = primary_computer_id(grid_id, &world.grids).unwrap();
         let cpu = world.computers.try_get(cpu_id).unwrap();
-        let mut pose = find::grid_pose(&world.grids, grid_id).unwrap();
-        let vel = find::grid_vel(&world.grids, grid_id).unwrap();
+        let mut pose = grid_pose(&world.grids, grid_id).unwrap();
+        let vel = grid_vel(&world.grids, grid_id).unwrap();
 
         pose.rotation = Angle::radians(pose.rotation).as_rad();
 
