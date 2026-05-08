@@ -110,7 +110,7 @@ pub fn split_grid_if_necessary(world: &mut World, grid_id: Ent) -> BaryResult<Ve
 
     for (i, r) in rebuilt.into_iter().enumerate() {
         if i == 0 {
-            world.grids.insert(grid_id, r);
+            world.grids.update(grid_id, r);
             ids.push(grid_id);
         } else {
             let id = world.spawner.spawn();

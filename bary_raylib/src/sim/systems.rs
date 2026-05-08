@@ -176,7 +176,7 @@ pub fn spawn_empty_grid(world: &mut World, name: impl Into<String>) -> Ent {
 }
 
 pub fn toggle_tracking(world: &mut World, grid_id: Ent) -> BaryResult<bool> {
-    let tracking = if world.tracking.contains_key(&grid_id) {
+    let tracking = if world.tracking.has_entity(grid_id) {
         world.tracking.despawn(grid_id)?;
         info!("Removed tracking for grid {}", grid_id);
         false

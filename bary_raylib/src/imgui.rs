@@ -302,7 +302,7 @@ pub fn imgui_all_parts_in_layer(
 
     let mut y = bottom_left.y;
 
-    for (proto_id, proto) in world.prototypes.iter().rev() {
+    for (proto_id, proto) in world.prototypes.iter() {
         if proto.layer != layer {
             continue;
         }

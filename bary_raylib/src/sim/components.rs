@@ -1,5 +1,4 @@
 use bary_core::prelude::*;
-use log::error;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -31,19 +30,6 @@ pub struct Components<E> {
     values: BTreeMap<Ent, E>,
 }
 
-impl<E> std::ops::Deref for Components<E> {
-    type Target = BTreeMap<Ent, E>;
-    fn deref(&self) -> &Self::Target {
-        &self.values
-    }
-}
-
-impl<E> std::ops::DerefMut for Components<E> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.values
-    }
-}
-
 impl<E> Default for Components<E> {
     fn default() -> Self {
         Self {
@@ -54,6 +40,12 @@ impl<E> Default for Components<E> {
 
 impl<E> Components<E> {
     pub fn spawn(&mut self, id: Ent, e: E) {
+        assert!(!self.values.contains_key(&id));
+        self.values.insert(id, e);
+    }
+
+    pub fn update(&mut self, id: Ent, e: E) {
+        assert!(self.values.contains_key(&id));
         self.values.insert(id, e);
     }
 
@@ -66,36 +58,54 @@ impl<E> Components<E> {
         }
     }
 
-    pub fn despawn_or_log(&mut self, id: Ent) {
-        if let Err(e) = self.despawn(id) {
-            error!("Failed to despawn {}: {:?}", id, e);
-        }
+    pub fn len(&self) -> usize {
+        self.values.len()
+    }
+
+    pub fn has_entity(&self, id: Ent) -> bool {
+        self.values.contains_key(&id)
+    }
+
+    pub fn clear(&mut self) {
+        self.values.clear();
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&Ent, &E)> {
+        self.values.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&Ent, &mut E)> {
+        self.values.iter_mut()
+    }
+
+    pub fn values(&self) -> impl Iterator<Item = &E> {
+        self.values.values()
+    }
+
+    pub fn values_mut(&mut self) -> impl Iterator<Item = &mut E> {
+        self.values.values_mut()
     }
 
     pub fn get(&self, id: Ent) -> Option<&E> {
         self.values.get(&id)
     }
 
-    pub fn try_get(&self, id: Ent) -> BaryResult<&E> {
-        self.values.get(&id).ok_or(BaryError::EntityNotFound(id))
+    pub fn require(&self, id: Ent) -> &E {
+        self.values.get(&id).unwrap()
     }
 
-    pub fn get_mut(&mut self, id: Ent) -> Option<&mut E> {
-        self.values.get_mut(&id)
+    pub fn require_mut(&mut self, id: Ent) -> &E {
+        self.values.get_mut(&id).unwrap()
+    }
+
+    pub fn try_get(&self, id: Ent) -> BaryResult<&E> {
+        self.values.get(&id).ok_or(BaryError::EntityNotFound(id))
     }
 
     pub fn try_get_mut(&mut self, id: Ent) -> BaryResult<&mut E> {
         self.values
             .get_mut(&id)
             .ok_or(BaryError::EntityNotFound(id))
-    }
-
-    pub fn get_with_log(&self, id: Ent) -> Option<&E> {
-        let e = self.values.get(&id);
-        if e.is_none() {
-            println!("Lookup failed: {id}");
-        }
-        e
     }
 }
 
