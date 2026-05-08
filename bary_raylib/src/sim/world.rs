@@ -622,13 +622,21 @@ impl<'a> Drop for ScopeTimer<'a> {
     }
 }
 
-pub fn consume_rdev_event_into_input_state(input: &mut InputState, event: &rdev::Event) {
+pub fn consume_rdev_event_into_input_state(
+    input: &mut InputState,
+    event: &rdev::Event,
+    focused: bool,
+) {
     if let rdev::EventType::KeyPress(k) = event.event_type {
-        input.set_pressed(k);
+        if focused {
+            input.set_pressed(k);
+        }
     } else if let rdev::EventType::KeyRelease(k) = event.event_type {
         input.set_released(k);
     } else if let rdev::EventType::ButtonPress(mb) = event.event_type {
-        input.set_pressed(mb);
+        if focused {
+            input.set_pressed(mb);
+        }
     } else if let rdev::EventType::ButtonRelease(mb) = event.event_type {
         input.set_released(mb);
     }
@@ -656,7 +664,6 @@ pub fn process_event(
             Key::DownArrow => input_handlers::editor_layer_shift_on_page_key(client, false),
             Key::UpArrow => input_handlers::editor_layer_shift_on_page_key(client, true),
             Key::KeyE => input_handlers::editor_layer_shift_on_page_key(client, true),
-            Key::KeyD => input_handlers::panic_on_ctrl_d(&mut client.input),
             Key::KeyP => input_handlers::spawn_random_ship_on_p(world),
             Key::KeyM => input_handlers::update_center_of_mass_on_m(world),
             Key::KeyQ => input_handlers::pipette_part_if_in_editor_on_q(world, client),

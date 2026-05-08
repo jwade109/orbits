@@ -145,7 +145,8 @@ fn main() {
 
         let mut rdev_events = Vec::new();
         while let Some(e) = app.input_queue.pop() {
-            consume_rdev_event_into_input_state(&mut app.client.input, &e);
+            let focused = rl.is_window_focused();
+            consume_rdev_event_into_input_state(&mut app.client.input, &e, focused);
             rdev_events.push(e);
         }
 
@@ -218,6 +219,14 @@ fn main() {
 
         handle_sounds(sounds, &audio, &mut active_sounds);
 
+        if app.client.input.just_pressed(rdev::Key::KeyC)
+            && app.client.input.is_key_pressed(rdev::Key::ControlLeft)
+        {
+            break;
+        }
+
         app.client.input.on_frame_boundary();
     }
+
+    info!("Done.");
 }

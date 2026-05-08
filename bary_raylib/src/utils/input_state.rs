@@ -44,6 +44,11 @@ impl InputState {
         self.just_released.contains(&key)
     }
 
+    pub fn just_pressed(&self, key: impl Into<KB>) -> bool {
+        let key = key.into();
+        self.just_pressed.contains(&key)
+    }
+
     pub fn set_pressed(&mut self, key: impl Into<KB>) {
         let key = key.into();
         if !self.currently_pressed.contains(&key) {
