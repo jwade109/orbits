@@ -69,7 +69,7 @@ pub fn draw_window(d: &mut RaylibDrawHandle, window: &Window, font: &Font) {
     );
 
     let position = Vector2::new(text_origin.x as f32, text_origin.y as f32);
-    d.set_text_line_spacing(0);
+    // d.set_text_line_spacing(0);
 
     d.draw_text_ex(
         font,

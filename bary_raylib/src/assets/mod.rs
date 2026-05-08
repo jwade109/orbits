@@ -1,3 +1,4 @@
+use crate::utils::{GlobalKeybinds, load_keybinds_from_file};
 use bary_core::prelude::randint;
 use log::debug;
 use raylib::prelude::*;
@@ -14,6 +15,7 @@ pub struct Assets {
     pub fira_code: MaybeFont,
     pub part_textures: BTreeMap<String, Texture2D>,
     pub ship_names: Vec<String>,
+    pub keybinds: GlobalKeybinds,
 }
 
 pub fn load_names_from_file(
@@ -48,6 +50,8 @@ pub fn load_assets(
         .ok();
 
     assets.ship_names = load_names_from_file("assets/ship_names.txt").unwrap_or(vec![]);
+
+    assets.keybinds = load_keybinds_from_file("assets/keybinds.yaml").unwrap();
 
     // for (proto, tex) in assets.part_textures.values_mut() {
     //     let filename = format!("assets/parts/{}/skin.png", proto.part_name());

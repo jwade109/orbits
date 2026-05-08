@@ -1,0 +1,35 @@
+keybinds:
+  Piloting:
+    KeyW: DriveForward
+    KeyA: DriveLeft
+    KeyS: DriveBackward
+    KeyD: DriveRight
+    KeyQ: ContextDependent
+    ShiftLeft: ShowDebugInfo
+    Alt: ShowInventoryInfo
+  Free:
+    KeyG: EnterEditor
+    KeyF: ToggleFollow
+  Camera:
+    KeyW: CameraForward
+    KeyA: CameraLeft
+    KeyS: CameraBackward
+    KeyD: CameraRight
+    KeyQ: CameraRotateLeft
+    KeyE: CameraRotateRight
+    Minus: CameraZoomOut
+    Equal: CameraZoomIn
+  TimeControl:
+    Dot: SpeedUp
+    Comma: SlowDown
+    Space: TogglePause
+  Editor:
+    KeyQ: EditorContext
+    KeyD: EditorDelete
+    Escape: EditorLeave
+  Console:
+    Escape: ConsoleCloseMenu
+  MainMenu:
+    Escape: CloseMainMenu
+  DebugMenu:
+    KeyR: DebugRecord

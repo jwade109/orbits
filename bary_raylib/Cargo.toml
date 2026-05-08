@@ -8,7 +8,7 @@ rand = "0.10.0"
 raylib = "5.5.1"
 bary_core = { path = "../bary_core" }
 bary_ui = { path = "../bary_ui" }
-rdev = "0.5.3"
+rdev = { version = "0.5.3", features = ["serde", "serialize"] }
 crossbeam-queue = "0.3.12"
 enum-iterator = "2.3.0"
 steamworks = "0.12.2"

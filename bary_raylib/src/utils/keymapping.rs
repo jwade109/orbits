@@ -1,31 +1,98 @@
 use crate::utils::{InputState, KB};
-use std::collections::{HashMap, HashSet};
+use bary_core::prelude::BaryResult;
+use early_returns::some_or_continue;
+use serde::{Deserialize, Serialize};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::hash::Hash;
 
-pub struct KeyMapping<T>(HashMap<rdev::Key, T>);
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Hash, PartialOrd, Ord)]
+pub enum InputAction {
+    // piloting
+    DriveForward,
+    DriveLeft,
+    DriveBackward,
+    DriveRight,
+    ContextDependent,
+    // free
+    EnterEditor,
+    ToggleFollow,
+    // camera
+    CameraForward,
+    CameraLeft,
+    CameraBackward,
+    CameraRight,
+    CameraRotateLeft,
+    CameraRotateRight,
+    CameraZoomIn,
+    CameraZoomOut,
+    // time controls
+    SpeedUp,
+    SlowDown,
+    TogglePause,
+    // editor
+    EditorDelete,
+    EditorContext,
+    EditorLeave,
+    ShowDebugInfo,
+    ShowInventoryInfo,
+    // console
+    ConsoleCloseMenu,
+    // main menu
+    CloseMainMenu,
+    // debug
+    DebugRecord,
+}
 
-impl<T: Copy> KeyMapping<T> {
-    pub fn new(map: impl Into<HashMap<rdev::Key, T>>) -> Self {
+#[derive(Debug, Default, Clone, Deserialize, Serialize)]
+pub struct KeyMapping(HashMap<rdev::Key, InputAction>);
+
+pub fn load_keymap_from_file(path: &str) -> BaryResult<KeyMapping> {
+    let contents = std::fs::read_to_string(path)?;
+    load_keymap_from_string(&contents)
+}
+
+pub fn load_keymap_from_string(contents: &str) -> BaryResult<KeyMapping> {
+    let mut km = KeyMapping::default();
+    for line in contents.lines() {
+        if line.is_empty() {
+            continue;
+        }
+        let (a, b) = some_or_continue!(line.split_once(" "));
+        println!("{} {}", a, b);
+        let key: rdev::Key = serde_yaml::from_str(a)?;
+        let action: InputAction = serde_yaml::from_str(b)?;
+        km.set_mapping(key, action);
+    }
+    Ok(km)
+}
+
+impl KeyMapping {
+    pub fn new(map: impl Into<HashMap<rdev::Key, InputAction>>) -> Self {
         Self(map.into())
     }
 
-    pub fn map(&self, key: rdev::Key) -> Option<T> {
+    pub fn map(&self, key: rdev::Key) -> Option<InputAction> {
         self.0.get(&key).copied()
+    }
+
+    pub fn set_mapping(&mut self, key: rdev::Key, action: InputAction) {
+        self.0.insert(key, action);
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&rdev::Key, &InputAction)> {
+        self.0.iter()
     }
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct ActionSet<T: Copy + Eq + Hash> {
-    currently_pressed: HashSet<T>,
-    just_pressed: HashSet<T>,
-    just_pressed_debounced: HashSet<T>,
-    just_released: HashSet<T>,
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct ActionSet {
+    currently_pressed: BTreeSet<InputAction>,
+    // just_pressed: HashSet<T>,
+    just_pressed_debounced: BTreeSet<InputAction>,
+    just_released: BTreeSet<InputAction>,
 }
 
-fn apply_keymapping<T: Copy + Eq + Hash>(
-    mapping: &KeyMapping<T>,
-    keys: impl Iterator<Item = KB>,
-) -> HashSet<T> {
+fn apply_keymapping(mapping: &KeyMapping, keys: impl Iterator<Item = KB>) -> BTreeSet<InputAction> {
     keys.filter_map(|e| {
         if let KB::Key(e) = e {
             mapping.map(e)
@@ -36,48 +103,40 @@ fn apply_keymapping<T: Copy + Eq + Hash>(
     .collect()
 }
 
-impl<T: Copy + Eq + Hash> ActionSet<T> {
-    pub fn new(input: &InputState, map: &KeyMapping<T>) -> Self {
+impl ActionSet {
+    pub fn new(input: &InputState, map: &KeyMapping) -> Self {
         Self {
             currently_pressed: apply_keymapping(map, input.get_currently_pressed()),
-            just_pressed: apply_keymapping(map, input.get_just_pressed()),
+            // just_pressed: apply_keymapping(map, input.get_just_pressed()),
             just_pressed_debounced: apply_keymapping(map, input.get_just_pressed_debounced()),
             just_released: apply_keymapping(map, input.get_just_released()),
         }
     }
 
-    pub fn is_active(&self, key: T) -> bool {
+    pub fn is_active(&self, key: InputAction) -> bool {
         let key = key.into();
         self.currently_pressed.contains(&key)
     }
 
-    pub fn just_pressed_debounced(&self, key: T) -> bool {
+    pub fn just_triggered(&self, key: InputAction) -> bool {
         let key = key.into();
         self.just_pressed_debounced.contains(&key)
     }
 
-    pub fn just_released(&self, key: T) -> bool {
+    pub fn just_released(&self, key: InputAction) -> bool {
         let key = key.into();
         self.just_released.contains(&key)
     }
 
-    pub fn just_triggered(&self, key: T) -> bool {
-        let key = key.into();
-        self.just_pressed.contains(&key)
-    }
+    // pub fn just_triggered(&self, key: T) -> bool {
+    //     let key = key.into();
+    //     self.just_pressed.contains(&key)
+    // }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-    pub enum DrivingAction {
-        DriveLeft,
-        DriveRight,
-        DriveForward,
-        DriveBackward,
-    }
 
     #[test]
     fn action_sets() {
@@ -85,11 +144,11 @@ mod tests {
 
         // define a driving action set -
         // this would be in a config file somewhere
-        let driving = KeyMapping::<DrivingAction>::new([
-            (KeyW, DrivingAction::DriveForward),
-            (KeyA, DrivingAction::DriveLeft),
-            (KeyS, DrivingAction::DriveBackward),
-            (KeyD, DrivingAction::DriveRight),
+        let driving = KeyMapping::new([
+            (KeyW, InputAction::DriveForward),
+            (KeyA, InputAction::DriveLeft),
+            (KeyS, InputAction::DriveBackward),
+            (KeyD, InputAction::DriveRight),
         ]);
 
         let mut input = InputState::default();
@@ -104,17 +163,17 @@ mod tests {
 
         assert!(input.just_pressed(KeyD));
 
-        assert!(actions.just_triggered(DrivingAction::DriveRight));
-        assert!(!actions.just_triggered(DrivingAction::DriveBackward));
-        assert!(!actions.just_triggered(DrivingAction::DriveLeft));
-        assert!(!actions.just_triggered(DrivingAction::DriveForward));
+        assert!(actions.just_triggered(InputAction::DriveRight));
+        assert!(!actions.just_triggered(InputAction::DriveBackward));
+        assert!(!actions.just_triggered(InputAction::DriveLeft));
+        assert!(!actions.just_triggered(InputAction::DriveForward));
 
         assert!(input.is_key_pressed(KeyD));
 
-        assert!(actions.is_active(DrivingAction::DriveRight));
-        assert!(!actions.is_active(DrivingAction::DriveBackward));
-        assert!(!actions.is_active(DrivingAction::DriveLeft));
-        assert!(!actions.is_active(DrivingAction::DriveForward));
+        assert!(actions.is_active(InputAction::DriveRight));
+        assert!(!actions.is_active(InputAction::DriveBackward));
+        assert!(!actions.is_active(InputAction::DriveLeft));
+        assert!(!actions.is_active(InputAction::DriveForward));
 
         input.on_frame_boundary();
 
@@ -128,16 +187,16 @@ mod tests {
         assert!(input.is_key_pressed(KeyD));
 
         // nothing has just been triggered
-        assert!(!actions.just_triggered(DrivingAction::DriveRight));
-        assert!(!actions.just_triggered(DrivingAction::DriveBackward));
-        assert!(!actions.just_triggered(DrivingAction::DriveLeft));
-        assert!(!actions.just_triggered(DrivingAction::DriveForward));
+        assert!(!actions.just_triggered(InputAction::DriveRight));
+        assert!(!actions.just_triggered(InputAction::DriveBackward));
+        assert!(!actions.just_triggered(InputAction::DriveLeft));
+        assert!(!actions.just_triggered(InputAction::DriveForward));
 
         // only drive right is still active
-        assert!(actions.is_active(DrivingAction::DriveRight));
-        assert!(!actions.is_active(DrivingAction::DriveBackward));
-        assert!(!actions.is_active(DrivingAction::DriveLeft));
-        assert!(!actions.is_active(DrivingAction::DriveForward));
+        assert!(actions.is_active(InputAction::DriveRight));
+        assert!(!actions.is_active(InputAction::DriveBackward));
+        assert!(!actions.is_active(InputAction::DriveLeft));
+        assert!(!actions.is_active(InputAction::DriveForward));
 
         input.on_frame_boundary();
 
@@ -159,21 +218,34 @@ mod tests {
         let actions = ActionSet::new(&input, &driving);
 
         // S and W trigger Forwards and Backwards
-        assert!(!actions.just_triggered(DrivingAction::DriveRight));
-        assert!(actions.just_triggered(DrivingAction::DriveBackward));
-        assert!(!actions.just_triggered(DrivingAction::DriveLeft));
-        assert!(actions.just_triggered(DrivingAction::DriveForward));
+        assert!(!actions.just_triggered(InputAction::DriveRight));
+        assert!(actions.just_triggered(InputAction::DriveBackward));
+        assert!(!actions.just_triggered(InputAction::DriveLeft));
+        assert!(actions.just_triggered(InputAction::DriveForward));
 
         // only those two are active
-        assert!(!actions.is_active(DrivingAction::DriveRight));
-        assert!(actions.is_active(DrivingAction::DriveBackward));
-        assert!(!actions.is_active(DrivingAction::DriveLeft));
-        assert!(actions.is_active(DrivingAction::DriveForward));
+        assert!(!actions.is_active(InputAction::DriveRight));
+        assert!(actions.is_active(InputAction::DriveBackward));
+        assert!(!actions.is_active(InputAction::DriveLeft));
+        assert!(actions.is_active(InputAction::DriveForward));
 
         // releasing D releases Right
-        assert!(actions.just_released(DrivingAction::DriveRight));
-        assert!(!actions.just_released(DrivingAction::DriveBackward));
-        assert!(!actions.just_released(DrivingAction::DriveLeft));
-        assert!(!actions.just_released(DrivingAction::DriveForward));
+        assert!(actions.just_released(InputAction::DriveRight));
+        assert!(!actions.just_released(InputAction::DriveBackward));
+        assert!(!actions.just_released(InputAction::DriveLeft));
+        assert!(!actions.just_released(InputAction::DriveForward));
+    }
+
+    #[test]
+    fn load_keymap() {
+        let contents = "\
+            KeyW DriveForward\n\
+            KeyA DriveLeft\n\
+            KeyS DriveBackward\n\
+            KeyD DriveRight\n";
+
+        let km = load_keymap_from_string(contents);
+
+        dbg!(km);
     }
 }

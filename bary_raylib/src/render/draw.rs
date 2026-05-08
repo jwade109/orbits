@@ -265,9 +265,63 @@ pub fn draw_world(
 
     draw_imgui(d, gui, assets);
 
+    draw_actions(d, &client, assets);
+
     // draw_item_menu(d, (300, 200).into());
 
     // draw_test_isos(&mut d)
+}
+
+fn draw_actions(d: &mut RaylibDrawHandle, client: &ClientSpecificInfo, assets: &Assets) {
+    let mut x = 50;
+    let y0 = 50;
+    let width = 250;
+    let cell_height = 28;
+    let font_size = 23;
+    let padding = 3;
+
+    let font = some_or_return!(&assets.lato_regular);
+
+    for (ctx, mapping) in assets.keybinds.iter() {
+        let actions = ActionSet::new(&client.input, mapping);
+        let s = format!("{:?}", ctx);
+        let mut y = y0;
+
+        d.draw_rectangle(x, y, width, cell_height, Color::ORANGE.alpha(0.5));
+        d.draw_text(&s, x + padding, y + padding, font_size, Color::WHITE);
+
+        y += cell_height + padding;
+
+        for (key, action) in mapping.iter() {
+            let line = format!("{:?}: {:?}", key, action);
+            let color = if actions.just_triggered(*action) {
+                Color::TEAL
+            } else if actions.is_active(*action) {
+                Color::new(60, 60, 110, 255)
+            } else {
+                Color::new(20, 20, 20, 255)
+            };
+            d.draw_rectangle(x, y, width, cell_height, color);
+            d.draw_text_ex(
+                font,
+                &line,
+                Vector2::new((x + padding) as f32, (y + padding) as f32),
+                font_size as f32,
+                0.0,
+                Color::WHITE,
+            );
+            y += cell_height + padding;
+        }
+
+        x += width + padding;
+    }
+
+    // let s = format!("{:#?}", &assets.keybinds);
+    // d.draw_text(&s, 100, 100, 26, Color::WHITE);
+    // let s = format!("{:#?}", &assets.keybinds.piloting(&client.input));
+    // d.draw_text(&s, 600, 100, 20, Color::WHITE);
+    // let s = format!("{:#?}", &assets.keybinds.editor(&client.input));
+    // d.draw_text(&s, 900, 100, 20, Color::WHITE);
 }
 
 pub fn draw_selected_part_cursors(
