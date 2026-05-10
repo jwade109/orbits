@@ -3,10 +3,7 @@ use crate::prelude::GridRegion;
 use crate::prelude::*;
 use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::BTreeMap,
-    path::Path,
-};
+use std::{collections::BTreeMap, path::Path};
 
 #[derive(Deserialize, Serialize, Debug, Clone, Copy)]
 pub enum PartClassification {

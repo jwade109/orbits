@@ -2,7 +2,7 @@ use crate::utils::{InputState, KB};
 use bary_core::prelude::BaryResult;
 use early_returns::some_or_continue;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap};
 use std::hash::Hash;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Hash, PartialOrd, Ord)]
