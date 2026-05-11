@@ -1,8 +1,8 @@
-use crate::prelude::*;
+use bary_core::prelude::*;
 use image::RgbaImage;
 use noise::{NoiseFn, Perlin};
 use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
+use rand::{RngExt, SeedableRng};
 use std::collections::HashSet;
 
 #[derive(Debug, Clone, Copy)]

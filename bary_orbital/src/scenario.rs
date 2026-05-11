@@ -1,5 +1,5 @@
 use crate::orbits::{Body, SparseOrbit};
-use crate::prelude::*;
+use bary_core::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

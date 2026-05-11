@@ -1,5 +1,5 @@
 use crate::orbits::{GlobalOrbit, SparseOrbit};
-use crate::prelude::*;
+use bary_core::prelude::*;
 use crate::scenario::*;
 use serde::{Deserialize, Serialize};
 

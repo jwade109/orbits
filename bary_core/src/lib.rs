@@ -1,21 +1,11 @@
-mod asteroid;
-mod belts;
 mod casts;
-mod control;
 mod entity;
 mod math;
-mod orbital_luts;
-mod orbits;
-mod pid;
-mod planning;
-mod plants;
-mod propagator;
-mod quantities;
-mod region;
-mod result;
-mod scenario;
-mod surface;
-mod vehicle;
 mod part_layer;
+mod pid;
+mod plants;
+mod quantities;
+mod result;
+mod rigid_body;
 
 pub mod prelude;

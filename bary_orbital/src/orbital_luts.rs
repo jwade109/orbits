@@ -1,4 +1,5 @@
-use crate::prelude::*;
+use crate::*;
+use bary_core::prelude::*;
 use lazy_static::lazy_static;
 use splines::{Interpolation, Key, Spline};
 use std::collections::HashMap;

@@ -1,8 +1,5 @@
-use crate::{
-    orbits::vis_viva_equation,
-    prelude::*,
-    propagator::{ConvergeError, search_condition},
-};
+use crate::*;
+use bary_core::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct ManeuverPlan {
@@ -330,7 +327,7 @@ pub fn best_maneuver_plan(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::*;
+    use bary_core::prelude::*;
 
     fn maneuver_plan_segments_join(plan: &ManeuverPlan) {
         for segs in plan.segments.windows(2) {

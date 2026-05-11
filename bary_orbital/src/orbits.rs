@@ -1,5 +1,5 @@
-use crate::prelude::*;
-use crate::propagator::search_condition;
+use bary_core::prelude::*;
+use crate::{lookup_ta_from_ma, propagator::search_condition};
 use serde::{Deserialize, Serialize};
 
 pub fn hyperbolic_range_ta(ecc: f32) -> f32 {

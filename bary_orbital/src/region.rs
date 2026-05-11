@@ -1,4 +1,4 @@
-use crate::math::*;
+use bary_core::prelude::*;
 use crate::orbits::SparseOrbit;
 
 #[derive(Debug, Copy, Clone)]

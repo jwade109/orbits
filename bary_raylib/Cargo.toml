@@ -10,6 +10,7 @@ bary_core = { path = "../bary_core" }
 bary_factory = { path = "../bary_factory" }
 bary_parts = { path = "../bary_parts" }
 bary_ui = { path = "../bary_ui" }
+bary_orbital = { path = "../bary_orbital" }
 rdev = { version = "0.5.3", features = ["serde", "serialize"] }
 crossbeam-queue = "0.3.12"
 enum-iterator = "2.3.0"
