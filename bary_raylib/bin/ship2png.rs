@@ -1,4 +1,8 @@
 use bary_core::prelude::*;
+use bary_parts::{
+    Blueprint, PartClassification, PartDatabase, PartPrototype, load_blueprint_file,
+    load_parts_from_dir,
+};
 use clap::Parser;
 use image::{DynamicImage, Rgba, RgbaImage};
 use raylib::prelude::Color;
