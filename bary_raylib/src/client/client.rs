@@ -1,7 +1,7 @@
 use super::Chat;
-use crate::utils::InputState;
 use crate::{camera::Camera, client::EditorState};
 use bary_core::prelude::*;
+use bary_input::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq, Eq)]

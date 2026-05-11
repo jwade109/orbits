@@ -1,7 +1,7 @@
 use crate::constants::TICKS_PER_SECOND;
 use crate::multiplayer::{MessageQueue, new_message_queue};
 use crate::sim::consume_rdev_event_into_input_state;
-use crate::utils::InputState;
+use bary_input::*;
 use raylib::prelude::*;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};

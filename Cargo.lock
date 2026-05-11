@@ -470,6 +470,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "bary_input"
+version = "0.1.0"
+dependencies = [
+ "rdev",
+]
+
+[[package]]
 name = "bary_orbital"
 version = "0.1.0"
 dependencies = [
@@ -504,6 +511,7 @@ dependencies = [
  "anyhow",
  "bary_core",
  "bary_factory",
+ "bary_input",
  "bary_orbital",
  "bary_parts",
  "bary_ui",
