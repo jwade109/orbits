@@ -287,7 +287,10 @@ impl Zone {
     pub fn aabb(&self) -> AABB {
         let lower = self.size as f64 * self.index.as_dvec2();
         let upper = self.size as f64 * (self.index + IVec2::ONE).as_dvec2();
-        AABB::from_arbitrary(aabb_stopgap_cast(lower), aabb_stopgap_cast(upper))
+
+        // TODO stupid cast
+
+        AABB::from_arbitrary(lower.as_vec2(), upper.as_vec2())
     }
 }
 

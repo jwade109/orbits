@@ -85,15 +85,15 @@ impl RecipeListing {
     pub fn to_recipe(&self) -> Recipe {
         match self {
             RecipeListing::DoNothing => Recipe::default(),
-            RecipeListing::Sabatier => sabatier_reaction(),
-            RecipeListing::WaterElectrolysis => water_electrolysis(),
-            RecipeListing::CarbonDioxideCondensation => carbon_dioxide_condensation(),
-            RecipeListing::HarvestBread => harvest_bread(),
-            RecipeListing::IceMelting => ice_melting(),
-            RecipeListing::IceMining => ice_mining(),
-            RecipeListing::Enrichment => enrichment(),
-            RecipeListing::TitaniumLattice => titanium_lattice(),
-            RecipeListing::Circuits => circuits(),
+            RecipeListing::Sabatier => recipe_sabatier_reaction(),
+            RecipeListing::WaterElectrolysis => recipe_water_electrolysis(),
+            RecipeListing::CarbonDioxideCondensation => recipe_carbon_dioxide_condensation(),
+            RecipeListing::HarvestBread => recipe_harvest_bread(),
+            RecipeListing::IceMelting => recipe_ice_melting(),
+            RecipeListing::IceMining => recipe_ice_mining(),
+            RecipeListing::Enrichment => recipe_enrichment(),
+            RecipeListing::TitaniumLattice => recipe_titanium_lattice(),
+            RecipeListing::Circuits => recipe_circuits(),
             RecipeListing::Produce(item) => {
                 // produce 1 kg of the stuff
                 let m = item.mass_per_unit();
@@ -116,56 +116,58 @@ impl RecipeListing {
     }
 }
 
-pub fn sabatier_reaction() -> Recipe {
+pub fn recipe_sabatier_reaction() -> Recipe {
     Recipe {
         inputs: vec![(Item::CO2, 44), (Item::H2, 8)],
         outputs: vec![(Item::Methane, 16), (Item::Water, 36)],
     }
 }
 
-pub fn water_electrolysis() -> Recipe {
+pub fn recipe_water_electrolysis() -> Recipe {
     Recipe {
         inputs: vec![(Item::Water, 9000)],
         outputs: vec![(Item::O2, 8000), (Item::H2, 1000)],
     }
 }
 
-pub fn carbon_dioxide_condensation() -> Recipe {
+pub fn recipe_carbon_dioxide_condensation() -> Recipe {
     Recipe {
         inputs: vec![],
         outputs: vec![(Item::CO2, 100)],
     }
 }
 
-pub fn harvest_bread() -> Recipe {
+pub fn recipe_harvest_bread() -> Recipe {
     Recipe {
         inputs: vec![],
         outputs: vec![(Item::Bread, 10)],
     }
 }
 
-pub fn ice_melting() -> Recipe {
+/// recipe for ice melting
+pub fn recipe_ice_melting() -> Recipe {
     Recipe {
         inputs: vec![(Item::Ice, 500)],
         outputs: vec![(Item::Water, 500)],
     }
 }
 
-pub fn ice_mining() -> Recipe {
+/// recipe for ice mining
+pub fn recipe_ice_mining() -> Recipe {
     Recipe {
         inputs: vec![],
         outputs: vec![(Item::Ice, 10)],
     }
 }
 
-pub fn enrichment() -> Recipe {
+pub fn recipe_enrichment() -> Recipe {
     Recipe {
         inputs: vec![(Item::U238, 20), (Item::U235, 10)],
         outputs: vec![(Item::U238, 19), (Item::U235, 11)],
     }
 }
 
-pub fn titanium_lattice() -> Recipe {
+pub fn recipe_titanium_lattice() -> Recipe {
     Recipe {
         inputs: vec![
             (Item::Titanium, 1400),
@@ -176,7 +178,7 @@ pub fn titanium_lattice() -> Recipe {
     }
 }
 
-pub fn circuits() -> Recipe {
+pub fn recipe_circuits() -> Recipe {
     Recipe {
         inputs: vec![(Item::Copper, 23), (Item::Silicon, 45), (Item::Plastic, 22)],
         outputs: vec![(Item::Circuit, 1)],

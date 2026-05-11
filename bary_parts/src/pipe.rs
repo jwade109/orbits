@@ -96,25 +96,31 @@ pub fn get_bend_location(
     })
 }
 
-#[test]
-fn pipe_path_computation() {
-    assert_eq!(
-        get_bend_location((0, 0), (1, 1), true),
-        Some(PartCoord::new(IVec2::new(1, 0)))
-    );
+#[cfg(test)]
+mod tests {
 
-    assert_eq!(
-        get_bend_location((0, 0), (1, 1), false),
-        Some(PartCoord::new(IVec2::new(0, 1)))
-    );
+    use super::*;
 
-    assert_eq!(
-        get_bend_location((3, 2), (-4, 10), true),
-        Some(PartCoord::new(IVec2::new(-4, 2)))
-    );
+    #[test]
+    fn pipe_path_computation() {
+        assert_eq!(
+            get_bend_location((0, 0), (1, 1), true),
+            Some(PartCoord::new(IVec2::new(1, 0)))
+        );
 
-    assert_eq!(
-        get_bend_location((3, 2), (-4, 10), false),
-        Some(PartCoord::new(IVec2::new(3, 10)))
-    );
+        assert_eq!(
+            get_bend_location((0, 0), (1, 1), false),
+            Some(PartCoord::new(IVec2::new(0, 1)))
+        );
+
+        assert_eq!(
+            get_bend_location((3, 2), (-4, 10), true),
+            Some(PartCoord::new(IVec2::new(-4, 2)))
+        );
+
+        assert_eq!(
+            get_bend_location((3, 2), (-4, 10), false),
+            Some(PartCoord::new(IVec2::new(3, 10)))
+        );
+    }
 }

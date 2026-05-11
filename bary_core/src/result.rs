@@ -17,13 +17,22 @@ pub enum BaryError {
     PartHasNoInv(Ent),
     ZeroPipeExtent,
     SameInvSlot(Ent, usize),
+    NoPartWithName(String),
     IoError(String),
     SerdeYaml(String),
     TomlSer(toml::ser::Error),
     TomlDe(toml::de::Error),
 }
 
+impl std::error::Error for BaryError {}
+
 pub type BaryResult<E> = Result<E, BaryError>;
+
+impl std::fmt::Display for BaryError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
 
 impl From<std::io::Error> for BaryError {
     fn from(value: std::io::Error) -> Self {

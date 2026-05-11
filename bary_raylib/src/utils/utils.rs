@@ -1,14 +1,9 @@
 use crate::camera::Camera;
 use bary_core::prelude::*;
-use bary_parts::GridRegion;
 use raylib::prelude::*;
 
 pub fn glam_to_raylib(v: Vec2) -> Vector2 {
     Vector2::new(v.x, v.y)
-}
-
-pub fn glam_to_raylib_swap_x(v: Vec2) -> Vector2 {
-    Vector2::new(-v.x, v.y)
 }
 
 pub fn glam_to_raylib_swap_y(v: Vec2) -> Vector2 {
@@ -21,16 +16,6 @@ pub fn raylib_to_glam(v: Vector2) -> Vec2 {
 
 pub fn raylib_to_glam_invert_y(v: Vector2) -> Vec2 {
     Vec2::new(v.x, -v.y)
-}
-
-pub fn part_isometry(root_isometry: Isometry2d, region: GridRegion) -> Isometry2d {
-    let part_iso = region.origin_isometry();
-
-    // TODO replace this with std::ops::Mul
-    let rotation = root_isometry.rotation + part_iso.rotation;
-    let offset = root_isometry.local_x() * part_iso.translation.x
-        + root_isometry.local_y() * part_iso.translation.y;
-    Isometry2d::new(root_isometry.translation + offset, rotation)
 }
 
 pub fn default_camera_2d() -> Camera2D {

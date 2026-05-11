@@ -1,6 +1,7 @@
 mod aabb;
 mod angle;
 mod bezier;
+mod grid_region;
 mod isometry;
 mod lpf;
 mod mass;
@@ -14,6 +15,7 @@ mod volume;
 pub use aabb::*;
 pub use angle::*;
 pub use bezier::*;
+pub use grid_region::*;
 pub use isometry::*;
 pub use lpf::*;
 pub use mass::*;

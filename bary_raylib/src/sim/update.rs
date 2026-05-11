@@ -3,10 +3,13 @@ use crate::constants::*;
 use crate::sim::*;
 use bary_core::prelude::*;
 use bary_factory::*;
+use bary_orbital::attitude_control_law;
+use bary_orbital::position_hold_control_law;
 use bary_parts::*;
 use early_returns::*;
 use std::collections::*;
 
+/// Updates vehicle rigid body physics.
 fn sys_propagate_grid_rigid_bodies(grids: &mut Components<VehicleGrid>) {
     for grid in grids.values_mut() {
         let body_frame_accel = grid.linear_acceleration();
@@ -19,6 +22,12 @@ fn sys_propagate_grid_rigid_bodies(grids: &mut Components<VehicleGrid>) {
     }
 }
 
+/// Updates vehicle thruster states according to the
+/// primary computer on the parent grid. If the grid
+/// has no computer, or that computer has not changed
+/// its command, thruster states will not change.
+/// Returns a list of grids which have changed their
+/// thruster states.
 fn sys_update_thrusters(
     thrusters: &mut Components<Thruster>,
     grids: &Components<VehicleGrid>,
@@ -97,6 +106,7 @@ fn sys_update_thrusters(
     needs_update
 }
 
+/// Fills inventories which have debug sources attached.
 fn sys_fill_inventories_attached_to_debug_sources(world: &mut World) {
     for (part_id, portal) in world.debug_portals.iter() {
         let part = ok_or_continue!(world.parts.try_get(*part_id));
@@ -121,6 +131,8 @@ fn sys_fill_inventories_attached_to_debug_sources(world: &mut World) {
     }
 }
 
+/// Performs inventory transfers according to the pipes that exist
+/// in the world.
 fn sys_update_pipes(inventories: &mut Components<Inventory>, pipes: &mut Components<Pipe>) {
     for pipe in pipes.values_mut() {
         let inv_a = ok_or_continue!(inventories.try_get(pipe.src.part_id));
@@ -147,6 +159,7 @@ fn sys_update_pipes(inventories: &mut Components<Inventory>, pipes: &mut Compone
     }
 }
 
+/// Appends grid locations to tracker entities.
 fn sys_update_trackers(
     trackers: &mut Components<Tracker>,
     grids: &Components<VehicleGrid>,
@@ -179,18 +192,137 @@ fn sys_update_trackers(
     }
 }
 
+/// Steps running machines forward by one tick, and modifies their
+/// corresponding inventory if necessary.
 fn sys_update_machines(world: &mut World) {
     for (part_id, machine) in world.machines.iter_mut() {
         step_process(machine, *part_id, &mut world.inventories);
     }
 }
 
+/// Updates ring particles.
 fn sys_update_ring_particles(particles: &mut Vec<PingParticle>) {
     for ring in particles.iter_mut() {
         ring.step()
     }
     particles.retain(|p| p.is_alive());
 }
+
+/// Updates computers according to their current
+/// directive and the thruster state of the parent vehicle.
+fn sys_update_computers(
+    computers: &mut Components<Computer>,
+    parts: &Components<Part>,
+    grids: &Components<VehicleGrid>,
+) {
+    for (cpu_id, computer) in computers.iter_mut() {
+        computer.tick_forward();
+
+        if !computer.fired_this_tick {
+            continue;
+        }
+
+        if let Some(ctrl) = computer.current_control() {
+            computer.vehicle_control = ctrl;
+        } else if let Some(target_pose) = computer.current_waypoint() {
+            let Ok(part) = parts.try_get(*cpu_id) else {
+                continue;
+            };
+
+            let Ok(grid) = grids.try_get(part.grid_id) else {
+                continue;
+            };
+
+            let pose = grid.particle_location;
+
+            let target = PV::from_f64(target_pose.translation, Vec2::ZERO);
+            let actual = PV::from_f64(pose.translation, grid.velocity.translation);
+
+            let body = RigidBody {
+                pv: actual,
+                angle: pose.rotation as f64,
+                angular_velocity: grid.velocity.rotation as f64,
+            };
+
+            let (ctrl, _status) =
+                position_hold_control_law(target, target_pose.rotation as f64, &body, DVec2::ZERO);
+
+            computer.vehicle_control = ctrl;
+        } else if let Some(target) = computer.current_angle() {
+            let Ok(part) = parts.try_get(*cpu_id) else {
+                continue;
+            };
+
+            let Ok(grid) = grids.try_get(part.grid_id) else {
+                continue;
+            };
+
+            let actual = Angle::radians(grid.particle_location.rotation);
+
+            let body = RigidBody {
+                pv: PV::ZERO,
+                angle: actual.as_rad() as f64,
+                angular_velocity: grid.velocity.rotation as f64,
+            };
+
+            let pid = PDCtrl::new(20.0, 50.0);
+
+            let (ctrl, _status) = attitude_control_law(target.as_rad() as f64, &pid, &body);
+
+            computer.vehicle_control = ctrl;
+        } else if let Some(dv) = computer.delta_v_mut() {
+            *dv -= Vec2::splat(0.1);
+            let Ok(part) = parts.try_get(*cpu_id) else {
+                continue;
+            };
+
+            let Ok(grid) = grids.try_get(part.grid_id) else {
+                continue;
+            };
+            let target = dv.to_angle();
+            let pid = PDCtrl::new(20.0, 50.0);
+            let body = RigidBody {
+                pv: PV::ZERO,
+                angle: grid.particle_location.rotation as f64,
+                angular_velocity: grid.velocity.rotation as f64,
+            };
+            let (ctrl, _status) = attitude_control_law(target as f64, &pid, &body);
+
+            computer.vehicle_control = ctrl;
+        }
+    }
+}
+
+// fn keyboard_control_law(keys: &ButtonInput<KeyCode>) -> VehicleControl {
+//     let mut ctrl = VehicleControl::NULLOPT;
+
+//     let docking_mode = keys.pressed(KeyCode::ControlLeft);
+
+//     if docking_mode {
+//         ctrl.plus_x.throttle = keys.pressed(KeyCode::ArrowUp) as u8 as f32;
+//         ctrl.plus_y.throttle = keys.pressed(KeyCode::ArrowRight) as u8 as f32;
+//         ctrl.neg_x.throttle = keys.pressed(KeyCode::ArrowDown) as u8 as f32;
+//         ctrl.neg_y.throttle = keys.pressed(KeyCode::ArrowLeft) as u8 as f32;
+//     } else {
+//         ctrl.plus_x.throttle = keys.pressed(KeyCode::ArrowUp) as u8 as f32;
+//         ctrl.neg_x.throttle = keys.pressed(KeyCode::ArrowDown) as u8 as f32;
+
+//         ctrl.attitude = if keys.pressed(KeyCode::ArrowLeft) {
+//             10.0
+//         } else if keys.pressed(KeyCode::ArrowRight) {
+//             -10.0
+//         } else {
+//             0.0
+//         };
+//     }
+
+//     ctrl.plus_x.use_rcs = docking_mode;
+//     ctrl.plus_y.use_rcs = docking_mode;
+//     ctrl.neg_x.use_rcs = docking_mode;
+//     ctrl.neg_y.use_rcs = docking_mode;
+
+//     ctrl
+// }
 
 pub fn update_world(world: &mut World) -> DebugTimers {
     world.ticks += 1;

@@ -6,7 +6,6 @@ use crate::ComputerData;
 use crate::DebugPortalPrototype;
 use crate::DockingPortData;
 use crate::ExcavatorData;
-use crate::GridRegion;
 use crate::InventoryData;
 use crate::MachineData;
 use crate::ThrusterModel;
@@ -67,14 +66,6 @@ impl PartPrototype {
                 PartLayer::Exterior => PartClassification::Decoration,
             }
         }
-    }
-}
-
-pub fn rotate_dims(rot: Rotation, part_meters: Vec2) -> Vec2 {
-    let w = part_meters;
-    match rot {
-        Rotation::East | Rotation::West => Vec2::new(w.x, w.y),
-        Rotation::North | Rotation::South => Vec2::new(w.y, w.x),
     }
 }
 
