@@ -72,7 +72,7 @@ mod tests {
         let s = serde_yaml::to_string(&kb).unwrap();
         println!("{}", s);
 
-        let contents = std::fs::read_to_string("../assets/keybinds.yaml").unwrap();
+        let contents = std::fs::read_to_string("../../assets/keybinds.yaml").unwrap();
 
         let kb: GlobalKeybinds = serde_yaml::from_str(&contents).unwrap();
 

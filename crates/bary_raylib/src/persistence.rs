@@ -102,7 +102,7 @@ mod tests {
 
     #[test]
     fn world_persistence() {
-        let save_path = "../saves/test_world";
+        let save_path = "../../saves/test_world";
 
         if std::fs::exists(save_path).unwrap() {
             std::fs::remove_dir_all(save_path).unwrap();

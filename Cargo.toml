@@ -1,4 +1,4 @@
 
 [workspace]
-members = ["bary_core", "bary_factory", "bary_input", "bary_orbital", "bary_parts", "bary_raylib", "bary_ui"]
+members = ["crates/*"]
 resolver = "2"

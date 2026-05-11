@@ -2,6 +2,7 @@
 name = "bary_raylib"
 version = "0.1.0"
 edition = "2024"
+default-run = "main"
 
 [dependencies]
 rand = "0.10.0"
