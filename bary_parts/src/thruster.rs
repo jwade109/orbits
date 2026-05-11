@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 /// These are stats common to all thrusters
 /// of a given type, i.e. F1, J2, LEM descent, etc
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ThrusterModel {
+pub struct ThrusterPrototype {
     pub model: String,
     pub thrust: f64,
     pub exhaust_velocity: f32,
@@ -18,7 +18,7 @@ pub struct ThrusterModel {
     pub particle_scale: f32,
 }
 
-impl ThrusterModel {
+impl ThrusterPrototype {
     pub fn main_thruster(thrust: f64, ve: f32) -> Self {
         Self {
             model: "".into(),

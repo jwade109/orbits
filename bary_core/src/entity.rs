@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+/// An entity identifier.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize, PartialOrd, Ord)]
 pub struct Ent(pub u64);
 

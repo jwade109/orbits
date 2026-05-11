@@ -8,6 +8,7 @@ use bary_parts::*;
 use chrono::NaiveDate;
 use chrono::NaiveDateTime;
 use log::*;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::time::Duration;
 
@@ -101,6 +102,40 @@ pub fn body_frame_wrench(
     Isometry2d::new(thrust, torque as f32)
 }
 
+/// Updates the `body_frame_forces` field of a particular
+/// vehicle grid specified by the entity ID.
+pub fn update_single_grid_acceleration(
+    grid_id: Ent,
+    grids: &mut Components<VehicleGrid>,
+    thrusters: &Components<Thruster>,
+    parts: &Components<Part>,
+) -> BaryResult<()> {
+    let grid = grids.try_get_mut(grid_id)?;
+    grid.body_frame_forces = Isometry2d::ZERO;
+    for thruster_id in &grid.thrusters {
+        let thruster = thrusters.try_get(*thruster_id)?;
+
+        if !thruster.is_on {
+            continue;
+        }
+
+        let part = parts.try_get(*thruster_id)?;
+
+        let center_of_thrust = part.region.center_isometry().translation;
+        let rotation = part.region.rot();
+        let wrench = body_frame_wrench(
+            thruster.thrust,
+            center_of_thrust,
+            rotation,
+            grid.center_of_mass,
+        );
+        grid.body_frame_forces.translation += wrench.translation;
+        grid.body_frame_forces.rotation += wrench.rotation;
+    }
+
+    Ok(())
+}
+
 pub fn sys_update_grid_acceleration_c(
     dirty_set: BTreeSet<Ent>,
     grids: &mut Components<VehicleGrid>,
@@ -108,33 +143,8 @@ pub fn sys_update_grid_acceleration_c(
     parts: &Components<Part>,
 ) {
     for grid_id in dirty_set {
-        let Ok(grid) = grids.try_get_mut(grid_id) else {
-            continue;
-        };
-        grid.body_frame_forces = Isometry2d::ZERO;
-        for thruster_id in &grid.thrusters {
-            let Ok(thruster) = thrusters.try_get(*thruster_id) else {
-                continue;
-            };
-
-            if !thruster.is_on {
-                continue;
-            }
-
-            let Ok(part) = parts.try_get(*thruster_id) else {
-                continue;
-            };
-
-            let center_of_thrust = part.region.center_isometry().translation;
-            let rotation = part.region.rot();
-            let wrench = body_frame_wrench(
-                thruster.thrust,
-                center_of_thrust,
-                rotation,
-                grid.center_of_mass,
-            );
-            grid.body_frame_forces.translation += wrench.translation;
-            grid.body_frame_forces.rotation += wrench.rotation;
+        if let Err(e) = update_single_grid_acceleration(grid_id, grids, thrusters, parts) {
+            dbg!(e);
         }
     }
 }
@@ -149,7 +159,7 @@ pub fn set_primary_computer_waypoint_c(
     grids: &Components<VehicleGrid>,
     computers: &mut Components<Computer>,
 ) -> BaryResult<Ent> {
-    let primary_cpu_id = primary_computer_id(grid_id, grids)?;
+    let primary_cpu_id = get_primary_cpu_id(grid_id, grids)?;
     let computer = computers.try_get_mut(primary_cpu_id)?;
     let command = TimedInstruction::perp(Instruction::HoldPosition(waypoint.into()));
     computer.command_queue = vec![command];
@@ -165,7 +175,7 @@ pub fn set_primary_computer_state_c(
     grids: &Components<VehicleGrid>,
     computers: &mut Components<Computer>,
 ) -> BaryResult<Ent> {
-    let primary_cpu_id = primary_computer_id(grid_id, grids)?;
+    let primary_cpu_id = get_primary_cpu_id(grid_id, grids)?;
     let computer = computers.try_get_mut(primary_cpu_id)?;
     computer.on = new_state;
     Ok(primary_cpu_id)
@@ -218,8 +228,12 @@ pub fn set_all_thrusters(grid_id: Ent, new_state: bool, world: &mut World) -> Ba
         let thruster = world.thrusters.try_get_mut(*thruster_id)?;
         thruster.is_on = new_state;
     }
-    update_grid_acceleration([grid_id].into(), world);
-    Ok(())
+    update_single_grid_acceleration(
+        grid_id,
+        &mut world.grids,
+        &mut world.thrusters,
+        &mut world.parts,
+    )
 }
 
 pub fn update_grid_acceleration(dirty_set: BTreeSet<Ent>, world: &mut World) {
@@ -281,7 +295,7 @@ pub fn spawn_grid_with_bp_id(
     bp_id: &BlueprintId,
     grid_name: &str,
 ) -> BaryResult<Ent> {
-    let bp = blueprint_by_id(&world.blueprints, bp_id)
+    let bp = get_blueprint_by_id(&world.blueprints, bp_id)
         .ok_or(BaryError::BadBlueprint)?
         .clone();
     spawn_grid_from_blueprint(world, grid_name, Some(bp_id), &bp)
@@ -359,6 +373,27 @@ pub fn can_insert_part_c(
     Ok(grid.can_insert_part(pl, layer))
 }
 
+#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
+pub enum PortalState {
+    Source(Option<Item>),
+    Sink,
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
+pub struct DebugPortal {
+    pub state: PortalState,
+}
+
+impl DebugPortal {
+    pub fn from_proto(proto: DebugPortalPrototype) -> Self {
+        let state = match proto.dir {
+            PortalDirection::Sink => PortalState::Sink,
+            PortalDirection::Source => PortalState::Source(Some(Item::random())),
+        };
+        Self { state }
+    }
+}
+
 pub fn insert_part_c(
     grid_id: Ent,
     spawner: &mut EntitySpawner,
@@ -381,7 +416,7 @@ pub fn insert_part_c(
         return Err(BaryError::GridSpaceOccupied);
     }
 
-    let proto_id = proto_by_name(prototypes, &instance.name).ok_or(BaryError::BadPartName)?;
+    let proto_id = get_proto_by_name(prototypes, &instance.name).ok_or(BaryError::BadPartName)?;
     let proto = prototypes.try_get(proto_id)?;
 
     let part = Part {
@@ -518,7 +553,7 @@ pub fn get_thruster_levels(
 
 /// Produces the entity ID corresponding to a grid's primary CPU,
 /// which by convention is just the first element in the computer index.
-pub fn primary_computer_id(grid_id: Ent, grids: &Components<VehicleGrid>) -> BaryResult<Ent> {
+pub fn get_primary_cpu_id(grid_id: Ent, grids: &Components<VehicleGrid>) -> BaryResult<Ent> {
     let grid = grids.try_get(grid_id)?;
     Ok(*grid.computers.first().ok_or(BaryError::NoPrimaryComputer)?)
 }
@@ -549,7 +584,7 @@ pub fn sum_part_masses_w(world: &World, grid_id: Ent) -> BaryResult<(Mass, Vec2)
     sum_part_masses(&world.grids, &world.parts, &world.prototypes, grid_id)
 }
 
-pub fn blueprint_by_id<'a>(
+pub fn get_blueprint_by_id<'a>(
     blueprints: &'a Components<NamedBlueprint>,
     id: &BlueprintId,
 ) -> Option<&'a Blueprint> {
@@ -563,14 +598,14 @@ pub fn blueprint_by_id<'a>(
 }
 
 /// Produces whatever prototype has the given name, if any.
-pub fn proto_by_name(prototypes: &Components<PartPrototype>, name: &str) -> Option<Ent> {
+pub fn get_proto_by_name(prototypes: &Components<PartPrototype>, name: &str) -> Option<Ent> {
     prototypes
         .iter()
         .find(|(_, proto)| proto.part_name() == name)
         .map(|e| *e.0)
 }
 
-pub fn grid_origin(grids: &Components<VehicleGrid>, grid_id: Ent) -> Option<Isometry2d> {
+pub fn get_grid_origin(grids: &Components<VehicleGrid>, grid_id: Ent) -> Option<Isometry2d> {
     let grid = grids.try_get(grid_id).ok()?;
     Some(grid.origin())
 }
@@ -605,7 +640,7 @@ pub fn gridloc_pose(grids: &Components<VehicleGrid>, loc: GridLocation) -> BaryR
 ///
 /// Buyer beware: grid names are not unique! This
 /// only promises to return any grid with the given name, if one exists.
-pub fn grid_by_name(grids: &Components<VehicleGrid>, name: &str) -> Option<Ent> {
+pub fn get_grid_by_name(grids: &Components<VehicleGrid>, name: &str) -> Option<Ent> {
     grids
         .iter()
         .find_map(|(id, grid)| (grid.name == name).then(|| *id))
@@ -656,7 +691,7 @@ pub fn inventory_at_c(
     Ok((part_id, idx))
 }
 
-pub fn closest_grid(
+pub fn get_closest_grid(
     grids: &Components<VehicleGrid>,
     test_pos: Vec2,
     dist_limit: impl Into<Option<f32>>,
@@ -886,7 +921,7 @@ mod tests {
         let name = "pollux";
 
         // get the blueprint for the pollux
-        let bp = blueprint_by_id(&world.blueprints, &name.into())
+        let bp = get_blueprint_by_id(&world.blueprints, &name.into())
             .expect("Expected a blueprint")
             .clone();
 
@@ -952,7 +987,7 @@ mod tests {
             .blueprint("spacestation")
             .build();
 
-        assert!(closest_grid(&world.grids, Vec2::new(100.0, 200.0), None).is_none());
+        assert!(get_closest_grid(&world.grids, Vec2::new(100.0, 200.0), None).is_none());
 
         let bp_id: BlueprintId = "remora".into();
         let id = spawn_grid_with_random_name(&mut world, bp_id).unwrap();
@@ -967,7 +1002,7 @@ mod tests {
         for _ in 0..100 {
             update_world(&mut world);
             let test_pos = centroid.offset(Vec2::new(100.0, 200.0)).translation;
-            let e = closest_grid(&world.grids, test_pos, None);
+            let e = get_closest_grid(&world.grids, test_pos, None);
             assert_eq!(e, Some((Ent(37), Vec2::new(99.99999, 199.99998))));
         }
 
@@ -985,7 +1020,7 @@ mod tests {
 
         let part_name = "motor";
 
-        let proto_id = proto_by_name(&world.prototypes, part_name).unwrap();
+        let proto_id = get_proto_by_name(&world.prototypes, part_name).unwrap();
 
         let proto = world.prototypes.try_get(proto_id).unwrap();
         let dims = proto.dims;
@@ -1064,7 +1099,7 @@ mod tests {
             .blueprint("spacestation")
             .build();
 
-        let mut expected = blueprint_by_id(&world.blueprints, &"pollux".into())
+        let mut expected = get_blueprint_by_id(&world.blueprints, &"pollux".into())
             .unwrap()
             .clone();
 
@@ -1167,7 +1202,13 @@ mod tests {
         let r1 = set_thruster_state(a_id, &mut world, true);
         let r2 = set_thruster_state(b_id, &mut world, true);
 
-        update_grid_acceleration([grid_id].into(), &mut world);
+        update_single_grid_acceleration(
+            grid_id,
+            &mut world.grids,
+            &mut world.thrusters,
+            &mut world.parts,
+        )
+        .unwrap();
 
         assert_eq!(r1, Ok(()));
         assert_eq!(r2, Ok(()));
@@ -1188,7 +1229,13 @@ mod tests {
         let r1 = set_thruster_state(a_id, &mut world, false);
         let r2 = set_thruster_state(b_id, &mut world, true);
 
-        update_grid_acceleration([grid_id].into(), &mut world);
+        update_single_grid_acceleration(
+            grid_id,
+            &mut world.grids,
+            &mut world.thrusters,
+            &mut world.parts,
+        )
+        .unwrap();
 
         assert_eq!(r1, Ok(()));
         assert_eq!(r2, Ok(()));
@@ -1200,7 +1247,13 @@ mod tests {
         let r1 = set_thruster_state(a_id, &mut world, false);
         let r2 = set_thruster_state(b_id, &mut world, false);
 
-        update_grid_acceleration([grid_id].into(), &mut world);
+        update_single_grid_acceleration(
+            grid_id,
+            &mut world.grids,
+            &mut world.thrusters,
+            &mut world.parts,
+        )
+        .unwrap();
 
         assert_eq!(r1, Ok(()));
         assert_eq!(r2, Ok(()));
@@ -1225,7 +1278,7 @@ mod tests {
 
         assert_eq!(com, Vec2::new(5.5010653, 2.272271));
 
-        let cargo_id = proto_by_name(&world.prototypes, "cargo").unwrap();
+        let cargo_id = get_proto_by_name(&world.prototypes, "cargo").unwrap();
         let cargo_proto = world.prototypes.try_get(cargo_id).unwrap();
 
         assert_eq!(cargo_proto.dims, (6, 6).into());
@@ -1252,7 +1305,7 @@ mod tests {
 
         let grid_id = spawn_empty_grid(&mut world, "empty");
         let pose = grid_pose(&world.grids, grid_id).unwrap();
-        let origin = grid_origin(&world.grids, grid_id).unwrap();
+        let origin = get_grid_origin(&world.grids, grid_id).unwrap();
         assert_eq!(pose, Isometry2d::ZERO);
         assert_eq!(origin, Isometry2d::ZERO);
 
@@ -1271,7 +1324,7 @@ mod tests {
         assert_eq!(part_dims, Vec2::splat(0.5));
 
         let pose = grid_pose(&world.grids, grid_id).unwrap();
-        let origin = grid_origin(&world.grids, grid_id).unwrap();
+        let origin = get_grid_origin(&world.grids, grid_id).unwrap();
         assert_eq!(pose, (part_dims / 2.0, 0.0).into());
         assert_eq!(origin, Isometry2d::ZERO);
 
@@ -1283,7 +1336,7 @@ mod tests {
         let mut world = WorldBuilder::new().test_assets().build();
 
         // modifying the prototype for motor so it has easy quantities
-        let proto_id = proto_by_name(&world.prototypes, "small-motor").unwrap();
+        let proto_id = get_proto_by_name(&world.prototypes, "small-motor").unwrap();
         let proto = world.prototypes.try_get_mut(proto_id).unwrap();
 
         proto.mass = Mass::kilograms(1000);
@@ -1312,7 +1365,13 @@ mod tests {
         let r = set_thruster_state(thruster_id, &mut world, true);
         assert_eq!(r, Ok(()));
 
-        update_grid_acceleration([grid_id].into(), &mut world);
+        update_single_grid_acceleration(
+            grid_id,
+            &mut world.grids,
+            &mut world.thrusters,
+            &mut world.parts,
+        )
+        .unwrap();
 
         let grid = world.grids.try_get_mut(grid_id).unwrap();
 
@@ -1346,7 +1405,7 @@ mod tests {
 
         let part_name = "test-motor";
 
-        let thruster_data = ThrusterModel {
+        let thruster_data = ThrusterPrototype {
             model: "test-motor-model".to_string(),
             thrust: 8000.0,
             exhaust_velocity: 6000.0,
@@ -1392,7 +1451,14 @@ mod tests {
         let thruster_id = insert_part(grid_id, &mut world, &instance, true).unwrap();
 
         _ = set_thruster_state(thruster_id, &mut world, true);
-        update_grid_acceleration([grid_id].into(), &mut world);
+
+        update_single_grid_acceleration(
+            grid_id,
+            &mut world.grids,
+            &mut world.thrusters,
+            &mut world.parts,
+        )
+        .unwrap();
 
         let grid = world.grids.try_get_mut(grid_id).unwrap();
 
@@ -1530,7 +1596,7 @@ mod tests {
             .waypoint("fran", waypoint)
             .build();
 
-        let grid_id = grid_by_name(&world.grids, "fran").unwrap();
+        let grid_id = get_grid_by_name(&world.grids, "fran").unwrap();
 
         for _ in 0..20 {
             for _ in 0..1000 {

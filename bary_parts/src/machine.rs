@@ -2,13 +2,13 @@ use bary_factory::{Machine, MachineStatus, RecipeListing};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct MachineData {
+pub struct MachinePrototype {
     pub recipe_categories: Vec<String>,
     pub input_slots: Vec<usize>,
     pub output_slots: Vec<usize>,
 }
 
-impl MachineData {
+impl MachinePrototype {
     pub fn into_machine(self) -> Machine {
         Machine {
             enabled: true,

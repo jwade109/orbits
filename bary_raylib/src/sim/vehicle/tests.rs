@@ -4,12 +4,7 @@ use bary_core::prelude::*;
 use bary_parts::*;
 
 use crate::{
-    client::GridLocation,
-    ops::{set_grid_pose, set_primary_computer_state, set_primary_computer_waypoint},
-    query::{blueprint_by_id, grid_by_name},
-    sim::*,
-    tests::assert_world_is_consistent,
-    world_builder::WorldBuilder,
+    client::GridLocation, sim::*, tests::assert_world_is_consistent, world_builder::WorldBuilder,
 };
 
 #[test]
@@ -52,8 +47,8 @@ fn build_ship_on_another_ship_then_navigate() {
         .spawn("remora", "ursula", Isometry2d::ZERO)
         .build();
 
-    let grid_id = grid_by_name(&world.grids, "ursula").unwrap();
-    let bp = blueprint_by_id(&world.blueprints, &"remora".into())
+    let grid_id = get_grid_by_name(&world.grids, "ursula").unwrap();
+    let bp = get_blueprint_by_id(&world.blueprints, &"remora".into())
         .unwrap()
         .clone();
 
@@ -128,7 +123,7 @@ fn splitting_vehicle_should_preserve_part_coordinates() {
         .spawn("bellerophon", "kyle", (0.0, 0.0, 0.3))
         .build();
 
-    let grid_id = grid_by_name(&world.grids, "kyle").unwrap();
+    let grid_id = get_grid_by_name(&world.grids, "kyle").unwrap();
 
     assert_eq!(world.grids.len(), 1);
     assert_eq!(world.parts.len(), 245);
@@ -218,19 +213,19 @@ fn get_inventory_at_grid_location() {
     let grid_id = spawn_empty_grid(&mut world, "whatever");
 
     let slots = vec![
-        SlotData {
+        SlotPrototype {
             min: IVec2::ZERO,
             max: IVec2::ONE,
-            ..SlotData::default()
+            ..SlotPrototype::default()
         },
-        SlotData {
+        SlotPrototype {
             min: IVec2::ONE,
             max: IVec2::splat(2),
-            ..SlotData::default()
+            ..SlotPrototype::default()
         },
     ];
 
-    let inv_data = InventoryData { slots };
+    let inv_data = InventoryPrototype { slots };
 
     let proto = PartPrototype {
         name: "test-cargo".to_string(),

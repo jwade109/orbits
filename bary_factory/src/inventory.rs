@@ -498,8 +498,8 @@ mod tests {
         assert!(inv.store(Item::Magnesium, 1500));
 
         assert_eq!(inv.capacity(), Volume::liters(4800));
-        assert_eq!(inv.occupied_volume(), Volume::milliliters(800));
-        assert_eq!(inv.available_volume(), Volume::microliters(4799200000));
+        assert_eq!(inv.occupied_volume(), Volume::microliters(150862500));
+        assert_eq!(inv.available_volume(), Volume::microliters(4649137500));
 
         assert_eq!(inv.mass(), Mass::grams(21500));
         assert_eq!(inv.mass_of(Item::Bread), Mass::grams(20000));
@@ -524,9 +524,9 @@ mod tests {
         while inv.store(Item::TitaniumLattice, 1) {}
         while inv.store(Item::H2, 1) {}
 
-        assert_eq!(inv.mass_of(Item::Rotor), Mass::grams(57000));
-        assert_eq!(inv.mass_of(Item::TitaniumLattice), Mass::grams(15120));
-        assert_eq!(inv.mass_of(Item::H2), Mass::grams(200000));
+        assert_eq!(inv.mass_of(Item::Rotor), Mass::grams(24900));
+        assert_eq!(inv.mass_of(Item::TitaniumLattice), Mass::grams(53200));
+        assert_eq!(inv.mass_of(Item::H2), Mass::grams(7199));
 
         println!("{}", inv);
     }

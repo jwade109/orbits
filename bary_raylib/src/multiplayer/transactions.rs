@@ -1,5 +1,4 @@
 use crate::client::ClientSpecificInfo;
-use crate::ops;
 use crate::sim::*;
 use bary_core::prelude::*;
 use bary_factory::*;
@@ -104,11 +103,11 @@ pub fn apply_world_action(world: &mut World, action: WorldAction) {
             }
         }
         WorldAction::SetWaypoint { grid_id, waypoint } => {
-            _ = ops::set_primary_computer_waypoint(grid_id, waypoint, world);
-            _ = ops::set_primary_computer_state(grid_id, true, world);
+            _ = set_primary_computer_waypoint(grid_id, waypoint, world);
+            _ = set_primary_computer_state(grid_id, true, world);
         }
         WorldAction::SetWaypointByName { name, waypoint } => {
-            if let Some(grid_id) = grid_by_name(&world.grids, &name) {
+            if let Some(grid_id) = get_grid_by_name(&world.grids, &name) {
                 _ = set_primary_computer_waypoint(grid_id, waypoint, world);
                 _ = set_primary_computer_state(grid_id, true, world);
                 _ = toggle_tracking(world, grid_id);
@@ -117,7 +116,7 @@ pub fn apply_world_action(world: &mut World, action: WorldAction) {
             }
         }
         WorldAction::DespawnGrid(grid_id) => {
-            _ = ops::despawn_grid(world, grid_id);
+            _ = despawn_grid(world, grid_id);
         }
         WorldAction::InsertPart {
             grid_id,
@@ -126,7 +125,7 @@ pub fn apply_world_action(world: &mut World, action: WorldAction) {
             rotation,
             layer,
         } => {
-            let proto_id = some_or_return!(proto_by_name(&world.prototypes, &name));
+            let proto_id = some_or_return!(get_proto_by_name(&world.prototypes, &name));
             let proto = ok_or_return!(world.prototypes.try_get(proto_id));
             let region = GridRegion::new(coord, rotation, proto.dims);
 

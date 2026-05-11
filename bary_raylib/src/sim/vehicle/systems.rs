@@ -1,5 +1,4 @@
 use super::grid::*;
-use crate::ops;
 use crate::sim::*;
 use bary_core::prelude::*;
 use bary_parts::*;
@@ -68,10 +67,10 @@ pub fn duplicate_part_to_new_grid(world: &mut World, part_id: Ent) -> BaryResult
         layer: proto.layer,
         region: GridRegion::new((0, 0), Rotation::East, proto.dims),
     };
-    let new_grid_id = ops::spawn_empty_grid(world, new_name);
-    ops::set_grid_pose(world, new_grid_id, new_part_pose)?;
-    ops::set_grid_vel(world, new_grid_id, new_grid_vel)?;
-    let new_part_id = ops::insert_part(new_grid_id, world, &instance, true)?;
+    let new_grid_id = spawn_empty_grid(world, new_name);
+    set_grid_pose(world, new_grid_id, new_part_pose)?;
+    set_grid_vel(world, new_grid_id, new_grid_vel)?;
+    let new_part_id = insert_part(new_grid_id, world, &instance, true)?;
     Ok(new_part_id)
 }
 

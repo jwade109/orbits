@@ -3,9 +3,6 @@ use crate::client::*;
 use crate::constants::*;
 use crate::imgui::*;
 use crate::multiplayer::Action;
-use crate::ops::destroy_part_without_integrity_check;
-use crate::ops::detach_part_from_parent;
-use crate::sim::input_handlers;
 use crate::sim::*;
 use crate::sounds::*;
 use crate::utils::*;
@@ -288,7 +285,7 @@ fn update_actual_hover_part_info(client: &mut ClientSpecificInfo, grids: &Compon
         free.selection_info.hovered = None;
         let screen_pos = some_or_return!(mouse_screen_position);
         let world_pos = screen_to_world(&client.camera, screen_pos, screen_dims);
-        let (grid_id, offset) = some_or_return!(closest_grid(grids, world_pos, None));
+        let (grid_id, offset) = some_or_return!(get_closest_grid(grids, world_pos, None));
         let dist = offset.length();
         let grid = ok_or_return!(grids.try_get(grid_id));
         if 2.0 * grid.bounding_radius() < dist {

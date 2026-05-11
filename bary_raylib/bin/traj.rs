@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::Write;
 
 use bary_core::prelude::*;
-use bary_raylib::{ops, query::primary_computer_id, sim::*, world_builder::WorldBuilder};
+use bary_raylib::{get_primary_cpu_id, sim::*, world_builder::WorldBuilder};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -50,11 +50,11 @@ fn run_simulation(
         .spawn(bp_name, "simba", (0.0, 0.0, 0.0))
         .build();
 
-    let grid_id = grid_by_name(&world.grids, "simba").unwrap();
+    let grid_id = get_grid_by_name(&world.grids, "simba").unwrap();
 
-    _ = ops::set_primary_computer_state(grid_id, true, &mut world);
+    _ = set_primary_computer_state(grid_id, true, &mut world);
 
-    let cpu_id = primary_computer_id(grid_id, &world.grids).unwrap();
+    let cpu_id = get_primary_cpu_id(grid_id, &world.grids).unwrap();
 
     let cpu = world.computers.try_get_mut(cpu_id).unwrap();
 
@@ -69,7 +69,7 @@ fn run_simulation(
             continue;
         }
 
-        let cpu_id = primary_computer_id(grid_id, &world.grids).unwrap();
+        let cpu_id = get_primary_cpu_id(grid_id, &world.grids).unwrap();
         let cpu = world.computers.try_get(cpu_id).unwrap();
         let mut pose = grid_pose(&world.grids, grid_id).unwrap();
         let vel = grid_vel(&world.grids, grid_id).unwrap();

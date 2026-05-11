@@ -764,7 +764,7 @@ pub fn draw_editor_part(d: &mut RaylibDrawHandle, world: &World, client: &Client
     let proto_id = some_or_return!(editor.prototype_id);
     let coord = some_or_return!(editor.hovered);
     let proto = ok_or_return!(world.prototypes.try_get(proto_id));
-    let grid_pose = some_or_return!(grid_origin(&world.grids, editor.vehicle));
+    let grid_pose = some_or_return!(get_grid_origin(&world.grids, editor.vehicle));
     let cl = proto.classification();
     let pl = GridRegion::new(coord, editor.part_rotation, proto.dims);
     draw_part(d, pl, cl, grid_pose, false, false);

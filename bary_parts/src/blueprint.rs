@@ -5,11 +5,6 @@ use std::hash::Hash;
 
 use crate::{PartInstance, PartPrototype, PipeGeometry};
 
-pub const PHYSICS_CONSTANT_UPDATE_RATE: u32 = 40;
-
-pub const PHYSICS_CONSTANT_DELTA_TIME: Nanotime =
-    Nanotime::millis(1000 / PHYSICS_CONSTANT_UPDATE_RATE as i64);
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Deserialize, Serialize)]
 pub struct PartId(u64);
 

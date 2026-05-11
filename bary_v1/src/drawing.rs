@@ -202,7 +202,7 @@ pub fn to_srgba(fl: [f32; 4]) -> Srgba {
 
 pub fn draw_thruster(
     gizmos: &mut Gizmos,
-    thruster: &ThrusterModel,
+    thruster: &ThrusterPrototype,
     part_dims: Vec2,
     center: Vec2,
     scale: f32,
