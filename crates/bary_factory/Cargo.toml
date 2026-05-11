@@ -1,0 +1,9 @@
+[package]
+name = "bary_factory"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bary_core = { path = "../bary_core" }
+enum-iterator = "2.3.0"
+serde = { version = "1.0.228", features = ["derive"] }
