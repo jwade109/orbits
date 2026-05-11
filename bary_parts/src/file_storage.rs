@@ -1,7 +1,9 @@
-use crate::prelude::*;
+use bary_core::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::Path;
+
+use crate::{Blueprint, BlueprintId, PartPrototype, PipeGeometry};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VehicleFileStorage {

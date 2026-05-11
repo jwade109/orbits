@@ -9,5 +9,5 @@ bary_core = { path = "../bary_core" }
 svg = "0.18.0"
 
 [[bin]]
-name = "main"
-path = "bin/main.rs"
+name = "ui_demo"
+path = "bin/ui_demo.rs"

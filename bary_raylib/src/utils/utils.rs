@@ -1,5 +1,6 @@
 use crate::camera::Camera;
 use bary_core::prelude::*;
+use bary_parts::GridRegion;
 use raylib::prelude::*;
 
 pub fn glam_to_raylib(v: Vec2) -> Vector2 {

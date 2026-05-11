@@ -1,5 +1,6 @@
 use super::PartOccupancy;
 use bary_core::prelude::*;
+use bary_parts::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 

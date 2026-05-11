@@ -3,6 +3,8 @@ use crate::client::GridLocation;
 use crate::constants::TICKS_PER_SECOND;
 use crate::sim::*;
 use bary_core::prelude::*;
+use bary_factory::*;
+use bary_parts::*;
 use chrono::NaiveDate;
 use chrono::NaiveDateTime;
 use log::*;
@@ -416,7 +418,7 @@ pub fn insert_part_c(
         inventories.spawn(part_id, inventory);
     }
     if let Some(data) = &proto.machine_data {
-        let machine = Machine::from_data(data.clone());
+        let machine = data.clone().into_machine();
         machines.spawn(part_id, machine);
     }
     if let Some(data) = &proto.thruster_data {

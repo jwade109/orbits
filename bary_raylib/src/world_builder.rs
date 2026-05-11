@@ -3,6 +3,8 @@ use crate::multiplayer::WorldAction;
 use crate::multiplayer::apply_world_action;
 use crate::sim::*;
 use bary_core::prelude::*;
+use bary_factory::*;
+use bary_parts::*;
 use log::*;
 use std::path::PathBuf;
 

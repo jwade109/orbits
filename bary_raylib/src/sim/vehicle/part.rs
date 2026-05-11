@@ -1,4 +1,5 @@
 use bary_core::prelude::*;
+use bary_parts::{GridRegion, PartClassification};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

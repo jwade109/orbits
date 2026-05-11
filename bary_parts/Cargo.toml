@@ -1,0 +1,11 @@
+[package]
+name = "bary_parts"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = { version = "1.0.228", features = ["derive"] }
+bary_core = { path = "../bary_core" }
+bary_factory = { path = "../bary_factory" }
+enum-iterator = "2.3.0"
+serde_yaml = "0.9.34"

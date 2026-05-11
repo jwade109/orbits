@@ -1,4 +1,4 @@
 
 [workspace]
-members = ["bary_core", "bary_raylib", "bary_ui"]
+members = ["bary_core", "bary_factory", "bary_parts", "bary_raylib", "bary_ui"]
 resolver = "2"

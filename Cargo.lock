@@ -461,11 +461,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "bary_factory"
+version = "0.1.0"
+dependencies = [
+ "bary_core",
+ "enum-iterator",
+ "serde",
+]
+
+[[package]]
+name = "bary_parts"
+version = "0.1.0"
+dependencies = [
+ "bary_core",
+ "bary_factory",
+ "enum-iterator",
+ "serde",
+ "serde_yaml",
+]
+
+[[package]]
 name = "bary_raylib"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "bary_core",
+ "bary_factory",
+ "bary_parts",
  "bary_ui",
  "bincode",
  "chrono",

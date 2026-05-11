@@ -223,7 +223,7 @@ pub const PLACEHOLDER_PD: PDCtrl = PDCtrl::new(50.0, 250.0);
 fn hover_control_law(
     _target: DVec2,
     _gravity: DVec2,
-    _vehicle: &Blueprint,
+    // _vehicle: &Blueprint,
     _body: &RigidBody,
 ) -> (VehicleControl, VehicleControlStatus) {
     unimplemented!()
@@ -275,8 +275,7 @@ pub fn position_hold_control_law(
     gravity: DVec2,
 ) -> (VehicleControl, VehicleControlStatus) {
     if gravity.length() > 0.0 {
-        let vehicle = Blueprint::new();
-        hover_control_law(target.pos, gravity, &vehicle, body)
+        hover_control_law(target.pos, gravity, body)
     } else {
         zero_gravity_control_law(target, target_angle, body, &PLACEHOLDER_PD)
     }

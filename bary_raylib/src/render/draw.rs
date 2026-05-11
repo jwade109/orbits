@@ -5,6 +5,8 @@ use crate::imgui::{ImGui, ZOOM_NEAR_FAR_THRESHOLD};
 use crate::sim::*;
 use crate::utils::*;
 use bary_core::prelude::*;
+use bary_factory::*;
+use bary_parts::*;
 use early_returns::*;
 use raylib::prelude::*;
 

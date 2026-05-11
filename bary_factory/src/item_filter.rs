@@ -1,4 +1,4 @@
-use self::super::Item;
+use crate::item::Item;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]

@@ -1,4 +1,5 @@
 use bary_core::prelude::*;
+use bary_factory::MachineStatus;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]

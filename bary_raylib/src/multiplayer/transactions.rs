@@ -2,6 +2,8 @@ use crate::client::ClientSpecificInfo;
 use crate::ops;
 use crate::sim::*;
 use bary_core::prelude::*;
+use bary_factory::*;
+use bary_parts::*;
 use early_returns::*;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};

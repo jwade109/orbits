@@ -1,9 +1,5 @@
+use crate::{Inventory, MachineStatus, Recipe, RecipeListing};
 use serde::{Deserialize, Serialize};
-
-use crate::{
-    factory::{Inventory, MachineStatus, Recipe, RecipeListing},
-    parts::MachineData,
-};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Machine {
@@ -18,19 +14,6 @@ pub struct Machine {
 }
 
 impl Machine {
-    pub fn from_data(data: MachineData) -> Self {
-        Self {
-            enabled: true,
-            recipe: RecipeListing::DoNothing,
-            steps: 0,
-            required_steps: 1000,
-            products_finished: 0,
-            status: MachineStatus::Off,
-            input_slots: data.input_slots,
-            output_slots: data.output_slots,
-        }
-    }
-
     pub fn is_running(&self) -> bool {
         self.status == MachineStatus::Running
     }

@@ -1,4 +1,4 @@
-use crate::math::*;
+use bary_core::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]

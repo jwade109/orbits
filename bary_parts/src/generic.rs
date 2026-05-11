@@ -1,6 +1,11 @@
-use crate::math::UVec2;
-use crate::prelude::*;
+use bary_core::prelude::*;
 use serde::{Deserialize, Serialize};
+
+use crate::ComputerData;
+use crate::DockingPortData;
+use crate::ExcavatorData;
+use crate::InventoryData;
+use crate::ThrusterModel;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Generic {

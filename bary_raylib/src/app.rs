@@ -5,6 +5,7 @@ use crate::sim::{World, process_event, spawn_stars};
 use crate::sounds::SoundEffects;
 use crate::world_builder::WorldBuilder;
 use bary_core::prelude::*;
+use bary_factory::*;
 use std::thread::JoinHandle;
 use std::time::Duration;
 

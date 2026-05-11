@@ -3,11 +3,9 @@ mod belts;
 mod casts;
 mod control;
 mod entity;
-mod factory;
 mod math;
 mod orbital_luts;
 mod orbits;
-mod parts;
 mod pid;
 mod planning;
 mod plants;
@@ -18,5 +16,6 @@ mod result;
 mod scenario;
 mod surface;
 mod vehicle;
+mod part_layer;
 
 pub mod prelude;

@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use bary_core::prelude::*;
+use bary_parts::*;
 
 use crate::{
     client::GridLocation,

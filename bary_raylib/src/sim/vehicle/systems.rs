@@ -2,6 +2,7 @@ use super::grid::*;
 use crate::ops;
 use crate::sim::*;
 use bary_core::prelude::*;
+use bary_parts::*;
 use log::info;
 use std::collections::{BTreeMap, BTreeSet};
 
