@@ -4,8 +4,10 @@ use crate::client::*;
 use crate::imgui::{ImGui, ZOOM_NEAR_FAR_THRESHOLD};
 use crate::sim::*;
 use crate::utils::*;
+use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use bary_factory::*;
+use bary_orbital::Asteroid;
 use bary_parts::*;
 use early_returns::*;
 use raylib::prelude::*;
@@ -178,6 +180,8 @@ pub fn draw_world(
 
     draw_origin_and_range_indicators(&mut c);
 
+    draw_asteroids(&mut c, world, assets);
+
     draw_parts(
         &mut c,
         &world.grids,
@@ -257,6 +261,10 @@ pub fn draw_world(
 
     drop(c);
 
+    if client.alt_mode {
+        draw_actions(d, &client, assets);
+    }
+
     draw_waypoint_far_indicators(&world.computers, d, &raylib_camera);
 
     draw_primary_grid_inventory_summary(d, world, client);
@@ -266,8 +274,6 @@ pub fn draw_world(
     draw_chat(d, &client.chat, client.screen_dims, assets);
 
     draw_imgui(d, gui, assets);
-
-    draw_actions(d, &client, assets);
 
     // draw_item_menu(d, (300, 200).into());
 
@@ -1358,5 +1364,50 @@ fn draw_item_menu(d: &mut RaylibDrawHandle, origin: IVec2) {
             y += item_width + padding;
             n_col = 0;
         }
+    }
+}
+
+fn draw_asteroid(
+    d: &mut RaylibDrawHandle,
+    assets: &Assets,
+    rock: &BigRock,
+    tiles: &Components<TerrainTile>,
+) {
+    let mut points = Vec::new();
+
+    let o = rock.iso.translation;
+    let x = o + rock.iso.local_x() * rock.ast.base_radius();
+    let y = o + rock.iso.local_y() * rock.ast.base_radius();
+
+    draw_line(d, o, x, Color::RED);
+    draw_line(d, o, y, Color::GREEN);
+
+    for theta in linspace(0.0, PI * 2.0, 100) {
+        let r = rock.ast.radius_at(theta);
+        let theta = theta + rock.iso.rotation;
+        let p = r * rotate(Vec2::X, theta);
+        let p = glam_to_raylib_swap_y(rock.iso.translation + p);
+        points.push(p);
+    }
+    d.draw_line_strip(&points, Color::WHITE);
+
+    for id in &rock.tiles {
+        let tile = ok_or_return!(tiles.try_get(*id));
+        let iso = rock.iso * tile.isometry();
+        let dims = Vec2::splat(TERRAIN_TILE_WIDTH);
+
+        if id.0.is_multiple_of(100) {
+            fill_rectangle(d, iso, dims, Color::TEAL.alpha(0.3));
+            if let Some(t) = &assets.part_textures.get("cargo") {
+                let p = glam_to_raylib_swap_y(iso.translation);
+                d.draw_texture_ex(t, p, -iso.rotation.to_degrees(), 1.0, Color::WHITE);
+            }
+        }
+    }
+}
+
+fn draw_asteroids(d: &mut RaylibDrawHandle, world: &World, assets: &Assets) {
+    for rock in world.asteroids.values() {
+        draw_asteroid(d, assets, rock, &world.terrain_tiles);
     }
 }

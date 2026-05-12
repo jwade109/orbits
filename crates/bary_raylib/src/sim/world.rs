@@ -10,6 +10,7 @@ use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use bary_factory::*;
 use bary_input::*;
+use bary_orbital::Asteroid;
 use bary_parts::*;
 use early_returns::*;
 use log::*;
@@ -19,7 +20,7 @@ use std::collections::*;
 use std::time::Duration;
 use std::time::Instant;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 pub struct World {
     pub ticks: u64,
     pub tick_rate: u32,
@@ -44,6 +45,11 @@ pub struct World {
     pub pipes: Components<Pipe>,
     pub debug_portals: Components<DebugPortal>,
 
+    #[serde(skip)]
+    pub asteroids: Components<BigRock>,
+    #[serde(skip)]
+    pub terrain_tiles: Components<TerrainTile>,
+
     // TODO might move this to assets.
     pub ship_names: Vec<String>,
 }
@@ -63,24 +69,7 @@ impl std::fmt::Debug for World {
 impl World {
     pub fn empty() -> Self {
         Self {
-            ticks: 0,
             tick_rate: 2,
-            spawner: EntitySpawner::default(),
-            grid_acceleration_updates: 0,
-            particles: Vec::default(),
-            blueprints: Components::default(),
-            prototypes: Components::default(),
-            parts: Components::default(),
-            grids: Components::default(),
-            thrusters: Components::default(),
-            computers: Components::default(),
-            lights: Components::default(),
-            tracking: Components::default(),
-            inventories: Components::default(),
-            machines: Components::default(),
-            stars: Components::default(),
-            pipes: Components::default(),
-            debug_portals: Components::default(),
             ship_names: vec![
                 "Gary".to_string(),
                 "Sally".to_string(),
@@ -89,6 +78,7 @@ impl World {
                 "Charlie".to_string(),
                 "Orville".to_string(),
             ],
+            ..Default::default()
         }
     }
 }

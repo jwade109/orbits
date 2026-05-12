@@ -45,6 +45,11 @@ pub enum WorldAction {
         coord: PartCoord,
         recipe: RecipeListing,
     },
+    SpawnAsteroid {
+        iso: Isometry2d,
+        radius: f32,
+        seed: u64,
+    },
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -165,6 +170,9 @@ pub fn apply_world_action(world: &mut World, action: WorldAction) {
             let part_id = some_or_return!(occ.at_layer(PartLayer::Internal));
             let machine = ok_or_return!(world.machines.try_get_mut(part_id));
             machine.set_recipe(recipe);
+        }
+        WorldAction::SpawnAsteroid { iso, radius, seed } => {
+            spawn_random_asteroid(world, iso, radius, seed);
         }
     }
 

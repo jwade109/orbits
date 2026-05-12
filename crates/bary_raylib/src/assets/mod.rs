@@ -1,5 +1,6 @@
 use crate::utils::{GlobalKeybinds, load_keybinds_from_file};
 use bary_core::prelude::randint;
+use bary_parts::load_parts_from_dir;
 use log::debug;
 use raylib::prelude::*;
 use std::{collections::BTreeMap, path::Path};
@@ -41,7 +42,7 @@ pub fn load_assets(
     thread: &raylib::RaylibThread,
 ) {
     debug!("Loading assets");
-    assets.circle_texture = rl.load_texture(thread, "assets/circle.png").ok();
+    assets.circle_texture = rl.load_texture(thread, "assets/parts/frame2/skin.png").ok();
     assets.lato_regular = rl
         .load_font_ex(thread, "assets/fonts/Lato-Regular.ttf", 48, None)
         .ok();
@@ -53,8 +54,12 @@ pub fn load_assets(
 
     assets.keybinds = load_keybinds_from_file("assets/keybinds.yaml").unwrap();
 
-    // for (proto, tex) in assets.part_textures.values_mut() {
-    //     let filename = format!("assets/parts/{}/skin.png", proto.part_name());
-    //     *tex = rl.load_texture(thread, &filename).ok();
-    // }
+    let parts = load_parts_from_dir("assets/parts/").unwrap();
+
+    for (name, _part) in parts {
+        let skin_path = format!("assets/parts/{}/skin.png", name);
+        if let Ok(tex) = rl.load_texture(thread, &skin_path) {
+            assets.part_textures.insert(name, tex);
+        }
+    }
 }
