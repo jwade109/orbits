@@ -1,7 +1,33 @@
 use bary_core::prelude::*;
 use bary_orbital::Asteroid;
+use rand::random;
 
 use crate::sim::*;
+
+#[derive(Debug, Clone, Copy)]
+pub enum TerrainMaterial {
+    Dirt,
+    Rock,
+    Ice,
+    Silicon,
+    Iron,
+    Nickel,
+}
+
+impl TerrainMaterial {
+    pub fn random() -> Self {
+        let n = randint(0, 6);
+        match n {
+            0 => TerrainMaterial::Dirt,
+            1 => TerrainMaterial::Rock,
+            2 => TerrainMaterial::Ice,
+            3 => TerrainMaterial::Silicon,
+            4 => TerrainMaterial::Iron,
+            5 => TerrainMaterial::Nickel,
+            _ => unreachable!(),
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct BigRock {
@@ -14,6 +40,7 @@ pub struct BigRock {
 pub struct TerrainTile {
     parent: Ent,
     index: IVec2,
+    material: TerrainMaterial,
 }
 
 impl TerrainTile {
@@ -21,6 +48,7 @@ impl TerrainTile {
         Self {
             parent,
             index: index.into(),
+            material: TerrainMaterial::random(),
         }
     }
 
@@ -32,13 +60,23 @@ impl TerrainTile {
         self.index
     }
 
-    pub fn isometry(&self) -> Isometry2d {
+    pub fn material(&self) -> TerrainMaterial {
+        self.material
+    }
+
+    pub fn origin_isometry(&self) -> Isometry2d {
         let bottom_left = self.index.as_vec2() * TERRAIN_TILE_WIDTH;
         Isometry2d::from_pos(bottom_left)
     }
 
+    pub fn top_left_isometry(&self) -> Isometry2d {
+        let idx = self.index + IVec2::Y;
+        let top_left = idx.as_vec2() * TERRAIN_TILE_WIDTH;
+        Isometry2d::from_pos(top_left)
+    }
+
     pub fn center(&self) -> Vec2 {
-        let bl = self.isometry().translation;
+        let bl = self.origin_isometry().translation;
         bl + Vec2::splat(TERRAIN_TILE_WIDTH / 2.0)
     }
 }

@@ -1,5 +1,5 @@
 use crate::client::{ClientSpecificInfo, DebugInfo};
-use crate::cmd::prompt::{CommandPrompt, cmd_handle_input_event};
+use crate::cmd::{CommandPrompt, cmd_handle_input_event};
 use crate::multiplayer::*;
 use crate::sim::{World, process_event, spawn_stars};
 use crate::sounds::SoundEffects;

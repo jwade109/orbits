@@ -2,7 +2,7 @@ use crate::app::App;
 use crate::assets::Assets;
 use crate::camera::to_raylib_camera;
 use crate::client::ClientSpecificInfo;
-use crate::cmd::prompt::draw_command_prompt;
+use crate::cmd::draw_command_prompt;
 use crate::render::draw::*;
 use crate::sim::*;
 use crate::sounds::*;

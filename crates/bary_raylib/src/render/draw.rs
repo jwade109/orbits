@@ -1393,16 +1393,18 @@ fn draw_asteroid(
 
     for id in &rock.tiles {
         let tile = ok_or_return!(tiles.try_get(*id));
-        let iso = rock.iso * tile.isometry();
+        let bottom_left = rock.iso * tile.origin_isometry();
+        let top_left = rock.iso * tile.top_left_isometry();
         let dims = Vec2::splat(TERRAIN_TILE_WIDTH);
 
-        if id.0.is_multiple_of(100) {
-            fill_rectangle(d, iso, dims, Color::TEAL.alpha(0.3));
-            if let Some(t) = &assets.part_textures.get("cargo") {
-                let p = glam_to_raylib_swap_y(iso.translation);
-                d.draw_texture_ex(t, p, -iso.rotation.to_degrees(), 1.0, Color::WHITE);
-            }
+        // if id.0.is_multiple_of(100) {
+        fill_rectangle(d, bottom_left, dims, Color::TEAL.alpha(0.3));
+        let n = tile.material() as u8;
+        if let Some(t) = &assets.terrain_textures.get(n as usize) {
+            let p = glam_to_raylib_swap_y(top_left.translation);
+            d.draw_texture_ex(t, p, -bottom_left.rotation.to_degrees(), 0.5, Color::WHITE);
         }
+        // }
     }
 }
 

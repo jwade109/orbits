@@ -15,6 +15,7 @@ pub struct Assets {
     pub lato_regular: MaybeFont,
     pub fira_code: MaybeFont,
     pub part_textures: BTreeMap<String, Texture2D>,
+    pub terrain_textures: Vec<Texture2D>,
     pub ship_names: Vec<String>,
     pub keybinds: GlobalKeybinds,
 }
@@ -60,6 +61,13 @@ pub fn load_assets(
         let skin_path = format!("assets/parts/{}/skin.png", name);
         if let Ok(tex) = rl.load_texture(thread, &skin_path) {
             assets.part_textures.insert(name, tex);
+        }
+    }
+
+    for i in 1..=5 {
+        let path = format!("assets/terrain/terrain{}.png", i);
+        if let Ok(tex) = rl.load_texture(thread, &path) {
+            assets.terrain_textures.push(tex);
         }
     }
 }
