@@ -1,7 +1,8 @@
-use crate::sim::*;
 use bary_core::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
+
+use crate::sim::VehicleGrid;
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct Tracker {

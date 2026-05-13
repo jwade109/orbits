@@ -13,6 +13,7 @@ use bary_core::prelude::*;
 use bary_factory::*;
 use bary_input::*;
 use bary_parts::*;
+use bary_sim::*;
 use early_returns::*;
 use enum_iterator::Sequence;
 use log::*;

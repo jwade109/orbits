@@ -7,6 +7,7 @@ use crate::sounds::*;
 use crate::utils::*;
 use bary_core::prelude::*;
 use bary_input::InputState;
+use bary_sim::PingParticle;
 use early_returns::*;
 use log::*;
 use rdev::Key;

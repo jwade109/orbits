@@ -1,11 +1,12 @@
 use crate::client::{ClientSpecificInfo, DebugInfo};
 use crate::cmd::{CommandPrompt, cmd_handle_input_event};
 use crate::multiplayer::*;
-use crate::sim::{World, process_event, spawn_stars};
+use crate::sim::{World, process_event};
 use crate::sounds::SoundEffects;
 use crate::world_builder::WorldBuilder;
 use bary_core::prelude::*;
 use bary_factory::*;
+use bary_sim::*;
 use std::thread::JoinHandle;
 use std::time::Duration;
 

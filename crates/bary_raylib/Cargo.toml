@@ -13,6 +13,7 @@ bary_parts = { path = "../bary_parts" }
 bary_ui = { path = "../bary_ui" }
 bary_orbital = { path = "../bary_orbital" }
 bary_input = { path = "../bary_input" }
+bary_sim = { path = "../bary_sim" }
 rdev = { version = "0.5.3", features = ["serde", "serialize"] }
 crossbeam-queue = "0.3.12"
 enum-iterator = "2.3.0"

@@ -5,6 +5,7 @@ use crate::sim::*;
 use bary_core::prelude::*;
 use bary_factory::*;
 use bary_parts::*;
+use bary_sim::*;
 use chrono::NaiveDate;
 use chrono::NaiveDateTime;
 use log::*;

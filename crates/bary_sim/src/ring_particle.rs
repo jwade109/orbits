@@ -1,6 +1,5 @@
 use crate::constants::NOMINAL_DT;
 use bary_core::prelude::*;
-use raylib::color::Color;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -24,10 +23,6 @@ impl PingParticle {
 
     fn alpha(&self) -> f32 {
         1.0
-    }
-
-    pub fn color(&self) -> Color {
-        Color::GREEN.alpha(self.alpha())
     }
 
     pub fn is_alive(&self) -> bool {

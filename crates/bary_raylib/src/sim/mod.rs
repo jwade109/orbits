@@ -1,8 +1,5 @@
 mod asteroid;
 mod input_handlers;
-mod pipe;
-mod ring_particle;
-mod star;
 mod systems;
 mod tracker;
 mod update;
@@ -11,9 +8,6 @@ mod world;
 
 pub use asteroid::*;
 pub use input_handlers::*;
-pub use pipe::*;
-pub use ring_particle::*;
-pub use star::*;
 pub use systems::*;
 pub use tracker::*;
 pub use update::*;

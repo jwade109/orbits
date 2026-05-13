@@ -7,8 +7,8 @@ use crate::utils::*;
 use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use bary_factory::*;
-use bary_orbital::Asteroid;
 use bary_parts::*;
+use bary_sim::*;
 use early_returns::*;
 use raylib::prelude::*;
 
@@ -949,8 +949,9 @@ fn draw_particles(d: &mut RaylibDrawHandle, particles: &Vec<PingParticle>) {
     for particle in particles {
         let r = particle.radius();
         if particle.is_visible() {
-            draw_circle(d, particle.pos, r, particle.color());
-            fill_circle(d, particle.pos, r / 10.0, particle.color());
+            let color = Color::GREEN;
+            draw_circle(d, particle.pos, r, color);
+            fill_circle(d, particle.pos, r / 10.0, color);
         }
     }
 }
