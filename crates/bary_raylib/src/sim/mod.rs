@@ -1,5 +1,4 @@
 mod asteroid;
-mod components;
 mod input_handlers;
 mod pipe;
 mod ring_particle;
@@ -11,7 +10,6 @@ mod vehicle;
 mod world;
 
 pub use asteroid::*;
-pub use components::*;
 pub use input_handlers::*;
 pub use pipe::*;
 pub use ring_particle::*;
