@@ -809,6 +809,10 @@ pub fn post_simulation_update(
         }
     }
 
+    if client.target_camera.zoom > 140.0 {
+        client.target_camera.zoom = 140.0;
+    }
+
     animate_camera_towards_target(&client.target_camera, &mut client.camera);
 }
 

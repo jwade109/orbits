@@ -99,8 +99,8 @@ pub fn new_app(multiplayer: bool) -> App {
         .command(SetSpeed(10))
         .command(Ping(Vec2::ZERO))
         .command(Ping(Vec2::splat(10.0)))
-        .asteroid((-800.0, 300.0, 0.1), 400.0, 391)
-        .asteroid((2000.0, 4000.0, 0.7), 150.0, 2384)
+        .asteroid((-80.0, 30.0, 0.1), 20.0, 391)
+        .asteroid((60.0, 300.0, 0.7), 50.0, 2384)
         .build();
 
     let stars = spawn_stars(&mut world.spawner);

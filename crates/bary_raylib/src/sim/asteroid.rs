@@ -81,7 +81,8 @@ impl TerrainTile {
     }
 }
 
-pub const TERRAIN_TILE_WIDTH: f32 = 10.0;
+pub const TERRAIN_TILE_WIDTH: f32 = 1.0;
+pub const PIXELS_IN_TERRAIN_TILE: f32 = 20.0;
 
 pub fn spawn_asteroid(world: &mut World, ast: Asteroid, iso: Isometry2d) -> Ent {
     let parent = world.spawner.spawn();
@@ -113,4 +114,47 @@ pub fn spawn_asteroid(world: &mut World, ast: Asteroid, iso: Isometry2d) -> Ent 
 pub fn spawn_random_asteroid(world: &mut World, iso: Isometry2d, radius: f32, seed: u64) {
     let ast = Asteroid::random(radius, Some(seed));
     spawn_asteroid(world, ast, iso);
+}
+
+pub fn get_lod_bounding_boxes(ast: &Asteroid, lod: u32) -> Vec<(IVec2, AABB)> {
+    let length = lod_to_length(lod) as f32;
+
+    if length < 1.0 {
+        return vec![];
+    }
+
+    let max_i = (ast.max_radius() / length).ceil() as i32;
+
+    if max_i < 1 {
+        return vec![];
+    }
+
+    let size = Vec2::splat(length);
+
+    let mut ret = Vec::new();
+
+    for x in -max_i..max_i {
+        for y in -max_i..max_i {
+            let idx = IVec2::new(x, y);
+            let lower = idx.as_vec2() * length;
+            let upper = lower + size;
+            let bb = AABB::from_arbitrary(lower, upper);
+
+            let p = bb.corners();
+
+            if p.iter().any(|p| ast.contains(*p)) {
+                ret.push((idx, bb));
+            }
+        }
+    }
+
+    ret
+}
+
+pub fn lod_to_length(lod: u32) -> i32 {
+    2i32.pow(lod as u32)
+}
+
+pub fn length_to_lod(length: f32) -> u32 {
+    length.log2().round() as u32
 }
