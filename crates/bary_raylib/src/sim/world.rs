@@ -48,6 +48,8 @@ pub struct World {
     #[serde(skip)]
     pub asteroids: Components<BigRock>,
     #[serde(skip)]
+    pub terrain_chunks: Components<TerrainChunk>,
+    #[serde(skip)]
     pub terrain_tiles: Components<TerrainTile>,
 
     // TODO might move this to assets.
@@ -696,6 +698,33 @@ pub fn process_event(
     }
 }
 
+fn update_hovered_chunk_info(
+    client: &mut ClientSpecificInfo,
+    asteroids: &Components<BigRock>,
+    chunks: &Components<TerrainChunk>,
+) {
+    let free = some_or_return!(client.viewport.free_mut());
+    free.hovered_chunk = None;
+
+    let screen_pos = some_or_return!(client.mouse_screen_position);
+    let world_pos = screen_to_world(&client.camera, screen_pos, client.screen_dims);
+
+    for ast in asteroids.values() {
+        for chunk_id in &ast.chunks {
+            let chunk = ok_or_continue!(chunks.try_get(*chunk_id));
+            let iso = ast.iso * chunk.origin_isometry();
+            let local = in_frame(iso, world_pos);
+            if local.min_element() < 0.0 {
+                continue;
+            }
+            if local.max_element() > TERRAIN_CHUNK_WIDTH_METERS as f32 {
+                continue;
+            }
+            free.hovered_chunk = Some(*chunk_id);
+        }
+    }
+}
+
 pub fn pre_simulation_update(
     world: &mut World,
     client: &mut ClientSpecificInfo,
@@ -704,6 +733,8 @@ pub fn pre_simulation_update(
     client.ticks += 1;
 
     update_actual_hover_part_info(client, &world.grids);
+
+    update_hovered_chunk_info(client, &world.asteroids, &world.terrain_chunks);
 
     if client.input.just_pressed_debounced(Key::Alt) {
         client.alt_mode ^= true;

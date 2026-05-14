@@ -43,6 +43,7 @@ pub struct FreeFlying {
     pub follow_vehicle: Option<Ent>,
     pub lock_rotation: bool,
     pub selection_info: SelectionInfo,
+    pub hovered_chunk: Option<Ent>,
     pub waypoint_widget: Option<Vec2>,
 }
 
@@ -134,6 +135,7 @@ impl ClientSpecificInfo {
                 lock_rotation: false,
                 selection_info: SelectionInfo::default(),
                 waypoint_widget: None,
+                hovered_chunk: None,
             }),
             input: InputState::default(),
             alt_mode: false,

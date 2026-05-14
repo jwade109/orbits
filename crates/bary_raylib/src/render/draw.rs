@@ -180,7 +180,7 @@ pub fn draw_world(
 
     draw_origin_and_range_indicators(&mut c);
 
-    draw_asteroids(&mut c, world, assets, &client.camera, client.screen_dims);
+    draw_asteroids(&mut c, world, assets, &client);
 
     draw_parts(
         &mut c,
@@ -1384,11 +1384,12 @@ fn draw_asteroid(
     d: &mut RaylibDrawHandle,
     assets: &Assets,
     rock: &BigRock,
-    tiles: &Components<TerrainTile>,
-    camera: &Camera,
-    screen_dims: Vec2,
+    world: &World,
+    client: &ClientSpecificInfo,
 ) {
-    let width = 0.25 * screen_dims.x / camera.zoom;
+    let focus_chunk = client.viewport.free().map(|f| f.hovered_chunk).flatten();
+
+    let width = 0.25 * client.screen_dims.x / client.camera.zoom;
     let actual_lod = length_to_lod(width);
     let max_lod = length_to_lod(rock.ast.max_radius() * 2.0);
     let lod = actual_lod.min(max_lod);
@@ -1396,7 +1397,6 @@ fn draw_asteroid(
     // detailed view if asteroid takes up more than 10%
     // of screen view
     let is_detailed = actual_lod < 8;
-    let is_inside = actual_lod < 5;
 
     let o = rock.iso.translation;
     let x = o + rock.iso.local_x() * rock.ast.base_radius();
@@ -1406,30 +1406,48 @@ fn draw_asteroid(
     draw_line(d, o, y, Color::GREEN);
 
     if is_detailed {
-        for id in &rock.tiles {
-            let tile = ok_or_return!(tiles.try_get(*id));
-            let top_left = rock.iso * tile.top_left_isometry();
+        for id in &rock.chunks {
+            let chunk = ok_or_return!(world.terrain_chunks.try_get(*id));
+            let dims = Vec2::splat(TERRAIN_CHUNK_WIDTH_METERS as f32);
+            let iso = rock.iso * chunk.origin_isometry();
 
-            let n = if is_inside {
-                tile.material()
+            let t = if focus_chunk == Some(*id) {
+                30.0 / client.camera.zoom
             } else {
-                TerrainMaterial::Rock
-            } as u8;
+                4.0 / client.camera.zoom
+            };
 
-            if let Some(t) = &assets.terrain_textures.get(n as usize) {
-                let p = glam_to_raylib_swap_y(top_left.translation);
-                let scale = TERRAIN_TILE_WIDTH / PIXELS_IN_TERRAIN_TILE;
-                let rot = -top_left.rotation.to_degrees();
-                d.draw_texture_ex(t, p, rot, scale, Color::WHITE);
-            }
+            draw_rectangle(d, iso, dims, Color::RED.alpha(0.6), t);
         }
+
+        // for id in &rock.tiles {
+        //     let tile = ok_or_return!(tiles.try_get(*id));
+        //     let top_left = rock.iso * tile.top_left_isometry();
+
+        //     let n = if is_inside {
+        //         tile.material()
+        //     } else {
+        //         TerrainMaterial::Rock
+        //     } as u8;
+
+        //     if let Some(t) = &assets.terrain_textures.get(n as usize) {
+        //         let p = glam_to_raylib_swap_y(top_left.translation);
+        //         let scale = TERRAIN_TILE_WIDTH / PIXELS_IN_TERRAIN_TILE;
+        //         let rot = -top_left.rotation.to_degrees();
+        //         d.draw_texture_ex(t, p, rot, scale, Color::WHITE);
+        //     }
+        // }
 
         for (_idx, bb) in get_lod_bounding_boxes(&rock.ast, lod) {
             let lower = rock.iso * Isometry2d::from_pos(bb.lower());
             let dims = bb.span;
-            if is_detailed {
-                draw_rectangle(d, lower, dims, Color::TEAL, 6.0 / camera.zoom);
-            }
+            draw_rectangle(
+                d,
+                lower,
+                dims,
+                Color::TEAL.alpha(0.4),
+                6.0 / client.camera.zoom,
+            );
         }
     }
 
@@ -1450,10 +1468,9 @@ fn draw_asteroids(
     d: &mut RaylibDrawHandle,
     world: &World,
     assets: &Assets,
-    camera: &Camera,
-    screen_dims: Vec2,
+    client: &ClientSpecificInfo,
 ) {
     for rock in world.asteroids.values() {
-        draw_asteroid(d, assets, rock, &world.terrain_tiles, camera, screen_dims);
+        draw_asteroid(d, assets, rock, world, client);
     }
 }

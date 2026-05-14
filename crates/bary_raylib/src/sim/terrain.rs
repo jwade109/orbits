@@ -1,8 +1,12 @@
 use bary_core::prelude::*;
 use bary_orbital::Asteroid;
-use rand::random;
 
 use crate::sim::*;
+
+pub const TERRAIN_TILE_WIDTH: u32 = 1;
+pub const PIXELS_IN_TERRAIN_TILE: f32 = 20.0;
+pub const TILES_PER_CHUNK_SIDE: u32 = 32;
+pub const TERRAIN_CHUNK_WIDTH_METERS: u32 = TERRAIN_TILE_WIDTH * TILES_PER_CHUNK_SIDE;
 
 #[derive(Debug, Clone, Copy)]
 pub enum TerrainMaterial {
@@ -33,18 +37,58 @@ impl TerrainMaterial {
 pub struct BigRock {
     pub iso: Isometry2d,
     pub ast: Asteroid,
-    pub tiles: Vec<Ent>,
+    pub chunks: Vec<Ent>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TerrainChunk {
+    parent: Ent,
+    index: IVec2,
+    tiles: Vec<Ent>,
+}
+
+impl TerrainChunk {
+    fn new(parent: Ent, index: impl Into<IVec2>, tiles: Vec<Ent>) -> Self {
+        Self {
+            parent,
+            index: index.into(),
+            tiles,
+        }
+    }
+
+    pub fn origin_isometry(&self) -> Isometry2d {
+        let bottom_left = self.index.as_vec2() * TERRAIN_CHUNK_WIDTH_METERS as f32;
+        Isometry2d::from_pos(bottom_left)
+    }
+
+    pub fn top_left_isometry(&self) -> Isometry2d {
+        let idx = self.index + IVec2::Y;
+        let top_left = idx.as_vec2() * TERRAIN_CHUNK_WIDTH_METERS as f32;
+        Isometry2d::from_pos(top_left)
+    }
+
+    pub fn center(&self) -> Vec2 {
+        let bl = self.origin_isometry().translation;
+        bl + Vec2::splat(TERRAIN_CHUNK_WIDTH_METERS as f32 / 2.0)
+    }
+
+    pub fn bb(&self) -> AABB {
+        AABB::new(
+            self.center(),
+            Vec2::splat(TERRAIN_CHUNK_WIDTH_METERS as f32),
+        )
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct TerrainTile {
     parent: Ent,
-    index: IVec2,
+    index: UVec2,
     material: TerrainMaterial,
 }
 
 impl TerrainTile {
-    fn new(parent: Ent, index: impl Into<IVec2>) -> Self {
+    fn new(parent: Ent, index: impl Into<UVec2>) -> Self {
         Self {
             parent,
             index: index.into(),
@@ -56,7 +100,7 @@ impl TerrainTile {
         self.parent
     }
 
-    pub fn index(&self) -> IVec2 {
+    pub fn index(&self) -> UVec2 {
         self.index
     }
 
@@ -65,46 +109,62 @@ impl TerrainTile {
     }
 
     pub fn origin_isometry(&self) -> Isometry2d {
-        let bottom_left = self.index.as_vec2() * TERRAIN_TILE_WIDTH;
+        let bottom_left = self.index.as_vec2() * TERRAIN_TILE_WIDTH as f32;
         Isometry2d::from_pos(bottom_left)
     }
 
     pub fn top_left_isometry(&self) -> Isometry2d {
-        let idx = self.index + IVec2::Y;
-        let top_left = idx.as_vec2() * TERRAIN_TILE_WIDTH;
+        let idx = self.index + UVec2::Y;
+        let top_left = idx.as_vec2() * TERRAIN_TILE_WIDTH as f32;
         Isometry2d::from_pos(top_left)
     }
 
     pub fn center(&self) -> Vec2 {
         let bl = self.origin_isometry().translation;
-        bl + Vec2::splat(TERRAIN_TILE_WIDTH / 2.0)
+        bl + Vec2::splat(TERRAIN_TILE_WIDTH as f32 / 2.0)
     }
 }
-
-pub const TERRAIN_TILE_WIDTH: f32 = 1.0;
-pub const PIXELS_IN_TERRAIN_TILE: f32 = 20.0;
 
 pub fn spawn_asteroid(world: &mut World, ast: Asteroid, iso: Isometry2d) -> Ent {
     let parent = world.spawner.spawn();
 
-    let rmax = (ast.max_radius() / TERRAIN_TILE_WIDTH).ceil() as i32;
+    let rmax = (ast.max_radius() / TERRAIN_CHUNK_WIDTH_METERS as f32).ceil() as i32;
 
-    let mut tiles = Vec::new();
+    let mut chunks = Vec::new();
 
-    for x in -rmax..=rmax {
-        for y in -rmax..=rmax {
-            let tile = TerrainTile::new(parent, (x, y));
-            let center = tile.center();
-            if !ast.contains(center) {
+    for x in -rmax..rmax {
+        for y in -rmax..rmax {
+            let mut chunk = TerrainChunk::new(parent, (x, y), vec![]);
+
+            let is_intersecting = chunk
+                .bb()
+                .corners()
+                .iter()
+                .any(|c| c.length() < ast.max_radius());
+
+            if !is_intersecting {
                 continue;
             }
-            let id = world.spawner.spawn();
-            world.terrain_tiles.spawn(id, tile);
-            tiles.push(id);
+
+            let mut tiles = Vec::new();
+            for j in 0..TILES_PER_CHUNK_SIDE {
+                for k in 0..TILES_PER_CHUNK_SIDE {
+                    let tile = TerrainTile::new(parent, (j, k));
+                    let tile_id = world.spawner.spawn();
+                    world.terrain_tiles.spawn(tile_id, tile);
+                    tiles.push(tile_id);
+                }
+            }
+
+            chunk.tiles = tiles;
+
+            let chunk_id = world.spawner.spawn();
+            world.terrain_chunks.spawn(chunk_id, chunk);
+            chunks.push(chunk_id);
         }
     }
 
-    let rock = BigRock { ast, iso, tiles };
+    let rock = BigRock { ast, iso, chunks };
 
     world.asteroids.spawn(parent, rock);
 
