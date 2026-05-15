@@ -29,6 +29,22 @@ impl From<Button> for KB {
 }
 
 impl InputState {
+    pub fn process_rdev_event(&mut self, event: &rdev::Event, focused: bool) {
+        if let rdev::EventType::KeyPress(k) = event.event_type {
+            if focused {
+                self.set_pressed(k);
+            }
+        } else if let rdev::EventType::KeyRelease(k) = event.event_type {
+            self.set_released(k);
+        } else if let rdev::EventType::ButtonPress(mb) = event.event_type {
+            if focused {
+                self.set_pressed(mb);
+            }
+        } else if let rdev::EventType::ButtonRelease(mb) = event.event_type {
+            self.set_released(mb);
+        }
+    }
+
     pub fn is_key_pressed(&self, key: impl Into<KB>) -> bool {
         let key = key.into();
         self.currently_pressed.contains(&key)
@@ -60,8 +76,10 @@ impl InputState {
 
     pub fn set_released(&mut self, key: impl Into<KB>) {
         let key = key.into();
-        self.currently_pressed.remove(&key);
-        self.just_released.insert(key);
+        if self.currently_pressed.contains(&key) {
+            self.currently_pressed.remove(&key);
+            self.just_released.insert(key);
+        }
     }
 
     pub fn on_frame_boundary(&mut self) {

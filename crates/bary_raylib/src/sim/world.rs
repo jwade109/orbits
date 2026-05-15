@@ -614,26 +614,6 @@ impl<'a> Drop for ScopeTimer<'a> {
     }
 }
 
-pub fn consume_rdev_event_into_input_state(
-    input: &mut InputState,
-    event: &rdev::Event,
-    focused: bool,
-) {
-    if let rdev::EventType::KeyPress(k) = event.event_type {
-        if focused {
-            input.set_pressed(k);
-        }
-    } else if let rdev::EventType::KeyRelease(k) = event.event_type {
-        input.set_released(k);
-    } else if let rdev::EventType::ButtonPress(mb) = event.event_type {
-        if focused {
-            input.set_pressed(mb);
-        }
-    } else if let rdev::EventType::ButtonRelease(mb) = event.event_type {
-        input.set_released(mb);
-    }
-}
-
 pub fn process_event(
     world: &mut World,
     client: &mut ClientSpecificInfo,
@@ -698,31 +678,34 @@ pub fn process_event(
     }
 }
 
-fn update_hovered_chunk(
-    client: &mut ClientSpecificInfo,
-    asteroids: &Components<BigRock>,
-    chunks: &Components<TerrainChunk>,
-) {
+fn update_terrain_selection_info(client: &mut ClientSpecificInfo, asteroids: &Components<BigRock>) {
     let free = some_or_return!(client.viewport.free_mut());
     free.hovered_chunk = None;
 
     let screen_pos = some_or_return!(client.mouse_screen_position);
     let world_pos = screen_to_world(&client.camera, screen_pos, client.screen_dims);
 
-    for ast in asteroids.values() {
-        for chunk_id in &ast.chunks {
-            let chunk = ok_or_continue!(chunks.try_get(*chunk_id));
-            let iso = ast.iso * chunk.origin_isometry();
-            let local = in_frame(iso, world_pos);
-            if local.min_element() < 0.0 {
-                continue;
-            }
-            if local.max_element() > TERRAIN_CHUNK_WIDTH_METERS as f32 {
-                continue;
-            }
-            let idx = vfloor(local / TERRAIN_TILE_WIDTH).as_uvec2();
-            free.hovered_chunk = Some((*chunk_id, idx));
+    for (rock_id, rock) in asteroids.iter() {
+        let d = world_pos.distance(rock.iso.translation);
+        if d > rock.ast.max_radius() {
+            continue;
         }
+
+        let rock_local = in_frame(rock.iso, world_pos);
+        let chunk_index = ChunkIndex(vfloor(rock_local / TERRAIN_CHUNK_WIDTH_METERS));
+
+        let chunk_origin = rock.iso * chunk_index.origin_isometry();
+        let chunk_local = in_frame(chunk_origin, world_pos);
+        let tile_index =
+            LocalTileIndex(vfloor(chunk_local / TERRAIN_TILE_WIDTH_METERS).as_u8vec2());
+
+        let info = TerrainSelectionInfo {
+            asteroid: *rock_id,
+            chunk: chunk_index,
+            tile: tile_index,
+        };
+
+        free.hovered_chunk = Some(info);
     }
 }
 
@@ -735,7 +718,7 @@ pub fn pre_simulation_update(
 
     update_actual_hover_part_info(client, &world.grids);
 
-    update_hovered_chunk(client, &world.asteroids, &world.terrain_chunks);
+    update_terrain_selection_info(client, &world.asteroids);
 
     if client.input.just_pressed_debounced(Key::Alt) {
         client.alt_mode ^= true;

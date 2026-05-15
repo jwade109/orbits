@@ -1,6 +1,5 @@
 use crate::constants::TICKS_PER_SECOND;
 use crate::multiplayer::{MessageQueue, new_message_queue};
-use crate::sim::consume_rdev_event_into_input_state;
 use bary_input::*;
 use raylib::prelude::*;
 use std::thread::JoinHandle;
@@ -81,7 +80,7 @@ impl BasicApp {
         self.input.on_frame_boundary();
         while let Some(e) = self.input_queue.pop() {
             let focused = self.handle.is_window_focused();
-            consume_rdev_event_into_input_state(&mut self.input, &e, focused);
+            self.input.process_rdev_event(&e, focused);
         }
         self.should_loop()
     }

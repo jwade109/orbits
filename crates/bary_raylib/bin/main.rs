@@ -150,7 +150,7 @@ fn main() {
         let mut rdev_events = Vec::new();
         while let Some(e) = app.input_queue.pop() {
             let focused = rl.is_window_focused();
-            consume_rdev_event_into_input_state(&mut app.client.input, &e, focused);
+            app.client.input.process_rdev_event(&e, focused);
             rdev_events.push(e);
         }
 

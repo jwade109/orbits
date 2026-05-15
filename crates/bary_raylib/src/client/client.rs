@@ -1,5 +1,5 @@
 use super::Chat;
-use crate::{camera::Camera, client::EditorState};
+use crate::{camera::Camera, client::EditorState, sim::*};
 use bary_core::prelude::*;
 use bary_input::*;
 use serde::{Deserialize, Serialize};
@@ -38,12 +38,19 @@ impl SelectionInfo {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct TerrainSelectionInfo {
+    pub asteroid: Ent,
+    pub chunk: ChunkIndex,
+    pub tile: LocalTileIndex,
+}
+
 #[derive(Debug)]
 pub struct FreeFlying {
     pub follow_vehicle: Option<Ent>,
     pub lock_rotation: bool,
     pub selection_info: SelectionInfo,
-    pub hovered_chunk: Option<(Ent, UVec2)>,
+    pub hovered_chunk: Option<TerrainSelectionInfo>,
     pub waypoint_widget: Option<Vec2>,
 }
 
