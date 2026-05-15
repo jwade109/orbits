@@ -1422,9 +1422,9 @@ fn draw_asteroid(
 
             draw_rectangle(d, iso, dims, Color::RED.alpha(0.6), t);
 
-            // if focus_chunk_id.as_ref() != Some(chunk_index) {
-            //     continue;
-            // }
+            if focus_chunk_id.as_ref() != Some(chunk_index) {
+                continue;
+            }
 
             for (tile_index, tile_id) in &chunk.tiles {
                 let tile = ok_or_continue!(world.terrain_tiles.try_get(*tile_id));
@@ -1446,11 +1446,16 @@ fn draw_asteroid(
             }
         }
 
+        draw_circle(d, rock.iso.translation, rock.ast.min_radius(), Color::RED);
+        draw_circle(d, rock.iso.translation, rock.ast.base_radius(), Color::BLUE);
         draw_circle(d, rock.iso.translation, rock.ast.max_radius(), Color::GREEN);
     }
 
+    let n = (client.camera.zoom * 10.0).clamp(20.0, 400.0).round() as usize;
+    let n = n / 10 * 10;
+
     let mut points = Vec::new();
-    for theta in linspace(0.0, PI * 2.0, 100) {
+    for theta in linspace(0.0, PI * 2.0, n) {
         let r = rock.ast.radius_at(theta);
         let theta = theta + rock.iso.rotation;
         let p = r * rotate(Vec2::X, theta);

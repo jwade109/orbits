@@ -148,7 +148,8 @@ impl TerrainTile {
     }
 
     pub fn center_isometry(&self) -> Isometry2d {
-        let bottom_left = (self.index.0.as_vec2() + Vec2::splat(0.5)) * TERRAIN_TILE_WIDTH_METERS as f32;
+        let bottom_left =
+            (self.index.0.as_vec2() + Vec2::splat(0.5)) * TERRAIN_TILE_WIDTH_METERS as f32;
         Isometry2d::from_pos(bottom_left)
     }
 
@@ -225,45 +226,46 @@ pub fn spawn_random_asteroid(world: &mut World, iso: Isometry2d, radius: f32, se
     spawn_asteroid(world, ast, iso);
 }
 
-pub fn get_lod_bounding_boxes(ast: &Asteroid, lod: u32) -> Vec<(IVec2, AABB)> {
-    let length = lod_to_length(lod) as f32;
+pub fn remove_terrain_tile(
+    world: &mut World,
+    ast_id: Ent,
+    cidx: ChunkIndex,
+    tidx: LocalTileIndex,
+) -> BaryResult<Ent> {
+    let rock = world.asteroids.try_get_mut(ast_id)?;
+    let chunk_id = *rock.chunks.get(&cidx).ok_or(BaryError::NoChunk)?;
+    let chunk = world.terrain_chunks.try_get_mut(chunk_id)?;
+    let tile_id = *chunk.tiles.get(&tidx).ok_or(BaryError::NoTile)?;
 
-    if length < 1.0 {
-        return vec![];
-    }
+    world.terrain_tiles.despawn(tile_id)?;
 
-    let max_i = (ast.max_radius() / length).ceil() as i32;
-
-    if max_i < 1 {
-        return vec![];
-    }
-
-    let size = Vec2::splat(length);
-
-    let mut ret = Vec::new();
-
-    for x in -max_i..max_i {
-        for y in -max_i..max_i {
-            let idx = IVec2::new(x, y);
-            let lower = idx.as_vec2() * length;
-            let upper = lower + size;
-            let bb = AABB::from_arbitrary(lower, upper);
-
-            let p = bb.corners();
-
-            if p.iter().any(|p| ast.contains(*p)) {
-                ret.push((idx, bb));
-            }
+    chunk.tiles.remove(&tidx);
+    if chunk.tiles.is_empty() {
+        world.terrain_chunks.despawn(chunk_id)?;
+        rock.chunks.remove(&cidx);
+        if rock.chunks.is_empty() {
+            world.asteroids.despawn(ast_id)?;
         }
     }
 
-    ret
+    Ok(tile_id)
 }
 
-pub fn lod_to_length(lod: u32) -> i32 {
-    2i32.pow(lod as u32)
-}
+pub fn add_terrain_tile(
+    world: &mut World,
+    ast_id: Ent,
+    cidx: ChunkIndex,
+    tidx: LocalTileIndex,
+) -> BaryResult<Ent> {
+    let rock = world.asteroids.try_get_mut(ast_id)?;
+    let chunk_id = *rock.chunks.get(&cidx).ok_or(BaryError::NoChunk)?;
+    let chunk = world.terrain_chunks.try_get_mut(chunk_id)?;
 
-pub fn length_to_lod(length: f32) -> u32 {
-    length.log2().round() as u32
+    let tile_id = world.spawner.spawn();
+    let tile = TerrainTile::new(chunk_id, tidx);
+    chunk.tiles.insert(tidx, tile_id);
+
+    world.terrain_tiles.spawn(tile_id, tile);
+
+    Ok(tile_id)
 }

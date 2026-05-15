@@ -772,6 +772,16 @@ fn zoom_in_on_key_v(client: &mut ClientSpecificInfo) {
     free.follow_vehicle = Some(grid_id);
 }
 
+fn do_terrain_tile_under_mouse(world: &mut World, client: &mut ClientSpecificInfo, add: bool) {
+    let free = some_or_return!(client.viewport.free());
+    let tile_info = some_or_return!(free.hovered_chunk);
+    if add {
+        _ = add_terrain_tile(world, tile_info.asteroid, tile_info.chunk, tile_info.tile);
+    } else {
+        _ = remove_terrain_tile(world, tile_info.asteroid, tile_info.chunk, tile_info.tile);
+    }
+}
+
 pub fn post_simulation_update(
     world: &mut World,
     client: &mut ClientSpecificInfo,
@@ -782,6 +792,14 @@ pub fn post_simulation_update(
     test_button_boundaries_with_key_y(&client.input, sounds);
 
     zoom_in_on_key_v(client);
+
+    if client.input.is_key_pressed(rdev::Key::KeyV) {
+        do_terrain_tile_under_mouse(world, client, false);
+    }
+
+    if client.input.just_pressed(rdev::Key::KeyB) {
+        do_terrain_tile_under_mouse(world, client, true);
+    }
 
     match &mut client.viewport {
         Viewport::Free(fly) => {
