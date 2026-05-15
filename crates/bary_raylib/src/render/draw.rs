@@ -1388,6 +1388,8 @@ fn draw_asteroid(
     client: &ClientSpecificInfo,
 ) {
     let focus_chunk = client.viewport.free().map(|f| f.hovered_chunk).flatten();
+    let focus_chunk_id = focus_chunk.map(|f| f.0);
+    let focus_tile_index = focus_chunk.map(|f| f.1);
 
     let width = 0.25 * client.screen_dims.x / client.camera.zoom;
     let actual_lod = length_to_lod(width);
@@ -1407,17 +1409,40 @@ fn draw_asteroid(
 
     if is_detailed {
         for id in &rock.chunks {
-            let chunk = ok_or_return!(world.terrain_chunks.try_get(*id));
+            let chunk = ok_or_continue!(world.terrain_chunks.try_get(*id));
             let dims = Vec2::splat(TERRAIN_CHUNK_WIDTH_METERS as f32);
             let iso = rock.iso * chunk.origin_isometry();
 
-            let t = if focus_chunk == Some(*id) {
+            let t = if focus_chunk.map(|e| e.0) == Some(*id) {
                 30.0 / client.camera.zoom
             } else {
                 4.0 / client.camera.zoom
             };
 
             draw_rectangle(d, iso, dims, Color::RED.alpha(0.6), t);
+
+            if focus_chunk_id != Some(*id) {
+                continue;
+            }
+
+            for tile_id in &chunk.tiles {
+                let tile = ok_or_continue!(world.terrain_tiles.try_get(*tile_id));
+
+                let top_left = iso * tile.top_left_isometry();
+                let n = tile.material() as u8;
+                if let Some(t) = &assets.terrain_textures.get(n as usize) {
+                    let p = glam_to_raylib_swap_y(top_left.translation);
+                    let scale = TERRAIN_TILE_WIDTH / PIXELS_IN_TERRAIN_TILE;
+                    let rot = -top_left.rotation.to_degrees();
+                    d.draw_texture_ex(t, p, rot, scale, Color::WHITE);
+                }
+
+                if Some(tile.index()) == focus_tile_index {
+                    let tile_iso = iso * tile.origin_isometry();
+                    let dims = Vec2::splat(TERRAIN_TILE_WIDTH as f32);
+                    fill_rectangle(d, tile_iso, dims, Color::GREEN.alpha(0.6));
+                }
+            }
         }
 
         // for id in &rock.tiles {
@@ -1438,17 +1463,17 @@ fn draw_asteroid(
         //     }
         // }
 
-        for (_idx, bb) in get_lod_bounding_boxes(&rock.ast, lod) {
-            let lower = rock.iso * Isometry2d::from_pos(bb.lower());
-            let dims = bb.span;
-            draw_rectangle(
-                d,
-                lower,
-                dims,
-                Color::TEAL.alpha(0.4),
-                6.0 / client.camera.zoom,
-            );
-        }
+        // for (_idx, bb) in get_lod_bounding_boxes(&rock.ast, lod) {
+        //     let lower = rock.iso * Isometry2d::from_pos(bb.lower());
+        //     let dims = bb.span;
+        //     draw_rectangle(
+        //         d,
+        //         lower,
+        //         dims,
+        //         Color::TEAL.alpha(0.4),
+        //         6.0 / client.camera.zoom,
+        //     );
+        // }
     }
 
     let mut points = Vec::new();

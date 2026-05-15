@@ -50,6 +50,10 @@ fn draw_debug_info(app: &App, assets: &Assets, timers: &DebugTimers, d: &mut Ray
     s += &format!("\nUpdates: {}", world.grid_acceleration_updates);
     s += &format!("\nPipes: {}", world.pipes.len());
 
+    if let Some(free) = client.viewport.free() {
+        s += &format!("\nTerrain: {:?}", free.hovered_chunk);
+    }
+
     let total = timers.total();
 
     s += &format!("\ntotal\n{}", fmt_time(total, total));

@@ -3,10 +3,10 @@ use bary_orbital::Asteroid;
 
 use crate::sim::*;
 
-pub const TERRAIN_TILE_WIDTH: u32 = 1;
+pub const TERRAIN_TILE_WIDTH: f32 = 0.5;
 pub const PIXELS_IN_TERRAIN_TILE: f32 = 20.0;
 pub const TILES_PER_CHUNK_SIDE: u32 = 32;
-pub const TERRAIN_CHUNK_WIDTH_METERS: u32 = TERRAIN_TILE_WIDTH * TILES_PER_CHUNK_SIDE;
+pub const TERRAIN_CHUNK_WIDTH_METERS: f32 = TERRAIN_TILE_WIDTH * TILES_PER_CHUNK_SIDE as f32;
 
 #[derive(Debug, Clone, Copy)]
 pub enum TerrainMaterial {
@@ -15,19 +15,17 @@ pub enum TerrainMaterial {
     Ice,
     Silicon,
     Iron,
-    Nickel,
 }
 
 impl TerrainMaterial {
     pub fn random() -> Self {
-        let n = randint(0, 6);
+        let n = randint(0, 5);
         match n {
             0 => TerrainMaterial::Dirt,
             1 => TerrainMaterial::Rock,
             2 => TerrainMaterial::Ice,
             3 => TerrainMaterial::Silicon,
             4 => TerrainMaterial::Iron,
-            5 => TerrainMaterial::Nickel,
             _ => unreachable!(),
         }
     }
@@ -42,9 +40,9 @@ pub struct BigRock {
 
 #[derive(Debug, Clone)]
 pub struct TerrainChunk {
-    parent: Ent,
-    index: IVec2,
-    tiles: Vec<Ent>,
+    pub parent: Ent,
+    pub index: IVec2,
+    pub tiles: Vec<Ent>,
 }
 
 impl TerrainChunk {
@@ -113,6 +111,11 @@ impl TerrainTile {
         Isometry2d::from_pos(bottom_left)
     }
 
+    pub fn center_isometry(&self) -> Isometry2d {
+        let bottom_left = (self.index.as_vec2() + Vec2::splat(0.5)) * TERRAIN_TILE_WIDTH as f32;
+        Isometry2d::from_pos(bottom_left)
+    }
+
     pub fn top_left_isometry(&self) -> Isometry2d {
         let idx = self.index + UVec2::Y;
         let top_left = idx.as_vec2() * TERRAIN_TILE_WIDTH as f32;
@@ -150,10 +153,18 @@ pub fn spawn_asteroid(world: &mut World, ast: Asteroid, iso: Isometry2d) -> Ent 
             for j in 0..TILES_PER_CHUNK_SIDE {
                 for k in 0..TILES_PER_CHUNK_SIDE {
                     let tile = TerrainTile::new(parent, (j, k));
+                    let iso = chunk.origin_isometry() * tile.center_isometry();
+                    if !ast.contains(iso.translation) {
+                        continue;
+                    }
                     let tile_id = world.spawner.spawn();
                     world.terrain_tiles.spawn(tile_id, tile);
                     tiles.push(tile_id);
                 }
+            }
+
+            if tiles.is_empty() {
+                continue;
             }
 
             chunk.tiles = tiles;

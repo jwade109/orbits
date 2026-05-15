@@ -698,7 +698,7 @@ pub fn process_event(
     }
 }
 
-fn update_hovered_chunk_info(
+fn update_hovered_chunk(
     client: &mut ClientSpecificInfo,
     asteroids: &Components<BigRock>,
     chunks: &Components<TerrainChunk>,
@@ -720,7 +720,8 @@ fn update_hovered_chunk_info(
             if local.max_element() > TERRAIN_CHUNK_WIDTH_METERS as f32 {
                 continue;
             }
-            free.hovered_chunk = Some(*chunk_id);
+            let idx = vfloor(local / TERRAIN_TILE_WIDTH).as_uvec2();
+            free.hovered_chunk = Some((*chunk_id, idx));
         }
     }
 }
@@ -734,7 +735,7 @@ pub fn pre_simulation_update(
 
     update_actual_hover_part_info(client, &world.grids);
 
-    update_hovered_chunk_info(client, &world.asteroids, &world.terrain_chunks);
+    update_hovered_chunk(client, &world.asteroids, &world.terrain_chunks);
 
     if client.input.just_pressed_debounced(Key::Alt) {
         client.alt_mode ^= true;

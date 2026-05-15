@@ -43,7 +43,7 @@ pub struct FreeFlying {
     pub follow_vehicle: Option<Ent>,
     pub lock_rotation: bool,
     pub selection_info: SelectionInfo,
-    pub hovered_chunk: Option<Ent>,
+    pub hovered_chunk: Option<(Ent, UVec2)>,
     pub waypoint_widget: Option<Vec2>,
 }
 
