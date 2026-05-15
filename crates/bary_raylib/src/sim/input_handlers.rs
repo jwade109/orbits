@@ -33,8 +33,8 @@ pub fn command_selected_ships_to_waypoint(
         };
 
         let waypont = p.lerp(q, s);
-
-        let waypoint = Isometry2d::new(waypont, 0.0);
+        let rotation = Vec2::X.angle_to(q - p);
+        let waypoint = Isometry2d::new(waypont, rotation);
 
         if let Err(e) = set_primary_computer_waypoint(loc.grid_id, waypoint, world) {
             client.chat.log(format!("Failed to set waypoint: {e:?}"));
