@@ -697,7 +697,7 @@ fn update_terrain_selection_info(client: &mut ClientSpecificInfo, asteroids: &Co
         let chunk_origin = rock.iso * chunk_index.origin_isometry();
         let chunk_local = in_frame(chunk_origin, world_pos);
         let tile_index =
-            LocalTileIndex(vfloor(chunk_local / TERRAIN_TILE_WIDTH_METERS).as_u8vec2());
+            LocalTileIndex(vfloor(chunk_local / TERRAIN_TILE_WIDTH_METERS).as_i8vec2());
 
         let info = TerrainSelectionInfo {
             asteroid: *rock_id,
@@ -793,12 +793,14 @@ pub fn post_simulation_update(
 
     zoom_in_on_key_v(client);
 
-    if client.input.is_key_pressed(rdev::Key::KeyV) {
-        do_terrain_tile_under_mouse(world, client, false);
-    }
+    if client.focused_grid_id().is_none() {
+        if client.input.is_key_pressed(rdev::Button::Left) {
+            do_terrain_tile_under_mouse(world, client, false);
+        }
 
-    if client.input.just_pressed(rdev::Key::KeyB) {
-        do_terrain_tile_under_mouse(world, client, true);
+        if client.input.is_key_pressed(rdev::Button::Right) {
+            do_terrain_tile_under_mouse(world, client, true);
+        }
     }
 
     match &mut client.viewport {

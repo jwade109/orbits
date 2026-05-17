@@ -1,6 +1,6 @@
 use super::*;
 
-pub use glam::{DVec2, DVec3, IVec2, IVec3, UVec2, UVec3, Vec2, Vec3, U8Vec2};
+pub use glam::{DVec2, DVec3, I8Vec2, IVec2, IVec3, U8Vec2, UVec2, UVec3, Vec2, Vec3};
 use names::Generator;
 use rand::Rng;
 

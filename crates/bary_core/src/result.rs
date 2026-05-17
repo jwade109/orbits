@@ -20,6 +20,7 @@ pub enum BaryError {
     NoPartWithName(String),
     NoChunk,
     NoTile,
+    TileAlreadyExists,
     IoError(String),
     SerdeYaml(String),
     TomlSer(toml::ser::Error),

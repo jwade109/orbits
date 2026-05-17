@@ -16,6 +16,8 @@ pub struct Assets {
     pub fira_code: MaybeFont,
     pub part_textures: BTreeMap<String, Texture2D>,
     pub terrain_textures: Vec<Texture2D>,
+    pub animation: MaybeTexture,
+    pub terrain_spritesheet: MaybeTexture,
     pub ship_names: Vec<String>,
     pub keybinds: GlobalKeybinds,
 }
@@ -70,4 +72,6 @@ pub fn load_assets(
             assets.terrain_textures.push(tex);
         }
     }
+
+    assets.terrain_spritesheet = rl.load_texture(&thread, "assets/terrain/terrain_sprites.png").ok();
 }

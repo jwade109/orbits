@@ -275,9 +275,34 @@ pub fn draw_world(
 
     draw_imgui(d, gui, assets);
 
+    draw_animation(d, assets);
+
     // draw_item_menu(d, (300, 200).into());
 
     // draw_test_isos(&mut d)
+}
+
+fn get_terrain_tile_rect(material: TerrainMaterial, variant: usize) -> Rectangle {
+    let x = PIXELS_IN_TERRAIN_TILE as usize * variant;
+    let y = PIXELS_IN_TERRAIN_TILE as usize * material as usize;
+    Rectangle::new(
+        x as f32,
+        y as f32,
+        PIXELS_IN_TERRAIN_TILE as f32,
+        PIXELS_IN_TERRAIN_TILE as f32,
+    )
+}
+
+fn draw_animation(d: &mut RaylibDrawHandle, assets: &Assets) {
+    if let Some(anim) = &assets.terrain_spritesheet {
+        d.draw_texture(&anim, 100, 100, Color::WHITE);
+
+        let i = d.get_time() * 10.0;
+
+        let rec = Rectangle::new(i as f32, 0.0, 100.0, 100.0);
+
+        d.draw_texture_rec(&anim, rec, Vector2::new(100.0, 250.0), Color::WHITE);
+    }
 }
 
 fn draw_actions(d: &mut RaylibDrawHandle, client: &ClientSpecificInfo, assets: &Assets) {
@@ -1059,6 +1084,9 @@ fn draw_imgui(d: &mut RaylibDrawHandle, gui: &ImGui, assets: &Assets) {
 
 fn draw_waypoint_widget(d: &mut RaylibDrawHandle, client: &ClientSpecificInfo) {
     let free = some_or_return!(client.viewport.free());
+    if free.selection_info.selected.is_empty() {
+        return;
+    }
     let start = some_or_return!(free.waypoint_widget);
     let screen_pos = some_or_return!(client.mouse_screen_position);
     let end = screen_to_world(&client.camera, screen_pos, client.screen_dims);
@@ -1380,82 +1408,88 @@ fn draw_item_menu(d: &mut RaylibDrawHandle, origin: IVec2) {
     }
 }
 
+fn draw_terrain_chunk(
+    d: &mut RaylibDrawHandle,
+    rock: &BigRock,
+    chunk_index: ChunkIndex,
+    chunk_id: Ent,
+    world: &World,
+    spritesheet: &Texture2D,
+) -> bool {
+    let Ok(chunk) = world.terrain_chunks.try_get(chunk_id) else {
+        return false;
+    };
+
+    if chunk.visible_count == 0 {
+        return false;
+    }
+
+    let iso = rock.iso * chunk_index.origin_isometry();
+
+    let mut drew_tiles = false;
+
+    for (tile_index, tile_id) in &chunk.tiles {
+        let tile = ok_or_continue!(world.terrain_tiles.try_get(*tile_id));
+        if tile.light_level() == 0 {
+            continue;
+        }
+        drew_tiles = true;
+        let top_left = iso * tile_index.top_left_isometry();
+        let p = glam_to_raylib_swap_y(top_left.translation);
+        let rot = -top_left.rotation.to_degrees();
+        let scale = TERRAIN_TILE_WIDTH_METERS;
+        let source_rec = get_terrain_tile_rect(tile.material(), tile.variant());
+        let dest_rec = Rectangle::new(p.x, p.y, scale, scale);
+        let alpha = tile.light_level() as f32 / 10.0;
+        d.draw_texture_pro(
+            spritesheet,
+            source_rec,
+            dest_rec,
+            Vector2::zero(),
+            rot,
+            Color::WHITE.alpha(alpha),
+        );
+    }
+
+    drew_tiles
+}
+
+fn is_chunk_onscreen(rock_iso: Isometry2d, chunk: ChunkIndex, client: &ClientSpecificInfo) -> bool {
+    let dims = client.screen_dims;
+    let bb = chunk.bb();
+    for corner in bb.corners().iter().chain(&[bb.center]) {
+        let w = rock_iso * Isometry2d::from_pos(*corner);
+        let s = get_world_to_screen(&client.camera, w.translation, dims);
+        if s.min_element() > 0.0 && s.y < dims.y && s.x < dims.x {
+            return true;
+        }
+    }
+    // TODO stopgap; implement better BB collisions
+    for corner in bb.corners().iter().chain(&[bb.center]) {
+        let corner = (corner - bb.center) * 0.5 + bb.center;
+        let w = rock_iso * Isometry2d::from_pos(corner);
+        let s = get_world_to_screen(&client.camera, w.translation, dims);
+        if s.min_element() > 0.0 && s.y < dims.y && s.x < dims.x {
+            return true;
+        }
+    }
+    false
+}
+
 fn draw_asteroid(
     d: &mut RaylibDrawHandle,
-    assets: &Assets,
-    rock_id: Ent,
     rock: &BigRock,
+    assets: &Assets,
     world: &World,
     client: &ClientSpecificInfo,
 ) {
-    let focus_chunk = client.viewport.free().map(|f| f.hovered_chunk).flatten();
-    let focus_rock_id = focus_chunk.map(|f| f.asteroid);
-    let focus_chunk_id = focus_chunk.map(|f| f.chunk);
-    let focus_tile_index = focus_chunk.map(|f| f.tile);
-
-    // let width = 0.25 * client.screen_dims.x / client.camera.zoom;
-    // let actual_lod = length_to_lod(width);
-    // let max_lod = length_to_lod(rock.ast.max_radius() * 2.0);
-    // let lod = actual_lod.min(max_lod);
-
-    // detailed view if asteroid takes up more than 10%
-    // of screen view
-    let is_detailed = focus_rock_id == Some(rock_id);
-
-    let o = rock.iso.translation;
-    let x = o + rock.iso.local_x() * rock.ast.base_radius();
-    let y = o + rock.iso.local_y() * rock.ast.base_radius();
-
-    if is_detailed {
-        draw_line(d, o, x, Color::RED);
-        draw_line(d, o, y, Color::GREEN);
-        for (chunk_index, chunk_id) in &rock.chunks {
-            let chunk = ok_or_continue!(world.terrain_chunks.try_get(*chunk_id));
-            let dims = Vec2::splat(TERRAIN_CHUNK_WIDTH_METERS as f32);
-            let iso = rock.iso * chunk_index.origin_isometry();
-
-            let t = if focus_chunk_id.as_ref() == Some(chunk_index) {
-                30.0 / client.camera.zoom
-            } else {
-                4.0 / client.camera.zoom
-            };
-
-            draw_rectangle(d, iso, dims, Color::RED.alpha(0.6), t);
-
-            if focus_chunk_id.as_ref() != Some(chunk_index) {
-                continue;
-            }
-
-            for (tile_index, tile_id) in &chunk.tiles {
-                let tile = ok_or_continue!(world.terrain_tiles.try_get(*tile_id));
-
-                let top_left = iso * tile.top_left_isometry();
-                let n = tile.material() as u8;
-                if let Some(t) = &assets.terrain_textures.get(n as usize) {
-                    let p = glam_to_raylib_swap_y(top_left.translation);
-                    let scale = TERRAIN_TILE_WIDTH_METERS / PIXELS_IN_TERRAIN_TILE;
-                    let rot = -top_left.rotation.to_degrees();
-                    d.draw_texture_ex(t, p, rot, scale, Color::WHITE);
-                }
-
-                if Some(tile_index) == focus_tile_index.as_ref() {
-                    let tile_iso = iso * tile.origin_isometry();
-                    let dims = Vec2::splat(TERRAIN_TILE_WIDTH_METERS as f32);
-                    fill_rectangle(d, tile_iso, dims, Color::GREEN.alpha(0.6));
-                }
-            }
-        }
-
-        draw_circle(d, rock.iso.translation, rock.ast.min_radius(), Color::RED);
-        draw_circle(d, rock.iso.translation, rock.ast.base_radius(), Color::BLUE);
-        draw_circle(d, rock.iso.translation, rock.ast.max_radius(), Color::GREEN);
-    }
-
-    let n = (client.camera.zoom * 10.0).clamp(20.0, 400.0).round() as usize;
-    let n = n / 10 * 10;
+    let spritesheet = assets
+        .terrain_spritesheet
+        .as_ref()
+        .expect("No terrain spritesheet");
 
     let mut points = Vec::new();
-    for theta in linspace(0.0, PI * 2.0, n) {
+    for theta in linspace(0.0, PI * 2.0, 200) {
         let r = rock.ast.radius_at(theta);
         let theta = theta + rock.iso.rotation;
         let p = r * rotate(Vec2::X, theta);
@@ -1463,6 +1497,79 @@ fn draw_asteroid(
         points.push(p);
     }
     d.draw_line_strip(&points, Color::WHITE);
+
+    let mut chunks_to_draw = Vec::new();
+
+    if client.camera.zoom > 1.4 {
+        let camera_bb = AABB::from_arbitrary(Vec2::ZERO, client.screen_dims);
+        let mut bounds: Option<(ChunkIndex, ChunkIndex)> = None;
+
+        for corner in camera_bb.corners() {
+            let w = screen_to_world(&client.camera, corner, client.screen_dims);
+            let wrt_asteroid = in_frame(rock.iso, w);
+            let chunk_index = ChunkIndex(vfloor(wrt_asteroid / TERRAIN_CHUNK_WIDTH_METERS));
+
+            if let Some((min, max)) = &mut bounds {
+                min.0.x = min.0.x.min(chunk_index.0.x);
+                min.0.y = min.0.y.min(chunk_index.0.y);
+                max.0.x = max.0.x.max(chunk_index.0.x);
+                max.0.y = max.0.y.max(chunk_index.0.y);
+            } else {
+                bounds = Some((chunk_index, chunk_index));
+            }
+        }
+
+        if let Some((min, max)) = bounds {
+            for x in min.0.x..=max.0.x {
+                for y in min.0.y..=max.0.y {
+                    let c = ChunkIndex((x, y).into());
+                    if is_chunk_onscreen(rock.iso, c, &client) {
+                        if let Some(id) = rock.chunks.get(&c) {
+                            chunks_to_draw.push((c, *id));
+                        }
+                    }
+                }
+            }
+        }
+
+        const MAX_CHUNKS_TO_DRAW: u32 = 60;
+        let mut n_drawn = 0;
+
+        for (chunk_index, chunk_id) in &chunks_to_draw {
+            n_drawn +=
+                draw_terrain_chunk(d, rock, *chunk_index, *chunk_id, world, spritesheet) as u32;
+            if n_drawn == MAX_CHUNKS_TO_DRAW {
+                break;
+            }
+        }
+    }
+
+    if client.alt_mode {
+        draw_circle(d, rock.iso.translation, rock.ast.min_radius(), Color::RED);
+        draw_circle(d, rock.iso.translation, rock.ast.base_radius(), Color::BLUE);
+        draw_circle(d, rock.iso.translation, rock.ast.max_radius(), Color::GREEN);
+
+        let o = rock.iso.translation;
+        let x = o + rock.iso.local_x() * rock.ast.base_radius();
+        let y = o + rock.iso.local_y() * rock.ast.base_radius();
+
+        draw_line(d, o, x, Color::RED);
+        draw_line(d, o, y, Color::GREEN);
+
+        let t = 0.4 / client.camera.zoom;
+
+        for (chunk_index, id) in chunks_to_draw {
+            let chunk = ok_or_continue!(world.terrain_chunks.try_get(id));
+            let iso = rock.iso * chunk_index.origin_isometry();
+            let dims = Vec2::splat(TERRAIN_CHUNK_WIDTH_METERS);
+            let color = if chunk.visible_count > 0 {
+                Color::RED
+            } else {
+                Color::RED.alpha(0.2)
+            };
+            draw_rectangle(d, iso, dims, color, t);
+        }
+    }
 }
 
 fn draw_asteroids(
@@ -1471,7 +1578,7 @@ fn draw_asteroids(
     assets: &Assets,
     client: &ClientSpecificInfo,
 ) {
-    for (id, rock) in world.asteroids.iter() {
-        draw_asteroid(d, assets, *id, rock, world, client);
+    for (_id, rock) in world.asteroids.iter() {
+        draw_asteroid(d, rock, assets, world, client);
     }
 }

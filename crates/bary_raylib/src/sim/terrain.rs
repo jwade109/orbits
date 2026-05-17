@@ -2,18 +2,20 @@ use std::collections::BTreeMap;
 
 use bary_core::prelude::*;
 use bary_orbital::Asteroid;
+use early_returns::ok_or_continue;
 
 use crate::sim::*;
 
 pub const TERRAIN_TILE_WIDTH_METERS: f32 = 0.5;
-pub const PIXELS_IN_TERRAIN_TILE: f32 = 20.0;
+pub const PIXELS_IN_TERRAIN_TILE: u8 = 20;
 pub const TILES_PER_CHUNK_SIDE: u8 = 32;
 pub const TERRAIN_CHUNK_WIDTH_METERS: f32 = TERRAIN_TILE_WIDTH_METERS * TILES_PER_CHUNK_SIDE as f32;
+pub const TERRAIN_VARIANTS: u8 = 8;
 
 #[derive(Debug, Clone, Copy)]
 pub enum TerrainMaterial {
-    Dirt,
     Rock,
+    Dirt,
     Ice,
     Silicon,
     Iron,
@@ -21,20 +23,47 @@ pub enum TerrainMaterial {
 
 impl TerrainMaterial {
     pub fn random() -> Self {
-        let n = randint(0, 5);
+        let n = randint(0, 9);
         match n {
-            0 => TerrainMaterial::Dirt,
-            1 => TerrainMaterial::Rock,
-            2 => TerrainMaterial::Ice,
-            3 => TerrainMaterial::Silicon,
-            4 => TerrainMaterial::Iron,
+            0..5 => TerrainMaterial::Rock,
+            5 => TerrainMaterial::Dirt,
+            6 => TerrainMaterial::Ice,
+            7 => TerrainMaterial::Silicon,
+            8 => TerrainMaterial::Iron,
             _ => unreachable!(),
         }
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct LocalTileIndex(pub U8Vec2);
+pub struct LocalTileIndex(pub I8Vec2);
+
+impl LocalTileIndex {
+    pub fn origin_isometry(&self) -> Isometry2d {
+        let bottom_left = self.0.as_vec2() * TERRAIN_TILE_WIDTH_METERS as f32;
+        Isometry2d::from_pos(bottom_left)
+    }
+
+    pub fn center_isometry(&self) -> Isometry2d {
+        let bottom_left = (self.0.as_vec2() + Vec2::splat(0.5)) * TERRAIN_TILE_WIDTH_METERS as f32;
+        Isometry2d::from_pos(bottom_left)
+    }
+
+    pub fn top_left_isometry(&self) -> Isometry2d {
+        let idx = self.0 + I8Vec2::Y;
+        let top_left = idx.as_vec2() * TERRAIN_TILE_WIDTH_METERS as f32;
+        Isometry2d::from_pos(top_left)
+    }
+
+    pub fn center(&self) -> Vec2 {
+        let bl = self.origin_isometry().translation;
+        bl + Vec2::splat(TERRAIN_TILE_WIDTH_METERS as f32 / 2.0)
+    }
+
+    pub fn bb(&self) -> AABB {
+        AABB::new(self.center(), Vec2::splat(TERRAIN_TILE_WIDTH_METERS as f32))
+    }
+}
 
 impl PartialOrd for LocalTileIndex {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
@@ -83,6 +112,10 @@ impl ChunkIndex {
         bl + Vec2::splat(TERRAIN_CHUNK_WIDTH_METERS as f32 / 2.0)
     }
 
+    pub fn center_isometry(&self) -> Isometry2d {
+        Isometry2d::from_pos(self.center())
+    }
+
     pub fn bb(&self) -> AABB {
         AABB::new(
             self.center(),
@@ -92,7 +125,7 @@ impl ChunkIndex {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TerrainIndex(pub IVec2, pub U8Vec2);
+pub struct TerrainIndex(pub IVec2, pub I8Vec2);
 
 #[derive(Debug, Clone)]
 pub struct BigRock {
@@ -106,6 +139,7 @@ pub struct TerrainChunk {
     pub parent: Ent,
     pub index: ChunkIndex,
     pub tiles: BTreeMap<LocalTileIndex, Ent>,
+    pub visible_count: usize,
 }
 
 impl TerrainChunk {
@@ -114,6 +148,7 @@ impl TerrainChunk {
             parent,
             index,
             tiles: BTreeMap::new(),
+            visible_count: 0,
         }
     }
 }
@@ -121,16 +156,18 @@ impl TerrainChunk {
 #[derive(Debug, Clone, Copy)]
 pub struct TerrainTile {
     parent: Ent,
-    index: LocalTileIndex,
     material: TerrainMaterial,
+    variant: usize,
+    light_level: u8,
 }
 
 impl TerrainTile {
-    fn new(parent: Ent, index: impl Into<LocalTileIndex>) -> Self {
+    fn new(parent: Ent, material: TerrainMaterial, is_edge: bool) -> Self {
         Self {
             parent,
-            index: index.into(),
-            material: TerrainMaterial::random(),
+            material,
+            variant: randint(0, TERRAIN_VARIANTS as i32) as usize,
+            light_level: 0,
         }
     }
 
@@ -142,26 +179,16 @@ impl TerrainTile {
         self.material
     }
 
-    pub fn origin_isometry(&self) -> Isometry2d {
-        let bottom_left = self.index.0.as_vec2() * TERRAIN_TILE_WIDTH_METERS as f32;
-        Isometry2d::from_pos(bottom_left)
+    pub fn variant(&self) -> usize {
+        self.variant
     }
 
-    pub fn center_isometry(&self) -> Isometry2d {
-        let bottom_left =
-            (self.index.0.as_vec2() + Vec2::splat(0.5)) * TERRAIN_TILE_WIDTH_METERS as f32;
-        Isometry2d::from_pos(bottom_left)
+    pub fn light_level(&self) -> u8 {
+        self.light_level
     }
 
-    pub fn top_left_isometry(&self) -> Isometry2d {
-        let idx = self.index.0 + U8Vec2::Y;
-        let top_left = idx.as_vec2() * TERRAIN_TILE_WIDTH_METERS as f32;
-        Isometry2d::from_pos(top_left)
-    }
-
-    pub fn center(&self) -> Vec2 {
-        let bl = self.origin_isometry().translation;
-        bl + Vec2::splat(TERRAIN_TILE_WIDTH_METERS as f32 / 2.0)
+    pub fn is_visible(&self) -> bool {
+        self.light_level > 0
     }
 }
 
@@ -171,6 +198,7 @@ pub fn spawn_asteroid(world: &mut World, ast: Asteroid, iso: Isometry2d) -> Ent 
     let rmax = (ast.max_radius() / TERRAIN_CHUNK_WIDTH_METERS as f32).ceil() as i32;
 
     let mut chunks = BTreeMap::new();
+    let mut edges = Vec::new();
 
     for x in -rmax..rmax {
         for y in -rmax..rmax {
@@ -190,15 +218,30 @@ pub fn spawn_asteroid(world: &mut World, ast: Asteroid, iso: Isometry2d) -> Ent 
             let mut tiles = BTreeMap::new();
             for j in 0..TILES_PER_CHUNK_SIDE {
                 for k in 0..TILES_PER_CHUNK_SIDE {
-                    let index = LocalTileIndex(U8Vec2::new(j, k));
-                    let tile = TerrainTile::new(parent, index);
-                    let iso = chunk_index.origin_isometry() * tile.center_isometry();
+                    let index = LocalTileIndex(I8Vec2::new(j as i8, k as i8));
+                    let iso = chunk_index.origin_isometry() * index.center_isometry();
                     if !ast.contains(iso.translation) {
                         continue;
                     }
+
+                    let is_edge = !index.bb().corners().iter().all(|c| {
+                        let c = chunk_index.origin_isometry() * Isometry2d::from_pos(*c);
+                        ast.contains(c.translation)
+                    });
+
+                    let tile = TerrainTile::new(parent, TerrainMaterial::random(), is_edge);
+
                     let tile_id = world.spawner.spawn();
                     world.terrain_tiles.spawn(tile_id, tile);
                     tiles.insert(index, tile_id);
+
+                    if tile.is_visible() {
+                        chunk.visible_count += 1;
+                    }
+
+                    if is_edge {
+                        edges.push((chunk_index, index));
+                    }
                 }
             }
 
@@ -248,6 +291,8 @@ pub fn remove_terrain_tile(
         }
     }
 
+    light_up_terrain_tile(world, ast_id, cidx, tidx)?;
+
     Ok(tile_id)
 }
 
@@ -261,11 +306,49 @@ pub fn add_terrain_tile(
     let chunk_id = *rock.chunks.get(&cidx).ok_or(BaryError::NoChunk)?;
     let chunk = world.terrain_chunks.try_get_mut(chunk_id)?;
 
+    if chunk.tiles.contains_key(&tidx) {
+        return Err(BaryError::TileAlreadyExists);
+    }
+
     let tile_id = world.spawner.spawn();
-    let tile = TerrainTile::new(chunk_id, tidx);
+    let tile = TerrainTile::new(chunk_id, TerrainMaterial::random(), true);
     chunk.tiles.insert(tidx, tile_id);
+    if tile.is_visible() {
+        chunk.visible_count += 1;
+    }
 
     world.terrain_tiles.spawn(tile_id, tile);
 
     Ok(tile_id)
+}
+
+pub fn light_up_terrain_tile(
+    world: &mut World,
+    ast_id: Ent,
+    cidx: ChunkIndex,
+    tidx: LocalTileIndex,
+) -> BaryResult<()> {
+    let rock = world.asteroids.try_get_mut(ast_id)?;
+    let chunk_id = *rock.chunks.get(&cidx).ok_or(BaryError::NoChunk)?;
+    let chunk = world.terrain_chunks.try_get_mut(chunk_id)?;
+
+    let rmax = 8;
+
+    for x in -rmax..=rmax {
+        for y in -rmax..=rmax {
+            let d = I8Vec2::new(x, y);
+            let r = d.as_vec2().length().round() as i8;
+            let ll = if r < 8 { 8 - r as u8 } else { 0 };
+            let c = LocalTileIndex(tidx.0 + d);
+            let tile_id = ok_or_continue!(chunk.tiles.get(&c).ok_or(BaryError::NoTile));
+            let tile = world.terrain_tiles.try_get_mut(*tile_id)?;
+            let visible = tile.is_visible();
+            tile.light_level = tile.light_level.max(ll);
+            if !visible && tile.is_visible() {
+                chunk.visible_count += 1;
+            }
+        }
+    }
+
+    Ok(())
 }
