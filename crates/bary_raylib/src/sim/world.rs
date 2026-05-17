@@ -692,17 +692,12 @@ fn update_terrain_selection_info(client: &mut ClientSpecificInfo, asteroids: &Co
         }
 
         let rock_local = in_frame(rock.iso, world_pos);
-        let chunk_index = ChunkIndex(vfloor(rock_local / TERRAIN_CHUNK_WIDTH_METERS));
 
-        let chunk_origin = rock.iso * chunk_index.origin_isometry();
-        let chunk_local = in_frame(chunk_origin, world_pos);
-        let tile_index =
-            LocalTileIndex(vfloor(chunk_local / TERRAIN_TILE_WIDTH_METERS).as_i8vec2());
+        let tile = GlobalTileIndex(vfloor(rock_local / TERRAIN_TILE_WIDTH_METERS));
 
         let info = TerrainSelectionInfo {
             asteroid: *rock_id,
-            chunk: chunk_index,
-            tile: tile_index,
+            tile,
         };
 
         free.hovered_chunk = Some(info);
@@ -772,13 +767,21 @@ fn zoom_in_on_key_v(client: &mut ClientSpecificInfo) {
     free.follow_vehicle = Some(grid_id);
 }
 
-fn do_terrain_tile_under_mouse(world: &mut World, client: &mut ClientSpecificInfo, add: bool) {
+fn do_terrain_tile_under_mouse(world: &mut World, client: &mut ClientSpecificInfo, action: u8) {
     let free = some_or_return!(client.viewport.free());
     let tile_info = some_or_return!(free.hovered_chunk);
-    if add {
-        _ = add_terrain_tile(world, tile_info.asteroid, tile_info.chunk, tile_info.tile);
-    } else {
-        _ = remove_terrain_tile(world, tile_info.asteroid, tile_info.chunk, tile_info.tile);
+
+    match action {
+        0 => {
+            _ = remove_terrain_tile(world, tile_info.asteroid, tile_info.tile);
+        }
+        1 => {
+            _ = add_terrain_tile(world, tile_info.asteroid, tile_info.tile);
+        }
+        2 => {
+            _ = fully_reveal_terrain_tile(world, tile_info.asteroid, tile_info.tile);
+        }
+        _ => (),
     }
 }
 
@@ -795,11 +798,15 @@ pub fn post_simulation_update(
 
     if client.focused_grid_id().is_none() {
         if client.input.is_key_pressed(rdev::Button::Left) {
-            do_terrain_tile_under_mouse(world, client, false);
+            do_terrain_tile_under_mouse(world, client, 0);
         }
 
         if client.input.is_key_pressed(rdev::Button::Right) {
-            do_terrain_tile_under_mouse(world, client, true);
+            do_terrain_tile_under_mouse(world, client, 1);
+        }
+
+        if client.input.is_key_pressed(rdev::Button::Middle) {
+            do_terrain_tile_under_mouse(world, client, 2);
         }
     }
 

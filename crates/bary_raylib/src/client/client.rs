@@ -41,8 +41,7 @@ impl SelectionInfo {
 #[derive(Debug, Clone, Copy)]
 pub struct TerrainSelectionInfo {
     pub asteroid: Ent,
-    pub chunk: ChunkIndex,
-    pub tile: LocalTileIndex,
+    pub tile: GlobalTileIndex,
 }
 
 #[derive(Debug)]

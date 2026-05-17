@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use bary_core::prelude::*;
 use bary_orbital::Asteroid;
-use early_returns::ok_or_continue;
+use early_returns::{ok_or_continue, some_or_continue};
 
 use crate::sim::*;
 
@@ -79,6 +79,27 @@ impl Ord for LocalTileIndex {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GlobalTileIndex(pub IVec2);
+
+impl GlobalTileIndex {
+    pub fn to_cl(&self) -> (ChunkIndex, LocalTileIndex) {
+        let tpcs = TILES_PER_CHUNK_SIDE as i32;
+        let cx = if self.0.x >= 0 {
+            self.0.x / tpcs
+        } else {
+            (self.0.x + 1 - tpcs) / tpcs
+        };
+        let cy = if self.0.y >= 0 {
+            self.0.y / tpcs
+        } else {
+            (self.0.y + 1 - tpcs) / tpcs
+        };
+
+        let chunk = ChunkIndex((cx, cy).into());
+        let l = self.0 - chunk.0 * TILES_PER_CHUNK_SIDE as i32;
+        let local = LocalTileIndex(l.as_i8vec2());
+        (chunk, local)
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ChunkIndex(pub IVec2);
@@ -269,50 +290,42 @@ pub fn spawn_random_asteroid(world: &mut World, iso: Isometry2d, radius: f32, se
     spawn_asteroid(world, ast, iso);
 }
 
-pub fn remove_terrain_tile(
-    world: &mut World,
-    ast_id: Ent,
-    cidx: ChunkIndex,
-    tidx: LocalTileIndex,
-) -> BaryResult<Ent> {
+pub fn remove_terrain_tile(world: &mut World, ast_id: Ent, t: GlobalTileIndex) -> BaryResult<Ent> {
     let rock = world.asteroids.try_get_mut(ast_id)?;
-    let chunk_id = *rock.chunks.get(&cidx).ok_or(BaryError::NoChunk)?;
+    let (c, l) = t.to_cl();
+    let chunk_id = *rock.chunks.get(&c).ok_or(BaryError::NoChunk)?;
     let chunk = world.terrain_chunks.try_get_mut(chunk_id)?;
-    let tile_id = *chunk.tiles.get(&tidx).ok_or(BaryError::NoTile)?;
+    let tile_id = *chunk.tiles.get(&l).ok_or(BaryError::NoTile)?;
 
     world.terrain_tiles.despawn(tile_id)?;
 
-    chunk.tiles.remove(&tidx);
+    chunk.tiles.remove(&l);
     if chunk.tiles.is_empty() {
         world.terrain_chunks.despawn(chunk_id)?;
-        rock.chunks.remove(&cidx);
+        rock.chunks.remove(&c);
         if rock.chunks.is_empty() {
             world.asteroids.despawn(ast_id)?;
         }
     }
 
-    light_up_terrain_tile(world, ast_id, cidx, tidx)?;
+    fully_reveal_terrain_tile(world, ast_id, t)?;
 
     Ok(tile_id)
 }
 
-pub fn add_terrain_tile(
-    world: &mut World,
-    ast_id: Ent,
-    cidx: ChunkIndex,
-    tidx: LocalTileIndex,
-) -> BaryResult<Ent> {
+pub fn add_terrain_tile(world: &mut World, ast_id: Ent, t: GlobalTileIndex) -> BaryResult<Ent> {
+    let (c, l) = t.to_cl();
     let rock = world.asteroids.try_get_mut(ast_id)?;
-    let chunk_id = *rock.chunks.get(&cidx).ok_or(BaryError::NoChunk)?;
+    let chunk_id = *rock.chunks.get(&c).ok_or(BaryError::NoChunk)?;
     let chunk = world.terrain_chunks.try_get_mut(chunk_id)?;
 
-    if chunk.tiles.contains_key(&tidx) {
+    if chunk.tiles.contains_key(&l) {
         return Err(BaryError::TileAlreadyExists);
     }
 
     let tile_id = world.spawner.spawn();
     let tile = TerrainTile::new(chunk_id, TerrainMaterial::random(), true);
-    chunk.tiles.insert(tidx, tile_id);
+    chunk.tiles.insert(l, tile_id);
     if tile.is_visible() {
         chunk.visible_count += 1;
     }
@@ -322,25 +335,29 @@ pub fn add_terrain_tile(
     Ok(tile_id)
 }
 
-pub fn light_up_terrain_tile(
+pub fn fully_reveal_terrain_tile(
     world: &mut World,
     ast_id: Ent,
-    cidx: ChunkIndex,
-    tidx: LocalTileIndex,
+    t: GlobalTileIndex,
 ) -> BaryResult<()> {
-    let rock = world.asteroids.try_get_mut(ast_id)?;
-    let chunk_id = *rock.chunks.get(&cidx).ok_or(BaryError::NoChunk)?;
-    let chunk = world.terrain_chunks.try_get_mut(chunk_id)?;
-
     let rmax = 8;
+
+    let rock = world.asteroids.try_get_mut(ast_id)?;
 
     for x in -rmax..=rmax {
         for y in -rmax..=rmax {
+
+            // TODO(optimization) we can batch chunk lookups here, since
+            // GlobalTileIndex will probably refer to the same chunk
+
             let d = I8Vec2::new(x, y);
+            let t = GlobalTileIndex(t.0 + d.as_ivec2());
+            let (c, l) = t.to_cl();
+            let chunk_id = *some_or_continue!(rock.chunks.get(&c));
+            let chunk = ok_or_continue!(world.terrain_chunks.try_get_mut(chunk_id));
             let r = d.as_vec2().length().round() as i8;
             let ll = if r < 8 { 8 - r as u8 } else { 0 };
-            let c = LocalTileIndex(tidx.0 + d);
-            let tile_id = ok_or_continue!(chunk.tiles.get(&c).ok_or(BaryError::NoTile));
+            let tile_id = ok_or_continue!(chunk.tiles.get(&l).ok_or(BaryError::NoTile));
             let tile = world.terrain_tiles.try_get_mut(*tile_id)?;
             let visible = tile.is_visible();
             tile.light_level = tile.light_level.max(ll);
