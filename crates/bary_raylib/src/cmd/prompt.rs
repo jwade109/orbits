@@ -1,6 +1,6 @@
 use super::commands::*;
+use crate::Action;
 use crate::assets::Assets;
-use crate::multiplayer::Action;
 use bary_core::prelude::*;
 use raylib::prelude::*;
 use std::collections::VecDeque;

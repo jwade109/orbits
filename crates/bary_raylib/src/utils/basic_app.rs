@@ -1,5 +1,5 @@
 use crate::constants::TICKS_PER_SECOND;
-use crate::multiplayer::{MessageQueue, new_message_queue};
+use crate::{MessageQueue, new_message_queue};
 use bary_input::*;
 use raylib::prelude::*;
 use std::thread::JoinHandle;

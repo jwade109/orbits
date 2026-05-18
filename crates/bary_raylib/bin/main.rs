@@ -2,7 +2,7 @@ use bary_core::prelude::*;
 use bary_raylib::app::*;
 use bary_raylib::assets::*;
 use bary_raylib::imgui;
-use bary_raylib::multiplayer::*;
+use bary_raylib::*;
 use bary_raylib::render::draw;
 use bary_raylib::sim::*;
 use bary_raylib::sounds::SoundEffects;

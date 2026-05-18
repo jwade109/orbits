@@ -5,7 +5,6 @@ pub mod client;
 pub mod cmd;
 pub mod constants;
 pub mod imgui;
-pub mod multiplayer;
 pub mod persistence;
 pub mod render;
 pub mod sim;
@@ -14,6 +13,18 @@ pub mod tests;
 pub mod ui;
 pub mod utils;
 pub mod world_builder;
+
+mod common;
+mod multiplayer_client;
+mod runner;
+mod server;
+mod transactions;
+
+pub use common::*;
+pub use multiplayer_client::*;
+pub use runner::*;
+pub use server::*;
+pub use transactions::*;
 
 /// A namespace of functions which are potentially expensive,
 /// but nonetheless offer a readonly way to retrieve some information

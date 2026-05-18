@@ -1,5 +1,4 @@
 use crate::utils::{GlobalKeybinds, load_keybinds_from_file};
-use bary_core::prelude::randint;
 use bary_parts::load_parts_from_dir;
 use log::debug;
 use raylib::prelude::*;
@@ -65,5 +64,7 @@ pub fn load_assets(
         }
     }
 
-    assets.terrain_spritesheet = rl.load_texture(&thread, "assets/terrain/terrain_sprites.png").ok();
+    assets.terrain_spritesheet = rl
+        .load_texture(&thread, "assets/terrain/terrain_sprites.png")
+        .ok();
 }
