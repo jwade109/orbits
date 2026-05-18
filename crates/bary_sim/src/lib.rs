@@ -1,11 +1,15 @@
+mod chat;
 mod computer;
 mod constants;
+mod debug_info;
 mod pipe;
 mod ring_particle;
 mod star;
 
+pub use chat::*;
 pub use computer::*;
 pub use constants::*;
+pub use debug_info::*;
 pub use pipe::*;
 pub use ring_particle::*;
 pub use star::*;

@@ -1,4 +1,4 @@
-use crate::client::{ClientSpecificInfo, DebugInfo};
+use crate::client::ClientSpecificInfo;
 use crate::cmd::{CommandPrompt, cmd_handle_input_event};
 use crate::multiplayer::*;
 use crate::sim::{World, process_event};
