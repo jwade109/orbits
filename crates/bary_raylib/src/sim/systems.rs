@@ -1,4 +1,3 @@
-use crate::assets::get_random_ship_name;
 use crate::client::GridLocation;
 use crate::constants::TICKS_PER_SECOND;
 use crate::sim::*;
@@ -1623,5 +1622,173 @@ mod tests {
 
         assert!(error.x.abs() < 3.0);
         assert!(error.y.abs() < 3.0);
+    }
+
+    // use super::*;
+    // use crate::sim::*;
+    // use crate::tests::assert_world_is_consistent;
+    // use crate::world_builder::WorldBuilder;
+
+    #[test]
+    fn rebuilding_grid_from_islands() {
+        let mut world = WorldBuilder::new()
+            .test_assets()
+            .blueprint("pollux")
+            .spawn("pollux", "harriet", (0.0, 0.0, 0.0))
+            .build();
+
+        let grid_id = get_grid_by_name(&world.grids, "harriet").unwrap();
+        let grid = world.grids.try_get(grid_id).unwrap();
+
+        assert_eq!(grid.parts_mass, Mass::grams(35134000));
+        assert_eq!(grid.parts.len(), 98);
+
+        // slice a thing down the middle of the ship
+        let mut parts = BTreeSet::new();
+        let x = 22;
+        for y in 0..40 {
+            if let Some(occ) = grid.occupancy.get(&(x, y)) {
+                for (_, id) in occ.iter() {
+                    parts.insert(id);
+                }
+            }
+        }
+
+        for part_id in parts {
+            let r = destroy_part_without_integrity_check(&mut world, part_id, true);
+            assert!(r.is_ok());
+        }
+
+        let mut grid = world.grids.try_get(grid_id).unwrap().clone();
+        let islands = grid.calculate_islands();
+
+        assert_eq!(islands.len(), 2);
+
+        let rebuilt = rebuild_index_from_islands(&mut grid, &islands, &world.parts).unwrap();
+
+        assert_eq!(rebuilt.len(), 2);
+
+        let ra = &rebuilt[0];
+        let rb = &rebuilt[1];
+
+        assert_eq!(ra.parts.len(), 45);
+        assert_eq!(rb.parts.len(), 40);
+
+        assert_eq!(ra.thrusters.len(), 9);
+        assert_eq!(rb.thrusters.len(), 9);
+
+        assert_eq!(ra.computers.len(), 0);
+        assert_eq!(rb.computers.len(), 1);
+
+        assert_eq!(ra.lights.len(), 6);
+        assert_eq!(rb.lights.len(), 6);
+
+        assert_eq!(ra.parts_mass, Mass::grams(16817000));
+        assert_eq!(rb.parts_mass, Mass::grams(14797000));
+    }
+
+    #[test]
+    fn removing_parts_from_grid() {
+        let mut world = WorldBuilder::new()
+            .test_assets()
+            .blueprint("pollux")
+            .spawn("pollux", "ted", (0.0, 0.0, 0.0))
+            .build();
+
+        let grid_id = get_grid_by_name(&world.grids, "ted").unwrap();
+        let grid = world.grids.try_get(grid_id).unwrap();
+        let parts: Vec<_> = grid.parts.iter().collect();
+
+        assert_eq!(grid.parts_mass, Mass::grams(35134000));
+        assert_eq!(grid.parts.len(), 98);
+
+        let part_a = *parts[12];
+        let part_b = *parts[20];
+        let part_c = *parts[37];
+
+        assert_eq!(part_a, Ent(47));
+        assert_eq!(part_b, Ent(55));
+        assert_eq!(part_c, Ent(72));
+
+        let op_a = destroy_part_without_integrity_check(&mut world, part_a, false);
+        let op_b = destroy_part_without_integrity_check(&mut world, part_b, false);
+        let op_c = destroy_part_without_integrity_check(&mut world, part_c, true);
+
+        let region_a = GridRegion::new((10, 0), Rotation::North, (1, 1));
+        let region_b = GridRegion::new((32, 4), Rotation::South, (2, 2));
+        let region_c = GridRegion::new((32, 12), Rotation::South, (2, 2));
+
+        let part_a = PartInstance::new("rcs", PartLayer::Internal, region_a);
+        let part_b = PartInstance::new("plate", PartLayer::Exterior, region_b);
+        let part_c = PartInstance::new("plate", PartLayer::Exterior, region_c);
+
+        assert_eq!(op_a, Ok((part_a, grid_id)));
+        assert_eq!(op_b, Ok((part_b, grid_id)));
+        assert_eq!(op_c, Ok((part_c, grid_id)));
+
+        let grid = world.grids.try_get(grid_id).unwrap();
+
+        assert_eq!(grid.parts_mass, Mass::grams(35073000));
+        assert_eq!(grid.parts.len(), 95);
+
+        assert_world_is_consistent(&world);
+    }
+
+    #[test]
+    fn split_grid_into_two_grids() {
+        let mut world = WorldBuilder::new()
+            .test_assets()
+            .blueprint("pollux")
+            .spawn("pollux", "julia", (0.0, 0.0, 0.0))
+            .build();
+
+        let grid_id = get_grid_by_name(&world.grids, "julia").unwrap();
+
+        // this should fail if the grid ID is bad, obviously.
+        let result = split_grid_if_necessary(&mut world, Ent(0));
+
+        assert_eq!(result, Err(BaryError::EntityNotFound(Ent(0))));
+
+        let result = split_grid_if_necessary(&mut world, grid_id);
+
+        assert_eq!(result, Ok(vec![]));
+
+        let grid = world.grids.try_get(grid_id).unwrap();
+        assert_eq!(grid.parts_mass, Mass::grams(35134000));
+        assert_eq!(grid.parts.len(), 98);
+
+        // slice a thing down the middle of the ship
+        let mut parts = BTreeSet::new();
+        let x = 25;
+        for y in 0..40 {
+            if let Some(occ) = grid.occupancy.get(&(x, y)) {
+                for (_, id) in occ.iter() {
+                    parts.insert(id);
+                }
+            }
+        }
+
+        assert_eq!(parts.len(), 8);
+
+        for part_id in parts {
+            let r = destroy_part_without_integrity_check(&mut world, part_id, true);
+            assert!(r.is_ok());
+        }
+
+        let sec_grid_id = Ent(169);
+
+        let result = split_grid_if_necessary(&mut world, grid_id);
+
+        assert_eq!(result, Ok(vec![grid_id, sec_grid_id]));
+
+        let grid = world.grids.try_get(grid_id).unwrap();
+        assert_eq!(grid.parts_mass, Mass::grams(17757000));
+        assert_eq!(grid.parts.len(), 52);
+
+        let grid = world.grids.try_get(sec_grid_id).unwrap();
+        assert_eq!(grid.parts_mass, Mass::grams(14247000));
+        assert_eq!(grid.parts.len(), 38);
+
+        assert_world_is_consistent(&world);
     }
 }

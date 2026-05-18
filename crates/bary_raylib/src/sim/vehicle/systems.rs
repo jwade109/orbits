@@ -1,7 +1,7 @@
-use super::grid::*;
 use crate::sim::*;
 use bary_core::prelude::*;
 use bary_parts::*;
+use bary_sim::VehicleGrid;
 use log::info;
 use std::collections::{BTreeMap, BTreeSet};
 
