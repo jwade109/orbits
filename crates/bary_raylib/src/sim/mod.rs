@@ -1,20 +1,14 @@
-mod components;
 mod input_handlers;
-mod pipe;
-mod ring_particle;
-mod star;
 mod systems;
+mod terrain;
 mod tracker;
 mod update;
 mod vehicle;
 mod world;
 
-pub use components::*;
 pub use input_handlers::*;
-pub use pipe::*;
-pub use ring_particle::*;
-pub use star::*;
 pub use systems::*;
+pub use terrain::*;
 pub use tracker::*;
 pub use update::*;
 pub use vehicle::*;

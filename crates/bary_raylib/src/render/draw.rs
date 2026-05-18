@@ -4,9 +4,11 @@ use crate::client::*;
 use crate::imgui::{ImGui, ZOOM_NEAR_FAR_THRESHOLD};
 use crate::sim::*;
 use crate::utils::*;
+use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use bary_factory::*;
 use bary_parts::*;
+use bary_sim::*;
 use early_returns::*;
 use raylib::prelude::*;
 
@@ -178,6 +180,8 @@ pub fn draw_world(
 
     draw_origin_and_range_indicators(&mut c);
 
+    draw_asteroids(&mut c, world, assets, &client);
+
     draw_parts(
         &mut c,
         &world.grids,
@@ -257,6 +261,10 @@ pub fn draw_world(
 
     drop(c);
 
+    if client.alt_mode {
+        draw_actions(d, &client, assets);
+    }
+
     draw_waypoint_far_indicators(&world.computers, d, &raylib_camera);
 
     draw_primary_grid_inventory_summary(d, world, client);
@@ -267,11 +275,34 @@ pub fn draw_world(
 
     draw_imgui(d, gui, assets);
 
-    draw_actions(d, &client, assets);
+    draw_animation(d, assets);
 
     // draw_item_menu(d, (300, 200).into());
 
     // draw_test_isos(&mut d)
+}
+
+fn get_terrain_tile_rect(material: TerrainMaterial, variant: usize) -> Rectangle {
+    let x = PIXELS_IN_TERRAIN_TILE as usize * variant;
+    let y = PIXELS_IN_TERRAIN_TILE as usize * material as usize;
+    Rectangle::new(
+        x as f32,
+        y as f32,
+        PIXELS_IN_TERRAIN_TILE as f32,
+        PIXELS_IN_TERRAIN_TILE as f32,
+    )
+}
+
+fn draw_animation(d: &mut RaylibDrawHandle, assets: &Assets) {
+    if let Some(anim) = &assets.terrain_spritesheet {
+        d.draw_texture(&anim, 100, 100, Color::WHITE);
+
+        let i = d.get_time() * 10.0;
+
+        let rec = Rectangle::new(i as f32, 0.0, 100.0, 100.0);
+
+        d.draw_texture_rec(&anim, rec, Vector2::new(100.0, 250.0), Color::WHITE);
+    }
 }
 
 fn draw_actions(d: &mut RaylibDrawHandle, client: &ClientSpecificInfo, assets: &Assets) {
@@ -359,9 +390,21 @@ pub fn draw_editor_selection_region(
     let hovered = some_or_return!(editor.hovered);
     let select_start = some_or_return!(editor.select_start);
     let start = grid.origin().offset(select_start.to_meters());
-    draw_rectangle(d, start, Vec2::splat(PartCoord::CELL_WIDTH), Color::TEAL);
+    draw_rectangle(
+        d,
+        start,
+        Vec2::splat(PartCoord::CELL_WIDTH),
+        Color::TEAL,
+        0.03,
+    );
     let end = grid.origin().offset(hovered.to_meters());
-    draw_rectangle(d, end, Vec2::splat(PartCoord::CELL_WIDTH), Color::TEAL);
+    draw_rectangle(
+        d,
+        end,
+        Vec2::splat(PartCoord::CELL_WIDTH),
+        Color::TEAL,
+        0.03,
+    );
     draw_line(d, start.translation, end.translation, Color::TEAL);
 }
 
@@ -372,7 +415,7 @@ pub fn draw_grid_coord(
     color: Color,
 ) {
     let iso = grid.origin().offset(coord.to_meters());
-    draw_rectangle(d, iso, Vec2::splat(PartCoord::CELL_WIDTH), color);
+    draw_rectangle(d, iso, Vec2::splat(PartCoord::CELL_WIDTH), color, 0.03);
 }
 
 pub fn draw_grid_lattice_point(
@@ -383,7 +426,7 @@ pub fn draw_grid_lattice_point(
 ) {
     let dims = Vec2::splat(PartCoord::CELL_WIDTH * 0.5);
     let iso = grid.origin().offset(coord.to_meters() - dims / 2.0);
-    draw_rectangle(d, iso, dims, color);
+    draw_rectangle(d, iso, dims, color, 0.03);
 }
 
 pub fn draw_hovered_part_cursor(
@@ -501,7 +544,7 @@ fn draw_grid_region(
     partial_dims.x *= fill_pct;
 
     fill_rectangle(d, iso, partial_dims, fill);
-    draw_rectangle(d, iso, dims, border);
+    draw_rectangle(d, iso, dims, border, 0.03);
 }
 
 fn draw_outline_hovered_parts(
@@ -729,7 +772,7 @@ pub fn draw_grid_outlines(d: &mut RaylibDrawHandle, grids: &Components<VehicleGr
         let top_right = PartCoord::new(grid.bounds.1).to_meters();
         let bl_iso = origin.offset(bottom_left);
         let dims = top_right - bottom_left;
-        draw_rectangle(d, bl_iso, dims, Color::WHITE);
+        draw_rectangle(d, bl_iso, dims, Color::WHITE, 0.03);
 
         let markers = [
             (origin, ORIGIN_COLOR),
@@ -813,7 +856,7 @@ pub fn draw_part(
     fill_rectangle(d, iso, dims, color);
 
     if border {
-        draw_rectangle(d, iso, dims, Color::WHITE);
+        draw_rectangle(d, iso, dims, Color::WHITE, 0.03);
     }
 }
 
@@ -943,8 +986,9 @@ fn draw_particles(d: &mut RaylibDrawHandle, particles: &Vec<PingParticle>) {
     for particle in particles {
         let r = particle.radius();
         if particle.is_visible() {
-            draw_circle(d, particle.pos, r, particle.color());
-            fill_circle(d, particle.pos, r / 10.0, particle.color());
+            let color = Color::GREEN;
+            draw_circle(d, particle.pos, r, color);
+            fill_circle(d, particle.pos, r / 10.0, color);
         }
     }
 }
@@ -1040,6 +1084,9 @@ fn draw_imgui(d: &mut RaylibDrawHandle, gui: &ImGui, assets: &Assets) {
 
 fn draw_waypoint_widget(d: &mut RaylibDrawHandle, client: &ClientSpecificInfo) {
     let free = some_or_return!(client.viewport.free());
+    if free.selection_info.selected.is_empty() {
+        return;
+    }
     let start = some_or_return!(free.waypoint_widget);
     let screen_pos = some_or_return!(client.mouse_screen_position);
     let end = screen_to_world(&client.camera, screen_pos, client.screen_dims);
@@ -1110,7 +1157,7 @@ fn draw_parts_zoo(parts: &Components<PartPrototype>, d: &mut RaylibDrawHandle) {
     }
 }
 
-fn draw_rectangle(d: &mut RaylibDrawHandle, iso: Isometry2d, dims: Vec2, color: Color) {
+fn draw_rectangle(d: &mut RaylibDrawHandle, iso: Isometry2d, dims: Vec2, color: Color, t: f32) {
     let xoff = iso.local_x() * dims.x;
     let yoff = iso.local_y() * dims.y;
     let w = glam_to_raylib_swap_y(iso.translation);
@@ -1118,7 +1165,7 @@ fn draw_rectangle(d: &mut RaylibDrawHandle, iso: Isometry2d, dims: Vec2, color: 
     let y = glam_to_raylib_swap_y(iso.translation + xoff + yoff);
     let z = glam_to_raylib_swap_y(iso.translation + yoff);
     for window in [w, x, y, z, w].windows(2) {
-        d.draw_line_ex(window[0], window[1], 0.02, color);
+        d.draw_line_ex(window[0], window[1], t, color);
     }
 }
 
@@ -1196,8 +1243,8 @@ fn draw_pipes(
             _ => Color::TEAL,
         };
 
-        draw_rectangle(d, src.offset(offset), dims, Color::GREEN);
-        draw_rectangle(d, dst.offset(offset), dims, Color::RED);
+        draw_rectangle(d, src.offset(offset), dims, Color::GREEN, 0.03);
+        draw_rectangle(d, dst.offset(offset), dims, Color::RED, 0.03);
         draw_line_width(d, p, q, 0.04, color);
     }
 }
@@ -1358,5 +1405,180 @@ fn draw_item_menu(d: &mut RaylibDrawHandle, origin: IVec2) {
             y += item_width + padding;
             n_col = 0;
         }
+    }
+}
+
+fn draw_terrain_chunk(
+    d: &mut RaylibDrawHandle,
+    rock: &BigRock,
+    chunk_index: ChunkIndex,
+    chunk_id: Ent,
+    world: &World,
+    spritesheet: &Texture2D,
+) -> bool {
+    let Ok(chunk) = world.terrain_chunks.try_get(chunk_id) else {
+        return false;
+    };
+
+    if chunk.visible_count == 0 {
+        return false;
+    }
+
+    let iso = rock.iso * chunk_index.origin_isometry();
+
+    let mut drew_tiles = false;
+
+    for (tile_index, tile_id) in &chunk.tiles {
+        let tile = ok_or_continue!(world.terrain_tiles.try_get(*tile_id));
+        if tile.light_level() == 0 {
+            continue;
+        }
+        drew_tiles = true;
+        let top_left = iso * tile_index.top_left_isometry();
+        let p = glam_to_raylib_swap_y(top_left.translation);
+        let rot = -top_left.rotation.to_degrees();
+        let scale = TERRAIN_TILE_WIDTH_METERS;
+        let source_rec = get_terrain_tile_rect(tile.material(), tile.variant());
+        let dest_rec = Rectangle::new(p.x, p.y, scale, scale);
+        let alpha = tile.light_level() as f32 / 10.0;
+        d.draw_texture_pro(
+            spritesheet,
+            source_rec,
+            dest_rec,
+            Vector2::zero(),
+            rot,
+            Color::WHITE.alpha(alpha),
+        );
+    }
+
+    drew_tiles
+}
+
+fn is_chunk_onscreen(rock_iso: Isometry2d, chunk: ChunkIndex, client: &ClientSpecificInfo) -> bool {
+    let dims = client.screen_dims;
+    let bb = chunk.bb();
+    for corner in bb.corners().iter().chain(&[bb.center]) {
+        let w = rock_iso * Isometry2d::from_pos(*corner);
+        let s = get_world_to_screen(&client.camera, w.translation, dims);
+        if s.min_element() > 0.0 && s.y < dims.y && s.x < dims.x {
+            return true;
+        }
+    }
+    // TODO stopgap; implement better BB collisions
+    for corner in bb.corners().iter().chain(&[bb.center]) {
+        let corner = (corner - bb.center) * 0.5 + bb.center;
+        let w = rock_iso * Isometry2d::from_pos(corner);
+        let s = get_world_to_screen(&client.camera, w.translation, dims);
+        if s.min_element() > 0.0 && s.y < dims.y && s.x < dims.x {
+            return true;
+        }
+    }
+    false
+}
+
+fn draw_asteroid(
+    d: &mut RaylibDrawHandle,
+    rock: &BigRock,
+    assets: &Assets,
+    world: &World,
+    client: &ClientSpecificInfo,
+) {
+    let spritesheet = assets
+        .terrain_spritesheet
+        .as_ref()
+        .expect("No terrain spritesheet");
+
+    let mut points = Vec::new();
+    for theta in linspace(0.0, PI * 2.0, 200) {
+        let r = rock.ast.radius_at(theta);
+        let theta = theta + rock.iso.rotation;
+        let p = r * rotate(Vec2::X, theta);
+        let p = glam_to_raylib_swap_y(rock.iso.translation + p);
+        points.push(p);
+    }
+    d.draw_line_strip(&points, Color::WHITE);
+
+    let mut chunks_to_draw = Vec::new();
+
+    if client.camera.zoom > 1.4 {
+        let camera_bb = AABB::from_arbitrary(Vec2::ZERO, client.screen_dims);
+        let mut bounds: Option<(ChunkIndex, ChunkIndex)> = None;
+
+        for corner in camera_bb.corners() {
+            let w = screen_to_world(&client.camera, corner, client.screen_dims);
+            let wrt_asteroid = in_frame(rock.iso, w);
+            let chunk_index = ChunkIndex(vfloor(wrt_asteroid / TERRAIN_CHUNK_WIDTH_METERS));
+
+            if let Some((min, max)) = &mut bounds {
+                min.0.x = min.0.x.min(chunk_index.0.x);
+                min.0.y = min.0.y.min(chunk_index.0.y);
+                max.0.x = max.0.x.max(chunk_index.0.x);
+                max.0.y = max.0.y.max(chunk_index.0.y);
+            } else {
+                bounds = Some((chunk_index, chunk_index));
+            }
+        }
+
+        if let Some((min, max)) = bounds {
+            for x in min.0.x..=max.0.x {
+                for y in min.0.y..=max.0.y {
+                    let c = ChunkIndex((x, y).into());
+                    if is_chunk_onscreen(rock.iso, c, &client) {
+                        if let Some(id) = rock.chunks.get(&c) {
+                            chunks_to_draw.push((c, *id));
+                        }
+                    }
+                }
+            }
+        }
+
+        const MAX_CHUNKS_TO_DRAW: u32 = 60;
+        let mut n_drawn = 0;
+
+        for (chunk_index, chunk_id) in &chunks_to_draw {
+            n_drawn +=
+                draw_terrain_chunk(d, rock, *chunk_index, *chunk_id, world, spritesheet) as u32;
+            if n_drawn == MAX_CHUNKS_TO_DRAW {
+                break;
+            }
+        }
+    }
+
+    if client.alt_mode {
+        draw_circle(d, rock.iso.translation, rock.ast.min_radius(), Color::RED);
+        draw_circle(d, rock.iso.translation, rock.ast.base_radius(), Color::BLUE);
+        draw_circle(d, rock.iso.translation, rock.ast.max_radius(), Color::GREEN);
+
+        let o = rock.iso.translation;
+        let x = o + rock.iso.local_x() * rock.ast.base_radius();
+        let y = o + rock.iso.local_y() * rock.ast.base_radius();
+
+        draw_line(d, o, x, Color::RED);
+        draw_line(d, o, y, Color::GREEN);
+
+        let t = 0.4 / client.camera.zoom;
+
+        for (chunk_index, id) in chunks_to_draw {
+            let chunk = ok_or_continue!(world.terrain_chunks.try_get(id));
+            let iso = rock.iso * chunk_index.origin_isometry();
+            let dims = Vec2::splat(TERRAIN_CHUNK_WIDTH_METERS);
+            let color = if chunk.visible_count > 0 {
+                Color::RED
+            } else {
+                Color::RED.alpha(0.2)
+            };
+            draw_rectangle(d, iso, dims, color, t);
+        }
+    }
+}
+
+fn draw_asteroids(
+    d: &mut RaylibDrawHandle,
+    world: &World,
+    assets: &Assets,
+    client: &ClientSpecificInfo,
+) {
+    for (_id, rock) in world.asteroids.iter() {
+        draw_asteroid(d, rock, assets, world, client);
     }
 }

@@ -7,6 +7,7 @@ use crate::sounds::*;
 use crate::utils::*;
 use bary_core::prelude::*;
 use bary_input::InputState;
+use bary_sim::PingParticle;
 use early_returns::*;
 use log::*;
 use rdev::Key;
@@ -32,8 +33,8 @@ pub fn command_selected_ships_to_waypoint(
         };
 
         let waypont = p.lerp(q, s);
-
-        let waypoint = Isometry2d::new(waypont, 0.0);
+        let rotation = Vec2::X.angle_to(q - p);
+        let waypoint = Isometry2d::new(waypont, rotation);
 
         if let Err(e) = set_primary_computer_waypoint(loc.grid_id, waypoint, world) {
             client.chat.log(format!("Failed to set waypoint: {e:?}"));
@@ -275,6 +276,7 @@ pub fn leave_ship_editor_on_escape(client: &mut ClientSpecificInfo, sounds: &mut
         lock_rotation: false,
         selection_info: SelectionInfo::selecting(editor.vehicle),
         waypoint_widget: None,
+        hovered_chunk: None,
     });
 
     client.target_camera.zoom = 20.0;

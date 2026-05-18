@@ -1,3 +1,4 @@
+mod components;
 mod entity;
 mod math;
 mod part_layer;

@@ -15,6 +15,7 @@ enum WorldBuilderCommand {
     InsertDebugSource(PartCoord, Item),
     InsertPipe(PartCoord, PartCoord),
     SetRecipe(PartCoord, RecipeListing),
+    SpawnAsteroid(Isometry2d, f32, u64),
 }
 
 pub struct WorldBuilder {
@@ -91,6 +92,12 @@ impl WorldBuilder {
 
     pub fn command(mut self, action: WorldAction) -> Self {
         let cmd = WorldBuilderCommand::ModifyWorld(action);
+        self.commands.push(cmd);
+        self
+    }
+
+    pub fn asteroid(mut self, p: impl Into<Isometry2d>, r: f32, seed: u64) -> Self {
+        let cmd = WorldBuilderCommand::SpawnAsteroid(p.into(), r, seed);
         self.commands.push(cmd);
         self
     }
@@ -180,6 +187,16 @@ impl WorldBuilder {
                             };
                             apply_world_action(&mut world, action);
                         }
+                    }
+                    WorldBuilderCommand::SpawnAsteroid(p, r, seed) => {
+                        apply_world_action(
+                            &mut world,
+                            WorldAction::SpawnAsteroid {
+                                iso: p,
+                                radius: r,
+                                seed,
+                            },
+                        );
                     }
                 }
             }

@@ -1,4 +1,3 @@
-mod computer;
 mod grid;
 mod light;
 mod occupancy;
@@ -9,7 +8,6 @@ mod thruster;
 #[cfg(test)]
 mod tests;
 
-pub use computer::*;
 pub use grid::*;
 pub use light::*;
 pub use occupancy::*;

@@ -1,3 +1,4 @@
+pub use crate::components::*;
 pub use crate::entity::*;
 pub use crate::math::*;
 pub use crate::part_layer::*;

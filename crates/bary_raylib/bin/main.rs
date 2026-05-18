@@ -50,6 +50,10 @@ fn draw_debug_info(app: &App, assets: &Assets, timers: &DebugTimers, d: &mut Ray
     s += &format!("\nUpdates: {}", world.grid_acceleration_updates);
     s += &format!("\nPipes: {}", world.pipes.len());
 
+    if let Some(free) = client.viewport.free() {
+        s += &format!("\nTerrain: {:?}", free.hovered_chunk);
+    }
+
     let total = timers.total();
 
     s += &format!("\ntotal\n{}", fmt_time(total, total));
@@ -146,7 +150,7 @@ fn main() {
         let mut rdev_events = Vec::new();
         while let Some(e) = app.input_queue.pop() {
             let focused = rl.is_window_focused();
-            consume_rdev_event_into_input_state(&mut app.client.input, &e, focused);
+            app.client.input.process_rdev_event(&e, focused);
             rdev_events.push(e);
         }
 

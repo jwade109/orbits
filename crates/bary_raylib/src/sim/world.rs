@@ -11,6 +11,7 @@ use bary_core::prelude::*;
 use bary_factory::*;
 use bary_input::*;
 use bary_parts::*;
+use bary_sim::*;
 use early_returns::*;
 use log::*;
 use rdev::Button;
@@ -19,7 +20,7 @@ use std::collections::*;
 use std::time::Duration;
 use std::time::Instant;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 pub struct World {
     pub ticks: u64,
     pub tick_rate: u32,
@@ -44,6 +45,13 @@ pub struct World {
     pub pipes: Components<Pipe>,
     pub debug_portals: Components<DebugPortal>,
 
+    #[serde(skip)]
+    pub asteroids: Components<BigRock>,
+    #[serde(skip)]
+    pub terrain_chunks: Components<TerrainChunk>,
+    #[serde(skip)]
+    pub terrain_tiles: Components<TerrainTile>,
+
     // TODO might move this to assets.
     pub ship_names: Vec<String>,
 }
@@ -63,24 +71,7 @@ impl std::fmt::Debug for World {
 impl World {
     pub fn empty() -> Self {
         Self {
-            ticks: 0,
             tick_rate: 2,
-            spawner: EntitySpawner::default(),
-            grid_acceleration_updates: 0,
-            particles: Vec::default(),
-            blueprints: Components::default(),
-            prototypes: Components::default(),
-            parts: Components::default(),
-            grids: Components::default(),
-            thrusters: Components::default(),
-            computers: Components::default(),
-            lights: Components::default(),
-            tracking: Components::default(),
-            inventories: Components::default(),
-            machines: Components::default(),
-            stars: Components::default(),
-            pipes: Components::default(),
-            debug_portals: Components::default(),
             ship_names: vec![
                 "Gary".to_string(),
                 "Sally".to_string(),
@@ -89,6 +80,7 @@ impl World {
                 "Charlie".to_string(),
                 "Orville".to_string(),
             ],
+            ..Default::default()
         }
     }
 }
@@ -622,26 +614,6 @@ impl<'a> Drop for ScopeTimer<'a> {
     }
 }
 
-pub fn consume_rdev_event_into_input_state(
-    input: &mut InputState,
-    event: &rdev::Event,
-    focused: bool,
-) {
-    if let rdev::EventType::KeyPress(k) = event.event_type {
-        if focused {
-            input.set_pressed(k);
-        }
-    } else if let rdev::EventType::KeyRelease(k) = event.event_type {
-        input.set_released(k);
-    } else if let rdev::EventType::ButtonPress(mb) = event.event_type {
-        if focused {
-            input.set_pressed(mb);
-        }
-    } else if let rdev::EventType::ButtonRelease(mb) = event.event_type {
-        input.set_released(mb);
-    }
-}
-
 pub fn process_event(
     world: &mut World,
     client: &mut ClientSpecificInfo,
@@ -706,6 +678,32 @@ pub fn process_event(
     }
 }
 
+fn update_terrain_selection_info(client: &mut ClientSpecificInfo, asteroids: &Components<BigRock>) {
+    let free = some_or_return!(client.viewport.free_mut());
+    free.hovered_chunk = None;
+
+    let screen_pos = some_or_return!(client.mouse_screen_position);
+    let world_pos = screen_to_world(&client.camera, screen_pos, client.screen_dims);
+
+    for (rock_id, rock) in asteroids.iter() {
+        let d = world_pos.distance(rock.iso.translation);
+        if d > rock.ast.max_radius() {
+            continue;
+        }
+
+        let rock_local = in_frame(rock.iso, world_pos);
+
+        let tile = GlobalTileIndex(vfloor(rock_local / TERRAIN_TILE_WIDTH_METERS));
+
+        let info = TerrainSelectionInfo {
+            asteroid: *rock_id,
+            tile,
+        };
+
+        free.hovered_chunk = Some(info);
+    }
+}
+
 pub fn pre_simulation_update(
     world: &mut World,
     client: &mut ClientSpecificInfo,
@@ -714,6 +712,8 @@ pub fn pre_simulation_update(
     client.ticks += 1;
 
     update_actual_hover_part_info(client, &world.grids);
+
+    update_terrain_selection_info(client, &world.asteroids);
 
     if client.input.just_pressed_debounced(Key::Alt) {
         client.alt_mode ^= true;
@@ -767,6 +767,24 @@ fn zoom_in_on_key_v(client: &mut ClientSpecificInfo) {
     free.follow_vehicle = Some(grid_id);
 }
 
+fn do_terrain_tile_under_mouse(world: &mut World, client: &mut ClientSpecificInfo, action: u8) {
+    let free = some_or_return!(client.viewport.free());
+    let tile_info = some_or_return!(free.hovered_chunk);
+
+    match action {
+        0 => {
+            _ = remove_terrain_tile(world, tile_info.asteroid, tile_info.tile);
+        }
+        1 => {
+            _ = add_terrain_tile(world, tile_info.asteroid, tile_info.tile);
+        }
+        2 => {
+            _ = fully_reveal_terrain_tile(world, tile_info.asteroid, tile_info.tile);
+        }
+        _ => (),
+    }
+}
+
 pub fn post_simulation_update(
     world: &mut World,
     client: &mut ClientSpecificInfo,
@@ -777,6 +795,20 @@ pub fn post_simulation_update(
     test_button_boundaries_with_key_y(&client.input, sounds);
 
     zoom_in_on_key_v(client);
+
+    if client.focused_grid_id().is_none() {
+        if client.input.is_key_pressed(rdev::Button::Left) {
+            do_terrain_tile_under_mouse(world, client, 0);
+        }
+
+        if client.input.is_key_pressed(rdev::Button::Right) {
+            do_terrain_tile_under_mouse(world, client, 1);
+        }
+
+        if client.input.is_key_pressed(rdev::Button::Middle) {
+            do_terrain_tile_under_mouse(world, client, 2);
+        }
+    }
 
     match &mut client.viewport {
         Viewport::Free(fly) => {
@@ -817,6 +849,10 @@ pub fn post_simulation_update(
                 &mut client.camera,
             );
         }
+    }
+
+    if client.target_camera.zoom > 140.0 {
+        client.target_camera.zoom = 140.0;
     }
 
     animate_camera_towards_target(&client.target_camera, &mut client.camera);
