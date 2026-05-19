@@ -1,5 +1,6 @@
 mod components;
 mod entity;
+mod grid_location;
 mod math;
 mod part_layer;
 mod pid;

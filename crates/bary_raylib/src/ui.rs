@@ -1,5 +1,4 @@
 use crate::assets::*;
-use crate::sim::*;
 use bary_core::prelude::*;
 use raylib::prelude::*;
 

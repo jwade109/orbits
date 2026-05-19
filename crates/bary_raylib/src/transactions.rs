@@ -1,4 +1,3 @@
-use crate::client::ClientSpecificInfo;
 use crate::sim::*;
 use bary_core::prelude::*;
 use bary_factory::*;

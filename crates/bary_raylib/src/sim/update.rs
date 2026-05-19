@@ -1,4 +1,3 @@
-use crate::client::*;
 use crate::sim::*;
 use bary_core::prelude::*;
 use bary_factory::*;

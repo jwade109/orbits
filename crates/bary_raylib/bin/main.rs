@@ -2,12 +2,12 @@ use bary_core::prelude::*;
 use bary_raylib::app::*;
 use bary_raylib::assets::*;
 use bary_raylib::imgui;
-use bary_raylib::*;
-use bary_raylib::render::draw;
+use bary_raylib::render::*;
 use bary_raylib::sim::*;
 use bary_raylib::sounds::SoundEffects;
 use bary_raylib::tests::is_world_consistent;
 use bary_raylib::utils::raylib_to_glam;
+use bary_raylib::*;
 use log::*;
 use raylib::prelude::*;
 
@@ -212,11 +212,11 @@ fn main() {
         rl.draw(&thread, |mut d: RaylibDrawHandle<'_>| {
             d.clear_background(Color::BLACK);
 
-            draw::draw_world(&app.world, &app.client, &assets, &gui, &mut d);
+            draw_world(&app.world, &app.client, &assets, &gui, &mut d);
 
             imgui::lame_old_imgui_entrypoint(&mut d, &mut app, &mut sounds, &assets);
 
-            draw::draw_mouse_screen_position(&mut d, app.client.mouse_screen_position);
+            draw_mouse_screen_position(&mut d, app.client.mouse_screen_position);
 
             draw_debug_info(&app, &assets, &timers, &mut d);
         });

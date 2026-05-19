@@ -1,6 +1,6 @@
 use crate::assets::*;
 use crate::camera::{Camera, to_raylib_camera};
-use crate::client::*;
+use crate::editor_state::EditorState;
 use crate::imgui::{ImGui, ZOOM_NEAR_FAR_THRESHOLD};
 use crate::sim::*;
 use crate::utils::*;

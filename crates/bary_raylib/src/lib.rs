@@ -1,9 +1,9 @@
 pub mod app;
 pub mod assets;
 pub mod camera;
-pub mod client;
 pub mod cmd;
 pub mod constants;
+pub mod editor_state;
 pub mod imgui;
 pub mod persistence;
 pub mod render;

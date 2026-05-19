@@ -1,5 +1,5 @@
 use crate::camera::Camera;
-use crate::client::*;
+use crate::editor_state::EditorState;
 use crate::persistence::save_world;
 use crate::sim::*;
 use crate::sounds::*;

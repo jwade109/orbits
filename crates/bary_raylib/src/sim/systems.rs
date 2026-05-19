@@ -1,4 +1,3 @@
-use crate::client::GridLocation;
 use crate::constants::TICKS_PER_SECOND;
 use crate::sim::*;
 use bary_core::prelude::*;

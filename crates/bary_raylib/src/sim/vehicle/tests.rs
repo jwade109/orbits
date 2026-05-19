@@ -3,9 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use bary_core::prelude::*;
 use bary_parts::*;
 
-use crate::{
-    client::GridLocation, sim::*, tests::assert_world_is_consistent, world_builder::WorldBuilder,
-};
+use crate::{sim::*, tests::assert_world_is_consistent, world_builder::WorldBuilder};
 
 #[test]
 fn vehicle_pathing_is_deterministic() {

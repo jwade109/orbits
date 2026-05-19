@@ -1,20 +1,8 @@
-use crate::{camera::Camera, client::EditorState, sim::*};
+use crate::{camera::Camera, editor_state::EditorState, sim::*};
 use bary_core::prelude::*;
 use bary_input::*;
 use bary_sim::Chat;
 use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq, Eq)]
-pub struct GridLocation {
-    pub grid_id: Ent,
-    pub coord: PartCoord,
-}
-
-impl GridLocation {
-    pub fn new(grid_id: Ent, coord: PartCoord) -> Self {
-        Self { grid_id, coord }
-    }
-}
 
 #[derive(Default, Debug, Deserialize, Serialize, Clone)]
 pub struct SelectionInfo {

@@ -1,9 +1,8 @@
 use crate::app::App;
 use crate::assets::Assets;
 use crate::camera::to_raylib_camera;
-use crate::client::ClientSpecificInfo;
 use crate::cmd::draw_command_prompt;
-use crate::render::draw::*;
+use crate::render::*;
 use crate::sim::*;
 use crate::sounds::*;
 use crate::ui::{Window, draw_window};
