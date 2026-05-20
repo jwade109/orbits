@@ -1,28 +1,17 @@
 use super::common::*;
-use super::transactions::Transaction;
 use log::{debug, info};
 use renet::*;
 use renet_netcode::*;
-use std::collections::BTreeMap;
 use std::net::*;
 use std::time::{Instant, SystemTime};
 
 pub const SYSTEM_MESSAGE_CLIENT_ID: ClientId = 0;
 pub const HOST_CLIENT_ID: ClientId = 1;
 
-#[derive(Debug)]
-pub struct UserInfo {
-    pub last_ping_sent: Instant,
-    pub last_message_received: Instant,
-    pub expected_ping_check: u64,
-}
-
 pub struct Server {
-    pub server: RenetServer,
-    pub transport: NetcodeServerTransport,
-    pub usernames: BTreeMap<ClientId, String>,
-    pub messages: Vec<ClientMessage>,
-    pub last_updated: Instant,
+    renet: RenetServer,
+    transport: NetcodeServerTransport,
+    last_updated: Instant,
 }
 
 impl Server {
@@ -41,22 +30,22 @@ impl Server {
 
         let transport = NetcodeServerTransport::new(server_config, socket).unwrap();
 
-        let server: RenetServer = RenetServer::new(ConnectionConfig::default());
-
-        let usernames = BTreeMap::new();
+        let renet = RenetServer::new(ConnectionConfig::default());
 
         Self {
-            server,
+            renet,
             transport,
-            usernames,
-            messages: vec![],
             last_updated: Instant::now(),
         }
     }
 
+    pub fn renet(&self) -> &RenetServer {
+        &self.renet
+    }
+
     pub fn broadcast(&mut self, msg: ServerMessage) {
         let message = bincode::serialize(&msg).unwrap();
-        self.server
+        self.renet
             .broadcast_message(DefaultChannel::ReliableOrdered, message);
     }
 
@@ -65,10 +54,10 @@ impl Server {
 
         let now = Instant::now();
         let duration = now - self.last_updated;
-        self.server.update(duration);
-        self.transport.update(duration, &mut self.server).unwrap();
+        self.renet.update(duration);
+        self.transport.update(duration, &mut self.renet).unwrap();
 
-        while let Some(event) = self.server.get_event() {
+        while let Some(event) = self.renet.get_event() {
             match event {
                 ServerEvent::ClientConnected { client_id } => {
                     info!("Client connected: {}", client_id);
@@ -82,9 +71,9 @@ impl Server {
             }
         }
 
-        for client_id in self.server.clients_id() {
+        for client_id in self.renet.clients_id() {
             while let Some(message) = self
-                .server
+                .renet
                 .receive_message(client_id, DefaultChannel::ReliableOrdered)
             {
                 if let Ok(message) = bincode::deserialize::<ClientMessage>(&message) {
@@ -94,7 +83,7 @@ impl Server {
             }
         }
 
-        self.transport.send_packets(&mut self.server);
+        self.transport.send_packets(&mut self.renet);
 
         self.last_updated = now;
 

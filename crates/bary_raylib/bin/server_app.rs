@@ -91,6 +91,8 @@ impl ServerApp {
     fn send_tlm_server_info(&mut self) {
         self.outgoing_transactions
             .push(ServerMessage::ServerInfo { connected_users: 0 });
+        self.outgoing_transactions
+            .push(ServerMessage::Text("Hello there!".to_string()));
     }
 
     fn on_accept_message(&mut self, msg: ClientMessage) {
@@ -127,11 +129,11 @@ fn server_thread(
         }
 
         if echo_timer.tick() {
-            info!("{} users connected", server.server.clients_id().len());
+            info!("{} users connected", server.renet().clients_id().len());
         }
 
-        while let Some(tr) = outgoing_queue.pop() {
-            server.broadcast(tr);
+        while let Some(sm) = outgoing_queue.pop() {
+            server.broadcast(sm);
         }
     }
 }

@@ -7,6 +7,8 @@ use std::collections::VecDeque;
 use std::net::*;
 use std::time::Instant;
 
+const CLIENT_BIND_ADDRESS: &'static str = "127.0.0.1:0";
+
 #[derive(Clone, Copy, Debug)]
 pub struct ClientStatistics {
     pub is_connected: bool,
@@ -37,7 +39,7 @@ impl Client {
 
         let client_id = (get_current_time().as_micros() % 1000000000) as u64;
 
-        let socket = UdpSocket::bind("127.0.0.1:0").unwrap();
+        let socket = UdpSocket::bind(CLIENT_BIND_ADDRESS).unwrap();
         let current_time = get_current_time();
 
         let authentication = ClientAuthentication::Unsecure {
@@ -69,7 +71,7 @@ impl Client {
         let client = RenetClient::new(ConnectionConfig::default());
 
         let client_id = (get_current_time().as_micros() % 1000000000) as u64;
-        let socket = UdpSocket::bind("127.0.0.1:0").unwrap();
+        let socket = UdpSocket::bind(CLIENT_BIND_ADDRESS).unwrap();
         let current_time = get_current_time();
 
         let authentication = ClientAuthentication::Unsecure {
@@ -165,7 +167,9 @@ impl Client {
             }
         }
 
-        self.transport.send_packets(&mut self.client).unwrap();
+        if let Err(e) = self.transport.send_packets(&mut self.client) {
+            error!("Send packets failed: {e:?}");
+        }
 
         messages
     }

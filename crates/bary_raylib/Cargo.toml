@@ -48,8 +48,8 @@ name = "steam"
 path = "bin/steam.rs"
 
 [[bin]]
-name = "server"
-path = "bin/server.rs"
+name = "server_app"
+path = "bin/server_app.rs"
 
 [[bin]]
 name = "traj"
