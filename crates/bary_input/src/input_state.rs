@@ -14,6 +14,7 @@ pub struct InputState {
     just_pressed: HashSet<KB>,
     just_pressed_debounced: HashSet<KB>,
     just_released: HashSet<KB>,
+    events: Vec<rdev::Event>,
 }
 
 impl From<Key> for KB {
@@ -30,6 +31,7 @@ impl From<Button> for KB {
 
 impl InputState {
     pub fn process_rdev_event(&mut self, event: &rdev::Event, focused: bool) {
+        self.events.push(event.clone());
         if let rdev::EventType::KeyPress(k) = event.event_type {
             if focused {
                 self.set_pressed(k);
@@ -86,6 +88,7 @@ impl InputState {
         self.just_pressed.clear();
         self.just_released.clear();
         self.just_pressed_debounced.clear();
+        self.events.clear();
     }
 
     pub fn get_currently_pressed(&self) -> impl Iterator<Item = KB> {
@@ -102,5 +105,9 @@ impl InputState {
 
     pub fn get_just_released(&self) -> impl Iterator<Item = KB> {
         self.just_released.iter().copied()
+    }
+
+    pub fn events(&self) -> impl Iterator<Item = &rdev::Event> {
+        self.events.iter()
     }
 }

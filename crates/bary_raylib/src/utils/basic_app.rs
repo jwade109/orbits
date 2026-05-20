@@ -27,6 +27,12 @@ impl BasicApp {
             .resizable()
             .build();
 
+        simple_logger::SimpleLogger::new()
+            .with_level(log::LevelFilter::Debug)
+            .env()
+            .init()
+            .unwrap();
+
         handle.set_target_fps(120);
         handle.maximize_window();
         handle.set_exit_key(None);

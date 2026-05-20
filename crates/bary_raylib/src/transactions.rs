@@ -54,6 +54,7 @@ pub enum WorldAction {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum ClientAction {
     SetCpuSelectedGrid(bool),
+    Say(String),
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -74,7 +75,7 @@ impl Transaction {
     }
 }
 
-pub fn apply_action(world: &mut World, client: &mut ClientSpecificInfo, action: Action) {
+pub fn apply_action(world: &mut World, action: Action) {
     if let Action::World(action) = action {
         apply_world_action(world, action);
     }

@@ -132,6 +132,11 @@ pub fn cmd_set_cpu(args: &ArgsMap) -> Result<Action, ParseError> {
     Ok(Action::Client(ClientAction::SetCpuSelectedGrid(state)))
 }
 
+pub fn cmd_say(args: &ArgsMap) -> Result<Action, ParseError> {
+    let state = parse_arg(args, "msg")?;
+    Ok(Action::Client(ClientAction::Say(state)))
+}
+
 pub fn all_commands() -> Vec<Command> {
     vec![
         Command::new("spawn", vec!["bp_name", "x", "y"], cmd_spawn),
@@ -144,5 +149,6 @@ pub fn all_commands() -> Vec<Command> {
         Command::new("save", vec![], cmd_placeholder),
         Command::new("exit", vec![], |_args| panic!()),
         Command::new("setcpu", vec!["state"], cmd_set_cpu),
+        Command::new("say", vec!["msg"], cmd_say),
     ]
 }

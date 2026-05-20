@@ -179,6 +179,17 @@ impl CommandPrompt {
         ret
     }
 
+    pub fn fg_text(&self) -> String {
+        self.display_text()
+            .into_iter()
+            .map(|(c, t)| if t { c } else { ' ' })
+            .collect()
+    }
+
+    pub fn bg_text(&self) -> String {
+        self.display_text().into_iter().map(|(c, _)| c).collect()
+    }
+
     pub fn pop_action(&mut self) -> Option<Action> {
         self.queued_commands.pop_front()
     }

@@ -60,7 +60,7 @@ impl Server {
             .broadcast_message(DefaultChannel::ReliableOrdered, message);
     }
 
-    pub fn update(&mut self) -> Vec<Transaction> {
+    pub fn update(&mut self) -> Vec<ClientMessage> {
         let mut messages = Vec::new();
 
         let now = Instant::now();
@@ -89,16 +89,7 @@ impl Server {
             {
                 if let Ok(message) = bincode::deserialize::<ClientMessage>(&message) {
                     debug!("Received message from client {}: {:?}", client_id, message);
-                    if let ClientMessage::Transaction(tr) = message {
-                        let forward = ServerMessage::Transaction(tr.clone());
-                        let bytes = bincode::serialize(&forward).unwrap();
-                        self.server.broadcast_message_except(
-                            client_id,
-                            DefaultChannel::ReliableOrdered,
-                            bytes,
-                        );
-                        messages.push(tr);
-                    }
+                    messages.push(message);
                 }
             }
         }

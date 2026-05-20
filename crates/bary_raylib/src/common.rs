@@ -1,4 +1,5 @@
 use crate::*;
+use bary_core::prelude::Isometry2d;
 use crossbeam_queue::SegQueue;
 use renet_netcode::NETCODE_USER_DATA_BYTES;
 use serde::{Deserialize, Serialize};
@@ -31,6 +32,9 @@ pub enum ServerMessage {
     Ping(u64, Duration),
     Text(String),
     Transaction(Transaction),
+    GridPos(String, Isometry2d),
+    Ack,
+    ServerInfo { connected_users: usize },
 }
 
 impl ServerMessage {

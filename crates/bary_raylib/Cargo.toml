@@ -59,6 +59,10 @@ path = "bin/traj.rs"
 name = "ship2png"
 path = "bin/ship2png.rs"
 
+[[bin]]
+name = "test_app"
+path = "bin/test_app.rs"
+
 [dev-dependencies]
 criterion = "0.5.1"
 

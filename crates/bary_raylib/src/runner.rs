@@ -50,6 +50,7 @@ impl WorldRunner {
         let world_time = apparent_elapsed_time(world);
         let nominal_world_dur = world_time + delta * world.tick_rate;
         self.last_update = now;
+        dbg!(delta, world.tick_rate, nominal_world_dur);
         update_headless(world, nominal_world_dur);
     }
 
