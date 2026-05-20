@@ -21,6 +21,7 @@ pub struct ClientStatistics {
 }
 
 pub struct Client {
+    server_addr: SocketAddr,
     client: RenetClient,
     transport: NetcodeClientTransport,
     last_updated: Instant,
@@ -32,7 +33,7 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new() -> Self {
+    pub fn new(server_addr: SocketAddr) -> Self {
         let username = format!("u{}", randint(1, 1000000));
 
         let client = RenetClient::new(ConnectionConfig::default());
@@ -43,7 +44,7 @@ impl Client {
         let current_time = get_current_time();
 
         let authentication = ClientAuthentication::Unsecure {
-            server_addr: SERVER_ADDR,
+            server_addr,
             client_id,
             user_data: None,
             protocol_id: 0,
@@ -54,6 +55,7 @@ impl Client {
         let last_updated = Instant::now();
 
         Self {
+            server_addr,
             client,
             transport,
             last_updated,
@@ -75,7 +77,7 @@ impl Client {
         let current_time = get_current_time();
 
         let authentication = ClientAuthentication::Unsecure {
-            server_addr: SERVER_ADDR,
+            server_addr: self.server_addr,
             client_id,
             user_data: None,
             protocol_id: 0,
@@ -86,6 +88,7 @@ impl Client {
         let last_updated = Instant::now();
 
         *self = Self {
+            server_addr: self.server_addr,
             client,
             transport,
             last_updated,

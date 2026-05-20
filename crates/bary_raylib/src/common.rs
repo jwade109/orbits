@@ -17,8 +17,6 @@ pub fn new_message_queue<T>() -> MessageQueue<T> {
 
 pub const PROTOCOL_ID: u64 = 7;
 
-pub const SERVER_ADDR: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 5000);
-
 #[derive(Deserialize, Serialize, Debug)]
 pub enum ClientMessage {
     Pong(u64, Duration),

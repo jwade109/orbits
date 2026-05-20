@@ -16,15 +16,21 @@ pub struct Server {
 
 impl Server {
     pub fn new() -> Self {
-        let socket: UdpSocket = UdpSocket::bind(SERVER_ADDR).unwrap();
+        let socket: UdpSocket =
+            UdpSocket::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 5000)).unwrap();
+
         let current_time = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap();
+
         let server_config = ServerConfig {
             current_time,
             max_clients: 64,
             protocol_id: 0,
-            public_addresses: vec![SERVER_ADDR],
+            public_addresses: vec![
+                SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 5000),
+                SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 5000),
+            ],
             authentication: ServerAuthentication::Unsecure,
         };
 
@@ -94,12 +100,18 @@ impl Server {
 #[cfg(test)]
 mod tests {
     use super::super::*;
-    use std::time::Duration;
+    use std::{
+        net::{IpAddr, Ipv4Addr, SocketAddr},
+        time::Duration,
+    };
 
     #[test]
     fn test_connection() {
         let mut server = Server::new();
-        let mut client = Client::new();
+        let mut client = Client::new(SocketAddr::new(
+            IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+            5000,
+        ));
 
         let dur = Duration::from_millis(10);
 
