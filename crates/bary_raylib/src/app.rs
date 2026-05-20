@@ -1,4 +1,4 @@
-use crate::cmd::{CommandPrompt, cmd_handle_input_event};
+use crate::cmd::CommandPrompt;
 use crate::sim::*;
 use crate::sounds::SoundEffects;
 use crate::world_builder::WorldBuilder;
@@ -51,7 +51,7 @@ impl App {
         actions: &mut Vec<Action>,
         on_gui: bool,
     ) {
-        cmd_handle_input_event(&mut self.cmd, &e);
+        self.cmd.on_event(&e);
 
         if !self.cmd.is_focused() {
             process_event(

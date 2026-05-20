@@ -535,6 +535,7 @@ dependencies = [
  "rfd 0.17.2",
  "serde",
  "serde_yaml",
+ "shellwords",
  "simple_logger",
  "steamworks",
  "toml",

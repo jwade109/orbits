@@ -1,5 +1,6 @@
 use crate::assets::*;
 use crate::camera::{Camera, to_raylib_camera};
+use crate::cmd::{CommandPrompt, Severity};
 use crate::editor_state::EditorState;
 use crate::imgui::{ImGui, ZOOM_NEAR_FAR_THRESHOLD};
 use crate::sim::*;
@@ -1580,5 +1581,93 @@ fn draw_asteroids(
 ) {
     for (_id, rock) in world.asteroids.iter() {
         draw_asteroid(d, rock, assets, world, client);
+    }
+}
+
+impl Severity {
+    pub fn color(&self) -> Color {
+        match self {
+            Self::Error => Color::RED,
+            Self::Info => Color::RAYWHITE,
+        }
+    }
+}
+
+pub fn draw_command_prompt(d: &mut RaylibDrawHandle, cmd: &CommandPrompt, assets: &Assets) {
+    if !cmd.is_active {
+        return;
+    };
+
+    let Some(font) = &assets.fira_code else {
+        return;
+    };
+
+    // let cursor = if d.get_time() % 1.2 > 0.6 { "_" } else { "" };
+
+    let chars = cmd.display_text();
+
+    let fg: String = chars
+        .iter()
+        .map(|(c, b)| if *b { *c } else { ' ' })
+        .collect();
+
+    let bg: String = chars
+        .iter()
+        .map(|(c, b)| if !*b { *c } else { ' ' })
+        .collect();
+
+    let display = format!("> {}", fg);
+    let display_bg = format!("> {}", bg);
+    let width = d.get_render_width();
+    let height = d.get_render_height();
+
+    let padding = 30;
+    let line_gap = 10;
+    let font_size = 36;
+
+    let rect_height = font_size + padding * 2 + (font_size + line_gap) * cmd.lines.len() as i32;
+    let rect_origin = IVec2::new(0, height - rect_height);
+    let text_origin = IVec2::new(padding, height - padding - font_size);
+
+    {
+        d.draw_rectangle(
+            rect_origin.x,
+            rect_origin.y,
+            width,
+            height,
+            Color::new(10, 10, 30, 220),
+        );
+    }
+
+    for (i, (line, severity)) in cmd.lines.iter().rev().enumerate() {
+        let origin = text_origin - IVec2::Y * (font_size + line_gap) * (i as i32 + 1);
+        d.draw_text_ex(
+            font,
+            &line,
+            Vector2::new(origin.x as f32, origin.y as f32),
+            font_size as f32,
+            1.0,
+            severity.color(),
+        );
+    }
+
+    {
+        d.draw_text_ex(
+            font,
+            &display_bg,
+            Vector2::new(text_origin.x as f32, text_origin.y as f32),
+            font_size as f32,
+            1.0,
+            Color::GRAY.alpha(0.6),
+        );
+
+        d.draw_text_ex(
+            font,
+            &display,
+            Vector2::new(text_origin.x as f32, text_origin.y as f32),
+            font_size as f32,
+            1.0,
+            Color::WHITE,
+        );
     }
 }

@@ -1,31 +1,19 @@
 use super::commands::*;
 use crate::Action;
-use crate::assets::Assets;
-use bary_core::prelude::*;
-use raylib::prelude::*;
 use std::collections::VecDeque;
 
-enum Severity {
+pub enum Severity {
     Info,
     Error,
 }
 
-impl Severity {
-    fn color(&self) -> Color {
-        match self {
-            Self::Error => Color::RED,
-            Self::Info => Color::RAYWHITE,
-        }
-    }
-}
-
 pub struct CommandPrompt {
-    contents: String,
-    is_active: bool,
-    queued_commands: VecDeque<Action>,
-    lines: Vec<(String, Severity)>,
-    suggest_text: String,
-    commands: Vec<Command>,
+    pub contents: String,
+    pub is_active: bool,
+    pub queued_commands: VecDeque<Action>,
+    pub lines: Vec<(String, Severity)>,
+    pub suggest_text: String,
+    pub commands: Vec<Command>,
 }
 
 impl CommandPrompt {
@@ -37,6 +25,25 @@ impl CommandPrompt {
             lines: Vec::new(),
             suggest_text: String::new(),
             commands: all_commands(),
+        }
+    }
+
+    pub fn on_event(&mut self, event: &rdev::Event) {
+        if let rdev::EventType::KeyPress(k) = &event.event_type {
+            match k {
+                rdev::Key::Backspace => self.on_backspace(),
+                rdev::Key::Return => self.on_enter(),
+                rdev::Key::BackQuote => self.focus(),
+                rdev::Key::Escape => self.dismiss(),
+                rdev::Key::Tab => self.on_tab_complete(),
+                _ => {
+                    if let Some(n) = &event.name {
+                        if n.is_ascii() {
+                            self.append(n);
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -110,12 +117,13 @@ impl CommandPrompt {
         if self.contents.is_empty() {
             return None;
         }
-        let s = self.contents.split(" ");
-        let ep = s.into_iter().nth(0)?;
-        // TODO(feature) edit distance?
-        for cmd in &self.commands {
-            if cmd.entrypoint.find(ep).is_some() {
-                return Some(cmd);
+        if let Ok(s) = shellwords::split(&self.contents) {
+            let ep = s.into_iter().nth(0)?;
+            // TODO(feature) edit distance?
+            for cmd in &self.commands {
+                if cmd.entrypoint.find(&ep).is_some() {
+                    return Some(cmd);
+                }
             }
         }
         None
@@ -195,100 +203,30 @@ impl CommandPrompt {
     }
 }
 
-pub fn cmd_handle_input_event(cmd: &mut CommandPrompt, event: &rdev::Event) {
-    if let rdev::EventType::KeyPress(k) = &event.event_type {
-        match k {
-            rdev::Key::Backspace => cmd.on_backspace(),
-            rdev::Key::Return => cmd.on_enter(),
-            rdev::Key::BackQuote => cmd.focus(),
-            rdev::Key::Escape => cmd.dismiss(),
-            rdev::Key::Tab => cmd.on_tab_complete(),
-            _ => {
-                if let Some(n) = &event.name {
-                    if n.is_ascii() {
-                        cmd.append(n);
-                    }
-                }
-            }
-        }
-    }
-}
+#[cfg(test)]
+mod tests {
+    use std::time::SystemTime;
 
-pub fn draw_command_prompt(d: &mut RaylibDrawHandle, cmd: &CommandPrompt, assets: &Assets) {
-    if !cmd.is_active {
-        return;
-    };
+    use crate::cmd::CommandPrompt;
 
-    let Some(font) = &assets.fira_code else {
-        return;
-    };
+    #[test]
+    fn command_prompt() {
+        let mut cmd = CommandPrompt::new();
+        cmd.focus();
 
-    // let cursor = if d.get_time() % 1.2 > 0.6 { "_" } else { "" };
+        cmd.on_event(&rdev::Event {
+            time: SystemTime::now(),
+            name: Some("j".to_string()),
+            event_type: rdev::EventType::KeyPress(rdev::Key::KeyJ),
+        });
 
-    let chars = cmd.display_text();
+        cmd.on_event(&rdev::Event {
+            time: SystemTime::now(),
+            name: Some("r".to_string()),
+            event_type: rdev::EventType::KeyPress(rdev::Key::KeyR),
+        });
 
-    let fg: String = chars
-        .iter()
-        .map(|(c, b)| if *b { *c } else { ' ' })
-        .collect();
-
-    let bg: String = chars
-        .iter()
-        .map(|(c, b)| if !*b { *c } else { ' ' })
-        .collect();
-
-    let display = format!("> {}", fg);
-    let display_bg = format!("> {}", bg);
-    let width = d.get_render_width();
-    let height = d.get_render_height();
-
-    let padding = 30;
-    let line_gap = 10;
-    let font_size = 36;
-
-    let rect_height = font_size + padding * 2 + (font_size + line_gap) * cmd.lines.len() as i32;
-    let rect_origin = IVec2::new(0, height - rect_height);
-    let text_origin = IVec2::new(padding, height - padding - font_size);
-
-    {
-        d.draw_rectangle(
-            rect_origin.x,
-            rect_origin.y,
-            width,
-            height,
-            Color::new(10, 10, 30, 220),
-        );
-    }
-
-    for (i, (line, severity)) in cmd.lines.iter().rev().enumerate() {
-        let origin = text_origin - IVec2::Y * (font_size + line_gap) * (i as i32 + 1);
-        d.draw_text_ex(
-            font,
-            &line,
-            Vector2::new(origin.x as f32, origin.y as f32),
-            font_size as f32,
-            1.0,
-            severity.color(),
-        );
-    }
-
-    {
-        d.draw_text_ex(
-            font,
-            &display_bg,
-            Vector2::new(text_origin.x as f32, text_origin.y as f32),
-            font_size as f32,
-            1.0,
-            Color::GRAY.alpha(0.6),
-        );
-
-        d.draw_text_ex(
-            font,
-            &display,
-            Vector2::new(text_origin.x as f32, text_origin.y as f32),
-            font_size as f32,
-            1.0,
-            Color::WHITE,
-        );
+        dbg!(cmd.bg_text());
+        dbg!(cmd.fg_text());
     }
 }

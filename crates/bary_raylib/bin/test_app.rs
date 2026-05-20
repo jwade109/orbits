@@ -1,7 +1,5 @@
 use bary_raylib::{
-    Client, ClientMessage, ServerMessage, Transaction,
-    cmd::{CommandPrompt, cmd_handle_input_event},
-    utils::BasicApp,
+    Client, ClientMessage, ServerMessage, Transaction, cmd::CommandPrompt, utils::BasicApp,
 };
 use raylib::prelude::*;
 use std::collections::BTreeMap;
@@ -44,7 +42,7 @@ fn main() {
             // d.draw_text(&format!("{:#?}", app.input), 100, 150, 24, Color::GRAY);
 
             for t in app.input.events() {
-                cmd_handle_input_event(&mut cmd, t);
+                cmd.on_event(t);
             }
 
             d.draw_text(
@@ -61,10 +59,19 @@ fn main() {
             let mut y = 500;
             let size = 20;
 
-            for (_, pos) in &grids {
+            for (name, pos) in &grids {
                 let x = pos.translation.x as i32 + d.get_render_width() / 2;
                 let y = pos.translation.y as i32 + d.get_render_height() / 2;
                 d.draw_circle(x, y, 3.0, Color::RED);
+
+                d.draw_text_ex(
+                    &font,
+                    name,
+                    Vector2::new(x as f32, y as f32),
+                    16.0,
+                    0.0,
+                    Color::RED.alpha(0.5),
+                );
             }
 
             d.draw_text_ex(
