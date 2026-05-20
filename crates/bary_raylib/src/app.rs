@@ -6,15 +6,11 @@ use crate::*;
 use bary_core::prelude::*;
 use bary_factory::*;
 use bary_sim::*;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
 fn network_thread(incoming: MessageQueue<ServerMessage>, outgoing: MessageQueue<Transaction>) {
-    let mut client = Client::new(SocketAddr::new(
-            IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-            5000,
-        ));
+    let mut client = Client::new(127, 0, 0, 1, 5000);
     let dur = Duration::from_millis(50);
 
     loop {

@@ -1,14 +1,10 @@
-use std::{
-    collections::BTreeMap,
-    net::{IpAddr, Ipv4Addr, SocketAddr},
-};
-
 use bary_raylib::{
     Client, ClientMessage, ServerMessage, Transaction,
     cmd::{CommandPrompt, cmd_handle_input_event},
     utils::BasicApp,
 };
 use raylib::prelude::*;
+use std::collections::BTreeMap;
 
 fn main() {
     let mut app = BasicApp::new("Test app");
@@ -16,10 +12,7 @@ fn main() {
     let mut cmd = CommandPrompt::new();
     let mut actions = Vec::new();
 
-    let mut client = Client::new(SocketAddr::new(
-        IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-        5000,
-    ));
+    let mut client = Client::new(127, 0, 0, 1, 5000);
 
     let mut grids = BTreeMap::new();
 

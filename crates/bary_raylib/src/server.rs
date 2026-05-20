@@ -30,6 +30,7 @@ impl Server {
             public_addresses: vec![
                 SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 5000),
                 SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 5000),
+                SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 252)), 5000),
             ],
             authentication: ServerAuthentication::Unsecure,
         };
@@ -100,18 +101,12 @@ impl Server {
 #[cfg(test)]
 mod tests {
     use super::super::*;
-    use std::{
-        net::{IpAddr, Ipv4Addr, SocketAddr},
-        time::Duration,
-    };
+    use std::time::Duration;
 
     #[test]
     fn test_connection() {
         let mut server = Server::new();
-        let mut client = Client::new(SocketAddr::new(
-            IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-            5000,
-        ));
+        let mut client = Client::new(127, 0, 0, 1, 5000);
 
         let dur = Duration::from_millis(10);
 

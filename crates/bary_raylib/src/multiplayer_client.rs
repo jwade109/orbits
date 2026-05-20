@@ -7,7 +7,7 @@ use std::collections::VecDeque;
 use std::net::*;
 use std::time::Instant;
 
-const CLIENT_BIND_ADDRESS: &'static str = "127.0.0.1:0";
+const CLIENT_BIND_ADDRESS: &'static str = "0.0.0.0:0";
 
 #[derive(Clone, Copy, Debug)]
 pub struct ClientStatistics {
@@ -33,7 +33,8 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(server_addr: SocketAddr) -> Self {
+    pub fn new(a: u8, b: u8, c: u8, d: u8, port: u16) -> Self {
+        let server_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(a, b, c, d)), port);
         let username = format!("u{}", randint(1, 1000000));
 
         let client = RenetClient::new(ConnectionConfig::default());
