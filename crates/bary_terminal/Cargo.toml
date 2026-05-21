@@ -1,0 +1,8 @@
+[package]
+name = "bary_terminal"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rdev = { version = "0.5.3" }
+shellwords = "1.1.0"

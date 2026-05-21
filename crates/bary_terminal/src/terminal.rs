@@ -1,31 +1,98 @@
-use super::commands::*;
-use crate::Action;
+use std::collections::BTreeMap;
 
-pub enum Severity {
+#[derive(Debug)]
+pub enum ParseError {
+    BadKey,
+    BadValue,
+    WrongArgumentCount,
+    CommandNotFound,
+    NotImplemented,
+}
+
+pub type ArgsMap = BTreeMap<String, String>;
+
+pub struct Command<T> {
+    pub entrypoint: String,
+    pub params: Vec<String>,
+    pub func: Box<dyn Fn(&ArgsMap) -> Result<T, ParseError>>,
+}
+
+impl<T> Command<T> {
+    pub fn new(
+        entrypoint: &'static str,
+        params: Vec<&'static str>,
+        f: impl Fn(&ArgsMap) -> Result<T, ParseError> + 'static,
+    ) -> Self {
+        Self {
+            entrypoint: entrypoint.to_string(),
+            params: params.iter().map(|s| s.to_string()).collect(),
+            func: Box::new(f),
+        }
+    }
+
+    pub fn to_suggestion(&self) -> String {
+        let mut ret = self.entrypoint.clone();
+        for param in &self.params {
+            ret += &format!(" [{}]", param);
+        }
+        ret
+    }
+
+    pub fn parse_partial_args(&self, args: &[String]) -> Vec<(Option<String>, Option<String>)> {
+        let mut ret = Vec::new();
+
+        for i in 0..self.params.len().max(args.len()) {
+            let p = self.params.get(i);
+            let a = args.get(i);
+            ret.push((p.cloned(), a.cloned()));
+        }
+        ret
+    }
+
+    pub fn parse_complete_args(&self, args: &[String]) -> Option<ArgsMap> {
+        let mut ret = ArgsMap::new();
+        for (i, param) in self.params.iter().enumerate() {
+            let arg = args.get(i)?;
+            ret.insert(param.clone(), arg.clone());
+        }
+        Some(ret)
+    }
+
+    pub fn parse(&self, args: &[String]) -> Result<T, ParseError> {
+        let args = self
+            .parse_complete_args(args)
+            .ok_or(ParseError::WrongArgumentCount)?;
+        (self.func)(&args)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LogLevel {
+    Debug,
     Info,
     Error,
 }
 
-pub struct CommandPrompt {
+pub struct Terminal<T> {
     pub contents: String,
     pub is_active: bool,
-    pub lines: Vec<(String, Severity)>,
+    pub lines: Vec<(String, LogLevel)>,
     pub suggest_text: String,
-    pub commands: Vec<Command>,
+    pub commands: Vec<Command<T>>,
 }
 
-impl CommandPrompt {
-    pub fn new() -> Self {
+impl<T> Terminal<T> {
+    pub fn with_commands(commands: impl Into<Vec<Command<T>>>) -> Self {
         Self {
             contents: String::new(),
             is_active: false,
             lines: Vec::new(),
             suggest_text: String::new(),
-            commands: all_commands(),
+            commands: commands.into(),
         }
     }
 
-    pub fn on_event(&mut self, event: &rdev::Event) -> Option<Action> {
+    pub fn on_event(&mut self, event: &rdev::Event) -> Option<T> {
         if let rdev::EventType::KeyPress(k) = &event.event_type {
             match k {
                 rdev::Key::Backspace => self.on_backspace(),
@@ -54,12 +121,7 @@ impl CommandPrompt {
         self.update_suggest_text();
     }
 
-    fn error(&mut self, s: impl Into<String>) {
-        let s = s.into();
-        self.lines.push((s, Severity::Error));
-    }
-
-    fn on_enter(&mut self) -> Option<Action> {
+    fn on_enter(&mut self) -> Option<T> {
         if !self.is_active {
             return None;
         }
@@ -67,7 +129,7 @@ impl CommandPrompt {
             return None;
         }
 
-        self.lines.push((self.contents.clone(), Severity::Info));
+        self.log_info(self.contents.clone());
 
         let mut ret = None;
 
@@ -77,11 +139,11 @@ impl CommandPrompt {
                     ret = Some(action);
                 }
                 Err(e) => {
-                    self.error(format!("Failed to parse: {e:?}"));
+                    self.log_error(format!("Failed to parse: {e:?}"));
                 }
             }
         } else {
-            self.error(format!("Bad command"));
+            self.log_error(format!("Bad command"));
         }
 
         self.contents.clear();
@@ -116,7 +178,7 @@ impl CommandPrompt {
         self.is_active = false;
     }
 
-    fn find_best_command(&self) -> Option<&Command> {
+    fn find_best_command(&self) -> Option<&Command<T>> {
         if self.contents.is_empty() {
             return None;
         }
@@ -155,6 +217,18 @@ impl CommandPrompt {
         }
     }
 
+    pub fn log_debug(&mut self, s: String) {
+        self.lines.push((s, LogLevel::Debug));
+    }
+
+    pub fn log_info(&mut self, s: String) {
+        self.lines.push((s, LogLevel::Info));
+    }
+
+    pub fn log_error(&mut self, s: String) {
+        self.lines.push((s, LogLevel::Error));
+    }
+
     pub fn display_text(&self) -> Vec<(char, bool)> {
         let mut ret = Vec::new();
         let args = self.get_args();
@@ -188,44 +262,5 @@ impl CommandPrompt {
             }
         }
         ret
-    }
-
-    pub fn fg_text(&self) -> String {
-        self.display_text()
-            .into_iter()
-            .map(|(c, t)| if t { c } else { ' ' })
-            .collect()
-    }
-
-    pub fn bg_text(&self) -> String {
-        self.display_text().into_iter().map(|(c, _)| c).collect()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::time::SystemTime;
-
-    use crate::cmd::CommandPrompt;
-
-    #[test]
-    fn command_prompt() {
-        let mut cmd = CommandPrompt::new();
-        cmd.focus();
-
-        cmd.on_event(&rdev::Event {
-            time: SystemTime::now(),
-            name: Some("j".to_string()),
-            event_type: rdev::EventType::KeyPress(rdev::Key::KeyJ),
-        });
-
-        cmd.on_event(&rdev::Event {
-            time: SystemTime::now(),
-            name: Some("r".to_string()),
-            event_type: rdev::EventType::KeyPress(rdev::Key::KeyR),
-        });
-
-        dbg!(cmd.bg_text());
-        dbg!(cmd.fg_text());
     }
 }

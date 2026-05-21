@@ -13,6 +13,7 @@ pub struct Assets {
     pub circle_texture: MaybeTexture,
     pub lato_regular: MaybeFont,
     pub fira_code: MaybeFont,
+    pub consolas: MaybeFont,
     pub part_textures: BTreeMap<String, Texture2D>,
     pub terrain_textures: Vec<Texture2D>,
     pub animation: MaybeTexture,
@@ -36,12 +37,19 @@ pub fn load_assets(
     thread: &raylib::RaylibThread,
 ) {
     debug!("Loading assets");
+
     assets.circle_texture = rl.load_texture(thread, "assets/parts/frame2/skin.png").ok();
+
     assets.lato_regular = rl
-        .load_font_ex(thread, "assets/fonts/Lato-Regular.ttf", 48, None)
+        .load_font_ex(thread, "assets/fonts/Lato-Regular.ttf", 256, None)
         .ok();
+
     assets.fira_code = rl
-        .load_font_ex(thread, "assets/fonts/FiraCode-Bold.ttf", 128, None)
+        .load_font_ex(thread, "assets/fonts/FiraCode-Bold.ttf", 256, None)
+        .ok();
+
+    assets.consolas = rl
+        .load_font_ex(thread, "assets/fonts/Consolas-Regular.ttf", 256, None)
         .ok();
 
     assets.ship_names = load_names_from_file("assets/ship_names.txt").unwrap_or(vec![]);

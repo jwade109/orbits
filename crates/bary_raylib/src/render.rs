@@ -1,15 +1,15 @@
-use crate::assets::*;
 use crate::camera::{Camera, to_raylib_camera};
-use crate::cmd::{CommandPrompt, Severity};
 use crate::editor_state::EditorState;
 use crate::imgui::{ImGui, ZOOM_NEAR_FAR_THRESHOLD};
 use crate::sim::*;
 use crate::utils::*;
+use crate::{Action, assets::*};
 use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use bary_factory::*;
 use bary_parts::*;
 use bary_sim::*;
+use bary_terminal::*;
 use early_returns::*;
 use raylib::prelude::*;
 
@@ -1584,16 +1584,15 @@ fn draw_asteroids(
     }
 }
 
-impl Severity {
-    pub fn color(&self) -> Color {
-        match self {
-            Self::Error => Color::RED,
-            Self::Info => Color::RAYWHITE,
-        }
+fn severity_to_color(s: LogLevel) -> Color {
+    match s {
+        LogLevel::Debug => Color::GRAY.alpha(0.3),
+        LogLevel::Error => Color::RED,
+        LogLevel::Info => Color::RAYWHITE,
     }
 }
 
-pub fn draw_command_prompt(d: &mut RaylibDrawHandle, cmd: &CommandPrompt, assets: &Assets) {
+pub fn draw_terminal(d: &mut RaylibDrawHandle, cmd: &Terminal<Action>, assets: &Assets) {
     if !cmd.is_active {
         return;
     };
@@ -1602,7 +1601,13 @@ pub fn draw_command_prompt(d: &mut RaylibDrawHandle, cmd: &CommandPrompt, assets
         return;
     };
 
-    // let cursor = if d.get_time() % 1.2 > 0.6 { "_" } else { "" };
+    d.draw_rectangle(
+        0,
+        0,
+        d.get_render_width(),
+        d.get_render_height(),
+        Color::new(0, 0, 0, 230),
+    );
 
     let chars = cmd.display_text();
 
@@ -1618,26 +1623,14 @@ pub fn draw_command_prompt(d: &mut RaylibDrawHandle, cmd: &CommandPrompt, assets
 
     let display = format!("> {}", fg);
     let display_bg = format!("> {}", bg);
-    let width = d.get_render_width();
+    // let width = d.get_render_width();
     let height = d.get_render_height();
 
-    let padding = 30;
-    let line_gap = 10;
-    let font_size = 36;
+    let padding = 14;
+    let line_gap = 0;
+    let font_size = 22;
 
-    let rect_height = font_size + padding * 2 + (font_size + line_gap) * cmd.lines.len() as i32;
-    let rect_origin = IVec2::new(0, height - rect_height);
     let text_origin = IVec2::new(padding, height - padding - font_size);
-
-    {
-        d.draw_rectangle(
-            rect_origin.x,
-            rect_origin.y,
-            width,
-            height,
-            Color::new(10, 10, 30, 220),
-        );
-    }
 
     for (i, (line, severity)) in cmd.lines.iter().rev().enumerate() {
         let origin = text_origin - IVec2::Y * (font_size + line_gap) * (i as i32 + 1);
@@ -1647,7 +1640,7 @@ pub fn draw_command_prompt(d: &mut RaylibDrawHandle, cmd: &CommandPrompt, assets
             Vector2::new(origin.x as f32, origin.y as f32),
             font_size as f32,
             1.0,
-            severity.color(),
+            severity_to_color(*severity),
         );
     }
 

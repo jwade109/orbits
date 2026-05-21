@@ -1,7 +1,6 @@
 pub mod app;
 pub mod assets;
 pub mod camera;
-pub mod cmd;
 pub mod constants;
 pub mod editor_state;
 pub mod imgui;
@@ -14,12 +13,14 @@ pub mod ui;
 pub mod utils;
 pub mod world_builder;
 
+mod commands;
 mod common;
 mod multiplayer_client;
 mod runner;
 mod server;
 mod transactions;
 
+pub use commands::*;
 pub use common::*;
 pub use multiplayer_client::*;
 pub use runner::*;

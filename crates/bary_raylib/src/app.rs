@@ -1,4 +1,3 @@
-use crate::cmd::CommandPrompt;
 use crate::sim::*;
 use crate::sounds::SoundEffects;
 use crate::world_builder::WorldBuilder;
@@ -6,6 +5,7 @@ use crate::*;
 use bary_core::prelude::*;
 use bary_factory::*;
 use bary_sim::*;
+use bary_terminal::Terminal;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
@@ -40,7 +40,7 @@ pub struct App {
     pub _input_thread: JoinHandle<()>,
     pub input_queue: MessageQueue<rdev::Event>,
 
-    pub cmd: CommandPrompt,
+    pub cmd: Terminal<Action>,
 }
 
 impl App {
@@ -136,6 +136,6 @@ pub fn new_app(multiplayer: bool) -> App {
         outgoing_network_queue,
         _input_thread,
         input_queue,
-        cmd: CommandPrompt::new(),
+        cmd: Terminal::with_commands(all_commands()),
     }
 }

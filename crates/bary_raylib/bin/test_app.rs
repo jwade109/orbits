@@ -1,39 +1,37 @@
-use bary_raylib::{
-    Client, ClientMessage, ServerMessage, Transaction, cmd::CommandPrompt, utils::BasicApp,
-};
+use bary_raylib::{render::draw_terminal, *};
+use bary_terminal::*;
 use raylib::prelude::*;
 use std::collections::BTreeMap;
 
 fn main() {
-    let mut app = BasicApp::new("Test app");
+    let mut app = utils::BasicApp::new("Test app");
 
-    let mut cmd = CommandPrompt::new();
+    let mut terminal = Terminal::with_commands(all_commands());
 
     let mut client = Client::new(127, 0, 0, 1, 5000);
 
     let mut grids = BTreeMap::new();
 
-    let font = app
-        .handle
-        .load_font(&app.thread, "assets/fonts/FiraCode-Bold.ttf")
-        .unwrap();
+    let mut assets = assets::Assets::default();
+
+    assets::load_assets(&mut assets, &mut app.handle, &app.thread);
 
     while app.frame() {
         // app.fixed_50_fps(|| info!("FRAME"));
 
         for msg in client.update() {
+            let s = format!("{:?}", msg);
+            terminal.log_debug(s);
             if let ServerMessage::GridPos(name, pos) = msg {
                 grids.insert(name.clone(), pos);
             }
         }
 
         app.handle.draw(&app.thread, |mut d| {
-            d.clear_background(Color::BLACK);
-            d.draw_text("Test App", 100, 100, 24, Color::WHITE);
-            // d.draw_text(&format!("{:#?}", app.input), 100, 150, 24, Color::GRAY);
+            d.clear_background(Color::new(10, 10, 10, 255));
 
             for t in app.input.events() {
-                if let Some(action) = cmd.on_event(t) {
+                if let Some(action) = terminal.on_event(t) {
                     let tr = Transaction::new(0, action);
                     client.send_message(ClientMessage::Transaction(tr));
                 }
@@ -41,17 +39,11 @@ fn main() {
 
             d.draw_text(
                 &format!("{:#?}", client.stats()),
-                500,
+                100,
                 100,
                 24,
                 Color::WHITE,
             );
-
-            d.draw_text(&cmd.bg_text(), 100, 140, 28, Color::GRAY.alpha(0.4));
-            d.draw_text(&cmd.fg_text(), 100, 140, 28, Color::WHITE);
-
-            let mut y = 500;
-            let size = 20;
 
             for (name, pos) in &grids {
                 let x = pos.translation.x as i32 + d.get_render_width() / 2;
@@ -59,7 +51,7 @@ fn main() {
                 d.draw_circle(x, y, 3.0, Color::RED);
 
                 d.draw_text_ex(
-                    &font,
+                    assets.lato_regular.as_ref().unwrap(),
                     name,
                     Vector2::new(x as f32, y as f32),
                     16.0,
@@ -68,37 +60,7 @@ fn main() {
                 );
             }
 
-            d.draw_text_ex(
-                &font,
-                "Server Messages",
-                Vector2::new(100.0, y as f32),
-                size as f32,
-                0.0,
-                Color::WHITE.alpha(0.3),
-            );
-            y += size + 4;
-            for (idx, msg) in client.history() {
-                let l1 = format!("{}", idx);
-                let l2 = format!("{:?}", msg).to_uppercase();
-
-                d.draw_text_ex(
-                    &font,
-                    &l1,
-                    Vector2::new(100.0, y as f32),
-                    size as f32,
-                    0.0,
-                    Color::WHITE.alpha(0.3),
-                );
-                d.draw_text_ex(
-                    &font,
-                    &l2,
-                    Vector2::new(150.0, y as f32),
-                    size as f32,
-                    0.0,
-                    Color::WHITE.alpha(0.3),
-                );
-                y += size;
-            }
+            draw_terminal(&mut d, &terminal, &assets);
         });
     }
 }

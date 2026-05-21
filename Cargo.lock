@@ -515,6 +515,7 @@ dependencies = [
  "bary_orbital",
  "bary_parts",
  "bary_sim",
+ "bary_terminal",
  "bary_ui",
  "bincode",
  "chrono",
@@ -552,6 +553,14 @@ dependencies = [
  "chrono",
  "log",
  "serde",
+]
+
+[[package]]
+name = "bary_terminal"
+version = "0.1.0"
+dependencies = [
+ "rdev",
+ "shellwords",
 ]
 
 [[package]]
