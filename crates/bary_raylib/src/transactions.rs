@@ -61,6 +61,17 @@ pub enum ClientAction {
 pub enum Action {
     World(WorldAction),
     Client(ClientAction),
+    Exit,
+    Say(String),
+    Ping,
+    Clear,
+    SetSimSpeed(u32),
+    FindGridByName(String),
+    ListGrids,
+    ListProtos,
+    ListParts,
+    ListThrusters,
+    ListComputers,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

@@ -9,7 +9,7 @@ use bary_terminal::Terminal;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-fn network_thread(incoming: MessageQueue<ServerMessage>, outgoing: MessageQueue<Transaction>) {
+fn network_thread(incoming: MessageQueue<Message>, outgoing: MessageQueue<Message>) {
     let mut client = Client::new(127, 0, 0, 1, 5000);
     let dur = Duration::from_millis(50);
 
@@ -20,7 +20,7 @@ fn network_thread(incoming: MessageQueue<ServerMessage>, outgoing: MessageQueue<
         }
 
         while let Some(out) = outgoing.pop() {
-            client.send_message(ClientMessage::Transaction(out));
+            client.send_message(out);
         }
 
         std::thread::sleep(dur);
@@ -34,8 +34,8 @@ pub struct App {
     pub debug: DebugInfo,
 
     pub _network_thread: JoinHandle<()>,
-    pub incoming_network_queue: MessageQueue<ServerMessage>,
-    pub outgoing_network_queue: MessageQueue<Transaction>,
+    pub incoming_network_queue: MessageQueue<Message>,
+    pub outgoing_network_queue: MessageQueue<Message>,
 
     pub _input_thread: JoinHandle<()>,
     pub input_queue: MessageQueue<rdev::Event>,

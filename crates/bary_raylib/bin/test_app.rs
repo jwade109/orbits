@@ -21,21 +21,84 @@ fn main() {
 
         for msg in client.update() {
             let s = format!("{:?}", msg);
+            let k = if let MessageKind::Text(text) = &msg.kind {
+                text.clone()
+            } else {
+                format!("{:?}", msg.kind)
+            };
+            let t = format!("[{}] {}", msg.source, k);
             terminal.log_debug(s);
-            if let ServerMessage::GridPos(name, pos) = msg {
+
+            match msg.level {
+                MessageLevel::Command => {
+                    terminal.log_info(t);
+                }
+                MessageLevel::Response => {
+                    terminal.log_info(t);
+                }
+                _ => (),
+            }
+
+            if let MessageKind::GridPos(name, pos) = msg.kind {
                 grids.insert(name.clone(), pos);
             }
         }
 
-        app.handle.draw(&app.thread, |mut d| {
-            d.clear_background(Color::new(10, 10, 10, 255));
+        let mut should_exit = false;
 
-            for t in app.input.events() {
-                if let Some(action) = terminal.on_event(t) {
-                    let tr = Transaction::new(0, action);
-                    client.send_message(ClientMessage::Transaction(tr));
+        for t in app.input.events() {
+            if let Some(action) = terminal.on_event(t) {
+                match action {
+                    Action::Say(s) => {
+                        client.send_message(Message::command("client", MessageKind::Text(s)));
+                    }
+                    Action::Ping => {
+                        client.send_message(Message::command("client", MessageKind::Ping));
+                    }
+                    Action::Clear => {
+                        terminal.clear();
+                    }
+                    Action::SetSimSpeed(speed) => {
+                        client.send_message(Message::command(
+                            "client",
+                            MessageKind::SetSimSpeed(speed),
+                        ));
+                    }
+                    Action::FindGridByName(name) => {
+                        client.send_message(Message::command(
+                            "client",
+                            MessageKind::FindGridByName(name),
+                        ));
+                    }
+                    Action::Exit => {
+                        should_exit = true;
+                    }
+                    Action::ListGrids => {
+                        client.send_message(Message::command("client", MessageKind::ListGrids));
+                    }
+                    Action::ListProtos => {
+                        client.send_message(Message::command("client", MessageKind::ListProtos));
+                    }
+                    Action::ListParts => {
+                        client.send_message(Message::command("client", MessageKind::ListParts));
+                    }
+                    Action::ListThrusters => {
+                        client.send_message(Message::command("client", MessageKind::ListThrusters));
+                    }
+                    Action::ListComputers => {
+                        client.send_message(Message::command("client", MessageKind::ListComputers));
+                    }
+                    _ => (),
                 }
             }
+        }
+
+        if should_exit {
+            app.exit();
+        }
+
+        app.handle.draw(&app.thread, |mut d| {
+            d.clear_background(Color::new(10, 10, 10, 255));
 
             d.draw_text(
                 &format!("{:#?}", client.stats()),

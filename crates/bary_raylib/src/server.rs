@@ -50,14 +50,14 @@ impl Server {
         &self.renet
     }
 
-    pub fn broadcast(&mut self, msg: ServerMessage) {
+    pub fn broadcast(&mut self, msg: Message) {
         let message = bincode::serialize(&msg).unwrap();
         self.renet
             .broadcast_message(DefaultChannel::ReliableOrdered, message);
     }
 
     #[must_use]
-    pub fn update(&mut self) -> Vec<ClientMessage> {
+    pub fn update(&mut self) -> Vec<Message> {
         let mut messages = Vec::new();
 
         let now = Instant::now();
@@ -84,7 +84,7 @@ impl Server {
                 .renet
                 .receive_message(client_id, DefaultChannel::ReliableOrdered)
             {
-                if let Ok(message) = bincode::deserialize::<ClientMessage>(&message) {
+                if let Ok(message) = bincode::deserialize::<Message>(&message) {
                     debug!("Received message from client {}: {:?}", client_id, message);
                     messages.push(message);
                 }

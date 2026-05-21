@@ -1629,7 +1629,7 @@ pub fn draw_terminal(d: &mut RaylibDrawHandle, cmd: &Terminal<Action>, assets: &
 
     let padding = 14;
     let line_gap = 0;
-    let font_size = 30;
+    let font_size = cmd.font_size() as i32;
 
     let text_origin = IVec2::new(padding, height - padding - font_size);
 

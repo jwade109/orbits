@@ -163,9 +163,7 @@ fn main() {
         // GET COMMANDS FROM THE MULTIPLAYER SERVER
 
         while let Some(n) = app.incoming_network_queue.pop() {
-            if let ServerMessage::Transaction(tr) = n {
-                apply_action(&mut app.world, tr.action);
-            }
+            info!("Got message: {n:?}")
         }
 
         // RUN PRE-PHYSICS, PHYSICS, AND POST-PHYSICS UPDATES
@@ -194,8 +192,7 @@ fn main() {
         // EMIT ACTIONS TO OTHER MULTIPLAYER CLIENTS
 
         for msg in actions {
-            let transaction = Transaction::new(app.world.ticks, msg);
-            app.outgoing_network_queue.push(transaction);
+            warn!("Would emit action: {msg:?}");
         }
 
         // AND DRAW IT ALL

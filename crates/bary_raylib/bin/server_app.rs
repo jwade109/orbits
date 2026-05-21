@@ -9,8 +9,8 @@ use std::time::Duration;
 
 pub struct ServerApp {
     world: World,
-    incoming_transactions: MessageQueue<ClientMessage>,
-    outgoing_transactions: MessageQueue<ServerMessage>,
+    incoming_transactions: MessageQueue<Message>,
+    outgoing_transactions: MessageQueue<Message>,
     _server_thread: JoinHandle<()>,
     world_timer: WallTimer,
     world_echo_timer: WallTimer,
@@ -59,63 +59,185 @@ impl ServerApp {
         }
 
         if self.world_timer.tick() {
-            update_world(&mut self.world);
+            for _ in 0..self.world.tick_rate {
+                update_world(&mut self.world);
+            }
         }
 
         if self.sync_timer.tick() {
-            self.send_tlm_fast_forward();
+            self.send_tlm_current_tick();
             self.send_tlm_grid_pos();
             self.send_tlm_server_info();
         }
     }
 
-    fn send_tlm_fast_forward(&mut self) {
-        let action = Action::World(WorldAction::FastForwardTo(self.world.ticks));
-        let tr = Transaction::new(self.world.ticks, action);
+    fn send_tlm_current_tick(&mut self) {
         self.outgoing_transactions
-            .push(ServerMessage::Transaction(tr));
+            .push(MessageKind::CurrentTick(self.world.ticks).with_source("server"));
     }
 
     fn send_tlm_grid_pos(&mut self) {
         for grid in self.world.grids.values() {
             let pos = grid.particle_location;
             self.outgoing_transactions
-                .push(ServerMessage::GridPos(grid.name.clone(), pos));
+                .push(MessageKind::GridPos(grid.name.clone(), pos).with_source("server"));
         }
     }
 
     fn send_tlm_ack(&mut self) {
-        self.outgoing_transactions.push(ServerMessage::Ack);
+        self.outgoing_transactions
+            .push(MessageKind::Ack.with_source("server"));
     }
 
     fn send_tlm_server_info(&mut self) {
         self.outgoing_transactions
-            .push(ServerMessage::ServerInfo { connected_users: 0 });
+            .push(MessageKind::ServerInfo { connected_users: 0 }.with_source("server"));
         self.outgoing_transactions
-            .push(ServerMessage::Text("Hello there!".to_string()));
+            .push(MessageKind::Text("Hello there!".to_string()).with_source("server"));
     }
 
-    fn on_accept_message(&mut self, msg: ClientMessage) {
+    fn on_accept_message(&mut self, msg: Message) {
         warn!("Got a command: {:?}", msg);
         self.send_tlm_ack();
 
-        match msg {
-            ClientMessage::Transaction(tr) => {
-                self.on_accept_transaction(tr);
+        if msg.level != MessageLevel::Command {
+            return;
+        }
+
+        match msg.kind {
+            MessageKind::Ping => {
+                self.on_accept_ping();
             }
-            _ => (),
+            MessageKind::Text(s) => {
+                self.on_accept_text(s);
+            }
+            MessageKind::SetSimSpeed(s) => {
+                self.on_accept_set_sim_speed(s);
+            }
+            MessageKind::FindGridByName(name) => {
+                self.on_accept_find_grid_by_name(name);
+            }
+            MessageKind::ListGrids => {
+                self.on_accept_list_grids();
+            }
+            MessageKind::ListProtos => {
+                self.on_accept_list_protos();
+            }
+            MessageKind::ListParts => {
+                self.on_accept_list_parts();
+            }
+            MessageKind::ListThrusters => {
+                self.on_accept_list_thrusters();
+            }
+            MessageKind::ListComputers => {
+                self.on_accept_list_computers();
+            }
+            _ => self.on_unsupported_message(),
         }
     }
 
-    fn on_accept_transaction(&mut self, tr: Transaction) {
-        apply_action(&mut self.world, tr.action);
+    fn on_unsupported_message(&mut self) {
+        warn!("Unsupported message type!");
+        self.outgoing_transactions.push(Message::new(
+            "server",
+            MessageLevel::Response,
+            MessageKind::Unsupported,
+        ));
+    }
+
+    fn on_accept_ping(&mut self) {
+        self.outgoing_transactions.push(Message::new(
+            "server",
+            MessageLevel::Response,
+            MessageKind::Pong,
+        ));
+    }
+
+    fn on_accept_text(&mut self, s: String) {
+        self.outgoing_transactions.push(Message::new(
+            "server",
+            MessageLevel::Response,
+            MessageKind::Text(format!("Here king, you dropped this: \"{s:}\"")),
+        ));
+    }
+
+    fn on_accept_set_sim_speed(&mut self, speed: u32) {
+        self.world.tick_rate = speed;
+        self.outgoing_transactions.push(Message::new(
+            "server",
+            MessageLevel::Response,
+            MessageKind::Ack,
+        ));
+    }
+
+    fn on_accept_find_grid_by_name(&mut self, name: String) {
+        if let Some(id) = get_grid_by_name(&self.world.grids, &name) {
+            self.outgoing_transactions.push(Message::new(
+                "server",
+                MessageLevel::Response,
+                MessageKind::Entity(id),
+            ));
+        } else {
+            self.outgoing_transactions.push(Message::new(
+                "server",
+                MessageLevel::Response,
+                MessageKind::Text("No grid with that name.".into()),
+            ));
+        }
+    }
+
+    fn on_accept_list_grids(&mut self) {
+        for (id, grid) in self.world.grids.iter() {
+            self.outgoing_transactions.push(Message::new(
+                "server",
+                MessageLevel::Response,
+                MessageKind::GridInfo(*id, grid.name.clone(), grid.particle_location),
+            ));
+        }
+    }
+
+    fn on_accept_list_protos(&mut self) {
+        for (id, proto) in self.world.prototypes.iter() {
+            self.outgoing_transactions.push(Message::new(
+                "server",
+                MessageLevel::Response,
+                MessageKind::Proto(*id, proto.clone()),
+            ));
+        }
+    }
+
+    fn on_accept_list_parts(&mut self) {
+        for (id, part) in self.world.parts.iter() {
+            self.outgoing_transactions.push(Message::new(
+                "server",
+                MessageLevel::Response,
+                MessageKind::Part(*id, *part),
+            ));
+        }
+    }
+
+    fn on_accept_list_thrusters(&mut self) {
+        for (id, thr) in self.world.thrusters.iter() {
+            self.outgoing_transactions.push(Message::new(
+                "server",
+                MessageLevel::Response,
+                MessageKind::Thruster(*id, thr.clone()),
+            ));
+        }
+    }
+
+    fn on_accept_list_computers(&mut self) {
+        for (id, cpu) in self.world.computers.iter() {
+            self.outgoing_transactions.push(Message::new(
+                "server",
+                MessageLevel::Response,
+                MessageKind::Computer(*id, cpu.clone()),
+            ));
+        }
     }
 }
 
-fn server_thread(
-    incoming_queue: MessageQueue<ClientMessage>,
-    outgoing_queue: MessageQueue<ServerMessage>,
-) {
+fn server_thread(incoming_queue: MessageQueue<Message>, outgoing_queue: MessageQueue<Message>) {
     let mut server = Server::new();
 
     let mut update_timer = WallTimer::with_dur(Duration::from_millis(50));

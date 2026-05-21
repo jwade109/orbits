@@ -78,20 +78,32 @@ pub struct Terminal<T> {
     contents: String,
     is_active: bool,
     lines: VecDeque<(String, LogLevel)>,
+    history_index: Option<usize>,
+    command_history: VecDeque<String>,
     suggest_text: String,
     commands: Vec<Command<T>>,
     log_level: LogLevel,
+    font_size: u16,
 }
 
-impl<T> Terminal<T> {
+impl<T: std::fmt::Debug> Terminal<T> {
     pub fn with_commands(commands: impl Into<Vec<Command<T>>>) -> Self {
         Self {
             contents: String::new(),
             is_active: false,
             lines: VecDeque::new(),
+            history_index: None,
+            command_history: vec![
+                "thing 1".into(),
+                "thing 2".into(),
+                "thing 3".into(),
+                "thing 4".into(),
+            ]
+            .into(),
             suggest_text: String::new(),
             commands: commands.into(),
-            log_level: LogLevel::Debug,
+            log_level: LogLevel::Info,
+            font_size: 30,
         }
     }
 
@@ -99,8 +111,84 @@ impl<T> Terminal<T> {
         self.is_active
     }
 
+    pub fn font_size(&self) -> u16 {
+        self.font_size
+    }
+
+    pub fn clear(&mut self) {
+        self.lines.clear();
+    }
+
     pub fn lines(&self) -> impl Iterator<Item = &(String, LogLevel)> {
         self.lines.iter()
+    }
+
+    pub fn on_arrow_left(&mut self) {
+        if self.font_size > 7 {
+            self.font_size -= 1;
+        }
+    }
+
+    pub fn on_arrow_right(&mut self) {
+        self.font_size += 1;
+    }
+
+    pub fn on_arrow_up(&mut self) {
+        if self.command_history.is_empty() {
+            return;
+        }
+
+        if let Some(idx) = &mut self.history_index {
+            if *idx + 1 < self.command_history.len() {
+                *idx += 1;
+            }
+        } else {
+            self.history_index = Some(0);
+        }
+
+        if let Some(h) = self
+            .history_index
+            .map(|i| self.command_history.get(i))
+            .unwrap_or_default()
+        {
+            self.contents = h.clone();
+        }
+
+        self.update_suggest_text();
+    }
+
+    pub fn on_arrow_down(&mut self) {
+        if self.command_history.is_empty() {
+            return;
+        }
+
+        if let Some(idx) = &mut self.history_index {
+            if *idx > 0 {
+                *idx -= 1;
+            } else {
+                self.history_index = None;
+            }
+        }
+
+        if let Some(h) = self
+            .history_index
+            .map(|i| self.command_history.get(i))
+            .flatten()
+        {
+            self.contents = h.clone();
+        } else {
+            self.contents.clear();
+        }
+
+        if let Some(h) = self
+            .history_index
+            .map(|i| self.command_history.get(i))
+            .unwrap_or_default()
+        {
+            self.contents = h.clone();
+        }
+
+        self.update_suggest_text();
     }
 
     pub fn on_event(&mut self, event: &rdev::Event) -> Option<T> {
@@ -112,6 +200,10 @@ impl<T> Terminal<T> {
                 rdev::Key::BackQuote => self.focus(),
                 rdev::Key::Escape => self.dismiss(),
                 rdev::Key::Tab => self.on_tab_complete(),
+                rdev::Key::UpArrow => self.on_arrow_up(),
+                rdev::Key::DownArrow => self.on_arrow_down(),
+                rdev::Key::LeftArrow => self.on_arrow_left(),
+                rdev::Key::RightArrow => self.on_arrow_right(),
                 _ => {
                     if let Some(n) = &event.name {
                         if n.is_ascii() {
@@ -120,6 +212,11 @@ impl<T> Terminal<T> {
                     }
                 }
             }
+        }
+
+        if let rdev::EventType::Wheel { delta_x, delta_y } = &event.event_type {
+            let s = format!("mouse wheel: {} {}", delta_x, delta_y);
+            self.log_debug(s);
         }
 
         None
@@ -153,21 +250,26 @@ impl<T> Terminal<T> {
             return None;
         }
 
+        self.command_history.push_front(self.contents.clone());
+        self.history_index = None;
+
         self.log_info("bsh > ".to_string() + &self.contents);
 
         let mut ret = None;
 
-        if let Some(cmd) = self.find_best_command() {
-            match cmd.parse(&self.get_args()) {
+        match self.find_best_command() {
+            Ok(cmd) => match cmd.parse(&self.get_args()) {
                 Ok(action) => {
+                    self.log_terminal(format!("{:?}", &action));
                     ret = Some(action);
                 }
                 Err(e) => {
                     self.log_error(format!("Failed to parse: {e:?}"));
                 }
+            },
+            Err(s) => {
+                self.log_error(format!("Bad command: \"{}\"", s));
             }
-        } else {
-            self.log_error(format!("Bad command"));
         }
 
         self.contents.clear();
@@ -185,7 +287,9 @@ impl<T> Terminal<T> {
     }
 
     pub fn on_tab_complete(&mut self) {
-        self.contents = self.suggest_text.clone();
+        if let Ok(cmd) = self.find_best_command() {
+            self.contents = cmd.entrypoint.clone();
+        }
     }
 
     pub fn focus(&mut self) {
@@ -202,20 +306,23 @@ impl<T> Terminal<T> {
         self.is_active = false;
     }
 
-    fn find_best_command(&self) -> Option<&Command<T>> {
+    fn find_best_command(&self) -> Result<&Command<T>, String> {
         if self.contents.is_empty() {
-            return None;
+            return Err("".to_string());
         }
         if let Ok(s) = shellwords::split(&self.contents) {
-            let ep = s.into_iter().nth(0)?;
+            let Some(ep) = s.into_iter().nth(0) else {
+                return Err("".to_string());
+            };
             // TODO(feature) edit distance?
             for cmd in &self.commands {
-                if cmd.entrypoint.find(&ep).is_some() {
-                    return Some(cmd);
+                if cmd.entrypoint.starts_with(&ep) {
+                    return Ok(cmd);
                 }
             }
+            return Err(ep);
         }
-        None
+        Err("".to_string())
     }
 
     fn get_list_of_entrypoints(&self) -> String {
@@ -226,15 +333,15 @@ impl<T> Terminal<T> {
     }
 
     fn get_args(&self) -> Vec<String> {
-        self.contents
-            .split_whitespace()
-            .skip(1)
-            .map(|s| s.to_string())
-            .collect()
+        let mut tokens = shellwords::split(&self.contents).unwrap_or_default();
+        if !tokens.is_empty() {
+            tokens.remove(0);
+        }
+        tokens
     }
 
     pub fn update_suggest_text(&mut self) {
-        if let Some(cmd) = self.find_best_command() {
+        if let Ok(cmd) = self.find_best_command() {
             self.suggest_text = cmd.to_suggestion();
         } else {
             self.suggest_text = self.get_list_of_entrypoints();
@@ -271,7 +378,7 @@ impl<T> Terminal<T> {
         let mut ret = Vec::new();
         let args = self.get_args();
         if !args.is_empty()
-            && let Some(cmd) = self.find_best_command()
+            && let Ok(cmd) = self.find_best_command()
         {
             for c in cmd.entrypoint.chars() {
                 ret.push((c, true));

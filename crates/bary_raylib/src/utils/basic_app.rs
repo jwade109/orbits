@@ -16,6 +16,7 @@ pub struct BasicApp {
     pub last_frame: Instant,
 
     pub next_fixed: Instant,
+    pub should_exit: bool,
 }
 
 impl BasicApp {
@@ -58,7 +59,12 @@ impl BasicApp {
             this_frame: now,
             last_frame: now,
             next_fixed: now,
+            should_exit: false,
         }
+    }
+
+    pub fn exit(&mut self) {
+        self.should_exit = true;
     }
 
     pub fn fixed_50_fps(&mut self, mut func: impl FnMut()) {
@@ -76,7 +82,7 @@ impl BasicApp {
             return false;
         }
 
-        !self.handle.window_should_close()
+        !self.should_exit && !self.handle.window_should_close()
     }
 
     pub fn frame(&mut self) -> bool {

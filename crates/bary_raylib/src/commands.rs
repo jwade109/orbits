@@ -10,10 +10,8 @@ where
     arg.parse().map_err(|_| ParseError::BadValue)
 }
 
-pub fn cmd_ping(args: &ArgsMap) -> Result<Action, ParseError> {
-    let x = parse_arg(args, "x")?;
-    let y = parse_arg(args, "y")?;
-    Ok(Action::World(WorldAction::Ping(Vec2::new(x, y))))
+pub fn cmd_ping(_args: &ArgsMap) -> Result<Action, ParseError> {
+    Ok(Action::Ping)
 }
 
 pub fn cmd_spawn(args: &ArgsMap) -> Result<Action, ParseError> {
@@ -43,8 +41,8 @@ pub fn cmd_edit(args: &ArgsMap) -> Result<Action, ParseError> {
 }
 
 pub fn cmd_find(args: &ArgsMap) -> Result<Action, ParseError> {
-    let _grid_id = Ent(parse_arg(args, "grid_id")?);
-    Err(ParseError::NotImplemented)
+    let name = parse_arg(args, "grid_name")?;
+    Ok(Action::FindGridByName(name))
 }
 
 pub fn cmd_despawn(args: &ArgsMap) -> Result<Action, ParseError> {
@@ -54,7 +52,7 @@ pub fn cmd_despawn(args: &ArgsMap) -> Result<Action, ParseError> {
 
 pub fn cmd_set_speed(args: &ArgsMap) -> Result<Action, ParseError> {
     let speed = parse_arg(args, "speed")?;
-    Ok(Action::World(WorldAction::SetSpeed(speed)))
+    Ok(Action::SetSimSpeed(speed))
 }
 
 pub fn cmd_placeholder(_args: &ArgsMap) -> Result<Action, ParseError> {
@@ -68,7 +66,15 @@ pub fn cmd_set_cpu(args: &ArgsMap) -> Result<Action, ParseError> {
 
 pub fn cmd_say(args: &ArgsMap) -> Result<Action, ParseError> {
     let state = parse_arg(args, "msg")?;
-    Ok(Action::Client(ClientAction::Say(state)))
+    Ok(Action::Say(state))
+}
+
+pub fn cmd_exit(_args: &ArgsMap) -> Result<Action, ParseError> {
+    Ok(Action::Exit)
+}
+
+pub fn cmd_clear(_args: &ArgsMap) -> Result<Action, ParseError> {
+    Ok(Action::Clear)
 }
 
 pub fn all_commands() -> Vec<Command<Action>> {
@@ -77,12 +83,18 @@ pub fn all_commands() -> Vec<Command<Action>> {
         Command::new("edit", vec!["grid_id"], cmd_edit),
         Command::new("despawn", vec!["grid_id"], cmd_despawn),
         Command::new("find", vec!["grid_name"], cmd_find),
-        Command::new("ping", vec!["x", "y"], cmd_ping),
+        Command::new("ping", vec![], cmd_ping),
         Command::new("waypoint", vec!["grid_id", "x", "y"], cmd_waypoint),
         Command::new("speed", vec!["speed"], cmd_set_speed),
         Command::new("save", vec![], cmd_placeholder),
-        Command::new("exit", vec![], |_args| panic!()),
+        Command::new("exit", vec![], cmd_exit),
         Command::new("setcpu", vec!["state"], cmd_set_cpu),
         Command::new("say", vec!["msg"], cmd_say),
+        Command::new("clear", vec![], cmd_clear),
+        Command::new("ls.grids", vec![], |_| Ok(Action::ListGrids)),
+        Command::new("ls.protos", vec![], |_| Ok(Action::ListProtos)),
+        Command::new("ls.parts", vec![], |_| Ok(Action::ListParts)),
+        Command::new("ls.thrusters", vec![], |_| Ok(Action::ListThrusters)),
+        Command::new("ls.cpus", vec![], |_| Ok(Action::ListComputers)),
     ]
 }

@@ -1,6 +1,6 @@
 use super::common::*;
 use bary_core::prelude::randint;
-use log::{error, info};
+use log::{debug, error, info};
 use renet::*;
 use renet_netcode::*;
 use std::collections::VecDeque;
@@ -29,7 +29,7 @@ pub struct Client {
     username: String,
     rx_count: usize,
     tx_count: usize,
-    message_history: VecDeque<(usize, ServerMessage)>,
+    message_history: VecDeque<(usize, Message)>,
 }
 
 impl Client {
@@ -121,7 +121,7 @@ impl Client {
     }
 
     #[must_use]
-    pub fn update(&mut self) -> Vec<ServerMessage> {
+    pub fn update(&mut self) -> Vec<Message> {
         let now = Instant::now();
         let duration = now - self.last_updated;
         self.last_updated = now;
@@ -139,14 +139,17 @@ impl Client {
         if self.client.is_connected() {
             if !self.has_introduced {
                 self.has_introduced = true;
-                self.send_message(ClientMessage::Introduction {
-                    username: self.username.clone(),
-                });
+                self.send_message(
+                    MessageKind::Introduction {
+                        username: self.username.clone(),
+                    }
+                    .into(),
+                );
             }
 
             while let Some(bytes) = self.client.receive_message(DefaultChannel::ReliableOrdered) {
-                let msg: ServerMessage = bincode::deserialize(&bytes).unwrap();
-                info!("Got from server: {:?}", msg);
+                let msg: Message = bincode::deserialize(&bytes).unwrap();
+                debug!("Got from server: {:?}", msg);
 
                 self.message_history.push_back((self.rx_count, msg.clone()));
                 if self.message_history.len() > 20 {
@@ -155,14 +158,8 @@ impl Client {
 
                 self.rx_count += 1;
 
-                match &msg {
-                    ServerMessage::Ping(check, stamp) => {
-                        let new_stamp = get_current_time();
-                        let latency = new_stamp - *stamp;
-                        info!("Latency: {:?}", latency);
-                        self.send_message(ClientMessage::Pong(*check, new_stamp));
-                    }
-                    ServerMessage::Text(msg) => {
+                match &msg.kind {
+                    MessageKind::Text(msg) => {
                         info!("Server message: ~ {}", msg);
                     }
                     _ => (),
@@ -179,11 +176,11 @@ impl Client {
         messages
     }
 
-    pub fn history(&self) -> impl Iterator<Item = &(usize, ServerMessage)> {
+    pub fn history(&self) -> impl Iterator<Item = &(usize, Message)> {
         self.message_history.iter().rev()
     }
 
-    pub fn send_message(&mut self, msg: ClientMessage) {
+    pub fn send_message(&mut self, msg: Message) {
         let bytes = bincode::serialize(&msg).unwrap();
         self.client
             .send_message(DefaultChannel::ReliableOrdered, bytes);
